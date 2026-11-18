@@ -422,6 +422,12 @@ describe('R5: compact comma lists are separate numerals', () => {
     ['10,20,30', [10, 20, 30]],
     ['1,23', [1, 23]],
     ['1,000,000 and 5', [1000000, 5]],
+    // round 6 (s_8a6ef3f6c252): grouped numerals inside a compact list
+    ['1,000,8', [1000, 8]],
+    ['8,1,000', [8, 1000]],
+    ['12,345,6,7', [12345, 6, 7]],
+    ['123,456', [123456]],
+    ['1234,567', [1234, 567]],
   ])('numeralsIn(%j)', (text, want) => {
     expect(numeralsIn(text)).toEqual(want);
   });
