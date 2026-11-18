@@ -974,3 +974,39 @@ describe('review round 3 regressions', () => {
     expect(r).toMatchObject({ added: [tomb.id], replaced: [], dropped: 2, invalid: 0 });
   });
 });
+
+describe('review round 4 regressions', () => {
+  it('R4-1. ingest applies the 8 KB cap to the stored payload, from both sources', async () => {
+    const store = await track(testEnv().open());
+    const big = serverEvent('island.named', named('x'.repeat(9000)), DAY, null);
+    expect(await store.ingest([big], { source: 'server' })).toMatchObject({
+      added: [],
+      invalid: 1,
+    });
+    // The raw-size check honours toJSON; the parsed payload keeps the oversized name.
+    const sneaky = {
+      ...serverEvent('island.named', named('short'), 2 * DAY, null),
+      payload: { name: 'x'.repeat(9000), toJSON: () => ({ name: 'short' }) },
+    };
+    expect(await store.ingest([sneaky], { source: 'backup' })).toMatchObject({
+      added: [],
+      invalid: 1,
+    });
+    expect(await store.events()).toEqual([]);
+  });
+
+  it('R4-2. a discarded copy for a deleted child never removes the stored copy of its id', async () => {
+    const { env, store } = await familyStore();
+    const t = env.clock.now();
+    await store.ingest([tombstone(t)], { source: 'server' });
+    const kept = serverEvent('island.named', named('Family'), t + HOUR, null);
+    const discarded = { ...kept, childId: CHILD_K, ts: t + 2 * HOUR }; // same id, later ts
+    const r = await store.ingest([discarded, kept], { source: 'server' });
+    expect(r).toMatchObject({ added: [kept.id], dropped: 1, invalid: 0 });
+    expect((await store.events()).find((e) => e.id === kept.id)).toEqual(kept);
+    expect((await store.island()).name).toBe('Family');
+    expect(await store.island()).toEqual(
+      foldIsland(await store.events(), fixtureContent().gameData),
+    );
+  });
+});

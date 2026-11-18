@@ -247,9 +247,18 @@ export const MAX_EVENT_ENVELOPE_STRING_BYTES = 1024;
 export const envelopeStringBytes = (e: { type: string; contentVersion: string }): number =>
   utf8ByteLength(e.type) + utf8ByteLength(e.contentVersion);
 
-/** The server's per-event rules beyond the schemas: the 1,024-byte strings and the tombstone rule. */
+/** The stored (parsed) payload's UTF-8 size is within the server's 8 KB cap (08 §4). */
+const payloadWithinCap = (e: AnyEventEnvelope) => {
+  const bytes = eventPayloadBytes(e);
+  return bytes !== null && bytes <= MAX_EVENT_PAYLOAD_BYTES;
+};
+
+/**
+ * The server's per-event rules beyond the schemas, applied to the parsed event that is stored, by
+ * `append` and `ingest` alike: the 8 KB payload, the 1,024-byte strings and the tombstone rule.
+ */
 const admissible = (e: AnyEventEnvelope) =>
-  envelopeStringBytes(e) <= MAX_EVENT_ENVELOPE_STRING_BYTES && foldable(e);
+  payloadWithinCap(e) && envelopeStringBytes(e) <= MAX_EVENT_ENVELOPE_STRING_BYTES && foldable(e);
 
 const childOf = (e: Pick<AnyEventEnvelope, 'childId'>) =>
   e.childId === null ? null : childKey(e.childId);
@@ -647,11 +656,13 @@ export async function createDataStore(opts: DataStoreOptions): Promise<DataStore
         const deleted = await tombstoned();
         const newlyDeleted = new Set([...deleted].filter((c) => !before.has(c)));
         const purged = await purge(newlyDeleted);
-        // Every validated input copy for a deleted child is dropped (duplicates and copies of
-        // stored events included), and none of them counts as added or replaced.
+        // Every validated input copy for a deleted child counts as dropped (duplicates and copies
+        // of stored events included). What leaves `added`, `replaced` and the cache update is
+        // decided by the copy actually selected for each id: a discarded copy that shares an id
+        // with a stored event never removes that event.
         const ofDeleted = (e: AnyEventEnvelope) => deleted.has(childOf(e) ?? '');
         result.dropped = valid.filter(ofDeleted).length;
-        const lost = new Set(valid.filter(ofDeleted).map((e) => e.id));
+        const lost = new Set(incoming.filter(ofDeleted).map((e) => e.id));
         result.added = result.added.filter((id) => !lost.has(id));
         result.replaced = result.replaced.filter((id) => !lost.has(id));
         await reconcile(
