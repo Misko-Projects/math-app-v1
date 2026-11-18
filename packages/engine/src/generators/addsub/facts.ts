@@ -73,6 +73,10 @@ export function inFamily(family: string, a: number, b: number, op: string): bool
   }
 }
 
+/** The opening line of a worked solution: count on for addition, count back for subtraction. */
+const startKey = (op: string): string =>
+  op === '-' ? 'gen.addsub.facts.start-back' : 'gen.addsub.facts.start-at';
+
 export function factResult(a: number, b: number, op: string): number {
   return op === '-' ? a - b : a + b;
 }
@@ -92,12 +96,21 @@ function sampleFact(spec: Record<string, ParamSpec>, rng: Rng): ParamValues {
   const bDomain = (bSpec ? specDomain(bSpec) : []).filter(
     (v): v is number => typeof v === 'number',
   );
-  // Draw a until some b in b's domain completes a valid fact of the family; then pick that b.
+  // Draw a until some b in b's domain completes a valid fact of the family. Keep the b already
+  // drawn (with its authored weights) when it fits; otherwise redraw b among the values that fit,
+  // still weighted as authored (03 §5.2).
+  const weightOf = (b: number): number => {
+    if (bSpec?.kind !== 'choice' || !bSpec.weights) return 1;
+    const i = bSpec.values.indexOf(b);
+    return i >= 0 ? (bSpec.weights[i] ?? 1) : 1;
+  };
   for (let i = 0; i < 64; i += 1) {
     const a = asNum(p.a);
-    const ok = bDomain.filter((b) => inFamily(family, a, b, op) && factResult(a, b, op) >= 0);
+    const fits = (b: number) => inFamily(family, a, b, op) && factResult(a, b, op) >= 0;
+    if (typeof p.b === 'number' && fits(p.b)) return p;
+    const ok = bDomain.filter(fits);
     if (ok.length > 0) {
-      p.b = rng.pick(ok);
+      p.b = rng.weighted(ok, ok.map(weightOf));
       return p;
     }
     const aSpec = spec.a;
@@ -163,6 +176,8 @@ export const addsubFacts: GeneratorDef = {
   },
   narration: [
     'gen.addsub.facts.start-at',
+    'gen.addsub.facts.start-back',
+    'gen.addsub.facts.take-away',
     'gen.addsub.facts.count-on',
     'gen.addsub.facts.answer',
     'gen.addsub.facts.join',
@@ -356,7 +371,7 @@ export const addsubFacts: GeneratorDef = {
     switch (w.format) {
       case 'number-pad':
         return [
-          say('gen.addsub.facts.start-at', { a, b }, { op: 'highlight', args: { token: 'x' } }),
+          say(startKey(op), { a, b }, { op: 'highlight', args: { token: 'x' } }),
           say(
             'gen.addsub.facts.answer',
             { n: answer },
@@ -365,7 +380,7 @@ export const addsubFacts: GeneratorDef = {
         ];
       case 'numeral-pick':
         return [
-          say('gen.addsub.facts.start-at', { a, b }),
+          say(startKey(op), { a, b }),
           say(
             'gen.addsub.facts.answer',
             { n: answer },
@@ -374,7 +389,11 @@ export const addsubFacts: GeneratorDef = {
         ];
       case 'tenframe-fill': {
         const steps: LessonStep[] = [
-          say('gen.addsub.facts.join', { a, b }, { op: 'show-addends' }),
+          say(
+            op === '-' ? 'gen.addsub.facts.take-away' : 'gen.addsub.facts.join',
+            { a, b },
+            { op: 'show-addends' },
+          ),
         ];
         if (op === '-') {
           // Take away from the last frame that has counters, then the one before it.
@@ -410,7 +429,7 @@ export const addsubFacts: GeneratorDef = {
       case 'number-line-jump': {
         const jump = op === '-' ? -1 : 1;
         const steps: LessonStep[] = [
-          say('gen.addsub.facts.start-at', { a, b }, { op: 'highlight', args: { at: a } }),
+          say(startKey(op), { a, b }, { op: 'highlight', args: { at: a } }),
         ];
         for (let i = 1; i <= b; i += 1) {
           steps.push(

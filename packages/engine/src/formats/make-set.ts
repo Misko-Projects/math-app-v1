@@ -1,7 +1,10 @@
 // 03 §5.5 make-set. The container starts with `start` objects (`take-away`, `add-more`) or empty.
 // The `hands` container tracks each hand (five fingers each), so a two-hand split is visible.
-// Response: state `{ count, removed, parts?, bundles? }`:
-// - `parts` is `[left hand, right hand]` for `hands`, and `[kept, removed]` for `take-away`;
+// Removed objects wait in a pile beside the container, and dragging takes from that pile before
+// the supply, so a child can put objects back.
+// Response: state `{ count, removed, parts?, bundles? }`, where `removed` is the pile's current size:
+// - `parts` is `[left hand, right hand]` for `hands`, and `[in the container, in the pile]` for
+//   `take-away`;
 // - `bundles` is the number of bundled tens (groupsOf 10, CNT.19).
 
 import { makeSetConfigSchema, type WidgetConfigOf } from '@number-island/shared';
@@ -11,7 +14,10 @@ type Config = WidgetConfigOf<'make-set'>;
 
 export interface MakeSetState extends FormatState<'make-set'> {
   count: number;
+  /** Objects currently in the pile beside the container (taken out and not put back). */
   removed: number;
+  /** Objects taken from the supply so far (net). */
+  taken: number;
   /** `hands` container only: fingers raised on each hand. */
   hands: [number, number] | null;
   bundles: number;
@@ -78,6 +84,7 @@ export const makeSet: FormatModel<'make-set', MakeSetState> = {
       config,
       count,
       removed: 0,
+      taken: 0,
       hands: config.container === 'hands' ? fillHands(count) : null,
       bundles: 0,
       closed: false,
@@ -89,9 +96,10 @@ export const makeSet: FormatModel<'make-set', MakeSetState> = {
     switch (a.op) {
       case 'drag': {
         const want = Math.max(0, Math.trunc(argNumber(a, 'count') ?? 1));
-        // Objects in the container beyond `start` came from the supply; removed ones go back.
-        const supplyLeft = c.source.supply - Math.max(0, s.count - (c.start ?? 0));
-        const add = Math.min(want, c.capacity - s.count, Math.max(0, supplyLeft));
+        // Objects come back from the pile of removed ones first, then from the supply.
+        const available = s.removed + Math.max(0, c.source.supply - s.taken);
+        let add = Math.min(want, c.capacity - s.count, available);
+        let hands = s.hands;
         if (s.hands) {
           const h: [number, number] = [...s.hands];
           if (hand === 0 || hand === 1) {
@@ -101,27 +109,45 @@ export const makeSet: FormatModel<'make-set', MakeSetState> = {
             h[0] += left;
             h[1] += Math.min(add - left, 5 - h[1]);
           }
-          return { ...s, hands: h, count: h[0] + h[1] };
+          add = h[0] + h[1] - s.count;
+          hands = h;
         }
-        return { ...s, count: s.count + add };
+        const fromPile = Math.min(add, s.removed);
+        return {
+          ...s,
+          hands,
+          count: s.count + add,
+          removed: s.removed - fromPile,
+          taken: s.taken + (add - fromPile),
+        };
       }
       case 'remove': {
         const want = Math.max(0, Math.trunc(argNumber(a, 'count') ?? 1));
+        let r = Math.min(want, s.count);
+        let hands = s.hands;
         if (s.hands) {
           const h: [number, number] = [...s.hands];
           if (hand === 0 || hand === 1) {
-            const r = Math.min(want, h[hand]);
+            r = Math.min(want, h[hand]);
             h[hand] -= r;
-            return { ...s, hands: h, count: h[0] + h[1], removed: s.removed + r };
+          } else {
+            const fromRight = Math.min(want, h[1]);
+            h[1] -= fromRight;
+            const fromLeft = Math.min(want - fromRight, h[0]);
+            h[0] -= fromLeft;
+            r = fromRight + fromLeft;
           }
-          const fromRight = Math.min(want, h[1]);
-          h[1] -= fromRight;
-          const fromLeft = Math.min(want - fromRight, h[0]);
-          h[0] -= fromLeft;
-          return { ...s, hands: h, count: h[0] + h[1], removed: s.removed + fromRight + fromLeft };
+          hands = h;
         }
-        const r = Math.min(want, s.count);
-        return { ...s, count: s.count - r, removed: s.removed + r };
+        const count = s.count - r;
+        // Removed objects wait in a pile beside the container; bundles never exceed the tens left.
+        return {
+          ...s,
+          hands,
+          count,
+          removed: s.removed + r,
+          bundles: Math.min(s.bundles, Math.floor(count / 10)),
+        };
       }
       case 'bundle':
         return { ...s, bundles: Math.floor(s.count / 10) };

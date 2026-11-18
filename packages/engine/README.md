@@ -62,7 +62,7 @@ src/formats/<format>.ts          state model + widget schema + format features, 
 src/check/state/<id>.ts          state checkers
 src/misconceptions/rules/<id>.ts misconception rules; index.ts is the registry
 src/testing/                     the property test and statistics (the /testing entry)
-test/                            tests that read packages/content/dist (Node)
+test/                            Node tests over the fixture content, compiled in memory (no dist needed)
 ```
 
 ## Adding a generator (03 §10.2)
@@ -91,8 +91,8 @@ Create `src/formats/<format>.ts` exporting a `FormatModel`: `configSchema` (the 
 
 - **Trace targets.** Countable objects are `obj-<i>` (reading order). Addend counters are `counter-<i>`: `0 … a − 1` for the first addend, then the second.
 - **Numeric pick options** use ids `opt-<n>`, so a pick reads back as a number.
-- **make-set** responds with `{ count, removed, parts?, bundles? }`. `parts` is `[left hand, right hand]` for the `hands` container and `[kept, removed]` for `take-away`, which is how a two-part split is shown.
-- **tenframe-fill** responds with `{ cells, value? }`, where each cell is 0 (empty), 1 (colour a) or 2 (colour b). Both colours are always available, so a split shows as colour counts.
+- **make-set** responds with `{ count, removed, parts?, bundles? }`. Removed objects wait in a pile beside the container, and dragging takes from that pile first, so a child can put objects back. `removed` is the pile's current size. `parts` is `[left hand, right hand]` for the `hands` container and `[in the container, in the pile]` for `take-away`, which is how a two-part split is shown.
+- **tenframe-fill** responds with `{ cells, value? }`, where each cell is 0 (empty), 1 (colour a) or 2 (colour b). A split is shown on two frames, one part per frame (as the authored CPS.02 lesson does); on a single frame the two colours are the parts. `fill` answers on the hundred chart follow reading order.
 - **number-bond** split and new-way respond with `{ parts }`. `rekenrek` responds with `{ rows, value? }`, and `number-line-jump` with `{ jumps, value? }`.
 - `bond.split` and `bond.newWay` read the two parts from any of these shapes.
 

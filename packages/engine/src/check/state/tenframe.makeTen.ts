@@ -7,7 +7,9 @@ export const tenframeMakeTen: StateChecker = {
     const cells = cellGrid(value.cells);
     const total = num(target.total);
     if (!cells || total === undefined || cells.length === 0) return false;
-    if ((cells[0] as number[]).some((x) => x === 0)) return false;
+    // Frame 0 is a full ten-frame: ten cells, every one occupied.
+    const first = cells[0] as number[];
+    if (first.length !== 10 || first.some((x) => x === 0)) return false;
     if (cells.flat().filter((x) => x !== 0).length !== total) return false;
     return askedValueOk(target, value);
   },

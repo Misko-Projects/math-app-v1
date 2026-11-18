@@ -180,6 +180,9 @@ export const countSequence: GeneratorDef = {
           throw new RangeError('count.sequence: the sequence does not fit one hundred chart');
         const { first, rows } = chart;
         const fill = length > 1;
+        // `fill` answers in the chart's reading order (03 §5.5), which is ascending even when the
+        // sequence counts back.
+        const readingOrder = [...hiddenAfter].sort((x, y) => x - y);
         p = {
           params,
           vars,
@@ -188,12 +191,12 @@ export const countSequence: GeneratorDef = {
             format: 'hundred-chart',
             first,
             rows,
-            hidden: fill ? hiddenAfter : [],
+            hidden: fill ? readingOrder : [],
             mode: fill ? 'fill' : 'next',
             from: start,
           },
           answer: fill
-            ? { kind: 'numbers', values: hiddenAfter, ordered: true }
+            ? { kind: 'numbers', values: readingOrder, ordered: true }
             : { kind: 'number', value: next },
           nudge: [{ op: 'highlight-row', args: { n: start } }],
         };

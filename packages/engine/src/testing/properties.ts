@@ -95,8 +95,24 @@ export function answerNumbers(item: GeneratedItem): number[] {
       const n = optionNumber(a.id);
       return n === null ? [] : [n];
     }
-    case 'state':
-      return typeof a.target.value === 'number' ? [a.target.value] : [];
+    case 'state': {
+      // The quantity the child must produce, per checker, plus any typed value (thenAsk). Givens
+      // such as a split's whole or make-ten's total are not answers.
+      const t = a.target;
+      const keys: Partial<Record<typeof a.checker, string[]>> = {
+        'set.count': ['count'],
+        'tenframe.total': ['n'],
+        'rekenrek.total': ['n'],
+        'jumps.reach': ['target'],
+        'select.exactSet': [],
+      };
+      // When the item asks for a typed value, that value is the answer and the frame or jump target
+      // is a given (the whole in a missing-part item).
+      if (typeof t.value === 'number') return [t.value];
+      const out = (keys[a.checker] ?? []).map((k) => t[k]);
+      if (a.checker === 'select.exactSet' && Array.isArray(t.values)) out.push(...t.values);
+      return [...new Set(out.filter((v): v is number => typeof v === 'number'))];
+    }
   }
 }
 

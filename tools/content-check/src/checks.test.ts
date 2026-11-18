@@ -5,9 +5,9 @@ import { resetContent } from '@number-island/engine';
 import type { ItemTemplate, MisconceptionSpec } from '@number-island/shared';
 import { afterEach, describe, expect, it } from 'vitest';
 import { type CompiledInput, parameterSpace, runEngineChecks } from './checks';
-import { readCompiled } from './dist';
+import { compileInMemory } from './dist';
 
-const fixture = readCompiled();
+const fixture = compileInMemory();
 const opts = { propertyN: 20, statsN: 100 };
 
 afterEach(() => resetContent());

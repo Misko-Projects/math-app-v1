@@ -115,12 +115,11 @@ export const countSet: GeneratorDef = {
     'gen.count.set.type',
     'gen.count.set.fill-frame',
   ],
-  sample(spec, rng) {
-    const p = sampleAll(spec, rng);
-    if (p.mode === 'zero') p.n = 0;
-    return p;
-  },
+  sample: (spec, rng) => sampleAll(spec, rng),
   derive: () => ({}),
+  // Zero mode (CNT.13) is an empty set: the template's `n` domain must allow 0, and draws of any
+  // other n are rejected rather than overwritten (03 §9.4 step 2).
+  accepts: (p) => p.mode !== 'zero' || p.n === 0,
   build(ctx: BuildContext): GeneratorOutput {
     const { params, template: t, rng } = ctx;
     const n = asNum(params.n);

@@ -1,7 +1,8 @@
 // 03 §5.5 tenframe-fill. State `{ cells: number[][], value?: number }`: one array per frame, one
 // entry per cell in reading order (top row left to right, then the bottom row), where 0 is empty,
-// 1 a colour-a counter and 2 a colour-b counter. Both colours are always available, so a child can
-// show a split (bond.split counts the two colours). `value` is the number entered for `thenAsk`.
+// 1 a colour-a counter and 2 a colour-b counter. A split is shown on two frames, one part per frame
+// (bond.split counts each frame; with one frame it counts the two colours). `value` is the number
+// entered for `thenAsk`.
 
 import { tenframeFillConfigSchema, type WidgetConfigOf } from '@number-island/shared';
 import {

@@ -180,11 +180,14 @@ export const bondParts: GeneratorDef = {
           skin: 'frame' as const,
         };
         if (isSplit) {
+          // A split shows one part in each frame (the authored CPS.02 lesson moves counters from
+          // frame 0 to frame 1), so a ten-frame split always has two frames.
+          if (whole > 20) throw new RangeError('bond.parts: whole exceeds two ten-frames');
           p = {
             params,
             vars,
             math,
-            widget: { ...base, prefilled: [], goal: 'show-n', n: whole, thenAsk: null },
+            widget: { ...base, frames: 2, prefilled: [], goal: 'show-n', n: whole, thenAsk: null },
             answer: splitAnswer,
           };
         } else if (whole === 10 && unknown === 'part') {
@@ -402,11 +405,9 @@ export const bondParts: GeneratorDef = {
         const whole = asNum(target.whole as number);
         const [a, b] = demoSplit(whole);
         if (w.format === 'tenframe-fill') {
-          const cells = Array.from({ length: w.frames }, (_, f) =>
-            Array.from({ length: 10 }, (_, i) => {
-              const k = f * 10 + i;
-              return k < a ? 1 : k < a + b ? 2 : 0;
-            }),
+          // One part per frame.
+          const cells = [a, b].map((part) =>
+            Array.from({ length: 10 }, (_, i) => (i < part ? 1 : 0)),
           );
           return { kind: 'state', value: { cells } };
         }
@@ -523,10 +524,11 @@ export const bondParts: GeneratorDef = {
               { whole },
               { op: 'place', args: { frame: 0, count: a, color: 'a' } },
             ),
+            // The second part goes in the second frame.
             say(
               'gen.bond.parts.split',
               { a, b },
-              { op: 'place', args: { frame: 0, count: b, color: 'b' } },
+              { op: 'place', args: { frame: 1, count: b, color: 'a' } },
             ),
           ];
         }

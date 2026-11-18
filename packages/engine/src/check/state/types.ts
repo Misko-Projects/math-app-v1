@@ -68,13 +68,16 @@ export function askedValueOk(
 
 /**
  * The two parts a state shows, whatever the format: explicit `parts` (make-set, number-bond),
- * colour counts of ten-frame `cells` (colour a, colour b), or rekenrek `rows`.
+ * ten-frame `cells` (with two frames, the counters in each frame; with one frame, the colour-a
+ * and colour-b counts), or rekenrek `rows`.
  */
 export function partsOf(value: Readonly<Record<string, unknown>>): number[] | undefined {
   const parts = nums(value.parts);
   if (parts) return parts;
   const cells = grid(value.cells);
   if (cells) {
+    // Two frames: one part per frame (how the ten-frame shows a split). One frame: the two colours.
+    if (cells.length === 2) return cells.map((f) => f.filter((x) => x !== 0).length);
     const flat = cells.flat();
     return [flat.filter((x) => x === 1).length, flat.filter((x) => x === 2).length];
   }

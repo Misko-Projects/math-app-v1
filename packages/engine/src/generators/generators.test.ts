@@ -80,8 +80,8 @@ const COUNT_SET: Case[] = [
     widget: { set: { count: 8, layout: 'array', rows: 2 }, input: 'pad', marks: false },
   },
   {
-    name: 'tap-count mode zero (n forced to 0)',
-    t: tpl('count.set', 'tap-count', { tier: 'concrete', params: { mode: c('zero') } }),
+    name: 'tap-count mode zero (the template sets n: 0)',
+    t: tpl('count.set', 'tap-count', { tier: 'concrete', params: { mode: c('zero'), n: c(0) } }),
     params: {},
     answer: { kind: 'number', value: 0 },
     widget: { set: { count: 0 } },

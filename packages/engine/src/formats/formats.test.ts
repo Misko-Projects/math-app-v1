@@ -483,10 +483,10 @@ describe('make-set', () => {
       state({ count: 6, removed: 0 }),
     ],
     [
-      'removed objects return to the supply',
+      'removed objects wait in a pile and are dragged back first',
       makeSetBase,
       [act('drag', { count: 6 }), act('remove', { count: 2 }), act('drag', { count: 5 })],
-      state({ count: 6, removed: 2 }),
+      state({ count: 6, removed: 0 }),
     ],
     [
       'count-aloud and close-container do not change the response',
@@ -525,10 +525,10 @@ describe('make-set', () => {
       state({ count: 3, removed: 4, parts: [3, 4] }),
     ],
     [
-      'take-away cannot drag from an empty supply',
+      'take-away: removed objects can be put back (review F2), the supply stays empty',
       takeAway,
-      [act('remove', { count: 4 }), act('drag', { count: 2 })],
-      state({ count: 3, removed: 4, parts: [3, 4] }),
+      [act('remove', { count: 4 }), act('drag', { count: 2 }), act('drag', { count: 9 })],
+      state({ count: 7, removed: 0, parts: [7, 0] }),
     ],
     [
       'remove never goes below zero',

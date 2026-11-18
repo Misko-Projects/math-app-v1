@@ -720,15 +720,16 @@ describe('partsOf', () => {
   it.each([
     ['explicit parts', { parts: [2, 3] }, [2, 3]],
     [
-      'ten-frame colour counts (a, b) over every frame',
+      'two ten-frames: the counters in each frame',
       {
         cells: [
           [1, 2, 0, 1],
           [2, 0, 0, 0],
         ],
       },
-      [2, 2],
+      [3, 1],
     ],
+    ['one ten-frame: colour counts (a, b)', { cells: [[1, 2, 0, 1, 2, 2]] }, [2, 3]],
     ['ten-frame without colour b', { cells: [frame([1, 1, 1])] }, [3, 0]],
     ['rekenrek rows', { rows: [4, 3] }, [4, 3]],
     ['parts win over cells and rows', { parts: [1, 1], cells: [frame([2])], rows: [9, 9] }, [1, 1]],
