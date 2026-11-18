@@ -23,7 +23,7 @@ pnpm secrets:link   # optional: copies your API keys from ~/.config/math-app-v1/
 pnpm dev            # open http://localhost:5173
 ```
 
-To run the tests (`pnpm verify`, `pnpm e2e`), the scripts download Playwright's Chromium on first use. On Linux, Chromium also needs some system libraries; install them once with `sudo pnpm exec playwright install-deps chromium` (macOS and Windows need nothing extra).
+To run the tests (`pnpm verify`, `pnpm e2e`), the scripts download Playwright's Chromium on first use. On Linux, Chromium also needs some system libraries; install them once with `pnpm exec playwright install-deps chromium`, which asks for your password to run the system package manager (macOS and Windows need nothing extra).
 
 `pnpm dev:lan` serves the app on your home network so a tablet can open `http://<laptop-ip>:5173`. Contributor commands and rules are in [`AGENTS.md`](AGENTS.md).
 

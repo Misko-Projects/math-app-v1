@@ -130,6 +130,19 @@ describe('import-boundary lint (02 §2)', () => {
     expect(v[0]).toMatch(/probe\.ts:2:\d+ .*browser global location/);
   });
 
+  it('binds files given Windows-style paths (TypeScript hands the host forward slashes)', () => {
+    const winPath = 'C:\\repo\\packages\\engine\\src\\probe.ts';
+    const local = checkSource(
+      'engine',
+      winPath,
+      'export function f(document: string) { return document; }\n',
+      root,
+    );
+    expect(local).toEqual([]);
+    const global = checkSource('engine', winPath, 'export const w = window;\n', root);
+    expect(global.join('\n')).toMatch(/browser global window/);
+  });
+
   it('flags a shorthand property whose value is the browser global', () => {
     const v = checkSource(
       'engine',

@@ -28,7 +28,8 @@ export type ParamSpec =
 
 /**
  * Number of values an `int` ParamSpec can produce: min, min+step, … ≤ max, minus `exclude`
- * (03 §5.2 requires this to be non-empty). Assumes integer fields and min ≤ max.
+ * (03 §5.2 requires this to be non-empty). Never throws: fields that are not safe integers, a step
+ * below 1, or min > max give 0 (the schema reports those fields with their own issues).
  */
 export function intParamDomainSize(s: {
   min: number;
@@ -36,6 +37,10 @@ export function intParamDomainSize(s: {
   step?: number;
   exclude?: number[];
 }): number {
+  const safe = (v: unknown): v is number => Number.isSafeInteger(v);
+  if (!safe(s.min) || !safe(s.max) || s.min > s.max) return 0;
+  if (s.step !== undefined && (!safe(s.step) || s.step < 1)) return 0;
+  if (s.exclude !== undefined && !s.exclude.every(safe)) return 0;
   // BigInt keeps this exact even when max − min exceeds Number.MAX_SAFE_INTEGER.
   const min = BigInt(s.min);
   const max = BigInt(s.max);
@@ -65,7 +70,15 @@ export const paramSpecSchema = z.discriminatedUnion('kind', [
     })
     .refine((s) => s.min <= s.max, 'min must be ≤ max')
     .refine(
-      (s) => s.min > s.max || intParamDomainSize(s) > 0,
+      // Zod runs refinements after continuable field issues; only judge emptiness when every field
+      // is valid, so a bad step/min/max is reported once, by its own check.
+      (s) =>
+        !Number.isSafeInteger(s.min) ||
+        !Number.isSafeInteger(s.max) ||
+        s.min > s.max ||
+        (s.step !== undefined && !(Number.isSafeInteger(s.step) && s.step >= 1)) ||
+        (s.exclude !== undefined && !s.exclude.every((v) => Number.isSafeInteger(v))) ||
+        intParamDomainSize(s) > 0,
       'the value set after step and exclude must be non-empty',
     ),
   z

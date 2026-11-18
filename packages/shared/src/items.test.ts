@@ -760,6 +760,19 @@ describe('item contract schemas round-trip', () => {
     };
     expect(intParamDomainSize(huge)).toBe(0);
     expect(paramSpecSchema.safeParse(huge).success).toBe(false);
+    // invalid fields are rejected as issues, never thrown (BigInt(0.5) and x / 0n both throw)
+    for (const bad of [
+      { kind: 'int', min: 0, max: 5, step: 0 },
+      { kind: 'int', min: 0, max: 5, step: -2 },
+      { kind: 'int', min: 0, max: 5, step: 0.5 },
+      { kind: 'int', min: 0.5, max: 5 },
+      { kind: 'int', min: 0, max: 5, exclude: [1.5] },
+      { kind: 'int', min: 0, max: Number.POSITIVE_INFINITY },
+    ]) {
+      expect(() => paramSpecSchema.safeParse(bad)).not.toThrow();
+      expect(paramSpecSchema.safeParse(bad).success).toBe(false);
+    }
+    expect(intParamDomainSize({ min: 0, max: 5, step: 0 })).toBe(0);
     // 03 §5.2: params are integers, strings or booleans only
     expect(paramSpecSchema.safeParse({ kind: 'choice', values: [1, 2.5] }).success).toBe(false);
     expect(paramSpecSchema.safeParse({ kind: 'const', value: 0.5 }).success).toBe(false);

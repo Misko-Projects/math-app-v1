@@ -216,20 +216,27 @@ function bindFile(fileName, source) {
     jsx: ts.JsxEmit.Preserve,
     types: [],
   };
-  const sf = ts.createSourceFile(fileName, source, ts.ScriptTarget.Latest, true);
+  // TypeScript normalises file names to forward slashes before asking the host (on Windows,
+  // `C:\repo\x.ts` arrives as `C:/repo/x.ts`), so the host matches on the normalised name.
+  const normalized = fileName.replace(/\\/g, '/');
+  const isThisFile = (name) => name.replace(/\\/g, '/') === normalized;
+  const sf = ts.createSourceFile(normalized, source, ts.ScriptTarget.Latest, true);
   const host = {
-    getSourceFile: (name) => (name === fileName ? sf : undefined),
+    getSourceFile: (name) => (isThisFile(name) ? sf : undefined),
     getDefaultLibFileName: () => 'lib.d.ts',
     writeFile: () => {},
-    getCurrentDirectory: () => dirname(fileName),
+    getCurrentDirectory: () => dirname(normalized),
     getCanonicalFileName: (name) => name,
     useCaseSensitiveFileNames: () => true,
     getNewLine: () => '\n',
-    fileExists: (name) => name === fileName,
-    readFile: (name) => (name === fileName ? source : undefined),
+    fileExists: (name) => isThisFile(name),
+    readFile: (name) => (isThisFile(name) ? source : undefined),
   };
-  const program = ts.createProgram({ rootNames: [fileName], options, host });
-  return { sf: program.getSourceFile(fileName) ?? sf, checker: program.getTypeChecker() };
+  const program = ts.createProgram({ rootNames: [normalized], options, host });
+  const bound = program.getSourceFile(normalized);
+  // Never fall back to an unbound parse: without the program's binder every local would look global.
+  if (!bound) throw new Error(`check-boundaries: TypeScript could not bind ${fileName}`);
+  return { sf: bound, checker: program.getTypeChecker() };
 }
 
 /** True when the identifier resolves, in its own lexical scope, to a binding declared in this file. */
