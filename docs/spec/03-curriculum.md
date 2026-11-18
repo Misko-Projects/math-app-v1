@@ -2132,7 +2132,7 @@ US English, with no "and" inside whole numbers (judgment call: matches how US cl
 | `digits` | integer | each digit as `num.<d>` ("three four five") |
 | `ord` | 1–31 | `ord.<n>` |
 | `cents` | cents | `numberClips(n)` + `money.cent.one` (n = 1) or `money.cent.many` |
-| `dollars` | cents | `numberClips(d) + money.dollar.(one\|many)`, then, if c > 0, `word.and` + `numberClips(c) + money.cent.(one\|many)`. 125 → "one dollar and twenty-five cents" |
+| `dollars` | cents | `numberClips(d) + money.dollar.(one\|many)`, then, if c > 0, `word.and` + `numberClips(c) + money.cent.(one\|many)`. 125 → "one dollar and twenty-five cents". Under one dollar only the cents are read: 25 → "twenty-five cents" (A01, 2026-11-18: how a teacher reads $0.25; zero is "zero dollars") |
 | `time` | `"h:mm"` | m = 0 → `num.h time.oclock`; m < 10 → `num.h time.oh num.m`; else `num.h num.m`. `"h:mm pm"` adds `time.pm`. |
 | `frac` | `"a/b"` | `numberClips(a)` + `den.b.one` (a = 1) or `den.b.many`. 1/2 → "one half"; 3/4 → "three fourths"; 3/1 → "three wholes" |
 | `dec` | hundredths integer; the slot names the places, `{v\|dec:1}` (tenths) or `{v\|dec:2}` (hundredths), and a bare `dec` is a V16 error | 30:1 → "three tenths"; 47:2 → "forty-seven hundredths"; 250:2 → "two and fifty hundredths" (whole part, `word.and`, the fraction). Judgment call: decimals are read as fractions, which reinforces their meaning (4.NF.C.6). |
