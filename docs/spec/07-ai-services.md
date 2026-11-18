@@ -7,13 +7,16 @@ Research and exact policy quotes are in [`../research/05-ai-services.md`](../res
 | Provider | Rule (paraphrased; exact quotes in research 05) | Consequence |
 |---|---|---|
 | **Google Gemini API** (and Vertex) | Users must be 18+, and the Services may not be used "as part of a website, application, or other service … directed towards or … likely to be accessed by individuals under the age of 18" (Gemini API Additional Terms, effective 2026-03-23). There is no paid-tier exception. | **Gemini is never called at runtime** by the family server or the app, and never receives a child's photo. Gemini is used only at **build time**, by the adult developer, to pre-render static narration files (§3). That reading is defensible but **not confirmed by Google**, so the renderer must be swappable in one config line. |
-| **Anthropic Claude API** | Allows products serving minors, with safeguards, publicly stated COPPA compliance, and AI disclosure ("Guidelines for Organizations Serving Minors"). | **All runtime AI uses Claude.** We implement the safeguards in §8 and the disclosure in §7. |
-| Image generators (Gemini image, FLUX/BFL, fal; OpenAI's position unclear) | Ban or restrict uploading or editing images of minors. | **No AI-generated likeness of the child.** Photo → *attributes* for our own SVG avatar only (§4). |
-| OpenAI | Processing personal data of under-13s requires zero data retention (a sales arrangement). | Not used in v1. |
+| **OpenAI API** | Allows products serving minors with safeguards and COPPA compliance, and advises using the current flagship models for minors. But "you should not use OpenAI services to process any personal data of children under 13 … without first implementing zero data retention" (Under-18 API guidance), and ZDR is a sales arrangement. | **Owner's choice for feedback and parent summaries** (2026-11-18). This is allowed **only because those requests carry no personal data** (§1, §8): no names, ids, photos or free text, just an age band and an anonymous math attempt. **Never send a photo or anything identifying to OpenAI.** |
+| **Anthropic Claude API** | Allows products serving minors, with safeguards, publicly stated COPPA compliance, and AI disclosure ("Guidelines for Organizations Serving Minors"). There is no ZDR prerequisite. | **Photo → avatar attributes uses Claude** (a child's photo is personal data, so OpenAI is excluded). Claude is also a drop-in alternative for feedback and summaries (one config line). |
+| Image generators (Gemini image, FLUX/BFL, fal, OpenAI image) | Ban or restrict uploading or editing images of minors. | **No AI-generated likeness of the child.** Photo → *attributes* for our own SVG avatar only (§4). |
 
 **Every AI feature is optional.** The game is fully functional with no keys: deterministic feedback, manual avatar creation, and a statistics-only parent summary. Families must use **billed** API keys. The parent area and `docs/PRIVACY.md` say so.
 
-**Implementers:** before writing any Claude code, load the `claude-api` skill (TypeScript) and use the official `@anthropic-ai/sdk`. Use structured outputs (`output_config.format` with a JSON schema, or the SDK's `messages.parse` helper), check `stop_reason` (including `refusal`) before reading content, and never guess SDK shapes.
+**Implementers:**
+- **OpenAI:** use the official `openai` npm SDK with Structured Outputs (a JSON schema generated from the Zod schema; `zodResponseFormat` / `responses.parse`, or the equivalent current helper). Verify the current API surface and model ids against developers.openai.com before coding, and handle refusals.
+- **Claude:** load the `claude-api` skill (TypeScript) and use `@anthropic-ai/sdk` with structured outputs (`output_config.format` / `messages.parse`). Check `stop_reason` (including `refusal`) before reading content.
+- Never guess SDK shapes for either provider.
 
 ## 1. Provider layer (`apps/api/src/ai/`)
 
@@ -22,8 +25,21 @@ interface TextProvider { generateJson<T>(req: { system: string; input: unknown; 
 interface VisionProvider { analyzeImage<T>(req: { system: string; image: { mediaType: string; data: Uint8Array }; schema: ZodType<T> }): Promise<{ value: T; usage: Usage }>; }
 ```
 
-- Implementations: `AnthropicProvider` (runtime) and `MockProvider` (tests/CI; deterministic fixtures keyed by input hash).
-- Model ids are configuration, never hard-coded in feature code: `AI_FEEDBACK_MODEL`, `AI_SUMMARY_MODEL` and `AI_VISION_MODEL` all default to **`claude-opus-5-5`**. Feedback uses `effort: 'low'`; summary and vision use `medium`. The parent can set `AI_FEEDBACK_MODEL=claude-haiku-5-5` for lower latency and cost (≈ $0.0001/call vs. ≈ $0.003/call on Opus). The AI1 live smoke test reports the measured latency and cost of both, so the parent can choose.
+- Implementations:
+  - `OpenAIProvider` (text);
+  - `AnthropicProvider` (text and vision);
+  - `MockProvider` (tests/CI; deterministic fixtures keyed by input hash).
+- **Provider and model per feature are configuration**, never hard-coded in feature code:
+
+  | Feature | Provider var (default) | Model var (default) | Notes |
+  |---|---|---|---|
+  | Feedback (§2) | `AI_FEEDBACK_PROVIDER=openai` | `AI_FEEDBACK_MODEL=gpt-6-sol` | Owner's choice. Switch to `gpt-6.2-sol` once OpenAI officially documents it; it was unreleased as of 2026-11-18. Low reasoning effort. |
+  | Parent summary (§5) | `AI_SUMMARY_PROVIDER=openai` | `AI_SUMMARY_MODEL=gpt-6-sol` | Aggregated stats only |
+  | Photo → attributes (§4) | `AI_VISION_PROVIDER=anthropic` (**`openai` is rejected by config validation**) | `AI_VISION_MODEL=claude-opus-5-5` | Child photo = personal data |
+
+  Alternatives are one line each: `AI_FEEDBACK_PROVIDER=anthropic` with `claude-opus-5-5` or `claude-haiku-5-5`.
+- The AI1 live smoke test reports measured latency and cost for each configured provider with a key, so the parent can tune.
+- A feature whose provider key is missing is reported as unavailable in `/api/health` and degrades to its deterministic fallback.
 - Every call goes through `aiGuard`, which:
   - checks the family feature flag and the monthly budget (`AI_MONTHLY_BUDGET_USD`, default 10);
   - meters usage into `ai_usage`;
@@ -100,13 +116,20 @@ Agents may use Claude at build time to draft story-problem wording, hint ladders
 
 - **Glim**, a small lantern-robot helper, delivers every AI-originated line. Glim introduces itself on first appearance: "Hi! I'm Glim, a computer helper. I'm not a person, but I love puzzles!" Glim appears only when AI feedback is on.
 - The parent area has an **AI log** listing every AI line shown to each child (stored locally in Dexie table `aiLog`: timestamp, child, skill, line text; retained 90 days), so parents can audit.
-- The parent settings page and `docs/PRIVACY.md` state which provider is used, what is sent and retention (Anthropic API: not used for training; deleted within 30 days per Anthropic's policy), and a COPPA statement suited to self-hosting.
+- The parent settings page and `docs/PRIVACY.md` state which provider is used, what is sent and retention, and a COPPA statement suited to self-hosting:
+  - OpenAI API: not used for training unless opted in; abuse logs kept up to 30 days.
+  - Anthropic API: not used for training; deleted within 30 days.
 
-## 8. Child-safety safeguards (Anthropic guidelines for organisations serving minors)
+## 8. Child-safety safeguards (OpenAI under-18 guidance and Anthropic guidelines for organisations serving minors)
+
+0. **No personal data to OpenAI** (a hard requirement of its under-18 guidance without ZDR):
+   - The server builds the OpenAI request from a **whitelisted field set** (age band, grade label, skill/item data, the anonymous response, misconception ids, phrase-bank ids) and drops everything else.
+   - A test asserts that no name, id, birth year or free text can reach the OpenAI request builder.
+   - Photos are never routed to OpenAI; config validation rejects `AI_VISION_PROVIDER=openai`.
 
 1. **No open-ended interaction:** children never type to or talk with the model. Inputs are structured by code.
 2. **Output filtering:** schema validation, an allow-list (phrase mode), deny-list and length checks, the answer-leak guard, and refusal/stop-reason checks. Anything failing falls back to deterministic content.
-3. **Child-safety system prompt:** include Anthropic's child-safety system prompt if one is provided for the account, plus our own rules (age-appropriate, encouraging, math-only, no personal questions, no references to the outside world).
+3. **Child-safety system prompt:** include the provider's child-safety guidance where one is provided (Anthropic's child-safety system prompt; OpenAI's under-18 guidance), plus our own rules (age-appropriate, encouraging, math-only, no personal questions, no references to the outside world).
 4. **Monitoring:** the parent AI log, plus `ai.feedback.shown` events (hash only) for auditing.
 5. **Regulatory statement:** publish the COPPA/privacy statement in `docs/PRIVACY.md` and the README.
 6. **Parental control:** every AI feature is off until the parent turns it on in setup or settings; the kill switch is immediate.

@@ -482,7 +482,7 @@ Also: per-strand mini-placements on first entry to a strand, and resuming an unf
 **Acceptance criteria:** as {{WK1}}, plus: per-fact adaptive pacing; no visible timer for K; the personal-best ghost only shows when `timedChallenges` is on (G1+); Puzzle Tower is optional and rewards star shards (decor only).
 
 <!-- issue key=AI1 labels=v1,area:ai depends=S01,R01,A01 -->
-## AI services (Claude): provider layer, feedback and error diagnosis, phrase bank, Glim, parent summary, budget
+## AI services: provider layer (OpenAI + Claude), feedback and error diagnosis, phrase bank, Glim, parent summary, budget
 
 **Spec:** 07 (all except §4); 08 §6, §8.
 
@@ -496,7 +496,8 @@ Also: per-strand mini-placements on first entry to a strand, and resuming an unf
 - Family feature flags.
 - Client integration: `TaskRunner` (the 5 s window), `AudioManager.sayPhrases` and `sayText`.
 - `pnpm ai:smoke`.
-- Load the `claude-api` skill (TypeScript) before writing provider code. Child-safety safeguards per 07 §8.
+- Implement `OpenAIProvider` (feedback and summary defaults) and `AnthropicProvider` (vision, plus a text alternative) per 07 §1. Verify the OpenAI SDK and model ids on developers.openai.com, and load the `claude-api` skill before writing Claude code.
+- Enforce the no-personal-data request builder for OpenAI, with its test (07 §8.0). Child-safety safeguards per 07 §8.
 
 **Acceptance criteria**
 - [ ] With mock providers, golden journey 7a passes (AI on and AI off).
