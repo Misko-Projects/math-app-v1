@@ -701,6 +701,54 @@ describe('foldGoals', () => {
   });
 });
 
+describe('review round 2 regressions (PR #54)', () => {
+  it('case-variant settings for one child resolve the same way in any record order', () => {
+    const events = [
+      ev('goal.progress', { weekStart: '2026-11-02', delta: 1, requestId: 'r1' }, T0, C1),
+    ];
+    const upperFirst = { [C1.toUpperCase()]: { weeklyGoal: 6 }, [C1]: { weeklyGoal: 1 } };
+    const lowerFirst = { [C1]: { weeklyGoal: 1 }, [C1.toUpperCase()]: { weeklyGoal: 6 } };
+    const a = foldGoals(events, upperFirst).byChild[C1];
+    const b = foldGoals(events, lowerFirst).byChild[C1];
+    expect(a).toEqual(b);
+    expect(a).toMatchObject({ target: 1, weeksCompleted: 1 }); // the canonical lower-case key wins
+    const mixedOnly = {
+      [C1.toUpperCase()]: { weeklyGoal: 3 },
+      [C1.replace('c', 'C')]: { weeklyGoal: 4 },
+    };
+    const reversed = Object.fromEntries(Object.entries(mixedOnly).reverse());
+    expect(foldGoals(events, mixedOnly).byChild[C1]?.target).toBe(
+      foldGoals(events, reversed).byChild[C1]?.target,
+    );
+  });
+
+  it('building-level grants with an empty or invalid id never reach the collection', () => {
+    const g: GameData = {
+      ...game,
+      buildings: [
+        ...game.buildings,
+        {
+          id: 'odd-hut',
+          kind: 'home',
+          art: 'b/oh',
+          footprint: [1, 1],
+          unlock: { start: true },
+          levels: [
+            { level: 1, recipe: {}, unlocks: ['outfit:', 'decor:', 'decor:Bad Id', 'decor:rose'] },
+          ],
+        },
+      ],
+    };
+    const s = foldCollection(
+      [ev('building.placed', { instanceId: 'h1', buildingId: 'odd-hut', plot: [1, 1] }, T0)],
+      g,
+    );
+    expect(collectionStateSchema.safeParse(s).success).toBe(true);
+    expect(s.outfitsUnlocked).toEqual([]);
+    expect(s.decorOwned).toEqual({ 'shell-bench': 1, rose: 1 });
+  });
+});
+
 describe('review round 1 regressions (PR #54)', () => {
   it('weekly targets match settings whatever the casing of child ids', () => {
     const settings = { [C1.toUpperCase()]: { weeklyGoal: 1 } };

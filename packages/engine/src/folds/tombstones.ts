@@ -27,4 +27,4 @@ export function withoutDeletedChildren<E extends AnyEventEnvelope>(events: reado
 
 /** True when the event's child was tombstoned earlier in the fold. */
 export const fromDeletedChild = (deleted: readonly string[] | undefined, e: AnyEventEnvelope) =>
-  e.childId !== null && deleted !== undefined && deleted.includes(childKey(e.childId));
+  e.childId !== null && (deleted?.includes(childKey(e.childId)) ?? false);

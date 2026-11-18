@@ -78,8 +78,11 @@ function grantLevels(
     if (level.level <= from || level.level > to) continue;
     for (const u of level.unlocks) {
       const [kind, id] = [u.slice(0, u.indexOf(':')), u.slice(u.indexOf(':') + 1)];
-      if (kind === 'decor') next = { ...next, decorOwned: addDecor(next.decorOwned, [id]) };
-      if (kind === 'outfit')
+      // Game data is validated as whole unlock strings; the id after the prefix is checked here.
+      if (kind === 'decor' && validGrant('decor', id)) {
+        next = { ...next, decorOwned: addDecor(next.decorOwned, [id]) };
+      }
+      if (kind === 'outfit' && validGrant('outfit', id))
         next = { ...next, outfitsUnlocked: addUnique(next.outfitsUnlocked, id) };
     }
   }

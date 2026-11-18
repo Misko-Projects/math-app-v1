@@ -27,12 +27,21 @@ export function initGoals(): EngineWeeklyGoalState {
   return { byChild: {} };
 }
 
-/** The child's target, with the settings' child ids compared case-insensitively. */
+/**
+ * The child's target, with the settings' child ids compared case-insensitively. When several
+ * spellings of one child are present, the canonical lower-case key wins, then the smallest key,
+ * so the result never depends on record order.
+ */
 function weeklyTarget(settings: GoalSettings, child: string): number {
-  for (const [id, s] of Object.entries(settings)) {
-    if (childKey(id) === child) return s.weeklyGoal;
-  }
-  return DEFAULT_WEEKLY_GOAL;
+  const exact = own(settings, child);
+  if (exact) return exact.weeklyGoal;
+  const ids = Object.keys(settings)
+    .filter((id) => childKey(id) === child)
+    .sort();
+  const first = ids[0];
+  return first !== undefined
+    ? (own(settings, first)?.weeklyGoal ?? DEFAULT_WEEKLY_GOAL)
+    : DEFAULT_WEEKLY_GOAL;
 }
 
 function summarize(weeks: Record<string, number>, target: number) {
