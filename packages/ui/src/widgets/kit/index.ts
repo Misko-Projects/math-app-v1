@@ -20,6 +20,7 @@ export {
   useDemoPause,
   useSubmitGuard,
 } from './controls';
+export { FLY_MS, useFlight } from './flight';
 export {
   INVITE_GLYPH_SELECTOR,
   INVITE_HAND_PX,
@@ -37,6 +38,7 @@ export {
   objectSetLayout,
   type PlacedObject,
 } from './layout';
+export { NumberEntry, type NumberEntryProps, TRAY_MAX } from './NumberEntry';
 export {
   type NumberLineMark,
   type NumberLineScale,

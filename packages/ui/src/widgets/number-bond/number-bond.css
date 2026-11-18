@@ -1,0 +1,243 @@
+/*
+ * number-bond widget (U03). Landscape: (found ways), the bond, then the answer and "check".
+ * Pictorial: the kit NumberBondView, its circles enlarged into tap targets. Concrete: three pools
+ * (whole on top, the parts below) joined by bond legs; counters are ≥ --target-min, 12 px apart.
+ */
+
+.ni-bondw {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 56px;
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 1180px;
+  padding: 12px 16px;
+}
+.ni-bondw__controls {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 24px;
+}
+.ni-bondw__entry {
+  position: relative;
+}
+.ni-bondw__entry .ni-entry[data-kind="tray"] {
+  gap: 24px;
+}
+
+/* ---------- pictorial bond ---------- */
+
+.ni-bondw__pbond .ni-bond {
+  row-gap: 72px;
+  padding: 12px 16px;
+}
+.ni-bondw__pbond .ni-bond__whole,
+.ni-bondw__pbond .ni-bond__parts {
+  gap: 132px;
+}
+.ni-bondw__pbond .ni-bond__lines line {
+  stroke-width: 5;
+}
+.ni-bondw__slot {
+  position: relative;
+  display: inline-flex;
+}
+.ni-bondw__circle {
+  width: calc(var(--target-min) * 1.9);
+  height: calc(var(--target-min) * 1.9);
+  margin: 0;
+  appearance: none;
+  border-width: 5px;
+  font-size: var(--text-numeral-lg);
+  box-shadow: 0 6px 0 rgb(38 70 83 / 0.16);
+  cursor: pointer;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+.ni-bondw__circle:disabled {
+  cursor: default;
+}
+.ni-bondw__circle[data-blank="true"]:not([data-empty="true"]) {
+  border-style: solid;
+  background: var(--color-sunshine-light);
+}
+/* The blank being filled: a teal ring outside the dashed circle and a caret (not colour alone). */
+.ni-bondw__circle[data-state="active"] {
+  outline: 5px solid var(--color-sea-deep);
+  outline-offset: 5px;
+}
+.ni-bondw__circle:focus-visible {
+  outline: 5px solid var(--color-sea-deep);
+  outline-offset: 8px;
+}
+
+/* ---------- ways already found (new-way) ---------- */
+
+.ni-bondw__found {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 18px;
+  padding: 16px 12px;
+  border: 3px solid var(--color-sand-deep);
+  border-radius: var(--radius-card);
+  background: var(--color-paper);
+}
+.ni-bondw__found .ni-bond {
+  min-width: 0;
+  row-gap: 18px;
+  padding: 2px 4px;
+}
+.ni-bondw__found .ni-bond__whole,
+.ni-bondw__found .ni-bond__parts {
+  gap: 30px;
+}
+.ni-bondw__found .ni-bond__circle {
+  width: 54px;
+  height: 54px;
+  border-width: 3px;
+  font-size: 2rem;
+}
+
+/* ---------- concrete bond: pools of counters ---------- */
+
+.ni-bondw__cbond {
+  position: relative;
+  min-width: 0;
+  margin: 0;
+  border: 0;
+  display: grid;
+  justify-items: center;
+  row-gap: 48px;
+  /* The whole's badge stands above its pool and the parts' badges below theirs. */
+  padding: 32px 0;
+}
+.ni-bondw__legs {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+.ni-bondw__cbond .ni-bondw__legs line {
+  stroke: var(--color-ink);
+  stroke-width: 5;
+  stroke-linecap: round;
+  vector-effect: non-scaling-stroke;
+}
+.ni-bondw__top {
+  position: relative;
+}
+.ni-bondw__bottom {
+  position: relative;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  justify-items: center;
+  gap: 40px;
+  width: 100%;
+}
+.ni-bondw__pool {
+  position: relative;
+  box-sizing: border-box;
+  padding: 14px 16px;
+  border: 4px solid var(--color-ink);
+  border-radius: 44px;
+  background: var(--color-cloud);
+  box-shadow: var(--shadow-soft);
+}
+.ni-bondw__pool[data-pool="whole"] {
+  padding-top: 34px;
+  background: var(--color-paper);
+}
+.ni-bondw__pool:not([data-pool="whole"]) {
+  padding-bottom: 34px;
+}
+.ni-bondw__pad {
+  position: absolute;
+  inset: 0;
+  border-radius: 40px;
+}
+/* A fixed-size pool (it never reflows as counters come and go); its counters sit centred. */
+.ni-bondw__counters {
+  position: relative;
+  display: flex;
+  flex-wrap: wrap;
+  align-content: center;
+  justify-content: center;
+  gap: var(--target-gap);
+  width: calc(var(--pool-cols, 5) * (var(--target-min) + var(--target-gap)) - var(--target-gap));
+  height: calc(var(--pool-rows, 1) * (var(--target-min) + var(--target-gap)) - var(--target-gap));
+  pointer-events: none;
+}
+.ni-bondw__counter {
+  box-sizing: border-box;
+  width: var(--target-min);
+  height: var(--target-min);
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: none;
+  pointer-events: auto;
+  animation: var(--animate-pop-in);
+}
+button.ni-bondw__counter {
+  appearance: none;
+  cursor: pointer;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+button.ni-bondw__counter:disabled {
+  cursor: default;
+}
+.ni-bondw__counter:focus-visible {
+  outline: 4px solid var(--color-sea-deep);
+  outline-offset: 2px;
+}
+.ni-bondw [data-flying="true"] {
+  visibility: hidden;
+}
+
+/* The pool's numeral: given, the live count of a part, or the asked blank (dashed). */
+.ni-bondw__badge {
+  position: absolute;
+  left: 50%;
+  display: grid;
+  place-items: center;
+  box-sizing: border-box;
+  width: 64px;
+  height: 64px;
+  padding-top: 0.1em;
+  border: 4px solid var(--color-ink);
+  border-radius: 50%;
+  background: var(--color-cloud);
+  color: var(--color-ink);
+  font-family: var(--font-display);
+  font-size: 2.25rem;
+  font-weight: 800;
+  line-height: 1;
+  transform: translateX(-50%);
+  pointer-events: none;
+}
+.ni-bondw__pool[data-pool="whole"] .ni-bondw__badge {
+  top: -32px;
+}
+.ni-bondw__pool:not([data-pool="whole"]) .ni-bondw__badge {
+  bottom: -32px;
+}
+.ni-bondw__badge[data-blank="true"] {
+  border-style: dashed;
+  background: var(--color-sky-light);
+}
+.ni-bondw__badge[data-blank="true"]:not([data-empty="true"]) {
+  border-style: solid;
+  background: var(--color-sunshine-light);
+}
+
+.ni-bondw__hand {
+  left: calc(50% - 10px);
+  top: calc(100% - 26px);
+}

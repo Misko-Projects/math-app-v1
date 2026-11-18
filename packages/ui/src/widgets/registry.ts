@@ -16,6 +16,9 @@ export const widgetRegistry: WidgetRegistry = {
   'tap-count': () => import('./tap-count/TapCountWidget'),
   'make-set': () => import('./make-set/MakeSetWidget'),
   'dot-flash': () => import('./dot-flash/DotFlashWidget'),
+  'tenframe-fill': () => import('./tenframe-fill/TenframeFillWidget'),
+  'number-bond': () => import('./number-bond/NumberBondWidget'),
+  rekenrek: () => import('./rekenrek/RekenrekWidget'),
 };
 
 /** Formats that have a registered widget. */
