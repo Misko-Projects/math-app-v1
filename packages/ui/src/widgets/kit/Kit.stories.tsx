@@ -4,7 +4,7 @@ import { type CSSProperties, useState } from 'react';
 import { expect, userEvent, within } from 'storybook/test';
 import { expectTargetGaps, expectTargetSize } from '../../test-support/storyHelpers';
 import { NumeralTray, PickCard } from './controls';
-import { StimulusView } from './StimulusView';
+import { NumberBondView, StimulusView } from './StimulusView';
 import { ObjectSprite, SPRITE_IDS } from './sprites';
 
 /**
@@ -114,6 +114,10 @@ const PICTURES: { name: string; spec: StimulusSpec }[] = [
   },
   { name: 'groups · 3 of 4', spec: { kind: 'groups', groups: 3, perGroup: 4, sprite: 'shell' } },
   { name: 'base ten · 34', spec: { kind: 'base-ten', hundreds: 0, tens: 3, ones: 4 } },
+  {
+    name: 'base ten · 1,000 and 100 (a cube has depth)',
+    spec: { kind: 'base-ten', thousands: 1, hundreds: 1, tens: 0, ones: 0 },
+  },
 ];
 
 /** Every picture kind the number-sense widgets render (03 §5.1 `StimulusSpec`). */
@@ -133,6 +137,47 @@ export const Pictures: Story = {
     const named = within(canvasElement).getAllByRole('img', { name: 'Look at the picture' });
     // The expression is text a screen reader reads as is.
     await expect(named.length).toBe(PICTURES.length - 1);
+    // A thousands cube must not look like a hundreds flat: it is drawn with depth.
+    const cube = canvasElement.querySelector('.ni-baseten__block--cube') as HTMLElement;
+    const flat = canvasElement.querySelector('.ni-baseten__block--flat') as HTMLElement;
+    await expect(getComputedStyle(flat).boxShadow).toBe('none');
+    await expect(getComputedStyle(cube).boxShadow).not.toBe('none');
+  },
+};
+
+/**
+ * A number bond whose slots are controls (`renderSlot`, as the number-bond widget uses it): the
+ * slots stay buttons for assistive technology, with or without a group label.
+ */
+export const BondWithControls: Story = {
+  render: () => (
+    <div className="story-row" style={{ gap: 64 }}>
+      {[undefined, 'Number bond'].map((label) => (
+        <NumberBondView
+          key={label ?? 'none'}
+          whole={7}
+          parts={[3, null]}
+          label={label}
+          renderSlot={(slot, value) => (
+            <button
+              type="button"
+              className="ni-bond__circle"
+              aria-label={`${slot} ${value ?? ''}`.trim()}
+            >
+              {value ?? ''}
+            </button>
+          )}
+        />
+      ))}
+    </div>
+  ),
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await expect(canvas.getAllByRole('button', { name: 'part-1' })).toHaveLength(2);
+    await expect(canvas.getByRole('group', { name: 'Number bond' })).toBeVisible();
+    const slot = canvas.getAllByRole('button', { name: 'whole 7' })[0] as HTMLElement;
+    slot.focus();
+    await expect(slot).toHaveFocus();
   },
 };
 

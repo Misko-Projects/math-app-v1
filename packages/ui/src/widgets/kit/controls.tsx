@@ -1,5 +1,5 @@
 import type { NarrationKey } from '@number-island/shared';
-import { type ReactNode, useEffect, useLayoutEffect, useRef } from 'react';
+import { type ReactNode, useCallback, useEffect, useLayoutEffect, useRef } from 'react';
 import {
   useNarrationText,
   useReducedMotion,
@@ -300,6 +300,28 @@ export function padValue(text: string): number | null {
   if (text === '' || text === '.') return null;
   const v = Number(text);
   return Number.isFinite(v) ? v : null;
+}
+
+// ---------- submit guard ----------
+
+/**
+ * Wraps a widget's submit so every route to it (the Check button, desktop Enter, a test click)
+ * shares one ≥ 400 ms debounce (06 §4). `now` is injectable for tests.
+ */
+export function useSubmitGuard(
+  submit: () => void,
+  ms: number = CHECK_DEBOUNCE_MS,
+  now: () => number = () => performance.now(),
+): () => void {
+  const last = useRef(Number.NEGATIVE_INFINITY);
+  const latest = useRef({ submit, now });
+  latest.current = { submit, now };
+  return useCallback(() => {
+    const t = latest.current.now();
+    if (t - last.current < ms) return;
+    last.current = t;
+    latest.current.submit();
+  }, [ms]);
 }
 
 // ---------- demo helpers ----------

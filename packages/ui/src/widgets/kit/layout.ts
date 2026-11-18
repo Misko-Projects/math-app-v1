@@ -119,6 +119,14 @@ function scatterCells(total: number, seed: number): { x: number; y: number }[] {
   }));
 }
 
+/** Layouts whose places carry meaning (frames, dice faces, equal groups). */
+const STRUCTURED: ReadonlySet<ObjectSet['layout']> = new Set([
+  'ten-frame',
+  'double-ten-frame',
+  'dice',
+  'groups',
+]);
+
 /**
  * Lays out an `ObjectSet`. Distractors (other objects that must not be counted) are mixed into the
  * same layout at deterministic positions; counted objects keep their reading order.
@@ -129,9 +137,13 @@ export function objectSetLayout(set: ObjectSet): ObjectLayout {
   const total = count + extra;
   const groupOf = groupIndexes(count, set.groups);
   const rng = createRng((set.layoutSeed ^ 0x5bd1e995) >>> 0);
-  // Which slots hold distractors (none for structured frames).
+  // Which slots hold distractors. Structured layouts (frames, dice, groups) keep every structured
+  // place for the counted objects; their distractors sit in a loose row underneath.
+  const structured = STRUCTURED.has(set.layout);
   const slots = Array.from({ length: total }, (_, i) => i);
-  const distractorSlots = new Set(rng.shuffle(slots).slice(0, extra));
+  const distractorSlots = new Set(
+    structured ? slots.slice(count) : rng.shuffle(slots).slice(0, extra),
+  );
   let fixedScale: number | null = null;
   const scaleFor = () => fixedScale ?? (set.sizeVaries ? 0.7 + rng.float() * 0.3 : 1);
   const frames: FrameOutline[] = [];
@@ -142,9 +154,9 @@ export function objectSetLayout(set: ObjectSet): ObjectLayout {
   switch (set.layout) {
     case 'ten-frame':
     case 'double-ten-frame': {
-      const frameCount = set.layout === 'double-ten-frame' ? 2 : Math.max(1, Math.ceil(total / 10));
+      const frameCount = set.layout === 'double-ten-frame' ? 2 : Math.max(1, Math.ceil(count / 10));
       for (let f = 0; f < frameCount; f++) frames.push({ x: 0, y: f * 2.5, cols: 5, rows: 2 });
-      points = Array.from({ length: total }, (_, i) => {
+      points = Array.from({ length: count }, (_, i) => {
         const f = Math.floor(i / 10);
         const k = i % 10;
         return { x: k % 5, y: f * 2.5 + Math.floor(k / 5) };
@@ -184,7 +196,7 @@ export function objectSetLayout(set: ObjectSet): ObjectLayout {
     case 'groups': {
       // One cluster per group, side by side with a clear gap: position shows the groups too.
       // Dice sit on die tiles (die faces up to 6, dominoes up to 10); groups sit on round plates.
-      const sizes = set.groups && set.groups.length > 0 ? set.groups : [total];
+      const sizes = set.groups && set.groups.length > 0 ? set.groups : [count];
       const dice = set.layout === 'dice';
       const step = dice ? 0.95 : 1.05;
       const inset = dice ? 0.3 : 0.35;
@@ -205,35 +217,47 @@ export function objectSetLayout(set: ObjectSet): ObjectLayout {
         x0 += w + 0.6;
         tallest = Math.max(tallest, h);
       }
-      while (points.length < total) points.push({ x: x0, y: 0 });
       width = Math.max(1, x0 - 0.6);
       height = Math.max(1, tallest);
       break;
     }
     default: {
       // 'line': rows of up to 10; sub-groups are split by a half-cell gap.
+      // The row limit counts objects, not the gap offsets, so ten objects always share one row.
       const perRow = 10;
-      let col = 0;
+      let x = 0;
+      let inRow = 0;
       let row = 0;
       let lastGroup = 0;
       let widest = 0;
       let objectIndex = 0;
       points = slots.map((slot) => {
         const g = distractorSlots.has(slot) ? lastGroup : (groupOf[objectIndex++] ?? 0);
-        if (g !== lastGroup && col > 0) col += 0.5;
-        lastGroup = g;
-        if (col >= perRow) {
-          col = 0;
+        if (inRow >= perRow) {
+          x = 0;
+          inRow = 0;
           row += 1;
+        } else if (g !== lastGroup && inRow > 0) {
+          x += 0.56;
         }
-        const p = { x: col * 1.12, y: row * 1.2 };
-        col += 1;
+        lastGroup = g;
+        const p = { x, y: row * 1.2 };
+        x += 1.12;
+        inRow += 1;
         widest = Math.max(widest, p.x + 1);
         return p;
       });
       width = Math.max(1, widest);
       height = row * 1.2 + 1;
     }
+  }
+
+  if (structured && extra > 0) {
+    // Distractors in a loose row under the frame, dice or plates (never in a counted place).
+    const y = height + 0.4;
+    for (let i = 0; i < extra; i++) points.push({ x: i * 1.12, y });
+    width = Math.max(width, extra * 1.12 - 0.12);
+    height = y + 1;
   }
 
   const objects: PlacedObject[] = [];

@@ -274,6 +274,15 @@
     linear-gradient(to right, rgb(23 96 110 / 0.5) 1.5px, transparent 1.5px),
     linear-gradient(to bottom, rgb(23 96 110 / 0.5) 1.5px, transparent 1.5px);
 }
+/* A thousands cube: a flat with visible depth (a top and side face), so it never reads as 100. */
+.ni-baseten__block--cube {
+  margin: 16px 16px 0 0;
+  box-shadow:
+    8px -8px 0 -3px var(--color-shallows),
+    8px -8px 0 0 var(--color-sea-dark),
+    16px -16px 0 -3px var(--color-shallows),
+    16px -16px 0 0 var(--color-sea-dark);
+}
 .ni-baseten__ones {
   display: flex;
   flex-wrap: wrap-reverse;

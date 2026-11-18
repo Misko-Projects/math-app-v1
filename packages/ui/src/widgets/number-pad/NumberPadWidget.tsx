@@ -15,6 +15,7 @@ import {
   StimulusView,
   useAlive,
   useDemoPause,
+  useSubmitGuard,
 } from '../kit';
 import type { ConfigFor, WidgetProps } from '../types';
 import './number-pad.css';
@@ -97,7 +98,8 @@ export function NumberPadWidget({
     typeKey(key);
   };
 
-  const submit = () => {
+  // One debounce for every way to submit (Check button, desktop Enter): 06 §4.
+  const submit = useSubmitGuard(() => {
     if (!interactive || !complete) return;
     const model = formatModel('number-pad');
     if (!model) return;
@@ -107,7 +109,7 @@ export function NumberPadWidget({
     });
     const response = model.toResponse(state);
     if (response) onResponse(response);
-  };
+  });
 
   // ---------- demo mode (03 §6.3) ----------
 
@@ -134,6 +136,12 @@ export function NumberPadWidget({
             });
           } else if (typeof action.args?.value === 'number') {
             list.push([0, action.args.value]);
+          }
+          if (action.op === 'answer') {
+            // `answer` replaces every entry, as the engine model does: blanks it doesn't name clear.
+            const cleared = blanks.map(() => '');
+            textsRef.current = cleared;
+            setTexts(cleared);
           }
           for (const [i, v] of list) {
             setActive(i);

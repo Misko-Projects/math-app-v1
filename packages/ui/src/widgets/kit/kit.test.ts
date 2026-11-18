@@ -144,3 +144,42 @@ describe('number pad entry', () => {
     expect(padValue('2.5')).toBe(2.5);
   });
 });
+
+describe('review regressions (PR #63 round 1)', () => {
+  it('ten objects with sub-group gaps stay on one row (CNT.15.t3 ordinal, groups [8, 1, 1])', () => {
+    const l = objectSetLayout(set({ count: 10, layout: 'line', groups: [8, 1, 1] }));
+    const objs = l.objects.filter((o) => o.kind === 'object');
+    expect(new Set(objs.map((o) => o.y))).toEqual(new Set([0]));
+    // The marked object (group 1, index 8) has exactly one object to its right.
+    const marked = objs.find((o) => o.group === 1) as (typeof objs)[number];
+    expect(objs.filter((o) => o.x > marked.x)).toHaveLength(1);
+    // An eleventh object starts a second row.
+    const eleven = objectSetLayout(set({ count: 11, layout: 'line', groups: [8, 1, 2] }));
+    expect(eleven.objects.filter((o) => o.y > 0)).toHaveLength(1);
+  });
+
+  it.each(['groups', 'dice', 'ten-frame'] as const)(
+    '%s with distractors: counted objects keep their structured places, distractors do not overlap',
+    (layout) => {
+      const l = objectSetLayout(
+        set({ count: 5, layout, groups: [3, 2], distractors: { sprite: 'crab', count: 2 } }),
+      );
+      expect(l.objects).toHaveLength(7);
+      expect(overlaps(l.objects)).toBe(false);
+      const counted = l.objects.filter((o) => o.kind === 'object');
+      const loose = l.objects.filter((o) => o.kind === 'distractor');
+      expect(counted.map((o) => o.sprite)).toEqual(Array(5).fill('shell'));
+      // Distractors sit below every counted object.
+      const lowest = Math.max(...counted.map((o) => o.y + o.scale));
+      for (const d of loose) expect(d.y).toBeGreaterThan(lowest);
+      for (const o of l.objects) {
+        expect(o.x + o.scale).toBeLessThanOrEqual(l.width + 1e-9);
+        expect(o.y + o.scale).toBeLessThanOrEqual(l.height + 1e-9);
+      }
+      if (layout !== 'ten-frame') {
+        expect(counted.filter((o) => o.group === 0)).toHaveLength(3);
+        expect(counted.filter((o) => o.group === 1)).toHaveLength(2);
+      }
+    },
+  );
+});

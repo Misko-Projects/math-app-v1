@@ -5,7 +5,14 @@ import { useInteractionTrace } from '../../interaction/trace';
 import { useNarrationText, useSpeech, useUiPreferences } from '../../preferences/UiProvider';
 import { HandPointerIcon } from '../../primitives/icons';
 import { useWidgetDemo } from '../demo';
-import { CheckButton, PickCard, StimulusView, useAlive, useDemoPause } from '../kit';
+import {
+  CheckButton,
+  PickCard,
+  StimulusView,
+  useAlive,
+  useDemoPause,
+  useSubmitGuard,
+} from '../kit';
 import type { ConfigFor, WidgetProps } from '../types';
 import './numeral-pick.css';
 
@@ -57,14 +64,14 @@ export function NumeralPickWidget({
     setSelected(o.id);
   };
 
-  const submit = () => {
+  const submit = useSubmitGuard(() => {
     if (!interactive || selected === null) return;
     const model = formatModel('numeral-pick');
     if (!model) return;
     const state = model.apply(model.initialState(config), { op: 'tap', args: { id: selected } });
     const response = model.toResponse(state);
     if (response) onResponse(response);
-  };
+  });
 
   const idOf = (action: WidgetAction | null) =>
     typeof action?.args?.id === 'string' ? action.args.id : null;

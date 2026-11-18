@@ -14,6 +14,7 @@ export {
   padValue,
   useAlive,
   useDemoPause,
+  useSubmitGuard,
 } from './controls';
 export {
   dicePattern,

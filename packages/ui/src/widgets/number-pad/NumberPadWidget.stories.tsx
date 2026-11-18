@@ -204,8 +204,15 @@ export const Keyboard: Story = {
     await userEvent.keyboard('{Backspace}');
     await userEvent.keyboard('7');
     await expect(within(root).getByRole('button', { name: 'Your answer: 17' })).toBeVisible();
-    await userEvent.keyboard('{Enter}');
+    // A double Enter (or a held key) and Enter-then-Check inside 400 ms submit once (06 §4).
+    await userEvent.keyboard('{Enter}{Enter}');
+    await userEvent.click(within(root).getByRole('button', { name: 'Check' }));
+    await expect(args.onResponse).toHaveBeenCalledTimes(1);
     await expect(args.onResponse).toHaveBeenCalledWith({ kind: 'number', value: 17 });
+    // After the debounce window, Enter submits again.
+    await new Promise((r) => setTimeout(r, 450));
+    await userEvent.keyboard('{Enter}');
+    await expect(args.onResponse).toHaveBeenCalledTimes(2);
     // The pad keys are reachable by Tab and work with Enter/Space too.
     await userEvent.keyboard('{Backspace}{Backspace}');
     key(root, '4').focus();
@@ -285,5 +292,9 @@ export const DemoReducedMotion: Story = {
     await reducedController.play({ op: 'answer', args: { values: [86, 87] } });
     await expect(performance.now() - started).toBeLessThan(500);
     await expect(within(root).getByRole('button', { name: 'Box 2: 87' })).toBeVisible();
+    // `answer` replaces every entry, like the engine model: a shorter answer clears box 2.
+    await reducedController.play({ op: 'answer', args: { value: 85 } });
+    await expect(within(root).getByRole('button', { name: 'Box 1: 85' })).toBeVisible();
+    await expect(within(root).getByRole('button', { name: 'Box 2:' })).toBeVisible();
   },
 };

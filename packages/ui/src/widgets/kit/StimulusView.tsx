@@ -464,7 +464,8 @@ export function NumberBondView({
   return (
     <div
       className="ni-bond"
-      {...pictureProps(label)}
+      // A static bond is one picture; with renderSlot its slots are controls, so it stays a group.
+      {...(renderSlot ? { role: 'group', 'aria-label': label } : pictureProps(label))}
       style={{ '--parts': parts.length } as CSSProperties}
     >
       <svg
