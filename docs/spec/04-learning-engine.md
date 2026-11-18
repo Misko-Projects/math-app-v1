@@ -196,6 +196,21 @@ Fact-fluency skills that are `practiced` but not `fluent` are routed to the flue
 - Accuracy band: rolling first-try accuracy vs. target.
 - Math density: math-interaction ms / active ms per session (the web app records interaction time).
 
+## 7a. Readings fixed by E02 (2026-11-18)
+
+Points §2–§5 leave open, as `elo-fire-v1` implements them (all parameters in `engine/src/params.ts`):
+
+- **Expected latency:** "manipulative" means a concrete or pictorial tier (12,000 ms), and abstract is 8,000 ms, unless the template sets `expectedLatencyMs`.
+- **Rolling success controller (§2.4):** the window holds the first attempts of every context except `placement` and `lesson`. When it is full (20) and outside [0.75, 0.92], the offset moves once and the window starts empty, so each further adjustment rests on 20 new items. The 20% decay applies at each `session.started`.
+- **Evidence (§3):** `SkillState.recent` holds the last 10 first attempts in an evidence context (`practice`, `review`, `warmup`, `challenge`, `transfer-probe`) that are not `choice` responses. The practiced rules read "correct" as correct with no hints, over `recent`: the k-of-n rule on its last n entries, and the format/tier/representation and two-session rules on its correct entries.
+- **Fluent:** the median latency of the correct entries in `recent` (at most 10), needing at least 6 of them.
+- **Mastered:** a passed explicit review counts from `practicedAt` (from `fluentAt` for fact-fluency skills): the first ≥ 1 day after, the second ≥ 6 days after the first.
+- **Review speed (§4):** a correct review is fast at latency ≤ 1 × expected, normal ≤ 2 ×, and slow (or hinted) beyond that. Explicit reviews are first attempts in the `review` or `transfer-probe` context on a skill that is practiced or assumed. Implicit credit uses the reviewed skill's undiscounted multiplier `m` and each encompassed skill's own elapsed fraction, changes only `intervalDays` and `dueTs`, and applies to encompassed skills that already have memory. A failed review sets `dueTs = now + I`, and a passed one clears `atRiskDueTs`. `dueReviews` lists skills on the practiced track whose `min(memory.dueTs, atRiskDueTs) ≤ now`, deepest first.
+- **Test-out (§3, 03 §6.5):** the first `testOut.items` evidence attempts on a never-attempted skill whose prerequisites are met and whose lesson mode is not `none`, all from its test-out pool. At least `minCorrect` of them correct on the first try, with no hints and not slow, set `practicedAt`. A lesson or an out-of-pool item first means no test-out.
+- **Placement (§5):** `placement.completed` merges its posterior into `LearnerState.placement.prior` (later values win per skill) and unions `assumed`. Each assumed skill that is not already practiced gets `assumed: true`, `practicedAt` = the event's `ts` and `I = 2` days. A never-attempted skill with a prior takes `θs = logit(clamp(p, 0.05, 0.95)) − θg`. A passed review clears `assumed` (verified). A failed review of an assumed skill demotes it, and every assumed descendant, at once.
+- **Parent override:** `mastered` sets `masteredAt` (and `practicedAt`, plus `fluentAt` for fact-fluency, if missing) and starts memory at `I = 1`. `reset` restarts the skill's evidence and ladder but keeps its θ offset. Demotion clears an earlier `mastered` override.
+- **Misconception hits:** hits from every non-placement attempt on the skill, keeping those no older than the oldest entry of `recent` (at most 10).
+
 ## 8. Testing requirements (engine)
 
 - Unit tests for every formula above (table-driven).

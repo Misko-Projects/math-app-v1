@@ -11,6 +11,7 @@ export {
 } from './content/binding';
 export { constraintHolds, ExprError } from './content/expr';
 export { render } from './content/render';
+export { compareEvents, isEvent, sortEvents } from './folds/order';
 export type { FormatModel, FormatState } from './formats';
 export { formatFeatures, formatModel, formatModels, UnsupportedOpError } from './formats';
 export {
@@ -40,6 +41,7 @@ export {
 } from './items/generate';
 export { buildHints } from './items/hints';
 export { itemExampleCorrect, itemSolution, replaySteps } from './items/solution';
+export * from './learner';
 export {
   applicableMisconceptions,
   itemGenerator,
@@ -47,4 +49,5 @@ export {
   misconceptionRule,
   registeredRuleIds,
 } from './misconceptions';
+export { DAY_MS, type EngineParams, PARAMS } from './params';
 export { createRng, fnv1a32, type Rng } from './rng';

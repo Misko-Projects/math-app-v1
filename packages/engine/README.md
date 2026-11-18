@@ -2,7 +2,7 @@
 
 The pure TypeScript engine (02 §2): no DOM, React, Dexie or Node built-ins, no `Math.random` and no `Date.now`. Randomness comes from the seeded RNG, and time is passed in as a parameter. `pnpm lint` (`scripts/check-boundaries.mjs`) enforces this. It runs in the web app, the API and tests.
 
-E01 (#7) delivers the item core: the RNG, the generator registry, item generation and difficulty targeting, response checking, misconception matching, hint ladders, the state models and widget schemas of the 11 fixture formats, and the hooks `tools/content-check` uses. The learner model (E02) and the session planner (E03) land in `src/learner` and `src/planner`.
+E01 (#7) delivers the item core: the RNG, the generator registry, item generation and difficulty targeting, response checking, misconception matching, hint ladders, the state models and widget schemas of the 11 fixture formats, and the hooks `tools/content-check` uses. E02 (#10) adds the learner model and its fold in `src/learner`; the session planner (E03) lands in `src/planner`.
 
 Source of truth: `docs/spec/02-architecture.md` §5.2 and §7, and `docs/spec/03-curriculum.md` §5–§7 and §9.
 
@@ -47,6 +47,12 @@ formatModel(item.widget.format);      // { configSchema, initialState, apply, to
 | `misconceptionRule`, `applicableMisconceptions`, `itemGenerator` | Misconception rules (03 §7.1). An item's generator is resolved through its bound template (02 §5.9 E3). |
 | `render(key, vars)` | 03 §8.4 display text (thousands commas, `25¢`, `$1.25`, `0.47`, nouns, units, names). |
 | `generatorRegistered`, `generatorParams`, `generatorFeatures`, `generatorIdentifiers` | 03 §9.3 hooks for `tools/content-check`. |
+| `createEloFireModel(graph, { childId, isK })` | The 02 §5.3 `LearnerModel` `elo-fire-v1` (04 §2–§5): `init`, `apply`, `predict`, `status`, `dueReviews`, `frontier`, plus `applyPlacement`, `applyPlacementProbe`, `applyOverride`, `startSession`, `skillOffset`, `pRef`, `retrievability`, `expectedLatency`. Readings the spec left open are in 04 §7a. |
+| `foldSkillStates`, `foldLearnerState`, `applyLearnerEvent` | The learner projection (02 §4.3): order-independent (sorted by `ts`, then `id`, duplicate ids once), and incremental. |
+| `buildSkillGraph(input)` | The 02 §5.8 `SkillGraph` from `skills.json`, `templates.json`, `graph.json` and `template-stats.json`. |
+| `compressReviews`, `reviewContext` | 04 §4 review compression and transfer probes, for the planner. |
+| `PARAMS`, `DAY_MS` | Every 04 parameter, in `src/params.ts`. |
+| `sortEvents`, `compareEvents`, `isEvent` | Event ordering shared by every fold. |
 | `@number-island/engine/testing`: `runTemplateProperties`, `difficultyStats`, `propertyN` | The 03 §9.4 property test and the 03 §9.2 statistics, for Vitest and `tools/content-check`. Node and tests only: this entry uses fast-check and is never imported by the app. |
 
 ## Layout
@@ -61,6 +67,9 @@ src/items/                       generateItem, checkResponse, difficulty, hints,
 src/formats/<format>.ts          state model + widget schema + format features, one per format
 src/check/state/<id>.ts          state checkers
 src/misconceptions/rules/<id>.ts misconception rules; index.ts is the registry
+src/params.ts                    every 04 parameter
+src/learner/                     elo-fire-v1 model, the learner fold, SkillGraph builder, review helpers
+src/folds/                       event ordering shared by the projections
 src/testing/                     the property test and statistics (the /testing entry)
 test/                            Node tests over the fixture content, compiled in memory (no dist needed)
 ```
