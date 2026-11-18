@@ -1,51 +1,103 @@
 /*
- * number-line-jump widget (U03, Road Crew). Landscape: the road (stones or a line) across the top
- * with the hopper on it; jump buttons, the pad and "check" in one row below. Tokens only.
+ * number-line-jump widget (U03, Road Crew). The road (stones or a line) with the hopper on it, the
+ * hop buttons under it; the answer and pad under them (stack) or beside them (side-right: answer
+ * above the pad; side-main: the pad alone, the answer in the hop buttons' row). Tokens only.
  */
 
 .ni-nlj {
+  position: relative;
   display: flex;
-  flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 24px;
+  gap: var(--nlj-gap, 20px);
   box-sizing: border-box;
   width: 100%;
   max-width: 1180px;
-  padding: 8px 20px;
+  /* Safe centring in the host: centred while it fits, top-aligned when it does not. */
+  margin: auto;
+  padding: 8px;
+  /* The widget takes the width its host gives it; the road is drawn to the lane's measured width. */
+  contain: inline-size;
 }
-.ni-nlj__path {
+.ni-nlj[data-layout="stack"] {
+  flex-direction: column;
+}
+.ni-nlj__main {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--nlj-gap, 20px);
+  flex: 1 1 0;
+  min-width: 0;
+  align-self: stretch;
+  justify-content: center;
+}
+.ni-nlj[data-layout="stack"] .ni-nlj__main {
+  flex: none;
+  width: 100%;
+}
+.ni-nlj__lane {
   display: flex;
   justify-content: center;
-  width: 100%;
+  align-self: stretch;
+  min-width: 0;
+}
+.ni-nlj__row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--nlj-gap, 20px);
+}
+.ni-nlj__entry {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--nlj-gap, 20px);
+  flex: none;
+}
+.ni-nlj__entry[data-dir="column"] {
+  flex-direction: column;
+}
+.ni-nlj__answer {
+  display: flex;
+  align-items: center;
+  gap: var(--nlj-gap, 20px);
+}
+.ni-nlj__answer[data-dir="column"] {
+  flex-direction: column;
+}
+.ni-nlj__readout,
+.ni-nlj__check {
+  display: inline-flex;
 }
 
 /* ---------- stones (concrete) ---------- */
 
 .ni-nlj__stones {
   position: relative;
-  display: flex;
-  justify-content: center;
-  gap: var(--target-gap);
-  box-sizing: border-box;
-  width: 100%;
-  padding-top: 76px;
+  flex: none;
 }
-.ni-nlj__stoneslot {
-  position: relative;
+.ni-nlj__window {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: calc(var(--stone) + 8px);
+  overflow: hidden;
+}
+.ni-nlj__road {
   display: flex;
-  align-items: flex-start;
-  flex: 1 1 0;
-  min-width: var(--target-min);
-  max-width: 112px;
+  gap: var(--stone-gap);
+  transition: transform 360ms ease-in-out;
 }
 .ni-nlj__stone {
   position: relative;
   display: grid;
+  flex: none;
   place-items: center;
   box-sizing: border-box;
-  width: 100%;
-  aspect-ratio: 1;
+  width: var(--stone);
+  height: var(--stone);
   margin: 0 0 6px;
   padding: 0;
   appearance: none;
@@ -56,11 +108,13 @@
   box-shadow:
     0 6px 0 var(--color-pebble-deep),
     var(--shadow-highlight);
-  cursor: pointer;
   touch-action: manipulation;
   -webkit-tap-highlight-color: transparent;
 }
-.ni-nlj__stone:disabled {
+button.ni-nlj__stone {
+  cursor: pointer;
+}
+button.ni-nlj__stone:disabled {
   cursor: default;
 }
 .ni-nlj__stone:focus-visible {
@@ -75,6 +129,9 @@
   padding-top: 0.12em;
   font-variant-numeric: tabular-nums;
 }
+.ni-nlj__stones[data-tappable="false"] .ni-nlj__stonenum {
+  font-size: 2rem;
+}
 /* The start stone: sunshine sand and a little flag (shape, not colour alone). */
 .ni-nlj__stone[data-start="true"] {
   background: var(--color-sunshine-light);
@@ -83,28 +140,42 @@
   content: "";
   position: absolute;
   top: -6px;
-  left: 8px;
+  left: 6px;
   width: 0;
   height: 0;
-  border-left: 18px solid var(--color-coral);
-  border-top: 10px solid transparent;
-  border-bottom: 10px solid transparent;
+  border-left: 16px solid var(--color-coral);
+  border-top: 9px solid transparent;
+  border-bottom: 9px solid transparent;
   filter: drop-shadow(-3px 0 0 var(--color-ink));
 }
-/* The stone the hopper stands on: a thick ink ring. */
+/* The stone the hopper stands on: a thick ink ring (inside, so it never reaches a neighbour). */
 .ni-nlj__stone[data-here="true"] {
   box-shadow:
-    0 0 0 5px var(--color-ink),
-    0 6px 0 5px var(--color-ink);
+    inset 0 0 0 4px var(--color-ink),
+    0 6px 0 var(--color-ink);
 }
+/* A demo highlight: a dashed sea ring and a soft pulse (not the invite ring, nothing to press). */
 .ni-nlj__stone[data-highlight="true"] {
-  outline: 5px solid var(--color-sea-deep);
-  outline-offset: 6px;
+  outline: 4px dashed var(--color-sea-deep);
+  outline-offset: -10px;
   animation: var(--animate-pulse-soft);
 }
-.ni-nlj__stonehand {
-  left: calc(50% - 8px);
-  bottom: -48px;
+/* "The road goes on": three little pebbles at a cut end of the window. */
+.ni-nlj__more {
+  position: absolute;
+  bottom: calc(var(--stone) / 2 - 4px);
+  width: 22px;
+  height: 8px;
+  background:
+    radial-gradient(circle at 4px 4px, var(--color-ink-soft) 3.5px, transparent 4px),
+    radial-gradient(circle at 11px 4px, var(--color-ink-soft) 3.5px, transparent 4px),
+    radial-gradient(circle at 18px 4px, var(--color-ink-soft) 3.5px, transparent 4px);
+}
+.ni-nlj__more[data-side="start"] {
+  right: calc(100% + 4px);
+}
+.ni-nlj__more[data-side="end"] {
+  left: calc(100% + 4px);
 }
 
 /* ---------- line, open line, timeline (pictorial) ---------- */
@@ -126,6 +197,7 @@
   fill: none;
   stroke: var(--color-sea-deep);
   stroke-width: 5;
+  stroke-dasharray: 8 6;
   animation: var(--animate-pulse-soft);
 }
 
@@ -139,53 +211,40 @@
   pointer-events: none;
 }
 .ni-nlj__hopper[data-path="stones"] {
-  top: 6px;
-  left: 0;
+  top: 4px;
   transform: translateX(-50%);
 }
 .ni-nlj__hopper[data-path="line"] {
   transform: translate(-50%, calc(-100% + 2px));
 }
 
-/* ---------- controls ---------- */
+/* ---------- hop buttons ---------- */
 
-.ni-nlj__controls {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 40px;
-  width: 100%;
-}
+/*
+ * Hop controls are a little taller than wide: the arrow and size sit in the top, leaving the
+ * bottom free for Pip's fingertip, so an invite's hand never covers the size it points at.
+ */
 .ni-nlj__jumps {
-  display: flex;
-  align-items: center;
-  gap: 28px;
-}
-.ni-nlj__jumpset {
-  display: flex;
-  flex-wrap: wrap;
+  display: grid;
+  grid-auto-rows: calc(var(--target-min) + 18px + 6px);
+  gap: var(--target-gap);
   justify-content: center;
-  gap: calc(var(--target-gap) * 2);
   margin: 0;
   padding: 0;
   border: 0;
   min-width: 0;
 }
-.ni-nlj__jumpslot {
-  position: relative;
-  display: inline-flex;
-}
 .ni-nlj__jump {
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: center;
-  gap: 2px;
+  justify-content: flex-start;
+  gap: 0;
   box-sizing: border-box;
-  min-width: calc(var(--target-min) * 1.4);
-  min-height: calc(var(--target-min) * 1.3);
+  width: var(--target-min);
+  height: calc(var(--target-min) + 18px);
   margin: 0 0 6px;
-  padding: 6px 14px;
+  padding: 6px 0 0;
   appearance: none;
   border: 3px solid var(--color-ink);
   border-radius: var(--radius-pebble);
@@ -215,50 +274,74 @@
   cursor: default;
 }
 /* A hop off the end of the road: faded and dashed (not only paler). */
-.ni-nlj__jump[data-blocked="true"] {
+.ni-nlj__jump[data-blocked="true"],
+.ni-nlj__undo:disabled {
   border-style: dashed;
   opacity: 0.55;
 }
+/* Hop buttons are 12 px apart: the invite ring is drawn inside the button, just within its border. */
+.ni-nlj__jump.ni-invite {
+  outline-width: 4px;
+  outline-offset: -7px;
+  border-radius: var(--radius-pebble);
+}
 .ni-nlj__jumparrow {
   display: block;
-  width: 52px;
-  height: 36px;
+  width: calc(var(--target-min) * 0.5);
+  height: calc(var(--target-min) * 0.28);
+}
+/* Take-back and the dial steps: the icon in the button's upper part (same reason). */
+.ni-nlj__undo,
+.ni-nlj__dialstep {
+  justify-content: center;
+  padding: 0 0 18px;
 }
 .ni-nlj__jumpnum {
   font-family: var(--font-display);
-  font-size: 2.5rem;
+  font-size: 2rem;
   font-weight: 800;
   line-height: 1;
   font-variant-numeric: tabular-nums;
 }
-.ni-nlj__jumphand {
-  left: calc(50% - 8px);
-  bottom: -48px;
+.ni-nlj__undo {
+  background: var(--color-sand);
 }
-/* The pad keeps the minimum target size (80 px K / 64 px G1) so the road and pad fit one screen. */
-.ni-nlj .ni-pad {
-  grid-template-columns: repeat(3, var(--target-min));
-  /* + the key's 4 px ledge margin. */
-  grid-auto-rows: calc(var(--target-min) + 4px);
-}
-.ni-nlj__readout {
-  position: relative;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 20px;
-  border-radius: var(--radius-card);
-}
-.ni-nlj__answerhand {
-  left: calc(50% - 8px);
-  top: 70px;
+.ni-nlj__undoicon {
+  display: block;
+  width: var(--icon-size);
+  height: var(--icon-size);
 }
 
-[data-reduced-motion="true"] .ni-nlj__jump {
+[data-reduced-motion="true"] .ni-nlj__jump,
+[data-reduced-motion="true"] .ni-nlj__road {
   transition-duration: 0ms;
 }
 @media (prefers-reduced-motion: reduce) {
-  .ni-nlj__jump {
+  .ni-nlj__jump,
+  .ni-nlj__road {
     transition-duration: 0ms;
   }
+}
+
+/* The hop dial: step to a smaller or bigger hop (a chevron, not an arrow: it does not hop). */
+.ni-nlj__dialicon {
+  display: block;
+  width: calc(var(--icon-size) * 0.8);
+  height: calc(var(--icon-size) * 0.8);
+  border-left: 7px solid var(--color-ink);
+  border-bottom: 7px solid var(--color-ink);
+  border-radius: 3px;
+  transform: translateX(20%) rotate(45deg);
+}
+.ni-nlj__dialicon[data-dir="bigger"] {
+  transform: translateX(-20%) rotate(-135deg);
+}
+.ni-nlj__dialstep:disabled {
+  border-style: dashed;
+  opacity: 0.55;
+}
+
+/* Check sits only 12 px from its neighbours in a short room: its invite ring is drawn inside it. */
+.ni-nlj__check .ni-btn.ni-invite {
+  outline-offset: -9px;
 }

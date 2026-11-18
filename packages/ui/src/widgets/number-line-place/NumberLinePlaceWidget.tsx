@@ -1071,6 +1071,7 @@ export function NumberLinePlaceWidget({
         onPress={submit}
         disabled={!interactive || !ready}
         invited={cue?.at === 'check'}
+        compact={plan.layout === 'side'}
       />
     </span>
   );

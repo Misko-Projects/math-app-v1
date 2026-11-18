@@ -35,10 +35,15 @@ export interface CheckButtonProps {
   disabled?: boolean;
   /** Pulse under the demo hand (03 §6.3 invite). */
   invited?: boolean;
+  /**
+   * Icon only, whatever the text mode (its label is still its accessible name and is spoken on
+   * tap): for a short room where the word would cost a widget's controls their full size.
+   */
+  compact?: boolean;
 }
 
 /** The widget's "check" button: debounced ≥ 400 ms (06 §4), icon-only with a spoken label in K. */
-export function CheckButton({ onPress, disabled, invited }: CheckButtonProps) {
+export function CheckButton({ onPress, disabled, invited, compact }: CheckButtonProps) {
   return (
     <BigButton
       label="ui.btn.check"
@@ -47,6 +52,7 @@ export function CheckButton({ onPress, disabled, invited }: CheckButtonProps) {
       debounceMs={CHECK_DEBOUNCE_MS}
       disabled={disabled}
       onPress={onPress}
+      showLabel={compact ? false : undefined}
       className={invited ? 'ni-invite' : undefined}
     />
   );
