@@ -1,5 +1,12 @@
-# Child-facing app chrome lines (03 §4.1, §8): spoken labels for buttons and shared UI.
-# Owned by the UI issues (06). One key is one line. Format: 03 §8.2.
+# Child-facing app chrome lines (03 §4.1): ui.* keys for the profile picker, buttons, the
+# parent-gate prompt and similar. Skeleton: each UI issue (U01, W00, CH1, P01 …) authors its own
+# keys here, within the 03 §8.5 reading level.
+ui.button.next:
+  text: "Next"
+ui.button.back:
+  text: "Back"
+ui.profile.who-is-playing:
+  text: "Who is playing?"
 
 # Design-system primitives (U01, packages/ui/src/primitives).
 ui.btn.home:

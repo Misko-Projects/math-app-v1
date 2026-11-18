@@ -1,0 +1,3 @@
+# Retired SkillIds and TemplateIds (03 §1): never reusable; the validator rejects them forever (V02).
+skills: []
+templates: []
