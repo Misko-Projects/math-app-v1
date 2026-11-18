@@ -327,7 +327,7 @@ export function SampleSetWidget({
           </div>
           <BasketArt />
           {invite ? (
-            <span className="ni-hand" style={{ right: -12, top: -28 }}>
+            <span className="ni-hand" style={{ left: 'calc(50% - 28px)', top: -44 }}>
               <HandPointerIcon />
             </span>
           ) : null}

@@ -158,48 +158,71 @@ export function StarIcon({ tone = 'color', ...props }: IconProps) {
   );
 }
 
-/** The demo-mode "hand pointer" (03 §6.3): a friendly gloved hand pointing down-left. */
+/**
+ * The demo-mode "hand pointer" (03 §6.3): a friendly gloved hand whose finger points down, so it
+ * can sit just above the target it invites the child to use.
+ */
 export function HandPointerIcon(props: IconProps) {
   return (
     <Svg {...props}>
-      <path
-        d="M20 6.5a3.5 3.5 0 0 1 3.5 3.5v12.2l1-.2a3.3 3.3 0 0 1 3.9 2.3l.3-.1a3.3 3.3 0 0 1 4 2.4 3.3 3.3 0 0 1 4.3 3.2v5.5c0 5.7-4.6 10.2-10.3 10.2h-1.8c-3.2 0-6.2-1.5-8.1-4.1l-6.4-8.6a3.3 3.3 0 0 1 4.9-4.4l1.2 1.2V10A3.5 3.5 0 0 1 20 6.5Z"
-        fill="#fff"
-        stroke={INK}
-        strokeWidth="3"
-      />
-      <path d="M28.4 24.3v5M33.2 26.6v4" stroke={INK} strokeWidth="2.5" />
+      <g transform="matrix(1 0 0 -1 0 48)">
+        <path
+          d="M20 6.5a3.5 3.5 0 0 1 3.5 3.5v12.2l1-.2a3.3 3.3 0 0 1 3.9 2.3l.3-.1a3.3 3.3 0 0 1 4 2.4 3.3 3.3 0 0 1 4.3 3.2v5.5c0 5.7-4.6 10.2-10.3 10.2h-1.8c-3.2 0-6.2-1.5-8.1-4.1l-6.4-8.6a3.3 3.3 0 0 1 4.9-4.4l1.2 1.2V10A3.5 3.5 0 0 1 20 6.5Z"
+          fill="#fff"
+          stroke={INK}
+          strokeWidth="3"
+        />
+        <path d="M28.4 24.3v5M33.2 26.6v4" stroke={INK} strokeWidth="2.5" />
+      </g>
     </Svg>
   );
 }
 
-/** A wooden crate with a hammer: "still being built". */
+/** A wooden crate with a hammer resting on its lid: "still being built". */
 export function CrateIcon(props: IconProps) {
   return (
     <Svg {...props}>
+      <ellipse cx="22" cy="43" rx="18" ry="2.5" fill="rgb(38 70 83 / 0.16)" />
       <rect
-        x="7"
-        y="17"
-        width="28"
-        height="24"
+        x="5"
+        y="18"
+        width="32"
+        height="23"
         rx="3"
         fill="var(--color-wood)"
         stroke={INK}
-        strokeWidth="3"
+        strokeWidth="2.5"
       />
       <path
-        d="M7 25h28M7 33h28M15 17v24M27 17v24"
+        d="M5 25.5h32M5 33h32M13 18v23M29 18v23"
         stroke="var(--color-wood-deep)"
-        strokeWidth="2.5"
+        strokeWidth="2"
+        opacity="0.8"
       />
-      <rect x="7" y="17" width="28" height="24" rx="3" stroke={INK} strokeWidth="3" />
-      <path d="m30 14 10-8" stroke={INK} strokeWidth="3.5" />
-      <path
-        d="m35.5 4 6.5 6.5-3 3-6.5-6.5 3-3Z"
-        fill="var(--color-pebble-deep)"
-        stroke={INK}
-        strokeWidth="2.5"
-      />
+      <path d="M7.5 21h8" stroke="#fff" strokeWidth="2" strokeLinecap="round" opacity="0.45" />
+      <rect x="5" y="18" width="32" height="23" rx="3" stroke={INK} strokeWidth="2.5" />
+      <g transform="rotate(-32 30 14)">
+        <rect
+          x="17"
+          y="12.5"
+          width="22"
+          height="4.5"
+          rx="2.25"
+          fill="var(--color-sun)"
+          stroke={INK}
+          strokeWidth="2"
+        />
+        <rect
+          x="36"
+          y="7"
+          width="8"
+          height="15.5"
+          rx="2"
+          fill="var(--color-pebble-deep)"
+          stroke={INK}
+          strokeWidth="2"
+        />
+      </g>
     </Svg>
   );
 }
