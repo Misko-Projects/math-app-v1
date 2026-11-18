@@ -31,13 +31,18 @@ interface VisionProvider { analyzeImage<T>(req: { system: string; image: { media
   - `MockProvider` (tests/CI; deterministic fixtures keyed by input hash).
 - **Provider and model per feature are configuration**, never hard-coded in feature code:
 
-  | Feature | Provider var (default) | Model var (default) | Notes |
-  |---|---|---|---|
-  | Feedback (§2) | `AI_FEEDBACK_PROVIDER=openai` | `AI_FEEDBACK_MODEL=gpt-6-sol` | Owner's choice. Switch to `gpt-6.2-sol` once OpenAI officially documents it; it was unreleased as of 2026-11-18. Low reasoning effort. |
-  | Parent summary (§5) | `AI_SUMMARY_PROVIDER=openai` | `AI_SUMMARY_MODEL=gpt-6-sol` | Aggregated stats only |
-  | Photo → attributes (§4) | `AI_VISION_PROVIDER=anthropic` (**`openai` is rejected by config validation**) | `AI_VISION_MODEL=claude-opus-5-5` | Child photo = personal data |
+  | Feature | Provider var (default) | Model var (default) | Fallback model var (default) | Notes |
+  |---|---|---|---|---|
+  | Feedback (§2) | `AI_FEEDBACK_PROVIDER=openai` | `AI_FEEDBACK_MODEL=gpt-6.2-sol` | `AI_FEEDBACK_FALLBACK_MODEL=gpt-6.1-sol` | Owner's choice. Low reasoning effort. |
+  | Parent summary (§5) | `AI_SUMMARY_PROVIDER=openai` | `AI_SUMMARY_MODEL=gpt-6.2-sol` | `AI_SUMMARY_FALLBACK_MODEL=gpt-6.1-sol` | Aggregated stats only |
+  | Photo → attributes (§4) | `AI_VISION_PROVIDER=anthropic` (**`openai` is rejected by config validation**) | `AI_VISION_MODEL=claude-opus-5-5` | none | Child photo = personal data |
 
-  Alternatives are one line each: `AI_FEEDBACK_PROVIDER=anthropic` with `claude-opus-5-5` or `claude-haiku-5-5`.
+  - **Model availability fallback (owner's rule: use GPT-6.2 Sol, else GPT-6.1 Sol, never plain GPT-6 Sol).** `gpt-6.2-sol` is listed on OpenAI's models page as of 2026-11-18, but an account may not have API access yet.
+    - If the primary model returns a model-availability error (model not found, or no access: HTTP 404, or 403 with a model-access error code), `OpenAIProvider` retries the same request once on the fallback model.
+    - It caches "primary unavailable" for 1 hour (in memory plus `ai_usage` notes) and reports the effective model in `/api/health`.
+    - Other errors follow `aiGuard`'s normal retry/fallback rules.
+    - `gpt-6-sol` must not be used as a default or fallback anywhere.
+  - Alternatives are one line each: `AI_FEEDBACK_PROVIDER=anthropic` with `claude-opus-5-5` or `claude-haiku-5-5`.
 - The AI1 live smoke test reports measured latency and cost for each configured provider with a key, so the parent can tune.
 - A feature whose provider key is missing is reported as unavailable in `/api/health` and degrades to its deterministic fallback.
 - Every call goes through `aiGuard`, which:
