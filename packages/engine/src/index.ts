@@ -50,5 +50,6 @@ export {
   registeredRuleIds,
 } from './misconceptions';
 export { DAY_MS, type EngineParams, PARAMS } from './params';
+export * from './planner';
 export { createRng, fnv1a32, type Rng } from './rng';
 export * from './signals';
