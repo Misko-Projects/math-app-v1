@@ -24,6 +24,35 @@ type Story = StoryObj<typeof meta>;
 
 export const Playground: Story = {};
 
+/** The outline colour the stylesheet gives a focused selected icon button in forced-colors mode. */
+function forcedColorsFocusColor(): string | null {
+  for (const sheet of document.styleSheets) {
+    let rules: CSSRuleList;
+    try {
+      rules = sheet.cssRules;
+    } catch {
+      continue;
+    }
+    for (const rule of rules) {
+      if (
+        !(rule instanceof CSSMediaRule) ||
+        !rule.conditionText.includes('forced-colors: active')
+      ) {
+        continue;
+      }
+      for (const inner of rule.cssRules) {
+        if (
+          inner instanceof CSSStyleRule &&
+          inner.selectorText.includes('.ni-iconbtn[aria-pressed="true"]:focus-visible')
+        ) {
+          return inner.style.outlineColor || null;
+        }
+      }
+    }
+  }
+  return null;
+}
+
 /**
  * A selected toggle with a caption (G1+), beside a plain button. Keyboard focus on the selected one
  * draws inside the button (no outer ring reaching the caption), its caption sits clear of the
@@ -50,7 +79,12 @@ export const SelectedFocusWithCaption: Story = {
     // Focus is visible as a change inside the button, and no outer ring reaches the caption.
     await expect(style.boxShadow).not.toBe(unfocused);
     await expect(style.boxShadow).toContain('inset');
-    await expect(style.outlineStyle).toBe('none');
+    // Forced-colors mode drops box shadows, so an outline must still exist: a transparent one
+    // drawn inside the button (forced colours repaint it), with an explicit system colour there.
+    await expect(style.outlineStyle).toBe('solid');
+    await expect(Number.parseFloat(style.outlineWidth)).toBeGreaterThanOrEqual(3);
+    await expect(Number.parseFloat(style.outlineOffset)).toBeLessThan(0);
+    await expect(forcedColorsFocusColor()?.toLowerCase()).toBe('highlight');
     // The selection ring reaches 7px past the (sunk) button; the caption starts below it.
     await expect(caption.getBoundingClientRect().top).toBeGreaterThanOrEqual(
       button.getBoundingClientRect().bottom + 7,

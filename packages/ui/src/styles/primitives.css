@@ -207,7 +207,10 @@
  */
 .ni-iconbtn[aria-pressed="true"]:focus-visible,
 .ni-iconbtn[aria-pressed="true"][data-preview="focus"] {
-  outline: none;
+  /* Invisible here; forced-colors mode (which drops box shadows) paints it in a system colour,
+     inside the button so it stays clear of the caption. */
+  outline: 4px solid transparent;
+  outline-offset: -11px;
   box-shadow:
     var(--shadow-highlight),
     0 calc(var(--ledge) - 3px) 0 var(--ledge-color),
@@ -215,6 +218,12 @@
     0 0 0 7px var(--color-ink),
     inset 0 0 0 4px var(--color-ink),
     inset 0 0 0 8px var(--color-cloud);
+}
+@media (forced-colors: active) {
+  .ni-iconbtn[aria-pressed="true"]:focus-visible,
+  .ni-iconbtn[aria-pressed="true"][data-preview="focus"] {
+    outline-color: Highlight;
+  }
 }
 
 .ni-caption {
