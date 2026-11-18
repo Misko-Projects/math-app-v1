@@ -9,6 +9,7 @@ import {
   initGoals,
   initInventory,
   initIsland,
+  sameId,
   sortEvents,
 } from '@number-island/engine';
 import {
@@ -156,10 +157,11 @@ export interface DataStore {
   /** Lower-case ids of every tombstoned child. */
   deletedChildren(): Promise<Set<string>>;
   putProfile(profile: ChildProfile): Promise<ChildProfile>;
-  mergeProfiles(profiles: readonly unknown[]): Promise<number>;
+  /** LWW merge (see `MergeSource` for ties); returns how many documents changed. */
+  mergeProfiles(profiles: readonly unknown[], opts: { source: MergeSource }): Promise<number>;
   allProfiles(): Promise<ChildProfile[]>;
   putSettings(doc: SettingsInput): Promise<SettingsDocument>;
-  mergeSettings(docs: readonly unknown[]): Promise<number>;
+  mergeSettings(docs: readonly unknown[], opts: { source: MergeSource }): Promise<number>;
   allSettings(): Promise<SettingsDocument[]>;
   familySettings(): Promise<FamilySettings>;
   childSettings(childId: ChildId): Promise<ChildSettings>;
@@ -184,10 +186,49 @@ export interface DataStore {
 
 export const AI_LOG_RETENTION_DAYS = 90;
 
-const lwwWins = <T extends { updatedAt: number }>(incoming: T, existing: T | undefined) =>
-  existing === undefined ||
-  incoming.updatedAt > existing.updatedAt ||
-  (incoming.updatedAt === existing.updatedAt && stableJson(incoming) > stableJson(existing));
+/** Where merged documents come from: the server's LWW result, or a local backup file. */
+export type MergeSource = 'server' | 'backup';
+
+/**
+ * LWW per whole document (08 §4). The server keeps its stored document unless the incoming
+ * `updatedAt` is strictly greater, so its answer is the LWW result: on an equal `updatedAt` the
+ * server's copy is adopted. A backup replaces a document only when it is strictly newer.
+ */
+function lwwWins<T extends { updatedAt: number }>(
+  incoming: T,
+  existing: T | undefined,
+  source: MergeSource,
+): boolean {
+  if (existing === undefined) return true;
+  if (incoming.updatedAt > existing.updatedAt) return true;
+  return (
+    source === 'server' &&
+    incoming.updatedAt === existing.updatedAt &&
+    stableJson(incoming) !== stableJson(existing)
+  );
+}
+
+/** A tombstone counts only when the server authored it (02 §5.9 S2, 08 §3 import rules). */
+function serverAuthoredTombstone(e: AnyEventEnvelope): boolean {
+  return e.type !== 'child.deleted' || (e.childId === null && sameId(e.deviceId, e.familyId));
+}
+
+const childOf = (e: Pick<AnyEventEnvelope, 'childId'>) =>
+  e.childId === null ? null : childKey(e.childId);
+
+/** The tombstoned child of a `child.deleted`, lower-cased; null for other types. */
+function tombstoneChild(e: Pick<AnyEventEnvelope, 'type' | 'payload'>): string | null {
+  if (e.type !== 'child.deleted') return null;
+  const id = (e.payload as { childId?: unknown }).childId;
+  return typeof id === 'string' ? childKey(id) : null;
+}
+
+/**
+ * Copies of one id may differ in time (a clamp) or payload detail, never in identity: a copy that
+ * names another type or child (or, for a tombstone, another deleted child) is not the same event.
+ */
+const sameIdentity = (a: AnyEventEnvelope, b: AnyEventEnvelope) =>
+  a.type === b.type && childOf(a) === childOf(b) && tombstoneChild(a) === tombstoneChild(b);
 
 function settingsChild(key: string): string | null {
   const parsed = parseSettingsKey(key);
@@ -311,12 +352,23 @@ export async function createDataStore(opts: DataStoreOptions): Promise<DataStore
       if (
         opts.rebuild ||
         !row ||
+        // A row whose data is not an object (a corrupt or foreign write) is never trusted.
+        typeof row.data !== 'object' ||
+        row.data === null ||
         row.version !== expectedVersion(key, inp) ||
         (first !== undefined && !sortsAfter(row, first))
       ) {
         out.push(foldRow(key, await fullLog(), inp));
       } else if (mine.length > 0) {
-        out.push(mine.reduce((r, e) => applyRow(r, e, inp), row));
+        let next: ProjectionRow;
+        try {
+          next = mine.reduce((r, e) => applyRow(r, e, inp), row);
+        } catch {
+          // The cached state could not take the event (a damaged row): rebuild it from the log,
+          // so a bad cache row never fails the write that triggered it.
+          next = foldRow(key, await fullLog(), inp);
+        }
+        out.push(next);
       }
     }
     if (out.length > 0) await db.projections.bulkPut(out);
@@ -449,26 +501,22 @@ export async function createDataStore(opts: DataStoreOptions): Promise<DataStore
       let invalid = 0;
       for (const r of raw) {
         const parsed = schema.safeParse(r);
-        if (parsed.success) valid.push(parsed.data);
+        // A tombstone the server did not author is refused, whatever its source.
+        if (parsed.success && serverAuthoredTombstone(parsed.data)) valid.push(parsed.data);
         else invalid += 1;
       }
       // One copy per id, by the folds' own preference (the server's clamped copy first).
       const incoming = sortEvents(valid);
       return db.transaction('rw', all, async () => {
         const before = await tombstoned();
-        const deleted = new Set(before);
-        for (const e of incoming) {
-          if (e.type === 'child.deleted') {
-            const id = (e.payload as { childId: string }).childId;
-            deleted.add(childKey(id));
-          }
-        }
         const existing = await db.events.bulkGet(incoming.map((e) => e.id));
         const result: IngestResult = { added: [], replaced: [], dropped: 0, invalid };
         const fresh: AnyEventEnvelope[] = [];
+        const replaced: AnyEventEnvelope[] = [];
         const puts: StoredEvent[] = [];
         incoming.forEach((e, i) => {
-          if (e.childId !== null && deleted.has(childKey(e.childId))) {
+          const child = childOf(e);
+          if (child !== null && before.has(child)) {
             result.dropped += 1;
             return;
           }
@@ -479,23 +527,52 @@ export async function createDataStore(opts: DataStoreOptions): Promise<DataStore
             fresh.push(e);
             return;
           }
-          const same = stableJson(toEnvelope(prev)) === stableJson(e);
+          const stored = toEnvelope(prev);
+          // Another event under a stored id is not a copy of it: the stored event stays.
+          if (!sameIdentity(stored, e)) return;
+          const same = stableJson(stored) === stableJson(e);
           if (source === 'server') {
             // The server's copy is authoritative (08 §4 clamp): replace, and it is synced.
-            if (!same) result.replaced.push(e.id);
+            if (!same) {
+              result.replaced.push(e.id);
+              replaced.push(e);
+            }
             if (!same || prev.synced === 0 || prev._rejected) puts.push({ ...e, synced: 1 });
             return;
           }
-          if (!same && sortEvents([toEnvelope(prev), e])[0] === e) {
+          // A backup never overrides what the server confirmed; for a copy that never left this
+          // device, the folds' preference decides.
+          if (prev.synced === 0 && !same && sortEvents([stored, e])[0] === e) {
             const { _rejected } = prev;
-            puts.push({ ...e, synced: prev.synced, ...(_rejected ? { _rejected } : {}) });
+            puts.push({ ...e, synced: 0, ...(_rejected ? { _rejected } : {}) });
             result.replaced.push(e.id);
+            replaced.push(e);
           }
         });
         await db.events.bulkPut(puts);
+        // The purge set comes from the durable log, so only tombstones actually stored count.
+        const deleted = await tombstoned();
         const newlyDeleted = new Set([...deleted].filter((c) => !before.has(c)));
         const purged = await purge(newlyDeleted);
-        await reconcile(fresh, { rebuild: purged || result.replaced.length > 0, deleted });
+        if (newlyDeleted.size > 0) {
+          const gone = (id: EventId) => {
+            const e = incoming.find((x) => x.id === id);
+            const child = e ? childOf(e) : null;
+            return child !== null && newlyDeleted.has(child);
+          };
+          result.dropped += result.added.filter(gone).length;
+          result.added = result.added.filter((id) => !gone(id));
+          result.replaced = result.replaced.filter((id) => !gone(id));
+        }
+        await reconcile(
+          fresh.filter((e) => !newlyDeleted.has(childOf(e) ?? '')),
+          {
+            rebuild: purged || replaced.length > 0,
+            deleted,
+            // Children named by replaced copies are discovered like those of new events.
+            children: replaced.flatMap((e) => (e.childId === null ? [] : [e.childId])),
+          },
+        );
         return result;
       });
     },
@@ -560,7 +637,7 @@ export async function createDataStore(opts: DataStoreOptions): Promise<DataStore
       });
     },
 
-    async mergeProfiles(list) {
+    async mergeProfiles(list, { source }) {
       const valid = list.flatMap((p) => {
         const parsed = childProfileSchema.safeParse(p);
         return parsed.success ? [parsed.data] : [];
@@ -570,7 +647,7 @@ export async function createDataStore(opts: DataStoreOptions): Promise<DataStore
         let changed = 0;
         for (const p of valid) {
           if (deleted.has(childKey(p.id))) continue;
-          if (lwwWins(p, await db.profiles.get(p.id))) {
+          if (lwwWins(p, await db.profiles.get(p.id), source)) {
             await db.profiles.put(p);
             changed += 1;
           }
@@ -601,7 +678,7 @@ export async function createDataStore(opts: DataStoreOptions): Promise<DataStore
       });
     },
 
-    async mergeSettings(docs) {
+    async mergeSettings(docs, { source }) {
       const valid = docs.flatMap((d) => {
         const parsed = settingsDocumentSchema.safeParse(d);
         return parsed.success ? [parsed.data] : [];
@@ -612,7 +689,7 @@ export async function createDataStore(opts: DataStoreOptions): Promise<DataStore
         for (const d of valid) {
           const child = settingsChild(d.key);
           if (child !== null && deleted.has(child)) continue;
-          if (lwwWins(d, await db.settings.get(d.key))) {
+          if (lwwWins(d, await db.settings.get(d.key), source)) {
             await db.settings.put(d);
             changed += 1;
           }
@@ -694,9 +771,15 @@ export async function createDataStore(opts: DataStoreOptions): Promise<DataStore
     },
 
     async logAi({ childId, skillId, text }) {
-      const row: AiLogRow = { id: newId(), ts: now(), childId, skillId, text };
-      await db.aiLog.add(row);
-      return row;
+      // Checked and written in one transaction, so a tombstone cannot slip in between.
+      return db.transaction('rw', [db.events, db.aiLog], async () => {
+        if (childId !== null && (await tombstoned()).has(childKey(childId))) {
+          throw new DataStoreError('child_deleted', 'this child was deleted');
+        }
+        const row: AiLogRow = { id: newId(), ts: now(), childId, skillId, text };
+        await db.aiLog.add(row);
+        return row;
+      });
     },
 
     async aiLog() {

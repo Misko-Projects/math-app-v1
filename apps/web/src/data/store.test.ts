@@ -362,7 +362,11 @@ describe('tombstones (08 §4)', () => {
     await expect(store.putProfile(profile(CHILD_K, 'K'))).rejects.toMatchObject({
       code: 'child_deleted',
     });
-    expect(await store.mergeProfiles([{ ...profile(CHILD_K, 'K'), updatedAt: 9e12 }])).toBe(0);
+    expect(
+      await store.mergeProfiles([{ ...profile(CHILD_K, 'K'), updatedAt: 9e12 }], {
+        source: 'server',
+      }),
+    ).toBe(0);
     const late = serverEvent('island.named', named('Ghost'), env.clock.now() + DAY, CHILD_K);
     expect((await store.ingest([late], { source: 'server' })).dropped).toBe(1);
     expect((await store.settingsView()).children).not.toHaveProperty(CHILD_K);
@@ -395,8 +399,8 @@ describe('profiles and settings (LWW per document)', () => {
     const t = env.clock.now();
     const older = { ...profile(CHILD_K, '1', 'Old'), updatedAt: t - 1 };
     const newer = { ...profile(CHILD_K, '1', 'New'), updatedAt: t + 1 };
-    expect(await store.mergeProfiles([older, { junk: true }])).toBe(0);
-    expect(await store.mergeProfiles([newer])).toBe(1);
+    expect(await store.mergeProfiles([older, { junk: true }], { source: 'server' })).toBe(0);
+    expect(await store.mergeProfiles([newer], { source: 'server' })).toBe(1);
     expect((await store.allProfiles()).find((p) => p.id === CHILD_K)).toEqual(newer);
     // The grade moved from K to G1: the child's skills row and the goals row are rebuilt.
     const row = await store.db.projections.get(`skills:${CHILD_K}`);
@@ -419,12 +423,12 @@ describe('profiles and settings (LWW per document)', () => {
     };
     const stale = { ...doc, value: { ...doc.value, weeklyGoal: 9 }, updatedAt: t - 5 };
     await store.putSettings(doc);
-    expect(await store.mergeSettings([stale])).toBe(0);
+    expect(await store.mergeSettings([stale], { source: 'server' })).toBe(0);
     expect((await store.childSettings(CHILD_G2)).weeklyGoal).toBe(2);
     await expectCacheEqualsFold(store, { ...GOALS, [CHILD_G2]: { weeklyGoal: 2 } });
 
     const fresh = { ...doc, value: { ...doc.value, weeklyGoal: 4 }, updatedAt: t + 5 };
-    expect(await store.mergeSettings([fresh])).toBe(1);
+    expect(await store.mergeSettings([fresh], { source: 'server' })).toBe(1);
     expect(await store.allSettings()).toEqual([fresh]);
     await expectCacheEqualsFold(store, { ...GOALS, [CHILD_G2]: { weeklyGoal: 4 } });
     await expect(
@@ -554,5 +558,183 @@ describe('AI line log', () => {
     env.clock.advance(60 * DAY);
     const again = await track(env.open());
     expect(await again.aiLog()).toEqual([]);
+  });
+});
+
+// ---------- review round 1 regressions (PR #56) ----------
+
+const produced = (stone: number): EventPayloads['material.produced'] => ({
+  sessionId: null,
+  requestId: null,
+  workshopId: null,
+  materials: { stone },
+});
+
+/** A K child with a profile, a settings document and one unsynced event. */
+async function childWithData() {
+  const { env, store } = await familyStore();
+  await store.putSettings({ key: `child:${CHILD_K}`, value: await store.childSettings(CHILD_K) });
+  const own = await store.append(
+    'session.started',
+    { sessionId: 's1', budgetMinutes: 10, trigger: 'child' },
+    { childId: CHILD_K },
+  );
+  const snapshot = async () => ({
+    profiles: (await store.allProfiles()).map((p) => p.id).sort(),
+    settings: (await store.allSettings()).map((s) => s.key),
+    events: await store.events(),
+    deleted: [...(await store.deletedChildren())],
+  });
+  return { env, store, own, snapshot };
+}
+
+const tombstone = (ts: number, extra: Partial<AnyEventEnvelope> = {}) =>
+  serverEvent('child.deleted', { childId: CHILD_K }, ts, null, { deviceId: FAMILY, ...extra });
+
+describe('review round 1 regressions', () => {
+  it('1. a tombstone the server did not author is invalid and purges nothing', async () => {
+    const { env, store, snapshot } = await childWithData();
+    const before = await snapshot();
+    const ordinaryDevice = tombstone(env.clock.now(), { deviceId: DEVICE });
+    const withChild = tombstone(env.clock.now(), { childId: CHILD_G2 });
+    for (const source of ['backup', 'server'] as const) {
+      for (const tomb of [ordinaryDevice, withChild]) {
+        const r = await store.ingest([tomb], { source });
+        expect(r).toMatchObject({ added: [], replaced: [], invalid: 1 });
+      }
+    }
+    expect(await snapshot()).toEqual(before);
+    expect(before.profiles).toContain(CHILD_K);
+    expect(before.settings).toEqual([`child:${CHILD_K}`]);
+  });
+
+  it('2a. a tombstone whose id collides with a stored ordinary event purges nothing', async () => {
+    const { env, store, own, snapshot } = await childWithData();
+    const before = await snapshot();
+    const tomb = { ...tombstone(env.clock.now() - HOUR), id: own.id };
+    for (const source of ['backup', 'server'] as const) {
+      expect(await store.ingest([tomb], { source })).toMatchObject({ added: [], replaced: [] });
+    }
+    expect(await snapshot()).toEqual(before);
+    expect((await store.db.events.get(own.id))?.type).toBe('session.started');
+  });
+
+  it('2b. an ordinary event cannot replace a stored tombstone; the child stays refused', async () => {
+    const { env, store } = await childWithData();
+    const tomb = tombstone(env.clock.now());
+    await store.ingest([tomb], { source: 'server' });
+    const impostor = {
+      ...serverEvent('island.named', named('X'), env.clock.now() - DAY, null),
+      id: tomb.id,
+    };
+    for (const source of ['server', 'backup'] as const) {
+      expect((await store.ingest([impostor], { source })).replaced).toEqual([]);
+    }
+    expect(await store.db.events.get(tomb.id)).toMatchObject({ type: 'child.deleted' });
+    const session = { sessionId: 'x', budgetMinutes: 10, trigger: 'child' } as const;
+    await expect(
+      store.append('session.started', session, { childId: CHILD_K }),
+    ).rejects.toMatchObject({ code: 'child_deleted' });
+    store.close();
+    const again = await track(env.open());
+    expect(await again.deletedChildren()).toEqual(new Set([CHILD_K]));
+    await expect(
+      again.append('session.started', session, { childId: CHILD_K }),
+    ).rejects.toMatchObject({ code: 'child_deleted' });
+  });
+
+  it('3. logAi refuses a tombstoned child, whatever the id casing', async () => {
+    const { env, store } = await childWithData();
+    await store.ingest([tombstone(env.clock.now())], { source: 'server' });
+    await expect(
+      store.logAi({ childId: CHILD_K.toUpperCase(), skillId: null, text: 'hi' }),
+    ).rejects.toMatchObject({ code: 'child_deleted' });
+    expect(await store.aiLog()).toEqual([]);
+  });
+
+  it('4. a backup copy never replaces a synced server copy', async () => {
+    const store = await track(testEnv().open());
+    const first = serverEvent('island.named', named('First'), HOUR, null);
+    const second = serverEvent('island.named', named('Second'), 2 * HOUR, null);
+    await store.ingest([first, second], { source: 'server' });
+    expect((await store.island()).name).toBe('Second');
+    const older = { ...second, ts: HOUR / 2 };
+    expect((await store.ingest([older], { source: 'backup' })).replaced).toEqual([]);
+    expect(await store.db.events.get(second.id)).toEqual({ ...second, synced: 1 });
+    expect((await store.island()).name).toBe('Second');
+  });
+
+  it('5. equal-updatedAt ties adopt the server document (profiles, settings, goals)', async () => {
+    const { env, store } = await familyStore();
+    await store.ingest(replayEvents(), { source: 'server' });
+    const t = env.clock.now();
+    await store.putProfile(profile(CHILD_G2, '2', 'Zed'));
+    const g2 = await store.childSettings(CHILD_G2);
+    await store.putSettings({ key: `child:${CHILD_G2}`, value: { ...g2, weeklyGoal: 9 } });
+
+    const backupProfile = { ...profile(CHILD_G2, '2', 'Bob'), updatedAt: t };
+    expect(await store.mergeProfiles([backupProfile], { source: 'backup' })).toBe(0);
+    const serverProfile = { ...profile(CHILD_G2, '2', 'Aaa'), updatedAt: t };
+    expect(await store.mergeProfiles([serverProfile], { source: 'server' })).toBe(1);
+    expect((await store.allProfiles()).find((p) => p.id === CHILD_G2)?.name).toBe('Aaa');
+    expect(await store.mergeProfiles([serverProfile], { source: 'server' })).toBe(0);
+
+    const serverDoc = {
+      key: `child:${CHILD_G2}` as const,
+      value: { ...g2, weeklyGoal: 2 },
+      updatedAt: t,
+    };
+    const backupDoc = { ...serverDoc, value: { ...g2, weeklyGoal: 1 } };
+    expect(await store.mergeSettings([backupDoc], { source: 'backup' })).toBe(0);
+    expect(await store.mergeSettings([serverDoc], { source: 'server' })).toBe(1);
+    expect(await store.allSettings()).toEqual([serverDoc]);
+    await expectCacheEqualsFold(store, { ...GOALS, [CHILD_G2]: { weeklyGoal: 2 } });
+  });
+
+  it('6. a replaced copy re-discovers its child for the cache', async () => {
+    const store = await track(testEnv().open());
+    const child = '019a0000-0000-7000-8000-00000000c003';
+    const e = serverEvent(
+      'session.started',
+      { sessionId: 's', budgetMinutes: 10, trigger: 'child' },
+      10 * HOUR,
+      child,
+    );
+    await store.ingest([e], { source: 'server' });
+    // The child's row is lost (a damaged cache); the clamped copy still brings it back.
+    await store.db.projections.delete(`skills:${child}`);
+    const clamped = { ...e, ts: 5 * HOUR, clientTs: 10 * HOUR };
+    expect((await store.ingest([clamped], { source: 'server' })).replaced).toEqual([e.id]);
+    const { graph } = fixtureContent();
+    expect(await store.skillStates(child)).toEqual(
+      foldLearnerState([clamped], graph, { childId: child, isK: false }),
+    );
+  });
+
+  it('7a. a current-version row with null data is rebuilt on open; the append commits', async () => {
+    const { env, store } = await familyStore();
+    await store.ingest(replayEvents().slice(0, 200), { source: 'server' });
+    const row = await store.db.projections.get('inventory');
+    if (!row) throw new Error('no inventory row');
+    await store.db.projections.put({ ...row, data: null });
+    store.close();
+    const again = await track(env.open());
+    // Rebuilt on open, before any write touches it.
+    expect((await again.db.projections.get('inventory'))?.data).toEqual(
+      foldInventory(await again.events()),
+    );
+    env.clock.advance(400 * DAY);
+    await again.append('material.produced', produced(3), { childId: CHILD_K });
+    expect(await again.inventory()).toEqual(foldInventory(await again.events()));
+  });
+
+  it('7b. a row that cannot take an event is rebuilt instead of failing the append', async () => {
+    const { env, store } = await familyStore();
+    const row = await store.db.projections.get('inventory');
+    if (!row) throw new Error('no inventory row');
+    await store.db.projections.put({ ...row, data: { _deleted: 7 } });
+    env.clock.advance(HOUR);
+    await store.append('material.produced', produced(2), { childId: CHILD_K });
+    expect(await store.inventory()).toEqual(foldInventory(await store.events()));
   });
 });
