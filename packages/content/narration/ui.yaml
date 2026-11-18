@@ -7,3 +7,47 @@ ui.button.back:
   text: "Back"
 ui.profile.who-is-playing:
   text: "Who is playing?"
+
+# Design-system primitives (U01, packages/ui/src/primitives).
+ui.btn.home:
+  text: "Go home"
+  level: K
+ui.btn.hint:
+  text: "Help me"
+  level: K
+ui.btn.replay:
+  text: "Hear it again"
+  level: K
+ui.btn.check:
+  text: "Check"
+  level: K
+ui.btn.close:
+  text: "Go back"
+  level: K
+ui.btn.done:
+  text: "All done"
+  level: K
+ui.btn.next:
+  text: "Next"
+  level: K
+ui.tray.label:
+  text: "Your things"
+  level: K
+ui.tray.empty:
+  text: "Make things to fill your tray!"
+  level: K
+
+# Widget registry (U01, packages/ui/src/widgets).
+ui.widget.coming-soon:
+  text: "Pip is building this game. Let's try the next one!"
+  voice: pip
+  level: K
+ui.widget.pebble:
+  text: "Pebble"
+  level: K
+ui.widget.basket:
+  text: "Basket"
+  level: K
+ui.widget.supply:
+  text: "Pebbles"
+  level: K
