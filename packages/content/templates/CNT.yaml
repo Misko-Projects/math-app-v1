@@ -30,7 +30,8 @@ templates:
     generator: count.sequence
     params: { start: { int: [1, 16] }, step: 1, dir: 1, length: { int: [3, 4] } }
     constraints: ["last <= 20"]
-    difficulty: { base: 0.0 }
+    # Tuned from template-stats (E01): ordering 4–5 numbers carries ~1.1 of format features.
+    difficulty: { base: -1.1 }
     narration: { prompt: p.count.order, hints: [h.sequence.say-it] }
 
   - id: CNT.02.t1
@@ -167,7 +168,9 @@ templates:
     tier: concrete
     generator: count.set
     params: { n: { int: [11, 20] }, mode: make }
-    difficulty: { base: -0.6 }
+    # Tuned from template-stats (E01): teen sizes carry ~1.7 of features; the skill's typical
+    # item sits at d = 0 (03 §5.4).
+    difficulty: { base: -1.6 }
     narration: { prompt: p.count.make-n, hints: [h.count.touch-each, h.count.show-frame] }
 
   - id: CNT.06.t2
@@ -177,7 +180,7 @@ templates:
     representation: double-ten-frame
     generator: count.set
     params: { n: { int: [11, 20] }, mode: how-many, layout: double-ten-frame }
-    difficulty: { base: -0.3 }
+    difficulty: { base: -1.8 } # tuned from template-stats (E01)
     narration: { prompt: p.count.how-many, hints: [h.count.show-frame, h.count.last-number] }
 
   - id: CNT.06.t3
@@ -186,7 +189,7 @@ templates:
     tier: abstract
     generator: count.set
     params: { n: { int: [11, 20] }, mode: how-many, layout: { choice: [line, circle, array] } }
-    difficulty: { base: 0.0 }
+    difficulty: { base: -1.8 } # tuned from template-stats (E01)
     narration: { prompt: p.count.how-many, hints: [h.count.touch-each, h.count.last-number] }
 
   - id: CNT.07.t1

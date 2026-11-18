@@ -4,15 +4,19 @@
   "private": true,
   "type": "module",
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./src/checks.ts"
   },
   "scripts": {
-    "check": "node src/check.mjs"
+    "check": "tsx src/cli.ts",
+    "sample": "tsx src/sample.ts"
   },
   "dependencies": {
     "@number-island/content": "workspace:*",
     "@number-island/engine": "workspace:*",
     "@number-island/shared": "workspace:*"
   },
-  "devDependencies": {}
+  "devDependencies": {
+    "@types/node": "^24.19.2",
+    "tsx": "^4.23.15"
+  }
 }

@@ -79,6 +79,62 @@ h.add.count-on:
 h.add.start-big:
   text: "Start with the bigger number."
 
+# ---------- generator solution steps (E01: gen.<generatorId>.<step>, 03 §6.4) ----------
+# Spoken by the worked solution (hint level 5, auto lessons). Every key a generator declares in
+# `narration` must exist here (V16, checked by tools/content-check).
+gen.count.set.touch-count:
+  text: "Touch each one as we count."
+gen.count.set.last-number:
+  text: "The last number is {n}. There are {n}."
+gen.count.set.drag:
+  text: "Put them in one at a time, up to {n}."
+gen.count.set.take-away:
+  text: "Take some out. Stop when {n} are left."
+gen.count.set.bundle:
+  text: "Put each ten together."
+gen.count.set.count-picture:
+  text: "Let's count them together."
+gen.count.set.pick:
+  text: "We counted {n}. Tap {n}."
+gen.count.set.type:
+  text: "We counted {n}. Now tap {n}."
+gen.count.set.fill-frame:
+  text: "Fill the frame one at a time, up to {n}."
+gen.count.sequence.say-from:
+  text: "Let's count from {start}."
+gen.count.sequence.next-is:
+  text: "Next comes {n}."
+gen.count.sequence.hop:
+  text: "Hop to {n}."
+gen.count.sequence.order-start:
+  text: "Find where the numbers start."
+gen.subitize.flash.look:
+  text: "Look at the dots again."
+gen.subitize.flash.see-groups:
+  text: "I see small groups. Put them together."
+gen.subitize.flash.total:
+  text: "That makes {n}."
+gen.subitize.flash.show:
+  text: "Let's show {n}."
+gen.bond.parts.whole-is:
+  text: "The whole is {whole}."
+gen.bond.parts.count-on:
+  text: "Start at {part}. Count on to {whole}."
+gen.bond.parts.missing-is:
+  text: "The missing part is {n}."
+gen.bond.parts.split:
+  text: "{a} and {b} make the whole."
+gen.bond.parts.together:
+  text: "Put {a} and {b} together."
+gen.addsub.facts.start-at:
+  text: "Start at {a}. Then count on {b}."
+gen.addsub.facts.count-on:
+  text: "Now {n}."
+gen.addsub.facts.answer:
+  text: "The answer is {n}."
+gen.addsub.facts.join:
+  text: "Put {a} and {b} together."
+
 # ---------- feedback ----------
 fb.correct.1:
   text: "You did it!"

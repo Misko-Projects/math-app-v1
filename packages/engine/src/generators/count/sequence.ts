@@ -1,0 +1,368 @@
+// count.sequence (03 §5.6): the counting sequence from `start` by `step`, forwards or backwards.
+// The sequence is start, then `length` more terms; `last` = start + dir · step · length.
+// Formats: numeral-pick, number-pad, hundred-chart, order, number-line-jump.
+
+import type {
+  ExpressionToken,
+  LessonStep,
+  ResponseValue,
+  StimulusSpec,
+} from '@number-island/shared';
+import { numberOptionId } from '../../formats/numeral-pick';
+import { digitCount } from '../../formats/types';
+import {
+  asNum,
+  correctFromAnswer,
+  finish,
+  numberOptions,
+  type PartialOutput,
+  pickVars,
+  sampleAll,
+} from '../common';
+import type { BuildContext, GeneratorDef, GeneratorOutput } from '../types';
+
+export function sequenceTerms(start: number, step: number, dir: number, length: number): number[] {
+  return Array.from({ length: length + 1 }, (_, i) => start + dir * step * i);
+}
+
+/**
+ * The one hundred chart (03 §5.5: first 0, 1, 101, 201, …; 10 rows, or 12 for 1–120) that shows
+ * every number from lo to hi, or null when no single chart does.
+ */
+export function chartFor(lo: number, hi: number): { first: number; rows: number } | null {
+  if (lo < 0) return null;
+  if (lo === 0) return hi <= 99 ? { first: 0, rows: 10 } : null;
+  if (hi <= 100) return { first: 1, rows: 10 };
+  if (lo <= 100) return hi <= 120 ? { first: 1, rows: 12 } : null;
+  const first = Math.floor((lo - 1) / 100) * 100 + 1;
+  return hi <= first + 99 ? { first, rows: 10 } : null;
+}
+
+const crosses = (lo: number, hi: number, unit: number): boolean =>
+  Math.floor(lo / unit) !== Math.floor(hi / unit);
+
+const say = (
+  key: string,
+  vars: Record<string, number>,
+  action?: LessonStep['action'],
+): LessonStep =>
+  action ? { actor: 'demo', say: key, vars, action } : { actor: 'demo', say: key, vars };
+
+export const countSequence: GeneratorDef = {
+  id: 'count.sequence',
+  formats: ['numeral-pick', 'number-pad', 'hundred-chart', 'order', 'number-line-jump'],
+  params: {
+    start: { type: 'int', default: { kind: 'int', min: 1, max: 19 }, doc: 'first number shown' },
+    step: { type: 'int', default: { kind: 'const', value: 1 }, doc: '1, 2, 5, 10 or 100' },
+    dir: { type: 'int', default: { kind: 'const', value: 1 }, doc: '+1 forwards, −1 backwards' },
+    length: {
+      type: 'int',
+      default: { kind: 'const', value: 1 },
+      doc: 'terms after start (1 = "what comes next")',
+    },
+    hide: {
+      type: 'string',
+      values: ['last', 'all-after'],
+      default: { kind: 'const', value: 'all-after' },
+      doc: 'number-pad and hundred-chart: hide only the last term, or every term after start',
+    },
+  },
+  derived: ['last'],
+  features: {
+    digits: { weight: 0.5, doc: 'digits of the largest term − 1' },
+    'step.notOne': { weight: 0.4, doc: 'step ≠ 1' },
+    backward: { weight: 0.6, doc: 'counting back' },
+    crossDecade: { weight: 0.5, doc: 'the sequence crosses a multiple of 10' },
+    crossCentury: { weight: 0.7, doc: 'the sequence crosses a multiple of 100' },
+  },
+  narration: [
+    'gen.count.sequence.say-from',
+    'gen.count.sequence.next-is',
+    'gen.count.sequence.hop',
+    'gen.count.sequence.order-start',
+  ],
+  sample: (spec, rng) => sampleAll(spec, rng),
+  derive(p) {
+    const start = asNum(p.start);
+    const step = asNum(p.step, 1);
+    const dir = asNum(p.dir, 1) < 0 ? -1 : 1;
+    return { last: start + dir * step * asNum(p.length, 1) };
+  },
+  accepts(p, t) {
+    const start = asNum(p.start);
+    const last = asNum(p.last);
+    if (start < 0 || last < 0 || asNum(p.step, 1) <= 0) return false;
+    // A hundred-chart item must fit on one chart.
+    return (
+      t.format !== 'hundred-chart' ||
+      chartFor(Math.min(start, last), Math.max(start, last)) !== null
+    );
+  },
+  build(ctx: BuildContext): GeneratorOutput {
+    const { params, template: t, rng } = ctx;
+    const start = asNum(params.start);
+    const step = asNum(params.step, 1);
+    const dir = asNum(params.dir, 1) < 0 ? -1 : 1;
+    const length = Math.max(1, asNum(params.length, 1));
+    const terms = sequenceTerms(start, step, dir, length);
+    const last = terms[terms.length - 1] as number;
+    const next = terms[1] as number;
+    const lo = Math.min(start, last);
+    const hi = Math.max(start, last);
+    if (lo < 0) throw new RangeError('count.sequence: the sequence goes below 0');
+    const math = {
+      digits: Math.max(0, digitCount(hi) - 1),
+      'step.notOne': step !== 1 ? 1 : 0,
+      backward: dir < 0 ? 1 : 0,
+      crossDecade: crosses(lo, hi, 10) ? 1 : 0,
+      crossCentury: crosses(lo, hi, 100) ? 1 : 0,
+    };
+    const vars = pickVars(t, { start, last, step, length });
+    const path: StimulusSpec = {
+      kind: 'number-line',
+      min: Math.max(0, lo - 2 * step),
+      max: hi + 2 * step,
+      ticksEvery: step,
+      labelsEvery: step,
+      marks: [{ at: start, arrow: true }],
+    };
+    const hiddenAfter = asStrHide(params.hide) === 'last' ? [last] : terms.slice(1);
+    let p: PartialOutput;
+    switch (t.format) {
+      case 'numeral-pick': {
+        const opts = numberOptions(t, params, length === 1 ? next : last, rng);
+        p = {
+          params,
+          vars,
+          math,
+          widget: {
+            format: 'numeral-pick',
+            stimulus: t.representation === 'number-path' ? path : { kind: 'none' },
+            options: opts.options,
+            layout: 'row',
+          },
+          answer: { kind: 'choice', id: numberOptionId(length === 1 ? next : last) },
+          overlay: path,
+        };
+        if (opts.diagnostic > 0) p.math = { ...math, 'distractors.diagnostic': opts.diagnostic };
+        break;
+      }
+      case 'number-pad': {
+        const tokens: ExpressionToken[] = terms.map((v, i) =>
+          i === 0 || !hiddenAfter.includes(v) ? { t: 'num', v } : { t: 'blank', id: `t${i}` },
+        );
+        const blanks = tokens.flatMap((tk) =>
+          tk.t === 'blank' ? [{ id: tk.id, maxDigits: Math.max(2, digitCount(hi)) }] : [],
+        );
+        const hidden = terms.filter((v, i) => i > 0 && hiddenAfter.includes(v));
+        p = {
+          params,
+          vars,
+          math,
+          widget: {
+            format: 'number-pad',
+            stimulus: { kind: 'none' },
+            expression: { tokens },
+            blanks,
+            unit: null,
+          },
+          answer:
+            hidden.length === 1
+              ? { kind: 'number', value: hidden[0] as number }
+              : { kind: 'numbers', values: hidden, ordered: true },
+          overlay: path,
+        };
+        break;
+      }
+      case 'hundred-chart': {
+        const chart = chartFor(lo, hi);
+        if (!chart)
+          throw new RangeError('count.sequence: the sequence does not fit one hundred chart');
+        const { first, rows } = chart;
+        const fill = length > 1;
+        p = {
+          params,
+          vars,
+          math,
+          widget: {
+            format: 'hundred-chart',
+            first,
+            rows,
+            hidden: fill ? hiddenAfter : [],
+            mode: fill ? 'fill' : 'next',
+            from: start,
+          },
+          answer: fill
+            ? { kind: 'numbers', values: hiddenAfter, ordered: true }
+            : { kind: 'number', value: next },
+          nudge: [{ op: 'highlight-row', args: { n: start } }],
+        };
+        break;
+      }
+      case 'order': {
+        const shuffled = rng.fork('layout').shuffle(terms);
+        const sorted = [...terms].sort((a, b) => (dir > 0 ? a - b : b - a));
+        p = {
+          params,
+          vars,
+          math,
+          widget: {
+            format: 'order',
+            items: shuffled.map((v, i) => ({ id: `item-${i}`, value: v, label: String(v) })),
+            direction: dir > 0 ? 'asc' : 'desc',
+          },
+          answer: { kind: 'numbers', values: sorted, ordered: true },
+          overlay: path,
+        };
+        break;
+      }
+      case 'number-line-jump': {
+        const stones = t.tier === 'concrete';
+        const goal = length === 1 ? 'next' : 'land-on';
+        p = {
+          params,
+          vars,
+          math,
+          widget: {
+            format: 'number-line-jump',
+            min: Math.max(0, lo - 2 * step),
+            max: hi + 3 * step,
+            ticksEvery: step,
+            labelsEvery: step,
+            start,
+            goal,
+            target: last,
+            allowedJumps: [dir * step],
+            path: stones ? 'stones' : 'line',
+            thenAsk: goal === 'next' ? 'landing' : null,
+          },
+          answer: {
+            kind: 'state',
+            checker: 'jumps.reach',
+            target: {
+              start,
+              target: last,
+              allowedJumps: [dir * step],
+              ...(goal === 'next' ? { value: last } : {}),
+            },
+          },
+          nudge: [{ op: 'highlight', args: { at: start } }],
+          highlight: [{ op: 'highlight', args: { at: start } }],
+        };
+        break;
+      }
+      default:
+        throw new Error(`count.sequence cannot build ${t.format}`);
+    }
+    return finish(countSequence, ctx, p);
+  },
+  exampleCorrect(out): ResponseValue {
+    if (out.answer.kind !== 'state') return correctFromAnswer(out.answer);
+    const target = out.answer.target as { start: number; target: number; allowedJumps: number[] };
+    const jump = target.allowedJumps[0] as number;
+    const hops = Math.round((target.target - target.start) / jump);
+    const value = out.answer.target.value;
+    return {
+      kind: 'state',
+      value: {
+        jumps: new Array<number>(hops).fill(jump),
+        ...(typeof value === 'number' ? { value } : {}),
+      },
+    };
+  },
+  solution(out): LessonStep[] {
+    const w = out.widget;
+    const start = asNum(out.params.start);
+    const last = asNum(out.params.last);
+    const step = asNum(out.params.step, 1);
+    const dir = asNum(out.params.dir, 1) < 0 ? -1 : 1;
+    const terms = sequenceTerms(start, step, dir, Math.max(1, asNum(out.params.length, 1)));
+    const next = terms[1] as number;
+    switch (w.format) {
+      case 'numeral-pick': {
+        const id = out.answer.kind === 'choice' ? out.answer.id : '';
+        return [
+          say('gen.count.sequence.say-from', { start }),
+          say(
+            'gen.count.sequence.next-is',
+            { n: Number(id.slice(4)) },
+            { op: 'tap', args: { id } },
+          ),
+        ];
+      }
+      case 'number-pad': {
+        const steps: LessonStep[] = [say('gen.count.sequence.say-from', { start })];
+        for (const b of w.blanks) {
+          const i = Number(b.id.slice(1));
+          const v = terms[i] as number;
+          steps.push(
+            say(
+              'gen.count.sequence.next-is',
+              { n: v },
+              { op: 'type', args: { blank: b.id, value: v } },
+            ),
+          );
+        }
+        return steps;
+      }
+      case 'hundred-chart':
+        if (w.mode === 'fill') {
+          return [
+            say(
+              'gen.count.sequence.say-from',
+              { start },
+              { op: 'highlight-row', args: { n: start } },
+            ),
+            say(
+              'gen.count.sequence.next-is',
+              { n: last },
+              { op: 'answer', args: { values: w.hidden } },
+            ),
+          ];
+        }
+        return [
+          say(
+            'gen.count.sequence.say-from',
+            { start },
+            { op: 'highlight-row', args: { n: start } },
+          ),
+          say('gen.count.sequence.next-is', { n: next }, { op: 'tap', args: { n: next } }),
+        ];
+      case 'order': {
+        const sorted = [...w.items].sort((a, b) =>
+          w.direction === 'asc' ? a.value - b.value : b.value - a.value,
+        );
+        return [
+          say('gen.count.sequence.order-start', { n: (sorted[0] as { value: number }).value }),
+          ...sorted.map((it, slot) =>
+            say(
+              'gen.count.sequence.next-is',
+              { n: it.value },
+              { op: 'drag', args: { id: it.id, slot } },
+            ),
+          ),
+        ];
+      }
+      case 'number-line-jump': {
+        const steps: LessonStep[] = [
+          say('gen.count.sequence.say-from', { start }, { op: 'highlight', args: { at: start } }),
+        ];
+        for (let v = start + dir * step; dir > 0 ? v <= last : v >= last; v += dir * step) {
+          steps.push(
+            say('gen.count.sequence.hop', { n: v }, { op: 'hop', args: { by: dir * step } }),
+          );
+        }
+        if (w.thenAsk) {
+          steps.push(say('gen.count.sequence.next-is', { n: last }, { op: 'label-landing' }));
+        }
+        return steps;
+      }
+      default:
+        return [];
+    }
+  },
+};
+
+function asStrHide(v: unknown): 'last' | 'all-after' {
+  return v === 'last' ? 'last' : 'all-after';
+}

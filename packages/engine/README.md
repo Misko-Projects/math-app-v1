@@ -1,0 +1,102 @@
+# @number-island/engine
+
+The pure TypeScript engine (02 §2): no DOM, React, Dexie or Node built-ins, no `Math.random` and no `Date.now`. Randomness comes from the seeded RNG, and time is passed in as a parameter. `pnpm lint` (`scripts/check-boundaries.mjs`) enforces this. It runs in the web app, the API and tests.
+
+E01 (#7) delivers the item core: the RNG, the generator registry, item generation and difficulty targeting, response checking, misconception matching, hint ladders, the state models and widget schemas of the 11 fixture formats, and the hooks `tools/content-check` uses. The learner model (E02) and the session planner (E03) land in `src/learner` and `src/planner`.
+
+Source of truth: `docs/spec/02-architecture.md` §5.2 and §7, and `docs/spec/03-curriculum.md` §5–§7 and §9.
+
+## API
+
+```ts
+import {
+  initContent, generateItem, checkResponse, detectProcessMisconceptions,
+  itemKey, itemSolution, itemExampleCorrect, replaySteps, formatModel, render,
+} from '@number-island/engine';
+
+// 1. Bind the compiled content once at startup (web app, API, tests).
+initContent({ templates, narration, misconceptions, templateStats }); // packages/content/dist/*.json
+
+// 2. Generate. Same (template, seed, target) → deep-equal item on every device.
+const item = generateItem(template, seed);                   // untargeted
+const near = generateItem(template, seed, { difficulty: d }); // 24 candidates, closest to d* (04 §2.4)
+
+// 3. Check. Pure; partialCredit is 1 or 0 (the TaskRunner applies hint credit).
+const result = checkResponse(item, response);  // { correct, partialCredit, misconceptionIds, feedback, closeness? }
+const process = detectProcessMisconceptions(item, response, { latencyMs, trace }); // may tag correct answers
+
+// Repeats, lessons and demo mode
+itemKey(item);                        // templateId + ':' + canonical params
+const steps = itemSolution(item);     // LessonStep[]: hint level 5 and auto lessons
+replaySteps(item, steps);             // the response the widget would submit after the steps
+formatModel(item.widget.format);      // { configSchema, initialState, apply, toResponse, features }
+```
+
+| Export | What it does |
+|---|---|
+| `createRng(seed)`, `Rng` | `xoshiro128**` seeded through `splitmix32`, 32-bit integer operations only: `int`, `float`, `bool`, `pick`, `weighted`, `shuffle` (a copy) and `fork(label)` (an independent stream that does not advance the parent). |
+| `initContent`, `resetContent` | Bind or unbind the compiled templates, narration, misconceptions and `template-stats.json`. |
+| `generateItem(t, seed, target?)` | 03 §5.3, implemented once for every generator. It merges the generator's param defaults with the template's params, draws by rejection sampling (constraints plus the generator's `accepts`), builds, and computes `difficulty`. With a target it builds 24 candidates (odd ones use `sampleToward` when the generator has it) and returns the closest. A target outside the template's `[p10, p90]` emits a dev-only `difficulty.miss` through `setDevLogger`. Throws `GenerationError` when nothing satisfies the constraints. |
+| `generateItemFromParams(t, params, opts?)` | Builds from fixed params (authored lesson examples, misconception examples). |
+| `checkResponse(item, r)` | 03 §5.7. Answer and state misconception rules run on incorrect responses only, sorted by priority (descending) then id. When two rules predict the same response, only the higher-priority one is tagged. Feedback is `fb.correct.<1 + seed mod 6>`, the first misconception's `feedback`, or `fb.<format>.retry`. |
+| `detectProcessMisconceptions(item, r, meta)` | Process rules (trace and latency). The runner merges these ids with `checkResponse`'s. |
+| `difficulty`, `featureWeight`, `resolvedWeights` | 03 §5.4: `d = base + Σ w·x`, with the weight resolved template → generator → format. |
+| `buildHints` | 03 §5.8 ladder: 1 replay, 2 nudge, 3 representation (an overlay off the concrete tier, a highlight on it), 4 worked step (the first half of the solution, never its last step), 5 show me. Missing template hint keys skip their levels; each rung keeps its level number. |
+| `formatModel`, `formatModels`, `formatFeatures` | Format state models (03 §6.3) and format features (03 §5.5). |
+| `stateChecker(id)` | State checkers (03 §5.7). |
+| `misconceptionRule`, `applicableMisconceptions`, `itemGenerator` | Misconception rules (03 §7.1). An item's generator is resolved through its bound template (02 §5.9 E3). |
+| `render(key, vars)` | 03 §8.4 display text (thousands commas, `25¢`, `$1.25`, `0.47`, nouns, units, names). |
+| `generatorRegistered`, `generatorParams`, `generatorFeatures`, `generatorIdentifiers` | 03 §9.3 hooks for `tools/content-check`. |
+| `@number-island/engine/testing`: `runTemplateProperties`, `difficultyStats`, `propertyN` | The 03 §9.4 property test and the 03 §9.2 statistics, for Vitest and `tools/content-check`. Node and tests only: this entry uses fast-check and is never imported by the app. |
+
+## Layout
+
+```
+src/rng.ts                       seeded RNG
+src/content/                     initContent binding, constraint grammar (shared with the compiler), render
+src/generators/index.ts          the registry: one line per generator
+src/generators/<family>/<name>.ts  GeneratorDef implementations
+src/generators/common.ts         ParamSpec sampling, numeric pick options, vars, output assembly
+src/items/                       generateItem, checkResponse, difficulty, hints, solutions
+src/formats/<format>.ts          state model + widget schema + format features, one per format
+src/check/state/<id>.ts          state checkers
+src/misconceptions/rules/<id>.ts misconception rules; index.ts is the registry
+src/testing/                     the property test and statistics (the /testing entry)
+test/                            tests that read packages/content/dist (Node)
+```
+
+## Adding a generator (03 §10.2)
+
+1. Create `src/generators/<family>/<name>.ts` that exports a `GeneratorDef` (`src/generators/types.ts`). It needs:
+   - `params`: every param it accepts, with a type, a default `ParamSpec` and a doc line. Use the canonical names of 03 §5.6 (`a`, `b`, `op`, `unknown`, `result`, …), because misconception rules read them.
+   - `derived`: the names constraints may use besides the params (e.g. `result`).
+   - `features`: the math features with default weights and docs. Every feature is 0 for the easiest item.
+   - `narration`: every `gen.<id>.<step>` key its solutions say. Add each line to `packages/content/narration/common.yaml`.
+   - `sample(spec, rng)`: use `sampleAll` from `common.ts`, and enforce families by drawing *within* the template's domains, never by overriding them.
+   - `derive(p)` and optionally `accepts(p, t)` for validity the template's constraints don't express (rejected draws are drawn again).
+   - `build(ctx)`: one branch per format. Return through `finish()`, which adds the format features and builds the hint ladder from your `solution`. Draw layout randomness only from `rng.fork(...)`, so it never changes the math. Fill `vars` with `pickVars(template, pool)`, so only the slots the lines use reach the UI.
+   - `exampleCorrect(out)`: a correct response built directly, not by replaying the solution.
+   - `solution(out)`: `LessonStep[]` whose actions, replayed through the format's state model, produce a correct response. The final step enters the answer.
+   - `sampleToward` when the parameter space is large or lumpy (03 §5.4).
+2. Register it with one line in `src/generators/index.ts`.
+3. Add its row to 03 §5.6 in the same PR.
+4. Add unit tests (fixed params → answer, widget and solution per format; feature values at the extremes). `test/fixture.property.test.ts` and `pnpm content:validate` (V15) run the 03 §9.4 property test on every template that uses it.
+5. Add any misconception rules it needs in `src/misconceptions/rules/`, registered in `src/misconceptions/index.ts`, with tests that include non-discriminating items (`predict` returns `null` when the buggy answer equals the correct one).
+
+## Adding a format model (U03–U05)
+
+Create `src/formats/<format>.ts` exporting a `FormatModel`: `configSchema` (the shared `WidgetConfig` schema plus the semantic rules the widget relies on), `features` and `featureValues` (03 §5.5), and the pure `initialState`, `apply` and `toResponse`. Support every demo op the format lists in `FORMAT_SUPPORT[format].ops`, plus the generic `answer` op (`{ value }`, `{ values }` or `{ id }`), which enters the final answer the way the widget's answer control does. Register it with one line in `src/formats/index.ts`. Add each state checker the format needs in `src/check/state/<id>.ts`, with table tests that include at least one alternative valid end state and the checker's near-miss `exempt` rule.
+
+## Conventions the fixture formats fix (E01)
+
+- **Trace targets.** Countable objects are `obj-<i>` (reading order). Addend counters are `counter-<i>`: `0 … a − 1` for the first addend, then the second.
+- **Numeric pick options** use ids `opt-<n>`, so a pick reads back as a number.
+- **make-set** responds with `{ count, removed, parts?, bundles? }`. `parts` is `[left hand, right hand]` for the `hands` container and `[kept, removed]` for `take-away`, which is how a two-part split is shown.
+- **tenframe-fill** responds with `{ cells, value? }`, where each cell is 0 (empty), 1 (colour a) or 2 (colour b). Both colours are always available, so a split shows as colour counts.
+- **number-bond** split and new-way respond with `{ parts }`. `rekenrek` responds with `{ rows, value? }`, and `number-line-jump` with `{ jumps, value? }`.
+- `bond.split` and `bond.newWay` read the two parts from any of these shapes.
+
+## Tests
+
+- `pnpm exec vitest run --project engine`: unit tests under `src/` and the fixture property test under `test/`. Seeds come from `CONTENT_PROPERTY_N`: 50 locally, 100 on PR CI, 500 nightly.
+- `pnpm content:validate` also runs the property test on every template, through `tools/content-check`.
