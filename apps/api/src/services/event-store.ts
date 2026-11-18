@@ -210,17 +210,23 @@ export interface EventIdentity {
   deletedChild: string | null;
 }
 
+/** Marks the error `identityGuardSql` raises; the conflicting event id follows it. */
+export const IMPORT_CONFLICT_MARKER = 'import-identity-conflict:';
+
 /**
  * Statements that fail (rolling back their whole batch) when any `identities` id is stored as a
  * different event: another family, another type, or a tombstone for another child. Placed after
  * the inserts of an import, they catch conflicts that appear between the import's read and its
- * write. SQLite has no RAISE outside triggers, so a matching row evaluates `json()` on text that is
- * not JSON; the row-dependent argument keeps it from being evaluated when nothing matches.
+ * write. SQLite has no RAISE outside triggers, so a matching row asks `json_extract` for an invalid
+ * path built from `IMPORT_CONFLICT_MARKER` and the event id; SQLite's error ("bad JSON path: …")
+ * carries that text, so the caller learns of the conflict from the transaction itself
+ * (`importConflictIdFromError`). The row-dependent path keeps it from being evaluated when nothing
+ * matches.
  */
 export function identityGuardSql(familyId: string, identities: EventIdentity[]): SQL[] {
   return chunkByJsonSize(identities).map(
     (chunk) => sql`
-      SELECT json('import identity conflict: ' || json_extract(v.value, '$.id'))
+      SELECT json_extract('{}', ${IMPORT_CONFLICT_MARKER} || json_extract(v.value, '$.id'))
       FROM json_each(${JSON.stringify(chunk)}) AS v
       WHERE EXISTS (SELECT 1 FROM events e
         WHERE e.id = json_extract(v.value, '$.id')
@@ -231,6 +237,15 @@ export function identityGuardSql(familyId: string, identities: EventIdentity[]):
                 IS NOT json_extract(v.value, '$.deletedChild'))))
       LIMIT 1`,
   );
+}
+
+/** The event id an `identityGuardSql` failure names, or null for any other error. */
+export function importConflictIdFromError(err: unknown): string | null {
+  const text = err instanceof Error ? err.message : String(err);
+  const at = text.indexOf(IMPORT_CONFLICT_MARKER);
+  if (at < 0) return null;
+  const id = /^[0-9A-Za-z-]+/.exec(text.slice(at + IMPORT_CONFLICT_MARKER.length));
+  return id ? id[0] : null;
 }
 
 /** JSON with object keys sorted at every level, so equal values compare equal as text. */

@@ -12,10 +12,13 @@ import { batchSql, createDb } from '../src/db/client';
 import { TABLE_NAMES } from '../src/db/schema';
 import {
   identityGuardSql,
+  importConflictIdFromError,
+  insertEvents,
   insertEventsSql,
   mergeSettingsSql,
-  purgeChild,
+  purgeChildSql,
   tombstoneEvent,
+  toStoredEvent,
 } from '../src/services/event-store';
 import {
   api,
@@ -227,39 +230,59 @@ describe('POST /api/import', () => {
 
   it('rolls the whole import back when a conflicting event lands after its read', async () => {
     const family = await setupFamily();
-    const a = newId();
-    const b = newId();
-    const tombId = newId();
+    const x = newId(); // a child with an ordinary event
+    const b = newId(); // the child the import wants to tombstone
     const db = createDb(env.DB);
-    // Another writer stores a tombstone for A under tombId between the import's read and write.
-    await purgeChild(
-      db,
-      family.familyId,
-      a,
+    // After the import's read, a sync stores an ordinary event of child X under the id the import
+    // will use for its tombstone of child B.
+    const clash = toStoredEvent(
+      roadEvent(family.familyId, family.deviceId, { childId: x }),
       Date.now(),
-      tombstoneEvent(tombId, family.familyId, a, Date.now()),
     );
-    const importTomb = tombstoneEvent(tombId, family.familyId, b, Date.now());
+    await insertEvents(db, family.familyId, [clash], Date.now());
+    const importTomb = tombstoneEvent(clash.id, family.familyId, b, Date.now());
+    const fresh = toStoredEvent(roadEvent(family.familyId, family.deviceId), Date.now());
     const settingsDoc = {
       key: 'family' as const,
       value: withSettingDefaults({ kind: 'family' }),
       updatedAt: 42,
     };
-    await expect(
-      batchSql(db, [
-        ...insertEventsSql(family.familyId, [importTomb], Date.now()),
-        ...identityGuardSql(family.familyId, [
-          { id: tombId, type: 'child.deleted', deletedChild: b },
-        ]),
-        ...mergeSettingsSql(family.familyId, [settingsDoc]),
+    const failure = await batchSql(db, [
+      // `fresh` comes before the guard: it proves earlier writes of the batch are undone too.
+      ...insertEventsSql(family.familyId, [fresh, importTomb], Date.now()),
+      ...identityGuardSql(family.familyId, [
+        { id: fresh.id, type: fresh.type, deletedChild: null },
+        { id: clash.id, type: 'child.deleted', deletedChild: b },
       ]),
-    ).rejects.toThrow();
-    const n = await env.DB.prepare('SELECT COUNT(*) AS n FROM settings').first<{ n: number }>();
-    expect(n?.n).toBe(0);
+      ...purgeChildSql(family.familyId, b, Date.now(), null),
+      ...mergeSettingsSql(family.familyId, [settingsDoc]),
+    ]).then(
+      () => null,
+      (err: unknown) => err,
+    );
+    expect(failure).not.toBeNull();
+    expect(importConflictIdFromError(failure)).toBe(clash.id);
+    const rows = await env.DB.prepare(
+      'SELECT (SELECT COUNT(*) FROM events WHERE id = ?1) AS fresh, (SELECT COUNT(*) FROM settings) AS settings',
+    )
+      .bind(fresh.id)
+      .first<{ fresh: number; settings: number }>();
+    expect(rows).toEqual({ fresh: 0, settings: 0 });
+
+    // A concurrent delete of child X now removes the conflicting row, so a re-read would find no
+    // conflict; the error still names it, which is what the route answers 409 from.
+    await api(`/api/children/${x}`, { method: 'DELETE', cookie: family.cookie });
+    const gone = await env.DB.prepare('SELECT COUNT(*) AS n FROM events WHERE id = ?')
+      .bind(clash.id)
+      .first<{ n: number }>();
+    expect(gone?.n).toBe(0);
+    expect(importConflictIdFromError(failure)).toBe(clash.id);
+    expect(importConflictIdFromError(new Error('D1_ERROR: something else'))).toBeNull();
+
     // A matching identity passes the guard.
     await batchSql(db, [
       ...identityGuardSql(family.familyId, [
-        { id: tombId, type: 'child.deleted', deletedChild: a },
+        { id: fresh.id, type: fresh.type, deletedChild: null },
       ]),
       ...mergeSettingsSql(family.familyId, [settingsDoc]),
     ]);

@@ -19,6 +19,7 @@ import {
   envelopeStringBytes,
   type HeldEvent,
   identityGuardSql,
+  importConflictIdFromError,
   insertEventsSql,
   MAX_EVENT_ENVELOPE_STRING_BYTES,
   mergeProfilesSql,
@@ -179,8 +180,10 @@ backupRoutes.post(
         ...profilesSql,
       ]);
     } catch (err) {
-      // The guard rolled the batch back because a conflicting event landed after our read.
-      const conflictAfter = storedConflict(await loadStored());
+      // The guard rolled the batch back because a conflicting event landed after our read. Its
+      // error names the event, so the answer does not depend on a re-read (the conflicting row
+      // may itself be gone by now); the re-read only covers errors that carry no marker.
+      const conflictAfter = importConflictIdFromError(err) ?? storedConflict(await loadStored());
       if (conflictAfter !== null) {
         throw new ApiError(
           'conflict',
