@@ -1667,4 +1667,3 @@ function serialize(content: CompiledContent): {
   outputs['manifest.json'] = `${canonicalJson(manifest)}\n`;
   return { outputs, contentVersion };
 }
-
