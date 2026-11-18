@@ -52,6 +52,10 @@ export interface FakeNetwork {
   contentReachable: boolean;
   /** Overrides an asset's body. */
   assets: Record<string, string>;
+  /** Fields merged into every `/api/sync` answer (e.g. pulled `events`, `more`). */
+  syncAnswer: Partial<SyncResponse>;
+  /** While set, `/api/sync` answers wait for this promise (an in-flight sync). */
+  holdSync: Promise<void> | null;
 }
 
 export function fakeNetwork(): FakeNetwork {
@@ -61,6 +65,8 @@ export function fakeNetwork(): FakeNetwork {
     apiReachable: true,
     contentReachable: true,
     assets: contentAssets(),
+    syncAnswer: {},
+    holdSync: null,
     fetch: async (input, init) => {
       const url = String(input);
       net.urls.push(url);
@@ -81,7 +87,9 @@ export function fakeNetwork(): FakeNetwork {
             more: false,
             settings: [],
             profiles: [],
+            ...net.syncAnswer,
           };
+          if (net.holdSync) await net.holdSync;
           return new Response(JSON.stringify(res), { status: 200 });
         }
         return new Response('{}', { status: 404 });

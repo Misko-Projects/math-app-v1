@@ -62,35 +62,56 @@ export function createSyncLifecycle(
     setRunning(true);
   };
   const stop = () => {
-    if (!running) return;
+    // Always tell the client: a manual sync may be in flight even while automatic sync is off.
+    // After this returns, nothing the client receives is applied (sync.ts, `generation`).
     client.stop();
     setRunning(false);
   };
 
+  // resume, adopt and signOut change the device's credentials, so they run one at a time in the
+  // order they were asked for: the last request wins (an adoption still in progress can never
+  // restore a token that a later sign-out removed).
+  let queue: Promise<unknown> = Promise.resolve();
+  const serial = <T>(fn: () => Promise<T>): Promise<T> => {
+    const next = queue.then(fn, fn);
+    queue = next.catch(() => undefined);
+    return next;
+  };
+
   return {
     isRunning: () => running,
-    async resume() {
-      const device = await store.device();
-      if (!device.deviceToken) return false;
-      start();
-      return true;
-    },
-    async adopt(ids) {
-      // A re-pair (after a sign-out or revocation) must not sync with the old token mid-move.
-      stop();
-      const record = await store.adoptFamily(ids);
-      start();
-      return record;
-    },
-    async signOut() {
-      stop();
-      await store.db.transaction('rw', store.db.device, async () => {
-        const device = await store.db.device.get('device');
-        if (device?.deviceToken === undefined) return;
-        const { deviceToken: _dropped, ...rest } = device;
-        await store.db.device.put(rest);
-      });
-    },
+    resume: () =>
+      serial(async () => {
+        const device = await store.device();
+        if (!device.deviceToken) return false;
+        start();
+        return true;
+      }),
+    adopt: (ids) =>
+      serial(async () => {
+        // A re-pair must not sync with the old token while the ids move.
+        const wasRunning = running;
+        stop();
+        try {
+          const record = await store.adoptFamily(ids);
+          start();
+          return record;
+        } catch (e) {
+          // Nothing changed (bad ids, or the write rolled back): keep the pairing we had.
+          if (wasRunning && (await store.device()).deviceToken) start();
+          throw e;
+        }
+      }),
+    signOut: () =>
+      serial(async () => {
+        stop();
+        await store.db.transaction('rw', store.db.device, async () => {
+          const device = await store.db.device.get('device');
+          if (device?.deviceToken === undefined) return;
+          const { deviceToken: _dropped, ...rest } = device;
+          await store.db.device.put(rest);
+        });
+      }),
     syncNow: (reason) => client.syncNow(reason),
     stop,
     subscribe(listener) {

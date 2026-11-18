@@ -21,14 +21,22 @@ export function App({ boot = bootApp, router = defaultRouter }: AppProps) {
   const [attempt, setAttempt] = useState(0);
   // One boot per attempt, even when StrictMode runs the effect twice: two stores on one database
   // would race each other's projection rebuilds.
-  const started = useRef<{ attempt: number; promise: Promise<AppServices> } | null>(null);
+  const started = useRef<{
+    attempt: number;
+    promise: Promise<AppServices>;
+    dispose: ReturnType<typeof setTimeout> | null;
+  } | null>(null);
 
   useEffect(() => {
     if (started.current?.attempt !== attempt) {
-      started.current = { attempt, promise: boot() };
+      started.current = { attempt, promise: boot(), dispose: null };
     }
+    const run = started.current;
+    // StrictMode's simulated unmount is followed at once by a remount: keep the services then.
+    if (run.dispose !== null) clearTimeout(run.dispose);
+    run.dispose = null;
     let active = true;
-    started.current.promise.then(
+    run.promise.then(
       (services) => {
         if (active) setState({ kind: 'ready', services });
       },
@@ -43,6 +51,14 @@ export function App({ boot = bootApp, router = defaultRouter }: AppProps) {
     );
     return () => {
       active = false;
+      // A real unmount: stop syncing and close the database (now, or when a pending boot lands).
+      run.dispose = setTimeout(() => {
+        if (started.current === run) started.current = null;
+        run.promise.then(
+          (services) => services.dispose(),
+          () => {},
+        );
+      }, 0);
     };
   }, [boot, attempt]);
 

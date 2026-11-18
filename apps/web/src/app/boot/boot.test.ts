@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { profile } from '@/data/store.test-support';
 import { type AppServices, BootError } from './boot';
 import { SERVER_DEVICE, SERVER_FAMILY, TOKEN, testDevice } from './boot.test-support';
@@ -52,8 +52,8 @@ describe('boot: fresh setup', () => {
     expect(record.pairedAt).not.toBeNull();
     expect(app.sync.isRunning()).toBe(true);
     expect(changes).toEqual([true]);
-    await app.sync.syncNow();
-    expect(device.net.syncRequests.length).toBeGreaterThan(0);
+    // The client's own start trigger syncs: no manual call.
+    await vi.waitFor(() => expect(device.net.syncRequests.length).toBeGreaterThan(0));
     const first = device.net.syncRequests[0];
     expect(first?.authorization).toBe(`Bearer ${TOKEN}`);
     expect(first?.body.profiles.map((p) => p.familyId)).toEqual([SERVER_FAMILY]);
@@ -82,8 +82,8 @@ describe('boot: returning family', () => {
     expect((await app.store.allProfiles()).map((p) => p.id)).toEqual([
       '019a0000-0000-7000-8000-0000000ac002',
     ]);
-    await app.sync.syncNow();
-    expect(device.net.syncRequests.length).toBeGreaterThan(before);
+    // Launch alone syncs (the client's start trigger), with no manual call.
+    await vi.waitFor(() => expect(device.net.syncRequests.length).toBeGreaterThan(before));
     expect(device.net.syncRequests.at(-1)?.authorization).toBe(`Bearer ${TOKEN}`);
   });
 
@@ -163,5 +163,112 @@ describe('boot: offline start', () => {
     device.net.assets['/content/game.json'] = '{"buildings": 3}';
     const err = await device.boot().catch((e: unknown) => e);
     expect((err as BootError).code).toBe('content_invalid');
+  });
+});
+
+describe('boot: damaged skill graph', () => {
+  const graphWith = (
+    device: ReturnType<typeof testDevice>,
+    patch: (g: Record<string, unknown>) => void,
+  ) => {
+    const g = JSON.parse(device.net.assets['/content/graph.json'] as string) as Record<
+      string,
+      unknown
+    >;
+    patch(g);
+    device.net.assets['/content/graph.json'] = JSON.stringify(g);
+  };
+
+  it.each([
+    ['without gateways', (g: Record<string, unknown>) => delete g.gateways],
+    ['with a bad depth map', (g: Record<string, unknown>) => (g.depth = { 'CNT.01': 'deep' })],
+    ['with a missing descendants map', (g: Record<string, unknown>) => delete g.descendants2],
+  ])('reports a graph %s as damaged content', async (_name, patch) => {
+    const device = testDevice();
+    graphWith(device, patch);
+    const err = await device.boot().catch((e: unknown) => e);
+    expect(err).toBeInstanceOf(BootError);
+    expect((err as BootError).code).toBe('content_invalid');
+  });
+
+  it('reports malformed template statistics as damaged content', async () => {
+    const device = testDevice();
+    const index = JSON.parse(device.net.assets['/content/index.json'] as string) as {
+      files: Record<string, string>;
+    };
+    index.files['template-stats.json'] = '/content/template-stats.json';
+    device.net.assets['/content/index.json'] = JSON.stringify(index);
+    device.net.assets['/content/template-stats.json'] = '{"CNT.01.t1": {"min": "low"}}';
+    const err = await device.boot().catch((e: unknown) => e);
+    expect((err as BootError).code).toBe('content_invalid');
+  });
+});
+
+describe('sync lifecycle: sign-out and re-pairing', () => {
+  const ids = { familyId: SERVER_FAMILY, deviceId: SERVER_DEVICE, deviceToken: TOKEN };
+
+  async function pairedApp() {
+    const device = testDevice();
+    const app = await track(device.boot());
+    await app.sync.adopt(ids);
+    await vi.waitFor(() => expect(device.net.syncRequests.length).toBeGreaterThan(0));
+    await app.sync.syncNow();
+    return { device, app };
+  }
+
+  it('applies nothing a sync in flight receives after sign-out, and sends nothing more', async () => {
+    const { device, app } = await pairedApp();
+    const cursorBefore = (await app.store.syncState()).cursor;
+    let release = () => {};
+    device.net.holdSync = new Promise<void>((r) => {
+      release = r;
+    });
+    device.net.syncAnswer = {
+      more: true,
+      cursor: '999',
+      profiles: [
+        {
+          ...profile('019a0000-0000-7000-8000-0000000ac0ff', 'K', 'Late'),
+          familyId: SERVER_FAMILY,
+        },
+      ],
+    };
+    const before = device.net.syncRequests.length;
+    const pending = app.sync.syncNow();
+    await vi.waitFor(() => expect(device.net.syncRequests.length).toBe(before + 1));
+
+    await app.sync.signOut();
+    release();
+    expect(await pending).toEqual({ kind: 'stopped' });
+    expect((await app.store.allProfiles()).map((p) => p.name)).not.toContain('Late');
+    expect((await app.store.syncState()).cursor).toBe(cursorBefore);
+    // No follow-up round with the removed token.
+    expect(device.net.syncRequests.length).toBe(before + 1);
+  });
+
+  it('lets the last request win when adoption and sign-out overlap', async () => {
+    const device = testDevice();
+    const app = await track(device.boot());
+    const adopting = app.sync.adopt(ids);
+    const signingOut = app.sync.signOut();
+    await Promise.all([adopting, signingOut]);
+    expect((await app.store.device()).deviceToken).toBeUndefined();
+    expect(app.sync.isRunning()).toBe(false);
+
+    // And the other way round: sign-out first, then pairing, ends paired and syncing.
+    const out = app.sync.signOut();
+    const back = app.sync.adopt(ids);
+    await Promise.all([out, back]);
+    expect((await app.store.device()).deviceToken).toBe(TOKEN);
+    expect(app.sync.isRunning()).toBe(true);
+  });
+
+  it('keeps the existing pairing syncing when a re-pair is refused', async () => {
+    const { app } = await pairedApp();
+    await expect(
+      app.sync.adopt({ familyId: SERVER_FAMILY, deviceId: 'not-an-id', deviceToken: 'short' }),
+    ).rejects.toThrow();
+    expect((await app.store.device()).deviceToken).toBe(TOKEN);
+    expect(app.sync.isRunning()).toBe(true);
   });
 });

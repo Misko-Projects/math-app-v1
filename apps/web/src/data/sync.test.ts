@@ -576,10 +576,11 @@ describe('sync client: review round 3 regressions', () => {
     client.stop();
     const online = client.syncNow('online'); // made while stopped
     client.start(); // restarted before the held sync returns
-    release(); // ... which fails, opening a backoff window
+    release(); // ... which belongs to the stopped generation: discarded, not a failure
     expect(await online).toEqual({ kind: 'stopped' });
     await settle();
-    expect(calls).toBe(1); // nothing forced a request into the new window
+    // Only the restart's own start trigger sent a request; the one made while stopped sent none.
+    expect(calls).toBe(2);
     client.stop();
   });
 
