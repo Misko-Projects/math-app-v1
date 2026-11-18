@@ -247,6 +247,26 @@ Points §2.4, §5 and §6 leave open, as the placement runner, the planner and `
 - **Residents and rewards:** residents rotate through the workshop's residents. The Practice Pier, or a workshop without residents, uses every available workshop's residents, then the island's, then `pip` as the last resort. Materials are one unit per item, alternating between two products. The Practice Pier gives the first product of an available workshop that lists its resident. Puzzle Tower gives decor only. A request with challenge items, or bound to Puzzle Tower, adds one `puzzleDecor` id.
 - **Narration:** a request is voiced by `req.help`, or by `req.idea` for a remediation, with `vars` `{ who, count, material }`.
 
+**In-session adaptation (§6.4).** `adaptNext` implements the 02 §5.8 types exactly. The calling protocol it assumes:
+
+- **Calls:** the `TaskRunner` calls it after every submit, with `state` already including that attempt. `request.tasks` is the runner's working list, and inserted tasks are spliced in right after the current task. `doneTaskIds` holds the tasks presented so far, the current one included.
+- **Show-solution:** after it plays a worked solution, the runner calls `adaptNext` once more with the same `last` and `attemptNo + 1`. That call resolves the item, so wind-down and frustration are checked at the end of every item without cutting into it.
+- **Request history:** first-try results inside the request come from `state.skills[s].recent`, the last *m* entries. *m* counts the presented tasks of `s` that enter `recent`: item mode, an evidence context, and a template whose own answer kind is constructed (`isConstructedTemplate`; a choice response never enters `recent`).
+- **Rule order:**
+  1. an unresolved item: on the first wrong, `retry` with hint level 2 + `hintsUsed`, capped at 4; on the second wrong, `show-solution`;
+  2. wind-down;
+  3. frustration;
+  4. request complete;
+  5. prerequisite probe;
+  6. tier step-down;
+  7. continue.
+
+  Lesson tasks never retry here.
+- **Frustration:** the confidence item is the highest-P(ref) skill among practiced-track skills and the request's own skills, with a template in a format the request already uses, in the `warmup` context. Its seed is `confidenceSeed(request.id)`. Its own result never re-triggers. Frustration on a later item ends the request (`frustration`), with full celebration.
+- **Prerequisite probe:** inserted once per skill. The weakest prerequisite is the one with the lowest offset, ties by id. Its seed is `probeSeed(request.id, skill, prerequisite)`, and its context is `review` when the prerequisite is on the practiced track, else `practice`. The decision union cannot remove tasks, so a failed probe ends the request as `complete`, and the next plan schedules the prerequisite.
+- **Tier step-down:** the last two first tries on the skill are wrong *at the same tier*, so the skill moves one tier below that tier, for the rest of the request. The wrongs that caused a step never cause another; the next step needs two more wrongs at the new tier. `tierOverrides` returns the merged map. A step is omitted at `concrete`, or when the current override is already at or below the target.
+- **Misconception trigger:** it fires when the current attempt matched a misconception that has reached 2 hits in the skill's window. It can therefore repeat, so the runner keeps one queued remediation per (skill, misconception). The remediation skill is the first of the misconception's `remediation` skills that exists in the graph, else the skill itself.
+
 ## 8. Testing requirements (engine)
 
 - Unit tests for every formula above (table-driven).

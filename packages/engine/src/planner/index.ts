@@ -1,5 +1,6 @@
-// 02 §5.4 session planner (04 §2.4, §6): planSession and targetDifficulty.
+// 02 §5.4 session planner (04 §2.4, §6): planSession, targetDifficulty and adaptNext.
 
+export * from './adapt';
 export {
   neededTemplates,
   type PlanOptions,

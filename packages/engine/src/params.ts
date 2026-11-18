@@ -163,6 +163,19 @@ export interface EngineParams {
     warmup: [number, number];
     challenge: [number, number];
   };
+  /** §6.4 in-session adaptation (E03). */
+  adapt: {
+    /** Frustration: ≥ this many wrong of the last 4, rapid wrong taps, or long idles. */
+    frustrationWrongInLast4: number;
+    frustrationRapidTaps: number;
+    frustrationIdles: number;
+    /** This many first-try wrongs in a row on a skill step its tier down. */
+    tierStepWrongs: number;
+    /** This many first-try wrongs on a skill in one request insert a prerequisite probe. */
+    probeWrongs: number;
+    /** Misconception trigger: the same misconception at least this often in the last 10 attempts on the skill. */
+    misconceptionHits: number;
+  };
 }
 
 export const PARAMS: EngineParams = {
@@ -272,5 +285,13 @@ export const PARAMS: EngineParams = {
     review: [0.9, 0.92],
     warmup: [0.95, 0.96],
     challenge: [0.65, 0.75],
+  },
+  adapt: {
+    frustrationWrongInLast4: 3,
+    frustrationRapidTaps: 3,
+    frustrationIdles: 2,
+    tierStepWrongs: 2,
+    probeWrongs: 3,
+    misconceptionHits: 2,
   },
 };
