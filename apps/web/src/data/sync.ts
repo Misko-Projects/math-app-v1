@@ -38,7 +38,15 @@ export type SyncOutcome =
   | { kind: 'unpaired' } // no device token yet: setup or pairing has not happened
   | { kind: 'offline' }
   | { kind: 'revoked'; code: string } // the server no longer accepts this device
-  | { kind: 'failed'; error: string };
+  | { kind: 'failed'; error: string }
+  | { kind: 'deferred' } // an automatic trigger inside the backoff window: the retry timer will sync
+  | { kind: 'stopped' }; // an automatic trigger after stop(): nothing was sent
+
+/** A sync exchange (request and response body) that takes longer than this fails and is retried. */
+export const SYNC_REQUEST_TIMEOUT_MS = 30_000;
+
+/** Reasons that run even inside the backoff window: an explicit call, and the network returning. */
+const BYPASSES_BACKOFF: ReadonlySet<SyncReason> = new Set(['manual', 'online', 'retry']);
 
 export interface SyncClientOptions {
   store: DataStore;
@@ -55,6 +63,8 @@ export interface SyncClientOptions {
   /** 0..1, for backoff jitter; defaults to `Math.random`. */
   random?: () => number;
   intervalMs?: number;
+  /** Deadline for one exchange, request and response body (default 30 s). */
+  requestTimeoutMs?: number;
 }
 
 export interface SyncClient {
@@ -111,32 +121,67 @@ export function createSyncClient(opts: SyncClientOptions): SyncClient {
   const clearTimer = opts.clearTimer ?? ((h) => clearTimeout(h as ReturnType<typeof setTimeout>));
   const random = opts.random ?? Math.random;
   const intervalMs = opts.intervalMs ?? SYNC_INTERVAL_MS;
+  const requestTimeoutMs = opts.requestTimeoutMs ?? SYNC_REQUEST_TIMEOUT_MS;
 
   let inFlight: Promise<SyncOutcome> | null = null;
   let again: Promise<SyncOutcome> | null = null;
   let failures = 0;
+  /** While failures > 0, automatic triggers wait until the retry timer fires at this time. */
+  let retryAt = 0;
   let running = false;
   let timer: unknown = null;
   const cleanups: (() => void)[] = [];
 
-  /** One push/pull exchange. Returns the parsed response or stops the sync. */
+  /**
+   * One push/pull exchange under one deadline covering the request and the response body, so a
+   * stalled connection fails (and is retried) instead of holding the client forever. Returns the
+   * parsed response or stops the sync.
+   */
   async function exchange(token: string, body: SyncRequest): Promise<SyncResponse> {
+    const controller = new AbortController();
+    let timedOut = false;
+    let handle: unknown = null;
+    const deadline = new Promise<never>((_, reject) => {
+      handle = setTimer(() => {
+        timedOut = true;
+        controller.abort();
+        reject(new Error('timeout'));
+      }, requestTimeoutMs);
+    });
+    deadline.catch(() => undefined); // settled by the race below; never an unhandled rejection
+    const timeout = () =>
+      new SyncStop({ kind: 'failed', error: `timeout after ${requestTimeoutMs} ms` });
     let res: Response;
+    let json: unknown;
     try {
-      res = await doFetch(url, {
-        method: 'POST',
-        headers: {
-          authorization: `Bearer ${token}`,
-          'content-type': 'application/json',
-          accept: 'application/json',
-        },
-        body: JSON.stringify(body),
-        cache: 'no-store',
-      });
-    } catch (e) {
-      throw new SyncStop({ kind: 'failed', error: `network: ${errorMessage(e)}` });
+      try {
+        res = await Promise.race([
+          doFetch(url, {
+            method: 'POST',
+            headers: {
+              authorization: `Bearer ${token}`,
+              'content-type': 'application/json',
+              accept: 'application/json',
+            },
+            body: JSON.stringify(body),
+            cache: 'no-store',
+            signal: controller.signal,
+          }),
+          deadline,
+        ]);
+      } catch (e) {
+        throw timedOut
+          ? timeout()
+          : new SyncStop({ kind: 'failed', error: `network: ${errorMessage(e)}` });
+      }
+      try {
+        json = await Promise.race([res.json().catch(() => null), deadline]);
+      } catch {
+        throw timeout();
+      }
+    } finally {
+      clearTimer(handle);
     }
-    const json: unknown = await res.json().catch(() => null);
     if (res.status === 401) {
       const code = errorCode(json) ?? 'unauthorized';
       throw new SyncStop({ kind: 'revoked', code });
@@ -222,6 +267,7 @@ export function createSyncClient(opts: SyncClientOptions): SyncClient {
     if (outcome?.kind === 'failed') {
       failures += 1;
       delay = backoffDelay(failures, random);
+      retryAt = now() + delay;
     } else if (outcome !== null) failures = 0;
     timer = setTimer(() => {
       timer = null;
@@ -230,6 +276,12 @@ export function createSyncClient(opts: SyncClientOptions): SyncClient {
   }
 
   function syncNow(reason: SyncReason = 'manual'): Promise<SyncOutcome> {
+    // An automatic trigger never sends after stop() (a follow-up queued before it included), and
+    // inside the backoff window it leaves the next attempt to the retry timer.
+    if (reason !== 'manual' && !running) return Promise.resolve({ kind: 'stopped' });
+    if (!BYPASSES_BACKOFF.has(reason) && failures > 0 && now() < retryAt) {
+      return Promise.resolve({ kind: 'deferred' });
+    }
     if (inFlight) {
       // Coalesce: at most one follow-up run, which starts after the current one finishes.
       again ??= inFlight.then(() => {

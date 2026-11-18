@@ -1,4 +1,4 @@
-import { type AvatarSpec, newId } from '@number-island/shared';
+import { type AvatarSpec, type LearnerState, newId } from '@number-island/shared';
 import { describe, expect, it } from 'vitest';
 import {
   api,
@@ -8,6 +8,7 @@ import {
   pair,
   setupFamily,
   snapshot,
+  storeContent,
   syncAll,
   workerFetch,
 } from './harness';
@@ -128,9 +129,17 @@ describe('clamp convergence (02 §5.9 S3)', () => {
     const tablet = await newDevice('tablet', { skewMs: 60_000 }); // a minute fast: within the bound
     await tablet.store.adoptFamily(await pair(fam.cookie));
 
-    // The fast device names the island and starts a session for a child.
+    // The fast device names the island and marks a skill mastered for a child (order-dependent:
+    // the learner keeps the last override, so its state shows which ts the fold ordered by).
+    const skill = storeContent().graph.nodes[0];
+    if (!skill) throw new Error('the content has no skills');
     const named = await ahead.store.append('island.named', { name: 'Sunny' }, { childId: null });
     await ahead.store.append('session.started', sessionPayload(), { childId: CHILD_A });
+    await ahead.store.append(
+      'skill.override',
+      { skillId: skill, to: 'mastered' },
+      { childId: CHILD_A },
+    );
     expect((await ahead.sync.syncNow()).kind).toBe('synced');
     // The server clamped its ts to the receive time and echoed it; the local copy now matches.
     const local = (await ahead.store.events()).find((e) => e.id === named.id);
@@ -141,11 +150,20 @@ describe('clamp convergence (02 §5.9 S3)', () => {
     // ts but long before the fast device's own clock: by the server-bounded ts, "Breezy" wins.
     await tablet.store.append('island.named', { name: 'Breezy' }, { childId: null });
     await tablet.store.append('session.started', sessionPayload(), { childId: CHILD_A });
+    // The same for the learner: the tablet's later reset wins over the clamped mastery. Ordered by
+    // clientTs, the fast device's mastery (48 h ahead) would win instead.
+    await tablet.store.append(
+      'skill.override',
+      { skillId: skill, to: 'reset' },
+      { childId: CHILD_A },
+    );
     await syncAll(ahead, tablet);
 
     const a = await snapshot(ahead.store);
     const b = await snapshot(tablet.store);
     expect(a.island.name).toBe('Breezy');
+    const learner = a.skills[CHILD_A] as LearnerState | null;
+    expect(learner?.skills[skill]?.override).toBe('reset');
     expect(b).toEqual(a);
     expect(a.skills[CHILD_A]).toEqual(b.skills[CHILD_A]);
   });

@@ -316,6 +316,119 @@ describe('sync client: triggers and backoff (08 §4)', () => {
   });
 });
 
+describe('sync client: review round 1 regressions', () => {
+  const okBody = (body: SyncRequest): SyncResponse => ({
+    accepted: body.events.map((e) => e.id),
+    rejected: [],
+    clamped: [],
+    events: [],
+    cursor: '1',
+    more: false,
+    settings: [],
+    profiles: [],
+  });
+  const respond = (init: RequestInit, status = 200) =>
+    new Response(
+      JSON.stringify(
+        status === 200
+          ? okBody(JSON.parse(String(init.body)) as SyncRequest)
+          : { error: { code: 'internal', message: 'x' } },
+      ),
+      { status },
+    );
+
+  it('R1-1. a stalled request or response body fails at the deadline and keeps the queue', async () => {
+    const { store } = await pairedStore();
+    stores.push(store);
+    await store.append('road.extended', { to: 1 }, { childId: null });
+    const timers = manualTimers();
+    let mode: 'stall-request' | 'stall-body' | 'ok' = 'stall-request';
+    const fetch: SyncClientOptions['fetch'] = async (_url, init) => {
+      if (mode === 'stall-request') return new Promise<Response>(() => undefined);
+      if (mode === 'stall-body') {
+        return { ok: true, status: 200, json: () => new Promise(() => undefined) } as Response;
+      }
+      return respond(init);
+    };
+    const client = createSyncClient({ store, fetch, ...timers, requestTimeoutMs: 1000 });
+    for (const stall of ['stall-request', 'stall-body'] as const) {
+      mode = stall;
+      const pending = client.syncNow();
+      await settle();
+      expect(timers.delays()).toEqual([1000]); // the exchange deadline
+      timers.fire();
+      expect(await pending).toEqual({ kind: 'failed', error: 'timeout after 1000 ms' });
+      expect(await store.unsynced()).toHaveLength(1);
+    }
+    mode = 'ok';
+    expect((await client.syncNow()).kind).toBe('synced');
+    expect(await store.unsynced()).toEqual([]);
+  });
+
+  it('R1-2. automatic triggers wait out the backoff window; the retry timer syncs', async () => {
+    const { store } = await pairedStore();
+    stores.push(store);
+    const timers = manualTimers();
+    let release: () => void = () => undefined;
+    const held = new Promise<void>((r) => {
+      release = r;
+    });
+    let calls = 0;
+    const fetch: SyncClientOptions['fetch'] = async (_url, init) => {
+      calls += 1;
+      if (calls === 1) {
+        await held;
+        return respond(init, 500);
+      }
+      return respond(init);
+    };
+    const client = createSyncClient({ store, fetch, random: () => 0.5, ...timers });
+    client.start();
+    await settle();
+    await store.append('request.completed', requestCompleted(), { childId: null }); // queued
+    await settle();
+    release();
+    await settle();
+    expect(calls).toBe(1); // the queued follow-up waits for the retry timer
+    await store.append('session.ended', sessionEnded(), { childId: null });
+    await settle();
+    expect(calls).toBe(1); // so does a trigger after the failure settled
+    timers.fire(); // the retry timer
+    await settle();
+    expect(calls).toBe(2);
+    expect(await store.unsynced()).toEqual([]);
+    client.stop();
+  });
+
+  it('R1-3. a follow-up queued before stop() never sends; a restart syncs normally', async () => {
+    const { store } = await pairedStore();
+    stores.push(store);
+    let release: () => void = () => undefined;
+    const held = new Promise<void>((r) => {
+      release = r;
+    });
+    let calls = 0;
+    const fetch: SyncClientOptions['fetch'] = async (_url, init) => {
+      calls += 1;
+      if (calls === 1) await held;
+      return respond(init);
+    };
+    const client = createSyncClient({ store, fetch, ...manualTimers() });
+    client.start();
+    await settle();
+    await store.append('request.completed', requestCompleted(), { childId: null }); // queued
+    await settle();
+    client.stop();
+    release();
+    await settle();
+    expect(calls).toBe(1);
+    client.start();
+    await settle();
+    expect(calls).toBe(2);
+    client.stop();
+  });
+});
+
 /** Lets queued promise chains (and IndexedDB work) run. */
 async function settle() {
   for (let i = 0; i < 20; i++) await new Promise((r) => setTimeout(r, 0));

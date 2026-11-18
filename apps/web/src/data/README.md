@@ -89,7 +89,9 @@ The client repeats this while the server reports `more` or a full batch was push
 - `unpaired`: no device token yet.
 - `offline`: `navigator.onLine` is false.
 - `revoked`: a 401, for example after the parent removed the device. The queue is kept.
-- `failed`: a network error, an HTTP error or a malformed answer. The queue is kept.
+- `failed`: a network error, an HTTP error, a malformed answer, or a timeout. Each exchange, request and response body, has a 30 s deadline (`requestTimeoutMs`). The queue is kept.
+- `deferred`: an automatic trigger inside the backoff window. The retry timer syncs instead.
+- `stopped`: an automatic trigger after `stop()`, including a follow-up queued before it. Nothing is sent.
 
 `syncNow` never rejects. A trigger that arrives during a sync joins one follow-up run.
 
@@ -100,7 +102,7 @@ The client repeats this while the server reports `more` or a full batch was push
 - on wind-down: `session.ended`, or the page becoming hidden;
 - the browser's `online` event.
 
-After a `failed` sync the next attempt backs off: 5 s doubling to 5 min, with ±20 % jitter. Sync never blocks gameplay.
+After a `failed` sync the next attempt backs off: 5 s doubling to 5 min, with ±20 % jitter. Until the retry timer fires, gameplay triggers are deferred; only `manual` and `online` go through. Sync never blocks gameplay.
 
 **Integration tests:** `apps/web/sync-test/` (Vitest project `web-sync`, `vitest.sync.config.ts`) runs this client and the store over fake IndexedDB, one database per simulated device, against the real API Worker in workerd. It uses the Workers pool, the API's `wrangler.jsonc` and a migrated local D1. It covers:
 - two-device convergence on the golden log;
