@@ -61,6 +61,10 @@ interface PlaygroundProps {
   removable?: boolean;
   /** Test fixture: shells are native buttons, with a control that natively disables shell 1. */
   nativeButtons?: boolean;
+  /** Test fixture: shell 1 carries its own inline transform (a widget's tilt). */
+  tiltFirst?: boolean;
+  /** Test fixture: a control that shifts the pile's layout 80 px to the right. */
+  shiftable?: boolean;
 }
 
 /** Shells move between the sand pile and the basket by drag, tap-to-place or keyboard. */
@@ -71,8 +75,11 @@ function Playground({
   mode = 'drag',
   removable,
   nativeButtons,
+  tiltFirst,
+  shiftable,
 }: PlaygroundProps) {
   const text = useNarrationText();
+  const [shifted, setShifted] = useState(false);
   const [gone, setGone] = useState(false);
   const [s1Disabled, setS1Disabled] = useState(false);
   const [where, setWhere] = useState<Record<Shell, Zone>>({
@@ -101,7 +108,7 @@ function Playground({
     return (
       <div className="pg-zone" data-zone={id}>
         <div {...pad} className={`${pad.className} pg-pad`} data-zone-pad={id} />
-        <div className="pg-items">
+        <div className="pg-items" style={id === 'pile' && shifted ? { left: 80 } : undefined}>
           {SHELLS.filter((s) => where[s] === id && !(gone && s === 's1')).map((s) => {
             const i = SHELLS.indexOf(s);
             const props = dnd.itemProps(s, { label: `${text('ui.widget.pebble')} ${i + 1}` });
@@ -125,6 +132,7 @@ function Playground({
                 {...props}
                 className={`${'className' in props ? props.className : ''} pg-shell`}
                 data-shell={s}
+                style={tiltFirst && s === 's1' ? { transform: 'rotate(12deg)' } : undefined}
               >
                 <ShellArt i={i} />
               </div>
@@ -156,6 +164,11 @@ function Playground({
           onClick={() => setS1Disabled(true)}
         >
           Disable shell 1
+        </button>
+      ) : null}
+      {shiftable ? (
+        <button type="button" className="pg-remove" data-shift="" onClick={() => setShifted(true)}>
+          Shift pile
         </button>
       ) : null}
     </div>
@@ -462,5 +475,61 @@ export const DragSourceNativelyDisabled: Story = {
     await release();
     await expect(args.onPlace).not.toHaveBeenCalled();
     await expect(zoneOf(canvasElement, 's1')).toBe('pile');
+  },
+};
+
+/** A plain tap leaves a widget's own inline styles on the item alone. */
+export const TapKeepsInlineStyles: Story = {
+  args: { tiltFirst: true },
+  play: async ({ canvasElement }) => {
+    await expect(shell(canvasElement, 's1').style.transform).toBe('rotate(12deg)');
+    await userEvent.click(shell(canvasElement, 's1'));
+    await expect(shell(canvasElement, 's1')).toHaveAttribute('aria-pressed', 'true');
+    await expect(shell(canvasElement, 's1').style.transform).toBe('rotate(12deg)');
+  },
+};
+
+/**
+ * The layout moves between pressing and dragging: snapping follows where the item really is
+ * (under the finger, 80 px further right), not where it was at pointerdown.
+ */
+export const LayoutShiftBeforeDrag: Story = {
+  args: { shiftable: true },
+  play: async ({ canvasElement, args }) => {
+    const s2 = shell(canvasElement, 's2');
+    const from = center(s2);
+    const startLeft = s2.getBoundingClientRect().left;
+    const basket = pad(canvasElement, 'basket').getBoundingClientRect();
+    const ev = (type: string, x: number, y: number, buttons: number) =>
+      new PointerEvent(type, {
+        bubbles: true,
+        cancelable: true,
+        pointerId: 77,
+        pointerType: 'touch',
+        isPrimary: true,
+        clientX: x,
+        clientY: y,
+        button: 0,
+        buttons,
+      });
+    s2.dispatchEvent(ev('pointerdown', from.x, from.y, 1));
+    (canvasElement.querySelector('[data-shift]') as HTMLButtonElement).click();
+    await waitFor(() =>
+      expect(shell(canvasElement, 's2').getBoundingClientRect().left).toBeGreaterThan(
+        startLeft + 70,
+      ),
+    );
+    // The finger ends 70 px left of the basket; the item, drawn 80 px right of where the finger
+    // went, sits just inside the basket's edge.
+    const to = { x: basket.left - 70, y: basket.top + basket.height / 2 };
+    for (let i = 1; i <= 8; i++) {
+      const x = from.x + ((to.x - from.x) * i) / 8;
+      const y = from.y + ((to.y - from.y) * i) / 8;
+      window.dispatchEvent(ev('pointermove', x, y, 1));
+      await new Promise<void>((r) => requestAnimationFrame(() => r()));
+    }
+    window.dispatchEvent(ev('pointerup', to.x, to.y, 0));
+    await waitFor(() => expect(zoneOf(canvasElement, 's2')).toBe('basket'));
+    await expect(args.onPlace).toHaveBeenCalledWith({ item: 's2', target: 'basket', via: 'drag' });
   },
 };

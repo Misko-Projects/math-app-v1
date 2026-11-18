@@ -6,7 +6,7 @@ import {
   useRef,
 } from 'react';
 import { useUiPreferences } from '../preferences/UiProvider';
-import { DRAG_START_PX } from '../tokens/tokens';
+import { DRAG_START_PX, DURATION_MS } from '../tokens/tokens';
 import { findSnapTarget, rectCenter, type SnapCandidate, translateRect } from './snap';
 import {
   isElementDisabled,
@@ -58,6 +58,40 @@ interface ActiveDrag<I extends string> {
 
 function setTransform(el: HTMLElement | SVGElement, dx: number, dy: number) {
   el.style.transform = dx === 0 && dy === 0 ? '' : `translate3d(${dx}px, ${dy}px, 0)`;
+}
+
+/** Items gliding home after a mis-drop this hook started, with the timer that ends the glide. */
+const gliding = new WeakMap<Element, ReturnType<typeof setTimeout>>();
+
+/** Clears the drag offset so the item glides home (the .ni-draggable transform transition). */
+function startGlide(el: HTMLElement | SVGElement) {
+  const previous = gliding.get(el);
+  if (previous !== undefined) clearTimeout(previous);
+  setTransform(el, 0, 0);
+  gliding.set(
+    el,
+    setTimeout(() => gliding.delete(el), DURATION_MS.gentle + 80),
+  );
+}
+
+/**
+ * If `el` is mid-glide, freezes it where it is now and returns its offset from its layout
+ * position; otherwise leaves its styles alone and returns 0, 0.
+ */
+function freezeGlide(el: HTMLElement | SVGElement): { x: number; y: number } {
+  const timer = gliding.get(el);
+  if (timer === undefined) return { x: 0, y: 0 };
+  clearTimeout(timer);
+  gliding.delete(el);
+  const visual = el.getBoundingClientRect();
+  el.style.transition = 'none';
+  setTransform(el, 0, 0);
+  const layout = el.getBoundingClientRect();
+  const offset = { x: visual.left - layout.left, y: visual.top - layout.top };
+  setTransform(el, offset.x, offset.y);
+  void el.getBoundingClientRect();
+  el.style.transition = '';
+  return offset;
 }
 
 /**
@@ -122,7 +156,7 @@ export function useDragToTarget<I extends string, T extends string>(
       drag.cleanup();
       if (!drag.dragging) {
         // A tap (or cancelled press) on an item that was gliding home: let it finish the glide.
-        if (drag.baseX !== 0 || drag.baseY !== 0) setTransform(drag.el, 0, 0);
+        if (drag.baseX !== 0 || drag.baseY !== 0) startGlide(drag.el);
         return;
       }
       core.suppressNextClick();
@@ -148,7 +182,7 @@ export function useDragToTarget<I extends string, T extends string>(
       } else {
         trace?.('drop', 'none');
         // Mis-drop: glide home gently (the CSS transition on .ni-draggable; instant with reduced motion).
-        setTransform(drag.el, 0, 0);
+        startGlide(drag.el);
         settings.current.onMiss?.(drag.id);
       }
     },
@@ -178,17 +212,9 @@ export function useDragToTarget<I extends string, T extends string>(
       const el = core.items.get(id);
       if (!el || isElementDisabled(el)) return;
 
-      // The item may still be gliding home from a mis-drop. Freeze it where it is now, so the
-      // finger keeps hold of what it touched, and measure its layout position for snapping.
-      const visual = el.getBoundingClientRect();
-      el.style.transition = 'none';
-      setTransform(el, 0, 0);
-      const origin = el.getBoundingClientRect();
-      const baseX = visual.left - origin.left;
-      const baseY = visual.top - origin.top;
-      setTransform(el, baseX, baseY);
-      void el.getBoundingClientRect();
-      el.style.transition = '';
+      // If the item is still gliding home from a mis-drop, freeze it where it is now so the
+      // finger keeps hold of what it touched. Any other item's styles are left alone.
+      const { x: baseX, y: baseY } = freezeGlide(el);
 
       const pointerId = e.pointerId;
       const onMove = (ev: PointerEvent) => {
@@ -200,6 +226,17 @@ export function useDragToTarget<I extends string, T extends string>(
           if (Math.hypot(drag.dx, drag.dy) < DRAG_START_PX) return;
           drag.dragging = true;
           drag.el.setAttribute('data-dragging', 'true');
+          // Measure the layout position now, when the drag really starts (layout may have changed
+          // since pointerdown), without the frozen glide offset.
+          if (drag.baseX !== 0 || drag.baseY !== 0) {
+            drag.el.style.transition = 'none';
+            setTransform(drag.el, 0, 0);
+            drag.origin = drag.el.getBoundingClientRect();
+            setTransform(drag.el, drag.baseX, drag.baseY);
+            drag.el.style.transition = '';
+          } else {
+            drag.origin = drag.el.getBoundingClientRect();
+          }
           core.select(null);
           core.latest.current.trace?.('drag', drag.id);
         }
@@ -233,7 +270,7 @@ export function useDragToTarget<I extends string, T extends string>(
         baseX,
         baseY,
         dragging: false,
-        origin,
+        origin: null,
         over: null,
         cleanup: () => {
           window.removeEventListener('pointermove', onMove);

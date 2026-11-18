@@ -139,17 +139,32 @@ export function SampleSetWidget({
   const basketRef = useRef<HTMLDivElement | null>(null);
   const rootRef = useRef<HTMLDivElement | null>(null);
 
-  // Resolves pending afterCommit() promises once React has committed the next render.
-  const commitWaiters = useRef<(() => void)[]>([]);
+  // Demo playback awaits commits; it must never outlive this widget instance (WidgetHost remounts
+  // per item). `alive` stops loops, and unmount settles every pending wait.
+  const alive = useRef(true);
+  const commitWaiters = useRef<{ ready: () => boolean; resolve: () => void }[]>([]);
   useLayoutEffect(() => {
-    const waiters = commitWaiters.current;
-    if (waiters.length === 0) return;
-    commitWaiters.current = [];
-    for (const resolve of waiters) resolve();
+    alive.current = true;
+    return () => {
+      alive.current = false;
+      const waiters = commitWaiters.current;
+      commitWaiters.current = [];
+      for (const w of waiters) w.resolve();
+    };
+  }, []);
+  // After each commit, release the waits whose condition the committed DOM now meets.
+  useLayoutEffect(() => {
+    if (commitWaiters.current.length === 0) return;
+    commitWaiters.current = commitWaiters.current.filter((w) => {
+      if (!w.ready()) return true;
+      w.resolve();
+      return false;
+    });
   });
-  const afterCommit = () =>
+  /** Resolves after a commit that satisfies `ready` (or when the widget unmounts). */
+  const afterCommitWhere = (ready: () => boolean) =>
     new Promise<void>((resolve) => {
-      commitWaiters.current.push(resolve);
+      commitWaiters.current.push({ ready, resolve });
     });
   const inBasketRef = useRef(inBasket);
   inBasketRef.current = inBasket;
@@ -232,9 +247,11 @@ export function SampleSetWidget({
             trace('drag', next);
             if (!reduced && from && to) await flyBetween(next, from, to, land);
             else land();
+            if (!alive.current) return;
             trace('drop', 'basket');
             sayNumber(count);
             await wait(reduced ? 0 : DURATION_MS.gentle);
+            if (!alive.current) return;
           }
         } else if (action.op === 'remove') {
           for (let i = 0; i < countFromAction(action); i++) {
@@ -250,19 +267,23 @@ export function SampleSetWidget({
               setInBasket(inBasketRef.current);
               continue;
             }
-            const committed = afterCommit();
+            const pileSelector = `.ni-sample__pile [data-pebble="${last}"]`;
+            const committed = afterCommitWhere(() => rect(pileSelector) !== null);
             setInBasket(inBasketRef.current);
             setFlight({ id: last, from, to: from, moving: false });
             await committed;
-            const to = rect(`.ni-sample__pile [data-pebble="${last}"]`);
+            if (!alive.current) return;
+            const to = rect(pileSelector);
             if (to) await flyBetween(last, from, to);
             else setFlight(null);
+            if (!alive.current) return;
           }
         } else if (action.op === 'count-aloud') {
           for (let i = 0; i < inBasketRef.current.length; i++) {
             setCounting(i);
             sayNumber(i + 1);
             await wait(reduced ? 0 : 650);
+            if (!alive.current) return;
           }
           setCounting(null);
         }

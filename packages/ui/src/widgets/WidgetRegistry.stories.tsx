@@ -73,7 +73,7 @@ const pilePebbles = (root: HTMLElement) =>
 export const SampleWidget: Story = {
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
-    await canvas.findByRole('group', { name: 'Pebble pile' });
+    await canvas.findByRole('group', { name: 'Pebbles' });
     await expect(canvasElement.querySelector('.ni-widget')).toHaveAttribute(
       'data-registered',
       'true',
@@ -89,7 +89,7 @@ export const EndToEnd: Story = {
   globals: { ageMode: 'k' },
   play: async ({ canvasElement, args }) => {
     const canvas = within(canvasElement);
-    await canvas.findByRole('group', { name: 'Pebble pile' });
+    await canvas.findByRole('group', { name: 'Pebbles' });
     await pointerDrag(
       pilePebbles(canvasElement)[0] as HTMLElement,
       center(basketPad(canvasElement)),
@@ -155,7 +155,7 @@ const demoController: WidgetDemo = createDemoController({ strict: true });
 export const DemoMode: Story = {
   args: { disabled: true, demo: demoController },
   play: async ({ canvasElement }) => {
-    await within(canvasElement).findByRole('group', { name: 'Pebble pile' });
+    await within(canvasElement).findByRole('group', { name: 'Pebbles' });
     await demoController.play({ op: 'drag', args: { count: 2 } });
     await expect(pebblesIn(canvasElement)).toBe(2);
     await demoController.play({ op: 'count-aloud' });
@@ -180,7 +180,7 @@ export const DemoReducedMotion: Story = {
   globals: { motion: 'reduced' },
   args: { disabled: true, demo: reducedController },
   play: async ({ canvasElement }) => {
-    await within(canvasElement).findByRole('group', { name: 'Pebble pile' });
+    await within(canvasElement).findByRole('group', { name: 'Pebbles' });
     const started = performance.now();
     await reducedController.play({ op: 'drag', args: { count: 3 } });
     await expect(pebblesIn(canvasElement)).toBe(3);
@@ -202,7 +202,7 @@ export const DemoReducedMotion: Story = {
 export const Disabled: Story = {
   args: { disabled: true },
   play: async ({ canvasElement, args }) => {
-    await within(canvasElement).findByRole('group', { name: 'Pebble pile' });
+    await within(canvasElement).findByRole('group', { name: 'Pebbles' });
     await pointerDrag(
       pilePebbles(canvasElement)[0] as HTMLElement,
       center(basketPad(canvasElement)),
@@ -252,7 +252,7 @@ export const NewItemResets: Story = {
   render: (args) => <NextItemDemo {...args} />,
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
-    await canvas.findByRole('group', { name: 'Pebble pile' });
+    await canvas.findByRole('group', { name: 'Pebbles' });
     await userEvent.click(pilePebbles(canvasElement)[0] as HTMLElement);
     await userEvent.click(basketPad(canvasElement));
     await waitFor(() => expect(pebblesIn(canvasElement)).toBe(1));
@@ -293,7 +293,7 @@ export const DemoFromEffect: Story = {
   render: (args) => <DemoFromEffectHarness {...args} />,
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
-    await canvas.findByRole('group', { name: 'Pebble pile' });
+    await canvas.findByRole('group', { name: 'Pebbles' });
     await waitFor(() => expect(pebblesIn(canvasElement)).toBe(2));
     await userEvent.click(canvas.getByRole('button', { name: 'Next' }));
     const flight = await waitFor(() => {
@@ -308,5 +308,40 @@ export const DemoFromEffect: Story = {
     await waitFor(() => expect(Number.parseFloat(flight.style.left)).toBeLessThan(basketLeft));
     await waitFor(() => expect(canvasElement.querySelector('.ni-sample__flight')).toBeNull());
     await expect(pebblesIn(canvasElement)).toBe(1);
+  },
+};
+
+const swapController: WidgetDemo = createDemoController({ strict: true });
+let advanceItem: () => void = () => {};
+
+function ItemSwapHarness(args: WidgetHostProps) {
+  const [item, setItem] = useState(1);
+  advanceItem = () => setItem((n) => n + 1);
+  return (
+    <div style={{ width: 'min(1100px, 100%)', display: 'grid' }}>
+      <WidgetHost {...args} itemKey={item} demo={swapController} />
+    </div>
+  );
+}
+
+/**
+ * The host moves on to a new item while a demo op is still playing on the old one: the old
+ * op's promise settles instead of leaving the lesson waiting forever.
+ */
+export const DemoSettlesWhenItemChanges: Story = {
+  args: { disabled: true, config: { ...makeSet, start: 2 } as WidgetConfig },
+  render: (args) => <ItemSwapHarness {...args} />,
+  play: async ({ canvasElement }) => {
+    await within(canvasElement).findByRole('group', { name: 'Pebbles' });
+    await waitFor(() => expect(pebblesIn(canvasElement)).toBe(2));
+    const playing = swapController.play({ op: 'remove', args: { count: 2 } });
+    advanceItem(); // same tick: the widget unmounts before the remove's commit
+    const outcome = await Promise.race([
+      playing.then(() => 'settled'),
+      new Promise((r) => setTimeout(() => r('hung'), 2500)),
+    ]);
+    await expect(outcome).toBe('settled');
+    // The new item starts fresh and is bound to the same controller.
+    await waitFor(() => expect(pebblesIn(canvasElement)).toBe(2));
   },
 };
