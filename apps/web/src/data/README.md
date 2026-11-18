@@ -71,7 +71,48 @@ Rows are maintained for every live child that has a profile or events.
 
 `hooks.ts` provides `<DataProvider store>` and the live hooks `useSkillStates(childId)`, `useIsland()`, `useInventory()`, `useCollection()`, `useGoals()`, `useProfiles()` and `useSettings()`, built on `useLiveQuery`. Each hook returns `undefined` while its first read is in flight.
 
+## Sync client (08 §4)
+
+`sync.ts` exports `createSyncClient({ store, fetch?, baseUrl?, now?, online?, setTimer?, clearTimer?, random?, intervalMs? })`, which returns `{ syncNow(reason?), start(), stop() }`. The app shell creates one client per store, after `adoptFamily` has run for `/setup` or pairing, and calls `start()`.
+
+**One sync** pushes up to 500 `unsynced()` events with every settings document and profile, plus the stored cursor and the device's Bearer token. It then applies the answer in this order:
+1. **The clamp echo (02 §5.9 S3).** For each entry of `clamped`, the local copy takes the server's `ts` and `clientTs`, through `ingest(…, { source: 'server' })`. The store then replaces the copy and rebuilds the projections. Folds keep ordering by the server-bounded `ts`.
+2. `markSynced(accepted)` and `markRejected(rejected)`. A rejection is permanent (S1).
+3. The pulled events, through `ingest(…, { source: 'server' })`. A pulled tombstone purges its child.
+4. The server's LWW settings and profiles, through `merge*(…, { source: 'server' })`.
+5. The new cursor.
+
+The client repeats this while the server reports `more` or a full batch was pushed, up to 50 rounds. On success it records `lastSyncAt`. Otherwise it records `lastError`.
+
+**Outcomes:**
+- `synced`.
+- `unpaired`: no device token yet.
+- `offline`: `navigator.onLine` is false.
+- `revoked`: a 401, for example after the parent removed the device. The queue is kept.
+- `failed`: a network error, an HTTP error or a malformed answer. The queue is kept.
+
+`syncNow` never rejects. A trigger that arrives during a sync joins one follow-up run.
+
+**Triggers:**
+- `start()`;
+- every 60 s;
+- after each `request.completed`;
+- on wind-down: `session.ended`, or the page becoming hidden;
+- the browser's `online` event.
+
+After a `failed` sync the next attempt backs off: 5 s doubling to 5 min, with ±20 % jitter. Sync never blocks gameplay.
+
+**Integration tests:** `apps/web/sync-test/` (Vitest project `web-sync`, `vitest.sync.config.ts`) runs this client and the store over fake IndexedDB, one database per simulated device, against the real API Worker in workerd. It uses the Workers pool, the API's `wrangler.jsonc` and a migrated local D1. It covers:
+- two-device convergence on the golden log;
+- the 48 h clamp;
+- events recorded before pairing;
+- LWW documents;
+- parent deletion;
+- offline queues across a reload;
+- network failures;
+- rejections;
+- a revoked device.
+
 ## Later PRs
 
-- **Sync client:** `POST /api/sync` loops over `unsynced()`, `markSynced`, `markRejected`, `ingest(..., { source: 'server' })` (including clamped copies), `mergeProfiles`, `mergeSettings` and `syncState`. It is triggered by `onAppend`, a timer and app lifecycle events, and is called after `/setup` or pairing via `adoptFamily`.
 - **Backup:** export (`events()`, `allSettings()`, `allProfiles()`) and import (`ingest(..., { source: 'backup' })` plus the merges).
