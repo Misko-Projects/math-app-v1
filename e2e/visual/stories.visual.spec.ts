@@ -15,6 +15,9 @@ test('every Storybook story matches its visual baseline', async ({ page, request
     (e) => e.type === 'story' && !e.tags?.includes('!visual'),
   );
   expect(stories.length).toBeGreaterThan(0);
+  // One test walks every story, so its budget grows with the story count (each story loads,
+  // runs its play function and takes a full-page screenshot).
+  test.setTimeout(30_000 + stories.length * 5_000);
   for (const story of stories) {
     await page.goto(`/iframe.html?id=${encodeURIComponent(story.id)}&viewMode=story`);
     await page.locator('#storybook-root > *').first().waitFor();
