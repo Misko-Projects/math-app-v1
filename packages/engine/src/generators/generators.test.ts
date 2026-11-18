@@ -1056,12 +1056,18 @@ describe('addsub family enforcement', () => {
 // ---------- registry ----------
 
 describe('registry', () => {
-  it('has exactly the five reference generators', () => {
+  it('has exactly the registered generators', () => {
     expect(registry.ids()).toEqual([
       'addsub.facts',
       'bond.parts',
       'count.sequence',
       'count.set',
+      'geo.compose',
+      'geo.draw',
+      'geo.identify',
+      'geo.position',
+      'mea.length',
+      'mea.massvolume',
       'subitize.flash',
     ]);
     expect(

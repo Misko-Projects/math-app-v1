@@ -6,10 +6,28 @@ import { addsubFacts } from './addsub/facts';
 import { bondParts } from './bond/parts';
 import { countSequence } from './count/sequence';
 import { countSet } from './count/set';
+import { geoCompose } from './geo/compose';
+import { geoDraw } from './geo/draw';
+import { geoIdentify } from './geo/identify';
+import { geoPosition } from './geo/position';
+import { meaLength } from './mea/length';
+import { meaMassVolume } from './mea/massvolume';
 import { subitizeFlash } from './subitize/flash';
 import type { GeneratorDef } from './types';
 
-const GENERATORS: GeneratorDef[] = [countSet, countSequence, subitizeFlash, bondParts, addsubFacts];
+const GENERATORS: GeneratorDef[] = [
+  countSet,
+  countSequence,
+  subitizeFlash,
+  bondParts,
+  addsubFacts,
+  geoIdentify,
+  geoCompose,
+  geoPosition,
+  geoDraw,
+  meaLength,
+  meaMassVolume,
+];
 
 const BY_ID = new Map<GeneratorId, GeneratorDef>(GENERATORS.map((g) => [g.id, g]));
 if (BY_ID.size !== GENERATORS.length) throw new Error('duplicate generator id in the registry');

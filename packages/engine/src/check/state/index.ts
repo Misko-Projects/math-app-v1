@@ -4,13 +4,19 @@
 import type { StateCheckerId } from '@number-island/shared';
 import { bondNewWay } from './bond.newWay';
 import { bondSplit } from './bond.split';
+import { composeFill } from './compose.fill';
+import { composeRelative } from './compose.relative';
+import { gridPolygon } from './grid.polygon';
 import { jumpsReach } from './jumps.reach';
+import { puzzleSatisfies } from './puzzle.satisfies';
 import { rekenrekTotal } from './rekenrek.total';
 import { selectExactSet } from './select.exactSet';
 import { setCount } from './set.count';
+import { sortByRule } from './sort.byRule';
 import { tenframeMakeTen } from './tenframe.makeTen';
 import { tenframeTotal } from './tenframe.total';
 import type { StateChecker } from './types';
+import { unitsIterate } from './units.iterate';
 
 const CHECKERS: Partial<Record<StateCheckerId, StateChecker>> = {
   'set.count': setCount,
@@ -21,6 +27,12 @@ const CHECKERS: Partial<Record<StateCheckerId, StateChecker>> = {
   'rekenrek.total': rekenrekTotal,
   'jumps.reach': jumpsReach,
   'select.exactSet': selectExactSet,
+  'sort.byRule': sortByRule,
+  'compose.fill': composeFill,
+  'compose.relative': composeRelative,
+  'grid.polygon': gridPolygon,
+  'puzzle.satisfies': puzzleSatisfies,
+  'units.iterate': unitsIterate,
 };
 
 export function stateChecker(id: StateCheckerId): StateChecker | undefined {

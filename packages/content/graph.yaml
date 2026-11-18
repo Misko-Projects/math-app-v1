@@ -1,9 +1,33 @@
 # Graph-level settings (03 §4.1, §9.2).
 # roots: the only skills allowed to have no prerequisites (V05).
-roots: [CNT.01, SUB.01]
+roots: [CNT.01, SUB.01, GEO.01, GEO.05, MEA.15]
 # coverageGrades: grades whose catalog is complete; V20 checks standards coverage only for these.
-# The C01 fixture set covers no grade (03 §9.5). K01 sets [K, 1]; K02 sets [K, 1, 2, 3].
+# K01 (#11) lands the K–1 catalog in several PRs and sets [K, 1] in the last one; K02 sets [K, 1, 2, 3].
 coverageGrades: []
-# plannedIds: catalog ids (03 §3) not authored yet; V03 accepts a gap there. The fixture set has
-# ADD.01 and ADD.03 but not ADD.02 (03 §9.5). K01 authors ADD.02 and clears this list.
-plannedIds: [ADD.02]
+# plannedIds: catalog ids (03 §3) not authored yet; V03 accepts a gap there. K01 authors the K–1
+# catalog one strand group at a time, so these gaps are later K01 PRs (ADD.02, PUZ.01, PUZ.02) or
+# K02 (the grade 2–3 GEO and MEA rows). K01 clears the K–1 entries; K02 clears the rest.
+plannedIds:
+  [
+    ADD.02,
+    GEO.03,
+    GEO.04,
+    MEA.03,
+    MEA.04,
+    MEA.05,
+    MEA.06,
+    MEA.08,
+    MEA.09,
+    MEA.10,
+    MEA.11,
+    MEA.12,
+    MEA.13,
+    MEA.14,
+    MEA.17,
+    MEA.18,
+    MEA.19,
+    MEA.20,
+    MEA.21,
+    PUZ.01,
+    PUZ.02,
+  ]

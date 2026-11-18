@@ -181,11 +181,13 @@ beforeEach(() => {
 });
 
 describe('registry', () => {
-  it('registers the three fixture rules by detect.rule id', () => {
+  it('registers the rules by detect.rule id', () => {
     expect(registeredRuleIds().sort()).toEqual([
+      'biggerUnitMore',
       'countAllInstead',
       'countStartNumber',
       'offByOneCounting',
+      'unitGaps',
     ]);
     expect(misconceptionRule('countStartNumber')).toBe(countStartNumber);
     expect(misconceptionRule('nope')).toBeUndefined();

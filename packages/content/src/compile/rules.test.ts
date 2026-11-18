@@ -60,14 +60,32 @@ describe('the C01 fixture set (03 §9.5)', () => {
       'CPS.01',
       'CPS.02',
       'CPS.03',
+      'GEO.01',
+      'GEO.02',
+      'GEO.05',
+      'GEO.06',
+      'GEO.07',
+      'GEO.08',
+      'GEO.09',
+      'GEO.10',
+      'GEO.11',
+      'MEA.01',
+      'MEA.02',
+      'MEA.07',
+      'MEA.15',
+      'MEA.16',
+      'MEA.22',
+      'PUZ.03',
       'SUB.01',
       'SUB.02',
       'SUB.03',
     ]);
     expect(result.content?.misconceptions.map((m) => m.id)).toEqual([
+      'MC.bigger-unit-more',
       'MC.count-all-instead',
       'MC.count-start-number',
       'MC.off-by-one-counting',
+      'MC.unit-gaps',
     ]);
   });
 
@@ -76,7 +94,20 @@ describe('the C01 fixture set (03 §9.5)', () => {
     const ids = new Set(c?.skills.map((s) => s.id));
     for (const s of c?.skills ?? []) for (const p of s.prerequisites) expect(ids.has(p)).toBe(true);
     expect(new Set(c?.templates.map((t) => t.generator))).toEqual(
-      new Set(['count.set', 'count.sequence', 'subitize.flash', 'bond.parts', 'addsub.facts']),
+      new Set([
+        'count.set',
+        'count.sequence',
+        'subitize.flash',
+        'bond.parts',
+        'addsub.facts',
+        // K01 (#11): geometry and measurement
+        'geo.identify',
+        'geo.compose',
+        'geo.position',
+        'geo.draw',
+        'mea.length',
+        'mea.massvolume',
+      ]),
     );
     expect(new Set(c?.templates.map((t) => t.format))).toEqual(
       new Set([
@@ -91,6 +122,14 @@ describe('the C01 fixture set (03 §9.5)', () => {
         'hundred-chart',
         'order',
         'rekenrek',
+        // K01 (#11): geometry and measurement formats
+        'balance',
+        'compare',
+        'compare-length',
+        'measure-length',
+        'puzzle-grid',
+        'shape-compose',
+        'shape-sort',
       ]),
     );
   });
@@ -304,7 +343,12 @@ describe('V03: sequential ids', () => {
   });
   it('accepts a retired gap', () => {
     const diags = variant((f) => {
-      editYaml(f, 'graph.yaml', (doc) => (doc.plannedIds = []));
+      // Only ADD.02 moves from planned to retired; the other planned gaps stay planned.
+      editYaml(
+        f,
+        'graph.yaml',
+        (doc) => (doc.plannedIds = doc.plannedIds.filter((id: string) => id !== 'ADD.02')),
+      );
       f['retired.yaml'] = 'skills: [ADD.02]\n';
     });
     expect(diags.filter((d) => d.check === 'V03')).toEqual([]);
@@ -1231,9 +1275,9 @@ describe('V24 and contentVersion (03 §9.1)', () => {
     expect(manifest.contentVersion).toBe(r.contentVersion);
     expect(manifest.schemaVersion).toBe(1);
     expect(manifest.counts).toEqual({
-      skills: 15,
-      templates: 53,
-      misconceptions: 3,
+      skills: 31,
+      templates: 94,
+      misconceptions: 5,
       narrationKeys: Object.keys(r.content?.narration ?? {}).length,
     });
     expect(Object.keys(manifest.files).sort()).toEqual([
@@ -1256,12 +1300,12 @@ describe('graph.json (03 §9.1)', () => {
     const pos = new Map(g?.nodes.map((id, i) => [id, i]));
     for (const [from, to] of g?.edges ?? [])
       expect(pos.get(from) as number).toBeLessThan(pos.get(to) as number);
-    expect(g?.roots).toEqual(['CNT.01', 'SUB.01']);
+    expect(g?.roots).toEqual(['CNT.01', 'GEO.01', 'GEO.05', 'MEA.15', 'SUB.01']);
     expect(g?.gateways).toEqual(['CNT.03', 'CPS.02', 'SUB.03']);
     expect(g?.depth['CNT.01']).toBe(0);
     expect(g?.depth['ADD.03']).toBe(6); // CNT.01 → 02 → 03 → 04 → 06 → 07 → ADD.03
     expect(g?.descendants2['CPS.03']).toBe(0);
-    expect(g?.descendants2['CNT.06']).toBe(2); // CNT.07, ADD.03
+    expect(g?.descendants2['CNT.06']).toBe(4); // CNT.07, MEA.02; then ADD.03, MEA.22
     expect(g?.encompasses).toEqual([
       ['CNT.06', 'CNT.04', 1],
       ['CNT.06', 'CNT.05', 0.5],

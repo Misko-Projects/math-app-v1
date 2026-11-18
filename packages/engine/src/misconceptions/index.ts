@@ -4,14 +4,18 @@
 import type { GeneratedItem, MisconceptionSpec } from '@number-island/shared';
 import { boundMisconceptions, boundTemplate } from '../content/binding';
 import type { MisconceptionRule } from './rules';
+import { biggerUnitMore } from './rules/biggerUnitMore';
 import { countAllInstead } from './rules/countAllInstead';
 import { countStartNumber } from './rules/countStartNumber';
 import { offByOneCounting } from './rules/offByOneCounting';
+import { unitGaps } from './rules/unitGaps';
 
 const RULES: Record<string, MisconceptionRule> = {
   countStartNumber: countStartNumber,
   countAllInstead: countAllInstead,
   offByOneCounting: offByOneCounting,
+  unitGaps: unitGaps,
+  biggerUnitMore: biggerUnitMore,
 };
 
 export function misconceptionRule(id: string): MisconceptionRule | undefined {

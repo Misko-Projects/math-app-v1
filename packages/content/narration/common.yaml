@@ -37,6 +37,13 @@ p.add.what-is:
   text: "{a} + {b} = ?"
   say: "What is {a} plus {b}?"
 
+p.geo.which-kind:
+  text: "Which one is a {kind|shape:one}?"
+p.geo.find-every:
+  text: "Find every {kind|shape:one}."
+p.geo.fill-outline:
+  text: "Fill the outline with the pieces."
+
 # ---------- hints (levels 2–4; replay and show-me are automatic) ----------
 h.replay:
   text: "Let's hear it again."
@@ -78,6 +85,92 @@ h.add.count-on:
   text: "Say the first number. Then count on."
 h.add.start-big:
   text: "Start with the bigger number."
+
+# geometry (K01: GEO, PUZ.03) and measurable attributes (MEA.15)
+h.geo.count-sides:
+  text: "Count the straight sides. Touch each one."
+h.geo.count-corners:
+  text: "Count the corners. Touch each one."
+h.geo.any-turn:
+  text: "Turned, big, little: it is the same shape."
+h.geo.closed:
+  text: "A shape has no gaps. Look at every corner."
+h.geo.flat-solid:
+  text: "Flat is like a picture. You can pick up a solid."
+h.geo.rolls:
+  text: "Can it roll? Look for a curved part."
+h.geo.like-what:
+  text: "Does it look like a ball, a can, a box?"
+h.geo.compare-count:
+  text: "Count for each shape. Which number is bigger?"
+h.geo.bins:
+  text: "Look at each bin. What goes in it?"
+h.geo.where-word:
+  text: "Listen for where it goes. Then look at the {anchor|noun:one}."
+h.geo.flip:
+  text: "Think of the picture. Now look from the {anchor|noun:one}."
+h.geo.sticks:
+  text: "Put two sticks at each corner. Close every gap."
+h.geo.dots:
+  text: "Go from dot to dot with straight lines."
+h.geo.outline-edges:
+  text: "Match a straight edge of a piece to the outline."
+h.geo.turn-piece:
+  text: "Try turning a piece to make it fit."
+h.geo.pieces-inside:
+  text: "Picture the pieces inside the shape."
+h.geo.grid-rects:
+  text: "Put the rectangles in first. Then fill in the squares."
+h.mea.both:
+  text: "Think of holding it in your hands."
+h.mea.is-it:
+  text: "Look at each thing. Is it {attr|word}?"
+
+# length, measuring with units and weight (K01: MEA.01, 02, 07, 16, 22)
+h.length.line-up:
+  text: "Line up the ends on one side."
+h.length.look-ends:
+  text: "Now look at where each one ends."
+h.length.longer-goes-past:
+  text: "The longer one goes on when the shorter one stops."
+h.length.shorter-stops:
+  text: "The shorter one stops first."
+h.length.ruler-start:
+  text: "They both start at the same line."
+h.length.ruler-ends:
+  text: "Look where each one ends. Which goes farther?"
+h.length.string:
+  text: "Lay the string along this one. Then hold it by that one."
+h.length.string-past:
+  text: "Does that one go on after the string ends?"
+h.length.order-shortest:
+  text: "Find the shortest one. It goes first."
+h.length.order-next:
+  text: "Then find the shortest one that is left."
+h.length.order-numbers:
+  text: "The smallest number is the shortest. It goes first."
+h.measure.start-at-end:
+  text: "Put the first one right at the end."
+h.measure.no-gaps:
+  text: "Put each one right next to the last, with no gaps."
+h.measure.count-each:
+  text: "Count each one as you go."
+h.measure.last-number:
+  text: "The last number you say tells how long."
+h.measure.both-units:
+  text: "Measure with the big ones. Then measure again with the small ones."
+h.measure.bigger-fewer:
+  text: "Bigger ones cover more, so you need fewer of them."
+h.measure.which-bigger:
+  text: "Look at the two kinds. Which one is bigger?"
+h.weight.goes-down:
+  text: "The heavier side goes down."
+h.weight.level:
+  text: "When it does not tip, they weigh the same."
+h.weight.more-things:
+  text: "More things can be lighter. Watch the balance."
+h.weight.lift:
+  text: "Think of how heavy each one is. Which one is heavier?"
 
 # ---------- generator solution steps (E01: gen.<generatorId>.<step>, 03 §6.4) ----------
 # Spoken by the worked solution (hint level 5, auto lessons). Every key a generator declares in
@@ -139,6 +232,154 @@ gen.addsub.facts.answer:
 gen.addsub.facts.join:
   text: "Put {a} and {b} together."
 
+gen.geo.identify.look:
+  text: "Let's look at each one."
+gen.geo.identify.is-kind:
+  text: "This one is a {kind|shape:one}."
+gen.geo.identify.fits:
+  text: "This one fits."
+gen.geo.identify.goes-here:
+  text: "This one goes here."
+gen.geo.identify.stays-out:
+  text: "This one fits no bin. It is left out."
+gen.geo.identify.odd:
+  text: "This one is not the same."
+gen.geo.identify.count:
+  text: "This one has {n} {w|word}."
+gen.geo.identify.more:
+  text: "So this one has more."
+gen.geo.identify.same:
+  text: "They have the same number."
+gen.geo.identify.is-attr:
+  text: "This one is {attr|word}."
+gen.geo.identify.type:
+  text: "So we tap {n}."
+gen.geo.position.region:
+  text: "Look here. This is {rel|word} the {anchor|noun:one}."
+gen.geo.position.place:
+  text: "Put the {item|noun:one} right there."
+gen.geo.position.picture:
+  text: "Picture the {item|noun:one} {rel|word} the {anchor|noun:one}."
+gen.geo.position.answer:
+  text: "So the {anchor|noun:one} is {ans|word} the {item|noun:one}."
+gen.geo.draw.start:
+  text: "Start at a dot. Draw a straight side."
+gen.geo.draw.next:
+  text: "Draw the next side."
+gen.geo.draw.close:
+  text: "Close it up. The shape is done."
+gen.geo.draw.look:
+  text: "Let's count the sides of each shape."
+gen.geo.draw.fits:
+  text: "This one fits."
+gen.geo.compose.look:
+  text: "Look at the outline. Which piece fits?"
+gen.geo.compose.place:
+  text: "This piece fits here."
+gen.geo.compose.turn:
+  text: "Turn this piece. Then slide it in."
+gen.geo.compose.pieces-are:
+  text: "A {a|shape:one} and a {b|shape:one} make it."
+gen.geo.compose.count:
+  text: "It takes {n} {piece|shape:n}."
+gen.geo.compose.grid-rect:
+  text: "A rectangle covers two boxes."
+gen.geo.compose.grid-next:
+  text: "It covers this box too."
+gen.geo.compose.grid-square:
+  text: "A square covers one box."
+gen.geo.identify.bin.rolls:
+  text: "rolls"
+gen.geo.identify.bin.no-roll:
+  text: "does not roll"
+gen.geo.identify.bin.sides-3:
+  text: "3 sides"
+gen.geo.identify.bin.corners-3:
+  text: "3 corners"
+gen.geo.identify.bin.sides-4:
+  text: "4 sides"
+gen.geo.identify.bin.corners-4:
+  text: "4 corners"
+gen.geo.identify.bin.sides-5:
+  text: "5 sides"
+gen.geo.identify.bin.corners-5:
+  text: "5 corners"
+gen.geo.identify.bin.sides-6:
+  text: "6 sides"
+gen.geo.identify.bin.corners-6:
+  text: "6 corners"
+
+gen.mea.length.line-up:
+  text: "First, line up the ends."
+gen.mea.length.look-ends:
+  text: "Now look at where each one ends."
+gen.mea.length.pick-longer:
+  text: "This one goes farther. It is longer."
+gen.mea.length.pick-shorter:
+  text: "This one stops first. It is shorter."
+gen.mea.length.pick-same:
+  text: "They end at the same line. They are the same."
+gen.mea.length.string-first:
+  text: "Lay the string along this one."
+gen.mea.length.string-next:
+  text: "Now hold the string by that one."
+gen.mea.length.order-short-first:
+  text: "Shortest first, then the next, then the longest."
+gen.mea.length.order-long-first:
+  text: "Longest first, then the next, then the shortest."
+gen.mea.length.order-start-short:
+  text: "The shortest is {n}. It goes first."
+gen.mea.length.order-start-long:
+  text: "The longest is {n}. It goes first."
+gen.mea.length.order-next:
+  text: "Next comes {n}."
+gen.mea.length.sticks-out:
+  text: "Look at the part that sticks out."
+gen.mea.length.longer-by:
+  text: "It is {n} longer."
+gen.mea.length.lay-first:
+  text: "Start right at the end. {n}."
+gen.mea.length.lay-next:
+  text: "No gap. {n}."
+gen.mea.length.units-long:
+  text: "It is {n} {unit|unit:n} long."
+gen.mea.length.use-unit:
+  text: "Now we measure with {unit|unit:many}."
+gen.mea.length.makes:
+  text: "That makes {n} {unit|unit:n}."
+gen.mea.length.two-counts:
+  text: "It is {n} {unit|unit:n}, and {m} {altUnit|unit:m}."
+gen.mea.length.count-units:
+  text: "Let's count the {unit|unit:many} one by one."
+gen.mea.length.read-start:
+  text: "One end is at {start}."
+gen.mea.length.read-end:
+  text: "It ends at {end}."
+gen.mea.length.smaller-more:
+  text: "The {unit|unit:many} are smaller. Small ones fit more times."
+gen.mea.length.need-more:
+  text: "We need more of the smaller ones."
+gen.mea.length.need-fewer:
+  text: "We need fewer of the bigger ones."
+gen.mea.massvolume.place-first:
+  text: "Put this on one side."
+gen.mea.massvolume.place-second:
+  text: "Put that one on this side."
+gen.mea.massvolume.watch:
+  text: "Now watch the balance."
+gen.mea.massvolume.goes-down:
+  text: "This side goes down. It is heavier."
+gen.mea.massvolume.level:
+  text: "It does not tip. They weigh the same."
+gen.mea.massvolume.lift:
+  text: "Think of how heavy each one is."
+gen.mea.massvolume.heavier:
+  text: "This one is heavier."
+gen.mea.massvolume.find-mark:
+  text: "Find the mark it is at."
+gen.mea.massvolume.reads:
+  text: "It shows {n}."
+
 # ---------- feedback ----------
 fb.correct.1:
   text: "You did it!"
@@ -190,9 +431,27 @@ fb.number-line-jump.retry:
   text: "Let's hop again. Count each hop."
 fb.hundred-chart.retry:
   text: "Look at the row. Which box comes next?"
+fb.shape-sort.retry:
+  text: "Let's look at each card again."
+fb.compare.retry:
+  text: "Let's look at both sides again."
+fb.compare-length.retry:
+  text: "Line up the ends. Then look again."
+fb.measure-length.retry:
+  text: "Check the ends. Then count again."
+fb.balance.retry:
+  text: "Watch which side goes down."
+fb.shape-compose.retry:
+  text: "Look at the outline again. Try turning a piece."
+fb.puzzle-grid.retry:
+  text: "Let's check each piece again."
 fb.mc.off-by-one-counting:
   text: "Touch each one once. Count again with me."
 fb.mc.count-start-number:
   text: "Start with the first number. Count the hops after it."
 fb.mc.count-all-instead:
   text: "Start at the bigger number. Then count on."
+fb.mc.unit-gaps:
+  text: "Put each one right at the end of the last one."
+fb.mc.bigger-unit-more:
+  text: "Look at the size. Bigger ones fit fewer times."
