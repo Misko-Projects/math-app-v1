@@ -71,6 +71,50 @@ Rows are maintained for every live child that has a profile or events.
 
 `hooks.ts` provides `<DataProvider store>` and the live hooks `useSkillStates(childId)`, `useIsland()`, `useInventory()`, `useCollection()`, `useGoals()`, `useProfiles()` and `useSettings()`, built on `useLiveQuery`. Each hook returns `undefined` while its first read is in flight.
 
+## Sync client (08 §4)
+
+`sync.ts` exports `createSyncClient({ store, fetch?, baseUrl?, now?, online?, setTimer?, clearTimer?, random?, intervalMs? })`, which returns `{ syncNow(reason?), start(), stop() }`. Nothing in the app calls it yet: the app shell (W00, #18) is meant to create one client per store, after `adoptFamily` has run for `/setup` or pairing, and call `start()`. Until then only the tests drive it.
+
+**One sync** pushes up to 500 `unsynced()` events with every settings document and profile, plus the stored cursor and the device's Bearer token. It then applies the answer in this order:
+1. **The clamp echo (02 §5.9 S3).** For each entry of `clamped`, the local copy takes the server's `ts` and `clientTs`, through `ingest(…, { source: 'server' })`. The store then replaces the copy and rebuilds the projections. Folds keep ordering by the server-bounded `ts`.
+2. `markSynced(accepted)` and `markRejected(rejected)`. A rejection is permanent (S1).
+3. The pulled events, through `ingest(…, { source: 'server' })`. A pulled tombstone purges its child.
+4. The server's LWW settings and profiles, through `merge*(…, { source: 'server' })`.
+5. The new cursor.
+
+The client repeats this while the server reports `more` or a full batch was pushed, up to 50 rounds. On success it records `lastSyncAt`. Otherwise it records `lastError`.
+
+**Outcomes:**
+- `synced`.
+- `unpaired`: no device token yet.
+- `offline`: `navigator.onLine` is false.
+- `revoked`: a 401, for example after the parent removed the device. The queue is kept.
+- `failed`: a network error, an HTTP error, a malformed answer, or a timeout. Each exchange, request and response body, has a 30 s deadline (`requestTimeoutMs`). The queue is kept.
+- `deferred`: an automatic trigger inside the backoff window. The retry timer syncs instead.
+- `stopped`: an automatic trigger after `stop()`, including a follow-up queued before it. Nothing is sent.
+
+`syncNow` never rejects. A trigger that arrives during a sync joins one follow-up run.
+
+**Triggers:**
+- `start()`;
+- every 60 s;
+- after each `request.completed`;
+- on wind-down: `session.ended`, or the page becoming hidden;
+- the browser's `online` event.
+
+After a `failed` sync the next attempt backs off: 5 s doubling to 5 min, with ±20 % jitter. Until the retry timer fires, gameplay triggers are deferred; only `manual` and `online` go through. Sync never blocks gameplay.
+
+**Integration tests:** `apps/web/sync-test/` (Vitest project `web-sync`, `vitest.sync.config.ts`) runs this client and the store over fake IndexedDB, one database per simulated device, against the real API Worker in workerd. It uses the Workers pool, the API's `wrangler.jsonc` and a migrated local D1. It covers:
+- two-device convergence on the golden log;
+- the 48 h clamp;
+- events recorded before pairing;
+- LWW documents;
+- parent deletion;
+- offline queues across a reload;
+- network failures;
+- rejections;
+- a revoked device.
+
 ## Backup (`backup.ts`)
 
 One JSON file holds the events, settings and profiles (02 §4.4). Its format is the shared `BackupFile` / `backupFileSchema` (02 §5.9 F5): `{ format: 'number-island-backup', formatVersion: 1, exportedAt, familyId, events, settings, profiles }`. The server's `GET /export` and `POST /import` use the same format, so a file from either side can be restored on either side. One exception: `POST /import` accepts a request body of at most 64 MiB (`apps/api/src/routes/backup.ts`) and answers `413 payload_too_large` above it. A larger local file still restores on a device. Export leaves out only what the store does not treat as an event at all: a `child.deleted` row that fails the store's single tombstone rule (`isValidTombstone`). Such a row is removed on open, never folded and holds no family data, so one damaged row never blocks a backup.
@@ -86,7 +130,3 @@ One JSON file holds the events, settings and profiles (02 §4.4). Its format is 
 - **Browser helpers:** `downloadBackup(file)` saves the file through a Blob object URL and an anchor click, and `readBackupFile(file)` reads a picked file's text.
 
 The UI belongs to the parent area (P01). So does wiring the server routes: offering `GET /export` as a download, and sending a file to `POST /import`.
-
-## Later PRs
-
-- **Sync client:** `POST /api/sync` loops over `unsynced()`, `markSynced`, `markRejected`, `ingest(..., { source: 'server' })` (including clamped copies), `mergeProfiles`, `mergeSettings` and `syncState`. It is triggered by `onAppend`, a timer and app lifecycle events, and is called after `/setup` or pairing via `adoptFamily`.

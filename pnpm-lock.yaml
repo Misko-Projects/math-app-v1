@@ -100,6 +100,12 @@ importers:
         specifier: ^7.4.0
         version: 7.4.1
     devDependencies:
+      '@cloudflare/vitest-pool-workers':
+        specifier: ^0.23.0
+        version: 0.23.0(@cloudflare/workers-types@5.20261118.1)(@vitest/runner@4.1.12)(@vitest/snapshot@4.1.12)(vitest@4.1.12)
+      '@cloudflare/workers-types':
+        specifier: ^5.20261118.1
+        version: 5.20261118.1
       '@tailwindcss/vite':
         specifier: ^4.3.5
         version: 4.3.5(vite@8.3.8(@types/node@24.19.2)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.51.2)(tsx@4.23.15)(yaml@2.9.1))
@@ -130,6 +136,9 @@ importers:
       tailwindcss:
         specifier: ^4.3.5
         version: 4.3.5
+      tsx:
+        specifier: ^4.23.15
+        version: 4.23.15
       vite:
         specifier: ^8.3.8
         version: 8.3.8(@types/node@24.19.2)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.51.2)(tsx@4.23.15)(yaml@2.9.1)
@@ -142,6 +151,9 @@ importers:
       workbox-window:
         specifier: ^7.4.0
         version: 7.4.1
+      wrangler:
+        specifier: ^4.164.0
+        version: 4.164.0(@cloudflare/workers-types@5.20261118.1)(@types/node@24.19.2)
 
   e2e:
     devDependencies:
