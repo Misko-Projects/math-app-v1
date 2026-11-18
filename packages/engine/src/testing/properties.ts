@@ -14,7 +14,7 @@ import fc from 'fast-check';
 import { stateChecker } from '../check/state';
 import { boundNarration } from '../content/binding';
 import { constraintHolds } from '../content/expr';
-import { lineSlots, render } from '../content/render';
+import { lineSlots, renderForms } from '../content/render';
 import { formatFeatures, formatModel } from '../formats';
 import { optionNumber } from '../formats/numeral-pick';
 import { inDomain } from '../generators/common';
@@ -128,8 +128,18 @@ function revealsNumber(
   vars: Readonly<Record<string, string | number>>,
   n: number,
 ): boolean {
-  if (new RegExp(`(^|[^0-9])${n}([^0-9]|$)`).test(text)) return true;
+  if (numeralsIn(text).includes(n)) return true;
   return slots.some((s) => vars[s] === n || vars[s] === String(n));
+}
+
+/**
+ * The numbers written as numerals in rendered text. A thousands-grouped numeral ("1,000", 03 §8.4
+ * display formatting) is one number, not "1" and "000".
+ */
+export function numeralsIn(text: string): number[] {
+  return [...text.matchAll(/(?<![0-9,])(?:[0-9]{1,3}(?:,[0-9]{3})+|[0-9]+)(?![0-9])/g)].map((m) =>
+    Number(m[0].replaceAll(',', '')),
+  );
 }
 
 /**
@@ -147,7 +157,7 @@ export function splitPartNumerals(item: GeneratedItem, text: string): number[] {
   const whole = a.target.whole;
   if (typeof whole !== 'number') return [];
   const lowest = a.target.nonZero === true ? 1 : 0;
-  const mentioned = [...text.matchAll(/(?<![0-9])[0-9]+(?![0-9])/g)].map((m) => Number(m[0]));
+  const mentioned = numeralsIn(text);
   return [...new Set(mentioned.filter((n) => n >= lowest && n < whole))];
 }
 
@@ -455,20 +465,22 @@ export function runTemplateProperties(
     for (const h of item.hints) {
       if (h.level < 2 || h.level > 4) continue;
       const hv = h.vars ?? {};
-      const text = render(h.say, hv);
       const slots = lineSlots(h.say, narration);
-      for (const v of answers) {
-        if (revealsNumber(text, slots, hv, v)) {
-          fail(seed, '7.hint-reveals', `hint ${h.say} ("${text}") reveals ${v}`);
+      // Both what the child reads and what the child hears (`say`) are checked.
+      for (const text of renderForms(h.say, hv, narration)) {
+        for (const v of answers) {
+          if (revealsNumber(text, slots, hv, v)) {
+            fail(seed, '7.hint-reveals', `hint ${h.say} ("${text}") reveals ${v}`);
+          }
         }
-      }
-      const parts = splitPartNumerals(item, text);
-      if (parts.length > 0) {
-        fail(
-          seed,
-          '7.hint-reveals',
-          `hint ${h.say} ("${text}") names part size ${parts.join(', ')} on a split item (write counting words in letters)`,
-        );
+        const parts = splitPartNumerals(item, text);
+        if (parts.length > 0) {
+          fail(
+            seed,
+            '7.hint-reveals',
+            `hint ${h.say} ("${text}") names part size ${parts.join(', ')} on a split item (write counting words in letters)`,
+          );
+        }
       }
     }
     // 8. difficulty finite; features declared

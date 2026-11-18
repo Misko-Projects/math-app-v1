@@ -71,10 +71,35 @@ export function render(
 ): string {
   const entry = narration[key];
   if (!entry) return key;
-  const { segments } = parseLine(entry.text);
+  return renderLine(entry.text, vars, narration);
+}
+
+/** Interpolates one line (a narration `text` or `say`) with 03 §8.4 display formatting. */
+export function renderLine(
+  line: string,
+  vars: Record<string, string | number> = {},
+  narration: NarrationJson = boundNarration(),
+): string {
+  const { segments } = parseLine(line);
   return segments
     .map((s) => (s.kind === 'text' ? s.text : formatSlot(s.slot, vars, narration)))
     .join('');
+}
+
+/**
+ * The display text and, when it differs, the spoken form of a line, each interpolated. Checks that
+ * a line never gives something away read both: the child hears `say` (03 §8.4).
+ */
+export function renderForms(
+  key: string,
+  vars: Record<string, string | number> = {},
+  narration: NarrationJson = boundNarration(),
+): string[] {
+  const entry = narration[key];
+  if (!entry) return [key];
+  const forms = [renderLine(entry.text, vars, narration)];
+  if (entry.say !== undefined) forms.push(renderLine(entry.say, vars, narration));
+  return forms;
 }
 
 /** Slot names a line uses, in its display text and its spoken form. */

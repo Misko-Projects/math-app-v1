@@ -5,12 +5,13 @@ import type { ItemTemplate, NarrationJson, ParamSpec } from '@number-island/shar
 import { describe, expect, it } from 'vitest';
 import { stateChecker } from '../src/check/state';
 import { initContent } from '../src/content/binding';
+import { render } from '../src/content/render';
 import { formatModel } from '../src/formats';
 import { GenerationError } from '../src/generators/types';
 import { checkResponse } from '../src/items/check';
 import { generateItem, generateItemFromParams } from '../src/items/generate';
 import { itemSolution, replaySteps } from '../src/items/solution';
-import { runTemplateProperties } from '../src/testing/properties';
+import { numeralsIn, runTemplateProperties } from '../src/testing/properties';
 import { compileFixture, fixtureTemplate, loadFixture } from './fixture';
 
 describe('F1: authored lessons replay to a correct demonstration', () => {
@@ -351,5 +352,63 @@ describe('R3: split hints name no part size (03 §9.4 step 7 authoring rule)', (
     expect(flagged('h.test.letters')).toBe(false);
     expect(flagged('h.test.numerals')).toBe(true);
     expect(flagged('h.test.fingers')).toBe(true);
+  });
+});
+
+// ---------- round 4 (s_975dee5b9b9a) ----------
+
+function hintReveals(t: ItemTemplate, entries: NarrationJson, key: string): boolean {
+  const fixture = loadFixture();
+  initContent({ ...fixture, narration: { ...fixture.narration, ...entries } });
+  return runTemplateProperties(t, { n: 2, targeting: false }).failures.some(
+    (f) => f.step === '7.hint-reveals' && f.message.includes(key),
+  );
+}
+
+describe('R4-F1: V17 checks the spoken form (`say`) too', () => {
+  it('a neutral caption with “Put 4 counters in each frame.” spoken is reported (whole 8)', () => {
+    loadFixture();
+    const base = fixtureTemplate('CPS.02.t1');
+    const t: ItemTemplate = {
+      ...base,
+      id: 'CPS.02.t9',
+      params: { ...base.params, whole: { kind: 'const', value: 8 } },
+      narration: { prompt: base.narration.prompt, hints: ['h.test.spoken'] },
+    };
+    const entries: NarrationJson = {
+      'h.test.spoken': {
+        text: 'Use both frames.',
+        say: 'Put 4 counters in each frame.',
+        clips: [],
+      },
+    };
+    expect(hintReveals(t, entries, 'h.test.spoken')).toBe(true);
+  });
+});
+
+describe('R4-F2: a thousands-grouped numeral is one number', () => {
+  it('“There are {whole} in all.” with whole 1000 renders 1,000 and is not a part size', () => {
+    loadFixture();
+    const base = fixtureTemplate('CPS.02.t3'); // number-bond
+    const t: ItemTemplate = {
+      ...base,
+      id: 'CPS.02.t9',
+      params: { whole: { kind: 'const', value: 1000 }, unknown: { kind: 'const', value: 'split' } },
+      constraints: [],
+      narration: { prompt: base.narration.prompt, hints: ['h.test.whole'] },
+    };
+    const entries: NarrationJson = {
+      'h.test.whole': { text: 'There are {whole} in all.', clips: [] },
+    };
+    expect(hintReveals(t, entries, 'h.test.whole')).toBe(false);
+    const item = generateItem(t, 1);
+    const h = item.hints.find((x) => x.say === 'h.test.whole');
+    expect(h && render(h.say, h.vars ?? {})).toBe('There are 1,000 in all.');
+  });
+
+  it('numeralsIn reads grouped numerals whole', () => {
+    expect(numeralsIn('There are 1,000 in all, and 12,345 more; 7 left, 2, 3.')).toEqual([
+      1000, 12345, 7, 2, 3,
+    ]);
   });
 });
