@@ -12,6 +12,7 @@ import { readFileSync, writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { type AnyEventEnvelope, SKILL_STATUSES } from '@number-island/shared';
 import { describe, expect, it } from 'vitest';
+import { initContent } from '../src/content/binding';
 import { foldCollection } from '../src/folds/collection';
 import { foldGoals } from '../src/folds/goals';
 import { foldInventory } from '../src/folds/inventory';
@@ -26,7 +27,6 @@ import {
   skillMap,
   timeSignals,
 } from '../src/signals';
-import { initContent } from '../src/content/binding';
 import { compileContentAt, fixtureGameData, fixtureGraph } from './fixture';
 import { CHILD_1, CHILD_2 } from './support/events';
 import { REPLAY_DAYS, REPLAY_T0, recordReplayLog, stableJson } from './support/replay-log';
