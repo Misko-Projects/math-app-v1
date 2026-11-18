@@ -118,10 +118,10 @@ def publish(repo, dry):
         if not dry:
             STATE.write_text(json.dumps(state, indent=2))
         print(f"{k} -> #{num} {v['title']}")
-    # second pass: bodies that referenced later-created issues get re-rendered
+    # second pass: re-render every body so {{KEY}} refs and the footer carry real numbers
     for k in members:
         v = issues[k]
-        if re.search(r"\{\{\w+\}\}", v["body"]):
+        if True:
             deps = ", ".join(f"#{state[d]}" for d in v["depends"]) or "none"
             body = f"**Depends on:** {deps}\n\n" + render(v) + FOOTER.format(num=f"#{state[k]}")
             gh(["issue", "edit", str(state[k]), "-R", repo, "--body", body], dry)

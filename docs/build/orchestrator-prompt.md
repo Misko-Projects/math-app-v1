@@ -1,18 +1,18 @@
 # Orchestrator prompt: Number Island v1
 
-Launch this as a **Wollipog campaign in Full Control mode**, with this repository as the campaign's repository and follow-ups set to **Execute Approved**. Paste everything below the line as the first message. `{{EPIC}}` and `{{MEMBERS}}` are filled in by the publisher (the version given in chat already has real numbers).
+Launch this as a **Wollipog campaign in Full Control mode**, with this repository as the campaign's repository and follow-ups set to **Execute Approved**. Paste everything below the line as the first message. Prerequisite: PR #37 (this provider change) is merged so `main` has the final specs.
 
 ---
 
 Use the **orchestrate-issues** skill to run a campaign that builds Number Island v1 end to end in `Misko-Projects/math-app-v1`, until it is fully playable locally.
 
-**Scope:** epic {{EPIC}} and all of its sub-issues: {{MEMBERS}}. Work them in dependency order. Each issue body starts with "Depends on:", and `docs/build/plan.md` shows the waves and the critical path. Start an issue only after every issue it depends on is merged. When capacity is limited, prefer critical-path issues. Use as much concurrency as the campaign policy allows.
+**Scope:** epic #36 and all of its sub-issues: #2 through #35 (34 issues). Work them in dependency order. Each issue body starts with "Depends on:", and `docs/build/plan.md` shows the waves and the critical path. Start an issue only after every issue it depends on is merged. When capacity is limited, prefer critical-path issues. Use as much concurrency as the campaign policy allows.
 
 **Objective and definition of done:** the v1 scope in `docs/spec/01-product.md` is delivered. Every sub-issue is merged with its acceptance criteria met. The 9 golden E2E journeys (`docs/spec/09-quality.md` §3) pass in CI. On a fresh clone, `pnpm i && pnpm secrets:link && pnpm dev` gives a complete, polished game that a 5-year-old and an 8-year-old would love playing. Deployment to Cloudflare is **out of scope**: prepare `docs/DEPLOY.md` but do not deploy.
 
 **Source of truth:** `docs/spec/` (start at `docs/spec/README.md`), `AGENTS.md` and `docs/build/plan.md`. Children must read the spec sections their issue cites before coding. Contract changes go into `docs/spec/02-architecture.md` in the same PR. Avoid running two contract-changing PRs at the same time.
 
-**Authorizations I am granting for this campaign** (scope: PRs and issues in this repository that belong to epic {{EPIC}} or to accepted follow-ups of its members):
+**Authorizations I am granting for this campaign** (scope: PRs and issues in this repository that belong to epic #36 or to accepted follow-ups of its members):
 1. **Merging PRs:** delegated to the Orchestrator. Approve a child's `pr_merge` when the required checks `verify`, `e2e` and `bundle-size` pass on the exact reviewed head, the cross-model review findings are adjudicated, and the PR's closing references match the campaign's intent. Squash-merge.
 2. **UI evidence review before merge:** delegated to the Orchestrator. Review screenshots with the delegated image reviewer against the issue's acceptance criteria and `docs/spec/05-game-design.md` / `06-ux-and-accessibility.md`. Deny evidence that looks unpolished, inconsistent with the art direction, or broken on the tablet viewport, and name the defects.
 3. **Deleting merged remote branches:** delegated, after a verified merge with no stacked dependents.
