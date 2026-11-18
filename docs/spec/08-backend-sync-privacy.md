@@ -40,7 +40,7 @@ Errors use `{ error: { code, message } }` with stable `code` strings. Never retu
   - Rate limits are fixed windows kept in D1 (`rate_limits`, keyed by a SHA-256 of the subject, so IPs are never stored):
     - login: 5 per 15 min per IP; a successful login clears that IP's count;
     - PIN: 5 per 15 min per device;
-    - pairing: 10 per 15 min per IP, on top of each code's 5 tries;
+    - pairing: 10 per 15 min per IP, on top of each code's 5 tries (a wrong code counts against every live code, a success against none, decided in the same transaction as the claim);
     - setup: 10 per 15 min per IP.
     A limited request gets `429 rate_limited` with `Retry-After`.
   - The client IP is `CF-Connecting-IP`. When that peer is loopback (the Vite dev proxy), the API uses the last `X-Forwarded-For` hop instead, and treats `X-Forwarded-Proto: https` as HTTPS for the `Secure` flag (`pnpm dev:https`). The proxy sets `xfwd`.
@@ -49,8 +49,8 @@ Errors use `{ error: { code, message } }` with stable `code` strings. Never retu
   - A child counts as deleted exactly when the family's log holds its tombstone. Every write of events, settings and profiles re-checks that inside its own SQL statement, so a sync racing a parent's delete cannot bring the child back. Ids are compared case-insensitively, because the shared UUID grammar accepts either case.
   - `POST /import` is all or nothing:
     - tombstones must be server-authored (`childId: null`, `deviceId` = the backup's family id);
-    - an event id already stored with another type, or by another family, is a `409 conflict`;
-    - the events, the purges of the children the backup tombstones, and the settings and profiles commit in one transaction.
+    - an event id already stored as a different event (another family, another type, or a tombstone for another child) is a `409 conflict`, and so are two different events under one id in the file;
+    - the events, the purges of the children the backup tombstones, and the settings and profiles commit in one transaction. A purge applies only while that child's tombstone is stored.
   - Error codes map to stable statuses: `validation_failed`/`bad_request`/`pair_code_invalid` 400, `unauthorized`/`invalid_credentials`/`invalid_pin`/`device_revoked` 401, `forbidden`/`unknown_family` 403, `not_found` 404, `conflict`/`setup_closed` 409, `pair_code_expired` 410, `payload_too_large` 413, `unsupported_media_type` 415, `rate_limited` 429, `internal` 500.
 
 ## 4. Sync protocol

@@ -188,6 +188,54 @@ describe('POST /api/import', () => {
     expect(n?.n).toBe(1);
   });
 
+  it("refuses a tombstone that reuses another child's tombstone id, leaving that child intact", async () => {
+    const family = await setupFamily();
+    const a = profileFor(family.familyId, { name: 'A' });
+    const b = profileFor(family.familyId, { name: 'B' });
+    const bEvent = roadEvent(family.familyId, family.deviceId, { childId: b.id });
+    await syncOk(family.deviceToken, { profiles: [a, b], events: [bEvent] });
+    await api(`/api/children/${a.id}`, { method: 'DELETE', cookie: family.cookie });
+    const aTomb = (await exportBackup(family.cookie)).events.find(
+      (e) => e.type === 'child.deleted',
+    );
+    if (!aTomb) throw new Error('expected a tombstone');
+    const forged = { ...aTomb, payload: { childId: b.id } } as BackupFile['events'][number];
+    const backup: BackupFile = {
+      format: 'number-island-backup',
+      formatVersion: 1,
+      exportedAt: Date.now(),
+      familyId: family.familyId,
+      events: [forged],
+      settings: [],
+      profiles: [],
+    };
+    await expectError(await importBackup(family.cookie, backup), 409, 'conflict');
+    expect((await syncOk(family.deviceToken)).profiles).toEqual([b]);
+    const left = await env.DB.prepare('SELECT COUNT(*) AS n FROM events WHERE child_id = ?')
+      .bind(b.id)
+      .first<{ n: number }>();
+    expect(left?.n).toBe(1);
+  });
+
+  it('refuses a backup with two different events under one id', async () => {
+    const family = await setupFamily();
+    const e = roadEvent(family.familyId, family.deviceId);
+    const twin = { ...e, payload: { to: 99 } };
+    const backup = {
+      format: 'number-island-backup',
+      formatVersion: 1,
+      exportedAt: Date.now(),
+      familyId: family.familyId,
+      events: [e, twin],
+      settings: [],
+      profiles: [],
+    };
+    await expectError(await importBackup(family.cookie, backup), 409, 'conflict');
+    // An exact duplicate is harmless.
+    const res = await importBackup(family.cookie, { ...backup, events: [e, e] });
+    expect(importResponseSchema.parse(await res.json()).imported.events).toBe(1);
+  });
+
   it('refuses tombstones that are not server-authored', async () => {
     const family = await setupFamily();
     const child = profileFor(family.familyId);

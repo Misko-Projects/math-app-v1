@@ -1,5 +1,5 @@
 // @vitest-environment node
-import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { createServer, type ViteDevServer } from 'vite';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
@@ -10,14 +10,18 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 const webRoot = fileURLToPath(new URL('..', import.meta.url));
 const apiRoot = fileURLToPath(new URL('../../api/', import.meta.url));
-const fixtureDir = `${apiRoot}.wrangler/state/vite-deny-fixture`;
-const fixture = `${fixtureDir}/fixture.txt`;
+const stateDir = `${apiRoot}.wrangler/state`;
+// Each run gets its own fixture directory, so concurrent runs never delete each other's file.
+let fixtureDir: string;
+let fixture: string;
 
 let server: ViteDevServer;
 let origin: string;
 
 beforeAll(async () => {
-  mkdirSync(fixtureDir, { recursive: true });
+  mkdirSync(stateDir, { recursive: true });
+  fixtureDir = mkdtempSync(`${stateDir}/vite-deny-fixture-`);
+  fixture = `${fixtureDir}/fixture.txt`;
   writeFileSync(fixture, 'inert fixture\n');
   server = await createServer({
     root: webRoot,
@@ -33,7 +37,7 @@ beforeAll(async () => {
 
 afterAll(async () => {
   await server?.close();
-  rmSync(fixtureDir, { recursive: true, force: true });
+  if (fixtureDir) rmSync(fixtureDir, { recursive: true, force: true });
 });
 
 describe('Vite dev server file access', () => {

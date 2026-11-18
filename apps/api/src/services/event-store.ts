@@ -162,20 +162,45 @@ export async function insertEvents(
   return sumChanges(await batchSql(db, insertEventsSql(familyId, rows, receivedAt)));
 }
 
-/** Which of `ids` exist: the family and type of each stored event. */
-export async function storedEventsById(
-  db: Db,
-  ids: string[],
-): Promise<Map<string, { familyId: string; type: string }>> {
-  const out = new Map<string, { familyId: string; type: string }>();
+/** A stored event's identity: family, type, and (for a tombstone) the canonical child id. */
+export interface HeldEvent {
+  familyId: string;
+  type: string;
+  deletedChild: string | null;
+}
+
+/** Which of `ids` exist, and as what. */
+export async function storedEventsById(db: Db, ids: string[]): Promise<Map<string, HeldEvent>> {
+  const out = new Map<string, HeldEvent>();
   for (const chunk of chunkByJsonSize(ids)) {
-    const rows = await db.all<{ id: string; family_id: string; type: string }>(
-      sql`SELECT id, family_id, type FROM events
+    const rows = await db.all<{
+      id: string;
+      family_id: string;
+      type: string;
+      deleted_child: string | null;
+    }>(
+      sql`SELECT id, family_id, type,
+            CASE WHEN type = 'child.deleted' THEN json_extract(payload_json, '$.childId') END
+              AS deleted_child
+          FROM events
           WHERE id IN (SELECT value FROM json_each(${JSON.stringify(chunk)}))`,
     );
-    for (const row of rows) out.set(row.id, { familyId: row.family_id, type: row.type });
+    for (const row of rows) {
+      out.set(row.id, {
+        familyId: row.family_id,
+        type: row.type,
+        deletedChild: row.deleted_child === null ? null : canonId(row.deleted_child),
+      });
+    }
   }
   return out;
+}
+
+/** The canonical child id a tombstone envelope deletes, or null for any other event. */
+export function tombstoneChildOf(e: { type: string; payload: unknown }): string | null {
+  if (e.type !== 'child.deleted') return null;
+  const child = (e.payload as { childId?: unknown } | null)?.childId;
+  return typeof child === 'string' ? canonId(child) : null;
 }
 
 /** Children this family has tombstoned, as canonical (lower-case) ids. */
@@ -190,9 +215,13 @@ export async function deletedChildIds(db: Db, familyId: string): Promise<Set<str
 /**
  * Statements that purge a child (08 §2, §4), every casing of their id, within this family only:
  * delete their events and settings, and leave a purged profile row (no data, `deleted_at` set).
- * A `tombstone`, when given, goes first and is inserted only if the family has no tombstone for
- * the child yet, so concurrent deletes leave exactly one. Inserting it in the same transaction also
- * keeps the family's highest `seq` from dropping (sync treats a cursor past the end as a reset).
+ *
+ * Every purge statement runs only while the family's log holds a tombstone for the child, so data
+ * is never purged without a tombstone that devices can pull. A `tombstone`, when given, goes first
+ * and is inserted only if the family has no tombstone for the child yet, so concurrent deletes leave
+ * exactly one. Inserting it in the same transaction also keeps the family's highest `seq` from
+ * dropping (sync treats a cursor past the end as a reset). Without one (import), the purge applies
+ * only if a tombstone was stored earlier in the same transaction or before.
  */
 export function purgeChildSql(
   familyId: string,
@@ -201,6 +230,7 @@ export function purgeChildSql(
   tombstone: StoredEvent | null,
 ): SQL[] {
   const child = canonId(childId);
+  const deleted = isDeletedChild(familyId, sql`${child}`);
   const insertTombstone = tombstone
     ? [
         sql`
@@ -209,23 +239,26 @@ export function purgeChildSql(
           SELECT ${tombstone.id}, ${tombstone.familyId}, NULL, ${tombstone.deviceId}, ${tombstone.ts},
             ${tombstone.clientTs}, ${tombstone.type}, ${tombstone.payloadJson},
             ${tombstone.contentVersion}, ${now}
-          WHERE NOT ${isDeletedChild(familyId, sql`${child}`)}`,
+          WHERE NOT ${deleted}`,
       ]
     : [];
   return [
     ...insertTombstone,
-    sql`DELETE FROM events WHERE family_id = ${familyId} AND lower(child_id) = ${child}`,
-    sql`DELETE FROM settings WHERE family_id = ${familyId} AND lower(key) = ${settingsKey(child)}`,
+    sql`DELETE FROM events
+        WHERE family_id = ${familyId} AND lower(child_id) = ${child} AND ${deleted}`,
+    sql`DELETE FROM settings
+        WHERE family_id = ${familyId} AND lower(key) = ${settingsKey(child)} AND ${deleted}`,
     sql`
       UPDATE profiles SET data_json = NULL, updated_at = ${now},
         deleted_at = COALESCE(deleted_at, ${now})
-      WHERE family_id = ${familyId} AND lower(id) = ${child}`,
+      WHERE family_id = ${familyId} AND lower(id) = ${child} AND ${deleted}`,
     // A purged row for a child the server never saw. Ignored if any family already holds the id:
     // the tombstone, not this row, is what marks the child deleted.
     sql`
       INSERT OR IGNORE INTO profiles (id, family_id, data_json, updated_at, deleted_at)
       SELECT ${child}, ${familyId}, NULL, ${now}, ${now}
-      WHERE NOT EXISTS (SELECT 1 FROM profiles WHERE family_id = ${familyId} AND lower(id) = ${child})`,
+      WHERE ${deleted}
+        AND NOT EXISTS (SELECT 1 FROM profiles WHERE family_id = ${familyId} AND lower(id) = ${child})`,
   ];
 }
 

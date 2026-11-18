@@ -86,6 +86,18 @@ describe('POST /api/devices/pair/complete', () => {
     await expectError(await complete(code, '198.51.100.200'), 400, 'pair_code_invalid');
   });
 
+  it('does not charge other codes when a pairing succeeds', async () => {
+    const { cookie } = await setupFamily();
+    const first = pairStartResponseSchema.parse(await (await start(cookie)).json());
+    const second = pairStartResponseSchema.parse(await (await start(cookie)).json());
+    const used = new Set([first.code, second.code]);
+    let wrong = '000000';
+    for (let n = 0; used.has(wrong); n++) wrong = String(n).padStart(6, '0');
+    for (let i = 0; i < 4; i++) await complete(wrong, `198.51.100.${10 + i}`);
+    expect((await complete(first.code, '198.51.100.20')).status).toBe(201);
+    expect((await complete(second.code, '198.51.100.21')).status).toBe(201);
+  });
+
   it('accepts the right code on the fifth try', async () => {
     const { cookie } = await setupFamily();
     const { code } = pairStartResponseSchema.parse(await (await start(cookie)).json());

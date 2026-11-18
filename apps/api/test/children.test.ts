@@ -241,6 +241,12 @@ describe('DELETE /api/children/:id', () => {
       { id: forged.id, index: 0, code: 'forbidden', message: expect.any(String) },
     ]);
 
+    // Reusing a held tombstone's id for another child is not a relay either.
+    const retargeted = { ...tomb, payload: { childId: newId() } };
+    const res3 = await syncOk(tablet.deviceToken, { events: [retargeted] });
+    expect(res3.accepted).toEqual([]);
+    expect(res3.rejected.map((r) => r.code)).toEqual(['forbidden']);
+
     // Reusing the id of a stored ordinary event does not make it a relay.
     const ordinary = roadEvent(family.familyId, tablet.deviceId);
     await syncOk(tablet.deviceToken, { events: [ordinary] });

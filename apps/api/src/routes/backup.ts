@@ -25,6 +25,7 @@ import {
   readSettings,
   rowToEnvelope,
   storedEventsById,
+  tombstoneChildOf,
   toStoredEvent,
 } from '../services/event-store';
 
@@ -57,12 +58,6 @@ backupRoutes.get('/export', requireParent, async (c) => {
   return c.json(backup);
 });
 
-function deletedChildOf(e: AnyEventEnvelope): string | null {
-  if (e.type !== 'child.deleted') return null;
-  const child = (e.payload as { childId?: unknown }).childId;
-  return typeof child === 'string' ? canonId(child) : null;
-}
-
 /**
  * Restores a backup into the signed-in family, all or nothing. Idempotent: events merge by id,
  * settings and profiles by LWW, so importing the same file twice changes nothing.
@@ -72,10 +67,11 @@ function deletedChildOf(e: AnyEventEnvelope): string | null {
  *   take the current family's server pseudo-device (02 §5.9 S2).
  * - Tombstones must look server-authored (`childId: null`, `deviceId` = the backup's family id);
  *   anything else is refused before any write.
- * - An event id already stored with another type, or by another family, is a `conflict`: the
- *   import is refused before any write.
+ * - An event id already stored as a different event (another family, type or deleted child), or
+ *   used twice in the file for different events, is a `conflict`: refused before any write.
  * - The events, the purges of every child the backup tombstones, and the settings and profiles go
- *   in one D1 transaction, so a tombstone is never visible without its purge (or vice versa).
+ *   in one D1 transaction, so a tombstone is never visible without its purge (or vice versa). Each
+ *   purge statement also requires the child's tombstone to be stored, inside that transaction.
  *
  * `imported` counts what was written: new events, and settings and profiles that were newer.
  */
@@ -114,15 +110,30 @@ backupRoutes.post(
       db,
       rehomed.map((e) => e.id),
     );
+    // One id, one event: within the file, and against what is stored (for a tombstone, the same
+    // deleted child too). Any mismatch refuses the whole import before a write.
+    const seen = new Map<string, string>();
     for (const e of rehomed) {
+      const json = JSON.stringify(e);
+      const prior = seen.get(e.id);
+      if (prior !== undefined && prior !== json) {
+        throw new ApiError(
+          'conflict',
+          `event ${e.id}: the backup holds two different events with this id`,
+        );
+      }
+      seen.set(e.id, json);
       const h = held.get(e.id);
-      if (h && (h.familyId !== familyId || h.type !== e.type)) {
+      if (
+        h &&
+        (h.familyId !== familyId || h.type !== e.type || h.deletedChild !== tombstoneChildOf(e))
+      ) {
         throw new ApiError('conflict', `event ${e.id}: that id is already used by another event`);
       }
     }
 
     const fileTombstones = [
-      ...new Set(rehomed.map(deletedChildOf).filter((id): id is string => id !== null)),
+      ...new Set(rehomed.map(tombstoneChildOf).filter((id): id is string => id !== null)),
     ];
     const tombstoned = new Set(fileTombstones);
     const toInsert = rehomed

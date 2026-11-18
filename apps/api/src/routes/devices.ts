@@ -58,10 +58,10 @@ deviceRoutes.post(
 );
 
 /**
- * Code → a new device token. Every try (right or wrong) first counts against every live code (a
- * guesser cannot know which one it targets), then a code still within its 5 tries is consumed, in
- * the same transaction. So a code accepts at most 5 tries in total, however many requests race; the
- * per-IP rate limit bounds guessing on top.
+ * Code → a new device token. A code still within its 5 tries is consumed; a wrong code counts a
+ * try against every live code (a guesser cannot know which one it targets). Both happen in one
+ * transaction, so a code takes at most 5 wrong tries however many requests race, and a success
+ * charges nothing. The per-IP rate limit bounds guessing on top.
  */
 deviceRoutes.post(
   '/devices/pair/complete',
@@ -75,13 +75,15 @@ deviceRoutes.post(
     await hitRateLimit(db, PAIR_LIMIT, clientIp(c), now);
 
     const codeHash = await sha256Hex(body.code);
-    // Count this try against every live code *before* checking it, in one transaction, so
-    // concurrent guesses cannot each see an unspent count: at most 5 tries per code, ever.
-    const [, claim] = await batchSql(db, [
-      sql`UPDATE pair_codes SET attempts = attempts + 1 WHERE expires_at > ${now}`,
+    // Claim and charge in one transaction (D1 serialises transactions): the claim sees every
+    // earlier failure's charge, so racing guesses cannot exceed 5 tries per code. Only a failed
+    // try is charged to the live codes (`changes()` is the claim's row count), so a successful
+    // pairing never spends another code's budget.
+    const [claim] = await batchSql(db, [
       sql`DELETE FROM pair_codes
-          WHERE code_hash = ${codeHash} AND expires_at > ${now} AND attempts <= ${PAIR_CODE_MAX_TRIES}
+          WHERE code_hash = ${codeHash} AND expires_at > ${now} AND attempts < ${PAIR_CODE_MAX_TRIES}
           RETURNING family_id`,
+      sql`UPDATE pair_codes SET attempts = attempts + 1 WHERE expires_at > ${now} AND changes() = 0`,
     ]);
     const claimed = (claim?.results as { family_id: string }[] | undefined)?.[0];
 

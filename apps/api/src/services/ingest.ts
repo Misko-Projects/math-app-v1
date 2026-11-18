@@ -18,6 +18,7 @@ import {
   MAX_EVENT_ENVELOPE_STRING_BYTES,
   type StoredEvent,
   storedEventsById,
+  tombstoneChildOf,
   toStoredEvent,
 } from './event-store';
 
@@ -111,9 +112,10 @@ export async function ingestPushedEvents(
       continue;
     }
     if (event.type === 'child.deleted') {
-      // Only a relay of a tombstone this family already holds (02 §5.9 S2 b).
-      if (held?.type === 'child.deleted') accepted.push(event.id);
-      else reject(index, raw, 'forbidden', 'Only a parent can delete a child.');
+      // Only a relay of the very tombstone this family holds under that id (02 §5.9 S2 b).
+      if (held?.type === 'child.deleted' && held.deletedChild === tombstoneChildOf(event)) {
+        accepted.push(event.id);
+      } else reject(index, raw, 'forbidden', 'Only a parent can delete a child.');
       continue;
     }
     accepted.push(event.id);
