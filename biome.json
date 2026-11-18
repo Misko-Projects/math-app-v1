@@ -1,0 +1,107 @@
+{
+  "$schema": "./node_modules/@biomejs/biome/configuration_schema.json",
+  "vcs": {
+    "enabled": true,
+    "clientKind": "git",
+    "useIgnoreFile": true
+  },
+  "files": {
+    "includes": [
+      "**",
+      "!**/node_modules",
+      "!**/dist",
+      "!**/build",
+      "!**/storybook-static",
+      "!**/.wrangler",
+      "!**/test-results",
+      "!**/playwright-report",
+      "!**/worker-configuration.d.ts",
+      "!**/*.md",
+      "!docs/plan",
+      "!e2e/__screenshots__"
+    ]
+  },
+  "formatter": {
+    "enabled": true,
+    "indentStyle": "space",
+    "indentWidth": 2,
+    "lineWidth": 100
+  },
+  "javascript": {
+    "formatter": {
+      "quoteStyle": "single",
+      "semicolons": "always",
+      "trailingCommas": "all"
+    }
+  },
+  "json": {
+    "parser": {
+      "allowComments": true
+    }
+  },
+  "css": {
+    "parser": {
+      "tailwindDirectives": true
+    }
+  },
+  "assist": {
+    "enabled": true,
+    "actions": {
+      "source": {
+        "organizeImports": "on"
+      }
+    }
+  },
+  "linter": {
+    "enabled": true,
+    "rules": {
+      "preset": "recommended",
+      "suspicious": {
+        "noExplicitAny": "error"
+      },
+      "style": {
+        "noNonNullAssertion": "warn"
+      }
+    }
+  },
+  "overrides": [
+    {
+      "includes": ["packages/shared/src/**", "packages/content/src/**", "packages/engine/src/**"],
+      "linter": {
+        "rules": {
+          "style": {
+            "noRestrictedImports": {
+              "level": "error",
+              "options": {
+                "paths": {
+                  "react": "shared, content and engine are pure: no React (02 §2).",
+                  "react-dom": "shared, content and engine are pure: no React (02 §2).",
+                  "react/jsx-runtime": "shared, content and engine are pure: no React (02 §2).",
+                  "dexie": "shared, content and engine are pure: no Dexie (02 §2).",
+                  "dexie-react-hooks": "shared, content and engine are pure: no Dexie (02 §2)."
+                }
+              }
+            },
+            "noRestrictedGlobals": {
+              "level": "error",
+              "options": {
+                "deniedGlobals": {
+                  "window": "shared, content and engine must not touch browser globals (02 §2).",
+                  "document": "shared, content and engine must not touch browser globals (02 §2).",
+                  "navigator": "shared, content and engine must not touch browser globals (02 §2).",
+                  "localStorage": "shared, content and engine must not touch browser globals (02 §2).",
+                  "sessionStorage": "shared, content and engine must not touch browser globals (02 §2).",
+                  "indexedDB": "shared, content and engine must not touch browser globals (02 §2).",
+                  "location": "shared, content and engine must not touch browser globals (02 §2).",
+                  "self": "shared, content and engine must not touch browser globals (02 §2).",
+                  "HTMLElement": "shared, content and engine must not touch browser globals (02 §2).",
+                  "requestAnimationFrame": "shared, content and engine must not touch browser globals (02 §2)."
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  ]
+}

@@ -1,0 +1,48 @@
+{
+  "name": "number-island",
+  "private": true,
+  "type": "module",
+  "description": "Number Island: an adaptive, game-based K–3 math app for kids.",
+  "license": "MIT",
+  "packageManager": "pnpm@10.34.9",
+  "engines": {
+    "node": ">=24 <25",
+    "pnpm": ">=10 <11"
+  },
+  "scripts": {
+    "dev": "concurrently -k -n web,api -c cyan,magenta \"pnpm --filter @number-island/web dev\" \"pnpm --filter @number-island/api dev\"",
+    "dev:lan": "concurrently -k -n web,api -c cyan,magenta \"pnpm --filter @number-island/web dev:lan\" \"pnpm --filter @number-island/api dev\"",
+    "dev:https": "concurrently -k -n web,api -c cyan,magenta \"pnpm --filter @number-island/web dev:https\" \"pnpm --filter @number-island/api dev\"",
+    "build": "pnpm content:build && pnpm -r --filter \"./packages/*\" --if-present build && pnpm --filter @number-island/web build",
+    "typecheck": "tsc -b",
+    "lint": "biome check . && node scripts/check-boundaries.mjs",
+    "lint:fix": "biome check --write .",
+    "browsers": "playwright install chromium",
+    "test": "pnpm browsers && vitest run",
+    "test:watch": "vitest",
+    "test:sim": "pnpm --filter @number-island/engine test:sim",
+    "content:build": "pnpm --filter @number-island/content build",
+    "content:validate": "pnpm --filter @number-island/content validate",
+    "content:sample": "pnpm --filter @number-island/content sample",
+    "e2e": "pnpm browsers && playwright test -c e2e/playwright.config.ts",
+    "e2e:smoke:webkit": "playwright test -c e2e/playwright.config.ts --project=webkit-smoke",
+    "storybook": "pnpm --filter @number-island/ui storybook",
+    "visual": "playwright test -c e2e/playwright.visual.config.ts",
+    "visual:update": "node scripts/visual-update.mjs",
+    "narration:render": "pnpm --filter @number-island/narration render",
+    "narration:audition": "pnpm --filter @number-island/narration audition",
+    "ai:smoke": "pnpm --filter @number-island/api ai:smoke",
+    "secrets:link": "node scripts/secrets-link.mjs",
+    "preview:full": "pnpm --filter @number-island/web build && pnpm --filter @number-island/api preview",
+    "bundle-size": "node scripts/bundle-size.mjs",
+    "verify": "pnpm content:build && pnpm typecheck && pnpm lint && pnpm content:validate && pnpm test && pnpm build"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "2.6.8",
+    "@playwright/test": "1.65.1",
+    "@types/node": "^24.0.0",
+    "concurrently": "^10.0.7",
+    "typescript": "~5.9.3",
+    "vitest": "^4.1.12"
+  }
+}

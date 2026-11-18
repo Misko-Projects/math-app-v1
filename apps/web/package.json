@@ -1,0 +1,40 @@
+{
+  "name": "@number-island/web",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "dev:lan": "vite --host 0.0.0.0",
+    "dev:https": "vite --host 0.0.0.0 --mode https",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "@number-island/content": "workspace:*",
+    "@number-island/engine": "workspace:*",
+    "@number-island/shared": "workspace:*",
+    "@number-island/ui": "workspace:*",
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0",
+    "react-router": "^7.18.5",
+    "@fontsource/andika": "^5.3.0",
+    "@fontsource/baloo-2": "^5.3.0",
+    "workbox-precaching": "^7.4.0"
+  },
+  "devDependencies": {
+    "@types/react": "^19.2.0",
+    "@types/react-dom": "^19.2.0",
+    "vite": "^8.3.8",
+    "@vitejs/plugin-react": "^6.3.0",
+    "@vitejs/plugin-basic-ssl": "^2.3.0",
+    "@tailwindcss/vite": "^4.3.5",
+    "tailwindcss": "^4.3.5",
+    "vite-plugin-pwa": "^2.0.0",
+    "workbox-build": "^7.4.0",
+    "workbox-window": "^7.4.0",
+    "@testing-library/react": "^16.3.0",
+    "@testing-library/dom": "^10.4.0",
+    "jsdom": "^31.0.1"
+  }
+}

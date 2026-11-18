@@ -1,0 +1,71 @@
+// Number Island API Worker (08 §1, §6). Local development only for v1: `wrangler dev` runs it
+// under Miniflare with local D1 state in `.wrangler/` (gitignored). Deployment is prepared later.
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "number-island",
+  "main": "src/index.ts",
+  // Kept at or below the workerd bundled with @cloudflare/vitest-pool-workers so tests and
+  // `wrangler dev` run with identical runtime semantics.
+  "compatibility_date": "2026-08-15",
+  "observability": { "enabled": false },
+
+  // D1 (08 §5). The database_id is a local-only placeholder: Miniflare keys local state by it.
+  // Replace it with the real id from `wrangler d1 create number-island` when deploying.
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "number-island",
+      "database_id": "00000000-0000-4000-8000-000000000000",
+      "migrations_dir": "src/db/migrations"
+    }
+  ],
+
+  // Non-secret configuration (08 §6, 07 §1). Secrets (OPENAI_API_KEY, ANTHROPIC_API_KEY) come from
+  // `.dev.vars` (written by `pnpm secrets:link`) or `wrangler secret put`; never from this file.
+  "vars": {
+    "AI_MONTHLY_BUDGET_USD": "10",
+    "AI_FEEDBACK_PROVIDER": "openai",
+    "AI_FEEDBACK_MODEL": "gpt-6.2-sol",
+    "AI_FEEDBACK_FALLBACK_MODEL": "gpt-6.1-sol",
+    "AI_SUMMARY_PROVIDER": "openai",
+    "AI_SUMMARY_MODEL": "gpt-6.2-sol",
+    "AI_SUMMARY_FALLBACK_MODEL": "gpt-6.1-sol",
+    "AI_VISION_PROVIDER": "anthropic",
+    "AI_VISION_MODEL": "claude-opus-5-5",
+    "PBKDF2_ITERATIONS": "100000"
+  },
+
+  "env": {
+    // `pnpm preview:full` (02 §3): the Worker also serves the built web app from ../web/dist, the
+    // production topology on one origin (:8787). `/api/*` always reaches the Worker first; any
+    // other path is a static asset or falls back to index.html (SPA routing).
+    // `vars` and `d1_databases` are not inherited by environments, so they are repeated here.
+    "preview": {
+      "assets": {
+        "directory": "../web/dist",
+        "not_found_handling": "single-page-application",
+        "run_worker_first": ["/api/*"]
+      },
+      "d1_databases": [
+        {
+          "binding": "DB",
+          "database_name": "number-island",
+          "database_id": "00000000-0000-4000-8000-000000000000",
+          "migrations_dir": "src/db/migrations"
+        }
+      ],
+      "vars": {
+        "AI_MONTHLY_BUDGET_USD": "10",
+        "AI_FEEDBACK_PROVIDER": "openai",
+        "AI_FEEDBACK_MODEL": "gpt-6.2-sol",
+        "AI_FEEDBACK_FALLBACK_MODEL": "gpt-6.1-sol",
+        "AI_SUMMARY_PROVIDER": "openai",
+        "AI_SUMMARY_MODEL": "gpt-6.2-sol",
+        "AI_SUMMARY_FALLBACK_MODEL": "gpt-6.1-sol",
+        "AI_VISION_PROVIDER": "anthropic",
+        "AI_VISION_MODEL": "claude-opus-5-5",
+        "PBKDF2_ITERATIONS": "100000"
+      }
+    }
+  }
+}

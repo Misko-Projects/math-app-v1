@@ -1,0 +1,11 @@
+{
+  "$comment": "JS budgets from docs/spec/02-architecture.md §6, enforced by `pnpm bundle-size` (CI job bundle-size). Sizes are gzip KB (1 KB = 1024 bytes).",
+  "initialJsKbGzip": 350,
+  "workshopChunkKbGzip": 120,
+  "workshopSourcePattern": "^src/workshops/([a-z0-9-]+)/",
+  "tti": {
+    "targetMs": 3000,
+    "enforced": false,
+    "note": "Time to interactive (4x CPU slowdown, warm cache) is reported, not enforced (02 §6, 09 §2). Q01 verifies it."
+  }
+}

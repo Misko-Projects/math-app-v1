@@ -1,0 +1,18 @@
+{
+  "name": "@number-island/content",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "validate": "node scripts/validate.mjs",
+    "sample": "node scripts/sample.mjs"
+  },
+  "dependencies": {
+    "@number-island/shared": "workspace:*"
+  },
+  "devDependencies": {}
+}

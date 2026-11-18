@@ -1,0 +1,18 @@
+{
+  "name": "@number-island/content-check",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "check": "node src/check.mjs"
+  },
+  "dependencies": {
+    "@number-island/content": "workspace:*",
+    "@number-island/engine": "workspace:*",
+    "@number-island/shared": "workspace:*"
+  },
+  "devDependencies": {}
+}

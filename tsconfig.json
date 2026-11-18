@@ -1,0 +1,15 @@
+{
+  "files": [],
+  "references": [
+    { "path": "packages/shared" },
+    { "path": "packages/content" },
+    { "path": "packages/engine" },
+    { "path": "packages/ui" },
+    { "path": "apps/web" },
+    { "path": "apps/api" },
+    { "path": "tools/narration" },
+    { "path": "tools/content-check" },
+    { "path": "e2e" },
+    { "path": "scripts" }
+  ]
+}

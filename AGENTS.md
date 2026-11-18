@@ -11,18 +11,24 @@ Number Island is an adaptive, game-based K–3 math app for kids (the schema cov
 
 ## Commands
 
-See `docs/spec/09-quality.md` §1. The ones you'll use most:
+The full table is in `docs/spec/09-quality.md` §1. Toolchain: Node 24 (`.nvmrc`) and pnpm 10 (`packageManager`, via `corepack enable`).
 
 ```
-pnpm i                 # Node 24, pnpm 10
-pnpm secrets:link      # writes apps/api/.dev.vars from ~/.config/math-app-v1/secrets.env (safe if missing)
-pnpm dev               # web :5173 + api :8787 (proxied at /api)
-pnpm verify            # typecheck + lint + test + content:validate + build: run before every push
-pnpm e2e               # Playwright (desktop + Android-tablet emulation)
-pnpm storybook         # widgets, avatar, art gallery
+pnpm i                   # install
+pnpm secrets:link        # writes apps/api/.dev.vars from ${MATH_APP_SECRETS:-~/.config/math-app-v1/secrets.env}; safe if missing
+pnpm dev                 # web :5173 + api :8787; Vite proxies /api to wrangler dev
+pnpm dev:lan             # same, web bound to 0.0.0.0 for a tablet on the home Wi-Fi
+pnpm dev:https           # same, self-signed HTTPS (service workers need a secure context)
+pnpm preview:full        # build the web app and serve it from the Worker on :8787 (production topology)
+pnpm verify              # content:build → typecheck → lint → content:validate → test → build; run before every push
+pnpm e2e                 # Playwright: Chromium desktop + Android-tablet emulation, against preview:full
+pnpm storybook           # packages/ui Storybook on :6006
+pnpm bundle-size         # after `pnpm build`: assert the 02 §6 JS budgets (bundle-budgets.json)
 ```
 
-(Until the scaffold issue lands, these commands do not exist yet.)
+Also: `pnpm typecheck` (`tsc -b`), `pnpm lint` (Biome + `scripts/check-boundaries.mjs`, the 02 §2 import-direction lint), `pnpm test` (Vitest projects for every package, including Storybook play functions and axe in headless Chromium and the API in the Workers pool), `pnpm test:sim`, `pnpm content:build|validate|sample`, `pnpm visual` / `pnpm visual:update` (Storybook snapshots; baselines only from the pinned Playwright Docker image), `pnpm narration:render|audition`, `pnpm ai:smoke`. Commands whose feature has not landed yet are working stubs that say which issue delivers them.
+
+Run a single package's tests with `pnpm exec vitest run --project <shared|content|engine|web|api|ui-stories|scripts>`. `pnpm test` and `pnpm e2e` run `pnpm browsers` (`playwright install chromium`) first, which downloads Chromium once. On Linux, Chromium's system libraries are a one-time machine prerequisite: `pnpm exec playwright install-deps chromium` (Playwright elevates the system package-manager step itself; don't run pnpm under sudo). CI uses `playwright install --with-deps chromium`.
 
 ## Workflow
 

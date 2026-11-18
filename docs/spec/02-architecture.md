@@ -593,6 +593,33 @@ export interface EventPayloads {
 
 `WidgetAction` and `InteractionEvent` are defined in 03 §5.1. **F01 acceptance:** every type above, plus 03's referenced types, exists in `packages/shared` with a Zod schema (`eventSchemas`, `settingsSchemas`, `gameDataSchema`, `avatarSpecSchema`, …) before any wave-1 issue starts.
 
+### 5.9 How the contracts are declared in `packages/shared` (F01, 2026-11-18)
+
+The rules F01 followed. Later PRs keep them.
+
+- **Every data type has a schema** named `<camelCaseType>Schema` (`skillSchema`, `widgetConfigSchema`, `eventEnvelopeSchema`, …) and a compile-time `assertType<Equals<z.infer<typeof schema>, Type>>` next to it. A schema that drifts from its interface fails `pnpm typecheck`. Interfaces whose members are functions (`LearnerModel`, `TaskRunner`, `RunnerFeedback`, `AudioManager`, `WorkshopProps`) are types only.
+- **Ids are plain `string` aliases**, not brands, so fixtures and YAML stay ergonomic. `NarrationKey` is not branded either. The schemas enforce each grammar (§4.1, 03 §8.1) at every trust boundary. `newId()` returns a UUIDv7.
+- **Module map:** `ids`, `strands`, `items` (03 §5.1–§5.2, all 39 `WidgetConfig`s, `ParamSpec`, `GeneratedItem`, `FORMAT_DEFAULT_REPRESENTATION`), `content` (`Skill`, `ItemTemplate`, lesson and misconception specs, narration entries and `NarrationJson`), `basics`, `profiles`, `settings`, `avatar`, `gamedata`, `projections`, `learner`, `planner`, `runner`, `audio`, `workshop`, `events`, `api`. 03 names `packages/content/src/schema/*` for some of these. Per §2 they live in `shared`.
+
+Contract adjustments made while declaring §4–§5 (none renames or removes a field):
+
+| # | Change | Why |
+|---|---|---|
+| F1 | `WorkshopDefinition<TComponent = unknown>`, with `load: () => Promise<{ default: TComponent }>`. `apps/web` uses `WorkshopDefinition<React.ComponentType<WorkshopProps>>`. | `shared` must not import React (§2). |
+| F2 | `AdaptDecision = AdaptAction & AdaptSideEffects`. `AdaptAction` is the five-variant union as written; `AdaptSideEffects = { queueRemediation?: { skillId; misconceptionId } }`. | Encodes "side effects returned on any decision". |
+| F3 | The envelope schema is strict: unknown envelope keys are rejected, the optional `clientTs` is allowed, and `v` is the literal `1`. Payloads of known types are validated with unknown fields stripped. Events of unknown types (`type` matching `^[a-z][a-z0-9-]*(\.[a-z][a-z0-9-]*)*$`, payload a JSON object) parse opaquely through `anyEventEnvelopeSchema` / `parseEventEnvelope`, and are stored and relayed unchanged. Inbound events (the sync push and backup import) use `inboundEventEnvelopeSchema`, which also enforces the 8 KB payload cap (08 §4) on the raw payload's UTF-8 size before unknown fields are stripped. The sync response uses `anyEventEnvelopeSchema`. | Makes §4.2's forward-compatibility rule executable. There are 31 event types (`EVENT_TYPES`). |
+| F4 | `settingsKey()` / `parseSettingsKey()`, `SettingsDocument` (`{ key: 'family'; value: FamilySettings; updatedAt } \| { key: \`child:${ChildId}\`; value: ChildSettings; updatedAt }`), and `withSettingDefaults({ kind: 'family', value?, timezone? })` / `withSettingDefaults({ kind: 'child', value?, grade })`. Family defaults where the spec is silent: `music: true`, volumes voice 1 / sfx 0.8 / music 0.5, `voiceRate: 1`, `freeBuildAfterSession: false`, `ai.feedbackMode: 'phrases'`, timezone from the caller (default `'UTC'`). Grades above G3 reuse the G3 child defaults. | §5.8 names `withSettingDefaults()` without a signature. |
+| F5 | API DTOs (§5.7, 08 §2) are concrete in `api.ts`, with an `apiRoutes` table (method, `/api` path, auth `none \| setup \| pair-code \| parent \| device`, request and response schemas) for contract tests. Choices the spec left open: the avatar photo travels as JSON base64 (`{ photo: { mediaType, data } }`), because mutating routes require `application/json` (08 §3). AI routes answer `200` with `{ feedback \| suggestion \| summary: … \| null }`, where `null` means "use the deterministic fallback". The device token is 32 bytes base64url (43 characters). The backup file is `{ format: 'number-island-backup', formatVersion: 1, exportedAt, familyId, events, settings, profiles }`. The stable error codes are `ApiErrorCode`. | 08 §2 lists the routes but not every body. S01, AI1, AI2 and P01 implement against these and may refine them under this section's rule. |
+| F6 | `/api/health` keeps 08 §2's boolean `ai` flags. Reporting the effective model (07 §1) is left to AI1, which adds it to `healthResponseSchema`. | Keeps the F01 shape minimal. |
+
+Known gaps for later issues (deliberately not changed by F01):
+
+- 03 §5.7 filters misconception rules by the item's generator, but `GeneratedItem` has no `generator` field. The engine resolves it through `templateId` → `ItemTemplate.generator` (E01 decides whether to add the field).
+- `HintStep.level` is 1–5 (03 §5.8), while `hint.used.level` and `AdaptDecision.retry.hintLevel` are 1–4. Each is declared as written; E01/R01 reconcile.
+- 07 §2's feedback cache key includes the template, but the feedback request carries no `templateId` (AI1).
+- Who emits the `child.deleted` tombstone, and with which `deviceId`, is unspecified (S01).
+- A known event that fails payload validation currently fails the whole `/sync` call (S01 decides on per-event rejection).
+
 ## 6. Performance budgets (enforced in CI where possible)
 
 - Initial JS (app shell + island) ≤ 350 KB gzip; each workshop chunk ≤ 120 KB gzip; Pixi chunk loads only when needed. **Content JSON (`dist/*.json`) is never bundled into JS**: it is fetched as a precached static asset at startup.

@@ -1,0 +1,197 @@
+@import "tailwindcss";
+
+/*
+ * Design tokens (05 §11 palette). Tailwind v4 exposes each as a CSS variable and as utilities
+ * (bg-sea, fill-sand, stroke-leaf-deep, text-ink, font-display…).
+ * "-deep" shades are the 2–3 px outline colours (a darker shade of the fill).
+ */
+@theme {
+  --color-sea: #2a9d8f;
+  --color-sea-deep: #1f7a8c;
+  --color-sea-dark: #17606e;
+  --color-shallows: #8fd3c7;
+  --color-foam: #f3fbf8;
+  --color-sky: #bfe4ee;
+  --color-sky-light: #e6f5f6;
+  --color-horizon: #fbeed3;
+  --color-sand: #f4e3c3;
+  --color-sand-deep: #d9bb87;
+  --color-sand-shadow: #e7cfa2;
+  --color-coral: #e76f51;
+  --color-coral-deep: #b9503a;
+  --color-sun: #f4a261;
+  --color-sun-deep: #d9833f;
+  --color-sunshine: #e9c46a;
+  --color-sunshine-deep: #c9a245;
+  --color-leaf: #5c9e4f;
+  --color-leaf-deep: #3f7537;
+  --color-leaf-light: #7dbb6a;
+  --color-wood: #c98a55;
+  --color-wood-deep: #8f5a31;
+  --color-cloud: #ffffff;
+  --color-pebble: #ece6da;
+  --color-pebble-deep: #a99f8c;
+  --color-ink: #264653;
+  --color-ink-soft: #3d6170;
+
+  --font-display: "Baloo 2", ui-rounded, system-ui, sans-serif;
+  --font-body: "Andika", ui-sans-serif, system-ui, sans-serif;
+
+  --animate-bob: bob 5s ease-in-out infinite;
+  --animate-bob-slow: bob 7s ease-in-out infinite;
+  --animate-cloud: cloud 26s ease-in-out infinite alternate;
+  --animate-sway: sway 6s ease-in-out infinite;
+  --animate-wave-claw: wave-claw 1.6s ease-in-out infinite;
+  --animate-smoke: smoke 4.5s ease-out infinite;
+  --animate-flutter: flutter 2.4s ease-in-out infinite;
+  --animate-blink: blink 5s step-end infinite;
+  --animate-shimmer: shimmer 3.5s ease-in-out infinite;
+  --animate-rise: rise 700ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+
+  @keyframes bob {
+    0%,
+    100% {
+      transform: translateY(0);
+    }
+    50% {
+      transform: translateY(6px);
+    }
+  }
+  @keyframes cloud {
+    from {
+      transform: translateX(0);
+    }
+    to {
+      transform: translateX(56px);
+    }
+  }
+  @keyframes wave-claw {
+    0%,
+    100% {
+      transform: rotate(-14deg);
+    }
+    50% {
+      transform: rotate(16deg);
+    }
+  }
+  @keyframes sway {
+    0%,
+    100% {
+      transform: rotate(-1.5deg);
+    }
+    50% {
+      transform: rotate(1.5deg);
+    }
+  }
+  @keyframes smoke {
+    0% {
+      transform: translate(0, 0) scale(0.6);
+      opacity: 0;
+    }
+    20% {
+      opacity: 0.9;
+    }
+    100% {
+      transform: translate(14px, -70px) scale(1.4);
+      opacity: 0;
+    }
+  }
+  @keyframes flutter {
+    0%,
+    100% {
+      transform: skewY(0deg) scaleX(1);
+    }
+    50% {
+      transform: skewY(-6deg) scaleX(0.92);
+    }
+  }
+  @keyframes blink {
+    0%,
+    92%,
+    100% {
+      transform: scaleY(1);
+    }
+    95% {
+      transform: scaleY(0.1);
+    }
+  }
+  @keyframes shimmer {
+    0%,
+    100% {
+      opacity: 0.35;
+    }
+    50% {
+      opacity: 0.85;
+    }
+  }
+  @keyframes rise {
+    from {
+      transform: translateY(18px);
+      opacity: 0;
+    }
+    to {
+      transform: translateY(0);
+      opacity: 1;
+    }
+  }
+}
+
+@layer base {
+  html,
+  body,
+  #root {
+    height: 100%;
+  }
+
+  body {
+    margin: 0;
+    font-family: var(--font-body);
+    color: var(--color-ink);
+    background-color: var(--color-sand);
+    -webkit-tap-highlight-color: transparent;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+    overscroll-behavior: none;
+  }
+
+  :focus-visible {
+    outline: 4px solid var(--color-ink);
+    outline-offset: 3px;
+  }
+}
+
+/* SVG parts animate around their own box (CSS transform-origin defaults to the SVG origin). */
+.scene-part {
+  transform-box: fill-box;
+  transform-origin: center;
+}
+.scene-part-base {
+  transform-box: fill-box;
+  transform-origin: 50% 100%;
+}
+.scene-part-left {
+  transform-box: fill-box;
+  transform-origin: 0% 50%;
+}
+
+/*
+ * 06 §7: with reduced motion, idle loops (waves, smoke, flags, blinking) stop and entrances become
+ * short fades. These rules are unlayered, so they win over Tailwind's layered animate-* utilities.
+ */
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .motion-loop {
+    animation: none;
+  }
+  .motion-entrance {
+    animation: fade-in 150ms ease-out both;
+  }
+}

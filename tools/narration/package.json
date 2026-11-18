@@ -1,0 +1,18 @@
+{
+  "name": "@number-island/narration",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "render": "node src/render.mjs",
+    "audition": "node src/audition.mjs"
+  },
+  "dependencies": {
+    "@number-island/content": "workspace:*",
+    "@number-island/shared": "workspace:*"
+  },
+  "devDependencies": {}
+}
