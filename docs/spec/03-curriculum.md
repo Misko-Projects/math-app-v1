@@ -885,6 +885,7 @@ templates:
 
 Field rules:
 - `id` is `${skillId}.t${n}`, numbered from 1 with no gaps except retired ids. Order templates concrete → pictorial → abstract (V10 warns otherwise).
+- **Template ids are stable.** An id that has shipped keeps its format, tier and representation forever, because attempts store `templateId` and the learner rebuilds each attempt's difficulty from the template (04 §2.2). A template added to a skill later takes the next free number, even when that breaks the tier order. The V10 order warning is then expected (K01: `SUB.03.t5`). To change a template's format, retire its id and add a new one.
 - `params` uses the ParamSpec shorthand (§5.2). Names must be params the generator declares (V13). Params the template omits take the generator's defaults.
 - `constraints` are strings in the constraint grammar (§5.2). The generator enforces them by rejection sampling, and the property test re-checks them on every generated item.
 - `difficulty.features` overrides individual default weights from the generator registry (§5.6). An empty object means "all defaults".

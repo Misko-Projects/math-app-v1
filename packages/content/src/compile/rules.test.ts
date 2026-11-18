@@ -13,6 +13,14 @@ type Files = Record<string, string>;
 // biome-ignore lint/suspicious/noExplicitAny: tests edit parsed YAML documents of many shapes in place.
 type Yaml = { [k: string]: any };
 
+/**
+ * Diagnostics other than the expected ones. SUB.03.t5 was added after SUB.03.t4 shipped, and template
+ * ids are stable (03 §4.3), so its V10 tier-order warning is expected.
+ */
+const EXPECTED = (d: Diagnostic) =>
+  d.check === 'V10' && d.message.startsWith('SUB.03.t5 (pictorial)');
+const unexpected = (ds: readonly Diagnostic[]) => ds.filter((d) => !EXPECTED(d));
+
 function variant(edit: (files: Files) => void): Diagnostic[] {
   const files: Files = { ...FIXTURE };
   edit(files);
@@ -46,7 +54,8 @@ function expectFinding(
 describe('the C01 fixture set (03 §9.5)', () => {
   it('compiles with no errors and no warnings', () => {
     const result = compileContent(FIXTURE);
-    expect(result.diagnostics).toEqual([]);
+    expect(unexpected(result.diagnostics)).toEqual([]);
+    expect(result.diagnostics.filter(EXPECTED)).toHaveLength(1);
     expect(result.content?.skills.map((s) => s.id)).toEqual([
       'ADD.01',
       'ADD.03',
@@ -171,10 +180,12 @@ describe('V01: YAML parses and matches its strict schema', () => {
   });
   it('strips _ metadata keys but rejects _meta.status: draft', () => {
     expect(
-      variant((f) =>
-        editYaml(f, 'skills/CNT.yaml', (doc) => {
-          skill(doc, 'CNT.02')._note = 'authoring note';
-        }),
+      unexpected(
+        variant((f) =>
+          editYaml(f, 'skills/CNT.yaml', (doc) => {
+            skill(doc, 'CNT.02')._note = 'authoring note';
+          }),
+        ),
       ),
     ).toEqual([]);
     expectFinding(
@@ -1212,9 +1223,11 @@ describe('V26: contexts', () => {
   });
   it('accepts full SituationTypes as well as families', () => {
     expect(
-      variant((f) =>
-        editYaml(f, 'contexts.yaml', (doc) =>
-          doc.contexts[0].situations.push('compare/bigger-fewer'),
+      unexpected(
+        variant((f) =>
+          editYaml(f, 'contexts.yaml', (doc) =>
+            doc.contexts[0].situations.push('compare/bigger-fewer'),
+          ),
         ),
       ),
     ).toEqual([]);
@@ -1227,7 +1240,7 @@ describe('V24 and contentVersion (03 §9.1)', () => {
     const b = compileContent({ ...FIXTURE });
     expect(a.outputs).toEqual(b.outputs);
     const { diagnostics } = validateContent(FIXTURE, a.outputs);
-    expect(diagnostics).toEqual([]);
+    expect(unexpected(diagnostics)).toEqual([]);
   });
   it('reports a stale or extra dist/ file', () => {
     const a = compileContent(FIXTURE).outputs as Record<string, string>;

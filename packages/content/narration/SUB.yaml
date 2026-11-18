@@ -12,7 +12,7 @@ sk.SUB.06.intro:
 
 tp.SUB.03.t1.prompt:
   text: "Show {n} on the ten-frame. Fill the top row first."
-tp.SUB.03.t5.prompt:
+tp.SUB.03.t4.prompt:
   text: "Five and {more} more. How many is that?"
 tp.SUB.06.t1.prompt:
   text: "Look at the two parts. How many in all?"

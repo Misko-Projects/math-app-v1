@@ -95,7 +95,7 @@ h.sequence.back-ten:
 h.sequence.chart-steps:
   text: "Go box by box. At the end, go to the next row."
 h.sequence.chart-back:
-  text: "One less is the box before. At the start of a row, go up a row."
+  text: "Count back one at a time. Find each number on the chart."
 h.sequence.tens-down:
   text: "Counting by tens, go down one row each time."
 h.sequence.say-tens:

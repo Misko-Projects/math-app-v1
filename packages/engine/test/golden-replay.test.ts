@@ -11,7 +11,7 @@
 import { readFileSync, writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { type AnyEventEnvelope, SKILL_STATUSES } from '@number-island/shared';
-import { describe, expect, it } from 'vitest';
+import { beforeAll, describe, expect, it } from 'vitest';
 import { initContent } from '../src/content/binding';
 import { foldCollection } from '../src/folds/collection';
 import { foldGoals } from '../src/folds/goals';
@@ -27,7 +27,13 @@ import {
   skillMap,
   timeSignals,
 } from '../src/signals';
-import { compileContentAt, fixtureGameData, fixtureGraph } from './fixture';
+import {
+  compileContentAt,
+  compileFixture,
+  fixtureGameData,
+  fixtureGraph,
+  loadFixture,
+} from './fixture';
 import { CHILD_1, CHILD_2 } from './support/events';
 import { REPLAY_DAYS, REPLAY_T0, recordReplayLog, stableJson } from './support/replay-log';
 
@@ -91,6 +97,9 @@ if (process.env.UPDATE_GOLDEN === '1') {
 
 describe('golden replay (04 §8)', () => {
   const events = readLog();
+  beforeAll(() => {
+    initContent(golden.content);
+  });
 
   it('the recorded log holds ≥ 2,000 events of every learner and island kind', () => {
     expect(events.length).toBeGreaterThanOrEqual(2_000);
@@ -161,6 +170,30 @@ describe('replay against the live content (invariants only)', () => {
   const events = readLog();
   const live = fixtureGraph();
   const liveGame = fixtureGameData();
+  // Bind the live templates, narration and misconceptions: the learner rebuilds each attempt's
+  // difficulty through the generators, which read the bound misconceptions (diagnostic options).
+  beforeAll(() => {
+    loadFixture();
+  });
+
+  it('every template id the log records still names the same format and tier (03 §4.3)', () => {
+    const byId = new Map(compileFixture().templates.map((t) => [t.id, t]));
+    const seen = new Set<string>();
+    for (const e of events) {
+      if (e.type !== 'attempt') continue;
+      const a = e.payload as { templateId: string; format: string; tier: string };
+      if (seen.has(a.templateId)) continue;
+      seen.add(a.templateId);
+      const t = byId.get(a.templateId);
+      expect(t, `${a.templateId} is gone from the live catalog`).toBeDefined();
+      expect({ id: a.templateId, format: t?.format, tier: t?.tier }).toEqual({
+        id: a.templateId,
+        format: a.format,
+        tier: a.tier,
+      });
+    }
+    expect(seen.size).toBeGreaterThan(20);
+  });
 
   it('every live skill gets a valid status, and no fold throws', () => {
     const valid = new Set<string>(SKILL_STATUSES);

@@ -35,6 +35,7 @@ templates:
     narration: { prompt: p.subitize.how-many, hints: [h.subitize.look-again] }
 
   # ---------- SUB.02: up to 5; dice and finger patterns ----------
+
   - id: SUB.02.t1
     skillId: SUB.02
     format: make-set
@@ -67,6 +68,7 @@ templates:
     narration: { prompt: p.subitize.how-many, hints: [h.subitize.look-again] }
 
   # ---------- SUB.03: 6–10 as five and some more (gateway) ----------
+
   - id: SUB.03.t1
     skillId: SUB.03
     format: tenframe-fill
@@ -99,6 +101,18 @@ templates:
 
   - id: SUB.03.t4
     skillId: SUB.03
+    format: number-pad
+    tier: abstract
+    representation: symbols
+    generator: subitize.flash
+    params: { n: { int: [6, 10] }, arrangement: ten-frame }
+    difficulty: { base: -0.9 }
+    narration: { prompt: tp.SUB.03.t4.prompt, hints: [h.subitize.think-hand, h.subitize.five-and] }
+
+  # Added by K01 after t4 shipped in C01. Template ids are stable (attempts store them), so it takes
+  # the next free number; the resulting V10 tier-order warning is expected (03 §4.3).
+  - id: SUB.03.t5
+    skillId: SUB.03
     format: dot-flash
     tier: pictorial
     representation: five-frame
@@ -107,17 +121,8 @@ templates:
     difficulty: { base: -1.95 }
     narration: { prompt: p.subitize.how-many, hints: [h.subitize.look-again, h.subitize.five-and] }
 
-  - id: SUB.03.t5
-    skillId: SUB.03
-    format: number-pad
-    tier: abstract
-    representation: symbols
-    generator: subitize.flash
-    params: { n: { int: [6, 10] }, arrangement: ten-frame }
-    difficulty: { base: -0.9 }
-    narration: { prompt: tp.SUB.03.t5.prompt, hints: [h.subitize.think-hand, h.subitize.five-and] }
-
   # ---------- SUB.05: show and read finger patterns to 10 ----------
+
   - id: SUB.05.t1
     skillId: SUB.05
     format: make-set
@@ -152,6 +157,7 @@ templates:
 
   # ---------- SUB.06: small groups inside a set (grade 1) ----------
   # Two groups, each 1–5 so it can be seen at a glance; the first group's size varies (part).
+
   - id: SUB.06.t1
     skillId: SUB.06
     format: number-bond
