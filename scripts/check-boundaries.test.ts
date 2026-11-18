@@ -160,9 +160,13 @@ describe('import-boundary lint (02 §2)', () => {
 
   it('scans every file in a package: direction everywhere, purity only under src/', () => {
     const contentFiles = [...packageFiles(root, 'content')];
-    const sample = contentFiles.find((f) => f.file.endsWith(join('scripts', 'sample.mjs')));
-    expect(sample?.runtime).toBe(false);
     expect(contentFiles.some((f) => f.runtime)).toBe(true);
+    const engineFiles = [...packageFiles(root, 'engine')];
+    const sim = engineFiles.find((f) => f.file.endsWith(join('scripts', 'test-sim.mjs')));
+    expect(sim?.runtime).toBe(false);
+    // Engine tests that read content/dist through Node live in test/, outside src/.
+    const fixture = engineFiles.find((f) => f.file.endsWith(join('test', 'fixture.ts')));
+    expect(fixture?.runtime).toBe(false);
 
     const script = join(root, 'packages/content/scripts/probe.mjs');
     // a content build script must not import the engine (03 §9.1 / 02 §2)…

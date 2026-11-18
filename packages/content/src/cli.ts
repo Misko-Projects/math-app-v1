@@ -5,7 +5,7 @@ import { readContentFiles, readDist, writeDist } from './fs';
 import { validateContent } from './validate';
 
 const ENGINE_CHECKS_NOTICE =
-  'engine checks skipped: V13–V15, V22 and V25 run in tools/content-check, which lands with E01 (#7)';
+  'engine checks (V13–V15, V22, V25) run next in tools/content-check (`pnpm content:validate` runs both)';
 
 function main(command: string | undefined): number {
   const files = readContentFiles();

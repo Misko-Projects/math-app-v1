@@ -26,6 +26,9 @@ jobs:
   verify:
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    env:
+      # 03 §9.4: the content property test runs 100 seeds per template on PRs (500 nightly).
+      CONTENT_PROPERTY_N: "100"
     steps:
       - uses: actions/checkout@v5
       - uses: pnpm/action-setup@v4
