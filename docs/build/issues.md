@@ -498,6 +498,7 @@ Also: per-strand mini-placements on first entry to a strand, and resuming an unf
 - `pnpm ai:smoke`.
 - Implement `OpenAIProvider` (feedback and summary defaults) and `AnthropicProvider` (vision, plus a text alternative) per 07 §1. Verify the OpenAI SDK and model ids on developers.openai.com, and load the `claude-api` skill before writing Claude code.
 - Enforce the no-personal-data request builder for OpenAI, with its test (07 §8.0). Child-safety safeguards per 07 §8.
+- Model defaults: `gpt-6.2-sol`, with automatic fallback to `gpt-6.1-sol` on model-availability errors (07 §1). A mock-provider test covers the 404/403 fallback path, and `/api/health` reports the effective model. Never use `gpt-6-sol`.
 
 **Acceptance criteria**
 - [ ] With mock providers, golden journey 7a passes (AI on and AI off).
