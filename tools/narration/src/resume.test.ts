@@ -12,11 +12,11 @@ import {
   writeFileSync,
 } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
 import { audioManifestSchema, type NarrationJson } from '@number-island/shared';
 import { afterEach, describe, expect, it } from 'vitest';
 import { stubWav } from './audio';
-import { checkLegacyLedger, lockFileFor, stateDirFor } from './cli';
+import { checkLedgerFile, checkLegacyLedger, legacyLedgers, lockFileFor, stateDirFor } from './cli';
 import { costUsd, priceFor } from './cost';
 import { type Encoder, wavEncoder } from './encode';
 import { type PipelineOptions, runPipeline } from './pipeline';
@@ -545,6 +545,46 @@ describe('review round 5', () => {
     expect(reverted.complete).toBe(true);
     expect(server.paidPosts).toHaveLength(2);
     expect(ledger().jobs).toEqual({});
+  });
+});
+
+describe('review round 6', () => {
+  it('a dry run never creates the output directory', () => {
+    const parent = mkdtempSync(join(tmpdir(), 'narration-dry-'));
+    dirs.push(parent);
+    const out = join(parent, 'not', 'yet');
+    expect(lockFileFor(out)).toBe(
+      join(realpathSync(parent), 'not', 'yet', '.narration-render.lock'),
+    );
+    stateDirFor(out, 'opus');
+    expect(existsSync(join(parent, 'not'))).toBe(false);
+  });
+
+  it('checks the default legacy ledger and the earlier path-keyed ledger, whatever the state root', () => {
+    const real = mkdtempSync(join(tmpdir(), 'narration-real-'));
+    dirs.push(real);
+    const link = `${real}-link`;
+    symlinkSync(real, link);
+    dirs.push(link);
+    const root = mkdtempSync(join(tmpdir(), 'narration-root-'));
+    dirs.push(root);
+    const files = legacyLedgers(link, 'opus', root);
+    // The default root's global ledger is always checked, plus the override's.
+    expect(files).toContain(join(root, 'gemini-batches.json'));
+    expect(
+      files.some((f) => f.endsWith(join('tmp', 'narration', 'state', 'gemini-batches.json'))),
+    ).toBe(true);
+    // The ledger an earlier revision keyed by the symlink spelling is checked too, and refused
+    // while it lists jobs.
+    const spelled = files.find(
+      (f) => f.startsWith(root) && f !== join(root, 'gemini-batches.json'),
+    );
+    expect(spelled).toBeDefined();
+    mkdirSync(dirname(spelled as string), { recursive: true });
+    writeFileSync(spelled as string, JSON.stringify({ version: 3, jobs: { x: { model: 'm' } } }));
+    expect(() => checkLedgerFile(spelled as string)).toThrow(/may list paid jobs/);
+    writeFileSync(spelled as string, JSON.stringify({ version: 3, jobs: {} }));
+    expect(() => checkLedgerFile(spelled as string)).not.toThrow();
   });
 });
 

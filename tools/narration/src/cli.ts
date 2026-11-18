@@ -12,7 +12,7 @@
 import { createHash } from 'node:crypto';
 import { existsSync, mkdirSync, readFileSync, realpathSync, writeFileSync } from 'node:fs';
 import { homedir } from 'node:os';
-import { dirname, join, relative, resolve } from 'node:path';
+import { basename, dirname, join, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { parseArgs } from 'node:util';
 import { narrationJsonSchema } from '@number-island/shared';
@@ -62,10 +62,20 @@ export function stateRootFor(env: NodeJS.ProcessEnv): string {
   return override ? resolve(override) : STATE_DIR;
 }
 
-/** The real path of a directory (symlinks resolved), creating it if needed. */
+/**
+ * The real path of a directory without creating anything: the longest existing prefix is resolved
+ * through symlinks and the missing rest appended (a dry run never touches the output directory).
+ */
 export function physicalPath(dir: string): string {
-  mkdirSync(dir, { recursive: true });
-  return realpathSync(dir);
+  let head = resolve(dir);
+  const rest: string[] = [];
+  while (!existsSync(head)) {
+    const parent = dirname(head);
+    if (parent === head) break;
+    rest.unshift(basename(head));
+    head = parent;
+  }
+  return join(existsSync(head) ? realpathSync(head) : head, ...rest);
 }
 
 /**
@@ -78,11 +88,34 @@ export function lockFileFor(outDir: string): string {
 }
 
 /**
- * Earlier revisions kept one ledger directly in tmp/narration/state/. Refuse to run while it holds
- * anything, so its jobs are never forgotten and paid for again.
+ * Ledger files earlier layouts may have left for this target: the single global ledger in the state
+ * root (always checked in the default root too), and the per-target ledger keyed by the unresolved
+ * path spelling, used before symlinks were resolved.
  */
+export function legacyLedgers(outDir: string, format: string, stateRoot: string): string[] {
+  const roots = [...new Set([STATE_DIR, stateRoot])];
+  const files = roots.map((root) => join(root, 'gemini-batches.json'));
+  const spelled = createHash('sha256')
+    .update(`${resolve(outDir)}\0${format}`)
+    .digest('hex')
+    .slice(0, 16);
+  for (const root of roots) {
+    const old = join(root, spelled, 'gemini-batches.json');
+    if (old !== join(stateDirFor(outDir, format, root), 'gemini-batches.json')) files.push(old);
+  }
+  return files;
+}
+
+/** Refuses a legacy ledger in `stateRoot` that may list paid jobs (see `checkLedgerFile`). */
 export function checkLegacyLedger(stateRoot: string = STATE_DIR): void {
-  const legacy = join(stateRoot, 'gemini-batches.json');
+  checkLedgerFile(join(stateRoot, 'gemini-batches.json'));
+}
+
+/**
+ * Throws while a ledger left by an earlier layout holds anything, so its jobs are never forgotten
+ * and paid for again. Missing and empty ledgers pass.
+ */
+export function checkLedgerFile(legacy: string): void {
   if (!existsSync(legacy)) return;
   let data: unknown;
   try {
@@ -247,12 +280,14 @@ async function render(argv: string[], env: NodeJS.ProcessEnv): Promise<number> {
   // key cannot submit or discard anything, so it only warns and still prints its estimate.
   const stateRoot = stateRootFor(env);
   if (c.provider === 'gemini') {
-    if (!dryRun && renderer) checkLegacyLedger(stateRoot);
-    else {
-      try {
-        checkLegacyLedger(stateRoot);
-      } catch (e) {
-        console.log(`narration: warning: ${e instanceof Error ? e.message : String(e)}`);
+    for (const legacy of legacyLedgers(outDir, c.format, stateRoot)) {
+      if (!dryRun && renderer) checkLedgerFile(legacy);
+      else {
+        try {
+          checkLedgerFile(legacy);
+        } catch (e) {
+          console.log(`narration: warning: ${e instanceof Error ? e.message : String(e)}`);
+        }
       }
     }
   }
