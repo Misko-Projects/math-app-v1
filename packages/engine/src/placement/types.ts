@@ -68,7 +68,7 @@ export interface PlacementRun {
     /** Set when the mini-session ended before the placement did (call `beginPlacementSession`). */
     ended: PlacementSessionEnd | null;
   };
-  /** ts of the latest probe (session boundaries on resume). */
+  /** ts of the latest probe (app-session boundaries on resume). */
   lastTs: number | null;
   /** Set once the placement has stopped; then call `completePlacement`. */
   done: PlacementStopReason | null;

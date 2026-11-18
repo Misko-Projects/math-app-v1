@@ -22,6 +22,7 @@ import { buildSkillGraph } from '../learner/graph';
 import { syntheticGraph, T0 } from '../learner/synthetic.test-support';
 import { type EngineParams, PARAMS } from '../params';
 import {
+  ancestorsWithin,
   beginPlacementSession,
   bktPosterior,
   completePlacement,
@@ -32,6 +33,7 @@ import {
   type PlacementRun,
   placementBudget,
   placementConverged,
+  placementProbeSeed,
   probeScores,
   probeTemplates,
   recordProbe,
@@ -201,7 +203,7 @@ function answerOn(
     {
       skillId,
       templateId: `${skillId}.t3`,
-      seed: 1,
+      seed: placementProbeSeed(run.placementId, run.items),
       correct,
       skipped: false,
       latencyMs: 3_000,
@@ -362,7 +364,7 @@ describe('BKT posterior (G = 0.05 or 1/k, S = 0.10)', () => {
         {
           skillId: 'CNT.01',
           templateId: 'CNT.01.t3',
-          seed: 1,
+          seed: placementProbeSeed(run.placementId, run.items),
           correct: true,
           skipped: false,
           latencyMs,
@@ -379,7 +381,7 @@ describe('BKT posterior (G = 0.05 or 1/k, S = 0.10)', () => {
       {
         skillId: 'CNT.01',
         templateId: 'CNT.01.t3',
-        seed: 1,
+        seed: placementProbeSeed('pl-1', 0),
         correct: true,
         skipped: false,
         latencyMs: 16_001,
@@ -501,7 +503,7 @@ describe('probe scoring', () => {
       {
         skillId: 'CNT.02',
         templateId: 'CNT.02.t3',
-        seed: 1,
+        seed: placementProbeSeed(r2.placementId, r2.items),
         correct: true,
         skipped: false,
         latencyMs: 20_000,
@@ -726,23 +728,37 @@ interface Step {
   skipped: boolean;
   latencyMs: number;
   gapMs: number;
+  /** The child starts a new app session before this step (the app calls beginPlacementSession). */
+  newSession: boolean;
+  frustrationSignal: boolean;
 }
 
-/** A live run driven by `steps`; a mini-session that ended is resumed on the next step. */
+/**
+ * A live run driven by `steps`, the way the app drives it: a new app session calls
+ * `beginPlacementSession`, and a mini-session that ended takes no probe until the next app session.
+ */
 function live(
   graph: SkillGraph,
   c: ChildContext,
   steps: readonly Step[],
-): { run: PlacementRun; events: PlacementProbeEvent[] } {
+): { run: PlacementRun; events: PlacementProbeEvent[]; sessionStarts: number[] } {
   let run = start(graph, c);
   const events: PlacementProbeEvent[] = [];
+  const sessionStarts: number[] = [T0];
   let ts = T0;
   for (const step of steps) {
     if (run.done !== null) break;
-    if (run.session.ended !== null) run = beginPlacementSession(run);
+    ts += step.gapMs;
+    if (step.newSession) {
+      ts += 1;
+      sessionStarts.push(ts);
+      run = beginPlacementSession(run);
+      if (run.done !== null) break;
+    }
+    if (run.session.ended !== null) continue;
     const task = nextProbe(run, { graph, child: c });
     if (!task) break;
-    ts += step.gapMs;
+    ts += 1;
     const r = recordProbe(
       run,
       { graph, child: c },
@@ -755,19 +771,23 @@ function live(
         latencyMs: step.latencyMs,
         ts,
         tier: graph.templates[task.templateId]?.tier ?? 'abstract',
+        frustrationSignal: step.frustrationSignal,
       },
     );
     run = r.run;
     events.push({ ts, payload: r.event });
   }
-  return { run, events };
+  return { run, events, sessionStarts };
 }
 
 const stepArb = fc.record({
   correct: fc.boolean(),
   skipped: fc.integer({ min: 0, max: 5 }).map((n) => n === 0),
   latencyMs: fc.integer({ min: 500, max: 40_000 }),
+  // Short and long gaps: a new app session can start minutes or days after the last probe.
   gapMs: fc.oneof(fc.integer({ min: 0, max: 60_000 }), fc.integer({ min: 0, max: 3 * 86_400_000 })),
+  newSession: fc.integer({ min: 0, max: 5 }).map((n) => n === 0),
+  frustrationSignal: fc.integer({ min: 0, max: 3 }).map((n) => n === 0),
 });
 
 describe('determinism and persistence', () => {
@@ -777,6 +797,8 @@ describe('determinism and persistence', () => {
     skipped: i % 7 === 5,
     latencyMs: 4_000 + (i % 5) * 7_000,
     gapMs: i % 9 === 8 ? 86_400_000 : 20_000,
+    newSession: i % 9 === 8,
+    frustrationSignal: false,
   }));
 
   it('same answers → deep-equal runs; a JSON round trip continues identically', () => {
@@ -801,31 +823,89 @@ describe('determinism and persistence', () => {
     for (const v of Object.values(out.posterior)) expect(v).toBe(Math.round(v * 1e4) / 1e4);
   });
 
-  it('resumePlacement equals the live run (property)', () => {
+  it('resumePlacement at a new app session equals the live run there (property)', () => {
     fc.assert(
-      fc.property(fc.array(stepArb, { maxLength: 40 }), fc.boolean(), (raw, isK) => {
-        const c = child(isK ? 'K' : '1');
-        const { run, events } = live(MIXED, c, raw);
-        const expected =
-          run.done === null && run.session.ended !== null ? beginPlacementSession(run) : run;
-        // Newest first; the stable sort keeps equal timestamps in their recorded order.
-        const shuffled = (JSON.parse(JSON.stringify(events)) as PlacementProbeEvent[]).sort(
-          (a, b) => b.ts - a.ts,
-        );
-        const resumed = resumePlacement(
-          {
-            graph: MIXED,
-            child: c,
-            state: emptyState(MIXED, c.isK),
-            placementId: 'pl-1',
-            strand: null,
-          },
-          shuffled,
-        );
-        expect(resumed).toEqual(expected);
-      }),
-      { numRuns: 150 },
+      fc.property(
+        fc.array(stepArb, { maxLength: 40 }),
+        fc.boolean(),
+        fc.integer({ min: 1, max: 3 * 86_400_000 }),
+        (raw, isK, resumeGap) => {
+          const c = child(isK ? 'K' : '1');
+          const { run, events, sessionStarts } = live(MIXED, c, raw);
+          // Resume applies to an unfinished placement (a stopped one has its placement.completed).
+          if (run.done !== null) return;
+          const lastTs = events[events.length - 1]?.ts ?? T0;
+          const resumeAt = lastTs + resumeGap;
+          // Live: the app starts a new session and begins the next mini-session.
+          const expected = beginPlacementSession(run);
+          // Newest first; the stable sort keeps equal timestamps in their recorded order.
+          const shuffled = (JSON.parse(JSON.stringify(events)) as PlacementProbeEvent[]).sort(
+            (a, b) => b.ts - a.ts,
+          );
+          const resumed = resumePlacement(
+            {
+              graph: MIXED,
+              child: c,
+              state: emptyState(MIXED, c.isK),
+              placementId: 'pl-1',
+              strand: null,
+            },
+            shuffled,
+            [...sessionStarts, resumeAt],
+          );
+          expect(resumed).toEqual(expected);
+          expect(nextProbe(resumed, { graph: MIXED, child: c })).toEqual(
+            nextProbe(expected, { graph: MIXED, child: c }),
+          );
+        },
+      ),
+      { numRuns: 200 },
     );
+  });
+
+  it('a session restarted within minutes keeps its boundary on replay', () => {
+    const g = wide(10);
+    let run = start(g, k);
+    const events: PlacementProbeEvent[] = [];
+    const rec = (ts: number) => {
+      const r = answer(run, g, k, true, { ts, latencyMs: 30_000 });
+      run = r.run;
+      events.push({ ts, payload: r.event });
+    };
+    rec(T0);
+    rec(T0 + 10_000);
+    const restart = T0 + 5 * 60_000; // the app was reopened five minutes later
+    run = beginPlacementSession(run);
+    rec(restart + 1_000);
+    expect(run.probes.map((p) => p.session)).toEqual([0, 0, 1]);
+    const input = { graph: g, child: k, state: emptyState(g), placementId: 'pl-1', strand: null };
+    const resumed = resumePlacement(input, events, [T0, restart]);
+    expect(resumed).toEqual(run);
+  });
+
+  it('every mini-session used: a resumed placement stops on its budget, offering no probe', () => {
+    const params = withPlacement({ budgetK: { perSession: 12, sessions: 1 } });
+    const g = wide(10);
+    let run = start(g, k, { params });
+    const events: PlacementProbeEvent[] = [];
+    for (const ts of [T0, T0 + 10_000]) {
+      const r = answer(run, g, k, false, { ts, frustrationSignal: ts > T0 }, params);
+      run = r.run;
+      events.push({ ts, payload: r.event });
+    }
+    expect(run.done).toBe('frustration'); // live: the app also appends placement.completed
+    // If only the probes were saved, a later session still offers no further probe.
+    const input = {
+      graph: g,
+      child: k,
+      state: emptyState(g),
+      placementId: 'pl-1',
+      strand: null,
+      params,
+    };
+    const resumed = resumePlacement(input, events, [T0, T0 + 86_400_000]);
+    expect(resumed.done).toBe('budget');
+    expect(nextProbe(resumed, { graph: g, child: k, params })).toBeNull();
   });
 
   it('a mini-session ended by frustration resumes on a later day as the live run did', () => {
@@ -859,8 +939,69 @@ describe('determinism and persistence', () => {
     const resumed = resumePlacement(
       { graph: g, child: k, state: emptyState(g), placementId: 'pl-1', strand: null },
       events,
+      [T0, T0 + 86_400_000 - 1],
     );
     expect(resumed).toEqual(run);
+  });
+
+  it('a retried answer is refused, not counted twice', () => {
+    const g = wide(10);
+    const run = start(g, k);
+    const task = nextProbe(run, { graph: g, child: k });
+    if (!task) throw new Error('no probe');
+    const submit = (r: PlacementRun) =>
+      recordProbe(
+        r,
+        { graph: g, child: k },
+        { ...task, correct: true, skipped: false, latencyMs: 3_000, ts: T0, tier: 'abstract' },
+      );
+    const once = submit(run);
+    expect(() => submit(once.run)).toThrow(/retried or stale/);
+    expect(once.run.items).toBe(1);
+  });
+
+  it('refuses a skill at its probe cap and a template of another skill', () => {
+    const g = wide(3);
+    const p1 = withPlacement({ maxProbesPerSkill: 1 });
+    let run = start(g, k, { params: p1 });
+    const base = {
+      correct: false,
+      skipped: false,
+      latencyMs: 3_000,
+      ts: T0,
+      tier: 'abstract' as const,
+    };
+    const seed = () => placementProbeSeed(run.placementId, run.items);
+    run = recordProbe(
+      run,
+      { graph: g, child: k, params: p1 },
+      { ...base, skillId: 'CNT.01', templateId: 'CNT.01.t3', seed: seed() },
+    ).run;
+    expect(() =>
+      recordProbe(
+        run,
+        { graph: g, child: k, params: p1 },
+        { ...base, skillId: 'CNT.01', templateId: 'CNT.01.t3', seed: seed() },
+      ),
+    ).toThrow(/probe cap/);
+    expect(() =>
+      recordProbe(
+        run,
+        { graph: g, child: k, params: p1 },
+        { ...base, skillId: 'CNT.02', templateId: 'CNT.01.t3', seed: seed() },
+      ),
+    ).toThrow(/not a template/);
+  });
+
+  it('ancestorsWithin returns a copy: mutating it never changes placement', () => {
+    const g = chain(3);
+    const view = ancestorsWithin(g, 'CNT.03', 3);
+    expect(view.map((h) => h.id)).toEqual(['CNT.02', 'CNT.01']);
+    view.length = 0;
+    expect(ancestorsWithin(g, 'CNT.03', 3)).toHaveLength(2);
+    const run = answer(start(g, k), g, k, true, {}).run;
+    const fresh = chain(3);
+    expect(run.p).toEqual(answer(start(fresh, k), fresh, k, true, {}).run.p);
   });
 
   it('ignores probes of other placements', () => {
@@ -882,6 +1023,8 @@ describe('determinism and persistence', () => {
       skipped: false,
       latencyMs: 3_000,
       gapMs: 10_000,
+      newSession: false,
+      frustrationSignal: false,
     }));
     const { run, events } = live(MIXED, k, allRight);
     expect(run.done).toBe('converged');

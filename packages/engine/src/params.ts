@@ -122,8 +122,6 @@ export interface EngineParams {
     /** p ≥ assumedAt → assumed; p ≤ unknownAt → not known. */
     assumedAt: number;
     unknownAt: number;
-    /** Probes further apart than this start a new mini-session when a placement resumes (E03 reading). */
-    resumeGapMs: number;
     /** p of a skill already on the practiced track (practiced or assumed); it is never probed (E03 reading). */
     onTrackP: number;
   };
@@ -209,7 +207,6 @@ export const PARAMS: EngineParams = {
     frustrationMisses: 2,
     assumedAt: 0.85,
     unknownAt: 0.3,
-    resumeGapMs: 30 * 60_000,
     onTrackP: 0.95,
   },
 };

@@ -237,8 +237,20 @@ const SENSITIVITY = [
 ];
 
 describe('placement simulation (04 §8)', () => {
-  const { graph } = simContent();
+  const { graph, probeItem } = simContent();
   const rows: Metrics[] = [];
+
+  it('counts the choices of every choice item a probe can present', () => {
+    // Ordinal tap-count taps one object of the set: k = the set size.
+    const ordinal = probeItem('CNT.15.t2', 7);
+    expect(ordinal.answer.kind).toBe('choice');
+    const set = (ordinal.widget as unknown as { set: { count: number } }).set;
+    expect(choiceCount(ordinal)).toBe(set.count);
+    for (const id of Object.keys(graph.templates).sort()) {
+      const item = probeItem(id, 3);
+      if (item.answer.kind === 'choice') expect(choiceCount(item)).toBeGreaterThanOrEqual(2);
+    }
+  });
 
   for (const profile of [PROFILES.K, PROFILES.G2]) {
     it(`${profile.name}: ${CHILDREN} children within the item budget, ≥ 85% accuracy`, () => {
@@ -256,6 +268,9 @@ describe('placement simulation (04 §8)', () => {
   }
 
   it('reports sensitivity profiles and prints the metrics table', () => {
+    // Self-contained: the asserted profiles are simulated again when this test runs on its own.
+    for (const p of [PROFILES.K, PROFILES.G2])
+      if (!rows.some((m) => m.profile === p.name)) rows.push(simulate(graph, p));
     for (const p of SENSITIVITY) {
       const m = simulate(graph, p);
       expect(m.overBudget).toBe(0);

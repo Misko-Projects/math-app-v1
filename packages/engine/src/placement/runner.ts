@@ -7,6 +7,7 @@ import type {
   ChildContext,
   EventPayloads,
   Grade,
+  ItemTemplate,
   PlannedTask,
   SkillGraph,
   SkillId,
@@ -14,6 +15,7 @@ import type {
   TemplateId,
 } from '@number-island/shared';
 import { FORMAT_SUPPORT } from '@number-island/shared';
+import { generateItem } from '../items/generate';
 import { createEloFireModel } from '../learner/elo-fire';
 import { descendantsWithin } from '../learner/graph';
 import { type EngineParams, PARAMS } from '../params';
@@ -134,8 +136,13 @@ function cached(
   return v;
 }
 
-/** Ancestors (prerequisite closure) of `skill` within `maxHops` hops, nearest hop first. */
+/** Ancestors (prerequisite closure) of `skill` within `maxHops` hops, nearest hop first (a copy). */
 export function ancestorsWithin(graph: SkillGraph, skill: SkillId, maxHops: number): Hop[] {
+  return ancestors(graph, skill, maxHops).map((h) => ({ ...h }));
+}
+
+/** The memoized ancestor list; internal only, so callers can never mutate the cache. */
+function ancestors(graph: SkillGraph, skill: SkillId, maxHops: number): readonly Hop[] {
   return cached(ancestorCache, graph, skill, maxHops, () => {
     const out: Hop[] = [];
     const seen = new Set<SkillId>([skill]);
@@ -162,10 +169,32 @@ const descendants = (graph: SkillGraph, skill: SkillId, maxHops: number): Hop[] 
 
 const TIER_RANK: Readonly<Record<string, number>> = { abstract: 0, pictorial: 1, concrete: 2 };
 
+const answerKindCache = new WeakMap<ItemTemplate, string | null>();
+
+/**
+ * Whether a template asks for a constructed response. A format can allow several answer kinds
+ * (tap-count answers with a number, or with a choice in ordinal mode), so the template's own
+ * answer kind decides: it is read from a sample item. A template whose generator is not
+ * registered falls back to its format's answer kinds.
+ */
+function constructedTemplate(t: ItemTemplate): boolean {
+  let kind = answerKindCache.get(t);
+  if (kind === undefined) {
+    try {
+      kind = generateItem(t, 0).answer.kind;
+    } catch {
+      kind = null;
+    }
+    answerKindCache.set(t, kind);
+  }
+  if (kind !== null) return kind !== 'choice';
+  return FORMAT_SUPPORT[t.format].answers.some((k) => k !== 'choice');
+}
+
 /**
  * §5 step 2: the templates a probe of `skill` rotates through. Abstract or pictorial tier with a
- * constructed-response format (a FORMAT_SUPPORT answer kind other than 'choice'); else any abstract
- * or pictorial template; else any template. Abstract first, then by id.
+ * constructed response (`constructedTemplate`); else any abstract or pictorial template; else any
+ * template. Abstract first, then by id.
  */
 export function probeTemplates(graph: SkillGraph, skill: SkillId): TemplateId[] {
   const all = [...(graph.skills[skill]?.templates ?? [])]
@@ -176,8 +205,8 @@ export function probeTemplates(graph: SkillGraph, skill: SkillId): TemplateId[] 
     return tier === 'abstract' || tier === 'pictorial';
   });
   const constructed = tiered.filter((t) => {
-    const fmt = graph.templates[t]?.format;
-    return fmt !== undefined && FORMAT_SUPPORT[fmt].answers.some((k) => k !== 'choice');
+    const tpl = graph.templates[t];
+    return tpl !== undefined && constructedTemplate(tpl);
   });
   const pool = constructed.length > 0 ? constructed : tiered.length > 0 ? tiered : all;
   const rank = (t: TemplateId) => TIER_RANK[graph.templates[t]?.tier ?? 'concrete'] ?? 2;
@@ -241,8 +270,7 @@ export function probeScores(
   const out: ProbeScore[] = placementCandidates(run, graph, params).map((v) => {
     const p = pOf(run, v);
     let uncertain = 0;
-    for (const a of ancestorsWithin(graph, v, P.uncertaintyHops))
-      if (uncertainSkill(a.id)) uncertain++;
+    for (const a of ancestors(graph, v, P.uncertaintyHops)) if (uncertainSkill(a.id)) uncertain++;
     for (const d of descendants(graph, v, P.uncertaintyHops)) if (uncertainSkill(d.id)) uncertain++;
     const pre = graph.prereqs[v] ?? [];
     const answerable =
@@ -373,23 +401,13 @@ function applyProbe(
   P: PlacementParams,
   f: ProbeFacts,
 ): PlacementRun {
-  let session = { ...run.session };
-  // A gap between probes means the child came back another time: a new mini-session, if allowed.
-  if (
-    run.lastTs !== null &&
-    f.ts - run.lastTs > P.resumeGapMs &&
-    session.items > 0 &&
-    session.index + 1 < run.budget.sessions
-  ) {
-    session = { index: session.index + 1, items: 0, misses: 0, ended: null };
-  }
   const next: PlacementRun = {
     ...run,
     p: { ...run.p },
     probeCount: { ...run.probeCount },
     boost: { ...run.boost },
     probes: [...run.probes],
-    session,
+    session: { ...run.session },
   };
   const miss = f.skipped || !f.correct;
   const open = new Set(openScope(run));
@@ -399,7 +417,7 @@ function applyProbe(
     next.probeCount[v] = (next.probeCount[v] ?? 0) + 1;
     delete next.boost[v];
     if (!miss) {
-      for (const a of ancestorsWithin(graph, v, P.lambdaUp.length)) {
+      for (const a of ancestors(graph, v, P.lambdaUp.length)) {
         if (!open.has(a.id)) continue;
         const pa = next.p[a.id] ?? 0;
         next.p[a.id] = pa + (P.lambdaUp[a.hops - 1] ?? 0) * (1 - pa) * f.posterior;
@@ -461,9 +479,23 @@ export function recordProbe(
   if (run.done !== null) throw new Error(`placement ${run.placementId} has already stopped`);
   if (run.session.ended !== null)
     throw new Error(`placement ${run.placementId}: the mini-session ended; begin the next one`);
+  const params = ctx.params ?? PARAMS;
+  // An answer is accepted only for the run's current item: its seed must be that item's probe seed
+  // (which derives from the item count), so a retried submission of an answer already recorded is
+  // refused instead of being counted twice. The skill must be open and below its probe cap, and the
+  // template one of its own.
+  if (answer.seed !== placementProbeSeed(run.placementId, run.items))
+    throw new Error(
+      `placement ${run.placementId}: seed ${answer.seed} is not the seed of item ${run.items} (a retried or stale answer)`,
+    );
   if (!openScope(run).includes(answer.skillId))
     throw new Error(`placement ${run.placementId} does not probe skill ${answer.skillId}`);
-  const params = ctx.params ?? PARAMS;
+  if ((run.probeCount[answer.skillId] ?? 0) >= params.placement.maxProbesPerSkill)
+    throw new Error(`placement ${run.placementId}: ${answer.skillId} reached its probe cap`);
+  if (!(ctx.graph.skills[answer.skillId]?.templates ?? []).includes(answer.templateId))
+    throw new Error(
+      `placement ${run.placementId}: ${answer.templateId} is not a template of ${answer.skillId}`,
+    );
   const model = createEloFireModel(ctx.graph, {
     childId: ctx.child.childId,
     isK: ctx.child.isK,
@@ -556,23 +588,31 @@ export function completePlacement(
 
 /**
  * Rebuilds an unfinished placement from its `placement.probe` events (sorted by ts, then input
- * order), to the state the live run reached. A gap > resumeGapMs between probes starts a new
- * mini-session, as in the live run. If the last mini-session had ended, the resumed run is in a
- * fresh one (a later day) unless every mini-session is used.
+ * order) and the start times of the child's app sessions (`session.started` ts), to the state the
+ * live run reached. Mini-sessions follow app sessions: the live caller calls
+ * `beginPlacementSession` at each new app session, and the replay does the same at every session
+ * start between two probes. A session start after the last probe (normally the current one, when
+ * the app resumes the placement) starts a fresh mini-session, or stops the placement on its budget
+ * when every mini-session is used. A probe event cannot carry the frustration signal, so a
+ * mini-session that frustration ended is known as ended only once a later session starts (04 §7b).
  */
 export function resumePlacement(
   input: StartPlacementInput,
   probes: readonly PlacementProbeEvent[],
+  sessionStarts: readonly number[] = [],
 ): PlacementRun {
   const params = input.params ?? PARAMS;
   const ordered = probes
     .map((e, i) => ({ e, i }))
     .filter(({ e }) => e.payload.placementId === input.placementId)
     .sort((a, b) => a.e.ts - b.e.ts || a.i - b.i);
+  const startedAfter = (after: number, upTo: number): boolean =>
+    sessionStarts.some((s) => s > after && s <= upTo);
   let run = startPlacement(input);
   for (const { e } of ordered) {
     if (run.done !== null) break;
-    if (run.session.ended !== null) run = beginPlacementSession(run);
+    if (run.session.ended !== null || (run.lastTs !== null && startedAfter(run.lastTs, e.ts)))
+      run = beginPlacementSession(run);
     if (run.done !== null) break;
     const applied = applyProbe(run, input.graph, params.placement, {
       skillId: e.payload.skillId,
@@ -586,6 +626,7 @@ export function resumePlacement(
     });
     run = applyStops(applied, input.graph, params, false);
   }
-  if (run.done === null && run.session.ended !== null) run = beginPlacementSession(run);
+  if (run.lastTs !== null && startedAfter(run.lastTs, Number.POSITIVE_INFINITY))
+    run = beginPlacementSession(run);
   return run;
 }
