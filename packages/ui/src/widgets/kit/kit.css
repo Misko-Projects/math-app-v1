@@ -494,3 +494,43 @@
     transition-duration: 0ms;
   }
 }
+
+/* ---------- number entry (NumberEntry: tray 0–10 or the pad) ---------- */
+
+.ni-entry {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+}
+.ni-entry[data-kind="tray"] .ni-tray-numerals {
+  display: grid;
+  /* Equal columns: "10" doesn't make its column wider than the others. */
+  grid-template-columns: repeat(var(--entry-cols, 4), 1fr);
+  justify-content: center;
+  /* Room for the picked card's ring and badge, so neighbours stay ≥ 12 px apart. */
+  gap: calc(var(--target-gap) + 6px);
+  padding: 10px;
+}
+.ni-entry[data-kind="tray"] .ni-pick {
+  width: 100%;
+}
+.ni-entry__row {
+  display: flex;
+  align-items: center;
+  gap: calc(var(--target-gap) * 2);
+}
+.ni-entry__display {
+  min-width: calc(var(--target-min) * 2);
+}
+
+/* ---------- demo flights (flight.tsx) ---------- */
+
+.ni-flight {
+  position: absolute;
+  z-index: var(--z-drag);
+  pointer-events: none;
+  transition-property: left, top, width, height;
+  transition-timing-function: var(--ease-soft);
+  filter: drop-shadow(0 14px 10px rgb(38 70 83 / 0.3));
+}
