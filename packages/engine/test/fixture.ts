@@ -5,8 +5,16 @@
 
 import { compileContent, formatDiagnostic } from '@number-island/content';
 import { readContentFiles } from '@number-island/content/node';
-import type { ItemTemplate, MisconceptionSpec, NarrationJson, Skill } from '@number-island/shared';
+import type {
+  GameData,
+  ItemTemplate,
+  MisconceptionSpec,
+  NarrationJson,
+  Skill,
+  SkillGraph,
+} from '@number-island/shared';
 import { initContent } from '../src/content/binding';
+import { buildSkillGraph } from '../src/learner/graph';
 
 export interface FixtureContent {
   skills: Skill[];
@@ -39,6 +47,29 @@ export function loadFixture(): FixtureContent {
   const fixture = compileFixture();
   initContent(fixture);
   return fixture;
+}
+
+let cachedGraph: SkillGraph | null = null;
+
+/** The fixture's 02 §5.8 SkillGraph and GameData, built from the same in-memory compile. */
+export function fixtureGraph(): SkillGraph {
+  if (cachedGraph) return cachedGraph;
+  const result = compileContent(readContentFiles());
+  if (!result.content || !result.contentVersion)
+    throw new Error('the fixture content does not compile');
+  cachedGraph = buildSkillGraph({
+    contentVersion: result.contentVersion,
+    skills: result.content.skills,
+    templates: result.content.templates,
+    graph: result.content.graph,
+  });
+  return cachedGraph;
+}
+
+export function fixtureGameData(): GameData {
+  const result = compileContent(readContentFiles());
+  if (!result.content) throw new Error('the fixture content does not compile');
+  return result.content.game;
 }
 
 export function fixtureTemplate(id: string): ItemTemplate {
