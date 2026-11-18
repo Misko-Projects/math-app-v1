@@ -245,6 +245,15 @@ export const syncRequestSchema = z.object({
 assertType<Equals<z.infer<typeof syncRequestSchema>, SyncRequest>>(true);
 
 /**
+ * The server's ingress schema for `POST /sync` (02 §5.9 S1): `syncRequestSchema` with each entry
+ * of `events` left raw (the array is still capped at 500). The server validates the raw entries
+ * one by one with `inboundEventEnvelopeSchema` and reports failures in `SyncResponse.rejected`.
+ */
+export const syncRequestIngressSchema = syncRequestSchema.extend({
+  events: z.array(z.unknown()).max(SYNC_MAX_PUSH_EVENTS),
+});
+
+/**
  * One pushed event the server refused (02 §5.9 S1). The server validates each pushed event on its
  * own, so one bad event never fails the whole call. A rejection is permanent: the client stops
  * re-pushing that event (it marks it as not syncable) rather than retrying it forever.

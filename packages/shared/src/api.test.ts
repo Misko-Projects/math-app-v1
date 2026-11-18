@@ -8,6 +8,7 @@ import {
   avatarFromPhotoRequestSchema,
   healthResponseSchema,
   parentSummarySchema,
+  syncRequestIngressSchema,
   syncRequestSchema,
   syncResponseSchema,
 } from './api';
@@ -138,6 +139,18 @@ describe('API DTOs', () => {
       syncRequestSchema.safeParse({ cursor: null, events: [broken], settings: [], profiles: [] })
         .success,
     ).toBe(false);
+  });
+
+  it('server ingress keeps event entries raw but the rest of the body strict (02 §5.9 S1)', () => {
+    const broken = { ...event, payload: { ...event.payload, items: -1 } };
+    const mixed = { cursor: null, events: [event, broken, 'junk'], settings: [], profiles: [] };
+    expect(syncRequestSchema.safeParse(mixed).success).toBe(false);
+    const ingress = syncRequestIngressSchema.parse(mixed);
+    expect(ingress.events).toEqual([event, broken, 'junk']);
+    const tooMany = { ...mixed, events: Array(501).fill(event) };
+    expect(syncRequestIngressSchema.safeParse(tooMany).success).toBe(false);
+    expect(syncRequestIngressSchema.safeParse({ ...mixed, cursor: '' }).success).toBe(false);
+    expect(syncRequestIngressSchema.safeParse({ ...mixed, profiles: [{}] }).success).toBe(false);
   });
 
   it('round-trips the 07 §2 feedback example', () => {
