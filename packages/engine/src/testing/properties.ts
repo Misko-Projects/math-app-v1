@@ -132,29 +132,34 @@ function revealsNumber(
   return slots.some((s) => vars[s] === n || vars[s] === String(n));
 }
 
+/** A plain integer, or a thousands grouping exactly as the renderer writes one (03 §8.4). */
+const PLAIN_NUMERAL = /^[0-9]+$/;
+const GROUPED_NUMERAL = /^[1-9][0-9]{0,2}(?:,[0-9]{3})+$/;
+
 /**
- * The numbers written as numerals in rendered text. A thousands-grouped numeral ("1,000", 03 §8.4
- * display formatting) is one number, not "1" and "000".
+ * The numerals in rendered hint text, by a strict grammar (03 §9.4 step 7). Each run of digits and
+ * commas must be either a plain integer ("8", "305") or a canonical thousands grouping ("1,000",
+ * "12,345"). Any other run ("6,7,8", "0,500", "1,000,8") is ambiguous: it is returned in
+ * `ambiguous` and contributes no numbers, and V17 reports it as a content error. Authors separate
+ * list items with a comma and a space ("6, 7, 8").
  */
-export function numeralsIn(text: string): number[] {
-  // Each run of digits and commas is split at its commas. A segment of 1–3 digits followed by
-  // segments of exactly 3 digits is one thousands-grouped numeral (the shape the renderer writes:
-  // "1,000", "12,345"); any other segment is its own numeral ("6,7,8", "1,000,8" → 1000 and 8).
-  const out: number[] = [];
+export function parseNumerals(text: string): { numbers: number[]; ambiguous: string[] } {
+  const numbers: number[] = [];
+  const ambiguous: string[] = [];
   for (const m of text.matchAll(/[0-9](?:[0-9,]*[0-9])?/g)) {
-    const segments = m[0].split(',').filter((s) => s !== '');
-    for (let i = 0; i < segments.length; i += 1) {
-      let digits = segments[i] as string;
-      if (digits.length <= 3) {
-        while (i + 1 < segments.length && (segments[i + 1] as string).length === 3) {
-          i += 1;
-          digits += segments[i] as string;
-        }
-      }
-      out.push(Number(digits));
+    const run = m[0];
+    if (PLAIN_NUMERAL.test(run) || GROUPED_NUMERAL.test(run)) {
+      numbers.push(Number(run.replaceAll(',', '')));
+    } else {
+      ambiguous.push(run);
     }
   }
-  return out;
+  return { numbers, ambiguous };
+}
+
+/** The unambiguous numerals in rendered text (see `parseNumerals`). */
+export function numeralsIn(text: string): number[] {
+  return parseNumerals(text).numbers;
 }
 
 /**
@@ -483,6 +488,14 @@ export function runTemplateProperties(
       const slots = lineSlots(h.say, narration);
       // Both what the child reads and what the child hears (`say`) are checked.
       for (const text of renderForms(h.say, hv, narration)) {
+        const { ambiguous } = parseNumerals(text);
+        if (ambiguous.length > 0) {
+          fail(
+            seed,
+            '7.hint-reveals',
+            `hint ${h.say} ("${text}") has an ambiguous numeral run ${ambiguous.join(', ')} (separate list items with ", ")`,
+          );
+        }
         for (const v of answers) {
           if (revealsNumber(text, slots, hv, v)) {
             fail(seed, '7.hint-reveals', `hint ${h.say} ("${text}") reveals ${v}`);

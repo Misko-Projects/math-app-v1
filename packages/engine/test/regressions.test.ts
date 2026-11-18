@@ -11,7 +11,7 @@ import { GenerationError } from '../src/generators/types';
 import { checkResponse } from '../src/items/check';
 import { generateItem, generateItemFromParams } from '../src/items/generate';
 import { itemSolution, replaySteps } from '../src/items/solution';
-import { numeralsIn, runTemplateProperties } from '../src/testing/properties';
+import { numeralsIn, parseNumerals, runTemplateProperties } from '../src/testing/properties';
 import { compileFixture, fixtureTemplate, loadFixture } from './fixture';
 
 describe('F1: authored lessons replay to a correct demonstration', () => {
@@ -415,21 +415,41 @@ describe('R4-F2: a thousands-grouped numeral is one number', () => {
 
 // ---------- round 5 (s_17583aed040a) ----------
 
-describe('R5: compact comma lists are separate numerals', () => {
-  it.each<[string, number[]]>([
-    ['Count on: 6,7,8.', [6, 7, 8]],
-    ['There are 1,000 in all.', [1000]],
-    ['10,20,30', [10, 20, 30]],
-    ['1,23', [1, 23]],
-    ['1,000,000 and 5', [1000000, 5]],
-    // round 6 (s_8a6ef3f6c252): grouped numerals inside a compact list
-    ['1,000,8', [1000, 8]],
-    ['8,1,000', [8, 1000]],
-    ['12,345,6,7', [12345, 6, 7]],
-    ['123,456', [123456]],
-    ['1234,567', [1234, 567]],
-  ])('numeralsIn(%j)', (text, want) => {
-    expect(numeralsIn(text)).toEqual(want);
+// Rounds 5–7 (s_17583aed040a, s_8a6ef3f6c252, s_98666ae272a6) each found a new edge in a lenient
+// comma heuristic. It is replaced by a strict grammar (03 §9.4 step 7): a digits-and-commas run is
+// a plain integer or a canonical thousands grouping; anything else is ambiguous and a V17 error.
+describe('R5–R7: numerals in hint text follow a strict grammar', () => {
+  it.each<[string, number[], string[]]>([
+    ['There are 1,000 in all.', [1000], []],
+    ['1,000,000 and 5', [1000000, 5], []],
+    ['123,456', [123456], []],
+    ['Count on: 6, 7, 8.', [6, 7, 8], []],
+    ['8 and 305', [8, 305], []],
+    // ambiguous runs: reported, never guessed
+    ['Count on: 6,7,8.', [], ['6,7,8']],
+    ['10,20,30', [], ['10,20,30']],
+    ['1,23', [], ['1,23']],
+    ['1,000,8', [], ['1,000,8']],
+    ['8,1,000', [], ['8,1,000']],
+    ['0,500', [], ['0,500']],
+    ['1234,567', [], ['1234,567']],
+    ['12,345,6,7', [], ['12,345,6,7']],
+  ])('parseNumerals(%j)', (text, numbers, ambiguous) => {
+    expect(parseNumerals(text)).toEqual({ numbers, ambiguous });
+  });
+
+  it('a hint with an ambiguous run (“Count on: 0,500.”) is a V17 error', () => {
+    loadFixture();
+    const t = tpl({
+      id: 'ADD.03.t9',
+      skillId: 'ADD.03',
+      generator: 'addsub.facts',
+      params: { a: { kind: 'const', value: 5 }, b: { kind: 'const', value: 3 } },
+      narration: { prompt: 'p.add.what-is', hints: ['h.test.zero'] },
+    });
+    expect(
+      hintReveals(t, { 'h.test.zero': { text: 'Count on: 0,500.', clips: [] } }, 'h.test.zero'),
+    ).toBe(true);
   });
 
   it('a hint “Count on: 6,7,8.” on an item whose answer is 8 is reported', () => {
