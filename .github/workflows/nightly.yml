@@ -1,0 +1,51 @@
+# Nightly (docs/spec/09-quality.md §2). Non-required; runs only on its schedule and on manual
+# dispatch, so it never reports a check on pull requests.
+# No secrets are used anywhere in CI; every AI provider is mocked.
+name: nightly
+
+on:
+  schedule:
+    - cron: "17 7 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  # Split by event (as ci.yml did) so a manual dispatch never displaces a pending scheduled run.
+  group: nightly-${{ github.event_name }}-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  CI: "true"
+
+jobs:
+  nightly:
+    # Full simulated-learner suite, 500-seed property tests, and a WebKit E2E smoke test.
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      CONTENT_PROPERTY_N: "500"
+    steps:
+      - uses: actions/checkout@v5
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm i --frozen-lockfile
+      - run: pnpm exec playwright install --with-deps chromium webkit
+      - run: pnpm content:build
+      - run: pnpm test:sim
+      - run: pnpm test
+      - run: pnpm e2e:smoke:webkit
+      - name: Upload Playwright report
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: nightly-playwright-report
+          path: |
+            e2e/playwright-report/
+            e2e/test-results/
+          retention-days: 14
+          if-no-files-found: ignore
