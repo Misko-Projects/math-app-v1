@@ -78,6 +78,13 @@ export async function ingestPushedEvents(
       reject(index, raw, 'unknown_family', 'The event belongs to another family.');
       return;
     }
+    // `deviceId = familyId` is the server's pseudo-device (02 §5.9 S2); devices may not author as
+    // it. Tombstone relays are checked below. Other device ids are allowed: a re-paired device or
+    // a restored local log legitimately relays events recorded under an earlier device id.
+    if (parsed.data.deviceId === familyId && parsed.data.type !== 'child.deleted') {
+      reject(index, raw, 'forbidden', 'That device id is reserved for the server.');
+      return;
+    }
     valid.push({ index, raw, event: parsed.data });
   });
 

@@ -178,6 +178,18 @@ describe('POST /api/sync: per-event rejection (02 §5.9 S1)', () => {
     expect((await syncOk(b.token)).events).toEqual([good]);
   });
 
+  it("forbids authoring as the server's pseudo-device, but allows relays of other devices", async () => {
+    const { family, a, b } = await twoDevices();
+    const spoofed = roadEvent(family.familyId, family.familyId);
+    const relayed = roadEvent(family.familyId, newId()); // e.g. recorded before a re-pair
+    const res = await syncOk(a.token, { events: [spoofed, relayed] });
+    expect(res.accepted).toEqual([relayed.id]);
+    expect(res.rejected).toEqual([
+      { id: spoofed.id, index: 0, code: 'forbidden', message: expect.any(String) },
+    ]);
+    expect((await syncOk(b.token)).events).toEqual([relayed]);
+  });
+
   it('still validates the outer body strictly', async () => {
     const { a } = await twoDevices();
     await expectError(await sync(a.token, { cursor: 'abc' }), 400, 'validation_failed');

@@ -44,6 +44,7 @@ Errors use `{ error: { code, message } }` with stable `code` strings. Never retu
     - setup: 10 per 15 min per IP.
     A limited request gets `429 rate_limited` with `Retry-After`.
   - The client IP is `CF-Connecting-IP`. When that peer is loopback (the Vite dev proxy), the API uses the last `X-Forwarded-For` hop instead, and treats `X-Forwarded-Proto: https` as HTTPS for the `Secure` flag (`pnpm dev:https`). The proxy sets `xfwd`.
+  - A device may not push events with `deviceId` equal to the family id (the server's pseudo-device, 02 §5.9 S2). Those are rejected as `forbidden`, except tombstone relays. Other device ids are accepted, because a re-paired device or a restored local log legitimately relays events recorded under an earlier device id.
   - Error codes map to stable statuses: `validation_failed`/`bad_request`/`pair_code_invalid` 400, `unauthorized`/`invalid_credentials`/`invalid_pin`/`device_revoked` 401, `forbidden`/`unknown_family` 403, `not_found` 404, `conflict`/`setup_closed` 409, `pair_code_expired` 410, `payload_too_large` 413, `unsupported_media_type` 415, `rate_limited` 429, `internal` 500.
 
 ## 4. Sync protocol
