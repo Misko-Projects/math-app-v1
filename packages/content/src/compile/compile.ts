@@ -247,6 +247,7 @@ function check(c: LoadedContent, d: Diagnostics): CompiledContent | null {
     misconceptions.set(m.value.id, m);
   }
 
+  checkExcusedIds(c, d);
   // ---------- V03: sequential ids ----------
   const planned = new Set(c.graph?.plannedIds ?? []);
   for (const id of planned) {
@@ -268,7 +269,11 @@ function check(c: LoadedContent, d: Diagnostics): CompiledContent | null {
     const missing = sequenceGaps(
       nums,
       (n) => `${strand}.${String(n).padStart(2, '0')}`,
-      excusedNumbers([...c.retired.skills, ...planned], `${strand}.`),
+      excusedNumbers(
+        [...c.retired.skills, ...planned],
+        `${strand}.`,
+        (n) => `${strand}.${String(n).padStart(2, '0')}`,
+      ),
     );
     if (missing) {
       d.error(
@@ -288,7 +293,11 @@ function check(c: LoadedContent, d: Diagnostics): CompiledContent | null {
     const missing = sequenceGaps(
       ids.map(templateNumber),
       (n) => `${skillId}.t${n}`,
-      excusedNumbers([...c.retired.templates, ...planned], `${skillId}.t`),
+      excusedNumbers(
+        [...c.retired.templates, ...planned],
+        `${skillId}.t`,
+        (n) => `${skillId}.t${n}`,
+      ),
     );
     if (missing) {
       const file = templates.get(ids[0] as string)?.file ?? '';
@@ -843,14 +852,52 @@ export function sequenceGaps(
   return more > 0 ? `${named.join(', ')} … and ${more} more` : named.join(', ');
 }
 
-/** The numeric suffixes of excused ids (`retired.yaml`, `plannedIds`) that start with `prefix`. */
-function excusedNumbers(ids: Iterable<string>, prefix: string): Set<number> {
+/**
+ * The numbers of excused ids (`retired.yaml`, `plannedIds`) under `prefix`. Only an id spelled
+ * exactly as `toId(n)` excuses `n`, so `ADD.2` never stands in for `ADD.02`, nor `t04` for `t4`.
+ */
+function excusedNumbers(
+  ids: Iterable<string>,
+  prefix: string,
+  toId: (n: number) => string,
+): Set<number> {
   const out = new Set<number>();
   for (const id of ids) {
     const rest = id.slice(prefix.length);
-    if (id.startsWith(prefix) && /^\d+$/.test(rest)) out.add(Number(rest));
+    if (!id.startsWith(prefix) || !/^\d+$/.test(rest)) continue;
+    const n = Number(rest);
+    if (toId(n) === id) out.add(n);
   }
   return out;
+}
+
+/** V02: entries of `retired.yaml` and `graph.yaml: plannedIds` must be canonical ids. */
+function checkExcusedIds(c: LoadedContent, d: Diagnostics): void {
+  const canonicalSkill = (id: string) => SKILL_ID_PATTERN.test(id) && !id.endsWith('.00');
+  const canonicalTemplate = (id: string) => TEMPLATE_ID_PATTERN.test(id) && /\.t[1-9]\d*$/.test(id);
+  for (const id of c.retired.skills) {
+    if (!canonicalSkill(id))
+      d.error('V02', 'retired.yaml', 'skills', `'${id}' is not a canonical SkillId (e.g. ADD.02)`);
+  }
+  for (const id of c.retired.templates) {
+    if (!canonicalTemplate(id))
+      d.error(
+        'V02',
+        'retired.yaml',
+        'templates',
+        `'${id}' is not a canonical TemplateId (e.g. ADD.02.t4)`,
+      );
+  }
+  for (const id of c.graph?.plannedIds ?? []) {
+    if (!canonicalSkill(id) && !canonicalTemplate(id)) {
+      d.error(
+        'V02',
+        c.graph?.file ?? 'graph.yaml',
+        'plannedIds',
+        `'${id}' is not a canonical SkillId or TemplateId (e.g. ADD.02, ADD.02.t4)`,
+      );
+    }
+  }
 }
 
 // ---------- graph helpers ----------
@@ -1263,10 +1310,15 @@ function checkGivenParams(
   });
 }
 
-/** A template whose format only answers with `choice` (multiple choice, 03 §6.5). */
-const choiceOnly = (t: LoadedTemplate) => {
+/**
+ * A template the compiler knows answers with `choice` (03 §6.5): its format only answers with a
+ * choice, or it carries `distractors` (a pick-mode multiple-choice template, 03 §4.3). Which
+ * answer kind a mixed-answer format produces otherwise depends on the generator's mode, so the
+ * engine re-checks the pool on generated items (tools/content-check, 03 §9.2).
+ */
+const choiceAnswer = (t: LoadedTemplate) => {
   const answers = FORMAT_SUPPORT[t.value.format].answers;
-  return answers.length === 1 && answers[0] === 'choice';
+  return (answers.length === 1 && answers[0] === 'choice') || t.value.distractors !== undefined;
 };
 
 /**
@@ -1274,8 +1326,10 @@ const choiceOnly = (t: LoadedTemplate) => {
  * runner draws from exactly the validated set:
  * 1. the skill's abstract templates, or its pictorial ones when it has no abstract template;
  * 2. for a gateway skill whose pool spans fewer than 2 representations, plus its pictorial ones;
- * 3. without choice-only templates when a constructed-response template remains.
- * An authored `testOut.templateIds` is kept as written but must hold no concrete template.
+ * 3. without choice-answer templates when a constructed-response template remains.
+ * An authored `testOut.templateIds` is kept as written but must follow the same rules: no
+ * concrete template, and no choice-answer template beside a constructed-response one. A gateway
+ * test-out needs ≥ 2 items so they can span ≥ 2 representations.
  */
 function resolveTestOut(
   id: string,
@@ -1312,13 +1366,32 @@ function resolveTestOut(
         `${t.value.id} is concrete; test-out items are abstract or pictorial (03 §6.5)`,
       );
     }
+    if (pool.some((t) => !choiceAnswer(t))) {
+      for (const t of pool.filter(choiceAnswer)) {
+        d.error(
+          'V21',
+          file,
+          path,
+          `${t.value.id} answers with a choice; a test-out never uses multiple choice beside a constructed-response template (03 §6.5)`,
+        );
+      }
+      pool = pool.filter((t) => !choiceAnswer(t));
+    }
   } else {
     const abstract = own.filter((t) => t.value.tier === 'abstract');
     const pictorial = own.filter((t) => t.value.tier === 'pictorial');
     pool = abstract.length > 0 ? abstract : pictorial;
     if (s.value.gateway && repsOf(pool).size < 2) pool = [...abstract, ...pictorial];
-    const constructed = pool.filter((t) => !choiceOnly(t));
+    const constructed = pool.filter((t) => !choiceAnswer(t));
     if (constructed.length > 0) pool = constructed;
+  }
+  if (s.value.gateway && lesson.testOut.items < 2) {
+    d.error(
+      'V21',
+      file,
+      path,
+      `gateway skill ${id}: testOut.items is ${lesson.testOut.items}; a gateway test-out needs ≥ 2 items to span ≥ 2 representations`,
+    );
   }
   if (pool.length === 0) {
     d.error(

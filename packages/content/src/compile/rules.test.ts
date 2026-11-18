@@ -953,9 +953,9 @@ describe('V21: the test-out pool (03 §6.5) is resolved into testOut.templateIds
     editYaml(
       files,
       'lessons/CNT.yaml',
-      (doc) => (doc.lessons[0].testOut.templateIds = ['CNT.03.t3', 'CNT.03.t4']),
+      (doc) => (doc.lessons[0].testOut.templateIds = ['CNT.03.t4', 'CNT.03.t2']),
     );
-    expect(pool(files, 'CNT.03')).toEqual(['CNT.03.t3', 'CNT.03.t4']);
+    expect(pool(files, 'CNT.03')).toEqual(['CNT.03.t4', 'CNT.03.t2']);
     expectFinding(
       variant((f) =>
         editYaml(
@@ -967,6 +967,52 @@ describe('V21: the test-out pool (03 §6.5) is resolved into testOut.templateIds
       'V21',
       /CNT.03.t1 is concrete/,
     );
+  });
+});
+
+describe('V21: test-out choice rule and gateway item count', () => {
+  const authoredList = (ids: string[]) => (f: Files) =>
+    editYaml(f, 'lessons/CNT.yaml', (doc) => (doc.lessons[0].testOut.templateIds = ids));
+  it('rejects a choice-answer template beside a constructed-response one in an authored list', () => {
+    const diags = variant(authoredList(['CNT.03.t3', 'CNT.03.t4']));
+    expectFinding(diags, 'V21', /CNT.03.t3 answers with a choice/);
+    // Without the choice template the list spans only one representation.
+    expectFinding(
+      diags,
+      'V21',
+      /gateway skill CNT.03: test-out items must span ≥ 2 representations/,
+    );
+  });
+  it('rejects a one-item gateway test-out', () => {
+    expectFinding(
+      variant((f) =>
+        editYaml(
+          f,
+          'lessons/CNT.yaml',
+          (doc) => (doc.lessons[0].testOut = { items: 1, minCorrect: 1 }),
+        ),
+      ),
+      'V21',
+      /gateway skill CNT.03: testOut.items is 1/,
+    );
+  });
+});
+
+describe('V02/V03: excused ids must be canonical', () => {
+  it('does not let ADD.2 excuse the missing ADD.02', () => {
+    const diags = variant((f) => editYaml(f, 'graph.yaml', (doc) => (doc.plannedIds = ['ADD.2'])));
+    expectFinding(diags, 'V02', /'ADD.2' is not a canonical SkillId or TemplateId/);
+    expectFinding(diags, 'V03', /missing ADD.02/);
+  });
+  it('does not let a zero-padded retired template excuse a gap', () => {
+    const diags = variant((f) => {
+      f['retired.yaml'] = 'templates: [CNT.07.t03]\n';
+      editYaml(f, 'templates/CNT.yaml', (doc) => {
+        doc.templates = (doc.templates as Yaml[]).filter((t) => t.id !== 'CNT.07.t3');
+      });
+    });
+    expectFinding(diags, 'V02', /'CNT.07.t03' is not a canonical TemplateId/);
+    expectFinding(diags, 'V03', /missing CNT.07.t3/);
   });
 });
 
