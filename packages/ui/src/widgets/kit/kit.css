@@ -489,8 +489,8 @@
 
 .ni-pad {
   display: grid;
-  grid-template-columns: repeat(3, var(--target-big));
-  grid-auto-rows: var(--target-big);
+  grid-template-columns: repeat(3, var(--pad-key, var(--target-big)));
+  grid-auto-rows: var(--pad-key, var(--target-big));
   gap: var(--target-gap);
   margin: 0;
   padding: 0;
@@ -499,6 +499,13 @@
 }
 .ni-pad__gap {
   display: block;
+}
+/* Four columns: 1–4, 5–8, then 9 0 ⌫ (the empty decimal cell moves to the end). */
+.ni-pad[data-shape="4x3"] {
+  grid-template-columns: repeat(4, var(--pad-key, var(--target-big)));
+}
+.ni-pad[data-shape="4x3"] .ni-pad__gap {
+  order: 1;
 }
 .ni-pad__key {
   display: grid;
@@ -560,6 +567,13 @@
   outline-width: 4px;
   outline-offset: 2px;
   border-radius: var(--radius-pebble);
+}
+/*
+ * Pad keys sit only 12 px apart, so a key's invite ring is drawn inside it, just within its ink
+ * border: the ring then stays the full 12 px clear of the neighbouring keys (06 §4).
+ */
+.ni-pad__key.ni-invite {
+  outline-offset: -7px;
 }
 
 [data-reduced-motion="true"] .ni-pick,

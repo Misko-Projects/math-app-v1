@@ -281,6 +281,13 @@ export interface NumberPadKeysProps {
   highlighted?: PadKey | null;
   /** Speak a digit when its key is tapped (06 §5). Defaults to the child's speakOnTap. */
   speak?: boolean;
+  /**
+   * `'3x4'` (default): the phone-style 3 columns × 4 rows. `'4x3'`: 4 columns × 3 rows (1–4, 5–8,
+   * 9 0 ⌫), still twelve large keys, for a room too short for four rows of full-size keys. The
+   * key size is `--pad-key` (default `--target-big`); a short room may set it down to
+   * `--target-min`, never below.
+   */
+  shape?: '3x4' | '4x3';
 }
 
 const ROWS: (PadKey | null)[][] = [
@@ -329,6 +336,7 @@ export function NumberPadKeys({
   captureKeyboard = true,
   highlighted = null,
   speak,
+  shape = '3x4',
 }: NumberPadKeysProps) {
   const t = useNarrationText();
   const prefs = useUiPreferences();
@@ -365,7 +373,12 @@ export function NumberPadKeys({
   }, [captureKeyboard]);
 
   return (
-    <fieldset className="ni-pad" aria-label={t('ui.widget.pad')} disabled={disabled}>
+    <fieldset
+      className="ni-pad"
+      data-shape={shape}
+      aria-label={t('ui.widget.pad')}
+      disabled={disabled}
+    >
       {ROWS.flat().map((key, i) => {
         if (key === '.' && !allowDecimal) {
           // biome-ignore lint/suspicious/noArrayIndexKey: an empty pad cell keeps the 3 × 4 grid

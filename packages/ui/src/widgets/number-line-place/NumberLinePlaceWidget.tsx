@@ -1,10 +1,12 @@
 import { formatModel } from '@number-island/engine';
 import type { ResponseValue, WidgetAction } from '@number-island/shared';
 import {
+  type CSSProperties,
   type KeyboardEvent,
   type MouseEvent,
   type ReactNode,
   type PointerEvent as ReactPointerEvent,
+  type RefObject,
   useLayoutEffect,
   useRef,
   useState,
@@ -17,8 +19,8 @@ import {
   useSpeech,
   useUiPreferences,
 } from '../../preferences/UiProvider';
-import { HandPointerIcon } from '../../primitives/icons';
 import { NumberDisplay } from '../../primitives/NumberDisplay';
+import { type AgeMode, MIN_TARGET_PX } from '../../tokens/tokens';
 import { useWidgetDemo } from '../demo';
 import {
   applyPadKey,
@@ -34,7 +36,10 @@ import {
   stepsBetween,
   useAlive,
   useDemoPause,
+  useInviteHand,
   useSubmitGuard,
+  useWidgetRoom,
+  type WidgetRoom,
 } from '../kit';
 import type { ConfigFor, WidgetProps } from '../types';
 import './number-line-place.css';
@@ -45,13 +50,26 @@ import './number-line-place.css';
  * - `place`: a flag carrying the target number waits in its sand dock. The child drags it onto the
  *   line (mouse, touch or pen), taps a spot on the line (tap-to-place, with or without picking the
  *   flag up first), or uses the keyboard (Enter on the flag or Tab to the line, arrows move a ghost
- *   pin by a tick or 1% of the line, Enter plants the flag). With `snap: 'tick'` it lands on the nearest tick. "Check" answers
- *   `{ kind: 'placement', value }` (config units: hundredths with `valueScale: 100`).
+ *   pin by a tick or 1% of the line, Enter plants the flag). With `snap: 'tick'` it lands on the
+ *   nearest tick. "Check" answers `{ kind: 'placement', value }` (config units: hundredths with
+ *   `valueScale: 100`).
  * - `read`: an arrow points at a spot; the child types its number on the pad → `number`.
  * - `closer`: the target sits between two benchmarks; the child picks one → `choice` `b0` | `b1`.
  *
  * The widget never shows how close a placement is: the engine reports closeness, and the workshop
  * shows hot/cold after the check. `vertical: true` draws a thermometer-like upright line.
+ *
+ * Layout (06 §1, container-relative): the widget measures its room (`useWidgetRoom`). With room
+ * to spare the line runs across the top with the controls under it (`stack`); in a short room
+ * (960 × 600 leaves 852 × 319) the controls stand beside the line (`side`: the flag's dock on the
+ * left, Check on the right; the pad on the right in `read`). The line takes whatever width is left
+ * (measured, so its ticks and numerals are drawn at their real pixel size); the pad keeps full-size
+ * keys and turns into four columns of three rows when four rows would not fit.
+ *
+ * Invites (03 §6.3) ring ONE enabled control and Pip's hand (kit `useInviteHand`) points at it,
+ * only while the child can act: in `place` every op invites the flag (the child's step is always
+ * to plant it), then Check once an `answer` value is planted; in `read` the next pad key (minus
+ * first below zero), then Check; in `closer` the benchmark card, then Check.
  *
  * Demo ops: `drop {at}`, `show-tick {at}`, `count-ticks {from, to}`, `zoom {from, to}`, `answer`.
  */
@@ -66,11 +84,106 @@ type Config = ConfigFor<'number-line-place'>;
 type MarkerId = 'marker';
 type TargetId = 'line';
 
-/** Line stage sizes (px). Numerals stay 32 px; the line is drawn at a fixed size (kit rule). */
-const WIDE = 1040;
-const NARROW = 700;
-const TALL = 470;
+/** The longest line worth drawing, and the shortest the widget accepts, in px. */
+const LINE_MAX = 1040;
+const LINE_MIN = 360;
+const TALL_MAX = 470;
+const TALL_MIN = 280;
 const VERTICAL_W = 330;
+/** Space between the widget's parts and around them, in px (06 §4: ≥ 12 between targets). */
+const GAP = 24;
+const PAD_EDGE = 8;
+
+// ---------- layout ----------
+
+type Layout = 'stack' | 'side';
+
+interface Plan {
+  layout: Layout;
+  /** The number pad (read mode): its shape and key cell size (a key is 4 px shorter: its ledge). */
+  pad: { shape: '3x4' | '4x3'; key: number };
+  /** Height of an upright line's stage. */
+  tall: number;
+}
+
+/** Rendered sizes of the kit controls per age mode (06 §4; primitives.css / kit.css). */
+function sizes(age: AgeMode) {
+  const target = MIN_TARGET_PX[age];
+  const big = age === 'k' ? 96 : 76;
+  return {
+    target,
+    big,
+    /** CheckButton (BigButton plus its 6 px ledge). */
+    checkH: big + 6,
+    /** The flag's dock: the flag (sign, post, pin) in a sand box. */
+    dockH: target + 84,
+    /** A benchmark card (closer). */
+    cardH: Math.round(target * 1.4),
+    /** The answer display. */
+    readoutH: big + 6,
+  };
+}
+
+/** The flag above the line: sign, post and pin, plus room for its rings. */
+const headroomFor = (c: Config, target: number) =>
+  c.mode === 'place' ? target + 48 + 16 : c.mode === 'closer' ? 92 : 92;
+/** Below the line: the numerals (or the end numbers of an estimation line). */
+const BELOW = 64;
+
+function padSize(shape: '3x4' | '4x3', key: number) {
+  const cols = shape === '3x4' ? 3 : 4;
+  const rows = shape === '3x4' ? 4 : 3;
+  return { w: cols * key + (cols - 1) * 12, h: rows * key + (rows - 1) * 12 };
+}
+
+/**
+ * Stack when everything fits under the line; otherwise side by side. The pad keeps the big keys
+ * when they fit the room's height, else the minimum (plus the key's 4 px ledge), else 4 × 3.
+ */
+function planLayout(c: Config, room: WidgetRoom | null, age: AgeMode): Plan {
+  const s = sizes(age);
+  const H = (room?.height ?? Number.POSITIVE_INFINITY) - 2 * PAD_EDGE;
+  const stageH = headroomFor(c, s.target) + BELOW;
+  const minKey = s.target + 4;
+  const pick = (avail: number): Plan['pad'] => {
+    if (padSize('3x4', s.big).h <= avail) return { shape: '3x4', key: s.big };
+    if (padSize('3x4', minKey).h <= avail) return { shape: '3x4', key: minKey };
+    return { shape: '4x3', key: minKey };
+  };
+  let stackH: number;
+  if (c.mode === 'place') stackH = stageH + GAP + Math.max(s.dockH, s.checkH);
+  else if (c.mode === 'closer') stackH = stageH + GAP + Math.max(s.cardH, s.checkH);
+  else stackH = stageH + GAP + s.readoutH + GAP + padSize('3x4', s.big).h;
+  const vertical = c.vertical;
+  const tall = Math.max(TALL_MIN, Math.min(TALL_MAX, Number.isFinite(H) ? H : TALL_MAX));
+  if (!vertical && stackH <= H) return { layout: 'stack', pad: pick(H), tall };
+  // Side by side: the pad has the room's full height (read), next to the line and its readout.
+  return { layout: 'side', pad: pick(H), tall };
+}
+
+/**
+ * Width of an element's content box, kept up to date (null until measured). Measured after every
+ * render (a layout change re-plans the grid before paint) and whenever the element resizes.
+ */
+function useWidth(ref: RefObject<HTMLElement | null>): number | null {
+  const [w, setW] = useState<number | null>(null);
+  const measure = useRef(() => {});
+  measure.current = () => {
+    const el = ref.current;
+    if (!el) return;
+    const next = Math.floor(el.clientWidth);
+    setW((prev) => (prev === next ? prev : next));
+  };
+  useLayoutEffect(() => measure.current());
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (!el || typeof ResizeObserver === 'undefined') return;
+    const ro = new ResizeObserver(() => measure.current());
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [ref]);
+  return w;
+}
 
 // ---------- geometry: horizontal (kit NumberLineView) or vertical (thermometer) ----------
 
@@ -96,7 +209,7 @@ function horizontalGeo(c: Config, width: number, headroom: number, fmt: Fmt): Li
   return {
     vertical: false,
     width,
-    height: headroom + 64,
+    height: headroom + BELOW,
     at: (v) => ({ x: s.x(v), y: s.lineY }),
     valueAt: (p) => s.value(p.x),
     span: (a, b) => Math.abs(s.x(b) - s.x(a)),
@@ -106,14 +219,14 @@ function horizontalGeo(c: Config, width: number, headroom: number, fmt: Fmt): Li
 const V_PAD = 40;
 const V_AXIS_X = 170;
 
-function verticalGeo(c: Config): LineGeo {
-  const inner = TALL - 2 * V_PAD;
+function verticalGeo(c: Config, tall: number): LineGeo {
+  const inner = tall - 2 * V_PAD;
   const range = c.max - c.min || 1;
   const y = (v: number) => V_PAD + ((c.max - v) / range) * inner;
   return {
     vertical: true,
     width: VERTICAL_W,
-    height: TALL,
+    height: tall,
     at: (v) => ({ x: V_AXIS_X, y: y(v) }),
     valueAt: (p) => c.max - ((p.y - V_PAD) / inner) * range,
     span: (a, b) => Math.abs(y(b) - y(a)),
@@ -152,7 +265,7 @@ function landing(c: Config, at: number): number {
   return r?.kind === 'placement' ? r.value : free;
 }
 
-/** Numbers drawn on the line: the kit's stride for horizontal lines, an even stride upright. */
+/** Numbers drawn on an upright line: an even stride, so the pattern stays regular. */
 function verticalLabels(c: Config, geo: LineGeo): number[] {
   const every = c.labelsEvery;
   const base = every ? stepsBetween(c.min, c.max, every) : [];
@@ -163,7 +276,7 @@ function verticalLabels(c: Config, geo: LineGeo): number[] {
   return base.filter((v) => Math.abs(v / unit - Math.round(v / unit)) < 1e-6);
 }
 
-// ---------- the flag marker (original art: a sand-coloured sign on a driftwood post) ----------
+// ---------- the flag marker (original art: a sunshine sign on a driftwood post) ----------
 
 function FlagSign({ text, vertical }: { text: string; vertical: boolean }) {
   return (
@@ -206,7 +319,7 @@ function VerticalLine({
       aria-hidden="true"
       focusable="false"
     >
-      {/* Thermometer bulb and tube behind the axis (sand glass, ink outline). */}
+      {/* Thermometer bulb and tube behind the axis (cloud glass, ink outline). */}
       <rect
         className="ni-nlp__tube"
         x={V_AXIS_X - 16}
@@ -215,7 +328,7 @@ function VerticalLine({
         height={bottom.y - top.y + 40}
         rx={16}
       />
-      <circle className="ni-nlp__tube" cx={V_AXIS_X} cy={bottom.y + 22} r={22} />
+      <circle className="ni-nlp__tube" cx={V_AXIS_X} cy={bottom.y + 18} r={20} />
       <line
         className="ni-numberline__axis"
         x1={V_AXIS_X}
@@ -259,6 +372,45 @@ interface Counting {
   bubbles: boolean;
 }
 
+/** Where an invite points: one pressable control. */
+type Cue =
+  | { at: 'marker' }
+  | { at: 'check' }
+  | { at: 'key'; key: PadKey }
+  | { at: 'minus' }
+  | { at: 'bench'; id: 'b0' | 'b1' };
+
+/** The pressable element a cue points at (found by dataset, never a selector built from data). */
+function cueTarget(root: HTMLElement, cue: Cue): HTMLElement | null {
+  switch (cue.at) {
+    case 'marker':
+      return root.querySelector<HTMLElement>('.ni-nlp__marker');
+    case 'check':
+      return root.querySelector<HTMLElement>('.ni-nlp__checkslot .ni-btn');
+    case 'minus':
+      return root.querySelector<HTMLElement>('.ni-nlp__sign-toggle');
+    case 'key':
+      return (
+        [...root.querySelectorAll<HTMLElement>('.ni-pad__key')].find(
+          (k) => k.dataset.key === cue.key,
+        ) ?? null
+      );
+    case 'bench':
+      return (
+        [...root.querySelectorAll<HTMLElement>('.ni-nlp__choices .ni-pick')].find(
+          (k) => k.dataset.id === cue.id,
+        ) ?? null
+      );
+  }
+}
+
+const cueKeyOf = (cue: Cue | null) => {
+  if (!cue) return '';
+  if (cue.at === 'key') return `key:${cue.key}`;
+  if (cue.at === 'bench') return `bench:${cue.id}`;
+  return cue.at;
+};
+
 export function NumberLinePlaceWidget({
   config,
   tier,
@@ -269,7 +421,7 @@ export function NumberLinePlaceWidget({
 }: WidgetProps<Config>) {
   const t = useNarrationText();
   const { sayNumber } = useSpeech();
-  const { speakOnTap } = useUiPreferences();
+  const { speakOnTap, ageMode } = useUiPreferences();
   const reduced = useReducedMotion();
   const trace = useInteractionTrace(onInteract);
   const alive = useAlive();
@@ -297,16 +449,25 @@ export function NumberLinePlaceWidget({
   const [flight, setFlight] = useState<DOMRect | null>(null);
 
   const interactive = !disabled && !demoBusy;
+  const rootRef = useRef<HTMLDivElement | null>(null);
+  const laneRef = useRef<HTMLDivElement | null>(null);
   const stageRef = useRef<HTMLDivElement | null>(null);
   const markerRef = useRef<HTMLElement | null>(null);
   const anchorRef = useRef<HTMLDivElement | null>(null);
   const pendingDrop = useRef<number | null>(null);
   const pendingTap = useRef<number | null>(null);
 
-  const headroom = mode === 'place' ? 136 : 92;
+  // ---------- layout ----------
+
+  const room = useWidgetRoom(rootRef);
+  const plan = planLayout(c, room, ageMode);
+  const s = sizes(ageMode);
+  const laneW = useWidth(laneRef);
+  const headroom = headroomFor(c, s.target);
+  const lineW = Math.max(LINE_MIN, Math.min(LINE_MAX, laneW ?? LINE_MAX));
   const geo: LineGeo = vertical
-    ? verticalGeo(c)
-    : horizontalGeo(c, mode === 'read' ? NARROW : WIDE, headroom, fmt);
+    ? verticalGeo(c, plan.tall)
+    : horizontalGeo(c, lineW, headroom, fmt);
   const step =
     c.snap === 'tick' && c.ticksEvery
       ? c.ticksEvery
@@ -328,10 +489,7 @@ export function NumberLinePlaceWidget({
       : valueAtClient(r.left + r.width / 2, r.bottom);
   };
 
-  const plant = (raw: number) => {
-    setInvite(null);
-    setPlaced(landing(c, raw));
-  };
+  const plant = (raw: number) => setPlaced(landing(c, raw));
 
   const dnd = useDragToTarget<MarkerId, TargetId>({
     disabled: !interactive || mode !== 'place',
@@ -429,14 +587,12 @@ export function NumberLinePlaceWidget({
   const onKey = (key: PadKey) => {
     if (!interactive) return;
     trace('tap', `key-${key}`);
-    setInvite(null);
     setTyped((prev) => applyPadKey(prev, key, maxDigits));
   };
 
   const pickBenchmark = (id: 'b0' | 'b1') => {
     if (!interactive) return;
     trace('tap', id);
-    setInvite(null);
     const b = c.benchmarks?.[id === 'b0' ? 0 : 1];
     if (speakOnTap && b !== undefined) sayNumber(showValue(b));
     setChoice(id);
@@ -446,14 +602,14 @@ export function NumberLinePlaceWidget({
 
   const response = (): ResponseValue | null => {
     if (!MODEL) return null;
-    let s = MODEL.initialState(c);
+    let st = MODEL.initialState(c);
     if (mode === 'place' && placed !== null)
-      s = MODEL.apply(s, { op: 'answer', args: { value: placed } });
+      st = MODEL.apply(st, { op: 'answer', args: { value: placed } });
     if (mode === 'read' && typedValue !== null)
-      s = MODEL.apply(s, { op: 'answer', args: { value: typedValue } });
+      st = MODEL.apply(st, { op: 'answer', args: { value: typedValue } });
     if (mode === 'closer' && choice !== null)
-      s = MODEL.apply(s, { op: 'answer', args: { id: choice } });
-    return MODEL.toResponse(s);
+      st = MODEL.apply(st, { op: 'answer', args: { id: choice } });
+    return MODEL.toResponse(st);
   };
   const ready = response() !== null;
   // One debounce for every way to submit (Check button, desktop Enter): 06 §4.
@@ -479,7 +635,7 @@ export function NumberLinePlaceWidget({
     const from = markerRef.current?.getBoundingClientRect() ?? null;
     setPlaced(landing(c, at));
     if (!reduced) setFlight(from);
-    await pause(FLY_MS + 80);
+    await pause(reduced ? 0 : FLY_MS + 80);
   };
 
   const typeValue = async (v: number) => {
@@ -490,14 +646,14 @@ export function NumberLinePlaceWidget({
     setTyped('');
     for (const ch of chars) {
       setPressedKey(ch);
-      await pause(KEY_MS);
+      await pause(reduced ? 0 : KEY_MS);
       if (!alive.current) return;
       text = applyPadKey(text, ch, maxDigits + 1);
       setTyped(text);
     }
     setPressedKey(null);
     // Let the last digit show before the op resolves.
-    await pause(KEY_MS);
+    await pause(reduced ? 0 : KEY_MS);
   };
 
   const num = (a: WidgetAction, key: string) => {
@@ -509,7 +665,6 @@ export function NumberLinePlaceWidget({
     ops: OPS,
     play: async (action) => {
       setDemoBusy(true);
-      setInvite(null);
       try {
         if (action.op === 'drop') {
           const at = num(action, 'at');
@@ -520,7 +675,7 @@ export function NumberLinePlaceWidget({
           setShownTicks((prev) => (prev.includes(at) ? prev : [...prev, at]));
           setPulse(at);
           sayNumber(showValue(at));
-          await pause(900);
+          await pause(reduced ? 0 : 900);
           if (alive.current) setPulse(null);
         } else if (action.op === 'count-ticks') {
           const a = num(action, 'from');
@@ -537,7 +692,7 @@ export function NumberLinePlaceWidget({
             await pause(reduced ? 0 : COUNT_MS);
             if (!alive.current) return;
           }
-          await pause(600);
+          await pause(reduced ? 0 : 600);
           if (!alive.current) return;
           // The counted stretch stays marked; the count bubbles go, so the flag can be planted.
           setCounting({ ticks: run, shown: run.length - 1, bubbles: false });
@@ -546,13 +701,13 @@ export function NumberLinePlaceWidget({
           const b = num(action, 'to');
           if (a === null || b === null) return;
           setZoom({ from: Math.min(a, b), to: Math.max(a, b) });
-          await pause(900);
+          await pause(reduced ? 0 : 900);
         } else if (action.op === 'answer') {
           if (mode === 'closer') {
             const id = action.args?.id;
             if (id === 'b0' || id === 'b1') {
               setPulse(c.benchmarks?.[id === 'b0' ? 0 : 1] ?? null);
-              await pause(700);
+              await pause(reduced ? 0 : 700);
               if (!alive.current) return;
               setChoice(id);
               setPulse(null);
@@ -565,23 +720,57 @@ export function NumberLinePlaceWidget({
           }
         }
       } finally {
-        setPressedKey(null);
-        setDemoBusy(false);
+        if (alive.current) {
+          setPressedKey(null);
+          setDemoBusy(false);
+        }
       }
     },
     invite: (action) => setInvite(action),
   });
+
+  // ---------- the invite: ONE enabled control, only while the child can act ----------
+
+  const cue: Cue | null = (() => {
+    if (!invite || !interactive || !OPS.includes(invite.op as (typeof OPS)[number])) return null;
+    const check: Cue | null = ready ? { at: 'check' } : null;
+    if (mode === 'place') {
+      if (invite.op === 'answer') {
+        const v = num(invite, 'value');
+        const want = v === null ? null : landing(c, v);
+        if (placed !== null && (want === null || placed === want)) return check;
+        return { at: 'marker' };
+      }
+      // Whatever the demo showed, the child's step is to plant the flag.
+      return placed === null ? { at: 'marker' } : null;
+    }
+    if (invite.op !== 'answer') return null;
+    if (mode === 'closer') {
+      const id = invite.args?.id;
+      if (id !== 'b0' && id !== 'b1') return check;
+      return choice === id ? check : { at: 'bench', id };
+    }
+    // read: the next key of the value (minus first below zero), backspace after a wrong digit.
+    const v = num(invite, 'value');
+    if (v === null) return check;
+    const shown = showValue(v);
+    if (shown < 0 !== negative) return c.min < 0 ? { at: 'minus' } : null;
+    const want = String(Math.abs(Number(shown.toFixed(2))));
+    if (typed === want) return check;
+    if (want.startsWith(typed)) return { at: 'key', key: want[typed.length] as PadKey };
+    return { at: 'key', key: 'back' };
+  })();
+  const { hand: inviteHand, rootStyle: handRootStyle } = useInviteHand(
+    rootRef,
+    (root) => (cue ? cueTarget(root, cue) : null),
+    cue ? `${cueKeyOf(cue)}|${plan.layout}|${placed ?? ''}|${lineW}` : '',
+  );
 
   // ---------- render ----------
 
   const at = geo.at;
   const lineLo = at(c.min);
   const lineHi = at(c.max);
-  const inviteLine = invite !== null && ['show-tick', 'count-ticks', 'zoom'].includes(invite.op);
-  const inviteMarker =
-    invite !== null && mode === 'place' && ['drop', 'answer'].includes(invite.op);
-  const inviteAnswer = invite?.op === 'answer' && mode !== 'place';
-  const inviteChoice = inviteAnswer && mode === 'closer' ? (invite?.args?.id as string) : null;
 
   /** SVG extras in stage coordinates (the same for both orientations). */
   const extras = () => {
@@ -619,8 +808,8 @@ export function NumberLinePlaceWidget({
             key={`end${v}`}
             className="ni-numberline__numeral"
             x={at(v).x}
-            y={at(v).y + 18 + 32 * 0.9}
-            fontSize={32}
+            y={at(v).y + 18 + 40 * 0.9}
+            fontSize={40}
             textAnchor="middle"
           >
             {fmt(v)}
@@ -638,6 +827,34 @@ export function NumberLinePlaceWidget({
             />,
           );
         }
+      }
+    }
+    // Benchmarks are labelled numbers on the line (CMP.06: "look at the numbers you see"): a
+    // long tick, and its numeral under the line unless the line already prints it.
+    if (!vertical && c.benchmarks) {
+      const printed = (v: number) =>
+        c.labelsEvery === null
+          ? v === c.min || v === c.max
+          : Math.abs(v / c.labelsEvery - Math.round(v / c.labelsEvery)) < 1e-6;
+      for (const b of c.benchmarks) {
+        if (b < c.min || b > c.max) continue;
+        const p = at(b);
+        out.push(
+          <g key={`bm${b}`} className="ni-nlp__benchmark" data-at={b}>
+            <line x1={p.x} x2={p.x} y1={p.y - 20} y2={p.y + 20} />
+            {printed(b) ? null : (
+              <text
+                className="ni-numberline__numeral"
+                x={p.x}
+                y={p.y + 18 + 40 * 0.9}
+                fontSize={40}
+                textAnchor="middle"
+              >
+                {fmt(b)}
+              </text>
+            )}
+          </g>,
+        );
       }
     }
     for (const v of shownTicks) {
@@ -787,7 +1004,13 @@ export function NumberLinePlaceWidget({
 
   // The invite pulse goes on the flag, not its anchor: the pulse animates `transform`, which
   // positions the anchor.
-  const markerClass = `${markerProps.className} ni-nlp__marker${inviteMarker ? ' ni-invite' : ''}`;
+  const markerClass = [
+    markerProps.className,
+    'ni-nlp__marker',
+    cue?.at === 'marker' ? 'ni-invite' : '',
+  ]
+    .filter(Boolean)
+    .join(' ');
   const markerEl = (
     <div
       {...markerProps}
@@ -802,17 +1025,15 @@ export function NumberLinePlaceWidget({
       <FlagSign text={fmt(c.target)} vertical={vertical} />
     </div>
   );
-  const hand = (cls: string) => (
-    <span className={`ni-hand ${cls}`}>
-      <HandPointerIcon />
-    </span>
-  );
 
   const stage = (
     <div
       ref={stageRef}
       className="ni-nlp__stage"
       data-orient={vertical ? 'v' : 'h'}
+      data-line-width={geo.width}
+      data-headroom={vertical ? undefined : headroom}
+      data-tall={vertical ? geo.height : undefined}
       style={{ width: geo.width, height: geo.height }}
     >
       {line}
@@ -820,9 +1041,7 @@ export function NumberLinePlaceWidget({
         <button
           {...stripProps}
           type="button"
-          className={[stripProps.className, 'ni-nlp__strip', inviteLine ? 'ni-invite' : '']
-            .filter(Boolean)
-            .join(' ')}
+          className={[stripProps.className, 'ni-nlp__strip'].filter(Boolean).join(' ')}
           aria-disabled={interactive ? undefined : true}
           style={strip}
           onClick={onStripClick}
@@ -830,8 +1049,6 @@ export function NumberLinePlaceWidget({
           onFocus={() => setCursor(placed ?? c.min)}
           onBlur={() => setCursor(null)}
         />
-      ) : inviteLine ? (
-        <div className="ni-nlp__strip ni-invite" style={strip} aria-hidden="true" />
       ) : null}
       {mode === 'place' && placed !== null ? (
         <div
@@ -843,37 +1060,17 @@ export function NumberLinePlaceWidget({
           style={{ left: at(placed).x, top: at(placed).y }}
         >
           {markerEl}
-          {inviteMarker ? hand('ni-nlp__hand') : null}
         </div>
       ) : null}
     </div>
   );
-
-  const dock =
-    mode === 'place' ? (
-      <div className="ni-nlp__dock" data-empty={placed !== null ? 'true' : undefined}>
-        {placed === null ? (
-          <div
-            ref={anchorRef}
-            className="ni-nlp__anchor"
-            data-docked="true"
-            data-orient={vertical ? 'v' : 'h'}
-          >
-            {markerEl}
-            {inviteMarker ? hand('ni-nlp__hand') : null}
-          </div>
-        ) : (
-          <span className="ni-nlp__dockspot" aria-hidden="true" />
-        )}
-      </div>
-    ) : null;
 
   const check = (
     <span className="ni-nlp__checkslot">
       <CheckButton
         onPress={submit}
         disabled={!interactive || !ready}
-        invited={inviteAnswer && mode === 'read'}
+        invited={cue?.at === 'check'}
       />
     </span>
   );
@@ -881,19 +1078,34 @@ export function NumberLinePlaceWidget({
   let controls: ReactNode;
   if (mode === 'place') {
     controls = (
-      <div className="ni-nlp__controls">
-        {dock}
+      <>
+        <div className="ni-nlp__dock" data-empty={placed !== null ? 'true' : undefined}>
+          {placed === null ? (
+            <div
+              ref={anchorRef}
+              className="ni-nlp__anchor"
+              data-docked="true"
+              data-orient={vertical ? 'v' : 'h'}
+            >
+              {markerEl}
+            </div>
+          ) : (
+            <span className="ni-nlp__dockspot" aria-hidden="true" />
+          )}
+        </div>
         {check}
-      </div>
+      </>
     );
   } else if (mode === 'read') {
     controls = (
-      <div className="ni-nlp__pad">
+      <>
         <div className="ni-nlp__readout">
           {c.min < 0 ? (
             <button
               type="button"
-              className="ni-nlp__sign-toggle"
+              className={['ni-nlp__sign-toggle', cue?.at === 'minus' ? 'ni-invite' : '']
+                .filter(Boolean)
+                .join(' ')}
               aria-label={t('ui.nlp.minus')}
               aria-pressed={negative}
               disabled={!interactive}
@@ -902,7 +1114,9 @@ export function NumberLinePlaceWidget({
                 setNegative((n) => !n);
               }}
             >
-              <span aria-hidden="true">−</span>
+              <span className="ni-btn__label" aria-hidden="true">
+                −
+              </span>
             </button>
           ) : null}
           <NumberDisplay
@@ -915,19 +1129,22 @@ export function NumberLinePlaceWidget({
           />
           {check}
         </div>
-        <NumberPadKeys
-          onKey={onKey}
-          onEnter={submit}
-          allowDecimal={allowDecimal}
-          disabled={!interactive}
-          highlighted={pressedKey}
-        />
-      </div>
+        <div className="ni-nlp__padcell">
+          <NumberPadKeys
+            onKey={onKey}
+            onEnter={submit}
+            allowDecimal={allowDecimal}
+            disabled={!interactive}
+            highlighted={pressedKey ?? (cue?.at === 'key' ? cue.key : null)}
+            shape={plan.pad.shape}
+          />
+        </div>
+      </>
     );
   } else {
     const [b0, b1] = c.benchmarks ?? [c.min, c.max];
     controls = (
-      <div className="ni-nlp__controls" data-mode="closer">
+      <>
         <fieldset
           className="ni-nlp__choices"
           aria-label={t('ui.widget.choices')}
@@ -939,35 +1156,45 @@ export function NumberLinePlaceWidget({
               ['b1', b1],
             ] as const
           ).map(([id, v]) => (
-            <span key={id} className="ni-nlp__choice">
-              <PickCard
-                label={fmt(v)}
-                selected={choice === id}
-                highlighted={inviteChoice === id}
-                data-id={id}
-                onPress={() => pickBenchmark(id)}
-              >
-                <span className="ni-pick__numeral">{fmt(v)}</span>
-              </PickCard>
-              {inviteChoice === id ? hand('ni-nlp__choicehand') : null}
-            </span>
+            <PickCard
+              key={id}
+              label={fmt(v)}
+              selected={choice === id}
+              highlighted={cue?.at === 'bench' && cue.id === id}
+              data-id={id}
+              onPress={() => pickBenchmark(id)}
+            >
+              <span className="ni-pick__numeral">{fmt(v)}</span>
+            </PickCard>
           ))}
         </fieldset>
         {check}
-      </div>
+      </>
     );
   }
 
   return (
     <div
+      ref={rootRef}
       className="ni-nlp"
       data-tier={tier}
       data-mode={mode}
       data-orient={vertical ? 'v' : 'h'}
+      data-layout={plan.layout}
+      data-pad-shape={mode === 'read' ? plan.pad.shape : undefined}
       data-disabled={disabled ? 'true' : undefined}
+      style={
+        {
+          '--pad-key': `${plan.pad.key}px`,
+          ...handRootStyle,
+        } as CSSProperties
+      }
     >
-      {stage}
+      <div ref={laneRef} className="ni-nlp__lane">
+        {stage}
+      </div>
       {controls}
+      {inviteHand}
     </div>
   );
 }
