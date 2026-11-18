@@ -67,9 +67,12 @@ useWidgetDemo(demo, {
   drag has a tap-to-select → tap-to-place alternative and a keyboard path (Enter/Space, arrow keys,
   Escape). Tap-only mode and the snap radius come from the child's settings through `UiProvider`.
   A mis-drop glides home with no penalty (06 §4). The hook moves an item with the CSS
-  `translate` property (via `--ni-drag-x` / `--ni-drag-y`) and the `data-held` /
-  `data-dragging` attributes. It never touches the item's inline `transform` or `transition`, so
-  a widget may tilt or animate its items freely. Just don't set `translate` on them.
+  `translate` property (via `--ni-drag-x` / `--ni-drag-y`). The glide home is a Web Animations API
+  animation on `translate`, and `data-dragging` gives the lifted look. It never touches the item's
+  `transform`, `transition` or `position`, and snapping measures where the item is actually drawn.
+  So a widget may tilt, position or animate its items freely. Don't set or transition `translate`
+  itself, and lay items out in a flex or grid container so the dragged item's z-index lifts it
+  above its neighbours.
 - **Targets never contain items as DOM children.** Render the drop target as a pad behind the
   items, so items stay separate buttons (axe `nested-interactive`).
 - **Sizes:** hit targets use `var(--target-min)` (80 px for K, 64 px from G1), with

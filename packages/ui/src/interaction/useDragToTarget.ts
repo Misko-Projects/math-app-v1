@@ -6,7 +6,7 @@ import {
   useRef,
 } from 'react';
 import { useUiPreferences } from '../preferences/UiProvider';
-import { DRAG_START_PX } from '../tokens/tokens';
+import { DRAG_START_PX, DURATION_MS } from '../tokens/tokens';
 import { findSnapTarget, rectCenter, type SnapCandidate } from './snap';
 import {
   isElementDisabled,
@@ -50,23 +50,38 @@ interface ActiveDrag<I extends string> {
   /** The drag offset the item already had at pointerdown (non-zero only mid-glide home). */
   base: { x: number; y: number };
   dragging: boolean;
-  /** The item's rendered centre when the drag started; it then moves by exactly (dx, dy). */
-  startCenter: { x: number; y: number } | null;
   over: string | null;
   cleanup: () => void;
 }
 
 /*
- * How the item moves. The hook never writes the item's inline `transform` or `transition`, which
- * belong to the widget (a tilt, its own animation). It sets only two custom properties that
- * .ni-draggable maps to the independent CSS `translate` property, and two data attributes:
- * - `data-held`: pressed; the translate transition is off so the item stays exactly under the
- *   finger (a glide home in progress stops where it is);
- * - `data-dragging`: dragging (lifted look).
- * Clearing the offset without `data-held` lets the CSS transition glide the item home.
+ * How the item moves. The hook touches none of the item's styles that a widget may use (inline
+ * `transform`, `transition`, `position`). It sets two custom properties that .ni-draggable maps to
+ * the independent CSS `translate` property, and `data-dragging` for the lifted look. The glide
+ * home after a mis-drop is a Web Animations API animation on `translate` (id `ni-glide`), so it
+ * doesn't depend on any CSS transition; a press mid-glide cancels it where the item is drawn.
+ * Snapping always measures the item's rendered rect, so it matches what the child sees.
  */
 const OFFSET_X = '--ni-drag-x';
 const OFFSET_Y = '--ni-drag-y';
+const GLIDE_ID = 'ni-glide';
+const GLIDE_EASING = 'cubic-bezier(0.2, 0.8, 0.2, 1)';
+
+function cancelGlide(el: HTMLElement | SVGElement) {
+  for (const a of el.getAnimations()) if (a.id === GLIDE_ID) a.cancel();
+}
+
+/** Clears the offset and animates the item home from `from` (instantly with reduced motion). */
+function glideHome(el: HTMLElement | SVGElement, from: { x: number; y: number }, ms: number) {
+  cancelGlide(el);
+  setOffset(el, 0, 0);
+  if (ms <= 0 || (from.x === 0 && from.y === 0)) return;
+  el.animate([{ translate: `${from.x}px ${from.y}px` }, { translate: '0px 0px' }], {
+    duration: ms,
+    easing: GLIDE_EASING,
+    id: GLIDE_ID,
+  });
+}
 
 function setOffset(el: HTMLElement | SVGElement, x: number, y: number) {
   if (x === 0 && y === 0) {
@@ -106,8 +121,9 @@ export function useDragToTarget<I extends string, T extends string>(
   const tapOnly = options.tapOnly ?? prefs.tapOnly;
   const core = usePlacementCore(options);
   const active = useRef<ActiveDrag<I> | null>(null);
-  const settings = useRef({ snapRadius, tapOnly, onMiss: options.onMiss });
-  settings.current = { snapRadius, tapOnly, onMiss: options.onMiss };
+  const glideMs = prefs.reducedMotion ? 0 : DURATION_MS.gentle;
+  const settings = useRef({ snapRadius, tapOnly, glideMs, onMiss: options.onMiss });
+  settings.current = { snapRadius, tapOnly, glideMs, onMiss: options.onMiss };
 
   const candidates = useCallback(
     (item: I): SnapCandidate<T>[] =>
@@ -131,8 +147,8 @@ export function useDragToTarget<I extends string, T extends string>(
 
   const snapTargetFor = useCallback(
     (drag: ActiveDrag<I>): T | null => {
-      if (!drag.startCenter) return null;
-      const center = { x: drag.startCenter.x + drag.dx, y: drag.startCenter.y + drag.dy };
+      // Where the item is drawn right now (layout, widget transform and drag offset included).
+      const center = rectCenter(drag.el.getBoundingClientRect());
       return findSnapTarget(center, candidates(drag.id), settings.current.snapRadius);
     },
     [candidates],
@@ -145,9 +161,10 @@ export function useDragToTarget<I extends string, T extends string>(
       active.current = null;
       drag.cleanup();
       if (!drag.dragging) {
-        // A tap or cancelled press: release the hold. An item stopped mid-glide glides on home.
-        drag.el.removeAttribute('data-held');
-        setOffset(drag.el, 0, 0);
+        // A tap or cancelled press. An item stopped mid-glide glides on home.
+        if (drag.base.x !== 0 || drag.base.y !== 0) {
+          glideHome(drag.el, drag.base, settings.current.glideMs);
+        }
         return;
       }
       core.suppressNextClick();
@@ -163,19 +180,15 @@ export function useDragToTarget<I extends string, T extends string>(
       const trace = core.latest.current.trace;
       if (target !== null) {
         trace?.('drop', target);
-        // The widget re-renders the item at its new home: drop the offset while still held (no
-        // glide), let that style apply, then release.
+        // The widget re-renders the item at its new home: drop the offset with no glide.
         setOffset(drag.el, 0, 0);
-        void getComputedStyle(drag.el).translate;
         drag.el.removeAttribute('data-dragging');
-        drag.el.removeAttribute('data-held');
         core.place(drag.id, target, 'drag');
       } else {
         trace?.('drop', 'none');
-        // Mis-drop: release and glide home gently (instant with reduced motion).
+        // Mis-drop: glide home gently (instant with reduced motion), no sound penalty.
         drag.el.removeAttribute('data-dragging');
-        drag.el.removeAttribute('data-held');
-        setOffset(drag.el, 0, 0);
+        glideHome(drag.el, renderedOffset(drag.el), settings.current.glideMs);
         settings.current.onMiss?.(drag.id);
       }
     },
@@ -205,10 +218,10 @@ export function useDragToTarget<I extends string, T extends string>(
       const el = core.items.get(id);
       if (!el || isElementDisabled(el)) return;
 
-      // Hold the item where it is drawn now: if it is still gliding home from a mis-drop, it stops
-      // under the finger instead of sliding away from it.
+      // Hold the item where it is drawn now: if it is still gliding home from a mis-drop, the glide
+      // stops under the finger instead of sliding away from it.
       const base = renderedOffset(el);
-      el.setAttribute('data-held', 'true');
+      cancelGlide(el);
       setOffset(el, base.x, base.y);
 
       const pointerId = e.pointerId;
@@ -221,10 +234,6 @@ export function useDragToTarget<I extends string, T extends string>(
           if (Math.hypot(drag.dx, drag.dy) < DRAG_START_PX) return;
           drag.dragging = true;
           drag.el.setAttribute('data-dragging', 'true');
-          // Where the item is drawn now (offset still `base`), whatever layout or widget transform
-          // got it there. Its offset becomes base + delta, so its centre is this plus the delta,
-          // and snapping matches what the child sees.
-          drag.startCenter = rectCenter(drag.el.getBoundingClientRect());
           core.select(null);
           core.latest.current.trace?.('drag', drag.id);
         }
@@ -257,7 +266,6 @@ export function useDragToTarget<I extends string, T extends string>(
         dy: 0,
         base,
         dragging: false,
-        startCenter: null,
         over: null,
         cleanup: () => {
           window.removeEventListener('pointermove', onMove);

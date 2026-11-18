@@ -11,6 +11,7 @@ import {
   touchDragAndHold,
   waitForSettled,
 } from '../test-support/storyHelpers';
+import { distanceToRect } from './snap';
 import { useInteractionTrace } from './trace';
 import { useDragToTarget } from './useDragToTarget';
 import { type PlaceEvent, useTapToPlace } from './useTapToPlace';
@@ -20,6 +21,8 @@ type Shell = 's1' | 's2' | 's3' | 's4';
 const SHELLS: Shell[] = ['s1', 's2', 's3', 's4'];
 /** A widget's own inline styles on shell 1 (the tiltFirst fixture): the drag hook must keep them. */
 const TILT = { transform: 'translateX(40px) rotate(12deg)', transition: 'opacity 300ms' };
+/** A widget whose shell transitions every property slowly (the laggyFirst fixture). */
+const LAGGY = { transition: 'all 2000ms linear' };
 const TONES = [
   'var(--color-shallows)',
   'var(--color-sunshine-light)',
@@ -65,6 +68,8 @@ interface PlaygroundProps {
   nativeButtons?: boolean;
   /** Test fixture: shell 1 carries its own inline transform (a widget's tilt). */
   tiltFirst?: boolean;
+  /** Test fixture: shell 1 transitions every property slowly (its drawn position lags). */
+  laggyFirst?: boolean;
   /** Test fixture: a control that shifts the pile's layout 80 px to the right. */
   shiftable?: boolean;
 }
@@ -78,6 +83,7 @@ function Playground({
   removable,
   nativeButtons,
   tiltFirst,
+  laggyFirst,
   shiftable,
 }: PlaygroundProps) {
   const text = useNarrationText();
@@ -134,7 +140,9 @@ function Playground({
                 {...props}
                 className={`${'className' in props ? props.className : ''} pg-shell`}
                 data-shell={s}
-                style={tiltFirst && s === 's1' ? TILT : undefined}
+                style={
+                  s === 's1' && tiltFirst ? TILT : s === 's1' && laggyFirst ? LAGGY : undefined
+                }
               >
                 <ShellArt i={i} />
               </div>
@@ -501,7 +509,10 @@ export const TransformedItemFollowsFinger: Story = {
   play: async ({ canvasElement, args }) => {
     const basket = pad(canvasElement, 'basket').getBoundingClientRect();
     const to = { x: basket.left + 30, y: basket.top + basket.height / 2 };
+    const positionBefore = getComputedStyle(shell(canvasElement, 's1')).position;
     const release = await touchDragAndHold(shell(canvasElement, 's1'), to);
+    // Dragging changes none of the widget's layout styles.
+    await expect(getComputedStyle(shell(canvasElement, 's1')).position).toBe(positionBefore);
     const now = center(shell(canvasElement, 's1'));
     await expect(Math.abs(now.x - to.x)).toBeLessThan(3);
     await expect(Math.abs(now.y - to.y)).toBeLessThan(3);
@@ -516,12 +527,43 @@ export const TransformedItemFollowsFinger: Story = {
 export const TapAfterMissKeepsInlineStyles: Story = {
   args: { tiltFirst: true },
   play: async ({ canvasElement, args }) => {
+    const home = shell(canvasElement, 's1').getBoundingClientRect();
     const basket = pad(canvasElement, 'basket').getBoundingClientRect();
     await pointerDrag(shell(canvasElement, 's1'), { x: basket.left - 90, y: basket.top - 60 });
     await expect(args.onMiss).toHaveBeenCalledWith('s1');
+    // Mid-glide (the widget's own inline transition must not cancel the glide home)…
+    await new Promise((r) => setTimeout(r, 40));
+    const mid = shell(canvasElement, 's1').getBoundingClientRect();
+    await expect(Math.abs(mid.left - home.left)).toBeGreaterThan(5);
+    // …a tap stops it, then it glides on home, and the widget's inline styles are untouched.
     await userEvent.click(shell(canvasElement, 's1'));
     await expect(shell(canvasElement, 's1').style.transform).toBe(TILT.transform);
     await expect(shell(canvasElement, 's1').style.transition).toBe(TILT.transition);
+    await waitFor(() => {
+      expect(
+        Math.abs(shell(canvasElement, 's1').getBoundingClientRect().left - home.left),
+      ).toBeLessThan(1);
+    });
+  },
+};
+
+/**
+ * A widget whose item transitions every property (so its drawn position lags the finger): the
+ * drop snaps by where the item is drawn, never by where it would be without the lag.
+ */
+export const SnapFollowsDrawnPosition: Story = {
+  args: { laggyFirst: true },
+  play: async ({ canvasElement, args }) => {
+    const basketRect = pad(canvasElement, 'basket').getBoundingClientRect();
+    const release = await touchDragAndHold(
+      shell(canvasElement, 's1'),
+      center(pad(canvasElement, 'basket')),
+    );
+    const drawn = center(shell(canvasElement, 's1'));
+    const inReach = distanceToRect(drawn, basketRect) <= 48;
+    await release();
+    await waitFor(() => expect(zoneOf(canvasElement, 's1')).toBe(inReach ? 'basket' : 'pile'));
+    await expect(args.onPlace).toHaveBeenCalledTimes(inReach ? 1 : 0);
   },
 };
 
