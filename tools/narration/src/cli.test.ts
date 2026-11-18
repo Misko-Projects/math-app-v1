@@ -69,7 +69,8 @@ describe('kokoro', () => {
     mode: 'interactive' as const,
     concurrency: 1,
     reserve: () => true,
-    onResult: async () => {},
+    onResult: async () => true,
+    complete: false,
     log: () => {},
     stateDir: tmpdir(),
     maxWaitMs: 0,
@@ -109,6 +110,7 @@ describe('kokoro', () => {
       ...ctx,
       onResult: async (o) => {
         results.push(o);
+        return true;
       },
     });
     expect(results).toMatchObject([{ id: 'a', ok: true }]);

@@ -49,11 +49,13 @@ function context(overrides: Partial<RenderContext> = {}) {
     reserve: () => true,
     onResult: async (o) => {
       results.push(o);
+      return true;
     },
     log: () => {},
     stateDir,
     maxWaitMs: 60_000,
     estimateUsd: () => 0.001,
+    complete: true,
     ...overrides,
   };
   return { ctx, results };
@@ -274,6 +276,7 @@ describe('geminiRenderer, batch', () => {
       ...first.ctx,
       onResult: async (o) => {
         results.push(o);
+        return true;
       },
     });
     expect(calls.filter((c) => c.method === 'POST')).toHaveLength(1);
@@ -391,13 +394,16 @@ describe('geminiRenderer, resuming and safety (review round 1)', () => {
       }),
     ).rejects.toThrow(/disk full/);
     const saved = JSON.parse(readFileSync(join(ctx.stateDir, 'gemini-batches.json'), 'utf8'));
-    expect(Object.keys(saved.jobs)).toEqual(['batches/job0']);
+    expect(Object.values(saved.jobs).map((j) => (j as { name: string }).name)).toEqual([
+      'batches/job0',
+    ]);
     // The re-run adopts the saved job and gets both results without a new POST.
     const results: TtsOutcome[] = [];
     await r.render(requests, {
       ...ctx,
       onResult: async (o) => {
         results.push(o);
+        return true;
       },
     });
     expect(server.posts).toEqual(['batches/job0']);

@@ -238,7 +238,7 @@ describe('runPipeline with the stub provider', () => {
       async render(requests, ctx) {
         for (const r of requests) {
           await ctx.onResult(
-            r.id === 'fb.correct.1#0'
+            r.text === 'You did it!'
               ? { id: r.id, ok: false, error: 'boom' }
               : { id: r.id, ok: true, wav: stubWav(50) },
           );

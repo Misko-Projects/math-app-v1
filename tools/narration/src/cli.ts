@@ -4,6 +4,7 @@
 //   pnpm narration:render [--dry-run] [--provider gemini|kokoro|stub] [--max-usd 5]
 //                         [--mode auto|interactive|batch] [--concurrency 4] [--max-wait-min 240]
 //                         [--out <dir>] [--format opus|wav] [--only <clip-id regex>]
+//                         [--abandon-unconfirmed-batches]
 //   pnpm narration:audition [--provider gemini|kokoro|stub] [--max-usd 0.5]
 //
 // The Gemini key comes from GEMINI_API_KEY, else from the user-owned secrets file
@@ -138,6 +139,11 @@ export function formatReport(r: PipelineReport, dryRun: boolean): string {
       lines.push(
         `  manifest: ${Object.keys(r.manifest.clips).length} clips, version ${r.manifest.version}`,
       );
+    if (r.manifest && !r.complete) {
+      lines.push(
+        `  incomplete run: kept ${r.kept} previous manifest entries and pruned no clips; re-run to finish`,
+      );
+    }
     for (const f of r.failed.slice(0, 10)) lines.push(`  failed ${f.id}: ${f.error}`);
     if (r.failed.length > 10) lines.push(`  … and ${r.failed.length - 10} more failures`);
   }
@@ -160,6 +166,7 @@ async function render(argv: string[], env: NodeJS.ProcessEnv): Promise<number> {
       out: { type: 'string' },
       format: { type: 'string' },
       only: { type: 'string' },
+      'abandon-unconfirmed-batches': { type: 'boolean', default: false },
     },
   });
   const c = common(values, env);
@@ -193,6 +200,7 @@ async function render(argv: string[], env: NodeJS.ProcessEnv): Promise<number> {
     maxWaitMs: number(values['max-wait-min'], '--max-wait-min', 240) * 60_000,
     dryRun,
     only: values.only ? new RegExp(values.only) : undefined,
+    abandonUnconfirmedBatches: values['abandon-unconfirmed-batches'] ?? false,
     log: (m) => console.log(m),
   });
   console.log(formatReport(report, dryRun || !renderer));
@@ -248,8 +256,10 @@ async function audition(argv: string[], env: NodeJS.ProcessEnv): Promise<number>
   await renderer.render(requests, {
     mode: 'interactive',
     concurrency: 4,
-    stateDir: STATE_DIR,
+    // Its own state: an audition never touches the render's saved batch jobs.
+    stateDir: join(outDir, 'state'),
     maxWaitMs: 0,
+    complete: false,
     log: (m) => console.log(m),
     estimateUsd: (rs) => estimate(rs, price, 'interactive').usd,
     reserve: (ids, e, o) => guard.reserve(ids, e, o),
@@ -258,11 +268,12 @@ async function audition(argv: string[], env: NodeJS.ProcessEnv): Promise<number>
       if (!o.ok) {
         failures += 1;
         console.log(`  failed ${o.id}: ${o.error}`);
-        return;
+        return true;
       }
       const file = `${o.id}${encoder.ext}`;
       writeFileSync(join(outDir, file), await encoder.encode(o.wav));
       written.push(file);
+      return true;
     },
   });
   written.sort();

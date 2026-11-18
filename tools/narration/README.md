@@ -17,7 +17,8 @@ pnpm narration:audition              # 5 lines × 5 candidate voices into tmp/au
 | `--mode auto\|interactive\|batch` | auto | auto: interactive below 200 clips, Batch API (50% cost) from 200 |
 | `--max-wait-min <n>` | 240 | How long to poll batch jobs; re-run the same command to resume them |
 | `--concurrency <n>` | 4 | Interactive requests in flight |
-| `--only <regex>` | | Render only matching clip ids; nothing is pruned |
+| `--only <regex>` | | Render only matching clip ids; other entries stay as they were and nothing is pruned |
+| `--abandon-unconfirmed-batches` | | Resubmit a batch whose creation was never confirmed, once you've checked Google AI Studio that it does not exist |
 | `--out <dir>` | `apps/web/public/audio` (`tmp/narration/stub` for `stub`) | Output directory |
 | `--format opus\|wav` | opus | `wav` skips ffmpeg (tests) |
 

@@ -4,7 +4,10 @@ import type { ProviderId } from '../config';
 import type { RenderMode } from '../cost';
 
 export interface TtsRequest {
-  /** Clip id, used to match results to requests. */
+  /**
+   * Identifies the audio to produce. The pipeline passes the clip file's content hash, so clips
+   * that share a file are one request, and a resumed job matches whichever clip still needs it.
+   */
   id: string;
   text: string;
   /** Provider voice name. */
@@ -19,8 +22,8 @@ export interface TokenUsage {
 }
 
 export type TtsOutcome =
-  | { id: string; ok: true; wav: Uint8Array; usage?: TokenUsage }
-  | { id: string; ok: false; error: string; usage?: TokenUsage };
+  | { id: string; ok: true; wav: Uint8Array; usage?: TokenUsage; billing?: RenderMode }
+  | { id: string; ok: false; error: string; usage?: TokenUsage; billing?: RenderMode };
 
 export interface RenderContext {
   mode: RenderMode;
@@ -33,15 +36,26 @@ export interface RenderContext {
    * happened (an adopted batch job) and always succeeds.
    */
   reserve(ids: readonly string[], usd: number, opts?: { force?: boolean }): boolean;
-  /** Called once per finished request, in completion order. Awaited before the next result. */
-  onResult(outcome: TtsOutcome): Promise<void>;
+  /**
+   * Called once per finished request, in completion order, and awaited before the next result.
+   * Resolves false when audio arrived but could not be stored (encoding or writing failed), so a
+   * provider that can fetch it again (a finished batch job) keeps it for the next run.
+   */
+  onResult(outcome: TtsOutcome): Promise<boolean>;
   log(message: string): void;
   /** Directory for resumable provider state (batch job names). */
   stateDir: string;
   /** Longest time to wait for batch jobs before leaving them to a later run. */
   maxWaitMs: number;
-  /** Estimated cost of these requests, for `reserve`. */
-  estimateUsd(requests: readonly TtsRequest[]): number;
+  /** Estimated cost of these requests at a billing mode (default: the run's mode), for `reserve`. */
+  estimateUsd(requests: readonly TtsRequest[], mode?: RenderMode): number;
+  /**
+   * True for an unfiltered render of every clip the content needs: only then may a provider treat
+   * saved work that no current request matches as stale. Filtered renders and auditions leave it.
+   */
+  complete: boolean;
+  /** Drop saved batch submissions that were never confirmed and cannot be found (operator flag). */
+  abandonUnconfirmedBatches?: boolean;
 }
 
 export interface Renderer {

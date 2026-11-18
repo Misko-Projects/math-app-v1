@@ -1,10 +1,15 @@
 // The render pipeline (07 §3): plan every clip, skip clips whose content-hashed file already exists,
 // estimate and cap the spend, render the rest, encode to Opus, then write
-// `apps/web/public/audio/manifest.json` (02 §5.5) and prune clip files nothing references.
+// `apps/web/public/audio/manifest.json` (02 §5.5).
 //
 // Idempotent: a re-run with unchanged content renders nothing; changed text renders only the
 // changed clips. Resumable: every finished clip is written as it arrives, so an interrupted run
-// keeps its work, and batch jobs resume from their saved names.
+// keeps its work, and batch jobs resume from the provider's saved ledger.
+//
+// Only a complete run (unfiltered, nothing failed, nothing pending, no abort) publishes a manifest
+// of exactly the current plan and prunes clip files nothing references. Any other run keeps every
+// previous manifest entry whose file still exists for clips it has no new file for, and prunes
+// nothing, so a partial or failed run never removes working audio.
 import { createHash } from 'node:crypto';
 import {
   existsSync,
@@ -26,11 +31,10 @@ import type { ProviderId, VoicesConfig } from './config';
 import { costUsd, type Estimate, estimate, priceFor, type RenderMode, SpendGuard } from './cost';
 import type { Encoder } from './encode';
 import { CLIP_FILE, type ClipJob, planClips } from './plan';
+import type { Renderer, TtsRequest } from './providers/types';
 
 /** A renderer-owned temporary file: a clip name plus `.partial` (written, then renamed). */
 const PARTIAL_FILE = /^[0-9a-f]{16}\.(ogg|wav)\.partial$/;
-
-import type { Renderer, TtsRequest } from './providers/types';
 
 /** Interactive calls below this many clips, the Batch API from here up (07 §3). */
 export const BATCH_THRESHOLD = 200;
@@ -52,6 +56,8 @@ export interface PipelineOptions {
   dryRun: boolean;
   /** Render only clips whose id matches (others keep their files; nothing is pruned). */
   only?: RegExp;
+  /** Drop unconfirmed batch submissions that cannot be found (operator flag). */
+  abandonUnconfirmedBatches?: boolean;
   now?: number;
   log?: (message: string) => void;
 }
@@ -70,14 +76,18 @@ export interface PipelineReport {
   toRender: number;
   estimate: Estimate;
   maxUsd: number;
-  /** Clips rendered and written by this run. */
+  /** Clip files rendered and written by this run. */
   rendered: number;
   failed: { id: string; error: string }[];
-  /** Clips neither rendered nor failed (spend cap, or batch jobs still running). */
+  /** Clip files neither rendered nor failed (spend cap, or batch jobs still running). */
   pending: number;
   /** Measured cost of this run, from the provider's token usage. */
   spentUsd: number;
   manifest: AudioManifest | null;
+  /** True when the manifest is exactly the current plan (see the file comment). */
+  complete: boolean;
+  /** Previous manifest entries kept because this run was not complete. */
+  kept: number;
   pruned: string[];
   aborted: string | null;
 }
@@ -129,6 +139,8 @@ export async function runPipeline(opts: PipelineOptions): Promise<PipelineReport
     pending: 0,
     spentUsd: 0,
     manifest: null,
+    complete: false,
+    kept: 0,
     pruned: [],
     aborted: null,
   };
@@ -140,10 +152,11 @@ export async function runPipeline(opts: PipelineOptions): Promise<PipelineReport
   }
 
   mkdirSync(opts.outDir, { recursive: true });
-  const byId = new Map<string, ClipJob>(todo.map((j) => [j.id, j]));
+  // Requests are identified by the clip file's content hash (see TtsRequest.id).
+  const byHash = new Map<string, ClipJob>(todo.map((j) => [j.hash, j]));
   const done = new Set<string>();
   const requests: TtsRequest[] = todo.map((j) => ({
-    id: j.id,
+    id: j.hash,
     text: j.text,
     voiceName: j.voiceName,
     styleText: j.styleText,
@@ -157,18 +170,21 @@ export async function runPipeline(opts: PipelineOptions): Promise<PipelineReport
         concurrency: opts.concurrency,
         stateDir: opts.stateDir,
         maxWaitMs: opts.maxWaitMs,
+        complete: !opts.only,
+        abandonUnconfirmedBatches: opts.abandonUnconfirmedBatches,
         log,
-        estimateUsd: (rs) => estimate(rs, price, mode).usd,
+        estimateUsd: (rs, m) => estimate(rs, price, m ?? mode).usd,
         reserve: (ids, usd, o) => guard.reserve(ids, usd, o),
         onResult: async (outcome) => {
-          const job = byId.get(outcome.id);
-          if (!job || done.has(outcome.id)) return;
+          const job = byHash.get(outcome.id);
+          if (!job || done.has(outcome.id)) return true;
           done.add(outcome.id);
-          guard.settle(outcome.id, outcome.usage ? costUsd(price, mode, outcome.usage) : 0);
+          const billing = outcome.billing ?? mode;
+          guard.settle(outcome.id, outcome.usage ? costUsd(price, billing, outcome.usage) : 0);
           report.spentUsd = guard.spentUsd;
           if (!outcome.ok) {
-            report.failed.push({ id: outcome.id, error: outcome.error });
-            return;
+            report.failed.push({ id: job.id, error: outcome.error });
+            return true;
           }
           try {
             const encoded = await opts.encoder.encode(outcome.wav);
@@ -182,48 +198,49 @@ export async function runPipeline(opts: PipelineOptions): Promise<PipelineReport
             if (report.rendered % 50 === 0) {
               log(`narration: ${report.rendered}/${todo.length} rendered`);
             }
+            return true;
           } catch (e) {
-            report.failed.push({
-              id: outcome.id,
-              error: e instanceof Error ? e.message : String(e),
-            });
+            report.failed.push({ id: job.id, error: e instanceof Error ? e.message : String(e) });
+            return false;
           }
         },
       });
     } catch (e) {
-      // Keep everything already written: the manifest below still lists it.
+      // Keep everything already written; the manifest below still lists it.
       report.aborted = e instanceof Error ? e.message : String(e);
     }
   }
   report.pending = todo.length - done.size;
+  report.complete =
+    !opts.only && !report.aborted && report.failed.length === 0 && report.pending === 0;
 
-  // The manifest lists every planned clip whose file exists; anything else falls back to Web Speech.
-  // A filtered run (--only) also keeps the previous entry of any clip it did not select whose old
-  // file is still there, so it never silently drops working audio.
   const clips: AudioManifest['clips'] = {};
+  if (!report.complete) {
+    for (const [id, old] of Object.entries(previous?.clips ?? {})) {
+      if (existsSync(join(opts.outDir, old.file))) clips[id] = old;
+    }
+  }
+  let fresh = 0;
   for (const j of jobs) {
     const path = join(opts.outDir, j.file);
-    if (!existsSync(path)) {
-      const old = previous?.clips[j.id];
-      if (opts.only && !opts.only.test(j.id) && old && existsSync(join(opts.outDir, old.file))) {
-        clips[j.id] = old;
-      }
-      continue;
-    }
+    if (!existsSync(path)) continue;
     let durationMs = knownDurations.get(j.file);
     if (durationMs === undefined) {
       durationMs = opts.encoder.durationMs(new Uint8Array(readFileSync(path)));
       knownDurations.set(j.file, durationMs);
     }
+    if (clips[j.id]?.file !== j.file) fresh += 1;
     clips[j.id] = { file: j.file, durationMs };
   }
+  if (!report.complete) report.kept = Object.keys(clips).length - fresh;
   const manifest = buildManifest(clips);
   writeFileSync(join(opts.outDir, 'manifest.json'), canonicalJson(manifest));
   report.manifest = manifest;
 
   const referenced = new Set(Object.values(clips).map((c) => c.file));
-  for (const name of opts.only ? [] : readdirSync(opts.outDir).sort()) {
-    if ((CLIP_FILE.test(name) && !referenced.has(name)) || PARTIAL_FILE.test(name)) {
+  for (const name of readdirSync(opts.outDir).sort()) {
+    const stale = report.complete && CLIP_FILE.test(name) && !referenced.has(name);
+    if (stale || PARTIAL_FILE.test(name)) {
       rmSync(join(opts.outDir, name));
       report.pruned.push(name);
     }
