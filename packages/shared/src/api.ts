@@ -231,6 +231,10 @@ export interface SyncRequest {
   settings: SettingsDocument[];
   profiles: ChildProfile[]; // with updatedAt
 }
+/**
+ * What a correct client sends. The server parses `events` one by one (02 §5.9 S1): an event that
+ * fails this schema is reported in `SyncResponse.rejected`, and the rest of the call succeeds.
+ */
 export const syncRequestSchema = z.object({
   cursor: z.string().min(1).nullable(),
   // 08 §4: each pushed event's payload is capped at 8 KB, measured before fields are stripped.
@@ -240,8 +244,28 @@ export const syncRequestSchema = z.object({
 });
 assertType<Equals<z.infer<typeof syncRequestSchema>, SyncRequest>>(true);
 
+/**
+ * One pushed event the server refused (02 §5.9 S1). The server validates each pushed event on its
+ * own, so one bad event never fails the whole call. A rejection is permanent: the client stops
+ * re-pushing that event (it marks it as not syncable) rather than retrying it forever.
+ */
+export interface SyncRejection {
+  id: EventId | null; // the event's id when it is a valid EventId, else null
+  index: number; // position in the request's `events` array
+  code: ApiErrorCode; // validation_failed | payload_too_large | unknown_family | forbidden | conflict
+  message: string;
+}
+export const syncRejectionSchema = z.object({
+  id: eventIdSchema.nullable(),
+  index: z.number().int().nonnegative(),
+  code: apiErrorCodeSchema,
+  message: z.string(),
+});
+assertType<Equals<z.infer<typeof syncRejectionSchema>, SyncRejection>>(true);
+
 export interface SyncResponse {
   accepted: EventId[]; // includes duplicates already present
+  rejected: SyncRejection[]; // pushed events refused permanently (02 §5.9 S1); [] when none
   events: AnyEventEnvelope[]; // events since cursor from OTHER devices, ≤ 1000, ordered by server seq
   cursor: string; // opaque (server sequence)
   more: boolean;
@@ -250,6 +274,7 @@ export interface SyncResponse {
 }
 export const syncResponseSchema = z.object({
   accepted: z.array(eventIdSchema),
+  rejected: z.array(syncRejectionSchema).max(SYNC_MAX_PUSH_EVENTS),
   events: z.array(anyEventEnvelopeSchema).max(SYNC_MAX_PULL_EVENTS),
   cursor: z.string().min(1),
   more: z.boolean(),

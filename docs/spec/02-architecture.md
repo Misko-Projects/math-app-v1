@@ -617,8 +617,13 @@ Known gaps for later issues (deliberately not changed by F01):
 - 03 §5.7 filters misconception rules by the item's generator, but `GeneratedItem` has no `generator` field. The engine resolves it through `templateId` → `ItemTemplate.generator` (E01 decides whether to add the field).
 - `HintStep.level` is 1–5 (03 §5.8), while `hint.used.level` and `AdaptDecision.retry.hintLevel` are 1–4. Each is declared as written; E01/R01 reconcile.
 - 07 §2's feedback cache key includes the template, but the feedback request carries no `templateId` (AI1).
-- Who emits the `child.deleted` tombstone, and with which `deviceId`, is unspecified (S01).
-- A known event that fails payload validation currently fails the whole `/sync` call (S01 decides on per-event rejection).
+
+Contract adjustments made by S01 (2026-11-18), closing the last two gaps F01 left to it:
+
+| # | Change | Why |
+|---|---|---|
+| S1 | **Per-event sync rejection.** `SyncResponse` gains a required `rejected: SyncRejection[]` (`{ id: EventId \| null; index; code: ApiErrorCode; message }`, schema `syncRejectionSchema`). The server parses each pushed event on its own with `inboundEventEnvelopeSchema`. An event that fails validation (`validation_failed`), exceeds 8 KB (`payload_too_large`), names another family (`unknown_family`), is a device-pushed `child.deleted` (`forbidden`, because tombstones come only from the parent route), or reuses an id another family holds (`conflict`) is listed in `rejected`, and the rest of the call succeeds. `index` is its position in the request's `events`, and `id` is set when the pushed id is a valid `EventId`. `syncRequestSchema` is unchanged: it stays what a correct client sends. Clients treat a rejection as permanent and stop re-pushing that event. | With whole-call failure, one malformed event would wedge a device's sync forever, because the client keeps re-pushing it. |
+| S2 | **Tombstone emitter.** Only the server writes `child.deleted`, from `DELETE /children/:id`. Its envelope is `{ childId: null, deviceId: familyId, payload: { childId } }`: the family id serves as the server's pseudo-device id, which never equals a real device's id, so every device pulls it. `ts` is the server time and `contentVersion` is the API's. No type changes. | 08 §2/§4 named the event but not its author or `deviceId`. |
 
 ## 6. Performance budgets (enforced in CI where possible)
 

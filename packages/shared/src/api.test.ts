@@ -107,6 +107,10 @@ describe('API DTOs', () => {
 
     const response: SyncResponse = {
       accepted: [event.id, futureEvent.id],
+      rejected: [
+        { id: newId(), index: 2, code: 'validation_failed', message: 'payload.items: too small' },
+        { id: null, index: 3, code: 'validation_failed', message: 'id: expected a UUIDv7' },
+      ],
       events: [{ ...event, id: newId(), deviceId: newId() }],
       cursor: '42',
       more: false,
@@ -114,6 +118,16 @@ describe('API DTOs', () => {
       profiles: [{ ...profile, deletedAt: 1_763_500_000_000 }],
     };
     expect(syncResponseSchema.parse(response)).toEqual(response);
+    // `rejected` is required (02 §5.9 S1), and each entry uses a stable ApiErrorCode.
+    const { rejected: _omitted, ...withoutRejected } = response;
+    expect(syncResponseSchema.safeParse(withoutRejected).success).toBe(false);
+    const badCode = { ...response, rejected: [{ id: null, index: 0, code: 'nope', message: '' }] };
+    expect(syncResponseSchema.safeParse(badCode).success).toBe(false);
+    const badIndex = {
+      ...response,
+      rejected: [{ id: null, index: -1, code: 'forbidden', message: '' }],
+    };
+    expect(syncResponseSchema.safeParse(badIndex).success).toBe(false);
   });
 
   it('rejects a sync push over 500 events or with a broken known event', () => {

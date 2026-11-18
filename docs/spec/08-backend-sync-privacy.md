@@ -41,6 +41,7 @@ POST /api/sync
     settings: { key, value, updatedAt }[],
     profiles: ChildProfile[] (with updatedAt) }
 ← { accepted: EventId[],                 // includes duplicates already present
+    rejected: SyncRejection[],            // pushed events refused permanently, per event (02 §5.9 S1)
     events: EventEnvelope[],              // events since cursor from OTHER devices, ≤ 1000, ordered by server seq
     cursor: string,                       // opaque (server sequence)
     more: boolean,
@@ -48,10 +49,10 @@ POST /api/sync
 ```
 
 - Server table `events` keeps a monotonically increasing `seq` (INTEGER PRIMARY KEY AUTOINCREMENT) plus a unique `id`. `INSERT OR IGNORE` makes pushes idempotent. Pull returns `seq > cursor`.
-- The server validates every **envelope** strictly and the **payloads of known event types** strictly with the shared Zod schemas (unknown payload fields are stripped). Events of **unknown types** are accepted and stored opaquely, then relayed to other devices unchanged, for forward compatibility (02 §4.2). It rejects an unknown `familyId`, caps payload size (8 KB per event) and stamps `receivedAt`. It does **not** recompute projections; clients fold.
+- The server validates every **envelope** strictly and the **payloads of known event types** strictly with the shared Zod schemas (unknown payload fields are stripped). Events of **unknown types** are accepted and stored opaquely, then relayed to other devices unchanged, for forward compatibility (02 §4.2). It rejects an unknown `familyId`, caps payload size (8 KB per event) and stamps `receivedAt`. Each pushed event is validated on its own: a refused event is listed in `rejected` with a stable code, and the rest of the call succeeds (02 §5.9 S1). It does **not** recompute projections; clients fold.
 - Clients sync on app start, after each request completes, on wind-down, and every 60 s while online (with backoff on error). Sync never blocks gameplay.
 - Device clocks may be wrong. Folds order by `ts` then `id`. Bounded skew: if `ts` is more than 24 h in the future, the server clamps it to `receivedAt` (stored as `ts`, original kept in the optional envelope field `clientTs`, 02 §4.2).
-- Tombstones: a `child.deleted` event (envelope `childId: null`, payload `{ childId }`) makes clients purge that child's local events and profile. The server deletes that child's stored events and keeps the tombstone.
+- Tombstones: a `child.deleted` event (envelope `childId: null`, `deviceId: familyId`, payload `{ childId }`; written only by the server from `DELETE /children/:id`, 02 §5.9 S2) makes clients purge that child's local events and profile. The server deletes that child's stored events and keeps the tombstone.
 
 ## 5. D1 schema (Drizzle; migrations in `apps/api/src/db/migrations`)
 
