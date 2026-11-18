@@ -6,9 +6,11 @@ import {
   CONTRAST_PAIRS,
   contrastRatio,
   DURATION_MS,
+  litColor,
   MIN_TARGET_PX,
   PALETTE,
   REDUCED_MOTION_MAX_MS,
+  SUNSET_PALETTE,
   TARGET_GAP_PX,
   TARGET_PX,
   Z_LAYER,
@@ -112,6 +114,21 @@ describe('design tokens', () => {
   it('gives every text/icon pair the primitives use ≥ 4.5:1 contrast (06 §7)', () => {
     for (const p of CONTRAST_PAIRS) {
       expect(contrastRatio(PALETTE[p.fg], PALETTE[p.bg]), p.use).toBeGreaterThanOrEqual(4.5);
+    }
+  });
+
+  it('mirrors the sunset lighting remap of theme.css', () => {
+    for (const [name, hex] of Object.entries(SUNSET_PALETTE)) {
+      expect(cssVar(`color-${name}`, '[data-lighting="sunset"]'), name).toBe(hex);
+      expect(PALETTE).toHaveProperty(name);
+    }
+    expect(litColor('sky', 'sunset')).toBe(SUNSET_PALETTE.sky);
+    expect(litColor('ink', 'sunset')).toBe(PALETTE.ink);
+  });
+
+  it('keeps ink, pebble, paper and cloud unchanged at sunset, so numerals keep contrast', () => {
+    for (const c of ['ink', 'ink-soft', 'pebble', 'paper', 'cloud'] as const) {
+      expect(SUNSET_PALETTE).not.toHaveProperty(c);
     }
   });
 
