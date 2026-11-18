@@ -9,6 +9,7 @@ import { useUiPreferences } from '../preferences/UiProvider';
 import { DRAG_START_PX } from '../tokens/tokens';
 import { findSnapTarget, rectCenter, type SnapCandidate, translateRect } from './snap';
 import {
+  isElementDisabled,
   type PlaceItemOptions,
   type PlaceItemProps,
   type TapToPlace,
@@ -154,7 +155,7 @@ export function useDragToTarget<I extends string, T extends string>(
   // The dragged item itself can unmount (it moved or the item changed): cancel after that commit.
   useEffect(() => {
     const drag = active.current;
-    if (drag && (core.items.get(drag.id) !== drag.el || !drag.el.isConnected)) {
+    if (drag && (core.items.get(drag.id) !== drag.el || !core.isItemAvailable(drag.id))) {
       finishRef.current(false);
     }
   });
@@ -166,7 +167,7 @@ export function useDragToTarget<I extends string, T extends string>(
       if (o.disabled || settings.current.tapOnly || active.current) return;
       if (e.pointerType === 'mouse' && e.button !== 0) return;
       const el = core.items.get(id);
-      if (!el || el.getAttribute('aria-disabled') === 'true') return;
+      if (!el || isElementDisabled(el)) return;
 
       const pointerId = e.pointerId;
       const onMove = (ev: PointerEvent) => {

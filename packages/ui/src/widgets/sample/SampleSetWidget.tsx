@@ -1,6 +1,5 @@
 import type { WidgetAction } from '@number-island/shared';
 import { type CSSProperties, useCallback, useMemo, useRef, useState } from 'react';
-import { flushSync } from 'react-dom';
 import { useInteractionTrace } from '../../interaction/trace';
 import { useDragToTarget } from '../../interaction/useDragToTarget';
 import {
@@ -37,6 +36,10 @@ type TargetId = 'basket';
 const SAMPLE_OPS = ['drag', 'remove', 'count-aloud'] as const;
 const PEBBLE_TONES = ['sea', 'sun', 'coral', 'leaf'] as const;
 const FLY_MS = 480;
+
+/** Resolves after the next paint, when React has committed pending updates. */
+const nextFrame = () =>
+  new Promise<void>((resolve) => requestAnimationFrame(() => setTimeout(resolve, 0)));
 
 interface Flight {
   id: PebbleId;
@@ -230,12 +233,14 @@ export function SampleSetWidget({
             if (!last) break;
             // Its slot in the basket → its place back in the pile, measured after it re-renders
             // there (hidden under the flying copy).
+            // One batched update (the flying copy covers the slot, and the pile copy renders
+            // hidden), then measure after it commits. No flushSync: play may be called from a
+            // React effect, where flushSync can't flush.
             const from = rect(`.ni-sample__in[data-pebble="${last}"]`);
-            flushSync(() => {
-              inBasketRef.current = inBasketRef.current.slice(0, -1);
-              setInBasket(inBasketRef.current);
-              if (!reduced && from) setFlight({ id: last, from, to: from, moving: false });
-            });
+            inBasketRef.current = inBasketRef.current.slice(0, -1);
+            setInBasket(inBasketRef.current);
+            if (!reduced && from) setFlight({ id: last, from, to: from, moving: false });
+            await nextFrame();
             const to = rect(`.ni-sample__pile [data-pebble="${last}"]`);
             if (!reduced && from && to) await flyBetween(last, from, to);
             else setFlight(null);

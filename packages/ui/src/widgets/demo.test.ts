@@ -97,6 +97,22 @@ describe('demo controller (03 §6.3)', () => {
     expect(warn).toHaveBeenCalledTimes(1);
   });
 
+  it('throws a queued unsupported invite in development by default (from a microtask)', () => {
+    const queued: (() => void)[] = [];
+    const spy = vi.spyOn(globalThis, 'queueMicrotask').mockImplementation((cb) => {
+      queued.push(cb);
+    });
+    try {
+      const demo = createDemoController({ strict: true });
+      demo.invite({ op: 'bundle' });
+      expect(() => demo.bind(impl().value)).not.toThrow(); // binding itself survives
+      expect(queued).toHaveLength(1);
+      expect(() => queued[0]?.()).toThrow(UnsupportedWidgetOpError);
+    } finally {
+      spy.mockRestore();
+    }
+  });
+
   it('re-binds after a remount and ignores a stale unbind', async () => {
     const demo = createDemoController({ strict: true });
     const first = impl();

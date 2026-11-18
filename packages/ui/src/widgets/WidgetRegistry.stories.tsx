@@ -1,6 +1,6 @@
 import type { InteractionEvent, WidgetConfig } from '@number-island/shared';
 import type { Meta, StoryObj } from '@storybook/react-vite';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { expect, fn, userEvent, waitFor, within } from 'storybook/test';
 import { BigButton } from '../primitives/BigButton';
 import { ArrowIcon } from '../primitives/icons';
@@ -249,5 +249,45 @@ export const NewItemResets: Story = {
     await userEvent.click(canvas.getByRole('button', { name: 'Next' }));
     await waitFor(() => expect(pebblesIn(canvasElement)).toBe(0));
     await expect(pilePebbles(canvasElement)).toHaveLength(6);
+  },
+};
+
+const effectController: WidgetDemo = createDemoController({ strict: true });
+
+/** Calls demo.play from inside a React effect, as a lesson player's step effect would. */
+function PlayInEffect({ demo }: { demo: WidgetDemo }) {
+  useEffect(() => {
+    void demo.play({ op: 'remove', args: { count: 1 } });
+  }, [demo]);
+  return null;
+}
+
+function DemoFromEffectHarness(args: WidgetHostProps) {
+  const [playing, setPlaying] = useState(false);
+  return (
+    <div style={{ width: 'min(1100px, 100%)', display: 'grid', gap: 24, justifyItems: 'center' }}>
+      <WidgetHost {...args} demo={effectController} />
+      <BigButton
+        label="ui.btn.next"
+        icon={<ArrowIcon tone="light" />}
+        onPress={() => setPlaying(true)}
+      />
+      {playing ? <PlayInEffect demo={effectController} /> : null}
+    </div>
+  );
+}
+
+/** Demo playback started from a React effect still animates the pebble back to the pile. */
+export const DemoFromEffect: Story = {
+  args: { disabled: true, config: { ...makeSet, start: 2 } as WidgetConfig },
+  render: (args) => <DemoFromEffectHarness {...args} />,
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await canvas.findByRole('group', { name: 'Pebble pile' });
+    await waitFor(() => expect(pebblesIn(canvasElement)).toBe(2));
+    await userEvent.click(canvas.getByRole('button', { name: 'Next' }));
+    await waitFor(() => expect(canvasElement.querySelector('.ni-sample__flight')).not.toBeNull());
+    await waitFor(() => expect(canvasElement.querySelector('.ni-sample__flight')).toBeNull());
+    await expect(pebblesIn(canvasElement)).toBe(1);
   },
 };

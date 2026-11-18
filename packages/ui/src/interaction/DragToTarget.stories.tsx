@@ -58,12 +58,22 @@ interface PlaygroundProps {
   mode?: 'drag' | 'tap';
   /** Test fixture: a control that removes shell 1 (to test an item vanishing mid-interaction). */
   removable?: boolean;
+  /** Test fixture: shells are native buttons, with a control that natively disables shell 1. */
+  nativeButtons?: boolean;
 }
 
 /** Shells move between the sand pile and the basket by drag, tap-to-place or keyboard. */
-function Playground({ onPlace, onMiss, onInteract, mode = 'drag', removable }: PlaygroundProps) {
+function Playground({
+  onPlace,
+  onMiss,
+  onInteract,
+  mode = 'drag',
+  removable,
+  nativeButtons,
+}: PlaygroundProps) {
   const text = useNarrationText();
   const [gone, setGone] = useState(false);
+  const [s1Disabled, setS1Disabled] = useState(false);
   const [where, setWhere] = useState<Record<Shell, Zone>>({
     s1: 'pile',
     s2: 'pile',
@@ -94,6 +104,20 @@ function Playground({ onPlace, onMiss, onInteract, mode = 'drag', removable }: P
           {SHELLS.filter((s) => where[s] === id && !(gone && s === 's1')).map((s) => {
             const i = SHELLS.indexOf(s);
             const props = dnd.itemProps(s, { label: `${text('ui.widget.pebble')} ${i + 1}` });
+            if (nativeButtons) {
+              return (
+                <button
+                  key={s}
+                  type="button"
+                  {...props}
+                  disabled={s === 's1' && s1Disabled}
+                  className={`${'className' in props ? props.className : ''} pg-shell pg-native`}
+                  data-shell={s}
+                >
+                  <ShellArt i={i} />
+                </button>
+              );
+            }
             return (
               <div
                 key={s}
@@ -123,6 +147,16 @@ function Playground({ onPlace, onMiss, onInteract, mode = 'drag', removable }: P
           Hide shell 1
         </button>
       ) : null}
+      {nativeButtons ? (
+        <button
+          type="button"
+          className="pg-remove"
+          data-disable=""
+          onClick={() => setS1Disabled(true)}
+        >
+          Disable shell 1
+        </button>
+      ) : null}
     </div>
   );
 }
@@ -135,6 +169,7 @@ const PLAYGROUND_CSS = `
 .pg-items { position: relative; display: flex; flex-wrap: wrap; justify-content: center; gap: var(--target-gap); padding: 24px; pointer-events: none; max-width: 100%; }
 .pg-shell { width: var(--target-min); height: var(--target-min); border-radius: 50%; pointer-events: auto; }
 .pg-log { position: absolute; left: 0; bottom: -44px; font: 700 1rem var(--font-body); color: var(--color-ink-soft); }
+.pg-native { padding: 0; border: 0; background: none; }
 .pg-remove { position: absolute; right: 0; bottom: -56px; min-height: 44px; padding: 0 16px; border-radius: 12px; border: 2px solid var(--color-ink); background: var(--color-paper); color: var(--color-ink); font: 700 1rem var(--font-body); }
 `;
 
@@ -381,5 +416,36 @@ export const DraggedItemRemoved: Story = {
     // The next drag works normally.
     await pointerDrag(shell(canvasElement, 's2'), center(pad(canvasElement, 'basket')), 'touch');
     await waitFor(() => expect(zoneOf(canvasElement, 's2')).toBe('basket'));
+  },
+};
+
+/** A picked-up native button that becomes `disabled` can no longer be placed. */
+export const SelectedItemNativelyDisabled: Story = {
+  args: { nativeButtons: true },
+  play: async ({ canvasElement, args }) => {
+    await userEvent.click(shell(canvasElement, 's1'));
+    await expect(shell(canvasElement, 's1')).toHaveAttribute('aria-pressed', 'true');
+    await userEvent.click(canvasElement.querySelector('[data-disable]') as HTMLElement);
+    await waitFor(() => expect(shell(canvasElement, 's1')).toBeDisabled());
+    await waitFor(() => expect(pad(canvasElement, 'basket')).not.toHaveAttribute('data-armed'));
+    await userEvent.click(pad(canvasElement, 'basket'));
+    await expect(args.onPlace).not.toHaveBeenCalled();
+    await expect(zoneOf(canvasElement, 's1')).toBe('pile');
+  },
+};
+
+/** A native button disabled mid-drag doesn't land when the finger lifts. */
+export const DragSourceNativelyDisabled: Story = {
+  args: { nativeButtons: true },
+  play: async ({ canvasElement, args }) => {
+    const release = await touchDragAndHold(
+      shell(canvasElement, 's1'),
+      center(pad(canvasElement, 'basket')),
+    );
+    (canvasElement.querySelector('[data-disable]') as HTMLButtonElement).click();
+    await waitFor(() => expect(shell(canvasElement, 's1')).toBeDisabled());
+    await release();
+    await expect(args.onPlace).not.toHaveBeenCalled();
+    await expect(zoneOf(canvasElement, 's1')).toBe('pile');
   },
 };

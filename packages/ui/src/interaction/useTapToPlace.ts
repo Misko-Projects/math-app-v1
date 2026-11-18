@@ -92,6 +92,12 @@ export interface PlacementCore<I extends string, T extends string> extends TapTo
   latest: { current: TapToPlaceOptions<I, T> };
 }
 
+/** Disabled by ARIA (`aria-disabled="true"`) or natively (a disabled button or fieldset). */
+export function isElementDisabled(el: Element | null | undefined): boolean {
+  if (!el) return true;
+  return el.getAttribute('aria-disabled') === 'true' || el.matches(':disabled');
+}
+
 const ACTIVATE = new Set(['Enter', ' ']);
 const NEXT = new Set(['ArrowRight', 'ArrowDown']);
 const PREV = new Set(['ArrowLeft', 'ArrowUp']);
@@ -142,7 +148,7 @@ export function usePlacementCore<I extends string, T extends string>(
   const isItemAvailable = useCallback(
     (item: I) => {
       const el = items.get(item);
-      return Boolean(el?.isConnected) && el?.getAttribute('aria-disabled') !== 'true';
+      return Boolean(el?.isConnected) && !isElementDisabled(el);
     },
     [items],
   );
@@ -196,18 +202,27 @@ export function usePlacementCore<I extends string, T extends string>(
    * Marks a keyboard activation until that key is released anywhere (focus may have moved to a
    * target, or the element may be gone) or the window loses focus.
    */
+  const removeKeyListeners = useRef<(() => void) | null>(null);
   const markKeyActivation = useCallback(() => {
     keyActivated.current = true;
+    if (removeKeyListeners.current) return; // already waiting for this key's release
     const clear = () => {
-      window.removeEventListener('keyup', clear, true);
-      window.removeEventListener('blur', clear);
+      remove();
       setTimeout(() => {
         keyActivated.current = false;
       }, 0);
     };
+    const remove = () => {
+      window.removeEventListener('keyup', clear, true);
+      window.removeEventListener('blur', clear);
+      removeKeyListeners.current = null;
+    };
     window.addEventListener('keyup', clear, true);
     window.addEventListener('blur', clear);
+    removeKeyListeners.current = remove;
   }, []);
+  // Don't leave window listeners behind when the widget unmounts mid-press.
+  useEffect(() => () => removeKeyListeners.current?.(), []);
 
   const stableRef = useCallback(
     <K extends string>(kind: 'i' | 't', map: Map<K, HTMLElement | SVGElement>, id: K) => {
@@ -229,7 +244,7 @@ export function usePlacementCore<I extends string, T extends string>(
     (id: I, via: 'tap' | 'keyboard') => {
       const o = latest.current;
       if (o.disabled) return;
-      if (items.get(id)?.getAttribute('aria-disabled') === 'true') return;
+      if (isElementDisabled(items.get(id))) return;
       o.trace?.('tap', id);
       if (selectedRef.current === id) {
         select(null);
