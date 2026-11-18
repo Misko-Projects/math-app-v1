@@ -29,7 +29,7 @@
     "storybook": "pnpm --filter @number-island/ui storybook",
     "visual": "playwright test -c e2e/playwright.visual.config.ts",
     "visual:update": "node scripts/visual-update.mjs",
-    "narration:render": "pnpm --filter @number-island/narration render",
+    "narration:render": "pnpm content:build && pnpm --filter @number-island/narration render",
     "narration:audition": "pnpm --filter @number-island/narration audition",
     "ai:smoke": "pnpm --filter @number-island/api ai:smoke",
     "secrets:link": "node scripts/secrets-link.mjs",

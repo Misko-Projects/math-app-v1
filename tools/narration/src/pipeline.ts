@@ -1,0 +1,356 @@
+// The render pipeline (07 §3): plan every clip, skip clips whose content-hashed file already exists,
+// estimate and cap the spend, render the rest, encode to Opus, then write
+// `apps/web/public/audio/manifest.json` (02 §5.5).
+//
+// Idempotent: a re-run with unchanged content renders nothing; changed text renders only the
+// changed clips. Resumable: every finished clip is written as it arrives, so an interrupted run
+// keeps its work and a re-run renders only what is still missing.
+//
+// Only a complete run (unfiltered, nothing failed, nothing pending, no abort) publishes a manifest
+// of exactly the current plan and deletes clip and partial files nothing references. Any other run
+// keeps every previous manifest entry whose file still exists for clips it has no new file for
+// (and, when filtered, for every clip it did not select), and deletes nothing, so a partial or
+// failed run never removes or swaps working audio.
+import { createHash } from 'node:crypto';
+import {
+  closeSync,
+  existsSync,
+  mkdirSync,
+  openSync,
+  readdirSync,
+  readFileSync,
+  renameSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs';
+import { dirname, join } from 'node:path';
+import {
+  type AudioManifest,
+  audioManifestSchema,
+  type NarrationJson,
+  type NarrationStyle,
+} from '@number-island/shared';
+import type { ProviderId, VoicesConfig } from './config';
+import { costUsd, type Estimate, estimate, priceFor, SpendGuard } from './cost';
+import type { Encoder } from './encode';
+import { CLIP_FILE, type ClipJob, planClips } from './plan';
+import type { Renderer, TtsRequest } from './providers/types';
+
+/** A renderer-owned temporary file: a clip name plus `.partial` (written, then renamed). */
+const PARTIAL_FILE = /^[0-9a-f]{16}\.(ogg|wav)\.partial$/;
+
+/** v1 renders with interactive calls only (07 §3); the Batch API is a follow-up. */
+const MODE = 'interactive';
+
+export interface PipelineOptions {
+  narration: NarrationJson;
+  styles: ReadonlyMap<string, NarrationStyle>;
+  config: VoicesConfig;
+  provider: ProviderId;
+  /** Null for a dry run without a provider (e.g. no API key). */
+  renderer: Renderer | null;
+  encoder: Encoder;
+  outDir: string;
+  maxUsd: number;
+  concurrency: number;
+  dryRun: boolean;
+  /** Render only clips whose id matches (others keep their entries; nothing is deleted). */
+  only?: RegExp;
+  /**
+   * Lock held from planning through pruning, so two renders into the same output directory (in any
+   * format) never interleave. Default: `<outDir>/.narration-render.lock`.
+   */
+  lockFile?: string;
+  now?: number;
+  log?: (message: string) => void;
+}
+
+export interface PipelineReport {
+  provider: ProviderId;
+  model: string;
+  /** Clips the content needs. */
+  total: number;
+  /** Clips already rendered (their file exists). */
+  cached: number;
+  /** Missing clips left alone because they do not match `only`. */
+  skipped: number;
+  /** Clip files to render at the start of the run (clips sharing a file count once). */
+  toRender: number;
+  estimate: Estimate;
+  maxUsd: number;
+  /** Clip files rendered and written by this run. */
+  rendered: number;
+  failed: { id: string; error: string }[];
+  /** Clip files neither rendered nor failed (the spend cap stopped them). */
+  pending: number;
+  /** Measured cost of this run, from the provider's token usage. */
+  spentUsd: number;
+  manifest: AudioManifest | null;
+  /** True when the manifest is exactly the current plan (see the file comment). */
+  complete: boolean;
+  /** Previous manifest entries kept because this run was not complete. */
+  kept: number;
+  pruned: string[];
+  aborted: string | null;
+}
+
+export async function runPipeline(opts: PipelineOptions): Promise<PipelineReport> {
+  if (opts.dryRun || !opts.renderer) return plannedRun(opts);
+  const lock = opts.lockFile ?? join(opts.outDir, '.narration-render.lock');
+  mkdirSync(dirname(lock), { recursive: true });
+  let fd: number;
+  try {
+    fd = openSync(lock, 'wx');
+  } catch {
+    const report = await plannedRun({ ...opts, dryRun: true });
+    report.aborted = `another narration render is writing ${opts.outDir}. If none is running, delete ${lock}`;
+    report.pending = report.toRender;
+    return report;
+  }
+  const release = () => {
+    if (!heldLocks.delete(release)) return;
+    if (heldLocks.size === 0) {
+      process.off('SIGINT', onSignal);
+      process.off('SIGTERM', onSignal);
+    }
+    try {
+      closeSync(fd);
+    } catch {
+      // already closed
+    }
+    rmSync(lock, { force: true });
+  };
+  holdLock(release);
+  try {
+    return await plannedRun(opts);
+  } finally {
+    release();
+  }
+}
+
+/**
+ * Locks held by renders in this process. One signal handler releases all of them, so an interrupted
+ * process (Ctrl+C, or a stop) never leaves a lock behind, however many renders it runs at once.
+ */
+const heldLocks = new Set<() => void>();
+
+/** Releases every held lock; one failing removal never stops the others. Returns failures. */
+function releaseAll(): number {
+  let failures = 0;
+  for (const release of [...heldLocks]) {
+    try {
+      release();
+    } catch {
+      failures += 1;
+    }
+  }
+  return failures;
+}
+
+function onSignal(signal: NodeJS.Signals) {
+  releaseAll();
+  process.exit(signal === 'SIGINT' ? 130 : 143);
+}
+
+function holdLock(release: () => void) {
+  if (heldLocks.size === 0) {
+    process.once('SIGINT', onSignal);
+    process.once('SIGTERM', onSignal);
+  }
+  heldLocks.add(release);
+}
+
+/** Exposed for tests: what the signal handler does, without exiting. */
+export function releaseHeldLocksForTest(): { held: number; failures: number } {
+  const held = heldLocks.size;
+  return { held, failures: releaseAll() };
+}
+
+async function plannedRun(opts: PipelineOptions): Promise<PipelineReport> {
+  const log = opts.log ?? (() => {});
+  const now = opts.now ?? Date.now();
+  const { jobs } = planClips({
+    narration: opts.narration,
+    styles: opts.styles,
+    config: opts.config,
+    provider: opts.provider,
+    encoding: opts.encoder,
+  });
+  const model = opts.renderer?.model ?? modelName(opts);
+  const manifestFile = join(opts.outDir, 'manifest.json');
+  const previous = readManifest(manifestFile);
+  const knownDurations = new Map<string, number>();
+  for (const clip of Object.values(previous?.clips ?? {})) {
+    knownDurations.set(clip.file, clip.durationMs);
+  }
+
+  const missing = jobs.filter((j) => !existsSync(join(opts.outDir, j.file)));
+  const selected = missing.filter((j) => !opts.only || opts.only.test(j.id));
+  // Clips with the same voice, style and text share one file: render each file once.
+  const todo = [...new Map(selected.map((j) => [j.file, j])).values()];
+  const price = priceFor(opts.provider, model, now);
+  const est = estimate(todo, price, MODE);
+  const report: PipelineReport = {
+    provider: opts.provider,
+    model,
+    total: jobs.length,
+    cached: jobs.length - missing.length,
+    skipped: missing.length - selected.length,
+    toRender: todo.length,
+    estimate: est,
+    maxUsd: opts.maxUsd,
+    rendered: 0,
+    failed: [],
+    pending: 0,
+    spentUsd: 0,
+    manifest: null,
+    complete: false,
+    kept: 0,
+    pruned: [],
+    aborted: null,
+  };
+  if (opts.dryRun || !opts.renderer) return report;
+  if (existsSync(manifestFile) && !previous) {
+    // Without the previous manifest a partial run could not keep its entries: refuse rather than
+    // risk dropping working audio.
+    report.aborted = `${manifestFile} exists but cannot be read; fix or delete it, then re-run`;
+    report.pending = todo.length;
+    return report;
+  }
+  if (est.usd > opts.maxUsd) {
+    report.aborted = `estimated $${est.usd.toFixed(4)} exceeds --max-usd ${opts.maxUsd}`;
+    report.pending = todo.length;
+    return report;
+  }
+
+  mkdirSync(opts.outDir, { recursive: true });
+  // Requests are identified by the clip file's content hash (see TtsRequest.id).
+  const byHash = new Map<string, ClipJob>(todo.map((j) => [j.hash, j]));
+  const done = new Set<string>();
+  const requests: TtsRequest[] = todo.map((j) => ({
+    id: j.hash,
+    text: j.text,
+    voiceName: j.voiceName,
+    styleText: j.styleText,
+  }));
+  const guard = new SpendGuard(opts.maxUsd);
+  if (todo.length > 0) {
+    log(`narration: rendering ${todo.length} clip(s) with ${opts.provider}…`);
+    try {
+      await opts.renderer.render(requests, {
+        concurrency: opts.concurrency,
+        log,
+        estimateUsd: (rs) => estimate(rs, price, MODE).usd,
+        reserve: (ids, usd) => guard.reserve(ids, usd),
+        onResult: async (outcome) => {
+          const job = byHash.get(outcome.id);
+          if (!job || done.has(outcome.id)) return;
+          done.add(outcome.id);
+          guard.settle(outcome.id, outcome.usage ? costUsd(price, MODE, outcome.usage) : 0);
+          report.spentUsd = guard.spentUsd;
+          if (!outcome.ok) {
+            report.failed.push({ id: job.id, error: outcome.error });
+            return;
+          }
+          try {
+            const encoded = await opts.encoder.encode(outcome.wav);
+            knownDurations.set(job.file, opts.encoder.durationMs(encoded));
+            // Write then rename, so an interrupted run never leaves a truncated clip that a
+            // re-run would mistake for a finished one.
+            const path = join(opts.outDir, job.file);
+            writeFileSync(`${path}.partial`, encoded);
+            renameSync(`${path}.partial`, path);
+            report.rendered += 1;
+            if (report.rendered % 50 === 0) {
+              log(`narration: ${report.rendered}/${todo.length} rendered`);
+            }
+          } catch (e) {
+            report.failed.push({ id: job.id, error: e instanceof Error ? e.message : String(e) });
+          }
+        },
+      });
+    } catch (e) {
+      // Keep everything already written; the manifest below still lists it.
+      report.aborted = e instanceof Error ? e.message : String(e);
+    }
+  }
+  report.pending = todo.length - done.size;
+  report.complete =
+    !opts.only && !report.aborted && report.failed.length === 0 && report.pending === 0;
+
+  const clips: AudioManifest['clips'] = {};
+  if (!report.complete) {
+    for (const [id, old] of Object.entries(previous?.clips ?? {})) {
+      if (existsSync(join(opts.outDir, old.file))) clips[id] = old;
+    }
+  }
+  let fresh = 0;
+  for (const j of jobs) {
+    const path = join(opts.outDir, j.file);
+    if (!existsSync(path)) continue;
+    // A filtered run never changes the entry of a clip it did not select, even when another cached
+    // file for it exists (for example after its text was changed back).
+    const unselected = opts.only !== undefined && !opts.only.test(j.id);
+    if (unselected && clips[j.id]) continue;
+    let durationMs = knownDurations.get(j.file);
+    if (durationMs === undefined) {
+      durationMs = opts.encoder.durationMs(new Uint8Array(readFileSync(path)));
+      knownDurations.set(j.file, durationMs);
+    }
+    if (clips[j.id]?.file !== j.file) fresh += 1;
+    clips[j.id] = { file: j.file, durationMs };
+  }
+  if (!report.complete) report.kept = Object.keys(clips).length - fresh;
+  const manifest = buildManifest(clips);
+  // Write then rename, so an interrupted run never leaves a truncated manifest.
+  writeFileSync(`${manifestFile}.tmp`, canonicalJson(manifest));
+  renameSync(`${manifestFile}.tmp`, manifestFile);
+  report.manifest = manifest;
+
+  const referenced = new Set(Object.values(clips).map((c) => c.file));
+  for (const name of readdirSync(opts.outDir).sort()) {
+    // Only a complete run deletes anything, leftover partial files included.
+    if (!report.complete) break;
+    if ((CLIP_FILE.test(name) && !referenced.has(name)) || PARTIAL_FILE.test(name)) {
+      rmSync(join(opts.outDir, name));
+      report.pruned.push(name);
+    }
+  }
+  return report;
+}
+
+function modelName(opts: PipelineOptions): string {
+  if (opts.provider === 'stub') return 'stub-1';
+  return opts.config[opts.provider].model;
+}
+
+export function readManifest(file: string): AudioManifest | null {
+  if (!existsSync(file)) return null;
+  try {
+    const parsed = audioManifestSchema.safeParse(JSON.parse(readFileSync(file, 'utf8')));
+    return parsed.success ? parsed.data : null;
+  } catch {
+    return null;
+  }
+}
+
+/** Sorted clips plus a `version` derived from them, so an unchanged render writes identical bytes. */
+export function buildManifest(clips: AudioManifest['clips']): AudioManifest {
+  const sorted: AudioManifest['clips'] = {};
+  for (const id of Object.keys(clips).sort()) {
+    const c = clips[id];
+    if (c) sorted[id] = { file: c.file, durationMs: c.durationMs };
+  }
+  const version = createHash('sha256').update(JSON.stringify(sorted)).digest('hex').slice(0, 16);
+  return { version, clips: sorted };
+}
+
+/** One clip per line keeps diffs of the committed manifest readable. */
+export function canonicalJson(manifest: AudioManifest): string {
+  const lines = Object.entries(manifest.clips).map(
+    ([id, c]) =>
+      `    ${JSON.stringify(id)}: { "file": ${JSON.stringify(c.file)}, "durationMs": ${c.durationMs} }`,
+  );
+  const body = lines.length ? `{\n${lines.join(',\n')}\n  }` : '{}';
+  return `{\n  "version": ${JSON.stringify(manifest.version)},\n  "clips": ${body}\n}\n`;
+}

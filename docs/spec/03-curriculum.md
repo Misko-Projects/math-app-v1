@@ -2087,7 +2087,7 @@ One key is one line: one or two short sentences, spoken without a pause longer t
 
 ### 8.3 Number words and clip composition (0–1,000,000)
 
-Number words are composed from a fixed clip inventory (`narration/numbers.yaml`), rendered once per voice:
+Number words are composed from a fixed clip inventory (`narration/numbers.yaml`), rendered once per voice (v1 renders the narrator's voice only, because clip ids carry no voice; see 07 §3):
 
 | Clip set | Clips |
 |---|---|
