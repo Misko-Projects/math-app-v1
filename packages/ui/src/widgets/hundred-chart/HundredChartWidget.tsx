@@ -839,7 +839,10 @@ export function HundredChartWidget({
         >
           {text}
         </span>
-        {isActive ? <span className="ni-hc__caret" aria-hidden="true" /> : null}
+        {/* The caret waits in a blank until it is full (it never sits on a finished number). */}
+        {isActive && text.length < String(v).length ? (
+          <span className="ni-hc__caret" aria-hidden="true" />
+        ) : null}
       </>
     );
     return tap ? (

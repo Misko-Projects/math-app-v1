@@ -344,3 +344,8 @@ button.ni-hc__cell:disabled {
   outline-width: 4px;
   outline-offset: -9px;
 }
+
+/* A picked cell keeps an ink focus ring (the one teal ring on screen is Pip's invite). */
+.ni-hc__cell[data-selected="true"]:focus-visible {
+  outline-color: var(--color-ink);
+}

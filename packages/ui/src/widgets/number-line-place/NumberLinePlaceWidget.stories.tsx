@@ -493,6 +493,8 @@ export const DemoMode: Story = {
 
 /** The ring and Pip's hand are on ONE control, the hand's fingertip on it, the ring clear. */
 async function expectInviteOn(root: HTMLElement, el: HTMLElement, others: Element[]) {
+  // A tapped control keeps its focus ring; the only ring on screen must be the invite.
+  (document.activeElement as HTMLElement | null)?.blur();
   await waitFor(() => expect(el).toHaveClass('ni-invite'));
   await expect(root.querySelectorAll('.ni-invite')).toHaveLength(1);
   await waitFor(() => expect(root.querySelectorAll('.ni-hand')).toHaveLength(1));
