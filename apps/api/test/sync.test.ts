@@ -396,6 +396,12 @@ describe('POST /api/sync: clamp echo (02 §5.9 S3)', () => {
     const res = await syncOk(b.token, { events: [moved] });
     expect(res.accepted).toEqual([tomb.id]);
     expect(res.clamped).toEqual([{ id: tomb.id, ts: tomb.ts }]);
+    // A relay is the same tombstone by its id and deleted child (S2 b), whatever its envelope
+    // childId: if it is accepted, it is echoed.
+    const odd = { ...moved, id: tomb.id, childId: child.id };
+    const oddRes = await syncOk(b.token, { events: [odd] });
+    expect(oddRes.accepted).toEqual([tomb.id]);
+    expect(oddRes.clamped).toEqual([{ id: tomb.id, ts: tomb.ts }]);
   });
 });
 
