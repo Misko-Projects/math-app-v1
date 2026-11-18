@@ -352,6 +352,11 @@ export class WebAudioManager implements AudioManager {
       stopPlayback: null,
     };
     if (!queued) this.cancelSpeech();
+    // A line-end listener may have disposed the manager during that cancellation.
+    if (this.#disposed) {
+      resolve();
+      return promise;
+    }
     if (this.#current) {
       this.#queue.push(line);
     } else {
@@ -364,7 +369,11 @@ export class WebAudioManager implements AudioManager {
   async #run(line: Line): Promise<void> {
     line.phase = 'preparing';
     // A closure, so TypeScript does not narrow `phase` across the awaits (cancel() changes it).
-    const cancelled = () => line.phase === 'done' || this.#disposed;
+    // Disposal mid-load also ends the line, and still settles its promise.
+    const cancelled = () => {
+      if (this.#disposed && line.phase !== 'done') this.#finish(line, 'cancelled');
+      return line.phase === 'done';
+    };
     this.#setDucked(true);
     try {
       const plan = await this.#plan(line.request);
@@ -481,7 +490,7 @@ export class WebAudioManager implements AudioManager {
       return cached;
     }
     const fetchClip = this.#opts.fetchClip ?? defaultFetchClip;
-    const pending = fetchClip(url).then((data) => ctx.decodeAudioData(data));
+    const pending = load(() => fetchClip(url)).then((data) => ctx.decodeAudioData(data));
     pending.catch(() => {
       if (this.#clipCache.get(url) === pending) this.#clipCache.delete(url);
     });
@@ -763,27 +772,23 @@ export class WebAudioManager implements AudioManager {
 
   #loadNarration(): Promise<NarrationJson> {
     if (!this.#narration) {
-      const source = this.#opts.narration;
-      this.#narration = (typeof source === 'function' ? source() : Promise.resolve(source)).catch(
-        (e: unknown) => {
-          this.#warnOnce(`audio: narration.json failed to load (${String(e)})`);
-          this.#narration = null; // retry on the next line
-          return {};
-        },
-      );
+      const pending: Promise<NarrationJson> = load(this.#opts.narration).catch((e: unknown) => {
+        this.#warnOnce(`audio: narration.json failed to load (${String(e)})`);
+        // Retry on the next line, unless a newer request has already replaced this one.
+        if (this.#narration === pending) this.#narration = null;
+        return {};
+      });
+      this.#narration = pending;
     }
     return this.#narration;
   }
 
   #loadManifest(): Promise<AudioManifest | null> {
     if (!this.#manifest) {
-      const source = this.#opts.manifest ?? null;
-      this.#manifest = (typeof source === 'function' ? source() : Promise.resolve(source)).catch(
-        (e: unknown) => {
-          this.#warnOnce(`audio: audio manifest failed to load (${String(e)})`);
-          return null;
-        },
-      );
+      this.#manifest = load(this.#opts.manifest ?? null).catch((e: unknown) => {
+        this.#warnOnce(`audio: audio manifest failed to load (${String(e)})`);
+        return null;
+      });
     }
     return this.#manifest;
   }
@@ -834,6 +839,15 @@ export async function loadAudioManifest(
   } catch (e) {
     warn(`audio: could not load ${url} (${String(e)}); narration uses Web Speech`);
     return null;
+  }
+}
+
+/** Resolves a value or calls a loader; a loader that throws synchronously becomes a rejection. */
+function load<T>(source: Loadable<T>): Promise<T> {
+  try {
+    return typeof source === 'function' ? (source as () => Promise<T>)() : Promise.resolve(source);
+  } catch (e) {
+    return Promise.reject(e);
   }
 }
 

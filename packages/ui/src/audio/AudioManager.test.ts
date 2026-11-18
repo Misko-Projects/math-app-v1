@@ -883,6 +883,77 @@ describe('review round 2 hardening', () => {
   });
 });
 
+describe('review round 3 hardening', () => {
+  it('a replacement prompt settles when a line-end listener disposes the manager', async () => {
+    const { manager, ctx } = await setup();
+    void manager.say('game.pip.welcome');
+    await flush();
+    manager.subscribe((e) => {
+      if (e.type === 'line-end') void manager.dispose();
+    });
+    let settled = false;
+    void manager.say('p.count.how-many').then(() => {
+      settled = true;
+    });
+    await flush();
+    expect(settled).toBe(true);
+    expect(manager.speaking).toBe(false);
+    expect(labels(clipSources(ctx))).toEqual(['game.pip.welcome#0']);
+  });
+
+  it('a manifest loader that throws synchronously still falls back to Web Speech', async () => {
+    const { manager, speech } = await setup({
+      manifest: () => {
+        throw new Error('cannot build request');
+      },
+    });
+    void manager.say('p.count.how-many');
+    await flush();
+    expect(speech.lines.map((l) => l.text)).toEqual(['How many fish?']);
+  });
+
+  it('a clip loader that throws synchronously still falls back to Web Speech', async () => {
+    const { manager, speech } = await setup({
+      fetchClip: () => {
+        throw new Error('bad url');
+      },
+    });
+    void manager.say('p.count.how-many');
+    await flush();
+    expect(speech.lines.map((l) => l.text)).toEqual(['How many fish?']);
+  });
+
+  it('keeps narration from a successful retry when the stalled first request rejects late', async () => {
+    let calls = 0;
+    let rejectFirst: (e: Error) => void = () => {};
+    const { manager, ctx, timers } = await setup({
+      narration: () => {
+        calls += 1;
+        if (calls === 1) {
+          return new Promise((_, reject) => {
+            rejectFirst = reject;
+          });
+        }
+        return Promise.resolve(narrationFixture);
+      },
+    });
+    const first = manager.say('p.count.how-many');
+    await flush();
+    timers.fireAll(); // first request times out
+    await first;
+    const second = manager.say('p.count.how-many');
+    await flush();
+    ctx.advance(5);
+    await second;
+    rejectFirst(new Error('late failure'));
+    await flush();
+    void manager.say('game.pip.welcome');
+    await flush();
+    expect(calls).toBe(2);
+    expect(labels(clipSources(ctx))).toEqual(['p.count.how-many#0', 'game.pip.welcome#0']);
+  });
+});
+
 describe('spoken math symbols need their clips (03 §8.4)', () => {
   it.each([['p.add.what-is#0'], ['p.add.what-is#1']])(
     'falls back to Web Speech when %s ("plus" / "equals what number") is missing',
