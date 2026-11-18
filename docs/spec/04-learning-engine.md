@@ -226,4 +226,4 @@ Points §2–§5 leave open, as `elo-fire-v1` implements them (all parameters in
   - placement recovers the frontier with ≥ 85% per-skill classification accuracy within the K and G2 item budgets;
   - over 60 simulated sessions, first-try accuracy stays within 0.78–0.92 for ≥ 80% of sessions;
   - mastered skills that are forgotten are re-reviewed before their simulated recall drops below 0.6 in ≥ 90% of cases.
-- **Replay test:** a recorded fixture log of 2,000 events replays to an identical snapshot (golden file).
+- **Replay test:** a recorded fixture log of 2,000 events replays to an identical snapshot (golden file). The log and snapshot are taken against a frozen copy of the content (`packages/engine/test/golden/content`, the C01 fixture), so curriculum PRs never move them. The same log also replays against the live content, which is checked for invariants only: no fold throws, and every skill gets a valid status. A deliberate change to what the folds compute from the same events, such as generator features (the learner rebuilds each attempt's difficulty from them, §2.2), re-derives only the snapshot with `UPDATE_GOLDEN=snapshot`.

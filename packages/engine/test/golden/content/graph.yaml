@@ -1,0 +1,9 @@
+# Graph-level settings (03 §4.1, §9.2).
+# roots: the only skills allowed to have no prerequisites (V05).
+roots: [CNT.01, SUB.01]
+# coverageGrades: grades whose catalog is complete; V20 checks standards coverage only for these.
+# The C01 fixture set covers no grade (03 §9.5). K01 sets [K, 1]; K02 sets [K, 1, 2, 3].
+coverageGrades: []
+# plannedIds: catalog ids (03 §3) not authored yet; V03 accepts a gap there. The fixture set has
+# ADD.01 and ADD.03 but not ADD.02 (03 §9.5). K01 authors ADD.02 and clears this list.
+plannedIds: [ADD.02]
