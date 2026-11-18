@@ -31,7 +31,12 @@ export function isInside(parent, child) {
  * the root's name, nor a symlink pointing elsewhere can escape the document root.
  */
 export function resolveInside(root, requestPath) {
-  const realRoot = realpathSync(root);
+  let realRoot;
+  try {
+    realRoot = realpathSync(root); // a missing build output answers 404, never crashes the server
+  } catch {
+    return null;
+  }
   let decoded;
   try {
     decoded = decodeURIComponent(requestPath);

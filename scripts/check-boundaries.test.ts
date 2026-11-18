@@ -115,6 +115,36 @@ describe('import-boundary lint (02 §2)', () => {
     expect(v).toEqual([]);
   });
 
+  it('resolves names lexically: a local in one scope does not hide the global in another', () => {
+    const v = checkSource(
+      'engine',
+      file('packages/engine'),
+      [
+        'export function a() { const location = 1; return location; }',
+        'export function b() { return location.href; }',
+        'export function c(data: { location: number }) { const { location: point } = data; return point; }',
+      ].join('\n'),
+      root,
+    );
+    expect(v).toHaveLength(1);
+    expect(v[0]).toMatch(/probe\.ts:2:\d+ .*browser global location/);
+  });
+
+  it('flags a shorthand property whose value is the browser global', () => {
+    const v = checkSource(
+      'engine',
+      file('packages/engine'),
+      'export const o = { window };\n',
+      root,
+    );
+    expect(v.join('\n')).toMatch(/browser global window/);
+  });
+
+  it('scans checked-in dot directories such as packages/ui/.storybook', () => {
+    const uiFiles = [...packageFiles(root, 'ui')].map((f) => f.file);
+    expect(uiFiles.some((f) => f.endsWith(join('.storybook', 'main.ts')))).toBe(true);
+  });
+
   it('scans every file in a package: direction everywhere, purity only under src/', () => {
     const contentFiles = [...packageFiles(root, 'content')];
     const build = contentFiles.find((f) => f.file.endsWith(join('scripts', 'build.mjs')));

@@ -113,8 +113,7 @@ export function checkSource(pkg, fileName, source, root, opts = {}) {
     : { dir: baseRule.dir, allowed: baseRule.allowed, pure: false, noNode: false };
   /** @type {string[]} */
   const violations = [];
-  const sf = ts.createSourceFile(fileName, source, ts.ScriptTarget.Latest, true);
-  const declared = declaredNames(sf);
+  const { sf, checker } = bindFile(fileName, source);
   const where = (node) => {
     const { line, character } = sf.getLineAndCharacterOfPosition(node.getStart(sf));
     return `${relative(root, fileName)}:${line + 1}:${character + 1}`;
@@ -188,8 +187,8 @@ export function checkSource(pkg, fileName, source, root, opts = {}) {
       rule.pure &&
       ts.isIdentifier(node) &&
       BROWSER_GLOBALS.has(node.text) &&
-      !declared.has(node.text) &&
-      isGlobalReference(node)
+      isGlobalReference(node) &&
+      !resolvesToLocalBinding(node, sf, checker)
     ) {
       violations.push(
         `${where(node)} ${pkg} is pure and must not use the browser global ${node.text} (02 §2)`,
@@ -202,45 +201,45 @@ export function checkSource(pkg, fileName, source, root, opts = {}) {
 }
 
 /**
- * Every name the file binds itself (variables, parameters, functions, classes, imports, catch
- * bindings, type names). A browser-global name that the file declares anywhere refers to that
- * binding, not the global, so it is not flagged. This ignores shadowing scopes on purpose: it can
- * only under-report (a file that both declares `location` and uses the global elsewhere), never
- * reject ordinary local code; Biome's noRestrictedGlobals remains a second layer.
+ * Parse and bind one file on its own (no lib, no module resolution), so the TypeScript checker
+ * resolves every identifier lexically: a name bound in the file (a parameter, a variable in some
+ * scope, an import) resolves to that declaration, while a browser global resolves to nothing,
+ * because no lib declares it.
  */
-function declaredNames(sf) {
-  const names = new Set();
-  const addBinding = (name) => {
-    if (!name) return;
-    if (ts.isIdentifier(name)) names.add(name.text);
-    else if (ts.isObjectBindingPattern(name) || ts.isArrayBindingPattern(name)) {
-      for (const el of name.elements) if (ts.isBindingElement(el)) addBinding(el.name);
-    }
+function bindFile(fileName, source) {
+  const options = {
+    noLib: true,
+    noResolve: true,
+    allowJs: true,
+    checkJs: false,
+    target: ts.ScriptTarget.Latest,
+    jsx: ts.JsxEmit.Preserve,
+    types: [],
   };
-  const visit = (node) => {
-    if (
-      ts.isVariableDeclaration(node) ||
-      ts.isParameter(node) ||
-      ts.isBindingElement(node) ||
-      ts.isFunctionDeclaration(node) ||
-      ts.isFunctionExpression(node) ||
-      ts.isClassDeclaration(node) ||
-      ts.isClassExpression(node) ||
-      ts.isTypeAliasDeclaration(node) ||
-      ts.isInterfaceDeclaration(node) ||
-      ts.isEnumDeclaration(node) ||
-      ts.isImportClause(node) ||
-      ts.isImportSpecifier(node) ||
-      ts.isNamespaceImport(node) ||
-      ts.isImportEqualsDeclaration(node) ||
-      ts.isTypeParameterDeclaration(node)
-    ) {
-      addBinding(node.name);
-    }
-    ts.forEachChild(node, visit);
+  const sf = ts.createSourceFile(fileName, source, ts.ScriptTarget.Latest, true);
+  const host = {
+    getSourceFile: (name) => (name === fileName ? sf : undefined),
+    getDefaultLibFileName: () => 'lib.d.ts',
+    writeFile: () => {},
+    getCurrentDirectory: () => dirname(fileName),
+    getCanonicalFileName: (name) => name,
+    useCaseSensitiveFileNames: () => true,
+    getNewLine: () => '\n',
+    fileExists: (name) => name === fileName,
+    readFile: (name) => (name === fileName ? source : undefined),
   };
-  visit(sf);
-  return names;
+  const program = ts.createProgram({ rootNames: [fileName], options, host });
+  return { sf: program.getSourceFile(fileName) ?? sf, checker: program.getTypeChecker() };
+}
+
+/** True when the identifier resolves, in its own lexical scope, to a binding declared in this file. */
+function resolvesToLocalBinding(id, sf, checker) {
+  const parent = id.parent;
+  const symbol =
+    parent && ts.isShorthandPropertyAssignment(parent) && parent.name === id
+      ? checker.getShorthandAssignmentValueSymbol(parent)
+      : checker.getSymbolAtLocation(id);
+  return (symbol?.declarations ?? []).some((d) => d.getSourceFile() === sf);
 }
 
 /** True when an identifier is a value/type reference, not a property name or a local declaration. */
@@ -249,6 +248,8 @@ function isGlobalReference(id) {
   if (!parent) return true;
   if (ts.isPropertyAccessExpression(parent) && parent.name === id) return false;
   if (ts.isQualifiedName(parent) && parent.right === id) return false;
+  // `const { location: point } = data`: `location` names a property, not a variable.
+  if (ts.isBindingElement(parent) && parent.propertyName === id) return false;
   if (
     (ts.isPropertyAssignment(parent) ||
       ts.isPropertySignature(parent) ||
@@ -273,18 +274,25 @@ function isGlobalReference(id) {
     parent.name === id
   )
     return false;
-  if (ts.isShorthandPropertyAssignment(parent)) return true;
   return true;
 }
 
 const SOURCE_EXT = /\.(c|m)?(t|j)sx?$/;
+// Generated, vendored or VCS directories. Other dot directories (e.g. packages/ui/.storybook) hold
+// checked-in executable config and are scanned.
 const SKIP_DIRS = new Set([
   'node_modules',
   'dist',
   'build',
-  '.wrangler',
   'storybook-static',
   'test-results',
+  'playwright-report',
+  'coverage',
+  '.git',
+  '.wrangler',
+  '.turbo',
+  '.cache',
+  '.vite',
 ]);
 
 function* walk(dir) {
@@ -295,7 +303,7 @@ function* walk(dir) {
     return;
   }
   for (const name of entries) {
-    if (SKIP_DIRS.has(name) || name.startsWith('.')) continue;
+    if (SKIP_DIRS.has(name)) continue;
     const full = join(dir, name);
     const st = statSync(full);
     if (st.isDirectory()) yield* walk(full);

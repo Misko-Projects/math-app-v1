@@ -36,12 +36,19 @@ export function intParamDomainSize(s: {
   step?: number;
   exclude?: number[];
 }): number {
-  const step = s.step ?? 1;
-  const count = Math.floor((s.max - s.min) / step) + 1;
+  // BigInt keeps this exact even when max − min exceeds Number.MAX_SAFE_INTEGER.
+  const min = BigInt(s.min);
+  const max = BigInt(s.max);
+  const step = BigInt(s.step ?? 1);
+  const count = (max - min) / step + 1n; // BigInt division truncates; max ≥ min so this is floor
   const excluded = new Set(
-    (s.exclude ?? []).filter((v) => v >= s.min && v <= s.max && (v - s.min) % step === 0),
+    (s.exclude ?? [])
+      .map((v) => BigInt(v))
+      .filter((v) => v >= min && v <= max && (v - min) % step === 0n),
   );
-  return count - excluded.size;
+  const size = count - BigInt(excluded.size);
+  // Callers only compare with 0; clamp the (astronomically large) count into a Number.
+  return size > BigInt(Number.MAX_SAFE_INTEGER) ? Number.MAX_SAFE_INTEGER : Number(size);
 }
 
 // 03 §5.2: "Params are integers, strings or booleans only."

@@ -1,6 +1,10 @@
 {
   "$schema": "./node_modules/@biomejs/biome/configuration_schema.json",
-  "vcs": { "enabled": true, "clientKind": "git", "useIgnoreFile": true },
+  "vcs": {
+    "enabled": true,
+    "clientKind": "git",
+    "useIgnoreFile": true
+  },
   "files": {
     "includes": [
       "**",
@@ -24,17 +28,40 @@
     "lineWidth": 100
   },
   "javascript": {
-    "formatter": { "quoteStyle": "single", "semicolons": "always", "trailingCommas": "all" }
+    "formatter": {
+      "quoteStyle": "single",
+      "semicolons": "always",
+      "trailingCommas": "all"
+    }
   },
-  "json": { "parser": { "allowComments": true } },
-  "css": { "parser": { "tailwindDirectives": true } },
-  "assist": { "enabled": true, "actions": { "source": { "organizeImports": "on" } } },
+  "json": {
+    "parser": {
+      "allowComments": true
+    }
+  },
+  "css": {
+    "parser": {
+      "tailwindDirectives": true
+    }
+  },
+  "assist": {
+    "enabled": true,
+    "actions": {
+      "source": {
+        "organizeImports": "on"
+      }
+    }
+  },
   "linter": {
     "enabled": true,
     "rules": {
       "preset": "recommended",
-      "suspicious": { "noExplicitAny": "error" },
-      "style": { "noNonNullAssertion": "warn" }
+      "suspicious": {
+        "noExplicitAny": "error"
+      },
+      "style": {
+        "noNonNullAssertion": "warn"
+      }
     }
   },
   "overrides": [
@@ -66,7 +93,9 @@
                   "sessionStorage": "shared, content and engine must not touch browser globals (02 §2).",
                   "indexedDB": "shared, content and engine must not touch browser globals (02 §2).",
                   "location": "shared, content and engine must not touch browser globals (02 §2).",
-                  "self": "shared, content and engine must not touch browser globals (02 §2)."
+                  "self": "shared, content and engine must not touch browser globals (02 §2).",
+                  "HTMLElement": "shared, content and engine must not touch browser globals (02 §2).",
+                  "requestAnimationFrame": "shared, content and engine must not touch browser globals (02 §2)."
                 }
               }
             }

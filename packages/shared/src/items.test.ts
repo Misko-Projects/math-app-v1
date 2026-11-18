@@ -750,6 +750,16 @@ describe('item contract schemas round-trip', () => {
         .success,
     ).toBe(true);
     expect(intParamDomainSize({ min: 0, max: 20, exclude: [10] })).toBe(20);
+    // exact arithmetic past 2^53: span 18014398509481979 holds exactly two step values
+    const huge = {
+      kind: 'int' as const,
+      min: -9007199254740990,
+      max: 9007199254740989,
+      step: 9007199254740990,
+      exclude: [-9007199254740990, 0],
+    };
+    expect(intParamDomainSize(huge)).toBe(0);
+    expect(paramSpecSchema.safeParse(huge).success).toBe(false);
     // 03 §5.2: params are integers, strings or booleans only
     expect(paramSpecSchema.safeParse({ kind: 'choice', values: [1, 2.5] }).success).toBe(false);
     expect(paramSpecSchema.safeParse({ kind: 'const', value: 0.5 }).success).toBe(false);

@@ -35,6 +35,11 @@ describe('serve-static containment', () => {
     expect(resolveInside(root, '/missing.js')).toBeNull();
   });
 
+  it('answers null (404) instead of throwing when the root does not exist', () => {
+    const { base } = fixture();
+    expect(resolveInside(join(base, 'not-built-yet'), '/index.html')).toBeNull();
+  });
+
   it('compares paths by segment, not by string prefix', () => {
     expect(isInside('/a/site', '/a/site/x')).toBe(true);
     expect(isInside('/a/site', '/a/site-secrets/x')).toBe(false);

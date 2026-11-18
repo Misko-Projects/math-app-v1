@@ -246,6 +246,13 @@ describe('8 KB event payload cap on inbound events (08 §4)', () => {
     expect(push([event]).success).toBe(true);
   });
 
+  it('fails closed when a payload cannot be measured', () => {
+    const cyclic: Record<string, unknown> = { a: 1 };
+    cyclic.self = cyclic;
+    expect(push([{ ...futureEvent, id: newId(), payload: cyclic }]).success).toBe(false);
+    expect(push([{ ...futureEvent, id: newId(), payload: { n: 10n } }]).success).toBe(false);
+  });
+
   it('counts UTF-8 bytes, not UTF-16 code units', () => {
     expect(utf8ByteLength('aé€😀')).toBe(1 + 2 + 3 + 4);
     // 2,800 three-byte characters = 8,400 bytes, under 8,192 code units

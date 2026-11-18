@@ -554,8 +554,9 @@ export const anyEventEnvelopeSchema: z.ZodType<AnyEventEnvelope> = z.union([
 ]);
 
 /**
- * UTF-8 byte length of an event's payload as received (JSON-serialised), or `null` when the input
- * has no serialisable payload. Measured on the raw input, before parsing strips unknown fields.
+ * UTF-8 byte length of an event's payload as received (JSON-serialised), or `null` when there is no
+ * payload or it cannot be serialised to JSON. Measured on the raw input, before parsing strips
+ * unknown fields.
  */
 export function eventPayloadBytes(raw: unknown): number | null {
   if (typeof raw !== 'object' || raw === null || !('payload' in raw)) return null;
@@ -592,8 +593,18 @@ export function utf8ByteLength(text: string): number {
 export const inboundEventEnvelopeSchema = z
   .unknown()
   .superRefine((raw, ctx) => {
+    // No payload key at all: the envelope schema below reports it.
+    if (typeof raw !== 'object' || raw === null || !('payload' in raw)) return;
     const bytes = eventPayloadBytes(raw);
-    if (bytes !== null && bytes > MAX_EVENT_PAYLOAD_BYTES) {
+    if (bytes === null) {
+      // Fail closed: a payload whose size cannot be measured (cycles, BigInt, functions) is not
+      // JSON and must never be stored or relayed.
+      ctx.addIssue({
+        code: 'custom',
+        message: 'event payload is not JSON-serialisable',
+        path: ['payload'],
+      });
+    } else if (bytes > MAX_EVENT_PAYLOAD_BYTES) {
       ctx.addIssue({
         code: 'custom',
         message: `event payload is ${bytes} bytes; the limit is ${MAX_EVENT_PAYLOAD_BYTES}`,
