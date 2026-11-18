@@ -1,6 +1,9 @@
 // @number-island/ui: design tokens, primitives, math widgets, avatar renderer, art kit, sfx (02 §2).
 // Styles: import "@number-island/ui/theme.css" and "@number-island/ui/primitives.css" after Tailwind.
 
+// Audio (02 §5.5, A01): AudioManager, narration stitching, Web Speech fallback, SFX and music.
+export * from './audio';
+
 // Interaction primitives (06 §4, §7).
 export {
   distanceToRect,

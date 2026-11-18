@@ -4,21 +4,27 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "wrangler dev --port 8787 --ip 127.0.0.1",
-    "preview": "wrangler dev --port 8787 --ip 127.0.0.1 --env preview",
+    "dev": "node scripts/db-migrate.mjs && wrangler dev --port 8787 --ip 127.0.0.1",
+    "preview": "node scripts/db-migrate.mjs --env preview && wrangler dev --port 8787 --ip 127.0.0.1 --env preview",
+    "db:migrate": "node scripts/db-migrate.mjs",
+    "db:reset": "node scripts/db-reset.mjs",
+    "db:seed": "node scripts/db-seed.ts",
+    "db:generate": "drizzle-kit generate",
     "ai:smoke": "node scripts/ai-smoke.mjs",
     "cf-typegen": "wrangler types"
   },
   "dependencies": {
+    "@hono/zod-validator": "^0.9.1",
     "@number-island/engine": "workspace:*",
     "@number-island/shared": "workspace:*",
+    "drizzle-orm": "^0.45.4",
     "hono": "^4.13.19",
-    "@hono/zod-validator": "^0.9.1",
     "zod": "^4.6.7"
   },
   "devDependencies": {
-    "wrangler": "^4.164.0",
     "@cloudflare/vitest-pool-workers": "^0.23.0",
-    "@cloudflare/workers-types": "^5.20261118.1"
+    "@cloudflare/workers-types": "^5.20261118.1",
+    "drizzle-kit": "^0.31.11",
+    "wrangler": "^4.164.0"
   }
 }

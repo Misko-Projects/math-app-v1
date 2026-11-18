@@ -9,7 +9,7 @@ import { VitePWA } from 'vite-plugin-pwa';
 const THEME_COLOR = '#1f7a8c';
 const BACKGROUND_COLOR = '#f4e3c3';
 
-/** Vite's default `server.fs.deny`, plus `pnpm secrets:link` output (apps/api/.dev.vars). */
+/** Vite's default `server.fs.deny`, plus `pnpm secrets:link` output (apps/api/.dev.vars) and local D1 state. */
 export const SECRET_FILE_DENY = [
   '.env',
   '.env.*',
@@ -17,6 +17,8 @@ export const SECRET_FILE_DENY = [
   '**/.git/**',
   '**/.dev.vars',
   '**/.dev.vars.*',
+  // Local D1 state (apps/api/.wrangler): child profiles, the event log and credential hashes.
+  '**/.wrangler/**',
 ] as const;
 
 // 02 §3: Vite on :5173 proxies /api to `wrangler dev` on :8787 so the browser sees one origin.
@@ -69,11 +71,15 @@ export default defineConfig(({ mode }) => {
       strictPort: true,
       fs: {
         // Vite may serve any file under the workspace root, and `pnpm dev:lan` exposes it on the home
-        // network. Keep Vite's defaults and also deny the Worker's secrets file (08 §6).
+        // network. Keep Vite's defaults and also deny the Worker's secrets file (08 §6) and its local
+        // D1 database (apps/api/.wrangler, 08 §5).
         deny: [...SECRET_FILE_DENY],
       },
       proxy: {
-        '/api': { target: 'http://127.0.0.1:8787', changeOrigin: false },
+        // `xfwd` adds X-Forwarded-For/-Proto, which the API trusts only from loopback: per-client
+        // login rate limits for tablets on `pnpm dev:lan`, and `Secure` cookies under
+        // `pnpm dev:https` (08 §2, apps/api/src/lib/http.ts).
+        '/api': { target: 'http://127.0.0.1:8787', changeOrigin: false, xfwd: true },
       },
     },
     preview: { port: 4173, strictPort: true },

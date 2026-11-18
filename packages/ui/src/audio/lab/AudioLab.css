@@ -1,0 +1,576 @@
+/* Storybook Audio Lab. Uses the design tokens (theme.css) when present, with the 05 §11 palette
+   as fallbacks so the page also stands alone. */
+.alab {
+  --alab-sea: var(--color-sea, #2a9d8f);
+  --alab-sea-deep: var(--color-sea-deep, #1f7a8c);
+  --alab-sea-dark: var(--color-sea-dark, #17606e);
+  --alab-sand: var(--color-sand, #f4e3c3);
+  --alab-paper: var(--color-paper, #fffaf0);
+  --alab-ink: var(--color-ink, #264653);
+  --alab-ink-soft: var(--color-ink-soft, #3d6170);
+  --alab-coral: var(--color-coral, #e76f51);
+  --alab-coral-deep: var(--color-coral-deep, #b9503a);
+  --alab-sun: var(--color-sun, #f4a261);
+  --alab-sunshine: var(--color-sunshine, #e9c46a);
+  --alab-leaf: var(--color-leaf, #5c9e4f);
+  --alab-sky: var(--color-sky, #bfe4ee);
+  --alab-display: var(--font-display, "Baloo 2", ui-rounded, system-ui, sans-serif);
+  --alab-body: var(--font-body, "Andika", ui-sans-serif, system-ui, sans-serif);
+
+  box-sizing: border-box;
+  min-height: 100vh;
+  padding: 24px 28px 28px;
+  color: var(--alab-ink);
+  font-family: var(--alab-body);
+  background:
+    radial-gradient(120% 60% at 50% -10%, #e6f5f6 0%, transparent 60%),
+    linear-gradient(180deg, #f3fbf8 0%, #fbeed3 100%);
+}
+.alab *,
+.alab *::before,
+.alab *::after {
+  box-sizing: border-box;
+}
+
+.alab h1,
+.alab h2 {
+  font-family: var(--alab-display);
+  margin: 0;
+  line-height: 1.1;
+}
+.alab h1 {
+  font-size: 2rem;
+  font-weight: 800;
+}
+.alab h2 {
+  font-size: 1.25rem;
+  font-weight: 700;
+  margin-bottom: 12px;
+}
+
+/* ---------- header ---------- */
+.alab-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 18px;
+}
+.alab-title {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+.alab-title p {
+  margin: 2px 0 0;
+  color: var(--alab-ink-soft);
+}
+.alab-logo {
+  display: grid;
+  place-items: center;
+  width: 56px;
+  height: 56px;
+  border-radius: 18px;
+  color: #fff;
+  background: var(--alab-sea-deep);
+  box-shadow: 0 5px 0 var(--alab-sea-dark);
+}
+.alab-logo svg {
+  width: 34px;
+  height: 34px;
+}
+.alab-status {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.alab-pill {
+  padding: 8px 16px;
+  border-radius: 9999px;
+  font-weight: 700;
+  background: #fff;
+  border: 2px solid #d9bb87;
+}
+.alab-pill[data-state="running"] {
+  color: #2f5a29;
+  border-color: var(--alab-leaf);
+  background: #eef7ea;
+}
+
+/* ---------- layout ---------- */
+.alab-grid {
+  display: grid;
+  grid-template-columns: repeat(12, minmax(0, 1fr));
+  gap: 16px;
+}
+.alab-card {
+  padding: 18px 20px;
+  border-radius: 28px;
+  background: var(--alab-paper);
+  border: 2px solid #ecdcbc;
+  box-shadow: 0 10px 24px -14px rgb(38 70 83 / 0.45);
+  min-width: 0;
+}
+.alab-sfx {
+  grid-column: span 5;
+}
+.alab-narration {
+  grid-column: span 7;
+  display: flex;
+  flex-direction: column;
+}
+.alab-composer {
+  grid-column: span 5;
+}
+.alab-now {
+  grid-column: span 7;
+}
+.alab-music {
+  grid-column: span 8;
+}
+.alab-mixer {
+  grid-column: span 4;
+}
+
+/* ---------- buttons ---------- */
+.alab-btn {
+  min-height: 48px;
+  padding: 8px 16px;
+  border: 2px solid var(--alab-sea-deep);
+  border-radius: 9999px;
+  font: 700 1rem var(--alab-body);
+  color: var(--alab-sea-dark);
+  background: #fff;
+  box-shadow: 0 4px 0 var(--alab-sea-deep);
+  cursor: pointer;
+  transition:
+    transform 80ms ease,
+    box-shadow 80ms ease;
+}
+.alab-btn:active {
+  transform: translateY(3px);
+  box-shadow: 0 1px 0 var(--alab-sea-deep);
+}
+.alab-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.alab-btn-primary,
+.alab-btn-start {
+  color: #fff;
+  background: var(--alab-sea-dark);
+  border-color: var(--alab-sea-dark);
+  box-shadow: 0 4px 0 #0f4650;
+}
+.alab-btn-start {
+  min-height: 56px;
+  padding: 10px 24px;
+  font-size: 1.125rem;
+}
+.alab :focus-visible {
+  outline: 3px solid var(--alab-sun);
+  outline-offset: 3px;
+}
+
+/* ---------- SFX ---------- */
+.alab-sfx-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+.alab-sfx-tile {
+  --tile: var(--alab-sea);
+  --tile-bg: #e7f5f2;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  min-height: 112px;
+  padding: 10px 8px 12px;
+  border: 2px solid transparent;
+  border-radius: 20px;
+  color: var(--alab-ink);
+  background: var(--tile-bg);
+  font-family: var(--alab-body);
+  text-align: center;
+  cursor: pointer;
+  box-shadow: 0 4px 0 color-mix(in srgb, var(--tile) 45%, transparent);
+  transition: transform 90ms ease;
+}
+.alab-sfx-tile:active {
+  transform: translateY(3px) scale(0.98);
+}
+.alab-sfx-tile[data-active] {
+  border-color: var(--tile);
+}
+.alab-sfx-tile[data-tone="1"] {
+  --tile: var(--alab-coral);
+  --tile-bg: #fcebe5;
+}
+.alab-sfx-tile[data-tone="2"] {
+  --tile: var(--alab-sun);
+  --tile-bg: #fdefe2;
+}
+.alab-sfx-tile[data-tone="3"] {
+  --tile: var(--alab-leaf);
+  --tile-bg: #ebf4e7;
+}
+.alab-sfx-tile[data-tone="4"] {
+  --tile: var(--alab-sunshine);
+  --tile-bg: #fbf3dc;
+}
+.alab-sfx-tile[data-tone="5"] {
+  --tile: var(--alab-sea-deep);
+  --tile-bg: #e3f1f5;
+}
+.alab-sfx-icon {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 9999px;
+  color: #fff;
+  background: var(--tile);
+}
+.alab-sfx-icon svg {
+  width: 28px;
+  height: 28px;
+}
+.alab-sfx-label {
+  font-family: var(--alab-display);
+  font-weight: 700;
+  font-size: 1rem;
+  line-height: 1.15;
+}
+.alab-sfx-use {
+  font-size: 0.8rem;
+  line-height: 1.2;
+  color: var(--alab-ink-soft);
+}
+
+/* ---------- narration ---------- */
+.alab-source {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 20px;
+  margin: 0 0 12px;
+  padding: 0;
+  border: 0;
+}
+.alab-source legend {
+  float: left;
+  margin-right: 12px;
+  font-weight: 700;
+}
+.alab-source label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+}
+.alab-source input,
+.alab-toggle input {
+  width: 20px;
+  height: 20px;
+  accent-color: var(--alab-sea-dark);
+}
+.alab-lines {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  margin-bottom: 12px;
+  flex: 1;
+  align-content: start;
+}
+.alab-line {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  min-height: 72px;
+  padding: 8px 14px;
+  border: 2px solid #e7cfa2;
+  border-radius: 18px;
+  background: #fff;
+  color: var(--alab-ink);
+  font-family: var(--alab-body);
+  text-align: left;
+  cursor: pointer;
+}
+.alab-line:hover {
+  border-color: var(--alab-sea);
+}
+.alab-line-label {
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--alab-sea-dark);
+}
+.alab-line-text {
+  font-size: 0.95rem;
+  line-height: 1.25;
+}
+.alab-subhead {
+  margin: 4px 0 8px;
+  padding-top: 12px;
+  border-top: 2px dashed #ecdcbc;
+  font: 700 0.95rem var(--alab-body);
+  color: var(--alab-ink-soft);
+}
+.alab-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+/* ---------- composer ---------- */
+.alab-composer-inputs {
+  display: grid;
+  grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: end;
+}
+.alab-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-weight: 700;
+  font-size: 0.85rem;
+}
+.alab-field select,
+.alab-field input {
+  min-height: 48px;
+  padding: 6px 12px;
+  border: 2px solid #d9bb87;
+  border-radius: 14px;
+  background: #fff;
+  color: var(--alab-ink);
+  font: 400 1rem var(--alab-body);
+  min-width: 0;
+}
+/* Invalid value: an error-coloured border and ring, distinct from the sunny focus ring. */
+.alab-field input[aria-invalid="true"] {
+  border-color: var(--alab-coral-deep);
+  background: #fff4f0;
+  box-shadow: 0 0 0 3px rgb(231 111 81 / 0.28);
+}
+.alab-field input[aria-invalid="true"]:focus-visible {
+  outline-color: var(--alab-coral-deep);
+}
+.alab-composed {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 14px;
+  margin: 14px 0 8px;
+  min-height: 3.2rem;
+}
+.alab-composed-text {
+  font-family: var(--alab-display);
+  font-weight: 800;
+  font-size: 2.25rem;
+  line-height: 1;
+  color: var(--alab-sea-dark);
+}
+.alab-composed-words {
+  font-size: 1.05rem;
+  color: var(--alab-ink-soft);
+}
+.alab-composed-error {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: #9a3d28;
+  font-weight: 700;
+}
+.alab-composed-error::before {
+  content: "!";
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 24px;
+  height: 24px;
+  border-radius: 9999px;
+  color: #fff;
+  background: var(--alab-coral-deep);
+  font: 800 0.95rem var(--alab-display);
+}
+
+/* ---------- clip chips ---------- */
+.alab-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.alab-chip {
+  padding: 3px 10px;
+  border-radius: 9999px;
+  font:
+    600 0.8rem ui-monospace,
+    SFMono-Regular,
+    Menlo,
+    monospace;
+  color: var(--alab-ink);
+  background: #eef3f1;
+  border: 1.5px solid #cfe0db;
+  transition:
+    background 120ms ease,
+    transform 120ms ease;
+}
+.alab-chip[data-active] {
+  color: #fff;
+  background: var(--alab-sea-dark);
+  border-color: var(--alab-sea-dark);
+  transform: translateY(-1px);
+}
+
+/* ---------- now speaking ---------- */
+.alab-caption {
+  margin: 0 0 8px;
+  font-size: 1.35rem;
+  line-height: 1.3;
+  font-weight: 700;
+}
+.alab-caption[data-done] {
+  color: var(--alab-ink-soft);
+}
+.alab-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 0 0 10px;
+}
+.alab-tag {
+  padding: 2px 10px;
+  border-radius: 9999px;
+  font-size: 0.8rem;
+  font-weight: 700;
+  background: #f6ead2;
+}
+.alab-tag[data-via="clips"] {
+  background: #dff1ec;
+  color: #17606e;
+}
+.alab-tag[data-via="speech"] {
+  background: #fde7df;
+  color: #8a3a26;
+}
+.alab-empty {
+  margin: 0 0 10px;
+  color: var(--alab-ink-soft);
+}
+.alab-log {
+  margin: 12px 0 0;
+  padding: 10px 0 0;
+  border-top: 2px dashed #ecdcbc;
+  list-style: none;
+  font-size: 0.85rem;
+  color: var(--alab-ink-soft);
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-auto-flow: row;
+  gap: 2px 16px;
+}
+
+/* ---------- music ---------- */
+.alab-tracks {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+}
+.alab-track {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  min-height: 64px;
+  padding: 8px 12px;
+  border: 2px solid #e7cfa2;
+  border-radius: 18px;
+  background: #fff;
+  color: var(--alab-ink);
+  font-family: var(--alab-body);
+  text-align: left;
+  cursor: pointer;
+}
+.alab-track[aria-pressed="true"] {
+  border-color: var(--alab-sea-dark);
+  background: #e7f5f2;
+}
+.alab-track-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.alab-track-icon {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  border-radius: 12px;
+  color: #fff;
+  background: var(--alab-sun);
+}
+.alab-track[aria-pressed="true"] .alab-track-icon {
+  background: var(--alab-sea-dark);
+}
+.alab-track-icon svg {
+  width: 24px;
+  height: 24px;
+}
+.alab-track-label {
+  font-family: var(--alab-display);
+  font-weight: 700;
+  line-height: 1.1;
+}
+.alab-track-use {
+  font-size: 0.78rem;
+  line-height: 1.2;
+  color: var(--alab-ink-soft);
+}
+
+/* ---------- mixer ---------- */
+.alab-slider {
+  display: grid;
+  grid-template-columns: 8.5rem 1fr 3.4rem;
+  align-items: center;
+  gap: 10px;
+  min-height: 40px;
+  font-weight: 700;
+  font-size: 0.95rem;
+}
+.alab-slider input {
+  width: 100%;
+  accent-color: var(--alab-sea-dark);
+}
+.alab-slider output {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.alab-toggle {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 6px;
+  min-height: 40px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+/* Narrower screens (tablet portrait): stack into two columns. */
+@media (max-width: 1100px) {
+  .alab-sfx,
+  .alab-narration,
+  .alab-composer,
+  .alab-now,
+  .alab-music,
+  .alab-mixer {
+    grid-column: span 12;
+  }
+  .alab-tracks {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}

@@ -20,6 +20,7 @@
 | `pnpm narration:audition` | Render the same 5 lines in each candidate voice into `tmp/audition/` (07 §3) |
 | `pnpm ai:smoke` | Live AI smoke test with real keys: 20 feedback requests + 1 vision request; prints latency p50/p95 and cost per model (07 §9). Never in CI |
 | `pnpm secrets:link` | Writes `apps/api/.dev.vars` from the user-owned secrets file (08 §6) |
+| `pnpm db:reset` / `pnpm db:seed` | Recreate the local D1 database (migrated) / add a demo family with dev-only credentials (08 §5). `pnpm dev` applies pending migrations itself |
 | `pnpm verify` | **In this order:** content:build → typecheck → lint → content:validate → test → build (what CI's `verify` job runs) |
 
 ## 2. CI (GitHub Actions, `.github/workflows/ci.yml`)
