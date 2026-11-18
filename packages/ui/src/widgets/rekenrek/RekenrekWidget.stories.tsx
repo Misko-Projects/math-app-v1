@@ -9,7 +9,6 @@ import {
   expectTargetSize,
   pointerDrag,
   spyAudio,
-  waitForSettled,
 } from '../../test-support/storyHelpers';
 import {
   areaBox,
