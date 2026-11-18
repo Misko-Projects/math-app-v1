@@ -1,0 +1,24 @@
+{
+  "name": "@number-island/api",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler dev --port 8787 --ip 127.0.0.1",
+    "preview": "wrangler dev --port 8787 --ip 127.0.0.1 --env preview",
+    "ai:smoke": "node scripts/ai-smoke.mjs",
+    "cf-typegen": "wrangler types"
+  },
+  "dependencies": {
+    "@number-island/engine": "workspace:*",
+    "@number-island/shared": "workspace:*",
+    "hono": "^4.13.19",
+    "@hono/zod-validator": "^0.9.1",
+    "zod": "^4.6.7"
+  },
+  "devDependencies": {
+    "wrangler": "^4.164.0",
+    "@cloudflare/vitest-pool-workers": "^0.23.0",
+    "@cloudflare/workers-types": "^5.20261118.1"
+  }
+}

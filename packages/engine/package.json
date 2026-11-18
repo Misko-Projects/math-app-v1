@@ -1,0 +1,12 @@
+{
+  "name": "@number-island/engine",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": { "test:sim": "node scripts/test-sim.mjs" },
+  "dependencies": { "@number-island/content": "workspace:*", "@number-island/shared": "workspace:*" },
+  "devDependencies": { "fast-check": "^4.10.2" }
+}
