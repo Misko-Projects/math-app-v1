@@ -324,7 +324,7 @@ function pathHeight(c: Config, w: number, target: number, short: boolean, pictur
  * timeline). A short room keeps just enough for the tallest arc and its label.
  */
 const headroomFor = (c: Config, short: boolean) =>
-  c.path === 'open' || c.path === 'timeline' ? (short ? 116 : 132) : short ? 92 : 104;
+  c.path === 'open' || c.path === 'timeline' ? (short ? 128 : 136) : short ? 92 : 104;
 
 /** A room shorter than this gets the tight spacing and the regular answer numerals. */
 const SHORT_ROOM = 420;
@@ -495,7 +495,10 @@ function useWidth(ref: RefObject<HTMLElement | null>): number | null {
   return w;
 }
 
-/** The border-box size of an element (fixed-size controls), measured once laid out. */
+/**
+ * The border-box size of an element (fixed-size controls), measured after every render: the
+ * element may move to another part of the layout (and remount) when the plan changes.
+ */
 function useBoxSize(ref: RefObject<HTMLElement | null>, fallback: { w: number; h: number }) {
   const [size, setSize] = useState(fallback);
   useLayoutEffect(() => {
@@ -512,7 +515,7 @@ function useBoxSize(ref: RefObject<HTMLElement | null>, fallback: { w: number; h
     const ro = new ResizeObserver(measure);
     ro.observe(el);
     return () => ro.disconnect();
-  }, [ref]);
+  });
   return size;
 }
 
@@ -998,7 +1001,8 @@ export function NumberLineJumpWidget({
                         key={i}
                         className="ni-nlj__arclabel"
                         x={(s.x(j.from) + s.x(j.to)) / 2}
-                        y={s.lineY - 14 - h}
+                        // Above the arc's apex (lineY − 22 − h), clear of the arc itself.
+                        y={s.lineY - 30 - h}
                         fontSize={32}
                         textAnchor="middle"
                       >

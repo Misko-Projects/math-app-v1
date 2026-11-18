@@ -308,7 +308,10 @@ function planLayout(c: Config, room: WidgetRoom | null, age: AgeMode, m: Measure
   return strict.reduce((a, b) => (b.h < a.h ? b : a), strict[0] as Plan);
 }
 
-/** The border-box size of an element (fixed-size controls), measured once laid out. */
+/**
+ * The border-box size of an element (fixed-size controls), measured after every render: the
+ * element may move to another part of the layout (and remount) when the plan changes.
+ */
 function useBoxSize(ref: RefObject<HTMLElement | null>, fallback: { w: number; h: number }) {
   const [size, setSize] = useState(fallback);
   useLayoutEffect(() => {
