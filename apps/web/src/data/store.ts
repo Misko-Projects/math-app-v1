@@ -28,12 +28,14 @@ import {
   type EventPayloads,
   type EventType,
   eventEnvelopeSchema,
+  eventPayloadBytes,
   type FamilySettings,
   familyIdSchema,
   type InventoryState,
   type IslandState,
   inboundEventEnvelopeSchema,
   type LearnerState,
+  MAX_EVENT_PAYLOAD_BYTES,
   parseSettingsKey,
   type SettingsDocument,
   type SkillId,
@@ -64,7 +66,9 @@ import {
   type ProjectionInputs,
   type ProjectionKey,
   relevant,
+  rowIntact,
   type StoreContent,
+  sealRow,
   skillsKey,
   sortsAfter,
   stableJson,
@@ -254,14 +258,29 @@ export async function createDataStore(opts: DataStoreOptions): Promise<DataStore
 
   // ---------- helpers (run inside the callers' transactions) ----------
 
+  /**
+   * The single place that decides which children are deleted: the lower-case ids named by the
+   * stored tombstones the server authored (02 §5.9 S2). Others never count, and open removes them.
+   */
   async function tombstoned(): Promise<Set<string>> {
     const rows = await db.events.where('type').equals('child.deleted').toArray();
     const out = new Set<string>();
     for (const e of rows) {
-      const id = (e.payload as { childId?: unknown }).childId;
-      if (typeof id === 'string') out.add(childKey(id));
+      const child = serverAuthoredTombstone(e) ? tombstoneChild(e) : null;
+      if (child !== null) out.add(child);
     }
     return out;
+  }
+
+  /** Deletes stored `child.deleted` rows the server did not author, so no fold ever sees one. */
+  async function removeForgedTombstones(): Promise<boolean> {
+    const forged = await db.events
+      .where('type')
+      .equals('child.deleted')
+      .filter((e) => !serverAuthoredTombstone(e))
+      .primaryKeys();
+    await db.events.bulkDelete(forged);
+    return forged.length > 0;
   }
 
   async function ensureDevice(): Promise<{ record: DeviceRecord; created: boolean }> {
@@ -319,13 +338,20 @@ export async function createDataStore(opts: DataStoreOptions): Promise<DataStore
   }
 
   /**
-   * Brings every cache row up to date after `fresh` events were stored: a row whose version is
-   * stale, that is missing, or that a fresh event sorts before is rebuilt from the full log;
-   * otherwise the fresh events are applied in ts/id order (02 §4.3).
+   * Brings every cache row up to date after `fresh` events were stored (02 §4.3). A row is rebuilt
+   * from the full log when it is missing, its version is stale, a fresh event sorts before its
+   * position, or its data fails the integrity hash. The hash is checked before a row takes events,
+   * and for every row when `verifyAll` is set (on open). Otherwise the fresh events are applied in
+   * ts/id order.
    */
   async function reconcile(
     fresh: readonly AnyEventEnvelope[],
-    opts: { rebuild?: boolean; deleted?: ReadonlySet<string>; children?: Iterable<string> } = {},
+    opts: {
+      rebuild?: boolean;
+      verifyAll?: boolean;
+      deleted?: ReadonlySet<string>;
+      children?: Iterable<string>;
+    } = {},
   ): Promise<void> {
     const deleted = opts.deleted ?? (await tombstoned());
     const extra = [...(opts.children ?? [])];
@@ -352,11 +378,9 @@ export async function createDataStore(opts: DataStoreOptions): Promise<DataStore
       if (
         opts.rebuild ||
         !row ||
-        // A row whose data is not an object (a corrupt or foreign write) is never trusted.
-        typeof row.data !== 'object' ||
-        row.data === null ||
         row.version !== expectedVersion(key, inp) ||
-        (first !== undefined && !sortsAfter(row, first))
+        (first !== undefined && !sortsAfter(row, first)) ||
+        ((opts.verifyAll || first !== undefined) && !rowIntact(row))
       ) {
         out.push(foldRow(key, await fullLog(), inp));
       } else if (mine.length > 0) {
@@ -371,7 +395,7 @@ export async function createDataStore(opts: DataStoreOptions): Promise<DataStore
         out.push(next);
       }
     }
-    if (out.length > 0) await db.projections.bulkPut(out);
+    if (out.length > 0) await db.projections.bulkPut(out.map(sealRow));
   }
 
   async function childIdsInLog(): Promise<string[]> {
@@ -409,9 +433,15 @@ export async function createDataStore(opts: DataStoreOptions): Promise<DataStore
   if (created) await requestPersistence();
   await pruneAiLog();
   await db.transaction('rw', all, async () => {
+    const forged = await removeForgedTombstones();
     const deleted = await tombstoned();
     const purged = await purge(deleted);
-    await reconcile([], { rebuild: purged, deleted, children: await childIdsInLog() });
+    await reconcile([], {
+      rebuild: forged || purged,
+      verifyAll: true,
+      deleted,
+      children: await childIdsInLog(),
+    });
   });
 
   // ---------- API ----------
@@ -436,14 +466,25 @@ export async function createDataStore(opts: DataStoreOptions): Promise<DataStore
       const { record: before } = await ensureDevice();
       return db.transaction('rw', [db.device, db.events, db.profiles], async () => {
         const old = (await db.device.get('device')) ?? before;
-        // Never-synced events never left this device, so moving them to the server's ids is safe.
-        await db.events
-          .where('synced')
-          .equals(0)
-          .modify((e) => {
-            if (e.familyId === old.familyId) e.familyId = familyId;
-            if (e.deviceId === old.deviceId) e.deviceId = deviceId;
-          });
+        // Before the first pairing, the local family never existed on the server, so every event
+        // under it moves (whatever its sync flag). After that, only never-synced events move: they
+        // never left this device.
+        const events =
+          old.pairedAt === null ? db.events.toCollection() : db.events.where('synced').equals(0);
+        await events.modify((e) => {
+          if (sameId(e.familyId, old.familyId)) {
+            // A server-authored tombstone's pseudo-device is its family id (02 §5.9 S2).
+            if (
+              e.type === 'child.deleted' &&
+              e.childId === null &&
+              sameId(e.deviceId, e.familyId)
+            ) {
+              e.deviceId = familyId;
+            }
+            e.familyId = familyId;
+          }
+          if (sameId(e.deviceId, old.deviceId)) e.deviceId = deviceId;
+        });
         await db.profiles
           .filter((p) => p.familyId === old.familyId)
           .modify((p) => {
@@ -475,6 +516,14 @@ export async function createDataStore(opts: DataStoreOptions): Promise<DataStore
         });
         if (!parsed.success) {
           throw new DataStoreError('invalid_event', `invalid ${type} event`, parsed.error.issues);
+        }
+        // The server refuses a payload over 8 KB (08 §4); such an event must never enter the log.
+        const bytes = eventPayloadBytes({ payload });
+        if (bytes === null || bytes > MAX_EVENT_PAYLOAD_BYTES) {
+          throw new DataStoreError(
+            'invalid_event',
+            `${type} payload is ${bytes ?? 'not JSON'} bytes; the limit is ${MAX_EVENT_PAYLOAD_BYTES}`,
+          );
         }
         const deleted = await tombstoned();
         if (childId !== null && deleted.has(childKey(childId))) {
@@ -554,18 +603,15 @@ export async function createDataStore(opts: DataStoreOptions): Promise<DataStore
         const deleted = await tombstoned();
         const newlyDeleted = new Set([...deleted].filter((c) => !before.has(c)));
         const purged = await purge(newlyDeleted);
-        if (newlyDeleted.size > 0) {
-          const gone = (id: EventId) => {
-            const e = incoming.find((x) => x.id === id);
-            const child = e ? childOf(e) : null;
-            return child !== null && newlyDeleted.has(child);
-          };
-          result.dropped += result.added.filter(gone).length;
-          result.added = result.added.filter((id) => !gone(id));
-          result.replaced = result.replaced.filter((id) => !gone(id));
-        }
+        // Every incoming copy for a child this batch deleted is dropped, new or not.
+        const lost = new Set(
+          incoming.filter((e) => newlyDeleted.has(childOf(e) ?? '')).map((e) => e.id),
+        );
+        result.dropped += lost.size;
+        result.added = result.added.filter((id) => !lost.has(id));
+        result.replaced = result.replaced.filter((id) => !lost.has(id));
         await reconcile(
-          fresh.filter((e) => !newlyDeleted.has(childOf(e) ?? '')),
+          fresh.filter((e) => !lost.has(e.id)),
           {
             rebuild: purged || replaced.length > 0,
             deleted,

@@ -23,13 +23,18 @@ export type StoredEvent = AnyEventEnvelope & {
   _rejected?: { code: ApiErrorCode; message: string };
 };
 
-/** 02 §4.3 cache row. `upToTs` mirrors the ts of `upToEventId`, so ordering needs no lookup. */
+/**
+ * 02 §4.3 cache row. `upToTs` mirrors the ts of `upToEventId`, so ordering needs no lookup, and
+ * `dataHash` lets the store detect a row whose data was damaged.
+ */
 export interface ProjectionRow {
   key: string; // "skills:<childId>" | "island" | "inventory" | "collection" | "goals"
   version: string;
   upToEventId: EventId | null;
   upToTs: number | null;
   data: unknown;
+  /** FNV-1a 32 of the data's stable JSON; a missing or different hash marks a damaged row. */
+  dataHash?: number;
 }
 
 export interface DeviceRecord {

@@ -14,6 +14,7 @@ import {
   type EngineCollectionState,
   type EngineIslandState,
   type EngineWeeklyGoalState,
+  fnv1a32,
   foldCollection,
   foldGoals,
   foldInventory,
@@ -40,7 +41,7 @@ import type { ProjectionRow } from './db';
  * Bump when any fold the cache stores changes behaviour (engine folds, the inputs passed to them,
  * or the row layout). Every cached row whose version differs is rebuilt from the full log on open.
  */
-export const PROJECTION_VERSION = 1;
+export const PROJECTION_VERSION = 2;
 
 export interface StoreContent {
   /** packages/content build hash; stamped on appended events and part of every row version. */
@@ -195,3 +196,16 @@ export function applyRow(
   } else data = applyGoalsEvent(row.data as EngineWeeklyGoalState, e, inputs.goalSettings);
   return { ...row, upToEventId: e.id, upToTs: e.ts, data };
 }
+
+/** Integrity hash of a row's data (stable JSON, FNV-1a 32). */
+export const dataHash = (data: unknown): number => fnv1a32(stableJson(data));
+
+/** The row as the store writes it: with the hash of its data. */
+export const sealRow = (row: ProjectionRow): ProjectionRow => ({
+  ...row,
+  dataHash: dataHash(row.data),
+});
+
+/** False for a row whose data was changed or lost after the store wrote it. */
+export const rowIntact = (row: ProjectionRow): boolean =>
+  row.dataHash !== undefined && row.dataHash === dataHash(row.data);

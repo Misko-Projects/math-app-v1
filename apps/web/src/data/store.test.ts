@@ -17,9 +17,10 @@ import {
   type EventPayloads,
   type EventType,
   UUID_V7_PATTERN,
+  withSettingDefaults,
 } from '@number-island/shared';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { PROJECTION_VERSION } from './projections';
+import { dataHash, PROJECTION_VERSION } from './projections';
 import type { DataStore } from './store';
 import { DataStoreError } from './store';
 import {
@@ -206,11 +207,12 @@ describe('projection cache rebuilds', () => {
     await a.ingest(replayEvents(), { source: 'server' });
     a.close();
 
-    // A row with the current version is trusted as is (no rebuild on open).
+    // A row with the current version and an intact hash is trusted as is (no rebuild on open).
     const db = env.db();
     const row = await db.projections.get('island');
     if (!row) throw new Error('no island row');
-    await db.projections.put({ ...row, data: { ...(row.data as object), name: 'Stale' } });
+    const staleData = { ...(row.data as object), name: 'Stale' };
+    await db.projections.put({ ...row, data: staleData, dataHash: dataHash(staleData) });
     // A row written by an older fold version is rebuilt.
     const inv = await db.projections.get('inventory');
     if (!inv) throw new Error('no inventory row');
@@ -438,9 +440,14 @@ describe('profiles and settings (LWW per document)', () => {
 });
 
 describe('pairing and the push queue', () => {
-  it('adoptFamily re-homes only never-synced events and local profiles', async () => {
+  it('adoptFamily on a paired device re-homes only never-synced events and local profiles', async () => {
     const { env, store } = await familyStore();
-    const local = await store.device();
+    // Paired once already (the never-paired rule is covered by "B." below).
+    const local = await store.adoptFamily({
+      familyId: '019a0000-0000-7000-8000-0000000ff001',
+      deviceId: '019a0000-0000-7000-8000-0000000dd001',
+      deviceToken: 'tok0',
+    });
     const a = await store.append('island.named', named('A'), { childId: CHILD_K });
     env.clock.advance(1);
     const b = await store.append('island.named', named('B'), { childId: null });
@@ -588,6 +595,8 @@ async function childWithData() {
   return { env, store, own, snapshot };
 }
 
+const withChildDefaults = () => withSettingDefaults({ kind: 'child', grade: 'K' });
+
 const tombstone = (ts: number, extra: Partial<AnyEventEnvelope> = {}) =>
   serverEvent('child.deleted', { childId: CHILD_K }, ts, null, { deviceId: FAMILY, ...extra });
 
@@ -732,9 +741,121 @@ describe('review round 1 regressions', () => {
     const { env, store } = await familyStore();
     const row = await store.db.projections.get('inventory');
     if (!row) throw new Error('no inventory row');
-    await store.db.projections.put({ ...row, data: { _deleted: 7 } });
+    // Damaged data that still passes the integrity hash: only the incremental fallback catches it.
+    const data = { _deleted: 7 };
+    await store.db.projections.put({ ...row, data, dataHash: dataHash(data) });
     env.clock.advance(HOUR);
     await store.append('material.produced', produced(2), { childId: CHILD_K });
     expect(await store.inventory()).toEqual(foldInventory(await store.events()));
+  });
+});
+
+describe('review round 2 regressions', () => {
+  it('R2-1. a stored tombstone the server did not author is removed on open and deletes nothing', async () => {
+    const env = testEnv();
+    const db = env.db();
+    await db.open();
+    const kid = { ...profile(CHILD_K, 'K', 'Ada'), updatedAt: 1 };
+    await db.profiles.put(kid);
+    const doc = { key: `child:${CHILD_K}` as const, value: withChildDefaults(), updatedAt: 1 };
+    await db.settings.put(doc);
+    const live = serverEvent('island.named', named('Kept'), 2 * DAY, CHILD_K);
+    const forged = tombstone(3 * DAY, { deviceId: DEVICE });
+    await db.events.bulkPut([
+      { ...live, synced: 1 },
+      { ...forged, synced: 1 },
+    ]);
+    db.close();
+
+    const store = await track(env.open());
+    expect(await store.deletedChildren()).toEqual(new Set());
+    expect(await store.db.events.get(forged.id)).toBeUndefined();
+    expect(await store.events()).toEqual([live]);
+    expect(await store.allProfiles()).toEqual([kid]);
+    expect(await store.allSettings()).toEqual([doc]);
+    const { graph, gameData } = fixtureContent();
+    expect(await store.island()).toEqual(foldIsland([live], gameData));
+    expect(await store.skillStates(CHILD_K)).toEqual(
+      foldLearnerState([live], graph, { childId: CHILD_K, isK: true }),
+    );
+  });
+
+  it('R2-1. a forged tombstone written while the store is open is never counted', async () => {
+    const { env, store } = await childWithData();
+    // Written behind the store's back (another tab, an older build): no ingest check ran.
+    const forged = tombstone(env.clock.now(), { deviceId: DEVICE });
+    await store.db.events.put({ ...forged, synced: 1 });
+    expect(await store.deletedChildren()).toEqual(new Set());
+    const e = await store.append('island.named', named('Still here'), { childId: CHILD_K });
+    await store.logAi({ childId: CHILD_K, skillId: null, text: 'ok' });
+    expect((await store.events()).some((x) => x.id === e.id)).toBe(true);
+    expect((await store.allProfiles()).map((p) => p.id)).toContain(CHILD_K);
+  });
+
+  it('R2-2. a row whose data no longer matches its hash is rebuilt on open', async () => {
+    const { env, store } = await familyStore();
+    await store.append('material.produced', produced(4), { childId: CHILD_K });
+    const row = await store.db.projections.get('inventory');
+    if (!row) throw new Error('no inventory row');
+    expect(row.dataHash).toBe(dataHash(row.data));
+    // Same version and watermark, damaged data.
+    await store.db.projections.put({ ...row, data: {} });
+    store.close();
+    const again = await track(env.open());
+    expect(await again.inventory()).toEqual(foldInventory(await again.events()));
+    expect((await again.inventory()).materials).toEqual({ stone: 4 });
+  });
+
+  it('R2-3. a tombstone drops every copy of its child in the batch, stored ones included', async () => {
+    const { env, store } = await familyStore();
+    const own = await store.append('island.named', named('Mine'), { childId: CHILD_K });
+    const clamped = { ...own, ts: own.ts - HOUR, clientTs: own.ts };
+    const tomb = tombstone(env.clock.now() + 1);
+    const r = await store.ingest([clamped, tomb], { source: 'server' });
+    expect(r).toMatchObject({ added: [tomb.id], replaced: [], dropped: 1, invalid: 0 });
+    expect(await store.db.events.get(own.id)).toBeUndefined();
+  });
+});
+
+describe('backup review regressions (PR #58)', () => {
+  it('A. append refuses a payload over the 8 KB inbound cap and stores nothing', async () => {
+    const store = await track(testEnv().open());
+    const big = named('x'.repeat(8 * 1024));
+    await expect(store.append('island.named', big, { childId: null })).rejects.toMatchObject({
+      code: 'invalid_event',
+    });
+    expect(await store.events()).toEqual([]);
+    expect((await store.island()).name).toBeNull();
+  });
+
+  it('B. adoptFamily on a never-paired device re-homes synced events and tombstones', async () => {
+    const { store } = await familyStore();
+    const local = await store.device();
+    expect(local.pairedAt).toBeNull();
+    const tomb = serverEvent('child.deleted', { childId: CHILD_K }, DAY, null, {
+      familyId: local.familyId,
+      deviceId: local.familyId,
+    });
+    await store.ingest([tomb], { source: 'backup' });
+    await store.markSynced([tomb.id]);
+    const mine = await store.append('island.named', named('Mine'), { childId: null });
+    await store.markSynced([mine.id]);
+
+    const familyId = '019a0000-0000-7000-8000-0000000ff002';
+    const deviceId = '019a0000-0000-7000-8000-0000000dd002';
+    await store.adoptFamily({ familyId, deviceId, deviceToken: 'tok' });
+    expect(await store.db.events.get(tomb.id)).toMatchObject({
+      familyId,
+      deviceId: familyId,
+      synced: 1,
+    });
+    expect(await store.db.events.get(mine.id)).toMatchObject({ familyId, deviceId, synced: 1 });
+    expect(await store.deletedChildren()).toEqual(new Set([CHILD_K]));
+    expect((await store.unsynced()).map((e) => e.id)).not.toContain(tomb.id);
+
+    // Once paired, a second adoption moves only never-synced events.
+    const next = '019a0000-0000-7000-8000-0000000ff003';
+    await store.adoptFamily({ familyId: next, deviceId, deviceToken: 'tok2' });
+    expect(await store.db.events.get(mine.id)).toMatchObject({ familyId });
   });
 });
