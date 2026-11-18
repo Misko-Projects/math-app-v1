@@ -11,7 +11,6 @@ import {
   type NarrationKey,
   narrationKeySchema,
   type ParamValue,
-  paramValueSchema,
   paramValuesSchema,
   type Representation,
   type Tier,
@@ -27,6 +26,27 @@ export type ParamSpec =
   | { kind: 'bool'; p: number } // P(true)
   | { kind: 'const'; value: ParamValue };
 
+/**
+ * Number of values an `int` ParamSpec can produce: min, min+step, … ≤ max, minus `exclude`
+ * (03 §5.2 requires this to be non-empty). Assumes integer fields and min ≤ max.
+ */
+export function intParamDomainSize(s: {
+  min: number;
+  max: number;
+  step?: number;
+  exclude?: number[];
+}): number {
+  const step = s.step ?? 1;
+  const count = Math.floor((s.max - s.min) / step) + 1;
+  const excluded = new Set(
+    (s.exclude ?? []).filter((v) => v >= s.min && v <= s.max && (v - s.min) % step === 0),
+  );
+  return count - excluded.size;
+}
+
+// 03 §5.2: "Params are integers, strings or booleans only."
+const paramSpecValueSchema = z.union([z.number().int(), z.string(), z.boolean()]);
+
 export const paramSpecSchema = z.discriminatedUnion('kind', [
   z
     .object({
@@ -36,11 +56,15 @@ export const paramSpecSchema = z.discriminatedUnion('kind', [
       step: z.number().int().min(1).optional(),
       exclude: z.array(z.number().int()).optional(),
     })
-    .refine((s) => s.min <= s.max, 'min must be ≤ max'),
+    .refine((s) => s.min <= s.max, 'min must be ≤ max')
+    .refine(
+      (s) => s.min > s.max || intParamDomainSize(s) > 0,
+      'the value set after step and exclude must be non-empty',
+    ),
   z
     .object({
       kind: z.literal('choice'),
-      values: z.array(paramValueSchema).min(1),
+      values: z.array(paramSpecValueSchema).min(1),
       weights: z.array(z.number().positive()).optional(),
     })
     .refine(
@@ -48,7 +72,7 @@ export const paramSpecSchema = z.discriminatedUnion('kind', [
       'weights must have the same length as values',
     ),
   z.object({ kind: z.literal('bool'), p: z.number().min(0).max(1) }),
-  z.object({ kind: z.literal('const'), value: paramValueSchema }),
+  z.object({ kind: z.literal('const'), value: paramSpecValueSchema }),
 ]);
 assertType<Equals<z.infer<typeof paramSpecSchema>, ParamSpec>>(true);
 

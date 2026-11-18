@@ -101,12 +101,20 @@ export function packageOfPath(absPath, root) {
  * @param {string} source file contents
  * @param {string} root repo root
  */
-export function checkSource(pkg, fileName, source, root) {
-  const rule = RULES[pkg];
-  if (!rule) throw new Error(`unknown package ${pkg}`);
+export function checkSource(pkg, fileName, source, root, opts = {}) {
+  const baseRule = RULES[pkg];
+  if (!baseRule) throw new Error(`unknown package ${pkg}`);
+  // The import direction applies to every file in a package (src, scripts, configs). The purity
+  // rules (React/Dexie/browser globals, Node built-ins, Math.random, Date.now) apply to runtime
+  // code under src/ only: build scripts such as packages/engine/scripts/* legitimately run in Node.
+  const runtime = opts.runtime ?? true;
+  const rule = runtime
+    ? baseRule
+    : { dir: baseRule.dir, allowed: baseRule.allowed, pure: false, noNode: false };
   /** @type {string[]} */
   const violations = [];
   const sf = ts.createSourceFile(fileName, source, ts.ScriptTarget.Latest, true);
+  const declared = declaredNames(sf);
   const where = (node) => {
     const { line, character } = sf.getLineAndCharacterOfPosition(node.getStart(sf));
     return `${relative(root, fileName)}:${line + 1}:${character + 1}`;
@@ -180,6 +188,7 @@ export function checkSource(pkg, fileName, source, root) {
       rule.pure &&
       ts.isIdentifier(node) &&
       BROWSER_GLOBALS.has(node.text) &&
+      !declared.has(node.text) &&
       isGlobalReference(node)
     ) {
       violations.push(
@@ -190,6 +199,48 @@ export function checkSource(pkg, fileName, source, root) {
   };
   visit(sf);
   return violations;
+}
+
+/**
+ * Every name the file binds itself (variables, parameters, functions, classes, imports, catch
+ * bindings, type names). A browser-global name that the file declares anywhere refers to that
+ * binding, not the global, so it is not flagged. This ignores shadowing scopes on purpose: it can
+ * only under-report (a file that both declares `location` and uses the global elsewhere), never
+ * reject ordinary local code; Biome's noRestrictedGlobals remains a second layer.
+ */
+function declaredNames(sf) {
+  const names = new Set();
+  const addBinding = (name) => {
+    if (!name) return;
+    if (ts.isIdentifier(name)) names.add(name.text);
+    else if (ts.isObjectBindingPattern(name) || ts.isArrayBindingPattern(name)) {
+      for (const el of name.elements) if (ts.isBindingElement(el)) addBinding(el.name);
+    }
+  };
+  const visit = (node) => {
+    if (
+      ts.isVariableDeclaration(node) ||
+      ts.isParameter(node) ||
+      ts.isBindingElement(node) ||
+      ts.isFunctionDeclaration(node) ||
+      ts.isFunctionExpression(node) ||
+      ts.isClassDeclaration(node) ||
+      ts.isClassExpression(node) ||
+      ts.isTypeAliasDeclaration(node) ||
+      ts.isInterfaceDeclaration(node) ||
+      ts.isEnumDeclaration(node) ||
+      ts.isImportClause(node) ||
+      ts.isImportSpecifier(node) ||
+      ts.isNamespaceImport(node) ||
+      ts.isImportEqualsDeclaration(node) ||
+      ts.isTypeParameterDeclaration(node)
+    ) {
+      addBinding(node.name);
+    }
+    ts.forEachChild(node, visit);
+  };
+  visit(sf);
+  return names;
 }
 
 /** True when an identifier is a value/type reference, not a property name or a local declaration. */
@@ -277,15 +328,25 @@ function checkManifest(pkg, root) {
     );
 }
 
-/** Scan every package's source tree. */
+/** Every source file in a package directory, with whether it is runtime code (under src/). */
+export function* packageFiles(root, pkg) {
+  const rule = RULES[pkg];
+  if (!rule) throw new Error(`unknown package ${pkg}`);
+  const pkgDir = join(root, rule.dir);
+  const srcDir = join(pkgDir, 'src');
+  for (const file of walk(pkgDir)) {
+    yield { file, runtime: file === srcDir || file.startsWith(`${srcDir}${sep}`) };
+  }
+}
+
+/** Scan every file of every package: the direction everywhere, purity in src/. */
 export function checkRepo(root) {
   /** @type {string[]} */
   const violations = [];
-  for (const [pkg, rule] of Object.entries(RULES)) {
+  for (const pkg of Object.keys(RULES)) {
     violations.push(...checkManifest(pkg, root));
-    const srcDir = join(root, rule.dir, pkg === 'e2e' ? '' : 'src');
-    for (const file of walk(srcDir)) {
-      violations.push(...checkSource(pkg, file, readFileSync(file, 'utf8'), root));
+    for (const { file, runtime } of packageFiles(root, pkg)) {
+      violations.push(...checkSource(pkg, file, readFileSync(file, 'utf8'), root, { runtime }));
     }
   }
   return violations;

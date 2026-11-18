@@ -9,6 +9,16 @@ import { VitePWA } from 'vite-plugin-pwa';
 const THEME_COLOR = '#1f7a8c';
 const BACKGROUND_COLOR = '#f4e3c3';
 
+/** Vite's default `server.fs.deny`, plus `pnpm secrets:link` output (apps/api/.dev.vars). */
+export const SECRET_FILE_DENY = [
+  '.env',
+  '.env.*',
+  '*.{crt,pem}',
+  '**/.git/**',
+  '**/.dev.vars',
+  '**/.dev.vars.*',
+] as const;
+
 // 02 §3: Vite on :5173 proxies /api to `wrangler dev` on :8787 so the browser sees one origin.
 // `--mode https` (pnpm dev:https) adds a self-signed certificate for LAN tablet testing.
 export default defineConfig(({ mode }) => {
@@ -57,6 +67,11 @@ export default defineConfig(({ mode }) => {
     server: {
       port: 5173,
       strictPort: true,
+      fs: {
+        // Vite may serve any file under the workspace root, and `pnpm dev:lan` exposes it on the home
+        // network. Keep Vite's defaults and also deny the Worker's secrets file (08 §6).
+        deny: [...SECRET_FILE_DENY],
+      },
       proxy: {
         '/api': { target: 'http://127.0.0.1:8787', changeOrigin: false },
       },

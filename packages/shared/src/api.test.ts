@@ -12,6 +12,7 @@ import {
   syncResponseSchema,
 } from './api';
 import type { EventEnvelope } from './events';
+import { utf8ByteLength } from './events';
 import { newId } from './ids';
 import type { ChildProfile } from './profiles';
 import { settingsKey, withSettingDefaults } from './settings';
@@ -224,5 +225,31 @@ describe('API DTOs', () => {
       if (route.method === 'GET' || route.method === 'DELETE')
         expect('request' in route).toBe(false);
     }
+  });
+});
+
+describe('8 KB event payload cap on inbound events (08 §4)', () => {
+  const push = (events: unknown[]) =>
+    syncRequestSchema.safeParse({ cursor: null, events, settings: [], profiles: [] });
+
+  it('accepts payloads at the limit and rejects larger ones, for unknown types', () => {
+    // {"blob":"…"} is 11 bytes of JSON around the string
+    const atLimit = { ...futureEvent, id: newId(), payload: { blob: 'x'.repeat(8192 - 11) } };
+    const over = { ...futureEvent, id: newId(), payload: { blob: 'x'.repeat(8192 - 10) } };
+    expect(push([atLimit]).success).toBe(true);
+    expect(push([over]).success).toBe(false);
+  });
+
+  it('measures the raw payload before unknown fields are stripped from known types', () => {
+    const padded = { ...event, payload: { ...event.payload, junk: 'x'.repeat(9000) } };
+    expect(push([padded]).success).toBe(false);
+    expect(push([event]).success).toBe(true);
+  });
+
+  it('counts UTF-8 bytes, not UTF-16 code units', () => {
+    expect(utf8ByteLength('aé€😀')).toBe(1 + 2 + 3 + 4);
+    // 2,800 three-byte characters = 8,400 bytes, under 8,192 code units
+    const wide = { ...futureEvent, id: newId(), payload: { s: '€'.repeat(2800) } };
+    expect(push([wide]).success).toBe(false);
   });
 });

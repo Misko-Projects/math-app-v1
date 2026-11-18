@@ -35,8 +35,11 @@ export function parseEnv(text) {
     const key = /** @type {string} */ (match[1]);
     let value = /** @type {string} */ (match[2]).trim();
     const quote = value[0];
-    if ((quote === '"' || quote === "'") && value.endsWith(quote) && value.length >= 2) {
-      value = value.slice(1, -1);
+    if (quote === '"' || quote === "'") {
+      // A quoted value ends at its closing quote; anything after it (e.g. `# comment`) is ignored.
+      const close = value.indexOf(quote, 1);
+      if (close === -1) continue; // unterminated quote: skip the line rather than guess
+      value = value.slice(1, close);
     } else {
       value = value.replace(/\s+#.*$/, '');
     }

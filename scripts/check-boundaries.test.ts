@@ -1,7 +1,7 @@
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
-import { checkRepo, checkSource } from './check-boundaries.mjs';
+import { checkRepo, checkSource, packageFiles } from './check-boundaries.mjs';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const file = (dir: string) => join(root, dir, 'src', 'probe.ts');
@@ -95,6 +95,45 @@ describe('import-boundary lint (02 §2)', () => {
         file('apps/web'),
         "import { useState } from 'react';\nexport const t = Date.now();\n",
         root,
+      ),
+    ).toEqual([]);
+  });
+
+  it('does not flag locally bound names that shadow browser globals', () => {
+    const v = checkSource(
+      'engine',
+      file('packages/engine'),
+      [
+        'export function f(document: string) { return document.length; }',
+        'const location = { x: 1 };',
+        'export const x = location.x;',
+        'export const g = ({ navigator }: { navigator: number }) => navigator + 1;',
+        'try { f("a"); } catch (self) { void self; }',
+      ].join('\n'),
+      root,
+    );
+    expect(v).toEqual([]);
+  });
+
+  it('scans every file in a package: direction everywhere, purity only under src/', () => {
+    const contentFiles = [...packageFiles(root, 'content')];
+    const build = contentFiles.find((f) => f.file.endsWith(join('scripts', 'build.mjs')));
+    expect(build?.runtime).toBe(false);
+    expect(contentFiles.some((f) => f.runtime)).toBe(true);
+
+    const script = join(root, 'packages/content/scripts/probe.mjs');
+    // a content build script must not import the engine (03 §9.1 / 02 §2)…
+    expect(
+      checkSource('content', script, "import '@number-island/engine';\n", root, { runtime: false }),
+    ).not.toEqual([]);
+    // …but Node-only scripts outside src/ may use Node built-ins and the clock
+    expect(
+      checkSource(
+        'engine',
+        join(root, 'packages/engine/scripts/probe.mjs'),
+        "import { readFileSync } from 'node:fs';\nexport const t = Date.now();\n",
+        root,
+        { runtime: false },
       ),
     ).toEqual([]);
   });

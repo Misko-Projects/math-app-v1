@@ -65,4 +65,18 @@ describe('secrets:link', () => {
     const env = parseEnv('A=1\n# c\nexport B = two # trailing\nC="q # kept"\nbad line\n');
     expect(Object.fromEntries(env)).toEqual({ A: '1', B: 'two', C: 'q # kept' });
   });
+
+  it('ends a quoted value at its closing quote, ignoring a trailing comment', () => {
+    const env = parseEnv(
+      [
+        'OPENAI_API_KEY="sk-abc" # personal key',
+        "ANTHROPIC_API_KEY='sk-ant' #note",
+        'BROKEN="unterminated',
+      ].join('\n'),
+    );
+    expect(Object.fromEntries(env)).toEqual({
+      OPENAI_API_KEY: 'sk-abc',
+      ANTHROPIC_API_KEY: 'sk-ant',
+    });
+  });
 });

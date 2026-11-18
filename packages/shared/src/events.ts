@@ -553,6 +553,57 @@ export const anyEventEnvelopeSchema: z.ZodType<AnyEventEnvelope> = z.union([
   }),
 ]);
 
+/**
+ * UTF-8 byte length of an event's payload as received (JSON-serialised), or `null` when the input
+ * has no serialisable payload. Measured on the raw input, before parsing strips unknown fields.
+ */
+export function eventPayloadBytes(raw: unknown): number | null {
+  if (typeof raw !== 'object' || raw === null || !('payload' in raw)) return null;
+  try {
+    const json = JSON.stringify((raw as { payload: unknown }).payload);
+    return json === undefined ? null : utf8ByteLength(json);
+  } catch {
+    return null;
+  }
+}
+
+/** UTF-8 encoded length of a string (lone surrogates count as U+FFFD, 3 bytes, like TextEncoder). */
+export function utf8ByteLength(text: string): number {
+  let bytes = 0;
+  for (let i = 0; i < text.length; i++) {
+    const code = text.charCodeAt(i);
+    if (code < 0x80) bytes += 1;
+    else if (code < 0x800) bytes += 2;
+    else if (code >= 0xd800 && code <= 0xdbff && i + 1 < text.length) {
+      const next = text.charCodeAt(i + 1);
+      if (next >= 0xdc00 && next <= 0xdfff) {
+        bytes += 4;
+        i++;
+      } else bytes += 3;
+    } else bytes += 3;
+  }
+  return bytes;
+}
+
+/**
+ * Inbound wire schema for events a client pushes (sync, import): the 8 KB payload cap (08 §4) is
+ * checked on the raw payload, then `anyEventEnvelopeSchema` applies.
+ */
+export const inboundEventEnvelopeSchema = z
+  .unknown()
+  .superRefine((raw, ctx) => {
+    const bytes = eventPayloadBytes(raw);
+    if (bytes !== null && bytes > MAX_EVENT_PAYLOAD_BYTES) {
+      ctx.addIssue({
+        code: 'custom',
+        message: `event payload is ${bytes} bytes; the limit is ${MAX_EVENT_PAYLOAD_BYTES}`,
+        path: ['payload'],
+      });
+    }
+  })
+  .pipe(anyEventEnvelopeSchema);
+assertType<Equals<z.output<typeof inboundEventEnvelopeSchema>, AnyEventEnvelope>>(true);
+
 export type ParsedEventEnvelope =
   | { known: true; event: KnownEventEnvelope }
   | { known: false; event: OpaqueEventEnvelope };

@@ -6,7 +6,7 @@ import { avatarSuggestionSchema } from './avatar';
 import type { AgeBand, Grade } from './basics';
 import { ageBandSchema, gradeSchema } from './basics';
 import type { AnyEventEnvelope } from './events';
-import { anyEventEnvelopeSchema } from './events';
+import { anyEventEnvelopeSchema, inboundEventEnvelopeSchema } from './events';
 import type { ChildId, DeviceId, EventId, FamilyId, MisconceptionId, SkillId } from './ids';
 import {
   childIdSchema,
@@ -233,7 +233,8 @@ export interface SyncRequest {
 }
 export const syncRequestSchema = z.object({
   cursor: z.string().min(1).nullable(),
-  events: z.array(anyEventEnvelopeSchema).max(SYNC_MAX_PUSH_EVENTS),
+  // 08 §4: each pushed event's payload is capped at 8 KB, measured before fields are stripped.
+  events: z.array(inboundEventEnvelopeSchema).max(SYNC_MAX_PUSH_EVENTS),
   settings: z.array(settingsDocumentSchema),
   profiles: z.array(childProfileSchema),
 });
@@ -437,7 +438,7 @@ export const backupFileSchema = z.object({
   formatVersion: z.literal(1),
   exportedAt: tsSchema,
   familyId: familyIdSchema,
-  events: z.array(anyEventEnvelopeSchema),
+  events: z.array(inboundEventEnvelopeSchema), // POST /import is inbound too: same 8 KB cap
   settings: z.array(settingsDocumentSchema),
   profiles: z.array(childProfileSchema),
 });

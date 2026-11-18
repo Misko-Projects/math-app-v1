@@ -13,6 +13,7 @@ import {
   hintStepSchema,
   ITEM_FORMATS,
   type ItemFormat,
+  intParamDomainSize,
   narrationKeySchema,
   type ParamSpec,
   paramSpecSchema,
@@ -735,6 +736,24 @@ describe('item contract schemas round-trip', () => {
       paramSpecSchema.safeParse({ kind: 'choice', values: [1, 2], weights: [1] }).success,
     ).toBe(false);
     expect(paramSpecSchema.safeParse({ kind: 'bool', p: 1.2 }).success).toBe(false);
+    // 03 §5.2: the value set after step and exclude must be non-empty
+    expect(paramSpecSchema.safeParse({ kind: 'int', min: 3, max: 3, exclude: [3] }).success).toBe(
+      false,
+    );
+    expect(
+      paramSpecSchema.safeParse({ kind: 'int', min: 10, max: 30, step: 10, exclude: [10, 20, 30] })
+        .success,
+    ).toBe(false);
+    // excluding a value the step never reaches leaves the domain intact
+    expect(
+      paramSpecSchema.safeParse({ kind: 'int', min: 10, max: 30, step: 10, exclude: [10, 15, 30] })
+        .success,
+    ).toBe(true);
+    expect(intParamDomainSize({ min: 0, max: 20, exclude: [10] })).toBe(20);
+    // 03 §5.2: params are integers, strings or booleans only
+    expect(paramSpecSchema.safeParse({ kind: 'choice', values: [1, 2.5] }).success).toBe(false);
+    expect(paramSpecSchema.safeParse({ kind: 'const', value: 0.5 }).success).toBe(false);
+    expect(paramSpecSchema.safeParse({ kind: 'const', value: '+' }).success).toBe(true);
     expect(hintStepSchema.safeParse({ level: 6, kind: 'nudge', say: 'h.x' }).success).toBe(false);
   });
 });
