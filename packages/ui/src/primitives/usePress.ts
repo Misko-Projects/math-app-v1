@@ -10,6 +10,8 @@ export type SpeakLabel = 'auto' | 'always' | 'never';
 
 export interface PressOptions {
   label: NarrationKey;
+  /** Variables for the label line (spoken with the same values the text shows). */
+  vars?: Record<string, string | number>;
   onPress?: () => void;
   speak?: SpeakLabel;
   /** Ignore presses closer together than this (06 §4: ≥ 400 ms on "check"). */
@@ -19,7 +21,14 @@ export interface PressOptions {
 }
 
 /** A press handler that speaks the label when the age mode asks for it and debounces repeats. */
-export function usePress({ label, onPress, speak = 'auto', debounceMs = 0, now }: PressOptions) {
+export function usePress({
+  label,
+  vars,
+  onPress,
+  speak = 'auto',
+  debounceMs = 0,
+  now,
+}: PressOptions) {
   const { ageMode } = useUiPreferences();
   const { say } = useSpeech();
   const last = useRef(Number.NEGATIVE_INFINITY);
@@ -28,7 +37,7 @@ export function usePress({ label, onPress, speak = 'auto', debounceMs = 0, now }
     const t = (now ?? (() => performance.now()))();
     if (debounceMs > 0 && t - last.current < debounceMs) return;
     last.current = t;
-    if (shouldSpeak) say(label);
+    if (shouldSpeak) say(label, vars);
     onPress?.();
-  }, [debounceMs, label, now, onPress, say, shouldSpeak]);
+  }, [debounceMs, label, now, onPress, say, shouldSpeak, vars]);
 }

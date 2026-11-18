@@ -1,5 +1,6 @@
 import type { WidgetAction } from '@number-island/shared';
 import { type CSSProperties, useCallback, useMemo, useRef, useState } from 'react';
+import { flushSync } from 'react-dom';
 import { useInteractionTrace } from '../../interaction/trace';
 import { useDragToTarget } from '../../interaction/useDragToTarget';
 import {
@@ -137,6 +138,7 @@ export function SampleSetWidget({
   const [counting, setCounting] = useState<number | null>(null);
   const [demoBusy, setDemoBusy] = useState(false);
   const basketRef = useRef<HTMLDivElement | null>(null);
+  const rootRef = useRef<HTMLDivElement | null>(null);
   const inBasketRef = useRef(inBasket);
   inBasketRef.current = inBasket;
 
@@ -175,31 +177,22 @@ export function SampleSetWidget({
 
   // ---------- demo mode (03 §6.3) ----------
 
-  const fly = useCallback(
-    async (id: PebbleId, direction: 'in' | 'out') => {
-      const source = document.querySelector<HTMLElement>(`[data-pebble="${id}"]`);
-      const basket = basketRef.current;
-      if (reduced || !source || !basket) return;
-      const from = source.getBoundingClientRect();
-      const box = basket.getBoundingClientRect();
-      const to = new DOMRect(
-        box.left + box.width / 2 - from.width / 2,
-        box.top + box.height / 2 - from.height / 2,
-        from.width,
-        from.height,
-      );
-      const flightPath =
-        direction === 'in'
-          ? { id, from, to, moving: false }
-          : { id, from: to, to: from, moving: false };
-      setFlight(flightPath);
-      await wait(20);
-      setFlight({ ...flightPath, moving: true });
-      await wait(FLY_MS);
-      setFlight(null);
-    },
-    [reduced],
-  );
+  const rect = (selector: string) =>
+    rootRef.current?.querySelector<HTMLElement>(selector)?.getBoundingClientRect() ?? null;
+  const slotRect = (index: number) =>
+    rootRef.current
+      ?.querySelectorAll<HTMLElement>('.ni-sample__slot')
+      [index]?.getBoundingClientRect() ?? null;
+
+  /** Flies a pebble between two measured rects; `land` commits the state as the flight ends. */
+  const flyBetween = async (id: PebbleId, from: DOMRect, to: DOMRect, land?: () => void) => {
+    setFlight({ id, from, to, moving: false });
+    await wait(20);
+    setFlight({ id, from, to, moving: true });
+    await wait(FLY_MS);
+    land?.();
+    setFlight(null);
+  };
 
   const countFromAction = (action: WidgetAction) => {
     const n = Number(action.args?.count ?? 1);
@@ -216,12 +209,18 @@ export function SampleSetWidget({
           for (let i = 0; i < countFromAction(action); i++) {
             const next = allIds.find((id) => !inBasketRef.current.includes(id));
             if (!next || inBasketRef.current.length >= capacity) break;
-            await fly(next, 'in');
-            trace('drag', next);
-            trace('drop', 'basket');
             const count = inBasketRef.current.length + 1;
-            inBasketRef.current = [...inBasketRef.current, next];
-            setInBasket(inBasketRef.current);
+            const land = () => {
+              inBasketRef.current = [...inBasketRef.current, next];
+              setInBasket(inBasketRef.current);
+            };
+            // Pile pebble → the next empty ten-frame slot.
+            const from = rect(`.ni-sample__pile [data-pebble="${next}"]`);
+            const to = slotRect(count - 1);
+            trace('drag', next);
+            if (!reduced && from && to) await flyBetween(next, from, to, land);
+            else land();
+            trace('drop', 'basket');
             sayNumber(count);
             await wait(reduced ? 0 : DURATION_MS.gentle);
           }
@@ -229,9 +228,17 @@ export function SampleSetWidget({
           for (let i = 0; i < countFromAction(action); i++) {
             const last = inBasketRef.current.at(-1);
             if (!last) break;
-            inBasketRef.current = inBasketRef.current.slice(0, -1);
-            setInBasket(inBasketRef.current);
-            await fly(last, 'out');
+            // Its slot in the basket → its place back in the pile, measured after it re-renders
+            // there (hidden under the flying copy).
+            const from = rect(`.ni-sample__in[data-pebble="${last}"]`);
+            flushSync(() => {
+              inBasketRef.current = inBasketRef.current.slice(0, -1);
+              setInBasket(inBasketRef.current);
+              if (!reduced && from) setFlight({ id: last, from, to: from, moving: false });
+            });
+            const to = rect(`.ni-sample__pile [data-pebble="${last}"]`);
+            if (!reduced && from && to) await flyBetween(last, from, to);
+            else setFlight(null);
           }
         } else if (action.op === 'count-aloud') {
           for (let i = 0; i < inBasketRef.current.length; i++) {
@@ -264,7 +271,12 @@ export function SampleSetWidget({
   });
 
   return (
-    <div className="ni-sample" data-tier={tier} data-disabled={disabled ? 'true' : undefined}>
+    <div
+      ref={rootRef}
+      className="ni-sample"
+      data-tier={tier}
+      data-disabled={disabled ? 'true' : undefined}
+    >
       <fieldset className="ni-sample__pile" aria-label={narrationText('ui.widget.supply')}>
         {pile.map((id) => {
           const index = allIds.indexOf(id);

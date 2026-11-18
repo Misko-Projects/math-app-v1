@@ -50,6 +50,12 @@ export interface WidgetHostProps {
   onInteract?: (event: InteractionEvent) => void;
   /** A lesson's DemoController (createDemoController). Omit outside lessons. */
   demo?: WidgetDemo;
+  /**
+   * Identity of the item shown (e.g. the GeneratedItem's template id and seed). A new value
+   * remounts the widget with fresh state, even when the format is the same: one widget instance
+   * shows one item.
+   */
+  itemKey?: string | number;
   /** Override the registry (stories, tests). Defaults to the app's widgetRegistry. */
   registry?: WidgetRegistry;
   className?: string;
@@ -58,19 +64,16 @@ export interface WidgetHostProps {
 interface BoundaryProps {
   fallback: ReactNode;
   children: ReactNode;
-  resetKey: string;
 }
 
-class WidgetErrorBoundary extends Component<BoundaryProps, { failed: string | null }> {
-  override state = { failed: null as string | null };
-  static getDerivedStateFromError(): { failed: string } {
-    return { failed: 'failed' };
+/** Shows the placeholder if the widget throws. Keyed per item, so a new item starts clean. */
+class WidgetErrorBoundary extends Component<BoundaryProps, { failed: boolean }> {
+  override state = { failed: false };
+  static getDerivedStateFromError(): { failed: boolean } {
+    return { failed: true };
   }
   override componentDidCatch(error: unknown, info: ErrorInfo) {
     console.error('[ui] widget failed; showing the placeholder', error, info.componentStack);
-  }
-  override componentDidUpdate(prev: BoundaryProps) {
-    if (prev.resetKey !== this.props.resetKey && this.state.failed) this.setState({ failed: null });
   }
   override render() {
     return this.state.failed ? this.props.fallback : this.props.children;
@@ -92,9 +95,11 @@ export function WidgetHost({
   onResponse,
   onInteract = noop,
   demo,
+  itemKey,
   registry = widgetRegistry,
   className,
 }: WidgetHostProps) {
+  const instanceKey = `${config.format}:${itemKey ?? ''}`;
   const fallbackDemo = useMemo(() => createDemoController(), []);
   const props: WidgetProps<WidgetConfig> = {
     config,
@@ -105,12 +110,12 @@ export function WidgetHost({
     demo: demo ?? fallbackDemo,
   };
   const loader = loaderFor(registry, config.format);
-  const placeholder = <PlaceholderWidget {...props} />;
+  const placeholder = <PlaceholderWidget key={instanceKey} {...props} />;
   let body: ReactNode = placeholder;
   if (loader) {
     const Widget = lazyWidget(loader);
     body = (
-      <WidgetErrorBoundary fallback={placeholder} resetKey={config.format}>
+      <WidgetErrorBoundary key={instanceKey} fallback={placeholder}>
         <Suspense fallback={<div className="ni-widget__loading" />}>
           <Widget {...props} />
         </Suspense>

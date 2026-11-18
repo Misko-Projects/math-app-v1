@@ -8,6 +8,7 @@ import {
   expectTargetGaps,
   expectTargetSize,
   pointerDrag,
+  touchDragAndHold,
 } from '../test-support/storyHelpers';
 import { useInteractionTrace } from './trace';
 import { useDragToTarget } from './useDragToTarget';
@@ -55,11 +56,14 @@ interface PlaygroundProps {
   onMiss?: (item: Shell) => void;
   onInteract?: (e: InteractionEvent) => void;
   mode?: 'drag' | 'tap';
+  /** Test fixture: a control that removes shell 1 (to test an item vanishing mid-interaction). */
+  removable?: boolean;
 }
 
 /** Shells move between the sand pile and the basket by drag, tap-to-place or keyboard. */
-function Playground({ onPlace, onMiss, onInteract, mode = 'drag' }: PlaygroundProps) {
+function Playground({ onPlace, onMiss, onInteract, mode = 'drag', removable }: PlaygroundProps) {
   const text = useNarrationText();
+  const [gone, setGone] = useState(false);
   const [where, setWhere] = useState<Record<Shell, Zone>>({
     s1: 'pile',
     s2: 'pile',
@@ -87,7 +91,7 @@ function Playground({ onPlace, onMiss, onInteract, mode = 'drag' }: PlaygroundPr
       <div className="pg-zone" data-zone={id}>
         <div {...pad} className={`${pad.className} pg-pad`} data-zone-pad={id} />
         <div className="pg-items">
-          {SHELLS.filter((s) => where[s] === id).map((s) => {
+          {SHELLS.filter((s) => where[s] === id && !(gone && s === 's1')).map((s) => {
             const i = SHELLS.indexOf(s);
             const props = dnd.itemProps(s, { label: `${text('ui.widget.pebble')} ${i + 1}` });
             return (
@@ -114,6 +118,11 @@ function Playground({ onPlace, onMiss, onInteract, mode = 'drag' }: PlaygroundPr
       <output className="pg-log" aria-live="polite">
         last: {lastVia}
       </output>
+      {removable ? (
+        <button type="button" className="pg-remove" data-remove="" onClick={() => setGone(true)}>
+          Hide shell 1
+        </button>
+      ) : null}
     </div>
   );
 }
@@ -126,6 +135,7 @@ const PLAYGROUND_CSS = `
 .pg-items { position: relative; display: flex; flex-wrap: wrap; justify-content: center; gap: var(--target-gap); padding: 24px; pointer-events: none; max-width: 100%; }
 .pg-shell { width: var(--target-min); height: var(--target-min); border-radius: 50%; pointer-events: auto; }
 .pg-log { position: absolute; left: 0; bottom: -44px; font: 700 1rem var(--font-body); color: var(--color-ink-soft); }
+.pg-remove { position: absolute; right: 0; bottom: -56px; min-height: 44px; padding: 0 16px; border-radius: 12px; border: 2px solid var(--color-ink); background: var(--color-paper); color: var(--color-ink); font: 700 1rem var(--font-body); }
 `;
 
 const meta = {
@@ -316,5 +326,60 @@ export const TapToPlaceHook: Story = {
       target: 'basket',
       via: 'keyboard',
     });
+    // Standalone tap-to-place shows the picked-up item too.
+    await userEvent.click(shell(canvasElement, 's3'));
+    await expect(getComputedStyle(shell(canvasElement, 's3')).outlineStyle).toBe('solid');
+  },
+};
+
+/**
+ * Mixed input: a key released outside the widget (focus moved away mid-press) must not lock out
+ * later taps.
+ */
+export const KeyReleasedElsewhereKeepsTapsWorking: Story = {
+  play: async ({ canvasElement, args }) => {
+    shell(canvasElement, 's3').focus();
+    await userEvent.keyboard('{Enter>}');
+    await expect(shell(canvasElement, 's3')).toHaveAttribute('aria-pressed', 'true');
+    (document.activeElement as HTMLElement | null)?.blur();
+    await userEvent.keyboard('{/Enter}');
+    await userEvent.click(pad(canvasElement, 'basket'));
+    await waitFor(() => expect(zoneOf(canvasElement, 's3')).toBe('basket'));
+    await expect(args.onPlace).toHaveBeenCalledWith({ item: 's3', target: 'basket', via: 'tap' });
+    // And a plain tap on another shell still selects it.
+    await userEvent.click(shell(canvasElement, 's4'));
+    await expect(shell(canvasElement, 's4')).toHaveAttribute('aria-pressed', 'true');
+  },
+};
+
+/** A picked-up shell that disappears can no longer be placed. */
+export const SelectedItemRemoved: Story = {
+  args: { removable: true },
+  play: async ({ canvasElement, args }) => {
+    await userEvent.click(shell(canvasElement, 's1'));
+    await expect(pad(canvasElement, 'basket')).toHaveAttribute('data-armed', 'true');
+    await userEvent.click(canvasElement.querySelector('[data-remove]') as HTMLElement);
+    await waitFor(() => expect(shell(canvasElement, 's1')).toBeNull());
+    await waitFor(() => expect(pad(canvasElement, 'basket')).not.toHaveAttribute('data-armed'));
+    await userEvent.click(pad(canvasElement, 'basket'));
+    await expect(args.onPlace).not.toHaveBeenCalled();
+  },
+};
+
+/** A shell that disappears mid-drag doesn't land when the finger lifts. */
+export const DraggedItemRemoved: Story = {
+  args: { removable: true },
+  play: async ({ canvasElement, args }) => {
+    const release = await touchDragAndHold(
+      shell(canvasElement, 's1'),
+      center(pad(canvasElement, 'basket')),
+    );
+    (canvasElement.querySelector('[data-remove]') as HTMLButtonElement).click();
+    await waitFor(() => expect(shell(canvasElement, 's1')).toBeNull());
+    await release();
+    await expect(args.onPlace).not.toHaveBeenCalled();
+    // The next drag works normally.
+    await pointerDrag(shell(canvasElement, 's2'), center(pad(canvasElement, 'basket')), 'touch');
+    await waitFor(() => expect(zoneOf(canvasElement, 's2')).toBe('basket'));
   },
 };

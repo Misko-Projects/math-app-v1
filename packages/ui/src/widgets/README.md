@@ -36,7 +36,7 @@ it tags the missing format.
 | `onInteract` | `(e: InteractionEvent) => void` | Every manipulative interaction in order (`tap`, `drag`, `drop`, `undo`, `move`), for the trace in `TaskRunner.submit(meta.trace)` (03 §5.1). Wrap it with `useInteractionTrace(onInteract)`, which stamps `ms` since the widget first rendered. The trace stays in memory only. |
 | `demo` | `WidgetDemo` | Demo mode for lessons and hints (03 §6.3); see below. Always provided (an inert controller outside lessons). |
 
-One widget instance shows one item. The host remounts it (`key`) for the next item.
+One widget instance shows one item. Pass the item's identity as `WidgetHost`'s `itemKey`: a new value remounts the widget with fresh state, even for the same format.
 
 ## Demo mode (03 §6.3)
 

@@ -43,7 +43,7 @@ export function IconButton({
 }: IconButtonProps) {
   const { textLabels } = useUiPreferences();
   const text = useNarrationText()(label, labelVars);
-  const handlePress = usePress({ label, onPress, speak, debounceMs });
+  const handlePress = usePress({ label, vars: labelVars, onPress, speak, debounceMs });
   const captionId = useId();
   const showCaption = caption ?? textLabels;
   return (

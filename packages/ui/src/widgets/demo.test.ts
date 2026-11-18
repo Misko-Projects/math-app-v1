@@ -65,6 +65,38 @@ describe('demo controller (03 §6.3)', () => {
     expect(w.invited).toEqual([{ op: 'drag' }, null]);
   });
 
+  it('survives a widget that binds and unbinds before a queued play resumes', async () => {
+    const demo = createDemoController({ strict: true });
+    const pending = demo.play({ op: 'drag' });
+    const first = impl();
+    const unbind = demo.bind(first.value); // resolves the waiter...
+    unbind(); // ...but the widget unmounts before the waiter's microtask runs
+    const second = impl();
+    await Promise.resolve();
+    demo.bind(second.value);
+    await pending;
+    expect(first.played).toEqual([]);
+    expect(second.played).toEqual([{ op: 'drag' }]);
+  });
+
+  it('applies the unsupported-op policy to an invite queued before mount', () => {
+    const error = vi.fn();
+    const strict = createDemoController({ strict: true, error });
+    strict.invite({ op: 'bundle' });
+    const a = impl();
+    strict.bind(a.value);
+    expect(a.invited).toEqual([]);
+    expect(error).toHaveBeenCalledWith(expect.any(UnsupportedWidgetOpError));
+
+    const warn = vi.fn();
+    const lax = createDemoController({ strict: false, warn });
+    lax.invite({ op: 'bundle' });
+    const b = impl();
+    lax.bind(b.value);
+    expect(b.invited).toEqual([]);
+    expect(warn).toHaveBeenCalledTimes(1);
+  });
+
   it('re-binds after a remount and ignores a stale unbind', async () => {
     const demo = createDemoController({ strict: true });
     const first = impl();

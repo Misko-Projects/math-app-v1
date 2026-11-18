@@ -116,7 +116,14 @@ export function useDragToTarget<I extends string, T extends string>(
       drag.cleanup();
       if (!drag.dragging) return;
       core.suppressNextClick();
-      const target = commit ? snapTargetFor(drag) : null;
+      // Commit only if the source is still there and enabled and dragging is still allowed: it may
+      // have been removed, disabled, or tap-only mode switched on mid-drag.
+      const sourceOk =
+        core.items.get(drag.id) === drag.el &&
+        core.isItemAvailable(drag.id) &&
+        !settings.current.tapOnly &&
+        !core.latest.current.disabled;
+      const target = commit && sourceOk ? snapTargetFor(drag) : null;
       markOver(drag, null);
       drag.el.removeAttribute('data-dragging');
       const trace = core.latest.current.trace;
@@ -142,8 +149,15 @@ export function useDragToTarget<I extends string, T extends string>(
   const finishRef = useRef(finish);
   finishRef.current = finish;
   useEffect(() => {
-    if (options.disabled) finishRef.current(false);
-  }, [options.disabled]);
+    if (options.disabled || tapOnly) finishRef.current(false);
+  }, [options.disabled, tapOnly]);
+  // The dragged item itself can unmount (it moved or the item changed): cancel after that commit.
+  useEffect(() => {
+    const drag = active.current;
+    if (drag && (core.items.get(drag.id) !== drag.el || !drag.el.isConnected)) {
+      finishRef.current(false);
+    }
+  });
   useEffect(() => () => finishRef.current(false), []);
 
   const onPointerDown = useCallback(

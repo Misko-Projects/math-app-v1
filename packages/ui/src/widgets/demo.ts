@@ -47,6 +47,11 @@ export interface DemoControllerOptions {
   strict?: boolean;
   /** Warn sink for skipped ops in production (default console.warn). */
   warn?: (message: string) => void;
+  /**
+   * Error sink for an unsupported op in an invite queued before the widget mounted, in
+   * development (default console.error).
+   */
+  error?: (err: UnsupportedWidgetOpError) => void;
 }
 
 /**
@@ -56,6 +61,7 @@ export interface DemoControllerOptions {
 export function createDemoController(options: DemoControllerOptions = {}): WidgetDemo {
   const strict = options.strict ?? Boolean(import.meta.env?.DEV);
   const warn = options.warn ?? ((m: string) => console.warn(m));
+  const error = options.error ?? ((e: UnsupportedWidgetOpError) => console.error(e));
   let impl: WidgetDemoImpl | null = null;
   let waiting: (() => void)[] = [];
   let pendingInvite: WidgetAction | null | undefined;
@@ -74,8 +80,13 @@ export function createDemoController(options: DemoControllerOptions = {}): Widge
       return impl?.ops ?? [];
     },
     async play(action) {
-      await whenBound();
-      const current = impl as WidgetDemoImpl;
+      // A waiter resumes a microtask after bind, by which time the widget may have unbound again
+      // (a remount): wait until one is actually bound.
+      let current = impl;
+      while (!current) {
+        await whenBound();
+        current = impl;
+      }
       if (!current.ops.includes(action.op)) {
         unsupported(action, current.ops);
         return;
@@ -101,7 +112,16 @@ export function createDemoController(options: DemoControllerOptions = {}): Widge
       if (pendingInvite !== undefined) {
         const action = pendingInvite;
         pendingInvite = undefined;
-        if (action === null || next.ops.includes(action.op)) next.invite(action);
+        if (action === null || next.ops.includes(action.op)) {
+          next.invite(action);
+        } else {
+          // Same policy as a live invite, except that in development it is reported through
+          // `error` rather than thrown: bind runs in the widget's mount effect, and a throw there
+          // would tear down the widget tree.
+          const err = new UnsupportedWidgetOpError(action.op, next.ops);
+          if (strict) error(err);
+          else warn(`[ui] ${err.message}; skipped`);
+        }
       }
       return () => {
         if (impl === next) impl = null;

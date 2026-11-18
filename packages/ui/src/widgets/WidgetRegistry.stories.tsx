@@ -1,7 +1,15 @@
 import type { InteractionEvent, WidgetConfig } from '@number-island/shared';
 import type { Meta, StoryObj } from '@storybook/react-vite';
+import { useState } from 'react';
 import { expect, fn, userEvent, waitFor, within } from 'storybook/test';
-import { center, pointerDrag } from '../test-support/storyHelpers';
+import { BigButton } from '../primitives/BigButton';
+import { ArrowIcon } from '../primitives/icons';
+import {
+  center,
+  expectTargetGaps,
+  expectTargetSize,
+  pointerDrag,
+} from '../test-support/storyHelpers';
 import { createDemoController, UnsupportedWidgetOpError, type WidgetDemo } from './demo';
 import type { ConfigFor, WidgetRegistry } from './types';
 import { WidgetHost, type WidgetHostProps } from './WidgetHost';
@@ -107,6 +115,10 @@ export const EndToEnd: Story = {
     await userEvent.keyboard('{Enter}');
     await waitFor(() => expect(pebblesIn(canvasElement)).toBe(3));
     await expect(canvas.getByRole('button', { name: '3' })).toBeVisible();
+    // The pebbles in the basket are tap targets too: K size, ≥ 12 px apart (06 §4).
+    const inBasket = [...canvasElement.querySelectorAll<HTMLElement>('.ni-sample__in')];
+    for (const b of inBasket) await expectTargetSize(b, 'k');
+    await expectTargetGaps(inBasket);
 
     await userEvent.click(canvas.getByRole('button', { name: 'Check' }));
     await expect(args.onResponse).toHaveBeenCalledTimes(1);
@@ -209,4 +221,33 @@ export const UnregisteredFormat: Story = {
 export const UnregisteredFormatK: Story = {
   globals: { ageMode: 'k' },
   args: { config: clockSet as WidgetConfig },
+};
+
+function NextItemDemo(args: WidgetHostProps) {
+  const [item, setItem] = useState(1);
+  return (
+    <div style={{ width: 'min(1100px, 100%)', display: 'grid', gap: 24, justifyItems: 'center' }}>
+      <WidgetHost {...args} itemKey={item} />
+      <BigButton
+        label="ui.btn.next"
+        icon={<ArrowIcon tone="light" />}
+        onPress={() => setItem((n) => n + 1)}
+      />
+    </div>
+  );
+}
+
+/** A new item of the same format (`itemKey`) starts with fresh widget state. */
+export const NewItemResets: Story = {
+  render: (args) => <NextItemDemo {...args} />,
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await canvas.findByRole('group', { name: 'Pebble pile' });
+    await userEvent.click(pilePebbles(canvasElement)[0] as HTMLElement);
+    await userEvent.click(basketPad(canvasElement));
+    await waitFor(() => expect(pebblesIn(canvasElement)).toBe(1));
+    await userEvent.click(canvas.getByRole('button', { name: 'Next' }));
+    await waitFor(() => expect(pebblesIn(canvasElement)).toBe(0));
+    await expect(pilePebbles(canvasElement)).toHaveLength(6);
+  },
 };

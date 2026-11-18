@@ -606,7 +606,8 @@ button.ni-number {
   transition: box-shadow var(--duration-base) ease-out;
   filter: drop-shadow(0 14px 10px rgb(38 70 83 / 0.35));
 }
-.ni-draggable[data-selected="true"] {
+/* Any tap-to-place item (useTapToPlace or useDragToTarget) that is picked up. */
+[data-place-item][data-selected="true"] {
   filter: drop-shadow(0 0 0 var(--color-sunshine)) drop-shadow(0 8px 6px rgb(38 70 83 / 0.3));
   outline: 5px solid var(--color-sunshine);
   outline-offset: 3px;
@@ -793,7 +794,7 @@ button.ni-number {
   display: grid;
   justify-items: center;
   width: 100%;
-  max-width: 520px;
+  max-width: 580px;
   padding: 18px 18px 0;
   border-radius: 28px;
 }
@@ -815,9 +816,10 @@ button.ni-number {
   grid-template-columns: repeat(5, var(--pebble));
   grid-auto-rows: var(--pebble);
   justify-content: center;
-  gap: 6px;
+  gap: var(--target-gap);
   box-sizing: border-box;
-  width: calc(100% - 28px);
+  width: max-content;
+  max-width: 100%;
   margin-bottom: -8px;
   padding: 16px 16px 20px;
   /* The basket's inside: a darker woven back wall the pebbles sit against (a 2 × 5 ten-frame). */

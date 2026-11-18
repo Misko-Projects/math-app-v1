@@ -25,6 +25,13 @@ export function clearSpies(audio: SpyAudio) {
 
 /** 06 §4: every hit target is at least the age mode's minimum in both dimensions. */
 export async function expectTargetSize(el: Element, ageMode: AgeMode) {
+  // Measure the settled size, not mid-entrance (pop-in starts small). Idle loops never finish.
+  await Promise.all(
+    el
+      .getAnimations()
+      .filter((a) => a.effect?.getComputedTiming().iterations !== Number.POSITIVE_INFINITY)
+      .map((a) => a.finished.catch(() => undefined)),
+  );
   const r = el.getBoundingClientRect();
   const min = MIN_TARGET_PX[ageMode];
   await expect(Math.round(r.width), `${describe(el)} width`).toBeGreaterThanOrEqual(min);
@@ -60,6 +67,38 @@ export function center(el: Element) {
 const nextFrame = () => new Promise<void>((r) => requestAnimationFrame(() => r()));
 
 let pointerSeq = 10;
+
+/**
+ * Starts a touch drag of `el` towards a point and holds it there. Call the returned function to
+ * lift the finger. Lets a test change the page mid-drag.
+ */
+export async function touchDragAndHold(el: Element, to: { x: number; y: number }, steps = 8) {
+  const from = center(el);
+  const pointerId = ++pointerSeq;
+  const init = (x: number, y: number, buttons: number): PointerEventInit => ({
+    bubbles: true,
+    cancelable: true,
+    composed: true,
+    pointerId,
+    pointerType: 'touch',
+    isPrimary: true,
+    clientX: x,
+    clientY: y,
+    button: 0,
+    buttons,
+  });
+  el.dispatchEvent(new PointerEvent('pointerdown', init(from.x, from.y, 1)));
+  for (let i = 1; i <= steps; i++) {
+    const x = from.x + ((to.x - from.x) * i) / steps;
+    const y = from.y + ((to.y - from.y) * i) / steps;
+    window.dispatchEvent(new PointerEvent('pointermove', init(x, y, 1)));
+    await new Promise<void>((r) => requestAnimationFrame(() => r()));
+  }
+  return async () => {
+    window.dispatchEvent(new PointerEvent('pointerup', init(to.x, to.y, 0)));
+    await new Promise<void>((r) => requestAnimationFrame(() => r()));
+  };
+}
 
 /**
  * Drags `el` to a point with a real PointerEvent sequence: `mouse` (button 0) or `touch`

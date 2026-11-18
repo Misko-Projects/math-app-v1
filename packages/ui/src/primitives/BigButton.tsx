@@ -45,7 +45,7 @@ export function BigButton({
 }: BigButtonProps) {
   const { textLabels } = useUiPreferences();
   const text = useNarrationText()(label, labelVars);
-  const handlePress = usePress({ label, onPress, speak, debounceMs });
+  const handlePress = usePress({ label, vars: labelVars, onPress, speak, debounceMs });
   const visibleLabel = showLabel ?? (textLabels || !icon);
   return (
     <button

@@ -55,7 +55,6 @@ export interface PlaceItemProps {
   'data-selected'?: 'true';
   onClick: (e: MouseEvent) => void;
   onKeyDown: (e: KeyboardEvent) => void;
-  onKeyUp: (e: KeyboardEvent) => void;
 }
 
 /** Props to spread on a target element. */
@@ -71,7 +70,6 @@ export interface PlaceTargetProps {
   className: string;
   onClick: (e: MouseEvent) => void;
   onKeyDown: (e: KeyboardEvent) => void;
-  onKeyUp: (e: KeyboardEvent) => void;
 }
 
 export interface TapToPlace<I extends string, T extends string> {
@@ -87,6 +85,7 @@ export interface PlacementCore<I extends string, T extends string> extends TapTo
   items: Map<I, HTMLElement | SVGElement>;
   targets: Map<T, HTMLElement | SVGElement>;
   isTargetOpen: (item: I, target: T) => boolean;
+  isItemAvailable: (item: I) => boolean;
   place: (item: I, target: T, via: PlaceVia) => void;
   /** Ignore the click that a browser fires after a drag ends. */
   suppressNextClick: () => void;
@@ -139,10 +138,25 @@ export function usePlacementCore<I extends string, T extends string>(
     latest.current.onSelect?.(item);
   }, []);
 
+  /** The item is still rendered, connected and enabled (it may have moved, gone or been disabled). */
+  const isItemAvailable = useCallback(
+    (item: I) => {
+      const el = items.get(item);
+      return Boolean(el?.isConnected) && el?.getAttribute('aria-disabled') !== 'true';
+    },
+    [items],
+  );
+
   // Deselect when interaction is switched off (demo playback) so no stale selection remains.
   useEffect(() => {
     if (options.disabled) select(null);
   }, [options.disabled, select]);
+
+  // After every commit: a selected item that was removed or disabled can no longer be placed.
+  useEffect(() => {
+    const current = selectedRef.current;
+    if (current !== null && !isItemAvailable(current)) select(null);
+  });
 
   const isTargetOpen = useCallback(
     (item: I, target: T) => {
@@ -167,18 +181,32 @@ export function usePlacementCore<I extends string, T extends string>(
     }, 0);
   }, []);
 
-  /** A click that a key press already handled, or the click after a drag, does nothing. */
-  const consumeClick = useCallback(() => {
-    if (keyActivated.current || clickSuppressed.current) {
-      return false;
-    }
+  /**
+   * Whether a click should act. The click a browser fires right after a drag does nothing, and so
+   * does the click it synthesises from a key press the keydown handler already handled (keyboard
+   * clicks have `detail === 0`). Pointer clicks always act.
+   */
+  const consumeClick = useCallback((e: MouseEvent) => {
+    if (clickSuppressed.current) return false;
+    if (keyActivated.current && e.detail === 0) return false;
     return true;
   }, []);
 
-  const releaseKey = useCallback(() => {
-    setTimeout(() => {
-      keyActivated.current = false;
-    }, 0);
+  /**
+   * Marks a keyboard activation until that key is released anywhere (focus may have moved to a
+   * target, or the element may be gone) or the window loses focus.
+   */
+  const markKeyActivation = useCallback(() => {
+    keyActivated.current = true;
+    const clear = () => {
+      window.removeEventListener('keyup', clear, true);
+      window.removeEventListener('blur', clear);
+      setTimeout(() => {
+        keyActivated.current = false;
+      }, 0);
+    };
+    window.addEventListener('keyup', clear, true);
+    window.addEventListener('blur', clear);
   }, []);
 
   const stableRef = useCallback(
@@ -226,11 +254,15 @@ export function usePlacementCore<I extends string, T extends string>(
       const o = latest.current;
       const item = selectedRef.current;
       if (o.disabled || item === null) return;
+      if (!isItemAvailable(item)) {
+        select(null);
+        return;
+      }
       if (!isTargetOpen(item, id)) return;
       o.trace?.('tap', id);
       place(item, id, via);
     },
-    [isTargetOpen, place],
+    [isItemAvailable, isTargetOpen, place, select],
   );
 
   const itemProps = useCallback(
@@ -246,15 +278,15 @@ export function usePlacementCore<I extends string, T extends string>(
         'aria-disabled': off ? true : undefined,
         'data-place-item': id,
         'data-selected': isSelected ? 'true' : undefined,
-        onClick: () => {
-          if (!consumeClick()) return;
+        onClick: (e) => {
+          if (!consumeClick(e)) return;
           activateItem(id, 'tap');
         },
         onKeyDown: (e) => {
           if (ACTIVATE.has(e.key)) {
             e.preventDefault();
             if (e.repeat) return;
-            keyActivated.current = true;
+            markKeyActivation();
             activateItem(id, 'keyboard');
           } else if (NEXT.has(e.key)) {
             e.preventDefault();
@@ -270,10 +302,18 @@ export function usePlacementCore<I extends string, T extends string>(
             select(null);
           }
         },
-        onKeyUp: releaseKey,
       };
     },
-    [activateItem, consumeClick, items, options.disabled, releaseKey, select, selected, stableRef],
+    [
+      activateItem,
+      consumeClick,
+      items,
+      options.disabled,
+      markKeyActivation,
+      select,
+      selected,
+      stableRef,
+    ],
   );
 
   const targetProps = useCallback(
@@ -291,15 +331,15 @@ export function usePlacementCore<I extends string, T extends string>(
         'data-target-disabled': opts.disabled ? 'true' : undefined,
         'data-armed': armed ? 'true' : undefined,
         className: 'ni-drop-target',
-        onClick: () => {
-          if (!consumeClick()) return;
+        onClick: (e) => {
+          if (!consumeClick(e)) return;
           activateTarget(id, 'tap');
         },
         onKeyDown: (e) => {
           if (ACTIVATE.has(e.key)) {
             e.preventDefault();
             if (e.repeat) return;
-            keyActivated.current = true;
+            markKeyActivation();
             activateTarget(id, 'keyboard');
           } else if (NEXT.has(e.key)) {
             e.preventDefault();
@@ -316,7 +356,6 @@ export function usePlacementCore<I extends string, T extends string>(
             }
           }
         },
-        onKeyUp: releaseKey,
       };
     },
     [
@@ -325,7 +364,7 @@ export function usePlacementCore<I extends string, T extends string>(
       items,
       options.canPlace,
       options.disabled,
-      releaseKey,
+      markKeyActivation,
       select,
       selected,
       stableRef,
@@ -342,6 +381,7 @@ export function usePlacementCore<I extends string, T extends string>(
       items,
       targets,
       isTargetOpen,
+      isItemAvailable,
       place,
       suppressNextClick,
       latest,
@@ -354,6 +394,7 @@ export function usePlacementCore<I extends string, T extends string>(
       items,
       targets,
       isTargetOpen,
+      isItemAvailable,
       place,
       suppressNextClick,
     ],
