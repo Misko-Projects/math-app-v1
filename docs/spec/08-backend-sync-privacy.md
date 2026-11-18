@@ -71,9 +71,9 @@ ai_cache(key_hash PK, feature, value_json, created_at)   -- text results only; n
 
 ## 6. Secrets and configuration
 
-- **Single user-owned secrets file outside the repo:** `~/.config/math-app-v1/secrets.env` (mode 600), with keys `ANTHROPIC_API_KEY` (runtime AI) and `GEMINI_API_KEY` (build-time narration only; never read by the API Worker). Its path can be overridden with `MATH_APP_SECRETS`.
+- **Single user-owned secrets file outside the repo:** `~/.config/math-app-v1/secrets.env` (mode 600), with keys `OPENAI_API_KEY` (feedback, summaries), `ANTHROPIC_API_KEY` (photo → avatar) and `GEMINI_API_KEY` (build-time narration only; never read by the API Worker). Its path can be overridden with `MATH_APP_SECRETS`.
 - `pnpm secrets:link` writes `apps/api/.dev.vars` (gitignored) from that file so `wrangler dev` sees the keys. Build tools (`tools/narration`) read the same file. Worktrees run `pnpm secrets:link` after install.
-- Production (later): `wrangler secret put ANTHROPIC_API_KEY`. The Worker never needs `GEMINI_API_KEY`.
+- Production (later): `wrangler secret put OPENAI_API_KEY` and `ANTHROPIC_API_KEY`. The Worker never needs `GEMINI_API_KEY`.
 - No secret is ever sent to the client, logged, committed, or included in error messages. CI runs with no secrets, so all AI paths must have mocks and deterministic fallbacks, and tests must not call providers.
 - `apps/api/wrangler.jsonc` defines `vars`: `AI_MONTHLY_BUDGET_USD` (default 10), `AI_FEEDBACK_MODEL`, `AI_SUMMARY_MODEL`, `AI_VISION_MODEL` (07 §1), `PBKDF2_ITERATIONS`.
 

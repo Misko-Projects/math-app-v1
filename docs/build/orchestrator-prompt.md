@@ -30,9 +30,9 @@ My user-level instructions (`~/.claude/CLAUDE.md`, "Ask only for the real gates�
 - Large issues (K01, K02, U02, U03–U05, I01) should land as several PRs.
 
 **Secrets and spend:**
-- Keys, if I've provided them, are in `~/.config/math-app-v1/secrets.env` (`ANTHROPIC_API_KEY`, `GEMINI_API_KEY`). Children run `pnpm secrets:link` in their worktree. Never print, log or commit keys.
+- Keys, if I've provided them, are in `~/.config/math-app-v1/secrets.env` (`OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `GEMINI_API_KEY`). Children run `pnpm secrets:link` in their worktree. Never print, log or commit keys.
 - If a key is missing, complete the issue with mock or stub providers and record "live run pending a key". That is not a blocker.
-- Spend caps for the whole campaign: narration rendering ≤ $10, live Claude smoke tests ≤ $5 (`docs/build/plan.md`). Gemini is used **only** by `tools/narration` at build time, never at runtime (`docs/spec/07-ai-services.md` §0).
+- Spend caps for the whole campaign: narration rendering ≤ $10, live AI smoke tests ≤ $5 (`docs/build/plan.md`). Gemini is used **only** by `tools/narration` at build time, never at runtime (`docs/spec/07-ai-services.md` §0).
 
 **Quality bar:**
 - The kids must love this from the first session. Hold workshops, island and onboarding PRs to the art and audio direction and the healthy-engagement rules in `docs/spec/05-game-design.md`.

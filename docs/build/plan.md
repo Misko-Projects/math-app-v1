@@ -42,14 +42,14 @@ The critical path is F01 → C01 → E01 → E02 → D01 → W00 → R01 → I01
 | Use | Cap |
 |---|---|
 | Narration rendering (Gemini Batch TTS), whole campaign | ≤ $10 (expected ≈ $2–4) |
-| Live AI smoke tests (Claude), whole campaign | ≤ $5 |
+| Live AI smoke tests (OpenAI + Claude), whole campaign | ≤ $5 |
 | Runtime feedback during local playtests | Governed by the app's `AI_MONTHLY_BUDGET_USD` (default $10) |
 
 If a key is missing, the issue still completes with stub or mock providers and records "live run pending a key" in its PR and final report. That is not a blocker.
 
 ## Human-only items (outside the campaign)
 
-- Add keys to `~/.config/math-app-v1/secrets.env` (`ANTHROPIC_API_KEY`, `GEMINI_API_KEY`).
+- Add keys to `~/.config/math-app-v1/secrets.env` (`OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `GEMINI_API_KEY`).
 - Ask Google whether build-time narration rendering for a children's app is permitted (07 §3). If not, switch to `NARRATION_PROVIDER=kokoro`.
 - Pick the narrator, Pip and Glim voices from `pnpm narration:audition` output (defaults until then: Sulafat, Puck, Achird).
 - Verify on the real tablet: PWA install, Amazon Kids profile access, audio behaviour (checklist in `docs/PLAYTEST.md`).

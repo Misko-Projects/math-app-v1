@@ -47,7 +47,7 @@ pnpm storybook         # widgets, avatar, art gallery
 ## Privacy and safety (hard rules)
 
 - No third-party analytics, ads, trackers, CDNs, remote fonts or crash reporters. Everything is self-hosted.
-- **Gemini is never called at runtime.** It is only used by `tools/narration` at build time. Runtime AI uses Claude via `apps/api/src/ai`, with deterministic fallbacks. See `docs/spec/07-ai-services.md`.
+- **Gemini is never called at runtime.** It is only used by `tools/narration` at build time. Runtime AI goes through `apps/api/src/ai`: OpenAI for feedback and summaries (never any personal data), Claude for photo → avatar, with deterministic fallbacks. See `docs/spec/07-ai-services.md`.
 - Never send names, ids, birth dates or photos-at-rest to any provider. Photos are processed in memory and never stored.
 - Children never type to, or talk with, an AI model.
 - Secrets live only in `~/.config/math-app-v1/secrets.env` (user-owned) → `apps/api/.dev.vars` (gitignored). Never commit, log or print them. CI has no secrets: mock all providers.
