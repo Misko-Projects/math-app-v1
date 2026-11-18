@@ -34,11 +34,8 @@ function options(overrides: Partial<PipelineOptions> = {}): PipelineOptions {
     renderer: stubRenderer(),
     encoder: wavEncoder,
     outDir,
-    stateDir: join(outDir, '.state'),
-    mode: 'auto',
     maxUsd: 5,
     concurrency: 2,
-    maxWaitMs: 0,
     dryRun: false,
     ...overrides,
   };
@@ -180,7 +177,6 @@ describe('runPipeline with the stub provider', () => {
     // Both "plus" segments (t1 and t4) share one file, so one fewer file than clips.
     expect(report.cached).toBe(0);
     expect(report.toRender).toBe(report.total - 1);
-    expect(report.mode).toBe('interactive');
     expect(report.estimate.usd).toBeGreaterThan(0);
     expect(readdirSync(opts.outDir)).toEqual([]);
   });
@@ -198,8 +194,7 @@ describe('runPipeline with the stub provider', () => {
     const report = await runPipeline(opts);
     expect(called).toBe(false);
     expect(report.aborted).toMatch(/exceeds --max-usd/);
-    // Only the (released) lock's state directory exists; nothing was rendered or written.
-    expect(readdirSync(opts.outDir).filter((f) => f !== '.state')).toEqual([]);
+    expect(readdirSync(opts.outDir)).toEqual([]);
   });
 
   it('stops spending at the cap and meters actual cost from token usage', async () => {
@@ -222,7 +217,7 @@ describe('runPipeline with the stub provider', () => {
       },
     };
     // Each clip "costs" $0.50 of input tokens; the cap admits as many estimates as fit.
-    const opts = options({ provider: 'gemini', renderer, maxUsd: 0.01, mode: 'interactive' });
+    const opts = options({ provider: 'gemini', renderer, maxUsd: 0.01 });
     const report = await runPipeline(opts);
     // The first clip's measured $0.50 already exceeds the cap, so nothing further is started.
     expect(report.rendered).toBe(1);

@@ -1,13 +1,9 @@
 // The renderer interface (07 §3): render(lines) → audio. Every provider returns WAV, which the
 // pipeline encodes to Opus.
 import type { ProviderId } from '../config';
-import type { RenderMode } from '../cost';
 
 export interface TtsRequest {
-  /**
-   * Identifies the audio to produce. The pipeline passes the clip file's content hash, so clips
-   * that share a file are one request, and a resumed job matches whichever clip still needs it.
-   */
+  /** Identifies the audio to produce (the pipeline passes the clip file's content hash). */
   id: string;
   text: string;
   /** Provider voice name. */
@@ -22,48 +18,28 @@ export interface TokenUsage {
 }
 
 export type TtsOutcome =
-  | { id: string; ok: true; wav: Uint8Array; usage?: TokenUsage; billing?: RenderMode }
-  | { id: string; ok: false; error: string; usage?: TokenUsage; billing?: RenderMode };
+  | { id: string; ok: true; wav: Uint8Array; usage?: TokenUsage }
+  | { id: string; ok: false; error: string; usage?: TokenUsage };
 
 export interface RenderContext {
-  mode: RenderMode;
-  /** Requests in flight at once (interactive mode). */
+  /** Requests in flight at once. */
   concurrency: number;
   /**
-   * Asked before each paid request or batch: reserves `usd` (the estimate) for those clip ids
-   * until their results arrive. False means measured spend plus outstanding reservations plus this
-   * one would pass the cap, so nothing new may start. `force` records spending that already
-   * happened (an adopted batch job) and always succeeds.
+   * Asked before each paid request: reserves `usd` (the estimate) for those ids until their results
+   * arrive. False means measured spend plus outstanding reservations plus this one would pass the
+   * cap, so nothing new may start.
    */
-  reserve(ids: readonly string[], usd: number, opts?: { force?: boolean }): boolean;
-  /**
-   * Called once per finished request, in completion order, and awaited before the next result.
-   * Resolves false when audio arrived but could not be stored (encoding or writing failed), so a
-   * provider that can fetch it again (a finished batch job) keeps it for the next run.
-   */
-  onResult(outcome: TtsOutcome): Promise<boolean>;
+  reserve(ids: readonly string[], usd: number): boolean;
+  /** Called once per finished request, in completion order, and awaited before the next result. */
+  onResult(outcome: TtsOutcome): Promise<void>;
   log(message: string): void;
-  /** Directory for resumable provider state (batch job names). */
-  stateDir: string;
-  /** Longest time to wait for batch jobs before leaving them to a later run. */
-  maxWaitMs: number;
-  /** Estimated cost of these requests at a billing mode (default: the run's mode), for `reserve`. */
-  estimateUsd(requests: readonly TtsRequest[], mode?: RenderMode): number;
-  /** Drop saved batch submissions that were never confirmed and cannot be found (operator flag). */
-  abandonUnconfirmedBatches?: boolean;
+  /** Estimated cost of these requests, for `reserve`. */
+  estimateUsd(requests: readonly TtsRequest[]): number;
 }
 
 export interface Renderer {
   readonly provider: ProviderId;
   readonly model: string;
-  /** Requests that saved provider work already covers, so the estimate can leave them out. */
-  covered?(
-    requests: readonly TtsRequest[],
-    stateDir: string,
-    opts?: { abandonUnconfirmedBatches?: boolean },
-  ): Set<string>;
-  /** Forgets all saved provider work; the pipeline calls it only after a complete run. */
-  clearSaved?(stateDir: string, log: (message: string) => void): void;
   /** Renders every request; failures are reported through `onResult`, never thrown per clip. */
   render(requests: readonly TtsRequest[], ctx: RenderContext): Promise<void>;
 }

@@ -2,23 +2,13 @@
 // pnpm narration:render | narration:audition (07 §3). Build-time only: nothing here runs in the app.
 //
 //   pnpm narration:render [--dry-run] [--provider gemini|kokoro|stub] [--max-usd 5]
-//                         [--mode interactive|batch --experimental-batch] [--concurrency 4]
-//                         [--max-wait-min 240]
-//                         [--out <dir>] [--format opus|wav] [--only <clip-id regex>]
-//                         [--abandon-unconfirmed-batches]
+//                         [--concurrency 4] [--out <dir>] [--format opus|wav]
+//                         [--only <clip-id regex>]
 //   pnpm narration:audition [--provider gemini|kokoro|stub] [--max-usd 0.5]
 //
 // The Gemini key comes from GEMINI_API_KEY, else from the user-owned secrets file
 // ($MATH_APP_SECRETS or ~/.config/math-app-v1/secrets.env). It is never printed or logged.
-import { createHash } from 'node:crypto';
-import {
-  existsSync,
-  mkdirSync,
-  readdirSync,
-  readFileSync,
-  realpathSync,
-  writeFileSync,
-} from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, realpathSync, writeFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { basename, dirname, join, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -51,19 +41,6 @@ export const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../../..')
 const NARRATION_DIR = join(ROOT, 'packages/content/narration');
 const NARRATION_JSON = join(ROOT, 'packages/content/dist/narration.json');
 const AUDIO_DIR = join(ROOT, 'apps/web/public/audio');
-const STATE_DIR = join(ROOT, 'tmp/narration/state');
-
-/**
- * Each output target (directory and format) keeps its own batch ledger, so a render to a scratch
- * directory or in another format never adopts or forgets another target's paid jobs.
- */
-export function stateDirFor(outDir: string, format: string, root: string = STATE_DIR): string {
-  const target = createHash('sha256')
-    .update(`${physicalPath(outDir)}\0${format}`)
-    .digest('hex');
-  return join(root, target.slice(0, 16));
-}
-
 /**
  * The real path of a directory without creating anything: the longest existing prefix is resolved
  * through symlinks and the missing rest appended (a dry run never touches the output directory).
@@ -87,70 +64,6 @@ export function physicalPath(dir: string): string {
  */
 export function lockFileFor(outDir: string): string {
   return join(physicalPath(outDir), '.narration-render.lock');
-}
-
-/**
- * Every ledger under the state root other than the one this run uses: the global ledger of an
- * earlier layout, and every other target's ledger (another format or output directory, or the same
- * directory under a path spelling an earlier revision hashed). A Gemini render refuses while any of
- * them lists jobs, so saved paid work is never bypassed whatever path or layout recorded it.
- */
-export function otherLedgers(liveStateDir: string, root: string = STATE_DIR): string[] {
-  if (!existsSync(root)) return [];
-  const live = join(liveStateDir, 'gemini-batches.json');
-  const files = [join(root, 'gemini-batches.json')];
-  for (const entry of readdirSync(root, { withFileTypes: true })) {
-    if (entry.isDirectory()) files.push(join(root, entry.name, 'gemini-batches.json'));
-  }
-  return files.filter((f) => f !== live && existsSync(f));
-}
-
-/**
- * Applies `checkLedgerFile` to each legacy ledger. A real render refuses (throws); a dry run or a
- * run without a key cannot submit or discard anything, so it only warns.
- */
-export function guardLegacyLedgers(
-  files: readonly string[],
-  strict: boolean,
-  warn: (message: string) => void,
-): void {
-  for (const file of files) {
-    try {
-      checkLedgerFile(file);
-    } catch (e) {
-      if (strict) throw e;
-      warn(`narration: warning: ${e instanceof Error ? e.message : String(e)}`);
-    }
-  }
-}
-
-/** Refuses a legacy ledger in `stateRoot` that may list paid jobs (see `checkLedgerFile`). */
-export function checkLegacyLedger(stateRoot: string = STATE_DIR): void {
-  checkLedgerFile(join(stateRoot, 'gemini-batches.json'));
-}
-
-/**
- * Throws while another ledger holds anything, so its jobs are never forgotten and paid for again.
- * Missing and empty ledgers pass.
- */
-export function checkLedgerFile(legacy: string): void {
-  if (!existsSync(legacy)) return;
-  let data: unknown;
-  try {
-    data = JSON.parse(readFileSync(legacy, 'utf8'));
-  } catch {
-    data = null;
-  }
-  const record = data !== null && typeof data === 'object' ? (data as { jobs?: object }) : null;
-  const empty =
-    record !== null &&
-    (Object.keys(record).length === 0 ||
-      (record.jobs !== undefined && Object.keys(record.jobs).length === 0));
-  if (!empty) {
-    throw new Error(
-      `${legacy} is another batch ledger and may list paid jobs. Finish them with a render to that target, or check them in Google AI Studio and wait for them to finish or expire, then delete the file.`,
-    );
-  }
 }
 
 /** Reads one key from a dotenv-style file (same syntax as scripts/secrets-link.mjs). */
@@ -235,7 +148,7 @@ const usd = (n: number) => `$${n.toFixed(4)}`;
 
 export function formatReport(r: PipelineReport, dryRun: boolean): string {
   const lines = [
-    `narration:render${dryRun ? ' (dry run)' : ''}: provider ${r.provider}, model ${r.model}, mode ${r.mode}`,
+    `narration:render${dryRun ? ' (dry run)' : ''}: provider ${r.provider}, model ${r.model}`,
     `  clips: ${r.total} needed, ${r.cached} already rendered, ${r.toRender} to render${r.skipped ? `, ${r.skipped} not selected by --only` : ''}`,
     `  estimate: ~${Math.round(r.estimate.audioSeconds)} s of audio, ${r.estimate.outputTokens} output + ${r.estimate.inputTokens} input tokens → ${usd(r.estimate.usd)} (cap ${usd(r.maxUsd)})`,
   ];
@@ -269,26 +182,14 @@ async function render(argv: string[], env: NodeJS.ProcessEnv): Promise<number> {
       'dry-run': { type: 'boolean', default: false },
       provider: { type: 'string' },
       'max-usd': { type: 'string' },
-      mode: { type: 'string', default: 'interactive' },
-      'experimental-batch': { type: 'boolean', default: false },
       concurrency: { type: 'string' },
-      'max-wait-min': { type: 'string' },
       out: { type: 'string' },
       format: { type: 'string' },
       only: { type: 'string' },
-      'abandon-unconfirmed-batches': { type: 'boolean', default: false },
     },
   });
   const c = common(values, env);
   const dryRun = values['dry-run'] ?? false;
-  const mode = values.mode;
-  if (mode !== 'interactive' && mode !== 'batch') {
-    throw new Error('--mode must be interactive or batch');
-  }
-  // The Batch API path (50% cost, resumable ledger) is experimental in v1 (07 §3).
-  if (mode === 'batch' && !values['experimental-batch']) {
-    throw new Error('--mode batch is experimental; pass --experimental-batch as well (see 07 §3)');
-  }
   if (!existsSync(NARRATION_JSON)) {
     throw new Error(`${relative(ROOT, NARRATION_JSON)} is missing; run pnpm content:build first`);
   }
@@ -297,20 +198,8 @@ async function render(argv: string[], env: NodeJS.ProcessEnv): Promise<number> {
   const outDir = resolve(
     values.out ?? (c.provider === 'stub' ? join(ROOT, 'tmp/narration/stub') : AUDIO_DIR),
   );
-  // A dry run builds the renderer too (it makes no calls) so the estimate can see saved jobs.
+  // A dry run never calls the provider; the renderer only decides whether a key exists.
   const renderer = c.renderer();
-  // A real render refuses while the earlier global ledger lists jobs. A dry run or a run without a
-  // key cannot submit or discard anything, so it only warns and still prints its estimate.
-  if (c.provider === 'gemini') {
-    const strict = !dryRun && renderer !== null;
-    if (env.NARRATION_STATE_DIR?.trim()) {
-      // A revision of this PR briefly honoured it; its ledgers must not be bypassed silently.
-      const message = `NARRATION_STATE_DIR is no longer supported. Check ${env.NARRATION_STATE_DIR} for saved batch jobs (gemini-batches.json), then unset it.`;
-      if (strict) throw new Error(message);
-      console.log(`narration: warning: ${message}`);
-    }
-    guardLegacyLedgers(otherLedgers(stateDirFor(outDir, c.format)), strict, (m) => console.log(m));
-  }
   const report = await runPipeline({
     narration,
     styles: loadStyles(NARRATION_DIR),
@@ -320,15 +209,11 @@ async function render(argv: string[], env: NodeJS.ProcessEnv): Promise<number> {
     // A dry run never needs ffmpeg: planning only needs the extension and the encoding tag.
     encoder: dryRun || !renderer ? { ...wavEncoder, ...encodingOf(c.format) } : c.encoder(),
     outDir,
-    stateDir: stateDirFor(outDir, c.format),
     lockFile: lockFileFor(outDir),
-    mode,
     maxUsd: number(values['max-usd'], '--max-usd', 5),
     concurrency: Math.max(1, Math.floor(number(values.concurrency, '--concurrency', 4))),
-    maxWaitMs: number(values['max-wait-min'], '--max-wait-min', 240) * 60_000,
     dryRun,
     only: values.only ? new RegExp(values.only) : undefined,
-    abandonUnconfirmedBatches: values['abandon-unconfirmed-batches'] ?? false,
     log: (m) => console.log(m),
   });
   console.log(formatReport(report, dryRun || !renderer));
@@ -384,25 +269,20 @@ async function audition(argv: string[], env: NodeJS.ProcessEnv): Promise<number>
   const written: string[] = [];
   let failures = 0;
   await renderer.render(requests, {
-    mode: 'interactive',
     concurrency: 4,
-    // Its own state: an audition never touches the render's saved batch jobs.
-    stateDir: join(outDir, 'state'),
-    maxWaitMs: 0,
     log: (m) => console.log(m),
     estimateUsd: (rs) => estimate(rs, price, 'interactive').usd,
-    reserve: (ids, e, o) => guard.reserve(ids, e, o),
+    reserve: (ids, e) => guard.reserve(ids, e),
     onResult: async (o) => {
       guard.settle(o.id, o.usage ? costUsd(price, 'interactive', o.usage) : 0);
       if (!o.ok) {
         failures += 1;
         console.log(`  failed ${o.id}: ${o.error}`);
-        return true;
+        return;
       }
       const file = `${o.id}${encoder.ext}`;
       writeFileSync(join(outDir, file), await encoder.encode(o.wav));
       written.push(file);
-      return true;
     },
   });
   written.sort();

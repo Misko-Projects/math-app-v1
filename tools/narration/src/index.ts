@@ -5,7 +5,7 @@ export * from './cost';
 export * from './encode';
 export * from './pipeline';
 export * from './plan';
-export { batchResults, batchState, geminiRenderer, ttsRequestBody } from './providers/gemini';
+export { audioFromResponse, geminiRenderer, ttsRequestBody } from './providers/gemini';
 export { kokoroRenderer } from './providers/kokoro';
 export { stubRenderer } from './providers/stub';
 export type { RenderContext, Renderer, TtsOutcome, TtsRequest } from './providers/types';

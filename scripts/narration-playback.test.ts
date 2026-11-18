@@ -59,11 +59,8 @@ beforeAll(async () => {
     renderer: stubRenderer(),
     encoder: wavEncoder,
     outDir,
-    stateDir: join(outDir, '.state'),
-    mode: 'auto',
     maxUsd: 0,
     concurrency: 1,
-    maxWaitMs: 0,
     dryRun: false,
   });
   expect(report.failed).toEqual([]);

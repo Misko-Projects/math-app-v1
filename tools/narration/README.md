@@ -14,12 +14,8 @@ pnpm narration:audition              # 5 lines × 5 candidate voices into tmp/au
 |---|---|---|
 | `--provider gemini\|kokoro\|stub` | `NARRATION_PROVIDER`, else `voices.yaml` (`gemini`) | Renderer |
 | `--max-usd <n>` | 5 | Abort if the estimate exceeds it; stop starting requests once spend would exceed it |
-| `--mode interactive\|batch` | interactive | Interactive calls are the supported v1 path. `batch` (Batch API, 50% cost, resumable ledger) is **experimental** and also needs `--experimental-batch` |
-| `--experimental-batch` | | Allow `--mode batch` (see `docs/spec/07-ai-services.md` §3 for its tested invariants) |
-| `--max-wait-min <n>` | 240 | Experimental batch: how long to poll jobs; re-run the same command to resume them |
-| `--concurrency <n>` | 4 | Interactive requests in flight |
+| `--concurrency <n>` | 4 | Requests in flight (v1 renders with interactive calls; the Batch API is a follow-up) |
 | `--only <regex>` | | Render only matching clip ids; other entries stay as they were and nothing is pruned |
-| `--abandon-unconfirmed-batches` | | Resubmit a batch whose creation was never confirmed, once you've checked Google AI Studio that it does not exist |
 | `--out <dir>` | `apps/web/public/audio` (`tmp/narration/stub` for `stub`) | Output directory |
 | `--format opus\|wav` | opus | `wav` skips ffmpeg (tests) |
 

@@ -68,9 +68,8 @@ describe('cost', () => {
     expect(guard.reserve(['c'], 0.05)).toBe(true);
     expect(guard.spentUsd).toBeCloseTo(0.26);
     expect(guard.outstandingUsd).toBeCloseTo(0.05);
-    // Spending that already happened (an adopted batch) is recorded even past the cap.
-    expect(guard.reserve(['d', 'e'], 1, { force: true })).toBe(true);
-    expect(guard.reserve(['f'], 0.001)).toBe(false);
+    // Nothing more fits once measured plus outstanding spend reaches the cap.
+    expect(guard.reserve(['d'], 0.05)).toBe(false);
   });
 
   it('estimates audio length and cost generously from the text', () => {

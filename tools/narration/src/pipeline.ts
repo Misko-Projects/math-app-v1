@@ -4,7 +4,7 @@
 //
 // Idempotent: a re-run with unchanged content renders nothing; changed text renders only the
 // changed clips. Resumable: every finished clip is written as it arrives, so an interrupted run
-// keeps its work, and batch jobs resume from the provider's saved ledger.
+// keeps its work and a re-run renders only what is still missing.
 //
 // Only a complete run (unfiltered, nothing failed, nothing pending, no abort) publishes a manifest
 // of exactly the current plan and deletes clip and partial files nothing references. Any other run
@@ -31,13 +31,16 @@ import {
   type NarrationStyle,
 } from '@number-island/shared';
 import type { ProviderId, VoicesConfig } from './config';
-import { costUsd, type Estimate, estimate, priceFor, type RenderMode, SpendGuard } from './cost';
+import { costUsd, type Estimate, estimate, priceFor, SpendGuard } from './cost';
 import type { Encoder } from './encode';
 import { CLIP_FILE, type ClipJob, planClips } from './plan';
 import type { Renderer, TtsRequest } from './providers/types';
 
 /** A renderer-owned temporary file: a clip name plus `.partial` (written, then renamed). */
 const PARTIAL_FILE = /^[0-9a-f]{16}\.(ogg|wav)\.partial$/;
+
+/** v1 renders with interactive calls only (07 §3); the Batch API is a follow-up. */
+const MODE = 'interactive';
 
 export interface PipelineOptions {
   narration: NarrationJson;
@@ -48,19 +51,14 @@ export interface PipelineOptions {
   renderer: Renderer | null;
   encoder: Encoder;
   outDir: string;
-  stateDir: string;
-  mode: RenderMode | 'auto';
   maxUsd: number;
   concurrency: number;
-  maxWaitMs: number;
   dryRun: boolean;
-  /** Render only clips whose id matches (others keep their files; nothing is pruned). */
+  /** Render only clips whose id matches (others keep their entries; nothing is deleted). */
   only?: RegExp;
-  /** Drop unconfirmed batch submissions that cannot be found (operator flag). */
-  abandonUnconfirmedBatches?: boolean;
   /**
    * Lock held from planning through pruning, so two renders into the same output directory (in any
-   * format) never interleave. Default: `<stateDir>/render.lock`.
+   * format) never interleave. Default: `<outDir>/.narration-render.lock`.
    */
   lockFile?: string;
   now?: number;
@@ -70,7 +68,6 @@ export interface PipelineOptions {
 export interface PipelineReport {
   provider: ProviderId;
   model: string;
-  mode: RenderMode;
   /** Clips the content needs. */
   total: number;
   /** Clips already rendered (their file exists). */
@@ -84,7 +81,7 @@ export interface PipelineReport {
   /** Clip files rendered and written by this run. */
   rendered: number;
   failed: { id: string; error: string }[];
-  /** Clip files neither rendered nor failed (spend cap, or batch jobs still running). */
+  /** Clip files neither rendered nor failed (the spend cap stopped them). */
   pending: number;
   /** Measured cost of this run, from the provider's token usage. */
   spentUsd: number;
@@ -99,7 +96,7 @@ export interface PipelineReport {
 
 export async function runPipeline(opts: PipelineOptions): Promise<PipelineReport> {
   if (opts.dryRun || !opts.renderer) return plannedRun(opts);
-  const lock = opts.lockFile ?? join(opts.stateDir, 'render.lock');
+  const lock = opts.lockFile ?? join(opts.outDir, '.narration-render.lock');
   mkdirSync(dirname(lock), { recursive: true });
   let fd: number;
   try {
@@ -136,10 +133,25 @@ export async function runPipeline(opts: PipelineOptions): Promise<PipelineReport
  * process (Ctrl+C, or a stop) never leaves a lock behind, however many renders it runs at once.
  */
 const heldLocks = new Set<() => void>();
+
+/** Releases every held lock; one failing removal never stops the others. Returns failures. */
+function releaseAll(): number {
+  let failures = 0;
+  for (const release of [...heldLocks]) {
+    try {
+      release();
+    } catch {
+      failures += 1;
+    }
+  }
+  return failures;
+}
+
 function onSignal(signal: NodeJS.Signals) {
-  for (const release of [...heldLocks]) release();
+  releaseAll();
   process.exit(signal === 'SIGINT' ? 130 : 143);
 }
+
 function holdLock(release: () => void) {
   if (heldLocks.size === 0) {
     process.once('SIGINT', onSignal);
@@ -147,11 +159,11 @@ function holdLock(release: () => void) {
   }
   heldLocks.add(release);
 }
-/** Exposed for tests: releases every held lock as the signal handler would, without exiting. */
-export function releaseHeldLocksForTest(): number {
-  const n = heldLocks.size;
-  for (const release of [...heldLocks]) release();
-  return n;
+
+/** Exposed for tests: what the signal handler does, without exiting. */
+export function releaseHeldLocksForTest(): { held: number; failures: number } {
+  const held = heldLocks.size;
+  return { held, failures: releaseAll() };
 }
 
 async function plannedRun(opts: PipelineOptions): Promise<PipelineReport> {
@@ -176,38 +188,11 @@ async function plannedRun(opts: PipelineOptions): Promise<PipelineReport> {
   const selected = missing.filter((j) => !opts.only || opts.only.test(j.id));
   // Clips with the same voice, style and text share one file: render each file once.
   const todo = [...new Map(selected.map((j) => [j.file, j])).values()];
-  // Interactive is the supported mode; the Batch API is experimental and only on request (07 §3).
-  // Local providers always render one clip at a time.
-  const mode: RenderMode =
-    opts.provider === 'gemini' && opts.mode === 'batch' ? 'batch' : 'interactive';
   const price = priceFor(opts.provider, model, now);
-  // Requests a saved provider job already covers cost nothing new, so they are left out.
-  let alreadyPaid = new Set<string>();
-  let ledgerError: string | null = null;
-  try {
-    alreadyPaid =
-      opts.renderer?.covered?.(
-        todo.map((j) => ({
-          id: j.hash,
-          text: j.text,
-          voiceName: j.voiceName,
-          styleText: j.styleText,
-        })),
-        opts.stateDir,
-        { abandonUnconfirmedBatches: opts.abandonUnconfirmedBatches },
-      ) ?? alreadyPaid;
-  } catch (e) {
-    ledgerError = e instanceof Error ? e.message : String(e);
-  }
-  const est = estimate(
-    todo.filter((j) => !alreadyPaid.has(j.hash)),
-    price,
-    mode,
-  );
+  const est = estimate(todo, price, MODE);
   const report: PipelineReport = {
     provider: opts.provider,
     model,
-    mode,
     total: jobs.length,
     cached: jobs.length - missing.length,
     skipped: missing.length - selected.length,
@@ -224,11 +209,6 @@ async function plannedRun(opts: PipelineOptions): Promise<PipelineReport> {
     pruned: [],
     aborted: null,
   };
-  if (ledgerError) {
-    report.aborted = ledgerError;
-    report.pending = todo.length;
-    return report;
-  }
   if (opts.dryRun || !opts.renderer) return report;
   if (existsSync(manifestFile) && !previous) {
     // Without the previous manifest a partial run could not keep its entries: refuse rather than
@@ -255,27 +235,22 @@ async function plannedRun(opts: PipelineOptions): Promise<PipelineReport> {
   }));
   const guard = new SpendGuard(opts.maxUsd);
   if (todo.length > 0) {
-    log(`narration: rendering ${todo.length} clip(s) with ${opts.provider} (${mode})…`);
+    log(`narration: rendering ${todo.length} clip(s) with ${opts.provider}…`);
     try {
       await opts.renderer.render(requests, {
-        mode,
         concurrency: opts.concurrency,
-        stateDir: opts.stateDir,
-        maxWaitMs: opts.maxWaitMs,
-        abandonUnconfirmedBatches: opts.abandonUnconfirmedBatches,
         log,
-        estimateUsd: (rs, m) => estimate(rs, price, m ?? mode).usd,
-        reserve: (ids, usd, o) => guard.reserve(ids, usd, o),
+        estimateUsd: (rs) => estimate(rs, price, MODE).usd,
+        reserve: (ids, usd) => guard.reserve(ids, usd),
         onResult: async (outcome) => {
           const job = byHash.get(outcome.id);
-          if (!job || done.has(outcome.id)) return true;
+          if (!job || done.has(outcome.id)) return;
           done.add(outcome.id);
-          const billing = outcome.billing ?? mode;
-          guard.settle(outcome.id, outcome.usage ? costUsd(price, billing, outcome.usage) : 0);
+          guard.settle(outcome.id, outcome.usage ? costUsd(price, MODE, outcome.usage) : 0);
           report.spentUsd = guard.spentUsd;
           if (!outcome.ok) {
             report.failed.push({ id: job.id, error: outcome.error });
-            return true;
+            return;
           }
           try {
             const encoded = await opts.encoder.encode(outcome.wav);
@@ -289,10 +264,8 @@ async function plannedRun(opts: PipelineOptions): Promise<PipelineReport> {
             if (report.rendered % 50 === 0) {
               log(`narration: ${report.rendered}/${todo.length} rendered`);
             }
-            return true;
           } catch (e) {
             report.failed.push({ id: job.id, error: e instanceof Error ? e.message : String(e) });
-            return false;
           }
         },
       });
@@ -343,9 +316,6 @@ async function plannedRun(opts: PipelineOptions): Promise<PipelineReport> {
       report.pruned.push(name);
     }
   }
-  // Last, once the manifest is published and pruning succeeded: every clip has its file, so no saved
-  // provider work is needed any more. A failure above leaves the ledger intact for the next run.
-  if (report.complete) opts.renderer.clearSaved?.(opts.stateDir, log);
   return report;
 }
 

@@ -82,7 +82,7 @@ export function estimate(
 }
 
 /**
- * The spend cap (07 §3): each paid request or batch reserves its estimate until its results arrive,
+ * The spend cap (07 §3): each paid request reserves its estimate until its result arrives,
  * then the reservation is replaced by the measured cost. New work starts only while measured spend
  * plus every outstanding reservation plus the new estimate stays within the cap.
  */
@@ -102,8 +102,8 @@ export class SpendGuard {
     return sum;
   }
 
-  reserve(ids: readonly string[], usd: number, opts: { force?: boolean } = {}): boolean {
-    if (!opts.force && this.#spent + this.outstandingUsd + usd > this.capUsd + 1e-12) return false;
+  reserve(ids: readonly string[], usd: number): boolean {
+    if (this.#spent + this.outstandingUsd + usd > this.capUsd + 1e-12) return false;
     const share = ids.length > 0 ? usd / ids.length : 0;
     for (const id of ids) this.#reserved.set(id, (this.#reserved.get(id) ?? 0) + share);
     return true;

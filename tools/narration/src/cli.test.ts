@@ -1,8 +1,8 @@
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { geminiKey, guardLegacyLedgers, main, readEnvKey, stateDirFor } from './cli';
+import { geminiKey, main, readEnvKey } from './cli';
 import { kokoroRenderer } from './providers/kokoro';
 
 const dirs: string[] = [];
@@ -59,69 +59,6 @@ describe('pnpm narration:render without a key', () => {
     expect(lines.join('\n')).toContain('live render pending a key');
   });
 
-  it('a dry run or keyless run only warns about a legacy ledger; a real render refuses', () => {
-    const dir = mkdtempSync(join(tmpdir(), 'narration-legacy-'));
-    dirs.push(dir);
-    const file = join(dir, 'gemini-batches.json');
-    writeFileSync(file, JSON.stringify({ abc: { name: 'batches/old' } }));
-    const warnings: string[] = [];
-    guardLegacyLedgers([file], false, (m) => warnings.push(m));
-    expect(warnings.join('\n')).toMatch(/warning: .*may list paid jobs/);
-    expect(() => guardLegacyLedgers([file], true, () => {})).toThrow(/may list paid jobs/);
-  });
-
-  it('a dry run exits 0 and still reports when the ledger cannot be read', async () => {
-    const out = mkdtempSync(join(tmpdir(), 'narration-out-'));
-    dirs.push(out);
-    const ledgerDir = stateDirFor(out, 'opus');
-    dirs.push(ledgerDir);
-    mkdirSync(ledgerDir, { recursive: true });
-    writeFileSync(join(ledgerDir, 'gemini-batches.json'), '{"truncated');
-    const lines = captureLog();
-    const code = await main(['render', '--dry-run', '--provider', 'gemini', '--out', out], {
-      GEMINI_API_KEY: 'test-key-not-real',
-      PATH: '',
-    });
-    expect(code).toBe(0);
-    expect(lines.join('\n')).toMatch(/estimate: /);
-    expect(lines.join('\n')).toMatch(/aborted: /);
-  });
-
-  it('requires --experimental-batch for the Batch API path', async () => {
-    const dir = mkdtempSync(join(tmpdir(), 'narration-batch-'));
-    dirs.push(dir);
-    await expect(
-      main(['render', '--dry-run', '--provider', 'gemini', '--mode', 'batch'], noKey(dir)),
-    ).rejects.toThrow(/experimental/);
-    captureLog();
-    const code = await main(
-      ['render', '--dry-run', '--provider', 'gemini', '--mode', 'batch', '--experimental-batch'],
-      noKey(dir),
-    );
-    expect(code).toBe(0);
-  });
-
-  it('refuses a real render while NARRATION_STATE_DIR is set; a dry run only warns', async () => {
-    const dir = mkdtempSync(join(tmpdir(), 'narration-env-'));
-    dirs.push(dir);
-    const out = join(dir, 'out');
-    await expect(
-      main(['render', '--provider', 'gemini', '--out', out], {
-        GEMINI_API_KEY: 'test-key-not-real',
-        NARRATION_STATE_DIR: dir,
-        PATH: '',
-      }),
-    ).rejects.toThrow(/NARRATION_STATE_DIR is no longer supported/);
-    const lines = captureLog();
-    const code = await main(['render', '--dry-run', '--provider', 'gemini', '--out', out], {
-      GEMINI_API_KEY: 'test-key-not-real',
-      NARRATION_STATE_DIR: dir,
-      PATH: '',
-    });
-    expect(code).toBe(0);
-    expect(lines.join('\n')).toMatch(/warning: NARRATION_STATE_DIR/);
-  });
-
   it('rejects an unknown provider', async () => {
     await expect(main(['render', '--provider', 'nope'], {})).rejects.toThrow();
   });
@@ -129,13 +66,10 @@ describe('pnpm narration:render without a key', () => {
 
 describe('kokoro', () => {
   const ctx = {
-    mode: 'interactive' as const,
     concurrency: 1,
     reserve: () => true,
-    onResult: async () => true,
+    onResult: async () => {},
     log: () => {},
-    stateDir: tmpdir(),
-    maxWaitMs: 0,
     estimateUsd: () => 0,
   };
 
@@ -172,7 +106,6 @@ describe('kokoro', () => {
       ...ctx,
       onResult: async (o) => {
         results.push(o);
-        return true;
       },
     });
     expect(results).toMatchObject([{ id: 'a', ok: true }]);
