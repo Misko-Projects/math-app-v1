@@ -160,6 +160,19 @@ describe('count.sequence: hide', () => {
     expect(item.answer).toEqual({ kind: 'numbers', values: [33, 43], ordered: true });
   });
 
+  it.each<[string, ParamValues, number[]]>([
+    ['forward fill: 38, _, _, _', { start: 38, length: 3 }, [39, 40, 41]],
+    ['backward fill: 42, _, _', { start: 42, dir: -1, length: 2 }, [41, 40]],
+    ['between: 45, _, _, 48', { start: 45, length: 3, hide: 'between' }, [46, 47]],
+  ])('the hundred-chart solution names every blank in counting order (%s)', (_l, p, want) => {
+    const t = tpl('count.sequence', 'hundred-chart');
+    const item = expectSound(t, p);
+    const named = itemSolution(item, t)
+      .filter((s) => s.say === 'gen.count.sequence.next-is')
+      .map((s) => s.vars?.n);
+    expect(named).toEqual(want);
+  });
+
   it('between needs a term between start and last', () => {
     const t = tpl('count.sequence', 'number-pad');
     expect(() => generateItemFromParams(t, { start: 4, length: 1, hide: 'between' })).toThrow(

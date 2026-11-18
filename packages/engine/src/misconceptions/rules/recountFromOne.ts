@@ -27,12 +27,14 @@ export const recountFromOne: MisconceptionRule = {
         const i = m ? Number(m[1]) : -1;
         return i >= 0 && i < n ? [i] : [];
       });
+    // After the first full pass, count the DISTINCT objects tapped again: tapping one object
+    // several times is fidgeting, not a second counting pass.
     const seen = new Set<number>();
-    let after = 0;
+    const again = new Set<number>();
     for (const i of taps) {
-      if (seen.size === n) after += 1;
+      if (seen.size === n) again.add(i);
       else seen.add(i);
     }
-    return after >= MIN_RECOUNT_TAPS;
+    return again.size >= MIN_RECOUNT_TAPS;
   },
 };

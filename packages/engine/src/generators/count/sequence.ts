@@ -195,7 +195,9 @@ export const countSequence: GeneratorDef = {
           i === 0 || !hiddenAfter.includes(v) ? { t: 'num', v } : { t: 'blank', id: `t${i}` },
         );
         const blanks = tokens.flatMap((tk) =>
-          tk.t === 'blank' ? [{ id: tk.id, maxDigits: Math.max(2, digitCount(hi)) }] : [],
+          // One digit to spare, so a written-as-spoken slip ("twenty-ten" → 210 for 30) can be
+          // entered and tagged (MC.decade-transition), and the box size never hints the answer.
+          tk.t === 'blank' ? [{ id: tk.id, maxDigits: Math.max(2, digitCount(hi) + 1) }] : [],
         );
         const hidden = terms.filter((v, i) => i > 0 && hiddenAfter.includes(v));
         p = {
@@ -355,14 +357,19 @@ export const countSequence: GeneratorDef = {
       }
       case 'hundred-chart':
         if (w.mode === 'fill') {
-          // The last hidden term in counting order (with hide: between, `last` itself is shown).
-          const lastHidden = terms.filter((v) => w.hidden.includes(v)).at(-1) ?? last;
+          // Name every hidden term in counting order, pointing at each box; the last step enters
+          // them all (the chart answers with every hidden cell at once, in reading order).
+          const hiddenInOrder = terms.filter((v) => w.hidden.includes(v));
           return [
             say(from, { start }, { op: 'highlight-row', args: { n: start } }),
-            say(
-              'gen.count.sequence.next-is',
-              { n: lastHidden },
-              { op: 'answer', args: { values: w.hidden } },
+            ...hiddenInOrder.map((v, i) =>
+              say(
+                'gen.count.sequence.next-is',
+                { n: v },
+                i === hiddenInOrder.length - 1
+                  ? { op: 'answer', args: { values: w.hidden } }
+                  : { op: 'tap', args: { n: v } },
+              ),
             ),
           ];
         }

@@ -115,6 +115,8 @@ describe('recountFromOne', () => {
     ['a full pass, out of order, then a recount', [2, 0, 3, 1, 0, 1, 2], true],
     ['one pass only', [0, 1, 2, 3], false],
     ['one stray tap after the pass', [0, 1, 2, 3, 3], false],
+    ['the last object tapped again and again', [0, 1, 2, 3, 3, 3], false],
+    ['one object tapped many times after the pass', [0, 1, 2, 3, 1, 1, 1, 1], false],
     ['double taps before the pass is complete', [0, 0, 1, 1, 2, 3], false],
     ['an untapped object', [0, 1, 2, 0, 1, 2], false],
   ])('%s → %s', (_label, ids, want) => {
@@ -173,6 +175,17 @@ describe('decadeTransition', () => {
     expect(decadeTransition.match(item, { kind: 'number', value: 310 })).toBe(true);
     expect(decadeTransition.match(item, { kind: 'number', value: 41 })).toBe(false);
     expect(checkResponse(item, { kind: 'number', value: 30 }).misconceptionIds).toEqual([
+      'MC.decade-transition',
+    ]);
+  });
+
+  it('number pad, 29 → _: the blank has room for "twenty-ten" (210), which is tagged', () => {
+    const item = make(T.seqPad, { start: 29 });
+    expect(item.widget.format).toBe('number-pad');
+    if (item.widget.format !== 'number-pad') return;
+    // The answer (30) has two digits; the blank allows three so the slip can be entered.
+    expect(item.widget.blanks[0]?.maxDigits).toBeGreaterThanOrEqual(String(210).length);
+    expect(checkResponse(item, { kind: 'number', value: 210 }).misconceptionIds).toEqual([
       'MC.decade-transition',
     ]);
   });

@@ -93,9 +93,9 @@ h.sequence.new-ten:
 h.sequence.back-ten:
   text: "Counting back from a new ten, the ones start again at nine."
 h.sequence.chart-steps:
-  text: "One box right is one more. One box down is ten more."
+  text: "Read the chart like a book. One more is the next box."
 h.sequence.chart-back:
-  text: "On the chart, one less is the box to the left."
+  text: "One less is the box before. At the start of a row, go up a row."
 h.sequence.tens-down:
   text: "Counting by tens, go down one row each time."
 h.sequence.say-tens:

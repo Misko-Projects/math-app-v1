@@ -67,6 +67,21 @@ ls.CNT.14.w1.s3:
   text: "{start} and one more is {n}. The next number!"
   voice: pip
   style: excited
+ls.CNT.14.f1.s1:
+  text: "Here are {start} in the boat."
+  voice: pip
+ls.CNT.14.f1.s2:
+  text: "Now you put in one more."
+  voice: pip
+ls.CNT.14.f2.s1:
+  text: "The frame shows {start}."
+  voice: pip
+ls.CNT.14.f2.s2:
+  text: "Put in one more counter."
+  voice: pip
+ls.CNT.14.f2.s3:
+  text: "How many are there now?"
+  voice: pip
 ls.CNT.14.outro:
   text: "Your turn. Put in one more!"
   voice: pip
