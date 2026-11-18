@@ -115,6 +115,18 @@ After a `failed` sync the next attempt backs off: 5 s doubling to 5 min, with ±
 - rejections;
 - a revoked device.
 
-## Later PRs
+## Backup (`backup.ts`)
 
-- **Backup:** export (`events()`, `allSettings()`, `allProfiles()`) and import (`ingest(..., { source: 'backup' })` plus the merges).
+One JSON file holds the events, settings and profiles (02 §4.4). Its format is the shared `BackupFile` / `backupFileSchema` (02 §5.9 F5): `{ format: 'number-island-backup', formatVersion: 1, exportedAt, familyId, events, settings, profiles }`. The server's `GET /export` and `POST /import` use the same format, so a file from either side can be restored on either side. One exception: `POST /import` accepts a request body of at most 64 MiB (`apps/api/src/routes/backup.ts`) and answers `413 payload_too_large` above it. A larger local file still restores on a device. Export leaves out only what the store does not treat as an event at all: a `child.deleted` row that fails the store's single tombstone rule (`isValidTombstone`). Such a row is removed on open, never folded and holds no family data, so one damaged row never blocks a backup.
+
+- **`exportBackup(store)`** returns every event in the log as a wire envelope (ts, then id order), every settings document and every profile, all read in one Dexie read transaction, so the file is one consistent state. `familyId` is the device's family and `exportedAt` is the store's clock (`store.now()`, the injected `now`). Export applies the same normalization as import (below), so every file is self-consistent, even when some rows were recorded under an earlier family. No stored event is ever left out (a `child.deleted` row that fails the store's tombstone rule is not an event; see above): the file gets `POST /import`'s checks (`backupFileSchema`, then the 08 §3 cap of 1024 UTF-8 bytes for an event's `type` plus `contentVersion`). When a stored row fails them (for example a payload over the 8 KB cap from before `append` checked it), the export throws `BackupError('export_failed')`. `backupToJson(file)` serialises the file, and `backupFileName(file)` names it `number-island-backup-YYYY-MM-DD.json` (UTC), as `GET /export` does.
+- **`importBackup(store, input)`** takes a JSON string or a parsed value. A file that fails `backupFileSchema` or the envelope cap, or that holds a tombstone that is not server-authored (`childId: null`, `deviceId` = the file's family id), throws a `BackupError` (`invalid_json`, `not_a_backup`, `unsupported_version`, `invalid_backup` or `invalid_tombstone`) with a readable message, and nothing is written. The import follows `POST /import` (08 §3, 02 §5.9 S2(a)):
+  - every event and profile takes the device's family id, and tombstones take it as their `deviceId` (the server pseudo-device). This re-homes a file from another family;
+  - like the server's `409`, the file is refused with `BackupError('conflict')` before any write when it holds two different events under one id (compared as canonical JSON), or an event whose id is already stored as a different event (another type, child, or deleted child, compared case-insensitively);
+  - then `ingest(..., { source: 'backup' })`, `mergeProfiles(..., { source: 'backup' })` and `mergeSettings(..., { source: 'backup' })`. A file copy of a document wins only when it is strictly newer;
+  - imported tombstones purge their children here, and the ids the log now holds as `child.deleted` are marked synced, because `/sync` refuses a device-pushed tombstone the server does not hold (`forbidden`). Only `POST /import` restores them on the server. Every other new event is queued for push.
+
+  It all runs in one Dexie transaction, and each step is idempotent, so importing the same file twice changes nothing. It returns `{ events: { added, replaced, dropped, invalid }, profiles, settings, rehomed }`.
+- **Browser helpers:** `downloadBackup(file)` saves the file through a Blob object URL and an anchor click, and `readBackupFile(file)` reads a picked file's text.
+
+The UI belongs to the parent area (P01). So does wiring the server routes: offering `GET /export` as a download, and sending a file to `POST /import`.
