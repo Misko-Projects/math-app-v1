@@ -151,7 +151,7 @@ describe('projection fold properties (fixture GameData)', () => {
     );
   });
 
-  it('a tombstone anywhere purges the child from every projection, in any id casing', () => {
+  it('a tombstone anywhere: full = incremental, personal data gone, shared island kept', () => {
     fc.assert(
       fc.property(logArb, fc.integer({ min: 0, max: 60 }), fc.boolean(), (events, at, upper) => {
         const tomb = {
@@ -162,21 +162,29 @@ describe('projection fold properties (fixture GameData)', () => {
           type: 'child.deleted',
           payload: { childId: upper ? CHILD_2.toUpperCase() : CHILD_2 },
         } as AnyEventEnvelope;
-        const purged = [...events.filter((e) => e.childId !== CHILD_2), tomb];
         const withTomb = [...events, tomb];
-        for (const fold of Object.values(folds)) expect(fold(withTomb)).toEqual(fold(purged));
+        const full = {
+          inventory: folds.inventory(withTomb),
+          island: folds.island(withTomb),
+          collection: folds.collection(withTomb),
+          goals: folds.goals(withTomb),
+        };
+        expect(incremental(withTomb)).toEqual(full);
         const key = CHILD_2.toLowerCase();
-        expect(folds.inventory(withTomb).producedByChild[key]).toBeUndefined();
-        expect(folds.collection(withTomb).badges[key]).toBeUndefined();
-        expect(folds.goals(withTomb).byChild[key]).toBeUndefined();
-        for (const b of Object.values(folds.island(withTomb).buildings)) {
+        expect(full.inventory.producedByChild[key]).toBeUndefined();
+        expect(full.collection.badges[key]).toBeUndefined();
+        expect(full.goals.byChild[key]).toBeUndefined();
+        for (const p of Object.values(full.island.projects)) expect(p.byChild[key]).toBeUndefined();
+        for (const b of Object.values(full.island.buildings)) {
           expect(b.placedBy).not.toBe(CHILD_2);
         }
-        // Incrementally, the client purges and rebuilds (D01); applying the purged log one
-        // event at a time equals the full fold.
-        expect(incremental(sortEvents(purged))).toEqual(
-          incremental(withTomb.filter((e) => e.childId !== CHILD_2)),
+        // Buildings are never un-built: every instance placed before the tombstone (by anyone)
+        // is still on the island.
+        const before = folds.island(
+          events.filter((e) => e.ts < tomb.ts || (e.ts === tomb.ts && e.id < tomb.id)),
         );
+        for (const id of Object.keys(before.buildings))
+          expect(full.island.buildings[id]).toBeDefined();
       }),
       { numRuns: 100 },
     );

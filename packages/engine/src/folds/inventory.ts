@@ -3,7 +3,8 @@
 
 import type { AnyEventEnvelope, ChildId, InventoryState, Recipe } from '@number-island/shared';
 import { isEvent, sortEvents } from './order';
-import { childKey, fromDeletedChild, withoutDeletedChildren } from './tombstones';
+import { own } from './records';
+import { childKey, fromDeletedChild } from './tombstones';
 
 /** Private bookkeeping: the lower-case ids of tombstoned children (08 §4). */
 export type EngineInventoryState = InventoryState & { _deleted?: string[] };
@@ -26,12 +27,12 @@ export function applyInventoryEvent(
     const produced = amounts(e.payload.materials);
     if (produced.length === 0) return state;
     const materials = { ...state.materials };
-    for (const [m, n] of produced) materials[m] = (materials[m] ?? 0) + n;
+    for (const [m, n] of produced) materials[m] = (own(materials, m) ?? 0) + n;
     let producedByChild = state.producedByChild;
     if (e.childId !== null) {
       const key = childKey(e.childId);
-      const mine: Recipe = { ...(state.producedByChild[key] ?? {}) };
-      for (const [m, n] of produced) mine[m] = (mine[m] ?? 0) + n;
+      const mine: Recipe = { ...(own(state.producedByChild, key) ?? {}) };
+      for (const [m, n] of produced) mine[m] = (own(mine, m) ?? 0) + n;
       producedByChild = { ...state.producedByChild, [key]: mine };
     }
     return { ...state, materials, producedByChild };
@@ -39,7 +40,7 @@ export function applyInventoryEvent(
   if (isEvent(e, 'material.spent')) {
     const materials = { ...state.materials };
     for (const [m, n] of amounts(e.payload.materials))
-      materials[m] = Math.max(0, (materials[m] ?? 0) - n);
+      materials[m] = Math.max(0, (own(materials, m) ?? 0) - n);
     return { ...state, materials };
   }
   if (isEvent(e, 'child.deleted')) {
@@ -52,5 +53,5 @@ export function applyInventoryEvent(
 }
 
 export function foldInventory(events: readonly AnyEventEnvelope[]): EngineInventoryState {
-  return withoutDeletedChildren(sortEvents(events)).reduce(applyInventoryEvent, initInventory());
+  return sortEvents(events).reduce(applyInventoryEvent, initInventory());
 }

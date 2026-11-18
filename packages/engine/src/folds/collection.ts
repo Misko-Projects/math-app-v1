@@ -10,8 +10,14 @@ import type {
   DecorId,
   GameData,
 } from '@number-island/shared';
+import { decorIdSchema, residentIdSchema, skillIdSchema } from '@number-island/shared';
+import { z } from 'zod';
 import { eventTime, isEvent, sortEvents } from './order';
-import { childKey, fromDeletedChild, withoutDeletedChildren } from './tombstones';
+
+const outfitOptionSchema = z.string().min(1);
+
+import { has, own } from './records';
+import { childKey, fromDeletedChild } from './tombstones';
 import { evaluateUnlock } from './unlock';
 
 /** Private bookkeeping (02 §5.8 allows `_`-prefixed fields). */
@@ -39,11 +45,23 @@ const addDecor = (
 ): Record<DecorId, number> => {
   if (ids.length === 0) return owned;
   const next = { ...owned };
-  for (const id of ids) next[id] = (next[id] ?? 0) + 1;
+  for (const id of ids) next[id] = (own(next, id) ?? 0) + 1;
   return next;
 };
 
 const addUnique = (xs: string[], id: string): string[] => (xs.includes(id) ? xs : [...xs, id]);
+
+const GRANT_ID: Record<
+  'resident' | 'decor' | 'outfit' | 'badge',
+  { safeParse(v: unknown): { success: boolean } }
+> = {
+  resident: residentIdSchema,
+  decor: decorIdSchema,
+  outfit: outfitOptionSchema,
+  badge: skillIdSchema,
+};
+const validGrant = (kind: keyof typeof GRANT_ID, id: string) =>
+  GRANT_ID[kind].safeParse(id).success;
 
 /** Grants a building level's `unlocks` (`decor:<id>`, `outfit:<option>`; residents arrive by event). */
 function grantLevels(
@@ -72,7 +90,7 @@ function grantLevels(
 function withOutfits(state: EngineCollectionState, gameData: GameData): EngineCollectionState {
   const buildings: Record<BuildingId, number> = {};
   for (const i of Object.values(state._instances ?? {})) {
-    buildings[i.buildingId] = Math.max(buildings[i.buildingId] ?? 0, i.level);
+    buildings[i.buildingId] = Math.max(own(buildings, i.buildingId) ?? 0, i.level);
   }
   const facts = {
     buildings,
@@ -109,8 +127,8 @@ function applyRaw(
   }
   if (isEvent(e, 'building.placed')) {
     const { instanceId, buildingId } = e.payload;
-    if (state._instances?.[instanceId]) return state;
-    const level = state._pendingUpgrades?.[instanceId] ?? 1;
+    if (own(state._instances, instanceId)) return state;
+    const level = own(state._pendingUpgrades, instanceId) ?? 1;
     const placed = {
       ...state,
       _instances: { ...state._instances, [instanceId]: { buildingId, level } },
@@ -119,9 +137,9 @@ function applyRaw(
   }
   if (isEvent(e, 'building.upgraded')) {
     const { instanceId, level } = e.payload;
-    const inst = state._instances?.[instanceId];
+    const inst = own(state._instances, instanceId);
     if (!inst) {
-      const prev = state._pendingUpgrades?.[instanceId] ?? 1;
+      const prev = own(state._pendingUpgrades, instanceId) ?? 1;
       return level > prev
         ? { ...state, _pendingUpgrades: { ...state._pendingUpgrades, [instanceId]: level } }
         : state;
@@ -142,7 +160,7 @@ function applyRaw(
     return { ...state, decorOwned: addDecor(state.decorOwned, e.payload.rewardDecor) };
   }
   if (isEvent(e, 'gift.left')) {
-    if (state._gifts && e.payload.giftId in state._gifts) return state;
+    if (has(state._gifts, e.payload.giftId)) return state;
     const gifts = { ...state._gifts, [e.payload.giftId]: e.payload.decorId };
     // A gift opened before its `gift.left` arrived (clock skew) grants its decor now.
     if (state._giftsOpened?.includes(e.payload.giftId) && e.payload.decorId) {
@@ -156,7 +174,7 @@ function applyRaw(
   }
   if (isEvent(e, 'gift.opened')) {
     if (state._giftsOpened?.includes(e.payload.giftId)) return state;
-    const decor = state._gifts?.[e.payload.giftId];
+    const decor = own(state._gifts, e.payload.giftId);
     return {
       ...state,
       _giftsOpened: [...(state._giftsOpened ?? []), e.payload.giftId],
@@ -165,6 +183,9 @@ function applyRaw(
   }
   if (isEvent(e, 'collection.unlocked')) {
     const { kind, id } = e.payload;
+    // The event schema accepts any id; only ids of the kind's grammar enter the projection, so the
+    // state always satisfies collectionStateSchema and stray ids never count toward unlocks.
+    if (!validGrant(kind, id)) return state;
     if (kind === 'resident') {
       const residents = addUnique(state.residents, id);
       return residents === state.residents ? state : { ...state, residents };
@@ -177,7 +198,7 @@ function applyRaw(
     // Badge: a mastery moment of the envelope's child (05 §7); the first one per skill counts.
     if (e.childId === null) return state;
     const key = childKey(e.childId);
-    const mine = state.badges[key] ?? [];
+    const mine = own(state.badges, key) ?? [];
     if (mine.some((b) => b.skillId === id)) return state;
     return {
       ...state,
@@ -198,8 +219,6 @@ export function foldCollection(
   gameData: GameData,
 ): EngineCollectionState {
   let state = initCollection(gameData);
-  for (const e of withoutDeletedChildren(sortEvents(events))) {
-    state = applyCollectionEvent(state, e, gameData);
-  }
+  for (const e of sortEvents(events)) state = applyCollectionEvent(state, e, gameData);
   return state;
 }

@@ -12,7 +12,8 @@ import type {
   Recipe,
 } from '@number-island/shared';
 import { eventTime, isEvent, sameId, sortEvents } from './order';
-import { childKey, fromDeletedChild, withoutDeletedChildren } from './tombstones';
+import { own } from './records';
+import { childKey, fromDeletedChild } from './tombstones';
 import { evaluateUnlock, type UnlockFacts } from './unlock';
 
 /** Private bookkeeping (02 §5.8 allows `_`-prefixed fields): events that arrived before their target. */
@@ -45,7 +46,7 @@ export function initIsland(gameData: GameData): EngineIslandState {
 export function islandFacts(state: IslandState): UnlockFacts {
   const buildings: Record<BuildingId, number> = {};
   for (const b of Object.values(state.buildings)) {
-    buildings[b.buildingId] = Math.max(buildings[b.buildingId] ?? 0, b.level);
+    buildings[b.buildingId] = Math.max(own(buildings, b.buildingId) ?? 0, b.level);
   }
   return {
     buildings,
@@ -86,8 +87,8 @@ function applyRaw(state: EngineIslandState, e: AnyEventEnvelope): EngineIslandSt
   }
   if (isEvent(e, 'building.placed')) {
     const { instanceId, buildingId, plot } = e.payload;
-    if (state.buildings[instanceId]) return state; // placed once; never moved or rebuilt
-    const level = state._upgrades?.[instanceId] ?? 1;
+    if (own(state.buildings, instanceId)) return state; // placed once; never moved or rebuilt
+    const level = own(state._upgrades, instanceId) ?? 1;
     return {
       ...state,
       buildings: {
@@ -104,10 +105,10 @@ function applyRaw(state: EngineIslandState, e: AnyEventEnvelope): EngineIslandSt
   }
   if (isEvent(e, 'building.upgraded')) {
     const { instanceId, level } = e.payload;
-    const b = state.buildings[instanceId];
+    const b = own(state.buildings, instanceId);
     if (!b) {
       // The upgrade's clock ran ahead of the placement: keep it until the placement arrives.
-      const prev = state._upgrades?.[instanceId] ?? 1;
+      const prev = own(state._upgrades, instanceId) ?? 1;
       return level > prev
         ? { ...state, _upgrades: { ...state._upgrades, [instanceId]: level } }
         : state;
@@ -126,7 +127,7 @@ function applyRaw(state: EngineIslandState, e: AnyEventEnvelope): EngineIslandSt
     };
   }
   if (isEvent(e, 'decor.moved')) {
-    const d = state.decor[e.payload.instanceId];
+    const d = own(state.decor, e.payload.instanceId);
     if (!d) return state;
     const pos = e.payload.pos;
     return {
@@ -138,12 +139,12 @@ function applyRaw(state: EngineIslandState, e: AnyEventEnvelope): EngineIslandSt
     };
   }
   if (isEvent(e, 'decor.removed')) {
-    if (!state.decor[e.payload.instanceId]) return state;
+    if (!own(state.decor, e.payload.instanceId)) return state;
     const { [e.payload.instanceId]: _gone, ...decor } = state.decor;
     return { ...state, decor };
   }
   if (isEvent(e, 'resident.arrived')) {
-    if (state.residents[e.payload.residentId]) return state;
+    if (own(state.residents, e.payload.residentId)) return state;
     return {
       ...state,
       residents: {
@@ -157,15 +158,15 @@ function applyRaw(state: EngineIslandState, e: AnyEventEnvelope): EngineIslandSt
   }
   if (isEvent(e, 'material.spent') && e.payload.purpose.kind === 'project') {
     const ref = e.payload.purpose.ref;
-    const prev = state.projects[ref] ?? { contributed: {}, byChild: {} };
+    const prev = own(state.projects, ref) ?? { contributed: {}, byChild: {} };
     const contributed: Recipe = { ...prev.contributed };
     for (const [m, n] of Object.entries(e.payload.materials)) {
-      if (typeof n === 'number' && n > 0) contributed[m] = (contributed[m] ?? 0) + n;
+      if (typeof n === 'number' && n > 0) contributed[m] = (own(contributed, m) ?? 0) + n;
     }
     const byChild = { ...prev.byChild };
     if (e.childId !== null) {
       const key = childKey(e.childId);
-      byChild[key] = (byChild[key] ?? 0) + total(e.payload.materials);
+      byChild[key] = (own(byChild, key) ?? 0) + total(e.payload.materials);
     }
     return { ...state, projects: { ...state.projects, [ref]: { contributed, byChild } } };
   }
@@ -189,8 +190,10 @@ function applyRaw(state: EngineIslandState, e: AnyEventEnvelope): EngineIslandSt
     };
   }
   if (isEvent(e, 'festival.completed')) {
+    // Days of play restart: a session later on the same day counts as the first day since.
     return {
       ...state,
+      _lastPlayDay: null,
       festival: { active: null, completed: state.festival.completed + 1, daysOfPlaySinceLast: 0 },
     };
   }
@@ -211,7 +214,7 @@ function applyRaw(state: EngineIslandState, e: AnyEventEnvelope): EngineIslandSt
   if (isEvent(e, 'milestone.defined')) {
     const { milestoneId, label, trigger } = e.payload;
     const reachedTs =
-      state.milestones[milestoneId]?.reachedTs ?? state._reached?.[milestoneId] ?? null;
+      own(state.milestones, milestoneId)?.reachedTs ?? own(state._reached, milestoneId) ?? null;
     return {
       ...state,
       milestones: { ...state.milestones, [milestoneId]: { label, trigger, reachedTs } },
@@ -219,7 +222,7 @@ function applyRaw(state: EngineIslandState, e: AnyEventEnvelope): EngineIslandSt
   }
   if (isEvent(e, 'milestone.reached')) {
     const id = e.payload.milestoneId;
-    const m = state.milestones[id];
+    const m = own(state.milestones, id);
     if (m) {
       if (m.reachedTs !== null) return state;
       return {
@@ -227,7 +230,7 @@ function applyRaw(state: EngineIslandState, e: AnyEventEnvelope): EngineIslandSt
         milestones: { ...state.milestones, [id]: { ...m, reachedTs: eventTime(e) } },
       };
     }
-    if (state._reached?.[id] !== undefined) return state;
+    if (own(state._reached, id) !== undefined) return state;
     return { ...state, _reached: { ...state._reached, [id]: eventTime(e) } };
   }
   if (isEvent(e, 'child.deleted')) return forgetChild(state, e.payload.childId);
@@ -265,8 +268,6 @@ export function foldIsland(
   gameData: GameData,
 ): EngineIslandState {
   let state = initIsland(gameData);
-  for (const e of withoutDeletedChildren(sortEvents(events))) {
-    state = applyIslandEvent(state, e, gameData);
-  }
+  for (const e of sortEvents(events)) state = applyIslandEvent(state, e, gameData);
   return state;
 }

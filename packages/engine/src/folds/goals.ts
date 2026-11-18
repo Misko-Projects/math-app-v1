@@ -9,7 +9,8 @@ import type {
   WeeklyGoalState,
 } from '@number-island/shared';
 import { isEvent, sortEvents } from './order';
-import { childKey, fromDeletedChild, withoutDeletedChildren } from './tombstones';
+import { own } from './records';
+import { childKey, fromDeletedChild } from './tombstones';
 
 /** The weekly targets by child. A child without settings uses the G1+ default (6, 04 §6.1 / 02 §5.8). */
 export type GoalSettings = Readonly<Record<ChildId, Pick<ChildSettings, 'weeklyGoal'>>>;
@@ -24,6 +25,14 @@ export type EngineWeeklyGoalState = WeeklyGoalState & {
 
 export function initGoals(): EngineWeeklyGoalState {
   return { byChild: {} };
+}
+
+/** The child's target, with the settings' child ids compared case-insensitively. */
+function weeklyTarget(settings: GoalSettings, child: string): number {
+  for (const [id, s] of Object.entries(settings)) {
+    if (childKey(id) === child) return s.weeklyGoal;
+  }
+  return DEFAULT_WEEKLY_GOAL;
 }
 
 function summarize(weeks: Record<string, number>, target: number) {
@@ -46,10 +55,10 @@ export function applyGoalsEvent(
   if (isEvent(e, 'goal.progress')) {
     if (e.childId === null) return state;
     const child = childKey(e.childId);
-    const weeks = { ...(state._weeks?.[child] ?? {}) };
-    weeks[e.payload.weekStart] = (weeks[e.payload.weekStart] ?? 0) + Math.max(0, e.payload.delta);
-    const target =
-      settings[e.childId]?.weeklyGoal ?? settings[child]?.weeklyGoal ?? DEFAULT_WEEKLY_GOAL;
+    const weeks = { ...(own(state._weeks, child) ?? {}) };
+    weeks[e.payload.weekStart] =
+      (own(weeks, e.payload.weekStart) ?? 0) + Math.max(0, e.payload.delta);
+    const target = weeklyTarget(settings, child);
     return {
       ...state,
       byChild: { ...state.byChild, [child]: summarize(weeks, target) },
@@ -70,8 +79,5 @@ export function foldGoals(
   events: readonly AnyEventEnvelope[],
   settings: GoalSettings,
 ): EngineWeeklyGoalState {
-  return withoutDeletedChildren(sortEvents(events)).reduce(
-    (s, e) => applyGoalsEvent(s, e, settings),
-    initGoals(),
-  );
+  return sortEvents(events).reduce((s, e) => applyGoalsEvent(s, e, settings), initGoals());
 }

@@ -1,9 +1,10 @@
-// Tombstones in the projection folds (08 §4). A `child.deleted` tombstone is permanent: the server
-// purges the child's events and every device does the same, then rebuilds. To agree with that
-// purge whatever the timestamps, the full folds ignore every event whose envelope names a
-// tombstoned child, and an incremental fold ignores the child's events from the tombstone on
-// (the client rebuilds from the purged log, D01). Child ids compare case-insensitively, and the
-// per-child maps of the projections are keyed by the lower-case id.
+// Tombstones in the projection folds (08 §4). A `child.deleted` tombstone is permanent. Every fold
+// handles it in order, so the full fold and the incremental fold agree: events before the
+// tombstone apply as usual; at the tombstone, the child's personal data (production tags, project
+// badges, mastery badges, weekly goals) and its attributions (`placedBy`) are dropped, while the
+// shared island it helped build stays (buildings are never un-built, 02 §4.3); from then on, every
+// event of that child is ignored. Child ids compare case-insensitively, and the per-child maps of
+// the projections are keyed by the lower-case id.
 
 import type { AnyEventEnvelope } from '@number-island/shared';
 import { isEvent } from './order';
@@ -24,6 +25,6 @@ export function withoutDeletedChildren<E extends AnyEventEnvelope>(events: reado
   return events.filter((e) => e.childId === null || !deleted.has(childKey(e.childId)));
 }
 
-/** True when the event's child was tombstoned earlier in an incremental fold. */
+/** True when the event's child was tombstoned earlier in the fold. */
 export const fromDeletedChild = (deleted: readonly string[] | undefined, e: AnyEventEnvelope) =>
   e.childId !== null && deleted !== undefined && deleted.includes(childKey(e.childId));

@@ -30,7 +30,12 @@ export function evaluateUnlock(rule: UnlockRule, facts: UnlockFacts): boolean {
     return g != null && GRADES.indexOf(g) >= GRADES.indexOf(rule.minGrade);
   }
   if ('masteredCount' in rule) return (facts.maxMasteredCount ?? 0) >= rule.masteredCount;
-  if ('building' in rule) return (facts.buildings[rule.building] ?? 0) >= (rule.level ?? 1);
+  if ('building' in rule) {
+    const level = Object.hasOwn(facts.buildings, rule.building)
+      ? facts.buildings[rule.building]
+      : 0;
+    return (level ?? 0) >= (rule.level ?? 1);
+  }
   if ('roadLength' in rule) return facts.roadLength >= rule.roadLength;
   return facts.residentCount >= rule.residentCount;
 }

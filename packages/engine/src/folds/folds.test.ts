@@ -7,6 +7,7 @@ import type {
   GameData,
   UnlockRule,
 } from '@number-island/shared';
+import { collectionStateSchema } from '@number-island/shared';
 import { describe, expect, it } from 'vitest';
 import { foldCollection } from './collection';
 import { foldGoals } from './goals';
@@ -195,7 +196,7 @@ describe('foldInventory', () => {
       {},
     ],
     [
-      'a tombstone purges every event of the child, in any id casing (08 §4)',
+      'a tombstone keeps shared materials, drops the tag, and ignores the child afterwards (any casing)',
       [
         ev(
           'material.produced',
@@ -217,7 +218,7 @@ describe('foldInventory', () => {
         ),
         ev('child.deleted', { childId: C2 }, T0 + 1, null),
       ],
-      { light: 2 },
+      { stone: 5, light: 2 },
       { [C1]: { light: 2 } },
     ],
   ])('%s', (_n, events, materials, producedByChild) => {
@@ -409,7 +410,8 @@ describe('foldIsland', () => {
       ],
       game,
     );
-    expect(s2.festival).toEqual({ active: null, completed: 1, daysOfPlaySinceLast: 1 });
+    // The session after the completion, on the same UTC day, is the first day of play since.
+    expect(s2.festival).toEqual({ active: null, completed: 1, daysOfPlaySinceLast: 2 });
     const s3 = foldIsland(
       [ev('festival.started', { festivalId: 'f', kind: 'storm-watch' }, T0, null)],
       game,
@@ -478,7 +480,7 @@ describe('foldIsland', () => {
     expect(s.projects.lighthouse).toEqual({ contributed: { stone: 2 }, byChild: {} });
   });
 
-  it('the full fold ignores every event of a tombstoned child (08 §4 purge)', () => {
+  it('the full fold equals the incremental one: the island stays, attributions go', () => {
     const s = foldIsland(
       [
         placed('i1', 'road-crew', T0, C2),
@@ -490,12 +492,32 @@ describe('foldIsland', () => {
           C2,
         ),
         ev('child.deleted', { childId: C2 }, T0 + 1, null),
+        placed('i2', 'road-crew', T0 + 2, C2.toUpperCase()),
       ],
       game,
     );
-    expect(s.buildings).toEqual({});
-    expect(s.decor).toEqual({});
-    expect(s.projects).toEqual({});
+    expect(Object.keys(s.buildings)).toEqual(['i1']);
+    expect(s.buildings.i1?.placedBy).toBeNull();
+    expect(s.decor.d1?.placedBy).toBeNull();
+    expect(s.projects).toEqual({ lighthouse: { contributed: { stone: 2 }, byChild: {} } });
+  });
+
+  it('instance ids that name Object.prototype members are ordinary ids', () => {
+    const s = foldIsland(
+      [
+        placed('constructor', 'road-crew', T0),
+        ev('building.upgraded', { instanceId: 'toString', level: 2 }, T0 + 1),
+        placed('toString', 'road-crew', T0 + 2),
+        ev('decor.placed', { instanceId: 'hasOwnProperty', decorId: 'rose', pos: [1, 1] }, T0),
+        ev('milestone.reached', { milestoneId: 'valueOf' }, T0),
+      ],
+      game,
+    );
+    expect(Object.hasOwn(s.buildings, 'constructor')).toBe(true);
+    expect(s.buildings.constructor).toMatchObject({ buildingId: 'road-crew', level: 1 });
+    expect(s.buildings.toString).toMatchObject({ level: 2 });
+    expect(Object.hasOwn(s.decor, 'hasOwnProperty')).toBe(true);
+    expect(islandFacts(s).buildings).toEqual({ 'road-crew': 2 });
   });
 });
 
@@ -676,6 +698,70 @@ describe('foldGoals', () => {
     ],
   ])('%s', (_n, events, settings, byChild) => {
     expect(foldGoals(events, settings).byChild).toEqual(byChild);
+  });
+});
+
+describe('review round 1 regressions (PR #54)', () => {
+  it('weekly targets match settings whatever the casing of child ids', () => {
+    const settings = { [C1.toUpperCase()]: { weeklyGoal: 1 } };
+    const s = foldGoals(
+      [
+        ev(
+          'goal.progress',
+          { weekStart: '2026-11-02', delta: 1, requestId: 'r1' },
+          T0,
+          C1.toUpperCase(),
+        ),
+        ev(
+          'goal.progress',
+          { weekStart: '2026-11-09', delta: 1, requestId: 'r2' },
+          T0 + 7 * 24 * H,
+          C1,
+        ),
+      ],
+      settings,
+    );
+    expect(s.byChild[C1]).toEqual({
+      weekStart: '2026-11-09',
+      target: 1,
+      progress: 1,
+      weeksCompleted: 2,
+    });
+  });
+
+  it.each<[string, 'badge' | 'resident' | 'decor', string]>([
+    ['a badge id that is not a skill id', 'badge', 'unknown-badge'],
+    ['a resident id that is not kebab-case', 'resident', 'Not_A_Resident'],
+    ['a decor id that is not kebab-case', 'decor', 'Bad Decor'],
+  ])('collection.unlocked with %s is ignored', (_n, kind, id) => {
+    const s = foldCollection(
+      [
+        ev('collection.unlocked', { kind, id }, T0),
+        ev('collection.unlocked', { kind: 'badge', id: 'CNT.01' }, T0 + 1),
+      ],
+      game,
+    );
+    expect(collectionStateSchema.safeParse(s).success).toBe(true);
+    expect(s.badges[C1]).toEqual([{ skillId: 'CNT.01', ts: T0 + 1 }]);
+    expect(s.residents).toEqual([]);
+    expect(s.decorOwned).toEqual({ 'shell-bench': 1 });
+    expect(s.outfitsUnlocked).toEqual([]);
+  });
+
+  it('collection instance ids that name Object.prototype members still grant their levels', () => {
+    const s = foldCollection(
+      [
+        ev('building.placed', { instanceId: 'i1', buildingId: 'road-crew', plot: [1, 1] }, T0),
+        ev(
+          'building.placed',
+          { instanceId: 'constructor', buildingId: 'road-crew', plot: [2, 2] },
+          T0 + 1,
+        ),
+        ev('building.upgraded', { instanceId: 'constructor', level: 2 }, T0 + 2),
+      ],
+      game,
+    );
+    expect(s.decorOwned).toEqual({ 'shell-bench': 2 });
   });
 });
 
