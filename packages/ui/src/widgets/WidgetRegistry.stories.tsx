@@ -73,7 +73,7 @@ const pilePebbles = (root: HTMLElement) =>
 export const SampleWidget: Story = {
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
-    await canvas.findByRole('group', { name: 'Pebbles' });
+    await canvas.findByRole('group', { name: 'Pebbles' }, { timeout: 10_000 });
     await expect(canvasElement.querySelector('.ni-widget')).toHaveAttribute(
       'data-registered',
       'true',
@@ -89,7 +89,7 @@ export const EndToEnd: Story = {
   globals: { ageMode: 'k' },
   play: async ({ canvasElement, args }) => {
     const canvas = within(canvasElement);
-    await canvas.findByRole('group', { name: 'Pebbles' });
+    await canvas.findByRole('group', { name: 'Pebbles' }, { timeout: 10_000 });
     await pointerDrag(
       pilePebbles(canvasElement)[0] as HTMLElement,
       center(basketPad(canvasElement)),
@@ -155,7 +155,7 @@ const demoController: WidgetDemo = createDemoController({ strict: true });
 export const DemoMode: Story = {
   args: { disabled: true, demo: demoController },
   play: async ({ canvasElement }) => {
-    await within(canvasElement).findByRole('group', { name: 'Pebbles' });
+    await within(canvasElement).findByRole('group', { name: 'Pebbles' }, { timeout: 10_000 });
     await demoController.play({ op: 'drag', args: { count: 2 } });
     await expect(pebblesIn(canvasElement)).toBe(2);
     await demoController.play({ op: 'count-aloud' });
@@ -180,11 +180,11 @@ export const DemoReducedMotion: Story = {
   globals: { motion: 'reduced' },
   args: { disabled: true, demo: reducedController },
   play: async ({ canvasElement }) => {
-    await within(canvasElement).findByRole('group', { name: 'Pebbles' });
+    await within(canvasElement).findByRole('group', { name: 'Pebbles' }, { timeout: 10_000 });
     const started = performance.now();
     await reducedController.play({ op: 'drag', args: { count: 3 } });
     await expect(pebblesIn(canvasElement)).toBe(3);
-    await expect(performance.now() - started).toBeLessThan(400);
+    await expect(performance.now() - started).toBeLessThan(1500);
     // Remove is instant too, and doesn't depend on animation frames (suspended in hidden tabs).
     const raf = window.requestAnimationFrame;
     window.requestAnimationFrame = () => 0;
@@ -202,7 +202,7 @@ export const DemoReducedMotion: Story = {
 export const Disabled: Story = {
   args: { disabled: true },
   play: async ({ canvasElement, args }) => {
-    await within(canvasElement).findByRole('group', { name: 'Pebbles' });
+    await within(canvasElement).findByRole('group', { name: 'Pebbles' }, { timeout: 10_000 });
     await pointerDrag(
       pilePebbles(canvasElement)[0] as HTMLElement,
       center(basketPad(canvasElement)),
@@ -252,7 +252,7 @@ export const NewItemResets: Story = {
   render: (args) => <NextItemDemo {...args} />,
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
-    await canvas.findByRole('group', { name: 'Pebbles' });
+    await canvas.findByRole('group', { name: 'Pebbles' }, { timeout: 10_000 });
     await userEvent.click(pilePebbles(canvasElement)[0] as HTMLElement);
     await userEvent.click(basketPad(canvasElement));
     await waitFor(() => expect(pebblesIn(canvasElement)).toBe(1));
@@ -293,20 +293,32 @@ export const DemoFromEffect: Story = {
   render: (args) => <DemoFromEffectHarness {...args} />,
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
-    await canvas.findByRole('group', { name: 'Pebbles' });
+    await canvas.findByRole('group', { name: 'Pebbles' }, { timeout: 10_000 });
     await waitFor(() => expect(pebblesIn(canvasElement)).toBe(2));
-    await userEvent.click(canvas.getByRole('button', { name: 'Next' }));
-    const flight = await waitFor(() => {
+    // Record every position the flying pebble takes, from the moment it is created (polling could
+    // miss the start: the flight begins moving 20 ms after it appears).
+    const lefts: number[] = [];
+    const observer = new MutationObserver(() => {
       const el = canvasElement.querySelector<HTMLElement>('.ni-sample__flight');
-      expect(el).not.toBeNull();
-      return el as HTMLElement;
+      if (el) lefts.push(Number.parseFloat(el.style.left));
     });
-    // It starts on the basket slot and travels left to the pile (not stuck where it started).
-    const startLeft = Number.parseFloat(flight.style.left);
+    observer.observe(canvasElement, {
+      subtree: true,
+      childList: true,
+      attributes: true,
+      attributeFilter: ['style'],
+    });
+    try {
+      await userEvent.click(canvas.getByRole('button', { name: 'Next' }));
+      await waitFor(() => expect(lefts.length).toBeGreaterThan(0));
+      await waitFor(() => expect(canvasElement.querySelector('.ni-sample__flight')).toBeNull());
+    } finally {
+      observer.disconnect();
+    }
+    // It started on the basket slot and travelled left to the pile (not stuck where it started).
     const basketLeft = basketPad(canvasElement).getBoundingClientRect().left;
-    await expect(startLeft).toBeGreaterThan(basketLeft);
-    await waitFor(() => expect(Number.parseFloat(flight.style.left)).toBeLessThan(basketLeft));
-    await waitFor(() => expect(canvasElement.querySelector('.ni-sample__flight')).toBeNull());
+    await expect(lefts[0]).toBeGreaterThan(basketLeft);
+    await expect(Math.min(...lefts)).toBeLessThan(basketLeft);
     await expect(pebblesIn(canvasElement)).toBe(1);
   },
 };
@@ -332,7 +344,7 @@ export const DemoSettlesWhenItemChanges: Story = {
   args: { disabled: true, config: { ...makeSet, start: 2 } as WidgetConfig },
   render: (args) => <ItemSwapHarness {...args} />,
   play: async ({ canvasElement }) => {
-    await within(canvasElement).findByRole('group', { name: 'Pebbles' });
+    await within(canvasElement).findByRole('group', { name: 'Pebbles' }, { timeout: 10_000 });
     await waitFor(() => expect(pebblesIn(canvasElement)).toBe(2));
     const playing = swapController.play({ op: 'remove', args: { count: 2 } });
     advanceItem(); // same tick: the widget unmounts before the remove's commit

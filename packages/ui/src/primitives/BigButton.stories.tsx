@@ -104,8 +104,10 @@ export const SpeaksAndDebounces: Story = {
   play: async ({ canvasElement, args }) => {
     clearSpies(audio);
     const button = within(canvasElement).getByRole('button', { name: 'Check' });
-    await userEvent.click(button);
-    await userEvent.click(button);
+    // A double tap: two clicks in the same instant (no awaits, so a slow runner can't spread them
+    // past the 400 ms window).
+    button.click();
+    button.click();
     await expect(args.onPress).toHaveBeenCalledTimes(1);
     await expect(audio.say).toHaveBeenCalledWith('ui.btn.check', undefined);
     await new Promise((r) => setTimeout(r, 420));

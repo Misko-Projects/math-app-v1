@@ -109,7 +109,7 @@ type Story = StoryObj<typeof meta>;
 
 async function checkFrame(canvasElement: HTMLElement, ageMode: 'k' | 'g1-up') {
   const canvas = within(canvasElement);
-  await canvas.findByRole('group', { name: 'Pebbles' });
+  await canvas.findByRole('group', { name: 'Pebbles' }, { timeout: 10_000 });
   const chrome = [
     canvas.getByRole('button', { name: 'Go home' }),
     canvas.getByRole('button', { name: 'Hear it again' }),

@@ -18,6 +18,8 @@ import { type PlaceEvent, useTapToPlace } from './useTapToPlace';
 type Zone = 'pile' | 'basket';
 type Shell = 's1' | 's2' | 's3' | 's4';
 const SHELLS: Shell[] = ['s1', 's2', 's3', 's4'];
+/** A widget's own inline styles on shell 1 (the tiltFirst fixture): the drag hook must keep them. */
+const TILT = { transform: 'translateX(40px) rotate(12deg)', transition: 'opacity 300ms' };
 const TONES = [
   'var(--color-shallows)',
   'var(--color-sunshine-light)',
@@ -132,7 +134,7 @@ function Playground({
                 {...props}
                 className={`${'className' in props ? props.className : ''} pg-shell`}
                 data-shell={s}
-                style={tiltFirst && s === 's1' ? { transform: 'rotate(12deg)' } : undefined}
+                style={tiltFirst && s === 's1' ? TILT : undefined}
               >
                 <ShellArt i={i} />
               </div>
@@ -482,10 +484,44 @@ export const DragSourceNativelyDisabled: Story = {
 export const TapKeepsInlineStyles: Story = {
   args: { tiltFirst: true },
   play: async ({ canvasElement }) => {
-    await expect(shell(canvasElement, 's1').style.transform).toBe('rotate(12deg)');
+    await expect(shell(canvasElement, 's1').style.transform).toBe(TILT.transform);
     await userEvent.click(shell(canvasElement, 's1'));
     await expect(shell(canvasElement, 's1')).toHaveAttribute('aria-pressed', 'true');
-    await expect(shell(canvasElement, 's1').style.transform).toBe('rotate(12deg)');
+    await expect(shell(canvasElement, 's1').style.transform).toBe(TILT.transform);
+    await expect(shell(canvasElement, 's1').style.transition).toBe(TILT.transition);
+  },
+};
+
+/**
+ * An item with its own transform (shifted 40 px and tilted) stays under the finger while dragged,
+ * keeps its tilt, and snaps where it is drawn.
+ */
+export const TransformedItemFollowsFinger: Story = {
+  args: { tiltFirst: true },
+  play: async ({ canvasElement, args }) => {
+    const basket = pad(canvasElement, 'basket').getBoundingClientRect();
+    const to = { x: basket.left + 30, y: basket.top + basket.height / 2 };
+    const release = await touchDragAndHold(shell(canvasElement, 's1'), to);
+    const now = center(shell(canvasElement, 's1'));
+    await expect(Math.abs(now.x - to.x)).toBeLessThan(3);
+    await expect(Math.abs(now.y - to.y)).toBeLessThan(3);
+    await expect(shell(canvasElement, 's1').style.transform).toBe(TILT.transform);
+    await release();
+    await waitFor(() => expect(zoneOf(canvasElement, 's1')).toBe('basket'));
+    await expect(args.onPlace).toHaveBeenCalledWith({ item: 's1', target: 'basket', via: 'drag' });
+  },
+};
+
+/** A tap right after a mis-drop (mid-glide home) leaves the widget's inline styles alone. */
+export const TapAfterMissKeepsInlineStyles: Story = {
+  args: { tiltFirst: true },
+  play: async ({ canvasElement, args }) => {
+    const basket = pad(canvasElement, 'basket').getBoundingClientRect();
+    await pointerDrag(shell(canvasElement, 's1'), { x: basket.left - 90, y: basket.top - 60 });
+    await expect(args.onMiss).toHaveBeenCalledWith('s1');
+    await userEvent.click(shell(canvasElement, 's1'));
+    await expect(shell(canvasElement, 's1').style.transform).toBe(TILT.transform);
+    await expect(shell(canvasElement, 's1').style.transition).toBe(TILT.transition);
   },
 };
 

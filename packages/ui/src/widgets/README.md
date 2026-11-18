@@ -66,7 +66,10 @@ useWidgetDemo(demo, {
 - **Drag and tap-to-place:** use `useDragToTarget` (or `useTapToPlace` when nothing drags). Every
   drag has a tap-to-select → tap-to-place alternative and a keyboard path (Enter/Space, arrow keys,
   Escape). Tap-only mode and the snap radius come from the child's settings through `UiProvider`.
-  A mis-drop glides home with no penalty (06 §4).
+  A mis-drop glides home with no penalty (06 §4). The hook moves an item with the CSS
+  `translate` property (via `--ni-drag-x` / `--ni-drag-y`) and the `data-held` /
+  `data-dragging` attributes. It never touches the item's inline `transform` or `transition`, so
+  a widget may tilt or animate its items freely. Just don't set `translate` on them.
 - **Targets never contain items as DOM children.** Render the drop target as a pad behind the
   items, so items stay separate buttons (axe `nested-interactive`).
 - **Sizes:** hit targets use `var(--target-min)` (80 px for K, 64 px from G1), with
