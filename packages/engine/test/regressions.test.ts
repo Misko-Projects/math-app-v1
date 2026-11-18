@@ -303,3 +303,53 @@ describe('R2-F3: V17 catches a hint that gives a complete split', () => {
     expect(reveals.some((f) => f.message.includes('h.test.whole'))).toBe(false);
   });
 });
+
+describe('R3: split hints name no part size (03 §9.4 step 7 authoring rule)', () => {
+  // Free splits accept every valid split, and text cannot tell a numeral that sizes a part from
+  // one that counts something else, so a split hint may name no numeral from 1 to whole − 1.
+  // Counting words are written in letters.
+  function revealsFor(whole: number, templateId: string, lines: Record<string, string>) {
+    const fixture = loadFixture();
+    const base = fixtureTemplate(templateId);
+    const narration: NarrationJson = { ...fixture.narration };
+    for (const [k, text] of Object.entries(lines)) narration[k] = { text, clips: [] };
+    initContent({ ...fixture, narration });
+    const t: ItemTemplate = {
+      ...base,
+      id: `${base.skillId}.t9`,
+      params: { ...base.params, whole: { kind: 'const', value: whole } },
+      narration: { prompt: base.narration.prompt, hints: Object.keys(lines) },
+    };
+    return {
+      t,
+      flagged: (key: string) =>
+        runTemplateProperties(t, { n: 2, targeting: false }).failures.some(
+          (f) => f.step === '7.hint-reveals' && f.message.includes(key),
+        ),
+    };
+  }
+
+  it('R3-F1: an equal distribution (“Put 4 counters in each frame.”, whole 8) is reported', () => {
+    const { t, flagged } = revealsFor(8, 'CPS.02.t1', {
+      'h.test.each': 'Put 4 counters in each frame.',
+    });
+    const item = generateItem(t, 1);
+    const r = replaySteps(item, [
+      { actor: 'demo', say: 'h.test.each', action: { op: 'place', args: { frame: 0, count: 4 } } },
+      { actor: 'demo', say: 'h.test.each', action: { op: 'place', args: { frame: 1, count: 4 } } },
+    ]);
+    expect(r && checkResponse(item, r).correct).toBe(true);
+    expect(flagged('h.test.each')).toBe(true);
+  });
+
+  it('counting words in letters pass; numerals that could be parts are reported (R3-F2, by design)', () => {
+    const { flagged } = revealsFor(4, 'CPS.01.t2', {
+      'h.test.letters': 'Use two hands. Find two ways.',
+      'h.test.numerals': 'Use 2 hands. Find 2 ways.',
+      'h.test.fingers': 'Put 2 fingers on each hand.',
+    });
+    expect(flagged('h.test.letters')).toBe(false);
+    expect(flagged('h.test.numerals')).toBe(true);
+    expect(flagged('h.test.fingers')).toBe(true);
+  });
+});

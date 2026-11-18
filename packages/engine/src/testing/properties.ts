@@ -133,26 +133,22 @@ function revealsNumber(
 }
 
 /**
- * For split items (bond.split, bond.newWay), any correct split is an answer, so a hint that names
- * two numbers forming one gives it away. The numbers named are the numerals in the rendered display
- * text (slots render numbers as numerals, so slot values are included); a pair uses two separate
- * mentions, so a number named once is not read as its own double. Returns the revealed split, or
- * null.
+ * Free-split items (bond.split, bond.newWay) accept every valid split, and no text check can tell
+ * a numeral that sizes a part ("put 4 in each frame") from one that counts something else ("use 2
+ * hands"). So the rule is an authoring constraint (03 §9.4 step 7): a level 2–4 hint on a split
+ * item names no numeral that could be a part, that is anything from 1 to whole − 1 (0 too when
+ * zero parts are allowed). The whole itself may be named, and counting words are written in
+ * letters ("use two hands"). Numerals come from the rendered display text, which includes slot
+ * values. Returns the offending numerals, or an empty list.
  */
-export function revealedSplit(item: GeneratedItem, text: string): [number, number] | null {
+export function splitPartNumerals(item: GeneratedItem, text: string): number[] {
   const a = item.answer;
-  if (a.kind !== 'state' || (a.checker !== 'bond.split' && a.checker !== 'bond.newWay'))
-    return null;
-  const checker = stateChecker(a.checker);
-  if (!checker) return null;
+  if (a.kind !== 'state' || (a.checker !== 'bond.split' && a.checker !== 'bond.newWay')) return [];
+  const whole = a.target.whole;
+  if (typeof whole !== 'number') return [];
+  const lowest = a.target.nonZero === true ? 1 : 0;
   const mentioned = [...text.matchAll(/(?<![0-9])[0-9]+(?![0-9])/g)].map((m) => Number(m[0]));
-  for (let i = 0; i < mentioned.length; i += 1) {
-    for (let j = i + 1; j < mentioned.length; j += 1) {
-      const parts = [mentioned[i] as number, mentioned[j] as number];
-      if (checker.check(a.target, { parts })) return parts as [number, number];
-    }
-  }
-  return null;
+  return [...new Set(mentioned.filter((n) => n >= lowest && n < whole))];
 }
 
 // ---------- near misses (step 5) ----------
@@ -466,12 +462,12 @@ export function runTemplateProperties(
           fail(seed, '7.hint-reveals', `hint ${h.say} ("${text}") reveals ${v}`);
         }
       }
-      const split = revealedSplit(item, text);
-      if (split) {
+      const parts = splitPartNumerals(item, text);
+      if (parts.length > 0) {
         fail(
           seed,
           '7.hint-reveals',
-          `hint ${h.say} ("${text}") gives the split ${split[0]} + ${split[1]}`,
+          `hint ${h.say} ("${text}") names part size ${parts.join(', ')} on a split item (write counting words in letters)`,
         );
       }
     }
