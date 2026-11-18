@@ -1,0 +1,28 @@
+# Authored lessons (03 §4.5, §6). Skills without an entry get an auto lesson (03 §6.4).
+# The faded examples move to the number-bond template, a second representation (03 §6.4).
+strand: CPS
+lessons:
+  - skillId: CPS.02
+    mode: authored
+    templateId: CPS.02.t1
+    worked:
+      - params: { whole: 8, unknown: split }
+        steps:
+          - actor: demo
+            say: ls.CPS.02.w1.s1
+            vars: { whole: 8 }
+            action: { op: place, args: { frame: 0, count: 8, color: a } }
+          - actor: demo
+            say: ls.CPS.02.w1.s2
+            action: { op: move-counters, args: { fromFrame: 0, toFrame: 1, count: 3 } }
+          - actor: demo
+            say: ls.CPS.02.w1.s3
+            vars: { whole: 8, a: 5, b: 3 }
+            action: { op: count-total }
+    faded:
+      - templateId: CPS.02.t3
+        params: { whole: 7, part: 3, unknown: part }
+        childSteps: 1
+      - templateId: CPS.02.t3
+        params: { whole: 9, part: 4, unknown: part }
+        childSteps: 2

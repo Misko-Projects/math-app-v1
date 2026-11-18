@@ -1,0 +1,30 @@
+# C01 fixture misconception (03 §9.5, library row in 03 §7.2). K01 adds the fixture skills' full
+# lists (CNT.19 is outside the fixture set) and the rest of the counting area.
+area: counting
+misconceptions:
+  - id: MC.off-by-one-counting
+    name: Skips an object or counts one twice
+    detect: { kind: process, rule: offByOneCounting }
+    appliesTo: { generators: [count.set] }
+    skills: [CNT.02, CNT.03, CNT.06]
+    remediation: [CNT.02]
+    feedback: fb.mc.off-by-one-counting
+    priority: 50
+    parentTip: >-
+      Ask your child to touch each object once and move it aside as they say each number.
+    examples:
+      - params: { n: 7, mode: how-many }
+        response: { kind: number, value: 6 }
+        meta:
+          latencyMs: 6000
+          trace:
+            - { t: tap, target: obj-0, ms: 0 }
+            - { t: tap, target: obj-1, ms: 500 }
+            - { t: tap, target: obj-2, ms: 1000 }
+            - { t: tap, target: obj-3, ms: 1500 }
+            - { t: tap, target: obj-4, ms: 2000 }
+            - { t: tap, target: obj-5, ms: 2500 }
+        match: true
+      - params: { n: 7, mode: how-many }
+        response: { kind: number, value: 7 }
+        match: false

@@ -1,0 +1,29 @@
+# C01 fixture (03 §9.5): catalog rows from 03 §3.6.
+strand: CPS
+skills:
+  - id: CPS.01
+    name: Break numbers to 5 into two parts, every way
+    kind: concept
+    grade: K
+    standards: { ccss: [K.OA.A.3] }
+    prerequisites: [SUB.02, CNT.03]
+    gateway: false
+    representations: [objects, fingers, ten-frame, number-bond]
+
+  - id: CPS.02
+    name: Break numbers to 10 into two parts
+    kind: concept
+    grade: K
+    standards: { ccss: [K.OA.A.3] }
+    prerequisites: [CPS.01, SUB.03]
+    gateway: true
+    representations: [ten-frame, rekenrek, number-bond, symbols]
+
+  - id: CPS.03
+    name: "Partners of 10: find the number that makes 10"
+    kind: concept
+    grade: K
+    standards: { ccss: [K.OA.A.4] }
+    prerequisites: [CPS.02]
+    gateway: false
+    representations: [ten-frame, rekenrek, number-bond, symbols]

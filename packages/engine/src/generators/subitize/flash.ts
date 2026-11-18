@@ -1,7 +1,13 @@
 // subitize.flash (03 §5.6): see a small quantity at a glance, or build it in a structured frame.
-// Formats: dot-flash, numeral-pick, number-pad, make-set, tenframe-fill, rekenrek.
+// Formats: dot-flash, numeral-pick, number-pad, make-set, tenframe-fill, rekenrek, number-bond.
 
-import type { LessonStep, ResponseValue, StimulusSpec } from '@number-island/shared';
+import type {
+  LessonStep,
+  ObjectSet,
+  ParamValues,
+  ResponseValue,
+  StimulusSpec,
+} from '@number-island/shared';
 import { numberOptionId } from '../../formats/numeral-pick';
 import {
   asNum,
@@ -28,8 +34,20 @@ const ARRANGEMENTS = [
 ] as const;
 type Arrangement = (typeof ARRANGEMENTS)[number];
 
-/** The visible groups of an arrangement (03 §5.1 StimulusSpec `dots.groups`). */
-export function arrangementGroups(n: number, arrangement: Arrangement, groups: number): number[] {
+/** Formats with their own size feature (n.over4, target.over5, whole.over5): no n.over5 there. */
+const SIZED = new Set(['dot-flash', 'make-set', 'number-bond']);
+
+/**
+ * The visible groups of an arrangement (03 §5.1 StimulusSpec `dots.groups`). For `groups`, `part`
+ * (> 0 and < n) fixes the first group's size and the rest of n is split as evenly as possible over
+ * the other groups. `groups` 0 means automatic: 2 when n ≥ 6 or a part is given, else 1.
+ */
+export function arrangementGroups(
+  n: number,
+  arrangement: Arrangement,
+  groups: number,
+  part = 0,
+): number[] {
   switch (arrangement) {
     case 'fingers':
     case 'five-frame':
@@ -46,12 +64,62 @@ export function arrangementGroups(n: number, arrangement: Arrangement, groups: n
       return out.length ? out : [0];
     }
     case 'groups': {
-      const k = Math.max(1, Math.min(groups > 0 ? groups : n >= 6 ? 2 : 1, n));
-      const base = Math.floor(n / k);
-      return Array.from({ length: k }, (_, i) => base + (i < n % k ? 1 : 0));
+      const hasPart = part > 0 && part < n;
+      const k = Math.max(1, Math.min(groups > 0 ? groups : n >= 6 || hasPart ? 2 : 1, n));
+      if (hasPart && k >= 2) return [part, ...evenSplit(n - part, k - 1)];
+      return evenSplit(n, k);
     }
     default:
       return [n];
+  }
+}
+
+/**
+ * The groups an item shows. A number bond always has two parts: an arrangement that shows one
+ * group (dice up to 6, a small `groups` set) is split evenly in two.
+ */
+function itemGroups(p: ParamValues, format: string): number[] {
+  const n = asNum(p.n);
+  const groups = arrangementGroups(
+    n,
+    asStr(p.arrangement, 'dice') as Arrangement,
+    asNum(p.groups),
+    asNum(p.part),
+  );
+  if (format === 'number-bond' && groups.filter((g) => g > 0).length === 1 && n >= 2) {
+    return evenSplit(n, 2);
+  }
+  return groups;
+}
+
+/** `total` split into `count` groups as evenly as possible, larger groups first. */
+function evenSplit(total: number, count: number): number[] {
+  const base = Math.floor(total / count);
+  return Array.from({ length: count }, (_, i) => base + (i < total % count ? 1 : 0));
+}
+
+/** Objects (shells) laid out like the arrangement: in groups, in a dice pattern, or scattered. */
+function objectSet(n: number, arrangement: Arrangement, groups: number[], seed: number): ObjectSet {
+  if (arrangement === 'groups') {
+    return { count: n, sprite: 'shell', layout: 'groups', groups, layoutSeed: seed };
+  }
+  return {
+    count: n,
+    sprite: 'shell',
+    layout: arrangement === 'dice' ? 'dice' : 'scatter',
+    layoutSeed: seed,
+  };
+}
+
+/** The non-empty groups a dots or objects stimulus shows. */
+function stimulusParts(s: StimulusSpec): number[] {
+  switch (s.kind) {
+    case 'dots':
+      return s.groups.filter((g) => g > 0);
+    case 'objects':
+      return (s.set.groups ?? [s.set.count]).filter((g) => g > 0);
+    default:
+      return [];
   }
 }
 
@@ -64,7 +132,15 @@ const say = (
 
 export const subitizeFlash: GeneratorDef = {
   id: 'subitize.flash',
-  formats: ['dot-flash', 'numeral-pick', 'number-pad', 'make-set', 'tenframe-fill', 'rekenrek'],
+  formats: [
+    'dot-flash',
+    'numeral-pick',
+    'number-pad',
+    'make-set',
+    'tenframe-fill',
+    'rekenrek',
+    'number-bond',
+  ],
   params: {
     n: { type: 'int', default: { kind: 'int', min: 1, max: 5 }, doc: 'the quantity' },
     arrangement: {
@@ -78,6 +154,11 @@ export const subitizeFlash: GeneratorDef = {
       default: { kind: 'const', value: 0 },
       doc: "number of groups for the 'groups' arrangement (0: automatic)",
     },
+    part: {
+      type: 'int',
+      default: { kind: 'const', value: 0 },
+      doc: "size of the first group for the 'groups' arrangement (0: even split)",
+    },
     flashMs: {
       type: 'int',
       default: { kind: 'const', value: 1500 },
@@ -85,8 +166,19 @@ export const subitizeFlash: GeneratorDef = {
     },
   },
   features: {
-    'n.over5': { weight: 0.3, doc: 'max(0, n − 5) / 5 (not on dot-flash, which has n.over4)' },
+    'n.upTo4': {
+      weight: 0.15,
+      doc: 'min(n, 4) − 1: size inside the perceptual range (1 is instant, 4 the slowest)',
+    },
+    'n.over5': {
+      weight: 0.3,
+      doc: 'max(0, n − 5) / 5, on formats without their own size feature (not dot-flash, make-set, number-bond)',
+    },
     conceptual: { weight: 0.3, doc: '≥ 2 visible groups (conceptual subitizing)' },
+    'group.over3': {
+      weight: 0.2,
+      doc: "max(0, largest group − 3) in a 'groups' arrangement of ≥ 2 groups (frames, dice and fingers show 5 as a known pattern)",
+    },
     teen: { weight: 0.5, doc: 'n ≥ 11' },
     placeValue: { weight: 0.4, doc: 'a full ten plus ones' },
     multiplicative: { weight: 0.5, doc: '≥ 3 equal groups' },
@@ -94,19 +186,36 @@ export const subitizeFlash: GeneratorDef = {
   narration: [
     'gen.subitize.flash.look',
     'gen.subitize.flash.see-groups',
+    'gen.subitize.flash.parts',
     'gen.subitize.flash.total',
     'gen.subitize.flash.show',
   ],
   sample: (spec, rng) => sampleAll(spec, rng),
   derive: () => ({}),
+  accepts(p, t) {
+    const n = asNum(p.n);
+    const part = asNum(p.part);
+    const arrangement = asStr(p.arrangement, 'dice') as Arrangement;
+    // A given part must leave something for the other group(s).
+    if (arrangement === 'groups' && part > 0 && part >= n) return false;
+    // A number bond shows exactly two parts.
+    if (t.format === 'number-bond')
+      return itemGroups(p, t.format).filter((g) => g > 0).length === 2;
+    return true;
+  },
   build(ctx: BuildContext): GeneratorOutput {
     const { params, template: t, rng } = ctx;
     const n = asNum(params.n);
     const arrangement = asStr(params.arrangement, 'dice') as Arrangement;
-    const groups = arrangementGroups(n, arrangement, asNum(params.groups));
+    const groups = itemGroups(params, t.format);
     const visible = groups.filter((g) => g > 0);
+    const a = visible[0] ?? 0;
+    const b = visible[1] ?? 0;
     const math: Record<string, number> = {
+      'n.upTo4': Math.max(0, Math.min(n, 4) - 1),
       conceptual: visible.length >= 2 ? 1 : 0,
+      'group.over3':
+        arrangement === 'groups' && visible.length >= 2 ? Math.max(0, Math.max(...visible) - 3) : 0,
       teen: n >= 11 ? 1 : 0,
       // A full ten plus ones: teen quantities shown in ten-frames (or with a group of ten).
       placeValue:
@@ -116,19 +225,19 @@ export const subitizeFlash: GeneratorDef = {
           : 0,
       multiplicative: visible.length >= 3 && visible.every((g) => g === visible[0]) ? 1 : 0,
     };
-    // dot-flash already measures size (n.over4); the generator's size feature covers the rest.
-    if (t.format !== 'dot-flash') math['n.over5'] = Math.max(0, n - 5) / 5;
-    const vars = pickVars(t, { n, more: Math.max(0, n - 5) });
+    // Formats with their own size feature measure size there; n.over5 covers the rest.
+    if (!SIZED.has(t.format)) math['n.over5'] = Math.max(0, n - 5) / 5;
+    const vars = pickVars(t, { n, more: Math.max(0, n - 5), a, b });
     const dots: StimulusSpec =
       t.representation === 'objects'
-        ? {
-            kind: 'objects',
-            set: { count: n, sprite: 'shell', layout: 'scatter', layoutSeed: layoutSeed(rng) },
-          }
-        : arrangement === 'ten-frame' || arrangement === 'double-ten-frame'
-          ? { kind: 'ten-frame', frames: n > 10 ? 2 : 1, filled: n > 10 ? [10, n - 10] : [n] }
-          : { kind: 'dots', arrangement, groups };
-    const overlay = tenFrameOverlay(n);
+        ? { kind: 'objects', set: objectSet(n, arrangement, groups, layoutSeed(rng)) }
+        : t.representation === 'symbols'
+          ? { kind: 'none' } // abstract tier: the numbers are in the prompt only
+          : arrangement === 'ten-frame' || arrangement === 'double-ten-frame'
+            ? { kind: 'ten-frame', frames: n > 10 ? 2 : 1, filled: n > 10 ? [10, n - 10] : [n] }
+            : { kind: 'dots', arrangement, groups };
+    // The level-3 picture: a ten-frame, coloured by part when the item shows two groups.
+    const overlay = visible.length === 2 ? tenFrameOverlay(n, [a, b]) : tenFrameOverlay(n);
     let p: PartialOutput;
     switch (t.format) {
       case 'dot-flash':
@@ -235,6 +344,26 @@ export const subitizeFlash: GeneratorDef = {
         };
         break;
       }
+      case 'number-bond':
+        // The two groups are the parts (counters on the concrete tier); the child names the whole.
+        p = {
+          params,
+          vars,
+          math,
+          widget: {
+            format: 'number-bond',
+            whole: null,
+            parts: [a, b],
+            mode: 'missing-whole',
+            counters: t.tier === 'concrete',
+            nonZero: true,
+          },
+          answer: { kind: 'number', value: n },
+          nudge: [{ op: 'highlight', args: { slot: 'part-0' } }],
+          highlight: [{ op: 'highlight', args: { slot: 'part-1' } }],
+          overlay,
+        };
+        break;
       default:
         throw new Error(`subitize.flash cannot build ${t.format}`);
     }
@@ -259,11 +388,24 @@ export const subitizeFlash: GeneratorDef = {
     const n = asNum(out.params.n);
     const w = out.widget;
     switch (w.format) {
-      case 'dot-flash':
+      case 'dot-flash': {
+        const shown = stimulusParts(w.stimulus);
+        const [a, b] = shown;
         return [
           say('gen.subitize.flash.look', { n }, { op: 'show' }),
+          // Two visible groups: name the parts before the total (3 and 4 make 7).
+          ...(shown.length === 2 && a !== undefined && b !== undefined
+            ? [
+                say(
+                  'gen.subitize.flash.parts',
+                  { a, b },
+                  { op: 'circle-groups', args: { groups: shown } },
+                ),
+              ]
+            : []),
           say('gen.subitize.flash.total', { n }, { op: 'answer', args: { value: n } }),
         ];
+      }
       case 'numeral-pick':
         return [
           say('gen.subitize.flash.see-groups', { n }),
@@ -297,6 +439,14 @@ export const subitizeFlash: GeneratorDef = {
           ),
           say('gen.subitize.flash.total', { n }, { op: 'answer', args: { value: n } }),
         ];
+      case 'number-bond': {
+        const a = w.parts[0] ?? 0;
+        const b = w.parts[1] ?? 0;
+        return [
+          say('gen.subitize.flash.parts', { a, b }, { op: 'highlight', args: { slot: 'whole' } }),
+          say('gen.subitize.flash.total', { n }, { op: 'fill', args: { slot: 'whole', value: n } }),
+        ];
+      }
       default:
         return [];
     }

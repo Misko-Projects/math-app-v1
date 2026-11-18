@@ -28,8 +28,10 @@ function formatSlot(slot: Slot, vars: Record<string, string | number>, narration
   switch (slot.type) {
     case undefined:
     case 'num':
-    case 'ord':
       return typeof v === 'number' ? group(v) : String(v);
+    case 'ord':
+      // Display the position word the slot speaks ("third", from ord.<n>), as word and noun slots do.
+      return lookupText(narration, `ord.${v}`) ?? String(v);
     case 'digits':
       return String(v);
     case 'cents':

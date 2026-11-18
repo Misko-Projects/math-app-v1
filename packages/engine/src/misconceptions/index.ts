@@ -6,12 +6,18 @@ import { boundMisconceptions, boundTemplate } from '../content/binding';
 import type { MisconceptionRule } from './rules';
 import { countAllInstead } from './rules/countAllInstead';
 import { countStartNumber } from './rules/countStartNumber';
+import { decadeTransition } from './rules/decadeTransition';
 import { offByOneCounting } from './rules/offByOneCounting';
+import { recountFromOne } from './rules/recountFromOne';
+import { teenReversal } from './rules/teenReversal';
 
 const RULES: Record<string, MisconceptionRule> = {
   countStartNumber: countStartNumber,
   countAllInstead: countAllInstead,
   offByOneCounting: offByOneCounting,
+  recountFromOne: recountFromOne,
+  decadeTransition: decadeTransition,
+  teenReversal: teenReversal,
 };
 
 export function misconceptionRule(id: string): MisconceptionRule | undefined {

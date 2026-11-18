@@ -4,12 +4,20 @@
 import type { GeneratorId } from '@number-island/shared';
 import { addsubFacts } from './addsub/facts';
 import { bondParts } from './bond/parts';
+import { countOrdinal } from './count/ordinal';
 import { countSequence } from './count/sequence';
 import { countSet } from './count/set';
 import { subitizeFlash } from './subitize/flash';
 import type { GeneratorDef } from './types';
 
-const GENERATORS: GeneratorDef[] = [countSet, countSequence, subitizeFlash, bondParts, addsubFacts];
+const GENERATORS: GeneratorDef[] = [
+  countSet,
+  countSequence,
+  subitizeFlash,
+  bondParts,
+  addsubFacts,
+  countOrdinal,
+];
 
 const BY_ID = new Map<GeneratorId, GeneratorDef>(GENERATORS.map((g) => [g.id, g]));
 if (BY_ID.size !== GENERATORS.length) throw new Error('duplicate generator id in the registry');

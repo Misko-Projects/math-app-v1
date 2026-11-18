@@ -1,0 +1,198 @@
+# Shared narration (03 §8.1): prompts (p.*), hints (h.*), feedback (fb.*) and generator steps (gen.*).
+# C01 seeds the keys the fixture set needs. K01 extends this file; E01 adds the gen.* keys its
+# generators declare.
+
+# ---------- prompts ----------
+p.count.how-many:
+  text: "How many are there?"
+p.count.what-next:
+  text: "What number comes next?"
+p.count.order:
+  text: "Put the numbers in order, starting with the smallest."
+p.count.make-n:
+  text: "Put {n} in the boat."
+p.count.show-fingers:
+  text: "Show me {n} fingers."
+p.count.find-numeral:
+  text: "Which number tells how many?"
+p.count.write-numeral:
+  text: "Count them. Then tap the number."
+p.subitize.how-many:
+  text: "Look fast! How many did you see?"
+p.subitize.how-many-fingers:
+  text: "How many fingers did you see?"
+p.bond.split:
+  text: "Split {whole} into two parts."
+p.bond.split-fingers:
+  text: "Show {whole} fingers with two hands."
+p.bond.missing-part:
+  text: "{whole} is {part} and how many more?"
+p.bond.make-ten:
+  text: "{part} and what number make ten?"
+p.add.add-more:
+  text: "You have {start}. Add more to make {n}."
+p.add.how-many-in-all:
+  text: "{a} and {b} more. How many in all?"
+p.add.what-is:
+  text: "{a} + {b} = ?"
+  say: "What is {a} plus {b}?"
+
+# ---------- hints (levels 2–4; replay and show-me are automatic) ----------
+h.replay:
+  text: "Let's hear it again."
+h.show-me:
+  text: "Watch me. Then you try."
+h.sequence.say-it:
+  text: "Say the numbers out loud from the start."
+h.sequence.look-chart:
+  text: "Find the number on the chart. Look at the next box."
+h.sequence.look-path:
+  text: "Look at the stones. Which one comes after?"
+h.count.touch-each:
+  text: "Touch each one as you count."
+h.count.last-number:
+  text: "The last number you say tells how many."
+h.count.show-frame:
+  text: "Fill the top row first. A full row is five."
+h.subitize.look-again:
+  text: "Look again. Do you see a shape you know?"
+h.subitize.look-groups:
+  text: "Look for small groups. Put them together."
+h.subitize.five-fingers:
+  text: "One hand has five fingers."
+h.subitize.five-and:
+  text: "A full row is five. How many more?"
+h.bond.use-counters:
+  text: "Move the counters into two groups."
+h.bond.two-hands:
+  text: "Put some fingers up on each hand."
+h.bond.slide-beads:
+  text: "Slide some beads over. Count both parts."
+h.bond.partners:
+  text: "Count the empty spaces. They make ten."
+h.add.join:
+  text: "Put the two groups together. Then count them all."
+h.add.fingers:
+  text: "Show the first number on one hand. Add more fingers."
+h.add.count-on:
+  text: "Say the first number. Then count on."
+h.add.start-big:
+  text: "Start with the bigger number."
+
+# ---------- generator solution steps (E01: gen.<generatorId>.<step>, 03 §6.4) ----------
+# Spoken by the worked solution (hint level 5, auto lessons). Every key a generator declares in
+# `narration` must exist here (V16, checked by tools/content-check).
+gen.count.set.touch-count:
+  text: "Touch each one as we count."
+gen.count.set.last-number:
+  text: "The last number is {n}. There are {n}."
+gen.count.set.drag:
+  text: "Put them in one at a time, up to {n}."
+gen.count.set.take-away:
+  text: "Take some out. Stop when {n} are left."
+gen.count.set.bundle:
+  text: "Put each ten together."
+gen.count.set.count-picture:
+  text: "Let's count them together."
+gen.count.set.pick:
+  text: "We counted {n}. Tap {n}."
+gen.count.set.type:
+  text: "We counted {n}. Now tap {n}."
+gen.count.set.fill-frame:
+  text: "Fill the frame one at a time, up to {n}."
+gen.count.sequence.say-from:
+  text: "Let's count from {start}."
+gen.count.sequence.next-is:
+  text: "Next comes {n}."
+gen.count.sequence.hop:
+  text: "Hop to {n}."
+gen.count.sequence.order-start:
+  text: "Find where the numbers start."
+gen.subitize.flash.look:
+  text: "Look at the dots again."
+gen.subitize.flash.see-groups:
+  text: "I see small groups. Put them together."
+gen.subitize.flash.total:
+  text: "That makes {n}."
+gen.subitize.flash.show:
+  text: "Let's show {n}."
+gen.bond.parts.whole-is:
+  text: "The whole is {whole}."
+gen.bond.parts.count-on:
+  text: "Start at {part}. Count on to {whole}."
+gen.bond.parts.missing-is:
+  text: "The missing part is {n}."
+gen.bond.parts.split:
+  text: "{a} and {b} make the whole."
+gen.bond.parts.together:
+  text: "Put {a} and {b} together."
+gen.addsub.facts.start-at:
+  text: "Start at {a}. Then count on {b}."
+gen.addsub.facts.start-back:
+  text: "Start at {a}. Then count back {b}."
+gen.addsub.facts.take-away:
+  text: "Start with {a}. Take away {b}."
+gen.addsub.facts.count-on:
+  text: "Now {n}."
+gen.addsub.facts.answer:
+  text: "The answer is {n}."
+gen.addsub.facts.join:
+  text: "Put {a} and {b} together."
+
+# ---------- feedback ----------
+fb.correct.1:
+  text: "You did it!"
+  style: excited
+fb.correct.2:
+  text: "Yes! You counted carefully."
+  style: excited
+fb.correct.3:
+  text: "That's it! Great thinking."
+  style: excited
+fb.correct.4:
+  text: "Yes! You kept trying."
+  style: excited
+fb.correct.5:
+  text: "You got it! Nice work."
+  style: excited
+fb.correct.6:
+  text: "Hooray! That's right."
+  style: excited
+fb.retry:
+  text: "Let's look at it one more time."
+fb.reveal:
+  text: "Here is how it goes. Watch!"
+fb.skip:
+  text: "That's okay. We can learn this one together."
+  style: calm
+fb.testout.to-lesson:
+  text: "Let me show you a trick!"
+  style: playful
+fb.tap-count.retry:
+  text: "Let's count again. Touch each one once."
+fb.make-set.retry:
+  text: "Let's count what is in the boat."
+fb.dot-flash.retry:
+  text: "Let's look again. Watch closely."
+fb.numeral-pick.retry:
+  text: "Let's look again. Count, then pick."
+fb.number-pad.retry:
+  text: "Let's look again. Then tap the number."
+fb.order.retry:
+  text: "Find the smallest one first."
+fb.tenframe-fill.retry:
+  text: "Let's count the frame again. Start at the top."
+fb.number-bond.retry:
+  text: "Look at the two parts and the whole."
+fb.rekenrek.retry:
+  text: "Let's count the beads on the left."
+fb.number-line-jump.retry:
+  text: "Let's hop again. Count each hop."
+fb.hundred-chart.retry:
+  text: "Look at the row. Which box comes next?"
+fb.mc.off-by-one-counting:
+  text: "Touch each one once. Count again with me."
+fb.mc.count-start-number:
+  text: "Start with the first number. Count the hops after it."
+fb.mc.count-all-instead:
+  text: "Start at the bigger number. Then count on."
