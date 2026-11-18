@@ -859,3 +859,118 @@ describe('backup review regressions (PR #58)', () => {
     expect(await store.db.events.get(mine.id)).toMatchObject({ familyId });
   });
 });
+
+describe('review round 3 regressions', () => {
+  it('R3-1. open removes invalid-id and null-payload tombstones and keeps the child', async () => {
+    const env = testEnv();
+    const db = env.db();
+    await db.open();
+    const kid = { ...profile(CHILD_K, 'K', 'Ada'), updatedAt: 1 };
+    await db.profiles.put(kid);
+    const live = serverEvent('island.named', named('Kept'), 2 * DAY, CHILD_K);
+    // Ids that match each other case-insensitively but are not UUIDs.
+    const badIds = tombstone(3 * DAY, { familyId: 'not-a-uuid', deviceId: 'NOT-A-UUID' });
+    const nullPayload = { ...tombstone(4 * DAY), payload: null } as unknown as AnyEventEnvelope;
+    await db.events.bulkPut([
+      { ...live, synced: 1 },
+      { ...badIds, synced: 1 },
+      { ...nullPayload, synced: 1 },
+    ]);
+    db.close();
+
+    const store = await track(env.open());
+    expect(await store.db.events.toCollection().primaryKeys()).toEqual([live.id]);
+    expect(await store.deletedChildren()).toEqual(new Set());
+    expect(await store.allProfiles()).toEqual([kid]);
+    const { gameData } = fixtureContent();
+    expect(await store.island()).toEqual(foldIsland([live], gameData));
+  });
+
+  it('R3-1. a forged tombstone written while open never reaches a rebuild', async () => {
+    const { env, store } = await familyStore();
+    const t = env.clock.now();
+    await store.append(
+      'session.started',
+      { sessionId: 'a', budgetMinutes: 10, trigger: 'child' },
+      {
+        childId: CHILD_K,
+      },
+    );
+    const forged = tombstone(t - DAY, { deviceId: DEVICE });
+    await store.db.events.put({ ...forged, synced: 1 });
+    // An out-of-order append rebuilds the child's row from the stored log.
+    env.clock.set(t - HOUR);
+    await store.append(
+      'session.started',
+      { sessionId: 'b', budgetMinutes: 10, trigger: 'child' },
+      {
+        childId: CHILD_K,
+      },
+    );
+    const events = await store.events();
+    expect(events.some((e) => e.id === forged.id)).toBe(false);
+    await expectCacheEqualsFold(store);
+    expect((await store.skillStates(CHILD_K))?.sessionsSeen).toBe(2);
+  });
+
+  it('R3-2. a row without data is rebuilt on open and before an in-order append', async () => {
+    const { env, store } = await familyStore();
+    await store.append('material.produced', produced(4), { childId: CHILD_K });
+    const strip = async (s: DataStore) => {
+      const row = await s.db.projections.get('inventory');
+      if (!row) throw new Error('no inventory row');
+      const { data: _gone, ...rest } = row;
+      await s.db.projections.put(rest as typeof row);
+    };
+    await strip(store);
+    store.close();
+    const again = await track(env.open());
+    expect(await again.inventory()).toEqual(foldInventory(await again.events()));
+
+    await strip(again);
+    env.clock.advance(HOUR);
+    await again.append('material.produced', produced(1), { childId: CHILD_K });
+    expect(await again.inventory()).toEqual(foldInventory(await again.events()));
+    expect((await again.inventory()).materials).toEqual({ stone: 5 });
+  });
+
+  it('R3-3. the 8 KB cap measures the stored payload, not the caller object', async () => {
+    const store = await track(testEnv().open());
+    const sneaky = {
+      name: 'x'.repeat(9000),
+      toJSON: () => ({ name: 'short' }),
+    } as unknown as EventPayloads['island.named'];
+    await expect(store.append('island.named', sneaky, { childId: null })).rejects.toMatchObject({
+      code: 'invalid_event',
+    });
+    expect(await store.events()).toEqual([]);
+    expect(await store.unsynced()).toEqual([]);
+  });
+
+  it('R3-3. type plus contentVersion over 1,024 bytes is refused (08 §3)', async () => {
+    const store = await track(testEnv().open());
+    const big = {
+      ...serverEvent('island.named', named('Big'), DAY, null),
+      contentVersion: 'v'.repeat(1025),
+    };
+    for (const source of ['server', 'backup'] as const) {
+      expect(await store.ingest([big], { source })).toMatchObject({ added: [], invalid: 1 });
+    }
+    expect(await store.events()).toEqual([]);
+    const env = testEnv();
+    const wide = await track(env.open('wide', { contentVersion: 'v'.repeat(1025) }));
+    await expect(wide.append('island.named', named('A'), { childId: null })).rejects.toMatchObject({
+      code: 'invalid_event',
+    });
+    expect(await wide.events()).toEqual([]);
+  });
+
+  it('R3-4. dropped counts every validated input copy for a deleted child', async () => {
+    const { env, store } = await familyStore();
+    const own = await store.append('island.named', named('Mine'), { childId: CHILD_K });
+    const clamped = { ...own, ts: own.ts - HOUR, clientTs: own.ts };
+    const tomb = tombstone(env.clock.now() + 1);
+    const r = await store.ingest([clamped, clamped, tomb], { source: 'server' });
+    expect(r).toMatchObject({ added: [tomb.id], replaced: [], dropped: 2, invalid: 0 });
+  });
+});

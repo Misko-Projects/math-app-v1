@@ -28,6 +28,7 @@ import {
   type EventPayloads,
   type EventType,
   eventEnvelopeSchema,
+  eventEnvelopeSchemaFor,
   eventPayloadBytes,
   type FamilySettings,
   familyIdSchema,
@@ -43,6 +44,7 @@ import {
   settingsDocumentSchema,
   settingsKey,
   newId as sharedNewId,
+  utf8ByteLength,
   type WeeklyGoalState,
   withSettingDefaults,
 } from '@number-island/shared';
@@ -212,10 +214,42 @@ function lwwWins<T extends { updatedAt: number }>(
   );
 }
 
-/** A tombstone counts only when the server authored it (02 §5.9 S2, 08 §3 import rules). */
-function serverAuthoredTombstone(e: AnyEventEnvelope): boolean {
-  return e.type !== 'child.deleted' || (e.childId === null && sameId(e.deviceId, e.familyId));
+const tombstoneEnvelopeSchema = eventEnvelopeSchemaFor('child.deleted');
+
+/**
+ * The one tombstone rule (02 §5.9 S2, 08 §3 import rules): a `child.deleted` counts only when its
+ * envelope passes the shared schema (UUIDs, payload `{ childId }`), its `childId` is null and its
+ * `deviceId` is its family id (the server's pseudo-device). Takes an envelope or a stored row
+ * (the row's local fields are ignored) or anything else read from the table.
+ */
+export function isValidTombstone(row: unknown): boolean {
+  if (typeof row !== 'object' || row === null) return false;
+  const { synced: _s, _rejected: _r, ...envelope } = row as Record<string, unknown>;
+  const parsed = tombstoneEnvelopeSchema.safeParse(envelope);
+  return (
+    parsed.success &&
+    parsed.data.childId === null &&
+    sameId(parsed.data.deviceId, parsed.data.familyId)
+  );
 }
+
+/** What may reach a fold: every event except a tombstone that fails `isValidTombstone`. */
+const foldable = <E extends Pick<AnyEventEnvelope, 'type'>>(e: E) =>
+  e.type !== 'child.deleted' || isValidTombstone(e);
+
+/**
+ * 08 §3: the server refuses an event whose `type` plus `contentVersion` exceed 1,024 UTF-8 bytes
+ * (D1 would fail the whole batch on an oversized row). Mirrors the API's
+ * `MAX_EVENT_ENVELOPE_STRING_BYTES`, which apps/web may not import.
+ */
+export const MAX_EVENT_ENVELOPE_STRING_BYTES = 1024;
+
+export const envelopeStringBytes = (e: { type: string; contentVersion: string }): number =>
+  utf8ByteLength(e.type) + utf8ByteLength(e.contentVersion);
+
+/** The server's per-event rules beyond the schemas: the 1,024-byte strings and the tombstone rule. */
+const admissible = (e: AnyEventEnvelope) =>
+  envelopeStringBytes(e) <= MAX_EVENT_ENVELOPE_STRING_BYTES && foldable(e);
 
 const childOf = (e: Pick<AnyEventEnvelope, 'childId'>) =>
   e.childId === null ? null : childKey(e.childId);
@@ -223,7 +257,11 @@ const childOf = (e: Pick<AnyEventEnvelope, 'childId'>) =>
 /** The tombstoned child of a `child.deleted`, lower-cased; null for other types. */
 function tombstoneChild(e: Pick<AnyEventEnvelope, 'type' | 'payload'>): string | null {
   if (e.type !== 'child.deleted') return null;
-  const id = (e.payload as { childId?: unknown }).childId;
+  const payload: unknown = e.payload;
+  const id =
+    typeof payload === 'object' && payload !== null
+      ? (payload as { childId?: unknown }).childId
+      : undefined;
   return typeof id === 'string' ? childKey(id) : null;
 }
 
@@ -258,26 +296,28 @@ export async function createDataStore(opts: DataStoreOptions): Promise<DataStore
 
   // ---------- helpers (run inside the callers' transactions) ----------
 
-  /**
-   * The single place that decides which children are deleted: the lower-case ids named by the
-   * stored tombstones the server authored (02 §5.9 S2). Others never count, and open removes them.
-   */
+  /** The lower-case ids of the children named by valid stored tombstones (`isValidTombstone`). */
   async function tombstoned(): Promise<Set<string>> {
     const rows = await db.events.where('type').equals('child.deleted').toArray();
     const out = new Set<string>();
     for (const e of rows) {
-      const child = serverAuthoredTombstone(e) ? tombstoneChild(e) : null;
+      const child = isValidTombstone(e) ? tombstoneChild(e) : null;
       if (child !== null) out.add(child);
     }
     return out;
   }
 
-  /** Deletes stored `child.deleted` rows the server did not author, so no fold ever sees one. */
+  /** The stored log as folds may see it (`foldable`): invalid tombstones never reach the engine. */
+  async function foldableLog(): Promise<StoredEvent[]> {
+    return (await db.events.toArray()).filter(foldable);
+  }
+
+  /** Deletes stored `child.deleted` rows that fail `isValidTombstone`. */
   async function removeForgedTombstones(): Promise<boolean> {
     const forged = await db.events
       .where('type')
       .equals('child.deleted')
-      .filter((e) => !serverAuthoredTombstone(e))
+      .filter((e) => !isValidTombstone(e))
       .primaryKeys();
     await db.events.bulkDelete(forged);
     return forged.length > 0;
@@ -367,7 +407,7 @@ export async function createDataStore(opts: DataStoreOptions): Promise<DataStore
     const sortedFresh = sortEvents(fresh);
     let log: StoredEvent[] | null = null;
     const fullLog = async () => {
-      log ??= await db.events.toArray();
+      log ??= await foldableLog();
       return log;
     };
     const out: ProjectionRow[] = [];
@@ -517,12 +557,19 @@ export async function createDataStore(opts: DataStoreOptions): Promise<DataStore
         if (!parsed.success) {
           throw new DataStoreError('invalid_event', `invalid ${type} event`, parsed.error.issues);
         }
-        // The server refuses a payload over 8 KB (08 §4); such an event must never enter the log.
-        const bytes = eventPayloadBytes({ payload });
+        // What the server would refuse must never enter the log: the stored payload over 8 KB
+        // (08 §4), measured on the parsed event that is written, or oversized strings (08 §3).
+        const bytes = eventPayloadBytes(parsed.data);
         if (bytes === null || bytes > MAX_EVENT_PAYLOAD_BYTES) {
           throw new DataStoreError(
             'invalid_event',
             `${type} payload is ${bytes ?? 'not JSON'} bytes; the limit is ${MAX_EVENT_PAYLOAD_BYTES}`,
+          );
+        }
+        if (!admissible(parsed.data)) {
+          throw new DataStoreError(
+            'invalid_event',
+            `type plus contentVersion exceed ${MAX_EVENT_ENVELOPE_STRING_BYTES} bytes`,
           );
         }
         const deleted = await tombstoned();
@@ -550,8 +597,8 @@ export async function createDataStore(opts: DataStoreOptions): Promise<DataStore
       let invalid = 0;
       for (const r of raw) {
         const parsed = schema.safeParse(r);
-        // A tombstone the server did not author is refused, whatever its source.
-        if (parsed.success && serverAuthoredTombstone(parsed.data)) valid.push(parsed.data);
+        // The server's per-event rules apply to both sources (`admissible`).
+        if (parsed.success && admissible(parsed.data)) valid.push(parsed.data);
         else invalid += 1;
       }
       // One copy per id, by the folds' own preference (the server's clamped copy first).
@@ -565,10 +612,7 @@ export async function createDataStore(opts: DataStoreOptions): Promise<DataStore
         const puts: StoredEvent[] = [];
         incoming.forEach((e, i) => {
           const child = childOf(e);
-          if (child !== null && before.has(child)) {
-            result.dropped += 1;
-            return;
-          }
+          if (child !== null && before.has(child)) return;
           const prev = existing[i];
           if (!prev) {
             puts.push({ ...e, synced: source === 'server' ? 1 : 0 });
@@ -603,11 +647,11 @@ export async function createDataStore(opts: DataStoreOptions): Promise<DataStore
         const deleted = await tombstoned();
         const newlyDeleted = new Set([...deleted].filter((c) => !before.has(c)));
         const purged = await purge(newlyDeleted);
-        // Every incoming copy for a child this batch deleted is dropped, new or not.
-        const lost = new Set(
-          incoming.filter((e) => newlyDeleted.has(childOf(e) ?? '')).map((e) => e.id),
-        );
-        result.dropped += lost.size;
+        // Every validated input copy for a deleted child is dropped (duplicates and copies of
+        // stored events included), and none of them counts as added or replaced.
+        const ofDeleted = (e: AnyEventEnvelope) => deleted.has(childOf(e) ?? '');
+        result.dropped = valid.filter(ofDeleted).length;
+        const lost = new Set(valid.filter(ofDeleted).map((e) => e.id));
         result.added = result.added.filter((id) => !lost.has(id));
         result.replaced = result.replaced.filter((id) => !lost.has(id));
         await reconcile(
@@ -624,12 +668,15 @@ export async function createDataStore(opts: DataStoreOptions): Promise<DataStore
     },
 
     async events() {
-      return sortEvents((await db.events.toArray()).map(toEnvelope));
+      return sortEvents((await foldableLog()).map(toEnvelope));
     },
 
     async unsynced(limit = 500) {
       const rows = await db.events.where('synced').equals(0).toArray();
-      return sortEvents(rows.filter((r) => !r._rejected).map(toEnvelope)).slice(0, limit);
+      return sortEvents(rows.filter((r) => !r._rejected && foldable(r)).map(toEnvelope)).slice(
+        0,
+        limit,
+      );
     },
 
     async markSynced(ids) {

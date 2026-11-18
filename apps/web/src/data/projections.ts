@@ -206,6 +206,14 @@ export const sealRow = (row: ProjectionRow): ProjectionRow => ({
   dataHash: dataHash(row.data),
 });
 
-/** False for a row whose data was changed or lost after the store wrote it. */
-export const rowIntact = (row: ProjectionRow): boolean =>
-  row.dataHash !== undefined && row.dataHash === dataHash(row.data);
+/**
+ * False for a row whose data was changed or lost after the store wrote it. Never throws: data that
+ * cannot be hashed (missing, cyclic, not JSON) marks the row damaged, so it is rebuilt.
+ */
+export function rowIntact(row: ProjectionRow): boolean {
+  try {
+    return typeof row.dataHash === 'number' && row.dataHash === dataHash(row.data);
+  } catch {
+    return false;
+  }
+}
