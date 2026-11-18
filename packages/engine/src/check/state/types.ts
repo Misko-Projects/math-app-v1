@@ -74,8 +74,10 @@ export function askedValueOk(
 export function partsOf(value: Readonly<Record<string, unknown>>): number[] | undefined {
   const parts = nums(value.parts);
   if (parts) return parts;
-  const cells = grid(value.cells);
-  if (cells) {
+  if (value.cells !== undefined) {
+    // Only the cell codes the format defines (0, 1, 2) count; anything else is not a split.
+    const cells = cellGrid(value.cells);
+    if (!cells) return undefined;
     // Two frames: one part per frame (how the ten-frame shows a split). One frame: the two colours.
     if (cells.length === 2) return cells.map((f) => f.filter((x) => x !== 0).length);
     const flat = cells.flat();

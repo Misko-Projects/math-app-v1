@@ -93,24 +93,30 @@ function sampleFact(spec: Record<string, ParamSpec>, rng: Rng): ParamValues {
   const family = asStr(p.family, 'any');
   const op = asStr(p.op, '+');
   const bSpec = spec.b;
-  const bDomain = (bSpec ? specDomain(bSpec) : []).filter(
-    (v): v is number => typeof v === 'number',
-  );
+  // Each domain entry keeps its own authored weight: a choice may repeat a value, and every entry
+  // carries its own weight (03 §5.2). Other specs are uniform.
+  const bEntries: { value: number; weight: number }[] = !bSpec
+    ? []
+    : bSpec.kind === 'choice'
+      ? bSpec.values.flatMap((v, i) =>
+          typeof v === 'number' ? [{ value: v, weight: bSpec.weights?.[i] ?? 1 }] : [],
+        )
+      : specDomain(bSpec)
+          .filter((v): v is number => typeof v === 'number')
+          .map((value) => ({ value, weight: 1 }));
   // Draw a until some b in b's domain completes a valid fact of the family. Keep the b already
-  // drawn (with its authored weights) when it fits; otherwise redraw b among the values that fit,
-  // still weighted as authored (03 §5.2).
-  const weightOf = (b: number): number => {
-    if (bSpec?.kind !== 'choice' || !bSpec.weights) return 1;
-    const i = bSpec.values.indexOf(b);
-    return i >= 0 ? (bSpec.weights[i] ?? 1) : 1;
-  };
+  // drawn (with its authored weights) when it fits; otherwise redraw b among the entries that fit,
+  // still weighted as authored.
   for (let i = 0; i < 64; i += 1) {
     const a = asNum(p.a);
     const fits = (b: number) => inFamily(family, a, b, op) && factResult(a, b, op) >= 0;
     if (typeof p.b === 'number' && fits(p.b)) return p;
-    const ok = bDomain.filter(fits);
+    const ok = bEntries.filter((e) => fits(e.value));
     if (ok.length > 0) {
-      p.b = rng.weighted(ok, ok.map(weightOf));
+      p.b = rng.weighted(
+        ok.map((e) => e.value),
+        ok.map((e) => e.weight),
+      );
       return p;
     }
     const aSpec = spec.a;

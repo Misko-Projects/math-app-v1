@@ -132,6 +132,29 @@ function revealsNumber(
   return slots.some((s) => vars[s] === n || vars[s] === String(n));
 }
 
+/**
+ * For split items (bond.split, bond.newWay), any correct split is an answer, so a hint that names
+ * two numbers forming one gives it away. The numbers named are the numerals in the rendered display
+ * text (slots render numbers as numerals, so slot values are included); a pair uses two separate
+ * mentions, so a number named once is not read as its own double. Returns the revealed split, or
+ * null.
+ */
+export function revealedSplit(item: GeneratedItem, text: string): [number, number] | null {
+  const a = item.answer;
+  if (a.kind !== 'state' || (a.checker !== 'bond.split' && a.checker !== 'bond.newWay'))
+    return null;
+  const checker = stateChecker(a.checker);
+  if (!checker) return null;
+  const mentioned = [...text.matchAll(/(?<![0-9])[0-9]+(?![0-9])/g)].map((m) => Number(m[0]));
+  for (let i = 0; i < mentioned.length; i += 1) {
+    for (let j = i + 1; j < mentioned.length; j += 1) {
+      const parts = [mentioned[i] as number, mentioned[j] as number];
+      if (checker.check(a.target, { parts })) return parts as [number, number];
+    }
+  }
+  return null;
+}
+
 // ---------- near misses (step 5) ----------
 
 function nearMissNumbers(v: number): number[] {
@@ -442,6 +465,14 @@ export function runTemplateProperties(
         if (revealsNumber(text, slots, hv, v)) {
           fail(seed, '7.hint-reveals', `hint ${h.say} ("${text}") reveals ${v}`);
         }
+      }
+      const split = revealedSplit(item, text);
+      if (split) {
+        fail(
+          seed,
+          '7.hint-reveals',
+          `hint ${h.say} ("${text}") gives the split ${split[0]} + ${split[1]}`,
+        );
       }
     }
     // 8. difficulty finite; features declared

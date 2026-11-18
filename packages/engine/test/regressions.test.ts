@@ -231,3 +231,75 @@ describe('F8: subtraction solutions narrate subtraction', () => {
     },
   );
 });
+
+// ---------- round 2 (s_9c4efe4dbd5a) ----------
+
+describe('R2-F1: two-frame splits count only valid cell codes', () => {
+  const split = stateChecker('bond.split');
+  const frames = (code: number) => [
+    [...new Array(5).fill(code), ...new Array(5).fill(0)],
+    [...new Array(3).fill(code), ...new Array(7).fill(0)],
+  ];
+  it('a 5 + 3 split coded with 1 is accepted', () => {
+    expect(split?.check({ whole: 8, nonZero: true }, { cells: frames(1) })).toBe(true);
+  });
+  it.each([3, -1, 2.5])('the same split coded with %s is rejected', (code) => {
+    expect(split?.check({ whole: 8, nonZero: true }, { cells: frames(code) })).toBe(false);
+  });
+});
+
+describe('R2-F2: repeated choice values keep each entry’s weight', () => {
+  it('5 − b with b: [7, 1, 1, 2] weighted [10000, 1, 99, 10] → about 91% have b = 1', () => {
+    loadFixture();
+    const t = tpl({
+      id: 'ADD.01.t9',
+      skillId: 'ADD.01',
+      generator: 'addsub.facts',
+      params: {
+        a: { kind: 'const', value: 5 },
+        op: { kind: 'const', value: '-' },
+        b: { kind: 'choice', values: [7, 1, 1, 2], weights: [10000, 1, 99, 10] },
+      },
+      narration: { prompt: 'p.add.what-is', hints: ['h.add.join'] },
+    });
+    let ones = 0;
+    for (let seed = 1; seed <= 1000; seed += 1) if (generateItem(t, seed).params.b === 1) ones += 1;
+    // 100 / 110 ≈ 0.909
+    expect(ones).toBeGreaterThan(870);
+    expect(ones).toBeLessThan(950);
+  });
+});
+
+describe('R2-F3: V17 catches a hint that gives a complete split', () => {
+  it('CPS.02.t1 (whole 8) with “Put 5 on the first frame and 3 on the second.”', () => {
+    const fixture = loadFixture();
+    // fixtureTemplate() re-binds the stock fixture, so read the template before binding the
+    // test narration.
+    const base = fixtureTemplate('CPS.02.t1');
+    const narration: NarrationJson = {
+      ...fixture.narration,
+      'h.test.split': { text: 'Put 5 on the first frame and 3 on the second.', clips: [] },
+      'h.test.whole': { text: 'There are 8 in all.', clips: [] },
+    };
+    initContent({ ...fixture, narration });
+    const t: ItemTemplate = {
+      ...base,
+      id: 'CPS.02.t9',
+      params: { ...base.params, whole: { kind: 'const', value: 8 } },
+      narration: { prompt: base.narration.prompt, hints: ['h.test.split', 'h.test.whole'] },
+    };
+    const item = generateItem(t, 1);
+    // Following the hint is a correct answer…
+    const r = replaySteps(item, [
+      { actor: 'demo', say: 'h.test.split', action: { op: 'place', args: { frame: 0, count: 5 } } },
+      { actor: 'demo', say: 'h.test.split', action: { op: 'place', args: { frame: 1, count: 3 } } },
+    ]);
+    expect(r && checkResponse(item, r).correct).toBe(true);
+    // …so V17 reports it; naming only the whole is not a reveal.
+    const reveals = runTemplateProperties(t, { n: 3, targeting: false }).failures.filter(
+      (f) => f.step === '7.hint-reveals',
+    );
+    expect(reveals.some((f) => f.message.includes('h.test.split'))).toBe(true);
+    expect(reveals.some((f) => f.message.includes('h.test.whole'))).toBe(false);
+  });
+});
