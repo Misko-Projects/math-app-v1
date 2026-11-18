@@ -45,7 +45,7 @@ function StatesGrid() {
         <span className="story-cell__name">leaf · default</span>
       </div>
       <div className="story-cell">
-        <BigButton label="ui.btn.close" icon={<CheckIcon />} tone="cloud" />
+        <BigButton label="ui.btn.done" icon={<CheckIcon />} tone="cloud" />
         <span className="story-cell__name">cloud · default</span>
       </div>
       <div className="story-cell">

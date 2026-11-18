@@ -186,7 +186,9 @@
   display: inline-flex;
   flex-direction: column;
   align-items: center;
-  gap: 2px;
+  /* Every caption sits the same distance below its button (so a row's captions line up), and
+     clear of a selected button's 7px selection ring. */
+  gap: 6px;
 }
 
 .ni-iconbtn {
@@ -199,12 +201,20 @@
 }
 
 /*
- * A toggle's selection ring (7px) and its focus ring (11px offset + 4px, after a 3px sink) reach
- * 18px below the button, so its caption sits lower. Any aria-pressed value reserves the space, so
- * the caption doesn't jump when the toggle changes.
+ * Focus on a selected icon button: an outer ring would reach its caption, so focus draws inside
+ * instead, as an ink ring with a white ring within it (it reads on every tone), while the outer
+ * selection ring stays as it is.
  */
-.ni-iconbtn[aria-pressed] + .ni-caption {
-  margin-top: 14px;
+.ni-iconbtn[aria-pressed="true"]:focus-visible,
+.ni-iconbtn[aria-pressed="true"][data-preview="focus"] {
+  outline: none;
+  box-shadow:
+    var(--shadow-highlight),
+    0 calc(var(--ledge) - 3px) 0 var(--ledge-color),
+    0 0 0 3px var(--color-cloud),
+    0 0 0 7px var(--color-ink),
+    inset 0 0 0 4px var(--color-ink),
+    inset 0 0 0 8px var(--color-cloud);
 }
 
 .ni-caption {
@@ -302,6 +312,8 @@ button.ni-bubble:active {
 
 .ni-bubble__text {
   min-width: 0;
+  /* No single word stranded on the last line, while lines still fill the bubble. */
+  text-wrap: pretty;
 }
 
 /* Pictures (a request's materials): big enough to count, evenly spaced. */
@@ -311,10 +323,15 @@ button.ni-bubble:active {
   align-items: center;
   gap: 10px;
 }
+/* Stacked request: the picture row spans the bubble and is centred, with the words centred below. */
 .ni-bubble[data-layout="stack"] {
   flex-direction: column;
-  align-items: flex-start;
+  align-items: stretch;
   gap: 10px;
+  text-align: center;
+}
+.ni-bubble[data-layout="stack"] .ni-bubble__pictures {
+  justify-content: center;
 }
 
 .ni-bubble__glyph {

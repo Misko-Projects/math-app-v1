@@ -3,7 +3,7 @@ import { useState } from 'react';
 import { expect, fn, userEvent, waitFor, within } from 'storybook/test';
 import { expectTargetSize } from '../test-support/storyHelpers';
 import { BigButton } from './BigButton';
-import { CheckIcon, StarIcon } from './icons';
+import { ArrowIcon, CheckIcon, StarIcon } from './icons';
 import { ProductTray } from './ProductTray';
 import { Sheet } from './Sheet';
 
@@ -23,7 +23,12 @@ function Demo({ placement }: { placement: 'bottom' | 'center' }) {
   const [open, setOpen] = useState(true);
   return (
     <div style={{ minHeight: '100vh', display: 'grid', placeItems: 'center' }}>
-      <BigButton label="ui.btn.next" icon={<StarIcon />} tone="sun" onPress={() => setOpen(true)} />
+      <BigButton
+        label="ui.btn.next"
+        icon={<ArrowIcon />}
+        tone="sun"
+        onPress={() => setOpen(true)}
+      />
       <Sheet
         open={open}
         onClose={() => setOpen(false)}
@@ -51,14 +56,14 @@ export const Bottom: Story = {
     const doc = within(canvasElement.ownerDocument.body);
     const dialog = await doc.findByRole('dialog', { name: 'Your treasure chest' });
     await waitFor(() => expect(dialog).toBeVisible());
-    const close = within(dialog).getByRole('button', { name: 'All done' });
+    const close = within(dialog).getByRole('button', { name: 'Go back' });
     await expectTargetSize(close, 'g1-up');
     await userEvent.keyboard('{Escape}');
     await waitFor(() => expect(doc.queryByRole('dialog')).toBeNull());
     // Reopen, then close with the close button.
     await userEvent.click(doc.getByRole('button', { name: 'Next' }));
     const again = await doc.findByRole('dialog', { name: 'Your treasure chest' });
-    await userEvent.click(within(again).getByRole('button', { name: 'All done' }));
+    await userEvent.click(within(again).getByRole('button', { name: 'Go back' }));
     await waitFor(() => expect(doc.queryByRole('dialog')).toBeNull());
     await userEvent.click(doc.getByRole('button', { name: 'Next' }));
     await doc.findByRole('dialog', { name: 'Your treasure chest' });
@@ -72,6 +77,6 @@ export const Center: Story = {
   play: async ({ canvasElement }) => {
     const doc = within(canvasElement.ownerDocument.body);
     const dialog = await doc.findByRole('dialog', { name: 'Your treasure chest' });
-    await expectTargetSize(within(dialog).getByRole('button', { name: 'All done' }), 'k');
+    await expectTargetSize(within(dialog).getByRole('button', { name: 'Go back' }), 'k');
   },
 };

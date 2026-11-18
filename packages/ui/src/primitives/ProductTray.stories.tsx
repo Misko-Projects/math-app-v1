@@ -2,7 +2,7 @@ import type { Meta, StoryObj } from '@storybook/react-vite';
 import { useState } from 'react';
 import { expect, userEvent, within } from 'storybook/test';
 import { BigButton } from './BigButton';
-import { StarIcon } from './icons';
+import { ArrowIcon } from './icons';
 import { ProductTray, type TrayItem } from './ProductTray';
 
 function Plank() {
@@ -90,7 +90,7 @@ export const AddingK: Story = {
         <ProductTray items={items} goal={6} />
         <BigButton
           label="ui.btn.next"
-          icon={<StarIcon />}
+          icon={<ArrowIcon />}
           tone="sun"
           onPress={() => setItems((p) => [...p, { id: `plank-${p.length}`, icon: <Plank /> }])}
         />

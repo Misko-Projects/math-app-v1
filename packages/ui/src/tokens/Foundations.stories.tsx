@@ -4,6 +4,7 @@ import { BigButton } from '../primitives/BigButton';
 import { CategoryMark } from '../primitives/CategoryMark';
 import {
   ArrowIcon,
+  BackIcon,
   CheckIcon,
   CloseIcon,
   CrateIcon,
@@ -248,9 +249,12 @@ function Specimen() {
         <NumberDisplay value={7} speakOnTap={false} />
       </div>
       {/* Math-relevant categories: colour + shape (CATEGORY_MARKS), distinct in every filter. */}
-      <div style={{ display: 'flex', gap: 10 }}>
+      <div
+        data-testid="category-marks"
+        style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'center', gap: 8 }}
+      >
         {CATEGORY_MARKS.map((m, i) => (
-          <CategoryMark key={m.id} index={i} size={40} />
+          <CategoryMark key={m.id} index={i} size={34} />
         ))}
       </div>
     </div>
@@ -302,6 +306,21 @@ export const ColourVision: Story = {
       ))}
     </div>
   ),
+  play: async ({ canvasElement }) => {
+    // Every card's shape row fits inside the card and sits centred, with equal side margins.
+    for (const row of canvasElement.querySelectorAll<HTMLElement>(
+      '[data-testid="category-marks"]',
+    )) {
+      const card = row.closest('section') as HTMLElement;
+      const box = card.getBoundingClientRect();
+      const marks = [...row.children].map((c) => c.getBoundingClientRect());
+      const left = Math.min(...marks.map((m) => m.left)) - box.left;
+      const right = box.right - Math.max(...marks.map((m) => m.right));
+      await expect(left).toBeGreaterThan(0);
+      await expect(right).toBeGreaterThan(0);
+      await expect(Math.abs(left - right)).toBeLessThanOrEqual(2);
+    }
+  },
 };
 
 const ICONS = [
@@ -311,6 +330,7 @@ const ICONS = [
   ['check', CheckIcon],
   ['close', CloseIcon],
   ['arrow', ArrowIcon],
+  ['back', BackIcon],
   ['star', StarIcon],
   ['hand', HandPointerIcon],
   ['crate', CrateIcon],

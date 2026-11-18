@@ -117,6 +117,27 @@ export const VariantsG1: Story = {
     await expect(
       within(canvasElement).getAllByText('Hello! Can you help me fix my boat?').length,
     ).toBe(3);
+    // No word stranded on its own last line: wrapped text keeps its lines even.
+    for (const span of canvasElement.querySelectorAll<HTMLElement>('.ni-bubble__text')) {
+      const range = document.createRange();
+      range.selectNodeContents(span);
+      const lines = [...range.getClientRects()].filter((r) => r.width > 0);
+      if (lines.length < 2) continue;
+      const first = lines[0] as DOMRect;
+      const last = lines[lines.length - 1] as DOMRect;
+      await expect(last.width).toBeGreaterThanOrEqual(first.width * 0.45);
+    }
+    // A stacked request's picture row is centred in the bubble.
+    const stacked = canvasElement.querySelectorAll<HTMLElement>('.ni-bubble[data-layout="stack"]');
+    await expect(stacked.length).toBe(2);
+    for (const bubble of stacked) {
+      const box = bubble.getBoundingClientRect();
+      const row = bubble.querySelector('.ni-bubble__pictures') as HTMLElement;
+      const kids = [...row.children].map((c) => c.getBoundingClientRect());
+      const left = Math.min(...kids.map((k) => k.left)) - box.left;
+      const right = box.right - Math.max(...kids.map((k) => k.right));
+      await expect(Math.abs(left - right)).toBeLessThanOrEqual(2);
+    }
   },
 };
 

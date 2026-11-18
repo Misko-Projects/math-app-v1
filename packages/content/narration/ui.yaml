@@ -22,6 +22,9 @@ ui.btn.check:
   text: "Check"
   level: K
 ui.btn.close:
+  text: "Go back"
+  level: K
+ui.btn.done:
   text: "All done"
   level: K
 ui.btn.next:

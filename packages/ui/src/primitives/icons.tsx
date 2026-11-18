@@ -144,6 +144,19 @@ export function ArrowIcon({ tone = 'color', ...props }: IconProps) {
   );
 }
 
+/** A left arrow: "go back" (closing a sheet returns to the scene). */
+export function BackIcon({ tone = 'color', ...props }: IconProps) {
+  return (
+    <Svg {...props}>
+      <path
+        d="M38 24H12M22 13 11 24l11 11"
+        stroke={tone === 'light' ? '#fff' : INK}
+        strokeWidth="5.5"
+      />
+    </Svg>
+  );
+}
+
 export function StarIcon({ tone = 'color', ...props }: IconProps) {
   const light = tone === 'light';
   return (

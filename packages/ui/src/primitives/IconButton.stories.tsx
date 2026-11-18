@@ -25,26 +25,40 @@ type Story = StoryObj<typeof meta>;
 export const Playground: Story = {};
 
 /**
- * A selected toggle with a caption (G1+): keyboard focus draws its ring clear of the selection
- * ring, and the caption sits below both rings instead of under them.
+ * A selected toggle with a caption (G1+), beside a plain button. Keyboard focus on the selected one
+ * draws inside the button (no outer ring reaching the caption), its caption sits clear of the
+ * selection ring, and both captions line up.
  */
 export const SelectedFocusWithCaption: Story = {
   globals: { ageMode: 'g1-up' },
-  args: { label: 'ui.btn.next', icon: <ArrowIcon />, tone: 'sun', pressed: true },
+  render: () => (
+    <div style={{ display: 'flex', gap: 48, alignItems: 'flex-start' }}>
+      <IconButton label="ui.btn.next" icon={<ArrowIcon />} tone="sun" pressed />
+      <IconButton label="ui.btn.hint" icon={<LightbulbIcon />} />
+    </div>
+  ),
   play: async ({ canvasElement }) => {
     const button = within(canvasElement).getByRole('button', { name: 'Next' });
-    const caption = canvasElement.querySelector('.ni-caption') as HTMLElement;
-    await expect(caption).not.toBeNull();
+    const [caption, otherCaption] = [
+      ...canvasElement.querySelectorAll<HTMLElement>('.ni-caption'),
+    ] as [HTMLElement, HTMLElement];
+    const unfocused = getComputedStyle(button).boxShadow;
     await userEvent.tab();
     await expect(button).toHaveFocus();
     await expect(button.matches(':focus-visible')).toBe(true);
     const style = getComputedStyle(button);
-    // The selected button sits sunk; its rect already includes that translation.
-    const ringBottom =
-      button.getBoundingClientRect().bottom +
-      Number.parseFloat(style.outlineOffset) +
-      Number.parseFloat(style.outlineWidth);
-    await expect(caption.getBoundingClientRect().top).toBeGreaterThan(ringBottom + 2);
+    // Focus is visible as a change inside the button, and no outer ring reaches the caption.
+    await expect(style.boxShadow).not.toBe(unfocused);
+    await expect(style.boxShadow).toContain('inset');
+    await expect(style.outlineStyle).toBe('none');
+    // The selection ring reaches 7px past the (sunk) button; the caption starts below it.
+    await expect(caption.getBoundingClientRect().top).toBeGreaterThanOrEqual(
+      button.getBoundingClientRect().bottom + 7,
+    );
+    // Captions in a row line up whether or not the button is a selected toggle.
+    await expect(
+      Math.abs(caption.getBoundingClientRect().top - otherCaption.getBoundingClientRect().top),
+    ).toBeLessThanOrEqual(1);
   },
 };
 
@@ -76,7 +90,7 @@ function StatesGrid() {
         <span className="story-cell__name">replay · playing</span>
       </div>
       <div className="story-cell">
-        <IconButton label="ui.btn.close" icon={<CheckIcon />} />
+        <IconButton label="ui.btn.done" icon={<CheckIcon />} />
         <span className="story-cell__name">cloud</span>
       </div>
       <div className="story-cell">
@@ -101,7 +115,17 @@ function StatesGrid() {
         <span className="story-cell__name">selected (ring + check badge)</span>
       </div>
       <div className="story-cell">
-        <IconButton label="ui.btn.close" icon={<CheckIcon />} disabled />
+        <IconButton
+          label="ui.btn.next"
+          icon={<ArrowIcon />}
+          tone="sun"
+          pressed
+          previewState="focus"
+        />
+        <span className="story-cell__name">selected + keyboard focus (inner ring)</span>
+      </div>
+      <div className="story-cell">
+        <IconButton label="ui.btn.done" icon={<CheckIcon />} disabled />
         <span className="story-cell__name">disabled (hatched, dashed)</span>
       </div>
     </div>
@@ -110,7 +134,7 @@ function StatesGrid() {
 
 async function checkSizes(canvasElement: HTMLElement, ageMode: 'k' | 'g1-up') {
   const buttons = within(canvasElement).getAllByRole('button');
-  await expect(buttons.length).toBe(12);
+  await expect(buttons.length).toBe(13);
   for (const b of buttons) await expectTargetSize(b, ageMode);
   await expectTargetGaps(buttons);
 }
