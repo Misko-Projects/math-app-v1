@@ -289,6 +289,59 @@ describe('clip stitching', () => {
     ]);
   });
 
+  it("stitches a Pip line's numbers in Pip's own voice (02 §5.5)", async () => {
+    const { manager, ctx, speech } = await setup({
+      manifest: fixtureManifest([], ['pip:num.8#0', 'pip:num.8.end#0', 'num.8.end#0']),
+    });
+    void manager.say('ls.CNT.03.w1.s3', { n: 8 });
+    await flush();
+    expect(labels(clipSources(ctx))).toEqual([
+      'ls.CNT.03.w1.s3#0',
+      'pip:num.8#0',
+      'ls.CNT.03.w1.s3#1',
+      'pip:num.8.end#0',
+      'ls.CNT.03.w1.s3#2',
+    ]);
+    expect(speech.lines).toHaveLength(0);
+  });
+
+  it("falls back to the narrator's clip when a voice clip is missing", async () => {
+    // Pip has the plain clip of 8 but not its .end variant, and no clip of 3 at all.
+    const { manager, ctx, speech, warnings } = await setup({
+      manifest: fixtureManifest([], ['pip:num.8#0']),
+    });
+    void manager.say('ls.CNT.03.w1.s3', { n: 8 });
+    await flush();
+    // Pip's own plain clip beats the narrator's .end variant: one voice for the whole number.
+    expect(labels(clipSources(ctx))).toEqual([
+      'ls.CNT.03.w1.s3#0',
+      'pip:num.8#0',
+      'ls.CNT.03.w1.s3#1',
+      'pip:num.8#0',
+      'ls.CNT.03.w1.s3#2',
+    ]);
+    manager.stop();
+    await flush();
+    void manager.say('ls.CNT.03.w1.s3', { n: 3 });
+    await flush();
+    expect(labels(clipSources(ctx)).slice(5)).toEqual([
+      'ls.CNT.03.w1.s3#0',
+      'num.3#0',
+      'ls.CNT.03.w1.s3#1',
+      'num.3#0',
+      'ls.CNT.03.w1.s3#2',
+    ]);
+    expect(speech.lines).toHaveLength(0);
+    expect(warnings).toEqual([]);
+  });
+
+  it("stitches Glim's phrase-line numbers in Glim's voice", async () => {
+    const { manager, ctx } = await setup({ manifest: fixtureManifest([], ['glim:num.7.end#0']) });
+    void manager.sayPhrases([{ id: 'ph.you-have' }, { number: 7 }]);
+    await flush();
+    expect(labels(clipSources(ctx))).toEqual(['ph.you-have#0', 'glim:num.7.end#0']);
+  });
+
   it('skips a missing punctuation-only clip instead of falling back', async () => {
     const { manager, ctx, speech } = await setup({
       manifest: fixtureManifest(['tp.ADD.08.t1.prompt#2']),

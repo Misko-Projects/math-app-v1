@@ -9,13 +9,17 @@ import type {
   NarrationVoice,
   PhrasePart,
 } from '@number-island/shared';
+import { voiceClipId } from '@number-island/shared';
 import { endVariantKey, expandSlot, isSlotToken, parseSlotToken, SlotError } from './slots';
 
 type Vars = Readonly<Record<string, string | number>>;
 
 /** One clip of a line. The first candidate the manifest knows is played. */
 export interface PlannedClip {
-  /** Clip ids to try in order (a sentence-final `.end` variant first, then the plain clip). */
+  /**
+   * Clip ids to try in order. For a clip-set word: the line's own voice first, then the narrator's
+   * clip (02 §5.5); within each voice the sentence-final `.end` variant before the plain clip.
+   */
   candidates: ClipId[];
   /** Punctuation-only static segments: skipped, not a fallback trigger, when they have no audio. */
   optional: boolean;
@@ -58,6 +62,7 @@ export function planLine(
   );
   const tailIsTerminal = trailingIsTerminal(segments);
   const lastSlotIndex = findLastIndex(entry.clips, isSlotToken);
+  const voice = entry.voice ?? 'narrator';
 
   let clips: PlannedClip[] | null = [];
   let staticIndex = 0;
@@ -80,7 +85,7 @@ export function planLine(
     try {
       const keys = expandSlot(token, vars);
       const sentenceFinal = i === lastSlotIndex && tailIsTerminal;
-      const planned = keysToClips(narration, keys, sentenceFinal, problems);
+      const planned = keysToClips(narration, keys, sentenceFinal, voice, problems);
       if (planned === null) clips = null;
       else clips?.push(...planned);
     } catch (e) {
@@ -92,7 +97,7 @@ export function planLine(
   return {
     text: fillDisplay(entry.text, narration, vars),
     spoken: spokenText(entry, narration, vars),
-    voice: entry.voice ?? 'narrator',
+    voice,
     clips,
     problems,
   };
@@ -128,7 +133,7 @@ export function planPhrases(narration: NarrationJson, parts: readonly PhrasePart
       const keys = expandSlot({ name: 'n', type: 'num' }, { n: part.number });
       words.push(wordsFor(narration, keys, String(part.number)));
       // A number that ends the line takes the falling, sentence-final variant (03 §8.3).
-      const planned = keysToClips(narration, keys, i === lastIndex, problems);
+      const planned = keysToClips(narration, keys, i === lastIndex, 'glim', problems);
       if (planned === null) clips = null;
       else clips?.push(...planned);
     } catch (e) {
@@ -141,10 +146,16 @@ export function planPhrases(narration: NarrationJson, parts: readonly PhrasePart
   return { text: spoken, spoken, voice: 'glim', clips: clips?.length ? clips : null, problems };
 }
 
+/**
+ * The clips of clip-set keys (`num.23`) spoken in `voice`. Each clip tries the voice's own clip
+ * (`pip:num.23#0`), then the narrator's (`num.23#0`), so a missing voice clip still stitches
+ * (02 §5.5, 03 §8.3).
+ */
 function keysToClips(
   narration: NarrationJson,
   keys: readonly string[],
   sentenceFinal: boolean,
+  voice: NarrationVoice,
   problems: string[],
 ): PlannedClip[] | null {
   const out: PlannedClip[] = [];
@@ -159,7 +170,9 @@ function keysToClips(
     entry.clips.forEach((clip, j) => {
       const finalClip = j === entry.clips.length - 1;
       // A02 renders the `.end` variant of `num.23` as the clip `num.23.end#0` (`<key>#<i>`, 03 §8.4).
-      const candidates = end && finalClip ? [`${end}#0`, clip] : [clip];
+      const narrator = end && finalClip ? [`${end}#0`, clip] : [clip];
+      const voiced = narrator.map((c) => voiceClipId(c, voice));
+      const candidates = [...new Set([...voiced, ...narrator])];
       out.push({ candidates, optional: false });
     });
   }
