@@ -1,7 +1,8 @@
 // Item contracts (02 §5.2, 03 §5.1–§5.5). Behaviour (generateItem, checkResponse,
 // detectProcessMisconceptions) lives in packages/engine.
-// Import order is acyclic: core ← widgets ← item.
+// Import order is acyclic: core ← widgets ← item; core ← formats.
 
 export * from './core';
+export * from './formats';
 export * from './item';
 export * from './widgets';

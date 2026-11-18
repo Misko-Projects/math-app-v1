@@ -1,10 +1,31 @@
-import type { ItemFormat, Representation, Tier } from '@number-island/shared';
+import { z } from 'zod';
+import { assertType, type Equals } from '../internal/type-assert';
+import {
+  type AnswerSpec,
+  type ItemFormat,
+  type Representation,
+  representationSchema,
+  type Tier,
+  tierSchema,
+} from './core';
 
-// 03 §5.5 summary table plus each format's demo-mode op list. The compiler uses it for V11
-// (representation and tier the format supports) and V21 (authored lesson ops exist for the format).
-// The default representation per format lives in shared (`FORMAT_DEFAULT_REPRESENTATION`).
+// 03 §5.5 summary table plus each format's demo-mode op list (02 §5.9 E1). The content compiler
+// uses it for V11 (representation and tier the format supports) and V21 (authored lesson ops exist
+// for the format); the engine uses it for the 03 §9.4 property test (tiers, answer kinds) and the
+// test-out answer-kind recheck in tools/content-check. The default representation per format is
+// `FORMAT_DEFAULT_REPRESENTATION` (./item).
 
 export type AnswerKind = 'number' | 'numbers' | 'choice' | 'placement' | 'state';
+export const ANSWER_KINDS = [
+  'number',
+  'numbers',
+  'choice',
+  'placement',
+  'state',
+] as const satisfies readonly AnswerKind[];
+export const answerKindSchema = z.enum(ANSWER_KINDS);
+assertType<Equals<z.infer<typeof answerKindSchema>, AnswerKind>>(true);
+assertType<Equals<AnswerKind, AnswerSpec['kind']>>(true);
 
 export interface FormatSupport {
   /** Representations the format can render, or 'any' (rendered through a `StimulusSpec`). */
@@ -14,6 +35,13 @@ export interface FormatSupport {
   ops: readonly string[];
   answers: readonly AnswerKind[];
 }
+export const formatSupportSchema = z.object({
+  representations: z.union([z.array(representationSchema).readonly(), z.literal('any')]),
+  tiers: z.array(tierSchema).min(1).readonly(),
+  ops: z.array(z.string().min(1)).readonly(),
+  answers: z.array(answerKindSchema).min(1).readonly(),
+});
+assertType<Equals<z.infer<typeof formatSupportSchema>, FormatSupport>>(true);
 
 const C = 'concrete';
 const P = 'pictorial';
