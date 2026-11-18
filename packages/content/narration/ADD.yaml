@@ -1,0 +1,11 @@
+# ADD narration (03 §8): skill intros, template prompts and lesson lines owned by the strand.
+sk.ADD.01.intro:
+  text: "When we add, we put groups together."
+sk.ADD.03.intro:
+  text: "Start with the bigger number and count on. No need to start at one!"
+
+tp.ADD.03.t1.prompt:
+  text: "Start on {a} and hop {b} more. Where do you land?"
+tp.ADD.03.t4.prompt:
+  text: "{a} + {b} = ?"
+  say: "What is {a} plus {b}? Start with the bigger number."

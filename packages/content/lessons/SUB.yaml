@@ -1,0 +1,25 @@
+# Authored lessons (03 §4.5, §6). Skills without an entry get an auto lesson (03 §6.4).
+strand: SUB
+lessons:
+  - skillId: SUB.03
+    mode: authored
+    templateId: SUB.03.t1
+    worked:
+      - params: { n: 7, arrangement: ten-frame }
+        steps:
+          - actor: demo
+            say: ls.SUB.03.w1.s1
+            action: { op: place, args: { frame: 0, count: 5, color: a } }
+          - actor: demo
+            say: ls.SUB.03.w1.s2
+            vars: { more: 2 }
+            action: { op: place, args: { frame: 0, count: 2, color: b } }
+          - actor: demo
+            say: ls.SUB.03.w1.s3
+            vars: { more: 2, n: 7 }
+            action: { op: count-total }
+    faded:
+      - params: { n: 9, arrangement: ten-frame }
+        childSteps: 1
+      - params: { n: 6, arrangement: ten-frame }
+        childSteps: 2
