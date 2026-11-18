@@ -6,6 +6,8 @@ A single Hono app (`apps/api`) runs on Cloudflare Workers. It uses D1 via Drizzl
 
 ## 2. Routes (all under `/api`, JSON, Zod-validated with schemas in `packages/shared/src/api.ts`)
 
+One exception to whole-body validation: `POST /sync` is parsed with `syncRequestIngressSchema`. That is `syncRequestSchema` with each `events` entry left raw, and the array still capped at 500. Each raw entry is then validated on its own with `inboundEventEnvelopeSchema`, an invalid event is reported in the response's `rejected`, and the rest of the call goes ahead (§4, 02 §5.9 S1). `syncRequestSchema` stays strict and describes what a correct client sends.
+
 | Method & path | Auth | Purpose |
 |---|---|---|
 | `GET /health` | none | `{ ok, version, contentVersion, ai: { feedback, vision, summary } }`. The `ai` flags show which features have keys configured (never the keys). |
@@ -40,7 +42,8 @@ POST /api/sync
     events: EventEnvelope[] (≤ 500 per call; client loops),
     settings: { key, value, updatedAt }[],
     profiles: ChildProfile[] (with updatedAt) }
-← { accepted: EventId[],                 // includes duplicates already present
+← { accepted: EventId[],                 // includes duplicates already present (and a deleted child's events, not stored)
+    rejected: SyncRejection[],            // pushed events refused permanently, per event, ordered by index (02 §5.9 S1)
     events: EventEnvelope[],              // events since cursor from OTHER devices, ≤ 1000, ordered by server seq
     cursor: string,                       // opaque (server sequence)
     more: boolean,
@@ -48,10 +51,10 @@ POST /api/sync
 ```
 
 - Server table `events` keeps a monotonically increasing `seq` (INTEGER PRIMARY KEY AUTOINCREMENT) plus a unique `id`. `INSERT OR IGNORE` makes pushes idempotent. Pull returns `seq > cursor`.
-- The server validates every **envelope** strictly and the **payloads of known event types** strictly with the shared Zod schemas (unknown payload fields are stripped). Events of **unknown types** are accepted and stored opaquely, then relayed to other devices unchanged, for forward compatibility (02 §4.2). It rejects an unknown `familyId`, caps payload size (8 KB per event) and stamps `receivedAt`. It does **not** recompute projections; clients fold.
+- The server validates every **envelope** strictly and the **payloads of known event types** strictly with the shared Zod schemas (unknown payload fields are stripped). Events of **unknown types** are accepted and stored opaquely, then relayed to other devices unchanged, for forward compatibility (02 §4.2). It rejects an unknown `familyId`, caps payload size (8 KB per event) and stamps `receivedAt`. Each pushed event is validated on its own: a refused event is listed in `rejected` with a stable code, and the rest of the call succeeds (02 §5.9 S1). It does **not** recompute projections; clients fold.
 - Clients sync on app start, after each request completes, on wind-down, and every 60 s while online (with backoff on error). Sync never blocks gameplay.
 - Device clocks may be wrong. Folds order by `ts` then `id`. Bounded skew: if `ts` is more than 24 h in the future, the server clamps it to `receivedAt` (stored as `ts`, original kept in the optional envelope field `clientTs`, 02 §4.2).
-- Tombstones: a `child.deleted` event (envelope `childId: null`, payload `{ childId }`) makes clients purge that child's local events and profile. The server deletes that child's stored events and keeps the tombstone.
+- Tombstones: a `child.deleted` event (envelope `childId: null`, `deviceId: familyId`, payload `{ childId }`) makes clients purge that child's local events and profile. The server deletes that child's stored events and keeps the tombstone. New tombstones are created only by `DELETE /children/:id`. `POST /import` replays and applies those in a backup, and `/sync` acknowledges a pushed `child.deleted` only when the server already holds a `child.deleted` event with the same id in that family, rejecting any other as `forbidden`. Events, settings and profiles pushed later for a deleted child are acknowledged but not stored (02 §5.9 S1, S2).
 
 ## 5. D1 schema (Drizzle; migrations in `apps/api/src/db/migrations`)
 
@@ -96,5 +99,5 @@ ai_cache(key_hash PK, feature, value_json, created_at)   -- text results only; n
 ## 9. Testing (API)
 
 - `@cloudflare/vitest-pool-workers` integration tests for every route: auth, rate limits, pairing, sync idempotency, cursor paging, clock-skew clamping, tombstones, export/import round trip.
-- A contract test asserts that every route's request/response matches the `shared` Zod schemas.
+- A contract test asserts that every route's request/response matches the `shared` Zod schemas. For `/sync`, requests built with `syncRequestSchema` must succeed, and the server parses them with `syncRequestIngressSchema` plus per-event validation (§2).
 - AI routes are tested against **mock providers** (07 §9). There are no network calls in CI.
