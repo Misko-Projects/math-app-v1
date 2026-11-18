@@ -1,0 +1,126 @@
+// 03 §5.7 checking: `checkResponse(item, r)` (pure and deterministic) and
+// `detectProcessMisconceptions(item, r, meta)` (02 §5.2, run by the TaskRunner after the check).
+
+import type {
+  AnswerSpec,
+  CheckResult,
+  GeneratedItem,
+  MisconceptionId,
+  ResponseValue,
+} from '@number-island/shared';
+import { stateChecker } from '../check/state';
+import { boundMisconceptions } from '../content/binding';
+import { applicableMisconceptions, type ProcessMeta, sameResponse } from '../misconceptions';
+import { devLog } from './devlog';
+
+const round6 = (x: number): number => Math.round(x * 1e6) / 1e6;
+
+/** Whether the response kind is the one the answer expects (03 §5.1 compatibility). */
+export function compatible(answer: AnswerSpec, r: ResponseValue): boolean {
+  return answer.kind === r.kind;
+}
+
+/** 03 §5.7 `matches` by answer kind. */
+export function matches(answer: AnswerSpec, r: ResponseValue): boolean {
+  switch (answer.kind) {
+    case 'number':
+      // Compare after rounding to 6 decimals; the difference is rounded too, so a response exactly
+      // at the tolerance (2.1 vs 2 ± 0.1) is not lost to floating-point noise.
+      return (
+        r.kind === 'number' &&
+        round6(Math.abs(round6(r.value) - round6(answer.value))) <= (answer.tolerance ?? 0)
+      );
+    case 'numbers': {
+      if (r.kind !== 'numbers' || r.values.length !== answer.values.length) return false;
+      if (answer.fraction?.equivalentOk && answer.values.length === 2) {
+        const [a, b] = r.values as [number, number];
+        const [c, d] = answer.values as [number, number];
+        return b !== 0 && a * d === b * c;
+      }
+      if (answer.ordered)
+        return answer.values.every((v, i) => round6(v) === round6(r.values[i] as number));
+      const want = [...answer.values].map(round6).sort((x, y) => x - y);
+      const got = [...r.values].map(round6).sort((x, y) => x - y);
+      return want.every((v, i) => v === got[i]);
+    }
+    case 'choice':
+      return r.kind === 'choice' && r.id === answer.id;
+    case 'placement':
+      return r.kind === 'placement' && round6(Math.abs(r.value - answer.value)) <= answer.tolerance;
+    case 'state': {
+      if (r.kind !== 'state') return false;
+      const checker = stateChecker(answer.checker);
+      return checker ? checker.check(answer.target, r.value) : false;
+    }
+  }
+}
+
+export function checkResponse(item: GeneratedItem, r: ResponseValue): CheckResult {
+  if (r.kind === 'skip') {
+    return { correct: false, partialCredit: 0, misconceptionIds: [], feedback: 'fb.skip' };
+  }
+  if (!compatible(item.answer, r)) {
+    devLog({
+      event: 'response.incompatible',
+      templateId: item.templateId,
+      answerKind: item.answer.kind,
+      responseKind: r.kind,
+    });
+    return { correct: false, partialCredit: 0, misconceptionIds: [], feedback: 'fb.retry' };
+  }
+  const correct = matches(item.answer, r);
+  const closeness =
+    item.answer.kind === 'placement' && r.kind === 'placement'
+      ? 1 -
+        Math.min(
+          1,
+          Math.abs(r.value - item.answer.value) / (0.25 * (item.answer.max - item.answer.min)),
+        )
+      : undefined;
+  const misconceptionIds = correct ? [] : answerMisconceptions(item, r);
+  const library = boundMisconceptions();
+  const feedback = correct
+    ? `fb.correct.${1 + (((item.seed % 6) + 6) % 6)}`
+    : misconceptionIds.length > 0
+      ? (library.find((m) => m.id === misconceptionIds[0])?.feedback ?? `fb.${item.format}.retry`)
+      : `fb.${item.format}.retry`;
+  return {
+    correct,
+    partialCredit: correct ? 1 : 0,
+    misconceptionIds,
+    feedback,
+    ...(closeness !== undefined ? { closeness } : {}),
+  };
+}
+
+/**
+ * Answer and state rules that match an incorrect response, by priority (descending) then id.
+ * When two rules predict the same response, only the higher-priority one is tagged (03 §7.1).
+ */
+function answerMisconceptions(item: GeneratedItem, r: ResponseValue): MisconceptionId[] {
+  const out: MisconceptionId[] = [];
+  const taggedPredictions: ResponseValue[] = [];
+  for (const { spec, rule } of applicableMisconceptions(item, ['answer', 'state'])) {
+    if (!rule.match(item, r)) continue;
+    const predicted = rule.predict?.(item) ?? null;
+    if (predicted && taggedPredictions.some((p) => sameResponse(p, predicted))) continue;
+    if (predicted) taggedPredictions.push(predicted);
+    out.push(spec.id);
+  }
+  return out;
+}
+
+/**
+ * Process misconceptions (02 §5.2, 03 §5.7): rules that read the interaction trace and latency.
+ * They may tag a correct response. The runner merges these with checkResponse's ids.
+ */
+export function detectProcessMisconceptions(
+  item: GeneratedItem,
+  r: ResponseValue,
+  meta: ProcessMeta,
+): MisconceptionId[] {
+  if (r.kind === 'skip') return [];
+  return applicableMisconceptions(item, ['process'])
+    .filter(({ rule }) => rule.match(item, r, meta))
+    .map(({ spec }) => spec.id);
+}

@@ -77,7 +77,8 @@ templates:
     representation: fingers
     generator: subitize.flash
     params: { n: { int: [6, 10] }, arrangement: fingers }
-    difficulty: { base: -0.3 }
+    # Tuned from template-stats (E01): 6–10 dots in two groups carry ~1.5 of features.
+    difficulty: { base: -1.5 }
     narration: { prompt: p.subitize.how-many, hints: [h.subitize.five-and] }
 
   - id: SUB.03.t3
@@ -86,7 +87,7 @@ templates:
     tier: pictorial
     generator: subitize.flash
     params: { n: { int: [6, 10] }, arrangement: { choice: [ten-frame, groups] } }
-    difficulty: { base: -0.3 }
+    difficulty: { base: -1.5 } # tuned from template-stats (E01)
     narration: { prompt: p.subitize.how-many, hints: [h.subitize.look-groups, h.subitize.five-and] }
 
   - id: SUB.03.t4
