@@ -1,6 +1,13 @@
 import { env } from 'cloudflare:workers';
 import { newId, settingsKey, withSettingDefaults } from '@number-island/shared';
 import { describe, expect, it } from 'vitest';
+import { createDb } from '../src/db/client';
+import {
+  insertEvents,
+  mergeProfiles,
+  mergeSettings,
+  toStoredEvent,
+} from '../src/services/event-store';
 import {
   api,
   expectError,
@@ -146,6 +153,44 @@ describe('DELETE /api/children/:id', () => {
       (e) => e.type === 'child.deleted',
     );
     expect(tombs.map((e) => e.payload)).toEqual([{ childId: child.id.toLowerCase() }]);
+  });
+
+  it('leaves exactly one tombstone when two deletes race', async () => {
+    const { family, child } = await familyWithChild();
+    const [a, b] = await Promise.all([del(child.id, family.cookie), del(child.id, family.cookie)]);
+    expect([a.status, b.status]).toEqual([200, 200]);
+    const n = await env.DB.prepare(
+      "SELECT COUNT(*) AS n FROM events WHERE type = 'child.deleted'",
+    ).first<{ n: number }>();
+    expect(n?.n).toBe(1);
+  });
+
+  it('guards writes in SQL, so a write prepared before the delete cannot land after it', async () => {
+    const { family, tablet, child } = await familyWithChild();
+    // The sync's inputs were decided while the child was live...
+    const event = toStoredEvent(
+      roadEvent(family.familyId, tablet.deviceId, { childId: child.id }),
+      Date.now(),
+    );
+    const settingsDoc = {
+      key: settingsKey(child.id),
+      value: withSettingDefaults({ kind: 'child', grade: 'K' }),
+      updatedAt: 999,
+    };
+    // ...then the parent's delete commits, then the writes run.
+    await del(child.id, family.cookie);
+    const db = createDb(env.DB);
+    expect(await insertEvents(db, family.familyId, [event], Date.now())).toBe(0);
+    expect(await mergeSettings(db, family.familyId, [settingsDoc])).toBe(0);
+    expect(
+      await mergeProfiles(db, family.familyId, [{ ...child, updatedAt: child.updatedAt + 1 }]),
+    ).toBe(0);
+    const left = await env.DB.prepare(
+      'SELECT (SELECT COUNT(*) FROM events WHERE child_id = ?1) + (SELECT COUNT(*) FROM settings WHERE key = ?2) AS n',
+    )
+      .bind(child.id, settingsKey(child.id))
+      .first<{ n: number }>();
+    expect(left?.n).toBe(0);
   });
 
   it('is idempotent: a repeat purges again without a second tombstone', async () => {

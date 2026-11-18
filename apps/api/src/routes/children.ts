@@ -8,7 +8,7 @@ import { Hono } from 'hono';
 import { requireParent } from '../auth/middleware';
 import type { AppBindings } from '../env';
 import { KB, limitBody, pathParams, requireJsonContentType } from '../lib/http';
-import { canonId, purgeChild, tombstonedChildIds, tombstoneEvent } from '../services/event-store';
+import { canonId, purgeChild, tombstoneEvent } from '../services/event-store';
 
 // DELETE /children/:id (08 §2, §4): purge a child everywhere and propagate a tombstone.
 
@@ -33,9 +33,9 @@ childRoutes.delete(
     const familyId = c.get('familyId');
     const { id }: ChildIdParams = c.req.valid('param');
     const child = canonId(id);
-    const already = (await tombstonedChildIds(db, familyId)).has(child);
-    const tombstone = already ? null : tombstoneEvent(newId(), familyId, child, now);
-    await purgeChild(db, familyId, child, now, tombstone);
+    // The tombstone is inserted only if the family has none for this child yet, inside the purge
+    // transaction, so repeated or concurrent deletes leave exactly one.
+    await purgeChild(db, familyId, child, now, tombstoneEvent(newId(), familyId, child, now));
     const res: OkResponse = { ok: true };
     return c.json(res);
   },

@@ -1,7 +1,7 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "7bed8ecd-3b1d-4f59-95d1-714ce412c7de",
+  "id": "1926e2ba-bdf7-400c-b317-e041a1dede72",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "tables": {
     "ai_cache": {
@@ -281,6 +281,11 @@
         "events_family_child_ts": {
           "name": "events_family_child_ts",
           "columns": ["family_id", "child_id", "ts"],
+          "isUnique": false
+        },
+        "events_family_type": {
+          "name": "events_family_type",
+          "columns": ["family_id", "type"],
           "isUnique": false
         }
       },

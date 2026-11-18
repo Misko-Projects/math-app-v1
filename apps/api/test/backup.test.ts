@@ -161,6 +161,59 @@ describe('POST /api/import', () => {
     expect((await syncOk(family.deviceToken)).profiles).toEqual([]);
   });
 
+  it('refuses, before any write, a tombstone whose id is held by a different event', async () => {
+    const family = await setupFamily();
+    const child = profileFor(family.familyId);
+    const ordinary = roadEvent(family.familyId, family.deviceId, { childId: child.id });
+    await syncOk(family.deviceToken, { profiles: [child], events: [ordinary] });
+    const backup: BackupFile = {
+      format: 'number-island-backup',
+      formatVersion: 1,
+      exportedAt: Date.now(),
+      familyId: family.familyId,
+      events: [
+        {
+          ...roadEvent(family.familyId, family.familyId),
+          id: ordinary.id,
+          type: 'child.deleted',
+          payload: { childId: child.id },
+        } as BackupFile['events'][number],
+      ],
+      settings: [],
+      profiles: [],
+    };
+    await expectError(await importBackup(family.cookie, backup), 409, 'conflict');
+    expect((await syncOk(family.deviceToken)).profiles).toEqual([child]);
+    const n = await env.DB.prepare('SELECT COUNT(*) AS n FROM events').first<{ n: number }>();
+    expect(n?.n).toBe(1);
+  });
+
+  it('refuses tombstones that are not server-authored', async () => {
+    const family = await setupFamily();
+    const child = profileFor(family.familyId);
+    await syncOk(family.deviceToken, { profiles: [child] });
+    const base = {
+      format: 'number-island-backup' as const,
+      formatVersion: 1 as const,
+      exportedAt: Date.now(),
+      familyId: family.familyId,
+      settings: [],
+      profiles: [],
+    };
+    const tomb = (overrides: object) =>
+      ({
+        ...roadEvent(family.familyId, family.familyId),
+        type: 'child.deleted',
+        payload: { childId: child.id },
+        ...overrides,
+      }) as BackupFile['events'][number];
+    for (const bad of [{ childId: child.id }, { deviceId: family.deviceId }]) {
+      const res = await importBackup(family.cookie, { ...base, events: [tomb(bad)] });
+      await expectError(res, 400, 'validation_failed');
+    }
+    expect((await syncOk(family.deviceToken)).profiles).toEqual([child]);
+  });
+
   it('keeps newer server settings and profiles (LWW)', async () => {
     const { family, kid } = await seededFamily();
     const backup = await exportBackup(family.cookie);

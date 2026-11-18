@@ -7,16 +7,32 @@ import {
   settingsKey,
   utf8ByteLength,
 } from '@number-island/shared';
-import { and, asc, eq, isNotNull, sql } from 'drizzle-orm';
+import { and, asc, eq, type SQL, sql } from 'drizzle-orm';
 import { batchSql, type Db } from '../db/client';
 import { type events, profiles, settings } from '../db/schema';
 import { CONTENT_VERSION } from '../version';
 
 // The family event log, settings and profiles in D1 (02 §4, 08 §4–§5). Shared by /sync, /import,
 // /export and DELETE /children/:id.
+//
+// A child is *deleted* exactly when the family's log holds a `child.deleted` tombstone for it
+// (02 §5.9 S2). Every write that could bring a deleted child's data back (events, settings,
+// profiles) re-checks that inside its own SQL statement, so a sync racing a parent's delete can
+// never resurrect the child: D1 runs each statement atomically and serialises transactions.
 
 /** 08 §4: a `ts` more than 24 h ahead of the server is clamped to `receivedAt`. */
 export const MAX_FUTURE_SKEW_MS = 24 * 60 * 60 * 1000;
+
+/**
+ * Cap on an event's free-form envelope strings (`type` + `contentVersion`, UTF-8 bytes). The
+ * shared schema bounds only the payload (8 KB), and D1 rejects oversized rows for the whole batch,
+ * so larger envelopes are refused per event before any write.
+ */
+export const MAX_EVENT_ENVELOPE_STRING_BYTES = 1024;
+
+export function envelopeStringBytes(e: { type: string; contentVersion: string }): number {
+  return utf8ByteLength(e.type) + utf8ByteLength(e.contentVersion);
+}
 
 /** A validated event ready to store. */
 export interface StoredEvent {
@@ -34,7 +50,7 @@ export interface StoredEvent {
 /**
  * Applies the clock-skew clamp (08 §4): a future `ts` beyond 24 h becomes `receivedAt` and the
  * device's original time is kept in `clientTs`. An event that already carries `clientTs` (relayed
- * after an earlier clamp) keeps it.
+ * after an earlier clamp) keeps that original time, even when it is clamped again.
  */
 export function toStoredEvent(e: AnyEventEnvelope, receivedAt: number): StoredEvent {
   const clamp = e.ts > receivedAt + MAX_FUTURE_SKEW_MS;
@@ -44,7 +60,7 @@ export function toStoredEvent(e: AnyEventEnvelope, receivedAt: number): StoredEv
     childId: e.childId,
     deviceId: e.deviceId,
     ts: clamp ? receivedAt : e.ts,
-    clientTs: clamp ? e.ts : (e.clientTs ?? null),
+    clientTs: e.clientTs ?? (clamp ? e.ts : null),
     type: e.type,
     payloadJson: JSON.stringify(e.payload),
     contentVersion: e.contentVersion,
@@ -72,6 +88,22 @@ export function rowToEnvelope(row: EventRow): AnyEventEnvelope {
 }
 
 /**
+ * Canonical form of a UUID for comparisons. The shared id grammar accepts either case (02 §5.9),
+ * and ids are relayed exactly as pushed, so every server-side identity check (reserved device id,
+ * deleted children) compares canonical forms; otherwise `ABC…` would slip past a check for `abc…`.
+ */
+export function canonId(id: string): string {
+  return id.toLowerCase();
+}
+
+/** SQL: true when the family's log holds a tombstone for the child id `child` (any casing). */
+function isDeletedChild(familyId: string, child: SQL): SQL {
+  return sql`EXISTS (SELECT 1 FROM events t
+    WHERE t.family_id = ${familyId} AND t.type = 'child.deleted'
+      AND lower(json_extract(t.payload_json, '$.childId')) = lower(${child}))`;
+}
+
+/**
  * D1 allows 100 bound parameters per statement, so rows travel as one JSON array parameter and
  * are expanded with `json_each`: one statement per ~512 KB chunk instead of one per 9 rows.
  */
@@ -95,17 +127,16 @@ function chunkByJsonSize<T>(items: T[]): T[][] {
   return chunks;
 }
 
+function sumChanges(results: D1Result[]): number {
+  return results.reduce((n, r) => n + r.meta.changes, 0);
+}
+
 /**
- * `INSERT OR IGNORE` (08 §4): idempotent by event id, in array order (so `seq` follows it).
- * Returns how many rows were new.
+ * Statements for `INSERT OR IGNORE` (08 §4): idempotent by event id, in array order (so `seq`
+ * follows it). Events of a deleted child are skipped by the statement itself.
  */
-export async function insertEvents(
-  db: Db,
-  rows: StoredEvent[],
-  receivedAt: number,
-): Promise<number> {
-  if (rows.length === 0) return 0;
-  const statements = chunkByJsonSize(rows).map(
+export function insertEventsSql(familyId: string, rows: StoredEvent[], receivedAt: number): SQL[] {
+  return chunkByJsonSize(rows).map(
     (chunk) => sql`
       INSERT OR IGNORE INTO events
         (id, family_id, child_id, device_id, ts, client_ts, type, payload_json, content_version, received_at)
@@ -115,10 +146,20 @@ export async function insertEvents(
         json_extract(value, '$.type'), json_extract(value, '$.payloadJson'),
         json_extract(value, '$.contentVersion'), ${receivedAt}
       FROM json_each(${JSON.stringify(chunk)})
+      WHERE json_extract(value, '$.childId') IS NULL
+        OR NOT ${isDeletedChild(familyId, sql`json_extract(value, '$.childId')`)}
       ORDER BY key`,
   );
-  const results = await batchSql(db, statements);
-  return results.reduce((n, r) => n + r.meta.changes, 0);
+}
+
+/** Runs `insertEventsSql` in one transaction. Returns how many rows were new. */
+export async function insertEvents(
+  db: Db,
+  familyId: string,
+  rows: StoredEvent[],
+  receivedAt: number,
+): Promise<number> {
+  return sumChanges(await batchSql(db, insertEventsSql(familyId, rows, receivedAt)));
 }
 
 /** Which of `ids` exist: the family and type of each stored event. */
@@ -137,29 +178,8 @@ export async function storedEventsById(
   return out;
 }
 
-/**
- * Canonical form of a UUID for comparisons. The shared id grammar accepts either case (02 §5.9),
- * and ids are relayed exactly as pushed, so every server-side identity check (reserved device id,
- * deleted children) compares canonical forms; otherwise `ABC…` would slip past a check for `abc…`.
- */
-export function canonId(id: string): string {
-  return id.toLowerCase();
-}
-
-/**
- * Children of this family deleted through DELETE /children/:id (or an imported tombstone), as
- * canonical (lower-case) ids; test membership with `canonId`.
- */
+/** Children this family has tombstoned, as canonical (lower-case) ids. */
 export async function deletedChildIds(db: Db, familyId: string): Promise<Set<string>> {
-  const rows = await db
-    .select({ id: profiles.id })
-    .from(profiles)
-    .where(and(eq(profiles.familyId, familyId), isNotNull(profiles.deletedAt)));
-  return new Set(rows.map((r) => canonId(r.id)));
-}
-
-/** Tombstone events already stored for this family, as canonical deleted-child ids. */
-export async function tombstonedChildIds(db: Db, familyId: string): Promise<Set<string>> {
   const rows = await db.all<{ child: string }>(
     sql`SELECT json_extract(payload_json, '$.childId') AS child FROM events
         WHERE family_id = ${familyId} AND type = 'child.deleted'`,
@@ -168,11 +188,48 @@ export async function tombstonedChildIds(db: Db, familyId: string): Promise<Set<
 }
 
 /**
- * Purges a child (08 §2, §4): deletes their events and settings, and leaves a purged profile row
- * (no data, `deleted_at` set) so stale devices cannot resurrect the profile. Idempotent. A
- * `tombstone` is inserted in the same transaction, so the family's highest `seq` never drops
- * (sync treats a cursor past the end as a server reset). Matching is case-insensitive (`canonId`).
+ * Statements that purge a child (08 §2, §4), every casing of their id, within this family only:
+ * delete their events and settings, and leave a purged profile row (no data, `deleted_at` set).
+ * A `tombstone`, when given, goes first and is inserted only if the family has no tombstone for
+ * the child yet, so concurrent deletes leave exactly one. Inserting it in the same transaction also
+ * keeps the family's highest `seq` from dropping (sync treats a cursor past the end as a reset).
  */
+export function purgeChildSql(
+  familyId: string,
+  childId: string,
+  now: number,
+  tombstone: StoredEvent | null,
+): SQL[] {
+  const child = canonId(childId);
+  const insertTombstone = tombstone
+    ? [
+        sql`
+          INSERT OR IGNORE INTO events
+            (id, family_id, child_id, device_id, ts, client_ts, type, payload_json, content_version, received_at)
+          SELECT ${tombstone.id}, ${tombstone.familyId}, NULL, ${tombstone.deviceId}, ${tombstone.ts},
+            ${tombstone.clientTs}, ${tombstone.type}, ${tombstone.payloadJson},
+            ${tombstone.contentVersion}, ${now}
+          WHERE NOT ${isDeletedChild(familyId, sql`${child}`)}`,
+      ]
+    : [];
+  return [
+    ...insertTombstone,
+    sql`DELETE FROM events WHERE family_id = ${familyId} AND lower(child_id) = ${child}`,
+    sql`DELETE FROM settings WHERE family_id = ${familyId} AND lower(key) = ${settingsKey(child)}`,
+    sql`
+      UPDATE profiles SET data_json = NULL, updated_at = ${now},
+        deleted_at = COALESCE(deleted_at, ${now})
+      WHERE family_id = ${familyId} AND lower(id) = ${child}`,
+    // A purged row for a child the server never saw. Ignored if any family already holds the id:
+    // the tombstone, not this row, is what marks the child deleted.
+    sql`
+      INSERT OR IGNORE INTO profiles (id, family_id, data_json, updated_at, deleted_at)
+      SELECT ${child}, ${familyId}, NULL, ${now}, ${now}
+      WHERE NOT EXISTS (SELECT 1 FROM profiles WHERE family_id = ${familyId} AND lower(id) = ${child})`,
+  ];
+}
+
+/** Runs `purgeChildSql` as one transaction. */
 export async function purgeChild(
   db: Db,
   familyId: string,
@@ -180,31 +237,7 @@ export async function purgeChild(
   now: number,
   tombstone: StoredEvent | null,
 ): Promise<void> {
-  const insertTombstone = tombstone
-    ? [
-        sql`
-          INSERT OR IGNORE INTO events
-            (id, family_id, child_id, device_id, ts, client_ts, type, payload_json, content_version, received_at)
-          VALUES (${tombstone.id}, ${tombstone.familyId}, NULL, ${tombstone.deviceId}, ${tombstone.ts},
-            ${tombstone.clientTs}, ${tombstone.type}, ${tombstone.payloadJson},
-            ${tombstone.contentVersion}, ${now})`,
-      ]
-    : [];
-  const child = canonId(childId);
-  await batchSql(db, [
-    ...insertTombstone,
-    sql`DELETE FROM events WHERE family_id = ${familyId} AND lower(child_id) = ${child}`,
-    sql`DELETE FROM settings WHERE family_id = ${familyId} AND lower(key) = ${settingsKey(child)}`,
-    // Purge every stored casing of the profile, then make sure a purged row exists.
-    sql`
-      UPDATE profiles SET data_json = NULL, updated_at = ${now},
-        deleted_at = COALESCE(deleted_at, ${now})
-      WHERE family_id = ${familyId} AND lower(id) = ${child}`,
-    sql`
-      INSERT INTO profiles (id, family_id, data_json, updated_at, deleted_at)
-      SELECT ${child}, ${familyId}, NULL, ${now}, ${now}
-      WHERE NOT EXISTS (SELECT 1 FROM profiles WHERE lower(id) = ${child})`,
-  ]);
+  await batchSql(db, purgeChildSql(familyId, childId, now, tombstone));
 }
 
 /** The server-authored tombstone (02 §5.9 S2): `deviceId = familyId`, `childId: null`. */
@@ -224,52 +257,53 @@ export function tombstoneEvent(id: string, familyId: string, childId: string, no
 
 /**
  * Settings LWW per whole document (08 §4): the incoming document wins only when strictly newer.
- * Documents of deleted children are ignored. Returns how many documents were written.
+ * Documents of deleted children are skipped by the statement itself.
  */
-export async function mergeSettings(
-  db: Db,
-  familyId: string,
-  docs: SettingsDocument[],
-  deleted: ReadonlySet<string>,
-): Promise<number> {
-  const live = docs.filter(
-    (d) => !(d.key.startsWith('child:') && deleted.has(canonId(d.key.slice(6)))),
-  );
-  if (live.length === 0) return 0;
-  const statements = live.map(
+export function mergeSettingsSql(familyId: string, docs: SettingsDocument[]): SQL[] {
+  return docs.map(
     (d) => sql`
       INSERT INTO settings (family_id, key, value_json, updated_at)
-      VALUES (${familyId}, ${d.key}, ${JSON.stringify(d.value)}, ${d.updatedAt})
+      SELECT ${familyId}, ${d.key}, ${JSON.stringify(d.value)}, ${d.updatedAt}
+      WHERE NOT (${d.key} LIKE 'child:%' AND ${isDeletedChild(familyId, sql`substr(${d.key}, 7)`)})
       ON CONFLICT(family_id, key) DO UPDATE SET value_json = excluded.value_json,
         updated_at = excluded.updated_at
       WHERE excluded.updated_at > settings.updated_at`,
   );
-  const results = await batchSql(db, statements);
-  return results.reduce((n, r) => n + r.meta.changes, 0);
+}
+
+/** Runs `mergeSettingsSql` in one transaction. Returns how many documents were written. */
+export async function mergeSettings(
+  db: Db,
+  familyId: string,
+  docs: SettingsDocument[],
+): Promise<number> {
+  return sumChanges(await batchSql(db, mergeSettingsSql(familyId, docs)));
 }
 
 /**
- * Profiles LWW by `updatedAt` (08 §4). A purged (deleted) child's row is never overwritten, and a
- * profile id held by another family is left alone. Returns how many profiles were written.
+ * Profiles LWW by `updatedAt` (08 §4). A deleted child's profile is never written (checked in the
+ * statement), a purged row is never overwritten, and a profile id held by another family is left
+ * alone.
  */
-export async function mergeProfiles(
-  db: Db,
-  familyId: string,
-  incoming: ChildProfile[],
-  deleted: ReadonlySet<string>,
-): Promise<number> {
-  const live = incoming.filter((p) => !deleted.has(canonId(p.id)));
-  if (live.length === 0) return 0;
-  const statements = live.map(
+export function mergeProfilesSql(familyId: string, incoming: ChildProfile[]): SQL[] {
+  return incoming.map(
     (p) => sql`
       INSERT INTO profiles (id, family_id, data_json, updated_at, deleted_at)
-      VALUES (${p.id}, ${familyId}, ${JSON.stringify({ ...p, familyId })}, ${p.updatedAt}, NULL)
+      SELECT ${p.id}, ${familyId}, ${JSON.stringify({ ...p, familyId })}, ${p.updatedAt}, NULL
+      WHERE NOT ${isDeletedChild(familyId, sql`${p.id}`)}
       ON CONFLICT(id) DO UPDATE SET data_json = excluded.data_json, updated_at = excluded.updated_at
       WHERE profiles.family_id = excluded.family_id AND profiles.deleted_at IS NULL
         AND excluded.updated_at > profiles.updated_at`,
   );
-  const results = await batchSql(db, statements);
-  return results.reduce((n, r) => n + r.meta.changes, 0);
+}
+
+/** Runs `mergeProfilesSql` in one transaction. Returns how many profiles were written. */
+export async function mergeProfiles(
+  db: Db,
+  familyId: string,
+  incoming: ChildProfile[],
+): Promise<number> {
+  return sumChanges(await batchSql(db, mergeProfilesSql(familyId, incoming)));
 }
 
 /** Every settings document of the family (the server LWW result). */

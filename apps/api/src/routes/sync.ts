@@ -11,7 +11,6 @@ import type { AppBindings } from '../env';
 import { ApiError } from '../lib/errors';
 import { jsonBody, limitBody, MB, requireJsonContentType } from '../lib/http';
 import {
-  deletedChildIds,
   mergeProfiles,
   mergeSettings,
   readProfiles,
@@ -55,9 +54,8 @@ syncRoutes.post(
 
     // Push.
     const push = await ingestPushedEvents(db, familyId, body.events, now);
-    const deleted = await deletedChildIds(db, familyId);
-    await mergeSettings(db, familyId, body.settings, deleted);
-    await mergeProfiles(db, familyId, body.profiles, deleted);
+    await mergeSettings(db, familyId, body.settings);
+    await mergeProfiles(db, familyId, body.profiles);
 
     // Pull. The high-water mark is read first: D1 commits writes in `seq` order, so nothing at or
     // below it can appear later, and the device can skip to it when the page is not full.

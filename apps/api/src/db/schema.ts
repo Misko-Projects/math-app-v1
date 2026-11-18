@@ -77,6 +77,8 @@ export const events = sqliteTable(
   (t) => [
     index('events_family_seq').on(t.familyId, t.seq),
     index('events_family_child_ts').on(t.familyId, t.childId, t.ts),
+    // Tombstone lookups ("is this child deleted?") run inside every event and settings write.
+    index('events_family_type').on(t.familyId, t.type),
   ],
 );
 

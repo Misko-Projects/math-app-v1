@@ -8,16 +8,19 @@ import {
 import { asc, eq } from 'drizzle-orm';
 import { Hono } from 'hono';
 import { requireParent } from '../auth/middleware';
+import { batchSql } from '../db/client';
 import { events } from '../db/schema';
 import type { AppBindings } from '../env';
+import { ApiError } from '../lib/errors';
 import { jsonBody, limitBody, MB, requireJsonContentType } from '../lib/http';
 import {
   canonId,
-  deletedChildIds,
-  insertEvents,
-  mergeProfiles,
-  mergeSettings,
-  purgeChild,
+  envelopeStringBytes,
+  insertEventsSql,
+  MAX_EVENT_ENVELOPE_STRING_BYTES,
+  mergeProfilesSql,
+  mergeSettingsSql,
+  purgeChildSql,
   readProfiles,
   readSettings,
   rowToEnvelope,
@@ -61,13 +64,19 @@ function deletedChildOf(e: AnyEventEnvelope): string | null {
 }
 
 /**
- * Restores a backup into the signed-in family. Idempotent: events merge by id, settings and
- * profiles by LWW, so importing the same file twice changes nothing.
+ * Restores a backup into the signed-in family, all or nothing. Idempotent: events merge by id,
+ * settings and profiles by LWW, so importing the same file twice changes nothing.
  *
- * A backup from another family id (for example after the server's data was lost and setup ran
- * again) is re-homed: its events and profiles take the current family id, and its tombstones take
- * the current family's server pseudo-device (02 §5.9 S2). Tombstones in the file are applied:
- * those children's stored events, settings and profile data are purged here too.
+ * - A backup from another family id (for example after the server's data was lost and setup ran
+ *   again) is re-homed: its events and profiles take the current family id, and its tombstones
+ *   take the current family's server pseudo-device (02 §5.9 S2).
+ * - Tombstones must look server-authored (`childId: null`, `deviceId` = the backup's family id);
+ *   anything else is refused before any write.
+ * - An event id already stored with another type, or by another family, is a `conflict`: the
+ *   import is refused before any write.
+ * - The events, the purges of every child the backup tombstones, and the settings and profiles go
+ *   in one D1 transaction, so a tombstone is never visible without its purge (or vice versa).
+ *
  * `imported` counts what was written: new events, and settings and profiles that were newer.
  */
 backupRoutes.post(
@@ -82,41 +91,60 @@ backupRoutes.post(
     const familyId = c.get('familyId');
     const backup: BackupFile = c.req.valid('json');
 
+    for (const e of backup.events) {
+      if (envelopeStringBytes(e) > MAX_EVENT_ENVELOPE_STRING_BYTES) {
+        throw new ApiError(
+          'validation_failed',
+          `event ${e.id}: type and contentVersion exceed 1024 bytes`,
+        );
+      }
+      if (
+        e.type === 'child.deleted' &&
+        (e.childId !== null || canonId(e.deviceId) !== canonId(backup.familyId))
+      ) {
+        throw new ApiError('validation_failed', `event ${e.id}: not a server-authored tombstone`);
+      }
+    }
     const rehomed = backup.events.map((e): AnyEventEnvelope => {
-      const deviceId =
-        e.type === 'child.deleted' && canonId(e.deviceId) === canonId(backup.familyId)
-          ? familyId
-          : e.deviceId;
+      const deviceId = e.type === 'child.deleted' ? familyId : e.deviceId;
       return { ...e, familyId, deviceId } as AnyEventEnvelope;
     });
-    const fileTombstones = new Set(
-      rehomed.map(deletedChildOf).filter((id): id is string => id !== null),
-    );
-    const alreadyDeleted = await deletedChildIds(db, familyId);
-    const deleted = new Set([...alreadyDeleted, ...fileTombstones]);
 
-    // Ids another family holds are skipped (they cannot be ours).
-    const owners = await storedEventsById(
+    const held = await storedEventsById(
       db,
       rehomed.map((e) => e.id),
     );
-    const toInsert = rehomed
-      .filter((e) => !(e.childId !== null && deleted.has(canonId(e.childId))))
-      .filter((e) => {
-        const owner = owners.get(e.id);
-        return owner === undefined;
-      })
-      .map((e) => toStoredEvent(e, now));
-    const insertedEvents = await insertEvents(db, toInsert, now);
-
-    for (const childId of fileTombstones) {
-      if (!alreadyDeleted.has(childId)) await purgeChild(db, familyId, childId, now, null);
+    for (const e of rehomed) {
+      const h = held.get(e.id);
+      if (h && (h.familyId !== familyId || h.type !== e.type)) {
+        throw new ApiError('conflict', `event ${e.id}: that id is already used by another event`);
+      }
     }
-    const settingsWritten = await mergeSettings(db, familyId, backup.settings, deleted);
-    const profilesWritten = await mergeProfiles(db, familyId, backup.profiles, deleted);
+
+    const fileTombstones = [
+      ...new Set(rehomed.map(deletedChildOf).filter((id): id is string => id !== null)),
+    ];
+    const tombstoned = new Set(fileTombstones);
+    const toInsert = rehomed
+      .filter((e) => !held.has(e.id))
+      .filter((e) => !(e.childId !== null && tombstoned.has(canonId(e.childId))))
+      .map((e) => toStoredEvent(e, now));
+
+    const insertSql = insertEventsSql(familyId, toInsert, now);
+    const purgeSql = fileTombstones.flatMap((child) => purgeChildSql(familyId, child, now, null));
+    const settingsSql = mergeSettingsSql(familyId, backup.settings);
+    const profilesSql = mergeProfilesSql(familyId, backup.profiles);
+    const results = await batchSql(db, [...insertSql, ...purgeSql, ...settingsSql, ...profilesSql]);
+    const changes = (from: number, count: number) =>
+      results.slice(from, from + count).reduce((n, r) => n + r.meta.changes, 0);
+    const settingsFrom = insertSql.length + purgeSql.length;
 
     const res: ImportResponse = {
-      imported: { events: insertedEvents, settings: settingsWritten, profiles: profilesWritten },
+      imported: {
+        events: changes(0, insertSql.length),
+        settings: changes(settingsFrom, settingsSql.length),
+        profiles: changes(settingsFrom + settingsSql.length, profilesSql.length),
+      },
     };
     return c.json(res);
   },

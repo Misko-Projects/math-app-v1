@@ -46,6 +46,7 @@ CREATE TABLE `events` (
 CREATE UNIQUE INDEX `events_id_unique` ON `events` (`id`);--> statement-breakpoint
 CREATE INDEX `events_family_seq` ON `events` (`family_id`,`seq`);--> statement-breakpoint
 CREATE INDEX `events_family_child_ts` ON `events` (`family_id`,`child_id`,`ts`);--> statement-breakpoint
+CREATE INDEX `events_family_type` ON `events` (`family_id`,`type`);--> statement-breakpoint
 CREATE TABLE `families` (
 	`id` text PRIMARY KEY NOT NULL,
 	`name` text NOT NULL,

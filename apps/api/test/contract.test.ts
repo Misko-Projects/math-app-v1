@@ -32,39 +32,37 @@ interface Ctx {
   family: Family;
 }
 
+/** `params` fill the shared route template (`route.path`); request URLs are never hard-coded. */
 type Case = (
   ctx: Ctx,
-) => Promise<{ path: string; body?: unknown; cookie?: string; token?: string }>;
+) => Promise<{ params?: { id: string }; body?: unknown; cookie?: string; token?: string }>;
 
 /** A representative valid call per route; each request body must satisfy the route's schema. */
 const CASES: Partial<Record<ApiRouteName, Case>> = {
-  health: async () => ({ path: '/api/health' }),
+  health: async () => ({}),
   setup: async () => ({
-    path: '/api/setup',
     body: { familyName: 'Second', passphrase: PASSPHRASE, pin: PIN, deviceName: 'X' },
   }),
-  login: async () => ({ path: '/api/auth/login', body: { passphrase: PASSPHRASE } }),
-  logout: async ({ family }) => ({ path: '/api/auth/logout', cookie: family.cookie }),
+  login: async () => ({ body: { passphrase: PASSPHRASE } }),
+  logout: async ({ family }) => ({ cookie: family.cookie }),
   pin: async ({ family }) => ({
-    path: '/api/auth/pin',
     token: family.deviceToken,
     body: { pin: PIN },
   }),
-  pairStart: async ({ family }) => ({ path: '/api/devices/pair/start', cookie: family.cookie }),
+  pairStart: async ({ family }) => ({ cookie: family.cookie }),
   pairComplete: async ({ family }) => {
     const res = await api('/api/devices/pair/start', { method: 'POST', cookie: family.cookie });
     const { code } = await json<{ code: string }>(res);
-    return { path: '/api/devices/pair/complete', body: { code, deviceName: 'Tablet' } };
+    return { body: { code, deviceName: 'Tablet' } };
   },
-  listDevices: async ({ family }) => ({ path: '/api/devices', cookie: family.cookie }),
+  listDevices: async ({ family }) => ({ cookie: family.cookie }),
   revokeDevice: async ({ family }) => ({
-    path: `/api/devices/${family.deviceId}`,
+    params: { id: family.deviceId },
     cookie: family.cookie,
   }),
   sync: async ({ family }) => {
     const child = profileFor(family.familyId);
     return {
-      path: '/api/sync',
       token: family.deviceToken,
       body: {
         cursor: null,
@@ -84,9 +82,8 @@ const CASES: Partial<Record<ApiRouteName, Case>> = {
       },
     };
   },
-  exportBackup: async ({ family }) => ({ path: '/api/export', cookie: family.cookie }),
+  exportBackup: async ({ family }) => ({ cookie: family.cookie }),
   importBackup: async ({ family }) => ({
-    path: '/api/import',
     cookie: family.cookie,
     body: {
       format: BACKUP_FORMAT,
@@ -98,8 +95,15 @@ const CASES: Partial<Record<ApiRouteName, Case>> = {
       profiles: [profileFor(family.familyId)],
     },
   }),
-  deleteChild: async ({ family }) => ({ path: `/api/children/${newId()}`, cookie: family.cookie }),
+  deleteChild: async ({ family }) => ({ params: { id: newId() }, cookie: family.cookie }),
 };
+
+/** Fills `:id` in a shared route template; a template without params is used as is. */
+function urlFor(template: string, params?: { id: string }): string {
+  if (!template.includes(':')) return template;
+  if (!params) throw new Error(`${template} needs params`);
+  return template.replace(':id', encodeURIComponent(params.id));
+}
 
 async function freshFamily(): Promise<Family> {
   const res = await api('/api/setup', {
@@ -128,11 +132,8 @@ describe('API contract (08 §9)', () => {
       const family = name === 'setup' ? (null as unknown as Family) : await freshFamily();
       const call = await makeCase({ family });
       if ('request' in route) expect(route.request.safeParse(call.body).success).toBe(true);
-      if ('params' in route) {
-        const id = call.path.split('/').at(-1);
-        expect(route.params.safeParse({ id }).success).toBe(true);
-      }
-      const res = await api(call.path, {
+      if ('params' in route) expect(route.params.safeParse(call.params).success).toBe(true);
+      const res = await api(urlFor(route.path, call.params), {
         method: route.method,
         body: call.body,
         cookie: call.cookie,
@@ -147,7 +148,10 @@ describe('API contract (08 §9)', () => {
       it(`${route.method} ${route.path}: requires ${route.auth} auth`, async () => {
         const family = await freshFamily();
         const call = await makeCase({ family });
-        const res = await api(call.path, { method: route.method, body: call.body });
+        const res = await api(urlFor(route.path, call.params), {
+          method: route.method,
+          body: call.body,
+        });
         expect(res.status).toBe(401);
         expect(apiErrorBodySchema.safeParse(await res.json()).success).toBe(true);
       });

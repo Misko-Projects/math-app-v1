@@ -190,6 +190,18 @@ describe('POST /api/sync: per-event rejection (02 §5.9 S1)', () => {
     expect((await syncOk(b.token)).events).toEqual([relayed]);
   });
 
+  it('rejects an oversized envelope per event, keeping its siblings', async () => {
+    const { family, a, b } = await twoDevices();
+    const good = roadEvent(family.familyId, a.id);
+    const huge = roadEvent(family.familyId, a.id, { contentVersion: 'v'.repeat(1100) });
+    const res = await syncOk(a.token, { events: [huge, good] });
+    expect(res.accepted).toEqual([good.id]);
+    expect(res.rejected).toEqual([
+      { id: huge.id, index: 0, code: 'payload_too_large', message: expect.any(String) },
+    ]);
+    expect((await syncOk(b.token)).events).toEqual([good]);
+  });
+
   it('still validates the outer body strictly', async () => {
     const { a } = await twoDevices();
     await expectError(await sync(a.token, { cursor: 'abc' }), 400, 'validation_failed');
@@ -235,6 +247,19 @@ describe('POST /api/sync: clock skew (08 §4)', () => {
     expect(gotFar?.ts).toBeGreaterThanOrEqual(before);
     expect(gotFar?.ts).toBeLessThanOrEqual(after);
     expect(gotNear).toEqual(near); // within the bound: untouched, no clientTs
+  });
+
+  it('keeps the original clientTs when a relayed event is clamped again', async () => {
+    const { family, a, b } = await twoDevices();
+    const original = 1_700_000_000_000;
+    const relayed = roadEvent(family.familyId, a.id, {
+      ts: Date.now() + 48 * 3600_000,
+      clientTs: original,
+    });
+    await syncOk(a.token, { events: [relayed] });
+    const [got] = (await syncOk(b.token)).events;
+    expect(got?.clientTs).toBe(original);
+    expect(got?.ts).toBeLessThanOrEqual(Date.now());
   });
 
   it('keeps clientTs on a relayed, already-clamped event', async () => {

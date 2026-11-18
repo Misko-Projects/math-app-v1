@@ -13,8 +13,9 @@ import type { Db } from '../db/client';
 import { describeZodError } from '../lib/errors';
 import {
   canonId,
-  deletedChildIds,
+  envelopeStringBytes,
   insertEvents,
+  MAX_EVENT_ENVELOPE_STRING_BYTES,
   type StoredEvent,
   storedEventsById,
   toStoredEvent,
@@ -37,12 +38,13 @@ function rawId(raw: unknown): string | null {
  * Validates each pushed event on its own and stores the valid ones idempotently.
  *
  * - Envelope strict, known payloads strict (unknown fields stripped), unknown types opaque, 8 KB
- *   payload cap: failures are `validation_failed` / `payload_too_large`.
+ *   payload cap and 1 KB envelope-string cap: failures are `validation_failed` /
+ *   `payload_too_large`.
  * - Another family's event: `unknown_family`.
  * - `child.deleted` comes only from the parent route (02 §5.9 S2). A pushed one is accepted only
  *   as a relay of a `child.deleted` this family already holds under that id; otherwise `forbidden`.
- * - Events of a deleted child are not stored but count as accepted, so devices stop re-pushing
- *   them (the tombstone makes them purge locally).
+ * - Events of a deleted child count as accepted, so devices stop re-pushing them (the tombstone
+ *   makes them purge locally), but the insert statement itself skips them.
  * - An id already held by another family: `conflict`.
  */
 export async function ingestPushedEvents(
@@ -75,6 +77,10 @@ export async function ingestPushedEvents(
       }
       return;
     }
+    if (envelopeStringBytes(parsed.data) > MAX_EVENT_ENVELOPE_STRING_BYTES) {
+      reject(index, raw, 'payload_too_large', 'type and contentVersion exceed 1024 bytes');
+      return;
+    }
     if (parsed.data.familyId !== familyId) {
       reject(index, raw, 'unknown_family', 'The event belongs to another family.');
       return;
@@ -96,7 +102,6 @@ export async function ingestPushedEvents(
     db,
     valid.map((v) => v.event.id),
   );
-  const deleted = await deletedChildIds(db, familyId);
   const accepted: string[] = [];
   const toInsert: StoredEvent[] = [];
   for (const { index, raw, event } of valid) {
@@ -112,11 +117,9 @@ export async function ingestPushedEvents(
       continue;
     }
     accepted.push(event.id);
-    if (held === undefined && !(event.childId !== null && deleted.has(canonId(event.childId)))) {
-      toInsert.push(toStoredEvent(event, receivedAt));
-    }
+    if (held === undefined) toInsert.push(toStoredEvent(event, receivedAt));
   }
-  await insertEvents(db, toInsert, receivedAt);
+  await insertEvents(db, familyId, toInsert, receivedAt);
   // An id pushed twice in one call is stored once and reported once. Rejections in request order.
   rejected.sort((x, y) => x.index - y.index);
   return { accepted: [...new Set(accepted)], rejected };
