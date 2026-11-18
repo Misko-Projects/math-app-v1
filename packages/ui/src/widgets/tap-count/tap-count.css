@@ -1,0 +1,207 @@
+/* tap-count widget (U03): the objects on a paper board, the answer beside or below it. */
+
+.ni-tapc {
+  display: grid;
+  align-items: center;
+  justify-content: center;
+  justify-items: center;
+  gap: 28px 56px;
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 1180px;
+  padding: 12px 24px;
+}
+.ni-tapc[data-arrange="side"] {
+  grid-template-columns: auto auto;
+}
+.ni-tapc[data-arrange="stack"] {
+  grid-template-columns: minmax(0, auto);
+}
+
+/* ---------- the picture ---------- */
+
+.ni-tapc__picture {
+  display: flex;
+  align-items: flex-start;
+  gap: 24px;
+  box-sizing: border-box;
+  max-width: 100%;
+  padding: 24px 28px;
+  border: 3px solid var(--color-sand-deep);
+  border-radius: var(--radius-card);
+  background: var(--color-paper);
+  box-shadow: var(--shadow-soft);
+}
+.ni-tapc__picture[data-from="right"] {
+  flex-direction: row-reverse;
+}
+
+/* "Start here": a sunshine pebble with an ink arrow pointing into the row. */
+.ni-tapc__cue {
+  flex: none;
+  display: grid;
+  place-items: center;
+  box-sizing: border-box;
+  padding: 10px;
+  border: 3px solid var(--color-ink);
+  border-radius: 50%;
+  background: var(--color-sunshine);
+  box-shadow: 0 4px 0 var(--color-sunshine-deep);
+}
+.ni-tapc__cue[data-from="right"] svg {
+  transform: scaleX(-1);
+}
+
+.ni-tapc__obj {
+  position: absolute;
+  display: grid;
+  place-items: center;
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+  appearance: none;
+  border: 0;
+  border-radius: 50%;
+  background: none;
+  color: inherit;
+  -webkit-tap-highlight-color: transparent;
+  transition: transform var(--duration-base) var(--ease-bounce);
+}
+button.ni-tapc__obj {
+  cursor: pointer;
+  touch-action: manipulation;
+}
+button.ni-tapc__obj:disabled {
+  cursor: default;
+}
+button.ni-tapc__obj:active:not(:disabled) {
+  transform: scale(0.94);
+}
+button.ni-tapc__obj:focus-visible {
+  outline: 4px solid var(--color-sea-deep);
+  outline-offset: 4px;
+}
+.ni-tapc__sprite {
+  display: block;
+  pointer-events: none;
+}
+/* A distractor is quieter: the same art, slightly smaller, so counted objects lead. */
+.ni-tapc__obj[data-kind="distractor"] .ni-tapc__sprite {
+  transform: scale(0.88);
+}
+
+/* A counted object: a numbered pebble badge (shape + numeral, never colour alone, 06 §7). */
+.ni-tapc__mark {
+  position: absolute;
+  top: -16px;
+  right: -12px;
+  display: grid;
+  place-items: center;
+  box-sizing: border-box;
+  min-width: 46px;
+  height: 46px;
+  padding: 0.14em 6px 0;
+  border: 3px solid var(--color-ink);
+  border-radius: 999px;
+  background: var(--color-sunshine);
+  color: var(--color-ink);
+  font-family: var(--font-display);
+  font-size: 2rem;
+  font-weight: 800;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+  pointer-events: none;
+  box-shadow: 0 3px 0 rgb(38 70 83 / 0.25);
+  animation: var(--animate-pop-in);
+}
+
+/* Ordinal pick: a thick ink ring around the object and a check badge. */
+.ni-tapc__obj[data-ringed="true"] {
+  outline: 6px solid var(--color-ink);
+  outline-offset: 2px;
+}
+.ni-tapc__ring-badge {
+  position: absolute;
+  bottom: -12px;
+  right: -10px;
+  display: grid;
+  place-items: center;
+  box-sizing: border-box;
+  width: 40px;
+  height: 40px;
+  padding: 6px;
+  border: 3px solid var(--color-cloud);
+  border-radius: 50%;
+  background: var(--color-sea-deep);
+  pointer-events: none;
+}
+
+/* Pip counting (demo): the object being counted lifts inside a teal ring. */
+.ni-tapc__obj[data-counting="true"] {
+  outline: 5px solid var(--color-sea-deep);
+  outline-offset: 4px;
+  transform: scale(1.08);
+}
+.ni-tapc__obj.ni-invite {
+  position: absolute;
+  border-radius: 50%;
+  outline-offset: 6px;
+}
+.ni-tapc__hand {
+  left: calc(50% - 8px);
+  top: calc(100% - 8px);
+}
+
+/* ---------- the answer ---------- */
+
+.ni-tapc__answer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 28px 40px;
+}
+.ni-tapc__pad {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 20px;
+}
+.ni-tapc__slot {
+  display: inline-flex;
+  border-radius: var(--radius-pebble);
+}
+.ni-tapc__slot .ni-number[data-empty="true"] {
+  background: var(--color-sky-light);
+}
+.ni-tapc__tray {
+  border-radius: var(--radius-card);
+}
+.ni-tapc__tray .ni-tray-numerals {
+  display: grid;
+  grid-template-columns: repeat(var(--cols, 6), auto);
+  gap: var(--target-gap);
+}
+.ni-tapc__tray[data-shown="false"] {
+  visibility: hidden;
+}
+.ni-tapc__tray[data-shown="true"] {
+  animation: var(--animate-rise);
+}
+.ni-tapc__check {
+  position: relative;
+  display: inline-flex;
+}
+.ni-tapc__check-hand {
+  left: calc(50% - 8px);
+  top: calc(100% - 4px);
+}
+
+[data-reduced-motion="true"] .ni-tapc__obj {
+  transition-duration: 0ms;
+}
+@media (prefers-reduced-motion: reduce) {
+  .ni-tapc__obj {
+    transition-duration: 0ms;
+  }
+}

@@ -234,12 +234,13 @@ export function FingersView({
   return (
     <div className="ni-fingers" {...pictureProps(label)}>
       {hands.map((hand, i) => (
-        <Hand
+        <HandArt
           key={hand.id}
           up={hand.up}
           tone={hand.group % 2 === 1 ? 'b' : 'a'}
           height={h}
           mirror={i % 2 === 1}
+          group={hand.group}
         />
       ))}
     </div>
@@ -264,16 +265,23 @@ const FINGERS = [
  */
 const RAISE_ORDER: readonly number[] = [4, 0, 1, 2, 3];
 
-function Hand({
+/**
+ * One hand with `up` fingers raised (index first, thumb last; RAISE_ORDER), decorative. `mirror`
+ * draws the other hand; `group` tags the stimulus group it belongs to (`data-group`, for overlays
+ * such as dot-flash's group rings). make-set's `hands` container draws its two hands with it.
+ */
+export function HandArt({
   up,
   tone,
   height,
   mirror,
+  group,
 }: {
   up: number;
   tone: 'a' | 'b';
   height: number;
   mirror: boolean;
+  group?: number;
 }) {
   const skin = tone === 'b' ? 'var(--color-sunshine-light)' : 'var(--color-horizon)';
   const line = tone === 'b' ? 'var(--color-sun-deep)' : 'var(--color-wood-deep)';
@@ -328,6 +336,7 @@ function Hand({
       aria-hidden="true"
       focusable="false"
       data-up={up}
+      data-group={group}
       style={mirror ? { transform: 'scaleX(-1)' } : undefined}
     >
       <ellipse cx="50" cy="118" rx="30" ry="5" fill="rgb(38 70 83 / 0.16)" />

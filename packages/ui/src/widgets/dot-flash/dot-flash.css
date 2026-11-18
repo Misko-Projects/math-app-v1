@@ -1,0 +1,138 @@
+/* dot-flash widget (U03): the flash board and "look again" on the left, the answer on the right. */
+
+.ni-flash {
+  display: grid;
+  grid-template-columns: auto auto;
+  align-items: center;
+  justify-content: center;
+  gap: 32px 64px;
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 1180px;
+  padding: 12px 24px;
+}
+
+.ni-flash__look {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 24px;
+}
+
+/* A fixed board, so showing and hiding never moves anything else. */
+.ni-flash__board {
+  position: relative;
+  display: grid;
+  place-items: center;
+  box-sizing: border-box;
+  width: 580px;
+  max-width: 100%;
+  height: 360px;
+  border: 3px solid var(--color-sand-deep);
+  border-radius: var(--radius-card);
+  background: var(--color-paper);
+  box-shadow: var(--shadow-soft);
+}
+.ni-flash__picture .ni-stimulus {
+  border: 0;
+  box-shadow: none;
+  background: transparent;
+}
+.ni-flash__board[data-shown="false"] .ni-flash__picture {
+  visibility: hidden;
+}
+
+/* The soft cover over a hidden picture: a sky cloth with a sleepy closed eye. */
+.ni-flash__cover {
+  position: absolute;
+  inset: 10px;
+  display: grid;
+  place-items: center;
+  border: 3px solid var(--color-ink-soft);
+  border-radius: calc(var(--radius-card) - 8px);
+  background:
+    repeating-linear-gradient(135deg, rgb(255 255 255 / 0.35) 0 14px, transparent 14px 28px),
+    var(--color-sky);
+  transition: opacity var(--duration-quick) ease-out;
+}
+.ni-flash__board[data-shown="true"] .ni-flash__cover {
+  opacity: 0;
+  pointer-events: none;
+}
+.ni-flash__closed-eye {
+  display: block;
+  width: 120px;
+  height: 80px;
+}
+
+/* circle-groups: a coral ring around each group (shape, not colour, carries the grouping). */
+.ni-flash__ring {
+  position: absolute;
+  box-sizing: border-box;
+  border: 5px solid var(--color-coral-deep);
+  border-radius: 48px;
+  pointer-events: none;
+  animation: var(--animate-pop-in);
+}
+
+.ni-flash__again,
+.ni-flash__check {
+  position: relative;
+  display: inline-flex;
+  border-radius: 32px;
+}
+.ni-flash__hand {
+  left: calc(50% - 8px);
+  top: calc(100% - 8px);
+}
+
+.ni-flash__answer {
+  display: flex;
+  align-items: center;
+  gap: 32px;
+}
+/* Picking: the cards, then "check" under them (keeps the row inside the widget area). */
+.ni-flash__answer[data-input="pick"] {
+  flex-direction: column;
+}
+.ni-flash__pad {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 20px;
+}
+.ni-flash__slot {
+  display: inline-flex;
+  border-radius: var(--radius-pebble);
+}
+.ni-flash__slot .ni-number[data-empty="true"] {
+  background: var(--color-sky-light);
+}
+.ni-flash__tray {
+  border-radius: var(--radius-card);
+}
+.ni-flash__tray .ni-tray-numerals {
+  display: grid;
+  grid-template-columns: repeat(3, auto);
+  gap: calc(var(--target-gap) * 2);
+}
+.ni-flash__tray .ni-pick {
+  min-width: calc(var(--target-min) * 1.4);
+  min-height: calc(var(--target-min) * 1.4);
+}
+
+[data-reduced-motion="true"] .ni-flash__board .ni-flash__cover {
+  transition-duration: 0ms;
+}
+@media (prefers-reduced-motion: reduce) {
+  .ni-flash__board .ni-flash__cover {
+    transition-duration: 0ms;
+  }
+}
+
+@media (max-width: 900px), (orientation: portrait) {
+  .ni-flash {
+    grid-template-columns: minmax(0, 1fr);
+    justify-items: center;
+  }
+}

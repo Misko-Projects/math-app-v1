@@ -8,7 +8,7 @@ import {
   layoutBox,
   padValue,
 } from './controls';
-import { dicePattern, dotsLayout, groupIndexes, objectSetLayout } from './layout';
+import { dicePattern, dotsLayout, groupIndexes, minObjectStep, objectSetLayout } from './layout';
 import { stepsBetween } from './NumberLineView';
 
 const set = (over: Partial<ObjectSet>): ObjectSet => ({
@@ -100,6 +100,20 @@ describe('objectSetLayout', () => {
     expect(l.objects.map((o) => o.tone)).toEqual(['a', 'a', 'a', 'b', 'b']);
     const gap = (l.objects[3]?.x ?? 0) - (l.objects[2]?.x ?? 0);
     expect(gap).toBeGreaterThan(1.12);
+  });
+
+  it('minObjectStep: the closest pair of objects, in cells', () => {
+    expect(minObjectStep(objectSetLayout(set({ count: 7 })))).toBeCloseTo(1.12);
+    expect(minObjectStep(objectSetLayout(set({ count: 7, layout: 'ten-frame' })))).toBe(1);
+    expect(minObjectStep(objectSetLayout(set({ count: 6, layout: 'array', rows: 2 })))).toBeCloseTo(
+      1.15,
+    );
+    // Scatter jitter never brings two objects closer than one cell.
+    for (const seed of [1, 2, 3, 42, 99]) {
+      const l = objectSetLayout(set({ count: 12, layout: 'scatter', layoutSeed: seed }));
+      expect(minObjectStep(l)).toBeGreaterThanOrEqual(1 - 1e-9);
+    }
+    expect(minObjectStep(objectSetLayout(set({ count: 1 })))).toBe(Number.POSITIVE_INFINITY);
   });
 
   it('ten-frames fill top row first and draw one frame per ten', () => {
