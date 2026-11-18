@@ -7,7 +7,10 @@ import type { MisconceptionRule } from './rules';
 import { biggerUnitMore } from './rules/biggerUnitMore';
 import { countAllInstead } from './rules/countAllInstead';
 import { countStartNumber } from './rules/countStartNumber';
+import { decadeTransition } from './rules/decadeTransition';
 import { offByOneCounting } from './rules/offByOneCounting';
+import { recountFromOne } from './rules/recountFromOne';
+import { teenReversal } from './rules/teenReversal';
 import { unitGaps } from './rules/unitGaps';
 
 const RULES: Record<string, MisconceptionRule> = {
@@ -16,6 +19,9 @@ const RULES: Record<string, MisconceptionRule> = {
   offByOneCounting: offByOneCounting,
   unitGaps: unitGaps,
   biggerUnitMore: biggerUnitMore,
+  recountFromOne: recountFromOne,
+  decadeTransition: decadeTransition,
+  teenReversal: teenReversal,
 };
 
 export function misconceptionRule(id: string): MisconceptionRule | undefined {

@@ -4,6 +4,7 @@
 import type { GeneratorId } from '@number-island/shared';
 import { addsubFacts } from './addsub/facts';
 import { bondParts } from './bond/parts';
+import { countOrdinal } from './count/ordinal';
 import { countSequence } from './count/sequence';
 import { countSet } from './count/set';
 import { geoCompose } from './geo/compose';
@@ -27,6 +28,7 @@ const GENERATORS: GeneratorDef[] = [
   geoDraw,
   meaLength,
   meaMassVolume,
+  countOrdinal,
 ];
 
 const BY_ID = new Map<GeneratorId, GeneratorDef>(GENERATORS.map((g) => [g.id, g]));

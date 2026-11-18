@@ -5,11 +5,15 @@ roots: [CNT.01, SUB.01, GEO.01, GEO.05, MEA.15]
 # K01 (#11) lands the K–1 catalog in several PRs and sets [K, 1] in the last one; K02 sets [K, 1, 2, 3].
 coverageGrades: []
 # plannedIds: catalog ids (03 §3) not authored yet; V03 accepts a gap there. K01 authors the K–1
-# catalog one strand group at a time, so these gaps are later K01 PRs (ADD.02, PUZ.01, PUZ.02) or
-# K02 (the grade 2–3 GEO and MEA rows). K01 clears the K–1 entries; K02 clears the rest.
+# catalog one strand group at a time, so these gaps are later K01 PRs (ADD.02, SUB.04, PUZ.01,
+# PUZ.02) or K02 (grade 2–3: CNT.11, CNT.12, CNT.17 and the GEO and MEA rows). K01 clears the K–1
+# entries; K02 clears the rest.
 plannedIds:
   [
     ADD.02,
+    CNT.11,
+    CNT.12,
+    CNT.17,
     GEO.03,
     GEO.04,
     MEA.03,
@@ -30,4 +34,5 @@ plannedIds:
     MEA.21,
     PUZ.01,
     PUZ.02,
+    SUB.04,
   ]

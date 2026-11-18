@@ -17,6 +17,27 @@ p.count.find-numeral:
   text: "Which number tells how many?"
 p.count.write-numeral:
   text: "Count them. Then tap the number."
+# CNT (K01): counting on and back, missing numbers, one more.
+p.count.on-to:
+  text: "Start at {start}. Count on to {last}."
+p.count.back-to:
+  text: "Start at {start}. Count back to {last}."
+p.count.next-back:
+  text: "Count back from {start}. What number comes next?"
+p.count.fill-on:
+  text: "Count on from {start}. Fill in the missing numbers."
+p.count.fill-back:
+  text: "Count back from {start}. Fill in the missing numbers."
+p.count.fill-tens:
+  text: "Count by tens from {start}. Fill in the missing numbers."
+p.count.box-on:
+  text: "Count on. What number goes in each box?"
+p.count.box-back:
+  text: "Count back. What number goes in each box?"
+p.count.missing:
+  text: "Some numbers are missing. Fill them in."
+p.count.one-more:
+  text: "What number is one more than {start}?"
 p.subitize.how-many:
   text: "Look fast! How many did you see?"
 p.subitize.how-many-fingers:
@@ -61,6 +82,37 @@ h.count.last-number:
   text: "The last number you say tells how many."
 h.count.show-frame:
   text: "Fill the top row first. A full row is five."
+# CNT (K01) hints. Counting words are written in letters, so no line names an answer.
+h.count.anything:
+  text: "Look closely. Is there any to count?"
+h.count.full-boxes:
+  text: "Count the full boxes. Empty boxes do not count."
+h.count.one-more:
+  text: "Put in just one. Then count them all."
+h.count.one-more-next:
+  text: "One more is the next number when you count."
+h.sequence.count-back:
+  text: "Say the numbers going down, one at a time."
+h.sequence.look-path-back:
+  text: "Look at the stones. Which one comes just before?"
+h.sequence.new-ten:
+  text: "After a number that ends in nine, a new ten starts."
+h.sequence.back-ten:
+  text: "Counting back from a new ten, the ones start again at nine."
+h.sequence.chart-steps:
+  text: "Go box by box. At the end, go to the next row."
+h.sequence.chart-back:
+  text: "Count back one at a time. Find each number on the chart."
+h.sequence.tens-down:
+  text: "Counting by tens, go down one row each time."
+h.sequence.say-tens:
+  text: "Say each ten out loud as you go down the chart."
+h.ordinal.first-end:
+  text: "Start at the {from|word}. That one is first."
+h.ordinal.say-places:
+  text: "Say first, second, third as you touch each one."
+h.ordinal.stones:
+  text: "Start at the first stone. Say first, second, third."
 h.subitize.look-again:
   text: "Look again. Do you see a shape you know?"
 h.subitize.look-groups:
@@ -69,6 +121,18 @@ h.subitize.five-fingers:
   text: "One hand has five fingers."
 h.subitize.five-and:
   text: "A full row is five. How many more?"
+h.subitize.five-frame:
+  text: "A full frame has five. Are any boxes empty?"
+h.subitize.full-hand:
+  text: "One full hand is five. Then look at the next hand."
+h.subitize.full-hand-first:
+  text: "Put up one full hand first."
+h.subitize.think-hand:
+  text: "Think of one full hand. Then add the more."
+h.subitize.each-part:
+  text: "How many in each part? See them without counting."
+h.subitize.parts-together:
+  text: "{a} and {b}. Put the parts together."
 h.bond.use-counters:
   text: "Move the counters into two groups."
 h.bond.two-hands:
@@ -195,6 +259,12 @@ gen.count.set.type:
   text: "We counted {n}. Now tap {n}."
 gen.count.set.fill-frame:
   text: "Fill the frame one at a time, up to {n}."
+gen.count.set.add-to:
+  text: "There are {start}. Put in more, up to {n}."
+gen.count.set.none:
+  text: "Look closely. There are none here."
+gen.count.set.zero:
+  text: "None is the number zero."
 gen.count.sequence.say-from:
   text: "Let's count from {start}."
 gen.count.sequence.next-is:
@@ -203,10 +273,20 @@ gen.count.sequence.hop:
   text: "Hop to {n}."
 gen.count.sequence.order-start:
   text: "Find where the numbers start."
+gen.count.sequence.say-back:
+  text: "Let's count back from {start}."
+gen.count.ordinal.start-left:
+  text: "Start at the left. Count each one."
+gen.count.ordinal.start-right:
+  text: "Start at the right. Count each one."
+gen.count.ordinal.this-one:
+  text: "This one is {k|ord}."
 gen.subitize.flash.look:
   text: "Look at the dots again."
 gen.subitize.flash.see-groups:
   text: "I see small groups. Put them together."
+gen.subitize.flash.parts:
+  text: "I see {a} and {b}."
 gen.subitize.flash.total:
   text: "That makes {n}."
 gen.subitize.flash.show:
@@ -461,3 +541,9 @@ fb.mc.unit-gaps:
   text: "Put each one right at the end of the last one."
 fb.mc.bigger-unit-more:
   text: "Look at the size. Bigger ones fit fewer times."
+fb.mc.recount-from-one:
+  text: "You counted them all. The last number you said tells how many!"
+fb.mc.decade-transition:
+  text: "Look at the tens. After nine ones, a new ten starts."
+fb.mc.teen-reversal:
+  text: "Look at the tens. The ten comes first, then the ones."

@@ -192,9 +192,9 @@ const COUNT_SEQUENCE: Case[] = [
     answer: { kind: 'numbers', values: [8, 9, 10], ordered: true },
     widget: {
       blanks: [
-        { id: 't1', maxDigits: 2 },
-        { id: 't2', maxDigits: 2 },
-        { id: 't3', maxDigits: 2 },
+        { id: 't1', maxDigits: 3 },
+        { id: 't2', maxDigits: 3 },
+        { id: 't3', maxDigits: 3 },
       ],
     },
   },
@@ -302,7 +302,7 @@ const SUBITIZE: Case[] = [
   {
     name: 'numeral-pick n=3 (objects)',
     t: tpl('subitize.flash', 'numeral-pick', { representation: 'objects' }),
-    params: { n: 3 },
+    params: { n: 3, arrangement: 'scatter' },
     answer: { kind: 'choice', id: 'opt-3' },
     widget: { stimulus: { kind: 'objects', set: { count: 3, layout: 'scatter' } } },
   },
@@ -337,6 +337,13 @@ const SUBITIZE: Case[] = [
     params: { n: 13 },
     answer: { kind: 'number', value: 13 },
     widget: { rows: 2, preset: [10, 3], mode: 'read' },
+  },
+  {
+    name: 'number-bond missing whole 3 and 4 (counters)',
+    t: tpl('subitize.flash', 'number-bond', { tier: 'concrete' }),
+    params: { n: 7, arrangement: 'groups', groups: 2, part: 3 },
+    answer: { kind: 'number', value: 7 },
+    widget: { whole: null, parts: [3, 4], mode: 'missing-whole', counters: true },
   },
 ];
 
@@ -1060,6 +1067,7 @@ describe('registry', () => {
     expect(registry.ids()).toEqual([
       'addsub.facts',
       'bond.parts',
+      'count.ordinal',
       'count.sequence',
       'count.set',
       'geo.compose',

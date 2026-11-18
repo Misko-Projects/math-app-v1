@@ -112,6 +112,7 @@ describe('API DTOs', () => {
         { id: newId(), index: 2, code: 'validation_failed', message: 'payload.items: too small' },
         { id: null, index: 3, code: 'validation_failed', message: 'id: expected a UUIDv7' },
       ],
+      clamped: [{ id: futureEvent.id, ts: 1_763_000_000_000, clientTs: futureEvent.ts }],
       events: [{ ...event, id: newId(), deviceId: newId() }],
       cursor: '42',
       more: false,
@@ -129,6 +130,22 @@ describe('API DTOs', () => {
       rejected: [{ id: null, index: -1, code: 'forbidden', message: '' }],
     };
     expect(syncResponseSchema.safeParse(badIndex).success).toBe(false);
+    // `clamped` is required too (02 §5.9 S3); `clientTs` is optional, ids and times are checked.
+    const { clamped: _noClamped, ...withoutClamped } = response;
+    expect(syncResponseSchema.safeParse(withoutClamped).success).toBe(false);
+    const unclamped = { ...response, clamped: [{ id: event.id, ts: 5 }] };
+    expect(syncResponseSchema.parse(unclamped)).toEqual(unclamped);
+    // At most one echo per pushed event (500).
+    const echoes = (n: number) => Array.from({ length: n }, () => ({ id: newId(), ts: 5 }));
+    expect(syncResponseSchema.safeParse({ ...response, clamped: echoes(500) }).success).toBe(true);
+    expect(syncResponseSchema.safeParse({ ...response, clamped: echoes(501) }).success).toBe(false);
+    for (const bad of [
+      { id: 'x', ts: 5 },
+      { id: event.id, ts: -1 },
+      { id: event.id, ts: 1.5 },
+    ]) {
+      expect(syncResponseSchema.safeParse({ ...response, clamped: [bad] }).success).toBe(false);
+    }
   });
 
   it('rejects a sync push over 500 events or with a broken known event', () => {

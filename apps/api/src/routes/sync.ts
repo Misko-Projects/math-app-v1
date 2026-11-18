@@ -85,6 +85,7 @@ syncRoutes.post(
     const res: SyncResponse = {
       accepted: push.accepted,
       rejected: push.rejected,
+      clamped: push.clamped,
       events: page.map(rowToEnvelope),
       cursor: String(nextCursor),
       more,

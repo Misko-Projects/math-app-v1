@@ -186,7 +186,10 @@ describe('registry', () => {
       'biggerUnitMore',
       'countAllInstead',
       'countStartNumber',
+      'decadeTransition',
       'offByOneCounting',
+      'recountFromOne',
+      'teenReversal',
       'unitGaps',
     ]);
     expect(misconceptionRule('countStartNumber')).toBe(countStartNumber);

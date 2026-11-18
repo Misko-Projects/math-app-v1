@@ -545,14 +545,17 @@ export function runTemplateProperties(
       if (!declared.has(f))
         fail(seed, '8.features', `feature ${f} is not declared by ${g.id} or ${t.format}`);
     }
-    // 9. multiple choice: 3–5 distinct options (see minChoiceOptions), exactly one correct
+    // 9. multiple choice: min–5 distinct options (see minChoiceOptions), exactly one correct.
+    // A tap-count ordinal item (CNT.15, "tap the eighth one") answers with an object id, but its
+    // objects are a line to count, not options to choose from, so the upper bound is lifted for it.
     if (a.kind === 'choice') {
       const ids = choiceOptions(item);
       const min = minChoiceOptions(item);
       const correct = ids.filter((id) => checkResponse(item, { kind: 'choice', id }).correct);
+      const objects = item.widget.format === 'tap-count';
       if (
         ids.length < min ||
-        ids.length > 5 ||
+        (ids.length > 5 && !objects) ||
         new Set(ids).size !== ids.length ||
         correct.length !== 1
       ) {

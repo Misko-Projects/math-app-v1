@@ -460,6 +460,8 @@ pies
 pig
 pigs
 pip
+place
+places
 plank
 planks
 play
