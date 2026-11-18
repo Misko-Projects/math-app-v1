@@ -273,8 +273,8 @@ export const syncRejectionSchema = z.object({
 assertType<Equals<z.infer<typeof syncRejectionSchema>, SyncRejection>>(true);
 
 export interface SyncResponse {
-  accepted: EventId[]; // includes duplicates already present
-  rejected: SyncRejection[]; // pushed events refused permanently (02 §5.9 S1); [] when none
+  accepted: EventId[]; // includes duplicates already present and a deleted child's events (not stored, 02 §5.9 S2)
+  rejected: SyncRejection[]; // pushed events refused permanently, ordered by index (02 §5.9 S1); [] when none
   events: AnyEventEnvelope[]; // events since cursor from OTHER devices, ≤ 1000, ordered by server seq
   cursor: string; // opaque (server sequence)
   more: boolean;
