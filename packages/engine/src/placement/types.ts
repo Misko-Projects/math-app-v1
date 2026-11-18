@@ -68,8 +68,6 @@ export interface PlacementRun {
     /** Set when the mini-session ended before the placement did (call `beginPlacementSession`). */
     ended: PlacementSessionEnd | null;
   };
-  /** ts of the latest probe (app-session boundaries on resume). */
-  lastTs: number | null;
   /** Set once the placement has stopped; then call `completePlacement`. */
   done: PlacementStopReason | null;
 }
@@ -104,10 +102,4 @@ export interface PlacementAnswer {
   choices?: number;
   /** The runner's frustration signal on this answer (04 §5 stop rule). */
   frustrationSignal?: boolean;
-}
-
-/** A stored `placement.probe` event, as `resumePlacement` reads it. */
-export interface PlacementProbeEvent {
-  ts: number;
-  payload: EventPayloads['placement.probe'];
 }

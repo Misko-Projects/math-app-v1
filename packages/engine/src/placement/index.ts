@@ -25,7 +25,6 @@ export type {
   PlacementAnswer,
   PlacementBudget,
   PlacementContext,
-  PlacementProbeEvent,
   PlacementProbeRecord,
   PlacementRun,
   PlacementSessionEnd,

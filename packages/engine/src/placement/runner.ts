@@ -4,6 +4,7 @@
 // seeds derive from the placement id, and time only enters through the answers' `ts`.
 
 import type {
+  AnyEventEnvelope,
   ChildContext,
   EventPayloads,
   Grade,
@@ -15,6 +16,7 @@ import type {
   TemplateId,
 } from '@number-island/shared';
 import { FORMAT_SUPPORT } from '@number-island/shared';
+import { isEvent, sameId, sortEvents } from '../folds/order';
 import { generateItem } from '../items/generate';
 import { createEloFireModel } from '../learner/elo-fire';
 import { descendantsWithin } from '../learner/graph';
@@ -24,7 +26,6 @@ import type {
   PlacementAnswer,
   PlacementBudget,
   PlacementContext,
-  PlacementProbeEvent,
   PlacementRun,
   StartPlacementInput,
 } from './types';
@@ -357,7 +358,6 @@ export function startPlacement(input: StartPlacementInput): PlacementRun {
     probes: [],
     items: 0,
     session: { index: 0, items: 0, misses: 0, ended: null },
-    lastTs: null,
     done: null,
   };
   if (placementConverged(run, graph, params)) run.done = 'converged';
@@ -433,7 +433,6 @@ function applyProbe(
   next.items = run.items + 1;
   next.session.items += 1;
   next.session.misses = miss ? next.session.misses + 1 : 0;
-  next.lastTs = f.ts;
   next.probes.push({
     skillId: f.skillId,
     templateId: f.templateId,
@@ -587,33 +586,32 @@ export function completePlacement(
 }
 
 /**
- * Rebuilds an unfinished placement from its `placement.probe` events (sorted by ts, then input
- * order) and the start times of the child's app sessions (`session.started` ts), to the state the
- * live run reached. Mini-sessions follow app sessions: the live caller calls
- * `beginPlacementSession` at each new app session, and the replay does the same at every session
- * start between two probes. A session start after the last probe (normally the current one, when
- * the app resumes the placement) starts a fresh mini-session, or stops the placement on its budget
- * when every mini-session is used. A probe event cannot carry the frustration signal, so a
- * mini-session that frustration ended is known as ended only once a later session starts (04 §7b).
+ * Rebuilds an unfinished placement from the child's event log, to the state the live run reached.
+ * It reads the `placement.probe` events of this placement and the child's `session.started`
+ * events, in the canonical fold order (`sortEvents`: ts, then id, each id once), so the replay
+ * keeps the live order even when sync clamps several events to one ts (08 §4). Mini-sessions follow
+ * app sessions: the live app calls `beginPlacementSession` at each `session.started`, and the
+ * replay does the same at each one. Pass the log including the current session's
+ * `session.started`; that starts a fresh mini-session, or stops the placement on its budget when
+ * every mini-session is used. A probe event cannot carry the frustration signal, so a mini-session
+ * that frustration ended is known as ended only at the next session start (04 §7b).
  */
 export function resumePlacement(
   input: StartPlacementInput,
-  probes: readonly PlacementProbeEvent[],
-  sessionStarts: readonly number[] = [],
+  events: readonly AnyEventEnvelope[],
 ): PlacementRun {
   const params = input.params ?? PARAMS;
-  const ordered = probes
-    .map((e, i) => ({ e, i }))
-    .filter(({ e }) => e.payload.placementId === input.placementId)
-    .sort((a, b) => a.e.ts - b.e.ts || a.i - b.i);
-  const startedAfter = (after: number, upTo: number): boolean =>
-    sessionStarts.some((s) => s > after && s <= upTo);
   let run = startPlacement(input);
-  for (const { e } of ordered) {
-    if (run.done !== null) break;
-    if (run.session.ended !== null || (run.lastTs !== null && startedAfter(run.lastTs, e.ts)))
+  for (const e of sortEvents(events)) {
+    if (!sameId(e.childId, input.child.childId)) continue;
+    if (isEvent(e, 'session.started')) {
       run = beginPlacementSession(run);
-    if (run.done !== null) break;
+      continue;
+    }
+    if (!isEvent(e, 'placement.probe') || e.payload.placementId !== input.placementId) continue;
+    if (run.done !== null) continue;
+    if (run.session.ended !== null) run = beginPlacementSession(run);
+    if (run.done !== null) continue;
     const applied = applyProbe(run, input.graph, params.placement, {
       skillId: e.payload.skillId,
       templateId: e.payload.templateId,
@@ -626,7 +624,5 @@ export function resumePlacement(
     });
     run = applyStops(applied, input.graph, params, false);
   }
-  if (run.lastTs !== null && startedAfter(run.lastTs, Number.POSITIVE_INFINITY))
-    run = beginPlacementSession(run);
   return run;
 }

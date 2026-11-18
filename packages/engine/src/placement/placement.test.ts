@@ -21,6 +21,7 @@ import { foldLearnerState } from '../learner/fold';
 import { buildSkillGraph } from '../learner/graph';
 import { syntheticGraph, T0 } from '../learner/synthetic.test-support';
 import { type EngineParams, PARAMS } from '../params';
+import { createRng } from '../rng';
 import {
   ancestorsWithin,
   beginPlacementSession,
@@ -29,7 +30,6 @@ import {
   gradePrior,
   nextProbe,
   type PlacementAnswer,
-  type PlacementProbeEvent,
   type PlacementRun,
   placementBudget,
   placementConverged,
@@ -727,38 +727,71 @@ interface Step {
   correct: boolean;
   skipped: boolean;
   latencyMs: number;
+  /** ms before this step; 0 gives events that tie on ts (sync clamps a batch to one ts, 08 §4). */
   gapMs: number;
   /** The child starts a new app session before this step (the app calls beginPlacementSession). */
   newSession: boolean;
   frustrationSignal: boolean;
 }
 
+/** An event envelope for the child; ids rise with creation order (UUIDv7-like), like the app's. */
+function envelope(n: number, type: string, payload: unknown, ts: number): AnyEventEnvelope {
+  return {
+    id: `019a0000-0000-7000-8000-${n.toString(16).padStart(12, '0')}`,
+    familyId: '019a0000-0000-7000-8000-00000000f001',
+    childId: CHILD_ID,
+    deviceId: '019a0000-0000-7000-8000-00000000d001',
+    ts,
+    type,
+    v: 1,
+    payload,
+    contentVersion: 'test',
+  } as AnyEventEnvelope;
+}
+
+/** Records the app's events for one child: probes and session starts, in creation order. */
+class Log {
+  readonly events: AnyEventEnvelope[] = [];
+  private n = 0;
+  sessionStarted(ts: number): void {
+    this.n += 1;
+    const payload = { sessionId: `s${this.n}`, budgetMinutes: 10, trigger: 'child' };
+    this.events.push(envelope(this.n, 'session.started', payload, ts));
+  }
+  probe(payload: EventPayloads['placement.probe'], ts: number): void {
+    this.n += 1;
+    this.events.push(envelope(this.n, 'placement.probe', payload, ts));
+  }
+  probes(): AnyEventEnvelope[] {
+    return this.events.filter((e) => e.type === 'placement.probe');
+  }
+}
+
 /**
- * A live run driven by `steps`, the way the app drives it: a new app session calls
- * `beginPlacementSession`, and a mini-session that ended takes no probe until the next app session.
+ * A live run driven by `steps`, the way the app drives it: each new app session appends
+ * `session.started` and calls `beginPlacementSession`; a mini-session that ended takes no probe
+ * until the next app session.
  */
 function live(
   graph: SkillGraph,
   c: ChildContext,
   steps: readonly Step[],
-): { run: PlacementRun; events: PlacementProbeEvent[]; sessionStarts: number[] } {
+): { run: PlacementRun; log: Log; ts: number } {
   let run = start(graph, c);
-  const events: PlacementProbeEvent[] = [];
-  const sessionStarts: number[] = [T0];
+  const log = new Log();
   let ts = T0;
+  log.sessionStarted(ts);
   for (const step of steps) {
     if (run.done !== null) break;
     ts += step.gapMs;
     if (step.newSession) {
-      ts += 1;
-      sessionStarts.push(ts);
+      log.sessionStarted(ts);
       run = beginPlacementSession(run);
       if (run.done !== null) break;
     }
     if (run.session.ended !== null) continue;
     const task = nextProbe(run, { graph, child: c });
     if (!task) break;
-    ts += 1;
     const r = recordProbe(
       run,
       { graph, child: c },
@@ -775,19 +808,32 @@ function live(
       },
     );
     run = r.run;
-    events.push({ ts, payload: r.event });
+    log.probe(r.event, ts);
   }
-  return { run, events, sessionStarts };
+  return { run, log, ts };
 }
 
 const stepArb = fc.record({
   correct: fc.boolean(),
   skipped: fc.integer({ min: 0, max: 5 }).map((n) => n === 0),
   latencyMs: fc.integer({ min: 500, max: 40_000 }),
-  // Short and long gaps: a new app session can start minutes or days after the last probe.
-  gapMs: fc.oneof(fc.integer({ min: 0, max: 60_000 }), fc.integer({ min: 0, max: 3 * 86_400_000 })),
-  newSession: fc.integer({ min: 0, max: 5 }).map((n) => n === 0),
+  // Ties, short and long gaps: a new app session can start at once, minutes or days later.
+  gapMs: fc.oneof(
+    fc.constant(0),
+    fc.integer({ min: 0, max: 60_000 }),
+    fc.integer({ min: 0, max: 3 * 86_400_000 }),
+  ),
+  newSession: fc.integer({ min: 0, max: 4 }).map((n) => n === 0),
   frustrationSignal: fc.integer({ min: 0, max: 3 }).map((n) => n === 0),
+});
+
+const resumeInput = (graph: SkillGraph, c: ChildContext, params?: EngineParams) => ({
+  graph,
+  child: c,
+  state: emptyState(graph, c.isK),
+  placementId: 'pl-1',
+  strand: null,
+  ...(params ? { params } : {}),
 });
 
 describe('determinism and persistence', () => {
@@ -814,9 +860,9 @@ describe('determinism and persistence', () => {
   });
 
   it('events validate against the shared schemas', () => {
-    const { run, events } = live(MIXED, k, steps);
+    const { run, log } = live(MIXED, k, steps);
     expect(run.done).not.toBeNull();
-    for (const e of events)
+    for (const e of log.probes())
       expect(eventSchemas['placement.probe'].parse(e.payload)).toEqual(e.payload);
     const out = completePlacement(run);
     expect(eventSchemas['placement.completed'].parse(out)).toEqual(out);
@@ -828,31 +874,21 @@ describe('determinism and persistence', () => {
       fc.property(
         fc.array(stepArb, { maxLength: 40 }),
         fc.boolean(),
-        fc.integer({ min: 1, max: 3 * 86_400_000 }),
-        (raw, isK, resumeGap) => {
+        fc.integer({ min: 0, max: 3 * 86_400_000 }),
+        fc.integer({ min: 0, max: 1_000 }),
+        (raw, isK, resumeGap, shuffleSeed) => {
           const c = child(isK ? 'K' : '1');
-          const { run, events, sessionStarts } = live(MIXED, c, raw);
+          const { run, log, ts } = live(MIXED, c, raw);
           // Resume applies to an unfinished placement (a stopped one has its placement.completed).
           if (run.done !== null) return;
-          const lastTs = events[events.length - 1]?.ts ?? T0;
-          const resumeAt = lastTs + resumeGap;
-          // Live: the app starts a new session and begins the next mini-session.
+          // Live: the app starts a new session (its session.started) and begins a mini-session.
+          log.sessionStarted(ts + resumeGap);
           const expected = beginPlacementSession(run);
-          // Newest first; the stable sort keeps equal timestamps in their recorded order.
-          const shuffled = (JSON.parse(JSON.stringify(events)) as PlacementProbeEvent[]).sort(
-            (a, b) => b.ts - a.ts,
+          // Any delivery order: the replay sorts by (ts, id), like every fold.
+          const events = createRng(shuffleSeed).shuffle(
+            JSON.parse(JSON.stringify(log.events)) as AnyEventEnvelope[],
           );
-          const resumed = resumePlacement(
-            {
-              graph: MIXED,
-              child: c,
-              state: emptyState(MIXED, c.isK),
-              placementId: 'pl-1',
-              strand: null,
-            },
-            shuffled,
-            [...sessionStarts, resumeAt],
-          );
+          const resumed = resumePlacement(resumeInput(MIXED, c), events);
           expect(resumed).toEqual(expected);
           expect(nextProbe(resumed, { graph: MIXED, child: c })).toEqual(
             nextProbe(expected, { graph: MIXED, child: c }),
@@ -863,47 +899,65 @@ describe('determinism and persistence', () => {
     );
   });
 
+  it('events that tie on ts (a clamped sync batch) keep their session boundaries', () => {
+    const params = withPlacement({ budgetK: { perSession: 12, sessions: 2 } });
+    const g = wide(10);
+    let run = start(g, k, { params });
+    const log = new Log();
+    const at = T0 + 3 * 86_400_000; // every event below was clamped to this one ts
+    log.sessionStarted(at);
+    let r = answer(run, g, k, true, { ts: at, latencyMs: 30_000 }, params);
+    run = r.run;
+    log.probe(r.event, at);
+    log.sessionStarted(at);
+    run = beginPlacementSession(run);
+    r = answer(run, g, k, true, { ts: at, latencyMs: 30_000 }, params);
+    run = r.run;
+    log.probe(r.event, at);
+    expect(run.probes.map((p) => p.session)).toEqual([0, 1]);
+    const replayed = resumePlacement(resumeInput(g, k, params), [...log.events].reverse());
+    expect(replayed).toEqual(run);
+    // The next restart finds both mini-sessions used: the placement stops on its budget.
+    log.sessionStarted(at + 1);
+    const restarted = resumePlacement(resumeInput(g, k, params), log.events);
+    expect(restarted).toEqual(beginPlacementSession(run));
+    expect(restarted.done).toBe('budget');
+  });
+
   it('a session restarted within minutes keeps its boundary on replay', () => {
     const g = wide(10);
     let run = start(g, k);
-    const events: PlacementProbeEvent[] = [];
+    const log = new Log();
+    log.sessionStarted(T0);
     const rec = (ts: number) => {
       const r = answer(run, g, k, true, { ts, latencyMs: 30_000 });
       run = r.run;
-      events.push({ ts, payload: r.event });
+      log.probe(r.event, ts);
     };
     rec(T0);
     rec(T0 + 10_000);
-    const restart = T0 + 5 * 60_000; // the app was reopened five minutes later
+    log.sessionStarted(T0 + 5 * 60_000); // the app was reopened five minutes later
     run = beginPlacementSession(run);
-    rec(restart + 1_000);
+    rec(T0 + 5 * 60_000 + 1_000);
     expect(run.probes.map((p) => p.session)).toEqual([0, 0, 1]);
-    const input = { graph: g, child: k, state: emptyState(g), placementId: 'pl-1', strand: null };
-    const resumed = resumePlacement(input, events, [T0, restart]);
-    expect(resumed).toEqual(run);
+    expect(resumePlacement(resumeInput(g, k), log.events)).toEqual(run);
   });
 
   it('every mini-session used: a resumed placement stops on its budget, offering no probe', () => {
     const params = withPlacement({ budgetK: { perSession: 12, sessions: 1 } });
     const g = wide(10);
     let run = start(g, k, { params });
-    const events: PlacementProbeEvent[] = [];
+    const log = new Log();
+    log.sessionStarted(T0);
     for (const ts of [T0, T0 + 10_000]) {
       const r = answer(run, g, k, false, { ts, frustrationSignal: ts > T0 }, params);
       run = r.run;
-      events.push({ ts, payload: r.event });
+      log.probe(r.event, ts);
     }
     expect(run.done).toBe('frustration'); // live: the app also appends placement.completed
     // If only the probes were saved, a later session still offers no further probe.
-    const input = {
-      graph: g,
-      child: k,
-      state: emptyState(g),
-      placementId: 'pl-1',
-      strand: null,
-      params,
-    };
-    const resumed = resumePlacement(input, events, [T0, T0 + 86_400_000]);
+    log.sessionStarted(T0 + 86_400_000);
+    const resumed = resumePlacement(resumeInput(g, k, params), log.events);
     expect(resumed.done).toBe('budget');
     expect(nextProbe(resumed, { graph: g, child: k, params })).toBeNull();
   });
@@ -911,37 +965,20 @@ describe('determinism and persistence', () => {
   it('a mini-session ended by frustration resumes on a later day as the live run did', () => {
     const g = wide(10);
     let run = start(g, k);
-    const events: PlacementProbeEvent[] = [];
+    const log = new Log();
+    log.sessionStarted(T0);
     const rec = (correct: boolean, ts: number, frustrationSignal = false) => {
-      const task = nextProbe(run, { graph: g, child: k });
-      if (!task) throw new Error('no probe');
-      const r = recordProbe(
-        run,
-        { graph: g, child: k },
-        {
-          ...task,
-          correct,
-          skipped: false,
-          latencyMs: 3_000,
-          ts,
-          tier: 'abstract',
-          frustrationSignal,
-        },
-      );
+      const r = answer(run, g, k, correct, { ts, frustrationSignal });
       run = r.run;
-      events.push({ ts, payload: r.event });
+      log.probe(r.event, ts);
     };
     rec(false, T0);
     rec(false, T0 + 10_000, true);
     expect(run.session.ended).toBe('frustration');
+    log.sessionStarted(T0 + 86_400_000);
     run = beginPlacementSession(run);
-    rec(true, T0 + 86_400_000);
-    const resumed = resumePlacement(
-      { graph: g, child: k, state: emptyState(g), placementId: 'pl-1', strand: null },
-      events,
-      [T0, T0 + 86_400_000 - 1],
-    );
-    expect(resumed).toEqual(run);
+    rec(true, T0 + 86_400_000 + 1);
+    expect(resumePlacement(resumeInput(g, k), log.events)).toEqual(run);
   });
 
   it('a retried answer is refused, not counted twice', () => {
@@ -1004,17 +1041,14 @@ describe('determinism and persistence', () => {
     expect(run.p).toEqual(answer(start(fresh, k), fresh, k, true, {}).run.p);
   });
 
-  it('ignores probes of other placements', () => {
-    const { run, events } = live(MIXED, k, steps.slice(0, 3));
-    const other = events.map((e) => ({ ...e, payload: { ...e.payload, placementId: 'pl-2' } }));
-    const input = {
-      graph: MIXED,
-      child: k,
-      state: emptyState(MIXED),
-      placementId: 'pl-1',
-      strand: null,
-    };
-    expect(resumePlacement(input, [...events, ...other])).toEqual(run);
+  it('ignores probes of other placements, other children and other event types', () => {
+    const { run, log } = live(MIXED, k, steps.slice(0, 3));
+    const noise = log.events.flatMap((e, i) => [
+      { ...e, id: `${e.id}-a`, payload: { ...(e.payload as object), placementId: 'pl-2' } },
+      { ...e, id: `${e.id}-b`, childId: '019a0000-0000-7000-8000-00000000c002' },
+      envelope(500 + i, 'attempt', {}, e.ts),
+    ]) as AnyEventEnvelope[];
+    expect(resumePlacement(resumeInput(MIXED, k), [...log.events, ...noise])).toEqual(run);
   });
 
   it('foldLearnerState consumes the probe and completed events and marks assumed skills', () => {
@@ -1026,27 +1060,14 @@ describe('determinism and persistence', () => {
       newSession: false,
       frustrationSignal: false,
     }));
-    const { run, events } = live(MIXED, k, allRight);
+    const { run, log: recorded, ts: lastTs } = live(MIXED, k, allRight);
     expect(run.done).toBe('converged');
     const out = completePlacement(run);
     expect(out.assumed.length).toBeGreaterThan(0);
-    const env = (n: number, type: string, payload: unknown, ts: number): AnyEventEnvelope =>
-      ({
-        id: `019a0000-0000-7000-8000-${n.toString(16).padStart(12, '0')}`,
-        familyId: '019a0000-0000-7000-8000-00000000f001',
-        childId: CHILD_ID,
-        deviceId: '019a0000-0000-7000-8000-00000000d001',
-        ts,
-        type,
-        v: 1,
-        payload,
-        contentVersion: 'test',
-      }) as AnyEventEnvelope;
-    const lastTs = events[events.length - 1]?.ts ?? T0;
-    const log = events.map((e, i) => env(i + 1, 'placement.probe', e.payload, e.ts));
+    const log = [...recorded.events];
     const midway = foldLearnerState(log, MIXED, { childId: CHILD_ID, isK: true });
     expect(midway.placement.inProgress).toBe('pl-1');
-    log.push(env(999, 'placement.completed', out, lastTs + 1));
+    log.push(envelope(999, 'placement.completed', out, lastTs + 1));
     const state = foldLearnerState(log, MIXED, { childId: CHILD_ID, isK: true });
     expect(state.placement.inProgress).toBeNull();
     expect(state.placement.prior?.p).toEqual(out.posterior);
