@@ -12,7 +12,8 @@ permissions:
   contents: read
 
 concurrency:
-  group: nightly-${{ github.ref }}
+  # Split by event (as ci.yml did) so a manual dispatch never displaces a pending scheduled run.
+  group: nightly-${{ github.event_name }}-${{ github.ref }}
   cancel-in-progress: false
 
 env:
