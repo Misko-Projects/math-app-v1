@@ -24,6 +24,30 @@ type Story = StoryObj<typeof meta>;
 
 export const Playground: Story = {};
 
+/**
+ * A selected toggle with a caption (G1+): keyboard focus draws its ring clear of the selection
+ * ring, and the caption sits below both rings instead of under them.
+ */
+export const SelectedFocusWithCaption: Story = {
+  globals: { ageMode: 'g1-up' },
+  args: { label: 'ui.btn.next', icon: <ArrowIcon />, tone: 'sun', pressed: true },
+  play: async ({ canvasElement }) => {
+    const button = within(canvasElement).getByRole('button', { name: 'Next' });
+    const caption = canvasElement.querySelector('.ni-caption') as HTMLElement;
+    await expect(caption).not.toBeNull();
+    await userEvent.tab();
+    await expect(button).toHaveFocus();
+    await expect(button.matches(':focus-visible')).toBe(true);
+    const style = getComputedStyle(button);
+    // The selected button sits sunk; its rect already includes that translation.
+    const ringBottom =
+      button.getBoundingClientRect().bottom +
+      Number.parseFloat(style.outlineOffset) +
+      Number.parseFloat(style.outlineWidth);
+    await expect(caption.getBoundingClientRect().top).toBeGreaterThan(ringBottom + 2);
+  },
+};
+
 function StatesGrid() {
   return (
     <div className="story-grid" style={{ ['--story-col' as string]: '150px' }}>
