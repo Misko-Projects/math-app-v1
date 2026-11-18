@@ -7,8 +7,17 @@
 // Batch jobs are resumable: each job's name and its clips' request hashes are saved under the state
 // directory before polling, so any later run adopts the job for every clip still needed instead of
 // paying again. The API key is redacted from every error message.
-import { createHash } from 'node:crypto';
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { createHash, randomUUID } from 'node:crypto';
+import {
+  closeSync,
+  existsSync,
+  mkdirSync,
+  openSync,
+  readFileSync,
+  renameSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs';
 import { join } from 'node:path';
 import { isWav, pcmToWav } from '../audio';
 import { pool, type Renderer, type TokenUsage, type TtsOutcome, type TtsRequest } from './types';
@@ -118,7 +127,7 @@ async function describe(res: Response, redact: (text: string) => string): Promis
  * with a hash of the request, so any later run adopts the job for every request still needed.
  */
 interface BatchLedger {
-  version: 2;
+  version: 3;
   jobs: Record<
     string,
     { model: string; name?: string; createdAt: string; requests: Record<string, string> }
@@ -134,12 +143,12 @@ export function requestHash(model: string, r: TtsRequest): string {
 }
 
 function readLedger(file: string): BatchLedger {
-  if (!existsSync(file)) return { version: 2, jobs: {} };
+  if (!existsSync(file)) return { version: 3, jobs: {} };
   const data = JSON.parse(readFileSync(file, 'utf8')) as Partial<BatchLedger>;
-  if (data.version === 2 && data.jobs && typeof data.jobs === 'object') {
-    return { version: 2, jobs: data.jobs };
+  if (data.version === 3 && data.jobs && typeof data.jobs === 'object') {
+    return { version: 3, jobs: data.jobs };
   }
-  if (Object.keys(data).length === 0) return { version: 2, jobs: {} };
+  if (Object.keys(data).length === 0) return { version: 3, jobs: {} };
   // Never discard records silently: they may describe paid work.
   throw new Error(
     `${file} is not a batch ledger this version understands; move it aside to continue`,
@@ -235,10 +244,14 @@ export function geminiRenderer(opts: GeminiOptions): Renderer {
     if (stopped) ctx.log('narration: spend cap reached; stopped before rendering every clip.');
   }
 
-  /** Finds a batch by display name (recovers a job whose creation response was lost). */
+  /**
+   * Finds a batch by its display name (recovers a job whose creation response was lost). Names are
+   * unique per submission; more than one match, or more pages than it reads, means "unknown".
+   */
   async function findBatch(displayName: string): Promise<string | null> {
     let pageToken = '';
-    for (let page = 0; page < 10; page += 1) {
+    const matches = new Set<string>();
+    for (let page = 0; page < 20; page += 1) {
       const json = (await withRetry(() =>
         call(
           'GET',
@@ -250,15 +263,20 @@ export function geminiRenderer(opts: GeminiOptions): Renderer {
         nextPageToken?: string;
       };
       for (const b of json.batches ?? []) {
-        if ((b.displayName ?? b.metadata?.displayName) === displayName && b.name) return b.name;
+        if ((b.displayName ?? b.metadata?.displayName) === displayName && b.name)
+          matches.add(b.name);
       }
       for (const op of json.operations ?? []) {
-        if (op.metadata?.displayName === displayName) return op.metadata.name ?? op.name ?? null;
+        const name = op.metadata?.name ?? op.name;
+        if (op.metadata?.displayName === displayName && name) matches.add(name);
       }
-      if (!json.nextPageToken) return null;
+      if (!json.nextPageToken) {
+        if (matches.size > 1) throw new Error(`${matches.size} batches are named ${displayName}`);
+        return [...matches][0] ?? null;
+      }
       pageToken = json.nextPageToken;
     }
-    return null;
+    throw new Error('too many batches to search');
   }
 
   /** Looks a job up by name; null when the lookup itself fails (unknown, not "absent"). */
@@ -270,12 +288,51 @@ export function geminiRenderer(opts: GeminiOptions): Renderer {
     }
   }
 
+  /** Requests a saved job already covers (they cost nothing new); read-only, for the estimate. */
+  function covered(requests: readonly TtsRequest[], stateDir: string): Set<string> {
+    const ledger = readLedger(join(stateDir, 'gemini-batches.json'));
+    const out = new Set<string>();
+    const byId = new Map(requests.map((r) => [r.id, r]));
+    for (const job of Object.values(ledger.jobs)) {
+      if (job.model !== opts.model) continue;
+      for (const [id, hash] of Object.entries(job.requests)) {
+        const r = byId.get(id);
+        if (r && requestHash(opts.model, r) === hash) out.add(id);
+      }
+    }
+    return out;
+  }
+
+  /** One render at a time per ledger: a second concurrent run fails fast instead of clobbering it. */
+  async function locked(ctx: Ctx, fn: () => Promise<void>) {
+    mkdirSync(ctx.stateDir, { recursive: true });
+    const lock = join(ctx.stateDir, 'gemini-batches.lock');
+    let fd: number;
+    try {
+      fd = openSync(lock, 'wx');
+    } catch {
+      throw new Error(
+        `another narration render is using ${ctx.stateDir}. If none is running, delete ${lock}.`,
+      );
+    }
+    try {
+      await fn();
+    } finally {
+      closeSync(fd);
+      rmSync(lock, { force: true });
+    }
+  }
+
   async function render(requests: readonly TtsRequest[], ctx: Ctx) {
     const ledgerFile = join(ctx.stateDir, 'gemini-batches.json');
     const ledger = readLedger(ledgerFile);
+    /** Problems that stop new submissions; reported after every known job has been collected. */
+    const errors: string[] = [];
     const save = () => {
       mkdirSync(ctx.stateDir, { recursive: true });
-      writeFileSync(ledgerFile, `${JSON.stringify(ledger, null, 2)}\n`);
+      // Write then rename: an interrupted save never truncates the only record of a paid job.
+      writeFileSync(`${ledgerFile}.tmp`, `${JSON.stringify(ledger, null, 2)}\n`);
+      renameSync(`${ledgerFile}.tmp`, ledgerFile);
     };
     const byId = new Map(requests.map((r) => [r.id, r]));
     const unconfirmed = (displayName: string, why: string) =>
@@ -317,7 +374,12 @@ export function geminiRenderer(opts: GeminiOptions): Renderer {
           save();
           continue;
         } else {
-          throw unconfirmed(displayName, found === null ? 'not found' : 'lookup failed');
+          // Its requests stay covered (never resubmitted) while other jobs are still collected.
+          errors.push(
+            unconfirmed(displayName, found === null ? 'not found' : 'lookup failed').message,
+          );
+          for (const r of adopted) covered.add(r.id);
+          continue;
         }
       }
       // Already paid for: reserve it at the batch rate so new spending counts it, even past the cap.
@@ -332,8 +394,11 @@ export function geminiRenderer(opts: GeminiOptions): Renderer {
     }
     const remaining = requests.filter((r) => !covered.has(r.id));
 
-    // 2. New work: interactive calls, or new batch jobs recorded before they are submitted.
-    if (ctx.mode === 'interactive') {
+    // 2. New work: interactive calls, or new batch jobs recorded before they are submitted. Nothing
+    // new starts while an unconfirmed submission is unresolved.
+    if (errors.length > 0) {
+      // fall through to collect the jobs already known
+    } else if (ctx.mode === 'interactive') {
       await interactive(remaining, ctx);
     } else {
       for (let i = 0; i < remaining.length; i += BATCH_CHUNK) {
@@ -347,17 +412,25 @@ export function geminiRenderer(opts: GeminiOptions): Renderer {
           ctx.log('narration: spend cap reached; not starting further batches.');
           break;
         }
-        const displayName = `number-island-narration-${chunkKey(opts.model, chunk).slice(0, 16)}`;
+        // Unique per submission, so recovering a lost response can never adopt an older job.
+        const displayName = `number-island-narration-${chunkKey(opts.model, chunk).slice(0, 12)}-${randomUUID().slice(0, 8)}`;
         ledger.jobs[displayName] = {
           model: opts.model,
           createdAt: new Date(now()).toISOString(),
           requests: Object.fromEntries(chunk.map((r) => [r.id, requestHash(opts.model, r)])),
         };
         save();
-        const name = await createBatch(chunk, displayName, () => {
-          delete ledger.jobs[displayName];
-          save();
-        });
+        let name: string;
+        try {
+          name = await createBatch(chunk, displayName, () => {
+            delete ledger.jobs[displayName];
+            save();
+          });
+        } catch (e) {
+          // Stop submitting, but still collect every job already known below.
+          errors.push(message(e));
+          break;
+        }
         const record = ledger.jobs[displayName];
         if (record) record.name = name;
         save();
@@ -374,11 +447,15 @@ export function geminiRenderer(opts: GeminiOptions): Renderer {
         const json = await withRetry(() => call('GET', `${GEMINI_BASE}/${job.name}`));
         const status = batchState(json);
         if (status === 'running') continue;
-        let allStored = true;
+        // Ids whose outcome is final: stored, or failed at the provider.
+        const handled = new Set<string>();
+        const report = async (outcome: TtsOutcome) => {
+          if (await ctx.onResult(outcome)) handled.add(outcome.id);
+        };
         if (status !== 'succeeded') {
           ctx.log(`narration: batch ${job.name} ended ${status}; its clips were not rendered.`);
           for (const r of job.requests) {
-            await ctx.onResult({ id: r.id, ok: false, error: `batch ${status}` });
+            await report({ id: r.id, ok: false, error: `batch ${status}` });
           }
         } else {
           const results = await batchResults(json, (file) =>
@@ -408,23 +485,31 @@ export function geminiRenderer(opts: GeminiOptions): Renderer {
             } catch (e) {
               outcome = { id: item.key, ok: false, error: message(e) };
             }
-            // false: the audio arrived but could not be stored; keep the job to fetch it again.
-            if (!(await ctx.onResult(outcome))) allStored = false;
+            // Not handled when the audio arrived but could not be stored: the job is kept for it.
+            await report(outcome);
           }
           for (const r of job.requests) {
             if (!seen.has(r.id)) {
-              await ctx.onResult({ id: r.id, ok: false, error: 'missing from batch results' });
+              await report({ id: r.id, ok: false, error: 'missing from batch results' });
             }
           }
         }
         active.splice(active.indexOf(job), 1);
-        if (allStored) {
-          delete ledger.jobs[job.displayName];
+        // The record keeps every request of the job that is not final yet, including requests this
+        // run did not select (a later run stores them from the same finished job). A failed job
+        // can produce nothing more, and a complete run drops requests nothing needs any more.
+        const record = ledger.jobs[job.displayName];
+        if (record) {
+          for (const id of Object.keys(record.requests)) {
+            const stale = ctx.complete && !byId.has(id);
+            if (status !== 'succeeded' || handled.has(id) || stale) delete record.requests[id];
+          }
+          if (Object.keys(record.requests).length === 0) {
+            delete ledger.jobs[job.displayName];
+          } else {
+            ctx.log(`narration: keeping batch ${job.name} saved for its remaining clips.`);
+          }
           save();
-        } else {
-          ctx.log(
-            `narration: keeping batch ${job.name} saved; re-run to store its remaining clips.`,
-          );
         }
       }
       if (active.length === 0) break;
@@ -432,10 +517,11 @@ export function geminiRenderer(opts: GeminiOptions): Renderer {
         ctx.log(
           `narration: ${active.length} batch job(s) still running after ${Math.round(ctx.maxWaitMs / 60000)} min; re-run the same command to resume them (no new spend).`,
         );
-        return;
+        break;
       }
       await sleep(pollMs);
     }
+    if (errors.length > 0) throw new Error(errors.join(' | '));
   }
 
   /**
@@ -489,9 +575,10 @@ export function geminiRenderer(opts: GeminiOptions): Renderer {
   return {
     provider: 'gemini',
     model: opts.model,
+    covered,
     async render(requests, ctx) {
       try {
-        await render(requests, ctx);
+        await locked(ctx, () => render(requests, ctx));
       } catch (e) {
         throw new Error(message(e));
       }

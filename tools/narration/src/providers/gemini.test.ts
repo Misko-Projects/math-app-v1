@@ -238,7 +238,7 @@ describe('geminiRenderer, batch', () => {
     expect(results.every((o) => o.ok)).toBe(true);
     // Finished jobs are forgotten, so the state file is empty again.
     const state = JSON.parse(readFileSync(join(ctx.stateDir, 'gemini-batches.json'), 'utf8'));
-    expect(state).toEqual({ version: 2, jobs: {} });
+    expect(state).toEqual({ version: 3, jobs: {} });
   });
 
   it('leaves running jobs saved at the deadline and resumes them without paying again', async () => {

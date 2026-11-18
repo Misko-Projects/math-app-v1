@@ -9,6 +9,7 @@
 //
 // The Gemini key comes from GEMINI_API_KEY, else from the user-owned secrets file
 // ($MATH_APP_SECRETS or ~/.config/math-app-v1/secrets.env). It is never printed or logged.
+import { createHash } from 'node:crypto';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { dirname, join, relative, resolve } from 'node:path';
@@ -43,6 +44,17 @@ const NARRATION_DIR = join(ROOT, 'packages/content/narration');
 const NARRATION_JSON = join(ROOT, 'packages/content/dist/narration.json');
 const AUDIO_DIR = join(ROOT, 'apps/web/public/audio');
 const STATE_DIR = join(ROOT, 'tmp/narration/state');
+
+/**
+ * Each output target (directory and format) keeps its own batch ledger, so a render to a scratch
+ * directory or in another format never adopts or forgets another target's paid jobs.
+ */
+export function stateDirFor(outDir: string, format: string): string {
+  const target = createHash('sha256')
+    .update(`${resolve(outDir)}\0${format}`)
+    .digest('hex');
+  return join(STATE_DIR, target.slice(0, 16));
+}
 
 /** Reads one key from a dotenv-style file (same syntax as scripts/secrets-link.mjs). */
 export function readEnvKey(text: string, key: string): string | undefined {
@@ -183,7 +195,8 @@ async function render(argv: string[], env: NodeJS.ProcessEnv): Promise<number> {
   const outDir = resolve(
     values.out ?? (c.provider === 'stub' ? join(ROOT, 'tmp/narration/stub') : AUDIO_DIR),
   );
-  const renderer = dryRun ? null : c.renderer();
+  // A dry run builds the renderer too (it makes no calls) so the estimate can see saved jobs.
+  const renderer = c.renderer();
   const report = await runPipeline({
     narration,
     styles: loadStyles(NARRATION_DIR),
@@ -193,7 +206,7 @@ async function render(argv: string[], env: NodeJS.ProcessEnv): Promise<number> {
     // A dry run never needs ffmpeg: planning only needs the extension and the encoding tag.
     encoder: dryRun || !renderer ? { ...wavEncoder, ...encodingOf(c.format) } : c.encoder(),
     outDir,
-    stateDir: STATE_DIR,
+    stateDir: stateDirFor(outDir, c.format),
     mode,
     maxUsd: number(values['max-usd'], '--max-usd', 5),
     concurrency: Math.max(1, Math.floor(number(values.concurrency, '--concurrency', 4))),

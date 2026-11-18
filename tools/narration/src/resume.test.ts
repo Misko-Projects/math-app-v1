@@ -1,12 +1,13 @@
 // End-to-end resumability and spend safety (cross-model review rounds 1–2): runPipeline with the real
 // Gemini provider against a fake Batch API, checking that paid work is never submitted twice and that
 // partial runs never remove working audio.
-import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { audioManifestSchema, type NarrationJson } from '@number-island/shared';
 import { afterEach, describe, expect, it } from 'vitest';
 import { stubWav } from './audio';
+import { stateDirFor } from './cli';
 import { costUsd, priceFor } from './cost';
 import { type Encoder, wavEncoder } from './encode';
 import { type PipelineOptions, runPipeline } from './pipeline';
@@ -49,9 +50,15 @@ function fakeGemini() {
   let createFailure: 'network' | null = null;
   let listFails = false;
   let autoFinish = false;
+  let failed = false;
+  let rejectNext = false;
   const fakeFetch = (async (url: string, init?: RequestInit) => {
     const body = init?.body ? JSON.parse(String(init.body)) : undefined;
     if (url.endsWith(':batchGenerateContent')) {
+      if (rejectNext) {
+        rejectNext = false;
+        return json({ error: { message: 'invalid request' } }, 400);
+      }
       const keys = (
         body.batch.input_config.requests.requests as { metadata: { key: string } }[]
       ).map((x) => x.metadata.key);
@@ -77,6 +84,7 @@ function fakeGemini() {
     const name = url.slice(url.indexOf('batches/'));
     const job = jobs.get(name);
     if (!job) return json({ error: { message: 'not found' } }, 404);
+    if (failed && !job.done) return json({ name, metadata: { state: 'BATCH_STATE_FAILED' } });
     if (!job.done) return json({ name, metadata: { state: 'BATCH_STATE_RUNNING' } });
     return json({
       name,
@@ -102,6 +110,13 @@ function fakeGemini() {
     },
     setAutoFinish: (v: boolean) => {
       autoFinish = v;
+      failed = false;
+    },
+    failAll: () => {
+      failed = true;
+    },
+    rejectNextCreate: () => {
+      rejectNext = true;
     },
     forget: () => jobs.clear(),
   };
@@ -268,6 +283,165 @@ describe('resuming batch work without paying twice', () => {
   });
 });
 
+describe('review round 3', () => {
+  it('keeps a finished job saved for the requests a filtered run did not store', async () => {
+    const { server, run, ledger } = setup();
+    await run(); // one job for every clip, left running
+    expect(server.paidPosts).toHaveLength(1);
+    server.finishAll();
+    await run({ only: /^fb\./ }); // stores only fb.correct.1 from the finished job
+    expect(Object.keys(ledger().jobs)).toHaveLength(1);
+    const report = await run(); // the rest comes from the same job, with no new POST
+    expect(server.paidPosts).toHaveLength(1);
+    expect(report.complete).toBe(true);
+    expect(ledger().jobs).toEqual({});
+  });
+
+  it('gives each output target its own ledger', () => {
+    const a = stateDirFor('/tmp/out-a', 'opus');
+    expect(stateDirFor('/tmp/out-a', 'opus')).toBe(a);
+    expect(stateDirFor('/tmp/out-a', 'wav')).not.toBe(a);
+    expect(stateDirFor('/tmp/out-b', 'opus')).not.toBe(a);
+  });
+
+  it('refuses a ledger in an older format instead of ignoring its paid jobs', async () => {
+    const { run, outDir } = setup();
+    mkdirSync(join(outDir, '.state'), { recursive: true });
+    writeFileSync(
+      join(outDir, '.state', 'gemini-batches.json'),
+      JSON.stringify({ version: 2, jobs: { 'batches/x': { model: MODEL, requests: { a: 'b' } } } }),
+    );
+    const report = await run();
+    expect(report.aborted).toMatch(/not a batch ledger this version understands/);
+  });
+
+  it('a filtered run keeps an unselected entry even when another cached file for it exists', async () => {
+    const outDir = mkdtempSync(join(tmpdir(), 'narration-r3-'));
+    dirs.push(outDir);
+    const stub: Renderer = {
+      provider: 'gemini',
+      model: MODEL,
+      async render(requests, ctx) {
+        for (const r of requests) await ctx.onResult({ id: r.id, ok: true, wav: stubWav(50) });
+      },
+    };
+    const run = (narration: NarrationJson, only?: RegExp) =>
+      runPipeline({
+        narration,
+        styles: new Map(),
+        config: repoVoices(),
+        provider: 'gemini',
+        renderer: stub,
+        encoder: wavEncoder,
+        outDir,
+        stateDir: join(outDir, '.state'),
+        mode: 'interactive',
+        maxUsd: 5,
+        concurrency: 1,
+        maxWaitMs: 0,
+        dryRun: false,
+        only,
+      });
+    const original = fixtureNarration();
+    await run(original); // A = fb.correct.1 at its original text
+    const changed = {
+      ...original,
+      'fb.correct.1': { text: 'You did it again!', clips: ['fb.correct.1#0'] },
+    };
+    await run(changed, /^fb\./); // A updated; its original file stays (filtered runs delete nothing)
+    const updated = read(outDir).clips['fb.correct.1#0'];
+    await run(original, /^num\./); // A's text restored, but only num.* is selected
+    expect(read(outDir).clips['fb.correct.1#0']).toEqual(updated);
+  });
+
+  it('a filtered run leaves partial files alone', async () => {
+    const outDir = mkdtempSync(join(tmpdir(), 'narration-r3-'));
+    dirs.push(outDir);
+    writeFileSync(join(outDir, 'fedcba9876543210.ogg.partial'), 'x');
+    const stub: Renderer = {
+      provider: 'gemini',
+      model: MODEL,
+      async render(requests, ctx) {
+        for (const r of requests) await ctx.onResult({ id: r.id, ok: true, wav: stubWav(50) });
+      },
+    };
+    await runPipeline({
+      narration: fixtureNarration(),
+      styles: new Map(),
+      config: repoVoices(),
+      provider: 'gemini',
+      renderer: stub,
+      encoder: wavEncoder,
+      outDir,
+      stateDir: join(outDir, '.state'),
+      mode: 'interactive',
+      maxUsd: 5,
+      concurrency: 1,
+      maxWaitMs: 0,
+      dryRun: false,
+      only: /^nothing-matches$/,
+    });
+    expect(existsSync(join(outDir, 'fedcba9876543210.ogg.partial'))).toBe(true);
+  });
+});
+
+const read = (dir: string) =>
+  audioManifestSchema.parse(JSON.parse(readFileSync(join(dir, 'manifest.json'), 'utf8')));
+
+describe('own pre-review checks (before round 4)', () => {
+  it('a lost creation response after a failed earlier job adopts the new job, not the old one', async () => {
+    const { server, run, ledger } = setup();
+    await run({ only: /^fb\./ }); // job0 for fb.correct.1, left running
+    server.failAll(); // job0 ends FAILED
+    const failed = await run({ only: /^fb\./, maxWaitMs: 0 });
+    expect(failed.failed).toHaveLength(1);
+    expect(ledger().jobs).toEqual({});
+    // Same chunk again: the POST lands, the response is lost, and the lookup must find the new job.
+    server.failNextCreate();
+    server.setAutoFinish(true);
+    const report = await run({ only: /^fb\./ });
+    expect(server.paidPosts).toHaveLength(2);
+    expect(report).toMatchObject({ rendered: 1, failed: [], aborted: null });
+    expect(ledger().jobs).toEqual({});
+  });
+
+  it('a rejected batch creation still collects the jobs already known before it stops', async () => {
+    const { server, run, ledger } = setup();
+    await run({ only: /^fb\./ }); // a saved job, left running
+    server.finishAll();
+    server.rejectNextCreate(); // the new chunk is rejected with HTTP 400
+    const report = await run();
+    expect(report.aborted).toMatch(/HTTP 400/);
+    expect(report.rendered).toBe(1); // fb.correct.1 collected from the saved job anyway
+    expect(ledger().jobs).toEqual({});
+  });
+
+  it('refuses a second concurrent render on the same ledger', async () => {
+    const { run, outDir } = setup();
+    mkdirSync(join(outDir, '.state'), { recursive: true });
+    writeFileSync(join(outDir, '.state', 'gemini-batches.lock'), '');
+    const report = await run();
+    expect(report.aborted).toMatch(/another narration render is using/);
+  });
+
+  it('leaves clips a saved job already covers out of the estimate', async () => {
+    const { server, run } = setup();
+    await run({ only: /^fb\./ }); // fb.correct.1 is now covered by a saved job
+    void server;
+    const covered = await run({ only: /^fb\./, dryRun: true });
+    expect(covered.toRender).toBe(1);
+    expect(covered.estimate.usd).toBe(0);
+  });
+
+  it('refuses to run when the existing manifest cannot be read', async () => {
+    const { run, outDir } = setup();
+    writeFileSync(join(outDir, 'manifest.json'), '{"version": "trunc');
+    const report = await run();
+    expect(report.aborted).toMatch(/cannot be read/);
+    expect(readFileSync(join(outDir, 'manifest.json'), 'utf8')).toBe('{"version": "trunc');
+  });
+});
+
 describe('partial runs never remove working audio', () => {
   function stubRun(outDir: string) {
     const stub: Renderer = {
@@ -297,8 +471,6 @@ describe('partial runs never remove working audio', () => {
         ...o,
       });
   }
-  const read = (dir: string) =>
-    audioManifestSchema.parse(JSON.parse(readFileSync(join(dir, 'manifest.json'), 'utf8')));
 
   it('a filtered run keeps entries for clips absent from the current plan', async () => {
     const outDir = mkdtempSync(join(tmpdir(), 'narration-partial-'));

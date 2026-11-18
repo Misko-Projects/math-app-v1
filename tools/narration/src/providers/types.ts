@@ -61,6 +61,8 @@ export interface RenderContext {
 export interface Renderer {
   readonly provider: ProviderId;
   readonly model: string;
+  /** Requests that saved provider work already covers, so the estimate can leave them out. */
+  covered?(requests: readonly TtsRequest[], stateDir: string): Set<string>;
   /** Renders every request; failures are reported through `onResult`, never thrown per clip. */
   render(requests: readonly TtsRequest[], ctx: RenderContext): Promise<void>;
 }

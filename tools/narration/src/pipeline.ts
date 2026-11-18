@@ -7,9 +7,10 @@
 // keeps its work, and batch jobs resume from the provider's saved ledger.
 //
 // Only a complete run (unfiltered, nothing failed, nothing pending, no abort) publishes a manifest
-// of exactly the current plan and prunes clip files nothing references. Any other run keeps every
-// previous manifest entry whose file still exists for clips it has no new file for, and prunes
-// nothing, so a partial or failed run never removes working audio.
+// of exactly the current plan and deletes clip and partial files nothing references. Any other run
+// keeps every previous manifest entry whose file still exists for clips it has no new file for
+// (and, when filtered, for every clip it did not select), and deletes nothing, so a partial or
+// failed run never removes or swaps working audio.
 import { createHash } from 'node:crypto';
 import {
   existsSync,
@@ -103,7 +104,8 @@ export async function runPipeline(opts: PipelineOptions): Promise<PipelineReport
     encoding: opts.encoder,
   });
   const model = opts.renderer?.model ?? modelName(opts);
-  const previous = readManifest(join(opts.outDir, 'manifest.json'));
+  const manifestFile = join(opts.outDir, 'manifest.json');
+  const previous = readManifest(manifestFile);
   const knownDurations = new Map<string, number>();
   for (const clip of Object.values(previous?.clips ?? {})) {
     knownDurations.set(clip.file, clip.durationMs);
@@ -123,7 +125,28 @@ export async function runPipeline(opts: PipelineOptions): Promise<PipelineReport
           : 'batch'
         : opts.mode;
   const price = priceFor(opts.provider, model, now);
-  const est = estimate(todo, price, mode);
+  // Requests a saved provider job already covers cost nothing new, so they are left out.
+  let alreadyPaid = new Set<string>();
+  let ledgerError: string | null = null;
+  try {
+    alreadyPaid =
+      opts.renderer?.covered?.(
+        todo.map((j) => ({
+          id: j.hash,
+          text: j.text,
+          voiceName: j.voiceName,
+          styleText: j.styleText,
+        })),
+        opts.stateDir,
+      ) ?? alreadyPaid;
+  } catch (e) {
+    ledgerError = e instanceof Error ? e.message : String(e);
+  }
+  const est = estimate(
+    todo.filter((j) => !alreadyPaid.has(j.hash)),
+    price,
+    mode,
+  );
   const report: PipelineReport = {
     provider: opts.provider,
     model,
@@ -144,7 +167,19 @@ export async function runPipeline(opts: PipelineOptions): Promise<PipelineReport
     pruned: [],
     aborted: null,
   };
+  if (ledgerError) {
+    report.aborted = ledgerError;
+    report.pending = todo.length;
+    return report;
+  }
   if (opts.dryRun || !opts.renderer) return report;
+  if (existsSync(manifestFile) && !previous) {
+    // Without the previous manifest a partial run could not keep its entries: refuse rather than
+    // risk dropping working audio.
+    report.aborted = `${manifestFile} exists but cannot be read; fix or delete it, then re-run`;
+    report.pending = todo.length;
+    return report;
+  }
   if (est.usd > opts.maxUsd) {
     report.aborted = `estimated $${est.usd.toFixed(4)} exceeds --max-usd ${opts.maxUsd}`;
     report.pending = todo.length;
@@ -224,6 +259,10 @@ export async function runPipeline(opts: PipelineOptions): Promise<PipelineReport
   for (const j of jobs) {
     const path = join(opts.outDir, j.file);
     if (!existsSync(path)) continue;
+    // A filtered run never changes the entry of a clip it did not select, even when another cached
+    // file for it exists (for example after its text was changed back).
+    const unselected = opts.only !== undefined && !opts.only.test(j.id);
+    if (unselected && clips[j.id]) continue;
     let durationMs = knownDurations.get(j.file);
     if (durationMs === undefined) {
       durationMs = opts.encoder.durationMs(new Uint8Array(readFileSync(path)));
@@ -234,13 +273,16 @@ export async function runPipeline(opts: PipelineOptions): Promise<PipelineReport
   }
   if (!report.complete) report.kept = Object.keys(clips).length - fresh;
   const manifest = buildManifest(clips);
-  writeFileSync(join(opts.outDir, 'manifest.json'), canonicalJson(manifest));
+  // Write then rename, so an interrupted run never leaves a truncated manifest.
+  writeFileSync(`${manifestFile}.tmp`, canonicalJson(manifest));
+  renameSync(`${manifestFile}.tmp`, manifestFile);
   report.manifest = manifest;
 
   const referenced = new Set(Object.values(clips).map((c) => c.file));
   for (const name of readdirSync(opts.outDir).sort()) {
-    const stale = report.complete && CLIP_FILE.test(name) && !referenced.has(name);
-    if (stale || PARTIAL_FILE.test(name)) {
+    // Only a complete run deletes anything, leftover partial files included.
+    if (!report.complete) break;
+    if ((CLIP_FILE.test(name) && !referenced.has(name)) || PARTIAL_FILE.test(name)) {
       rmSync(join(opts.outDir, name));
       report.pruned.push(name);
     }
