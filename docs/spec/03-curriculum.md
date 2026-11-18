@@ -145,7 +145,7 @@ Notes:
 
 ### 2.4 Coverage rule
 
-Every K–3 standard in the code list, and every grade 4 code a stretch skill names, must be **addressed** (listed in `ccss`, not `supports`) by at least one skill. A parent code with sub-parts (`K.CC.B.4`) counts as covered when the parent is tagged, or when every sub-part is tagged. `pnpm content:validate` prints any uncovered code and fails (§9, V20). The v1 catalog in §3 covers all of K.CC, K.OA, K.NBT, K.MD, K.G, 1.OA, 1.NBT, 1.MD, 1.G, 2.OA, 2.NBT, 2.MD, 2.G, 3.OA, 3.NBT, 3.NF, 3.MD and 3.G.
+Every K–3 standard in the code list, and every grade 4 code a stretch skill names, must be **addressed** (listed in `ccss`, not `supports`) by at least one skill. A parent code with sub-parts (`K.CC.B.4`) counts as covered when the parent is tagged, or when every sub-part is tagged. A tagged parent covers its sub-parts too (`3.MD.C.5` covers `3.MD.C.5a` and `3.MD.C.5b`). `pnpm content:validate` prints any uncovered code and fails (§9, V20). The v1 catalog in §3 covers all of K.CC, K.OA, K.NBT, K.MD, K.G, 1.OA, 1.NBT, 1.MD, 1.G, 2.OA, 2.NBT, 2.MD, 2.G, 3.OA, 3.NBT, 3.NF, 3.MD and 3.G.
 
 ### 2.5 Skills with no standards tag
 
@@ -722,7 +722,7 @@ packages/content/
                                 resident lines, Glim intro, wind-down recaps. Each UI issue authors its own keys here.
   game/*.yaml                   GameData (02 §5.8): buildings, recipes, residents, decor, materials (authored by U02)
   contexts.yaml                 story contexts and nouns (§4.6)
-  graph.yaml                    root allowlist, coverageGrades (§9.2) and graph-level settings
+  graph.yaml                    root allowlist, coverageGrades and plannedIds (§9.2) and graph-level settings
   outlines.yaml                 shape outlines for geo.compose
   narration/wordlist-k1.txt, wordlist-2.txt, denylist.txt   reading-level and tone lists (§8.5)
   retired.yaml                  retired SkillIds and TemplateIds (never reusable)
@@ -947,7 +947,7 @@ The `LessonSpec` type and the lesson rules are in §6.
 
 ### 4.6 Story contexts (`contexts.yaml`)
 
-Story problems draw their scene, nouns and verbs from a closed set of island contexts. Generators never invent nouns, and every noun has singular and plural narration clips (`noun.<id>.one`, `noun.<id>.many`).
+Story problems draw their scene, nouns and verbs from a closed set of island contexts. Generators never invent nouns, and every noun has singular and plural narration clips (`noun.<id>.one`, `noun.<id>.many`). A context's `situations` name a `SituationType` (§5.5) or its family, the part before the slash (`add-to` covers `add-to/result`, `add-to/change` and `add-to/start`), and V26 checks them.
 
 ```yaml
 contexts:
@@ -955,13 +955,13 @@ contexts:
     nouns: [plank]
     place: sawmill
     verbs: { addTo: stack, takeFrom: haul-away }
-    situations: [add-to, take-from, put-together, compare, length]
+    situations: [add-to, take-from, put-together, compare, measure]
     maxQuantity: 1000
   - id: dock-fish
     nouns: [fish, crab]
     place: dock
     verbs: { addTo: catch, takeFrom: sell }
-    situations: [add-to, take-from, put-together, compare, equal-groups, sharing]
+    situations: [add-to, take-from, put-together, compare, equal-groups]
     maxQuantity: 100
 ```
 
@@ -1921,7 +1921,7 @@ Defaults by kind:
 04 §3 owns the effect (a test-out success skips the lesson and puts the skill on the practiced track). This section fixes when it is offered and which items it uses.
 
 - **Offered** for a `ready` skill when either the placement posterior for the skill is ≥ 0.6 (04 §5) or `LearnerModel.predict(state, skill, 0) ≥ 0.75` using the transferred offset (04 §2.1). Otherwise the lesson plays without a test-out.
-- **Items:** `testOut.items` (default 3) items at `d* = 0` from the skill's **abstract-tier** templates. Use pictorial templates only if the skill has no abstract template (common in K), and never `choice`-answer templates when a constructed-response template exists. Draw from ≥ 2 distinct templates when the skill has ≥ 2 eligible ones. For gateway skills the items must span ≥ 2 representations.
+- **Items:** `testOut.items` (default 3) items at `d* = 0` from the skill's **abstract-tier** templates. Use pictorial templates only if the skill has no abstract template (common in K), and never `choice`-answer templates when a constructed-response template exists. Draw from ≥ 2 distinct templates when the skill has ≥ 2 eligible ones. For gateway skills the items must span ≥ 2 representations: when a gateway skill's abstract templates span fewer than two, its pictorial templates join the pool (then the choice rule applies). The compiler resolves this pool and writes it to `testOut.templateIds`, so the runner draws from exactly the validated set; an authored `testOut.templateIds` is kept as written and may hold no concrete template (V21).
 - **Framing:** a test-out is a "warm-up challenge" from the Pebbling. It never says "test".
 - **Outcomes:**
 
@@ -2135,7 +2135,7 @@ US English, with no "and" inside whole numbers (judgment call: matches how US cl
 | `dollars` | cents | `numberClips(d) + money.dollar.(one\|many)`, then, if c > 0, `word.and` + `numberClips(c) + money.cent.(one\|many)`. 125 → "one dollar and twenty-five cents" |
 | `time` | `"h:mm"` | m = 0 → `num.h time.oclock`; m < 10 → `num.h time.oh num.m`; else `num.h num.m`. `"h:mm pm"` adds `time.pm`. |
 | `frac` | `"a/b"` | `numberClips(a)` + `den.b.one` (a = 1) or `den.b.many`. 1/2 → "one half"; 3/4 → "three fourths"; 3/1 → "three wholes" |
-| `dec` | hundredths integer, with `:1` or `:2` places | 30:1 → "three tenths"; 47:2 → "forty-seven hundredths"; 250:2 → "two and fifty hundredths" (whole part, `word.and`, the fraction). Judgment call: decimals are read as fractions, which reinforces their meaning (4.NF.C.6). |
+| `dec` | hundredths integer; the slot names the places, `{v\|dec:1}` (tenths) or `{v\|dec:2}` (hundredths), and a bare `dec` is a V16 error | 30:1 → "three tenths"; 47:2 → "forty-seven hundredths"; 250:2 → "two and fifty hundredths" (whole part, `word.and`, the fraction). Judgment call: decimals are read as fractions, which reinforces their meaning (4.NF.C.6). |
 | `noun:<countVar>` | noun id | `noun.<id>.one` if vars[countVar] = 1, else `.many` |
 | `unit:<countVar>` | unit id | `unit.<id>.one` or `.many`, by the same rule |
 | `shape:<countVar>` | ShapeKind | `shape.<id>.one` or `.many` |
@@ -2144,12 +2144,12 @@ US English, with no "and" inside whole numbers (judgment call: matches how US cl
 
 ### 8.4 Variable interpolation
 
-- **Syntax:** `{name}` or `{name|type}` or `{name|type:countVar}` inside `text` and `say`. Names are the generator's `vars` keys. A literal brace is written `{{`.
+- **Syntax:** `{name}` or `{name|type}` or `{name|type:countVar}` inside `text` and `say`; `dec` takes its decimal places instead of a count variable (`{name|dec:1}`, `{name|dec:2}`). Names are the generator's `vars` keys. A literal brace is written `{{`.
 - **Types:** a number var defaults to `num`. **Every string var must have a type from the table above.** Free text is never interpolated into speech (V16), so a pre-recorded clip exists for every possible value.
 - **Display formatting:** numbers as numerals; a thousands comma from 1,000 up (`12,345`); `cents` as `25¢`; `dollars` as `$1.25`; `time` as `7:05`; `frac` as a stacked fraction in the UI (`3/4` in plain text); `dec` as `0.47`.
 - **Spoken symbols** (when a line has no `say`): `+` plus, `−` minus, `×` times, `÷` divided by, `=` equals, `<` is less than, `>` is greater than, `?` and blanks: "what number". Exception: in lines owned by the relational-equality skills (`ALG.05`, `ADD.10`, `ADD.11`, `ALG.06`, `ALG.07`), authors write `say` with "is the same as" for `=`, because that is the meaning being taught (research 01 §6.2).
 - **Rendering for TTS:** the build splits `say` into static segments at the slots. Each non-empty segment is rendered as a clip `<key>#<i>` (i from 0). A line without slots is a single clip `<key>#0`. Authors place slots at phrase boundaries ("How many is {a} plus {b}?" is good; "{a}-sided" is not allowed).
-- **`narration.json`** (02 §5.5) entry: `{ text, say?, voice?, clips }`. `clips` lists static clip ids and slot tokens in speaking order, e.g. `["tp.ADD.08.t1.prompt#0", "$a", "tp.ADD.08.t1.prompt#1", "$b", "tp.ADD.08.t1.prompt#2"]`. A slot token is `$<var>` or `$<var>|<type>[:<countVar>]`. `AudioManager.say(key, vars)` expands slot tokens with §8.3 and plays the sequence gaplessly. A missing static clip falls back to Web Speech for the whole line (02 §5.5).
+- **`narration.json`** (02 §5.5) entry: `{ text, say?, voice?, clips }`. `clips` lists static clip ids and slot tokens in speaking order, e.g. `["tp.ADD.08.t1.prompt#0", "$a", "tp.ADD.08.t1.prompt#1", "$b", "tp.ADD.08.t1.prompt#2"]`. A slot token is `$<var>` or `$<var>|<type>[:<suffix>]`, where the suffix is the count variable for `noun`, `unit` and `shape`, and the decimal places (`1` or `2`) for `dec` (e.g. `$h|dec:1`); other types take none. The token keeps the 02 §5.5 shape `$var[|type[:…]]`. `AudioManager.say(key, vars)` expands slot tokens with §8.3 and plays the sequence gaplessly. A missing static clip falls back to Web Speech for the whole line (02 §5.5).
 
 ### 8.5 Reading level and tone
 
@@ -2196,13 +2196,17 @@ Runs the compiler checks in `packages/content` (V01–V12, V16–V21, V23, V24, 
 
 **Ownership.** C01 implements the compiler checks in `packages/content`. E01 creates `tools/content-check` with V13–V15, V22 and V25. Until E01 lands, `content:validate` runs the compiler checks only and prints "engine checks skipped".
 
+**What only the engine can check.** `packages/content` never imports the engine (02 §2), so the parts of a compiler check that need registered generators or rules run in `tools/content-check` with the engine checks (C01, 2026-11-18): that a generator in `appliesTo.generators` is registered (V04, alongside V14), that every key a generator declares exists (V16), that a misconception's `detect.rule` is registered and its `examples` evaluate as declared (V18), and that hint lines never contain the item's answer (V17, on rendered items in V15). It also re-checks the test-out pool (V21) against the answer kind generated items actually have: the compiler can only tell that a template answers with a choice when its format answers with nothing else or it carries `distractors`. The compiler checks the grammar of those ids, and V21 checks a lesson's given params only against constraints whose identifiers are all params (constraints on derived names such as `result` are checked through V15). Readings the compiler applies: V21 needs an abstract or pictorial template for a skill's test-out (a concrete-only skill fails); V17 counts each slot as one word; V16 also requires a type on a slot whose authored lesson step supplies a string var; V20 checks every grade-4 code a skill names (parent or sub-part) whatever `coverageGrades` says; template numbers have no leading zeros (V02); entries of `retired.yaml` and `plannedIds` must be canonical ids and excuse only the id they spell exactly (V02, V03); and a gateway test-out needs at least 2 items (V21).
+
+**Planned ids.** `graph.yaml: plannedIds` lists catalog ids that this content set has not authored yet, so V03 accepts a gap there. Unlike a retired id, a planned id may be authored later; once it is, it must leave the list. The fixture set plans `ADD.02` (it has `ADD.01` and `ADD.03`), and K01 clears the list.
+
 **Coverage gating.** `packages/content/graph.yaml: coverageGrades` lists the grades whose catalog is complete. V20 checks coverage only for those grades. The fixture set uses `[]`, K01 sets `[K, 1]`, and K02 sets `[K, 1, 2, 3]` (plus the grade-4 codes its stretch skills name).
 
 | Id | Check | Severity |
 |---|---|---|
 | V01 | Every YAML file parses and matches its strict Zod schema. Errors name the file, the path and the expected type. | error |
 | V02 | Id formats (02 §4.1); the id prefix matches the file's strand; template id = `<skillId>.t<n>`; ids are unique; no id from `retired.yaml`; no skills in reserved strands (§1.2) | error |
-| V03 | Ids are sequential within each strand and skill, with gaps only for retired ids | error |
+| V03 | Ids are sequential within each strand and skill, with gaps only for retired ids or for catalog ids listed in `graph.yaml: plannedIds` (not authored yet; a planned id that is authored is an error) | error |
 | V04 | References resolve: prerequisites, `encompasses` keys, `related`, `template.skillId`, lesson `templateId`s, misconception `skills`, `remediation` and `appliesTo`, `distractors[].rule`, context ids | error |
 | V05 | Every skill with no prerequisites is in the `graph.yaml` roots allowlist | error |
 | V06 | The prerequisite graph is a DAG (the error prints a cycle path); no skill lists a `PUZ` skill as a prerequisite | error |
@@ -2225,7 +2229,7 @@ Runs the compiler checks in `packages/content` (V01–V12, V16–V21, V23, V24, 
 | V23 | A prerequisite has a higher grade label than its skill | warn |
 | V24 | Building twice from the same input gives byte-identical `dist/` (CI runs the build twice) | error |
 | V25 | For each template and each applicable misconception with `predict`, ≥ 20% of generated items discriminate (the buggy answer differs from the correct one) | warn |
-| V26 | Contexts: every noun has clips; every listed situation is a valid `SituationType` | error |
+| V26 | Contexts: every noun has clips; every listed situation is a valid `SituationType` or `SituationType` family (§4.6) | error |
 
 ### 9.3 Generator hook
 
@@ -2256,6 +2260,8 @@ The C01 fixture set, used by engine, widget and runner work before the curriculu
 `CNT.01`–`CNT.07`, `SUB.01`–`SUB.03`, `CPS.01`–`CPS.03`, `ADD.01`, `ADD.03`
 
 using exactly the five E01 reference generators (`count.set`, `count.sequence`, `subitize.flash`, `bond.parts`, `addsub.facts`) and the formats `tap-count`, `make-set`, `dot-flash`, `numeral-pick`, `number-pad`, `tenframe-fill`, `number-bond`, `number-line-jump`, `hundred-chart`, `order` and `rekenrek`. Each fixture skill has enough templates to pass V08–V10 **for the representations it lists**. Fixture skills may list a subset of their catalog representations (for example, `SUB.03` may list three of its five), and K01 restores the full lists. `graph.yaml: coverageGrades` is `[]` for the fixture. E01 owns the format state models (§6.3) and widget Zod schemas (§9.4 step 3) for these 11 fixture formats; U03–U05 own them for every other format. Three misconceptions come with it: `MC.off-by-one-counting`, `MC.count-start-number`, `MC.count-all-instead`. K01 replaces the fixtures with the full catalog entries for these ids, keeping ids and schemas.
+
+As built (C01): the misconception rows list only the fixture skills, and the three gateway skills (`CNT.03`, `SUB.03`, `CPS.02`) have authored lessons, so the set validates with no warnings. `graph.yaml` plans `ADD.02` (V03). The fixture game data is `game/fixture.yaml` (three materials, six buildings, four residents), and the narration clip inventory is `narration/numbers.yaml` (§8.3). The `dist/` shapes that have no 02 contract (`graph.json`, `standards.json`, `contexts.json`, `manifest.json`) are exported as types from `packages/content` (`CompiledGraph`, `StandardsIndex`, `StoryContext`, `ContentManifest`).
 
 ---
 
@@ -2321,7 +2327,7 @@ These are additions this document needed. None removes or renames anything in 02
 | C2 | `Skill.standards.supports?: string[]` | §5.1 | Keeps supporting (trajectory) tags out of coverage (§2.1, V20) |
 | C3 | `ItemTemplate.expectedLatencyMs?: number` | §5.1 | 04 §2.3 already reads it. Default 8,000 ms (abstract) / 12,000 ms (manipulative). |
 | C4 | `TaskRunner.submit(r, meta: { latencyMs: number; trace?: InteractionEvent[] })` and a new engine export `detectProcessMisconceptions(item, r, meta): MisconceptionId[]` | §5.6, §5.2 | Process misconceptions and strategy praise (§5.7, §7.1) need the interaction trace, which `ResponseValue` deliberately does not carry |
-| C5 | `narration.json` entries are `{ text, say?, voice?, clips }`, and `clips` may contain slot tokens `$var[\|type[:countVar]]` | §5.5 | Clarifies how stitched lines are represented (§8.4) |
+| C5 | `narration.json` entries are `{ text, say?, voice?, clips }`, and `clips` may contain slot tokens `$var[\|type[:countVar]]`; for `dec` the suffix is the decimal places instead of a count variable (`$h\|dec:1`, §8.4) | §5.5 | Clarifies how stitched lines are represented (§8.4) |
 | C6 | `lesson.step` payload: `{ sessionId, skillId, templateId, phase, example, step, actor, outcome }` | §4.2 | The event type exists in 02 without a payload shape (§6.2) |
 | C7 | Types 02 references but does not define (`Tier`, `Representation`, `ParamSpec`, `GeneratorId`, `WidgetConfig`, `AnswerSpec`, `HintStep`, `LessonSpec`, `NarrationKey`, `FeedbackKey`, `StrandId`) are defined in §1, §5.1, §5.2 and §6.1 of this doc | §5.1–§5.2 | Definitions, not changes. 02 should link here. |
 | C8 | No new `ItemFormat` is needed for v1. A possible later addition is `strategy-pick` ("which way would you solve it?", the digital number talk of research 02 §1.3). It is not used in v1. | §5.2 | |

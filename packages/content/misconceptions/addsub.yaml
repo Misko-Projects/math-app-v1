@@ -1,0 +1,56 @@
+# C01 fixture misconceptions (03 §9.5, library rows in 03 §7.2). Only the fixture skills are
+# listed; K01 restores ADD.04, ADD.06, ADD.08, ADD.13, ADD.15, ADD.27 and MDA.13.
+area: addsub
+misconceptions:
+  - id: MC.count-start-number
+    name: Counts the starting number when counting on
+    detect: { kind: answer, rule: countStartNumber }
+    appliesTo: { generators: [addsub.facts] }
+    skills: [ADD.03]
+    remediation: [CNT.07, ADD.03]
+    feedback: fb.mc.count-start-number
+    priority: 60
+    parentTip: >-
+      When counting on from 5 to add 3, say "5" quietly and count "6, 7, 8" on three fingers.
+    examples:
+      - params: { a: 5, b: 3, op: "+", unknown: result }
+        response: { kind: number, value: 7 }
+        match: true
+      - params: { a: 5, b: 3, op: "+", unknown: result }
+        response: { kind: number, value: 9 }
+        match: false
+
+  - id: MC.count-all-instead
+    name: Counts both groups from 1 instead of counting on
+    detect: { kind: process, rule: countAllInstead }
+    appliesTo: { generators: [addsub.facts] }
+    skills: [ADD.03]
+    remediation: [ADD.03]
+    feedback: fb.mc.count-all-instead
+    priority: 40
+    parentTip: >-
+      Hide the first group under a cup, say how many are inside, then count on from there.
+    examples:
+      - params: { a: 5, b: 3, op: "+", unknown: result }
+        response: { kind: number, value: 8 }
+        meta:
+          latencyMs: 9000
+          trace:
+            - { t: tap, target: counter-0, ms: 0 }
+            - { t: tap, target: counter-1, ms: 600 }
+            - { t: tap, target: counter-2, ms: 1200 }
+            - { t: tap, target: counter-3, ms: 1800 }
+            - { t: tap, target: counter-4, ms: 2400 }
+            - { t: tap, target: counter-5, ms: 3000 }
+            - { t: tap, target: counter-6, ms: 3600 }
+            - { t: tap, target: counter-7, ms: 4200 }
+        match: true
+      - params: { a: 5, b: 3, op: "+", unknown: result }
+        response: { kind: number, value: 8 }
+        meta:
+          latencyMs: 4000
+          trace:
+            - { t: tap, target: counter-5, ms: 0 }
+            - { t: tap, target: counter-6, ms: 600 }
+            - { t: tap, target: counter-7, ms: 1200 }
+        match: false

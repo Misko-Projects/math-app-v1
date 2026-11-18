@@ -160,8 +160,8 @@ describe('import-boundary lint (02 §2)', () => {
 
   it('scans every file in a package: direction everywhere, purity only under src/', () => {
     const contentFiles = [...packageFiles(root, 'content')];
-    const build = contentFiles.find((f) => f.file.endsWith(join('scripts', 'build.mjs')));
-    expect(build?.runtime).toBe(false);
+    const sample = contentFiles.find((f) => f.file.endsWith(join('scripts', 'sample.mjs')));
+    expect(sample?.runtime).toBe(false);
     expect(contentFiles.some((f) => f.runtime)).toBe(true);
 
     const script = join(root, 'packages/content/scripts/probe.mjs');

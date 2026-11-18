@@ -1,0 +1,34 @@
+# Island and story lines (03 §4.1): game.*, req.* and res.* keys. Each UI issue (U02, I01, I02,
+# OB1, R01 …) authors its own keys here. C01 seeds the lines the fixture game data references.
+
+# ---------- materials (GameData.materials[].name) ----------
+game.material.stone:
+  text: "road stones"
+game.material.light:
+  text: "light"
+game.material.plank:
+  text: "planks"
+
+# ---------- residents: name clips (res.<id>) and lines ----------
+res.nib:
+  text: "Nib"
+res.nib.hello:
+  text: "Hi, I'm Nib! I love counting stones on the road."
+res.tuck:
+  text: "Tuck"
+res.tuck.hello:
+  text: "Hello, friend! Thank you for my new home."
+res.marlo:
+  text: "Marlo"
+res.marlo.hello:
+  text: "I came on the ferry! Can we fill the boat?"
+res.tenley:
+  text: "Tenley"
+res.tenley.hello:
+  text: "I carry ten pebbles in my shell. A full ten!"
+
+# ---------- Pip ----------
+game.pip.welcome:
+  text: "Welcome to the island! I'm Pip."
+  voice: pip
+  style: excited

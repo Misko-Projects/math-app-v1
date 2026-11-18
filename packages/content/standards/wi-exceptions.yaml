@@ -1,0 +1,15 @@
+# 03 §2.2: CCSS codes whose Wisconsin 2021 code is not `M.` + the CCSS code.
+# null = WI 2021 has no counterpart; the skill keeps its CCSS tag and gets no WI alias.
+# Codes only, never standards text (03 §2.3).
+exceptions:
+  K.CC.B.5: M.K.CC.B.6
+  K.CC.C.6: M.K.CC.C.7
+  K.CC.C.7: M.K.CC.C.8
+  1.OA.C.5: M.1.OA.C.5a
+  1.OA.D.8: null
+  3.OA.A.4: null
+  3.OA.B.5: M.3.OA.B.4
+  3.OA.B.6: M.3.OA.B.5
+  3.OA.C.7: M.3.OA.C.6
+  3.OA.D.8: M.3.OA.D.7
+  3.OA.D.9: M.3.OA.D.8
