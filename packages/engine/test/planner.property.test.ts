@@ -7,15 +7,18 @@ import type {
   ChildContext,
   Grade,
   IslandState,
+  ItemTemplate,
   LearnerState,
   PlannedRequest,
   PlanSessionInput,
+  SessionPlan,
   SkillId,
   WorkshopCapability,
 } from '@number-island/shared';
 import { defaultChildSettings, sessionPlanSchema } from '@number-island/shared';
 import fc from 'fast-check';
 import { describe, expect, it } from 'vitest';
+import { templateAnswerKind } from '../src/items/answer-kind';
 import { createEloFireModel } from '../src/learner/elo-fire';
 import { DAY_MS, PARAMS } from '../src/params';
 import { PRACTICE_PIER, planSession } from '../src/planner';
@@ -127,11 +130,14 @@ function randomState(seed: number, size: number, days: number, priors: number, i
       frontier.length > 0 && rng.bool(0.7) ? rng.pick(frontier) : rng.pick(graph.nodes);
     const templateId = rng.pick(graph.skills[skillId]?.templates ?? []);
     const correct = rng.bool(0.8);
+    // The response takes the template's real answer kind: a choice template never adds evidence.
+    const choice = templateAnswerKind(graph.templates[templateId] as ItemTemplate) === 'choice';
     const a = attemptFor(graph, templateId, rng.int(1, 40), {
       sessionId: `s${Math.floor((ts - T0) / DAY_MS)}`,
       correct,
       latencyMs: rng.int(1_000, 20_000),
       context: rng.pick(CONTEXTS),
+      response: choice ? { kind: 'choice', id: 'c0' } : { kind: 'number', value: 0 },
     });
     state = model.apply(state, a, ts);
   }
@@ -141,7 +147,8 @@ function randomState(seed: number, size: number, days: number, priors: number, i
 const inputArb = fc
   .record({
     grade: fc.constantFrom<Grade>('K', '1', '2', '3'),
-    minutes: fc.integer({ min: 5, max: 30 }),
+    // 1–4 minutes are the short re-plans after a request (04 §7b "Time").
+    minutes: fc.integer({ min: 1, max: 30 }),
     seed: fc.integer({ min: 1, max: 1_000_000 }),
     size: fc.integer({ min: 0, max: 50 }),
     days: fc.integer({ min: 1, max: 20 }),
@@ -175,6 +182,38 @@ const inputArb = fc
   });
 
 const isItem = (t: PlannedRequest['tasks'][number]) => t.mode === 'item';
+
+/** The 04 §7b request size for the input: clamp(round(min(minutes·60, 180) / s per item), range). */
+function sizeBound(input: PlanSessionInput): number {
+  const kItems = input.child.grade === 'K' || input.child.grade === '1';
+  const [min, max] = kItems ? P.requestItemsK : P.requestItemsG2;
+  const perItem = kItems ? P.secondsPerItemK : P.secondsPerItemG2;
+  return Math.min(max, Math.max(min, Math.round(Math.min(input.minutes * 60, 180) / perItem)));
+}
+
+/**
+ * Whether the input has a plannable skill, from the input alone: a frontier or practiced-track
+ * skill with a template. The Practice Pier hosts every format, so some workshop (the one chosen,
+ * or the pier) can always host one of its templates.
+ */
+function hasPlannableSkill(input: PlanSessionInput): boolean {
+  const model = createEloFireModel(input.graph, { childId: CHILD_1, isK: input.child.isK });
+  const frontier = new Set(model.frontier(input.state));
+  return input.graph.nodes.some((s) => {
+    const st = input.state.skills[s];
+    const onTrack = st !== undefined && (st.practicedAt !== null || st.assumed);
+    const templates = (input.graph.skills[s]?.templates ?? []).filter(
+      (id) => input.graph.templates[id],
+    );
+    return templates.length > 0 && (onTrack || frontier.has(s));
+  });
+}
+
+/** Indexes of requests with no item task although the input has a plannable skill. */
+function emptyRequests(input: PlanSessionInput, plan: SessionPlan): number[] {
+  if (!hasPlannableSkill(input)) return [];
+  return plan.requests.flatMap((r, i) => (r.tasks.some(isItem) ? [] : [i]));
+}
 
 describe('planSession properties (fixture graph)', () => {
   it('respects request counts, budgets, runs, hosting and rewards; deterministic and schema-valid', () => {
@@ -213,7 +252,9 @@ describe('planSession properties (fixture graph)', () => {
             expect(hosted(tpl?.format as string)).toBe(true);
           }
 
-          // (b) never above the max; within range when ≥ 2 distinct skills can fill it here.
+          // (b) never above the size the minutes left allow (≤ the max); within range when ≥ 2
+          // distinct skills can fill it here.
+          expect(size).toBeLessThanOrEqual(sizeBound(input));
           expect(size).toBeLessThanOrEqual(max);
           const usable = new Set(items.map((t) => t.skillId));
           for (const s of graph.nodes) {
@@ -243,11 +284,38 @@ describe('planSession properties (fixture graph)', () => {
           expect(r.vars.count).toBe(items.length);
           expect(r.vars.who).toBe(r.residentId);
         }
+        // (g) no empty request while the input has something to plan.
+        expect(emptyRequests(input, plan)).toEqual([]);
         const ids = plan.requests.map((r) => r.id);
         expect(new Set(ids).size).toBe(ids.length);
         expect(plan.windDownAtMs).toBe(input.now + input.minutes * 60_000);
       }),
       { numRuns: 200 },
     );
+  });
+
+  it('the empty-request predicate catches a deliberately emptied request', () => {
+    const model = createEloFireModel(graph, { childId: CHILD_1, isK: false });
+    const input: PlanSessionInput = {
+      child: child('2'),
+      state: model.init(graph, null),
+      graph,
+      now: T0,
+      minutes: 2,
+      workshopsAvailable: WORKSHOPS,
+      island: island(['nib']),
+    };
+    const plan = planSession(input);
+    expect(hasPlannableSkill(input)).toBe(true);
+    expect(emptyRequests(input, plan)).toEqual([]);
+    const emptied: SessionPlan = {
+      ...plan,
+      requests: plan.requests.map((r, i) =>
+        i === 1 ? { ...r, tasks: r.tasks.filter((t) => !isItem(t)) } : r,
+      ),
+    };
+    expect(emptyRequests(input, emptied)).toEqual([1]);
+    // The size bound at 2 minutes: 120 s / 20 s = 6 items (the G2 minimum).
+    expect(sizeBound(input)).toBe(6);
   });
 });

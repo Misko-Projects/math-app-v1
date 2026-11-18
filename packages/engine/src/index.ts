@@ -29,6 +29,7 @@ export {
   generatorParams,
   generatorRegistered,
 } from './hooks';
+export { isConstructedTemplate, templateAnswerKind } from './items/answer-kind';
 export { checkResponse, detectProcessMisconceptions, matches } from './items/check';
 export { type DevEvent, setDevLogger } from './items/devlog';
 export { difficulty, featureWeight, resolvedWeights } from './items/difficulty';

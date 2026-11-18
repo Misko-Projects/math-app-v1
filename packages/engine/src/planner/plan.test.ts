@@ -20,7 +20,16 @@ import {
 } from '@number-island/shared';
 import { describe, expect, it } from 'vitest';
 import { createEloFireModel } from '../learner/elo-fire';
-import { A, B, C, day, F, N, syntheticGraph } from '../learner/synthetic.test-support';
+import {
+  A,
+  B,
+  C,
+  day,
+  F,
+  N,
+  attempt as synthAttempt,
+  syntheticGraph,
+} from '../learner/synthetic.test-support';
 import { DAY_MS, PARAMS } from '../params';
 import { neededTemplates, type PlanOptions, planSession, rankNewSkills } from './plan';
 import { PRACTICE_PIER, PUZZLE_TOWER, RHYTHM_ORCHARD } from './workshops';
@@ -250,24 +259,64 @@ describe('warmup (04 §6.1)', () => {
     expect(plan(input({ state: low })).warmup.skillId).toBe(A);
   });
 
-  it('falls back to the frontier and prefers hosted, non-concrete, constructed templates', () => {
-    const p = plan(input({ workshopsAvailable: [ROAD] }));
-    // Nothing on track: the frontier is the root A. Road Crew hosts only its tap-count template.
-    expect(p.warmup).toMatchObject({ skillId: A, templateId: `${A}.t1` });
-    const q = plan(input({ workshopsAvailable: [DOCK] }));
+  it('(c) takes an already attempted frontier skill, preferring hosted, non-concrete, constructed templates', () => {
+    const s = stateWith({ [A]: learning(0) });
+    const p = plan(input({ state: s, workshopsAvailable: [ROAD] }));
+    // Nothing on track: A is learning. Road Crew hosts only its tap-count template.
+    expect(p.warmup).toMatchObject({
+      skillId: A,
+      templateId: `${A}.t1`,
+      context: 'warmup',
+      mode: 'item',
+    });
+    const q = plan(input({ state: s, workshopsAvailable: [DOCK] }));
     expect(q.warmup.templateId).toBe(`${A}.t2`); // pictorial ten-frame, hosted
+  });
+
+  it('(d) takes a ready skill whose lesson mode is none before touching a lesson skill', () => {
+    // N (lesson mode none) without prerequisites: ready next to the ready root A.
+    const g: SkillGraph = { ...graph, prereqs: { ...graph.prereqs, [N]: [] } };
+    const p = plan(input({ graph: g, workshopsAvailable: [HALL] }));
+    expect(p.warmup).toMatchObject({ skillId: N, context: 'warmup', mode: 'item' });
+    const lessonA = p.requests.some((r) =>
+      r.tasks.some((t) => t.mode === 'lesson' && t.skillId === A),
+    );
+    expect(lessonA).toBe(true);
+  });
+
+  it('(f) plays the focus skill lesson as the warmup when no test-out is planned', () => {
+    // Nothing on track, A ready with a lesson and no test-out offered.
+    const p = plan(input({ workshopsAvailable: [ROAD] }));
+    expect(p.warmup).toMatchObject({
+      skillId: A,
+      mode: 'lesson',
+      context: 'lesson',
+      templateId: graph.skills[A]?.lesson.templateId,
+    });
+    // The requests then omit A's lesson, so its lesson cost is not charged: the requests are as
+    // large as those of a skill without a lesson.
+    for (const r of p.requests) expect(r.tasks.every((t) => t.mode === 'item')).toBe(true);
+    const learningA = plan(
+      input({ state: stateWith({ [A]: learning(0) }), workshopsAvailable: [ROAD] }),
+    );
+    expect(p.requests.map((r) => itemsOf(r).length)).toEqual(
+      learningA.requests.map((r) => itemsOf(r).length),
+    );
   });
 });
 
 describe('lessons and test-outs (04 §3, 03 §6.5)', () => {
   it('starts a ready skill with its lesson when no test-out is offered', () => {
-    const p = plan(input({ workshopsAvailable: [ROAD] }));
-    const r = p.requests[0] as PlannedRequest;
+    // The warmup goes to the on-track A; the ready B (gateway, a lesson) starts with its lesson.
+    const s = stateWith({ [A]: practiced(2, NOW + DAY_MS) });
+    const p = plan(input({ state: s, workshopsAvailable: [HALL] }));
+    expect(p.warmup.skillId).toBe(A);
+    const r = p.requests.find((x) => x.tasks.some((t) => t.skillId === B)) as PlannedRequest;
     expect(r.tasks[0]).toMatchObject({
-      skillId: A,
+      skillId: B,
       mode: 'lesson',
       context: 'lesson',
-      templateId: graph.skills[A]?.lesson.templateId,
+      templateId: graph.skills[B]?.lesson.templateId,
     });
     expect(r.tasks.filter((t) => t.mode === 'lesson')).toHaveLength(1);
   });
@@ -289,9 +338,58 @@ describe('lessons and test-outs (04 §3, 03 §6.5)', () => {
       expect([`${A}.t3`, `${A}.t4`]).toContain(t.templateId); // abstract pool
     }
     expect(new Set(before.map((t) => t.templateId)).size).toBe(2);
-    // Without a workshop that hosts the pool next to the lesson, the lesson plays alone.
+
+    // (e) The warmup must not use up the test-out: it is a test-out template in the warmup
+    // context, which the learner counts as test-out item 1. Folding the warmup and then three
+    // clean first attempts on the planned test-out items reaches the practiced track before the
+    // lesson.
+    expect(p.warmup).toMatchObject({ skillId: A, context: 'warmup', mode: 'item' });
+    expect([`${A}.t3`, `${A}.t4`]).toContain(p.warmup.templateId);
+    const n = (templateId: string) => Number(templateId.split('.t')[1]);
+    let st = model.apply(s, synthAttempt(A, n(p.warmup.templateId), { context: 'warmup' }), NOW);
+    before.forEach((t, k) => {
+      const a = synthAttempt(A, n(t.templateId), { context: t.context });
+      st = model.apply(st, a, NOW + 1_000 * (k + 1));
+    });
+    expect(st.skills[A]?.practicedAt).not.toBeNull();
+
+    // Without a workshop that hosts the pool next to the lesson, the lesson plays alone, as the
+    // warmup (f), and no request repeats it.
     const q = plan(input({ state: s, workshopsAvailable: [ROAD] }));
-    expect(q.requests[0]?.tasks[0]?.mode).toBe('lesson');
+    expect(q.warmup).toMatchObject({ skillId: A, mode: 'lesson', context: 'lesson' });
+    for (const x of q.requests) expect(x.tasks.some((t) => t.mode === 'lesson')).toBe(false);
+  });
+
+  it('never truncates a test-out: the whole draw before the lesson, or the lesson first', () => {
+    // K, one workshop, no other eligible skill, and a 4-item test-out: three in a row is the most
+    // the run rule allows with nothing to break the run.
+    const aSkill = graph.skills[A] as Skill;
+    const g: SkillGraph = {
+      ...graph,
+      skills: {
+        ...graph.skills,
+        [A]: { ...aSkill, lesson: { ...aSkill.lesson, testOut: { items: 4, minCorrect: 4 } } },
+      },
+    };
+    const s = stateWith(
+      {},
+      {
+        placement: { prior: { p: { [A]: 0.7 }, assumed: [] }, strandsPlaced: [], inProgress: null },
+      },
+    );
+    const p = plan(input({ graph: g, state: s, child: child('K'), workshopsAvailable: [HALL] }));
+    const lessonIsWarmup = p.warmup.mode === 'lesson' && p.warmup.skillId === A;
+    for (const r of p.requests) {
+      const lessonAt = r.tasks.findIndex((t) => t.mode === 'lesson' && t.skillId === A);
+      if (lessonIsWarmup) {
+        expect(lessonAt).toBe(-1);
+        continue;
+      }
+      if (lessonAt <= 0) continue; // the lesson comes first (or not at all)
+      const draw = r.tasks.slice(0, lessonAt).filter((t) => t.skillId === A);
+      expect(draw).toHaveLength(4);
+      for (const t of draw) expect([`${A}.t3`, `${A}.t4`]).toContain(t.templateId);
+    }
   });
 
   it('gives a lesson-mode none skill no lesson', () => {

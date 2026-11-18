@@ -18,8 +18,10 @@
 //   and challenges cannot break the focus skill's runs, one other new skill that needs no lesson
 //   first (learning, lesson mode 'none', or fluency) adds items, then practiced-track skills
 //   ('practice' context), else the excess focus items are dropped (a short request).
-// - Evidence templates: a skill's templates whose format accepts a constructed answer
-//   (`isConstructed`); only their first attempts enter `recent` (04 §7a). When a skill has any,
+// - Evidence templates: a skill's templates whose items take a constructed answer, by the
+//   template's own answer kind (`isConstructedTemplate`: its generator's AnswerSpec kind, else its
+//   format's capabilities), not by what its format could accept (count.ordinal answers a tap-count
+//   item with a choice); only their first attempts enter `recent` (04 §7a). When a skill has any,
 //   its new-learning items (as the focus or the second new skill) use only those, so a request
 //   always produces practiced evidence; a skill without any uses all its templates.
 // - Needed templates: evidence templates of a skill off the practiced track that add something its
@@ -35,7 +37,23 @@
 //   "needed format" fallback), the request goes to the Practice Pier. If the chosen workshop
 //   cannot host the test-out pool (≥ 2 distinct templates when the pool has ≥ 2, and 2
 //   representations for a gateway skill when the pool has them), the skill gets its lesson without
-//   a test-out.
+//   a test-out. A request with no focus skill (review-only) ranks its candidates first by the
+//   number of due reviews they host, then fills the range, not used earlier, item count; when
+//   reviews are due and the chosen workshop hosts none of them, it goes to the Practice Pier (the
+//   needed-format fallback, applied to reviews).
+// - Test-out completeness: a test-out is never truncated. When sequencing cannot place the whole
+//   draw before the lesson (the run rule with nothing to break the run), the request is composed
+//   again without the test-out, lesson first.
+// - Warmup: the first available of (a) the on-track skill with the highest P(ref) ≥ warmupMinP;
+//   (b) the highest-P(ref) on-track skill; (c) the highest-P(ref) frontier skill already attempted
+//   ('learning'), with an evidence template; (d) the highest-P(ref) 'ready' skill whose lesson mode
+//   is 'none'; (e) when the first request plans its focus skill's test-out, the last template of
+//   that draw in the 'warmup' context (the learner counts it as test-out item 1, so the test-out
+//   is not lost; the extra planned item is practice); (f) otherwise that focus skill's lesson as
+//   the warmup (mode 'lesson'), and every request focused on that skill then omits its lesson (and
+//   its lessonItemCost). So the warmup is never the first rated attempt on a ready skill whose
+//   lesson a request plans. Ties by id; templates prefer a format an available themed workshop
+//   hosts, then pictorial/abstract, then constructed (`isConstructedTemplate`), then id.
 // - Challenge: round(challengeShare × the plan's item budgets) items, dealt round-robin from the
 //   last request backward (the remediation request last); each goes to the request's on-track
 //   skills by highest P(ref), placed late. A request without such a skill turns them into new
@@ -63,6 +81,7 @@ import type {
   WorkshopId,
 } from '@number-island/shared';
 import { FORMAT_DEFAULT_REPRESENTATION } from '@number-island/shared';
+import { isConstructedTemplate } from '../items/answer-kind';
 import { createEloFireModel, type EloFireModel } from '../learner/elo-fire';
 import { compressReviews, reviewContext } from '../learner/review';
 import { DAY_MS, type EngineParams, PARAMS } from '../params';
@@ -70,7 +89,6 @@ import { createRng, fnv1a32, type Rng } from '../rng';
 import {
   byTier,
   hosts,
-  isConstructed,
   materialsFor,
   PUZZLE_TOWER,
   practicePier,
@@ -141,6 +159,8 @@ interface Composition {
   challenge: number;
   lessons: number;
   testOutHosted: boolean;
+  /** The focus skill's test-out draw, all of it placed before its lesson; [] without one. */
+  testOut: string[];
 }
 
 const onTrack = (state: LearnerState, s: SkillId): boolean => {
@@ -157,10 +177,13 @@ function templatesOf(graph: SkillGraph, s: SkillId): ItemTemplate[] {
     .sort(byTier);
 }
 
-/** A skill's evidence templates (constructed formats), or all its templates when it has none. */
-function evidenceTemplates(graph: SkillGraph, s: SkillId): ItemTemplate[] {
+/**
+ * A skill's evidence templates (those whose items take a constructed answer, by the template's
+ * own answer kind: `isConstructedTemplate`), or all its templates when it has none.
+ */
+export function evidenceTemplates(graph: SkillGraph, s: SkillId): ItemTemplate[] {
   const all = templatesOf(graph, s);
-  const evidence = all.filter((t) => isConstructed(t.format));
+  const evidence = all.filter(isConstructedTemplate);
   return evidence.length > 0 ? evidence : all;
 }
 
@@ -176,7 +199,7 @@ export function neededTemplates(
 ): ItemTemplate[] {
   const skill = graph.skills[s];
   if (!skill || onTrack(state, s)) return [];
-  const evidence = templatesOf(graph, s).filter((t) => isConstructed(t.format));
+  const evidence = templatesOf(graph, s).filter(isConstructedTemplate);
   const correct = (state.skills[s]?.recent ?? []).filter((r) => r.correct && !r.hinted);
   if (skill.gateway) {
     const reps = new Set(correct.map((r) => r.representation));
@@ -397,18 +420,21 @@ function pickTemplate(ts: readonly ItemTemplate[], rng: Rng): ItemTemplate {
 
 /**
  * Build one request's tasks in `cap`, or null when `cap` cannot host the focus skill (its lesson
- * template when it gets a lesson, and at least one of its templates). `budget` is the item count
- * (the lesson cost is already taken off); `challengeWanted` the challenge items dealt to it.
+ * template when it gets a lesson, and at least one of its templates). `budgetIn` is the item count
+ * (the lesson cost is already taken off); `challengeWanted` the challenge items dealt to it. A
+ * test-out is never truncated: when sequencing cannot place the whole draw before the lesson,
+ * the request is composed again without the test-out (lesson first).
  */
 function compose(
   ctx: Ctx,
   i: number,
   focus: Focus | null,
   cap: WorkshopCapability,
-  budget: number,
+  budgetIn: number,
   challengeWanted: number,
 ): Composition | null {
   const { graph, P, rng, maxRun } = ctx;
+  let budget = budgetIn;
   const hosted = (s: SkillId) => templatesOf(graph, s).filter((t) => hosts(cap, t.format));
   /** New-learning templates: the hosted evidence templates. */
   const hostedEvidence = (s: SkillId) =>
@@ -539,6 +565,14 @@ function compose(
     t,
     maxRun,
   );
+  if (focus && draw) {
+    const at = ordered.findIndex((x) => x.mode === 'lesson');
+    const before = ordered.slice(0, at < 0 ? ordered.length : at);
+    const placed = before.filter((x) => x.skillId === S && x.mode === 'item').length;
+    if (placed < draw.length) {
+      return compose(ctx, i, { ...focus, testOut: false }, cap, budgetIn, challengeWanted);
+    }
+  }
   const tasks: PlannedTask[] = ordered.map((x, j) => ({
     skillId: x.skillId,
     templateId: x.templateId,
@@ -553,6 +587,7 @@ function compose(
     challenge: items.filter((x) => x.context === 'challenge').length,
     lessons: tasks.length - items.length,
     testOutHosted: draw !== null,
+    testOut: (draw ?? []).map((x) => x.id),
   };
 }
 
@@ -650,150 +685,219 @@ export function planSession(input: PlanSessionInput, opts: PlanOptions = {}): Se
         (pRef.get(s) ?? 0) >= P.mastery.testOutMinPRef);
     return { skillId: s, lesson, testOut: offered, remediation: false };
   };
-  const focuses = Array.from({ length: nReq }, (_, i) => focusOf(i));
+  let focuses = Array.from({ length: nReq }, (_, i) => focusOf(i));
 
   // ---------- budgets and challenge distribution ----------
   const items = Math.min(
     itemRange[1],
     Math.max(itemRange[0], Math.round(Math.min(minutes * 60, 180) / secondsPerItem)),
   );
-  const budgets = focuses.map((f) => Math.max(0, items - (f?.lesson ? ctx.lessonCost : 0)));
-  const totalChallenge = Math.round(
-    P.planner[sliceKey(ctx)].challengeShare * budgets.reduce((a, b) => a + b, 0),
-  );
-  const dealOrder = Array.from({ length: nReq }, (_, k) => nReq - 1 - k);
-  if (rem && nReq > 1) dealOrder.push(dealOrder.splice(dealOrder.indexOf(0), 1)[0] as number);
-  const challenge = budgets.map(() => 0);
-  for (let k = 0; k < totalChallenge; k++) {
-    const idx = dealOrder[k % dealOrder.length] as number;
-    challenge[idx] = (challenge[idx] ?? 0) + 1;
-  }
 
   // ---------- requests ----------
-  const used = new Map<WorkshopId, number>();
-  const requests: PlannedRequest[] = [];
   const hexHash = hash.toString(16).padStart(8, '0');
   const decor = [...new Set(opts.puzzleDecor ?? [])].sort(byId);
-  for (let i = 0; i < nReq; i++) {
-    const focus = focuses[i] as Focus | null;
-    const budget = budgets[i] as number;
-    const fillable = (c: Composition) => c.items + c.lessons * ctx.lessonCost >= itemRange[0];
-    const skill = focus ? (graph.skills[focus.skillId] as Skill) : null;
-    const options = themed
-      .map((cap) => ({ cap, comp: compose(ctx, i, focus, cap, budget, challenge[i] ?? 0) }))
-      .filter(
-        (o): o is { cap: WorkshopCapability; comp: Composition } =>
-          o.comp !== null && o.comp.items > 0,
-      );
-    const formatsHosted = (cap: WorkshopCapability) =>
-      skill
-        ? new Set(
-            templatesOf(graph, skill.id)
-              .filter((t) => hosts(cap, t.format))
-              .map((t) => t.format),
-          ).size
-        : 0;
-    const needed = skill ? neededTemplates(graph, state, skill.id) : [];
-    const hostsNeeded = (c: WorkshopCapability) => needed.some((t) => hosts(c, t.format));
-    const key = (o: { cap: WorkshopCapability; comp: Composition }): number[] => [
-      hostsNeeded(o.cap) ? 1 : 0,
-      fillable(o.comp) ? 1 : 0,
-      focus?.testOut && o.comp.testOutHosted ? 1 : 0,
-      skill && o.cap.strands.includes(skill.strand) ? 1 : 0,
-      used.has(o.cap.workshopId) ? 0 : 1,
-      skill ? formatsHosted(o.cap) : o.comp.items,
-    ];
-    options.sort((a, b) => compareDesc(key(a), key(b)) || byId(a.cap.workshopId, b.cap.workshopId));
-    let best = options[0];
-    const orchard = options.find((o) => o.cap.workshopId === RHYTHM_ORCHARD);
-    if (focus && needsFluency(graph, state, focus.skillId) && orchard) best = orchard;
-    // 04 §6.3 "needed format" fallback: no themed workshop hosts a template the skill still needs.
-    const missesNeeded = needed.length > 0 && !(best && hostsNeeded(best.cap));
-    if (missesNeeded) {
-      const pierComp = compose(ctx, i, focus, pier, budget, challenge[i] ?? 0);
-      if (pierComp && pierComp.items > 0) best = { cap: pier, comp: pierComp };
+  const build = (fs: readonly (Focus | null)[]) => {
+    const budgets = fs.map((f) => Math.max(0, items - (f?.lesson ? ctx.lessonCost : 0)));
+    const totalChallenge = Math.round(
+      P.planner[sliceKey(ctx)].challengeShare * budgets.reduce((a, b) => a + b, 0),
+    );
+    const dealOrder = Array.from({ length: nReq }, (_, k) => nReq - 1 - k);
+    if (rem && nReq > 1) dealOrder.push(dealOrder.splice(dealOrder.indexOf(0), 1)[0] as number);
+    const challenge = budgets.map(() => 0);
+    for (let k = 0; k < totalChallenge; k++) {
+      const idx = dealOrder[k % dealOrder.length] as number;
+      challenge[idx] = (challenge[idx] ?? 0) + 1;
     }
-    if (!best || !fillable(best.comp)) {
-      let pierComp = compose(ctx, i, focus, pier, budget, challenge[i] ?? 0);
-      if (!pierComp && focus?.lesson) {
-        // The lesson template is missing from the graph: plan the skill's items alone.
-        pierComp = compose(
-          ctx,
-          i,
-          { ...focus, lesson: false, testOut: false },
-          pier,
-          budget,
-          challenge[i] ?? 0,
+
+    const used = new Map<WorkshopId, number>();
+    const requests: PlannedRequest[] = [];
+    const comps: Composition[] = [];
+    for (let i = 0; i < nReq; i++) {
+      const focus = fs[i] as Focus | null;
+      const budget = budgets[i] as number;
+      const fillable = (c: Composition) => c.items + c.lessons * ctx.lessonCost >= itemRange[0];
+      const skill = focus ? (graph.skills[focus.skillId] as Skill) : null;
+      const options = themed
+        .map((cap) => ({ cap, comp: compose(ctx, i, focus, cap, budget, challenge[i] ?? 0) }))
+        .filter(
+          (o): o is { cap: WorkshopCapability; comp: Composition } =>
+            o.comp !== null && o.comp.items > 0,
         );
+      const formatsHosted = (cap: WorkshopCapability) =>
+        skill
+          ? new Set(
+              templatesOf(graph, skill.id)
+                .filter((t) => hosts(cap, t.format))
+                .map((t) => t.format),
+            ).size
+          : 0;
+      const needed = skill ? neededTemplates(graph, state, skill.id) : [];
+      const hostsNeeded = (c: WorkshopCapability) => needed.some((t) => hosts(c, t.format));
+      /** Due reviews a workshop hosts (ranks review-only requests). */
+      const dueHosted = (c: WorkshopCapability) =>
+        ctx.due.filter((r) => templatesOf(graph, r.skillId).some((t) => hosts(c, t.format))).length;
+      const key = (o: { cap: WorkshopCapability; comp: Composition }): number[] =>
+        skill
+          ? [
+              hostsNeeded(o.cap) ? 1 : 0,
+              fillable(o.comp) ? 1 : 0,
+              focus?.testOut && o.comp.testOutHosted ? 1 : 0,
+              o.cap.strands.includes(skill.strand) ? 1 : 0,
+              used.has(o.cap.workshopId) ? 0 : 1,
+              formatsHosted(o.cap),
+            ]
+          : [
+              dueHosted(o.cap),
+              fillable(o.comp) ? 1 : 0,
+              used.has(o.cap.workshopId) ? 0 : 1,
+              o.comp.items,
+            ];
+      options.sort(
+        (a, b) => compareDesc(key(a), key(b)) || byId(a.cap.workshopId, b.cap.workshopId),
+      );
+      let best = options[0];
+      const orchard = options.find((o) => o.cap.workshopId === RHYTHM_ORCHARD);
+      if (focus && needsFluency(graph, state, focus.skillId) && orchard) best = orchard;
+      // 04 §6.3 "needed format" fallback: no themed workshop hosts a template the skill still
+      // needs; for a review-only request, none hosts a due review.
+      const missesNeeded = needed.length > 0 && !(best && hostsNeeded(best.cap));
+      const missesDue = !focus && ctx.due.length > 0 && !(best && dueHosted(best.cap) > 0);
+      if (missesNeeded || missesDue) {
+        const pierComp = compose(ctx, i, focus, pier, budget, challenge[i] ?? 0);
+        if (pierComp && pierComp.items > 0) best = { cap: pier, comp: pierComp };
       }
-      if (pierComp && (!best || fillable(pierComp))) best = { cap: pier, comp: pierComp };
-    }
-    const chosenCap = best?.cap ?? pier;
-    const comp: Composition = best?.comp ?? {
-      tasks: [],
-      items: 0,
-      challenge: 0,
-      lessons: 0,
-      testOutHosted: false,
-    };
+      if (!best || !fillable(best.comp)) {
+        let pierComp = compose(ctx, i, focus, pier, budget, challenge[i] ?? 0);
+        if (!pierComp && focus?.lesson) {
+          // The lesson template is missing from the graph: plan the skill's items alone.
+          pierComp = compose(
+            ctx,
+            i,
+            { ...focus, lesson: false, testOut: false },
+            pier,
+            budget,
+            challenge[i] ?? 0,
+          );
+        }
+        if (pierComp && (!best || fillable(pierComp))) best = { cap: pier, comp: pierComp };
+      }
+      const chosenCap = best?.cap ?? pier;
+      const comp: Composition = best?.comp ?? {
+        tasks: [],
+        items: 0,
+        challenge: 0,
+        lessons: 0,
+        testOutHosted: false,
+        testOut: [],
+      };
+      comps.push(comp);
 
-    // Resident: rotate through the pool, starting at a plan-dependent offset.
-    const pool = residentPool(chosenCap, input.workshopsAvailable, input.island);
-    const turn = used.get(chosenCap.workshopId) ?? 0;
-    const residentId = pool[(hash + turn) % pool.length] as string;
-    used.set(chosenCap.workshopId, turn + 1);
+      // Resident: rotate through the pool, starting at a plan-dependent offset.
+      const pool = residentPool(chosenCap, input.workshopsAvailable, input.island);
+      const turn = used.get(chosenCap.workshopId) ?? 0;
+      const residentId = pool[(hash + turn) % pool.length] as string;
+      used.set(chosenCap.workshopId, turn + 1);
 
-    const products = requestProducts(chosenCap, residentId, input.workshopsAvailable);
-    const materials = materialsFor(products, comp.items);
-    const reward: PlannedRequest['reward'] = { materials };
-    if (decor.length > 0 && (comp.challenge > 0 || chosenCap.workshopId === PUZZLE_TOWER)) {
-      reward.decor = [decor[rng.fork(`decor:${i}`).int(0, decor.length - 1)] as DecorId];
+      const products = requestProducts(chosenCap, residentId, input.workshopsAvailable);
+      const materials = materialsFor(products, comp.items);
+      const reward: PlannedRequest['reward'] = { materials };
+      if (decor.length > 0 && (comp.challenge > 0 || chosenCap.workshopId === PUZZLE_TOWER)) {
+        reward.decor = [decor[rng.fork(`decor:${i}`).int(0, decor.length - 1)] as DecorId];
+      }
+      requests.push({
+        id: `${hexHash}-${now}-r${i}`,
+        residentId,
+        workshopId: chosenCap.workshopId,
+        tasks: comp.tasks,
+        reward,
+        narration: focus?.remediation ? 'req.idea' : 'req.help',
+        vars: { who: residentId, count: comp.items, material: Object.keys(materials)[0] ?? '' },
+      });
     }
-    requests.push({
-      id: `${hexHash}-${now}-r${i}`,
-      residentId,
-      workshopId: chosenCap.workshopId,
-      tasks: comp.tasks,
-      reward,
-      narration: focus?.remediation ? 'req.idea' : 'req.help',
-      vars: { who: residentId, count: comp.items, material: Object.keys(materials)[0] ?? '' },
-    });
+    return { requests, comps };
+  };
+
+  // ---------- warmup (04 §6.1) ----------
+  let built = build(focuses);
+  let warmup = warmupBeforeFocus(ctx, themed);
+  if (!warmup) {
+    const f0 = focuses[0] ?? null;
+    const c0 = built.comps[0];
+    const lessonId = f0 ? graph.skills[f0.skillId]?.lesson.templateId : undefined;
+    const lessonTpl = lessonId ? graph.templates[lessonId] : undefined;
+    const last = c0?.testOut[c0.testOut.length - 1];
+    if (f0 && last) {
+      // (e) A test-out template in the warmup context: the learner counts it as test-out item 1.
+      warmup = warmupTask(ctx, f0.skillId, last, 'warmup', 'item');
+    } else if (f0 && c0 && c0.lessons > 0 && lessonTpl) {
+      // (f) The focus skill's lesson is the warmup; its requests no longer repeat it.
+      warmup = warmupTask(ctx, f0.skillId, lessonTpl.id, 'lesson', 'lesson');
+      focuses = focuses.map((f) =>
+        f && f.skillId === f0.skillId ? { ...f, lesson: false, testOut: false } : f,
+      );
+      built = build(focuses);
+    } else {
+      // Nothing above applies (no lesson is planned for the focus skill): its own templates.
+      const s = f0?.skillId ?? (ctx.skills[0] as SkillId);
+      const tpl = warmupTemplate(evidenceTemplates(graph, s), themed);
+      warmup = warmupTask(ctx, s, tpl.id, 'warmup', 'item');
+    }
   }
 
   return {
-    requests,
-    warmup: planWarmup(ctx, themed),
+    requests: built.requests,
+    warmup,
     windDownAtMs: now + minutes * 60_000,
   };
 }
 
-/**
- * The warmup (04 §6.1): the practiced-track skill with the highest P(ref) ≥ warmupMinP; else the
- * highest-P(ref) practiced-track skill; else the highest-P(ref) frontier skill; ties by id. Its
- * template prefers formats an available themed workshop hosts, then pictorial/abstract tiers, then
- * constructed-response formats, then id.
- */
-function planWarmup(ctx: Ctx, themed: readonly WorkshopCapability[]): PlannedTask {
-  const { graph, P, pRef } = ctx;
-  const frontier = ctx.model
-    .frontier(ctx.state)
-    .filter((s) => templatesOf(graph, s).length > 0)
-    .sort((a, b) => (pRef.get(b) ?? 0) - (pRef.get(a) ?? 0) || byId(a, b));
-  const easy = ctx.onTrackRanked.find((s) => (pRef.get(s) ?? 0) >= P.planner.warmupMinP);
-  const skillId = easy ?? ctx.onTrackRanked[0] ?? frontier[0] ?? (ctx.skills[0] as SkillId);
+/** The warmup task's template: hosted by an available themed workshop, non-concrete, constructed, id. */
+function warmupTemplate(
+  ts: readonly ItemTemplate[],
+  themed: readonly WorkshopCapability[],
+): ItemTemplate {
   const key = (t: ItemTemplate): number[] => [
     themed.some((c) => hosts(c, t.format)) ? 1 : 0,
     t.tier === 'concrete' ? 0 : 1,
-    isConstructed(t.format) ? 1 : 0,
+    isConstructedTemplate(t) ? 1 : 0,
   ];
-  const tpl = [...templatesOf(graph, skillId)].sort(
-    (a, b) => compareDesc(key(a), key(b)) || byId(a.id, b.id),
-  )[0] as ItemTemplate;
-  return {
-    skillId,
-    templateId: tpl.id,
-    seed: ctx.rng.fork('warmup').int(0, SEED_MAX),
-    context: 'warmup',
-    mode: 'item',
-  };
+  return [...ts].sort((a, b) => compareDesc(key(a), key(b)) || byId(a.id, b.id))[0] as ItemTemplate;
+}
+
+function warmupTask(
+  ctx: Ctx,
+  skillId: SkillId,
+  templateId: string,
+  context: PlannedTask['context'],
+  mode: PlannedTask['mode'],
+): PlannedTask {
+  return { skillId, templateId, seed: ctx.rng.fork('warmup').int(0, SEED_MAX), context, mode };
+}
+
+/**
+ * The warmup rules (04 §6.1) that need no request (ties by id): (a) the practiced-track skill
+ * with the highest P(ref) ≥ warmupMinP; (b) the highest-P(ref) practiced-track skill; (c) the
+ * highest-P(ref) frontier skill already attempted ('learning'), with one of its evidence
+ * templates; (d) the highest-P(ref) 'ready' skill whose lesson mode is 'none' (it has no lesson
+ * or test-out to lose). Null when none applies: then the first request's focus skill decides.
+ */
+function warmupBeforeFocus(ctx: Ctx, themed: readonly WorkshopCapability[]): PlannedTask | null {
+  const { graph, P, pRef } = ctx;
+  const byP = (a: SkillId, b: SkillId) => (pRef.get(b) ?? 0) - (pRef.get(a) ?? 0) || byId(a, b);
+  const easy = ctx.onTrackRanked.find((s) => (pRef.get(s) ?? 0) >= P.planner.warmupMinP);
+  const onTrackSkill = easy ?? ctx.onTrackRanked[0];
+  if (onTrackSkill) {
+    const tpl = warmupTemplate(templatesOf(graph, onTrackSkill), themed);
+    return warmupTask(ctx, onTrackSkill, tpl.id, 'warmup', 'item');
+  }
+  const frontier = ctx.model
+    .frontier(ctx.state)
+    .filter((s) => templatesOf(graph, s).length > 0)
+    .sort(byP);
+  const skillId =
+    frontier.find((s) => ctx.status.get(s) === 'learning') ??
+    frontier.find((s) => ctx.status.get(s) === 'ready' && graph.skills[s]?.lesson.mode === 'none');
+  if (!skillId) return null;
+  const tpl = warmupTemplate(evidenceTemplates(graph, skillId), themed);
+  return warmupTask(ctx, skillId, tpl.id, 'warmup', 'item');
 }

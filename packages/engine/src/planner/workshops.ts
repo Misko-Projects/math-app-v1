@@ -11,7 +11,7 @@ import type {
   WorkshopCapability,
   WorkshopId,
 } from '@number-island/shared';
-import { FORMAT_SUPPORT, ITEM_FORMATS } from '@number-island/shared';
+import { ITEM_FORMATS } from '@number-island/shared';
 
 /** The generic fallback host that hosts every format (05 §4, 04 §6.3). */
 export const PRACTICE_PIER: WorkshopId = 'practice-pier';
@@ -31,11 +31,6 @@ const byId = (a: string, b: string): number => (a < b ? -1 : a > b ? 1 : 0);
 /** Whether a workshop hosts a format. The Practice Pier hosts every format. */
 export function hosts(cap: WorkshopCapability, format: ItemFormat): boolean {
   return cap.workshopId === PRACTICE_PIER || cap.formats.includes(format);
-}
-
-/** Whether a format accepts a constructed (non-choice) answer (03 §5.5 `FORMAT_SUPPORT`). */
-export function isConstructed(format: ItemFormat): boolean {
-  return FORMAT_SUPPORT[format].answers.some((a) => a !== 'choice');
 }
 
 const TIER_ORDER: Record<ItemTemplate['tier'], number> = { concrete: 0, pictorial: 1, abstract: 2 };
