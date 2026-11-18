@@ -1,0 +1,6046 @@
+{
+  "collection": {
+    "_gifts": {
+      "gift-1": "shell-bench"
+    },
+    "_giftsOpened": ["gift-1"],
+    "_instances": {
+      "b1": {
+        "buildingId": "storehouse",
+        "level": 1
+      },
+      "b2": {
+        "buildingId": "road-crew",
+        "level": 2
+      },
+      "b3": {
+        "buildingId": "lantern-grove",
+        "level": 1
+      },
+      "b4": {
+        "buildingId": "shell-cottage",
+        "level": 1
+      },
+      "b5": {
+        "buildingId": "ten-boat-dock",
+        "level": 1
+      },
+      "b6": {
+        "buildingId": "lighthouse",
+        "level": 1
+      }
+    },
+    "_roadLength": 40,
+    "badges": {
+      "019a0000-0000-7000-8000-00000000c001": [
+        {
+          "skillId": "SUB.01",
+          "ts": 1795453532536
+        },
+        {
+          "skillId": "CNT.01",
+          "ts": 1795708854882
+        },
+        {
+          "skillId": "CNT.02",
+          "ts": 1797008630676
+        },
+        {
+          "skillId": "SUB.02",
+          "ts": 1797264072118
+        }
+      ],
+      "019a0000-0000-7000-8000-00000000c002": [
+        {
+          "skillId": "SUB.03",
+          "ts": 1795032181777
+        },
+        {
+          "skillId": "CNT.03",
+          "ts": 1795032347147
+        },
+        {
+          "skillId": "SUB.02",
+          "ts": 1795032369489
+        },
+        {
+          "skillId": "CNT.05",
+          "ts": 1795201319112
+        },
+        {
+          "skillId": "CNT.06",
+          "ts": 1795636828010
+        },
+        {
+          "skillId": "CNT.02",
+          "ts": 1795636911176
+        },
+        {
+          "skillId": "CNT.01",
+          "ts": 1795636936810
+        },
+        {
+          "skillId": "SUB.01",
+          "ts": 1795637081888
+        },
+        {
+          "skillId": "CPS.01",
+          "ts": 1795885377701
+        },
+        {
+          "skillId": "CNT.07",
+          "ts": 1796760061627
+        },
+        {
+          "skillId": "CPS.02",
+          "ts": 1796760098014
+        },
+        {
+          "skillId": "ADD.01",
+          "ts": 1797012036462
+        }
+      ]
+    },
+    "decorOwned": {
+      "lantern-string": 6,
+      "shell-bench": 3
+    },
+    "outfitsUnlocked": ["hat-captain"],
+    "residents": ["nib", "tuck", "marlo"]
+  },
+  "contentVersion": "6b97bef779b3b091",
+  "events": 2112,
+  "goals": {
+    "_weeks": {
+      "019a0000-0000-7000-8000-00000000c001": {
+        "2026-11-02": 9,
+        "2026-11-09": 13,
+        "2026-11-16": 12,
+        "2026-11-23": 14,
+        "2026-11-30": 11,
+        "2026-12-07": 9,
+        "2026-12-14": 3
+      },
+      "019a0000-0000-7000-8000-00000000c002": {
+        "2026-11-02": 6,
+        "2026-11-09": 20,
+        "2026-11-16": 10,
+        "2026-11-23": 15,
+        "2026-11-30": 11,
+        "2026-12-07": 15,
+        "2026-12-14": 2
+      }
+    },
+    "byChild": {
+      "019a0000-0000-7000-8000-00000000c001": {
+        "progress": 3,
+        "target": 5,
+        "weekStart": "2026-12-14",
+        "weeksCompleted": 6
+      },
+      "019a0000-0000-7000-8000-00000000c002": {
+        "progress": 2,
+        "target": 6,
+        "weekStart": "2026-12-14",
+        "weeksCompleted": 6
+      }
+    }
+  },
+  "inventory": {
+    "materials": {
+      "light": 185,
+      "plank": 157,
+      "stone": 77
+    },
+    "producedByChild": {
+      "019a0000-0000-7000-8000-00000000c001": {
+        "light": 146,
+        "plank": 136,
+        "stone": 95
+      },
+      "019a0000-0000-7000-8000-00000000c002": {
+        "light": 163,
+        "plank": 138,
+        "stone": 96
+      }
+    }
+  },
+  "island": {
+    "_giftsOpened": ["gift-1"],
+    "_lastPlayDay": "2026-12-14",
+    "buildings": {
+      "b1": {
+        "buildingId": "storehouse",
+        "level": 1,
+        "placedBy": null,
+        "plot": [4, 3],
+        "ts": 1793631602001
+      },
+      "b2": {
+        "buildingId": "road-crew",
+        "level": 2,
+        "placedBy": null,
+        "plot": [5, 3],
+        "ts": 1793631602002
+      },
+      "b3": {
+        "buildingId": "lantern-grove",
+        "level": 1,
+        "placedBy": null,
+        "plot": [6, 3],
+        "ts": 1793631602003
+      },
+      "b4": {
+        "buildingId": "shell-cottage",
+        "level": 1,
+        "placedBy": "019a0000-0000-7000-8000-00000000c002",
+        "plot": [6, 2],
+        "ts": 1793725700934
+      },
+      "b5": {
+        "buildingId": "ten-boat-dock",
+        "level": 1,
+        "placedBy": "019a0000-0000-7000-8000-00000000c001",
+        "plot": [7, 3],
+        "ts": 1793804797318
+      },
+      "b6": {
+        "buildingId": "lighthouse",
+        "level": 1,
+        "placedBy": null,
+        "plot": [6, 1],
+        "ts": 1796086800001
+      }
+    },
+    "decor": {
+      "d2": {
+        "decorId": "shell-bench",
+        "placedBy": "019a0000-0000-7000-8000-00000000c002",
+        "pos": [10, 4],
+        "ts": 1796321378989
+      },
+      "d3": {
+        "decorId": "shell-bench",
+        "placedBy": "019a0000-0000-7000-8000-00000000c002",
+        "pos": [2, 1],
+        "ts": 1794766306484
+      },
+      "d4": {
+        "decorId": "shell-bench",
+        "placedBy": "019a0000-0000-7000-8000-00000000c001",
+        "pos": [11, 4],
+        "ts": 1794416996036
+      },
+      "d6": {
+        "decorId": "shell-bench",
+        "placedBy": "019a0000-0000-7000-8000-00000000c001",
+        "pos": [5, 5],
+        "ts": 1795187188397
+      },
+      "d7": {
+        "decorId": "shell-bench",
+        "placedBy": "019a0000-0000-7000-8000-00000000c002",
+        "pos": [2, 1],
+        "ts": 1795543566289
+      },
+      "d8": {
+        "decorId": "shell-bench",
+        "placedBy": "019a0000-0000-7000-8000-00000000c002",
+        "pos": [6, 0],
+        "ts": 1795885664853
+      },
+      "d9": {
+        "decorId": "shell-bench",
+        "placedBy": "019a0000-0000-7000-8000-00000000c001",
+        "pos": [10, 7],
+        "ts": 1797008987433
+      }
+    },
+    "festival": {
+      "active": null,
+      "completed": 5,
+      "daysOfPlaySinceLast": 5
+    },
+    "giftsPending": [],
+    "milestones": {
+      "m-lighthouse": {
+        "label": "Pancake breakfast",
+        "reachedTs": 1796086800002,
+        "trigger": {
+          "building": "lighthouse"
+        }
+      }
+    },
+    "name": "Pebble Point",
+    "projects": {
+      "lighthouse": {
+        "byChild": {
+          "019a0000-0000-7000-8000-00000000c001": 159,
+          "019a0000-0000-7000-8000-00000000c002": 168
+        },
+        "contributed": {
+          "light": 117,
+          "plank": 117,
+          "stone": 93
+        }
+      }
+    },
+    "residents": {
+      "marlo": {
+        "arrivedTs": 1793804797320,
+        "homeInstanceId": null
+      },
+      "nib": {
+        "arrivedTs": 1793631601000,
+        "homeInstanceId": null
+      },
+      "tuck": {
+        "arrivedTs": 1793725700935,
+        "homeInstanceId": "b4"
+      }
+    },
+    "ringsUnlocked": 2,
+    "roadLength": 40
+  },
+  "learners": [
+    {
+      "accuracyBand": {
+        "accuracy": 0.9,
+        "band": "on",
+        "n": 20,
+        "target": 0.88
+      },
+      "childId": "019a0000-0000-7000-8000-00000000c001",
+      "dueReviews": [],
+      "frontier": ["CNT.03"],
+      "mathDensity": [
+        {
+          "activeMs": 497463,
+          "density": 0.865306565513,
+          "mathMs": 430458,
+          "sessionId": "c001-d1",
+          "ts": 1793718497463
+        },
+        {
+          "activeMs": 392317,
+          "density": 0.875965099652,
+          "mathMs": 343656,
+          "sessionId": "c001-d2",
+          "ts": 1793804792317
+        },
+        {
+          "activeMs": 572994,
+          "density": 0.788449791795,
+          "mathMs": 451777,
+          "sessionId": "c001-d3",
+          "ts": 1793891372994
+        },
+        {
+          "activeMs": 419699,
+          "density": 0.825672684471,
+          "mathMs": 346534,
+          "sessionId": "c001-d6",
+          "ts": 1794154019699
+        },
+        {
+          "activeMs": 374441,
+          "density": 0.829553921713,
+          "mathMs": 310619,
+          "sessionId": "c001-d7",
+          "ts": 1794243974441
+        },
+        {
+          "activeMs": 596031,
+          "density": 0.835701498748,
+          "mathMs": 498104,
+          "sessionId": "c001-d9",
+          "ts": 1794416996031
+        },
+        {
+          "activeMs": 414759,
+          "density": 0.702284941376,
+          "mathMs": 291279,
+          "sessionId": "c001-d10",
+          "ts": 1794499614759
+        },
+        {
+          "activeMs": 594275,
+          "density": 0.83603045728,
+          "mathMs": 496832,
+          "sessionId": "c001-d11",
+          "ts": 1794589794275
+        },
+        {
+          "activeMs": 706478,
+          "density": 0.76503443844,
+          "mathMs": 540480,
+          "sessionId": "c001-d13",
+          "ts": 1794766306478
+        },
+        {
+          "activeMs": 441493,
+          "density": 0.757355156254,
+          "mathMs": 334367,
+          "sessionId": "c001-d14",
+          "ts": 1794845241493
+        },
+        {
+          "activeMs": 377494,
+          "density": 0.803604825507,
+          "mathMs": 303356,
+          "sessionId": "c001-d16",
+          "ts": 1795025177494
+        },
+        {
+          "activeMs": 641328,
+          "density": 0.87210600504,
+          "mathMs": 559306,
+          "sessionId": "c001-d17",
+          "ts": 1795108241328
+        },
+        {
+          "activeMs": 388392,
+          "density": 0.891720220808,
+          "mathMs": 346337,
+          "sessionId": "c001-d18",
+          "ts": 1795187188392
+        },
+        {
+          "activeMs": 613909,
+          "density": 0.767690325439,
+          "mathMs": 471292,
+          "sessionId": "c001-d20",
+          "ts": 1795367413909
+        },
+        {
+          "activeMs": 399393,
+          "density": 0.780592048433,
+          "mathMs": 311763,
+          "sessionId": "c001-d21",
+          "ts": 1795453599393
+        },
+        {
+          "activeMs": 385476,
+          "density": 0.865695918812,
+          "mathMs": 333705,
+          "sessionId": "c001-d22",
+          "ts": 1795536385476
+        },
+        {
+          "activeMs": 391559,
+          "density": 0.833335461578,
+          "mathMs": 326300,
+          "sessionId": "c001-d23",
+          "ts": 1795619191559
+        },
+        {
+          "activeMs": 399536,
+          "density": 0.883429778543,
+          "mathMs": 352962,
+          "sessionId": "c001-d24",
+          "ts": 1795709199536
+        },
+        {
+          "activeMs": 585446,
+          "density": 0.835814063125,
+          "mathMs": 489324,
+          "sessionId": "c001-d25",
+          "ts": 1795795785446
+        },
+        {
+          "activeMs": 567166,
+          "density": 0.863385675446,
+          "mathMs": 489683,
+          "sessionId": "c001-d26",
+          "ts": 1795885767166
+        },
+        {
+          "activeMs": 487373,
+          "density": 0.807847377676,
+          "mathMs": 393723,
+          "sessionId": "c001-d28",
+          "ts": 1796062087373
+        },
+        {
+          "activeMs": 569439,
+          "density": 0.824762617243,
+          "mathMs": 469652,
+          "sessionId": "c001-d30",
+          "ts": 1796231369439
+        },
+        {
+          "activeMs": 578983,
+          "density": 0.834532274695,
+          "mathMs": 483180,
+          "sessionId": "c001-d31",
+          "ts": 1796321378983
+        },
+        {
+          "activeMs": 561311,
+          "density": 0.799416010019,
+          "mathMs": 448721,
+          "sessionId": "c001-d34",
+          "ts": 1796573361311
+        },
+        {
+          "activeMs": 635896,
+          "density": 0.718622227534,
+          "mathMs": 456969,
+          "sessionId": "c001-d35",
+          "ts": 1796667035896
+        },
+        {
+          "activeMs": 587428,
+          "density": 0.792297949706,
+          "mathMs": 465418,
+          "sessionId": "c001-d39",
+          "ts": 1797008987428
+        },
+        {
+          "activeMs": 623553,
+          "density": 0.719306939426,
+          "mathMs": 448526,
+          "sessionId": "c001-d41",
+          "ts": 1797181823553
+        },
+        {
+          "activeMs": 561745,
+          "density": 0.79654291538,
+          "mathMs": 447454,
+          "sessionId": "c001-d42",
+          "ts": 1797264561745
+        }
+      ],
+      "misconceptionAlerts": [],
+      "skillMap": [
+        {
+          "assumed": false,
+          "formats": ["hundred-chart", "numeral-pick", "order"],
+          "nextReviewTs": 1797356010711,
+          "override": null,
+          "pRef": 0.933218650997,
+          "recent": [
+            {
+              "context": "practice",
+              "correct": true,
+              "format": "hundred-chart",
+              "hinted": false,
+              "latencyMs": 3578,
+              "representation": "hundred-chart",
+              "sessionId": "c001-d7",
+              "tier": "pictorial",
+              "ts": 1794243890176
+            },
+            {
+              "context": "practice",
+              "correct": true,
+              "format": "hundred-chart",
+              "hinted": false,
+              "latencyMs": 8037,
+              "representation": "hundred-chart",
+              "sessionId": "c001-d7",
+              "tier": "pictorial",
+              "ts": 1794243944441
+            },
+            {
+              "context": "practice",
+              "correct": true,
+              "format": "order",
+              "hinted": false,
+              "latencyMs": 7760,
+              "representation": "symbols",
+              "sessionId": "c001-d9",
+              "tier": "abstract",
+              "ts": 1794416433734
+            },
+            {
+              "context": "practice",
+              "correct": true,
+              "format": "numeral-pick",
+              "hinted": false,
+              "latencyMs": 7523,
+              "representation": "number-path",
+              "sessionId": "c001-d9",
+              "tier": "pictorial",
+              "ts": 1794416500638
+            },
+            {
+              "context": "practice",
+              "correct": true,
+              "format": "hundred-chart",
+              "hinted": false,
+              "latencyMs": 5771,
+              "representation": "hundred-chart",
+              "sessionId": "c001-d9",
+              "tier": "pictorial",
+              "ts": 1794416560709
+            },
+            {
+              "context": "review",
+              "correct": true,
+              "format": "numeral-pick",
+              "hinted": false,
+              "latencyMs": 3823,
+              "representation": "number-path",
+              "sessionId": "c001-d11",
+              "tier": "pictorial",
+              "ts": 1794589279935
+            },
+            {
+              "context": "review",
+              "correct": true,
+              "format": "hundred-chart",
+              "hinted": false,
+              "latencyMs": 9788,
+              "representation": "hundred-chart",
+              "sessionId": "c001-d14",
+              "tier": "pictorial",
+              "ts": 1794844868587
+            },
+            {
+              "context": "review",
+              "correct": false,
+              "format": "order",
+              "hinted": false,
+              "latencyMs": 17634,
+              "representation": "symbols",
+              "sessionId": "c001-d21",
+              "tier": "abstract",
+              "ts": 1795453487642
+            },
+            {
+              "context": "review",
+              "correct": true,
+              "format": "order",
+              "hinted": false,
+              "latencyMs": 2759,
+              "representation": "symbols",
+              "sessionId": "c001-d24",
+              "tier": "abstract",
+              "ts": 1795708854881
+            },
+            {
+              "context": "review",
+              "correct": true,
+              "format": "numeral-pick",
+              "hinted": false,
+              "latencyMs": 6213,
+              "representation": "number-path",
+              "sessionId": "c001-d30",
+              "tier": "pictorial",
+              "ts": 1796231010711
+            }
+          ],
+          "retrievability": 0.900776691154,
+          "skillId": "CNT.01",
+          "status": "mastered",
+          "strand": "CNT",
+          "tiers": ["pictorial", "abstract"]
+        },
+        {
+          "assumed": false,
+          "formats": ["make-set", "tap-count"],
+          "nextReviewTs": 1798358630675,
+          "override": "reset",
+          "pRef": 0.916388182678,
+          "recent": [
+            {
+              "context": "practice",
+              "correct": true,
+              "format": "make-set",
+              "hinted": false,
+              "latencyMs": 4135,
+              "representation": "ten-frame",
+              "sessionId": "c001-d25",
+              "tier": "concrete",
+              "ts": 1795795277817
+            },
+            {
+              "context": "practice",
+              "correct": true,
+              "format": "make-set",
+              "hinted": false,
+              "latencyMs": 4741,
+              "representation": "ten-frame",
+              "sessionId": "c001-d25",
+              "tier": "concrete",
+              "ts": 1795795322851
+            },
+            {
+              "context": "practice",
+              "correct": true,
+              "format": "tap-count",
+              "hinted": false,
+              "latencyMs": 5497,
+              "representation": "dots",
+              "sessionId": "c001-d25",
+              "tier": "pictorial",
+              "ts": 1795795436157
+            },
+            {
+              "context": "practice",
+              "correct": true,
+              "format": "tap-count",
+              "hinted": false,
+              "latencyMs": 5026,
+              "representation": "objects",
+              "sessionId": "c001-d25",
+              "tier": "concrete",
+              "ts": 1795795470025
+            },
+            {
+              "context": "practice",
+              "correct": true,
+              "format": "tap-count",
+              "hinted": false,
+              "latencyMs": 3420,
+              "representation": "dots",
+              "sessionId": "c001-d25",
+              "tier": "pictorial",
+              "ts": 1795795506228
+            },
+            {
+              "context": "practice",
+              "correct": true,
+              "format": "tap-count",
+              "hinted": false,
+              "latencyMs": 3294,
+              "representation": "objects",
+              "sessionId": "c001-d25",
+              "tier": "concrete",
+              "ts": 1795795661094
+            },
+            {
+              "context": "practice",
+              "correct": true,
+              "format": "make-set",
+              "hinted": false,
+              "latencyMs": 9227,
+              "representation": "ten-frame",
+              "sessionId": "c001-d25",
+              "tier": "concrete",
+              "ts": 1795795687845
+            },
+            {
+              "context": "review",
+              "correct": true,
+              "format": "tap-count",
+              "hinted": false,
+              "latencyMs": 2733,
+              "representation": "dots",
+              "sessionId": "c001-d26",
+              "tier": "pictorial",
+              "ts": 1795885312505
+            },
+            {
+              "context": "review",
+              "correct": true,
+              "format": "make-set",
+              "hinted": false,
+              "latencyMs": 8575,
+              "representation": "ten-frame",
+              "sessionId": "c001-d30",
+              "tier": "concrete",
+              "ts": 1796230913294
+            },
+            {
+              "context": "review",
+              "correct": true,
+              "format": "tap-count",
+              "hinted": false,
+              "latencyMs": 8223,
+              "representation": "dots",
+              "sessionId": "c001-d39",
+              "tier": "pictorial",
+              "ts": 1797008630675
+            }
+          ],
+          "retrievability": 0.973952868376,
+          "skillId": "CNT.02",
+          "status": "mastered",
+          "strand": "CNT",
+          "tiers": ["concrete", "pictorial"]
+        },
+        {
+          "assumed": false,
+          "formats": ["number-pad", "numeral-pick", "tap-count"],
+          "nextReviewTs": null,
+          "override": null,
+          "pRef": 0.846517516852,
+          "recent": [
+            {
+              "context": "practice",
+              "correct": false,
+              "format": "tap-count",
+              "hinted": false,
+              "latencyMs": 17262,
+              "representation": "objects",
+              "sessionId": "c001-d42",
+              "tier": "concrete",
+              "ts": 1797264285409
+            },
+            {
+              "context": "practice",
+              "correct": true,
+              "format": "numeral-pick",
+              "hinted": false,
+              "latencyMs": 4842,
+              "representation": "dots",
+              "sessionId": "c001-d42",
+              "tier": "pictorial",
+              "ts": 1797264315416
+            },
+            {
+              "context": "practice",
+              "correct": true,
+              "format": "tap-count",
+              "hinted": false,
+              "latencyMs": 5651,
+              "representation": "objects",
+              "sessionId": "c001-d42",
+              "tier": "concrete",
+              "ts": 1797264351251
+            },
+            {
+              "context": "practice",
+              "correct": true,
+              "format": "number-pad",
+              "hinted": false,
+              "latencyMs": 8659,
+              "representation": "symbols",
+              "sessionId": "c001-d42",
+              "tier": "abstract",
+              "ts": 1797264369954
+            },
+            {
+              "context": "practice",
+              "correct": true,
+              "format": "tap-count",
+              "hinted": false,
+              "latencyMs": 4821,
+              "representation": "ten-frame",
+              "sessionId": "c001-d42",
+              "tier": "pictorial",
+              "ts": 1797264421815
+            },
+            {
+              "context": "practice",
+              "correct": true,
+              "format": "tap-count",
+              "hinted": false,
+              "latencyMs": 5730,
+              "representation": "ten-frame",
+              "sessionId": "c001-d42",
+              "tier": "pictorial",
+              "ts": 1797264438199
+            },
+            {
+              "context": "practice",
+              "correct": true,
+              "format": "tap-count",
+              "hinted": false,
+              "latencyMs": 7360,
+              "representation": "objects",
+              "sessionId": "c001-d42",
+              "tier": "concrete",
+              "ts": 1797264456533
+            },
+            {
+              "context": "practice",
+              "correct": true,
+              "format": "tap-count",
+              "hinted": false,
+              "latencyMs": 9710,
+              "representation": "ten-frame",
+              "sessionId": "c001-d42",
+              "tier": "pictorial",
+              "ts": 1797264471814
+            },
+            {
+              "context": "practice",
+              "correct": true,
+              "format": "numeral-pick",
+              "hinted": false,
+              "latencyMs": 5564,
+              "representation": "dots",
+              "sessionId": "c001-d42",
+              "tier": "pictorial",
+              "ts": 1797264498764
+            },
+            {
+              "context": "practice",
+              "correct": true,
+              "format": "tap-count",
+              "hinted": false,
+              "latencyMs": 7423,
+              "representation": "ten-frame",
+              "sessionId": "c001-d42",
+              "tier": "pictorial",
+              "ts": 1797264531745
+            }
+          ],
+          "retrievability": null,
+          "skillId": "CNT.03",
+          "status": "learning",
+          "strand": "CNT",
+          "tiers": ["concrete", "pictorial", "abstract"]
+        },
+        {
+          "assumed": false,
+          "formats": [],
+          "nextReviewTs": null,
+          "override": null,
+          "pRef": 0.31,
+          "recent": [],
+          "retrievability": null,
+          "skillId": "CNT.04",
+          "status": "locked",
+          "strand": "CNT",
+          "tiers": []
+        },
+        {
+          "assumed": false,
+          "formats": [],
+          "nextReviewTs": null,
+          "override": null,
+          "pRef": 0.31,
+          "recent": [],
+          "retrievability": null,
+          "skillId": "CNT.05",
+          "status": "locked",
+          "strand": "CNT",
+          "tiers": []
+        },
+        {
+          "assumed": false,
+          "formats": [],
+          "nextReviewTs": null,
+          "override": null,
+          "pRef": 0.18,
+          "recent": [],
+          "retrievability": null,
+          "skillId": "CNT.06",
+          "status": "locked",
+          "strand": "CNT",
+          "tiers": []
+        },
+        {
+          "assumed": false,
+          "formats": [],
+          "nextReviewTs": null,
+          "override": null,
+          "pRef": 0.1,
+          "recent": [],
+          "retrievability": null,
+          "skillId": "CNT.07",
+          "status": "locked",
+          "strand": "CNT",
+          "tiers": []
+        },
+        {
+          "assumed": false,
+          "formats": ["dot-flash", "numeral-pick"],
+          "nextReviewTs": 1798358654716,
+          "override": null,
+          "pRef": 0.932852552461,
+          "recent": [
+            {
+              "context": "practice",
+              "correct": true,
+              "format": "dot-flash",
+              "hinted": false,
+              "latencyMs": 2203,
+              "representation": "dots",
+              "sessionId": "c001-d9",
+              "tier": "pictorial",
+              "ts": 1794416758835
+            },
+            {
+              "context": "practice",
+              "correct": true,
+              "format": "numeral-pick",
+              "hinted": false,
+              "latencyMs": 5680,
+              "representation": "objects",
+              "sessionId": "c001-d9",
+              "tier": "pictorial",
+              "ts": 1794416862092
+            },
+            {
+              "context": "practice",
+              "correct": true,
+              "format": "dot-flash",
+              "hinted": false,
+              "latencyMs": 6140,
+              "representation": "fingers",
+              "sessionId": "c001-d9",
+              "tier": "pictorial",
+              "ts": 1794416934504
+            },
+            {
+              "context": "practice",
+              "correct": true,
+              "format": "dot-flash",
+              "hinted": false,
+              "latencyMs": 7859,
+              "representation": "fingers",
+              "sessionId": "c001-d9",
+              "tier": "pictorial",
+              "ts": 1794416966031
+            },
+            {
+              "context": "practice",
+              "correct": true,
+              "format": "dot-flash",
+              "hinted": false,
+              "latencyMs": 8035,
+              "representation": "fingers",
+              "sessionId": "c001-d10",
+              "tier": "pictorial",
+              "ts": 1794499268488
+            },
+            {
+              "context": "practice",
+              "correct": true,
+              "format": "dot-flash",
+              "hinted": false,
+              "latencyMs": 2260,
+              "representation": "dots",
+              "sessionId": "c001-d10",
+              "tier": "pictorial",
+              "ts": 1794499281364
+            },
+            {
+              "context": "review",
+              "correct": true,
+              "format": "numeral-pick",
+              "hinted": false,
+              "latencyMs": 7956,
+              "representation": "objects",
+              "sessionId": "c001-d11",
+              "tier": "pictorial",
+              "ts": 1794589355509
+            },
+            {
+              "context": "review",
+              "correct": true,
+              "format": "numeral-pick",
+              "hinted": false,
+              "latencyMs": 8391,
+              "representation": "objects",
+              "sessionId": "c001-d14",
+              "tier": "pictorial",
+              "ts": 1794844939926
+            },
+            {
+              "context": "review",
+              "correct": true,
+              "format": "dot-flash",
+              "hinted": false,
+              "latencyMs": 10083,
+              "representation": "dots",
+              "sessionId": "c001-d21",
+              "tier": "pictorial",
+              "ts": 1795453532535
+            },
+            {
+              "context": "review",
+              "correct": true,
+              "format": "dot-flash",
+              "hinted": false,
+              "latencyMs": 8679,
+              "representation": "fingers",
+              "sessionId": "c001-d39",
+              "tier": "pictorial",
+              "ts": 1797008654716
+            }
+          ],
+          "retrievability": 0.973954695782,
+          "skillId": "SUB.01",
+          "status": "mastered",
+          "strand": "SUB",
+          "tiers": ["pictorial"]
+        },
+        {
+          "assumed": false,
+          "formats": ["dot-flash", "make-set", "numeral-pick"],
+          "nextReviewTs": 1797714072117,
+          "override": null,
+          "pRef": 0.904299177221,
+          "recent": [
+            {
+              "context": "practice",
+              "correct": true,
+              "format": "dot-flash",
+              "hinted": false,
+              "latencyMs": 3233,
+              "representation": "five-frame",
+              "sessionId": "c001-d25",
+              "tier": "pictorial",
+              "ts": 1795795383291
+            },
+            {
+              "context": "practice",
+              "correct": true,
+              "format": "make-set",
+              "hinted": false,
+              "latencyMs": 3231,
+              "representation": "fingers",
+              "sessionId": "c001-d25",
+              "tier": "concrete",
+              "ts": 1795795452520
+            },
+            {
+              "context": "practice",
+              "correct": true,
+              "format": "numeral-pick",
+              "hinted": false,
+              "latencyMs": 3266,
+              "representation": "dots",
+              "sessionId": "c001-d25",
+              "tier": "pictorial",
+              "ts": 1795795533514
+            },
+            {
+              "context": "challenge",
+              "correct": true,
+              "format": "dot-flash",
+              "hinted": false,
+              "latencyMs": 3114,
+              "representation": "five-frame",
+              "sessionId": "c001-d25",
+              "tier": "pictorial",
+              "ts": 1795795566213
+            },
+            {
+              "context": "practice",
+              "correct": true,
+              "format": "numeral-pick",
+              "hinted": false,
+              "latencyMs": 7295,
+              "representation": "dots",
+              "sessionId": "c001-d25",
+              "tier": "pictorial",
+              "ts": 1795795619736
+            },
+            {
+              "context": "practice",
+              "correct": true,
+              "format": "dot-flash",
+              "hinted": false,
+              "latencyMs": 7995,
+              "representation": "five-frame",
+              "sessionId": "c001-d25",
+              "tier": "pictorial",
+              "ts": 1795795634807
+            },
+            {
+              "context": "review",
+              "correct": true,
+              "format": "numeral-pick",
+              "hinted": false,
+              "latencyMs": 2391,
+              "representation": "dots",
+              "sessionId": "c001-d26",
+              "tier": "pictorial",
+              "ts": 1795885281885
+            },
+            {
+              "context": "review",
+              "correct": true,
+              "format": "numeral-pick",
+              "hinted": false,
+              "latencyMs": 5879,
+              "representation": "dots",
+              "sessionId": "c001-d30",
+              "tier": "pictorial",
+              "ts": 1796230849129
+            },
+            {
+              "context": "review",
+              "correct": false,
+              "format": "make-set",
+              "hinted": false,
+              "latencyMs": 20738,
+              "representation": "fingers",
+              "sessionId": "c001-d39",
+              "tier": "concrete",
+              "ts": 1797008475961
+            },
+            {
+              "context": "review",
+              "correct": true,
+              "format": "dot-flash",
+              "hinted": false,
+              "latencyMs": 9146,
+              "representation": "five-frame",
+              "sessionId": "c001-d42",
+              "tier": "pictorial",
+              "ts": 1797264072117
+            }
+          ],
+          "retrievability": 0.980816932673,
+          "skillId": "SUB.02",
+          "status": "mastered",
+          "strand": "SUB",
+          "tiers": ["concrete", "pictorial"]
+        },
+        {
+          "assumed": false,
+          "formats": [],
+          "nextReviewTs": null,
+          "override": null,
+          "pRef": 0.31,
+          "recent": [],
+          "retrievability": null,
+          "skillId": "CPS.01",
+          "status": "locked",
+          "strand": "CPS",
+          "tiers": []
+        },
+        {
+          "assumed": false,
+          "formats": [],
+          "nextReviewTs": null,
+          "override": null,
+          "pRef": 0.18,
+          "recent": [],
+          "retrievability": null,
+          "skillId": "ADD.01",
+          "status": "locked",
+          "strand": "ADD",
+          "tiers": []
+        },
+        {
+          "assumed": false,
+          "formats": [],
+          "nextReviewTs": null,
+          "override": null,
+          "pRef": 0.05,
+          "recent": [],
+          "retrievability": null,
+          "skillId": "ADD.03",
+          "status": "locked",
+          "strand": "ADD",
+          "tiers": []
+        },
+        {
+          "assumed": false,
+          "formats": [],
+          "nextReviewTs": null,
+          "override": null,
+          "pRef": 0.31,
+          "recent": [],
+          "retrievability": null,
+          "skillId": "SUB.03",
+          "status": "locked",
+          "strand": "SUB",
+          "tiers": []
+        },
+        {
+          "assumed": false,
+          "formats": [],
+          "nextReviewTs": null,
+          "override": null,
+          "pRef": 0.18,
+          "recent": [],
+          "retrievability": null,
+          "skillId": "CPS.02",
+          "status": "locked",
+          "strand": "CPS",
+          "tiers": []
+        },
+        {
+          "assumed": false,
+          "formats": [],
+          "nextReviewTs": null,
+          "override": null,
+          "pRef": 0.1,
+          "recent": [],
+          "retrievability": null,
+          "skillId": "CPS.03",
+          "status": "locked",
+          "strand": "CPS",
+          "tiers": []
+        }
+      ],
+      "state": {
+        "_sinceAdjust": 20,
+        "childId": "019a0000-0000-7000-8000-00000000c001",
+        "modelId": "elo-fire-v1",
+        "nTotal": 436,
+        "placement": {
+          "inProgress": null,
+          "prior": {
+            "assumed": [],
+            "p": {
+              "ADD.01": 0.18,
+              "ADD.03": 0.02,
+              "CNT.01": 0.79,
+              "CNT.02": 0.65,
+              "CNT.03": 0.48,
+              "CNT.04": 0.31,
+              "CNT.05": 0.31,
+              "CNT.06": 0.18,
+              "CNT.07": 0.1,
+              "CPS.01": 0.31,
+              "CPS.02": 0.18,
+              "CPS.03": 0.1,
+              "SUB.01": 0.79,
+              "SUB.02": 0.65,
+              "SUB.03": 0.31
+            }
+          },
+          "strandsPlaced": ["ADD", "CNT", "CPS", "SUB"]
+        },
+        "recentFirstTry": [
+          true,
+          true,
+          true,
+          true,
+          true,
+          true,
+          false,
+          true,
+          true,
+          true,
+          false,
+          true,
+          true,
+          true,
+          true,
+          true,
+          true,
+          true,
+          true,
+          true
+        ],
+        "sessionsSeen": 28,
+        "skills": {
+          "CNT.01": {
+            "_attempts": 51,
+            "_correctLatencies": [4357, 3578, 8037, 7760, 7523, 5771, 3823, 9788, 2759, 6213],
+            "_hitSeqs": [],
+            "_testOut": null,
+            "assumed": false,
+            "atRiskDueTs": null,
+            "fluentAt": null,
+            "masteredAt": 1795708854881,
+            "memory": {
+              "consecutiveFails": 0,
+              "dueTs": 1797356010711,
+              "intervalDays": 13.0208333333,
+              "lastReviewTs": 1796231010711,
+              "reps": 4,
+              "reviewsPassed": [1794589279935, 1794844868587, 1795708854881, 1796231010711]
+            },
+            "misconceptionHits": [],
+            "n": 44,
+            "override": null,
+            "practicedAt": 1794416560709,
+            "recent": [
+              {
+                "context": "practice",
+                "correct": true,
+                "format": "hundred-chart",
+                "hinted": false,
+                "latencyMs": 3578,
+                "representation": "hundred-chart",
+                "sessionId": "c001-d7",
+                "tier": "pictorial",
+                "ts": 1794243890176
+              },
+              {
+                "context": "practice",
+                "correct": true,
+                "format": "hundred-chart",
+                "hinted": false,
+                "latencyMs": 8037,
+                "representation": "hundred-chart",
+                "sessionId": "c001-d7",
+                "tier": "pictorial",
+                "ts": 1794243944441
+              },
+              {
+                "context": "practice",
+                "correct": true,
+                "format": "order",
+                "hinted": false,
+                "latencyMs": 7760,
+                "representation": "symbols",
+                "sessionId": "c001-d9",
+                "tier": "abstract",
+                "ts": 1794416433734
+              },
+              {
+                "context": "practice",
+                "correct": true,
+                "format": "numeral-pick",
+                "hinted": false,
+                "latencyMs": 7523,
+                "representation": "number-path",
+                "sessionId": "c001-d9",
+                "tier": "pictorial",
+                "ts": 1794416500638
+              },
+              {
+                "context": "practice",
+                "correct": true,
+                "format": "hundred-chart",
+                "hinted": false,
+                "latencyMs": 5771,
+                "representation": "hundred-chart",
+                "sessionId": "c001-d9",
+                "tier": "pictorial",
+                "ts": 1794416560709
+              },
+              {
+                "context": "review",
+                "correct": true,
+                "format": "numeral-pick",
+                "hinted": false,
+                "latencyMs": 3823,
+                "representation": "number-path",
+                "sessionId": "c001-d11",
+                "tier": "pictorial",
+                "ts": 1794589279935
+              },
+              {
+                "context": "review",
+                "correct": true,
+                "format": "hundred-chart",
+                "hinted": false,
+                "latencyMs": 9788,
+                "representation": "hundred-chart",
+                "sessionId": "c001-d14",
+                "tier": "pictorial",
+                "ts": 1794844868587
+              },
+              {
+                "context": "review",
+                "correct": false,
+                "format": "order",
+                "hinted": false,
+                "latencyMs": 17634,
+                "representation": "symbols",
+                "sessionId": "c001-d21",
+                "tier": "abstract",
+                "ts": 1795453487642
+              },
+              {
+                "context": "review",
+                "correct": true,
+                "format": "order",
+                "hinted": false,
+                "latencyMs": 2759,
+                "representation": "symbols",
+                "sessionId": "c001-d24",
+                "tier": "abstract",
+                "ts": 1795708854881
+              },
+              {
+                "context": "review",
+                "correct": true,
+                "format": "numeral-pick",
+                "hinted": false,
+                "latencyMs": 6213,
+                "representation": "number-path",
+                "sessionId": "c001-d30",
+                "tier": "pictorial",
+                "ts": 1796231010711
+              }
+            ],
+            "theta": 1.76440984639
+          },
+          "CNT.02": {
+            "_attempts": 46,
+            "_correctLatencies": [4135, 4741, 5497, 5026, 3420, 3294, 9227, 2733, 8575, 8223],
+            "_hitSeqs": [],
+            "_testOut": null,
+            "assumed": false,
+            "atRiskDueTs": null,
+            "fluentAt": null,
+            "masteredAt": 1797008630675,
+            "memory": {
+              "consecutiveFails": 0,
+              "dueTs": 1798358630675,
+              "intervalDays": 15.625,
+              "lastReviewTs": 1797008630675,
+              "reps": 3,
+              "reviewsPassed": [1795885312505, 1796230913294, 1797008630675]
+            },
+            "misconceptionHits": [],
+            "n": 42,
+            "override": "reset",
+            "practicedAt": 1795795687845,
+            "recent": [
+              {
+                "context": "practice",
+                "correct": true,
+                "format": "make-set",
+                "hinted": false,
+                "latencyMs": 4135,
+                "representation": "ten-frame",
+                "sessionId": "c001-d25",
+                "tier": "concrete",
+                "ts": 1795795277817
+              },
+              {
+                "context": "practice",
+                "correct": true,
+                "format": "make-set",
+                "hinted": false,
+                "latencyMs": 4741,
+                "representation": "ten-frame",
+                "sessionId": "c001-d25",
+                "tier": "concrete",
+                "ts": 1795795322851
+              },
+              {
+                "context": "practice",
+                "correct": true,
+                "format": "tap-count",
+                "hinted": false,
+                "latencyMs": 5497,
+                "representation": "dots",
+                "sessionId": "c001-d25",
+                "tier": "pictorial",
+                "ts": 1795795436157
+              },
+              {
+                "context": "practice",
+                "correct": true,
+                "format": "tap-count",
+                "hinted": false,
+                "latencyMs": 5026,
+                "representation": "objects",
+                "sessionId": "c001-d25",
+                "tier": "concrete",
+                "ts": 1795795470025
+              },
+              {
+                "context": "practice",
+                "correct": true,
+                "format": "tap-count",
+                "hinted": false,
+                "latencyMs": 3420,
+                "representation": "dots",
+                "sessionId": "c001-d25",
+                "tier": "pictorial",
+                "ts": 1795795506228
+              },
+              {
+                "context": "practice",
+                "correct": true,
+                "format": "tap-count",
+                "hinted": false,
+                "latencyMs": 3294,
+                "representation": "objects",
+                "sessionId": "c001-d25",
+                "tier": "concrete",
+                "ts": 1795795661094
+              },
+              {
+                "context": "practice",
+                "correct": true,
+                "format": "make-set",
+                "hinted": false,
+                "latencyMs": 9227,
+                "representation": "ten-frame",
+                "sessionId": "c001-d25",
+                "tier": "concrete",
+                "ts": 1795795687845
+              },
+              {
+                "context": "review",
+                "correct": true,
+                "format": "tap-count",
+                "hinted": false,
+                "latencyMs": 2733,
+                "representation": "dots",
+                "sessionId": "c001-d26",
+                "tier": "pictorial",
+                "ts": 1795885312505
+              },
+              {
+                "context": "review",
+                "correct": true,
+                "format": "make-set",
+                "hinted": false,
+                "latencyMs": 8575,
+                "representation": "ten-frame",
+                "sessionId": "c001-d30",
+                "tier": "concrete",
+                "ts": 1796230913294
+              },
+              {
+                "context": "review",
+                "correct": true,
+                "format": "tap-count",
+                "hinted": false,
+                "latencyMs": 8223,
+                "representation": "dots",
+                "sessionId": "c001-d39",
+                "tier": "pictorial",
+                "ts": 1797008630675
+              }
+            ],
+            "theta": 1.52144934488
+          },
+          "CNT.03": {
+            "_attempts": 175,
+            "_correctLatencies": [10204, 4842, 5651, 8659, 4821, 5730, 7360, 9710, 5564, 7423],
+            "_hitSeqs": [],
+            "_testOut": null,
+            "assumed": false,
+            "atRiskDueTs": null,
+            "fluentAt": null,
+            "masteredAt": null,
+            "memory": null,
+            "misconceptionHits": [],
+            "n": 151,
+            "override": null,
+            "practicedAt": null,
+            "recent": [
+              {
+                "context": "practice",
+                "correct": false,
+                "format": "tap-count",
+                "hinted": false,
+                "latencyMs": 17262,
+                "representation": "objects",
+                "sessionId": "c001-d42",
+                "tier": "concrete",
+                "ts": 1797264285409
+              },
+              {
+                "context": "practice",
+                "correct": true,
+                "format": "numeral-pick",
+                "hinted": false,
+                "latencyMs": 4842,
+                "representation": "dots",
+                "sessionId": "c001-d42",
+                "tier": "pictorial",
+                "ts": 1797264315416
+              },
+              {
+                "context": "practice",
+                "correct": true,
+                "format": "tap-count",
+                "hinted": false,
+                "latencyMs": 5651,
+                "representation": "objects",
+                "sessionId": "c001-d42",
+                "tier": "concrete",
+                "ts": 1797264351251
+              },
+              {
+                "context": "practice",
+                "correct": true,
+                "format": "number-pad",
+                "hinted": false,
+                "latencyMs": 8659,
+                "representation": "symbols",
+                "sessionId": "c001-d42",
+                "tier": "abstract",
+                "ts": 1797264369954
+              },
+              {
+                "context": "practice",
+                "correct": true,
+                "format": "tap-count",
+                "hinted": false,
+                "latencyMs": 4821,
+                "representation": "ten-frame",
+                "sessionId": "c001-d42",
+                "tier": "pictorial",
+                "ts": 1797264421815
+              },
+              {
+                "context": "practice",
+                "correct": true,
+                "format": "tap-count",
+                "hinted": false,
+                "latencyMs": 5730,
+                "representation": "ten-frame",
+                "sessionId": "c001-d42",
+                "tier": "pictorial",
+                "ts": 1797264438199
+              },
+              {
+                "context": "practice",
+                "correct": true,
+                "format": "tap-count",
+                "hinted": false,
+                "latencyMs": 7360,
+                "representation": "objects",
+                "sessionId": "c001-d42",
+                "tier": "concrete",
+                "ts": 1797264456533
+              },
+              {
+                "context": "practice",
+                "correct": true,
+                "format": "tap-count",
+                "hinted": false,
+                "latencyMs": 9710,
+                "representation": "ten-frame",
+                "sessionId": "c001-d42",
+                "tier": "pictorial",
+                "ts": 1797264471814
+              },
+              {
+                "context": "practice",
+                "correct": true,
+                "format": "numeral-pick",
+                "hinted": false,
+                "latencyMs": 5564,
+                "representation": "dots",
+                "sessionId": "c001-d42",
+                "tier": "pictorial",
+                "ts": 1797264498764
+              },
+              {
+                "context": "practice",
+                "correct": true,
+                "format": "tap-count",
+                "hinted": false,
+                "latencyMs": 7423,
+                "representation": "ten-frame",
+                "sessionId": "c001-d42",
+                "tier": "pictorial",
+                "ts": 1797264531745
+              }
+            ],
+            "theta": 0.834738605798
+          },
+          "SUB.01": {
+            "_attempts": 55,
+            "_correctLatencies": [2203, 5680, 6140, 7859, 8035, 2260, 7956, 8391, 10083, 8679],
+            "_hitSeqs": [],
+            "_testOut": null,
+            "assumed": false,
+            "atRiskDueTs": null,
+            "fluentAt": null,
+            "masteredAt": 1795453532535,
+            "memory": {
+              "consecutiveFails": 0,
+              "dueTs": 1798358654716,
+              "intervalDays": 15.625,
+              "lastReviewTs": 1797008654716,
+              "reps": 3,
+              "reviewsPassed": [1794844939926, 1795453532535, 1797008654716]
+            },
+            "misconceptionHits": [],
+            "n": 50,
+            "override": null,
+            "practicedAt": 1794589355509,
+            "recent": [
+              {
+                "context": "practice",
+                "correct": true,
+                "format": "dot-flash",
+                "hinted": false,
+                "latencyMs": 2203,
+                "representation": "dots",
+                "sessionId": "c001-d9",
+                "tier": "pictorial",
+                "ts": 1794416758835
+              },
+              {
+                "context": "practice",
+                "correct": true,
+                "format": "numeral-pick",
+                "hinted": false,
+                "latencyMs": 5680,
+                "representation": "objects",
+                "sessionId": "c001-d9",
+                "tier": "pictorial",
+                "ts": 1794416862092
+              },
+              {
+                "context": "practice",
+                "correct": true,
+                "format": "dot-flash",
+                "hinted": false,
+                "latencyMs": 6140,
+                "representation": "fingers",
+                "sessionId": "c001-d9",
+                "tier": "pictorial",
+                "ts": 1794416934504
+              },
+              {
+                "context": "practice",
+                "correct": true,
+                "format": "dot-flash",
+                "hinted": false,
+                "latencyMs": 7859,
+                "representation": "fingers",
+                "sessionId": "c001-d9",
+                "tier": "pictorial",
+                "ts": 1794416966031
+              },
+              {
+                "context": "practice",
+                "correct": true,
+                "format": "dot-flash",
+                "hinted": false,
+                "latencyMs": 8035,
+                "representation": "fingers",
+                "sessionId": "c001-d10",
+                "tier": "pictorial",
+                "ts": 1794499268488
+              },
+              {
+                "context": "practice",
+                "correct": true,
+                "format": "dot-flash",
+                "hinted": false,
+                "latencyMs": 2260,
+                "representation": "dots",
+                "sessionId": "c001-d10",
+                "tier": "pictorial",
+                "ts": 1794499281364
+              },
+              {
+                "context": "review",
+                "correct": true,
+                "format": "numeral-pick",
+                "hinted": false,
+                "latencyMs": 7956,
+                "representation": "objects",
+                "sessionId": "c001-d11",
+                "tier": "pictorial",
+                "ts": 1794589355509
+              },
+              {
+                "context": "review",
+                "correct": true,
+                "format": "numeral-pick",
+                "hinted": false,
+                "latencyMs": 8391,
+                "representation": "objects",
+                "sessionId": "c001-d14",
+                "tier": "pictorial",
+                "ts": 1794844939926
+              },
+              {
+                "context": "review",
+                "correct": true,
+                "format": "dot-flash",
+                "hinted": false,
+                "latencyMs": 10083,
+                "representation": "dots",
+                "sessionId": "c001-d21",
+                "tier": "pictorial",
+                "ts": 1795453532535
+              },
+              {
+                "context": "review",
+                "correct": true,
+                "format": "dot-flash",
+                "hinted": false,
+                "latencyMs": 8679,
+                "representation": "fingers",
+                "sessionId": "c001-d39",
+                "tier": "pictorial",
+                "ts": 1797008654716
+              }
+            ],
+            "theta": 1.75855039688
+          },
+          "SUB.02": {
+            "_attempts": 98,
+            "_correctLatencies": [6121, 3233, 3231, 3266, 3114, 7295, 7995, 2391, 5879, 9146],
+            "_hitSeqs": [],
+            "_testOut": null,
+            "assumed": false,
+            "atRiskDueTs": null,
+            "fluentAt": null,
+            "masteredAt": 1797264072117,
+            "memory": {
+              "consecutiveFails": 0,
+              "dueTs": 1797714072117,
+              "intervalDays": 5.20833333333,
+              "lastReviewTs": 1797264072117,
+              "reps": 3,
+              "reviewsPassed": [1795885281885, 1796230849129, 1797264072117]
+            },
+            "misconceptionHits": [],
+            "n": 90,
+            "override": null,
+            "practicedAt": 1795795634807,
+            "recent": [
+              {
+                "context": "practice",
+                "correct": true,
+                "format": "dot-flash",
+                "hinted": false,
+                "latencyMs": 3233,
+                "representation": "five-frame",
+                "sessionId": "c001-d25",
+                "tier": "pictorial",
+                "ts": 1795795383291
+              },
+              {
+                "context": "practice",
+                "correct": true,
+                "format": "make-set",
+                "hinted": false,
+                "latencyMs": 3231,
+                "representation": "fingers",
+                "sessionId": "c001-d25",
+                "tier": "concrete",
+                "ts": 1795795452520
+              },
+              {
+                "context": "practice",
+                "correct": true,
+                "format": "numeral-pick",
+                "hinted": false,
+                "latencyMs": 3266,
+                "representation": "dots",
+                "sessionId": "c001-d25",
+                "tier": "pictorial",
+                "ts": 1795795533514
+              },
+              {
+                "context": "challenge",
+                "correct": true,
+                "format": "dot-flash",
+                "hinted": false,
+                "latencyMs": 3114,
+                "representation": "five-frame",
+                "sessionId": "c001-d25",
+                "tier": "pictorial",
+                "ts": 1795795566213
+              },
+              {
+                "context": "practice",
+                "correct": true,
+                "format": "numeral-pick",
+                "hinted": false,
+                "latencyMs": 7295,
+                "representation": "dots",
+                "sessionId": "c001-d25",
+                "tier": "pictorial",
+                "ts": 1795795619736
+              },
+              {
+                "context": "practice",
+                "correct": true,
+                "format": "dot-flash",
+                "hinted": false,
+                "latencyMs": 7995,
+                "representation": "five-frame",
+                "sessionId": "c001-d25",
+                "tier": "pictorial",
+                "ts": 1795795634807
+              },
+              {
+                "context": "review",
+                "correct": true,
+                "format": "numeral-pick",
+                "hinted": false,
+                "latencyMs": 2391,
+                "representation": "dots",
+                "sessionId": "c001-d26",
+                "tier": "pictorial",
+                "ts": 1795885281885
+              },
+              {
+                "context": "review",
+                "correct": true,
+                "format": "numeral-pick",
+                "hinted": false,
+                "latencyMs": 5879,
+                "representation": "dots",
+                "sessionId": "c001-d30",
+                "tier": "pictorial",
+                "ts": 1796230849129
+              },
+              {
+                "context": "review",
+                "correct": false,
+                "format": "make-set",
+                "hinted": false,
+                "latencyMs": 20738,
+                "representation": "fingers",
+                "sessionId": "c001-d39",
+                "tier": "concrete",
+                "ts": 1797008475961
+              },
+              {
+                "context": "review",
+                "correct": true,
+                "format": "dot-flash",
+                "hinted": false,
+                "latencyMs": 9146,
+                "representation": "five-frame",
+                "sessionId": "c001-d42",
+                "tier": "pictorial",
+                "ts": 1797264072117
+              }
+            ],
+            "theta": 1.37312751338
+          }
+        },
+        "successOffset": -0.0148401958449,
+        "thetaG": 0.872805844613
+      },
+      "statuses": {
+        "ADD.01": "locked",
+        "ADD.03": "locked",
+        "CNT.01": "mastered",
+        "CNT.02": "mastered",
+        "CNT.03": "learning",
+        "CNT.04": "locked",
+        "CNT.05": "locked",
+        "CNT.06": "locked",
+        "CNT.07": "locked",
+        "CPS.01": "locked",
+        "CPS.02": "locked",
+        "CPS.03": "locked",
+        "SUB.01": "mastered",
+        "SUB.02": "mastered",
+        "SUB.03": "locked"
+      }
+    },
+    {
+      "accuracyBand": {
+        "accuracy": 0.95,
+        "band": "above",
+        "n": 20,
+        "target": 0.85
+      },
+      "childId": "019a0000-0000-7000-8000-00000000c002",
+      "dueReviews": [
+        {
+          "atRisk": false,
+          "depth": 5,
+          "dueTs": 1797300046796,
+          "retrievability": 0.89182742943,
+          "skillId": "CPS.03"
+        }
+      ],
+      "frontier": [],
+      "mathDensity": [
+        {
+          "activeMs": 495933,
+          "density": 0.817985494008,
+          "mathMs": 405666,
+          "sessionId": "c002-d1",
+          "ts": 1793725695933
+        },
+        {
+          "activeMs": 467615,
+          "density": 0.860427916128,
+          "mathMs": 402349,
+          "sessionId": "c002-d5",
+          "ts": 1794082067615
+        },
+        {
+          "activeMs": 377720,
+          "density": 0.866295139257,
+          "mathMs": 327217,
+          "sessionId": "c002-d6",
+          "ts": 1794164777720
+        },
+        {
+          "activeMs": 606412,
+          "density": 0.817711390936,
+          "mathMs": 495870,
+          "sessionId": "c002-d7",
+          "ts": 1794244206412
+        },
+        {
+          "activeMs": 438197,
+          "density": 0.738391636638,
+          "mathMs": 323561,
+          "sessionId": "c002-d8",
+          "ts": 1794337638197
+        },
+        {
+          "activeMs": 569380,
+          "density": 0.746980926622,
+          "mathMs": 425316,
+          "sessionId": "c002-d9",
+          "ts": 1794420569380
+        },
+        {
+          "activeMs": 594006,
+          "density": 0.725649235866,
+          "mathMs": 431040,
+          "sessionId": "c002-d10",
+          "ts": 1794514194006
+        },
+        {
+          "activeMs": 648458,
+          "density": 0.838846926092,
+          "mathMs": 543957,
+          "sessionId": "c002-d11",
+          "ts": 1794600648458
+        },
+        {
+          "activeMs": 700938,
+          "density": 0.812964912731,
+          "mathMs": 569838,
+          "sessionId": "c002-d12",
+          "ts": 1794683500938
+        },
+        {
+          "activeMs": 672916,
+          "density": 0.845906472725,
+          "mathMs": 569224,
+          "sessionId": "c002-d13",
+          "ts": 1794762672916
+        },
+        {
+          "activeMs": 587324,
+          "density": 0.875675095859,
+          "mathMs": 514305,
+          "sessionId": "c002-d16",
+          "ts": 1795032587324
+        },
+        {
+          "activeMs": 423852,
+          "density": 0.746494059247,
+          "mathMs": 316403,
+          "sessionId": "c002-d17",
+          "ts": 1795115223852
+        },
+        {
+          "activeMs": 540889,
+          "density": 0.842315151538,
+          "mathMs": 455599,
+          "sessionId": "c002-d18",
+          "ts": 1795201740889
+        },
+        {
+          "activeMs": 334504,
+          "density": 0.840791141511,
+          "mathMs": 281248,
+          "sessionId": "c002-d19",
+          "ts": 1795287934504
+        },
+        {
+          "activeMs": 491427,
+          "density": 0.884625793862,
+          "mathMs": 434729,
+          "sessionId": "c002-d21",
+          "ts": 1795457291427
+        },
+        {
+          "activeMs": 366284,
+          "density": 0.732221445654,
+          "mathMs": 268201,
+          "sessionId": "c002-d22",
+          "ts": 1795543566284
+        },
+        {
+          "activeMs": 611390,
+          "density": 0.795109504572,
+          "mathMs": 486122,
+          "sessionId": "c002-d23",
+          "ts": 1795637411390
+        },
+        {
+          "activeMs": 358014,
+          "density": 0.849271257549,
+          "mathMs": 304051,
+          "sessionId": "c002-d24",
+          "ts": 1795716358014
+        },
+        {
+          "activeMs": 408344,
+          "density": 0.709348000705,
+          "mathMs": 289658,
+          "sessionId": "c002-d25",
+          "ts": 1795802808344
+        },
+        {
+          "activeMs": 464848,
+          "density": 0.877159845799,
+          "mathMs": 407746,
+          "sessionId": "c002-d26",
+          "ts": 1795885664848
+        },
+        {
+          "activeMs": 441522,
+          "density": 0.809683322688,
+          "mathMs": 357493,
+          "sessionId": "c002-d27",
+          "ts": 1795975641522
+        },
+        {
+          "activeMs": 630824,
+          "density": 0.843794782697,
+          "mathMs": 532286,
+          "sessionId": "c002-d29",
+          "ts": 1796145030824
+        },
+        {
+          "activeMs": 621593,
+          "density": 0.820849012135,
+          "mathMs": 510234,
+          "sessionId": "c002-d32",
+          "ts": 1796415021593
+        },
+        {
+          "activeMs": 397637,
+          "density": 0.761035819101,
+          "mathMs": 302616,
+          "sessionId": "c002-d33",
+          "ts": 1796501197637
+        },
+        {
+          "activeMs": 569904,
+          "density": 0.730975743283,
+          "mathMs": 416586,
+          "sessionId": "c002-d34",
+          "ts": 1796587769904
+        },
+        {
+          "activeMs": 407571,
+          "density": 0.753444185185,
+          "mathMs": 307082,
+          "sessionId": "c002-d36",
+          "ts": 1796760407571
+        },
+        {
+          "activeMs": 639512,
+          "density": 0.707547317329,
+          "mathMs": 452485,
+          "sessionId": "c002-d37",
+          "ts": 1796847039512
+        },
+        {
+          "activeMs": 605721,
+          "density": 0.710678678798,
+          "mathMs": 430473,
+          "sessionId": "c002-d38",
+          "ts": 1796922605721
+        },
+        {
+          "activeMs": 599442,
+          "density": 0.851765475225,
+          "mathMs": 510584,
+          "sessionId": "c002-d39",
+          "ts": 1797012599442
+        },
+        {
+          "activeMs": 443296,
+          "density": 0.720574965711,
+          "mathMs": 319428,
+          "sessionId": "c002-d40",
+          "ts": 1797098843296
+        },
+        {
+          "activeMs": 413666,
+          "density": 0.865616221783,
+          "mathMs": 358076,
+          "sessionId": "c002-d41",
+          "ts": 1797188813666
+        },
+        {
+          "activeMs": 372105,
+          "density": 0.794955724863,
+          "mathMs": 295807,
+          "sessionId": "c002-d42",
+          "ts": 1797275172105
+        }
+      ],
+      "misconceptionAlerts": [],
+      "skillMap": [
+        {
+          "assumed": false,
+          "formats": ["numeral-pick", "order"],
+          "nextReviewTs": 1798336936809,
+          "override": null,
+          "pRef": 0.984973650104,
+          "recent": [
+            {
+              "context": "review",
+              "correct": true,
+              "format": "order",
+              "hinted": false,
+              "latencyMs": 7172,
+              "representation": "symbols",
+              "sessionId": "c002-d5",
+              "tier": "abstract",
+              "ts": 1794081932518
+            },
+            {
+              "context": "review",
+              "correct": true,
+              "format": "order",
+              "hinted": false,
+              "latencyMs": 6553,
+              "representation": "symbols",
+              "sessionId": "c002-d10",
+              "tier": "abstract",
+              "ts": 1794514120261
+            },
+            {
+              "context": "review",
+              "correct": true,
+              "format": "numeral-pick",
+              "hinted": false,
+              "latencyMs": 4600,
+              "representation": "number-path",
+              "sessionId": "c002-d23",
+              "tier": "pictorial",
+              "ts": 1795636936809
+            },
+            {
+              "context": "practice",
+              "correct": false,
+              "format": "hundred-chart",
+              "hinted": false,
+              "latencyMs": 4062,
+              "representation": "hundred-chart",
+              "sessionId": "c002-d36",
+              "tier": "pictorial",
+              "ts": 1796760185582
+            },
+            {
+              "context": "practice",
+              "correct": true,
+              "format": "numeral-pick",
+              "hinted": false,
+              "latencyMs": 6098,
+              "representation": "number-path",
+              "sessionId": "c002-d38",
+              "tier": "pictorial",
+              "ts": 1796922116755
+            },
+            {
+              "context": "practice",
+              "correct": true,
+              "format": "numeral-pick",
+              "hinted": false,
+              "latencyMs": 1780,
+              "representation": "number-path",
+              "sessionId": "c002-d41",
+              "tier": "pictorial",
+              "ts": 1797188745552
+            },
+            {
+              "context": "challenge",
+              "correct": true,
+              "format": "numeral-pick",
+              "hinted": false,
+              "latencyMs": 6231,
+              "representation": "number-path",
+              "sessionId": "c002-d42",
+              "tier": "pictorial",
+              "ts": 1797275111152
+            }
+          ],
+          "retrievability": 0.935454297546,
+          "skillId": "CNT.01",
+          "status": "mastered",
+          "strand": "CNT",
+          "tiers": ["pictorial", "abstract"]
+        },
+        {
+          "assumed": false,
+          "formats": ["make-set", "tap-count"],
+          "nextReviewTs": 1798336911175,
+          "override": null,
+          "pRef": 0.986978376636,
+          "recent": [
+            {
+              "context": "review",
+              "correct": true,
+              "format": "make-set",
+              "hinted": false,
+              "latencyMs": 6646,
+              "representation": "ten-frame",
+              "sessionId": "c002-d5",
+              "tier": "concrete",
+              "ts": 1794081784755
+            },
+            {
+              "context": "review",
+              "correct": true,
+              "format": "make-set",
+              "hinted": false,
+              "latencyMs": 6321,
+              "representation": "ten-frame",
+              "sessionId": "c002-d10",
+              "tier": "concrete",
+              "ts": 1794514021259
+            },
+            {
+              "context": "review",
+              "correct": true,
+              "format": "make-set",
+              "hinted": false,
+              "latencyMs": 1764,
+              "representation": "ten-frame",
+              "sessionId": "c002-d23",
+              "tier": "concrete",
+              "ts": 1795636911175
+            },
+            {
+              "context": "challenge",
+              "correct": true,
+              "format": "make-set",
+              "hinted": false,
+              "latencyMs": 4997,
+              "representation": "ten-frame",
+              "sessionId": "c002-d38",
+              "tier": "concrete",
+              "ts": 1796922336761
+            },
+            {
+              "context": "practice",
+              "correct": true,
+              "format": "tap-count",
+              "hinted": false,
+              "latencyMs": 3060,
+              "representation": "dots",
+              "sessionId": "c002-d40",
+              "tier": "pictorial",
+              "ts": 1797098639593
+            }
+          ],
+          "retrievability": 0.935453361811,
+          "skillId": "CNT.02",
+          "status": "mastered",
+          "strand": "CNT",
+          "tiers": ["concrete", "pictorial"]
+        },
+        {
+          "assumed": false,
+          "formats": ["number-pad", "numeral-pick", "tap-count"],
+          "nextReviewTs": 1799385884666,
+          "override": null,
+          "pRef": 0.977822460476,
+          "recent": [
+            {
+              "context": "practice",
+              "correct": true,
+              "format": "tap-count",
+              "hinted": false,
+              "latencyMs": 4094,
+              "representation": "objects",
+              "sessionId": "c002-d7",
+              "tier": "concrete",
+              "ts": 1794243784421
+            },
+            {
+              "context": "review",
+              "correct": true,
+              "format": "numeral-pick",
+              "hinted": false,
+              "latencyMs": 6563,
+              "representation": "dots",
+              "sessionId": "c002-d8",
+              "tier": "pictorial",
+              "ts": 1794337234594
+            },
+            {
+              "context": "review",
+              "correct": true,
+              "format": "tap-count",
+              "hinted": false,
+              "latencyMs": 3248,
+              "representation": "objects",
+              "sessionId": "c002-d11",
+              "tier": "concrete",
+              "ts": 1794600048815
+            },
+            {
+              "context": "review",
+              "correct": true,
+              "format": "tap-count",
+              "hinted": false,
+              "latencyMs": 5069,
+              "representation": "objects",
+              "sessionId": "c002-d16",
+              "tier": "concrete",
+              "ts": 1795032347146
+            },
+            {
+              "context": "review",
+              "correct": true,
+              "format": "tap-count",
+              "hinted": false,
+              "latencyMs": 1981,
+              "representation": "objects",
+              "sessionId": "c002-d32",
+              "tier": "concrete",
+              "ts": 1796414765925
+            },
+            {
+              "context": "practice",
+              "correct": true,
+              "format": "numeral-pick",
+              "hinted": false,
+              "latencyMs": 4630,
+              "representation": "dots",
+              "sessionId": "c002-d37",
+              "tier": "pictorial",
+              "ts": 1796846737652
+            },
+            {
+              "context": "practice",
+              "correct": true,
+              "format": "tap-count",
+              "hinted": false,
+              "latencyMs": 3585,
+              "representation": "objects",
+              "sessionId": "c002-d38",
+              "tier": "concrete",
+              "ts": 1796922230477
+            },
+            {
+              "context": "practice",
+              "correct": true,
+              "format": "numeral-pick",
+              "hinted": false,
+              "latencyMs": 5885,
+              "representation": "dots",
+              "sessionId": "c002-d38",
+              "tier": "pictorial",
+              "ts": 1796922505242
+            },
+            {
+              "context": "practice",
+              "correct": true,
+              "format": "number-pad",
+              "hinted": false,
+              "latencyMs": 5150,
+              "representation": "symbols",
+              "sessionId": "c002-d39",
+              "tier": "abstract",
+              "ts": 1797012344773
+            },
+            {
+              "context": "practice",
+              "correct": true,
+              "format": "number-pad",
+              "hinted": false,
+              "latencyMs": 3778,
+              "representation": "symbols",
+              "sessionId": "c002-d42",
+              "tier": "abstract",
+              "ts": 1797275142105
+            }
+          ],
+          "retrievability": 0.967488843456,
+          "skillId": "CNT.03",
+          "status": "mastered",
+          "strand": "CNT",
+          "tiers": ["concrete", "pictorial", "abstract"]
+        },
+        {
+          "assumed": false,
+          "formats": ["make-set", "tenframe-fill"],
+          "nextReviewTs": 1801635579607,
+          "override": "mastered",
+          "pRef": 0.929457506754,
+          "recent": [
+            {
+              "context": "review",
+              "correct": true,
+              "format": "tenframe-fill",
+              "hinted": false,
+              "latencyMs": 6790,
+              "representation": "ten-frame",
+              "sessionId": "c002-d10",
+              "tier": "pictorial",
+              "ts": 1794513788359
+            },
+            {
+              "context": "practice",
+              "correct": true,
+              "format": "make-set",
+              "hinted": false,
+              "latencyMs": 6014,
+              "representation": "objects",
+              "sessionId": "c002-d36",
+              "tier": "concrete",
+              "ts": 1796760262643
+            },
+            {
+              "context": "practice",
+              "correct": true,
+              "format": "make-set",
+              "hinted": false,
+              "latencyMs": 6450,
+              "representation": "objects",
+              "sessionId": "c002-d37",
+              "tier": "concrete",
+              "ts": 1796846496677
+            },
+            {
+              "context": "practice",
+              "correct": true,
+              "format": "make-set",
+              "hinted": false,
+              "latencyMs": 3404,
+              "representation": "fingers",
+              "sessionId": "c002-d37",
+              "tier": "concrete",
+              "ts": 1796846841545
+            },
+            {
+              "context": "practice",
+              "correct": true,
+              "format": "make-set",
+              "hinted": false,
+              "latencyMs": 3678,
+              "representation": "fingers",
+              "sessionId": "c002-d38",
+              "tier": "concrete",
+              "ts": 1796922291048
+            },
+            {
+              "context": "practice",
+              "correct": true,
+              "format": "tenframe-fill",
+              "hinted": false,
+              "latencyMs": 3525,
+              "representation": "ten-frame",
+              "sessionId": "c002-d38",
+              "tier": "pictorial",
+              "ts": 1796922378936
+            },
+            {
+              "context": "practice",
+              "correct": true,
+              "format": "make-set",
+              "hinted": false,
+              "latencyMs": 6166,
+              "representation": "fingers",
+              "sessionId": "c002-d39",
+              "tier": "concrete",
+              "ts": 1797012377634
+            },
+            {
+              "context": "practice",
+              "correct": true,
+              "format": "tenframe-fill",
+              "hinted": false,
+              "latencyMs": 2929,
+              "representation": "ten-frame",
+              "sessionId": "c002-d39",
+              "tier": "pictorial",
+              "ts": 1797012446156
+            },
+            {
+              "context": "practice",
+              "correct": true,
+              "format": "make-set",
+              "hinted": false,
+              "latencyMs": 3991,
+              "representation": "objects",
+              "sessionId": "c002-d39",
+              "tier": "concrete",
+              "ts": 1797012485603
+            },
+            {
+              "context": "practice",
+              "correct": false,
+              "format": "make-set",
+              "hinted": false,
+              "latencyMs": 6473,
+              "representation": "fingers",
+              "sessionId": "c002-d39",
+              "tier": "concrete",
+              "ts": 1797012505413
+            }
+          ],
+          "retrievability": 0.958954292398,
+          "skillId": "CNT.04",
+          "status": "mastered",
+          "strand": "CNT",
+          "tiers": ["concrete", "pictorial"]
+        },
+        {
+          "assumed": false,
+          "formats": ["number-pad", "numeral-pick", "tap-count"],
+          "nextReviewTs": 1798539761535,
+          "override": null,
+          "pRef": 0.977671039955,
+          "recent": [
+            {
+              "context": "review",
+              "correct": true,
+              "format": "tap-count",
+              "hinted": false,
+              "latencyMs": 4827,
+              "representation": "objects",
+              "sessionId": "c002-d18",
+              "tier": "concrete",
+              "ts": 1795201319111
+            },
+            {
+              "context": "challenge",
+              "correct": true,
+              "format": "numeral-pick",
+              "hinted": false,
+              "latencyMs": 4673,
+              "representation": "dots",
+              "sessionId": "c002-d36",
+              "tier": "pictorial",
+              "ts": 1796760156785
+            },
+            {
+              "context": "practice",
+              "correct": true,
+              "format": "number-pad",
+              "hinted": false,
+              "latencyMs": 4191,
+              "representation": "symbols",
+              "sessionId": "c002-d36",
+              "tier": "abstract",
+              "ts": 1796760319718
+            },
+            {
+              "context": "practice",
+              "correct": true,
+              "format": "numeral-pick",
+              "hinted": false,
+              "latencyMs": 4153,
+              "representation": "dots",
+              "sessionId": "c002-d37",
+              "tier": "pictorial",
+              "ts": 1796846900695
+            },
+            {
+              "context": "practice",
+              "correct": true,
+              "format": "tap-count",
+              "hinted": false,
+              "latencyMs": 4541,
+              "representation": "objects",
+              "sessionId": "c002-d38",
+              "tier": "concrete",
+              "ts": 1796922575721
+            },
+            {
+              "context": "practice",
+              "correct": true,
+              "format": "numeral-pick",
+              "hinted": false,
+              "latencyMs": 7219,
+              "representation": "dots",
+              "sessionId": "c002-d39",
+              "tier": "pictorial",
+              "ts": 1797012541628
+            },
+            {
+              "context": "practice",
+              "correct": true,
+              "format": "numeral-pick",
+              "hinted": false,
+              "latencyMs": 1718,
+              "representation": "dots",
+              "sessionId": "c002-d40",
+              "tier": "pictorial",
+              "ts": 1797098565426
+            },
+            {
+              "context": "practice",
+              "correct": true,
+              "format": "tap-count",
+              "hinted": false,
+              "latencyMs": 2327,
+              "representation": "objects",
+              "sessionId": "c002-d40",
+              "tier": "concrete",
+              "ts": 1797098714267
+            },
+            {
+              "context": "practice",
+              "correct": true,
+              "format": "number-pad",
+              "hinted": false,
+              "latencyMs": 2326,
+              "representation": "symbols",
+              "sessionId": "c002-d41",
+              "tier": "abstract",
+              "ts": 1797188677296
+            },
+            {
+              "context": "practice",
+              "correct": true,
+              "format": "numeral-pick",
+              "hinted": false,
+              "latencyMs": 5383,
+              "representation": "dots",
+              "sessionId": "c002-d42",
+              "tier": "pictorial",
+              "ts": 1797274951432
+            }
+          ],
+          "retrievability": 0.934530598455,
+          "skillId": "CNT.05",
+          "status": "mastered",
+          "strand": "CNT",
+          "tiers": ["concrete", "pictorial", "abstract"]
+        },
+        {
+          "assumed": false,
+          "formats": ["make-set", "number-pad", "tap-count"],
+          "nextReviewTs": 1800387066778,
+          "override": null,
+          "pRef": 0.963080714235,
+          "recent": [
+            {
+              "context": "practice",
+              "correct": true,
+              "format": "number-pad",
+              "hinted": false,
+              "latencyMs": 5883,
+              "representation": "symbols",
+              "sessionId": "c002-d11",
+              "tier": "abstract",
+              "ts": 1794600351444
+            },
+            {
+              "context": "review",
+              "correct": true,
+              "format": "number-pad",
+              "hinted": false,
+              "latencyMs": 4464,
+              "representation": "symbols",
+              "sessionId": "c002-d13",
+              "tier": "abstract",
+              "ts": 1794762036777
+            },
+            {
+              "context": "review",
+              "correct": true,
+              "format": "number-pad",
+              "hinted": false,
+              "latencyMs": 2029,
+              "representation": "symbols",
+              "sessionId": "c002-d16",
+              "tier": "abstract",
+              "ts": 1795032082704
+            },
+            {
+              "context": "review",
+              "correct": true,
+              "format": "number-pad",
+              "hinted": false,
+              "latencyMs": 5838,
+              "representation": "symbols",
+              "sessionId": "c002-d23",
+              "tier": "abstract",
+              "ts": 1795636828009
+            },
+            {
+              "context": "practice",
+              "correct": true,
+              "format": "make-set",
+              "hinted": false,
+              "latencyMs": 1792,
+              "representation": "objects",
+              "sessionId": "c002-d37",
+              "tier": "concrete",
+              "ts": 1796846691847
+            },
+            {
+              "context": "review",
+              "correct": true,
+              "format": "tap-count",
+              "hinted": false,
+              "latencyMs": 5036,
+              "representation": "double-ten-frame",
+              "sessionId": "c002-d39",
+              "tier": "pictorial",
+              "ts": 1797012066778
+            },
+            {
+              "context": "practice",
+              "correct": true,
+              "format": "number-pad",
+              "hinted": false,
+              "latencyMs": 3408,
+              "representation": "symbols",
+              "sessionId": "c002-d39",
+              "tier": "abstract",
+              "ts": 1797012158777
+            },
+            {
+              "context": "practice",
+              "correct": true,
+              "format": "tap-count",
+              "hinted": false,
+              "latencyMs": 6634,
+              "representation": "double-ten-frame",
+              "sessionId": "c002-d39",
+              "tier": "pictorial",
+              "ts": 1797012271767
+            },
+            {
+              "context": "challenge",
+              "correct": true,
+              "format": "make-set",
+              "hinted": false,
+              "latencyMs": 2562,
+              "representation": "objects",
+              "sessionId": "c002-d39",
+              "tier": "concrete",
+              "ts": 1797012428691
+            },
+            {
+              "context": "practice",
+              "correct": true,
+              "format": "tap-count",
+              "hinted": false,
+              "latencyMs": 2376,
+              "representation": "double-ten-frame",
+              "sessionId": "c002-d41",
+              "tier": "pictorial",
+              "ts": 1797188542605
+            }
+          ],
+          "retrievability": 0.989604729727,
+          "skillId": "CNT.06",
+          "status": "mastered",
+          "strand": "CNT",
+          "tiers": ["concrete", "pictorial", "abstract"]
+        },
+        {
+          "assumed": false,
+          "formats": ["hundred-chart", "number-line-jump", "numeral-pick"],
+          "nextReviewTs": 1798110061626,
+          "override": null,
+          "pRef": 0.924508808635,
+          "recent": [
+            {
+              "context": "challenge",
+              "correct": true,
+              "format": "hundred-chart",
+              "hinted": false,
+              "latencyMs": 5017,
+              "representation": "hundred-chart",
+              "sessionId": "c002-d23",
+              "tier": "pictorial",
+              "ts": 1795637108791
+            },
+            {
+              "context": "practice",
+              "correct": true,
+              "format": "numeral-pick",
+              "hinted": false,
+              "latencyMs": 2889,
+              "representation": "symbols",
+              "sessionId": "c002-d23",
+              "tier": "abstract",
+              "ts": 1795637381390
+            },
+            {
+              "context": "review",
+              "correct": true,
+              "format": "number-line-jump",
+              "hinted": false,
+              "latencyMs": 2243,
+              "representation": "number-path",
+              "sessionId": "c002-d25",
+              "tier": "concrete",
+              "ts": 1795802435463
+            },
+            {
+              "context": "review",
+              "correct": true,
+              "format": "number-line-jump",
+              "hinted": false,
+              "latencyMs": 3211,
+              "representation": "number-path",
+              "sessionId": "c002-d29",
+              "tier": "concrete",
+              "ts": 1796144429236
+            },
+            {
+              "context": "review",
+              "correct": true,
+              "format": "number-line-jump",
+              "hinted": false,
+              "latencyMs": 4603,
+              "representation": "number-line",
+              "sessionId": "c002-d36",
+              "tier": "pictorial",
+              "ts": 1796760061626
+            },
+            {
+              "context": "practice",
+              "correct": true,
+              "format": "number-line-jump",
+              "hinted": false,
+              "latencyMs": 4839,
+              "representation": "number-path",
+              "sessionId": "c002-d36",
+              "tier": "concrete",
+              "ts": 1796760286099
+            },
+            {
+              "context": "practice",
+              "correct": true,
+              "format": "hundred-chart",
+              "hinted": false,
+              "latencyMs": 6168,
+              "representation": "hundred-chart",
+              "sessionId": "c002-d36",
+              "tier": "pictorial",
+              "ts": 1796760377571
+            },
+            {
+              "context": "practice",
+              "correct": false,
+              "format": "number-line-jump",
+              "hinted": false,
+              "latencyMs": 14380,
+              "representation": "number-path",
+              "sessionId": "c002-d37",
+              "tier": "concrete",
+              "ts": 1796846430630
+            },
+            {
+              "context": "practice",
+              "correct": true,
+              "format": "numeral-pick",
+              "hinted": false,
+              "latencyMs": 7078,
+              "representation": "symbols",
+              "sessionId": "c002-d38",
+              "tier": "abstract",
+              "ts": 1796922442170
+            },
+            {
+              "context": "practice",
+              "correct": true,
+              "format": "hundred-chart",
+              "hinted": false,
+              "latencyMs": 4385,
+              "representation": "hundred-chart",
+              "sessionId": "c002-d40",
+              "tier": "pictorial",
+              "ts": 1797098528823
+            }
+          ],
+          "retrievability": 0.955240732311,
+          "skillId": "CNT.07",
+          "status": "mastered",
+          "strand": "CNT",
+          "tiers": ["concrete", "pictorial", "abstract"]
+        },
+        {
+          "assumed": false,
+          "formats": ["dot-flash", "numeral-pick"],
+          "nextReviewTs": 1798337081887,
+          "override": null,
+          "pRef": 0.988544127982,
+          "recent": [
+            {
+              "context": "review",
+              "correct": true,
+              "format": "numeral-pick",
+              "hinted": false,
+              "latencyMs": 5904,
+              "representation": "objects",
+              "sessionId": "c002-d5",
+              "tier": "pictorial",
+              "ts": 1794082037615
+            },
+            {
+              "context": "review",
+              "correct": true,
+              "format": "dot-flash",
+              "hinted": false,
+              "latencyMs": 6926,
+              "representation": "dots",
+              "sessionId": "c002-d10",
+              "tier": "pictorial",
+              "ts": 1794514140180
+            },
+            {
+              "context": "review",
+              "correct": true,
+              "format": "dot-flash",
+              "hinted": false,
+              "latencyMs": 7143,
+              "representation": "dots",
+              "sessionId": "c002-d23",
+              "tier": "pictorial",
+              "ts": 1795637081887
+            },
+            {
+              "context": "practice",
+              "correct": true,
+              "format": "dot-flash",
+              "hinted": false,
+              "latencyMs": 3558,
+              "representation": "dots",
+              "sessionId": "c002-d38",
+              "tier": "pictorial",
+              "ts": 1796922150156
+            },
+            {
+              "context": "practice",
+              "correct": true,
+              "format": "numeral-pick",
+              "hinted": false,
+              "latencyMs": 6329,
+              "representation": "objects",
+              "sessionId": "c002-d40",
+              "tier": "pictorial",
+              "ts": 1797098592304
+            },
+            {
+              "context": "challenge",
+              "correct": true,
+              "format": "dot-flash",
+              "hinted": false,
+              "latencyMs": 1558,
+              "representation": "dots",
+              "sessionId": "c002-d42",
+              "tier": "pictorial",
+              "ts": 1797275097379
+            }
+          ],
+          "retrievability": 0.935459593443,
+          "skillId": "SUB.01",
+          "status": "mastered",
+          "strand": "SUB",
+          "tiers": ["pictorial"]
+        },
+        {
+          "assumed": false,
+          "formats": ["dot-flash", "make-set", "numeral-pick"],
+          "nextReviewTs": 1801565734565,
+          "override": null,
+          "pRef": 0.982273462129,
+          "recent": [
+            {
+              "context": "review",
+              "correct": true,
+              "format": "make-set",
+              "hinted": false,
+              "latencyMs": 1819,
+              "representation": "fingers",
+              "sessionId": "c002-d10",
+              "tier": "concrete",
+              "ts": 1794514052082
+            },
+            {
+              "context": "review",
+              "correct": true,
+              "format": "dot-flash",
+              "hinted": false,
+              "latencyMs": 5876,
+              "representation": "five-frame",
+              "sessionId": "c002-d16",
+              "tier": "pictorial",
+              "ts": 1795032369488
+            },
+            {
+              "context": "practice",
+              "correct": true,
+              "format": "numeral-pick",
+              "hinted": false,
+              "latencyMs": 7086,
+              "representation": "dots",
+              "sessionId": "c002-d37",
+              "tier": "pictorial",
+              "ts": 1796846934997
+            },
+            {
+              "context": "review",
+              "correct": true,
+              "format": "dot-flash",
+              "hinted": false,
+              "latencyMs": 4101,
+              "representation": "five-frame",
+              "sessionId": "c002-d38",
+              "tier": "pictorial",
+              "ts": 1796922044292
+            },
+            {
+              "context": "practice",
+              "correct": true,
+              "format": "make-set",
+              "hinted": false,
+              "latencyMs": 3124,
+              "representation": "fingers",
+              "sessionId": "c002-d38",
+              "tier": "concrete",
+              "ts": 1796922483010
+            },
+            {
+              "context": "practice",
+              "correct": true,
+              "format": "numeral-pick",
+              "hinted": false,
+              "latencyMs": 1774,
+              "representation": "dots",
+              "sessionId": "c002-d38",
+              "tier": "pictorial",
+              "ts": 1796922538384
+            },
+            {
+              "context": "practice",
+              "correct": true,
+              "format": "make-set",
+              "hinted": false,
+              "latencyMs": 4795,
+              "representation": "fingers",
+              "sessionId": "c002-d42",
+              "tier": "concrete",
+              "ts": 1797274921062
+            },
+            {
+              "context": "practice",
+              "correct": true,
+              "format": "make-set",
+              "hinted": false,
+              "latencyMs": 6737,
+              "representation": "fingers",
+              "sessionId": "c002-d42",
+              "tier": "concrete",
+              "ts": 1797274970423
+            },
+            {
+              "context": "practice",
+              "correct": true,
+              "format": "dot-flash",
+              "hinted": false,
+              "latencyMs": 6770,
+              "representation": "five-frame",
+              "sessionId": "c002-d42",
+              "tier": "pictorial",
+              "ts": 1797275013853
+            },
+            {
+              "context": "practice",
+              "correct": true,
+              "format": "dot-flash",
+              "hinted": false,
+              "latencyMs": 7248,
+              "representation": "five-frame",
+              "sessionId": "c002-d42",
+              "tier": "pictorial",
+              "ts": 1797275040502
+            }
+          ],
+          "retrievability": 0.99040902319,
+          "skillId": "SUB.02",
+          "status": "mastered",
+          "strand": "SUB",
+          "tiers": ["concrete", "pictorial"]
+        },
+        {
+          "assumed": false,
+          "formats": ["make-set", "number-bond", "tenframe-fill"],
+          "nextReviewTs": 1798990041073,
+          "override": null,
+          "pRef": 0.959468586555,
+          "recent": [
+            {
+              "context": "review",
+              "correct": true,
+              "format": "number-bond",
+              "hinted": false,
+              "latencyMs": 3657,
+              "representation": "number-bond",
+              "sessionId": "c002-d16",
+              "tier": "pictorial",
+              "ts": 1795032145159
+            },
+            {
+              "context": "review",
+              "correct": true,
+              "format": "make-set",
+              "hinted": false,
+              "latencyMs": 3502,
+              "representation": "objects",
+              "sessionId": "c002-d19",
+              "tier": "concrete",
+              "ts": 1795287695137
+            },
+            {
+              "context": "review",
+              "correct": true,
+              "format": "number-bond",
+              "hinted": false,
+              "latencyMs": 2177,
+              "representation": "number-bond",
+              "sessionId": "c002-d26",
+              "tier": "pictorial",
+              "ts": 1795885377700
+            },
+            {
+              "context": "review",
+              "correct": true,
+              "format": "make-set",
+              "hinted": false,
+              "latencyMs": 4355,
+              "representation": "fingers",
+              "sessionId": "c002-d34",
+              "tier": "concrete",
+              "ts": 1796587243049
+            },
+            {
+              "context": "practice",
+              "correct": true,
+              "format": "tenframe-fill",
+              "hinted": false,
+              "latencyMs": 4479,
+              "representation": "ten-frame",
+              "sessionId": "c002-d36",
+              "tier": "concrete",
+              "ts": 1796760365293
+            },
+            {
+              "context": "challenge",
+              "correct": true,
+              "format": "make-set",
+              "hinted": false,
+              "latencyMs": 2750,
+              "representation": "objects",
+              "sessionId": "c002-d38",
+              "tier": "concrete",
+              "ts": 1796922073312
+            },
+            {
+              "context": "practice",
+              "correct": true,
+              "format": "make-set",
+              "hinted": false,
+              "latencyMs": 2032,
+              "representation": "fingers",
+              "sessionId": "c002-d38",
+              "tier": "concrete",
+              "ts": 1796922185764
+            },
+            {
+              "context": "practice",
+              "correct": true,
+              "format": "make-set",
+              "hinted": false,
+              "latencyMs": 7270,
+              "representation": "objects",
+              "sessionId": "c002-d40",
+              "tier": "concrete",
+              "ts": 1797098473846
+            },
+            {
+              "context": "practice",
+              "correct": true,
+              "format": "number-bond",
+              "hinted": false,
+              "latencyMs": 7310,
+              "representation": "number-bond",
+              "sessionId": "c002-d41",
+              "tier": "pictorial",
+              "ts": 1797188488774
+            },
+            {
+              "context": "practice",
+              "correct": true,
+              "format": "make-set",
+              "hinted": false,
+              "latencyMs": 3042,
+              "representation": "objects",
+              "sessionId": "c002-d41",
+              "tier": "concrete",
+              "ts": 1797188518228
+            }
+          ],
+          "retrievability": 0.967242650371,
+          "skillId": "CPS.01",
+          "status": "mastered",
+          "strand": "CPS",
+          "tiers": ["concrete", "pictorial"]
+        },
+        {
+          "assumed": false,
+          "formats": ["make-set", "number-pad", "tenframe-fill"],
+          "nextReviewTs": 1798362036461,
+          "override": null,
+          "pRef": 0.914799116519,
+          "recent": [
+            {
+              "context": "review",
+              "correct": true,
+              "format": "make-set",
+              "hinted": false,
+              "latencyMs": 4247,
+              "representation": "fingers",
+              "sessionId": "c002-d32",
+              "tier": "concrete",
+              "ts": 1796414665040
+            },
+            {
+              "context": "practice",
+              "correct": true,
+              "format": "make-set",
+              "hinted": false,
+              "latencyMs": 1612,
+              "representation": "objects",
+              "sessionId": "c002-d37",
+              "tier": "concrete",
+              "ts": 1796846632152
+            },
+            {
+              "context": "practice",
+              "correct": true,
+              "format": "make-set",
+              "hinted": false,
+              "latencyMs": 6960,
+              "representation": "objects",
+              "sessionId": "c002-d37",
+              "tier": "concrete",
+              "ts": 1796847009512
+            },
+            {
+              "context": "practice",
+              "correct": true,
+              "format": "tenframe-fill",
+              "hinted": false,
+              "latencyMs": 1757,
+              "representation": "ten-frame",
+              "sessionId": "c002-d38",
+              "tier": "concrete",
+              "ts": 1796922097880
+            },
+            {
+              "context": "review",
+              "correct": true,
+              "format": "number-pad",
+              "hinted": false,
+              "latencyMs": 7116,
+              "representation": "symbols",
+              "sessionId": "c002-d39",
+              "tier": "abstract",
+              "ts": 1797012036461
+            },
+            {
+              "context": "practice",
+              "correct": true,
+              "format": "make-set",
+              "hinted": false,
+              "latencyMs": 4154,
+              "representation": "fingers",
+              "sessionId": "c002-d39",
+              "tier": "concrete",
+              "ts": 1797012241072
+            },
+            {
+              "context": "practice",
+              "correct": true,
+              "format": "make-set",
+              "hinted": false,
+              "latencyMs": 6502,
+              "representation": "objects",
+              "sessionId": "c002-d39",
+              "tier": "concrete",
+              "ts": 1797012308037
+            },
+            {
+              "context": "practice",
+              "correct": true,
+              "format": "tenframe-fill",
+              "hinted": false,
+              "latencyMs": 2757,
+              "representation": "ten-frame",
+              "sessionId": "c002-d41",
+              "tier": "concrete",
+              "ts": 1797188470122
+            },
+            {
+              "context": "practice",
+              "correct": false,
+              "format": "number-pad",
+              "hinted": false,
+              "latencyMs": 4479,
+              "representation": "symbols",
+              "sessionId": "c002-d41",
+              "tier": "abstract",
+              "ts": 1797188562180
+            },
+            {
+              "context": "challenge",
+              "correct": true,
+              "format": "make-set",
+              "hinted": false,
+              "latencyMs": 6173,
+              "representation": "objects",
+              "sessionId": "c002-d41",
+              "tier": "concrete",
+              "ts": 1797188638633
+            }
+          ],
+          "retrievability": 0.974211783331,
+          "skillId": "ADD.01",
+          "status": "mastered",
+          "strand": "ADD",
+          "tiers": ["concrete", "abstract"]
+        },
+        {
+          "assumed": false,
+          "formats": ["number-line-jump", "number-pad", "tenframe-fill"],
+          "nextReviewTs": 1797638447083,
+          "override": null,
+          "pRef": 0.898107991693,
+          "recent": [
+            {
+              "context": "practice",
+              "correct": true,
+              "format": "number-line-jump",
+              "hinted": false,
+              "latencyMs": 4329,
+              "representation": "number-path",
+              "sessionId": "c002-d34",
+              "tier": "concrete",
+              "ts": 1796587664620
+            },
+            {
+              "context": "practice",
+              "correct": true,
+              "format": "number-pad",
+              "hinted": false,
+              "latencyMs": 7121,
+              "representation": "symbols",
+              "sessionId": "c002-d34",
+              "tier": "abstract",
+              "ts": 1796587702713
+            },
+            {
+              "context": "practice",
+              "correct": true,
+              "format": "number-line-jump",
+              "hinted": false,
+              "latencyMs": 6005,
+              "representation": "number-path",
+              "sessionId": "c002-d34",
+              "tier": "concrete",
+              "ts": 1796587739904
+            },
+            {
+              "context": "practice",
+              "correct": true,
+              "format": "tenframe-fill",
+              "hinted": false,
+              "latencyMs": 6728,
+              "representation": "ten-frame",
+              "sessionId": "c002-d36",
+              "tier": "concrete",
+              "ts": 1796760133688
+            },
+            {
+              "context": "review",
+              "correct": true,
+              "format": "number-line-jump",
+              "hinted": false,
+              "latencyMs": 5095,
+              "representation": "number-line",
+              "sessionId": "c002-d37",
+              "tier": "pictorial",
+              "ts": 1796846563024
+            },
+            {
+              "context": "practice",
+              "correct": true,
+              "format": "number-line-jump",
+              "hinted": false,
+              "latencyMs": 1719,
+              "representation": "number-line",
+              "sessionId": "c002-d39",
+              "tier": "pictorial",
+              "ts": 1797012110211
+            },
+            {
+              "context": "review",
+              "correct": true,
+              "format": "number-line-jump",
+              "hinted": false,
+              "latencyMs": 6801,
+              "representation": "number-line",
+              "sessionId": "c002-d40",
+              "tier": "pictorial",
+              "ts": 1797098447083
+            },
+            {
+              "context": "practice",
+              "correct": false,
+              "format": "number-line-jump",
+              "hinted": false,
+              "latencyMs": 9688,
+              "representation": "number-path",
+              "sessionId": "c002-d40",
+              "tier": "concrete",
+              "ts": 1797098746147
+            },
+            {
+              "context": "practice",
+              "correct": true,
+              "format": "tenframe-fill",
+              "hinted": false,
+              "latencyMs": 3351,
+              "representation": "ten-frame",
+              "sessionId": "c002-d41",
+              "tier": "concrete",
+              "ts": 1797188433254
+            },
+            {
+              "context": "challenge",
+              "correct": true,
+              "format": "number-line-jump",
+              "hinted": false,
+              "latencyMs": 5829,
+              "representation": "number-path",
+              "sessionId": "c002-d42",
+              "tier": "concrete",
+              "ts": 1797274888220
+            }
+          ],
+          "retrievability": 0.95269863719,
+          "skillId": "ADD.03",
+          "status": "practiced",
+          "strand": "ADD",
+          "tiers": ["concrete", "pictorial", "abstract"]
+        },
+        {
+          "assumed": false,
+          "formats": ["dot-flash", "number-pad", "tenframe-fill"],
+          "nextReviewTs": 1798990269287,
+          "override": null,
+          "pRef": 0.959170798899,
+          "recent": [
+            {
+              "context": "review",
+              "correct": false,
+              "format": "dot-flash",
+              "hinted": false,
+              "latencyMs": 7263,
+              "representation": "dots",
+              "sessionId": "c002-d13",
+              "tier": "pictorial",
+              "ts": 1794762120753
+            },
+            {
+              "context": "review",
+              "correct": true,
+              "format": "number-pad",
+              "hinted": false,
+              "latencyMs": 4981,
+              "representation": "symbols",
+              "sessionId": "c002-d16",
+              "tier": "abstract",
+              "ts": 1795032181776
+            },
+            {
+              "context": "review",
+              "correct": true,
+              "format": "number-pad",
+              "hinted": false,
+              "latencyMs": 6075,
+              "representation": "symbols",
+              "sessionId": "c002-d19",
+              "tier": "abstract",
+              "ts": 1795287747981
+            },
+            {
+              "context": "review",
+              "correct": true,
+              "format": "dot-flash",
+              "hinted": false,
+              "latencyMs": 5376,
+              "representation": "fingers",
+              "sessionId": "c002-d26",
+              "tier": "pictorial",
+              "ts": 1795885404744
+            },
+            {
+              "context": "review",
+              "correct": true,
+              "format": "tenframe-fill",
+              "hinted": false,
+              "latencyMs": 4885,
+              "representation": "ten-frame",
+              "sessionId": "c002-d34",
+              "tier": "concrete",
+              "ts": 1796587350561
+            },
+            {
+              "context": "challenge",
+              "correct": false,
+              "format": "number-pad",
+              "hinted": false,
+              "latencyMs": 8089,
+              "representation": "symbols",
+              "sessionId": "c002-d37",
+              "tier": "abstract",
+              "ts": 1796846527512
+            },
+            {
+              "context": "practice",
+              "correct": true,
+              "format": "dot-flash",
+              "hinted": false,
+              "latencyMs": 3863,
+              "representation": "fingers",
+              "sessionId": "c002-d38",
+              "tier": "pictorial",
+              "ts": 1796922351573
+            },
+            {
+              "context": "practice",
+              "correct": true,
+              "format": "dot-flash",
+              "hinted": false,
+              "latencyMs": 3116,
+              "representation": "fingers",
+              "sessionId": "c002-d39",
+              "tier": "pictorial",
+              "ts": 1797012127904
+            },
+            {
+              "context": "practice",
+              "correct": true,
+              "format": "number-pad",
+              "hinted": false,
+              "latencyMs": 4062,
+              "representation": "symbols",
+              "sessionId": "c002-d40",
+              "tier": "abstract",
+              "ts": 1797098665336
+            },
+            {
+              "context": "practice",
+              "correct": true,
+              "format": "number-pad",
+              "hinted": false,
+              "latencyMs": 4172,
+              "representation": "symbols",
+              "sessionId": "c002-d41",
+              "tier": "abstract",
+              "ts": 1797188706952
+            }
+          ],
+          "retrievability": 0.967248828236,
+          "skillId": "SUB.03",
+          "status": "mastered",
+          "strand": "SUB",
+          "tiers": ["concrete", "pictorial", "abstract"]
+        },
+        {
+          "assumed": false,
+          "formats": ["number-bond", "number-pad", "rekenrek"],
+          "nextReviewTs": 1798399847224,
+          "override": null,
+          "pRef": 0.886646080773,
+          "recent": [
+            {
+              "context": "practice",
+              "correct": true,
+              "format": "number-bond",
+              "hinted": false,
+              "latencyMs": 2211,
+              "representation": "number-bond",
+              "sessionId": "c002-d37",
+              "tier": "pictorial",
+              "ts": 1796846776955
+            },
+            {
+              "context": "practice",
+              "correct": false,
+              "format": "number-pad",
+              "hinted": false,
+              "latencyMs": 11721,
+              "representation": "symbols",
+              "sessionId": "c002-d37",
+              "tier": "abstract",
+              "ts": 1796846869151
+            },
+            {
+              "context": "practice",
+              "correct": false,
+              "format": "rekenrek",
+              "hinted": false,
+              "latencyMs": 6593,
+              "representation": "rekenrek",
+              "sessionId": "c002-d38",
+              "tier": "concrete",
+              "ts": 1796922257882
+            },
+            {
+              "context": "practice",
+              "correct": true,
+              "format": "number-bond",
+              "hinted": false,
+              "latencyMs": 6382,
+              "representation": "number-bond",
+              "sessionId": "c002-d38",
+              "tier": "pictorial",
+              "ts": 1796922459394
+            },
+            {
+              "context": "challenge",
+              "correct": true,
+              "format": "number-bond",
+              "hinted": false,
+              "latencyMs": 4426,
+              "representation": "number-bond",
+              "sessionId": "c002-d39",
+              "tier": "pictorial",
+              "ts": 1797012094475
+            },
+            {
+              "context": "practice",
+              "correct": true,
+              "format": "number-bond",
+              "hinted": false,
+              "latencyMs": 5680,
+              "representation": "number-bond",
+              "sessionId": "c002-d40",
+              "tier": "pictorial",
+              "ts": 1797098503249
+            },
+            {
+              "context": "practice",
+              "correct": false,
+              "format": "number-bond",
+              "hinted": false,
+              "latencyMs": 10548,
+              "representation": "number-bond",
+              "sessionId": "c002-d40",
+              "tier": "pictorial",
+              "ts": 1797098795130
+            },
+            {
+              "context": "practice",
+              "correct": true,
+              "format": "number-pad",
+              "hinted": false,
+              "latencyMs": 1795,
+              "representation": "symbols",
+              "sessionId": "c002-d41",
+              "tier": "abstract",
+              "ts": 1797188761693
+            },
+            {
+              "context": "practice",
+              "correct": true,
+              "format": "number-pad",
+              "hinted": false,
+              "latencyMs": 4555,
+              "representation": "symbols",
+              "sessionId": "c002-d41",
+              "tier": "abstract",
+              "ts": 1797188783666
+            },
+            {
+              "context": "review",
+              "correct": true,
+              "format": "rekenrek",
+              "hinted": false,
+              "latencyMs": 5410,
+              "representation": "rekenrek",
+              "sessionId": "c002-d42",
+              "tier": "concrete",
+              "ts": 1797274847224
+            }
+          ],
+          "retrievability": 0.993284003495,
+          "skillId": "CPS.02",
+          "status": "mastered",
+          "strand": "CPS",
+          "tiers": ["concrete", "pictorial", "abstract"]
+        },
+        {
+          "assumed": false,
+          "formats": ["number-bond", "number-pad", "tenframe-fill"],
+          "nextReviewTs": 1797300046796,
+          "override": null,
+          "pRef": 0.904669499521,
+          "recent": [
+            {
+              "context": "practice",
+              "correct": true,
+              "format": "number-bond",
+              "hinted": false,
+              "latencyMs": 2222,
+              "representation": "number-bond",
+              "sessionId": "c002-d29",
+              "tier": "pictorial",
+              "ts": 1796145000824
+            },
+            {
+              "context": "review",
+              "correct": true,
+              "format": "number-pad",
+              "hinted": false,
+              "latencyMs": 6554,
+              "representation": "symbols",
+              "sessionId": "c002-d32",
+              "tier": "abstract",
+              "ts": 1796414518960
+            },
+            {
+              "context": "review",
+              "correct": true,
+              "format": "number-pad",
+              "hinted": false,
+              "latencyMs": 1825,
+              "representation": "symbols",
+              "sessionId": "c002-d36",
+              "tier": "abstract",
+              "ts": 1796760046796
+            },
+            {
+              "context": "practice",
+              "correct": true,
+              "format": "tenframe-fill",
+              "hinted": false,
+              "latencyMs": 4483,
+              "representation": "ten-frame",
+              "sessionId": "c002-d37",
+              "tier": "concrete",
+              "ts": 1796846708117
+            },
+            {
+              "context": "practice",
+              "correct": true,
+              "format": "tenframe-fill",
+              "hinted": false,
+              "latencyMs": 4898,
+              "representation": "ten-frame",
+              "sessionId": "c002-d37",
+              "tier": "concrete",
+              "ts": 1796846974493
+            },
+            {
+              "context": "practice",
+              "correct": true,
+              "format": "number-bond",
+              "hinted": false,
+              "latencyMs": 7126,
+              "representation": "number-bond",
+              "sessionId": "c002-d39",
+              "tier": "pictorial",
+              "ts": 1797012219734
+            },
+            {
+              "context": "practice",
+              "correct": false,
+              "format": "number-bond",
+              "hinted": false,
+              "latencyMs": 8160,
+              "representation": "number-bond",
+              "sessionId": "c002-d39",
+              "tier": "pictorial",
+              "ts": 1797012556383
+            },
+            {
+              "context": "practice",
+              "correct": true,
+              "format": "tenframe-fill",
+              "hinted": false,
+              "latencyMs": 1876,
+              "representation": "ten-frame",
+              "sessionId": "c002-d40",
+              "tier": "concrete",
+              "ts": 1797098690995
+            },
+            {
+              "context": "practice",
+              "correct": true,
+              "format": "number-pad",
+              "hinted": false,
+              "latencyMs": 6217,
+              "representation": "symbols",
+              "sessionId": "c002-d42",
+              "tier": "abstract",
+              "ts": 1797274875493
+            },
+            {
+              "context": "practice",
+              "correct": true,
+              "format": "tenframe-fill",
+              "hinted": false,
+              "latencyMs": 6841,
+              "representation": "ten-frame",
+              "sessionId": "c002-d42",
+              "tier": "concrete",
+              "ts": 1797275059235
+            }
+          ],
+          "retrievability": 0.89182742943,
+          "skillId": "CPS.03",
+          "status": "practiced",
+          "strand": "CPS",
+          "tiers": ["concrete", "pictorial", "abstract"]
+        }
+      ],
+      "state": {
+        "_sinceAdjust": 4,
+        "childId": "019a0000-0000-7000-8000-00000000c002",
+        "modelId": "elo-fire-v1",
+        "nTotal": 504,
+        "placement": {
+          "inProgress": null,
+          "prior": {
+            "assumed": ["CNT.01", "CNT.02", "CNT.03", "SUB.01", "SUB.02"],
+            "p": {
+              "ADD.01": 0.57,
+              "ADD.03": 0.11,
+              "CNT.01": 0.96,
+              "CNT.02": 0.92,
+              "CNT.03": 0.85,
+              "CNT.04": 0.73,
+              "CNT.05": 0.73,
+              "CNT.06": 0.57,
+              "CNT.07": 0.4,
+              "CPS.01": 0.73,
+              "CPS.02": 0.57,
+              "CPS.03": 0.4,
+              "SUB.01": 0.96,
+              "SUB.02": 0.92,
+              "SUB.03": 0.73
+            }
+          },
+          "strandsPlaced": ["ADD", "CNT", "CPS", "SUB"]
+        },
+        "recentFirstTry": [
+          true,
+          false,
+          true,
+          true,
+          true,
+          true,
+          true,
+          true,
+          true,
+          true,
+          true,
+          true,
+          true,
+          true,
+          true,
+          true,
+          true,
+          true,
+          true,
+          true
+        ],
+        "sessionsSeen": 32,
+        "skills": {
+          "ADD.01": {
+            "_attempts": 66,
+            "_correctLatencies": [5534, 4247, 1612, 6960, 1757, 7116, 4154, 6502, 2757, 6173],
+            "_hitSeqs": [],
+            "_testOut": null,
+            "assumed": false,
+            "atRiskDueTs": null,
+            "fluentAt": null,
+            "masteredAt": 1797012036461,
+            "memory": {
+              "consecutiveFails": 0,
+              "dueTs": 1798362036461,
+              "intervalDays": 15.625,
+              "lastReviewTs": 1797012036461,
+              "reps": 3,
+              "reviewsPassed": [1795975553303, 1796414665040, 1797012036461]
+            },
+            "misconceptionHits": [],
+            "n": 59,
+            "override": null,
+            "practicedAt": 1795885253870,
+            "recent": [
+              {
+                "context": "review",
+                "correct": true,
+                "format": "make-set",
+                "hinted": false,
+                "latencyMs": 4247,
+                "representation": "fingers",
+                "sessionId": "c002-d32",
+                "tier": "concrete",
+                "ts": 1796414665040
+              },
+              {
+                "context": "practice",
+                "correct": true,
+                "format": "make-set",
+                "hinted": false,
+                "latencyMs": 1612,
+                "representation": "objects",
+                "sessionId": "c002-d37",
+                "tier": "concrete",
+                "ts": 1796846632152
+              },
+              {
+                "context": "practice",
+                "correct": true,
+                "format": "make-set",
+                "hinted": false,
+                "latencyMs": 6960,
+                "representation": "objects",
+                "sessionId": "c002-d37",
+                "tier": "concrete",
+                "ts": 1796847009512
+              },
+              {
+                "context": "practice",
+                "correct": true,
+                "format": "tenframe-fill",
+                "hinted": false,
+                "latencyMs": 1757,
+                "representation": "ten-frame",
+                "sessionId": "c002-d38",
+                "tier": "concrete",
+                "ts": 1796922097880
+              },
+              {
+                "context": "review",
+                "correct": true,
+                "format": "number-pad",
+                "hinted": false,
+                "latencyMs": 7116,
+                "representation": "symbols",
+                "sessionId": "c002-d39",
+                "tier": "abstract",
+                "ts": 1797012036461
+              },
+              {
+                "context": "practice",
+                "correct": true,
+                "format": "make-set",
+                "hinted": false,
+                "latencyMs": 4154,
+                "representation": "fingers",
+                "sessionId": "c002-d39",
+                "tier": "concrete",
+                "ts": 1797012241072
+              },
+              {
+                "context": "practice",
+                "correct": true,
+                "format": "make-set",
+                "hinted": false,
+                "latencyMs": 6502,
+                "representation": "objects",
+                "sessionId": "c002-d39",
+                "tier": "concrete",
+                "ts": 1797012308037
+              },
+              {
+                "context": "practice",
+                "correct": true,
+                "format": "tenframe-fill",
+                "hinted": false,
+                "latencyMs": 2757,
+                "representation": "ten-frame",
+                "sessionId": "c002-d41",
+                "tier": "concrete",
+                "ts": 1797188470122
+              },
+              {
+                "context": "practice",
+                "correct": false,
+                "format": "number-pad",
+                "hinted": false,
+                "latencyMs": 4479,
+                "representation": "symbols",
+                "sessionId": "c002-d41",
+                "tier": "abstract",
+                "ts": 1797188562180
+              },
+              {
+                "context": "challenge",
+                "correct": true,
+                "format": "make-set",
+                "hinted": false,
+                "latencyMs": 6173,
+                "representation": "objects",
+                "sessionId": "c002-d41",
+                "tier": "concrete",
+                "ts": 1797188638633
+              }
+            ],
+            "theta": 0.696394698827
+          },
+          "ADD.03": {
+            "_attempts": 75,
+            "_correctLatencies": [2976, 4329, 7121, 6005, 6728, 5095, 1719, 6801, 3351, 5829],
+            "_hitSeqs": [],
+            "_testOut": null,
+            "assumed": false,
+            "atRiskDueTs": null,
+            "fluentAt": null,
+            "masteredAt": null,
+            "memory": {
+              "consecutiveFails": 0,
+              "dueTs": 1797638447083,
+              "intervalDays": 6.25,
+              "lastReviewTs": 1797098447083,
+              "reps": 2,
+              "reviewsPassed": [1796846563024, 1797098447083]
+            },
+            "misconceptionHits": [],
+            "n": 67,
+            "override": null,
+            "practicedAt": 1796760133688,
+            "recent": [
+              {
+                "context": "practice",
+                "correct": true,
+                "format": "number-line-jump",
+                "hinted": false,
+                "latencyMs": 4329,
+                "representation": "number-path",
+                "sessionId": "c002-d34",
+                "tier": "concrete",
+                "ts": 1796587664620
+              },
+              {
+                "context": "practice",
+                "correct": true,
+                "format": "number-pad",
+                "hinted": false,
+                "latencyMs": 7121,
+                "representation": "symbols",
+                "sessionId": "c002-d34",
+                "tier": "abstract",
+                "ts": 1796587702713
+              },
+              {
+                "context": "practice",
+                "correct": true,
+                "format": "number-line-jump",
+                "hinted": false,
+                "latencyMs": 6005,
+                "representation": "number-path",
+                "sessionId": "c002-d34",
+                "tier": "concrete",
+                "ts": 1796587739904
+              },
+              {
+                "context": "practice",
+                "correct": true,
+                "format": "tenframe-fill",
+                "hinted": false,
+                "latencyMs": 6728,
+                "representation": "ten-frame",
+                "sessionId": "c002-d36",
+                "tier": "concrete",
+                "ts": 1796760133688
+              },
+              {
+                "context": "review",
+                "correct": true,
+                "format": "number-line-jump",
+                "hinted": false,
+                "latencyMs": 5095,
+                "representation": "number-line",
+                "sessionId": "c002-d37",
+                "tier": "pictorial",
+                "ts": 1796846563024
+              },
+              {
+                "context": "practice",
+                "correct": true,
+                "format": "number-line-jump",
+                "hinted": false,
+                "latencyMs": 1719,
+                "representation": "number-line",
+                "sessionId": "c002-d39",
+                "tier": "pictorial",
+                "ts": 1797012110211
+              },
+              {
+                "context": "review",
+                "correct": true,
+                "format": "number-line-jump",
+                "hinted": false,
+                "latencyMs": 6801,
+                "representation": "number-line",
+                "sessionId": "c002-d40",
+                "tier": "pictorial",
+                "ts": 1797098447083
+              },
+              {
+                "context": "practice",
+                "correct": false,
+                "format": "number-line-jump",
+                "hinted": false,
+                "latencyMs": 9688,
+                "representation": "number-path",
+                "sessionId": "c002-d40",
+                "tier": "concrete",
+                "ts": 1797098746147
+              },
+              {
+                "context": "practice",
+                "correct": true,
+                "format": "tenframe-fill",
+                "hinted": false,
+                "latencyMs": 3351,
+                "representation": "ten-frame",
+                "sessionId": "c002-d41",
+                "tier": "concrete",
+                "ts": 1797188433254
+              },
+              {
+                "context": "challenge",
+                "correct": true,
+                "format": "number-line-jump",
+                "hinted": false,
+                "latencyMs": 5829,
+                "representation": "number-path",
+                "sessionId": "c002-d42",
+                "tier": "concrete",
+                "ts": 1797274888220
+              }
+            ],
+            "theta": 0.499078814474
+          },
+          "CNT.01": {
+            "_attempts": 10,
+            "_correctLatencies": [7172, 6553, 4600, 6098, 1780, 6231],
+            "_hitSeqs": [],
+            "_testOut": null,
+            "assumed": false,
+            "atRiskDueTs": null,
+            "fluentAt": null,
+            "masteredAt": 1795636936809,
+            "memory": {
+              "consecutiveFails": 0,
+              "dueTs": 1798336936809,
+              "intervalDays": 31.25,
+              "lastReviewTs": 1795636936809,
+              "reps": 3,
+              "reviewsPassed": [1794081932518, 1794514120261, 1795636936809]
+            },
+            "misconceptionHits": [],
+            "n": 9,
+            "override": null,
+            "practicedAt": 1793642530000,
+            "recent": [
+              {
+                "context": "review",
+                "correct": true,
+                "format": "order",
+                "hinted": false,
+                "latencyMs": 7172,
+                "representation": "symbols",
+                "sessionId": "c002-d5",
+                "tier": "abstract",
+                "ts": 1794081932518
+              },
+              {
+                "context": "review",
+                "correct": true,
+                "format": "order",
+                "hinted": false,
+                "latencyMs": 6553,
+                "representation": "symbols",
+                "sessionId": "c002-d10",
+                "tier": "abstract",
+                "ts": 1794514120261
+              },
+              {
+                "context": "review",
+                "correct": true,
+                "format": "numeral-pick",
+                "hinted": false,
+                "latencyMs": 4600,
+                "representation": "number-path",
+                "sessionId": "c002-d23",
+                "tier": "pictorial",
+                "ts": 1795636936809
+              },
+              {
+                "context": "practice",
+                "correct": false,
+                "format": "hundred-chart",
+                "hinted": false,
+                "latencyMs": 4062,
+                "representation": "hundred-chart",
+                "sessionId": "c002-d36",
+                "tier": "pictorial",
+                "ts": 1796760185582
+              },
+              {
+                "context": "practice",
+                "correct": true,
+                "format": "numeral-pick",
+                "hinted": false,
+                "latencyMs": 6098,
+                "representation": "number-path",
+                "sessionId": "c002-d38",
+                "tier": "pictorial",
+                "ts": 1796922116755
+              },
+              {
+                "context": "practice",
+                "correct": true,
+                "format": "numeral-pick",
+                "hinted": false,
+                "latencyMs": 1780,
+                "representation": "number-path",
+                "sessionId": "c002-d41",
+                "tier": "pictorial",
+                "ts": 1797188745552
+              },
+              {
+                "context": "challenge",
+                "correct": true,
+                "format": "numeral-pick",
+                "hinted": false,
+                "latencyMs": 6231,
+                "representation": "number-path",
+                "sessionId": "c002-d42",
+                "tier": "pictorial",
+                "ts": 1797275111152
+              }
+            ],
+            "theta": 2.50551157569
+          },
+          "CNT.02": {
+            "_attempts": 7,
+            "_correctLatencies": [6646, 6321, 1764, 4997, 3060],
+            "_hitSeqs": [],
+            "_testOut": null,
+            "assumed": false,
+            "atRiskDueTs": null,
+            "fluentAt": null,
+            "masteredAt": 1795636911175,
+            "memory": {
+              "consecutiveFails": 0,
+              "dueTs": 1798336911175,
+              "intervalDays": 31.25,
+              "lastReviewTs": 1795636911175,
+              "reps": 3,
+              "reviewsPassed": [1794081784755, 1794514021259, 1795636911175]
+            },
+            "misconceptionHits": [],
+            "n": 7,
+            "override": null,
+            "practicedAt": 1793642530000,
+            "recent": [
+              {
+                "context": "review",
+                "correct": true,
+                "format": "make-set",
+                "hinted": false,
+                "latencyMs": 6646,
+                "representation": "ten-frame",
+                "sessionId": "c002-d5",
+                "tier": "concrete",
+                "ts": 1794081784755
+              },
+              {
+                "context": "review",
+                "correct": true,
+                "format": "make-set",
+                "hinted": false,
+                "latencyMs": 6321,
+                "representation": "ten-frame",
+                "sessionId": "c002-d10",
+                "tier": "concrete",
+                "ts": 1794514021259
+              },
+              {
+                "context": "review",
+                "correct": true,
+                "format": "make-set",
+                "hinted": false,
+                "latencyMs": 1764,
+                "representation": "ten-frame",
+                "sessionId": "c002-d23",
+                "tier": "concrete",
+                "ts": 1795636911175
+              },
+              {
+                "context": "challenge",
+                "correct": true,
+                "format": "make-set",
+                "hinted": false,
+                "latencyMs": 4997,
+                "representation": "ten-frame",
+                "sessionId": "c002-d38",
+                "tier": "concrete",
+                "ts": 1796922336761
+              },
+              {
+                "context": "practice",
+                "correct": true,
+                "format": "tap-count",
+                "hinted": false,
+                "latencyMs": 3060,
+                "representation": "dots",
+                "sessionId": "c002-d40",
+                "tier": "pictorial",
+                "ts": 1797098639593
+              }
+            ],
+            "theta": 2.65073882537
+          },
+          "CNT.03": {
+            "_attempts": 39,
+            "_correctLatencies": [4094, 6563, 3248, 5069, 1981, 4630, 3585, 5885, 5150, 3778],
+            "_hitSeqs": [],
+            "_testOut": null,
+            "assumed": false,
+            "atRiskDueTs": null,
+            "fluentAt": null,
+            "masteredAt": 1795032347146,
+            "memory": {
+              "consecutiveFails": 0,
+              "dueTs": 1799385884666,
+              "intervalDays": 34.3879483941,
+              "lastReviewTs": 1796414765925,
+              "reps": 4,
+              "reviewsPassed": [1794337234594, 1794600048815, 1795032347146, 1796414765925]
+            },
+            "misconceptionHits": [],
+            "n": 36,
+            "override": null,
+            "practicedAt": 1794243784421,
+            "recent": [
+              {
+                "context": "practice",
+                "correct": true,
+                "format": "tap-count",
+                "hinted": false,
+                "latencyMs": 4094,
+                "representation": "objects",
+                "sessionId": "c002-d7",
+                "tier": "concrete",
+                "ts": 1794243784421
+              },
+              {
+                "context": "review",
+                "correct": true,
+                "format": "numeral-pick",
+                "hinted": false,
+                "latencyMs": 6563,
+                "representation": "dots",
+                "sessionId": "c002-d8",
+                "tier": "pictorial",
+                "ts": 1794337234594
+              },
+              {
+                "context": "review",
+                "correct": true,
+                "format": "tap-count",
+                "hinted": false,
+                "latencyMs": 3248,
+                "representation": "objects",
+                "sessionId": "c002-d11",
+                "tier": "concrete",
+                "ts": 1794600048815
+              },
+              {
+                "context": "review",
+                "correct": true,
+                "format": "tap-count",
+                "hinted": false,
+                "latencyMs": 5069,
+                "representation": "objects",
+                "sessionId": "c002-d16",
+                "tier": "concrete",
+                "ts": 1795032347146
+              },
+              {
+                "context": "review",
+                "correct": true,
+                "format": "tap-count",
+                "hinted": false,
+                "latencyMs": 1981,
+                "representation": "objects",
+                "sessionId": "c002-d32",
+                "tier": "concrete",
+                "ts": 1796414765925
+              },
+              {
+                "context": "practice",
+                "correct": true,
+                "format": "numeral-pick",
+                "hinted": false,
+                "latencyMs": 4630,
+                "representation": "dots",
+                "sessionId": "c002-d37",
+                "tier": "pictorial",
+                "ts": 1796846737652
+              },
+              {
+                "context": "practice",
+                "correct": true,
+                "format": "tap-count",
+                "hinted": false,
+                "latencyMs": 3585,
+                "representation": "objects",
+                "sessionId": "c002-d38",
+                "tier": "concrete",
+                "ts": 1796922230477
+              },
+              {
+                "context": "practice",
+                "correct": true,
+                "format": "numeral-pick",
+                "hinted": false,
+                "latencyMs": 5885,
+                "representation": "dots",
+                "sessionId": "c002-d38",
+                "tier": "pictorial",
+                "ts": 1796922505242
+              },
+              {
+                "context": "practice",
+                "correct": true,
+                "format": "number-pad",
+                "hinted": false,
+                "latencyMs": 5150,
+                "representation": "symbols",
+                "sessionId": "c002-d39",
+                "tier": "abstract",
+                "ts": 1797012344773
+              },
+              {
+                "context": "practice",
+                "correct": true,
+                "format": "number-pad",
+                "hinted": false,
+                "latencyMs": 3778,
+                "representation": "symbols",
+                "sessionId": "c002-d42",
+                "tier": "abstract",
+                "ts": 1797275142105
+              }
+            ],
+            "theta": 2.10895008243
+          },
+          "CNT.04": {
+            "_attempts": 19,
+            "_correctLatencies": [5313, 6790, 6014, 6450, 3404, 3678, 3525, 6166, 2929, 3991],
+            "_hitSeqs": [],
+            "_testOut": null,
+            "assumed": false,
+            "atRiskDueTs": null,
+            "fluentAt": null,
+            "masteredAt": 1794099600000,
+            "memory": {
+              "consecutiveFails": 0,
+              "dueTs": 1801635579607,
+              "intervalDays": 82.4281394444,
+              "lastReviewTs": 1794513788359,
+              "reps": 2,
+              "reviewsPassed": [1794243884067, 1794513788359]
+            },
+            "misconceptionHits": [],
+            "n": 17,
+            "override": "mastered",
+            "practicedAt": 1794099600000,
+            "recent": [
+              {
+                "context": "review",
+                "correct": true,
+                "format": "tenframe-fill",
+                "hinted": false,
+                "latencyMs": 6790,
+                "representation": "ten-frame",
+                "sessionId": "c002-d10",
+                "tier": "pictorial",
+                "ts": 1794513788359
+              },
+              {
+                "context": "practice",
+                "correct": true,
+                "format": "make-set",
+                "hinted": false,
+                "latencyMs": 6014,
+                "representation": "objects",
+                "sessionId": "c002-d36",
+                "tier": "concrete",
+                "ts": 1796760262643
+              },
+              {
+                "context": "practice",
+                "correct": true,
+                "format": "make-set",
+                "hinted": false,
+                "latencyMs": 6450,
+                "representation": "objects",
+                "sessionId": "c002-d37",
+                "tier": "concrete",
+                "ts": 1796846496677
+              },
+              {
+                "context": "practice",
+                "correct": true,
+                "format": "make-set",
+                "hinted": false,
+                "latencyMs": 3404,
+                "representation": "fingers",
+                "sessionId": "c002-d37",
+                "tier": "concrete",
+                "ts": 1796846841545
+              },
+              {
+                "context": "practice",
+                "correct": true,
+                "format": "make-set",
+                "hinted": false,
+                "latencyMs": 3678,
+                "representation": "fingers",
+                "sessionId": "c002-d38",
+                "tier": "concrete",
+                "ts": 1796922291048
+              },
+              {
+                "context": "practice",
+                "correct": true,
+                "format": "tenframe-fill",
+                "hinted": false,
+                "latencyMs": 3525,
+                "representation": "ten-frame",
+                "sessionId": "c002-d38",
+                "tier": "pictorial",
+                "ts": 1796922378936
+              },
+              {
+                "context": "practice",
+                "correct": true,
+                "format": "make-set",
+                "hinted": false,
+                "latencyMs": 6166,
+                "representation": "fingers",
+                "sessionId": "c002-d39",
+                "tier": "concrete",
+                "ts": 1797012377634
+              },
+              {
+                "context": "practice",
+                "correct": true,
+                "format": "tenframe-fill",
+                "hinted": false,
+                "latencyMs": 2929,
+                "representation": "ten-frame",
+                "sessionId": "c002-d39",
+                "tier": "pictorial",
+                "ts": 1797012446156
+              },
+              {
+                "context": "practice",
+                "correct": true,
+                "format": "make-set",
+                "hinted": false,
+                "latencyMs": 3991,
+                "representation": "objects",
+                "sessionId": "c002-d39",
+                "tier": "concrete",
+                "ts": 1797012485603
+              },
+              {
+                "context": "practice",
+                "correct": false,
+                "format": "make-set",
+                "hinted": false,
+                "latencyMs": 6473,
+                "representation": "fingers",
+                "sessionId": "c002-d39",
+                "tier": "concrete",
+                "ts": 1797012505413
+              }
+            ],
+            "theta": 0.901087826284
+          },
+          "CNT.05": {
+            "_attempts": 24,
+            "_correctLatencies": [4827, 4673, 4191, 4153, 4541, 7219, 1718, 2327, 2326, 5383],
+            "_hitSeqs": [],
+            "_testOut": null,
+            "assumed": false,
+            "atRiskDueTs": null,
+            "fluentAt": null,
+            "masteredAt": 1795201319111,
+            "memory": {
+              "consecutiveFails": 0,
+              "dueTs": 1798539761535,
+              "intervalDays": 38.6393799045,
+              "lastReviewTs": 1795201319111,
+              "reps": 2,
+              "reviewsPassed": [1794513737825, 1795201319111]
+            },
+            "misconceptionHits": [],
+            "n": 23,
+            "override": null,
+            "practicedAt": 1794337539312,
+            "recent": [
+              {
+                "context": "review",
+                "correct": true,
+                "format": "tap-count",
+                "hinted": false,
+                "latencyMs": 4827,
+                "representation": "objects",
+                "sessionId": "c002-d18",
+                "tier": "concrete",
+                "ts": 1795201319111
+              },
+              {
+                "context": "challenge",
+                "correct": true,
+                "format": "numeral-pick",
+                "hinted": false,
+                "latencyMs": 4673,
+                "representation": "dots",
+                "sessionId": "c002-d36",
+                "tier": "pictorial",
+                "ts": 1796760156785
+              },
+              {
+                "context": "practice",
+                "correct": true,
+                "format": "number-pad",
+                "hinted": false,
+                "latencyMs": 4191,
+                "representation": "symbols",
+                "sessionId": "c002-d36",
+                "tier": "abstract",
+                "ts": 1796760319718
+              },
+              {
+                "context": "practice",
+                "correct": true,
+                "format": "numeral-pick",
+                "hinted": false,
+                "latencyMs": 4153,
+                "representation": "dots",
+                "sessionId": "c002-d37",
+                "tier": "pictorial",
+                "ts": 1796846900695
+              },
+              {
+                "context": "practice",
+                "correct": true,
+                "format": "tap-count",
+                "hinted": false,
+                "latencyMs": 4541,
+                "representation": "objects",
+                "sessionId": "c002-d38",
+                "tier": "concrete",
+                "ts": 1796922575721
+              },
+              {
+                "context": "practice",
+                "correct": true,
+                "format": "numeral-pick",
+                "hinted": false,
+                "latencyMs": 7219,
+                "representation": "dots",
+                "sessionId": "c002-d39",
+                "tier": "pictorial",
+                "ts": 1797012541628
+              },
+              {
+                "context": "practice",
+                "correct": true,
+                "format": "numeral-pick",
+                "hinted": false,
+                "latencyMs": 1718,
+                "representation": "dots",
+                "sessionId": "c002-d40",
+                "tier": "pictorial",
+                "ts": 1797098565426
+              },
+              {
+                "context": "practice",
+                "correct": true,
+                "format": "tap-count",
+                "hinted": false,
+                "latencyMs": 2327,
+                "representation": "objects",
+                "sessionId": "c002-d40",
+                "tier": "concrete",
+                "ts": 1797098714267
+              },
+              {
+                "context": "practice",
+                "correct": true,
+                "format": "number-pad",
+                "hinted": false,
+                "latencyMs": 2326,
+                "representation": "symbols",
+                "sessionId": "c002-d41",
+                "tier": "abstract",
+                "ts": 1797188677296
+              },
+              {
+                "context": "practice",
+                "correct": true,
+                "format": "numeral-pick",
+                "hinted": false,
+                "latencyMs": 5383,
+                "representation": "dots",
+                "sessionId": "c002-d42",
+                "tier": "pictorial",
+                "ts": 1797274951432
+              }
+            ],
+            "theta": 2.10199076653
+          },
+          "CNT.06": {
+            "_attempts": 37,
+            "_correctLatencies": [5883, 4464, 2029, 5838, 1792, 5036, 3408, 6634, 2562, 2376],
+            "_hitSeqs": [],
+            "_testOut": null,
+            "assumed": false,
+            "atRiskDueTs": null,
+            "fluentAt": null,
+            "masteredAt": 1795636828009,
+            "memory": {
+              "consecutiveFails": 0,
+              "dueTs": 1800387066778,
+              "intervalDays": 39.0625,
+              "lastReviewTs": 1797012066778,
+              "reps": 4,
+              "reviewsPassed": [1794762036777, 1795032082704, 1795636828009, 1797012066778]
+            },
+            "misconceptionHits": [],
+            "n": 35,
+            "override": null,
+            "practicedAt": 1794600351444,
+            "recent": [
+              {
+                "context": "practice",
+                "correct": true,
+                "format": "number-pad",
+                "hinted": false,
+                "latencyMs": 5883,
+                "representation": "symbols",
+                "sessionId": "c002-d11",
+                "tier": "abstract",
+                "ts": 1794600351444
+              },
+              {
+                "context": "review",
+                "correct": true,
+                "format": "number-pad",
+                "hinted": false,
+                "latencyMs": 4464,
+                "representation": "symbols",
+                "sessionId": "c002-d13",
+                "tier": "abstract",
+                "ts": 1794762036777
+              },
+              {
+                "context": "review",
+                "correct": true,
+                "format": "number-pad",
+                "hinted": false,
+                "latencyMs": 2029,
+                "representation": "symbols",
+                "sessionId": "c002-d16",
+                "tier": "abstract",
+                "ts": 1795032082704
+              },
+              {
+                "context": "review",
+                "correct": true,
+                "format": "number-pad",
+                "hinted": false,
+                "latencyMs": 5838,
+                "representation": "symbols",
+                "sessionId": "c002-d23",
+                "tier": "abstract",
+                "ts": 1795636828009
+              },
+              {
+                "context": "practice",
+                "correct": true,
+                "format": "make-set",
+                "hinted": false,
+                "latencyMs": 1792,
+                "representation": "objects",
+                "sessionId": "c002-d37",
+                "tier": "concrete",
+                "ts": 1796846691847
+              },
+              {
+                "context": "review",
+                "correct": true,
+                "format": "tap-count",
+                "hinted": false,
+                "latencyMs": 5036,
+                "representation": "double-ten-frame",
+                "sessionId": "c002-d39",
+                "tier": "pictorial",
+                "ts": 1797012066778
+              },
+              {
+                "context": "practice",
+                "correct": true,
+                "format": "number-pad",
+                "hinted": false,
+                "latencyMs": 3408,
+                "representation": "symbols",
+                "sessionId": "c002-d39",
+                "tier": "abstract",
+                "ts": 1797012158777
+              },
+              {
+                "context": "practice",
+                "correct": true,
+                "format": "tap-count",
+                "hinted": false,
+                "latencyMs": 6634,
+                "representation": "double-ten-frame",
+                "sessionId": "c002-d39",
+                "tier": "pictorial",
+                "ts": 1797012271767
+              },
+              {
+                "context": "challenge",
+                "correct": true,
+                "format": "make-set",
+                "hinted": false,
+                "latencyMs": 2562,
+                "representation": "objects",
+                "sessionId": "c002-d39",
+                "tier": "concrete",
+                "ts": 1797012428691
+              },
+              {
+                "context": "practice",
+                "correct": true,
+                "format": "tap-count",
+                "hinted": false,
+                "latencyMs": 2376,
+                "representation": "double-ten-frame",
+                "sessionId": "c002-d41",
+                "tier": "pictorial",
+                "ts": 1797188542605
+              }
+            ],
+            "theta": 1.58410516545
+          },
+          "CNT.07": {
+            "_attempts": 68,
+            "_correctLatencies": [7324, 5017, 2889, 2243, 3211, 4603, 4839, 6168, 7078, 4385],
+            "_hitSeqs": [],
+            "_testOut": null,
+            "assumed": false,
+            "atRiskDueTs": null,
+            "fluentAt": null,
+            "masteredAt": 1796760061626,
+            "memory": {
+              "consecutiveFails": 0,
+              "dueTs": 1798110061626,
+              "intervalDays": 15.625,
+              "lastReviewTs": 1796760061626,
+              "reps": 3,
+              "reviewsPassed": [1795802435463, 1796144429236, 1796760061626]
+            },
+            "misconceptionHits": [],
+            "n": 58,
+            "override": null,
+            "practicedAt": 1795637381390,
+            "recent": [
+              {
+                "context": "challenge",
+                "correct": true,
+                "format": "hundred-chart",
+                "hinted": false,
+                "latencyMs": 5017,
+                "representation": "hundred-chart",
+                "sessionId": "c002-d23",
+                "tier": "pictorial",
+                "ts": 1795637108791
+              },
+              {
+                "context": "practice",
+                "correct": true,
+                "format": "numeral-pick",
+                "hinted": false,
+                "latencyMs": 2889,
+                "representation": "symbols",
+                "sessionId": "c002-d23",
+                "tier": "abstract",
+                "ts": 1795637381390
+              },
+              {
+                "context": "review",
+                "correct": true,
+                "format": "number-line-jump",
+                "hinted": false,
+                "latencyMs": 2243,
+                "representation": "number-path",
+                "sessionId": "c002-d25",
+                "tier": "concrete",
+                "ts": 1795802435463
+              },
+              {
+                "context": "review",
+                "correct": true,
+                "format": "number-line-jump",
+                "hinted": false,
+                "latencyMs": 3211,
+                "representation": "number-path",
+                "sessionId": "c002-d29",
+                "tier": "concrete",
+                "ts": 1796144429236
+              },
+              {
+                "context": "review",
+                "correct": true,
+                "format": "number-line-jump",
+                "hinted": false,
+                "latencyMs": 4603,
+                "representation": "number-line",
+                "sessionId": "c002-d36",
+                "tier": "pictorial",
+                "ts": 1796760061626
+              },
+              {
+                "context": "practice",
+                "correct": true,
+                "format": "number-line-jump",
+                "hinted": false,
+                "latencyMs": 4839,
+                "representation": "number-path",
+                "sessionId": "c002-d36",
+                "tier": "concrete",
+                "ts": 1796760286099
+              },
+              {
+                "context": "practice",
+                "correct": true,
+                "format": "hundred-chart",
+                "hinted": false,
+                "latencyMs": 6168,
+                "representation": "hundred-chart",
+                "sessionId": "c002-d36",
+                "tier": "pictorial",
+                "ts": 1796760377571
+              },
+              {
+                "context": "practice",
+                "correct": false,
+                "format": "number-line-jump",
+                "hinted": false,
+                "latencyMs": 14380,
+                "representation": "number-path",
+                "sessionId": "c002-d37",
+                "tier": "concrete",
+                "ts": 1796846430630
+              },
+              {
+                "context": "practice",
+                "correct": true,
+                "format": "numeral-pick",
+                "hinted": false,
+                "latencyMs": 7078,
+                "representation": "symbols",
+                "sessionId": "c002-d38",
+                "tier": "abstract",
+                "ts": 1796922442170
+              },
+              {
+                "context": "practice",
+                "correct": true,
+                "format": "hundred-chart",
+                "hinted": false,
+                "latencyMs": 4385,
+                "representation": "hundred-chart",
+                "sessionId": "c002-d40",
+                "tier": "pictorial",
+                "ts": 1797098528823
+              }
+            ],
+            "theta": 0.827948605722
+          },
+          "CPS.01": {
+            "_attempts": 51,
+            "_correctLatencies": [3657, 3502, 2177, 4355, 4479, 2750, 2032, 7270, 7310, 3042],
+            "_hitSeqs": [],
+            "_testOut": null,
+            "assumed": false,
+            "atRiskDueTs": null,
+            "fluentAt": null,
+            "masteredAt": 1795885377700,
+            "memory": {
+              "consecutiveFails": 0,
+              "dueTs": 1798990041073,
+              "intervalDays": 27.810162309,
+              "lastReviewTs": 1796587243049,
+              "reps": 4,
+              "reviewsPassed": [1795032145159, 1795287695137, 1795885377700, 1796587243049]
+            },
+            "misconceptionHits": [],
+            "n": 46,
+            "override": null,
+            "practicedAt": 1794683311261,
+            "recent": [
+              {
+                "context": "review",
+                "correct": true,
+                "format": "number-bond",
+                "hinted": false,
+                "latencyMs": 3657,
+                "representation": "number-bond",
+                "sessionId": "c002-d16",
+                "tier": "pictorial",
+                "ts": 1795032145159
+              },
+              {
+                "context": "review",
+                "correct": true,
+                "format": "make-set",
+                "hinted": false,
+                "latencyMs": 3502,
+                "representation": "objects",
+                "sessionId": "c002-d19",
+                "tier": "concrete",
+                "ts": 1795287695137
+              },
+              {
+                "context": "review",
+                "correct": true,
+                "format": "number-bond",
+                "hinted": false,
+                "latencyMs": 2177,
+                "representation": "number-bond",
+                "sessionId": "c002-d26",
+                "tier": "pictorial",
+                "ts": 1795885377700
+              },
+              {
+                "context": "review",
+                "correct": true,
+                "format": "make-set",
+                "hinted": false,
+                "latencyMs": 4355,
+                "representation": "fingers",
+                "sessionId": "c002-d34",
+                "tier": "concrete",
+                "ts": 1796587243049
+              },
+              {
+                "context": "practice",
+                "correct": true,
+                "format": "tenframe-fill",
+                "hinted": false,
+                "latencyMs": 4479,
+                "representation": "ten-frame",
+                "sessionId": "c002-d36",
+                "tier": "concrete",
+                "ts": 1796760365293
+              },
+              {
+                "context": "challenge",
+                "correct": true,
+                "format": "make-set",
+                "hinted": false,
+                "latencyMs": 2750,
+                "representation": "objects",
+                "sessionId": "c002-d38",
+                "tier": "concrete",
+                "ts": 1796922073312
+              },
+              {
+                "context": "practice",
+                "correct": true,
+                "format": "make-set",
+                "hinted": false,
+                "latencyMs": 2032,
+                "representation": "fingers",
+                "sessionId": "c002-d38",
+                "tier": "concrete",
+                "ts": 1796922185764
+              },
+              {
+                "context": "practice",
+                "correct": true,
+                "format": "make-set",
+                "hinted": false,
+                "latencyMs": 7270,
+                "representation": "objects",
+                "sessionId": "c002-d40",
+                "tier": "concrete",
+                "ts": 1797098473846
+              },
+              {
+                "context": "practice",
+                "correct": true,
+                "format": "number-bond",
+                "hinted": false,
+                "latencyMs": 7310,
+                "representation": "number-bond",
+                "sessionId": "c002-d41",
+                "tier": "pictorial",
+                "ts": 1797188488774
+              },
+              {
+                "context": "practice",
+                "correct": true,
+                "format": "make-set",
+                "hinted": false,
+                "latencyMs": 3042,
+                "representation": "objects",
+                "sessionId": "c002-d41",
+                "tier": "concrete",
+                "ts": 1797188518228
+              }
+            ],
+            "theta": 1.48700426718
+          },
+          "CPS.02": {
+            "_attempts": 59,
+            "_correctLatencies": [2914, 6440, 4411, 2211, 6382, 4426, 5680, 1795, 4555, 5410],
+            "_hitSeqs": [],
+            "_testOut": null,
+            "assumed": false,
+            "atRiskDueTs": null,
+            "fluentAt": null,
+            "masteredAt": 1796760098013,
+            "memory": {
+              "consecutiveFails": 0,
+              "dueTs": 1798399847224,
+              "intervalDays": 13.0208333333,
+              "lastReviewTs": 1797274847224,
+              "reps": 4,
+              "reviewsPassed": [1795456925295, 1795716114942, 1796760098013, 1797274847224]
+            },
+            "misconceptionHits": [],
+            "n": 50,
+            "override": null,
+            "practicedAt": 1795287904504,
+            "recent": [
+              {
+                "context": "practice",
+                "correct": true,
+                "format": "number-bond",
+                "hinted": false,
+                "latencyMs": 2211,
+                "representation": "number-bond",
+                "sessionId": "c002-d37",
+                "tier": "pictorial",
+                "ts": 1796846776955
+              },
+              {
+                "context": "practice",
+                "correct": false,
+                "format": "number-pad",
+                "hinted": false,
+                "latencyMs": 11721,
+                "representation": "symbols",
+                "sessionId": "c002-d37",
+                "tier": "abstract",
+                "ts": 1796846869151
+              },
+              {
+                "context": "practice",
+                "correct": false,
+                "format": "rekenrek",
+                "hinted": false,
+                "latencyMs": 6593,
+                "representation": "rekenrek",
+                "sessionId": "c002-d38",
+                "tier": "concrete",
+                "ts": 1796922257882
+              },
+              {
+                "context": "practice",
+                "correct": true,
+                "format": "number-bond",
+                "hinted": false,
+                "latencyMs": 6382,
+                "representation": "number-bond",
+                "sessionId": "c002-d38",
+                "tier": "pictorial",
+                "ts": 1796922459394
+              },
+              {
+                "context": "challenge",
+                "correct": true,
+                "format": "number-bond",
+                "hinted": false,
+                "latencyMs": 4426,
+                "representation": "number-bond",
+                "sessionId": "c002-d39",
+                "tier": "pictorial",
+                "ts": 1797012094475
+              },
+              {
+                "context": "practice",
+                "correct": true,
+                "format": "number-bond",
+                "hinted": false,
+                "latencyMs": 5680,
+                "representation": "number-bond",
+                "sessionId": "c002-d40",
+                "tier": "pictorial",
+                "ts": 1797098503249
+              },
+              {
+                "context": "practice",
+                "correct": false,
+                "format": "number-bond",
+                "hinted": false,
+                "latencyMs": 10548,
+                "representation": "number-bond",
+                "sessionId": "c002-d40",
+                "tier": "pictorial",
+                "ts": 1797098795130
+              },
+              {
+                "context": "practice",
+                "correct": true,
+                "format": "number-pad",
+                "hinted": false,
+                "latencyMs": 1795,
+                "representation": "symbols",
+                "sessionId": "c002-d41",
+                "tier": "abstract",
+                "ts": 1797188761693
+              },
+              {
+                "context": "practice",
+                "correct": true,
+                "format": "number-pad",
+                "hinted": false,
+                "latencyMs": 4555,
+                "representation": "symbols",
+                "sessionId": "c002-d41",
+                "tier": "abstract",
+                "ts": 1797188783666
+              },
+              {
+                "context": "review",
+                "correct": true,
+                "format": "rekenrek",
+                "hinted": false,
+                "latencyMs": 5410,
+                "representation": "rekenrek",
+                "sessionId": "c002-d42",
+                "tier": "concrete",
+                "ts": 1797274847224
+              }
+            ],
+            "theta": 0.379632948702
+          },
+          "CPS.03": {
+            "_attempts": 62,
+            "_correctLatencies": [1614, 2222, 6554, 1825, 4483, 4898, 7126, 1876, 6217, 6841],
+            "_hitSeqs": [],
+            "_testOut": null,
+            "assumed": false,
+            "atRiskDueTs": null,
+            "fluentAt": null,
+            "masteredAt": null,
+            "memory": {
+              "consecutiveFails": 0,
+              "dueTs": 1797300046796,
+              "intervalDays": 6.25,
+              "lastReviewTs": 1796760046796,
+              "reps": 2,
+              "reviewsPassed": [1796414518960, 1796760046796]
+            },
+            "misconceptionHits": [],
+            "n": 54,
+            "override": null,
+            "practicedAt": 1796145000824,
+            "recent": [
+              {
+                "context": "practice",
+                "correct": true,
+                "format": "number-bond",
+                "hinted": false,
+                "latencyMs": 2222,
+                "representation": "number-bond",
+                "sessionId": "c002-d29",
+                "tier": "pictorial",
+                "ts": 1796145000824
+              },
+              {
+                "context": "review",
+                "correct": true,
+                "format": "number-pad",
+                "hinted": false,
+                "latencyMs": 6554,
+                "representation": "symbols",
+                "sessionId": "c002-d32",
+                "tier": "abstract",
+                "ts": 1796414518960
+              },
+              {
+                "context": "review",
+                "correct": true,
+                "format": "number-pad",
+                "hinted": false,
+                "latencyMs": 1825,
+                "representation": "symbols",
+                "sessionId": "c002-d36",
+                "tier": "abstract",
+                "ts": 1796760046796
+              },
+              {
+                "context": "practice",
+                "correct": true,
+                "format": "tenframe-fill",
+                "hinted": false,
+                "latencyMs": 4483,
+                "representation": "ten-frame",
+                "sessionId": "c002-d37",
+                "tier": "concrete",
+                "ts": 1796846708117
+              },
+              {
+                "context": "practice",
+                "correct": true,
+                "format": "tenframe-fill",
+                "hinted": false,
+                "latencyMs": 4898,
+                "representation": "ten-frame",
+                "sessionId": "c002-d37",
+                "tier": "concrete",
+                "ts": 1796846974493
+              },
+              {
+                "context": "practice",
+                "correct": true,
+                "format": "number-bond",
+                "hinted": false,
+                "latencyMs": 7126,
+                "representation": "number-bond",
+                "sessionId": "c002-d39",
+                "tier": "pictorial",
+                "ts": 1797012219734
+              },
+              {
+                "context": "practice",
+                "correct": false,
+                "format": "number-bond",
+                "hinted": false,
+                "latencyMs": 8160,
+                "representation": "number-bond",
+                "sessionId": "c002-d39",
+                "tier": "pictorial",
+                "ts": 1797012556383
+              },
+              {
+                "context": "practice",
+                "correct": true,
+                "format": "tenframe-fill",
+                "hinted": false,
+                "latencyMs": 1876,
+                "representation": "ten-frame",
+                "sessionId": "c002-d40",
+                "tier": "concrete",
+                "ts": 1797098690995
+              },
+              {
+                "context": "practice",
+                "correct": true,
+                "format": "number-pad",
+                "hinted": false,
+                "latencyMs": 6217,
+                "representation": "symbols",
+                "sessionId": "c002-d42",
+                "tier": "abstract",
+                "ts": 1797274875493
+              },
+              {
+                "context": "practice",
+                "correct": true,
+                "format": "tenframe-fill",
+                "hinted": false,
+                "latencyMs": 6841,
+                "representation": "ten-frame",
+                "sessionId": "c002-d42",
+                "tier": "concrete",
+                "ts": 1797275059235
+              }
+            ],
+            "theta": 0.572921882368
+          },
+          "SUB.01": {
+            "_attempts": 8,
+            "_correctLatencies": [5904, 6926, 7143, 3558, 6329, 1558],
+            "_hitSeqs": [],
+            "_testOut": null,
+            "assumed": false,
+            "atRiskDueTs": null,
+            "fluentAt": null,
+            "masteredAt": 1795637081887,
+            "memory": {
+              "consecutiveFails": 0,
+              "dueTs": 1798337081887,
+              "intervalDays": 31.25,
+              "lastReviewTs": 1795637081887,
+              "reps": 3,
+              "reviewsPassed": [1794082037615, 1794514140180, 1795637081887]
+            },
+            "misconceptionHits": [],
+            "n": 8,
+            "override": null,
+            "practicedAt": 1793642530000,
+            "recent": [
+              {
+                "context": "review",
+                "correct": true,
+                "format": "numeral-pick",
+                "hinted": false,
+                "latencyMs": 5904,
+                "representation": "objects",
+                "sessionId": "c002-d5",
+                "tier": "pictorial",
+                "ts": 1794082037615
+              },
+              {
+                "context": "review",
+                "correct": true,
+                "format": "dot-flash",
+                "hinted": false,
+                "latencyMs": 6926,
+                "representation": "dots",
+                "sessionId": "c002-d10",
+                "tier": "pictorial",
+                "ts": 1794514140180
+              },
+              {
+                "context": "review",
+                "correct": true,
+                "format": "dot-flash",
+                "hinted": false,
+                "latencyMs": 7143,
+                "representation": "dots",
+                "sessionId": "c002-d23",
+                "tier": "pictorial",
+                "ts": 1795637081887
+              },
+              {
+                "context": "practice",
+                "correct": true,
+                "format": "dot-flash",
+                "hinted": false,
+                "latencyMs": 3558,
+                "representation": "dots",
+                "sessionId": "c002-d38",
+                "tier": "pictorial",
+                "ts": 1796922150156
+              },
+              {
+                "context": "practice",
+                "correct": true,
+                "format": "numeral-pick",
+                "hinted": false,
+                "latencyMs": 6329,
+                "representation": "objects",
+                "sessionId": "c002-d40",
+                "tier": "pictorial",
+                "ts": 1797098592304
+              },
+              {
+                "context": "challenge",
+                "correct": true,
+                "format": "dot-flash",
+                "hinted": false,
+                "latencyMs": 1558,
+                "representation": "dots",
+                "sessionId": "c002-d42",
+                "tier": "pictorial",
+                "ts": 1797275097379
+              }
+            ],
+            "theta": 2.78043285018
+          },
+          "SUB.02": {
+            "_attempts": 13,
+            "_correctLatencies": [1819, 5876, 7086, 4101, 3124, 1774, 4795, 6737, 6770, 7248],
+            "_hitSeqs": [],
+            "_testOut": null,
+            "assumed": false,
+            "atRiskDueTs": null,
+            "fluentAt": null,
+            "masteredAt": 1795032369488,
+            "memory": {
+              "consecutiveFails": 0,
+              "dueTs": 1801565734565,
+              "intervalDays": 53.746415191,
+              "lastReviewTs": 1796922044292,
+              "reps": 4,
+              "reviewsPassed": [1794081914631, 1794514052082, 1795032369488, 1796922044292]
+            },
+            "misconceptionHits": [],
+            "n": 13,
+            "override": null,
+            "practicedAt": 1793642530000,
+            "recent": [
+              {
+                "context": "review",
+                "correct": true,
+                "format": "make-set",
+                "hinted": false,
+                "latencyMs": 1819,
+                "representation": "fingers",
+                "sessionId": "c002-d10",
+                "tier": "concrete",
+                "ts": 1794514052082
+              },
+              {
+                "context": "review",
+                "correct": true,
+                "format": "dot-flash",
+                "hinted": false,
+                "latencyMs": 5876,
+                "representation": "five-frame",
+                "sessionId": "c002-d16",
+                "tier": "pictorial",
+                "ts": 1795032369488
+              },
+              {
+                "context": "practice",
+                "correct": true,
+                "format": "numeral-pick",
+                "hinted": false,
+                "latencyMs": 7086,
+                "representation": "dots",
+                "sessionId": "c002-d37",
+                "tier": "pictorial",
+                "ts": 1796846934997
+              },
+              {
+                "context": "review",
+                "correct": true,
+                "format": "dot-flash",
+                "hinted": false,
+                "latencyMs": 4101,
+                "representation": "five-frame",
+                "sessionId": "c002-d38",
+                "tier": "pictorial",
+                "ts": 1796922044292
+              },
+              {
+                "context": "practice",
+                "correct": true,
+                "format": "make-set",
+                "hinted": false,
+                "latencyMs": 3124,
+                "representation": "fingers",
+                "sessionId": "c002-d38",
+                "tier": "concrete",
+                "ts": 1796922483010
+              },
+              {
+                "context": "practice",
+                "correct": true,
+                "format": "numeral-pick",
+                "hinted": false,
+                "latencyMs": 1774,
+                "representation": "dots",
+                "sessionId": "c002-d38",
+                "tier": "pictorial",
+                "ts": 1796922538384
+              },
+              {
+                "context": "practice",
+                "correct": true,
+                "format": "make-set",
+                "hinted": false,
+                "latencyMs": 4795,
+                "representation": "fingers",
+                "sessionId": "c002-d42",
+                "tier": "concrete",
+                "ts": 1797274921062
+              },
+              {
+                "context": "practice",
+                "correct": true,
+                "format": "make-set",
+                "hinted": false,
+                "latencyMs": 6737,
+                "representation": "fingers",
+                "sessionId": "c002-d42",
+                "tier": "concrete",
+                "ts": 1797274970423
+              },
+              {
+                "context": "practice",
+                "correct": true,
+                "format": "dot-flash",
+                "hinted": false,
+                "latencyMs": 6770,
+                "representation": "five-frame",
+                "sessionId": "c002-d42",
+                "tier": "pictorial",
+                "ts": 1797275013853
+              },
+              {
+                "context": "practice",
+                "correct": true,
+                "format": "dot-flash",
+                "hinted": false,
+                "latencyMs": 7248,
+                "representation": "five-frame",
+                "sessionId": "c002-d42",
+                "tier": "pictorial",
+                "ts": 1797275040502
+              }
+            ],
+            "theta": 2.3375089185
+          },
+          "SUB.03": {
+            "_attempts": 24,
+            "_correctLatencies": [1981, 6990, 4981, 6075, 5376, 4885, 3863, 3116, 4062, 4172],
+            "_hitSeqs": [],
+            "_testOut": null,
+            "assumed": false,
+            "atRiskDueTs": null,
+            "fluentAt": null,
+            "masteredAt": 1795032181776,
+            "memory": {
+              "consecutiveFails": 0,
+              "dueTs": 1798990269287,
+              "intervalDays": 27.8115593229,
+              "lastReviewTs": 1796587350561,
+              "reps": 5,
+              "reviewsPassed": [
+                1794513714142, 1795032181776, 1795287747981, 1795885404744, 1796587350561
+              ]
+            },
+            "misconceptionHits": [],
+            "n": 22,
+            "override": null,
+            "practicedAt": 1794337369704,
+            "recent": [
+              {
+                "context": "review",
+                "correct": false,
+                "format": "dot-flash",
+                "hinted": false,
+                "latencyMs": 7263,
+                "representation": "dots",
+                "sessionId": "c002-d13",
+                "tier": "pictorial",
+                "ts": 1794762120753
+              },
+              {
+                "context": "review",
+                "correct": true,
+                "format": "number-pad",
+                "hinted": false,
+                "latencyMs": 4981,
+                "representation": "symbols",
+                "sessionId": "c002-d16",
+                "tier": "abstract",
+                "ts": 1795032181776
+              },
+              {
+                "context": "review",
+                "correct": true,
+                "format": "number-pad",
+                "hinted": false,
+                "latencyMs": 6075,
+                "representation": "symbols",
+                "sessionId": "c002-d19",
+                "tier": "abstract",
+                "ts": 1795287747981
+              },
+              {
+                "context": "review",
+                "correct": true,
+                "format": "dot-flash",
+                "hinted": false,
+                "latencyMs": 5376,
+                "representation": "fingers",
+                "sessionId": "c002-d26",
+                "tier": "pictorial",
+                "ts": 1795885404744
+              },
+              {
+                "context": "review",
+                "correct": true,
+                "format": "tenframe-fill",
+                "hinted": false,
+                "latencyMs": 4885,
+                "representation": "ten-frame",
+                "sessionId": "c002-d34",
+                "tier": "concrete",
+                "ts": 1796587350561
+              },
+              {
+                "context": "challenge",
+                "correct": false,
+                "format": "number-pad",
+                "hinted": false,
+                "latencyMs": 8089,
+                "representation": "symbols",
+                "sessionId": "c002-d37",
+                "tier": "abstract",
+                "ts": 1796846527512
+              },
+              {
+                "context": "practice",
+                "correct": true,
+                "format": "dot-flash",
+                "hinted": false,
+                "latencyMs": 3863,
+                "representation": "fingers",
+                "sessionId": "c002-d38",
+                "tier": "pictorial",
+                "ts": 1796922351573
+              },
+              {
+                "context": "practice",
+                "correct": true,
+                "format": "dot-flash",
+                "hinted": false,
+                "latencyMs": 3116,
+                "representation": "fingers",
+                "sessionId": "c002-d39",
+                "tier": "pictorial",
+                "ts": 1797012127904
+              },
+              {
+                "context": "practice",
+                "correct": true,
+                "format": "number-pad",
+                "hinted": false,
+                "latencyMs": 4062,
+                "representation": "symbols",
+                "sessionId": "c002-d40",
+                "tier": "abstract",
+                "ts": 1797098665336
+              },
+              {
+                "context": "practice",
+                "correct": true,
+                "format": "number-pad",
+                "hinted": false,
+                "latencyMs": 4172,
+                "representation": "symbols",
+                "sessionId": "c002-d41",
+                "tier": "abstract",
+                "ts": 1797188706952
+              }
+            ],
+            "theta": 1.47937362711
+          }
+        },
+        "successOffset": 0.45576463563,
+        "thetaG": 1.67729799428
+      },
+      "statuses": {
+        "ADD.01": "mastered",
+        "ADD.03": "practiced",
+        "CNT.01": "mastered",
+        "CNT.02": "mastered",
+        "CNT.03": "mastered",
+        "CNT.04": "mastered",
+        "CNT.05": "mastered",
+        "CNT.06": "mastered",
+        "CNT.07": "mastered",
+        "CPS.01": "mastered",
+        "CPS.02": "mastered",
+        "CPS.03": "practiced",
+        "SUB.01": "mastered",
+        "SUB.02": "mastered",
+        "SUB.03": "mastered"
+      }
+    }
+  ],
+  "time": {
+    "byChild": {
+      "019a0000-0000-7000-8000-00000000c001": {
+        "endings": {
+          "abandoned": 0,
+          "natural": 27,
+          "other": 1
+        },
+        "minutesByDay": {
+          "2026-11-03": 8.3,
+          "2026-11-04": 6.5,
+          "2026-11-05": 9.5,
+          "2026-11-08": 7,
+          "2026-11-09": 6.2,
+          "2026-11-11": 9.9,
+          "2026-11-12": 6.9,
+          "2026-11-13": 9.9,
+          "2026-11-15": 11.8,
+          "2026-11-16": 7.4,
+          "2026-11-18": 6.3,
+          "2026-11-19": 10.7,
+          "2026-11-20": 6.5,
+          "2026-11-22": 10.2,
+          "2026-11-23": 6.7,
+          "2026-11-24": 6.4,
+          "2026-11-25": 6.5,
+          "2026-11-26": 6.7,
+          "2026-11-27": 9.8,
+          "2026-11-28": 9.5,
+          "2026-11-30": 8.1,
+          "2026-12-02": 9.5,
+          "2026-12-03": 9.6,
+          "2026-12-06": 9.4,
+          "2026-12-07": 10.6,
+          "2026-12-11": 9.8,
+          "2026-12-13": 10.4,
+          "2026-12-14": 9.4
+        },
+        "sessionsStarted": {
+          "child": 20,
+          "parent": 8
+        }
+      },
+      "019a0000-0000-7000-8000-00000000c002": {
+        "endings": {
+          "abandoned": 6,
+          "natural": 23,
+          "other": 3
+        },
+        "minutesByDay": {
+          "2026-11-03": 8.3,
+          "2026-11-07": 7.8,
+          "2026-11-08": 6.3,
+          "2026-11-09": 10.1,
+          "2026-11-10": 7.3,
+          "2026-11-11": 9.5,
+          "2026-11-12": 9.9,
+          "2026-11-13": 10.8,
+          "2026-11-14": 11.7,
+          "2026-11-15": 11.2,
+          "2026-11-18": 9.8,
+          "2026-11-19": 7.1,
+          "2026-11-20": 9,
+          "2026-11-21": 5.6,
+          "2026-11-23": 8.2,
+          "2026-11-24": 6.1,
+          "2026-11-25": 10.2,
+          "2026-11-26": 6,
+          "2026-11-27": 6.8,
+          "2026-11-28": 7.7,
+          "2026-11-29": 7.4,
+          "2026-12-01": 10.5,
+          "2026-12-04": 10.4,
+          "2026-12-05": 6.6,
+          "2026-12-06": 9.5,
+          "2026-12-08": 6.8,
+          "2026-12-09": 10.7,
+          "2026-12-10": 10.1,
+          "2026-12-11": 10,
+          "2026-12-12": 7.4,
+          "2026-12-13": 6.9,
+          "2026-12-14": 6.2
+        },
+        "sessionsStarted": {
+          "child": 25,
+          "parent": 7
+        }
+      }
+    }
+  }
+}

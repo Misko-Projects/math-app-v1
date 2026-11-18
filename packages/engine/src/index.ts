@@ -11,7 +11,7 @@ export {
 } from './content/binding';
 export { constraintHolds, ExprError } from './content/expr';
 export { render } from './content/render';
-export { compareEvents, isEvent, sortEvents } from './folds/order';
+export * from './folds';
 export type { FormatModel, FormatState } from './formats';
 export { formatFeatures, formatModel, formatModels, UnsupportedOpError } from './formats';
 export {
@@ -51,3 +51,4 @@ export {
 } from './misconceptions';
 export { DAY_MS, type EngineParams, PARAMS } from './params';
 export { createRng, fnv1a32, type Rng } from './rng';
+export * from './signals';

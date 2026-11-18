@@ -2,7 +2,7 @@
 
 The pure TypeScript engine (02 §2): no DOM, React, Dexie or Node built-ins, no `Math.random` and no `Date.now`. Randomness comes from the seeded RNG, and time is passed in as a parameter. `pnpm lint` (`scripts/check-boundaries.mjs`) enforces this. It runs in the web app, the API and tests.
 
-E01 (#7) delivers the item core: the RNG, the generator registry, item generation and difficulty targeting, response checking, misconception matching, hint ladders, the state models and widget schemas of the 11 fixture formats, and the hooks `tools/content-check` uses. E02 (#10) adds the learner model and its fold in `src/learner`; the session planner (E03) lands in `src/planner`.
+E01 (#7) delivers the item core: the RNG, the generator registry, item generation and difficulty targeting, response checking, misconception matching, hint ladders, the state models and widget schemas of the 11 fixture formats, and the hooks `tools/content-check` uses. E02 (#10) adds the learner model and its fold in `src/learner`, the projections in `src/folds` and the dashboard signals in `src/signals`; the session planner (E03) lands in `src/planner`.
 
 Source of truth: `docs/spec/02-architecture.md` §5.2 and §7, and `docs/spec/03-curriculum.md` §5–§7 and §9.
 
@@ -52,7 +52,10 @@ formatModel(item.widget.format);      // { configSchema, initialState, apply, to
 | `buildSkillGraph(input)` | The 02 §5.8 `SkillGraph` from `skills.json`, `templates.json`, `graph.json` and `template-stats.json`. |
 | `compressReviews`, `reviewContext` | 04 §4 review compression and transfer probes, for the planner. |
 | `PARAMS`, `DAY_MS` | Every 04 parameter, in `src/params.ts`. |
-| `sortEvents`, `compareEvents`, `isEvent` | Event ordering shared by every fold. |
+| `sortEvents`, `compareEvents`, `isEvent`, `sameId` | Event ordering (each id once) and case-insensitive ids, shared by every fold. |
+| `foldIsland`, `foldInventory`, `foldCollection`, `foldGoals` (+ `initX`, `applyXEvent`) | The 02 §4.3 projections, with the readings recorded there (tombstones purge, buildings never un-built, inventory clamped at 0). |
+| `evaluateUnlock(rule, facts)`, `islandFacts(state)` | 02 §5.8 `UnlockRule` evaluation; learner facts are optional. |
+| `skillMap`, `misconceptionAlerts`, `timeSignals`, `accuracyBand`, `mathDensity` | 04 §7 dashboard signals. |
 | `@number-island/engine/testing`: `runTemplateProperties`, `difficultyStats`, `propertyN` | The 03 §9.4 property test and the 03 §9.2 statistics, for Vitest and `tools/content-check`. Node and tests only: this entry uses fast-check and is never imported by the app. |
 
 ## Layout
@@ -69,9 +72,11 @@ src/check/state/<id>.ts          state checkers
 src/misconceptions/rules/<id>.ts misconception rules; index.ts is the registry
 src/params.ts                    every 04 parameter
 src/learner/                     elo-fire-v1 model, the learner fold, SkillGraph builder, review helpers
-src/folds/                       event ordering shared by the projections
+src/folds/                       island, inventory, collection, goals folds; event ordering; unlock rules
+src/signals/                     04 §7 dashboard signals
 src/testing/                     the property test and statistics (the /testing entry)
 test/                            Node tests over the fixture content, compiled in memory (no dist needed)
+test/golden/                     the recorded 2,000+ event replay log and its snapshot (UPDATE_GOLDEN=1 re-records)
 ```
 
 ## Adding a generator (03 §10.2)
