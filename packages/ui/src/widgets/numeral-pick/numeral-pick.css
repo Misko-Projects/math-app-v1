@@ -1,0 +1,56 @@
+/* numeral-pick widget (U03): picture on top, choices and "check" below. */
+
+.ni-npick {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 36px;
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 1180px;
+  padding: 16px 24px;
+}
+.ni-npick__answer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 28px 48px;
+}
+.ni-npick__options {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: calc(var(--target-gap) * 2);
+  margin: 0;
+  padding: 8px;
+  border: 0;
+  min-width: 0;
+}
+.ni-npick__options[data-layout="grid"] {
+  display: grid;
+  grid-template-columns: repeat(3, auto);
+}
+.ni-npick__slot {
+  position: relative;
+  display: inline-flex;
+}
+.ni-npick__options .ni-pick {
+  min-width: calc(var(--target-min) * 1.4);
+  min-height: calc(var(--target-min) * 1.4);
+}
+.ni-npick__options .ni-pick[data-variant="word"] {
+  min-width: calc(var(--target-min) * 2);
+  padding: 10px 24px;
+}
+.ni-npick__options .ni-pick[data-variant="picture"] .ni-stimulus {
+  padding: 8px;
+  border: 0;
+  box-shadow: none;
+  background: transparent;
+}
+.ni-npick__hand {
+  left: calc(50% - 10px);
+  bottom: -50px;
+}

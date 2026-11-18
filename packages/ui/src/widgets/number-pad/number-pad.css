@@ -1,0 +1,77 @@
+/* number-pad widget (U03). Landscape: the question on the left, the pad and "check" on the right. */
+
+.ni-npw {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 32px 48px;
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 1180px;
+  padding: 16px 24px;
+}
+.ni-npw__ask {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 28px;
+  min-width: 0;
+}
+.ni-npw__stimulus {
+  max-width: 100%;
+  border-radius: var(--radius-card);
+}
+.ni-npw__expr {
+  padding: 18px 28px;
+  border: 3px solid var(--color-sand-deep);
+  border-radius: var(--radius-card);
+  background: var(--color-paper);
+  box-shadow: var(--shadow-soft);
+}
+.ni-npw__answers {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 20px;
+}
+.ni-npw__slot {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+.ni-npw__unit {
+  color: var(--color-ink);
+  font-family: var(--font-display);
+  font-size: var(--text-numeral);
+  font-weight: 800;
+  padding-top: 0.1em;
+}
+.ni-npw__blank {
+  min-height: var(--target-big);
+}
+.ni-npw__blank[data-empty="true"] {
+  background: var(--color-sky-light);
+}
+.ni-npw__blank:disabled {
+  cursor: default;
+}
+.ni-npw__hand {
+  left: calc(50% - 8px);
+  bottom: -46px;
+}
+.ni-npw__controls {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 24px;
+}
+
+/* Portrait or narrow: stack the pad under the question. */
+@media (max-width: 900px), (orientation: portrait) {
+  .ni-npw {
+    grid-template-columns: minmax(0, 1fr);
+    justify-items: center;
+  }
+}
