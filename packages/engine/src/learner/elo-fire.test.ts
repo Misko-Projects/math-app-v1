@@ -197,17 +197,40 @@ describe('§2.4 rolling success controller', () => {
     ]);
 
   it.each<[string, number, (i: number) => boolean, number, number]>([
-    ['20 of 20 correct (> 0.92) → +0.2, fresh window', 0, () => true, 0.2, 0],
-    ['19 of 20 (0.95) → +0.2', 0, (i) => i !== 3, 0.2, 0],
-    ['18 of 20 (0.90) → unchanged, window slides', 0, (i) => i % 10 !== 0, 0, 20],
+    ['20 of 20 correct (> 0.92) → +0.2', 0, () => true, 0.2, 20],
+    ['19 of 20 (0.95) → +0.2', 0, (i) => i !== 3, 0.2, 20],
+    ['18 of 20 (0.90) → unchanged', 0, (i) => i % 10 !== 0, 0, 20],
     ['15 of 20 (0.75) → unchanged', 0, (i) => i % 4 !== 0, 0, 20],
-    ['14 of 20 (0.70 < 0.75) → −0.3', 0, (i) => i % 10 > 2, -0.3, 0],
-    ['cap +1.0', 0.9, () => true, 1, 0],
-    ['floor −1.5', -1.4, () => false, -1.5, 0],
+    ['14 of 20 (0.70 < 0.75) → −0.3', 0, (i) => i % 10 > 2, -0.3, 20],
+    ['cap +1.0', 0.9, () => true, 1, 20],
+    ['floor −1.5', -1.4, () => false, -1.5, 20],
   ])('%s', (_n, startOffset, correct, offset, windowLen) => {
     const s = run(model, { ...s0, successOffset: startOffset }, items(20, correct));
     expect(s.successOffset).toBeCloseTo(offset, 12);
     expect(s.recentFirstTry).toHaveLength(windowLen);
+  });
+
+  it('the window keeps rolling after an adjustment; the next one waits for 20 new items', () => {
+    const s20 = run(
+      model,
+      s0,
+      items(20, () => true),
+    );
+    const s21 = model.apply(s20, attempt(A, 3, { correct: false }), T0 + 20);
+    expect(s21.recentFirstTry).toEqual([...Array(19).fill(true), false]);
+    expect(s21.successOffset).toBeCloseTo(0.2, 12);
+    const s39 = run(
+      model,
+      s20,
+      items(19, () => true),
+    );
+    expect(s39.successOffset).toBeCloseTo(0.2, 12);
+    const s40 = run(
+      model,
+      s20,
+      items(20, () => true),
+    );
+    expect(s40.successOffset).toBeCloseTo(0.4, 12);
   });
 
   it('19 items are not enough to adjust', () => {
@@ -384,8 +407,17 @@ describe('§3 practiced rule', () => {
 
 describe('§3 test-out', () => {
   type Row = [string, string, Partial<AttemptPayload>[], boolean, boolean?];
+  // A is offered a test-out through its placement posterior (≥ 0.6); B and N through P(ref) ≥ 0.75
+  // with the transferred offset (A practiced at θ = 3 → 0.5 · 3 = 1.5, σ(1.5) = 0.82).
+  const offered = (skill: string) => {
+    const base = skill === A ? s0 : withSkills(s0, { [A]: practiced() });
+    return skill === A
+      ? { ...base, placement: { ...base.placement, prior: { p: { [A]: 0.65 }, assumed: [] } } }
+      : base;
+  };
   it.each<Row>([
     ['3 clean abstract items → practiced track', A, [{}, {}, {}], true],
+    ['offered through P(ref) ≥ 0.75', B, [{}, {}, {}], true],
     ['a slow item fails it', A, [{}, { latencyMs: 16_001 }, {}], false],
     ['a hinted item fails it', A, [{}, { hintsUsed: 1 }, {}], false],
     ['a wrong item fails it', A, [{}, {}, { correct: false }], false],
@@ -398,10 +430,9 @@ describe('§3 test-out', () => {
     ['a lesson attempt first means no test-out', A, [{ context: 'lesson' }, {}, {}, {}], false],
     ['K: 20,000 ms is not slow', A, [{ latencyMs: 20_000 }, {}, {}], true, true],
     ['lesson mode none: no test-out', N, [{}, {}, {}], false],
-    ['locked skill: no test-out', B, [{}, {}, {}], false],
   ])('%s', (_name, skill, overs, expected, isK = false) => {
     const m = mk(isK);
-    const start = skill === N ? withSkills(s0, { [A]: practiced() }) : s0;
+    const start = offered(skill);
     const s = run(
       m,
       start,
@@ -409,6 +440,38 @@ describe('§3 test-out', () => {
     );
     expect(s.skills[skill]?.practicedAt !== null).toBe(expected);
     if (expected) expect(m.status(s, skill, T0 + 10)).toBe('practiced');
+  });
+
+  it.each<[string, () => LearnerState, string]>([
+    ['not offered: no prior and P(ref) = 0.50', () => s0, A],
+    [
+      'not offered: posterior below 0.6',
+      () => ({ ...s0, placement: { ...s0.placement, prior: { p: { [A]: 0.55 }, assumed: [] } } }),
+      A,
+    ],
+    ['not offered: locked skill', () => s0, B],
+  ])('%s', (_name, start, skill) => {
+    const s = run(model, start(), [
+      [attempt(skill, 3), T0],
+      [attempt(skill, 3), T0 + 1],
+      [attempt(skill, 3), T0 + 2],
+    ]);
+    expect(s.skills[skill]?.practicedAt).toBeNull();
+  });
+
+  it('a choice-only compiled pool can pass', () => {
+    const g = syntheticGraph();
+    const sk = g.skills[A] as (typeof g.skills)[string];
+    sk.lesson = { ...sk.lesson, testOut: { items: 3, minCorrect: 3, templateIds: [`${A}.t3`] } };
+    const m = createEloFireModel(g, { childId: 'c', isK: false });
+    const init = m.init(g, { p: { [A]: 0.7 }, assumed: [] });
+    const choice = { response: { kind: 'choice' as const, id: 'a' } };
+    const s = run(m, init, [
+      [attempt(A, 3, choice), T0],
+      [attempt(A, 3, choice), T0 + 1],
+      [attempt(A, 3, choice), T0 + 2],
+    ]);
+    expect(s.skills[A]?.practicedAt).toBe(T0 + 2);
   });
 
   it('uses the compiled testOut pool and minCorrect when present', () => {
@@ -419,7 +482,7 @@ describe('§3 test-out', () => {
       testOut: { items: 3, minCorrect: 2, templateIds: [`${A}.t2`, `${A}.t3`] },
     };
     const m = createEloFireModel(g, { childId: 'c', isK: false });
-    const s = run(m, m.init(g, null), [
+    const s = run(m, m.init(g, { p: { [A]: 0.7 }, assumed: [] }), [
       [attempt(A, 2), T0],
       [attempt(A, 3, { correct: false }), T0 + 1],
       [attempt(A, 3), T0 + 2],
@@ -855,5 +918,124 @@ describe('§4 review compression and transfer probes', () => {
     expect(Array.from({ length: 200 }, () => reviewContext('practiced', rng))).not.toContain(
       'transfer-probe',
     );
+  });
+});
+
+describe('review round 1 regressions (PR #51)', () => {
+  it('the failure that demotes a skill does not promote it again on the same attempt', () => {
+    const start = withSkills(s0, { [A]: practiced({ memory: memory(8, day(0)), theta: 4 }) });
+    const practice = (n: number, sessionId: string, ts: number): [AttemptPayload, number] => [
+      attempt(A, n, { sessionId }),
+      ts,
+    ];
+    const s = run(model, start, [
+      [attempt(A, 3, { context: 'review', correct: false }), day(8)],
+      practice(2, 's2', day(8.1)),
+      practice(3, 's2', day(8.2)),
+      practice(2, 's3', day(8.3)),
+      practice(3, 's3', day(8.4)),
+      practice(4, 's3', day(8.5)),
+      [attempt(A, 3, { context: 'review', correct: false }), day(9)],
+    ]);
+    expect(s.skills[A]?.practicedAt).toBeNull();
+    expect(s.skills[A]?.memory).toBeNull();
+    expect(model.status(s, A, day(9))).toBe('learning');
+  });
+
+  it('fluency reads the last 10 correct responses, beyond the 10-attempt evidence window', () => {
+    const start = withSkills(s0, { [A]: practiced(), [F]: practiced() });
+    const slow = (i: number): [AttemptPayload, number] => [
+      attempt(F, 3, { latencyMs: 5_000 }),
+      T0 + i,
+    ];
+    const fast = (i: number): [AttemptPayload, number] => [
+      attempt(F, 3, { latencyMs: 1_000 }),
+      T0 + i,
+    ];
+    const wrong = (i: number): [AttemptPayload, number] => [
+      attempt(F, 3, { correct: false }),
+      T0 + i,
+    ];
+    // Last 10 correct: 6 slow + 4 fast → median 5,000 > 3,000. The evidence window alone
+    // (4 wrong, 2 slow, 4 fast) would have a median of 1,000 over its 6 correct entries.
+    const steps = [slow(0), slow(1), slow(2), slow(3), slow(4), slow(5)];
+    steps.push(wrong(6), wrong(7), wrong(8), wrong(9));
+    steps.push(fast(10), fast(11), fast(12), fast(13));
+    const s = run(model, start, steps);
+    expect(s.skills[F]?.fluentAt).toBeNull();
+    // One more fast answer: 5 slow + 5 fast → median 3,000 ≤ 3,000.
+    const s2 = run(model, s, [fast(14)]);
+    expect(s2.skills[F]?.fluentAt).toBe(T0 + 14);
+  });
+
+  it('early reviews never push the qualifying passes out of reviewsPassed', () => {
+    const times = [1, 2, 2.5, 3, 3.5, 4, 4.5, 5, 5.5, 6, 7].map(day);
+    const s = run(
+      model,
+      withSkills(s0, { [A]: practiced() }),
+      times.map((ts): [AttemptPayload, number] => [attempt(A, 3, { context: 'review' }), ts]),
+    );
+    expect(s.skills[A]?.masteredAt).toBe(day(7));
+    expect(s.skills[A]?.memory?.reviewsPassed.length).toBeLessThanOrEqual(10);
+  });
+
+  it('a never-rated skill follows the latest placement prior', () => {
+    const completed = (placementId: string, p: number) => ({
+      placementId,
+      strand: null,
+      posterior: { [A]: p },
+      assumed: [A],
+      items: 6,
+      reason: 'converged' as const,
+    });
+    const s1 = model.applyPlacement(s0, completed('p1', 0.85), day(0));
+    const s2 = model.applyPlacement(s1, completed('p2', 0.95), day(1));
+    expect(model.predict(s2, A, 0)).toBeCloseTo(0.95, 12);
+    const s3 = model.apply(s2, attempt(A, 3), day(2));
+    expect(s3.skills[A]?.theta).toBeCloseTo(logit(0.95) + 0.8 * (1 - 0.95), 12);
+  });
+
+  it('a mastered override restarts an expired review clock', () => {
+    const start = withSkills(s0, {
+      [A]: practiced({ memory: memory(1, day(-10), { reps: 3 }) }),
+    });
+    expect(model.status(start, A, day(0))).toBe('needs-review');
+    const s = model.applyOverride(start, { skillId: A, to: 'mastered' }, day(0));
+    expect(model.status(s, A, day(0))).toBe('mastered');
+    expect(s.skills[A]?.memory?.dueTs).toBe(day(1));
+  });
+
+  it('misconception hits expire after 10 attempts of any kind (lessons and retries count)', () => {
+    const s1 = model.apply(s0, attempt(A, 3, { correct: false, misconceptionIds: ['MC.x'] }), T0);
+    const s2 = model.apply(
+      s1,
+      attempt(A, 3, { correct: false, attemptNo: 2, misconceptionIds: ['MC.x'] }),
+      T0 + 1,
+    );
+    expect(s2.skills[A]?.misconceptionHits).toHaveLength(2);
+    const s3 = run(
+      model,
+      s2,
+      Array.from({ length: 9 }, (_, i): [AttemptPayload, number] => [
+        attempt(A, 3, i % 2 === 0 ? { context: 'lesson' } : { attemptNo: 2 }),
+        T0 + 2 + i,
+      ]),
+    );
+    expect(s3.skills[A]?.misconceptionHits).toEqual([{ id: 'MC.x', ts: T0 + 1 }]);
+    const s4 = model.apply(s3, attempt(A, 3, { context: 'lesson' }), T0 + 20);
+    expect(s4.skills[A]?.misconceptionHits).toEqual([]);
+  });
+
+  it('apply never mutates the state it was given', () => {
+    const start = withSkills(s0, {
+      [A]: practiced({ memory: memory(2, day(0)) }),
+      [B]: practiced({ memory: memory(2, day(0)) }),
+      [C]: practiced({ memory: memory(2, day(0)) }),
+    });
+    const frozen = JSON.stringify(start);
+    model.apply(start, attempt(C, 3, { context: 'review' }), day(2));
+    model.apply(start, attempt(C, 3, { context: 'review', correct: false }), day(2));
+    model.applyOverride(start, { skillId: A, to: 'mastered' }, day(3));
+    expect(JSON.stringify(start)).toBe(frozen);
   });
 });

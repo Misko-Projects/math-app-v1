@@ -152,20 +152,62 @@ describe('foldSkillStates properties (fixture graph)', () => {
     expect(events.some((e) => e.childId === CHILD_2)).toBe(true);
   });
 
-  it('a child.deleted tombstone for the child resets its learner state', () => {
-    const rng = createRng(5);
-    const events = Array.from({ length: 30 }, (_, i) =>
+  it('a child.deleted tombstone empties the projection permanently, in any id casing', () => {
+    fc.assert(
+      fc.property(
+        logArb,
+        fc.integer({ min: 0, max: 40 * 6 }),
+        fc.boolean(),
+        (events, at, upper) => {
+          const tomb = {
+            ...(events[0] ?? randomLearnerEvent(graph, createRng(1), 1, T0)),
+            id: '019a0000-0000-7000-8000-ffffffffffff',
+            childId: null,
+            // Anywhere in the log: events of the child after it must stay ignored.
+            ts: T0 + at * 4 * 3_600_000,
+            type: 'child.deleted',
+            payload: { childId: upper ? CHILD_1.toUpperCase() : CHILD_1 },
+          } as AnyEventEnvelope;
+          const model = learnerModelFor(graph, opts);
+          const deleted = { ...model.init(graph, null), _deleted: true };
+          expect(foldLearnerState([...events, tomb], graph, opts)).toEqual(deleted);
+          let state = model.init(graph, null);
+          for (const e of sortEvents([...events, tomb])) state = applyLearnerEvent(model, state, e);
+          expect(state).toEqual(deleted);
+        },
+      ),
+      { numRuns: 60 },
+    );
+  });
+
+  it('events of the child are matched case-insensitively', () => {
+    const rng = createRng(9);
+    const events = Array.from({ length: 40 }, (_, i) =>
       randomLearnerEvent(graph, rng, i, T0 + i * 60_000),
     );
-    const tomb: AnyEventEnvelope = {
-      ...(events[0] as AnyEventEnvelope),
-      id: '019a0000-0000-7000-8000-ffffffffffff',
-      childId: null,
-      ts: T0 + 10 * 86_400_000,
-      type: 'child.deleted',
-      payload: { childId: CHILD_1 },
-    } as AnyEventEnvelope;
-    const model = learnerModelFor(graph, opts);
-    expect(foldLearnerState([...events, tomb], graph, opts)).toEqual(model.init(graph, null));
+    const upper = events.map((e) =>
+      e.childId === CHILD_1 ? { ...e, childId: CHILD_1.toUpperCase() } : e,
+    );
+    expect(foldLearnerState(upper, graph, opts)).toEqual(foldLearnerState(events, graph, opts));
+  });
+
+  it('a server-clamped copy of an event (same id, other ts, clientTs) is folded once', () => {
+    fc.assert(
+      fc.property(logArb, fc.nat(), (events, pick) => {
+        const attempts = events.filter((e) => e.type === 'attempt' && e.childId === CHILD_1);
+        if (attempts.length === 0) return;
+        const original = attempts[pick % attempts.length] as AnyEventEnvelope;
+        const clamped = { ...original, ts: original.ts + 30 * 86_400_000, clientTs: original.ts };
+        const withBoth = [...events, clamped];
+        const expected = foldLearnerState(
+          events.map((e) => (e.id === original.id ? clamped : e)),
+          graph,
+          opts,
+        );
+        expect(foldLearnerState(withBoth, graph, opts)).toEqual(expected);
+        expect(foldLearnerState([...withBoth].reverse(), graph, opts)).toEqual(expected);
+      }),
+      { numRuns: 60 },
+    );
   });
 });

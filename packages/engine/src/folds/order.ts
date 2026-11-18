@@ -11,11 +11,32 @@ export function compareEvents(
   return a.id < b.id ? -1 : a.id > b.id ? 1 : 0;
 }
 
-/** A sorted copy, with duplicate ids (the same event delivered twice) kept once. */
+/**
+ * A sorted copy with each event id kept once. Copies of one event can differ in `ts` when the
+ * server clamped it (08 §4: the clamped copy keeps the original time in `clientTs`); the copy
+ * with `clientTs` wins, then the earliest `ts` (then the smaller JSON), so the choice does not
+ * depend on input order.
+ */
 export function sortEvents<E extends AnyEventEnvelope>(events: readonly E[]): E[] {
-  const sorted = [...events].sort(compareEvents);
-  return sorted.filter((e, i) => i === 0 || (sorted[i - 1] as E).id !== e.id);
+  const byId = new Map<string, E>();
+  for (const e of events) {
+    const prev = byId.get(e.id);
+    if (!prev || preferred(e, prev)) byId.set(e.id, e);
+  }
+  return [...byId.values()].sort(compareEvents);
 }
+
+function preferred(a: AnyEventEnvelope, b: AnyEventEnvelope): boolean {
+  const ac = a.clientTs !== undefined;
+  const bc = b.clientTs !== undefined;
+  if (ac !== bc) return ac;
+  if (a.ts !== b.ts) return a.ts < b.ts;
+  return JSON.stringify(a) < JSON.stringify(b);
+}
+
+/** Ids are compared case-insensitively (08 §4: the UUID grammar accepts either case). */
+export const sameId = (a: string | null, b: string | null): boolean =>
+  a !== null && b !== null && a.toLowerCase() === b.toLowerCase();
 
 /** Narrows an envelope of any type (known or opaque) to a known event type. */
 export function isEvent<T extends EventType>(

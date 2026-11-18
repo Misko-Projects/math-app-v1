@@ -10,9 +10,9 @@ import type {
   SkillId,
   SkillState,
 } from '@number-island/shared';
-import { isEvent, sortEvents } from '../folds/order';
+import { isEvent, sameId, sortEvents } from '../folds/order';
 import type { EngineParams } from '../params';
-import { createEloFireModel, type EloFireModel } from './elo-fire';
+import { createEloFireModel, type EloFireModel, type EngineLearnerState } from './elo-fire';
 
 export interface FoldLearnerOptions {
   /** The child whose events are folded (events of other children are ignored). */
@@ -31,10 +31,15 @@ export function applyLearnerEvent(
   state: LearnerState,
   e: AnyEventEnvelope,
 ): LearnerState {
+  // A tombstone is permanent (08 §4): the child's projection is empty from then on, whatever
+  // the timestamps of the child's other events.
+  if ((state as EngineLearnerState)._deleted) return state;
   if (isEvent(e, 'child.deleted')) {
-    return e.payload.childId === state.childId ? model.init(model.graph, null) : state;
+    if (!sameId(e.payload.childId, state.childId)) return state;
+    const empty: EngineLearnerState = { ...model.init(model.graph, null), _deleted: true };
+    return empty;
   }
-  if (e.childId !== state.childId) return state;
+  if (!sameId(e.childId, state.childId)) return state;
   if (isEvent(e, 'attempt')) return model.apply(state, e.payload, e.ts);
   if (isEvent(e, 'placement.completed')) return model.applyPlacement(state, e.payload, e.ts);
   if (isEvent(e, 'placement.probe')) return model.applyPlacementProbe(state, e.payload);
@@ -85,7 +90,9 @@ export function learnerModelFor(graph: SkillGraph, opts: FoldLearnerOptions): El
 }
 
 function soleChild(events: readonly AnyEventEnvelope[]): ChildId | null {
-  const ids = new Set(events.map((e) => e.childId).filter((c): c is ChildId => c !== null));
+  const ids = new Set(
+    events.map((e) => e.childId?.toLowerCase()).filter((c): c is ChildId => c != null),
+  );
   if (ids.size === 0) return null;
   if (ids.size > 1) {
     throw new Error(`foldSkillStates needs opts.childId when the events hold ${ids.size} children`);

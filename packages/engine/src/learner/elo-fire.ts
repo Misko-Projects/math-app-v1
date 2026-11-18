@@ -28,10 +28,22 @@ export const ELO_FIRE_V1 = 'elo-fire-v1';
 
 /**
  * Private engine bookkeeping on a skill state (02 §5.8 allows `_`-prefixed private fields).
- * `_testOut` counts the first evidence attempts of a never-attempted skill while a test-out
- * (04 §3) is still possible; it is null once it is decided.
+ * - `_testOut` counts the first attempts of a never-attempted skill while a test-out (04 §3) is
+ *   still possible; it is null once it is decided.
+ * - `_correctLatencies`: latencies of the last 10 correct evidence first attempts (fluency).
+ * - `_attemptTs`: timestamps of the last 10 non-placement attempts (misconception window).
  */
-export type EngineSkillState = SkillState & { _testOut?: { seen: number; clean: number } | null };
+export type EngineSkillState = SkillState & {
+  _testOut?: { seen: number; clean: number } | null;
+  _correctLatencies?: number[];
+  _attemptTs?: number[];
+};
+
+/**
+ * Private learner bookkeeping: `_sinceAdjust` counts first attempts since the last controller
+ * adjustment (04 §2.4); `_deleted` marks a child whose tombstone was folded (08 §4: permanent).
+ */
+export type EngineLearnerState = LearnerState & { _sinceAdjust?: number; _deleted?: true };
 
 export interface LearnerOptions {
   childId: ChildId;
@@ -117,9 +129,12 @@ export function createEloFireModel(graph: SkillGraph, opts: LearnerOptions): Elo
     return (known.reduce((sum, st) => sum + st.theta, 0) / known.length) * P.rating.transferFactor;
   };
 
+  /** A skill has its own offset once rated (or after a parent reset, which keeps it). */
+  const rated = (st: SkillState): boolean => st.n > 0 || st.override === 'reset';
+
   const skillOffset = (state: LearnerState, s: SkillId): number => {
     const st = state.skills[s];
-    if (st) return st.theta;
+    if (st && rated(st)) return st.theta;
     return priorOffset(state, s) ?? transferOffset(state, s);
   };
 
@@ -143,6 +158,8 @@ export function createEloFireModel(graph: SkillGraph, opts: LearnerOptions): Elo
     misconceptionHits: [...st.misconceptionHits],
     memory: st.memory ? { ...st.memory, reviewsPassed: [...st.memory.reviewsPassed] } : null,
     ...(st._testOut ? { _testOut: { ...st._testOut } } : {}),
+    ...(st._correctLatencies ? { _correctLatencies: [...st._correctLatencies] } : {}),
+    ...(st._attemptTs ? { _attemptTs: [...st._attemptTs] } : {}),
   });
 
   const newMemory = (ts: number, intervalDays: number): NonNullable<SkillState['memory']> => ({
@@ -194,7 +211,8 @@ export function createEloFireModel(graph: SkillGraph, opts: LearnerOptions): Elo
   const meetsFluent = (s: SkillId, st: SkillState): boolean => {
     const skill = def(s);
     if (skill?.kind !== 'fact-fluency' || !skill.fluency || st.practicedAt === null) return false;
-    const latencies = st.recent.filter((r) => r.correct).map((r) => r.latencyMs);
+    // The last 10 correct evidence responses (04 §3), kept beyond `recent`'s window.
+    const latencies = (st as EngineSkillState)._correctLatencies ?? [];
     if (latencies.length < P.mastery.fluencyMinSamples) return false;
     const limit = skill.fluency.medianLatencyMs * (opts.isK ? P.rating.kLatencyFactor : 1);
     return median(latencies) <= limit;
@@ -255,7 +273,7 @@ export function createEloFireModel(graph: SkillGraph, opts: LearnerOptions): Elo
     mem.lastReviewTs = ts;
     mem.dueTs = ts + Math.round(mem.intervalDays * DAY_MS);
     mem.reps += 1;
-    mem.reviewsPassed = [...mem.reviewsPassed, ts].slice(-P.mastery.recentSize);
+    mem.reviewsPassed = [...mem.reviewsPassed, ts];
     mem.consecutiveFails = 0;
     st.atRiskDueTs = null;
     st.assumed = false; // verified (04 §5 week-one verification)
@@ -280,11 +298,13 @@ export function createEloFireModel(graph: SkillGraph, opts: LearnerOptions): Elo
     s: SkillId,
     st: EngineSkillState,
     ts: number,
-  ): void => {
+  ): boolean => {
+    let demoted = false;
     if (st.assumed) {
       // Week-one verification (04 §5): an assumed skill that fails is demoted with every
       // assumed descendant; the graph then decides ready / locked.
       demote(st);
+      demoted = true;
       for (const d of allDescendants(graph, s)) {
         const prev = skills[d];
         if (!prev?.assumed) continue;
@@ -301,7 +321,10 @@ export function createEloFireModel(graph: SkillGraph, opts: LearnerOptions): Elo
       mem.lastReviewTs = ts;
       mem.dueTs = ts + Math.round(mem.intervalDays * DAY_MS);
       mem.consecutiveFails += 1;
-      if (mem.consecutiveFails >= P.mastery.demoteAfterFails) demote(st);
+      if (mem.consecutiveFails >= P.mastery.demoteAfterFails) {
+        demote(st);
+        demoted = true;
+      }
     }
     // Failure propagation (04 §4): hard prerequisites are due within a day.
     const atRisk = ts + P.memory.atRiskDays * DAY_MS;
@@ -312,6 +335,7 @@ export function createEloFireModel(graph: SkillGraph, opts: LearnerOptions): Elo
       sp.atRiskDueTs = Math.min(sp.atRiskDueTs ?? Number.POSITIVE_INFINITY, atRisk);
       skills[p] = sp;
     }
+    return demoted;
   };
 
   // ---------- LearnerModel ----------
@@ -341,128 +365,150 @@ export function createEloFireModel(graph: SkillGraph, opts: LearnerOptions): Elo
     const skills: Record<SkillId, EngineSkillState> = { ...state.skills };
     const prev = skills[s];
     const st = prev ? cloneSkill(prev) : fresh(state, s);
+    // A never-rated skill starts from the current prior or transfer offset (04 §2.1).
+    if (!rated(st)) st.theta = skillOffset(state, s);
     skills[s] = st;
-    const next: LearnerState = { ...state, skills };
+    const next: EngineLearnerState = { ...state, skills };
 
+    // Misconception hits within the last 10 attempts on the skill (04 §6.4, SkillState).
+    st._attemptTs = [...(st._attemptTs ?? []), ts].slice(-P.mastery.recentSize);
     if (a.misconceptionIds.length > 0) {
       st.misconceptionHits = [
         ...st.misconceptionHits,
         ...a.misconceptionIds.map((id) => ({ id, ts })),
       ];
     }
-
-    if (a.attemptNo === 1) {
-      // §2.3 rating update (first attempt only).
-      const isSkip = a.response.kind === 'skip';
-      const isChoice = a.response.kind === 'choice';
-      const isLesson = a.context === 'lesson';
-      const slow = a.correct && isSlow(a);
-      const score = isSkip ? 0 : Math.min(1, Math.max(0, a.partialCredit));
-      let w = 1;
-      if (slow) w = P.rating.slowWeight;
-      if (isSkip) w = P.rating.skipWeight;
-      if (isLesson) w *= P.rating.lessonWeight;
-      if (isChoice) w *= P.rating.choiceWeight;
-      const p = sigmoid(state.thetaG + st.theta - difficultyOf(a, graph));
-      const e = score - p;
-      const wasUntouched = st.n === 0 && st.recent.length === 0;
-      st.theta += (P.rating.ks / (1 + P.rating.ksDecay * st.n)) * w * e;
-      next.thetaG = state.thetaG + (P.rating.kg / (1 + P.rating.kgDecay * state.nTotal)) * w * e;
-      st.n += 1;
-      next.nTotal = state.nTotal + 1;
-
-      // §2.4 rolling success controller: first-try accuracy over the last 20 items. Each
-      // adjustment starts a fresh window, so the next one rests on 20 new items (E02 reading).
-      if (!isLesson) {
-        const window = [...state.recentFirstTry, a.correct].slice(-P.controller.window);
-        next.recentFirstTry = window;
-        if (window.length === P.controller.window) {
-          const acc = window.filter(Boolean).length / window.length;
-          if (acc > P.controller.high) {
-            next.successOffset = Math.min(
-              P.controller.cap,
-              state.successOffset + P.controller.stepUp,
-            );
-            next.recentFirstTry = [];
-          } else if (acc < P.controller.low) {
-            next.successOffset = Math.max(
-              P.controller.floor,
-              state.successOffset + P.controller.stepDown,
-            );
-            next.recentFirstTry = [];
-          }
-        }
-      }
-
-      const evidence = EVIDENCE_CONTEXTS.has(a.context) && !isChoice;
-      if (evidence) {
-        st.recent = [
-          ...st.recent,
-          {
-            ts,
-            sessionId: a.sessionId,
-            correct: a.correct,
-            hinted: a.hintsUsed > 0,
-            format: a.format,
-            tier: a.tier,
-            representation: a.representation,
-            latencyMs: a.latencyMs,
-            context: a.context,
-          },
-        ].slice(-P.mastery.recentSize);
-      }
-
-      // §3 test-out: the first `testOut.items` items of a ready skill, from its test-out pool.
-      const skill = def(s);
-      if (wasUntouched) {
-        st._testOut =
-          evidence && skill && skill.lesson.mode !== 'none' && prereqsMet(state, s)
-            ? { seen: 0, clean: 0 }
-            : null;
-      }
-      let testedOut = false;
-      if (st._testOut && skill) {
-        if (!evidence || !testOutPool(s).has(a.templateId)) {
-          st._testOut = null;
-        } else {
-          const clean = a.correct && a.hintsUsed === 0 && !slow;
-          st._testOut = { seen: st._testOut.seen + 1, clean: st._testOut.clean + (clean ? 1 : 0) };
-          if (st._testOut.seen >= skill.lesson.testOut.items) {
-            testedOut = st._testOut.clean >= skill.lesson.testOut.minCorrect;
-            st._testOut = null;
-          }
-        }
-      }
-
-      // §4 explicit review result.
-      if (REVIEW_CONTEXTS.has(a.context) && onTrack(st)) {
-        if (!st.memory) {
-          st.memory = newMemory(
-            ts,
-            st.assumed ? P.memory.assumedIntervalDays : P.memory.initialIntervalDays,
-          );
-        }
-        if (a.correct) reviewSuccess(skills, s, st, a, ts);
-        else reviewFailure(skills, s, st, ts);
-      }
-
-      // §3 ladder transitions, recorded when first met.
-      if (evidence || testedOut) {
-        if (st.practicedAt === null && !st.assumed && (testedOut || meetsPracticed(next, s, st))) {
-          st.practicedAt = ts;
-          st.memory = newMemory(ts, P.memory.initialIntervalDays);
-        }
-        if (st.fluentAt === null && meetsFluent(s, st)) st.fluentAt = ts;
-        if (st.masteredAt === null && meetsMastered(s, st)) st.masteredAt = ts;
-      }
-    }
-
-    // Misconception hits within the last 10 attempts: those since the oldest kept evidence attempt.
-    if (st.recent.length >= P.mastery.recentSize) {
-      const cutoff = (st.recent[0] as RatedAttempt).ts;
+    if (st._attemptTs.length >= P.mastery.recentSize) {
+      const cutoff = st._attemptTs[0] as number;
       st.misconceptionHits = st.misconceptionHits.filter((h) => h.ts >= cutoff);
     }
-    st.misconceptionHits = st.misconceptionHits.slice(-P.mastery.recentSize);
+
+    if (a.attemptNo !== 1) return next;
+
+    // §2.3 rating update (first attempt only).
+    const isSkip = a.response.kind === 'skip';
+    const isChoice = a.response.kind === 'choice';
+    const isLesson = a.context === 'lesson';
+    const slow = a.correct && isSlow(a);
+    const score = isSkip ? 0 : Math.min(1, Math.max(0, a.partialCredit));
+    let w = 1;
+    if (slow) w = P.rating.slowWeight;
+    if (isSkip) w = P.rating.skipWeight;
+    if (isLesson) w *= P.rating.lessonWeight;
+    if (isChoice) w *= P.rating.choiceWeight;
+    const pBefore = sigmoid(state.thetaG + st.theta - difficultyOf(a, graph));
+    const pRefBefore = sigmoid(state.thetaG + st.theta);
+    const e = score - pBefore;
+    const wasUntouched = st.n === 0 && st.recent.length === 0;
+    st.theta += (P.rating.ks / (1 + P.rating.ksDecay * st.n)) * w * e;
+    next.thetaG = state.thetaG + (P.rating.kg / (1 + P.rating.kgDecay * state.nTotal)) * w * e;
+    st.n += 1;
+    next.nTotal = state.nTotal + 1;
+
+    // §2.4 rolling success controller: first-try accuracy over the last 20 items. The window
+    // always rolls; after an adjustment the next one waits for 20 new items (E02 reading).
+    if (!isLesson) {
+      const window = [...state.recentFirstTry, a.correct].slice(-P.controller.window);
+      const since = ((state as EngineLearnerState)._sinceAdjust ?? P.controller.window - 1) + 1;
+      next.recentFirstTry = window;
+      next._sinceAdjust = Math.min(since, P.controller.window);
+      if (window.length === P.controller.window && since >= P.controller.window) {
+        const acc = window.filter(Boolean).length / window.length;
+        if (acc > P.controller.high) {
+          next.successOffset = Math.min(
+            P.controller.cap,
+            state.successOffset + P.controller.stepUp,
+          );
+          next._sinceAdjust = 0;
+        } else if (acc < P.controller.low) {
+          next.successOffset = Math.max(
+            P.controller.floor,
+            state.successOffset + P.controller.stepDown,
+          );
+          next._sinceAdjust = 0;
+        }
+      }
+    }
+
+    const evidence = EVIDENCE_CONTEXTS.has(a.context) && !isChoice;
+    if (evidence) {
+      st.recent = [
+        ...st.recent,
+        {
+          ts,
+          sessionId: a.sessionId,
+          correct: a.correct,
+          hinted: a.hintsUsed > 0,
+          format: a.format,
+          tier: a.tier,
+          representation: a.representation,
+          latencyMs: a.latencyMs,
+          context: a.context,
+        },
+      ].slice(-P.mastery.recentSize);
+      if (a.correct) {
+        st._correctLatencies = [...(st._correctLatencies ?? []), a.latencyMs].slice(
+          -P.mastery.recentSize,
+        );
+      }
+    }
+
+    // §3 test-out (03 §6.5): offered on a ready skill whose placement posterior is ≥ 0.6 or whose
+    // P(ref) with the transferred offset is ≥ 0.75; its first `testOut.items` items come from
+    // the test-out pool (which may hold choice templates).
+    const skill = def(s);
+    const inPool = EVIDENCE_CONTEXTS.has(a.context) && testOutPool(s).has(a.templateId);
+    if (wasUntouched) {
+      const offered =
+        (state.placement.prior?.p[s] ?? 0) >= P.mastery.testOutMinPrior ||
+        pRefBefore >= P.mastery.testOutMinPRef;
+      st._testOut =
+        inPool && offered && skill && skill.lesson.mode !== 'none' && prereqsMet(state, s)
+          ? { seen: 0, clean: 0 }
+          : null;
+    }
+    let testedOut = false;
+    if (st._testOut && skill) {
+      if (!inPool) {
+        st._testOut = null;
+      } else {
+        const clean = a.correct && a.hintsUsed === 0 && !slow;
+        st._testOut = { seen: st._testOut.seen + 1, clean: st._testOut.clean + (clean ? 1 : 0) };
+        if (st._testOut.seen >= skill.lesson.testOut.items) {
+          testedOut = st._testOut.clean >= skill.lesson.testOut.minCorrect;
+          st._testOut = null;
+        }
+      }
+    }
+
+    // §4 explicit review result.
+    let demoted = false;
+    if (REVIEW_CONTEXTS.has(a.context) && onTrack(st)) {
+      if (!st.memory) {
+        st.memory = newMemory(
+          ts,
+          st.assumed ? P.memory.assumedIntervalDays : P.memory.initialIntervalDays,
+        );
+      }
+      if (a.correct) reviewSuccess(skills, s, st, a, ts);
+      else demoted = reviewFailure(skills, s, st, ts);
+    }
+
+    // §3 ladder transitions, recorded when first met. The failure that demotes a skill never
+    // promotes it again on the same attempt.
+    if ((evidence || testedOut) && !demoted) {
+      if (st.practicedAt === null && !st.assumed && (testedOut || meetsPracticed(next, s, st))) {
+        st.practicedAt = ts;
+        st.memory = newMemory(ts, P.memory.initialIntervalDays);
+      }
+      if (st.fluentAt === null && meetsFluent(s, st)) st.fluentAt = ts;
+      if (st.masteredAt === null && meetsMastered(s, st)) st.masteredAt = ts;
+    }
+    // Passed reviews are kept until the skill is mastered (early reviews must not push the
+    // qualifying ones out), then only the last 10.
+    if (st.memory && st.masteredAt !== null) {
+      st.memory.reviewsPassed = st.memory.reviewsPassed.slice(-P.mastery.recentSize);
+    }
     return next;
   };
 
@@ -576,8 +622,7 @@ export function createEloFireModel(graph: SkillGraph, opts: LearnerOptions): Elo
       st.practicedAt ??= ts;
       if (def(s)?.kind === 'fact-fluency') st.fluentAt ??= ts;
       st.masteredAt = ts;
-      st.memory ??= newMemory(ts, P.memory.initialIntervalDays);
-      st.memory.consecutiveFails = 0;
+      st.memory = newMemory(ts, P.memory.initialIntervalDays);
       st.atRiskDueTs = null;
     } else {
       // Reset to ready: the evidence and ladder restart; the rating offset is kept.

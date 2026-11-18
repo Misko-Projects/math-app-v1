@@ -58,6 +58,9 @@ export interface EngineParams {
     secondReviewDays: number;
     /** Demotion after this many consecutive failed reviews. */
     demoteAfterFails: number;
+    /** 03 §6.5: a test-out is offered at placement posterior ≥ testOutMinPrior or P(ref) ≥ testOutMinPRef. */
+    testOutMinPrior: number;
+    testOutMinPRef: number;
   };
   /** §4 FIRe-lite memory. */
   memory: {
@@ -119,6 +122,8 @@ export const PARAMS: EngineParams = {
     firstReviewDays: 1,
     secondReviewDays: 6,
     demoteAfterFails: 2,
+    testOutMinPrior: 0.6,
+    testOutMinPRef: 0.75,
   },
   memory: {
     initialIntervalDays: 1,
