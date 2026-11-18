@@ -33,6 +33,8 @@
     "narration:audition": "pnpm --filter @number-island/narration audition",
     "ai:smoke": "pnpm --filter @number-island/api ai:smoke",
     "secrets:link": "node scripts/secrets-link.mjs",
+    "db:reset": "pnpm --filter @number-island/api db:reset",
+    "db:seed": "pnpm --filter @number-island/api db:seed",
     "preview:full": "pnpm --filter @number-island/web build && pnpm --filter @number-island/api preview",
     "bundle-size": "node scripts/bundle-size.mjs",
     "verify": "pnpm content:build && pnpm typecheck && pnpm lint && pnpm content:validate && pnpm test && pnpm build"

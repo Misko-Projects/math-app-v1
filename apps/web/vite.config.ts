@@ -73,7 +73,10 @@ export default defineConfig(({ mode }) => {
         deny: [...SECRET_FILE_DENY],
       },
       proxy: {
-        '/api': { target: 'http://127.0.0.1:8787', changeOrigin: false },
+        // `xfwd` adds X-Forwarded-For/-Proto, which the API trusts only from loopback: per-client
+        // login rate limits for tablets on `pnpm dev:lan`, and `Secure` cookies under
+        // `pnpm dev:https` (08 §2, apps/api/src/lib/http.ts).
+        '/api': { target: 'http://127.0.0.1:8787', changeOrigin: false, xfwd: true },
       },
     },
     preview: { port: 4173, strictPort: true },
