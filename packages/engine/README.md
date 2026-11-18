@@ -51,6 +51,7 @@ formatModel(item.widget.format);      // { configSchema, initialState, apply, to
 | `foldSkillStates`, `foldLearnerState`, `applyLearnerEvent` | The learner projection (02 §4.3): order-independent (sorted by `ts`, then `id`, duplicate ids once), and incremental. |
 | `buildSkillGraph(input)` | The 02 §5.8 `SkillGraph` from `skills.json`, `templates.json`, `graph.json` and `template-stats.json`. |
 | `compressReviews`, `reviewContext` | 04 §4 review compression and transfer probes, for the planner. |
+| `startPlacement`, `nextProbe`, `recordProbe`, `beginPlacementSession`, `completePlacement`, `resumePlacement`, `placementBudget` | The 04 §5 placement runner over a plain, serialisable `PlacementRun`: grade priors, probe selection, BKT update and graph propagation, stop rules, item budgets per mini-session, per-strand mini-placements, the `placement.probe` / `placement.completed` payloads, and resume from the probes. Readings are in 04 §7b. |
 | `PARAMS`, `DAY_MS` | Every 04 parameter, in `src/params.ts`. |
 | `sortEvents`, `compareEvents`, `isEvent`, `sameId` | Event ordering (each id once) and case-insensitive ids, shared by every fold. |
 | `foldIsland`, `foldInventory`, `foldCollection`, `foldGoals` (+ `initX`, `applyXEvent`) | The 02 §4.3 projections, with the readings recorded there (tombstones purge, buildings never un-built, inventory clamped at 0). |
@@ -74,6 +75,7 @@ src/params.ts                    every 04 parameter
 src/learner/                     elo-fire-v1 model, the learner fold, SkillGraph builder, review helpers
 src/folds/                       island, inventory, collection, goals folds; event ordering; unlock rules
 src/signals/                     04 §7 dashboard signals
+src/placement/                   04 §5 placement runner
 src/testing/                     the property test and statistics (the /testing entry)
 test/                            Node tests over the fixture content, compiled in memory (no dist needed)
 test/golden/                     the recorded 2,000+ event replay log and its snapshot (UPDATE_GOLDEN=1 re-records)
@@ -114,3 +116,4 @@ Create `src/formats/<format>.ts` exporting a `FormatModel`: `configSchema` (the 
 
 - `pnpm exec vitest run --project engine`: unit tests under `src/` and the fixture property test under `test/`. Seeds come from `CONTENT_PROPERTY_N`: 50 locally, 100 on PR CI, 500 nightly.
 - `pnpm content:validate` also runs the property test on every template, through `tools/content-check`.
+- `pnpm test:sim`: the 04 §8 simulated-learner harness in `test/sim/` (`vitest.sim.config.ts`; CI runs it in `verify`, and nightly). Synthetic children with a hidden, downward-closed mastery set answer real generated items. The harness compiles the current content sources, so it moves from the fixture graph to the full graph as the curriculum lands. It prints a metrics table and asserts only the 04 §8 thresholds, never exact numbers.

@@ -83,6 +83,50 @@ export interface EngineParams {
     /** Share of review tasks for mastered skills that are transfer probes. */
     transferProbeRate: number;
   };
+  /** §5 placement (E03). */
+  placement: {
+    /** Priors by grade label relative to the child's grade g (advanced: g + 1). */
+    priorBelow: number; // ≤ g − 1
+    priorAt: number; // = g
+    priorAbove: number; // = g + 1
+    priorFar: number; // ≥ g + 2
+    /** Probe candidates have p in this range. */
+    candidateRange: [number, number];
+    /** Converged when no skill on or near the frontier has p in this range. */
+    uncertainRange: [number, number];
+    /** U(v) counts uncertain ancestors and descendants within this many hops, at this weight each. */
+    uncertaintyHops: number;
+    uncertaintyWeight: number;
+    gatewayBoost: number;
+    /** Direct prerequisites of a wrongly answered probe get this added to their score. */
+    downwardBoost: number;
+    /** BKT guess (numeric entry) and slip. A k-choice item uses 1/k as its guess. */
+    guess: number;
+    slip: number;
+    /** A slow-correct posterior is blended with the prior at this weight; a skip is an incorrect answer at this weight. */
+    slowBlend: number;
+    skipWeight: number;
+    /** Propagation factors per hop (index 0 = 1 hop). */
+    lambdaUp: number[];
+    lambdaDown: number[];
+    /** A skill is probed at most this many times in one placement. */
+    maxProbesPerSkill: number;
+    /** Item budgets: the K column and the G2 (G1+) column. */
+    budgetK: { perSession: number; sessions: number };
+    budgetG2: { perSession: number; sessions: number };
+    /** Incremental (per strand) mini-placement: 4–6 items. */
+    miniMin: number;
+    miniMax: number;
+    /** This many consecutive wrongs or skips plus a frustration signal end the mini-session. */
+    frustrationMisses: number;
+    /** p ≥ assumedAt → assumed; p ≤ unknownAt → not known. */
+    assumedAt: number;
+    unknownAt: number;
+    /** Probes further apart than this start a new mini-session when a placement resumes (E03 reading). */
+    resumeGapMs: number;
+    /** p of a skill already on the practiced track (practiced or assumed); it is never probed (E03 reading). */
+    onTrackP: number;
+  };
 }
 
 export const PARAMS: EngineParams = {
@@ -139,5 +183,33 @@ export const PARAMS: EngineParams = {
     atRiskDays: 1,
     compressionMinWeight: 0.5,
     transferProbeRate: 0.1,
+  },
+  placement: {
+    priorBelow: 0.85,
+    priorAt: 0.5,
+    priorAbove: 0.25,
+    priorFar: 0.1,
+    candidateRange: [0.2, 0.85],
+    uncertainRange: [0.25, 0.8],
+    uncertaintyHops: 3,
+    uncertaintyWeight: 0.15,
+    gatewayBoost: 1.3,
+    downwardBoost: 0.5,
+    guess: 0.05,
+    slip: 0.1,
+    slowBlend: 0.5,
+    skipWeight: 0.5,
+    lambdaUp: [0.8, 0.6, 0.4],
+    lambdaDown: [0.5, 0.35, 0.2],
+    maxProbesPerSkill: 2,
+    budgetK: { perSession: 12, sessions: 4 },
+    budgetG2: { perSession: 20, sessions: 3 },
+    miniMin: 4,
+    miniMax: 6,
+    frustrationMisses: 2,
+    assumedAt: 0.85,
+    unknownAt: 0.3,
+    resumeGapMs: 30 * 60_000,
+    onTrackP: 0.95,
   },
 };

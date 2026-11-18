@@ -214,6 +214,21 @@ Points §2–§5 leave open, as `elo-fire-v1` implements them (all parameters in
 - **Private fields:** the model keeps some bookkeeping in `_`-prefixed fields (02 §5.8). Schema validation strips them, and the model then degrades conservatively: a test-out in progress ends, fluency samples accumulate again, hits with unknown attempt numbers expire (stale evidence must not trigger a remediation; rebuild from the events to keep them), and the controller may adjust once more.
 - **Misconception hits:** hits from every non-placement attempt on the skill (lessons and retries included), keeping those from its 10 most recent such attempts. The window counts attempts in fold order, so equal timestamps don't matter.
 
+## 7b. Readings fixed by E03 (2026-11-18)
+
+Points §2.4, §5 and §6 leave open, as the placement runner, the planner and `adaptNext` implement them (parameters in `engine/src/params.ts`, sections `placement`, `planner`, `targets` and `adapt`).
+
+**Placement (§5).** The runner is pure: `startPlacement`, `nextProbe`, `recordProbe`, `beginPlacementSession`, `completePlacement` and `resumePlacement` pass a plain, JSON-serialisable run.
+
+- **Scope:** an initial placement (`strand: null`) covers every skill, and a mini-placement covers the skills of its strand. A skill already on the practiced track (practiced or assumed) is fixed at p = 0.95, is never probed and is left out of the output. Skills outside the scope are never probed or output. They act as ancestors at 0.95 when on track, else at their earlier prior, else at the grade prior. A mini-placement starts a scope skill from its earlier prior when one exists.
+- **Probe score:** `U(v)` counts open scope skills (in scope, not on track) with p in [0.2, 0.85] among the ancestors and descendants within 3 hops. "Mostly answerable" multiplies the score by 0.5 + 0.5 × the share of direct prerequisites with p ≥ 0.5 (1 for a root). The +0.5 downward priority is added to the score of each open direct prerequisite of a wrongly answered probe, and it is cleared when that prerequisite is probed. A skill is probed at most twice. Ties go to the skill id.
+- **Probe item:** the first non-empty pool of (a) constructed-response abstract or pictorial templates, (b) any abstract or pictorial template, (c) any template, ordered abstract first and then by id. A repeat probe takes the next template. Seeds derive from the placement id and the probe number. The `TaskRunner` generates the item at d = 0.
+- **Update:** the guess is 1/k when the runner reports a k-choice item, else 0.05. "Slow" applies to correct answers only, as in §2.3. A skip propagates like a wrong answer and is logged as `correct: false, skipped: true`.
+- **Stop:** the estimated frontier is the scope skills with p < 0.85 whose prerequisites all have p ≥ 0.5. "Near" adds their direct prerequisites and dependents. After each probe the rules run in order: converged, frustration (2 consecutive misses within the mini-session and a frustration signal on the latest answer), then the mini-session budget. Convergence is also checked at start, so a placement can end after 0 items (for example, a G2 child on a K-only graph). The item budgets are 12 × ≤ 4 mini-sessions for K and 20 × ≤ 3 otherwise: G1 uses the G1+ column, because a placement budget is not a per-request item count. The placement ends as `budget` when its last mini-session is used up, and as `frustration` when frustration ends its last one. A mini-placement is one mini-session of 4–6 items, and it cannot converge before 4 items while a candidate remains.
+- **Mini-sessions:** a probe more than 30 minutes after the previous one starts a new mini-session, both live and on resume. That makes a resumed run identical to the live one. `beginPlacementSession` starts the next mini-session explicitly, for example on a later day after a frustration end.
+- **Resume:** replay sets each probed skill's p from the event's `posterior`, because a probe event carries no tier, choice count or frustration signal. Probes of other placement ids are ignored.
+- **Output:** the posterior is rounded to 4 decimals, and `assumed` lists scope skills whose rounded posterior is ≥ 0.85.
+
 ## 8. Testing requirements (engine)
 
 - Unit tests for every formula above (table-driven).
