@@ -1,0 +1,115 @@
+# C01 fixture templates (03 §9.5) on the E01 reference generator bond.parts.
+strand: CPS
+templates:
+  - id: CPS.01.t1
+    skillId: CPS.01
+    format: make-set
+    tier: concrete
+    generator: bond.parts
+    params: { whole: { int: [2, 5] }, unknown: split }
+    difficulty: { base: -0.6 }
+    narration: { prompt: p.bond.split, hints: [h.bond.use-counters] }
+
+  - id: CPS.01.t2
+    skillId: CPS.01
+    format: make-set
+    tier: concrete
+    representation: fingers
+    generator: bond.parts
+    params: { whole: { int: [2, 5] }, unknown: split }
+    difficulty: { base: -0.6 }
+    narration: { prompt: p.bond.split-fingers, hints: [h.bond.two-hands] }
+
+  - id: CPS.01.t3
+    skillId: CPS.01
+    format: tenframe-fill
+    tier: concrete
+    generator: bond.parts
+    params: { whole: { int: [2, 5] }, part: { int: [0, 5] }, unknown: part }
+    constraints: ["part <= whole"]
+    difficulty: { base: -0.6 }
+    narration: { prompt: p.bond.missing-part, hints: [h.bond.use-counters, h.count.show-frame] }
+
+  - id: CPS.01.t4
+    skillId: CPS.01
+    format: number-bond
+    tier: pictorial
+    generator: bond.parts
+    params: { whole: { int: [2, 5] }, part: { int: [0, 5] }, unknown: part }
+    constraints: ["part <= whole"]
+    difficulty: { base: -0.3 }
+    narration: { prompt: p.bond.missing-part, hints: [h.bond.use-counters] }
+
+  - id: CPS.02.t1
+    skillId: CPS.02
+    format: tenframe-fill
+    tier: concrete
+    generator: bond.parts
+    params: { whole: { int: [6, 10] }, unknown: split }
+    difficulty: { base: -0.6 }
+    narration: { prompt: p.bond.split, hints: [h.bond.use-counters, h.count.show-frame] }
+
+  - id: CPS.02.t2
+    skillId: CPS.02
+    format: rekenrek
+    tier: concrete
+    generator: bond.parts
+    params: { whole: { int: [6, 10] }, unknown: split }
+    difficulty: { base: -0.6 }
+    narration: { prompt: p.bond.split, hints: [h.bond.slide-beads] }
+
+  - id: CPS.02.t3
+    skillId: CPS.02
+    format: number-bond
+    tier: pictorial
+    generator: bond.parts
+    params: { whole: { int: [6, 10] }, part: { int: [1, 9] }, unknown: part }
+    constraints: ["part < whole"]
+    difficulty: { base: -0.3 }
+    narration: { prompt: p.bond.missing-part, hints: [h.bond.use-counters] }
+
+  - id: CPS.02.t4
+    skillId: CPS.02
+    format: number-pad
+    tier: abstract
+    generator: bond.parts
+    params: { whole: { int: [6, 10] }, part: { int: [1, 9] }, unknown: part }
+    constraints: ["part < whole"]
+    difficulty: { base: 0.0 }
+    narration: { prompt: p.bond.missing-part, hints: [h.bond.use-counters] }
+
+  - id: CPS.03.t1
+    skillId: CPS.03
+    format: tenframe-fill
+    tier: concrete
+    generator: bond.parts
+    params: { whole: 10, part: { int: [1, 9] }, unknown: part }
+    difficulty: { base: -0.6 }
+    narration: { prompt: p.bond.make-ten, hints: [h.bond.partners, h.count.show-frame] }
+
+  - id: CPS.03.t2
+    skillId: CPS.03
+    format: rekenrek
+    tier: concrete
+    generator: bond.parts
+    params: { whole: 10, part: { int: [1, 9] }, unknown: part }
+    difficulty: { base: -0.6 }
+    narration: { prompt: p.bond.make-ten, hints: [h.bond.slide-beads, h.bond.partners] }
+
+  - id: CPS.03.t3
+    skillId: CPS.03
+    format: number-bond
+    tier: pictorial
+    generator: bond.parts
+    params: { whole: 10, part: { int: [0, 10] }, unknown: part }
+    difficulty: { base: -0.3 }
+    narration: { prompt: p.bond.make-ten, hints: [h.bond.partners] }
+
+  - id: CPS.03.t4
+    skillId: CPS.03
+    format: number-pad
+    tier: abstract
+    generator: bond.parts
+    params: { whole: 10, part: { int: [0, 10] }, unknown: part }
+    difficulty: { base: 0.0 }
+    narration: { prompt: tp.CPS.03.t4.prompt, hints: [h.bond.partners] }

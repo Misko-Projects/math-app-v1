@@ -1,0 +1,28 @@
+# Authored lessons (03 §4.5, §6). Skills without an entry get an auto lesson (03 §6.4).
+strand: CNT
+lessons:
+  - skillId: CNT.03
+    mode: authored
+    templateId: CNT.03.t1
+    worked:
+      - params: { n: 5, mode: how-many, layout: line }
+        steps:
+          - actor: demo
+            say: ls.CNT.03.w1.s1
+            action: { op: tap, args: { index: 0 } }
+          - actor: demo
+            say: ls.CNT.03.w1.s2
+            vars: { n: 5 }
+            action: { op: count-aloud, args: { upTo: 5 } }
+          - actor: demo
+            say: ls.CNT.03.w1.s3
+            vars: { n: 5 }
+            action: { op: say-total }
+    faded:
+      - params: { n: 6, mode: how-many, layout: line }
+        childSteps: 1
+      - params: { n: 8, mode: how-many, layout: scatter }
+        childSteps: 2
+    scaffolded: { count: 2, hintStart: 2 }
+    testOut: { items: 3, minCorrect: 3 }
+    outro: ls.CNT.03.outro

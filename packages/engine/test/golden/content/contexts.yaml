@@ -1,0 +1,64 @@
+# Story contexts (03 §4.6): the closed set of island scenes, nouns and verbs story problems draw
+# from. Every noun needs noun.<id>.one and noun.<id>.many clips (narration/numbers.yaml, V26).
+# situations name a SituationType or its family (add-to, take-from, put-together, compare, …).
+contexts:
+  - id: sawmill-planks
+    nouns: [plank]
+    place: sawmill
+    verbs: { addTo: stack, takeFrom: haul-away }
+    situations: [add-to, take-from, put-together, compare, measure]
+    maxQuantity: 1000
+  - id: brickworks-bricks
+    nouns: [brick, pallet]
+    place: brickworks
+    verbs: { addTo: stack, takeFrom: ship }
+    situations: [put-together, equal-groups, array]
+    maxQuantity: 1000
+  - id: bakery-bread
+    nouns: [loaf, bun, pie]
+    place: bakery
+    verbs: { addTo: bake, takeFrom: sell }
+    situations: [put-together, take-from, equal-groups]
+    maxQuantity: 100
+  - id: dock-fish
+    nouns: [fish, crab]
+    place: dock
+    verbs: { addTo: catch, takeFrom: sell }
+    situations: [add-to, take-from, put-together, compare, equal-groups]
+    maxQuantity: 100
+  - id: beach-shells
+    nouns: [shell, pebble]
+    place: beach
+    verbs: { addTo: find, takeFrom: give-away }
+    situations: [put-together, add-to, take-from, compare]
+    maxQuantity: 100
+  - id: ferry-riders
+    nouns: [rider, pebbling]
+    place: ferry
+    verbs: { addTo: board, takeFrom: get-off }
+    situations: [add-to, take-from, time/elapsed]
+    maxQuantity: 100
+  - id: garden-rows
+    nouns: [seedling, flower]
+    place: garden
+    verbs: { addTo: plant, takeFrom: pick }
+    situations: [array, area, equal-groups, add-to]
+    maxQuantity: 100
+  - id: market-stall
+    nouns: [coin, apple, kite]
+    place: market
+    verbs: { addTo: buy, takeFrom: sell }
+    situations: [money, compare, add-to, take-from]
+    maxQuantity: 100
+  - id: lighthouse-lanterns
+    nouns: [lantern, firefly]
+    place: lighthouse
+    verbs: { addTo: light, takeFrom: fly-away }
+    situations: [add-to, take-from, put-together, compare]
+    maxQuantity: 20
+  - id: weigh-station
+    nouns: [sack, crate, jug]
+    place: weigh-station
+    verbs: { addTo: load, takeFrom: unload }
+    situations: [measure, compare, put-together]
+    maxQuantity: 100

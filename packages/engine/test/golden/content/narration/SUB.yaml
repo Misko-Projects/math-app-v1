@@ -1,0 +1,21 @@
+# SUB narration (03 §8): skill intros, template prompts and lesson lines owned by the strand.
+sk.SUB.01.intro:
+  text: "Look fast! Can you see how many without counting?"
+sk.SUB.02.intro:
+  text: "Dice dots and fingers make shapes you can see at once."
+sk.SUB.03.intro:
+  text: "A full row is five. Then look for the more!"
+
+tp.SUB.03.t4.prompt:
+  text: "Five and {more} more. How many is that?"
+
+ls.SUB.03.w1.s1:
+  text: "Five fills the top row."
+  voice: pip
+ls.SUB.03.w1.s2:
+  text: "{more} more go in the next row."
+  voice: pip
+ls.SUB.03.w1.s3:
+  text: "Five and {more} more make {n}!"
+  voice: pip
+  style: excited

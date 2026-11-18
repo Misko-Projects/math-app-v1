@@ -1,5 +1,6 @@
-# C01 fixture misconception (03 §9.5, library row in 03 §7.2). K01 adds the fixture skills' full
-# lists (CNT.19 is outside the fixture set) and the rest of the counting area.
+# Counting misconceptions (03 §7.2). Skills list the catalog skills authored so far: CNT.19 joins
+# MC.off-by-one-counting, CNT.17 joins MC.decade-transition, and the CPS and PV skills join
+# MC.teen-reversal (with remediation PV.11, CPS.04) when those skills land.
 area: counting
 misconceptions:
   - id: MC.off-by-one-counting
@@ -27,4 +28,95 @@ misconceptions:
         match: true
       - params: { n: 7, mode: how-many }
         response: { kind: number, value: 7 }
+        match: false
+
+  - id: MC.recount-from-one
+    name: Counts the whole group again when asked how many
+    detect: { kind: process, rule: recountFromOne }
+    appliesTo: { generators: [count.set] }
+    skills: [CNT.03, CNT.06]
+    remediation: [CNT.03]
+    feedback: fb.mc.recount-from-one
+    priority: 50
+    parentTip: >-
+      Right after your child counts a group, ask "So how many?" and cheer when they answer with the
+      last number they said instead of counting again.
+    examples:
+      - params: { n: 4, mode: how-many }
+        response: { kind: number, value: 4 }
+        meta:
+          latencyMs: 9000
+          trace:
+            - { t: tap, target: obj-0, ms: 0 }
+            - { t: tap, target: obj-1, ms: 500 }
+            - { t: tap, target: obj-2, ms: 1000 }
+            - { t: tap, target: obj-3, ms: 1500 }
+            - { t: tap, target: obj-0, ms: 3000 }
+            - { t: tap, target: obj-1, ms: 3500 }
+            - { t: tap, target: obj-2, ms: 4000 }
+            - { t: tap, target: obj-3, ms: 4500 }
+        match: true
+      - params: { n: 4, mode: how-many }
+        response: { kind: number, value: 4 }
+        meta:
+          latencyMs: 3000
+          trace:
+            - { t: tap, target: obj-0, ms: 0 }
+            - { t: tap, target: obj-1, ms: 500 }
+            - { t: tap, target: obj-2, ms: 1000 }
+            - { t: tap, target: obj-3, ms: 1500 }
+        match: false
+
+  - id: MC.decade-transition
+    name: Keeps the old ten when counting past a decade (29, then 20)
+    detect: { kind: answer, rule: decadeTransition }
+    appliesTo: { generators: [count.sequence] }
+    skills: [CNT.09, CNT.10, CNT.16]
+    remediation: [CNT.09]
+    feedback: fb.mc.decade-transition
+    priority: 50
+    parentTip: >-
+      Count together across 29, 39 and 49, and pause on each new ten to name it before saying the
+      next number.
+    examples:
+      - params: { start: 39, step: 1, dir: 1, length: 1, hide: all-after, cross: any }
+        response: { kind: number, value: 30 }
+        match: true
+      - params: { start: 29, step: 1, dir: 1, length: 1, hide: all-after, cross: any }
+        response: { kind: number, value: 210 }
+        match: true
+      - params: { start: 40, step: 1, dir: -1, length: 1, hide: all-after, cross: any }
+        response: { kind: number, value: 49 }
+        match: true
+      - params: { start: 39, step: 1, dir: 1, length: 1, hide: all-after, cross: any }
+        response: { kind: number, value: 41 }
+        match: false
+      - params: { start: 36, step: 1, dir: 1, length: 1, hide: all-after, cross: any }
+        response: { kind: number, value: 27 }
+        match: false
+
+  - id: MC.teen-reversal
+    name: Swaps the digits of a teen number (13 written as 31)
+    detect: { kind: answer, rule: teenReversal }
+    appliesTo: { generators: [count.set, count.sequence] }
+    skills: [CNT.05, CNT.10]
+    remediation: [CNT.05]
+    feedback: fb.mc.teen-reversal
+    priority: 50
+    parentTip: >-
+      When you write a teen number together, point out that the 1 for the ten goes first, even
+      though we say the ones first in "thirteen".
+    examples:
+      - params: { n: 13, mode: how-many }
+        response: { kind: number, value: 31 }
+        match: true
+      - generator: count.sequence
+        params: { start: 40, step: 1, dir: 1, length: 1, hide: all-after, cross: any }
+        response: { kind: number, value: 14 }
+        match: true
+      - params: { n: 13, mode: how-many }
+        response: { kind: number, value: 14 }
+        match: false
+      - params: { n: 11, mode: how-many }
+        response: { kind: number, value: 11 }
         match: false

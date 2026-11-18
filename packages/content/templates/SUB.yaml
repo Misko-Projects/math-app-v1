@@ -1,13 +1,17 @@
-# C01 fixture templates (03 §9.5) on the E01 reference generator subitize.flash.
+# SUB templates (K01), all on subitize.flash. Bases are tuned from template-stats so each
+# template's median sits near 0. Where a template's numbers barely move (1–4, 1–5), the
+# spread comes from n.upTo4 (size inside the perceptual range), arrangement (scatter vs. a
+# known pattern) and, for groups, group.over3 (03 §5.6).
 strand: SUB
 templates:
+  # ---------- SUB.01: see 1 to 4 at a glance ----------
   - id: SUB.01.t1
     skillId: SUB.01
     format: dot-flash
     tier: pictorial
     generator: subitize.flash
     params: { n: { int: [1, 4] }, arrangement: { choice: [dice, scatter] } }
-    difficulty: { base: -0.3 }
+    difficulty: { base: -0.5 }
     narration: { prompt: p.subitize.how-many, hints: [h.subitize.look-again] }
 
   - id: SUB.01.t2
@@ -30,6 +34,8 @@ templates:
     difficulty: { base: -0.6 }
     narration: { prompt: p.subitize.how-many, hints: [h.subitize.look-again] }
 
+  # ---------- SUB.02: up to 5; dice and finger patterns ----------
+
   - id: SUB.02.t1
     skillId: SUB.02
     format: make-set
@@ -37,7 +43,7 @@ templates:
     representation: fingers
     generator: subitize.flash
     params: { n: { int: [1, 5] }, arrangement: fingers }
-    difficulty: { base: -0.6 }
+    difficulty: { base: -0.9 }
     narration: { prompt: p.count.show-fingers, hints: [h.subitize.five-fingers] }
 
   - id: SUB.02.t2
@@ -49,7 +55,7 @@ templates:
     params: { n: { int: [1, 5] }, arrangement: five-frame }
     difficulty: { base: -0.3 }
     narration:
-      { prompt: p.subitize.how-many, hints: [h.subitize.look-again, h.subitize.look-groups] }
+      { prompt: p.subitize.how-many, hints: [h.subitize.look-again, h.subitize.five-frame] }
 
   - id: SUB.02.t3
     skillId: SUB.02
@@ -59,7 +65,9 @@ templates:
     generator: subitize.flash
     params: { n: { int: [1, 5] }, arrangement: dice }
     difficulty: { base: -0.6 }
-    narration: { prompt: p.subitize.how-many, hints: [h.subitize.look-groups] }
+    narration: { prompt: p.subitize.how-many, hints: [h.subitize.look-again] }
+
+  # ---------- SUB.03: 6–10 as five and some more (gateway) ----------
 
   - id: SUB.03.t1
     skillId: SUB.03
@@ -67,8 +75,10 @@ templates:
     tier: concrete
     generator: subitize.flash
     params: { n: { int: [6, 10] }, arrangement: ten-frame }
-    difficulty: { base: -0.6 }
-    narration: { prompt: p.count.make-n, hints: [h.subitize.five-and, h.count.show-frame] }
+    # Each counter past the full top row is one more to place and check on a single frame, so
+    # size weighs more here than the tenframe-fill default (0.3 per 5).
+    difficulty: { base: -1.3, features: { n.over5: 0.6 } }
+    narration: { prompt: tp.SUB.03.t1.prompt, hints: [h.subitize.five-and, h.count.show-frame] }
 
   - id: SUB.03.t2
     skillId: SUB.03
@@ -77,9 +87,8 @@ templates:
     representation: fingers
     generator: subitize.flash
     params: { n: { int: [6, 10] }, arrangement: fingers }
-    # Tuned from template-stats (E01): 6–10 dots in two groups carry ~1.5 of features.
-    difficulty: { base: -1.5 }
-    narration: { prompt: p.subitize.how-many, hints: [h.subitize.five-and] }
+    difficulty: { base: -1.95 }
+    narration: { prompt: p.subitize.how-many-fingers, hints: [h.subitize.full-hand] }
 
   - id: SUB.03.t3
     skillId: SUB.03
@@ -87,7 +96,7 @@ templates:
     tier: pictorial
     generator: subitize.flash
     params: { n: { int: [6, 10] }, arrangement: { choice: [ten-frame, groups] } }
-    difficulty: { base: -1.5 } # tuned from template-stats (E01)
+    difficulty: { base: -1.95 }
     narration: { prompt: p.subitize.how-many, hints: [h.subitize.look-groups, h.subitize.five-and] }
 
   - id: SUB.03.t4
@@ -97,5 +106,98 @@ templates:
     representation: symbols
     generator: subitize.flash
     params: { n: { int: [6, 10] }, arrangement: ten-frame }
-    difficulty: { base: 0.0 }
-    narration: { prompt: tp.SUB.03.t4.prompt, hints: [h.subitize.five-and] }
+    difficulty: { base: -0.9 }
+    narration: { prompt: tp.SUB.03.t4.prompt, hints: [h.subitize.think-hand, h.subitize.five-and] }
+
+  # Added by K01 after t4 shipped in C01. Template ids are stable (attempts store them), so it takes
+  # the next free number; the resulting V10 tier-order warning is expected (03 §4.3).
+  - id: SUB.03.t5
+    skillId: SUB.03
+    format: dot-flash
+    tier: pictorial
+    representation: five-frame
+    generator: subitize.flash
+    params: { n: { int: [6, 10] }, arrangement: five-frame }
+    difficulty: { base: -1.95 }
+    narration: { prompt: p.subitize.how-many, hints: [h.subitize.look-again, h.subitize.five-and] }
+
+  # ---------- SUB.05: show and read finger patterns to 10 ----------
+
+  - id: SUB.05.t1
+    skillId: SUB.05
+    format: make-set
+    tier: concrete
+    representation: fingers
+    generator: subitize.flash
+    params: { n: { int: [5, 10] }, arrangement: fingers }
+    difficulty: { base: -1.35 }
+    narration:
+      { prompt: p.count.show-fingers, hints: [h.subitize.full-hand-first, h.subitize.five-fingers] }
+
+  - id: SUB.05.t2
+    skillId: SUB.05
+    format: dot-flash
+    tier: pictorial
+    representation: fingers
+    generator: subitize.flash
+    params: { n: { int: [5, 10] }, arrangement: fingers }
+    difficulty: { base: -1.8 }
+    narration:
+      { prompt: p.subitize.how-many-fingers, hints: [h.subitize.look-again, h.subitize.full-hand] }
+
+  - id: SUB.05.t3
+    skillId: SUB.05
+    format: dot-flash
+    tier: pictorial
+    representation: five-frame
+    generator: subitize.flash
+    params: { n: { int: [5, 10] }, arrangement: five-frame }
+    difficulty: { base: -1.8 }
+    narration: { prompt: p.subitize.how-many, hints: [h.subitize.look-again, h.subitize.five-and] }
+
+  # ---------- SUB.06: small groups inside a set (grade 1) ----------
+  # Two groups, each 1–5 so it can be seen at a glance; the first group's size varies (part).
+
+  - id: SUB.06.t1
+    skillId: SUB.06
+    format: number-bond
+    tier: concrete
+    generator: subitize.flash
+    params: { n: { int: [4, 10] }, arrangement: groups, groups: 2, part: { int: [1, 5] } }
+    constraints: ["n - part >= 1", "n - part <= 5"]
+    difficulty: { base: -1.1 }
+    narration:
+      { prompt: tp.SUB.06.t1.prompt, hints: [h.subitize.each-part, h.subitize.parts-together] }
+
+  - id: SUB.06.t2
+    skillId: SUB.06
+    format: dot-flash
+    tier: pictorial
+    representation: objects
+    generator: subitize.flash
+    params:
+      n: { int: [4, 10] }
+      arrangement: groups
+      groups: 2
+      part: { int: [1, 5] }
+      flashMs: 1000
+    constraints: ["n - part >= 1", "n - part <= 5"]
+    difficulty: { base: -1.85 }
+    narration:
+      { prompt: p.subitize.how-many, hints: [h.subitize.look-groups, h.subitize.parts-together] }
+
+  - id: SUB.06.t3
+    skillId: SUB.06
+    format: dot-flash
+    tier: pictorial
+    generator: subitize.flash
+    params:
+      n: { int: [4, 10] }
+      arrangement: groups
+      groups: 2
+      part: { int: [1, 5] }
+      flashMs: 1000
+    constraints: ["n - part >= 1", "n - part <= 5"]
+    difficulty: { base: -1.85 }
+    narration:
+      { prompt: p.subitize.how-many, hints: [h.subitize.look-groups, h.subitize.parts-together] }
