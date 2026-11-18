@@ -3,6 +3,7 @@ import { MIN_TARGET_PX, TARGET_GAP_PX } from '../../tokens/tokens';
 import {
   ARRANGEMENTS,
   type Arrangement,
+  ASK_ARRANGEMENTS,
   arrangedSize,
   type EntryLayout,
   entryGroups,
@@ -180,7 +181,7 @@ export function planBond(input: BondInput, room: Size): BondPlan {
     for (const withMini of [true, false]) {
       for (const entry of group) {
         if (!entry) continue;
-        for (const arrangement of ARRANGEMENTS) {
+        for (const arrangement of ASK_ARRANGEMENTS) {
           for (const dir of ['row', 'column'] as const) {
             const size = arrangedSize(
               arrangement,

@@ -1,6 +1,7 @@
 import type { WidgetConfig } from '@number-island/shared';
 import type { Meta, StoryObj } from '@storybook/react-vite';
 import { expect, fn, userEvent, waitFor, within } from 'storybook/test';
+import { expectOneInvite, settledAll, targetsOf } from '../../test-support/inviteStory';
 import {
   center,
   clearSpies,
@@ -8,25 +9,31 @@ import {
   expectTargetSize,
   pointerDrag,
   spyAudio,
+  waitForSettled,
 } from '../../test-support/storyHelpers';
 import {
+  areaBox,
+  expectFitsArea,
   expectTraceOrdered,
   findWidget,
+  inArea,
   renderWidget,
   traceOf,
 } from '../../test-support/widgetStory';
+import type { AgeMode } from '../../tokens/tokens';
 import { createDemoController, UnsupportedWidgetOpError, type WidgetDemo } from '../demo';
 import type { ConfigFor } from '../types';
 import type { WidgetHostProps } from '../WidgetHost';
 
 /**
- * `rekenrek` (03 §5.5, concrete): tap or drag beads along the wires; keyboard on each row. Answers
- * `{ rows, value? }` (or a number for `read`) through the engine model.
+ * `rekenrek` (03 §5.5, concrete): tap or drag beads along the wires; keyboard on each wire.
+ * Answers `{ rows, value? }` (or a number for `read`) through the engine model. Fixtures mirror
+ * the generated items (CPS.02.t2, CPS.03.t2, ADD.08.t2, SUB.07.t1, ADD.17.t1, CPS.04.t2).
  */
 
 type Config = ConfigFor<'rekenrek'>;
 
-/** CPS.02.t2: show 6 on two rows (a split). */
+/** CPS.02.t2 (K): show 6 on two rows. */
 const show6: Config = {
   format: 'rekenrek',
   rows: 2,
@@ -37,7 +44,7 @@ const show6: Config = {
   thenAsk: null,
 };
 
-/** CPS.03.t2: 4 are over; make ten (one row, fill the top row first). */
+/** CPS.03.t2 (K): 4 are over; make ten (one row, fill the top row first). */
 const makeTen: Config = {
   format: 'rekenrek',
   rows: 1,
@@ -48,12 +55,12 @@ const makeTen: Config = {
   thenAsk: null,
 };
 
-/** 7 + 5 on two rows, then how many in all? (the pad answers up to 20) */
+/** ADD.08.t2 (G1): 7 and 5, make a ten, then how many in all? */
 const add75: Config = {
   format: 'rekenrek',
   rows: 2,
-  preset: [0, 0],
-  mode: 'add',
+  preset: [7, 5],
+  mode: 'make-ten',
   target: 12,
   a: 7,
   b: 5,
@@ -61,14 +68,38 @@ const add75: Config = {
   thenAsk: 'total',
 };
 
-/** Read: how many beads are over? */
-const read7: Config = {
+/** ADD.17.t1 (G1): 7 on the bottom row, add 9 (preset 0, 7), then how many in all? */
+const add79: Config = {
   format: 'rekenrek',
-  rows: 1,
-  preset: [7, 0],
+  rows: 2,
+  preset: [0, 7],
+  mode: 'add',
+  target: 16,
+  a: 7,
+  b: 9,
+  rowRule: 'any',
+  thenAsk: 'total',
+};
+
+/** SUB.07.t1 (G1): how many beads are over? (two rows, 5 and 6) */
+const read11: Config = {
+  format: 'rekenrek',
+  rows: 2,
+  preset: [5, 6],
   mode: 'read',
   rowRule: 'any',
   thenAsk: null,
+};
+
+/** CPS.04.t2 (K): show 14, top row first, then how many? */
+const teen14: Config = {
+  format: 'rekenrek',
+  rows: 2,
+  preset: [0, 0],
+  mode: 'show',
+  target: 14,
+  rowRule: 'fill-top-first',
+  thenAsk: 'total',
 };
 
 /** Two rows with the top-first rule: the widget never blocks a bottom-row move. */
@@ -100,11 +131,12 @@ const pushed = (root: HTMLElement, r: number) =>
     row(root, r).getAttribute('aria-valuenow') ??
       row(root, r).querySelectorAll('[data-pushed]').length,
   );
+const button = (root: HTMLElement, name: string) => within(root).getByRole('button', { name });
 
 /** Beads glide (320 ms): wait before measuring where one is drawn. */
 const settle = () => new Promise((r) => setTimeout(r, 400));
 
-/** A tap (pointer down and up, no movement) on bead `i`, by mouse or touch. */
+/** A tap (pointer down and up, no movement) on a bead, by mouse or touch. */
 async function tapBeadAt(el: HTMLElement, pointerType: 'mouse' | 'touch' = 'mouse') {
   const { x, y } = center(el);
   const init: PointerEventInit = {
@@ -145,7 +177,7 @@ export const ShowSplit: Story = {
     await settle();
     await tapBeadAt(bead(root, 1, 2), 'touch');
     await waitFor(() => expect(pushed(root, 1)).toBe(3));
-    await userEvent.click(within(root).getByRole('button', { name: 'Check' }));
+    await userEvent.click(button(root, 'Check'));
     await expect(args.onResponse).toHaveBeenCalledTimes(1);
     await expect(args.onResponse).toHaveBeenCalledWith({ kind: 'state', value: { rows: [3, 3] } });
     const trace = traceOf(args.onInteract);
@@ -161,7 +193,36 @@ export const ShowSplit: Story = {
   },
 };
 
-/** Make ten (CPS.03.t2), K mode: the row is a ≥ 80 px target; a tap speaks the count. */
+/**
+ * Maths truth: two wires of ten beads, five of colour a then five of colour b (the second group
+ * also carries an ink dot, so it reads without colour); the beads pushed over sit to the LEFT of
+ * the gap, the rest to its right, evenly spaced.
+ */
+export const BeadsTruth: Story = {
+  args: { config: add75 },
+  play: async ({ canvasElement }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    await settle();
+    for (const r of [0, 1]) {
+      const beads = [...row(root, r).querySelectorAll<HTMLElement>('.ni-rk__bead')];
+      await expect(beads).toHaveLength(10);
+      await expect(beads.map((b) => b.dataset.tone).join('')).toBe('aaaaabbbbb');
+      for (const b of beads.slice(5)) {
+        await expect(getComputedStyle(b, '::after').content).not.toBe('none');
+      }
+      const n = pushed(root, r);
+      const xs = beads.map((b) => b.getBoundingClientRect().left);
+      const step = (xs[1] as number) - (xs[0] as number);
+      for (let i = 1; i < 10; i++) {
+        const gap = (xs[i] as number) - (xs[i - 1] as number);
+        // Neighbours on the same side are one bead apart; the gap sits between pushed and not.
+        await expect(Math.abs(gap - (i === n ? step * 5 : step))).toBeLessThan(1.5);
+      }
+    }
+  },
+};
+
+/** Make ten (CPS.03.t2), K mode: the wire is a ≥ 80 px target; a tap speaks the count. */
 export const MakeTenK: Story = {
   globals: { ageMode: 'k' },
   args: { config: makeTen },
@@ -172,12 +233,12 @@ export const MakeTenK: Story = {
     const root = await findWidget(canvasElement, ROOT);
     await expect(root.querySelectorAll('.ni-rk__row')).toHaveLength(1);
     await expectTargetSize(row(root, 0), 'k');
-    await expectTargetSize(within(root).getByRole('button', { name: 'Check' }), 'k');
+    await expectTargetSize(button(root, 'Check'), 'k');
     await expect(pushed(root, 0)).toBe(4);
     await tapBeadAt(bead(root, 0, 9), 'touch');
     await waitFor(() => expect(pushed(root, 0)).toBe(10));
     await expect(audio.sayPhrases).toHaveBeenLastCalledWith([{ number: 10 }]);
-    await userEvent.click(within(root).getByRole('button', { name: 'Check' }));
+    await userEvent.click(button(root, 'Check'));
     await expect(args.onResponse).toHaveBeenCalledWith({ kind: 'state', value: { rows: [10, 0] } });
   },
 };
@@ -203,8 +264,8 @@ export const Keyboard: Story = {
 };
 
 /**
- * 7 + 5 then how many (thenAsk total, up to 20: the pad). Enter before the number does nothing;
- * a double Enter and Enter-then-Check inside 400 ms submit once (06 §4).
+ * 7 and 5, make a ten, then how many (ADD.08.t2): three bottom beads go back, three top beads
+ * over; then 12 on the 0–20 tray. Check twice inside 400 ms submits once (06 §4).
  */
 export const AddThenTotal: Story = {
   args: { config: add75 },
@@ -212,16 +273,12 @@ export const AddThenTotal: Story = {
     const root = await findWidget(canvasElement, ROOT);
     row(root, 0).focus();
     await userEvent.keyboard('{End}');
-    await settle();
-    await tapBeadAt(bead(root, 1, 1));
-    await waitFor(() => expect(pushed(root, 1)).toBe(2));
-    (document.activeElement as HTMLElement | null)?.blur();
-    await userEvent.keyboard('{Enter}');
-    await expect(args.onResponse).not.toHaveBeenCalled();
-    await userEvent.keyboard('12');
-    await expect(within(root).getByRole('button', { name: 'Your answer: 12' })).toBeVisible();
-    await userEvent.keyboard('{Enter}{Enter}');
-    await userEvent.click(within(root).getByRole('button', { name: 'Check' }));
+    row(root, 1).focus();
+    await userEvent.keyboard('{ArrowRight}{ArrowRight}{ArrowRight}');
+    await expect(button(root, 'Check')).toBeDisabled();
+    await userEvent.click(button(root, '12'));
+    await userEvent.click(button(root, 'Check'));
+    await userEvent.click(button(root, 'Check'));
     await expect(args.onResponse).toHaveBeenCalledTimes(1);
     await expect(args.onResponse).toHaveBeenCalledWith({
       kind: 'state',
@@ -230,21 +287,21 @@ export const AddThenTotal: Story = {
   },
 };
 
-/** Read: the preset beads are a picture; pick how many (0–10). */
+/** Read (SUB.07.t1), K mode: the preset beads are a picture; pick how many (0–20). */
 export const Read: Story = {
   globals: { ageMode: 'k' },
-  args: { config: read7 },
+  args: { config: read11 },
   play: async ({ canvasElement, args }) => {
     const root = await findWidget(canvasElement, ROOT);
     await expect(within(root).queryByRole('slider')).toBeNull();
-    await expect(within(root).getByRole('img', { name: 'Top row' })).toBeVisible();
+    await expect(within(root).getByRole('img', { name: 'Top row: 5' })).toBeVisible();
     const cards = [...root.querySelectorAll<HTMLElement>('.ni-pick')];
     for (const c of cards) await expectTargetSize(c, 'k');
     await expectTargetGaps(cards);
-    await expect(within(root).getByRole('button', { name: 'Check' })).toBeDisabled();
-    await userEvent.click(within(root).getByRole('button', { name: '7' }));
-    await userEvent.click(within(root).getByRole('button', { name: 'Check' }));
-    await expect(args.onResponse).toHaveBeenCalledWith({ kind: 'number', value: 7 });
+    await expect(button(root, 'Check')).toBeDisabled();
+    await userEvent.click(button(root, '11'));
+    await userEvent.click(button(root, 'Check'));
+    await expect(args.onResponse).toHaveBeenCalledWith({ kind: 'number', value: 11 });
   },
 };
 
@@ -255,7 +312,7 @@ export const RowRuleNeverBlocks: Story = {
     const root = await findWidget(canvasElement, ROOT);
     await tapBeadAt(bead(root, 1, 2));
     await waitFor(() => expect(pushed(root, 1)).toBe(3));
-    await userEvent.click(within(root).getByRole('button', { name: 'Check' }));
+    await userEvent.click(button(root, 'Check'));
     await expect(args.onResponse).toHaveBeenCalledWith({ kind: 'state', value: { rows: [0, 3] } });
   },
 };
@@ -269,16 +326,16 @@ export const Disabled: Story = {
     row(root, 0).focus();
     await userEvent.keyboard('{ArrowLeft}');
     await expect(pushed(root, 0)).toBe(0);
-    await expect(within(root).getByRole('button', { name: 'Check' })).toBeDisabled();
+    await expect(button(root, 'Check')).toBeDisabled();
     await expect(args.onInteract).not.toHaveBeenCalled();
   },
 };
 
 const demoController: WidgetDemo = createDemoController({ strict: true });
 
-/** Demo mode (03 §6.3): Pip slides beads over, highlights them and counts them all. */
+/** Demo mode (03 §6.3): Pip slides beads, highlights them and counts them all (picks 12). */
 export const DemoMode: Story = {
-  args: { config: add75, disabled: true, demo: demoController },
+  args: { config: { ...add75, preset: [0, 0] }, disabled: true, demo: demoController },
   play: async ({ canvasElement }) => {
     const root = await findWidget(canvasElement, ROOT);
     await demoController.play({ op: 'slide', args: { row: 0, count: 7 } });
@@ -286,21 +343,49 @@ export const DemoMode: Story = {
     await demoController.play({ op: 'slide', args: { row: 1, count: 5 } });
     await demoController.play({ op: 'highlight', args: { row: 0, upTo: 5 } });
     await demoController.play({ op: 'count-total' });
-    await waitFor(() =>
-      expect(within(root).getByRole('button', { name: 'Your answer: 12' })).toBeVisible(),
-    );
+    await expect(button(root, '12')).toHaveAttribute('aria-pressed', 'true');
     await expect(demoController.play({ op: 'place' })).rejects.toBeInstanceOf(
       UnsupportedWidgetOpError,
     );
     demoController.invite({ op: 'slide', args: { row: 1, count: -2 } });
-    await waitFor(() => expect(root.querySelector('.ni-rk__row.ni-invite')).not.toBeNull());
-    await expect(root.querySelector('.ni-hand')).not.toBeNull();
+    await expect(root.querySelector('.ni-invite')).toBeNull();
+  },
+};
+
+const inviteController: WidgetDemo = createDemoController({ strict: true });
+
+/** Invites (K): `slide` rings the wire to move; `answer` rings the numeral card. */
+export const DemoInviteK: Story = {
+  globals: { ageMode: 'k' },
+  args: { config: add75, demo: inviteController },
+  play: async ({ canvasElement }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    inviteController.invite({ op: 'slide', args: { row: 1, count: -2 } });
+    await waitFor(() => expect(row(root, 1).classList.contains('ni-invite')).toBe(true));
+    await expectOneInvite(root, row(root, 1));
+    inviteController.invite({ op: 'answer', args: { value: 12 } });
+    const ringed = await waitFor(() => {
+      const el = root.querySelector<HTMLElement>('.ni-invite');
+      expect(el).not.toBeNull();
+      return el as HTMLElement;
+    });
+    if (root.dataset.step === 'rack') {
+      await expectOneInvite(root, ringed);
+      await userEvent.click(ringed);
+    }
+    const card = await waitFor(() => {
+      const el = root.querySelector<HTMLElement>('.ni-pick.ni-invite');
+      expect(el).not.toBeNull();
+      return el as HTMLElement;
+    });
+    await expect(card.dataset.id).toBe('opt-12');
+    await expectOneInvite(root, card);
   },
 };
 
 const reducedController: WidgetDemo = createDemoController({ strict: true });
 
-/** Reduced motion: slides are instant state changes. */
+/** Reduced motion: slides are instant state changes, and `play` resolves after the commit. */
 export const DemoReducedMotion: Story = {
   globals: { motion: 'reduced' },
   args: { config: makeTen, disabled: true, demo: reducedController },
@@ -308,8 +393,88 @@ export const DemoReducedMotion: Story = {
     const root = await findWidget(canvasElement, ROOT);
     const started = performance.now();
     await reducedController.play({ op: 'slide', args: { row: 0, count: 6 } });
+    await expect(pushed(root, 0)).toBe(10);
     await reducedController.play({ op: 'highlight', args: { row: 0, upTo: 10 } });
     await expect(performance.now() - started).toBeLessThan(500);
-    await waitFor(() => expect(pushed(root, 0)).toBe(10));
+  },
+};
+
+// ---------- the real widget area (06 §1, §2): 960 × 600, portrait, tablet ----------
+
+async function expectFits(canvasElement: HTMLElement, ageMode: AgeMode) {
+  const root = await findWidget(canvasElement, ROOT);
+  await settledAll(root);
+  const parts = [...root.querySelectorAll<HTMLElement>('.ni-rk__frame, .ni-entry, .ni-rk__act')];
+  await expectFitsArea(areaBox(canvasElement), parts, targetsOf(root), ageMode);
+  return root;
+}
+
+async function throughSteps(root: HTMLElement, ageMode: AgeMode, canvasElement: HTMLElement) {
+  if (root.dataset.step !== 'rack') return;
+  button(root, 'Next').focus();
+  await userEvent.keyboard('{Enter}');
+  await waitFor(() => expect(root.dataset.step).toBe('ask'));
+  await waitFor(() => expect(document.activeElement).toBe(button(root, 'Go back')));
+  await expectFits(canvasElement, ageMode);
+  await userEvent.click(button(root, 'Go back'));
+  await waitFor(() => expect(root.dataset.step).toBe('rack'));
+}
+
+/** CPS.02.t2 (show 6) in K at 960 × 600. */
+export const AreaLandscapeMinK: Story = {
+  globals: { ageMode: 'k' },
+  render: inArea('landscapeMin'),
+  play: async ({ canvasElement }) => {
+    await expectFits(canvasElement, 'k');
+  },
+};
+
+/** ADD.17.t1 (add, then 0–20) in G1 at 960 × 600. */
+export const AreaLandscapeMinAddG1: Story = {
+  args: { config: add79 },
+  render: inArea('landscapeMin'),
+  play: async ({ canvasElement }) => {
+    const root = await expectFits(canvasElement, 'g1-up');
+    await throughSteps(root, 'g1-up', canvasElement);
+  },
+};
+
+/** SUB.07.t1 (read, 0–20) in G1 at 960 × 600. */
+export const AreaLandscapeMinReadG1: Story = {
+  args: { config: read11 },
+  render: inArea('landscapeMin'),
+  play: async ({ canvasElement }) => {
+    await expectFits(canvasElement, 'g1-up');
+  },
+};
+
+/** CPS.04.t2 (show 14, then 0–20) in K, portrait. */
+export const AreaPortraitK: Story = {
+  globals: { ageMode: 'k' },
+  args: { config: teen14 },
+  render: inArea('portrait'),
+  play: async ({ canvasElement }) => {
+    const root = await expectFits(canvasElement, 'k');
+    await throughSteps(root, 'k', canvasElement);
+  },
+};
+
+/** CPS.03.t2 (make ten, one row) in K on a tablet. */
+export const AreaTabletK: Story = {
+  globals: { ageMode: 'k' },
+  args: { config: makeTen },
+  render: inArea('tablet'),
+  play: async ({ canvasElement }) => {
+    await expectFits(canvasElement, 'k');
+  },
+};
+
+/** ADD.08.t2 (make ten, then 0–20) in G1 on a tablet. */
+export const AreaTabletG1: Story = {
+  args: { config: add75 },
+  render: inArea('tablet'),
+  play: async ({ canvasElement }) => {
+    const root = await expectFits(canvasElement, 'g1-up');
+    await throughSteps(root, 'g1-up', canvasElement);
   },
 };

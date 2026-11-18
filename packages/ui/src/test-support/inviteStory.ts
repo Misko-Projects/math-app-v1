@@ -4,6 +4,17 @@ import { expect, waitFor } from 'storybook/test';
 import { waitForSettled } from './storyHelpers';
 import { expectPointerOn, expectRingClear } from './widgetStory';
 
+/** Waits until every finite animation and transition in `root` (its subtree too) has ended. */
+export async function settledAll(root: HTMLElement) {
+  await waitForSettled(root);
+  await Promise.all(
+    root
+      .getAnimations({ subtree: true })
+      .filter((a) => a.effect?.getComputedTiming().iterations !== Number.POSITIVE_INFINITY)
+      .map((a) => a.finished.catch(() => undefined)),
+  );
+}
+
 /** Every control the child can use now: enabled (also through a fieldset) and drawn. */
 export function targetsOf(root: HTMLElement): HTMLElement[] {
   return [...root.querySelectorAll<HTMLElement>('button, [role="button"], [role="slider"]')].filter(

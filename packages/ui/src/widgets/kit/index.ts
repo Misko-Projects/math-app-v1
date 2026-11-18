@@ -4,6 +4,7 @@
 export {
   ARRANGEMENTS,
   type Arrangement,
+  ASK_ARRANGEMENTS,
   arrangedSize,
   firstFit,
   numeralCardH,

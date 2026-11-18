@@ -13,8 +13,13 @@ import { numeralCardPx, TRAY_PANEL_EDGES_PX, trayGrid } from './controls';
  * - `column`: everything in one column (narrow, tall areas).
  */
 
-export type Arrangement = 'row' | 'side' | 'stack' | 'column';
+export type Arrangement = 'row' | 'side' | 'stack' | 'column' | 'split';
 export const ARRANGEMENTS: readonly Arrangement[] = ['row', 'side', 'stack', 'column'];
+/**
+ * With `split` too: the first item (the numeral answer) on the left; the picture and the other
+ * items stacked beside it (an answer step in a short area, where the answer takes the height).
+ */
+export const ASK_ARRANGEMENTS: readonly Arrangement[] = [...ARRANGEMENTS, 'split'];
 
 export interface Size {
   w: number;
@@ -38,6 +43,11 @@ export function arrangedSize(
   gap: number,
 ): Size {
   const list = items.filter((s): s is Size => s !== null && s.w > 0 && s.h > 0);
+  if (arrangement === 'split') {
+    const [first, ...rest] = list;
+    const beside = inColumn([...(main ? [main] : []), ...rest], gap);
+    return first ? inRow([first, beside], gap) : beside;
+  }
   const itemsDir = arrangement === 'row' || arrangement === 'stack' ? inRow : inColumn;
   const parts = [...(main ? [main] : []), ...(list.length ? [itemsDir(list, gap)] : [])];
   return arrangement === 'row' || arrangement === 'side' ? inRow(parts, gap) : inColumn(parts, gap);

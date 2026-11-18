@@ -53,6 +53,36 @@
   border-radius: 999px;
 }
 
+/*
+ * `split` (an answer step in a short area): the numeral answer on the left; the picture and the
+ * actions stacked beside it.
+ */
+.ni-bondw[data-layout="split"] {
+  display: grid;
+  grid-template-columns: auto auto;
+  grid-template-areas:
+    "entry main"
+    "entry act";
+  align-content: center;
+  justify-content: center;
+  justify-items: center;
+  gap: 24px;
+}
+.ni-bondw[data-layout="split"] .ni-bondw__items {
+  display: contents;
+}
+.ni-bondw[data-layout="split"] .ni-bondw__main {
+  grid-area: main;
+  align-self: end;
+}
+.ni-bondw[data-layout="split"] .ni-entry {
+  grid-area: entry;
+}
+.ni-bondw[data-layout="split"] .ni-bondw__act {
+  grid-area: act;
+  align-self: start;
+}
+
 /* ---------- the pictorial bond ---------- */
 
 .ni-bondw__bond {

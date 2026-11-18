@@ -3,15 +3,31 @@ import {
   type CSSProperties,
   type KeyboardEvent,
   type PointerEvent as ReactPointerEvent,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
   useRef,
   useState,
 } from 'react';
 import { useInteractionTrace } from '../../interaction/trace';
 import { useNarrationText, useSpeech, useUiPreferences } from '../../preferences/UiProvider';
-import { HandPointerIcon } from '../../primitives/icons';
-import { DRAG_START_PX } from '../../tokens/tokens';
+import { BigButton } from '../../primitives/BigButton';
+import { ArrowIcon, BackIcon } from '../../primitives/icons';
+import { DRAG_START_PX, TARGET_PX } from '../../tokens/tokens';
 import { useWidgetDemo } from '../demo';
-import { CheckButton, NumberEntry, TRAY_MAX, useAlive, useDemoPause, useSubmitGuard } from '../kit';
+import {
+  CheckButton,
+  NumberEntry,
+  nextPadKey,
+  type PadKey,
+  type Size,
+  useAlive,
+  useCommitBarrier,
+  useDemoPause,
+  useInviteHand,
+  useSubmitGuard,
+  useWidgetRoom,
+} from '../kit';
 import type { ConfigFor, WidgetProps } from '../types';
 import {
   asksNumber,
@@ -23,22 +39,27 @@ import {
   responseFor,
   tapBead,
 } from './beads';
+import { planRack, rowHeight } from './plan';
 import './rekenrek.css';
 
 /**
- * `rekenrek` (03 §5.5, concrete): one or two rows of ten beads, five coral and five white.
+ * `rekenrek` (03 §5.5, concrete): one or two wires of ten beads in two groups of five (coral, then
+ * white with an ink dot: they differ in lightness and by a mark, not by colour alone). Beads pushed
+ * to the LEFT count.
  *
- * Each row is one large slider target (its tap zone spans the whole wire, ≥ --target-min tall), so
- * beads can sit close together the way real beads do while targets stay big and 12 px apart:
+ * Each wire is one large slider target (its tap zone spans the whole wire, ≥ --target-min tall),
+ * so beads sit close together the way real beads do while targets stay big and 16 px apart:
  * - **Tap** a bead: a bead on the right slides left with every bead before it; a bead on the left
  *   goes back right with every bead after it.
  * - **Drag** a bead left or right along the wire for the same move.
- * - **Keyboard:** focus a row; ← / ↑ slide one more bead left, → / ↓ push one back, Home clears
- *   the row, End fills it.
+ * - **Keyboard:** focus a wire; ← / ↑ slide one more bead left, → / ↓ push one back, Home clears
+ *   the wire, End fills it.
  *
  * `rowRule: fill-top-first` never blocks a move: the checker judges it. `read` shows the preset
- * (static) and asks for the number; `thenAsk: total` adds the number after the beads. Responses
- * come from the engine model: `{ rows, value? }` or a number.
+ * (static) and asks for the number; `thenAsk: total` adds the number after the beads. Layout
+ * follows the measured room (plan.ts): the widest beads that fit beside the answer, else the rack
+ * with Next and then the answer step (Back, Check). Responses come from the engine model:
+ * `{ rows, value? }` or a number.
  *
  * Demo ops (03 §5.5): `slide {row, count}`, `highlight {row, upTo}`, `count-total`, plus `answer`.
  */
@@ -48,6 +69,8 @@ const STEP_MS = 260;
 
 type Config = ConfigFor<'rekenrek'>;
 type Rows = [number, number];
+type Step = 'rack' | 'ask';
+type Cue = { at: 'cue'; cue: string } | { at: 'card'; value: number } | { at: 'key'; key: PadKey };
 
 interface Press {
   row: number;
@@ -67,11 +90,23 @@ export function RekenrekWidget({
   demo,
 }: WidgetProps<Config>) {
   const t = useNarrationText();
-  const { speakOnTap } = useUiPreferences();
+  const { speakOnTap, ageMode } = useUiPreferences();
   const { say, sayNumber } = useSpeech();
   const trace = useInteractionTrace(onInteract);
   const alive = useAlive();
   const pause = useDemoPause();
+  const committed = useCommitBarrier();
+  const rootRef = useRef<HTMLDivElement | null>(null);
+  const room = useWidgetRoom(rootRef);
+  // Beads glide only once the layout is measured (the first plan sizes them for an unbounded
+  // room; that re-size must not animate).
+  const measured = room !== null;
+  const [animate, setAnimate] = useState(false);
+  useEffect(() => {
+    if (!measured) return;
+    const id = requestAnimationFrame(() => setAnimate(true));
+    return () => cancelAnimationFrame(id);
+  }, [measured]);
 
   const reading = config.mode === 'read';
   const asks = asksNumber(config);
@@ -91,11 +126,12 @@ export function RekenrekWidget({
     valueRef.current = v;
     setValueState(v);
   };
+  const [step, setStep] = useState<Step>('rack');
   const [demoBusy, setDemoBusy] = useState(false);
   const [invite, setInvite] = useState<WidgetAction | null>(null);
   const [highlight, setHighlight] = useState<{ row: number; upTo: number } | null>(null);
   const [counting, setCounting] = useState<{ row: number; bead: number } | null>(null);
-  const [entryHighlight, setEntryHighlight] = useState<number | null>(null);
+  const [entryHighlight, setEntryHighlight] = useState<number | PadKey | null>(null);
   const press = useRef<Press | null>(null);
 
   const interactive = !disabled && !demoBusy;
@@ -103,6 +139,38 @@ export function RekenrekWidget({
   const ready = !asks || value !== null;
   const rowName = (r: number) =>
     t(r === 0 ? 'ui.widget.rekenrek.top' : 'ui.widget.rekenrek.bottom');
+  const max = rowCount * BEADS;
+
+  // ---------- layout (plan.ts) ----------
+
+  const actRef = useRef<HTMLDivElement | null>(null);
+  const [button, setButton] = useState<Size>(() => ({
+    w: TARGET_PX[ageMode].big * 1.5,
+    h: TARGET_PX[ageMode].big,
+  }));
+  useLayoutEffect(() => {
+    const btn = actRef.current?.querySelector<HTMLElement>('.ni-btn');
+    if (!btn) return;
+    const r = btn.getBoundingClientRect();
+    const next = { w: Math.ceil(r.width), h: Math.ceil(r.height) + 6 };
+    setButton((b) => (b.w === next.w && b.h === next.h ? b : next));
+  });
+  const input = useMemo(
+    () => ({ ageMode, rows: rowCount, still: reading, askMax: asks ? max : null, button }),
+    [ageMode, rowCount, reading, asks, max, button],
+  );
+  const plan = useMemo(
+    () =>
+      planRack(input, {
+        w: room?.width ?? Number.POSITIVE_INFINITY,
+        h: room?.height ?? Number.POSITIVE_INFINITY,
+      }),
+    [input, room],
+  );
+  const steps = plan.steps;
+  const shownStep: Step = steps ? step : 'rack';
+  const layout = shownStep === 'ask' && plan.ask ? plan.ask.arrangement : plan.arrangement;
+  const entryLayout = shownStep === 'ask' ? (plan.ask?.entry ?? null) : plan.entry;
 
   const speakAfter = (next: Rows) => {
     if (!speakOnTap) return;
@@ -127,7 +195,6 @@ export function RekenrekWidget({
     const p = ((clientX - r.left) / r.width) * ROW_SLOTS;
     return beadAt(p, rowsRef.current[row] ?? 0);
   };
-
   const beadWidth = (el: HTMLElement) => el.getBoundingClientRect().width / ROW_SLOTS;
 
   const onPointerDown = (row: number) => (e: ReactPointerEvent<HTMLDivElement>) => {
@@ -212,7 +279,60 @@ export function RekenrekWidget({
     return true;
   });
 
+  // ---------- steps: Next and Back hand focus to each other ----------
+
+  const refocus = useRef<string | null>(null);
+  const goTo = (s: Step) => {
+    if (!interactive) return;
+    trace('tap', s === 'ask' ? 'next' : 'back');
+    const focused = document.activeElement?.closest('[data-cue]');
+    refocus.current = focused ? (s === 'ask' ? 'back' : 'next') : null;
+    setStep(s);
+  };
+  // biome-ignore lint/correctness/useExhaustiveDependencies: runs when the step's button is replaced
+  useLayoutEffect(() => {
+    const want = refocus.current;
+    refocus.current = null;
+    if (!want) return;
+    const el = [...(rootRef.current?.querySelectorAll<HTMLElement>('[data-cue]') ?? [])].find(
+      (e) => e.dataset.cue === want,
+    );
+    el?.querySelector<HTMLElement>('button')?.focus();
+  }, [shownStep]);
+
   // ---------- demo mode (03 §6.3) ----------
+
+  const toStep = async (s: Step) => {
+    if (steps && step !== s) {
+      setStep(s);
+      await committed();
+    }
+  };
+
+  const enterValue = async (v: number) => {
+    if (asks) await toStep('ask');
+    const kind = shownStep === 'ask' || !steps ? entryLayout?.kind : plan.ask?.entry.kind;
+    if (kind === 'pad') {
+      let typed = valueRef.current;
+      for (let guard = 0; guard < 6; guard++) {
+        const key = nextPadKey(v, typed);
+        if (!key) break;
+        setEntryHighlight(key);
+        await pause(400);
+        if (!alive.current) return;
+        const text = typed === null ? '' : String(typed);
+        const nextText = key === 'back' ? text.slice(0, -1) : text + key;
+        typed = nextText === '' ? null : Number(nextText);
+        setValue(typed);
+      }
+    } else {
+      setEntryHighlight(v);
+      await pause(600);
+      if (!alive.current) return;
+      setValue(v);
+    }
+    setEntryHighlight(null);
+  };
 
   useWidgetDemo(demo, {
     ops: OPS,
@@ -225,6 +345,7 @@ export function RekenrekWidget({
             const row = Number(action.args?.row ?? 0);
             const by = Math.trunc(Number(action.args?.count ?? 0));
             if ((row !== 0 && row !== 1) || row >= rowCount || !Number.isFinite(by)) break;
+            await toStep('rack');
             // One bead at a time, so each slide is seen.
             const goal = clampBeads((rowsRef.current[row] ?? 0) + by);
             while ((rowsRef.current[row] ?? 0) !== goal) {
@@ -237,6 +358,7 @@ export function RekenrekWidget({
             break;
           }
           case 'highlight': {
+            await toStep('rack');
             const row = Number(action.args?.row ?? 0);
             const upTo = Number(action.args?.upTo ?? 0);
             setHighlight({ row, upTo });
@@ -245,6 +367,7 @@ export function RekenrekWidget({
             break;
           }
           case 'count-total': {
+            await toStep('rack');
             let n = 0;
             for (let row = 0; row < rowCount; row++) {
               for (let bead = 0; bead < (rowsRef.current[row] ?? 0); bead++) {
@@ -257,54 +380,97 @@ export function RekenrekWidget({
             }
             setCounting(null);
             // As the model: the total becomes the entered number.
-            if (asks) {
-              setEntryHighlight(n);
-              await pause(400);
-            }
-            setValue(n);
-            setEntryHighlight(null);
+            if (asks) await enterValue(n);
+            else setValue(n);
             break;
           }
           case 'answer': {
             const v = Number(action.args?.value);
             if (!Number.isFinite(v)) break;
-            setEntryHighlight(v);
-            await pause(600);
-            if (!alive.current) return;
-            setValue(v);
-            setEntryHighlight(null);
+            await enterValue(v);
             break;
           }
         }
       } finally {
-        setCounting(null);
-        setEntryHighlight(null);
-        setDemoBusy(false);
+        if (alive.current) {
+          setCounting(null);
+          setEntryHighlight(null);
+          setDemoBusy(false);
+        }
+        await committed();
       }
     },
     invite: (action) => setInvite(action),
   });
 
-  const inviteTarget = (() => {
-    if (!invite) return null;
-    if (invite.op === 'answer' || invite.op === 'count-total') return asks ? 'entry' : 'check';
-    return `row-${Number(invite.args?.row ?? 0)}`;
+  // ---------- the one invited control ----------
+
+  const cue: Cue | null = (() => {
+    if (!invite || !interactive) return null;
+    const askValue = (v: number): Cue | null => {
+      if (!asks) return { at: 'cue', cue: 'check' };
+      if (steps && shownStep === 'rack') return { at: 'cue', cue: 'next' };
+      if (value === v) return ready ? { at: 'cue', cue: 'check' } : null;
+      if (entryLayout?.kind === 'pad') {
+        const key = nextPadKey(v, value);
+        return key ? { at: 'key', key } : null;
+      }
+      return { at: 'card', value: v };
+    };
+    switch (invite.op) {
+      case 'slide': {
+        if (reading) return null;
+        if (shownStep === 'ask') return { at: 'cue', cue: 'back' };
+        const row = Number(invite.args?.row ?? 0);
+        return row === 0 || (row === 1 && rowCount === 2) ? { at: 'cue', cue: `row:${row}` } : null;
+      }
+      case 'count-total':
+        return askValue(rows[0] + rows[1]);
+      case 'answer': {
+        const v = Number(invite.args?.value);
+        return Number.isFinite(v) ? askValue(v) : null;
+      }
+      default:
+        return null;
+    }
   })();
-  const hand = (at: string, style?: CSSProperties) =>
-    inviteTarget === at ? (
-      <span className="ni-hand ni-rk__hand" style={style} aria-hidden="true">
-        <HandPointerIcon />
-      </span>
-    ) : null;
+  const cueOf = (c: string) => (cue?.at === 'cue' && cue.cue === c ? 'ni-invite' : '');
+  const cueKey = cue
+    ? `${cue.at}:${cue.at === 'cue' ? cue.cue : cue.at === 'card' ? cue.value : cue.key}|${shownStep}|${layout}`
+    : '';
+  const { hand: inviteHand, rootStyle: handRootStyle } = useInviteHand(
+    rootRef,
+    (root) => {
+      if (!cue) return null;
+      if (cue.at === 'card') {
+        const v = `opt-${cue.value}`;
+        return (
+          [...root.querySelectorAll<HTMLElement>('.ni-pick')].find((e) => e.dataset.id === v) ??
+          null
+        );
+      }
+      if (cue.at === 'key') {
+        return (
+          [...root.querySelectorAll<HTMLElement>('.ni-pad__key')].find(
+            (e) => e.dataset.key === cue.key,
+          ) ?? null
+        );
+      }
+      const el = [...root.querySelectorAll<HTMLElement>('[data-cue]')].find(
+        (e) => e.dataset.cue === cue.cue,
+      );
+      return el?.querySelector<HTMLElement>('.ni-btn') ?? el ?? null;
+    },
+    cueKey,
+  );
 
   // ---------- render ----------
 
-  const renderRow = (row: number) => {
+  const renderRow = (row: number, still: boolean) => {
     const count = rows[row] ?? 0;
     const beads = Array.from({ length: BEADS }, (_, i) => {
-      const lit =
-        (highlight && highlight.row === row && i < highlight.upTo) ||
-        (counting && counting.row === row && counting.bead === i);
+      const lit = highlight && highlight.row === row && i < highlight.upTo;
+      const isCounting = counting && counting.row === row && counting.bead === i;
       return (
         <span
           // biome-ignore lint/suspicious/noArrayIndexKey: beads are positional on the wire
@@ -313,20 +479,21 @@ export function RekenrekWidget({
           data-tone={i < 5 ? 'a' : 'b'}
           data-pushed={i < count ? 'true' : undefined}
           data-lit={lit ? 'true' : undefined}
-          data-counting={
-            counting && counting.row === row && counting.bead === i ? 'true' : undefined
-          }
+          data-counting={isCounting ? 'true' : undefined}
           style={{ '--x': beadSlot(i, count) } as CSSProperties}
         />
       );
     });
     const name = rowName(row);
-    const invited = inviteTarget === `row-${row}`;
-    const cls = ['ni-rk__row', invited ? 'ni-invite' : ''].filter(Boolean).join(' ');
-    const handAt = { left: `calc(${((count + 4.5) / ROW_SLOTS) * 100}% - 10px)` };
-    if (reading) {
+    if (still) {
       return (
-        <div key={row} className={cls} data-row={row} role="img" aria-label={name}>
+        <div
+          key={row}
+          className="ni-rk__row"
+          data-row={row}
+          role="img"
+          aria-label={`${name}: ${count}`}
+        >
           {beads}
         </div>
       );
@@ -334,8 +501,9 @@ export function RekenrekWidget({
     return (
       <div
         key={row}
-        className={cls}
+        className={['ni-rk__row', cueOf(`row:${row}`)].filter(Boolean).join(' ')}
         data-row={row}
+        data-cue={`row:${row}`}
         role="slider"
         tabIndex={canSlide ? 0 : -1}
         aria-label={name}
@@ -351,65 +519,111 @@ export function RekenrekWidget({
         onKeyDown={onKeyDown(row)}
       >
         {beads}
-        {hand(`row-${row}`, handAt)}
       </div>
     );
   };
 
-  const max = rowCount * BEADS;
-  const pad = asks && max > TRAY_MAX;
-  const check = (
-    <span className="ni-rk__check">
-      <CheckButton
-        onPress={submit}
-        disabled={!interactive || !ready}
-        invited={inviteTarget === 'check'}
+  const rack = (bead: number, rowH: number, still: boolean, small: boolean) => (
+    <div
+      className="ni-rk__frame"
+      data-small={small ? 'true' : undefined}
+      style={{ '--rk-bead': `${bead}px`, '--rk-row': `${rowH}px` } as CSSProperties}
+      {...(small ? { role: 'img', 'aria-label': t('ui.widget.picture') } : {})}
+    >
+      <div className="ni-rk__rows">
+        {Array.from({ length: rowCount }, (_, r) => renderRow(r, still || small))}
+      </div>
+    </div>
+  );
+
+  const main =
+    shownStep === 'ask' && plan.ask
+      ? rack(plan.ask.bead, Math.round(plan.ask.bead * 1.3), true, true)
+      : rack(plan.bead, rowHeight(plan.bead, ageMode, reading), reading, false);
+
+  const entryBlock =
+    asks && entryLayout ? (
+      <NumberEntry
+        {...entryLayout}
+        max={max}
+        value={value}
+        onChange={(v) => {
+          setInvite(null);
+          setValue(v);
+        }}
+        disabled={!interactive}
+        highlighted={
+          entryHighlight ?? (cue?.at === 'card' ? cue.value : cue?.at === 'key' ? cue.key : null)
+        }
+        trace={trace}
+        captureKeyboard={entryLayout.kind === 'pad'}
+        onEnter={() => {
+          if (!document.activeElement?.closest('[role="slider"], [role="button"], button'))
+            submit();
+        }}
       />
-      {hand('check')}
-    </span>
+    ) : null;
+
+  const actions = (
+    <div
+      className="ni-rk__act"
+      ref={actRef}
+      data-dir={shownStep === 'ask' && plan.ask ? plan.ask.act : 'row'}
+    >
+      {steps && shownStep === 'rack' ? (
+        <span className="ni-rk__btn" data-cue="next">
+          <BigButton
+            label="ui.btn.next"
+            icon={<ArrowIcon />}
+            tone="cloud"
+            disabled={!interactive}
+            onPress={() => goTo('ask')}
+            className={cueOf('next') || undefined}
+          />
+        </span>
+      ) : null}
+      {steps && shownStep === 'ask' ? (
+        <span className="ni-rk__btn" data-cue="back">
+          <BigButton
+            label="ui.btn.close"
+            icon={<BackIcon />}
+            tone="cloud"
+            disabled={!interactive}
+            onPress={() => goTo('rack')}
+            className={cueOf('back') || undefined}
+          />
+        </span>
+      ) : null}
+      {!steps || shownStep === 'ask' ? (
+        <span className="ni-rk__btn" data-cue="check">
+          <CheckButton
+            onPress={submit}
+            disabled={!interactive || !ready}
+            invited={cueOf('check') !== ''}
+          />
+        </span>
+      ) : null}
+    </div>
   );
 
   return (
     <div
+      ref={rootRef}
       className="ni-rk"
       data-tier={tier}
       data-rows={rowCount}
-      data-entry={asks ? (pad ? 'pad' : 'tray') : undefined}
+      data-layout={layout}
+      data-animate={animate ? 'true' : undefined}
+      data-step={steps ? shownStep : undefined}
       data-disabled={disabled ? 'true' : undefined}
+      style={handRootStyle}
     >
-      <div className="ni-rk__frame">
-        <div className="ni-rk__rows">
-          {Array.from({ length: rowCount }, (_, r) => renderRow(r))}
-        </div>
+      <div className="ni-rk__main">{main}</div>
+      <div className="ni-rk__items">
+        {shownStep === 'ask' || !steps ? entryBlock : null}
+        {actions}
       </div>
-      <div className="ni-rk__controls">
-        {asks ? (
-          <div
-            className={['ni-rk__entry', inviteTarget === 'entry' ? 'ni-invite' : '']
-              .filter(Boolean)
-              .join(' ')}
-          >
-            <NumberEntry
-              max={max}
-              value={value}
-              onChange={(v) => {
-                setInvite(null);
-                setValue(v);
-              }}
-              disabled={!interactive}
-              highlighted={entryHighlight}
-              trace={trace}
-              columns={6}
-              onEnter={() => {
-                if (!document.activeElement?.closest('[role="slider"], [role="button"]')) submit();
-              }}
-              check={pad ? check : undefined}
-            />
-            {hand('entry')}
-          </div>
-        ) : null}
-        {pad ? null : check}
-      </div>
+      {inviteHand}
     </div>
   );
 }

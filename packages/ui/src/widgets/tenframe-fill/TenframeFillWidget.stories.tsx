@@ -1,7 +1,7 @@
 import type { WidgetConfig } from '@number-island/shared';
 import type { Meta, StoryObj } from '@storybook/react-vite';
 import { expect, fn, userEvent, waitFor, within } from 'storybook/test';
-import { expectOneInvite, targetsOf } from '../../test-support/inviteStory';
+import { expectOneInvite, settledAll, targetsOf } from '../../test-support/inviteStory';
 import {
   center,
   clearSpies,
@@ -539,7 +539,7 @@ export const DemoReducedMotion: Story = {
 /** The widget fits the area: no scroll, every part inside, full-size targets 12 px apart. */
 async function expectFits(canvasElement: HTMLElement, ageMode: AgeMode) {
   const root = await findWidget(canvasElement, ROOT);
-  await waitForSettled(root);
+  await settledAll(root);
   const parts = [
     ...root.querySelectorAll<HTMLElement>(
       '.ni-tf__frame, .ni-tf__mini, .ni-tf__view, .ni-tf__supply, .ni-entry, .ni-tf__act',
