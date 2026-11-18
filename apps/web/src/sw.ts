@@ -1,8 +1,19 @@
 /// <reference lib="webworker" />
-// Number Island service worker (Workbox injectManifest; 02 §1).
-// The precache manifest is empty in the scaffold; the offline issue fills it (shell, content, audio).
+// Number Island service worker (Workbox injectManifest; 02 §1, §3).
+//
+// - Precache: the built shell (HTML, JS, CSS, fonts, icons, web manifest), every content JSON file
+//   (`content/index.json` and the content-hashed files it names) and the narration audio
+//   (`audio/manifest.json` + clips). vite.config.ts selects the files and enforces the 02 §6 budget.
+// - Navigations to app routes (deep links such as /play) get the precached index.html, so the app
+//   starts offline from any URL. `/api/*` is never cached and never answered from a cache.
+// - Updates (06 §8): see the message handler below and src/app/pwa/launch.ts.
 
-import { cleanupOutdatedCaches, precacheAndRoute } from 'workbox-precaching';
+import {
+  cleanupOutdatedCaches,
+  createHandlerBoundToURL,
+  precacheAndRoute,
+} from 'workbox-precaching';
+import { NavigationRoute, registerRoute } from 'workbox-routing';
 
 declare const self: ServiceWorkerGlobalScope & {
   __WB_MANIFEST: Array<{ url: string; revision: string | null } | string>;
@@ -11,15 +22,34 @@ declare const self: ServiceWorkerGlobalScope & {
 cleanupOutdatedCaches();
 precacheAndRoute(self.__WB_MANIFEST);
 
-// Update flow (06 §8): a new worker activates on the next app launch, never mid-session, so we do
-// not call skipWaiting() on install. The app may ask for it explicitly (e.g. from the parent area).
+// SPA deep links: the app shell answers every navigation except the API.
+registerRoute(
+  new NavigationRoute(createHandlerBoundToURL('index.html'), { denylist: [/^\/api(\/|$)/] }),
+);
+
+// Update flow (06 §8): a new worker activates on the next app launch, never mid-session, so it
+// does not call skipWaiting() on install; it waits. At launch, before the app is in use, the page
+// asks a waiting worker to take over (SKIP_WAITING) and then reloads once. The worker agrees only
+// when the launching window is the app's only window, because activating also switches every other
+// open window (possibly mid-session) to the new worker. It answers on the message port, if any.
 self.addEventListener('message', (event) => {
-  if (event.data && typeof event.data === 'object' && event.data.type === 'SKIP_WAITING') {
-    void self.skipWaiting();
+  const data: unknown = event.data;
+  if (!data || typeof data !== 'object' || (data as { type?: unknown }).type !== 'SKIP_WAITING') {
+    return;
   }
+  const reply = event.ports[0];
+  event.waitUntil(
+    (async () => {
+      const windows = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
+      const activating = windows.length <= 1;
+      reply?.postMessage({ type: 'SKIP_WAITING_RESULT', activating });
+      if (activating) await self.skipWaiting();
+    })(),
+  );
 });
 
 // On the very first install, take control of already-open pages so offline works without a reload.
+// (After an update this runs only through the launch handshake above, with a single window open.)
 self.addEventListener('activate', (event) => {
   event.waitUntil(self.clients.claim());
 });

@@ -10,6 +10,25 @@ import { contentAssets } from './content-assets';
 const THEME_COLOR = '#1f7a8c';
 const BACKGROUND_COLOR = '#f4e3c3';
 
+const MB = 1024 * 1024;
+/** 02 §6: shell + content + K–3 narration audio ≤ 60 MB. The build fails above it. */
+export const PRECACHE_BUDGET_BYTES = 60 * MB;
+/** Workbox skips (with a warning) any single file above this; content JSON is the largest. */
+const MAX_PRECACHE_FILE_BYTES = 10 * MB;
+
+type PrecacheEntry = { url: string; size: number };
+
+/** Workbox manifest transform: prints the precache size and enforces the budget. */
+export async function checkPrecacheBudget<T extends PrecacheEntry>(
+  entries: T[],
+): Promise<{ manifest: T[] }> {
+  const total = entries.reduce((sum, e) => sum + e.size, 0);
+  const summary = `precache: ${entries.length} entries, ${(total / MB).toFixed(2)} MB (budget ${PRECACHE_BUDGET_BYTES / MB} MB)`;
+  if (total > PRECACHE_BUDGET_BYTES) throw new Error(`${summary}: over the 02 §6 budget`);
+  console.log(summary);
+  return { manifest: entries };
+}
+
 /** Vite's default `server.fs.deny`, plus `pnpm secrets:link` output (apps/api/.dev.vars) and local D1 state. */
 export const SECRET_FILE_DENY = [
   '.env',
@@ -34,21 +53,33 @@ export default defineConfig(({ mode }) => {
       strategies: 'injectManifest',
       srcDir: 'src',
       filename: 'sw.ts',
-      // The new service worker waits for the next app launch (06 §8); see src/sw.ts.
+      // The new service worker waits for the next app launch (06 §8): src/app/pwa/launch.ts
+      // registers it and activates a waiting update only at launch; see also src/sw.ts.
       registerType: 'prompt',
-      injectRegister: 'auto',
+      injectRegister: false,
       includeManifestIcons: false,
       injectManifest: {
-        // Empty precache for the scaffold. The app shell, content and audio join the precache
-        // with the offline issue (02 §1, §6).
-        // (vite-plugin-pwa always adds manifest.webmanifest itself; that is the only entry.)
-        globPatterns: [],
+        // Classic script: the app registers /sw.js without `type: 'module'`.
+        rollupFormat: 'iife',
+        // 02 §1, §6: the app shell, every content JSON file (fetched, never bundled) and the
+        // narration audio, so the whole app works offline. Not the `.vite/` build manifest, not
+        // the woff fallbacks (Chrome uses woff2), and never anything under /api/.
+        // (vite-plugin-pwa adds manifest.webmanifest itself.)
+        globPatterns: [
+          '**/*.{html,js,css,woff2,svg,png}',
+          'content/*.json',
+          'audio/manifest.json',
+          'audio/*.ogg',
+        ],
+        maximumFileSizeToCacheInBytes: MAX_PRECACHE_FILE_BYTES,
+        manifestTransforms: [checkPrecacheBudget],
       },
       manifest: {
         name: 'Number Island',
         short_name: 'Number Island',
         description: 'A cozy island math adventure.',
         lang: 'en',
+        id: '/',
         start_url: '/',
         scope: '/',
         display: 'standalone',
@@ -56,6 +87,14 @@ export default defineConfig(({ mode }) => {
         theme_color: THEME_COLOR,
         background_color: BACKGROUND_COLOR,
         icons: [
+          { src: '/icon-192.png', sizes: '192x192', type: 'image/png', purpose: 'any' },
+          { src: '/icon-512.png', sizes: '512x512', type: 'image/png', purpose: 'any' },
+          {
+            src: '/icon-maskable-512.png',
+            sizes: '512x512',
+            type: 'image/png',
+            purpose: 'maskable',
+          },
           { src: '/icon.svg', sizes: 'any', type: 'image/svg+xml', purpose: 'any' },
           { src: '/icon-maskable.svg', sizes: 'any', type: 'image/svg+xml', purpose: 'maskable' },
         ],
