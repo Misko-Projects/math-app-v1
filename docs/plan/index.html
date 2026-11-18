@@ -1,0 +1,793 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Math Adventure App — Research &amp; Build Plan (K–8+)</title>
+<style>
+:root{
+  --bg:#fbf8f3; --panel:#ffffff; --ink:#1f2430; --muted:#5d6475; --line:#e6e0d6;
+  --sea:#1f7a8c; --sea-soft:#e3f2f4; --sun:#f2a541; --sun-soft:#fdf1df; --leaf:#3c8d4f; --leaf-soft:#e5f3e8;
+  --coral:#d9534f; --coral-soft:#fbe7e6; --plum:#6c4f9e; --plum-soft:#efe9f7;
+  --radius:14px;
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{margin:0;font-family:system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;background:var(--bg);color:var(--ink);line-height:1.55;font-size:16px}
+a{color:var(--sea)}
+.layout{display:grid;grid-template-columns:250px 1fr;min-height:100vh}
+nav.side{position:sticky;top:0;height:100vh;overflow:auto;background:#17303a;color:#dfe9ec;padding:22px 16px}
+nav.side .brand{font-weight:800;font-size:18px;color:#fff;margin-bottom:4px}
+nav.side .sub{font-size:12px;color:#9fb6bd;margin-bottom:18px}
+nav.side a{display:block;color:#cfe0e4;text-decoration:none;padding:6px 10px;border-radius:8px;font-size:14px}
+nav.side a:hover{background:#244551;color:#fff}
+nav.side .grp{font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:#7d9aa2;margin:14px 10px 4px}
+main{padding:32px clamp(18px,4vw,56px) 80px;max-width:1180px}
+header.hero{background:linear-gradient(135deg,#1f7a8c 0%,#2a9d8f 55%,#f2a541 140%);color:#fff;border-radius:22px;padding:34px 34px 28px;margin-bottom:28px;position:relative;overflow:hidden}
+header.hero h1{margin:0 0 8px;font-size:clamp(26px,3.4vw,38px);line-height:1.15}
+header.hero p{margin:0;max-width:700px;opacity:.95;position:relative;z-index:1}
+header.hero .meta{margin-top:16px;font-size:13px;opacity:.85}
+header.hero svg{position:absolute;right:-40px;top:-40px;opacity:.12}
+section{margin:44px 0}
+h2{font-size:26px;margin:0 0 6px;scroll-margin-top:20px}
+h2 .num{display:inline-block;background:var(--sea);color:#fff;border-radius:9px;font-size:14px;padding:2px 9px;margin-right:10px;vertical-align:4px}
+h3{font-size:19px;margin:26px 0 8px}
+.lede{color:var(--muted);margin:0 0 18px;max-width:860px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:18px 20px;box-shadow:0 1px 2px rgba(0,0,0,.03)}
+.grid{display:grid;gap:16px}
+.g2{grid-template-columns:repeat(auto-fit,minmax(300px,1fr))}
+.g3{grid-template-columns:repeat(auto-fit,minmax(250px,1fr))}
+.g4{grid-template-columns:repeat(auto-fit,minmax(200px,1fr))}
+.rec{border:2px solid var(--leaf);background:linear-gradient(180deg,var(--leaf-soft),#fff 60%)}
+.badge{display:inline-block;font-size:11px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;border-radius:999px;padding:3px 9px;margin-right:6px;vertical-align:2px}
+.b-rec{background:var(--leaf);color:#fff}
+.b-alt{background:#e9edf2;color:#46505f}
+.b-warn{background:var(--coral-soft);color:#9d2f2b}
+.b-new{background:var(--sun);color:#3a2600}
+.b-gw{background:var(--plum-soft);color:var(--plum)}
+.callout{border-left:5px solid var(--sun);background:var(--sun-soft);padding:14px 18px;border-radius:10px;margin:16px 0}
+.callout.alert{border-color:var(--coral);background:var(--coral-soft)}
+.callout.info{border-color:var(--sea);background:var(--sea-soft)}
+.callout.good{border-color:var(--leaf);background:var(--leaf-soft)}
+.callout strong:first-child{display:block;margin-bottom:4px}
+ul.tight{margin:6px 0;padding-left:20px} ul.tight li{margin:3px 0}
+.pros li::marker{content:"＋ ";color:var(--leaf);font-weight:700}
+.cons li::marker{content:"－ ";color:var(--coral);font-weight:700}
+.pros,.cons{padding-left:22px;margin:6px 0}
+table{border-collapse:collapse;width:100%;font-size:14px;background:#fff;border-radius:12px;overflow:hidden;border:1px solid var(--line)}
+th,td{padding:9px 11px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}
+th{background:#f3efe8;font-size:12.5px;text-transform:uppercase;letter-spacing:.04em;color:#4b5262}
+tr:last-child td{border-bottom:none}
+td.c{text-align:center}
+.tablewrap{overflow-x:auto;border-radius:12px}
+.stars{color:var(--sun);letter-spacing:1px;white-space:nowrap}
+.kv{display:grid;grid-template-columns:150px 1fr;gap:6px 14px;font-size:14.5px}
+.kv dt{font-weight:700;color:#3a4150}
+.kv dd{margin:0}
+.pill{display:inline-block;background:var(--sea-soft);color:#155a67;border-radius:999px;padding:2px 10px;font-size:13px;margin:2px 4px 2px 0}
+.tldr{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:14px}
+.tldr .card h4{margin:0 0 6px;font-size:13px;text-transform:uppercase;letter-spacing:.06em;color:var(--sea)}
+.tldr .card p{margin:0;font-size:15px}
+.flow{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin:10px 0}
+.flow .step{background:#fff;border:1px solid var(--line);border-radius:10px;padding:8px 12px;font-size:14px}
+.flow .arr{color:var(--muted);font-weight:700}
+.ladder{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px}
+.ladder div{border-radius:10px;padding:10px 12px;font-size:13.5px;border:1px solid var(--line);background:#fff}
+.ladder div b{display:block;font-size:14.5px}
+.svgwrap{background:#fff;border:1px solid var(--line);border-radius:var(--radius);padding:10px;overflow-x:auto}
+.arch{display:grid;gap:10px}
+.arch .row{display:grid;gap:10px}
+.arch .box{border-radius:12px;padding:12px 14px;font-size:14px;border:1px solid var(--line);background:#fff}
+.arch .box h5{margin:0 0 4px;font-size:14px}
+.arch .box small{color:var(--muted)}
+.arch .lbl{font-size:11px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin:6px 2px 0}
+.arch .down{text-align:center;color:var(--muted);font-size:13px}
+.b-client{background:var(--sea-soft)!important;border-color:#b8dde3!important}
+.b-engine{background:var(--plum-soft)!important;border-color:#d6c9ec!important}
+.b-content{background:var(--sun-soft)!important;border-color:#f3d6a8!important}
+.b-server{background:var(--leaf-soft)!important;border-color:#bfe0c6!important}
+.b-tools{background:#f1f1f1!important}
+/* decisions */
+.decision{background:#fff;border:1px solid var(--line);border-radius:var(--radius);padding:16px 18px;margin:14px 0}
+.decision h4{margin:0 0 4px;font-size:17px}
+.decision .why{color:var(--muted);font-size:14px;margin:0 0 10px}
+.opts{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:10px}
+.opt{position:relative;display:block;border:2px solid var(--line);border-radius:12px;padding:10px 12px 10px 38px;cursor:pointer;font-size:14px;background:#fff;transition:border-color .15s,background .15s}
+.opt input{position:absolute;left:12px;top:13px;accent-color:var(--sea);width:17px;height:17px}
+.opt b{display:block;font-size:14.5px}
+.opt span{color:var(--muted);font-size:13px}
+.opt:has(input:checked){border-color:var(--sea);background:var(--sea-soft)}
+.opt.is-rec b::after{content:"Recommended";margin-left:8px;font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.05em;background:var(--leaf);color:#fff;border-radius:999px;padding:2px 7px;vertical-align:2px}
+#summaryBox{width:100%;min-height:260px;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:13px;border:1px solid var(--line);border-radius:12px;padding:12px;background:#fcfbf8}
+.btn{display:inline-block;background:var(--sea);color:#fff;border:none;border-radius:10px;padding:9px 16px;font-weight:700;cursor:pointer;font-size:14px}
+.btn.ghost{background:#fff;color:var(--sea);border:2px solid var(--sea)}
+.phase{display:grid;grid-template-columns:90px 1fr;gap:14px;margin:12px 0}
+.phase .tag{background:var(--sea);color:#fff;border-radius:12px;font-weight:800;display:flex;align-items:center;justify-content:center;font-size:20px;min-height:70px}
+.phase .card h4{margin:0 0 4px}
+.small{font-size:13px;color:var(--muted)}
+.sources li{font-size:13.5px;margin:3px 0}
+@media (max-width:860px){.layout{grid-template-columns:1fr} nav.side{position:relative;height:auto}}
+@media print{nav.side{display:none}.layout{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<div class="layout">
+<nav class="side">
+  <div class="brand">Math Adventure App</div>
+  <div class="sub">Research &amp; build plan · Nov 2026</div>
+  <div class="grp">Start here</div>
+  <a href="#tldr">Recommendations at a glance</a>
+  <a href="#fire">Fire tablet news</a>
+  <div class="grp">Research</div>
+  <a href="#progression">1 · Math progression</a>
+  <a href="#teaching">2 · How to teach it</a>
+  <a href="#adaptive">3 · Adaptive engine</a>
+  <a href="#game">4 · Game design options</a>
+  <a href="#interactive">5 · Interactive mechanics</a>
+  <a href="#rules">6 · Healthy engagement rules</a>
+  <div class="grp">Building it</div>
+  <a href="#architecture">7 · System architecture</a>
+  <a href="#tech">8 · Technology options</a>
+  <a href="#llm">9 · Where AI fits</a>
+  <a href="#roadmap">10 · Roadmap</a>
+  <a href="#risks">11 · Risks &amp; open questions</a>
+  <div class="grp">Your turn</div>
+  <a href="#decide">12 · Pick your options</a>
+  <a href="#sources">Sources &amp; research docs</a>
+</nav>
+
+<main>
+<header class="hero">
+  <h1>An adaptive math adventure for K–8 (and beyond)</h1>
+  <p>This plan covers a game your kids want to play that teaches the math they will meet in school. It works out what each child already knows, teaches the next thing they're ready for, and brings older skills back before they fade. It runs on their Fire tablets and in any web browser. It starts at kindergarten and 2nd grade, and the design supports K–8 and high school from day one.</p>
+  <div class="meta">Built from four parallel research tracks: math progression, teaching and adaptivity, gamification, and technology. The full research notes, with about 250 cited sources, are in the repo under <code>docs/research/</code>.</div>
+  <svg width="260" height="200" viewBox="0 0 260 200" aria-hidden="true"><circle cx="130" cy="140" r="90" fill="#fff"/><path d="M40 150 Q130 90 220 150" stroke="#fff" stroke-width="10" fill="none"/><text x="70" y="80" font-size="60" fill="#fff" font-weight="800">7+3</text></svg>
+</header>
+
+<section id="locked" style="margin-top:0">
+  <div class="callout good"><strong>Update (17 Nov 2026): decisions locked, and the build spec is written</strong>
+    You accepted the recommendations, with these changes:
+    <ul class="tight">
+      <li><b>Devices:</b> the new Alexa/Kids Tablets (Android, Chrome) plus browsers. Fire OS is dropped.</li>
+      <li><b>Distribution:</b> open source (MIT), self-hosted by each family.</li>
+      <li><b>Standards:</b> Wisconsin's 2021 standards (a revision of Common Core) are tagged alongside Common Core codes.</li>
+      <li><b>Avatar:</b> a character creator, plus "make me from a photo".</li>
+      <li><b>AI:</b> runtime AI for feedback and error diagnosis.</li>
+    </ul>
+    <b>Policy finding:</b> Google's Gemini API terms bar use in any app "directed towards or … likely to be accessed by individuals under the age of 18". So Gemini TTS is used <i>only at build time</i>, to pre-render narration files (a reasonable reading of the terms, not yet confirmed by Google), and all runtime AI uses Claude. Image models bar editing photos of minors, so the photo becomes <i>attributes for the in-game SVG avatar</i>, not a generated likeness.
+    The full build specs are in <code>docs/spec/</code>, and the 34-issue build plan and orchestrator prompt are in <code>docs/build/</code> in the repo.</div>
+</section>
+
+<!-- TL;DR -->
+<section id="tldr">
+  <h2>Recommendations at a glance</h2>
+  <p class="lede">These are my recommendations in each area. Each one is explained below with its alternatives, and in <a href="#decide">§12</a> you can pick your own options and copy the result back to me.</p>
+  <div class="tldr">
+    <div class="card rec"><h4>Game frame</h4><p><b>"Number Island"</b>: the siblings share an island, and each building is a workshop. Doing the math is how things get built. Residents are collectible number creatures who ask for things to be built.</p></div>
+    <div class="card rec"><h4>Curriculum</h4><p>A <b>prerequisite graph of small skills</b>. It is built from Common Core plus the Achieve the Core Coherence Map (CC0), with the K–2 order taken from research learning trajectories. Grade is a label, not a gate.</p></div>
+    <div class="card rec"><h4>Teaching</h4><p>Objects, then pictures, then symbols. Show a worked example before practice. Strategies come before memorized facts. Every session mixes in spaced review of older skills. A skill counts as mastered only when it is <i>still</i> right a week later.</p></div>
+    <div class="card rec"><h4>Adaptive engine</h4><p>A skill rating for each child that works from the first answer, with explicit rules for what counts as mastery. A spaced-review scheduler gives partial review credit to simpler skills, and a short placement game finds where each child is.</p></div>
+    <div class="card rec"><h4>App technology</h4><p>A <b>TypeScript web app</b> (React + Vite). Questions are built from ordinary web elements and drawings, with a game engine (PixiJS) loaded only for mini-games. Progress is saved on the device, so it works offline.</p></div>
+    <div class="card rec"><h4>Backend &amp; hosting</h4><p>A small API on <b>Cloudflare Workers</b> syncs progress across devices and serves the parent dashboard. Hosting should cost about $0 a month. Progress is stored as a list of answers that only grows, so syncing never has to resolve conflicts.</p></div>
+    <div class="card rec"><h4>Getting it on the Fire</h4><p>Add the web app's address to the <b>allowed websites in each kid's Amazon Kids profile</b>, with no sideloading. An Android app wrapper (Capacitor) stays ready if we ever want an app store.</p></div>
+    <div class="card rec"><h4>AI (Claude)</h4><p>Use Claude <b>at build time only</b>: it drafts problems, hints and voice scripts, code checks every answer, and you review before anything ships. The kids never chat with an AI.</p></div>
+    <div class="card rec"><h4>First scope</h4><p>Build <b>K–3</b> (about 300 skills, enough headroom for both kids) on a structure that already covers K–8 and high school. Grades 4–5, then 6–8, follow as new workshops on the same island.</p></div>
+  </div>
+</section>
+
+<!-- Fire -->
+<section id="fire">
+  <h2>Heads up: Amazon just ended the Fire tablet line</h2>
+  <div class="callout alert">
+    <strong>This changes the platform choice (confirmed from TechCrunch and CNBC, 8 Oct 2026)</strong>
+    Amazon replaced Fire tablets with new <b>Alexa Tablets</b> (8", 11", 12" Pro) and <b>Amazon Kids Tablets</b> (8.7", 11"). They run <b>Android with the full Google Play Store</b> instead of Fire OS. Amazon has stopped making Fire tablets but says it will keep supporting existing ones.
+  </div>
+  <div class="grid g2">
+    <div class="card">
+      <h4 style="margin-top:0">What this means for us</h4>
+      <ul class="tight">
+        <li><b>Your kids' current Fire tablets</b> run Fire OS 8 (Android 11) or Fire OS 7 (Android 9). They have no Google Play, and Silk is the browser. Silk is based on Chromium (the engine behind Chrome), so modern web features <i>should</i> work. I haven't tested that on a device yet.</li>
+        <li><b>Any tablet you buy next</b> will be ordinary Android with Google Play, so normal Android apps and web apps both work.</li>
+        <li>A <b>web app</b> is the one choice that works on both, plus laptops, iPads and Chromebooks, with nothing Fire-specific to maintain.</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h4 style="margin-top:0">What I could not confirm without the tablets</h4>
+      <ul class="tight">
+        <li>Whether the <b>Kids Browser</b> in a child profile keeps saved data and offline support after a reboot.</li>
+        <li>How audio behaves (tap-to-unlock, latency) and whether text-to-speech is available.</li>
+        <li>Animation frame rate on a Fire 7 or HD 8 (2–3 GB RAM, slow chips).</li>
+      </ul>
+      <p class="small">The first build milestone (M0) is a one-page device test that answers all of these before we commit.</p>
+    </div>
+  </div>
+</section>
+
+<!-- 1 Progression -->
+<section id="progression">
+  <h2><span class="num">1</span>What the math progression should look like</h2>
+  <p class="lede">School standards are too coarse to adapt to: one Common Core standard usually contains 3 to 8 skills that need checking separately. Successful adaptive products (Math Academy, ALEKS) all use a <b>graph of small skills with prerequisite links</b>. We should do the same, with each skill taking about 5–15 minutes to teach and able to be practised with generated problems.</p>
+
+  <div class="grid g3">
+    <div class="card"><h4 style="margin-top:0">Backbone sources</h4>
+      <ul class="tight">
+        <li><b>Common Core (CCSS-M)</b> K–8 domains plus the high-school categories, about 230 standards. We store only the codes, not the text, which has a restrictive license.</li>
+        <li><b>Achieve the Core Coherence Map</b>: standard-to-standard prerequisite links, released as <b>CC0</b> (no restrictions). Learning Commons distributes it as JSON with an API.</li>
+        <li><b>Progressions documents</b> (CC BY): give us ready-made problem types, such as the 15 kinds of add/subtract word problem.</li>
+        <li><b>Clements &amp; Sarama learning trajectories</b>: the research-based order for K–2 counting, subitizing and composing numbers. We use their ordering and ideas, not their text.</li>
+      </ul></div>
+    <div class="card"><h4 style="margin-top:0">How big is it?</h4>
+      <ul class="tight">
+        <li>Khan Academy uses about 140 skills per grade, IXL about 350, and Math Academy about 2,500 topics from grade 4 to university.</li>
+        <li><b>Our target is 80–150 skills per grade</b>, or about 250–350 for K–3 in the first version.</li>
+        <li>K–8 comes to roughly 1,000 skills, and high school can be added as more strands on the same graph.</li>
+      </ul></div>
+    <div class="card"><h4 style="margin-top:0">Data model (per skill)</h4>
+      <dl class="kv" style="grid-template-columns:110px 1fr">
+        <dt>prerequisites</dt><dd>Required links: a skill unlocks once these are mastered.</dd>
+        <dt>encompasses</dt><dd>Weighted links, so practising a harder skill counts as partial review of the easier skills inside it.</dd>
+        <dt>representations</dt><dd>Ten-frame, number line, base-ten blocks, bar model…</dd>
+        <dt>templates</dt><dd>Problem generators with known difficulty.</dd>
+        <dt>misconceptions</dt><dd>Predictable wrong answers, each linked to a re-teaching skill.</dd>
+      </dl></div>
+  </div>
+
+  <h3>A slice of the K–1 graph: the critical path to place value</h3>
+  <p class="small">The purple outlines mark <b>gateway</b> skills: if a child is shaky on one of these, problems show up later. Gateway skills get stricter mastery rules, more representations, and get checked first when a child stalls. The research doc has the full 74-skill K–2 sample.</p>
+  <div class="svgwrap"><svg id="skillgraph" viewBox="0 0 1090 340" width="100%" role="img" aria-label="Sample prerequisite graph from counting to adding within 100"></svg></div>
+
+  <h3>Gateway concepts that commonly block later math</h3>
+  <div class="grid g4">
+    <div class="card"><span class="badge b-gw">K</span><b>Cardinality</b><br><span class="small">The last number you count tells you how many there are.</span></div>
+    <div class="card"><span class="badge b-gw">K–1</span><b>Make ten / partners of 10</b><br><span class="small">The basis of mental math strategies and of place value.</span></div>
+    <div class="card"><span class="badge b-gw">1–2</span><b>Place value: ten as one unit</b><br><span class="small">Behind every multi-digit procedure.</span></div>
+    <div class="card"><span class="badge b-gw">1–3</span><b>"=" means "the same as"</b><br><span class="small">Predicts later success in algebra. Show it in varied forms like <code>__ = 3 + 4</code>.</span></div>
+    <div class="card"><span class="badge b-gw">2–4</span><b>Multiplicative reasoning</b><br><span class="small">Equal groups, arrays and area, rather than only repeated addition.</span></div>
+    <div class="card"><span class="badge b-gw">3–5</span><b>Fractions as numbers</b><br><span class="small">Fraction knowledge in 5th grade predicts high-school algebra.</span></div>
+    <div class="card"><span class="badge b-gw">6–7</span><b>Proportional reasoning &amp; negatives</b><br><span class="small">Ratios, rates, percents and integers.</span></div>
+    <div class="card"><span class="badge b-gw">6–8</span><b>Variables &amp; functions</b><br><span class="small">The bridge into high-school math.</span></div>
+  </div>
+
+  <h3>Where each kid probably starts, and where to push</h3>
+  <div class="grid g2">
+    <div class="card"><h4 style="margin-top:0">🐣 Advanced kindergartner</h4>
+      <ul class="tight">
+        <li>Firm up <b>seeing and splitting numbers to 10 and 20</b> (ten-frames, 7 = 5 + 2, teens = 10 + n). Kids who count well often skip this step.</li>
+        <li>Then <b>counting on → doubles → make ten</b>, and "=" as "the same as".</li>
+        <li>Then <b>tens and ones</b>, adding within 100, telling time to the half hour, halves and quarters, and measuring length.</li>
+        <li>A realistic stretch goal is end-of-1st-grade math plus some 2nd-grade place value. <b>Hold off on written methods like carrying</b> until mental strategies are solid.</li>
+      </ul></div>
+    <div class="card"><h4 style="margin-top:0">🦊 Advanced 2nd grader</h4>
+      <ul class="tight">
+        <li>Check that facts within 20 are fluent and that she <i>understands</i> regrouping in 3-digit add/subtract.</li>
+        <li>Then <b>multiplication and division as equal groups, arrays and area</b>, then break-apart fact strategies (7×6 = 5×6 + 2×6), then fact fluency.</li>
+        <li><b>Fractions on the number line</b> are the single most valuable push. Then area and perimeter, time to the minute, and rounding.</li>
+        <li>Enrichment: puzzles in the style of Beast Academy, balance-scale equations with unknowns, and negative numbers informally ("below zero").</li>
+      </ul></div>
+  </div>
+</section>
+
+<!-- 2 Teaching -->
+<section id="teaching">
+  <h2><span class="num">2</span>The best teaching approaches</h2>
+  <p class="lede">The strongest research reviews agree. The What Works Clearinghouse and IES practice guides, cognitive load research, and studies on retrieval and spacing all point to explicit teaching with visual models, then lots of spaced, mixed retrieval practice.</p>
+
+  <h3>Each new skill follows the same arc</h3>
+  <div class="flow">
+    <div class="step">👀 Worked example<br><span class="small">narrated, animated</span></div><div class="arr">→</div>
+    <div class="step">🤝 Faded example<br><span class="small">the child finishes the last step</span></div><div class="arr">→</div>
+    <div class="step">🧱 Scaffolded practice<br><span class="small">manipulatives available</span></div><div class="arr">→</div>
+    <div class="step">✏️ Independent<br><span class="small">symbols only</span></div><div class="arr">→</div>
+    <div class="step">🔁 Spaced, mixed review<br><span class="small">1 day, 1 week, and later</span></div>
+  </div>
+  <p class="small">Advanced kids skip steps automatically: once a child shows they know the material, worked examples stop helping, so a quick "test out" check comes first. Open-ended problem-solving was weaker than direct teaching for grades 2–5 in Kapur's meta-analysis, so puzzles and productive struggle serve as <b>enrichment on skills already mastered</b>.</p>
+
+  <div class="grid g3" style="margin-top:14px">
+    <div class="card"><h4 style="margin-top:0">Objects → pictures → symbols</h4><p class="small">Every skill moves from objects (ten-frames, base-ten blocks, fraction bars) to pictures to symbols, and drops back a level when errors appear. Keep the objects visually plain; decorative ones distract. The <b>number line</b> appears everywhere (the WWC rates the evidence for it as strong).</p></div>
+    <div class="card"><h4 style="margin-top:0">Strategies before speed</h4><p class="small">Make ten, doubles, near-doubles and "think addition" are <i>skills in the graph</i> and must be learned before fact drills. Response speed is recorded silently. Kindergartners never see a timer; for the 2nd grader, timed games are an optional "beat your own best".</p></div>
+    <div class="card"><h4 style="margin-top:0">Retrieval, spacing, mixing</h4><p class="small">These have the strongest evidence of anything here. In a randomized 7th-grade study, mixing problem types beat practising one type at a time on a test a month later (61% vs 38%). Every session mixes old and new skills.</p></div>
+    <div class="card"><h4 style="margin-top:0">Aim for about 85% success</h4><p class="small">Engagement peaked near 90% success in a number-line game, and theory puts the best learning rate near 85%. Target 80–85% first-try accuracy for the 2nd grader and 85–90% for the kindergartner.</p></div>
+    <div class="card"><h4 style="margin-top:0">Feedback that teaches</h4><p class="small">Immediate, specific feedback, with hints that get gradually more helpful. Praise the strategy ("you made a ten first!"), never "you're smart". No lives, game-overs or negative points.</p></div>
+    <div class="card"><h4 style="margin-top:0">Catch misconceptions</h4><p class="small">Kids type, drag or tap their answers rather than picking from choices. Each problem type predicts common wrong answers, such as subtracting the smaller digit from the larger or forgetting to carry. When the same mistake repeats, the app re-teaches that skill and alerts the parent.</p></div>
+  </div>
+
+  <h3>What "mastered" means</h3>
+  <div class="ladder">
+    <div style="background:#f4f4f4"><b>🔒 Locked</b>A prerequisite isn't solid yet</div>
+    <div style="background:var(--sea-soft)"><b>🌱 Learning</b>Working through the lesson</div>
+    <div style="background:var(--sun-soft)"><b>💪 Practiced</b>5 of the last 6 right, in at least 2 formats, over at least 2 sessions</div>
+    <div style="background:var(--plum-soft)"><b>⚡ Fluent</b>Fact skills only: fast median response time</div>
+    <div style="background:var(--leaf-soft)"><b>⭐ Mastered</b>Still right when reviewed 1 day <i>and</i> 1 week later</div>
+  </div>
+  <p class="small">A skill that fails two reviews in a row drops back a level. Each level comes with "why we think so" evidence on the parent dashboard.</p>
+
+  <h3>Designing for a 5-year-old</h3>
+  <div class="grid g4">
+    <div class="card small"><b>Audio first.</b> Every prompt is spoken, with a replay button. Almost no reading needed.</div>
+    <div class="card small"><b>Big targets.</b> At least 2 cm (about 80 CSS px). Tapping to place works as well as dragging, items snap into place, and a mis-drop costs nothing.</div>
+    <div class="card small"><b>Short sessions.</b> 5–10 minutes for K and 10–20 for 2nd grade, with a natural ending ritual.</div>
+    <div class="card small"><b>Detect frustration.</b> Repeated errors or quick taps bring an easier problem, a hint, or a break.</div>
+  </div>
+</section>
+
+<!-- 3 Adaptive -->
+<section id="adaptive">
+  <h2><span class="num">3</span>The adaptive engine: options</h2>
+  <p class="lede">With only two learners there is no data to train a statistical model. The engine has to work well <i>from the first answer</i> and be easy to explain to a parent. Every option below logs every attempt from day one behind a swappable interface, so we can upgrade later and replay the history.</p>
+  <div class="grid g3">
+    <div class="card rec"><span class="badge b-rec">Recommended</span><h4 style="margin:6px 0">A. Skill rating + mastery rules + spaced review</h4>
+      <p class="small">An Elo-style rating per child per skill (the system used to rate chess players). Each problem's difficulty comes from its parameters, such as how many digits or how many regroupings. Explicit rules decide mastery, and a simplified version of Math Academy's review scheduler handles spaced review, including partial credit for easier skills.</p>
+      <ul class="pros"><li>Works from the very first answer</li><li>Uses the difficulty we already know for generated problems</li><li>Every decision is explainable ("5 of the last 6 right")</li><li>Simple to build and test</li></ul>
+      <ul class="cons"><li>The weights are hand-tuned at first</li><li>Not a "true" probability of knowing the skill (we can add one as a second opinion)</li></ul></div>
+    <div class="card"><span class="badge b-alt">Alternative</span><h4 style="margin:6px 0">B. Bayesian Knowledge Tracing (BKT)</h4>
+      <p class="small">The classic intelligent-tutor model: each skill has a probability that the child knows it, updated after every answer.</p>
+      <ul class="pros"><li>Easy to read: "87% likely she knows this"</li><li>Well studied</li></ul>
+      <ul class="cons"><li>Ignores problem difficulty</li><li>Its settings normally need data from many learners</li><li>No forgetting unless extended</li></ul>
+      <p class="small">Could run in the background alongside option A to give the parent dashboard a second opinion.</p></div>
+    <div class="card"><span class="badge b-alt">Alternative</span><h4 style="margin:6px 0">C. Simple level ladder</h4>
+      <p class="small">IXL-style: each skill has levels, and N correct in a row moves the child up. No spaced review across skills.</p>
+      <ul class="pros"><li>Simplest to build</li><li>Predictable</li></ul>
+      <ul class="cons"><li>No retention, so skills fade</li><li>Slow placement</li><li>Not truly adaptive across the graph</li></ul></div>
+  </div>
+  <div class="callout info"><strong>Upgrade path (option A)</strong>
+    v1 is the rating plus rules. v2, once there is data from more families: fit better models (BKT with forgetting, or PFA) offline and compare their predictions. v3: tune the review scheduler (FSRS) on our own logs. v4, only at thousands of learners: heavier statistical models. <b>Skip deep-learning knowledge tracing</b>: simpler extended models match it, and it needs far more learners than we will have.</div>
+
+  <h3>Placement: a short game that finds where each child is</h3>
+  <p>The placement game picks questions along the graph. A correct answer raises confidence in everything that skill depends on. A wrong answer lowers confidence in everything built on it, and the next question checks a prerequisite. One question therefore updates many skills; Math Academy reports this cuts the number of questions about tenfold. Skills inferred this way are marked <b>"assumed"</b> and checked quietly during week one. There is always a <b>"I haven't learned this yet"</b> button, so nobody has to guess.</p>
+  <div class="grid g2">
+    <div class="card small"><b>Kindergartner:</b> 3–4 mini-games of about 5 minutes ("help the robot count"), with no fail sounds. It stops after two "I don't know"s in a row.</div>
+    <div class="card small"><b>2nd grader:</b> 2–3 sessions of about 10 minutes, including questions <i>above</i> grade level. A parent can say "she's doing 3rd-grade work at home" to start higher.</div>
+  </div>
+</section>
+
+<!-- 4 Game -->
+<section id="game">
+  <h2><span class="num">4</span>Game design: three frames to choose from</h2>
+  <p class="lede">The most important finding: <b>put the math inside the main game action.</b> Habgood &amp; Ainsworth's <i>Zombie Division</i> study compared a game where you defeat enemies by dividing correctly against the same game with quizzes between levels. Kids learned more from the first version, and when free to choose they played it about <b>7 times longer</b>. Prodigy is the cautionary tale: math is a toll gate before the fun. One advocacy group counted 4 math problems against 16 membership ads in 19 minutes (Prodigy disputes the count). All three frames below share the same learning engine. They differ in <i>why kids come back</i>.</p>
+
+  <div class="grid g3">
+    <div class="card"><span class="badge b-alt">Option A</span><h4 style="margin:6px 0">🐾 Number Creatures</h4>
+      <p class="small">A world-map adventure. Creatures' bodies <i>are</i> quantities: a "7" has 7 segments, and a "½" creature splits in two. Kids befriend creatures by solving their puzzles. Creatures combine (3 + 4 → 7) and gain abilities, so the Ten-Whale lets you "make ten" anywhere.</p>
+      <ul class="pros"><li>Collecting is extremely motivating at ages 5–9</li><li>Combining creatures <i>is</i> addition</li><li>The map path doubles as a number line</li></ul>
+      <ul class="cons"><li>Risks drifting into Prodigy-style battles</li><li>Older kids may find it babyish</li><li>Lots of art per creature</li><li>Completionist compulsion</li></ul></div>
+    <div class="card rec"><span class="badge b-rec">Recommended · Option B</span><h4 style="margin:6px 0">🏝️ Number Island</h4>
+      <p class="small">The siblings share an island that starts as a sandbar. Every building is a <b>workshop whose mini-game is the math</b>. The bakery makes bread by composing ten. The brick factory fuses 10 bricks into a rod. The garden plants arrays. The market makes change. The main road is a numbered path from 1 to 100 that the boat counts out loud. Number-creature residents move in and ask for things to be built.</p>
+      <ul class="pros"><li>Scales best to grade 8 (area, money, ratios, percents, coordinates, functions)</li><li>Real choice: what to build and how to decorate</li><li>A shared sibling island makes co-op natural</li><li>A persistent world gives a reason to return without streak guilt</li><li>Each workshop is a self-contained module, easy to add</li></ul>
+      <ul class="cons"><li>An economy can turn into grinding: materials must be the <i>direct product</i> of the math</li><li>Fewer adrenaline moments, offset by storm and festival "boss" events</li><li>Free decorating time has to be capped</li></ul></div>
+    <div class="card"><span class="badge b-alt">Option C</span><h4 style="margin:6px 0">📖 The Lost Numbers</h4>
+      <p class="small">A voiced, episodic story: help a character restore a world whose numbers went missing. Each chapter unlocks an <b>arcade cabinet</b> mini-game (Firefly Count, Fraction Slicer, Balance Cargo…) that can be replayed for stars.</p>
+      <ul class="pros"><li>Lots of variety and novelty</li><li>Each mini-game can be built and tested independently</li><li>Great for short sessions</li></ul>
+      <ul class="cons"><li>Story is expensive to write and voice, and it is linear (two kids need separate progress)</li><li>Risks becoming a collection of drills</li><li>Chasing high scores rewards speed over understanding</li></ul></div>
+  </div>
+
+  <h3>Side-by-side</h3>
+  <div class="tablewrap"><table>
+    <tr><th>Criterion</th><th>A · Creatures</th><th>B · Island</th><th>C · Story + Arcade</th></tr>
+    <tr><td>Appeal at 5–6</td><td class="stars">★★★★★</td><td class="stars">★★★★</td><td class="stars">★★★★</td></tr>
+    <tr><td>Appeal at 7–8</td><td class="stars">★★★★★</td><td class="stars">★★★★★</td><td class="stars">★★★★</td></tr>
+    <tr><td>Appeal at 11–14</td><td class="stars">★★</td><td class="stars">★★★★</td><td class="stars">★★★</td></tr>
+    <tr><td>Math is the core action</td><td class="stars">★★★★</td><td class="stars">★★★★★</td><td class="stars">★★★★ / ★★ (story)</td></tr>
+    <tr><td>K→8 curriculum breadth</td><td class="stars">★★★</td><td class="stars">★★★★★</td><td class="stars">★★★★</td></tr>
+    <tr><td>Siblings at different levels</td><td class="stars">★★★</td><td class="stars">★★★★★</td><td class="stars">★★★</td></tr>
+    <tr><td>Return without dark patterns</td><td class="stars">★★★</td><td class="stars">★★★★★</td><td class="stars">★★★</td></tr>
+    <tr><td>Content and art cost</td><td>High</td><td>Medium</td><td>High</td></tr>
+  </table></div>
+
+  <h3>The recommended hybrid: Island + the best parts of A and C</h3>
+  <div class="grid g3">
+    <div class="card small"><b>From A:</b> residents are number creatures, collected by <i>building the homes they ask for</i>, not by battling. Creatures combine and split inside the workshops.</div>
+    <div class="card small"><b>From C:</b> each workshop is a polished, replayable mini-game, so the codebase is an arcade of math mechanics with the island as the hub. Story arrives only through residents' requests and seasonal festivals.</div>
+    <div class="card small"><b>For siblings:</b> one shared island, each kid working at their own level on the same project. "Team vs storm" events. Comparisons are against <i>your own</i> best time, never head-to-head speed.</div>
+  </div>
+
+  <h3>One 15-minute session</h3>
+  <div class="flow">
+    <div class="step">🦀 A resident asks:<br>"A bridge to the east beach — 23 planks!"</div><div class="arr">→</div>
+    <div class="step">🧭 Kid picks a workshop<br><span class="small">(their choice)</span></div><div class="arr">→</div>
+    <div class="step">🧮 2–4 min of math play<br><span class="small">that produces the materials</span></div><div class="arr">→</div>
+    <div class="step">🏗️ Build or place it<br><span class="small">(placement can be math too)</span></div><div class="arr">→</div>
+    <div class="step">🎉 Resident celebrates,<br>the island grows</div><div class="arr">→</div>
+    <div class="step">🌙 Wind-down ritual</div>
+  </div>
+
+  <h3>How the island grows with them</h3>
+  <div class="tablewrap"><table>
+    <tr><th>Grades</th><th>Workshops and island features</th></tr>
+    <tr><td><b>K–1</b></td><td>Numbered road (counting on), Firefly Count (subitizing), Ten-Boat (sails only with exactly 10 aboard), Shape Windows (composing shapes), bead necklaces (patterns)</td></tr>
+    <tr><td><b>2–3</b></td><td>Brick Factory (place value and regrouping), Garden Arrays (×), Market (money and change), Clock Dock (ferry schedule), Bakery pies (fractions), Puzzle Tower (KenKen and magic squares for "spicy" challenges)</td></tr>
+    <tr><td><b>4–5</b></td><td>Fenced plots (area vs. perimeter), multi-digit shipments, fraction equivalence at the bakery, decimals at the market, coordinate treasure maps</td></tr>
+    <tr><td><b>6–7</b></td><td>Recipe scaling and paint mixing (ratios), ferry rates, market discounts and bank interest (percents), underwater levels and temperature (integers), scale drawings</td></tr>
+    <tr><td><b>8+</b></td><td>Conveyor machines and fare schedules (linear functions), bridge distances (Pythagorean theorem), reservoirs (volume), two ferries (systems of equations). The island turns into a town simulation they model with equations.</td></tr>
+  </table></div>
+  <div class="callout good"><strong>Measure from day one</strong>
+    The share of active time spent on math (at least 70%). Time to the first problem (10 seconds or less). Each child's first-try accuracy (80–90%). Sessions the child starts on their own. Whether sessions end naturally or get abandoned. Transfer checks: can they do it in plain notation, without the objects?</div>
+</section>
+
+<!-- 5 Interactive -->
+<section id="interactive">
+  <h2><span class="num">5</span>Making it interactive: the math <i>is</i> the controls</h2>
+  <p class="lede">Virtual manipulatives such as ten-frames, base-ten blocks and fraction bars show a moderate positive effect (about 0.34 SD), better than games in general (0.1–0.3). Linear numbered board games improve young children's number sense; circular boards with the same numbers don't (Siegler &amp; Ramani). So the manipulatives <i>are</i> the input, and the world map is a number line.</p>
+  <div class="tablewrap"><table>
+    <tr><th>Concept</th><th>Manipulative</th><th>Island mechanic</th><th>Touch input</th></tr>
+    <tr><td>Subitizing (K)</td><td>Dot flashes, ten-frames</td><td>Fireflies blink in groups; tap the matching number of lanterns</td><td>Tap big number tiles</td></tr>
+    <tr><td>Number path (K–1)</td><td>Linear numbered board</td><td>The boat moves along the 1→100 road, saying each number aloud</td><td>Tap spinner; tap each square to count on</td></tr>
+    <tr><td>Number line estimation (K–8)</td><td>Unmarked number line</td><td>"The crab buried treasure at 37." Tap the spot and dig; hot/cold shows how close</td><td>Tap a location (no precise dragging)</td></tr>
+    <tr><td>Make ten (K–1)</td><td>Ten-frames, number bonds</td><td>Ten-Boat sails only with exactly 10 aboard: combine creature groups (7 + 3)</td><td>Drag groups or tap pairs</td></tr>
+    <tr><td>Add/sub strategies (K–2)</td><td>Rekenrek (bead rack with two rows of 10)</td><td>Abacus Bridge: slide beads to show 8 + 6 as 10 + 4</td><td>Swipe beads in groups of 5</td></tr>
+    <tr><td>Place value (1–3)</td><td>Base-ten blocks</td><td>Brick Factory: 10 bricks fuse into a rod; trade rods back for bricks when you need to "borrow"</td><td>Drag; tap "trade"</td></tr>
+    <tr><td>Fact fluency (1–5)</td><td>Strategy first, then recall</td><td>Rhythm Harvest: crops ripen to a beat and answering harvests them. Private, against your own best</td><td>Big answer tiles or number pad</td></tr>
+    <tr><td>Multiplication (2–4)</td><td>Arrays, area model</td><td>Garden plots: plant a 4×6 bed; split 7×8 with a fence into 7×5 + 7×3</td><td>Drag a rectangle that snaps to the grid</td></tr>
+    <tr><td>Division (3–5)</td><td>Fair sharing</td><td>Share 24 fish among creature families; leftovers go to the seagull (the remainder)</td><td>Drag groups, auto-distribute</td></tr>
+    <tr><td>Fractions (2–5)</td><td>Bars, circles, number line</td><td>Slice pies for guests; stack bars to find equivalents; compare on the line</td><td>Tap to cut (cuts snap)</td></tr>
+    <tr><td>Time and money (1–3)</td><td>Geared clock, coins</td><td>Set the ferry departure; pay and make change at the market</td><td>Big clock handle; tap coins</td></tr>
+    <tr><td>Equations (1–8)</td><td>Balance scale, algebra tiles</td><td>Keep the cargo ship level; later the boxes become "x"</td><td>Drag weights; tap "remove same from both sides"</td></tr>
+    <tr><td>Ratios (6–7)</td><td>Double number line, tape diagram</td><td>Scale bakery recipes for guests; mix paint to match a color</td><td>Drag on the double number line</td></tr>
+    <tr><td>Linear functions (7–8)</td><td>Tables, graphs, "machines"</td><td>Tune a conveyor's rate and start position (slope and intercept) to hit targets</td><td>Drag points or sliders</td></tr>
+  </table></div>
+  <p class="small">Input for answers: a <b>big number pad plus the manipulatives</b>, rather than multiple choice. Handwriting recognition for digits can come later (a small on-device model).</p>
+</section>
+
+<!-- 6 Rules -->
+<section id="rules">
+  <h2><span class="num">6</span>Healthy engagement: hard rules</h2>
+  <p class="lede">Radesky et al. (2022) found manipulative design in apps used by nearly all the young children in their study. We will make kids want to come back without the tricks.</p>
+  <div class="grid g2">
+    <div class="card"><h4 style="margin-top:0;color:var(--leaf)">✅ Do</h4>
+      <ul class="tight">
+        <li>Give <b>choice</b> (what to build, where to go, how to decorate), a <b>sense of getting better</b> (visible mastery, the right level of challenge), and <b>connection</b> (sibling co-op, parent gifts, residents who care). These three needs predict enjoyment and continued play.</li>
+        <li>Praise that gives information, and <b>surprise</b> rewards. Use cosmetics and new <i>abilities</i>, not pay-per-problem.</li>
+        <li>Weekly goals for young kids. Streaks only ever add up and are never lost.</li>
+        <li>A parent "visitor" who can leave a surprise gift, plus real-world milestones the parent defines.</li>
+        <li>Optional family quiz night, with each player getting questions at their own level.</li>
+      </ul></div>
+    <div class="card"><h4 style="margin-top:0;color:var(--coral)">🚫 Never</h4>
+      <ul class="tight">
+        <li>Ads, loot boxes, paid currency, or upsells aimed at kids.</li>
+        <li>Lives lost for mistakes, game-overs, or negative points.</li>
+        <li>Countdown timers for young kids by default, or public speed leaderboards.</li>
+        <li>Guilt notifications, limited-time pressure, or streak shaming.</li>
+        <li>Rewards that are expected and handed out per task. These undermine kids' own interest (the overjustification effect).</li>
+        <li>Answering a question on one screen to earn a turn at the "real" game on another.</li>
+      </ul></div>
+  </div>
+</section>
+
+<!-- 7 Architecture -->
+<section id="architecture">
+  <h2><span class="num">7</span>Recommended system architecture</h2>
+  <p class="lede">The design separates <b>content</b> (data), <b>engine</b> (pure logic) and <b>presentation</b> (the island and widgets). That gives three things: K–8 and high school can be added by writing content rather than rewriting code, the engine can be tested without a browser, and a different front end (say a game engine) could reuse the same engine later.</p>
+  <div class="arch">
+    <div class="lbl">On the tablet or browser (works offline)</div>
+    <div class="row" style="grid-template-columns:repeat(auto-fit,minmax(200px,1fr))">
+      <div class="box b-client"><h5>Island and screens</h5><small>Profile picker (picture passwords), island hub, session flow, rewards, parent gate, parent dashboard</small></div>
+      <div class="box b-client"><h5>Math widgets (DOM/SVG)</h5><small>Number pad, ten-frame, number line, base-ten blocks, fraction bars, clock, coins, balance scale</small></div>
+      <div class="box b-client"><h5>Mini-games (lazy-loaded)</h5><small>PixiJS scenes such as Firefly Count and Rhythm Harvest, each with a simple <code>mount(canvas, props) / unmount()</code> interface</small></div>
+      <div class="box b-client"><h5>Audio manager</h5><small>Pre-rendered voice clips stitched together ("seven" + "plus" + "three"), sound effects, unlock on first tap</small></div>
+    </div>
+    <div class="down">▼ uses ▼</div>
+    <div class="row" style="grid-template-columns:2fr 1fr">
+      <div class="box b-engine"><h5>Learning engine <small>(plain TypeScript, no framework, fully unit-tested)</small></h5><small>Seeded problem generators · skill rating · mastery rules · spaced-review scheduler with partial credit · placement game · misconception matcher · session planner (new skill + mixed review, about 85% target)</small></div>
+      <div class="box b-content"><h5>Content pack <small>(versioned data)</small></h5><small>Skill graph YAML (strands, skills, links, CCSS codes) · problem templates · misconceptions · voice scripts → validated with Zod → compiled JSON</small></div>
+    </div>
+    <div class="down">▼ saves to ▼</div>
+    <div class="row" style="grid-template-columns:1fr 1fr">
+      <div class="box b-client"><h5>Local database (Dexie / IndexedDB)</h5><small>An <b>append-only log of answers</b> (child, skill, problem seed, answer, time, hints). Mastery is recomputed from the log, and the log is uploaded through a sync outbox.</small></div>
+      <div class="box b-server"><h5>Sync API (Hono on Cloudflare Workers + D1)</h5><small><code>POST /sync</code> merges the logs, so the same history appears on tablet and laptop with no conflicts. Parent sign-in by magic link or passkey, device pairing codes. Served from the same address as the app.</small></div>
+    </div>
+    <div class="lbl">At build time only (on the developer's machine or CI, never in front of kids)</div>
+    <div class="row" style="grid-template-columns:repeat(auto-fit,minmax(200px,1fr))">
+      <div class="box b-tools"><h5>Claude content drafting</h5><small>Drafts problem templates, hints and word-problem wording → code computes the answers → automated checks → human review in a PR</small></div>
+      <div class="box b-tools"><h5>Voice rendering</h5><small>Generate clips with a TTS service once, commit the audio files, and depend on nothing at runtime</small></div>
+      <div class="box b-tools"><h5>Validators and tests</h5><small>Graph checks (no cycles, every skill reachable) · property tests on generators · Playwright on a Fire-sized screen</small></div>
+    </div>
+  </div>
+  <div class="callout info"><strong>Why an append-only log of answers?</strong>
+    Each answer is saved as a new entry that is never edited. Mastery is <i>calculated</i> from that history, so syncing a tablet and a laptop only means combining two lists. There are never merge conflicts, so we need no complex sync engine. When we improve the adaptive model, we can re-run it over the kids' full history.</div>
+
+  <h3>Repo layout (monorepo)</h3>
+<pre class="card" style="font-size:13px;overflow:auto;margin:0">apps/web          React PWA: screens/, widgets/, minigames/, audio/, data/ (Dexie + sync), sw/ (service worker)
+apps/api          Hono on Cloudflare Workers: /auth, /pair, /sync, /dashboard → D1 (Drizzle)
+packages/engine   rng, template compiler, generators, learner model, scheduler, placement, misconceptions
+packages/content  Zod schemas, skills/*.yaml, templates/*.yaml, YAML→JSON compiler, audio manifest
+tools/            content-draft (Claude, build-time), tts-render, validate-graph
+docs/             research/, plan/, decisions (ADRs)</pre>
+</section>
+
+<!-- 8 Tech -->
+<section id="tech">
+  <h2><span class="num">8</span>Technology options</h2>
+  <p class="lede">Most of this app is interactive math screens (number lines, ten-frames, drag and drop) with a few arcade-style mini-games. It has to load fast on a slow Fire 7 and be built quickly with AI coding agents. Versions below were checked in November 2026.</p>
+
+  <h3>App framework</h3>
+  <div class="grid g3">
+    <div class="card rec"><span class="badge b-rec">Recommended</span><h4 style="margin:6px 0">A. TypeScript web app</h4>
+      <p class="small">React 19 + Vite + vite-plugin-pwa. Question screens use ordinary web elements and drawings (DOM/SVG/CSS); <b>PixiJS v8</b> (or Phaser 4) loads only for mini-games; <b>Rive</b> animates the mascot. Capacitor 8 can wrap it as an Android app later.</p>
+      <ul class="pros"><li>Smallest download (well under 1 MB of code before mini-games)</li><li>Best performance on low-end Fires for screens like these</li><li>One codebase for web, Fire and Android</li><li>Best accessibility and automated testing</li><li>Best AI-agent productivity (TypeScript)</li></ul>
+      <ul class="cons"><li>A rich game-world feel takes deliberate work</li><li>Two rendering approaches to integrate (DOM and canvas)</li><li>On Fire it runs inside Silk, not as a true installed app</li></ul>
+      <p class="small"><b>Fire risk: low–medium.</b></p></div>
+    <div class="card"><span class="badge b-alt">Alternative</span><h4 style="margin:6px 0">B. Godot 4.6 game engine</h4>
+      <p class="small">A real game engine (GDScript), with web export and a native Android app.</p>
+      <ul class="pros"><li>Best game feel: scenes, particles, physics</li><li>The native Android build runs well on Fire</li><li>Free and open source</li></ul>
+      <ul class="cons"><li>5–10 MB+ web download; slow in Silk on a Fire 7</li><li>Weak text, UI and accessibility</li><li>The parent dashboard needs a separate web app anyway</li><li>AI agents struggle with its editor scene files</li></ul>
+      <p class="small"><b>Fire risk: medium</b> (sideloaded apps are flaky in child profiles).</p></div>
+    <div class="card"><span class="badge b-alt">Alternative</span><h4 style="margin:6px 0">C. Flutter 3.47 (or Expo / React Native)</h4>
+      <p class="small">A native-first framework with a web build.</p>
+      <ul class="pros"><li>High-quality native Android app for Fire and the new Alexa tablets</li><li>Good animation and widget tests</li><li>Expo shares React/TypeScript skills</li></ul>
+      <ul class="cons"><li>Flutter's web build is heavy (1.5–3 MB+ engine) and slow on low-end Silk</li><li>Many plugins assume Google services, which Fire lacks</li><li>Expo's web output has gaps compared with native</li></ul>
+      <p class="small"><b>Fire risk: medium</b> on web, low as a native app.</p></div>
+  </div>
+
+  <h3>Backend, sync and hosting</h3>
+  <div class="tablewrap"><table>
+    <tr><th>Option</th><th>What it is</th><th>Good</th><th>Watch out</th><th>Cost</th></tr>
+    <tr><td><span class="badge b-rec">Rec</span><b>Cloudflare Workers + D1 + Hono</b></td><td>Small TypeScript API and SQLite database, on the same platform as the static hosting</td><td>One vendor and one language; same address as the app (the Kids Browser blocks third-party cookies); free tier allows commercial use</td><td>We build auth ourselves (e.g. Better Auth). D1's free-tier limits have been strictly enforced since Sep 2026, which is fine at family scale.</td><td>$0 (then $5/mo)</td></tr>
+    <tr><td><b>Supabase</b></td><td>Postgres with built-in auth and row-level security</td><td>Mature auth and a SQL console; the same sync design works on it</td><td>The free tier pauses after 7 days idle; Pro is $25/mo</td><td>$0 → $25/mo</td></tr>
+    <tr><td><b>Dexie Cloud</b></td><td>Hosted sync for the same local database</td><td>Almost no backend code</td><td>Vendor lock-in; check how it handles children's data</td><td>Free tier → paid</td></tr>
+    <tr><td><b>Local-only to start</b></td><td>No server: progress stays on each device</td><td>Fastest to build; nothing leaves the device</td><td>No progress sharing between tablet and laptop; no remote parent dashboard; data lost if the tablet is reset</td><td>$0</td></tr>
+  </table></div>
+  <p class="small">Vercel's free Hobby plan is for non-commercial use only, which is fine for family use but needs Pro ($20/mo) if the app is ever shared commercially. Netlify now bills by credits. Railway suits long-running servers, which we don't need. A custom domain is about $10/year.</p>
+
+  <h3>Getting it onto the kids' tablets</h3>
+  <div class="grid g4">
+    <div class="card rec"><span class="badge b-rec">Rec</span><b>Kids Browser allow-list</b><p class="small">In each child's Amazon Kids profile, add the app's URL to the approved websites and bookmark it. No sideloading, and updates arrive instantly. It also works on any new tablet, laptop or iPad.</p></div>
+    <div class="card"><span class="badge b-alt">Later</span><b>Amazon Appstore (Capacitor)</b><p class="small">The cleanest native path for Fire child profiles. Kids apps go through store review and COPPA requirements.</p></div>
+    <div class="card"><span class="badge b-alt">Later</span><b>Google Play</b><p class="small">For the new Alexa and Kids Tablets and other Android devices. Play's Families policy applies, and the parent approves each download on Kids Tablets.</p></div>
+    <div class="card"><span class="badge b-warn">Avoid</span><b>Sideloaded APK</b><p class="small">Often doesn't appear or update properly in child profiles. Fine only as a developer test.</p></div>
+  </div>
+
+  <h3>Other building blocks</h3>
+  <div class="grid g3">
+    <div class="card small"><b>Kid sign-in.</b> Only the parent has an account (magic link or passkey). Each device is paired once with a code. Kids tap their avatar and pick 3 of 9 pictures, which keeps siblings out of each other's profiles but is not real security. A parent gate guards settings. Kids never need an email address.</div>
+    <div class="card small"><b>Voice.</b> Pre-render all narration at build time with a high-quality TTS voice, then stitch clips together at runtime. Don't rely on the browser's built-in speech, which Fire OS may block. Optional idea: record a parent's voice for praise lines.</div>
+    <div class="card small"><b>Content as data.</b> Skills and problem templates live as YAML in the repo, validated by Zod. Problems are generated from seeded random numbers, so any problem can be reproduced exactly. Property tests check that generators never produce invalid problems.</div>
+    <div class="card small"><b>Testing.</b> Vitest 4 for the engine, fast-check property tests for generators, Playwright with a Fire-sized mobile viewport, Storybook for widgets, and GitHub Actions to run it all. Performance budgets checked in CI.</div>
+    <div class="card small"><b>Privacy (COPPA).</b> The amended rule has been fully in force since 22 Apr 2026. No third-party analytics or ad SDKs, all assets self-hosted, no voice or photo capture, and a written data-retention policy. This matters once the app is shared beyond your family.</div>
+    <div class="card small"><b>Performance budget.</b> Under about 2–3 MB total for the first load, one WebGL canvas at a time, animations that still look good at 30 fps, and capped device pixel ratio on low-end Fires.</div>
+  </div>
+</section>
+
+<!-- 9 LLM -->
+<section id="llm">
+  <h2><span class="num">9</span>Where AI (Claude) fits</h2>
+  <div class="grid g3">
+    <div class="card rec"><span class="badge b-rec">Recommended for v1</span><h4 style="margin:6px 0">Build-time content only</h4>
+      <p class="small">Claude drafts problem templates, word-problem wording, hint ladders, misconception explanations and voice scripts. <b>Code computes every answer</b>, automated checks run, and a person reviews each PR. The content ships as static files, and the child never talks to the model.</p>
+      <ul class="pros"><li>Safe, and no children's data reaches a third party</li><li>Lots of content authored quickly</li><li>Works offline</li></ul></div>
+    <div class="card"><span class="badge b-alt">Later, optional</span><h4 style="margin:6px 0">Guarded runtime hints</h4>
+      <p class="small">Runtime calls send only structured inputs (skill, problem, the wrong answer) with no personal data. The model chooses from vetted hint templates or its output is validated. Requires an AI disclosure and parental consent, and must follow Anthropic's guidelines for products serving minors.</p>
+      <ul class="cons"><li>In Bastani et al. (2025), students given unguarded GPT-4 did 17% worse on later exams without it; guardrails largely removed the harm</li><li>Cost, latency, and COPPA rules on sharing with third parties</li></ul></div>
+    <div class="card"><span class="badge b-alt">Alternative</span><h4 style="margin:6px 0">No AI at all</h4>
+      <p class="small">Hand-write every template. Simplest to reason about, but much slower to cover K–8.</p></div>
+  </div>
+</section>
+
+<!-- 10 Roadmap -->
+<section id="roadmap">
+  <h2><span class="num">10</span>Roadmap</h2>
+  <p class="lede">These are milestones rather than dates. Each one leaves the kids with something playable or answers a real question.</p>
+  <div class="phase"><div class="tag">M0</div><div class="card"><h4>Device check + skeleton</h4><p class="small">Run a one-page test on the kids' actual Fires, in both Silk and the Kids Browser: offline support, local storage surviving a reboot, audio unlock, WebGL frame rate, home-screen behaviour. Set up the monorepo, CI, Zod schemas and a graph validator. <b>Exit:</b> we know the web app works in a child profile.</p></div></div>
+  <div class="phase"><div class="tag">M1</div><div class="card"><h4>Engine + first content</h4><p class="small">Skill graph for counting, subitizing, composing, add/sub, place value and early multiplication (about 120 skills). Seeded generators with property tests, the skill rating, mastery rules, the review scheduler and the placement algorithm. Core widgets: number pad, ten-frame, dot flash, number line, base-ten blocks. <b>Exit:</b> a plain practice mode that both kids can use and that adapts.</p></div></div>
+  <div class="phase"><div class="tag">M2</div><div class="card"><h4>Number Island MVP</h4><p class="small">Island hub, profiles with picture passwords, the placement mini-games, and 5–6 workshops: Numbered Road, Firefly Count, Ten-Boat, Brick Factory, Garden Arrays, Market. Voice narration, celebrations, offline play, session wind-down. <b>Exit:</b> the kids choose to play it, measured by math share, return rate and accuracy.</p></div></div>
+  <div class="phase"><div class="tag">M3</div><div class="card"><h4>Parents + sync</h4><p class="small">Cloudflare API, parent sign-in, device pairing, syncing the answer log, and a parent dashboard: skill map with evidence, misconception alerts, time caps, surprise gifts. Shared island projects for both kids. <b>Exit:</b> progress is shared between tablet and laptop.</p></div></div>
+  <div class="phase"><div class="tag">M4</div><div class="card"><h4>Through grade 3, then 4–5</h4><p class="small">Fractions bakery, Clock Dock, area plots, division fish-sharing, Puzzle Tower, Rhythm Harvest fact fluency. Build-time Claude drafting pipeline to scale content. Then grades 4–5: multi-digit ×/÷, decimals and coordinates.</p></div></div>
+  <div class="phase"><div class="tag">M5</div><div class="card"><h4>Grades 6–8 and beyond</h4><p class="small">Ratios, rates, percents, integers, equations and functions, as the island becomes a town economy. Optional Capacitor app for the Appstore or Play, and COPPA readiness if shared publicly. High-school strands on the same graph.</p></div></div>
+</section>
+
+<!-- 11 Risks -->
+<section id="risks">
+  <h2><span class="num">11</span>Risks and open questions</h2>
+  <div class="tablewrap"><table>
+    <tr><th>Risk</th><th>Likelihood</th><th>Mitigation</th></tr>
+    <tr><td>The Kids Browser doesn't keep saved data or offline support</td><td>Medium</td><td>Test in M0. Server sync as backup. Fall back to an Appstore app.</td></tr>
+    <tr><td>Audio quirks or latency in Silk</td><td>Medium</td><td>Unlock audio on first tap, use Web Audio buffers, test on the device.</td></tr>
+    <tr><td>Fire 7 / HD 8 performance</td><td>Medium</td><td>Ordinary web elements for most screens, a performance budget in CI, 30 fps-friendly animation.</td></tr>
+    <tr><td>Fire OS is frozen now that the line is discontinued</td><td>Certain</td><td>Web-first works unchanged on the new Android tablets.</td></tr>
+    <tr><td>The game turns into grinding for coins</td><td>Medium</td><td>Materials come directly from the math action; measure the math share of active time.</td></tr>
+    <tr><td>Content volume for K–8</td><td>High</td><td>Templates and generators instead of hand-written items; Claude drafting at build time with human review.</td></tr>
+    <tr><td>Some research figures not yet verified</td><td>—</td><td>Some figures are flagged unverified in the research docs (e.g. exact CCSS codes, a few citations). Spot-check them while writing the content.</td></tr>
+  </table></div>
+  <h3>Questions for you</h3>
+  <ul class="tight">
+    <li>Which Fire models do the kids have (e.g. Fire 7, HD 8, HD 10, Kids Edition), and are they set up with Amazon Kids child profiles?</li>
+    <li>Do you want to keep this family-only, or might you share it with other families or schools later? That decides how early we do the COPPA, consent and app-store work.</li>
+    <li>Does your school follow Common Core, or a state variant (e.g. TEKS, Florida B.E.S.T.)? The graph can carry several sets of codes.</li>
+    <li>Do you like the idea of recording your own voice for praise and celebration lines?</li>
+  </ul>
+</section>
+
+<!-- 12 Decide -->
+<section id="decide">
+  <h2><span class="num">12</span>Pick your options</h2>
+  <p class="lede">Each decision has my recommendation pre-selected. Change anything you like, add notes, then copy the summary at the bottom and paste it back to me. (Choices aren't saved if you reload the page.)</p>
+  <div id="decisions"></div>
+  <h3>Your choices</h3>
+  <textarea id="summaryBox" readonly></textarea>
+  <div style="margin-top:10px;display:flex;gap:10px;flex-wrap:wrap">
+    <button class="btn" id="copyBtn" type="button">Copy summary</button>
+    <button class="btn ghost" id="resetBtn" type="button">Reset to recommendations</button>
+    <span id="copyMsg" class="small" style="align-self:center"></span>
+  </div>
+  <h3>Anything else?</h3>
+  <textarea id="notes" style="width:100%;min-height:90px;border:1px solid var(--line);border-radius:12px;padding:10px;font:inherit" placeholder="Notes, ideas, things your kids love (dinosaurs? space? ocean?) — included in the summary above."></textarea>
+</section>
+
+<section id="sources">
+  <h2>Sources and research docs</h2>
+  <p>The full research, with all citations, is in the repo <a href="https://github.com/Misko-Projects/math-app-v1">Misko-Projects/math-app-v1</a> under <code>docs/research/</code>:</p>
+  <ul class="tight">
+    <li><b>01-math-progression.md</b>: CCSS domains, Coherence Map and licensing, learning trajectories, how Math Academy, ALEKS, Khan and IXL model skills, YAML schemas, the 74-skill K–2 sample, grade-3 next steps, gateway concepts.</li>
+    <li><b>02-pedagogy-and-adaptivity.md</b>: evidence for each teaching practice, comparison of adaptive algorithms, placement algorithm, mastery criteria, misconception library, design for young kids, parent dashboard, LLM safety.</li>
+    <li><b>03-gamification-and-interactivity.md</b>: about 15 apps compared, game-based learning research, mechanics catalog, dark patterns, concept-to-mechanic table, touch UX, the three game frames.</li>
+    <li><b>04-technology.md</b>: Fire OS and the October 2026 Alexa Tablet change, Silk and Kids Browser, framework comparison, local-first and backend options, hosting, COPPA, TTS, handwriting, testing, a device checklist.</li>
+  </ul>
+  <h3>Key sources</h3>
+  <ul class="sources">
+    <li>Achieve the Core — Coherence Map (CC0) · Progressions documents (2023, CC BY) · Learning Commons standards data</li>
+    <li>Clements &amp; Sarama — Learning Trajectories (learningtrajectories.org)</li>
+    <li>Skycak, J. — <i>The Math Academy Way</i> (knowledge graph, FIRe spaced repetition)</li>
+    <li>IES/WWC practice guides — <i>Assisting Students Struggling with Mathematics</i> (2021), <i>Teaching Math to Young Children</i></li>
+    <li>Habgood &amp; Ainsworth (2011) — intrinsic integration, <i>Zombie Division</i></li>
+    <li>Siegler &amp; Ramani — linear number board games; Rohrer et al. — interleaved math practice RCT</li>
+    <li>Deci, Koestner &amp; Ryan (1999) — rewards and intrinsic motivation; Radesky et al. (2022) — manipulative design in children's apps</li>
+    <li>Bastani et al. (2025) — "Generative AI can harm learning" (guardrails)</li>
+    <li>TechCrunch &amp; CNBC (8 Oct 2026) — Amazon Alexa Tablets and Kids Tablets replace Fire tablets</li>
+    <li>FTC — amended COPPA Rule (effective 23 Jun 2025; compliance 22 Apr 2026)</li>
+  </ul>
+</section>
+</main>
+</div>
+
+<script>
+// ---------- Skill graph ----------
+(function(){
+  const svg=document.getElementById('skillgraph');
+  const NS='http://www.w3.org/2000/svg';
+  const colX=c=>10+c*134, rowY=r=>16+r*78, W=124, H=50;
+  const nodes={
+    'CNT.01':[0,0,'Count 1–20',0],
+    'SUB.01':[0,2,'Subitize 1–4',0],
+    'CNT.03':[1,0,'Cardinality',1],
+    'SUB.02':[1,2,'Subitize to 5',0],
+    'CNT.07':[2,0,'Count on from N',0],
+    'CPS.01':[2,1,'Split numbers ≤ 10',0],
+    'SUB.03':[2,2,'Ten-frame: 7 = 5 + 2',0],
+    'ADD.03':[3,0,'Count on to add',0],
+    'CPS.03':[3,2,'Partners of 10',1],
+    'ADD.06':[4,0,'Facts within 10',0],
+    'CPS.04':[4,2,'Teens = 10 + n',0],
+    'ADD.08':[5,1,'Make-ten strategy',1],
+    'PV.01':[5,3,'Tens & ones',1],
+    'MDA.01':[6,1,'Add within 100',0],
+    'MDA.03':[7,1,'Regroup within 100',0]
+  };
+  const edges=[['CNT.01','CNT.03'],['SUB.01','SUB.02'],['CNT.03','CNT.07'],['CNT.03','CPS.01'],['SUB.02','CPS.01'],['SUB.02','SUB.03'],['CNT.03','SUB.03'],
+    ['CNT.07','ADD.03'],['CPS.01','CPS.03'],['SUB.03','CPS.03'],['ADD.03','ADD.06'],['CPS.01','ADD.06'],['CPS.03','CPS.04'],
+    ['CPS.03','ADD.08'],['CPS.04','ADD.08'],['ADD.06','ADD.08'],['CPS.04','PV.01'],['ADD.08','MDA.01'],['PV.01','MDA.01'],['MDA.01','MDA.03']];
+  const defs=document.createElementNS(NS,'defs');
+  defs.innerHTML='<marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="#9aa3b2"/></marker>';
+  svg.appendChild(defs);
+  edges.forEach(([a,b])=>{
+    const A=nodes[a],B=nodes[b];
+    const x1=colX(A[0])+W, y1=rowY(A[1])+H/2, x2=colX(B[0])-2, y2=rowY(B[1])+H/2;
+    const mx=(x1+x2)/2;
+    const p=document.createElementNS(NS,'path');
+    p.setAttribute('d',`M${x1} ${y1} C${mx} ${y1}, ${mx} ${y2}, ${x2} ${y2}`);
+    p.setAttribute('fill','none');p.setAttribute('stroke','#b7bfcc');p.setAttribute('stroke-width','1.6');p.setAttribute('marker-end','url(#ah)');
+    svg.appendChild(p);
+  });
+  const strandColor={CNT:'#e3f2f4',SUB:'#fdf1df',CPS:'#e5f3e8',ADD:'#fbe7e6',PV:'#efe9f7',MDA:'#efe9f7'};
+  Object.entries(nodes).forEach(([id,[c,r,label,gw]])=>{
+    const g=document.createElementNS(NS,'g');
+    const rect=document.createElementNS(NS,'rect');
+    rect.setAttribute('x',colX(c));rect.setAttribute('y',rowY(r));rect.setAttribute('width',W);rect.setAttribute('height',H);rect.setAttribute('rx',10);
+    rect.setAttribute('fill',strandColor[id.split('.')[0]]||'#fff');
+    rect.setAttribute('stroke',gw?'#6c4f9e':'#cfd5de');rect.setAttribute('stroke-width',gw?3:1.2);
+    const t1=document.createElementNS(NS,'text');
+    t1.setAttribute('x',colX(c)+8);t1.setAttribute('y',rowY(r)+17);t1.setAttribute('font-size','11');t1.setAttribute('fill','#5d6475');t1.setAttribute('font-weight','700');t1.textContent=id+(gw?'  ★':'');if(gw)t1.setAttribute('fill','#6c4f9e');
+    const t2=document.createElementNS(NS,'text');
+    t2.setAttribute('x',colX(c)+8);t2.setAttribute('y',rowY(r)+36);t2.setAttribute('font-size','12');t2.setAttribute('fill','#1f2430');t2.textContent=label;
+    g.append(rect,t1,t2);svg.appendChild(g);
+  });
+  const legend=document.createElementNS(NS,'text');
+  legend.setAttribute('x',10);legend.setAttribute('y',332);legend.setAttribute('font-size','11.5');legend.setAttribute('fill','#5d6475');
+  legend.textContent='Arrows point from a prerequisite to the skill it unlocks. ★ = gateway skill. Kindergarten on the left, grade 2 on the right.';
+  svg.appendChild(legend);
+})();
+
+// ---------- Decisions ----------
+const DECISIONS=[
+ {id:'frame',title:'Game frame',why:'Why kids come back, and where the math lives.',opts:[
+  ['island','Number Island (hybrid)','A shared island of math workshops, creature residents, replayable mini-games',1],
+  ['creatures','Number Creatures','World-map adventure with collectible number creatures'],
+  ['story','The Lost Numbers','Voiced story chapters that unlock arcade mini-games'],
+  ['arcade','Arcade first, world later','Ship standalone mini-games now and add the persistent world afterwards']]},
+ {id:'scope',title:'First curriculum scope',why:'Everything is built on a structure that covers K–8 and high school; this is just what we write content for first.',opts:[
+  ['k3','K–3 (~300 skills)','Enough headroom for both kids for a year or more',1],
+  ['k2','K–2 only','Smaller first build; the 2nd grader may hit the ceiling soon'],
+  ['k5','K–5','Broader, much more content before the first release']]},
+ {id:'standards',title:'Curriculum backbone',why:'Which standards the skill graph is tagged against.',opts:[
+  ['ccss','Common Core + Coherence Map + learning trajectories','Our own wording, CCSS codes as tags',1],
+  ['state','My state\'s standards','Tell me which state; codes can be added alongside CCSS'],
+  ['curric','Align to a specific curriculum','e.g. Beast Academy, Singapore Math, or the kids\' school curriculum']]},
+ {id:'engine',title:'Adaptive engine',why:'How the app decides what each child sees next.',opts:[
+  ['elo','Skill rating + mastery rules + spaced review','Works from day one, explainable, upgrade path built in',1],
+  ['bkt','Bayesian Knowledge Tracing','Classic "probability she knows it" model'],
+  ['ladder','Simple level ladder','IXL-style, with no spaced review across skills']]},
+ {id:'input',title:'Primary answer input',why:'How kids give answers.',opts:[
+  ['pad','Number pad + manipulatives','Kids type, drag or tap their own answers, which gives better evidence',1],
+  ['mc','Mostly multiple choice','Easier for the youngest, but kids can guess'],
+  ['hand','Handwriting digits early','Most natural, but harder to build; planned for later']]},
+ {id:'client',title:'App technology',why:'What the app itself is built with.',opts:[
+  ['web','TypeScript web app (React + Vite + PixiJS)','Smallest, fastest on Fire, best for AI-assisted building',1],
+  ['godot','Godot 4.6 game engine','Best game feel, heavy web build'],
+  ['flutter','Flutter','Strong native Android app, heavy web build'],
+  ['expo','Expo / React Native','Native-first with a TypeScript/React skillset']]},
+ {id:'backend',title:'Backend & sync',why:'How progress moves between the tablet and the browser, and powers the parent dashboard.',opts:[
+  ['cf','Cloudflare Workers + D1 + Hono','$0, one vendor, same address as the app',1],
+  ['supa','Supabase','Built-in auth and Postgres; pauses when idle on the free tier'],
+  ['dexiecloud','Dexie Cloud','Least backend code, vendor lock-in'],
+  ['local','Local-only for now','No sync and no remote dashboard yet']]},
+ {id:'dist',title:'Getting it onto the Fire tablets',why:'How the kids open it from their profiles.',opts:[
+  ['kidsbrowser','Web app via the Kids Browser allow-list','No sideloading, instant updates',1],
+  ['appstore','Amazon Appstore app (Capacitor)','Native app in child profiles; store review required'],
+  ['sideload','Sideloaded APK','Quick, but flaky in child profiles'],
+  ['newtablet','Plan to move to new Android tablets / Google Play','If you are replacing the Fires anyway']]},
+ {id:'voice',title:'Voice narration',why:'Pre-readers need every prompt spoken aloud.',opts:[
+  ['tts','Pre-rendered TTS at build time','Consistent, no runtime dependency',1],
+  ['parent','Pre-rendered TTS + parent-recorded praise','A familiar voice for celebrations'],
+  ['browser','Browser speech at runtime','No build step, but unreliable on Fire']]},
+ {id:'ai',title:'AI (Claude) usage',why:'Where an LLM fits, if anywhere.',opts:[
+  ['build','Build-time drafting only','Code checks every answer, a human reviews, kids never chat with AI',1],
+  ['runtime','Also guarded runtime hints later','Needs consent, disclosure, and COPPA work'],
+  ['none','No AI','Hand-author everything']]},
+ {id:'sibling',title:'Siblings together',why:'How the two kids interact in the game.',opts:[
+  ['coop','Shared island co-op + personal bests','Same projects at their own levels, never head-to-head',1],
+  ['separate','Separate worlds','Each kid has their own island'],
+  ['compete','Friendly competition','Balanced so different levels can compete (more risk of discouragement)']]},
+ {id:'audience',title:'Who is it for?',why:'This decides how early we do privacy, consent and app-store work.',opts:[
+  ['family','Our family only (for now)','Lightest compliance burden; design privacy-first anyway',1],
+  ['friends','Family + friends','Invite-only; add consent flow and data policy'],
+  ['public','Public eventually','Plan COPPA compliance and app store listings up front']]}
+];
+const host=document.getElementById('decisions');
+DECISIONS.forEach((d,i)=>{
+  const wrap=document.createElement('div');wrap.className='decision';
+  wrap.innerHTML=`<h4>D${i+1}. ${d.title}</h4><p class="why">${d.why}</p>`;
+  const opts=document.createElement('div');opts.className='opts';
+  d.opts.forEach(([val,label,desc,rec])=>{
+    const l=document.createElement('label');l.className='opt'+(rec?' is-rec':'');
+    l.innerHTML=`<input type="radio" name="${d.id}" value="${val}" ${rec?'checked':''}><b>${label}</b><span>${desc}</span>`;
+    opts.appendChild(l);
+  });
+  wrap.appendChild(opts);host.appendChild(wrap);
+});
+function buildSummary(){
+  const lines=['Math app plan: my choices',''];
+  DECISIONS.forEach((d,i)=>{
+    const sel=document.querySelector(`input[name="${d.id}"]:checked`);
+    const opt=d.opts.find(o=>o[0]===(sel&&sel.value));
+    const rec=d.opts.find(o=>o[3]);
+    const tag=opt===rec?' (recommended)':' (changed from recommendation)';
+    lines.push(`D${i+1} ${d.title}: ${opt?opt[1]:'(none)'}${opt?tag:''}`);
+  });
+  const notes=document.getElementById('notes').value.trim();
+  if(notes){lines.push('','Notes:',notes);}
+  document.getElementById('summaryBox').value=lines.join('\n');
+}
+document.addEventListener('change',buildSummary);
+document.getElementById('notes').addEventListener('input',buildSummary);
+document.getElementById('resetBtn').addEventListener('click',()=>{
+  DECISIONS.forEach(d=>{const r=d.opts.find(o=>o[3]);const el=document.querySelector(`input[name="${d.id}"][value="${r[0]}"]`);if(el)el.checked=true;});
+  buildSummary();
+});
+document.getElementById('copyBtn').addEventListener('click',async()=>{
+  const box=document.getElementById('summaryBox');const msg=document.getElementById('copyMsg');
+  try{await navigator.clipboard.writeText(box.value);msg.textContent='Copied ✓';}
+  catch(e){box.removeAttribute('readonly');box.focus();box.select();
+    try{const ok=document.execCommand('copy');msg.textContent=ok?'Copied ✓':'Text selected. Press Ctrl/Cmd+C to copy.';}catch(_){msg.textContent='Text selected. Press Ctrl/Cmd+C to copy.';}
+    box.setAttribute('readonly','');}
+});
+buildSummary();
+</script>
+</body>
+</html>
