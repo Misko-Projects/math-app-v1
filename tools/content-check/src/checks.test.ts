@@ -18,7 +18,11 @@ function withTemplate(t: ItemTemplate, extra: Partial<CompiledInput> = {}): Comp
 
 const base = fixture.templates.find((t) => t.id === 'ADD.01.t4') as ItemTemplate;
 
-describe('runEngineChecks on the fixture set', () => {
+// These tests each run the engine checks over the whole fixture set (about 5 s on a CI runner), so
+// they get their own timeout; the rest of the project keeps Vitest's default.
+const FULL_RUN = { timeout: 60_000 };
+
+describe('runEngineChecks on the fixture set', FULL_RUN, () => {
   it('reports no errors and writes stats for every template', () => {
     const { diagnostics, templateStats } = runEngineChecks(fixture, opts);
     expect(diagnostics.filter((d) => d.severity === 'error')).toEqual([]);
@@ -33,7 +37,7 @@ describe('runEngineChecks on the fixture set', () => {
   });
 });
 
-describe('each check catches its defect', () => {
+describe('each check catches its defect', FULL_RUN, () => {
   const errorsOf = (input: CompiledInput, check: string) =>
     runEngineChecks(input, opts).diagnostics.filter(
       (d) => d.check === check && d.severity === 'error',
