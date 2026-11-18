@@ -21,6 +21,7 @@ pnpm narration:audition              # 5 lines × 5 candidate voices into tmp/au
 
 - **Key:** `GEMINI_API_KEY` from the environment, else from `~/.config/math-app-v1/secrets.env` (or `$MATH_APP_SECRETS`). It is never printed.
 - **Voices and styles:** `packages/content/narration/voices.yaml`. Changing a voice, style text or the model changes the clip hashes, so the next render re-renders exactly the affected clips.
+- **Per-voice clip sets:** the clip sets listed under `voiceClipSets` in `voices.yaml` (v1: `num` for Pip and Glim) are rendered again in that character's voice as `pip:<clip id>` / `glim:<clip id>` (02 §5.5), so their lines stitch numbers in their own voice. The game falls back to the narrator's clip when a voice clip is missing.
 - **Idempotent:** clip files are named by a hash of (provider, model, voice, style, text, encoding). A re-run with unchanged content renders nothing.
 - **Kokoro:** add `kokoro-js` first (`pnpm --filter @number-island/narration add kokoro-js`); the model downloads on first use. Never in CI.
 - **ffmpeg:** the `ffmpeg-static` binary downloads on the first local encode; CI never needs it.

@@ -5,8 +5,10 @@
 // 1. The stub provider renders the real content build; A01's manifest loader accepts the manifest,
 //    and A01's planner finds every clip of every line in it (so no line falls back to Web Speech).
 // 2. A01's WebAudioManager plays stitched lines from those files, using the sentence-final
-//    `num.<n>.end#0` clip when a number ends the sentence.
-// 3. The committed render (apps/web/public/audio) is a valid manifest whose files all exist.
+//    `num.<n>.end#0` clip when a number ends the sentence, and Pip's own `pip:num.*` clips in
+//    Pip's lines (02 §5.5).
+// 3. The committed render (apps/web/public/audio) is a valid manifest whose files all exist, and
+//    it has every per-voice clip voices.yaml asks for.
 import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -27,8 +29,10 @@ import {
   fakeEncodedClip,
 } from '../packages/ui/src/audio/testing/fakeAudioContext';
 import {
+  encodingOf,
   loadStyles,
   loadVoicesConfig,
+  planClips,
   runPipeline,
   stubRenderer,
   wavEncoder,
@@ -104,29 +108,44 @@ function sampleVars(clips: readonly string[]): Record<string, string | number> {
   return vars;
 }
 
+/**
+ * Plans every line with sample vars and lists each spoken clip the manifest cannot play. With
+ * `firstChoice`, a clip counts as missing unless its first candidate is there: the line's own
+ * voice (02 §5.5) and, for a number that ends the sentence, its `.end` variant.
+ */
+function missingClips(m: AudioManifest | null, firstChoice: boolean) {
+  const missing: string[] = [];
+  let planned = 0;
+  for (const [key, entry] of Object.entries(narration)) {
+    let plan: ReturnType<typeof planLine>;
+    try {
+      plan = planLine(narration, key, sampleVars(entry.clips));
+    } catch (e) {
+      if (e instanceof SlotError) continue;
+      throw e;
+    }
+    if (!plan?.clips) continue;
+    planned += 1;
+    for (const clip of plan.clips) {
+      if (clip.optional) continue;
+      const tried = firstChoice ? clip.candidates.slice(0, 1) : clip.candidates;
+      if (!tried.some((c) => m?.clips[c])) missing.push(`${key}: ${clip.candidates.join(' | ')}`);
+    }
+  }
+  return { missing, planned };
+}
+
 describe('stub render → A01 AudioManager', () => {
   it('A01 loads the manifest, and every planned clip of every line is in it', () => {
     expect(manifest).not.toBeNull();
-    const missing: string[] = [];
-    let planned = 0;
-    for (const [key, entry] of Object.entries(narration)) {
-      let plan: ReturnType<typeof planLine>;
-      try {
-        plan = planLine(narration, key, sampleVars(entry.clips));
-      } catch (e) {
-        if (e instanceof SlotError) continue;
-        throw e;
-      }
-      if (!plan?.clips) continue;
-      planned += 1;
-      for (const clip of plan.clips) {
-        if (clip.optional) continue;
-        if (!clip.candidates.some((c) => manifest?.clips[c]))
-          missing.push(`${key}: ${clip.candidates.join(' | ')}`);
-      }
-    }
+    const { missing, planned } = missingClips(manifest, false);
     expect(planned).toBeGreaterThan(Object.keys(narration).length * 0.9);
     expect(missing).toEqual([]);
+  });
+
+  it("every line's first-choice clips are rendered: Pip and Glim never fall back to the narrator", () => {
+    // A Pip or Glim line with a slot type voices.yaml's `voiceClipSets` does not list fails here.
+    expect(missingClips(manifest, true).missing).toEqual([]);
   });
 
   it('plays a stitched line from the rendered files, ending on the `.end` number clip', async () => {
@@ -168,13 +187,14 @@ describe('stub render → A01 AudioManager', () => {
     for (let i = 0; i < 50; i += 1) await Promise.resolve();
     const start = events.find((e) => e.type === 'line-start');
     expect(start).toMatchObject({ via: 'clips', voice: 'pip' });
+    // Pip says the number in Pip's own voice (02 §5.5).
     expect(start?.type === 'line-start' && start.clips).toEqual([
       'ls.CNT.03.w1.s2#0',
-      'num.23.end#0',
+      'pip:num.23.end#0',
     ]);
     expect(fetched).toEqual([
       `/audio/${manifest?.clips['ls.CNT.03.w1.s2#0']?.file}`,
-      `/audio/${manifest?.clips['num.23.end#0']?.file}`,
+      `/audio/${manifest?.clips['pip:num.23.end#0']?.file}`,
     ]);
     expect(spoken).toEqual([]);
     manager.stop();
@@ -206,6 +226,19 @@ describe('the committed render (apps/web/public/audio)', () => {
       (f) => f !== 'manifest.json' && f !== '.narration-render.lock',
     );
     expect(onDisk.sort()).toEqual([...files].sort());
+    // Every per-voice clip voices.yaml asks for (`voiceClipSets`) is rendered (02 §5.5). New lines
+    // may wait for the next render (they fall back to Web Speech), so only these are checked.
+    const voiced = planClips({
+      narration,
+      styles: loadStyles(join(ROOT, 'packages/content/narration')),
+      config: loadVoicesConfig(join(ROOT, 'packages/content/narration/voices.yaml')),
+      provider: 'gemini',
+      encoding: encodingOf('opus'),
+    }).jobs.filter((j) => /^(pip|glim):/.test(j.id));
+    expect(voiced.length).toBeGreaterThan(400);
+    expect(voiced.filter((j) => committed?.clips[j.id]?.file !== j.file).map((j) => j.id)).toEqual(
+      [],
+    );
     // Every clip is a real Ogg Opus file.
     for (const f of files) {
       const head = readFileSync(join(dir, f)).subarray(0, 36).toString('latin1');
