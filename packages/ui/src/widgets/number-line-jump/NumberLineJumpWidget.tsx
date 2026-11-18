@@ -705,6 +705,11 @@ export function NumberLineJumpWidget({
   };
 
   const typeValue = async (v: number) => {
+    if (reduced) {
+      // Reduced motion: the number appears at once (no key-by-key typing).
+      setTyped(String(Math.abs(v)));
+      return;
+    }
     const chars = String(Math.abs(v)).split('') as PadKey[];
     let text = '';
     setTyped('');
@@ -951,8 +956,11 @@ export function NumberLineJumpWidget({
       viewMax = Math.min(c.max, hi + pad);
     }
     const scale = numberLineViewScale({ min: viewMin, max: viewMax, width: roadW, headroom });
-    const marks: NumberLineMark[] = [{ at: c.start }];
-    if (highlight !== null) marks.push({ at: highlight, arrow: true });
+    // The start dot; a demo highlight adds its arrow (on the start itself: one mark, with the arrow).
+    const marks: NumberLineMark[] =
+      highlight === c.start
+        ? [{ at: c.start, arrow: true }]
+        : [{ at: c.start }, ...(highlight !== null ? [{ at: highlight, arrow: true }] : [])];
     const unit = c.unit === 'min' ? ' min' : '';
     path = (
       <div

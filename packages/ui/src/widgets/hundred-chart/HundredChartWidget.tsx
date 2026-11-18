@@ -594,6 +594,15 @@ export function HundredChartWidget({
   };
 
   const typeCell = async (cell: number, value: number) => {
+    if (reduced) {
+      // Reduced motion: the number appears at once (no key-by-key typing).
+      setActive(cell);
+      reveal(cell);
+      const next = { ...typedRef.current, [cell]: String(value) };
+      typedRef.current = next;
+      setTyped(next);
+      return;
+    }
     setActive(cell);
     reveal(cell);
     let text = '';
@@ -610,6 +619,10 @@ export function HundredChartWidget({
     await pause(reduced ? 0 : KEY_MS);
   };
   const typeAnswer = async (value: number) => {
+    if (reduced) {
+      setAnswerText(String(value));
+      return;
+    }
     let text = '';
     setAnswerText('');
     for (const ch of String(value).split('') as PadKey[]) {

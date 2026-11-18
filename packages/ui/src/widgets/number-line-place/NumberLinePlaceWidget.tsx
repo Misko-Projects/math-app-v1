@@ -639,6 +639,13 @@ export function NumberLinePlaceWidget({
   };
 
   const typeValue = async (v: number) => {
+    if (reduced) {
+      // Reduced motion: the number appears at once (no key-by-key typing).
+      const shownNow = showValue(v);
+      setNegative(shownNow < 0);
+      setTyped(String(Math.abs(Number(shownNow.toFixed(2)))));
+      return;
+    }
     const shown = showValue(v);
     setNegative(shown < 0);
     const chars = String(Math.abs(Number(shown.toFixed(2)))).split('') as PadKey[];
