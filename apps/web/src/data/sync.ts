@@ -299,14 +299,11 @@ export function createSyncClient(opts: SyncClientOptions): SyncClient {
 
   function pump(): void {
     if (inFlight || waiters.length === 0) return;
-    if (!running) {
-      for (const w of waiters) if (w.automatic) w.resolve({ kind: 'stopped' });
-      waiters = waiters.filter((w) => !w.automatic);
-      if (waiters.length === 0) return;
-    }
     if (inBackoff() && !waiters.some((w) => w.forced)) {
       for (const w of waiters.splice(0)) w.resolve({ kind: 'deferred' });
-      arm(Math.max(0, retryAt - now()));
+      // Keep a retry timer that is already armed: a clock change must not move it. Arm one only
+      // when none is (after a restart), never for longer than the longest backoff.
+      if (timer === null) arm(Math.min(SYNC_BACKOFF_MAX_MS, Math.max(0, retryAt - now())));
       return;
     }
     const batch = waiters.splice(0);
@@ -330,8 +327,12 @@ export function createSyncClient(opts: SyncClientOptions): SyncClient {
   }
 
   function request(reason: SyncReason, forced: boolean): Promise<SyncOutcome> {
+    const automatic = reason !== 'manual';
+    // An automatic request made while stopped is answered at once and never queued, so a later
+    // start() cannot pick it up.
+    if (automatic && !running) return Promise.resolve({ kind: 'stopped' });
     return new Promise((resolve) => {
-      waiters.push({ resolve, reason, forced, automatic: reason !== 'manual' });
+      waiters.push({ resolve, reason, forced, automatic });
       pump();
     });
   }
@@ -368,7 +369,9 @@ export function createSyncClient(opts: SyncClientOptions): SyncClient {
       running = false;
       clearTimerIfArmed();
       for (const c of cleanups.splice(0)) c();
-      pump(); // answers queued automatic requests `stopped` (after the run in flight, if any)
+      // Queued automatic requests end now, so a quick restart cannot send them.
+      for (const w of waiters) if (w.automatic) w.resolve({ kind: 'stopped' });
+      waiters = waiters.filter((w) => !w.automatic);
     },
   };
 }

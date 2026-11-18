@@ -73,7 +73,7 @@ Rows are maintained for every live child that has a profile or events.
 
 ## Sync client (08 §4)
 
-`sync.ts` exports `createSyncClient({ store, fetch?, baseUrl?, now?, online?, setTimer?, clearTimer?, random?, intervalMs? })`, which returns `{ syncNow(reason?), start(), stop() }`. The app shell creates one client per store, after `adoptFamily` has run for `/setup` or pairing, and calls `start()`.
+`sync.ts` exports `createSyncClient({ store, fetch?, baseUrl?, now?, online?, setTimer?, clearTimer?, random?, intervalMs? })`, which returns `{ syncNow(reason?), start(), stop() }`. Nothing in the app calls it yet: the app shell (W00, #18) is meant to create one client per store, after `adoptFamily` has run for `/setup` or pairing, and call `start()`. Until then only the tests drive it.
 
 **One sync** pushes up to 500 `unsynced()` events with every settings document and profile, plus the stored cursor and the device's Bearer token. It then applies the answer in this order:
 1. **The clamp echo (02 §5.9 S3).** For each entry of `clamped`, the local copy takes the server's `ts` and `clientTs`, through `ingest(…, { source: 'server' })`. The store then replaces the copy and rebuilds the projections. Folds keep ordering by the server-bounded `ts`.

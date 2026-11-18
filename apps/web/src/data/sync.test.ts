@@ -552,6 +552,60 @@ describe('sync client: review round 2 regressions', () => {
   });
 });
 
+describe('sync client: review round 3 regressions', () => {
+  const failing = (): SyncClientOptions['fetch'] => async () =>
+    new Response(JSON.stringify({ error: { code: 'internal', message: 'x' } }), { status: 500 });
+
+  it('R3-1. an automatic request made while stopped stays stopped across a quick restart', async () => {
+    const { store } = await pairedStore();
+    stores.push(store);
+    let release: () => void = () => undefined;
+    const held = new Promise<void>((r) => {
+      release = r;
+    });
+    let calls = 0;
+    const fail = failing();
+    const fetch: SyncClientOptions['fetch'] = async (u, i) => {
+      calls += 1;
+      if (calls === 1) await held;
+      return (await fail?.(u, i)) as Response;
+    };
+    const client = createSyncClient({ store, fetch, random: () => 0.5, ...manualTimers() });
+    client.start();
+    await settle();
+    client.stop();
+    const online = client.syncNow('online'); // made while stopped
+    client.start(); // restarted before the held sync returns
+    release(); // ... which fails, opening a backoff window
+    expect(await online).toEqual({ kind: 'stopped' });
+    await settle();
+    expect(calls).toBe(1); // nothing forced a request into the new window
+    client.stop();
+  });
+
+  it('R3-2. a deferral keeps the armed retry timer when the clock jumps back', async () => {
+    const { store } = await pairedStore();
+    stores.push(store);
+    const timers = manualTimers();
+    let clock = Date.UTC(2026, 10, 20);
+    const client = createSyncClient({
+      store,
+      fetch: failing(),
+      now: () => clock,
+      random: () => 0.5,
+      ...timers,
+    });
+    client.start();
+    await settle();
+    expect(timers.delays()).toEqual([SYNC_BACKOFF_BASE_MS]); // retry in 5 s
+    clock -= 48 * 3600_000; // the device clock was 48 h fast and gets corrected
+    await store.append('request.completed', requestCompleted(), { childId: null }); // deferred
+    await settle();
+    expect(timers.delays()).toEqual([SYNC_BACKOFF_BASE_MS]); // the same 5 s retry, not 48 h
+    client.stop();
+  });
+});
+
 /** Lets queued promise chains (and IndexedDB work) run. */
 async function settle() {
   for (let i = 0; i < 20; i++) await new Promise((r) => setTimeout(r, 0));
