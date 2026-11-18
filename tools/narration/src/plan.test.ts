@@ -3,7 +3,7 @@ import { join } from 'node:path';
 import { narrationJsonSchema } from '@number-island/shared';
 import { describe, expect, it } from 'vitest';
 import { encodingOf, OPUS_TAG } from './encode';
-import { clipHash, hasEndVariant, isClipSet, loadStyles, planClips } from './plan';
+import { clipHash, hasEndVariant, isClipSet, isClipSetWord, loadStyles, planClips } from './plan';
 import { fixtureNarration, REPO_ROOT, repoVoices } from './testing';
 
 const config = repoVoices();
@@ -80,6 +80,28 @@ describe('planClips', () => {
     // Clip sets not listed stay narrator-only, and lines are never copied.
     expect(byId.has('pip:noun.shell.many#0')).toBe(false);
     expect([...byId.keys()].filter((id) => /^(pip|glim):(?!num\.)/.test(id))).toEqual([]);
+  });
+
+  it('copies resident names but not resident lines when `res` is listed', () => {
+    const withRes = { ...config, voiceClipSets: { pip: ['res' as const], glim: [] } };
+    const narration = {
+      ...fixtureNarration(),
+      'res.nib': { text: 'Nib', clips: ['res.nib#0'] },
+      'res.nib.hello': { text: "Hi! I'm Nib.", clips: ['res.nib.hello#0'] },
+    };
+    const ids = planClips({
+      narration,
+      styles: new Map(),
+      config: withRes,
+      provider: 'gemini',
+      encoding: encodingOf('opus'),
+    }).jobs.map((j) => j.id);
+    expect(ids).toContain('pip:res.nib#0');
+    expect(ids).toContain('res.nib.hello#0');
+    expect(ids).not.toContain('pip:res.nib.hello#0');
+    expect(isClipSetWord('res.nib')).toBe(true);
+    expect(isClipSetWord('res.nib.hello')).toBe(false);
+    expect(isClipSetWord('noun.shell.many')).toBe(true);
   });
 
   it('renders no voice copies when voiceClipSets lists none', () => {

@@ -64,8 +64,17 @@ export function isClipSet(key: string): boolean {
   return CLIP_SETS.has(key.slice(0, key.indexOf('.')));
 }
 
-/** The characters (besides the narrator) that get their own copy of a clip set (voices.yaml). */
+/**
+ * True for a word a slot can expand to (03 §8.3), which is what gets per-voice copies. Resident
+ * names are `res.<residentId>`; longer `res.*` keys (`res.nib.hello`) are lines, not names.
+ */
+export function isClipSetWord(key: string): boolean {
+  return isClipSet(key) && !(key.startsWith('res.') && key.split('.').length > 2);
+}
+
+/** The characters (besides the narrator) that get their own copy of a clip-set word (voices.yaml). */
 function extraVoicesFor(config: VoicesConfig, key: string): NarrationVoice[] {
+  if (!isClipSetWord(key)) return [];
   const ns = key.slice(0, key.indexOf('.'));
   return (['pip', 'glim'] as const).filter((v) =>
     (config.voiceClipSets[v] as readonly string[]).includes(ns),
@@ -188,12 +197,10 @@ export function planClips({ narration, styles, config, provider, encoding }: Pla
     }
 
     // Clip sets listed in `voiceClipSets` again in Pip's and Glim's voices (02 §5.5, 03 §8.3).
-    if (isClipSet(key)) {
-      const own = jobs.slice(firstJob);
-      for (const extra of extraVoicesFor(config, key)) {
-        if (extra === voice) continue;
-        for (const j of own) jobs.push(job(voiceClipId(j.id, extra), j.text, extra, j.style));
-      }
+    const own = jobs.slice(firstJob);
+    for (const extra of extraVoicesFor(config, key)) {
+      if (extra === voice) continue;
+      for (const j of own) jobs.push(job(voiceClipId(j.id, extra), j.text, extra, j.style));
     }
   }
 
