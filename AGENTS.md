@@ -5,7 +5,8 @@ Number Island is an adaptive, game-based K–3 math app for kids (the schema cov
 ## Source of truth
 
 - **`docs/spec/` is binding.** Read `docs/spec/README.md` first, then the sections your issue cites. When an issue and a spec disagree, the spec wins. If the spec must change, change it in the same PR and say why.
-- **Shared contracts** are in `docs/spec/02-architecture.md` §5. A PR that changes a contract updates that section and every caller in the same PR.
+- **Shared contracts** are in `docs/spec/02-architecture.md` §5 (§5.8 holds the supporting types and every event payload). All cross-package types live in `packages/shared`; never define a parallel type elsewhere. A PR that changes a contract updates that section and every caller in the same PR.
+- **Package direction:** `shared ← content ← engine ← ui ← web`; `shared, engine ← api` (02 §2).
 - The build breakdown is in `docs/build/` (`plan.md`, `issues.md`). Background research is in `docs/research/` (not binding).
 
 ## Commands
@@ -35,8 +36,10 @@ pnpm storybook         # widgets, avatar, art gallery
 ## Engineering rules
 
 - TypeScript strict. No `any` without a comment explaining why.
-- `packages/engine` is pure: no React, DOM, Dexie, `Math.random` or `Date.now`. Randomness comes from the seeded RNG, and time is passed in as a parameter.
-- Children's strings live in narration YAML (`packages/content/narration/`), never inline in components.
+- `packages/shared`, `packages/content` and `packages/engine` are pure: no React, DOM or Dexie. The engine also has no `Math.random` or `Date.now`. Randomness comes from the seeded RNG, and time is passed in as a parameter.
+- Children's strings live in narration YAML (`packages/content/narration/`), never inline in components. UI issues author their own keys in `narration/ui.yaml` or `narration/game.yaml`.
+- Game data (buildings, recipes, residents, decor, unlock rules) lives in `packages/content/game/*.yaml`, not in app code.
+- Things that need real hardware, the owner's ears, or an outside party are "owner verification" notes, never acceptance criteria or blockers.
 - Each `ItemFormat` has exactly one widget in `packages/ui/widgets`. Workshops theme widgets; they don't reimplement them.
 - New runtime dependencies need a justification in the PR and must fit the bundle budgets (02 §6).
 - Every generator gets property tests (500 seeds). Every widget gets stories with play functions. Every API route gets Workers-pool tests.

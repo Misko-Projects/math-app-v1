@@ -44,7 +44,7 @@ Each workshop is a building with one mini-game hosting specific item formats (02
 | W9 | **Clock Tower & Ferry** | TIM.01 ready | TIM | `clock-set`, `clock-read` | ferry tickets | Set the tower clock for ferry departures, read arrival times, work out how long until the ferry. **The ferry brings new residents** (tickets → arrivals). |
 | W10 | **Builder's Yard** | GEO.01 ready | GEO, MEA | `shape-compose`, `shape-sort`, `measure-length`, `compare-length`, `perimeter-walk` | glass & beams | Fill window outlines with shapes, sort tiles by attributes, measure beams with unit blocks then a ruler, walk fence perimeters. |
 | W11 | **Weigh Station & Lookout** | ALG.01 ready | ALG, DAT | `balance`, `pattern-extend`, `bar-graph-read`, `bar-graph-build` | rope & flags | Keep the cargo scale level (= means "the same as", `__ = 3 + 4`), extend bead-rope patterns, survey Pebblings and build bar graphs at the Lookout. |
-| W12 | **Rhythm Orchard** | any fact-fluency skill practiced | ADD/SUB/MUL facts | `number-pad`, `numeral-pick` | fruit | Fruit ripens to a gentle beat and answering a fact picks it. Per-fact adaptive pacing. A "beat your best" ghost appears for G1+ only if `timedChallenges` is on. Never a fail state. |
+| W12 | **Rhythm Orchard** | any fact-fluency skill practiced | ADD, MUL (fact strands) | `number-pad`, `numeral-pick` | fruit | Fruit ripens to a gentle beat and answering a fact picks it. Per-fact adaptive pacing. A "beat your best" ghost appears for G1+ only if `timedChallenges` is on. Never a fail state. |
 | W13 | **Puzzle Tower** | G1+ or any child after 10 mastered skills | PUZ + any | `puzzle-grid`, `balance`, `story-problem` | star shards (rare decor) | Optional "spicy" challenges: mini KenKen, magic squares, missing-number puzzles, a 24-style game, Hidato paths. Challenge is the reward. |
 | — | **Practice Pier** | start | any | **all formats** | any requested material | The fallback host (04 §6.3): a plain pier where Pip brings crates of tasks. Used only when no themed workshop hosts a needed format. |
 
@@ -55,6 +55,8 @@ Each workshop is a building with one mini-game hosting specific item formats (02
 4. **CPA inside the workshop:** a workshop renders the item's `tier`: concrete (draggable objects), pictorial (drawn), or abstract (symbols with a number pad). Same theme throughout.
 5. **Lessons in-world:** a skill's first appearance plays its worked example as Pip demonstrating in the workshop, then a faded example, then hands over (03 §6).
 6. **Exit anytime:** a big "home" button returns to the island with whatever was produced so far.
+7. **Unlocks are family-wide:** a workshop unlocked or built by either child is available to both. The `Unlock` column uses `UnlockRule` (02 §5.8), with skill rules satisfied when *any* child reaches them.
+8. **Data, not code:** buildings, recipes, residents, decor and unlock rules are `GameData` in `packages/content/game/*.yaml` (02 §5.8), authored by U02.
 
 ## 5. Pebblings (residents and collection)
 
@@ -81,7 +83,7 @@ Each workshop is a building with one mini-game hosting specific item formats (02
 | Weekly goal | "Help 6 Pebblings this week": a jar fills with shells | Accumulates only; never resets mid-week; never lost |
 | Festivals | Every ~7 days of play (or a mastery milestone): a festival scene plus a mixed-review **"Storm Watch"** co-op event (both kids contribute) that reveals a rainbow decor | No timer for K; can't fail. The storm passes when items are done. |
 | Personal bests | Rhythm Orchard ghost, Puzzle Tower stars | Self-comparison only; opt-in timing; never sibling vs. sibling |
-| Surprise gifts | Parent leaves a wrapped gift (decor plus an optional spoken message); random "Pip found something!" moments | Unexpected, not contingent per problem |
+| Surprise gifts | Parent leaves a wrapped gift (decor plus an optional typed message, read aloud on-device via `sayText`); random "Pip found something!" moments | Unexpected, not contingent per problem |
 | Real-world milestones | Parent-defined ("When the Lighthouse is built: pancake breakfast!") shown as a treasure chest card | Parent-controlled |
 | Mastery moments | When a skill reaches `mastered`: the buddy gets a badge and Pip announces "You've really got this now!" | Informational praise ("you made a ten first!"), never "you're smart" |
 
@@ -90,7 +92,7 @@ Each workshop is a building with one mini-game hosting specific item formats (02
 ## 8. Pacing and math density
 
 - **Non-math time cap:** building, decorating and walking outside workshops ≤ 25% of session time. After the cap, decor mode shows "Decorating is open after your next request!", and Pip points to a request. The parent may allow a free-build period after the session's math budget is complete.
-- **Session length:** from settings (04 §6.1). At the budget, the sunset wind-down starts after the current request (max +3 min overrun).
+- **Session length:** from settings (04 §6.1). At the budget, the child finishes the current item, the request ends with its parade, and the sunset wind-down starts (04 §6.4). There is no further overrun.
 - **Math density** is measured per session (04 §7) and shown to the parent.
 
 ## 9. Character (avatar)

@@ -44,7 +44,20 @@ e     = score − P
 ns   += 1
 ```
 
-`expectedLatency` = the template's `expectedLatencyMs` (default 8,000 ms abstract, 12,000 ms manipulative), × 1.5 for K children.
+`expectedLatency` = the template's `expectedLatencyMs` (default 8,000 ms abstract, 12,000 ms manipulative), × 1.5 for K children. Latency is measured from item ready (prompt narration finished) to submit (02 §4.2).
+
+**Context weights.** These multiply `w` above:
+
+| `context` | Rating update | Counts as `practiced` evidence (§3)? |
+|---|---|---|
+| `practice`, `review`, `warmup`, `challenge`, `transfer-probe` | w × 1 | yes |
+| `lesson` (scaffolded items) | w × 0.5 | no |
+| `placement` | **no θ update**: placement feeds the prior (§5) | no |
+| any `choice` response (multiple choice) | w × 0.5 | no |
+
+`partialCredit` in the attempt event is written by the `TaskRunner` (1 / 0.5 / 0). `score` above equals `partialCredit`.
+
+**Frontier** (everywhere in the specs): skills whose status is `ready` or `learning`.
 
 ### 2.4 Difficulty targeting
 
@@ -57,6 +70,8 @@ To pick an item for skill `s` at target success `p*`: `d* = θg + θs − logit(
 | warmup / confidence | 0.95 | 0.96 |
 | challenge (opt-in, puzzles) | 0.65 | 0.75 |
 | placement | n/a (reference difficulty `d = 0`) | n/a |
+
+**Grade columns:** tables in this doc give K and G2 (or G1+) columns. G1 uses the K values for item counts per request and the G2/G1+ values for everything else. G3 and above use the G2/G1+ values. `targetDifficulty(state, skill, context, child)` (02 §5.4) is called by the `TaskRunner` at presentation time.
 
 **Rolling success controller:** keep first-try accuracy over the last 20 items. If it is > 0.92, add +0.2 to an `offset` applied to `d*` (cap +1.0). If it is < 0.75, add −0.3 (floor −1.5). The offset decays 20% toward 0 each session.
 
@@ -125,6 +140,8 @@ State: `p(v)` = probability that skill `v` is known.
 
 **Incremental placement:** when a child first reaches a strand they never placed into (e.g. FRA), run a 4–6 item mini-placement inside the first request of that strand.
 
+**Persistence:** every probe emits `placement.probe` (plus an `attempt` with `context: 'placement'`). When a placement (initial or per strand) stops, the runner emits `placement.completed` with the posterior and the assumed list (02 §5.8). `foldSkillStates` builds `LearnerState.placement.prior` from those events. An unfinished placement resumes from its probes on a later day.
+
 ## 6. Session planner and in-session adaptation
 
 ### 6.1 Session budget
@@ -153,7 +170,9 @@ The planner turns the task list into 2–3 **requests**. Each one is bound to a 
 
 - Each request has 5–8 items (K) or 6–10 (G2) and lasts 2–4 minutes.
 - Pattern: `[lesson?] new, new, review, new, review, new …`. A lesson is inserted the first time a skill is introduced unless test-out applies (§3).
-- Reward amount = number of items (materials are the direct product). Requests that use challenge items add a rare decor item.
+- Reward: `materials` = one unit of the workshop's product per item (for workshops with two products, alternate them; Practice Pier produces the material the resident asked for). Requests that use challenge items add a rare decor item (`reward.decor`). Puzzle Tower rewards only decor (star shards).
+- **Re-planning:** `planSession` runs at session start and again after each request completes.
+- **Workshop availability is family-wide:** the planner may use any workshop built on the shared island, whichever child built it.
 - If no workshop can host a skill's formats, choose another template of that skill whose format a built workshop hosts. If none exists, fall back to the **Practice Pier** generic workshop (05 §4), which hosts every format.
 
 ### 6.4 `adaptNext` rules (between items, inside a request)
@@ -163,11 +182,11 @@ The planner turns the task list into 2–3 **requests**. Each one is bound to a 
 3. Three first-try wrongs on the same skill in one request → insert one probe item for its weakest prerequisite (lowest `θ`). If that fails too, end the skill's slot and schedule the prerequisite.
 4. **Frustration signals:** ≥ 3 wrong in the last 4 items; or 3 rapid taps (< 800 ms, response wrong); or 2 idle periods > 45 s. Response: give a confidence item (P ≥ 0.95), then offer "take a break?" (Pebbling suggests building something) or finish the request early with full celebration.
 5. **Misconception trigger:** the same misconception matched ≥ 2 times in this child's last 10 attempts on the skill → queue the remediation skill's lesson as the next request ("Pebbling has an idea!"), and derive a parent alert (dashboard).
-6. **Wind-down:** at the budget, finish the current item and request (truncating remaining tasks), then play the wind-down scene. A child may stop anytime with no penalty.
+6. **Wind-down:** at the budget, let the child finish the **current item**, then end the request (the remaining tasks are dropped, and the products earned so far parade to the Storehouse), then play the wind-down scene. There is no overrun beyond the current item. A child may stop anytime with no penalty.
 
 ### 6.5 Fluency
 
-Fact-fluency skills that are `practiced` but not `fluent` are routed to the fluency workshop (Rhythm Harvest). Latency is always measured silently. Visible timing ("beat your best") appears only for G1+ when the `timedChallenges` setting is on, and **never** for K.
+Fact-fluency skills that are `practiced` but not `fluent` are routed to the fluency workshop (Rhythm Orchard, W12). Latency is always measured silently. Visible timing ("beat your best") appears only for G1+ when the `timedChallenges` setting is on, and **never** for K.
 
 ## 7. Derived signals for the parent dashboard
 
@@ -183,9 +202,9 @@ Fact-fluency skills that are `practiced` but not `fluent` are routed to the flue
 - Property tests (fast-check):
   - folds are order-independent for the same event set;
   - `applyEvent` incremental = full fold;
-  - the inventory never goes negative;
+  - the inventory never goes negative (clamped), and buildings are never un-built;
   - planner output always respects the item budgets and the no-more-than-3-in-a-row rule.
-- **Simulated learner harness** (`engine/test/sim`): synthetic children with a hidden true mastery set over the real K–3 graph, answering with `P = σ(trueAbility − d)` plus guess and slip, and forgetting with a hidden half-life. Required results:
+- **Simulated learner harness** (`engine/test/sim`, `pnpm test:sim`; runs on PRs touching `packages/engine` and nightly, against the fixture graph until K02 lands and then the full compiled graph): synthetic children with a hidden true mastery set over the real K–3 graph, answering with `P = σ(trueAbility − d)` plus guess and slip, and forgetting with a hidden half-life. Required results:
   - placement recovers the frontier with ≥ 85% per-skill classification accuracy within the K and G2 item budgets;
   - over 60 simulated sessions, first-try accuracy stays within 0.78–0.92 for ≥ 80% of sessions;
   - mastered skills that are forgotten are re-reviewed before their simulated recall drops below 0.6 in ≥ 90% of cases.

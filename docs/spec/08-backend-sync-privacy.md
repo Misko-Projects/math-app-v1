@@ -8,9 +8,9 @@ A single Hono app (`apps/api`) runs on Cloudflare Workers. It uses D1 via Drizzl
 
 | Method & path | Auth | Purpose |
 |---|---|---|
-| `GET /health` | none | `{ ok, version, contentVersion, ai: { feedback, tts, vision, image } }`. The `ai` flags show which features have keys configured (never the keys). |
+| `GET /health` | none | `{ ok, version, contentVersion, ai: { feedback, vision, summary } }`. The `ai` flags show which features have keys configured (never the keys). |
 | `POST /setup` | none (only while no family exists) | Create the family, parent passphrase and PIN. Returns a parent session cookie and the first device's token. |
-| `POST /auth/login` | none | Parent passphrase → session cookie (`HttpOnly; Secure (except localhost); SameSite=Strict; Max-Age=43200`). Rate-limited to 5 attempts per 15 min per IP. |
+| `POST /auth/login` | none | Parent passphrase → session cookie (`HttpOnly; SameSite=Strict; Max-Age=43200`, plus `Secure` **if and only if the request arrived over HTTPS**, so login works over `pnpm dev:lan` HTTP on the tablet). Rate-limited to 5 attempts per 15 min per IP. |
 | `POST /auth/logout` | parent | Revoke the session. |
 | `POST /auth/pin` | device | Verify the parent PIN for the in-app parent gate → short-lived parent session (10 min). |
 | `POST /devices/pair/start` | parent | `{ code (6 digits), expiresAt (+10 min) }` |
@@ -27,7 +27,7 @@ Errors use `{ error: { code, message } }` with stable `code` strings. Never retu
 
 ## 3. Auth model
 
-- **Parent:** passphrase (≥ 10 chars) hashed with PBKDF2-SHA-256 via WebCrypto (iterations configurable; default 100k). Note: the Workers Free plan's CPU limit may require lowering this or using Workers Paid at deploy time; document it in DEPLOY.md. There is also a 4–6 digit **parent PIN** for quick in-app gating (hashed the same way, rate-limited).
+- **Parent:** passphrase (≥ 10 chars) hashed with PBKDF2-SHA-256 via WebCrypto (iterations configurable up to a **maximum of 100k**, which is the workerd WebCrypto cap; default 100k). The Workers Free plan's CPU limit may require lowering it or using Workers Paid at deploy time; document this in DEPLOY.md. There is also a 4–6 digit **parent PIN** for quick in-app gating (hashed the same way, rate-limited).
 - **Devices:** each paired device holds a random 32-byte `deviceToken` (stored hashed server-side; held in IndexedDB client-side) scoped to the family. Children never log in. The picture password is a **local** convenience lock (salted hash in Dexie), not a security boundary.
 - **Same origin** for app and API (Vite proxy locally, a single Worker in prod), so cookies are first-party.
 - **CSRF:** `SameSite=Strict` cookies plus require `Content-Type: application/json` on mutating routes.
@@ -48,10 +48,10 @@ POST /api/sync
 ```
 
 - Server table `events` keeps a monotonically increasing `seq` (INTEGER PRIMARY KEY AUTOINCREMENT) plus a unique `id`. `INSERT OR IGNORE` makes pushes idempotent. Pull returns `seq > cursor`.
-- The server validates every event with the shared Zod schemas, rejects unknown `familyId`, caps payload size (8 KB per event), and stamps `receivedAt`. It does **not** recompute projections; clients fold.
+- The server validates every **envelope** strictly and the **payloads of known event types** strictly with the shared Zod schemas (unknown payload fields are stripped). Events of **unknown types** are accepted and stored opaquely, then relayed to other devices unchanged, for forward compatibility (02 §4.2). It rejects an unknown `familyId`, caps payload size (8 KB per event) and stamps `receivedAt`. It does **not** recompute projections; clients fold.
 - Clients sync on app start, after each request completes, on wind-down, and every 60 s while online (with backoff on error). Sync never blocks gameplay.
-- Device clocks may be wrong. Folds order by `ts` then `id`. Bounded skew: if `ts` is more than 24 h in the future, the server clamps it to `receivedAt` (stored as `ts`, original kept in `payload._clientTs`).
-- Tombstones: `child.deleted` events make clients purge that child's local events and profile.
+- Device clocks may be wrong. Folds order by `ts` then `id`. Bounded skew: if `ts` is more than 24 h in the future, the server clamps it to `receivedAt` (stored as `ts`, original kept in the optional envelope field `clientTs`, 02 §4.2).
+- Tombstones: a `child.deleted` event (envelope `childId: null`, payload `{ childId }`) makes clients purge that child's local events and profile. The server deletes that child's stored events and keeps the tombstone.
 
 ## 5. D1 schema (Drizzle; migrations in `apps/api/src/db/migrations`)
 

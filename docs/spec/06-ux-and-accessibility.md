@@ -4,9 +4,9 @@
 
 | Target | Notes |
 |---|---|
-| **Amazon Alexa Tablet 8 / 11, Kids Tablet 8.7 / 11** (Android 16, Chrome) | Primary. Landscape-first, also usable in portrait. 4–8 GB RAM. Installed as a PWA from Chrome ("Add to Home screen" / install prompt). Add the URL to the Amazon Kids allowed list if a kids profile restricts browsing; behaviour of Amazon Kids profiles on the new tablets is unverified (research 05), so it gets tested on the device. |
+| **Amazon Alexa Tablet 8 / 11, Kids Tablet 8.7 / 11** (Android 16, Chrome) | Primary. Landscape-first, also usable in portrait. 4–8 GB RAM. Installed as a PWA from Chrome ("Add to Home screen" / install prompt). Add the URL to the Amazon Kids allowed list if a kids profile restricts browsing; how Amazon Kids profiles behave on the new tablets is unverified (research 05). It is an **owner verification** item on real hardware, not an acceptance criterion for any issue. |
 | Desktop / laptop browsers (Chrome, Edge, Firefox, Safari latest) | Mouse plus keyboard; same UI scaled. Keyboard input for the number pad. |
-| Other tablets (iPad Safari, Android) | Best effort; tested via Playwright WebKit smoke. |
+| Other tablets (iPad Safari, Android) | Best effort; a Playwright WebKit smoke test runs in the non-required nightly CI job (09 §2). |
 
 Design viewport baseline: 1280 × 800 CSS px landscape (tablet) and 800 × 1280 portrait. Minimum supported is 960 × 600. Use container-relative layout; the island map scales to fit.
 
@@ -27,7 +27,7 @@ Design viewport baseline: 1280 × 800 CSS px landscape (tablet) and 800 × 1280 
 
 ## 3. Parent area (behind the parent gate)
 
-**Parent gate:** hold the gate button for 2 s, then enter the parent passphrase (or a 4–6 digit parent PIN set at setup). The session times out after 10 min idle.
+**Parent gate:** hold the gate button for 2 s, then enter the parent passphrase (or a 4–6 digit parent PIN set at setup). The in-app parent gate session lasts 10 min idle; it is separate from the 12 h passphrase login cookie used on parent devices (08 §3).
 
 | Screen | Contents |
 |---|---|
@@ -36,7 +36,7 @@ Design viewport baseline: 1280 × 800 CSS px landscape (tablet) and 800 × 1280 
 | **Skill Map** | Interactive graph by strand with status colours plus icons (never colour alone). Tap a skill for evidence: last attempts, formats and tiers, P(ref), next review, assumed/override flags. Override actions: mark mastered / reset (with confirmation). |
 | **Settings** | Session length per child, daily cap, quiet hours, `timedChallenges`, music, voice speed, AI feature toggles, picture passwords, reset placement, export/import backup. |
 | **Character photo** | Upload/take a photo → AI attribute mapping → preview → send to the child's creator for confirmation. Shows the clear privacy note from 07 §4. |
-| **Gifts & Milestones** | Leave a gift (decor plus an optional typed message, spoken by TTS); define real-world milestones tied to projects or skills. |
+| **Gifts & Milestones** | Leave a gift (decor plus an optional typed message ≤ 140 characters, read aloud on-device via `AudioManager.sayText`); define real-world milestones tied to projects or skills. |
 | **Devices** | Paired devices list; pair a new device (6-digit code / QR); revoke. |
 
 Parent-area UI uses normal-density, accessible web UI (still touch-friendly, ≥ 44 px targets).

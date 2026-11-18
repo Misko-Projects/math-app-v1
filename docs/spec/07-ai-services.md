@@ -45,14 +45,14 @@ interface VisionProvider { analyzeImage<T>(req: { system: string; image: { media
   "matchedMisconceptions": ["MC.off-by-one-counting"],
   "misconceptionLibrary": [{ "id": "...", "description": "..." }],
   "recentPattern": { "sameSkillWrongInRow": 1 },
-  "phraseBank": ["lets-count-together", "look-at-the-empty-boxes", "..."] }
+  "phraseBank": ["ph.lets-count-together", "ph.look-at-the-empty-boxes", "..."] }
 ```
 
 **Output schema** (structured output, validated with Zod):
 
 ```json
 { "mode": "phrases" | "text",
-  "phrases": [{ "id": "look-at-the-empty-boxes" }, { "number": 3 }],
+  "phrases": [{ "id": "ph.look-at-the-empty-boxes" }, { "number": 3 }],
   "text": "Look at the empty boxes. How many are still empty?",
   "likelyMisconception": "MC.off-by-one-counting" | null,
   "confidence": 0.0,
@@ -65,16 +65,16 @@ interface VisionProvider { analyzeImage<T>(req: { system: string; image: { media
 - **Answer-leak guard:** on `attemptNo = 1`, reject the output if `text`/`phrases` contains the correct answer as a number or number word, or if `revealsAnswer` is true. Fall back to the deterministic line.
 - **Latency window:** the deterministic feedback plays immediately. The AI line is delivered by `RunnerFeedback.onAiFeedback` if it arrives **within 5 s** and before the child's next action; otherwise it is dropped silently.
 - **Caching:** key = hash(skill, template, params, childResponse, attemptNo, mode, ageBand). Text results are cached server-side for 30 days (`ai_cache`). Identical mistakes cost nothing the second time.
-- **Diagnosis:** `likelyMisconception` (from the provided library only) with `confidence ≥ 0.7` is recorded on the `ai.feedback.shown` event that references the attempt (02 §4.2), kept separate from the deterministic `misconceptionIds`. It feeds parent insights and can trigger remediation only if the deterministic matcher agrees or the same AI diagnosis repeats ≥ 3 times.
+- **Diagnosis:** `likelyMisconception` (from the provided library only) with `confidence ≥ 0.7` is recorded as `aiMisconceptionId` on the `ai.feedback.shown` event that references the attempt (02 §5.8), kept separate from the deterministic `misconceptionIds`. It feeds parent insights and can trigger remediation only if the deterministic matcher agrees or the same AI diagnosis repeats ≥ 3 times.
 - **Prompt:** a system prompt with the child-safety guidance from §8, the role ("a warm math coach for young children on Number Island; you are a helper robot named Glim"), CPA-oriented hint strategies, the "never give the answer on the first try" rule, and a few examples per mode. Keep the system prompt stable so it caches well.
 
 ## 3. Narration TTS (build time, `tools/narration`)
 
 - **Renderer interface:** `render(lines: {id, text, voice, style}[]) → files`. Providers:
-  - **`gemini`** (default): model **`gemini-3.8-flash-tts`** through the **Batch API** (50% cost), `v1beta`. Output is 24 kHz mono PCM/WAV, transcoded with ffmpeg to Opus (`.webm` or `.ogg`, ~24 kbps). Delivery style goes in `speech_metadata.style`. Implementers verify the endpoint shape against live docs before coding; research 05 §1 has both `interactions` and `generateContent` examples.
-  - **`kokoro`** (fallback, local, Apache-2.0 model via `kokoro-js`/ONNX in Node): no external calls. Selected with `NARRATION_PROVIDER=kokoro`.
+  - **`gemini`** (default): model **`gemini-3.8-flash-tts`** `v1beta`: **interactive calls for small runs (< 200 clips)** and the **Batch API** (50% cost) otherwise. The tool may poll a batch for up to ~4 hours, and is resumable. Output is 24 kHz mono PCM/WAV, transcoded to Opus with `ffmpeg-static` (no system ffmpeg needed) (`.webm` or `.ogg`, ~24 kbps). Delivery style goes in `speech_metadata.style`. Implementers verify the endpoint shape against live docs before coding; research 05 §1 has both `interactions` and `generateContent` examples.
+  - **`kokoro`** (fallback, local, Apache-2.0 model via `kokoro-js`/ONNX in Node): no external calls at render time. The model is downloaded on first local use only, never in CI. Selected with `NARRATION_PROVIDER=kokoro`.
   - **`stub`**: deterministic silent or beep files for tests and CI.
-- **Voices:** audition `Sulafat` (warm), `Achird` (friendly), `Vindemiatrix` (gentle), `Leda` (youthful) and `Puck` (upbeat). Pick one narrator and one for Pip; Glim's phrase-bank voice is a third, distinct voice. Record the choices in `packages/content/narration/voices.yaml`. A `pnpm narration:audition` script renders the same 5 lines in each candidate voice into `tmp/audition/` for the parent to listen to.
+- **Voices:** audition `Sulafat` (warm), `Achird` (friendly), `Vindemiatrix` (gentle), `Leda` (youthful) and `Puck` (upbeat). Pick one narrator and one for Pip; Glim's phrase-bank voice is a third, distinct voice. Record the choices in `packages/content/narration/voices.yaml`. **Defaults until the owner auditions:** narrator `Sulafat`, Pip `Puck`, Glim `Achird`. The audition is an owner-verification item, not a blocker. A `pnpm narration:audition` script renders the same 5 lines in each candidate voice into `tmp/audition/` for the parent to listen to.
 - **Cost guard:** `--max-usd` (default 5). A K–3 library of ≈ 3,000–5,000 clips is ≈ $1.50–$3 on Batch at current prices (prices double on 2027-01-01). Abort if the estimate exceeds the cap.
 - **Idempotent:** clip file names are content hashes of (provider, model, voice, style, text). The manifest maps narration keys to clips. Re-running renders only new or changed lines.
 - **Runtime:** no TTS calls at all. Missing clips fall back to on-device Web Speech (02 §5.5).
@@ -83,7 +83,7 @@ interface VisionProvider { analyzeImage<T>(req: { system: string; image: { media
 ## 4. Photo → avatar attributes (`POST /api/ai/avatar-from-photo`, parent only)
 
 - **Flow:** parent area → "Make a look from a photo" → privacy note (photo analysed once by Claude, never stored, only style choices kept) → take or upload a photo → the client downsizes it to ≤ 768 px JPEG and strips EXIF → the server sends it to the vision provider **in memory** → returns `AvatarSuggestion` → the parent previews → "send to <child>'s character creator", where the child confirms or adjusts → `avatar.updated`.
-- **Output schema:** *only* creator option ids, e.g. `{ skinToneSwatch: "s07", hairStyle: "curly-short", hairColor: "h03", eyeColor: "e02", glasses: "round" | null, freckles: boolean, eyebrows: "e-soft" }`. The schema is generated from the creator's option lists. **No race, ethnicity, age or other sensitive inferences, and no free-text description.** The prompt explicitly instructs this, and validation rejects anything outside the enums.
+- **Output schema:** *only* creator option ids, e.g. `AvatarSuggestion` (02 §5.8), e.g. `{ skinTone: "s07", hairStyle: "curly-short", hairColor: "h03", eyeColor: "e02", eyebrows: "e-soft", glasses: "round" | null, freckles: boolean }`. The schema is generated from the creator's option lists. **No race, ethnicity, age or other sensitive inferences, and no free-text description.** The prompt explicitly instructs this, and validation rejects anything outside the enums.
 - **Never stored:** no photo bytes in D1, `ai_cache`, logs, Dexie or service-worker caches. A test asserts this (AI2). The request body size limit is 2 MB.
 - **No generated likeness images** in v1 (§0). The SVG avatar *is* the likeness asset, and it animates, which a generated image could not.
 

@@ -21,7 +21,7 @@ v1 is done when both kids can play daily on a tablet and a laptop against a loca
 2. **Character creation:** an attribute-based avatar creator, plus "make me from a photo" (parent-gated, AI).
 3. **Placement adventure:** game-framed adaptive placement that finds each child's frontier in the K–3 graph.
 4. **Number Island:** the island hub with a numbered road, building plots, Pebbling residents with requests, materials, building and decorating, festivals, a collection book, weekly goals and personal bests.
-5. **Workshops:** about 10 workshop mini-games covering every K–3 strand (see 05).
+5. **Workshops:** 13 workshop mini-games plus the generic Practice Pier, covering every K–3 strand (see 05 §4).
 6. **Learning engine:** skill rating, mastery ladder, spaced and interleaved review, misconception detection and remediation, CPA (concrete–pictorial–abstract) representation tiers with worked examples.
 7. **Feedback:** instant deterministic feedback and hints, plus AI-personalised feedback lines spoken via TTS when enabled.
 8. **Audio:** every child-facing prompt narrated (pre-rendered at build time, on-device Web Speech fallback), sound effects and music.
@@ -73,5 +73,5 @@ Measured locally, with no third-party analytics:
 - **Request:** a Pebbling's ask ("we need 23 planks"), which the session planner turns into a playable task.
 - **Material:** the product of a workshop's math (planks, bricks, bread…), spent on building.
 - **Pebbling:** an island resident whose shell shows a quantity with ten-frame-arranged pebbles.
-- **Frontier:** skills whose prerequisites are mastered but which are not yet mastered themselves.
+- **Frontier:** skills whose status is `ready` or `learning`: every prerequisite is at least practiced (or assumed), and the skill itself is not yet practiced (04 §2.3).
 - **CPA tier:** concrete (manipulative), pictorial (drawing), or abstract (symbols only).

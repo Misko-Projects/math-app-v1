@@ -17,7 +17,7 @@
 | Component dev | **Storybook** (React + Vite) for widgets, avatar and art kit |
 | E2E | **Playwright**: Chromium desktop plus an Android-tablet emulation (`Galaxy Tab S9` / custom 1280×800 @2x, touch) |
 | Lint/format | **Biome** (lint + format) |
-| CI | GitHub Actions: install, typecheck, lint, unit, content validate, build, e2e (Chromium) |
+| CI | GitHub Actions: required jobs `verify`, `e2e`, `bundle-size`; non-required `visual` and `nightly` (09 §2) |
 | Fonts | Self-hosted via `@fontsource`: **Andika** (body; designed for early readers) and **Baloo 2** (display). Both SIL OFL. |
 
 Nothing loads from a CDN at runtime. No third-party analytics, ads or tracking SDKs, ever.
@@ -37,20 +37,23 @@ apps/
   api/                  Hono Worker: auth, pairing, sync, AI proxy, static assets in prod
     src/routes/  src/db/ (drizzle schema + migrations)  src/ai/ (providers)  wrangler.jsonc
 packages/
-  shared/               types and Zod schemas shared by web and api (events, DTOs, ids)
-  content/              YAML sources + schemas + compiler → dist/*.json (+ narration manifest)
-    src/schema/  skills/<strand>.yaml  templates/<strand>.yaml  misconceptions/*.yaml  narration/*.yaml
+  shared/               ALL cross-package types + Zod schemas: ids, events, content types (Skill, ItemTemplate,
+                        ItemFormat, WidgetConfig, AnswerSpec, ResponseValue…), GameData, settings, API DTOs,
+                        numberClips (narration number composition)
+  content/              YAML sources + compiler → dist/*.json (skills, templates, narration, graph, game…)
+    src/compile/  skills/<strand>.yaml  templates/<strand>.yaml  misconceptions/*.yaml  narration/*.yaml  game/*.yaml
   engine/               pure TS, no DOM, no React: rng, generators, checking, learner model,
                         scheduler, placement, session planner, island economy rules
   ui/                   design tokens, primitives, math widgets, avatar renderer, art kit (SVG), sfx
 tools/
-  narration/            extract narration lines → render via Gemini TTS → audio/ + manifest
+  narration/            extract narration lines → render (07 §3) → apps/web/public/audio/ + manifest.json
+  content-check/        engine-dependent content validators V13–V15, V22, V25 + template-stats.json (03 §9.2)
   content-draft/        (optional) LLM-assisted drafting helpers with human review
 e2e/                    Playwright specs + fixtures
 docs/                   research/, spec/, build/
 ```
 
-Dependency direction (enforced with Biome `noRestrictedImports` or a lint script): `shared` ← `engine` ← `content`(types only) ← `ui` ← `web`; `shared` ← `api`. `engine` must never import React, Dexie or browser globals. The engine also runs in the API (for server-side validation) and in tests.
+Dependency direction (enforced with Biome `noRestrictedImports` or a lint script): `shared` ← `content` ← `engine` ← `ui` ← `web`; `shared`, `engine` ← `api`; `shared`, `content`, `engine` ← `tools/*`. (`content` imports only `shared`; `engine` reads compiled content data through `shared` types and never imports content's compiler.) `shared`, `content` and `engine` must never import React, Dexie or browser globals. The engine also runs in the API (for server-side validation) and in tests.
 
 ## 3. Runtime topology
 
@@ -84,7 +87,8 @@ export interface EventEnvelope<T extends EventType = EventType> {
   familyId: FamilyId;
   childId: ChildId | null; // null for family-level events (island shared actions by parent, settings)
   deviceId: DeviceId;
-  ts: number;             // ms epoch, device clock
+  ts: number;             // ms epoch, device clock (server may clamp, 08 §4)
+  clientTs?: number;      // set by the server only when it clamped ts; original device time
   type: T;
   v: 1;                   // payload schema version
   payload: EventPayloads[T];
@@ -97,16 +101,22 @@ export type EventType =
   | 'hint.used'
   | 'lesson.step'                // worked/faded example progress
   | 'placement.probe'            // placement answers (also emit 'attempt')
+  | 'placement.completed'        // initial or per-strand placement finished (posterior persisted)
   | 'skill.override'             // parent marks mastered / reset (audited)
   | 'request.accepted' | 'request.completed'
   | 'material.produced' | 'material.spent'
   | 'building.placed' | 'building.upgraded' | 'decor.placed' | 'decor.moved' | 'decor.removed'
+  | 'island.named' | 'road.extended'
   | 'resident.arrived' | 'collection.unlocked'
   | 'festival.started' | 'festival.completed'
   | 'gift.left' | 'gift.opened'
+  | 'milestone.defined' | 'milestone.reached'
   | 'goal.progress'
   | 'avatar.updated'
-  | 'ai.feedback.shown';         // { attemptEventId, mode, textHash, aiMisconceptionId|null, confidence }: the AI line text itself stays in the local aiLog
+  | 'ai.feedback.shown'          // the AI line text itself stays in the local aiLog
+  | 'child.deleted';             // tombstone (08 §4)
+
+// Payload shapes for every type are in §5.8 (EventPayloads).
 
 export interface AttemptPayload {
   sessionId: string;
@@ -116,28 +126,29 @@ export interface AttemptPayload {
   params: Record<string, number | string | boolean>;
   format: ItemFormat;
   tier: 'concrete' | 'pictorial' | 'abstract';
+  representation: Representation; // template's representation (explicit or the format default); 04 §3 counts these
   response: ResponseValue;        // see §5.2
   correct: boolean;
-  partialCredit: number;          // 0..1 (hint-assisted = 0.5)
-  latencyMs: number;              // first interaction to submit
+  partialCredit: number;          // 0..1, written by the TaskRunner: 1 correct, 0.5 correct with hints, 0 wrong
+  latencyMs: number;              // from item ready (prompt narration finished) to submit (same definition as 03 §3.1)
   hintsUsed: number;
   attemptNo: number;              // 1 = first try on this item
-  misconceptionIds: MisconceptionId[];
-  context: 'lesson' | 'practice' | 'review' | 'placement' | 'challenge' | 'transfer-probe';
+  misconceptionIds: MisconceptionId[]; // checkResponse matches ∪ detectProcessMisconceptions
+  context: 'lesson' | 'practice' | 'review' | 'warmup' | 'placement' | 'challenge' | 'transfer-probe';
   workshopId: WorkshopId | null;
 }
 ```
 
-`lesson.step` payload: `{ sessionId, skillId, templateId, phase, example, step, actor, outcome }` (03 §6.2).
-
-Payload schemas live next to the types as Zod schemas (`eventSchemas[type]`). Readers must ignore unknown event types and unknown fields (forward compatibility).
+Payload schemas live next to the types as Zod schemas (`eventSchemas[type]`, §5.8). **Forward compatibility:** readers (client folds and the server) must ignore unknown event types and unknown payload fields. The server validates the **envelope** strictly and the **payloads of known types** strictly (unknown fields are stripped); events of unknown types are stored opaquely (payload ≤ 8 KB) and relayed to other devices unchanged (08 §4).
 
 ### 4.3 Projections (folds), all in `packages/engine`
 
 - `foldSkillStates(events, graph, now) → Map<SkillId, SkillState>` (04 §2)
-- `foldIsland(events, gameData) → IslandState` (buildings, decor positions (LWW by ts then id), residents, festival state)
-- `foldInventory(events) → Record<MaterialId, number>`; never negative (spend events that would go negative are ignored deterministically)
-- `foldCollection(events) → CollectionState`; `foldGoals(events, now) → WeeklyGoalState`
+- `foldIsland(events, gameData) → IslandState` (buildings, decor positions (LWW by ts then id), residents, road, projects, festival state)
+- `foldInventory(events) → InventoryState`: family-wide Storehouse. **Buildings are never un-built**: `building.placed`/`upgraded` always apply. The inventory projection clamps each material at 0, so a concurrent sibling spend can at worst make a build "free", never negative or reverted.
+- `foldCollection(events, gameData) → CollectionState`; `foldGoals(events, settings) → WeeklyGoalState`
+
+All projection types are defined in §5.8.
 
 Folds must be **deterministic, order-independent given the same set** (sort by `ts`, then `id`) and incrementally updatable (`applyEvent(state, e)`). The client caches projections in Dexie and rebuilds from scratch when `contentVersion` or the engine fold version changes.
 
@@ -146,8 +157,8 @@ Folds must be **deterministic, order-independent given the same set** (sort by `
 ```
 events:      id, [familyId+ts], [childId+ts], type, synced(0|1)
 projections: key (e.g. "skills:<childId>", "island", "inventory") → { version, upToEventId, data }
-profiles:    childId → ChildProfile (name, avatar, grade, birthYear, picturePasswordHash, settings)
-settings:    key → { value, updatedAt }   // family + per-child settings (LWW)
+profiles:    childId → ChildProfile (§5.8)
+settings:    key ("family" | "child:<childId>") → { value: FamilySettings | ChildSettings, updatedAt }   // LWW per document (§5.8)
 device:      singleton → { deviceId, familyId, deviceToken?, pairedAt }
 aiLog:       id → { ts, childId, skillId, text }   // every AI line shown (parent audit, 90-day retention)
 syncState:   singleton → { cursor, lastSyncAt, lastError }
@@ -159,7 +170,9 @@ Call `navigator.storage.persist()` on first run. Export/import produces one JSON
 
 These are the interfaces parallel work streams code against. Changing one requires updating this doc in the same PR.
 
-### 5.1 Content types (`packages/content/src/schema`, re-exported from `packages/shared`)
+All types in §5 are declared, with their Zod schemas, in **`packages/shared`** (behaviour such as `generateItem` is implemented in `packages/engine`). F01 lands every type in §5.1–§5.8 before wave 1 starts.
+
+### 5.1 Content types (`packages/shared/src/content.ts`; compiled by `packages/content`)
 
 ```ts
 export interface Skill {
@@ -193,7 +206,7 @@ export interface ItemTemplate {
 }
 ```
 
-### 5.2 Items and responses (`packages/engine/src/items.ts`)
+### 5.2 Items and responses (types in `packages/shared/src/items.ts`; functions implemented in `packages/engine/src/items/`)
 
 ```ts
 export type ItemFormat =
@@ -240,7 +253,7 @@ export function detectProcessMisconceptions(item: GeneratedItem, r: ResponseValu
   meta: { latencyMs: number; trace?: InteractionEvent[] }): MisconceptionId[]; // process errors and strategy praise (03 §5.7, §7.1)
 ```
 
-The supporting types `Tier`, `Representation`, `ParamSpec`, `GeneratorId`, `WidgetConfig`, `AnswerSpec`, `HintStep`, `LessonSpec`, `NarrationKey`, `FeedbackKey`, `StrandId` and `InteractionEvent` are defined in **03-curriculum §1, §5.1, §5.2 and §6.1**, and implemented in `packages/content` / `packages/engine` exactly as written there.
+The supporting types `Tier`, `Representation`, `ParamSpec`, `GeneratorId`, `WidgetConfig`, `AnswerSpec`, `HintStep`, `LessonSpec`, `NarrationKey`, `FeedbackKey`, `StrandId` and `InteractionEvent` are defined in **03-curriculum §1, §5.1, §5.2 and §6.1**, and declared in `packages/shared` exactly as written there.
 
 `WidgetConfig` and the per-format answer semantics are specified in 03 §5. **Each `ItemFormat` has exactly one widget** in `packages/ui/widgets`. Workshops may theme widgets but must not reimplement their interaction logic.
 
@@ -275,13 +288,19 @@ export interface SessionPlan {
 export interface PlannedRequest {
   id: string; residentId: ResidentId; workshopId: WorkshopId;
   tasks: PlannedTask[];         // the item sequence (new skill + interleaved review), 2–4 min
-  reward: { material: MaterialId; amount: number; unlocks?: string[] };
+  reward: { materials: Recipe; decor?: DecorId[]; unlocks?: string[] }; // materials = direct product, ≈ 1 per item
   narration: NarrationKey; vars: Record<string, string | number>;
 }
 export interface PlannedTask { skillId: SkillId; templateId: TemplateId; seed: number; context: AttemptPayload['context']; mode: 'lesson'|'item'; }
+
+// Difficulty is chosen at presentation time, not planning time:
+export function targetDifficulty(state: LearnerState, skill: SkillId,
+  context: AttemptPayload['context'], child: ChildContext): number; // d* incl. the rolling offset (04 §2.4)
+
+export function adaptNext(input: AdaptInput): AdaptDecision;          // types in §5.8
 ```
 
-The planner is pure. The web app also asks `adaptNext(state, request, lastResult)` between items, which lets the remaining tasks in a request adapt (step down a CPA tier, insert a prerequisite probe, or stop early on frustration). See 04 §6.
+The planner is pure. **Re-planning:** the app calls `planSession` at session start and again after each request completes (with the updated state), so later requests reflect what just happened. Between items, the `TaskRunner` calls `adaptNext`, which can make the remaining tasks in a request adapt: step down a CPA tier, insert a prerequisite probe, or stop early on frustration (04 §6.4).
 
 ### 5.5 Audio (`packages/ui/src/audio`)
 
@@ -298,7 +317,7 @@ export interface AudioManager {
 }
 ```
 
-Narration keys resolve through `packages/content/dist/narration.json`: `{ key: { text, say?, voice?, clips: string[] } }`, where `clips` may contain slot tokens `$var[|type[:countVar]]` (03 §8.4). Number words are composed from pre-rendered clips ("twenty" + "three"). If a clip is missing, fall back to Web Speech for that line and log a dev warning.
+Narration keys resolve through `packages/content/dist/narration.json`: `{ key: { text, say?, voice?, clips: string[] } }`, where `clips` may contain slot tokens `$var[|type[:countVar]]` (03 §8.4). Number words are composed from pre-rendered clips ("twenty" + "three") by `numberClips(n)` in `packages/shared/src/narration/numberClips.ts` (|n| ≤ 1,000,000, 03 §8.3). Clip ids resolve to files through **`apps/web/public/audio/manifest.json`** (`{ version, clips: Record<ClipId, { file: string; durationMs: number }> }`, file names content-hashed), produced by `tools/narration` (A02). Rendered Opus audio is **committed** to the repo, so a fresh clone has narration without any key (expected ≈ 15–40 MB for K–3). The AudioManager tolerates a missing manifest or clip: it falls back to Web Speech for that line and logs a dev warning.
 
 ### 5.6 Workshop module contract (`apps/web/src/workshops/<id>/index.ts`)
 
@@ -307,8 +326,8 @@ export interface WorkshopDefinition {
   id: WorkshopId; name: string;
   formats: ItemFormat[];                 // which item formats this workshop can host
   strands: StrandId[];                   // for planner affinity and island layout
-  building: { art: BuildingArtId; footprint: [w: number, h: number]; unlock: UnlockRule };
-  produces: MaterialId;
+  building: BuildingId;                  // art, footprint, levels and unlock rule come from GameData (§5.8)
+  produces: MaterialId[];                // [] for Puzzle Tower (decor rewards); Practice Pier produces whatever the request asks for
   load: () => Promise<{ default: React.ComponentType<WorkshopProps> }>; // lazy
 }
 export interface WorkshopProps {
@@ -326,7 +345,7 @@ export interface TaskRunner {
 }
 export interface RunnerFeedback extends CheckResult {
   say: { key?: NarrationKey; text?: string }; // deterministic key now; AI text may arrive later via onAiFeedback
-  onAiFeedback(cb: (text: string) => void): void;
+  onAiFeedback(cb: (line: AiFeedbackLine) => void): void;   // §5.8; delivered only within the 5 s window (07 §2)
   retry: boolean;                              // allow another attempt on the same item
 }
 ```
@@ -337,10 +356,247 @@ The app owns the `TaskRunner`, so every workshop gets logging, mastery updates, 
 
 See 08 §2 for routes. Every request and response body has a Zod schema in `shared`. The API validates with `@hono/zod-validator`; the client parses responses with the same schemas.
 
+### 5.8 Supporting types (`packages/shared/src/*`)
+
+Every type referenced elsewhere in §4–§5 is defined here or in 03 (§5.2 note). Field names are binding. Implementations may add **private** fields (prefixed `_`) but must not change these.
+
+```ts
+// ---------- basics ----------
+export type Grade = 'K' | '1' | '2' | '3' | '4' | '5' | '6' | '7' | '8' | 'HS';
+export type AgeBand = '5-6' | '7-8' | '9-10' | '11-12' | '13-14';
+export type Recipe = Partial<Record<MaterialId, number>>;            // material → count
+export type Plot = [x: number, y: number];                            // island grid cell (12 × 8 in v1)
+export type LessonPhase = 'intro' | 'worked' | 'faded' | 'scaffolded' | 'outro';   // 03 §6.2
+
+// ---------- children, profiles, settings ----------
+export interface ChildProfile {
+  id: ChildId; familyId: FamilyId;
+  name: string;                     // first name or nickname; never sent to AI providers
+  birthYear: number; grade: Grade;
+  advanced: boolean;                // "working above grade": shifts placement priors (04 §5)
+  avatar: AvatarSpec;
+  picturePasswordHash: string | null; // salted local hash (08 §3)
+  createdAt: number; updatedAt: number; deletedAt?: number;
+}
+export interface ChildContext {     // what pure engine functions need about a child
+  childId: ChildId; grade: Grade; ageBand: AgeBand; advanced: boolean;
+  isK: boolean;                     // grade === 'K' → K columns of 04 tables
+  settings: ChildSettings;
+}
+export interface FamilySettings {
+  'ai.feedback': boolean;  'ai.feedbackMode': 'phrases' | 'text';
+  'ai.avatarPhoto': boolean;  'ai.parentSummary': boolean;   // all AI flags default false (07 §8.6)
+  music: boolean;
+  volumes: { voice: number; sfx: number; music: number };      // 0..1
+  voiceRate: number;                                           // 0.8..1.2, applies to Web Speech + playbackRate
+  freeBuildAfterSession: boolean;                              // 05 §8
+  timezone: string;                                            // IANA, for weekly goals and quiet hours
+}
+export interface ChildSettings {
+  sessionMinutes: number;           // 5..30; default K 10, G1–2 15, G3 20 (04 §6.1)
+  dailyCapMinutes: number | null;
+  quietHours: { start: string; end: string } | null;           // "HH:MM" local
+  timedChallenges: boolean;         // ignored (always off) when isK
+  captions: boolean;                // default: K false, G1+ true
+  tapOnly: boolean; snapRadiusPx: number;                      // 06 §7 motor settings (default false, 48)
+  speakOnTap: boolean;              // tapping numbers/coins speaks names (default true)
+  weeklyGoal: number;               // requests per week (default K 5, G1+ 6)
+}
+// Dexie/D1 settings documents: key "family" → FamilySettings; key "child:<childId>" → ChildSettings.
+// LWW per whole document by updatedAt (08 §4). Defaults are filled by `withSettingDefaults()`.
+
+// ---------- avatar (05 §9, 07 §4) ----------
+export interface AvatarSpec {
+  skinTone: `s${string}`;           // 's01'..'s12'
+  faceShape: string;  hairStyle: string;  hairColor: string;     // option ids from shared/avatar/options.ts
+  eyeShape: string;  eyeColor: string;  eyebrows: string;
+  glasses: string | null;  freckles: boolean;  beautyMark: boolean;
+  top: string; topColor: string; bottom: string; bottomColor: string; shoes: string; shoesColor: string;
+  hat: string | null; accessory: string | null;                  // unlockable
+  buddy: ResidentId;                                             // starter Pebbling
+}
+export type AvatarSuggestion = Pick<AvatarSpec,
+  'skinTone' | 'hairStyle' | 'hairColor' | 'eyeColor' | 'eyebrows' | 'glasses' | 'freckles'>; // 07 §4 output
+
+// ---------- game data (authored in packages/content/game/*.yaml → dist/game.json) ----------
+export type UnlockRule =
+  | { start: true }
+  | { all: UnlockRule[] } | { any: UnlockRule[] }
+  | { skill: SkillId; atLeast: 'ready' | 'practiced' | 'mastered' }      // satisfied when ANY child reaches it
+  | { skillKind: Skill['kind']; atLeast: 'practiced' | 'mastered' }       // any skill of that kind, any child
+  | { minGrade: Grade }                                                    // any child's profile grade ≥
+  | { masteredCount: number }                                             // any single child
+  | { building: BuildingId; level?: 1 | 2 | 3 }
+  | { roadLength: number } | { residentCount: number };
+// Unlocks are FAMILY-WIDE: once satisfied, the building/workshop is available to every child.
+
+export interface GameData {
+  materials: { id: MaterialId; name: NarrationKey; art: string }[];
+  buildings: BuildingDef[];
+  residents: ResidentDef[];
+  decor: { id: DecorId; art: string; footprint: [number, number]; source: 'starter' | 'project' | 'festival' | 'gift' | 'puzzle' }[];
+  outfits: { option: string; unlock: UnlockRule }[];             // avatar options that start locked
+  island: { grid: [12, 8]; rings: { plots: Plot[]; unlock: UnlockRule }[];
+            road: { n: number; plot: Plot }[] };                   // stone n → plot (n up to 1000)
+  festivals: { id: string; kind: 'festival' | 'storm-watch'; everyDaysOfPlay: number; rewardDecor: DecorId[] }[];
+}
+export interface BuildingDef {
+  id: BuildingId; kind: 'workshop' | 'home' | 'storehouse' | 'landmark' | 'project';
+  workshopId?: WorkshopId;          // kind 'workshop'
+  art: string; footprint: [number, number];
+  unlock: UnlockRule;
+  levels: { level: 1 | 2 | 3; recipe: Recipe; unlocks: string[] }[];  // level 1 recipe = build cost
+  shared?: boolean;                 // co-op project needing both children's materials (05 §6)
+}
+export interface ResidentDef {
+  id: ResidentId; name: string; species: string; number: number | null; // quantity shown in the shell (05 §5)
+  family?: 'tens' | 'hundreds' | 'fraction' | 'clock' | 'coin';
+  palette: string; lines: NarrationKey[];  affinity: WorkshopId[];
+  arrival: { via: 'start' | 'home' | 'ferry'; home?: BuildingId; unlock: UnlockRule };
+  starterBuddy: boolean;
+}
+
+// ---------- projections ----------
+export interface IslandState {
+  name: string | null;
+  ringsUnlocked: number;  roadLength: number;
+  buildings: Record<string /*instanceId*/, { buildingId: BuildingId; plot: Plot; level: 1 | 2 | 3; placedBy: ChildId | null; ts: number }>;
+  decor: Record<string /*instanceId*/, { decorId: DecorId; pos: Plot; placedBy: ChildId | null; ts: number }>;
+  residents: Record<ResidentId, { arrivedTs: number; homeInstanceId: string | null }>;
+  projects: Record<BuildingId, { contributed: Recipe; byChild: Record<ChildId, number> }>; // badges only, never shown as scores
+  festival: { active: { festivalId: string; startedTs: number } | null; completed: number; daysOfPlaySinceLast: number };
+  giftsPending: string[];           // gift ids not yet opened (per child filtering in UI)
+  milestones: Record<string, { label: string; trigger: UnlockRule; reachedTs: number | null }>;
+}
+export interface InventoryState { materials: Record<MaterialId, number>; producedByChild: Record<ChildId, Recipe> }
+export interface CollectionState {
+  residents: ResidentId[];                                   // collected = arrived
+  decorOwned: Record<DecorId, number>;
+  outfitsUnlocked: string[];                                 // family-wide avatar options
+  badges: Record<ChildId, { skillId: SkillId; ts: number }[]>; // mastery moments
+}
+export interface WeeklyGoalState {
+  byChild: Record<ChildId, { weekStart: string /*ISO date, Monday, family tz*/; target: number; progress: number; weeksCompleted: number }>;
+} // accumulate-only within a week: progress never decreases
+
+// ---------- learner model (04) ----------
+export interface SkillGraph {
+  contentVersion: string;
+  skills: Record<SkillId, Skill>;  templates: Record<TemplateId, ItemTemplate>;
+  nodes: SkillId[];                                        // topological order
+  prereqs: Record<SkillId, SkillId[]>;  dependents: Record<SkillId, SkillId[]>;
+  encompasses: Record<SkillId, Record<SkillId, number>>;
+  depth: Record<SkillId, number>;  descendants2: Record<SkillId, number>;
+  roots: SkillId[];  gateways: SkillId[];
+  templateStats: Record<TemplateId, { min: number; p10: number; median: number; p90: number; max: number; distinct: number }>;
+}
+export interface RatedAttempt {
+  ts: number; sessionId: string; correct: boolean; hinted: boolean;
+  format: ItemFormat; tier: Tier; representation: Representation;
+  latencyMs: number; context: AttemptPayload['context'];
+}
+export interface SkillState {
+  theta: number; n: number;                                  // 04 §2.1
+  recent: RatedAttempt[];                                    // last 10 first attempts counted as evidence
+  assumed: boolean;  override: 'mastered' | 'reset' | null;
+  practicedAt: number | null;  fluentAt: number | null;  masteredAt: number | null;
+  memory: { intervalDays: number; lastReviewTs: number; dueTs: number; reps: number;
+            reviewsPassed: number[] /*ts*/; consecutiveFails: number } | null; // null until practiced
+  atRiskDueTs: number | null;                                // failure propagation (04 §4)
+  misconceptionHits: { id: MisconceptionId; ts: number }[];  // within the last 10 attempts
+}
+export interface LearnerState {
+  modelId: string; childId: ChildId;
+  thetaG: number; nTotal: number;
+  skills: Record<SkillId, SkillState>;                       // absent = never touched (status from graph)
+  successOffset: number;  recentFirstTry: boolean[];         // rolling controller, last 20 (04 §2.4)
+  placement: { prior: PlacementPrior | null; strandsPlaced: StrandId[]; inProgress: string | null };
+  sessionsSeen: number;
+}
+export interface PlacementPrior { p: Record<SkillId, number>; assumed: SkillId[] }
+export interface DueReview { skillId: SkillId; dueTs: number; retrievability: number; depth: number; atRisk: boolean }
+export interface WorkshopCapability {
+  workshopId: WorkshopId; formats: ItemFormat[]; strands: StrandId[];
+  available: boolean;                                        // built (family-wide)
+  residents: ResidentId[]; produces: MaterialId[];
+}
+
+// ---------- in-session adaptation (04 §6.4) ----------
+export interface AdaptInput {
+  state: LearnerState; graph: SkillGraph; child: ChildContext; now: number;
+  request: PlannedRequest; doneTaskIds: number[];            // indexes into request.tasks already presented
+  last: { task: PlannedTask; result: CheckResult; attemptNo: number; hintsUsed: number; latencyMs: number };
+  signals: { wrongInLast4: number; rapidWrongTaps: number; longIdles: number };
+  tierOverrides: Partial<Record<SkillId, Tier>>;
+  elapsedMs: number; budgetMs: number;
+}
+export type AdaptDecision =
+  | { action: 'retry'; hintLevel: 1 | 2 | 3 | 4 }
+  | { action: 'show-solution' }                             // second wrong: narrate worked solution, move on
+  | { action: 'continue'; tierOverrides?: Partial<Record<SkillId, Tier>>; insert?: PlannedTask[] }
+  | { action: 'confidence-then-offer-break'; insert: PlannedTask[] }
+  | { action: 'end-request'; reason: 'frustration' | 'wind-down' | 'complete' };
+// plus side effects returned on any decision:
+//   queueRemediation?: { skillId: SkillId; misconceptionId: MisconceptionId }  (next request becomes the remediation lesson)
+
+// ---------- runner ----------
+export type PresentedItem = Omit<GeneratedItem, 'answer'>;   // the UI never sees the answer
+export type RunnerTask =
+  | { kind: 'lesson-step'; skillId: SkillId; templateId: TemplateId; phase: LessonPhase; example: number; step: number;
+      narration: NarrationKey; vars: Record<string, string | number>; widget: WidgetConfig; demo: WidgetAction | null; childStep: boolean }
+  | { kind: 'item'; task: PlannedTask; item: PresentedItem; attemptNo: number; hintLevel: number; tier: Tier };
+export type AiFeedbackLine =
+  | { mode: 'phrases'; parts: ({ id: string } | { number: number })[] }   // phrase ids are `ph.*` narration keys
+  | { mode: 'text'; text: string };
+
+// ---------- event payloads (EventPayloads[T]) ----------
+export interface EventPayloads {
+  'session.started':   { sessionId: string; budgetMinutes: number; trigger: 'child' | 'parent' };
+  'session.ended':     { sessionId: string; reason: 'wind-down' | 'child-exit' | 'abandoned' | 'daily-cap' | 'quiet-hours';
+                         activeMs: number; mathMs: number; items: number };
+  'attempt':           AttemptPayload;
+  'hint.used':         { sessionId: string; skillId: SkillId; templateId: TemplateId; seed: number; level: 1 | 2 | 3 | 4 };
+  'lesson.step':       { sessionId: string; skillId: SkillId; templateId: TemplateId; phase: LessonPhase;
+                         example: number; step: number; actor: 'demo' | 'child'; outcome: 'done' | 'demo-corrected' | 'skipped' };
+  'placement.probe':   { placementId: string; strand: StrandId | null; skillId: SkillId; templateId: TemplateId; seed: number;
+                         correct: boolean; skipped: boolean; latencyMs: number; posterior: number };
+  'placement.completed': { placementId: string; strand: StrandId | null /* null = initial */; posterior: Record<SkillId, number>;
+                         assumed: SkillId[]; items: number; reason: 'converged' | 'budget' | 'frustration' };
+  'skill.override':    { skillId: SkillId; to: 'mastered' | 'reset' };
+  'request.accepted':  { sessionId: string; requestId: string; residentId: ResidentId; workshopId: WorkshopId; taskCount: number };
+  'request.completed': { sessionId: string; requestId: string; workshopId: WorkshopId; items: number; firstTryCorrect: number;
+                         endedEarly: boolean };
+  'material.produced': { sessionId: string | null; requestId: string | null; workshopId: WorkshopId | null; materials: Recipe };
+  'material.spent':    { materials: Recipe; purpose: { kind: 'build' | 'upgrade' | 'project' | 'decor'; ref: string } };
+  'building.placed':   { instanceId: string; buildingId: BuildingId; plot: Plot };
+  'building.upgraded': { instanceId: string; level: 2 | 3 };
+  'decor.placed':      { instanceId: string; decorId: DecorId; pos: Plot };
+  'decor.moved':       { instanceId: string; pos: Plot };
+  'decor.removed':     { instanceId: string };
+  'island.named':      { name: string };                       // first child names it (05 §10); later events win (LWW)
+  'road.extended':     { to: number };                         // Road Crew; projection keeps the max
+  'resident.arrived':  { residentId: ResidentId; homeInstanceId: string | null; via: 'start' | 'home' | 'ferry' };
+  'collection.unlocked': { kind: 'resident' | 'decor' | 'outfit' | 'badge'; id: string };
+  'festival.started':  { festivalId: string; kind: 'festival' | 'storm-watch' };
+  'festival.completed': { festivalId: string; rewardDecor: DecorId[] };
+  'gift.left':         { giftId: string; toChildId: ChildId | null; decorId: DecorId | null; message: string | null /* ≤ 140 chars, spoken via sayText */ };
+  'gift.opened':       { giftId: string };
+  'milestone.defined': { milestoneId: string; label: string; trigger: UnlockRule };
+  'milestone.reached': { milestoneId: string };
+  'goal.progress':     { weekStart: string; delta: 1; requestId: string };
+  'avatar.updated':    { avatar: AvatarSpec; source: 'creator' | 'photo-suggestion' };
+  'ai.feedback.shown': { attemptEventId: EventId; mode: 'phrases' | 'text'; textHash: string;
+                         aiMisconceptionId: MisconceptionId | null; confidence: number };
+  'child.deleted':     { childId: ChildId };                   // envelope childId = null
+}
+```
+
+`WidgetAction` and `InteractionEvent` are defined in 03 §5.1. **F01 acceptance:** every type above, plus 03's referenced types, exists in `packages/shared` with a Zod schema (`eventSchemas`, `settingsSchemas`, `gameDataSchema`, `avatarSpecSchema`, …) before any wave-1 issue starts.
+
 ## 6. Performance budgets (enforced in CI where possible)
 
-- Initial JS (app shell + island) ≤ 350 KB gzip; each workshop chunk ≤ 120 KB gzip; Pixi chunk loads only when needed.
-- Time to interactive on a mid-range Android tablet (emulated 4× CPU slowdown) ≤ 3 s from warm cache.
+- Initial JS (app shell + island) ≤ 350 KB gzip; each workshop chunk ≤ 120 KB gzip; Pixi chunk loads only when needed. **Content JSON (`dist/*.json`) is never bundled into JS**: it is fetched as a precached static asset at startup.
+- Time to interactive on a mid-range Android tablet (emulated 4× CPU slowdown) ≤ 3 s from warm cache. CI **reports** this number but does not fail on it (too noisy); Q01 verifies it.
 - 60 fps target and 30 fps floor for island pan and widget drags. At most one WebGL canvas alive at a time.
 - Precache size (shell + content + K–3 narration audio, Opus) ≤ 60 MB.
 

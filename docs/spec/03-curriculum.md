@@ -54,7 +54,7 @@ export type StrandId =
 
 Total: **260 skills** (§3.20 has the per-grade counts).
 
-**Decision: division folds into `MUL` for K–3.** Judgment call. CCSS teaches × and ÷ together in one 3.OA cluster through fact families and "division as an unknown factor", the research sample already places division skills in `MUL` (`MUL.05`, `MUL.08`), and keeping them together keeps fact-family prerequisites inside one strand. `DIV` is reserved for grade 4+ multi-digit division (4.NBT.B.6 and up), where it becomes a procedure strand of its own. Workshops that list `DIV` for planner affinity (05 §4, W7) should use `MUL` in v1 (see §11).
+**Decision: division folds into `MUL` for K–3.** Judgment call. CCSS teaches × and ÷ together in one 3.OA cluster through fact families and "division as an unknown factor", the research sample already places division skills in `MUL` (`MUL.05`, `MUL.08`), and keeping them together keeps fact-family prerequisites inside one strand. `DIV` is reserved for grade 4+ multi-digit division (4.NBT.B.6 and up), where it becomes a procedure strand of its own. Workshops that host division (05 §4, W7 Bakery) list `MUL` as their strand.
 
 ### 1.2 Reserved strands (no v1 skills)
 
@@ -93,7 +93,7 @@ Every skill carries `standards.ccss: string[]`, using the full **Grade.Domain.Cl
 | HS | `^HS(N\|A\|F\|G\|S)-[A-Z]{2,3}\.[A-D]\.\d{1,2}[a-e]?$` | `HSA-REI.B.4`, `HSF-IF.A.1` |
 
 - Short forms such as `K.CC.4` are never stored. The validator checks every code against a code list (`packages/content/standards/ccss-codes.txt`, codes only, one per line).
-- **Addresses vs supports.** A skill lists in `ccss` the standards it *directly teaches and assesses*. Skills that come from a learning trajectory rather than a standard (subitizing, ordinal numbers, benchmark estimation) list their nearest standard in `standards.supports` instead (a proposed field, §11 C2). In the catalog tables a supporting code is written with a leading `~` (for example `~K.CC.B.5`). Supporting codes never count toward coverage.
+- **Addresses vs supports.** A skill lists in `ccss` the standards it *directly teaches and assesses*. Skills that come from a learning trajectory rather than a standard (subitizing, ordinal numbers, benchmark estimation) list their nearest standard in `standards.supports` instead (02 §5.1). In the catalog tables a supporting code is written with a leading `~` (for example `~K.CC.B.5`). Supporting codes never count toward coverage.
 - A skill may have both, and may have neither only if it is listed in §2.5.
 
 ### 2.2 Wisconsin Standards for Mathematics (2021) aliases
@@ -717,8 +717,14 @@ packages/content/
   narration/numbers.yaml        number-word and unit clip inventory (§8.3)
   narration/phrases.yaml        AI feedback phrase bank (ph.*; content owned by 07 §2)
   narration/voices.yaml         voice choices (07 §3)
+  narration/ui.yaml             child-facing app chrome lines (ui.*): profile picker, buttons, parent-gate prompt…
+  narration/game.yaml           island and story lines (game.*, req.*, res.*): Pip, onboarding, request lines,
+                                resident lines, Glim intro, wind-down recaps. Each UI issue authors its own keys here.
+  game/*.yaml                   GameData (02 §5.8): buildings, recipes, residents, decor, materials (authored by U02)
   contexts.yaml                 story contexts and nouns (§4.6)
-  graph.yaml                    root allowlist and graph-level settings
+  graph.yaml                    root allowlist, coverageGrades (§9.2) and graph-level settings
+  outlines.yaml                 shape outlines for geo.compose
+  narration/wordlist-k1.txt, wordlist-2.txt, denylist.txt   reading-level and tone lists (§8.5)
   retired.yaml                  retired SkillIds and TemplateIds (never reusable)
   standards/ccss-codes.txt      code lists, codes only (§2.3)
   standards/wi-2021-codes.txt
@@ -770,7 +776,7 @@ skills:
     name: See 1 to 4 at a glance
     kind: concept
     grade: K
-    standards: { ccss: [], supports: [K.CC.B.5], wi: [M.K.CC.B.5] }   # supports: proposed field, §11 C2
+    standards: { ccss: [], supports: [K.CC.B.5], wi: [M.K.CC.B.5] }   # supports: 02 §5.1
     prerequisites: []              # must be in graph.yaml roots
     gateway: false
     representations: [objects, fingers, dots]
@@ -799,7 +805,7 @@ templates:
     skillId: ADD.08
     format: tenframe-fill
     tier: concrete
-    representation: double-ten-frame          # proposed field, §11 C1 (defaults from the format, §5.5)
+    representation: double-ten-frame          # 02 §5.1 (defaults from the format, §5.5)
     generator: addsub.facts
     params:
       a: { int: [6, 9] }
@@ -814,7 +820,7 @@ templates:
     difficulty:
       base: -0.4
       features: { size: 0.5 }                 # overrides the default weight of 'size'; others keep defaults
-    expectedLatencyMs: 12000                  # proposed field, §11 C3 (04 §2.3 reads it)
+    expectedLatencyMs: 12000                  # 02 §5.1 (04 §2.3 reads it)
     narration:
       prompt: tp.ADD.08.t1.prompt
       hints: [h.addsub.make-ten.nudge, h.addsub.make-ten.show-frame, h.addsub.make-ten.worked]
@@ -980,7 +986,7 @@ Resident names in stories come from game data (`ResidentId`, 05 §5) and are spo
 
 Items are produced by **code**, never by hand or by an LLM: a template names a registered generator, the generator draws parameters with the seeded RNG, computes the answer, and builds the widget configuration. This section defines the types 02 §5.2 refers to, the generator registry, the difficulty model, and the per-format contract every widget implements.
 
-### 5.1 Core types (`packages/engine/src/items/types.ts`)
+### 5.1 Core types (`packages/shared/src/items.ts`; the engine implements them in `packages/engine/src/items/`)
 
 ```ts
 export type Tier = 'concrete' | 'pictorial' | 'abstract';
@@ -1102,7 +1108,7 @@ export type WidgetConfig = TapCountConfig | MakeSetConfig | DotFlashConfig | Num
 
 **Answer → response compatibility.** `number` ← `{kind:'number'}`; `numbers` ← `{kind:'numbers'}`; `choice` ← `{kind:'choice'}`; `placement` ← `{kind:'placement'}`; `state` ← `{kind:'state'}`. `{kind:'skip'}` is accepted by every item. Any other pairing is a widget bug: `checkResponse` returns incorrect with `fb.retry` and logs a dev error.
 
-**Interaction trace.** Manipulative widgets record a trace (`InteractionEvent[]`) and pass it to `TaskRunner.submit` in `meta.trace` (proposed, §11 C4). Process misconception rules (§7.1) and strategy praise read it. It is never part of `ResponseValue`, never sent to AI services, and is kept only in memory for the current item.
+**Interaction trace.** Manipulative widgets record a trace (`InteractionEvent[]`) and pass it to `TaskRunner.submit` in `meta.trace` (02 §5.6). Process misconception rules (§7.1) and strategy praise read it. It is never part of `ResponseValue`, never sent to AI services, and is kept only in memory for the current item.
 
 **Multiple choice.** An item is multiple choice if and only if `answer.kind === 'choice'`. The learner model weights these as 04 requires. Pre-reader-friendly pick widgets (`numeral-pick`, `compare`, `fraction-pick`, `clock-read` in pick mode) must show ≥ 3 options (≥ 4 when the template lists distractors), shuffled with the item RNG.
 
@@ -1811,8 +1817,8 @@ return { correct, partialCredit: correct ? 1 : 0, misconceptionIds: mcs, feedbac
 | `placement` | `|r.value − value| ≤ tolerance` |
 | `state` | the registered `StateChecker(target, r.value)` returns true |
 
-- **Hint credit is not decided here.** `partialCredit` is 1 or 0. 04 §2.3 applies the hint discount (0.5) from `hintsUsed`.
-- **Process rules** (count-all, recounting) need the trace and latency, so they do not run in `checkResponse`. `detectProcessMisconceptions(item, r, meta)` (proposed engine export, §11 C4) runs in the `TaskRunner` after the check. It may tag a *correct* answer (for example, a correct 8 + 5 reached by tapping all 13). The runner merges both lists into `AttemptPayload.misconceptionIds`.
+- **Hint credit is not decided here.** `checkResponse` returns `partialCredit` 1 or 0. The `TaskRunner` writes `AttemptPayload.partialCredit` (0.5 when `hintsUsed > 0` and correct), and 04 §2.3 uses it.
+- **Process rules** (count-all, recounting) need the trace and latency, so they do not run in `checkResponse`. `detectProcessMisconceptions(item, r, meta)` (engine export, 02 §5.2) runs in the `TaskRunner` after the check. It may tag a *correct* answer (for example, a correct 8 + 5 reached by tapping all 13). The runner merges both lists into `AttemptPayload.misconceptionIds`.
 - **Strategy praise.** When a process detector reports a desirable strategy (`strategy.made-ten`, `strategy.counted-on`, `strategy.used-doubles`), the runner may replace `fb.correct.*` with `fb.praise.<strategy>` (process praise, research 02 §1.8).
 - Every `StateChecker` lives in `packages/engine/src/check/state/<id>.ts`, with table-driven unit tests that include at least one alternative valid end state.
 
@@ -1874,14 +1880,14 @@ export interface LessonStep {
 | **Intro** | `intro` line, the buddy appears | ≤ 1 line (≤ 12 words for K) |
 | **Worked** | Each step: the narration plays, then the widget animates `action` in demo mode. Input is disabled. | All steps `demo`. A replay button repeats the current step. From grade 1, an "I can try" button appears after step 1 and jumps to the first faded example. K has no skip button, because accidental taps are common. |
 | **Faded** | A new example. The demo performs all but the last `childSteps` steps; then the child does the rest. | Example 1 has `childSteps: 1`, example 2 has `childSteps: 2`. A child step is complete when the widget state satisfies `expect` (state-equivalent alternatives count) or, for `{answer: true}`, when `checkResponse` is correct. After two unsuccessful tries, the demo performs the step with its narration and the lesson continues. No "wrong" language is used. |
-| **Scaffolded** | `count` real items from `templateId` (context `lesson`), with the hint ladder opened at `hintStart` proactively (the nudge plays before the child starts) | These items are logged as `attempt` events with `context: 'lesson'`. 04 decides how much they count. |
+| **Scaffolded** | `count` real items from `templateId` (context `lesson`), with the hint ladder opened at `hintStart` proactively (the nudge plays before the child starts) | These items are logged as `attempt` events with `context: 'lesson'`. 04 §2.3 sets their weight (w = 0.5), and they do not count as `practiced` evidence. |
 | **Hand-off** | `outro` line, then normal practice items | |
 
 **Shortening (expertise reversal, research 02 §1.6):** if the child completes faded example 1 on the first try within the template's `expectedLatencyMs`, faded example 2 is skipped. If scaffolded item 1 is correct with no hint, the remaining scaffolded items are skipped.
 
 **"Show me" during practice:** while practising a skill, the child can tap "show me" to replay worked example 1. Mid-item, this counts as one hint (level 4) on that item.
 
-Every step emits a `lesson.step` event (payload §11 C6): `{ skillId, phase: 'intro' | 'worked' | 'faded' | 'scaffolded' | 'outro', example: number, step: number, actor, outcome: 'done' | 'demo-corrected' | 'skipped' }`.
+Every step emits a `lesson.step` event (payload 02 §5.8): `{ sessionId, skillId, templateId, phase: 'intro' | 'worked' | 'faded' | 'scaffolded' | 'outro', example: number, step: number, actor, outcome: 'done' | 'demo-corrected' | 'skipped' }`.
 
 ### 6.3 Demo mode (widget contract)
 
@@ -2093,7 +2099,7 @@ Number words are composed from a fixed clip inventory (`narration/numbers.yaml`)
 | `shape.<kind>.one`, `shape.<kind>.many` | every `ShapeKind` |
 | `res.<residentId>` | resident names (05 game data) |
 
-**Composition** (`engine/src/narration/numberClips.ts`, used by `AudioManager.say` and tested against the table below):
+**Composition** (`packages/shared/src/narration/numberClips.ts`, so both the engine and `AudioManager.say` in `packages/ui` can use it; tested against the table below):
 
 ```
 numberClips(n):                      // n is an integer, |n| ≤ 1,000,000
@@ -2168,7 +2174,7 @@ Checked by V17 on the **displayed** text after interpolation, using the longest 
 
 ### 9.1 `pnpm content:build`
 
-`packages/content` compiles the YAML into `packages/content/dist/`. It imports **no engine code** (02 dependency direction).
+`packages/content` compiles the YAML into `packages/content/dist/`. It imports **no engine code** (02 §2 dependency direction: `shared ← content ← engine`). Every type it needs (`Skill`, `ItemTemplate`, `ItemFormat`, `ParamSpec`, `GameData`, …) comes from `packages/shared`. It also compiles the game data (`packages/content/game/*.yaml` → `dist/game.json`, schema `GameData` in 02 §5.8) and the standards code lists.
 
 | File | Contents |
 |---|---|
@@ -2179,6 +2185,7 @@ Checked by V17 on the **displayed** text after interpolation, using the longest 
 | `graph.json` | `{ nodes: SkillId[] (topological order, ties by id), edges: [from, to][] (prerequisite → skill), roots, gateways, depth: Record<SkillId, number>, descendants2: Record<SkillId, number> (descendants within 2 hops, for 04 §6.2), encompasses: [skill, encompassed, weight][], strands: Record<StrandId, SkillId[]> }` |
 | `standards.json` | `{ ccss: Record<code, SkillId[]>, wi: Record<code, SkillId[]>, supports: Record<code, SkillId[]> }` |
 | `contexts.json` | the story contexts |
+| `game.json` | `GameData` (02 §5.8): buildings, recipes, residents, decor, materials, unlock rules (authored by U02 in `packages/content/game/*.yaml`) |
 | `manifest.json` | `{ contentVersion, schemaVersion: 1, counts: { skills, templates, misconceptions, narrationKeys }, files: Record<name, sha256> }` |
 
 **Determinism and `contentVersion`.** Each output is canonical JSON (sorted keys, no insignificant whitespace, UTF-8, `\n` line ends, no timestamps). `contentVersion` is the first 16 hex characters of `sha256` over the canonical JSON of `skills`, `templates`, `misconceptions`, `narration`, `graph`, `standards` and `contexts`, concatenated in that order with `\n` between them. It goes into every event envelope (02 §4.2). Generator code changes do not change `contentVersion`: attempts store their params, so folds never regenerate items.
@@ -2186,6 +2193,10 @@ Checked by V17 on the **displayed** text after interpolation, using the longest 
 ### 9.2 `pnpm content:validate`
 
 Runs the compiler checks in `packages/content` (V01–V12, V16–V21, V23, V24, V26), then the engine-dependent checks in `tools/content-check` (V13–V15, V22, V25), which imports both `packages/content/dist` and `packages/engine`. `tools/content-check` also writes `packages/content/dist/template-stats.json` (`Record<TemplateId, { min, p10, median, p90, max, distinct }>`), which the planner uses to pick templates that can reach `d*` (§5.4). It runs in `pnpm verify` and CI (09).
+
+**Ownership.** C01 implements the compiler checks in `packages/content`. E01 creates `tools/content-check` with V13–V15, V22 and V25. Until E01 lands, `content:validate` runs the compiler checks only and prints "engine checks skipped".
+
+**Coverage gating.** `packages/content/graph.yaml: coverageGrades` lists the grades whose catalog is complete. V20 checks coverage only for those grades. The fixture set uses `[]`, K01 sets `[K, 1]`, and K02 sets `[K, 1, 2, 3]` (plus the grade-4 codes its stretch skills name).
 
 | Id | Check | Severity |
 |---|---|---|
@@ -2208,7 +2219,7 @@ Runs the compiler checks in `packages/content` (V01–V12, V16–V21, V23, V24, 
 | V17 | Reading level and tone (§8.5); hint lines at levels 2–4 never contain the item's answer (checked on rendered items in V15) | error (vocabulary: warn) |
 | V18 | Every misconception's `examples` evaluate as declared; its rule is registered; its remediation skills are the skill itself or ancestors of at least one listed skill | error (remediation ancestry: warn) |
 | V19 | Standards codes exist in the code lists; the WI derivation (§2.2) yields only valid WI codes | error |
-| V20 | Coverage (§2.4): every K–3 CCSS code is addressed by ≥ 1 skill; every skill has a `ccss` or `supports` code unless allowed by §2.5 | error |
+| V20 | Coverage (§2.4): every CCSS code of each grade in `graph.yaml: coverageGrades` is addressed by ≥ 1 skill; every skill has a `ccss` or `supports` code unless allowed by §2.5 | error |
 | V21 | Lessons: each example has exactly one of `params` and `seed`; given params satisfy the template's constraints; authored ops exist for the format (§5.5); `childSteps` < number of steps; `scaffolded.count` 0–4; enough eligible templates for test-out. Gateway skills with an auto lesson warn. | error (gateway auto lesson: warn) |
 | V22 | Difficulty statistics over 500 seeds: abs(median) ≤ 1.0; p90 − p10 ≥ 0.3 (enough range for targeting); ≥ min(50, parameter-space size) distinct items, warning below 20 | warn |
 | V23 | A prerequisite has a higher grade label than its skill | warn |
@@ -2236,7 +2247,7 @@ Runs the compiler checks in `packages/content` (V01–V12, V16–V21, V23, V24, 
 
 Then **targeting**: for 10 targets evenly spaced in [p10, p90] and 10 seeds each, ≥ 90% of items land within ±0.5 of the target (E01 acceptance). Puzzle templates with `uniqueSolution: true` are also checked with a brute-force solver.
 
-`CONTENT_PROPERTY_N` overrides `n` (watch mode uses 50). CI always uses 500. The full run must stay under 90 s on CI. A generator that is too slow gets a `sampleToward` or a cheaper `build`, never a smaller `n`.
+`CONTENT_PROPERTY_N` overrides `n` (watch mode uses 50). **PR CI uses 100; the nightly CI run and the K01/K02 acceptance runs use 500.** The PR run must stay under 90 s on CI. A generator that is too slow gets a `sampleToward` or a cheaper `build`, never a smaller `n`.
 
 ### 9.5 Fixture content (C01)
 
@@ -2244,7 +2255,7 @@ The C01 fixture set, used by engine, widget and runner work before the curriculu
 
 `CNT.01`–`CNT.07`, `SUB.01`–`SUB.03`, `CPS.01`–`CPS.03`, `ADD.01`, `ADD.03`
 
-with 2–3 templates each, using the E01 reference generators (`count.set`, `count.sequence`, `subitize.flash`, `bond.parts`, `addsub.facts`) and the formats `tap-count`, `make-set`, `dot-flash`, `numeral-pick`, `number-pad`, `tenframe-fill`, `number-bond`, `number-line-jump`. Three misconceptions come with it: `MC.off-by-one-counting`, `MC.count-start-number`, `MC.count-all-instead`. K01 replaces the fixtures with the full catalog entries for these ids, keeping ids and schemas.
+using exactly the five E01 reference generators (`count.set`, `count.sequence`, `subitize.flash`, `bond.parts`, `addsub.facts`) and the formats `tap-count`, `make-set`, `dot-flash`, `numeral-pick`, `number-pad`, `tenframe-fill`, `number-bond`, `number-line-jump`, `hundred-chart`, `order` and `rekenrek`. Each fixture skill has enough templates to pass V08–V10 **for the representations it lists**. Fixture skills may list a subset of their catalog representations (for example, `SUB.03` may list three of its five), and K01 restores the full lists. `graph.yaml: coverageGrades` is `[]` for the fixture. E01 owns the format state models (§6.3) and widget Zod schemas (§9.4 step 3) for these 11 fixture formats; U03–U05 own them for every other format. Three misconceptions come with it: `MC.off-by-one-counting`, `MC.count-start-number`, `MC.count-all-instead`. K01 replaces the fixtures with the full catalog entries for these ids, keeping ids and schemas.
 
 ---
 
@@ -2260,7 +2271,7 @@ with 2–3 templates each, using the E01 reference generators (`count.set`, `cou
 6. **Lesson.** Leave it auto unless the skill is a gateway or the auto example is unclear. Write an authored lesson in `lessons/<STRAND>.yaml` when needed (§4.5, §6).
 7. **Narration** for every new key (`sk.*`, `tp.*`, hints, `ls.*`, `fb.mc.*`), within §8.5.
 8. **Run** `pnpm content:build && pnpm content:validate`. Fix every error and read the warnings.
-9. **Look at it.** Open the Storybook **Content Browser** (a dev-only story in `packages/ui`): pick a template, scrub the seed and target sliders, and check the widget, the narration text, the hint ladder, the answer and the difficulty breakdown. Put screenshots of 3 items per strand in the PR (K01/K02 acceptance).
+9. **Look at it.** Run `pnpm content:sample --strand <STRAND>`, which prints 3 rendered items per strand (prompt text, widget summary, answer, hint ladder, difficulty breakdown). Paste the output in the PR (K01/K02 acceptance). When the widgets exist, also open the Storybook **Content Browser** (a dev-only story in `packages/ui`, built by U03): pick a template, scrub the seed and target sliders, and check the widget visually.
 
 ### 10.2 Adding a generator
 
@@ -2281,7 +2292,7 @@ with 2–3 templates each, using the E01 reference generators (`count.set`, `cou
 | 2. Mechanical checks | `content:validate --drafts` | V01, V16, V17, plus a **numeral guard**: drafted text may contain no digits or number words outside `{var}` slots (numbers always come from code), and no answer-revealing phrasing in hints |
 | 3. Critic pass | a second LLM call with a fixed rubric (ambiguity, one reading only, reading level, matches the situation type, culturally neutral, island themes only, original wording rather than standards text) | review notes attached to `_meta.review` |
 | 4. Human or agent review | the reviewer reads each line rendered on real items in the Content Browser and edits it | `_meta.status: reviewed`, `_meta.reviewedBy` |
-| 5. Promote | `pnpm content:promote <file>` moves reviewed entries into the real YAML files and strips `_meta` | ordinary content; validation as usual |
+| 5. Promote | Move reviewed entries into the real YAML files and strip `_meta` by hand or with a script. A `pnpm content:promote` command is **out of scope for v1**. | ordinary content; validation as usual |
 
 Rules:
 - Answers, distractors, difficulty and every number shown to a child are computed by generators. A draft that tries to state an answer fails the numeral guard.
@@ -2295,14 +2306,14 @@ Rules:
 - [ ] `pnpm content:validate` is clean (warnings explained in the PR)
 - [ ] New generators have unit tests, property tests pass, and §5.6 rows are added
 - [ ] Every new line was read aloud, or listened to with `pnpm narration:render --provider stub` plus the Web Speech fallback, at its target level
-- [ ] Content Browser screenshots: 3 items per strand touched
+- [ ] `pnpm content:sample` output for 3 items per strand touched, in the PR
 - [ ] No standards text, no copied curriculum text, no third-party characters
 
 ---
 
 ## 11. Contract changes (accepted and folded into 02 on 2026-11-18)
 
-These are additions this document needs. None removes or renames anything in 02. They are listed here instead of editing 02, as instructed. They should be folded into 02 when C01/E01 land.
+These are additions this document needed. None removes or renames anything in 02. All of them are now part of 02 (§4.2, §5.1, §5.2, §5.5, §5.6, §5.8). This table is kept as a record. Since then, every cross-package type has moved to `packages/shared` (02 §2).
 
 | # | Change | Where in 02 | Why |
 |---|---|---|---|
@@ -2315,4 +2326,4 @@ These are additions this document needs. None removes or renames anything in 02.
 | C7 | Types 02 references but does not define (`Tier`, `Representation`, `ParamSpec`, `GeneratorId`, `WidgetConfig`, `AnswerSpec`, `HintStep`, `LessonSpec`, `NarrationKey`, `FeedbackKey`, `StrandId`) are defined in §1, §5.1, §5.2 and §6.1 of this doc | §5.1–§5.2 | Definitions, not changes. 02 should link here. |
 | C8 | No new `ItemFormat` is needed for v1. A possible later addition is `strategy-pick` ("which way would you solve it?", the digital number talk of research 02 §1.3). It is not used in v1. | §5.2 | |
 
-**Cross-doc alignment (no contract change):** 05 §4 (W7 Bakery, `strands: FRA, DIV`) and build issue K02 mention a `DIV` strand. With the §1.1 decision, K–3 division skills live in `MUL`, and `DIV` is reserved for grade 4+. W7's `WorkshopDefinition.strands` should be `['FRA', 'MUL']`, and K02's strand list should read `MUL` instead of `DIV`. K01's strand list should also include the grade-1 rows of `FRA`, `MUL` and `PUZ` (§3.20).
+**Cross-doc alignment (done):** K–3 division skills live in `MUL`, and `DIV` is reserved for grade 4+. W7's `WorkshopDefinition.strands` is `['FRA', 'MUL']`. Issue K02 lists `MUL` (including division), and issue K01 includes the K–1 rows of `FRA`, `MUL` and `PUZ` (§3.20).
