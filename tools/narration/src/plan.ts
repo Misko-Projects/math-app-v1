@@ -4,7 +4,10 @@
 //   the same ids the compiler writes into `clips` (punctuation-only segments such as the "?" after a
 //   slot carry no audio; the AudioManager skips them);
 // - each `num.*` clip also gets its sentence-final variant `num.<n>.end#0` (03 §8.3), which the
-//   AudioManager plays when a number ends the sentence.
+//   AudioManager plays when a number ends the sentence;
+// - the clip sets voices.yaml lists under `voiceClipSets` are rendered again in Pip's and Glim's
+//   own voices as `pip:<clip id>` and `glim:<clip id>` (02 §5.5), so their lines stitch numbers in
+//   their own voice. The AudioManager falls back to the narrator's clip for anything else.
 //
 // Clip file names are content hashes of (provider, model, voice, style, text) plus the encoding
 // settings, so a re-run renders only new or changed clips.
@@ -18,9 +21,17 @@ import {
   type NarrationStyle,
   type NarrationVoice,
   narrationStyleSchema,
+  voiceClipId,
 } from '@number-island/shared';
 import { parse } from 'yaml';
-import { modelFor, type ProviderId, type StyleKey, type VoicesConfig, voiceName } from './config';
+import {
+  CLIP_SET_NAMESPACES,
+  modelFor,
+  type ProviderId,
+  type StyleKey,
+  type VoicesConfig,
+  voiceName,
+} from './config';
 import { isSpoken, speakSymbols, tidy } from './spoken';
 
 /** One clip to render. */
@@ -43,25 +54,22 @@ export interface ClipJob {
 /** A file the renderer owns in the output directory (it may prune these). */
 export const CLIP_FILE = /^[0-9a-f]{16}\.(ogg|wav)$/;
 
-/**
- * Clip-set namespaces (03 §8.1): single words stitched into lines at runtime. They render in the
- * brisk `clip` style so "twenty-three" comes out as one word with no pause inside it.
- */
-export const CLIP_SET_NAMESPACES: ReadonlySet<string> = new Set([
-  'num',
-  'den',
-  'ord',
-  'time',
-  'money',
-  'unit',
-  'noun',
-  'shape',
-  'word',
-  'res',
-]);
+const CLIP_SETS: ReadonlySet<string> = new Set(CLIP_SET_NAMESPACES);
 
+/**
+ * True for clip-set words (03 §8.1), stitched into lines at runtime. They render in the brisk
+ * `clip` style so "twenty-three" comes out as one word with no pause inside it.
+ */
 export function isClipSet(key: string): boolean {
-  return CLIP_SET_NAMESPACES.has(key.slice(0, key.indexOf('.')));
+  return CLIP_SETS.has(key.slice(0, key.indexOf('.')));
+}
+
+/** The characters (besides the narrator) that get their own copy of a clip set (voices.yaml). */
+function extraVoicesFor(config: VoicesConfig, key: string): NarrationVoice[] {
+  const ns = key.slice(0, key.indexOf('.'));
+  return (['pip', 'glim'] as const).filter((v) =>
+    (config.voiceClipSets[v] as readonly string[]).includes(ns),
+  );
 }
 
 /** `num.<n>`, `num.hundred`, `num.thousand` and `num.million` have a sentence-final `.end` clip. */
@@ -147,6 +155,7 @@ export function planClips({ narration, styles, config, provider, encoding }: Pla
     const style: StyleKey = styles.get(key) ?? (isClipSet(key) ? 'clip' : 'warm');
 
     const expected = entry.clips.filter((c) => !c.startsWith('$'));
+    const firstJob = jobs.length;
     const ids: string[] = [];
     // Whether a slot or a non-blank segment comes earlier in the line (A01's `followsContent`).
     let contentBefore = false;
@@ -176,6 +185,15 @@ export function planClips({ narration, styles, config, provider, encoding }: Pla
     if (hasEndVariant(key)) {
       const words = tidy(entry.say ?? entry.text).replace(/[.!?]*$/, '.');
       jobs.push(job(`${key}.end#0`, words, voice, 'end'));
+    }
+
+    // Clip sets listed in `voiceClipSets` again in Pip's and Glim's voices (02 §5.5, 03 §8.3).
+    if (isClipSet(key)) {
+      const own = jobs.slice(firstJob);
+      for (const extra of extraVoicesFor(config, key)) {
+        if (extra === voice) continue;
+        for (const j of own) jobs.push(job(voiceClipId(j.id, extra), j.text, extra, j.style));
+      }
     }
   }
 

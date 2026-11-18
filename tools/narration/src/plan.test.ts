@@ -61,6 +61,39 @@ describe('planClips', () => {
     expect(isClipSet('fb.correct.1')).toBe(false);
   });
 
+  it('renders the voiceClipSets clip sets again in Pip’s and Glim’s voices (02 §5.5)', () => {
+    expect(config.voiceClipSets).toEqual({ pip: ['num'], glim: ['num'] });
+    const byId = new Map(plan().jobs.map((j) => [j.id, j]));
+    const narrator = byId.get('num.7#0');
+    expect(byId.get('pip:num.7#0')).toMatchObject({
+      voice: 'pip',
+      voiceName: 'Puck',
+      text: 'seven',
+      style: 'clip',
+    });
+    expect(byId.get('glim:num.7#0')).toMatchObject({ voice: 'glim', voiceName: 'Achird' });
+    // The sentence-final variant too, in the `end` style.
+    expect(byId.get('pip:num.7.end#0')).toMatchObject({ text: 'seven.', style: 'end' });
+    expect(byId.get('glim:num.hundred.end#0')).toMatchObject({ voice: 'glim', style: 'end' });
+    expect(byId.has('pip:num.negative#0')).toBe(true);
+    expect(byId.get('pip:num.7#0')?.hash).not.toBe(narrator?.hash);
+    // Clip sets not listed stay narrator-only, and lines are never copied.
+    expect(byId.has('pip:noun.shell.many#0')).toBe(false);
+    expect([...byId.keys()].filter((id) => /^(pip|glim):(?!num\.)/.test(id))).toEqual([]);
+  });
+
+  it('renders no voice copies when voiceClipSets lists none', () => {
+    const none = { ...config, voiceClipSets: { pip: [], glim: [] } };
+    const ids = planClips({
+      narration: fixtureNarration(),
+      styles: new Map(),
+      config: none,
+      provider: 'gemini',
+      encoding: encodingOf('opus'),
+    }).jobs.map((j) => j.id);
+    expect(ids.filter((id) => id.includes(':'))).toEqual([]);
+  });
+
   it('names files by a hash of provider, model, voice, style, text and encoding', () => {
     const job = plan().jobs.find((j) => j.id === 'num.3#0');
     const hash = clipHash({
