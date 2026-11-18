@@ -27,10 +27,12 @@ export interface RenderContext {
   /** Requests in flight at once (interactive mode). */
   concurrency: number;
   /**
-   * Asked before each paid request or batch; false stops new spending (the cap is reached).
-   * `estimateUsd` is what the provider expects that request or batch to cost.
+   * Asked before each paid request or batch: reserves `usd` (the estimate) for those clip ids
+   * until their results arrive. False means measured spend plus outstanding reservations plus this
+   * one would pass the cap, so nothing new may start. `force` records spending that already
+   * happened (an adopted batch job) and always succeeds.
    */
-  canSpend(estimateUsd: number): boolean;
+  reserve(ids: readonly string[], usd: number, opts?: { force?: boolean }): boolean;
   /** Called once per finished request, in completion order. Awaited before the next result. */
   onResult(outcome: TtsOutcome): Promise<void>;
   log(message: string): void;
@@ -38,7 +40,7 @@ export interface RenderContext {
   stateDir: string;
   /** Longest time to wait for batch jobs before leaving them to a later run. */
   maxWaitMs: number;
-  /** Estimated cost of one request, for `canSpend`. */
+  /** Estimated cost of these requests, for `reserve`. */
   estimateUsd(requests: readonly TtsRequest[]): number;
 }
 

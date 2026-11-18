@@ -23,9 +23,13 @@ import {
   type NarrationStyle,
 } from '@number-island/shared';
 import type { ProviderId, VoicesConfig } from './config';
-import { costUsd, type Estimate, estimate, priceFor, type RenderMode } from './cost';
+import { costUsd, type Estimate, estimate, priceFor, type RenderMode, SpendGuard } from './cost';
 import type { Encoder } from './encode';
 import { CLIP_FILE, type ClipJob, planClips } from './plan';
+
+/** A renderer-owned temporary file: a clip name plus `.partial` (written, then renamed). */
+const PARTIAL_FILE = /^[0-9a-f]{16}\.(ogg|wav)\.partial$/;
+
 import type { Renderer, TtsRequest } from './providers/types';
 
 /** Interactive calls below this many clips, the Batch API from here up (07 §3). */
@@ -144,56 +148,68 @@ export async function runPipeline(opts: PipelineOptions): Promise<PipelineReport
     voiceName: j.voiceName,
     styleText: j.styleText,
   }));
-  let committedUsd = 0;
+  const guard = new SpendGuard(opts.maxUsd);
   if (todo.length > 0) {
     log(`narration: rendering ${todo.length} clip(s) with ${opts.provider} (${mode})…`);
-    await opts.renderer.render(requests, {
-      mode,
-      concurrency: opts.concurrency,
-      stateDir: opts.stateDir,
-      maxWaitMs: opts.maxWaitMs,
-      log,
-      estimateUsd: (rs) => estimate(rs, price, mode).usd,
-      canSpend: (usd) => {
-        // Measured spend plus what is committed but not yet reported must stay under the cap.
-        if (Math.max(report.spentUsd, committedUsd) + usd > opts.maxUsd) return false;
-        committedUsd += usd;
-        return true;
-      },
-      onResult: async (outcome) => {
-        const job = byId.get(outcome.id);
-        if (!job || done.has(outcome.id)) return;
-        done.add(outcome.id);
-        if (outcome.usage) report.spentUsd += costUsd(price, mode, outcome.usage);
-        if (!outcome.ok) {
-          report.failed.push({ id: outcome.id, error: outcome.error });
-          return;
-        }
-        try {
-          const encoded = await opts.encoder.encode(outcome.wav);
-          knownDurations.set(job.file, opts.encoder.durationMs(encoded));
-          // Write then rename, so an interrupted run never leaves a truncated clip that a
-          // re-run would mistake for a finished one.
-          const path = join(opts.outDir, job.file);
-          writeFileSync(`${path}.partial`, encoded);
-          renameSync(`${path}.partial`, path);
-          report.rendered += 1;
-          if (report.rendered % 50 === 0) {
-            log(`narration: ${report.rendered}/${todo.length} rendered`);
+    try {
+      await opts.renderer.render(requests, {
+        mode,
+        concurrency: opts.concurrency,
+        stateDir: opts.stateDir,
+        maxWaitMs: opts.maxWaitMs,
+        log,
+        estimateUsd: (rs) => estimate(rs, price, mode).usd,
+        reserve: (ids, usd, o) => guard.reserve(ids, usd, o),
+        onResult: async (outcome) => {
+          const job = byId.get(outcome.id);
+          if (!job || done.has(outcome.id)) return;
+          done.add(outcome.id);
+          guard.settle(outcome.id, outcome.usage ? costUsd(price, mode, outcome.usage) : 0);
+          report.spentUsd = guard.spentUsd;
+          if (!outcome.ok) {
+            report.failed.push({ id: outcome.id, error: outcome.error });
+            return;
           }
-        } catch (e) {
-          report.failed.push({ id: outcome.id, error: e instanceof Error ? e.message : String(e) });
-        }
-      },
-    });
+          try {
+            const encoded = await opts.encoder.encode(outcome.wav);
+            knownDurations.set(job.file, opts.encoder.durationMs(encoded));
+            // Write then rename, so an interrupted run never leaves a truncated clip that a
+            // re-run would mistake for a finished one.
+            const path = join(opts.outDir, job.file);
+            writeFileSync(`${path}.partial`, encoded);
+            renameSync(`${path}.partial`, path);
+            report.rendered += 1;
+            if (report.rendered % 50 === 0) {
+              log(`narration: ${report.rendered}/${todo.length} rendered`);
+            }
+          } catch (e) {
+            report.failed.push({
+              id: outcome.id,
+              error: e instanceof Error ? e.message : String(e),
+            });
+          }
+        },
+      });
+    } catch (e) {
+      // Keep everything already written: the manifest below still lists it.
+      report.aborted = e instanceof Error ? e.message : String(e);
+    }
   }
   report.pending = todo.length - done.size;
 
   // The manifest lists every planned clip whose file exists; anything else falls back to Web Speech.
+  // A filtered run (--only) also keeps the previous entry of any clip it did not select whose old
+  // file is still there, so it never silently drops working audio.
   const clips: AudioManifest['clips'] = {};
   for (const j of jobs) {
     const path = join(opts.outDir, j.file);
-    if (!existsSync(path)) continue;
+    if (!existsSync(path)) {
+      const old = previous?.clips[j.id];
+      if (opts.only && !opts.only.test(j.id) && old && existsSync(join(opts.outDir, old.file))) {
+        clips[j.id] = old;
+      }
+      continue;
+    }
     let durationMs = knownDurations.get(j.file);
     if (durationMs === undefined) {
       durationMs = opts.encoder.durationMs(new Uint8Array(readFileSync(path)));
@@ -207,7 +223,7 @@ export async function runPipeline(opts: PipelineOptions): Promise<PipelineReport
 
   const referenced = new Set(Object.values(clips).map((c) => c.file));
   for (const name of opts.only ? [] : readdirSync(opts.outDir).sort()) {
-    if ((CLIP_FILE.test(name) && !referenced.has(name)) || name.endsWith('.partial')) {
+    if ((CLIP_FILE.test(name) && !referenced.has(name)) || PARTIAL_FILE.test(name)) {
       rmSync(join(opts.outDir, name));
       report.pruned.push(name);
     }

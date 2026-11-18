@@ -46,7 +46,7 @@ function context(overrides: Partial<RenderContext> = {}) {
   const ctx: RenderContext = {
     mode: 'interactive',
     concurrency: 2,
-    canSpend: () => true,
+    reserve: () => true,
     onResult: async (o) => {
       results.push(o);
     },
@@ -191,7 +191,7 @@ describe('geminiRenderer, interactive', () => {
     const { fn, calls } = fakeFetch(() => json(audioJson()));
     const r = geminiRenderer({ apiKey: KEY, model: 'm', fetch: fn, sleep: noSleep });
     let budget = 2;
-    const { ctx } = context({ concurrency: 1, canSpend: () => budget-- > 0 });
+    const { ctx } = context({ concurrency: 1, reserve: () => budget-- > 0 });
     await r.render([req('a'), req('b'), req('c'), req('d')], ctx);
     expect(calls).toHaveLength(2);
   });
@@ -236,7 +236,7 @@ describe('geminiRenderer, batch', () => {
     expect(results.every((o) => o.ok)).toBe(true);
     // Finished jobs are forgotten, so the state file is empty again.
     const state = JSON.parse(readFileSync(join(ctx.stateDir, 'gemini-batches.json'), 'utf8'));
-    expect(state).toEqual({});
+    expect(state).toEqual({ version: 2, jobs: {} });
   });
 
   it('leaves running jobs saved at the deadline and resumes them without paying again', async () => {
@@ -293,6 +293,245 @@ describe('geminiRenderer, batch', () => {
       ['a', false],
       ['b', false],
     ]);
+  });
+});
+
+describe('geminiRenderer, resuming and safety (review round 1)', () => {
+  type Item = { metadata: { key: string }; response: ReturnType<typeof audioJson> };
+  /** A fake Batch API: jobs finish when `finish` is called; every POST is counted. */
+  function batchServer() {
+    const jobs = new Map<string, { keys: string[]; done: boolean }>();
+    let next = 0;
+    const posts: string[] = [];
+    const { fn, calls } = fakeFetch((call) => {
+      if (call.url.endsWith(':batchGenerateContent')) {
+        const body = call.body as {
+          batch: { input_config: { requests: { requests: { metadata: { key: string } }[] } } };
+        };
+        const keys = body.batch.input_config.requests.requests.map((x) => x.metadata.key);
+        const name = `batches/job${next++}`;
+        posts.push(name);
+        jobs.set(name, { keys, done: false });
+        return json({ name });
+      }
+      if (call.url.endsWith(':generateContent')) {
+        posts.push('interactive');
+        return json(audioJson());
+      }
+      const name = call.url.slice(GEMINI_BASE.length + 1);
+      const job = jobs.get(name);
+      if (!job) return json({ error: { message: 'not found' } }, 404);
+      if (!job.done) return json({ name, metadata: { state: 'BATCH_STATE_RUNNING' } });
+      const items: Item[] = job.keys.map((k) => ({ metadata: { key: k }, response: audioJson() }));
+      return json({
+        name,
+        metadata: { state: 'BATCH_STATE_SUCCEEDED' },
+        response: { inlinedResponses: { inlinedResponses: items } },
+      });
+    });
+    const finish = (name: string) => {
+      const job = jobs.get(name);
+      if (job) job.done = true;
+    };
+    return { fn, calls, posts, finish };
+  }
+
+  it('a later interactive run with fewer missing clips adopts the saved jobs instead of paying again', async () => {
+    const server = batchServer();
+    let now = 0;
+    const r = geminiRenderer({
+      apiKey: KEY,
+      model: 'm',
+      fetch: server.fn,
+      pollMs: 1,
+      now: () => now,
+      sleep: async () => {
+        now += 60_000;
+      },
+    });
+    const all = Array.from({ length: BATCH_CHUNK + 1 }, (_, i) => req(`c${i}`, `text ${i}`));
+    const first = context({ mode: 'batch', maxWaitMs: 60_000 });
+    await r.render(all, first.ctx);
+    expect(server.posts).toEqual(['batches/job0', 'batches/job1']);
+    expect(first.results).toEqual([]);
+
+    // Only job1 finishes; meanwhile the clips of job0 were (say) written by another means, so the
+    // next run asks for only the last clip, below the batch threshold, in interactive mode.
+    server.finish('batches/job1');
+    const second = context({ mode: 'interactive', maxWaitMs: 60_000 });
+    await r.render([all[BATCH_CHUNK] as TtsRequest], {
+      ...second.ctx,
+      stateDir: first.ctx.stateDir,
+    });
+    expect(server.posts).toEqual(['batches/job0', 'batches/job1']);
+    expect(second.results.map((o) => [o.id, o.ok])).toEqual([[`c${BATCH_CHUNK}`, true]]);
+  });
+
+  it('keeps a finished job saved until every result is handled, so a failed run can resume', async () => {
+    const server = batchServer();
+    const r = geminiRenderer({
+      apiKey: KEY,
+      model: 'm',
+      fetch: server.fn,
+      sleep: noSleep,
+      pollMs: 1,
+    });
+    const requests = [req('a', 'one'), req('b', 'two')];
+    const { ctx } = context({ mode: 'batch' });
+    // The job finishes as soon as it is started; handling its results then fails (disk full).
+    await expect(
+      r.render(requests, {
+        ...ctx,
+        log: (m) => {
+          if (m.startsWith('narration: started batch')) server.finish('batches/job0');
+        },
+        onResult: async () => {
+          throw new Error('disk full');
+        },
+      }),
+    ).rejects.toThrow(/disk full/);
+    const saved = JSON.parse(readFileSync(join(ctx.stateDir, 'gemini-batches.json'), 'utf8'));
+    expect(Object.keys(saved.jobs)).toEqual(['batches/job0']);
+    // The re-run adopts the saved job and gets both results without a new POST.
+    const results: TtsOutcome[] = [];
+    await r.render(requests, {
+      ...ctx,
+      onResult: async (o) => {
+        results.push(o);
+      },
+    });
+    expect(server.posts).toEqual(['batches/job0']);
+    expect(results.map((o) => o.ok)).toEqual([true, true]);
+  });
+
+  it('never re-sends a batch creation after an ambiguous failure; it recovers the job by name', async () => {
+    let posts = 0;
+    let listed = 0;
+    let displayName = '';
+    const { fn } = fakeFetch((call) => {
+      if (call.method === 'POST') {
+        posts += 1;
+        displayName = (call.body as { batch: { display_name: string } }).batch.display_name;
+        throw new TypeError('socket hang up'); // the server queued it; the response was lost
+      }
+      if (call.url.includes('/batches?')) {
+        listed += 1;
+        return json({ batches: [{ name: 'batches/lost', displayName }] });
+      }
+      return json({
+        name: 'batches/lost',
+        metadata: { state: 'BATCH_STATE_SUCCEEDED' },
+        response: {
+          inlinedResponses: {
+            inlinedResponses: [{ metadata: { key: 'a' }, response: audioJson() }],
+          },
+        },
+      });
+    });
+    const r = geminiRenderer({ apiKey: KEY, model: 'm', fetch: fn, sleep: noSleep, pollMs: 1 });
+    const { ctx, results } = context({ mode: 'batch' });
+    await r.render([req('a')], ctx);
+    expect(posts).toBe(1);
+    expect(listed).toBe(1);
+    expect(results.map((o) => o.ok)).toEqual([true]);
+  });
+
+  it('stops, without a second POST, when an ambiguously failed batch cannot be found', async () => {
+    let posts = 0;
+    const { fn } = fakeFetch((call) => {
+      if (call.method === 'POST') {
+        posts += 1;
+        return json({ error: { message: 'backend error' } }, 503);
+      }
+      return json({ batches: [] });
+    });
+    const r = geminiRenderer({ apiKey: KEY, model: 'm', fetch: fn, sleep: noSleep, pollMs: 1 });
+    const { ctx } = context({ mode: 'batch' });
+    await expect(r.render([req('a')], ctx)).rejects.toThrow(/failed ambiguously/);
+    expect(posts).toBe(1);
+  });
+
+  it('retries a batch creation only after a 429, which creates nothing', async () => {
+    let posts = 0;
+    const { fn } = fakeFetch((call) => {
+      if (call.method === 'POST') {
+        posts += 1;
+        return posts === 1
+          ? json({ error: { message: 'quota' } }, 429)
+          : json({ name: 'batches/x' });
+      }
+      return json({
+        name: 'batches/x',
+        state: 'JOB_STATE_SUCCEEDED',
+        dest: { inlinedResponses: [{ metadata: { key: 'a' }, response: audioJson() }] },
+      });
+    });
+    const r = geminiRenderer({ apiKey: KEY, model: 'm', fetch: fn, sleep: noSleep, pollMs: 1 });
+    const { ctx, results } = context({ mode: 'batch' });
+    await r.render([req('a')], ctx);
+    expect(posts).toBe(2);
+    expect(results.map((o) => o.ok)).toEqual([true]);
+  });
+
+  it('redacts the API key from HTTP, transport and batch item errors', async () => {
+    const http = fakeFetch(() => json({ error: { message: `API key ${KEY} is not valid` } }, 400));
+    const r1 = geminiRenderer({ apiKey: KEY, model: 'm', fetch: http.fn, sleep: noSleep });
+    const a = context();
+    await r1.render([req('a')], a.ctx);
+    expect(JSON.stringify(a.results)).toContain('[redacted]');
+    expect(JSON.stringify(a.results)).not.toContain(KEY);
+
+    const transport = fakeFetch(() => {
+      throw new TypeError(`connect failed for key=${KEY}`);
+    });
+    const r2 = geminiRenderer({
+      apiKey: KEY,
+      model: 'm',
+      fetch: transport.fn,
+      sleep: noSleep,
+      attempts: 1,
+    });
+    const b = context();
+    await r2.render([req('a')], b.ctx);
+    expect(JSON.stringify(b.results)).not.toContain(KEY);
+
+    const item = fakeFetch((call) =>
+      call.method === 'POST'
+        ? json({ name: 'batches/k' })
+        : json({
+            name: 'batches/k',
+            state: 'JOB_STATE_SUCCEEDED',
+            dest: {
+              inlinedResponses: [{ metadata: { key: 'a' }, error: { message: `bad key ${KEY}` } }],
+            },
+          }),
+    );
+    const r3 = geminiRenderer({
+      apiKey: KEY,
+      model: 'm',
+      fetch: item.fn,
+      sleep: noSleep,
+      pollMs: 1,
+    });
+    const c = context({ mode: 'batch' });
+    await r3.render([req('a')], c.ctx);
+    expect(JSON.stringify(c.results)).toContain('[redacted]');
+    expect(JSON.stringify(c.results)).not.toContain(KEY);
+
+    // A thrown failure (here: listing fails after an ambiguous creation) is redacted too.
+    const thrown = fakeFetch(() => {
+      throw new TypeError(`reset by peer ${KEY}`);
+    });
+    const r4 = geminiRenderer({
+      apiKey: KEY,
+      model: 'm',
+      fetch: thrown.fn,
+      sleep: noSleep,
+      attempts: 1,
+    });
+    const d = context({ mode: 'batch' });
+    const err = await r4.render([req('a')], d.ctx).catch((e: Error) => e);
+    expect(String(err)).not.toContain(KEY);
   });
 });
 

@@ -21,7 +21,7 @@ import {
   providerSchema,
   type VoicesConfig,
 } from './config';
-import { costUsd, estimate, priceFor } from './cost';
+import { costUsd, estimate, priceFor, SpendGuard } from './cost';
 import {
   type AudioFormat,
   type Encoder,
@@ -141,7 +141,9 @@ export function formatReport(r: PipelineReport, dryRun: boolean): string {
     for (const f of r.failed.slice(0, 10)) lines.push(`  failed ${f.id}: ${f.error}`);
     if (r.failed.length > 10) lines.push(`  … and ${r.failed.length - 10} more failures`);
   }
-  if (r.aborted) lines.push(`  aborted: ${r.aborted}. Nothing rendered.`);
+  if (r.aborted) {
+    lines.push(`  aborted: ${r.aborted}${r.rendered === 0 ? '. Nothing rendered.' : ''}`);
+  }
   return lines.join('\n');
 }
 
@@ -240,7 +242,7 @@ async function audition(argv: string[], env: NodeJS.ProcessEnv): Promise<number>
   const encoder = c.encoder();
   const outDir = join(ROOT, 'tmp/audition');
   mkdirSync(outDir, { recursive: true });
-  let spent = 0;
+  const guard = new SpendGuard(maxUsd);
   const written: string[] = [];
   let failures = 0;
   await renderer.render(requests, {
@@ -250,9 +252,9 @@ async function audition(argv: string[], env: NodeJS.ProcessEnv): Promise<number>
     maxWaitMs: 0,
     log: (m) => console.log(m),
     estimateUsd: (rs) => estimate(rs, price, 'interactive').usd,
-    canSpend: (e) => spent + e <= maxUsd,
+    reserve: (ids, e, o) => guard.reserve(ids, e, o),
     onResult: async (o) => {
-      if (o.ok && o.usage) spent += costUsd(price, 'interactive', o.usage);
+      guard.settle(o.id, o.usage ? costUsd(price, 'interactive', o.usage) : 0);
       if (!o.ok) {
         failures += 1;
         console.log(`  failed ${o.id}: ${o.error}`);
@@ -281,7 +283,7 @@ async function audition(argv: string[], env: NodeJS.ProcessEnv): Promise<number>
     `<!doctype html><meta charset="utf-8"><title>Narration audition</title>\n<table border="1" cellpadding="6"><tr><th>Voice</th>${head}</tr>\n${rows}\n</table>\n`,
   );
   console.log(
-    `  wrote ${written.length} clips and index.html to ${relative(ROOT, outDir)}; actual cost ${usd(spent)}`,
+    `  wrote ${written.length} clips and index.html to ${relative(ROOT, outDir)}; actual cost ${usd(guard.spentUsd)}`,
   );
   console.log('  Pick voices, then record them in packages/content/narration/voices.yaml.');
   return failures > 0 ? 1 : 0;

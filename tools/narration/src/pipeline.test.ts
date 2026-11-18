@@ -125,6 +125,54 @@ describe('runPipeline with the stub provider', () => {
     expect(readdirSync(opts.outDir).filter((f) => f.endsWith('.partial'))).toEqual([]);
   });
 
+  it('cleans up only renderer-owned partial files', async () => {
+    const opts = options();
+    mkdirSync(opts.outDir, { recursive: true });
+    writeFileSync(join(opts.outDir, 'fedcba9876543210.ogg.partial'), 'x');
+    writeFileSync(join(opts.outDir, 'download.partial'), 'keep me');
+    await runPipeline(opts);
+    expect(existsSync(join(opts.outDir, 'fedcba9876543210.ogg.partial'))).toBe(false);
+    expect(existsSync(join(opts.outDir, 'download.partial'))).toBe(true);
+  });
+
+  it('a filtered run (--only) keeps the working entries of clips it did not select', async () => {
+    const opts = options();
+    await runPipeline(opts);
+    const before = manifestOf(opts.outDir);
+    const edited: NarrationJson = {
+      ...fixtureNarration(),
+      'fb.correct.1': { text: 'You did it again!', clips: ['fb.correct.1#0'] },
+      'ls.CNT.03.w1.s2': {
+        text: 'I count each one. I stop at {n}.',
+        voice: 'pip',
+        clips: ['ls.CNT.03.w1.s2#0', '$n', 'ls.CNT.03.w1.s2#1'],
+      },
+    };
+    const report = await runPipeline({ ...opts, narration: edited, only: /^fb\./ });
+    expect(report).toMatchObject({ toRender: 1, rendered: 1, skipped: 1, pruned: [] });
+    const after = manifestOf(opts.outDir);
+    expect(after.clips['fb.correct.1#0']?.file).not.toBe(before.clips['fb.correct.1#0']?.file);
+    // The unselected changed line still plays its previous audio rather than Web Speech.
+    expect(after.clips['ls.CNT.03.w1.s2#0']).toEqual(before.clips['ls.CNT.03.w1.s2#0']);
+  });
+
+  it('writes the manifest for what finished even when the renderer fails part-way', async () => {
+    const renderer: Renderer = {
+      provider: 'stub',
+      model: 'stub-1',
+      async render(requests, ctx) {
+        const [first] = requests;
+        if (first) await ctx.onResult({ id: first.id, ok: true, wav: stubWav(50) });
+        throw new Error('network down');
+      },
+    };
+    const opts = options({ renderer });
+    const report = await runPipeline(opts);
+    expect(report.aborted).toBe('network down');
+    expect(report.rendered).toBe(1);
+    expect(Object.keys(manifestOf(opts.outDir).clips).length).toBeGreaterThan(0);
+  });
+
   it('a dry run reports counts and the estimate and writes nothing', async () => {
     const opts = options({ dryRun: true, provider: 'gemini', renderer: null });
     const report = await runPipeline(opts);
@@ -162,7 +210,7 @@ describe('runPipeline with the stub provider', () => {
         for (const r of requests) {
           const est = ctx.estimateUsd([r]);
           asked.push(est);
-          if (!ctx.canSpend(est)) return;
+          if (!ctx.reserve([r.id], est)) return;
           await ctx.onResult({
             id: r.id,
             ok: true,

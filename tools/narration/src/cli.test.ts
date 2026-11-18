@@ -68,7 +68,7 @@ describe('kokoro', () => {
   const ctx = {
     mode: 'interactive' as const,
     concurrency: 1,
-    canSpend: () => true,
+    reserve: () => true,
     onResult: async () => {},
     log: () => {},
     stateDir: tmpdir(),

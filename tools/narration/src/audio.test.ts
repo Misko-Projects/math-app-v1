@@ -1,7 +1,7 @@
 import { existsSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { isWav, oggOpusDurationMs, pcmToWav, stubWav, wavDurationMs } from './audio';
-import { costUsd, estimate, priceFor } from './cost';
+import { costUsd, estimate, priceFor, SpendGuard } from './cost';
 import { ffmpegStaticPath, opusEncoder } from './encode';
 
 describe('WAV helpers', () => {
@@ -53,6 +53,24 @@ describe('cost', () => {
       outputPerM: 18,
     });
     expect(priceFor('stub', 'stub-1', now)).toEqual({ inputPerM: 0, outputPerM: 0 });
+  });
+
+  it('caps measured spend plus every outstanding reservation', () => {
+    // Review round 1: $0.35 cap, two $0.10 requests in flight, the first settles at $0.21.
+    const guard = new SpendGuard(0.35);
+    expect(guard.reserve(['a'], 0.1)).toBe(true);
+    expect(guard.reserve(['b'], 0.1)).toBe(true);
+    guard.settle('a', 0.21);
+    // 0.21 measured + 0.10 outstanding (b) + 0.10 new = 0.41 > 0.35.
+    expect(guard.reserve(['c'], 0.1)).toBe(false);
+    guard.settle('b', 0.05);
+    // 0.26 measured + 0.05 new = 0.31 ≤ 0.35.
+    expect(guard.reserve(['c'], 0.05)).toBe(true);
+    expect(guard.spentUsd).toBeCloseTo(0.26);
+    expect(guard.outstandingUsd).toBeCloseTo(0.05);
+    // Spending that already happened (an adopted batch) is recorded even past the cap.
+    expect(guard.reserve(['d', 'e'], 1, { force: true })).toBe(true);
+    expect(guard.reserve(['f'], 0.001)).toBe(false);
   });
 
   it('estimates audio length and cost generously from the text', () => {
