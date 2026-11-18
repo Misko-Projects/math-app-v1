@@ -44,7 +44,7 @@ type Story = StoryObj<typeof meta>;
 export const Partial: Story = {
   play: async ({ canvasElement }) => {
     await expect(
-      within(canvasElement).getByRole('region', { name: 'Things you made: 3' }),
+      within(canvasElement).getByRole('region', { name: 'Your things: 3' }),
     ).toBeVisible();
   },
 };
@@ -91,7 +91,7 @@ export const AddingK: Story = {
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
     await userEvent.click(canvas.getByRole('button', { name: 'Next' }));
-    await expect(canvas.getByRole('region', { name: 'Things you made: 5' })).toBeVisible();
+    await expect(canvas.getByRole('region', { name: 'Your things: 5' })).toBeVisible();
     await expect(canvasElement.querySelectorAll('.ni-tray__item[data-new="true"]')).toHaveLength(1);
   },
 };

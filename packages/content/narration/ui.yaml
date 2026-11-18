@@ -22,21 +22,21 @@ ui.btn.check:
   text: "Check"
   level: K
 ui.btn.close:
-  text: "Close"
+  text: "All done"
   level: K
 ui.btn.next:
   text: "Next"
   level: K
 ui.tray.label:
-  text: "Things you made"
+  text: "Your things"
   level: K
 ui.tray.empty:
-  text: "Make something to fill your tray!"
+  text: "Make things to fill your tray!"
   level: K
 
 # Widget registry (U01, packages/ui/src/widgets).
 ui.widget.coming-soon:
-  text: "Pip is still building this game. Let's try the next one!"
+  text: "Pip is building this game. Let's try the next one!"
   voice: pip
   level: K
 ui.widget.pebble:
@@ -46,5 +46,5 @@ ui.widget.basket:
   text: "Basket"
   level: K
 ui.widget.supply:
-  text: "Pebble pile"
+  text: "Pebbles"
   level: K
