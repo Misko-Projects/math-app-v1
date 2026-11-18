@@ -25,8 +25,20 @@ export interface Env {
   ANTHROPIC_API_KEY?: string;
 }
 
+/** Per-request values set by middleware (src/index.ts, src/auth/middleware.ts). */
+export interface AppVariables {
+  db: import('./db/client').Db;
+  /** Server receive time (ms epoch), read once per request. */
+  now: number;
+  /** Set by `requireParent` / `requireDevice`. */
+  familyId: string;
+  /** Set by `requireDevice`. */
+  deviceId: string;
+}
+
 export interface AppBindings {
   Bindings: Env;
+  Variables: AppVariables;
 }
 
 // Types `env` / `exports` from `cloudflare:workers` (used by the Workers-pool tests).

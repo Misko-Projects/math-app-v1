@@ -33,6 +33,25 @@ Errors use `{ error: { code, message } }` with stable `code` strings. Never retu
 - **Devices:** each paired device holds a random 32-byte `deviceToken` (stored hashed server-side; held in IndexedDB client-side) scoped to the family. Children never log in. The picture password is a **local** convenience lock (salted hash in Dexie), not a security boundary.
 - **Same origin** for app and API (Vite proxy locally, a single Worker in prod), so cookies are first-party.
 - **CSRF:** `SameSite=Strict` cookies plus require `Content-Type: application/json` on mutating routes.
+- **Implementation notes (S01):**
+  - The parent session cookie is `ni_parent` (`Path=/api`). Its value is 32 random bytes, and only its SHA-256 is stored (`parent_sessions.id_hash`). Device tokens are stored as SHA-256 (`devices.token_hash`). Pair codes are stored as SHA-256 (`pair_codes.code_hash`).
+  - Passphrase and PIN hashes are self-describing (`pbkdf2-sha256$<iterations>$<salt>$<hash>`, 16-byte salt), so `PBKDF2_ITERATIONS` can change without invalidating stored hashes.
+  - Every `POST` and `DELETE` requires `Content-Type: application/json`, even with an empty body. Otherwise the answer is `415 unsupported_media_type`.
+  - Rate limits are fixed windows kept in D1 (`rate_limits`, keyed by a SHA-256 of the subject, so IPs are never stored):
+    - login: 5 per 15 min per IP; a successful login clears that IP's count;
+    - PIN: 5 per 15 min per device;
+    - pairing: 10 per 15 min per IP, on top of each code's 5 tries (a wrong code counts against every live code, a success against none, decided in the same transaction as the claim);
+    - setup: 10 per 15 min per IP.
+    A limited request gets `429 rate_limited` with `Retry-After`.
+  - The client IP is `CF-Connecting-IP`. When that peer is loopback (the Vite dev proxy), the API uses the last `X-Forwarded-For` hop instead, and treats `X-Forwarded-Proto: https` as HTTPS for the `Secure` flag (`pnpm dev:https`). The proxy sets `xfwd`.
+  - A device may not push events with `deviceId` equal to the family id (the server's pseudo-device, 02 §5.9 S2). Those are rejected as `forbidden`, except tombstone relays. Other device ids are accepted, because a re-paired device or a restored local log legitimately relays events recorded under an earlier device id.
+  - Each pushed event's `type` plus `contentVersion` may take at most 1,024 UTF-8 bytes. A larger envelope is rejected per event as `payload_too_large`, because D1 would otherwise fail the whole batch on an oversized row.
+  - A child counts as deleted exactly when the family's log holds its tombstone. Every write of events, settings and profiles re-checks that inside its own SQL statement, so a sync racing a parent's delete cannot bring the child back. Ids are compared case-insensitively, because the shared UUID grammar accepts either case.
+  - `POST /import` is all or nothing:
+    - tombstones must be server-authored (`childId: null`, `deviceId` = the backup's family id);
+    - an event id already stored as a different event (another family, another type, or a tombstone for another child) is a `409 conflict`, and so are two different events under one id in the file (compared as canonical JSON). The stored-event check also runs inside the write transaction, so a conflict that lands concurrently rolls the whole import back;
+    - the events, the purges of the children the backup tombstones, and the settings and profiles commit in one transaction. A purge applies only while that child's tombstone is stored.
+  - Error codes map to stable statuses: `validation_failed`/`bad_request`/`pair_code_invalid` 400, `unauthorized`/`invalid_credentials`/`invalid_pin`/`device_revoked` 401, `forbidden`/`unknown_family` 403, `not_found` 404, `conflict`/`setup_closed` 409, `pair_code_expired` 410, `payload_too_large` 413, `unsupported_media_type` 415, `rate_limited` 429, `internal` 500.
 
 ## 4. Sync protocol
 
@@ -64,13 +83,16 @@ parent_credentials(family_id, passphrase_hash, pin_hash, updated_at)
 parent_sessions(id_hash, family_id, expires_at, created_at)
 devices(id, family_id, name, token_hash, created_at, last_seen_at, revoked_at)
 pair_codes(code_hash, family_id, expires_at, attempts)
-events(seq PK autoinc, id UNIQUE, family_id, child_id, device_id, ts, type, payload_json, content_version, received_at)
+events(seq PK autoinc, id UNIQUE, family_id, child_id, device_id, ts, client_ts, type, payload_json, content_version, received_at)
   index (family_id, seq), (family_id, child_id, ts)
 settings(family_id, key, value_json, updated_at)  PK(family_id, key)
-profiles(id, family_id, data_json, updated_at, deleted_at)
+profiles(id, family_id, data_json NULL, updated_at, deleted_at)   -- a deleted child keeps a purged row: data_json NULL, deleted_at set
 ai_usage(family_id, day, feature, calls, input_units, output_units, est_cost_micros)  PK(family_id, day, feature)
 ai_cache(key_hash PK, feature, value_json, created_at)   -- text results only; no images
+rate_limits(bucket, key, window_start, count)  PK(bucket, key)   -- key = SHA-256 of the subject (§3)
 ```
+
+S01 added `events.client_ts` (the device's original `ts` when the server clamped it, §4), the nullable `profiles.data_json`, and `rate_limits`. `pnpm dev` and `pnpm preview:full` apply pending migrations to the local D1 database before starting `wrangler dev`, so a fresh clone needs no manual step. `pnpm db:reset` recreates the local database, and `pnpm db:seed` adds a demo family (dev-only passphrase `island-dev-passphrase`, PIN `1234`). `pnpm --filter @number-island/api db:generate` writes a new migration after a schema change (`apps/api/src/db/schema.ts`).
 
 ## 6. Secrets and configuration
 
