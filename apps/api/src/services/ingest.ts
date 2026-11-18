@@ -12,6 +12,7 @@ import {
 import type { Db } from '../db/client';
 import { describeZodError } from '../lib/errors';
 import {
+  canonId,
   deletedChildIds,
   insertEvents,
   type StoredEvent,
@@ -81,7 +82,10 @@ export async function ingestPushedEvents(
     // `deviceId = familyId` is the server's pseudo-device (02 §5.9 S2); devices may not author as
     // it. Tombstone relays are checked below. Other device ids are allowed: a re-paired device or
     // a restored local log legitimately relays events recorded under an earlier device id.
-    if (parsed.data.deviceId === familyId && parsed.data.type !== 'child.deleted') {
+    if (
+      canonId(parsed.data.deviceId) === canonId(familyId) &&
+      parsed.data.type !== 'child.deleted'
+    ) {
       reject(index, raw, 'forbidden', 'That device id is reserved for the server.');
       return;
     }
@@ -108,7 +112,7 @@ export async function ingestPushedEvents(
       continue;
     }
     accepted.push(event.id);
-    if (held === undefined && !(event.childId !== null && deleted.has(event.childId))) {
+    if (held === undefined && !(event.childId !== null && deleted.has(canonId(event.childId)))) {
       toInsert.push(toStoredEvent(event, receivedAt));
     }
   }

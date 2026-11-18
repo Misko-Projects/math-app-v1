@@ -180,7 +180,7 @@ describe('POST /api/sync: per-event rejection (02 §5.9 S1)', () => {
 
   it("forbids authoring as the server's pseudo-device, but allows relays of other devices", async () => {
     const { family, a, b } = await twoDevices();
-    const spoofed = roadEvent(family.familyId, family.familyId);
+    const spoofed = roadEvent(family.familyId, family.familyId.toUpperCase());
     const relayed = roadEvent(family.familyId, newId()); // e.g. recorded before a re-pair
     const res = await syncOk(a.token, { events: [spoofed, relayed] });
     expect(res.accepted).toEqual([relayed.id]);

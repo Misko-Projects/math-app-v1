@@ -9,9 +9,10 @@ import {
   type PairStartResponse,
   pairCompleteRequestSchema,
 } from '@number-island/shared';
-import { and, asc, eq, gt, isNull, lt, lte, sql } from 'drizzle-orm';
+import { and, asc, eq, isNull, lte, sql } from 'drizzle-orm';
 import { Hono } from 'hono';
 import { requireParent } from '../auth/middleware';
+import { batchSql } from '../db/client';
 import { devices, pairCodes } from '../db/schema';
 import type { AppBindings } from '../env';
 import { randomPairCode, randomToken, sha256Hex } from '../lib/crypto';
@@ -57,9 +58,10 @@ deviceRoutes.post(
 );
 
 /**
- * Code → a new device token. The code is consumed atomically on success. Every wrong code counts a
- * try against every live code (the guesser cannot know which one it targets), so a live code dies
- * after 5 wrong tries; the per-IP rate limit bounds guessing on top.
+ * Code → a new device token. Every try (right or wrong) first counts against every live code (a
+ * guesser cannot know which one it targets), then a code still within its 5 tries is consumed, in
+ * the same transaction. So a code accepts at most 5 tries in total, however many requests race; the
+ * per-IP rate limit bounds guessing on top.
  */
 deviceRoutes.post(
   '/devices/pair/complete',
@@ -73,16 +75,15 @@ deviceRoutes.post(
     await hitRateLimit(db, PAIR_LIMIT, clientIp(c), now);
 
     const codeHash = await sha256Hex(body.code);
-    const [claimed] = await db
-      .delete(pairCodes)
-      .where(
-        and(
-          eq(pairCodes.codeHash, codeHash),
-          gt(pairCodes.expiresAt, now),
-          lt(pairCodes.attempts, PAIR_CODE_MAX_TRIES),
-        ),
-      )
-      .returning({ familyId: pairCodes.familyId });
+    // Count this try against every live code *before* checking it, in one transaction, so
+    // concurrent guesses cannot each see an unspent count: at most 5 tries per code, ever.
+    const [, claim] = await batchSql(db, [
+      sql`UPDATE pair_codes SET attempts = attempts + 1 WHERE expires_at > ${now}`,
+      sql`DELETE FROM pair_codes
+          WHERE code_hash = ${codeHash} AND expires_at > ${now} AND attempts <= ${PAIR_CODE_MAX_TRIES}
+          RETURNING family_id`,
+    ]);
+    const claimed = (claim?.results as { family_id: string }[] | undefined)?.[0];
 
     if (!claimed) {
       const [stale] = await db
@@ -90,10 +91,6 @@ deviceRoutes.post(
         .from(pairCodes)
         .where(eq(pairCodes.codeHash, codeHash))
         .limit(1);
-      await db
-        .update(pairCodes)
-        .set({ attempts: sql`${pairCodes.attempts} + 1` })
-        .where(gt(pairCodes.expiresAt, now));
       if (stale && stale.expiresAt <= now) {
         throw new ApiError('pair_code_expired', 'That code has expired. Ask for a new one.');
       }
@@ -104,12 +101,12 @@ deviceRoutes.post(
     const deviceToken = randomToken();
     await db.insert(devices).values({
       id: deviceId,
-      familyId: claimed.familyId,
+      familyId: claimed.family_id,
       name: body.deviceName,
       tokenHash: await sha256Hex(deviceToken),
       createdAt: now,
     });
-    const res: PairCompleteResponse = { deviceId, deviceToken, familyId: claimed.familyId };
+    const res: PairCompleteResponse = { deviceId, deviceToken, familyId: claimed.family_id };
     return c.json(res, 201);
   },
 );

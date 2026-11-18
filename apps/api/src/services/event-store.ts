@@ -137,29 +137,41 @@ export async function storedEventsById(
   return out;
 }
 
-/** Children of this family deleted through DELETE /children/:id (or an imported tombstone). */
+/**
+ * Canonical form of a UUID for comparisons. The shared id grammar accepts either case (02 §5.9),
+ * and ids are relayed exactly as pushed, so every server-side identity check (reserved device id,
+ * deleted children) compares canonical forms; otherwise `ABC…` would slip past a check for `abc…`.
+ */
+export function canonId(id: string): string {
+  return id.toLowerCase();
+}
+
+/**
+ * Children of this family deleted through DELETE /children/:id (or an imported tombstone), as
+ * canonical (lower-case) ids; test membership with `canonId`.
+ */
 export async function deletedChildIds(db: Db, familyId: string): Promise<Set<string>> {
   const rows = await db
     .select({ id: profiles.id })
     .from(profiles)
     .where(and(eq(profiles.familyId, familyId), isNotNull(profiles.deletedAt)));
-  return new Set(rows.map((r) => r.id));
+  return new Set(rows.map((r) => canonId(r.id)));
 }
 
-/** Tombstone events already stored for this family, keyed by the deleted child's id. */
+/** Tombstone events already stored for this family, as canonical deleted-child ids. */
 export async function tombstonedChildIds(db: Db, familyId: string): Promise<Set<string>> {
   const rows = await db.all<{ child: string }>(
     sql`SELECT json_extract(payload_json, '$.childId') AS child FROM events
         WHERE family_id = ${familyId} AND type = 'child.deleted'`,
   );
-  return new Set(rows.map((r) => r.child));
+  return new Set(rows.map((r) => canonId(r.child)));
 }
 
 /**
  * Purges a child (08 §2, §4): deletes their events and settings, and leaves a purged profile row
  * (no data, `deleted_at` set) so stale devices cannot resurrect the profile. Idempotent. A
  * `tombstone` is inserted in the same transaction, so the family's highest `seq` never drops
- * (sync treats a cursor past the end as a server reset).
+ * (sync treats a cursor past the end as a server reset). Matching is case-insensitive (`canonId`).
  */
 export async function purgeChild(
   db: Db,
@@ -178,16 +190,20 @@ export async function purgeChild(
             ${tombstone.contentVersion}, ${now})`,
       ]
     : [];
+  const child = canonId(childId);
   await batchSql(db, [
     ...insertTombstone,
-    sql`DELETE FROM events WHERE family_id = ${familyId} AND child_id = ${childId}`,
-    sql`DELETE FROM settings WHERE family_id = ${familyId} AND key = ${settingsKey(childId)}`,
+    sql`DELETE FROM events WHERE family_id = ${familyId} AND lower(child_id) = ${child}`,
+    sql`DELETE FROM settings WHERE family_id = ${familyId} AND lower(key) = ${settingsKey(child)}`,
+    // Purge every stored casing of the profile, then make sure a purged row exists.
+    sql`
+      UPDATE profiles SET data_json = NULL, updated_at = ${now},
+        deleted_at = COALESCE(deleted_at, ${now})
+      WHERE family_id = ${familyId} AND lower(id) = ${child}`,
     sql`
       INSERT INTO profiles (id, family_id, data_json, updated_at, deleted_at)
-      VALUES (${childId}, ${familyId}, NULL, ${now}, ${now})
-      ON CONFLICT(id) DO UPDATE SET data_json = NULL, updated_at = ${now},
-        deleted_at = COALESCE(profiles.deleted_at, ${now})
-      WHERE profiles.family_id = ${familyId}`,
+      SELECT ${child}, ${familyId}, NULL, ${now}, ${now}
+      WHERE NOT EXISTS (SELECT 1 FROM profiles WHERE lower(id) = ${child})`,
   ]);
 }
 
@@ -216,7 +232,9 @@ export async function mergeSettings(
   docs: SettingsDocument[],
   deleted: ReadonlySet<string>,
 ): Promise<number> {
-  const live = docs.filter((d) => !(d.key.startsWith('child:') && deleted.has(d.key.slice(6))));
+  const live = docs.filter(
+    (d) => !(d.key.startsWith('child:') && deleted.has(canonId(d.key.slice(6)))),
+  );
   if (live.length === 0) return 0;
   const statements = live.map(
     (d) => sql`
@@ -240,7 +258,7 @@ export async function mergeProfiles(
   incoming: ChildProfile[],
   deleted: ReadonlySet<string>,
 ): Promise<number> {
-  const live = incoming.filter((p) => !deleted.has(p.id));
+  const live = incoming.filter((p) => !deleted.has(canonId(p.id)));
   if (live.length === 0) return 0;
   const statements = live.map(
     (p) => sql`

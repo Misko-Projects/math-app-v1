@@ -71,6 +71,29 @@ describe('POST /api/devices/pair/complete', () => {
     await expectError(await complete(code), 400, 'pair_code_invalid');
   });
 
+  it('counts racing guesses atomically: a code takes at most 5 tries in total', async () => {
+    const { cookie } = await setupFamily();
+    const { code } = pairStartResponseSchema.parse(await (await start(cookie)).json());
+    const wrong = code === '000000' ? '000001' : '000000';
+    // 8 concurrent wrong guesses from different IPs (no per-IP limit applies).
+    await Promise.all(
+      Array.from({ length: 8 }, (_, i) => complete(wrong, `198.51.100.${100 + i}`)),
+    );
+    const row = await env.DB.prepare('SELECT attempts FROM pair_codes').first<{
+      attempts: number;
+    }>();
+    expect(row?.attempts).toBe(8);
+    await expectError(await complete(code, '198.51.100.200'), 400, 'pair_code_invalid');
+  });
+
+  it('accepts the right code on the fifth try', async () => {
+    const { cookie } = await setupFamily();
+    const { code } = pairStartResponseSchema.parse(await (await start(cookie)).json());
+    const wrong = code === '000000' ? '000001' : '000000';
+    for (let i = 0; i < 4; i++) await complete(wrong);
+    expect((await complete(code, '198.51.100.2')).status).toBe(201);
+  });
+
   it('rate-limits guessing per IP', async () => {
     const { cookie } = await setupFamily();
     const ip = '198.51.100.77';

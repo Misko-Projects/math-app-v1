@@ -112,6 +112,42 @@ describe('DELETE /api/children/:id', () => {
     expect(count?.n).toBe(0);
   });
 
+  it('matches child ids case-insensitively (the id grammar accepts either case)', async () => {
+    const { family, tablet, child } = await familyWithChild();
+    const upper = child.id.toUpperCase();
+    // Stored under the upper-case spelling before the delete...
+    await syncOk(tablet.deviceToken, {
+      events: [roadEvent(family.familyId, tablet.deviceId, { childId: upper })],
+    });
+    // ...deleted via the upper-case spelling...
+    expect((await del(upper, family.cookie)).status).toBe(200);
+    const left = await env.DB.prepare(
+      'SELECT COUNT(*) AS n FROM events WHERE lower(child_id) = lower(?)',
+    )
+      .bind(child.id)
+      .first<{ n: number }>();
+    expect(left?.n).toBe(0);
+    // ...and a stale device cannot resurrect it under another casing.
+    const late = roadEvent(family.familyId, tablet.deviceId, { childId: upper });
+    const res = await syncOk(tablet.deviceToken, {
+      events: [late],
+      profiles: [{ ...child, id: upper, updatedAt: child.updatedAt + 1 }],
+    });
+    expect(res.accepted).toEqual([late.id]);
+    expect(res.profiles).toEqual([]);
+    const again = await env.DB.prepare(
+      'SELECT COUNT(*) AS n FROM events WHERE lower(child_id) = lower(?)',
+    )
+      .bind(child.id)
+      .first<{ n: number }>();
+    expect(again?.n).toBe(0);
+    // One tombstone, whose payload uses the canonical (lower-case) id.
+    const tombs = (await syncOk(tablet.deviceToken)).events.filter(
+      (e) => e.type === 'child.deleted',
+    );
+    expect(tombs.map((e) => e.payload)).toEqual([{ childId: child.id.toLowerCase() }]);
+  });
+
   it('is idempotent: a repeat purges again without a second tombstone', async () => {
     const { family, child } = await familyWithChild();
     await del(child.id, family.cookie);

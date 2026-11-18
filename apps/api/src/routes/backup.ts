@@ -12,6 +12,7 @@ import { events } from '../db/schema';
 import type { AppBindings } from '../env';
 import { jsonBody, limitBody, MB, requireJsonContentType } from '../lib/http';
 import {
+  canonId,
   deletedChildIds,
   insertEvents,
   mergeProfiles,
@@ -56,7 +57,7 @@ backupRoutes.get('/export', requireParent, async (c) => {
 function deletedChildOf(e: AnyEventEnvelope): string | null {
   if (e.type !== 'child.deleted') return null;
   const child = (e.payload as { childId?: unknown }).childId;
-  return typeof child === 'string' ? child : null;
+  return typeof child === 'string' ? canonId(child) : null;
 }
 
 /**
@@ -83,7 +84,9 @@ backupRoutes.post(
 
     const rehomed = backup.events.map((e): AnyEventEnvelope => {
       const deviceId =
-        e.type === 'child.deleted' && e.deviceId === backup.familyId ? familyId : e.deviceId;
+        e.type === 'child.deleted' && canonId(e.deviceId) === canonId(backup.familyId)
+          ? familyId
+          : e.deviceId;
       return { ...e, familyId, deviceId } as AnyEventEnvelope;
     });
     const fileTombstones = new Set(
@@ -98,7 +101,7 @@ backupRoutes.post(
       rehomed.map((e) => e.id),
     );
     const toInsert = rehomed
-      .filter((e) => !(e.childId !== null && deleted.has(e.childId)))
+      .filter((e) => !(e.childId !== null && deleted.has(canonId(e.childId))))
       .filter((e) => {
         const owner = owners.get(e.id);
         return owner === undefined;
