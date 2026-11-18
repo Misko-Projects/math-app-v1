@@ -20,19 +20,19 @@ export const Playground: Story = {};
 
 function Plank() {
   return (
-    <svg viewBox="0 0 48 48" width="40" height="40" aria-hidden="true">
+    <svg viewBox="0 0 48 48" width="56" height="56" aria-hidden="true">
       <rect
-        x="4"
-        y="16"
-        width="40"
-        height="16"
+        x="3"
+        y="11"
+        width="42"
+        height="26"
         rx="4"
-        fill="var(--color-wood)"
+        fill="var(--color-sunshine-light)"
         stroke="var(--color-wood-deep)"
         strokeWidth="3"
       />
       <path
-        d="M12 22h12M28 27h10"
+        d="M10 19h16M22 29h16"
         stroke="var(--color-wood-deep)"
         strokeWidth="2.5"
         strokeLinecap="round"
@@ -57,7 +57,13 @@ function Variants() {
         <span className="story-cell__name">resident · sky</span>
       </div>
       <div className="story-cell">
-        <SpeechBubble say="req.dock.needs-planks" tone="sun" tail="bottom-right" onPress={fn()}>
+        <SpeechBubble
+          say="req.dock.needs-planks"
+          tone="sun"
+          tail="bottom-right"
+          stack
+          onPress={fn()}
+        >
           <Plank />
           <Plank />
           <Plank />
@@ -66,7 +72,7 @@ function Variants() {
         <span className="story-cell__name">request with pictures</span>
       </div>
       <div className="story-cell">
-        <SpeechBubble say="req.dock.needs-planks" recommended onPress={fn()}>
+        <SpeechBubble say="req.dock.needs-planks" recommended stack onPress={fn()}>
           <Plank />
           <NumberDisplay value={4} speakOnTap={false} />
         </SpeechBubble>

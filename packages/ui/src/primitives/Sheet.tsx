@@ -2,7 +2,7 @@ import type { NarrationKey } from '@number-island/shared';
 import { type ReactNode, useEffect, useRef } from 'react';
 import { useNarrationText } from '../preferences/UiProvider';
 import { IconButton } from './IconButton';
-import { CloseIcon } from './icons';
+import { CheckIcon } from './icons';
 
 export interface SheetProps {
   open: boolean;
@@ -74,7 +74,7 @@ export function Sheet({
               {closeButton ? (
                 <IconButton
                   label="ui.btn.close"
-                  icon={<CloseIcon />}
+                  icon={<CheckIcon />}
                   caption={false}
                   onPress={onClose}
                 />

@@ -7,7 +7,7 @@ import {
   spyAudio,
 } from '../test-support/storyHelpers';
 import { IconButton } from './IconButton';
-import { ArrowIcon, CloseIcon, LightbulbIcon, StarIcon } from './icons';
+import { ArrowIcon, CheckIcon, LightbulbIcon } from './icons';
 import { HintButton, HomeButton, ReplayButton } from './presets';
 
 const audio = spyAudio();
@@ -52,7 +52,7 @@ function StatesGrid() {
         <span className="story-cell__name">replay · playing</span>
       </div>
       <div className="story-cell">
-        <IconButton label="ui.btn.close" icon={<CloseIcon />} />
+        <IconButton label="ui.btn.close" icon={<CheckIcon />} />
         <span className="story-cell__name">cloud</span>
       </div>
       <div className="story-cell">
@@ -60,12 +60,25 @@ function StatesGrid() {
         <span className="story-cell__name">sea</span>
       </div>
       <div className="story-cell">
-        <IconButton label="ui.btn.next" icon={<StarIcon />} tone="sun" pressed />
-        <span className="story-cell__name">selected</span>
+        <HomeButton previewState="pressed" />
+        <span className="story-cell__name">pressed (finger down)</span>
       </div>
       <div className="story-cell">
-        <IconButton label="ui.btn.close" icon={<CloseIcon />} disabled />
-        <span className="story-cell__name">disabled</span>
+        <IconButton
+          label="ui.btn.next"
+          icon={<ArrowIcon tone="light" />}
+          tone="sea"
+          previewState="focus"
+        />
+        <span className="story-cell__name">keyboard focus</span>
+      </div>
+      <div className="story-cell">
+        <IconButton label="ui.btn.next" icon={<ArrowIcon />} tone="sun" pressed />
+        <span className="story-cell__name">selected (ring + check badge)</span>
+      </div>
+      <div className="story-cell">
+        <IconButton label="ui.btn.close" icon={<CheckIcon />} disabled />
+        <span className="story-cell__name">disabled (hatched, dashed)</span>
       </div>
     </div>
   );
@@ -73,7 +86,7 @@ function StatesGrid() {
 
 async function checkSizes(canvasElement: HTMLElement, ageMode: 'k' | 'g1-up') {
   const buttons = within(canvasElement).getAllByRole('button');
-  await expect(buttons.length).toBe(10);
+  await expect(buttons.length).toBe(12);
   for (const b of buttons) await expectTargetSize(b, ageMode);
   await expectTargetGaps(buttons);
 }
@@ -85,7 +98,7 @@ export const StatesK: Story = {
   play: async ({ canvasElement }) => {
     await checkSizes(canvasElement, 'k');
     await expect(within(canvasElement).queryByText('Go home')).toBeNull();
-    await expect(within(canvasElement).getByRole('button', { name: 'Go home' })).toBeVisible();
+    await expect(within(canvasElement).getAllByRole('button', { name: 'Go home' })).toHaveLength(2);
   },
 };
 
@@ -95,8 +108,8 @@ export const StatesG1: Story = {
   render: () => <StatesGrid />,
   play: async ({ canvasElement }) => {
     await checkSizes(canvasElement, 'g1-up');
-    await expect(within(canvasElement).getByText('Go home')).toBeVisible();
-    await expect(within(canvasElement).getByRole('button', { name: 'Go home' })).toBeVisible();
+    await expect(within(canvasElement).getAllByText('Go home')[0]).toBeVisible();
+    await expect(within(canvasElement).getAllByRole('button', { name: 'Go home' })).toHaveLength(2);
   },
 };
 

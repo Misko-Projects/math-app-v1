@@ -19,6 +19,8 @@ export interface SpeechBubbleProps {
   onPress?: () => void;
   /** Show the `say` text. Defaults to the provider's text mode (06 §5: no required reading in K). */
   showText?: boolean;
+  /** Pictures in a row above the words (requests: countable pictures, then the line). */
+  stack?: boolean;
   className?: string;
 }
 
@@ -44,6 +46,7 @@ export function SpeechBubble({
   recommended = false,
   onPress,
   showText,
+  stack = false,
   className,
 }: SpeechBubbleProps) {
   const { textLabels } = useUiPreferences();
@@ -54,7 +57,7 @@ export function SpeechBubble({
   const showGlyph = !textVisible && children == null;
   const content = (
     <>
-      {children}
+      {children != null ? <span className="ni-bubble__pictures">{children}</span> : null}
       {textVisible ? <span className="ni-bubble__text">{text}</span> : null}
       {showGlyph ? (
         <span className="ni-bubble__glyph">
@@ -73,6 +76,7 @@ export function SpeechBubble({
     className: ['ni-bubble', className].filter(Boolean).join(' '),
     'data-tail': tail,
     'data-tone': tone,
+    'data-layout': stack ? 'stack' : undefined,
     'data-recommended': recommended ? 'true' : undefined,
   } as const;
 

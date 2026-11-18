@@ -58,10 +58,9 @@ export function ProductTray({
           {name}
         </span>
       ) : null}
-      {empty ? (
-        <span className="ni-tray__empty">{narrationText('ui.tray.empty')}</span>
-      ) : (
-        Array.from({ length: frames }, (_, f) => (
+      {/* Ten-frames, at most three per row, then they wrap (centred). Empty: one empty frame. */}
+      <div className="ni-tray__frames">
+        {Array.from({ length: frames }, (_, f) => (
           // biome-ignore lint/suspicious/noArrayIndexKey: frames are positional
           <div key={f} className="ni-tray__frame" aria-hidden="true">
             {Array.from({ length: FRAME }, (_, s) => {
@@ -81,8 +80,11 @@ export function ProductTray({
               );
             })}
           </div>
-        ))
-      )}
+        ))}
+      </div>
+      {empty && textLabels ? (
+        <span className="ni-tray__empty">{narrationText('ui.tray.empty')}</span>
+      ) : null}
     </section>
   );
 }

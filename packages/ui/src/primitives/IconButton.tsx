@@ -19,6 +19,8 @@ export interface IconButtonProps {
   speak?: SpeakLabel;
   debounceMs?: number;
   className?: string;
+  /** Docs only: draw the pressed or keyboard-focus look statically (state galleries, evidence). */
+  previewState?: 'pressed' | 'focus';
   /** Extra data attributes for presets (glow, playing…). */
   data?: Record<`data-${string}`, string | undefined>;
 }
@@ -39,6 +41,7 @@ export function IconButton({
   speak,
   debounceMs,
   className,
+  previewState,
   data,
 }: IconButtonProps) {
   const { textLabels } = useUiPreferences();
@@ -54,6 +57,7 @@ export function IconButton({
         aria-label={showCaption ? undefined : text}
         aria-labelledby={showCaption ? captionId : undefined}
         aria-pressed={pressed}
+        data-preview={previewState}
         disabled={disabled}
         onClick={handlePress}
         {...data}

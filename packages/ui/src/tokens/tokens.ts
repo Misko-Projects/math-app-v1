@@ -116,6 +116,23 @@ export const CONTRAST_PAIRS: readonly { use: string; fg: PaletteColor; bg: Palet
   { use: 'speech bubble', fg: 'ink', bg: 'cloud' },
 ];
 
+/**
+ * Marks for math-relevant categories (bar-graph series, sort groups, chart keys): 06 §7 says never
+ * colour alone, and some palette pairs (coral/wood, teal/green) merge under protanopia,
+ * deuteranopia and achromatopsia. Each category pairs a fill with a distinct shape, and the fills
+ * alternate light and dark, so categories stay apart under any colour-vision deficiency.
+ */
+export const CATEGORY_MARKS = [
+  { id: 'cat-1', fill: 'sea-deep', shape: 'circle' },
+  { id: 'cat-2', fill: 'sunshine', shape: 'triangle' },
+  { id: 'cat-3', fill: 'coral-deep', shape: 'square' },
+  { id: 'cat-4', fill: 'sky', shape: 'diamond' },
+  { id: 'cat-5', fill: 'ink', shape: 'star' },
+  { id: 'cat-6', fill: 'leaf-light', shape: 'hexagon' },
+] as const satisfies readonly { id: string; fill: PaletteColor; shape: string }[];
+
+export type CategoryShape = (typeof CATEGORY_MARKS)[number]['shape'];
+
 /** WCAG 2.x relative luminance of a #rrggbb colour. */
 export function relativeLuminance(hex: string): number {
   const channel = (i: number) => {

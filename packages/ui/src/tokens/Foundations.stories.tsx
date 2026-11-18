@@ -1,6 +1,7 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
 import { expect } from 'storybook/test';
 import { BigButton } from '../primitives/BigButton';
+import { CategoryMark } from '../primitives/CategoryMark';
 import {
   ArrowIcon,
   CheckIcon,
@@ -15,6 +16,7 @@ import {
 import { NumberDisplay } from '../primitives/NumberDisplay';
 import { HintButton, HomeButton, ReplayButton } from '../primitives/presets';
 import {
+  CATEGORY_MARKS,
   CONTRAST_PAIRS,
   contrastRatio,
   DURATION_MS,
@@ -245,12 +247,10 @@ function Specimen() {
         <BigButton label="ui.btn.check" icon={<CheckIcon />} tone="sun" showLabel={false} />
         <NumberDisplay value={7} speakOnTap={false} />
       </div>
-      <div style={{ display: 'flex', gap: 6 }}>
-        {(['sea', 'coral', 'sunshine', 'leaf', 'wood', 'ink'] as const).map((c) => (
-          <span
-            key={c}
-            style={{ width: 34, height: 34, borderRadius: 10, background: PALETTE[c] }}
-          />
+      {/* Math-relevant categories: colour + shape (CATEGORY_MARKS), distinct in every filter. */}
+      <div style={{ display: 'flex', gap: 10 }}>
+        {CATEGORY_MARKS.map((m, i) => (
+          <CategoryMark key={m.id} index={i} size={40} />
         ))}
       </div>
     </div>

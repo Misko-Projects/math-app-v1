@@ -59,7 +59,7 @@ const FRAME_CSS = `
     linear-gradient(180deg, var(--color-sky) 0%, var(--color-sky-light) 55%, var(--color-shallows) 100%);
   overflow: hidden; }
 .wf-top { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--target-gap); }
-.wf-left { display: flex; align-items: flex-start; gap: 20px; min-width: 0; }
+.wf-left { display: flex; align-items: flex-start; gap: 52px; min-width: 0; }
 .wf-right { display: flex; gap: var(--spacing-gap-lg); }
 .wf-stage { display: grid; place-items: center; min-height: 0; border-radius: 40px;
   background: rgb(255 250 240 / 0.55); border: 3px solid rgb(255 255 255 / 0.7); }

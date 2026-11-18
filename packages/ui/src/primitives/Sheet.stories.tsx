@@ -34,7 +34,7 @@ function Demo({ placement }: { placement: 'bottom' | 'center' }) {
           <ProductTray items={stars} goal={10} />
           <BigButton
             label="ui.btn.check"
-            icon={<CheckIcon />}
+            icon={<CheckIcon tone="light" />}
             tone="leaf"
             onPress={() => setOpen(false)}
           />

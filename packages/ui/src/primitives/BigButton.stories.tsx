@@ -7,7 +7,7 @@ import {
   spyAudio,
 } from '../test-support/storyHelpers';
 import { BigButton } from './BigButton';
-import { ArrowIcon, CheckIcon, HomeIcon, StarIcon } from './icons';
+import { ArrowIcon, CheckIcon, HomeIcon } from './icons';
 
 const audio = spyAudio();
 
@@ -45,12 +45,25 @@ function StatesGrid() {
         <span className="story-cell__name">leaf · default</span>
       </div>
       <div className="story-cell">
-        <BigButton label="ui.btn.close" icon={<StarIcon />} tone="cloud" />
+        <BigButton label="ui.btn.close" icon={<CheckIcon />} tone="cloud" />
         <span className="story-cell__name">cloud · default</span>
       </div>
       <div className="story-cell">
+        <BigButton label="ui.btn.check" icon={<CheckIcon />} tone="sun" previewState="pressed" />
+        <span className="story-cell__name">pressed (finger down)</span>
+      </div>
+      <div className="story-cell">
+        <BigButton
+          label="ui.btn.next"
+          icon={<ArrowIcon tone="light" />}
+          tone="sea"
+          previewState="focus"
+        />
+        <span className="story-cell__name">keyboard focus</span>
+      </div>
+      <div className="story-cell">
         <BigButton label="ui.btn.check" icon={<CheckIcon />} tone="sun" pressed />
-        <span className="story-cell__name">selected (aria-pressed)</span>
+        <span className="story-cell__name">selected (ring + check badge)</span>
       </div>
       <div className="story-cell">
         <BigButton label="ui.btn.next" icon={<ArrowIcon tone="light" />} tone="sea" pressed />
@@ -58,7 +71,7 @@ function StatesGrid() {
       </div>
       <div className="story-cell">
         <BigButton label="ui.btn.check" icon={<CheckIcon />} tone="sun" disabled />
-        <span className="story-cell__name">disabled</span>
+        <span className="story-cell__name">disabled (faded, hatched, dashed)</span>
       </div>
       <div className="story-cell">
         <BigButton label="ui.btn.next" tone="sea" />

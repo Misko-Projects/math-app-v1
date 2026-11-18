@@ -1,5 +1,6 @@
 import type { NarrationKey } from '@number-island/shared';
 import { useNarrationText, useSpeech, useUiPreferences } from '../preferences/UiProvider';
+import { StarIcon } from './icons';
 
 export interface NumberDisplayProps {
   /** The number shown, or null/'' for an empty blank. Strings are shown as typed (e.g. "07"). */
@@ -50,6 +51,11 @@ export function NumberDisplay({
     <>
       <span>{shown}</span>
       {state === 'active' ? <span className="ni-number__caret" /> : null}
+      {state === 'celebrate' ? (
+        <span className="ni-number__sparkle" aria-hidden="true">
+          <StarIcon />
+        </span>
+      ) : null}
     </>
   );
   const common = {

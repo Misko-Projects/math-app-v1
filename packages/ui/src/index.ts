@@ -42,6 +42,7 @@ export {
 } from './preferences/UiProvider';
 // Primitives (06 §2, §4–§6).
 export { BigButton, type BigButtonProps, type ButtonTone } from './primitives/BigButton';
+export { CategoryMark, type CategoryMarkProps } from './primitives/CategoryMark';
 export { IconButton, type IconButtonProps } from './primitives/IconButton';
 export * as icons from './primitives/icons';
 export { NumberDisplay, type NumberDisplayProps } from './primitives/NumberDisplay';

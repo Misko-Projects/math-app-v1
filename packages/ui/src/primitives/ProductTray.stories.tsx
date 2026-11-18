@@ -10,16 +10,16 @@ function Plank() {
     <svg viewBox="0 0 48 48" width="100%" height="100%" aria-hidden="true">
       <rect
         x="4"
-        y="15"
+        y="11"
         width="40"
-        height="18"
+        height="26"
         rx="4"
         fill="var(--color-sunshine-light)"
         stroke="var(--color-wood-deep)"
         strokeWidth="3"
       />
       <path
-        d="M11 21h13M27 27h11"
+        d="M10 19h16M22 29h16"
         stroke="var(--color-wood-deep)"
         strokeWidth="2.5"
         strokeLinecap="round"
@@ -50,22 +50,31 @@ export const Partial: Story = {
 };
 
 /** Nothing made yet, and no goal. */
-export const Empty: Story = { args: { items: [], goal: undefined } };
+/** Nothing made yet: an empty ten-frame shows where products will go (plus the line in text mode). */
+export const Empty: Story = {
+  args: { items: [], goal: undefined },
+  play: async ({ canvasElement }) => {
+    await expect(canvasElement.querySelectorAll('.ni-tray__slot')).toHaveLength(10);
+  },
+};
+
+/** Empty in K mode: no words, just the empty slots. */
+export const EmptyK: Story = { globals: { ageMode: 'k' }, args: { items: [], goal: undefined } };
 
 /** A full ten. */
 export const FullTen: Story = { args: { items: planks(10), goal: 10 } };
 
-/** Stress: 23 products wrap into three ten-frames without overflowing a tablet-width bar. */
+/** Stress: 34 products fill four ten-frames: at most three per row, then they wrap, centred. */
 export const ManyStress: Story = {
-  args: { items: planks(23), goal: undefined },
+  args: { items: planks(34), goal: undefined },
   render: (args) => (
-    <div style={{ width: 'min(1100px, 100%)' }}>
+    <div style={{ width: 'min(1100px, 100%)', display: 'grid', justifyItems: 'center' }}>
       <ProductTray {...args} />
     </div>
   ),
   play: async ({ canvasElement }) => {
     const tray = within(canvasElement).getByRole('region');
-    await expect(tray.querySelectorAll('.ni-tray__frame')).toHaveLength(3);
+    await expect(tray.querySelectorAll('.ni-tray__frame')).toHaveLength(4);
     await expect(tray.scrollWidth).toBeLessThanOrEqual(tray.clientWidth + 1);
     await expect(document.documentElement.scrollWidth).toBeLessThanOrEqual(window.innerWidth);
   },

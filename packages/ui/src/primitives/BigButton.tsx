@@ -22,6 +22,8 @@ export interface BigButtonProps {
   /** Ignore repeat presses within this window (use 400 for "check", 06 §4). */
   debounceMs?: number;
   className?: string;
+  /** Docs only: draw the pressed or keyboard-focus look statically (state galleries, evidence). */
+  previewState?: 'pressed' | 'focus';
   type?: 'button' | 'submit';
 }
 
@@ -41,6 +43,7 @@ export function BigButton({
   speak,
   debounceMs,
   className,
+  previewState,
   type = 'button',
 }: BigButtonProps) {
   const { textLabels } = useUiPreferences();
@@ -53,6 +56,7 @@ export function BigButton({
       className={['ni-btn', `ni-tone-${tone}`, className].filter(Boolean).join(' ')}
       aria-label={visibleLabel ? undefined : text}
       aria-pressed={pressed}
+      data-preview={previewState}
       disabled={disabled}
       onClick={handlePress}
     >

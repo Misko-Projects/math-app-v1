@@ -11,6 +11,8 @@ interface PresetProps {
   /** Override the default narration key. */
   label?: NarrationKey;
   className?: string;
+  /** Docs only: draw the pressed or keyboard-focus look statically. */
+  previewState?: 'pressed' | 'focus';
 }
 
 /** 05 §4 rule 6: the big "home" button returns to the island at any time. */
