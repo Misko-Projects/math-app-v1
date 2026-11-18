@@ -113,3 +113,50 @@ ui.sprite.firefly:
 ui.sprite.counter:
   text: "Counter"
   level: K
+
+# compare and order (U03, packages/ui/src/widgets/compare, packages/ui/src/widgets/order).
+ui.compare.left:
+  text: "Left side"
+  level: K
+ui.compare.right:
+  text: "Right side"
+  level: K
+ui.compare.same:
+  text: "The same"
+  level: K
+ui.compare.not-same:
+  text: "Not the same"
+  level: K
+ui.compare.yes:
+  text: "Yes"
+  level: K
+ui.compare.no:
+  text: "No"
+  level: K
+ui.compare.less:
+  text: "Less than"
+  level: K
+ui.compare.greater:
+  text: "Greater than"
+  level: K
+ui.compare.equal:
+  text: "Equal to"
+  level: K
+ui.compare.gap:
+  text: "Put it here"
+  level: K
+ui.compare.this-one:
+  text: "This one"
+  level: K
+ui.order.small-to-big:
+  text: "Small to big"
+  level: K
+ui.order.big-to-small:
+  text: "Big to small"
+  level: K
+ui.order.fixed:
+  text: "{n} can't move"
+  level: K
+ui.order.picture:
+  text: "Picture {n}"
+  level: K

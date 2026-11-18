@@ -13,6 +13,8 @@ import type { WidgetRegistry } from './types';
 export const widgetRegistry: WidgetRegistry = {
   'number-pad': () => import('./number-pad/NumberPadWidget'),
   'numeral-pick': () => import('./numeral-pick/NumeralPickWidget'),
+  compare: () => import('./compare/CompareWidget'),
+  order: () => import('./order/OrderWidget'),
 };
 
 /** Formats that have a registered widget. */

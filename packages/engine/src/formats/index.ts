@@ -2,6 +2,7 @@
 // E01 registers the 11 fixture formats; U03–U05 register the others here.
 
 import type { AnswerSpec, ItemFormat, WidgetConfig } from '@number-island/shared';
+import { compare } from './compare';
 import { dotFlash } from './dot-flash';
 import { hundredChart } from './hundred-chart';
 import { makeSet } from './make-set';
@@ -25,6 +26,7 @@ const MODELS: Partial<Record<ItemFormat, AnyModel>> = {
   'dot-flash': dotFlash,
   'numeral-pick': numeralPick,
   'number-pad': numberPad,
+  compare,
   order,
   'tenframe-fill': tenframeFill,
   'number-bond': numberBond,
