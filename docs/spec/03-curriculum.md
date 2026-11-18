@@ -145,7 +145,7 @@ Notes:
 
 ### 2.4 Coverage rule
 
-Every K–3 standard in the code list, and every grade 4 code a stretch skill names, must be **addressed** (listed in `ccss`, not `supports`) by at least one skill. A parent code with sub-parts (`K.CC.B.4`) counts as covered when the parent is tagged, or when every sub-part is tagged. `pnpm content:validate` prints any uncovered code and fails (§9, V20). The v1 catalog in §3 covers all of K.CC, K.OA, K.NBT, K.MD, K.G, 1.OA, 1.NBT, 1.MD, 1.G, 2.OA, 2.NBT, 2.MD, 2.G, 3.OA, 3.NBT, 3.NF, 3.MD and 3.G.
+Every K–3 standard in the code list, and every grade 4 code a stretch skill names, must be **addressed** (listed in `ccss`, not `supports`) by at least one skill. A parent code with sub-parts (`K.CC.B.4`) counts as covered when the parent is tagged, or when every sub-part is tagged. A tagged parent covers its sub-parts too (`3.MD.C.5` covers `3.MD.C.5a` and `3.MD.C.5b`). `pnpm content:validate` prints any uncovered code and fails (§9, V20). The v1 catalog in §3 covers all of K.CC, K.OA, K.NBT, K.MD, K.G, 1.OA, 1.NBT, 1.MD, 1.G, 2.OA, 2.NBT, 2.MD, 2.G, 3.OA, 3.NBT, 3.NF, 3.MD and 3.G.
 
 ### 2.5 Skills with no standards tag
 
@@ -722,7 +722,7 @@ packages/content/
                                 resident lines, Glim intro, wind-down recaps. Each UI issue authors its own keys here.
   game/*.yaml                   GameData (02 §5.8): buildings, recipes, residents, decor, materials (authored by U02)
   contexts.yaml                 story contexts and nouns (§4.6)
-  graph.yaml                    root allowlist, coverageGrades (§9.2) and graph-level settings
+  graph.yaml                    root allowlist, coverageGrades and plannedIds (§9.2) and graph-level settings
   outlines.yaml                 shape outlines for geo.compose
   narration/wordlist-k1.txt, wordlist-2.txt, denylist.txt   reading-level and tone lists (§8.5)
   retired.yaml                  retired SkillIds and TemplateIds (never reusable)
@@ -947,7 +947,7 @@ The `LessonSpec` type and the lesson rules are in §6.
 
 ### 4.6 Story contexts (`contexts.yaml`)
 
-Story problems draw their scene, nouns and verbs from a closed set of island contexts. Generators never invent nouns, and every noun has singular and plural narration clips (`noun.<id>.one`, `noun.<id>.many`).
+Story problems draw their scene, nouns and verbs from a closed set of island contexts. Generators never invent nouns, and every noun has singular and plural narration clips (`noun.<id>.one`, `noun.<id>.many`). A context's `situations` name a `SituationType` (§5.5) or its family, the part before the slash (`add-to` covers `add-to/result`, `add-to/change` and `add-to/start`), and V26 checks them.
 
 ```yaml
 contexts:
@@ -955,13 +955,13 @@ contexts:
     nouns: [plank]
     place: sawmill
     verbs: { addTo: stack, takeFrom: haul-away }
-    situations: [add-to, take-from, put-together, compare, length]
+    situations: [add-to, take-from, put-together, compare, measure]
     maxQuantity: 1000
   - id: dock-fish
     nouns: [fish, crab]
     place: dock
     verbs: { addTo: catch, takeFrom: sell }
-    situations: [add-to, take-from, put-together, compare, equal-groups, sharing]
+    situations: [add-to, take-from, put-together, compare, equal-groups]
     maxQuantity: 100
 ```
 
@@ -2196,13 +2196,17 @@ Runs the compiler checks in `packages/content` (V01–V12, V16–V21, V23, V24, 
 
 **Ownership.** C01 implements the compiler checks in `packages/content`. E01 creates `tools/content-check` with V13–V15, V22 and V25. Until E01 lands, `content:validate` runs the compiler checks only and prints "engine checks skipped".
 
+**What only the engine can check.** `packages/content` never imports the engine (02 §2), so the parts of a compiler check that need registered generators or rules run in `tools/content-check` with the engine checks (C01, 2026-11-18): that a generator in `appliesTo.generators` is registered (V04, alongside V14), that every key a generator declares exists (V16), that a misconception's `detect.rule` is registered and its `examples` evaluate as declared (V18), and that hint lines never contain the item's answer (V17, on rendered items in V15). The compiler checks the grammar of those ids, and V21 checks a lesson's given params only against constraints whose identifiers are all params (constraints on derived names such as `result` are checked through V15). Two readings the compiler applies: V21 needs an abstract or pictorial template for a skill's test-out (a concrete-only skill fails), and V17 counts each slot as one word.
+
+**Planned ids.** `graph.yaml: plannedIds` lists catalog ids that this content set has not authored yet, so V03 accepts a gap there. Unlike a retired id, a planned id may be authored later; once it is, it must leave the list. The fixture set plans `ADD.02` (it has `ADD.01` and `ADD.03`), and K01 clears the list.
+
 **Coverage gating.** `packages/content/graph.yaml: coverageGrades` lists the grades whose catalog is complete. V20 checks coverage only for those grades. The fixture set uses `[]`, K01 sets `[K, 1]`, and K02 sets `[K, 1, 2, 3]` (plus the grade-4 codes its stretch skills name).
 
 | Id | Check | Severity |
 |---|---|---|
 | V01 | Every YAML file parses and matches its strict Zod schema. Errors name the file, the path and the expected type. | error |
 | V02 | Id formats (02 §4.1); the id prefix matches the file's strand; template id = `<skillId>.t<n>`; ids are unique; no id from `retired.yaml`; no skills in reserved strands (§1.2) | error |
-| V03 | Ids are sequential within each strand and skill, with gaps only for retired ids | error |
+| V03 | Ids are sequential within each strand and skill, with gaps only for retired ids or for catalog ids listed in `graph.yaml: plannedIds` (not authored yet; a planned id that is authored is an error) | error |
 | V04 | References resolve: prerequisites, `encompasses` keys, `related`, `template.skillId`, lesson `templateId`s, misconception `skills`, `remediation` and `appliesTo`, `distractors[].rule`, context ids | error |
 | V05 | Every skill with no prerequisites is in the `graph.yaml` roots allowlist | error |
 | V06 | The prerequisite graph is a DAG (the error prints a cycle path); no skill lists a `PUZ` skill as a prerequisite | error |
@@ -2225,7 +2229,7 @@ Runs the compiler checks in `packages/content` (V01–V12, V16–V21, V23, V24, 
 | V23 | A prerequisite has a higher grade label than its skill | warn |
 | V24 | Building twice from the same input gives byte-identical `dist/` (CI runs the build twice) | error |
 | V25 | For each template and each applicable misconception with `predict`, ≥ 20% of generated items discriminate (the buggy answer differs from the correct one) | warn |
-| V26 | Contexts: every noun has clips; every listed situation is a valid `SituationType` | error |
+| V26 | Contexts: every noun has clips; every listed situation is a valid `SituationType` or `SituationType` family (§4.6) | error |
 
 ### 9.3 Generator hook
 
@@ -2256,6 +2260,8 @@ The C01 fixture set, used by engine, widget and runner work before the curriculu
 `CNT.01`–`CNT.07`, `SUB.01`–`SUB.03`, `CPS.01`–`CPS.03`, `ADD.01`, `ADD.03`
 
 using exactly the five E01 reference generators (`count.set`, `count.sequence`, `subitize.flash`, `bond.parts`, `addsub.facts`) and the formats `tap-count`, `make-set`, `dot-flash`, `numeral-pick`, `number-pad`, `tenframe-fill`, `number-bond`, `number-line-jump`, `hundred-chart`, `order` and `rekenrek`. Each fixture skill has enough templates to pass V08–V10 **for the representations it lists**. Fixture skills may list a subset of their catalog representations (for example, `SUB.03` may list three of its five), and K01 restores the full lists. `graph.yaml: coverageGrades` is `[]` for the fixture. E01 owns the format state models (§6.3) and widget Zod schemas (§9.4 step 3) for these 11 fixture formats; U03–U05 own them for every other format. Three misconceptions come with it: `MC.off-by-one-counting`, `MC.count-start-number`, `MC.count-all-instead`. K01 replaces the fixtures with the full catalog entries for these ids, keeping ids and schemas.
+
+As built (C01): the misconception rows list only the fixture skills, and the three gateway skills (`CNT.03`, `SUB.03`, `CPS.02`) have authored lessons, so the set validates with no warnings. `graph.yaml` plans `ADD.02` (V03). The fixture game data is `game/fixture.yaml` (three materials, six buildings, four residents), and the narration clip inventory is `narration/numbers.yaml` (§8.3). The `dist/` shapes that have no 02 contract (`graph.json`, `standards.json`, `contexts.json`, `manifest.json`) are exported as types from `packages/content` (`CompiledGraph`, `StandardsIndex`, `StoryContext`, `ContentManifest`).
 
 ---
 

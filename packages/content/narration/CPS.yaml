@@ -1,0 +1,22 @@
+# CPS narration (03 §8): skill intros, template prompts and lesson lines owned by the strand.
+sk.CPS.01.intro:
+  text: "A small number can split into two parts."
+sk.CPS.02.intro:
+  text: "Let's split numbers up to ten in different ways."
+sk.CPS.03.intro:
+  text: "Some numbers are partners. Together they make ten!"
+
+tp.CPS.03.t4.prompt:
+  text: "{part} + ? = 10"
+  say: "{part} and what number make ten?"
+
+ls.CPS.02.w1.s1:
+  text: "Here are {whole} counters on the ten-frame."
+  voice: pip
+ls.CPS.02.w1.s2:
+  text: "I move some of them over here."
+  voice: pip
+ls.CPS.02.w1.s3:
+  text: "{whole} is {a} and {b}. Two parts make the whole!"
+  voice: pip
+  style: excited

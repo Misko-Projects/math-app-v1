@@ -7,12 +7,18 @@
     ".": "./src/index.ts"
   },
   "scripts": {
-    "build": "node scripts/build.mjs",
-    "validate": "node scripts/validate.mjs",
+    "build": "tsx src/cli.ts build",
+    "validate": "tsx src/cli.ts validate",
     "sample": "node scripts/sample.mjs"
   },
   "dependencies": {
-    "@number-island/shared": "workspace:*"
+    "@number-island/shared": "workspace:*",
+    "yaml": "^2.9.1",
+    "zod": "^4.6.7"
   },
-  "devDependencies": {}
+  "devDependencies": {
+    "@types/node": "^24.19.2",
+    "fast-check": "^4.10.2",
+    "tsx": "^4.23.15"
+  }
 }

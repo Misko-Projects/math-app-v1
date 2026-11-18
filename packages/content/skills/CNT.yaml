@@ -1,0 +1,67 @@
+# C01 fixture (03 §9.5): catalog rows from 03 §3.3. K01 replaces these with the full entries,
+# keeping ids and schemas.
+strand: CNT
+skills:
+  - id: CNT.01
+    name: Say the counting sequence to 20 and find what comes next
+    kind: concept
+    grade: K
+    standards: { ccss: [K.CC.A.1] }
+    prerequisites: []
+    gateway: false
+    representations: [number-path, hundred-chart, symbols]
+
+  - id: CNT.02
+    name: Count up to 10 objects one by one
+    kind: procedure
+    grade: K
+    standards: { ccss: [K.CC.B.4a] }
+    prerequisites: [CNT.01]
+    gateway: false
+    representations: [objects, ten-frame, dots]
+
+  - id: CNT.03
+    name: The last number counted tells how many
+    kind: concept
+    grade: K
+    standards: { ccss: [K.CC.B.4b] }
+    prerequisites: [CNT.02]
+    gateway: true
+    representations: [objects, ten-frame, dots, symbols]
+
+  - id: CNT.04
+    name: Make a set of N objects (N ≤ 10)
+    kind: procedure
+    grade: K
+    standards: { ccss: [K.CC.B.5] }
+    prerequisites: [CNT.03]
+    gateway: false
+    representations: [objects, fingers, ten-frame]
+
+  - id: CNT.05
+    name: Read and write numerals 0–20; match a numeral to a quantity
+    kind: concept
+    grade: K
+    standards: { ccss: [K.CC.A.3] }
+    prerequisites: [CNT.01, CNT.03]
+    gateway: false
+    representations: [objects, dots, symbols]
+
+  - id: CNT.06
+    name: Count and make sets to 20
+    kind: procedure
+    grade: K
+    standards: { ccss: [K.CC.B.5] }
+    prerequisites: [CNT.04, CNT.05]
+    encompasses: { CNT.04: 1.0, CNT.05: 0.5 }
+    gateway: false
+    representations: [objects, double-ten-frame, symbols]
+
+  - id: CNT.07
+    name: Count forward from any number; say the next number
+    kind: procedure
+    grade: K
+    standards: { ccss: [K.CC.A.2] }
+    prerequisites: [CNT.06]
+    gateway: false
+    representations: [number-path, number-line, hundred-chart, symbols]

@@ -11,6 +11,7 @@ export * from './gamedata';
 export * from './ids';
 export * from './items';
 export * from './learner';
+export * from './narration';
 export * from './planner';
 export * from './profiles';
 export * from './projections';

@@ -1,0 +1,84 @@
+# C01 fixture templates (03 §9.5) on the E01 reference generators count.set and addsub.facts.
+strand: ADD
+templates:
+  - id: ADD.01.t1
+    skillId: ADD.01
+    format: make-set
+    tier: concrete
+    generator: count.set
+    params: { start: { int: [1, 6] }, n: { int: [2, 10] }, mode: add-more }
+    constraints: ["start < n"]
+    difficulty: { base: -0.6 }
+    narration: { prompt: p.add.add-more, hints: [h.add.join, h.count.touch-each] }
+
+  - id: ADD.01.t2
+    skillId: ADD.01
+    format: make-set
+    tier: concrete
+    representation: fingers
+    generator: count.set
+    params: { start: { int: [1, 5] }, n: { int: [2, 10] }, mode: add-more }
+    constraints: ["start < n"]
+    difficulty: { base: -0.6 }
+    narration: { prompt: p.add.add-more, hints: [h.add.fingers] }
+
+  - id: ADD.01.t3
+    skillId: ADD.01
+    format: tenframe-fill
+    tier: concrete
+    generator: addsub.facts
+    params: { a: { int: [1, 9] }, b: { int: [1, 9] }, op: "+", unknown: result, family: any }
+    constraints: ["a + b <= 10"]
+    difficulty: { base: -0.6 }
+    narration: { prompt: p.add.how-many-in-all, hints: [h.add.join, h.count.show-frame] }
+
+  - id: ADD.01.t4
+    skillId: ADD.01
+    format: number-pad
+    tier: abstract
+    generator: addsub.facts
+    params: { a: { int: [0, 9] }, b: { int: [0, 9] }, op: "+", unknown: result, family: any }
+    constraints: ["a + b <= 10"]
+    difficulty: { base: 0.0 }
+    narration: { prompt: p.add.what-is, hints: [h.add.join, h.add.fingers] }
+
+  - id: ADD.03.t1
+    skillId: ADD.03
+    format: number-line-jump
+    tier: concrete
+    representation: number-path
+    generator: addsub.facts
+    params: { a: { int: [4, 9] }, b: { int: [1, 4] }, op: "+", unknown: result, family: count-up }
+    constraints: ["a >= b", "a + b <= 13"]
+    difficulty: { base: -0.6 }
+    narration: { prompt: tp.ADD.03.t1.prompt, hints: [h.add.count-on, h.add.start-big] }
+
+  - id: ADD.03.t2
+    skillId: ADD.03
+    format: tenframe-fill
+    tier: concrete
+    generator: addsub.facts
+    params: { a: { int: [4, 9] }, b: { int: [1, 4] }, op: "+", unknown: result, family: count-up }
+    constraints: ["a >= b", "a + b <= 10"]
+    difficulty: { base: -0.6 }
+    narration: { prompt: p.add.how-many-in-all, hints: [h.add.count-on] }
+
+  - id: ADD.03.t3
+    skillId: ADD.03
+    format: number-line-jump
+    tier: pictorial
+    generator: addsub.facts
+    params: { a: { int: [4, 16] }, b: { int: [1, 4] }, op: "+", unknown: result, family: count-up }
+    constraints: ["a >= b", "a + b <= 20"]
+    difficulty: { base: -0.3 }
+    narration: { prompt: tp.ADD.03.t1.prompt, hints: [h.add.count-on, h.add.start-big] }
+
+  - id: ADD.03.t4
+    skillId: ADD.03
+    format: number-pad
+    tier: abstract
+    generator: addsub.facts
+    params: { a: { int: [1, 16] }, b: { int: [1, 16] }, op: "+", unknown: result, family: count-up }
+    constraints: ["max(a, b) >= 4", "min(a, b) <= 4", "a + b <= 20"]
+    difficulty: { base: 0.0 }
+    narration: { prompt: tp.ADD.03.t4.prompt, hints: [h.add.start-big, h.add.count-on] }
