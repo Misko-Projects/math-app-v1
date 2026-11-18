@@ -7,6 +7,7 @@ import {
   inboundEventEnvelopeSchema,
   isKnownEventType,
   MAX_EVENT_PAYLOAD_BYTES,
+  type SyncClampedEvent,
   type SyncRejection,
 } from '@number-island/shared';
 import type { Db } from '../db/client';
@@ -14,6 +15,7 @@ import { describeZodError } from '../lib/errors';
 import {
   canonId,
   envelopeStringBytes,
+  type HeldEvent,
   insertEvents,
   MAX_EVENT_ENVELOPE_STRING_BYTES,
   type StoredEvent,
@@ -27,6 +29,7 @@ import {
 export interface PushResult {
   accepted: string[];
   rejected: SyncRejection[];
+  clamped: SyncClampedEvent[];
 }
 
 function rawId(raw: unknown): string | null {
@@ -47,6 +50,9 @@ function rawId(raw: unknown): string | null {
  * - Events of a deleted child count as accepted, so devices stop re-pushing them (the tombstone
  *   makes them purge locally), but the insert statement itself skips them.
  * - An id already held by another family: `conflict`.
+ * - `clamped` (02 §5.9 S3) echoes the stored `ts`/`clientTs` of every accepted, stored event whose
+ *   stored time differs from the pushed copy's: this call's clamp (08 §4), or the copy stored by an
+ *   earlier push of that id. It is read back after the insert, so it reports what is stored.
  */
 export async function ingestPushedEvents(
   db: Db,
@@ -104,6 +110,12 @@ export async function ingestPushedEvents(
     valid.map((v) => v.event.id),
   );
   const accepted: string[] = [];
+  // The first accepted copy of each id: the one the clamp echo (S3) compares with the stored row.
+  const firstCopy = new Map<string, AnyEventEnvelope>();
+  const accept = (event: AnyEventEnvelope) => {
+    if (!firstCopy.has(event.id)) firstCopy.set(event.id, event);
+    accepted.push(event.id);
+  };
   const toInsert: StoredEvent[] = [];
   for (const { index, raw, event } of valid) {
     const held = stored.get(event.id);
@@ -113,16 +125,57 @@ export async function ingestPushedEvents(
     }
     if (event.type === 'child.deleted') {
       // Only a relay of the very tombstone this family holds under that id (02 §5.9 S2 b).
-      if (held?.type === 'child.deleted' && held.deletedChild === tombstoneChildOf(event)) {
-        accepted.push(event.id);
-      } else reject(index, raw, 'forbidden', 'Only a parent can delete a child.');
+      if (held !== undefined && isSameEvent(held, event)) accept(event);
+      else reject(index, raw, 'forbidden', 'Only a parent can delete a child.');
       continue;
     }
-    accepted.push(event.id);
+    accept(event);
     if (held === undefined) toInsert.push(toStoredEvent(event, receivedAt));
   }
   await insertEvents(db, familyId, toInsert, receivedAt);
   // An id pushed twice in one call is stored once and reported once. Rejections in request order.
   rejected.sort((x, y) => x.index - y.index);
-  return { accepted: [...new Set(accepted)], rejected };
+  const unique = [...new Set(accepted)];
+  const clamped = await clampedEcho(db, familyId, unique, firstCopy);
+  return { accepted: unique, rejected, clamped };
 }
+
+/**
+ * The stored time of each accepted event whose stored copy differs in `ts` or `clientTs` from the
+ * pushed copy (02 §5.9 S3), in `accepted` order. The row is read back after the insert, so the
+ * times are exactly what other devices pull, and it counts only when it is this very event
+ * (`isSameEvent`): a deleted child's push is not stored, and a row that another event (in this
+ * call or before it) holds under the id is never echoed.
+ */
+async function clampedEcho(
+  db: Db,
+  familyId: string,
+  accepted: string[],
+  firstCopy: Map<string, AnyEventEnvelope>,
+): Promise<SyncClampedEvent[]> {
+  const stored = await storedEventsById(db, accepted);
+  const out: SyncClampedEvent[] = [];
+  for (const id of accepted) {
+    const held = stored.get(id);
+    const sent = firstCopy.get(id);
+    if (held === undefined || held.familyId !== familyId || sent === undefined) continue;
+    if (!isSameEvent(held, sent)) continue;
+    if (held.ts === sent.ts && held.clientTs === (sent.clientTs ?? null)) continue;
+    out.push({ id, ts: held.ts, ...(held.clientTs === null ? {} : { clientTs: held.clientTs }) });
+  }
+  return out;
+}
+
+/**
+ * Whether a stored row is the same event as a pushed copy of its id (copies may differ in time):
+ * the same type and child, or for a tombstone the same deleted child (02 §5.9 S2 b). The one
+ * identity rule both relay acceptance and the clamp echo use.
+ */
+function isSameEvent(held: HeldEvent, e: AnyEventEnvelope): boolean {
+  if (held.type !== e.type) return false;
+  if (e.type === 'child.deleted') return held.deletedChild === tombstoneChildOf(e);
+  return sameChild(held.childId, e.childId);
+}
+
+const sameChild = (a: string | null, b: string | null) =>
+  a === null || b === null ? a === b : canonId(a) === canonId(b);
