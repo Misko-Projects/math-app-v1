@@ -43,8 +43,18 @@ export function planLine(
   if (!entry) return null;
   const problems: string[] = [];
   const segments = splitLine(entry.say ?? entry.text);
-  const staticTexts = segments.filter(
-    (s): s is TextSegment => s.kind === 'text' && s.text.trim() !== '',
+  // Each non-blank static segment, and whether anything is spoken before it in the line.
+  const staticTexts = segments.flatMap((s, i) =>
+    s.kind === 'text' && s.text.trim() !== ''
+      ? [
+          {
+            text: s.text,
+            followsContent: segments
+              .slice(0, i)
+              .some((p) => p.kind === 'slot' || p.text.trim() !== ''),
+          },
+        ]
+      : [],
   );
   const tailIsTerminal = trailingIsTerminal(segments);
   const lastSlotIndex = findLastIndex(entry.clips, isSlotToken);
@@ -55,7 +65,10 @@ export function planLine(
     if (!isSlotToken(clip)) {
       const segment = staticTexts[staticIndex];
       staticIndex += 1;
-      clips?.push({ candidates: [clip], optional: segment ? !isSpoken(segment.text) : false });
+      clips?.push({
+        candidates: [clip],
+        optional: segment ? !isSpoken(segment.text, segment.followsContent) : false,
+      });
       continue;
     }
     const token = parseSlotToken(clip);
@@ -190,11 +203,14 @@ export function splitLine(line: string): Segment[] {
 
 /**
  * True when a static segment has something to say: words, numbers, or a math symbol or blank
- * that 03 §8.4 reads aloud ("plus", "equals", "what number"). A `?` counts as a blank when it
- * stands alone (after a space), and as punctuation when it ends a word or a slot ("{b}?").
+ * that 03 §8.4 reads aloud ("plus", "equals", "what number"). A `?` is a blank when it stands
+ * alone: after a space, or with nothing spoken before it in the line (`followsContent` false). It
+ * is punctuation when it directly ends a word or a slot ("{b}?").
  */
-export function isSpoken(text: string): boolean {
-  return /[\p{L}\p{N}+−×÷=<>_□]/u.test(text) || /\s\?/.test(text) || /(^|\s)-(\s|$)/.test(text);
+export function isSpoken(text: string, followsContent = true): boolean {
+  if (/[\p{L}\p{N}+−×÷=<>_□]/u.test(text)) return true;
+  if (/\s\?/.test(text) || /(^|\s)-(\s|$)/.test(text)) return true;
+  return !followsContent && /^\s*\?/.test(text);
 }
 
 /** True when nothing but terminal punctuation (or nothing) follows the last slot. */

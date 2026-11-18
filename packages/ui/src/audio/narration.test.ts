@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { planLine, planPhrases, speakSymbols, splitLine } from './narration';
+import { isSpoken, planLine, planPhrases, speakSymbols, splitLine } from './narration';
 import { narrationFixture as N } from './testing/narrationFixture';
 
 const ids = (plan: ReturnType<typeof planLine>) =>
@@ -124,6 +124,26 @@ describe('planPhrases (07 §2 phrases mode)', () => {
 
   it('has no clips when nothing is left to say', () => {
     expect(planPhrases(N, []).clips).toBeNull();
+  });
+});
+
+describe('isSpoken (which static clips are required)', () => {
+  it.each([
+    [' + ', true, true],
+    [' = ?', true, true],
+    [' - ', true, true],
+    ['?', false, true], // a line that is only a blank: "what number"
+    ['?', true, false], // "{b}?": terminal punctuation
+    ['!', true, false],
+    ['.', false, false],
+    [' plus ', true, true],
+  ])('%j (follows content: %s) → %s', (text, follows, expected) => {
+    expect(isSpoken(text, follows)).toBe(expected);
+  });
+
+  it('marks a lone "?" line required but keeps "{b}?" optional', () => {
+    expect(planLine(N, 'p.blank', {})?.clips?.[0]?.optional).toBe(false);
+    expect(planLine(N, 'tp.ADD.08.t1.prompt', { a: 1, b: 2 })?.clips?.at(-1)?.optional).toBe(true);
   });
 });
 

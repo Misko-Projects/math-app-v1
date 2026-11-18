@@ -692,7 +692,7 @@ describe('listeners that cancel', () => {
     expect(manager.speaking).toBe(false);
   });
 
-  it('a line cancelled from clip-start stops the scheduled sources', async () => {
+  it('a line cancelled from clip-start never sounds: unstarted clips stop before they start', async () => {
     const { manager, ctx } = await setup();
     manager.subscribe((e) => {
       if (e.type === 'clip-start') manager.stop();
@@ -702,7 +702,23 @@ describe('listeners that cancel', () => {
     await line;
     const sources = clipSources(ctx);
     expect(sources.length).toBeGreaterThan(0);
-    expect(sources.every((s) => s.stoppedAt !== null)).toBe(true);
+    for (const s of sources) {
+      expect(s.stoppedAt).not.toBeNull();
+      expect(s.stoppedAt ?? Number.POSITIVE_INFINITY).toBeLessThanOrEqual(s.startedAt ?? 0);
+    }
+  });
+
+  it('a clip already playing still fades out when cancelled', async () => {
+    const { manager, ctx } = await setup();
+    void manager.say('tp.ADD.08.t1.prompt', { a: 1, b: 2 });
+    await flush();
+    ctx.advance(0.5); // the first clip is playing; the rest are still in the future
+    manager.cancelSpeech();
+    const [playing, ...future] = clipSources(ctx);
+    expect(playing?.stoppedAt).toBeCloseTo(0.5 + CANCEL_FADE_SEC, 9);
+    for (const s of future) {
+      expect(s.stoppedAt ?? Number.POSITIVE_INFINITY).toBeLessThanOrEqual(s.startedAt ?? 0);
+    }
   });
 
   it('a speech line cancelled from line-start is never spoken', async () => {
@@ -776,6 +792,94 @@ describe('dispose is terminal', () => {
     expect(contextsCreated()).toBe(1);
     expect(manager.state).toBe('unavailable');
     expect(warnings.length).toBe(before);
+  });
+});
+
+describe('review round 2 hardening', () => {
+  it('a line-end listener cannot restart narration while dispose() runs', async () => {
+    const { manager, speech } = await setup({ manifest: null });
+    void manager.say('p.count.how-many');
+    await flush();
+    let requested: Promise<void> | null = null;
+    manager.subscribe((e) => {
+      if (e.type === 'line-end') requested = manager.sayText('Are you still there?');
+    });
+    await manager.dispose();
+    await flush();
+    expect(requested).not.toBeNull();
+    await requested;
+    expect(speech.lines.map((l) => l.text)).toEqual(['How many fish?']);
+    expect(manager.speaking).toBe(false);
+  });
+
+  it('a delayed Web Speech start that throws settles the line and lets feedback run', async () => {
+    const { manager, ctx, speech, timers } = await setup({
+      manifest: fixtureManifest(['p.count.how-many#0']),
+    });
+    const { duck } = buses(ctx);
+    void manager.say('game.pip.welcome');
+    await flush();
+    ctx.advance(0.2);
+    timers.pending.clear();
+    vi.spyOn(speech, 'speak').mockImplementationOnce(() => {
+      throw new Error('synthesis-failed');
+    });
+    const prompt = manager.say('p.count.how-many'); // Web Speech, delayed by the fade
+    void manager.say('fb.correct.1');
+    await flush();
+    timers.fireAll(); // the fade timer: speak() throws
+    await prompt;
+    await flush();
+    expect(labels(clipSources(ctx)).at(-1)).toBe('fb.correct.1#0');
+    ctx.advance(5);
+    await flush();
+    expect(duck.gain.lastTarget()).toBe(1);
+  });
+
+  it('asks the narration loader again after a stalled first request', async () => {
+    let calls = 0;
+    const { manager, ctx, timers } = await setup({
+      narration: () => {
+        calls += 1;
+        return calls === 1 ? new Promise(() => {}) : Promise.resolve(narrationFixture);
+      },
+    });
+    const first = manager.say('p.count.how-many');
+    await flush();
+    timers.fireAll();
+    await first;
+    void manager.say('p.count.how-many');
+    await flush();
+    expect(calls).toBe(2);
+    expect(labels(clipSources(ctx))).toEqual(['p.count.how-many#0']);
+  });
+
+  it('asks the manifest loader again after a stalled first request', async () => {
+    let calls = 0;
+    const { manager, ctx, speech, timers } = await setup({
+      manifest: () => {
+        calls += 1;
+        return calls === 1 ? new Promise(() => {}) : Promise.resolve(fixtureManifest());
+      },
+    });
+    void manager.say('p.count.how-many');
+    await flush();
+    timers.fireAll();
+    await flush();
+    speech.lines[0]?.finish();
+    await flush();
+    void manager.say('p.count.how-many');
+    await flush();
+    expect(calls).toBe(2);
+    expect(labels(clipSources(ctx))).toEqual(['p.count.how-many#0']);
+  });
+
+  it('a line that is only a "?" blank needs its clip ("what number")', async () => {
+    const { manager, ctx, speech } = await setup({ manifest: fixtureManifest(['p.blank#0']) });
+    void manager.say('p.blank');
+    await flush();
+    expect(clipSources(ctx)).toHaveLength(0);
+    expect(speech.lines.map((l) => l.text)).toEqual(['what number']);
   });
 });
 

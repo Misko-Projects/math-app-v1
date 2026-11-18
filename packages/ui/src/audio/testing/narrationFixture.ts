@@ -76,6 +76,7 @@ const lines: Record<string, CompiledNarrationEntry> = {
     say: 'Fill the shell to make ten. How many is {a} plus {b}?',
     clips: ['tp.ADD.08.t1.prompt#0', '$a', 'tp.ADD.08.t1.prompt#1', '$b', 'tp.ADD.08.t1.prompt#2'],
   },
+  'p.blank': { text: '?', clips: ['p.blank#0'] },
   'p.add.what-is': {
     text: '{a} + {b} = ?',
     clips: ['$a', 'p.add.what-is#0', '$b', 'p.add.what-is#1'],
