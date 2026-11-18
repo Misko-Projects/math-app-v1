@@ -1,0 +1,101 @@
+# C01 fixture templates (03 §9.5) on the E01 reference generator subitize.flash.
+strand: SUB
+templates:
+  - id: SUB.01.t1
+    skillId: SUB.01
+    format: dot-flash
+    tier: pictorial
+    generator: subitize.flash
+    params: { n: { int: [1, 4] }, arrangement: { choice: [dice, scatter] } }
+    difficulty: { base: -0.3 }
+    narration: { prompt: p.subitize.how-many, hints: [h.subitize.look-again] }
+
+  - id: SUB.01.t2
+    skillId: SUB.01
+    format: dot-flash
+    tier: pictorial
+    representation: fingers
+    generator: subitize.flash
+    params: { n: { int: [1, 4] }, arrangement: fingers }
+    difficulty: { base: -0.3 }
+    narration: { prompt: p.subitize.how-many-fingers, hints: [h.subitize.look-again] }
+
+  - id: SUB.01.t3
+    skillId: SUB.01
+    format: numeral-pick
+    tier: pictorial
+    representation: objects
+    generator: subitize.flash
+    params: { n: { int: [1, 4] }, arrangement: scatter }
+    difficulty: { base: -0.6 }
+    narration: { prompt: p.subitize.how-many, hints: [h.subitize.look-again] }
+
+  - id: SUB.02.t1
+    skillId: SUB.02
+    format: make-set
+    tier: concrete
+    representation: fingers
+    generator: subitize.flash
+    params: { n: { int: [1, 5] }, arrangement: fingers }
+    difficulty: { base: -0.6 }
+    narration: { prompt: p.count.show-fingers, hints: [h.subitize.five-fingers] }
+
+  - id: SUB.02.t2
+    skillId: SUB.02
+    format: dot-flash
+    tier: pictorial
+    representation: five-frame
+    generator: subitize.flash
+    params: { n: { int: [1, 5] }, arrangement: five-frame }
+    difficulty: { base: -0.3 }
+    narration:
+      { prompt: p.subitize.how-many, hints: [h.subitize.look-again, h.subitize.look-groups] }
+
+  - id: SUB.02.t3
+    skillId: SUB.02
+    format: numeral-pick
+    tier: pictorial
+    representation: dots
+    generator: subitize.flash
+    params: { n: { int: [1, 5] }, arrangement: dice }
+    difficulty: { base: -0.6 }
+    narration: { prompt: p.subitize.how-many, hints: [h.subitize.look-groups] }
+
+  - id: SUB.03.t1
+    skillId: SUB.03
+    format: tenframe-fill
+    tier: concrete
+    generator: subitize.flash
+    params: { n: { int: [6, 10] }, arrangement: ten-frame }
+    difficulty: { base: -0.6 }
+    narration: { prompt: p.count.make-n, hints: [h.subitize.five-and, h.count.show-frame] }
+
+  - id: SUB.03.t2
+    skillId: SUB.03
+    format: dot-flash
+    tier: pictorial
+    representation: fingers
+    generator: subitize.flash
+    params: { n: { int: [6, 10] }, arrangement: fingers }
+    # Tuned from template-stats (E01): 6–10 dots in two groups carry ~1.5 of features.
+    difficulty: { base: -1.5 }
+    narration: { prompt: p.subitize.how-many, hints: [h.subitize.five-and] }
+
+  - id: SUB.03.t3
+    skillId: SUB.03
+    format: dot-flash
+    tier: pictorial
+    generator: subitize.flash
+    params: { n: { int: [6, 10] }, arrangement: { choice: [ten-frame, groups] } }
+    difficulty: { base: -1.5 } # tuned from template-stats (E01)
+    narration: { prompt: p.subitize.how-many, hints: [h.subitize.look-groups, h.subitize.five-and] }
+
+  - id: SUB.03.t4
+    skillId: SUB.03
+    format: number-pad
+    tier: abstract
+    representation: symbols
+    generator: subitize.flash
+    params: { n: { int: [6, 10] }, arrangement: ten-frame }
+    difficulty: { base: 0.0 }
+    narration: { prompt: tp.SUB.03.t4.prompt, hints: [h.subitize.five-and] }

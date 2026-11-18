@@ -272,9 +272,30 @@ export const syncRejectionSchema = z.object({
 });
 assertType<Equals<z.infer<typeof syncRejectionSchema>, SyncRejection>>(true);
 
+/**
+ * The server's stored time for a pushed event whose stored copy differs in time from the pushed
+ * one (02 §5.9 S3): normally the 08 §4 clamp, which moves a `ts` more than 24 h ahead to the
+ * server's receive time and keeps the device's time as `clientTs`. The pull never returns a
+ * device its own events, so this echo is how the pushing device learns the server's `ts`. The
+ * client replaces its local copy's `ts` and `clientTs` with these values and rebuilds its
+ * projections.
+ */
+export interface SyncClampedEvent {
+  id: EventId;
+  ts: number; // the stored (server-bounded) ts that folds order by
+  clientTs?: number; // the stored clientTs; absent when the stored copy has none
+}
+export const syncClampedEventSchema = z.object({
+  id: eventIdSchema,
+  ts: tsSchema,
+  clientTs: tsSchema.optional(),
+});
+assertType<Equals<z.infer<typeof syncClampedEventSchema>, SyncClampedEvent>>(true);
+
 export interface SyncResponse {
   accepted: EventId[]; // includes duplicates already present and a deleted child's events (not stored, 02 §5.9 S2)
   rejected: SyncRejection[]; // pushed events refused permanently, ordered by index (02 §5.9 S1); [] when none
+  clamped: SyncClampedEvent[]; // accepted events stored with another ts/clientTs than pushed (02 §5.9 S3); [] when none
   events: AnyEventEnvelope[]; // events since cursor from OTHER devices, ≤ 1000, ordered by server seq
   cursor: string; // opaque (server sequence)
   more: boolean;
@@ -284,6 +305,7 @@ export interface SyncResponse {
 export const syncResponseSchema = z.object({
   accepted: z.array(eventIdSchema),
   rejected: z.array(syncRejectionSchema).max(SYNC_MAX_PUSH_EVENTS),
+  clamped: z.array(syncClampedEventSchema).max(SYNC_MAX_PUSH_EVENTS),
   events: z.array(anyEventEnvelopeSchema).max(SYNC_MAX_PULL_EVENTS),
   cursor: z.string().min(1),
   more: z.boolean(),

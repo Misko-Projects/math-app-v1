@@ -1,0 +1,137 @@
+# C01 fixture game data (02 §5.8 GameData): a few materials, buildings and residents so engine,
+# planner and UI work can start before U02 authors the full island (05 §4–§6, §10).
+# U02 replaces or extends this file; sections may be split across several game/*.yaml files
+# (lists concatenate; `island` is defined once).
+
+materials:
+  - { id: stone, name: game.material.stone, art: material/stone }
+  - { id: light, name: game.material.light, art: material/light }
+  - { id: plank, name: game.material.plank, art: material/plank }
+
+buildings:
+  - id: storehouse
+    kind: storehouse
+    art: building/storehouse
+    footprint: [2, 2]
+    unlock: { start: true }
+    levels:
+      - { level: 1, recipe: {}, unlocks: [] }
+  - id: road-crew
+    kind: workshop
+    workshopId: road-crew
+    art: building/road-crew
+    footprint: [2, 1]
+    unlock: { start: true }
+    levels:
+      - { level: 1, recipe: {}, unlocks: [] }
+      - { level: 2, recipe: { stone: 10 }, unlocks: [decor:shell-bench] }
+  - id: lantern-grove
+    kind: workshop
+    workshopId: lantern-grove
+    art: building/lantern-grove
+    footprint: [2, 2]
+    unlock: { start: true }
+    levels:
+      - { level: 1, recipe: {}, unlocks: [] }
+  - id: shell-cottage
+    kind: home
+    art: building/shell-cottage
+    footprint: [1, 1]
+    unlock: { start: true }
+    levels:
+      - { level: 1, recipe: { stone: 5, light: 3 }, unlocks: [resident:tuck] }
+      - { level: 2, recipe: { stone: 8, light: 5 }, unlocks: [] }
+  - id: ten-boat-dock
+    kind: workshop
+    workshopId: ten-boat-dock
+    art: building/ten-boat-dock
+    footprint: [3, 1]
+    unlock: { building: shell-cottage, level: 1 }
+    levels:
+      - { level: 1, recipe: { stone: 6, light: 4 }, unlocks: [] }
+  - id: lighthouse
+    kind: project
+    art: building/lighthouse
+    footprint: [2, 2]
+    unlock: { all: [{ building: ten-boat-dock }, { skill: CPS.03, atLeast: practiced }] }
+    shared: true
+    levels:
+      - { level: 1, recipe: { stone: 20, light: 20, plank: 20 }, unlocks: [decor:lantern-string] }
+
+residents:
+  - id: nib
+    name: Nib
+    species: hermit crab
+    number: 1
+    palette: coral
+    lines: [res.nib.hello]
+    affinity: [road-crew]
+    arrival: { via: start, unlock: { start: true } }
+    starterBuddy: true
+  - id: tuck
+    name: Tuck
+    species: snail
+    number: 2
+    palette: moss
+    lines: [res.tuck.hello]
+    affinity: [lantern-grove]
+    arrival: { via: home, home: shell-cottage, unlock: { building: shell-cottage } }
+    starterBuddy: true
+  - id: marlo
+    name: Marlo
+    species: starfish
+    number: 5
+    palette: sunset
+    lines: [res.marlo.hello]
+    affinity: [ten-boat-dock]
+    arrival: { via: ferry, unlock: { building: ten-boat-dock } }
+    starterBuddy: false
+  - id: tenley
+    name: Tenley
+    species: turtle
+    number: 10
+    family: tens
+    palette: sea-glass
+    lines: [res.tenley.hello]
+    affinity: [ten-boat-dock]
+    arrival: { via: ferry, unlock: { skill: CPS.03, atLeast: practiced } }
+    starterBuddy: false
+
+decor:
+  - { id: shell-bench, art: decor/shell-bench, footprint: [1, 1], source: starter }
+  - { id: lantern-string, art: decor/lantern-string, footprint: [2, 1], source: festival }
+
+outfits:
+  - { option: hat-captain, unlock: { masteredCount: 5 } }
+
+island:
+  grid: [12, 8]
+  rings:
+    - plots: [[5, 3], [6, 3], [5, 4], [6, 4], [4, 3], [7, 3], [4, 4], [7, 4]]
+      unlock: { start: true }
+    - plots: [[3, 2], [8, 2], [3, 5], [8, 5]]
+      unlock: { roadLength: 20 }
+  road:
+    - { n: 1, plot: [0, 7] }
+    - { n: 2, plot: [1, 7] }
+    - { n: 3, plot: [2, 7] }
+    - { n: 4, plot: [3, 7] }
+    - { n: 5, plot: [4, 7] }
+    - { n: 6, plot: [5, 7] }
+    - { n: 7, plot: [6, 7] }
+    - { n: 8, plot: [7, 7] }
+    - { n: 9, plot: [8, 7] }
+    - { n: 10, plot: [9, 7] }
+    - { n: 11, plot: [10, 7] }
+    - { n: 12, plot: [11, 7] }
+    - { n: 13, plot: [11, 6] }
+    - { n: 14, plot: [10, 6] }
+    - { n: 15, plot: [9, 6] }
+    - { n: 16, plot: [8, 6] }
+    - { n: 17, plot: [7, 6] }
+    - { n: 18, plot: [6, 6] }
+    - { n: 19, plot: [5, 6] }
+    - { n: 20, plot: [4, 6] }
+
+festivals:
+  - { id: lantern-night, kind: festival, everyDaysOfPlay: 7, rewardDecor: [lantern-string] }

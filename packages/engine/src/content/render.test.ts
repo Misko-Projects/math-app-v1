@@ -34,6 +34,7 @@ const NARRATION: NarrationJson = {
   'shape.triangle.many': line('triangles'),
   'res.pip': line('Pip'),
   'word.more': line('more'),
+  'ord.2': line('second'),
 };
 
 const r = (key: string, vars: Record<string, string | number>) => render(key, vars, NARRATION);
@@ -54,9 +55,14 @@ describe('render: numbers', () => {
     expect(r('l.num', { n })).toBe(`You have ${want} shells.`);
   });
 
-  it('num and ord slots group digits too; digits never does', () => {
+  it('num slots group digits; digits never does', () => {
     expect(r('l.typed-num', { n: 2500, k: 3 })).toBe('2,500 and 3');
     expect(r('l.digits', { n: 12345 })).toBe('Code 12345');
+  });
+
+  it('an ord slot shows the position word of its ord.<n> clip, else the numeral', () => {
+    expect(r('l.typed-num', { n: 1, k: 2 })).toBe('1 and second');
+    expect(r('l.typed-num', { n: 1, k: 3 })).toBe('1 and 3');
   });
 
   it('a string var in an untyped slot is shown as is', () => {

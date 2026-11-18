@@ -1,0 +1,234 @@
+# C01 fixture templates (03 §9.5) on the E01 reference generators count.sequence and count.set.
+# Param names follow 03 §5.6; E01's generators declare them (V13 in tools/content-check).
+strand: CNT
+templates:
+  - id: CNT.01.t1
+    skillId: CNT.01
+    format: hundred-chart
+    tier: pictorial
+    generator: count.sequence
+    params: { start: { int: [1, 19] }, step: 1, dir: 1, length: 1 }
+    constraints: ["last <= 20"]
+    difficulty: { base: -0.3 }
+    narration: { prompt: p.count.what-next, hints: [h.sequence.say-it, h.sequence.look-chart] }
+
+  - id: CNT.01.t2
+    skillId: CNT.01
+    format: numeral-pick
+    tier: pictorial
+    representation: number-path
+    generator: count.sequence
+    params: { start: { int: [1, 19] }, step: 1, dir: 1, length: 1 }
+    constraints: ["last <= 20"]
+    difficulty: { base: -0.6 }
+    narration: { prompt: p.count.what-next, hints: [h.sequence.say-it, h.sequence.look-path] }
+
+  - id: CNT.01.t3
+    skillId: CNT.01
+    format: order
+    tier: abstract
+    generator: count.sequence
+    params: { start: { int: [1, 16] }, step: 1, dir: 1, length: { int: [3, 4] } }
+    constraints: ["last <= 20"]
+    # Tuned from template-stats (E01): ordering 4–5 numbers carries ~1.1 of format features.
+    difficulty: { base: -1.1 }
+    narration: { prompt: p.count.order, hints: [h.sequence.say-it] }
+
+  - id: CNT.02.t1
+    skillId: CNT.02
+    format: tap-count
+    tier: concrete
+    generator: count.set
+    params:
+      { n: { int: [1, 10] }, mode: how-many, layout: { choice: [line, scatter], weights: [2, 1] } }
+    difficulty: { base: -0.6 }
+    expectedLatencyMs: 12000
+    narration: { prompt: p.count.how-many, hints: [h.count.touch-each, h.count.last-number] }
+
+  - id: CNT.02.t2
+    skillId: CNT.02
+    format: make-set
+    tier: concrete
+    representation: ten-frame
+    generator: count.set
+    params: { n: { int: [1, 10] }, mode: make }
+    difficulty: { base: -0.6 }
+    narration: { prompt: p.count.make-n, hints: [h.count.touch-each, h.count.show-frame] }
+
+  - id: CNT.02.t3
+    skillId: CNT.02
+    format: tap-count
+    tier: pictorial
+    representation: dots
+    generator: count.set
+    params: { n: { int: [1, 10] }, mode: how-many, layout: scatter }
+    difficulty: { base: -0.3 }
+    narration: { prompt: p.count.how-many, hints: [h.count.touch-each, h.count.last-number] }
+
+  - id: CNT.03.t1
+    skillId: CNT.03
+    format: tap-count
+    tier: concrete
+    generator: count.set
+    params: { n: { int: [3, 10] }, mode: how-many, layout: { choice: [line, scatter, circle] } }
+    difficulty: { base: -0.6 }
+    narration: { prompt: p.count.how-many, hints: [h.count.touch-each, h.count.last-number] }
+
+  - id: CNT.03.t2
+    skillId: CNT.03
+    format: tap-count
+    tier: pictorial
+    representation: ten-frame
+    generator: count.set
+    params: { n: { int: [3, 10] }, mode: how-many, layout: ten-frame }
+    difficulty: { base: -0.3 }
+    narration: { prompt: p.count.how-many, hints: [h.count.last-number, h.count.show-frame] }
+
+  - id: CNT.03.t3
+    skillId: CNT.03
+    format: numeral-pick
+    tier: pictorial
+    representation: dots
+    generator: count.set
+    params: { n: { int: [3, 10] }, mode: how-many, layout: scatter }
+    difficulty: { base: -0.6 }
+    narration: { prompt: p.count.how-many, hints: [h.count.last-number] }
+    distractors:
+      - { rule: MC.off-by-one-counting }
+
+  - id: CNT.03.t4
+    skillId: CNT.03
+    format: number-pad
+    tier: abstract
+    representation: symbols
+    generator: count.set
+    params: { n: { int: [3, 10] }, mode: how-many, layout: line }
+    difficulty: { base: 0.0 }
+    narration: { prompt: p.count.how-many, hints: [h.count.touch-each, h.count.last-number] }
+
+  - id: CNT.04.t1
+    skillId: CNT.04
+    format: make-set
+    tier: concrete
+    generator: count.set
+    params: { n: { int: [1, 10] }, mode: make }
+    difficulty: { base: -0.6 }
+    narration: { prompt: p.count.make-n, hints: [h.count.touch-each, h.count.last-number] }
+
+  - id: CNT.04.t2
+    skillId: CNT.04
+    format: make-set
+    tier: concrete
+    representation: fingers
+    generator: count.set
+    params: { n: { int: [1, 10] }, mode: make }
+    difficulty: { base: -0.4 }
+    narration: { prompt: p.count.show-fingers, hints: [h.count.touch-each] }
+
+  - id: CNT.04.t3
+    skillId: CNT.04
+    format: tenframe-fill
+    tier: pictorial
+    generator: count.set
+    params: { n: { int: [1, 10] }, mode: make }
+    difficulty: { base: -0.6 }
+    narration: { prompt: p.count.make-n, hints: [h.count.show-frame, h.count.last-number] }
+
+  - id: CNT.05.t1
+    skillId: CNT.05
+    format: tap-count
+    tier: concrete
+    generator: count.set
+    params: { n: { int: [0, 20] }, mode: how-many, layout: line }
+    difficulty: { base: -0.6 }
+    narration: { prompt: p.count.how-many, hints: [h.count.touch-each, h.count.last-number] }
+
+  - id: CNT.05.t2
+    skillId: CNT.05
+    format: numeral-pick
+    tier: pictorial
+    representation: dots
+    generator: count.set
+    params: { n: { int: [0, 20] }, mode: how-many, layout: { choice: [dice, ten-frame] } }
+    difficulty: { base: -0.6 }
+    narration: { prompt: p.count.find-numeral, hints: [h.count.last-number] }
+
+  - id: CNT.05.t3
+    skillId: CNT.05
+    format: number-pad
+    tier: abstract
+    generator: count.set
+    params: { n: { int: [0, 20] }, mode: how-many, layout: line }
+    difficulty: { base: 0.0 }
+    narration: { prompt: p.count.write-numeral, hints: [h.count.touch-each, h.count.last-number] }
+
+  - id: CNT.06.t1
+    skillId: CNT.06
+    format: make-set
+    tier: concrete
+    generator: count.set
+    params: { n: { int: [11, 20] }, mode: make }
+    # Tuned from template-stats (E01): teen sizes carry ~1.7 of features; the skill's typical
+    # item sits at d = 0 (03 §5.4).
+    difficulty: { base: -1.6 }
+    narration: { prompt: p.count.make-n, hints: [h.count.touch-each, h.count.show-frame] }
+
+  - id: CNT.06.t2
+    skillId: CNT.06
+    format: tap-count
+    tier: pictorial
+    representation: double-ten-frame
+    generator: count.set
+    params: { n: { int: [11, 20] }, mode: how-many, layout: double-ten-frame }
+    difficulty: { base: -1.8 } # tuned from template-stats (E01)
+    narration: { prompt: p.count.how-many, hints: [h.count.show-frame, h.count.last-number] }
+
+  - id: CNT.06.t3
+    skillId: CNT.06
+    format: number-pad
+    tier: abstract
+    generator: count.set
+    params: { n: { int: [11, 20] }, mode: how-many, layout: { choice: [line, circle, array] } }
+    difficulty: { base: -1.8 } # tuned from template-stats (E01)
+    narration: { prompt: p.count.how-many, hints: [h.count.touch-each, h.count.last-number] }
+
+  - id: CNT.07.t1
+    skillId: CNT.07
+    format: number-line-jump
+    tier: concrete
+    representation: number-path
+    generator: count.sequence
+    params: { start: { int: [1, 19] }, step: 1, dir: 1, length: 1 }
+    constraints: ["last <= 20"]
+    difficulty: { base: -0.6 }
+    narration: { prompt: tp.CNT.07.t1.prompt, hints: [h.sequence.look-path, h.sequence.say-it] }
+
+  - id: CNT.07.t2
+    skillId: CNT.07
+    format: number-line-jump
+    tier: pictorial
+    generator: count.sequence
+    params: { start: { int: [1, 49] }, step: 1, dir: 1, length: { int: [1, 3] } }
+    constraints: ["last <= 50"]
+    difficulty: { base: -0.3 }
+    narration: { prompt: tp.CNT.07.t2.prompt, hints: [h.sequence.say-it] }
+
+  - id: CNT.07.t3
+    skillId: CNT.07
+    format: hundred-chart
+    tier: pictorial
+    generator: count.sequence
+    params: { start: { int: [1, 98] }, step: 1, dir: 1, length: 1 }
+    constraints: ["last <= 99"]
+    difficulty: { base: -0.3 }
+    narration: { prompt: p.count.what-next, hints: [h.sequence.look-chart, h.sequence.say-it] }
+
+  - id: CNT.07.t4
+    skillId: CNT.07
+    format: numeral-pick
+    tier: abstract
+    generator: count.sequence
+    params: { start: { int: [1, 98] }, step: 1, dir: 1, length: 1 }
+    constraints: ["last <= 99"]
+    difficulty: { base: -0.3 }
+    narration: { prompt: p.count.what-next, hints: [h.sequence.say-it] }

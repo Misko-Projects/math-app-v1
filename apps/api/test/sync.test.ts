@@ -273,6 +273,148 @@ describe('POST /api/sync: clock skew (08 §4)', () => {
   });
 });
 
+describe('POST /api/sync: clamp echo (02 §5.9 S3)', () => {
+  const HOUR = 3600_000;
+
+  it('echoes the stored ts and clientTs of a clamped push, and only of that event', async () => {
+    const { family, a } = await twoDevices();
+    const future = Date.now() + 48 * HOUR;
+    const far = roadEvent(family.familyId, a.id, { ts: future });
+    const near = roadEvent(family.familyId, a.id, { ts: Date.now() + 23 * HOUR });
+    const before = Date.now();
+    const res = syncResponseSchema.parse(
+      await (await sync(a.token, { events: [near, far] })).json(),
+    );
+    const after = Date.now();
+    expect(res.accepted).toEqual([near.id, far.id]);
+    expect(res.clamped).toEqual([{ id: far.id, ts: expect.any(Number), clientTs: future }]);
+    const [echo] = res.clamped;
+    expect(echo?.ts).toBeGreaterThanOrEqual(before);
+    expect(echo?.ts).toBeLessThanOrEqual(after);
+  });
+
+  it('is empty when nothing was clamped', async () => {
+    const { family, a } = await twoDevices();
+    const res = await syncOk(a.token, { events: [roadEvent(family.familyId, a.id)] });
+    expect(res.clamped).toEqual([]);
+    expect((await syncOk(a.token)).clamped).toEqual([]); // a pull-only call
+  });
+
+  it('gives the origin device the same copy another device pulls (convergence)', async () => {
+    const { family, a, b } = await twoDevices();
+    const far = roadEvent(family.familyId, a.id, { ts: Date.now() + 48 * HOUR });
+    const res = await syncOk(a.token, { events: [far] });
+    const [echo] = res.clamped;
+    if (!echo) throw new Error('expected a clamp echo');
+    // The origin device applies the echo to its local copy ...
+    const { clientTs: _none, ...rest } = far;
+    const local = {
+      ...rest,
+      ts: echo.ts,
+      ...(echo.clientTs === undefined ? {} : { clientTs: echo.clientTs }),
+    };
+    // ... and ends up with exactly the copy the second device pulls.
+    const [pulled] = (await syncOk(b.token)).events;
+    expect(pulled).toEqual(local);
+  });
+
+  it('echoes again when the unclamped copy is re-pushed (a lost response), then stops', async () => {
+    const { family, a } = await twoDevices();
+    const far = roadEvent(family.familyId, a.id, { ts: Date.now() + 48 * HOUR });
+    const first = await syncOk(a.token, { events: [far] });
+    const second = await syncOk(a.token, { events: [far], cursor: first.cursor });
+    expect(second.accepted).toEqual([far.id]);
+    expect(second.clamped).toEqual(first.clamped); // the stored copy, not a second clamp
+    // Once the device holds the stored copy, re-pushing it needs no echo.
+    const [echo] = first.clamped;
+    if (!echo) throw new Error('expected a clamp echo');
+    const stored = { ...far, ts: echo.ts, clientTs: echo.clientTs };
+    expect((await syncOk(a.token, { events: [stored] })).clamped).toEqual([]);
+  });
+
+  it('echoes the stored copy when an id is pushed again with another ts', async () => {
+    const { family, a } = await twoDevices();
+    const e = roadEvent(family.familyId, a.id, { ts: 1_763_000_000_000 });
+    await syncOk(a.token, { events: [e] });
+    const moved = { ...e, ts: 1_763_000_500_000 };
+    const res = await syncOk(a.token, { events: [moved] });
+    expect(res.accepted).toEqual([e.id]);
+    expect(res.clamped).toEqual([{ id: e.id, ts: e.ts }]); // stored copy has no clientTs
+    // Two copies of one id in one push: the first is stored, the echo corrects the second.
+    const dup = roadEvent(family.familyId, a.id, { ts: 1_763_000_000_000 });
+    const both = await syncOk(a.token, { events: [dup, { ...dup, ts: 1_763_000_900_000 }] });
+    expect(both.accepted).toEqual([dup.id]);
+    expect(both.clamped).toEqual([]); // the stored copy equals the first pushed copy
+  });
+
+  it('keeps a relayed clientTs and echoes the re-clamped ts', async () => {
+    const { family, a } = await twoDevices();
+    const original = 1_700_000_000_000;
+    const relayed = roadEvent(family.familyId, a.id, {
+      ts: Date.now() + 48 * HOUR,
+      clientTs: original,
+    });
+    const res = await syncOk(a.token, { events: [relayed] });
+    expect(res.clamped).toEqual([{ id: relayed.id, ts: expect.any(Number), clientTs: original }]);
+    expect(res.clamped[0]?.ts).toBeLessThanOrEqual(Date.now());
+  });
+
+  it("leaves out a deleted child's events, which are accepted but not stored", async () => {
+    const { family, a, b } = await twoDevices();
+    const child = profileFor(family.familyId);
+    await syncOk(a.token, { profiles: [child] });
+    const del = await api(`/api/children/${child.id}`, { method: 'DELETE', cookie: family.cookie });
+    expect(del.status).toBe(200);
+    const late = roadEvent(family.familyId, a.id, {
+      childId: child.id,
+      ts: Date.now() + 48 * HOUR,
+    });
+    const res = await syncOk(a.token, { events: [late] });
+    expect(res.accepted).toEqual([late.id]);
+    expect(res.clamped).toEqual([]);
+    // Same when the id is already held by another (surviving) event of the family: that row is
+    // not this event's stored copy, so its time is never echoed for it.
+    const survivor = roadEvent(family.familyId, a.id, { ts: 1_763_000_000_000 });
+    await syncOk(a.token, { events: [survivor] });
+    const reused = { ...late, id: survivor.id, ts: 1_763_000_500_000 };
+    const again = await syncOk(a.token, { events: [reused] });
+    expect(again.accepted).toEqual([survivor.id]);
+    expect(again.clamped).toEqual([]);
+    // And within one push: the deleted child's copy is skipped, a family-level event under the
+    // same unused id is stored, and its time is not echoed for the skipped copy.
+    const sharedId = roadEvent(family.familyId, a.id).id;
+    const skipped = { ...late, id: sharedId, ts: 1_763_000_000_000 };
+    const kept = roadEvent(family.familyId, a.id, { id: sharedId, ts: 1_763_000_700_000 });
+    const mixed = await syncOk(a.token, { events: [skipped, kept] });
+    expect(mixed.accepted).toEqual([sharedId]);
+    expect(mixed.clamped).toEqual([]);
+    const [pulled] = (await pullAll(b.token)).events.filter((e) => e.id === sharedId);
+    expect(pulled).toEqual(kept);
+  });
+
+  it('echoes the stored time of an accepted tombstone relay pushed with another ts', async () => {
+    const { family, a, b } = await twoDevices();
+    const child = profileFor(family.familyId);
+    await syncOk(a.token, { profiles: [child] });
+    const del = await api(`/api/children/${child.id}`, { method: 'DELETE', cookie: family.cookie });
+    expect(del.status).toBe(200);
+    const tomb = (await pullAll(b.token)).events.find((e) => e.type === 'child.deleted');
+    if (!tomb) throw new Error('expected the tombstone');
+    // An exact relay needs no echo; a relay with a moved ts gets the stored ts back.
+    expect((await syncOk(b.token, { events: [tomb] })).clamped).toEqual([]);
+    const moved = { ...tomb, ts: tomb.ts + 5_000 };
+    const res = await syncOk(b.token, { events: [moved] });
+    expect(res.accepted).toEqual([tomb.id]);
+    expect(res.clamped).toEqual([{ id: tomb.id, ts: tomb.ts }]);
+    // A relay is the same tombstone by its id and deleted child (S2 b), whatever its envelope
+    // childId: if it is accepted, it is echoed.
+    const odd = { ...moved, id: tomb.id, childId: child.id };
+    const oddRes = await syncOk(b.token, { events: [odd] });
+    expect(oddRes.accepted).toEqual([tomb.id]);
+    expect(oddRes.clamped).toEqual([{ id: tomb.id, ts: tomb.ts }]);
+  });
+});
+
 describe('POST /api/sync: settings and profiles (LWW)', () => {
   it('resolves settings per document by updatedAt', async () => {
     const { family, a, b } = await twoDevices();
