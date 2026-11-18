@@ -6,6 +6,8 @@ A single Hono app (`apps/api`) runs on Cloudflare Workers. It uses D1 via Drizzl
 
 ## 2. Routes (all under `/api`, JSON, Zod-validated with schemas in `packages/shared/src/api.ts`)
 
+One exception to whole-body validation: `POST /sync` validates its outer body with `syncRequestSchema`, but validates each entry of `events` on its own. An invalid event is reported in the response's `rejected`, and the rest of the call goes ahead (§4, 02 §5.9 S1). `syncRequestSchema` describes what a correct client sends.
+
 | Method & path | Auth | Purpose |
 |---|---|---|
 | `GET /health` | none | `{ ok, version, contentVersion, ai: { feedback, vision, summary } }`. The `ai` flags show which features have keys configured (never the keys). |
@@ -97,5 +99,5 @@ ai_cache(key_hash PK, feature, value_json, created_at)   -- text results only; n
 ## 9. Testing (API)
 
 - `@cloudflare/vitest-pool-workers` integration tests for every route: auth, rate limits, pairing, sync idempotency, cursor paging, clock-skew clamping, tombstones, export/import round trip.
-- A contract test asserts that every route's request/response matches the `shared` Zod schemas.
+- A contract test asserts that every route's request/response matches the `shared` Zod schemas. For `/sync`, that covers the outer body and the response. Pushed events are checked one by one, as §2 describes.
 - AI routes are tested against **mock providers** (07 §9). There are no network calls in CI.
