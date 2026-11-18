@@ -995,9 +995,24 @@ describe('V21: test-out choice rule and gateway item count', () => {
     expectFinding(
       diags,
       'V21',
-      /CNT.03.t2 answers with a choice, but CNT.03 has an eligible constructed-response/,
+      /CNT.03.t2 answers with a choice, but CNT.03 has a constructed-response template/,
     );
     expectFinding(diags, 'V21', /CNT.03.t3 answers with a choice/);
+  });
+  it('rejects an authored list that mixes a choice template with a constructed one outside the eligible tiers', () => {
+    const diags = variant((f) => {
+      editYaml(f, 'templates/CNT.yaml', (doc) => {
+        Object.assign(template(doc, 'CNT.03.t2'), { format: 'number-pad' }); // pictorial, constructed, ten-frame
+        template(doc, 'CNT.03.t3').tier = 'abstract'; // numeral-pick dots: choice
+        template(doc, 'CNT.03.t4').format = 'numeral-pick'; // symbols: choice
+      });
+      authoredList(['CNT.03.t2', 'CNT.03.t3'])(f);
+    });
+    expectFinding(
+      diags,
+      'V21',
+      /CNT.03.t3 answers with a choice, but CNT.03 has a constructed-response template/,
+    );
   });
   it('treats a mixed-answer template without distractors as unknown, not as a constructed response', () => {
     const files: Files = { ...FIXTURE };

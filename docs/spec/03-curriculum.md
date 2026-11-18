@@ -2144,7 +2144,7 @@ US English, with no "and" inside whole numbers (judgment call: matches how US cl
 
 ### 8.4 Variable interpolation
 
-- **Syntax:** `{name}` or `{name|type}` or `{name|type:countVar}` inside `text` and `say`. Names are the generator's `vars` keys. A literal brace is written `{{`.
+- **Syntax:** `{name}` or `{name|type}` or `{name|type:countVar}` inside `text` and `say`; `dec` takes its decimal places instead of a count variable (`{name|dec:1}`, `{name|dec:2}`). Names are the generator's `vars` keys. A literal brace is written `{{`.
 - **Types:** a number var defaults to `num`. **Every string var must have a type from the table above.** Free text is never interpolated into speech (V16), so a pre-recorded clip exists for every possible value.
 - **Display formatting:** numbers as numerals; a thousands comma from 1,000 up (`12,345`); `cents` as `25¢`; `dollars` as `$1.25`; `time` as `7:05`; `frac` as a stacked fraction in the UI (`3/4` in plain text); `dec` as `0.47`.
 - **Spoken symbols** (when a line has no `say`): `+` plus, `−` minus, `×` times, `÷` divided by, `=` equals, `<` is less than, `>` is greater than, `?` and blanks: "what number". Exception: in lines owned by the relational-equality skills (`ALG.05`, `ADD.10`, `ADD.11`, `ALG.06`, `ALG.07`), authors write `say` with "is the same as" for `=`, because that is the meaning being taught (research 01 §6.2).

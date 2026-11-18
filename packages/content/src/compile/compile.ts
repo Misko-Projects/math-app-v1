@@ -1385,13 +1385,15 @@ function resolveTestOut(
         `${t.value.id} is concrete; test-out items are abstract or pictorial (03 §6.5)`,
       );
     }
-    if (hasConstructed) {
+    // An authored list may reach past the eligible tiers, so a constructed-response template it
+    // lists counts too: choice and constructed responses never mix in one test-out.
+    if (hasConstructed || pool.some(constructedAnswer)) {
       for (const t of pool.filter(choiceAnswer)) {
         d.error(
           'V21',
           file,
           path,
-          `${t.value.id} answers with a choice, but ${id} has an eligible constructed-response template; a test-out then never uses multiple choice (03 §6.5)`,
+          `${t.value.id} answers with a choice, but ${id} has a constructed-response template for its test-out; a test-out then never uses multiple choice (03 §6.5)`,
         );
       }
       pool = pool.filter((t) => !choiceAnswer(t));
