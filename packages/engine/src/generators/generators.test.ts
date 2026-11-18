@@ -192,9 +192,9 @@ const COUNT_SEQUENCE: Case[] = [
     answer: { kind: 'numbers', values: [8, 9, 10], ordered: true },
     widget: {
       blanks: [
-        { id: 't1', maxDigits: 2 },
-        { id: 't2', maxDigits: 2 },
-        { id: 't3', maxDigits: 2 },
+        { id: 't1', maxDigits: 3 },
+        { id: 't2', maxDigits: 3 },
+        { id: 't3', maxDigits: 3 },
       ],
     },
   },
