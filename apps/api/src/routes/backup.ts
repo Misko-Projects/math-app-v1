@@ -15,7 +15,10 @@ import { ApiError } from '../lib/errors';
 import { jsonBody, limitBody, MB, requireJsonContentType } from '../lib/http';
 import {
   canonId,
+  canonicalJson,
   envelopeStringBytes,
+  type HeldEvent,
+  identityGuardSql,
   insertEventsSql,
   MAX_EVENT_ENVELOPE_STRING_BYTES,
   mergeProfilesSql,
@@ -106,15 +109,35 @@ backupRoutes.post(
       return { ...e, familyId, deviceId } as AnyEventEnvelope;
     });
 
-    const held = await storedEventsById(
-      db,
-      rehomed.map((e) => e.id),
-    );
-    // One id, one event: within the file, and against what is stored (for a tombstone, the same
-    // deleted child too). Any mismatch refuses the whole import before a write.
+    // One id, one event: within the file (compared as canonical JSON, so key order is irrelevant),
+    // and against what is stored (for a tombstone, the same deleted child too). Checked here to
+    // fail fast, and again inside the write transaction (`identityGuardSql`).
+    const identities = rehomed.map((e) => ({
+      id: e.id,
+      type: e.type,
+      deletedChild: tombstoneChildOf(e),
+    }));
+    const loadStored = () =>
+      storedEventsById(
+        db,
+        rehomed.map((e) => e.id),
+      );
+    const storedConflict = (stored: Map<string, HeldEvent>): string | null => {
+      for (const want of identities) {
+        const h = stored.get(want.id);
+        if (
+          h &&
+          (h.familyId !== familyId || h.type !== want.type || h.deletedChild !== want.deletedChild)
+        ) {
+          return want.id;
+        }
+      }
+      return null;
+    };
+    const held = await loadStored();
     const seen = new Map<string, string>();
     for (const e of rehomed) {
-      const json = JSON.stringify(e);
+      const json = canonicalJson(e);
       const prior = seen.get(e.id);
       if (prior !== undefined && prior !== json) {
         throw new ApiError(
@@ -123,13 +146,13 @@ backupRoutes.post(
         );
       }
       seen.set(e.id, json);
-      const h = held.get(e.id);
-      if (
-        h &&
-        (h.familyId !== familyId || h.type !== e.type || h.deletedChild !== tombstoneChildOf(e))
-      ) {
-        throw new ApiError('conflict', `event ${e.id}: that id is already used by another event`);
-      }
+    }
+    const conflictBefore = storedConflict(held);
+    if (conflictBefore !== null) {
+      throw new ApiError(
+        'conflict',
+        `event ${conflictBefore}: that id is already used by another event`,
+      );
     }
 
     const fileTombstones = [
@@ -145,10 +168,30 @@ backupRoutes.post(
     const purgeSql = fileTombstones.flatMap((child) => purgeChildSql(familyId, child, now, null));
     const settingsSql = mergeSettingsSql(familyId, backup.settings);
     const profilesSql = mergeProfilesSql(familyId, backup.profiles);
-    const results = await batchSql(db, [...insertSql, ...purgeSql, ...settingsSql, ...profilesSql]);
+    const guardSql = identityGuardSql(familyId, identities);
+    let results: D1Result[];
+    try {
+      results = await batchSql(db, [
+        ...insertSql,
+        ...guardSql,
+        ...purgeSql,
+        ...settingsSql,
+        ...profilesSql,
+      ]);
+    } catch (err) {
+      // The guard rolled the batch back because a conflicting event landed after our read.
+      const conflictAfter = storedConflict(await loadStored());
+      if (conflictAfter !== null) {
+        throw new ApiError(
+          'conflict',
+          `event ${conflictAfter}: that id is already used by another event`,
+        );
+      }
+      throw err;
+    }
     const changes = (from: number, count: number) =>
       results.slice(from, from + count).reduce((n, r) => n + r.meta.changes, 0);
-    const settingsFrom = insertSql.length + purgeSql.length;
+    const settingsFrom = insertSql.length + guardSql.length + purgeSql.length;
 
     const res: ImportResponse = {
       imported: {

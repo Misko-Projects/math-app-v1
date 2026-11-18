@@ -203,6 +203,47 @@ export function tombstoneChildOf(e: { type: string; payload: unknown }): string 
   return typeof child === 'string' ? canonId(child) : null;
 }
 
+/** What a stored event must be for an imported event with the same id to be "the same event". */
+export interface EventIdentity {
+  id: string;
+  type: string;
+  deletedChild: string | null;
+}
+
+/**
+ * Statements that fail (rolling back their whole batch) when any `identities` id is stored as a
+ * different event: another family, another type, or a tombstone for another child. Placed after
+ * the inserts of an import, they catch conflicts that appear between the import's read and its
+ * write. SQLite has no RAISE outside triggers, so a matching row evaluates `json()` on text that is
+ * not JSON; the row-dependent argument keeps it from being evaluated when nothing matches.
+ */
+export function identityGuardSql(familyId: string, identities: EventIdentity[]): SQL[] {
+  return chunkByJsonSize(identities).map(
+    (chunk) => sql`
+      SELECT json('import identity conflict: ' || json_extract(v.value, '$.id'))
+      FROM json_each(${JSON.stringify(chunk)}) AS v
+      WHERE EXISTS (SELECT 1 FROM events e
+        WHERE e.id = json_extract(v.value, '$.id')
+          AND (e.family_id != ${familyId}
+            OR e.type != json_extract(v.value, '$.type')
+            OR (e.type = 'child.deleted'
+              AND lower(json_extract(e.payload_json, '$.childId'))
+                IS NOT json_extract(v.value, '$.deletedChild'))))
+      LIMIT 1`,
+  );
+}
+
+/** JSON with object keys sorted at every level, so equal values compare equal as text. */
+export function canonicalJson(value: unknown): string {
+  return JSON.stringify(value, (_key, v: unknown) => {
+    if (v === null || typeof v !== 'object' || Array.isArray(v)) return v;
+    const entries = Object.entries(v as Record<string, unknown>).sort(([a], [b]) =>
+      a < b ? -1 : a > b ? 1 : 0,
+    );
+    return Object.fromEntries(entries);
+  });
+}
+
 /** Children this family has tombstoned, as canonical (lower-case) ids. */
 export async function deletedChildIds(db: Db, familyId: string): Promise<Set<string>> {
   const rows = await db.all<{ child: string }>(

@@ -49,7 +49,7 @@ Errors use `{ error: { code, message } }` with stable `code` strings. Never retu
   - A child counts as deleted exactly when the family's log holds its tombstone. Every write of events, settings and profiles re-checks that inside its own SQL statement, so a sync racing a parent's delete cannot bring the child back. Ids are compared case-insensitively, because the shared UUID grammar accepts either case.
   - `POST /import` is all or nothing:
     - tombstones must be server-authored (`childId: null`, `deviceId` = the backup's family id);
-    - an event id already stored as a different event (another family, another type, or a tombstone for another child) is a `409 conflict`, and so are two different events under one id in the file;
+    - an event id already stored as a different event (another family, another type, or a tombstone for another child) is a `409 conflict`, and so are two different events under one id in the file (compared as canonical JSON). The stored-event check also runs inside the write transaction, so a conflict that lands concurrently rolls the whole import back;
     - the events, the purges of the children the backup tombstones, and the settings and profiles commit in one transaction. A purge applies only while that child's tombstone is stored.
   - Error codes map to stable statuses: `validation_failed`/`bad_request`/`pair_code_invalid` 400, `unauthorized`/`invalid_credentials`/`invalid_pin`/`device_revoked` 401, `forbidden`/`unknown_family` 403, `not_found` 404, `conflict`/`setup_closed` 409, `pair_code_expired` 410, `payload_too_large` 413, `unsupported_media_type` 415, `rate_limited` 429, `internal` 500.
 

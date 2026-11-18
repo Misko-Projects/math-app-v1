@@ -8,7 +8,15 @@ import {
   withSettingDefaults,
 } from '@number-island/shared';
 import { describe, expect, it } from 'vitest';
+import { batchSql, createDb } from '../src/db/client';
 import { TABLE_NAMES } from '../src/db/schema';
+import {
+  identityGuardSql,
+  insertEventsSql,
+  mergeSettingsSql,
+  purgeChild,
+  tombstoneEvent,
+} from '../src/services/event-store';
 import {
   api,
   expectError,
@@ -215,6 +223,110 @@ describe('POST /api/import', () => {
       .bind(b.id)
       .first<{ n: number }>();
     expect(left?.n).toBe(1);
+  });
+
+  it('rolls the whole import back when a conflicting event lands after its read', async () => {
+    const family = await setupFamily();
+    const a = newId();
+    const b = newId();
+    const tombId = newId();
+    const db = createDb(env.DB);
+    // Another writer stores a tombstone for A under tombId between the import's read and write.
+    await purgeChild(
+      db,
+      family.familyId,
+      a,
+      Date.now(),
+      tombstoneEvent(tombId, family.familyId, a, Date.now()),
+    );
+    const importTomb = tombstoneEvent(tombId, family.familyId, b, Date.now());
+    const settingsDoc = {
+      key: 'family' as const,
+      value: withSettingDefaults({ kind: 'family' }),
+      updatedAt: 42,
+    };
+    await expect(
+      batchSql(db, [
+        ...insertEventsSql(family.familyId, [importTomb], Date.now()),
+        ...identityGuardSql(family.familyId, [
+          { id: tombId, type: 'child.deleted', deletedChild: b },
+        ]),
+        ...mergeSettingsSql(family.familyId, [settingsDoc]),
+      ]),
+    ).rejects.toThrow();
+    const n = await env.DB.prepare('SELECT COUNT(*) AS n FROM settings').first<{ n: number }>();
+    expect(n?.n).toBe(0);
+    // A matching identity passes the guard.
+    await batchSql(db, [
+      ...identityGuardSql(family.familyId, [
+        { id: tombId, type: 'child.deleted', deletedChild: a },
+      ]),
+      ...mergeSettingsSql(family.familyId, [settingsDoc]),
+    ]);
+    const m = await env.DB.prepare('SELECT COUNT(*) AS n FROM settings').first<{ n: number }>();
+    expect(m?.n).toBe(1);
+  });
+
+  it('lets only one of two racing imports with clashing tombstone ids apply', async () => {
+    const family = await setupFamily();
+    const tombId = newId();
+    const make = (child: string, music: boolean): BackupFile => ({
+      format: 'number-island-backup',
+      formatVersion: 1,
+      exportedAt: Date.now(),
+      familyId: family.familyId,
+      events: [
+        {
+          ...roadEvent(family.familyId, family.familyId),
+          id: tombId,
+          type: 'child.deleted',
+          payload: { childId: child },
+        } as BackupFile['events'][number],
+      ],
+      settings: [
+        {
+          key: 'family',
+          value: { ...withSettingDefaults({ kind: 'family' }), music },
+          updatedAt: 7,
+        },
+      ],
+      profiles: [],
+    });
+    const [r1, r2] = await Promise.all([
+      importBackup(family.cookie, make(newId(), true)),
+      importBackup(family.cookie, make(newId(), false)),
+    ]);
+    expect([r1.status, r2.status].sort()).toEqual([200, 409]);
+    const winnerMusic = r1.status === 200;
+    const docs = (await syncOk(family.deviceToken)).settings;
+    expect(docs).toHaveLength(1);
+    expect(docs[0]?.value).toMatchObject({ music: winnerMusic });
+  });
+
+  it('treats duplicate events that differ only in key order as the same event', async () => {
+    const family = await setupFamily();
+    const base = { ...roadEvent(family.familyId, family.deviceId), type: 'kite.flown' };
+    const one = { ...base, payload: { a: 1, b: { c: 2, d: 3 } } };
+    const reordered = { ...base, payload: { b: { d: 3, c: 2 }, a: 1 } };
+    const backup = {
+      format: 'number-island-backup',
+      formatVersion: 1,
+      exportedAt: Date.now(),
+      familyId: family.familyId,
+      events: [one, reordered],
+      settings: [],
+      profiles: [],
+    };
+    const ok = await importBackup(family.cookie, backup);
+    expect(ok.status).toBe(200);
+    expect(importResponseSchema.parse(await ok.json()).imported.events).toBe(1);
+    const changed = { ...base, id: newId(), payload: { a: 1 } };
+    const changedTwin = { ...changed, payload: { a: 2 } };
+    await expectError(
+      await importBackup(family.cookie, { ...backup, events: [changed, changedTwin] }),
+      409,
+      'conflict',
+    );
   });
 
   it('refuses a backup with two different events under one id', async () => {
