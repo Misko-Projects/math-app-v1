@@ -137,9 +137,15 @@ function revealsNumber(
  * display formatting) is one number, not "1" and "000".
  */
 export function numeralsIn(text: string): number[] {
-  return [...text.matchAll(/(?<![0-9,])(?:[0-9]{1,3}(?:,[0-9]{3})+|[0-9]+)(?![0-9])/g)].map((m) =>
-    Number(m[0].replaceAll(',', '')),
-  );
+  // Each run of digits and commas is either one thousands-grouped numeral (exactly 1–3 digits then
+  // groups of 3: "1,000", "12,345") or a compact list ("6,7,8"), which is split at its commas.
+  const out: number[] = [];
+  for (const m of text.matchAll(/[0-9](?:[0-9,]*[0-9])?/g)) {
+    const run = m[0];
+    if (/^[0-9]{1,3}(?:,[0-9]{3})+$/.test(run)) out.push(Number(run.replaceAll(',', '')));
+    else for (const part of run.split(',')) if (part !== '') out.push(Number(part));
+  }
+  return out;
 }
 
 /**

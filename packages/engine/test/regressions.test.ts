@@ -412,3 +412,31 @@ describe('R4-F2: a thousands-grouped numeral is one number', () => {
     ]);
   });
 });
+
+// ---------- round 5 (s_17583aed040a) ----------
+
+describe('R5: compact comma lists are separate numerals', () => {
+  it.each<[string, number[]]>([
+    ['Count on: 6,7,8.', [6, 7, 8]],
+    ['There are 1,000 in all.', [1000]],
+    ['10,20,30', [10, 20, 30]],
+    ['1,23', [1, 23]],
+    ['1,000,000 and 5', [1000000, 5]],
+  ])('numeralsIn(%j)', (text, want) => {
+    expect(numeralsIn(text)).toEqual(want);
+  });
+
+  it('a hint “Count on: 6,7,8.” on an item whose answer is 8 is reported', () => {
+    loadFixture();
+    const t = tpl({
+      id: 'ADD.03.t9',
+      skillId: 'ADD.03',
+      generator: 'addsub.facts',
+      params: { a: { kind: 'const', value: 5 }, b: { kind: 'const', value: 3 } },
+      narration: { prompt: 'p.add.what-is', hints: ['h.test.list'] },
+    });
+    expect(
+      hintReveals(t, { 'h.test.list': { text: 'Count on: 6,7,8.', clips: [] } }, 'h.test.list'),
+    ).toBe(true);
+  });
+});
