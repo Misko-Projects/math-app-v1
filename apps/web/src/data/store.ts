@@ -139,6 +139,8 @@ export interface AiLogInput {
 export interface DataStore {
   readonly db: NumberIslandDb;
   readonly content: StoreContent;
+  /** The store's clock (ms epoch): the injected `now`, else `Date.now`. */
+  now(): number;
   device(): Promise<DeviceRecord>;
   adoptFamily(ids: {
     familyId: string;
@@ -498,6 +500,7 @@ export async function createDataStore(opts: DataStoreOptions): Promise<DataStore
   const store: DataStore = {
     db,
     content,
+    now,
 
     async device() {
       return (await ensureDevice()).record;
