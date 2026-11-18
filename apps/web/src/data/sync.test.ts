@@ -210,10 +210,10 @@ describe('sync client: one sync', () => {
     const first = client.syncNow();
     const second = client.syncNow();
     const third = client.syncNow();
-    expect(second).toBe(third);
     release();
-    await Promise.all([first, second, third]);
-    expect(server.requests).toHaveLength(2);
+    const outcomes = await Promise.all([first, second, third]);
+    expect(server.requests).toHaveLength(2); // the two waiting calls shared one follow-up run
+    expect(outcomes[1]).toEqual(outcomes[2]);
   });
 });
 
@@ -425,6 +425,129 @@ describe('sync client: review round 1 regressions', () => {
     client.start();
     await settle();
     expect(calls).toBe(2);
+    client.stop();
+  });
+});
+
+describe('sync client: review round 2 regressions', () => {
+  const okOrFail =
+    (fail: () => boolean): SyncClientOptions['fetch'] =>
+    async (_url, init) => {
+      if (fail()) {
+        return new Response(JSON.stringify({ error: { code: 'internal', message: 'x' } }), {
+          status: 500,
+        });
+      }
+      const body = JSON.parse(String(init.body)) as SyncRequest;
+      const res: SyncResponse = {
+        accepted: body.events.map((e) => e.id),
+        rejected: [],
+        clamped: [],
+        events: [],
+        cursor: '1',
+        more: false,
+        settings: [],
+        profiles: [],
+      };
+      return new Response(JSON.stringify(res), { status: 200 });
+    };
+
+  it('R2-1. restarting inside the backoff window still arms the retry timer', async () => {
+    const { store } = await pairedStore();
+    stores.push(store);
+    const timers = manualTimers();
+    let calls = 0;
+    let fail = true;
+    const inner = okOrFail(() => fail);
+    const fetch: SyncClientOptions['fetch'] = (u, i) => {
+      calls += 1;
+      return inner?.(u, i) ?? Promise.reject(new Error('no fetch'));
+    };
+    const client = createSyncClient({ store, fetch, random: () => 0.5, ...timers });
+    client.start();
+    await settle();
+    expect(calls).toBe(1);
+    client.stop();
+    expect(timers.delays()).toEqual([]);
+    client.start(); // inside the window: deferred, but the retry timer is armed again
+    await settle();
+    expect(calls).toBe(1);
+    expect(timers.delays()).toHaveLength(1);
+    fail = false;
+    timers.fire();
+    await settle();
+    expect(calls).toBe(2);
+    expect(timers.delays()).toEqual([SYNC_INTERVAL_MS]);
+    client.stop();
+  });
+
+  it('R2-2. a manual or online request queued behind an automatic one is still forced', async () => {
+    for (const forced of ['manual', 'online'] as const) {
+      const { store } = await pairedStore();
+      stores.push(store);
+      let release: () => void = () => undefined;
+      const held = new Promise<void>((r) => {
+        release = r;
+      });
+      let calls = 0;
+      const inner = okOrFail(() => calls === 1);
+      const fetch: SyncClientOptions['fetch'] = async (u, i) => {
+        calls += 1;
+        if (calls === 1) await held;
+        return (await inner?.(u, i)) as Response;
+      };
+      const client = createSyncClient({ store, fetch, ...manualTimers() });
+      client.start();
+      await settle();
+      await store.append('request.completed', requestCompleted(), { childId: null }); // queued
+      await settle();
+      if (forced === 'manual') void client.syncNow();
+      else window.dispatchEvent(new Event('online'));
+      release(); // the first request fails, opening a backoff window
+      await settle();
+      expect(calls).toBe(2); // the forced request ran anyway, serving the queued one too
+      client.stop();
+    }
+  });
+
+  it('R2-3. no stale retry fires during a manual run; a newer failure backs off again', async () => {
+    const { store } = await pairedStore();
+    stores.push(store);
+    const timers = manualTimers();
+    let calls = 0;
+    let release: () => void = () => undefined;
+    const held = new Promise<void>((r) => {
+      release = r;
+    });
+    const inner = okOrFail(() => true);
+    const fetch: SyncClientOptions['fetch'] = async (u, i) => {
+      calls += 1;
+      if (calls === 2) await held; // the manual run stays in flight
+      return (await inner?.(u, i)) as Response;
+    };
+    // A long exchange deadline, so the only short timer is the retry under test.
+    const client = createSyncClient({
+      store,
+      fetch,
+      random: () => 0.5,
+      requestTimeoutMs: 600_000,
+      ...timers,
+    });
+    client.start();
+    await settle();
+    expect(timers.delays()).toEqual([SYNC_BACKOFF_BASE_MS]); // the first retry
+    const manual = client.syncNow(); // a manual run inside the window
+    await settle();
+    // While it is in flight, the old retry timer must not be pending (only the exchange deadline).
+    expect(timers.delays()).toEqual([600_000]);
+    release(); // the manual run fails too
+    await manual;
+    await settle();
+    expect(calls).toBe(2); // no stale retry ran after it
+    expect(timers.delays()).toEqual([2 * SYNC_BACKOFF_BASE_MS]); // only the newer window remains
+    await store.append('request.completed', requestCompleted(), { childId: null });
+    await settle();
+    expect(calls).toBe(2); // deferred inside the newer window
     client.stop();
   });
 });

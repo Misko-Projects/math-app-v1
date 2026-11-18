@@ -45,8 +45,11 @@ export type SyncOutcome =
 /** A sync exchange (request and response body) that takes longer than this fails and is retried. */
 export const SYNC_REQUEST_TIMEOUT_MS = 30_000;
 
-/** Reasons that run even inside the backoff window: an explicit call, and the network returning. */
-const BYPASSES_BACKOFF: ReadonlySet<SyncReason> = new Set(['manual', 'online', 'retry']);
+/**
+ * Requests that run even inside the backoff window: an explicit call and the network returning.
+ * (The client's own retry/interval timer is forced too; it is never stale, see `pump`.)
+ */
+const BYPASSES_BACKOFF: ReadonlySet<SyncReason> = new Set(['manual', 'online']);
 
 export interface SyncClientOptions {
   store: DataStore;
@@ -124,9 +127,15 @@ export function createSyncClient(opts: SyncClientOptions): SyncClient {
   const requestTimeoutMs = opts.requestTimeoutMs ?? SYNC_REQUEST_TIMEOUT_MS;
 
   let inFlight: Promise<SyncOutcome> | null = null;
-  let again: Promise<SyncOutcome> | null = null;
+  /** Callers waiting for the next run (see `pump`). */
+  let waiters: {
+    resolve: (o: SyncOutcome) => void;
+    reason: SyncReason;
+    forced: boolean;
+    automatic: boolean;
+  }[] = [];
   let failures = 0;
-  /** While failures > 0, automatic triggers wait until the retry timer fires at this time. */
+  /** While failures > 0, unforced requests wait until this time (the retry timer). */
   let retryAt = 0;
   let running = false;
   let timer: unknown = null;
@@ -260,45 +269,75 @@ export function createSyncClient(opts: SyncClientOptions): SyncClient {
     }
   }
 
-  function schedule(outcome: SyncOutcome | null): void {
-    if (!running) return;
+  // ---------- scheduling ----------
+  //
+  // One rule set, in one place (`pump`):
+  // - Requests wait in `waiters` and are served together by the next run.
+  // - A forced request (an explicit call, the browser coming back online, or the client's own
+  //   timer) runs even inside the backoff window. Any other request waiting alone in the window
+  //   is answered `deferred`, and the timer is (re-)armed for the end of the window.
+  // - After stop(), automatic requests are answered `stopped` and never send.
+  // - There is one timer: the retry after a failure, else the 60 s interval. It is cleared when a
+  //   run starts and armed again after every run or deferral, so it can never fire stale.
+
+  function clearTimerIfArmed(): void {
     if (timer !== null) clearTimer(timer);
-    let delay = intervalMs;
-    if (outcome?.kind === 'failed') {
-      failures += 1;
-      delay = backoffDelay(failures, random);
-      retryAt = now() + delay;
-    } else if (outcome !== null) failures = 0;
+    timer = null;
+  }
+
+  function arm(delay: number): void {
+    clearTimerIfArmed();
+    if (!running) return;
+    const reason: SyncReason = failures > 0 ? 'retry' : 'interval';
     timer = setTimer(() => {
       timer = null;
-      void syncNow(failures > 0 ? 'retry' : 'interval');
+      void request(reason, true);
     }, delay);
   }
 
-  function syncNow(reason: SyncReason = 'manual'): Promise<SyncOutcome> {
-    // An automatic trigger never sends after stop() (a follow-up queued before it included), and
-    // inside the backoff window it leaves the next attempt to the retry timer.
-    if (reason !== 'manual' && !running) return Promise.resolve({ kind: 'stopped' });
-    if (!BYPASSES_BACKOFF.has(reason) && failures > 0 && now() < retryAt) {
-      return Promise.resolve({ kind: 'deferred' });
+  const inBackoff = () => failures > 0 && now() < retryAt;
+
+  function pump(): void {
+    if (inFlight || waiters.length === 0) return;
+    if (!running) {
+      for (const w of waiters) if (w.automatic) w.resolve({ kind: 'stopped' });
+      waiters = waiters.filter((w) => !w.automatic);
+      if (waiters.length === 0) return;
     }
-    if (inFlight) {
-      // Coalesce: at most one follow-up run, which starts after the current one finishes.
-      again ??= inFlight.then(() => {
-        again = null;
-        return syncNow(reason);
-      });
-      return again;
+    if (inBackoff() && !waiters.some((w) => w.forced)) {
+      for (const w of waiters.splice(0)) w.resolve({ kind: 'deferred' });
+      arm(Math.max(0, retryAt - now()));
+      return;
     }
-    const current = run(reason)
+    const batch = waiters.splice(0);
+    const reason = (batch.find((w) => w.forced) ?? batch[0])?.reason ?? 'manual';
+    clearTimerIfArmed();
+    inFlight = run(reason)
       .catch((e: unknown): SyncOutcome => ({ kind: 'failed', error: errorMessage(e) }))
       .then((outcome) => {
         inFlight = null;
-        schedule(outcome);
+        let delay = intervalMs;
+        if (outcome.kind === 'failed') {
+          failures += 1;
+          delay = backoffDelay(failures, random);
+          retryAt = now() + delay;
+        } else failures = 0;
+        arm(delay);
+        for (const w of batch) w.resolve(outcome);
+        pump();
         return outcome;
       });
-    inFlight = current;
-    return current;
+  }
+
+  function request(reason: SyncReason, forced: boolean): Promise<SyncOutcome> {
+    return new Promise((resolve) => {
+      waiters.push({ resolve, reason, forced, automatic: reason !== 'manual' });
+      pump();
+    });
+  }
+
+  function syncNow(reason: SyncReason = 'manual'): Promise<SyncOutcome> {
+    return request(reason, BYPASSES_BACKOFF.has(reason));
   }
 
   function listen(target: EventTarget | undefined, type: string, fn: () => void): void {
@@ -327,9 +366,9 @@ export function createSyncClient(opts: SyncClientOptions): SyncClient {
     },
     stop() {
       running = false;
-      if (timer !== null) clearTimer(timer);
-      timer = null;
+      clearTimerIfArmed();
       for (const c of cleanups.splice(0)) c();
+      pump(); // answers queued automatic requests `stopped` (after the run in flight, if any)
     },
   };
 }
