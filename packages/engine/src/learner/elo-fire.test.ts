@@ -1,7 +1,12 @@
 // 04 §2–§5 formulas and status rules, table-driven, on the synthetic graph (templates there have
 // difficulty 0 unless a test overrides it).
 
-import type { AttemptPayload, LearnerState, SkillState } from '@number-island/shared';
+import {
+  type AttemptPayload,
+  type LearnerState,
+  learnerStateSchema,
+  type SkillState,
+} from '@number-island/shared';
 import { describe, expect, it } from 'vitest';
 import { DAY_MS, PARAMS } from '../params';
 import { createRng } from '../rng';
@@ -928,6 +933,62 @@ describe('§4 review compression and transfer probes', () => {
     expect(Array.from({ length: 200 }, () => reviewContext('practiced', rng))).not.toContain(
       'transfer-probe',
     );
+  });
+});
+
+describe('review round 3 regressions (PR #51)', () => {
+  it('a zero-item test-out is never offered', () => {
+    const g = syntheticGraph();
+    const sk = g.skills[A] as (typeof g.skills)[string];
+    sk.lesson = { ...sk.lesson, testOut: { items: 0, minCorrect: 0, templateIds: [`${A}.t3`] } };
+    const m = createEloFireModel(g, { childId: 'c', isK: false });
+    const s = m.apply(
+      m.init(g, { p: { [A]: 0.9 }, assumed: [] }),
+      attempt(A, 3, { correct: false }),
+      T0,
+    );
+    expect(s.skills[A]?.practicedAt).toBeNull();
+    expect(s.skills[A]?.memory).toBeNull();
+  });
+
+  it('minCorrect 0 still needs one clean answer', () => {
+    const g = syntheticGraph();
+    const sk = g.skills[A] as (typeof g.skills)[string];
+    sk.lesson = { ...sk.lesson, testOut: { items: 1, minCorrect: 0, templateIds: [`${A}.t3`] } };
+    const m = createEloFireModel(g, { childId: 'c', isK: false });
+    const s = m.apply(
+      m.init(g, { p: { [A]: 0.9 }, assumed: [] }),
+      attempt(A, 3, { correct: false }),
+      T0,
+    );
+    expect(s.skills[A]?.practicedAt).toBeNull();
+  });
+
+  it('a passed verification keeps an init(graph, prior) assumed skill practiced', () => {
+    const s0p = model.init(graph, { p: { [A]: 0.9 }, assumed: [A] });
+    const s = model.apply(s0p, attempt(A, 3, { context: 'review' }), day(1));
+    expect(model.status(s, A, day(1))).toBe('practiced');
+    expect(s.skills[A]?.assumed).toBe(false);
+    expect(s.skills[A]?.practicedAt).toBe(day(1));
+    expect(s.skills[A]?.memory?.dueTs).toBeGreaterThan(day(1));
+    expect(model.status(s, B, day(1))).toBe('ready');
+  });
+
+  it('misconception hits survive a schema round trip of the state', () => {
+    const s1 = model.apply(s0, attempt(A, 3, { correct: false, misconceptionIds: ['MC.x'] }), T0);
+    const parsed = learnerStateSchema.parse(s1) as LearnerState;
+    expect(parsed.skills[A]).not.toHaveProperty('_hitSeqs');
+    const s2 = model.apply(
+      parsed,
+      attempt(A, 3, { correct: false, misconceptionIds: ['MC.y'] }),
+      T0 + 1,
+    );
+    expect(s2.skills[A]?.misconceptionHits).toEqual([
+      { id: 'MC.x', ts: T0 },
+      { id: 'MC.y', ts: T0 + 1 },
+    ]);
+    const s3 = model.apply(parsed, attempt(A, 3), T0 + 1);
+    expect(s3.skills[A]?.misconceptionHits).toEqual([{ id: 'MC.x', ts: T0 }]);
   });
 });
 

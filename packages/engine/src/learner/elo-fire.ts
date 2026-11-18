@@ -304,7 +304,9 @@ export function createEloFireModel(graph: SkillGraph, opts: LearnerOptions): Elo
     mem.reviewsPassed = [...mem.reviewsPassed, ts];
     mem.consecutiveFails = 0;
     st.atRiskDueTs = null;
-    st.assumed = false; // verified (04 §5 week-one verification)
+    // Verified (04 §5 week-one verification): an assumed skill stays on the practiced track.
+    st.practicedAt ??= ts;
+    st.assumed = false;
 
     // Implicit credit, one hop (04 §4).
     const enc = graph.encompasses[s] ?? def(s)?.encompasses ?? {};
@@ -402,7 +404,13 @@ export function createEloFireModel(graph: SkillGraph, opts: LearnerOptions): Elo
     const seq = (st._attempts ?? 0) + 1;
     st._attempts = seq;
     const hits = [...st.misconceptionHits, ...a.misconceptionIds.map((id) => ({ id, ts }))];
-    const seqs = [...(st._hitSeqs ?? []), ...a.misconceptionIds.map(() => seq)];
+    // Private fields do not survive schema validation (02 §5.8 strips them): hits whose attempt
+    // numbers are missing count as the previous attempt's, so they stay in the window.
+    const known =
+      st._hitSeqs?.length === st.misconceptionHits.length
+        ? st._hitSeqs
+        : st.misconceptionHits.map(() => seq - 1);
+    const seqs = [...known, ...a.misconceptionIds.map(() => seq)];
     const keep = seqs.map((n) => n > seq - P.mastery.recentSize);
     st.misconceptionHits = hits.filter((_, i) => keep[i]);
     st._hitSeqs = seqs.filter((_, i) => keep[i]);
@@ -487,7 +495,12 @@ export function createEloFireModel(graph: SkillGraph, opts: LearnerOptions): Elo
         (state.placement.prior?.p[s] ?? 0) >= P.mastery.testOutMinPrior ||
         pRefBefore >= P.mastery.testOutMinPRef;
       st._testOut =
-        inPool && offered && skill && skill.lesson.mode !== 'none' && prereqsMet(state, s)
+        inPool &&
+        offered &&
+        skill &&
+        skill.lesson.mode !== 'none' &&
+        skill.lesson.testOut.items >= 1 &&
+        prereqsMet(state, s)
           ? { seen: 0, clean: 0, templates: [], reps: [] }
           : null;
     }
@@ -508,7 +521,8 @@ export function createEloFireModel(graph: SkillGraph, opts: LearnerOptions): Elo
         };
         if (st._testOut.seen >= skill.lesson.testOut.items) {
           testedOut =
-            st._testOut.clean >= skill.lesson.testOut.minCorrect && testOutDrawOk(s, st._testOut);
+            st._testOut.clean >= Math.max(1, skill.lesson.testOut.minCorrect) &&
+            testOutDrawOk(s, st._testOut);
           st._testOut = null;
         }
       }
