@@ -19,6 +19,7 @@ import type {
   StrandId,
   Tier,
 } from '@number-island/shared';
+import { FORMAT_DEFAULT_REPRESENTATION } from '@number-island/shared';
 import { DAY_MS, type EngineParams, PARAMS } from '../params';
 import { allDescendants } from './graph';
 import { attemptDifficulty } from './item-difficulty';
@@ -31,12 +32,14 @@ export const ELO_FIRE_V1 = 'elo-fire-v1';
  * - `_testOut` counts the first attempts of a never-attempted skill while a test-out (04 §3) is
  *   still possible; it is null once it is decided.
  * - `_correctLatencies`: latencies of the last 10 correct evidence first attempts (fluency).
- * - `_attemptTs`: timestamps of the last 10 non-placement attempts (misconception window).
+ * - `_attempts` numbers the skill's non-placement attempts, and `_hitSeqs[i]` is the attempt
+ *   number of `misconceptionHits[i]` (the misconception window, robust to equal timestamps).
  */
 export type EngineSkillState = SkillState & {
-  _testOut?: { seen: number; clean: number } | null;
+  _testOut?: { seen: number; clean: number; templates: string[]; reps: string[] } | null;
   _correctLatencies?: number[];
-  _attemptTs?: number[];
+  _attempts?: number;
+  _hitSeqs?: number[];
 };
 
 /**
@@ -157,9 +160,17 @@ export function createEloFireModel(graph: SkillGraph, opts: LearnerOptions): Elo
     recent: [...st.recent],
     misconceptionHits: [...st.misconceptionHits],
     memory: st.memory ? { ...st.memory, reviewsPassed: [...st.memory.reviewsPassed] } : null,
-    ...(st._testOut ? { _testOut: { ...st._testOut } } : {}),
+    ...(st._testOut
+      ? {
+          _testOut: {
+            ...st._testOut,
+            templates: [...st._testOut.templates],
+            reps: [...st._testOut.reps],
+          },
+        }
+      : {}),
     ...(st._correctLatencies ? { _correctLatencies: [...st._correctLatencies] } : {}),
-    ...(st._attemptTs ? { _attemptTs: [...st._attemptTs] } : {}),
+    ...(st._hitSeqs ? { _hitSeqs: [...st._hitSeqs] } : {}),
   });
 
   const newMemory = (ts: number, intervalDays: number): NonNullable<SkillState['memory']> => ({
@@ -237,6 +248,23 @@ export function createEloFireModel(graph: SkillGraph, opts: LearnerOptions): Elo
       skill.templates.filter((id) => graph.templates[id]?.tier === tier);
     const abstract = tiers('abstract');
     return new Set(abstract.length > 0 ? abstract : tiers('pictorial'));
+  };
+
+  const representationOf = (templateId: string): string | undefined => {
+    const t = graph.templates[templateId];
+    return t ? (t.representation ?? FORMAT_DEFAULT_REPRESENTATION[t.format]) : undefined;
+  };
+
+  /**
+   * 03 §6.5 draw rules: ≥ 2 distinct templates when the pool has ≥ 2, and for a gateway skill
+   * ≥ 2 representations when the pool spans ≥ 2.
+   */
+  const testOutDrawOk = (s: SkillId, t: { templates: string[]; reps: string[] }): boolean => {
+    const pool = [...testOutPool(s)];
+    if (t.templates.length < Math.min(2, pool.length)) return false;
+    if (!def(s)?.gateway) return true;
+    const poolReps = new Set(pool.map(representationOf).filter((r) => r !== undefined));
+    return t.reps.length >= Math.min(2, poolReps.size);
   };
 
   const demote = (st: EngineSkillState): void => {
@@ -371,17 +399,13 @@ export function createEloFireModel(graph: SkillGraph, opts: LearnerOptions): Elo
     const next: EngineLearnerState = { ...state, skills };
 
     // Misconception hits within the last 10 attempts on the skill (04 §6.4, SkillState).
-    st._attemptTs = [...(st._attemptTs ?? []), ts].slice(-P.mastery.recentSize);
-    if (a.misconceptionIds.length > 0) {
-      st.misconceptionHits = [
-        ...st.misconceptionHits,
-        ...a.misconceptionIds.map((id) => ({ id, ts })),
-      ];
-    }
-    if (st._attemptTs.length >= P.mastery.recentSize) {
-      const cutoff = st._attemptTs[0] as number;
-      st.misconceptionHits = st.misconceptionHits.filter((h) => h.ts >= cutoff);
-    }
+    const seq = (st._attempts ?? 0) + 1;
+    st._attempts = seq;
+    const hits = [...st.misconceptionHits, ...a.misconceptionIds.map((id) => ({ id, ts }))];
+    const seqs = [...(st._hitSeqs ?? []), ...a.misconceptionIds.map(() => seq)];
+    const keep = seqs.map((n) => n > seq - P.mastery.recentSize);
+    st.misconceptionHits = hits.filter((_, i) => keep[i]);
+    st._hitSeqs = seqs.filter((_, i) => keep[i]);
 
     if (a.attemptNo !== 1) return next;
 
@@ -464,7 +488,7 @@ export function createEloFireModel(graph: SkillGraph, opts: LearnerOptions): Elo
         pRefBefore >= P.mastery.testOutMinPRef;
       st._testOut =
         inPool && offered && skill && skill.lesson.mode !== 'none' && prereqsMet(state, s)
-          ? { seen: 0, clean: 0 }
+          ? { seen: 0, clean: 0, templates: [], reps: [] }
           : null;
     }
     let testedOut = false;
@@ -473,9 +497,18 @@ export function createEloFireModel(graph: SkillGraph, opts: LearnerOptions): Elo
         st._testOut = null;
       } else {
         const clean = a.correct && a.hintsUsed === 0 && !slow;
-        st._testOut = { seen: st._testOut.seen + 1, clean: st._testOut.clean + (clean ? 1 : 0) };
+        const t = st._testOut;
+        st._testOut = {
+          seen: t.seen + 1,
+          clean: t.clean + (clean ? 1 : 0),
+          templates: t.templates.includes(a.templateId)
+            ? t.templates
+            : [...t.templates, a.templateId],
+          reps: t.reps.includes(a.representation) ? t.reps : [...t.reps, a.representation],
+        };
         if (st._testOut.seen >= skill.lesson.testOut.items) {
-          testedOut = st._testOut.clean >= skill.lesson.testOut.minCorrect;
+          testedOut =
+            st._testOut.clean >= skill.lesson.testOut.minCorrect && testOutDrawOk(s, st._testOut);
           st._testOut = null;
         }
       }
@@ -502,8 +535,9 @@ export function createEloFireModel(graph: SkillGraph, opts: LearnerOptions): Elo
         st.memory = newMemory(ts, P.memory.initialIntervalDays);
       }
       if (st.fluentAt === null && meetsFluent(s, st)) st.fluentAt = ts;
-      if (st.masteredAt === null && meetsMastered(s, st)) st.masteredAt = ts;
     }
+    // Mastery depends only on passed reviews, so a passed review of any response kind counts.
+    if (!demoted && st.masteredAt === null && meetsMastered(s, st)) st.masteredAt = ts;
     // Passed reviews are kept until the skill is mastered (early reviews must not push the
     // qualifying ones out), then only the last 10.
     if (st.memory && st.masteredAt !== null) {
@@ -626,7 +660,8 @@ export function createEloFireModel(graph: SkillGraph, opts: LearnerOptions): Elo
       st.atRiskDueTs = null;
     } else {
       // Reset to ready: the evidence and ladder restart; the rating offset is kept.
-      st = { ...fresh(state, s), theta: prev?.theta ?? skillOffset(state, s), _testOut: null };
+      // The effective offset (the current prior or transfer if the skill was never rated).
+      st = { ...fresh(state, s), theta: skillOffset(state, s), _testOut: null };
     }
     st.override = payload.to;
     return { ...state, skills: { ...state.skills, [s]: st } };

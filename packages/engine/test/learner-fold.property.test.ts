@@ -191,6 +191,22 @@ describe('foldSkillStates properties (fixture graph)', () => {
     expect(foldLearnerState(upper, graph, opts)).toEqual(foldLearnerState(events, graph, opts));
   });
 
+  it('incremental application takes each id once: sortEvents keeps one copy of a clamped event', () => {
+    const rng = createRng(11);
+    const events = Array.from({ length: 30 }, (_, i) =>
+      randomLearnerEvent(graph, rng, i, T0 + i * 3_600_000),
+    );
+    const original = events.find((e) => e.type === 'attempt' && e.childId === CHILD_1);
+    if (!original) throw new Error('no attempt in the sample');
+    const clamped = { ...original, ts: original.ts - 1_000, clientTs: original.ts };
+    const sorted = sortEvents([...events, clamped]);
+    expect(sorted.filter((e) => e.id === original.id)).toEqual([clamped]);
+    const model = learnerModelFor(graph, opts);
+    let state = model.init(graph, null);
+    for (const e of sorted) state = applyLearnerEvent(model, state, e);
+    expect(state).toEqual(foldLearnerState([...events, clamped], graph, opts));
+  });
+
   it('a server-clamped copy of an event (same id, other ts, clientTs) is folded once', () => {
     fc.assert(
       fc.property(logArb, fc.nat(), (events, pick) => {

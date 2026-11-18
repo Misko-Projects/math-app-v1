@@ -415,21 +415,31 @@ describe('§3 test-out', () => {
       ? { ...base, placement: { ...base.placement, prior: { p: { [A]: 0.65 }, assumed: [] } } }
       : base;
   };
+  // The default pool is a skill's abstract templates: t3 (number-pad, symbols) and t4
+  // (number-bond), so a draw must use both (03 §6.5: ≥ 2 templates; gateway: ≥ 2 representations).
+  const t4 = (skill: string, over: Partial<AttemptPayload> = {}): Partial<AttemptPayload> => ({
+    templateId: `${skill}.t4`,
+    format: 'number-bond',
+    representation: 'number-bond',
+    ...over,
+  });
   it.each<Row>([
-    ['3 clean abstract items → practiced track', A, [{}, {}, {}], true],
-    ['offered through P(ref) ≥ 0.75', B, [{}, {}, {}], true],
-    ['a slow item fails it', A, [{}, { latencyMs: 16_001 }, {}], false],
-    ['a hinted item fails it', A, [{}, { hintsUsed: 1 }, {}], false],
-    ['a wrong item fails it', A, [{}, {}, { correct: false }], false],
+    ['3 clean abstract items from 2 templates → practiced track', A, [{}, t4(A), {}], true],
+    ['one template only, while the pool has 2', A, [{}, {}, {}], false],
+    ['gateway, offered through P(ref) ≥ 0.75, 2 representations', B, [{}, t4(B), {}], true],
+    ['gateway: repeating one template is not a valid draw', B, [{}, {}, {}], false],
+    ['a slow item fails it', A, [{}, t4(A, { latencyMs: 16_001 }), {}], false],
+    ['a hinted item fails it', A, [{}, t4(A, { hintsUsed: 1 }), {}], false],
+    ['a wrong item fails it', A, [{}, t4(A), { correct: false }], false],
     [
       'an item outside the pool (concrete) ends it',
       A,
-      [{}, { templateId: `${A}.t1`, tier: 'concrete' }, {}],
+      [{}, { templateId: `${A}.t1`, tier: 'concrete' }, t4(A)],
       false,
     ],
-    ['a lesson attempt first means no test-out', A, [{ context: 'lesson' }, {}, {}, {}], false],
-    ['K: 20,000 ms is not slow', A, [{ latencyMs: 20_000 }, {}, {}], true, true],
-    ['lesson mode none: no test-out', N, [{}, {}, {}], false],
+    ['a lesson attempt first means no test-out', A, [{ context: 'lesson' }, {}, t4(A), {}], false],
+    ['K: 20,000 ms is not slow', A, [{ latencyMs: 20_000 }, t4(A), {}], true, true],
+    ['lesson mode none: no test-out', N, [{}, t4(N), {}], false],
   ])('%s', (_name, skill, overs, expected, isK = false) => {
     const m = mk(isK);
     const start = offered(skill);
@@ -918,6 +928,53 @@ describe('§4 review compression and transfer probes', () => {
     expect(Array.from({ length: 200 }, () => reviewContext('practiced', rng))).not.toContain(
       'transfer-probe',
     );
+  });
+});
+
+describe('review round 2 regressions (PR #51)', () => {
+  it('misconception hits leave the window after 10 attempts even when timestamps tie', () => {
+    const steps: [AttemptPayload, number][] = [
+      [attempt(A, 3, { correct: false, misconceptionIds: ['MC.x'] }), T0],
+      [attempt(A, 3, { correct: false, attemptNo: 2, misconceptionIds: ['MC.x'] }), T0],
+    ];
+    for (let i = 0; i < 9; i++) steps.push([attempt(A, 3), T0]);
+    const s9 = run(model, s0, steps);
+    expect(s9.skills[A]?.misconceptionHits).toEqual([{ id: 'MC.x', ts: T0 }]);
+    const s10 = model.apply(s9, attempt(A, 3), T0);
+    expect(s10.skills[A]?.misconceptionHits).toEqual([]);
+  });
+
+  it('passed choice reviews complete mastery after a choice-only test-out', () => {
+    const g = syntheticGraph();
+    const sk = g.skills[A] as (typeof g.skills)[string];
+    sk.lesson = { ...sk.lesson, testOut: { items: 3, minCorrect: 3, templateIds: [`${A}.t3`] } };
+    const m = createEloFireModel(g, { childId: 'c', isK: false });
+    const choice = { response: { kind: 'choice' as const, id: 'a' } };
+    const s = run(m, m.init(g, { p: { [A]: 0.7 }, assumed: [] }), [
+      [attempt(A, 3, choice), day(0)],
+      [attempt(A, 3, choice), day(0)],
+      [attempt(A, 3, choice), day(0)],
+      [attempt(A, 3, { ...choice, context: 'review' }), day(1)],
+      [attempt(A, 3, { ...choice, context: 'review' }), day(7)],
+    ]);
+    expect(s.skills[A]?.practicedAt).toBe(day(0));
+    expect(s.skills[A]?.masteredAt).toBe(day(7));
+  });
+
+  it('a parent reset before the first rating keeps the latest prior offset', () => {
+    const completed = (placementId: string, p: number) => ({
+      placementId,
+      strand: null,
+      posterior: { [A]: p },
+      assumed: [A],
+      items: 6,
+      reason: 'converged' as const,
+    });
+    const s1 = model.applyPlacement(s0, completed('p1', 0.85), day(0));
+    const s2 = model.applyPlacement(s1, completed('p2', 0.95), day(1));
+    const s3 = model.applyOverride(s2, { skillId: A, to: 'reset' }, day(2));
+    expect(model.predict(s3, A, 0)).toBeCloseTo(0.95, 12);
+    expect(model.status(s3, A, day(2))).toBe('ready');
   });
 });
 

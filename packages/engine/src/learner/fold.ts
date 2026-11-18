@@ -24,7 +24,10 @@ export interface FoldLearnerOptions {
 
 /**
  * Applies one event to a learner state. Applying the events of a full fold one by one, in
- * `ts`/`id` order, gives the full fold. Unknown event types and other children's events are ignored.
+ * `ts`/`id` order and each event id once (as `sortEvents` returns them), gives the full fold.
+ * The caller keeps each id once: the client's event store is keyed by id, and when a stored
+ * event is replaced by a copy with another `ts` (a server-clamped copy, 08 §4) it rebuilds the
+ * projection from the store (02 §4.3). Unknown event types and other children's events are ignored.
  */
 export function applyLearnerEvent(
   model: EloFireModel,
