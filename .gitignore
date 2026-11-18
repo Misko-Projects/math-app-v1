@@ -11,6 +11,7 @@ coverage/
 .wrangler/
 .DS_Store
 tmp/
+.narration-render.lock
 test-results/
 playwright-report/
 blob-report/

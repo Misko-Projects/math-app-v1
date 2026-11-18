@@ -1,7 +1,16 @@
 // End-to-end resumability and spend safety (cross-model review rounds 1–2): runPipeline with the real
 // Gemini provider against a fake Batch API, checking that paid work is never submitted twice and that
 // partial runs never remove working audio.
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  realpathSync,
+  rmSync,
+  symlinkSync,
+  writeFileSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { audioManifestSchema, type NarrationJson } from '@number-island/shared';
@@ -500,6 +509,42 @@ describe('review round 4', () => {
     const capped = await run({ abandonUnconfirmedBatches: true, maxUsd: 0.000001 });
     expect(capped.aborted).toMatch(/exceeds --max-usd/);
     expect(server.paidPosts).toHaveLength(1);
+  });
+});
+
+describe('review round 5', () => {
+  it('locks the physical output directory, whatever path or symlink names it', () => {
+    const real = mkdtempSync(join(tmpdir(), 'narration-real-'));
+    dirs.push(real);
+    const link = `${real}-link`;
+    symlinkSync(real, link);
+    dirs.push(link);
+    expect(lockFileFor(link)).toBe(lockFileFor(real));
+    expect(lockFileFor(link)).toBe(join(realpathSync(real), '.narration-render.lock'));
+    expect(stateDirFor(link, 'opus')).toBe(stateDirFor(real, 'opus'));
+  });
+
+  it('keeps the ledger when publishing the manifest fails after a complete render', async () => {
+    const { server, run, ledger, outDir } = setup();
+    await run(); // job0 covers every clip, left running
+    server.finishAll();
+    server.setAutoFinish(true);
+    const edited: NarrationJson = {
+      ...fixtureNarration(),
+      'fb.correct.1': { text: 'You did it again!', clips: ['fb.correct.1#0'] },
+    };
+    // The edited render gets every clip (job0 plus a new job for the edit), but publishing the
+    // manifest fails: its temporary file cannot be written.
+    mkdirSync(join(outDir, 'manifest.json.tmp'));
+    await expect(run({ narration: edited })).rejects.toThrow();
+    expect(server.paidPosts).toHaveLength(2);
+    // job0 still holds the original fb.correct.1 request, so reverting the edit costs nothing.
+    expect(Object.keys(ledger().jobs)).toHaveLength(1);
+    rmSync(join(outDir, 'manifest.json.tmp'), { recursive: true });
+    const reverted = await run();
+    expect(reverted.complete).toBe(true);
+    expect(server.paidPosts).toHaveLength(2);
+    expect(ledger().jobs).toEqual({});
   });
 });
 

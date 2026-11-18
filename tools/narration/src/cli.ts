@@ -10,7 +10,7 @@
 // The Gemini key comes from GEMINI_API_KEY, else from the user-owned secrets file
 // ($MATH_APP_SECRETS or ~/.config/math-app-v1/secrets.env). It is never printed or logged.
 import { createHash } from 'node:crypto';
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, realpathSync, writeFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { dirname, join, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -49,17 +49,32 @@ const STATE_DIR = join(ROOT, 'tmp/narration/state');
  * Each output target (directory and format) keeps its own batch ledger, so a render to a scratch
  * directory or in another format never adopts or forgets another target's paid jobs.
  */
-export function stateDirFor(outDir: string, format: string): string {
+export function stateDirFor(outDir: string, format: string, root: string = STATE_DIR): string {
   const target = createHash('sha256')
-    .update(`${resolve(outDir)}\0${format}`)
+    .update(`${physicalPath(outDir)}\0${format}`)
     .digest('hex');
-  return join(STATE_DIR, target.slice(0, 16));
+  return join(root, target.slice(0, 16));
 }
 
-/** One lock per output directory, whatever the format: both formats share its manifest. */
+/** Where batch state lives: NARRATION_STATE_DIR, else tmp/narration/state in this checkout. */
+export function stateRootFor(env: NodeJS.ProcessEnv): string {
+  const override = env.NARRATION_STATE_DIR?.trim();
+  return override ? resolve(override) : STATE_DIR;
+}
+
+/** The real path of a directory (symlinks resolved), creating it if needed. */
+export function physicalPath(dir: string): string {
+  mkdirSync(dir, { recursive: true });
+  return realpathSync(dir);
+}
+
+/**
+ * One lock per output directory, whatever the format (both formats share its manifest). It lives
+ * inside the physical directory, so every path spelling, symlink or checkout targeting the same
+ * directory contends for the same lock.
+ */
 export function lockFileFor(outDir: string): string {
-  const dir = createHash('sha256').update(resolve(outDir)).digest('hex');
-  return join(STATE_DIR, `${dir.slice(0, 16)}.lock`);
+  return join(physicalPath(outDir), '.narration-render.lock');
 }
 
 /**
@@ -228,7 +243,19 @@ async function render(argv: string[], env: NodeJS.ProcessEnv): Promise<number> {
   );
   // A dry run builds the renderer too (it makes no calls) so the estimate can see saved jobs.
   const renderer = c.renderer();
-  if (c.provider === 'gemini') checkLegacyLedger();
+  // A real render refuses while the earlier global ledger lists jobs. A dry run or a run without a
+  // key cannot submit or discard anything, so it only warns and still prints its estimate.
+  const stateRoot = stateRootFor(env);
+  if (c.provider === 'gemini') {
+    if (!dryRun && renderer) checkLegacyLedger(stateRoot);
+    else {
+      try {
+        checkLegacyLedger(stateRoot);
+      } catch (e) {
+        console.log(`narration: warning: ${e instanceof Error ? e.message : String(e)}`);
+      }
+    }
+  }
   const report = await runPipeline({
     narration,
     styles: loadStyles(NARRATION_DIR),
@@ -238,7 +265,7 @@ async function render(argv: string[], env: NodeJS.ProcessEnv): Promise<number> {
     // A dry run never needs ffmpeg: planning only needs the extension and the encoding tag.
     encoder: dryRun || !renderer ? { ...wavEncoder, ...encodingOf(c.format) } : c.encoder(),
     outDir,
-    stateDir: stateDirFor(outDir, c.format),
+    stateDir: stateDirFor(outDir, c.format, stateRoot),
     lockFile: lockFileFor(outDir),
     mode,
     maxUsd: number(values['max-usd'], '--max-usd', 5),

@@ -59,6 +59,25 @@ describe('pnpm narration:render without a key', () => {
     expect(lines.join('\n')).toContain('live render pending a key');
   });
 
+  it('warns, but still estimates, when a legacy ledger exists and there is no key', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'narration-nokey-'));
+    dirs.push(dir);
+    writeFileSync(
+      join(dir, 'gemini-batches.json'),
+      JSON.stringify({ abc: { name: 'batches/old' } }),
+    );
+    const lines = captureLog();
+    const code = await main(['render', '--dry-run', '--provider', 'gemini'], {
+      ...noKey(dir),
+      NARRATION_STATE_DIR: dir,
+    });
+    expect(code).toBe(0);
+    const out = lines.join('\n');
+    expect(out).toContain('warning');
+    expect(out).toMatch(/estimate: /);
+    expect(out).toContain('live render pending a key');
+  });
+
   it('rejects an unknown provider', async () => {
     await expect(main(['render', '--provider', 'nope'], {})).rejects.toThrow();
   });

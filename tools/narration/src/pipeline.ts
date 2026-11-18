@@ -276,8 +276,6 @@ async function plannedRun(opts: PipelineOptions): Promise<PipelineReport> {
   report.pending = todo.length - done.size;
   report.complete =
     !opts.only && !report.aborted && report.failed.length === 0 && report.pending === 0;
-  // Every clip now has its file, so no saved provider work is needed any more.
-  if (report.complete) opts.renderer.clearSaved?.(opts.stateDir, log);
 
   const clips: AudioManifest['clips'] = {};
   if (!report.complete) {
@@ -317,6 +315,9 @@ async function plannedRun(opts: PipelineOptions): Promise<PipelineReport> {
       report.pruned.push(name);
     }
   }
+  // Last, once the manifest is published and pruning succeeded: every clip has its file, so no saved
+  // provider work is needed any more. A failure above leaves the ledger intact for the next run.
+  if (report.complete) opts.renderer.clearSaved?.(opts.stateDir, log);
   return report;
 }
 
