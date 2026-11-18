@@ -372,6 +372,30 @@ describe('POST /api/sync: clamp echo (02 §5.9 S3)', () => {
     const res = await syncOk(a.token, { events: [late] });
     expect(res.accepted).toEqual([late.id]);
     expect(res.clamped).toEqual([]);
+    // Same when the id is already held by another (surviving) event of the family: that row is
+    // not this event's stored copy, so its time is never echoed for it.
+    const survivor = roadEvent(family.familyId, a.id, { ts: 1_763_000_000_000 });
+    await syncOk(a.token, { events: [survivor] });
+    const reused = { ...late, id: survivor.id, ts: 1_763_000_500_000 };
+    const again = await syncOk(a.token, { events: [reused] });
+    expect(again.accepted).toEqual([survivor.id]);
+    expect(again.clamped).toEqual([]);
+  });
+
+  it('echoes the stored time of an accepted tombstone relay pushed with another ts', async () => {
+    const { family, a, b } = await twoDevices();
+    const child = profileFor(family.familyId);
+    await syncOk(a.token, { profiles: [child] });
+    const del = await api(`/api/children/${child.id}`, { method: 'DELETE', cookie: family.cookie });
+    expect(del.status).toBe(200);
+    const tomb = (await pullAll(b.token)).events.find((e) => e.type === 'child.deleted');
+    if (!tomb) throw new Error('expected the tombstone');
+    // An exact relay needs no echo; a relay with a moved ts gets the stored ts back.
+    expect((await syncOk(b.token, { events: [tomb] })).clamped).toEqual([]);
+    const moved = { ...tomb, ts: tomb.ts + 5_000 };
+    const res = await syncOk(b.token, { events: [moved] });
+    expect(res.accepted).toEqual([tomb.id]);
+    expect(res.clamped).toEqual([{ id: tomb.id, ts: tomb.ts }]);
   });
 });
 

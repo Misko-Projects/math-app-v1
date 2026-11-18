@@ -109,7 +109,12 @@ export async function ingestPushedEvents(
     valid.map((v) => v.event.id),
   );
   const accepted: string[] = [];
-  const pushedTime = new Map<string, Pick<AnyEventEnvelope, 'ts' | 'clientTs'>>();
+  // The first accepted copy of each id: it is the one stored, a later duplicate is ignored.
+  const pushed = new Map<string, AnyEventEnvelope>();
+  const accept = (event: AnyEventEnvelope) => {
+    accepted.push(event.id);
+    if (!pushed.has(event.id)) pushed.set(event.id, event);
+  };
   const toInsert: StoredEvent[] = [];
   for (const { index, raw, event } of valid) {
     const held = stored.get(event.id);
@@ -120,33 +125,32 @@ export async function ingestPushedEvents(
     if (event.type === 'child.deleted') {
       // Only a relay of the very tombstone this family holds under that id (02 §5.9 S2 b).
       if (held?.type === 'child.deleted' && held.deletedChild === tombstoneChildOf(event)) {
-        accepted.push(event.id);
+        accept(event);
       } else reject(index, raw, 'forbidden', 'Only a parent can delete a child.');
       continue;
     }
-    accepted.push(event.id);
-    // The first copy of an id in this call is the one stored; a later duplicate is ignored.
-    if (!pushedTime.has(event.id)) pushedTime.set(event.id, event);
+    accept(event);
     if (held === undefined) toInsert.push(toStoredEvent(event, receivedAt));
   }
   await insertEvents(db, familyId, toInsert, receivedAt);
   // An id pushed twice in one call is stored once and reported once. Rejections in request order.
   rejected.sort((x, y) => x.index - y.index);
   const unique = [...new Set(accepted)];
-  const clamped = await clampedEcho(db, familyId, unique, pushedTime);
+  const clamped = await clampedEcho(db, familyId, unique, pushed);
   return { accepted: unique, rejected, clamped };
 }
 
 /**
  * The stored time of each accepted event whose stored copy differs in `ts` or `clientTs` from the
- * pushed copy (02 §5.9 S3), in `accepted` order. Accepted events that are not stored (a deleted
- * child's, 02 §5.9 S2) have no stored copy and are left out.
+ * pushed copy (02 §5.9 S3), in `accepted` order, tombstone relays included. Only a stored copy of
+ * the same event (same type and child) counts: a deleted child's events are not stored (02 §5.9
+ * S2), and a row that holds the id for another event is not this event's stored copy.
  */
 async function clampedEcho(
   db: Db,
   familyId: string,
   accepted: string[],
-  pushed: Map<string, Pick<AnyEventEnvelope, 'ts' | 'clientTs'>>,
+  pushed: Map<string, AnyEventEnvelope>,
 ): Promise<SyncClampedEvent[]> {
   const stored = await storedEventsById(db, accepted);
   const out: SyncClampedEvent[] = [];
@@ -154,8 +158,12 @@ async function clampedEcho(
     const held = stored.get(id);
     const sent = pushed.get(id);
     if (held === undefined || held.familyId !== familyId || sent === undefined) continue;
+    if (held.type !== sent.type || !sameChild(held.childId, sent.childId)) continue;
     if (held.ts === sent.ts && held.clientTs === (sent.clientTs ?? null)) continue;
     out.push({ id, ts: held.ts, ...(held.clientTs === null ? {} : { clientTs: held.clientTs }) });
   }
   return out;
 }
+
+const sameChild = (a: string | null, b: string | null) =>
+  a === null || b === null ? a === b : canonId(a) === canonId(b);

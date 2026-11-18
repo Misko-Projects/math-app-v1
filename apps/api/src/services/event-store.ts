@@ -170,6 +170,7 @@ export interface HeldEvent {
   familyId: string;
   type: string;
   deletedChild: string | null;
+  childId: string | null;
   ts: number;
   clientTs: number | null;
 }
@@ -183,10 +184,11 @@ export async function storedEventsById(db: Db, ids: string[]): Promise<Map<strin
       family_id: string;
       type: string;
       deleted_child: string | null;
+      child_id: string | null;
       ts: number;
       client_ts: number | null;
     }>(
-      sql`SELECT id, family_id, type, ts, client_ts,
+      sql`SELECT id, family_id, type, child_id, ts, client_ts,
             CASE WHEN type = 'child.deleted' THEN json_extract(payload_json, '$.childId') END
               AS deleted_child
           FROM events
@@ -197,6 +199,7 @@ export async function storedEventsById(db: Db, ids: string[]): Promise<Map<strin
         familyId: row.family_id,
         type: row.type,
         deletedChild: row.deleted_child === null ? null : canonId(row.deleted_child),
+        childId: row.child_id,
         ts: row.ts,
         clientTs: row.client_ts,
       });

@@ -135,6 +135,10 @@ describe('API DTOs', () => {
     expect(syncResponseSchema.safeParse(withoutClamped).success).toBe(false);
     const unclamped = { ...response, clamped: [{ id: event.id, ts: 5 }] };
     expect(syncResponseSchema.parse(unclamped)).toEqual(unclamped);
+    // At most one echo per pushed event (500).
+    const echoes = (n: number) => Array.from({ length: n }, () => ({ id: newId(), ts: 5 }));
+    expect(syncResponseSchema.safeParse({ ...response, clamped: echoes(500) }).success).toBe(true);
+    expect(syncResponseSchema.safeParse({ ...response, clamped: echoes(501) }).success).toBe(false);
     for (const bad of [
       { id: 'x', ts: 5 },
       { id: event.id, ts: -1 },
