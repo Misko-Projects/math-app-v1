@@ -360,7 +360,7 @@ describe('POST /api/sync: clamp echo (02 §5.9 S3)', () => {
   });
 
   it("leaves out a deleted child's events, which are accepted but not stored", async () => {
-    const { family, a } = await twoDevices();
+    const { family, a, b } = await twoDevices();
     const child = profileFor(family.familyId);
     await syncOk(a.token, { profiles: [child] });
     const del = await api(`/api/children/${child.id}`, { method: 'DELETE', cookie: family.cookie });
@@ -380,6 +380,16 @@ describe('POST /api/sync: clamp echo (02 §5.9 S3)', () => {
     const again = await syncOk(a.token, { events: [reused] });
     expect(again.accepted).toEqual([survivor.id]);
     expect(again.clamped).toEqual([]);
+    // And within one push: the deleted child's copy is skipped, a family-level event under the
+    // same unused id is stored, and its time is not echoed for the skipped copy.
+    const sharedId = roadEvent(family.familyId, a.id).id;
+    const skipped = { ...late, id: sharedId, ts: 1_763_000_000_000 };
+    const kept = roadEvent(family.familyId, a.id, { id: sharedId, ts: 1_763_000_700_000 });
+    const mixed = await syncOk(a.token, { events: [skipped, kept] });
+    expect(mixed.accepted).toEqual([sharedId]);
+    expect(mixed.clamped).toEqual([]);
+    const [pulled] = (await pullAll(b.token)).events.filter((e) => e.id === sharedId);
+    expect(pulled).toEqual(kept);
   });
 
   it('echoes the stored time of an accepted tombstone relay pushed with another ts', async () => {
