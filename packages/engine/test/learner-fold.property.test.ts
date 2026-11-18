@@ -191,25 +191,15 @@ describe('foldSkillStates properties (fixture graph)', () => {
     expect(foldLearnerState(upper, graph, opts)).toEqual(foldLearnerState(events, graph, opts));
   });
 
-  it('devices converge: the origin folds its own copy, another device the clamped copy', () => {
-    fc.assert(
-      fc.property(logArb, fc.nat(), fc.integer({ min: 1, max: 60 }), (events, pick, days) => {
-        const attempts = events.filter((e) => e.childId === CHILD_1);
-        if (attempts.length === 0) return;
-        const original = attempts[pick % attempts.length] as AnyEventEnvelope;
-        // The server clamps a future ts down to its receive time and keeps the device time.
-        const clamped = { ...original, ts: original.ts - days * 86_400_000, clientTs: original.ts };
-        const elsewhere = events.map((e) => (e.id === original.id ? clamped : e));
-        expect(foldLearnerState(elsewhere, graph, opts)).toEqual(
-          foldLearnerState(events, graph, opts),
-        );
-        // The origin keeps its local copy and later also stores the clamped one: still the same.
-        expect(foldLearnerState([...events, clamped], graph, opts)).toEqual(
-          foldLearnerState(events, graph, opts),
-        );
-      }),
-      { numRuns: 100 },
+  it('folds order by the server-bounded ts; a device-supplied clientTs never reorders', () => {
+    const rng = createRng(13);
+    const events = Array.from({ length: 30 }, (_, i) =>
+      randomLearnerEvent(graph, rng, i, T0 + i * 3_600_000),
     );
+    const forged = events.map((e) =>
+      e.childId === CHILD_1 ? { ...e, clientTs: T0 + 400 * 86_400_000 } : e,
+    );
+    expect(foldLearnerState(forged, graph, opts)).toEqual(foldLearnerState(events, graph, opts));
   });
 
   it('incremental application takes each id once: sortEvents keeps one copy of a clamped event', () => {

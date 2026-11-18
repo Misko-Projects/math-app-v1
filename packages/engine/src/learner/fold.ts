@@ -10,7 +10,7 @@ import type {
   SkillId,
   SkillState,
 } from '@number-island/shared';
-import { eventTime, isEvent, sameId, sortEvents } from '../folds/order';
+import { isEvent, sameId, sortEvents } from '../folds/order';
 import type { EngineParams } from '../params';
 import { createEloFireModel, type EloFireModel, type EngineLearnerState } from './elo-fire';
 
@@ -23,10 +23,10 @@ export interface FoldLearnerOptions {
 }
 
 /**
- * Applies one event to a learner state, at its event time (`clientTs ?? ts`). Applying the events
- * of a full fold one by one, in event-time/id order and each id once (as `sortEvents` returns
- * them), gives the full fold. A server-clamped copy has the same event time as the device's own
- * copy, so it never needs replaying; the caller (whose store is keyed by id) applies an id once.
+ * Applies one event to a learner state at its `ts`. Applying the events of a full fold one by one,
+ * in `ts`/`id` order and each id once (as `sortEvents` returns them), gives the full fold. The
+ * caller's store is keyed by id, so it applies an id once; when it replaces a stored event with a
+ * copy whose `ts` differs (a server clamp, 08 §4), it rebuilds the projection from the store.
  * Unknown event types and other children's events are ignored.
  */
 export function applyLearnerEvent(
@@ -43,12 +43,12 @@ export function applyLearnerEvent(
     return empty;
   }
   if (!sameId(e.childId, state.childId)) return state;
-  if (isEvent(e, 'attempt')) return model.apply(state, e.payload, eventTime(e));
+  if (isEvent(e, 'attempt')) return model.apply(state, e.payload, e.ts);
   if (isEvent(e, 'placement.completed')) {
-    return model.applyPlacement(state, e.payload, eventTime(e));
+    return model.applyPlacement(state, e.payload, e.ts);
   }
   if (isEvent(e, 'placement.probe')) return model.applyPlacementProbe(state, e.payload);
-  if (isEvent(e, 'skill.override')) return model.applyOverride(state, e.payload, eventTime(e));
+  if (isEvent(e, 'skill.override')) return model.applyOverride(state, e.payload, e.ts);
   if (isEvent(e, 'session.started')) return model.startSession(state);
   return state;
 }

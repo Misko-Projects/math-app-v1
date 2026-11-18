@@ -1,31 +1,27 @@
-// Event ordering shared by every projection (02 §4.3): folds are deterministic and
-// order-independent given the same set, because they sort by event time, then `id`.
+// Event ordering shared by every projection (02 §4.3, 08 §4): folds are deterministic and
+// order-independent given the same set, because they sort by `ts`, then `id`.
 
 import type { AnyEventEnvelope, EventEnvelope, EventType } from '@number-island/shared';
 
 /**
- * The time a fold uses for an event: the device time, `clientTs ?? ts`. When the server clamps a
- * future `ts` (08 §4) the clamped copy keeps the device time in `clientTs`, and the originating
- * device keeps its own copy with that same `ts`; folding by device time makes both copies fold
- * identically on every device, so projections converge without replaying anything.
+ * The time a fold uses for an event: its `ts`, which the server bounds (08 §4 clamps a `ts` more
+ * than 24 h ahead to its receive time). `clientTs` is never trusted for ordering: a device can set
+ * it, and the clamp exists to bound clock skew.
  */
-export const eventTime = (e: Pick<AnyEventEnvelope, 'ts' | 'clientTs'>): number =>
-  e.clientTs ?? e.ts;
+export const eventTime = (e: Pick<AnyEventEnvelope, 'ts'>): number => e.ts;
 
 export function compareEvents(
-  a: Pick<AnyEventEnvelope, 'ts' | 'clientTs' | 'id'>,
-  b: Pick<AnyEventEnvelope, 'ts' | 'clientTs' | 'id'>,
+  a: Pick<AnyEventEnvelope, 'ts' | 'id'>,
+  b: Pick<AnyEventEnvelope, 'ts' | 'id'>,
 ): number {
-  const ta = eventTime(a);
-  const tb = eventTime(b);
-  if (ta !== tb) return ta - tb;
+  if (a.ts !== b.ts) return a.ts - b.ts;
   return a.id < b.id ? -1 : a.id > b.id ? 1 : 0;
 }
 
 /**
- * A sorted copy with each event id kept once. Copies of one event differ only in `ts` when the
- * server clamped it; both have the same event time, and the server's copy (with `clientTs`) is
- * kept, then the earliest `ts` (then the smaller JSON), so the choice never depends on input order.
+ * A sorted copy with each event id kept once. Copies of one event differ in `ts` when the server
+ * clamped it (08 §4); the server's copy (the one with `clientTs`) is kept, then the earliest `ts`
+ * (then the smaller JSON), so the choice never depends on input order.
  */
 export function sortEvents<E extends AnyEventEnvelope>(events: readonly E[]): E[] {
   const byId = new Map<string, E>();
