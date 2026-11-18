@@ -573,33 +573,35 @@
   }
 }
 
-/* ---------- number entry (NumberEntry: tray 0–10 or the pad) ---------- */
+/* ---------- number entry (NumberEntry: a NumeralTray or the pad) ---------- */
 
+/* The tray keeps its own CSS (trayGrid columns, 12 px gaps); the entry only places it. */
 .ni-entry {
   display: flex;
-  flex-direction: column;
   align-items: center;
+  justify-content: center;
+}
+.ni-entry[data-kind="pad"] {
+  flex-direction: column;
   gap: 16px;
 }
-.ni-entry[data-kind="tray"] .ni-tray-numerals {
-  display: grid;
-  /* Equal columns: "10" doesn't make its column wider than the others. */
-  grid-template-columns: repeat(var(--entry-cols, 4), 1fr);
-  justify-content: center;
-  /* Room for the picked card's ring and badge, so neighbours stay ≥ 12 px apart. */
-  gap: calc(var(--target-gap) + 6px);
-  padding: 10px;
+.ni-entry[data-kind="pad"][data-pad="beside"] {
+  flex-direction: row;
 }
-.ni-entry[data-kind="tray"] .ni-pick {
-  width: 100%;
+/*
+ * A demo invite on a numeral card or a pad key: the ring sits inside the control's own box (as
+ * make-set's objects), so it keeps the full 12 px gap from its neighbours; Pip's hand moves.
+ */
+.ni-entry .ni-pick.ni-invite,
+.ni-entry .ni-pad__key.ni-invite {
+  outline-offset: -9px;
+  animation: none;
 }
-.ni-entry__row {
-  display: flex;
-  align-items: center;
-  gap: calc(var(--target-gap) * 2);
-}
-.ni-entry__display {
-  min-width: calc(var(--target-min) * 2);
+/* Compact keys (short areas): the age mode's minimum target instead of --target-big. */
+.ni-entry[data-compact="true"] .ni-pad {
+  grid-template-columns: repeat(3, var(--target-min));
+  /* A key keeps 4 px below it for its ledge (.ni-pad__key margin), as the big keys do. */
+  grid-auto-rows: calc(var(--target-min) + 4px);
 }
 
 /* ---------- demo flights (flight.tsx) ---------- */

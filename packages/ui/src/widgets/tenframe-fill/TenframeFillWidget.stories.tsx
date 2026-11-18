@@ -1,6 +1,7 @@
 import type { WidgetConfig } from '@number-island/shared';
 import type { Meta, StoryObj } from '@storybook/react-vite';
 import { expect, fn, userEvent, waitFor, within } from 'storybook/test';
+import { expectOneInvite, targetsOf } from '../../test-support/inviteStory';
 import {
   center,
   clearSpies,
@@ -8,13 +9,18 @@ import {
   expectTargetSize,
   pointerDrag,
   spyAudio,
+  waitForSettled,
 } from '../../test-support/storyHelpers';
 import {
+  areaBox,
+  expectFitsArea,
   expectTraceOrdered,
   findWidget,
+  inArea,
   renderWidget,
   traceOf,
 } from '../../test-support/widgetStory';
+import type { AgeMode } from '../../tokens/tokens';
 import { createDemoController, UnsupportedWidgetOpError, type WidgetDemo } from '../demo';
 import type { ConfigFor } from '../types';
 import type { WidgetHostProps } from '../WidgetHost';
@@ -22,113 +28,109 @@ import type { WidgetHostProps } from '../WidgetHost';
 /**
  * `tenframe-fill` (03 §5.5): concrete (drag counters from the tray into the cells; tap a placed
  * counter to take it back) and pictorial (tap cells to shade them). `thenAsk` adds a numeral
- * answer. Responds `{ cells, value? }` through the engine model.
+ * answer. Responds `{ cells, value? }` through the engine model. Fixtures mirror the generated
+ * items (ADD.01.t3, SUB.03.t1, CPS.02.t1, CNT.14.t2, CNT.04.t3, CPS.03.t1, CPS.04.t1, ADD.13.t1,
+ * CMP.03.t2, ADD.18.t1).
  */
 
 type Config = ConfigFor<'tenframe-fill'>;
 
-/** ADD.01.t3: 6 and 3 more, how many in all? */
-const add63: Config = {
+const base = {
   format: 'tenframe-fill',
   frames: 1,
   size: 10,
+  prefilled: [] as Config['prefilled'],
+  requireStandardFill: false,
+  thenAsk: null,
+  skin: 'frame',
+} as const;
+
+/** ADD.01.t3 (K): 6 and 3 more, how many in all? */
+const add63: Config = {
+  ...base,
   prefilled: [{ frame: 0, color: 'a', count: 6 }],
   goal: 'add',
   a: 6,
   b: 3,
-  requireStandardFill: false,
   thenAsk: 'total',
-  skin: 'frame',
 };
 
-/** SUB.03.t1: show 7 the standard way. */
-const show7Standard: Config = {
-  format: 'tenframe-fill',
-  frames: 1,
-  size: 10,
-  prefilled: [],
-  goal: 'show-n',
-  n: 7,
-  requireStandardFill: true,
-  thenAsk: null,
-  skin: 'frame',
-};
+/** SUB.03.t1 (K): show 7 the standard way. */
+const show7Standard: Config = { ...base, goal: 'show-n', n: 7, requireStandardFill: true };
 
-/** CPS.02.t1: split 7 across two frames. */
-const split7: Config = {
-  format: 'tenframe-fill',
+/** CPS.02.t1 (K): show 7 on two frames, one part per frame. */
+const split7: Config = { ...base, frames: 2, goal: 'show-n', n: 7 };
+
+/** CNT.14.t2 (K): one more than 12 (ten and two given), then how many? */
+const oneMore12: Config = {
+  ...base,
   frames: 2,
-  size: 10,
-  prefilled: [],
-  goal: 'show-n',
-  n: 7,
-  requireStandardFill: false,
-  thenAsk: null,
-  skin: 'frame',
-};
-
-/** CNT.14.t2: one more than 10, then how many? (two frames, answer on the pad) */
-const oneMore10: Config = {
-  format: 'tenframe-fill',
-  frames: 2,
-  size: 10,
-  prefilled: [{ frame: 0, color: 'a', count: 10 }],
+  prefilled: [
+    { frame: 0, color: 'a', count: 10 },
+    { frame: 1, color: 'a', count: 2 },
+  ],
   goal: 'one-more',
-  n: 11,
-  requireStandardFill: false,
+  n: 12,
   thenAsk: 'total',
-  skin: 'frame',
 };
 
-/** CNT.04.t3 (pictorial): shade 3. */
-const shade3: Config = {
-  format: 'tenframe-fill',
-  frames: 1,
-  size: 10,
-  prefilled: [],
+/** CPS.04.t1 (K): show 14 the standard way on two frames, then how many? */
+const teen14: Config = {
+  ...base,
+  frames: 2,
   goal: 'show-n',
-  n: 3,
-  requireStandardFill: false,
-  thenAsk: null,
-  skin: 'frame',
+  n: 14,
+  requireStandardFill: true,
+  thenAsk: 'total',
 };
+
+/** ADD.13.t1 (G1): 7 and 9 on two frames, how many in all? */
+const add79: Config = {
+  ...base,
+  frames: 2,
+  prefilled: [{ frame: 0, color: 'a', count: 7 }],
+  goal: 'add',
+  a: 7,
+  b: 9,
+  thenAsk: 'total',
+};
+
+/** CNT.04.t3 (pictorial, K): shade 3. */
+const shade3: Config = { ...base, goal: 'show-n', n: 3 };
 
 /** CPS.03.t1 on a Pebbling shell: 8 and how many more make ten? */
 const makeTenShell: Config = {
-  format: 'tenframe-fill',
-  frames: 1,
-  size: 10,
+  ...base,
   prefilled: [{ frame: 0, color: 'a', count: 8 }],
   goal: 'make-ten',
-  requireStandardFill: false,
   thenAsk: 'missing',
   skin: 'shell',
 };
 
-/** A five-frame: show 4. */
-const fiveFrame: Config = {
-  format: 'tenframe-fill',
-  frames: 1,
-  size: 5,
-  prefilled: [],
-  goal: 'show-n',
-  n: 4,
-  requireStandardFill: false,
-  thenAsk: 'total',
-  skin: 'frame',
-};
+/** A five-frame: show 4, how many? */
+const fiveFrame: Config = { ...base, size: 5, goal: 'show-n', n: 4, thenAsk: 'total' };
 
-/** Take away: 7, take 2 away (prefilled counters can be taken off). */
+/** CMP.03.t2 (K): 7, take 1 away (the given counters come off into the tray). */
 const takeAway: Config = {
-  format: 'tenframe-fill',
-  frames: 1,
-  size: 10,
+  ...base,
   prefilled: [{ frame: 0, color: 'a', count: 7 }],
   goal: 'subtract',
-  n: 5,
-  requireStandardFill: false,
-  thenAsk: null,
-  skin: 'frame',
+  a: 7,
+  b: 1,
+};
+
+/** ADD.18.t1 (G1): 17 take away 8, how many are left? */
+const subtract17: Config = {
+  ...base,
+  frames: 2,
+  prefilled: [
+    { frame: 0, color: 'a', count: 10 },
+    { frame: 1, color: 'a', count: 7 },
+  ],
+  goal: 'subtract',
+  a: 17,
+  b: 8,
+  thenAsk: 'total',
 };
 
 const meta = {
@@ -148,14 +150,18 @@ export default meta;
 type Story = StoryObj<typeof meta>;
 
 const ROOT = '.ni-tf';
-const trayCounter = (root: HTMLElement, id: number) =>
-  root.querySelector(`.ni-tf__tray [data-counter="${id}"]`) as HTMLElement;
+const supplyCounters = (root: HTMLElement) => [
+  ...root.querySelectorAll<HTMLElement>('.ni-tf__supply .ni-tf__counter'),
+];
+const supplyCounter = (root: HTMLElement, id: number) =>
+  root.querySelector(`.ni-tf__supply [data-counter="${id}"]`) as HTMLElement;
 const pad = (root: HTMLElement, frame: number, index: number) =>
   root.querySelector(`[data-cell="cell-${frame}-${index}"] .ni-tf__pad`) as HTMLElement;
 const cellsOf = (root: HTMLElement, frame = 0) =>
-  [...root.querySelectorAll(`[data-frame="${frame}"] .ni-tf__cell`)].map((c) =>
+  [...root.querySelectorAll(`.ni-tf__frame[data-frame="${frame}"] .ni-tf__cell`)].map((c) =>
     c.getAttribute('data-filled') === 'true' ? 1 : 0,
   );
+const button = (root: HTMLElement, name: string) => within(root).getByRole('button', { name });
 
 /**
  * Concrete add (ADD.01.t3): drag one counter with the mouse, one by touch, tap-to-place the third,
@@ -164,24 +170,24 @@ const cellsOf = (root: HTMLElement, frame = 0) =>
 export const AddDragAndTap: Story = {
   play: async ({ canvasElement, args }) => {
     const root = await findWidget(canvasElement, ROOT);
-    const canvas = within(root);
-    const check = canvas.getByRole('button', { name: 'Check' });
-    await expect(root.querySelectorAll('.ni-tf__tray .ni-tf__counter')).toHaveLength(3);
+    const check = button(root, 'Check');
+    await expect(supplyCounters(root)).toHaveLength(3);
     // Colour b differs by a mark too (an ink ring), not only by colour (06 §7).
-    await expect(root.querySelector('.ni-tf__tray [data-mark="ring"]')).not.toBeNull();
+    await expect(root.querySelector('.ni-tf__supply [data-mark="ring"]')).not.toBeNull();
 
-    await pointerDrag(trayCounter(root, 6), center(pad(root, 0, 6)), 'mouse');
+    await pointerDrag(supplyCounter(root, 6), center(pad(root, 0, 6)), 'mouse');
     await waitFor(() => expect(cellsOf(root)).toEqual([1, 1, 1, 1, 1, 1, 1, 0, 0, 0]));
-    await pointerDrag(trayCounter(root, 7), center(pad(root, 0, 9)), 'touch');
+    await pointerDrag(supplyCounter(root, 7), center(pad(root, 0, 9)), 'touch');
     await waitFor(() => expect(cellsOf(root)[9]).toBe(1));
     // Tap-to-place: tap the counter, then the cell.
-    await userEvent.click(trayCounter(root, 8));
+    await userEvent.click(supplyCounter(root, 8));
     await userEvent.click(pad(root, 0, 7));
     await waitFor(() => expect(cellsOf(root)).toEqual([1, 1, 1, 1, 1, 1, 1, 1, 0, 1]));
-    await expect(root.querySelectorAll('.ni-tf__tray .ni-tf__counter')).toHaveLength(0);
+    await expect(supplyCounters(root)).toHaveLength(0);
 
     await expect(check).toBeDisabled();
-    await userEvent.click(canvas.getByRole('button', { name: '9' }));
+    await userEvent.click(button(root, '9'));
+    await userEvent.click(check);
     await userEvent.click(check);
     await expect(args.onResponse).toHaveBeenCalledTimes(1);
     await expect(args.onResponse).toHaveBeenCalledWith({
@@ -210,14 +216,13 @@ export const Keyboard: Story = {
   args: { config: show7Standard },
   play: async ({ canvasElement, args }) => {
     const root = await findWidget(canvasElement, ROOT);
-    trayCounter(root, 0).focus();
+    supplyCounter(root, 0).focus();
     await userEvent.keyboard('{Enter}');
     await waitFor(() => expect(document.activeElement).toBe(pad(root, 0, 0)));
     await userEvent.keyboard('{Enter}');
     await waitFor(() => expect(cellsOf(root)[0]).toBe(1));
-    trayCounter(root, 1).focus();
+    supplyCounter(root, 1).focus();
     await userEvent.keyboard('{Enter}');
-    // Arrow keys move between free cells.
     await userEvent.keyboard('{ArrowRight}');
     await userEvent.keyboard('{Enter}');
     await waitFor(() => expect(cellsOf(root).filter(Boolean)).toHaveLength(2));
@@ -225,7 +230,7 @@ export const Keyboard: Story = {
     placed.focus();
     await userEvent.keyboard('{Enter}');
     await waitFor(() => expect(cellsOf(root).filter(Boolean)).toHaveLength(1));
-    within(root).getByRole('button', { name: 'Check' }).focus();
+    button(root, 'Check').focus();
     await userEvent.keyboard('{Enter}');
     await expect(args.onResponse).toHaveBeenCalledWith({
       kind: 'state',
@@ -238,7 +243,8 @@ export const Keyboard: Story = {
 
 /**
  * K mode, standard fill (SUB.03.t1): a counter dropped anywhere lands in the next cell of the
- * standard order. Cells and tray counters are ≥ 80 px and ≥ 12 px apart; placing speaks the count.
+ * standard order. Cells and tray counters are ≥ 80 px and ≥ 12 px apart; placing speaks the count,
+ * tapping a counter speaks its name (06 §5).
  */
 export const StandardFillK: Story = {
   globals: { ageMode: 'k' },
@@ -252,21 +258,19 @@ export const StandardFillK: Story = {
     await expect(pads).toHaveLength(10);
     for (const p of pads) await expectTargetSize(p, 'k');
     await expectTargetGaps(pads);
-    const tray = [...root.querySelectorAll<HTMLElement>('.ni-tf__tray .ni-tf__counter')];
-    for (const c of tray) await expectTargetSize(c, 'k');
-    await expectTargetGaps(tray);
-    await expectTargetSize(within(root).getByRole('button', { name: 'Check' }), 'k');
+    for (const c of supplyCounters(root)) await expectTargetSize(c, 'k');
+    await expectTargetGaps(supplyCounters(root));
+    await expectTargetSize(button(root, 'Check'), 'k');
 
-    await pointerDrag(trayCounter(root, 0), center(pad(root, 0, 8)), 'touch');
+    await pointerDrag(supplyCounter(root, 0), center(pad(root, 0, 8)), 'touch');
     await waitFor(() => expect(cellsOf(root)).toEqual([1, 0, 0, 0, 0, 0, 0, 0, 0, 0]));
     await expect(audio.sayPhrases).toHaveBeenLastCalledWith([{ number: 1 }]);
-    // Tapping a counter in the tray speaks its name (06 §5).
-    await userEvent.click(trayCounter(root, 1));
+    await userEvent.click(supplyCounter(root, 1));
     await expect(audio.say).toHaveBeenCalledWith('ui.sprite.counter', undefined);
     await userEvent.click(pad(root, 0, 4));
     await waitFor(() => expect(cellsOf(root)).toEqual([1, 1, 0, 0, 0, 0, 0, 0, 0, 0]));
     await expect(audio.sayPhrases).toHaveBeenLastCalledWith([{ number: 2 }]);
-    await userEvent.click(within(root).getByRole('button', { name: 'Check' }));
+    await userEvent.click(button(root, 'Check'));
     await expect(args.onResponse).toHaveBeenCalledWith({
       kind: 'state',
       value: { cells: [[1, 1, 0, 0, 0, 0, 0, 0, 0, 0]] },
@@ -274,28 +278,39 @@ export const StandardFillK: Story = {
   },
 };
 
-/** Two frames (CPS.02.t1): one part per frame; the tray stands beside them. */
+/**
+ * Maths truth: a ten-frame is 2 rows × 5 evenly spaced cells, and two frames are two of them;
+ * counters split across the frames answer one part per frame (CPS.02.t1).
+ */
 export const TwoFramesSplit: Story = {
   args: { config: split7 },
   play: async ({ canvasElement, args }) => {
     const root = await findWidget(canvasElement, ROOT);
-    const pads = [...root.querySelectorAll<HTMLElement>('.ni-tf__pad')];
-    await expect(pads).toHaveLength(20);
-    for (const p of pads.slice(0, 6)) await expectTargetSize(p, 'g1-up');
-    await expectTargetGaps(pads.slice(0, 10));
-    // The tray shows ten counters at a time.
-    await expect(root.querySelectorAll('.ni-tf__tray .ni-tf__counter')).toHaveLength(10);
-    const firstInTray = () => root.querySelector('.ni-tf__tray .ni-tf__counter') as HTMLElement;
+    for (const frame of [0, 1]) {
+      const cells = [
+        ...root.querySelectorAll<HTMLElement>(`.ni-tf__frame[data-frame="${frame}"] .ni-tf__cell`),
+      ].map((c) => c.getBoundingClientRect());
+      await expect(cells).toHaveLength(10);
+      const xs = [...new Set(cells.map((r) => Math.round(r.left)))];
+      const ys = [...new Set(cells.map((r) => Math.round(r.top)))];
+      await expect(xs).toHaveLength(5);
+      await expect(ys).toHaveLength(2);
+      const steps = xs.slice(1).map((x, i) => x - (xs[i] as number));
+      for (const s of steps) {
+        await expect(Math.abs(s - (steps[0] as number))).toBeLessThanOrEqual(1);
+      }
+    }
     for (const [frame, cell] of [
       [0, 0],
       [0, 1],
       [0, 2],
       [1, 0],
     ] as const) {
-      await pointerDrag(firstInTray(), center(pad(root, frame, cell)), 'mouse');
+      const first = supplyCounters(root)[0] as HTMLElement;
+      await pointerDrag(first, center(pad(root, frame, cell)), 'mouse');
     }
     await waitFor(() => expect(cellsOf(root, 1)[0]).toBe(1));
-    await userEvent.click(within(root).getByRole('button', { name: 'Check' }));
+    await userEvent.click(button(root, 'Check'));
     await expect(args.onResponse).toHaveBeenCalledWith({
       kind: 'state',
       value: {
@@ -309,39 +324,30 @@ export const TwoFramesSplit: Story = {
 };
 
 /**
- * One more than 10 (CNT.14.t2): the asked number is up to 20, so the number pad answers. A double
- * Enter and Enter-then-Check inside 400 ms submit once (06 §4).
+ * One more than 12 (CNT.14.t2): the given ten and two are locked (not buttons); the asked number
+ * is picked on a 0–20 tray. Check twice inside 400 ms submits once (06 §4).
  */
-export const TwoFramesPad: Story = {
-  args: { config: oneMore10 },
+export const TwoFramesTeen: Story = {
+  args: { config: oneMore12 },
   play: async ({ canvasElement, args }) => {
     const root = await findWidget(canvasElement, ROOT);
-    // The prefilled ten is locked: those counters are not buttons.
-    await expect(root.querySelectorAll('.ni-tf__placed[data-locked="true"]')).toHaveLength(10);
+    await expect(root.querySelectorAll('.ni-tf__placed[data-locked="true"]')).toHaveLength(12);
     await expect(within(root).queryByRole('button', { name: 'Counter 1' })).toBeNull();
-    await userEvent.click(trayCounter(root, 10));
-    await userEvent.click(pad(root, 1, 0));
-    await waitFor(() => expect(cellsOf(root, 1)[0]).toBe(1));
-    const key = (k: string) => root.querySelector(`.ni-pad__key[data-key="${k}"]`) as HTMLElement;
-    // Enter before the number is in does nothing, and doesn't swallow the real submit after it.
-    (document.activeElement as HTMLElement | null)?.blur();
-    await userEvent.keyboard('{Enter}');
-    await expect(args.onResponse).not.toHaveBeenCalled();
-    await userEvent.click(key('1'));
-    await userEvent.click(key('1'));
-    await expect(within(root).getByRole('button', { name: 'Your answer: 11' })).toBeVisible();
-    (document.activeElement as HTMLElement | null)?.blur();
-    await userEvent.keyboard('{Enter}{Enter}');
-    await userEvent.click(within(root).getByRole('button', { name: 'Check' }));
+    await userEvent.click(supplyCounter(root, 12));
+    await userEvent.click(pad(root, 1, 5));
+    await waitFor(() => expect(cellsOf(root, 1)[5]).toBe(1));
+    await userEvent.click(button(root, '13'));
+    await userEvent.click(button(root, 'Check'));
+    await userEvent.click(button(root, 'Check'));
     await expect(args.onResponse).toHaveBeenCalledTimes(1);
     await expect(args.onResponse).toHaveBeenCalledWith({
       kind: 'state',
       value: {
         cells: [
           [1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
-          [2, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+          [1, 1, 0, 0, 0, 2, 0, 0, 0, 0],
         ],
-        value: 11,
+        value: 13,
       },
     });
   },
@@ -353,11 +359,11 @@ export const PictorialShadeK: Story = {
   args: { config: shade3, tier: 'pictorial' },
   play: async ({ canvasElement, args }) => {
     const root = await findWidget(canvasElement, ROOT);
-    await expect(root.querySelector('.ni-tf__tray')).toBeNull();
+    await expect(root.querySelector('.ni-tf__supply')).toBeNull();
     const cells = [...root.querySelectorAll<HTMLElement>('.ni-tf__shade')];
     for (const c of cells) await expectTargetSize(c, 'k');
     await expectTargetGaps(cells);
-    const box = (n: number) => within(root).getByRole('button', { name: `Box ${n}` });
+    const box = (n: number) => button(root, `Box ${n}`);
     await userEvent.click(box(1));
     await userEvent.click(box(2));
     await userEvent.click(box(7));
@@ -365,7 +371,7 @@ export const PictorialShadeK: Story = {
     await userEvent.click(box(8));
     await expect(box(7)).toHaveAttribute('aria-pressed', 'true');
     await expect(box(8)).toHaveAttribute('aria-pressed', 'false');
-    await userEvent.click(within(root).getByRole('button', { name: 'Check' }));
+    await userEvent.click(button(root, 'Check'));
     await expect(args.onResponse).toHaveBeenCalledWith({
       kind: 'state',
       value: { cells: [[1, 1, 0, 0, 0, 0, 1, 0, 0, 0]] },
@@ -389,23 +395,23 @@ export const ShellMakeTen: Story = {
     const root = await findWidget(canvasElement, ROOT);
     await expect(root.querySelector('.ni-tf__shell')).not.toBeNull();
     await expect(within(root).getByRole('group', { name: 'Shell 1' })).toBeVisible();
-    await pointerDrag(trayCounter(root, 8), center(pad(root, 0, 8)), 'touch');
+    await pointerDrag(supplyCounter(root, 8), center(pad(root, 0, 8)), 'touch');
     await waitFor(() => expect(cellsOf(root)[8]).toBe(1));
-    await userEvent.click(within(root).getByRole('button', { name: '1' }));
+    await userEvent.click(button(root, '1'));
     await expect(args.onResponse).not.toHaveBeenCalled();
   },
 };
 
-/** A five-frame (one row) asking how many. */
+/** A five-frame (one row of five) asking how many. */
 export const FiveFrame: Story = {
   args: { config: fiveFrame },
   play: async ({ canvasElement, args }) => {
     const root = await findWidget(canvasElement, ROOT);
     await expect(root.querySelectorAll('.ni-tf__pad')).toHaveLength(5);
-    await userEvent.click(trayCounter(root, 0));
+    await userEvent.click(supplyCounter(root, 0));
     await userEvent.click(pad(root, 0, 0));
-    await userEvent.click(within(root).getByRole('button', { name: '1' }));
-    await userEvent.click(within(root).getByRole('button', { name: 'Check' }));
+    await userEvent.click(button(root, '1'));
+    await userEvent.click(button(root, 'Check'));
     await expect(args.onResponse).toHaveBeenCalledWith({
       kind: 'state',
       value: { cells: [[1, 0, 0, 0, 0]], value: 1 },
@@ -413,17 +419,15 @@ export const FiveFrame: Story = {
   },
 };
 
-/** Take away (subtract): the given counters can be tapped off the frame into the tray. */
+/** Take away (CMP.03.t2): the given counters can be tapped off the frame into the tray. */
 export const TakeAway: Story = {
   args: { config: takeAway },
   play: async ({ canvasElement, args }) => {
     const root = await findWidget(canvasElement, ROOT);
-    await userEvent.click(within(root).getByRole('button', { name: 'Counter 7' }));
-    await userEvent.click(within(root).getByRole('button', { name: 'Counter 6' }));
-    await waitFor(() =>
-      expect(root.querySelectorAll('.ni-tf__tray .ni-tf__counter')).toHaveLength(2),
-    );
-    await userEvent.click(within(root).getByRole('button', { name: 'Check' }));
+    await userEvent.click(button(root, 'Counter 7'));
+    await userEvent.click(button(root, 'Counter 6'));
+    await waitFor(() => expect(supplyCounters(root)).toHaveLength(2));
+    await userEvent.click(button(root, 'Check'));
     await expect(args.onResponse).toHaveBeenCalledWith({
       kind: 'state',
       value: { cells: [[1, 1, 1, 1, 1, 0, 0, 0, 0, 0]] },
@@ -436,58 +440,80 @@ export const Disabled: Story = {
   args: { disabled: true },
   play: async ({ canvasElement, args }) => {
     const root = await findWidget(canvasElement, ROOT);
-    await userEvent.click(trayCounter(root, 6));
+    await userEvent.click(supplyCounter(root, 6));
     await userEvent.click(pad(root, 0, 6));
     await expect(cellsOf(root)[6]).toBe(0);
-    await expect(within(root).getByRole('button', { name: 'Check' })).toBeDisabled();
+    await expect(button(root, 'Check')).toBeDisabled();
     await expect(args.onInteract).not.toHaveBeenCalled();
   },
 };
 
 const demoController: WidgetDemo = createDemoController({ strict: true });
 
-/** Demo mode (03 §6.3): Pip shows the addends, slides 3 counters in and counts them all. */
+/**
+ * Demo mode (03 §6.3): Pip shows the addends, slides 3 counters in and counts them all, which
+ * picks 9; an unsupported op throws in strict mode. No invite while the widget is disabled.
+ */
 export const DemoMode: Story = {
   args: { disabled: true, demo: demoController },
-  play: async ({ canvasElement }) => {
+  play: async ({ canvasElement, args }) => {
     const root = await findWidget(canvasElement, ROOT);
     await demoController.play({ op: 'show-addends' });
     await demoController.play({ op: 'place', args: { frame: 0, count: 3, color: 'b' } });
     await expect(cellsOf(root)).toEqual([1, 1, 1, 1, 1, 1, 1, 1, 1, 0]);
     await demoController.play({ op: 'highlight', args: { target: 'frame-0' } });
     await demoController.play({ op: 'count-total' });
-    await waitFor(() =>
-      expect(within(root).getByRole('button', { name: '9' })).toHaveAttribute(
-        'aria-pressed',
-        'true',
-      ),
-    );
+    await expect(button(root, '9')).toHaveAttribute('aria-pressed', 'true');
     await expect(demoController.play({ op: 'slide' })).rejects.toBeInstanceOf(
       UnsupportedWidgetOpError,
     );
     demoController.invite({ op: 'remove', args: { frame: 0, count: 1 } });
-    await waitFor(() => expect(root.querySelector('.ni-tf__cell.ni-invite')).not.toBeNull());
-    await expect(root.querySelector('.ni-hand')).not.toBeNull();
+    await expect(root.querySelector('.ni-invite')).toBeNull();
+    await expect(args.onInteract).not.toHaveBeenCalled();
   },
 };
 
 const inviteController: WidgetDemo = createDemoController({ strict: true });
 
-/** Invite: the child's next step is to drag from the tray (pulsing ring and hand). */
-export const DemoInvite: Story = {
+/**
+ * Invites (K): place → the last counter in the tray; remove → the last counter placed; answer →
+ * the numeral card. Exactly one ring at a time, Pip's fingertip on it, the ring clear of the rest.
+ */
+export const DemoInviteK: Story = {
   globals: { ageMode: 'k' },
   args: { demo: inviteController },
   play: async ({ canvasElement }) => {
     const root = await findWidget(canvasElement, ROOT);
     inviteController.invite({ op: 'place', args: { frame: 0, count: 3, color: 'b' } });
-    await waitFor(() => expect(root.querySelector('.ni-tf__tray.ni-invite')).not.toBeNull());
-    await expect(root.querySelector('.ni-tf__tray-wrap .ni-hand')).not.toBeNull();
+    await waitFor(() => expect(root.querySelector('.ni-tf__supply .ni-invite')).not.toBeNull());
+    await expectOneInvite(root, supplyCounter(root, 8));
+
+    await userEvent.click(supplyCounter(root, 6));
+    await userEvent.click(pad(root, 0, 6));
+    await waitFor(() => expect(root.querySelector('.ni-invite')).toBeNull());
+    inviteController.invite({ op: 'remove', args: { frame: 0, count: 1 } });
+    const placed = await waitFor(() => {
+      const el = root.querySelector<HTMLElement>('.ni-tf__placed.ni-invite');
+      expect(el).not.toBeNull();
+      return el as HTMLElement;
+    });
+    await expect(placed.dataset.counter).toBe('6');
+    await expectOneInvite(root, placed);
+
+    inviteController.invite({ op: 'answer', args: { value: 7 } });
+    const card = await waitFor(() => {
+      const el = root.querySelector<HTMLElement>('.ni-pick.ni-invite');
+      expect(el).not.toBeNull();
+      return el as HTMLElement;
+    });
+    await expect(card.dataset.id).toBe('opt-7');
+    await expectOneInvite(root, card);
   },
 };
 
 const reducedController: WidgetDemo = createDemoController({ strict: true });
 
-/** Reduced motion: every op is an instant state change. */
+/** Reduced motion: every op is an instant state change, and `play` resolves after it commits. */
 export const DemoReducedMotion: Story = {
   globals: { motion: 'reduced' },
   args: { config: split7, disabled: true, demo: reducedController },
@@ -495,6 +521,7 @@ export const DemoReducedMotion: Story = {
     const root = await findWidget(canvasElement, ROOT);
     const started = performance.now();
     await reducedController.play({ op: 'place', args: { frame: 0, count: 7, color: 'a' } });
+    await expect(cellsOf(root, 0).filter(Boolean)).toHaveLength(7);
     await reducedController.play({
       op: 'move-counters',
       args: { fromFrame: 0, toFrame: 1, count: 3 },
@@ -504,5 +531,152 @@ export const DemoReducedMotion: Story = {
     await expect(performance.now() - started).toBeLessThan(500);
     await expect(cellsOf(root, 0).filter(Boolean)).toHaveLength(4);
     await expect(cellsOf(root, 1).filter(Boolean)).toHaveLength(2);
+  },
+};
+
+// ---------- the real widget area (06 §1, §2): 960 × 600, portrait, tablet ----------
+
+/** The widget fits the area: no scroll, every part inside, full-size targets 12 px apart. */
+async function expectFits(canvasElement: HTMLElement, ageMode: AgeMode) {
+  const root = await findWidget(canvasElement, ROOT);
+  await waitForSettled(root);
+  const parts = [
+    ...root.querySelectorAll<HTMLElement>(
+      '.ni-tf__frame, .ni-tf__mini, .ni-tf__view, .ni-tf__supply, .ni-entry, .ni-tf__act',
+    ),
+  ];
+  await expectFitsArea(areaBox(canvasElement), parts, targetsOf(root), ageMode);
+  return root;
+}
+
+/** Steps layout: Next shows the answer step (and hands it the focus); Back returns. */
+async function throughSteps(root: HTMLElement, ageMode: AgeMode, canvasElement: HTMLElement) {
+  if (root.dataset.step !== 'build') return;
+  button(root, 'Next').focus();
+  await userEvent.keyboard('{Enter}');
+  await waitFor(() => expect(root.dataset.step).toBe('ask'));
+  await waitFor(() => expect(document.activeElement).toBe(button(root, 'Go back')));
+  await expectFits(canvasElement, ageMode);
+  await userEvent.click(button(root, 'Go back'));
+  await waitFor(() => expect(root.dataset.step).toBe('build'));
+}
+
+/** ADD.01.t3 in K at 960 × 600: one frame, the tray, then the answer (steps where needed). */
+export const AreaLandscapeMinK: Story = {
+  globals: { ageMode: 'k' },
+  render: inArea('landscapeMin'),
+  play: async ({ canvasElement }) => {
+    const root = await expectFits(canvasElement, 'k');
+    await throughSteps(root, 'k', canvasElement);
+  },
+};
+
+/** ADD.13.t1 in G1 at 960 × 600: two frames, 9 counters to add, a 0–20 answer. */
+export const AreaLandscapeMinG1: Story = {
+  args: { config: add79 },
+  render: inArea('landscapeMin'),
+  play: async ({ canvasElement, args }) => {
+    const root = await expectFits(canvasElement, 'g1-up');
+    await throughSteps(root, 'g1-up', canvasElement);
+    await userEvent.click(supplyCounters(root).at(-1) as HTMLElement);
+    await userEvent.click(pad(root, 0, 7));
+    await waitFor(() => expect(cellsOf(root)[7]).toBe(1));
+    await expect(args.onInteract).toHaveBeenCalled();
+  },
+};
+
+/**
+ * CNT.14.t2 in K at 960 × 600: two full-size ten-frames don't fit, so the frame being filled is in
+ * front and the other is a small frame button that brings it forward (focus follows it).
+ */
+export const AreaLandscapeMinPagedK: Story = {
+  globals: { ageMode: 'k' },
+  args: { config: oneMore12 },
+  render: inArea('landscapeMin'),
+  play: async ({ canvasElement }) => {
+    const root = await expectFits(canvasElement, 'k');
+    await expect(root.dataset.paged).toBe('true');
+    await expect(root.querySelector('.ni-tf__frame')?.getAttribute('data-frame')).toBe('1');
+    const mini = root.querySelector('.ni-tf__mini') as HTMLElement;
+    await expect(mini.querySelectorAll('.ni-tf__mini-cell svg')).toHaveLength(10);
+    mini.focus();
+    await userEvent.keyboard('{Enter}');
+    await waitFor(() =>
+      expect(root.querySelector('.ni-tf__frame')?.getAttribute('data-frame')).toBe('0'),
+    );
+    await waitFor(() => expect(document.activeElement).toBe(root.querySelector('.ni-tf__mini')));
+    await expectFits(canvasElement, 'k');
+  },
+};
+
+/** CPS.04.t1 in K, portrait: two frames, 14 to show, a 0–20 answer. */
+export const AreaPortraitK: Story = {
+  globals: { ageMode: 'k' },
+  args: { config: teen14 },
+  render: inArea('portrait'),
+  play: async ({ canvasElement }) => {
+    const root = await expectFits(canvasElement, 'k');
+    await throughSteps(root, 'k', canvasElement);
+  },
+};
+
+/** ADD.18.t1 in G1 on a tablet: 17 take away 8, how many are left? */
+export const AreaTabletG1: Story = {
+  args: { config: subtract17 },
+  render: inArea('tablet'),
+  play: async ({ canvasElement }) => {
+    const root = await expectFits(canvasElement, 'g1-up');
+    await throughSteps(root, 'g1-up', canvasElement);
+  },
+};
+
+/** ADD.01.t3 in K on a tablet. */
+export const AreaTabletK: Story = {
+  globals: { ageMode: 'k' },
+  render: inArea('tablet'),
+  play: async ({ canvasElement }) => {
+    const root = await expectFits(canvasElement, 'k');
+    await throughSteps(root, 'k', canvasElement);
+  },
+};
+
+/** CNT.04.t3 pictorial in K at 960 × 600. */
+export const AreaLandscapeMinPictorialK: Story = {
+  globals: { ageMode: 'k' },
+  args: { config: shade3, tier: 'pictorial' },
+  render: inArea('landscapeMin'),
+  play: async ({ canvasElement }) => {
+    await expectFits(canvasElement, 'k');
+  },
+};
+
+const areaInvite: WidgetDemo = createDemoController({ strict: true });
+
+/** An invite in the steps layout: answering waits behind Next, so Next is the one ring. */
+export const AreaInviteStepsK: Story = {
+  globals: { ageMode: 'k' },
+  args: { demo: areaInvite },
+  render: inArea('landscapeMin'),
+  play: async ({ canvasElement }) => {
+    const root = await expectFits(canvasElement, 'k');
+    areaInvite.invite({ op: 'answer', args: { value: 9 } });
+    if (root.dataset.step === 'build') {
+      const next = await waitFor(() => {
+        const el = root.querySelector<HTMLElement>('.ni-tf__act .ni-invite');
+        expect(el).not.toBeNull();
+        return el as HTMLElement;
+      });
+      await expect(next).toHaveAccessibleName('Next');
+      await expectOneInvite(root, next);
+      await userEvent.click(next);
+    }
+    const card = await waitFor(() => {
+      const el = root.querySelector<HTMLElement>('.ni-pick.ni-invite');
+      expect(el).not.toBeNull();
+      return el as HTMLElement;
+    });
+    await expect(card.dataset.id).toBe('opt-9');
+    await expectOneInvite(root, card);
+    await expectFits(canvasElement, 'k');
   },
 };
