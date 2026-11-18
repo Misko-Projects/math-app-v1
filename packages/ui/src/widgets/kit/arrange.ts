@@ -68,8 +68,11 @@ export function firstFit<T>(candidates: Iterable<T>, size: (c: T) => Size, room:
 
 // ---------- answer controls (sizes match kit.css) ----------
 
-/** A numeral card's height: `.ni-pick` min-height (--target-min × 1.15). */
-export const numeralCardH = (targetMin: number) => targetMin * 1.15;
+/**
+ * A numeral card's height: `.ni-pick` min-height (--target-min × 1.15), or its content when taller:
+ * the 48 px numeral (line-height 1, 0.12 em top padding), 2 × 10 px padding, 2 × 3 px border.
+ */
+export const numeralCardH = (targetMin: number) => Math.max(targetMin * 1.15, 48 * 1.12 + 20 + 6);
 /** One tray row: a card plus its bottom margin (--target-gap + the 6 px ledge). */
 const trayRowPx = (targetMin: number, gap: number) => numeralCardH(targetMin) + gap + 6;
 /** The tray panel's top and bottom padding (18 + 6) plus its 3 px borders. */

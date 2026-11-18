@@ -1,7 +1,7 @@
 import type { TraceRecorder } from '../../interaction/trace';
 import { NumberDisplay } from '../../primitives/NumberDisplay';
 import { type AgeMode, MIN_TARGET_PX, TARGET_GAP_PX, TARGET_PX } from '../../tokens/tokens';
-import { numeralTraySize, type Size } from './arrange';
+import { numeralTraySize, type Size, trayColumnChoices } from './arrange';
 import { applyPadKey, NumberPadKeys, NumeralTray, type PadKey } from './controls';
 import './kit.css';
 
@@ -78,6 +78,33 @@ export function entrySize(max: number, layout: EntryLayout, ageMode: AgeMode): S
   return layout.padLayout === 'above'
     ? { w: Math.max(d.w, k.w), h: d.h + PAD_GAP + k.h }
     : { w: d.w + PAD_GAP + k.w, h: Math.max(d.h, k.h) };
+}
+
+/** The answer's layouts to try: the tray in each even width (≥ 3 a row), then the pad. */
+export function entryChoices(max: number): EntryLayout[] {
+  const pad = (compact: boolean, padLayout: 'above' | 'beside'): EntryLayout => ({
+    kind: 'pad',
+    columns: 0,
+    compact,
+    padLayout,
+  });
+  const pads = [pad(false, 'above'), pad(false, 'beside'), pad(true, 'above'), pad(true, 'beside')];
+  if (entryKind(max) === 'pad') return pads;
+  const n = entryValues(max).length;
+  const trays = trayColumnChoices(n)
+    .filter((c) => c >= Math.min(3, n))
+    .map((columns): EntryLayout => ({ kind: 'tray', columns, compact: false, padLayout: 'above' }));
+  // Short areas: the pad with minimum-size keys beside the entered number.
+  return [...trays, pad(true, 'beside'), pad(true, 'above')];
+}
+
+/** The answer's layouts in two groups: the numeral tray first, then the pad. */
+export function entryGroups(max: number | null): (EntryLayout | null)[][] {
+  if (max === null) return [[null]];
+  const all = entryChoices(max);
+  return [all.filter((e) => e.kind === 'tray'), all.filter((e) => e.kind === 'pad')].filter(
+    (g) => g.length > 0,
+  );
 }
 
 /** The pad key a demo presses next to enter `value`, given what is typed (null: nothing to do). */

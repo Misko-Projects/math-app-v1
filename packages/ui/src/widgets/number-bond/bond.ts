@@ -66,11 +66,9 @@ export function capacityOf(config: Config, slot: Slot): number {
   return h.length;
 }
 
-/** Columns for a pool of `cap` counters (5 is the ten-frame row; small pools stay compact). */
+/** Columns for a pool of `cap` counters: one row up to 5, then rows of 5 (a ten-frame row). */
 export function poolColumns(cap: number): number {
-  if (cap <= 3) return Math.max(1, cap);
-  if (cap <= 6) return 3;
-  return 5;
+  return Math.max(1, Math.min(5, cap));
 }
 
 /** The largest number the answer control offers: the whole (0 … whole), else 10 or 20. */

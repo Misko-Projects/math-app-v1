@@ -54,6 +54,8 @@ export {
 export {
   type EntryKind,
   type EntryLayout,
+  entryChoices,
+  entryGroups,
   entryKind,
   entrySize,
   entryValues,

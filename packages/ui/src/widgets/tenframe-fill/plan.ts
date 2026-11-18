@@ -5,12 +5,10 @@ import {
   type Arrangement,
   arrangedSize,
   type EntryLayout,
-  entryKind,
+  entryGroups,
   entrySize,
-  entryValues,
   overflow,
   type Size,
-  trayColumnChoices,
 } from '../kit';
 
 /**
@@ -150,24 +148,6 @@ function shapesFor(want: number): [number, number][] {
   return out.sort((a, b) => Math.abs(a[0] - a[1]) - Math.abs(b[0] - b[1]) || b[0] - a[0]);
 }
 
-/** The answer's layouts to try: the tray in each even width (≥ 3 a row), then the pad. */
-export function entryChoices(max: number): EntryLayout[] {
-  const pad = (compact: boolean, padLayout: 'above' | 'beside'): EntryLayout => ({
-    kind: 'pad',
-    columns: 0,
-    compact,
-    padLayout,
-  });
-  const pads = [pad(false, 'above'), pad(false, 'beside'), pad(true, 'above'), pad(true, 'beside')];
-  if (entryKind(max) === 'pad') return pads;
-  const n = entryValues(max).length;
-  const trays = trayColumnChoices(n)
-    .filter((c) => c >= Math.min(3, n))
-    .map((columns): EntryLayout => ({ kind: 'tray', columns, compact: false, padLayout: 'above' }));
-  // Short areas: the pad with minimum-size keys beside the entered number.
-  return [...trays, pad(true, 'beside'), pad(true, 'above')];
-}
-
 export function buildSize(input: PlanInput, paged: boolean, b: BuildPlan): Size {
   const t = MIN_TARGET_PX[input.ageMode];
   const main = framesSize(input, b.chrome, paged);
@@ -189,15 +169,6 @@ export function askSize(input: PlanInput, a: AskPlan): Size {
     };
   }
   return arrangedSize(a.arrangement, main, [entry, act], LAYOUT_GAP);
-}
-
-/** The answer's layouts in two groups: the numeral tray first, then the pad. */
-function entryGroups(max: number | null): (EntryLayout | null)[][] {
-  if (max === null) return [[null]];
-  const all = entryChoices(max);
-  return [all.filter((e) => e.kind === 'tray'), all.filter((e) => e.kind === 'pad')].filter(
-    (g) => g.length > 0,
-  );
 }
 
 function* buildCandidates(input: PlanInput, steps: boolean): Generator<BuildPlan> {

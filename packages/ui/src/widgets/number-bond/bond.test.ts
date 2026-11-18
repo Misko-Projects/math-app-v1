@@ -39,7 +39,7 @@ describe('number-bond logic', () => {
     expect(capacityOf(mw, 'part-1')).toBe(1);
     expect(homes(bond({ whole: 7, parts: [null, null], mode: 'split' }))).toHaveLength(7);
     expect(capacityOf(bond({ whole: 7, parts: [null, null], mode: 'split' }), 'part-0')).toBe(7);
-    expect([1, 3, 4, 6, 7, 10].map(poolColumns)).toEqual([1, 3, 3, 3, 5, 5]);
+    expect([1, 3, 4, 6, 7, 10].map(poolColumns)).toEqual([1, 3, 4, 5, 5, 5]);
   });
 
   it('offers 0 … whole, or 0–10 / 0–20 when the whole is asked', () => {
