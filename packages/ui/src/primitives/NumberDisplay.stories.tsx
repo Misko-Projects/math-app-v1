@@ -76,3 +76,23 @@ export const SpeaksOnTap: Story = {
     await expect(audio.sayPhrases).toHaveBeenCalledWith([{ number: 23 }]);
   },
 };
+
+/** The celebrate star is decoration: a tap on the part outside the display does not speak it. */
+export const CelebrateSparkleIsDecorative: Story = {
+  globals: { ageMode: 'k' },
+  args: { value: 10, state: 'celebrate' },
+  play: async ({ canvasElement }) => {
+    const button = within(canvasElement).getByRole('button', { name: '10' });
+    const sparkle = button.querySelector('.ni-number__sparkle') as HTMLElement;
+    await expect(sparkle).not.toBeNull();
+    const box = button.getBoundingClientRect();
+    const star = sparkle.getBoundingClientRect();
+    // A point on the star's box but outside the display's border box.
+    const x = (box.right + star.right) / 2;
+    const y = (box.top + star.top) / 2;
+    await expect(x).toBeGreaterThan(box.right);
+    await expect(y).toBeLessThan(box.top);
+    const hit = document.elementFromPoint(x, y);
+    await expect(hit === null || !button.contains(hit)).toBe(true);
+  },
+};

@@ -368,6 +368,31 @@ export const Keyboard: Story = {
   },
 };
 
+/**
+ * Keyboard focus stays visible on a picked-up shell: its selection ring turns into a double ring
+ * when focus returns to it, instead of the selection outline hiding the focus outline.
+ */
+export const FocusOnPickedUpItem: Story = {
+  play: async ({ canvasElement }) => {
+    pad(canvasElement, 'pile').focus();
+    await userEvent.tab();
+    const s1 = shell(canvasElement, 's1');
+    await expect(s1).toHaveFocus();
+    await userEvent.keyboard('{Enter}');
+    await expect(pad(canvasElement, 'basket')).toHaveFocus();
+    await expect(s1).toHaveAttribute('data-selected', 'true');
+    const selected = getComputedStyle(s1);
+    await expect(selected.outlineStyle).toBe('solid');
+    // Back onto the picked-up shell from the keyboard: still selected, now visibly focused.
+    s1.focus();
+    await expect(s1).toHaveFocus();
+    await expect(s1.matches(':focus-visible')).toBe(true);
+    await expect(s1).toHaveAttribute('data-selected', 'true');
+    await expect(getComputedStyle(s1).outlineStyle).toBe('double');
+    await expect(Number.parseFloat(getComputedStyle(s1).outlineWidth)).toBeGreaterThanOrEqual(12);
+  },
+};
+
 /** Tap-only mode (06 §7): drags do nothing; tap-to-place still works. */
 export const TapOnlyMode: Story = {
   parameters: { ui: { tapOnly: true } },
@@ -400,8 +425,12 @@ export const TapToPlaceHook: Story = {
       via: 'keyboard',
     });
     // Standalone tap-to-place shows the picked-up item too.
+    // (After the keyboard steps above, the synthetic click keeps keyboard modality, so the shell may
+    // also be :focus-visible and show the double ring; either way the ink ring is drawn.)
     await userEvent.click(shell(canvasElement, 's3'));
-    await expect(getComputedStyle(shell(canvasElement, 's3')).outlineStyle).toBe('solid');
+    const ring = getComputedStyle(shell(canvasElement, 's3'));
+    await expect(['solid', 'double']).toContain(ring.outlineStyle);
+    await expect(Number.parseFloat(ring.outlineWidth)).toBeGreaterThanOrEqual(4);
   },
 };
 

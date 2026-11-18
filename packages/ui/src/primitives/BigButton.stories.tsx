@@ -150,3 +150,21 @@ export const Keyboard: Story = {
     await expect(args.onPress).toHaveBeenCalledTimes(2);
   },
 };
+
+/**
+ * Keyboard focus on a selected toggle stays distinct: the selection ring reaches 7px out, so the
+ * focus ring sits clear of it, and the selected badge never takes pointer hits.
+ */
+export const SelectedFocus: Story = {
+  args: { pressed: true },
+  play: async ({ canvasElement }) => {
+    const button = within(canvasElement).getByRole('button', { name: 'Check' });
+    await userEvent.tab();
+    await expect(button).toHaveFocus();
+    await expect(button.matches(':focus-visible')).toBe(true);
+    const style = getComputedStyle(button);
+    await expect(style.outlineStyle).toBe('solid');
+    await expect(Number.parseFloat(style.outlineOffset)).toBeGreaterThanOrEqual(10);
+    await expect(getComputedStyle(button, '::after').pointerEvents).toBe('none');
+  },
+};
