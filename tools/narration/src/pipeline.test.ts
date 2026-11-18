@@ -198,7 +198,8 @@ describe('runPipeline with the stub provider', () => {
     const report = await runPipeline(opts);
     expect(called).toBe(false);
     expect(report.aborted).toMatch(/exceeds --max-usd/);
-    expect(readdirSync(opts.outDir)).toEqual([]);
+    // Only the (released) lock's state directory exists; nothing was rendered or written.
+    expect(readdirSync(opts.outDir).filter((f) => f !== '.state')).toEqual([]);
   });
 
   it('stops spending at the cap and meters actual cost from token usage', async () => {

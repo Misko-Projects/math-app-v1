@@ -13,15 +13,17 @@
 // failed run never removes or swaps working audio.
 import { createHash } from 'node:crypto';
 import {
+  closeSync,
   existsSync,
   mkdirSync,
+  openSync,
   readdirSync,
   readFileSync,
   renameSync,
   rmSync,
   writeFileSync,
 } from 'node:fs';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
 import {
   type AudioManifest,
   audioManifestSchema,
@@ -59,6 +61,11 @@ export interface PipelineOptions {
   only?: RegExp;
   /** Drop unconfirmed batch submissions that cannot be found (operator flag). */
   abandonUnconfirmedBatches?: boolean;
+  /**
+   * Lock held from planning through pruning, so two renders into the same output directory (in any
+   * format) never interleave. Default: `<stateDir>/render.lock`.
+   */
+  lockFile?: string;
   now?: number;
   log?: (message: string) => void;
 }
@@ -94,6 +101,27 @@ export interface PipelineReport {
 }
 
 export async function runPipeline(opts: PipelineOptions): Promise<PipelineReport> {
+  if (opts.dryRun || !opts.renderer) return plannedRun(opts);
+  const lock = opts.lockFile ?? join(opts.stateDir, 'render.lock');
+  mkdirSync(dirname(lock), { recursive: true });
+  let fd: number;
+  try {
+    fd = openSync(lock, 'wx');
+  } catch {
+    const report = await plannedRun({ ...opts, dryRun: true });
+    report.aborted = `another narration render is writing ${opts.outDir}. If none is running, delete ${lock}`;
+    report.pending = report.toRender;
+    return report;
+  }
+  try {
+    return await plannedRun(opts);
+  } finally {
+    closeSync(fd);
+    rmSync(lock, { force: true });
+  }
+}
+
+async function plannedRun(opts: PipelineOptions): Promise<PipelineReport> {
   const log = opts.log ?? (() => {});
   const now = opts.now ?? Date.now();
   const { jobs } = planClips({
@@ -138,6 +166,7 @@ export async function runPipeline(opts: PipelineOptions): Promise<PipelineReport
           styleText: j.styleText,
         })),
         opts.stateDir,
+        { abandonUnconfirmedBatches: opts.abandonUnconfirmedBatches },
       ) ?? alreadyPaid;
   } catch (e) {
     ledgerError = e instanceof Error ? e.message : String(e);
@@ -205,7 +234,6 @@ export async function runPipeline(opts: PipelineOptions): Promise<PipelineReport
         concurrency: opts.concurrency,
         stateDir: opts.stateDir,
         maxWaitMs: opts.maxWaitMs,
-        complete: !opts.only,
         abandonUnconfirmedBatches: opts.abandonUnconfirmedBatches,
         log,
         estimateUsd: (rs, m) => estimate(rs, price, m ?? mode).usd,
@@ -248,6 +276,8 @@ export async function runPipeline(opts: PipelineOptions): Promise<PipelineReport
   report.pending = todo.length - done.size;
   report.complete =
     !opts.only && !report.aborted && report.failed.length === 0 && report.pending === 0;
+  // Every clip now has its file, so no saved provider work is needed any more.
+  if (report.complete) opts.renderer.clearSaved?.(opts.stateDir, log);
 
   const clips: AudioManifest['clips'] = {};
   if (!report.complete) {

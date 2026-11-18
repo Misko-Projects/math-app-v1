@@ -56,6 +56,37 @@ export function stateDirFor(outDir: string, format: string): string {
   return join(STATE_DIR, target.slice(0, 16));
 }
 
+/** One lock per output directory, whatever the format: both formats share its manifest. */
+export function lockFileFor(outDir: string): string {
+  const dir = createHash('sha256').update(resolve(outDir)).digest('hex');
+  return join(STATE_DIR, `${dir.slice(0, 16)}.lock`);
+}
+
+/**
+ * Earlier revisions kept one ledger directly in tmp/narration/state/. Refuse to run while it holds
+ * anything, so its jobs are never forgotten and paid for again.
+ */
+export function checkLegacyLedger(stateRoot: string = STATE_DIR): void {
+  const legacy = join(stateRoot, 'gemini-batches.json');
+  if (!existsSync(legacy)) return;
+  let data: unknown;
+  try {
+    data = JSON.parse(readFileSync(legacy, 'utf8'));
+  } catch {
+    data = null;
+  }
+  const record = data !== null && typeof data === 'object' ? (data as { jobs?: object }) : null;
+  const empty =
+    record !== null &&
+    (Object.keys(record).length === 0 ||
+      (record.jobs !== undefined && Object.keys(record.jobs).length === 0));
+  if (!empty) {
+    throw new Error(
+      `${legacy} is a batch ledger from an earlier version and may list paid jobs. Check them in Google AI Studio and wait for them to finish or expire, then delete the file.`,
+    );
+  }
+}
+
 /** Reads one key from a dotenv-style file (same syntax as scripts/secrets-link.mjs). */
 export function readEnvKey(text: string, key: string): string | undefined {
   for (const raw of text.split(/\r?\n/)) {
@@ -197,6 +228,7 @@ async function render(argv: string[], env: NodeJS.ProcessEnv): Promise<number> {
   );
   // A dry run builds the renderer too (it makes no calls) so the estimate can see saved jobs.
   const renderer = c.renderer();
+  if (c.provider === 'gemini') checkLegacyLedger();
   const report = await runPipeline({
     narration,
     styles: loadStyles(NARRATION_DIR),
@@ -207,6 +239,7 @@ async function render(argv: string[], env: NodeJS.ProcessEnv): Promise<number> {
     encoder: dryRun || !renderer ? { ...wavEncoder, ...encodingOf(c.format) } : c.encoder(),
     outDir,
     stateDir: stateDirFor(outDir, c.format),
+    lockFile: lockFileFor(outDir),
     mode,
     maxUsd: number(values['max-usd'], '--max-usd', 5),
     concurrency: Math.max(1, Math.floor(number(values.concurrency, '--concurrency', 4))),
@@ -272,7 +305,6 @@ async function audition(argv: string[], env: NodeJS.ProcessEnv): Promise<number>
     // Its own state: an audition never touches the render's saved batch jobs.
     stateDir: join(outDir, 'state'),
     maxWaitMs: 0,
-    complete: false,
     log: (m) => console.log(m),
     estimateUsd: (rs) => estimate(rs, price, 'interactive').usd,
     reserve: (ids, e, o) => guard.reserve(ids, e, o),

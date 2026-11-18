@@ -7,7 +7,7 @@ import { join } from 'node:path';
 import { audioManifestSchema, type NarrationJson } from '@number-island/shared';
 import { afterEach, describe, expect, it } from 'vitest';
 import { stubWav } from './audio';
-import { stateDirFor } from './cli';
+import { checkLegacyLedger, lockFileFor, stateDirFor } from './cli';
 import { costUsd, priceFor } from './cost';
 import { type Encoder, wavEncoder } from './encode';
 import { type PipelineOptions, runPipeline } from './pipeline';
@@ -419,15 +419,14 @@ describe('own pre-review checks (before round 4)', () => {
   it('refuses a second concurrent render on the same ledger', async () => {
     const { run, outDir } = setup();
     mkdirSync(join(outDir, '.state'), { recursive: true });
-    writeFileSync(join(outDir, '.state', 'gemini-batches.lock'), '');
+    writeFileSync(join(outDir, '.state', 'render.lock'), '');
     const report = await run();
-    expect(report.aborted).toMatch(/another narration render is using/);
+    expect(report.aborted).toMatch(/another narration render is writing/);
   });
 
   it('leaves clips a saved job already covers out of the estimate', async () => {
-    const { server, run } = setup();
+    const { run } = setup();
     await run({ only: /^fb\./ }); // fb.correct.1 is now covered by a saved job
-    void server;
     const covered = await run({ only: /^fb\./, dryRun: true });
     expect(covered.toRender).toBe(1);
     expect(covered.estimate.usd).toBe(0);
@@ -439,6 +438,68 @@ describe('own pre-review checks (before round 4)', () => {
     const report = await run();
     expect(report.aborted).toMatch(/cannot be read/);
     expect(readFileSync(join(outDir, 'manifest.json'), 'utf8')).toBe('{"version": "trunc');
+  });
+});
+
+describe('review round 4', () => {
+  it('refuses to run while the earlier global ledger lists jobs', () => {
+    const root = mkdtempSync(join(tmpdir(), 'narration-legacy-'));
+    dirs.push(root);
+    expect(() => checkLegacyLedger(root)).not.toThrow(); // absent
+    writeFileSync(join(root, 'gemini-batches.json'), '{}');
+    expect(() => checkLegacyLedger(root)).not.toThrow(); // empty
+    writeFileSync(
+      join(root, 'gemini-batches.json'),
+      JSON.stringify({ abc: { name: 'batches/old', createdAt: 'x' } }),
+    );
+    expect(() => checkLegacyLedger(root)).toThrow(/earlier version and may list paid jobs/);
+  });
+
+  it('an unfiltered run that fails keeps saved requests it no longer needs, for a later revert', async () => {
+    const { server, run, ledger } = setup();
+    await run(); // one job covering every clip, left running
+    expect(server.paidPosts).toHaveLength(1);
+    server.finishAll();
+    const edited: NarrationJson = {
+      ...fixtureNarration(),
+      'fb.correct.1': { text: 'You did it again!', clips: ['fb.correct.1#0'] },
+    };
+    server.rejectNextCreate(); // the edited line's new submission is rejected
+    const failed = await run({ narration: edited });
+    expect(failed.complete).toBe(false);
+    // The original fb.correct.1 request is still saved, so reverting the edit costs nothing.
+    expect(Object.keys(ledger().jobs)).toHaveLength(1);
+    const reverted = await run();
+    expect(server.paidPosts).toHaveLength(1);
+    expect(reverted.complete).toBe(true);
+    expect(ledger().jobs).toEqual({});
+  });
+
+  it('one lock per output directory covers every format, from planning through pruning', async () => {
+    expect(lockFileFor('/tmp/out-a')).toBe(lockFileFor('/tmp/out-a/'));
+    const { run, outDir, manifest } = setup();
+    const lockFile = join(outDir, 'held.lock');
+    writeFileSync(lockFile, '');
+    writeFileSync(join(outDir, 'manifest.json'), '{"version":"v","clips":{}}\n');
+    const report = await run({ lockFile });
+    expect(report.aborted).toMatch(/another narration render is writing/);
+    expect(manifest()).toEqual({ version: 'v', clips: {} }); // untouched
+  });
+
+  it('counts unconfirmed submissions in the estimate when they may be abandoned', async () => {
+    const { server, run } = setup();
+    server.failNextCreate();
+    server.setListFails(true);
+    await run(); // an unconfirmed submission covering every clip
+    server.forget();
+    server.setListFails(false);
+    const kept = await run({ dryRun: true });
+    expect(kept.estimate.usd).toBe(0); // still covered while it may exist
+    const abandoning = await run({ dryRun: true, abandonUnconfirmedBatches: true });
+    expect(abandoning.estimate.usd).toBeGreaterThan(0);
+    const capped = await run({ abandonUnconfirmedBatches: true, maxUsd: 0.000001 });
+    expect(capped.aborted).toMatch(/exceeds --max-usd/);
+    expect(server.paidPosts).toHaveLength(1);
   });
 });
 

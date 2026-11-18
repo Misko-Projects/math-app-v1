@@ -8,16 +8,7 @@
 // directory before polling, so any later run adopts the job for every clip still needed instead of
 // paying again. The API key is redacted from every error message.
 import { createHash, randomUUID } from 'node:crypto';
-import {
-  closeSync,
-  existsSync,
-  mkdirSync,
-  openSync,
-  readFileSync,
-  renameSync,
-  rmSync,
-  writeFileSync,
-} from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { isWav, pcmToWav } from '../audio';
 import { pool, type Renderer, type TokenUsage, type TtsOutcome, type TtsRequest } from './types';
@@ -288,13 +279,22 @@ export function geminiRenderer(opts: GeminiOptions): Renderer {
     }
   }
 
-  /** Requests a saved job already covers (they cost nothing new); read-only, for the estimate. */
-  function covered(requests: readonly TtsRequest[], stateDir: string): Set<string> {
+  /**
+   * Requests a saved job already covers (they cost nothing new); read-only, for the estimate. An
+   * unconfirmed submission does not count when the run may abandon it (its requests may be paid for
+   * again).
+   */
+  function covered(
+    requests: readonly TtsRequest[],
+    stateDir: string,
+    o: { abandonUnconfirmedBatches?: boolean } = {},
+  ): Set<string> {
     const ledger = readLedger(join(stateDir, 'gemini-batches.json'));
     const out = new Set<string>();
     const byId = new Map(requests.map((r) => [r.id, r]));
     for (const job of Object.values(ledger.jobs)) {
       if (job.model !== opts.model) continue;
+      if (!job.name && o.abandonUnconfirmedBatches) continue;
       for (const [id, hash] of Object.entries(job.requests)) {
         const r = byId.get(id);
         if (r && requestHash(opts.model, r) === hash) out.add(id);
@@ -303,24 +303,15 @@ export function geminiRenderer(opts: GeminiOptions): Renderer {
     return out;
   }
 
-  /** One render at a time per ledger: a second concurrent run fails fast instead of clobbering it. */
-  async function locked(ctx: Ctx, fn: () => Promise<void>) {
-    mkdirSync(ctx.stateDir, { recursive: true });
-    const lock = join(ctx.stateDir, 'gemini-batches.lock');
-    let fd: number;
-    try {
-      fd = openSync(lock, 'wx');
-    } catch {
-      throw new Error(
-        `another narration render is using ${ctx.stateDir}. If none is running, delete ${lock}.`,
-      );
-    }
-    try {
-      await fn();
-    } finally {
-      closeSync(fd);
-      rmSync(lock, { force: true });
-    }
+  /** Forgets every saved job: only called after a complete run, when no saved work is needed. */
+  function clearSaved(stateDir: string, log: (m: string) => void) {
+    const ledgerFile = join(stateDir, 'gemini-batches.json');
+    const ledger = readLedger(ledgerFile);
+    const names = Object.keys(ledger.jobs);
+    if (names.length === 0) return;
+    log(`narration: forgetting ${names.length} saved batch job(s) nothing needs any more.`);
+    writeFileSync(`${ledgerFile}.tmp`, `${JSON.stringify({ version: 3, jobs: {} }, null, 2)}\n`);
+    renameSync(`${ledgerFile}.tmp`, ledgerFile);
   }
 
   async function render(requests: readonly TtsRequest[], ctx: Ctx) {
@@ -350,15 +341,9 @@ export function geminiRenderer(opts: GeminiOptions): Renderer {
         const r = byId.get(id);
         return r && !covered.has(id) && requestHash(opts.model, r) === hash ? [r] : [];
       });
-      if (adopted.length === 0) {
-        // A job this run does not need stays saved, unless a complete run proves it is stale.
-        if (ctx.complete && job.name) {
-          ctx.log(`narration: forgetting batch ${job.name}: none of its clips are still needed.`);
-          delete ledger.jobs[displayName];
-          save();
-        }
-        continue;
-      }
+      // A job this run does not need stays saved; the pipeline clears the ledger only after a run
+      // proves complete.
+      if (adopted.length === 0) continue;
       let name = job.name;
       if (!name) {
         const found = await tryFind(displayName);
@@ -501,8 +486,7 @@ export function geminiRenderer(opts: GeminiOptions): Renderer {
         const record = ledger.jobs[job.displayName];
         if (record) {
           for (const id of Object.keys(record.requests)) {
-            const stale = ctx.complete && !byId.has(id);
-            if (status !== 'succeeded' || handled.has(id) || stale) delete record.requests[id];
+            if (status !== 'succeeded' || handled.has(id)) delete record.requests[id];
           }
           if (Object.keys(record.requests).length === 0) {
             delete ledger.jobs[job.displayName];
@@ -576,9 +560,10 @@ export function geminiRenderer(opts: GeminiOptions): Renderer {
     provider: 'gemini',
     model: opts.model,
     covered,
+    clearSaved,
     async render(requests, ctx) {
       try {
-        await locked(ctx, () => render(requests, ctx));
+        await render(requests, ctx);
       } catch (e) {
         throw new Error(message(e));
       }

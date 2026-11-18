@@ -70,7 +70,6 @@ describe('kokoro', () => {
     concurrency: 1,
     reserve: () => true,
     onResult: async () => true,
-    complete: false,
     log: () => {},
     stateDir: tmpdir(),
     maxWaitMs: 0,

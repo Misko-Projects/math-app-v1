@@ -49,11 +49,6 @@ export interface RenderContext {
   maxWaitMs: number;
   /** Estimated cost of these requests at a billing mode (default: the run's mode), for `reserve`. */
   estimateUsd(requests: readonly TtsRequest[], mode?: RenderMode): number;
-  /**
-   * True for an unfiltered render of every clip the content needs: only then may a provider treat
-   * saved work that no current request matches as stale. Filtered renders and auditions leave it.
-   */
-  complete: boolean;
   /** Drop saved batch submissions that were never confirmed and cannot be found (operator flag). */
   abandonUnconfirmedBatches?: boolean;
 }
@@ -62,7 +57,13 @@ export interface Renderer {
   readonly provider: ProviderId;
   readonly model: string;
   /** Requests that saved provider work already covers, so the estimate can leave them out. */
-  covered?(requests: readonly TtsRequest[], stateDir: string): Set<string>;
+  covered?(
+    requests: readonly TtsRequest[],
+    stateDir: string,
+    opts?: { abandonUnconfirmedBatches?: boolean },
+  ): Set<string>;
+  /** Forgets all saved provider work; the pipeline calls it only after a complete run. */
+  clearSaved?(stateDir: string, log: (message: string) => void): void;
   /** Renders every request; failures are reported through `onResult`, never thrown per clip. */
   render(requests: readonly TtsRequest[], ctx: RenderContext): Promise<void>;
 }

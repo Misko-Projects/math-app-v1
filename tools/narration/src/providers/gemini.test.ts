@@ -55,7 +55,6 @@ function context(overrides: Partial<RenderContext> = {}) {
     stateDir,
     maxWaitMs: 60_000,
     estimateUsd: () => 0.001,
-    complete: true,
     ...overrides,
   };
   return { ctx, results };
