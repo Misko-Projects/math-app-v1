@@ -209,7 +209,7 @@ export interface EventPayloads {
     skillId: SkillId;
     templateId: TemplateId;
     seed: number;
-    level: 1 | 2 | 3 | 4;
+    level: 1 | 2 | 3 | 4 | 5; // the HintStep.level used (03 §5.8; 5 = show-me, 02 §5.9 E2)
   };
   'lesson.step': {
     sessionId: string;
@@ -322,7 +322,7 @@ export const eventSchemas = {
     skillId: skillIdSchema,
     templateId: templateIdSchema,
     seed: seedSchema,
-    level: z.literal([1, 2, 3, 4]),
+    level: z.literal([1, 2, 3, 4, 5]),
   }),
   'lesson.step': z.object({
     sessionId: idStringSchema,

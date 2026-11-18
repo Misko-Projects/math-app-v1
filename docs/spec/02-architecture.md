@@ -317,7 +317,7 @@ export interface AudioManager {
 }
 ```
 
-Narration keys resolve through `packages/content/dist/narration.json`: `{ key: { text, say?, voice?, clips: string[] } }`, where `clips` may contain slot tokens `$var[|type[:countVar]]` (03 §8.4). Number words are composed from pre-rendered clips ("twenty" + "three") by `numberClips(n)` in `packages/shared/src/narration/numberClips.ts` (|n| ≤ 1,000,000, 03 §8.3). Clip ids resolve to files through **`apps/web/public/audio/manifest.json`** (`{ version, clips: Record<ClipId, { file: string; durationMs: number }> }`, file names content-hashed), produced by `tools/narration` (A02). Rendered Opus audio is **committed** to the repo, so a fresh clone has narration without any key (expected ≈ 15–40 MB for K–3). The AudioManager tolerates a missing manifest or clip: it falls back to Web Speech for that line and logs a dev warning.
+Narration keys resolve through `packages/content/dist/narration.json`: `{ key: { text, say?, voice?, clips: string[] } }`, where `clips` may contain slot tokens `$var[|type[:countVar]]` (03 §8.4). The suffix grammar is defined in 03 §8.4: after `noun`, `unit` and `shape` the suffix is the count variable, and after `dec` it is the number of decimal places (`$v|dec:1`, `$v|dec:2`), not a count variable. Number words are composed from pre-rendered clips ("twenty" + "three") by `numberClips(n)` in `packages/shared/src/narration/numberClips.ts` (|n| ≤ 1,000,000, 03 §8.3). Clip ids resolve to files through **`apps/web/public/audio/manifest.json`** (`{ version, clips: Record<ClipId, { file: string; durationMs: number }> }`, file names content-hashed), produced by `tools/narration` (A02). Rendered Opus audio is **committed** to the repo, so a fresh clone has narration without any key (expected ≈ 15–40 MB for K–3). The AudioManager tolerates a missing manifest or clip: it falls back to Web Speech for that line and logs a dev warning.
 
 ### 5.6 Workshop module contract (`apps/web/src/workshops/<id>/index.ts`)
 
@@ -555,7 +555,7 @@ export interface EventPayloads {
   'session.ended':     { sessionId: string; reason: 'wind-down' | 'child-exit' | 'abandoned' | 'daily-cap' | 'quiet-hours';
                          activeMs: number; mathMs: number; items: number };
   'attempt':           AttemptPayload;
-  'hint.used':         { sessionId: string; skillId: SkillId; templateId: TemplateId; seed: number; level: 1 | 2 | 3 | 4 };
+  'hint.used':         { sessionId: string; skillId: SkillId; templateId: TemplateId; seed: number; level: 1 | 2 | 3 | 4 | 5 }; // HintStep.level (03 §5.8)
   'lesson.step':       { sessionId: string; skillId: SkillId; templateId: TemplateId; phase: LessonPhase;
                          example: number; step: number; actor: 'demo' | 'child'; outcome: 'done' | 'demo-corrected' | 'skipped' };
   'placement.probe':   { placementId: string; strand: StrandId | null; skillId: SkillId; templateId: TemplateId; seed: number;
@@ -599,7 +599,7 @@ The rules F01 followed. Later PRs keep them.
 
 - **Every data type has a schema** named `<camelCaseType>Schema` (`skillSchema`, `widgetConfigSchema`, `eventEnvelopeSchema`, …) and a compile-time `assertType<Equals<z.infer<typeof schema>, Type>>` next to it. A schema that drifts from its interface fails `pnpm typecheck`. Interfaces whose members are functions (`LearnerModel`, `TaskRunner`, `RunnerFeedback`, `AudioManager`, `WorkshopProps`) are types only.
 - **Ids are plain `string` aliases**, not brands, so fixtures and YAML stay ergonomic. `NarrationKey` is not branded either. The schemas enforce each grammar (§4.1, 03 §8.1) at every trust boundary. `newId()` returns a UUIDv7.
-- **Module map:** `ids`, `strands`, `items` (03 §5.1–§5.2, all 39 `WidgetConfig`s, `ParamSpec`, `GeneratedItem`, `FORMAT_DEFAULT_REPRESENTATION`), `content` (`Skill`, `ItemTemplate`, lesson and misconception specs, narration entries and `NarrationJson`), `basics`, `profiles`, `settings`, `avatar`, `gamedata`, `projections`, `learner`, `planner`, `runner`, `audio`, `workshop`, `events`, `api`. 03 names `packages/content/src/schema/*` for some of these. Per §2 they live in `shared`.
+- **Module map:** `ids`, `strands`, `items` (03 §5.1–§5.2, all 39 `WidgetConfig`s, `ParamSpec`, `GeneratedItem`, `FORMAT_DEFAULT_REPRESENTATION`, and the 03 §5.5 summary table `FORMAT_SUPPORT`, E1), `content` (`Skill`, `ItemTemplate`, lesson and misconception specs, narration entries and `NarrationJson`), `basics`, `profiles`, `settings`, `avatar`, `gamedata`, `projections`, `learner`, `planner`, `runner`, `audio`, `workshop`, `events`, `api`. 03 names `packages/content/src/schema/*` for some of these. Per §2 they live in `shared`.
 
 Contract adjustments made while declaring §4–§5 (none renames or removes a field):
 
@@ -614,9 +614,17 @@ Contract adjustments made while declaring §4–§5 (none renames or removes a f
 
 Known gaps for later issues (deliberately not changed by F01):
 
-- 03 §5.7 filters misconception rules by the item's generator, but `GeneratedItem` has no `generator` field. The engine resolves it through `templateId` → `ItemTemplate.generator` (E01 decides whether to add the field).
-- `HintStep.level` is 1–5 (03 §5.8), while `hint.used.level` and `AdaptDecision.retry.hintLevel` are 1–4. Each is declared as written; E01/R01 reconcile.
+- ~~03 §5.7 filters misconception rules by the item's generator, but `GeneratedItem` has no `generator` field.~~ Resolved by E01 (E3).
+- ~~`HintStep.level` is 1–5 (03 §5.8), while `hint.used.level` and `AdaptDecision.retry.hintLevel` are 1–4.~~ Resolved by E01 (E2).
 - 07 §2's feedback cache key includes the template, but the feedback request carries no `templateId` (AI1).
+
+Contract adjustments made by E01 (2026-11-18):
+
+| # | Change | Why |
+|---|---|---|
+| E1 | **`FORMAT_SUPPORT` moves to `shared`.** The 03 §5.5 summary table (`FormatSupport`: representations or `'any'`, tiers, demo-mode ops, answer kinds), `AnswerKind` (= `AnswerSpec['kind']`), `DISTRACTOR_FORMATS` and `formatRendersRepresentation` move from `packages/content/src/formats.ts` to `packages/shared/src/items/formats.ts`, with `formatSupportSchema` and `answerKindSchema`. `packages/content` imports them from `shared` and no longer re-exports them. No field changes. | The content compiler (V11, V21) and the engine (the 03 §9.4 property test's tier and answer-kind checks, and the test-out answer-kind recheck in `tools/content-check`) both read it. Cross-package types live in `shared` (§2). |
+| E2 | **`hint.used.level` is `1 \| 2 \| 3 \| 4 \| 5`**: the `HintStep.level` of the rung used (03 §5.8), so level 5 (show-me) is logged too. `AdaptDecision.retry.hintLevel` stays `1–4`: level 5 is the separate `show-solution` action (04 §6.4), which the runner logs as a `hint.used` with level 5 when it plays the worked solution. A ladder with fewer than three template hints skips levels but keeps each rung's number. | Additive: every event valid before stays valid. One scale for the ladder, the event and the runner. |
+| E3 | **`GeneratedItem` gets no `generator` field.** The engine resolves an item's generator by its own `templateId` (`templateId` → `ItemTemplate.generator`), only in the templates passed to `initContent` (03 §5.3). Nothing else (no earlier `generateItem` call) feeds the lookup, so `checkResponse` depends only on the item, the response and the content binding. When the id is not bound, no misconception rule applies (03 §5.7), and correctness and feedback are still decided from the item. | Items stay as specified, and templates are already bound everywhere items are checked. No type change. |
 
 Contract adjustments made by S01 (2026-11-18), closing the last two gaps F01 left to it:
 

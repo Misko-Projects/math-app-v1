@@ -1,5 +1,8 @@
 import {
+  DISTRACTOR_FORMATS,
   FORMAT_DEFAULT_REPRESENTATION,
+  FORMAT_SUPPORT,
+  formatRendersRepresentation,
   type GameData,
   GRADES,
   type Grade,
@@ -23,7 +26,6 @@ import {
   type UnlockRule,
 } from '@number-island/shared';
 import { type Diagnostic, Diagnostics, formatPath } from '../diagnostics';
-import { DISTRACTOR_FORMATS, FORMAT_SUPPORT, formatRendersRepresentation } from '../formats';
 import { isSituation, type StoryContext } from '../schema/source';
 import { canonicalJson, fnv1a32, sha256Hex } from './canonical';
 import { ExprError, evaluate, identifiers, parseExpr } from './expr';
