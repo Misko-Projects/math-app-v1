@@ -72,6 +72,47 @@ export function fixtureGameData(): GameData {
   return result.content.game;
 }
 
+export interface CompiledContent {
+  content: FixtureContent;
+  graph: SkillGraph;
+  game: GameData;
+}
+
+const byRoot = new Map<string, CompiledContent>();
+
+/**
+ * Compile the content under `root` (a directory laid out like packages/content), once per root.
+ * The golden replay uses a frozen copy (test/golden/content) so live curriculum changes never
+ * move its snapshot.
+ */
+export function compileContentAt(root: string): CompiledContent {
+  const hit = byRoot.get(root);
+  if (hit) return hit;
+  const result = compileContent(readContentFiles(root));
+  if (!result.outputs || !result.content || !result.contentVersion) {
+    const errors = result.diagnostics.filter((d) => d.severity === 'error').map(formatDiagnostic);
+    throw new Error(`the content at ${root} does not compile:\n${errors.join('\n')}`);
+  }
+  const read = <T>(name: string): T => JSON.parse(result.outputs?.[name] ?? 'null') as T;
+  const out: CompiledContent = {
+    content: {
+      skills: read<Skill[]>('skills.json'),
+      templates: read<ItemTemplate[]>('templates.json'),
+      narration: read<NarrationJson>('narration.json'),
+      misconceptions: read<MisconceptionSpec[]>('misconceptions.json'),
+    },
+    graph: buildSkillGraph({
+      contentVersion: result.contentVersion,
+      skills: result.content.skills,
+      templates: result.content.templates,
+      graph: result.content.graph,
+    }),
+    game: result.content.game,
+  };
+  byRoot.set(root, out);
+  return out;
+}
+
 export function fixtureTemplate(id: string): ItemTemplate {
   const t = loadFixture().templates.find((x) => x.id === id);
   if (!t) throw new Error(`no fixture template ${id}`);

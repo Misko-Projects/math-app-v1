@@ -1,0 +1,628 @@
+# Clip inventory (03 §8.3): number words, fractions, ordinals, time, money, units, closed math
+# words, shapes and story nouns. Each entry is one pre-rendered clip; tools/narration (A02) also
+# renders a sentence-final `.end` variant of every num.* clip. Generated once from the 03 §8.3
+# table; keep the key set in step with packages/content/src/compile/inventory.ts (V16, V26).
+
+# ---------- num: 0–99 as one word each, then the scale words ----------
+num.0:
+  text: "zero"
+num.1:
+  text: "one"
+num.2:
+  text: "two"
+num.3:
+  text: "three"
+num.4:
+  text: "four"
+num.5:
+  text: "five"
+num.6:
+  text: "six"
+num.7:
+  text: "seven"
+num.8:
+  text: "eight"
+num.9:
+  text: "nine"
+num.10:
+  text: "ten"
+num.11:
+  text: "eleven"
+num.12:
+  text: "twelve"
+num.13:
+  text: "thirteen"
+num.14:
+  text: "fourteen"
+num.15:
+  text: "fifteen"
+num.16:
+  text: "sixteen"
+num.17:
+  text: "seventeen"
+num.18:
+  text: "eighteen"
+num.19:
+  text: "nineteen"
+num.20:
+  text: "twenty"
+num.21:
+  text: "twenty-one"
+num.22:
+  text: "twenty-two"
+num.23:
+  text: "twenty-three"
+num.24:
+  text: "twenty-four"
+num.25:
+  text: "twenty-five"
+num.26:
+  text: "twenty-six"
+num.27:
+  text: "twenty-seven"
+num.28:
+  text: "twenty-eight"
+num.29:
+  text: "twenty-nine"
+num.30:
+  text: "thirty"
+num.31:
+  text: "thirty-one"
+num.32:
+  text: "thirty-two"
+num.33:
+  text: "thirty-three"
+num.34:
+  text: "thirty-four"
+num.35:
+  text: "thirty-five"
+num.36:
+  text: "thirty-six"
+num.37:
+  text: "thirty-seven"
+num.38:
+  text: "thirty-eight"
+num.39:
+  text: "thirty-nine"
+num.40:
+  text: "forty"
+num.41:
+  text: "forty-one"
+num.42:
+  text: "forty-two"
+num.43:
+  text: "forty-three"
+num.44:
+  text: "forty-four"
+num.45:
+  text: "forty-five"
+num.46:
+  text: "forty-six"
+num.47:
+  text: "forty-seven"
+num.48:
+  text: "forty-eight"
+num.49:
+  text: "forty-nine"
+num.50:
+  text: "fifty"
+num.51:
+  text: "fifty-one"
+num.52:
+  text: "fifty-two"
+num.53:
+  text: "fifty-three"
+num.54:
+  text: "fifty-four"
+num.55:
+  text: "fifty-five"
+num.56:
+  text: "fifty-six"
+num.57:
+  text: "fifty-seven"
+num.58:
+  text: "fifty-eight"
+num.59:
+  text: "fifty-nine"
+num.60:
+  text: "sixty"
+num.61:
+  text: "sixty-one"
+num.62:
+  text: "sixty-two"
+num.63:
+  text: "sixty-three"
+num.64:
+  text: "sixty-four"
+num.65:
+  text: "sixty-five"
+num.66:
+  text: "sixty-six"
+num.67:
+  text: "sixty-seven"
+num.68:
+  text: "sixty-eight"
+num.69:
+  text: "sixty-nine"
+num.70:
+  text: "seventy"
+num.71:
+  text: "seventy-one"
+num.72:
+  text: "seventy-two"
+num.73:
+  text: "seventy-three"
+num.74:
+  text: "seventy-four"
+num.75:
+  text: "seventy-five"
+num.76:
+  text: "seventy-six"
+num.77:
+  text: "seventy-seven"
+num.78:
+  text: "seventy-eight"
+num.79:
+  text: "seventy-nine"
+num.80:
+  text: "eighty"
+num.81:
+  text: "eighty-one"
+num.82:
+  text: "eighty-two"
+num.83:
+  text: "eighty-three"
+num.84:
+  text: "eighty-four"
+num.85:
+  text: "eighty-five"
+num.86:
+  text: "eighty-six"
+num.87:
+  text: "eighty-seven"
+num.88:
+  text: "eighty-eight"
+num.89:
+  text: "eighty-nine"
+num.90:
+  text: "ninety"
+num.91:
+  text: "ninety-one"
+num.92:
+  text: "ninety-two"
+num.93:
+  text: "ninety-three"
+num.94:
+  text: "ninety-four"
+num.95:
+  text: "ninety-five"
+num.96:
+  text: "ninety-six"
+num.97:
+  text: "ninety-seven"
+num.98:
+  text: "ninety-eight"
+num.99:
+  text: "ninety-nine"
+num.hundred:
+  text: "hundred"
+num.thousand:
+  text: "thousand"
+num.million:
+  text: "million"
+num.negative:
+  text: "negative"
+
+# ---------- den: fraction denominators (fourths, never quarters) ----------
+den.1.one:
+  text: "whole"
+den.1.many:
+  text: "wholes"
+den.2.one:
+  text: "half"
+den.2.many:
+  text: "halves"
+den.3.one:
+  text: "third"
+den.3.many:
+  text: "thirds"
+den.4.one:
+  text: "fourth"
+den.4.many:
+  text: "fourths"
+den.5.one:
+  text: "fifth"
+den.5.many:
+  text: "fifths"
+den.6.one:
+  text: "sixth"
+den.6.many:
+  text: "sixths"
+den.7.one:
+  text: "seventh"
+den.7.many:
+  text: "sevenths"
+den.8.one:
+  text: "eighth"
+den.8.many:
+  text: "eighths"
+den.9.one:
+  text: "ninth"
+den.9.many:
+  text: "ninths"
+den.10.one:
+  text: "tenth"
+den.10.many:
+  text: "tenths"
+den.11.one:
+  text: "eleventh"
+den.11.many:
+  text: "elevenths"
+den.12.one:
+  text: "twelfth"
+den.12.many:
+  text: "twelfths"
+den.100.one:
+  text: "hundredth"
+den.100.many:
+  text: "hundredths"
+
+# ---------- ord: first … thirty-first ----------
+ord.1:
+  text: "first"
+ord.2:
+  text: "second"
+ord.3:
+  text: "third"
+ord.4:
+  text: "fourth"
+ord.5:
+  text: "fifth"
+ord.6:
+  text: "sixth"
+ord.7:
+  text: "seventh"
+ord.8:
+  text: "eighth"
+ord.9:
+  text: "ninth"
+ord.10:
+  text: "tenth"
+ord.11:
+  text: "eleventh"
+ord.12:
+  text: "twelfth"
+ord.13:
+  text: "thirteenth"
+ord.14:
+  text: "fourteenth"
+ord.15:
+  text: "fifteenth"
+ord.16:
+  text: "sixteenth"
+ord.17:
+  text: "seventeenth"
+ord.18:
+  text: "eighteenth"
+ord.19:
+  text: "nineteenth"
+ord.20:
+  text: "twentieth"
+ord.21:
+  text: "twenty-first"
+ord.22:
+  text: "twenty-second"
+ord.23:
+  text: "twenty-third"
+ord.24:
+  text: "twenty-fourth"
+ord.25:
+  text: "twenty-fifth"
+ord.26:
+  text: "twenty-sixth"
+ord.27:
+  text: "twenty-seventh"
+ord.28:
+  text: "twenty-eighth"
+ord.29:
+  text: "twenty-ninth"
+ord.30:
+  text: "thirtieth"
+ord.31:
+  text: "thirty-first"
+
+# ---------- time ----------
+time.oclock:
+  text: "o'clock"
+time.oh:
+  text: "oh"
+time.am:
+  text: "a.m."
+  say: "A M"
+time.pm:
+  text: "p.m."
+  say: "P M"
+time.quarter:
+  text: "quarter"
+time.half:
+  text: "half"
+time.past:
+  text: "past"
+time.to:
+  text: "to"
+time.minute.one:
+  text: "minute"
+time.minute.many:
+  text: "minutes"
+time.hour.one:
+  text: "hour"
+time.hour.many:
+  text: "hours"
+
+# ---------- money ----------
+money.cent.one:
+  text: "cent"
+money.cent.many:
+  text: "cents"
+money.dollar.one:
+  text: "dollar"
+money.dollar.many:
+  text: "dollars"
+
+# ---------- unit: measurement units (one, many) ----------
+unit.in.one:
+  text: "inch"
+unit.in.many:
+  text: "inches"
+unit.ft.one:
+  text: "foot"
+unit.ft.many:
+  text: "feet"
+unit.cm.one:
+  text: "centimeter"
+unit.cm.many:
+  text: "centimeters"
+unit.m.one:
+  text: "meter"
+unit.m.many:
+  text: "meters"
+unit.g.one:
+  text: "gram"
+unit.g.many:
+  text: "grams"
+unit.kg.one:
+  text: "kilogram"
+unit.kg.many:
+  text: "kilograms"
+unit.L.one:
+  text: "liter"
+unit.L.many:
+  text: "liters"
+unit.sq-unit.one:
+  text: "square unit"
+unit.sq-unit.many:
+  text: "square units"
+unit.sq-cm.one:
+  text: "square centimeter"
+unit.sq-cm.many:
+  text: "square centimeters"
+unit.sq-m.one:
+  text: "square meter"
+unit.sq-m.many:
+  text: "square meters"
+unit.sq-in.one:
+  text: "square inch"
+unit.sq-in.many:
+  text: "square inches"
+unit.sq-ft.one:
+  text: "square foot"
+unit.sq-ft.many:
+  text: "square feet"
+unit.shell.one:
+  text: "shell"
+unit.shell.many:
+  text: "shells"
+unit.cube.one:
+  text: "cube"
+unit.cube.many:
+  text: "cubes"
+unit.stick.one:
+  text: "stick"
+unit.stick.many:
+  text: "sticks"
+
+# ---------- word: closed math words ----------
+word.and:
+  text: "and"
+word.true:
+  text: "true"
+word.false:
+  text: "false"
+word.even:
+  text: "even"
+word.odd:
+  text: "odd"
+word.more:
+  text: "more"
+word.fewer:
+  text: "fewer"
+word.same:
+  text: "same"
+word.left:
+  text: "left"
+word.right:
+  text: "right"
+word.yes:
+  text: "yes"
+word.no:
+  text: "no"
+word.box:
+  text: "box"
+
+# ---------- shape: every ShapeKind (one, many) ----------
+shape.circle.one:
+  text: "circle"
+shape.circle.many:
+  text: "circles"
+shape.triangle.one:
+  text: "triangle"
+shape.triangle.many:
+  text: "triangles"
+shape.square.one:
+  text: "square"
+shape.square.many:
+  text: "squares"
+shape.rectangle.one:
+  text: "rectangle"
+shape.rectangle.many:
+  text: "rectangles"
+shape.rhombus.one:
+  text: "rhombus"
+shape.rhombus.many:
+  text: "rhombuses"
+shape.trapezoid.one:
+  text: "trapezoid"
+shape.trapezoid.many:
+  text: "trapezoids"
+shape.pentagon.one:
+  text: "pentagon"
+shape.pentagon.many:
+  text: "pentagons"
+shape.hexagon.one:
+  text: "hexagon"
+shape.hexagon.many:
+  text: "hexagons"
+shape.octagon.one:
+  text: "octagon"
+shape.octagon.many:
+  text: "octagons"
+shape.oval.one:
+  text: "oval"
+shape.oval.many:
+  text: "ovals"
+shape.kite.one:
+  text: "kite"
+shape.kite.many:
+  text: "kites"
+shape.quadrilateral.one:
+  text: "quadrilateral"
+shape.quadrilateral.many:
+  text: "quadrilaterals"
+shape.open-figure.one:
+  text: "open shape"
+shape.open-figure.many:
+  text: "open shapes"
+shape.cube.one:
+  text: "cube"
+shape.cube.many:
+  text: "cubes"
+shape.cone.one:
+  text: "cone"
+shape.cone.many:
+  text: "cones"
+shape.cylinder.one:
+  text: "cylinder"
+shape.cylinder.many:
+  text: "cylinders"
+shape.sphere.one:
+  text: "sphere"
+shape.sphere.many:
+  text: "spheres"
+shape.rect-prism.one:
+  text: "rectangular prism"
+shape.rect-prism.many:
+  text: "rectangular prisms"
+shape.pyramid.one:
+  text: "pyramid"
+shape.pyramid.many:
+  text: "pyramids"
+
+# ---------- noun: every noun in contexts.yaml (one, many) ----------
+noun.apple.one:
+  text: "apple"
+noun.apple.many:
+  text: "apples"
+noun.brick.one:
+  text: "brick"
+noun.brick.many:
+  text: "bricks"
+noun.bun.one:
+  text: "bun"
+noun.bun.many:
+  text: "buns"
+noun.coin.one:
+  text: "coin"
+noun.coin.many:
+  text: "coins"
+noun.crab.one:
+  text: "crab"
+noun.crab.many:
+  text: "crabs"
+noun.crate.one:
+  text: "crate"
+noun.crate.many:
+  text: "crates"
+noun.firefly.one:
+  text: "firefly"
+noun.firefly.many:
+  text: "fireflies"
+noun.fish.one:
+  text: "fish"
+noun.fish.many:
+  text: "fish"
+noun.flower.one:
+  text: "flower"
+noun.flower.many:
+  text: "flowers"
+noun.jug.one:
+  text: "jug"
+noun.jug.many:
+  text: "jugs"
+noun.kite.one:
+  text: "kite"
+noun.kite.many:
+  text: "kites"
+noun.lantern.one:
+  text: "lantern"
+noun.lantern.many:
+  text: "lanterns"
+noun.loaf.one:
+  text: "loaf"
+noun.loaf.many:
+  text: "loaves"
+noun.pallet.one:
+  text: "pallet"
+noun.pallet.many:
+  text: "pallets"
+noun.pebble.one:
+  text: "pebble"
+noun.pebble.many:
+  text: "pebbles"
+noun.pebbling.one:
+  text: "Pebbling"
+noun.pebbling.many:
+  text: "Pebblings"
+noun.pie.one:
+  text: "pie"
+noun.pie.many:
+  text: "pies"
+noun.plank.one:
+  text: "plank"
+noun.plank.many:
+  text: "planks"
+noun.rider.one:
+  text: "rider"
+noun.rider.many:
+  text: "riders"
+noun.sack.one:
+  text: "sack"
+noun.sack.many:
+  text: "sacks"
+noun.seedling.one:
+  text: "seedling"
+noun.seedling.many:
+  text: "seedlings"
+noun.shell.one:
+  text: "shell"
+noun.shell.many:
+  text: "shells"

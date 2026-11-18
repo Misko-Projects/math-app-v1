@@ -1,0 +1,61 @@
+# Narration voices (07 §3). Read by tools/narration (`pnpm narration:render`, `pnpm narration:audition`);
+# the content compiler skips this file. Changing a voice, model or style text changes the clip hashes,
+# so the next render re-renders exactly the affected clips.
+#
+# Defaults until the owner auditions (owner verification, not a blocker): narrator Sulafat (warm),
+# Pip Puck (upbeat), Glim Achird (friendly). `pnpm narration:audition` renders the audition lines below
+# in every candidate voice into tmp/audition/.
+
+# Default renderer. NARRATION_PROVIDER or --provider overrides it (gemini | kokoro | stub).
+provider: gemini
+
+gemini:
+  model: gemini-3.8-flash-tts
+  voices:
+    narrator: Sulafat
+    pip: Puck
+    glim: Achird
+
+# Local fallback (07 §3): Apache-2.0 Kokoro-82M via kokoro-js. American English voices.
+kokoro:
+  model: onnx-community/Kokoro-82M-v1.0-ONNX
+  voices:
+    narrator: af_heart
+    pip: am_puck
+    glim: af_nicole
+
+# Clip sets (03 §8.3) rendered again in Pip's and Glim's own voices, as `pip:<clip id>` and
+# `glim:<clip id>` (02 §5.5), so their lines stitch numbers in their own voice. The narrator always
+# has every clip set, and the game falls back to the narrator's clip for anything not listed here.
+# Pip's lessons and Glim's phrase-bank lines only fill number slots today; add a namespace (`noun`,
+# `ord`, …) here when a Pip or Glim line starts using that slot type.
+voiceClipSets:
+  pip: [num]
+  glim: [num]
+
+# Turn-level delivery for each 03 §8.2 `style`, sent as Gemini `speech_metadata.style`. `clip` is for
+# the clip-set words stitched into lines (num.*, noun.*, unit.*, …, 03 §8.3) and `end` for the falling,
+# sentence-final `num.*.end` clips. Clip words must come out as one word with no pause inside it
+# ("twenty-three", not "twenty … three"), or stitched lines sound broken.
+styles:
+  warm: warm, gentle and clear, at a natural, unhurried pace for a young child
+  excited: delighted and celebratory, warm and clear, for a young child
+  calm: calm and soothing, reassuring, for a young child
+  playful: playful and bright, with a smile, for a young child
+  clip: clear and natural, one word said smoothly at an even pace, with no pause inside it
+  end: clear and natural, the last word of a sentence, said smoothly with falling, final intonation and no pause inside it
+
+audition:
+  candidates: [Sulafat, Achird, Vindemiatrix, Leda, Puck]
+  kokoroCandidates: [af_heart, af_bella, af_nicole, am_puck, bf_emma]
+  lines:
+    - text: "Welcome to Number Island! Let's build something together."
+      style: warm
+    - text: "How many shells are in the basket?"
+      style: warm
+    - text: "You made a ten first! That helped you add."
+      style: excited
+    - text: "Look at the empty boxes. How many are still empty?"
+      style: calm
+    - text: "Seven plus three is ten."
+      style: playful

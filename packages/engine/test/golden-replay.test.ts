@@ -3,10 +3,14 @@
 // weeks) replays to an identical snapshot of every projection, the learner statuses and due
 // reviews, and the dashboard signals. Re-record both files with `UPDATE_GOLDEN=1` (only when a
 // fold or the recorder changes on purpose; review the snapshot diff in the PR).
+//
+// The snapshot is taken against a FROZEN copy of the content (test/golden/content, the C01
+// fixture as of main 188c73a; see its README), so curriculum PRs (K01, K02) never move it. A
+// separate block below replays the same log against the LIVE content and checks invariants only.
 
 import { readFileSync, writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import type { AnyEventEnvelope } from '@number-island/shared';
+import { type AnyEventEnvelope, SKILL_STATUSES } from '@number-island/shared';
 import { describe, expect, it } from 'vitest';
 import { foldCollection } from '../src/folds/collection';
 import { foldGoals } from '../src/folds/goals';
@@ -22,16 +26,18 @@ import {
   skillMap,
   timeSignals,
 } from '../src/signals';
-import { compileFixture, fixtureGameData, fixtureGraph, loadFixture } from './fixture';
+import { initContent } from '../src/content/binding';
+import { compileContentAt, fixtureGameData, fixtureGraph } from './fixture';
 import { CHILD_1, CHILD_2 } from './support/events';
 import { REPLAY_DAYS, REPLAY_T0, recordReplayLog, stableJson } from './support/replay-log';
 
 const LOG = fileURLToPath(new URL('./golden/replay-log.jsonl', import.meta.url));
 const SNAPSHOT = fileURLToPath(new URL('./golden/replay-snapshot.json', import.meta.url));
+const GOLDEN_CONTENT = fileURLToPath(new URL('./golden/content', import.meta.url));
 
-loadFixture();
-const graph = fixtureGraph();
-const game = fixtureGameData();
+const golden = compileContentAt(GOLDEN_CONTENT);
+initContent(golden.content);
+const { graph, game } = golden;
 const kids = [
   { childId: CHILD_1, isK: true },
   { childId: CHILD_2, isK: false },
@@ -49,7 +55,7 @@ function snapshot(events: readonly AnyEventEnvelope[]) {
       dueReviews: model.dueReviews(state, NOW),
       frontier: model.frontier(state),
       skillMap: skillMap(model, state, NOW),
-      misconceptionAlerts: misconceptionAlerts(events, childId, compileFixture().misconceptions),
+      misconceptionAlerts: misconceptionAlerts(events, childId, golden.content.misconceptions),
       accuracyBand: accuracyBand(events, childId, { isK }),
       mathDensity: mathDensity(events, childId),
     };
@@ -76,6 +82,11 @@ if (process.env.UPDATE_GOLDEN === '1') {
   const events = recordReplayLog(graph, game);
   writeFileSync(LOG, `${events.map((e) => JSON.stringify(e)).join('\n')}\n`);
   writeFileSync(SNAPSHOT, `${stableJson(snapshot(events))}\n`);
+} else if (process.env.UPDATE_GOLDEN === 'snapshot') {
+  // Keep the recorded log and re-derive only the snapshot: for a deliberate change to what the
+  // folds compute from the same events (e.g. generator features, which the learner uses to
+  // rebuild each attempt's difficulty, 04 §2.2).
+  writeFileSync(SNAPSHOT, `${stableJson(snapshot(readLog()))}\n`);
 }
 
 describe('golden replay (04 §8)', () => {
@@ -140,5 +151,32 @@ describe('golden replay (04 §8)', () => {
       for (const e of sortEvents(events)) state = applyLearnerEvent(model, state, e);
       expect(state).toEqual(foldLearnerState(events, graph, { childId, isK }));
     }
+  });
+});
+
+describe('replay against the live content (invariants only)', () => {
+  // The golden log was recorded on the frozen content. Every id it names is a C01 fixture id,
+  // which the live catalog keeps (03 §9.5), so the live folds must accept it and give every live
+  // skill a valid status. No snapshot: the live curriculum grows with every content PR.
+  const events = readLog();
+  const live = fixtureGraph();
+  const liveGame = fixtureGameData();
+
+  it('every live skill gets a valid status, and no fold throws', () => {
+    const valid = new Set<string>(SKILL_STATUSES);
+    for (const { childId, isK } of kids) {
+      const model = learnerModelFor(live, { childId, isK });
+      const state = foldLearnerState(events, live, { childId, isK });
+      for (const s of live.nodes) expect(valid.has(model.status(state, s, NOW)), s).toBe(true);
+      expect(() => model.dueReviews(state, NOW)).not.toThrow();
+      expect(() => skillMap(model, state, NOW)).not.toThrow();
+    }
+    expect(() => foldIsland(events, liveGame)).not.toThrow();
+    expect(() => foldCollection(events, liveGame)).not.toThrow();
+  });
+
+  it('the frozen content ids the log uses still exist in the live catalog', () => {
+    const liveIds = new Set(live.nodes);
+    for (const id of graph.nodes) expect(liveIds.has(id), id).toBe(true);
   });
 });

@@ -1,0 +1,21 @@
+# C01 fixture (03 §9.5): catalog rows from 03 §3.7.
+strand: ADD
+skills:
+  - id: ADD.01
+    name: "Join: add-to and put-together within 10 with objects"
+    kind: concept
+    grade: K
+    standards: { ccss: [K.OA.A.1] }
+    prerequisites: [CNT.04, CPS.01]
+    gateway: false
+    representations: [objects, fingers, ten-frame, symbols]
+
+  - id: ADD.03
+    name: Count on from the larger number to add
+    kind: strategy
+    grade: 1
+    standards: { ccss: [1.OA.C.5] }
+    prerequisites: [CNT.07, ADD.01]
+    related: [CNT.07]
+    gateway: false
+    representations: [number-path, ten-frame, number-line, symbols]
