@@ -5,7 +5,7 @@ import {
   useMemo,
   useRef,
 } from 'react';
-import { useUiPreferences } from '../preferences/UiProvider';
+import { useReducedMotion, useUiPreferences } from '../preferences/UiProvider';
 import { DRAG_START_PX, DURATION_MS } from '../tokens/tokens';
 import { findSnapTarget, rectCenter, type SnapCandidate } from './snap';
 import {
@@ -121,7 +121,8 @@ export function useDragToTarget<I extends string, T extends string>(
   const tapOnly = options.tapOnly ?? prefs.tapOnly;
   const core = usePlacementCore(options);
   const active = useRef<ActiveDrag<I> | null>(null);
-  const glideMs = prefs.reducedMotion ? 0 : DURATION_MS.gentle;
+  const reducedMotion = useReducedMotion();
+  const glideMs = reducedMotion ? 0 : DURATION_MS.gentle;
   const settings = useRef({ snapRadius, tapOnly, glideMs, onMiss: options.onMiss });
   settings.current = { snapRadius, tapOnly, glideMs, onMiss: options.onMiss };
 

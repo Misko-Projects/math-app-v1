@@ -159,7 +159,10 @@ export function useUiPreferences(): UiPreferences {
 
 /** True when animations should collapse to short fades or instant changes (06 §7). */
 export function useReducedMotion(): boolean {
-  return useContext(UiContext).reducedMotion;
+  // The provider already folds in the OS preference; the live OS check also covers components
+  // used without a UiProvider (whose default context can't know the OS setting).
+  const system = useSystemReducedMotion();
+  return useContext(UiContext).reducedMotion || system;
 }
 
 /** Narration text lookup, falling back to a readable form of the key in development. */

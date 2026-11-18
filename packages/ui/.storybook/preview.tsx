@@ -30,10 +30,19 @@ export interface UiStoryParameters {
   textLabels?: boolean;
   /** `centered` (default), `padded` or `flush` (full-bleed scenes). */
   stage?: 'centered' | 'padded' | 'flush';
+  /** Render without a UiProvider (to test the primitives' defaults). */
+  bare?: boolean;
 }
 
 const withUi: Decorator = (Story, context) => {
   const ui = (context.parameters.ui ?? {}) as UiStoryParameters;
+  if (ui.bare) {
+    return (
+      <div className="story-stage" data-layout={ui.stage ?? 'centered'}>
+        <Story />
+      </div>
+    );
+  }
   const ageMode = (context.globals.ageMode ?? 'g1-up') as AgeMode;
   const reducedMotion = context.globals.motion === 'reduced' ? true : undefined;
   const tapOnly = ui.tapOnly ?? context.globals.tapOnly === 'on';

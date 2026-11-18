@@ -534,7 +534,12 @@ export const TapAfterMissKeepsInlineStyles: Story = {
     // Mid-glide (the widget's own inline transition must not cancel the glide home)…
     await new Promise((r) => setTimeout(r, 40));
     const mid = shell(canvasElement, 's1').getBoundingClientRect();
-    await expect(Math.abs(mid.left - home.left)).toBeGreaterThan(5);
+    const reduced =
+      window.matchMedia('(prefers-reduced-motion: reduce)').matches ||
+      canvasElement.querySelector('[data-reduced-motion="true"]') !== null;
+    // With reduced motion there is no glide: it is already home.
+    if (reduced) await expect(Math.abs(mid.left - home.left)).toBeLessThan(1);
+    else await expect(Math.abs(mid.left - home.left)).toBeGreaterThan(5);
     // …a tap stops it, then it glides on home, and the widget's inline styles are untouched.
     await userEvent.click(shell(canvasElement, 's1'));
     await expect(shell(canvasElement, 's1').style.transform).toBe(TILT.transform);
@@ -609,5 +614,46 @@ export const LayoutShiftBeforeDrag: Story = {
     window.dispatchEvent(ev('pointerup', to.x, to.y, 0));
     await waitFor(() => expect(zoneOf(canvasElement, 's2')).toBe('basket'));
     await expect(args.onPlace).toHaveBeenCalledWith({ item: 's2', target: 'basket', via: 'drag' });
+  },
+};
+
+/**
+ * Used without a UiProvider, the hook still honours the OS reduced-motion setting (06 §7): a
+ * mis-dropped shell goes straight home with no glide.
+ */
+export const OsReducedMotionWithoutProvider: Story = {
+  parameters: { ui: { bare: true } },
+  beforeEach: () => {
+    const original = window.matchMedia;
+    window.matchMedia = (query: string) => {
+      if (!query.includes('prefers-reduced-motion')) return original.call(window, query);
+      const reduced: MediaQueryList = {
+        matches: true,
+        media: query,
+        onchange: null,
+        addEventListener: () => {},
+        removeEventListener: () => {},
+        addListener: () => {},
+        removeListener: () => {},
+        dispatchEvent: () => false,
+      };
+      return reduced;
+    };
+    return () => {
+      window.matchMedia = original;
+    };
+  },
+  play: async ({ canvasElement, args }) => {
+    const home = shell(canvasElement, 's1').getBoundingClientRect();
+    const basket = pad(canvasElement, 'basket').getBoundingClientRect();
+    await pointerDrag(shell(canvasElement, 's1'), { x: basket.left - 90, y: basket.top - 60 });
+    await expect(args.onMiss).toHaveBeenCalledWith('s1');
+    const glides = shell(canvasElement, 's1')
+      .getAnimations()
+      .filter((a) => a.id === 'ni-glide');
+    await expect(glides).toHaveLength(0);
+    const now = shell(canvasElement, 's1').getBoundingClientRect();
+    await expect(Math.abs(now.left - home.left)).toBeLessThan(1);
+    await expect(Math.abs(now.top - home.top)).toBeLessThan(1);
   },
 };
