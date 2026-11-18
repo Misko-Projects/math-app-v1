@@ -159,7 +159,7 @@ describe('number line steps', () => {
     expect(s.x(10)).toBe(460);
     expect(s.value(250)).toBe(5);
     const wide = numberLineViewScale({ min: 0, max: 1000, width: 500, headroom: 96 });
-    expect(wide.pad).toBe(Math.max(40, (4 * 19 + 6) / 2 + 8));
+    expect(wide.pad).toBe(Math.max(40, (4 * 24 + 8) / 2 + 8));
   });
 });
 
