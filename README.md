@@ -13,7 +13,17 @@ Research and specs are complete, and v1 is being built. See:
 - [`docs/research/`](docs/research/): background research behind the decisions
 - [`docs/plan/index.html`](docs/plan/index.html): the interactive options/plan document
 
-Quick start instructions will land with the scaffold (`pnpm i && pnpm dev`).
+## Quick start
+
+You need Node 24 (see `.nvmrc`) and pnpm 10 (`corepack enable` picks the pinned version).
+
+```sh
+pnpm i
+pnpm secrets:link   # optional: copies your API keys from ~/.config/math-app-v1/secrets.env; fine if the file is missing
+pnpm dev            # open http://localhost:5173
+```
+
+`pnpm dev:lan` serves the app on your home network so a tablet can open `http://<laptop-ip>:5173`. Contributor commands and rules are in [`AGENTS.md`](AGENTS.md).
 
 ## License
 

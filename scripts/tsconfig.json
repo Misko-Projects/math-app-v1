@@ -1,15 +1,10 @@
 {
-  "extends": "../../tsconfig.base.json",
+  "extends": "../tsconfig.base.json",
   "compilerOptions": {
     "outDir": "../build/scripts-tsc",
-    "types": [
-      "node"
-    ],
+    "types": ["node"],
     "allowJs": true,
-    "checkJs": true
+    "checkJs": false
   },
-  "include": [
-    "**/*.mjs",
-    "**/*.ts"
-  ]
+  "include": ["**/*.mjs", "**/*.ts"]
 }

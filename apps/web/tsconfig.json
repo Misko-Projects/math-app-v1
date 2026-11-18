@@ -1,0 +1,17 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "outDir": "build/tsc/app",
+    "lib": ["ES2023", "DOM", "DOM.Iterable"],
+    "jsx": "react-jsx",
+    "types": ["vite/client"],
+    "paths": { "@/*": ["./src/*"] }
+  },
+  "include": ["src"],
+  "exclude": ["src/sw.ts"],
+  "references": [
+    { "path": "./tsconfig.sw.json" },
+    { "path": "./tsconfig.node.json" },
+    { "path": "../../packages/shared" }
+  ]
+}

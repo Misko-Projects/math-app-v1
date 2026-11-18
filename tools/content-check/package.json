@@ -6,7 +6,13 @@
   "exports": {
     ".": "./src/index.ts"
   },
-  "scripts": { "check": "node src/check.mjs" },
-  "dependencies": { "@number-island/content": "workspace:*", "@number-island/engine": "workspace:*", "@number-island/shared": "workspace:*" },
+  "scripts": {
+    "check": "node src/check.mjs"
+  },
+  "dependencies": {
+    "@number-island/content": "workspace:*",
+    "@number-island/engine": "workspace:*",
+    "@number-island/shared": "workspace:*"
+  },
   "devDependencies": {}
 }

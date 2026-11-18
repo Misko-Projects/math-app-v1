@@ -12,6 +12,7 @@
       "!**/test-results",
       "!**/playwright-report",
       "!**/worker-configuration.d.ts",
+      "!**/*.md",
       "!docs/plan",
       "!e2e/__screenshots__"
     ]

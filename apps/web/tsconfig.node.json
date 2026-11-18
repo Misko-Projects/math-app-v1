@@ -1,0 +1,9 @@
+{
+  // Vite and Vitest config files (run by Node).
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "outDir": "build/tsc/node",
+    "types": ["node"]
+  },
+  "include": ["vite.config.ts", "vitest.config.ts"]
+}
