@@ -72,12 +72,7 @@ export function Sheet({
             <div className="ni-sheet__header">
               <div>{header}</div>
               {closeButton ? (
-                <IconButton
-                  label="ui.btn.close"
-                  icon={<BackIcon />}
-                  caption={false}
-                  onPress={onClose}
-                />
+                <IconButton label="ui.btn.close" icon={<BackIcon />} onPress={onClose} />
               ) : null}
             </div>
           ) : null}

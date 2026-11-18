@@ -53,6 +53,7 @@ body {
   font-family: var(--font-body);
   font-size: 0.95rem;
   font-weight: 700;
+  text-align: center;
 }
 .story-heading {
   margin: 0 0 20px;
