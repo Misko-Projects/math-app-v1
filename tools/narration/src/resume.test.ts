@@ -12,14 +12,20 @@ import {
   writeFileSync,
 } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { dirname, join } from 'node:path';
+import { join } from 'node:path';
 import { audioManifestSchema, type NarrationJson } from '@number-island/shared';
 import { afterEach, describe, expect, it } from 'vitest';
 import { stubWav } from './audio';
-import { checkLedgerFile, checkLegacyLedger, legacyLedgers, lockFileFor, stateDirFor } from './cli';
+import {
+  checkLegacyLedger,
+  guardLegacyLedgers,
+  lockFileFor,
+  otherLedgers,
+  stateDirFor,
+} from './cli';
 import { costUsd, priceFor } from './cost';
 import { type Encoder, wavEncoder } from './encode';
-import { type PipelineOptions, runPipeline } from './pipeline';
+import { type PipelineOptions, releaseHeldLocksForTest, runPipeline } from './pipeline';
 import { geminiRenderer } from './providers/gemini';
 import type { Renderer } from './providers/types';
 import { fixtureNarration, repoVoices } from './testing';
@@ -461,7 +467,7 @@ describe('review round 4', () => {
       join(root, 'gemini-batches.json'),
       JSON.stringify({ abc: { name: 'batches/old', createdAt: 'x' } }),
     );
-    expect(() => checkLegacyLedger(root)).toThrow(/earlier version and may list paid jobs/);
+    expect(() => checkLegacyLedger(root)).toThrow(/may list paid jobs/);
   });
 
   it('an unfiltered run that fails keeps saved requests it no longer needs, for a later revert', async () => {
@@ -560,27 +566,68 @@ describe('review round 6', () => {
     expect(existsSync(join(parent, 'not'))).toBe(false);
   });
 
-  it('checks the global legacy ledger and the earlier path-keyed ledger', () => {
-    const real = mkdtempSync(join(tmpdir(), 'narration-real-'));
-    dirs.push(real);
-    const link = `${real}-link`;
-    symlinkSync(real, link);
-    dirs.push(link);
+  it('finds every other ledger under the state root, whatever path spelling recorded it', () => {
     const root = mkdtempSync(join(tmpdir(), 'narration-root-'));
     dirs.push(root);
-    const files = legacyLedgers(link, 'opus', root);
-    expect(files[0]).toBe(join(root, 'gemini-batches.json'));
-    // The ledger an earlier revision keyed by the symlink spelling is checked too, and refused
-    // while it lists jobs.
-    const spelled = files[1];
-    expect(spelled).toBeDefined();
-    mkdirSync(dirname(spelled as string), { recursive: true });
-    writeFileSync(spelled as string, JSON.stringify({ version: 3, jobs: { x: { model: 'm' } } }));
-    expect(() => checkLedgerFile(spelled as string)).toThrow(/may list paid jobs/);
-    writeFileSync(spelled as string, JSON.stringify({ version: 3, jobs: {} }));
-    expect(() => checkLedgerFile(spelled as string)).not.toThrow();
-    // Without a symlink the spelling is the live ledger, which is not a legacy one.
-    expect(legacyLedgers(real, 'opus', root)).toEqual([join(root, 'gemini-batches.json')]);
+    const live = join(root, 'live');
+    for (const d of ['live', 'symlink-spelling', 'wav-target']) mkdirSync(join(root, d));
+    writeFileSync(join(root, 'live', 'gemini-batches.json'), '{"version":3,"jobs":{}}');
+    writeFileSync(join(root, 'symlink-spelling', 'gemini-batches.json'), '{"version":3,"jobs":{}}');
+    writeFileSync(join(root, 'gemini-batches.json'), '{}');
+    expect(otherLedgers(live, root).sort()).toEqual(
+      [
+        join(root, 'gemini-batches.json'),
+        join(root, 'symlink-spelling', 'gemini-batches.json'),
+      ].sort(),
+    );
+    // A ledger another spelling recorded is refused while it lists jobs.
+    const other = join(root, 'symlink-spelling', 'gemini-batches.json');
+    writeFileSync(other, JSON.stringify({ version: 3, jobs: { x: { model: 'm' } } }));
+    expect(() => guardLegacyLedgers(otherLedgers(live, root), true, () => {})).toThrow(
+      /may list paid jobs/,
+    );
+    expect(otherLedgers(live, join(root, 'missing'))).toEqual([]);
+  });
+
+  it('releases every lock this process holds when interrupted', async () => {
+    const a = mkdtempSync(join(tmpdir(), 'narration-lock-a-'));
+    const b = mkdtempSync(join(tmpdir(), 'narration-lock-b-'));
+    dirs.push(a, b);
+    let unblock: () => void = () => {};
+    const gate = new Promise<void>((resolve) => {
+      unblock = resolve;
+    });
+    const slow: Renderer = {
+      provider: 'gemini',
+      model: MODEL,
+      async render() {
+        await gate;
+      },
+    };
+    const start = (dir: string) =>
+      runPipeline({
+        narration: fixtureNarration(),
+        styles: new Map(),
+        config: repoVoices(),
+        provider: 'gemini',
+        renderer: slow,
+        encoder: wavEncoder,
+        outDir: dir,
+        stateDir: join(dir, '.state'),
+        lockFile: join(dir, 'render.lock'),
+        mode: 'interactive',
+        maxUsd: 5,
+        concurrency: 1,
+        maxWaitMs: 0,
+        dryRun: false,
+      });
+    const runs = [start(a), start(b)];
+    await new Promise((r) => setTimeout(r, 20));
+    expect(existsSync(join(a, 'render.lock')) && existsSync(join(b, 'render.lock'))).toBe(true);
+    expect(releaseHeldLocksForTest()).toBe(2);
+    expect(existsSync(join(a, 'render.lock')) || existsSync(join(b, 'render.lock'))).toBe(false);
+    unblock();
+    await Promise.all(runs);
   });
 });
 

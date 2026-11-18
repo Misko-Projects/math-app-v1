@@ -2,7 +2,8 @@
 // pnpm narration:render | narration:audition (07 §3). Build-time only: nothing here runs in the app.
 //
 //   pnpm narration:render [--dry-run] [--provider gemini|kokoro|stub] [--max-usd 5]
-//                         [--mode auto|interactive|batch] [--concurrency 4] [--max-wait-min 240]
+//                         [--mode interactive|batch --experimental-batch] [--concurrency 4]
+//                         [--max-wait-min 240]
 //                         [--out <dir>] [--format opus|wav] [--only <clip-id regex>]
 //                         [--abandon-unconfirmed-batches]
 //   pnpm narration:audition [--provider gemini|kokoro|stub] [--max-usd 0.5]
@@ -10,7 +11,14 @@
 // The Gemini key comes from GEMINI_API_KEY, else from the user-owned secrets file
 // ($MATH_APP_SECRETS or ~/.config/math-app-v1/secrets.env). It is never printed or logged.
 import { createHash } from 'node:crypto';
-import { existsSync, mkdirSync, readFileSync, realpathSync, writeFileSync } from 'node:fs';
+import {
+  existsSync,
+  mkdirSync,
+  readdirSync,
+  readFileSync,
+  realpathSync,
+  writeFileSync,
+} from 'node:fs';
 import { homedir } from 'node:os';
 import { basename, dirname, join, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -82,19 +90,19 @@ export function lockFileFor(outDir: string): string {
 }
 
 /**
- * Ledger files earlier layouts may have left for this target: the single global ledger, and the
- * per-target ledger keyed by the unresolved path spelling (used before symlinks were resolved),
- * whenever that is not the ledger this run uses.
+ * Every ledger under the state root other than the one this run uses: the global ledger of an
+ * earlier layout, and every other target's ledger (another format or output directory, or the same
+ * directory under a path spelling an earlier revision hashed). A Gemini render refuses while any of
+ * them lists jobs, so saved paid work is never bypassed whatever path or layout recorded it.
  */
-export function legacyLedgers(outDir: string, format: string, root: string = STATE_DIR): string[] {
+export function otherLedgers(liveStateDir: string, root: string = STATE_DIR): string[] {
+  if (!existsSync(root)) return [];
+  const live = join(liveStateDir, 'gemini-batches.json');
   const files = [join(root, 'gemini-batches.json')];
-  const spelled = createHash('sha256')
-    .update(`${resolve(outDir)}\0${format}`)
-    .digest('hex')
-    .slice(0, 16);
-  const old = join(root, spelled, 'gemini-batches.json');
-  if (old !== join(stateDirFor(outDir, format, root), 'gemini-batches.json')) files.push(old);
-  return files;
+  for (const entry of readdirSync(root, { withFileTypes: true })) {
+    if (entry.isDirectory()) files.push(join(root, entry.name, 'gemini-batches.json'));
+  }
+  return files.filter((f) => f !== live && existsSync(f));
 }
 
 /**
@@ -122,8 +130,8 @@ export function checkLegacyLedger(stateRoot: string = STATE_DIR): void {
 }
 
 /**
- * Throws while a ledger left by an earlier layout holds anything, so its jobs are never forgotten
- * and paid for again. Missing and empty ledgers pass.
+ * Throws while another ledger holds anything, so its jobs are never forgotten and paid for again.
+ * Missing and empty ledgers pass.
  */
 export function checkLedgerFile(legacy: string): void {
   if (!existsSync(legacy)) return;
@@ -140,7 +148,7 @@ export function checkLedgerFile(legacy: string): void {
       (record.jobs !== undefined && Object.keys(record.jobs).length === 0));
   if (!empty) {
     throw new Error(
-      `${legacy} is a batch ledger from an earlier version and may list paid jobs. Check them in Google AI Studio and wait for them to finish or expire, then delete the file.`,
+      `${legacy} is another batch ledger and may list paid jobs. Finish them with a render to that target, or check them in Google AI Studio and wait for them to finish or expire, then delete the file.`,
     );
   }
 }
@@ -261,7 +269,8 @@ async function render(argv: string[], env: NodeJS.ProcessEnv): Promise<number> {
       'dry-run': { type: 'boolean', default: false },
       provider: { type: 'string' },
       'max-usd': { type: 'string' },
-      mode: { type: 'string', default: 'auto' },
+      mode: { type: 'string', default: 'interactive' },
+      'experimental-batch': { type: 'boolean', default: false },
       concurrency: { type: 'string' },
       'max-wait-min': { type: 'string' },
       out: { type: 'string' },
@@ -273,8 +282,12 @@ async function render(argv: string[], env: NodeJS.ProcessEnv): Promise<number> {
   const c = common(values, env);
   const dryRun = values['dry-run'] ?? false;
   const mode = values.mode;
-  if (mode !== 'auto' && mode !== 'interactive' && mode !== 'batch') {
-    throw new Error('--mode must be auto, interactive or batch');
+  if (mode !== 'interactive' && mode !== 'batch') {
+    throw new Error('--mode must be interactive or batch');
+  }
+  // The Batch API path (50% cost, resumable ledger) is experimental in v1 (07 §3).
+  if (mode === 'batch' && !values['experimental-batch']) {
+    throw new Error('--mode batch is experimental; pass --experimental-batch as well (see 07 §3)');
   }
   if (!existsSync(NARRATION_JSON)) {
     throw new Error(`${relative(ROOT, NARRATION_JSON)} is missing; run pnpm content:build first`);
@@ -289,9 +302,14 @@ async function render(argv: string[], env: NodeJS.ProcessEnv): Promise<number> {
   // A real render refuses while the earlier global ledger lists jobs. A dry run or a run without a
   // key cannot submit or discard anything, so it only warns and still prints its estimate.
   if (c.provider === 'gemini') {
-    guardLegacyLedgers(legacyLedgers(outDir, c.format), !dryRun && renderer !== null, (m) =>
-      console.log(m),
-    );
+    const strict = !dryRun && renderer !== null;
+    if (env.NARRATION_STATE_DIR?.trim()) {
+      // A revision of this PR briefly honoured it; its ledgers must not be bypassed silently.
+      const message = `NARRATION_STATE_DIR is no longer supported. Check ${env.NARRATION_STATE_DIR} for saved batch jobs (gemini-batches.json), then unset it.`;
+      if (strict) throw new Error(message);
+      console.log(`narration: warning: ${message}`);
+    }
+    guardLegacyLedgers(otherLedgers(stateDirFor(outDir, c.format)), strict, (m) => console.log(m));
   }
   const report = await runPipeline({
     narration,

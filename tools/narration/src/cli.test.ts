@@ -87,6 +87,41 @@ describe('pnpm narration:render without a key', () => {
     expect(lines.join('\n')).toMatch(/aborted: /);
   });
 
+  it('requires --experimental-batch for the Batch API path', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'narration-batch-'));
+    dirs.push(dir);
+    await expect(
+      main(['render', '--dry-run', '--provider', 'gemini', '--mode', 'batch'], noKey(dir)),
+    ).rejects.toThrow(/experimental/);
+    captureLog();
+    const code = await main(
+      ['render', '--dry-run', '--provider', 'gemini', '--mode', 'batch', '--experimental-batch'],
+      noKey(dir),
+    );
+    expect(code).toBe(0);
+  });
+
+  it('refuses a real render while NARRATION_STATE_DIR is set; a dry run only warns', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'narration-env-'));
+    dirs.push(dir);
+    const out = join(dir, 'out');
+    await expect(
+      main(['render', '--provider', 'gemini', '--out', out], {
+        GEMINI_API_KEY: 'test-key-not-real',
+        NARRATION_STATE_DIR: dir,
+        PATH: '',
+      }),
+    ).rejects.toThrow(/NARRATION_STATE_DIR is no longer supported/);
+    const lines = captureLog();
+    const code = await main(['render', '--dry-run', '--provider', 'gemini', '--out', out], {
+      GEMINI_API_KEY: 'test-key-not-real',
+      NARRATION_STATE_DIR: dir,
+      PATH: '',
+    });
+    expect(code).toBe(0);
+    expect(lines.join('\n')).toMatch(/warning: NARRATION_STATE_DIR/);
+  });
+
   it('rejects an unknown provider', async () => {
     await expect(main(['render', '--provider', 'nope'], {})).rejects.toThrow();
   });

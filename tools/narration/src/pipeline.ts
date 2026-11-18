@@ -39,9 +39,6 @@ import type { Renderer, TtsRequest } from './providers/types';
 /** A renderer-owned temporary file: a clip name plus `.partial` (written, then renamed). */
 const PARTIAL_FILE = /^[0-9a-f]{16}\.(ogg|wav)\.partial$/;
 
-/** Interactive calls below this many clips, the Batch API from here up (07 §3). */
-export const BATCH_THRESHOLD = 200;
-
 export interface PipelineOptions {
   narration: NarrationJson;
   styles: ReadonlyMap<string, NarrationStyle>;
@@ -114,6 +111,11 @@ export async function runPipeline(opts: PipelineOptions): Promise<PipelineReport
     return report;
   }
   const release = () => {
+    if (!heldLocks.delete(release)) return;
+    if (heldLocks.size === 0) {
+      process.off('SIGINT', onSignal);
+      process.off('SIGTERM', onSignal);
+    }
     try {
       closeSync(fd);
     } catch {
@@ -121,20 +123,35 @@ export async function runPipeline(opts: PipelineOptions): Promise<PipelineReport
     }
     rmSync(lock, { force: true });
   };
-  // An interrupted render (Ctrl+C, or a stop) must not leave the lock behind.
-  const onSignal = (signal: NodeJS.Signals) => {
-    release();
-    process.exit(signal === 'SIGINT' ? 130 : 143);
-  };
-  process.once('SIGINT', onSignal);
-  process.once('SIGTERM', onSignal);
+  holdLock(release);
   try {
     return await plannedRun(opts);
   } finally {
-    process.off('SIGINT', onSignal);
-    process.off('SIGTERM', onSignal);
     release();
   }
+}
+
+/**
+ * Locks held by renders in this process. One signal handler releases all of them, so an interrupted
+ * process (Ctrl+C, or a stop) never leaves a lock behind, however many renders it runs at once.
+ */
+const heldLocks = new Set<() => void>();
+function onSignal(signal: NodeJS.Signals) {
+  for (const release of [...heldLocks]) release();
+  process.exit(signal === 'SIGINT' ? 130 : 143);
+}
+function holdLock(release: () => void) {
+  if (heldLocks.size === 0) {
+    process.once('SIGINT', onSignal);
+    process.once('SIGTERM', onSignal);
+  }
+  heldLocks.add(release);
+}
+/** Exposed for tests: releases every held lock as the signal handler would, without exiting. */
+export function releaseHeldLocksForTest(): number {
+  const n = heldLocks.size;
+  for (const release of [...heldLocks]) release();
+  return n;
 }
 
 async function plannedRun(opts: PipelineOptions): Promise<PipelineReport> {
@@ -159,15 +176,10 @@ async function plannedRun(opts: PipelineOptions): Promise<PipelineReport> {
   const selected = missing.filter((j) => !opts.only || opts.only.test(j.id));
   // Clips with the same voice, style and text share one file: render each file once.
   const todo = [...new Map(selected.map((j) => [j.file, j])).values()];
-  // Only Gemini has a batch API; local providers always render one clip at a time.
+  // Interactive is the supported mode; the Batch API is experimental and only on request (07 §3).
+  // Local providers always render one clip at a time.
   const mode: RenderMode =
-    opts.provider !== 'gemini'
-      ? 'interactive'
-      : opts.mode === 'auto'
-        ? todo.length < BATCH_THRESHOLD
-          ? 'interactive'
-          : 'batch'
-        : opts.mode;
+    opts.provider === 'gemini' && opts.mode === 'batch' ? 'batch' : 'interactive';
   const price = priceFor(opts.provider, model, now);
   // Requests a saved provider job already covers cost nothing new, so they are left out.
   let alreadyPaid = new Set<string>();

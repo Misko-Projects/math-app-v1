@@ -14,8 +14,9 @@ pnpm narration:audition              # 5 lines × 5 candidate voices into tmp/au
 |---|---|---|
 | `--provider gemini\|kokoro\|stub` | `NARRATION_PROVIDER`, else `voices.yaml` (`gemini`) | Renderer |
 | `--max-usd <n>` | 5 | Abort if the estimate exceeds it; stop starting requests once spend would exceed it |
-| `--mode auto\|interactive\|batch` | auto | auto: interactive below 200 clips, Batch API (50% cost) from 200 |
-| `--max-wait-min <n>` | 240 | How long to poll batch jobs; re-run the same command to resume them |
+| `--mode interactive\|batch` | interactive | Interactive calls are the supported v1 path. `batch` (Batch API, 50% cost, resumable ledger) is **experimental** and also needs `--experimental-batch` |
+| `--experimental-batch` | | Allow `--mode batch` (see `docs/spec/07-ai-services.md` §3 for its tested invariants) |
+| `--max-wait-min <n>` | 240 | Experimental batch: how long to poll jobs; re-run the same command to resume them |
 | `--concurrency <n>` | 4 | Interactive requests in flight |
 | `--only <regex>` | | Render only matching clip ids; other entries stay as they were and nothing is pruned |
 | `--abandon-unconfirmed-batches` | | Resubmit a batch whose creation was never confirmed, once you've checked Google AI Studio that it does not exist |
