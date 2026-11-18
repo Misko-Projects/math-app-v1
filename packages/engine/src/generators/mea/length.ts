@@ -638,8 +638,13 @@ export const meaLength: GeneratorDef = {
         }
         const id = a.kind === 'choice' ? a.id : long.id;
         const shorter = w.ask === 'shorter' || (w.ask === 'indirect' && p.ask === 'shorter');
+        // Look at both ends first, with no highlight: the worked-step hint (level 4) plays this
+        // step, and the part that sticks out is on the longer object.
         if (w.ask !== 'indirect')
-          steps.push(say('gen.mea.length.look-ends', {}, { op: 'highlight-difference' }));
+          steps.push(
+            say('gen.mea.length.look-ends', {}),
+            say('gen.mea.length.sticks-out', {}, { op: 'highlight-difference' }),
+          );
         steps.push(
           say(
             shorter ? 'gen.mea.length.pick-shorter' : 'gen.mea.length.pick-longer',

@@ -112,7 +112,8 @@ function checkShapeFill(
   const inside = new Set((cells as Cell[]).map(([r, c]) => key(r, c)));
   const fill = value.fill;
   if (!Array.isArray(fill) || fill.length !== rows) return false;
-  const used: Record<string, Cell[]> = {};
+  // Maps, not plain objects: a label such as `constructor` must not find an inherited value.
+  const used = new Map<string, Cell[]>();
   for (let r = 0; r < rows; r += 1) {
     const row = fill[r];
     if (!Array.isArray(row) || row.length !== cols) return false;
@@ -123,24 +124,24 @@ function checkShapeFill(
         if (v !== '') return false;
         continue;
       }
-      if (!(v in GRID_PIECES)) return false;
-      const list = used[v] ?? [];
+      if (!Object.hasOwn(GRID_PIECES, v)) return false;
+      const list = used.get(v) ?? [];
       list.push([r, c]);
-      used[v] = list;
+      used.set(v, list);
     }
   }
-  if (!pairsUp(used.rectangle ?? [])) return false;
-  const counts: Record<string, number> = {
-    square: (used.square ?? []).length,
-    rectangle: (used.rectangle ?? []).length / 2,
-  };
+  if (!pairsUp(used.get('rectangle') ?? [])) return false;
+  const counts = new Map<string, number>([
+    ['square', (used.get('square') ?? []).length],
+    ['rectangle', (used.get('rectangle') ?? []).length / 2],
+  ]);
   for (const k of target.constraints as unknown[]) {
     const con = k as Record<string, unknown> | null;
     if (con?.kind !== 'use-each' || !Array.isArray(con.values)) return false;
-    const want: Record<string, number> = {};
-    for (const v of con.values) want[String(v)] = (want[String(v)] ?? 0) + 1;
-    for (const piece of new Set([...Object.keys(want), ...Object.keys(counts)])) {
-      if ((want[piece] ?? 0) !== (counts[piece] ?? 0)) return false;
+    const want = new Map<string, number>();
+    for (const v of con.values) want.set(String(v), (want.get(String(v)) ?? 0) + 1);
+    for (const piece of new Set([...want.keys(), ...counts.keys()])) {
+      if ((want.get(piece) ?? 0) !== (counts.get(piece) ?? 0)) return false;
     }
   }
   return true;

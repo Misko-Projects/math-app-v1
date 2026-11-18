@@ -38,6 +38,32 @@ const CASES: [string, Rec, Rec, boolean][] = [
   ['malformed units', T5, { units: ['0', 1, 2, 3, 4], value: 5 }, false],
   ['no units', T5, { value: 5 }, false],
   ['malformed target', { length: 'five' }, { units: [0, 1, 2, 3, 4], value: 5 }, false],
+  // Each gap or overlap is within the tolerance, but they add up: the units no longer reach
+  // (or run past) the object's end.
+  [
+    'small gaps that add up: the last unit ends 0.99 past the end',
+    { length: 12, gapTolerance: 0.1 },
+    { units: Array.from({ length: 12 }, (_, i) => i * 1.09), value: 12 },
+    false,
+  ],
+  [
+    'small overlaps that add up: the last unit stops 0.99 short',
+    { length: 12, gapTolerance: 0.1 },
+    { units: Array.from({ length: 12 }, (_, i) => i * 0.91), value: 12 },
+    false,
+  ],
+  [
+    'alternative: drift out and back that ends at the end',
+    { length: 12, gapTolerance: 0.1 },
+    { units: [0, 1.05, 2.1, 3.15, 4.2, 5.25, 6.25, 7.2, 8.15, 9.1, 10.05, 11], value: 12 },
+    true,
+  ],
+  [
+    'last unit within the tolerance of the end',
+    { length: 12, gapTolerance: 0.1 },
+    { units: Array.from({ length: 12 }, (_, i) => i * 1.008), value: 12 },
+    true,
+  ],
 ];
 
 describe('units.iterate', () => {

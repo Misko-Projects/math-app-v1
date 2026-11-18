@@ -103,6 +103,8 @@ h.geo.like-what:
   text: "Does it look like a ball, a can, a box?"
 h.geo.compare-count:
   text: "Count for each shape. Which number is bigger?"
+h.geo.side-lengths:
+  text: "Run a finger along each side. Is one side longer?"
 h.geo.bins:
   text: "Look at each bin. What goes in it?"
 h.geo.where-word:
@@ -292,6 +294,10 @@ gen.geo.identify.bin.rolls:
   text: "rolls"
 gen.geo.identify.bin.no-roll:
   text: "does not roll"
+gen.geo.identify.bin.equal-sides:
+  text: "sides all the same"
+gen.geo.identify.bin.unequal-sides:
+  text: "sides not all the same"
 gen.geo.identify.bin.sides-3:
   text: "3 sides"
 gen.geo.identify.bin.corners-3:

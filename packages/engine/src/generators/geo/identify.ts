@@ -4,8 +4,10 @@
 // `set` picks the card universe (flat K shapes or the pattern blocks with the `pattern-blocks`
 // representation, flat and solid mixed, polygons, quadrilaterals, solids — real objects shaped like
 // solids with the `objects` representation — or MEA.15's measurable objects). `rule` says what the
-// item is about: the shape's `kind`, a yes/no class (`flat-solid`, `curved`, and MEA.15's `heavy`,
-// `long`, `holds`), or a count (`sides`, `corners`, `faces`). `has` chooses the side of a class (solid,
+// item is about: the shape's `kind`, a yes/no class (`flat-solid`, `curved`, `equal-sides`, and
+// MEA.15's `heavy`, `long`, `holds`), or a count (`sides`, `corners`, `faces`). `equal-sides` (all
+// sides the same length or not, GEO.08) only takes a set whose polygons all have the same number of
+// sides (quads), so the side count never tells the two bins apart. `has` chooses the side of a class (solid,
 // heavy, long, holds more when true). Until the U03–U05 format models land, the generator emits the
 // shape-sort and compare format features itself, under their 03 §5.5 names and weights.
 
@@ -62,6 +64,7 @@ const RULES = [
   'kind',
   'flat-solid',
   'curved',
+  'equal-sides',
   'sides',
   'corners',
   'faces',
@@ -73,7 +76,14 @@ type Rule = (typeof RULES)[number];
 const MODES = ['find-all', 'sort', 'odd-one-out'] as const;
 const ATTRIBUTES: readonly string[] = ['heavy', 'long', 'holds'];
 const COUNT_RULES: readonly string[] = ['sides', 'corners', 'faces'];
-const CLASS_RULES: readonly string[] = ['flat-solid', 'curved', 'heavy', 'long', 'holds'];
+const CLASS_RULES: readonly string[] = [
+  'flat-solid',
+  'curved',
+  'equal-sides',
+  'heavy',
+  'long',
+  'holds',
+];
 
 /** Bin label keys for count bins (`gen.geo.identify.bin.<rule>-<n>`). */
 const COUNT_BIN_VALUES = [3, 4, 5, 6];
@@ -154,6 +164,14 @@ function classOf(
       return props.solid === true;
     case 'curved':
       return props.curved === true;
+    case 'equal-sides':
+      // Closed flat polygons only: a circle has no sides to compare, a solid's edges are not sides.
+      return typeof props.sides === 'number' &&
+        props.sides > 0 &&
+        props.closed === true &&
+        props.solid !== true
+        ? props.equalSides === true
+        : undefined;
     case 'heavy':
       return props.weight === undefined ? undefined : props.weight === 'heavy';
     case 'long':
@@ -172,6 +190,8 @@ function classRule(rule: Rule, yes: boolean): SortRule {
       return { prop: 'solid', op: '==', value: yes };
     case 'curved':
       return { prop: 'curved', op: '==', value: yes };
+    case 'equal-sides':
+      return { prop: 'equalSides', op: '==', value: yes };
     case 'heavy':
       return { prop: 'weight', op: '==', value: yes ? 'heavy' : 'light' };
     case 'long':
@@ -188,6 +208,8 @@ function classLabel(rule: Rule, yes: boolean): string {
       return yes ? 'word.solid' : 'word.flat';
     case 'curved':
       return yes ? 'gen.geo.identify.bin.rolls' : 'gen.geo.identify.bin.no-roll';
+    case 'equal-sides':
+      return yes ? 'gen.geo.identify.bin.equal-sides' : 'gen.geo.identify.bin.unequal-sides';
     case 'heavy':
       return yes ? 'word.heavy' : 'word.light';
     case 'long':
@@ -312,6 +334,14 @@ function accepts(p: ParamValues, t: ItemTemplate): boolean {
   const attr = ATTRIBUTES.includes(rule);
   if (attr !== (set === 'attributes')) return false;
   const inPool = (k: ShapeKind) => pool.includes(k);
+  if (rule === 'equal-sides') {
+    // Every polygon the item can show has the same number of sides, and both bins have cards.
+    const polys = pool.filter((k) => classOf(rule, { ...SHAPE_PROPS[k] }) !== undefined);
+    if (new Set(polys.map((k) => SHAPE_PROPS[k].sides)).size !== 1) return false;
+    const yes = polys.filter((k) => SHAPE_PROPS[k].equalSides);
+    if (yes.length === 0 || yes.length === polys.length) return false;
+    if (t.format === 'compare') return false;
+  }
 
   if (t.format === 'compare') {
     if (attr) {
@@ -503,7 +533,10 @@ function buildSort(c: Ctx, p: ParamValues, rule: Rule, mode: string): Built {
         ? [
             {
               op: 'highlight-attribute',
-              args: { id: ids[0], prop: rule === 'kind' ? 'sides' : rule },
+              args: {
+                id: ids[0],
+                prop: rule === 'kind' ? 'sides' : rule === 'equal-sides' ? 'equalSides' : rule,
+              },
             },
           ]
         : [],
@@ -773,7 +806,7 @@ export const geoIdentify: GeneratorDef = {
       type: 'string',
       values: [...RULES],
       default: { kind: 'const', value: 'kind' },
-      doc: 'what the item is about: kind, a yes/no class (flat-solid, curved, heavy, long, holds) or a count (sides, corners, faces)',
+      doc: 'what the item is about: kind, a yes/no class (flat-solid, curved, equal-sides: quads only, heavy, long, holds) or a count (sides, corners, faces)',
     },
     mode: {
       type: 'string',
@@ -864,6 +897,8 @@ export const geoIdentify: GeneratorDef = {
     'gen.geo.identify.type',
     'gen.geo.identify.bin.rolls',
     'gen.geo.identify.bin.no-roll',
+    'gen.geo.identify.bin.equal-sides',
+    'gen.geo.identify.bin.unequal-sides',
     ...COUNT_BIN_VALUES.flatMap((n) => [
       `gen.geo.identify.bin.sides-${n}`,
       `gen.geo.identify.bin.corners-${n}`,

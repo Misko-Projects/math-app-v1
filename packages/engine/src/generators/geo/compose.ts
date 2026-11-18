@@ -7,7 +7,14 @@
 // shape-compose and puzzle-grid format models land, the generator emits their features itself.
 
 import type { LessonStep, ResponseValue, ShapeKind, WidgetAction } from '@number-island/shared';
-import { area, PIECE_SYMMETRY, type Placement, placeCorners } from '../../check/state/pieces';
+import {
+  area,
+  PIECE_CORNERS,
+  PIECE_SYMMETRY,
+  type Placement,
+  placeCorners,
+  type Vec,
+} from '../../check/state/pieces';
 import { type Cell, shapeFills } from '../../check/state/puzzle.satisfies';
 import { numberOptionId } from '../../formats/numeral-pick';
 import {
@@ -43,6 +50,41 @@ const needsTurn = (p: Placement): boolean =>
   ((p.rot % (PIECE_SYMMETRY[p.kind] ?? 360)) + 360) % (PIECE_SYMMETRY[p.kind] ?? 360) !== 0;
 
 const pieceArea = (kind: string): number => area(placeCorners({ kind, at: [0, 0], rot: 0 }) ?? []);
+
+/** Side lengths of a polygon, shortest first. */
+const sideLengths = (p: readonly Vec[]): number[] =>
+  p
+    .map((a, i) => {
+      const b = p[(i + 1) % p.length] as Vec;
+      return Math.hypot(b[0] - a[0], b[1] - a[1]);
+    })
+    .sort((x, y) => x - y);
+
+/**
+ * The area of the target card a numeral-pick item shows: the outline's named shape drawn as its
+ * piece at `resultScale`. This is all the child sees of the outline (a ShapeCard has a kind and a
+ * scale, not the outline's corners), so the distractor filter reads it, not the outline.
+ */
+const cardArea = (o: Outline): number =>
+  o.result === undefined ? 0 : pieceArea(o.result) * (o.resultScale ?? 1) ** 2;
+
+/**
+ * Whether the target card (kind and scale) draws exactly this outline: the same side lengths and
+ * area as the kind's piece at `resultScale`. Numeral-pick only uses such outlines, so two outlines
+ * with one card are the same shape and never ask for different pairs. A 3 × 1 rectangle is not the
+ * card's 2 × 1 rectangle at any scale, so `long-rectangle` is shape-compose only.
+ */
+export function drawsAsCard(o: Outline): boolean {
+  if (o.result === undefined || !Object.hasOwn(PIECE_CORNERS, o.result)) return false;
+  const s = o.resultScale ?? 1;
+  const card = sideLengths(PIECE_CORNERS[o.result] as Vec[]).map((x) => x * s);
+  const own = sideLengths(o.points);
+  return (
+    card.length === own.length &&
+    card.every((x, i) => Math.abs(x - (own[i] as number)) < 1e-6) &&
+    Math.abs(area(o.points) - cardArea(o)) < 1e-6
+  );
+}
 
 /** Numeral-pick `how-many`: the outline is a named shape tiled by one kind of piece. */
 const uniform = (o: Outline): boolean => o.result !== undefined && tilingCounts(o).length === 1;
@@ -140,6 +182,8 @@ export const geoCompose: GeneratorDef = {
     if (o.kit === 'grid') return false;
     if (t.representation === 'pattern-blocks' && o.kit !== 'pattern-blocks') return false;
     if (t.format === 'numeral-pick') {
+      // The child sees only the target card, so the card must be the outline itself.
+      if (!drawsAsCard(o)) return false;
       if (p.ask === 'how-many') return uniform(o);
       return o.result !== undefined && o.tiling.length === 2;
     }
@@ -224,8 +268,10 @@ export const geoCompose: GeneratorDef = {
           math,
         });
       }
-      // which: the right pair and two pairs whose area cannot fill the shape.
-      const whole = area(o.points);
+      // which: the right pair and two pairs whose area cannot fill the shape the card shows. Every
+      // numeral-pick outline with this card has the card's area, so a distractor is never the
+      // right pair of another outline drawn the same way.
+      const whole = cardArea(o);
       const kit = KIT_PIECES[o.kit] ?? [];
       const right = o.tiling.map((p) => p.kind).sort();
       const pairs: string[][] = [];

@@ -11,6 +11,7 @@ import type {
 } from '@number-island/shared';
 import { widgetConfigSchema } from '@number-island/shared';
 import { beforeEach, describe, expect, it } from 'vitest';
+import { area, placeCorners } from '../../check/state/pieces';
 import { initContent, resetContent } from '../../content/binding';
 import { checkResponse } from '../../items/check';
 import { generateItem, generateItemFromParams } from '../../items/generate';
@@ -126,6 +127,72 @@ describe('geo.compose', () => {
     expect(it.widget.options).toHaveLength(3);
   });
 
+  it('numeral-pick: one visible target never stands for two outlines with different answers', () => {
+    const pick = tpl('geo.compose', 'numeral-pick', { representation: 'shapes' as Representation });
+    // What a card shows: its kind's piece at its scale (a ShapeCard has no corners of its own).
+    const cardArea = (shapes: { shape: string; scale: number }[]) =>
+      shapes.reduce(
+        (s, c) =>
+          s + area(placeCorners({ kind: c.shape, at: [0, 0], rot: 0 }) ?? []) * c.scale ** 2,
+        0,
+      );
+    for (const ask of ['which', 'how-many']) {
+      // Every outline numeral-pick can draw for this ask, keyed by what the child sees (and, for
+      // how-many, the piece the prompt names).
+      const byTarget = new Map<string, Set<string>>();
+      for (const o of OUTLINES) {
+        if (!geoCompose.accepts?.({ outline: o.id, ask, count: o.tiling.length }, pick)) continue;
+        for (let seed = 1; seed <= 20; seed += 1) {
+          const it = generateItem(
+            {
+              ...pick,
+              params: {
+                outline: { kind: 'const', value: o.id },
+                ask: { kind: 'const', value: ask },
+              },
+            },
+            seed,
+          );
+          if (it.widget.format !== 'numeral-pick' || it.widget.stimulus.kind !== 'shape')
+            throw new Error('pick');
+          const whole = it.widget.stimulus.shapes[0];
+          if (!whole) throw new Error('no target');
+          // The card is the outline: it has the outline's area.
+          expect(cardArea([whole])).toBeCloseTo(area(o.points), 9);
+          const named = ask === 'how-many' ? `/${o.tiling[0]?.kind}` : '';
+          const key = `${whole.shape}@${whole.scale}${named}`;
+          const answers = byTarget.get(key) ?? new Set<string>();
+          answers.add(it.answer.kind === 'choice' ? it.answer.id : '?');
+          byTarget.set(key, answers);
+          if (ask === 'which') {
+            // Only the right pair covers the card the child sees.
+            for (const opt of it.widget.options) {
+              if (opt.stimulus?.kind !== 'shape') throw new Error('pair');
+              const fits = Math.abs(cardArea(opt.stimulus.shapes) - cardArea([whole])) < 1e-6;
+              expect(fits).toBe(it.answer.kind === 'choice' && opt.id === it.answer.id);
+            }
+          }
+        }
+      }
+      expect(byTarget.size).toBeGreaterThan(2);
+      for (const [key, answers] of byTarget)
+        expect({ key, n: answers.size }).toEqual({ key, n: 1 });
+    }
+    // The 3 × 1 rectangle would show the same card as the 2 × 1 one, so it is shape-compose only;
+    // the 3 × 2 rectangle is no scaled 2 × 1 card either.
+    for (const outline of ['long-rectangle', 'wide-rectangle']) {
+      for (const ask of ['which', 'how-many'])
+        expect(geoCompose.accepts?.({ outline, ask, count: 2 }, pick)).toBe(false);
+    }
+    expect(
+      geoCompose.accepts?.({ outline: 'rectangle-from-squares', ask: 'which', count: 2 }, pick),
+    ).toBe(true);
+    const compose = tpl('geo.compose', 'shape-compose', {
+      representation: 'shapes' as Representation,
+    });
+    expect(geoCompose.accepts?.({ outline: 'long-rectangle', count: 2 }, compose)).toBe(true);
+  });
+
   it('puzzle-grid shape-fill: the solution covers the outline with the listed pieces', () => {
     const t = tpl('geo.compose', 'puzzle-grid', { representation: 'shapes' as Representation });
     const params = { outline: 'grid-block', pieces: 4 };
@@ -174,6 +241,30 @@ describe('geo.position', () => {
         relation: { word: relation, anchor: 'a0', item: 'crab' },
       });
       expect(checkResponse(it, responseFromSteps(t, params)).correct).toBe(true);
+    },
+  );
+
+  it.each(['above', 'below', 'in-front-of'])(
+    'shape-compose %s: hints before show-me never mark where the item goes',
+    (relation) => {
+      const t = tpl('geo.position', 'shape-compose', {
+        representation: 'objects' as Representation,
+      });
+      const it = generateItemFromParams(t, { relation, anchor: 'crate', item: 'crab' });
+      const nudge = it.hints.find((h) => h.level === 2);
+      expect(nudge?.say).toBe('h.one');
+      for (const level of [2, 3, 4]) {
+        const h = it.hints.find((x) => x.level === level);
+        expect(h).toBeDefined();
+        expect(h?.actions ?? []).not.toContainEqual(
+          expect.objectContaining({ op: 'highlight-region' }),
+        );
+      }
+      // Show-me still demonstrates the region, then the drop.
+      expect(it.hints.find((h) => h.level === 5)?.actions?.[0]).toEqual({
+        op: 'highlight-region',
+        args: { relation },
+      });
     },
   );
 

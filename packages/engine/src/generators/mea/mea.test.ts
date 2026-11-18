@@ -281,6 +281,32 @@ describe.each([
 });
 
 describe('mea.length', () => {
+  it.each([
+    ['longer', 0],
+    ['shorter', 0],
+    ['longer', 3],
+  ] as const)(
+    'compare-length %s (offset %d): the worked step never highlights the difference',
+    (ask, offset) => {
+      const t = tpl('mea.length', 'compare-length', { tier: 'concrete' });
+      const item = generateItemFromParams(t, {
+        mode: 'compare',
+        ask,
+        length: 4,
+        length2: 9,
+        offset,
+      });
+      expect(item.widget).toMatchObject({ aligned: offset === 0 });
+      const worked = item.hints.find((h) => h.level === 4);
+      expect(worked).toBeDefined();
+      expect(worked?.actions ?? []).not.toContainEqual({ op: 'highlight-difference' });
+      // Show-me still points at the part that sticks out before it answers.
+      const all = item.hints.find((h) => h.level === 5)?.actions ?? [];
+      expect(all).toContainEqual({ op: 'highlight-difference' });
+      expect(all.at(-1)?.op).toBe('answer');
+    },
+  );
+
   it('draws the other lengths from the template domain, all different', () => {
     const t = tpl('mea.length', 'compare-length', {
       tier: 'concrete',
@@ -485,6 +511,8 @@ describe('MC.unit-gaps (unitGaps)', () => {
     ['a gap before the first unit', [0.6, 1.6, 2.6, 3.6], true],
     ['units end to end (a wrong count is not this misconception)', [0, 1, 2], false],
     ['small drift within the tolerance', [0.05, 1.05, 2.1, 3.1], false],
+    ['small gaps that add up past the end', [0, 1.09, 2.18, 3.27], true],
+    ['small overlaps that add up short of the end', [0, 0.91, 1.82, 2.73], true],
   ] as const)('%s → %s', (_name, units, expected) => {
     const r = { kind: 'state' as const, value: { units: [...units], value: units.length } };
     expect(unitGaps.match(item(), r)).toBe(expected);

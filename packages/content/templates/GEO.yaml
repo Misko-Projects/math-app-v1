@@ -217,7 +217,7 @@ templates:
       prompt: tp.GEO.07.t3.prompt
       hints: [h.geo.like-what]
 
-  # GEO.08: compare shapes by sides, corners and rolling
+  # GEO.08: compare shapes by sides, corners, equal sides and rolling
   - id: GEO.08.t1
     skillId: GEO.08
     format: shape-sort
@@ -272,6 +272,27 @@ templates:
     narration:
       prompt: tp.GEO.08.t3.prompt
       hints: [h.geo.compare-count]
+
+  # Equal sides: every card has four sides, so only the side lengths tell them apart. The one
+  # shape whose sides are all the same (a square or a rhombus) sits among rectangles, kites,
+  # trapezoids and other four-sided shapes. Pictorial and choice-answered like t3, so it follows t3
+  # in the concrete → pictorial order (V10) and shares its test-out pool (V21).
+  - id: GEO.08.t4
+    skillId: GEO.08
+    format: shape-sort
+    tier: pictorial
+    representation: shapes
+    generator: geo.identify
+    params:
+      set: quads
+      rule: equal-sides
+      mode: odd-one-out
+      cards: { int: [3, 4] }
+      nonPrototypical: { bool: 0.3 }
+    difficulty: { base: -0.6 }
+    narration:
+      prompt: tp.GEO.08.t4.prompt
+      hints: [h.geo.side-lengths]
 
   # GEO.09: build shapes from sticks and corners
   - id: GEO.09.t1
@@ -381,7 +402,6 @@ templates:
               triangle-from-trapezoid-triangle,
               rectangle-from-squares,
               square-from-rectangles,
-              long-rectangle,
             ],
         }
     difficulty: { base: -0.3 }

@@ -1276,7 +1276,7 @@ describe('V24 and contentVersion (03 §9.1)', () => {
     expect(manifest.schemaVersion).toBe(1);
     expect(manifest.counts).toEqual({
       skills: 31,
-      templates: 94,
+      templates: 95,
       misconceptions: 5,
       narrationKeys: Object.keys(r.content?.narration ?? {}).length,
     });

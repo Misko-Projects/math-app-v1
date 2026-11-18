@@ -114,6 +114,37 @@ describe('compose.fill', () => {
     expect(composeFill.check(target, value)).toBe(expected);
   });
 
+  // The 2 × 1 rectangle and two unit squares: each square is within the 2% outside and overlap
+  // allowances on its own, so only the covered share of the outline (union, not summed areas) can
+  // tell a real fill from a near miss.
+  const rect2 = {
+    outline: [
+      [0, 0],
+      [2, 0],
+      [2, 1],
+      [0, 1],
+    ],
+    pieces: [{ kind: 'square', count: 2 }],
+  };
+  const squares = (a: [number, number], b: [number, number]) => ({
+    pieces: [
+      { kind: 'square', at: a, rot: 0 },
+      { kind: 'square', at: b, rot: 0 },
+    ],
+  });
+  const COVER: [string, Rec, boolean][] = [
+    ['exact tiling', squares([0, 0], [1, 0]), true],
+    ['alternative: laid right to left', squares([1, 0], [0, 0]), true],
+    ['alternative: a drag 0.5% off', squares([0, 0.005], [1.005, 0]), true],
+    // Each square 1% over the ends: a 0.02 gap in the middle, 1% of the outline uncovered.
+    ['alternative: a thin gap within the tolerance', squares([-0.01, 0], [1.01, 0]), true],
+    // Union inside the outline 1.981 × 0.981 = 1.943 of 2 (2.8% uncovered), overlap 0.019.
+    ['overlapping and short of the outline', squares([0, 0.019], [0.981, 0.019]), false],
+  ];
+  it.each(COVER)('2 × 1 rectangle: %s', (_name, value, expected) => {
+    expect(composeFill.check(rect2, value)).toBe(expected);
+  });
+
   it('rejects malformed values and targets without throwing', () => {
     for (const v of [
       {},
@@ -121,6 +152,8 @@ describe('compose.fill', () => {
       { pieces: [{ kind: 'trapezoid' }] },
       { pieces: 'x' },
       { pieces: [{ kind: 'x', at: [0, 0], rot: 0 }] },
+      { pieces: [{ kind: 'constructor', at: [0, 0], rot: 0 }] },
+      { pieces: [{ kind: '__proto__', at: [0, 0], rot: 0 }] },
     ]) {
       expect(composeFill.check(offered, v as Rec)).toBe(false);
     }
@@ -534,6 +567,20 @@ describe('puzzle.satisfies (shape-fill)', () => {
       expect(puzzleSatisfies.check(target, v as Rec)).toBe(false);
     }
   });
+  it.each(['constructor', 'toString', '__proto__', 'hasOwnProperty'])(
+    'rejects an inherited key (%s) as a cell label without throwing',
+    (label) => {
+      const fill = [
+        ['rectangle', 'rectangle', 'square'],
+        ['rectangle', label, 'square'],
+      ];
+      expect(() => puzzleSatisfies.check(target, { fill })).not.toThrow();
+      expect(puzzleSatisfies.check(target, { fill })).toBe(false);
+      // An inherited key in the target's piece list is no piece either.
+      const odd = { ...target, constraints: [{ kind: 'use-each', values: [label] }] };
+      expect(puzzleSatisfies.check(odd, { fill })).toBe(false);
+    },
+  );
   it('enumerates every fill', () => {
     // 3 × 2 with two rectangles: 2 squares can sit in 4 distinct label grids.
     const fills = shapeFills(cells as [number, number][], 2, 2, 3);

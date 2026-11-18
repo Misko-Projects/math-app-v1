@@ -67,8 +67,9 @@ export interface Placement {
 }
 
 export function placeCorners(p: Placement): Vec[] | undefined {
-  const corners = PIECE_CORNERS[p.kind];
-  if (!corners) return undefined;
+  // Own keys only: a kind such as `constructor` is no piece.
+  if (!Object.hasOwn(PIECE_CORNERS, p.kind)) return undefined;
+  const corners = PIECE_CORNERS[p.kind] as Vec[];
   const a = (p.rot * Math.PI) / 180;
   const c = Math.cos(a);
   const s = Math.sin(a);
@@ -122,8 +123,15 @@ export const overlapArea = (subject: Vec[], convex: Vec[]): number =>
 export const FILL_TOLERANCE = 0.02;
 
 /**
- * Whether the placements cover the outline: every piece inside it, no two overlapping, and at most
- * 2% of the outline uncovered (03 §5.5 compose.fill).
+ * Whether the placements cover the outline (03 §5.5 compose.fill): every piece inside it (at most 2%
+ * of the piece outside), no overlap (all pairwise overlaps together at most 2% of the outline, and
+ * each at most 2% of the smaller piece), and at most 2% of the outline uncovered.
+ *
+ * Coverage is the area of the union of the pieces inside the outline, not the sum of the pieces'
+ * areas: pieces that each poke a little outside or overlap a little can add up to the outline's
+ * area while leaving part of it bare. The union is bounded below by inclusion–exclusion,
+ * Σ |piece ∩ outline| − Σ |piece ∩ piece|, which is exact when no three pieces share a point
+ * and otherwise only errs towards "not covered" (so a layout it accepts is truly covered).
  */
 export function coversOutline(outline: Vec[], placed: Placement[]): boolean {
   const polys: Vec[][] = [];
@@ -134,18 +142,23 @@ export function coversOutline(outline: Vec[], placed: Placement[]): boolean {
   }
   const whole = area(outline);
   if (whole <= 0) return false;
-  let covered = 0;
+  let inside = 0;
   for (const poly of polys) {
     const a = area(poly);
-    if (a - overlapArea(outline, poly) > FILL_TOLERANCE * a) return false;
-    covered += a;
+    const within = overlapArea(outline, poly);
+    if (a - within > FILL_TOLERANCE * a) return false;
+    inside += within;
   }
+  let overlap = 0;
   for (let i = 0; i < polys.length; i += 1) {
     for (let j = i + 1; j < polys.length; j += 1) {
       const a = polys[i] as Vec[];
       const b = polys[j] as Vec[];
-      if (overlapArea(a, b) > FILL_TOLERANCE * Math.min(area(a), area(b))) return false;
+      const o = overlapArea(a, b);
+      if (o > FILL_TOLERANCE * Math.min(area(a), area(b))) return false;
+      overlap += o;
     }
   }
-  return covered >= (1 - FILL_TOLERANCE) * whole && covered <= (1 + FILL_TOLERANCE) * whole;
+  if (overlap > FILL_TOLERANCE * whole) return false;
+  return inside - overlap >= (1 - FILL_TOLERANCE) * whole;
 }

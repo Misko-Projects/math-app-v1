@@ -139,6 +139,60 @@ describe('geo.identify shape-sort', () => {
     const odd = it.widget.cards.find((c) => c.id === (it.answer as { id: string }).id);
     expect(odd && 'shape' in odd.card && odd.card.shape).toBe('triangle');
   });
+
+  it('equal sides (GEO.08): the one shape with all sides the same, every card four-sided', () => {
+    const t = tpl('shape-sort', {}, { tier: 'pictorial' });
+    const kinds = new Set<string>();
+    for (let seed = 1; seed <= 40; seed += 1) {
+      const it = generateItem(
+        {
+          ...t,
+          params: {
+            set: { kind: 'const', value: 'quads' },
+            rule: { kind: 'const', value: 'equal-sides' },
+            mode: { kind: 'const', value: 'odd-one-out' },
+            cards: { kind: 'int', min: 3, max: 4 },
+          },
+        },
+        seed,
+      );
+      if (it.widget.format !== 'shape-sort' || it.answer.kind !== 'choice') throw new Error('sort');
+      expect(checkResponse(it, itemExampleCorrect(it, t)).correct).toBe(true);
+      const cards = it.widget.cards.map((c) => c.card);
+      const shapes = cards.flatMap((c) => ('shape' in c ? [c] : []));
+      expect(shapes).toHaveLength(cards.length);
+      // The side count never tells them apart; only the side lengths do.
+      expect(new Set(shapes.map((c) => c.props.sides))).toEqual(new Set([4]));
+      const equal = it.widget.cards.filter((c) => 'shape' in c.card && c.card.props.equalSides);
+      expect(equal.map((c) => c.id)).toEqual([it.answer.id]);
+      for (const c of shapes) kinds.add(c.shape);
+    }
+    // Squares and rhombuses meet rectangles, kites, trapezoids and other quadrilaterals.
+    expect(kinds).toEqual(
+      new Set(['square', 'rhombus', 'rectangle', 'kite', 'trapezoid', 'quadrilateral']),
+    );
+  });
+
+  it('equal sides also sorts into two bins; a set with mixed side counts is refused', () => {
+    const it = item(tpl('shape-sort'), {
+      set: 'quads',
+      rule: 'equal-sides',
+      mode: 'sort',
+      cards: 5,
+      hits: 2,
+    });
+    if (it.widget.format !== 'shape-sort' || !it.widget.bins) throw new Error('sort');
+    expect(it.widget.bins.map((b) => b.label)).toEqual([
+      'gen.geo.identify.bin.equal-sides',
+      'gen.geo.identify.bin.unequal-sides',
+    ]);
+    // On the K shapes a triangle (3 sides) and a square (4) would differ by count, not length.
+    const base = { rule: 'equal-sides', mode: 'odd-one-out', cards: 3, count: 0 };
+    expect(geoIdentify.accepts?.({ ...base, set: '2d' }, tpl('shape-sort'))).toBe(false);
+    expect(geoIdentify.accepts?.({ ...base, set: 'polygons' }, tpl('shape-sort'))).toBe(false);
+    expect(geoIdentify.accepts?.({ ...base, set: 'quads' }, tpl('shape-sort'))).toBe(true);
+    expect(geoIdentify.accepts?.({ ...base, set: 'quads' }, tpl('compare'))).toBe(false);
+  });
 });
 
 describe('geo.identify numeral-pick, compare, number-pad', () => {

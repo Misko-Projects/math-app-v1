@@ -190,9 +190,9 @@ export const geoPosition: GeneratorDef = {
           checker: 'compose.relative',
           target: { word, box: { x: ANCHOR_AT[0], y: ANCHOR_AT[1], w, h }, scene: { ...SCENE } },
         },
+        // No nudge or level-3 highlight: the highlighted region is exactly where the drop is
+        // accepted, so before show-me the hints only speak (03 §5.8: levels 2–4 never reveal).
         math,
-        nudge: [{ op: 'highlight-region', args: { relation: word } }],
-        highlight: [{ op: 'highlight-region', args: { relation: word } }],
       });
     }
     if (t.format === 'numeral-pick') {
@@ -245,7 +245,10 @@ export const geoPosition: GeneratorDef = {
     const vars = { item, anchor, one: 1, rel: word, ans: INVERSE[word] };
     if (w.format === 'shape-compose' && a.kind === 'state') {
       const p = pointFor(word, a.target.box as Box);
+      // The first step only speaks: the worked-step hint (level 4) plays it, and the region
+      // highlight that follows marks where the drop is accepted.
       return [
+        say('gen.geo.position.picture', vars),
         say('gen.geo.position.region', vars, { op: 'highlight-region', args: { relation: word } }),
         say('gen.geo.position.place', vars, {
           op: 'drag-piece',
