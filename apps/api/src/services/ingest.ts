@@ -7,6 +7,7 @@ import {
   inboundEventEnvelopeSchema,
   isKnownEventType,
   MAX_EVENT_PAYLOAD_BYTES,
+  type SyncClampedEvent,
   type SyncRejection,
 } from '@number-island/shared';
 import type { Db } from '../db/client';
@@ -27,6 +28,7 @@ import {
 export interface PushResult {
   accepted: string[];
   rejected: SyncRejection[];
+  clamped: SyncClampedEvent[];
 }
 
 function rawId(raw: unknown): string | null {
@@ -47,6 +49,9 @@ function rawId(raw: unknown): string | null {
  * - Events of a deleted child count as accepted, so devices stop re-pushing them (the tombstone
  *   makes them purge locally), but the insert statement itself skips them.
  * - An id already held by another family: `conflict`.
+ * - `clamped` (02 §5.9 S3) echoes the stored `ts`/`clientTs` of every accepted, stored event whose
+ *   stored time differs from the pushed copy's: this call's clamp (08 §4), or the copy stored by an
+ *   earlier push of that id. It is read back after the insert, so it reports what is stored.
  */
 export async function ingestPushedEvents(
   db: Db,
@@ -104,6 +109,7 @@ export async function ingestPushedEvents(
     valid.map((v) => v.event.id),
   );
   const accepted: string[] = [];
+  const pushedTime = new Map<string, Pick<AnyEventEnvelope, 'ts' | 'clientTs'>>();
   const toInsert: StoredEvent[] = [];
   for (const { index, raw, event } of valid) {
     const held = stored.get(event.id);
@@ -119,10 +125,37 @@ export async function ingestPushedEvents(
       continue;
     }
     accepted.push(event.id);
+    // The first copy of an id in this call is the one stored; a later duplicate is ignored.
+    if (!pushedTime.has(event.id)) pushedTime.set(event.id, event);
     if (held === undefined) toInsert.push(toStoredEvent(event, receivedAt));
   }
   await insertEvents(db, familyId, toInsert, receivedAt);
   // An id pushed twice in one call is stored once and reported once. Rejections in request order.
   rejected.sort((x, y) => x.index - y.index);
-  return { accepted: [...new Set(accepted)], rejected };
+  const unique = [...new Set(accepted)];
+  const clamped = await clampedEcho(db, familyId, unique, pushedTime);
+  return { accepted: unique, rejected, clamped };
+}
+
+/**
+ * The stored time of each accepted event whose stored copy differs in `ts` or `clientTs` from the
+ * pushed copy (02 §5.9 S3), in `accepted` order. Accepted events that are not stored (a deleted
+ * child's, 02 §5.9 S2) have no stored copy and are left out.
+ */
+async function clampedEcho(
+  db: Db,
+  familyId: string,
+  accepted: string[],
+  pushed: Map<string, Pick<AnyEventEnvelope, 'ts' | 'clientTs'>>,
+): Promise<SyncClampedEvent[]> {
+  const stored = await storedEventsById(db, accepted);
+  const out: SyncClampedEvent[] = [];
+  for (const id of accepted) {
+    const held = stored.get(id);
+    const sent = pushed.get(id);
+    if (held === undefined || held.familyId !== familyId || sent === undefined) continue;
+    if (held.ts === sent.ts && held.clientTs === (sent.clientTs ?? null)) continue;
+    out.push({ id, ts: held.ts, ...(held.clientTs === null ? {} : { clientTs: held.clientTs }) });
+  }
+  return out;
 }

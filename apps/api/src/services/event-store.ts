@@ -162,11 +162,16 @@ export async function insertEvents(
   return sumChanges(await batchSql(db, insertEventsSql(familyId, rows, receivedAt)));
 }
 
-/** A stored event's identity: family, type, and (for a tombstone) the canonical child id. */
+/**
+ * A stored event's identity (family, type, and for a tombstone the canonical child id) and its
+ * stored time (`ts`, possibly clamped, and `clientTs`, 08 §4).
+ */
 export interface HeldEvent {
   familyId: string;
   type: string;
   deletedChild: string | null;
+  ts: number;
+  clientTs: number | null;
 }
 
 /** Which of `ids` exist, and as what. */
@@ -178,8 +183,10 @@ export async function storedEventsById(db: Db, ids: string[]): Promise<Map<strin
       family_id: string;
       type: string;
       deleted_child: string | null;
+      ts: number;
+      client_ts: number | null;
     }>(
-      sql`SELECT id, family_id, type,
+      sql`SELECT id, family_id, type, ts, client_ts,
             CASE WHEN type = 'child.deleted' THEN json_extract(payload_json, '$.childId') END
               AS deleted_child
           FROM events
@@ -190,6 +197,8 @@ export async function storedEventsById(db: Db, ids: string[]): Promise<Map<strin
         familyId: row.family_id,
         type: row.type,
         deletedChild: row.deleted_child === null ? null : canonId(row.deleted_child),
+        ts: row.ts,
+        clientTs: row.client_ts,
       });
     }
   }
