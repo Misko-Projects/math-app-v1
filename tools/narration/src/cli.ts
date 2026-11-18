@@ -56,12 +56,6 @@ export function stateDirFor(outDir: string, format: string, root: string = STATE
   return join(root, target.slice(0, 16));
 }
 
-/** Where batch state lives: NARRATION_STATE_DIR, else tmp/narration/state in this checkout. */
-export function stateRootFor(env: NodeJS.ProcessEnv): string {
-  const override = env.NARRATION_STATE_DIR?.trim();
-  return override ? resolve(override) : STATE_DIR;
-}
-
 /**
  * The real path of a directory without creating anything: the longest existing prefix is resolved
  * through symlinks and the missing rest appended (a dry run never touches the output directory).
@@ -88,22 +82,38 @@ export function lockFileFor(outDir: string): string {
 }
 
 /**
- * Ledger files earlier layouts may have left for this target: the single global ledger in the state
- * root (always checked in the default root too), and the per-target ledger keyed by the unresolved
- * path spelling, used before symlinks were resolved.
+ * Ledger files earlier layouts may have left for this target: the single global ledger, and the
+ * per-target ledger keyed by the unresolved path spelling (used before symlinks were resolved),
+ * whenever that is not the ledger this run uses.
  */
-export function legacyLedgers(outDir: string, format: string, stateRoot: string): string[] {
-  const roots = [...new Set([STATE_DIR, stateRoot])];
-  const files = roots.map((root) => join(root, 'gemini-batches.json'));
+export function legacyLedgers(outDir: string, format: string, root: string = STATE_DIR): string[] {
+  const files = [join(root, 'gemini-batches.json')];
   const spelled = createHash('sha256')
     .update(`${resolve(outDir)}\0${format}`)
     .digest('hex')
     .slice(0, 16);
-  for (const root of roots) {
-    const old = join(root, spelled, 'gemini-batches.json');
-    if (old !== join(stateDirFor(outDir, format, root), 'gemini-batches.json')) files.push(old);
-  }
+  const old = join(root, spelled, 'gemini-batches.json');
+  if (old !== join(stateDirFor(outDir, format, root), 'gemini-batches.json')) files.push(old);
   return files;
+}
+
+/**
+ * Applies `checkLedgerFile` to each legacy ledger. A real render refuses (throws); a dry run or a
+ * run without a key cannot submit or discard anything, so it only warns.
+ */
+export function guardLegacyLedgers(
+  files: readonly string[],
+  strict: boolean,
+  warn: (message: string) => void,
+): void {
+  for (const file of files) {
+    try {
+      checkLedgerFile(file);
+    } catch (e) {
+      if (strict) throw e;
+      warn(`narration: warning: ${e instanceof Error ? e.message : String(e)}`);
+    }
+  }
 }
 
 /** Refuses a legacy ledger in `stateRoot` that may list paid jobs (see `checkLedgerFile`). */
@@ -278,18 +288,10 @@ async function render(argv: string[], env: NodeJS.ProcessEnv): Promise<number> {
   const renderer = c.renderer();
   // A real render refuses while the earlier global ledger lists jobs. A dry run or a run without a
   // key cannot submit or discard anything, so it only warns and still prints its estimate.
-  const stateRoot = stateRootFor(env);
   if (c.provider === 'gemini') {
-    for (const legacy of legacyLedgers(outDir, c.format, stateRoot)) {
-      if (!dryRun && renderer) checkLedgerFile(legacy);
-      else {
-        try {
-          checkLedgerFile(legacy);
-        } catch (e) {
-          console.log(`narration: warning: ${e instanceof Error ? e.message : String(e)}`);
-        }
-      }
-    }
+    guardLegacyLedgers(legacyLedgers(outDir, c.format), !dryRun && renderer !== null, (m) =>
+      console.log(m),
+    );
   }
   const report = await runPipeline({
     narration,
@@ -300,7 +302,7 @@ async function render(argv: string[], env: NodeJS.ProcessEnv): Promise<number> {
     // A dry run never needs ffmpeg: planning only needs the extension and the encoding tag.
     encoder: dryRun || !renderer ? { ...wavEncoder, ...encodingOf(c.format) } : c.encoder(),
     outDir,
-    stateDir: stateDirFor(outDir, c.format, stateRoot),
+    stateDir: stateDirFor(outDir, c.format),
     lockFile: lockFileFor(outDir),
     mode,
     maxUsd: number(values['max-usd'], '--max-usd', 5),
@@ -316,7 +318,9 @@ async function render(argv: string[], env: NodeJS.ProcessEnv): Promise<number> {
     console.log(NO_KEY_HELP);
     return 0;
   }
-  if (!dryRun && renderer) console.log(`  output: ${relative(ROOT, outDir) || '.'}`);
+  // A dry run only reports: it exits 0 even when it found a problem to report.
+  if (dryRun) return 0;
+  if (renderer) console.log(`  output: ${relative(ROOT, outDir) || '.'}`);
   return report.aborted || report.failed.length > 0 ? 1 : 0;
 }
 

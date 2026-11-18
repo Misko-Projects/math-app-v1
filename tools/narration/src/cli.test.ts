@@ -1,8 +1,8 @@
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { geminiKey, main, readEnvKey } from './cli';
+import { geminiKey, guardLegacyLedgers, main, readEnvKey, stateDirFor } from './cli';
 import { kokoroRenderer } from './providers/kokoro';
 
 const dirs: string[] = [];
@@ -59,23 +59,32 @@ describe('pnpm narration:render without a key', () => {
     expect(lines.join('\n')).toContain('live render pending a key');
   });
 
-  it('warns, but still estimates, when a legacy ledger exists and there is no key', async () => {
-    const dir = mkdtempSync(join(tmpdir(), 'narration-nokey-'));
+  it('a dry run or keyless run only warns about a legacy ledger; a real render refuses', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'narration-legacy-'));
     dirs.push(dir);
-    writeFileSync(
-      join(dir, 'gemini-batches.json'),
-      JSON.stringify({ abc: { name: 'batches/old' } }),
-    );
+    const file = join(dir, 'gemini-batches.json');
+    writeFileSync(file, JSON.stringify({ abc: { name: 'batches/old' } }));
+    const warnings: string[] = [];
+    guardLegacyLedgers([file], false, (m) => warnings.push(m));
+    expect(warnings.join('\n')).toMatch(/warning: .*may list paid jobs/);
+    expect(() => guardLegacyLedgers([file], true, () => {})).toThrow(/may list paid jobs/);
+  });
+
+  it('a dry run exits 0 and still reports when the ledger cannot be read', async () => {
+    const out = mkdtempSync(join(tmpdir(), 'narration-out-'));
+    dirs.push(out);
+    const ledgerDir = stateDirFor(out, 'opus');
+    dirs.push(ledgerDir);
+    mkdirSync(ledgerDir, { recursive: true });
+    writeFileSync(join(ledgerDir, 'gemini-batches.json'), '{"truncated');
     const lines = captureLog();
-    const code = await main(['render', '--dry-run', '--provider', 'gemini'], {
-      ...noKey(dir),
-      NARRATION_STATE_DIR: dir,
+    const code = await main(['render', '--dry-run', '--provider', 'gemini', '--out', out], {
+      GEMINI_API_KEY: 'test-key-not-real',
+      PATH: '',
     });
     expect(code).toBe(0);
-    const out = lines.join('\n');
-    expect(out).toContain('warning');
-    expect(out).toMatch(/estimate: /);
-    expect(out).toContain('live render pending a key');
+    expect(lines.join('\n')).toMatch(/estimate: /);
+    expect(lines.join('\n')).toMatch(/aborted: /);
   });
 
   it('rejects an unknown provider', async () => {

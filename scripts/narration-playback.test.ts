@@ -205,7 +205,9 @@ describe('the committed render (apps/web/public/audio)', () => {
       expect(clip.file).toMatch(/^[0-9a-f]{16}\.ogg$/);
       expect(clip.durationMs).toBeGreaterThan(0);
     }
-    const onDisk = readdirSync(dir).filter((f) => f !== 'manifest.json');
+    const onDisk = readdirSync(dir).filter(
+      (f) => f !== 'manifest.json' && f !== '.narration-render.lock',
+    );
     expect(onDisk.sort()).toEqual([...files].sort());
     // Every clip is a real Ogg Opus file.
     for (const f of files) {

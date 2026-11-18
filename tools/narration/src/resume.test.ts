@@ -560,7 +560,7 @@ describe('review round 6', () => {
     expect(existsSync(join(parent, 'not'))).toBe(false);
   });
 
-  it('checks the default legacy ledger and the earlier path-keyed ledger, whatever the state root', () => {
+  it('checks the global legacy ledger and the earlier path-keyed ledger', () => {
     const real = mkdtempSync(join(tmpdir(), 'narration-real-'));
     dirs.push(real);
     const link = `${real}-link`;
@@ -569,22 +569,18 @@ describe('review round 6', () => {
     const root = mkdtempSync(join(tmpdir(), 'narration-root-'));
     dirs.push(root);
     const files = legacyLedgers(link, 'opus', root);
-    // The default root's global ledger is always checked, plus the override's.
-    expect(files).toContain(join(root, 'gemini-batches.json'));
-    expect(
-      files.some((f) => f.endsWith(join('tmp', 'narration', 'state', 'gemini-batches.json'))),
-    ).toBe(true);
+    expect(files[0]).toBe(join(root, 'gemini-batches.json'));
     // The ledger an earlier revision keyed by the symlink spelling is checked too, and refused
     // while it lists jobs.
-    const spelled = files.find(
-      (f) => f.startsWith(root) && f !== join(root, 'gemini-batches.json'),
-    );
+    const spelled = files[1];
     expect(spelled).toBeDefined();
     mkdirSync(dirname(spelled as string), { recursive: true });
     writeFileSync(spelled as string, JSON.stringify({ version: 3, jobs: { x: { model: 'm' } } }));
     expect(() => checkLedgerFile(spelled as string)).toThrow(/may list paid jobs/);
     writeFileSync(spelled as string, JSON.stringify({ version: 3, jobs: {} }));
     expect(() => checkLedgerFile(spelled as string)).not.toThrow();
+    // Without a symlink the spelling is the live ledger, which is not a legacy one.
+    expect(legacyLedgers(real, 'opus', root)).toEqual([join(root, 'gemini-batches.json')]);
   });
 });
 

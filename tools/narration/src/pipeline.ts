@@ -113,11 +113,27 @@ export async function runPipeline(opts: PipelineOptions): Promise<PipelineReport
     report.pending = report.toRender;
     return report;
   }
+  const release = () => {
+    try {
+      closeSync(fd);
+    } catch {
+      // already closed
+    }
+    rmSync(lock, { force: true });
+  };
+  // An interrupted render (Ctrl+C, or a stop) must not leave the lock behind.
+  const onSignal = (signal: NodeJS.Signals) => {
+    release();
+    process.exit(signal === 'SIGINT' ? 130 : 143);
+  };
+  process.once('SIGINT', onSignal);
+  process.once('SIGTERM', onSignal);
   try {
     return await plannedRun(opts);
   } finally {
-    closeSync(fd);
-    rmSync(lock, { force: true });
+    process.off('SIGINT', onSignal);
+    process.off('SIGTERM', onSignal);
+    release();
   }
 }
 
