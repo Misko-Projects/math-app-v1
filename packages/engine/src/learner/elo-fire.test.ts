@@ -936,22 +936,18 @@ describe('§4 review compression and transfer probes', () => {
   });
 });
 
-describe('review round 3 regressions (PR #51)', () => {
-  it('a zero-item test-out is never offered', () => {
+describe('review round 3 and 4 regressions (PR #51)', () => {
+  it('a zero-item test-out is never offered, even after a clean answer', () => {
     const g = syntheticGraph();
     const sk = g.skills[A] as (typeof g.skills)[string];
     sk.lesson = { ...sk.lesson, testOut: { items: 0, minCorrect: 0, templateIds: [`${A}.t3`] } };
     const m = createEloFireModel(g, { childId: 'c', isK: false });
-    const s = m.apply(
-      m.init(g, { p: { [A]: 0.9 }, assumed: [] }),
-      attempt(A, 3, { correct: false }),
-      T0,
-    );
+    const s = m.apply(m.init(g, { p: { [A]: 0.9 }, assumed: [] }), attempt(A, 3), T0);
     expect(s.skills[A]?.practicedAt).toBeNull();
     expect(s.skills[A]?.memory).toBeNull();
   });
 
-  it('minCorrect 0 still needs one clean answer', () => {
+  it('the pass threshold is the compiled minCorrect (03 §6.5), zero included', () => {
     const g = syntheticGraph();
     const sk = g.skills[A] as (typeof g.skills)[string];
     sk.lesson = { ...sk.lesson, testOut: { items: 1, minCorrect: 0, templateIds: [`${A}.t3`] } };
@@ -961,7 +957,7 @@ describe('review round 3 regressions (PR #51)', () => {
       attempt(A, 3, { correct: false }),
       T0,
     );
-    expect(s.skills[A]?.practicedAt).toBeNull();
+    expect(s.skills[A]?.practicedAt).toBe(T0);
   });
 
   it('a passed verification keeps an init(graph, prior) assumed skill practiced', () => {
@@ -974,21 +970,25 @@ describe('review round 3 regressions (PR #51)', () => {
     expect(model.status(s, B, day(1))).toBe('ready');
   });
 
-  it('misconception hits survive a schema round trip of the state', () => {
-    const s1 = model.apply(s0, attempt(A, 3, { correct: false, misconceptionIds: ['MC.x'] }), T0);
-    const parsed = learnerStateSchema.parse(s1) as LearnerState;
+  it('after a schema round trip, hits of unknown age expire; new hits are tracked again', () => {
+    const steps: [AttemptPayload, number][] = [
+      [attempt(A, 3, { correct: false, misconceptionIds: ['MC.x'] }), T0],
+    ];
+    for (let i = 1; i < 10; i++) steps.push([attempt(A, 3), T0]);
+    const s9 = run(model, s0, steps);
+    expect(s9.skills[A]?.misconceptionHits).toEqual([{ id: 'MC.x', ts: T0 }]);
+    const parsed = learnerStateSchema.parse(s9) as LearnerState;
     expect(parsed.skills[A]).not.toHaveProperty('_hitSeqs');
-    const s2 = model.apply(
+    // Uninterrupted replay drops MC.x at the 11th attempt; the stripped state never resurrects it.
+    const s10 = model.apply(parsed, attempt(A, 3), T0);
+    expect(s10.skills[A]?.misconceptionHits).toEqual([]);
+    expect(model.apply(s9, attempt(A, 3), T0).skills[A]?.misconceptionHits).toEqual([]);
+    const s11 = model.apply(
       parsed,
       attempt(A, 3, { correct: false, misconceptionIds: ['MC.y'] }),
-      T0 + 1,
+      T0,
     );
-    expect(s2.skills[A]?.misconceptionHits).toEqual([
-      { id: 'MC.x', ts: T0 },
-      { id: 'MC.y', ts: T0 + 1 },
-    ]);
-    const s3 = model.apply(parsed, attempt(A, 3), T0 + 1);
-    expect(s3.skills[A]?.misconceptionHits).toEqual([{ id: 'MC.x', ts: T0 }]);
+    expect(s11.skills[A]?.misconceptionHits).toEqual([{ id: 'MC.y', ts: T0 }]);
   });
 });
 

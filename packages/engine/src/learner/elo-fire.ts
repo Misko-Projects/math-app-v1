@@ -404,12 +404,13 @@ export function createEloFireModel(graph: SkillGraph, opts: LearnerOptions): Elo
     const seq = (st._attempts ?? 0) + 1;
     st._attempts = seq;
     const hits = [...st.misconceptionHits, ...a.misconceptionIds.map((id) => ({ id, ts }))];
-    // Private fields do not survive schema validation (02 §5.8 strips them): hits whose attempt
-    // numbers are missing count as the previous attempt's, so they stay in the window.
+    // Private fields do not survive schema validation (02 §5.8 strips them). A hit whose attempt
+    // number is unknown cannot be placed in the window, so it expires: stale evidence must never
+    // trigger a remediation (04 §6.4). Rebuild from the events to keep it.
     const known =
       st._hitSeqs?.length === st.misconceptionHits.length
         ? st._hitSeqs
-        : st.misconceptionHits.map(() => seq - 1);
+        : st.misconceptionHits.map(() => Number.NEGATIVE_INFINITY);
     const seqs = [...known, ...a.misconceptionIds.map(() => seq)];
     const keep = seqs.map((n) => n > seq - P.mastery.recentSize);
     st.misconceptionHits = hits.filter((_, i) => keep[i]);
@@ -521,8 +522,7 @@ export function createEloFireModel(graph: SkillGraph, opts: LearnerOptions): Elo
         };
         if (st._testOut.seen >= skill.lesson.testOut.items) {
           testedOut =
-            st._testOut.clean >= Math.max(1, skill.lesson.testOut.minCorrect) &&
-            testOutDrawOk(s, st._testOut);
+            st._testOut.clean >= skill.lesson.testOut.minCorrect && testOutDrawOk(s, st._testOut);
           st._testOut = null;
         }
       }
