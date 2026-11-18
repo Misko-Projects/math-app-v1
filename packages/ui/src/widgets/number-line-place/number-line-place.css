@@ -418,3 +418,9 @@
   stroke-width: 5;
   stroke-linecap: round;
 }
+
+/* Check may sit 12 px from its neighbours: its invite ring is drawn inside it. */
+.ni-nlp__checkslot .ni-btn.ni-invite {
+  outline-width: 4px;
+  outline-offset: -9px;
+}

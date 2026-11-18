@@ -519,7 +519,8 @@
   background: var(--color-cloud);
   color: var(--color-ink);
   font-family: var(--font-display);
-  font-size: var(--text-numeral);
+  /* `--pad-digit` lets a pad of minimum-size keys keep its digit clear of Pip's fingertip. */
+  font-size: var(--pad-digit, var(--text-numeral));
   font-weight: 800;
   line-height: 1;
   box-shadow:
@@ -585,4 +586,9 @@
   .ni-pad__key {
     transition-duration: 0ms;
   }
+}
+
+/* A compact Check (icon only in a short room): a square, no pill padding around the tick. */
+.ni-btn.ni-check--compact {
+  padding-inline: 0;
 }

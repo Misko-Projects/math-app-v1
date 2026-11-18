@@ -6,15 +6,27 @@ import {
   expectTargetGaps,
   expectTargetSize,
   spyAudio,
+  waitForSettled,
 } from '../../test-support/storyHelpers';
-import { findWidget, renderWidget, traceOf } from '../../test-support/widgetStory';
+import {
+  areaBox,
+  expectFitsArea,
+  expectPointerOn,
+  expectRingClear,
+  findWidget,
+  inArea,
+  renderWidget,
+  traceOf,
+} from '../../test-support/widgetStory';
 import { createDemoController, UnsupportedWidgetOpError, type WidgetDemo } from '../demo';
 import type { ConfigFor } from '../types';
 import type { WidgetHostProps } from '../WidgetHost';
 
 /**
  * `hundred-chart` (03 §5.5, Road Crew): find, next, fill, move and pattern on a 1–100, 1–120 or
- * 101–200 chart. Pictorial tier only.
+ * 101–200 chart, shown as a window of whole rows with row stepping. Pictorial tier only. The
+ * fixtures mirror the K01 generators (CNT.01 next, CNT.07/09/10/16/18 fill, CNT.20, MDA.01/02 and
+ * PV.03 move, CPS.09 find); pattern has no generator yet.
  */
 
 type Config = ConfigFor<'hundred-chart'>;
@@ -28,9 +40,12 @@ const next: Config = {
   mode: 'next',
   from: 12,
 };
+/** CPS.09.t2: 30 and what number make 100? Tap it. */
 const find: Config = { ...next, mode: 'find', from: undefined };
 /** CNT.09.t1: fill 46, 47, 48 after 45. */
 const fill: Config = { ...next, mode: 'fill', hidden: [46, 47, 48], from: 45 };
+/** CNT.09.t2: count by tens: 20, 30, 40, 50 after 10 (five rows). */
+const fillTens: Config = { ...next, mode: 'fill', hidden: [20, 30, 40, 50], from: 10 };
 /** CNT.10.t1: a 101–200 chart. */
 const fillHundreds: Config = {
   ...next,
@@ -39,7 +54,17 @@ const fillHundreds: Config = {
   hidden: [112, 113, 114],
   from: 111,
 };
+/** CNT.10.t1 on a 1–120 chart: across 100. */
+const fillAcross100: Config = { ...next, rows: 12, mode: 'fill', hidden: [99, 100, 101], from: 98 };
+/** CNT.20.t1: start at 23, down, down, right. */
 const move: Config = { ...next, mode: 'move', from: 23, moves: ['down', 'down', 'right'] };
+/** MDA.02.t2: start at 95, up nine times (95 − 90). */
+const moveUp: Config = {
+  ...next,
+  mode: 'move',
+  from: 95,
+  moves: ['up', 'up', 'up', 'up', 'up', 'up', 'up', 'up', 'up'],
+};
 const pattern: Config = {
   ...next,
   mode: 'pattern',
@@ -70,17 +95,71 @@ const cell = (root: HTMLElement, n: number) =>
   root.querySelector(`.ni-hc__cell[data-n="${n}"]`) as HTMLElement;
 const key = (root: HTMLElement, k: string) =>
   root.querySelector(`.ni-pad__key[data-key="${k}"]`) as HTMLElement;
+const step = (root: HTMLElement, dir: 'up' | 'down') =>
+  root.querySelector(`.ni-hc__step[data-dir="${dir}"]`) as HTMLElement;
+const checkBtn = (root: HTMLElement) => within(root).getByRole('button', { name: 'Check' });
+const typeKeys = async (root: HTMLElement, digits: string) => {
+  for (const d of digits) await userEvent.click(key(root, d));
+};
 
-/** Next: 12 has a start flag; tap 13 (it speaks), check → number 13. Cell size rule. */
+/**
+ * Maths truth: the cell at row r, column c shows first + 10(r − 1) + (c − 1) (10(r − 1) + c on a
+ * 1–100 chart); every column is one straight line of cells and every row one level line.
+ */
+async function expectTruthfulChart(root: HTMLElement, c: Config) {
+  const cells = [...root.querySelectorAll<HTMLElement>('.ni-hc__cell')];
+  await expect(cells.length % 10).toBe(0);
+  const lefts = new Map<string, number>();
+  const tops = new Map<string, number>();
+  for (const el of cells) {
+    const r = Number(el.dataset.row);
+    const col = Number(el.dataset.col);
+    const n = c.first + 10 * (r - 1) + (col - 1);
+    await expect(Number(el.dataset.n), `row ${r}, column ${col}`).toBe(n);
+    if (!c.hidden.includes(n)) {
+      await expect(el.querySelector('.ni-hc__num')?.textContent, `cell ${n}`).toBe(String(n));
+    }
+    const b = el.getBoundingClientRect();
+    const left = lefts.get(String(col));
+    if (left === undefined) lefts.set(String(col), b.left);
+    else await expect(Math.abs(b.left - left)).toBeLessThan(0.5);
+    const top = tops.get(String(r));
+    if (top === undefined) tops.set(String(r), b.top);
+    else await expect(Math.abs(b.top - top)).toBeLessThan(0.5);
+  }
+  // Rows run down the screen in order, columns left to right.
+  const rowTops = [...tops.entries()].sort((a, b) => Number(a[0]) - Number(b[0])).map((e) => e[1]);
+  for (let i = 1; i < rowTops.length; i++) {
+    await expect(rowTops[i] as number).toBeGreaterThan(rowTops[i - 1] as number);
+  }
+  const colLefts = [...lefts.entries()]
+    .sort((a, b) => Number(a[0]) - Number(b[0]))
+    .map((e) => e[1]);
+  for (let i = 1; i < colLefts.length; i++) {
+    await expect(colLefts[i] as number).toBeGreaterThan(colLefts[i - 1] as number);
+  }
+}
+
+/** Steps the window until `n` is shown. */
+async function showCell(root: HTMLElement, n: number) {
+  for (let i = 0; i < 12 && !cell(root, n); i++) {
+    const firstShown = Number(root.querySelector<HTMLElement>('.ni-hc__cell')?.dataset.n);
+    await userEvent.click(step(root, n < firstShown ? 'up' : 'down'));
+  }
+  await expect(cell(root, n)).not.toBeNull();
+}
+
+/** Next (G1): 12 has a start flag; tap 13 (it speaks), check → number 13. Cell size rule. */
 export const Next: Story = {
   parameters: { ui: { audio: spyAudio() } },
   play: async ({ canvasElement, args, parameters }) => {
     const audio = parameters.ui.audio as ReturnType<typeof spyAudio>;
     clearSpies(audio);
     const root = await findWidget(canvasElement, ROOT);
-    await expect(root.querySelectorAll('.ni-hc__cell')).toHaveLength(100);
+    await expect(root).toHaveAttribute('data-cells', 'tap');
+    await expectTruthfulChart(root, next);
     await expect(within(root).getByRole('button', { name: 'Start 12' })).toBeVisible();
-    const check = within(root).getByRole('button', { name: 'Check' });
+    const check = checkBtn(root);
     await expect(check).toBeDisabled();
     await userEvent.click(cell(root, 13));
     await expect(audio.sayPhrases).toHaveBeenCalledWith([{ number: 13 }]);
@@ -91,32 +170,38 @@ export const Next: Story = {
     await expect(traceOf(args.onInteract).map((e) => `${e.t}:${e.target}`)).toEqual([
       'tap:cell-13',
     ]);
-    // Cells: as large as fit (72 × 50 px), wider than the 64 px rule and ≥ 48 px tall.
-    const r = cell(root, 13).getBoundingClientRect();
-    await expect(r.width).toBeGreaterThanOrEqual(64);
-    await expect(r.height).toBeGreaterThanOrEqual(48);
+    const cells = [...root.querySelectorAll<HTMLElement>('button.ni-hc__cell')];
+    for (const el of cells.slice(0, 20)) await expectTargetSize(el, 'g1-up');
+    await expectTargetGaps(cells.slice(0, 20));
     await expectTargetSize(check, 'g1-up');
   },
 };
 
-/** Find in K mode: the chart fits beside a K-sized check button. */
+/** Find in K mode: K-size cells; 90 is further down, so step the rows to it. */
 export const FindK: Story = {
   globals: { ageMode: 'k' },
   args: { config: find },
   play: async ({ canvasElement, args }) => {
     const root = await findWidget(canvasElement, ROOT);
-    await userEvent.click(cell(root, 37));
-    await userEvent.click(cell(root, 73));
-    const check = within(root).getByRole('button', { name: 'Check' });
+    await expect(root).toHaveAttribute('data-cells', 'tap');
+    await expectTruthfulChart(root, find);
+    await expect(cell(root, 90)).toBeNull();
+    await showCell(root, 90);
+    await expectTruthfulChart(root, find);
+    await userEvent.click(cell(root, 90));
+    const check = checkBtn(root);
     await expectTargetSize(check, 'k');
+    await expectTargetSize(cell(root, 90), 'k');
     await userEvent.click(check);
-    await expect(args.onResponse).toHaveBeenCalledWith({ kind: 'number', value: 73 });
+    await expect(args.onResponse).toHaveBeenCalledWith({ kind: 'number', value: 90 });
+    await expect(traceOf(args.onInteract).some((e) => e.target === 'rows-down')).toBe(true);
   },
 };
 
 /**
- * Fill: type 46, 47, 48 on the pad; the active blank moves on by itself; tapping a blank chooses
- * it. Enter on an unfinished chart sends nothing; then a double Enter and Check submit once.
+ * Fill: type 46, 47, 48 on the pad; the blank being filled moves on by itself, backspace on an
+ * empty blank goes back. Enter on an unfinished chart sends nothing; then a double Enter and
+ * Check submit once. A blank never says its number.
  */
 export const Fill: Story = {
   args: { config: fill },
@@ -125,40 +210,41 @@ export const Fill: Story = {
     const audio = parameters.ui.audio as ReturnType<typeof spyAudio>;
     clearSpies(audio);
     const root = await findWidget(canvasElement, ROOT);
-    await expect(cell(root, 46)).toHaveAttribute('aria-current', 'true');
-    // A blank never says its number.
-    await userEvent.click(cell(root, 47));
-    await expect(audio.sayPhrases).not.toHaveBeenCalled();
-    await expect(cell(root, 47)).toHaveAttribute('aria-current', 'true');
-    await userEvent.click(key(root, '4'));
-    await userEvent.click(key(root, '7'));
-    await expect(cell(root, 48)).toHaveAttribute('aria-current', 'true');
+    await expectTruthfulChart(root, fill);
+    await expect(cell(root, 46)).toHaveAttribute('data-active', 'true');
+    await typeKeys(root, '46');
+    await expect(cell(root, 47)).toHaveAttribute('data-active', 'true');
+    await userEvent.click(key(root, 'back'));
+    await expect(cell(root, 46)).toHaveAttribute('data-active', 'true');
+    await userEvent.click(key(root, 'back'));
+    await userEvent.click(key(root, 'back'));
+    await expect(cell(root, 46).querySelector('.ni-hc__num')).toHaveTextContent('');
     // Desktop keys with nothing focused (Enter on a focused pad key presses that key).
     (document.activeElement as HTMLElement | null)?.blur();
     await userEvent.keyboard('{Enter}');
     await expect(args.onResponse).not.toHaveBeenCalled();
-    await userEvent.keyboard('48');
-    await expect(cell(root, 46)).toHaveAttribute('aria-current', 'true');
-    await userEvent.keyboard('46');
-    await expect(within(root).getByRole('button', { name: 'Missing number: 46' })).toBeVisible();
+    await userEvent.keyboard('464748');
+    await expect(within(root).getByText('Missing number: 48')).toBeInTheDocument();
     await userEvent.keyboard('{Enter}{Enter}');
-    await userEvent.click(within(root).getByRole('button', { name: 'Check' }));
+    await userEvent.click(checkBtn(root));
     await expect(args.onResponse).toHaveBeenCalledTimes(1);
     await expect(args.onResponse).toHaveBeenCalledWith({ kind: 'numbers', values: [46, 47, 48] });
+    await expect(audio.sayPhrases).not.toHaveBeenCalledWith([{ number: 46 }]);
     const keys = [...root.querySelectorAll<HTMLElement>('.ni-pad__key')];
     for (const k of keys) await expectTargetSize(k, 'g1-up');
     await expectTargetGaps(keys);
   },
 };
 
-/** A 101–200 chart (CNT.10.t1): three-digit numerals fit their cells. */
+/** A 101–200 chart (CNT.10.t1): row r, column c holds 100 + 10(r − 1) + c. */
 export const FillHundreds: Story = {
   args: { config: fillHundreds },
   play: async ({ canvasElement, args }) => {
     const root = await findWidget(canvasElement, ROOT);
-    await expect(cell(root, 200)).toHaveTextContent('200');
+    await expectTruthfulChart(root, fillHundreds);
+    await expect(cell(root, 101)).toHaveAttribute('data-col', '1');
     await userEvent.keyboard('112113114');
-    await userEvent.click(within(root).getByRole('button', { name: 'Check' }));
+    await userEvent.click(checkBtn(root));
     await expect(args.onResponse).toHaveBeenCalledWith({
       kind: 'numbers',
       values: [112, 113, 114],
@@ -166,15 +252,16 @@ export const FillHundreds: Story = {
   },
 };
 
-/** Move: start at 23, follow down, down, right (arrow icons), tap the landing. */
+/** Move (CNT.20): start at 23, follow down, down, right (arrow tiles), tap the landing. */
 export const Move: Story = {
   args: { config: move },
   play: async ({ canvasElement, args }) => {
     const root = await findWidget(canvasElement, ROOT);
     const moves = within(root).getByRole('list', { name: 'Moves' });
     await expect(within(moves).getAllByRole('listitem')).toHaveLength(3);
+    await showCell(root, 44);
     await userEvent.click(cell(root, 44));
-    await userEvent.click(within(root).getByRole('button', { name: 'Check' }));
+    await userEvent.click(checkBtn(root));
     await expect(args.onResponse).toHaveBeenCalledWith({ kind: 'number', value: 44 });
   },
 };
@@ -186,7 +273,7 @@ export const Pattern: Story = {
     const root = await findWidget(canvasElement, ROOT);
     for (const n of [10, 5, 15, 20, 20]) await userEvent.click(cell(root, n));
     await expect(cell(root, 20)).toHaveAttribute('aria-pressed', 'false');
-    await userEvent.click(within(root).getByRole('button', { name: 'Check' }));
+    await userEvent.click(checkBtn(root));
     await expect(args.onResponse).toHaveBeenCalledWith({
       kind: 'state',
       value: { values: [5, 10, 15] },
@@ -194,17 +281,20 @@ export const Pattern: Story = {
   },
 };
 
-/** A 1–120 chart (12 rows). */
+/** A 1–120 chart (12 rows): stepping reaches 120, in row 12, column 10. */
 export const Chart120: Story = {
   args: { config: chart120 },
   play: async ({ canvasElement }) => {
     const root = await findWidget(canvasElement, ROOT);
-    await expect(root.querySelectorAll('.ni-hc__cell')).toHaveLength(120);
-    await expect(cell(root, 120)).toHaveTextContent('120');
+    await showCell(root, 120);
+    await expect(cell(root, 120)).toHaveAttribute('data-row', '12');
+    await expect(cell(root, 120)).toHaveAttribute('data-col', '10');
+    await expectTruthfulChart(root, chart120);
+    await expect(step(root, 'down')).toBeDisabled();
   },
 };
 
-/** Keyboard: one tab stop on the chart, arrows move between cells, Enter taps. */
+/** Keyboard: one tab stop, arrows move between cells (the window follows), Enter taps. */
 export const Keyboard: Story = {
   args: { config: find },
   play: async ({ canvasElement, args }) => {
@@ -214,10 +304,12 @@ export const Keyboard: Story = {
     await waitFor(() => expect(document.activeElement).toBe(cell(root, 22)));
     await expect(cell(root, 22)).toHaveAttribute('tabindex', '0');
     await expect(cell(root, 1)).toHaveAttribute('tabindex', '-1');
+    for (let i = 0; i < 8; i++) await userEvent.keyboard('{ArrowDown}');
+    await waitFor(() => expect(document.activeElement).toBe(cell(root, 92)));
     await userEvent.keyboard('{Enter}');
-    await expect(cell(root, 22)).toHaveAttribute('aria-pressed', 'true');
-    await userEvent.click(within(root).getByRole('button', { name: 'Check' }));
-    await expect(args.onResponse).toHaveBeenCalledWith({ kind: 'number', value: 22 });
+    await expect(cell(root, 92)).toHaveAttribute('aria-pressed', 'true');
+    await userEvent.click(checkBtn(root));
+    await expect(args.onResponse).toHaveBeenCalledWith({ kind: 'number', value: 92 });
   },
 };
 
@@ -233,7 +325,7 @@ export const Disabled: Story = {
 
 const demoController: WidgetDemo = createDemoController({ strict: true });
 
-/** Demo (the CNT.09.t1 solution): highlight the row, fill the blanks, answer; then invite. */
+/** Demo (the CNT.09.t1 solution): highlight the row, fill the blanks, answer. Disabled: no cue. */
 export const DemoMode: Story = {
   args: { config: fill, disabled: true, demo: demoController },
   play: async ({ canvasElement }) => {
@@ -250,9 +342,10 @@ export const DemoMode: Story = {
     await expect(demoController.play({ op: 'hop' })).rejects.toBeInstanceOf(
       UnsupportedWidgetOpError,
     );
-    demoController.invite({ op: 'tap', args: { n: 47 } });
-    await waitFor(() => expect(cell(root, 47).classList.contains('ni-invite')).toBe(true));
-    await expect(root.querySelector('.ni-hand')).not.toBeNull();
+    demoController.invite({ op: 'answer', args: { values: [46, 47, 48] } });
+    await new Promise((r) => setTimeout(r, 100));
+    await expect(root.querySelector('.ni-invite')).toBeNull();
+    await expect(root.querySelector('.ni-hand')).toBeNull();
   },
 };
 
@@ -270,6 +363,225 @@ export const DemoReducedMotion: Story = {
     await expect(performance.now() - started).toBeLessThan(500);
     await reducedController.play({ op: 'answer', args: { values: [46] } });
     await expect(cell(root, 46)).toHaveTextContent('46');
-    await expect(cell(root, 47)).toHaveTextContent('');
+    await expect(cell(root, 47).querySelector('.ni-hc__num')).toHaveTextContent('');
+  },
+};
+
+// ---------- invites (03 §6.3) ----------
+
+/** Every target the widget shows. */
+function targets(root: HTMLElement): HTMLElement[] {
+  return [
+    ...root.querySelectorAll<HTMLElement>('button.ni-hc__cell'),
+    ...root.querySelectorAll<HTMLElement>('.ni-hc__step, .ni-hc__mark'),
+    ...root.querySelectorAll<HTMLElement>('.ni-pad__key'),
+    root.querySelector<HTMLElement>('.ni-hc__checkslot .ni-btn'),
+  ].filter((el): el is HTMLElement => el !== null);
+}
+
+/** The ring and Pip's hand are on ONE control, the fingertip on it, the ring clear of the rest. */
+async function expectInviteOn(root: HTMLElement, el: HTMLElement) {
+  await waitFor(() => expect(el).toHaveClass('ni-invite'));
+  await expect(root.querySelectorAll('.ni-invite')).toHaveLength(1);
+  await waitFor(() => expect(root.querySelectorAll('.ni-hand')).toHaveLength(1));
+  await waitForSettled(el);
+  await new Promise((r) => requestAnimationFrame(r));
+  await expectPointerOn(root.querySelector('.ni-hand') as HTMLElement, el, root);
+  await expectRingClear(
+    el,
+    targets(root).filter((t) => t !== el),
+  );
+}
+
+const findInvite: WidgetDemo = createDemoController({ strict: true });
+
+/**
+ * G1 at the minimum, CPS.09 `tap {n: 70}`: 70 is below the window, so the ring is on "go down"
+ * until 70 shows; then on the cell; once it is picked, on Check.
+ */
+export const InviteFindG1MinLandscape: Story = {
+  args: { config: find, demo: findInvite },
+  render: inArea('landscapeMin'),
+  play: async ({ canvasElement }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    findInvite.invite({ op: 'tap', args: { n: 70 } });
+    for (let i = 0; i < 10 && !cell(root, 70); i++) {
+      await expectInviteOn(root, step(root, 'down'));
+      await userEvent.click(step(root, 'down'));
+    }
+    await expectInviteOn(root, cell(root, 70));
+    await userEvent.click(cell(root, 70));
+    await expectInviteOn(root, checkBtn(root));
+    await expectHcFits(canvasElement, root, 'g1-up');
+  },
+};
+
+const fillInvite: WidgetDemo = createDemoController({ strict: true });
+
+/** G1 fill at the minimum: the invite rings the next key of the blank being filled, then Check. */
+export const InviteFillG1MinLandscape: Story = {
+  args: { config: fill, demo: fillInvite },
+  render: inArea('landscapeMin'),
+  play: async ({ canvasElement }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    fillInvite.invite({ op: 'answer', args: { values: [46, 47, 48] } });
+    await expectInviteOn(root, key(root, '4'));
+    await userEvent.click(key(root, '4'));
+    await expectInviteOn(root, key(root, '6'));
+    await userEvent.click(key(root, '6'));
+    await typeKeys(root, '4748');
+    await expectInviteOn(root, checkBtn(root));
+    await expectHcFits(canvasElement, root, 'g1-up');
+  },
+};
+
+// ---------- the workshop's widget area (06 §1, §2) ----------
+
+async function expectHcFits(
+  canvasElement: HTMLElement,
+  root: HTMLElement,
+  age: 'k' | 'g1-up',
+  fits: 'true' | 'at-rest' = 'true',
+) {
+  await waitForSettled(root);
+  await expect(root).toHaveAttribute('data-fits', fits);
+  const parts = [
+    ...root.querySelectorAll('.ni-hc__chart, .ni-hc__moves, .ni-hc__map, .ni-hc__readout'),
+    ...root.querySelectorAll('.ni-hc__checkslot, .ni-hc__padcell'),
+  ];
+  await expectFitsArea(areaBox(canvasElement), parts, targets(root), age);
+}
+
+/** K at the 960 × 600 minimum, CNT.01 next: ten K cells don't fit across, so 13 is typed. */
+export const NextKMinLandscape: Story = {
+  globals: { ageMode: 'k' },
+  render: inArea('landscapeMin'),
+  play: async ({ canvasElement, args }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    await expect(root).toHaveAttribute('data-cells', 'type');
+    await expectHcFits(canvasElement, root, 'k', 'at-rest');
+    await expectTruthfulChart(root, next);
+    await typeKeys(root, '13');
+    await userEvent.click(checkBtn(root));
+    await expect(args.onResponse).toHaveBeenCalledWith({ kind: 'number', value: 13 });
+  },
+};
+
+/** K fill at the minimum (CNT.09.t2 tens): the window follows the blank being filled. */
+export const FillTensKMinLandscape: Story = {
+  globals: { ageMode: 'k' },
+  args: { config: fillTens },
+  render: inArea('landscapeMin'),
+  play: async ({ canvasElement, args }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    await expectHcFits(canvasElement, root, 'k', 'at-rest');
+    await expectTruthfulChart(root, fillTens);
+    await typeKeys(root, '20304050');
+    await expect(cell(root, 50)).not.toBeNull();
+    await expectTruthfulChart(root, fillTens);
+    await userEvent.click(checkBtn(root));
+    await expect(args.onResponse).toHaveBeenCalledWith({
+      kind: 'numbers',
+      values: [20, 30, 40, 50],
+    });
+  },
+};
+
+/** G1 fill across 100 on a 1–120 chart (CNT.10.t1) at the minimum. */
+export const FillAcross100G1MinLandscape: Story = {
+  args: { config: fillAcross100 },
+  render: inArea('landscapeMin'),
+  play: async ({ canvasElement }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    await expectHcFits(canvasElement, root, 'g1-up');
+    await expectTruthfulChart(root, fillAcross100);
+    await expect(cell(root, 100)).not.toBeNull();
+    await expect(cell(root, 101)).not.toBeNull();
+  },
+};
+
+/** G1 move up nine (MDA.02) at the minimum: tappable cells, the moves strip, step up to 5. */
+export const MoveUpG1MinLandscape: Story = {
+  args: { config: moveUp },
+  render: inArea('landscapeMin'),
+  play: async ({ canvasElement, args }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    await expect(root).toHaveAttribute('data-cells', 'tap');
+    await expectHcFits(canvasElement, root, 'g1-up');
+    await expect(cell(root, 95)).not.toBeNull();
+    await showCell(root, 5);
+    await expectTruthfulChart(root, moveUp);
+    await userEvent.click(cell(root, 5));
+    await userEvent.click(checkBtn(root));
+    await expect(args.onResponse).toHaveBeenCalledWith({ kind: 'number', value: 5 });
+    await expectHcFits(canvasElement, root, 'g1-up');
+  },
+};
+
+/** K pattern in portrait (typed: ten K cells don't fit across): type a number and mark it. */
+export const PatternKPortrait: Story = {
+  globals: { ageMode: 'k' },
+  args: { config: pattern },
+  render: inArea('portrait'),
+  play: async ({ canvasElement, args }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    await expect(root).toHaveAttribute('data-cells', 'type');
+    await expectHcFits(canvasElement, root, 'k');
+    for (const n of ['5', '10']) {
+      await typeKeys(root, n);
+      await userEvent.click(within(root).getByRole('button', { name: 'Mark it' }));
+    }
+    await expect(cell(root, 10)).toHaveAttribute('data-selected', 'true');
+    await userEvent.click(checkBtn(root));
+    await expect(args.onResponse).toHaveBeenCalledWith({
+      kind: 'state',
+      value: { values: [5, 10] },
+    });
+  },
+};
+
+/** Portrait, G1 find: ten 64 px cells don't fit 692 px, so the answer is typed under the chart. */
+export const FindG1Portrait: Story = {
+  args: { config: find },
+  render: inArea('portrait'),
+  play: async ({ canvasElement }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    await expectHcFits(canvasElement, root, 'g1-up');
+    await expectTruthfulChart(root, find);
+  },
+};
+
+/** Portrait, K fill. */
+export const FillKPortrait: Story = {
+  globals: { ageMode: 'k' },
+  args: { config: fill },
+  render: inArea('portrait'),
+  play: async ({ canvasElement }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    await expectHcFits(canvasElement, root, 'k');
+    await expectTruthfulChart(root, fill);
+  },
+};
+
+/** Tablet, K find: K cells fit across 1226 px. */
+export const FindKTablet: Story = {
+  globals: { ageMode: 'k' },
+  args: { config: find },
+  render: inArea('tablet'),
+  play: async ({ canvasElement }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    await expect(root).toHaveAttribute('data-cells', 'tap');
+    await expectHcFits(canvasElement, root, 'k');
+  },
+};
+
+/** Tablet, G1 fill on 101–200. */
+export const FillHundredsG1Tablet: Story = {
+  args: { config: fillHundreds },
+  render: inArea('tablet'),
+  play: async ({ canvasElement }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    await expectHcFits(canvasElement, root, 'g1-up');
+    await expectTruthfulChart(root, fillHundreds);
   },
 };

@@ -702,14 +702,18 @@ export const LongRoadKMinLandscape: Story = {
   },
 };
 
-/** K, CNT.07.t1 at the minimum: a short road of tappable stones; Check beside the hop buttons. */
+/**
+ * K, CNT.07.t1 at the minimum: seven K stone buttons would fit across, but not the height with
+ * room for Pip's hand under the hop row, so the road is a picture; Check beside the hop buttons.
+ */
 export const NextStoneKMinLandscape: Story = {
   globals: { ageMode: 'k' },
   args: { config: { ...nextStone, thenAsk: null, goal: 'land-on' } },
   render: inArea('landscapeMin'),
   play: async ({ canvasElement }) => {
     const root = await findWidget(canvasElement, ROOT);
-    await expect(root.querySelector('.ni-nlj__stones')).toHaveAttribute('data-tappable', 'true');
+    await expect(root.querySelector('.ni-nlj__stones')).toHaveAttribute('data-tappable', 'false');
+    await expect(root.querySelector('.ni-nlj__stones')).toHaveAttribute('data-window', '7');
     await expectJumpFits(canvasElement, root, 'k');
   },
 };
@@ -727,17 +731,21 @@ export const LineTenHopsG1MinLandscape: Story = {
   },
 };
 
-/** G1, ADD.08.t3 at the minimum: ten hop sizes on an open line and the pad. */
+/**
+ * G1, ADD.08.t3 at the minimum: ten hop sizes on an open line and the pad. The open line's arc
+ * labels need its full headroom, so it fits at rest only (an invite under the hop row adds a
+ * little room below).
+ */
 export const OpenTenHopsG1MinLandscape: Story = {
   args: { config: openTen, tier: 'pictorial' },
   render: inArea('landscapeMin'),
   play: async ({ canvasElement }) => {
     const root = await findWidget(canvasElement, ROOT);
-    await expectJumpFits(canvasElement, root, 'g1-up');
+    await expectJumpFits(canvasElement, root, 'g1-up', 'at-rest');
     await hopBy(root, 3);
     await hopBy(root, 5);
     await expectTruthfulRoad(root, openTen, 15);
-    await expectJumpFits(canvasElement, root, 'g1-up');
+    await expectJumpFits(canvasElement, root, 'g1-up', 'at-rest');
   },
 };
 
@@ -752,14 +760,14 @@ export const LineLandOnG1MinLandscape: Story = {
   },
 };
 
-/** K, CNT.10.t2-like line at the minimum (a K child on a line item). */
+/** K, CNT.10.t2-like line at the minimum (a K child on a line item): fits at rest. */
 export const LineLandOnKMinLandscape: Story = {
   globals: { ageMode: 'k' },
   args: { config: lineLandOn, tier: 'pictorial' },
   render: inArea('landscapeMin'),
   play: async ({ canvasElement }) => {
     const root = await findWidget(canvasElement, ROOT);
-    await expectJumpFits(canvasElement, root, 'k');
+    await expectJumpFits(canvasElement, root, 'k', 'at-rest');
   },
 };
 

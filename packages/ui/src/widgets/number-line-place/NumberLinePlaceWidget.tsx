@@ -1187,6 +1187,8 @@ export function NumberLinePlaceWidget({
       style={
         {
           '--pad-key': `${plan.pad.key}px`,
+          // A 64 px key (G1 minimum): a 36 px digit, so Pip's fingertip fits under it.
+          '--pad-digit': plan.pad.key < 76 ? '36px' : undefined,
           ...handRootStyle,
         } as CSSProperties
       }

@@ -53,7 +53,11 @@ export function CheckButton({ onPress, disabled, invited, compact }: CheckButton
       disabled={disabled}
       onPress={onPress}
       showLabel={compact ? false : undefined}
-      className={invited ? 'ni-invite' : undefined}
+      className={
+        [compact ? 'ni-check--compact' : '', invited ? 'ni-invite' : '']
+          .filter(Boolean)
+          .join(' ') || undefined
+      }
     />
   );
 }

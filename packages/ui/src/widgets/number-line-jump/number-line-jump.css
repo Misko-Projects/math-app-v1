@@ -221,12 +221,12 @@ button.ni-nlj__stone:disabled {
 /* ---------- hop buttons ---------- */
 
 /*
- * Hop controls are a little taller than wide: the arrow and size sit in the top, leaving the
+ * Hop controls are 12 px taller than wide: the arrow and size sit in the top, leaving the
  * bottom free for Pip's fingertip, so an invite's hand never covers the size it points at.
  */
 .ni-nlj__jumps {
   display: grid;
-  grid-auto-rows: calc(var(--target-min) + 18px + 6px);
+  grid-auto-rows: calc(var(--target-min) + 12px + 6px);
   gap: var(--target-gap);
   justify-content: center;
   margin: 0;
@@ -242,7 +242,7 @@ button.ni-nlj__stone:disabled {
   gap: 0;
   box-sizing: border-box;
   width: var(--target-min);
-  height: calc(var(--target-min) + 18px);
+  height: calc(var(--target-min) + 12px);
   margin: 0 0 6px;
   padding: 6px 0 0;
   appearance: none;
@@ -294,7 +294,7 @@ button.ni-nlj__stone:disabled {
 .ni-nlj__undo,
 .ni-nlj__dialstep {
   justify-content: center;
-  padding: 0 0 18px;
+  padding: 0 0 12px;
 }
 .ni-nlj__jumpnum {
   font-family: var(--font-display);
@@ -341,7 +341,8 @@ button.ni-nlj__stone:disabled {
   opacity: 0.55;
 }
 
-/* Check sits only 12 px from its neighbours in a short room: its invite ring is drawn inside it. */
+/* Check may sit 12 px from its neighbours: its invite ring is drawn inside it. */
 .ni-nlj__check .ni-btn.ni-invite {
+  outline-width: 4px;
   outline-offset: -9px;
 }

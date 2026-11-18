@@ -228,6 +228,18 @@ ui.hc.move.left:
 ui.hc.move.right:
   text: "Right"
   level: K
+ui.hc.rows-up:
+  text: "Go up"
+  level: K
+ui.hc.rows-down:
+  text: "Go down"
+  level: K
+ui.hc.window:
+  text: "{from} to {to}"
+  level: K
+ui.hc.mark:
+  text: "Mark it"
+  level: K
 ui.nlp.minus:
   text: "Minus"
   level: K

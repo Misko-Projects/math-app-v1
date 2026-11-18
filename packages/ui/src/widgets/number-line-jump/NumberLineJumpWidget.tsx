@@ -256,6 +256,8 @@ interface Plan {
   gap: number;
   /** A short room: the answer display uses its regular (not large) numerals. */
   short: boolean;
+  /** The stones are a picture even though buttons would fit across (they would not fit the height). */
+  pictureStones: boolean;
   /** The road's width in px (what is left beside the pad). */
   mainW: number;
   /** Rendered height of the plan, and whether it fits the room (with room for Pip's hand). */
@@ -310,12 +312,19 @@ export function stonesFor(c: Config, w: number, target: number) {
   };
 }
 
-function pathHeight(c: Config, w: number, target: number) {
-  if (c.path === 'stones') return HOPPER_ROOM + stonesFor(c, w, target).size + 6;
-  return headroomFor(c) + 64;
+function pathHeight(c: Config, w: number, target: number, short: boolean, picture: boolean) {
+  if (c.path === 'stones') {
+    return HOPPER_ROOM + (picture ? PICTURE_STONE : stonesFor(c, w, target).size) + 6;
+  }
+  return headroomFor(c, short) + 64;
 }
 
-const headroomFor = (c: Config) => (c.path === 'open' || c.path === 'timeline' ? 132 : 104);
+/**
+ * Room above the line: the hopper and the jump arcs (with their size labels on an open line or
+ * timeline). A short room keeps just enough for the tallest arc and its label.
+ */
+const headroomFor = (c: Config, short: boolean) =>
+  c.path === 'open' || c.path === 'timeline' ? (short ? 116 : 132) : short ? 92 : 104;
 
 /** A room shorter than this gets the tight spacing and the regular answer numerals. */
 const SHORT_ROOM = 420;
@@ -335,8 +344,8 @@ function planLayout(c: Config, room: WidgetRoom | null, age: AgeMode, m: Measure
   const W = Math.min(room?.width ?? 1180, 1180) - 2 * EDGE;
   const H = roomH - 2 * EDGE;
   const sizes = new Set(c.allowedJumps).size;
-  // Hop controls: the target's width, 18 px taller (room for Pip's fingertip), plus the ledge.
-  const hopCell = { w: T, h: T + 24 };
+  // Hop controls: the target's width, 12 px taller (room for Pip's fingertip), plus the ledge.
+  const hopCell = { w: T, h: T + 18 };
   const hopsBox = (w: number, kind: Plan['hops']) => {
     // The dial: smaller, the hop itself, bigger; then take-back.
     const n = kind === 'dial' ? 4 : sizes + 1;
@@ -364,6 +373,8 @@ function planLayout(c: Config, room: WidgetRoom | null, age: AgeMode, m: Measure
     ? { w: Math.max(m.readout.w, m.check.w), h: m.readout.h + G + m.check.h }
     : answerRow;
   const plans: Plan[] = [];
+  let picture = false;
+  const pathH = (w: number) => pathHeight(c, w, T, short, picture);
   const add = (
     layout: Layout,
     pad: Plan['pad'],
@@ -374,7 +385,9 @@ function planLayout(c: Config, room: WidgetRoom | null, age: AgeMode, m: Measure
     padH: number,
     ok: boolean,
   ) => {
-    const withHand = Math.max(h, padH + (pad ? HAND_REACH : 0));
+    // Pip's hand hangs below whichever control is lowest in each column (a hop button, a key,
+    // Check): every column needs its reach below it.
+    const withHand = Math.max(h, padH) + HAND_REACH;
     plans.push({
       layout,
       pad,
@@ -382,6 +395,7 @@ function planLayout(c: Config, room: WidgetRoom | null, age: AgeMode, m: Measure
       hopCols,
       gap: G,
       short,
+      pictureStones: picture,
       mainW,
       h: withHand,
       fits: ok && withHand <= H,
@@ -389,62 +403,67 @@ function planLayout(c: Config, room: WidgetRoom | null, age: AgeMode, m: Measure
     });
   };
   const kinds: Plan['hops'][] = sizes > 3 ? ['bank', 'dial'] : ['bank'];
-  for (const kind of kinds) {
-    for (const pad of pads) {
-      const p = pad ? padBox(pad.shape, pad.key) : { w: 0, h: 0 };
-      // stack: road; hop buttons (Check beside them without a pad); answer column beside the pad.
-      {
-        const mainW = W;
-        const hops = hopsBox(pad ? mainW : mainW - G - answerRow.w, kind);
-        const pathH = pathHeight(c, mainW, T);
-        const top = pathH + G + hops.h + G;
-        const h = pad
-          ? top + Math.max(answerCol.h, p.h)
-          : pathH + G + Math.max(hops.h, answerRow.h);
-        const w = pad ? Math.max(hops.w, answerCol.w + G + p.w) : hops.w + G + answerRow.w;
-        add('stack', pad, kind, mainW, hops.cols, h, pad ? top + p.h : 0, w <= W);
-      }
-      if (!pad) continue;
-      // side-right: the answer above the pad, beside the road and the hop buttons.
-      {
-        const rightW = Math.max(p.w, answerRow.w);
-        const mainW = W - G - rightW;
-        const hops = hopsBox(mainW, kind);
-        const right = answerRow.h + G + p.h;
-        const h = Math.max(pathHeight(c, mainW, T) + G + hops.h, right);
-        add('side-right', pad, kind, mainW, hops.cols, h, right, mainW >= 3 * T);
-      }
-      // side-main: the pad alone beside; the answer in the hop buttons' row.
-      {
-        const mainW = W - G - p.w;
-        const hops = hopsBox(mainW - G - answerRow.w, kind);
-        const oneRow =
-          hops.cols * (T + TARGET_GAP_PX) >=
-          (kind === 'dial' ? 4 : sizes + 1) * (T + TARGET_GAP_PX);
-        const h = Math.max(pathHeight(c, mainW, T) + G + Math.max(hops.h, answerRow.h), p.h);
-        add(
-          'side-main',
-          pad,
-          kind,
-          mainW,
-          hops.cols,
-          h,
-          p.h,
-          mainW - G - answerRow.w >= T && oneRow,
-        );
-      }
-      // side-col: the answer column and the pad side by side, beside the road.
-      {
-        const mainW = W - G - answerCol.w - G - p.w;
-        const hops = hopsBox(mainW, kind);
-        const h = Math.max(pathHeight(c, mainW, T) + G + hops.h, answerCol.h, p.h);
-        add('side-col', pad, kind, mainW, hops.cols, h, p.h, mainW >= 3 * T);
+  // Stone buttons first; a picture road when the buttons would not fit the height.
+  for (const pictureStones of c.path === 'stones' ? [false, true] : [false]) {
+    picture = pictureStones;
+    for (const kind of kinds) {
+      for (const pad of pads) {
+        const p = pad ? padBox(pad.shape, pad.key) : { w: 0, h: 0 };
+        // stack: road; hop buttons (Check beside them without a pad); answer column beside the pad.
+        {
+          const mainW = W;
+          const hops = hopsBox(pad ? mainW : mainW - G - answerRow.w, kind);
+          const roadH = pathH(mainW);
+          const top = roadH + G + hops.h + G;
+          const h = pad
+            ? top + Math.max(answerCol.h, p.h)
+            : roadH + G + Math.max(hops.h, answerRow.h);
+          const w = pad ? Math.max(hops.w, answerCol.w + G + p.w) : hops.w + G + answerRow.w;
+          add('stack', pad, kind, mainW, hops.cols, h, pad ? top + p.h : 0, w <= W);
+        }
+        if (!pad) continue;
+        // side-right: the answer above the pad, beside the road and the hop buttons.
+        {
+          const rightW = Math.max(p.w, answerRow.w);
+          const mainW = W - G - rightW;
+          const hops = hopsBox(mainW, kind);
+          const right = answerRow.h + G + p.h;
+          const h = Math.max(pathH(mainW) + G + hops.h, right);
+          add('side-right', pad, kind, mainW, hops.cols, h, right, mainW >= 3 * T);
+        }
+        // side-main: the pad alone beside; the answer in the hop buttons' row.
+        {
+          const mainW = W - G - p.w;
+          const hops = hopsBox(mainW - G - answerRow.w, kind);
+          const oneRow =
+            hops.cols * (T + TARGET_GAP_PX) >=
+            (kind === 'dial' ? 4 : sizes + 1) * (T + TARGET_GAP_PX);
+          const h = Math.max(pathH(mainW) + G + Math.max(hops.h, answerRow.h), p.h);
+          add(
+            'side-main',
+            pad,
+            kind,
+            mainW,
+            hops.cols,
+            h,
+            p.h,
+            mainW - G - answerRow.w >= T && oneRow,
+          );
+        }
+        // side-col: the answer column and the pad side by side, beside the road.
+        {
+          const mainW = W - G - answerCol.w - G - p.w;
+          const hops = hopsBox(mainW, kind);
+          const h = Math.max(pathH(mainW) + G + hops.h, answerCol.h, p.h);
+          add('side-col', pad, kind, mainW, hops.cols, h, p.h, mainW >= 3 * T);
+        }
       }
     }
   }
   // Preference: all hop buttons before the dial; then stack, side-right, side-main, side-col;
   // then the biggest pad (the plans were made in pad order, and the sort is stable).
   const rank = (p: Plan) =>
+    (p.pictureStones ? 100 : 0) +
     (p.hops === 'dial' ? 10 : 0) +
     ['stack', 'side-right', 'side-main', 'side-col'].indexOf(p.layout);
   plans.sort((a, b) => rank(a) - rank(b));
@@ -812,7 +831,12 @@ export function NumberLineJumpWidget({
 
   let path: ReactNode;
   if (stones) {
-    const fit = stonesFor(c, roadW, T);
+    const fit = plan.pictureStones ? stonesFor(c, 0, T) : stonesFor(c, roadW, T);
+    if (plan.pictureStones) {
+      // A picture road as wide as the lane allows.
+      const pic = stonesFor({ ...c, min: 0, max: 10_000 }, roadW, T);
+      fit.window = Math.min(c.max - c.min + 1, pic.window);
+    }
     const values: number[] = [];
     for (let v = c.min; v <= c.max; v++) values.push(v);
     // The window of stones shown: all of them, or a stretch that follows the hopper (one stone of
@@ -904,7 +928,7 @@ export function NumberLineJumpWidget({
   } else {
     const open = c.path === 'open';
     const labelArcs = open || c.path === 'timeline';
-    const headroom = headroomFor(c);
+    const headroom = headroomFor(c, plan.short);
     const jumps: { from: number; to: number }[] = [];
     let p = c.start;
     for (const by of hops) {
@@ -1133,6 +1157,8 @@ export function NumberLineJumpWidget({
       style={
         {
           '--pad-key': plan.pad ? `${plan.pad.key}px` : undefined,
+          // A 64 px key (G1 minimum): a 36 px digit, so Pip's fingertip fits under it.
+          '--pad-digit': plan.pad && plan.pad.key < 76 ? '36px' : undefined,
           '--nlj-gap': `${plan.gap}px`,
           ...handRootStyle,
         } as CSSProperties
