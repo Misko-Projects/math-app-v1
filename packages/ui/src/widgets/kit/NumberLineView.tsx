@@ -86,6 +86,28 @@ const NUMERAL_PX = 40;
 /** Rough width of a numeral string at 32 px Baloo 2 (for thinning crowded labels). */
 const numeralWidth = (s: string) => s.length * 24 + 8;
 
+/**
+ * The exact scale a `NumberLineView` with these props draws with (same end padding), with
+ * `lineY` = `headroom`. Widgets that lay HTML controls over the line (a draggable marker, a
+ * hopping critter) position them with it, in the SVG's own pixel coordinates.
+ */
+export function numberLineViewScale({
+  min,
+  max,
+  width = 880,
+  format = (v: number) => String(v),
+  headroom,
+}: {
+  min: number;
+  max: number;
+  width?: number;
+  format?: (value: number) => string;
+  headroom: number;
+}): NumberLineScale {
+  const pad = Math.max(40, numeralWidth(format(max)) / 2 + 8);
+  return { ...numberLineScale(min, max, width, pad), lineY: headroom };
+}
+
 export function NumberLineView({
   min,
   max,
@@ -101,8 +123,8 @@ export function NumberLineView({
   className,
 }: NumberLineViewProps) {
   const arrowId = `ni-arrow-${useId().replace(/[^a-zA-Z0-9_-]/g, '')}`;
-  const pad = Math.max(40, numeralWidth(format(max)) / 2 + 8);
-  const s = numberLineScale(min, max, width, pad);
+  const s = numberLineViewScale({ min, max, width, format, headroom: LINE_Y });
+  const pad = s.pad;
   const ticks = stepsBetween(min, max, ticksEvery);
   // Numerals: every labelsEvery. When they would touch, keep an even stride (every 2nd, 5th, 10th…
   // label) so the pattern stays regular, never a greedy gap here and there.

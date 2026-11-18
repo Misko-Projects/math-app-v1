@@ -9,7 +9,7 @@ import {
   trayGrid,
 } from './controls';
 import { dicePattern, dotsLayout, groupIndexes, minObjectStep, objectSetLayout } from './layout';
-import { stepsBetween } from './NumberLineView';
+import { numberLineViewScale, stepsBetween } from './NumberLineView';
 
 const set = (over: Partial<ObjectSet>): ObjectSet => ({
   count: 7,
@@ -149,6 +149,17 @@ describe('number line steps', () => {
     expect(stepsBetween(0, 1, 0.1)).toHaveLength(11);
     expect(stepsBetween(0, 1, 0.1).at(-1)).toBe(1);
     expect(stepsBetween(0, 10, null)).toEqual([]);
+  });
+
+  it('numberLineViewScale matches the view: end padding for the widest numeral', () => {
+    const s = numberLineViewScale({ min: 0, max: 10, width: 500, headroom: 120 });
+    expect(s.lineY).toBe(120);
+    expect(s.pad).toBe(40);
+    expect(s.x(0)).toBe(40);
+    expect(s.x(10)).toBe(460);
+    expect(s.value(250)).toBe(5);
+    const wide = numberLineViewScale({ min: 0, max: 1000, width: 500, headroom: 96 });
+    expect(wide.pad).toBe(Math.max(40, (4 * 19 + 6) / 2 + 8));
   });
 });
 

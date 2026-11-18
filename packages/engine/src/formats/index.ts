@@ -14,6 +14,7 @@ import { hundredChart } from './hundred-chart';
 import { makeSet } from './make-set';
 import { numberBond } from './number-bond';
 import { numberLineJump } from './number-line-jump';
+import { numberLinePlace } from './number-line-place';
 import { numberPad } from './number-pad';
 import { numeralPick } from './numeral-pick';
 import { order } from './order';
@@ -38,6 +39,7 @@ const MODELS: Partial<Record<ItemFormat, AnyModel>> = {
   rekenrek,
   'number-line-jump': numberLineJump,
   'hundred-chart': hundredChart,
+  'number-line-place': numberLinePlace,
   // U04 (#13)
   'base-ten-build': baseTenBuild,
   'base-ten-trade': baseTenTrade,
