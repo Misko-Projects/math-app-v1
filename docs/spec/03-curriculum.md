@@ -1798,8 +1798,10 @@ if r.kind is incompatible with item.answer.kind (§5.1):
   devError(); return { correct: false, partialCredit: 0, misconceptionIds: [], feedback: 'fb.retry' }
 correct   = matches(item.answer, r)
 closeness = item.answer.kind == 'placement' ? 1 − min(1, |r.value − v| / (0.25 × (max − min))) : undefined
-mcs       = correct ? [] : answer/state misconception rules (§7) that apply to item.generator and item.skillId
-                          and match (item, r), sorted by priority desc, then id
+generator = boundTemplates[item.templateId]?.generator   // 02 §5.9 E3: only templates bound with initContent
+mcs       = correct || generator is undefined ? []
+          : answer/state misconception rules (§7) that apply to generator and item.skillId
+            and match (item, r), sorted by priority desc, then id
 feedback  = correct ? 'fb.correct.' + (1 + item.seed mod 6)
           : mcs.length ? library[mcs[0]].feedback
           : 'fb.' + item.format + '.retry'
