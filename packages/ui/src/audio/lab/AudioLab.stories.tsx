@@ -52,8 +52,25 @@ export const Lab: Story = {
 
     await userEvent.clear(composer.getByLabelText('Value'));
     await userEvent.type(composer.getByLabelText('Value'), 'lots');
-    await expect(composer.getByText(/needs an integer/)).toBeVisible();
+    // A friendly, slot-aware message; the precise reason stays out of sight in data-detail.
+    const value = composer.getByLabelText('Value');
+    await expect(value).toHaveAttribute('aria-invalid', 'true');
+    await expect(value).toHaveAccessibleDescription(
+      'Enter the amount in cents, like 125 for $1.25.',
+    );
+    const hint = composer.getByText('Enter the amount in cents, like 125 for $1.25.');
+    await expect(hint).toBeVisible();
+    await expect(hint).toHaveAttribute('data-detail', 'slot $v needs an integer, got "lots"');
+    await expect(composer.queryByText(/\$v/)).toBeNull();
     await expect(composer.getByRole('button', { name: 'Say it' })).toBeDisabled();
+
+    // Back to a valid value: the error state clears.
+    await userEvent.clear(value);
+    await userEvent.type(value, '305');
+    await expect(value).not.toHaveAttribute('aria-invalid');
+    await expect(composer.getByText('“three dollars and five cents”')).toBeVisible();
+    await userEvent.clear(value);
+    await userEvent.type(value, 'lots');
   },
 };
 

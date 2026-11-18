@@ -50,15 +50,69 @@ const entry = (key: string, text: string): [string, CompiledNarrationEntry] => [
 
 /** Composer slot types, each with a one-slot line `lab.compose.<id>` ("{v|type}."). */
 export const COMPOSER_TYPES = [
-  { id: 'num', token: '$v', label: 'Number', example: '12345' },
-  { id: 'digits', token: '$v|digits', label: 'Digits', example: '345' },
-  { id: 'ord', token: '$v|ord', label: 'Ordinal (1–31)', example: '21' },
-  { id: 'cents', token: '$v|cents', label: 'Cents', example: '25' },
-  { id: 'dollars', token: '$v|dollars', label: 'Dollars (in cents)', example: '125' },
-  { id: 'time', token: '$v|time', label: 'Time (h:mm)', example: '7:05' },
-  { id: 'frac', token: '$v|frac', label: 'Fraction (a/b)', example: '3/4' },
-  { id: 'dec1', token: '$v|dec:1', label: 'Tenths (in 100ths)', example: '30' },
-  { id: 'dec2', token: '$v|dec:2', label: 'Hundredths', example: '250' },
+  {
+    id: 'num',
+    token: '$v',
+    label: 'Number',
+    example: '12345',
+    hint: 'Enter a whole number up to one million, like 12345.',
+  },
+  {
+    id: 'digits',
+    token: '$v|digits',
+    label: 'Digits',
+    example: '345',
+    hint: 'Enter a whole number, like 345.',
+  },
+  {
+    id: 'ord',
+    token: '$v|ord',
+    label: 'Ordinal (1–31)',
+    example: '21',
+    hint: 'Enter a whole number from 1 to 31.',
+  },
+  {
+    id: 'cents',
+    token: '$v|cents',
+    label: 'Cents',
+    example: '25',
+    hint: 'Enter a whole number of cents, like 25.',
+  },
+  {
+    id: 'dollars',
+    token: '$v|dollars',
+    label: 'Dollars (in cents)',
+    example: '125',
+    hint: 'Enter the amount in cents, like 125 for $1.25.',
+  },
+  {
+    id: 'time',
+    token: '$v|time',
+    label: 'Time (h:mm)',
+    example: '7:05',
+    hint: 'Enter a time like 7:05 or 3:30 pm.',
+  },
+  {
+    id: 'frac',
+    token: '$v|frac',
+    label: 'Fraction (a/b)',
+    example: '3/4',
+    hint: 'Enter a fraction like 3/4.',
+  },
+  {
+    id: 'dec1',
+    token: '$v|dec:1',
+    label: 'Tenths (in 100ths)',
+    example: '30',
+    hint: 'Enter hundredths in whole tenths, like 30 for 0.3.',
+  },
+  {
+    id: 'dec2',
+    token: '$v|dec:2',
+    label: 'Hundredths',
+    example: '250',
+    hint: 'Enter a whole number of hundredths, like 250 for 2.50.',
+  },
 ] as const;
 
 export type ComposerTypeId = (typeof COMPOSER_TYPES)[number]['id'];

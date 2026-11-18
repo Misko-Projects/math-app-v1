@@ -137,6 +137,15 @@ export function AudioLab({
     composerPlan?.clips
       ?.filter((c) => !c.optional)
       .map((c) => (c.candidates[0] ?? '').replace(/#0$/, '')) ?? null;
+  const composerInvalid = !composerClips;
+  // The precise reason (e.g. `slot $v needs an integer, got "lots"`) stays out of the visible
+  // message: it goes to `data-detail` and the console for developers and tests.
+  const composerProblem = composerInvalid
+    ? (composerPlan?.problems[0]?.replace(/^lab\.compose\.\w+: /, '') ?? 'invalid value')
+    : undefined;
+  useEffect(() => {
+    if (composerProblem) console.info(`[audio-lab] composer: ${composerProblem}`);
+  }, [composerProblem]);
 
   const playing = now && !now.done;
 
@@ -293,6 +302,8 @@ export function AudioLab({
               <input
                 value={composerValue}
                 inputMode="numeric"
+                aria-invalid={composerInvalid || undefined}
+                aria-describedby={composerInvalid ? 'alab-composer-error' : undefined}
                 onChange={(e) => setComposerValue(e.target.value)}
               />
             </label>
@@ -314,9 +325,12 @@ export function AudioLab({
                 </span>
               </>
             ) : (
-              <span className="alab-composed-error">
-                {composerPlan?.problems[0]?.replace(/^lab\.compose\.\w+: /, '') ??
-                  'Not a valid value'}
+              <span
+                id="alab-composer-error"
+                className="alab-composed-error"
+                data-detail={composerProblem}
+              >
+                {composer.hint}
               </span>
             )}
           </p>

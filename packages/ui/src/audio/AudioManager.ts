@@ -99,6 +99,8 @@ export const LINE_START_DELAY_SEC = 0.02;
 const MAX_SFX_VOICES = 8;
 const SFX_RETRIGGER_SEC = 0.04;
 const RESUME_TIMEOUT_MS = 1500;
+/** Longest wait for narration.json, the manifest or a line's clips before falling back. */
+export const LOAD_TIMEOUT_MS = 5000;
 
 type LineRequest =
   | { kind: 'key'; key: NarrationKey; vars?: Record<string, string | number> }
@@ -148,11 +150,16 @@ export class WebAudioManager implements AudioManager {
   #detach: (() => void) | null = null;
   #sfxVoices: SfxVoice[] = [];
   #lastSfx = new Map<string, number>();
+  readonly #ownsSpeech: boolean;
+  #disposed = false;
+  /** Context time when a cut-off line's fade-out ends; the next line starts no earlier. */
+  #voiceFreeAt = 0;
   #music: MusicPlayer | null = null;
   #desiredMusic: MusicId | null = null;
 
   constructor(opts: WebAudioManagerOptions) {
     this.#opts = opts;
+    this.#ownsSpeech = opts.speech === undefined;
     this.#speech = opts.speech ?? createWebSpeech();
     this.#timers = opts.timers ?? (globalThis as unknown as AudioTimers);
     this.#warn = opts.warn ?? defaultWarn;
@@ -183,6 +190,7 @@ export class WebAudioManager implements AudioManager {
 
   /** Call synchronously from the first user gesture's handler (06 §5). Safe to call repeatedly. */
   async unlock(): Promise<void> {
+    if (this.#disposed) return;
     // Must run before any await: speech permission is tied to the gesture (Chrome, Android).
     if (!this.#speechPrimed) {
       this.#speechPrimed = true;
@@ -299,9 +307,12 @@ export class WebAudioManager implements AudioManager {
     this.configure(audioSettingsFromFamily(s));
   }
 
-  /** Releases the AudioContext. The manager stays usable for nothing afterwards. */
+  /** Releases the AudioContext. Terminal: afterwards every call is a silent no-op. */
   async dispose(): Promise<void> {
+    if (this.#disposed) return;
     this.stop();
+    this.#disposed = true;
+    if (this.#ownsSpeech) this.#speech.dispose?.();
     this.#music?.dispose();
     this.#music = null;
     this.#detach?.();
@@ -316,12 +327,15 @@ export class WebAudioManager implements AudioManager {
   // ---------- internals: lines ----------
 
   #voiceAllowed(): boolean {
+    if (this.#disposed) return false;
     return this.#state === 'running' || (this.#state === 'unavailable' && this.#speech.available);
   }
 
   #submit(request: LineRequest, queued: boolean): Promise<void> {
     if (!this.#voiceAllowed()) {
-      this.#warnOnce('audio: narration requested before unlock(); nothing played');
+      if (!this.#disposed) {
+        this.#warnOnce('audio: narration requested before unlock(); nothing played');
+      }
       return Promise.resolve();
     }
     let resolve: () => void = () => {};
@@ -379,7 +393,13 @@ export class WebAudioManager implements AudioManager {
         problems: [],
       };
     }
-    const narration = await this.#loadNarration();
+    let narration: NarrationJson;
+    try {
+      narration = await withTimeout(this.#loadNarration(), LOAD_TIMEOUT_MS, this.#timers);
+    } catch {
+      this.#warnOnce('audio: narration.json is taking too long; a line was skipped');
+      return null;
+    }
     if (request.kind === 'phrases') return planPhrases(narration, request.parts);
     const plan = planLine(narration, request.key, request.vars);
     if (!plan) this.#warnOnce(`audio: narration key "${request.key}" is not in narration.json`);
@@ -389,7 +409,14 @@ export class WebAudioManager implements AudioManager {
   async #loadClips(plan: LinePlan): Promise<{ ids: ClipId[]; buffers: AudioBuffer[] } | null> {
     const ctx = this.#ctx;
     if (!ctx || this.#state !== 'running' || !plan.clips) return null;
-    const manifest = await this.#loadManifest();
+    let manifest: AudioManifest | null;
+    try {
+      // Bounded: a stalled request must not freeze narration (the late answer is still cached).
+      manifest = await withTimeout(this.#loadManifest(), LOAD_TIMEOUT_MS, this.#timers);
+    } catch {
+      this.#warnOnce('audio: the audio manifest is taking too long; using Web Speech');
+      return null;
+    }
     if (!manifest) {
       this.#warnOnce('audio: no audio manifest; narration falls back to Web Speech');
       return null;
@@ -403,18 +430,42 @@ export class WebAudioManager implements AudioManager {
         return null;
       }
     }
+    const loads = ids.map((id) => {
+      const url = this.#clipUrl(manifest, id);
+      const entry = { url, promise: this.#clipBuffer(ctx, url), settled: false };
+      entry.promise.then(
+        () => {
+          entry.settled = true;
+        },
+        () => {
+          entry.settled = true;
+        },
+      );
+      return entry;
+    });
     try {
-      const buffers = await Promise.all(ids.map((id) => this.#clipBuffer(ctx, manifest, id)));
+      const buffers = await withTimeout(
+        Promise.all(loads.map((l) => l.promise)),
+        LOAD_TIMEOUT_MS,
+        this.#timers,
+      );
       return { ids, buffers };
     } catch (e) {
+      // Forget requests that are still pending, so a retry fetches afresh instead of joining a
+      // stalled one.
+      for (const l of loads) {
+        if (!l.settled && this.#clipCache.get(l.url) === l.promise) this.#clipCache.delete(l.url);
+      }
       this.#warnOnce(`audio: a clip failed to load (${String(e)}); using Web Speech`);
       return null;
     }
   }
 
-  #clipBuffer(ctx: AudioContext, manifest: AudioManifest, id: ClipId): Promise<AudioBuffer> {
-    const file = manifest.clips[id]?.file ?? '';
-    const url = joinUrl(this.#opts.audioBaseUrl ?? '/audio/', file);
+  #clipUrl(manifest: AudioManifest, id: ClipId): string {
+    return joinUrl(this.#opts.audioBaseUrl ?? '/audio/', manifest.clips[id]?.file ?? '');
+  }
+
+  #clipBuffer(ctx: AudioContext, url: string): Promise<AudioBuffer> {
     const cached = this.#clipCache.get(url);
     if (cached) {
       // Refresh recency (Map iteration order is insertion order).
@@ -424,7 +475,9 @@ export class WebAudioManager implements AudioManager {
     }
     const fetchClip = this.#opts.fetchClip ?? defaultFetchClip;
     const pending = fetchClip(url).then((data) => ctx.decodeAudioData(data));
-    pending.catch(() => this.#clipCache.delete(url));
+    pending.catch(() => {
+      if (this.#clipCache.get(url) === pending) this.#clipCache.delete(url);
+    });
     this.#clipCache.set(url, pending);
     const limit = this.#opts.clipCacheSize ?? 160;
     while (this.#clipCache.size > limit) {
@@ -452,6 +505,8 @@ export class WebAudioManager implements AudioManager {
       via: 'clips',
       clips: loaded.ids,
     });
+    // A listener may have cancelled the line (stop(), or a new prompt) during that event.
+    if (isDone(line)) return;
     if (loaded.buffers.length === 0) {
       this.#finish(line, 'done');
       return;
@@ -459,7 +514,8 @@ export class WebAudioManager implements AudioManager {
     const lineGain = ctx.createGain();
     lineGain.connect(buses.voice);
     const rate = this.#settings.voiceRate;
-    let t = ctx.currentTime + LINE_START_DELAY_SEC;
+    // Never overlap the fade-out of a line that was just cut off (06 §5).
+    let t = Math.max(ctx.currentTime + LINE_START_DELAY_SEC, this.#voiceFreeAt);
     const sources = loaded.buffers.map((buffer) => {
       const s = ctx.createBufferSource();
       s.buffer = buffer;
@@ -469,7 +525,6 @@ export class WebAudioManager implements AudioManager {
       t += buffer.duration / rate;
       return s;
     });
-    this.#emit({ type: 'clip-start', lineId: line.id, index: 0, clip: loaded.ids[0] ?? '' });
     sources.forEach((s, i) => {
       s.onended = () => {
         if (line.phase !== 'playing') return;
@@ -489,18 +544,22 @@ export class WebAudioManager implements AudioManager {
     });
     line.stopPlayback = () => {
       const now = ctx.currentTime;
+      const fadeEnd = now + CANCEL_FADE_SEC;
       lineGain.gain.cancelScheduledValues(now);
       lineGain.gain.setValueAtTime(lineGain.gain.value, now);
-      lineGain.gain.linearRampToValueAtTime(0, now + CANCEL_FADE_SEC);
+      lineGain.gain.linearRampToValueAtTime(0, fadeEnd);
       for (const s of sources) {
         try {
-          s.stop(now + CANCEL_FADE_SEC);
+          s.stop(fadeEnd);
         } catch {
           // Already stopped.
         }
       }
+      this.#voiceFreeAt = Math.max(this.#voiceFreeAt, fadeEnd);
       this.#timers.setTimeout(() => lineGain.disconnect(), (CANCEL_FADE_SEC + 0.1) * 1000);
     };
+    // Emitted only once cancellation can stop the sources: a listener may cancel here too.
+    this.#emit({ type: 'clip-start', lineId: line.id, index: 0, clip: loaded.ids[0] ?? '' });
   }
 
   #speak(line: Line, plan: LinePlan): void {
@@ -514,20 +573,32 @@ export class WebAudioManager implements AudioManager {
       via: 'speech',
       clips: [],
     });
+    if (isDone(line)) return; // cancelled by a listener
     if (!this.#speech.available) {
-      this.#warnOnce('audio: Web Speech is unavailable; a line was skipped');
+      this.#warnOnce('audio: no on-device Web Speech voice; a line was skipped');
       this.#finish(line, 'done');
       return;
     }
-    const handle = this.#speech.speak(plan.spoken, {
-      voice: plan.voice,
-      rate: this.#settings.voiceRate,
-      volume: this.#settings.volumes.voice,
-    });
-    line.stopPlayback = () => handle.cancel();
-    void handle.done.then(() => {
-      if (line.phase === 'playing') this.#finish(line, 'done');
-    });
+    const start = () => {
+      if (isDone(line)) return;
+      const handle = this.#speech.speak(plan.spoken, {
+        voice: plan.voice,
+        rate: this.#settings.voiceRate,
+        volume: this.#settings.volumes.voice,
+      });
+      line.stopPlayback = () => handle.cancel();
+      void handle.done.then(() => {
+        if (!isDone(line)) this.#finish(line, 'done');
+      });
+    };
+    // Let a cut-off clip line finish its short fade before the voice starts (06 §5).
+    const waitSec = this.#ctx ? this.#voiceFreeAt - this.#ctx.currentTime : 0;
+    if (waitSec > 0) {
+      const timer = this.#timers.setTimeout(start, Math.ceil(waitSec * 1000));
+      line.stopPlayback = () => this.#timers.clearTimeout(timer);
+    } else {
+      start();
+    }
   }
 
   #finish(line: Line, reason: 'done' | 'cancelled'): void {
@@ -742,6 +813,11 @@ export async function loadAudioManifest(
     warn(`audio: could not load ${url} (${String(e)}); narration uses Web Speech`);
     return null;
   }
+}
+
+/** A function, so TypeScript re-reads `phase` after calls that may change it. */
+function isDone(line: Line): boolean {
+  return line.phase === 'done';
 }
 
 function defaultCreateContext(): AudioContext | null {

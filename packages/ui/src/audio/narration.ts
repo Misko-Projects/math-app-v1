@@ -55,7 +55,7 @@ export function planLine(
     if (!isSlotToken(clip)) {
       const segment = staticTexts[staticIndex];
       staticIndex += 1;
-      clips?.push({ candidates: [clip], optional: segment ? !hasWords(segment.text) : false });
+      clips?.push({ candidates: [clip], optional: segment ? !isSpoken(segment.text) : false });
       continue;
     }
     const token = parseSlotToken(clip);
@@ -188,15 +188,20 @@ export function splitLine(line: string): Segment[] {
   return out;
 }
 
-function hasWords(text: string): boolean {
-  return /[\p{L}\p{N}]/u.test(text);
+/**
+ * True when a static segment has something to say: words, numbers, or a math symbol or blank
+ * that 03 §8.4 reads aloud ("plus", "equals", "what number"). A `?` counts as a blank when it
+ * stands alone (after a space), and as punctuation when it ends a word or a slot ("{b}?").
+ */
+export function isSpoken(text: string): boolean {
+  return /[\p{L}\p{N}+−×÷=<>_□]/u.test(text) || /\s\?/.test(text) || /(^|\s)-(\s|$)/.test(text);
 }
 
 /** True when nothing but terminal punctuation (or nothing) follows the last slot. */
 function trailingIsTerminal(segments: readonly Segment[]): boolean {
   const lastSlot = findLastIndex(segments, (s) => s.kind === 'slot');
   if (lastSlot < 0) return false;
-  return segments.slice(lastSlot + 1).every((s) => s.kind === 'text' && !hasWords(s.text));
+  return segments.slice(lastSlot + 1).every((s) => s.kind === 'text' && !isSpoken(s.text));
 }
 
 /** The token written inside the braces → the same token as narration.json writes it. */

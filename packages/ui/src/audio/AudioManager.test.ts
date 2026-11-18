@@ -7,6 +7,7 @@ import {
   createAudioManager,
   DUCK_LEVEL,
   LINE_START_DELAY_SEC,
+  LOAD_TIMEOUT_MS,
   loadAudioManifest,
   type WebAudioManagerOptions,
 } from './AudioManager';
@@ -59,17 +60,32 @@ class FakeSpeech implements SpeechBackend {
 }
 
 /** Timers that never fire on their own (the music scheduler and fade cleanups stay inert). */
-function inertTimers(): AudioTimers & { pending: (() => void)[] } {
-  const pending: (() => void)[] = [];
+type TestTimers = AudioTimers & {
+  pending: Map<number, { fn: () => void; ms: number }>;
+  /** Runs every pending timeout once (newly scheduled ones wait for the next call). */
+  fireAll(): void;
+};
+
+function inertTimers(): TestTimers {
+  const pending = new Map<number, { fn: () => void; ms: number }>();
+  let next = 1;
   return {
     pending,
-    setTimeout: (fn) => {
-      pending.push(fn);
-      return pending.length;
+    setTimeout: (fn, ms) => {
+      const id = next++;
+      pending.set(id, { fn, ms });
+      return id;
     },
-    clearTimeout: () => {},
+    clearTimeout: (handle) => {
+      pending.delete(handle as number);
+    },
     setInterval: () => 0,
     clearInterval: () => {},
+    fireAll() {
+      const due = [...pending.values()];
+      pending.clear();
+      for (const t of due) t.fn();
+    },
   };
 }
 
@@ -81,6 +97,8 @@ interface Setup {
   warnings: string[];
   events: AudioEvent[];
   fetched: string[];
+  timers: TestTimers;
+  contextsCreated: () => number;
   manager: ReturnType<typeof createAudioManager>;
 }
 
@@ -92,23 +110,37 @@ async function setup(
   const warnings: string[] = [];
   const events: AudioEvent[] = [];
   const fetched: string[] = [];
+  const timers = inertTimers();
+  let created = 0;
   const manager = createAudioManager({
     narration: narrationFixture,
     manifest: fixtureManifest([], ['num.23.end#0']),
-    createContext: () => asAudioContext(ctx),
+    createContext: () => {
+      created += 1;
+      return asAudioContext(ctx);
+    },
     fetchClip: async (url) => {
       fetched.push(url);
       const id = url.replace(/^\/audio\//, '').replace(/\.opus$/, '');
       return fakeEncodedClip(id, durations.get(id) ?? 0.45);
     },
     speech,
-    timers: inertTimers(),
+    timers,
     warn: (m) => warnings.push(m),
     ...opts,
   });
   manager.subscribe((e) => events.push(e));
   if (!opts.locked) await manager.unlock();
-  return { ctx, speech, warnings, events, fetched, manager };
+  return {
+    ctx,
+    speech,
+    warnings,
+    events,
+    fetched,
+    timers,
+    contextsCreated: () => created,
+    manager,
+  };
 }
 
 async function flush(): Promise<void> {
@@ -607,6 +639,157 @@ describe('volumes, music switch and SFX', () => {
       vi.unstubAllGlobals();
     }
   });
+});
+
+describe('no overlap when a line cuts in (06 §5)', () => {
+  it('starts the replacement clips only after the outgoing fade', async () => {
+    const { manager, ctx } = await setup();
+    // Warm the cache so the replacement is ready instantly.
+    const warm = manager.say('p.count.how-many');
+    await flush();
+    ctx.advance(5);
+    await warm;
+    void manager.say('game.pip.welcome');
+    await flush();
+    ctx.advance(0.2);
+    void manager.say('p.count.how-many'); // cuts in with the clock held still
+    await flush();
+    const [, old, replacement] = clipSources(ctx);
+    const fadeEnd = ctx.currentTime + CANCEL_FADE_SEC;
+    expect(old?.stoppedAt).toBeCloseTo(fadeEnd, 9);
+    expect(replacement?.startedAt ?? 0).toBeGreaterThanOrEqual(fadeEnd - 1e-9);
+  });
+
+  it('delays a Web Speech replacement until the fade has finished', async () => {
+    const { manager, ctx, speech, timers } = await setup({
+      manifest: fixtureManifest(['p.count.how-many#0']),
+    });
+    void manager.say('game.pip.welcome');
+    await flush();
+    ctx.advance(0.2);
+    timers.pending.clear();
+    void manager.say('p.count.how-many'); // its clip is missing: Web Speech
+    await flush();
+    expect(speech.lines).toHaveLength(0);
+    const delays = [...timers.pending.values()].map((t) => t.ms);
+    const fadeMs = CANCEL_FADE_SEC * 1000;
+    expect(delays.some((ms) => ms >= fadeMs && ms <= fadeMs + 1)).toBe(true);
+    timers.fireAll();
+    expect(speech.lines.map((l) => l.text)).toEqual(['How many fish?']);
+  });
+});
+
+describe('listeners that cancel', () => {
+  it('a line cancelled from its own line-start never starts its clips', async () => {
+    const { manager, ctx } = await setup();
+    manager.subscribe((e) => {
+      if (e.type === 'line-start') manager.cancelSpeech();
+    });
+    const line = manager.say('p.count.how-many');
+    await flush();
+    await line;
+    expect(clipSources(ctx)).toHaveLength(0);
+    expect(manager.speaking).toBe(false);
+  });
+
+  it('a line cancelled from clip-start stops the scheduled sources', async () => {
+    const { manager, ctx } = await setup();
+    manager.subscribe((e) => {
+      if (e.type === 'clip-start') manager.stop();
+    });
+    const line = manager.say('tp.ADD.08.t1.prompt', { a: 1, b: 2 });
+    await flush();
+    await line;
+    const sources = clipSources(ctx);
+    expect(sources.length).toBeGreaterThan(0);
+    expect(sources.every((s) => s.stoppedAt !== null)).toBe(true);
+  });
+
+  it('a speech line cancelled from line-start is never spoken', async () => {
+    const { manager, speech } = await setup({ manifest: null });
+    manager.subscribe((e) => {
+      if (e.type === 'line-start') manager.cancelSpeech();
+    });
+    await manager.say('p.count.how-many');
+    expect(speech.lines).toHaveLength(0);
+  });
+});
+
+describe('stalled loading is bounded', () => {
+  it('a clip that never arrives falls back to Web Speech, lets feedback run, and is retried', async () => {
+    let calls = 0;
+    const { manager, ctx, speech, timers } = await setup({
+      fetchClip: (url) => {
+        calls += 1;
+        if (calls === 1) return new Promise<ArrayBuffer>(() => {}); // stalls forever
+        const id = url.replace(/^\/audio\//, '').replace(/\.opus$/, '');
+        return Promise.resolve(fakeEncodedClip(id, 0.5));
+      },
+    });
+    const { duck } = buses(ctx);
+    const prompt = manager.say('p.count.how-many');
+    void manager.say('fb.correct.1');
+    await flush();
+    expect([...timers.pending.values()].some((t) => t.ms === LOAD_TIMEOUT_MS)).toBe(true);
+    timers.fireAll();
+    await flush();
+    expect(speech.lines.map((l) => l.text)).toEqual(['How many fish?']);
+    speech.lines[0]?.finish();
+    await prompt;
+    await flush();
+    // Feedback advanced (its clip loads normally) and plays as clips.
+    expect(labels(clipSources(ctx))).toEqual(['fb.correct.1#0']);
+    ctx.advance(5);
+    await flush();
+    expect(duck.gain.lastTarget()).toBe(1);
+    // Retrying the stalled prompt fetches afresh instead of joining the stalled request.
+    void manager.say('p.count.how-many');
+    await flush();
+    expect(labels(clipSources(ctx))).toEqual(['fb.correct.1#0', 'p.count.how-many#0']);
+  });
+
+  it('a manifest that never arrives falls back to Web Speech', async () => {
+    const { manager, speech, timers } = await setup({
+      manifest: () => new Promise(() => {}),
+    });
+    void manager.say('p.count.how-many');
+    await flush();
+    expect(speech.lines).toHaveLength(0);
+    timers.fireAll();
+    await flush();
+    expect(speech.lines.map((l) => l.text)).toEqual(['How many fish?']);
+  });
+});
+
+describe('dispose is terminal', () => {
+  it('ignores narration and unlock afterwards, even with speech available', async () => {
+    const { manager, speech, contextsCreated, warnings } = await setup();
+    await manager.dispose();
+    const before = warnings.length;
+    await manager.say('p.count.how-many');
+    await manager.sayText('Hello');
+    await manager.sayPhrases([{ id: 'ph.you-have' }]);
+    await manager.unlock();
+    manager.sfx('chime');
+    manager.music('island');
+    expect(speech.lines).toHaveLength(0);
+    expect(contextsCreated()).toBe(1);
+    expect(manager.state).toBe('unavailable');
+    expect(warnings.length).toBe(before);
+  });
+});
+
+describe('spoken math symbols need their clips (03 §8.4)', () => {
+  it.each([['p.add.what-is#0'], ['p.add.what-is#1']])(
+    'falls back to Web Speech when %s ("plus" / "equals what number") is missing',
+    async (missing) => {
+      const { manager, ctx, speech } = await setup({ manifest: fixtureManifest([missing]) });
+      void manager.say('p.add.what-is', { a: 3, b: 4 });
+      await flush();
+      expect(clipSources(ctx)).toHaveLength(0);
+      expect(speech.lines.map((l) => l.text)).toEqual(['three plus four equals what number']);
+    },
+  );
 });
 
 describe('loadAudioManifest', () => {

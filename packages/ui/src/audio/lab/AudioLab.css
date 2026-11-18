@@ -9,6 +9,7 @@
   --alab-ink: var(--color-ink, #264653);
   --alab-ink-soft: var(--color-ink-soft, #3d6170);
   --alab-coral: var(--color-coral, #e76f51);
+  --alab-coral-deep: var(--color-coral-deep, #b9503a);
   --alab-sun: var(--color-sun, #f4a261);
   --alab-sunshine: var(--color-sunshine, #e9c46a);
   --alab-leaf: var(--color-leaf, #5c9e4f);
@@ -346,6 +347,15 @@
   font: 400 1rem var(--alab-body);
   min-width: 0;
 }
+/* Invalid value: an error-coloured border and ring, distinct from the sunny focus ring. */
+.alab-field input[aria-invalid="true"] {
+  border-color: var(--alab-coral-deep);
+  background: #fff4f0;
+  box-shadow: 0 0 0 3px rgb(231 111 81 / 0.28);
+}
+.alab-field input[aria-invalid="true"]:focus-visible {
+  outline-color: var(--alab-coral-deep);
+}
 .alab-composed {
   display: flex;
   flex-wrap: wrap;
@@ -366,8 +376,23 @@
   color: var(--alab-ink-soft);
 }
 .alab-composed-error {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
   color: #9a3d28;
   font-weight: 700;
+}
+.alab-composed-error::before {
+  content: "!";
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 24px;
+  height: 24px;
+  border-radius: 9999px;
+  color: #fff;
+  background: var(--alab-coral-deep);
+  font: 800 0.95rem var(--alab-display);
 }
 
 /* ---------- clip chips ---------- */
