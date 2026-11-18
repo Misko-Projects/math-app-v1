@@ -25,12 +25,14 @@ export {
   objectSetLayout,
   type PlacedObject,
 } from './layout';
+export { type FlyOptions, flyFrom } from './motion';
 export {
   type NumberLineMark,
   type NumberLineScale,
   NumberLineView,
   type NumberLineViewProps,
   numberLineScale,
+  numberLineViewScale,
   stepsBetween,
 } from './NumberLineView';
 export { fitCell, ObjectSetView, type ObjectSetViewProps } from './ObjectSetView';

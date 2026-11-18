@@ -13,6 +13,9 @@ import type { WidgetRegistry } from './types';
 export const widgetRegistry: WidgetRegistry = {
   'number-pad': () => import('./number-pad/NumberPadWidget'),
   'numeral-pick': () => import('./numeral-pick/NumeralPickWidget'),
+  'number-line-place': () => import('./number-line-place/NumberLinePlaceWidget'),
+  'number-line-jump': () => import('./number-line-jump/NumberLineJumpWidget'),
+  'hundred-chart': () => import('./hundred-chart/HundredChartWidget'),
 };
 
 /** Formats that have a registered widget. */

@@ -1,0 +1,264 @@
+/*
+ * number-line-jump widget (U03, Road Crew). Landscape: the road (stones or a line) across the top
+ * with the hopper on it; jump buttons, the pad and "check" in one row below. Tokens only.
+ */
+
+.ni-nlj {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 24px;
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 1180px;
+  padding: 8px 20px;
+}
+.ni-nlj__path {
+  display: flex;
+  justify-content: center;
+  width: 100%;
+}
+
+/* ---------- stones (concrete) ---------- */
+
+.ni-nlj__stones {
+  position: relative;
+  display: flex;
+  justify-content: center;
+  gap: var(--target-gap);
+  box-sizing: border-box;
+  width: 100%;
+  padding-top: 76px;
+}
+.ni-nlj__stoneslot {
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+  flex: 1 1 0;
+  min-width: var(--target-min);
+  max-width: 112px;
+}
+.ni-nlj__stone {
+  position: relative;
+  display: grid;
+  place-items: center;
+  box-sizing: border-box;
+  width: 100%;
+  aspect-ratio: 1;
+  margin: 0 0 6px;
+  padding: 0;
+  appearance: none;
+  border: 3px solid var(--color-ink);
+  border-radius: 46% 54% 50% 50% / 54% 48% 52% 46%;
+  background: var(--color-pebble);
+  color: var(--color-ink);
+  box-shadow:
+    0 6px 0 var(--color-pebble-deep),
+    var(--shadow-highlight);
+  cursor: pointer;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+.ni-nlj__stone:disabled {
+  cursor: default;
+}
+.ni-nlj__stone:focus-visible {
+  outline: 4px solid var(--color-sea-deep);
+  outline-offset: 4px;
+}
+.ni-nlj__stonenum {
+  font-family: var(--font-display);
+  font-size: 2.5rem;
+  font-weight: 800;
+  line-height: 1;
+  padding-top: 0.12em;
+  font-variant-numeric: tabular-nums;
+}
+/* The start stone: sunshine sand and a little flag (shape, not colour alone). */
+.ni-nlj__stone[data-start="true"] {
+  background: var(--color-sunshine-light);
+}
+.ni-nlj__stone[data-start="true"]::before {
+  content: "";
+  position: absolute;
+  top: -6px;
+  left: 8px;
+  width: 0;
+  height: 0;
+  border-left: 18px solid var(--color-coral);
+  border-top: 10px solid transparent;
+  border-bottom: 10px solid transparent;
+  filter: drop-shadow(-3px 0 0 var(--color-ink));
+}
+/* The stone the hopper stands on: a thick ink ring. */
+.ni-nlj__stone[data-here="true"] {
+  box-shadow:
+    0 0 0 5px var(--color-ink),
+    0 6px 0 5px var(--color-ink);
+}
+.ni-nlj__stone[data-highlight="true"] {
+  outline: 5px solid var(--color-sea-deep);
+  outline-offset: 6px;
+  animation: var(--animate-pulse-soft);
+}
+.ni-nlj__stonehand {
+  left: calc(50% - 8px);
+  bottom: -48px;
+}
+
+/* ---------- line, open line, timeline (pictorial) ---------- */
+
+.ni-nlj__line {
+  position: relative;
+  flex: none;
+}
+.ni-nlj__line > svg {
+  position: absolute;
+  inset: 0;
+}
+.ni-nlj__arclabel {
+  fill: var(--color-ink);
+  font-family: var(--font-display);
+  font-weight: 800;
+}
+.ni-nlj__spot {
+  fill: none;
+  stroke: var(--color-sea-deep);
+  stroke-width: 5;
+  animation: var(--animate-pulse-soft);
+}
+
+/* ---------- the hopper ---------- */
+
+.ni-nlj__hopper {
+  position: absolute;
+  z-index: 2;
+  width: 90px;
+  height: 66px;
+  pointer-events: none;
+}
+.ni-nlj__hopper[data-path="stones"] {
+  top: 6px;
+  left: 0;
+  transform: translateX(-50%);
+}
+.ni-nlj__hopper[data-path="line"] {
+  transform: translate(-50%, calc(-100% + 2px));
+}
+
+/* ---------- controls ---------- */
+
+.ni-nlj__controls {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 40px;
+  width: 100%;
+}
+.ni-nlj__jumps {
+  display: flex;
+  align-items: center;
+  gap: 28px;
+}
+.ni-nlj__jumpset {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: calc(var(--target-gap) * 2);
+  margin: 0;
+  padding: 0;
+  border: 0;
+  min-width: 0;
+}
+.ni-nlj__jumpslot {
+  position: relative;
+  display: inline-flex;
+}
+.ni-nlj__jump {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  box-sizing: border-box;
+  min-width: calc(var(--target-min) * 1.4);
+  min-height: calc(var(--target-min) * 1.3);
+  margin: 0 0 6px;
+  padding: 6px 14px;
+  appearance: none;
+  border: 3px solid var(--color-ink);
+  border-radius: var(--radius-pebble);
+  background: var(--color-cloud);
+  color: var(--color-ink);
+  box-shadow:
+    0 6px 0 var(--color-pebble-deep),
+    var(--shadow-highlight);
+  cursor: pointer;
+  touch-action: manipulation;
+  transition:
+    transform var(--duration-tap) ease-out,
+    box-shadow var(--duration-tap) ease-out;
+  -webkit-tap-highlight-color: transparent;
+}
+.ni-nlj__jump:active:not(:disabled) {
+  transform: translateY(4px);
+  box-shadow:
+    0 2px 0 var(--color-pebble-deep),
+    var(--shadow-highlight);
+}
+.ni-nlj__jump:focus-visible {
+  outline: 4px solid var(--color-sea-deep);
+  outline-offset: 4px;
+}
+.ni-nlj__jump:disabled {
+  cursor: default;
+}
+/* A hop off the end of the road: faded and dashed (not only paler). */
+.ni-nlj__jump[data-blocked="true"] {
+  border-style: dashed;
+  opacity: 0.55;
+}
+.ni-nlj__jumparrow {
+  display: block;
+  width: 52px;
+  height: 36px;
+}
+.ni-nlj__jumpnum {
+  font-family: var(--font-display);
+  font-size: 2.5rem;
+  font-weight: 800;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+.ni-nlj__jumphand {
+  left: calc(50% - 8px);
+  bottom: -48px;
+}
+/* The pad keeps the minimum target size (80 px K / 64 px G1) so the road and pad fit one screen. */
+.ni-nlj .ni-pad {
+  grid-template-columns: repeat(3, var(--target-min));
+  /* + the key's 4 px ledge margin. */
+  grid-auto-rows: calc(var(--target-min) + 4px);
+}
+.ni-nlj__readout {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 20px;
+  border-radius: var(--radius-card);
+}
+.ni-nlj__answerhand {
+  left: calc(50% - 8px);
+  top: 70px;
+}
+
+[data-reduced-motion="true"] .ni-nlj__jump {
+  transition-duration: 0ms;
+}
+@media (prefers-reduced-motion: reduce) {
+  .ni-nlj__jump {
+    transition-duration: 0ms;
+  }
+}

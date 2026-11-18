@@ -1624,9 +1624,10 @@ describe('format registry', () => {
     allowMatchLines: false,
   };
 
-  it('registers exactly the 11 fixture formats', () => {
-    expect(formatModels()).toHaveLength(11);
-    expect([...formatModels()].sort()).toEqual([...formats].sort());
+  // U03–U05 register more models (tested in their own files, e.g. number-line-place.test.ts).
+  it('registers every one of the 11 fixture formats', () => {
+    expect(formats).toHaveLength(11);
+    expect(formatModels()).toEqual(expect.arrayContaining(formats));
   });
 
   it.each(MODEL_ROWS.map((r) => [r.model.format as string, r] as const))(
