@@ -144,6 +144,20 @@ td.c{text-align:center}
   <svg width="260" height="200" viewBox="0 0 260 200" aria-hidden="true"><circle cx="130" cy="140" r="90" fill="#fff"/><path d="M40 150 Q130 90 220 150" stroke="#fff" stroke-width="10" fill="none"/><text x="70" y="80" font-size="60" fill="#fff" font-weight="800">7+3</text></svg>
 </header>
 
+<section id="locked" style="margin-top:0">
+  <div class="callout good"><strong>Update (17 Nov 2026): decisions locked, and the build spec is written</strong>
+    You accepted the recommendations, with these changes:
+    <ul class="tight">
+      <li><b>Devices:</b> the new Alexa/Kids Tablets (Android, Chrome) plus browsers. Fire OS is dropped.</li>
+      <li><b>Distribution:</b> open source (MIT), self-hosted by each family.</li>
+      <li><b>Standards:</b> Wisconsin's 2021 standards (a revision of Common Core) are tagged alongside Common Core codes.</li>
+      <li><b>Avatar:</b> a character creator, plus "make me from a photo".</li>
+      <li><b>AI:</b> runtime AI for feedback and error diagnosis.</li>
+    </ul>
+    <b>Policy finding:</b> Google's Gemini API terms bar use in any app "directed towards or … likely to be accessed by individuals under the age of 18". So Gemini TTS is used <i>only at build time</i>, to pre-render narration files (a reasonable reading of the terms, not yet confirmed by Google), and all runtime AI uses Claude. Image models bar editing photos of minors, so the photo becomes <i>attributes for the in-game SVG avatar</i>, not a generated likeness.
+    The full build specs are in <code>docs/spec/</code>, and the 34-issue build plan and orchestrator prompt are in <code>docs/build/</code> in the repo.</div>
+</section>
+
 <!-- TL;DR -->
 <section id="tldr">
   <h2>Recommendations at a glance</h2>
