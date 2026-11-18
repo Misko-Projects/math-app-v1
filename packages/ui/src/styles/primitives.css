@@ -1,0 +1,884 @@
+/*
+ * Design-system primitives (06 §4–§7, 05 §11). Plain CSS on the theme.css tokens, so it works in
+ * any consumer without scanning this package for Tailwind classes. Every class is prefixed `ni-`.
+ * Sizes come from --target-* (set per age mode by UiProvider's data-age-mode).
+ */
+
+.ni-root {
+  display: contents;
+}
+
+.ni-root :focus-visible {
+  outline: 4px solid var(--color-ink);
+  outline-offset: 3px;
+}
+
+.ni-visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* ---------- buttons (BigButton, IconButton and its presets) ---------- */
+
+.ni-btn {
+  --btn-bg: var(--color-sea-deep);
+  --btn-fg: var(--color-cloud);
+  --btn-outline: var(--color-sea-dark);
+  --ledge-color: var(--color-sea-dark);
+  --ledge: 6px;
+
+  appearance: none;
+  position: relative;
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  box-sizing: border-box;
+  min-width: var(--target-big);
+  min-height: var(--target-big);
+  margin: 0 0 var(--ledge);
+  padding: 0 32px;
+  border: 3px solid var(--btn-outline);
+  border-radius: var(--radius-pill);
+  background: var(--btn-bg);
+  color: var(--btn-fg);
+  box-shadow:
+    var(--shadow-highlight),
+    0 var(--ledge) 0 var(--ledge-color),
+    0 calc(var(--ledge) + 6px) 14px -6px rgb(38 70 83 / 0.35);
+  font-family: var(--font-display);
+  font-size: var(--text-label);
+  font-weight: 800;
+  line-height: 1.1;
+  letter-spacing: 0.01em;
+  cursor: pointer;
+  touch-action: manipulation;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-tap-highlight-color: transparent;
+  transform: translateY(0);
+  transition:
+    transform var(--duration-tap) ease-out,
+    box-shadow var(--duration-tap) ease-out,
+    filter var(--duration-base) ease-out;
+}
+
+.ni-btn:active:not(:disabled),
+.ni-btn[data-active="true"] {
+  transform: translateY(4px);
+  box-shadow:
+    var(--shadow-highlight),
+    0 calc(var(--ledge) - 4px) 0 var(--ledge-color),
+    0 4px 8px -6px rgb(38 70 83 / 0.35);
+}
+
+.ni-btn[aria-pressed="true"] {
+  transform: translateY(3px);
+  box-shadow:
+    var(--shadow-highlight),
+    0 calc(var(--ledge) - 3px) 0 var(--ledge-color),
+    0 0 0 5px var(--color-sunshine);
+}
+
+.ni-btn:disabled {
+  cursor: default;
+  filter: saturate(0.25) brightness(1.06);
+  opacity: 0.6;
+  transform: translateY(4px);
+  box-shadow:
+    var(--shadow-highlight),
+    0 2px 0 var(--ledge-color);
+}
+
+.ni-btn__icon {
+  display: inline-flex;
+  flex: none;
+  width: var(--icon-size);
+  height: var(--icon-size);
+}
+
+.ni-btn__label {
+  white-space: nowrap;
+}
+
+.ni-tone-sea {
+  --btn-bg: var(--color-sea-deep);
+  --btn-fg: var(--color-cloud);
+  --btn-outline: var(--color-sea-dark);
+  --ledge-color: var(--color-sea-dark);
+}
+.ni-tone-leaf {
+  --btn-bg: var(--color-leaf-deep);
+  --btn-fg: var(--color-cloud);
+  --btn-outline: var(--color-leaf-dark);
+  --ledge-color: var(--color-leaf-dark);
+}
+.ni-tone-sun {
+  --btn-bg: var(--color-sunshine);
+  --btn-fg: var(--color-ink);
+  --btn-outline: var(--color-sunshine-deep);
+  --ledge-color: var(--color-sun-deep);
+}
+.ni-tone-cloud {
+  --btn-bg: var(--color-cloud);
+  --btn-fg: var(--color-ink);
+  --btn-outline: var(--color-sand-deep);
+  --ledge-color: var(--color-sand-deep);
+}
+
+/* Round icon button. The caption (G1+ text mode) sits below it. */
+.ni-iconbtn-wrap {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
+
+.ni-iconbtn {
+  width: var(--target-icon);
+  height: var(--target-icon);
+  min-width: var(--target-icon);
+  min-height: var(--target-icon);
+  padding: 0;
+  border-radius: 50%;
+}
+
+.ni-caption {
+  max-width: calc(var(--target-icon) + 40px);
+  color: var(--color-ink);
+  font-family: var(--font-body);
+  font-size: 1.0625rem;
+  font-weight: 700;
+  line-height: 1.15;
+  text-align: center;
+}
+
+/* Hint lightbulb glows when the runner suggests a hint (static ring with reduced motion). */
+.ni-hint[data-glow="true"]:not(:disabled) {
+  box-shadow:
+    var(--shadow-highlight),
+    0 var(--ledge) 0 var(--ledge-color),
+    0 0 0 6px rgb(233 196 106 / 0.7),
+    0 0 26px 8px rgb(244 162 97 / 0.55);
+  animation: var(--animate-pulse-soft);
+}
+
+/* Replay speaker: the sound waves ripple while narration plays. */
+.ni-replay .ni-wave {
+  transition: opacity var(--duration-base) ease-out;
+}
+.ni-replay[data-playing="true"] .ni-wave-1 {
+  animation: var(--animate-wave);
+}
+.ni-replay[data-playing="true"] .ni-wave-2 {
+  animation: var(--animate-wave);
+  animation-delay: 0.25s;
+}
+@keyframes ni-wave {
+  0%,
+  100% {
+    opacity: 0.25;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+/* ---------- speech bubble ---------- */
+
+.ni-bubble {
+  --bubble-bg: var(--color-cloud);
+  --bubble-outline: var(--color-ink);
+
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 14px;
+  box-sizing: border-box;
+  max-width: 100%;
+  min-height: var(--target-min);
+  padding: 14px 26px;
+  border: 3px solid var(--bubble-outline);
+  border-radius: var(--radius-bubble);
+  background: var(--bubble-bg);
+  color: var(--color-ink);
+  box-shadow: 0 6px 0 rgb(38 70 83 / 0.14);
+  font-family: var(--font-body);
+  font-size: var(--text-bubble);
+  line-height: var(--text-bubble--line-height);
+  letter-spacing: 0.01em;
+  text-align: left;
+}
+
+button.ni-bubble {
+  appearance: none;
+  cursor: pointer;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  transition: transform var(--duration-tap) ease-out;
+}
+button.ni-bubble:active {
+  transform: scale(0.97);
+}
+
+.ni-bubble[data-tone="sun"] {
+  --bubble-bg: var(--color-sunshine-light);
+}
+.ni-bubble[data-tone="sky"] {
+  --bubble-bg: var(--color-sky-light);
+}
+
+.ni-bubble[data-recommended="true"] {
+  box-shadow:
+    0 6px 0 rgb(38 70 83 / 0.14),
+    0 0 0 6px rgb(233 196 106 / 0.75),
+    0 0 28px 6px rgb(244 162 97 / 0.5);
+  animation: var(--animate-pulse-soft);
+}
+
+.ni-bubble__text {
+  min-width: 0;
+}
+
+.ni-bubble__glyph {
+  display: inline-flex;
+  flex: none;
+  width: var(--icon-size);
+  height: var(--icon-size);
+}
+
+.ni-bubble__badge {
+  position: absolute;
+  top: -18px;
+  right: -14px;
+  width: 38px;
+  height: 38px;
+  filter: drop-shadow(0 2px 0 rgb(38 70 83 / 0.25));
+}
+
+.ni-bubble__tail {
+  position: absolute;
+  width: 44px;
+  height: 34px;
+  overflow: visible;
+  pointer-events: none;
+}
+.ni-bubble__tail path {
+  fill: var(--bubble-bg);
+  stroke: var(--bubble-outline);
+  stroke-width: 3px;
+  stroke-linejoin: round;
+}
+.ni-bubble[data-tail="bottom"] .ni-bubble__tail {
+  top: calc(100% - 3px);
+  left: calc(50% - 22px);
+}
+.ni-bubble[data-tail="bottom-left"] .ni-bubble__tail {
+  top: calc(100% - 3px);
+  left: 32px;
+}
+.ni-bubble[data-tail="bottom-right"] .ni-bubble__tail {
+  top: calc(100% - 3px);
+  right: 32px;
+  transform: scaleX(-1);
+}
+/* Side tails: the 44 × 34 box rotates about its centre, so offset by half the size difference. */
+.ni-bubble[data-tail="left"] .ni-bubble__tail {
+  top: calc(50% - 17px);
+  right: calc(100% - 8px);
+  transform: rotate(90deg) scaleX(-1);
+}
+.ni-bubble[data-tail="right"] .ni-bubble__tail {
+  top: calc(50% - 17px);
+  left: calc(100% - 8px);
+  transform: rotate(-90deg);
+}
+
+/* ---------- panel ---------- */
+
+.ni-panel {
+  --panel-bg: var(--color-paper);
+  --panel-outline: var(--color-sand-deep);
+
+  box-sizing: border-box;
+  padding: 24px 28px;
+  border: 3px solid var(--panel-outline);
+  border-radius: var(--radius-card);
+  background: var(--panel-bg);
+  color: var(--color-ink);
+  box-shadow:
+    inset 0 3px 0 rgb(255 255 255 / 0.6),
+    0 8px 0 var(--panel-outline),
+    0 18px 30px -16px rgb(38 70 83 / 0.45);
+  font-family: var(--font-body);
+}
+.ni-panel[data-tone="sand"] {
+  --panel-bg: var(--color-sand);
+  --panel-outline: var(--color-sand-deep);
+}
+.ni-panel[data-tone="sky"] {
+  --panel-bg: var(--color-sky-light);
+  --panel-outline: var(--color-shallows);
+}
+.ni-panel[data-tone="wood"] {
+  --panel-bg: var(--color-horizon);
+  --panel-outline: var(--color-wood);
+}
+
+.ni-panel__title {
+  margin: 0 0 12px;
+  font-family: var(--font-display);
+  font-size: 1.75rem;
+  font-weight: 800;
+  line-height: 1.1;
+}
+
+/* ---------- sheet (native <dialog>) ---------- */
+
+.ni-sheet {
+  box-sizing: border-box;
+  width: min(920px, calc(100% - 32px));
+  max-width: none;
+  max-height: calc(100dvh - 32px);
+  margin: auto auto 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--color-ink);
+  overflow: visible;
+  opacity: 1;
+  transform: translateY(0);
+  transition:
+    transform var(--duration-gentle) var(--ease-soft),
+    opacity var(--duration-base) ease-out,
+    overlay var(--duration-gentle) allow-discrete,
+    display var(--duration-gentle) allow-discrete;
+}
+.ni-sheet[data-placement="center"] {
+  margin: auto;
+}
+.ni-sheet::backdrop {
+  background: var(--color-scrim);
+  opacity: 1;
+  transition:
+    opacity var(--duration-base) ease-out,
+    overlay var(--duration-base) allow-discrete,
+    display var(--duration-base) allow-discrete;
+}
+
+@starting-style {
+  .ni-sheet[open] {
+    opacity: 0;
+    transform: translateY(48px);
+  }
+  .ni-sheet[open]::backdrop {
+    opacity: 0;
+  }
+}
+
+[data-reduced-motion="true"] .ni-sheet,
+[data-reduced-motion="true"] .ni-sheet[open] {
+  transform: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  .ni-sheet,
+  .ni-sheet[open] {
+    transform: none;
+  }
+}
+
+.ni-sheet__card {
+  position: relative;
+  box-sizing: border-box;
+  max-height: calc(100dvh - 32px);
+  overflow: auto;
+  padding: 28px 32px calc(28px + env(safe-area-inset-bottom));
+  border: 3px solid var(--color-sand-deep);
+  border-bottom: 0;
+  border-radius: 36px 36px 0 0;
+  background: var(--color-paper);
+  box-shadow:
+    inset 0 3px 0 rgb(255 255 255 / 0.7),
+    0 -10px 40px -18px rgb(38 70 83 / 0.6);
+}
+.ni-sheet[data-placement="center"] .ni-sheet__card {
+  padding-bottom: 28px;
+  border-bottom: 3px solid var(--color-sand-deep);
+  border-radius: 36px;
+  box-shadow:
+    inset 0 3px 0 rgb(255 255 255 / 0.7),
+    0 8px 0 var(--color-sand-deep),
+    0 24px 50px -20px rgb(38 70 83 / 0.6);
+}
+
+.ni-sheet__grip {
+  width: 72px;
+  height: 8px;
+  margin: -12px auto 16px;
+  border-radius: 4px;
+  background: var(--color-sand-deep);
+}
+
+.ni-sheet__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--target-gap);
+}
+
+/* ---------- number display ---------- */
+
+.ni-number {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  min-width: calc(var(--target-min) * 1.6);
+  min-height: var(--target-big);
+  /* Baloo 2's tall ascent sits numerals high; extra top padding centres the digits optically. */
+  padding: 0.16em 28px 0.02em;
+  border: 3px solid var(--color-ink);
+  border-radius: var(--radius-pebble);
+  background: var(--color-cloud);
+  color: var(--color-ink);
+  box-shadow:
+    inset 0 -6px 0 var(--color-pebble),
+    0 5px 0 rgb(38 70 83 / 0.16);
+  font-family: var(--font-display);
+  font-size: var(--text-numeral);
+  font-variant-numeric: tabular-nums;
+  font-weight: 800;
+  line-height: 1;
+  transition:
+    background-color var(--duration-base) ease-out,
+    transform var(--duration-base) var(--ease-bounce);
+}
+.ni-number[data-size="lg"] {
+  font-size: var(--text-numeral-lg);
+}
+.ni-number[data-size="xl"] {
+  font-size: var(--text-numeral-xl);
+}
+button.ni-number {
+  appearance: none;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+.ni-number[data-state="active"] {
+  border-color: var(--color-sea-deep);
+  box-shadow:
+    inset 0 -6px 0 var(--color-pebble),
+    0 0 0 5px rgb(42 157 143 / 0.35);
+}
+.ni-number[data-state="celebrate"] {
+  background: var(--color-sunshine-light);
+  animation: var(--animate-pop-in);
+}
+
+.ni-number__slot {
+  display: inline-block;
+  width: 0.55em;
+  height: 0.1em;
+  margin: 0 0.06em;
+  align-self: flex-end;
+  margin-bottom: 0.12em;
+  border-radius: 0.05em;
+  background: var(--color-pebble-deep);
+}
+
+.ni-number__caret {
+  display: inline-block;
+  width: 0.08em;
+  height: 0.8em;
+  margin-left: 0.06em;
+  border-radius: 0.04em;
+  background: var(--color-sea-deep);
+  animation: var(--animate-caret);
+}
+@keyframes ni-caret {
+  50% {
+    opacity: 0;
+  }
+}
+
+/* ---------- product tray ---------- */
+
+.ni-tray {
+  --slot: 40px;
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 14px;
+  box-sizing: border-box;
+  max-width: 100%;
+  min-height: calc(var(--slot) * 2 + 28px);
+  padding: 10px 14px;
+  border: 3px solid var(--color-wood-deep);
+  border-radius: 24px;
+  background: var(--color-wood);
+  box-shadow:
+    inset 0 4px 0 rgb(255 255 255 / 0.25),
+    inset 0 -5px 0 rgb(143 90 49 / 0.35),
+    0 6px 0 var(--color-wood-deep);
+}
+[data-age-mode="k"] .ni-tray {
+  --slot: 46px;
+}
+
+.ni-tray__label {
+  padding: 4px 12px;
+  border-radius: 12px;
+  background: var(--color-paper);
+  color: var(--color-ink);
+  font-family: var(--font-body);
+  font-size: 1.0625rem;
+  font-weight: 700;
+}
+
+.ni-tray__frame {
+  display: grid;
+  grid-template-columns: repeat(5, var(--slot));
+  grid-auto-rows: var(--slot);
+  gap: 4px;
+  padding: 5px;
+  border-radius: 14px;
+  background: rgb(143 90 49 / 0.45);
+}
+
+.ni-tray__slot {
+  display: grid;
+  place-items: center;
+  border-radius: 10px;
+  background: rgb(255 250 240 / 0.28);
+  box-shadow: inset 0 2px 0 rgb(38 70 83 / 0.18);
+}
+.ni-tray__slot:nth-child(5n) {
+  margin-right: 0;
+}
+
+.ni-tray__item {
+  display: grid;
+  place-items: center;
+  width: 86%;
+  height: 86%;
+}
+.ni-tray__item[data-new="true"] {
+  animation: var(--animate-pop-in);
+}
+
+.ni-tray__empty {
+  max-width: 24ch;
+  padding: 8px 14px;
+  border-radius: 14px;
+  background: var(--color-paper);
+  color: var(--color-ink);
+  font-family: var(--font-body);
+  font-size: 1rem;
+  font-weight: 700;
+}
+
+/* ---------- drag and tap-to-place (useDragToTarget / useTapToPlace) ---------- */
+
+.ni-draggable {
+  touch-action: none;
+  cursor: grab;
+  transition:
+    transform var(--duration-gentle) var(--ease-soft),
+    box-shadow var(--duration-base) ease-out,
+    filter var(--duration-base) ease-out;
+}
+[data-tap-only="true"] .ni-draggable,
+.ni-draggable[data-tap-only="true"] {
+  touch-action: manipulation;
+  cursor: pointer;
+}
+.ni-draggable[data-dragging="true"] {
+  z-index: var(--z-drag);
+  cursor: grabbing;
+  transition: box-shadow var(--duration-base) ease-out;
+  filter: drop-shadow(0 14px 10px rgb(38 70 83 / 0.35));
+}
+.ni-draggable[data-selected="true"] {
+  filter: drop-shadow(0 0 0 var(--color-sunshine)) drop-shadow(0 8px 6px rgb(38 70 83 / 0.3));
+  outline: 5px solid var(--color-sunshine);
+  outline-offset: 3px;
+}
+
+.ni-drop-target {
+  transition:
+    transform var(--duration-base) var(--ease-bounce),
+    box-shadow var(--duration-base) ease-out,
+    outline-color var(--duration-base) ease-out;
+  outline: 4px dashed transparent;
+  outline-offset: 4px;
+}
+.ni-drop-target[data-armed="true"] {
+  outline-color: var(--color-sea-deep);
+  cursor: pointer;
+}
+.ni-drop-target[data-over="true"] {
+  outline: 5px solid var(--color-sunshine-deep);
+  transform: scale(1.03);
+  box-shadow: 0 0 0 10px rgb(233 196 106 / 0.45);
+}
+
+/* Demo mode (03 §6.3): the target of a child step pulses, with a hand pointer. */
+.ni-invite {
+  position: relative;
+  box-shadow: 0 0 0 6px rgb(233 196 106 / 0.85);
+  animation: var(--animate-pulse-soft);
+}
+.ni-hand {
+  position: absolute;
+  z-index: var(--z-drag);
+  width: 56px;
+  height: 56px;
+  pointer-events: none;
+  animation: var(--animate-hand);
+  filter: drop-shadow(0 4px 2px rgb(38 70 83 / 0.3));
+}
+@keyframes ni-hand-tap {
+  0%,
+  100% {
+    transform: translate(0, 0);
+  }
+  50% {
+    transform: translate(-6px, 8px);
+  }
+}
+
+/*
+ * ---------- reduced motion (06 §7) ----------
+ * Every animation above goes through an --animate-* token; theme.css turns the loops off and the
+ * entrances into 150 ms fades. Movement transitions become instant here.
+ */
+[data-reduced-motion="true"] .ni-btn,
+[data-reduced-motion="true"] .ni-draggable,
+[data-reduced-motion="true"] .ni-drop-target {
+  transition-duration: 0ms;
+}
+@media (prefers-reduced-motion: reduce) {
+  .ni-btn,
+  .ni-draggable,
+  .ni-drop-target {
+    transition-duration: 0ms;
+  }
+}
+
+/* ---------- widget host and placeholder (widgets/WidgetHost.tsx) ---------- */
+
+.ni-widget {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  width: 100%;
+  height: 100%;
+  min-height: 360px;
+}
+
+.ni-widget__loading {
+  width: 100%;
+  height: 100%;
+}
+
+.ni-placeholder {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 24px 32px;
+  max-width: 760px;
+  padding: 32px;
+}
+.ni-placeholder__art {
+  width: 168px;
+  height: 168px;
+}
+.ni-placeholder .ni-btn {
+  grid-column: 1 / -1;
+  justify-self: center;
+}
+.ni-placeholder__dev {
+  grid-column: 1 / -1;
+  justify-self: center;
+  padding: 4px 10px;
+  border-radius: 8px;
+  background: var(--color-pebble);
+  color: var(--color-ink-soft);
+  font-size: 0.9rem;
+}
+
+/* ---------- sample widget (widgets/sample/SampleSetWidget.tsx) ---------- */
+
+.ni-sample {
+  --pebble: var(--target-min);
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.25fr);
+  align-items: center;
+  gap: 40px;
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 1080px;
+  padding: 24px;
+}
+
+.ni-sample__pile {
+  min-inline-size: 0;
+  margin: 0;
+  display: grid;
+  grid-template-columns: repeat(4, var(--pebble));
+  grid-auto-rows: var(--pebble);
+  align-content: center;
+  justify-content: center;
+  gap: var(--target-gap) calc(var(--target-gap) + 8px);
+  min-height: calc(var(--pebble) * 2 + var(--target-gap));
+  padding: 28px 24px;
+  border: 3px solid var(--color-sand-deep);
+  border-radius: 48% 52% 44% 56% / 58% 50% 50% 42%;
+  background: var(--color-sand);
+  box-shadow:
+    inset 0 -10px 0 var(--color-sand-shadow),
+    0 8px 0 rgb(217 187 135 / 0.6);
+}
+
+.ni-sample__pebble {
+  position: relative;
+  width: var(--pebble);
+  height: var(--pebble);
+  border-radius: 50%;
+}
+.ni-sample__pebble[data-flying="true"] {
+  visibility: hidden;
+}
+
+.ni-pebble {
+  stroke-linejoin: round;
+}
+.ni-pebble--sea {
+  fill: var(--color-shallows);
+  stroke: var(--color-sea-deep);
+}
+.ni-pebble--sun {
+  fill: var(--color-sunshine-light);
+  stroke: var(--color-sunshine-deep);
+}
+.ni-pebble--coral {
+  fill: #f2a08a;
+  stroke: var(--color-coral-deep);
+}
+.ni-pebble--leaf {
+  fill: var(--color-leaf-light);
+  stroke: var(--color-leaf-deep);
+}
+
+.ni-sample__side {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 28px;
+}
+
+.ni-sample__basket {
+  position: relative;
+  display: grid;
+  justify-items: center;
+  width: 100%;
+  max-width: 520px;
+  padding: 18px 18px 0;
+  border-radius: 28px;
+}
+.ni-sample__pad {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  border-radius: 28px;
+}
+.ni-sample__basket[data-full="true"] .ni-sample__pad {
+  cursor: default;
+}
+
+.ni-sample__slots {
+  position: relative;
+  z-index: 1;
+  pointer-events: none;
+  display: grid;
+  grid-template-columns: repeat(5, var(--pebble));
+  grid-auto-rows: var(--pebble);
+  justify-content: center;
+  gap: 6px;
+  box-sizing: border-box;
+  width: calc(100% - 28px);
+  margin-bottom: -8px;
+  padding: 16px 16px 20px;
+  /* The basket's inside: a darker woven back wall the pebbles sit against (a 2 × 5 ten-frame). */
+  border: 5px solid var(--color-wood-deep);
+  border-bottom: 0;
+  border-radius: 30px 30px 0 0;
+  background:
+    repeating-linear-gradient(90deg, rgb(143 90 49 / 0.18) 0 4px, transparent 4px 34px), #b9804f;
+  box-shadow: inset 0 10px 0 rgb(38 70 83 / 0.14);
+}
+
+.ni-sample__slot {
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: rgb(255 250 240 / 0.26);
+  box-shadow: inset 0 3px 0 rgb(38 70 83 / 0.16);
+}
+
+.ni-sample__in {
+  width: 100%;
+  height: 100%;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: none;
+  cursor: pointer;
+  pointer-events: auto;
+  animation: var(--animate-pop-in);
+}
+.ni-sample__in:disabled {
+  cursor: default;
+}
+.ni-sample__in[data-counting="true"] {
+  border-radius: 50%;
+  outline: 5px solid var(--color-sunshine-deep);
+  outline-offset: 2px;
+  transform: scale(1.08);
+}
+
+.ni-sample__basket-art {
+  position: relative;
+  z-index: 1;
+  pointer-events: none;
+  display: block;
+  width: 100%;
+  height: 76px;
+  filter: drop-shadow(0 8px 0 rgb(143 90 49 / 0.35));
+}
+
+.ni-sample__actions {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+}
+
+.ni-sample__flight {
+  position: fixed;
+  z-index: var(--z-drag);
+  pointer-events: none;
+  transition-property: left, top;
+  transition-timing-function: var(--ease-soft);
+  filter: drop-shadow(0 14px 10px rgb(38 70 83 / 0.3));
+}

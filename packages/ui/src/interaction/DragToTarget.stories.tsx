@@ -1,0 +1,320 @@
+import type { InteractionEvent } from '@number-island/shared';
+import type { Meta, StoryObj } from '@storybook/react-vite';
+import { useState } from 'react';
+import { expect, fn, userEvent, waitFor } from 'storybook/test';
+import { useNarrationText } from '../preferences/UiProvider';
+import {
+  center,
+  expectTargetGaps,
+  expectTargetSize,
+  pointerDrag,
+} from '../test-support/storyHelpers';
+import { useInteractionTrace } from './trace';
+import { useDragToTarget } from './useDragToTarget';
+import { type PlaceEvent, useTapToPlace } from './useTapToPlace';
+
+type Zone = 'pile' | 'basket';
+type Shell = 's1' | 's2' | 's3' | 's4';
+const SHELLS: Shell[] = ['s1', 's2', 's3', 's4'];
+const TONES = [
+  'var(--color-shallows)',
+  'var(--color-sunshine-light)',
+  '#f2a08a',
+  'var(--color-leaf-light)',
+];
+const OUTLINES = [
+  'var(--color-sea-deep)',
+  'var(--color-sunshine-deep)',
+  'var(--color-coral-deep)',
+  'var(--color-leaf-deep)',
+];
+
+function ShellArt({ i }: { i: number }) {
+  return (
+    <svg viewBox="0 0 64 64" width="100%" height="100%" aria-hidden="true">
+      <path
+        d="M32 8c13 0 24 11 24 25 0 9-6 17-13 19H21C14 50 8 42 8 33 8 19 19 8 32 8Z"
+        fill={TONES[i]}
+        stroke={OUTLINES[i]}
+        strokeWidth="3"
+        strokeLinejoin="round"
+      />
+      <path
+        d="M32 14v34M20 20l6 28M44 20l-6 28"
+        stroke={OUTLINES[i]}
+        strokeWidth="2.5"
+        strokeLinecap="round"
+        opacity="0.7"
+      />
+    </svg>
+  );
+}
+
+interface PlaygroundProps {
+  onPlace?: (e: PlaceEvent<Shell, Zone>) => void;
+  onMiss?: (item: Shell) => void;
+  onInteract?: (e: InteractionEvent) => void;
+  mode?: 'drag' | 'tap';
+}
+
+/** Shells move between the sand pile and the basket by drag, tap-to-place or keyboard. */
+function Playground({ onPlace, onMiss, onInteract, mode = 'drag' }: PlaygroundProps) {
+  const text = useNarrationText();
+  const [where, setWhere] = useState<Record<Shell, Zone>>({
+    s1: 'pile',
+    s2: 'pile',
+    s3: 'pile',
+    s4: 'pile',
+  });
+  const [lastVia, setLastVia] = useState<string>('—');
+  const trace = useInteractionTrace(onInteract);
+  const options = {
+    trace,
+    canPlace: (item: Shell, target: Zone) => where[item] !== target,
+    onPlace: (e: PlaceEvent<Shell, Zone>) => {
+      setWhere((w) => ({ ...w, [e.item]: e.target }));
+      setLastVia(e.via);
+      onPlace?.(e);
+    },
+  };
+  const drag = useDragToTarget<Shell, Zone>({ ...options, onMiss });
+  const tap = useTapToPlace<Shell, Zone>(options);
+  const dnd = mode === 'drag' ? drag : tap;
+
+  const zone = (id: Zone, labelKey: string) => {
+    const pad = dnd.targetProps(id, { label: text(labelKey) });
+    return (
+      <div className="pg-zone" data-zone={id}>
+        <div {...pad} className={`${pad.className} pg-pad`} data-zone-pad={id} />
+        <div className="pg-items">
+          {SHELLS.filter((s) => where[s] === id).map((s) => {
+            const i = SHELLS.indexOf(s);
+            const props = dnd.itemProps(s, { label: `${text('ui.widget.pebble')} ${i + 1}` });
+            return (
+              <div
+                key={s}
+                {...props}
+                className={`${'className' in props ? props.className : ''} pg-shell`}
+                data-shell={s}
+              >
+                <ShellArt i={i} />
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    );
+  };
+
+  return (
+    <div className="pg">
+      <style>{PLAYGROUND_CSS}</style>
+      {zone('pile', 'ui.widget.supply')}
+      {zone('basket', 'ui.widget.basket')}
+      <output className="pg-log" aria-live="polite">
+        last: {lastVia}
+      </output>
+    </div>
+  );
+}
+
+const PLAYGROUND_CSS = `
+.pg { display: grid; grid-template-columns: 1fr 1fr; gap: 160px; width: min(1000px, 100%); position: relative; }
+.pg-zone { position: relative; min-height: 260px; display: grid; place-items: center; }
+.pg-pad { position: absolute; inset: 0; border-radius: 36px; border: 3px solid var(--color-sand-deep); background: var(--color-sand); box-shadow: inset 0 -10px 0 var(--color-sand-shadow); }
+.pg-zone[data-zone="basket"] .pg-pad { border-color: var(--color-wood-deep); background: var(--color-horizon); box-shadow: inset 0 -10px 0 rgb(201 138 85 / 0.35); }
+.pg-items { position: relative; display: flex; flex-wrap: wrap; justify-content: center; gap: var(--target-gap); padding: 24px; pointer-events: none; max-width: 100%; }
+.pg-shell { width: var(--target-min); height: var(--target-min); border-radius: 50%; pointer-events: auto; }
+.pg-log { position: absolute; left: 0; bottom: -44px; font: 700 1rem var(--font-body); color: var(--color-ink-soft); }
+`;
+
+const meta = {
+  title: 'Interaction/DragToTarget',
+  args: { onPlace: fn(), onMiss: fn(), onInteract: fn() },
+  render: (args) => <Playground {...args} />,
+  parameters: { ui: { stage: 'centered' } },
+} satisfies Meta<PlaygroundProps>;
+
+export default meta;
+type Story = StoryObj<typeof meta>;
+
+const shell = (root: HTMLElement, id: Shell) =>
+  root.querySelector(`[data-shell="${id}"]`) as HTMLElement;
+const pad = (root: HTMLElement, id: Zone) =>
+  root.querySelector(`[data-zone-pad="${id}"]`) as HTMLElement;
+const zoneOf = (root: HTMLElement, id: Shell) =>
+  shell(root, id)?.closest('[data-zone]')?.getAttribute('data-zone') ?? null;
+
+/** Try it: drag, tap-then-tap, or Tab + Enter. Switch "Tap-only" in the toolbar to disable drag. */
+export const Default: Story = {
+  play: async ({ canvasElement }) => {
+    const shells = SHELLS.map((s) => shell(canvasElement, s));
+    for (const s of shells) await expectTargetSize(s, 'g1-up');
+    await expectTargetGaps(shells);
+  },
+};
+
+/** K mode: shells are 80 px (06 §4). */
+export const KSizes: Story = {
+  globals: { ageMode: 'k' },
+  play: async ({ canvasElement }) => {
+    const shells = SHELLS.map((s) => shell(canvasElement, s));
+    for (const s of shells) await expectTargetSize(s, 'k');
+    await expectTargetGaps(shells);
+  },
+};
+
+/** Mouse: drag a shell onto the basket; it snaps in and the trace records drag → drop. */
+export const MouseDrag: Story = {
+  play: async ({ canvasElement, args }) => {
+    await pointerDrag(shell(canvasElement, 's1'), center(pad(canvasElement, 'basket')), 'mouse');
+    await waitFor(() => expect(zoneOf(canvasElement, 's1')).toBe('basket'));
+    await expect(args.onPlace).toHaveBeenCalledWith({ item: 's1', target: 'basket', via: 'drag' });
+    const kinds = (args.onInteract as ReturnType<typeof fn>).mock.calls.map(
+      ([e]) => `${(e as InteractionEvent).t}:${(e as InteractionEvent).target}`,
+    );
+    await expect(kinds).toEqual(['drag:s1', 'drop:basket']);
+  },
+};
+
+/** Touch emulation (pointerType "touch", as on the tablet): the same drag works with a finger. */
+export const TouchDrag: Story = {
+  globals: { ageMode: 'k' },
+  play: async ({ canvasElement, args }) => {
+    await pointerDrag(
+      shell(canvasElement, 's2'),
+      center(pad(canvasElement, 'basket')),
+      'touch',
+      12,
+    );
+    await waitFor(() => expect(zoneOf(canvasElement, 's2')).toBe('basket'));
+    await expect(args.onPlace).toHaveBeenCalledWith({ item: 's2', target: 'basket', via: 'drag' });
+    // And back out again by touch.
+    await pointerDrag(shell(canvasElement, 's2'), center(pad(canvasElement, 'pile')), 'touch', 12);
+    await waitFor(() => expect(zoneOf(canvasElement, 's2')).toBe('pile'));
+  },
+};
+
+/** A drop away from every target glides the shell home, with no penalty (06 §4). */
+export const MisDropReturns: Story = {
+  play: async ({ canvasElement, args }) => {
+    const s3 = shell(canvasElement, 's3');
+    const start = s3.getBoundingClientRect();
+    const basket = pad(canvasElement, 'basket').getBoundingClientRect();
+    // The gap between the zones is 160 px: its middle is > 48 px from both.
+    await pointerDrag(s3, { x: basket.left - 80, y: start.top + start.height / 2 + 140 }, 'mouse');
+    await expect(args.onMiss).toHaveBeenCalledWith('s3');
+    await expect(args.onPlace).not.toHaveBeenCalled();
+    await waitFor(() => {
+      const now = shell(canvasElement, 's3').getBoundingClientRect();
+      expect(Math.abs(now.left - start.left)).toBeLessThan(1);
+      expect(Math.abs(now.top - start.top)).toBeLessThan(1);
+    });
+    await expect(zoneOf(canvasElement, 's3')).toBe('pile');
+  },
+};
+
+/** Snap: a drop whose centre lands within 48 px of the basket snaps in; farther away misses. */
+export const SnapRadius: Story = {
+  play: async ({ canvasElement, args }) => {
+    const basket = pad(canvasElement, 'basket').getBoundingClientRect();
+    const y = basket.top + basket.height / 2;
+    // 70 px left of the basket edge: outside the 48 px radius.
+    await pointerDrag(shell(canvasElement, 's1'), { x: basket.left - 70, y }, 'mouse');
+    await expect(args.onMiss).toHaveBeenCalledTimes(1);
+    await waitFor(() => expect(shell(canvasElement, 's1').style.transform).toBe(''));
+    // 36 px left of the edge: inside the radius, so it snaps.
+    await pointerDrag(shell(canvasElement, 's1'), { x: basket.left - 36, y }, 'mouse');
+    await waitFor(() => expect(zoneOf(canvasElement, 's1')).toBe('basket'));
+  },
+};
+
+/** A wider snap radius (06 §7 motor setting): 100 px. */
+export const WideSnapRadius: Story = {
+  parameters: { ui: { snapRadiusPx: 100 } },
+  play: async ({ canvasElement }) => {
+    const basket = pad(canvasElement, 'basket').getBoundingClientRect();
+    await pointerDrag(
+      shell(canvasElement, 's4'),
+      { x: basket.left - 80, y: basket.top + basket.height / 2 },
+      'mouse',
+    );
+    await waitFor(() => expect(zoneOf(canvasElement, 's4')).toBe('basket'));
+  },
+};
+
+/** Tap-to-place: tap a shell (it lifts with a sunshine ring), then tap the basket. */
+export const TapToPlace: Story = {
+  play: async ({ canvasElement, args }) => {
+    await userEvent.click(shell(canvasElement, 's1'));
+    await expect(shell(canvasElement, 's1')).toHaveAttribute('aria-pressed', 'true');
+    await expect(pad(canvasElement, 'basket')).toHaveAttribute('data-armed', 'true');
+    await userEvent.click(pad(canvasElement, 'basket'));
+    await waitFor(() => expect(zoneOf(canvasElement, 's1')).toBe('basket'));
+    await expect(args.onPlace).toHaveBeenCalledWith({ item: 's1', target: 'basket', via: 'tap' });
+    // Tapping a selected shell again puts it down.
+    await userEvent.click(shell(canvasElement, 's2'));
+    await userEvent.click(shell(canvasElement, 's2'));
+    await expect(shell(canvasElement, 's2')).toHaveAttribute('aria-pressed', 'false');
+  },
+};
+
+/** Keyboard (06 §7): Tab to a shell, Enter picks it up and focuses the basket, Enter places it. */
+export const Keyboard: Story = {
+  play: async ({ canvasElement, args }) => {
+    pad(canvasElement, 'pile').focus();
+    await userEvent.tab();
+    await expect(shell(canvasElement, 's1')).toHaveFocus();
+    await userEvent.keyboard('{ArrowRight}');
+    await expect(shell(canvasElement, 's2')).toHaveFocus();
+    await userEvent.keyboard('{Enter}');
+    await expect(pad(canvasElement, 'basket')).toHaveFocus();
+    await userEvent.keyboard('{Enter}');
+    await waitFor(() => expect(zoneOf(canvasElement, 's2')).toBe('basket'));
+    await expect(args.onPlace).toHaveBeenCalledWith({
+      item: 's2',
+      target: 'basket',
+      via: 'keyboard',
+    });
+    // Space works too; Escape cancels a pick-up.
+    shell(canvasElement, 's3').focus();
+    await userEvent.keyboard(' ');
+    await userEvent.keyboard('{Escape}');
+    await expect(shell(canvasElement, 's3')).toHaveFocus();
+    await expect(shell(canvasElement, 's3')).toHaveAttribute('aria-pressed', 'false');
+  },
+};
+
+/** Tap-only mode (06 §7): drags do nothing; tap-to-place still works. */
+export const TapOnlyMode: Story = {
+  parameters: { ui: { tapOnly: true } },
+  play: async ({ canvasElement, args }) => {
+    await pointerDrag(shell(canvasElement, 's1'), center(pad(canvasElement, 'basket')), 'touch');
+    await expect(zoneOf(canvasElement, 's1')).toBe('pile');
+    await expect(args.onPlace).not.toHaveBeenCalled();
+    await userEvent.click(shell(canvasElement, 's1'));
+    await userEvent.click(pad(canvasElement, 'basket'));
+    await waitFor(() => expect(zoneOf(canvasElement, 's1')).toBe('basket'));
+  },
+};
+
+/** useTapToPlace on its own (no drag at all): the same tap and keyboard paths. */
+export const TapToPlaceHook: Story = {
+  args: { mode: 'tap' },
+  play: async ({ canvasElement, args }) => {
+    await pointerDrag(shell(canvasElement, 's1'), center(pad(canvasElement, 'basket')), 'mouse');
+    await expect(zoneOf(canvasElement, 's1')).toBe('pile');
+    await userEvent.click(shell(canvasElement, 's1'));
+    await userEvent.click(pad(canvasElement, 'basket'));
+    await waitFor(() => expect(zoneOf(canvasElement, 's1')).toBe('basket'));
+    shell(canvasElement, 's2').focus();
+    await userEvent.keyboard('{Enter}');
+    await userEvent.keyboard('{Enter}');
+    await waitFor(() => expect(zoneOf(canvasElement, 's2')).toBe('basket'));
+    await expect(args.onPlace).toHaveBeenLastCalledWith({
+      item: 's2',
+      target: 'basket',
+      via: 'keyboard',
+    });
+  },
+};

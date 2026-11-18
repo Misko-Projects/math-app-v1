@@ -1,0 +1,43 @@
+# Child-facing app chrome lines (03 §4.1, §8): spoken labels for buttons and shared UI.
+# Owned by the UI issues (06). One key is one line. Format: 03 §8.2.
+
+# Design-system primitives (U01, packages/ui/src/primitives).
+ui.btn.home:
+  text: "Go home"
+  level: K
+ui.btn.hint:
+  text: "Help me"
+  level: K
+ui.btn.replay:
+  text: "Hear it again"
+  level: K
+ui.btn.check:
+  text: "Check"
+  level: K
+ui.btn.close:
+  text: "Close"
+  level: K
+ui.btn.next:
+  text: "Next"
+  level: K
+ui.tray.label:
+  text: "Things you made"
+  level: K
+ui.tray.empty:
+  text: "Make something to fill your tray!"
+  level: K
+
+# Widget registry (U01, packages/ui/src/widgets).
+ui.widget.coming-soon:
+  text: "Pip is still building this game. Let's try the next one!"
+  voice: pip
+  level: K
+ui.widget.pebble:
+  text: "Pebble"
+  level: K
+ui.widget.basket:
+  text: "Basket"
+  level: K
+ui.widget.supply:
+  text: "Pebble pile"
+  level: K
