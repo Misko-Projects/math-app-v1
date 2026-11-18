@@ -8,3 +8,8 @@ onlyBuiltDependencies:
   - esbuild
   - workerd
   - sharp
+
+# ffmpeg-static's install script downloads an ffmpeg binary. CI never encodes audio, so it stays off
+# here; `pnpm narration:render` runs it on first local use instead (tools/narration, 07 §3).
+ignoredBuiltDependencies:
+  - ffmpeg-static

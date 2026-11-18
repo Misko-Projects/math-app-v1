@@ -6,5 +6,10 @@
     "allowJs": true,
     "checkJs": false
   },
-  "include": ["**/*.mjs", "**/*.ts"]
+  "include": ["**/*.mjs", "**/*.ts"],
+  "references": [
+    { "path": "../packages/shared" },
+    { "path": "../packages/ui" },
+    { "path": "../tools/narration" }
+  ]
 }
