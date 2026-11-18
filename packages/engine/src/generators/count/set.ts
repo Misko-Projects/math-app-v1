@@ -114,6 +114,9 @@ export const countSet: GeneratorDef = {
     'gen.count.set.pick',
     'gen.count.set.type',
     'gen.count.set.fill-frame',
+    'gen.count.set.add-to',
+    'gen.count.set.none',
+    'gen.count.set.zero',
   ],
   sample: (spec, rng) => sampleAll(spec, rng),
   derive: () => ({}),
@@ -239,7 +242,15 @@ export const countSet: GeneratorDef = {
         };
         break;
       case 'tenframe-fill': {
-        const frames: 1 | 2 = n > 10 ? 2 : 1;
+        const frames: 1 | 2 = Math.max(n, start) > 10 ? 2 : 1;
+        // add-more (CNT.14): `start` counters are already in the frame; the child adds up to n and
+        // says the new total ("5 and one more is 6").
+        const prefill = mode === 'add-more' ? Math.min(start, n) : 0;
+        const prefilled = [0, 1].flatMap((frame) => {
+          const count = Math.max(0, Math.min(10, prefill - frame * 10));
+          return count > 0 ? [{ frame, color: 'a' as const, count }] : [];
+        });
+        const addMore = prefill > 0;
         p = {
           params,
           vars,
@@ -248,14 +259,18 @@ export const countSet: GeneratorDef = {
             format: 'tenframe-fill',
             frames,
             size: 10,
-            prefilled: [],
-            goal: 'show-n',
+            prefilled,
+            goal: addMore && n === prefill + 1 ? 'one-more' : 'show-n',
             n,
             requireStandardFill: false,
-            thenAsk: null,
+            thenAsk: addMore ? 'total' : null,
             skin: 'frame',
           },
-          answer: { kind: 'state', checker: 'tenframe.total', target: { n } },
+          answer: {
+            kind: 'state',
+            checker: 'tenframe.total',
+            target: addMore ? { n, value: n } : { n },
+          },
           highlight: [{ op: 'highlight', args: { target: 'top-row' } }],
         };
         break;
@@ -279,10 +294,16 @@ export const countSet: GeneratorDef = {
     }
     if (out.widget.format === 'tenframe-fill') {
       const n = out.widget.n ?? 0;
+      // Prefilled counters keep colour a; the counters the child adds are colour b.
+      const pre = out.widget.prefilled.reduce((sum, p) => sum + p.count, 0);
       const cells = Array.from({ length: out.widget.frames }, (_, f) =>
-        Array.from({ length: 10 }, (_, i) => (f * 10 + i < n ? 1 : 0)),
+        Array.from({ length: 10 }, (_, i) => (f * 10 + i < pre ? 1 : f * 10 + i < n ? 2 : 0)),
       );
-      return { kind: 'state', value: { cells } };
+      const asked = out.answer.target.value;
+      return {
+        kind: 'state',
+        value: { cells, ...(typeof asked === 'number' ? { value: asked } : {}) },
+      };
     }
     throw new Error(`count.set: no example for ${out.widget.format}`);
   },
@@ -291,6 +312,13 @@ export const countSet: GeneratorDef = {
     switch (w.format) {
       case 'tap-count': {
         const n = w.set.count;
+        if (n === 0) {
+          // CNT.13: an empty set. Nothing to touch; none is the number zero.
+          return [
+            say('gen.count.set.none', { n }, { op: 'count-aloud', args: { upTo: 0 } }),
+            say('gen.count.set.zero', { n }, { op: 'say-total' }),
+          ];
+        }
         return [
           say('gen.count.set.touch-count', { n }, { op: 'count-aloud', args: { upTo: n } }),
           say('gen.count.set.last-number', { n }, { op: 'say-total' }),
@@ -308,6 +336,14 @@ export const countSet: GeneratorDef = {
                 op: 'remove',
                 args: { count: Math.max(0, start - w.target) },
               },
+            ),
+          );
+        } else if (w.mode === 'add-more') {
+          steps.push(
+            say(
+              'gen.count.set.add-to',
+              { start, n: w.target },
+              { op: 'drag', args: { count: Math.max(0, w.target - start) } },
             ),
           );
         } else {
@@ -329,7 +365,7 @@ export const countSet: GeneratorDef = {
       case 'numeral-pick': {
         const n = out.answer.kind === 'choice' ? Number(out.answer.id.slice(4)) : 0;
         return [
-          say('gen.count.set.count-picture', { n }),
+          say(n === 0 ? 'gen.count.set.none' : 'gen.count.set.count-picture', { n }),
           say('gen.count.set.pick', { n }, { op: 'tap', args: { id: numberOptionId(n) } }),
         ];
       }
@@ -337,7 +373,7 @@ export const countSet: GeneratorDef = {
       case 'dot-flash': {
         const n = out.answer.kind === 'number' ? out.answer.value : 0;
         return [
-          say('gen.count.set.count-picture', { n }),
+          say(n === 0 ? 'gen.count.set.none' : 'gen.count.set.count-picture', { n }),
           say(
             'gen.count.set.type',
             { n },
@@ -349,6 +385,18 @@ export const countSet: GeneratorDef = {
       }
       case 'tenframe-fill': {
         const n = w.n ?? 0;
+        const pre = w.prefilled.reduce((sum, p) => sum + p.count, 0);
+        if (pre > 0) {
+          // add-more: put in the rest (overflow continues into the second frame), then say the total.
+          return [
+            say(
+              'gen.count.set.add-to',
+              { start: pre, n },
+              { op: 'place', args: { frame: pre >= 10 ? 1 : 0, count: n - pre, color: 'b' } },
+            ),
+            say('gen.count.set.last-number', { n }, { op: 'count-total' }),
+          ];
+        }
         return [
           say(
             'gen.count.set.fill-frame',

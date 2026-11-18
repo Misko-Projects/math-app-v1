@@ -1,7 +1,10 @@
-# C01 fixture templates (03 §9.5) on the E01 reference generators count.sequence and count.set.
-# Param names follow 03 §5.6; E01's generators declare them (V13 in tools/content-check).
+# CNT templates (03 §4.3) on count.set, count.sequence and count.ordinal (03 §5.6). One template per
+# catalog format at least, every catalog representation used, ordered concrete → pictorial →
+# abstract within each skill. Difficulty bases are tuned from template-stats.json (03 §5.4) so the
+# median item of each template sits near d = 0.
 strand: CNT
 templates:
+  # ---------- CNT.01 the counting sequence to 20 ----------
   - id: CNT.01.t1
     skillId: CNT.01
     format: hundred-chart
@@ -34,6 +37,7 @@ templates:
     difficulty: { base: -1.1 }
     narration: { prompt: p.count.order, hints: [h.sequence.say-it] }
 
+  # ---------- CNT.02 count up to 10 objects ----------
   - id: CNT.02.t1
     skillId: CNT.02
     format: tap-count
@@ -65,6 +69,7 @@ templates:
     difficulty: { base: -0.3 }
     narration: { prompt: p.count.how-many, hints: [h.count.touch-each, h.count.last-number] }
 
+  # ---------- CNT.03 the last number counted tells how many (gateway) ----------
   - id: CNT.03.t1
     skillId: CNT.03
     format: tap-count
@@ -106,6 +111,7 @@ templates:
     difficulty: { base: 0.0 }
     narration: { prompt: p.count.how-many, hints: [h.count.touch-each, h.count.last-number] }
 
+  # ---------- CNT.04 make a set of N ----------
   - id: CNT.04.t1
     skillId: CNT.04
     format: make-set
@@ -131,9 +137,12 @@ templates:
     tier: pictorial
     generator: count.set
     params: { n: { int: [1, 10] }, mode: make }
-    difficulty: { base: -0.6 }
+    # Filling past the first row (n > 5) is the hard part of this frame; the format's default
+    # n.over5 weight (0.3) left too little range for targeting (V22).
+    difficulty: { base: -0.3, features: { n.over5: 0.45 } }
     narration: { prompt: p.count.make-n, hints: [h.count.show-frame, h.count.last-number] }
 
+  # ---------- CNT.05 read and write numerals 0–20 ----------
   - id: CNT.05.t1
     skillId: CNT.05
     format: tap-count
@@ -152,6 +161,8 @@ templates:
     params: { n: { int: [0, 20] }, mode: how-many, layout: { choice: [dice, ten-frame] } }
     difficulty: { base: -0.6 }
     narration: { prompt: p.count.find-numeral, hints: [h.count.last-number] }
+    distractors:
+      - { rule: MC.teen-reversal }
 
   - id: CNT.05.t3
     skillId: CNT.05
@@ -159,9 +170,10 @@ templates:
     tier: abstract
     generator: count.set
     params: { n: { int: [0, 20] }, mode: how-many, layout: line }
-    difficulty: { base: 0.0 }
+    difficulty: { base: -0.6 }
     narration: { prompt: p.count.write-numeral, hints: [h.count.touch-each, h.count.last-number] }
 
+  # ---------- CNT.06 count and make sets to 20 ----------
   - id: CNT.06.t1
     skillId: CNT.06
     format: make-set
@@ -176,6 +188,16 @@ templates:
   - id: CNT.06.t2
     skillId: CNT.06
     format: tap-count
+    tier: concrete
+    generator: count.set
+    params: { n: { int: [11, 20] }, mode: how-many, layout: { choice: [line, array, circle] } }
+    difficulty: { base: -1.8 }
+    expectedLatencyMs: 20000
+    narration: { prompt: p.count.how-many, hints: [h.count.touch-each, h.count.last-number] }
+
+  - id: CNT.06.t3
+    skillId: CNT.06
+    format: tap-count
     tier: pictorial
     representation: double-ten-frame
     generator: count.set
@@ -183,7 +205,7 @@ templates:
     difficulty: { base: -1.8 } # tuned from template-stats (E01)
     narration: { prompt: p.count.how-many, hints: [h.count.show-frame, h.count.last-number] }
 
-  - id: CNT.06.t3
+  - id: CNT.06.t4
     skillId: CNT.06
     format: number-pad
     tier: abstract
@@ -192,6 +214,8 @@ templates:
     difficulty: { base: -1.8 } # tuned from template-stats (E01)
     narration: { prompt: p.count.how-many, hints: [h.count.touch-each, h.count.last-number] }
 
+  # ---------- CNT.07 count forward from any number ----------
+  # Within 30: counting on to 100 is CNT.09, which builds on this skill.
   - id: CNT.07.t1
     skillId: CNT.07
     format: number-line-jump
@@ -208,27 +232,345 @@ templates:
     format: number-line-jump
     tier: pictorial
     generator: count.sequence
-    params: { start: { int: [1, 49] }, step: 1, dir: 1, length: { int: [1, 3] } }
-    constraints: ["last <= 50"]
-    difficulty: { base: -0.3 }
-    narration: { prompt: tp.CNT.07.t2.prompt, hints: [h.sequence.say-it] }
+    params: { start: { int: [1, 29] }, step: 1, dir: 1, length: { int: [1, 3] } }
+    constraints: ["last <= 30"]
+    difficulty: { base: -1.0 }
+    narration: { prompt: p.count.on-to, hints: [h.sequence.say-it] }
 
   - id: CNT.07.t3
     skillId: CNT.07
     format: hundred-chart
     tier: pictorial
     generator: count.sequence
-    params: { start: { int: [1, 98] }, step: 1, dir: 1, length: 1 }
-    constraints: ["last <= 99"]
-    difficulty: { base: -0.3 }
-    narration: { prompt: p.count.what-next, hints: [h.sequence.look-chart, h.sequence.say-it] }
+    params: { start: { int: [1, 28] }, step: 1, dir: 1, length: { int: [2, 3] } }
+    constraints: ["last <= 30"]
+    difficulty: { base: -0.8 }
+    narration: { prompt: p.count.fill-on, hints: [h.sequence.look-chart, h.sequence.say-it] }
 
   - id: CNT.07.t4
     skillId: CNT.07
     format: numeral-pick
     tier: abstract
     generator: count.sequence
-    params: { start: { int: [1, 98] }, step: 1, dir: 1, length: 1 }
-    constraints: ["last <= 99"]
-    difficulty: { base: -0.3 }
+    params: { start: { int: [1, 29] }, step: 1, dir: 1, length: 1 }
+    constraints: ["last <= 30"]
+    difficulty: { base: -0.7 }
     narration: { prompt: p.count.what-next, hints: [h.sequence.say-it] }
+
+  # ---------- CNT.08 count backward from 10, then within 20 ----------
+  - id: CNT.08.t1
+    skillId: CNT.08
+    format: number-line-jump
+    tier: concrete
+    representation: number-path
+    generator: count.sequence
+    params: { start: { int: [2, 10] }, step: 1, dir: -1, length: { int: [1, 3] } }
+    constraints: ["last >= 0"]
+    difficulty: { base: -0.6 }
+    narration:
+      { prompt: p.count.back-to, hints: [h.sequence.count-back, h.sequence.look-path-back] }
+
+  - id: CNT.08.t2
+    skillId: CNT.08
+    format: number-line-jump
+    tier: pictorial
+    generator: count.sequence
+    params: { start: { int: [5, 20] }, step: 1, dir: -1, length: { int: [1, 4] } }
+    constraints: ["last >= 0"]
+    difficulty: { base: -1.6 }
+    narration: { prompt: p.count.back-to, hints: [h.sequence.count-back] }
+
+  - id: CNT.08.t3
+    skillId: CNT.08
+    format: numeral-pick
+    tier: abstract
+    generator: count.sequence
+    params: { start: { int: [2, 20] }, step: 1, dir: -1, length: 1 }
+    difficulty: { base: -1.3 }
+    narration: { prompt: p.count.next-back, hints: [h.sequence.count-back] }
+
+  # ---------- CNT.09 count to 100 by ones and tens, across decades ----------
+  - id: CNT.09.t1
+    skillId: CNT.09
+    format: hundred-chart
+    tier: pictorial
+    generator: count.sequence
+    params:
+      start: { int: [1, 97] }
+      step: 1
+      dir: 1
+      length: { int: [2, 3] }
+      cross: { choice: [any, decade] }
+    constraints: ["last <= 100"]
+    difficulty: { base: -0.9 }
+    narration:
+      prompt: p.count.fill-on
+      hints: [h.sequence.say-it, h.sequence.new-ten, h.sequence.chart-steps]
+
+  - id: CNT.09.t2
+    skillId: CNT.09
+    format: hundred-chart
+    tier: pictorial
+    generator: count.sequence
+    params: { start: { int: [10, 70], step: 10 }, step: 10, dir: 1, length: { int: [2, 4] } }
+    constraints: ["last <= 100"]
+    difficulty: { base: -1.85 }
+    narration: { prompt: p.count.fill-tens, hints: [h.sequence.tens-down, h.sequence.say-tens] }
+
+  - id: CNT.09.t3
+    skillId: CNT.09
+    format: numeral-pick
+    tier: pictorial
+    representation: number-line
+    generator: count.sequence
+    params:
+      { start: { int: [11, 99] }, step: 1, dir: 1, length: 1, cross: { choice: [any, decade] } }
+    difficulty: { base: -0.6 }
+    narration: { prompt: p.count.what-next, hints: [h.sequence.say-it, h.sequence.new-ten] }
+    distractors:
+      - { rule: MC.decade-transition }
+
+  - id: CNT.09.t4
+    skillId: CNT.09
+    format: order
+    tier: abstract
+    generator: count.sequence
+    params:
+      start: { int: [11, 97] }
+      step: 1
+      dir: 1
+      length: { int: [2, 3] }
+      cross: { choice: [any, decade] }
+    constraints: ["last <= 100"]
+    difficulty: { base: -0.9 }
+    narration: { prompt: p.count.order, hints: [h.sequence.say-it, h.sequence.new-ten] }
+
+  # ---------- CNT.10 count, read and write to 120 ----------
+  - id: CNT.10.t1
+    skillId: CNT.10
+    format: hundred-chart
+    tier: pictorial
+    generator: count.sequence
+    params:
+      start: { int: [20, 117] }
+      step: 1
+      dir: 1
+      length: { int: [2, 3] }
+      cross: { choice: [any, decade] }
+    constraints: ["last <= 120"]
+    difficulty: { base: -1.3 }
+    narration:
+      prompt: p.count.fill-on
+      hints: [h.sequence.say-it, h.sequence.new-ten, h.sequence.chart-steps]
+
+  - id: CNT.10.t2
+    skillId: CNT.10
+    format: number-line-jump
+    tier: pictorial
+    generator: count.sequence
+    params: { start: { int: [20, 116] }, step: 1, dir: 1, length: { int: [2, 4] } }
+    constraints: ["last <= 120"]
+    difficulty: { base: -1.4 }
+    narration: { prompt: p.count.on-to, hints: [h.sequence.say-it, h.sequence.new-ten] }
+
+  - id: CNT.10.t3
+    skillId: CNT.10
+    format: number-pad
+    tier: abstract
+    generator: count.sequence
+    params:
+      start: { int: [11, 117] }
+      step: 1
+      dir: 1
+      length: { int: [1, 2] }
+      hide: all-after
+      cross: { choice: [any, decade] }
+    constraints: ["last <= 120"]
+    difficulty: { base: -1.3 }
+    narration: { prompt: p.count.box-on, hints: [h.sequence.say-it, h.sequence.new-ten] }
+
+  # ---------- CNT.13 zero means none ----------
+  # Half the items are empty, so the child decides between none and some.
+  - id: CNT.13.t1
+    skillId: CNT.13
+    format: tap-count
+    tier: concrete
+    generator: count.set
+    params: { n: { choice: [0, 1, 2, 3], weights: [3, 1, 1, 1] }, mode: how-many, layout: line }
+    difficulty: { base: -0.1 }
+    narration: { prompt: p.count.how-many, hints: [h.count.anything, h.count.touch-each] }
+
+  - id: CNT.13.t2
+    skillId: CNT.13
+    format: numeral-pick
+    tier: pictorial
+    representation: ten-frame
+    generator: count.set
+    params:
+      {
+        n: { choice: [0, 1, 2, 3, 4], weights: [4, 1, 1, 1, 1] },
+        mode: how-many,
+        layout: ten-frame,
+      }
+    difficulty: { base: -0.4 }
+    narration: { prompt: p.count.find-numeral, hints: [h.count.anything, h.count.full-boxes] }
+
+  - id: CNT.13.t3
+    skillId: CNT.13
+    format: numeral-pick
+    tier: abstract
+    generator: count.sequence
+    params: { start: { choice: [1, 2, 3], weights: [2, 1, 1] }, step: 1, dir: -1, length: 1 }
+    difficulty: { base: -0.9 }
+    narration: { prompt: p.count.next-back, hints: [h.sequence.count-back] }
+
+  # ---------- CNT.14 one more than the number before (gateway) ----------
+  - id: CNT.14.t1
+    skillId: CNT.14
+    format: make-set
+    tier: concrete
+    generator: count.set
+    params: { n: { int: [2, 10] }, start: { int: [1, 9] }, mode: add-more }
+    constraints: ["n == start + 1"]
+    difficulty: { base: -0.6 }
+    narration: { prompt: tp.CNT.14.t1.prompt, hints: [h.count.one-more, h.count.last-number] }
+
+  - id: CNT.14.t2
+    skillId: CNT.14
+    format: tenframe-fill
+    tier: concrete
+    generator: count.set
+    params: { n: { int: [2, 15] }, start: { int: [1, 14] }, mode: add-more }
+    constraints: ["n == start + 1"]
+    difficulty: { base: -0.6 }
+    narration: { prompt: tp.CNT.14.t2.prompt, hints: [h.count.one-more, h.count.last-number] }
+
+  - id: CNT.14.t3
+    skillId: CNT.14
+    format: numeral-pick
+    tier: pictorial
+    representation: number-path
+    generator: count.sequence
+    params: { start: { int: [1, 19] }, step: 1, dir: 1, length: 1 }
+    constraints: ["last <= 20"]
+    difficulty: { base: -0.6 }
+    narration: { prompt: p.count.one-more, hints: [h.sequence.look-path, h.count.one-more-next] }
+
+  - id: CNT.14.t4
+    skillId: CNT.14
+    format: numeral-pick
+    tier: abstract
+    generator: count.sequence
+    params: { start: { int: [1, 19] }, step: 1, dir: 1, length: 1 }
+    constraints: ["last <= 20"]
+    difficulty: { base: -0.6 }
+    narration: { prompt: p.count.one-more, hints: [h.count.one-more-next] }
+
+  # ---------- CNT.15 ordinal positions ----------
+  - id: CNT.15.t1
+    skillId: CNT.15
+    format: tap-count
+    tier: concrete
+    generator: count.ordinal
+    params:
+      k: { int: [1, 10] }
+      n: { int: [5, 10] }
+      from: { choice: [left, right], weights: [3, 1] }
+    constraints: ["k <= n"]
+    difficulty: { base: -0.6 }
+    narration: { prompt: tp.CNT.15.t1.prompt, hints: [h.ordinal.first-end, h.ordinal.say-places] }
+
+  - id: CNT.15.t2
+    skillId: CNT.15
+    format: tap-count
+    tier: pictorial
+    representation: number-path
+    generator: count.ordinal
+    params: { k: { int: [1, 10] }, n: { int: [6, 10] }, from: left, sprite: stone }
+    constraints: ["k <= n"]
+    difficulty: { base: -0.6 }
+    narration: { prompt: tp.CNT.15.t2.prompt, hints: [h.ordinal.stones] }
+
+  - id: CNT.15.t3
+    skillId: CNT.15
+    format: numeral-pick
+    tier: pictorial
+    representation: words
+    generator: count.ordinal
+    params:
+      k: { int: [1, 10] }
+      n: { int: [5, 10] }
+      from: { choice: [left, right], weights: [3, 1] }
+    constraints: ["k <= n"]
+    difficulty: { base: 0.0 }
+    narration: { prompt: tp.CNT.15.t3.prompt, hints: [h.ordinal.first-end, h.ordinal.say-places] }
+
+  # ---------- CNT.16 count backward within 120 ----------
+  - id: CNT.16.t1
+    skillId: CNT.16
+    format: number-line-jump
+    tier: pictorial
+    generator: count.sequence
+    params: { start: { int: [21, 120] }, step: 1, dir: -1, length: { int: [2, 4] } }
+    difficulty: { base: -2.0 }
+    narration: { prompt: p.count.back-to, hints: [h.sequence.count-back, h.sequence.back-ten] }
+
+  - id: CNT.16.t2
+    skillId: CNT.16
+    format: hundred-chart
+    tier: pictorial
+    generator: count.sequence
+    params:
+      start: { int: [23, 120] }
+      step: 1
+      dir: -1
+      length: { int: [2, 3] }
+      cross: { choice: [any, decade] }
+    difficulty: { base: -1.9 }
+    narration:
+      prompt: p.count.fill-back
+      hints: [h.sequence.count-back, h.sequence.back-ten, h.sequence.chart-back]
+
+  - id: CNT.16.t3
+    skillId: CNT.16
+    format: number-pad
+    tier: abstract
+    generator: count.sequence
+    params:
+      start: { int: [23, 120] }
+      step: 1
+      dir: -1
+      length: { int: [1, 2] }
+      hide: all-after
+      cross: { choice: [any, decade] }
+    difficulty: { base: -1.9 }
+    narration: { prompt: p.count.box-back, hints: [h.sequence.count-back, h.sequence.back-ten] }
+
+  # ---------- CNT.18 missing numbers on a path or chart ----------
+  - id: CNT.18.t1
+    skillId: CNT.18
+    format: hundred-chart
+    tier: pictorial
+    generator: count.sequence
+    params:
+      start: { int: [1, 110] }
+      step: { choice: [1, 10], weights: [2, 1] }
+      dir: 1
+      length: { int: [3, 4] }
+      hide: between
+    constraints: ["last <= 120"]
+    difficulty: { base: -1.3 }
+    narration:
+      prompt: p.count.missing
+      hints: [h.sequence.say-it, h.sequence.chart-steps, h.sequence.look-chart]
+
+  - id: CNT.18.t2
+    skillId: CNT.18
+    format: number-pad
+    tier: pictorial
+    representation: number-path
+    generator: count.sequence
+    params: { start: { int: [1, 115] }, step: 1, dir: 1, length: { int: [2, 4] }, hide: between }
+    constraints: ["last <= 120"]
+    difficulty: { base: -1.3 }
+    narration: { prompt: p.count.missing, hints: [h.sequence.say-it, h.sequence.look-path] }

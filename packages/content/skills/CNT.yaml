@@ -1,5 +1,6 @@
-# C01 fixture (03 §9.5): catalog rows from 03 §3.3. K01 replaces these with the full entries,
-# keeping ids and schemas.
+# CNT: Counting (03 §3.3). K01 (#11) authors the K and grade-1 rows except CNT.19 and CNT.20,
+# which need place-value skills from a later PR. CNT.11, CNT.12 and CNT.17 are grade 2 (K02) and
+# are planned ids in graph.yaml.
 strand: CNT
 skills:
   - id: CNT.01
@@ -12,7 +13,7 @@ skills:
     representations: [number-path, hundred-chart, symbols]
 
   - id: CNT.02
-    name: Count up to 10 objects one by one
+    name: Count up to 10 objects one by one (in a line, then scattered)
     kind: procedure
     grade: K
     standards: { ccss: [K.CC.B.4a] }
@@ -21,7 +22,7 @@ skills:
     representations: [objects, ten-frame, dots]
 
   - id: CNT.03
-    name: The last number counted tells how many
+    name: The last number counted tells how many; a recount gives the same
     kind: concept
     grade: K
     standards: { ccss: [K.CC.B.4b] }
@@ -48,7 +49,7 @@ skills:
     representations: [objects, dots, symbols]
 
   - id: CNT.06
-    name: Count and make sets to 20
+    name: Count and make sets to 20 (lines, arrays, circles)
     kind: procedure
     grade: K
     standards: { ccss: [K.CC.B.5] }
@@ -65,3 +66,76 @@ skills:
     prerequisites: [CNT.06]
     gateway: false
     representations: [number-path, number-line, hundred-chart, symbols]
+
+  - id: CNT.08
+    name: Count backward from 10, then from any number to 20
+    kind: procedure
+    grade: K
+    standards: { ccss: [K.CC.A.2] }
+    prerequisites: [CNT.07]
+    gateway: false
+    representations: [number-path, number-line, symbols]
+
+  - id: CNT.09
+    name: Count to 100 by ones and by tens; cross decades (39 → 40)
+    kind: procedure
+    grade: K
+    standards: { ccss: [K.CC.A.1] }
+    prerequisites: [CNT.07]
+    gateway: false
+    representations: [hundred-chart, number-line, symbols]
+
+  - id: CNT.10
+    name: Count, read and write to 120 from any start
+    kind: procedure
+    grade: 1
+    standards: { ccss: [1.NBT.A.1] }
+    prerequisites: [CNT.09, CNT.05]
+    encompasses: { CNT.09: 1.0 }
+    gateway: false
+    representations: [hundred-chart, number-line, symbols]
+
+  - id: CNT.13
+    name: "Zero means none: count an empty set and write 0"
+    kind: concept
+    grade: K
+    standards: { ccss: [K.CC.A.3] }
+    prerequisites: [CNT.03]
+    gateway: false
+    representations: [objects, ten-frame, symbols]
+
+  - id: CNT.14
+    name: Each number is one more than the one before (6 has 5 inside it)
+    kind: concept
+    grade: K
+    standards: { ccss: [K.CC.B.4c] }
+    prerequisites: [CNT.04, CNT.07]
+    gateway: true
+    representations: [objects, ten-frame, number-path, symbols]
+
+  - id: CNT.15
+    name: Ordinal positions, first to tenth
+    kind: concept
+    grade: K
+    standards: { ccss: [], supports: [K.CC.B.4] }
+    prerequisites: [CNT.06]
+    gateway: false
+    representations: [objects, number-path, words]
+
+  - id: CNT.16
+    name: Count backward from any number within 120
+    kind: procedure
+    grade: 1
+    standards: { ccss: [1.NBT.A.1] }
+    prerequisites: [CNT.08, CNT.10]
+    gateway: false
+    representations: [hundred-chart, number-line, symbols]
+
+  - id: CNT.18
+    name: Find missing numbers on a number path or chart within 120
+    kind: procedure
+    grade: 1
+    standards: { ccss: [1.NBT.A.1] }
+    prerequisites: [CNT.10]
+    gateway: false
+    representations: [number-path, hundred-chart]

@@ -57,17 +57,30 @@ describe('the C01 fixture set (03 §9.5)', () => {
       'CNT.05',
       'CNT.06',
       'CNT.07',
+      'CNT.08',
+      'CNT.09',
+      'CNT.10',
+      'CNT.13',
+      'CNT.14',
+      'CNT.15',
+      'CNT.16',
+      'CNT.18',
       'CPS.01',
       'CPS.02',
       'CPS.03',
       'SUB.01',
       'SUB.02',
       'SUB.03',
+      'SUB.05',
+      'SUB.06',
     ]);
     expect(result.content?.misconceptions.map((m) => m.id)).toEqual([
       'MC.count-all-instead',
       'MC.count-start-number',
+      'MC.decade-transition',
       'MC.off-by-one-counting',
+      'MC.recount-from-one',
+      'MC.teen-reversal',
     ]);
   });
 
@@ -75,8 +88,16 @@ describe('the C01 fixture set (03 §9.5)', () => {
     const c = compileContent(FIXTURE).content;
     const ids = new Set(c?.skills.map((s) => s.id));
     for (const s of c?.skills ?? []) for (const p of s.prerequisites) expect(ids.has(p)).toBe(true);
+    // The five E01 reference generators, plus count.ordinal (K01, CNT.15).
     expect(new Set(c?.templates.map((t) => t.generator))).toEqual(
-      new Set(['count.set', 'count.sequence', 'subitize.flash', 'bond.parts', 'addsub.facts']),
+      new Set([
+        'count.set',
+        'count.sequence',
+        'count.ordinal',
+        'subitize.flash',
+        'bond.parts',
+        'addsub.facts',
+      ]),
     );
     expect(new Set(c?.templates.map((t) => t.format))).toEqual(
       new Set([
@@ -304,7 +325,12 @@ describe('V03: sequential ids', () => {
   });
   it('accepts a retired gap', () => {
     const diags = variant((f) => {
-      editYaml(f, 'graph.yaml', (doc) => (doc.plannedIds = []));
+      // ADD.02 moves from planned to retired; the other planned gaps stay planned.
+      editYaml(
+        f,
+        'graph.yaml',
+        (doc) => (doc.plannedIds = (doc.plannedIds as string[]).filter((id) => id !== 'ADD.02')),
+      );
       f['retired.yaml'] = 'skills: [ADD.02]\n';
     });
     expect(diags.filter((d) => d.check === 'V03')).toEqual([]);
@@ -838,7 +864,15 @@ describe('V19: standards codes', () => {
 
 describe('V20: coverage', () => {
   it('rejects an uncovered code in a covered grade', () => {
-    const diags = variant((f) => editYaml(f, 'graph.yaml', (doc) => (doc.coverageGrades = ['K'])));
+    const diags = variant((f) => {
+      editYaml(f, 'graph.yaml', (doc) => (doc.coverageGrades = ['K']));
+      // CNT.14 is the only skill tagged K.CC.B.4c; retag it so K.CC.B.4 is partly covered.
+      editYaml(
+        f,
+        'skills/CNT.yaml',
+        (doc) => (skill(doc, 'CNT.14').standards.ccss = ['K.CC.B.4b']),
+      );
+    });
     expectFinding(diags, 'V20', /uncovered standard K.CC.C.6/);
     expectFinding(diags, 'V20', /uncovered standard K.CC.B.4 \(untagged parts: K.CC.B.4c\)/);
     // Supports never count: K.OA.A.3 is addressed by CPS.01/CPS.02, K.CC.B.5 by CNT.04/CNT.06.
@@ -936,7 +970,7 @@ describe('V21: the test-out pool (03 §6.5) is resolved into testOut.templateIds
   });
   it('adds pictorial templates for a gateway skill whose abstract ones span one representation', () => {
     expect(pool(FIXTURE, 'CNT.03')).toEqual(['CNT.03.t2', 'CNT.03.t4']); // t3 is choice-only
-    expect(pool(FIXTURE, 'SUB.03')).toEqual(['SUB.03.t2', 'SUB.03.t3', 'SUB.03.t4']);
+    expect(pool(FIXTURE, 'SUB.03')).toEqual(['SUB.03.t2', 'SUB.03.t3', 'SUB.03.t4', 'SUB.03.t5']);
     expect(pool(FIXTURE, 'CPS.02')).toEqual(['CPS.02.t3', 'CPS.02.t4']);
   });
   it('rejects a gateway pool that still spans one representation', () => {
@@ -1230,10 +1264,11 @@ describe('V24 and contentVersion (03 §9.1)', () => {
     const manifest = JSON.parse(r.outputs?.['manifest.json'] as string);
     expect(manifest.contentVersion).toBe(r.contentVersion);
     expect(manifest.schemaVersion).toBe(1);
+    // Pinned to the current content; K01 (#11) updates these numbers as each strand group lands.
     expect(manifest.counts).toEqual({
-      skills: 15,
-      templates: 53,
-      misconceptions: 3,
+      skills: 25,
+      templates: 86,
+      misconceptions: 6,
       narrationKeys: Object.keys(r.content?.narration ?? {}).length,
     });
     expect(Object.keys(manifest.files).sort()).toEqual([
@@ -1257,15 +1292,17 @@ describe('graph.json (03 §9.1)', () => {
     for (const [from, to] of g?.edges ?? [])
       expect(pos.get(from) as number).toBeLessThan(pos.get(to) as number);
     expect(g?.roots).toEqual(['CNT.01', 'SUB.01']);
-    expect(g?.gateways).toEqual(['CNT.03', 'CPS.02', 'SUB.03']);
+    expect(g?.gateways).toEqual(['CNT.03', 'CNT.14', 'CPS.02', 'SUB.03']);
     expect(g?.depth['CNT.01']).toBe(0);
     expect(g?.depth['ADD.03']).toBe(6); // CNT.01 → 02 → 03 → 04 → 06 → 07 → ADD.03
     expect(g?.descendants2['CPS.03']).toBe(0);
-    expect(g?.descendants2['CNT.06']).toBe(2); // CNT.07, ADD.03
+    // CNT.07, CNT.15; then ADD.03, CNT.08, CNT.09, CNT.14 (through CNT.07)
+    expect(g?.descendants2['CNT.06']).toBe(6);
     expect(g?.encompasses).toEqual([
       ['CNT.06', 'CNT.04', 1],
       ['CNT.06', 'CNT.05', 0.5],
+      ['CNT.10', 'CNT.09', 1],
     ]);
-    expect(g?.strands.SUB).toEqual(['SUB.01', 'SUB.02', 'SUB.03']);
+    expect(g?.strands.SUB).toEqual(['SUB.01', 'SUB.02', 'SUB.03', 'SUB.05', 'SUB.06']);
   });
 });

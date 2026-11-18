@@ -1,5 +1,8 @@
 // count.sequence (03 §5.6): the counting sequence from `start` by `step`, forwards or backwards.
 // The sequence is start, then `length` more terms; `last` = start + dir · step · length.
+// `hide` picks the terms a number-pad or hundred-chart item asks for (every term after start, only
+// the last, or the terms between start and last: missing numbers, CNT.18), and `cross: decade`
+// redraws until the counted terms cross a multiple of 10 (CNT.09, CNT.10, CNT.16).
 // Formats: numeral-pick, number-pad, hundred-chart, order, number-line-jump.
 
 import type {
@@ -41,6 +44,33 @@ export function chartFor(lo: number, hi: number): { first: number; rows: number 
 const crosses = (lo: number, hi: number, unit: number): boolean =>
   Math.floor(lo / unit) !== Math.floor(hi / unit);
 
+const HIDE = ['last', 'all-after', 'between'] as const;
+type Hide = (typeof HIDE)[number];
+
+/** The terms a number-pad or hundred-chart item hides (03 §5.6 `hide`). */
+export function hiddenTerms(terms: number[], hide: Hide): number[] {
+  if (hide === 'last') return terms.slice(-1);
+  if (hide === 'between') return terms.slice(1, -1);
+  return terms.slice(1);
+}
+
+/**
+ * A number path (or line) that labels only the terms shown, with '?' on the hidden ones, so the
+ * picture never gives a blank away (number-pad on the number-path or number-line representation).
+ */
+function partialPath(terms: number[], hidden: number[], step: number): StimulusSpec {
+  const lo = Math.min(...terms);
+  const hi = Math.max(...terms);
+  return {
+    kind: 'number-line',
+    min: Math.max(0, lo - step),
+    max: hi + step,
+    ticksEvery: step,
+    labelsEvery: null,
+    marks: terms.map((v) => ({ at: v, label: hidden.includes(v) ? '?' : String(v) })),
+  };
+}
+
 const say = (
   key: string,
   vars: Record<string, number>,
@@ -62,9 +92,15 @@ export const countSequence: GeneratorDef = {
     },
     hide: {
       type: 'string',
-      values: ['last', 'all-after'],
+      values: [...HIDE],
       default: { kind: 'const', value: 'all-after' },
-      doc: 'number-pad and hundred-chart: hide only the last term, or every term after start',
+      doc: 'number-pad and hundred-chart: hide only the last term, every term after start, or the terms between start and last (missing numbers)',
+    },
+    cross: {
+      type: 'string',
+      values: ['any', 'decade'],
+      default: { kind: 'const', value: 'any' },
+      doc: 'decade: the terms from start to last must cross a multiple of 10 (redrawn otherwise)',
     },
   },
   derived: ['last'],
@@ -74,9 +110,11 @@ export const countSequence: GeneratorDef = {
     backward: { weight: 0.6, doc: 'counting back' },
     crossDecade: { weight: 0.5, doc: 'the sequence crosses a multiple of 10' },
     crossCentury: { weight: 0.7, doc: 'the sequence crosses a multiple of 100' },
+    zero: { weight: 0.3, doc: 'a term after start is 0 (counting back to zero, CNT.13)' },
   },
   narration: [
     'gen.count.sequence.say-from',
+    'gen.count.sequence.say-back',
     'gen.count.sequence.next-is',
     'gen.count.sequence.hop',
     'gen.count.sequence.order-start',
@@ -92,11 +130,14 @@ export const countSequence: GeneratorDef = {
     const start = asNum(p.start);
     const last = asNum(p.last);
     if (start < 0 || last < 0 || asNum(p.step, 1) <= 0) return false;
+    const lo = Math.min(start, last);
+    const hi = Math.max(start, last);
+    if (p.cross === 'decade' && !crosses(lo, hi, 10)) return false;
+    // Missing numbers between start and last need at least one term between them.
+    const asks = t.format === 'number-pad' || t.format === 'hundred-chart';
+    if (asks && p.hide === 'between' && asNum(p.length, 1) < 2) return false;
     // A hundred-chart item must fit on one chart.
-    return (
-      t.format !== 'hundred-chart' ||
-      chartFor(Math.min(start, last), Math.max(start, last)) !== null
-    );
+    return t.format !== 'hundred-chart' || chartFor(lo, hi) !== null;
   },
   build(ctx: BuildContext): GeneratorOutput {
     const { params, template: t, rng } = ctx;
@@ -116,6 +157,7 @@ export const countSequence: GeneratorDef = {
       backward: dir < 0 ? 1 : 0,
       crossDecade: crosses(lo, hi, 10) ? 1 : 0,
       crossCentury: crosses(lo, hi, 100) ? 1 : 0,
+      zero: terms.slice(1).includes(0) ? 1 : 0,
     };
     const vars = pickVars(t, { start, last, step, length });
     const path: StimulusSpec = {
@@ -126,7 +168,8 @@ export const countSequence: GeneratorDef = {
       labelsEvery: step,
       marks: [{ at: start, arrow: true }],
     };
-    const hiddenAfter = asStrHide(params.hide) === 'last' ? [last] : terms.slice(1);
+    const hiddenAfter = hiddenTerms(terms, asStrHide(params.hide));
+    const onPath = t.representation === 'number-path' || t.representation === 'number-line';
     let p: PartialOutput;
     switch (t.format) {
       case 'numeral-pick': {
@@ -137,7 +180,7 @@ export const countSequence: GeneratorDef = {
           math,
           widget: {
             format: 'numeral-pick',
-            stimulus: t.representation === 'number-path' ? path : { kind: 'none' },
+            stimulus: onPath ? path : { kind: 'none' },
             options: opts.options,
             layout: 'row',
           },
@@ -161,7 +204,7 @@ export const countSequence: GeneratorDef = {
           math,
           widget: {
             format: 'number-pad',
-            stimulus: { kind: 'none' },
+            stimulus: onPath ? partialPath(terms, hidden, step) : { kind: 'none' },
             expression: { tokens },
             blanks,
             unit: null,
@@ -170,7 +213,8 @@ export const countSequence: GeneratorDef = {
             hidden.length === 1
               ? { kind: 'number', value: hidden[0] as number }
               : { kind: 'numbers', values: hidden, ordered: true },
-          overlay: path,
+          // The representation rung shows the path with the asked terms still marked '?'.
+          overlay: partialPath(terms, hidden, step),
         };
         break;
       }
@@ -281,11 +325,12 @@ export const countSequence: GeneratorDef = {
     const dir = asNum(out.params.dir, 1) < 0 ? -1 : 1;
     const terms = sequenceTerms(start, step, dir, Math.max(1, asNum(out.params.length, 1)));
     const next = terms[1] as number;
+    const from = dir < 0 ? 'gen.count.sequence.say-back' : 'gen.count.sequence.say-from';
     switch (w.format) {
       case 'numeral-pick': {
         const id = out.answer.kind === 'choice' ? out.answer.id : '';
         return [
-          say('gen.count.sequence.say-from', { start }),
+          say(from, { start }),
           say(
             'gen.count.sequence.next-is',
             { n: Number(id.slice(4)) },
@@ -294,7 +339,7 @@ export const countSequence: GeneratorDef = {
         ];
       }
       case 'number-pad': {
-        const steps: LessonStep[] = [say('gen.count.sequence.say-from', { start })];
+        const steps: LessonStep[] = [say(from, { start })];
         for (const b of w.blanks) {
           const i = Number(b.id.slice(1));
           const v = terms[i] as number;
@@ -310,25 +355,19 @@ export const countSequence: GeneratorDef = {
       }
       case 'hundred-chart':
         if (w.mode === 'fill') {
+          // The last hidden term in counting order (with hide: between, `last` itself is shown).
+          const lastHidden = terms.filter((v) => w.hidden.includes(v)).at(-1) ?? last;
           return [
-            say(
-              'gen.count.sequence.say-from',
-              { start },
-              { op: 'highlight-row', args: { n: start } },
-            ),
+            say(from, { start }, { op: 'highlight-row', args: { n: start } }),
             say(
               'gen.count.sequence.next-is',
-              { n: last },
+              { n: lastHidden },
               { op: 'answer', args: { values: w.hidden } },
             ),
           ];
         }
         return [
-          say(
-            'gen.count.sequence.say-from',
-            { start },
-            { op: 'highlight-row', args: { n: start } },
-          ),
+          say(from, { start }, { op: 'highlight-row', args: { n: start } }),
           say('gen.count.sequence.next-is', { n: next }, { op: 'tap', args: { n: next } }),
         ];
       case 'order': {
@@ -348,7 +387,7 @@ export const countSequence: GeneratorDef = {
       }
       case 'number-line-jump': {
         const steps: LessonStep[] = [
-          say('gen.count.sequence.say-from', { start }, { op: 'highlight', args: { at: start } }),
+          say(from, { start }, { op: 'highlight', args: { at: start } }),
         ];
         for (let v = start + dir * step; dir > 0 ? v <= last : v >= last; v += dir * step) {
           steps.push(
@@ -366,6 +405,6 @@ export const countSequence: GeneratorDef = {
   },
 };
 
-function asStrHide(v: unknown): 'last' | 'all-after' {
-  return v === 'last' ? 'last' : 'all-after';
+function asStrHide(v: unknown): Hide {
+  return v === 'last' || v === 'between' ? v : 'all-after';
 }

@@ -26,3 +26,31 @@ lessons:
     scaffolded: { count: 2, hintStart: 2 }
     testOut: { items: 3, minCorrect: 3 }
     outro: ls.CNT.03.outro
+
+  # Gateway (03 §6.4): one more on the boat, then the same idea on a ten-frame.
+  - skillId: CNT.14
+    mode: authored
+    templateId: CNT.14.t1
+    worked:
+      - params: { n: 6, start: 5, mode: add-more }
+        steps:
+          - actor: demo
+            say: ls.CNT.14.w1.s1
+            vars: { start: 5 }
+            action: { op: count-aloud }
+          - actor: demo
+            say: ls.CNT.14.w1.s2
+            action: { op: drag, args: { count: 1 } }
+          - actor: demo
+            say: ls.CNT.14.w1.s3
+            vars: { start: 5, n: 6 }
+            action: { op: close-container }
+    faded:
+      - params: { n: 4, start: 3, mode: add-more }
+        childSteps: 1
+      - templateId: CNT.14.t2
+        params: { n: 8, start: 7, mode: add-more }
+        childSteps: 2
+    scaffolded: { count: 2, hintStart: 2 }
+    testOut: { items: 3, minCorrect: 3 }
+    outro: ls.CNT.14.outro
