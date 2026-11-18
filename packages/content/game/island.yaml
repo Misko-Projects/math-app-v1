@@ -1,0 +1,316 @@
+# U02 game data: the island (02 §5.8; 05 §3). A 12 × 8 plot grid ([x, y], x 0–11 west to east,
+# y 0–7 north to south). It starts as a 3-plot sandbar and grows outward in rings: a ring opens
+# when its rule holds over island facts (built buildings, road length, residents; 02 §4.3), and the
+# rings open in order. Together the rings cover the whole grid.
+#
+# The Numbered Road winds from the sandbar around the first shore (stones 1–20), then around ring
+# 2 (21–100, one plot per ten), and on by tens to 1,000 (one plot per hundred), so the Road Crew
+# counts by ones, tens and hundreds. Consecutive stones share a plot or sit on neighbouring plots.
+
+island:
+  grid: [12, 8]
+  rings:
+    # ring 0: the sandbar the siblings wash up on with Pip (05 §1, §3) (3 plots)
+    - unlock: { start: true }
+      plots: [[4, 4], [5, 4], [6, 4]]
+    # ring 1: the first shore, once the first Pebbling (the buddy) moves in (25 plots)
+    - unlock: { residentCount: 1 }
+      plots:
+        [
+          [2, 2],
+          [3, 2],
+          [4, 2],
+          [5, 2],
+          [6, 2],
+          [7, 2],
+          [8, 2],
+          [2, 3],
+          [3, 3],
+          [4, 3],
+          [5, 3],
+          [6, 3],
+          [7, 3],
+          [8, 3],
+          [2, 4],
+          [3, 4],
+          [7, 4],
+          [8, 4],
+          [2, 5],
+          [3, 5],
+          [4, 5],
+          [5, 5],
+          [6, 5],
+          [7, 5],
+          [8, 5],
+        ]
+    # ring 2: the road reaches 20 and the island grows around it (26 plots)
+    - unlock: { roadLength: 20 }
+      plots:
+        [
+          [1, 1],
+          [2, 1],
+          [3, 1],
+          [4, 1],
+          [5, 1],
+          [6, 1],
+          [7, 1],
+          [8, 1],
+          [9, 1],
+          [1, 2],
+          [9, 2],
+          [1, 3],
+          [9, 3],
+          [1, 4],
+          [9, 4],
+          [1, 5],
+          [9, 5],
+          [1, 6],
+          [2, 6],
+          [3, 6],
+          [4, 6],
+          [5, 6],
+          [6, 6],
+          [7, 6],
+          [8, 6],
+          [9, 6],
+        ]
+    # ring 3: the north and west shore, once the Lighthouse is built or the road reaches 100 (17 plots)
+    - unlock: { any: [{ building: lighthouse }, { roadLength: 100 }] }
+      plots:
+        [
+          [0, 0],
+          [0, 1],
+          [0, 2],
+          [0, 3],
+          [0, 4],
+          [0, 5],
+          [0, 6],
+          [0, 7],
+          [1, 0],
+          [2, 0],
+          [3, 0],
+          [4, 0],
+          [5, 0],
+          [6, 0],
+          [7, 0],
+          [8, 0],
+          [9, 0],
+        ]
+    # ring 4: East Beach, across the Bridge to East Beach (16 plots)
+    - unlock: { building: east-bridge }
+      plots:
+        [
+          [10, 0],
+          [11, 0],
+          [10, 1],
+          [11, 1],
+          [10, 2],
+          [11, 2],
+          [10, 3],
+          [11, 3],
+          [10, 4],
+          [11, 4],
+          [10, 5],
+          [11, 5],
+          [10, 6],
+          [11, 6],
+          [10, 7],
+          [11, 7],
+        ]
+    # ring 5: the south shore, once the Festival Stage is built (9 plots)
+    - unlock: { building: festival-stage }
+      plots: [[1, 7], [2, 7], [3, 7], [4, 7], [5, 7], [6, 7], [7, 7], [8, 7], [9, 7]]
+  road:
+    # stones 1–20: two stones per plot, on the sandbar and the first shore
+    - { n: 1, plot: [4, 4] }
+    - { n: 2, plot: [4, 4] }
+    - { n: 3, plot: [5, 4] }
+    - { n: 4, plot: [5, 4] }
+    - { n: 5, plot: [6, 4] }
+    - { n: 6, plot: [6, 4] }
+    - { n: 7, plot: [7, 4] }
+    - { n: 8, plot: [7, 4] }
+    - { n: 9, plot: [7, 3] }
+    - { n: 10, plot: [7, 3] }
+    - { n: 11, plot: [7, 2] }
+    - { n: 12, plot: [7, 2] }
+    - { n: 13, plot: [6, 2] }
+    - { n: 14, plot: [6, 2] }
+    - { n: 15, plot: [5, 2] }
+    - { n: 16, plot: [5, 2] }
+    - { n: 17, plot: [4, 2] }
+    - { n: 18, plot: [4, 2] }
+    - { n: 19, plot: [3, 2] }
+    - { n: 20, plot: [3, 2] }
+    # stones 21–100: one plot per ten, in ring 2
+    - { n: 21, plot: [3, 1] }
+    - { n: 22, plot: [3, 1] }
+    - { n: 23, plot: [3, 1] }
+    - { n: 24, plot: [3, 1] }
+    - { n: 25, plot: [3, 1] }
+    - { n: 26, plot: [3, 1] }
+    - { n: 27, plot: [3, 1] }
+    - { n: 28, plot: [3, 1] }
+    - { n: 29, plot: [3, 1] }
+    - { n: 30, plot: [3, 1] }
+    - { n: 31, plot: [2, 1] }
+    - { n: 32, plot: [2, 1] }
+    - { n: 33, plot: [2, 1] }
+    - { n: 34, plot: [2, 1] }
+    - { n: 35, plot: [2, 1] }
+    - { n: 36, plot: [2, 1] }
+    - { n: 37, plot: [2, 1] }
+    - { n: 38, plot: [2, 1] }
+    - { n: 39, plot: [2, 1] }
+    - { n: 40, plot: [2, 1] }
+    - { n: 41, plot: [1, 1] }
+    - { n: 42, plot: [1, 1] }
+    - { n: 43, plot: [1, 1] }
+    - { n: 44, plot: [1, 1] }
+    - { n: 45, plot: [1, 1] }
+    - { n: 46, plot: [1, 1] }
+    - { n: 47, plot: [1, 1] }
+    - { n: 48, plot: [1, 1] }
+    - { n: 49, plot: [1, 1] }
+    - { n: 50, plot: [1, 1] }
+    - { n: 51, plot: [1, 2] }
+    - { n: 52, plot: [1, 2] }
+    - { n: 53, plot: [1, 2] }
+    - { n: 54, plot: [1, 2] }
+    - { n: 55, plot: [1, 2] }
+    - { n: 56, plot: [1, 2] }
+    - { n: 57, plot: [1, 2] }
+    - { n: 58, plot: [1, 2] }
+    - { n: 59, plot: [1, 2] }
+    - { n: 60, plot: [1, 2] }
+    - { n: 61, plot: [1, 3] }
+    - { n: 62, plot: [1, 3] }
+    - { n: 63, plot: [1, 3] }
+    - { n: 64, plot: [1, 3] }
+    - { n: 65, plot: [1, 3] }
+    - { n: 66, plot: [1, 3] }
+    - { n: 67, plot: [1, 3] }
+    - { n: 68, plot: [1, 3] }
+    - { n: 69, plot: [1, 3] }
+    - { n: 70, plot: [1, 3] }
+    - { n: 71, plot: [1, 4] }
+    - { n: 72, plot: [1, 4] }
+    - { n: 73, plot: [1, 4] }
+    - { n: 74, plot: [1, 4] }
+    - { n: 75, plot: [1, 4] }
+    - { n: 76, plot: [1, 4] }
+    - { n: 77, plot: [1, 4] }
+    - { n: 78, plot: [1, 4] }
+    - { n: 79, plot: [1, 4] }
+    - { n: 80, plot: [1, 4] }
+    - { n: 81, plot: [1, 5] }
+    - { n: 82, plot: [1, 5] }
+    - { n: 83, plot: [1, 5] }
+    - { n: 84, plot: [1, 5] }
+    - { n: 85, plot: [1, 5] }
+    - { n: 86, plot: [1, 5] }
+    - { n: 87, plot: [1, 5] }
+    - { n: 88, plot: [1, 5] }
+    - { n: 89, plot: [1, 5] }
+    - { n: 90, plot: [1, 5] }
+    - { n: 91, plot: [1, 6] }
+    - { n: 92, plot: [1, 6] }
+    - { n: 93, plot: [1, 6] }
+    - { n: 94, plot: [1, 6] }
+    - { n: 95, plot: [1, 6] }
+    - { n: 96, plot: [1, 6] }
+    - { n: 97, plot: [1, 6] }
+    - { n: 98, plot: [1, 6] }
+    - { n: 99, plot: [1, 6] }
+    - { n: 100, plot: [1, 6] }
+    # stones 110–1000, counted by tens: one plot per hundred, in ring 2
+    - { n: 110, plot: [2, 6] }
+    - { n: 120, plot: [2, 6] }
+    - { n: 130, plot: [2, 6] }
+    - { n: 140, plot: [2, 6] }
+    - { n: 150, plot: [2, 6] }
+    - { n: 160, plot: [2, 6] }
+    - { n: 170, plot: [2, 6] }
+    - { n: 180, plot: [2, 6] }
+    - { n: 190, plot: [2, 6] }
+    - { n: 200, plot: [2, 6] }
+    - { n: 210, plot: [3, 6] }
+    - { n: 220, plot: [3, 6] }
+    - { n: 230, plot: [3, 6] }
+    - { n: 240, plot: [3, 6] }
+    - { n: 250, plot: [3, 6] }
+    - { n: 260, plot: [3, 6] }
+    - { n: 270, plot: [3, 6] }
+    - { n: 280, plot: [3, 6] }
+    - { n: 290, plot: [3, 6] }
+    - { n: 300, plot: [3, 6] }
+    - { n: 310, plot: [4, 6] }
+    - { n: 320, plot: [4, 6] }
+    - { n: 330, plot: [4, 6] }
+    - { n: 340, plot: [4, 6] }
+    - { n: 350, plot: [4, 6] }
+    - { n: 360, plot: [4, 6] }
+    - { n: 370, plot: [4, 6] }
+    - { n: 380, plot: [4, 6] }
+    - { n: 390, plot: [4, 6] }
+    - { n: 400, plot: [4, 6] }
+    - { n: 410, plot: [5, 6] }
+    - { n: 420, plot: [5, 6] }
+    - { n: 430, plot: [5, 6] }
+    - { n: 440, plot: [5, 6] }
+    - { n: 450, plot: [5, 6] }
+    - { n: 460, plot: [5, 6] }
+    - { n: 470, plot: [5, 6] }
+    - { n: 480, plot: [5, 6] }
+    - { n: 490, plot: [5, 6] }
+    - { n: 500, plot: [5, 6] }
+    - { n: 510, plot: [6, 6] }
+    - { n: 520, plot: [6, 6] }
+    - { n: 530, plot: [6, 6] }
+    - { n: 540, plot: [6, 6] }
+    - { n: 550, plot: [6, 6] }
+    - { n: 560, plot: [6, 6] }
+    - { n: 570, plot: [6, 6] }
+    - { n: 580, plot: [6, 6] }
+    - { n: 590, plot: [6, 6] }
+    - { n: 600, plot: [6, 6] }
+    - { n: 610, plot: [7, 6] }
+    - { n: 620, plot: [7, 6] }
+    - { n: 630, plot: [7, 6] }
+    - { n: 640, plot: [7, 6] }
+    - { n: 650, plot: [7, 6] }
+    - { n: 660, plot: [7, 6] }
+    - { n: 670, plot: [7, 6] }
+    - { n: 680, plot: [7, 6] }
+    - { n: 690, plot: [7, 6] }
+    - { n: 700, plot: [7, 6] }
+    - { n: 710, plot: [8, 6] }
+    - { n: 720, plot: [8, 6] }
+    - { n: 730, plot: [8, 6] }
+    - { n: 740, plot: [8, 6] }
+    - { n: 750, plot: [8, 6] }
+    - { n: 760, plot: [8, 6] }
+    - { n: 770, plot: [8, 6] }
+    - { n: 780, plot: [8, 6] }
+    - { n: 790, plot: [8, 6] }
+    - { n: 800, plot: [8, 6] }
+    - { n: 810, plot: [9, 6] }
+    - { n: 820, plot: [9, 6] }
+    - { n: 830, plot: [9, 6] }
+    - { n: 840, plot: [9, 6] }
+    - { n: 850, plot: [9, 6] }
+    - { n: 860, plot: [9, 6] }
+    - { n: 870, plot: [9, 6] }
+    - { n: 880, plot: [9, 6] }
+    - { n: 890, plot: [9, 6] }
+    - { n: 900, plot: [9, 6] }
+    - { n: 910, plot: [9, 5] }
+    - { n: 920, plot: [9, 5] }
+    - { n: 930, plot: [9, 5] }
+    - { n: 940, plot: [9, 5] }
+    - { n: 950, plot: [9, 5] }
+    - { n: 960, plot: [9, 5] }
+    - { n: 970, plot: [9, 5] }
+    - { n: 980, plot: [9, 5] }
+    - { n: 990, plot: [9, 5] }
+    - { n: 1000, plot: [9, 5] }

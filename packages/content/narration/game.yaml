@@ -1,31 +1,621 @@
 # Island and story lines (03 §4.1): game.*, req.* and res.* keys. Each UI issue (U02, I01, I02,
-# OB1, R01 …) authors its own keys here. C01 seeds the lines the fixture game data references.
+# OB1, R01 …) authors its own keys here. U02 authors the game data names and the resident lines
+# (each resident lists its lines in game/residents.yaml).
 
-# ---------- materials (GameData.materials[].name) ----------
+# ---------- materials (GameData.materials[].name): spoken names ----------
 game.material.stone:
   text: "road stones"
 game.material.light:
   text: "light"
 game.material.plank:
   text: "planks"
+game.material.gem:
+  text: "gems"
+game.material.brick:
+  text: "bricks"
+game.material.produce:
+  text: "veggies"
+game.material.bread:
+  text: "bread"
+game.material.coin:
+  text: "coins"
+game.material.ticket:
+  text: "ferry tickets"
+game.material.glass:
+  text: "glass"
+game.material.beam:
+  text: "beams"
+game.material.rope:
+  text: "rope"
+game.material.flag:
+  text: "flags"
+game.material.fruit:
+  text: "fruit"
+game.material.star-shard:
+  text: "star shards"
 
-# ---------- residents: name clips (res.<id>) and lines ----------
+# ---------- buildings (game.building.<id>): spoken names ----------
+game.building.storehouse:
+  text: "Storehouse"
+game.building.road-crew:
+  text: "Road Crew"
+game.building.lantern-grove:
+  text: "Lantern Grove"
+game.building.ten-boat-dock:
+  text: "Ten-Boat Dock"
+game.building.treasure-beach:
+  text: "Treasure Beach"
+game.building.brick-factory:
+  text: "Brick Factory"
+game.building.garden-terraces:
+  text: "Garden Terraces"
+game.building.bakery:
+  text: "Bakery"
+game.building.market:
+  text: "Market"
+game.building.clock-tower:
+  text: "Clock Tower and Ferry"
+game.building.builders-yard:
+  text: "Builder's Yard"
+game.building.weigh-station:
+  text: "Weigh Station and Lookout"
+game.building.rhythm-orchard:
+  text: "Rhythm Orchard"
+game.building.puzzle-tower:
+  text: "Puzzle Tower"
+game.building.practice-pier:
+  text: "Practice Pier"
+game.building.shell-cottage:
+  text: "Shell Cottage"
+game.building.driftwood-hut:
+  text: "Driftwood Hut"
+game.building.burrow-house:
+  text: "Burrow House"
+game.building.reef-house:
+  text: "Reef House"
+game.building.lighthouse:
+  text: "Lighthouse"
+game.building.east-bridge:
+  text: "Bridge to East Beach"
+game.building.festival-stage:
+  text: "Festival Stage"
+
+# ---------- festivals (game.festival.<id>): spoken names ----------
+game.festival.lantern-night:
+  text: "Lantern Night"
+game.festival.shell-parade:
+  text: "Shell Parade"
+game.festival.drum-dance:
+  text: "Drum Dance"
+game.festival.storm-watch:
+  text: "Storm Watch"
+
+# ---------- residents: name clips (res.<id>) and lines (res.<id>.<line>, 05 §5) ----------
 res.nib:
   text: "Nib"
 res.nib.hello:
   text: "Hi, I'm Nib! I love counting stones on the road."
+res.nib.likes:
+  text: "I like one big stone at a time."
+res.nib.dislikes:
+  text: "I do not like a missing stone on the road."
+res.nib.home:
+  text: "My home is my shell. I carry it with me!"
+res.nib.thanks:
+  text: "Thank you! The road is one stone longer."
 res.tuck:
   text: "Tuck"
 res.tuck.hello:
   text: "Hello, friend! Thank you for my new home."
+res.tuck.likes:
+  text: "I like two little lanterns, one on each side."
+res.tuck.dislikes:
+  text: "I do not like to run. I like to take my time."
+res.tuck.home:
+  text: "I want a home in the grass near the grove."
+res.tuck.thanks:
+  text: "Thank you! Now my lanterns light the way."
+res.bimi:
+  text: "Bimi"
+res.bimi.hello:
+  text: "Hi, I'm Bimi! Three pebbles ride on my back."
+res.bimi.likes:
+  text: "I like to play ball by the water."
+res.bimi.dislikes:
+  text: "I do not like a day with no sun."
+res.bimi.home:
+  text: "I want a home near the water, so I can jump in!"
+res.bimi.thanks:
+  text: "Thank you! That was so much fun."
+res.wim:
+  text: "Wim"
+res.wim.hello:
+  text: "Hello, I'm Wim! I have four pebbles, two and two."
+res.wim.likes:
+  text: "I like to fly over the island and count the boats."
+res.wim.dislikes:
+  text: "I do not like big wind when I want to fly."
+res.wim.home:
+  text: "I want a home on top of a hill."
+res.wim.thanks:
+  text: "Thank you! Let's count the boats together."
+res.seela:
+  text: "Seela"
+res.seela.hello:
+  text: "Hi, I'm Seela! Five pebbles make a full row."
+res.seela.likes:
+  text: "I like to ride the Ten-Boat with my friends."
+res.seela.dislikes:
+  text: "I do not like a boat that is not full."
+res.seela.home:
+  text: "I want a home under the sea, near the dock."
+res.seela.thanks:
+  text: "Thank you! The boat is full now."
+res.kesi:
+  text: "Kesi"
+res.kesi.hello:
+  text: "Hi, I'm Kesi! I have two pebbles and many legs."
+res.kesi.likes:
+  text: "I like to walk side to side on the sand."
+res.kesi.dislikes:
+  text: "I do not like it when my lantern goes out."
+res.kesi.home:
+  text: "I want a home in the sand, by the pier."
+res.kesi.thanks:
+  text: "Thank you! I will walk side to side for you."
+res.fig:
+  text: "Fig"
+res.fig.hello:
+  text: "Hello, I'm Fig! My four pebbles make a square."
+res.fig.likes:
+  text: "I like to watch the waves come in."
+res.fig.dislikes:
+  text: "I do not like loud boats in the morning."
+res.fig.home:
+  text: "I want a home by the water, on the shore."
+res.fig.thanks:
+  text: "Thank you! You are a good friend."
 res.marlo:
   text: "Marlo"
 res.marlo.hello:
   text: "I came on the ferry! Can we fill the boat?"
+res.marlo.likes:
+  text: "I like five and five. That makes ten!"
+res.marlo.dislikes:
+  text: "I do not like an empty boat."
+res.marlo.home:
+  text: "I want a home on the dock to see the boats."
+res.marlo.thanks:
+  text: "Thank you! Now the boat can sail."
+res.hobb:
+  text: "Hobb"
+res.hobb.hello:
+  text: "Hi, I'm Hobb! Six pebbles: five and one more."
+res.hobb.likes:
+  text: "I like to build things with planks."
+res.hobb.dislikes:
+  text: "I do not like rain on my planks."
+res.hobb.home:
+  text: "I love my little shell home. It is small and round."
+res.hobb.thanks:
+  text: "Thank you! Let's build more together."
+res.lark:
+  text: "Lark"
+res.lark.hello:
+  text: "Hello, I'm Lark! I have seven pebbles, five and two."
+res.lark.likes:
+  text: "I like a loud song in the morning."
+res.lark.dislikes:
+  text: "I do not like a night with no lanterns."
+res.lark.home:
+  text: "I want a home like a nest, up on top."
+res.lark.thanks:
+  text: "Thank you! I will make up a song for you."
+res.ollo:
+  text: "Ollo"
+res.ollo.hello:
+  text: "Hi, I'm Ollo. My shell has zero pebbles!"
+res.ollo.likes:
+  text: "I like it when my shell is empty. Zero is fun!"
+res.ollo.dislikes:
+  text: "I do not like to be in the way."
+res.ollo.home:
+  text: "I want a home with a big, round door."
+res.ollo.thanks:
+  text: "Thank you! Zero pebbles, but so many friends."
+res.ottie:
+  text: "Ottie"
+res.ottie.hello:
+  text: "Hello, I'm Ottie! Eight pebbles, five and three."
+res.ottie.likes:
+  text: "I like to slide down the dock into the water."
+res.ottie.dislikes:
+  text: "I do not like a day with no water play."
+res.ottie.home:
+  text: "I want a wood home by the sea."
+res.ottie.thanks:
+  text: "Thank you! Let's slide into the water together."
+res.niva:
+  text: "Niva"
+res.niva.hello:
+  text: "Hi, I'm Niva! Nine pebbles, one away from ten."
+res.niva.likes:
+  text: "I like to find treasure on the beach."
+res.niva.dislikes:
+  text: "I do not like it when I can't find my way."
+res.niva.home:
+  text: "I want a home near the beach, with a window."
+res.niva.thanks:
+  text: "Thank you! You helped me find my way."
 res.tenley:
   text: "Tenley"
 res.tenley.hello:
   text: "I carry ten pebbles in my shell. A full ten!"
+res.tenley.likes:
+  text: "I like it when every space in my shell is full."
+res.tenley.dislikes:
+  text: "I do not like to carry nine. I want ten!"
+res.tenley.home:
+  text: "I want a home by the dock, where the Ten-Boat comes."
+res.tenley.thanks:
+  text: "Thank you! Ten and ten more make twenty."
+res.pell:
+  text: "Pell"
+res.pell.hello:
+  text: "Hi, I'm Pell! A Ten Turtle and I make eleven."
+res.pell.likes:
+  text: "I like to look for gems on the beach."
+res.pell.dislikes:
+  text: "I do not like to be away from my turtle friend."
+res.pell.home:
+  text: "I want a home in the sand, near my turtle."
+res.pell.thanks:
+  text: "Thank you! Ten and one, together again."
+res.fennie:
+  text: "Fennie"
+res.fennie.hello:
+  text: "Hello, I'm Fennie! A Ten Turtle and I make twelve."
+res.fennie.likes:
+  text: "I like fruit that is ready to pick."
+res.fennie.dislikes:
+  text: "I do not like a brick that splits."
+res.fennie.home:
+  text: "I want a home in the ground, nice and round."
+res.fennie.thanks:
+  text: "Thank you! Ten and two, that's twelve!"
+res.wendle:
+  text: "Wendle"
+res.wendle.hello:
+  text: "Hi, I'm Wendle! Ten and three make thirteen."
+res.wendle.likes:
+  text: "I like to put things in a row."
+res.wendle.dislikes:
+  text: "I do not like a line that is not in order."
+res.wendle.home:
+  text: "I want a home under the hill, with a little door."
+res.wendle.thanks:
+  text: "Thank you! Now it is all in order."
+res.mavi:
+  text: "Mavi"
+res.mavi.hello:
+  text: "Hello, I'm Mavi! Ten and four make fourteen."
+res.mavi.likes:
+  text: "I like big shapes, like squares and circles."
+res.mavi.dislikes:
+  text: "I do not like a house with no window."
+res.mavi.home:
+  text: "I want a home in the hill, near my friends."
+res.mavi.thanks:
+  text: "Thank you! What a great shape."
+res.sefa:
+  text: "Sefa"
+res.sefa.hello:
+  text: "Hi, I'm Sefa! Ten and five make fifteen."
+res.sefa.likes:
+  text: "I like fruit and a good song."
+res.sefa.dislikes:
+  text: "I do not like a song that is too fast."
+res.sefa.home:
+  text: "I want a home under the water, near the shells."
+res.sefa.thanks:
+  text: "Thank you! Let's play a song together."
+res.brin:
+  text: "Brin"
+res.brin.hello:
+  text: "Hello, I'm Brin! Ten and six make sixteen."
+res.brin.likes:
+  text: "I like to see which side is heavier."
+res.brin.dislikes:
+  text: "I do not like a flag with no wind."
+res.brin.home:
+  text: "I want a home under the water, with many shells."
+res.brin.thanks:
+  text: "Thank you! The two sides are the same now."
+res.pom:
+  text: "Pom"
+res.pom.hello:
+  text: "Hi, I'm Pom! Ten and seven make seventeen."
+res.pom.likes:
+  text: "I like to think and think, and then find it!"
+res.pom.dislikes:
+  text: "I do not like it when a game ends too soon."
+res.pom.home:
+  text: "I want a home in the water, by the tower."
+res.pom.thanks:
+  text: "Thank you! That was a great thinking game."
+res.kibo:
+  text: "Kibo"
+res.kibo.hello:
+  text: "Hello, I'm Kibo! Ten and eight make eighteen."
+res.kibo.likes:
+  text: "I like to help carry bricks."
+res.kibo.dislikes:
+  text: "I do not like an empty ferry."
+res.kibo.home:
+  text: "I want a home by the dock, near the ferry."
+res.kibo.thanks:
+  text: "Thank you! The ferry ride was fun."
+res.zinna:
+  text: "Zinna"
+res.zinna.hello:
+  text: "Hi, I'm Zinna! Ten and nine make nineteen."
+res.zinna.likes:
+  text: "I like to pick fruit from the trees."
+res.zinna.dislikes:
+  text: "I do not like to be one away from twenty!"
+res.zinna.home:
+  text: "I want a home in the orchard, under a tree."
+res.zinna.thanks:
+  text: "Thank you! One more and we make twenty."
+res.toma:
+  text: "Toma"
+res.toma.hello:
+  text: "Hello, I'm Toma! Two Ten Turtles make twenty."
+res.toma.likes:
+  text: "I like to walk the road and count by tens."
+res.toma.dislikes:
+  text: "I do not like a road that stops."
+res.toma.home:
+  text: "I want a home by the road, at stone twenty."
+res.toma.thanks:
+  text: "Thank you! Ten, twenty, and on we go!"
+res.nuno:
+  text: "Nuno"
+res.nuno.hello:
+  text: "Hi, I'm Nuno! Three Ten Turtles, that's thirty!"
+res.nuno.likes:
+  text: "We like to count by tens: ten, twenty, thirty!"
+res.nuno.dislikes:
+  text: "We do not like to walk one by one."
+res.nuno.home:
+  text: "We want a big home for all three turtles."
+res.nuno.thanks:
+  text: "Thank you! Thirty is a good number."
+res.fenno:
+  text: "Fenno"
+res.fenno.hello:
+  text: "Hello, I'm Fenno! Four Ten Turtles make forty."
+res.fenno.likes:
+  text: "We like seeds in a row in the garden."
+res.fenno.dislikes:
+  text: "We do not like it when a turtle is missing."
+res.fenno.home:
+  text: "We want a home by the garden, with four doors."
+res.fenno.thanks:
+  text: "Thank you! Forty is four tens."
+res.soli:
+  text: "Soli"
+res.soli.hello:
+  text: "Hi, I'm Soli! Five Ten Turtles make fifty."
+res.soli.likes:
+  text: "We like coins and the market."
+res.soli.dislikes:
+  text: "We do not like to be last in line."
+res.soli.home:
+  text: "We want a home near the market."
+res.soli.thanks:
+  text: "Thank you! Fifty is half of one hundred."
+res.vina:
+  text: "Vina"
+res.vina.hello:
+  text: "Hello, I'm Vina! Six Ten Turtles make sixty."
+res.vina.likes:
+  text: "We like fruit from the orchard."
+res.vina.dislikes:
+  text: "We do not like rain on a garden day."
+res.vina.home:
+  text: "We want a home in the garden, near the corn."
+res.vina.thanks:
+  text: "Thank you! Sixty, and the garden is full."
+res.delo:
+  text: "Delo"
+res.delo.hello:
+  text: "Hi, I'm Delo! Seven Ten Turtles make seventy."
+res.delo.likes:
+  text: "We like to build with wood and stone."
+res.delo.dislikes:
+  text: "We do not like a tower that is too short."
+res.delo.home:
+  text: "We want a tall home in the yard."
+res.delo.thanks:
+  text: "Thank you! Seventy is seven tens."
+res.ilo:
+  text: "Ilo"
+res.ilo.hello:
+  text: "Hello, I'm Ilo! Eight Ten Turtles make eighty."
+res.ilo.likes:
+  text: "We like flags in the wind."
+res.ilo.dislikes:
+  text: "We do not like to walk in the rain."
+res.ilo.home:
+  text: "We want a home on a hill, near the flags."
+res.ilo.thanks:
+  text: "Thank you! Eight tens is eighty."
+res.ema:
+  text: "Ema"
+res.ema.hello:
+  text: "Hi, I'm Ema! Nine Ten Turtles make ninety."
+res.ema.likes:
+  text: "We like a game where we think and think."
+res.ema.dislikes:
+  text: "We do not like to be one ten away from a hundred."
+res.ema.home:
+  text: "We want a home by the tower."
+res.ema.thanks:
+  text: "Thank you! Ninety and one more ten make a hundred."
+res.moku:
+  text: "Moku"
+res.moku.hello:
+  text: "Hello, I'm Moku! Ten Ten Turtles make one hundred."
+res.moku.likes:
+  text: "We like to count by tens all the way to a hundred."
+res.moku.dislikes:
+  text: "We do not like a short road. We like a long one!"
+res.moku.home:
+  text: "We want a home at the end of the road."
+res.moku.thanks:
+  text: "Thank you! One hundred, all together!"
+res.ula:
+  text: "Ula"
+res.ula.hello:
+  text: "Hello, I'm Ula! I carry one hundred, all in one."
+res.ula.likes:
+  text: "I like to count by hundreds. It is so fast!"
+res.ula.dislikes:
+  text: "I do not like to be in small water."
+res.ula.home:
+  text: "My home is the big blue sea."
+res.ula.thanks:
+  text: "Thank you! One hundred and one hundred make two hundred."
+res.halvie:
+  text: "Halvie"
+res.halvie.hello:
+  text: "Hi, I'm Halvie! I show one half."
+res.halvie.likes:
+  text: "I like a pie in two equal parts."
+res.halvie.dislikes:
+  text: "I do not like parts that are not the same size."
+res.halvie.home:
+  text: "I want a home near the bakery."
+res.halvie.thanks:
+  text: "Thank you! Half for you and half for me."
+res.tibo:
+  text: "Tibo"
+res.tibo.hello:
+  text: "Hello, I'm Tibo! I show one fourth."
+res.tibo.likes:
+  text: "I like bread in four equal parts."
+res.tibo.dislikes:
+  text: "I do not like it when one part is too big."
+res.tibo.home:
+  text: "I want a home in the garden, in a square bed."
+res.tibo.thanks:
+  text: "Thank you! Four fourths make one whole."
+res.pira:
+  text: "Pira"
+res.pira.hello:
+  text: "Hi, I'm Pira! I show three fourths."
+res.pira.likes:
+  text: "I like a pie in four parts. I have three!"
+res.pira.dislikes:
+  text: "I do not like a pie with no parts left."
+res.pira.home:
+  text: "I want a home by the bakery window."
+res.pira.thanks:
+  text: "Thank you! Three fourths and one fourth make one whole."
+res.minna:
+  text: "Minna"
+res.minna.hello:
+  text: "Hello, I'm Minna! My clock says three o'clock."
+res.minna.likes:
+  text: "I like it when the ferry comes on time."
+res.minna.dislikes:
+  text: "I do not like a clock that stops."
+res.minna.home:
+  text: "I want a home near the clock tower."
+res.minna.thanks:
+  text: "Thank you! Now we know the time."
+res.horo:
+  text: "Horo"
+res.horo.hello:
+  text: "Hi, I'm Horo! My clock says six o'clock."
+res.horo.likes:
+  text: "I like the ferry at six o'clock."
+res.horo.dislikes:
+  text: "I do not like a clock with no hands."
+res.horo.home:
+  text: "I want a home by the ferry dock."
+res.horo.thanks:
+  text: "Thank you! It's time for the ferry!"
+res.sundy:
+  text: "Sundy"
+res.sundy.hello:
+  text: "Hello, I'm Sundy! My clock says nine o'clock."
+res.sundy.likes:
+  text: "I like the morning sun at nine o'clock."
+res.sundy.dislikes:
+  text: "I do not like it when the clock is too loud."
+res.sundy.home:
+  text: "I want a home in the sun, near the tower."
+res.sundy.thanks:
+  text: "Thank you! Now it is time to play."
+res.centa:
+  text: "Centa"
+res.centa.hello:
+  text: "Hi! I'm Centa, a penny clam. I am one cent."
+  level: "2"
+res.centa.likes:
+  text: "I like to help at the market."
+res.centa.dislikes:
+  text: "I do not like an empty coin jar."
+res.centa.home:
+  text: "I want a home at the market, in a coin jar."
+res.centa.thanks:
+  text: "Thank you! One cent is a good start."
+  level: "2"
+res.nell:
+  text: "Nell"
+res.nell.hello:
+  text: "Hello, I'm Nell, a nickel clam. I am five cents."
+  level: "2"
+res.nell.likes:
+  text: "I like to count by fives."
+res.nell.dislikes:
+  text: "I do not like a market with no coins."
+res.nell.home:
+  text: "I want a home by the market, near the fruit."
+res.nell.thanks:
+  text: "Thank you! Five cents and five cents make ten cents."
+  level: "2"
+res.dimi:
+  text: "Dimi"
+res.dimi.hello:
+  text: "Hi! I'm Dimi, a dime clam. I am ten cents."
+  level: "2"
+res.dimi.likes:
+  text: "I like to count by tens, ten cents at a time."
+  level: "2"
+res.dimi.dislikes:
+  text: "I do not like a day with no bread."
+res.dimi.home:
+  text: "I want a small home. I am small, but I am ten!"
+res.dimi.thanks:
+  text: "Thank you! Small coin, big number."
+res.quarta:
+  text: "Quarta"
+res.quarta.hello:
+  text: "Hello, I'm Quarta, a quarter clam. I am twenty-five cents."
+  level: "2"
+res.quarta.likes:
+  text: "I like four quarters. That makes one dollar!"
+  level: "2"
+res.quarta.dislikes:
+  text: "I do not like a market with no friends."
+res.quarta.home:
+  text: "I want a home at the market, on the coin box."
+res.quarta.thanks:
+  text: "Thank you! You make every cent count."
+  level: "2"
 
 # ---------- Pip ----------
 game.pip.welcome:

@@ -1,4 +1,5 @@
 import {
+  ACTIVE_STRANDS,
   DISTRACTOR_FORMATS,
   FORMAT_DEFAULT_REPRESENTATION,
   FORMAT_SUPPORT,
@@ -25,12 +26,18 @@ import {
   type Tier,
   type UnlockRule,
 } from '@number-island/shared';
-import { type Diagnostic, Diagnostics, formatPath } from '../diagnostics';
+import { type CheckId, type Diagnostic, Diagnostics, formatPath } from '../diagnostics';
 import { isSituation, type StoryContext } from '../schema/source';
 import { canonicalJson, fnv1a32, sha256Hex } from './canonical';
 import { ExprError, evaluate, identifiers, parseExpr } from './expr';
 import { ALWAYS_REQUIRED_KEYS, requiredClipKeys } from './inventory';
-import { type ContentFiles, type LoadedContent, type LoadedTemplate, loadContent } from './load';
+import {
+  type ContentFiles,
+  type GameOrigin,
+  type LoadedContent,
+  type LoadedTemplate,
+  loadContent,
+} from './load';
 import {
   FEEDBACK_TONE_WORDS,
   lineClips,
@@ -744,7 +751,7 @@ function check(c: LoadedContent, d: Diagnostics): CompiledContent | null {
   }
 
   // ---------- game data references ----------
-  if (c.game) checkGame(c.game, c.gameFiles, skills, c.narration, d);
+  if (c.game) checkGame(c.game, c.gameOrigin, skills, c.retired.skills, c.narration, d);
 
   // ---------- derive skills, templates, misconceptions ----------
   const misconceptionsBySkill = new Map<string, string[]>();
@@ -1433,94 +1440,198 @@ function resolveTestOut(
 
 // ---------- game data ----------
 
+/** Learner facts, which the island fold never has when it evaluates ring rules (02 §4.3). */
+const LEARNER_RULE_KEYS = ['skill', 'skillKind', 'minGrade', 'masteredCount'] as const;
+/** The collection fold evaluates outfit rules over buildings, road, residents and badges (02 §4.3). */
+const NON_OUTFIT_RULE_KEYS = ['skill', 'skillKind', 'minGrade'] as const;
+const ACTIVE_STRAND_SET = new Set<string>(ACTIVE_STRANDS);
+const RESERVED_STRAND_SET = new Set<string>(RESERVED_STRANDS);
+const ISLAND_GRID = { w: 12, h: 8 } as const;
+
+/** The atomic rules inside a rule (through `all` and `any`), with their paths. */
+function atomicRules(where: string, r: UnlockRule): { where: string; rule: UnlockRule }[] {
+  if ('all' in r) return r.all.flatMap((x, i) => atomicRules(`${where}.all[${i}]`, x));
+  if ('any' in r) return r.any.flatMap((x, i) => atomicRules(`${where}.any[${i}]`, x));
+  return [{ where, rule: r }];
+}
+
+type Loc = { file: string; path: string };
+const sub = (loc: Loc, suffix: string): Loc => ({ file: loc.file, path: `${loc.path}${suffix}` });
+
 function checkGame(
   game: GameData,
-  files: string[],
+  origin: GameOrigin,
   skills: Map<string, unknown>,
+  retired: ReadonlySet<string>,
   narration: LoadedContent['narration'],
   d: Diagnostics,
 ): void {
-  const file = files.length === 1 ? (files[0] as string) : 'game/';
-  const unique = (kind: string, ids: string[]) => {
+  // Diagnostics name the file and the index an entry was authored at (game/*.yaml concatenate).
+  const at = (section: string, i: number): Loc => {
+    const o = origin.sections[section]?.[i];
+    return { file: o?.file ?? 'game/', path: `${section}[${o?.index ?? i}]` };
+  };
+  const islandAt = (path: string): Loc => ({ file: origin.island ?? 'game/', path });
+  const err = (check: CheckId, loc: Loc, message: string) =>
+    d.error(check, loc.file, loc.path, message);
+
+  const unique = <T>(section: string, list: T[], id: (x: T) => string, what: string) => {
     const seen = new Set<string>();
-    for (const id of ids) {
-      if (seen.has(id)) d.error('V02', file, kind, `duplicate ${kind} id ${id}`);
-      seen.add(id);
-    }
+    list.forEach((x, i) => {
+      const v = id(x);
+      if (seen.has(v)) err('V02', at(section, i), `duplicate ${what} ${v}`);
+      seen.add(v);
+    });
     return seen;
   };
-  unique(
-    'materials',
-    game.materials.map((m) => m.id),
-  );
-  const buildings = unique(
-    'buildings',
-    game.buildings.map((b) => b.id),
-  );
-  unique(
-    'residents',
-    game.residents.map((r) => r.id),
-  );
-  unique(
-    'decor',
-    game.decor.map((x) => x.id),
-  );
-  const decor = new Set(game.decor.map((x) => x.id));
-  const materials = new Set(game.materials.map((m) => m.id));
-  const rule = (where: string, r: UnlockRule) => {
-    if ('skill' in r && !skills.has(r.skill))
-      d.error('V04', file, where, `unlock rule names unknown skill ${r.skill}`);
-    if ('building' in r && !buildings.has(r.building))
-      d.error('V04', file, where, `unlock rule names unknown building ${r.building}`);
-    if ('all' in r)
-      r.all.forEach((x, i) => {
-        rule(`${where}.all[${i}]`, x);
-      });
-    if ('any' in r)
-      r.any.forEach((x, i) => {
-        rule(`${where}.any[${i}]`, x);
-      });
-  };
-  const key = (where: string, k: string) => {
-    if (!narration.has(k)) d.error('V16', file, where, `narration key ${k} does not exist`);
-  };
-  game.materials.forEach((m, i) => {
-    key(`materials[${i}].name`, m.name);
-  });
+  const materials = unique('materials', game.materials, (m) => m.id, 'material id');
+  const buildings = unique('buildings', game.buildings, (b) => b.id, 'building id');
+  const residents = unique('residents', game.residents, (r) => r.id, 'resident id');
+  const decor = unique('decor', game.decor, (x) => x.id, 'decor id');
+  const outfits = unique('outfits', game.outfits, (o) => o.option, 'outfit option');
+  unique('festivals', game.festivals, (f) => f.id, 'festival id');
+  const kindOf = new Map(game.buildings.map((b) => [b.id, b.kind]));
+  const workshops = new Set<string>();
   game.buildings.forEach((b, i) => {
-    rule(`buildings[${i}].unlock`, b.unlock);
+    const loc = sub(at('buildings', i), '.workshopId');
+    if (b.kind === 'workshop' && b.workshopId === undefined)
+      err('V01', loc, `workshop ${b.id} needs a workshopId`);
+    if (b.kind !== 'workshop' && b.workshopId !== undefined)
+      err('V01', loc, `only a workshop has a workshopId (${b.id} is a ${b.kind})`);
+    if (b.workshopId === undefined) return;
+    if (workshops.has(b.workshopId)) err('V02', loc, `duplicate workshopId ${b.workshopId}`);
+    workshops.add(b.workshopId);
+  });
+
+  const rule = (loc: Loc, r: UnlockRule) => {
+    for (const { where, rule: a } of atomicRules(loc.path, r)) {
+      const here = { file: loc.file, path: where };
+      if ('building' in a && !buildings.has(a.building))
+        err('V04', here, `unlock rule names unknown building ${a.building}`);
+      if (!('skill' in a) || skills.has(a.skill)) continue;
+      // 03 §9.2 reading: a canonical catalog id that is not authored yet only warns; the rule
+      // stays unsatisfied until the skill exists. Retired, reserved-strand and unknown-strand ids
+      // can never be reached.
+      const strand = a.skill.slice(0, a.skill.indexOf('.'));
+      if (retired.has(a.skill))
+        err('V04', here, `unlock rule names retired skill ${a.skill}; it can never be reached`);
+      else if (RESERVED_STRAND_SET.has(strand))
+        err(
+          'V04',
+          here,
+          `unlock rule names ${a.skill} in reserved strand ${strand} (no v1 skills)`,
+        );
+      else if (!ACTIVE_STRAND_SET.has(strand))
+        err('V04', here, `unlock rule names unknown skill ${a.skill} (no strand ${strand})`);
+      else
+        d.warn(
+          'V04',
+          here.file,
+          here.path,
+          `unlock rule names skill ${a.skill}, which is not authored yet; the rule stays unsatisfied until it is`,
+        );
+    }
+  };
+  // 02 §4.3: the folds evaluate ring and outfit rules without learner facts, so such a rule
+  // could never hold.
+  const factsOnly = (loc: Loc, r: UnlockRule, banned: readonly string[], what: string) => {
+    for (const { where, rule: a } of atomicRules(loc.path, r)) {
+      const k = banned.find((b) => b in a);
+      if (k) err('V04', { file: loc.file, path: where }, `${what} cannot use '${k}' (02 §4.3)`);
+    }
+  };
+  const key = (loc: Loc, k: string) => {
+    if (!narration.has(k)) err('V16', loc, `narration key ${k} does not exist`);
+  };
+
+  game.materials.forEach((m, i) => {
+    key(sub(at('materials', i), '.name'), m.name);
+  });
+  const grants: Record<string, Set<string>> = { decor, outfit: outfits, resident: residents };
+  game.buildings.forEach((b, i) => {
+    const loc = at('buildings', i);
+    rule(sub(loc, '.unlock'), b.unlock);
     b.levels.forEach((lv, j) => {
+      const lloc = sub(loc, `.levels[${j}]`);
+      if (lv.level !== j + 1)
+        err('V01', sub(lloc, '.level'), `levels are numbered 1, 2, 3 in order; expected ${j + 1}`);
       for (const mat of Object.keys(lv.recipe)) {
-        if (!materials.has(mat))
-          d.error(
-            'V04',
-            file,
-            `buildings[${i}].levels[${j}].recipe.${mat}`,
-            `unknown material ${mat}`,
-          );
+        if (!materials.has(mat)) err('V04', sub(lloc, `.recipe.${mat}`), `unknown material ${mat}`);
       }
+      // 05 §6: levels unlock decor, outfits and residents, never math gates.
+      lv.unlocks.forEach((u, k) => {
+        const uloc = sub(lloc, `.unlocks[${k}]`);
+        const sep = u.indexOf(':');
+        const kind = sep < 0 ? u : u.slice(0, sep);
+        const ids = Object.hasOwn(grants, kind) ? grants[kind] : undefined;
+        if (!ids) err('V04', uloc, `'${u}' is not decor:<id>, outfit:<option> or resident:<id>`);
+        else if (!ids.has(u.slice(sep + 1)))
+          err('V04', uloc, `unknown ${kind} ${u.slice(sep + 1)}`);
+      });
     });
   });
   game.residents.forEach((r, i) => {
-    rule(`residents[${i}].arrival.unlock`, r.arrival.unlock);
-    if (r.arrival.home && !buildings.has(r.arrival.home)) {
-      d.error('V04', file, `residents[${i}].arrival.home`, `unknown building ${r.arrival.home}`);
-    }
-    r.lines.forEach((l, j) => {
-      key(`residents[${i}].lines[${j}]`, l);
+    const loc = at('residents', i);
+    rule(sub(loc, '.arrival.unlock'), r.arrival.unlock);
+    const home = r.arrival.home;
+    const hloc = sub(loc, '.arrival.home');
+    if (r.arrival.via === 'home' && home === undefined)
+      err('V01', sub(loc, '.arrival'), `resident ${r.id} arrives via home but names no home`);
+    if (r.arrival.via !== 'home' && home !== undefined)
+      err('V01', hloc, 'only a resident that arrives via home names a home');
+    if (home !== undefined && !buildings.has(home)) err('V04', hloc, `unknown building ${home}`);
+    else if (home !== undefined && kindOf.get(home) !== 'home')
+      err('V04', hloc, `${home} is a ${kindOf.get(home)}, not a home`);
+    r.affinity.forEach((w, j) => {
+      if (!workshops.has(w)) err('V04', sub(loc, `.affinity[${j}]`), `unknown workshop ${w}`);
     });
-    key(`residents[${i}].id`, `res.${r.id}`);
+    r.lines.forEach((l, j) => {
+      key(sub(loc, `.lines[${j}]`), l);
+    });
+    key(sub(loc, '.id'), `res.${r.id}`);
   });
   game.outfits.forEach((o, i) => {
-    rule(`outfits[${i}].unlock`, o.unlock);
+    const loc = sub(at('outfits', i), '.unlock');
+    rule(loc, o.unlock);
+    factsOnly(loc, o.unlock, NON_OUTFIT_RULE_KEYS, 'an outfit rule');
   });
+  const inGrid = ([x, y]: [number, number]) =>
+    Number.isInteger(x) &&
+    Number.isInteger(y) &&
+    x >= 0 &&
+    y >= 0 &&
+    x < ISLAND_GRID.w &&
+    y < ISLAND_GRID.h;
+  const outside = (p: [number, number]) => `plot [${p.join(', ')}] is outside the 12 × 8 grid`;
+  const ringOf = new Map<string, number>();
   game.island.rings.forEach((ring, i) => {
-    rule(`island.rings[${i}].unlock`, ring.unlock);
+    const loc = islandAt(`island.rings[${i}]`);
+    rule(sub(loc, '.unlock'), ring.unlock);
+    factsOnly(sub(loc, '.unlock'), ring.unlock, LEARNER_RULE_KEYS, 'a ring rule');
+    ring.plots.forEach((p, j) => {
+      const ploc = sub(loc, `.plots[${j}]`);
+      if (!inGrid(p)) err('V01', ploc, outside(p));
+      const prev = ringOf.get(p.join(','));
+      if (prev !== undefined) err('V02', ploc, `plot [${p.join(', ')}] is already in ring ${prev}`);
+      else ringOf.set(p.join(','), i);
+    });
+  });
+  let last = 0;
+  game.island.road.forEach((stone, i) => {
+    const loc = islandAt(`island.road[${i}]`);
+    if (!inGrid(stone.plot)) err('V01', sub(loc, '.plot'), outside(stone.plot));
+    if (stone.n <= last)
+      err(
+        'V02',
+        sub(loc, '.n'),
+        `road stones are listed once each, in increasing order (${stone.n} after ${last})`,
+      );
+    last = Math.max(last, stone.n);
   });
   game.festivals.forEach((f, i) => {
     f.rewardDecor.forEach((x, j) => {
       if (!decor.has(x))
-        d.error('V04', file, `festivals[${i}].rewardDecor[${j}]`, `unknown decor ${x}`);
+        err('V04', sub(at('festivals', i), `.rewardDecor[${j}]`), `unknown decor ${x}`);
     });
   });
 }

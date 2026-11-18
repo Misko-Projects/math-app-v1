@@ -1,0 +1,53 @@
+# U02 game data: decor (02 §5.8; 05 §6 "Decor", §7). Art component `decor/<id>`; footprint is
+# [w, h] in plots. Sources say how decor is earned, never bought or drawn at random (05 §7):
+# - starter: owned from the start (one of each);
+# - project: building and project level upgrades (buildings.yaml `decor:<id>` unlocks);
+# - festival: festival and Storm Watch rewards (progression.yaml), and the Festival Stage;
+# - gift: a parent's wrapped gift (`gift.left`);
+# - puzzle: Puzzle Tower levels, built with star shards.
+
+decor:
+  # ---------- starter ----------
+  - { id: shell-bench, art: decor/shell-bench, footprint: [1, 1], source: starter }
+  - { id: flower-pot, art: decor/flower-pot, footprint: [1, 1], source: starter }
+  - { id: tulip-patch, art: decor/tulip-patch, footprint: [1, 1], source: starter }
+  - { id: daisy-patch, art: decor/daisy-patch, footprint: [1, 1], source: starter }
+  - { id: palm-tree, art: decor/palm-tree, footprint: [1, 1], source: starter }
+  - { id: beach-umbrella, art: decor/beach-umbrella, footprint: [1, 1], source: starter }
+  - { id: sandcastle, art: decor/sandcastle, footprint: [1, 1], source: starter }
+  - { id: picket-fence, art: decor/picket-fence, footprint: [1, 1], source: starter }
+  - { id: stepping-path, art: decor/stepping-path, footprint: [1, 1], source: starter }
+  - { id: rock-pile, art: decor/rock-pile, footprint: [1, 1], source: starter }
+  - { id: round-bush, art: decor/round-bush, footprint: [1, 1], source: starter }
+  - { id: mailbox, art: decor/mailbox, footprint: [1, 1], source: starter }
+  - { id: tide-pool, art: decor/tide-pool, footprint: [1, 1], source: starter }
+  - { id: driftwood-sign, art: decor/driftwood-sign, footprint: [1, 1], source: starter }
+
+  # ---------- project ----------
+  - { id: lamp-post, art: decor/lamp-post, footprint: [1, 1], source: project }
+  - { id: flag-pole, art: decor/flag-pole, footprint: [1, 1], source: project }
+  - { id: fountain, art: decor/fountain, footprint: [2, 2], source: project }
+  - { id: bird-bath, art: decor/bird-bath, footprint: [1, 1], source: project }
+  - { id: windmill, art: decor/windmill, footprint: [1, 1], source: project }
+  - { id: garden-arch, art: decor/garden-arch, footprint: [1, 1], source: project }
+  - { id: swing-bench, art: decor/swing-bench, footprint: [1, 1], source: project }
+  - { id: kite-stand, art: decor/kite-stand, footprint: [1, 1], source: project }
+
+  # ---------- festival ----------
+  - { id: lantern-string, art: decor/lantern-string, footprint: [2, 1], source: festival }
+  - { id: bunting, art: decor/bunting, footprint: [2, 1], source: festival }
+  - { id: rainbow-arch, art: decor/rainbow-arch, footprint: [2, 1], source: festival } # Storm Watch
+  - { id: paper-lanterns, art: decor/paper-lanterns, footprint: [1, 1], source: festival }
+  - { id: festival-drum, art: decor/festival-drum, footprint: [1, 1], source: festival }
+  - { id: shell-chime, art: decor/shell-chime, footprint: [1, 1], source: festival }
+
+  # ---------- gift ----------
+  - { id: picnic-blanket, art: decor/picnic-blanket, footprint: [2, 1], source: gift }
+  - { id: star-balloon, art: decor/star-balloon, footprint: [1, 1], source: gift }
+  - { id: sea-glass-mosaic, art: decor/sea-glass-mosaic, footprint: [1, 1], source: gift }
+
+  # ---------- puzzle ----------
+  - { id: star-statue, art: decor/star-statue, footprint: [1, 1], source: puzzle }
+  - { id: crystal-tower, art: decor/crystal-tower, footprint: [1, 1], source: puzzle }
+  - { id: telescope, art: decor/telescope, footprint: [1, 1], source: puzzle }
+  - { id: moon-lamp, art: decor/moon-lamp, footprint: [1, 1], source: puzzle }
