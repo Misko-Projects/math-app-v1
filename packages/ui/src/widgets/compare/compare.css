@@ -1,0 +1,328 @@
+/* compare widget (U03): two framed sides with the question's gap between them, choices below. */
+
+.ni-cmp {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 32px;
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 1180px;
+  padding: 16px 24px;
+}
+
+/* ---------- side by side ---------- */
+
+.ni-cmp__stage {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  align-items: stretch;
+  gap: 24px;
+  width: 100%;
+}
+.ni-cmp__side {
+  position: relative;
+  display: flex;
+  min-width: 0;
+}
+.ni-cmp__tray {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  min-width: 0;
+  min-height: 280px;
+}
+/* A pickable side: the card and its picture share one grid cell; the picture lets taps through. */
+.ni-cmp__side[data-pick="true"] {
+  display: grid;
+}
+.ni-cmp__side[data-pick="true"] > .ni-cmp__tray,
+.ni-cmp__trayface {
+  grid-area: 1 / 1;
+}
+.ni-cmp__trayface {
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 0;
+  padding: 16px 16px 22px;
+  pointer-events: none;
+}
+/* A side the child can pick: a big card (ink ring + check badge when picked, kit.css). */
+.ni-pick.ni-cmp__tray {
+  width: 100%;
+  margin: 0 0 6px;
+  padding: 16px;
+  border-radius: var(--radius-card);
+}
+.ni-cmp__tray--static {
+  padding: 16px;
+  border: 3px solid var(--color-sand-deep);
+  border-radius: var(--radius-card);
+  background: var(--color-paper);
+  box-shadow: var(--shadow-soft);
+}
+.ni-cmp__tray .ni-stimulus,
+.ni-cmp__trayface .ni-stimulus {
+  padding: 8px;
+  border: 0;
+  box-shadow: none;
+  background: transparent;
+}
+/* A side that is just a number reads big (numerals ≥ 32 px, 05 §11). */
+.ni-cmp__tray .ni-stimulus[data-kind="expression"] .ni-expr,
+.ni-cmp__trayface .ni-stimulus[data-kind="expression"] .ni-expr {
+  font-size: var(--text-numeral-xl);
+}
+.ni-cmp__side > .ni-cmp__hand {
+  left: calc(50% - 28px);
+  bottom: -30px;
+}
+
+/* The gap between the sides: where the symbol goes, or the relation a statement reads. */
+.ni-cmp__gap {
+  position: relative;
+  align-self: center;
+  width: calc(var(--target-min) * 1.6);
+  height: calc(var(--target-min) * 1.6);
+}
+.ni-cmp__pad {
+  position: absolute;
+  inset: 0;
+  box-sizing: border-box;
+  border: 4px dashed var(--color-ink);
+  border-radius: var(--radius-pebble);
+  background: var(--color-sky-light);
+}
+.ni-cmp__gap[data-filled="true"] .ni-cmp__pad {
+  border-style: solid;
+  background: var(--color-cloud);
+  box-shadow: 0 6px 0 var(--color-pebble-deep);
+}
+.ni-cmp__placed {
+  position: absolute;
+  inset: 16%;
+  pointer-events: none;
+}
+.ni-cmp__relation {
+  align-self: center;
+  width: calc(var(--target-min) * 0.9);
+  height: calc(var(--target-min) * 0.9);
+}
+.ni-cmp__spacer {
+  width: 8px;
+}
+
+/* ---------- choices and check ---------- */
+
+.ni-cmp__answer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 28px 48px;
+}
+.ni-cmp__choices {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  /* Room for each pick's check badge and demo ring without touching its neighbour. */
+  gap: calc(var(--target-gap) * 3);
+  margin: 0;
+  padding: 8px;
+  border: 0;
+  min-width: 0;
+}
+.ni-cmp__choices:empty {
+  display: none;
+}
+.ni-cmp__choice {
+  position: relative;
+  display: inline-flex;
+}
+.ni-cmp__choices .ni-pick {
+  min-width: calc(var(--target-min) * 1.4);
+  min-height: calc(var(--target-min) * 1.4);
+  padding: 10px 18px;
+}
+.ni-cmp__choices .ni-pick .ni-pick__face {
+  flex-direction: column;
+  gap: 4px;
+}
+.ni-cmp__glyph {
+  display: block;
+  width: calc(var(--target-min) * 0.72);
+  height: calc(var(--target-min) * 0.72);
+}
+.ni-cmp__caption {
+  font-family: var(--font-body);
+  font-size: var(--text-label);
+  font-weight: 700;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+/* A symbol tile is a drag item (div role=button): chosen = ink ring + check badge, like a pick. */
+.ni-cmp__sym {
+  user-select: none;
+}
+.ni-cmp__sym[data-chosen="true"] {
+  background: var(--color-sunshine-light);
+  box-shadow:
+    0 0 0 5px var(--color-ink),
+    0 6px 0 5px var(--color-ink),
+    var(--shadow-highlight);
+}
+.ni-cmp__sym:focus-visible {
+  outline: 4px solid var(--color-sea-deep);
+  outline-offset: 4px;
+}
+.ni-cmp__hand--below {
+  left: calc(50% - 20px);
+  bottom: -46px;
+}
+
+/* ---------- match lines (concrete tier): the sets as rows ---------- */
+
+.ni-cmp__rows {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 72px;
+  max-width: 100%;
+}
+.ni-cmp__row {
+  display: flex;
+  align-items: stretch;
+  justify-content: flex-start;
+  gap: 20px;
+  max-width: 100%;
+}
+.ni-cmp__tray--objects {
+  flex: 0 1 auto;
+  min-height: 0;
+  padding: 14px 18px;
+  border: 3px solid var(--color-sand-deep);
+  border-radius: var(--radius-card);
+  background: var(--color-paper);
+  box-shadow: var(--shadow-soft);
+}
+.ni-cmp__row-pick {
+  position: relative;
+  display: inline-flex;
+}
+.ni-pick.ni-cmp__this {
+  min-width: var(--target-min);
+  min-height: 100%;
+  margin: 0;
+  padding: 8px;
+}
+.ni-cmp__this .ni-cmp__glyph {
+  width: calc(var(--target-min) * 0.6);
+  height: calc(var(--target-min) * 0.6);
+}
+.ni-cmp__row-pick > .ni-cmp__hand {
+  left: calc(50% - 20px);
+  bottom: -40px;
+}
+.ni-cmp__obj {
+  position: absolute;
+  display: block;
+  box-sizing: border-box;
+  margin: 0;
+  padding: 4px;
+  appearance: none;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  cursor: pointer;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+.ni-cmp__obj:disabled {
+  cursor: default;
+}
+/* Waiting for its partner: a thick ink ring and a light disc behind the object. */
+.ni-cmp__obj[aria-pressed="true"] {
+  background: var(--color-sunshine-light);
+  outline: 5px solid var(--color-ink);
+  outline-offset: 0;
+}
+.ni-cmp__obj:focus-visible {
+  outline: 4px solid var(--color-sea-deep);
+  outline-offset: 2px;
+}
+.ni-cmp__obj[aria-pressed="true"]:focus-visible {
+  outline: 10px double var(--color-ink);
+}
+.ni-cmp__obj.ni-invite {
+  outline-offset: 4px;
+  border-radius: 50%;
+}
+.ni-cmp__objhand {
+  position: absolute;
+}
+.ni-cmp__lines {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  pointer-events: none;
+}
+.ni-cmp__line line {
+  stroke: var(--color-ink);
+  stroke-width: 5;
+  stroke-linecap: round;
+  stroke-dasharray: 1000;
+  stroke-dashoffset: 0;
+  animation: ni-cmp-draw var(--duration-slow) var(--ease-soft) both;
+}
+.ni-cmp__line circle {
+  fill: var(--color-ink);
+}
+@keyframes ni-cmp-draw {
+  from {
+    stroke-dashoffset: 1000;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+/* ---------- demo flight (place-symbol) ---------- */
+
+.ni-cmp__flight {
+  position: fixed;
+  z-index: var(--z-drag);
+  box-sizing: border-box;
+  padding: 20px;
+  border: 3px solid var(--color-ink);
+  border-radius: var(--radius-pebble);
+  background: var(--color-cloud);
+  box-shadow: var(--shadow-lift);
+  pointer-events: none;
+  transition-property: left, top, width, height;
+  transition-timing-function: var(--ease-soft);
+}
+
+[data-reduced-motion="true"] .ni-cmp__line line {
+  animation: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  .ni-cmp__line line {
+    animation: none;
+  }
+}
+
+/* Portrait or narrow: the sides stack, the gap between them. */
+@media (max-width: 760px), (orientation: portrait) {
+  .ni-cmp__stage {
+    grid-template-columns: minmax(0, 1fr);
+    justify-items: center;
+  }
+}
