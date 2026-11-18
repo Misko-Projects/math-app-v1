@@ -874,7 +874,11 @@ function excusedNumbers(
 /** V02: entries of `retired.yaml` and `graph.yaml: plannedIds` must be canonical ids. */
 function checkExcusedIds(c: LoadedContent, d: Diagnostics): void {
   const canonicalSkill = (id: string) => SKILL_ID_PATTERN.test(id) && !id.endsWith('.00');
-  const canonicalTemplate = (id: string) => TEMPLATE_ID_PATTERN.test(id) && /\.t[1-9]\d*$/.test(id);
+  const canonicalTemplate = (id: string) =>
+    TEMPLATE_ID_PATTERN.test(id) &&
+    /\.t[1-9]\d*$/.test(id) &&
+    canonicalSkill(id.slice(0, id.lastIndexOf('.t'))) &&
+    Number.isSafeInteger(templateNumber(id));
   for (const id of c.retired.skills) {
     if (!canonicalSkill(id))
       d.error('V02', 'retired.yaml', 'skills', `'${id}' is not a canonical SkillId (e.g. ADD.02)`);
@@ -1316,10 +1320,18 @@ function checkGivenParams(
  * answer kind a mixed-answer format produces otherwise depends on the generator's mode, so the
  * engine re-checks the pool on generated items (tools/content-check, 03 §9.2).
  */
-const choiceAnswer = (t: LoadedTemplate) => {
+type AnswerClass = 'choice' | 'constructed' | 'unknown';
+const answerClass = (t: LoadedTemplate): AnswerClass => {
   const answers = FORMAT_SUPPORT[t.value.format].answers;
-  return (answers.length === 1 && answers[0] === 'choice') || t.value.distractors !== undefined;
+  if ((answers.length === 1 && answers[0] === 'choice') || t.value.distractors !== undefined) {
+    return 'choice';
+  }
+  // A mixed-answer format without distractors may still answer with a choice in some modes: it
+  // proves nothing either way and stays in the pool for the engine to check.
+  return answers.includes('choice') ? 'unknown' : 'constructed';
 };
+const choiceAnswer = (t: LoadedTemplate) => answerClass(t) === 'choice';
+const constructedAnswer = (t: LoadedTemplate) => answerClass(t) === 'constructed';
 
 /**
  * The test-out template pool (03 §6.5), checked by V21 and written to `testOut.templateIds` so the
@@ -1354,6 +1366,13 @@ function resolveTestOut(
     new Set(
       list.map((t) => t.value.representation ?? FORMAT_DEFAULT_REPRESENTATION[t.value.format]),
     );
+  // The eligible templates before the choice rule (steps 1–2 above).
+  const abstract = own.filter((t) => t.value.tier === 'abstract');
+  const pictorial = own.filter((t) => t.value.tier === 'pictorial');
+  let eligible = abstract.length > 0 ? abstract : pictorial;
+  if (s.value.gateway && repsOf(eligible).size < 2) eligible = [...abstract, ...pictorial];
+  // Step 3 applies only when the skill really has an eligible constructed-response template.
+  const hasConstructed = eligible.some(constructedAnswer);
   const listed = lesson.testOut.templateIds;
   let pool: LoadedTemplate[];
   if (listed) {
@@ -1366,24 +1385,19 @@ function resolveTestOut(
         `${t.value.id} is concrete; test-out items are abstract or pictorial (03 §6.5)`,
       );
     }
-    if (pool.some((t) => !choiceAnswer(t))) {
+    if (hasConstructed) {
       for (const t of pool.filter(choiceAnswer)) {
         d.error(
           'V21',
           file,
           path,
-          `${t.value.id} answers with a choice; a test-out never uses multiple choice beside a constructed-response template (03 §6.5)`,
+          `${t.value.id} answers with a choice, but ${id} has an eligible constructed-response template; a test-out then never uses multiple choice (03 §6.5)`,
         );
       }
       pool = pool.filter((t) => !choiceAnswer(t));
     }
   } else {
-    const abstract = own.filter((t) => t.value.tier === 'abstract');
-    const pictorial = own.filter((t) => t.value.tier === 'pictorial');
-    pool = abstract.length > 0 ? abstract : pictorial;
-    if (s.value.gateway && repsOf(pool).size < 2) pool = [...abstract, ...pictorial];
-    const constructed = pool.filter((t) => !choiceAnswer(t));
-    if (constructed.length > 0) pool = constructed;
+    pool = hasConstructed ? eligible.filter((t) => !choiceAnswer(t)) : eligible;
   }
   if (s.value.gateway && lesson.testOut.items < 2) {
     d.error(

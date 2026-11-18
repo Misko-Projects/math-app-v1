@@ -983,6 +983,37 @@ describe('V21: test-out choice rule and gateway item count', () => {
       /gateway skill CNT.03: test-out items must span ≥ 2 representations/,
     );
   });
+  it('rejects an all-choice authored list when the skill has an eligible constructed-response template', () => {
+    const diags = variant((f) => {
+      editYaml(
+        f,
+        'templates/CNT.yaml',
+        (doc) => (template(doc, 'CNT.03.t2').format = 'numeral-pick'),
+      );
+      authoredList(['CNT.03.t2', 'CNT.03.t3'])(f);
+    });
+    expectFinding(
+      diags,
+      'V21',
+      /CNT.03.t2 answers with a choice, but CNT.03 has an eligible constructed-response/,
+    );
+    expectFinding(diags, 'V21', /CNT.03.t3 answers with a choice/);
+  });
+  it('treats a mixed-answer template without distractors as unknown, not as a constructed response', () => {
+    const files: Files = { ...FIXTURE };
+    // CNT.03.t4 becomes multiple choice, so no eligible template is a known constructed response.
+    editYaml(
+      files,
+      'templates/CNT.yaml',
+      (doc) => (template(doc, 'CNT.03.t4').format = 'numeral-pick'),
+    );
+    authoredList(['CNT.03.t2', 'CNT.03.t3'])(files); // tap-count (mixed) + numeral-pick (choice)
+    const result = compileContent(files);
+    expect(result.diagnostics.filter((d) => d.check === 'V21')).toEqual([]);
+    expect(
+      result.content?.skills.find((s) => s.id === 'CNT.03')?.lesson.testOut.templateIds,
+    ).toEqual(['CNT.03.t2', 'CNT.03.t3']);
+  });
   it('rejects a one-item gateway test-out', () => {
     expectFinding(
       variant((f) =>
@@ -1003,6 +1034,20 @@ describe('V02/V03: excused ids must be canonical', () => {
     const diags = variant((f) => editYaml(f, 'graph.yaml', (doc) => (doc.plannedIds = ['ADD.2'])));
     expectFinding(diags, 'V02', /'ADD.2' is not a canonical SkillId or TemplateId/);
     expectFinding(diags, 'V03', /missing ADD.02/);
+  });
+  it('rejects excused template ids that could never be authored', () => {
+    expectFinding(
+      variant((f) =>
+        editYaml(f, 'graph.yaml', (doc) => doc.plannedIds.push('ADD.02.t9007199254740992')),
+      ),
+      'V02',
+      /'ADD.02.t9007199254740992' is not a canonical/,
+    );
+    expectFinding(
+      variant((f) => (f['retired.yaml'] = 'templates: [ADD.00.t1]\n')),
+      'V02',
+      /'ADD.00.t1' is not a canonical TemplateId/,
+    );
   });
   it('does not let a zero-padded retired template excuse a gap', () => {
     const diags = variant((f) => {
