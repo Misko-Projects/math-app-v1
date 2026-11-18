@@ -1,5 +1,6 @@
 # CI (docs/spec/09-quality.md §2).
-# Required checks (stable names): verify, e2e, bundle-size. Non-required: visual, nightly.
+# Required checks (stable names): verify, e2e, bundle-size. Non-required: visual.
+# The scheduled nightly job lives in nightly.yml so it never reports a check on pull requests.
 # No secrets are used anywhere in CI; every AI provider is mocked.
 name: ci
 
@@ -8,8 +9,6 @@ on:
   push:
     branches: [main]
   merge_group:
-  schedule:
-    - cron: "17 7 * * *" # nightly job only
   workflow_dispatch:
 
 permissions:
@@ -25,9 +24,11 @@ env:
 
 jobs:
   verify:
-    if: github.event_name != 'schedule'
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    env:
+      # 03 §9.4: the content property test runs 100 seeds per template on PRs (500 nightly).
+      CONTENT_PROPERTY_N: "100"
     steps:
       - uses: actions/checkout@v5
       - uses: pnpm/action-setup@v4
@@ -46,7 +47,6 @@ jobs:
       - run: pnpm verify
 
   e2e:
-    if: github.event_name != 'schedule'
     needs: verify
     runs-on: ubuntu-latest
     timeout-minutes: 15
@@ -78,7 +78,6 @@ jobs:
           if-no-files-found: ignore
 
   bundle-size:
-    if: github.event_name != 'schedule'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -114,37 +113,5 @@ jobs:
         with:
           name: visual-diffs
           path: test-results/
-          retention-days: 14
-          if-no-files-found: ignore
-
-  nightly:
-    # Non-required, schedule only (09 §2): full simulated-learner suite, 500-seed property tests,
-    # and a WebKit E2E smoke test.
-    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
-    runs-on: ubuntu-latest
-    timeout-minutes: 45
-    env:
-      CONTENT_PROPERTY_N: "500"
-    steps:
-      - uses: actions/checkout@v5
-      - uses: pnpm/action-setup@v4
-      - uses: actions/setup-node@v5
-        with:
-          node-version-file: .nvmrc
-          cache: pnpm
-      - run: pnpm i --frozen-lockfile
-      - run: pnpm exec playwright install --with-deps chromium webkit
-      - run: pnpm content:build
-      - run: pnpm test:sim
-      - run: pnpm test
-      - run: pnpm e2e:smoke:webkit
-      - name: Upload Playwright report
-        if: ${{ !cancelled() }}
-        uses: actions/upload-artifact@v4
-        with:
-          name: nightly-playwright-report
-          path: |
-            e2e/playwright-report/
-            e2e/test-results/
           retention-days: 14
           if-no-files-found: ignore

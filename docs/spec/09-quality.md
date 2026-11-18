@@ -23,16 +23,16 @@
 | `pnpm db:reset` / `pnpm db:seed` | Recreate the local D1 database (migrated) / add a demo family with dev-only credentials (08 §5). `pnpm dev` applies pending migrations itself |
 | `pnpm verify` | **In this order:** content:build → typecheck → lint → content:validate → test → build (what CI's `verify` job runs) |
 
-## 2. CI (GitHub Actions, `.github/workflows/ci.yml`)
+## 2. CI (GitHub Actions, `.github/workflows/ci.yml` and `.github/workflows/nightly.yml`)
 
-- Triggers: `pull_request`, `push` to `main`, and a nightly `schedule:` (cron) for the `nightly` job.
+- Triggers: `ci.yml` runs on `pull_request`, `push` to `main`, `merge_group` and manual dispatch. The `nightly` job lives in its own `nightly.yml`, triggered only by a nightly `schedule:` (cron) and manual dispatch (`gh workflow run nightly.yml --ref <branch>`), so it never reports a check on pull requests.
 - **Required jobs** (stable check names; PRs merge only when all three pass):
   - `verify`: checkout → pnpm setup with cache → `pnpm i --frozen-lockfile` → `pnpm verify`. This includes the component, story-play and axe tests (they run inside `pnpm test` via Vitest + Storybook's test runner integration).
   - `e2e` (needs `verify`): install Playwright Chromium → `pnpm e2e` → upload the report and failure traces as artifacts.
   - `bundle-size`: build, then assert the 02 §6 JS budgets (fails on regression). Time to interactive is **reported, not enforced**.
 - **Non-required jobs:**
   - `visual`: Storybook visual snapshots compared in the **pinned Playwright Docker image** (`mcr.microsoft.com/playwright:<pinned version>`). Baselines are generated only in that image (`pnpm visual:update` runs it in Docker locally) to avoid OS/font drift.
-  - `nightly` (schedule only): `pnpm test:sim` on the full graph, property tests with `CONTENT_PROPERTY_N=500`, and a WebKit E2E smoke test.
+  - `nightly` (`nightly.yml`, schedule and manual dispatch only): `pnpm test:sim` on the full graph, property tests with `CONTENT_PROPERTY_N=500`, and a WebKit E2E smoke test.
 - No secrets in CI. Provider calls are mocked. Missing narration clips fall back to Web Speech (stubbed in tests). No model downloads (Kokoro) in CI.
 - Keep the required jobs ≤ 20 min wall-clock in total.
 

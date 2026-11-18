@@ -4,12 +4,15 @@
   "private": true,
   "type": "module",
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./src/index.ts",
+    "./canonical": "./src/compile/canonical.ts",
+    "./expr": "./src/compile/expr.ts",
+    "./narration-line": "./src/compile/narration.ts",
+    "./node": "./src/fs.ts"
   },
   "scripts": {
     "build": "tsx src/cli.ts build",
-    "validate": "tsx src/cli.ts validate",
-    "sample": "node scripts/sample.mjs"
+    "validate": "tsx src/cli.ts validate"
   },
   "dependencies": {
     "@number-island/shared": "workspace:*",

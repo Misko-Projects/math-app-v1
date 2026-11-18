@@ -1171,6 +1171,7 @@ export interface GeneratorDef {
   narration: NarrationKey[];                         // shared keys it emits (V16 checks they exist)
   sample(spec: Record<string, ParamSpec>, rng: Rng): ParamValues;          // draw raw params
   derive(p: ParamValues): ParamValues;               // compute derived values (result, carries…)
+  accepts?(p: ParamValues, template: ItemTemplate): boolean; // validity beyond the template's constraints (E01); rejected draws are redrawn
   sampleToward?(spec: Record<string, ParamSpec>, rng: Rng, target: number, weights: Record<string, number>): ParamValues;
   build(ctx: BuildContext): GeneratorOutput;         // deterministic given params, template and rng
   exampleCorrect(out: GeneratorOutput): ResponseValue;   // a correct response (tests, lesson demos)
@@ -1206,7 +1207,7 @@ for i in 0 .. N-1:
     raw = (target && g.sampleToward && i is odd) ? g.sampleToward(spec, r, target.difficulty, w)
                                                  : g.sample(spec, r)
     p = { ...raw, ...g.derive(raw) }
-    if every constraint in t.constraints holds for p: accept; break
+    if (g.accepts?.(p, t) ?? true) and every constraint in t.constraints holds for p: accept; break
   if none accepted: continue
   out = g.build({ params: p, template: t, rng: r.fork('build') })
   d   = difficulty(t, g, out.features)          // §5.4
@@ -1732,15 +1733,15 @@ The v1 generators, grouped by family. One generator serves many templates and fo
 
 | GeneratorId | Formats | Key params (defaults in code) | Derived | Math features (default weight) | Used by |
 |---|---|---|---|---|---|
-| `count.set` | tap-count, make-set, dot-flash, numeral-pick, number-pad, tenframe-fill | `n`, `layout`, `sprite`, `mode` (how-many, make, take-away, add-more, zero), `start`, `groupsOf` | — | `teen` (n ≥ 11; 0.4), `zero` (0.3), `n.over20` (0.5) | CNT.02–06, CNT.13, CNT.14, CNT.19, ADD.01, ADD.24, SUB.05 |
+| `count.set` | tap-count, make-set, dot-flash, numeral-pick, number-pad, tenframe-fill | `n`, `layout`, `sprite`, `mode` (how-many, make, take-away, add-more, zero), `start`, `groupsOf` | — | `teen` (n ≥ 11; 0.4), `zero` (0.3), `n.over20` (per 10 above 20; 0.5), `count.over5` (per 5 above 5, on formats without their own size feature; 0.5) | CNT.02–06, CNT.13, CNT.14, CNT.19, ADD.01, ADD.24, SUB.05 |
 | `count.ordinal` | tap-count, numeral-pick | `k` (1–10), `from`, `n` | — | `k.over5` (0.3) | CNT.15 |
 | `count.sequence` | numeral-pick, number-pad, hundred-chart, order, number-line-jump | `start`, `step` (1, 2, 5, 10, 100), `dir` (+1, −1), `length`, `hide` | `last` | `digits` (0.5), `step.notOne` (0.4), `backward` (0.6), `crossDecade` (0.5), `crossCentury` (0.7) | CNT.01, CNT.07–12, CNT.16–18, CNT.20 |
-| `subitize.flash` | dot-flash, numeral-pick, number-pad, rekenrek, number-bond, make-set, tenframe-fill | `n`, `arrangement`, `groups`, `flashMs` | — | `n.over5` (0.3), `conceptual` (≥ 2 groups; 0.3), `teen` (0.5), `placeValue` (0.4), `multiplicative` (0.5) | SUB.01–09 |
+| `subitize.flash` | dot-flash, numeral-pick, number-pad, rekenrek, number-bond, make-set, tenframe-fill | `n`, `arrangement`, `groups`, `flashMs` | — | `n.over5` (per 5 above 5, not on dot-flash, which has `n.over4`; 0.3), `conceptual` (≥ 2 groups; 0.3), `teen` (0.5), `placeValue` (0.4), `multiplicative` (0.5) | SUB.01–09 |
 | `estimate.quantity` | dot-flash, numeral-pick, number-line-place | `n` (20–200), `benchmarks` | — | `n.per50` (0.3) | CMP.13 |
 | `compare.sets` | compare, make-set, balance | `a`, `b`, `conflict`, `ask`, `sprite` | — | `bigger.over5` (0.3) | CMP.01, CMP.05, ALG.05 |
 | `compare.numbers` | compare, order, numeral-pick, balance, number-line-place | `a`, `b`, `extra` (more values for order), `min`, `max`, `ask` | — | `sameTens` (0.5), `digitsDiffer` (−0.4) | CMP.02, CMP.06–08, PV.02, PV.06, PV.17, PV.22 |
 | `numberline.place` | number-line-place, numeral-pick, number-pad, number-line-jump, order | `min`, `max`, `target`, `ticksEvery`, `labelsEvery`, `mode`, `benchmarks`, `vertical` | — | (format features only) | CMP.04, CMP.09–12, CMP.14 |
-| `bond.parts` | number-bond, tenframe-fill, rekenrek, number-pad, base-ten-build, hundred-chart, number-line-jump, make-set | `whole`, `part`, `unknown` (part, whole, split, new-way), `tensOnly` | `other` | `zeroPart` (−0.3), `whole.over20` (0.4), `tensBond` (0.3) | CPS.01–11, MDA.16 |
+| `bond.parts` | number-bond, tenframe-fill, rekenrek, number-pad, base-ten-build, hundred-chart, number-line-jump, make-set | `whole`, `part`, `unknown` (part, whole, split, new-way), `tensOnly` | `other` | `zeroPart` (−0.3), `whole.over20` (per 10 above 20; 0.4), `tensBond` (0.3), `whole.over5` (per 5 above 5, on formats without their own size feature; 0.4) | CPS.01–11, MDA.16 |
 | `addsub.facts` | number-pad, numeral-pick, tenframe-fill, rekenrek, number-line-jump, dot-flash, number-bond, balance | `a`, `b`, `op`, `unknown`, `family` (any, plus1, plus2, doubles, near-doubles, make-ten, plus9, ten-plus, teen-minus-ten, back-to-ten, count-up, think-add), `maxSum` | `result` | `size` (per 5 above 5 of max(a, b, result); 0.3), `bridge10` (0.7), `sub` (0.35), `unknown.change` (0.6), `unknown.start` (0.9), `zeroOrOne` (−0.6), `double` (−0.4), `nearDouble` (−0.1), `nine` (−0.1), `plusTen` (−0.5) | ADD.02–09, ADD.14–19, ADD.22, ADD.26, ADD.27, CMP.03 |
 | `addsub.three` | number-pad, tenframe-fill, number-bond | `a`, `b`, `c`, `maxSum` | `result` | `sum.over10` (0.4), `hasTenPair` (−0.4), `bridge10` (0.3) | ADD.13 |
 | `equality.eq` | balance, number-pad, compare, numeral-pick, number-bond | `form` (a+b=_, _=a+b, a+_=c, _+b=c, a+b=c+_, a+b=_+d, true-false), `ops` (+−, ×÷), `maxN`, `letter` | `lhs`, `rhs` | `size` (0.3), `mulDiv` (0.4) | ADD.05, ADD.10, ADD.11, ALG.06–08, MUL.06, MUL.18, MDA.22, CMP.08 |
@@ -1797,8 +1798,10 @@ if r.kind is incompatible with item.answer.kind (§5.1):
   devError(); return { correct: false, partialCredit: 0, misconceptionIds: [], feedback: 'fb.retry' }
 correct   = matches(item.answer, r)
 closeness = item.answer.kind == 'placement' ? 1 − min(1, |r.value − v| / (0.25 × (max − min))) : undefined
-mcs       = correct ? [] : answer/state misconception rules (§7) that apply to item.generator and item.skillId
-                          and match (item, r), sorted by priority desc, then id
+generator = boundTemplates[item.templateId]?.generator   // 02 §5.9 E3: only templates bound with initContent
+mcs       = correct || generator is undefined ? []
+          : answer/state misconception rules (§7) that apply to generator and item.skillId
+            and match (item, r), sorted by priority desc, then id
 feedback  = correct ? 'fb.correct.' + (1 + item.seed mod 6)
           : mcs.length ? library[mcs[0]].feedback
           : 'fb.' + item.format + '.retry'
@@ -1894,6 +1897,8 @@ Every step emits a `lesson.step` event (payload 02 §5.8): `{ sessionId, skillId
 Every widget implements demo mode through its registry props (U01): `demo.play(action: WidgetAction): Promise<void>` animates one op from the format's op list (§5.5) and resolves when the animation ends, and `demo.invite(action)` highlights the target of a child step (pulsing outline, hand pointer). With reduced motion, animations become instant state changes plus a highlight. A widget that receives an op it does not support throws in development and is skipped in production (V21 prevents this for authored lessons).
 
 To keep the engine DOM-free and the interaction logic in one place, each format has a pure state model in `packages/engine/src/formats/<format>.ts`: `initialState(config)`, `apply(state, action)` and `toResponse(state)`. The widget renders that model, demo mode calls `apply`, and the property test replays `solution()` through it (§9.4). Judgment call: this is not a 02 contract change, but it is the simplest way to make solutions, checkers and widgets agree.
+
+Besides its listed ops, every model accepts a generic `answer` op (`{ value }`, `{ values }` or `{ id }`), which enters the final answer the way the widget's answer control does (number pad, numeral tray, pick). Generated solutions end with it where the format has no answer op of its own (for example `dot-flash`), so widgets support it in demo mode. The conventions E01 fixed for the 11 fixture formats (trace targets `obj-<i>` and `counter-<i>`, numeric pick ids `opt-<n>`, and the `make-set`, `tenframe-fill`, `number-bond`, `rekenrek` and `number-line-jump` response shapes) are listed in `packages/engine/README.md`.
 
 ### 6.4 Auto lessons
 
@@ -2082,7 +2087,7 @@ One key is one line: one or two short sentences, spoken without a pause longer t
 
 ### 8.3 Number words and clip composition (0–1,000,000)
 
-Number words are composed from a fixed clip inventory (`narration/numbers.yaml`), rendered once per voice:
+Number words are composed from a fixed clip inventory (`narration/numbers.yaml`), rendered once per voice (v1 renders the narrator's voice only, because clip ids carry no voice; see 07 §3):
 
 | Clip set | Clips |
 |---|---|
@@ -2233,7 +2238,7 @@ Runs the compiler checks in `packages/content` (V01–V12, V16–V21, V23, V24, 
 
 ### 9.3 Generator hook
 
-`packages/engine` exports for `tools/content-check`: `generatorRegistered(id, format): boolean`, `generatorParams(id): Record<string, ParamDecl>`, `generatorFeatures(id, format): Record<string, number>` (resolved default weights), `runTemplateProperties(template, opts)` (§9.4) and `difficultyStats(template, n)`.
+`packages/engine` exports for `tools/content-check`: `generatorRegistered(id, format): boolean`, `generatorParams(id): Record<string, ParamDecl>`, `generatorFeatures(id, format): Record<string, number>` (resolved default weights), `runTemplateProperties(template, opts)` (§9.4) and `difficultyStats(template, n)`. As built (E01): the first three, plus `generatorIdentifiers(id)` (params and derived names for V13), come from `@number-island/engine`; `runTemplateProperties` and `difficultyStats` come from `@number-island/engine/testing`, which uses fast-check and is never bundled into the app.
 
 ### 9.4 Property test (500 items per template)
 
@@ -2245,7 +2250,7 @@ Runs the compiler checks in `packages/content` (V01–V12, V16–V21, V23, V24, 
 4. `checkResponse(item, exampleCorrect(item)).correct === true`, and replaying `solution(item)` through the format state model (§6.3) from `initialState` yields a correct `toResponse`.
 5. Near misses are rejected: for `number`, answer ± 1 (and ± 10 when the answer is ≥ 10); for `choice`, every other option; for `state`, fast-check mutations of the example state (one counter or piece added or removed, a hand moved one step). Checkers whose state space has legitimate alternatives declare an exemption predicate, which is itself unit-tested.
 6. For every applicable misconception rule with `predict`: if `predict(item)` is not `null`, `checkResponse(item, predict(item))` is incorrect and its `misconceptionIds` contain that id, or a higher-priority id with the same prediction.
-7. `vars` cover every slot in the prompt and hint lines; rendered hint text at levels 2–4 contains the answer neither as a numeral nor as number words.
+7. `vars` cover every slot in the prompt and hint lines (and each solution step's line); rendered hint text at levels 2–4 contains the answer neither as a numeral nor as number words. Reading (E01): "as number words" means through a slot, because slots are spoken with number clips (§8.3). A static word the author wrote ("two groups", "a full row is five") belongs to the line, not to the item, and is not an item-dependent reveal. For a state item, "the answer" is the quantity the child must produce (`set.count` count, `tenframe.total` and `rekenrek.total` n, the `jumps.reach` target), or the typed value when the item asks for one. **Free splits** (`bond.split`, `bond.newWay`) accept every valid split, and no text check can tell a numeral that sizes a part from one that counts something else. So their hint lines at levels 2–4 name no numeral that could be a part (1 to whole − 1, or 0 when zero parts are allowed). The whole may be named, and counting words are written in letters ("Use two hands", not "Use 2 hands"). Both forms of a line are checked: the display `text` and, when present, the spoken `say`. **Numeral grammar:** in rendered hint text, every run of digits and commas must be a plain integer ("8", "305") or a canonical thousands grouping exactly as §8.4 display formatting writes it ("1,000", "12,345"). Any other run ("6,7,8", "0,500", "1,000,8") is ambiguous and is itself a V17 error. Separate list items with a comma and a space ("6, 7, 8").
 8. `difficulty` is finite, and `features` ⊆ the declared features.
 9. Multiple-choice items have 3–5 distinct options, exactly one correct.
 
