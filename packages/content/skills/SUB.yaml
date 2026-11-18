@@ -1,5 +1,5 @@
 # C01 fixture (03 §9.5): catalog rows from 03 §3.4. SUB.03 lists four of its five catalog
-# representations (fingers is restored by K01).
+# representations: K01 restores five-frame (a 1×5 frame cannot show 6–10 alone).
 strand: SUB
 skills:
   - id: SUB.01
@@ -27,4 +27,4 @@ skills:
     standards: { ccss: [], supports: [K.OA.A.3] }
     prerequisites: [SUB.02, CNT.03]
     gateway: true
-    representations: [five-frame, ten-frame, dots, symbols]
+    representations: [fingers, ten-frame, dots, symbols]

@@ -211,8 +211,8 @@ function check(c: LoadedContent, d: Diagnostics): CompiledContent | null {
       d.error('V02', t.file, at, `${id} does not start with this file's strand ${t.strand}`);
       continue;
     }
-    if (templateNumber(id) < 1) {
-      d.error('V02', t.file, at, `${id}: template numbers start at t1`);
+    if (!/\.t[1-9]\d*$/.test(id) || !Number.isSafeInteger(templateNumber(id))) {
+      d.error('V02', t.file, at, `${id}: template numbers start at t1, with no leading zeros`);
       continue;
     }
     if (c.retired.templates.has(id)) {
@@ -265,19 +265,17 @@ function check(c: LoadedContent, d: Diagnostics): CompiledContent | null {
     byStrand.set(strand, [...(byStrand.get(strand) ?? []), Number(num)]);
   }
   for (const [strand, nums] of byStrand) {
-    const have = new Set(nums);
-    const max = Math.max(...nums);
-    const missing: string[] = [];
-    for (let n = 1; n < max; n += 1) {
-      const id = `${strand}.${String(n).padStart(2, '0')}`;
-      if (!have.has(n) && !c.retired.skills.has(id) && !planned.has(id)) missing.push(id);
-    }
-    if (missing.length > 0) {
+    const missing = sequenceGaps(
+      nums,
+      (n) => `${strand}.${String(n).padStart(2, '0')}`,
+      excusedNumbers([...c.retired.skills, ...planned], `${strand}.`),
+    );
+    if (missing) {
       d.error(
         'V03',
         `skills/${strand}.yaml`,
         '',
-        `skill ids must be sequential; missing ${missing.join(', ')} (retire ids in retired.yaml instead of skipping them)`,
+        `skill ids must be sequential; missing ${missing} (retire ids in retired.yaml instead of skipping them)`,
       );
     }
   }
@@ -287,21 +285,14 @@ function check(c: LoadedContent, d: Diagnostics): CompiledContent | null {
   }
   for (const list of templatesBySkill.values()) list.sort(byTemplateId);
   for (const [skillId, ids] of templatesBySkill) {
-    const have = new Set(ids.map(templateNumber));
-    const max = Math.max(...have);
-    const missing: string[] = [];
-    for (let n = 1; n < max; n += 1) {
-      const id = `${skillId}.t${n}`;
-      if (!have.has(n) && !c.retired.templates.has(id) && !planned.has(id)) missing.push(id);
-    }
-    if (missing.length > 0) {
+    const missing = sequenceGaps(
+      ids.map(templateNumber),
+      (n) => `${skillId}.t${n}`,
+      excusedNumbers([...c.retired.templates, ...planned], `${skillId}.t`),
+    );
+    if (missing) {
       const file = templates.get(ids[0] as string)?.file ?? '';
-      d.error(
-        'V03',
-        file,
-        '',
-        `template ids of ${skillId} must be sequential; missing ${missing.join(', ')}`,
-      );
+      d.error('V03', file, '', `template ids of ${skillId} must be sequential; missing ${missing}`);
     }
   }
 
@@ -602,8 +593,7 @@ function check(c: LoadedContent, d: Diagnostics): CompiledContent | null {
         `gateway skill ${id} uses an auto lesson; gateway skills should get an authored lesson (03 §6.4)`,
       );
     }
-    checkTestOut(id, s, lesson, own, d, authored);
-    lessons.set(id, lesson);
+    lessons.set(id, resolveTestOut(id, s, lesson, own, d, authored));
   }
 
   // ---------- V19 / V20: standards ----------
@@ -823,6 +813,46 @@ function check(c: LoadedContent, d: Diagnostics): CompiledContent | null {
   };
 }
 
+/**
+ * V03: the ids missing from 1 … max(nums) that are not excused, as a display list (at most 10
+ * named, then "… and N more"), or null when there is no gap. Work is bounded by the number of
+ * present and excused ids, never by the size of a gap, so a mistyped `t9999999` stays cheap.
+ */
+export function sequenceGaps(
+  nums: readonly number[],
+  toId: (n: number) => string,
+  excusedNums: ReadonlySet<number>,
+): string | null {
+  const present = new Set(nums);
+  const max = Math.max(0, ...present);
+  const LIMIT = 10;
+  const named: string[] = [];
+  let prev = 0;
+  for (const n of [...present].sort((a, b) => a - b)) {
+    for (let k = prev + 1; k < n && named.length < LIMIT; k += 1) {
+      if (!excusedNums.has(k)) named.push(toId(k));
+    }
+    prev = n;
+  }
+  const excusedInRange = [...excusedNums].filter(
+    (k) => k >= 1 && k < max && !present.has(k),
+  ).length;
+  const total = max - present.size - excusedInRange;
+  if (total <= 0) return null;
+  const more = total - named.length;
+  return more > 0 ? `${named.join(', ')} … and ${more} more` : named.join(', ');
+}
+
+/** The numeric suffixes of excused ids (`retired.yaml`, `plannedIds`) that start with `prefix`. */
+function excusedNumbers(ids: Iterable<string>, prefix: string): Set<number> {
+  const out = new Set<number>();
+  for (const id of ids) {
+    const rest = id.slice(prefix.length);
+    if (id.startsWith(prefix) && /^\d+$/.test(rest)) out.add(Number(rest));
+  }
+  return out;
+}
+
 // ---------- graph helpers ----------
 
 function findCycle(ids: string[], prereqs: Map<string, string[]>): string[] | null {
@@ -961,7 +991,6 @@ function checkCoverage(
   d: Diagnostics,
 ): void {
   const grades = new Set<string>(c.graph?.coverageGrades ?? []);
-  if (grades.size === 0) return;
   const addressed = new Set<string>();
   const named = new Set<string>();
   for (const s of skills.values()) {
@@ -982,16 +1011,21 @@ function checkCoverage(
   };
   const uncovered: string[] = [];
   const graphFile = c.graph?.file ?? 'graph.yaml';
+  // Every code of a covered grade, judged at the parent level (a tagged parent covers its parts).
   for (const code of c.ccssCodes) {
-    if (parentOf(code) !== code) continue; // judged through its parent
-    const g = codeGrade(code);
-    const stretch = g === '4' && named.has(code);
-    if (!grades.has(g) && !stretch) continue;
+    if (parentOf(code) !== code || !grades.has(codeGrade(code))) continue;
     if (!covered(code)) {
       const parts = subparts.get(code);
       const missing = parts?.filter((p) => !addressed.has(p)) ?? [];
       uncovered.push(parts ? `${code} (untagged parts: ${missing.join(', ')})` : code);
     }
+  }
+  // Every grade-4 code a (stretch) skill names, parent or sub-part, whatever coverageGrades says.
+  for (const code of [...named].sort(cmp)) {
+    if (codeGrade(code) !== '4' || grades.has('4')) continue;
+    const parent = parentOf(code);
+    const ok = parent === code ? covered(code) : addressed.has(code) || addressed.has(parent);
+    if (!ok) uncovered.push(`${code} (named by a skill, grade 4)`);
   }
   for (const code of uncovered) {
     d.error(
@@ -1229,16 +1263,29 @@ function checkGivenParams(
   });
 }
 
-/** V21: enough eligible templates for test-out (03 §6.5). */
-function checkTestOut(
+/** A template whose format only answers with `choice` (multiple choice, 03 §6.5). */
+const choiceOnly = (t: LoadedTemplate) => {
+  const answers = FORMAT_SUPPORT[t.value.format].answers;
+  return answers.length === 1 && answers[0] === 'choice';
+};
+
+/**
+ * The test-out template pool (03 §6.5), checked by V21 and written to `testOut.templateIds` so the
+ * runner draws from exactly the validated set:
+ * 1. the skill's abstract templates, or its pictorial ones when it has no abstract template;
+ * 2. for a gateway skill whose pool spans fewer than 2 representations, plus its pictorial ones;
+ * 3. without choice-only templates when a constructed-response template remains.
+ * An authored `testOut.templateIds` is kept as written but must hold no concrete template.
+ */
+function resolveTestOut(
   id: string,
   s: LoadedContent['skills'][number],
   lesson: LessonSpec,
   own: LoadedTemplate[],
   d: Diagnostics,
   authored: LoadedContent['lessons'][number] | undefined,
-): void {
-  if (lesson.mode === 'none' || lesson.testOut.items === 0) return;
+): LessonSpec {
+  if (lesson.mode === 'none' || lesson.testOut.items === 0) return lesson;
   const file = authored?.file ?? s.file;
   const path = authored ? `${authored.path}.testOut` : s.path;
   if (lesson.testOut.minCorrect > lesson.testOut.items) {
@@ -1249,33 +1296,48 @@ function checkTestOut(
       `testOut.minCorrect (${lesson.testOut.minCorrect}) exceeds testOut.items (${lesson.testOut.items})`,
     );
   }
-  const listed = lesson.testOut.templateIds;
-  let eligible = listed
-    ? own.filter((t) => listed.includes(t.value.id))
-    : own.filter((t) => t.value.tier === 'abstract');
-  if (!listed && eligible.length === 0) eligible = own.filter((t) => t.value.tier === 'pictorial');
   const repsOf = (list: LoadedTemplate[]) =>
     new Set(
       list.map((t) => t.value.representation ?? FORMAT_DEFAULT_REPRESENTATION[t.value.format]),
     );
-  if (!listed && s.value.gateway && repsOf(eligible).size < 2) {
-    eligible = own.filter((t) => t.value.tier !== 'concrete');
+  const listed = lesson.testOut.templateIds;
+  let pool: LoadedTemplate[];
+  if (listed) {
+    pool = own.filter((t) => listed.includes(t.value.id));
+    for (const t of pool.filter((x) => x.value.tier === 'concrete')) {
+      d.error(
+        'V21',
+        file,
+        path,
+        `${t.value.id} is concrete; test-out items are abstract or pictorial (03 §6.5)`,
+      );
+    }
+  } else {
+    const abstract = own.filter((t) => t.value.tier === 'abstract');
+    const pictorial = own.filter((t) => t.value.tier === 'pictorial');
+    pool = abstract.length > 0 ? abstract : pictorial;
+    if (s.value.gateway && repsOf(pool).size < 2) pool = [...abstract, ...pictorial];
+    const constructed = pool.filter((t) => !choiceOnly(t));
+    if (constructed.length > 0) pool = constructed;
   }
-  if (eligible.length === 0) {
+  if (pool.length === 0) {
     d.error(
       'V21',
       file,
       path,
       `${id} has no abstract or pictorial template for its test-out (03 §6.5)`,
     );
-  } else if (s.value.gateway && repsOf(eligible).size < 2) {
+  } else if (s.value.gateway && repsOf(pool).size < 2) {
     d.error(
       'V21',
       file,
       path,
-      `gateway skill ${id}: test-out items must span ≥ 2 representations, but its eligible templates use only ${[...repsOf(eligible)].join(', ')}`,
+      `gateway skill ${id}: test-out items must span ≥ 2 representations, but its test-out templates use only ${[...repsOf(pool)].join(', ')}`,
     );
   }
+  if (listed || pool.length === 0) return lesson;
+  const ids = own.filter((t) => pool.includes(t)).map((t) => t.value.id);
+  return { ...lesson, testOut: { ...lesson.testOut, templateIds: ids } };
 }
 
 // ---------- game data ----------
@@ -1458,6 +1520,28 @@ function checkNarration(
     for (const k of [t.narration.prompt, ...t.narration.hints])
       promptOwners.set(k, [...(promptOwners.get(k) ?? []), t]);
   }
+  // Authored lesson steps (and their actions) supply vars directly: key → string var → skill.
+  const lessonStringVars = new Map<string, Map<string, string>>();
+  const noteVars = (
+    key: string,
+    vars: Record<string, string | number> | undefined,
+    skillId: string,
+  ) => {
+    for (const [name, value] of Object.entries(vars ?? {})) {
+      if (typeof value !== 'string') continue;
+      const m = lessonStringVars.get(key) ?? new Map<string, string>();
+      m.set(name, skillId);
+      lessonStringVars.set(key, m);
+    }
+  };
+  for (const s of skills) {
+    for (const e of [...s.lesson.worked, ...s.lesson.faded]) {
+      for (const step of e.steps ?? []) {
+        noteVars(step.say, step.vars, s.id);
+        if (step.action?.say) noteVars(step.action.say, step.action.vars, s.id);
+      }
+    }
+  }
 
   // Vocabulary: word lists plus island nouns and resident names.
   const island = new Set<string>();
@@ -1496,6 +1580,15 @@ function checkNarration(
           file,
           path,
           `slot {${slot.raw}} takes the string param '${slot.name}' of ${strTemplates.map((t) => t.id).join(', ')}; string vars need a type (03 §8.4)`,
+        );
+      }
+      const lessonSkill = lessonStringVars.get(key)?.get(slot.name);
+      if (lessonSkill) {
+        d.error(
+          'V16',
+          file,
+          path,
+          `slot {${slot.raw}} takes the string var '${slot.name}' of a ${lessonSkill} lesson step; string vars need a type (03 §8.4)`,
         );
       }
     }

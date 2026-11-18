@@ -74,9 +74,9 @@ templates:
     skillId: SUB.03
     format: dot-flash
     tier: pictorial
-    representation: five-frame
+    representation: fingers
     generator: subitize.flash
-    params: { n: { int: [6, 10] }, arrangement: five-frame }
+    params: { n: { int: [6, 10] }, arrangement: fingers }
     difficulty: { base: -0.3 }
     narration: { prompt: p.subitize.how-many, hints: [h.subitize.five-and] }
 

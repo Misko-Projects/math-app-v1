@@ -113,6 +113,13 @@ describe('narration slots and clips (03 §8.4)', () => {
       'k.x#1',
     ]);
   });
+  it('keeps the decimal places of dec slots (03 §8.3)', () => {
+    const { segments, errors } = parseLine('{h|dec:1} and {k|dec:2}');
+    expect(errors).toEqual([]);
+    expect(lineClips('k.d', segments)).toEqual(['$h|dec:1', 'k.d#0', '$k|dec:2']);
+    expect(parseLine('{h|dec}').errors.join(' ')).toMatch(/needs its decimal places/);
+    expect(parseLine('{h|dec:3}').errors.join(' ')).toMatch(/needs its decimal places/);
+  });
   it('treats {{ and }} as literal braces', () => {
     const { segments, errors } = parseLine('Use {{braces}} for {n}');
     expect(errors).toEqual([]);

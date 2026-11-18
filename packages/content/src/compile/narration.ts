@@ -24,7 +24,10 @@ const COUNTED_TYPES: readonly SlotType[] = ['noun', 'unit', 'shape'];
 export interface Slot {
   name: string;
   type?: SlotType;
+  /** `noun`/`unit`/`shape`: the var whose value picks `.one` or `.many`. */
   countVar?: string;
+  /** `dec`: decimal places, `{v|dec:1}` tenths or `{v|dec:2}` hundredths (03 §8.3). */
+  places?: 1 | 2;
   /** The token as written inside the braces, e.g. `item|noun:n`. */
   raw: string;
 }
@@ -105,6 +108,15 @@ function parseSlot(raw: string, errors: string[]): Slot | null {
     }
     return { name, type: t, countVar, raw };
   }
+  if (t === 'dec') {
+    if (countVar !== '1' && countVar !== '2') {
+      errors.push(
+        `slot {${raw}}: type 'dec' needs its decimal places, {${name}|dec:1} (tenths) or {${name}|dec:2} (hundredths)`,
+      );
+      return null;
+    }
+    return { name, type: t, places: countVar === '1' ? 1 : 2, raw };
+  }
   if (countVar !== undefined) {
     errors.push(`slot {${raw}}: type '${t}' takes no count variable`);
     return null;
@@ -118,8 +130,9 @@ export function lineClips(key: string, segments: readonly Segment[]): string[] {
   let i = 0;
   for (const s of segments) {
     if (s.kind === 'slot') {
-      const { name, type, countVar } = s.slot;
-      clips.push(`$${name}${type ? `|${type}` : ''}${countVar ? `:${countVar}` : ''}`);
+      const { name, type, countVar, places } = s.slot;
+      const suffix = countVar ?? places;
+      clips.push(`$${name}${type ? `|${type}` : ''}${suffix !== undefined ? `:${suffix}` : ''}`);
     } else if (s.text.trim() !== '') {
       clips.push(`${key}#${i}`);
       i += 1;

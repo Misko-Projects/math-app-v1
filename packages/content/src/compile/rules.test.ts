@@ -926,6 +926,124 @@ describe('V21: lessons', () => {
   });
 });
 
+describe('V21: the test-out pool (03 §6.5) is resolved into testOut.templateIds', () => {
+  const pool = (files: Files, id: string) =>
+    compileContent(files).content?.skills.find((s) => s.id === id)?.lesson.testOut.templateIds;
+  it('uses abstract templates, else pictorial, and never choice-only ones when others remain', () => {
+    expect(pool(FIXTURE, 'ADD.03')).toEqual(['ADD.03.t4']);
+    expect(pool(FIXTURE, 'CPS.01')).toEqual(['CPS.01.t4']);
+    expect(pool(FIXTURE, 'SUB.01')).toEqual(['SUB.01.t1', 'SUB.01.t2']); // SUB.01.t3 is numeral-pick
+  });
+  it('adds pictorial templates for a gateway skill whose abstract ones span one representation', () => {
+    expect(pool(FIXTURE, 'CNT.03')).toEqual(['CNT.03.t2', 'CNT.03.t4']); // t3 is choice-only
+    expect(pool(FIXTURE, 'SUB.03')).toEqual(['SUB.03.t2', 'SUB.03.t3', 'SUB.03.t4']);
+    expect(pool(FIXTURE, 'CPS.02')).toEqual(['CPS.02.t3', 'CPS.02.t4']);
+  });
+  it('rejects a gateway pool that still spans one representation', () => {
+    expectFinding(
+      variant((f) =>
+        editYaml(f, 'templates/CPS.yaml', (doc) => (template(doc, 'CPS.02.t3').tier = 'concrete')),
+      ),
+      'V21',
+      /gateway skill CPS.02: test-out items must span ≥ 2 representations/,
+    );
+  });
+  it('keeps an authored list but rejects concrete templates in it', () => {
+    const files: Files = { ...FIXTURE };
+    editYaml(
+      files,
+      'lessons/CNT.yaml',
+      (doc) => (doc.lessons[0].testOut.templateIds = ['CNT.03.t3', 'CNT.03.t4']),
+    );
+    expect(pool(files, 'CNT.03')).toEqual(['CNT.03.t3', 'CNT.03.t4']);
+    expectFinding(
+      variant((f) =>
+        editYaml(
+          f,
+          'lessons/CNT.yaml',
+          (doc) => (doc.lessons[0].testOut.templateIds = ['CNT.03.t1', 'CNT.03.t4']),
+        ),
+      ),
+      'V21',
+      /CNT.03.t1 is concrete/,
+    );
+  });
+});
+
+describe('V16: string vars in authored lesson steps need typed slots', () => {
+  const withStepVar = (text: string) => (f: Files) => {
+    editYaml(
+      f,
+      'lessons/CNT.yaml',
+      (doc) => (doc.lessons[0].worked[0].steps[1].vars = { n: 5, item: 'shell' }),
+    );
+    f['narration/CNT.yaml'] = (f['narration/CNT.yaml'] as string).replace(
+      'I count each one once. I stop at {n}.',
+      text,
+    );
+  };
+  it('rejects an untyped slot that takes a string var', () => {
+    expectFinding(
+      variant(withStepVar('I count each {item} once. I stop at {n}.')),
+      'V16',
+      /string var 'item' of a CNT.03 lesson step/,
+    );
+  });
+  it('accepts the same var with a type', () => {
+    const diags = variant(withStepVar('I count each {item|noun:n} once. I stop at {n}.'));
+    expect(diags.filter((d) => d.severity === 'error')).toEqual([]);
+  });
+});
+
+describe('V20: grade-4 codes a skill names', () => {
+  it('rejects a named grade-4 sub-part nobody addresses, even with empty coverageGrades', () => {
+    const named = (f: Files) =>
+      editYaml(
+        f,
+        'skills/ADD.yaml',
+        (doc) => (skill(doc, 'ADD.03').standards.supports = ['4.NF.B.3a']),
+      );
+    expectFinding(
+      variant(named),
+      'V20',
+      /uncovered standard 4.NF.B.3a \(named by a skill, grade 4\)/,
+    );
+    const addressedByParent = variant((f) => {
+      named(f);
+      editYaml(f, 'skills/ADD.yaml', (doc) => skill(doc, 'ADD.03').standards.ccss.push('4.NF.B.3'));
+    });
+    expect(addressedByParent.filter((d) => d.check === 'V20')).toEqual([]);
+  });
+});
+
+describe('V02/V03: template number suffixes', () => {
+  it('rejects leading zeros', () => {
+    expectFinding(
+      variant((f) =>
+        editYaml(f, 'templates/CNT.yaml', (doc) => (template(doc, 'CNT.07.t4').id = 'CNT.07.t04')),
+      ),
+      'V02',
+      /no leading zeros/,
+    );
+  });
+  it('reports a huge out-of-sequence suffix promptly with a bounded list', () => {
+    const started = Date.now();
+    const d = expectFinding(
+      variant((f) =>
+        editYaml(
+          f,
+          'templates/CNT.yaml',
+          (doc) => (template(doc, 'CNT.07.t4').id = 'CNT.07.t999999999'),
+        ),
+      ),
+      'V03',
+      /missing CNT.07.t4, CNT.07.t5, .* … and 999999985 more/,
+    );
+    expect(d.message.length).toBeLessThan(400);
+    expect(Date.now() - started).toBeLessThan(5000);
+  });
+});
+
 describe('V23: prerequisite grade labels', () => {
   it('warns when a prerequisite has a higher grade label', () => {
     expectFinding(
