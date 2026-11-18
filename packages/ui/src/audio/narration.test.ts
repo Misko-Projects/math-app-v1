@@ -33,19 +33,30 @@ describe('planLine: clip stitching order (03 §8.4)', () => {
 
   it('applies .end only to the last clip of a multi-clip number', () => {
     const plan = planLine(N, 'ls.CNT.03.w1.s3', { n: 345 });
+    // A Pip line: each number clip tries Pip's own clip first, then the narrator's (02 §5.5).
     expect(plan?.clips?.map((c) => c.candidates)).toEqual([
       ['ls.CNT.03.w1.s3#0'],
-      ['num.3#0'],
-      ['num.hundred#0'],
-      ['num.45#0'],
+      ['pip:num.3#0', 'num.3#0'],
+      ['pip:num.hundred#0', 'num.hundred#0'],
+      ['pip:num.45#0', 'num.45#0'],
       ['ls.CNT.03.w1.s3#1'],
-      ['num.3#0'],
-      ['num.hundred#0'],
-      ['num.45.end#0', 'num.45#0'],
+      ['pip:num.3#0', 'num.3#0'],
+      ['pip:num.hundred#0', 'num.hundred#0'],
+      ['pip:num.45.end#0', 'pip:num.45#0', 'num.45.end#0', 'num.45#0'],
       ['ls.CNT.03.w1.s3#2'],
     ]);
     expect(plan?.voice).toBe('pip');
     expect(plan?.text).toBe('The last number was 345, so there are 345!');
+  });
+
+  it("voice-qualifies only clip-set words, never a line's own static clips", () => {
+    const plan = planLine(N, 'ls.CNT.03.w1.s3', { n: 4 });
+    const statics = plan?.clips?.filter((c) => c.candidates[0]?.startsWith('ls.')) ?? [];
+    expect(statics.map((c) => c.candidates)).toEqual([
+      ['ls.CNT.03.w1.s3#0'],
+      ['ls.CNT.03.w1.s3#1'],
+      ['ls.CNT.03.w1.s3#2'],
+    ]);
   });
 
   it('expands names and counted nouns', () => {
@@ -111,7 +122,8 @@ describe('planPhrases (07 §2 phrases mode)', () => {
     expect(plan.voice).toBe('glim');
     expect(plan.clips?.map((c) => c.candidates)).toEqual([
       ['ph.you-have#0'],
-      ['num.7.end#0', 'num.7#0'],
+      // Glim's own number clips first, then the narrator's (02 §5.5).
+      ['glim:num.7.end#0', 'glim:num.7#0', 'num.7.end#0', 'num.7#0'],
     ]);
     expect(plan.spoken).toBe('You have seven');
   });

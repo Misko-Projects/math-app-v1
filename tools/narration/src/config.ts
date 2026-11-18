@@ -18,11 +18,35 @@ const providerConfig = z.object({ model: z.string().min(1), voices: voiceMap }).
 export const styleKeySchema = z.union([narrationStyleSchema, z.literal('clip'), z.literal('end')]);
 export type StyleKey = z.infer<typeof styleKeySchema>;
 
+/**
+ * Clip-set namespaces (03 §8.1): single words stitched into lines at runtime (`num.23`,
+ * `noun.shell.many`, …).
+ */
+export const CLIP_SET_NAMESPACES = [
+  'num',
+  'den',
+  'ord',
+  'time',
+  'money',
+  'unit',
+  'noun',
+  'shape',
+  'word',
+  'res',
+] as const;
+const clipSetList = z.array(z.enum(CLIP_SET_NAMESPACES));
+
 export const voicesConfigSchema = z
   .object({
     provider: providerSchema,
     gemini: providerConfig,
     kokoro: providerConfig,
+    /**
+     * Clip sets rendered again in Pip's and Glim's own voices, as `pip:<clip id>` (02 §5.5,
+     * 03 §8.3). The narrator always has every clip set; anything not listed here is stitched in
+     * the narrator's voice.
+     */
+    voiceClipSets: z.object({ pip: clipSetList, glim: clipSetList }).strict(),
     styles: z
       .object({
         warm: z.string(),
