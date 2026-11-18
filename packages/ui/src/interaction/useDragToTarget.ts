@@ -47,6 +47,9 @@ interface ActiveDrag<I extends string> {
   startY: number;
   dx: number;
   dy: number;
+  /** Offset the item already had when the drag started (mid-glide home). */
+  baseX: number;
+  baseY: number;
   dragging: boolean;
   origin: DOMRect | null;
   over: string | null;
@@ -103,7 +106,9 @@ export function useDragToTarget<I extends string, T extends string>(
   const snapTargetFor = useCallback(
     (drag: ActiveDrag<I>): T | null => {
       if (!drag.origin) return null;
-      const center = rectCenter(translateRect(drag.origin, drag.dx, drag.dy));
+      const center = rectCenter(
+        translateRect(drag.origin, drag.baseX + drag.dx, drag.baseY + drag.dy),
+      );
       return findSnapTarget(center, candidates(drag.id), settings.current.snapRadius);
     },
     [candidates],
@@ -115,7 +120,11 @@ export function useDragToTarget<I extends string, T extends string>(
       if (!drag) return;
       active.current = null;
       drag.cleanup();
-      if (!drag.dragging) return;
+      if (!drag.dragging) {
+        // A tap (or cancelled press) on an item that was gliding home: let it finish the glide.
+        if (drag.baseX !== 0 || drag.baseY !== 0) setTransform(drag.el, 0, 0);
+        return;
+      }
       core.suppressNextClick();
       // Commit only if the source is still there and enabled and dragging is still allowed: it may
       // have been removed, disabled, or tap-only mode switched on mid-drag.
@@ -169,6 +178,18 @@ export function useDragToTarget<I extends string, T extends string>(
       const el = core.items.get(id);
       if (!el || isElementDisabled(el)) return;
 
+      // The item may still be gliding home from a mis-drop. Freeze it where it is now, so the
+      // finger keeps hold of what it touched, and measure its layout position for snapping.
+      const visual = el.getBoundingClientRect();
+      el.style.transition = 'none';
+      setTransform(el, 0, 0);
+      const origin = el.getBoundingClientRect();
+      const baseX = visual.left - origin.left;
+      const baseY = visual.top - origin.top;
+      setTransform(el, baseX, baseY);
+      void el.getBoundingClientRect();
+      el.style.transition = '';
+
       const pointerId = e.pointerId;
       const onMove = (ev: PointerEvent) => {
         const drag = active.current;
@@ -178,13 +199,12 @@ export function useDragToTarget<I extends string, T extends string>(
         if (!drag.dragging) {
           if (Math.hypot(drag.dx, drag.dy) < DRAG_START_PX) return;
           drag.dragging = true;
-          drag.origin = drag.el.getBoundingClientRect();
           drag.el.setAttribute('data-dragging', 'true');
           core.select(null);
           core.latest.current.trace?.('drag', drag.id);
         }
         ev.preventDefault();
-        setTransform(drag.el, drag.dx, drag.dy);
+        setTransform(drag.el, drag.baseX + drag.dx, drag.baseY + drag.dy);
         markOver(drag, snapTargetFor(drag));
       };
       const onUp = (ev: PointerEvent) => {
@@ -210,8 +230,10 @@ export function useDragToTarget<I extends string, T extends string>(
         startY: e.clientY,
         dx: 0,
         dy: 0,
+        baseX,
+        baseY,
         dragging: false,
-        origin: null,
+        origin,
         over: null,
         cleanup: () => {
           window.removeEventListener('pointermove', onMove);

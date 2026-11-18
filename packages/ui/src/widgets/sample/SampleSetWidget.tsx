@@ -1,5 +1,5 @@
 import type { WidgetAction } from '@number-island/shared';
-import { type CSSProperties, useCallback, useMemo, useRef, useState } from 'react';
+import { type CSSProperties, useCallback, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useInteractionTrace } from '../../interaction/trace';
 import { useDragToTarget } from '../../interaction/useDragToTarget';
 import {
@@ -36,10 +36,6 @@ type TargetId = 'basket';
 const SAMPLE_OPS = ['drag', 'remove', 'count-aloud'] as const;
 const PEBBLE_TONES = ['sea', 'sun', 'coral', 'leaf'] as const;
 const FLY_MS = 480;
-
-/** Resolves after the next paint, when React has committed pending updates. */
-const nextFrame = () =>
-  new Promise<void>((resolve) => requestAnimationFrame(() => setTimeout(resolve, 0)));
 
 interface Flight {
   id: PebbleId;
@@ -142,6 +138,19 @@ export function SampleSetWidget({
   const [demoBusy, setDemoBusy] = useState(false);
   const basketRef = useRef<HTMLDivElement | null>(null);
   const rootRef = useRef<HTMLDivElement | null>(null);
+
+  // Resolves pending afterCommit() promises once React has committed the next render.
+  const commitWaiters = useRef<(() => void)[]>([]);
+  useLayoutEffect(() => {
+    const waiters = commitWaiters.current;
+    if (waiters.length === 0) return;
+    commitWaiters.current = [];
+    for (const resolve of waiters) resolve();
+  });
+  const afterCommit = () =>
+    new Promise<void>((resolve) => {
+      commitWaiters.current.push(resolve);
+    });
   const inBasketRef = useRef(inBasket);
   inBasketRef.current = inBasket;
 
@@ -231,18 +240,22 @@ export function SampleSetWidget({
           for (let i = 0; i < countFromAction(action); i++) {
             const last = inBasketRef.current.at(-1);
             if (!last) break;
-            // Its slot in the basket → its place back in the pile, measured after it re-renders
-            // there (hidden under the flying copy).
-            // One batched update (the flying copy covers the slot, and the pile copy renders
-            // hidden), then measure after it commits. No flushSync: play may be called from a
-            // React effect, where flushSync can't flush.
-            const from = rect(`.ni-sample__in[data-pebble="${last}"]`);
+            // Its slot in the basket → its place back in the pile. One batched update (the flying
+            // copy covers the slot; the pile copy renders hidden beneath it), then measure the
+            // pile copy once React has committed. No flushSync: play may run inside a React
+            // effect. With reduced motion it is an instant state change (03 §6.3).
+            const from = reduced ? null : rect(`.ni-sample__in[data-pebble="${last}"]`);
             inBasketRef.current = inBasketRef.current.slice(0, -1);
+            if (!from) {
+              setInBasket(inBasketRef.current);
+              continue;
+            }
+            const committed = afterCommit();
             setInBasket(inBasketRef.current);
-            if (!reduced && from) setFlight({ id: last, from, to: from, moving: false });
-            await nextFrame();
+            setFlight({ id: last, from, to: from, moving: false });
+            await committed;
             const to = rect(`.ni-sample__pile [data-pebble="${last}"]`);
-            if (!reduced && from && to) await flyBetween(last, from, to);
+            if (to) await flyBetween(last, from, to);
             else setFlight(null);
           }
         } else if (action.op === 'count-aloud') {

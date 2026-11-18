@@ -185,6 +185,16 @@ export const DemoReducedMotion: Story = {
     await reducedController.play({ op: 'drag', args: { count: 3 } });
     await expect(pebblesIn(canvasElement)).toBe(3);
     await expect(performance.now() - started).toBeLessThan(400);
+    // Remove is instant too, and doesn't depend on animation frames (suspended in hidden tabs).
+    const raf = window.requestAnimationFrame;
+    window.requestAnimationFrame = () => 0;
+    try {
+      await reducedController.play({ op: 'remove', args: { count: 2 } });
+    } finally {
+      window.requestAnimationFrame = raf;
+    }
+    await waitFor(() => expect(pebblesIn(canvasElement)).toBe(1));
+    await expect(canvasElement.querySelector('.ni-sample__flight')).toBeNull();
   },
 };
 
@@ -286,7 +296,16 @@ export const DemoFromEffect: Story = {
     await canvas.findByRole('group', { name: 'Pebble pile' });
     await waitFor(() => expect(pebblesIn(canvasElement)).toBe(2));
     await userEvent.click(canvas.getByRole('button', { name: 'Next' }));
-    await waitFor(() => expect(canvasElement.querySelector('.ni-sample__flight')).not.toBeNull());
+    const flight = await waitFor(() => {
+      const el = canvasElement.querySelector<HTMLElement>('.ni-sample__flight');
+      expect(el).not.toBeNull();
+      return el as HTMLElement;
+    });
+    // It starts on the basket slot and travels left to the pile (not stuck where it started).
+    const startLeft = Number.parseFloat(flight.style.left);
+    const basketLeft = basketPad(canvasElement).getBoundingClientRect().left;
+    await expect(startLeft).toBeGreaterThan(basketLeft);
+    await waitFor(() => expect(Number.parseFloat(flight.style.left)).toBeLessThan(basketLeft));
     await waitFor(() => expect(canvasElement.querySelector('.ni-sample__flight')).toBeNull());
     await expect(pebblesIn(canvasElement)).toBe(1);
   },

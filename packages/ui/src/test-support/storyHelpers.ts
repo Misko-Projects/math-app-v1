@@ -59,6 +59,16 @@ function describe(el: Element) {
   return el.getAttribute('aria-label') ?? el.textContent?.trim() ?? el.tagName;
 }
 
+/** Waits until an element's transitions and finite animations have finished. */
+export async function waitForSettled(el: Element) {
+  await Promise.all(
+    el
+      .getAnimations()
+      .filter((a) => a.effect?.getComputedTiming().iterations !== Number.POSITIVE_INFINITY)
+      .map((a) => a.finished.catch(() => undefined)),
+  );
+}
+
 export function center(el: Element) {
   const r = el.getBoundingClientRect();
   return { x: r.left + r.width / 2, y: r.top + r.height / 2 };
@@ -109,6 +119,8 @@ export async function pointerDrag(
   to: { x: number; y: number },
   pointerType: 'mouse' | 'touch' | 'pen' = 'mouse',
   steps = 8,
+  /** Pause between pressing and moving (a slow frame on a busy device). */
+  pauseAfterDownMs = 0,
 ) {
   const from = center(el);
   const pointerId = pointerType === 'mouse' ? 1 : ++pointerSeq;
@@ -128,6 +140,7 @@ export async function pointerDrag(
     pressure: buttons ? 0.5 : 0,
   });
   el.dispatchEvent(new PointerEvent('pointerdown', init(from.x, from.y, 1)));
+  if (pauseAfterDownMs > 0) await new Promise((r) => setTimeout(r, pauseAfterDownMs));
   for (let i = 1; i <= steps; i++) {
     const x = from.x + ((to.x - from.x) * i) / steps;
     const y = from.y + ((to.y - from.y) * i) / steps;

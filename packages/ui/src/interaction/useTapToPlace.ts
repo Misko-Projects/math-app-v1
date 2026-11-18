@@ -222,7 +222,15 @@ export function usePlacementCore<I extends string, T extends string>(
     removeKeyListeners.current = remove;
   }, []);
   // Don't leave window listeners behind when the widget unmounts mid-press.
-  useEffect(() => () => removeKeyListeners.current?.(), []);
+  // Also reset the flag: React can hide and later restore a subtree (Activity) with hook state
+  // intact, and with the listeners gone nothing else would clear it.
+  useEffect(
+    () => () => {
+      removeKeyListeners.current?.();
+      keyActivated.current = false;
+    },
+    [],
+  );
 
   const stableRef = useCallback(
     <K extends string>(kind: 'i' | 't', map: Map<K, HTMLElement | SVGElement>, id: K) => {

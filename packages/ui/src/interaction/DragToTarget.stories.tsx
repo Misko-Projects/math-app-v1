@@ -9,6 +9,7 @@ import {
   expectTargetSize,
   pointerDrag,
   touchDragAndHold,
+  waitForSettled,
 } from '../test-support/storyHelpers';
 import { useInteractionTrace } from './trace';
 import { useDragToTarget } from './useDragToTarget';
@@ -267,9 +268,23 @@ export const SnapRadius: Story = {
     // 70 px left of the basket edge: outside the 48 px radius.
     await pointerDrag(shell(canvasElement, 's1'), { x: basket.left - 70, y }, 'mouse');
     await expect(args.onMiss).toHaveBeenCalledTimes(1);
-    await waitFor(() => expect(shell(canvasElement, 's1').style.transform).toBe(''));
+    await waitForSettled(shell(canvasElement, 's1'));
     // 36 px left of the edge: inside the radius, so it snaps.
     await pointerDrag(shell(canvasElement, 's1'), { x: basket.left - 36, y }, 'mouse');
+    await waitFor(() => expect(zoneOf(canvasElement, 's1')).toBe('basket'));
+  },
+};
+
+/** Picking a shell up again while it is still gliding home: it follows the finger and snaps. */
+export const DragDuringGlideHome: Story = {
+  play: async ({ canvasElement, args }) => {
+    const basket = pad(canvasElement, 'basket').getBoundingClientRect();
+    const y = basket.top + basket.height / 2;
+    await pointerDrag(shell(canvasElement, 's1'), { x: basket.left - 70, y }, 'mouse');
+    await expect(args.onMiss).toHaveBeenCalledTimes(1);
+    await new Promise((r) => setTimeout(r, 40)); // the 320 ms glide is still running
+    // A slow frame between press and move: the item must stay under the finger meanwhile.
+    await pointerDrag(shell(canvasElement, 's1'), { x: basket.left - 36, y }, 'mouse', 8, 120);
     await waitFor(() => expect(zoneOf(canvasElement, 's1')).toBe('basket'));
   },
 };
