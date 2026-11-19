@@ -37,6 +37,8 @@ export function stoneMetrics(n: number) {
 const NEXT_RING = { dx: 10, dy: 9, pulse: 1.05 } as const;
 /** Counting ring radii beyond the stone, and the counted stone's lift. */
 const COUNT_RING = { dx: 9, dy: 8, lift: 5 } as const;
+/** How far the counted stone is lifted above its place (design units). */
+export const COUNTED_LIFT = COUNT_RING.lift;
 /** Ten-flag pole height above the stone's top. */
 const FLAG_POLE = 14;
 /** The counting sparkle's centre, relative to the stone's left edge and top. */

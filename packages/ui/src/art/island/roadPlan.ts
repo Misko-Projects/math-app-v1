@@ -6,7 +6,13 @@ import {
   type StonePlacement,
   smoothPathPoints,
 } from './geometry';
-import { type RoadStoneState, STONE_NUMERAL, type StoneExtent, stoneExtent } from './RoadStone';
+import {
+  COUNTED_LIFT,
+  type RoadStoneState,
+  STONE_NUMERAL,
+  type StoneExtent,
+  stoneExtent,
+} from './RoadStone';
 
 /**
  * Road stones' scale on the island map (fraction of design size). It is one scale for every
@@ -174,9 +180,12 @@ export interface RoadPlan {
 
 export interface RoadPlanInput {
   road: IslandDef['road'];
+  /** The number on the last stone laid (`road.extended` `to`): not a count of stones. */
   roadLength: number;
   counting?: number | null;
+  /** Show the next stone: the first road stone past `roadLength` (110 after 100 on a tens road). */
   showNext?: boolean;
+  /** How many road stones after the next one to show as planned. */
   plannedAhead?: number;
   onLand?: (s: StonePlacement) => boolean;
   /** Land plot keys (`x,y`). Unused by the plan itself; kept so callers can pass one input. */
@@ -336,18 +345,18 @@ export function planRoad({
     const p = shape.pos.get(s.n) ?? s;
     return { ...s, x: p.x, y: p.y };
   });
-  const lastShown = roadLength + (showNext ? 1 + plannedAhead : 0);
+  // The road's numbers need not be consecutive (it counts by tens past 100), so the next stone is
+  // the first one past the last laid, and the planned ones are the stones after it.
+  const ahead = placed.filter((s) => s.n > roadLength).sort((a, b) => a.n - b.n);
+  const nextN = showNext ? (ahead[0]?.n ?? null) : null;
+  const lastShown = showNext
+    ? (ahead[Math.min(plannedAhead, ahead.length - 1)]?.n ?? roadLength)
+    : roadLength;
   const shown = placed.filter((s) => s.n <= lastShown && (!onLand || onLand(s)));
   const laid = shown.filter((s) => s.n <= roadLength);
   const trail = (laid.length > 1 ? laid : shown).map((s) => ({ x: s.x, y: s.y }));
   const stateOf = (n: number): RoadStoneState =>
-    n === counting
-      ? 'counting'
-      : n <= roadLength
-        ? 'laid'
-        : n === roadLength + 1
-          ? 'next'
-          : 'planned';
+    n === counting ? 'counting' : n <= roadLength ? 'laid' : n === nextN ? 'next' : 'planned';
   const highlighted = (st: RoadStoneState) => st === 'next' || st === 'counting';
 
   const numbered: PlannedStone[] = [];
@@ -665,10 +674,15 @@ function* calloutsFor(
       if (!tried.has(`${c.x},${c.y}`)) yield c;
     }
   };
+  // The counted stone is lifted above its place: its stem ends at the lifted body's centre.
+  const lift = (bead.state === 'counting' ? COUNTED_LIFT : 0) * scale;
   for (const c of candidates()) {
     const box = scaled(c, e, scale);
-    const stem = postPoints(c.from, c.to);
-    const stemSpan = lineSpan(c.from, c.to);
+    // The stem runs under the stone to its centre, so it always meets the stone itself, never
+    // stopping short beside a ten's flag or a ring. The clearance check below is on this line.
+    const end = { x: c.x, y: c.y - lift };
+    const stem = postPoints(c.from, end);
+    const stemSpan = lineSpan(c.from, end);
     const clashes = (o: Obstacle) =>
       o.n !== bead.n &&
       (boxHits(o, box, o.disc ? 2 : STONE_CLEARANCE) || lineClashes(o, stem, stemSpan, width / 2));
@@ -771,8 +785,11 @@ function placeSign(
     // A signpost is best placed near its bead: past the nearest few hundred places, give up.
     if (++tried > SIGN_TRIES) break;
     const box = scaled(c, around, 1);
-    const post = postPoints(c.from, c.to);
-    const postSpan = lineSpan(c.from, c.to);
+    // The post runs under the plaque to its centre, so it always meets the plaque itself, never
+    // stopping short in the flag's clear space beside or above it. It is checked as drawn.
+    const end = { x: c.x, y: c.y };
+    const post = postPoints(c.from, end);
+    const postSpan = lineSpan(c.from, end);
     const clashes = (o: Obstacle) =>
       o.n !== bead.n && (boxHits(o, box, 2) || lineClashes(o, post, postSpan, pw / 2));
     const blocked =
@@ -795,10 +812,10 @@ function placeSign(
       anchor: { x: bead.x, y: bead.y },
       box,
       post: {
-        left: Math.min(c.from.x, c.to.x) - pw / 2,
-        right: Math.max(c.from.x, c.to.x) + pw / 2,
-        top: Math.min(c.from.y, c.to.y),
-        bottom: Math.max(c.from.y, c.to.y),
+        left: Math.min(c.from.x, end.x) - pw / 2,
+        right: Math.max(c.from.x, end.x) + pw / 2,
+        top: Math.min(c.from.y, end.y),
+        bottom: Math.max(c.from.y, end.y),
       },
       points: post,
       postWidth: pw,

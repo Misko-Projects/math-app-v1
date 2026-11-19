@@ -26,7 +26,13 @@ import {
 } from './island/geometry';
 import { CAMERA_MAX_Y, clampCamera, HORIZON_GAP } from './island/IslandScene';
 import { plotDetailItems } from './island/plotDetail';
-import { ROAD_STONE_SCALE, roadStoneBox, stoneExtent, stoneMetrics } from './island/RoadStone';
+import {
+  COUNTED_LIFT,
+  ROAD_STONE_SCALE,
+  roadStoneBox,
+  stoneExtent,
+  stoneMetrics,
+} from './island/RoadStone';
 import {
   beadExtent,
   boxesTouch,
@@ -111,8 +117,10 @@ describe('road plan: a linear board (05 §3)', () => {
       const p = pos.get(s.n);
       if (!p || Math.abs(p.x - s.x) > 1e-9 || Math.abs(p.y - s.y) > 1e-9) bad.push(`${s.n} moved`);
     }
-    // The next and counted stones are always full numbered stones, never beads.
-    for (const n of [roadLength + 1, counting]) {
+    // The next and counted stones are always full numbered stones, never beads. The next stone is
+    // the first road stone past the last laid (the road counts by tens past 100).
+    const nextN = shown.find((n) => n > roadLength) ?? null;
+    for (const n of [nextN, counting]) {
       if (n === null || !shown.includes(n)) continue;
       const stone = numbered.find((s) => s.n === n);
       if (!stone) bad.push(`${n} is not a numbered stone`);
@@ -121,6 +129,26 @@ describe('road plan: a linear board (05 §3)', () => {
       if (stone?.callout) {
         const sp = stone.callout.spot;
         if (!bead || bead.x !== sp.x || bead.y !== sp.y) bad.push(`${n}'s stem not from its pin`);
+      }
+    }
+    // Every stem ends on its stone's body, and every post on its plaque: never short of it
+    // beside a ten's flag (review s_9c678ec61690 #3).
+    for (const s of numbered) {
+      const end = s.callout?.points.at(-1);
+      if (!end) continue;
+      const m = stoneMetrics(s.n);
+      const lift = s.state === 'counting' ? COUNTED_LIFT * plan.scale : 0;
+      const rx = (m.w / 2) * plan.scale;
+      const ry = (m.h / 2) * plan.scale;
+      if (Math.abs(end.x - s.x) > rx + 1e-6 || Math.abs(end.y - (s.y - lift)) > ry + 1e-6) {
+        bad.push(`stem ${s.n} stops short of its stone`);
+      }
+    }
+    for (const s of signs) {
+      const end = s.points.at(-1);
+      if (!end) continue;
+      if (Math.abs(end.x - s.x) > s.w / 2 + 1e-6 || Math.abs(end.y - s.y) > s.h / 2 + 1e-6) {
+        bad.push(`post ${s.n} stops short of its plaque`);
       }
     }
     // Nothing touches.
@@ -504,6 +532,58 @@ describe('road plan: a linear board (05 §3)', () => {
       onLand: (s) => plotKey(s.plot) === '0,0',
     });
     expect(problems(plan, road, [1, 2, 3], 2, 2)).toEqual([]);
+  });
+
+  it('shows the next stone where the road counts by tens: 110 after 100 (review s_9c678ec61690 #1)', () => {
+    // As on the authored island: 1–100 ten to a plot, then 110–1000 counted by tens.
+    const road = [
+      ...Array.from({ length: 100 }, (_, i) => ({
+        n: i + 1,
+        plot: [Math.floor(i / 10), 3] as Plot,
+      })),
+      ...Array.from({ length: 20 }, (_, i) => ({
+        n: 110 + 10 * i,
+        plot: [10 + Math.floor(i / 10), 3] as Plot,
+      })),
+    ];
+    for (const [roadLength, next, planned] of [
+      [100, 110, 120],
+      [110, 120, 130],
+      [190, 200, 210],
+    ] as const) {
+      for (const counting of [null, roadLength]) {
+        const plan = planRoad({ road, roadLength, counting, plannedAhead: 1, onLand: () => true });
+        const where = `road ${roadLength}, counting ${counting}`;
+        const stone = plan.numbered.find((s) => s.n === next);
+        expect(stone?.state, where).toBe('next');
+        expect(plan.next, where).toEqual({ x: stone?.x, y: stone?.y });
+        const ahead = [...plan.numbered, ...plan.beads].find((s) => s.n === planned);
+        expect(ahead?.state, where).toBe('planned');
+        const shown = road.filter((s) => s.n <= planned).map((s) => s.n);
+        expect(problems(plan, road, shown, roadLength, counting), where).toEqual([]);
+      }
+    }
+    // The last stone laid: nothing is next.
+    const done = planRoad({ road, roadLength: 300, onLand: () => true });
+    expect(done.next).toBeNull();
+  });
+
+  it('joins a signpost to its plaque on every side, left and below too (review s_9c678ec61690 #3)', () => {
+    const road = [
+      ...Array.from({ length: 50 }, (_, i) => ({ n: i + 1, plot: [4, 3] as Plot })),
+      ...Array.from({ length: 50 }, (_, i) => ({ n: 51 + i, plot: [4, 4] as Plot })),
+    ];
+    const plan = planRoad({ road, roadLength: 11, showNext: false, onLand: () => true });
+    const sign = plan.signs.find((s) => s.n === 10) as RoadSign;
+    expect(sign).toBeDefined();
+    // Its neighbours block the way up and down, so it stands to the left of its bead.
+    expect(sign.x + sign.w / 2).toBeLessThan(sign.anchor.x);
+    // The post ends inside the plaque, not 15 units out in the flag's clear space beside it.
+    const end = sign.points.at(-1) as { x: number; y: number };
+    expect(end.x).toBeLessThan(sign.x + sign.w / 2);
+    expect(Math.abs(end.y - sign.y)).toBeLessThan(sign.h / 2);
+    const shown = road.filter((s) => s.n <= 11).map((s) => s.n);
+    expect(problems(plan, road, shown, 11, null)).toEqual([]);
   });
 
   it('keeps detail off the trail as drawn, along its curves at turns', () => {
