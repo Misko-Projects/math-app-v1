@@ -17,11 +17,18 @@ const KEYWORD = new Set([
   'compare/smaller-more',
 ]);
 
+/** A story whose words compare, or point to the other operation: the rule is about these only. */
+export function keywordStory(item: GeneratedItem): boolean {
+  if (typeof item.params.situation !== 'string') return false;
+  const s = story(item.params);
+  return KEYWORD.has(s.situation) || s.inconsistent;
+}
+
 /** The correct answer and the added one, or null when the rule does not apply. */
 export function keywordAnswer(item: GeneratedItem): { v: number; r: number } | null {
-  if (typeof item.params.situation !== 'string') return null;
+  if (!keywordStory(item)) return null;
   const s = story(item.params);
-  if (!(KEYWORD.has(s.situation) || s.inconsistent) || s.op !== '-') return null;
+  if (s.op !== '-') return null;
   const asked = askedNumbers(item);
   if (asked?.length !== 1 || asked[0] !== s.result) return null;
   const r = s.a + s.b;
@@ -31,6 +38,8 @@ export function keywordAnswer(item: GeneratedItem): { v: number; r: number } | n
 export const keywordMoreMeansAdd: MisconceptionRule = {
   id: 'keywordMoreMeansAdd',
   kind: 'answer',
+  // Other stories (a start unknown, put together) never say a comparing word (V25 skips them).
+  applies: keywordStory,
   predict(item): ResponseValue | null {
     const w = keywordAnswer(item);
     return w ? responseWith(item, [w.r]) : null;

@@ -132,9 +132,9 @@ tp.ADD.11.t1.prompt:
 tp.ADD.11.t3.prompt:
   text: "Look at the parts and the whole. What number goes in the box?"
 tp.ADD.12.t2.prompt:
-  text: "The picture shows a story. What number goes in the box?"
+  text: "{who|name} finds {a} more {item|noun:a} and now has {b}. How many were there at the start?"
 tp.ADD.12.t3.prompt:
-  text: "Look at the number line. What number goes in the box?"
+  text: "{who|name} has {a} {item|noun:a}, {b} more than the {other|noun:many}. How many {other|noun:many} does {who|name} have?"
 tp.ADD.13.t1.prompt:
   text: "Put in {b} and {c}, making a ten first. How many in all?"
 tp.ADD.13.t2.prompt:
@@ -174,11 +174,11 @@ ls.ADD.10.w1.s2:
   text: "This side has {c}. It is up, so it has less."
   voice: pip
 ls.ADD.10.w1.s3:
-  text: "Put in {n} more. Now it balances!"
+  text: "Count on from {c} to {m}. How many more does it need?"
   voice: pip
 ls.ADD.10.w1.s4:
-  text: "{a} + {b} = {c} + {n}. Both sides are the same!"
-  say: "{a} plus {b} is the same as {c} plus {n}. Both sides are the same!"
+  text: "{n} more makes it level. {a} + {b} = {c} + {n}!"
+  say: "{n} more makes it level. {a} plus {b} is the same as {c} plus {n}!"
   voice: pip
   style: excited
 ls.ADD.10.outro:

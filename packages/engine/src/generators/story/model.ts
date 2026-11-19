@@ -54,6 +54,7 @@ export interface Story {
   situation: StorySituation;
   family: StoryFamily;
   a: number;
+  /** The second number told (0 for put-together/both, which tells only the whole). */
   b: number;
   c: number;
   op: '+' | '-';
@@ -68,7 +69,9 @@ const num = (v: unknown): number => (typeof v === 'number' ? v : 0);
 export function story(p: ParamValues): Story {
   const situation = asSituation(p.situation);
   const a = num(p.a);
-  const b = num(p.b);
+  // put-together/both tells only the whole: b is not part of the story, so it is 0 here and no
+  // picture, line or feature can depend on it.
+  const b = situation === 'put-together/both' ? 0 : num(p.b);
   const c = situation === 'add-to/result' || situation === 'put-together/total' ? num(p.c) : 0;
   const solve = (): { op: '+' | '-'; result: number } => {
     switch (situation) {

@@ -86,7 +86,7 @@ export function applicableMisconceptions(
     if (!spec.appliesTo.generators.includes(generator)) continue;
     if (!spec.skills.includes(item.skillId)) continue;
     const rule = RULES[spec.detect.rule];
-    if (rule) out.push({ spec, rule });
+    if (rule && (!rule.applies || rule.applies(item))) out.push({ spec, rule });
   }
   return out.sort((x, y) =>
     x.spec.priority !== y.spec.priority

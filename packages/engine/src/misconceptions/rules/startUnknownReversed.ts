@@ -43,6 +43,8 @@ export function reversedStart(item: GeneratedItem): { v: number; r: number } | n
 export const startUnknownReversed: MisconceptionRule = {
   id: 'startUnknownReversed',
   kind: 'answer',
+  // Only start-unknown items (V25 skips the others of the same skills and generators).
+  applies: (item) => shownPair(item) !== null,
   predict(item): ResponseValue | null {
     const w = reversedStart(item);
     return w ? responseWith(item, [w.r]) : null;

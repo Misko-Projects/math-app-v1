@@ -85,8 +85,6 @@ p.geo.fill-outline:
 # K01 equality (equality.eq) and story problems (story.addsub).
 p.eq.box:
   text: "What number goes in the box?"
-p.eq.pick:
-  text: "Which number goes in the box?"
 p.story.listen:
   text: "Listen to the story."
 # Story lines (story.addsub `lines`, 03 §4.6): {who} is the resident the TaskRunner names, {item}
@@ -325,8 +323,6 @@ h.pv.bundle-is-ten:
   text: "Each bundle is ten sticks. Count by tens first."
 h.compare.same-tens:
   text: "When the tens are the same, look at the ones."
-h.compare.symbol-open:
-  text: "The open side goes by the greater number."
 h.mda.tens-with-tens:
   text: "Put tens with the tens."
 h.mda.ones-with-ones:
@@ -657,10 +653,16 @@ h.add3.two-then-one:
   text: "Add two of the numbers. Then add the last one."
 h.bar.find-missing:
   text: "Find the box. Is it a part, is it the whole?"
+h.bond.join-parts:
+  text: "Put both parts together. That makes the whole."
 h.numberline.from-mark:
   text: "Start at a number on the line. Then count the jumps."
-h.cmp.greater-first:
-  text: "Find the greater number first."
+# CMP.08 symbol picks can show the same number twice (7 _ 7), so their hints cover =.
+h.cmp.same-or-greater:
+  text: "Are the two numbers the same? Is one greater?"
+h.cmp.mark-fits:
+  text: "Same numbers get =. For < and >, the open side is next to the greater number."
+  say: "Same numbers get equals. For less than and greater than, the open side is next to the greater number."
 h.balance.add-one:
   text: "Add one at a time. Watch the balance."
 h.cmp.open-side:
@@ -671,6 +673,8 @@ h.story.act-out:
   text: "Show the story with counters."
 h.story.which-part:
   text: "Do you know the whole? Do you know the parts?"
+h.story.who-has-more:
+  text: "Who has more? Who has fewer?"
 h.story.check:
   text: "Say the story again with your answer. Does it fit?"
 h.story.plus-or-take:
