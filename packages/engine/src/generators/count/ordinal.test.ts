@@ -133,6 +133,22 @@ describe('count.ordinal numeral-pick', () => {
   });
 });
 
+describe('count.ordinal number-pad (CNT.15 constructed answer)', () => {
+  it.each<[ParamValues, number[]]>([
+    [{ k: 4, n: 7, from: 'left' }, [3, 1, 3]],
+    [{ k: 2, n: 6, from: 'right' }, [4, 1, 1]],
+  ])('%o: the marked line and a typed place number', (params, groups) => {
+    const item = expectSound(tpl('number-pad'), params);
+    if (item.widget.format !== 'number-pad') throw new Error('expected number-pad');
+    expect(item.widget.stimulus).toMatchObject({ kind: 'objects', set: { groups } });
+    expect(item.answer).toEqual({ kind: 'number', value: params.k });
+    // Typing the place counted from the other end is wrong.
+    const other = Number(params.n) - Number(params.k) + 1;
+    if (other !== params.k)
+      expect(checkResponse(item, { kind: 'number', value: other }).correct).toBe(false);
+  });
+});
+
 describe('count.ordinal features and validity', () => {
   it.each<[string, ItemFormat, ParamValues, Record<string, number>]>([
     [
@@ -174,9 +190,9 @@ describe('count.ordinal features and validity', () => {
     expect(() => generateItemFromParams(tpl('tap-count'), params)).toThrow(GenerationError);
   });
 
-  it('declares its narration and both formats', () => {
+  it('declares its narration and its three formats', () => {
     const g = registry.get('count.ordinal');
-    expect(g?.formats).toEqual(['tap-count', 'numeral-pick']);
+    expect(g?.formats).toEqual(['tap-count', 'numeral-pick', 'number-pad']);
     expect(g?.narration).toEqual([
       'gen.count.ordinal.start-left',
       'gen.count.ordinal.start-right',

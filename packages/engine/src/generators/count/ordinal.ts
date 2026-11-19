@@ -5,6 +5,8 @@
 //   `obj-<i>` (0-based reading order), so k from the right is index n − k.
 // - numeral-pick: one object in the line looks different (its own colour group); the options are
 //   position words (`ord.<k>` clips) and the child picks its place. Option ids are `opt-<k>`.
+// - number-pad: the same marked line; the child types the place as a number (3 for third). This is
+//   CNT.15's constructed-answer format (04 §7b: only constructed answers are evidence).
 
 import type { LessonStep, ObjectSet, ResponseValue } from '@number-island/shared';
 import { boundNarration } from '../../content/binding';
@@ -63,7 +65,7 @@ const say = (
 
 export const countOrdinal: GeneratorDef = {
   id: 'count.ordinal',
-  formats: ['tap-count', 'numeral-pick'],
+  formats: ['tap-count', 'numeral-pick', 'number-pad'],
   params: {
     k: { type: 'int', default: { kind: 'int', min: 1, max: 10 }, doc: 'the position, 1 to 10' },
     from: {
@@ -162,6 +164,22 @@ export const countOrdinal: GeneratorDef = {
         };
         break;
       }
+      case 'number-pad': {
+        const marked: ObjectSet = { ...set, groups: [index, 1, n - index - 1] };
+        p = {
+          params,
+          vars,
+          math,
+          widget: {
+            format: 'number-pad',
+            stimulus: { kind: 'objects', set: marked },
+            blanks: [{ id: 'n', maxDigits: 2 }],
+            unit: null,
+          },
+          answer: { kind: 'number', value: k },
+        };
+        break;
+      }
       default:
         throw new Error(`count.ordinal cannot build ${t.format}`);
     }
@@ -186,6 +204,11 @@ export const countOrdinal: GeneratorDef = {
         return [
           say(start, { k }),
           say('gen.count.ordinal.this-one', { k }, { op: 'tap', args: { id: numberOptionId(k) } }),
+        ];
+      case 'number-pad':
+        return [
+          say(start, { k }),
+          say('gen.count.ordinal.this-one', { k }, { op: 'type', args: { blank: 'n', value: k } }),
         ];
       default:
         return [];

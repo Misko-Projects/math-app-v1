@@ -493,6 +493,22 @@ templates:
     difficulty: { base: 0.0 }
     narration: { prompt: tp.CNT.15.t3.prompt, hints: [h.ordinal.first-end, h.ordinal.say-places] }
 
+  # Constructed answer (04 §7b: only constructed answers are evidence, and t1–t3 all answer with a
+  # choice): the same marked line, and the child types the place as a number (3 for third).
+  - id: CNT.15.t4
+    skillId: CNT.15
+    format: number-pad
+    tier: pictorial
+    representation: objects
+    generator: count.ordinal
+    params:
+      k: { int: [1, 10] }
+      n: { int: [5, 10] }
+      from: { choice: [left, right], weights: [3, 1] }
+    constraints: ["k <= n"]
+    difficulty: { base: 0.0 }
+    narration: { prompt: tp.CNT.15.t4.prompt, hints: [h.ordinal.first-end, h.ordinal.say-places] }
+
   # ---------- CNT.16 count backward within 120 ----------
   - id: CNT.16.t1
     skillId: CNT.16

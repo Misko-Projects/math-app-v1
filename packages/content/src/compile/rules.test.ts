@@ -1349,7 +1349,7 @@ describe('V24 and contentVersion (03 §9.1)', () => {
       // CMP (K01) added 9 skills, 31 templates and MC.perceptual-size; CPS and SUB.04/SUB.07 (K01)
       // added 7 skills and 27 templates.
       skills: 57,
-      templates: 187,
+      templates: 188,
       misconceptions: 9,
       narrationKeys: Object.keys(r.content?.narration ?? {}).length,
     });
