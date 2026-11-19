@@ -315,6 +315,16 @@
   line-height: 1;
 }
 
+/* Drop targets (the outline board, the scene): their rings lie inside, in every state (the kit
+   ring fades out over a transition), so they never reach the tray or Check. */
+.ni-scomp .ni-scomp__pad.ni-drop-target {
+  outline-offset: -8px;
+}
+.ni-scomp .ni-scomp__pad.ni-drop-target[data-over="true"] {
+  transform: none;
+  box-shadow: inset 0 0 0 12px rgb(42 157 143 / 0.18);
+}
+
 /* ---------- the demo invite: one ring, inside the invited control ---------- */
 /* The kit ring (5 px at a 14 px offset, pulsing) would reach the next tile, the turn button or the
    area's edge in these tight layouts; here it lies inside the control's own box and holds still

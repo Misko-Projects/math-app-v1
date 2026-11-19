@@ -37,6 +37,43 @@ export function outlineBox(el: Element): Rect {
   };
 }
 
+const frame = () => new Promise<void>((r) => requestAnimationFrame(() => r()));
+
+/**
+ * Waits for the settled layout before measuring: fonts loaded, every finite animation and CSS
+ * transition in the document finished (an outline colour fading, a card gliding), then two quiet
+ * frames with no element resizing (ResizeObserver-driven layouts such as useAvailableSize).
+ */
+export async function settledLayout() {
+  await document.fonts.ready;
+  for (let round = 0; round < 5; round += 1) {
+    const running = document
+      .getAnimations()
+      .filter(
+        (a) =>
+          a.playState === 'running' &&
+          a.effect?.getComputedTiming().iterations !== Number.POSITIVE_INFINITY,
+      );
+    if (running.length === 0) break;
+    await Promise.all(running.map((a) => a.finished.catch(() => undefined)));
+  }
+  // Quiet: the widgets' layout is the same two frames apart (sizes measured by ResizeObserver
+  // feed back into layouts, so wait until a round of them changes nothing).
+  const snapshot = () =>
+    [...document.querySelectorAll('.ni-widget, .ni-widget *')]
+      .map((el) => {
+        const r = el.getBoundingClientRect();
+        return `${Math.round(r.left)},${Math.round(r.top)},${Math.round(r.width)},${Math.round(r.height)}`;
+      })
+      .join(';');
+  for (let round = 0; round < 10; round += 1) {
+    const before = snapshot();
+    await frame();
+    await frame();
+    if (snapshot() === before) break;
+  }
+}
+
 /**
  * The outermost box an element visibly paints: its border box, a visible outline, and any
  * outward (non-inset) box-shadow ring with its spread and blur. Gaps are measured from this.
@@ -78,6 +115,7 @@ export async function expectControls(
   ageMode: AgeMode,
   groups: Record<string, readonly Element[]>,
 ): Promise<string> {
+  await settledLayout();
   const min = MIN_TARGET_PX[ageMode];
   const all = Object.entries(groups).flatMap(([name, els]) => els.map((el) => ({ name, el })));
   const parts: string[] = [];
@@ -175,6 +213,38 @@ export async function expectNumeralInk(root: Element, selector: string, min = 32
     await expect(ink, `"${el.textContent}" digit ink height`).toBeGreaterThanOrEqual(min - 0.5);
   }
   return least;
+}
+
+/**
+ * Pip's whole hand (its box, and where its tap bob takes it: 6 px left, 8 px down) touches no
+ * control but the invited one: every element of `others` (neighbouring controls, frames that are
+ * not the invited control's own container) is clear of it. Returns the smallest clearance (px).
+ */
+export async function expectHandTouchesOnlyInvited(
+  root: Element,
+  others: readonly Element[],
+): Promise<number> {
+  const hand = root.querySelector('.ni-hand') as HTMLElement | null;
+  await expect(hand, 'the hand is shown').not.toBeNull();
+  const loops = (hand as HTMLElement).getAnimations({ subtree: true });
+  for (const a of loops) {
+    a.pause();
+    a.currentTime = 0;
+  }
+  try {
+    const h = (hand as HTMLElement).getBoundingClientRect();
+    const box = { left: h.left - 6, top: h.top, right: h.right, bottom: h.bottom + 8 };
+    let least = Number.POSITIVE_INFINITY;
+    for (const o of others) {
+      const g = boxGap(box, visibleBox(o));
+      least = Math.min(least, g);
+      await expect(g, `hand clear of ${o.className || o.tagName}`).toBeGreaterThanOrEqual(0);
+    }
+    console.info(`[hand] clearance to the nearest other control: ${Math.round(least)} px`);
+    return least;
+  } finally {
+    for (const a of loops) a.play();
+  }
 }
 
 /**

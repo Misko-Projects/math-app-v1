@@ -194,6 +194,11 @@
    its own frame, so the visible frame is the outermost line and the 16 to 20 px gaps to the
    keypad, the piles and undo stay clear (evidence review: the focus ring ended 6 px from the
    keys). No lift either: it would push the frame into the gap. */
+/* In EVERY state, not only while armed: the kit's drop-target ring fades its colour out over a
+   transition, and an offset that snapped back outside while it faded showed a ring 8 px out
+   for that moment (a flaky 8 px gap under load). */
+.ni-mlen .ni-mlen__pad,
+.ni-mlen .ni-mlen__pad.ni-drop-target,
 .ni-mlen .ni-mlen__pad:focus-visible,
 .ni-mlen .ni-mlen__pad.ni-drop-target[data-armed="true"],
 .ni-mlen .ni-mlen__pad.ni-drop-target[data-over="true"] {
