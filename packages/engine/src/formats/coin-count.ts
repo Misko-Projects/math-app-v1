@@ -36,8 +36,11 @@ export const BILL_VALUES: readonly number[] = [1, 2, 5, 10, 20];
  * beside the number pad at the smallest landscape area, and a bill takes three coin slots.
  */
 export const MAX_COUNT_SLOTS = 12;
-/** Room in each of two purses side by side (`compareWith`). */
-export const MAX_COMPARE_SLOTS = 9;
+/**
+ * Room in each of two purses side by side (`compareWith`): two rows of coins (or two bills) a
+ * purse, with the choices under them, fit the smallest landscape area.
+ */
+export const MAX_COMPARE_SLOTS = 6;
 export const BILL_SLOTS = 3;
 
 /** The coin slots a purse takes. */

@@ -1,6 +1,7 @@
 import type { WidgetConfig } from '@number-island/shared';
 import type { Meta, StoryObj } from '@storybook/react-vite';
 import { expect, fn, userEvent, waitFor, within } from 'storybook/test';
+import { expectControls, expectOneInvite } from '../../test-support/controlChecks';
 import {
   center,
   clearSpies,
@@ -481,5 +482,77 @@ export const DemoInvite: Story = {
       root.querySelector('.ni-money__top.ni-invite') as HTMLElement,
       root,
     );
+    await expectOneInvite(root);
+  },
+};
+
+/**
+ * Evidence audit (06 §4): in K every control is at least 80 px both ways and 12 px from every
+ * other control.
+ */
+export const SizesK: Story = {
+  globals: { ageMode: 'k' },
+  play: async ({ canvasElement }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    await expectControls(root, 'k');
+  },
+};
+
+/** Evidence audit: in G1+ every control is at least 64 px both ways and 12 px apart. */
+export const SizesG1: Story = {
+  play: async ({ canvasElement }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    await expectControls(root, 'g1-up');
+  },
+};
+
+/** A purse of 12 pieces with two bills, every one moved to the tray (12 pieces in 5 piles). */
+const stressPurse: ConfigFor<'coin-pay'> = {
+  format: 'coin-pay',
+  target: 297,
+  purse: { dollar: 2, quarter: 3, dime: 3, nickel: 2, penny: 2 },
+  requireFewest: false,
+  mode: 'pay',
+  showRunningTotal: true,
+};
+const STRESS = [
+  'dollar',
+  'dollar',
+  'quarter',
+  'quarter',
+  'quarter',
+  'dime',
+  'dime',
+  'dime',
+  'nickel',
+  'nickel',
+  'penny',
+  'penny',
+];
+
+/** Stress, tablet: the 12-piece purse emptied into the tray; nothing clips or scrolls. */
+export const StressTablet: Story = {
+  args: { config: stressPurse },
+  render: inArea('tablet'),
+  play: async ({ canvasElement }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    await expectFitsArea(canvasElement, root);
+    for (const k of STRESS) await tapPlace(root, k);
+    await expect(drawnCents(root)).toBe(317);
+    await expectTotalTrue(root);
+    await expectFitsArea(canvasElement, root);
+    await expectControls(root, 'g1-up');
+  },
+};
+
+/** Stress, smallest landscape area: the same 12 pieces in the tray. */
+export const StressLandscapeMin: Story = {
+  args: { config: stressPurse },
+  render: inArea('landscapeMin'),
+  play: async ({ canvasElement }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    for (const k of STRESS) await tapPlace(root, k);
+    await expectTotalTrue(root);
+    await expectFitsArea(canvasElement, root);
   },
 };

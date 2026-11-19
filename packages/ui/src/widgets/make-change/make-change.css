@@ -25,6 +25,9 @@
   display: inline-flex;
   border-radius: var(--radius-pill);
 }
+.ni-mchange__check.ni-invite {
+  outline-offset: 4px;
+}
 
 /* The count-up line: ink axis and stops, coral hops (with the coin on each hop), money numerals. */
 .ni-mchange__line {

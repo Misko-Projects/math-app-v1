@@ -116,7 +116,7 @@ export function ClockFace({
     fives && fives.to > fives.from
       ? Array.from({ length: Math.floor(fives.to / 5) - Math.floor(fives.from / 5) }, (_, k) => {
           const minute = (Math.floor(fives.from / 5) + k + 1) * 5;
-          return { minute, ...polarPoint(CLOCK.tickOuter + 1, minute * 6) };
+          return { minute, ...polarPoint(CLOCK.tickOuter + 4.5, minute * 6) };
         })
       : [];
   const sweep =
@@ -184,7 +184,7 @@ export function ClockFace({
           key={c.minute}
           cx={c.x}
           cy={c.y}
-          r={5}
+          r={3.4}
           className="ni-clock__five"
           data-minute={c.minute}
         />
@@ -239,7 +239,10 @@ export function ClockView({
   label?: string;
   maxHeight?: number;
 }) {
-  const size = Math.max(200, Math.min(300, maxHeight - 16));
+  // Never under 280 px: the numbers stay ≥ 32 px (23 face units at 280 px is 32.2 px).
+  const size = numerals
+    ? Math.max(280, Math.min(300, maxHeight - 16))
+    : Math.max(200, Math.min(300, maxHeight - 16));
   return (
     <div className="ni-clockview" {...pictureProps(label)}>
       <ClockFace t={faceTime(h, m)} numerals={numerals} size={size} />

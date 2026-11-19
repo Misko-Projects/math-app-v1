@@ -20,14 +20,15 @@
 .ni-money {
   display: flex;
   flex-direction: column;
-  gap: 14px;
+  /* Wide enough that an invite ring (3 + 5 px) on the tray stays 12 px clear of the purse. */
+  gap: 20px;
   min-width: 0;
   max-width: 100%;
 }
 .ni-money__row {
   display: flex;
   align-items: center;
-  gap: 16px 20px;
+  gap: 16px 24px;
   min-width: 0;
 }
 .ni-money__zone {
@@ -64,7 +65,8 @@
   display: flex;
   flex-wrap: wrap;
   align-items: flex-end;
-  gap: var(--target-gap) 20px;
+  /* 20 px both ways: an invite ring (3 + 5 px) stays 12 px clear of the next piece. */
+  gap: 20px;
   min-width: 0;
   /* The pad behind takes taps between the pieces. */
   pointer-events: none;
@@ -100,8 +102,9 @@
   border: 3px dashed var(--color-pebble-deep);
   border-radius: 50%;
 }
+/* Invite rings hug their piece or pad (3 px out), clear of the neighbours 20 px away. */
 .ni-money .ni-invite {
-  outline-offset: 6px;
+  outline-offset: 3px;
 }
 
 /* A tag beside the purse or tray: a label and an amount (≥ 32 px numerals). */

@@ -9,7 +9,6 @@ import type { ResponseValue, WidgetAction } from '@number-island/shared';
 import { type CSSProperties, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useInteractionTrace } from '../../interaction/trace';
 import { useNarrationText, useReducedMotion, useUiPreferences } from '../../preferences/UiProvider';
-import { CheckIcon } from '../../primitives/icons';
 import { useWidgetDemo } from '../demo';
 import {
   BillArt,
@@ -319,11 +318,13 @@ export function CoinCountWidget({
     invitedTarget === null ? '' : `${invitedTarget.sel}:${invitedTarget.id}`,
   );
 
+  // One coin scale for the whole item: both purses of a comparison draw a quarter the same size.
+  const slotsOf = (src: { coins: readonly unknown[]; bills: readonly unknown[] } | undefined) =>
+    (src?.coins.length ?? 0) + 3 * (src?.bills.length ?? 0);
+  const quarterPx = quarterFor(Math.max(slotsOf(config), slotsOf(config.compareWith)), compare);
+
   const purse = (side: Side) => {
     const pieces = shown[side];
-    const src = side === 'right' ? config.compareWith : config;
-    const slots = (src?.coins.length ?? 0) + 3 * (src?.bills.length ?? 0);
-    const quarterPx = quarterFor(slots, compare);
     const billH = 74;
     const label = t('ui.widget.picture');
     return (
@@ -331,6 +332,8 @@ export function CoinCountWidget({
         className={['ni-ccount__purse', invitedBoard ? 'ni-invite' : ''].filter(Boolean).join(' ')}
         data-side={side}
         data-sorted={sorted ? 'true' : undefined}
+        data-running={running && running.side === side ? 'true' : undefined}
+        data-quarter={quarterPx}
         aria-label={label}
         style={{ '--ni-coin-q': `${quarterPx}px` } as CSSProperties}
       >
@@ -367,11 +370,6 @@ export function CoinCountWidget({
                 ) : (
                   <CoinArt kind={p.coin} quarterPx={quarterPx} />
                 )}
-                {marked.has(p.id) ? (
-                  <span className="ni-ccount__tick" aria-hidden="true">
-                    <CheckIcon tone="light" />
-                  </span>
-                ) : null}
               </button>
             </span>
           );

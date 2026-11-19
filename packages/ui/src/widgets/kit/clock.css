@@ -18,7 +18,7 @@
 .ni-clock__five {
   fill: var(--color-sun-deep);
   stroke: var(--color-ink);
-  stroke-width: 1.5;
+  stroke-width: 1;
 }
 .ni-clockview {
   display: flex;

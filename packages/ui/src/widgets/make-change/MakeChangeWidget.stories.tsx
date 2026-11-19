@@ -1,6 +1,7 @@
 import type { WidgetConfig } from '@number-island/shared';
 import type { Meta, StoryObj } from '@storybook/react-vite';
 import { expect, fn, userEvent, waitFor, within } from 'storybook/test';
+import { expectControls, expectOneInvite } from '../../test-support/controlChecks';
 import {
   center,
   clearSpies,
@@ -311,5 +312,61 @@ export const DemoInvite: Story = {
       root.querySelector('.ni-money__top.ni-invite') as HTMLElement,
       root,
     );
+    await expectOneInvite(root);
+  },
+};
+
+/**
+ * Evidence audit (06 §4): in K every control is at least 80 px both ways and 12 px from every
+ * other control.
+ */
+export const SizesK: Story = {
+  globals: { ageMode: 'k' },
+  play: async ({ canvasElement }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    await expectControls(root, 'k');
+  },
+};
+
+/** Evidence audit: in G1+ every control is at least 64 px both ways and 12 px apart. */
+export const SizesG1: Story = {
+  play: async ({ canvasElement }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    await expectControls(root, 'g1-up');
+  },
+};
+
+/** 65¢ of change in 18 coins: ten pennies, five nickels and three dimes. */
+const STRESS = [
+  ...Array.from({ length: 10 }, () => 'penny'),
+  ...Array.from({ length: 5 }, () => 'nickel'),
+  'dime',
+  'dime',
+  'dime',
+];
+const stressChange: ConfigFor<'make-change'> = { ...change65, price: 35 };
+
+/** Stress, tablet: 18 coins of change, every hop on the line; nothing clips or scrolls. */
+export const StressTablet: Story = {
+  args: { config: stressChange },
+  render: inArea('tablet'),
+  play: async ({ canvasElement }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    for (const k of STRESS) await tapPlace(root, k);
+    await expectLineTrue(root, 35);
+    await expectFitsArea(canvasElement, root);
+    await expectControls(root, 'g1-up');
+  },
+};
+
+/** Stress, smallest landscape area: the same 18 coins. */
+export const StressLandscapeMin: Story = {
+  args: { config: stressChange },
+  render: inArea('landscapeMin'),
+  play: async ({ canvasElement }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    for (const k of STRESS) await tapPlace(root, k);
+    await expectLineTrue(root, 35);
+    await expectFitsArea(canvasElement, root);
   },
 };

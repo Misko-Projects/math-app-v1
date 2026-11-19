@@ -2,6 +2,7 @@ import type { WidgetConfig } from '@number-island/shared';
 import type { Meta, StoryObj } from '@storybook/react-vite';
 import { expect, fn, userEvent, waitFor, within } from 'storybook/test';
 import { expectHandsLeaveNumerals, expectNumeralsSolid } from '../../test-support/clockChecks';
+import { expectControls, expectOneInvite } from '../../test-support/controlChecks';
 import {
   clearSpies,
   expectTargetGaps,
@@ -333,5 +334,36 @@ export const DemoInvite: Story = {
     const hand = root.querySelector('.ni-invite-hand') as HTMLElement;
     await expect(hand).toBeVisible();
     await expectPointerOn(hand, root.querySelector('.ni-padbox.ni-invite') as HTMLElement, root);
+    await expectOneInvite(root);
+  },
+};
+
+/**
+ * Evidence audit (06 §4): in K every control is at least 80 px both ways and 12 px from every
+ * other control.
+ */
+export const SizesK: Story = {
+  globals: { ageMode: 'k' },
+  play: async ({ canvasElement }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    await expectControls(root, 'k');
+  },
+};
+
+/** Evidence audit: in G1+ every control is at least 64 px both ways and 12 px apart. */
+export const SizesG1: Story = {
+  play: async ({ canvasElement }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    await expectControls(root, 'g1-up');
+  },
+};
+
+/** Evidence audit: the hour pick in K, every choice and check at least 80 px and 12 px apart. */
+export const PickSizesK: Story = {
+  globals: { ageMode: 'k' },
+  args: { config: hourPick },
+  play: async ({ canvasElement }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    await expectControls(root, 'k');
   },
 };

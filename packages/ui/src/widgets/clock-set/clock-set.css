@@ -48,7 +48,13 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 4px;
+  /* The caption sits above its clock, 12 px clear. */
+  gap: 12px;
+}
+/* The time to make (sunny frame) and the hands' own time (sand frame) look different, not only by
+   their captions. */
+.ni-cset__card[data-card="target"] .ni-digital {
+  background: var(--color-sunshine);
 }
 .ni-cset__cardlabel {
   color: var(--color-ink);
@@ -60,7 +66,8 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: calc(var(--target-gap) + 6px);
+  /* 24 px: an invite ring (4 + 5 px) on one button stays 12 px clear of the next. */
+  gap: 24px;
 }
 .ni-cset__btnwrap {
   position: relative;
@@ -87,6 +94,10 @@
   touch-action: manipulation;
   user-select: none;
   -webkit-tap-highlight-color: transparent;
+}
+.ni-cset__handbtn.ni-invite {
+  outline-offset: 4px;
+  border-radius: var(--radius-pebble);
 }
 .ni-cset__handbtn:focus-visible {
   outline: 4px solid var(--color-sea-deep);

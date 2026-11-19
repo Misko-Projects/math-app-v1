@@ -20,7 +20,7 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 20px;
+  gap: 24px;
 }
 .ni-cread__boxes {
   display: flex;
@@ -31,7 +31,8 @@
   display: grid;
   grid-template-columns: repeat(var(--cols, 2), max-content);
   justify-content: center;
-  gap: calc(var(--target-gap) + 6px) calc(var(--target-gap) * 2);
+  /* 24 px both ways: an invite ring (5 + 5 px) stays 12 px clear of the next card. */
+  gap: 24px;
   margin: 0;
   padding: 0;
   border: 0;

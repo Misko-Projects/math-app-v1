@@ -15,12 +15,15 @@
 .ni-cpay__aside {
   display: flex;
   align-items: center;
-  gap: 16px;
+  gap: 24px;
   flex: none;
 }
 .ni-cpay__check {
   display: inline-flex;
   border-radius: var(--radius-pill);
+}
+.ni-cpay__check.ni-invite {
+  outline-offset: 4px;
 }
 
 /* new-way: the ways already found, as small rows of coins (biggest first). */

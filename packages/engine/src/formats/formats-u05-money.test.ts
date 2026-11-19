@@ -507,7 +507,7 @@ describe('coin-count', () => {
     expect(
       issuePaths(coinCount, {
         ...countCompare,
-        compareWith: { coins: Array.from({ length: 10 }, () => 'dime'), bills: [] },
+        compareWith: { coins: Array.from({ length: 7 }, () => 'dime'), bills: [] },
       }),
     ).toContain('compareWith.coins');
     expect(

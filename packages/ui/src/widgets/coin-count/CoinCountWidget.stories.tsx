@@ -1,6 +1,7 @@
 import type { WidgetConfig } from '@number-island/shared';
 import type { Meta, StoryObj } from '@storybook/react-vite';
 import { expect, fn, userEvent, waitFor, within } from 'storybook/test';
+import { expectControls, expectOneInvite } from '../../test-support/controlChecks';
 import {
   clearSpies,
   expectTargetGaps,
@@ -62,7 +63,7 @@ const full: ConfigFor<'coin-count'> = {
   answerUnit: 'dollars-cents',
 };
 
-/** Twelve coins (the most a purse holds), 99¢. */
+/** Twelve coins (the most a purse holds), $1.10. */
 const twelve: ConfigFor<'coin-count'> = {
   format: 'coin-count',
   coins: [
@@ -466,5 +467,92 @@ export const DemoInvite: Story = {
       root.querySelector('.ni-ccount__piece.ni-invite') as HTMLElement,
       root,
     );
+    await expectOneInvite(root);
+  },
+};
+
+/**
+ * Evidence audit (06 §4): in K every control is at least 80 px both ways and 12 px from every
+ * other control.
+ */
+export const SizesK: Story = {
+  globals: { ageMode: 'k' },
+  play: async ({ canvasElement }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    await expectControls(root, 'k');
+  },
+};
+
+/** Evidence audit: in G1+ every control is at least 64 px both ways and 12 px apart. */
+export const SizesG1: Story = {
+  play: async ({ canvasElement }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    await expectControls(root, 'g1-up');
+  },
+};
+
+/** The fullest comparison (6 coin slots a purse): six coins against two bills. */
+const compareMax: ConfigFor<'coin-count'> = {
+  format: 'coin-count',
+  coins: ['quarter', 'quarter', 'dime', 'nickel', 'penny', 'penny'],
+  bills: [],
+  arrangement: 'sorted',
+  answerUnit: 'cents',
+  compareWith: { coins: [], bills: [1, 1] },
+};
+
+/** Both purses draw coins at ONE scale (a quarter the same size on either side). */
+async function expectOneScale(root: HTMLElement) {
+  const scales = new Set(
+    [...root.querySelectorAll<HTMLElement>('.ni-ccount__purse')].map((p) => p.dataset.quarter),
+  );
+  await expect(scales.size).toBe(1);
+}
+
+/** Stress, tablet: the fullest comparison; nothing clips or scrolls. */
+export const CompareMaxTablet: Story = {
+  args: { config: compareMax },
+  render: inArea('tablet'),
+  play: async ({ canvasElement }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    await expectOneScale(root);
+    await expectFitsArea(canvasElement, root);
+    await expectControls(root, 'g1-up');
+  },
+};
+
+/** Stress, smallest landscape area: the fullest comparison. */
+export const CompareMaxLandscapeMin: Story = {
+  args: { config: compareMax },
+  render: inArea('landscapeMin'),
+  play: async ({ canvasElement }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    await expectOneScale(root);
+    await expectFitsArea(canvasElement, root);
+  },
+};
+
+const runningController: WidgetDemo = createDemoController({ strict: true });
+
+/**
+ * Stress, smallest landscape area: twelve coins counted up to the last one; the running total sits
+ * in the purse's top band, over no coin, and nothing scrolls.
+ */
+export const RunningLandscapeMin: Story = {
+  args: { config: twelve, disabled: true, demo: runningController },
+  render: inArea('landscapeMin'),
+  play: async ({ canvasElement }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    await runningController.play({ op: 'count-up', args: { index: 11 } });
+    const tag = root.querySelector('.ni-ccount__running') as HTMLElement;
+    await expect(Number(tag.dataset.cents)).toBe(110);
+    const t = tag.getBoundingClientRect();
+    for (const p of pieces(root)) {
+      const r = p.getBoundingClientRect();
+      const apart =
+        t.right <= r.left || r.right <= t.left || t.bottom <= r.top || r.bottom <= t.top;
+      await expect(apart, `running total clear of ${p.dataset.id}`).toBe(true);
+    }
+    await expectFitsArea(canvasElement, root);
   },
 };

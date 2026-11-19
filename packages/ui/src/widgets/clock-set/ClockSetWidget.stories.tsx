@@ -2,6 +2,7 @@ import type { WidgetConfig } from '@number-island/shared';
 import type { Meta, StoryObj } from '@storybook/react-vite';
 import { expect, fn, userEvent, waitFor, within } from 'storybook/test';
 import { expectNumeralsSolid } from '../../test-support/clockChecks';
+import { expectControls, expectOneInvite } from '../../test-support/controlChecks';
 import {
   clearSpies,
   expectTargetGaps,
@@ -382,5 +383,28 @@ export const DemoInvite: Story = {
       root.querySelector('.ni-cset__handbtn.ni-invite') as HTMLElement,
       root,
     );
+    await expectOneInvite(root);
+  },
+};
+
+/**
+ * Evidence audit (06 §4): in K every control is at least 80 px both ways and 12 px from every
+ * other control.
+ */
+export const SizesK: Story = {
+  globals: { ageMode: 'k' },
+  args: { config: matchDigital },
+  play: async ({ canvasElement }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    await expectControls(root, 'k');
+  },
+};
+
+/** Evidence audit: in G1+ every control is at least 64 px both ways and 12 px apart. */
+export const SizesG1: Story = {
+  args: { config: matchDigital },
+  play: async ({ canvasElement }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    await expectControls(root, 'g1-up');
   },
 };
