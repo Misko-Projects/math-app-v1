@@ -286,16 +286,12 @@ describe('planSession properties (fixture graph)', () => {
           expect(r.vars.count).toBe(items.length);
           expect(r.vars.who).toBe(r.residentId);
         }
-        // (h) an item warmup on a ready skill with a lesson is only ever that skill's test-out
-        // item 1 (the learner offers the test-out), and then every request starts with that
-        // skill's draw: the test-out continues whichever request the child picks.
+        // (h) an item warmup is never the first attempt on a ready skill with a lesson: it would
+        // start or cancel that skill's test-out before the child picks a request.
         if (plan.warmup.mode === 'item') {
           const ws = plan.warmup.skillId;
           const ready = model.status(input.state, ws, input.now) === 'ready';
-          if (ready && graph.skills[ws]?.lesson.mode !== 'none') {
-            expect(model.inTestOut(input.state, ws)).toBe(true);
-            for (const r of plan.requests) expect(r.tasks[0]?.skillId).toBe(ws);
-          }
+          expect(ready && graph.skills[ws]?.lesson.mode !== 'none').toBe(false);
         }
         // (g) no empty request while the input has something to plan.
         expect(emptyRequests(input, plan)).toEqual([]);
