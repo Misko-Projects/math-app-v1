@@ -249,7 +249,7 @@ export const NumberLineHiddenTerm: Story = {
   },
 };
 
-function TrayTwenty() {
+function TrayTwenty({ highlighted = null }: { highlighted?: number | null }) {
   const [picked, setPicked] = useState<number | null>(null);
   return (
     <div data-testid="box" style={{ width: 680, padding: '0 48px', boxSizing: 'border-box' }}>
@@ -257,9 +257,20 @@ function TrayTwenty() {
         values={Array.from({ length: 21 }, (_, i) => i)}
         selected={picked}
         onPick={setPicked}
+        highlighted={highlighted}
       />
     </div>
   );
+}
+
+/** Card counts per laid-out row, top to bottom (by untransformed offsetTop). */
+function trayRows(tray: HTMLElement): number[] {
+  const rows = new Map<number, number>();
+  for (const c of within(tray).getAllByRole('button')) {
+    const top = c.offsetTop; // layout position: a pulsing card is scaled, not moved
+    rows.set(top, (rows.get(top) ?? 0) + 1);
+  }
+  return [...rows.values()];
 }
 
 /**
@@ -273,14 +284,7 @@ export const TrayTwentyK: Story = {
   render: () => <TrayTwenty />,
   play: async ({ canvasElement }) => {
     const tray = within(canvasElement).getByRole('group', { name: 'Numbers' });
-    const rowsOf = () => {
-      const rows = new Map<number, number>();
-      for (const c of within(tray).getAllByRole('button')) {
-        const top = Math.round(c.getBoundingClientRect().top);
-        rows.set(top, (rows.get(top) ?? 0) + 1);
-      }
-      return [...rows.values()];
-    };
+    const rowsOf = () => trayRows(tray);
     const expectInsideTray = async () => {
       const t = tray.getBoundingClientRect();
       for (const c of within(tray).getAllByRole('button')) {
@@ -304,6 +308,39 @@ export const TrayTwentyK: Story = {
     await expect(five).toHaveAttribute('aria-pressed', 'false');
     await userEvent.keyboard('{Enter}');
     await waitFor(() => expect(five).toHaveAttribute('aria-pressed', 'true'));
+  },
+};
+
+/**
+ * The same tray with a demo invite on 0. Its pulse scales the card (up to 1.05×) without changing
+ * its layout width, so a resize at the pulse's peak must still plan rows from the 100 px layout
+ * width: at 656 px (560 px of content) five cards fit, giving 5 + 4 + 4 + 4 + 4.
+ */
+export const TrayTwentyInviteK: Story = {
+  globals: { ageMode: 'k' },
+  render: () => <TrayTwenty highlighted={0} />,
+  play: async ({ canvasElement }) => {
+    const tray = within(canvasElement).getByRole('group', { name: 'Numbers' });
+    await waitFor(() => expect(trayRows(tray)).toEqual([5, 4, 4, 4, 4]));
+    const zero = within(tray).getByRole('button', { name: '0' });
+    // Hold the pulse at its 50% keyframe (scale 1.05).
+    const pulses = zero.getAnimations();
+    await expect(pulses.length).toBeGreaterThan(0);
+    for (const a of pulses) {
+      const duration = Number(a.effect?.getComputedTiming().duration) || 0;
+      a.pause();
+      a.currentTime = duration / 2;
+    }
+    await waitFor(() =>
+      expect(zero.getBoundingClientRect().width).toBeGreaterThan(zero.offsetWidth * 1.04),
+    );
+    (canvasElement.querySelector('[data-testid="box"]') as HTMLElement).style.width = '656px';
+    // Let the resize observer run and React re-render, then check the rows it planned (a
+    // transformed measurement would have planned 4 a row: 4 + 4 + 4 + 3 + 3 + 3).
+    await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+    await new Promise((r) => setTimeout(r, 100));
+    await expect(trayRows(tray)).toEqual([5, 4, 4, 4, 4]);
+    await expect(tray.getBoundingClientRect().width).toBeCloseTo(560, 1);
   },
 };
 

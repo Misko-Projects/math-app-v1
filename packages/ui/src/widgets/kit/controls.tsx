@@ -116,7 +116,6 @@ export interface NumeralTrayProps {
   speak?: boolean;
 }
 
-/** A row of numeral cards (0–10, 0–20, or pick options). Tapping speaks the number. */
 /**
  * Row sizes for n cards in `rows` rows, as even as possible (the first rows take the extra):
  * 21 in 4 rows → [6, 5, 5, 5], 11 in 2 → [6, 5].
@@ -128,6 +127,24 @@ export function balancedRows(n: number, rows: number): number[] {
   return Array.from({ length: n === 0 ? 0 : r }, (_, i) => base + (i < extra ? 1 : 0));
 }
 
+/**
+ * An element's layout widths from its computed style: fractional, and before any transform
+ * (unlike clientWidth/offsetWidth, which round, and getBoundingClientRect, which is transformed).
+ */
+export function layoutBox(style: CSSStyleDeclaration): { content: number; border: number } {
+  const px = (v: string) => Number.parseFloat(v) || 0;
+  const width = px(style.width);
+  const edges =
+    px(style.paddingLeft) +
+    px(style.paddingRight) +
+    px(style.borderLeftWidth) +
+    px(style.borderRightWidth);
+  return style.boxSizing === 'border-box'
+    ? { content: width - edges, border: width }
+    : { content: width, border: width + edges };
+}
+
+/** A row of numeral cards (0–10, 0–20, or pick options). Tapping speaks the number. */
 export function NumeralTray({
   values,
   selected,
@@ -156,18 +173,19 @@ export function NumeralTray({
     if (!el || typeof ResizeObserver === 'undefined') return;
     const measure = () => {
       const card = el.querySelector<HTMLElement>('.ni-pick');
+      if (!card) return;
       const style = getComputedStyle(el);
-      // Fractional widths (getBoundingClientRect), as flex wrapping itself uses: clientWidth and
-      // offsetWidth round, and a rounded-up width would plan one card too many per row.
-      const avail =
-        el.getBoundingClientRect().width -
-        (Number.parseFloat(style.paddingLeft) || 0) -
-        (Number.parseFloat(style.paddingRight) || 0) -
-        (Number.parseFloat(style.borderLeftWidth) || 0) -
-        (Number.parseFloat(style.borderRightWidth) || 0);
-      if (!card || avail <= 0) return;
+      // The same geometry flex wraps with: fractional layout widths from the computed style
+      // (clientWidth/offsetWidth round, so a rounded-up width plans one card too many a row) and
+      // untransformed (getBoundingClientRect includes the demo pulse's scale, which flex ignores).
+      const avail = layoutBox(style).content;
+      if (avail <= 0) return;
       const gap = Number.parseFloat(style.columnGap) || 12;
-      const cardWidth = card.getBoundingClientRect().width;
+      const cardStyle = getComputedStyle(card);
+      const cardWidth =
+        layoutBox(cardStyle).border +
+        (Number.parseFloat(cardStyle.marginLeft) || 0) +
+        (Number.parseFloat(cardStyle.marginRight) || 0);
       const perRow = Math.max(1, Math.floor((avail + gap + 1e-6) / (cardWidth + gap)));
       setRowCount(Math.ceil(values.length / perRow));
     };

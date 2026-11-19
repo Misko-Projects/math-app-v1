@@ -1,6 +1,6 @@
 import type { ObjectSet } from '@number-island/shared';
 import { describe, expect, it } from 'vitest';
-import { applyPadKey, balancedRows, createSubmitGuard, padValue } from './controls';
+import { applyPadKey, balancedRows, createSubmitGuard, layoutBox, padValue } from './controls';
 import { dicePattern, dotsLayout, groupIndexes, objectSetLayout } from './layout';
 import { stepsBetween } from './NumberLineView';
 
@@ -331,5 +331,34 @@ describe('review regressions (PR #63 round 2)', () => {
       1,
     );
     expect(l.frames).toHaveLength(3);
+  });
+});
+
+describe('layoutBox (round 11: tray capacity from layout, not transformed, widths)', () => {
+  const style = (s: Partial<Record<string, string>>) =>
+    ({
+      width: '0px',
+      paddingLeft: '0px',
+      paddingRight: '0px',
+      borderLeftWidth: '0px',
+      borderRightWidth: '0px',
+      boxSizing: 'content-box',
+      ...s,
+    }) as unknown as CSSStyleDeclaration;
+  it('keeps fractional widths and handles both box sizings', () => {
+    expect(
+      layoutBox(
+        style({
+          width: '643.75px',
+          paddingLeft: '48px',
+          paddingRight: '48px',
+          boxSizing: 'border-box',
+        }),
+      ),
+    ).toEqual({ content: 547.75, border: 643.75 });
+    expect(
+      layoutBox(style({ width: '547.75px', paddingLeft: '8px', borderRightWidth: '2px' })),
+    ).toEqual({ content: 547.75, border: 557.75 });
+    expect(layoutBox(style({ width: 'auto' }))).toEqual({ content: 0, border: 0 });
   });
 });
