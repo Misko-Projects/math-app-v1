@@ -1,8 +1,36 @@
-# K01 (#11): ALG.05 from 03 §3.18, the equality foundation ADD.10 builds on. The pattern rows
-# ALG.01 and ALG.04 (K) land in a later K01 PR, ALG.02 with them, and ALG.03, ALG.06–10 are
-# grade 2–3 (K02); graph.yaml plans ALG.01–04 so the ids may stay unauthored.
+# ALG: Patterns, equality and early algebra, the K–1 rows of 03 §3.18 (K01, #11): the patterns
+# ALG.01, ALG.02 and ALG.04, and ALG.05, the equality foundation ADD.10 builds on. ALG.03 and
+# ALG.06–10 are grade 2–3 (K02, graph.yaml plannedIds). ALG.01 and ALG.04 carry no standards tag
+# (03 §2.5).
 strand: ALG
 skills:
+  - id: ALG.01
+    name: "Repeating patterns (AB, ABB, ABC): copy and extend"
+    kind: concept
+    grade: K
+    standards: { ccss: [] }
+    prerequisites: []
+    gateway: false
+    representations: [objects, shapes]
+
+  - id: ALG.02
+    name: "Growing number patterns (+1, +2, +10): find the rule"
+    kind: concept
+    grade: 1
+    standards: { ccss: [], supports: [1.OA.C.5] }
+    prerequisites: [ALG.01, CNT.10]
+    gateway: false
+    representations: [hundred-chart, number-line, symbols]
+
+  - id: ALG.04
+    name: Find the part that repeats (the core)
+    kind: concept
+    grade: K
+    standards: { ccss: [] }
+    prerequisites: [ALG.01]
+    gateway: false
+    representations: [objects, shapes]
+
   - id: ALG.05
     name: Balanced means the same amount on both sides
     kind: concept

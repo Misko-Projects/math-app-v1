@@ -377,8 +377,8 @@ describe('matches: choice, placement, state', () => {
   });
 
   it('a state answer whose checker is not registered never matches', () => {
-    const a: AnswerSpec = { kind: 'state', checker: 'clock.time', target: { h: 3, m: 0 } };
-    expect(matches(a, { kind: 'state', value: { h: 3, m: 0 } })).toBe(false);
+    const a: AnswerSpec = { kind: 'state', checker: 'coins.total', target: { total: 25 } };
+    expect(matches(a, { kind: 'state', value: { total: 25 } })).toBe(false);
   });
 });
 

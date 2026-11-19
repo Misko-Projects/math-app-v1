@@ -1,0 +1,223 @@
+# K01 (#11): the grade-1 FRA rows on frac.partition, frac.compare and div.share (03 §5.6).
+# Pictures carry no fraction numerals: grade 1 names halves and fourths in words only (1.G.A.3).
+strand: FRA
+templates:
+  # ---------- FRA.01: halves and fourths ----------
+  - id: FRA.01.t1
+    skillId: FRA.01
+    format: fraction-cut
+    tier: concrete
+    representation: fraction-shape
+    generator: frac.partition
+    params:
+      mode: cut
+      shape: { choice: [circle, rect, square] }
+      den: { choice: [2, 4] }
+      num: 1
+    difficulty: { base: -0.3 }
+    expectedLatencyMs: 15000
+    narration:
+      prompt: tp.FRA.01.t1.prompt
+      hints: [h.frac.same-size, h.frac.cut-middle, h.frac.fill-one]
+
+  - id: FRA.01.t2
+    skillId: FRA.01
+    format: fraction-cut
+    tier: concrete
+    representation: fraction-strip
+    generator: frac.partition
+    params:
+      mode: cut
+      shape: bar
+      den: { choice: [2, 4], weights: [3, 2] }
+      num: 1
+    difficulty: { base: 0.0 }
+    expectedLatencyMs: 15000
+    narration:
+      prompt: tp.FRA.01.t2.prompt
+      hints: [h.frac.same-size, h.frac.cut-middle, h.frac.fill-one]
+
+  # Halves, fourths and a whole cut into parts that are not the same size; each picture is the
+  # answer of some item (03 §5.5 fraction-pick, engine README).
+  - id: FRA.01.t3
+    skillId: FRA.01
+    format: fraction-pick
+    tier: pictorial
+    representation: words
+    generator: frac.partition
+    params:
+      mode: pick
+      shape: { choice: [circle, rect] }
+      den: { choice: [2, 4] }
+      ask: { choice: [name, unequal], weights: [2, 1] }
+    difficulty: { base: -0.4 }
+    narration:
+      prompt: tp.FRA.01.t3.prompt
+      hints: [h.frac.look-each, h.frac.same-size]
+
+  - id: FRA.01.t4
+    skillId: FRA.01
+    format: fraction-line
+    tier: pictorial
+    representation: fraction-strip
+    generator: frac.partition
+    params:
+      mode: partition
+      shape: bar
+      den: { choice: [2, 4], weights: [3, 2] }
+      num: 0
+    difficulty: { base: 0.0 }
+    narration:
+      prompt: tp.FRA.01.t4.prompt
+      hints: [h.frac.mark-middle, h.frac.same-size]
+
+  # ---------- FRA.07: equal parts or not ----------
+  - id: FRA.07.t1
+    skillId: FRA.07
+    format: equal-share
+    tier: concrete
+    representation: objects
+    generator: div.share
+    params:
+      ask: fair-or-not
+      items: { int: [4, 12] }
+      recipients: { choice: [2, 3], weights: [2, 1] }
+      fair: { bool: 0.5 }
+      shift: { int: [1, 2] }
+    difficulty: { base: -0.05 }
+    narration:
+      prompt: tp.FRA.07.t1.prompt
+      hints: [h.share.look-each, h.share.same-for-all]
+
+  - id: FRA.07.t2
+    skillId: FRA.07
+    format: equal-share
+    tier: concrete
+    representation: objects
+    generator: div.share
+    params:
+      ask: fix
+      items: { int: [4, 12] }
+      recipients: 2
+      shift: { int: [1, 3] }
+    difficulty: { base: -0.25 }
+    expectedLatencyMs: 15000
+    narration:
+      prompt: tp.FRA.07.t2.prompt
+      hints: [h.share.move-one, h.share.same-for-all]
+
+  - id: FRA.07.t3
+    skillId: FRA.07
+    format: fraction-cut
+    tier: concrete
+    representation: fraction-shape
+    generator: frac.partition
+    params:
+      mode: cut
+      shape: { choice: [circle, rect, square] }
+      den: { choice: [2, 4] }
+      num: 0
+    difficulty: { base: -0.3 }
+    expectedLatencyMs: 15000
+    narration:
+      prompt: tp.FRA.07.t3.prompt
+      hints: [h.frac.same-size, h.frac.cut-middle]
+
+  - id: FRA.07.t4
+    skillId: FRA.07
+    format: fraction-pick
+    tier: pictorial
+    representation: fraction-shape
+    generator: frac.partition
+    params:
+      mode: fair-or-not
+      shape: { choice: [circle, rect] }
+      den: { int: [2, 4] }
+      num: 0
+      equalParts: { bool: 0.5 }
+    difficulty: { base: -0.35 }
+    narration:
+      prompt: tp.FRA.07.t4.prompt
+      hints: [h.frac.same-size, h.frac.look-parts]
+
+  - id: FRA.07.t5
+    skillId: FRA.07
+    format: number-pad
+    tier: pictorial
+    representation: objects
+    generator: div.share
+    params:
+      ask: moves
+      items: { int: [4, 12] }
+      recipients: 2
+      shift: { int: [1, 3] }
+    difficulty: { base: -0.45 }
+    narration:
+      prompt: tp.FRA.07.t5.prompt
+      hints: [h.share.move-one, h.share.same-for-all]
+
+  # ---------- FRA.08: more equal parts, smaller parts ----------
+  # The wholes are the same size, so one piece of each can be compared by looking.
+  - id: FRA.08.t1
+    skillId: FRA.08
+    format: compare
+    tier: concrete
+    representation: fraction-strip
+    generator: frac.compare
+    params:
+      shape: bar
+      den: { choice: [2, 3, 4, 6, 8] }
+      den2: { choice: [2, 3, 4, 6, 8] }
+    difficulty: { base: -0.9 }
+    narration:
+      prompt: tp.FRA.08.t1.prompt
+      hints: [h.frac.look-one-piece, h.frac.more-parts]
+
+  - id: FRA.08.t2
+    skillId: FRA.08
+    format: fraction-cut
+    tier: concrete
+    representation: fraction-shape
+    generator: frac.partition
+    params:
+      mode: cut
+      shape: { choice: [circle, rect] }
+      den: { choice: [3, 4, 6, 8] }
+      num: 0
+    difficulty: { base: -0.9 }
+    expectedLatencyMs: 15000
+    narration:
+      prompt: tp.FRA.08.t2.prompt
+      hints: [h.frac.same-size, h.frac.more-parts]
+
+  - id: FRA.08.t3
+    skillId: FRA.08
+    format: compare
+    tier: pictorial
+    representation: fraction-shape
+    generator: frac.compare
+    params:
+      shape: circle
+      den: { choice: [2, 3, 4, 6, 8] }
+      den2: { choice: [2, 3, 4, 6, 8] }
+    difficulty: { base: -0.9 }
+    narration:
+      prompt: tp.FRA.08.t3.prompt
+      hints: [h.frac.look-one-piece, h.frac.more-parts]
+
+  # Two or three strips, one piece of each filled; the closest pair sets the difficulty.
+  - id: FRA.08.t4
+    skillId: FRA.08
+    format: order
+    tier: pictorial
+    representation: fraction-strip
+    generator: frac.compare
+    params:
+      shape: bar
+      den: { choice: [2, 3, 4, 6, 8] }
+      den2: { choice: [2, 3, 4, 6, 8] }
+      den3: { choice: [0, 2, 3, 4, 6, 8] }
+    difficulty: { base: -2.0, features: { ratio: 1.6 } }
+    narration:
+      prompt: tp.FRA.08.t4.prompt
+      hints: [h.frac.more-parts, h.frac.order-biggest]

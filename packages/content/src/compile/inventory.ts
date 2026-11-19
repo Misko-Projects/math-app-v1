@@ -57,6 +57,20 @@ export const WORD_IDS = [
   'behind',
   'left-of',
   'right-of',
+  // K01: time of day, sorting and data words (TIM.08, DAT)
+  'morning',
+  'night',
+  'red',
+  'blue',
+  'yellow',
+  'big',
+  'small',
+  'most',
+  'fewest',
+  // K01: how a whole is cut (FRA.01)
+  'halves',
+  'fourths',
+  'unequal-parts',
 ] as const;
 
 export const TIME_IDS = [

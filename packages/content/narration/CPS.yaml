@@ -9,6 +9,8 @@ sk.CPS.04.intro:
   text: "A teen number is ten and some more ones."
 sk.CPS.05.intro:
   text: "We know the whole and one part. Let's find the missing part."
+sk.CPS.06.intro:
+  text: "Let's find every way to make a number."
 sk.CPS.07.intro:
   text: "Ten plus some ones makes a teen number."
 sk.CPS.08.intro:
@@ -31,6 +33,12 @@ tp.CPS.04.t4.prompt:
   text: "How many in all? Look for the full ten."
 tp.CPS.04.t5.prompt:
   text: "Ten and {o} more. What number is that?"
+tp.CPS.06.t1.prompt:
+  text: "Here are ways to make {whole}, but one way is missing. Find it!"
+tp.CPS.06.t2.prompt:
+  text: "Here are ways to make {whole}. Put them in order, fewest in the first group first."
+tp.CPS.06.t3.prompt:
+  text: "Find every way to make {whole}. Put a new way in each row."
 tp.CPS.05.t3.prompt:
   text: "{part} + ? = {whole}"
   say: "{part} and what number make {whole}?"

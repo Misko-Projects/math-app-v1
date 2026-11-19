@@ -1,0 +1,205 @@
+strand: TIM
+# K01 (#11): templates for the K–1 TIM rows on time.clock and time.sequence (03 §5.6). Clock-set
+# items start at 12:00 and the long hand snaps to five minutes, so a swapped setting can be made.
+templates:
+  # ---------- TIM.01: time to the hour ----------
+  - id: TIM.01.t1
+    skillId: TIM.01
+    format: clock-set
+    tier: concrete
+    representation: clock
+    generator: time.clock
+    params:
+      mode: set
+      h: { int: [1, 11] }
+      m: 0
+      prompt: spoken
+      showDigital: { bool: 0.5 }
+    difficulty: { base: -0.35 }
+    narration:
+      prompt: p.time.set
+      hints: [h.time.short-hand-set, h.time.oclock, h.time.turn-hands]
+
+  - id: TIM.01.t2
+    skillId: TIM.01
+    format: clock-set
+    tier: concrete
+    representation: digital-clock
+    generator: time.clock
+    params:
+      mode: set
+      h: { int: [1, 11] }
+      m: 0
+      prompt: digital
+      showDigital: { bool: 0.5 }
+    difficulty: { base: -0.35 }
+    narration:
+      prompt: p.time.match-digital
+      hints: [h.time.short-hand-set, h.time.oclock, h.time.turn-hands]
+
+  - id: TIM.01.t3
+    skillId: TIM.01
+    format: clock-read
+    tier: pictorial
+    representation: clock
+    generator: time.clock
+    params:
+      mode: read
+      h: { int: [1, 12] }
+      m: 0
+      numerals: { bool: 0.7 }
+    difficulty: { base: -0.1 }
+    narration:
+      prompt: p.time.read
+      hints: [h.time.short-hand, h.time.oclock]
+
+  # ---------- TIM.04: time to the half hour ----------
+  - id: TIM.04.t1
+    skillId: TIM.04
+    format: clock-set
+    tier: concrete
+    representation: clock
+    generator: time.clock
+    params:
+      mode: set
+      h: { int: [1, 12] }
+      m: { choice: [0, 30], weights: [1, 2] }
+      prompt: spoken
+      showDigital: { bool: 0.5 }
+    difficulty: { base: -0.8 }
+    narration:
+      prompt: p.time.set
+      hints: [h.time.short-hand-set, h.time.half-past, h.time.turn-hands]
+
+  - id: TIM.04.t2
+    skillId: TIM.04
+    format: clock-set
+    tier: concrete
+    representation: digital-clock
+    generator: time.clock
+    params:
+      mode: set
+      h: { int: [1, 12] }
+      m: { choice: [0, 30], weights: [1, 2] }
+      prompt: digital
+      showDigital: { bool: 0.5 }
+    difficulty: { base: -0.8 }
+    narration:
+      prompt: p.time.match-digital
+      hints: [h.time.short-hand-set, h.time.half-past, h.time.turn-hands]
+
+  - id: TIM.04.t3
+    skillId: TIM.04
+    format: clock-read
+    tier: pictorial
+    representation: clock
+    generator: time.clock
+    params:
+      mode: read
+      h: { int: [1, 12] }
+      m: { choice: [0, 30], weights: [1, 2] }
+      numerals: { bool: 0.5 }
+    difficulty: { base: -0.8 }
+    narration:
+      prompt: p.time.read
+      hints: [h.time.short-hand, h.time.half-past, h.time.between]
+
+  # ---------- TIM.08: daily events in order ----------
+  - id: TIM.08.t1
+    skillId: TIM.08
+    format: shape-sort
+    tier: concrete
+    representation: objects
+    generator: time.sequence
+    params:
+      events: { int: [4, 6] }
+    difficulty: { base: -0.2, features: { cards: 0.2 } }
+    narration:
+      prompt: tp.TIM.08.t1.prompt
+      hints: [h.time.morning-or-night]
+
+  - id: TIM.08.t2
+    skillId: TIM.08
+    format: order
+    tier: pictorial
+    representation: objects
+    generator: time.sequence
+    params:
+      events: 3
+      adjacent: { bool: 0.35 }
+    difficulty: { base: -0.1 }
+    narration:
+      prompt: tp.TIM.08.t2.prompt
+      hints: [h.time.day-first, h.time.day-next]
+
+  - id: TIM.08.t3
+    skillId: TIM.08
+    format: order
+    tier: pictorial
+    representation: timeline
+    generator: time.sequence
+    params:
+      events: 4
+      adjacent: { bool: 0.35 }
+      fixed: true
+    difficulty: { base: -0.15 }
+    narration:
+      prompt: tp.TIM.08.t3.prompt
+      hints: [h.time.day-strip, h.time.day-next]
+
+  # ---------- TIM.09: the hour hand between numbers ----------
+  - id: TIM.09.t1
+    skillId: TIM.09
+    format: clock-set
+    tier: concrete
+    representation: clock
+    generator: time.clock
+    params:
+      mode: set
+      h: { int: [1, 12] }
+      m: 30
+      prompt: spoken
+      showDigital: { bool: 0.5 }
+    difficulty: { base: -1.0 }
+    narration:
+      prompt: p.time.set
+      hints: [h.time.half-past, h.time.between-set, h.time.turn-hands]
+
+  - id: TIM.09.t2
+    skillId: TIM.09
+    format: clock-read
+    tier: pictorial
+    representation: clock
+    generator: time.clock
+    params:
+      mode: read
+      h: { int: [1, 12] }
+      m: 30
+      numerals: { bool: 0.7 }
+    difficulty: { base: -0.8 }
+    narration:
+      prompt: p.time.read
+      hints: [h.time.between, h.time.half-past]
+
+  # The hour only: the short hand is part way to the next number. A pick, so it is not evidence
+  # (04 §7a); the options are hours, with the next hour and the number the long hand points at.
+  - id: TIM.09.t3
+    skillId: TIM.09
+    format: clock-read
+    tier: pictorial
+    representation: clock
+    generator: time.clock
+    params:
+      mode: read
+      input: pick
+      ask: hour
+      h: { int: [1, 12] }
+      m: { choice: [10, 20, 30, 40, 50] }
+      numerals: { bool: 0.5 }
+    difficulty: { base: -0.2 }
+    narration:
+      prompt: tp.TIM.09.t3.prompt
+      hints: [h.time.between, h.time.just-after]
+    distractors:
+      - { rule: MC.hour-hand-next }
+      - { rule: MC.hour-minute-swap }

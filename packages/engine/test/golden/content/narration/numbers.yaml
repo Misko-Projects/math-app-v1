@@ -499,6 +499,32 @@ word.left-of:
   text: "to the left of"
 word.right-of:
   text: "to the right of"
+# time of day, sorting and data words (K01: TIM.08, DAT)
+word.morning:
+  text: "morning"
+word.night:
+  text: "night"
+word.red:
+  text: "red"
+word.blue:
+  text: "blue"
+word.yellow:
+  text: "yellow"
+word.big:
+  text: "big"
+word.small:
+  text: "small"
+word.most:
+  text: "most"
+word.fewest:
+  text: "fewest"
+# how a whole is cut (K01: FRA.01)
+word.halves:
+  text: "halves"
+word.fourths:
+  text: "fourths"
+word.unequal-parts:
+  text: "parts that are not the same size"
 
 # ---------- shape: every ShapeKind (one, many) ----------
 shape.circle.one:

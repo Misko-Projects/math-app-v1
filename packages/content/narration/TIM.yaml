@@ -1,0 +1,18 @@
+# TIM narration (03 §8): skill intros and template prompts owned by the strand.
+sk.TIM.01.intro:
+  text: "A clock has two hands. Let's tell the time!"
+sk.TIM.04.intro:
+  text: "Half past is half way round to the next hour."
+sk.TIM.08.intro:
+  text: "We do some things in the morning, and some at night."
+sk.TIM.09.intro:
+  text: "The short hand moves a little at a time to the next number."
+
+tp.TIM.08.t1.prompt:
+  text: "Sort them into morning and night."
+tp.TIM.08.t2.prompt:
+  text: "Put them in order. What do we do first?"
+tp.TIM.08.t3.prompt:
+  text: "One is in its place. Put each one in order."
+tp.TIM.09.t3.prompt:
+  text: "The short hand is between two numbers. What hour is it after?"

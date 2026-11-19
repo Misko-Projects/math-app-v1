@@ -1,0 +1,42 @@
+# DAT narration (03 §8): skill intros and template prompts owned by the strand.
+sk.DAT.01.intro:
+  text: "Things that are the same can go in one group."
+sk.DAT.02.intro:
+  text: "A graph shows how many of each kind there are."
+sk.DAT.09.intro:
+  text: "We can count with tally marks. Each mark is one."
+sk.DAT.10.intro:
+  text: "Let's count each group. Which group has the most?"
+
+tp.DAT.01.t1.prompt:
+  text: "Sort them. Put each one with the same kind."
+tp.DAT.01.t2.prompt:
+  text: "Sort the shapes. Put each one in its group."
+tp.DAT.01.t3.prompt:
+  text: "How many {kind|noun:many} can you find?"
+tp.DAT.02.t1.prompt:
+  text: "Look at the picture graph. How many {catA|noun:many} are there?"
+tp.DAT.02.t2.prompt:
+  text: "Look at the bar graph. How many more {catA|noun:many} than {catB|noun:many}?"
+tp.DAT.02.t3.prompt:
+  text: "Look at the bar graph. Which kind has the {ask|word}?"
+tp.DAT.02.t4.prompt:
+  text: "Which bar shows {ask|word}? They may be the same."
+tp.DAT.02.t5.prompt:
+  text: "Look at the picture graph. How many things are there in all?"
+tp.DAT.09.t1.prompt:
+  text: "Count each kind. Make one tally mark for each one."
+tp.DAT.09.t2.prompt:
+  text: "Count the tally marks. How many {catA|noun:many} are there?"
+tp.DAT.09.t3.prompt:
+  text: "Look at the table. Which kind has the {ask|word}?"
+tp.DAT.09.t4.prompt:
+  text: "Make tally marks to show each number in the table."
+tp.DAT.10.t1.prompt:
+  text: "Put each one in its group. Then count each group."
+tp.DAT.10.t2.prompt:
+  text: "Look at the picture graph. How many {kind|noun:many} are there?"
+tp.DAT.10.t3.prompt:
+  text: "Which group has the {ask|word}?"
+tp.DAT.10.t4.prompt:
+  text: "Put the groups in order. Start with the fewest."

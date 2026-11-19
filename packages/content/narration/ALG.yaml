@@ -1,4 +1,28 @@
-# ALG narration (03 §8): skill intros and template prompts owned by the strand (K01: ALG.05).
+# ALG narration (03 §8): skill intros and template prompts owned by the strand.
+sk.ALG.01.intro:
+  text: "Patterns repeat. Let's make a pattern go on!"
+sk.ALG.02.intro:
+  text: "Some number patterns grow the same way each time."
+sk.ALG.04.intro:
+  text: "A pattern has a part that repeats. Let's find it!"
+
+tp.ALG.01.t1.prompt:
+  text: "Make the pattern go on. Put on what comes next."
+tp.ALG.01.t2.prompt:
+  text: "Fill the empty boxes so the pattern goes on."
+tp.ALG.01.t3.prompt:
+  text: "Put the last cards in order so the pattern goes on."
+tp.ALG.02.t1.prompt:
+  text: "The chart shows {a}, {b}, {c}. Tap the next {ask} numbers in the pattern."
+tp.ALG.02.t2.prompt:
+  text: "Jump to the next number in the pattern {a}, {b}, {c}. Where do you land?"
+tp.ALG.02.t3.prompt:
+  text: "What comes after {a}, {b}, {c}? Fill in the empty boxes."
+tp.ALG.02.t4.prompt:
+  text: "{a}, {b}, {c}. How much does it grow each time?"
+tp.ALG.04.t3.prompt:
+  text: "Make the next repeat. Put the cards in order."
+
 sk.ALG.05.intro:
   text: "When both sides are the same, the balance is level."
 tp.ALG.05.t1.prompt:

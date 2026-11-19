@@ -1,0 +1,39 @@
+# K01 (#11): the K–1 TIM rows of 03 §3.15. TIM.02, TIM.03, TIM.05–07, TIM.10 and TIM.11 are grade
+# 2–3 (K02; graph.yaml plannedIds).
+strand: TIM
+skills:
+  - id: TIM.01
+    name: Tell time to the hour
+    kind: procedure
+    grade: 1
+    standards: { ccss: [1.MD.B.3] }
+    prerequisites: [CNT.05, TIM.08]
+    gateway: false
+    representations: [clock, digital-clock]
+
+  - id: TIM.04
+    name: Tell time to the half hour
+    kind: procedure
+    grade: 1
+    standards: { ccss: [1.MD.B.3] }
+    prerequisites: [TIM.01, FRA.01]
+    gateway: false
+    representations: [clock, digital-clock]
+
+  - id: TIM.08
+    name: "Put daily events in order (before, after, morning, night)"
+    kind: concept
+    grade: K
+    standards: { ccss: [], supports: [1.MD.B.3] }
+    prerequisites: []
+    gateway: false
+    representations: [objects, timeline]
+
+  - id: TIM.09
+    name: "Read the hour hand between numbers (it's after 3)"
+    kind: concept
+    grade: 1
+    standards: { ccss: [1.MD.B.3] }
+    prerequisites: [TIM.04]
+    gateway: false
+    representations: [clock]
