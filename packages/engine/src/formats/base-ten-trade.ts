@@ -78,12 +78,6 @@ const configSchema = baseTenTradeConfigSchema.superRefine((c, ctx) => {
         path: ['operation'],
         message: 'the result is negative',
       });
-    } else if (computeResult(c) > 1000) {
-      ctx.addIssue({
-        code: 'custom',
-        path: ['operation'],
-        message: 'the mat holds at most 1,000 (ten hundreds)',
-      });
     }
   } else {
     if (!c.regroupTarget) {

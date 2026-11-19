@@ -284,6 +284,17 @@ function stateMutation(original: StateValue): fc.Arbitrary<StateValue> {
       }),
     );
   }
+  if (typeof original.tiles === 'string' && original.tiles.length > 0) {
+    // One tile added or taken away (area-tiles `tile`).
+    const tiles = original.tiles;
+    options.push(
+      fc.nat({ max: tiles.length - 1 }).map((i) => {
+        const s = clone();
+        s.tiles = `${tiles.slice(0, i)}${tiles[i] === '1' ? '0' : '1'}${tiles.slice(i + 1)}`;
+        return s;
+      }),
+    );
+  }
   for (const key of ['groups', 'shares'] as const) {
     const arr = original[key];
     if (Array.isArray(arr) && arr.length > 0) {
@@ -323,6 +334,11 @@ function noNegatives(v: unknown): boolean {
 function choiceOptions(item: GeneratedItem): string[] {
   const w = item.widget;
   if (w.format === 'numeral-pick') return w.options.map((o) => o.id);
+  if (w.format === 'expanded-form' && w.wordOptions) return w.wordOptions.map((o) => o.id);
+  if (w.format === 'equal-share') {
+    if (w.ask === 'fair-or-not') return ['yes', 'no'];
+    if (w.ask === 'even-odd') return ['even', 'odd'];
+  }
   if (w.format === 'tap-count' && w.mode === 'ordinal') {
     return Array.from({ length: w.set.count }, (_, i) => `obj-${i}`);
   }
@@ -559,8 +575,10 @@ export function runTemplateProperties(
       const ids = choiceOptions(item);
       const correct = ids.filter((id) => checkResponse(item, { kind: 'choice', id }).correct);
       const objects = item.widget.format === 'tap-count';
+      // equal-share's choices are fixed pairs (yes/no, even/odd, 03 §5.5), so two is enough.
+      const pair = item.widget.format === 'equal-share';
       if (
-        ids.length < 3 ||
+        ids.length < (pair ? 2 : 3) ||
         (ids.length > 5 && !objects) ||
         new Set(ids).size !== ids.length ||
         correct.length !== 1

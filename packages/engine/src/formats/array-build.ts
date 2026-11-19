@@ -46,7 +46,12 @@ export function alreadyFound(found: readonly [number, number][] | undefined, r: 
 const configSchema = arrayBuildConfigSchema.superRefine((c, ctx) => {
   const needDims = c.mode !== 'build-total' && c.mode !== 'new-way';
   if (needDims) {
-    if (!c.rows || !c.cols || c.rows > c.maxRows || c.cols > c.maxCols) {
+    // A shown array must fit as drawn; a built one may fit turned when orientation is free.
+    const fits = (r: number, k: number) => r <= c.maxRows && k <= c.maxCols;
+    const rows = c.rows ?? 0;
+    const cols = c.cols ?? 0;
+    const turnable = c.mode === 'build-dims' && !c.orientationMatters;
+    if (!rows || !cols || !(fits(rows, cols) || (turnable && fits(cols, rows)))) {
       ctx.addIssue({
         code: 'custom',
         path: ['rows'],

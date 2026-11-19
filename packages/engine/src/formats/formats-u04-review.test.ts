@@ -4,6 +4,7 @@ import type { ItemFormat, WidgetAction, WidgetConfigOf } from '@number-island/sh
 import { describe, expect, it } from 'vitest';
 import { stateChecker } from '../check/state';
 import { areaTiles } from './area-tiles';
+import { arrayBuild } from './array-build';
 import { baseTenBuild, exactReachable } from './base-ten-build';
 import { baseTenTrade } from './base-ten-trade';
 import { equalGroups } from './equal-groups';
@@ -84,12 +85,20 @@ describe('base-ten-trade', () => {
     );
     expect(r).toEqual({ kind: 'state', value: { hundreds: 10, tens: 0, ones: 0 } });
     expect(pass('trade.result', { result: 1000 }, r)).toBe(true);
+    // Round 2: no 1,000 cap. MDA.23 (stretch) adds bigger numbers; extra hundreds just pile up.
+    const big = {
+      ...add,
+      start: { hundreds: 12, tens: 0, ones: 0 },
+      operation: { op: '+' as const, operand: { hundreds: 3, tens: 0, ones: 0 } },
+    };
+    expect(issuePaths(baseTenTrade, big)).toEqual([]);
     expect(
-      issuePaths(baseTenTrade, {
-        ...add,
-        operation: { op: '+', operand: { hundreds: 0, tens: 1, ones: 1 } },
-      }),
-    ).toEqual(['operation']);
+      pass(
+        'trade.result',
+        { result: 1500 },
+        baseTenTrade.toResponse(play(baseTenTrade, big, [act('combine')])),
+      ),
+    ).toBe(true);
   });
 
   it('leaves an unasked typed value out of the answer', () => {
@@ -220,5 +229,100 @@ describe('expanded-form', () => {
     expect(expandedForm.toResponse(s)).toBeNull();
     // The next card fills the emptied blank.
     expect(expandedForm.apply(s, act('place-card', { value: 300 })).entries).toEqual([300, 40]);
+  });
+});
+
+describe('review round 2 (s_837d2818b4af)', () => {
+  it('base-ten-build: a tray of one ten builds 7 by splitting and putting ones back', () => {
+    const c: WidgetConfigOf<'base-ten-build'> = {
+      format: 'base-ten-build',
+      target: 7,
+      mode: 'build',
+      pieces: { thousands: false, hundreds: false, tens: true, ones: false },
+      limits: { tens: 1 },
+      wholeIs: 'unit',
+    };
+    expect(issuePaths(baseTenBuild, c)).toEqual([]);
+    const r = baseTenBuild.toResponse(
+      play(baseTenBuild, c, [
+        act('add-piece', { kind: 'tens' }),
+        act('split', { kind: 'tens' }),
+        act('add-piece', { kind: 'ones', count: -3 }),
+      ]),
+    );
+    expect(pass('baseten.value', { value: 7 }, r)).toBe(true);
+    // Exactly 7 ones, though the tray offers no ones: splitting makes them.
+    expect(issuePaths(baseTenBuild, { ...c, mode: 'build-exact', exact: { ones: 7 } })).toEqual([]);
+    // More than the tray and the prebuilt pieces hold together is still refused.
+    expect(issuePaths(baseTenBuild, { ...c, target: 11 })).toEqual(['pieces']);
+  });
+
+  it('equal-share: nothing goes to the seagull while the shares are unequal', () => {
+    const seven: WidgetConfigOf<'equal-share'> = {
+      format: 'equal-share',
+      items: 7,
+      recipients: 3,
+      sprite: 'shell',
+      recipientsKind: 'pebbling',
+      allowLeftover: true,
+      ask: 'each',
+    };
+    const s = play(equalShare, seven, [
+      act('deal-round'),
+      act('deal', { to: 0 }),
+      act('deal', { to: 1 }),
+      act('set-aside-leftover'),
+    ]);
+    expect(s.shares).toEqual([2, 2, 1]);
+    expect(s.pile).toBe(2);
+    expect(s.seagull).toBe(0);
+    const done = play(equalShare, seven, [
+      act('deal-round'),
+      act('deal', { to: 0 }),
+      act('deal', { to: 1 }),
+      act('set-aside-leftover'),
+      act('deal', { to: 2 }),
+      act('set-aside-leftover'),
+      act('answer', { value: 2 }),
+    ]);
+    expect(
+      pass(
+        'share.fair',
+        { items: 7, recipients: 3, allowLeftover: true, value: 2 },
+        equalShare.toResponse(done),
+      ),
+    ).toBe(true);
+  });
+
+  it('array-build: build-dims fits turned when orientation is free', () => {
+    const c: WidgetConfigOf<'array-build'> = {
+      format: 'array-build',
+      maxRows: 4,
+      maxCols: 3,
+      mode: 'build-dims',
+      rows: 3,
+      cols: 4,
+      orientationMatters: false,
+      sprite: 'shell',
+      gridShown: true,
+    };
+    expect(issuePaths(arrayBuild, c)).toEqual([]);
+    expect(issuePaths(arrayBuild, { ...c, orientationMatters: true })).toEqual(['rows']);
+    const r = arrayBuild.toResponse(play(arrayBuild, c, [act('drag-rect', { rows: 4, cols: 3 })]));
+    expect(pass('array.dims', { rows: 3, cols: 4, orientationMatters: false }, r)).toBe(true);
+  });
+
+  it('area-tiles: decompose needs two region cells, not just a wide box', () => {
+    const one = {
+      format: 'area-tiles',
+      region: { w: 2, h: 1, mask: '10' },
+      mode: 'decompose',
+      gridShown: true,
+      sideLabels: false,
+      unit: 'sq-units',
+      decimalGrid: false,
+    };
+    expect(issuePaths(areaTiles, one)).toEqual(['region']);
+    expect(issuePaths(areaTiles, { ...one, region: { w: 2, h: 1, mask: '11' } })).toEqual([]);
   });
 });
