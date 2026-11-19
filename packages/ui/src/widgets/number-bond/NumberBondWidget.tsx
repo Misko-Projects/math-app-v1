@@ -47,6 +47,7 @@ import {
   circleFont,
   FOUND_C,
   miniC,
+  POOL_BORDER,
   planBond,
   poolsBox,
   scalePools,
@@ -610,7 +611,7 @@ export function NumberBondWidget({
   // ---------- render: the concrete bond (pools of counters) ----------
 
   const renderPools = () => {
-    const box = scalePools(poolsBox(input), zoom);
+    const box = scalePools(poolsBox(input, plan.edge), zoom);
     const centre = (slot: Slot) => box.pools[slot].x + box.pools[slot].w / 2;
     const badgeOf = (slot: Slot) => {
       const known = given(config, slot);
@@ -626,7 +627,13 @@ export function NumberBondWidget({
       <fieldset
         className="ni-bondw__cbond"
         aria-label={t('ui.widget.picture')}
-        style={{ width: box.size.w, height: box.size.h }}
+        style={
+          {
+            width: box.size.w,
+            height: box.size.h,
+            '--pool-pad': `${plan.edge - POOL_BORDER}px`,
+          } as CSSProperties
+        }
       >
         <svg
           className="ni-bondw__legs"

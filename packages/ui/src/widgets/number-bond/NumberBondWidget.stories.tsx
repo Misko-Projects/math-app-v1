@@ -350,6 +350,8 @@ export const Disabled: Story = {
     await expect(watched.map(lookOf)).toEqual(before);
     await expect(button(root, 'Check')).toBeDisabled();
     await expect(args.onInteract).not.toHaveBeenCalled();
+    // Roomy pools where the room allows (the stage is unbounded): ≥ 16 px around the counters.
+    await expectPoolMargins(root, 16);
   },
 };
 
@@ -450,6 +452,25 @@ export const DemoReducedMotion: Story = {
 
 // ---------- the real widget area (06 §1, §2): 960 × 600, portrait, tablet ----------
 
+/**
+ * A pool is a picture: its counters sit at least `min` px inside its outer edge (border
+ * included) on every side, ≥ 16 px; the minimum area's relief allows ≥ 7. Full pools only show
+ * every side (a pool's counters fill from the top left).
+ */
+async function expectPoolMargins(root: HTMLElement, min: number) {
+  for (const pool of root.querySelectorAll<HTMLElement>('.ni-bondw__pool')) {
+    const counters = [...pool.querySelectorAll('.ni-bondw__counter')].map((c) =>
+      c.getBoundingClientRect(),
+    );
+    if (counters.length === 0) continue;
+    const p = pool.getBoundingClientRect();
+    const left = Math.min(...counters.map((c) => c.left)) - p.left;
+    const top = Math.min(...counters.map((c) => c.top)) - p.top;
+    await expect(left, `pool ${pool.dataset.pool} left margin`).toBeGreaterThanOrEqual(min - 0.5);
+    await expect(top, `pool ${pool.dataset.pool} top margin`).toBeGreaterThanOrEqual(min - 0.5);
+  }
+}
+
 async function expectFits(canvasElement: HTMLElement, ageMode: AgeMode) {
   const root = await findWidget(canvasElement, ROOT);
   await settledAll(root);
@@ -463,6 +484,8 @@ async function expectFits(canvasElement: HTMLElement, ageMode: AgeMode) {
   await expectFitsArea(areaBox(canvasElement), parts, targets, ageMode);
   await expectNumeralsInside(root);
   await expectFill(areaBox(canvasElement), parts);
+  const minArea = areaBox(canvasElement).dataset.areaSize === 'landscapeMin';
+  await expectPoolMargins(root, minArea ? 7 : 16);
   return root;
 }
 

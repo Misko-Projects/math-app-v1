@@ -225,7 +225,8 @@ span.ni-bondw__circle {
 .ni-bondw__pool {
   position: absolute;
   box-sizing: border-box;
-  padding: calc(8px * var(--bond-s));
+  /* plan.ts POOL_EDGES less the border: roomy (13) where it fits, else tight (8). */
+  padding: calc(var(--pool-pad, 8px) * var(--bond-s));
   border: calc(3px * var(--bond-s)) solid var(--color-ink);
   border-radius: calc(var(--radius-card) * var(--bond-s));
   background: var(--color-paper);

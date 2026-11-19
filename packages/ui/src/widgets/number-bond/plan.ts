@@ -36,8 +36,14 @@ export const BOND_H = 2.5;
 /** The ways already found (new-way): small bonds of this circle, in a panel. */
 export const FOUND_C = 56;
 export const FOUND_PANEL = 12 + 3;
-/** A pool of counters (concrete): padding (8) + border (3) a side; a shown number's badge. */
-export const POOL_EDGE = 8 + 3;
+/**
+ * A pool of counters (concrete): padding + a 3 px border a side, from the pool's outer edge to its
+ * counters. Roomy (16: the picture's ≥ 16 px inner margin) where it fits; else tight (11, the
+ * minimum-area relief allows ≥ 7). Then a shown number's badge.
+ */
+export const POOL_BORDER = 3;
+export const POOL_EDGES = [13 + POOL_BORDER, 8 + POOL_BORDER] as const;
+export const POOL_EDGE = POOL_EDGES[1];
 export const BADGE = 52;
 /** The legs' band between the whole's pool and the parts' pools, and between the two parts. */
 export const POOL_LEGS = 40;
@@ -52,6 +58,8 @@ export interface BondPlan {
   /** The bond's circle diameter (pictorial) and its width in diameters. */
   c: number;
   spread: number;
+  /** Concrete: each pool's edge (padding + border) at zoom 1, one of POOL_EDGES. */
+  edge: number;
   arrangement: Arrangement;
   /** The answer beside the bond (null: none, or it waits for the answer step). */
   entry: EntryLayout | null;
@@ -90,13 +98,13 @@ export const minCircle = (biggest: number, ageMode: AgeMode) =>
 export const circleFont = (c: number, biggest: number) =>
   Math.min(72, Math.round(c * (String(biggest).length >= 3 ? 0.32 : 0.5)));
 
-export function poolSize(t: number, cap: number): Size {
+export function poolSize(t: number, cap: number, edge: number = POOL_EDGE): Size {
   const cols = poolColumns(cap);
   const rows = Math.max(1, Math.ceil(cap / cols));
   const g = TARGET_GAP_PX;
   return {
-    w: cols * t + (cols - 1) * g + 2 * POOL_EDGE,
-    h: rows * t + (rows - 1) * g + 2 * POOL_EDGE,
+    w: cols * t + (cols - 1) * g + 2 * edge,
+    h: rows * t + (rows - 1) * g + 2 * edge,
   };
 }
 
@@ -118,10 +126,10 @@ export interface PoolsLayout {
  * top corners (a blank part's badge, a full-size button, stands clear above its pool). A blank
  * badge is a full target (--target-min) at least 12 px from every pool.
  */
-export function poolsBox(input: BondInput): PoolsLayout {
+export function poolsBox(input: BondInput, edge: number = POOL_EDGE): PoolsLayout {
   const t = MIN_TARGET_PX[input.ageMode];
-  const whole = poolSize(t, input.caps[0]);
-  const part = poolSize(t, Math.max(input.caps[1], input.caps[2]));
+  const whole = poolSize(t, input.caps[0], edge);
+  const part = poolSize(t, Math.max(input.caps[1], input.caps[2]), edge);
   const size = (slot: 'whole' | 'part-0' | 'part-1') => (input.blank === slot ? t : BADGE);
   const gap = TARGET_GAP_PX;
   const partBlank = input.blank === 'part-0' || input.blank === 'part-1';
@@ -184,8 +192,8 @@ function circles(input: BondInput): number[] {
   return [...new Set([1.9 * t, 1.6 * t, 1.35 * t, min].map((c) => Math.max(min, Math.round(c))))];
 }
 
-const mainSize = (input: BondInput, c: number, spread: number) =>
-  input.concrete ? poolsBox(input).size : bondSize(c, spread);
+const mainSize = (input: BondInput, c: number, spread: number, edge: number) =>
+  input.concrete ? poolsBox(input, edge).size : bondSize(c, spread);
 
 export const miniC = (biggest: number) => (String(biggest).length >= 3 ? 100 : 64);
 
@@ -194,39 +202,44 @@ export function planBond(input: BondInput, room: Size): BondPlan {
   const found = foundSize(input.found);
   const handRoom = withInviteRoom(room);
   const spreads: readonly number[] = input.concrete ? [BOND_W] : BOND_SPREADS;
+  // Concrete: roomy pools first (a lower rank), tight ones only where roomy ones don't fit.
+  const edges: readonly number[] = input.concrete ? POOL_EDGES : [POOL_EDGE];
   const sc = (x: Size | null, z: number) => zoomed(x, z);
   // 1. Everything at once.
   function* together(): Generator<Candidate<BondPlan>> {
     for (const [g, group] of entryGroups(input.askMax).entries()) {
-      for (const c of circles(input)) {
-        for (const spread of spreads) {
-          for (const entry of group) {
-            for (const arrangement of ARRANGEMENTS) {
-              const e =
-                entry && input.askMax !== null
-                  ? entrySize(input.askMax, entry, input.ageMode)
-                  : null;
-              const item: BondPlan = {
-                steps: false,
-                c,
-                spread,
-                arrangement,
-                entry,
-                ask: null,
-                zoom: 1,
-                askZoom: 1,
-              };
-              yield {
-                item,
-                rank: g,
-                sizeAt: (z) =>
-                  arrangedSize(
-                    arrangement,
-                    sc(mainSize(input, c, spread), z),
-                    [sc(found, z), sc(e, z), sc(act(input.button, 1, 'row'), z)],
-                    LAYOUT_GAP,
-                  ),
-              };
+      for (const [p, edge] of edges.entries()) {
+        for (const c of circles(input)) {
+          for (const spread of spreads) {
+            for (const entry of group) {
+              for (const arrangement of ARRANGEMENTS) {
+                const e =
+                  entry && input.askMax !== null
+                    ? entrySize(input.askMax, entry, input.ageMode)
+                    : null;
+                const item: BondPlan = {
+                  steps: false,
+                  c,
+                  spread,
+                  edge,
+                  arrangement,
+                  entry,
+                  ask: null,
+                  zoom: 1,
+                  askZoom: 1,
+                };
+                yield {
+                  item,
+                  rank: g * edges.length + p,
+                  sizeAt: (z) =>
+                    arrangedSize(
+                      arrangement,
+                      sc(mainSize(input, c, spread, edge), z),
+                      [sc(found, z), sc(e, z), sc(act(input.button, 1, 'row'), z)],
+                      LAYOUT_GAP,
+                    ),
+                };
+              }
             }
           }
         }
@@ -239,23 +252,25 @@ export function planBond(input: BondInput, room: Size): BondPlan {
   // itself: no Next beside it.
   const next = input.concrete && input.blank ? null : act(input.button, 1, 'row');
   function* bondStep(): Generator<
-    Candidate<{ c: number; spread: number; arrangement: Arrangement }>
+    Candidate<{ c: number; spread: number; edge: number; arrangement: Arrangement }>
   > {
-    for (const c of circles(input)) {
-      for (const spread of spreads)
-        for (const arrangement of ARRANGEMENTS) {
-          yield {
-            item: { c, spread, arrangement },
-            rank: 0,
-            sizeAt: (z) =>
-              arrangedSize(
-                arrangement,
-                sc(mainSize(input, c, spread), z),
-                [sc(found, z), sc(next, z)],
-                LAYOUT_GAP,
-              ),
-          };
-        }
+    for (const [p, edge] of edges.entries()) {
+      for (const c of circles(input)) {
+        for (const spread of spreads)
+          for (const arrangement of ARRANGEMENTS) {
+            yield {
+              item: { c, spread, edge, arrangement },
+              rank: p,
+              sizeAt: (z) =>
+                arrangedSize(
+                  arrangement,
+                  sc(mainSize(input, c, spread, edge), z),
+                  [sc(found, z), sc(next, z)],
+                  LAYOUT_GAP,
+                ),
+            };
+          }
+      }
     }
   }
   const build = pickByFill(bondStep(), room, handRoom);
@@ -293,6 +308,7 @@ export function planBond(input: BondInput, room: Size): BondPlan {
     steps: true,
     c: build.item.c,
     spread: build.item.spread,
+    edge: build.item.edge,
     arrangement: build.item.arrangement,
     entry: null,
     ask: ask.item,
