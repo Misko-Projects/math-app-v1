@@ -165,8 +165,9 @@ export function coversOutline(outline: Vec[], placed: Placement[]): boolean {
  * non-empty subset S: Σ (−1)^(|S|+1) |outline ∩ ⋂S|. Clipping the outline by each convex piece of S
  * in turn gives outline ∩ ⋂S (Sutherland–Hodgman keeps the area right for a concave subject). A
  * subset whose intersection is already empty is skipped together with all its supersets, so the
- * work follows the pieces that really overlap: a tiling (neighbours share only edges) visits each
- * piece once, whatever the piece count. `coversOutline` rejects heavy overlap before calling this.
+ * work follows the pieces that really overlap: a tiling (neighbours share only edges) tries each
+ * pair once and goes no deeper, O(n²) clips for n pieces. `coversOutline` rejects heavy overlap
+ * before calling this.
  */
 export function unionInside(outline: Vec[], pieces: readonly Vec[][]): number {
   let total = 0;

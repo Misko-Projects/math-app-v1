@@ -5,15 +5,22 @@ roots: [CNT.01, SUB.01, GEO.01, GEO.05, MEA.15]
 # K01 (#11) lands the K–1 catalog in several PRs and sets [K, 1] in the last one; K02 sets [K, 1, 2, 3].
 coverageGrades: []
 # plannedIds: catalog ids (03 §3) not authored yet; V03 accepts a gap there. K01 authors the K–1
-# catalog one strand group at a time, so these gaps are later K01 PRs (ADD.02, SUB.04, PUZ.01,
-# PUZ.02) or K02 (grade 2–3: CNT.11, CNT.12, CNT.17 and the GEO and MEA rows). K01 clears the K–1
-# entries; K02 clears the rest.
+# catalog one strand group at a time, so these gaps are later K01 PRs (ADD.02, CMP.08, CPS.06,
+# CPS.09, PUZ.01, PUZ.02) or K02 (grade 2–3: CNT.11, CNT.12, CNT.17, CMP.10–12, CPS.10 and the GEO
+# and MEA rows). K01 clears the K–1 entries; K02 clears the rest.
 plannedIds:
   [
     ADD.02,
+    CMP.08,
+    CMP.10,
+    CMP.11,
+    CMP.12,
     CNT.11,
     CNT.12,
     CNT.17,
+    CPS.06,
+    CPS.09,
+    CPS.10,
     GEO.03,
     GEO.04,
     MEA.03,
@@ -34,7 +41,6 @@ plannedIds:
     MEA.21,
     PUZ.01,
     PUZ.02,
-    SUB.04,
   ]
 # pendingGameSkills: catalog skills (03 §3) that game data unlock rules name before the curriculum
 # authors them (03 §9.2), each with the exact places allowed to name it (building:<id>,
@@ -42,7 +48,6 @@ plannedIds:
 # skill exists; an unauthored skill anywhere else is an error. The PR that authors a skill removes
 # its entry (a stale entry or place only warns).
 pendingGameSkills:
-  CPS.04: [building:brick-factory]
   MUL.02: [building:garden-terraces]
   FRA.01: [building:bakery]
   MUL.05: [building:bakery]

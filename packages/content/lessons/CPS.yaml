@@ -26,3 +26,30 @@ lessons:
       - templateId: CPS.02.t3
         params: { whole: 9, part: 4, unknown: part }
         childSteps: 2
+
+  # CPS.04 (gateway): ten fills one frame, the more go in the next. The faded examples move to the
+  # rekenrek (ten beads on the top row), a second representation (03 §6.4).
+  - skillId: CPS.04
+    mode: authored
+    templateId: CPS.04.t1
+    worked:
+      - params: { n: 14, mode: write }
+        steps:
+          - actor: demo
+            say: ls.CPS.04.w1.s1
+            action: { op: place, args: { frame: 0, count: 10, color: a } }
+          - actor: demo
+            say: ls.CPS.04.w1.s2
+            vars: { o: 4 }
+            action: { op: place, args: { frame: 1, count: 4, color: a } }
+          - actor: demo
+            say: ls.CPS.04.w1.s3
+            vars: { o: 4, n: 14 }
+            action: { op: count-total }
+    faded:
+      - templateId: CPS.04.t2
+        params: { n: 16, mode: write }
+        childSteps: 1
+      - templateId: CPS.04.t2
+        params: { n: 13, mode: write }
+        childSteps: 2

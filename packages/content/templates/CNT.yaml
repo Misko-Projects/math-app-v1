@@ -412,6 +412,18 @@ templates:
     difficulty: { base: -0.9 }
     narration: { prompt: p.count.next-back, hints: [h.sequence.count-back] }
 
+  # Constructed answer (04 §7a: t2 and t3 answer with a choice): t3's count back, typed, so the
+  # child writes the 0.
+  - id: CNT.13.t4
+    skillId: CNT.13
+    format: number-pad
+    tier: abstract
+    representation: symbols
+    generator: count.sequence
+    params: { start: { choice: [1, 2, 3], weights: [2, 1, 1] }, step: 1, dir: -1, length: 1 }
+    difficulty: { base: -0.9 }
+    narration: { prompt: p.count.next-back, hints: [h.sequence.count-back] }
+
   # ---------- CNT.14 one more than the number before (gateway) ----------
   - id: CNT.14.t1
     skillId: CNT.14
@@ -454,6 +466,31 @@ templates:
     difficulty: { base: -0.6 }
     narration: { prompt: p.count.one-more, hints: [h.count.one-more-next] }
 
+  # Constructed answers (04 §7a: t3 and t4 answer with a choice). A gateway skill needs three
+  # representations with an abstract one among them, and its test-out two representations without
+  # a choice template: one more than n, typed, as numerals and on the number path.
+  - id: CNT.14.t5
+    skillId: CNT.14
+    format: number-pad
+    tier: abstract
+    representation: symbols
+    generator: count.sequence
+    params: { start: { int: [1, 19] }, step: 1, dir: 1, length: 1 }
+    constraints: ["last <= 20"]
+    difficulty: { base: -0.8 }
+    narration: { prompt: p.count.one-more, hints: [h.count.one-more-next] }
+
+  - id: CNT.14.t6
+    skillId: CNT.14
+    format: number-pad
+    tier: pictorial
+    representation: number-path
+    generator: count.sequence
+    params: { start: { int: [1, 19] }, step: 1, dir: 1, length: 1 }
+    constraints: ["last <= 20"]
+    difficulty: { base: -0.8 }
+    narration: { prompt: p.count.one-more, hints: [h.sequence.look-path, h.count.one-more-next] }
+
   # ---------- CNT.15 ordinal positions ----------
   - id: CNT.15.t1
     skillId: CNT.15
@@ -492,6 +529,34 @@ templates:
     constraints: ["k <= n"]
     difficulty: { base: 0.0 }
     narration: { prompt: tp.CNT.15.t3.prompt, hints: [h.ordinal.first-end, h.ordinal.say-places] }
+
+  # Constructed answer (04 §7b: only constructed answers are evidence, and t1–t3 all answer with a
+  # choice): the same marked line, and the child types the place as a number (3 for third).
+  - id: CNT.15.t4
+    skillId: CNT.15
+    format: number-pad
+    tier: pictorial
+    representation: objects
+    generator: count.ordinal
+    params:
+      k: { int: [1, 10] }
+      n: { int: [5, 10] }
+      from: { choice: [left, right], weights: [3, 1] }
+    constraints: ["k <= n"]
+    difficulty: { base: 0.0 }
+    narration: { prompt: tp.CNT.15.t4.prompt, hints: [h.ordinal.first-end, h.ordinal.say-places] }
+
+  # Constructed answer at the abstract tier (04 §7a: with t4 alone the constructed answers are one
+  # format and tier): no line, the place just after place k, typed as a number.
+  - id: CNT.15.t5
+    skillId: CNT.15
+    format: number-pad
+    tier: abstract
+    representation: words
+    generator: count.ordinal
+    params: { ask: after, k: { int: [1, 9] }, n: 10, from: left }
+    difficulty: { base: 0.0 }
+    narration: { prompt: tp.CNT.15.t5.prompt, hints: [h.ordinal.say-on] }
 
   # ---------- CNT.16 count backward within 120 ----------
   - id: CNT.16.t1

@@ -50,6 +50,8 @@ p.bond.missing-part:
   text: "{whole} is {part} and how many more?"
 p.bond.make-ten:
   text: "{part} and what number make ten?"
+p.bond.new-way:
+  text: "Find a new way to split {whole}."
 p.add.add-more:
   text: "You have {start}. Add more to make {n}."
 p.add.how-many-in-all:
@@ -113,6 +115,8 @@ h.ordinal.say-places:
   text: "Say first, second, third as you touch each one."
 h.ordinal.stones:
   text: "Start at the first stone. Say first, second, third."
+h.ordinal.say-on:
+  text: "Say the places in order. Which one comes next?"
 h.subitize.look-again:
   text: "Look again. Do you see a shape you know?"
 h.subitize.look-groups:
@@ -141,6 +145,47 @@ h.bond.slide-beads:
   text: "Slide some beads over. Count both parts."
 h.bond.partners:
   text: "Count the empty spaces. They make ten."
+# CPS (K01) hints. Free splits name no number that could be a part (03 §9.4 step 7).
+h.bond.split-any:
+  text: "Put some in each part. Both parts make the whole."
+h.bond.count-on:
+  text: "Start at the part you know. Count up to the whole."
+h.bond.fingers:
+  text: "Show the whole on your fingers. Put down the part you know."
+h.bond.new-way:
+  text: "Make one part bigger by one. Is that a new way?"
+h.bond.through-ten:
+  text: "Count up to ten first. Then count on to the whole."
+h.bond.fill-ten:
+  text: "Move counters over to fill the first frame."
+h.bond.count-left:
+  text: "Now count the ones left in the second frame."
+h.bond.beads-ten:
+  text: "Slide beads up to fill the top row."
+h.pv.full-frame:
+  text: "Fill one whole frame first. That is ten."
+h.pv.ten-and-more:
+  text: "Start at ten. Then count on the more."
+h.pv.ten-on-top:
+  text: "Ten beads fill the top row. The more go below."
+h.pv.bundle-first:
+  text: "Take one bundle of ten first."
+h.pv.count-ones:
+  text: "Then add ones. Count on from ten."
+h.pv.ten-card:
+  text: "Find the ten card first. Then find the ones."
+h.pv.teen-order:
+  text: "We say the ones first, but the ten comes first."
+h.subitize.ten-and:
+  text: "One full row is ten. How many more?"
+h.subitize.full-ten:
+  text: "A full frame is ten. Then look for the more."
+h.subitize.fives:
+  text: "Each row has five red beads and five white beads."
+h.subitize.rows-together:
+  text: "See each row. Then put the rows together."
+h.subitize.frame-fives:
+  text: "Each frame has two rows of five. Look for full rows."
 h.add.join:
   text: "Put the two groups together. Then count them all."
 h.add.fingers:
@@ -213,6 +258,10 @@ h.length.order-shortest:
   text: "Find the shortest one. It goes first."
 h.length.order-next:
   text: "Then find the shortest one that is left."
+h.length.order-longest:
+  text: "Find the longest one. It goes first."
+h.length.order-next-long:
+  text: "Then find the longest one that is left."
 h.length.order-numbers:
   text: "The smallest number is the shortest. It goes first."
 h.measure.start-at-end:
@@ -237,6 +286,71 @@ h.weight.more-things:
   text: "More things can be lighter. Watch the balance."
 h.weight.lift:
   text: "Think of how heavy each one is. Which one is heavier?"
+h.weight.order-heavy:
+  text: "The one that is most heavy goes first."
+
+# comparing, ordering, number lines and estimating (K01: CMP)
+h.compare.match:
+  text: "Match one from each side. Is any left over?"
+h.compare.left-over:
+  text: "The side with some left over has more."
+h.compare.count-each:
+  text: "Count each group. Then compare the two numbers."
+h.compare.not-size:
+  text: "Big ones may not be more. Count them to see."
+h.compare.frames:
+  text: "Look at the empty boxes in each frame."
+h.compare.count-yours:
+  text: "Count what you have first."
+h.compare.make-same:
+  text: "Make them match. Count again after each one."
+# {end} follows the ask (compare.numbers): last for greater, first for less.
+h.compare.path:
+  text: "Find both numbers on the path. Which one comes {end|word}?"
+h.compare.count-up:
+  text: "Count up from one. Which number do you say {end|word}?"
+h.compare.full-frames:
+  text: "A full frame is ten. Then count the dots left."
+h.compare.tens:
+  text: "Look at the tens first. Then look at the ones."
+h.compare.line:
+  text: "Numbers to the right on the line are greater."
+h.compare.one-less:
+  text: "Take just one away. Then count them all."
+h.compare.one-less-before:
+  text: "One less is the number just before it when you count."
+h.order.smallest:
+  text: "Find the smallest number first."
+h.order.path:
+  text: "Look where each number is on the path."
+h.order.count-up:
+  text: "Count up. Which number do you say first?"
+h.order.tens:
+  text: "Look at the tens first. Which ten comes first?"
+h.order.greatest:
+  text: "Find the greatest number first."
+h.order.count-groups:
+  text: "Count each group. Which one has the fewest?"
+h.order.fewest-first:
+  text: "Put the one with the fewest first. Then the next."
+h.numberline.ends:
+  text: "Look at the numbers at the two ends."
+h.numberline.count-ticks:
+  text: "Start at a number you know. Count the ticks."
+h.numberline.tens:
+  text: "Find the ten just before it. Then think of the ones."
+h.numberline.marked:
+  text: "Look at the two numbers you see. Compare it to each one."
+h.numberline.middle:
+  text: "Find the middle of the line first."
+h.numberline.near-end:
+  text: "Small numbers are near the start. Big ones are near the end."
+h.estimate.no-count:
+  text: "No need to count each one. Make a good guess."
+h.estimate.ten:
+  text: "Picture a group of ten. How many groups could fit?"
+h.estimate.line:
+  text: "Small groups are near the start. Big ones are near the end."
 
 # ---------- generator solution steps (E01: gen.<generatorId>.<step>, 03 §6.4) ----------
 # Spoken by the worked solution (hint level 5, auto lessons). Every key a generator declares in
@@ -281,6 +395,10 @@ gen.count.ordinal.start-right:
   text: "Start at the right. Count each one."
 gen.count.ordinal.this-one:
   text: "This one is {k|ord}."
+gen.count.ordinal.say-to:
+  text: "Say the places, first, second, up to {k|ord}."
+gen.count.ordinal.after:
+  text: "After {k|ord} comes {n|ord}. So we tap {n}."
 gen.subitize.flash.look:
   text: "Look at the dots again."
 gen.subitize.flash.see-groups:
@@ -301,6 +419,57 @@ gen.bond.parts.split:
   text: "{a} and {b} make the whole."
 gen.bond.parts.together:
   text: "Put {a} and {b} together."
+gen.bond.parts.make-ten:
+  text: "Move {part} over to make ten."
+gen.bond.parts.left-over:
+  text: "{n} are left over."
+gen.bond.parts.ten-and:
+  text: "That is ten and {n} more."
+gen.pv.number.ones:
+  text: "The ones: {count}."
+gen.pv.number.tens:
+  text: "The tens: {count}."
+gen.pv.number.hundreds:
+  text: "The hundreds: {count}."
+gen.pv.number.thousands:
+  text: "The thousands: {count}."
+  level: "2"
+gen.pv.number.split-tens:
+  text: "Split one ten into ten ones."
+gen.pv.number.split-hundreds:
+  text: "Split one hundred into ten tens."
+gen.pv.number.back-ones:
+  text: "Put {count} ones back."
+gen.pv.number.back-tens:
+  text: "Put {count} tens back."
+gen.pv.number.ten-first:
+  text: "Make a ten first."
+gen.pv.number.look:
+  text: "Look at the tens and the ones."
+gen.pv.number.join:
+  text: "Put the parts together."
+gen.pv.number.listen:
+  text: "Listen to the number."
+gen.pv.number.is:
+  text: "That is {v}."
+gen.pv.number.worth:
+  text: "The {d} has a value of {v}."
+  level: "2"
+gen.pv.number.place-ones:
+  text: "It is in the ones place."
+gen.pv.number.place-tens:
+  text: "It is in the tens place."
+gen.pv.number.place-hundreds:
+  text: "It is in the hundreds place."
+gen.pv.number.place-thousands:
+  text: "It is in the thousands place."
+  level: "2"
+gen.pv.number.place-ten-thousands:
+  text: "It is in the ten thousands place."
+  level: "2"
+gen.pv.number.place-hundred-thousands:
+  text: "It is in the hundred thousands place."
+  level: "2"
 gen.addsub.facts.start-at:
   text: "Start at {a}. Then count on {b}."
 gen.addsub.facts.start-back:
@@ -419,6 +588,12 @@ gen.mea.length.order-start-long:
   text: "The longest is {n}. It goes first."
 gen.mea.length.order-next:
   text: "Next comes {n}."
+gen.mea.length.order-first-short:
+  text: "The shortest one goes first."
+gen.mea.length.order-first-long:
+  text: "The longest one goes first."
+gen.mea.length.order-then:
+  text: "Then this one."
 gen.mea.length.sticks-out:
   text: "Look at the part that sticks out."
 gen.mea.length.longer-by:
@@ -465,6 +640,129 @@ gen.mea.massvolume.find-mark:
   text: "Find the mark it is at."
 gen.mea.massvolume.reads:
   text: "It shows {n}."
+gen.mea.massvolume.order-first:
+  text: "This one is the most heavy. It goes first."
+gen.mea.massvolume.order-then:
+  text: "Then this one."
+gen.mea.massvolume.sort-look:
+  text: "Think of the {thing|noun:one}. Is each one heavier, is it lighter?"
+gen.mea.massvolume.sort-heavier:
+  text: "This one is heavier than the {thing|noun:one}."
+gen.mea.massvolume.sort-lighter:
+  text: "This one is lighter than the {thing|noun:one}."
+
+gen.compare.sets.match:
+  text: "Let's match them, one from each side."
+gen.compare.sets.left-over:
+  text: "Look for any left over."
+gen.compare.sets.count-each:
+  text: "Let's count each group."
+gen.compare.sets.not-size:
+  text: "Big ones may not be more. Count them."
+gen.compare.sets.has-more:
+  text: "This group has more."
+gen.compare.sets.has-fewer:
+  text: "This group has fewer."
+gen.compare.sets.same:
+  text: "They have the same number."
+gen.compare.sets.boat-has:
+  text: "This one has {n}."
+gen.compare.sets.add-some:
+  text: "Add some more."
+gen.compare.sets.take-some:
+  text: "Take some away."
+gen.compare.sets.now-same:
+  text: "Now both have {n}. They are the same."
+gen.compare.sets.order-fewest:
+  text: "This group has the fewest. It goes first."
+gen.compare.sets.order-most:
+  text: "This group has the most. It goes first."
+gen.compare.sets.order-next:
+  text: "Then this group."
+gen.compare.sets.pan:
+  text: "Count the things on this side."
+gen.compare.sets.goes-down:
+  text: "This side has more, so it goes down."
+gen.compare.sets.balances:
+  text: "Both sides have the same. It balances."
+gen.compare.sets.not-balanced:
+  text: "One side has more. It does not balance."
+gen.compare.numbers.count:
+  text: "Count up. Which number do you say last?"
+gen.compare.numbers.tens:
+  text: "Look at the tens first."
+gen.compare.numbers.ones:
+  text: "The tens are the same. Look at the ones."
+gen.compare.numbers.greater:
+  text: "{n} is greater than {m}."
+gen.compare.numbers.less:
+  text: "{n} is less than {m}."
+gen.compare.numbers.same:
+  text: "Both numbers are {n}. They are the same."
+gen.compare.numbers.look-all:
+  text: "Look at each number."
+gen.compare.numbers.greatest:
+  text: "{n} is the greatest."
+gen.compare.numbers.least:
+  text: "{n} is the least."
+gen.compare.numbers.order-first:
+  text: "{n} goes first."
+gen.compare.numbers.order-next:
+  text: "Then {n}."
+gen.compare.numbers.balance:
+  text: "The greater number goes down."
+gen.compare.numbers.goes-down:
+  text: "This side is greater. It goes down."
+gen.compare.numbers.balances:
+  text: "They are the same. It balances."
+gen.compare.numbers.between:
+  text: "It goes between {lo} and {hi}."
+gen.compare.numbers.before:
+  text: "It comes before {n}."
+gen.compare.numbers.after:
+  text: "It comes after {n}."
+gen.compare.numbers.drop:
+  text: "{n} goes here."
+gen.numberline.place.ends:
+  text: "This line goes from {min} to {max}."
+gen.numberline.place.from:
+  text: "Start at {at}. Count the ticks."
+gen.numberline.place.middle:
+  text: "The middle is {mid}."
+gen.numberline.place.drop:
+  text: "{n} goes here."
+gen.numberline.place.reads:
+  text: "The arrow is at {n}."
+gen.numberline.place.reads-about:
+  text: "The arrow is at about {n}."
+gen.numberline.place.benchmarks:
+  text: "Look at {b0} and {b1}."
+gen.numberline.place.closer:
+  text: "{n} is closer to {m}."
+gen.numberline.place.think:
+  text: "Small numbers are near {min}. Big ones are near {max}."
+gen.numberline.place.this-line:
+  text: "This arrow shows {n}."
+gen.numberline.place.start:
+  text: "Start at {n}."
+gen.numberline.place.hop:
+  text: "Hop to {n}."
+gen.numberline.place.order-first:
+  text: "{n} is the smallest. It goes first."
+gen.numberline.place.order-next:
+  text: "Then {n}."
+gen.estimate.quantity.look:
+  text: "Look at the whole group. Do not count each one."
+gen.estimate.quantity.reference:
+  text: "This group is {b}. How many like it fit?"
+gen.estimate.quantity.about:
+  text: "There are about {n}."
+gen.estimate.quantity.this-line:
+  text: "About {n}. This line shows it."
+gen.estimate.quantity.ends:
+  text: "This line goes from 0 to {max}."
+gen.estimate.quantity.drop:
+  text: "{n} goes about here."
 
 # ---------- feedback ----------
 fb.correct.1:
@@ -513,6 +811,10 @@ fb.number-bond.retry:
   text: "Look at the two parts and the whole."
 fb.rekenrek.retry:
   text: "Let's count the beads on the left."
+fb.base-ten-build.retry:
+  text: "Let's count the tens and the ones again."
+fb.expanded-form.retry:
+  text: "Look at the tens and the ones on each card."
 fb.number-line-jump.retry:
   text: "Let's hop again. Count each hop."
 fb.hundred-chart.retry:
@@ -531,6 +833,8 @@ fb.shape-compose.retry:
   text: "Look at the outline again. Try turning a piece."
 fb.puzzle-grid.retry:
   text: "Let's check each piece again."
+fb.number-line-place.retry:
+  text: "Look at the numbers on the line. Then try again."
 fb.mc.off-by-one-counting:
   text: "Touch each one once. Count again with me."
 fb.mc.count-start-number:
@@ -547,3 +851,5 @@ fb.mc.decade-transition:
   text: "Look at the tens. After nine ones, a new ten starts."
 fb.mc.teen-reversal:
   text: "Look at the tens. The ten comes first, then the ones."
+fb.mc.perceptual-size:
+  text: "Size can trick our eyes. Match them up, one and one."
