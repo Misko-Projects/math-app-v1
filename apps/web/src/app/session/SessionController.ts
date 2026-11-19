@@ -184,6 +184,11 @@ export const CHECKPOINT_PREFIX = 'ni.session.';
 export const PLAY_LOCK = 'ni.play';
 /** How long a start waits for another tab to end its session after asking it to yield. */
 export const YIELD_WAIT_MS = 3_000;
+/**
+ * Without Web Locks, a session whose checkpoint is younger than this may still be playing in
+ * another tab (checkpoints are saved every 15 s, and at least every minute in a hidden tab).
+ */
+export const LIVE_CHECKPOINT_MS = 2 * 60_000;
 
 export function documentVisibility(): PageVisibility {
   return {
@@ -240,7 +245,16 @@ interface Running {
   unsubscribeBus: () => void;
   /** Releases the device's play lock (a no-op without locks). */
   releaseLock: () => void;
+  /** This tab really holds the play lock (Web Locks worked), so no other tab is playing. */
+  exclusive: boolean;
 }
+
+interface PlayLock {
+  release: () => void;
+  /** Really held (Web Locks worked): no other tab of this browser can be playing. */
+  exclusive: boolean;
+}
+const NO_LOCK: PlayLock = { release: () => {}, exclusive: false };
 
 interface Plan {
   result: CanStartResult;
@@ -343,14 +357,16 @@ export class SessionController {
       }
       if (current) await this.#end(current.windDown ?? 'child-exit');
       // The play lock first: the plan below then sees every other tab's play, ended and written.
-      const releaseLock = await this.#takePlayLock();
-      if (!releaseLock) return { ok: false as const, reason: 'elsewhere' as const };
+      const lock = await this.#takePlayLock(opts.signal);
+      if (lock === 'elsewhere' || lock === 'cancelled') return { ok: false as const, reason: lock };
+      const releaseLock = lock.release;
       let plan: Plan;
       try {
         // A tab that closed mid-session (its lock just came free) left only a checkpoint: close
-        // it now, so its play counts toward this plan's daily cap.
+        // it now, so its play counts toward this plan's daily cap. Without an exclusive lock
+        // (no Web Locks), another tab may be playing, so only sessions gone quiet are closed.
         try {
-          await this.#closeAbandoned();
+          await this.#closeAbandoned({ exclusive: lock.exclusive });
         } catch (e) {
           this.#onError('session.abandoned', e);
         }
@@ -407,16 +423,26 @@ export class SessionController {
         unsubscribeVisibility: () => {},
         unsubscribeBus: () => {},
         releaseLock,
+        exclusive: lock.exclusive,
       };
       this.#running = running;
+      // Cancelled during the start write (the picker closed or unmounted): end what just started
+      // at once, so nothing plays off screen holding the play lock.
+      if (opts.signal?.aborted) {
+        await this.#end('child-exit');
+        return { ok: false as const, reason: 'cancelled' as const };
+      }
       running.unsubscribeVisibility = this.#visibility.subscribe(() => this.#onVisibility());
       // Another tab wants to play: end this session (its end is written before the lock goes).
+      // The deadline and the session are checked again when the queued end runs: work already
+      // queued (a slow storage read) may delay it past the requester's wait.
       running.unsubscribeBus =
         this.#bus?.subscribe((until) => {
-          if (this.#running !== running) return;
-          // A stale request: its sender stopped waiting (and refused its own start).
-          if (this.#now() > until) return;
-          void this.end('child-exit').catch((e) => this.#onError('session.yield', e));
+          const current = () => this.#running === running && this.#now() <= until;
+          if (!current()) return;
+          void this.#serial(async () => (current() ? this.#end('child-exit') : null)).catch((e) =>
+            this.#onError('session.yield', e),
+          );
         }) ?? (() => {});
       running.tick = this.#timers.setInterval(() => this.#tick(), this.#tickMs);
       this.#saveCheckpoint(running);
@@ -527,23 +553,24 @@ export class SessionController {
    *
    * It runs holding the play lock and reads the log only then: no other tab is playing, and any
    * session another tab ended is already in the log. While another tab plays, nothing is closed
-   * (the next sweep, at the next picker visit or boot, tries again).
+   * (the next sweep, at the next picker visit or boot, tries again). Where Web Locks don't work,
+   * nothing is exclusive: only sessions whose checkpoint has gone quiet are closed.
    */
   closeAbandoned(): Promise<number> {
     return this.#serial(async () => {
-      // A running session here means this controller already holds the play lock.
-      let release: (() => void) | null = () => {};
-      if (!this.#running) release = await this.#tryPlayLock();
-      if (!release) return 0;
+      // A running session here means this controller already holds the play lock (if it could).
+      const r = this.#running;
+      const lock = r ? { release: () => {}, exclusive: r.exclusive } : await this.#tryPlayLock();
+      if (!lock) return 0;
       try {
-        return await this.#closeAbandoned();
+        return await this.#closeAbandoned({ exclusive: lock.exclusive });
       } finally {
-        release();
+        lock.release();
       }
     });
   }
 
-  async #closeAbandoned(): Promise<number> {
+  async #closeAbandoned({ exclusive }: { exclusive: boolean }): Promise<number> {
     const [events, device] = await Promise.all([this.#store.events(), this.#store.device()]);
     const ended = new Set<string>();
     for (const e of events) {
@@ -555,8 +582,10 @@ export class SessionController {
       const { sessionId } = e.payload;
       const key = sessionId.toLowerCase();
       if (ended.has(key) || this.#running?.session.sessionId === sessionId) continue;
-      ended.add(key);
       const cp = this.#readCheckpoint(sessionId);
+      // Not exclusive: a checkpoint saved recently means some tab may still be playing it.
+      if (!exclusive && cp && this.#now() - cp.at < LIVE_CHECKPOINT_MS) continue;
+      ended.add(key);
       const activeMs = Math.round(cp?.activeMs ?? 0);
       try {
         await this.#store.append(
@@ -599,31 +628,35 @@ export class SessionController {
   // ---------- internals ----------
 
   /**
-   * Takes the play lock to start a session. If another tab holds it, asks that tab to yield and
-   * waits up to `yieldWaitMs`. Null when it stays taken. Without locks, or if the lock API fails,
-   * a no-op release (play goes on; cross-tab exclusivity is lost, never the child's session).
+   * Takes the play lock to start a session. If another tab holds it, asks that tab to yield (not
+   * once the start was cancelled) and waits up to `yieldWaitMs`: `elsewhere` when it stays taken.
+   * Without locks, or if the lock API fails, a non-exclusive no-op lock (play goes on; cross-tab
+   * exclusivity is lost, never the child's session).
    */
-  async #takePlayLock(): Promise<(() => void) | null> {
-    if (!this.#locks) return () => {};
+  async #takePlayLock(
+    signal: AbortSignal | undefined,
+  ): Promise<PlayLock | 'elsewhere' | 'cancelled'> {
+    if (!this.#locks) return NO_LOCK;
     try {
       let release = await this.#locks.acquire(PLAY_LOCK, 0);
       if (!release) {
+        if (signal?.aborted) return 'cancelled';
         this.#bus?.askToYield(this.#now() + this.#yieldWaitMs);
         release = await this.#locks.acquire(PLAY_LOCK, this.#yieldWaitMs);
       }
-      return release ? once(release) : null;
+      return release ? { release: once(release), exclusive: true } : 'elsewhere';
     } catch (e) {
       this.#onError('session.lock', e);
-      return () => {};
+      return NO_LOCK;
     }
   }
 
   /** The play lock if it is free now (for closing abandoned sessions); null if not, or on error. */
-  async #tryPlayLock(): Promise<(() => void) | null> {
-    if (!this.#locks) return () => {};
+  async #tryPlayLock(): Promise<PlayLock | null> {
+    if (!this.#locks) return NO_LOCK;
     try {
       const release = await this.#locks.acquire(PLAY_LOCK, 0);
-      return release ? once(release) : null;
+      return release ? { release: once(release), exclusive: true } : null;
     } catch (e) {
       this.#onError('session.lock', e);
       return null;

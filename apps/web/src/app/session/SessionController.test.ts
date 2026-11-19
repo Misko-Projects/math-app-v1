@@ -24,6 +24,7 @@ import {
   type SessionBus,
   SessionController,
   type SessionLocks,
+  type SessionStore,
   type SessionTimers,
   type WindDownReason,
 } from './SessionController';
@@ -140,6 +141,53 @@ function fakeBusNet() {
   });
 }
 
+/** A gate a test opens later: `wait()` resolves at once while open. */
+function gate() {
+  let open = true;
+  let release: () => void = () => {};
+  let waiting = Promise.resolve();
+  return {
+    close() {
+      open = false;
+      waiting = new Promise<void>((r) => {
+        release = r;
+      });
+    },
+    open() {
+      open = true;
+      release();
+    },
+    wait: () => (open ? Promise.resolve() : waiting),
+  };
+}
+
+/** The store as one tab sees it, with its log reads or writes held at a gate. */
+function gatedStore(
+  store: DataStore,
+  reads = gate(),
+  writes = gate(),
+): SessionStore & {
+  reads: ReturnType<typeof gate>;
+  writes: ReturnType<typeof gate>;
+} {
+  return {
+    reads,
+    writes,
+    now: () => store.now(),
+    device: () => store.device(),
+    familySettings: () => store.familySettings(),
+    childSettings: (id) => store.childSettings(id),
+    events: async () => {
+      await reads.wait();
+      return store.events();
+    },
+    append: (async (type, payload, meta) => {
+      await writes.wait();
+      return store.append(type, payload, meta);
+    }) as DataStore['append'],
+  };
+}
+
 function memoryStorage(): CheckpointStorage & { map: Map<string, string> } {
   const map = new Map<string, string>();
   return {
@@ -161,10 +209,12 @@ async function setup(
   opts: {
     child?: Partial<ChildSettings>;
     timezone?: string;
-    locks?: SessionLocks;
+    /** Shared by every controller of the test (tabs of one browser). Default: working locks; null: none. */
+    locks?: SessionLocks | null;
     bus?: () => SessionBus;
   } = {},
 ) {
+  const locks = opts.locks === undefined ? fakeLocks().locks : opts.locks;
   const env = testEnv();
   const store = await env.open();
   stores.push(store);
@@ -183,13 +233,15 @@ async function setup(
   const timers = fakeTimers();
   const vis = fakeVisibility();
   const storage = memoryStorage();
-  const make = (o: { yields?: boolean } = {}) => {
+  const make = (
+    o: { yields?: boolean; store?: SessionStore; locks?: SessionLocks | null } = {},
+  ) => {
     const c = new SessionController({
-      store,
+      store: o.store ?? store,
       timers: timers.timers,
       visibility: vis.visibility,
       storage,
-      locks: opts.locks ?? null,
+      locks: o.locks === undefined ? locks : o.locks,
       // A tab that never yields (frozen, or an old build) gets a dead bus end.
       bus: opts.bus && o.yields !== false ? opts.bus() : null,
       yieldWaitMs: 100,
@@ -497,12 +549,14 @@ describe('SessionController', () => {
 
   describe('abandoned sessions', () => {
     it('closes this device’s unended sessions with the last checkpoint, once', async () => {
-      const s = await setup();
+      const { locks, held } = fakeLocks();
+      const s = await setup({ locks });
       await s.controller.start(CHILD_K);
       s.advance(14_000);
       s.controller.recordItem();
       s.advance(2_000); // 16 s: the 15 s checkpoint is saved
-      s.advance(5_000); // then the tab dies (no end)
+      s.advance(5_000); // then the tab dies (no end); the browser drops its lock
+      held.clear();
       const [key] = [...s.storage.map.keys()];
       expect(key?.startsWith(CHECKPOINT_PREFIX)).toBe(true);
 
@@ -516,23 +570,28 @@ describe('SessionController', () => {
     });
 
     it('uses 0 without a checkpoint, saves one when the page hides, and skips the running session', async () => {
-      const s = await setup();
+      const { locks, held } = fakeLocks();
+      const s = await setup({ locks });
       await s.controller.start(CHILD_K);
       s.advance(40_000);
       s.storage.map.clear();
-      // The running session is not abandoned.
+      // The running session is not abandoned, here or from another tab while it plays.
       expect(await s.controller.closeAbandoned()).toBe(0);
       const other = s.make();
+      expect(await other.closeAbandoned()).toBe(0);
+      held.clear(); // the playing tab dies
       expect(await other.closeAbandoned()).toBe(1);
       const ended = (await s.sessionEvents()).find((e) => e.type === 'session.ended');
       expect(ended?.payload).toMatchObject({ reason: 'abandoned', activeMs: 0 });
 
-      const t = await setup();
-      await t.controller.start(CHILD_K);
-      t.advance(5_000);
-      t.vis.set(false); // pagehide / visibilitychange: checkpoint now
-      expect(await t.make().closeAbandoned()).toBe(1);
-      const e2 = (await t.sessionEvents()).find((e) => e.type === 'session.ended');
+      const t = fakeLocks();
+      const u = await setup({ locks: t.locks });
+      await u.controller.start(CHILD_K);
+      u.advance(5_000);
+      u.vis.set(false); // pagehide / visibilitychange: checkpoint now
+      t.held.clear(); // then the tab dies
+      expect(await u.make().closeAbandoned()).toBe(1);
+      const e2 = (await u.sessionEvents()).find((e) => e.type === 'session.ended');
       expect(e2?.payload).toMatchObject({ activeMs: 5_000 });
     });
 
@@ -657,6 +716,95 @@ describe('SessionController', () => {
         ok: false,
         reason: 'cancelled',
       });
+    });
+
+    it('a start cancelled during its lock probe asks no one to yield', async () => {
+      const base = fakeLocks();
+      let probe: () => void = () => {};
+      const probing = new Promise<void>((r) => {
+        probe = r;
+      });
+      let held: () => void = () => {};
+      const slowLocks: SessionLocks = {
+        // The requester's first probe is slow: it answers only after the attempt was cancelled.
+        async acquire(name, waitMs) {
+          if (waitMs === 0) {
+            probe();
+            await new Promise<void>((r) => {
+              held = r;
+            });
+          }
+          return base.locks.acquire(name, waitMs);
+        },
+      };
+      const s = await setup({ locks: base.locks, bus: fakeBusNet() });
+      await s.controller.start(CHILD_K); // tab A plays
+      const tabB = s.make({ locks: slowLocks });
+      const cancel = new AbortController();
+      const pending = tabB.start(CHILD_G2, 'child', { signal: cancel.signal });
+      await probing;
+      cancel.abort();
+      held();
+      expect(await pending).toEqual({ ok: false, reason: 'cancelled' });
+      await new Promise((r) => setTimeout(r, 10));
+      expect(s.controller.getSnapshot().status).toBe('active');
+      expect((await s.sessionEvents()).filter((e) => e.type === 'session.ended')).toEqual([]);
+    });
+
+    it('a yield that expires while queued behind other work ends nothing', async () => {
+      const s = await setup({ bus: fakeBusNet() });
+      const slow = gatedStore(s.store);
+      const tabA = s.make({ store: slow });
+      await tabA.start(CHILD_K);
+      slow.reads.close(); // tab A's next log read waits on storage
+      const busy = tabA.canStart(CHILD_K);
+      const tabB = s.make();
+      // Delivered in time, but A's end queues behind the slow read; B gives up first.
+      expect(await tabB.start(CHILD_G2)).toEqual({ ok: false, reason: 'elsewhere' });
+      s.env.clock.advance(1_000);
+      slow.reads.open();
+      await busy;
+      await new Promise((r) => setTimeout(r, 10));
+      expect(tabA.getSnapshot().status).toBe('active');
+      expect((await s.sessionEvents()).filter((e) => e.type === 'session.ended')).toEqual([]);
+    });
+
+    it('a start cancelled during its write ends at once and lets the lock go', async () => {
+      const { locks, held } = fakeLocks();
+      const s = await setup({ locks });
+      const slow = gatedStore(s.store);
+      const tab = s.make({ store: slow });
+      slow.writes.close();
+      const cancel = new AbortController();
+      const pending = tab.start(CHILD_K, 'child', { signal: cancel.signal });
+      await new Promise((r) => setTimeout(r, 10)); // now inside the session.started write
+      cancel.abort(); // the picker unmounted (the route changed)
+      slow.writes.open();
+      expect(await pending).toEqual({ ok: false, reason: 'cancelled' });
+      expect(tab.getSnapshot()).toEqual({ status: 'idle' });
+      expect(held.size).toBe(0);
+      const types = (await s.sessionEvents()).map((e) => [e.type, e.payload]);
+      expect(types).toEqual([
+        ['session.started', expect.anything()],
+        ['session.ended', expect.objectContaining({ reason: 'child-exit' })],
+      ]);
+    });
+
+    it('without Web Locks, a start leaves another tab’s live session and checkpoint alone', async () => {
+      const s = await setup({ locks: null });
+      await s.controller.start(CHILD_K); // tab A, checkpoint saved at start
+      s.advance(16_000);
+      const tabB = s.make();
+      expect(await tabB.start(CHILD_G2)).toMatchObject({ ok: true });
+      const ends = (await s.sessionEvents()).filter((e) => e.type === 'session.ended');
+      expect(ends).toEqual([]);
+      expect([...s.storage.map.keys()].filter((k) => k.startsWith(CHECKPOINT_PREFIX))).toHaveLength(
+        2,
+      );
+      // Once A's checkpoint has gone quiet (the tab is gone), a sweep closes it.
+      s.env.clock.advance(3 * MIN);
+      await tabB.end('child-exit');
+      expect(await tabB.closeAbandoned()).toBe(1);
     });
 
     it('refuses a start while another tab plays and doesn’t yield (elsewhere)', async () => {

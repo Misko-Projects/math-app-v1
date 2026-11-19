@@ -117,14 +117,15 @@ function PickerScreen() {
       pending.current = attempt;
       try {
         const result = await session.start(child.id, 'child', { signal: attempt.signal });
-        if (!mounted.current) return;
         if (attempt.signal.aborted) {
-          // Closed during the last moment of the start (its write): end what started at once.
+          // Closed or unmounted after the start resolved (the controller ends a start cancelled
+          // during its write itself): end what started, so nothing plays off screen.
           if (result.ok) {
             void session.end('child-exit').catch((e) => recordDiagnostic('session.end', e));
           }
           return;
         }
+        if (!mounted.current) return;
         pending.current = null;
         if (result.ok) {
           navigate(`/play/${child.id}`);
