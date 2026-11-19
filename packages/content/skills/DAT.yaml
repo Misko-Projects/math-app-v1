@@ -15,9 +15,7 @@ skills:
     kind: concept
     grade: 1
     standards: { ccss: [1.MD.C.4] }
-    # 03 §3.17 also lists ADD.20 (the equality and stories strand). V04 rejects an unauthored
-    # prerequisite, so it is added when that strand lands.
-    prerequisites: [DAT.10]
+    prerequisites: [DAT.10, ADD.20]
     gateway: false
     representations: [picture-graph, bar-graph]
 

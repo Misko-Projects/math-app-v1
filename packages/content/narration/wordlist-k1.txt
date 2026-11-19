@@ -201,6 +201,7 @@ fact
 factory
 facts
 fair
+false
 farm
 farmer
 farther
@@ -702,6 +703,7 @@ triangles
 trick
 tried
 tries
+true
 try
 trying
 turn

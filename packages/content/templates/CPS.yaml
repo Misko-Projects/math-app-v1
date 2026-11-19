@@ -332,6 +332,36 @@ templates:
     difficulty: { base: -2.55 }
     narration: { prompt: p.bond.missing-part, hints: [h.bond.through-ten, h.bond.count-on] }
 
+  # ---------- CPS.09: tens partners of 100 (grade 1) ----------
+  # tensOnly: whole and part are in tens, so whole 10 is 100 and part 3 is 30.
+  - id: CPS.09.t1
+    skillId: CPS.09
+    format: base-ten-build
+    tier: concrete
+    representation: base-ten
+    generator: bond.parts
+    params: { whole: 10, part: { int: [1, 9] }, unknown: part, tensOnly: true }
+    difficulty: { base: -13.23 }
+    narration: { prompt: tp.CPS.09.t1.prompt, hints: [h.bond.tens-up, h.bond.ten-tens] }
+
+  - id: CPS.09.t2
+    skillId: CPS.09
+    format: hundred-chart
+    tier: pictorial
+    generator: bond.parts
+    params: { whole: 10, part: { int: [1, 9] }, unknown: part, tensOnly: true }
+    difficulty: { base: -11.63 }
+    narration: { prompt: tp.CPS.09.t2.prompt, hints: [h.bond.chart-tens, h.bond.ten-tens] }
+
+  - id: CPS.09.t3
+    skillId: CPS.09
+    format: number-bond
+    tier: pictorial
+    generator: bond.parts
+    params: { whole: 10, part: { int: [1, 9] }, unknown: part, tensOnly: true }
+    difficulty: { base: -12.83 }
+    narration: { prompt: tp.CPS.09.t3.prompt, hints: [h.bond.count-on, h.bond.tens-like-ones] }
+
   # ---------- CPS.11: split a number to finish a ten (grade 1) ----------
   # addend 6–9 needs part = 10 − addend; the whole (the other addend) keeps the rest.
   - id: CPS.11.t1

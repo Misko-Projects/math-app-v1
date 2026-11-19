@@ -12,6 +12,7 @@ import {
 } from '@number-island/shared';
 import fc from 'fast-check';
 import { stateChecker } from '../check/state';
+import { blocksToBalance } from '../check/state/balance.equal';
 import { boundNarration } from '../content/binding';
 import { constraintHolds } from '../content/expr';
 import { lineSlots, renderForms } from '../content/render';
@@ -111,6 +112,11 @@ export function answerNumbers(item: GeneratedItem): number[] {
       // When the item asks for a typed value, that value is the answer and the frame or jump target
       // is a given (the whole in a missing-part item).
       if (typeof t.value === 'number') return [t.value];
+      // balance.equal: the blocks the lighter pan needs (the pans' own values are givens).
+      if (a.checker === 'balance.equal') {
+        const need = blocksToBalance(t);
+        return need && need.count > 0 ? [need.count] : [];
+      }
       const out = (keys[a.checker] ?? []).map((k) => t[k]);
       if (a.checker === 'select.exactSet' && Array.isArray(t.values)) out.push(...t.values);
       // K01: the counts a chart must show, and the numbers a number pattern continues with. A
@@ -275,7 +281,18 @@ function stateMutation(original: StateValue): fc.Arbitrary<StateValue> {
   }
   // U04 (#13) state shapes: base-ten pieces and mat columns, array dimensions and split line,
   // container and share counts, and the leftover. One piece, row, column or item more or less.
-  for (const key of ['thousands', 'hundreds', 'tens', 'ones', 'cols', 'split', 'leftover']) {
+  // K01 (#11) balance make-equal: the blocks added to each pan (balance.equal).
+  for (const key of [
+    'thousands',
+    'hundreds',
+    'tens',
+    'ones',
+    'cols',
+    'split',
+    'leftover',
+    'left',
+    'right',
+  ]) {
     if (typeof original[key] === 'number') {
       options.push(
         fc.constantFrom(1, -1).map((d) => {
@@ -469,6 +486,7 @@ export function choiceOptions(item: GeneratedItem): string[] {
   if (w.format === 'compare') {
     if (w.ask === 'symbol') return ['<', '>', '='];
     if (w.ask === 'true-false') return ['true', 'false'];
+    if (w.ask === 'same-or-not') return ['same', 'not-same'];
     return ['left', 'right', 'same'];
   }
   if (w.format === 'balance') {
@@ -491,14 +509,14 @@ export function choiceOptions(item: GeneratedItem): string[] {
 
 /**
  * The fewest options a multiple-choice item may show (03 §9.4 step 9). The 03 §5.1 pick widgets
- * show at least 3. Reading (K01): an answer set the format fixes at two (compare true-false,
- * balance judge), or the objects on screen (compare-length: two lengths side by side, MEA.01), is
+ * show at least 3. Reading (K01): an answer set the format fixes at two (compare true-false and
+ * same-or-not, balance judge), or the objects on screen (compare-length: two lengths side by side, MEA.01), is
  * the format's own answer set, so it needs 2.
  */
 function minChoiceOptions(item: GeneratedItem): number {
   const w = item.widget;
   if (w.format === 'compare-length') return 2;
-  if (w.format === 'compare' && w.ask === 'true-false') return 2;
+  if (w.format === 'compare' && (w.ask === 'true-false' || w.ask === 'same-or-not')) return 2;
   if (w.format === 'balance' && w.mode === 'judge') return 2;
   // K01: fraction-pick `fair-or-not` is a fixed yes / no pair, and a graph question picks one of
   // the categories the chart shows (two or three at grade 1).

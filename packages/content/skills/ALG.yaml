@@ -1,6 +1,7 @@
-# ALG: Patterns, equality and early algebra, the K–1 pattern rows of 03 §3.18 (K01, #11). ALG.05
-# comes with the equality strand; ALG.03 and ALG.06–10 are grade 2–3 (K02, graph.yaml plannedIds).
-# ALG.01 and ALG.04 carry no standards tag (03 §2.5).
+# ALG: Patterns, equality and early algebra, the K–1 rows of 03 §3.18 (K01, #11): the patterns
+# ALG.01, ALG.02 and ALG.04, and ALG.05, the equality foundation ADD.10 builds on. ALG.03 and
+# ALG.06–10 are grade 2–3 (K02, graph.yaml plannedIds). ALG.01 and ALG.04 carry no standards tag
+# (03 §2.5).
 strand: ALG
 skills:
   - id: ALG.01
@@ -29,3 +30,12 @@ skills:
     prerequisites: [ALG.01]
     gateway: false
     representations: [objects, shapes]
+
+  - id: ALG.05
+    name: Balanced means the same amount on both sides
+    kind: concept
+    grade: K
+    standards: { ccss: [], supports: [1.OA.D.7] }
+    prerequisites: [CMP.01]
+    gateway: false
+    representations: [objects, balance]

@@ -3,6 +3,7 @@
 
 import type { GeneratorId } from '@number-island/shared';
 import { addsubFacts } from './addsub/facts';
+import { addsubThree } from './addsub/three';
 import { bondParts } from './bond/parts';
 import { compareNumbers } from './compare/numbers';
 import { compareSets } from './compare/sets';
@@ -12,6 +13,7 @@ import { countSet } from './count/set';
 import { dataChart } from './data/chart';
 import { dataSort } from './data/sort';
 import { divShare } from './div/share';
+import { equalityEq } from './equality/eq';
 import { estimateQuantity } from './estimate/quantity';
 import { fracCompare } from './frac/compare';
 import { fracPartition } from './frac/partition';
@@ -19,6 +21,7 @@ import { geoCompose } from './geo/compose';
 import { geoDraw } from './geo/draw';
 import { geoIdentify } from './geo/identify';
 import { geoPosition } from './geo/position';
+import { mdaAddSub } from './mda/addsub';
 import { meaLength } from './mea/length';
 import { meaMassVolume } from './mea/massvolume';
 import { numberlinePlace } from './numberline/place';
@@ -26,6 +29,9 @@ import { patternGrow } from './pattern/grow';
 import { patternRepeat } from './pattern/repeat';
 import { puzzleGrid } from './puzzle/grid';
 import { pvNumber } from './pv/number';
+import { pvRegroup } from './pv/regroup';
+import { pvTenMore } from './pv/tenmore';
+import { storyAddsub } from './story/addsub';
 import { subitizeFlash } from './subitize/flash';
 import { timeClock } from './time/clock';
 import { timeSequence } from './time/sequence';
@@ -59,6 +65,13 @@ const GENERATORS: GeneratorDef[] = [
   patternRepeat, // K01 patterns (ALG.01, ALG.04)
   patternGrow, // K01 patterns (ALG.02)
   puzzleGrid, // K01 puzzles (PUZ.01, PUZ.02, CPS.06)
+  // K01 (#11): place value and two-digit addition and subtraction
+  pvRegroup,
+  pvTenMore,
+  mdaAddSub,
+  equalityEq,
+  storyAddsub,
+  addsubThree,
 ];
 
 const BY_ID = new Map<GeneratorId, GeneratorDef>(GENERATORS.map((g) => [g.id, g]));

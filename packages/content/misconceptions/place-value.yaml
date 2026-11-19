@@ -1,0 +1,84 @@
+# Place-value misconceptions (03 §7.2). Skills list the catalog skills authored so far: PV.15 joins
+# MC.place-swap and MC.face-value, PV.24 joins MC.face-value, and PV.05, PV.14 and PV.20 join
+# MC.write-as-spoken (with remediation PV.15) when those K02 skills land. MC.zero-placeholder,
+# MC.compare-first-digit and the rounding entries have no K01 skill whose items can show them.
+area: place-value
+misconceptions:
+  - id: MC.place-swap
+    name: Swaps the tens and the ones (34 written as 43)
+    detect: { kind: answer, rule: placeSwap }
+    appliesTo: { generators: [pv.number] }
+    skills: [PV.01, PV.13]
+    remediation: [PV.01]
+    feedback: fb.mc.place-swap
+    # Below MC.teen-reversal: 41 written as 14 is both, and the teen word is the cause.
+    priority: 45
+    parentTip: >-
+      Build the number together with bundles of ten and single sticks, then say it: the bundles
+      are the first number, the single sticks the last.
+    examples:
+      # 34 built as 4 tens and 3 ones (PV.01 bundles).
+      - params: { n: 34 }
+        response: { kind: state, value: { thousands: 0, hundreds: 0, tens: 4, ones: 3 } }
+        match: true
+      - params: { n: 34 }
+        response: { kind: state, value: { thousands: 0, hundreds: 0, tens: 3, ones: 4 } }
+        match: false
+      - params: { n: 34 }
+        response: { kind: number, value: 43 }
+        match: true
+      # 30 swapped would start with 0: nothing to tell apart.
+      - params: { n: 30 }
+        response: { kind: state, value: { thousands: 0, hundreds: 0, tens: 0, ones: 3 } }
+        match: false
+
+  - id: MC.face-value
+    name: Counts each digit as ones (3 tens 4 ones as 7)
+    detect: { kind: answer, rule: faceValue }
+    appliesTo: { generators: [pv.number] }
+    skills: [PV.01]
+    remediation: [PV.09, PV.01]
+    feedback: fb.mc.face-value
+    priority: 50
+    parentTip: >-
+      Count a bundle of ten sticks out loud together, then count by tens over the bundles: each
+      bundle is ten, not one.
+    examples:
+      # 34 built with 7 ones.
+      - params: { n: 34 }
+        response: { kind: state, value: { thousands: 0, hundreds: 0, tens: 0, ones: 7 } }
+        match: true
+      - params: { n: 34 }
+        response: { kind: state, value: { thousands: 0, hundreds: 0, tens: 2, ones: 14 } }
+        match: false
+      - params: { n: 34 }
+        response: { kind: number, value: 7 }
+        match: true
+      - params: { n: 34 }
+        response: { kind: number, value: 8 }
+        match: false
+
+  # No predict (03 §7.1): the written-as-spoken number (407 for 47) is never a possible option of a
+  # two-digit pick, so the rule only tags typed answers.
+  - id: MC.write-as-spoken
+    name: Writes the number the way it sounds (forty-seven as 407)
+    detect: { kind: answer, rule: writeAsSpoken }
+    appliesTo: { generators: [pv.number] }
+    skills: [PV.13]
+    remediation: [PV.13]
+    feedback: fb.mc.write-as-spoken
+    priority: 50
+    parentTip: >-
+      Write 40 and 7 on two cards, then slide the 7 on top of the zero: forty-seven needs only two
+      digits.
+    examples:
+      # 40 + 7 written as 407 (PV.13, the expanded form to the number).
+      - params: { n: 47 }
+        response: { kind: number, value: 407 }
+        match: true
+      - params: { n: 47 }
+        response: { kind: number, value: 74 }
+        match: false
+      - params: { n: 14 }
+        response: { kind: number, value: 104 }
+        match: false

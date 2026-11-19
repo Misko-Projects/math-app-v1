@@ -1,5 +1,4 @@
-# SUB: Subitizing, catalog rows from 03 §3.4 (K01). SUB.08 (it needs PV.01) and the grade-2 SUB.09
-# come in later PRs.
+# SUB: Subitizing, catalog rows from 03 §3.4 (K01). The grade-2 SUB.09 comes with K02.
 strand: SUB
 skills:
   - id: SUB.01
@@ -64,3 +63,12 @@ skills:
     prerequisites: [SUB.04]
     gateway: false
     representations: [rekenrek, double-ten-frame]
+
+  - id: SUB.08
+    name: Quick-read tens and ones from a base-ten picture
+    kind: concept
+    grade: 1
+    standards: { ccss: [], supports: [1.NBT.B.2] }
+    prerequisites: [SUB.04, PV.01]
+    gateway: false
+    representations: [bundles, base-ten]

@@ -443,6 +443,61 @@ templates:
     difficulty: { base: -0.8, features: { closeness: 0.5 } }
     narration: { prompt: tp.CMP.07.t4.prompt, hints: [h.order.smallest, h.compare.tens] }
 
+  # ---------- CMP.08 <, > and = to 20 ----------
+  # Constructed practice (V27): make a balance level (equality.eq a = c + _, balance.equal) and the
+  # one number between two others (a < _ < a + 2). The symbol templates are choices.
+  - id: CMP.08.t1
+    skillId: CMP.08
+    format: balance
+    tier: pictorial
+    representation: balance
+    generator: equality.eq
+    params: { form: a=c+_, mode: make-equal, a: { int: [2, 20] }, b: 0, c: { int: [1, 19] } }
+    difficulty: { base: -0.9 }
+    narration: { prompt: tp.CMP.08.t1.prompt, hints: [h.weight.goes-down, h.balance.add-one] }
+
+  - id: CMP.08.t2
+    skillId: CMP.08
+    format: compare
+    tier: pictorial
+    representation: number-line
+    generator: compare.numbers
+    params:
+      a: { int: [0, 20] }
+      b: { int: [0, 20] }
+      extra: 0
+      min: 0
+      max: 20
+      ask: symbol
+    difficulty: { base: -0.8 }
+    narration: { prompt: tp.CMP.08.t2.prompt, hints: [h.compare.line, h.cmp.open-side] }
+
+  - id: CMP.08.t3
+    skillId: CMP.08
+    format: compare
+    tier: abstract
+    representation: symbols
+    generator: compare.numbers
+    params:
+      a: { int: [0, 20] }
+      b: { int: [0, 20] }
+      extra: 0
+      min: 0
+      max: 20
+      ask: symbol
+    difficulty: { base: -0.85 }
+    narration: { prompt: tp.CMP.08.t2.prompt, hints: [h.cmp.greater-first, h.cmp.open-side] }
+
+  - id: CMP.08.t4
+    skillId: CMP.08
+    format: number-pad
+    tier: abstract
+    representation: symbols
+    generator: equality.eq
+    params: { form: between, rel: { choice: ["<", ">"] }, a: { int: [0, 18] }, b: 0, c: 1 }
+    difficulty: { base: -0.5 }
+    narration: { prompt: tp.CMP.08.t4.prompt, hints: [h.cmp.between, h.cmp.open-side] }
+
   # ---------- CMP.09 estimate on a 0–100 line with only the ends marked ----------
   - id: CMP.09.t1
     skillId: CMP.09

@@ -22,3 +22,14 @@ tp.ALG.02.t4.prompt:
   text: "{a}, {b}, {c}. How much does it grow each time?"
 tp.ALG.04.t3.prompt:
   text: "Make the next repeat. Put the cards in order."
+
+sk.ALG.05.intro:
+  text: "When both sides are the same, the balance is level."
+tp.ALG.05.t1.prompt:
+  text: "Add some to the light side. Make it balance!"
+tp.ALG.05.t2.prompt:
+  text: "Do both groups have the same number?"
+tp.ALG.05.t3.prompt:
+  text: "Does it balance? Do both sides have the same?"
+tp.ALG.05.t4.prompt:
+  text: "Count each side. Add some to make it balance!"

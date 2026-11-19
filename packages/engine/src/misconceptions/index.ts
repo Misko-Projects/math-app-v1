@@ -8,18 +8,26 @@ import { biggerUnitMore } from './rules/biggerUnitMore';
 import { countAllInstead } from './rules/countAllInstead';
 import { countStartNumber } from './rules/countStartNumber';
 import { decadeTransition } from './rules/decadeTransition';
+import { equalsAddAll } from './rules/equalsAddAll';
+import { equalsMeansAnswer } from './rules/equalsMeansAnswer';
+import { faceValue } from './rules/faceValue';
 import { forgotTheTen } from './rules/forgotTheTen';
 import { fractionBiggerDenominator } from './rules/fractionBiggerDenominator';
 import { fractionUnequalParts } from './rules/fractionUnequalParts';
 import { hourHandNext } from './rules/hourHandNext';
 import { hourMinuteSwap } from './rules/hourMinuteSwap';
+import { keywordMoreMeansAdd } from './rules/keywordMoreMeansAdd';
 import { offByOneCounting } from './rules/offByOneCounting';
 import { patternRestart } from './rules/patternRestart';
 import { perceptualSize } from './rules/perceptualSize';
+import { placeSwap } from './rules/placeSwap';
 import { recountFromOne } from './rules/recountFromOne';
+import { startUnknownReversed } from './rules/startUnknownReversed';
+import { symbolReversed } from './rules/symbolReversed';
 import { teenReversal } from './rules/teenReversal';
 import { unequalShare } from './rules/unequalShare';
 import { unitGaps } from './rules/unitGaps';
+import { writeAsSpoken } from './rules/writeAsSpoken';
 import { wrongOperation } from './rules/wrongOperation';
 
 const RULES: Record<string, MisconceptionRule> = {
@@ -40,6 +48,15 @@ const RULES: Record<string, MisconceptionRule> = {
   fractionBiggerDenominator: fractionBiggerDenominator, // K01 fractions
   unequalShare: unequalShare, // K01 sharing
   patternRestart: patternRestart, // K01 patterns
+  placeSwap: placeSwap,
+  faceValue: faceValue,
+  writeAsSpoken: writeAsSpoken,
+  // K01 (#11): equality and story problems
+  equalsMeansAnswer: equalsMeansAnswer,
+  equalsAddAll: equalsAddAll,
+  startUnknownReversed: startUnknownReversed,
+  keywordMoreMeansAdd: keywordMoreMeansAdd,
+  symbolReversed: symbolReversed,
 };
 
 export function misconceptionRule(id: string): MisconceptionRule | undefined {
