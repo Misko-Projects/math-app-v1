@@ -736,11 +736,23 @@ export function planSession(input: PlanSessionInput, opts: PlanOptions = {}): Se
     ),
   );
 
-  // An item warmup (rules a–d) is the only attempt before a request's first items, so a test-out
-  // is planned only when the learner would still offer it after that warmup went wrong: the plan
-  // and the learner (which decides at the first evidence attempt, 04 §7a) then agree.
+  // One test-out rule. The learner decides a test-out at the skill's first evidence attempt
+  // (04 §7a), after the warmup, whose outcome the plan cannot know; the plan must agree whatever it
+  // is. A lesson with rated child steps touches the skill, so the learner never offers a test-out
+  // after it: its draw (which comes first) is planned only when the learner offers it even after
+  // the warmup went all wrong. A demonstration-only lesson leaves the skill untouched, so the
+  // learner may offer the test-out at the first evidence item whatever the plan did: its draw is
+  // planned whenever the learner may offer it, after the warmup went all right. Any test-out the
+  // learner starts is then a planned, passable draw (03 §6.5).
+  const plannedTestOut = (s: SkillId, before: Before | null): boolean => {
+    const skill = graph.skills[s] as Skill;
+    const sign = lessonChildSteps(skill) === 0 ? 1 : -1;
+    return model.inTestOut(afterAttempts(state, before, model, P, sign), s);
+  };
   const itemWarmup = warmupBeforeFocus(ctx, themed);
-  const offerState = itemWarmup ? afterWrongAttempt(state, itemWarmup.skillId, model, P) : state;
+  const itemBefore: Before | null = itemWarmup
+    ? { skillId: itemWarmup.skillId, w: 1, times: 1 }
+    : null;
 
   const focusOf = (i: number): Focus | null => {
     if (focusIds.length === 0) return null;
@@ -756,9 +768,12 @@ export function planSession(input: PlanSessionInput, opts: PlanOptions = {}): Se
     }
     const ready = status.get(s) === 'ready';
     const lesson = ready && skill.lesson.mode !== 'none';
-    // The learner's own offer rule (03 §6.5, 04 §7a), on the worst case of the warmup.
-    const offered = lesson && model.inTestOut(offerState, s);
-    return { skillId: s, lesson, testOut: offered, remediation: false };
+    return {
+      skillId: s,
+      lesson,
+      testOut: lesson && plannedTestOut(s, itemBefore),
+      remediation: false,
+    };
   };
   let focuses = Array.from({ length: nReq }, (_, i) => focusOf(i));
 
@@ -910,23 +925,27 @@ export function planSession(input: PlanSessionInput, opts: PlanOptions = {}): Se
     // whose test-out is not offered) is the warmup, and requests on that skill skip that lesson.
     // No request is rebuilt around another focus, so remediation and every request's own draw
     // stay as planned.
-    // A queued remediation keeps its own lesson in its request (04 §6.4), so it is not a candidate.
+    // A queued remediation request keeps its own lesson task whatever the warmup is (04 §6.4); a
+    // skill with a queued remediation is the warmup lesson only when no other skill can be.
+    const remediated = new Set(focuses.filter((f) => f?.remediation).map((f) => f?.skillId));
     const withLesson = focuses.filter((f): f is Focus => f?.lesson === true && !f.remediation);
-    const f0 = withLesson.find((f) => !f.testOut) ?? withLesson[0];
+    const free = withLesson.filter((f) => !remediated.has(f.skillId));
+    const f0 = free.find((f) => !f.testOut) ?? free[0] ?? withLesson[0];
     const lessonSkill = f0 ? graph.skills[f0.skillId] : undefined;
     const lessonTpl = lessonSkill ? graph.templates[lessonSkill.lesson.templateId] : undefined;
     if (f0 && lessonSkill && lessonTpl) {
       warmup = warmupTask(ctx, f0.skillId, lessonTpl.id, 'lesson', 'lesson');
-      // The lesson's child steps are rated `lesson` attempts (w × 0.5): with any, the skill is
-      // touched and gets no test-out; a demonstration-only lesson leaves it untouched and keeps its
-      // draw. Every other test-out is planned only if it holds after all those steps go wrong.
+      // The lesson's child steps are rated `lesson` attempts (w × 0.5), and they come before every
+      // request: the one test-out rule above, applied to them. With any, the lesson skill itself is
+      // touched and gets no test-out; a demonstration-only lesson leaves it untouched and its state
+      // unchanged, so its draw stays as planned. The remediation request is left as it is.
       const steps = lessonChildSteps(lessonSkill);
-      const worst = afterWrongAttempt(state, f0.skillId, model, P, P.rating.lessonWeight, steps);
+      const lessonBefore: Before = { skillId: f0.skillId, w: P.rating.lessonWeight, times: steps };
       focuses = focuses.map((f) => {
-        if (!f) return f;
+        if (!f || f.remediation) return f;
         if (f.skillId === f0.skillId)
           return { ...f, lesson: false, testOut: f.testOut && steps === 0 };
-        return { ...f, testOut: f.testOut && model.inTestOut(worst, f.skillId) };
+        return { ...f, testOut: f.lesson && plannedTestOut(f.skillId, lessonBefore) };
       });
       built = build(focuses);
     } else {
@@ -952,35 +971,45 @@ function lessonChildSteps(skill: Skill): number {
   return faded + skill.lesson.scaffolded.count;
 }
 
+/** The rated attempts that come before a request's first items: the warmup's. */
+interface Before {
+  skillId: SkillId;
+  /** Rating weight of each attempt (1 for an item, w × 0.5 for a lesson's child steps). */
+  w: number;
+  times: number;
+}
+
 /**
- * The state after the worst `times` first attempts on `skill` at weight `w`: each wrong answer
- * (e = −1) lowers θg by Kg(N)·w and the skill's offset by Ks(n)·w (04 §2.3). Used to plan only
- * test-outs the learner still offers whatever the warmup's outcome (a wrong answer lowers P(ref);
- * a right one raises it).
+ * The state after `before`'s attempts all go wrong (sign −1) or all go right (sign +1). The 04 §2.3
+ * update moves θg by Kg(N)·w·(o − P̂) and the skill's offset by Ks(n)·w·(o − P̂), with |o − P̂| < 1,
+ * so these bound every outcome: P(ref) of any skill, and so the learner's offer, lies between them.
  */
-function afterWrongAttempt(
+function afterAttempts(
   state: LearnerState,
-  skill: SkillId,
+  before: Before | null,
   model: EloFireModel,
   P: EngineParams,
-  w = 1,
-  times = 1,
+  sign: 1 | -1,
 ): LearnerState {
   let s = state;
-  for (let k = 0; k < times; k++) s = oneWrongAttempt(s, skill, model, P, w);
+  if (!before) return s;
+  for (let k = 0; k < before.times; k++)
+    s = oneAttempt(s, before.skillId, model, P, before.w, sign);
   return s;
 }
 
-function oneWrongAttempt(
+function oneAttempt(
   state: LearnerState,
   skill: SkillId,
   model: EloFireModel,
   P: EngineParams,
   w: number,
+  sign: 1 | -1,
 ): LearnerState {
   const st = state.skills[skill];
   const n = st?.n ?? 0;
-  const theta = model.skillOffset(state, skill) - (w * P.rating.ks) / (1 + P.rating.ksDecay * n);
+  const theta =
+    model.skillOffset(state, skill) + (sign * w * P.rating.ks) / (1 + P.rating.ksDecay * n);
   const base: SkillState = st ?? {
     theta,
     n: 0,
@@ -996,7 +1025,7 @@ function oneWrongAttempt(
   };
   return {
     ...state,
-    thetaG: state.thetaG - (w * P.rating.kg) / (1 + P.rating.kgDecay * state.nTotal),
+    thetaG: state.thetaG + (sign * w * P.rating.kg) / (1 + P.rating.kgDecay * state.nTotal),
     nTotal: state.nTotal + 1,
     skills: { ...state.skills, [skill]: { ...base, theta, n: n + 1 } },
   };
