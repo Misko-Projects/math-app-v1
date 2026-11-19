@@ -197,6 +197,36 @@ async function expectDesignLayout(canvasElement: HTMLElement, root: HTMLElement)
 }
 
 /**
+ * The rectangle's side numbers (top and left) sit outside the board, at least 6 px clear of its
+ * border box, for each size built with the arrow keys (review CR-1.3 follow-up).
+ */
+async function expectDimsClear(root: HTMLElement, sizes: [number, number][]) {
+  for (const [w, h] of sizes) {
+    board(root).focus();
+    const [cw, ch] = (board(root).dataset.size ?? '0x0').split('x').map(Number) as [number, number];
+    const from = cw === 0 ? [1, 1] : [cw, ch];
+    if (cw === 0) await userEvent.keyboard('{ArrowRight}{ArrowLeft}');
+    const keys = [
+      ...Array(Math.max(0, w - (from[0] as number))).fill('{ArrowRight}'),
+      ...Array(Math.max(0, (from[0] as number) - w)).fill('{ArrowLeft}'),
+      ...Array(Math.max(0, h - (from[1] as number))).fill('{ArrowDown}'),
+      ...Array(Math.max(0, (from[1] as number) - h)).fill('{ArrowUp}'),
+    ].join('');
+    if (keys) await userEvent.keyboard(keys);
+    await expect(board(root)).toHaveAttribute('data-size', `${w}x${h}`);
+    const b = board(root).getBoundingClientRect();
+    for (const dim of root.querySelectorAll('.ni-pwalk__dim')) {
+      const d = dim.getBoundingClientRect();
+      const gap = Math.max(b.left - d.right, d.left - b.right, b.top - d.bottom, d.top - b.bottom);
+      await expect(
+        gap,
+        `${w}×${h}: "${dim.textContent}" clear of the board`,
+      ).toBeGreaterThanOrEqual(6);
+    }
+  }
+}
+
+/**
  * MEA.14: drag the corner to make a 4 × 3 rectangle (12 squares, not the 6 × 2). Arrow keys
  * change it too. The answer passes rect.perimeterArea; the 6 × 2 itself would not. The grid is
  * wide (12 × 3): a 1 × 12 answer is built lying down as 12 × 1, which the checker takes as the
@@ -285,6 +315,11 @@ export const DesignTablet: Story = {
   play: async ({ canvasElement }) => {
     const root = await findWidget(canvasElement, ROOT);
     await expectDesignLayout(canvasElement, root);
+    await expectDimsClear(root, [
+      [12, 1],
+      [4, 3],
+      [1, 3],
+    ]);
   },
 };
 
@@ -342,6 +377,12 @@ export const DesignLandscapeMin: Story = {
     await waitFor(() => expect(board(root)).toHaveAttribute('data-size', '12x1'));
     const corner = root.querySelector('.ni-pwalk__corner') as HTMLElement;
     await expectTargetSize(corner, 'g1-up');
+    await expectDimsClear(root, [
+      [12, 1],
+      [4, 3],
+      [1, 3],
+    ]);
+    await expectFitsArea(areaBox(canvasElement), [...root.querySelectorAll('.ni-pwalk__dim')]);
   },
 };
 

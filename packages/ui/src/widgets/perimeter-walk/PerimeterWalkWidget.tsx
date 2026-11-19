@@ -150,9 +150,11 @@ export function PerimeterWalkWidget({
     : null;
   const gridCols = Math.max(4, refRect?.w ?? 0, ...options.map(longSide));
   const gridRows = Math.max(3, refRect?.h ?? 0, ...options.map(shortSide));
-  // Room for the rectangle's side numbers (above and left of the board) and the board's border.
-  const DIM_TOP = 44;
-  const DIM_LEFT = 40;
+  // Room for the rectangle's side numbers above and left of the board (34 px numerals, ≈ 24 px a
+  // digit, 12 px clear of the board's border) and the board's border.
+  const DIM_CLEAR = 12;
+  const DIM_TOP = 36 + DIM_CLEAR;
+  const DIM_LEFT = 24 * String(gridRows).length + DIM_CLEAR;
   const BORDER = 6;
   // The ref's "6 × 2" caption under it, and the gap between the ref and the board.
   const CAPTION = 46;
@@ -508,6 +510,7 @@ export function PerimeterWalkWidget({
           data-size={size ? `${w}x${h}` : undefined}
           data-cell={cell}
           style={{
+            margin: `${DIM_TOP}px 0 0 ${DIM_LEFT}px`,
             // Border-box: the squares fill the inside of the 3 px border.
             width: gridCols * cell + BORDER,
             height: gridRows * cell + BORDER,
