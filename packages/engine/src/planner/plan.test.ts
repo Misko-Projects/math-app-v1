@@ -325,12 +325,12 @@ describe('warmup (04 §6.1)', () => {
     expect(r.tasks.some((t) => t.mode === 'lesson')).toBe(false);
   });
 
-  it('a rated lesson warmup: a rated lesson draws only if certain, a demonstration whenever possible', () => {
+  it('a rated lesson warmup: a draw only when certain; else a demonstration starts outside the pool', () => {
     // No priors; both roots offered only through P(ref) = 0.751. A's lesson (the warmup) has two
-    // rated items, whose worst case lowers θg below the offer. B with a rated lesson is planned
-    // lesson first, which touches B, so the learner never offers it. B with a demonstration-only
-    // lesson stays untouched after it, so the learner may still offer B's test-out at its first
-    // evidence item: B's whole draw is planned.
+    // rated items, whose worst case lowers θg below the offer, so B gets no draw. B with a rated
+    // lesson is planned lesson first, which touches B, so the learner never offers it. B with a
+    // demonstration-only lesson stays untouched after it, so the learner may still offer B's
+    // test-out: B's practice starts outside the pool, which cancels it.
     const s = stateWith({}, { thetaG: Math.log(0.751 / 0.249) });
     const ratedB = withRatedLesson(twoRoots(2), B, 1);
     const rated = plan(input({ graph: ratedB, state: s, workshopsAvailable: [HALL] }));
@@ -338,15 +338,17 @@ describe('warmup (04 §6.1)', () => {
     expect(drawOf(rated, B)).toHaveLength(0);
     const demoB = plan(input({ graph: twoRoots(2), state: s, workshopsAvailable: [HALL] }));
     expect(demoB.warmup).toMatchObject({ skillId: A, mode: 'lesson' });
-    expect(drawOf(demoB, B)).toHaveLength(3);
+    expect(drawOf(demoB, B)).toHaveLength(0);
+    firstItemsOutsidePool(demoB, B, twoRoots(2));
   });
 
-  it('a learner test-out after a rated lesson warmup is always a planned, passable draw', () => {
+  it('a test-out the learner may still offer without a planned draw is cancelled at once', () => {
     // Review round 6 (#61): θg = logit(0.75) + 0.04, no priors. A's lesson (the warmup) has one
     // scaffolded item; B's is demonstration-only, on B.t3 (number-pad). The only themed workshop
-    // hosts number-pad alone, so it hosts one of B's two pool templates. A hinted correct answer
-    // on A's scaffolded item keeps B offered. The learner starts B's test-out at B's first evidence
-    // item, so it must be the planned draw, passable at the Practice Pier.
+    // hosts number-pad alone: B's practice there would be in the pool. The worst case of A's step
+    // ends B's offer, so B gets no draw; a hinted correct answer keeps B offered, and the learner
+    // would start the test-out at B's first evidence item. So B's request goes to the Practice
+    // Pier, where B's practice starts outside the pool: that first item cancels the test-out.
     const b = graph.skills[B] as Skill;
     const g0 = twoRoots(1);
     const g: SkillGraph = {
@@ -359,9 +361,8 @@ describe('warmup (04 §6.1)', () => {
     expect(p.warmup).toMatchObject({ skillId: A, mode: 'lesson' });
     const r = p.requests.find((x) => x.tasks[0]?.skillId === B) as PlannedRequest;
     expect(r.workshopId).toBe(PRACTICE_PIER);
-    const draw = drawOf(p, B);
-    expect(draw).toHaveLength(3);
-    expect(new Set(draw.map((t) => t.templateId)).size).toBe(2);
+    expect(drawOf(p, B)).toHaveLength(0);
+    const [first] = firstItemsOutsidePool(p, B, g);
 
     const gModel = createEloFireModel(g, { childId: CHILD, isK: false });
     const n = (templateId: string) => Number(templateId.split('.t')[1]);
@@ -371,11 +372,10 @@ describe('warmup (04 §6.1)', () => {
       NOW,
     );
     expect(gModel.inTestOut(st, B)).toBe(true);
-    draw.forEach((t, k) => {
-      expect(targetDifficulty(st, B, t.context, child('1'), g)).toBe(0);
-      st = gModel.apply(st, synthAttempt(B, n(t.templateId), { context: t.context }), NOW + k + 1);
-    });
-    expect(st.skills[B]?.practicedAt).not.toBeNull();
+    const t = first as PlannedRequest['tasks'][number];
+    st = gModel.apply(st, synthAttempt(B, n(t.templateId), { context: t.context }), NOW + 1);
+    expect(gModel.inTestOut(st, B)).toBe(false);
+    expect(targetDifficulty(st, B, 'practice', child('1'), g)).not.toBe(0);
   });
 
   it('keeps the lesson of a queued remediation when its skill is every request focus', () => {
@@ -426,6 +426,22 @@ function drawOf(p: SessionPlan, s: string): PlannedRequest['tasks'] {
   if (!r) return [];
   const at = r.tasks.findIndex((t) => t.mode === 'lesson' && t.skillId === s);
   return r.tasks.slice(0, at < 0 ? r.tasks.length : at).filter((t) => t.skillId === s);
+}
+
+/**
+ * The first item of skill s in every request that has one, with a check that it lies outside s's
+ * test-out pool (the synthetic pool is the abstract t3 and t4), so it cancels any test-out the
+ * learner would start.
+ */
+function firstItemsOutsidePool(p: SessionPlan, s: string, g: SkillGraph = graph) {
+  const k = g.skills[s] as Skill;
+  const pool = new Set(k.lesson.testOut.templateIds ?? [`${s}.t3`, `${s}.t4`]);
+  const firsts = p.requests
+    .map((r) => r.tasks.find((t) => t.skillId === s && t.mode === 'item'))
+    .filter((t): t is PlannedRequest['tasks'][number] => t !== undefined);
+  expect(firsts.length).toBeGreaterThan(0);
+  for (const t of firsts) expect(pool.has(t.templateId)).toBe(false);
+  return firsts;
 }
 
 describe('lessons and test-outs (04 §3, 03 §6.5)', () => {
@@ -502,11 +518,12 @@ describe('lessons and test-outs (04 §3, 03 §6.5)', () => {
     }
 
     // With a demonstration-only lesson A stays untouched, so the learner may still offer the
-    // test-out after a right warmup: the draw is planned. After a wrong warmup the learner does not
-    // offer it, and the draw items are ordinary practice, asked at their adaptive target.
+    // test-out after a right warmup. No draw is planned (it is not certain), so A's practice starts
+    // outside the pool; after a right warmup that first item cancels the test-out, and after a
+    // wrong one the learner never offers it.
     const d = plan(input({ state: s, workshopsAvailable: [HALL] }));
-    const drawD = drawOf(d, A);
-    expect(drawD).toHaveLength(3);
+    expect(drawOf(d, A)).toHaveLength(0);
+    const [firstD] = firstItemsOutsidePool(d, A);
     const nD = (templateId: string) => Number(templateId.split('.t')[1]);
     const warm = (correct: boolean) =>
       model.apply(
@@ -520,7 +537,13 @@ describe('lessons and test-outs (04 §3, 03 §6.5)', () => {
       );
     expect(model.inTestOut(warm(true), A)).toBe(true);
     expect(model.inTestOut(warm(false), A)).toBe(false);
-    expect(targetDifficulty(warm(false), A, 'practice', child('1'), graph)).not.toBe(0);
+    const f = firstD as PlannedRequest['tasks'][number];
+    const afterFirst = model.apply(
+      warm(true),
+      synthAttempt(A, nD(f.templateId), { context: f.context }),
+      NOW + 1,
+    );
+    expect(model.inTestOut(afterFirst, A)).toBe(false);
 
     // With a robust offer (placement prior 0.7) the draw is planned; after a WRONG warmup the
     // learner still offers it, the draw is asked at d* = 0 and three clean answers earn the skip.
@@ -555,12 +578,12 @@ describe('lessons and test-outs (04 §3, 03 §6.5)', () => {
     expect(st.skills[A]?.practicedAt).not.toBeNull();
   });
 
-  it('a choice-only draw the learner does not offer still leaves practiced evidence', () => {
+  it('an uncertain choice-only draw is not planned, and the request still leaves practiced evidence', () => {
     // Review round 7 (#61): A's lesson is demonstration-only, and its test-out pool holds two
-    // abstract choice templates. P(ref) starts just below the offer, so the draw is planned on the
-    // all-right bound of the C warmup. If that warmup goes wrong, the learner never starts the
-    // test-out, and the draw items are choice responses, which never enter `recent`. A constructed
-    // practice item of A therefore follows the draw; with no room for it, the draw is not planned.
+    // abstract choice templates. P(ref) starts just below the offer, so only a right C warmup would
+    // make the learner offer it: no draw is planned (a draw is planned only when certain). A's
+    // practice starts outside the pool with a constructed template, so whatever the warmup's
+    // outcome the request records practiced evidence and the learner starts no test-out.
     const a = graph.skills[A] as Skill;
     const base = graph.templates[`${A}.t3`] as ItemTemplate;
     const c1: ItemTemplate = { ...base, id: `${A}.t5`, format: 'numeral-pick' };
@@ -589,9 +612,7 @@ describe('lessons and test-outs (04 §3, 03 §6.5)', () => {
         produces: ['stone'],
       },
     );
-    // K at one minute: no room for the evidence item, so no draw. K at 15 minutes: room. Grade 2 at
-    // one minute (review round 5 on #66): four item slots, all A, so sequencing would drop the
-    // fourth A item in a row (the lesson does not break the run); the draw is then not planned.
+    // Short and long K requests, and grade 2 at one minute (review round 5 on #66).
     const cases: [ChildContext['grade'], number][] = [
       ['K', 1],
       ['K', 15],
@@ -634,7 +655,8 @@ describe('lessons and test-outs (04 §3, 03 §6.5)', () => {
           });
         expect(st.skills[A]?.recent.length ?? 0).toBeGreaterThan(0);
       }
-      if (minutes === 15) expect(drawOf(p, A)).toHaveLength(3); // room for the evidence item
+      expect(drawOf(p, A)).toHaveLength(0);
+      firstItemsOutsidePool(p, A, g);
     }
   });
 
@@ -661,6 +683,100 @@ describe('lessons and test-outs (04 §3, 03 §6.5)', () => {
     for (const r of p.requests) {
       expect(r.tasks.some((t) => t.skillId === C && t.context === 'review')).toBe(true);
     }
+
+    // Review round 6 (#66): the lesson is on A.t3 and the only themed workshop hosts just A's pool
+    // formats (number-pad, number-bond), so its practice items would all be in the pool. After the
+    // demonstration A is untouched, and the learner would start the test-out on them, with no room
+    // to finish it. A request without A's draw therefore starts A's practice outside the pool (the
+    // Practice Pier, here), which cancels the test-out; C is still reviewed.
+    const a = graph.skills[A] as Skill;
+    const g: SkillGraph = {
+      ...graph,
+      skills: { ...graph.skills, [A]: { ...a, lesson: { ...a.lesson, templateId: `${A}.t3` } } },
+    };
+    const gModel = createEloFireModel(g, { childId: CHILD, isK: true });
+    const pads = cap('pad-works', ['number-pad', 'number-bond'], {
+      residents: ['nib'],
+      produces: ['stone'],
+    });
+    const q = plan(
+      input({ child: child('K'), graph: g, state: s, minutes: 1, workshopsAvailable: [pads] }),
+    );
+    const n = (templateId: string) => Number(templateId.split('.t')[1]);
+    const pool = new Set(a.lesson.testOut.templateIds ?? [`${A}.t3`, `${A}.t4`]);
+    for (const r of q.requests) {
+      expect(r.tasks.some((t) => t.skillId === C && t.context === 'review')).toBe(true);
+      if (drawOf(q, A).length > 0 && r.tasks[0]?.skillId === A) continue; // a whole draw: a real test-out
+      const firstA = r.tasks.find((t) => t.skillId === A && t.mode === 'item');
+      if (!firstA) continue;
+      expect(pool.has(firstA.templateId)).toBe(false);
+      const st = gModel.apply(
+        s,
+        synthAttempt(A, n(firstA.templateId), { context: firstA.context }),
+        NOW,
+      );
+      expect(gModel.inTestOut(st, A)).toBe(false);
+    }
+  });
+
+  it('a choice-only skill keeps its passable draw before a rated lesson', () => {
+    // Review round 6 (#66): A has only choice-answer templates, a placement prior of 0.7 and one
+    // rated lesson step, so its draw is certain (a real test-out whatever the warmup). No
+    // constructed follow-up item exists or is needed: the three draw items precede the lesson, and
+    // three clean first attempts pass the test-out.
+    const a = graph.skills[A] as Skill;
+    const base = graph.templates[`${A}.t3`] as ItemTemplate;
+    const c1: ItemTemplate = { ...base, id: `${A}.t5`, format: 'numeral-pick' };
+    const c2: ItemTemplate = { ...base, id: `${A}.t6`, format: 'compare' };
+    const g: SkillGraph = {
+      ...graph,
+      templates: { ...graph.templates, [c1.id]: c1, [c2.id]: c2 },
+      skills: {
+        ...graph.skills,
+        [A]: {
+          ...a,
+          templates: [c1.id, c2.id],
+          lesson: {
+            ...a.lesson,
+            templateId: c1.id,
+            scaffolded: { count: 1, hintStart: 1 },
+            testOut: { ...a.lesson.testOut, templateIds: [c1.id, c2.id] },
+          },
+        },
+      },
+    };
+    const prior = { p: { [A]: 0.7 }, assumed: [] };
+    const s = stateWith(
+      { [C]: practiced(2, NOW + 3 * DAY_MS) },
+      { placement: { prior, strandsPlaced: [], inProgress: null } },
+    );
+    const all = cap(
+      'all-works',
+      ['tap-count', 'tenframe-fill', 'number-pad', 'number-bond', 'numeral-pick', 'compare'],
+      { residents: ['nib'], produces: ['stone'] },
+    );
+    const p = plan(
+      input({ child: child('2'), graph: g, state: s, minutes: 1, workshopsAvailable: [all] }),
+    );
+    expect(p.warmup.skillId).toBe(C);
+    const draw = drawOf(p, A);
+    expect(draw).toHaveLength(3);
+    const gModel = createEloFireModel(g, { childId: CHILD, isK: false });
+    let st = s;
+    draw.forEach((t, k) => {
+      const tpl = g.templates[t.templateId] as ItemTemplate;
+      st = gModel.apply(
+        st,
+        synthAttempt(A, 3, {
+          templateId: tpl.id,
+          format: tpl.format,
+          context: t.context,
+          response: { kind: 'choice', id: 'opt-1' },
+        }),
+        NOW + k + 1,
+      );
+    });
+    expect(st.skills[A]?.practicedAt).not.toBeNull();
   });
 
   it('after a demonstration-only lesson warmup, the kept draw is a real, passable test-out', () => {

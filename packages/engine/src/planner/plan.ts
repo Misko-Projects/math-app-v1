@@ -56,13 +56,13 @@
 //   ready skill with a lesson; the requests continue its run (≤ maxRun in a row).
 // - One test-out rule: the learner decides at the skill's first evidence attempt, after the warmup,
 //   so the planner applies the learner's own offer (inTestOut) to the bounds of every warmup
-//   outcome (all wrong / all right). A lesson with rated child steps plans its draw only when the
-//   offer holds in the all-wrong state (else lesson first, which touches the skill). A
-//   demonstration-only lesson plans it whenever the offer holds in the all-right state, so every
-//   test-out the learner starts is a planned, passable draw (the Practice Pier when no themed
-//   workshop hosts one). Such a draw may turn out to be ordinary practice, so a draw with no
-//   constructed template is followed by a constructed practice item of the skill: the request
-//   always produces practiced evidence. Ties by id;
+//   outcome. A draw is planned only when the offer holds in the all-wrong state, so it is always a
+//   real test-out (the Practice Pier when no themed workshop hosts it as a passable draw). Without
+//   a draw, a lesson with rated child steps comes first and touches the skill. A
+//   demonstration-only lesson does not, so when the offer holds in the all-right state its
+//   practice starts outside the test-out pool, which cancels the test-out (the Practice Pier when
+//   no themed workshop hosts such a template). Every learner test-out is a planned, passable draw.
+//   Ties by id;
 //   templates prefer a format an available themed workshop hosts, then pictorial/abstract, then
 //   constructed (`isConstructedTemplate`), then id.
 // - Challenge: round(challengeShare × the plan's item budgets) items, dealt round-robin from the
@@ -108,6 +108,7 @@ import {
   byTier,
   hosts,
   materialsFor,
+  PRACTICE_PIER,
   PUZZLE_TOWER,
   practicePier,
   RHYTHM_ORCHARD,
@@ -162,7 +163,13 @@ interface Ctx {
 interface Focus {
   skillId: SkillId;
   lesson: boolean;
+  /** A draw is planned: the learner offers the test-out whatever the warmup's outcome. */
   testOut: boolean;
+  /**
+   * The skill's lesson is demonstration-only and the learner may still offer its test-out (the
+   * warmup goes all right): without a draw, its practice must start outside the test-out pool.
+   */
+  mayOffer?: boolean;
   remediation: boolean;
 }
 
@@ -493,13 +500,21 @@ function compose(
       draw = testOutDraw(graph, skill, cap);
       if (draw && draw.length > budget) draw = null;
     }
+    // The learner may still offer the test-out of this demonstration-only skill, and this request
+    // has no draw for it: its practice starts outside the test-out pool, which cancels the test-out
+    // (04 §7b). A themed workshop that hosts no such template does not qualify; the Practice Pier
+    // hosts every format.
+    if (focus.mayOffer && !draw) {
+      const pool = new Set(testOutPool(graph, skill).map((x) => x.id));
+      practice = [
+        ...practice.filter((x) => !pool.has(x.id)),
+        ...practice.filter((x) => pool.has(x.id)),
+      ];
+      if (pool.has((practice[0] as ItemTemplate).id) && cap.workshopId !== PRACTICE_PIER)
+        return null;
+    }
   }
   const t = draw?.length ?? 0;
-  // A planned draw can turn out to be ordinary practice (a demonstration-only lesson's draw that the
-  // learner does not offer after all). A draw with no constructed template then records no practiced
-  // evidence (choice responses never enter `recent`), so one constructed practice item of the skill
-  // follows it.
-  const evidenceAfter = draw && !draw.some(isConstructedTemplate) && practice.length > 0 ? 1 : 0;
   const dueHere = ctx.due.filter((r) => r.skillId !== S && hosted(r.skillId).length > 0);
   const reviewTarget = focus ? Math.round(P.planner[sliceKey(ctx)].reviewShare * budget) : budget;
   // A skill whose last review failed is reviewed itself: an encompassing skill's implicit credit
@@ -528,31 +543,22 @@ function compose(
   let c = challengeSkills.length > 0 ? Math.min(challengeWanted, budget) : 0;
   let r = Math.min(reviews.length, Math.max(0, budget - c));
   let s = focus ? budget - r - c : 0;
-  const need = t + evidenceAfter;
-  // Room for the draw (and its evidence item) comes from challenge items, then ordinary reviews. A
-  // failed review is never cut: the next plan must review it (04 §6.4 rule 3), so it outranks a
-  // test-out draw. `reviews` lists the failed ones first.
+  // Room for the draw comes from challenge items, then ordinary reviews. A failed review is never
+  // cut: the next plan must review it (04 §6.4 rule 3), so it outranks a test-out draw. `reviews`
+  // lists the failed ones first.
   const failedKept = Math.min(r, failedDue.length);
-  if (focus && s < need) {
-    const cut = Math.min(c, need - s);
+  if (focus && s < t) {
+    const cut = Math.min(c, t - s);
     c -= cut;
     s += cut;
-    const cutR = Math.min(r - failedKept, need - s);
+    const cutR = Math.min(r - failedKept, t - s);
     r -= cutR;
     s += cutR;
   }
   /** A request without the draw, lesson first (the draw is never truncated). */
   const withoutDraw = () =>
     compose(ctx, i, { ...(focus as Focus), testOut: false }, cap, budgetIn, challengeWanted);
-  // When no hosted pool template takes a constructed answer, dropping a choice-only draw is safe:
-  // the skill's first evidence item is then out of the pool, which cancels any test-out the learner
-  // would start (04 §7b).
-  const choiceOnlyPool = () =>
-    !testOutPool(graph, skill as Skill)
-      .filter((x) => hosts(cap, x.format))
-      .some(isConstructedTemplate);
   if (focus && draw && s < t) return withoutDraw();
-  if (focus && draw && s < need && choiceOnlyPool()) return withoutDraw();
 
   // Breakers for the focus skill's runs: one other new skill that needs no lesson first, then
   // practiced-track skills.
@@ -572,7 +578,7 @@ function compose(
   if (focus) {
     // A warmup item of the focus skill starts its first run, so that run holds one item fewer.
     const startRun = ctx.runStart === S ? 1 : 0;
-    while (s > maxRun * (budget - s + 1) - startRun && s - 1 >= need) {
+    while (s > maxRun * (budget - s + 1) - startRun && s - 1 >= t) {
       s -= 1;
       if (second) s2 += 1;
       else if (fillers.length > 0) f += 1;
@@ -643,16 +649,6 @@ function compose(
     const before = ordered.slice(0, at < 0 ? ordered.length : at);
     const placed = before.filter((x) => x.skillId === S && x.mode === 'item').length;
     if (placed < draw.length) return withoutDraw();
-    // The evidence item after a choice-only draw must survive sequencing: the run rule can drop it
-    // when nothing else breaks the skill's run (lesson tasks do not).
-    if (evidenceAfter > 0) {
-      const after = ordered.filter((x) => x.skillId === S && x.mode === 'item').slice(t);
-      const kept = after.some((x) => {
-        const tpl = graph.templates[x.templateId];
-        return tpl !== undefined && isConstructedTemplate(tpl);
-      });
-      if (!kept && choiceOnlyPool()) return withoutDraw();
-    }
   }
   const tasks: PlannedTask[] = ordered.map((x, j) => ({
     skillId: x.skillId,
@@ -776,19 +772,19 @@ export function planSession(input: PlanSessionInput, opts: PlanOptions = {}): Se
     ),
   );
 
-  // One test-out rule. The learner decides a test-out at the skill's first evidence attempt
-  // (04 §7a), after the warmup, whose outcome the plan cannot know; the plan must agree whatever it
-  // is. A lesson with rated child steps touches the skill, so the learner never offers a test-out
-  // after it: its draw (which comes first) is planned only when the learner offers it even after
-  // the warmup went all wrong. A demonstration-only lesson leaves the skill untouched, so the
-  // learner may offer the test-out at the first evidence item whatever the plan did: its draw is
-  // planned whenever the learner may offer it, after the warmup went all right. Any test-out the
-  // learner starts is then a planned, passable draw (03 §6.5).
-  const plannedTestOut = (s: SkillId, before: Before | null): boolean => {
-    const skill = graph.skills[s] as Skill;
-    const sign = lessonChildSteps(skill) === 0 ? 1 : -1;
-    return model.inTestOut(afterAttempts(state, before, model, P, sign), s);
-  };
+  // One test-out rule (04 §7b). The learner decides a test-out at the skill's first evidence
+  // attempt (04 §7a), after the warmup, whose outcome the plan cannot know. A draw is planned only
+  // when the learner offers the test-out even if the warmup goes all wrong, so a planned draw is
+  // always a real test-out. A lesson with rated child steps touches the skill, so without a draw it
+  // comes first and the learner never offers a test-out after it. A demonstration-only lesson leaves
+  // the skill untouched: when the learner may still offer the test-out (the warmup goes all right),
+  // a request without the draw starts that skill's practice outside the test-out pool, which cancels
+  // it (`mayOffer`, in `compose`). Every test-out the learner starts is then a planned, passable draw.
+  const plannedTestOut = (s: SkillId, before: Before | null): boolean =>
+    model.inTestOut(afterAttempts(state, before, model, P, -1), s);
+  const mayOffer = (s: SkillId, before: Before | null): boolean =>
+    lessonChildSteps(graph.skills[s] as Skill) === 0 &&
+    model.inTestOut(afterAttempts(state, before, model, P, 1), s);
   const itemWarmup = warmupBeforeFocus(ctx, themed);
   const itemBefore: Before | null = itemWarmup
     ? { skillId: itemWarmup.skillId, w: 1, times: 1 }
@@ -812,6 +808,7 @@ export function planSession(input: PlanSessionInput, opts: PlanOptions = {}): Se
       skillId: s,
       lesson,
       testOut: lesson && plannedTestOut(s, itemBefore),
+      mayOffer: lesson && mayOffer(s, itemBefore),
       remediation: false,
     };
   };
@@ -1003,8 +1000,17 @@ export function planSession(input: PlanSessionInput, opts: PlanOptions = {}): Se
       focuses = focuses.map((f) => {
         if (!f || f.remediation) return f;
         if (f.skillId === f0.skillId)
-          return { ...f, lesson: false, testOut: f.testOut && steps === 0 };
-        return { ...f, testOut: f.lesson && plannedTestOut(f.skillId, lessonBefore) };
+          return {
+            ...f,
+            lesson: false,
+            testOut: f.testOut && steps === 0,
+            mayOffer: f.mayOffer === true && steps === 0,
+          };
+        return {
+          ...f,
+          testOut: f.lesson && plannedTestOut(f.skillId, lessonBefore),
+          mayOffer: f.lesson && mayOffer(f.skillId, lessonBefore),
+        };
       });
       built = build(focuses);
     } else {
