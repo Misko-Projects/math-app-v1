@@ -105,6 +105,41 @@
   animation: art-hop 1.8s ease-in-out infinite;
 }
 
+/*
+ * A blink: for a moment (95–99% of a 5 s cycle) the open eyes hide and clean curved lids show.
+ * Swapping shapes, not squashing the eye, keeps a blink clean at any size. The lids are hidden
+ * whenever no animation runs (reduced motion), so eyes then stay open.
+ */
+@keyframes art-blink-open {
+  0% {
+    opacity: 1;
+  }
+  95% {
+    opacity: 0;
+  }
+  99% {
+    opacity: 1;
+  }
+}
+@keyframes art-blink-lid {
+  0% {
+    opacity: 0;
+  }
+  95% {
+    opacity: 1;
+  }
+  99% {
+    opacity: 0;
+  }
+}
+.art-blink-open {
+  animation: art-blink-open 5s step-end infinite;
+}
+.art-blink-lid {
+  opacity: 0;
+  animation: art-blink-lid 5s step-end infinite;
+}
+
 /* 06 §7 reduced motion: no idle loops (these rules come after the loops above, so they win). */
 @media (prefers-reduced-motion: reduce) {
   .art-drift,
@@ -113,7 +148,9 @@
   .art-glint,
   .art-ring,
   .art-hop,
-  .art-spin {
+  .art-spin,
+  .art-blink-open,
+  .art-blink-lid {
     animation: none;
   }
 }
@@ -123,6 +160,8 @@
 [data-reduced-motion="true"] .art-glint,
 [data-reduced-motion="true"] .art-ring,
 [data-reduced-motion="true"] .art-hop,
-[data-reduced-motion="true"] .art-spin {
+[data-reduced-motion="true"] .art-spin,
+[data-reduced-motion="true"] .art-blink-open,
+[data-reduced-motion="true"] .art-blink-lid {
   animation: none;
 }
