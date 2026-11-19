@@ -90,13 +90,11 @@ export function ShapeSortWidget({
   const pause = useDemoPause();
   const root = useRef<HTMLDivElement>(null);
   const flip = useFlip(root);
-  // The smallest landscape area (≈ 906 × 373) gets target-sized cards so nothing scrolls.
+  // The smallest landscape area (≈ 906 × 373) gets the compact spacing so nothing scrolls.
   const avail = useAvailableSize(root);
   const compact = avail !== null && avail.height < 400;
-  const minCard = MIN_TARGET_PX[ageMode] - 16;
-  const traySize = compact ? minCard : 104;
-  const binSize = compact ? minCard : 84;
-  const pickSize = compact ? minCard + 8 : 112;
+  const minT = MIN_TARGET_PX[ageMode];
+  const pickSize = compact ? minT - 8 : 112;
   const [state, setState] = useState<ShapeSortState>(() => model.initialState(config));
   const [highlight, setHighlight] = useState<Highlight | null>(null);
   const [invite, setInvite] = useState<{ id: string | null; bin: string | null } | null>(null);
@@ -329,6 +327,19 @@ export function ShapeSortWidget({
   // ---------- sort: tray and bins ----------
   const bins = config.bins ?? [];
   const trayCards = config.cards.filter((c) => binOf(c.id) === TRAY);
+  // One card size (outer px) for the tray and the bins: as large as the area allows for where the
+  // cards are now, never under the target size plus 4 (cards in bins are tapped and dragged too).
+  const outer = sortCardSize({
+    width: avail?.width ?? 1100,
+    height: avail?.height ?? 640,
+    compact,
+    kMode: ageMode === 'k',
+    minT,
+    tray: trayCards.length,
+    bins: bins.map((b) => (state.bins[b.id] ?? []).length),
+  });
+  const traySize = outer - 16;
+  const binSize = outer - 16;
   const cardButton = (c: Card, size: number) => {
     const p = dnd.itemProps(c.id, { label: name(c) });
     return (
@@ -358,9 +369,8 @@ export function ShapeSortWidget({
       <button
         type="button"
         {...p}
-        className={[p.className, 'ni-ssort__pad', invite?.bin === id ? 'ni-invite' : '']
-          .filter(Boolean)
-          .join(' ')}
+        // One invited control (the card): the bin shows its drop highlight once the card is picked.
+        className={[p.className, 'ni-ssort__pad'].join(' ')}
         onClick={(e) => {
           // With nothing picked up, tapping a bin says its name.
           if (dnd.selected === null && id !== TRAY) say(bins.find((b) => b.id === id)?.label ?? '');
@@ -381,7 +391,12 @@ export function ShapeSortWidget({
       style={{ '--n': config.cards.length, '--bins': bins.length, ...handStyle } as CSSProperties}
     >
       <div className="ni-ssort__top">
-        <div className="ni-ssort__tray" data-bin={TRAY}>
+        <div
+          className="ni-ssort__tray"
+          data-bin={TRAY}
+          // An empty tray keeps one row of room (the cards' padding is 12 or 14 px).
+          style={{ minHeight: outer + (compact ? 24 : 28) }}
+        >
           {pad(TRAY, t('ui.ssort.tray'))}
           <div className="ni-ssort__tray-cards">
             {trayCards.map((c) => cardButton(c, traySize))}
@@ -393,7 +408,13 @@ export function ShapeSortWidget({
       </div>
       <div className="ni-ssort__bins">
         {bins.map((b) => (
-          <div key={b.id} className="ni-ssort__bin" data-bin={b.id}>
+          <div
+            key={b.id}
+            className="ni-ssort__bin"
+            data-bin={b.id}
+            // Bins widen with their cards, so a full bin keeps one row where it can.
+            style={{ flexGrow: binWeight((state.bins[b.id] ?? []).length) }}
+          >
             {pad(b.id, t(b.label))}
             <span className="ni-ssort__label" aria-hidden="true">
               {t(b.label)}
@@ -411,6 +432,53 @@ export function ShapeSortWidget({
     </div>
   );
 }
+
+/**
+ * The sort layout's card size (outer CSS px): the largest from 120 down to `minT + 4` at which the
+ * tray's cards and each bin's cards, wrapped into rows, fit the area's height. Bins share the
+ * width in proportion to their cards (`binWeight`). The numbers mirror shape-sort.css (paddings,
+ * gaps, the bin label, the concrete ledge) and the Check column.
+ */
+export function sortCardSize(a: {
+  width: number;
+  height: number;
+  compact: boolean;
+  kMode: boolean;
+  minT: number;
+  tray: number;
+  bins: readonly number[];
+}): number {
+  const gap = 12;
+  const css = a.compact
+    ? { padX: 8, padY: 8, gapY: 12, topGap: 12, binsGap: 12, cardsPad: 12, label: 36 }
+    : { padX: 24, padY: 44, gapY: 16, topGap: 20, binsGap: 20, cardsPad: 14, label: 45 };
+  const checkW = a.kMode ? 120 : 210;
+  const trayW = a.width - css.padX - css.topGap - checkW;
+  const binsW = a.width - css.padX - Math.max(0, a.bins.length - 1) * css.binsGap;
+  const weights = a.bins.map(binWeight);
+  const total = weights.reduce((s, w) => s + w, 0) || 1;
+  const perRow = (w: number, c: number) =>
+    Math.max(1, Math.floor((w - 2 * css.cardsPad + gap) / (c + gap)));
+  const block = (n: number, per: number, c: number) => {
+    const rows = Math.max(1, Math.ceil(n / per));
+    return rows * c + (rows - 1) * gap + 2 * css.cardsPad;
+  };
+  const min = a.minT + 4;
+  for (let c = 120; c > min; c -= 4) {
+    const tray = block(a.tray, perRow(trayW, c), c);
+    const bin = Math.max(
+      0,
+      ...a.bins.map(
+        (n, i) => css.label + block(n, perRow((binsW * (weights[i] ?? 1)) / total, c), c) + 6,
+      ),
+    );
+    if (css.padY + tray + css.gapY + bin <= a.height) return c;
+  }
+  return min;
+}
+
+/** A bin's share of the row: its cards (at least one card's room, so an empty bin has a place). */
+export const binWeight = (cards: number) => Math.max(1, cards);
 
 function TickIcon() {
   return (

@@ -10,6 +10,12 @@ import {
   inArea,
 } from '../../test-support/areaStory';
 import {
+  expectApart,
+  expectControls,
+  expectOneInviteRing,
+  expectRenderedNumerals,
+} from '../../test-support/evidence';
+import {
   center,
   clearSpies,
   expectTargetGaps,
@@ -306,6 +312,7 @@ export const SortBlocksK: Story = {
     for (const c of cards) await expectTargetSize(c, 'k');
     await expectTargetGaps(cards);
     await expectTargetGaps([pad(root, 'b0'), pad(root, 'b1')]);
+    await expectControls('shape-sort SortBlocksK', 'k', present(sortControls(root)));
 
     // Touch drag a triangle into the triangles bin.
     await pointerDrag(cardEl(root, 'c1'), center(pad(root, 'b0')), 'touch');
@@ -459,8 +466,10 @@ export const SolidsTabletK: Story = {
       await userEvent.click(cardEl(root, id));
       await userEvent.click(pad(root, bin));
     }
+    await settle(root);
     await expectFitsArea(box, parts());
     for (const c of root.querySelectorAll('.ni-ssort__card')) await expectTargetSize(c, 'k');
+    await expectControls('shape-sort SolidsTabletK (sorted)', 'k', present(sortControls(root)));
     await userEvent.click(within(root).getByRole('button', { name: 'Check' }));
     const r = lastResponse(args.onResponse) as { value: Record<string, unknown> };
     await expect(stateChecker('sort.byRule')?.check(solidsTarget, r.value)).toBe(true);
@@ -497,10 +506,130 @@ export const SolidsLandscapeMinK: Story = {
       await userEvent.click(cardEl(root, id));
       await userEvent.click(pad(root, bin));
     }
+    await settle(root);
     await expectFitsArea(box, parts());
+    // Cards in bins are tapped and dragged too: K size there as well (evidence review).
+    await expectControls(
+      'shape-sort SolidsLandscapeMinK (sorted)',
+      'k',
+      present(sortControls(root)),
+    );
     await userEvent.click(within(root).getByRole('button', { name: 'Check' }));
     const r = lastResponse(args.onResponse) as { value: Record<string, unknown> };
     await expect(stateChecker('sort.byRule')?.check(solidsTarget, r.value)).toBe(true);
+  },
+};
+
+/** Triangles and rhombuses, `n` of each, in two bins (GEO.01.t1's kit, many more cards). */
+const manyBlocks = (n: number): Config => ({
+  ...blocks,
+  cards: Array.from({ length: 2 * n }, (_, i) =>
+    card(`c${i}`, i % 2 === 0 ? 'triangle' : 'rhombus', i % 2 === 0 ? 'green' : 'blue'),
+  ),
+});
+
+/** Sorts every card by tapping it, then its bin (triangles to b0, rhombuses to b1). */
+async function sortAll(root: HTMLElement, n: number) {
+  for (let i = 0; i < 2 * n; i += 1) {
+    await userEvent.click(cardEl(root, `c${i}`));
+    await userEvent.click(pad(root, i % 2 === 0 ? 'b0' : 'b1'));
+  }
+  await waitFor(() => expect(inBin(root, 'tray')).toEqual([]));
+  await settle(root);
+}
+
+/** Waits for the cards' glide (FLIP) to finish before measuring them. */
+async function settle(root: HTMLElement) {
+  await new Promise((r) => setTimeout(r, 100));
+  await Promise.all(
+    [...root.querySelectorAll('*')]
+      .flatMap((el) => el.getAnimations())
+      .filter((a) => a.effect?.getComputedTiming().iterations !== Number.POSITIVE_INFINITY)
+      .map((a) => a.finished.catch(() => undefined)),
+  );
+  await new Promise((r) => setTimeout(r, 400));
+}
+
+const sortParts = (root: HTMLElement) => [
+  ...root.querySelectorAll('.ni-ssort__card, .ni-ssort__pad'),
+  within(root).getByRole('button', { name: 'Check' }),
+];
+const sortControls = (root: HTMLElement) => ({
+  'tray cards': [...root.querySelectorAll('[data-bin="tray"] .ni-ssort__card')],
+  'bin cards': [...root.querySelectorAll('.ni-ssort__bin .ni-ssort__card')],
+  check: [within(root).getByRole('button', { name: 'Check' })],
+});
+const present = (groups: Record<string, Element[]>) =>
+  Object.fromEntries(Object.entries(groups).filter(([, els]) => els.length > 0));
+
+/**
+ * Stress, tablet area, K: 16 cards (8 triangles, 8 rhombuses; real items have at most 7). All in
+ * the tray, then all sorted (8 + 8): the cards shrink to fit, never under 84 px (K target 80 +
+ * 4), wrap into rows, and nothing clips or scrolls.
+ */
+export const StressSixteenTabletK: Story = {
+  globals: { ageMode: 'k' },
+  args: { config: manyBlocks(8), tier: 'pictorial' },
+  render: inArea('tablet'),
+  play: async ({ canvasElement }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    const box = areaBox(canvasElement);
+    await expectFitsArea(box, sortParts(root));
+    await expectControls(
+      'shape-sort StressSixteenTabletK (tray)',
+      'k',
+      present(sortControls(root)),
+    );
+    await sortAll(root, 8);
+    await expectFitsArea(box, sortParts(root));
+    await expectControls(
+      'shape-sort StressSixteenTabletK (sorted)',
+      'k',
+      present(sortControls(root)),
+    );
+  },
+};
+
+/**
+ * Stress, smallest landscape area (≈ 906 × 373, content 852 × 319), K. The height holds one row
+ * of K cards in the tray and one in each bin: 8 + (84 + 24) + 12 + (36 + 84 + 24 + 6) = 278 of
+ * 319 px at the smallest card (84 px); a second row needs 96 more (374 > 319), so more cards than
+ * a row cannot fit at the K size. The row holds 7 cards (7 × 96 − 12 + 24 ≤ 712 px beside Check),
+ * the most any shape-sort template makes (`cards` ≤ 7), and bins widen with their cards, so
+ * 4 + 3 keeps one row each. (Seven cards in ONE of three bins would need a second row.)
+ */
+export const StressSevenLandscapeMinK: Story = {
+  globals: { ageMode: 'k' },
+  args: {
+    config: {
+      ...manyBlocks(4),
+      cards: manyBlocks(4).cards.slice(0, 7),
+    },
+    tier: 'pictorial',
+  },
+  render: inArea('landscapeMin'),
+  play: async ({ canvasElement }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    const box = areaBox(canvasElement);
+    await waitFor(() => expect(root).toHaveAttribute('data-compact', 'true'));
+    await expectFitsArea(box, sortParts(root));
+    await expectControls(
+      'shape-sort StressSevenLandscapeMinK (tray)',
+      'k',
+      present(sortControls(root)),
+    );
+    for (let i = 0; i < 7; i += 1) {
+      await userEvent.click(cardEl(root, `c${i}`));
+      await userEvent.click(pad(root, i % 2 === 0 ? 'b0' : 'b1'));
+    }
+    await waitFor(() => expect(inBin(root, 'tray')).toEqual([]));
+    await settle(root);
+    await expectFitsArea(box, sortParts(root));
+    await expectControls(
+      'shape-sort StressSevenLandscapeMinK (sorted)',
+      'k',
+      present(sortControls(root)),
+    );
   },
 };
 
@@ -651,6 +780,10 @@ export const DemoSort: Story = {
     const badge = root.querySelector('.ni-ssort__count') as HTMLElement;
     await expect(badge).toHaveTextContent('6');
     await expect(Number.parseFloat(getComputedStyle(badge).fontSize)).toBeGreaterThanOrEqual(32);
+    // Off the drawing: the corners being counted stay uncovered.
+    for (const corner of cardEl(root, 'c2').querySelectorAll('.ni-shape__corner')) {
+      await expectApart(badge, corner, 0, 'badge clear of a counted corner');
+    }
     await shown;
     await expect(audio.sayPhrases).toHaveBeenCalledWith([{ number: 6 }]);
     await demoSort.play({ op: 'drag-card', args: { id: 'c2', bin: 'b1' } });
@@ -676,6 +809,10 @@ export const DemoCountSides: Story = {
       timeout: 5000,
     });
     await expect(cardEl(root, 'c2').querySelectorAll('.ni-shape__side-mark')).toHaveLength(4);
+    // The count badge sits off the drawing: it covers none of the sides being counted.
+    const badge = root.querySelector('.ni-ssort__count') as HTMLElement;
+    await expectApart(badge, cardEl(root, 'c2').querySelector('polygon') as Element, 0, 'badge');
+    await expectRenderedNumerals(root, '.ni-ssort__count');
     await done;
     await expect((audio.sayPhrases.mock.calls as unknown[][]).map((c) => c[0])).toEqual([
       [{ number: 1 }],
@@ -690,7 +827,11 @@ export const DemoCountSides: Story = {
 
 const inviteDemo: WidgetDemo = createDemoController({ strict: true });
 
-/** The child's turn: Pip's hand points at the card to move, and the bin it goes in pulses. */
+/**
+ * The child's turn: Pip's hand points at the card to move. One control is invited (one ring,
+ * inside the card's own box, 12 px clear of the other cards and the tray's border); the bin it
+ * goes in only lights up once the card is picked up.
+ */
 export const DemoInvite: Story = {
   globals: { ageMode: 'k' },
   args: { demo: inviteDemo },
@@ -698,10 +839,20 @@ export const DemoInvite: Story = {
     const root = await findWidget(canvasElement, ROOT);
     inviteDemo.invite({ op: 'drag-card', args: { id: 'c1', bin: 'b0' } });
     await waitFor(() => expect(cardEl(root, 'c1')).toHaveClass('ni-invite'));
-    await expect(pad(root, 'b0')).toHaveClass('ni-invite');
+    await expect(pad(root, 'b0')).not.toHaveClass('ni-invite');
     await expectPointerOn(root.querySelector('.ni-hand') as HTMLElement, cardEl(root, 'c1'), root);
     // Settled: the story ends invited, the hand still under the card.
     await expectHandStays(root, () => cardEl(root, 'c1'));
+    const others = [...root.querySelectorAll('.ni-ssort__card')].filter(
+      (c) => c !== cardEl(root, 'c1'),
+    );
+    await expectOneInviteRing(root, {
+      clearOf: [...others, pad(root, 'b0'), pad(root, 'b1')],
+      inside: [pad(root, 'tray')],
+    });
+    await expectControls('shape-sort DemoInvite', 'k', {
+      cards: [...root.querySelectorAll('.ni-ssort__card')],
+    });
   },
 };
 

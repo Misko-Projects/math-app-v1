@@ -72,6 +72,17 @@
   border-color: var(--color-ink);
   border-style: dashed;
 }
+/*
+ * Demo invite (03 §6.3): one ring, inside the card's own box, so it stays the full 12 px gap
+ * from the neighbouring cards and the tray's or bin's border. No pulse (it would push the ring
+ * into the gap); Pip's hand carries the motion.
+ */
+.ni-ssort__card.ni-invite {
+  z-index: 3;
+  outline-offset: -5px;
+  border-radius: 20px;
+  animation: none;
+}
 .ni-ssort__tick {
   position: absolute;
   top: -12px;
@@ -98,11 +109,15 @@
   font-size: 24px;
   text-align: center;
 }
-/* The count of a marked attribute: a numeral ≥ 32 px on a paper badge at the card's corner. */
+/*
+ * The count of a marked attribute: a numeral ≥ 32 px on a paper badge just outside the card's
+ * top-left corner. It overlaps at most the card's 8 px rim (border and padding), never the
+ * drawing, so it never covers a corner or side being counted.
+ */
 .ni-ssort__count {
   position: absolute;
-  top: -18px;
-  left: -14px;
+  top: -22px;
+  left: -40px;
   z-index: 2;
   display: grid;
   place-items: center;
@@ -156,7 +171,6 @@
 }
 .ni-ssort__tray {
   flex: 1;
-  min-height: 148px;
 }
 /* Targets sit behind the cards (cards are never DOM children of a target). */
 .ni-ssort__pad {
@@ -194,12 +208,14 @@
 .ni-ssort__bin-cards > * {
   pointer-events: auto;
 }
+/* Bins share the row in proportion to their cards (flex-grow set by the widget). */
 .ni-ssort__bins {
-  display: grid;
-  grid-template-columns: repeat(var(--bins, 2), minmax(0, 1fr));
+  display: flex;
   gap: 20px;
 }
 .ni-ssort__bin {
+  flex: 1 1 0;
+  min-width: min-content;
   min-height: 188px;
 }
 .ni-ssort__label {
@@ -220,14 +236,11 @@
 /* ---------- compact: the smallest landscape area (06 §1), target-sized cards ---------- */
 
 .ni-ssort[data-compact="true"] {
-  gap: 10px;
+  gap: 12px; /* the tray and the bins are targets: 12 px apart */
   padding: 2px 4px 6px;
 }
 .ni-ssort[data-compact="true"] .ni-ssort__top {
   gap: 12px;
-}
-.ni-ssort[data-compact="true"] .ni-ssort__tray {
-  min-height: calc(var(--target-min) + 12px);
 }
 .ni-ssort[data-compact="true"] .ni-ssort__bins {
   gap: 12px;
@@ -239,9 +252,10 @@
   padding: 4px 8px 0;
   line-height: 1;
 }
+/* 12 px round the cards: an invited card's ring stays 12 px inside the tray's or bin's border. */
 .ni-ssort[data-compact="true"] .ni-ssort__tray-cards,
 .ni-ssort[data-compact="true"] .ni-ssort__bin-cards {
-  padding: 6px 4px;
+  padding: 12px;
 }
 .ni-ssort[data-compact="true"] .ni-ssort__cards {
   padding: 8px 4px;
