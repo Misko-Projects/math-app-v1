@@ -381,6 +381,15 @@ export const TakeAwaySplit: Story = {
     await waitFor(() => expect(inside(root)).toHaveLength(4));
     await drag(inside(root)[3] as HTMLElement, pilePad(root), 'touch');
     await waitFor(() => expect(heap(root)).toHaveLength(2));
+    // The arrow between the parts is decorative: hidden from assistive tech and drawn as a plain
+    // ink glyph (no fill, no border), so it never looks tappable.
+    const arrow = pileArea(root).querySelector('.ni-mset__away-icon') as HTMLElement;
+    await expect(arrow).toHaveAttribute('aria-hidden', 'true');
+    await expect(arrow.closest('button, [role="button"]')).toBeNull();
+    const look = getComputedStyle(arrow);
+    await expect(look.borderTopWidth).toBe('0px');
+    await expect(look.backgroundColor).toBe('rgba(0, 0, 0, 0)');
+    await expect(look.pointerEvents).toBe('none');
     // The two taken away sit centred in the "take away" pile.
     await expectEvenHeap(pileArea(root));
     for (const el of heap(root)) await expectTargetSize(el, 'g1-up');
@@ -637,6 +646,36 @@ async function tapIn(root: HTMLElement, n: number) {
   }
 }
 
+/** The frame slides over as the ten is tied or untied: wait until it has arrived. */
+async function framesSettled(root: HTMLElement) {
+  const frames = root.querySelector('.ni-mset__frames') as HTMLElement;
+  await waitFor(() => expect(getComputedStyle(frames).left).toBe(frames.style.left));
+  await nextFrame();
+}
+
+/**
+ * The tied ten reads "10, then the ones": it comes first (its box left of the frame of ones, or
+ * above it), it is about as tall as that frame (its small frame ≥ 85 % of the frame's height,
+ * with ≥ 32 px pieces) and it carries a "10" numeral of at least 32 px.
+ */
+async function expectTenFirst(root: HTMLElement) {
+  const ten = tens(root) as HTMLElement;
+  await expect(ten).toHaveAttribute('data-tens', 'bundle');
+  await framesSettled(root);
+  const frame = (root.querySelector('.ni-mset__frame') as Element).getBoundingClientRect();
+  const t = ten.getBoundingClientRect();
+  await expect(t.right <= frame.left || t.bottom <= frame.top, 'the ten comes first').toBe(true);
+  const mini = (ten.querySelector('.ni-mset__tens-frame') as Element).getBoundingClientRect();
+  await expect(mini.height).toBeGreaterThanOrEqual(0.85 * frame.height);
+  for (const piece of ten.querySelectorAll('.ni-mset__tens-cell')) {
+    await expect(piece.getBoundingClientRect().width).toBeGreaterThanOrEqual(32);
+  }
+  const tag = ten.querySelector('.ni-mset__tens-tag') as HTMLElement;
+  await expect(tag).toHaveTextContent('10');
+  await expect(tag).toBeVisible();
+  await expect(Number.parseFloat(getComputedStyle(tag).fontSize)).toBeGreaterThanOrEqual(32);
+}
+
 /**
  * TwentyK at the minimum landscape (960 × 600 → a 906 × 373 card, 852 × 319 inside). Two K
  * ten-frames need 356 px of slots, so the boat shows one ten-frame at a time (03 §5.5): when the
@@ -678,8 +717,7 @@ export const TwentyKMinLandscape: Story = {
     await expect(ten.querySelector('.ni-mset__band')).not.toBeNull();
     await expect(root.querySelector('[data-slot="10"]')).not.toBeNull();
     await expect(root.querySelector('[data-slot="0"]')).toBeNull();
-    const frame = (root.querySelector('.ni-mset__frame') as Element).getBoundingClientRect();
-    await expect(ten.getBoundingClientRect().left).toBeGreaterThan(frame.right);
+    await expectTenFirst(root);
     await expectFitsArea(root, box, 'k');
 
     // Tap the ten (a real touch on it): it unties into the frame and says "ten".
@@ -690,6 +728,13 @@ export const TwentyKMinLandscape: Story = {
     await expect(tens(root)).toHaveAttribute('data-tens', 'ones');
     await expect(tens(root)).toHaveAccessibleName('4');
     await expect((tens(root) as HTMLElement).querySelectorAll('.ni-sprite')).toHaveLength(4);
+    // Untied, the ten's frame comes first and the ones after it (right), with no "10" tag.
+    await framesSettled(root);
+    const tenFrame = (root.querySelector('.ni-mset__frame') as Element).getBoundingClientRect();
+    await expect((tens(root) as HTMLElement).getBoundingClientRect().left).toBeGreaterThan(
+      tenFrame.right,
+    );
+    await expect((tens(root) as HTMLElement).querySelector('.ni-mset__tens-tag')).toBeNull();
     await expectFitsArea(root, box, 'k');
     // A crab comes out of the ten: 13, the ten still shown.
     await userEvent.click(inside(root)[9] as HTMLElement);
@@ -701,6 +746,7 @@ export const TwentyKMinLandscape: Story = {
     await userEvent.keyboard('{Enter}');
     await waitFor(() => expect(tens(root)).toHaveAttribute('data-tens', 'bundle'));
     await expect(inside(root)).toHaveLength(3);
+    await expectTenFirst(root);
     await expectFitsArea(root, box, 'k');
 
     await expectCheckTaps(root);

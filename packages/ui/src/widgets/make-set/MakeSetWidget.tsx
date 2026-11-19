@@ -108,14 +108,18 @@ const SIDE_GAP = 24;
 const PROBE_PX = 100_000;
 /**
  * One ten-frame at a time: the small frame beside the shown one (the tied ten, or the ones), as in
- * make-set.css `.ni-mset__tens`: 2 × 5 pieces of 30 px, 12 px between the columns (the band's
- * gap, as in a bundled ten-frame) and 4 px between rows, 6 px padding and a 4 px border.
+ * make-set.css `.ni-mset__tens-frame`: 2 × 5 pieces of 32 px, 12 px between the columns (the
+ * band's gap, as in a bundled ten-frame) and 2 px between rows, 6 px padding and a 4 px border:
+ * 96 × 188, 90 % of a K ten-frame's height (208).
  */
-const TENS_PIECE = 30;
+const TENS_PIECE = 32;
 const TENS_W = 2 * TENS_PIECE + 12 + 2 * (6 + 4);
-const TENS_H = 5 * TENS_PIECE + 4 * 4 + 2 * (6 + 4);
-/** The band's bow hangs this far below the tied ten. */
-const TENS_BOW = 19;
+const TENS_H = 5 * TENS_PIECE + 4 * 2 + 2 * (6 + 4);
+/** The tied ten's "10" tag under it (`.ni-mset__tens-tag`: 34 px numeral, 2 px border) and gap. */
+const TENS_TAG = 2 + 34 + 2;
+const TENS_TAG_GAP = 2;
+/** The tied ten with its tag. */
+const BUNDLE_H = TENS_H + TENS_TAG_GAP + TENS_TAG;
 /** Between the shown frame and the small frame beside it. */
 const TENS_GAP = 12;
 
@@ -131,10 +135,14 @@ interface Box {
   w: number;
   h: number;
   pad: { top: number; right: number; bottom: number; left: number };
-  /** Frames' top and gap, and the small frame's top (one ten-frame at a time), in the box. */
+  /** Frames' top and gap in the box; one ten-frame at a time, the tops of the tied ten (with
+   * its tag) and of the small frame of ones. */
   framesTop: number;
   frameGap: number;
-  tensTop: number;
+  bundleTop: number;
+  onesTop: number;
+  /** A shown frame's width with its padding and border. */
+  frameOuterW: number;
 }
 interface Plan {
   layout: Layout;
@@ -521,7 +529,7 @@ export function MakeSetWidget({
    * (short areas): 6 px padding (the slots keep visible room), a 2 px border, 4 px between frames
    * (objects in two frames stay 6 + 2 + 4 + 2 + 6 = 20 px apart) and the tight margins
    * (CONTAINER_PAD_TIGHT), so the frames always sit ≥ 8 px inside the art. `oneFrame`: one
-   * ten-frame, with the small frame (TENS_W × TENS_H, its bow below) beside it.
+   * ten-frame, with the small frame (TENS_W wide, BUNDLE_H with the tied ten's tag) beside it.
    */
   const boxFor = (chrome: Chrome, oneFrame: boolean): Box => {
     const tight = chrome === 'tight';
@@ -530,7 +538,7 @@ export function MakeSetWidget({
     const shown = oneFrame ? 1 : frames;
     const gridH = shown * (frameH + edge) + (shown - 1) * frameGap;
     const pad = (tight ? CONTAINER_PAD_TIGHT : CONTAINER_PAD)[kind];
-    const innerH = oneFrame ? Math.max(gridH, TENS_H + TENS_BOW) : gridH;
+    const innerH = oneFrame ? Math.max(gridH, BUNDLE_H) : gridH;
     const innerW = frameW + edge + (oneFrame ? TENS_GAP + TENS_W : 0);
     return {
       w: innerW + pad.left + pad.right,
@@ -538,7 +546,9 @@ export function MakeSetWidget({
       pad,
       framesTop: pad.top + (innerH - gridH) / 2,
       frameGap,
-      tensTop: pad.top + (innerH - TENS_H - TENS_BOW) / 2,
+      bundleTop: pad.top + (innerH - BUNDLE_H) / 2,
+      onesTop: pad.top + (innerH - TENS_H) / 2,
+      frameOuterW: frameW + edge,
     };
   };
 
@@ -912,6 +922,12 @@ export function MakeSetWidget({
   /** The ten-frames shown: all of them, or one at a time (the page's). */
   const shownFrames = oneFrame ? [page] : Array.from({ length: frames }, (_, f) => f);
   const onesShown = Math.max(0, insideCount - 10);
+  /**
+   * Reading order "10, then the ones": the tied ten first (left), the frame of ones after it; with
+   * the ten untied, the ten's frame first and the small frame of ones after it (right).
+   */
+  const bundleFirst = beside === 'bundle';
+  const framesLeft = box.pad.left + (bundleFirst ? TENS_W + TENS_GAP : 0);
   const tensBeside =
     beside === null ? null : (
       <button
@@ -919,25 +935,37 @@ export function MakeSetWidget({
         type="button"
         className="ni-mset__tens"
         data-tens={beside}
-        aria-label={String(beside === 'bundle' ? 10 : onesShown)}
+        aria-label={String(bundleFirst ? 10 : onesShown)}
         disabled={!interactive}
         onClick={toggleTen}
         style={{
-          left: box.pad.left + frameW + (chrome === 'tight' ? 16 : 36) + TENS_GAP,
-          top: box.tensTop,
+          left: bundleFirst ? box.pad.left : box.pad.left + box.frameOuterW + TENS_GAP,
+          top: bundleFirst ? box.bundleTop : box.onesTop,
           ...(reduced ? { animation: 'none' } : {}),
         }}
       >
-        <span className="ni-mset__tens-grid">
-          {Array.from({ length: 10 }, (_, k) => (
-            // biome-ignore lint/suspicious/noArrayIndexKey: the small frame's cells are positional
-            <span key={k} className="ni-mset__tens-cell">
-              {beside === 'bundle' || k < onesShown ? <ObjectSprite sprite={sprite} /> : null}
-            </span>
-          ))}
+        <span className="ni-mset__tens-frame">
+          <span className="ni-mset__tens-grid">
+            {Array.from({ length: 10 }, (_, k) => (
+              // biome-ignore lint/suspicious/noArrayIndexKey: the small frame's cells are positional
+              <span key={k} className="ni-mset__tens-cell">
+                {bundleFirst || k < onesShown ? <ObjectSprite sprite={sprite} /> : null}
+              </span>
+            ))}
+          </span>
+          {bundleFirst ? (
+            <BundleBand
+              width={TENS_W - 2 * (6 + 4)}
+              height={TENS_H - 2 * (6 + 4)}
+              vertical
+              bow={false}
+            />
+          ) : null}
         </span>
-        {beside === 'bundle' ? (
-          <BundleBand width={TENS_W - 2 * (6 + 4)} height={TENS_H - 2 * (6 + 4)} vertical />
+        {bundleFirst ? (
+          <span className="ni-mset__tens-tag" aria-hidden="true">
+            10
+          </span>
         ) : null}
       </button>
     );
@@ -954,7 +982,14 @@ export function MakeSetWidget({
       {/* count-aloud invites counting what is in the frames: the ring hugs them, not the art. */}
       <div
         className={['ni-mset__frames', invitedCount ? 'ni-invite' : ''].filter(Boolean).join(' ')}
-        style={{ top: box.framesTop, left: box.pad.left, gap: box.frameGap } as CSSProperties}
+        style={
+          {
+            top: box.framesTop,
+            left: framesLeft,
+            gap: box.frameGap,
+            ...(reduced ? { transition: 'none' } : {}),
+          } as CSSProperties
+        }
       >
         {shownFrames.map((f) => (
           <div

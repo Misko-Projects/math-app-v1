@@ -393,19 +393,23 @@ export function ContainerArt({
  * two rows (no thicker than the gap), with the bow on the frame's right edge, over its padding and
  * border, so it never covers a slot. `vertical`: the same band down the gap between two columns,
  * the bow under the bottom edge (the tied ten beside a frame of ones, one ten-frame at a time).
+ * `bow={false}`: no bow; the band runs on 12 px past the end (through the frame's padding, border
+ * and the 2 px gap) to the tag tied under it.
  */
 export function BundleBand({
   width,
   height,
   vertical = false,
+  bow = true,
 }: {
   width: number;
   height: number;
   vertical?: boolean;
+  bow?: boolean;
 }) {
   const along = vertical ? height : width;
   const across = (vertical ? width : height) / 2;
-  const knot = along + 8;
+  const knot = bow ? along + 8 : along + 12;
   /** (a, c): `a` along the band, `c` across it. */
   const at = (a: number, c: number) => (vertical ? { x: c, y: a } : { x: a, y: c });
   const band = at(-8, across - 6);
@@ -429,7 +433,7 @@ export function BundleBand({
         stroke={INK}
         strokeWidth="3"
       />
-      {[-1, 1].map((side) => {
+      {(bow ? [-1, 1] : []).map((side) => {
         const c = at(knot, across + side * 15);
         return (
           <ellipse
@@ -445,15 +449,17 @@ export function BundleBand({
           />
         );
       })}
-      <circle
-        className="ni-mset__bow"
-        cx={at(knot, across).x}
-        cy={at(knot, across).y}
-        r="7"
-        fill="var(--color-sunshine-deep)"
-        stroke={INK}
-        strokeWidth="3"
-      />
+      {bow ? (
+        <circle
+          className="ni-mset__bow"
+          cx={at(knot, across).x}
+          cy={at(knot, across).y}
+          r="7"
+          fill="var(--color-sunshine-deep)"
+          stroke={INK}
+          strokeWidth="3"
+        />
+      ) : null}
     </svg>
   );
 }
