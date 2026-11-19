@@ -59,6 +59,32 @@ function describe(el: Element) {
   return el.getAttribute('aria-label') ?? el.textContent?.trim() ?? el.tagName;
 }
 
+/**
+ * A widget-area story's card (`.story-widget-area` / `.story-host-box`) is centred in the story
+ * stage on both axes: equal left/right and top/bottom margins (± 2 px), also when the card is
+ * wider or taller than the stage's padded box. Only a story whose root IS the area card is checked
+ * (stories without one, or showing several widgets side by side, pass).
+ */
+export async function expectAreaCentred(canvasElement: HTMLElement) {
+  const box = canvasElement.querySelector('.story-widget-area, .story-host-box');
+  const stage = box?.parentElement;
+  if (!box || !stage?.classList.contains('story-stage')) return;
+  const s = stage.getBoundingClientRect();
+  const b = box.getBoundingClientRect();
+  const left = b.left - s.left;
+  const right = s.right - b.right;
+  const top = b.top - s.top;
+  const bottom = s.bottom - b.bottom;
+  await expect(
+    Math.abs(left - right),
+    `area margins left ${left}, right ${right}`,
+  ).toBeLessThanOrEqual(2);
+  await expect(
+    Math.abs(top - bottom),
+    `area margins top ${top}, bottom ${bottom}`,
+  ).toBeLessThanOrEqual(2);
+}
+
 /** Waits until an element's transitions and finite animations have finished. */
 export async function waitForSettled(el: Element) {
   await Promise.all(

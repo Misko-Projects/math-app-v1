@@ -4,6 +4,7 @@ import type { Meta, StoryObj } from '@storybook/react-vite';
 import { expect, fn, userEvent, waitFor, within } from 'storybook/test';
 import {
   clearSpies,
+  expectAreaCentred,
   expectTargetGaps,
   expectTargetSize,
   pointerDrag,
@@ -117,8 +118,10 @@ const meta = {
   parameters: { ui: { stage: 'centered' } },
   render: renderWidget,
   // No leftover focus ring (from a story's clicks) may read as an invite ring.
-  afterEach: async () => {
+  afterEach: async ({ canvasElement }) => {
     (document.activeElement as HTMLElement | null)?.blur();
+    // Every area story's card is centred in the stage on both axes.
+    await expectAreaCentred(canvasElement);
   },
 } satisfies Meta<WidgetHostProps>;
 
