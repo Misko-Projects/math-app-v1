@@ -831,6 +831,10 @@ export const TwentyKMinRemoveInvite: Story = {
     await userEvent.click(tens(root) as HTMLElement);
     await waitFor(() => expect(inside(root)).toHaveLength(10));
     await expectInviteOn(root, inside(root).at(-1) as HTMLElement);
+    // Tie it again (the empty ones' button): the invite goes back on the tied ten, and stays.
+    await userEvent.click(tens(root) as HTMLElement);
+    await waitFor(() => expect(tens(root)).toHaveAttribute('data-tens', 'bundle'));
+    await expectInviteOn(root, tens(root) as HTMLElement);
   },
 };
 
