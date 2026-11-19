@@ -228,6 +228,12 @@ const SIDE_GAP = 24;
  * ~46 px below the card, bob included) ≥ 12 px clear of the card below, past its 6 px ledge.
  */
 const STACK_PICK_GAP = 53;
+/**
+ * Length strips (stacked ribbons over one ruler) keep the plain gap between the rows: Pip points
+ * at a strip from its right instead (the ribbons and the ruler are its glyphs), so the answers
+ * column stands this far off: the hand's 38 px reach past the card plus 12 px clear, and more.
+ */
+const STRIP_ANSWER_GAP = 56;
 const ANSWER_GAP = 24;
 /** A framed side: its border and padding around the picture. */
 const SIDE_PAD = 19;
@@ -379,7 +385,8 @@ function planLayout(opts: {
   const n = specs.length;
   const midW = mid.w > 0 ? mid.w + SIDE_GAP : 0;
   const capH = (h: number) => Math.min(MAX_SIDE_H, h);
-  const stackGap = opts.sidePick ? STACK_PICK_GAP : SIDE_GAP;
+  const stackGap = opts.sidePick && !opts.stackOnly ? STACK_PICK_GAP : SIDE_GAP;
+  const besideGap = opts.stackOnly && opts.sidePick ? STRIP_ANSWER_GAP : ANSWER_GAP;
   // A side the child picks keeps a target-sized card (and its ledge) around the picture.
   const pad = 2 * SIDE_PAD + (opts.sidePick ? 6 : 0);
   const boxes: Record<Exclude<Arrange, 'match'>, Box> = {
@@ -407,7 +414,7 @@ function planLayout(opts: {
     // Short and wide (the 960 × 600 minimum): the sides one above the other, each the full width
     // left of the answers, so a long row of objects draws big.
     'stack-beside': {
-      w: Math.min(W - col.w - ANSWER_GAP, 900) - 2 * SIDE_PAD,
+      w: Math.min(W - col.w - besideGap, 900) - 2 * SIDE_PAD,
       h: capH((H - (n - 1) * stackGap - (opts.rulerH ?? 0)) / n) - pad,
     },
   };
@@ -427,7 +434,10 @@ function planLayout(opts: {
   const holds = (a: Exclude<Arrange, 'match'>) =>
     a === 'beside' || a === 'stack-beside' ? col.h <= H + 0.5 : row.w <= W + 0.5;
   for (const a of others) {
-    if (holds(a) && (!holds(best) || score(a) > score(best) * 1.15)) best = a;
+    // Length strips keep their answers beside them when the column fits (the strips and their
+    // ruler need every px of height, 06 §1 minimum area).
+    const prefer = opts.stackOnly && a === 'stack-beside';
+    if (holds(a) && (prefer || !holds(best) || score(a) > score(best) * 1.15)) best = a;
   }
   return {
     arrange: best,
@@ -497,19 +507,43 @@ const stripWidth = (w: number) => Math.max(200, Math.min(880, Math.floor(w)));
 /** The ruler under two length strips: its height (line at 30 px, ticks and caps below). */
 const RULER_H = 60;
 
+/**
+ * The one ruler two length strips share: from 0 to the longer of the two ranges, so both ribbons
+ * are measured on one scale (8 of 0–10 and 10 of 0–20 both on 0–20). Null when the two rulers
+ * can't share a scale honestly (different tick steps): each side then keeps its own number line.
+ */
+function sharedRange(specs: StimulusSpec[]): Extract<StimulusSpec, { kind: 'number-line' }> | null {
+  const lines = specs.filter(
+    (sp): sp is Extract<StimulusSpec, { kind: 'number-line' }> => sp.kind === 'number-line',
+  );
+  const [a, b] = lines;
+  if (lines.length !== 2 || !a || !b || a.ticksEvery !== b.ticksEvery) return null;
+  const longer = b.max > a.max ? b : a;
+  return {
+    ...longer,
+    min: Math.min(a.min, b.min),
+    max: Math.max(a.max, b.max),
+    labelsEvery: a.labelsEvery === b.labelsEvery ? a.labelsEvery : null,
+    marks: [],
+  };
+}
+
 /** One side's length: a ribbon from the ruler's 0 to its length, on the shared ruler's scale. */
 function LengthStrip({
   spec,
+  range,
   width,
   label,
 }: {
   spec: Extract<StimulusSpec, { kind: 'number-line' }>;
+  /** The shared ruler's range (both strips are drawn on it). */
+  range: { min: number; max: number };
   width: number;
   label: string;
 }) {
   const at = spec.marks?.[0]?.at ?? spec.min;
   const w = stripWidth(width);
-  const scale = numberLineScale(spec.min, spec.max, w, LINE_BARE_PAD);
+  const scale = numberLineScale(range.min, range.max, w, LINE_BARE_PAD);
   const x0 = scale.x(spec.min);
   const len = Math.max(0, scale.x(at) - x0);
   return (
@@ -522,7 +556,7 @@ function LengthStrip({
         aria-hidden="true"
         focusable="false"
       >
-        <rect x={x0} y={4} width={len} height={22} rx={11} />
+        <rect className="ni-invite-glyph" x={x0} y={4} width={len} height={22} rx={11} />
         <path d={`M${x0 + 12} 11h${len * 0.35}`} />
       </svg>
     </div>
@@ -538,7 +572,7 @@ function SharedRuler({
   width: number;
 }) {
   return (
-    <div className="ni-cmp__ruler" aria-hidden="true">
+    <div className="ni-cmp__ruler ni-invite-glyph" aria-hidden="true">
       <NumberLineView
         min={spec.min}
         max={spec.max}
@@ -662,7 +696,8 @@ export function CompareWidget({
       ? { w: Math.round(target * 0.9), h: Math.round(target * 0.9) }
       : { w: 0, h: 0 };
   // "Which is longer?" with two ruler strips: two ribbons stacked over one shared ruler.
-  const strips = specs.length === 2 && specs.every((sp) => isLengthStrip(sp, ask));
+  const ruler = specs.every((sp) => isLengthStrip(sp, ask)) ? sharedRange(specs) : null;
+  const strips = ruler !== null;
   const bounded = room !== null && Number.isFinite(room.height);
   // A widget in a bounded room fills its height and keeps room under its content for Pip's hand
   // (see `lift` below). When centring the planned layout leaves less than `HAND_ROOM` there, the
@@ -671,21 +706,29 @@ export function CompareWidget({
   const roomKey = room ? `${room.width}x${room.height}` : '';
   const [tightRoom, setTightRoom] = useState<string | null>(null);
   const holdBack = reserve && tightRoom === roomKey;
-  const plan = planLayout({
-    room,
-    specs,
-    mid,
-    answer: answerSize ?? fallbackAnswer,
-    match:
-      matchable && leftLayout && rightLayout
-        ? (k: number) => matchGeometry([leftLayout, rightLayout], target, sidePick, k)
-        : null,
-    sidePick,
-    // Two lengths compare one above the other from a common start.
-    stackOnly: strips,
-    rulerH: strips ? RULER_H + (sidePick ? STACK_PICK_GAP : SIDE_GAP) : 0,
-    handRoom: holdBack ? HAND_ROOM : 0,
-  });
+  const planWith = (handRoom: number) =>
+    planLayout({
+      room,
+      specs,
+      mid,
+      answer: answerSize ?? fallbackAnswer,
+      match:
+        matchable && leftLayout && rightLayout
+          ? (k: number) => matchGeometry([leftLayout, rightLayout], target, sidePick, k)
+          : null,
+      sidePick,
+      // Two lengths compare one above the other from a common start.
+      stackOnly: strips,
+      rulerH: strips ? RULER_H + SIDE_GAP : 0,
+      handRoom,
+    });
+  const held = planWith(holdBack ? HAND_ROOM : 0);
+  // The hand's room never costs a side its target size (06 §4): a layout that would shrink a side
+  // card under the target keeps the room it has (the hand then points from beside or above).
+  const plan =
+    holdBack && held.arrange !== 'match' && held.side.h + 2 * SIDE_PAD < target
+      ? planWith(0)
+      : held;
   /**
    * Match mode (concrete tier with match lines): the sets as rows of object targets. When the rows
    * don't fit the room at full target size, the widget falls back to the side-by-side pictures:
@@ -1050,8 +1093,13 @@ export function CompareWidget({
     const name = sidePick ? undefined : sideLabel(side);
     const layout = shownLayouts[side === 'left' ? 0 : 1] ?? undefined;
     const picture =
-      isLengthStrip(spec, ask) && spec.kind === 'number-line' ? (
-        <LengthStrip spec={spec} width={plan.side.w} label={name ?? t('ui.widget.picture')} />
+      strips && isLengthStrip(spec, ask) && spec.kind === 'number-line' ? (
+        <LengthStrip
+          spec={spec}
+          range={ruler ?? spec}
+          width={plan.side.w}
+          label={name ?? t('ui.widget.picture')}
+        />
       ) : (
         <FitPicture
           spec={spec}
@@ -1309,7 +1357,9 @@ export function CompareWidget({
       ? { '--cmp-side-h': `${Math.round(plan.side.h + 2 * SIDE_PAD)}px` }
       : {}),
     '--cmp-gap': `${ANSWER_GAP}px`,
-    '--cmp-side-gap': `${stacked && sidePick ? STACK_PICK_GAP : SIDE_GAP}px`,
+    '--cmp-side-gap': `${stacked && sidePick && !strips ? STACK_PICK_GAP : SIDE_GAP}px`,
+    // Beside length strips, the answers stand off far enough for Pip's hand at a strip's right.
+    '--cmp-stage-gap': `${strips && sidePick && plan.answers === 'column' ? STRIP_ANSWER_GAP : ANSWER_GAP}px`,
     '--cmp-row-gap': `${ROW_GAP}px`,
     '--cmp-choice-gap': `${CHOICE_GAP}px`,
     '--cmp-check-gap': `${CHECK_GAP}px`,
@@ -1356,9 +1406,7 @@ export function CompareWidget({
           {renderSide('left')}
           {renderMiddle()}
           {renderSide('right')}
-          {strips && config.left.kind === 'number-line' ? (
-            <SharedRuler spec={config.left} width={plan.side.w} />
-          ) : null}
+          {ruler ? <SharedRuler spec={ruler} width={plan.side.w} /> : null}
         </div>
       )}
 

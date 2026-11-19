@@ -222,6 +222,23 @@ button.ni-ord__card:focus-visible,
 .ni-ord__pad.ni-drop-target:not(.ni-invite):focus-visible {
   outline-color: transparent;
 }
+/*
+ * A focused box also draws a solid outline, outside the invite ring's place: invisible here (the
+ * ink ring above shows), it is the focus ring in forced colours, where box shadows are not drawn
+ * (06 §7), in the system Highlight colour, unlike Pip's ring on the box's own edge.
+ */
+.ni-ord__pad.ni-drop-target:not(.ni-invite):focus-visible,
+.ni-ord__pad.ni-drop-target[data-armed="true"]:not(.ni-invite):focus {
+  outline: 4px solid transparent;
+  outline-offset: 4px;
+}
+@media (forced-colors: active) {
+  .ni-ord__pad.ni-drop-target:focus-visible,
+  .ni-ord__pad.ni-drop-target[data-armed="true"]:focus {
+    outline: 4px solid Highlight;
+    outline-offset: 4px;
+  }
+}
 .ni-ord__card[data-fixed="true"] {
   background: var(--color-pebble);
   box-shadow: none;
@@ -250,6 +267,26 @@ button.ni-ord__card:focus-visible,
 .ni-ord__pic {
   display: flex;
 }
+/* A picture card: its numeral (when the picture doesn't print it) above the fitted picture. */
+.ni-ord__face {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0;
+  min-width: 0;
+  pointer-events: none;
+}
+.ni-ord__tag {
+  box-sizing: border-box;
+  height: 40px;
+  font-family: var(--font-display);
+  font-size: 2.5rem;
+  font-weight: 800;
+  line-height: 36px;
+  padding-top: 4px;
+  font-variant-numeric: tabular-nums;
+}
 /* A small card's compact path: its numeral beside it, the path's ink in fixed screen px. */
 .ni-ord__face[data-face="side"] {
   flex-direction: row;
@@ -270,26 +307,6 @@ button.ni-ord__card:focus-visible,
 }
 .ni-ord__path .ni-numberline__pointer {
   stroke-width: 2.5;
-}
-/* A picture card: its numeral (when the picture doesn't print it) above the fitted picture. */
-.ni-ord__face {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 0;
-  min-width: 0;
-  pointer-events: none;
-}
-.ni-ord__tag {
-  box-sizing: border-box;
-  height: 40px;
-  font-family: var(--font-display);
-  font-size: 2.5rem;
-  font-weight: 800;
-  line-height: 36px;
-  padding-top: 4px;
-  font-variant-numeric: tabular-nums;
 }
 .ni-ord__pin {
   position: absolute;

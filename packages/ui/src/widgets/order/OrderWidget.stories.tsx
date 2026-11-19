@@ -435,8 +435,68 @@ export const KeyboardOnInvitedBox: Story = {
     await expect(cs.outlineColor).toBe(rgbOf(root, '--color-sea-deep'));
     await expectInkFocusRing(box);
     await expect(root.querySelectorAll('.ni-invite')).toHaveLength(1);
+    // Forced colours (06 §7) draw no box shadows: the focused box draws a solid Highlight outline
+    // there, outside the box, unlike Pip's ring on an unfocused invited box (the same box, blurred).
+    const forced = forcedColorOutline(box);
+    await expect(forced, 'a forced-colours focus outline for the focused box').not.toBeNull();
+    await expect(forced?.style).toBe('solid');
+    await expect(forced?.color.toLowerCase()).toBe('highlight');
+    await expect(Number.parseFloat(forced?.width ?? '0')).toBeGreaterThanOrEqual(3);
+    box.blur();
+    await waitFor(() => expect(box).not.toHaveFocus());
+    await expect(forcedColorOutline(box), 'no focus outline once blurred').toBeNull();
+    const invited = getComputedStyle(box);
+    await expect(
+      `${invited.outlineStyle} ${invited.outlineColor} ${invited.outlineOffset}`,
+    ).not.toBe(`${forced?.style} ${forced?.color} ${forced?.offset}`);
+    await expect(invited.outlineOffset).toBe('-5px');
+    // Without forced colours, a focused box that is not invited carries the same solid outline
+    // (transparent, so only the ink ring shows); an unfocused one has none of its own.
+    const other = padOf(root, 3);
+    await expect(getComputedStyle(other).outlineColor).toBe('rgba(0, 0, 0, 0)');
+    other.focus();
+    await waitFor(() => expect(other).toHaveFocus());
+    await expect(other.matches(':focus')).toBe(true);
+    await expect(getComputedStyle(other).outlineStyle).toBe('solid');
+    await expect(getComputedStyle(other).outlineWidth).toBe('4px');
+    await expect(forcedColorOutline(other)?.color.toLowerCase()).toBe('highlight');
   },
 };
+
+/**
+ * The outline the `(forced-colors: active)` rules of the page's stylesheets give `el` as it is
+ * now (focused or not), or null. The story runner can't switch forced colours on, so the rules are
+ * matched directly (selectors against the live element).
+ */
+function forcedColorOutline(el: Element) {
+  for (const sheet of document.styleSheets) {
+    let rules: CSSRuleList;
+    try {
+      rules = sheet.cssRules;
+    } catch {
+      continue;
+    }
+    for (const rule of rules) {
+      if (
+        !(rule instanceof CSSMediaRule) ||
+        !/forced-colors:\s*active/.test(rule.media.mediaText)
+      ) {
+        continue;
+      }
+      for (const inner of rule.cssRules) {
+        if (!(inner instanceof CSSStyleRule) || !el.matches(inner.selectorText)) continue;
+        if (!inner.style.outlineStyle) continue;
+        return {
+          style: inner.style.outlineStyle,
+          color: inner.style.outlineColor,
+          width: inner.style.outlineWidth,
+          offset: inner.style.outlineOffset,
+        };
+      }
+    }
+  }
+  return null;
+}
 
 /** A pinned card stays put (pin icon) and its box takes no card; the answer includes it. */
 export const FixedSlot: Story = {
@@ -806,9 +866,9 @@ interface PathMeasure {
 
 /**
  * Maths truth and legibility on number-path cards, measured as drawn: the whole path from its
- * first to its last value; ticks evenly spaced ≥ 8 px apart, every unit tick when that fits, else
- * every 5th (5s and 10s, longer ones at the 10s, ranked by value); the mark's pointer exactly over
- * its own value's place, standing clear above every tick (never on one) and ≥ 4 px clear of the
+ * first to its last value; ticks evenly spaced ≥ 8 px apart: every unit tick when that fits,
+ * else the largest of 10, 5, 2 units that divides the span (ranked by value, 5s and 10s longer);
+ * the mark's pointer exactly over its own value's place, standing clear above every tick (never on one) and ≥ 4 px clear of the
  * end arrow.
  */
 async function expectPaths(root: HTMLElement): Promise<PathMeasure> {
@@ -827,7 +887,7 @@ async function expectPaths(root: HTMLElement): Promise<PathMeasure> {
     await expect(at[0]).toBe(spec.min);
     await expect(at.at(-1)).toBe(spec.max);
     const step = (at[1] ?? 0) - (at[0] ?? 0);
-    await expect([spec.ticksEvery, 5 * spec.ticksEvery]).toContain(step);
+    await expect([1, 2, 5, 10].map((k) => k * (spec.ticksEvery ?? 1))).toContain(step);
     await expect(ticks).toHaveLength((spec.max - spec.min) / step + 1);
     const xs = ticks.map((t) => {
       const r = t.getBoundingClientRect();
@@ -1067,13 +1127,13 @@ export const PathCardsKMinLandscape: Story = {
     const root = await findWidget(canvasElement, ROOT);
     // The whole path stays at the minimum (CMP.06's hint points at it). Its 21 unit ticks would
     // be ~5 px apart on cards this size, too close to read, so the card draws a compact path in
-    // K-sized ink, its numeral beside it: the 5s and 10s (0, 5, 10, 15, 20) ≥ 8 px apart, the
-    // mark's pointer over its own place.
+    // K-sized ink, its numeral beside it: its 10s (0, 10, 20: the largest step that divides 20)
+    // ≥ 8 px apart, the mark's pointer over its own place.
     await expect(root).toHaveAttribute('data-cards', 'picture');
     await expectPathCards(root);
     await expectOrderFits(canvasElement, root, 'k');
     const m = await expectPaths(root);
-    await expect(m.every).toBe(5);
+    await expect(m.every).toBe(10);
     notePaths(canvasElement, m);
     noteInk(canvasElement, await expectPathInk(root));
   },
@@ -1260,8 +1320,8 @@ export const PathCardsKPortrait: Story = {
   play: async ({ canvasElement }) => {
     const root = await findWidget(canvasElement, ROOT);
     await expectOrderFits(canvasElement, root, 'k');
-    // Four cards across 746 px: the whole path on each, its ticks ≥ 8 px apart (every 5th tick
-    // when the unit ticks would crowd).
+    // Four cards across 746 px: the whole path on each, its ticks ≥ 8 px apart (the largest step
+    // that divides the span when the unit ticks would crowd).
     await expect(root).toHaveAttribute('data-cards', 'picture');
     await expectPathCards(root);
     notePaths(canvasElement, await expectPaths(root));
@@ -1375,5 +1435,78 @@ export const DemoReducedMotion: Story = {
     await reducedController.play({ op: 'answer', args: { values: [6, 7, 8, 9] } });
     await expect(performance.now() - started).toBeLessThan(500);
     await expect(placed(root)).toEqual(['6', '7', '8', '9']);
+  },
+};
+
+/** MEA.01.t5-shaped (K): five unlabelled 0–11 ruler cards, longest first, at the minimum area. */
+const fiveRulers: Config = {
+  format: 'order',
+  items: [10, 4, 7, 2, 9].map((v, i) => ({
+    id: `item-${i}`,
+    value: v,
+    stimulus: {
+      kind: 'number-line',
+      min: 0,
+      max: 11,
+      ticksEvery: 1,
+      labelsEvery: null,
+      marks: [{ at: v, arrow: true }],
+    },
+  })),
+  direction: 'desc',
+};
+
+/**
+ * Five 0–11 ruler cards at the 960 × 600 minimum: compact paths. 11 has no step but 1 that
+ * divides it, and unit ticks would crowd, so each path keeps every 5th tick (evenly spaced) and
+ * both ends (0 and 11) as long ticks of their own; each mark's pointer sits over its own value.
+ * The ink reads at K size (screen px); everything fits, targets ≥ 80 px.
+ */
+export const RulerCardsKMinLandscape: Story = {
+  globals: { ageMode: 'k' },
+  args: { config: fiveRulers, tier: 'pictorial' },
+  render: inArea('landscapeMin'),
+  play: async ({ canvasElement }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    await expectOrderFits(canvasElement, root, 'k');
+    const cards = [...root.querySelectorAll<HTMLElement>('.ni-ord__tray .ni-ord__card')];
+    await expect(cards).toHaveLength(5);
+    for (const c of cards) {
+      await expectTargetSize(c, 'k');
+      const at = (t: SVGLineElement) => Number(t.dataset.at);
+      const centre = (t: Element) => {
+        const r = t.getBoundingClientRect();
+        return r.left + r.width / 2;
+      };
+      const ticks = [...c.querySelectorAll<SVGLineElement>('.ni-numberline__tick')];
+      // Both ends, as long ticks.
+      const first = ticks[0] as SVGLineElement;
+      const last = ticks.at(-1) as SVGLineElement;
+      await expect(at(first)).toBe(0);
+      await expect(at(last)).toBe(11);
+      await expect(last.dataset.rank).toBe('end');
+      await expect(last.getBoundingClientRect().height).toBeGreaterThanOrEqual(
+        first.getBoundingClientRect().height - 0.5,
+      );
+      // The grid (all but the extra end) evenly spaced, ≥ 8 px apart, on whole steps.
+      const grid = ticks.filter((t) => t.dataset.rank !== 'end');
+      const step = at(grid[1] as SVGLineElement) - at(grid[0] as SVGLineElement);
+      const gap = centre(grid[1] as SVGLineElement) - centre(grid[0] as SVGLineElement);
+      await expect(gap).toBeGreaterThanOrEqual(8);
+      for (let i = 1; i < grid.length; i++) {
+        await expect(at(grid[i] as SVGLineElement) - at(grid[i - 1] as SVGLineElement)).toBe(step);
+        await expect(
+          centre(grid[i] as SVGLineElement) - centre(grid[i - 1] as SVGLineElement),
+        ).toBeCloseTo(gap, 1);
+      }
+      // One scale: the end tick at 11 and the mark at its own value.
+      const perUnit = gap / step;
+      const x0 = centre(first);
+      await expect(centre(last)).toBeCloseTo(x0 + 11 * perUnit, 0);
+      const pointer = c.querySelector('.ni-numberline__pointer') as SVGPathElement;
+      const mark = Number((pointer.closest('.ni-numberline__mark') as SVGGElement).dataset.at);
+      await expect(centre(pointer)).toBeCloseTo(x0 + mark * perUnit, 0);
+    }
+    noteInk(canvasElement, await expectPathInk(root));
   },
 };

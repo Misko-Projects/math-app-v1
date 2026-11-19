@@ -96,9 +96,11 @@ const SIDE_TAG_GAP = 6;
  * A compact number path for a small card, in fixed screen-px ink so it reads at K size however
  * small the card (the card-scaled path would be hairlines): a 4 px track, ticks 3.5 px wide and
  * ≥ 12 px tall (14 at 5s, 18 at 10s), the mark an 18 × 18 px pointer standing ≥ 6 px above the
- * tallest tick, end arrows 10 px long ≥ 6 px from any pointer. Every tick stays evenly spaced: the
- * unit ticks when they are ≥ 8 px apart, else every 5th (or 10th), ranked by value; the pointer
- * sits exactly over its own value's place. Same classes as NumberLineView.
+ * tallest tick, end arrows 10 px long ≥ 6 px from any pointer. The ticks stay evenly spaced on
+ * the largest step of 10, 5, 2, 1 that divides the span with ticks ≥ 8 px apart, ranked by value;
+ * a span no such step divides keeps 5s (or the first step ≥ 8 px apart) and both ends as long
+ * ticks of their own. The pointer sits exactly over its own value's place. Same classes as
+ * NumberLineView.
  */
 const PATH = {
   pad: 16,
@@ -127,11 +129,15 @@ function CardPath({
   const span = Math.max(unit, max - min);
   const inner = width - 2 * PATH.pad;
   const x = (v: number) => PATH.pad + ((v - min) / span) * inner;
-  const fits = (k: number) =>
-    (inner * unit * k) / span >= MIN_TICK_PITCH &&
-    Math.abs(span / (unit * k) - Math.round(span / (unit * k))) < 1e-9;
-  const k = [1, 5, 10].find(fits) ?? 10;
-  const ticks = stepsBetween(min, max, unit * k);
+  // The step: the largest of 10, 5, 2, 1 units that divides the span with ticks ≥ 8 px apart;
+  // when none divides it (a 0–11 ruler), the one with ticks ≥ 8 px apart (5s first), and the two
+  // ends get ticks of their own, so the whole path always shows from its first value to its last.
+  const wide = (k: number) => (inner * unit * k) / span >= MIN_TICK_PITCH;
+  const divides = (k: number) => Math.abs(span / (unit * k) - Math.round(span / (unit * k))) < 1e-9;
+  const k = [10, 5, 2, 1].find((f) => wide(f) && divides(f)) ?? [5, 10, 2, 1].find(wide) ?? 10;
+  const grid = stepsBetween(min, max, unit * k);
+  const ends = [min, max].filter((v) => !grid.some((g) => Math.abs(g - v) < 1e-9));
+  const ticks = [...grid, ...ends].sort((a, b) => a - b);
   const y = PATH_Y;
   return (
     <svg
@@ -161,13 +167,16 @@ function CardPath({
       />
       {ticks.map((v) => {
         const step = Math.round(v / unit);
-        const rank = step % 10 === 0 ? 'ten' : step % 5 === 0 ? 'five' : 'one';
-        const h = PATH.half[rank];
+        // An end off the step's grid is a long tick of its own (`end`).
+        const end = ends.includes(v);
+        const rank = end ? 'end' : step % 10 === 0 ? 'ten' : step % 5 === 0 ? 'five' : 'one';
+        const h = PATH.half[end ? 'ten' : (rank as 'ten' | 'five' | 'one')];
         return (
           <line
             key={`t${v}`}
             className="ni-numberline__tick"
             data-rank={rank}
+            data-step={unit * k}
             data-at={v}
             x1={x(v)}
             x2={x(v)}
@@ -789,9 +798,10 @@ export function OrderWidget({
     const pitch = ((picW - 2 * LINE_BARE_PAD * scale) * every) / Math.max(every, span);
     return pitch < MIN_TICK_PITCH;
   };
-  /** The numeral beside a compact path: as wide as the longest label at 32 px. */
-  const sideTagW = Math.ceil(longest * 0.62 * SIDE_TAG_PX) + 2;
-  const compactW = Math.max(40, plan.w - 2 * PIC_PAD - sideTagW - SIDE_TAG_GAP);
+  /** The numeral beside a compact path: as wide as the longest label at 32 px (none: no room). */
+  const labelled = config.items.some((it) => it.label !== undefined);
+  const sideTagW = labelled ? Math.ceil(longest * 0.62 * SIDE_TAG_PX) + 2 : 0;
+  const compactW = Math.max(40, plan.w - 2 * PIC_PAD - (labelled ? sideTagW + SIDE_TAG_GAP : 0));
   // A plain line of more than five objects may wrap into two rows of reading order (as tap-count
   // wraps lines) when that draws every card bigger, unless the set's look is the point (spread
   // versus bunched, drawn big: compare.sets conflict items keep their pictures as given).

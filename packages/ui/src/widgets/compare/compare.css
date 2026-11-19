@@ -10,7 +10,7 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: var(--cmp-gap);
+  gap: var(--cmp-stage-gap, var(--cmp-gap));
   box-sizing: border-box;
   width: 100%;
   max-width: 1180px;

@@ -13,9 +13,11 @@ import {
 } from '../../test-support/storyHelpers';
 import {
   areaBox,
+  contentBox,
   expectFill,
   expectFitsArea,
   expectHandClearOfOthers,
+  expectNoScroll,
   expectPointerOn,
   expectRingClear,
   expectTraceOrdered,
@@ -1107,6 +1109,101 @@ export const LongerK: Story = {
     await expect(Math.abs(zero.left + zero.width / 2 - a.left)).toBeLessThan(1.5);
     const ruler = (root.querySelector('.ni-cmp__ruler') as HTMLElement).getBoundingClientRect();
     await expect(ruler.top).toBeGreaterThan(Math.max(a.bottom, b.bottom));
+  },
+};
+
+/** A ribbon's drawn box, and the centre of the shared ruler's tick for `value`. */
+const ribbonBox = (root: HTMLElement, side: 'left' | 'right') =>
+  (
+    root.querySelector(`.ni-cmp__side[data-side="${side}"] .ni-cmp__ribbon rect`) as Element
+  ).getBoundingClientRect();
+const rulerTick = (root: HTMLElement, value: number) => {
+  const tick = [
+    ...root.querySelectorAll<SVGLineElement>('.ni-cmp__ruler .ni-numberline__tick'),
+  ].find((t) => Number(t.dataset.at) === value) as SVGLineElement;
+  const r = tick.getBoundingClientRect();
+  return r.left + r.width / 2;
+};
+
+const longerInvite: WidgetDemo = createDemoController({ strict: true });
+
+/**
+ * MEA.01.t3 (K) at the 960 × 600 minimum (852 × 319): two ribbons stacked over their one ruler,
+ * the answers beside them. The rows keep the plain gap (the hand's room is kept once, below the
+ * stage; Pip points at a ribbon from its right), so both strip cards keep the K target, the whole
+ * ruler shows and nothing scrolls. Then the invite on each strip and on "the same": one ring, the
+ * hand ≥ 12 px from every other control and off the ribbons and the ruler.
+ */
+export const LongerKMin: Story = {
+  globals: { ageMode: 'k' },
+  args: { config: longer, tier: 'pictorial', demo: longerInvite },
+  render: inArea('landscapeMin'),
+  play: async ({ canvasElement }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    await expect(root).toHaveAttribute('data-arrange', 'stack-beside');
+    await expect(root).toHaveAttribute('data-answers', 'column');
+    await expectCompareFits(canvasElement, root, 'k');
+    for (const side of ['Left side', 'Right side']) {
+      const r = within(root).getByRole('button', { name: side }).getBoundingClientRect();
+      await expect(r.width).toBeGreaterThanOrEqual(80);
+      await expect(r.height).toBeGreaterThanOrEqual(80);
+    }
+    // The whole ruler and the answers inside the area's content box.
+    const inner = contentBox(areaBox(canvasElement));
+    for (const el of [
+      root.querySelector('.ni-cmp__ruler svg') as Element,
+      root.querySelector('.ni-cmp__answer') as Element,
+    ]) {
+      const r = el.getBoundingClientRect();
+      await expect(r.top).toBeGreaterThanOrEqual(inner.top - 0.5);
+      await expect(r.bottom).toBeLessThanOrEqual(inner.bottom + 0.5);
+      await expect(r.left).toBeGreaterThanOrEqual(inner.left - 0.5);
+      await expect(r.right).toBeLessThanOrEqual(inner.right + 0.5);
+    }
+    // Ribbon ends on their ruler ticks (7 and 10).
+    await expect(Math.abs(ribbonBox(root, 'left').right - rulerTick(root, 7))).toBeLessThan(1);
+    await expect(Math.abs(ribbonBox(root, 'right').right - rulerTick(root, 10))).toBeLessThan(1);
+    longerInvite.invite({ op: 'highlight', args: { side: 'left' } });
+    await expectInviteOn(root, within(root).getByRole('button', { name: 'Left side' }));
+    longerInvite.invite({ op: 'highlight', args: { side: 'right' } });
+    await expectInviteOn(root, within(root).getByRole('button', { name: 'Right side' }));
+    longerInvite.invite({ op: 'answer', args: { id: 'same' } });
+    await expectInviteOn(root, within(root).getByRole('button', { name: 'The same' }));
+    await expectNoScroll(areaBox(canvasElement));
+  },
+};
+
+/**
+ * Two rulers of different ranges (8 on 0–10, 10 on 0–20): ONE ruler spans both (0–20) and both
+ * ribbons are drawn on its scale, so the right ribbon is the longer one and each ribbon ends on
+ * the ruler's tick for its own value.
+ */
+export const LongerDifferentRanges: Story = {
+  globals: { ageMode: 'k' },
+  args: {
+    config: {
+      ...longer,
+      left: { ...(strip(8) as Extract<StimulusSpec, { kind: 'number-line' }>), max: 10 },
+      right: { ...(strip(10) as Extract<StimulusSpec, { kind: 'number-line' }>), max: 20 },
+    },
+    tier: 'pictorial',
+  },
+  render: inArea('tablet'),
+  play: async ({ canvasElement }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    await expectCompareFits(canvasElement, root, 'k');
+    await expect(root.querySelectorAll('.ni-cmp__ruler')).toHaveLength(1);
+    const ticks = [...root.querySelectorAll<SVGLineElement>('.ni-cmp__ruler .ni-numberline__tick')];
+    await expect(ticks.map((t) => Number(t.dataset.at))).toEqual(
+      Array.from({ length: 21 }, (_, i) => i),
+    );
+    const a = ribbonBox(root, 'left');
+    const b = ribbonBox(root, 'right');
+    await expect(b.width).toBeGreaterThan(a.width);
+    await expect(Math.abs(a.left - b.left)).toBeLessThan(1);
+    await expect(Math.abs(a.left - rulerTick(root, 0))).toBeLessThan(1);
+    await expect(Math.abs(a.right - rulerTick(root, 8))).toBeLessThan(1);
+    await expect(Math.abs(b.right - rulerTick(root, 10))).toBeLessThan(1);
   },
 };
 
