@@ -134,10 +134,6 @@
   width: var(--cmp-mid);
   height: var(--cmp-mid);
 }
-.ni-cmp[data-arrange="stack"] .ni-cmp__gap,
-.ni-cmp[data-arrange="stack"] .ni-cmp__relation {
-  justify-self: center;
-}
 
 /* ---------- choices and check ---------- */
 

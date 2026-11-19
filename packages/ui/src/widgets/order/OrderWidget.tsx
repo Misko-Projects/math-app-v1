@@ -84,8 +84,8 @@ const CHROME = {
     gap: 24,
   },
   compact: {
-    board: { top: 8, x: 16, bottom: 8 },
-    cue: 44,
+    board: { top: 8, x: 16, bottom: 12 },
+    cue: 40,
     cueGap: 6,
     tray: { y: 10, x: 14 },
     gap: 10,
@@ -600,7 +600,7 @@ export function OrderWidget({
 
   const asc = config.direction === 'asc';
   const compact = plan.chrome === 'compact';
-  const [cueMin, cueMax] = compact ? [12, 28] : [20, 50];
+  const [cueMin, cueMax] = compact ? [12, 24] : [20, 50];
   const cueSizes = Array.from({ length: n }, (_, k) => {
     const f = n === 1 ? 1 : k / (n - 1);
     return Math.round(cueMin + (cueMax - cueMin) * (asc ? f : 1 - f));

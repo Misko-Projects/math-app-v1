@@ -319,9 +319,10 @@ function planLayout(opts: {
   const score = (a: Exclude<Arrange, 'match'>) =>
     Math.min(...specs.map((s) => fitScore(s, boxes[a])));
   // Side by side with the answers below, unless another arrangement draws the pictures clearly
-  // bigger (short rooms: answers beside; narrow ones: the sides stacked).
+  // bigger (short rooms: answers beside; narrow ones: the sides stacked). A relation between
+  // the sides (a symbol's gap, a statement's =) reads left to right, so those never stack.
   let best: Exclude<Arrange, 'match'> = 'row';
-  for (const a of ['beside', 'stack'] as const) {
+  for (const a of mid.w > 0 ? (['beside'] as const) : (['beside', 'stack'] as const)) {
     if (score(a) > score(best) * 1.15) best = a;
   }
   return {
