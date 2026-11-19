@@ -928,6 +928,29 @@ export const MakeTenAreaTapOnlyK: Story = {
   },
 };
 
+/**
+ * Enter held down on a button as a browser sends it: a keydown, then `repeats` keydowns with
+ * `repeat: true`, then a keyup. A keydown nobody prevents also activates the button (its default
+ * action: a click with `detail` 0), which a dispatched event doesn't do by itself.
+ */
+async function holdEnter(el: HTMLElement, repeats: number, afterEach: () => Promise<void>) {
+  const key = { key: 'Enter', code: 'Enter', bubbles: true, cancelable: true, composed: true };
+  for (let i = 0; i <= repeats; i++) {
+    const target = (document.activeElement as HTMLElement | null) ?? el;
+    const down = new KeyboardEvent('keydown', { ...key, repeat: i > 0 });
+    target.dispatchEvent(down);
+    if (!down.defaultPrevented) {
+      target.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, detail: 0 }));
+    }
+    await new Promise((r) => setTimeout(r, 30));
+    await afterEach();
+  }
+  ((document.activeElement as HTMLElement | null) ?? el).dispatchEvent(
+    new KeyboardEvent('keyup', key),
+  );
+  await new Promise((r) => setTimeout(r, 30));
+}
+
 /** Presses `key` until `want` has the focus (at most `max` times). */
 async function pressUntilFocused(want: () => Element | null, key: string, max = 14) {
   for (let i = 0; i < max && document.activeElement !== want(); i++) {
@@ -953,18 +976,28 @@ export const MakeTenAreaKeyboardK: Story = {
     await userEvent.keyboard('{Enter}');
     await waitFor(() => expect(frontFrame(root)).toBe('1'));
     await waitFor(() => expect(document.activeElement).toBe(miniOf(root)));
-    for (const [id, inFrame1] of [
-      [12, 9],
-      [11, 10],
+    for (const [id, inFrame1, held] of [
+      [12, 9, true],
+      [11, 10, false],
     ] as const) {
       placedCounter(root, id).focus();
       await userEvent.keyboard('{Enter}');
       await waitFor(() => expect(placedCounter(root, id)).toHaveAttribute('aria-pressed', 'true'));
       await expect(document.activeElement?.hasAttribute('data-place-target')).toBe(true);
       await pressUntilFocused(() => miniOf(root), '{ArrowLeft}');
-      await userEvent.keyboard('{Enter}');
+      if (held) {
+        // PR #93 round 3 F1: Enter held down on the small frame places exactly one counter; no
+        // repeat switches the frames afterwards.
+        await holdEnter(miniOf(root), 4, async () => {
+          await expect(frontFrame(root)).toBe('1');
+          await expect(inMini(root)).toBe(inFrame1);
+        });
+      } else {
+        await userEvent.keyboard('{Enter}');
+      }
       await waitFor(() => expect(inMini(root)).toBe(inFrame1));
       await expect(frontFrame(root)).toBe('1');
+      await expect(cellsOf(root, 1).filter(Boolean)).toHaveLength(13 - inFrame1);
     }
     if (root.dataset.step === 'build') {
       button(root, 'Next').focus();

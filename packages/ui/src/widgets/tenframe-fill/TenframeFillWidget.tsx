@@ -363,6 +363,8 @@ export function TenframeFillWidget({
 
   // The small frame (paged) brings its frame to the front; the new small frame takes the focus.
   const miniFocus = useRef(false);
+  /** Enter or Space went down on the small frame and has not been released yet. */
+  const miniKeyDown = useRef(false);
   const swapPage = (to: number) => {
     if (!interactive) return;
     trace('tap', `frame-${to}`);
@@ -784,10 +786,33 @@ export function TenframeFillWidget({
         data-armed={drop?.['data-armed']}
         aria-label={label}
         disabled={!interactive}
-        onClick={(e) => (takes && drop ? drop.onClick(e) : swapPage(frame))}
+        onClick={(e) => {
+          // A key press acts on keydown (below): no second action from a key's own click.
+          if (e.detail === 0 && miniKeyDown.current) return;
+          if (takes && drop) drop.onClick(e);
+          else swapPage(frame);
+        }}
         onKeyDown={(e) => {
-          // Enter and Space click the button (above); arrows move between the drop targets.
-          if (drop && e.key !== 'Enter' && e.key !== ' ') drop.onKeyDown(e);
+          if (e.key !== 'Enter' && e.key !== ' ') {
+            // Arrows move between the drop targets.
+            drop?.onKeyDown(e);
+            return;
+          }
+          // One action per press: a held key's repeats (and its own clicks) do nothing until the
+          // key is released, so placing a counter is never followed by a page switch.
+          e.preventDefault();
+          if (e.repeat || miniKeyDown.current) return;
+          miniKeyDown.current = true;
+          if (takes && drop) drop.onKeyDown(e);
+          else swapPage(frame);
+        }}
+        onKeyUp={(e) => {
+          if (e.key !== 'Enter' && e.key !== ' ') return;
+          e.preventDefault();
+          miniKeyDown.current = false;
+        }}
+        onBlur={() => {
+          miniKeyDown.current = false;
         }}
         style={
           { '--tf-rows': rows, '--tf-mini': `${MINI_PIECE[ageMode] * zoom}px` } as CSSProperties
