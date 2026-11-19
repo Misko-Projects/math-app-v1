@@ -253,8 +253,12 @@ h.sub.count-up:
   text: "Start at the smaller number. Count up to the bigger one."
 h.sub.count-up-ten:
   text: "Jump up to ten first. Then jump to the bigger number."
+# count-hops only where every hop is one (ones jumps); on the open line a jump can be longer, so
+# jump-total asks for the whole distance (8 → 10 → 13 is 5, not 2 jumps).
 h.sub.count-hops:
   text: "Count your hops. That is the answer."
+h.sub.jump-total:
+  text: "Put your jumps together. How much did you jump in all?"
 h.sub.back-or-up:
   text: "Count back to take away a small number. Count up when numbers are close."
 h.sub.think-add:
@@ -271,6 +275,11 @@ h.numberline.jump-to-ten:
   text: "Jump to ten first. Then jump what is left."
 h.numberline.back-to-ten:
   text: "Jump back to ten first. Then jump back again."
+# For facts that may or may not pass ten (ADD.27): the advice holds for every fact.
+h.numberline.over-ten:
+  text: "Do you go over ten? Then jump to ten first."
+h.numberline.under-ten:
+  text: "Do you go under ten? Then jump back to ten first."
 h.numberline.hop-ones:
   text: "Make one hop for each one you add."
 h.numberline.hop-back:
@@ -618,6 +627,8 @@ gen.addsub.facts.jump-back-rest:
   text: "Then jump back {rest} more."
 gen.addsub.facts.hops:
   text: "That is {n} in all."
+gen.addsub.facts.last-hop:
+  text: "Make the last hop."
 gen.addsub.facts.think-add:
   text: "Think: {b} and what make {a}?"
 gen.addsub.facts.see-groups:
