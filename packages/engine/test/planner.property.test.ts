@@ -301,7 +301,9 @@ describe('planSession properties (fixture graph)', () => {
       }),
       { numRuns: 200 },
     );
-  });
+    // 200 property runs, each planning over the whole K–1 graph: about 2 s alone, 7 s at full
+    // CI parallelism. The run count is the coverage, so the budget is raised instead of cut.
+  }, 20_000);
 
   it('the empty-request predicate catches a deliberately emptied request', () => {
     const model = createEloFireModel(graph, { childId: CHILD_1, isK: false });

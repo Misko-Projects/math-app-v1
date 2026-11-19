@@ -51,7 +51,9 @@ describe('foldSkillStates properties (fixture graph)', () => {
       }),
       { numRuns: 150 },
     );
-  });
+    // 300 full folds over the whole K–1 graph: about 2 s alone, 4.5 s at full CI parallelism.
+    // The run count is the coverage, so the budget is raised instead of cut.
+  }, 20_000);
 
   it('applyLearnerEvent incrementally equals the full fold', () => {
     fc.assert(
