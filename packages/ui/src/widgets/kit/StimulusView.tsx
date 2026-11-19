@@ -2,6 +2,7 @@ import type { ExpressionSpec, ExpressionToken, StimulusSpec } from '@number-isla
 import type { CSSProperties, ReactNode } from 'react';
 import { useNarrationText } from '../../preferences/UiProvider';
 import { pictureProps } from './a11y';
+import { ChartView } from './ChartView';
 import { dotsLayout, groupIndexes, objectSetLayout } from './layout';
 import { NumberLineView } from './NumberLineView';
 import { ObjectSetView } from './ObjectSetView';
@@ -168,6 +169,13 @@ export function StimulusView({
             thousands={spec.thousands ?? 0}
             label={name}
           />
+        </div>
+      );
+    case 'chart':
+      // U05 (#14): picture graphs, bar graphs, line plots, tally charts and tables.
+      return (
+        <div className={cls} data-kind="chart">
+          <ChartView chart={spec.chart} maxWidth={maxWidth} maxHeight={maxHeight} label={name} />
         </div>
       );
     case 'scene':

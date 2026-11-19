@@ -113,3 +113,74 @@ ui.sprite.firefly:
 ui.sprite.counter:
   text: "Counter"
   level: K
+
+# Patterns and data widgets (U05 #14: pattern-extend, bar-graph-read, bar-graph-build, ChartView).
+ui.sprite.apple:
+  text: "Apple"
+  level: K
+ui.widget.chart.graph:
+  text: "Look at the graph"
+  level: K
+ui.widget.chart.key:
+  text: "Each picture is {n}"
+  level: K
+ui.widget.chart.slot:
+  text: "{name}: {n}"
+  level: K
+ui.widget.chart.at:
+  text: "Above {n}"
+  level: K
+ui.widget.chart.less:
+  text: "Take one away from the {name}"
+  level: K
+ui.widget.chart.mark.tally:
+  text: "Tally mark"
+  level: K
+ui.widget.chart.mark.picture:
+  text: "Picture"
+  level: K
+ui.widget.chart.mark.block:
+  text: "Block"
+  level: K
+ui.widget.chart.mark.x:
+  text: "Mark"
+  level: K
+ui.widget.stepper.more:
+  text: "One more"
+  level: K
+ui.widget.stepper.less:
+  text: "One less"
+  level: K
+ui.widget.pattern.row:
+  text: "The pattern"
+  level: K
+ui.widget.pattern.new-row:
+  text: "Your new pattern"
+  level: K
+ui.widget.pattern.blank:
+  text: "Space {n}"
+  level: K
+ui.widget.pattern.pieces:
+  text: "Pieces to put in"
+  level: K
+ui.widget.pattern.place:
+  text: "{name}, place {n}"
+  level: K
+ui.widget.pattern.squares:
+  text: "{n} squares"
+  level: K
+ui.widget.pattern.square-more:
+  text: "Add a square"
+  level: K
+ui.widget.pattern.square-less:
+  text: "Take a square away"
+  level: K
+ui.widget.pattern.in:
+  text: "In"
+  level: K
+ui.widget.pattern.out:
+  text: "Out"
+  level: K
+ui.widget.pattern.jump:
+  text: "How big is each jump?"
+  level: K

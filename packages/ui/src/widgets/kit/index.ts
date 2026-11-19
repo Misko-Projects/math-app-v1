@@ -1,5 +1,21 @@
 // The shared widget kit (U03): pictures, layouts and answer controls the math widgets compose.
 // See ./README.md. Widgets import from here; workshops never do (they render WidgetHost).
+// U05 (#14): charts (picture graphs, bar graphs, line plots, tally charts, tables).
+export {
+  CategoryLabel,
+  ChartView,
+  type ChartViewProps,
+  chartBox,
+  useMeasuredBox,
+} from './ChartView';
+export {
+  type Box as ChartBox,
+  type ChartGeometry,
+  chartGeometry,
+  type SlotGeometry,
+  tallyLength,
+  tallyStrokes,
+} from './chartLayout';
 export {
   applyPadKey,
   balancedRows,
@@ -36,6 +52,7 @@ export {
   stepsBetween,
 } from './NumberLineView';
 export { fitCell, ObjectSetView, type ObjectSetViewProps } from './ObjectSetView';
+export { Stepper, type StepperProps } from './Stepper';
 export {
   BaseTenView,
   ExpressionView,

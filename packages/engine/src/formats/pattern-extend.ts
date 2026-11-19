@@ -50,7 +50,7 @@ export const PATTERN_SHAPES = [
 ] as const;
 
 /** Colour names a pattern token may carry; the widget paints each with a palette token. */
-export const PATTERN_COLORS = ['red', 'blue', 'yellow', 'green', 'orange'] as const;
+export const PATTERN_COLORS = ['red', 'blue', 'yellow'] as const;
 
 /** The largest tile stack a growing pattern draws. */
 export const MAX_TILES = 30;

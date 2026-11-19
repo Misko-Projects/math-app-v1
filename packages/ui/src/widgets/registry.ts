@@ -13,6 +13,8 @@ import type { WidgetRegistry } from './types';
 export const widgetRegistry: WidgetRegistry = {
   'number-pad': () => import('./number-pad/NumberPadWidget'),
   'numeral-pick': () => import('./numeral-pick/NumeralPickWidget'),
+  // U05 (#14) patterns and data
+  'bar-graph-read': () => import('./bar-graph-read/BarGraphReadWidget'),
 };
 
 /** Formats that have a registered widget. */

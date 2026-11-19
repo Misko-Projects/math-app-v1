@@ -1,0 +1,179 @@
+/*
+ * ChartView (U05 #14): picture graphs, bar graphs, line plots, tally charts and tables. Tokens
+ * only. Marks are ink (≥ 4.5:1 on paper); gridlines and lanes are decorative. A category is never
+ * told apart by colour alone: every one shows its sprite and name.
+ */
+
+.ni-stimulus[data-kind="chart"] {
+  padding: 12px 16px;
+}
+
+.ni-chart {
+  position: relative;
+  flex: none;
+  max-width: none;
+}
+.ni-chart__svg {
+  position: absolute;
+  inset: 0;
+  display: block;
+  overflow: visible;
+}
+.ni-chart__lane {
+  fill: var(--color-sand);
+  opacity: 0.45;
+}
+.ni-chart__lane[data-pointed="true"] {
+  fill: var(--color-sky-light);
+  opacity: 1;
+  stroke: var(--color-sea-deep);
+  stroke-width: 4;
+}
+.ni-chart__grid {
+  stroke: var(--color-pebble-deep);
+  stroke-width: 1.5;
+  stroke-dasharray: 2 5;
+}
+.ni-chart__grid[data-labelled="true"] {
+  stroke-width: 2;
+  stroke-dasharray: none;
+  opacity: 0.8;
+}
+.ni-chart__axis {
+  stroke: var(--color-ink);
+  stroke-width: 4;
+  stroke-linecap: round;
+}
+.ni-chart__tick {
+  stroke: var(--color-ink);
+  stroke-width: 3;
+  stroke-linecap: round;
+}
+.ni-chart__numeral {
+  fill: var(--color-ink);
+  font-family: var(--font-display);
+  font-weight: 800;
+}
+.ni-chart__numeral[data-counted="true"] {
+  fill: var(--color-sea-dark);
+}
+.ni-chart__read {
+  stroke: var(--color-ink);
+  stroke-width: 3;
+  stroke-dasharray: 8 6;
+  stroke-linecap: round;
+}
+.ni-chart__stroke {
+  stroke: var(--color-ink);
+  stroke-width: 5;
+  stroke-linecap: round;
+}
+.ni-chart__stroke[data-counted="true"],
+.ni-chart__x[data-counted="true"] {
+  stroke: var(--color-sea-deep);
+  stroke-width: 7;
+}
+.ni-chart__x {
+  fill: none;
+  stroke: var(--color-ink);
+  stroke-width: 5;
+  stroke-linecap: round;
+}
+.ni-chart__tablecell {
+  fill: var(--color-cloud);
+  stroke: var(--color-sand-deep);
+  stroke-width: 3;
+}
+
+/* Picture-graph symbols; a part symbol keeps its left part (a half fish is its front half). */
+.ni-chart__symbol {
+  position: absolute;
+  display: block;
+  overflow: hidden;
+  pointer-events: none;
+}
+.ni-chart__symbol[data-part] {
+  /* The cut edge: a dashed ink line, so a half reads as half even in greyscale. */
+  border-right: 3px dashed var(--color-ink-soft);
+  box-sizing: border-box;
+}
+.ni-chart__symbolart {
+  display: block;
+}
+.ni-chart__symbol[data-counted="true"]::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border: 4px solid var(--color-sea-deep);
+  border-radius: 50%;
+}
+
+.ni-chart__key {
+  position: absolute;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+  color: var(--color-ink);
+  font-family: var(--font-display);
+  font-size: 32px;
+  font-weight: 800;
+  line-height: 1;
+}
+.ni-chart__keysprite {
+  display: block;
+  width: 40px;
+  height: 40px;
+  padding: 2px;
+  border: 3px solid var(--color-ink);
+  border-radius: 12px;
+  background: var(--color-cloud);
+}
+.ni-chart__keytext {
+  padding-top: 0.12em;
+}
+
+.ni-chart__label {
+  position: absolute;
+  display: flex;
+  box-sizing: border-box;
+}
+.ni-chart__label > * {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.ni-chart__labelface {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  height: 100%;
+  box-sizing: border-box;
+  padding: 4px 6px;
+  color: var(--color-ink);
+  font-family: var(--font-body);
+  font-size: 20px;
+  font-weight: 700;
+  line-height: 1.1;
+  text-align: center;
+}
+.ni-chart__labelface[data-orientation="horizontal"] {
+  justify-content: flex-start;
+}
+.ni-chart__labelface[data-orientation="vertical"] {
+  flex-direction: column;
+  gap: 2px;
+}
+.ni-chart__labelsprite {
+  display: block;
+  flex: none;
+}
+.ni-chart__name {
+  min-width: 0;
+  overflow-wrap: normal;
+}
+.ni-chart__label[data-pointed="true"] .ni-chart__labelface {
+  border-radius: 14px;
+  box-shadow: inset 0 0 0 4px var(--color-sea-deep);
+}

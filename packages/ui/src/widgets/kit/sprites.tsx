@@ -299,6 +299,39 @@ const counter: Draw = (tone) => (
   </>
 );
 
+// U05 (#14): the data sorts and charts count apples (SORT_KINDS: fish, crab, shell, apple).
+const apple: Draw = (tone) => {
+  const c = toneFill({ fill: 'var(--color-coral)', line: 'var(--color-coral-deep)' }, tone);
+  // A round orchard apple: two lobes on top, a dimple, a wooden stem and one leaf.
+  return (
+    <>
+      {SHADOW}
+      <path
+        d="M32 19c-4-3-9-4-14-2-7 3-10 10-9 18 1 9 6 17 13 19 3 1 6 0 10-1 4 1 7 2 10 1 7-2 12-10 13-19 1-8-2-15-9-18-5-2-10-1-14 2Z"
+        fill={c.fill}
+        stroke={c.line}
+        strokeWidth="3"
+        strokeLinejoin="round"
+      />
+      <path
+        d="M32 20c0-5 1-9 4-12"
+        stroke="var(--color-wood-deep)"
+        strokeWidth="3.5"
+        strokeLinecap="round"
+        fill="none"
+      />
+      <path
+        d="M35 13c3-5 9-6 13-4-2 5-8 7-13 4Z"
+        fill="var(--color-leaf)"
+        stroke="var(--color-leaf-deep)"
+        strokeWidth="2.5"
+        strokeLinejoin="round"
+      />
+      {HIGHLIGHT('M17 28c1-4 4-7 8-8')}
+    </>
+  );
+};
+
 const DRAWINGS: Readonly<Record<string, Draw>> = {
   shell,
   fish,
@@ -311,6 +344,7 @@ const DRAWINGS: Readonly<Record<string, Draw>> = {
   plank,
   firefly,
   counter,
+  apple,
 };
 
 /** Sprite ids with their own drawing (others render as a pebble). */
