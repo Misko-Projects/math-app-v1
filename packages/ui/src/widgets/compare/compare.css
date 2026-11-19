@@ -1,26 +1,57 @@
-/* compare widget (U03): two framed sides with the question's gap between them, choices below. */
+/*
+ * compare widget (U03): two framed sides with the question's gap between them, choices below (or
+ * beside, `data-answers="column"`). CompareWidget plans the arrangement from its measured room
+ * (06 §1): `data-arrange` is row | beside | stack | match.
+ */
 
 .ni-cmp {
+  position: relative;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 32px;
+  gap: var(--cmp-gap);
   box-sizing: border-box;
   width: 100%;
   max-width: 1180px;
-  padding: 16px 24px;
+  /* Safe centring in the host: centred while it fits, never above the scroll origin. */
+  margin: auto;
+  padding: var(--cmp-pad);
+  /* The widget takes the width its host gives it; its layout is planned from that width. */
+  contain: inline-size;
+}
+.ni-cmp[data-answers="column"] {
+  flex-direction: row;
 }
 
-/* ---------- side by side ---------- */
+/* ---------- sides ---------- */
 
 .ni-cmp__stage {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
   align-items: stretch;
-  gap: 24px;
+  gap: var(--cmp-side-gap);
   width: 100%;
+  min-width: 0;
 }
+.ni-cmp__stage[data-sides="1"] {
+  grid-template-columns: minmax(0, 1fr);
+}
+.ni-cmp__stage:not(:has(.ni-cmp__gap, .ni-cmp__relation)) {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+.ni-cmp__stage[data-sides="1"]:not(:has(.ni-cmp__gap, .ni-cmp__relation)) {
+  grid-template-columns: minmax(0, 1fr);
+}
+.ni-cmp[data-answers="column"] .ni-cmp__stage {
+  flex: 1 1 auto;
+}
+.ni-cmp[data-arrange="stack"] .ni-cmp__stage {
+  grid-template-columns: minmax(0, 760px);
+  justify-content: center;
+  justify-items: stretch;
+}
+
 .ni-cmp__side {
   position: relative;
   display: flex;
@@ -33,7 +64,7 @@
   justify-content: center;
   box-sizing: border-box;
   min-width: 0;
-  min-height: 280px;
+  min-height: var(--target-min);
 }
 /* A pickable side: the card and its picture share one grid cell; the picture lets taps through. */
 .ni-cmp__side[data-pick="true"] {
@@ -49,7 +80,8 @@
   align-items: center;
   justify-content: center;
   min-width: 0;
-  padding: 16px 16px 22px;
+  /* The card's border and padding, and its 6 px ledge below. */
+  padding: 19px 19px 25px;
   pointer-events: none;
 }
 /* A side the child can pick: a big card (ink ring + check badge when picked, kit.css). */
@@ -66,29 +98,18 @@
   background: var(--color-paper);
   box-shadow: var(--shadow-soft);
 }
-.ni-cmp__tray .ni-stimulus,
-.ni-cmp__trayface .ni-stimulus {
-  padding: 8px;
-  border: 0;
-  box-shadow: none;
-  background: transparent;
-}
-/* A side that is just a number reads big (numerals ≥ 32 px, 05 §11). */
-.ni-cmp__tray .ni-stimulus[data-kind="expression"] .ni-expr,
-.ni-cmp__trayface .ni-stimulus[data-kind="expression"] .ni-expr {
+/* A side that is a number or a statement reads big (numerals ≥ 32 px, 05 §11). */
+.ni-cmp__side .ni-stimulus[data-kind="expression"] .ni-expr {
   font-size: var(--text-numeral-xl);
-}
-.ni-cmp__side > .ni-cmp__hand {
-  left: calc(50% - 28px);
-  bottom: -30px;
+  flex-wrap: nowrap;
 }
 
 /* The gap between the sides: where the symbol goes, or the relation a statement reads. */
 .ni-cmp__gap {
   position: relative;
   align-self: center;
-  width: calc(var(--target-min) * 1.6);
-  height: calc(var(--target-min) * 1.6);
+  width: var(--cmp-mid);
+  height: var(--cmp-mid);
 }
 .ni-cmp__pad {
   position: absolute;
@@ -110,32 +131,40 @@
 }
 .ni-cmp__relation {
   align-self: center;
-  width: calc(var(--target-min) * 0.9);
-  height: calc(var(--target-min) * 0.9);
+  width: var(--cmp-mid);
+  height: var(--cmp-mid);
 }
-.ni-cmp__spacer {
-  width: 8px;
+.ni-cmp[data-arrange="stack"] .ni-cmp__gap,
+.ni-cmp[data-arrange="stack"] .ni-cmp__relation {
+  justify-self: center;
 }
 
 /* ---------- choices and check ---------- */
 
 .ni-cmp__answer {
   display: flex;
-  flex-wrap: wrap;
   align-items: center;
   justify-content: center;
-  gap: 28px 48px;
+  gap: var(--cmp-check-gap);
+}
+.ni-cmp[data-answers="column"] .ni-cmp__answer {
+  flex: none;
+  flex-direction: column;
+  gap: var(--cmp-gap);
 }
 .ni-cmp__choices {
   display: flex;
-  flex-wrap: wrap;
   justify-content: center;
   /* Room for each pick's check badge and demo ring without touching its neighbour. */
-  gap: calc(var(--target-gap) * 3);
+  gap: var(--cmp-choice-gap);
   margin: 0;
   padding: 8px;
   border: 0;
   min-width: 0;
+}
+.ni-cmp[data-answers="column"] .ni-cmp__choices {
+  flex-direction: column;
+  align-items: center;
 }
 .ni-cmp__choices:empty {
   display: none;
@@ -143,11 +172,11 @@
 .ni-cmp__choice {
   position: relative;
   display: inline-flex;
+  flex: none;
 }
-.ni-cmp__choices .ni-pick {
-  min-width: calc(var(--target-min) * 1.4);
-  min-height: calc(var(--target-min) * 1.4);
-  padding: 10px 18px;
+.ni-cmp__check {
+  display: inline-flex;
+  flex: none;
 }
 .ni-cmp__choices .ni-pick .ni-pick__face {
   flex-direction: column;
@@ -180,10 +209,6 @@
   outline: 4px solid var(--color-sea-deep);
   outline-offset: 4px;
 }
-.ni-cmp__hand--below {
-  left: calc(50% - 20px);
-  bottom: -46px;
-}
 
 /* ---------- match lines (concrete tier): the sets as rows ---------- */
 
@@ -192,7 +217,7 @@
   display: flex;
   flex-direction: column;
   align-items: flex-start;
-  gap: 72px;
+  gap: var(--cmp-row-gap);
   max-width: 100%;
 }
 .ni-cmp__row {
@@ -205,36 +230,30 @@
 .ni-cmp__tray--objects {
   flex: 0 1 auto;
   min-height: 0;
-  padding: 14px 18px;
   border: 3px solid var(--color-sand-deep);
   border-radius: var(--radius-card);
   background: var(--color-paper);
   box-shadow: var(--shadow-soft);
 }
-.ni-cmp__row-pick {
-  position: relative;
-  display: inline-flex;
-}
 .ni-pick.ni-cmp__this {
   min-width: var(--target-min);
+  width: var(--target-min);
   min-height: 100%;
   margin: 0;
-  padding: 8px;
+  padding: 6px;
 }
-.ni-cmp__this .ni-cmp__glyph {
-  width: calc(var(--target-min) * 0.6);
-  height: calc(var(--target-min) * 0.6);
-}
-.ni-cmp__row-pick > .ni-cmp__hand {
-  left: calc(50% - 20px);
-  bottom: -40px;
+/* Pip's hand turned to point along the row (an up-pointing hand, rotated a quarter turn). */
+.ni-cmp__rowhand {
+  display: block;
+  width: calc(var(--target-min) * 0.62);
+  height: calc(var(--target-min) * 0.62);
+  transform: rotate(90deg);
 }
 .ni-cmp__obj {
   position: absolute;
   display: block;
   box-sizing: border-box;
   margin: 0;
-  padding: 4px;
   appearance: none;
   border: 0;
   border-radius: 50%;
@@ -259,12 +278,11 @@
 .ni-cmp__obj[aria-pressed="true"]:focus-visible {
   outline: 10px double var(--color-ink);
 }
+/* The invite ring hugs the object (5 px reach): ≥ 12 px clear of neighbours 18 px away. */
 .ni-cmp__obj.ni-invite {
-  outline-offset: 4px;
+  outline-width: 4px;
+  outline-offset: 1px;
   border-radius: 50%;
-}
-.ni-cmp__objhand {
-  position: absolute;
 }
 .ni-cmp__lines {
   position: absolute;
@@ -316,13 +334,5 @@
 @media (prefers-reduced-motion: reduce) {
   .ni-cmp__line line {
     animation: none;
-  }
-}
-
-/* Portrait or narrow: the sides stack, the gap between them. */
-@media (max-width: 760px), (orientation: portrait) {
-  .ni-cmp__stage {
-    grid-template-columns: minmax(0, 1fr);
-    justify-items: center;
   }
 }

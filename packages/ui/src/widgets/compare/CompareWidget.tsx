@@ -17,21 +17,27 @@ import {
   useUiPreferences,
 } from '../../preferences/UiProvider';
 import { CheckIcon, CloseIcon, HandPointerIcon } from '../../primitives/icons';
-import { MIN_TARGET_PX } from '../../tokens/tokens';
+import { MIN_TARGET_PX, TARGET_PX } from '../../tokens/tokens';
 import { useWidgetDemo, wait } from '../demo';
 import {
   CheckButton,
-  dotsLayout,
-  fitCell,
+  cellToFit,
+  countLayout,
+  FitPicture,
+  minObjectStep,
+  naturalPictureSize,
+  type ObjectLayout,
   ObjectSetView,
   ObjectSprite,
   objectSetLayout,
   PickCard,
-  StimulusView,
   spriteNameKey,
   useAlive,
   useDemoPause,
+  useInviteHand,
   useSubmitGuard,
+  useWidgetRoom,
+  type WidgetRoom,
 } from '../kit';
 import type { ConfigFor, WidgetProps } from '../types';
 import './compare.css';
@@ -45,7 +51,7 @@ import './compare.css';
  * - **symbol**: tap `<`, `=` or `>` (or drag it into the gap between the sides; keyboard works);
  *   the chosen symbol shows between the sides;
  * - **true-false**: yes (check) or no (cross) (`true` | `false`); a plain statement with no
- *   relation of its own reads "left = right".
+ *   relation of its own reads "left = right"; a whole statement may sit on the left alone.
  *
  * With `allowMatchLines` on the concrete tier (objects on both sides) the two sets show as rows
  * and the child may pair objects: tap one in the top row, then one in the bottom row, and a line
@@ -53,8 +59,14 @@ import './compare.css';
  * are help, never the answer. "Check" sends `{ kind: 'choice', id }` through the format model.
  * Selection is an ink ring plus a check badge, never colour alone (06 §7).
  *
+ * Layout (06 §1, container-relative): the widget measures its room (`useWidgetRoom`). Match rows
+ * are used only when both rows fit at full target size with the answer controls; otherwise the
+ * sides are drawn side by side (see `planLayout`). Side pictures are sized from the room; the
+ * answer row goes below the sides, or in a column beside them when that gives bigger pictures.
+ *
  * Demo ops (03 §5.5): `match {left, right}`, `highlight {side}`, `place-symbol {symbol}`, plus
- * `answer {id}`.
+ * `answer {id}`. An invite rings ONE enabled control and Pip's hand points at it (kit
+ * `useInviteHand`), only while the child can act.
  */
 
 const OPS = ['match', 'highlight', 'place-symbol', 'answer'] as const;
@@ -73,7 +85,7 @@ const SYMBOL_KEY: Record<Symbol, string> = {
   '>': 'ui.compare.greater',
 };
 
-type GlyphKind = 'eq' | 'ne' | 'lt' | 'gt' | 'yes' | 'no' | 'pointer';
+type GlyphKind = 'eq' | 'ne' | 'lt' | 'gt' | 'yes' | 'no';
 const SYMBOL_GLYPH: Record<Symbol, GlyphKind> = { '<': 'lt', '=': 'eq', '>': 'gt' };
 
 /** A pick control below the sides: its answer id, narration key and glyph. */
@@ -117,15 +129,6 @@ function Glyph({ kind }: { kind: GlyphKind }) {
     ),
     lt: <path d="M36 10 12 24l24 14" stroke={ink} strokeWidth="6" />,
     gt: <path d="m12 10 24 14-24 14" stroke={ink} strokeWidth="6" />,
-    pointer: (
-      <path
-        d="M14 8v32l24-16L14 8Z"
-        fill="var(--color-sunshine)"
-        stroke={ink}
-        strokeWidth="4"
-        strokeLinejoin="round"
-      />
-    ),
   };
   return (
     <svg
@@ -145,6 +148,18 @@ function Glyph({ kind }: { kind: GlyphKind }) {
   );
 }
 
+/**
+ * "This one" at the start of a match row: Pip's pointing hand, turned to point along its row, so
+ * a pre-reader sees which row the card picks (a bare triangle read as "play").
+ */
+function RowPointer() {
+  return (
+    <span className="ni-cmp__rowhand" data-glyph="row-pointer">
+      <HandPointerIcon direction="up" />
+    </span>
+  );
+}
+
 /** The single number a side shows as a numeral (spoken on tap), or null. */
 function sideNumeral(s: StimulusSpec): number | null {
   if (s.kind !== 'expression') return null;
@@ -154,6 +169,167 @@ function sideNumeral(s: StimulusSpec): number | null {
 
 const hasRelation = (s: StimulusSpec) =>
   s.kind === 'expression' && s.expr.tokens.some((tok) => tok.t === 'rel');
+
+// ---------- layout ----------
+
+const ROOT_PAD = { x: 8, y: 6 };
+/** Between the sides (and the gap or relation between them), and between sides and answers. */
+const SIDE_GAP = 24;
+const ANSWER_GAP = 24;
+/** A framed side: its border and padding around the picture. */
+const SIDE_PAD = 19;
+/** The answer row: the choices' gap (room for a picked card's badge and ring) and padding. */
+const CHOICE_GAP = 36;
+const CHOICES_PAD = 8;
+const CHECK_GAP = 40;
+/** Match rows: the room between the rows for the lines, and a row's frame and padding. */
+const ROW_GAP = 40;
+const ROW_PAD = { x: 17, y: 13 };
+const ROW_PICK_GAP = 20;
+/**
+ * Between two object targets: the 12 px target gap plus the invite ring's reach (4 px wide, 1 px
+ * out: 5 px), so a ringed object stays ≥ 12 px clear of its neighbours (06 §4).
+ */
+const OBJ_GAP = 18;
+/** Pictures never grow past this (an unbounded story stage, or a huge tablet). */
+const MAX_SIDE_H = 300;
+
+type Arrange = 'match' | 'row' | 'beside' | 'stack';
+
+interface Box {
+  w: number;
+  h: number;
+}
+
+interface AnswerSize {
+  items: Box[];
+  check: Box;
+}
+
+const answerRow = (a: AnswerSize): Box => {
+  const items = a.items;
+  const w = items.reduce((s, b) => s + b.w, 0) + Math.max(0, items.length - 1) * CHOICE_GAP;
+  return {
+    w: (items.length ? w + 2 * CHOICES_PAD + CHECK_GAP : 0) + a.check.w,
+    h: Math.max(a.check.h, ...items.map((b) => b.h + 2 * CHOICES_PAD)),
+  };
+};
+const answerColumn = (a: AnswerSize): Box => {
+  const items = a.items;
+  const h = items.reduce((s, b) => s + b.h, 0) + Math.max(0, items.length - 1) * CHOICE_GAP;
+  return {
+    w: Math.max(a.check.w, ...items.map((b) => b.w + 2 * CHOICES_PAD)),
+    h: (items.length ? h + 2 * CHOICES_PAD + ANSWER_GAP : 0) + a.check.h,
+  };
+};
+
+/** How well a picture fits a box: its scale against its natural size (capped, so huge boxes tie). */
+function fitScore(spec: StimulusSpec, box: Box): number {
+  if (spec.kind === 'none') return Number.POSITIVE_INFINITY;
+  if (box.w <= 0 || box.h <= 0) return 0;
+  const nat = naturalPictureSize(spec, false);
+  const natW = nat.flexWidth ? 360 : nat.w;
+  return Math.min(1.5, box.w / natW, box.h / nat.h);
+}
+
+interface MatchGeometry {
+  cell: number;
+  button: number;
+  overhang: number;
+  rowW: number;
+  rowH: number;
+}
+
+/** Both rows at full target size: one cell for both, objects ≥ the target and 18 px apart. */
+function matchGeometry(
+  layouts: [ObjectLayout, ObjectLayout],
+  target: number,
+  withPick: boolean,
+): MatchGeometry {
+  const step = Math.min(...layouts.map((l) => Math.min(1.12, minObjectStep(l))));
+  const cell = Math.ceil((target + OBJ_GAP) / step);
+  const button = Math.max(target, Math.floor(step * cell - OBJ_GAP));
+  const overhang = Math.max(0, Math.ceil((button - cell) / 2));
+  const objW = Math.max(...layouts.map((l) => l.width * cell)) + 2 * overhang;
+  const objH = Math.max(...layouts.map((l) => l.height * cell)) + 2 * overhang;
+  return {
+    cell,
+    button,
+    overhang,
+    rowW: objW + 2 * ROW_PAD.x + (withPick ? target + ROW_PICK_GAP : 0),
+    rowH: objH + 2 * ROW_PAD.y,
+  };
+}
+
+interface Plan {
+  arrange: Arrange;
+  /** The picture box of each side (sides layouts). */
+  side: Box;
+  /** The answer controls in a column (beside) or a row. */
+  answers: 'row' | 'column';
+  match: MatchGeometry | null;
+}
+
+function planLayout(opts: {
+  room: WidgetRoom | null;
+  specs: StimulusSpec[];
+  mid: Box;
+  answer: AnswerSize;
+  match: MatchGeometry | null;
+  sidePick: boolean;
+}): Plan {
+  const { room, specs, mid, answer, match } = opts;
+  const W = (room?.width ?? 1180) - 2 * ROOT_PAD.x;
+  const H = (room?.height ?? Number.POSITIVE_INFINITY) - 2 * ROOT_PAD.y;
+  const row = answerRow(answer);
+  const col = answerColumn(answer);
+  // Match rows only when both rows fit at full target size with the answer controls.
+  if (match) {
+    const rowsH = 2 * match.rowH + ROW_GAP;
+    if (match.rowW <= W && rowsH + ANSWER_GAP + row.h <= H && row.w <= W) {
+      return { arrange: 'match', side: { w: 0, h: 0 }, answers: 'row', match };
+    }
+    if (match.rowW + ANSWER_GAP + col.w <= W && Math.max(rowsH, col.h) <= H) {
+      return { arrange: 'match', side: { w: 0, h: 0 }, answers: 'column', match };
+    }
+  }
+  const n = specs.length;
+  const midW = mid.w > 0 ? mid.w + SIDE_GAP : 0;
+  const capH = (h: number) => Math.min(MAX_SIDE_H, h);
+  // A side the child picks keeps a target-sized card (and its ledge) around the picture.
+  const pad = 2 * SIDE_PAD + (opts.sidePick ? 6 : 0);
+  const boxes: Record<Exclude<Arrange, 'match'>, Box> = {
+    row: {
+      w: (W - midW - (n - 1) * SIDE_GAP) / n - 2 * SIDE_PAD,
+      h: capH(H - ANSWER_GAP - row.h) - pad,
+    },
+    beside: {
+      w: (W - col.w - ANSWER_GAP - midW - (n - 1) * SIDE_GAP) / n - 2 * SIDE_PAD,
+      h: capH(H) - pad,
+    },
+    stack: {
+      w: Math.min(W, 760) - 2 * SIDE_PAD,
+      h:
+        capH(
+          (H - ANSWER_GAP - row.h - (mid.h > 0 ? mid.h + SIDE_GAP : 0) - (n - 1) * SIDE_GAP) / n,
+        ) - pad,
+    },
+  };
+  const score = (a: Exclude<Arrange, 'match'>) =>
+    Math.min(...specs.map((s) => fitScore(s, boxes[a])));
+  // Side by side with the answers below, unless another arrangement draws the pictures clearly
+  // bigger (short rooms: answers beside; narrow ones: the sides stacked).
+  let best: Exclude<Arrange, 'match'> = 'row';
+  for (const a of ['beside', 'stack'] as const) {
+    if (score(a) > score(best) * 1.15) best = a;
+  }
+  return {
+    arrange: best,
+    side: { w: Math.max(1, boxes[best].w), h: Math.max(1, boxes[best].h) },
+    answers: best === 'beside' ? 'column' : 'row',
+    match: null,
+  };
+}
 
 interface Line {
   key: string;
@@ -169,6 +345,9 @@ interface Flight {
   to: DOMRect;
   moving: boolean;
 }
+
+/** Where a demo invite points: a pick or choice (`data-id`), a symbol tile, or an object. */
+type Cue = { kind: 'id'; id: string } | { kind: 'symbol'; s: Symbol } | { kind: 'obj'; id: string };
 
 export function CompareWidget({
   config,
@@ -196,21 +375,87 @@ export function CompareWidget({
   const [lines, setLines] = useState<Line[]>([]);
   const rootRef = useRef<HTMLDivElement | null>(null);
   const rowsRef = useRef<HTMLDivElement | null>(null);
+  const answerRef = useRef<HTMLDivElement | null>(null);
+  const room = useWidgetRoom(rootRef);
 
   const interactive = !disabled && !demoBusy;
   const ask = config.ask;
   const sidePick = SIDE_ASKS.has(ask);
-  const matchMode =
-    tier === 'concrete' &&
-    config.allowMatchLines &&
-    config.left.kind === 'objects' &&
-    config.right.kind === 'objects';
+  const target = MIN_TARGET_PX[ageMode];
+  const leftSet = config.left.kind === 'objects' ? config.left.set : null;
+  const rightSet = config.right.kind === 'objects' ? config.right.set : null;
+  const leftLayout = leftSet ? objectSetLayout(leftSet) : null;
+  const rightLayout = rightSet ? objectSetLayout(rightSet) : null;
+  const matchable =
+    tier === 'concrete' && config.allowMatchLines && leftLayout !== null && rightLayout !== null;
   const choices = choicesFor(ask);
   const validIds: string[] =
     ask === 'symbol'
       ? [...SYMBOLS]
       : [...(sidePick ? ['left', 'right'] : []), ...choices.map((c) => c.id)];
   const symbol = ask === 'symbol' && selected !== null ? (selected as Symbol) : null;
+
+  // ---------- layout ----------
+
+  // The answer controls' own sizes (they don't depend on the layout), measured once laid out.
+  const [answerSize, setAnswerSize] = useState<AnswerSize | null>(null);
+  useLayoutEffect(() => {
+    const el = answerRef.current;
+    if (!el) return;
+    const measure = () => {
+      const box = (e: Element | null, ledge = 0): Box => {
+        const r = e?.getBoundingClientRect();
+        return { w: Math.ceil(r?.width ?? 0), h: Math.ceil((r?.height ?? 0) + ledge) };
+      };
+      const next: AnswerSize = {
+        // Each pick's ledge (6 px margin) sits below its box.
+        items: [...el.querySelectorAll('.ni-cmp__choice')].map((c) => box(c, 6)),
+        check: box(el.querySelector('.ni-cmp__check'), 6),
+      };
+      setAnswerSize((cur) => (cur && JSON.stringify(cur) === JSON.stringify(next) ? cur : next));
+    };
+    measure();
+    if (typeof ResizeObserver === 'undefined') return;
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    for (const c of el.querySelectorAll('.ni-cmp__choice, .ni-cmp__check')) ro.observe(c);
+    return () => ro.disconnect();
+  }, []);
+  const pickPx = Math.round(target * 1.15);
+  const fallbackAnswer: AnswerSize = {
+    items: Array.from({ length: ask === 'symbol' ? 3 : choices.length }, () => ({
+      w: pickPx,
+      h: pickPx + 6,
+    })),
+    check: { w: TARGET_PX[ageMode].big + 8, h: TARGET_PX[ageMode].big + 6 },
+  };
+  const specs = config.right.kind === 'none' ? [config.left] : [config.left, config.right];
+  const symbolGap = ask === 'symbol';
+  const relation =
+    ask === 'true-false' && config.right.kind !== 'none' && !hasRelation(config.left);
+  const mid: Box = symbolGap
+    ? { w: Math.round(target * 1.6), h: Math.round(target * 1.6) }
+    : relation
+      ? { w: Math.round(target * 0.9), h: Math.round(target * 0.9) }
+      : { w: 0, h: 0 };
+  const plan = planLayout({
+    room,
+    specs,
+    mid,
+    answer: answerSize ?? fallbackAnswer,
+    match:
+      matchable && leftLayout && rightLayout
+        ? matchGeometry([leftLayout, rightLayout], target, sidePick)
+        : null,
+    sidePick,
+  });
+  /**
+   * Match mode (concrete tier with match lines): the sets as rows of object targets. When the rows
+   * don't fit the room at full target size, the widget falls back to the side-by-side pictures:
+   * the sides become the pick targets and there are no object targets, so matching (optional
+   * help, never the answer) is simply not offered.
+   */
+  const matchMode = plan.arrange === 'match';
 
   const speakKey = (key: string) => {
     if (speakOnTap) say(key);
@@ -261,9 +506,6 @@ export function CompareWidget({
 
   // ---------- match lines ----------
 
-  const leftSet = config.left.kind === 'objects' ? config.left.set : null;
-  const rightSet = config.right.kind === 'objects' ? config.right.set : null;
-
   const addMatch = (l: number, r: number) => {
     setMatches((prev) => [...prev.filter(([x, y]) => x !== l && y !== r), [l, r]]);
   };
@@ -272,7 +514,6 @@ export function CompareWidget({
     if (!interactive) return;
     trace('tap', `${side}-obj-${index}`);
     if (speakOnTap) say(spriteNameKey(sprite));
-    setInvite(null);
     if (pending && pending.side !== side) {
       const l = side === 'left' ? index : pending.index;
       const r = side === 'right' ? index : pending.index;
@@ -291,10 +532,14 @@ export function CompareWidget({
     const rows = rowsRef.current;
     if (!rows) return;
     const box = rows.getBoundingClientRect();
+    const objAt = (id: string) =>
+      [...rows.querySelectorAll<HTMLElement>('[data-obj]')]
+        .find((el) => el.dataset.obj === id)
+        ?.getBoundingClientRect();
     const next: Line[] = [];
     for (const [l, r] of matches) {
-      const a = rows.querySelector(`[data-obj="left-obj-${l}"]`)?.getBoundingClientRect();
-      const b = rows.querySelector(`[data-obj="right-obj-${r}"]`)?.getBoundingClientRect();
+      const a = objAt(`left-obj-${l}`);
+      const b = objAt(`right-obj-${r}`);
       if (!a || !b) continue;
       next.push({
         key: `${l}-${r}`,
@@ -319,12 +564,16 @@ export function CompareWidget({
 
   // ---------- demo mode (03 §6.3) ----------
 
-  const flyRect = (selector: string) =>
-    rootRef.current?.querySelector<HTMLElement>(selector)?.getBoundingClientRect() ?? null;
+  const flyRect = (find: (root: HTMLElement) => Element | undefined | null) => {
+    const root = rootRef.current;
+    return root ? (find(root)?.getBoundingClientRect() ?? null) : null;
+  };
+  const symbolTile = (root: HTMLElement, s: string) =>
+    [...root.querySelectorAll<HTMLElement>('[data-symbol]')].find((el) => el.dataset.symbol === s);
 
   const flySymbol = async (s: Symbol) => {
-    const from = flyRect(`[data-symbol="${CSS.escape(s)}"]`);
-    const to = flyRect('.ni-cmp__pad');
+    const from = flyRect((r) => symbolTile(r, s));
+    const to = flyRect((r) => r.querySelector('.ni-cmp__pad'));
     if (reduced || !from || !to) return;
     setFlight({ symbol: s, from, to, moving: false });
     await wait(20);
@@ -359,7 +608,7 @@ export function CompareWidget({
             r < (rightSet?.count ?? 0);
           if (!ok) return;
           if (!matchMode) {
-            // A picture tier has no tappable objects: point at each side in turn.
+            // The pictures have no tappable objects: point at each side in turn.
             setHighlight('left');
             await pause(500);
             if (!alive.current) return;
@@ -403,62 +652,108 @@ export function CompareWidget({
     invite: (action) => setInvite(action),
   });
 
-  /** The element id a demo invite points at: a side, an object, a symbol or a choice. */
-  const invited: string | null = (() => {
-    if (!invite) return null;
+  /** The one control the invite rings, only while the child can act (03 §6.3). */
+  const cue: Cue | null = (() => {
+    if (!invite || !interactive) return null;
     const a = invite.args ?? {};
+    // A side is a target only for the side questions (its card, or its row's "this one").
+    const sideCue = (side: unknown): Cue | null =>
+      sidePick && (side === 'left' || side === 'right') ? { kind: 'id', id: side } : null;
     switch (invite.op) {
       case 'highlight':
-        return typeof a.side === 'string' ? a.side : null;
-      case 'match':
-        return matchMode ? `left-obj-${Number(a.left)}` : 'left';
+        return sideCue(a.side);
+      case 'match': {
+        // The fallback layout has no object targets: no cue.
+        if (!matchMode) return null;
+        const l = Number(a.left);
+        const r = Number(a.right);
+        if (!Number.isInteger(l) || !Number.isInteger(r)) return null;
+        if (l < 0 || r < 0 || l >= (leftSet?.count ?? 0) || r >= (rightSet?.count ?? 0)) {
+          return null;
+        }
+        if (matches.some(([x, y]) => x === l && y === r)) return null;
+        return pending?.side === 'left' && pending.index === l
+          ? { kind: 'obj', id: `right-obj-${r}` }
+          : { kind: 'obj', id: `left-obj-${l}` };
+      }
       case 'place-symbol':
-        return `symbol-${String(a.symbol)}`;
-      case 'answer':
-        return ask === 'symbol' ? `symbol-${String(a.id)}` : String(a.id);
+        return ask === 'symbol' && SYMBOLS.includes(a.symbol as Symbol)
+          ? { kind: 'symbol', s: a.symbol as Symbol }
+          : null;
+      case 'answer': {
+        const id = String(a.id);
+        if (!validIds.includes(id)) return null;
+        if (ask === 'symbol') return { kind: 'symbol', s: id as Symbol };
+        return id === 'left' || id === 'right' ? sideCue(id) : { kind: 'id', id };
+      }
       default:
         return null;
     }
   })();
-  const lit = (id: string) => highlight === id || invited === id;
-  const hand = (id: string, className = 'ni-cmp__hand') =>
-    invited === id ? (
-      <span className={`ni-hand ${className}`}>
-        <HandPointerIcon />
-      </span>
-    ) : null;
+  const cueKey =
+    cue === null
+      ? ''
+      : cue.kind === 'id'
+        ? `id:${cue.id}`
+        : cue.kind === 'symbol'
+          ? `sym:${cue.s}`
+          : `obj:${cue.id}`;
+  const { hand: inviteHand, rootStyle: handRootStyle } = useInviteHand(
+    rootRef,
+    (root) => {
+      if (cue === null) return null;
+      if (cue.kind === 'symbol') return symbolTile(root, cue.s) ?? null;
+      const key = cue.kind === 'obj' ? 'obj' : 'id';
+      return (
+        [...root.querySelectorAll<HTMLElement>(`[data-${key}]`)].find(
+          (el) => el.dataset[key] === cue.id,
+        ) ?? null
+      );
+    },
+    cueKey,
+  );
+  /** Ringed: the demo's highlight while it plays, or the invite's one control. */
+  const lit = (id: string) =>
+    highlight === id ||
+    (cue !== null &&
+      ((cue.kind === 'id' && cue.id === id) ||
+        (cue.kind === 'obj' && cue.id === id) ||
+        (cue.kind === 'symbol' && `symbol-${cue.s}` === id)));
 
   // ---------- render ----------
 
   const sideLabel = (side: Side) => t(side === 'left' ? 'ui.compare.left' : 'ui.compare.right');
 
   // Two counted pictures share one object size, so size is never a cue the numbers don't give
-  // (a line of 6 must not look smaller than a scatter of 6).
-  const countLayout = (s: StimulusSpec) =>
-    s.kind === 'objects'
-      ? objectSetLayout(s.set)
-      : s.kind === 'dots' && s.arrangement !== 'fingers'
-        ? dotsLayout(s)
-        : null;
-  const sideLayouts = { left: countLayout(config.left), right: countLayout(config.right) };
-  const sharedCell =
-    sideLayouts.left && sideLayouts.right
-      ? Math.min(fitCell(sideLayouts.left, 420, 230), fitCell(sideLayouts.right, 420, 230))
-      : null;
+  // (a line of 6 must not look smaller than a scatter of 6). A double ten-frame stacks when that
+  // draws it bigger.
+  const sharedCount = (stack: boolean) => {
+    const ls = specs.map((s) => countLayout(s, stack));
+    if (specs.length < 2 || ls.some((l) => l === null)) return null;
+    return Math.min(...ls.map((l) => cellToFit(l as ObjectLayout, plan.side.w, plan.side.h)));
+  };
+  const flatCell = sharedCount(false);
+  const stackedCell = specs.some((s) => s.kind === 'ten-frame' && s.frames === 2)
+    ? sharedCount(true)
+    : null;
+  const stackFrames = stackedCell !== null && flatCell !== null && stackedCell > flatCell;
+  const sharedCell = stackFrames ? stackedCell : flatCell;
 
-  const renderTray = (side: Side) => {
+  const renderSide = (side: Side) => {
     const spec = config[side];
-    if (spec.kind === 'none') return <div className="ni-cmp__side" data-side={side} />;
+    if (spec.kind === 'none') return null;
     const name = sidePick ? undefined : sideLabel(side);
-    const layout = sideLayouts[side];
-    const picture =
-      sharedCell !== null && layout ? (
-        <div className="ni-stimulus" data-kind={spec.kind}>
-          <ObjectSetView layout={layout} cell={sharedCell} label={name} />
-        </div>
-      ) : (
-        <StimulusView spec={spec} maxWidth={440} maxHeight={250} label={name} />
-      );
+    const picture = (
+      <FitPicture
+        spec={spec}
+        maxWidth={plan.side.w}
+        maxHeight={plan.side.h}
+        cell={sharedCell ?? undefined}
+        stackFrames={stackFrames}
+        maxScale={spec.kind === 'base-ten' ? 1.5 : 1}
+        label={name}
+      />
+    );
     const n = sideNumeral(spec);
     return (
       <div className="ni-cmp__side" data-side={side} data-pick={sidePick ? 'true' : undefined}>
@@ -480,13 +775,7 @@ export function CompareWidget({
             <span className="ni-cmp__trayspace" />
           </PickCard>
         ) : (
-          <div
-            className={['ni-cmp__tray', 'ni-cmp__tray--static', lit(side) ? 'ni-invite' : '']
-              .filter(Boolean)
-              .join(' ')}
-          >
-            {picture}
-          </div>
+          <div className="ni-cmp__tray ni-cmp__tray--static">{picture}</div>
         )}
         {/* A pickable side draws its picture over the card (the card is named by its side), so
             the button holds no text of its own (axe label-content-name-mismatch). */}
@@ -495,14 +784,13 @@ export function CompareWidget({
             {picture}
           </div>
         ) : null}
-        {hand(side)}
       </div>
     );
   };
 
   const gapLabel = t('ui.compare.gap');
   const renderMiddle = () => {
-    if (ask === 'symbol') {
+    if (symbolGap) {
       const pad = dnd.targetProps('gap', { label: gapLabel });
       return (
         <div className="ni-cmp__gap" data-filled={symbol ? 'true' : undefined}>
@@ -515,58 +803,47 @@ export function CompareWidget({
         </div>
       );
     }
-    if (ask === 'true-false' && config.right.kind !== 'none' && !hasRelation(config.left)) {
+    if (relation) {
       return (
         <div className="ni-cmp__relation" aria-hidden="true">
           <Glyph kind="eq" />
         </div>
       );
     }
-    return <div className="ni-cmp__spacer" />;
+    return null;
   };
 
-  // Match mode: the two sets as rows, objects as tap targets, lines between them.
-  const minTarget = MIN_TARGET_PX[ageMode];
-  const OBJ_SCALE = 0.9;
-  // Both rows share one cell size and a left edge, so object i sits above object i: a match line
-  // between equal positions is straight, and the extra objects stand out at the end.
-  const leftLayout = leftSet ? objectSetLayout(leftSet) : null;
-  const rightLayout = rightSet ? objectSetLayout(rightSet) : null;
-  const minCell = Math.ceil(minTarget / OBJ_SCALE);
-  const rowCell = Math.min(
-    ...[leftLayout, rightLayout].map((l) => (l ? fitCell(l, 860, 150, minCell) : 112)),
-  );
   const renderRow = (side: Side) => {
     const set = side === 'left' ? leftSet : rightSet;
     const layout = side === 'left' ? leftLayout : rightLayout;
-    if (!set || !layout) return null;
-    const cell = Math.max(minCell, rowCell);
-    const size = Math.round(cell * OBJ_SCALE);
+    const geo = plan.match;
+    if (!set || !layout || !geo) return null;
+    const { cell, button, overhang } = geo;
     return (
       <div className="ni-cmp__row" data-side={side}>
         {sidePick ? (
-          <span className="ni-cmp__row-pick">
-            <PickCard
-              className="ni-cmp__this"
-              variant="picture"
-              label={`${t('ui.compare.this-one')}: ${sideLabel(side)}`}
-              selected={selected === side}
-              highlighted={lit(side)}
-              data-id={side}
-              disabled={!interactive}
-              onPress={() => choose(side)}
-            >
-              <span className="ni-cmp__glyph">
-                <Glyph kind="pointer" />
-              </span>
-            </PickCard>
-            {hand(side)}
-          </span>
+          <PickCard
+            className="ni-cmp__this"
+            variant="picture"
+            label={`${t('ui.compare.this-one')}: ${sideLabel(side)}`}
+            selected={selected === side}
+            highlighted={lit(side)}
+            data-id={side}
+            disabled={!interactive}
+            onPress={() => choose(side)}
+          >
+            <RowPointer />
+          </PickCard>
         ) : null}
         <div
-          className={['ni-cmp__tray', 'ni-cmp__tray--objects', lit(side) ? 'ni-invite' : '']
+          className={[
+            'ni-cmp__tray',
+            'ni-cmp__tray--objects',
+            lit(side) && !sidePick ? 'ni-invite' : '',
+          ]
             .filter(Boolean)
             .join(' ')}
+          style={{ padding: `${ROW_PAD.y - 3 + overhang}px ${ROW_PAD.x - 3 + overhang}px` }}
         >
           <ObjectSetView
             layout={layout}
@@ -588,35 +865,33 @@ export function CompareWidget({
               const id = `${side}-obj-${o.index}`;
               const matched = matches.some(([l, r]) => (side === 'left' ? l : r) === o.index);
               const isPending = pending?.side === side && pending.index === o.index;
-              const left = Number(style.left) + (Number(style.width) - size) / 2;
-              const top = Number(style.top) + (Number(style.height) - size) / 2;
-              const objStyle: CSSProperties = { left, top, width: size, height: size };
+              // The button is target-sized and centred on the object's place; the sprite keeps
+              // the size the picture gives it (a "big looking" set stays big looking).
+              const cx = Number(style.left) + Number(style.width) / 2;
+              const cy = Number(style.top) + Number(style.height) / 2;
+              const sprite = Math.min(button - 8, Number(style.width));
+              const objStyle: CSSProperties = {
+                left: cx - button / 2,
+                top: cy - button / 2,
+                width: button,
+                height: button,
+                padding: (button - sprite) / 2,
+              };
               return (
-                <span key={id} className="ni-cmp__objwrap">
-                  <button
-                    type="button"
-                    className={['ni-cmp__obj', lit(id) ? 'ni-invite' : '']
-                      .filter(Boolean)
-                      .join(' ')}
-                    style={objStyle}
-                    data-obj={id}
-                    data-matched={matched ? 'true' : undefined}
-                    aria-pressed={isPending}
-                    aria-label={`${t(spriteNameKey(o.sprite))} ${o.index + 1}`}
-                    disabled={!interactive}
-                    onClick={() => tapObject(side, o.index, o.sprite)}
-                  >
-                    <ObjectSprite sprite={o.sprite} tone={o.tone} />
-                  </button>
-                  {invited === id ? (
-                    <span
-                      className="ni-hand ni-cmp__objhand"
-                      style={{ left: left + size / 2 - 20, top: top + size - 6 }}
-                    >
-                      <HandPointerIcon />
-                    </span>
-                  ) : null}
-                </span>
+                <button
+                  key={id}
+                  type="button"
+                  className={['ni-cmp__obj', lit(id) ? 'ni-invite' : ''].filter(Boolean).join(' ')}
+                  style={objStyle}
+                  data-obj={id}
+                  data-matched={matched ? 'true' : undefined}
+                  aria-pressed={isPending}
+                  aria-label={`${t(spriteNameKey(o.sprite))} ${o.index + 1}`}
+                  disabled={!interactive}
+                  onClick={() => tapObject(side, o.index, o.sprite)}
+                >
+                  <ObjectSprite sprite={o.sprite} tone={o.tone} />
+                </button>
               );
             }}
           />
@@ -641,7 +916,6 @@ export function CompareWidget({
         </span>
         {textLabels ? <span className="ni-cmp__caption">{t(c.label)}</span> : null}
       </PickCard>
-      {hand(c.id, 'ni-cmp__hand ni-cmp__hand--below')}
     </span>
   );
 
@@ -667,7 +941,6 @@ export function CompareWidget({
             </span>
           ) : null}
         </div>
-        {hand(id, 'ni-cmp__hand ni-cmp__hand--below')}
       </span>
     );
   };
@@ -682,6 +955,16 @@ export function CompareWidget({
       }
     : undefined;
 
+  const vars = {
+    '--cmp-pad': `${ROOT_PAD.y}px ${ROOT_PAD.x}px`,
+    '--cmp-gap': `${ANSWER_GAP}px`,
+    '--cmp-side-gap': `${SIDE_GAP}px`,
+    '--cmp-row-gap': `${ROW_GAP}px`,
+    '--cmp-choice-gap': `${CHOICE_GAP}px`,
+    '--cmp-check-gap': `${CHECK_GAP}px`,
+    '--cmp-mid': `${mid.w}px`,
+  } as CSSProperties;
+
   return (
     <div
       ref={rootRef}
@@ -689,7 +972,10 @@ export function CompareWidget({
       data-tier={tier}
       data-ask={ask}
       data-mode={matchMode ? 'match' : 'sides'}
+      data-arrange={plan.arrange}
+      data-answers={plan.answers}
       data-disabled={disabled ? 'true' : undefined}
+      style={{ ...vars, ...handRootStyle }}
     >
       {matchMode ? (
         <div className="ni-cmp__rows" ref={rowsRef}>
@@ -706,14 +992,14 @@ export function CompareWidget({
           </svg>
         </div>
       ) : (
-        <div className="ni-cmp__stage">
-          {renderTray('left')}
+        <div className="ni-cmp__stage" data-sides={specs.length}>
+          {renderSide('left')}
           {renderMiddle()}
-          {renderTray('right')}
+          {renderSide('right')}
         </div>
       )}
 
-      <div className="ni-cmp__answer">
+      <div className="ni-cmp__answer" ref={answerRef}>
         <fieldset
           className="ni-cmp__choices"
           aria-label={t('ui.widget.choices')}
@@ -721,7 +1007,9 @@ export function CompareWidget({
         >
           {ask === 'symbol' ? SYMBOLS.map(renderSymbol) : choices.map(renderChoice)}
         </fieldset>
-        <CheckButton onPress={submit} disabled={!interactive || selected === null} />
+        <span className="ni-cmp__check">
+          <CheckButton onPress={submit} disabled={!interactive || selected === null} />
+        </span>
       </div>
 
       {flight ? (
@@ -729,6 +1017,7 @@ export function CompareWidget({
           <Glyph kind={SYMBOL_GLYPH[flight.symbol]} />
         </div>
       ) : null}
+      {inviteHand}
     </div>
   );
 }

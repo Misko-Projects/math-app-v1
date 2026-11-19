@@ -8,10 +8,16 @@ import {
   expectTargetSize,
   pointerDrag,
   spyAudio,
+  waitForSettled,
 } from '../../test-support/storyHelpers';
 import {
+  areaBox,
+  expectFitsArea,
+  expectPointerOn,
+  expectRingClear,
   expectTraceOrdered,
   findWidget,
+  inArea,
   renderWidget,
   traceOf,
 } from '../../test-support/widgetStory';
@@ -111,6 +117,197 @@ const numberLines: Config = {
     labelsEvery: 5,
     marks: [{ at: 17, arrow: true }],
   },
+  ask: 'more',
+  allowMatchLines: false,
+};
+
+// Real content shapes (what the K01 generators build: compare.sets, compare.numbers, mea.length,
+// mea.massvolume, geo.identify, equality).
+
+/** CMP.01.t1 (K, concrete): 10 fish or 9 fish, which has more? Match lines allowed. */
+const matchTen: Config = {
+  format: 'compare',
+  left: fish(10, 4),
+  right: fish(9, 5),
+  ask: 'more',
+  allowMatchLines: true,
+};
+
+/** CMP.05.t1 (K, concrete): spread out and drawn big versus bunched; match lines allowed. */
+const matchConflict: Config = {
+  format: 'compare',
+  left: {
+    kind: 'objects',
+    set: { count: 6, sprite: 'shell', layout: 'line', sizeVaries: true, layoutSeed: 9 },
+  },
+  right: {
+    kind: 'objects',
+    set: { count: 8, sprite: 'shell', layout: 'array', rows: 2, layoutSeed: 2 },
+  },
+  ask: 'more',
+  allowMatchLines: true,
+};
+
+/** CMP.07.t1 (K, concrete): two double ten-frames, no match lines. */
+const tenFrames: Config = {
+  format: 'compare',
+  left: { kind: 'ten-frame', frames: 2, filled: [10, 7] },
+  right: { kind: 'ten-frame', frames: 2, filled: [10, 9] },
+  ask: 'more',
+  allowMatchLines: false,
+};
+
+/** CMP.05.t3 (K, pictorial): ten dots drawn big and spread out versus nine bunched. */
+const dotsConflict: Config = {
+  format: 'compare',
+  left: {
+    kind: 'objects',
+    set: { count: 9, sprite: 'dot', layout: 'line', sizeVaries: true, layoutSeed: 3 },
+  },
+  right: {
+    kind: 'objects',
+    set: { count: 10, sprite: 'dot', layout: 'array', rows: 2, layoutSeed: 4 },
+  },
+  ask: 'fewer',
+  allowMatchLines: false,
+};
+
+/** MEA.16.t2 (K): one object a side, which is heavier? */
+const heavier: Config = {
+  format: 'compare',
+  left: { kind: 'objects', set: { count: 1, sprite: 'feather', layout: 'line', layoutSeed: 1 } },
+  right: { kind: 'objects', set: { count: 1, sprite: 'pumpkin', layout: 'line', layoutSeed: 1 } },
+  ask: 'heavier',
+  allowMatchLines: false,
+};
+
+/** MEA.01.t3 (K): two ruler strips on one scale, which is longer? */
+const strip = (at: number): StimulusSpec => ({
+  kind: 'number-line',
+  min: 0,
+  max: 11,
+  ticksEvery: 1,
+  labelsEvery: null,
+  marks: [{ at, arrow: true }],
+});
+const longer: Config = {
+  format: 'compare',
+  left: strip(7),
+  right: strip(10),
+  ask: 'longer',
+  allowMatchLines: false,
+};
+
+/** PV.02.t3 (G1): marks on 0–100 lines, which is less? */
+const hundredLine = (at: number): StimulusSpec => ({
+  kind: 'number-line',
+  min: 0,
+  max: 100,
+  ticksEvery: 10,
+  labelsEvery: 50,
+  marks: [{ at, label: String(at), arrow: true }],
+});
+const hundredLines: Config = {
+  format: 'compare',
+  left: hundredLine(58),
+  right: hundredLine(85),
+  ask: 'fewer',
+  allowMatchLines: false,
+};
+
+/** PV.02.t1 (G1): base-ten blocks, which is more? */
+const blocks = (tens: number, ones: number): StimulusSpec => ({
+  kind: 'base-ten',
+  hundreds: 0,
+  tens,
+  ones,
+});
+const baseTen: Config = {
+  format: 'compare',
+  left: blocks(7, 6),
+  right: blocks(9, 8),
+  ask: 'more',
+  allowMatchLines: false,
+};
+
+/** GEO.08.t3 (K): which shape has more corners? (Shapes are drawn by U05; a card until then.) */
+const shape = (kind: 'triangle' | 'square', sides: number): StimulusSpec => ({
+  kind: 'shape',
+  shapes: [
+    {
+      id: kind === 'triangle' ? 'left' : 'right',
+      shape: kind,
+      props: {
+        sides,
+        corners: sides,
+        rightAngles: kind === 'square' ? 4 : 0,
+        equalSides: true,
+        parallelPairs: kind === 'square' ? 2 : 0,
+        curved: false,
+        closed: true,
+        solid: false,
+      },
+      rotationDeg: 0,
+      scale: 1,
+      color: 'blue',
+    },
+  ],
+});
+const shapes: Config = {
+  format: 'compare',
+  left: shape('triangle', 3),
+  right: shape('square', 4),
+  ask: 'more',
+  allowMatchLines: false,
+};
+
+/** Three-digit numbers, place a symbol. */
+const symbolHundreds: Config = { ...symbol, left: numeral(105), right: numeral(150) };
+
+/** CMP.08.t2 (G1): place a symbol between two marks on 0–20 lines. */
+const markLine = (at: number): StimulusSpec => ({
+  kind: 'number-line',
+  min: 0,
+  max: 20,
+  ticksEvery: 1,
+  labelsEvery: 5,
+  marks: [{ at, label: String(at), arrow: true }],
+});
+const symbolLines: Config = {
+  format: 'compare',
+  left: markLine(13),
+  right: markLine(9),
+  ask: 'symbol',
+  allowMatchLines: false,
+};
+
+const expr = (...tokens: (number | '+' | '-' | '=')[]): StimulusSpec => ({
+  kind: 'expression',
+  expr: {
+    tokens: tokens.map((v) =>
+      typeof v === 'number'
+        ? ({ t: 'num', v } as const)
+        : v === '='
+          ? ({ t: 'rel', v: '=' } as const)
+          : ({ t: 'op', v } as const),
+    ),
+  },
+});
+
+/** ADD.10.t4 (G1): a whole statement on the left, nothing on the right: true or not? */
+const statement: Config = {
+  format: 'compare',
+  left: expr(6, '+', 7, '=', 3, '+', 10),
+  right: { kind: 'none' },
+  ask: 'true-false',
+  allowMatchLines: false,
+};
+
+/** Expression against expression: which is more? */
+const sums: Config = {
+  format: 'compare',
+  left: expr(8, '+', 5),
+  right: expr(6, '+', 9),
   ask: 'more',
   allowMatchLines: false,
 };
@@ -414,8 +611,8 @@ export const Disabled: Story = {
 const demoController: WidgetDemo = createDemoController({ strict: true });
 
 /**
- * Demo mode (03 §6.3): Pip points at each row, draws a match line, picks the answer; the child's
- * next match is invited (pulse + hand).
+ * Demo mode (03 §6.3): Pip points at each row, draws a match line, picks the answer. While the
+ * host keeps input off, an invite shows nothing (the child can't act yet).
  */
 export const DemoMode: Story = {
   globals: { ageMode: 'k' },
@@ -433,16 +630,15 @@ export const DemoMode: Story = {
       UnsupportedWidgetOpError,
     );
     demoController.invite({ op: 'match', args: { left: 1, right: 1 } });
-    await waitFor(() =>
-      expect(root.querySelector('[data-obj="left-obj-1"].ni-invite')).not.toBeNull(),
-    );
-    await expect(root.querySelector('.ni-hand')).not.toBeNull();
+    await new Promise((r) => setTimeout(r, 100));
+    await expect(root.querySelector('.ni-invite')).toBeNull();
+    await expect(root.querySelector('.ni-hand')).toBeNull();
   },
 };
 
 const symbolController: WidgetDemo = createDemoController({ strict: true });
 
-/** Demo: Pip slides `<` from its tile into the gap; the child is invited to check `=`. */
+/** Demo: Pip slides `<` from its tile into the gap. */
 export const DemoPlaceSymbol: Story = {
   args: { disabled: true, config: symbol, tier: 'abstract', demo: symbolController },
   play: async ({ canvasElement }) => {
@@ -450,9 +646,119 @@ export const DemoPlaceSymbol: Story = {
     await symbolController.play({ op: 'place-symbol', args: { symbol: '<' } });
     await expect(root.querySelector('.ni-cmp__placed [data-glyph="lt"]')).not.toBeNull();
     await expect(root.querySelector('.ni-cmp__flight')).toBeNull();
-    symbolController.invite({ op: 'place-symbol', args: { symbol: '=' } });
-    await waitFor(() => expect(root.querySelector('[data-symbol="="].ni-invite')).not.toBeNull());
-    await expect(root.querySelector('.ni-hand')).not.toBeNull();
+  },
+};
+
+/** Every target a child can use: picks, choices, symbols, objects, the gap, check. */
+const targets = (root: HTMLElement) => [
+  ...root.querySelectorAll<HTMLElement>(
+    '.ni-pick, .ni-cmp__obj, .ni-cmp__pad, .ni-cmp__check .ni-btn',
+  ),
+];
+
+/** ONE ring, on `el`; Pip's fingertip on it at rest; the ring ≥ 12 px clear of every other target. */
+async function expectInviteOn(root: HTMLElement, el: HTMLElement) {
+  await waitFor(() => expect(el).toHaveClass('ni-invite'));
+  await expect(root.querySelectorAll('.ni-invite')).toHaveLength(1);
+  await waitFor(() => expect(root.querySelectorAll('.ni-hand')).toHaveLength(1));
+  await waitForSettled(el);
+  await new Promise((r) => requestAnimationFrame(r));
+  await expectPointerOn(root.querySelector('.ni-hand') as HTMLElement, el, root);
+  await expectRingClear(
+    el,
+    targets(root).filter((t) => t !== el),
+  );
+}
+
+const noInvite = async (root: HTMLElement) => {
+  await waitFor(() => expect(root.querySelector('.ni-invite')).toBeNull());
+  await expect(root.querySelector('.ni-hand')).toBeNull();
+};
+
+const obj = (root: HTMLElement, id: string) =>
+  [...root.querySelectorAll<HTMLElement>('[data-obj]')].find(
+    (el) => el.dataset.obj === id,
+  ) as HTMLElement;
+
+const matchInvite: WidgetDemo = createDemoController({ strict: true });
+
+/**
+ * The child's turn (03 §6.3), `match {left, right}` in match mode: the ring and Pip's hand on the
+ * left object; once the child taps it, on the right one; once they are joined, nothing. Then
+ * `highlight {side}` rings that row's "this one" card, and `answer {id: same}` the same card.
+ */
+export const InviteMatchK: Story = {
+  globals: { ageMode: 'k' },
+  args: { config: matchMore, tier: 'concrete', demo: matchInvite },
+  play: async ({ canvasElement }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    await expect(root).toHaveAttribute('data-mode', 'match');
+    matchInvite.invite({ op: 'match', args: { left: 1, right: 2 } });
+    await expectInviteOn(root, obj(root, 'left-obj-1'));
+    await userEvent.click(obj(root, 'left-obj-1'));
+    await expectInviteOn(root, obj(root, 'right-obj-2'));
+    await userEvent.click(obj(root, 'right-obj-2'));
+    await waitFor(() => expect(root.querySelectorAll('.ni-cmp__line')).toHaveLength(1));
+    await noInvite(root);
+    matchInvite.invite({ op: 'highlight', args: { side: 'right' } });
+    const picks = within(root).getAllByRole('button', { name: /^This one/ });
+    await expectInviteOn(root, picks[1] as HTMLElement);
+    matchInvite.invite({ op: 'answer', args: { id: 'same' } });
+    await expectInviteOn(root, within(root).getByRole('button', { name: 'The same' }));
+    // Picking answers the invite.
+    await userEvent.click(within(root).getByRole('button', { name: 'The same' }));
+    await noInvite(root);
+  },
+};
+
+const sideInvite: WidgetDemo = createDemoController({ strict: true });
+
+/**
+ * Side questions on pictures: `highlight {side}` and `answer {id}` ring the side card; a question
+ * where the sides are not targets (same or not) gets no side cue.
+ */
+export const InviteSides: Story = {
+  args: { config: numberLines, tier: 'pictorial', demo: sideInvite },
+  play: async ({ canvasElement }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    sideInvite.invite({ op: 'highlight', args: { side: 'left' } });
+    await expectInviteOn(root, within(root).getByRole('button', { name: 'Left side' }));
+    sideInvite.invite({ op: 'answer', args: { id: 'right' } });
+    await expectInviteOn(root, within(root).getByRole('button', { name: 'Right side' }));
+    // A match invite has no object targets here (pictures): no cue.
+    sideInvite.invite({ op: 'match', args: { left: 0, right: 0 } });
+    await noInvite(root);
+  },
+};
+
+const sameInvite: WidgetDemo = createDemoController({ strict: true });
+
+/** Same or not: a side is never a target, so `highlight {side}` shows nothing. */
+export const InviteSameOrNotK: Story = {
+  globals: { ageMode: 'k' },
+  args: { config: sameOrNot, demo: sameInvite },
+  play: async ({ canvasElement }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    sameInvite.invite({ op: 'answer', args: { id: 'not-same' } });
+    await expectInviteOn(root, within(root).getByRole('button', { name: 'Not the same' }));
+    sameInvite.invite({ op: 'highlight', args: { side: 'left' } });
+    await noInvite(root);
+  },
+};
+
+const symbolInvite: WidgetDemo = createDemoController({ strict: true });
+
+/** `place-symbol {symbol}` and `answer {id}` ring that symbol tile. */
+export const InviteSymbol: Story = {
+  args: { config: symbol, tier: 'abstract', demo: symbolInvite },
+  play: async ({ canvasElement }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    symbolInvite.invite({ op: 'place-symbol', args: { symbol: '=' } });
+    await expectInviteOn(root, within(root).getByRole('button', { name: 'Equal to' }));
+    symbolInvite.invite({ op: 'answer', args: { id: '<' } });
+    await expectInviteOn(root, within(root).getByRole('button', { name: 'Less than' }));
+    await userEvent.click(within(root).getByRole('button', { name: 'Less than' }));
+    await noInvite(root);
   },
 };
 
@@ -469,5 +775,312 @@ export const DemoReducedMotion: Story = {
     await reducedController.play({ op: 'answer', args: { id: '=' } });
     await expect(performance.now() - started).toBeLessThan(500);
     await expect(root.querySelector('.ni-cmp__placed [data-glyph="eq"]')).not.toBeNull();
+  },
+};
+
+// ---------- real content shapes ----------
+
+/** Every side picture sits inside its side's frame. */
+async function expectPicturesInside(root: HTMLElement) {
+  for (const side of root.querySelectorAll<HTMLElement>('.ni-cmp__side')) {
+    const frame = (side.querySelector('.ni-cmp__tray') as HTMLElement).getBoundingClientRect();
+    const pic = (side.querySelector('.ni-fitpic') as HTMLElement).getBoundingClientRect();
+    await expect(pic.left).toBeGreaterThanOrEqual(frame.left);
+    await expect(pic.right).toBeLessThanOrEqual(frame.right + 0.5);
+    await expect(pic.top).toBeGreaterThanOrEqual(frame.top);
+    await expect(pic.bottom).toBeLessThanOrEqual(frame.bottom + 0.5);
+  }
+}
+
+/** CMP.05.t1 (K, concrete): match rows keep the picture's look (big and spread versus bunched). */
+export const MatchConflictK: Story = {
+  globals: { ageMode: 'k' },
+  args: { config: matchConflict, tier: 'concrete' },
+  play: async ({ canvasElement }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    await expect(root).toHaveAttribute('data-mode', 'match');
+    const all = [...root.querySelectorAll<HTMLElement>('.ni-cmp__obj')];
+    await expect(all).toHaveLength(14);
+    for (const o of all) await expectTargetSize(o, 'k');
+    await expectTargetGaps(all);
+  },
+};
+
+/** CMP.07.t1 (K, concrete): two double ten-frames, sides to pick. */
+export const TenFramesK: Story = {
+  globals: { ageMode: 'k' },
+  args: { config: tenFrames, tier: 'concrete' },
+  play: async ({ canvasElement, args }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    await expect(root).toHaveAttribute('data-mode', 'sides');
+    await expectPicturesInside(root);
+    // Both sides share one cell: the frames are the same size.
+    const frames = [...root.querySelectorAll<HTMLElement>('.ni-objects__frame')];
+    await expect(frames).toHaveLength(4);
+    const w = frames.map((f) => Math.round(f.getBoundingClientRect().width));
+    await expect(new Set(w).size).toBe(1);
+    await userEvent.click(within(root).getByRole('button', { name: 'Right side' }));
+    await userEvent.click(within(root).getByRole('button', { name: 'Check' }));
+    await expect(args.onResponse).toHaveBeenCalledWith({ kind: 'choice', id: 'right' });
+  },
+};
+
+/** CMP.05.t3 (K): the bigger-looking side has fewer; both drawn on one cell. */
+export const DotsConflictK: Story = {
+  globals: { ageMode: 'k' },
+  args: { config: dotsConflict, tier: 'pictorial' },
+  play: async ({ canvasElement }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    await expectPicturesInside(root);
+    const cells = [...root.querySelectorAll<HTMLElement>('.ni-objects')].map((o) =>
+      getComputedStyle(o).getPropertyValue('--cell'),
+    );
+    await expect(new Set(cells).size).toBe(1);
+  },
+};
+
+/** MEA.16.t2 (K): heavier, one object a side. */
+export const HeavierK: Story = {
+  globals: { ageMode: 'k' },
+  args: { config: heavier, tier: 'pictorial' },
+  play: async ({ canvasElement, args }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    await expectPicturesInside(root);
+    await userEvent.click(within(root).getByRole('button', { name: 'Right side' }));
+    await userEvent.click(within(root).getByRole('button', { name: 'Check' }));
+    await expect(args.onResponse).toHaveBeenCalledWith({ kind: 'choice', id: 'right' });
+  },
+};
+
+/** MEA.01.t3 (K): two ruler strips, which is longer? */
+export const LongerK: Story = {
+  globals: { ageMode: 'k' },
+  args: { config: longer, tier: 'pictorial' },
+  play: async ({ canvasElement }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    await expectPicturesInside(root);
+  },
+};
+
+/** GEO.08.t3 (K): shapes (drawn by U05; a neutral card until then). */
+export const ShapesK: Story = {
+  globals: { ageMode: 'k' },
+  args: { config: shapes, tier: 'pictorial' },
+  play: async ({ canvasElement }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    await expectPicturesInside(root);
+    await expect(within(root).getByRole('button', { name: 'Left side' })).toBeVisible();
+  },
+};
+
+/** Expressions on both sides: which is more? */
+export const SumsMore: Story = {
+  args: { config: sums, tier: 'abstract' },
+  play: async ({ canvasElement, args }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    await expectPicturesInside(root);
+    await userEvent.click(within(root).getByRole('button', { name: 'Right side' }));
+    await userEvent.click(within(root).getByRole('button', { name: 'Check' }));
+    await expect(args.onResponse).toHaveBeenCalledWith({ kind: 'choice', id: 'right' });
+  },
+};
+
+/** CMP.08.t2 (G1): a symbol between marks on two lines. */
+export const SymbolLines: Story = {
+  args: { config: symbolLines, tier: 'pictorial' },
+  play: async ({ canvasElement, args }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    await expectPicturesInside(root);
+    await userEvent.click(within(root).getByRole('button', { name: 'Greater than' }));
+    await userEvent.click(within(root).getByRole('button', { name: 'Check' }));
+    await expect(args.onResponse).toHaveBeenCalledWith({ kind: 'choice', id: '>' });
+  },
+};
+
+// ---------- the workshop's widget area (06 §1, §2) ----------
+
+/** The widget fits the area: no scroll, every part inside, every target full size and spaced. */
+async function expectCompareFits(
+  canvasElement: HTMLElement,
+  root: HTMLElement,
+  age: 'k' | 'g1-up',
+) {
+  await waitForSettled(root);
+  await new Promise((r) => requestAnimationFrame(r));
+  const parts = [
+    root.querySelector('.ni-cmp__stage, .ni-cmp__rows'),
+    root.querySelector('.ni-cmp__answer'),
+  ].filter((p): p is HTMLElement => p !== null);
+  await expectFitsArea(areaBox(canvasElement), parts, targets(root), age);
+  const pictures = [...root.querySelectorAll('.ni-fitpic')];
+  for (const p of pictures) {
+    await expect(p.getBoundingClientRect().height).toBeGreaterThan(20);
+  }
+}
+
+/**
+ * K at the 960 × 600 minimum (852 × 319): 10 fish against 9 don't fit as two rows of full-size
+ * targets with the answers, so the sides are pictures side by side and are the pick targets (no
+ * object targets: matching is optional help). Picking a side answers; nothing scrolls.
+ */
+export const MatchTenFallbackKMin: Story = {
+  globals: { ageMode: 'k' },
+  args: { config: matchTen, tier: 'concrete' },
+  render: inArea('landscapeMin'),
+  play: async ({ canvasElement, args }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    await expect(root).toHaveAttribute('data-mode', 'sides');
+    await expect(root.querySelector('.ni-cmp__obj')).toBeNull();
+    await expectCompareFits(canvasElement, root, 'k');
+    await userEvent.click(within(root).getByRole('button', { name: 'Left side' }));
+    await userEvent.click(within(root).getByRole('button', { name: 'Check' }));
+    await expect(args.onResponse).toHaveBeenCalledWith({ kind: 'choice', id: 'left' });
+  },
+};
+
+const fallbackInvite: WidgetDemo = createDemoController({ strict: true });
+
+/** The fallback layout has no object targets: a match invite shows nothing; a side invite does. */
+export const MatchTenFallbackKMinInvite: Story = {
+  globals: { ageMode: 'k' },
+  args: { config: matchTen, tier: 'concrete', demo: fallbackInvite },
+  render: inArea('landscapeMin'),
+  play: async ({ canvasElement }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    fallbackInvite.invite({ op: 'match', args: { left: 0, right: 0 } });
+    await noInvite(root);
+    fallbackInvite.invite({ op: 'highlight', args: { side: 'left' } });
+    await expectInviteOn(root, within(root).getByRole('button', { name: 'Left side' }));
+  },
+};
+
+/** Tablet landscape (1226 × 493): 10 against 9 fish still fit as match rows, K-sized. */
+export const MatchTenKTablet: Story = {
+  globals: { ageMode: 'k' },
+  args: { config: matchTen, tier: 'concrete' },
+  render: inArea('tablet'),
+  play: async ({ canvasElement }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    await expect(root).toHaveAttribute('data-mode', 'match');
+    await expect(root.querySelectorAll('.ni-cmp__obj')).toHaveLength(19);
+    await expectCompareFits(canvasElement, root, 'k');
+  },
+};
+
+/** Portrait (746 × 812): 10 fish don't fit a row at K size: pictures, stacked or side by side. */
+export const MatchTenKPortrait: Story = {
+  globals: { ageMode: 'k' },
+  args: { config: matchTen, tier: 'concrete' },
+  render: inArea('portrait'),
+  play: async ({ canvasElement }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    await expectCompareFits(canvasElement, root, 'k');
+  },
+};
+
+/** K at the minimum: three-digit numbers and the symbol gap. */
+export const SymbolHundredsKMin: Story = {
+  globals: { ageMode: 'k' },
+  args: { config: symbolHundreds, tier: 'abstract' },
+  render: inArea('landscapeMin'),
+  play: async ({ canvasElement, args }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    await expectCompareFits(canvasElement, root, 'k');
+    for (const n of root.querySelectorAll<HTMLElement>('.ni-expr')) {
+      await expect(
+        (Number.parseFloat(getComputedStyle(n).fontSize) *
+          (n.closest('.ni-scaled__inner') as HTMLElement).getBoundingClientRect().width) /
+          (n.closest('.ni-scaled__inner') as HTMLElement).offsetWidth,
+      ).toBeGreaterThanOrEqual(32);
+    }
+    await userEvent.click(within(root).getByRole('button', { name: 'Less than' }));
+    await userEvent.click(within(root).getByRole('button', { name: 'Check' }));
+    await expect(args.onResponse).toHaveBeenCalledWith({ kind: 'choice', id: '<' });
+  },
+};
+
+/** Portrait: the symbol question. */
+export const SymbolHundredsKPortrait: Story = {
+  globals: { ageMode: 'k' },
+  args: { config: symbolHundreds, tier: 'abstract' },
+  render: inArea('portrait'),
+  play: async ({ canvasElement }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    await expectCompareFits(canvasElement, root, 'k');
+  },
+};
+
+/** K at the minimum: a whole statement on the left alone, yes or no. */
+export const StatementKMin: Story = {
+  globals: { ageMode: 'k' },
+  args: { config: statement, tier: 'abstract' },
+  render: inArea('landscapeMin'),
+  play: async ({ canvasElement, args }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    await expect(root.querySelectorAll('.ni-cmp__side')).toHaveLength(1);
+    await expectCompareFits(canvasElement, root, 'k');
+    await userEvent.click(within(root).getByRole('button', { name: 'Yes' }));
+    await userEvent.click(within(root).getByRole('button', { name: 'Check' }));
+    await expect(args.onResponse).toHaveBeenCalledWith({ kind: 'choice', id: 'true' });
+  },
+};
+
+/** K at the minimum: base-ten blocks on both sides. */
+export const BaseTenKMin: Story = {
+  globals: { ageMode: 'k' },
+  args: { config: baseTen, tier: 'pictorial' },
+  render: inArea('landscapeMin'),
+  play: async ({ canvasElement }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    await expectCompareFits(canvasElement, root, 'k');
+    await expectPicturesInside(root);
+  },
+};
+
+/** Tablet: base-ten blocks. */
+export const BaseTenKTablet: Story = {
+  globals: { ageMode: 'k' },
+  args: { config: baseTen, tier: 'pictorial' },
+  render: inArea('tablet'),
+  play: async ({ canvasElement }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    await expectCompareFits(canvasElement, root, 'k');
+    await expectPicturesInside(root);
+  },
+};
+
+/** K at the minimum: 0–100 number lines with labelled marks. */
+export const NumberLinesKMin: Story = {
+  globals: { ageMode: 'k' },
+  args: { config: hundredLines, tier: 'pictorial' },
+  render: inArea('landscapeMin'),
+  play: async ({ canvasElement }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    await expectCompareFits(canvasElement, root, 'k');
+    await expectPicturesInside(root);
+  },
+};
+
+/** Portrait: number lines. */
+export const NumberLinesKPortrait: Story = {
+  globals: { ageMode: 'k' },
+  args: { config: hundredLines, tier: 'pictorial' },
+  render: inArea('portrait'),
+  play: async ({ canvasElement }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    await expectCompareFits(canvasElement, root, 'k');
+    await expectPicturesInside(root);
+  },
+};
+
+/** Tablet: number lines. */
+export const NumberLinesKTablet: Story = {
+  globals: { ageMode: 'k' },
+  args: { config: hundredLines, tier: 'pictorial' },
+  render: inArea('tablet'),
+  play: async ({ canvasElement }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    await expectCompareFits(canvasElement, root, 'k');
+    await expectPicturesInside(root);
   },
 };
