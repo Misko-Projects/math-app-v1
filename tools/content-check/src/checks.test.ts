@@ -10,17 +10,28 @@ import { compileInMemory } from './dist';
 const fixture = compileInMemory();
 const opts = { propertyN: 20, statsN: 100 };
 
+// The defect tests look for one diagnostic each, so they run on a slice of the content (the
+// addition skills their defects touch) with few seeds: the whole K–1 catalog takes the full run
+// tens of seconds on a CI runner.
+const SLICE = new Set(['ADD.01', 'ADD.03']);
+const small: CompiledInput = {
+  ...fixture,
+  skills: fixture.skills.filter((s) => SLICE.has(s.id)),
+  templates: fixture.templates.filter((t) => SLICE.has(t.skillId)),
+};
+const defectOpts = { propertyN: 2, statsN: 10 };
+
 afterEach(() => resetContent());
 
 function withTemplate(t: ItemTemplate, extra: Partial<CompiledInput> = {}): CompiledInput {
-  return { ...fixture, templates: [...fixture.templates, t], ...extra };
+  return { ...small, templates: [...small.templates, t], ...extra };
 }
 
 const base = fixture.templates.find((t) => t.id === 'ADD.01.t4') as ItemTemplate;
 
-// These tests each run the engine checks over the whole fixture set (about 5 s on a CI runner), so
-// they get their own timeout; the rest of the project keeps Vitest's default.
-const FULL_RUN = { timeout: 60_000 };
+// The full run checks the whole content set (about 35 s on a CI runner with the K–1 catalog), so it
+// gets its own timeout; the rest of the project keeps Vitest's default.
+const FULL_RUN = { timeout: 180_000 };
 
 describe('runEngineChecks on the fixture set', FULL_RUN, () => {
   it('reports no errors and writes stats for every template', () => {
@@ -39,7 +50,7 @@ describe('runEngineChecks on the fixture set', FULL_RUN, () => {
 
 describe('each check catches its defect', FULL_RUN, () => {
   const errorsOf = (input: CompiledInput, check: string) =>
-    runEngineChecks(input, opts).diagnostics.filter(
+    runEngineChecks(input, defectOpts).diagnostics.filter(
       (d) => d.check === check && d.severity === 'error',
     );
 
@@ -90,30 +101,28 @@ describe('each check catches its defect', FULL_RUN, () => {
       id: 'MC.mystery',
       detect: { kind: 'answer', rule: 'mystery' },
     };
-    const input = { ...fixture, misconceptions: [flipped, unknownRule] };
+    const input = { ...small, misconceptions: [flipped, unknownRule] };
     const messages = errorsOf(input, 'V18').map((d) => d.message);
     expect(messages.filter((m) => m.includes('but the example declares'))).toHaveLength(2);
     expect(messages.some((m) => m.includes("rule 'mystery' is not registered"))).toBe(true);
   });
 
   it('V16: a generator narration key that does not exist', () => {
-    const narration = { ...fixture.narration };
+    const narration = { ...small.narration };
     delete narration['gen.addsub.facts.answer'];
-    expect(errorsOf({ ...fixture, narration }, 'V16').map((d) => d.path)).toContain(
+    expect(errorsOf({ ...small, narration }, 'V16').map((d) => d.path)).toContain(
       'gen.addsub.facts.answer',
     );
   });
 
   it('V27: a skill whose constructed-answer templates cannot meet its practiced variety rule', () => {
     // ADD.01 with only t4 left: one format and one tier among its evidence templates.
-    const templates = fixture.templates.filter(
-      (t) => t.skillId !== 'ADD.01' || t.id === 'ADD.01.t4',
-    );
-    expect(errorsOf({ ...fixture, templates }, 'V27').map((d) => d.path)).toEqual(['ADD.01']);
+    const templates = small.templates.filter((t) => t.skillId !== 'ADD.01' || t.id === 'ADD.01.t4');
+    expect(errorsOf({ ...small, templates }, 'V27').map((d) => d.path)).toEqual(['ADD.01']);
     // The same template as a choice answer leaves no evidence template at all.
     const choice: ItemTemplate = { ...base, format: 'numeral-pick' };
     const onlyChoice = templates.map((t) => (t.id === 'ADD.01.t4' ? choice : t));
-    expect(errorsOf({ ...fixture, templates: onlyChoice }, 'V27')[0]?.message).toContain('(none)');
+    expect(errorsOf({ ...small, templates: onlyChoice }, 'V27')[0]?.message).toContain('(none)');
   });
 });
 
