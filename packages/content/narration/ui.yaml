@@ -274,3 +274,30 @@ ui.mlen.undo:
 ui.mlen.ruler:
   text: "Ruler"
   level: K
+ui.scomp.outline:
+  text: "The shape to fill"
+  level: K
+ui.scomp.pieces:
+  text: "Pieces"
+  level: K
+ui.scomp.piece:
+  text: "{name}, {n} left"
+  level: K
+ui.scomp.turn:
+  text: "Turn the {name}"
+  level: K
+ui.scomp.undo:
+  text: "Take one back"
+  level: K
+ui.scomp.scene:
+  text: "The picture"
+  level: K
+ui.scomp.dots-board:
+  text: "Dots to draw on"
+  level: K
+ui.scomp.sticks-board:
+  text: "Dots to put sticks on"
+  level: K
+ui.scomp.sticks-left:
+  text: "{n} sticks left"
+  level: K

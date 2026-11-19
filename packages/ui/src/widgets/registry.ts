@@ -17,6 +17,7 @@ export const widgetRegistry: WidgetRegistry = {
   'shape-sort': () => import('./shape-sort/ShapeSortWidget'),
   'compare-length': () => import('./compare-length/CompareLengthWidget'),
   'measure-length': () => import('./measure-length/MeasureLengthWidget'),
+  'shape-compose': () => import('./shape-compose/ShapeComposeWidget'),
 };
 
 /** Formats that have a registered widget. */
