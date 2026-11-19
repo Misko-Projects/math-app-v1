@@ -188,6 +188,11 @@ function offsetBox(el: HTMLElement, root: HTMLElement) {
 /** Rings around consecutive groups of the drawn picture, in reading order (`circle-groups`). */
 function measureRings(board: HTMLElement, sizes: readonly number[]): Ring[] {
   const base = board.getBoundingClientRect();
+  // Rings are positioned in the board's padding box (inside its border).
+  const originX = base.left + board.clientLeft;
+  const originY = base.top + board.clientTop;
+  // A rekenrek's rows sit close together: a snugger ring keeps the two rows' rings apart.
+  const p = board.querySelector('.ni-rekenrek') ? 6 : 10;
   const union = (els: Element[]): Ring | null => {
     if (els.length === 0) return null;
     const rs = els.map((e) => e.getBoundingClientRect());
@@ -195,16 +200,17 @@ function measureRings(board: HTMLElement, sizes: readonly number[]): Ring[] {
     const top = Math.min(...rs.map((r) => r.top));
     const right = Math.max(...rs.map((r) => r.right));
     const bottom = Math.max(...rs.map((r) => r.bottom));
-    const p = 10;
     return {
-      left: left - base.left - p,
-      top: top - base.top - p,
+      left: left - originX - p,
+      top: top - originY - p,
       width: right - left + 2 * p,
       height: bottom - top + 2 * p,
     };
   };
   const hands = [...board.querySelectorAll('.ni-hand-art')];
-  const items = [...board.querySelectorAll('.ni-objects__item')];
+  // Objects, or a rekenrek's pushed beads (row by row, so groups matching the rows ring each row's
+  // pushed beads alone, clear of the unused beads at the far end of the wire).
+  const items = [...board.querySelectorAll('.ni-objects__item, .ni-rekenrek [data-pushed="true"]')];
   const groups: Element[][] = sizes.map(() => []);
   if (hands.length > 0) {
     // Fingers: whole hands, assigned by their raised fingers.
@@ -259,35 +265,51 @@ export function DotFlashWidget({
   const [handAt, setHandAt] = useState<{ left: number; top: number } | null>(null);
   const rootRef = useRef<HTMLDivElement | null>(null);
   const boardRef = useRef<HTMLDivElement | null>(null);
-  const hideTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // The timed flash now showing (a new number per flash), or null: the hide timer belongs to the
+  // effect below, so StrictMode's mount → cleanup → mount re-schedules it instead of losing it.
+  const [flashing, setFlashing] = useState<number | null>(null);
+  const flashSeq = useRef(0);
   const firstLook = useRef(false);
   const interactive = !disabled && !demoBusy;
 
   const pendingFlash = useRef<(() => void) | null>(null);
-  /** Cancels a timed hide; whoever awaits that flash is released (never left hanging). */
-  const clearTimer = () => {
-    if (hideTimer.current !== null) clearTimeout(hideTimer.current);
-    hideTimer.current = null;
-    pendingFlash.current?.();
+  /** Whoever awaits the current flash is released (never left hanging). */
+  const releaseFlash = () => {
+    const done = pendingFlash.current;
     pendingFlash.current = null;
+    done?.();
   };
+  /** Cancels a timed hide (the picture stays as it is) and releases its waiter. */
+  const clearTimer = () => {
+    setFlashing(null);
+    releaseFlash();
+  };
+  // Unmount releases a waiting flash; it sets no state, so a StrictMode re-mount keeps the flash.
   // biome-ignore lint/correctness/useExhaustiveDependencies: cleanup on unmount only
-  useEffect(() => clearTimer, []);
+  useEffect(() => releaseFlash, []);
 
   /** Shows the picture for `flashMs`, then hides it. Resolves when it is hidden again. */
   const flash = () =>
     new Promise<void>((resolve) => {
-      clearTimer();
+      releaseFlash();
       setCircled(null);
       setShown(true);
       pendingFlash.current = resolve;
-      hideTimer.current = setTimeout(() => {
-        hideTimer.current = null;
-        pendingFlash.current = null;
-        if (alive.current) setShown(false);
-        resolve();
-      }, flashMs);
+      flashSeq.current += 1;
+      setFlashing(flashSeq.current);
     });
+
+  // While a timed flash shows, its hide is scheduled (again after any effect cleanup).
+  // biome-ignore lint/correctness/useExhaustiveDependencies: releaseFlash only reads a ref
+  useEffect(() => {
+    if (flashing === null) return;
+    const timer = setTimeout(() => {
+      setFlashing(null);
+      setShown(false);
+      releaseFlash();
+    }, flashMs);
+    return () => clearTimeout(timer);
+  }, [flashing, flashMs]);
 
   // The first look happens by itself, once, as soon as the child can answer (not during a demo).
   // biome-ignore lint/correctness/useExhaustiveDependencies: only the first enabled render flashes

@@ -1,5 +1,6 @@
 import type { WidgetConfig } from '@number-island/shared';
 import type { Meta, StoryObj } from '@storybook/react-vite';
+import { type ReactNode, StrictMode, useEffect, useState } from 'react';
 import { expect, fn, userEvent, waitFor, within } from 'storybook/test';
 import {
   clearSpies,
@@ -430,6 +431,92 @@ export const DemoFingerRings: Story = {
     await expect(board(root)).toHaveAttribute('data-shown', 'true');
     await expect(root.querySelector('.ni-invite')).toBeNull();
     await expect(root.querySelector('.ni-hand')).toBeNull();
+  },
+};
+
+/** SUB.07-style rekenrek: 10 beads pushed on the top row, 3 on the bottom. */
+const rekenrek: ConfigFor<'dot-flash'> = {
+  ...dots,
+  stimulus: { kind: 'rekenrek', rows: [10, 3] },
+  flashMs: 1000,
+};
+
+const overlaps = (a: DOMRect, b: DOMRect) =>
+  a.left < b.right && b.left < a.right && a.top < b.bottom && b.top < a.bottom;
+const encloses = (outer: DOMRect, inner: DOMRect) =>
+  outer.left <= inner.left &&
+  outer.right >= inner.right &&
+  outer.top <= inner.top &&
+  outer.bottom >= inner.bottom;
+
+const rekenrekDemo: WidgetDemo = createDemoController({ strict: true });
+
+/**
+ * Demo, worked-example step on a rekenrek (rows 10 and 3): `circle-groups [10, 3]` rings each row's
+ * pushed beads on their own. The two rings are apart; each encloses its row's pushed beads and
+ * stays clear of that row's unused beads and of the other row's beads.
+ */
+export const DemoRekenrekRings: Story = {
+  args: { config: rekenrek, disabled: true, demo: rekenrekDemo },
+  play: async ({ canvasElement }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    await rekenrekDemo.play({ op: 'circle-groups', args: { groups: [10, 3] } });
+    await expect(board(root)).toHaveAttribute('data-shown', 'true');
+    const rings = [...root.querySelectorAll<HTMLElement>('.ni-flash__ring')].map((r) =>
+      r.getBoundingClientRect(),
+    );
+    await expect(rings).toHaveLength(2);
+    // Two separate outlines, not one around the whole rack.
+    await expect(overlaps(rings[0] as DOMRect, rings[1] as DOMRect)).toBe(false);
+    const rows = [...root.querySelectorAll<SVGGElement>('.ni-rekenrek > g')];
+    await expect(rows).toHaveLength(2);
+    const beads = (row: SVGGElement, pushed: boolean) =>
+      [...row.querySelectorAll('ellipse')]
+        .filter((b) => b.hasAttribute('data-pushed') === pushed)
+        .map((b) => b.getBoundingClientRect());
+    for (const [i, row] of rows.entries()) {
+      const ring = rings[i] as DOMRect;
+      const pushed = beads(row, true);
+      await expect(pushed).toHaveLength(i === 0 ? 10 : 3);
+      for (const b of pushed) await expect(encloses(ring, b)).toBe(true);
+      for (const b of beads(row, false)) await expect(overlaps(ring, b)).toBe(false);
+      const other = rows[1 - i] as SVGGElement;
+      for (const b of [...beads(other, true), ...beads(other, false)]) {
+        await expect(overlaps(ring, b)).toBe(false);
+      }
+    }
+  },
+};
+
+/**
+ * Mounts its children one commit after itself. React only re-runs the effects of components that
+ * mount inside an already-mounted StrictMode tree (as widgets do under the web app's dev root), so
+ * this makes the StrictMode story exercise that path whether or not the widget chunk is cached.
+ */
+function MountLater({ children }: { children: ReactNode }) {
+  const [on, setOn] = useState(false);
+  useEffect(() => setOn(true), []);
+  return on ? children : null;
+}
+
+/**
+ * React StrictMode (the web app's dev root) mounts, cleans up and re-mounts every effect: the
+ * first look still hides after `flashMs`, and "look again" becomes usable.
+ */
+export const StrictModeFirstLook: Story = {
+  args: { config: { ...dots, flashMs: 300 } },
+  render: (args) => (
+    <StrictMode>
+      <MountLater>{renderWidget(args)}</MountLater>
+    </StrictMode>
+  ),
+  play: async ({ canvasElement }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    await shownIs(root, 'true');
+    await waitFor(() => expect(board(root)).toHaveAttribute('data-shown', 'false'), {
+      timeout: 1500,
+    });
+    await expect(within(root).getByRole('button', { name: 'Look again' })).toBeEnabled();
   },
 };
 
