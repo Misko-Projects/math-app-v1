@@ -494,8 +494,22 @@ describe('coin-count', () => {
     expect(issuePaths(coinCount, { ...countEasy, bills: [3] })).toContain('bills.0');
     expect(issuePaths(coinCount, { ...countMixed, arrangement: 'sorted' })).toContain('coins');
     expect(
-      issuePaths(coinCount, { ...countEasy, coins: Array.from({ length: 21 }, () => 'penny') }),
+      issuePaths(coinCount, { ...countEasy, coins: Array.from({ length: 13 }, () => 'penny') }),
     ).toContain('coins');
+    // A bill takes three coin slots: 3 bills and 4 coins are 13 slots.
+    expect(
+      issuePaths(coinCount, {
+        ...countDollars,
+        bills: [1, 1, 1],
+        coins: ['quarter', 'dime', 'dime', 'penny'],
+      }),
+    ).toContain('coins');
+    expect(
+      issuePaths(coinCount, {
+        ...countCompare,
+        compareWith: { coins: Array.from({ length: 10 }, () => 'dime'), bills: [] },
+      }),
+    ).toContain('compareWith.coins');
     expect(
       issuePaths(coinCount, { ...countCompare, compareWith: { coins: [], bills: [] } }),
     ).toContain('compareWith.coins');

@@ -44,7 +44,12 @@ const storyTexts: Record<string, string> = {
 export const storyNarrationText: NarrationTextResolver = (key, vars) => {
   const text = texts[key] ?? storyTexts[key];
   if (text === undefined) return undefined;
-  return text.replace(/\{(\w+)\}/g, (m, name: string) =>
-    vars && name in vars ? String(vars[name]) : m,
-  );
+  // Typed slots (03 §8.4) display as the app shows them: `cents` 25¢, `dollars` $1.25.
+  return text.replace(/\{(\w+)(?:\|(\w+)[^}]*)?\}/g, (m, name: string, type?: string) => {
+    if (!vars || !(name in vars)) return m;
+    const v = vars[name];
+    if (type === 'cents' && typeof v === 'number') return `${v}¢`;
+    if (type === 'dollars' && typeof v === 'number') return `$${(v / 100).toFixed(2)}`;
+    return String(v);
+  });
 };

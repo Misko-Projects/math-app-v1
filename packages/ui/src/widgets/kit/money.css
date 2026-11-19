@@ -1,0 +1,16 @@
+/* Money pictures (U05 #14): coins and bills (kit/CoinArt.tsx, kit/CoinsView.tsx). Tokens only. */
+
+.ni-coins {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  max-width: 100%;
+}
+.ni-coin-art,
+.ni-bill-art {
+  display: block;
+  flex: none;
+  overflow: visible;
+}

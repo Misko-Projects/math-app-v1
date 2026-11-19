@@ -31,10 +31,18 @@ type Config = WidgetConfigOf<'coin-count'>;
 /** Bill values a purse can show, in dollars. */
 export const BILL_VALUES: readonly number[] = [1, 2, 5, 10, 20];
 
-/** Most pieces drawn in one purse (coin-count shows every one). */
-export const MAX_COUNT_COINS = 20;
-export const MAX_COMPARE_COINS = 12;
-export const MAX_BILLS = 5;
+/**
+ * Room in one purse, in coin slots: the widget draws every piece as its own tap target (≥ 64 px)
+ * beside the number pad at the smallest landscape area, and a bill takes three coin slots.
+ */
+export const MAX_COUNT_SLOTS = 12;
+/** Room in each of two purses side by side (`compareWith`). */
+export const MAX_COMPARE_SLOTS = 9;
+export const BILL_SLOTS = 3;
+
+/** The coin slots a purse takes. */
+export const purseSlots = (side: { coins: readonly unknown[]; bills: readonly unknown[] }) =>
+  side.coins.length + BILL_SLOTS * side.bills.length;
 
 export type CountSide = 'left' | 'right';
 
@@ -105,19 +113,20 @@ const isSortedBigFirst = (coins: readonly CoinKind[]) =>
 
 const configSchema = coinCountConfigSchema.superRefine((c, ctx) => {
   const sides: [string, { coins: CoinKind[]; bills: number[] }, number][] = [
-    ['', c, c.compareWith ? MAX_COMPARE_COINS : MAX_COUNT_COINS],
+    ['', c, c.compareWith ? MAX_COMPARE_SLOTS : MAX_COUNT_SLOTS],
   ];
-  if (c.compareWith) sides.push(['compareWith.', c.compareWith, MAX_COMPARE_COINS]);
+  if (c.compareWith) sides.push(['compareWith.', c.compareWith, MAX_COMPARE_SLOTS]);
   for (const [path, side, max] of sides) {
     const at = (k: string) => (path ? ['compareWith', k] : [k]);
     if (side.coins.length + side.bills.length === 0) {
       ctx.addIssue({ code: 'custom', path: at('coins'), message: 'the purse is empty' });
     }
-    if (side.coins.length > max) {
-      ctx.addIssue({ code: 'custom', path: at('coins'), message: `at most ${max} coins` });
-    }
-    if (side.bills.length > MAX_BILLS) {
-      ctx.addIssue({ code: 'custom', path: at('bills'), message: `at most ${MAX_BILLS} bills` });
+    if (purseSlots(side) > max) {
+      ctx.addIssue({
+        code: 'custom',
+        path: at('coins'),
+        message: `at most ${max} coins a purse (a bill takes ${BILL_SLOTS})`,
+      });
     }
     side.bills.forEach((b, i) => {
       if (!BILL_VALUES.includes(b)) {

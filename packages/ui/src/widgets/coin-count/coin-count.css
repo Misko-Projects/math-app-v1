@@ -1,0 +1,193 @@
+/* coin-count widget (U05 #14): the purse on the left, the answer pad and "check" on the right. */
+
+.ni-ccount {
+  /* Positioned: the running total and Pip's hand are placed in widget coordinates. */
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-areas:
+    "board pad"
+    "answer pad";
+  align-items: center;
+  justify-items: center;
+  gap: 14px 32px;
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 1180px;
+  padding: 4px 12px;
+}
+.ni-ccount__board {
+  grid-area: board;
+  display: flex;
+  justify-content: center;
+  min-width: 0;
+  max-width: 100%;
+}
+.ni-ccount__pad {
+  grid-area: pad;
+}
+.ni-ccount__check {
+  margin-left: 20px;
+}
+
+/* The purse: a paper board holding every piece as its own tap target. */
+.ni-ccount__purse {
+  position: relative;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: var(--target-gap);
+  box-sizing: border-box;
+  max-width: 100%;
+  min-width: 0;
+  min-height: calc(var(--target-min) + 28px);
+  margin: 0;
+  padding: 12px 18px;
+  border: 3px solid var(--color-sand-deep);
+  border-radius: var(--radius-card);
+  background: var(--color-paper);
+  box-shadow: var(--shadow-soft);
+}
+.ni-ccount__slot {
+  position: relative;
+  display: flex;
+}
+.ni-ccount__piece {
+  position: relative;
+  display: grid;
+  place-items: center;
+  box-sizing: border-box;
+  min-width: var(--target-min);
+  min-height: var(--target-min);
+  margin: 0;
+  padding: 0;
+  appearance: none;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  cursor: pointer;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  transition: transform var(--duration-tap) ease-out;
+}
+.ni-ccount__piece[data-kind="bill"] {
+  border-radius: 14px;
+}
+.ni-ccount__piece:active:not(:disabled) {
+  transform: translateY(2px) scale(0.97);
+}
+.ni-ccount__piece:focus-visible {
+  outline: 4px solid var(--color-sea-deep);
+  outline-offset: 2px;
+}
+.ni-ccount__piece:disabled {
+  cursor: default;
+}
+/* Tapped by the child: an ink ring and a check badge (never colour alone, 06 §7). */
+.ni-ccount__piece[data-marked="true"] {
+  box-shadow: 0 0 0 3px var(--color-ink);
+}
+.ni-ccount__tick {
+  position: absolute;
+  top: -8px;
+  right: -8px;
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  padding: 5px;
+  box-sizing: border-box;
+  border: 3px solid var(--color-cloud);
+  border-radius: 50%;
+  background: var(--color-sea-deep);
+  pointer-events: none;
+}
+/* Counted in a demo: a thick teal ring around each piece counted so far. */
+.ni-ccount__piece[data-counted="true"] {
+  box-shadow: 0 0 0 5px var(--color-sea-deep);
+}
+.ni-ccount__piece[data-counted="true"][data-marked="true"] {
+  box-shadow:
+    0 0 0 3px var(--color-ink),
+    0 0 0 8px var(--color-sea-deep);
+}
+.ni-ccount__hand {
+  left: calc(50% - 23px);
+  top: calc(100% - 26px);
+}
+/* The running total of a demo count: the exact sum of the pieces ringed so far. */
+.ni-ccount__running {
+  position: absolute;
+  z-index: 2;
+  top: -26px;
+  right: 18px;
+  padding: 2px 16px 0;
+  border: 3px solid var(--color-ink);
+  border-radius: var(--radius-pill);
+  background: var(--color-sunshine-light);
+  color: var(--color-ink);
+  font-family: var(--font-display);
+  font-size: 2.25rem;
+  font-weight: 800;
+  line-height: 1.2;
+  font-variant-numeric: tabular-nums;
+  box-shadow: var(--shadow-soft);
+}
+
+.ni-ccount__answer {
+  grid-area: answer;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+/*
+ * compareWith: the two purses with "same" between them; "this one" under each purse and "check"
+ * between those.
+ */
+.ni-ccount[data-mode="compare"] {
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  grid-template-areas:
+    "left same right"
+    "left-pick check right-pick";
+  gap: 14px 20px;
+}
+.ni-ccount__side {
+  display: flex;
+  justify-content: center;
+  align-self: stretch;
+  min-width: 0;
+  max-width: 100%;
+}
+.ni-ccount__side .ni-ccount__purse {
+  flex: 1;
+  padding: 10px 12px;
+}
+.ni-ccount__choice {
+  position: relative;
+  display: flex;
+}
+.ni-ccount__choice .ni-pick {
+  min-height: var(--target-min);
+  padding: 6px 22px;
+  white-space: nowrap;
+}
+.ni-ccount__choice .ni-pick[data-variant="word"] .ni-pick__face {
+  font-size: 1.5rem;
+}
+
+[data-reduced-motion="true"] .ni-ccount__piece {
+  transition-duration: 0ms;
+}
+@media (prefers-reduced-motion: reduce) {
+  .ni-ccount__piece {
+    transition-duration: 0ms;
+  }
+}
+.ni-ccount[data-mode="compare"] .ni-ccount__check {
+  margin: 0;
+}
+.ni-ccount[data-mode="compare"] .ni-ccount__side {
+  justify-self: stretch;
+}

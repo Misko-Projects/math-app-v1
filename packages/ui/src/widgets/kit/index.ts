@@ -1,5 +1,22 @@
 // The shared widget kit (U03): pictures, layouts and answer controls the math widgets compose.
 // See ./README.md. Widgets import from here; workshops never do (they render WidgetHost).
+
+export {
+  BillArt,
+  type BillArtProps,
+  COIN_CENTS,
+  COIN_CONTRAST_PAIRS,
+  COIN_PAINT,
+  CoinArt,
+  type CoinArtProps,
+  coinPx,
+  coinRadius,
+  type MoneyPiece,
+  moneyNameKey,
+  moneyText,
+  useMoneySpeech,
+} from './CoinArt';
+export { CoinsView, type CoinsViewProps, coinsCentsOf, pictureQuarterPx } from './CoinsView';
 export {
   applyPadKey,
   balancedRows,
@@ -36,6 +53,14 @@ export {
   stepsBetween,
 } from './NumberLineView';
 export { fitCell, ObjectSetView, type ObjectSetViewProps } from './ObjectSetView';
+export {
+  applyBoxKey,
+  type PadBox,
+  PadBoxView,
+  type PadBoxViewProps,
+  padBoxValue,
+  usePadEntry,
+} from './PadEntry';
 export {
   BaseTenView,
   ExpressionView,
