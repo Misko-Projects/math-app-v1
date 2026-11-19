@@ -197,7 +197,10 @@ export function NumberBondWidget({
     setValues(next);
     setInvite(null);
     // A filled blank hands over to the next empty one (split: two blanks).
-    if (v !== null && entrySlots.length > 1 && String(v).length >= String(max).length) {
+    // A tray pick is complete at once; on the pad, once it has the digits the answer can have.
+    const complete =
+      entryLayout?.kind === 'tray' || (v !== null && String(v).length >= String(max).length);
+    if (v !== null && entrySlots.length > 1 && complete) {
       const after = entrySlots.find((s) => s !== entrySlot && (next[s] ?? null) === null);
       if (after) setActive(after);
     }

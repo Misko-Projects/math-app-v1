@@ -1,4 +1,5 @@
-import type { WidgetConfig } from '@number-island/shared';
+import { matches } from '@number-island/engine';
+import type { ResponseValue, WidgetConfig } from '@number-island/shared';
 import type { Meta, StoryObj } from '@storybook/react-vite';
 import { expect, fn, userEvent, waitFor, within } from 'storybook/test';
 import {
@@ -768,5 +769,79 @@ export const AreaInviteTeenK: Story = {
     });
     await expectOneInvite(root, card);
     await expectFits(canvasElement, 'k');
+  },
+};
+
+/**
+ * PR #93 F1: a make-ten item as the addsub.facts generator builds it (ADD.08.t1: 8 in frame 1,
+ * 5 of colour b in frame 2, thenAsk total). There is no tray: the child moves counters from frame
+ * 2 into frame 1 (one by drag, one by tap-to-place … keyboard), picks 13, and the engine's
+ * tenframe.makeTen checker accepts the response.
+ */
+export const MakeTenMoveCounters: Story = {
+  args: {
+    config: {
+      ...base,
+      frames: 2,
+      prefilled: [
+        { frame: 0, color: 'a', count: 8 },
+        { frame: 1, color: 'b', count: 5 },
+      ],
+      goal: 'make-ten',
+      a: 8,
+      b: 5,
+      thenAsk: 'total',
+    },
+  },
+  play: async ({ canvasElement, args }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    await expect(root.querySelector('.ni-tf__supply')).toBeNull();
+    const placed = (id: number) =>
+      root.querySelector(`.ni-tf__placed[data-counter="${id}"]`) as HTMLElement;
+    // Frame 1's given counters stay put; frame 2's can be picked up.
+    await expect(placed(0).getAttribute('role')).toBeNull();
+    await expect(placed(12)).toHaveAttribute('role', 'button');
+    await pointerDrag(placed(12), center(pad(root, 0, 8)), 'touch');
+    await waitFor(() => expect(cellsOf(root)[8]).toBe(1));
+    placed(11).focus();
+    await userEvent.keyboard('{Enter}');
+    await waitFor(() => expect(document.activeElement).toBe(pad(root, 0, 9)));
+    await userEvent.keyboard('{Enter}');
+    await waitFor(() => expect(cellsOf(root).every(Boolean)).toBe(true));
+    await expect(cellsOf(root, 1).filter(Boolean)).toHaveLength(3);
+    if (root.dataset.step === 'build') await userEvent.click(button(root, 'Next'));
+    await userEvent.click(button(root, '13'));
+    await userEvent.click(button(root, 'Check'));
+    await expect(args.onResponse).toHaveBeenCalledTimes(1);
+    const response = (args.onResponse as unknown as { mock: { calls: [ResponseValue][] } }).mock
+      .calls[0]?.[0] as ResponseValue;
+    await expect(
+      matches(
+        { kind: 'state', checker: 'tenframe.makeTen', target: { total: 13, value: 13 } },
+        response,
+      ),
+    ).toBe(true);
+  },
+};
+
+const emptyHighlight: WidgetDemo = createDemoController({ strict: true });
+
+/**
+ * PR #93 F5: the generators' hint `highlight {target: 'empty-cells'}` lights every empty cell
+ * while it plays (6 given: the 4 empty cells), and nothing else.
+ */
+export const DemoHighlightEmptyCells: Story = {
+  args: { disabled: true, demo: emptyHighlight },
+  play: async ({ canvasElement }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    const playing = emptyHighlight.play({ op: 'highlight', args: { target: 'empty-cells' } });
+    await waitFor(() =>
+      expect(root.querySelectorAll('.ni-tf__cell[data-lit="true"]')).toHaveLength(4),
+    );
+    for (const cell of root.querySelectorAll('.ni-tf__cell[data-lit="true"]')) {
+      await expect(cell.getAttribute('data-filled')).toBeNull();
+    }
+    await playing;
+    await expect(root.querySelectorAll('.ni-tf__cell[data-lit="true"]')).toHaveLength(0);
   },
 };

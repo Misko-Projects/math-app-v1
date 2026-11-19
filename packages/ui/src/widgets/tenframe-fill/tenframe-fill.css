@@ -307,6 +307,12 @@
   border-radius: 50%;
   box-shadow: 0 0 0 6px rgb(42 157 143 / 0.45);
 }
+/* The generators' hint `highlight {target: 'empty-cells'}`: every empty cell glows. */
+.ni-tf__cell[data-lit="true"] {
+  box-shadow:
+    0 0 0 6px rgb(42 157 143 / 0.5),
+    inset 0 3px 0 rgb(38 70 83 / 0.14);
+}
 .ni-tf__lit {
   box-shadow: 0 0 0 8px rgb(42 157 143 / 0.35);
 }

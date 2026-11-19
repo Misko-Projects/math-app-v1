@@ -46,6 +46,8 @@ describe('number-bond logic', () => {
     expect(entryMax(bond({}))).toBe(5);
     expect(entryMax(bond({ whole: null, parts: [3, 1], mode: 'missing-whole' }))).toBe(10);
     expect(entryMax(bond({ whole: null, parts: [8, 5], mode: 'missing-whole' }))).toBe(20);
+    // PR #93 F3: a whole above 20 is not capped at 20 (the pad, two digits).
+    expect(entryMax(bond({ whole: null, parts: [12, 13], mode: 'missing-whole' }))).toBe(99);
   });
 
   it('answers through the model', () => {

@@ -77,7 +77,15 @@ export const capacity = (config: Config) => config.frames * config.size;
 export const trayColor = (config: Config) => (prefilledCount(config) > 0 ? COLOR_B : COLOR_A);
 
 /** How many counters the tray holds: `b` for `add` (03 §5.5), else every free cell. */
+/**
+ * Make ten on two frames (ADD.08, CPS.11): both groups are given, and the child moves counters from
+ * frame 2 into frame 1 until it is full; the total stays the same (tenframe.makeTen), so there is
+ * no tray, and frame 2's counters move between frames (frame 1's given ones stay locked).
+ */
+export const movesCounters = (config: Config) => config.goal === 'make-ten' && config.frames === 2;
+
 export function supplySize(config: Config): number {
+  if (movesCounters(config)) return 0;
   const free = capacity(config) - prefilledCount(config);
   if (config.goal === 'add') return Math.max(0, Math.min(config.b ?? 0, free));
   // Taking away starts with an empty tray: the counters the child takes off land in it.

@@ -45,6 +45,7 @@ import {
   firstEmpty,
   initialBoard,
   type Move,
+  movesCounters,
   parseCell,
   placeCounter,
   prefilledCount,
@@ -222,7 +223,10 @@ export function TenframeFillWidget({
     return all.filter((id) => !on.has(id) && (id >= pre || !locked));
   };
   const trayIds = trayIdsOf(board);
-  const isLocked = (id: number) => locked && id < pre;
+  // Make ten on two frames: the counters given in frame 2 move between the frames.
+  const moving = movesCounters(config);
+  const preFrame0 = start.ids[0]?.filter((x) => x !== null).length ?? 0;
+  const isLocked = (id: number) => locked && id < pre && !(moving && id >= preFrame0);
   const shape = plan.build.supply;
   const visibleTray = shape ? trayIds.slice(0, shape[0] * shape[1]) : [];
 
@@ -252,7 +256,14 @@ export function TenframeFillWidget({
       const cell = parseCell(target);
       if (!cell) return;
       const id = counterIndex(item);
-      const next = placeCounter(boardRef.current, cell, id, colorOf(id), standard);
+      // A counter already on the frames (make ten) leaves its cell for the new one.
+      const next = placeCounter(
+        removeCounter(boardRef.current, id),
+        cell,
+        id,
+        colorOf(id),
+        standard,
+      );
       if (next === boardRef.current) return;
       setInvite(null);
       setBoard(next);
@@ -646,6 +657,24 @@ export function TenframeFillWidget({
     } else if (c === EMPTY || counter === null) {
       const props = dnd.targetProps(id, { label });
       inner = <div {...props} className={`${props.className} ni-tf__pad`} />;
+    } else if (moving && !isLocked(counter)) {
+      // Make ten: a given counter in frame 2 is picked up (drag, tap-to-place, keyboard) and put
+      // in an empty cell of either frame.
+      const props = dnd.itemProps(counterId(counter) as ItemId, {
+        label: `${counterName} ${counter + 1}`,
+      });
+      inner = (
+        <div
+          {...props}
+          className={[props.className, 'ni-tf__placed', cueOf(`counter:${counter}`)]
+            .filter(Boolean)
+            .join(' ')}
+          data-cue={`counter:${counter}`}
+          {...counterProps(counter)}
+        >
+          <Counter color={c} />
+        </div>
+      );
     } else if (isLocked(counter)) {
       inner = (
         <span
@@ -678,6 +707,7 @@ export function TenframeFillWidget({
         className="ni-tf__cell"
         data-cell={id}
         data-filled={c !== EMPTY ? 'true' : undefined}
+        data-lit={highlight === 'empty-cells' && c === EMPTY ? 'true' : undefined}
       >
         {inner}
       </div>

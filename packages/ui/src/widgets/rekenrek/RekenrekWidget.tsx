@@ -90,7 +90,7 @@ export function RekenrekWidget({
   demo,
 }: WidgetProps<Config>) {
   const t = useNarrationText();
-  const { speakOnTap, ageMode } = useUiPreferences();
+  const { speakOnTap, ageMode, tapOnly } = useUiPreferences();
   const { say, sayNumber } = useSpeech();
   const trace = useInteractionTrace(onInteract);
   const alive = useAlive();
@@ -221,7 +221,8 @@ export function RekenrekWidget({
     if (!p || p.row !== row || p.pointerId !== e.pointerId) return;
     const dx = e.clientX - p.startX;
     if (!p.dragging) {
-      if (Math.abs(dx) < DRAG_START_PX) return;
+      // Tap-only (06 §7): a press never becomes a drag; it is a tap when it lifts.
+      if (tapOnly || Math.abs(dx) < DRAG_START_PX) return;
       p.dragging = true;
       trace('drag', `bead-${row}-${p.bead}`);
     }
@@ -244,6 +245,17 @@ export function RekenrekWidget({
     trace('tap', `bead-${row}-${p.bead}`);
     if (setRow(row, tapBead(p.bead, p.start))) speakAfter(rowsRef.current);
   };
+
+  // Input goes away (disabled, or Pip starts a demo) mid-gesture: the gesture is cancelled and the
+  // wire goes back to where it was, as useDragToTarget does.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: runs when input goes away
+  useEffect(() => {
+    if (canSlide) return;
+    const p = press.current;
+    if (!p) return;
+    press.current = null;
+    setRow(p.row, p.start);
+  }, [canSlide]);
 
   const onPointerCancel = (row: number) => () => {
     const p = press.current;

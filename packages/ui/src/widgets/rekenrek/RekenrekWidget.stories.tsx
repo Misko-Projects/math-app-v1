@@ -520,3 +520,59 @@ export const AreaLandscapeMinTeenK: Story = {
     });
   },
 };
+
+/**
+ * PR #93 F4: tap-only mode (06 §7 motor setting): pressing a bead and sliding the finger never
+ * drags; the press is a tap where it started (the standard rekenrek move).
+ */
+export const TapOnly: Story = {
+  globals: { tapOnly: 'on' },
+  play: async ({ canvasElement, args }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    const b = bead(root, 0, 2);
+    await pointerDrag(b, { x: center(b).x - 200, y: center(b).y }, 'touch');
+    await waitFor(() => expect(pushed(root, 0)).toBe(3));
+    const trace = traceOf(args.onInteract).map((e) => `${e.t}:${e.target}`);
+    await expect(trace).toEqual(['tap:bead-0-2']);
+  },
+};
+
+const cancelController: WidgetDemo = createDemoController({ strict: true });
+
+/**
+ * PR #93 F4: a drag in progress is cancelled when input goes away (Pip starts a demo): the wire
+ * goes back to where it was and lifting the finger afterwards does nothing.
+ */
+export const DemoCancelsDrag: Story = {
+  args: { demo: cancelController },
+  play: async ({ canvasElement, args }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    const wire = row(root, 0);
+    const from = center(bead(root, 0, 4));
+    const init = (x: number, buttons: number): PointerEventInit => ({
+      bubbles: true,
+      cancelable: true,
+      composed: true,
+      pointerId: 41,
+      pointerType: 'touch',
+      isPrimary: true,
+      clientX: x,
+      clientY: from.y,
+      button: 0,
+      buttons,
+    });
+    wire.dispatchEvent(new PointerEvent('pointerdown', init(from.x, 1)));
+    for (let i = 1; i <= 6; i++) {
+      wire.dispatchEvent(new PointerEvent('pointermove', init(from.x - 30 * i, 1)));
+      await new Promise((r) => requestAnimationFrame(() => r(null)));
+    }
+    await waitFor(() => expect(pushed(root, 0)).toBe(5));
+    await cancelController.play({ op: 'highlight', args: { row: 0, upTo: 3 } });
+    await expect(pushed(root, 0)).toBe(0);
+    wire.dispatchEvent(new PointerEvent('pointerup', init(from.x - 180, 0)));
+    await new Promise((r) => requestAnimationFrame(() => r(null)));
+    await expect(pushed(root, 0)).toBe(0);
+    const trace = traceOf(args.onInteract).map((e) => `${e.t}:${e.target}`);
+    await expect(trace).toEqual(['drag:bead-0-4']);
+  },
+};

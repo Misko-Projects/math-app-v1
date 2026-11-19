@@ -640,3 +640,40 @@ async function expectLegibleBond(root: HTMLElement) {
     await expect(Number.parseFloat(getComputedStyle(n).fontSize)).toBeGreaterThanOrEqual(32);
   }
 }
+
+/** PR #93 F3: a missing whole above 20 (12 + 13) is answered on the pad, as many digits as 25. */
+export const MissingWholeAbove20: Story = {
+  args: { config: { ...missing5, whole: null, parts: [12, 13], mode: 'missing-whole' } },
+  play: async ({ canvasElement, args }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    if (root.dataset.step === 'bond') await userEvent.click(button(root, 'Next'));
+    await expect(root.querySelector('.ni-pad')).not.toBeNull();
+    await expect(root.querySelector('.ni-pick')).toBeNull();
+    const key = (k: string) => root.querySelector(`.ni-pad__key[data-key="${k}"]`) as HTMLElement;
+    await userEvent.click(key('2'));
+    await userEvent.click(key('5'));
+    // A third digit is refused: the answer has two.
+    await userEvent.click(key('7'));
+    await userEvent.click(button(root, 'Check'));
+    await expect(args.onResponse).toHaveBeenCalledWith({ kind: 'number', value: 25 });
+  },
+};
+
+/**
+ * PR #93 F6: a split of 12 (two-digit tray): picking a single-digit number for part 1 hands over
+ * to part 2 at once.
+ */
+export const SplitSingleDigitAdvances: Story = {
+  args: { config: { ...split5, whole: 12 } },
+  play: async ({ canvasElement, args }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    if (root.dataset.step === 'bond') await userEvent.click(button(root, 'Next'));
+    await userEvent.click(button(root, '5'));
+    if (root.dataset.step === 'ask') await userEvent.click(button(root, 'Go back'));
+    await expect(button(root, 'Part 2:')).toHaveAttribute('aria-current', 'true');
+    if (root.dataset.step === 'bond') await userEvent.click(button(root, 'Next'));
+    await userEvent.click(button(root, '7'));
+    await userEvent.click(button(root, 'Check'));
+    await expect(args.onResponse).toHaveBeenCalledWith({ kind: 'state', value: { parts: [5, 7] } });
+  },
+};

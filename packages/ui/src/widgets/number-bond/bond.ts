@@ -71,10 +71,17 @@ export function poolColumns(cap: number): number {
   return Math.max(1, Math.min(5, cap));
 }
 
-/** The largest number the answer control offers: the whole (0 … whole), else 10 or 20. */
+/**
+ * The largest number the answer control offers: the whole (0 … whole); for an asked whole, 10 or
+ * 20 (a tray that doesn't give the answer away), and above 20 every number of the whole's digits
+ * (99 for 25: the pad, as many digits as the real whole).
+ */
 export function entryMax(config: Config): number {
   if (config.whole !== null) return config.whole;
-  return counterTotal(config) > 10 ? 20 : 10;
+  const total = counterTotal(config);
+  if (total <= 10) return 10;
+  if (total <= 20) return 20;
+  return 10 ** String(total).length - 1;
 }
 
 /** Typed answers (pictorial, or the asked number on the concrete bond), through the model. */
