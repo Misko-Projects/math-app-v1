@@ -33,7 +33,7 @@
   box-sizing: border-box;
   max-width: 100%;
   /* Extra room on top for the count badges, which sit above each object's top-right corner. */
-  padding: 40px 28px 20px;
+  padding: 52px 28px 20px;
   border: 3px solid var(--color-sand-deep);
   border-radius: var(--radius-card);
   background: var(--color-paper);
@@ -105,26 +105,27 @@ button.ni-tapc__obj:focus-visible {
  * A counted object: a numbered pebble badge (shape + numeral, never colour alone, 06 §7). It sits
  * on top of the object's right end, above the drawing, so eyes, claws and shell tops stay visible.
  * It never sticks out past the object's sides, so it cannot reach the next object in a row; the
- * widget spreads rows apart for it (TapCountWidget `BADGE`: 37 px above the box to 5 px inside).
+ * widget spreads rows apart for it (TapCountWidget `BADGE`: 48 px above the box to 4 px inside).
+ * The numeral is a maths numeral (05 §11: ≥ 32 px): 40 px Baloo 2 in a 52 px pebble.
  */
 .ni-tapc__mark {
   position: absolute;
-  /* Centred 16 px above the box; right edges flush, so wider numbers grow leftwards. */
-  top: -16px;
+  /* Centred 22 px above the box; right edges flush, so wider numbers grow leftwards. */
+  top: -22px;
   right: 0;
   translate: 0 -50%;
   display: grid;
   place-items: center;
   box-sizing: border-box;
-  min-width: 42px;
-  height: 42px;
-  padding: 0.14em 6px 0;
+  min-width: 52px;
+  height: 52px;
+  padding: 0.14em 7px 0;
   border: 3px solid var(--color-ink);
   border-radius: 999px;
   background: var(--color-sunshine);
   color: var(--color-ink);
   font-family: var(--font-display);
-  font-size: 2rem;
+  font-size: 2.5rem;
   font-weight: 800;
   line-height: 1;
   font-variant-numeric: tabular-nums;
@@ -197,6 +198,10 @@ button.ni-tapc__obj:focus-visible {
   align-items: center;
   justify-content: center;
   gap: 28px 40px;
+}
+/* K: the number pad with Check beside it (not under it), so a K pad item fits 1280 × 800. */
+.ni-tapc__answer[data-check="beside"] {
+  flex-wrap: nowrap;
 }
 .ni-tapc__pad {
   display: flex;

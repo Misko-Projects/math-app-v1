@@ -510,7 +510,8 @@ export const TwentyK: Story = {
  * border across, and 288 px down (2 × 16 padding, the 94 px top bar, the 132 px product tray,
  * 2 × 12 gaps, 2 × 3 border; measured at a 1200 × 900 viewport, where the stage is 1146 × 612).
  * So 960 × 600 leaves 906 × 312, 800 × 1280 leaves 746 × 992 and 1280 × 800 leaves 1226 wide.
- * The box scrolls like a stage would: it never grows to fit the widget.
+ * The box scrolls like a stage would: it never grows to fit the widget. It has no outline or
+ * border of its own (a debug-looking marker must not read as product UI): it is invisible.
  */
 const AREA = {
   landscapeMin: { width: 906, height: 312 },
@@ -529,7 +530,6 @@ function inArea(area: keyof typeof AREA) {
         boxSizing: 'border-box',
         display: 'grid',
         overflow: 'auto',
-        outline: '2px dashed var(--color-ink-soft)',
       }}
     >
       <WidgetHost {...args} />

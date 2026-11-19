@@ -94,6 +94,8 @@ const HAND_TIP_X = 23.5;
 const HAND_TIP_Y = 8;
 const HAND_SIZE = 56;
 const HAND_EDGE = 10;
+/** How far the hand's tap animation (`ni-hand-tap`) moves it down. */
+const HAND_BOB_Y = 8;
 
 /** `el`'s untransformed layout box relative to `root` (the invite pulse scales; offsets don't). */
 function offsetBox(el: HTMLElement, root: HTMLElement) {
@@ -185,10 +187,11 @@ function inCountingOrder(layout: ObjectLayout, from: 'left' | 'right'): ObjectLa
 
 /**
  * A count badge's footprint around its object's box, in px (tap-count.css `.ni-tapc__mark`): it
- * sits on top of the box's right end (right edges flush, wide numbers growing left), from 37 px
- * above the box's top to 5 px inside it. `w` allows for two- and three-digit pebbles.
+ * sits on top of the box's right end (right edges flush, wide numbers growing left), from 48 px
+ * above the box's top to 4 px inside it (a 52 px pebble, its 40 px numeral ≥ 32 px, 05 §11).
+ * `w` allows for two-digit pebbles (≈ 66 px) and a margin.
  */
-const BADGE = { w: 64, above: 37, below: 5, clear: 4 } as const;
+const BADGE = { w: 76, above: 48, below: 4, clear: 4 } as const;
 
 /**
  * How much to stretch a layout's rows (its y axis) so that every count badge clears every other
@@ -311,8 +314,13 @@ export function TapCountWidget({
   const trayDigits = Math.max(1, ...trayValues.map((v) => String(v).length));
   const card = numeralCardPx(trayDigits, target) + TARGET_GAP_PX;
   const trayW = trayCols * card - TARGET_GAP_PX + TRAY_PANEL_EDGES_PX;
-  // The answer column of a how-many layout (ordinal layouts budget their own, below).
-  const answerW = config.input === 'pad' ? 3 * (target + 16) + 2 * TARGET_GAP_PX : trayW;
+  // The answer column of a how-many layout (ordinal layouts budget their own, below). In K the
+  // number pad (96 px keys) has the icon-only Check beside it, not under it, so a K pad item fits
+  // a 1280 × 800 screen; the shorter G1+ pad keeps Check under it.
+  const checkBesidePad = config.input === 'pad' && !ordinal && ageMode === 'k';
+  const padCheckW = checkBesidePad ? 40 + 120 : 0;
+  const answerW =
+    config.input === 'pad' ? 3 * (target + 16) + 2 * TARGET_GAP_PX + padCheckW : trayW;
   const answerH =
     config.input === 'pad'
       ? 560
@@ -630,30 +638,44 @@ export function TapCountWidget({
 
   // Pip's hand sits on the invited control, measured from the laid-out widget.
   const [handAt, setHandAt] = useState<{ left: number; top: number } | null>(null);
+  // Extra room under the widget when the hand, hanging below a control at the bottom, needs it.
+  const [handRoom, setHandRoom] = useState(0);
+  const handRoomRef = useRef(0);
+  handRoomRef.current = handRoom;
   // biome-ignore lint/correctness/useExhaustiveDependencies: cueId stands for the cue; the layout keys move it
   useLayoutEffect(() => {
     const root = rootRef.current;
     const el = root && cue ? cueTarget(root, cue) : null;
     if (!root || !el) {
       setHandAt(null);
+      setHandRoom(0);
       return;
     }
     const onObject = cue?.at === 'obj';
     const place = () => {
       const b = offsetBox(el, root);
-      // On an object: its lower middle (the top of the drawing stays visible). On a control: just
-      // right of centre, low on it (its label stays clear).
-      const tipX = b.left + b.width / 2 + (onObject ? 0 : 6);
-      const tipY = onObject
-        ? b.top + b.height * 0.58
-        : b.top + b.height - Math.min(18, b.height * 0.25);
-      // The whole hand stays inside the widget, with room for its tap bob (6 px left, 8 px down):
-      // near an edge it slides up or across, the fingertip still on the control.
-      const clamp = (v: number, max: number) => Math.max(HAND_EDGE, Math.min(v, max));
-      setHandAt({
-        left: clamp(tipX - HAND_TIP_X, root.clientWidth - HAND_SIZE - HAND_EDGE),
-        top: clamp(tipY - HAND_TIP_Y, root.clientHeight - HAND_SIZE - HAND_EDGE),
-      });
+      // On an object: its lower middle (the top of the drawing stays visible). On a control (an
+      // icon, numeral or word on a button): the fingertip rests low in its lower-right quarter and
+      // the hand hangs below it, so the glyph stays fully visible; the tap bob (8 px down) keeps
+      // the fingertip inside.
+      const tipX = onObject ? b.left + b.width / 2 : b.left + b.width * 0.75;
+      const tipY = onObject ? b.top + b.height * 0.58 : b.top + b.height - HAND_BOB_Y - 2;
+      const top = tipY - HAND_TIP_Y;
+      // The whole hand stays inside the widget: across, it slides along the edge (the fingertip
+      // still on the target); below a control at the bottom, the widget makes room for it.
+      const bottom = top + HAND_SIZE + HAND_BOB_Y + HAND_EDGE;
+      const room = onObject
+        ? 0
+        : Math.max(0, Math.ceil(bottom - (root.clientHeight - handRoomRef.current)));
+      const clampX = (v: number) =>
+        Math.max(HAND_EDGE, Math.min(v, root.clientWidth - HAND_SIZE - HAND_EDGE));
+      const clampY = (v: number) =>
+        Math.max(
+          HAND_EDGE,
+          Math.min(v, root.clientHeight - handRoomRef.current + room - HAND_SIZE - HAND_EDGE),
+        );
+      setHandRoom(room);
+      setHandAt({ left: clampX(tipX - HAND_TIP_X), top: clampY(top) });
     };
     place();
     if (typeof ResizeObserver === 'undefined') return;
@@ -742,6 +764,7 @@ export function TapCountWidget({
       data-mode={ordinal ? 'ordinal' : 'how-many'}
       data-arrange={arrange}
       data-disabled={disabled ? 'true' : undefined}
+      style={handRoom > 0 ? { paddingBottom: 12 + handRoom } : undefined}
     >
       <div className="ni-tapc__picture" data-from={ordinal ? from : undefined}>
         {ordinal ? (
@@ -774,7 +797,7 @@ export function TapCountWidget({
         )}
       </div>
 
-      <div className="ni-tapc__answer">
+      <div className="ni-tapc__answer" data-check={checkBesidePad ? 'beside' : undefined}>
         {config.input === 'pad' && !ordinal ? (
           <div className="ni-tapc__pad">
             <span className="ni-tapc__slot">

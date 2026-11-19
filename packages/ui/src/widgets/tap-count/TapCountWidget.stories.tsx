@@ -212,6 +212,21 @@ async function expectOrdinalFits(root: HTMLElement) {
 }
 
 /**
+ * 05 §11: every count badge's numeral is a maths numeral, ≥ 32 px, in a pebble at least 48 px
+ * tall (two-digit pebbles included).
+ */
+async function expectBadgeNumerals(root: HTMLElement) {
+  await settle(root);
+  const badges = [...root.querySelectorAll<HTMLElement>('.ni-tapc__mark')];
+  await expect(badges.length).toBeGreaterThan(0);
+  for (const badge of badges) {
+    const size = Number.parseFloat(getComputedStyle(badge).fontSize);
+    await expect(size, `badge ${badge.textContent} font-size`).toBeGreaterThanOrEqual(32);
+    await expect(badge.getBoundingClientRect().height).toBeGreaterThanOrEqual(48);
+  }
+}
+
+/**
  * K, concrete (CNT.02.t1): tap the 7 leaves. Each gets a numbered pebble and the running count is
  * spoken; the numeral tray (0–10) appears only once every leaf is counted. Pick 7, check.
  */
@@ -236,6 +251,7 @@ export const CountK: Story = {
     await expect(marks(root)).toEqual([1, 2, 3, 4, 5, 6, 7]);
     await expect(canvas.getByRole('button', { name: 'Leaf, number 3' })).toBeVisible();
     await expectBadgesOffObjects(root);
+    await expectBadgeNumerals(root);
     // All counted: the tray appears.
     await waitFor(() => expect(tray(root)).toHaveAttribute('data-shown', 'true'));
     const cards = [...tray(root).querySelectorAll<HTMLElement>('.ni-pick')];
@@ -302,6 +318,7 @@ export const CountTeenG1: Story = {
     await expect(trace.filter((e) => e.target === 'obj-2')).toHaveLength(2);
     // The badges sit above each crab's top-right corner: eyes and claws stay visible.
     await expectBadgesOffObjects(root);
+    await expectBadgeNumerals(root);
   },
 };
 
@@ -589,7 +606,17 @@ async function expectCueOn(root: HTMLElement, el: HTMLElement) {
   await expect(root.querySelectorAll('.ni-hand')).toHaveLength(1);
   await expect(el).toBeEnabled();
   await waitFor(() => expectPointerOn(hand(root), el, root));
+  // On a control, the hand hangs below its glyph (icon, numeral or word): the glyph stays visible.
+  for (const glyph of el.querySelectorAll(GLYPHS)) {
+    await waitFor(() =>
+      expect(
+        hand(root).getBoundingClientRect().top,
+        'hand clear of the glyph',
+      ).toBeGreaterThanOrEqual(glyph.getBoundingClientRect().bottom),
+    );
+  }
 }
+const GLYPHS = '.ni-btn__icon, .ni-btn__label, .ni-pad__digit, .ni-pad__icon, .ni-pick__numeral';
 
 /** No cue at all: no ring, no hand. */
 async function expectNoCue(root: HTMLElement) {
@@ -615,8 +642,14 @@ export const InviteAnswerPad: Story = {
   args: { config: fishPicture, tier: 'pictorial', demo: padInvite },
   play: async ({ canvasElement, args }) => {
     const root = await findWidget(canvasElement, ROOT);
+    // Check sits beside the pad, level with it, not under it.
+    await expect(checkButton(root).getBoundingClientRect().top).toBeLessThan(
+      key(root, '0').getBoundingClientRect().top,
+    );
+    await expectFitsTabletPage(root);
     padInvite.invite({ op: 'answer', args: { value: 6 } });
     await expectCueOn(root, key(root, '6'));
+    await expectFitsTabletPage(root);
     await expect(checkButton(root)).toBeDisabled();
     await expect(checkButton(root)).not.toHaveClass('ni-invite');
     await userEvent.click(key(root, '5'));
@@ -625,10 +658,28 @@ export const InviteAnswerPad: Story = {
     await expectCueOn(root, key(root, '6'));
     await userEvent.click(key(root, '6'));
     await expectCueOn(root, checkButton(root));
+    await expectFitsTabletPage(root);
     await userEvent.click(checkButton(root));
     await expect(args.onResponse).toHaveBeenCalledWith({ kind: 'number', value: 6 });
   },
 };
+
+/**
+ * The story page fits a 1280 × 800 screen with no vertical scroll: the story canvas's 2 × 40 px
+ * padding plus the widget stage is at most 800 px, and the widget sits inside the stage. The test
+ * browser is 1200 × 900, so this measures the page's content height rather than scrolling; the
+ * stage is 80 px narrower there than at 1280, which only narrows the picture beside the pad (the
+ * pad column, the tallest part, sets the height either way).
+ */
+async function expectFitsTabletPage(root: HTMLElement) {
+  await settle(root);
+  await expect(root).toHaveAttribute('data-arrange', 'side');
+  const stage = (root.closest('.story-widget-stage') as HTMLElement).getBoundingClientRect();
+  const widget = root.getBoundingClientRect();
+  await expect(stage.height + 2 * 40, 'story page height').toBeLessThanOrEqual(800);
+  await expect(widget.bottom).toBeLessThanOrEqual(stage.bottom - 24 - 3);
+  await expect(widget.top).toBeGreaterThanOrEqual(stage.top + 24 + 3);
+}
 
 const pickInvite: WidgetDemo = createDemoController({ strict: true });
 
@@ -750,8 +801,10 @@ function renderInArea(
         width: area.w,
         height: area.h,
         maxWidth: 'none',
-        outline: '2px dashed var(--color-sand-deep)',
-        background: 'rgb(255 250 240 / 0.55)',
+        // The workshop's warm widget card, exactly the area's size (no border or padding).
+        borderRadius: 'var(--radius-card)',
+        background: 'var(--color-sand)',
+        boxShadow: 'var(--shadow-soft)',
       }}
     >
       <WidgetHost {...args} />
