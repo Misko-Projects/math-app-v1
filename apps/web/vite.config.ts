@@ -54,7 +54,8 @@ export default defineConfig(({ mode }) => {
       srcDir: 'src',
       filename: 'sw.ts',
       // The new service worker waits for the next app launch (06 §8): src/app/pwa/launch.ts
-      // registers it and activates a waiting update only at launch; see also src/sw.ts.
+      // registers it and src/sw.ts never calls skipWaiting(), so the browser activates an update
+      // only once every app window has closed.
       registerType: 'prompt',
       injectRegister: false,
       includeManifestIcons: false,

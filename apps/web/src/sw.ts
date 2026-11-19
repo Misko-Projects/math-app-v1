@@ -6,7 +6,7 @@
 //   (`audio/manifest.json` + clips). vite.config.ts selects the files and enforces the 02 §6 budget.
 // - Navigations to app routes (deep links such as /play) get the precached index.html, so the app
 //   starts offline from any URL. `/api/*` is never cached and never answered from a cache.
-// - Updates (06 §8): see the message handler below and src/app/pwa/launch.ts.
+// - Updates (06 §8): the browser's own lifecycle, with no messages to or from the page. See below.
 
 import {
   cleanupOutdatedCaches,
@@ -14,12 +14,6 @@ import {
   precacheAndRoute,
 } from 'workbox-precaching';
 import { NavigationRoute, registerRoute } from 'workbox-routing';
-import {
-  answerSkipWaiting,
-  isSkipWaitingGo,
-  isSkipWaitingQuery,
-  SKIP_WAITING_GO_WAIT_MS,
-} from './app/pwa/protocol';
 
 declare const self: ServiceWorkerGlobalScope & {
   __WB_MANIFEST: Array<{ url: string; revision: string | null } | string>;
@@ -33,40 +27,14 @@ registerRoute(
   new NavigationRoute(createHandlerBoundToURL('index.html'), { denylist: [/^\/api(\/|$)/] }),
 );
 
-// Update flow (06 §8): a new worker activates on the next app launch, never mid-session, so it
-// does not call skipWaiting() on install; it waits. At launch, before the page renders, it runs a
-// two-phase handshake with the page (src/app/pwa/protocol.ts): QUERY → READY → GO. The worker
-// activates only on GO, which the page sends only while it has not rendered, committing to a
-// reload. Activating switches every open window, so it also requires the app's only window.
-const appWindows = async () =>
-  (await self.clients.matchAll({ type: 'window', includeUncontrolled: true })).length;
-
-self.addEventListener('message', (event) => {
-  const query = event.data;
-  if (!isSkipWaitingQuery(query)) return;
-  const port = event.ports[0];
-  if (!port) return;
-  event.waitUntil(
-    (async () => {
-      const answer = answerSkipWaiting(query, Date.now(), await appWindows());
-      port.postMessage(answer);
-      if (!answer.ready) return;
-      const go = await new Promise<boolean>((resolve) => {
-        const timer = setTimeout(() => resolve(false), SKIP_WAITING_GO_WAIT_MS);
-        port.onmessage = (e: MessageEvent) => {
-          if (!isSkipWaitingGo(e.data)) return;
-          clearTimeout(timer);
-          resolve(true);
-        };
-      });
-      port.close();
-      if (go && (await appWindows()) <= 1) await self.skipWaiting();
-    })(),
-  );
-});
-
-// On the very first install, take control of already-open pages so offline works without a reload.
-// (After an update this runs only through the launch handshake above, with a single window open.)
+// Update flow (06 §8: "a new service worker activates on the next app launch, never
+// mid-session"). This worker never calls skipWaiting(). An update installs and then waits; the
+// browser activates it only once no window controlled by the old worker remains, which is the
+// next launch after every app window has closed. It never replaces the worker under a live page.
+//
+// clients.claim() on activate: on a first install it takes control of the open page, so offline
+// works without a reload. On an update, activation happens only when no old-worker window exists,
+// so claiming cannot switch a running session.
 self.addEventListener('activate', (event) => {
   event.waitUntil(self.clients.claim());
 });
