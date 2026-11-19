@@ -184,16 +184,36 @@ export function groupsLayout(input: LayoutInput): Layout {
       }
     }
   }
-  let fallback: { layout: Layout; over: number } | null = null;
-  for (let s = max; s >= MIN_ITEM_PX; s -= 1) {
+  // Every part grows with the item size, so "some shape fits" is monotone in it: a binary search
+  // finds the largest size that fits (the first shape in preference order at that size).
+  const fitAt = (s: number): Layout | null => {
     for (const shape of shapes) {
       const l = layoutAt(input, s, shape);
       if (l.fits) return l;
-      if (s === MIN_ITEM_PX) {
-        const over = Math.max(0, l.width - input.width) + Math.max(0, l.height - input.height);
-        if (!fallback || over < fallback.over) fallback = { layout: l, over };
+    }
+    return null;
+  };
+  let best = fitAt(MIN_ITEM_PX);
+  if (best) {
+    let lo = MIN_ITEM_PX;
+    let hi = max;
+    while (lo < hi) {
+      const mid = Math.ceil((lo + hi) / 2);
+      const l = fitAt(mid);
+      if (l) {
+        best = l;
+        lo = mid;
+      } else {
+        hi = mid - 1;
       }
     }
+    return best;
+  }
+  let fallback: { layout: Layout; over: number } | null = null;
+  for (const shape of shapes) {
+    const l = layoutAt(input, MIN_ITEM_PX, shape);
+    const over = Math.max(0, l.width - input.width) + Math.max(0, l.height - input.height);
+    if (!fallback || over < fallback.over) fallback = { layout: l, over };
   }
   return (fallback as { layout: Layout }).layout;
 }
