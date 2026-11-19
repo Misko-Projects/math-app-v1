@@ -22,6 +22,7 @@ import {
 import { createDemoController, UnsupportedWidgetOpError, type WidgetDemo } from '../demo';
 import type { ConfigFor } from '../types';
 import type { WidgetHostProps } from '../WidgetHost';
+import { modelSizes, type SideSizes, type SideSpec } from './layout';
 
 /**
  * `base-ten-build` (03 §5.5): build the goal number from base-ten pieces on a wooden mat, taking
@@ -140,7 +141,7 @@ async function expectFits(canvasElement: HTMLElement, root: HTMLElement) {
     stage.clientWidth,
   );
   const box = root.getBoundingClientRect();
-  for (const el of root.querySelectorAll<HTMLElement>('*')) {
+  for (const el of shown(root, '*')) {
     const r = el.getBoundingClientRect();
     if (r.width === 0 && r.height === 0) continue;
     await expect(r.left, `${el.className} left`).toBeGreaterThanOrEqual(box.left - 0.5);
@@ -172,11 +173,18 @@ async function expectBigNumerals(els: Element[]) {
   }
 }
 
-const controls = (root: HTMLElement) => [
-  ...root.querySelectorAll<HTMLElement>(
-    '.ni-btb__goal, .ni-btb__exact, .ni-btb__pile, .ni-btb .ni-btn',
-  ),
-];
+/**
+ * What the child sees: the widget's elements matching `sel`, less the side-panel measurer's
+ * hidden copies (`.ni-btb__measure`).
+ */
+function shown(root: HTMLElement, sel: string): HTMLElement[] {
+  return [...root.querySelectorAll<HTMLElement>(sel)].filter(
+    (el) => !el.closest('.ni-btb__measure'),
+  );
+}
+
+const controls = (root: HTMLElement) =>
+  shown(root, '.ni-btb__goal, .ni-btb__exact, .ni-btb__pile, .ni-btb .ni-btn');
 
 /** Every piece is drawn at the one unit: a unit is `u` px and a rod exactly ten of them. */
 async function expectUnit(root: HTMLElement, min: number) {
@@ -246,7 +254,7 @@ const btbModel = () => {
  * clear of the pile's picture and of every other pile, and its count is a ≥ 32 px numeral.
  */
 async function expectTagsOnPiles(root: HTMLElement) {
-  const piles = [...root.querySelectorAll<HTMLElement>('.ni-btb__pile')];
+  const piles = shown(root, '.ni-btb__pile');
   for (const p of piles) {
     const tag = p.querySelector('.ni-btb__stock');
     if (!tag) continue;
@@ -940,7 +948,7 @@ export const Decimal: Story = {
     await expect(pile(root, 'hundreds')).toHaveAccessibleName('One whole, 0 left');
     await expect(pile(root, 'tens')).toHaveAccessibleName('One tenth, 1 left');
     // Three piles stand balanced (one column or one row): none alone on a row.
-    const piles = [...root.querySelectorAll('.ni-btb__pile')].map((p) => p.getBoundingClientRect());
+    const piles = shown(root, '.ni-btb__pile').map((p) => p.getBoundingClientRect());
     const sameLeft = new Set(piles.map((r) => Math.round(r.left))).size === 1;
     const sameTop = new Set(piles.map((r) => Math.round(r.top))).size === 1;
     await expect(sameLeft || sameTop).toBe(true);
@@ -1146,7 +1154,7 @@ export const StressExact: Story = {
   render: renderTablet,
   play: async ({ canvasElement }) => {
     const root = await findWidget(canvasElement, ROOT);
-    await expect(root.querySelectorAll('.ni-btb__exact')).toHaveLength(2);
+    await expect(shown(root, '.ni-btb__exact')).toHaveLength(2);
     await expectFits(canvasElement, root);
   },
 };
@@ -1307,9 +1315,7 @@ const afterSplit = { thousands: 0, hundreds: 19, tens: 28, ones: 9 };
 async function expectUsualPanel(root: HTMLElement) {
   await expect(root.querySelector('.ni-btb__ask')).not.toHaveAttribute('data-cols');
   const tops = new Set(
-    [...root.querySelectorAll('.ni-btb__pile')].map((p) =>
-      Math.round(p.getBoundingClientRect().top),
-    ),
+    shown(root, '.ni-btb__pile').map((p) => Math.round(p.getBoundingClientRect().top)),
   );
   await expect(tops.size, 'the three piles stand in one row').toBe(1);
 }
@@ -1317,9 +1323,7 @@ async function expectUsualPanel(root: HTMLElement) {
 async function expectCrowdedPanel(canvasElement: HTMLElement, root: HTMLElement) {
   await waitFor(() => expect(root.querySelector('.ni-btb__ask')).toHaveAttribute('data-cols', '2'));
   const tops = new Set(
-    [...root.querySelectorAll('.ni-btb__pile')].map((p) =>
-      Math.round(p.getBoundingClientRect().top),
-    ),
+    shown(root, '.ni-btb__pile').map((p) => Math.round(p.getBoundingClientRect().top)),
   );
   await expect(tops.size, 'the piles go 2 + 1').toBe(2);
   await expectNoOverlapFast(root);
@@ -1903,3 +1907,401 @@ export const DemoReducedMotion: Story = {
     await expect(root.querySelector('[data-flash="true"]')).not.toBeNull();
   },
 };
+
+// ---------- review round 5: the panel planner works from measured sizes ----------
+
+/** Lets a story swap the item (a fresh widget, as WidgetHost mounts one per item). */
+let showItem: ((config: Config) => void) | null = null;
+function ItemSwitcher({ args }: { args: WidgetHostProps }) {
+  const [item, setItem] = useState({ config: args.config as Config, n: 0 });
+  showItem = (config) => setItem((prev) => ({ config, n: prev.n + 1 }));
+  return (
+    <div key={item.n} style={{ width: 1200, maxWidth: 'none' }}>
+      {renderWidget({ ...args, config: item.config })}
+    </div>
+  );
+}
+const renderSwitcher = (args: WidgetHostProps) => <ItemSwitcher args={args} />;
+
+/** Two frames: the widget has measured its panel parts and laid out with them. */
+const settled = () =>
+  new Promise<void>((r) => requestAnimationFrame(() => requestAnimationFrame(() => r())));
+
+/** Mounts `config` in the switcher and returns its settled root. */
+async function mount(canvasElement: HTMLElement, config: Config): Promise<HTMLElement> {
+  const before = canvasElement.querySelector(ROOT);
+  showItem?.(config);
+  await waitFor(() => {
+    const now = canvasElement.querySelector(ROOT);
+    expect(now).not.toBeNull();
+    expect(now).not.toBe(before);
+  });
+  await settled();
+  await settled();
+  return canvasElement.querySelector(ROOT) as HTMLElement;
+}
+
+/**
+ * Whether the rendered widget fits its 1280 × 800 stage: no scrolling, the mat's columns inside
+ * the mat and clear of the panel, the panel's contents inside the panel, Check on the stage.
+ */
+function domFits(canvasElement: HTMLElement, root: HTMLElement): boolean {
+  const stage = (
+    canvasElement.querySelector('.story-widget-stage') as HTMLElement
+  ).getBoundingClientRect();
+  const work = root.querySelector('.ni-btb__work') as HTMLElement;
+  const side = (root.querySelector('.ni-btb__side') as HTMLElement).getBoundingClientRect();
+  const board = (root.querySelector('.ni-btb__board') as HTMLElement).getBoundingClientRect();
+  const ask = root.querySelector<HTMLElement>('.ni-btb__ask');
+  const piles = root.querySelector('.ni-btb__piles') as HTMLElement;
+  const check = within(root).getByRole('button', { name: 'Check' }).getBoundingClientRect();
+  const inSide = (r: DOMRect) => r.left >= side.left - 0.5 && r.right <= side.right + 0.5;
+  return (
+    stage.height <= 720 &&
+    root.scrollWidth <= root.clientWidth &&
+    root.scrollHeight <= root.clientHeight &&
+    work.scrollWidth <= work.clientWidth &&
+    board.right <= side.left + 0.5 &&
+    (ask === null || (ask.scrollWidth <= ask.clientWidth && inSide(ask.getBoundingClientRect()))) &&
+    piles.scrollWidth <= piles.clientWidth &&
+    inSide(piles.getBoundingClientRect()) &&
+    inSide(check) &&
+    check.bottom <= stage.bottom
+  );
+}
+
+/** The measurer's parts, read as the widget reads them. */
+function measuredParts(root: HTMLElement, exact: string[], tray: string[]): SideSizes {
+  const el = root.querySelector('.ni-btb__measure') as HTMLElement;
+  const box = (sel: string) => el.querySelector(sel)?.getBoundingClientRect() as DOMRect;
+  const goal = el.querySelector('[data-m="ask1"] [data-m="goal"]')
+    ? {
+        w: box('[data-m="ask1"] [data-m="goal"]').width,
+        h: box('[data-m="ask1"] [data-m="goal"]').height,
+        lgW: box('[data-m="ask1"] [data-m="goal-lg"]').width,
+        lgH: box('[data-m="ask1"] [data-m="goal-lg"]').height,
+        compactW: box('[data-m="ask2"] [data-m="goal"]').width,
+      }
+    : null;
+  return {
+    pileW: box(`[data-m="tile-${tray[0]}"]`).width,
+    tileH: tray.map((k) => box(`[data-m="tile-${k}"]`).height),
+    goal,
+    chips: exact.map((k) => ({
+      w: box(`[data-m="ask1"] [data-m="chip-${k}"]`).width,
+      compactW: box(`[data-m="ask2"] [data-m="chip-${k}"]`).width,
+      h: Math.max(
+        box(`[data-m="ask1"] [data-m="chip-${k}"]`).height,
+        box(`[data-m="ask2"] [data-m="chip-${k}"]`).height,
+      ),
+    })),
+    checkW: box('[data-m="check"]').width,
+    checkH: box('[data-m="check"]').height,
+  };
+}
+
+/**
+ * The reviewer's round-5 case, G1: build-exact 9999 with exactly 29 tens, the full mat, a tray of
+ * hundreds, tens and ones with none left. Splitting a thousand (8 thousands, 29 hundreds) needs
+ * the crowded panel, whose real parts (a 142 px goal, a "29 × rod" chip) leave the mat room.
+ */
+const reviewR5: Config = {
+  format: 'base-ten-build',
+  target: 9999,
+  mode: 'build-exact',
+  pieces: { thousands: false, hundreds: true, tens: true, ones: true },
+  limits: { hundreds: 0, tens: 0, ones: 0 },
+  exact: { tens: 29 },
+  wholeIs: 'unit',
+  prebuilt: { thousands: 9, hundreds: 19, tens: 29, ones: 199 },
+};
+const reviewR5After = { thousands: 8, hundreds: 29, tens: 29, ones: 199 };
+
+async function expectR5After(canvasElement: HTMLElement, root: HTMLElement) {
+  await expectMat(root, reviewR5After);
+  await waitFor(() =>
+    expect(
+      [...root.querySelectorAll('.ni-btb__piece')].every((p) => p.getAnimations().length === 0),
+    ).toBe(true),
+  );
+  await waitFor(() => expect(root.querySelector('.ni-btb__ask')).toHaveAttribute('data-cols', '2'));
+  // The crowded panel's own (intrinsic) widths fit the room the mat leaves it.
+  const side = (root.querySelector('.ni-btb__side') as HTMLElement).getBoundingClientRect();
+  const work = (root.querySelector('.ni-btb__work') as HTMLElement).getBoundingClientRect();
+  const room = side.width;
+  await expect(work.width + 12 + room).toBeLessThanOrEqual(1146.5);
+  const ask = root.querySelector('.ni-btb__ask') as HTMLElement;
+  const askW = [...ask.children].reduce(
+    (a, c, i) => (i < 2 ? a + c.getBoundingClientRect().width : a),
+    12,
+  );
+  await expect(askW, 'compact ask').toBeLessThanOrEqual(room + 0.5);
+  const piles = root.querySelector('.ni-btb__piles') as HTMLElement;
+  await expect(piles.scrollWidth + 20, 'tray').toBeLessThanOrEqual(room + 0.5);
+  await expectNoOverlapFast(root);
+  await expectFits(canvasElement, root);
+  await expectInsideStage(canvasElement, root);
+  for (const c of controls(root)) await expectTargetSize(c, 'g1-up');
+  await expectTargetGaps(controls(root));
+}
+
+/** The child splits the thousand: the split is on, and the mat fits beside the crowded panel. */
+export const SplitFitsMeasuredPanel: Story = {
+  args: { config: reviewR5 },
+  render: renderTablet,
+  play: async ({ canvasElement, args }) => {
+    await expect(btbModel().configSchema.safeParse(reviewR5).success).toBe(true);
+    const root = await findWidget(canvasElement, ROOT);
+    await expectMat(root, reviewR5.prebuilt ?? {});
+    await expectFits(canvasElement, root);
+    const split = trade(root, 'split-thousands');
+    await expect(split).toBeEnabled();
+    await userEvent.click(split);
+    await expectR5After(canvasElement, root);
+    await expect(traceOf(args.onInteract).map((e) => `${e.t}:${e.target}`)).toEqual([
+      'tap:split-thousands',
+    ]);
+    (document.activeElement as HTMLElement | null)?.blur();
+  },
+};
+
+const r5Controller: WidgetDemo = createDemoController({ strict: true });
+
+/** The same split played by the demo: it happens, and fits. */
+export const SplitFitsMeasuredPanelDemo: Story = {
+  args: { config: reviewR5, demo: r5Controller },
+  render: renderTablet,
+  play: async ({ canvasElement, args }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    await r5Controller.play({ op: 'split', args: { kind: 'thousands' } });
+    await expectR5After(canvasElement, root);
+    await expect(args.onResponse).not.toHaveBeenCalled();
+  },
+};
+
+/** A side spec for `config` as the widget builds it (the model's inputs). */
+function specOf(config: Config, k: boolean): SideSpec {
+  const kinds = ['thousands', 'hundreds', 'tens', 'ones'] as const;
+  const tray = kinds.filter((x) => config.pieces[x]);
+  const exact =
+    config.mode === 'build-exact'
+      ? (['hundreds', 'tens', 'ones'] as const).filter((x) => config.exact?.[x] !== undefined)
+      : [];
+  const goalHidden = config.mode === 'build' && kinds.some((x) => (config.prebuilt?.[x] ?? 0) > 0);
+  const shownGoal =
+    config.wholeIs === 'flat'
+      ? String(Number((config.target / 100).toFixed(2)))
+      : String(config.target);
+  return {
+    k,
+    piles: tray.map((x) => x !== 'thousands' && config.limits?.[x] !== undefined),
+    tall: tray.map((x) => x === 'tens'),
+    goal: goalHidden ? null : shownGoal,
+    exact,
+    exactN: exact.map((x) => config.exact?.[x] ?? 0),
+    height: 662,
+  };
+}
+
+/**
+ * The layout tests prove the caps fit with the model's sizes (SIDE_PX), so the model must be at
+ * least as large as every part the browser draws, and not far off: chips with one, two and three
+ * digits, goals of one to five characters (decimals too), stock-tag tiles, K and G1.
+ */
+const panelModelStory = (ageMode: 'k' | 'g1-up'): Story => ({
+  globals: { ageMode },
+  args: { config: build34 },
+  render: renderSwitcher,
+  play: async ({ canvasElement }) => {
+    await findWidget(canvasElement, ROOT);
+    const items: Config[] = [
+      { ...build34, target: 7, mode: 'build-exact', exact: { ones: 7 } },
+      { ...build34, target: 34, mode: 'build-exact', exact: { tens: 2, ones: 14 } },
+      {
+        format: 'base-ten-build',
+        target: 2389,
+        mode: 'build-exact',
+        pieces: ALL,
+        wholeIs: 'unit',
+        exact: { hundreds: 19, tens: 29, ones: 199 },
+        limits: { hundreds: 9, tens: 9, ones: 9 },
+      },
+      {
+        format: 'base-ten-build',
+        target: 9999,
+        mode: 'build-exact',
+        pieces: ALL,
+        wholeIs: 'unit',
+        exact: { hundreds: 9, tens: 9, ones: 9 },
+        limits: { hundreds: 0, tens: 0, ones: 0 },
+      },
+      {
+        format: 'base-ten-build',
+        target: 9889,
+        mode: 'build-exact',
+        pieces: ALL,
+        wholeIs: 'flat',
+        exact: { hundreds: 14, tens: 29, ones: 199 },
+        limits: { hundreds: 0 },
+      },
+      { ...decimal, target: 5, mode: 'build-exact', exact: { ones: 5 }, limits: { ones: 9 } },
+      { ...decimal, target: 125, limits: { hundreds: 1, tens: 3 } },
+    ];
+    const gaps: string[] = [];
+    for (const item of items) {
+      const config = { ...item };
+      const root = await mount(canvasElement, config);
+      const spec = specOf(config, ageMode === 'k');
+      const tray = (['thousands', 'hundreds', 'tens', 'ones'] as const).filter(
+        (x) => config.pieces[x],
+      );
+      const real = measuredParts(root, [...spec.exact], [...tray]);
+      const model = modelSizes(spec);
+      const pairs: [string, number, number][] = [
+        ['pileW', model.pileW, real.pileW],
+        ['checkW', model.checkW, real.checkW],
+        ['checkH', model.checkH, real.checkH],
+        ...model.tileH.map((h, i): [string, number, number] => [
+          `tile ${tray[i]}`,
+          h,
+          real.tileH[i] ?? 0,
+        ]),
+        ...model.chips.flatMap((c, i): [string, number, number][] => [
+          [`chip ${spec.exact[i]} w`, c.w, real.chips[i]?.w ?? 0],
+          [`chip ${spec.exact[i]} compact`, c.compactW, real.chips[i]?.compactW ?? 0],
+          [`chip ${spec.exact[i]} h`, c.h, real.chips[i]?.h ?? 0],
+        ]),
+        ...(model.goal && real.goal
+          ? ([
+              ['goal w', model.goal.w, real.goal.w],
+              ['goal h', model.goal.h, real.goal.h],
+              ['goal lg w', model.goal.lgW, real.goal.lgW],
+              ['goal lg h', model.goal.lgH, real.goal.lgH],
+              ['goal compact', model.goal.compactW, real.goal.compactW],
+            ] as [string, number, number][])
+          : []),
+      ];
+      for (const [name, m, r] of pairs) {
+        if (m < r - 0.5 || m > r + 24) {
+          gaps.push(`${ageMode} ${spec.goal} ${name}: model ${m}, drawn ${r.toFixed(1)}`);
+        }
+      }
+    }
+    await expect(gaps, 'the model bounds every drawn part (within 24 px)').toEqual([]);
+  },
+});
+/** The panel model bounds the drawn parts in G1 (text labels). */
+export const PanelModelBoundsG1 = panelModelStory('g1-up');
+/** The same in K. */
+export const PanelModelBoundsK = panelModelStory('k');
+
+type Kind = 'thousands' | 'hundreds' | 'tens' | 'ones';
+type Move = `${'add' | 'split' | 'fuse'}-${Kind}`;
+
+/** The mat after `move`, or null when the model can't make it (no piece, a limited tray). */
+function moved(config: Config, mat: Record<Kind, number>, move: Move): Record<Kind, number> | null {
+  const [op, kind] = move.split('-') as ['add' | 'split' | 'fuse', Kind];
+  const order: Kind[] = ['thousands', 'hundreds', 'tens', 'ones'];
+  const i = order.indexOf(kind);
+  if (op === 'add') {
+    const limited = kind !== 'thousands' && config.limits?.[kind] !== undefined;
+    return config.pieces[kind] && !limited ? { ...mat, [kind]: mat[kind] + 1 } : null;
+  }
+  if (op === 'split') {
+    const down = order[i + 1];
+    return down && mat[kind] > 0 ? { ...mat, [kind]: mat[kind] - 1, [down]: mat[down] + 10 } : null;
+  }
+  const up = order[i - 1];
+  return up && mat[kind] >= 10 ? { ...mat, [kind]: mat[kind] - 10, [up]: mat[up] + 1 } : null;
+}
+
+/** Whether the widget lets the child make `move` (its pile or trade is on). */
+function guardAllows(root: HTMLElement, move: Move): boolean {
+  const [op, kind] = move.split('-');
+  if (op === 'add') return pile(root, kind as string).getAttribute('aria-disabled') !== 'true';
+  return !trade(root, move).disabled;
+}
+
+const ALL_MOVES: Move[] = (['thousands', 'hundreds', 'tens', 'ones'] as const).flatMap((k) => [
+  `add-${k}` as Move,
+  `split-${k}` as Move,
+  `fuse-${k}` as Move,
+]);
+
+/**
+ * Two-way agreement in the real browser (review round 5): for states near the caps (ones and
+ * decimals, every panel kind), every move the model can make is checked both ways. Where the
+ * guard allows it, the widget showing the result (mounted with that mat prebuilt, bypassing the
+ * guard) fits; where the guard refuses it, that render overflows, whichever panel the layout
+ * picks (it tries the usual one and the crowded one). A refusal of a state that renders fine is a
+ * failure, as is an allowed move that overflows.
+ */
+const twoWayStory = (ageMode: 'k' | 'g1-up'): Story => ({
+  globals: { ageMode },
+  args: { config: build34 },
+  render: renderSwitcher,
+  play: async ({ canvasElement }) => {
+    await findWidget(canvasElement, ROOT);
+    const edge = (thousands: number): Config => ({
+      ...matMax,
+      prebuilt: { thousands, hundreds: 19, tens: 29, ones: 199 },
+    });
+    const probes: Config[] = [
+      reviewR5,
+      reviewR4,
+      splitIntoRoom,
+      exactWorst,
+      decimalWorst,
+      wideChips,
+      matMax,
+      edge(10),
+      edge(11),
+      {
+        ...exactWorst,
+        prebuilt: { thousands: 9, hundreds: 14, tens: 29, ones: 199 },
+      },
+      {
+        format: 'base-ten-build',
+        target: 9999,
+        mode: 'build-exact',
+        pieces: ALL,
+        wholeIs: 'unit',
+        exact: { ones: 199 },
+        prebuilt: { thousands: 9, hundreds: 12, tens: 29, ones: 150 },
+      },
+    ];
+    const wrong: string[] = [];
+    let allowed = 0;
+    let refused = 0;
+    for (const config of probes) {
+      const pre = { thousands: 0, hundreds: 0, tens: 0, ones: 0, ...config.prebuilt };
+      let root = await mount(canvasElement, config);
+      const decisions = ALL_MOVES.flatMap((m) => {
+        const after = moved(config, pre, m);
+        // A prebuilt kind the tray doesn't offer keeps its column only while it has pieces.
+        const columnsKept = (['thousands', 'hundreds', 'tens', 'ones'] as const).every(
+          (k) => !after || after[k] > 0 || config.pieces[k] || pre[k] === 0,
+        );
+        return after && columnsKept ? [{ m, after, ok: guardAllows(root, m) }] : [];
+      });
+      for (const d of decisions) {
+        root = await mount(canvasElement, { ...config, prebuilt: d.after });
+        const fits = domFits(canvasElement, root);
+        if (d.ok) allowed++;
+        else refused++;
+        if (d.ok !== fits) {
+          wrong.push(
+            `${config.target} ${JSON.stringify(pre)} ${d.m}: guard ${d.ok ? 'allows' : 'refuses'}, render ${fits ? 'fits' : 'overflows'}`,
+          );
+        }
+      }
+    }
+    await expect(wrong, 'guard and render agree').toEqual([]);
+    await expect(allowed, 'moves allowed').toBeGreaterThan(10);
+    await expect(refused, 'moves refused').toBeGreaterThan(0);
+  },
+});
+/** Guard and render agree both ways in G1. */
+export const GuardAgreesWithRenderG1 = twoWayStory('g1-up');
+/** And in K. */
+export const GuardAgreesWithRenderK = twoWayStory('k');

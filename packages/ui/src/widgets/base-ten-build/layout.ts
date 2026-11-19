@@ -279,7 +279,7 @@ export const SIDE_PX = {
     goalH: 96,
     goalLgH: 96,
     chipH: 80,
-    chipW: { hundreds: 166, tens: 130, ones: 130 },
+    chipW: { hundreds: 166, tens: 106, ones: 126 },
     checkW: 96,
     checkH: 102,
     min: 80,
@@ -300,7 +300,7 @@ export const SIDE_PX = {
   },
 } as const;
 /** A crowded panel's compact chips and goal (two to a row, trimmed side padding). */
-export const COMPACT_CHIP_W = { hundreds: 127, tens: 104, ones: 108 } as const;
+export const COMPACT_CHIP_W = { hundreds: 127, tens: 72, ones: 108 } as const;
 const TRAY_PAD = { top: 60, bottom: 14, x: 10 };
 const PILE_GAP = { x: 12, y: 16 };
 const SIDE_GAP = 14;
@@ -320,6 +320,67 @@ export interface SideSpec {
   exactN?: readonly number[];
   /** The panel's height (px). */
   height: number;
+  /**
+   * The parts' sizes as the browser draws them (the widget measures hidden copies of its goal,
+   * chips, piles and check). Absent: the conservative model below (SIDE_PX), at least as large as
+   * every measured size (a story checks it), which the layout tests use to prove the caps fit.
+   */
+  sizes?: SideSizes;
+}
+
+/** The side panel's parts, each at its own (intrinsic) size, px. */
+export interface SideSizes {
+  /** A pile tile's width (the CSS --pile, or --pile-w in a tray with limits). */
+  pileW: number;
+  /** Each pile tile's own height, in tray order (a row is as tall as its tallest tile). */
+  tileH: readonly number[];
+  /** The goal card: its width and height, large (`lg`) and in a crowded panel (`compact`). */
+  goal: { w: number; h: number; lgW: number; lgH: number; compactW: number } | null;
+  /** Each exact chip: its width, its width in a crowded panel, and its height. */
+  chips: readonly { w: number; compactW: number; h: number }[];
+  /** The check button's slot. */
+  checkW: number;
+  checkH: number;
+}
+
+/** The model's sizes for `spec`: SIDE_PX, COMPACT_CHIP_W and the goal's digits. */
+export function modelSizes(spec: SideSpec): SideSizes {
+  const px = spec.k ? SIDE_PX.k : SIDE_PX.g1;
+  const limited = spec.piles.some(Boolean);
+  return {
+    pileW: limited ? px.pileLimited : px.pile,
+    tileH: spec.piles.map((stock, i) =>
+      !stock
+        ? // A plain tile in a tray with limits stands as tall as its picture needs (the rods: 84).
+          limited && (spec.tall?.[i] ?? true)
+          ? Math.max(px.pileH, 84)
+          : px.pileH
+        : (spec.tall?.[i] ?? true)
+          ? px.stockH
+          : px.stockShortH,
+    ),
+    goal:
+      spec.goal === null
+        ? null
+        : {
+            w: goalWidth(spec.goal, px.min, 'normal'),
+            h: px.goalH,
+            lgW: goalWidth(spec.goal, px.min, 'lg'),
+            lgH: px.goalLgH,
+            compactW: goalWidth(spec.goal, px.min, 'compact'),
+          },
+    chips: spec.exact.map((k, i) => {
+      const extra = 24 * (String(spec.exactN?.[i] ?? 0).length - 1);
+      // A chip is at least 1.6 targets wide (a crowded one, one target); a longer count widens it.
+      return {
+        w: Math.max(px.min * 1.6, px.chipW[k] + extra),
+        compactW: Math.max(px.min, COMPACT_CHIP_W[k] + extra),
+        h: px.chipH,
+      };
+    }),
+    checkW: px.checkW,
+    checkH: px.checkH,
+  };
 }
 
 export interface SidePlan {
@@ -335,7 +396,11 @@ export interface SidePlan {
 
 /** Goal width (px) for `text`: normal, large or compact. */
 function goalWidth(text: string, min: number, size: 'normal' | 'lg' | 'compact'): number {
-  if (size === 'lg') return 40 + 44 * text.length;
+  if (size === 'lg') {
+    // Measured at 72 px: a digit 44 px, a point 17 ("98.89" 231, "1.25" 187, "34" 126).
+    const big = [...text].reduce((a, c) => a + (c === '.' ? 18 : 44), 0);
+    return Math.max(min * 1.6, 40 + big);
+  }
   // Measured: "9111" is 154 px (142 compact), "99.99" 153 compact: a digit 30 px, a point 11.
   const ink = [...text].reduce((a, c) => a + (c === '.' ? 11 : 30), 0);
   if (size === 'compact') return Math.max(min, 25 + ink);
@@ -349,38 +414,28 @@ function goalWidth(text: string, min: number, size: 'normal' | 'lg' | 'compact')
  * across and the panel still fits its height.
  */
 export function sidePlan(spec: SideSpec, width: number, crowded: boolean): SidePlan {
-  const px = spec.k ? SIDE_PX.k : SIDE_PX.g1;
+  const s = spec.sizes ?? modelSizes(spec);
   const n = spec.piles.length;
-  const limited = spec.piles.some(Boolean);
-  const pileW = limited ? px.pileLimited : px.pile;
-  const trayW = (c: number) => 2 * TRAY_PAD.x + c * pileW + (c - 1) * PILE_GAP.x;
+  const trayW = (c: number) => 2 * TRAY_PAD.x + c * s.pileW + (c - 1) * PILE_GAP.x;
   const options = [n, n === 4 || (crowded && n === 3) ? 2 : 0, 1];
   const pileCols = n === 0 ? 1 : (options.find((c) => c > 0 && trayW(c) <= width) ?? 1);
   let trayH = TRAY_PAD.top + TRAY_PAD.bottom;
   for (let r = 0; r * pileCols < n; r++) {
-    const row = spec.piles.slice(r * pileCols, (r + 1) * pileCols);
-    const tileH = row.map((stock, j) =>
-      !stock ? px.pileH : (spec.tall?.[r * pileCols + j] ?? true) ? px.stockH : px.stockShortH,
-    );
-    trayH += (r > 0 ? PILE_GAP.y : 0) + Math.max(...tileH);
+    const row = s.tileH.slice(r * pileCols, (r + 1) * pileCols);
+    trayH += (r > 0 ? PILE_GAP.y : 0) + Math.max(...row);
   }
-  const cells = (spec.goal !== null ? 1 : 0) + spec.exact.length;
+  const cells = (s.goal !== null ? 1 : 0) + s.chips.length;
   const askCols: 1 | 2 = crowded && cells >= 2 ? 2 : 1;
   const ask = (lg: boolean) => {
     if (cells === 0) return { w: 0, h: 0 };
     const goal =
-      spec.goal === null
+      s.goal === null
         ? null
         : {
-            w: goalWidth(spec.goal, px.min, askCols === 2 ? 'compact' : lg ? 'lg' : 'normal'),
-            h: lg ? px.goalLgH : px.goalH,
+            w: askCols === 2 ? s.goal.compactW : lg ? s.goal.lgW : s.goal.w,
+            h: lg ? s.goal.lgH : s.goal.h,
           };
-    const chips = spec.exact.map((k, i) => ({
-      w:
-        (askCols === 2 ? COMPACT_CHIP_W[k] : px.chipW[k]) +
-        24 * (String(spec.exactN?.[i] ?? 0).length - 1),
-      h: px.chipH,
-    }));
+    const chips = s.chips.map((c) => ({ w: askCols === 2 ? c.compactW : c.w, h: c.h }));
     const all = goal ? [goal, ...chips] : chips;
     if (askCols === 1) {
       return {
@@ -398,12 +453,12 @@ export function sidePlan(spec: SideSpec, width: number, crowded: boolean): SideP
   };
   const plan = (lg: boolean): SidePlan => {
     const a = ask(lg);
-    const blocks = [a.h, trayH, px.checkH].filter((h) => h > 0);
+    const blocks = [a.h, trayH, s.checkH].filter((h) => h > 0);
     return {
       pileCols,
       askCols,
       lg,
-      width: Math.max(a.w, trayW(pileCols), px.checkW),
+      width: Math.max(a.w, trayW(pileCols), s.checkW),
       height: blocks.reduce((s, h) => s + h, 0) + (blocks.length - 1) * SIDE_GAP,
     };
   };

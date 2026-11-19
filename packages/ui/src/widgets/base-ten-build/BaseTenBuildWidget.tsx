@@ -44,6 +44,7 @@ import {
   planMat,
   rodHit,
   roomForMove,
+  type SideSizes,
   type SideSpec,
   sidePlan,
   smaller,
@@ -481,6 +482,68 @@ export function BaseTenBuildWidget({
       : [];
   const trayKinds = KINDS.filter((k) => config.pieces[k]);
   const limitedAny = trayKinds.some((k) => Number.isFinite(traySupply(config, state.taken, k)));
+  // The side panel's parts as the browser draws them, read from the hidden measurer (below)
+  // after every render that could change them, and again once the fonts have loaded.
+  const measureRef = useRef<HTMLDivElement | null>(null);
+  const [measured, setMeasured] = useState<SideSizes | null>(null);
+  const readSizes = useRef<() => void>(() => undefined);
+  readSizes.current = () => {
+    const el = measureRef.current;
+    if (!el) return;
+    const box = (sel: string) => el.querySelector<HTMLElement>(sel)?.getBoundingClientRect();
+    const goal = box('[data-m="ask1"] [data-m="goal"]');
+    const goalLg = box('[data-m="ask1"] [data-m="goal-lg"]');
+    const goalCompact = box('[data-m="ask2"] [data-m="goal"]');
+    const chips = exactKinds.map((k) => {
+      const usual = box(`[data-m="ask1"] [data-m="chip-${k}"]`);
+      const compact = box(`[data-m="ask2"] [data-m="chip-${k}"]`);
+      return {
+        w: usual?.width ?? 0,
+        compactW: compact?.width ?? 0,
+        h: Math.max(usual?.height ?? 0, compact?.height ?? 0),
+      };
+    });
+    const tiles = trayKinds.map((k) => box(`[data-m="tile-${k}"]`));
+    const check = box('[data-m="check"]');
+    const next: SideSizes = {
+      pileW: tiles[0]?.width ?? 0,
+      tileH: tiles.map((r) => r?.height ?? 0),
+      goal:
+        goal && goalLg && goalCompact
+          ? {
+              w: goal.width,
+              h: goal.height,
+              lgW: goalLg.width,
+              lgH: goalLg.height,
+              compactW: goalCompact.width,
+            }
+          : null,
+      chips,
+      checkW: check?.width ?? 0,
+      checkH: check?.height ?? 0,
+    };
+    setMeasured((prev) => (prev && JSON.stringify(prev) === JSON.stringify(next) ? prev : next));
+  };
+  useLayoutEffect(() => readSizes.current());
+  useLayoutEffect(() => {
+    const el = measureRef.current;
+    let live = true;
+    void document.fonts?.ready.then(() => {
+      if (live) readSizes.current();
+    });
+    if (!el || typeof ResizeObserver === 'undefined') {
+      return () => {
+        live = false;
+      };
+    }
+    const ro = new ResizeObserver(() => readSizes.current());
+    for (const part of el.querySelectorAll('[data-m]')) ro.observe(part);
+    return () => {
+      live = false;
+      ro.disconnect();
+    };
+  }, []);
+
   // The side panel never grows past the mat's height: the narrowest panel whose goal, chips,
   // tray and check fit it (crowded: goal and chips two to a row), and the mat leaves it that room.
   const sideSpec: SideSpec = {
@@ -491,6 +554,15 @@ export function BaseTenBuildWidget({
     exact: exactKinds,
     exactN: exactKinds.map((k) => config.exact?.[k] ?? 0),
     height: WIDGET_H - 2 * ROOT_PAD_Y,
+    // The measured parts, once the measurer shows this item's goal, chips and piles.
+    sizes:
+      measured &&
+      measured.pileW > 0 &&
+      measured.chips.length === exactKinds.length &&
+      measured.tileH.length === trayKinds.length &&
+      (measured.goal === null) === goalHidden
+        ? measured
+        : undefined,
   };
   const baseSideMin = kMode ? 150 : 156;
   const matInput = {
@@ -1157,6 +1229,133 @@ export function BaseTenBuildWidget({
   const pileCols = plan.pileCols;
   const ready = model.toResponse(state) !== null;
 
+  // The goal card. `measure`: an inert copy for the side-panel measurer (no name, no handler).
+  const goalButton = (lg: boolean, measure: boolean) => (
+    <button
+      type="button"
+      className="ni-number ni-btb__goal"
+      // 72 px when the panel has room for it across and in height, else 48 px (both ≥ 48 px).
+      data-size={lg ? 'lg' : undefined}
+      {...(measure
+        ? { tabIndex: -1, disabled: true, 'data-m': lg ? 'goal-lg' : 'goal' }
+        : {
+            'aria-label': t('ui.widget.btb.goal', { n: goalValue }),
+            disabled: !interactive,
+            onClick: () => {
+              trace('tap', 'goal');
+              if (prefs.speakOnTap) sayNumber(goalValue);
+            },
+          })}
+    >
+      {goalValue}
+    </button>
+  );
+
+  // An exact chip; `compact` in a crowded panel (its piece drawn a little smaller).
+  const chipButton = (k: (typeof exactKinds)[number], compact: boolean, measure: boolean) => {
+    const n = config.exact?.[k] ?? 0;
+    const line = exactKey(k, n, decimal);
+    return (
+      <button
+        key={k}
+        type="button"
+        className="ni-btb__exact"
+        {...(measure
+          ? { tabIndex: -1, disabled: true, 'data-m': `chip-${k}` }
+          : {
+              'aria-label': t(line, { n }),
+              disabled: !interactive,
+              onClick: () => {
+                trace('tap', `exact-${k}`);
+                if (prefs.speakOnTap) say(line, { n });
+              },
+            })}
+      >
+        <span className="ni-btb__exactnum" aria-hidden="true">
+          {n}
+        </span>
+        <span className="ni-btb__times" aria-hidden="true">
+          ×
+        </span>
+        <span className="ni-btb__exactart" data-kind={k}>
+          <PieceArt kind={k} u={compact ? (k === 'ones' ? 22 : 5) : k === 'ones' ? 26 : 6.5} />
+        </span>
+      </button>
+    );
+  };
+
+  // The tray's stock of a piece, a pebble chip under the pile's picture: a crate icon and the
+  // count as a math numeral (≥ 32 px, 05 §11), with the small word "left" under it in text mode
+  // (K: icon and number, no reading). The count is the class `ni-btn__label`, so an invite hand
+  // leaves it in view.
+  const stockTag = (n: number, empty: boolean, left: string | null) => (
+    <span
+      className="ni-btb__stock"
+      data-empty={empty ? 'true' : undefined}
+      // Three digits: the count alone (the crate would crowd the tile).
+      data-wide={n > 99 ? 'true' : undefined}
+    >
+      <span className="ni-btb__stockicon" aria-hidden="true">
+        <StockIcon />
+      </span>
+      <span className="ni-btn__label ni-btb__stockcount">
+        <span className="ni-btb__stocknum">{n}</span>
+        {prefs.textLabels && left ? (
+          // "2 left" less its number (the space stays: the text reads "2 left").
+          <span className="ni-btb__stockword">{left.replace(String(n), '')}</span>
+        ) : null}
+      </span>
+    </span>
+  );
+
+  /*
+   * The side-panel measurer: inert, hidden copies of the goal (normal and large), the chips (as in
+   * a usual and a crowded panel), each pile tile on its own and the check, so the panel planner
+   * (layout.ts sidePlan, behind planMat and the move guard) works from the sizes the browser
+   * draws, not estimates.
+   */
+  const measurer = (
+    <div ref={measureRef} className="ni-btb__side ni-btb__measure" aria-hidden="true" inert>
+      {goalHidden ? null : (
+        <>
+          <div className="ni-btb__ask" data-m="ask1">
+            {goalButton(false, true)}
+            {goalButton(true, true)}
+            {exactKinds.map((k) => chipButton(k, false, true))}
+          </div>
+          <div className="ni-btb__ask" data-cols="2" data-m="ask2">
+            {goalButton(false, true)}
+            {exactKinds.map((k) => chipButton(k, true, true))}
+          </div>
+        </>
+      )}
+      {trayKinds.map((k) => {
+        const supply = traySupply(config, state.taken, k);
+        const n = Math.max(0, supply);
+        return (
+          <div
+            key={k}
+            className="ni-btb__piles"
+            data-limited={limitedAny ? 'true' : undefined}
+            style={{ gridTemplateColumns: limitedAny ? 'var(--pile-w)' : 'var(--pile)' }}
+          >
+            <span className="ni-btb__slot ni-btb__pileslot">
+              <span className="ni-btb__pile" data-kind={k} data-m={`tile-${k}`}>
+                <PileArt kind={k} />
+                {Number.isFinite(supply)
+                  ? stockTag(n, supply <= 0, t('ui.widget.btb.left', { n }))
+                  : null}
+              </span>
+            </span>
+          </div>
+        );
+      })}
+      <span className="ni-btb__slot ni-btb__checkslot" data-m="check">
+        <CheckButton onPress={() => undefined} disabled />
+      </span>
+    </div>
+  );
+
   return (
     <div
       ref={rootRef}
@@ -1170,51 +1369,8 @@ export function BaseTenBuildWidget({
       <div className="ni-btb__side">
         {goalHidden ? null : (
           <div className="ni-btb__ask" data-cols={plan.askCols === 2 ? '2' : undefined}>
-            <button
-              type="button"
-              className="ni-number ni-btb__goal"
-              // 72 px when the panel has room for it across and in height, else 48 px (both ≥ 48 px).
-              data-size={plan.lg ? 'lg' : undefined}
-              aria-label={t('ui.widget.btb.goal', { n: goalValue })}
-              disabled={!interactive}
-              onClick={() => {
-                trace('tap', 'goal');
-                if (prefs.speakOnTap) sayNumber(goalValue);
-              }}
-            >
-              {goalValue}
-            </button>
-            {exactKinds.map((k) => {
-              const n = config.exact?.[k] ?? 0;
-              const line = exactKey(k, n, decimal);
-              return (
-                <button
-                  key={k}
-                  type="button"
-                  className="ni-btb__exact"
-                  aria-label={t(line, { n })}
-                  disabled={!interactive}
-                  onClick={() => {
-                    trace('tap', `exact-${k}`);
-                    if (prefs.speakOnTap) say(line, { n });
-                  }}
-                >
-                  <span className="ni-btb__exactnum" aria-hidden="true">
-                    {n}
-                  </span>
-                  <span className="ni-btb__times" aria-hidden="true">
-                    ×
-                  </span>
-                  <span className="ni-btb__exactart" data-kind={k}>
-                    {/* A crowded panel draws the chip's piece a little smaller. */}
-                    <PieceArt
-                      kind={k}
-                      u={plan.askCols === 2 ? (k === 'ones' ? 22 : 5) : k === 'ones' ? 26 : 6.5}
-                    />
-                  </span>
-                </button>
-              );
-            })}
+            {goalButton(plan.lg, false)}
+            {exactKinds.map((k) => chipButton(k, plan.askCols === 2, false))}
           </div>
         )}
         <div className="ni-btb__tray">
@@ -1271,29 +1427,7 @@ export function BaseTenBuildWidget({
                     data-empty={off ? 'true' : undefined}
                   >
                     <PileArt kind={k} />
-                    {limited ? (
-                      // The tray's stock of this piece, a pebble chip under the picture: a crate
-                      // icon and the count as a math numeral (≥ 32 px, 05 §11), with the small
-                      // word "left" under it in text mode (K: icon and number, no reading). The
-                      // count is the class `ni-btn__label`, so an invite hand leaves it in view.
-                      <span
-                        className="ni-btb__stock"
-                        data-empty={empty ? 'true' : undefined}
-                        // Three digits: the count alone (the crate would crowd the tile).
-                        data-wide={n > 99 ? 'true' : undefined}
-                      >
-                        <span className="ni-btb__stockicon" aria-hidden="true">
-                          <StockIcon />
-                        </span>
-                        <span className="ni-btn__label ni-btb__stockcount">
-                          <span className="ni-btb__stocknum">{n}</span>
-                          {prefs.textLabels && left ? (
-                            // "2 left" less its number (the space stays: the text reads "2 left").
-                            <span className="ni-btb__stockword">{left.replace(String(n), '')}</span>
-                          ) : null}
-                        </span>
-                      </span>
-                    ) : null}
+                    {limited ? stockTag(n, empty, left) : null}
                   </span>
                 </span>
               );
@@ -1309,6 +1443,7 @@ export function BaseTenBuildWidget({
         </span>
       </div>
       {inviteHand}
+      {measurer}
     </div>
   );
 }

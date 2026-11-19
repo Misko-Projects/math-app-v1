@@ -335,6 +335,30 @@
   box-sizing: border-box;
   min-width: 0;
 }
+/*
+ * The side-panel measurer: hidden, inert copies of the panel's parts, each at its own size, laid in
+ * a row at the widget's top left (out of flow, never seen or reached).
+ */
+.ni-btb__side.ni-btb__measure {
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: -1;
+  flex-direction: row;
+  align-items: flex-start;
+  justify-content: flex-start;
+  gap: 0;
+  width: max-content;
+  /* Clipped to the widget, so it never adds to its scroll size; its parts keep their sizes. */
+  max-width: 100%;
+  max-height: 100%;
+  overflow: hidden;
+  visibility: hidden;
+  pointer-events: none;
+}
+.ni-btb__measure > * {
+  flex: none;
+}
 .ni-btb__ask {
   display: flex;
   flex-direction: column;
