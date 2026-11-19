@@ -113,3 +113,213 @@ ui.sprite.firefly:
 ui.sprite.counter:
   text: "Counter"
   level: K
+
+# U04 base-ten-build widget (packages/ui/src/widgets/base-ten-build): keys under ui.widget.btb.*
+ui.widget.btb.goal:
+  text: "Make {n}"
+  level: K
+ui.widget.btb.mat:
+  text: "Build here"
+  level: K
+ui.widget.btb.tray:
+  text: "Put it back here"
+  level: K
+ui.widget.btb.left:
+  text: "{n} left"
+  level: K
+ui.widget.btb.piece.thousands:
+  text: "Thousand"
+  level: "2"
+ui.widget.btb.piece.hundreds:
+  text: "Hundred"
+  level: K
+ui.widget.btb.piece.tens:
+  text: "Ten"
+  level: K
+ui.widget.btb.piece.ones:
+  text: "One"
+  level: K
+ui.widget.btb.fuse.ones:
+  text: "Make a ten"
+  level: K
+ui.widget.btb.fuse.tens:
+  text: "Make a hundred"
+  level: K
+ui.widget.btb.fuse.hundreds:
+  text: "Make a thousand"
+  level: "2"
+ui.widget.btb.split.tens:
+  text: "Split a ten"
+  level: K
+ui.widget.btb.split.hundreds:
+  text: "Split a hundred"
+  level: K
+ui.widget.btb.split.thousands:
+  text: "Split a thousand"
+  level: "2"
+ui.widget.btb.exact.hundreds:
+  text: "Take {n} hundreds"
+  level: K
+ui.widget.btb.exact.hundreds-one:
+  text: "Take 1 hundred"
+  level: K
+ui.widget.btb.exact.tens:
+  text: "Take {n} tens"
+  level: K
+ui.widget.btb.exact.tens-one:
+  text: "Take 1 ten"
+  level: K
+ui.widget.btb.exact.ones:
+  text: "Take {n} ones"
+  level: K
+ui.widget.btb.exact.ones-one:
+  text: "Take 1 one"
+  level: K
+# Decimals (wholeIs: flat): the flat is one whole, the rod a tenth, the unit a hundredth.
+ui.widget.btb.dec.piece.thousands:
+  text: "Ten wholes"
+  level: "2"
+ui.widget.btb.dec.piece.hundreds:
+  text: "One whole"
+  level: "2"
+ui.widget.btb.dec.piece.tens:
+  text: "One tenth"
+  level: "2"
+ui.widget.btb.dec.piece.ones:
+  text: "One hundredth"
+  level: "2"
+ui.widget.btb.dec.fuse.ones:
+  text: "Make a tenth"
+  level: "2"
+ui.widget.btb.dec.fuse.tens:
+  text: "Make a whole"
+  level: "2"
+ui.widget.btb.dec.fuse.hundreds:
+  text: "Make ten wholes"
+  level: "2"
+ui.widget.btb.dec.split.tens:
+  text: "Split a tenth"
+  level: "2"
+ui.widget.btb.dec.split.hundreds:
+  text: "Split a whole"
+  level: "2"
+ui.widget.btb.dec.split.thousands:
+  text: "Split ten wholes"
+  level: "2"
+ui.widget.btb.dec.exact.hundreds:
+  text: "Take {n} wholes"
+  level: "2"
+ui.widget.btb.dec.exact.hundreds-one:
+  text: "Take 1 whole"
+  level: "2"
+ui.widget.btb.dec.exact.tens:
+  text: "Take {n} tenths"
+  level: "2"
+ui.widget.btb.dec.exact.tens-one:
+  text: "Take 1 tenth"
+  level: "2"
+ui.widget.btb.dec.exact.ones:
+  text: "Take {n} hundredths"
+  level: "2"
+ui.widget.btb.dec.exact.ones-one:
+  text: "Take 1 hundredth"
+  level: "2"
+# end base-ten-build
+
+# U04 base-ten-trade widget (packages/ui/src/widgets/base-ten-trade): keys under ui.widget.btt.*
+ui.widget.btt.mat:
+  text: "Hundreds, tens and ones"
+  level: K
+ui.widget.btt.col.hundreds:
+  text: "Hundreds"
+  level: K
+ui.widget.btt.col.tens:
+  text: "Tens"
+  level: K
+ui.widget.btt.col.ones:
+  text: "Ones"
+  level: K
+ui.widget.btt.piece.hundreds:
+  text: "Hundred"
+  level: K
+ui.widget.btt.piece.tens:
+  text: "Ten"
+  level: K
+ui.widget.btt.piece.ones:
+  text: "One"
+  level: K
+ui.widget.btt.split:
+  text: "Split"
+  level: K
+ui.widget.btt.group:
+  text: "Group"
+  level: K
+ui.widget.btt.split.hundreds:
+  text: "Split a hundred into ten tens"
+  level: K
+ui.widget.btt.split.tens:
+  text: "Split a ten into ten ones"
+  level: K
+ui.widget.btt.group.tens:
+  text: "Group ten tens into a hundred"
+  level: K
+ui.widget.btt.group.ones:
+  text: "Group ten ones into a ten"
+  level: K
+ui.widget.btt.adding:
+  text: "Ready to add"
+  level: K
+ui.widget.btt.pending.hundreds:
+  text: "Hundreds to add"
+  level: K
+ui.widget.btt.pending.tens:
+  text: "Tens to add"
+  level: K
+ui.widget.btt.pending.ones:
+  text: "Ones to add"
+  level: K
+ui.widget.btt.nest:
+  text: "Take away nest"
+  level: K
+ui.widget.btt.work:
+  text: "Your work"
+  level: K
+ui.widget.btt.goal:
+  text: "Make it look like this"
+  level: K
+# end base-ten-trade
+
+# U04 expanded-form widget (packages/ui/src/widgets/expanded-form): keys under ui.widget.ef.*
+ui.widget.ef.number-ring:
+  text: "{n}, with {d} in the ring"
+  level: K
+ui.widget.ef.tray:
+  text: "Put it back here"
+  level: K
+ui.widget.ef.build:
+  text: "Make the number here"
+  level: K
+ui.widget.ef.built:
+  text: "Your number"
+  level: K
+ui.widget.ef.placed:
+  text: "{n} in your number"
+  level: K
+ui.widget.ef.hear:
+  text: "Hear the number"
+  level: K
+# Story fixtures only (ExpandedFormWidget.stories.tsx): long word options for the words stress
+# story. Real items point wordOptions at their own template keys.
+ui.widget.ef.story.w3405:
+  text: "three thousand four hundred five"
+  level: "2"
+ui.widget.ef.story.w3450:
+  text: "three thousand four hundred fifty"
+  level: "2"
+ui.widget.ef.story.w3045:
+  text: "three thousand forty-five"
+  level: "2"
+ui.widget.ef.story.w4305:
+  text: "four thousand three hundred five"
+  level: "2"
+# end expanded-form

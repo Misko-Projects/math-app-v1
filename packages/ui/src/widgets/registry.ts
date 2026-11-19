@@ -13,6 +13,10 @@ import type { WidgetRegistry } from './types';
 export const widgetRegistry: WidgetRegistry = {
   'number-pad': () => import('./number-pad/NumberPadWidget'),
   'numeral-pick': () => import('./numeral-pick/NumeralPickWidget'),
+  // U04 (#13): place value
+  'base-ten-build': () => import('./base-ten-build/BaseTenBuildWidget'),
+  'base-ten-trade': () => import('./base-ten-trade/BaseTenTradeWidget'),
+  'expanded-form': () => import('./expanded-form/ExpandedFormWidget'),
 };
 
 /** Formats that have a registered widget. */

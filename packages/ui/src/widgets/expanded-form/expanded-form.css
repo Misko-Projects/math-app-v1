@@ -1,0 +1,434 @@
+/*
+ * expanded-form widget (U04). Tokens only (theme.css). Sizes key off the age-mode tokens
+ * (--target-min 80 px K / 64 px G1+, --target-gap 12 px).
+ *
+ * Numerals read as ONE number: tight tabular digits everywhere. Place-value cards right-align
+ * their digits behind the same right padding, so cards stacked with their right edges together
+ * (300 under 40 under 5) line their digits up in columns and read 345, like arrow cards.
+ */
+
+.ni-efw {
+  --ef-card-h: calc(var(--target-min) * 1.15);
+  /* Card side padding: the right one is shared by every card, so stacked digits share columns. */
+  --ef-pad: 14px;
+
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 20px;
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 1180px;
+  /* Extra room below for Pip's pointer when it invites something in the bottom row. */
+  padding: 8px 16px 40px;
+}
+
+/* Pad modes: the question on the left, the pad and "check" on the right (as number-pad). */
+.ni-efw[data-layout="pad"] {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 32px 48px;
+  padding: 16px 24px 40px;
+}
+.ni-efw__ask {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 28px;
+  min-width: 0;
+}
+.ni-efw__controls {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 24px;
+}
+.ni-efw__answers {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 20px;
+}
+
+/* ---------- the target numeral: one number, one tap target ---------- */
+
+.ni-efw__number {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  max-width: 100%;
+  min-width: calc(var(--target-min) * 1.6);
+  min-height: var(--target-min);
+  margin: 0;
+  /* Baloo 2 sits numerals high: extra top padding centres the digits optically. */
+  padding: 0.14em 0.42em 0.06em;
+  appearance: none;
+  border: 3px solid var(--color-sand-deep);
+  border-radius: var(--radius-card);
+  background: var(--color-paper);
+  box-shadow: var(--shadow-soft);
+  color: var(--color-ink);
+  font-family: var(--font-display);
+  font-size: var(--text-numeral-lg);
+  font-variant-numeric: tabular-nums;
+  font-weight: 800;
+  line-height: 1;
+  cursor: pointer;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+.ni-efw__number[data-size="xl"] {
+  font-size: var(--text-numeral-xl);
+  /* Room for a ringed digit's ring and underline inside the card. */
+  padding-block: 0.16em 0.3em;
+}
+.ni-efw__number:focus-visible {
+  outline: 4px solid var(--color-sea-deep);
+  outline-offset: 4px;
+}
+.ni-efw__number:disabled {
+  cursor: default;
+}
+.ni-efw__numeral {
+  display: block;
+  white-space: nowrap;
+}
+.ni-efw__nd {
+  position: relative;
+  display: inline-block;
+}
+/*
+ * digit-value: the digit asked about wears a thick ink ring AND an underline (never colour alone),
+ * drawn inside the one number. Negative margins cancel most of its padding, so the digits stay
+ * nearly as tight as the rest (the ring just clears its neighbours).
+ */
+.ni-efw__nd[data-ringed="true"] {
+  padding: 0.05em 0.1em 0.24em;
+  margin: -0.05em -0.03em -0.24em;
+  border-radius: 9999px;
+  background: var(--color-sunshine-light);
+  box-shadow: inset 0 0 0 5px var(--color-ink);
+}
+.ni-efw__nd[data-ringed="true"]::after {
+  content: "";
+  position: absolute;
+  left: 24%;
+  right: 24%;
+  bottom: 0.1em;
+  height: 7px;
+  border-radius: 4px;
+  background: var(--color-ink);
+}
+.ni-efw__nd.ni-invite {
+  border-radius: 14px;
+  outline-offset: 4px;
+}
+
+/* ---------- zones: the build mat and the card tray ---------- */
+
+.ni-efw__zone {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+  min-height: calc(var(--ef-card-h) + 40px);
+  padding: 14px 20px;
+}
+/* The drop target is a pad BEHIND the cards (cards stay separate buttons, no nested controls). */
+.ni-efw .ni-efw__pad {
+  position: absolute;
+  inset: 0;
+  box-sizing: border-box;
+  border-radius: var(--radius-card);
+}
+.ni-efw__pad--build {
+  border: 3px dashed var(--color-ink-soft);
+  background: var(--color-paper);
+}
+/* The tray: a wooden shelf with a sand top. */
+.ni-efw__pad--tray {
+  border: 3px solid var(--color-wood-deep);
+  background: var(--color-horizon);
+  box-shadow:
+    inset 0 -10px 0 var(--color-wood),
+    var(--shadow-soft);
+}
+/* A whole zone invited: the ring and Pip's tapping hand, without scaling a 1000 px wide pad. */
+.ni-efw .ni-efw__pad.ni-invite {
+  position: absolute;
+  border-radius: var(--radius-card);
+  outline-offset: 6px;
+  animation: none;
+}
+/* Clicks between cards fall through to the pad underneath. */
+.ni-efw__row {
+  position: relative;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: calc(var(--target-gap) + 8px) var(--target-gap);
+  max-width: 100%;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  pointer-events: none;
+}
+.ni-efw__row--tray {
+  column-gap: calc(var(--target-gap) + 4px);
+}
+.ni-efw__cardslot {
+  position: relative;
+  display: flex;
+  pointer-events: auto;
+}
+.ni-efw__plus {
+  color: var(--color-ink-soft);
+  font-family: var(--font-display);
+  font-size: var(--text-numeral);
+  font-weight: 800;
+  line-height: 1;
+  padding-top: 0.1em;
+}
+/* Stacked like arrow cards: every card in one grid cell, right-aligned, biggest value lowest. */
+.ni-efw__row--build[data-stacked="true"] {
+  display: grid;
+  justify-content: center;
+}
+.ni-efw__row--build[data-stacked="true"] > .ni-efw__cardslot {
+  grid-area: 1 / 1;
+  justify-self: end;
+}
+.ni-efw__row--build[data-stacked="true"] > .ni-efw__plus {
+  display: none;
+}
+
+.ni-efw__bottom {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  width: 100%;
+}
+.ni-efw__bottom > .ni-efw__zone {
+  flex: 1;
+}
+.ni-efw__bottom > .ni-btn {
+  flex: none;
+}
+
+/* ---------- place-value cards ---------- */
+
+.ni-efw__card {
+  position: relative;
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  box-sizing: border-box;
+  min-width: calc(var(--target-min) + 8px);
+  min-height: var(--ef-card-h);
+  margin: 0 0 7px;
+  padding: 8px var(--ef-pad);
+  /* A wooden frame (wood border, darker outer edge ≥ 3:1) around a sand face. */
+  border: 4px solid var(--color-wood);
+  border-radius: 14px;
+  background: var(--color-horizon);
+  color: var(--color-ink);
+  box-shadow:
+    0 0 0 2px var(--color-wood-deep),
+    0 7px 0 var(--color-wood-deep),
+    var(--shadow-highlight);
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+.ni-efw__card:focus-visible {
+  outline: 4px solid var(--color-sea-deep);
+  outline-offset: 5px;
+}
+/* Off (no input): a dashed frame and no ledge, so it reads as "not now" without colour. */
+.ni-efw__card[aria-disabled="true"] {
+  border-style: dashed;
+  box-shadow: 0 0 0 2px var(--color-wood-deep);
+  cursor: default;
+}
+.ni-efw__card.ni-invite {
+  border-radius: 14px;
+  outline-offset: 7px;
+}
+.ni-efw [data-flying="true"] {
+  z-index: var(--z-drag);
+}
+.ni-efw__face {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  pointer-events: none;
+}
+/* Tight tabular digits (every digit the same advance), so equal places share columns. */
+.ni-efw__digits {
+  display: block;
+  font-family: var(--font-display);
+  font-size: var(--text-numeral);
+  font-variant-numeric: tabular-nums;
+  font-weight: 800;
+  line-height: 1;
+  white-space: nowrap;
+  padding-top: 0.12em;
+}
+
+/* Pictorial tier: a small base-ten picture of the card's place (3 flats on 300, 4 rods on 40). */
+.ni-efw__glyphs {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: center;
+  gap: 3px;
+  max-width: 100%;
+}
+.ni-efw__glyph {
+  box-sizing: border-box;
+  border: 2px solid var(--color-sea-dark);
+  border-radius: 2px;
+  background: var(--color-shallows);
+}
+.ni-efw__glyph[data-place="0"] {
+  width: 8px;
+  height: 8px;
+}
+.ni-efw__glyph[data-place="1"] {
+  width: 8px;
+  height: 26px;
+}
+.ni-efw__glyph[data-place="2"] {
+  width: 20px;
+  height: 20px;
+  background-image:
+    linear-gradient(to right, rgb(23 96 110 / 0.5) 1px, transparent 1px),
+    linear-gradient(to bottom, rgb(23 96 110 / 0.5) 1px, transparent 1px);
+  background-size: 4px 4px;
+}
+/* A thousands cube: a flat with a side and top edge, so it never reads as 100. */
+.ni-efw__glyph[data-place="3"] {
+  width: 18px;
+  height: 18px;
+  margin: 4px 4px 0 0;
+  box-shadow:
+    2px -2px 0 var(--color-shallows),
+    4px -4px 0 var(--color-sea-dark);
+}
+/*
+ * Stacked like arrow cards: each card shrinks to its digits, keeps the shared right padding (so
+ * right edges together put equal places in one column) and has almost no left frame, so a card on
+ * top covers only the zeros beneath it. Only the digits show, so the columns read as one number.
+ */
+.ni-efw__row--build[data-stacked="true"] .ni-efw__card {
+  align-items: flex-end;
+  min-width: 0;
+  padding-left: 0;
+  border-left-width: 2px;
+  box-shadow: 0 7px 0 var(--color-wood-deep);
+}
+.ni-efw__row--build[data-stacked="true"] .ni-efw__glyphs {
+  display: none;
+}
+
+/* ---------- expressions and blanks ---------- */
+
+.ni-efw__expr {
+  box-sizing: border-box;
+  max-width: 100%;
+  padding: 14px 28px;
+  border: 3px solid var(--color-sand-deep);
+  border-radius: var(--radius-card);
+  background: var(--color-paper);
+  box-shadow: var(--shadow-soft);
+}
+.ni-efw__expr[data-size="md"] .ni-expr {
+  font-size: var(--text-numeral);
+  gap: 12px 18px;
+}
+.ni-efw__slot {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+}
+.ni-efw__blank {
+  min-height: var(--target-big);
+}
+.ni-efw__blank[data-empty="true"] {
+  border-style: dashed;
+  background: var(--color-sky-light);
+}
+.ni-efw__blank:disabled {
+  cursor: default;
+}
+.ni-efw__blank.ni-invite {
+  outline-offset: 5px;
+  border-radius: var(--radius-pebble);
+}
+
+/* ---------- words ---------- */
+
+.ni-efw__options {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: calc(var(--target-gap) * 2);
+  box-sizing: border-box;
+  width: min(100%, 1040px);
+  margin: 0;
+  padding: 8px;
+  border: 0;
+  min-width: 0;
+}
+.ni-efw__optslot {
+  position: relative;
+  display: flex;
+  min-width: 0;
+}
+.ni-efw__options .ni-pick {
+  width: 100%;
+  min-height: calc(var(--target-min) * 1.4);
+  padding: 12px 28px;
+}
+.ni-efw__options .ni-pick__face {
+  text-align: center;
+  line-height: 1.2;
+}
+/* The "hear it" speaker: bigger than a chrome replay button, it is the whole question. */
+.ni-efw .ni-efw__hear {
+  width: calc(var(--target-icon) * 1.6);
+  height: calc(var(--target-icon) * 1.6);
+  min-width: calc(var(--target-icon) * 1.6);
+  min-height: calc(var(--target-icon) * 1.6);
+}
+.ni-efw .ni-efw__hear .ni-btn__icon {
+  width: calc(var(--icon-size) * 1.7);
+  height: calc(var(--icon-size) * 1.7);
+}
+
+/* ---------- Pip's pointer ---------- */
+
+/* The fingertip (≈ 42 % across, 8 px down the 56 px hand) rests inside the target's bottom edge. */
+.ni-efw__hand {
+  left: calc(50% - 23px);
+  top: calc(100% - 26px);
+}
+
+/* Portrait or narrow: stack the pad under the question. */
+@media (max-width: 900px), (orientation: portrait) {
+  .ni-efw[data-layout="pad"] {
+    grid-template-columns: minmax(0, 1fr);
+    justify-items: center;
+  }
+}
