@@ -5,8 +5,8 @@
 # ring's rule implies the rules before it, and the project rings count the shared projects
 # (Lighthouse, Bridge to East Beach, Festival Stage: any one, any two, all three) rather than name
 # one, so the order the family builds them in never changes what is open. Together the rings
-# cover the whole grid, and every stage leaves room to place each building it unlocks
-# (game.test.ts checks the placements).
+# cover the whole grid, and every stage leaves room to place each building it unlocks without
+# moving the ones placed before it (game.test.ts checks the placements).
 #
 # The Numbered Road winds from the sandbar across the first shore (stones 1–20), along the south
 # of ring 2 (21–100, one plot per ten), and on by tens to 1,000 around the outer shore (one plot

@@ -1524,6 +1524,8 @@ function checkGame(
   const namedAt = new Set<string>();
   /** `place` names the rule's owner in the pendingGameSkills grammar, e.g. `building:bakery`. */
   const rule = (loc: Loc, r: UnlockRule, place: string) => {
+    // How often this place's rule names each pending skill: one entry covers one clause.
+    const pendingHits = new Map<string, number>();
     for (const { where, rule: a } of atomicRules(loc.path, r)) {
       const here = { file: loc.file, path: where };
       if ('building' in a && !buildings.has(a.building))
@@ -1551,12 +1553,25 @@ function checkGame(
           here,
           `unlock rule names unknown skill ${a.skill}; a catalog skill that is not authored yet must be listed for ${place} in graph.yaml: pendingGameSkills`,
         );
-      else
+      else {
+        pendingHits.set(a.skill, (pendingHits.get(a.skill) ?? 0) + 1);
         d.warn(
           'V04',
           here.file,
           here.path,
           `unlock rule names skill ${a.skill}, which is not authored yet; the rule stays unsatisfied until it is`,
+        );
+      }
+    }
+    // A pending entry vouches for one clause. Naming the skill twice in one rule is either a
+    // duplicate clause or an authored clause edited into the pending skill (say any[FRA.01,
+    // MUL.05] → any[MUL.05, MUL.05]), which would silently drop a route.
+    for (const [skill, n] of pendingHits) {
+      if (n > 1)
+        err(
+          'V04',
+          loc,
+          `unlock rule of ${place} names pending skill ${skill} ${n} times; a pendingGameSkills entry covers one clause, so name it once`,
         );
     }
   };

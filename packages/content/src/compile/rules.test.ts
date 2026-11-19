@@ -505,15 +505,41 @@ describe('V04: game data references', () => {
       'V04',
       /unknown skill CPS.30; .* must be listed for building:lighthouse in graph.yaml: pendingGameSkills/,
     );
-    // Pending for another place does not cover this one: a CPS.03 → CPS.04 typo on the
-    // Lighthouse is an error even while CPS.04 is pending for the Brick Factory.
-    const typo = pendingVariant({ 'CPS.04': ['building:brick-factory'] }, 'CPS.04');
-    expectFinding(typo, 'V04', /unknown skill CPS.04; .* listed for building:lighthouse/);
+    // Pending for another place does not cover this one: the Lighthouse naming PUZ.99 is an
+    // error while PUZ.99 is pending only for the Brick Factory.
     expectFinding(
       pendingVariant({ [UNAUTHORED]: ['building:brick-factory'] }, UNAUTHORED),
       'V04',
-      /unknown skill PUZ.99/,
+      /unknown skill PUZ.99; .* listed for building:lighthouse/,
     );
+  });
+  it('a pending entry covers one clause: naming the skill twice in one rule is an error', () => {
+    // The Bakery shape, any[authored, pending]: editing the authored clause into the pending
+    // skill must not let the one entry silently cover both clauses (and drop a route).
+    const bakery = (clauses: string[]) =>
+      variant((f) => {
+        editYaml(f, 'graph.yaml', (doc) => {
+          doc.pendingGameSkills = {
+            ...doc.pendingGameSkills,
+            [UNAUTHORED]: ['building:bakery'],
+          };
+        });
+        editYaml(f, 'game/buildings.yaml', (doc) => {
+          byId(doc.buildings, 'bakery').unlock = {
+            any: clauses.map((skill) => ({ skill, atLeast: 'ready' })),
+          };
+        });
+      });
+    const ok = bakery([AUTHORED, UNAUTHORED]);
+    expectFinding(ok, 'V04', /skill PUZ.99, which is not authored yet/, 'warn');
+    expect(ok.filter((d) => d.severity === 'error')).toEqual([]);
+    const hit = expectFinding(
+      bakery([UNAUTHORED, UNAUTHORED]),
+      'V04',
+      /unlock rule of building:bakery names pending skill PUZ.99 2 times/,
+    );
+    expect(hit.file).toBe('game/buildings.yaml');
+    expect(hit.path).toMatch(/^buildings\[\d+\]\.unlock$/);
   });
   it('a stale pendingGameSkills entry or place warns, never errors', () => {
     const authored = pendingVariant({ [AUTHORED]: ['building:lighthouse'] });

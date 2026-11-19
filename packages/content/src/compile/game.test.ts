@@ -484,7 +484,14 @@ describe('the island (05 §3)', () => {
     });
     expect(turns.length).toBeGreaterThan(2);
   });
-  it('every stage has room to place each building it unlocks, plus decor', () => {
+  it('buildings can be placed stage by stage without moving one, leaving room for decor', () => {
+    // Which plots the hub offers is the placement UI's job (05 §6: "tap a highlighted plot",
+    // issue #22). This test shows the island data admits a policy that never relocates a
+    // building: walk the stages in order, keep every building where an earlier stage put it, and
+    // put each newly unlocked one on the first road-free open plot from which every building
+    // unlocked but not yet placed, and every building still to unlock, can still fit, each on
+    // the land of the stage that unlocks it, with ≥ 4 plots left for decor at every stage.
+    const DECOR = 4;
     const roadPlots = new Set(road.map((s) => key(s.plot)));
     const second = ['east-bridge', 'festival-stage'] as const;
     // Each stage: the island facts that open its rings, and the skills the family has reached by
@@ -502,7 +509,8 @@ describe('the island (05 §3)', () => {
       built: string[];
       next: string[];
     };
-    const stages = second.flatMap((first): Stage[] => {
+    // Both orders of the second and third shared projects; each walk is one family's island.
+    const walks = second.map((first): Stage[] => {
       const other = second.find((p) => p !== first) as string;
       return [
         { open: 2, road: 19, skills: [], kinds: [], grade: 'K', mastered: 0, built: [], next: [] },
@@ -548,70 +556,122 @@ describe('the island (05 §3)', () => {
         },
       ];
     });
-    for (const st of stages) {
-      const label = `${st.open} rings, projects ${[...st.built, ...st.next].join(', ')}`;
-      const built = new Set<string>(st.built);
-      const holds = (r: UnlockRule): boolean => {
-        if ('start' in r) return true;
-        if ('all' in r) return r.all.every(holds);
-        if ('any' in r) return r.any.some(holds);
-        if ('skill' in r) return st.skills.includes(r.skill);
-        if ('skillKind' in r) return st.kinds.includes(r.skillKind);
-        if ('minGrade' in r) return gradeAtLeast(st.grade, r.minGrade);
-        if ('masteredCount' in r) return st.mastered >= r.masteredCount;
-        if ('building' in r) return built.has(r.building) && (r.level ?? 1) === 1;
-        if ('roadLength' in r) return st.road >= r.roadLength;
-        return r.residentCount <= 1;
-      };
-      for (let grew = true; grew; ) {
-        grew = false;
-        for (const b of game.buildings) {
-          if (b.kind === 'project' || built.has(b.id) || !holds(b.unlock)) continue;
-          built.add(b.id);
-          grew = true;
+    const area = (b: BuildingDef) => b.footprint[0] * b.footprint[1];
+    /** The plots `b` covers with its north-west corner at `[x, y]`. */
+    const covers = (b: BuildingDef, [x, y]: [number, number]) => {
+      const out: string[] = [];
+      for (let dy = 0; dy < b.footprint[1]; dy++)
+        for (let dx = 0; dx < b.footprint[0]; dx++) out.push(`${x + dx},${y + dy}`);
+      return out;
+    };
+    const toCell = (c: string) => c.split(',').map(Number) as [number, number];
+    for (const stages of walks) {
+      // Pass 1: what each stage has unlocked, which does not depend on where things stand.
+      const unlocked = stages.map((st) => {
+        const label = `${st.open} rings, projects ${[...st.built, ...st.next].join(', ')}`;
+        const built = new Set<string>(st.built);
+        const holds = (r: UnlockRule): boolean => {
+          if ('start' in r) return true;
+          if ('all' in r) return r.all.every(holds);
+          if ('any' in r) return r.any.some(holds);
+          if ('skill' in r) return st.skills.includes(r.skill);
+          if ('skillKind' in r) return st.kinds.includes(r.skillKind);
+          if ('minGrade' in r) return gradeAtLeast(st.grade, r.minGrade);
+          if ('masteredCount' in r) return st.mastered >= r.masteredCount;
+          if ('building' in r) return built.has(r.building) && (r.level ?? 1) === 1;
+          if ('roadLength' in r) return st.road >= r.roadLength;
+          return r.residentCount <= 1;
+        };
+        for (let grew = true; grew; ) {
+          grew = false;
+          for (const b of game.buildings) {
+            if (b.kind === 'project' || built.has(b.id) || !holds(b.unlock)) continue;
+            built.add(b.id);
+            grew = true;
+          }
         }
-      }
-      expect(
-        // The island fold opens the leading rings whose rules hold (02 §4.3).
-        rings.reduce((n, r, i) => (n === i && holds(r.unlock) ? i + 1 : n), 0),
-        label,
-      ).toBe(st.open);
-      for (const p of st.next) {
-        expect(holds(def(p).unlock), `${label}: ${p} is unlocked`).toBe(true);
-        built.add(p);
-      }
-      if (st.open === rings.length) expect(built.size).toBe(game.buildings.length);
-      // Backtracking placement on the open land the road does not use, footprints as given.
-      const land = new Set(
-        rings
-          .slice(0, st.open)
-          .flatMap((r) => r.plots.map(key))
-          .filter((p) => !roadPlots.has(p)),
-      );
-      const items = [...built]
-        .map(def)
-        .sort((a, b) => b.footprint[0] * b.footprint[1] - a.footprint[0] * a.footprint[1]);
+        expect(
+          // The island fold opens the leading rings whose rules hold (02 §4.3).
+          rings.reduce((n, r, i) => (n === i && holds(r.unlock) ? i + 1 : n), 0),
+          label,
+        ).toBe(st.open);
+        for (const p of st.next) {
+          expect(holds(def(p).unlock), `${label}: ${p} is unlocked`).toBe(true);
+          built.add(p);
+        }
+        // The open land the road does not use. Rings only grow, so each stage's land holds
+        // the land of every stage before it.
+        const land = new Set(
+          rings
+            .slice(0, st.open)
+            .flatMap((r) => r.plots.map(key))
+            .filter((p) => !roadPlots.has(p)),
+        );
+        return { label, built, land, cells: [...land].map(toCell) };
+      });
+      const last = unlocked[unlocked.length - 1];
+      expect([...(last?.built ?? [])].sort()).toEqual(ids(game.buildings).sort());
+      /** The stage that first unlocks each building: it stands on that stage's land. */
+      const from = new Map<string, number>();
+      unlocked.forEach((u, s) => {
+        for (const id of u.built) if (!from.has(id)) from.set(id, s);
+      });
+      const placed = new Map<string, string[]>();
       const used = new Set<string>();
-      const cells = [...land].map((c) => c.split(',').map(Number) as [number, number]);
-      const place = (i: number): boolean => {
-        const b = items[i];
-        if (!b) return true;
-        const [w, h] = b.footprint;
-        for (const [x, y] of cells) {
-          const covers: string[] = [];
-          for (let dy = 0; dy < h; dy++)
-            for (let dx = 0; dx < w; dx++) covers.push(`${x + dx},${y + dy}`);
-          if (!covers.every((c) => land.has(c) && !used.has(c))) continue;
-          for (const c of covers) used.add(c);
-          if (place(i + 1)) return true;
-          for (const c of covers) used.delete(c);
-        }
-        return false;
+      /**
+       * The backtracking fitter: whether every building not placed yet still fits on the free
+       * land of the stage that unlocks it, the earlier stages' buildings first, larger first.
+       */
+      const canFinish = (): boolean => {
+        const rest = [...from]
+          .filter(([id]) => !placed.has(id))
+          .map(([id, s]) => ({ b: def(id), s }))
+          .sort((p, q) => p.s - q.s || area(q.b) - area(p.b));
+        const fit = (i: number): boolean => {
+          const item = rest[i];
+          if (!item) return true;
+          const { land, cells } = unlocked[item.s] as (typeof unlocked)[number];
+          for (const cell of cells) {
+            const cs = covers(item.b, cell);
+            if (!cs.every((c) => land.has(c) && !used.has(c))) continue;
+            for (const c of cs) used.add(c);
+            const ok = fit(i + 1);
+            for (const c of cs) used.delete(c);
+            if (ok) return true;
+          }
+          return false;
+        };
+        return fit(0);
       };
-      expect(place(0), `${label}: ${items.map((b) => b.id).join(', ')} fit`).toBe(true);
-      expect(land.size - used.size, `${label}: free plots left for decor`).toBeGreaterThanOrEqual(
-        4,
-      );
+      unlocked.forEach(({ label, built, land, cells }) => {
+        const fresh = [...built]
+          .filter((id) => !placed.has(id))
+          .map(def)
+          .sort((a, b) => area(b) - area(a));
+        for (const b of fresh) {
+          // The first plot that keeps everything still to come placeable.
+          const spot = cells
+            .map((cell) => covers(b, cell))
+            .find((cs) => {
+              if (!cs.every((c) => land.has(c) && !used.has(c))) return false;
+              placed.set(b.id, cs);
+              for (const c of cs) used.add(c);
+              const ok = canFinish();
+              placed.delete(b.id);
+              for (const c of cs) used.delete(c);
+              return ok;
+            });
+          expect(spot, `${label}: ${b.id} has a plot that leaves room for the rest`).toBeDefined();
+          if (!spot) return;
+          placed.set(b.id, spot);
+          for (const c of spot) used.add(c);
+        }
+        // Every building this stage unlocked stands on its land, earlier ones where they were.
+        expect([...placed.keys()].sort(), label).toEqual([...built].sort());
+        const free = [...land].filter((c) => !used.has(c)).length;
+        expect(free, `${label}: free plots left for decor`).toBeGreaterThanOrEqual(DECOR);
+      });
+      expect(placed.size).toBe(game.buildings.length);
     }
   });
 });
