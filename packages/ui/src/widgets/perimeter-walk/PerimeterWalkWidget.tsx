@@ -36,8 +36,10 @@ import './perimeter-walk.css';
  * missing one with "?"). Tapping a side's number sends the Pebbling walking along that side; the
  * walked sides turn solid. The child types the total (`total`), or the missing side from the
  * fence's length (`missing-side`). In `design` the child builds a rectangle on the grid: drag its
- * corner (or tap a square; arrow keys on the corner) and Check answers `{ w, h }`
- * (`rect.perimeterArea`); the rectangle to compare with is drawn beside it.
+ * corner, or use the column and row steppers (arrow keys on the board; tapping a square works
+ * when squares are target-size), and Check answers `{ w, h }` (`rect.perimeterArea`). The grid is
+ * wide: a turned rectangle is the same one, so a tall answer (1 × 12) is built lying down (12 × 1).
+ * The rectangle to compare with is drawn lying down at the grid's square size, beside or above.
  *
  * Demo ops: `walk-side {index}`, `add-label {index}`, `trace`, plus `answer`.
  */
@@ -137,25 +139,62 @@ export function PerimeterWalkWidget({
     config.polygon.sides.length === 4
       ? (config.polygon.sides as [number, number, number, number])
       : null;
-  // A grid that holds every rectangle the checker accepts (12 × 1 and 1 × 12 for area 12, review
-  // CR-1.3) and the one to compare with, plus a spare row and column; the squares shrink to fit.
-  const gridCols = Math.max(5, (ref?.[0] ?? 0) + 1, ...options.map((r) => r.w + 1));
-  const gridRows = Math.max(4, (ref?.[1] ?? 0) + 1, ...options.map((r) => r.h + 1));
-  const cell = Math.max(
-    14,
-    Math.min(
-      60,
-      (Math.min(boxW, 900) * (ref ? 0.68 : 1) - 24) / gridCols,
-      // Capped: a stage that grows with its content must not grow the grid (the squares would
-      // change size under a dragging finger).
-      (Math.min(boxH, 420) - 24) / gridRows,
-    ),
-  );
+  // The grid is laid out wide (review CR-1.3 follow-up). rect.perimeterArea takes a turned
+  // rectangle as the same one, so every accepted rectangle can be built lying down: columns for
+  // the longest side any of them needs, rows for the longest short side (area 12: 12 × 3). The
+  // rectangle to compare with is drawn lying down too, at the grid's own square size.
+  const longSide = (r: { w: number; h: number }) => Math.max(r.w, r.h);
+  const shortSide = (r: { w: number; h: number }) => Math.min(r.w, r.h);
+  const refRect = ref
+    ? { w: longSide({ w: ref[0], h: ref[1] }), h: shortSide({ w: ref[0], h: ref[1] }) }
+    : null;
+  const gridCols = Math.max(4, refRect?.w ?? 0, ...options.map(longSide));
+  const gridRows = Math.max(3, refRect?.h ?? 0, ...options.map(shortSide));
+  // Room for the rectangle's side numbers (above and left of the board) and the board's border.
+  const DIM_TOP = 44;
+  const DIM_LEFT = 40;
+  const BORDER = 6;
+  // The ref's "6 × 2" caption under it, and the gap between the ref and the board.
+  const CAPTION = 46;
+  const GAP = 24;
+  // Capped: a stage that grows with its content must not grow the grid (the squares would change
+  // size under a dragging finger).
+  const designW = Math.min((avail?.width ?? 1100) - 40, 1200);
+  const designH = Math.min((avail?.height ?? 640) - (minT + 40), 420);
+  const fitW = (cols: number) => (designW - DIM_LEFT - BORDER) / cols;
+  const fitH = (rows: number) => (designH - DIM_TOP - BORDER) / rows;
+  // The ref beside the board, or above it: whichever gives the larger squares.
+  const besideCell = refRect
+    ? Math.min(
+        (designW - DIM_LEFT - BORDER - GAP - 8) / (gridCols + refRect.w),
+        fitH(gridRows),
+        (designH - CAPTION - 8) / refRect.h,
+      )
+    : Math.min(fitW(gridCols), fitH(gridRows));
+  const stackedCell = refRect
+    ? Math.min(
+        fitW(Math.max(gridCols, refRect.w)),
+        (designH - DIM_TOP - BORDER - GAP - CAPTION - 8) / (gridRows + refRect.h),
+      )
+    : 0;
+  const refAbove = stackedCell > besideCell;
+  const cell = Math.floor(Math.max(14, Math.min(72, Math.max(besideCell, stackedCell))));
+  // A tap picks a square only when squares are full-size targets (06 §3); otherwise the steppers
+  // are the tap path (and dragging the corner still works).
+  const tapCells = cell >= minT;
   const size = state.size;
   const setSize = (w: number, h: number, via: 'drag' | 'tap' | 'move') => {
     const nw = Math.min(gridCols, Math.max(1, w));
     const nh = Math.min(gridRows, Math.max(1, h));
     trace(via === 'drag' ? 'drop' : via, `cell-${nw}-${nh}`);
+    apply({ op: 'answer', args: { values: [nw, nh] } });
+  };
+  const stepBy = (dw: number, dh: number, target: string) => {
+    if (!interactive) return;
+    setInvite(null);
+    trace('tap', target);
+    const nw = Math.min(gridCols, Math.max(1, (size?.w ?? 0) + dw));
+    const nh = Math.min(gridRows, Math.max(1, (size?.h ?? 0) + dh));
     apply({ op: 'answer', args: { values: [nw, nh] } });
   };
   const grid = useRef<HTMLDivElement>(null);
@@ -198,6 +237,8 @@ export function PerimeterWalkWidget({
       window.removeEventListener('pointermove', move);
       window.removeEventListener('pointerup', up);
       if (moved && tapOnly) return;
+      // A tap on squares smaller than a target does nothing: the steppers set the size.
+      if (!moved && !tapCells) return;
       const c = cellAt(ev.clientX, ev.clientY) ?? start;
       setSize(c[0], c[1], moved ? 'drag' : 'tap');
     };
@@ -419,24 +460,35 @@ export function PerimeterWalkWidget({
     const w = size?.w ?? 0;
     const h = size?.h ?? 0;
     picture = (
-      <div className="ni-pwalk__design">
-        {ref ? (
+      <div className="ni-pwalk__design" data-ref-above={refAbove ? 'true' : undefined}>
+        {refRect ? (
           <div className="ni-pwalk__ref" aria-label={t('ui.pwalk.compare')} role="img">
             <svg
-              width={ref[0] * cell * 0.5 + 8}
-              height={ref[1] * cell * 0.5 + 8}
+              width={refRect.w * cell + 8}
+              height={refRect.h * cell + 8}
+              data-cell={cell}
               aria-hidden="true"
+              focusable="false"
             >
               <rect
                 className="ni-pwalk__ref-rect"
                 x={4}
                 y={4}
-                width={ref[0] * cell * 0.5}
-                height={ref[1] * cell * 0.5}
+                width={refRect.w * cell}
+                height={refRect.h * cell}
               />
+              {/* Its squares, the same size as the board's, so they can be counted. */}
+              <g className="ni-pwalk__ref-squares">
+                {Array.from({ length: refRect.w - 1 }, (_, i) => (i + 1) * cell + 4).map((x) => (
+                  <line key={`v${x}`} x1={x} x2={x} y1={4} y2={4 + refRect.h * cell} />
+                ))}
+                {Array.from({ length: refRect.h - 1 }, (_, i) => (i + 1) * cell + 4).map((y) => (
+                  <line key={`h${y}`} x1={4} x2={4 + refRect.w * cell} y1={y} y2={y} />
+                ))}
+              </g>
             </svg>
             <span className="ni-pwalk__dims" aria-hidden="true">
-              {ref[0]} × {ref[1]}
+              {refRect.w} × {refRect.h}
             </span>
           </div>
         ) : null}
@@ -456,8 +508,9 @@ export function PerimeterWalkWidget({
           data-size={size ? `${w}x${h}` : undefined}
           data-cell={cell}
           style={{
-            width: gridCols * cell,
-            height: gridRows * cell,
+            // Border-box: the squares fill the inside of the 3 px border.
+            width: gridCols * cell + BORDER,
+            height: gridRows * cell + BORDER,
             backgroundSize: `${cell}px ${cell}px`,
           }}
           onPointerDown={onGridDown}
@@ -514,7 +567,7 @@ export function PerimeterWalkWidget({
     >
       <div className="ni-pwalk__stage">
         {picture}
-        {!beside && (sign || areaSign) ? (
+        {!beside && !design && (sign || areaSign) ? (
           <div className="ni-pwalk__signs">
             {sign}
             {areaSign}
@@ -522,7 +575,30 @@ export function PerimeterWalkWidget({
         ) : null}
       </div>
       <div className="ni-pwalk__answer">
-        {design ? null : (
+        {design ? (
+          <>
+            {sign}
+            {areaSign}
+            <Stepper
+              dim="w"
+              less={t('ui.pwalk.col-less')}
+              more={t('ui.pwalk.col-more')}
+              value={size?.w ?? 0}
+              max={gridCols}
+              disabled={!interactive}
+              onStep={(d) => stepBy(d, 0, d > 0 ? 'col-more' : 'col-less')}
+            />
+            <Stepper
+              dim="h"
+              less={t('ui.pwalk.row-less')}
+              more={t('ui.pwalk.row-more')}
+              value={size?.h ?? 0}
+              max={gridRows}
+              disabled={!interactive}
+              onStep={(d) => stepBy(0, d, d > 0 ? 'row-more' : 'row-less')}
+            />
+          </>
+        ) : (
           <NumberEntry
             texts={texts}
             active={0}
@@ -553,6 +629,68 @@ export function PerimeterWalkWidget({
         {beside ? null : <CheckButton onPress={submit} disabled={!interactive || !response} />}
       </div>
       {hand}
+    </div>
+  );
+}
+
+/** One fewer / one more column (or row): two target-size buttons either side of an arrow. */
+function Stepper({
+  dim,
+  less,
+  more,
+  value,
+  max,
+  disabled,
+  onStep,
+}: {
+  dim: 'w' | 'h';
+  less: string;
+  more: string;
+  value: number;
+  max: number;
+  disabled: boolean;
+  onStep: (d: 1 | -1) => void;
+}) {
+  return (
+    <div className="ni-pwalk__stepper" data-dim={dim}>
+      <button
+        type="button"
+        className="ni-pwalk__step"
+        data-step={`${dim}-less`}
+        aria-label={less}
+        disabled={disabled || value <= 1}
+        onClick={() => onStep(-1)}
+      >
+        −
+      </button>
+      <svg
+        className="ni-pwalk__step-arrow"
+        viewBox="0 0 48 48"
+        width="40"
+        height="40"
+        aria-hidden="true"
+        focusable="false"
+      >
+        <path
+          d="M6 24h36M14 14L4 24l10 10M34 14l10 10-10 10"
+          transform={dim === 'h' ? 'rotate(90 24 24)' : undefined}
+          fill="none"
+          stroke="var(--color-ink)"
+          strokeWidth="4"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+      </svg>
+      <button
+        type="button"
+        className="ni-pwalk__step"
+        data-step={`${dim}-more`}
+        aria-label={more}
+        disabled={disabled || value >= max}
+        onClick={() => onStep(1)}
+      >
+        +
+      </button>
     </div>
   );
 }

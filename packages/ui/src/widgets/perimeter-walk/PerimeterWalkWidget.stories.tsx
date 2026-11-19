@@ -165,9 +165,42 @@ function cellCentre(root: HTMLElement, c: number, r: number) {
   return { x: b.left + 3 + (c - 0.5) * size, y: b.top + 3 + (r - 0.5) * size };
 }
 
+const stepper = (root: HTMLElement, s: string) =>
+  root.querySelector(`.ni-pwalk__step[data-step="${s}"]`) as HTMLButtonElement;
+const designControls = (root: HTMLElement) => [
+  ...root.querySelectorAll('.ni-pwalk__step'),
+  within(root).getByRole('button', { name: 'Check' }),
+];
+
+/**
+ * The design grid is wide and its squares are large (review CR-1.3 follow-up): 12 × 3 for area
+ * 12 (columns for the longest side, rows for the longest short side), squares ≥ 40 px, the 6 × 2
+ * drawn at the board's own square size, and the steppers and Check target-size, 12 px apart.
+ */
+async function expectDesignLayout(canvasElement: HTMLElement, root: HTMLElement) {
+  const cell = Number(board(root).dataset.cell);
+  await expect(cell, 'square size').toBeGreaterThanOrEqual(40);
+  const b = board(root).getBoundingClientRect();
+  await expect(b.width - 6).toBeCloseTo(12 * cell, 0);
+  await expect(b.height - 6).toBeCloseTo(3 * cell, 0);
+  const ref = root.querySelector('.ni-pwalk__ref-rect') as SVGRectElement;
+  await expect(ref.width.baseVal.value).toBeCloseTo(6 * cell, 3);
+  await expect(ref.height.baseVal.value).toBeCloseTo(2 * cell, 3);
+  for (const c of designControls(root)) await expectTargetSize(c, 'g1-up');
+  await expectTargetGaps(designControls(root));
+  await expectFitsArea(areaBox(canvasElement), [
+    board(root),
+    root.querySelector('.ni-pwalk__ref') as HTMLElement,
+    ...designControls(root),
+    ...root.querySelectorAll('.ni-pwalk__sign'),
+  ]);
+}
+
 /**
  * MEA.14: drag the corner to make a 4 × 3 rectangle (12 squares, not the 6 × 2). Arrow keys
- * change it too. The answer passes rect.perimeterArea; the 6 × 2 itself would not.
+ * change it too. The answer passes rect.perimeterArea; the 6 × 2 itself would not. The grid is
+ * wide (12 × 3): a 1 × 12 answer is built lying down as 12 × 1, which the checker takes as the
+ * same rectangle (a turned rectangle is the same one).
  */
 export const DesignSameArea: Story = {
   args: { config: design },
@@ -213,8 +246,45 @@ export const DesignSameArea: Story = {
       await expect(stateChecker('rect.perimeterArea')?.check(target, last.value)).toBe(true);
     };
     await submitSize(12, 1);
-    await new Promise((r) => setTimeout(r, 450));
-    await submitSize(1, 12);
+    // 1 × 12 is the same rectangle turned: the checker accepts it, and the grid builds it lying
+    // down; the board stops at 3 rows.
+    await expect(stateChecker('rect.perimeterArea')?.check(target, { w: 1, h: 12 })).toBe(true);
+    board(root).focus();
+    await userEvent.keyboard('{ArrowDown}{ArrowDown}{ArrowDown}');
+    await expect(board(root)).toHaveAttribute('data-size', '12x3');
+  },
+};
+
+/** MEA.14 with the steppers: add columns and rows one at a time, then Check. */
+export const DesignSteppers: Story = {
+  args: { config: design },
+  play: async ({ canvasElement, args }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    await expect(stepper(root, 'w-less')).toBeDisabled();
+    await userEvent.click(stepper(root, 'w-more'));
+    await expect(board(root)).toHaveAttribute('data-size', '1x1');
+    for (let i = 0; i < 3; i += 1) await userEvent.click(stepper(root, 'w-more'));
+    await userEvent.click(stepper(root, 'h-more'));
+    await userEvent.click(stepper(root, 'h-more'));
+    await expect(board(root)).toHaveAttribute('data-size', '4x3');
+    await expect(stepper(root, 'h-more')).toBeDisabled();
+    await userEvent.click(within(root).getByRole('button', { name: 'Check' }));
+    await expect(args.onResponse).toHaveBeenCalledWith({ kind: 'state', value: { w: 4, h: 3 } });
+    await expect(
+      within(root).getByRole('button', { name: 'Take away a column' }),
+    ).toBeInTheDocument();
+    const trace = traceOf(args.onInteract).map((e) => `${e.t}:${e.target}`);
+    await expect(trace.slice(0, 2)).toEqual(['tap:col-more', 'tap:col-more']);
+  },
+};
+
+/** Tablet widget area (G1+): the wide grid, the 6 × 2 at the same square size, controls fit. */
+export const DesignTablet: Story = {
+  args: { config: design },
+  render: inArea('tablet'),
+  play: async ({ canvasElement }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    await expectDesignLayout(canvasElement, root);
   },
 };
 
@@ -251,23 +321,33 @@ export const MissingSideLandscapeMin: Story = {
   },
 };
 
-/** Smallest landscape area, design: the grid, the 6 × 2 to compare with and Check fit. */
+/** Smallest landscape area, design: the same wide layout fits with squares ≥ 40 px. */
 export const DesignLandscapeMin: Story = {
   args: { config: design },
   render: inArea('landscapeMin'),
   play: async ({ canvasElement }) => {
     const root = await findWidget(canvasElement, ROOT);
-    await expectFitsArea(areaBox(canvasElement), [
-      board(root),
-      root.querySelector('.ni-pwalk__ref') as HTMLElement,
-      within(root).getByRole('button', { name: 'Check' }),
-    ]);
+    await expectDesignLayout(canvasElement, root);
+    // Squares under a target's size: a tap on one does nothing (the steppers are the tap path),
+    // dragging the corner still works.
+    await expect(Number(board(root).dataset.cell)).toBeLessThan(64);
+    const p = cellCentre(root, 3, 2);
+    await userEvent.pointer({
+      keys: '[MouseLeft]',
+      target: board(root),
+      coords: { clientX: p.x, clientY: p.y },
+    });
+    await expect(board(root)).not.toHaveAttribute('data-size');
+    await pointerDrag(board(root), cellCentre(root, 12, 1), 'touch');
+    await waitFor(() => expect(board(root)).toHaveAttribute('data-size', '12x1'));
+    const corner = root.querySelector('.ni-pwalk__corner') as HTMLElement;
+    await expectTargetSize(corner, 'g1-up');
   },
 };
 
 /**
- * Tap-only mode (06 §7, review CR-1.6): dragging the rectangle's corner does nothing; tapping a
- * square sets the corner there, and the arrow keys still change it.
+ * Tap-only mode (06 §7, review CR-1.6): dragging the rectangle's corner does nothing; the
+ * steppers and the arrow keys still change it.
  */
 export const TapOnlyDesign: Story = {
   args: { config: design },
@@ -276,16 +356,13 @@ export const TapOnlyDesign: Story = {
     const root = await findWidget(canvasElement, ROOT);
     await pointerDrag(board(root), cellCentre(root, 4, 3), 'touch');
     await expect(board(root)).not.toHaveAttribute('data-size');
-    const p = cellCentre(root, 3, 4);
-    await userEvent.pointer({
-      keys: '[MouseLeft]',
-      target: board(root),
-      coords: { clientX: p.x, clientY: p.y },
-    });
-    await expect(board(root)).toHaveAttribute('data-size', '3x4');
+    await userEvent.click(stepper(root, 'w-more'));
+    await userEvent.click(stepper(root, 'w-more'));
+    await userEvent.click(stepper(root, 'h-more'));
+    await expect(board(root)).toHaveAttribute('data-size', '2x2');
     board(root).focus();
     await userEvent.keyboard('{ArrowRight}');
-    await expect(board(root)).toHaveAttribute('data-size', '4x4');
+    await expect(board(root)).toHaveAttribute('data-size', '3x2');
   },
 };
 

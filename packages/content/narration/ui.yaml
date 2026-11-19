@@ -316,6 +316,18 @@ ui.pwalk.compare:
 ui.pwalk.build:
   text: "Your rectangle"
   level: "2"
+ui.pwalk.col-more:
+  text: "Add a column"
+  level: "2"
+ui.pwalk.col-less:
+  text: "Take away a column"
+  level: "2"
+ui.pwalk.row-more:
+  text: "Add a row"
+  level: "2"
+ui.pwalk.row-less:
+  text: "Take away a row"
+  level: "2"
 # tap-count, make-set, dot-flash (U03, packages/ui/src/widgets/tap-count, make-set, dot-flash)
 ui.count.marked:
   text: "{thing}, number {n}"
