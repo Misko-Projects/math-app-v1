@@ -7,6 +7,12 @@ import { bondParts } from './bond/parts';
 import { countOrdinal } from './count/ordinal';
 import { countSequence } from './count/sequence';
 import { countSet } from './count/set';
+import { geoCompose } from './geo/compose';
+import { geoDraw } from './geo/draw';
+import { geoIdentify } from './geo/identify';
+import { geoPosition } from './geo/position';
+import { meaLength } from './mea/length';
+import { meaMassVolume } from './mea/massvolume';
 import { subitizeFlash } from './subitize/flash';
 import type { GeneratorDef } from './types';
 
@@ -16,6 +22,12 @@ const GENERATORS: GeneratorDef[] = [
   subitizeFlash,
   bondParts,
   addsubFacts,
+  geoIdentify,
+  geoCompose,
+  geoPosition,
+  geoDraw,
+  meaLength,
+  meaMassVolume,
   countOrdinal,
 ];
 

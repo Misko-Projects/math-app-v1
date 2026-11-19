@@ -1,0 +1,58 @@
+strand: MEA
+# K01 (#11): the K–1 rows of 03 §3.14. MEA.03–06, 08–14 and 17–21 are grade 2–3 (K02, graph.yaml
+# plannedIds).
+skills:
+  - id: MEA.01
+    name: Compare two lengths side by side, longer and shorter
+    kind: concept
+    grade: K
+    standards: { ccss: [K.MD.A.2] }
+    prerequisites: [MEA.15]
+    gateway: false
+    representations: [objects, ruler]
+
+  - id: MEA.02
+    name: Measure with copies of one unit, no gaps or overlaps
+    kind: procedure
+    grade: 1
+    standards: { ccss: [1.MD.A.2] }
+    prerequisites: [MEA.07, CNT.06]
+    gateway: false
+    representations: [units, symbols]
+
+  - id: MEA.07
+    name: Order three things by length, and compare two with a third
+    kind: concept
+    grade: 1
+    standards: { ccss: [1.MD.A.1] }
+    prerequisites: [MEA.01]
+    gateway: false
+    representations: [objects, symbols]
+
+  # MEA.15 (GEO subagent, geo.identify set attributes)
+  - id: MEA.15
+    name: "What can we measure? Long, heavy, holds more"
+    kind: concept
+    grade: K
+    standards: { ccss: [K.MD.A.1] }
+    prerequisites: []
+    gateway: false
+    representations: [objects, words]
+
+  - id: MEA.16
+    name: Compare weights with a balance
+    kind: concept
+    grade: K
+    standards: { ccss: [K.MD.A.2] }
+    prerequisites: [MEA.15]
+    gateway: false
+    representations: [objects, balance]
+
+  - id: MEA.22
+    name: Bigger units, fewer units
+    kind: concept
+    grade: 1
+    standards: { ccss: [1.MD.A.2] }
+    prerequisites: [MEA.02]
+    gateway: false
+    representations: [units, objects]

@@ -1,0 +1,577 @@
+// 03 §5.6 mea.length and mea.massvolume: fixed params → answer, widget and solution per format,
+// exampleCorrect is correct, solutions replay through the format models that exist (order,
+// number-pad, numeral-pick) and end with the answer, feature values at the extremes, validity
+// (accepts), and the two measurement misconception rules.
+
+import {
+  type AnswerSpec,
+  type ItemFormat,
+  type ItemTemplate,
+  type LessonStep,
+  type ParamValues,
+  widgetConfigSchema,
+} from '@number-island/shared';
+import { beforeEach, describe, expect, it } from 'vitest';
+import { initContent, resetContent } from '../../content/binding';
+import { formatModel } from '../../formats';
+import { checkResponse } from '../../items/check';
+import { generateItem, generateItemFromParams, itemFeatures } from '../../items/generate';
+import { itemExampleCorrect, itemSolution, replaySteps } from '../../items/solution';
+import { biggerUnitMore } from '../../misconceptions/rules/biggerUnitMore';
+import { unitGaps } from '../../misconceptions/rules/unitGaps';
+import { registry } from '..';
+import { GenerationError } from '../types';
+import { lengthCloseness, NONSTANDARD_UNIT_SIZE, objectLengths } from './length';
+import { gaugeFor, WEIGHABLES } from './massvolume';
+
+let nextId = 0;
+function tpl(
+  generator: 'mea.length' | 'mea.massvolume',
+  format: ItemFormat,
+  over: Partial<ItemTemplate> = {},
+): ItemTemplate {
+  nextId += 1;
+  return {
+    id: `T.${generator}.${format}.${nextId}`,
+    skillId: 'X.01',
+    format,
+    tier: 'pictorial',
+    generator,
+    params: {},
+    difficulty: { base: 0, features: {} },
+    narration: { prompt: 'p.x', hints: ['h.one', 'h.two', 'h.three'] },
+    ...over,
+  };
+}
+
+beforeEach(() => {
+  resetContent();
+  initContent({ templates: [], narration: {}, misconceptions: [] });
+});
+
+interface Case {
+  name: string;
+  t: ItemTemplate;
+  params: ParamValues;
+  answer: AnswerSpec | ((item: ReturnType<typeof generateItem>) => AnswerSpec);
+  widget?: Record<string, unknown>;
+  lastOp: string;
+}
+
+const LENGTH: Case[] = [
+  {
+    name: 'compare-length: the longer of 4 and 9',
+    t: tpl('mea.length', 'compare-length', { tier: 'concrete' }),
+    params: { mode: 'compare', ask: 'longer', length: 4, length2: 9 },
+    answer: (item) => {
+      const w = item.widget as { objects: { id: string; length: number }[] };
+      return { kind: 'choice', id: w.objects.find((o) => o.length === 9)?.id ?? '' };
+    },
+    widget: { ask: 'longer', aligned: true },
+    lastOp: 'answer',
+  },
+  {
+    name: 'compare-length: the shorter, misaligned',
+    t: tpl('mea.length', 'compare-length', { tier: 'concrete' }),
+    params: { mode: 'compare', ask: 'shorter', length: 6, length2: 8, offset: 3 },
+    answer: (item) => {
+      const w = item.widget as { objects: { id: string; length: number }[] };
+      return { kind: 'choice', id: w.objects.find((o) => o.length === 6)?.id ?? '' };
+    },
+    widget: { ask: 'shorter', aligned: false },
+    lastOp: 'answer',
+  },
+  {
+    name: 'compare-length: order three, shortest first',
+    t: tpl('mea.length', 'compare-length', { tier: 'concrete' }),
+    params: { mode: 'order', ask: 'shorter', objects: 3, length: 7, length2: 3, length3: 5 },
+    answer: { kind: 'numbers', values: [3, 5, 7], ordered: true },
+    widget: { ask: 'order', aligned: true },
+    lastOp: 'answer',
+  },
+  {
+    name: 'compare-length: indirect, with a string',
+    t: tpl('mea.length', 'compare-length', { tier: 'concrete' }),
+    params: { mode: 'indirect', ask: 'longer', length: 5, length2: 7 },
+    answer: (item) => {
+      const w = item.widget as { objects: { id: string; length: number }[] };
+      return { kind: 'choice', id: w.objects.find((o) => o.length === 7)?.id ?? '' };
+    },
+    widget: { ask: 'indirect', aligned: false },
+    lastOp: 'answer',
+  },
+  {
+    name: 'compare-length: how much longer',
+    t: tpl('mea.length', 'compare-length'),
+    params: { mode: 'difference', length: 9, length2: 4 },
+    answer: { kind: 'number', value: 5 },
+    widget: { ask: 'how-much-longer' },
+    lastOp: 'answer',
+  },
+  {
+    name: 'compare: two ruler strips, the same',
+    t: tpl('mea.length', 'compare'),
+    params: { mode: 'compare', ask: 'longer', length: 6, same: true },
+    answer: { kind: 'choice', id: 'same' },
+    widget: { ask: 'longer', left: { kind: 'number-line', min: 0, max: 7 } },
+    lastOp: 'answer',
+  },
+  {
+    name: 'compare: which unit is needed more (cubes or sticks)',
+    t: tpl('mea.length', 'compare'),
+    params: { mode: 'two-units', ask: 'more', unit: 'stick', altUnit: 'cube', length: 2 },
+    answer: (item) => {
+      const w = item.widget as { left: { set: { sprite: string } } };
+      return { kind: 'choice', id: w.left.set.sprite === 'cube' ? 'left' : 'right' };
+    },
+    widget: { ask: 'more' },
+    lastOp: 'answer',
+  },
+  {
+    name: 'order: three measured lengths, longest first',
+    t: tpl('mea.length', 'order', { tier: 'abstract' }),
+    params: { mode: 'order', ask: 'longer', objects: 3, length: 4, length2: 12, length3: 8 },
+    answer: { kind: 'numbers', values: [12, 8, 4], ordered: true },
+    widget: { direction: 'desc' },
+    lastOp: 'drag',
+  },
+  {
+    name: 'measure-length: iterate 6 shells',
+    t: tpl('mea.length', 'measure-length', { tier: 'concrete' }),
+    params: { mode: 'iterate', unit: 'shell', length: 6 },
+    answer: {
+      kind: 'state',
+      checker: 'units.iterate',
+      target: { length: 6, gapTolerance: 0.1 },
+    },
+    widget: { tool: 'units', unit: 'shell', mode: 'iterate', object: { length: 6 } },
+    lastOp: 'answer',
+  },
+  {
+    name: 'measure-length: two units, 8 cubes is 2 sticks',
+    t: tpl('mea.length', 'measure-length', { tier: 'concrete' }),
+    params: { mode: 'two-units', unit: 'cube', altUnit: 'stick', length: 8 },
+    answer: { kind: 'numbers', values: [8, 2], ordered: true },
+    widget: { tool: 'units', unit: 'cube', altUnit: 'stick', mode: 'two-units' },
+    lastOp: 'answer',
+  },
+  {
+    name: 'measure-length: read a ruler from 2 (K02 path)',
+    t: tpl('mea.length', 'measure-length'),
+    params: { mode: 'read', unit: 'cm', length: 5, offset: 2 },
+    answer: { kind: 'number', value: 5 },
+    widget: { tool: 'ruler', startOffset: 2, precision: 1, mode: 'read' },
+    lastOp: 'answer',
+  },
+  {
+    name: 'measure-length: read to the half inch (K02 path)',
+    t: tpl('mea.length', 'measure-length'),
+    params: { mode: 'read', unit: 'in', length: 40, precision: 2 },
+    answer: { kind: 'number', value: 2.5 },
+    widget: { precision: 0.5, object: { length: 40 } },
+    lastOp: 'answer',
+  },
+  {
+    name: 'number-pad: count 7 cubes laid along it',
+    t: tpl('mea.length', 'number-pad'),
+    params: { mode: 'iterate', unit: 'cube', length: 7 },
+    answer: { kind: 'number', value: 7 },
+    widget: { stimulus: { kind: 'objects', set: { count: 7, sprite: 'cube' } }, unit: null },
+    lastOp: 'type',
+  },
+  {
+    name: 'numeral-pick: count 5 sticks',
+    t: tpl('mea.length', 'numeral-pick'),
+    params: { mode: 'iterate', unit: 'stick', length: 5 },
+    answer: { kind: 'choice', id: 'opt-5' },
+    lastOp: 'tap',
+  },
+];
+
+const MASS: Case[] = [
+  {
+    name: 'balance: a rock against a feather',
+    t: tpl('mea.massvolume', 'balance', { tier: 'concrete' }),
+    params: { instrument: 'balance', unit: 'none', value: 8, value2: 1 },
+    answer: (item) => {
+      const w = item.widget as { left: { terms: { object: string }[] } };
+      return { kind: 'choice', id: w.left.terms[0]?.object === 'rock' ? 'left' : 'right' };
+    },
+    widget: { mode: 'which-heavier', showTilt: true, objectWeights: { rock: 8, feather: 1 } },
+    lastOp: 'answer',
+  },
+  {
+    name: 'balance: two apples stay level',
+    t: tpl('mea.massvolume', 'balance', { tier: 'concrete' }),
+    params: { instrument: 'balance', unit: 'none', value: 4, value2: 4 },
+    answer: { kind: 'choice', id: 'same' },
+    lastOp: 'answer',
+  },
+  {
+    name: 'compare: which is heavier, a pumpkin or a leaf',
+    t: tpl('mea.massvolume', 'compare'),
+    params: { instrument: 'balance', unit: 'none', value: 2, value2: 9 },
+    answer: (item) => {
+      const w = item.widget as { left: { set: { sprite: string } } };
+      return { kind: 'choice', id: w.left.set.sprite === 'pumpkin' ? 'left' : 'right' };
+    },
+    widget: { ask: 'heavier' },
+    lastOp: 'answer',
+  },
+  {
+    name: 'number-pad: read 30 g on a scale (K02 path)',
+    t: tpl('mea.massvolume', 'number-pad'),
+    params: { instrument: 'scale', unit: 'g', value: 30, ticksEvery: 10 },
+    answer: { kind: 'number', value: 30 },
+    widget: { unit: 'g', stimulus: { kind: 'gauge', ticksEvery: 10, labelsEvery: 20 } },
+    lastOp: 'type',
+  },
+  {
+    name: 'numeral-pick: read 3 L on a jug (K02 path)',
+    t: tpl('mea.massvolume', 'numeral-pick'),
+    params: { instrument: 'beaker', unit: 'L', value: 3 },
+    answer: { kind: 'choice', id: 'opt-3' },
+    lastOp: 'tap',
+  },
+];
+
+describe.each([
+  ['mea.length', LENGTH],
+  ['mea.massvolume', MASS],
+] as const)('%s', (generator, cases) => {
+  it('covers every format the generator lists', () => {
+    const formats = new Set(cases.map((k) => k.t.format));
+    expect([...formats].sort()).toEqual([...(registry.get(generator)?.formats ?? [])].sort());
+  });
+
+  it.each(cases)('$name', ({ t, params, answer, widget, lastOp }) => {
+    const item = generateItemFromParams(t, params);
+    expect(item.widget.format).toBe(t.format);
+    expect(item.answer).toEqual(typeof answer === 'function' ? answer(item) : answer);
+    if (widget) expect(item.widget).toMatchObject(widget);
+    const schema = formatModel(t.format)?.configSchema ?? widgetConfigSchema;
+    const parsed = schema.safeParse(item.widget);
+    expect(parsed.success, JSON.stringify(parsed.error?.issues)).toBe(true);
+
+    expect(checkResponse(item, itemExampleCorrect(item, t)).correct).toBe(true);
+
+    // The solution ends by entering the answer, and replays where a format model exists.
+    const steps: LessonStep[] = itemSolution(item, t);
+    expect(steps.length).toBeGreaterThan(1);
+    expect(steps[steps.length - 1]?.action?.op).toBe(lastOp);
+    if (formatModel(t.format)) {
+      const r = replaySteps(item, steps);
+      expect(r).not.toBeNull();
+      expect(checkResponse(item, r as NonNullable<typeof r>).correct).toBe(true);
+    }
+    // The worked-step hint never plays the final (answering) step.
+    const worked = item.hints.find((h) => h.level === 4);
+    expect(worked?.actions ?? []).not.toContainEqual(steps[steps.length - 1]?.action);
+  });
+
+  it('builds every format from its default params', () => {
+    for (const format of registry.get(generator)?.formats ?? []) {
+      const t = tpl(generator, format);
+      for (let seed = 0; seed < 20; seed += 1) {
+        const item = generateItem(t, seed);
+        expect(checkResponse(item, itemExampleCorrect(item, t)).correct).toBe(true);
+      }
+    }
+  });
+});
+
+describe('mea.length', () => {
+  it.each([
+    ['longer', 0],
+    ['shorter', 0],
+    ['longer', 3],
+  ] as const)(
+    'compare-length %s (offset %d): the worked step never highlights the difference',
+    (ask, offset) => {
+      const t = tpl('mea.length', 'compare-length', { tier: 'concrete' });
+      const item = generateItemFromParams(t, {
+        mode: 'compare',
+        ask,
+        length: 4,
+        length2: 9,
+        offset,
+      });
+      expect(item.widget).toMatchObject({ aligned: offset === 0 });
+      const worked = item.hints.find((h) => h.level === 4);
+      expect(worked).toBeDefined();
+      expect(worked?.actions ?? []).not.toContainEqual({ op: 'highlight-difference' });
+      // Show-me still points at the part that sticks out before it answers.
+      const all = item.hints.find((h) => h.level === 5)?.actions ?? [];
+      expect(all).toContainEqual({ op: 'highlight-difference' });
+      expect(all.at(-1)?.op).toBe('answer');
+    },
+  );
+
+  it('draws the other lengths from the template domain, all different', () => {
+    const t = tpl('mea.length', 'compare-length', {
+      tier: 'concrete',
+      params: {
+        mode: { kind: 'const', value: 'order' },
+        ask: { kind: 'const', value: 'shorter' },
+        objects: { kind: 'const', value: 4 },
+        length: { kind: 'int', min: 2, max: 9 },
+      },
+    });
+    for (let seed = 1; seed <= 50; seed += 1) {
+      const ls = objectLengths(generateItem(t, seed).params);
+      expect(ls).toHaveLength(4);
+      expect(new Set(ls).size).toBe(4);
+      for (const l of ls) expect(l >= 2 && l <= 9).toBe(true);
+    }
+  });
+
+  it('rejects modes, asks and units its format cannot show', () => {
+    const fails = (format: ItemFormat, params: ParamValues) =>
+      expect(() => generateItemFromParams(tpl('mea.length', format), params)).toThrow(
+        GenerationError,
+      );
+    fails('order', { mode: 'iterate', length: 4 });
+    fails('compare', { mode: 'compare', ask: 'shorter', length: 4, length2: 6 });
+    fails('compare-length', { mode: 'compare', length: 5, length2: 5 });
+    fails('measure-length', { mode: 'two-units', unit: 'cube', altUnit: 'stick', length: 6 });
+    fails('measure-length', { mode: 'two-units', unit: 'cube', altUnit: 'cube', length: 4 });
+    fails('measure-length', { mode: 'read', unit: 'shell', length: 4 });
+    fails('measure-length', { mode: 'iterate', unit: 'cube', length: 4, offset: 1 });
+  });
+
+  it('keeps the unit sizes consistent for two-unit measuring', () => {
+    expect(NONSTANDARD_UNIT_SIZE).toEqual({ cube: 1, shell: 2, stick: 4 });
+    const item = generateItemFromParams(tpl('mea.length', 'measure-length'), {
+      mode: 'two-units',
+      unit: 'stick',
+      altUnit: 'shell',
+      length: 3,
+    });
+    expect(item.answer).toEqual({ kind: 'numbers', values: [3, 6], ordered: true });
+  });
+
+  const features = (
+    format: ItemFormat,
+    params: ParamValues,
+    tier: 'concrete' | 'pictorial' = 'pictorial',
+  ) => {
+    const t = tpl('mea.length', format, { tier });
+    return itemFeatures(generateItemFromParams(t, params), t);
+  };
+
+  it('feature values at the extremes', () => {
+    // Easiest direct comparison: far apart, lined up, two objects, "longer".
+    expect(features('compare-length', { mode: 'compare', length: 2, length2: 10 })).toEqual({
+      closeness: 0.2,
+      misaligned: 0,
+      'objects.over2': 0,
+      indirect: 0,
+      'ask.difference': 0,
+      'ask.shorter': 0,
+    });
+    expect(
+      features('compare-length', {
+        mode: 'compare',
+        ask: 'shorter',
+        objects: 4,
+        length: 9,
+        length2: 10,
+        length3: 3,
+        length4: 5,
+        offset: 2,
+      }),
+    ).toMatchObject({ closeness: 0.9, misaligned: 1, 'objects.over2': 2, 'ask.shorter': 1 });
+    expect(features('compare-length', { mode: 'indirect', length: 4, length2: 5 })).toMatchObject({
+      indirect: 1,
+      closeness: 0.8,
+    });
+    expect(lengthCloseness([3, 6, 7])).toBeCloseTo(6 / 7);
+    expect(features('compare', { mode: 'compare', length: 5, same: true })).toEqual({
+      closeness: 1,
+      equal: 1,
+    });
+    expect(
+      features('compare', {
+        mode: 'two-units',
+        ask: 'fewer',
+        unit: 'cube',
+        altUnit: 'stick',
+        length: 4,
+      }),
+    ).toEqual({ closeness: 0.25, 'ask.fewer': 1 });
+    expect(features('measure-length', { mode: 'iterate', length: 3 }, 'concrete')).toEqual({
+      'length.over10': 0,
+      'units.over5': 0,
+      'tool.units': 1,
+    });
+    expect(
+      features('measure-length', { mode: 'two-units', unit: 'cube', altUnit: 'shell', length: 12 }),
+    ).toEqual({ 'length.over10': 1, 'units.over5': 1.4, 'tool.units': 1, twoUnits: 1 });
+    expect(
+      features('measure-length', { mode: 'read', unit: 'in', length: 36, precision: 4, offset: 1 }),
+    ).toEqual({
+      'length.over10': 0,
+      offset: 1,
+      'precision.half': 0,
+      'precision.quarter': 1,
+      'tool.units': 0,
+    });
+    // Order items carry only the order format's own features.
+    expect(
+      Object.keys(
+        features('order', { mode: 'order', objects: 3, length: 2, length2: 5, length3: 9 }),
+      ).sort(),
+    ).toEqual(['closeness', 'desc', 'items', 'magnitude']);
+  });
+});
+
+describe('mea.massvolume', () => {
+  const features = (format: ItemFormat, params: ParamValues) => {
+    const t = tpl('mea.massvolume', format, { tier: 'concrete' });
+    return itemFeatures(generateItemFromParams(t, params), t);
+  };
+
+  it('maps weight steps to objects, lightest first', () => {
+    expect(WEIGHABLES[0]).toBe('feather');
+    expect(WEIGHABLES[8]).toBe('pumpkin');
+    expect(WEIGHABLES).toHaveLength(9);
+  });
+
+  it('feature values at the extremes', () => {
+    expect(
+      features('balance', { instrument: 'balance', unit: 'none', value: 1, value2: 9 }),
+    ).toEqual({
+      closeness: 0.11,
+      conflict: 0,
+      equal: 0,
+    });
+    expect(
+      features('balance', { instrument: 'balance', unit: 'none', value: 2, value2: 5, objects: 2 }),
+    ).toEqual({ closeness: 0.8, conflict: 1, equal: 0 });
+    expect(
+      features('balance', { instrument: 'balance', unit: 'none', value: 6, value2: 6 }),
+    ).toEqual({
+      closeness: 1,
+      conflict: 0,
+      equal: 1,
+    });
+    expect(
+      features('number-pad', { instrument: 'beaker', unit: 'L', value: 4, ticksEvery: 1 }),
+    ).toMatchObject({ 'tick.unlabeled': 0, 'ticksEvery.notOne': 0 });
+    expect(
+      features('number-pad', { instrument: 'scale', unit: 'kg', value: 15, ticksEvery: 5 }),
+    ).toMatchObject({ 'tick.unlabeled': 1, 'ticksEvery.notOne': 1 });
+  });
+
+  it('only balances two identical objects, and never on the compare format', () => {
+    const t = tpl('mea.massvolume', 'balance');
+    expect(() =>
+      generateItemFromParams(t, {
+        instrument: 'balance',
+        unit: 'none',
+        value: 3,
+        value2: 6,
+        objects: 2,
+      }),
+    ).toThrow(GenerationError);
+    expect(() =>
+      generateItemFromParams(tpl('mea.massvolume', 'compare'), {
+        instrument: 'balance',
+        unit: 'none',
+        value: 4,
+        value2: 4,
+      }),
+    ).toThrow(GenerationError);
+  });
+
+  it('draws a gauge with labels every second tick and room above the reading', () => {
+    expect(gaugeFor('scale', 70, 10, 'g')).toEqual({
+      kind: 'gauge',
+      instrument: 'scale',
+      min: 0,
+      max: 100,
+      ticksEvery: 10,
+      labelsEvery: 20,
+      value: 70,
+      unit: 'g',
+    });
+    expect(gaugeFor('beaker', 13, 1, 'L').max).toBe(14);
+  });
+});
+
+// ---------- misconception rules ----------
+
+describe('MC.unit-gaps (unitGaps)', () => {
+  const t = tpl('mea.length', 'measure-length', { tier: 'concrete' });
+  const item = () => generateItemFromParams(t, { mode: 'iterate', unit: 'cube', length: 4 });
+
+  it.each([
+    ['a gap between units', [0, 1, 2.5, 3.5], true],
+    ['an overlap', [0, 0.5, 1.5, 2.5], true],
+    ['a gap before the first unit', [0.6, 1.6, 2.6, 3.6], true],
+    ['units end to end (a wrong count is not this misconception)', [0, 1, 2], false],
+    ['small drift within the tolerance', [0.05, 1.05, 2.1, 3.1], false],
+    ['small gaps that add up past the end', [0, 1.09, 2.18, 3.27], true],
+    ['small overlaps that add up short of the end', [0, 0.91, 1.82, 2.73], true],
+  ] as const)('%s → %s', (_name, units, expected) => {
+    const r = { kind: 'state' as const, value: { units: [...units], value: units.length } };
+    expect(unitGaps.match(item(), r)).toBe(expected);
+  });
+
+  it('does not apply to other answers', () => {
+    const pad = generateItemFromParams(tpl('mea.length', 'number-pad'), {
+      mode: 'iterate',
+      length: 4,
+    });
+    expect(unitGaps.match(pad, { kind: 'number', value: 3 })).toBe(false);
+    expect(unitGaps.kind).toBe('state');
+    expect(unitGaps.predict).toBeUndefined();
+  });
+});
+
+describe('MC.bigger-unit-more (biggerUnitMore)', () => {
+  it('predicts the swapped counts on a two-unit measurement', () => {
+    const item = generateItemFromParams(tpl('mea.length', 'measure-length'), {
+      mode: 'two-units',
+      unit: 'cube',
+      altUnit: 'stick',
+      length: 8,
+    });
+    expect(biggerUnitMore.predict?.(item)).toEqual({ kind: 'numbers', values: [2, 8] });
+    expect(biggerUnitMore.match(item, { kind: 'numbers', values: [2, 8] })).toBe(true);
+    expect(biggerUnitMore.match(item, { kind: 'numbers', values: [8, 3] })).toBe(false);
+    expect(checkResponse(item, { kind: 'numbers', values: [2, 8] }).correct).toBe(false);
+  });
+
+  it('predicts the bigger unit as "needed more" on a compare item', () => {
+    for (const ask of ['more', 'fewer']) {
+      const item = generateItemFromParams(tpl('mea.length', 'compare'), {
+        mode: 'two-units',
+        ask,
+        unit: 'shell',
+        altUnit: 'stick',
+        length: 2,
+      });
+      const correct = item.answer.kind === 'choice' ? item.answer.id : '';
+      const other = correct === 'left' ? 'right' : 'left';
+      expect(biggerUnitMore.predict?.(item)).toEqual({ kind: 'choice', id: other });
+      expect(biggerUnitMore.match(item, { kind: 'choice', id: other })).toBe(true);
+      expect(biggerUnitMore.match(item, { kind: 'choice', id: 'same' })).toBe(false);
+    }
+  });
+
+  it('cannot discriminate on items that are not two-unit items', () => {
+    const iterate = generateItemFromParams(tpl('mea.length', 'number-pad'), {
+      mode: 'iterate',
+      length: 4,
+    });
+    expect(biggerUnitMore.predict?.(iterate)).toBeNull();
+    expect(biggerUnitMore.match(iterate, { kind: 'number', value: 4 })).toBe(false);
+    const ruler = generateItemFromParams(tpl('mea.length', 'compare'), {
+      mode: 'compare',
+      length: 5,
+      same: true,
+    });
+    expect(biggerUnitMore.predict?.(ruler)).toBeNull();
+  });
+});

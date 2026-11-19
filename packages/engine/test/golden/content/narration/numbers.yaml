@@ -458,6 +458,47 @@ word.no:
   text: "no"
 word.box:
   text: "box"
+# geometry and measurement words (K01: GEO, MEA.15)
+word.flat:
+  text: "flat"
+word.solid:
+  text: "solid"
+word.sides:
+  text: "sides"
+word.corners:
+  text: "corners"
+word.heavy:
+  text: "heavy"
+word.light:
+  text: "light"
+word.long:
+  text: "long"
+word.short:
+  text: "short"
+word.heavier:
+  text: "heavier"
+word.longer:
+  text: "longer"
+word.holds-more:
+  text: "holds more"
+word.holds-less:
+  text: "holds less"
+word.above:
+  text: "above"
+word.below:
+  text: "below"
+word.beside:
+  text: "beside"
+word.next-to:
+  text: "next to"
+word.in-front-of:
+  text: "in front of"
+word.behind:
+  text: "behind"
+word.left-of:
+  text: "to the left of"
+word.right-of:
+  text: "to the right of"
 
 # ---------- shape: every ShapeKind (one, many) ----------
 shape.circle.one:
