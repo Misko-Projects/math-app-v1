@@ -64,11 +64,12 @@ export function FillOutline({
   const w = b.maxX - b.minX;
   const h = b.maxY - b.minY;
   const minT = MIN_TARGET_PX[ageMode];
-  // The tray: one column per piece kind, side by side: the count badge above the tile (never on
-  // the piece, whose corners a child counts, and clear of Pip's hand, which hangs below the
-  // tile), the tile, then its turn button. A column is 52 (badge) + BADGE_GAP + tile + TURN_GAP
-  // + minT tall (262 px in K), so even four kinds fit the smallest area (960 × 600: about 289 px
-  // of height inside the widget's padding; review CR-1.1, evidence review).
+  // The tray: one column per piece kind, side by side: the turn button, then the count badge
+  // (never on the piece, whose corners a child counts), then the tile at the bottom, so Pip's
+  // hand, which hangs below an invited tile, touches nothing else (evidence review: it covered
+  // the turn button). A column is minT + TURN_GAP + 64 (badge) + BADGE_GAP + tile tall (274 px in
+  // K), so even four kinds fit the smallest area (960 × 600: about 289 px of height inside the
+  // widget's padding; review CR-1.1, evidence review).
   const tile = Math.max(minT + 16, 96);
   const trayW = pieces.length * tile + Math.max(0, pieces.length - 1) * CELL_GAP;
   const checkW = ageMode === 'k' ? minT + 24 : CHECK_W;
@@ -314,6 +315,17 @@ export function FillOutline({
               data-piece={piece.id}
               style={{ gap: TURN_GAP }}
             >
+              <button
+                type="button"
+                className={['ni-scomp__rotate', invite === `rotate-${piece.id}` ? 'ni-invite' : '']
+                  .filter(Boolean)
+                  .join(' ')}
+                aria-label={t('ui.scomp.turn', { name: t(`shape.${piece.kind}.one`) })}
+                disabled={!interactive}
+                onClick={() => turn(piece.id)}
+              >
+                <TurnIcon />
+              </button>
               <span className="ni-scomp__tile-slot" style={{ gap: BADGE_GAP }}>
                 <span className="ni-scomp__count" aria-hidden="true">
                   {n}
@@ -366,17 +378,6 @@ export function FillOutline({
                   </svg>
                 </span>
               </span>
-              <button
-                type="button"
-                className={['ni-scomp__rotate', invite === `rotate-${piece.id}` ? 'ni-invite' : '']
-                  .filter(Boolean)
-                  .join(' ')}
-                aria-label={t('ui.scomp.turn', { name: t(`shape.${piece.kind}.one`) })}
-                disabled={!interactive}
-                onClick={() => turn(piece.id)}
-              >
-                <TurnIcon />
-              </button>
             </div>
           );
         })}

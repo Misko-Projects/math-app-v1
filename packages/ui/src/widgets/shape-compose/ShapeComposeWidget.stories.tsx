@@ -14,6 +14,7 @@ import {
   boxGap,
   expectApart,
   expectControls,
+  expectHandTouchesOnlyInvited,
   expectNumeralInk,
   expectOneInviteRing,
   expectRenderedNumerals,
@@ -838,6 +839,14 @@ export const DemoInvite: Story = {
     await expectOneInviteRing(root, {
       clearOf: [...root.querySelectorAll('.ni-scomp__tile, .ni-scomp__rotate')],
     });
+    // The whole hand (and its bob) touches only the invited tile (evidence review).
+    await expectHandTouchesOnlyInvited(root, [
+      ...[...root.querySelectorAll('.ni-scomp__tile, .ni-scomp__rotate, .ni-scomp__undo')].filter(
+        (e) => e !== tile(root, 'p-triangle'),
+      ),
+      within(root).getByRole('button', { name: 'Check' }),
+      boardPad(root),
+    ]);
   },
 };
 
