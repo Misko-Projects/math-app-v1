@@ -334,6 +334,9 @@ const HAND_REACH = 52;
  */
 const SHORT_OVERHANG = 30;
 const K_SHORT_ROW_GAP = 14;
+/** Above the pad (side-right): the answer row stands this far up, so Pip's hand under it (38 px,
+ * 46 px with its bob) never touches a key. */
+const ANSWER_HAND_GAP = 48;
 
 /** The stones' size and window for a road `w` px wide. */
 export function stonesFor(c: Config, w: number, target: number) {
@@ -480,7 +483,8 @@ function planLayout(c: Config, room: WidgetRoom | null, age: AgeMode, m: Measure
           const rightW = Math.max(p.w, answerRow.w);
           const mainW = W - G - rightW;
           const hops = hopsBox(mainW, kind);
-          const right = answerRow.h + G + p.h;
+          // Pip's hand under Check or the minus hangs clear of the pad below (ANSWER_HAND_GAP).
+          const right = answerRow.h + ANSWER_HAND_GAP + p.h;
           const h = Math.max(pathH(mainW) + G + hops.h, right);
           add('side-right', pad, kind, mainW, hops.cols, h, right, mainW >= 3 * T);
         }

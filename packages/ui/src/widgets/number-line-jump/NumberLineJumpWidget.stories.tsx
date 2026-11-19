@@ -1004,6 +1004,17 @@ export const NegativeLandingChild: Story = {
     await userEvent.click(key(root, '3'));
     await expect(readout(root)).toHaveTextContent('\u22123');
     await expectInviteOn(root, checkBtn(root));
+    // The hand under Check (bob included) touches no other control (the pad is below it).
+    const hb = (root.querySelector('.ni-hand') as HTMLElement).getBoundingClientRect();
+    for (const b of root.querySelectorAll('button')) {
+      if (b === checkBtn(root)) continue;
+      const r = b.getBoundingClientRect();
+      const apart =
+        hb.right <= r.left || r.right <= hb.left || hb.bottom + 8 <= r.top || r.bottom <= hb.top;
+      await expect(apart, `hand clear of ${b.getAttribute('aria-label') ?? b.textContent}`).toBe(
+        true,
+      );
+    }
     await userEvent.click(checkBtn(root));
     await expect(args.onResponse).toHaveBeenCalledWith({
       kind: 'state',
