@@ -1,6 +1,6 @@
 import type { ObjectSet } from '@number-island/shared';
 import { describe, expect, it } from 'vitest';
-import { applyPadKey, createSubmitGuard, padValue } from './controls';
+import { applyPadKey, balancedRows, createSubmitGuard, padValue } from './controls';
 import { dicePattern, dotsLayout, groupIndexes, objectSetLayout } from './layout';
 import { stepsBetween } from './NumberLineView';
 
@@ -223,6 +223,24 @@ describe('review regressions (PR #63 round 3)', () => {
     const mixed = objectSetLayout(set({ count: 2, layout: 'groups', groups: [2, 0] }));
     expect(mixed.frames).toHaveLength(2);
     expect(mixed.objects).toHaveLength(2);
+  });
+});
+
+describe('review regressions (PR #63 round 8)', () => {
+  it('balancedRows splits cards as evenly as possible, never a lonely last card', () => {
+    expect(balancedRows(21, 4)).toEqual([6, 5, 5, 5]);
+    expect(balancedRows(21, 5)).toEqual([5, 4, 4, 4, 4]);
+    expect(balancedRows(11, 2)).toEqual([6, 5]);
+    expect(balancedRows(11, 1)).toEqual([11]);
+    expect(balancedRows(3, 9)).toEqual([1, 1, 1]);
+    expect(balancedRows(0, 2)).toEqual([]);
+    for (let n = 1; n <= 30; n++) {
+      for (let r = 1; r <= n; r++) {
+        const s = balancedRows(n, r);
+        expect(s.reduce((a, b) => a + b, 0)).toBe(n);
+        expect(Math.max(...s) - Math.min(...s)).toBeLessThanOrEqual(1);
+      }
+    }
   });
 });
 

@@ -116,9 +116,11 @@ export function NumberLineView({
   // Numerals follow labelsEvery (which numbers a question hides is the generator's choice, 03 §5.1),
   // with one rule: a mark that carries its own label ("?", or a given number) replaces the tick's
   // numeral, so a hidden term is never printed under its "?". A bare arrow mark keeps its numeral.
-  const relabelled = new Set(marks.filter((m) => m.label !== undefined).map((m) => m.at));
+  // Positions compare at the label steps' 6-decimal precision, so a computed 0.1 + 0.2 still matches 0.3.
+  const at6 = (v: number) => Number(v.toFixed(6));
+  const relabelled = new Set(marks.filter((m) => m.label !== undefined).map((m) => at6(m.at)));
   const labels = candidates.filter(
-    (v) => Math.abs(v / unit - Math.round(v / unit)) < 1e-6 && !relabelled.has(v),
+    (v) => Math.abs(v / unit - Math.round(v / unit)) < 1e-6 && !relabelled.has(at6(v)),
   );
   // Jump arcs and arrow pointers need room above the line; a bare line doesn't.
   const lineY =

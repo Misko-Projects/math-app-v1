@@ -218,6 +218,20 @@ export const NumberLineHiddenTerm: Story = {
           maxWidth={700}
         />
       </div>
+      <div data-testid="decimal">
+        <StimulusView
+          spec={{
+            kind: 'number-line',
+            min: 0,
+            max: 0.5,
+            ticksEvery: 0.1,
+            labelsEvery: 0.1,
+            // A computed coordinate (0.30000000000000004) still hides the 0.3 numeral.
+            marks: [{ at: 0.1 + 0.2, label: '?' }],
+          }}
+          maxWidth={700}
+        />
+      </div>
     </div>
   ),
   play: async ({ canvasElement }) => {
@@ -230,6 +244,34 @@ export const NumberLineHiddenTerm: Story = {
     await expect(texts('hidden')).toEqual(expect.arrayContaining(['?', '2', '4']));
     await expect(texts('hidden')).not.toContain('3');
     await expect(texts('start')).toContain('33');
+    await expect(texts('decimal')).toEqual(expect.arrayContaining(['?', '0.2', '0.4']));
+    await expect(texts('decimal')).not.toContain('0.3');
+  },
+};
+
+/** A 0–20 tray in a 680 px space: balanced rows (6 + 5 + 5 + 5), each centred. */
+export const TrayTwentyK: Story = {
+  globals: { ageMode: 'k' },
+  render: () => (
+    <div style={{ width: 680 }}>
+      <NumeralTray
+        values={Array.from({ length: 21 }, (_, i) => i)}
+        selected={null}
+        onPick={() => {}}
+      />
+    </div>
+  ),
+  play: async ({ canvasElement }) => {
+    const cards = within(canvasElement).getAllByRole('button');
+    await expect(cards).toHaveLength(21);
+    const rows = new Map<number, number>();
+    for (const c of cards) {
+      const top = Math.round(c.getBoundingClientRect().top);
+      rows.set(top, (rows.get(top) ?? 0) + 1);
+    }
+    const counts = [...rows.values()];
+    await expect(Math.max(...counts) - Math.min(...counts)).toBeLessThanOrEqual(1);
+    await expectTargetGaps(cards);
   },
 };
 

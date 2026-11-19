@@ -117,6 +117,17 @@ export interface NumeralTrayProps {
 }
 
 /** A row of numeral cards (0–10, 0–20, or pick options). Tapping speaks the number. */
+/**
+ * Row sizes for n cards in `rows` rows, as even as possible (the first rows take the extra):
+ * 21 in 4 rows → [6, 5, 5, 5], 11 in 2 → [6, 5].
+ */
+export function balancedRows(n: number, rows: number): number[] {
+  const r = Math.max(1, Math.min(n, Math.floor(rows)));
+  const base = Math.floor(n / r);
+  const extra = n % r;
+  return Array.from({ length: n === 0 ? 0 : r }, (_, i) => base + (i < extra ? 1 : 0));
+}
+
 export function NumeralTray({
   values,
   selected,
@@ -134,10 +145,10 @@ export function NumeralTray({
   // not a bigger target than "9".
   const digits = Math.max(1, ...values.map((v) => String(v).length));
   const cardWidth = `max(calc(var(--target-min) * 1.15), ${digits * 30 + 40}px)`;
-  // Balanced rows: the fewest rows that fit, with the cards split evenly between them (0–10 on a
-  // narrow screen is 6 + 5, never 10 + a lonely 1).
+  // Balanced rows: the fewest rows that fit, with the cards split as evenly as possible
+  // (0–10 → 6 + 5, 0–20 at 680 px → 6 + 5 + 5 + 5), never a lonely last card.
   const ref = useRef<HTMLFieldSetElement | null>(null);
-  const [cols, setCols] = useState(values.length);
+  const [rowCount, setRowCount] = useState(1);
   useLayoutEffect(() => {
     const el = ref.current;
     if (!el || typeof ResizeObserver === 'undefined') return;
@@ -146,44 +157,47 @@ export function NumeralTray({
       const avail = el.parentElement?.clientWidth ?? el.clientWidth;
       if (!card || avail <= 0) return;
       const gap = Number.parseFloat(getComputedStyle(el).columnGap) || 12;
-      const n = values.length;
-      let next = n;
-      for (let rows = 1; rows <= n; rows++) {
-        const c = Math.ceil(n / rows);
-        if (c * card.offsetWidth + (c - 1) * gap <= avail) {
-          next = c;
-          break;
-        }
-      }
-      setCols(next);
+      const perRow = Math.max(1, Math.floor((avail + gap) / (card.offsetWidth + gap)));
+      setRowCount(Math.ceil(values.length / perRow));
     };
     measure();
     const ro = new ResizeObserver(measure);
     if (el.parentElement) ro.observe(el.parentElement);
     return () => ro.disconnect();
   }, [values.length]);
+  const sizes = balancedRows(values.length, rowCount);
+  const rows: number[][] = [];
+  let start = 0;
+  for (const size of sizes) {
+    rows.push(values.slice(start, start + size));
+    start += size;
+  }
   return (
     <fieldset
       ref={ref}
       className="ni-tray-numerals"
       aria-label={t(label)}
       disabled={disabled}
-      style={{ '--card-w': cardWidth, '--tray-cols': cols } as CSSProperties}
+      style={{ '--card-w': cardWidth } as CSSProperties}
     >
-      {values.map((v) => (
-        <PickCard
-          key={v}
-          label={String(v)}
-          selected={selected === v}
-          highlighted={highlighted === v}
-          data-id={`opt-${v}`}
-          onPress={() => {
-            if (speaks) sayNumber(v);
-            onPick(v);
-          }}
-        >
-          <span className="ni-pick__numeral">{v}</span>
-        </PickCard>
+      {rows.map((row) => (
+        <div key={row[0]} className="ni-tray-numerals__row">
+          {row.map((v) => (
+            <PickCard
+              key={v}
+              label={String(v)}
+              selected={selected === v}
+              highlighted={highlighted === v}
+              data-id={`opt-${v}`}
+              onPress={() => {
+                if (speaks) sayNumber(v);
+                onPick(v);
+              }}
+            >
+              <span className="ni-pick__numeral">{v}</span>
+            </PickCard>
+          ))}
+        </div>
       ))}
     </fieldset>
   );

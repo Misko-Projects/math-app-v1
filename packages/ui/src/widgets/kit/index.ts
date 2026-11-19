@@ -2,6 +2,7 @@
 // See ./README.md. Widgets import from here; workshops never do (they render WidgetHost).
 export {
   applyPadKey,
+  balancedRows,
   CheckButton,
   type CheckButtonProps,
   createSubmitGuard,

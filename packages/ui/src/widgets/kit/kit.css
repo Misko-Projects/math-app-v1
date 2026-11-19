@@ -329,26 +329,22 @@
 /* ---------- pick cards and numeral tray ---------- */
 
 .ni-tray-numerals {
-  /*
-   * --tray-cols comes from NumeralTray: the fewest rows that fit, split evenly. The tray is
-   * exactly that many cards wide and wraps centred, so a shorter last row sits in the middle.
-   */
+  /* NumeralTray renders balanced rows (balancedRows); each row is centred. */
   display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
-  width: calc(
-    var(--tray-cols, 11) *
-    var(--card-w) +
-    (var(--tray-cols, 11) - 1) *
-    var(--target-gap)
-  );
+  flex-direction: column;
+  align-items: center;
+  gap: var(--target-gap);
   max-width: 100%;
   box-sizing: border-box;
-  gap: var(--target-gap);
   margin: 0;
   padding: 0;
   border: 0;
   min-width: 0;
+}
+.ni-tray-numerals__row {
+  display: flex;
+  justify-content: center;
+  gap: var(--target-gap);
 }
 
 .ni-pick {
