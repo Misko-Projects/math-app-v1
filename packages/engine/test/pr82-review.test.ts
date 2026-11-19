@@ -125,6 +125,61 @@ describe('PR #82 review (1): ADD.23.t3 equation options never give the key away'
     for (const r of rank) expect(r).toBeGreaterThan(2000 / 4 / 1.5);
   });
 
+  it('ADD.23.t3: every key of one option set has the same difficulty, so targeting cannot favour a key', () => {
+    // Review round 2: size came from the keyed sum, so a target of 0.45 favoured the largest
+    // total. The features now describe the grid, the same for all four corners.
+    const t = fixtureTemplate('ADD.23.t3');
+    const bySet = new Map<string, Set<number>>();
+    for (const item of items(t, 1500)) {
+      if (item.widget.format !== 'numeral-pick') continue;
+      const set = item.widget.options
+        .map((o) => o.id)
+        .sort()
+        .join(',');
+      const d = bySet.get(set) ?? new Set<number>();
+      d.add(item.difficulty);
+      bySet.set(set, d);
+    }
+    for (const [set, ds] of bySet) expect([...ds], set).toHaveLength(1);
+  });
+
+  it.each([0.45, -0.3, 0, 0.3])(
+    'ADD.23.t3 at target %s: guessing the largest total is no better than chance',
+    (difficulty) => {
+      const t = fixtureTemplate('ADD.23.t3');
+      const total = (id: string) => {
+        const [, x, op, y] = id.match(/^eq-(\d+)-(plus|minus)-(\d+)$/) ?? [];
+        return op === 'minus' ? Number(x) - Number(y) : Number(x) + Number(y);
+      };
+      let hits = 0;
+      const N = 1000;
+      for (let seed = 1; seed <= N; seed += 1) {
+        const item = generateItem(t, seed, { difficulty });
+        if (item.widget.format !== 'numeral-pick' || item.answer.kind !== 'choice') continue;
+        const largest = [...item.widget.options].sort((p, q) => total(q.id) - total(p.id))[0];
+        if (largest?.id === item.answer.id) hits += 1;
+      }
+      // One option in four has the largest total (ties go to the first): chance is about 0.25.
+      expect(hits / N).toBeLessThan(0.35);
+    },
+  );
+
+  it('a subtraction grid never offers an operand past maxN (it could never be the key)', () => {
+    const g = registry.get('story.addsub');
+    const t = { format: 'numeral-pick' } as ItemTemplate;
+    const p = {
+      situation: 'take-from/result',
+      context: 'beach-shells',
+      maxN: 5,
+      maxTold: 6,
+      a: 5,
+      b: 2,
+      corner: 0,
+    };
+    // Corner 0 would offer 6 − 2 and 6 − 3, which no draw can key with maxN 5.
+    expect(g?.accepts?.(p, t)).toBe(false);
+  });
+
   it('ADD.23.t3: features are rebuilt from the params alone (the drawn corner is a param)', () => {
     const t = fixtureTemplate('ADD.23.t3');
     const g = registry.get(t.generator);
