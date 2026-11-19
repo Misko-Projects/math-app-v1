@@ -54,17 +54,24 @@ const STRING = 'string';
 type Config = ConfigFor<'compare-length'>;
 type Obj = Config['objects'][number];
 
-/** Room under an invited lane for Pip's hand (it hangs below the ring, about 55 px down). */
-const HAND_ROOM = 52;
+/**
+ * Room under an invited lane for Pip's hand (it hangs about 45 px below the lane): 8+ px clear of
+ * the next lane (evidence review).
+ */
+const HAND_ROOM = 44;
 /**
  * The ring around a picked or invited object (evidence review): 6 px inside its lane, a 5 px
- * stroke, 6 px clear of the drawing on every side. Under it 13 px of lane, so Pip's hand (which
- * starts below the ring, `RING_ZONE` px clear) still points inside the object's box.
+ * stroke, 6 px clear of the drawing on every side, and 4+ px right of the start line (it then
+ * leaves the left tip of an object on the line outside). Under it 28 px of lane, so Pip's hand
+ * (which starts below the ring, `RING_ZONE` px clear) points inside the object's box with its
+ * fingertip 8+ px above the lane's bottom border.
  */
 const RING_INSET = 6;
 const RING_STROKE = 5;
 const RING_PAD = 6;
-const RING_BELOW = 13;
+const RING_BELOW = 28;
+/** The ring's least gap to the start line's right edge (the line is 4 px wide). */
+const RING_LINE_GAP = 4;
 const RING_ZONE = 4;
 /** The drawing's top in its lane, and the lane left under it (the ring and the room below). */
 const ART_TOP = RING_INSET + RING_STROKE + RING_PAD;
@@ -74,6 +81,8 @@ const TICKS_H = 14;
 const TICKS_GAP = 12;
 /** Order: the badge slot's left edge in its lane. Indirect: the tag's. */
 const BADGE_LEFT = 8;
+/** Order: a badge's drop slot is a badge (the target size) and 4 px round it (evidence review). */
+const SLOT_MARGIN = 4;
 const TAG_LEFT = 8;
 /** The largest unit (px): a short object still reads as an object, not a bar across the screen. */
 const UNIT_MAX = 120;
@@ -133,7 +142,9 @@ export function CompareLengthWidget({
     48 -
     (ask === 'indirect' ? nObj * TAG_PX + (nObj - 1) * 12 + 34 : 0) -
     (ticks ? TICKS_H + TICKS_GAP + 4 : 0);
-  const rowFloor = compact ? minTarget : minTarget + 8;
+  // Order: a lane holds its badge slot (a badge and 4 px round it) 4 px inside.
+  const slotPx = minTarget + 2 * SLOT_MARGIN;
+  const rowFloor = Math.max(compact ? minTarget : minTarget + 8, ask === 'order' ? slotPx + 8 : 0);
   const rowH = typed
     ? compact
       ? 46
@@ -155,7 +166,7 @@ export function CompareLengthWidget({
   const ringOut = RING_STROKE + RING_PAD;
   const lineX =
     ask === 'order'
-      ? BADGE_LEFT + (minTarget - 4) + 18
+      ? BADGE_LEFT + slotPx + 18
       : ask === 'indirect'
         ? TAG_LEFT + TAG_PX + 10 + ringOut
         : RING_INSET + ringOut + 4;
@@ -337,7 +348,11 @@ export function CompareLengthWidget({
       if (invite === 'entry') return r.querySelector<HTMLElement>('.ni-entry__box');
       if (invite.startsWith('slot-'))
         return r.querySelector<HTMLElement>(`.ni-clen__badge[data-badge="${slotOf(invite)}"]`);
-      return r.querySelector<HTMLElement>(`.ni-clen__obj[data-id="${invite}"]`);
+      // An object: its anchor (its box above the lane's bottom border), so the fingertip stays
+      // 8+ px above that border (evidence review: it touched it).
+      return r.querySelector<HTMLElement>(
+        `.ni-clen__obj[data-id="${invite}"] > .ni-clen__hand-anchor`,
+      );
     },
     invite ?? '',
   );
@@ -387,7 +402,7 @@ export function CompareLengthWidget({
           />
         ) : null}
         {ask === 'order' && slot >= 0 ? (
-          <span className="ni-clen__placed" style={{ left: BADGE_LEFT, width: minTarget - 4 }}>
+          <span className="ni-clen__placed" style={{ left: BADGE_LEFT, width: slotPx }}>
             {badge(slot)}
           </span>
         ) : null}
@@ -395,7 +410,7 @@ export function CompareLengthWidget({
         {ask === 'order' && slot < 0 ? (
           <span
             className="ni-clen__placed"
-            style={{ left: BADGE_LEFT, width: minTarget - 4 }}
+            style={{ left: BADGE_LEFT, width: slotPx }}
             aria-hidden="true"
           >
             <span className="ni-clen__slot" data-slot-for={o.id} />
@@ -444,13 +459,14 @@ export function CompareLengthWidget({
             }
           }}
         >
+          <span className="ni-clen__hand-anchor" aria-hidden="true" />
           <span
             className="ni-clen__art"
             style={
               typed ? { width: objW } : { width: objW, alignSelf: 'flex-start', marginTop: ART_TOP }
             }
           >
-            <LengthObject sprite={o.sprite} width={objW} height={artH} unitPx={unit} />
+            <LengthObject sprite={o.sprite} width={objW} height={artH} />
             {picked || invite === o.id ? (
               // The ring encloses the whole drawing. Invited, its zone (the ring and 4 px round
               // it) is the control's glyph, so Pip's hand starts under the ring, never on it.
@@ -458,7 +474,14 @@ export function CompareLengthWidget({
                 className={['ni-clen__ring-zone', invite === o.id ? 'ni-btn__label' : '']
                   .filter(Boolean)
                   .join(' ')}
-                style={{ inset: -(ringOut + RING_ZONE) }}
+                style={{
+                  inset: -(ringOut + RING_ZONE),
+                  // Its left edge 4+ px right of the start line (evidence review: it crossed it).
+                  left: Math.max(
+                    -(ringOut + RING_ZONE),
+                    lineX + 2 + RING_LINE_GAP - RING_ZONE - startPx(o),
+                  ),
+                }}
                 aria-hidden="true"
               >
                 <span

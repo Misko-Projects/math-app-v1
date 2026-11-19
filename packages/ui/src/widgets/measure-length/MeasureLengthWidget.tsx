@@ -34,6 +34,7 @@ import {
   LengthObject,
   RULER_PAD,
   Ruler,
+  rulerLabels,
   rulerWidth,
   UnitPiece,
   unitHeight,
@@ -202,17 +203,29 @@ export function MeasureLengthWidget({
         : 0;
   const unitPxOf = (u: LengthUnit) =>
     config.mode === 'two-units' ? basePx * UNIT_SIZE[u] : basePx;
-  const rulerMax = Math.ceil(config.startOffset + whole) + 1;
   // Standard units print their symbol on the ruler, in its own slot after the end numeral.
   const unitLabel = ['in', 'cm', 'ft', 'm'].includes(config.unit) ? config.unit : undefined;
   // The ruler fills the track: its width is `rulerMax × unit` plus its fixed ends (padding, the
   // end numeral's half and the unit symbol's slot), so a long ruler (30 cm) still fits.
-  const rulerUnit = laying
-    ? 0
-    : Math.max(
-        12,
-        Math.min(90, Math.floor((trackW - rulerWidth(rulerMax, 0, unitLabel)) / rulerMax)),
-      );
+  const fitUnit = (max: number) =>
+    Math.max(12, Math.min(90, Math.floor((trackW - rulerWidth(max, 0, unitLabel)) / max)));
+  // The ruler runs one unit past the object's end, and ends on a numeral: with numerals every
+  // fifth mark it stops at the last one the object reaches (evidence review: a 30 cm ruler's
+  // ticks ran on to 31 past its last numeral).
+  const rulerMax = (() => {
+    const end = Math.ceil(config.startOffset + whole);
+    let max = end + 1;
+    if (laying) return max;
+    for (let k = 0; k < 2; k += 1) {
+      const labels = rulerLabels(max, fitUnit(max));
+      const stride = labels.length > 1 ? (labels[1] as number) - (labels[0] as number) : 1;
+      if (max % stride === 0) break;
+      const down = Math.floor(max / stride) * stride;
+      max = down >= end ? down : Math.ceil(max / stride) * stride;
+    }
+    return max;
+  })();
+  const rulerUnit = laying ? 0 : fitUnit(rulerMax);
   // The pad holds the longest reading the ruler shows: its whole-number digits plus a digit for
   // halves or two for quarters (10.25 is four digits; applyPadKey counts digits on both sides).
   const readDigits =
@@ -495,7 +508,6 @@ export function MeasureLengthWidget({
         sprite={config.object.sprite}
         width={objectPx}
         height={compact ? (config.mode === 'two-units' ? 28 : 36) : 44}
-        unitPx={unitPxOf(config.unit)}
       />
     </div>
   );
@@ -620,12 +632,7 @@ export function MeasureLengthWidget({
           style={{ width: rulerWidth(rulerMax, rulerUnit, unitLabel) }}
         >
           <div className="ni-mlen__object" style={{ marginLeft: objectLeft, width: objectPx }}>
-            <LengthObject
-              sprite={config.object.sprite}
-              width={objectPx}
-              height={44}
-              unitPx={rulerUnit}
-            />
+            <LengthObject sprite={config.object.sprite} width={objectPx} height={44} />
           </div>
           {/* Where the object starts, when that is not 0: a bold line from its end down onto the
               ruler and an arrow on the mark (evidence review). It stays with the object. */}
@@ -733,7 +740,13 @@ export function MeasureLengthWidget({
       labels={units.map((u) => (laying ? unitName(u) : t('ui.widget.answer')))}
       adornments={
         laying
-          ? units.map((u) => <UnitPiece key={u} unit={u} width={u === 'stick' ? 40 : 30} />)
+          ? units.map((u) => (
+              // The whole unit picture, centred in a square beside the number (evidence review: a
+              // shell sat at the top of its slot and read as a clipped dome).
+              <span key={u} className="ni-mlen__unit-icon" data-unit-icon={u}>
+                <UnitPiece unit={u} width={u === 'cube' ? 30 : 38} />
+              </span>
+            ))
           : []
       }
       maxDigits={laying ? 2 : readDigits}

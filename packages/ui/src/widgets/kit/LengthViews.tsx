@@ -18,34 +18,15 @@ export interface LengthObjectProps {
   /** Exact drawn width in px. */
   width: number;
   height?: number;
-  /**
-   * The px length of one unit, where the object is measured: a periodic mark (a vine's leaves)
-   * then repeats exactly once per unit, centred in it, so it never reads as a
-   * second, wrong scale (evidence review). Without it the marks follow the drawing's height.
-   */
-  unitPx?: number;
   className?: string;
 }
 
-/** Periodic mark positions: one per `unitPx`, centred in each unit; else `start` + k × `step`. */
-function marksAlong(
-  w: number,
-  unitPx: number | undefined,
-  start: number,
-  step: number,
-  end: number,
-) {
-  const xs: number[] = [];
-  if (unitPx && unitPx > 0) {
-    for (let x = unitPx / 2; x < w; x += unitPx) xs.push(x);
-    return xs;
-  }
-  for (let x = start; x < end; x += step) xs.push(x);
-  return xs;
-}
-
-/** A stretchable object exactly `width` px long (decorative; the caller names it). */
-export function LengthObject({ sprite, width, height = 40, unitPx, className }: LengthObjectProps) {
+/**
+ * A stretchable object exactly `width` px long (decorative; the caller names it). Nothing along
+ * it repeats (evidence review: a leaf per unit let a child count leaves
+ * instead of laying units): its marks are at its ends or irregular, never periodic.
+ */
+export function LengthObject({ sprite, width, height = 40, className }: LengthObjectProps) {
   const w = Math.max(2, width);
   const h = height;
   let body: ReactElement;
@@ -86,26 +67,16 @@ export function LengthObject({ sprite, width, height = 40, unitPx, className }: 
       break;
     }
     case 'ribbon': {
-      // A chunky band (82 % of the drawing's height; evidence review: it was a thin strip), its
-      // top edge scalloped in a whole number of even waves between the two notched ends, so the
-      // last wave ends exactly where the forked tail starts (no leftover nub).
-      const top = h * 0.09;
-      const bot = h * 0.91;
+      // A chunky band (94 % of the drawing's height; evidence review: it was a thin strip) with
+      // forked ends and straight edges: nothing along it repeats (no scallops to count).
+      const top = h * 0.03;
+      const bot = h * 0.97;
       const notch = Math.min(Math.max(10, h * 0.25), w / 6);
-      const span = w - 2 * notch;
-      const n = Math.max(1, Math.round(span / Math.max(12, h * 0.6)));
-      const step = span / n;
-      const lift = Math.min(6, h * 0.08);
-      const waves: string[] = [];
-      for (let k = 0; k < n; k += 1) {
-        const x = notch + k * step;
-        waves.push(`Q${r2(x + step / 2)} ${r2(top - lift)} ${r2(x + step)} ${r2(top)}`);
-      }
       body = (
         <g data-art="ribbon">
           <path
             className="ni-len__ribbon"
-            d={`M0 ${r2(top)} L${r2(notch)} ${r2(top)} ${waves.join(' ')} L${r2(w)} ${r2(top)} L${r2(w - notch)} ${r2(h / 2)} L${r2(w)} ${r2(bot)} L0 ${r2(bot)} L${r2(notch)} ${r2(h / 2)} Z`}
+            d={`M0 ${r2(top)} L${r2(w)} ${r2(top)} L${r2(w - notch)} ${r2(h / 2)} L${r2(w)} ${r2(bot)} L0 ${r2(bot)} L${r2(notch)} ${r2(h / 2)} Z`}
           />
           <line
             className="ni-len__ribbon-line"
@@ -155,22 +126,24 @@ export function LengthObject({ sprite, width, height = 40, unitPx, className }: 
       break;
     }
     case 'vine': {
+      // A stem with one pair of leaves at its root (the left end) and a curl at its tip: no
+      // leaves along it (evidence review: one leaf per unit gave the count away).
       const y = h / 2;
-      const leaves = marksAlong(w, unitPx, h * 0.55, h * 0.7, w - h * 0.5);
+      const x = Math.min(h * 0.5, w / 3);
+      const curl = Math.min(h * 0.22, w / 6);
       body = (
-        <g data-art="vine" data-mark-period={unitPx ?? undefined}>
-          <path className="ni-len__vine" d={`M2 ${y} L${r2(w - 2)} ${y}`} />
-          {leaves.map((x, i) => {
-            const up = i % 2 === 0 ? -1 : 1;
-            return (
-              <path
-                key={x}
-                className="ni-len__leaf"
-                data-leaf-x={r2(x)}
-                d={`M${r2(x)} ${y} q${r2(-h * 0.32)} ${r2(up * h * 0.12)} ${r2(-h * 0.2)} ${r2(up * h * 0.4)} q${r2(h * 0.3)} ${r2(-up * h * 0.04)} ${r2(h * 0.2)} ${r2(-up * h * 0.4)} Z`}
-              />
-            );
-          })}
+        <g data-art="vine">
+          <path
+            className="ni-len__vine"
+            d={`M2 ${y} L${r2(w - 2 - curl)} ${y} q${r2(curl)} 0 ${r2(curl)} ${r2(-curl)} q0 ${r2(-curl * 0.8)} ${r2(-curl * 0.8)} ${r2(-curl * 0.8)}`}
+          />
+          {[-1, 1].map((up) => (
+            <path
+              key={up}
+              className="ni-len__leaf"
+              d={`M${r2(x)} ${y} q${r2(-h * 0.32)} ${r2(up * h * 0.12)} ${r2(-h * 0.2)} ${r2(up * h * 0.4)} q${r2(h * 0.3)} ${r2(-up * h * 0.04)} ${r2(h * 0.2)} ${r2(-up * h * 0.4)} Z`}
+            />
+          ))}
         </g>
       );
       break;
@@ -363,7 +336,20 @@ export function Ruler({
   const height = 96;
   const ticks = stepsBetween(0, max, precision);
   const labels = new Set(rulerLabels(max, unitPx));
-  const tickLen = (v: number) => (Number.isInteger(v) ? 30 : Number.isInteger(v * 2) ? 20 : 12);
+  // Tiers (evidence review: half-cm ticks drew as tall as whole ones): every fifth whole unit
+  // longest, whole units long, halves shorter, quarters shortest. Steps are compared within a
+  // rounding tolerance, never by exact float equality.
+  const isMultiple = (v: number, of: number) => Math.abs(v / of - Math.round(v / of)) < 1e-6;
+  const tier = (v: number) =>
+    isMultiple(v, 5) && max >= 10
+      ? 'five'
+      : isMultiple(v, 1)
+        ? 'whole'
+        : isMultiple(v, 0.5)
+          ? 'half'
+          : 'quarter';
+  const TICK = { five: 40, whole: 30, half: 18, quarter: 11 } as const;
+  const tickLen = (v: number) => TICK[tier(v)];
   return (
     <svg
       className={['ni-ruler', className].filter(Boolean).join(' ')}
@@ -384,7 +370,7 @@ export function Ruler({
       {ticks.map((v) => (
         <line
           key={v}
-          className="ni-ruler__tick"
+          className={`ni-ruler__tick ni-ruler__tick--${tier(v)}`}
           data-tick={v}
           x1={RULER_PAD + v * unitPx}
           x2={RULER_PAD + v * unitPx}

@@ -127,8 +127,8 @@
 .ni-clen__slot {
   display: block;
   box-sizing: border-box;
-  width: calc(var(--target-min) - 4px);
-  height: calc(var(--target-min) - 4px);
+  width: calc(var(--target-min) + 8px);
+  height: calc(var(--target-min) + 8px);
   border: 4px dashed var(--color-ink-soft);
   border-radius: 50%;
   background: rgb(255 255 255 / 0.5);
@@ -181,10 +181,6 @@
   line-height: 1;
   user-select: none;
   -webkit-user-select: none;
-}
-.ni-clen__lane .ni-clen__badge {
-  width: calc(var(--target-min) - 4px);
-  height: calc(var(--target-min) - 4px);
 }
 /* 24 px between the side's controls: Check's 8 px focus ring stays 16 px clear (06 §4). */
 .ni-clen__side {
@@ -310,4 +306,10 @@
 }
 .ni-clen[data-compact="true"] .ni-clen__main {
   gap: 10px;
+}
+/* Where Pip's hand points in an invited object: its box above the lane's 4 px bottom border. */
+.ni-clen__hand-anchor {
+  position: absolute;
+  inset: 0 0 4px;
+  pointer-events: none;
 }

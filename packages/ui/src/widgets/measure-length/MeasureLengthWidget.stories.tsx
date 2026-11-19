@@ -280,6 +280,23 @@ export const TwoUnits: Story = {
     await expect(shellPx).toBeCloseTo(2 * cubePx, 6);
     await expect(objectPx(root)).toBeCloseTo(4 * cubePx, 0);
     await expectDropZone(root);
+    // Each answer box shows its unit's whole picture, centred in its square (evidence review: a
+    // shell read as a clipped dome).
+    for (const icon of root.querySelectorAll<HTMLElement>('[data-unit-icon]')) {
+      const box = icon.getBoundingClientRect();
+      const art = (icon.querySelector('svg') as SVGSVGElement).getBoundingClientRect();
+      const entry = (icon.closest('.ni-entry__box') as HTMLElement).getBoundingClientRect();
+      for (const r of [box, entry]) {
+        await expect(art.left).toBeGreaterThanOrEqual(r.left - 0.5);
+        await expect(art.right).toBeLessThanOrEqual(r.right + 0.5);
+        await expect(art.top).toBeGreaterThanOrEqual(r.top - 0.5);
+        await expect(art.bottom).toBeLessThanOrEqual(r.bottom + 0.5);
+      }
+      await expect(
+        Math.abs((art.top + art.bottom) / 2 - (box.top + box.bottom) / 2),
+        'unit picture centred',
+      ).toBeLessThanOrEqual(1);
+    }
     // Type 2 in the shells box, then 4 in the cubes box.
     await userEvent.click(key(root, '2'));
     await userEvent.click(root.querySelector('.ni-entry__box[data-box="1"]') as HTMLElement);
@@ -375,18 +392,63 @@ async function expectLayingLayout(
 }
 
 /**
- * The object's periodic marks (a vine's leaves) repeat exactly once per unit (evidence review:
- * a 62 px leaf period read as a second, wrong scale): consecutive leaves are one cube apart.
+ * Nothing along the measured object repeats (evidence review: a leaf per cube let a child count
+ * leaves instead of laying cubes): no kind of mark appears at three or more places along it.
+ * Records the most places any one mark appears.
  */
-async function expectLeavesPerUnit(root: HTMLElement) {
-  const xs = [...root.querySelectorAll<SVGPathElement>('.ni-mlen__object .ni-len__leaf')].map((l) =>
-    Number(l.dataset.leafX),
-  );
-  if (xs.length < 2) return;
-  const unit = unitPx(root, 'cube');
-  for (let i = 1; i < xs.length; i += 1) {
-    await expect((xs[i] as number) - (xs[i - 1] as number), 'leaf period').toBeCloseTo(unit, 0);
+async function expectNoRepeatingMarks(root: HTMLElement) {
+  const art = root.querySelector('.ni-mlen__object svg') as SVGSVGElement;
+  const byKind = new Map<string, Set<number>>();
+  for (const el of art.querySelectorAll('*')) {
+    const kind = el.getAttribute('class') ?? el.tagName;
+    const r = el.getBoundingClientRect();
+    const xs = byKind.get(kind) ?? new Set<number>();
+    xs.add(Math.round((r.left + r.right) / 2));
+    byKind.set(kind, xs);
   }
+  const most = Math.max(...[...byKind.values()].map((xs) => xs.size));
+  await expect(most, 'no mark repeats along the object').toBeLessThanOrEqual(2);
+  await expect(art.querySelector('[data-mark-period]')).toBeNull();
+  recordEvidence(root, { marks_along_span: most });
+}
+
+/**
+ * A ruler's ticks (evidence review): every `precision` from 0 to the ruler's end, which is its
+ * last numeral (no ticks past it), and tiered: every fifth whole unit longer than the whole
+ * units, whole units longer than halves, halves longer than quarters. Records the tick count,
+ * the end and each tier's length.
+ */
+async function expectRulerTicks(root: HTMLElement, precision: number) {
+  const ticks = [...root.querySelectorAll<SVGLineElement>('svg.ni-ruler .ni-ruler__tick')];
+  const values = ticks.map((t) => Number(t.dataset.tick));
+  const nums = [...root.querySelectorAll('svg.ni-ruler .ni-ruler__numeral')].map((n) =>
+    Number(n.getAttribute('data-label')),
+  );
+  const end = Math.max(...values);
+  await expect(end, 'the ticks end on the last numeral').toBe(Math.max(...nums));
+  await expect(ticks, 'a tick every step from 0 to the end').toHaveLength(
+    Math.round(end / precision) + 1,
+  );
+  const len = (tier: string) => {
+    const t = root.querySelector<SVGLineElement>(`.ni-ruler__tick--${tier}`);
+    return t ? Math.abs(t.y2.baseVal.value - t.y1.baseVal.value) : null;
+  };
+  const tiers = ['five', 'whole', 'half', 'quarter'].map((k) => [k, len(k)] as const);
+  const shown = tiers.filter(([, l]) => l !== null) as [string, number][];
+  for (let i = 1; i < shown.length; i += 1) {
+    await expect(
+      (shown[i - 1] as [string, number])[1],
+      `${(shown[i - 1] as [string, number])[0]} ticks longer than ${(shown[i] as [string, number])[0]}`,
+    ).toBeGreaterThan((shown[i] as [string, number])[1] + 5);
+  }
+  recordEvidence(root, {
+    ticks: values.length,
+    ruler_end: end,
+    tick_px: Object.fromEntries(shown),
+  });
+  console.info(
+    `[ticks] ${values.length} ticks, 0 to ${end}; ${JSON.stringify(Object.fromEntries(shown))}`,
+  );
 }
 
 /**
@@ -457,7 +519,7 @@ async function expectDropZone(root: HTMLElement) {
     inner.right - line.right,
     inner.bottom - line.bottom,
   );
-  await expect(lineIn, 'start line inside the zone').toBeGreaterThanOrEqual(6);
+  await expect(lineIn, 'start line 12 px inside the zone').toBeGreaterThanOrEqual(11.5);
   // The line sits on the object's start.
   const obj = (root.querySelector('.ni-mlen__object svg') as SVGElement).getBoundingClientRect();
   await expect((line.left + line.right) / 2).toBeCloseTo(obj.left, 0);
@@ -503,7 +565,7 @@ const iteratePlay =
     ]);
     for (const k of root.querySelectorAll('.ni-pad__key')) await expectTargetSize(k, 'k');
     await expectLayingLayout(story, canvasElement, root, 'k');
-    await expectLeavesPerUnit(root);
+    await expectNoRepeatingMarks(root);
     await expectDropZone(root);
   };
 
@@ -568,7 +630,7 @@ const stressCubes =
     ]);
     await expect(objectPx(root)).toBeCloseTo(16 * unitPx(root, 'cube'), 0);
     await expectLayingLayout(story, canvasElement, root, 'k');
-    await expectLeavesPerUnit(root);
+    await expectNoRepeatingMarks(root);
   };
 
 /** Stress, tablet area, K: 16 cubes laid along a 16-cube vine; everything fits, to scale. */
@@ -626,6 +688,7 @@ export const ReadRuler: Story = {
     await expect(obj.left).toBeCloseTo(tick(0), 0);
     await expect(obj.right).toBeCloseTo(tick(5), 0);
     await expect(root.querySelector('.ni-mlen__start-mark')).toBeNull();
+    await expectRulerTicks(root, 1);
     await expectControls('measure-length ReadRulerOffsetStart', 'g1-up', {
       keys: [...root.querySelectorAll('.ni-pad__key')],
       boxes: [...root.querySelectorAll('.ni-entry__box')],
@@ -794,9 +857,7 @@ const stressRuler =
         root.querySelector(`.ni-ruler__tick[data-tick="${v}"]`) as SVGElement
       ).getBoundingClientRect().left;
     await expect(objectPx(root)).toBeCloseTo(whole * (tick(1) - tick(0)), 0);
-    await expect(root.querySelectorAll('.ni-ruler__tick')).toHaveLength(
-      Math.round((whole + 1) / config.precision) + 1,
-    );
+    await expectRulerTicks(root, config.precision);
     await expectControls(story, 'g1-up', {
       keys: [...root.querySelectorAll('.ni-pad__key')],
       boxes: [...root.querySelectorAll('.ni-entry__box')],

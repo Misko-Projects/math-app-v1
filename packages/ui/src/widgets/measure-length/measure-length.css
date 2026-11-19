@@ -125,13 +125,13 @@
   display: flex;
   align-items: center;
 }
-/* The start line: across every row, 10 px in from the zone's top and bottom (8 px inside its
-   2 px border), and 14 px inside its left border (left set inline). */
+/* The start line: across every row, 14 px from the zone's top and bottom (12 px inside its 2 px
+   border; evidence review), and 14 px inside its left border (left set inline). */
 .ni-mlen__start {
   position: absolute;
   z-index: 1;
-  top: 10px;
-  bottom: 10px;
+  top: 14px;
+  bottom: 14px;
   border-left: 4px dashed var(--color-ink-soft);
   pointer-events: none;
 }
@@ -257,4 +257,12 @@
 .ni-mlen[data-compact="true"] {
   gap: 16px;
   padding: 2px 4px 4px;
+}
+/* A unit's picture beside its answer box's number: whole, centred in a 40 px square. */
+.ni-mlen__unit-icon {
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  align-self: center;
 }

@@ -1,6 +1,7 @@
 import type { WidgetConfig } from '@number-island/shared';
 import type { Meta, StoryObj } from '@storybook/react-vite';
 import { expect, fn, userEvent, waitFor, within } from 'storybook/test';
+import { HAND_POINTER_TIP } from '../../primitives/icons';
 import {
   areaBox,
   expectFitsArea,
@@ -18,6 +19,7 @@ import {
   outlineBox,
   recordEvidence,
   settleFocus,
+  sizeOf,
   visibleBox,
 } from '../../test-support/evidence';
 import {
@@ -182,6 +184,8 @@ async function expectRingsAround(root: HTMLElement) {
   await expect(rings.length, 'rings').toBeGreaterThan(0);
   let inLane = Number.POSITIVE_INFINITY;
   let pad = Number.POSITIVE_INFINITY;
+  let toLine = Number.POSITIVE_INFINITY;
+  const startLine = visibleBox(root.querySelector('.ni-clen__line') as HTMLElement);
   for (const ring of rings) {
     const l = (ring.closest('.ni-clen__lane') as HTMLElement).getBoundingClientRect();
     const r = ring.getBoundingClientRect();
@@ -193,8 +197,14 @@ async function expectRingsAround(root: HTMLElement) {
       (ring.closest('.ni-clen__art') as HTMLElement).querySelector('svg.ni-len') as SVGSVGElement
     ).getBoundingClientRect();
     const i = Math.min(r.left - l.left, r.top - l.top, l.right - r.right, l.bottom - r.bottom);
+    // Entirely right of the dashed start line, 4+ px clear of it (evidence review: its stroke
+    // crossed it); an object on the line then has its left tip outside the ring.
+    const gap = r.left - startLine.right;
+    await expect(gap, 'ring right of the start line').toBeGreaterThanOrEqual(3.5);
+    toLine = Math.min(toLine, gap);
+    const onLine = a.left - startLine.right < 6 + stroke;
     const p = Math.min(
-      a.left - (r.left + stroke),
+      onLine ? Number.POSITIVE_INFINITY : a.left - (r.left + stroke),
       a.top - (r.top + stroke),
       r.right - stroke - a.right,
       r.bottom - stroke - a.bottom,
@@ -204,9 +214,13 @@ async function expectRingsAround(root: HTMLElement) {
     inLane = Math.min(inLane, i);
     pad = Math.min(pad, p);
   }
-  recordEvidence(root, { ring_in_lane: Math.round(inLane), ring_pad: Math.round(pad) });
+  recordEvidence(root, {
+    ring_in_lane: Math.round(inLane),
+    ring_pad: Math.round(pad),
+    ring_to_start_line: Math.round(toLine),
+  });
   console.info(
-    `[ring] ${Math.round(inLane)} px inside the lane; drawing ${Math.round(pad)} px inside the stroke`,
+    `[ring] ${Math.round(inLane)} px inside the lane; drawing ${Math.round(pad)} px inside the stroke; ${Math.round(toLine)} px right of the start line`,
   );
   return rings[0] as HTMLElement;
 }
@@ -336,10 +350,19 @@ const lanePad = (root: HTMLElement, id: string) =>
 async function expectOrderLanes(root: HTMLElement) {
   const startLine = visibleBox(root.querySelector('.ni-clen__line') as HTMLElement);
   let least = Number.POSITIVE_INFINITY;
+  let slotPx = 0;
   for (const laneEl of root.querySelectorAll<HTMLElement>('.ni-clen__lane')) {
     const spot = laneEl.querySelector('.ni-clen__slot, .ni-clen__badge') as HTMLElement;
     const rope = laneEl.querySelector('svg.ni-len') as SVGSVGElement;
     const s = spot.getBoundingClientRect();
+    // The slot is a drop target at least a badge's size and 4 px round it (evidence review).
+    if (spot.classList.contains('ni-clen__slot')) {
+      const badgePx = Number.parseFloat(getComputedStyle(root).getPropertyValue('--target-min'));
+      await expect(Math.min(s.width, s.height), 'slot ≥ a badge + 8').toBeGreaterThanOrEqual(
+        badgePx + 8 - 0.5,
+      );
+      slotPx = Math.round(Math.min(s.width, s.height));
+    }
     const toLine = startLine.left - s.right;
     const toRope = rope.getBoundingClientRect().left - s.right;
     await expect(toLine, 'badge slot clear of the start line').toBeGreaterThanOrEqual(12);
@@ -348,7 +371,7 @@ async function expectOrderLanes(root: HTMLElement) {
     await expect(laneEl.querySelectorAll('.ni-len__rope-knot')).toHaveLength(2);
   }
   await expect(root.querySelector('.ni-len__rope-twist')).toBeNull();
-  recordEvidence(root, { slot_to_line_rope: Math.round(least) });
+  recordEvidence(root, { slot_to_line_rope: Math.round(least), slot: slotPx });
   console.info(`[order] badge slot to the start line / rope: ${Math.round(least)} px`);
 }
 
@@ -530,6 +553,11 @@ export const IndirectStrings: Story = {
     await settleFocus();
     // The ring encloses the whole log, inside its lane (evidence review: the log poked out).
     await expectRingsAround(root);
+    // What is drawn (the log) apart from what is tapped (its lane-tall target).
+    recordEvidence(root, {
+      log_drawn: sizeOf(art(root, 'obj-1')),
+      log_target: sizeOf(obj(root, 'obj-1')),
+    });
     // The laid string lies along the log, end to end across its middle, inside the picked log's
     // ring (never on the ring's edge); strings are 6 px cords with end beads.
     const ring = (root.querySelector('.ni-clen__ring') as HTMLElement).getBoundingClientRect();
@@ -755,16 +783,27 @@ export const DemoInvite: Story = {
     const ring = await expectRingsAround(root);
     // The whole hand touches only the invited ribbon, and starts under its ring (never on the
     // ring's stroke): not the other ribbon or its lane.
+    await expectHandTouchesOnlyInvited(root, [ring], { min: 3 });
+    // 8+ px clear of the other lane and Check (evidence review), and the fingertip 8+ px above
+    // its own lane's bottom border (its 4 px band), inside the ribbon's box.
     await expectHandTouchesOnlyInvited(
       root,
       [
-        ring,
         obj(root, 'obj-1'),
         root.querySelector('[data-lane="obj-1"]') as Element,
         within(root).getByRole('button', { name: 'Check' }),
       ],
-      { min: 3 },
+      { min: 8 },
     );
+    const handSvg = (root.querySelector('.ni-hand svg') as SVGSVGElement).getBoundingClientRect();
+    const tipY = handSvg.top + handSvg.height * HAND_POINTER_TIP.up.y;
+    const lane0 = (
+      root.querySelector('[data-lane="obj-0"]') as HTMLElement
+    ).getBoundingClientRect();
+    const tipToBorder = lane0.bottom - 4 - tipY;
+    await expect(tipToBorder, 'fingertip clear of the lane border').toBeGreaterThanOrEqual(8);
+    recordEvidence(root, { tip_to_lane_border: Math.round(tipToBorder) });
+    console.info(`[tip] fingertip ${Math.round(tipToBorder)} px above the lane border`);
   },
 };
 
