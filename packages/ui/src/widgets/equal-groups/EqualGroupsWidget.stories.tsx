@@ -20,6 +20,7 @@ import {
   goNext,
   inArea,
   namedStory,
+  secondFingerTap,
   stepButton,
   touchDragBetween,
 } from '../../test-support/twoStepStory';
@@ -551,6 +552,29 @@ export const DragFromTheEdgeOfTheHandle: Story = {
     const third = group(root, 2).getBoundingClientRect();
     const y = area.top + area.height / 2;
     await touchDragBetween(hit(root, 0), { x: area.right - 4, y }, { x: third.left + 6, y });
+    await expectShown(root, { groups: [0, 0, 1, 0, 0, 0] });
+  },
+};
+
+/** A second finger that taps and lifts during the drag changes nothing. */
+export const SecondFingerDuringADrag: Story = {
+  args: { config: sixGroups },
+  play: async ({ canvasElement }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    await fill(root, 0, 1);
+    const area = hit(root, 0).getBoundingClientRect();
+    const third = group(root, 2).getBoundingClientRect();
+    const y = area.top + area.height / 2;
+    await touchDragBetween(
+      hit(root, 0),
+      { x: area.right - 4, y },
+      { x: third.left + 6, y },
+      10,
+      () => {
+        secondFingerTap(hit(root, 0));
+        secondFingerTap(stepButton(root, 'next'));
+      },
+    );
     await expectShown(root, { groups: [0, 0, 1, 0, 0, 0] });
   },
 };

@@ -165,6 +165,28 @@ export function extremes(el: Element, inset = 4) {
   ];
 }
 
+/**
+ * A second finger taps `el` and lifts while another drag goes on (its own pointer id, not the
+ * primary pointer).
+ */
+export function secondFingerTap(el: Element) {
+  const r = el.getBoundingClientRect();
+  const init = (buttons: number): PointerEventInit => ({
+    bubbles: true,
+    cancelable: true,
+    composed: true,
+    pointerId: 99,
+    pointerType: 'touch',
+    isPrimary: false,
+    clientX: r.left + r.width / 2,
+    clientY: r.top + r.height / 2,
+    button: 0,
+    buttons,
+  });
+  el.dispatchEvent(new PointerEvent('pointerdown', init(1)));
+  el.dispatchEvent(new PointerEvent('pointerup', init(0)));
+}
+
 /** The limit note (`role="status"`) shows `text`. */
 export async function expectNote(root: HTMLElement, text: string | null) {
   const note = root.querySelector('[role="status"]') as HTMLElement;
@@ -216,6 +238,8 @@ export async function touchDragBetween(
   from: { x: number; y: number },
   to: { x: number; y: number },
   steps = 10,
+  /** Runs once, halfway through the drag (another finger touching, say). */
+  midway?: () => void | Promise<void>,
 ) {
   const pointerId = 70 + (Math.floor(from.x) % 20);
   const init = (x: number, y: number, buttons: number): PointerEventInit => ({
@@ -238,6 +262,10 @@ export async function touchDragBetween(
     const y = from.y + ((to.y - from.y) * k) / steps;
     window.dispatchEvent(new PointerEvent('pointermove', init(x, y, 1)));
     await frame();
+    if (midway && k === Math.floor(steps / 2)) {
+      await midway();
+      await frame();
+    }
   }
   window.dispatchEvent(new PointerEvent('pointerup', init(to.x, to.y, 0)));
   await frame();

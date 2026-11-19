@@ -21,6 +21,7 @@ import {
   goNext,
   inArea,
   namedStory,
+  secondFingerTap,
   stepButton,
   touchDragBetween,
 } from '../../test-support/twoStepStory';
@@ -580,6 +581,41 @@ export const DragFromTheEdgeOfTheHandle: Story = {
   },
 };
 
+/**
+ * A second finger that taps and lifts during the drag (on the dragged item's own target, and on
+ * another control) changes nothing: the item stays under the first finger and lands where that
+ * finger lets go.
+ */
+export const SecondFingerDuringADrag: Story = {
+  args: { config: { ...bound, recipientsKind: 'plate' } },
+  play: async ({ canvasElement }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    await userEvent.click(take(root));
+    await userEvent.click(recipient(root, 0));
+    const area = hit(root, 0).getBoundingClientRect();
+    const third = recipient(root, 2).getBoundingClientRect();
+    const y = area.top + area.height / 2;
+    let under = Number.POSITIVE_INFINITY;
+    await touchDragBetween(
+      hit(root, 0),
+      { x: area.right - 4, y },
+      { x: third.left + 4, y },
+      10,
+      async () => {
+        secondFingerTap(hit(root, 0));
+        secondFingerTap(bird(root));
+        await new Promise((r) => requestAnimationFrame(() => r(null)));
+        // Halfway: the item is still drawn under the first finger.
+        const item = handle(root, 0).getBoundingClientRect();
+        const finger = area.right - 4 + (third.left + 4 - (area.right - 4)) / 2;
+        under = Math.abs(item.left + item.width / 2 - finger);
+      },
+    );
+    await expect(under).toBeLessThan(6);
+    await expectShown(root, { shares: [0, 0, 1, 0], pile: 23 });
+  },
+};
+
 /** A press that does not move leaves the item where it was (it only followed the finger). */
 export const PressOnTheHandleEdgePicksUp: Story = {
   args: { config: fix },
@@ -616,6 +652,48 @@ export const NextWaitsForTheSharing: Story = {
     await userEvent.click(stepButton(root, 'next'));
     await expectRing(root, spot(root));
     await expect(root).toHaveAttribute('data-step', 'build');
+    // A held item is put down first, so the ringed spot is ready to be picked up.
+    await userEvent.click(take(root));
+    await expect(take(root)).toHaveAttribute('aria-pressed', 'true');
+    await userEvent.click(stepButton(root, 'next'));
+    await expect(take(root)).toHaveAttribute('aria-pressed', 'false');
+    await expectRing(root, spot(root));
+  },
+};
+
+/** A held Enter on a Next that waits says why once, not on every repeat. */
+export const HeldEnterOnAWaitingNextSpeaksOnce: Story = {
+  play: async ({ canvasElement, args, parameters }) => {
+    const audio = audioOf(parameters);
+    const root = await findWidget(canvasElement, ROOT);
+    clearSpies(audio);
+    stepButton(root, 'next').focus();
+    await holdEnter(stepButton(root, 'next'), 5, async () => {
+      await new Promise((r) => requestAnimationFrame(() => r(null)));
+    });
+    await expect(root).toHaveAttribute('data-step', 'build');
+    await expect(said(audio)).toEqual(['ui.widget.es.why.round']);
+    await expectNote(root, 'Each one can have more');
+    await expect(steps(args)).toEqual([]);
+  },
+};
+
+/** With one pebbling full and a round still in the basket, Next rings the full mat, held or not. */
+export const NextWhenOneIsFull: Story = {
+  args: { config: fillable },
+  play: async ({ canvasElement }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    for (let i = 0; i < 10; i += 1) {
+      await userEvent.click(take(root));
+      await userEvent.click(recipient(root, 0));
+    }
+    await userEvent.click(take(root));
+    await userEvent.click(stepButton(root, 'next'));
+    await expect(take(root)).toHaveAttribute('aria-pressed', 'false');
+    await expectRing(root, zone(root, 0));
+    // The ringed mat's last item can be picked up at once (nothing else is held).
+    await userEvent.click(handle(root, 0));
+    await expect(handle(root, 0)).toHaveAttribute('aria-pressed', 'true');
   },
 };
 

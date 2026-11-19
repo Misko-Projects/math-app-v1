@@ -233,7 +233,7 @@ export function EqualShareWidget({
   const rootRef = useRef<HTMLDivElement | null>(null);
   const interactive = !disabled && !busy;
 
-  const steps = useTwoStep(rootRef, { interactive, trace });
+  const steps = useTwoStep(rootRef, { interactive, trace, guard: (to) => stepGuard(to) });
   const grab = useGrabUnderFinger();
   // A pre-dealt share to judge has nothing to build: the ask step alone.
   const step: Step = dealing ? steps.step : 'ask';
@@ -382,6 +382,25 @@ export function EqualShareWidget({
       if (prev.pile > 0 && next.pile === 0) limit(REASON_KEY.empty, emptyCue(next));
     },
   });
+
+  /**
+   * A press of Next or Back (once for each press: kit `useTwoStep`). The answer comes after the
+   * sharing: while the basket could still go round, Next says so, rings what to do and stays
+   * (the ask step's picture shows fewer than a round left over). A held item is put down first,
+   * so the ringed action is open: the round button, the take-one spot, or the fullest mat.
+   */
+  const stepGuard = (to: Step): boolean => {
+    childStep();
+    const now = stateRef.current;
+    if (to !== 'ask' || now.pile < R) return true;
+    dnd.select(null);
+    const full = now.shares.some((x) => x >= cap);
+    limit(
+      REASON_KEY.round,
+      full ? `take-${fullest(now.shares)}` : sharesEqual(now.shares) ? 'deal-round' : 'spot',
+    );
+    return false;
+  };
 
   const onDealRound = () => {
     if (!interactive) return;
@@ -1148,21 +1167,7 @@ export function EqualShareWidget({
       dir={step === 'ask' && askPlan.act === 'row' ? 'row' : 'column'}
       interactive={interactive}
       ready={ready}
-      onStep={(s) => {
-        childStep();
-        // The answer comes after the sharing: while the basket could still go round, Next says
-        // so and rings what to do (the ask step's picture shows fewer than a round left over).
-        const now = stateRef.current;
-        if (s === 'ask' && now.pile >= R) {
-          const full = now.shares.some((x) => x >= cap);
-          limit(
-            REASON_KEY.round,
-            full ? `take-${fullest(now.shares)}` : sharesEqual(now.shares) ? 'deal-round' : 'spot',
-          );
-          return;
-        }
-        steps.goTo(s);
-      }}
+      onStep={steps.goTo}
       onCheck={submit}
       invited={stepCue as StepCue | null}
       compact={box.h < COMPACT_ROOM_H}

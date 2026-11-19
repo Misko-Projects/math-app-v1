@@ -193,7 +193,15 @@ export function EqualGroupsWidget({
   const rootRef = useRef<HTMLDivElement | null>(null);
   const interactive = !disabled && !busy;
 
-  const steps = useTwoStep(rootRef, { interactive, trace });
+  const steps = useTwoStep(rootRef, {
+    interactive,
+    trace,
+    // A press of Next or Back is the child's step (once for each press).
+    guard: () => {
+      childStep();
+      return true;
+    },
+  });
   const grab = useGrabUnderFinger();
   // A picture to read has nothing to build: the ask step alone.
   const step: Step = read ? 'ask' : steps.step;
@@ -1035,10 +1043,7 @@ export function EqualGroupsWidget({
       dir={step === 'ask' && askPlan.act === 'row' ? 'row' : 'column'}
       interactive={interactive}
       ready={value !== null}
-      onStep={(s) => {
-        childStep();
-        steps.goTo(s);
-      }}
+      onStep={steps.goTo}
       onCheck={submit}
       invited={stepCue as StepCue | null}
       compact={box.h < COMPACT_ROOM_H}

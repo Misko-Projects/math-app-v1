@@ -62,13 +62,22 @@ export interface TwoStep {
  */
 export function useTwoStep(
   rootRef: RefObject<HTMLElement | null>,
-  opts: { interactive: boolean; trace: TraceRecorder },
+  opts: {
+    interactive: boolean;
+    trace: TraceRecorder;
+    /**
+     * Asked once for each press of Next or Back (after the once-per-key-press gate, so a held
+     * key asks once): false keeps the step. The widget says why there (a limit note).
+     */
+    guard?: (to: Step) => boolean;
+  },
 ): TwoStep {
   const [step, setStep] = useState<Step>('build');
   const oncePerPress = useOncePerKeyPress();
   const refocus = useRef<'next' | 'back' | null>(null);
   const goTo = (s: Step) => {
     if (!opts.interactive || !oncePerPress()) return;
+    if (opts.guard && !opts.guard(s)) return;
     opts.trace('tap', s === 'ask' ? 'next' : 'back');
     const focused = document.activeElement?.closest('[data-cue]');
     refocus.current = focused ? (s === 'ask' ? 'back' : 'next') : null;
