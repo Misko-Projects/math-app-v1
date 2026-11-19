@@ -34,13 +34,20 @@
 //  5. frustration (rule 4): a confidence item, then a break offer; if the child is still struggling
 //     after it, finish the request early with full celebration. The confidence item's own
 //     resolution never re-triggers (the signals still hold the wrongs before it, and the runner
-//     offers the break right after it); a frustration on any later item ends the request;
+//     offers the break right after it); a frustration on any later item ends the request. When no
+//     skill can take the confidence item within the run rule, the request ends (`frustration`);
 //  6. every task presented → complete;
 //  7. three first-try wrongs on a skill → probe its weakest prerequisite that has a template in a
-//     format the request already uses (rule 3; none → no probe);
+//     format the request already uses and whose insertion keeps the run rule (rule 3; none → no
+//     probe);
 //  8. two first-try wrongs in a row on a skill → one CPA tier down for the rest of the request
 //     (rule 2);
 //  9. otherwise continue.
+//
+// The run rule for an inserted item (`fitsRun`): the run of its skill before the insertion point,
+// the item and the run after it hold at most maxRun items; lesson tasks are transparent. A run
+// before the insertion point that reaches the start of the request counts one more item, because
+// the session warmup (which AdaptInput does not carry) may be the same skill.
 
 import type {
   AdaptDecision,
@@ -169,29 +176,51 @@ function remediation(
   return undefined;
 }
 
-/** Rule 4: the confidence item (P(ref) ≥ warmupMinP when possible, hosted by the request's workshop). */
+/**
+ * Whether an item of skill `s`, spliced in right after the current task, keeps the run rule
+ * (04 §4: never more than maxRun items of one skill in a row outside a lesson; lesson tasks do not
+ * break a run). The run of `s` before the insertion point, the item and the run after it must fit.
+ * The planner counts the session warmup in a request's first run, but AdaptInput does not say which
+ * skill the warmup was. So when the run before the insertion point reaches the start of the request
+ * (no other skill's item before it), it counts one more item of `s`: the warmup may be `s`.
+ */
+function fitsRun(input: AdaptInput, s: SkillId, P: EngineParams): boolean {
+  const { tasks } = input.request;
+  const at = Math.max(-1, ...input.doneTaskIds);
+  let before = 0;
+  let reachesStart = true;
+  for (let i = at; i >= 0; i--) {
+    const t = tasks[i] as PlannedTask;
+    if (t.mode === 'lesson') continue;
+    if (t.skillId !== s) {
+      reachesStart = false;
+      break;
+    }
+    before += 1;
+  }
+  let after = 0;
+  for (let i = at + 1; i < tasks.length; i++) {
+    const t = tasks[i] as PlannedTask;
+    if (t.mode === 'lesson') continue;
+    if (t.skillId !== s) break;
+    after += 1;
+  }
+  return before + (reachesStart ? 1 : 0) + 1 + after <= P.planner.maxRun;
+}
+
+/**
+ * Rule 4: the confidence item (P(ref) ≥ warmupMinP when possible, hosted by the request's
+ * workshop), on a skill whose insertion keeps the run rule. Undefined when no skill fits: then the
+ * request ends (`frustration`), which 04 §6.4 rule 4 permits.
+ */
 function confidenceTask(
   input: AdaptInput,
   model: ReturnType<typeof createEloFireModel>,
   P: EngineParams,
-): PlannedTask {
+): PlannedTask | undefined {
   const { state, graph, request } = input;
   const formats = requestFormats(input);
-  // The item is spliced in right after the current task. A skill may take it only if the run of
-  // that skill through the insertion point (items before it, the item, items after it) stays
-  // within maxRun (04 §4: never more than 3 in a row outside a lesson; lessons do not break runs).
-  const at = Math.max(-1, ...input.doneTaskIds);
-  const runOf = (s: SkillId, from: number, step: 1 | -1): number => {
-    let n = 0;
-    for (let i = from; i >= 0 && i < request.tasks.length; i += step) {
-      const t = request.tasks[i] as PlannedTask;
-      if (t.mode === 'lesson') continue;
-      if (t.skillId !== s) break;
-      n += 1;
-    }
-    return n;
-  };
-  const fits = (s: SkillId) => runOf(s, at, -1) + 1 + runOf(s, at + 1, 1) <= P.planner.maxRun;
+  const fits = (s: SkillId) => fitsRun(input, s, P);
   const candidates = new Set<SkillId>();
   for (const s of Object.keys(state.skills)) {
     if (graph.skills[s] && onTrack(state, s)) candidates.add(s);
@@ -211,16 +240,14 @@ function confidenceTask(
     }
   }
   if (!pick) {
-    // Fallback: the easiest task presented so far, again keeping the run rule when it can (a
-    // request of one skill has no other choice).
-    const all = [...new Set(input.doneTaskIds)]
+    // Fallback: the easiest task presented so far whose skill keeps the run rule; none → no item.
+    const presented = [...new Set(input.doneTaskIds)]
       .sort((a, b) => a - b)
       .map((i) => request.tasks[i])
       .filter(
-        (t): t is PlannedTask => t !== undefined && graph.templates[t.templateId] !== undefined,
+        (t): t is PlannedTask =>
+          t !== undefined && graph.templates[t.templateId] !== undefined && fits(t.skillId),
       );
-    const apart = all.filter((t) => fits(t.skillId));
-    const presented = apart.length > 0 ? apart : all;
     const easiest = presented
       .map((t, i) => ({
         t,
@@ -229,8 +256,8 @@ function confidenceTask(
         d: graph.templates[t.templateId]?.difficulty.base ?? 0,
       }))
       .sort((a, b) => b.p - a.p || a.d - b.d || a.i - b.i)[0]?.t;
-    const t = easiest ?? input.last.task;
-    pick = { skillId: t.skillId, templateId: t.templateId };
+    if (!easiest) return undefined;
+    pick = { skillId: easiest.skillId, templateId: easiest.templateId };
   }
   return {
     skillId: pick.skillId,
@@ -253,10 +280,11 @@ function probeParent(input: AdaptInput): SkillId | undefined {
 }
 
 /**
- * Rule 6 (04 §6.4 rule 3): a probe for the weakest prerequisite of `s`, if one is due. AdaptInput
+ * Rule 7 (04 §6.4 rule 3): a probe for the weakest prerequisite of `s`, if one is due. AdaptInput
  * carries no workshop capability, so the probe uses only a template whose format the request
- * already uses (its workshop hosts every one of them); a prerequisite without one is skipped, and
- * with none at all there is no probe.
+ * already uses (its workshop hosts every one of them). The probe is spliced in right after the
+ * current task, so it also keeps the run rule (`fitsRun`). A prerequisite without such a template,
+ * or whose insertion would make a run too long, is skipped; with none left there is no probe.
  */
 function prerequisiteProbe(
   input: AdaptInput,
@@ -279,7 +307,7 @@ function prerequisiteProbe(
   const weakest = prereqs
     .map((p) => ({ p, o: model.skillOffset(state, p), t: hosted(p) }))
     .sort((a, b) => a.o - b.o || cmp(a.p, b.p))
-    .find((x) => x.t !== undefined);
+    .find((x) => x.t !== undefined && fitsRun(input, x.p, P));
   if (weakest === undefined) return undefined;
   const t = weakest.t as ItemTemplate;
   return {
@@ -354,10 +382,10 @@ export function adaptNext(input: AdaptInput, params: EngineParams = PARAMS): Ada
       }
       return decide({ action: 'continue' });
     }
-    return decide({
-      action: 'confidence-then-offer-break',
-      insert: [confidenceTask(input, model, P)],
-    });
+    // No skill can take a confidence item without a fourth item in a row: finish early.
+    const confidence = confidenceTask(input, model, P);
+    if (!confidence) return decide({ action: 'end-request', reason: 'frustration' });
+    return decide({ action: 'confidence-then-offer-break', insert: [confidence] });
   }
 
   // 6. Every task presented.

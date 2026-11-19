@@ -635,6 +635,65 @@ describe('reviews (04 §4)', () => {
     expect(reviewed(B)).toBe(true);
     expect(reviewed(C)).toBe(true);
   });
+
+  it('a scheduled failed review still compresses the ordinary reviews it encompasses', () => {
+    // C failed its review and encompasses the ordinary due B at 0.8; A is due on its own (C
+    // encompasses it at 0.3, below the threshold). With two review slots, C and A are reviewed: B
+    // gets C's implicit credit, as compression would give it.
+    const before = stateWith({
+      [A]: practiced(2, NOW - 1),
+      [B]: practiced(2, NOW - 1),
+      [C]: practiced(2, NOW + 1),
+    });
+    const s = model.apply(
+      before,
+      synthAttempt(C, 3, { correct: false, context: 'review', seed: 12345 }),
+      NOW,
+    );
+    expect(s.skills[C]?.memory?.consecutiveFails).toBe(1);
+    expect(s.skills[B]?.memory?.consecutiveFails).toBe(0);
+    expect(graph.encompasses[C]?.[B]).toBeGreaterThanOrEqual(PARAMS.memory.compressionMinWeight);
+    expect(graph.encompasses[C]?.[A] ?? 0).toBeLessThan(PARAMS.memory.compressionMinWeight);
+    // Grade 1: 7 items a request; round(0.35 × 7) and round(0.35 × (7 − 2)) are both 2 slots.
+    const p = plan(input({ child: child('1'), state: s, workshopsAvailable: [HALL] }));
+    const focused = p.requests.filter((r) => r.tasks.some((t) => t.context === 'practice'));
+    expect(focused.length).toBeGreaterThan(0);
+    for (const r of p.requests) {
+      const reviewed = new Set(r.tasks.filter((t) => t.context === 'review').map((t) => t.skillId));
+      expect(reviewed).toEqual(new Set([C, A]));
+    }
+  });
+
+  it('a failed review of a fluency skill is reviewed, not made the focus', () => {
+    // F (fact-fluency) is practiced, not fluent, and failed its review; every other skill is on
+    // the practiced track and not due, so F would be the only focus. A request never reviews its
+    // own focus, so F is left out of the focus pool and reviewed through the failed-review path.
+    const notDue = NOW + 3 * DAY_MS;
+    const before = stateWith({
+      [A]: practiced(2, notDue),
+      [B]: practiced(2, notDue),
+      [C]: practiced(2, notDue),
+      [N]: practiced(2, notDue),
+      [F]: practiced(1, NOW + 1),
+    });
+    const s = model.apply(
+      before,
+      synthAttempt(F, 3, { correct: false, context: 'review', seed: 12345 }),
+      NOW,
+    );
+    expect(s.skills[F]?.fluentAt).toBeNull();
+    expect(s.skills[F]?.memory?.consecutiveFails).toBe(1);
+    expect(model.status(s, F, NOW)).toBe('needs-review');
+    // Without the failure, F is the fluency focus.
+    expect(
+      rankNewSkills({ child: child('2'), state: before, graph, now: NOW }).map((x) => x.skillId),
+    ).toEqual([F]);
+    const p = plan(input({ state: s, workshopsAvailable: [HALL, ORCHARD] }));
+    expect(
+      p.requests.some((r) => r.tasks.some((t) => t.skillId === F && t.context === 'review')),
+    ).toBe(true);
+    expect(rankNewSkills({ child: child('2'), state: s, graph, now: NOW })).toEqual([]);
+  });
 });
 
 describe('hosting and the Practice Pier (04 §6.3)', () => {

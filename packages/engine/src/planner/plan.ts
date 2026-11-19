@@ -13,7 +13,8 @@
 // - Request count: 3 when there are ≥ 3 distinct focus skills or ≥ 3 available themed workshops
 //   host a focus skill's (or, with no focus skill, a due review's) templates; else 2.
 // - New-skill pool: the frontier plus fact-fluency skills on the practiced track that are not
-//   fluent (04 §6.5); unlockValue divides by the maximum over that pool.
+//   fluent (04 §6.5) and whose last review did not fail (such a skill is reviewed first);
+//   unlockValue divides by the maximum over that pool.
 // - Breakers: a request never has more than maxRun consecutive items of one skill. When reviews
 //   and challenges cannot break the focus skill's runs, one other new skill that needs no lesson
 //   first (learning, lesson mode 'none', or fluency) adds items, then practiced-track skills
@@ -65,7 +66,9 @@
 // - Reviews: transfer probes need a hosted abstract template; otherwise the task stays 'review'.
 //   A failed review is due again at once: besides `dueReviews`, every practiced-track skill that is
 //   'needs-review' with `memory.consecutiveFails > 0` joins the due list as an ordinary review
-//   (dueTs = now, not at risk), in the same order (depth desc, dueTs, id).
+//   (dueTs = now, not at risk), in the same order (depth desc, dueTs, id). Failed reviews are
+//   scheduled ahead of compression, and the ordinary reviews they encompass (w ≥ 0.5) are dropped
+//   before the rest is compressed.
 // - Remediation: the lesson task is planned unless the skill's lesson mode is 'none', whatever the
 //   skill's status (ready, learning or on the practiced track).
 // - Puzzle Tower requests always carry decor (when `puzzleDecor` is non-empty), like requests
@@ -92,7 +95,7 @@ import type {
 import { FORMAT_DEFAULT_REPRESENTATION } from '@number-island/shared';
 import { isConstructedTemplate } from '../items/answer-kind';
 import { createEloFireModel, type EloFireModel } from '../learner/elo-fire';
-import { compressReviews, reviewContext } from '../learner/review';
+import { compressedBy, compressReviews, reviewContext } from '../learner/review';
 import { DAY_MS, type EngineParams, PARAMS } from '../params';
 import { createRng, fnv1a32, type Rng } from '../rng';
 import {
@@ -224,6 +227,10 @@ export function neededTemplates(
   return evidence.filter((t) => !formats.has(t.format) || !tiers.has(t.tier));
 }
 
+/** The skill's last explicit review failed (`memory.consecutiveFails > 0`). */
+const failedReview = (state: LearnerState, s: SkillId): boolean =>
+  (state.skills[s]?.memory?.consecutiveFails ?? 0) > 0;
+
 /** Fact-fluency skills on the practiced track that are not fluent yet (04 §6.5). */
 function needsFluency(graph: SkillGraph, state: LearnerState, s: SkillId): boolean {
   return (
@@ -256,7 +263,11 @@ function rankWith(
 ): RankedSkill[] {
   const plannable = (s: SkillId) => templatesOf(graph, s).length > 0;
   const pool = new Set(model.frontier(state).filter(plannable));
-  for (const s of graph.nodes) if (plannable(s) && needsFluency(graph, state, s)) pool.add(s);
+  // A fluency skill whose last review failed is `needs-review`: it is reviewed first (the failed
+  // review path of `dueNow`), not a focus, because a request never reviews its own focus skill.
+  for (const s of graph.nodes) {
+    if (plannable(s) && needsFluency(graph, state, s) && !failedReview(state, s)) pool.add(s);
+  }
   const ids = [...pool].sort(byId);
 
   // The strand's latest attempt: the max ts over its skills' evidence (SkillState.recent).
@@ -478,13 +489,14 @@ function compose(
   const reviewTarget = focus ? Math.round(P.planner[sliceKey(ctx)].reviewShare * budget) : budget;
   // A skill whose last review failed is reviewed itself: an encompassing skill's implicit credit
   // (04 §4) lengthens its interval but never clears the failure, so compression may not drop it.
-  const failedReview = (r: DueReview) =>
-    (ctx.state.skills[r.skillId]?.memory?.consecutiveFails ?? 0) > 0;
-  const failedDue = dueHere.filter(failedReview).slice(0, reviewTarget);
+  const failed = (r: DueReview) => failedReview(ctx.state, r.skillId);
+  const failedDue = dueHere.filter(failed).slice(0, reviewTarget);
+  // A scheduled failed review still compresses the ordinary reviews it encompasses.
+  const covered = new Set(failedDue.flatMap((r) => compressedBy(graph, r.skillId, P)));
   const reviews = [
     ...failedDue,
     ...compressReviews(
-      dueHere.filter((r) => !failedReview(r)),
+      dueHere.filter((r) => !failed(r) && !covered.has(r.skillId)),
       graph,
       reviewTarget - failedDue.length,
       P,
@@ -649,7 +661,7 @@ function dueNow(
   const listed = new Set(due.map((r) => r.skillId));
   for (const s of Object.keys(state.skills).sort(byId)) {
     if (listed.has(s) || !onTrack(state, s) || status.get(s) !== 'needs-review') continue;
-    if ((state.skills[s]?.memory?.consecutiveFails ?? 0) <= 0) continue;
+    if (!failedReview(state, s)) continue;
     due.push({
       skillId: s,
       dueTs: now,
