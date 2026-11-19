@@ -177,7 +177,7 @@ The shape-sort, shape-compose, compare and puzzle-grid format models belong to U
 
 ### Equality and story problems (K01: equality.eq, story.addsub, addsub.three)
 
-The balance, compare and story-problem formats have no engine model yet (U04, #13; U03, #12), so the property test checks these widgets against the shared schema and skips the solution replay. The response shapes and checkers K01 fixes:
+The balance and story-problem models (U04, #13) follow these conventions, so the property test replays these solutions too; compare's model is U03's (#12). The response shapes and checkers K01 fixes:
 
 - **balance** terms are numerals `{ n }` at the pictorial tier and objects `{ object, count }` (one unit each, `objectWeights`) at the concrete tier; operations are `{ op }` and the blank is `{ blank: 'x' }`.
   - `fill-blank` answers `number` (the blank). `judge` answers `true` | `false`: the blank shows the right number, or one off by `off` when `truth` is false. `which-heavier` answers `left` | `right` | `same`.
@@ -214,7 +214,21 @@ Response shapes and state-checker targets of the place-value and operations form
 - **Choices:** `equal-share` `fair-or-not` answers `yes` | `no` and `even-odd` answers `even` | `odd`; `expanded-form` `words` answers a `wordOptions` id.
 - `expanded-form` `digitIndex` and `highlight-digit {index}` count digits from the left.
 - `area-tiles` features scale by `(area − 1) / 10`; `array-build` and `equal-groups` `product` by `(product − 1) / 10`; `equal-share` `items` by `(items − recipients) / 10`, so the easiest item scores 0 (03 §5.4).
-- The property test's near-miss mutations (03 §9.4 step 5) also add or remove one piece, row, column, item, leftover or tile in these shapes; A decompose split line may also be taken away. `array.dims` exempts moving the split line, and `tiles.cover` exempts taking away a line when the rest is still a valid decomposition.
+- The property test's near-miss mutations (03 §9.4 step 5) also add or remove one piece, row, column, item, leftover or tile in these shapes. A decompose split line may also be taken away. `array.dims` exempts moving the split line, and `tiles.cover` exempts taking away a line when the rest is still a valid decomposition.
+
+### Balance, story-problem and puzzle-grid models (#13)
+
+- **Balance** follows K01's conventions above:
+  - `make-equal` answers the units added to each pan, one per block or object.
+  - In `fill-blank`, `place {side, term: {n}}` fills that pan's blank.
+  - In `which-heavier` the pans start empty, and `place {side, term}` puts the objects on them.
+  - A side's value uses × before + and −; objects count as `count × objectWeights[sprite]`.
+- **Story-problem:** `situation` is the 03 §5.5 prior itself (weight 1). `extraneous` and `inconsistentLanguage` are 0 from the config alone; the generator sets them, and generator values win.
+- **Puzzle-grid** answers `{ fill }`: rows × cols, each puzzle cell's value (given or filled), with `''` outside the puzzle, checked by `puzzle.satisfies` `{ variant, rows, cols, cells, constraints }`. The generic `answer {values}` fills the blanks in reading order.
+  - **Numeric variants** (`cage-sum` mini-KenKen 3 × 3 and 4 × 4, `magic-square`, `missing-digit`, `sum-triangle`, `digit-cards`) take the config's own `cells` (`{ r, c, given?, blank?, cage? }`). Given cells keep their values, and every blank holds a number.
+  - **Supported constraints:** `cage-sum`, `row-unique`, `col-unique`, `line-sum` and `use-each`. `use-each` covers the blanks, or every cell when it lists one value per cell.
+  - **Not checked yet:** `adjacent-step`, `equation` and `clue`. They fail the `puzzle-grid` schema, and the checker rejects them.
+  - `shape-fill` (K01) keeps its own rules, with `cells` given as `[r, c]`.
 
 ## Tests
 
