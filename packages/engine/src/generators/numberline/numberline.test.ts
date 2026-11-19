@@ -18,7 +18,12 @@ import { generateItem, generateItemFromParams, itemFeatures } from '../../items/
 import { itemExampleCorrect, itemSolution, replaySteps } from '../../items/solution';
 import { createRng } from '../../rng';
 import { registry } from '..';
-import { estimateOptions, estimateRanks } from '../estimate/quantity';
+import {
+  estimateAnswer,
+  estimateOptionSets,
+  estimateOptionValues,
+  estimateRanks,
+} from '../estimate/quantity';
 import { GenerationError } from '../types';
 import { lineFeatures, niceTick, placementAnswer } from './line';
 import { benchmarkPair, readingDistractors } from './place';
@@ -229,11 +234,35 @@ describe('numberline.place', () => {
     const t = tpl('numberline.place', 'number-pad', { representation: 'number-line' });
     const item = make(t, line({ max: 100, ticksEvery: 0, labelsEvery: 0, target: 37 }));
     expect(item.answer).toEqual({ kind: 'number', value: 37, tolerance: 10 });
+    // The picture labels 0 and 100 and nothing between (NumberLineView labels multiples of
+    // labelsEvery; null drew no numerals at all, so the scale could not be read).
     expect(item.widget).toMatchObject({
-      stimulus: { kind: 'number-line', ticksEvery: null, marks: [{ at: 37, arrow: true }] },
+      stimulus: {
+        kind: 'number-line',
+        ticksEvery: null,
+        labelsEvery: 100,
+        marks: [{ at: 37, arrow: true }],
+      },
     });
     expect(checkResponse(item, { kind: 'number', value: 45 }).correct).toBe(true);
     expect(checkResponse(item, { kind: 'number', value: 50 }).correct).toBe(false);
+    // Targets within the tolerance of an end would accept answers off the line (99 accepted 109).
+    for (const target of [1, 9, 91, 99]) {
+      expect(() => make(t, line({ max: 100, ticksEvery: 0, labelsEvery: 0, target }))).toThrow(
+        GenerationError,
+      );
+    }
+    for (const target of [10, 90]) {
+      expect(make(t, line({ max: 100, ticksEvery: 0, labelsEvery: 0, target })).answer).toEqual({
+        kind: 'number',
+        value: target,
+        tolerance: 10,
+      });
+    }
+    // A bare line whose ends a picture cannot label (min not a multiple of the range) is rejected.
+    expect(() =>
+      make(t, line({ min: 5, max: 105, ticksEvery: 0, labelsEvery: 0, target: 50 })),
+    ).toThrow(GenerationError);
     expect(itemSolution(item, t).map((x) => x.say)).toEqual([
       'gen.numberline.place.ends',
       'gen.numberline.place.middle',
@@ -287,22 +316,23 @@ describe('numberline.place', () => {
 // ---------- estimate.quantity ----------
 
 describe('estimate.quantity', () => {
-  it('options: n to the nearest ten, with halves and doubles of n around it', () => {
-    expect(estimateOptions(20)).toEqual({ answer: 20, others: [10, 40] });
-    expect(estimateOptions(47)).toEqual({ answer: 50, others: [20, 90] });
-    expect(estimateOptions(200)).toEqual({ answer: 200, others: [100, 400] });
-    expect(estimateOptions(47, 'lowest')).toEqual({ answer: 50, others: [90, 190] });
-    expect(estimateOptions(80, 'highest')).toEqual({ answer: 80, others: [20, 40] });
-    // 20 has no two halves ≥ 10 that are 1.5× apart; 150 has no 0–500 line for 4n.
-    expect(estimateRanks(20)).toEqual(['lowest', 'middle']);
-    expect(estimateRanks(150)).toEqual(['middle', 'highest']);
+  it('options: possible answers only, pairwise ≥ 1.5× apart (review: n = 100 among 100, 200, 400)', () => {
+    const allowed = estimateOptionValues({ kind: 'int', min: 20, max: 100 });
+    expect([...allowed].sort((a, b) => a - b)).toEqual([20, 30, 40, 50, 60, 70, 80, 90, 100]);
+    // 100 is the top of the domain, so it can only be the highest option; 20 only the lowest.
+    expect(estimateOptionSets(100, allowed)).toEqual([{ rank: 'highest', values: [30, 50, 100] }]);
+    expect(estimateRanks(20, allowed)).toEqual(['lowest']);
+    expect(estimateRanks(47, allowed)).toEqual(['middle', 'highest']);
+    expect(estimateRanks(40, allowed)).toEqual(['lowest', 'middle']);
+    expect(estimateAnswer(47)).toBe(50);
+    // A fixed n (generateItemFromParams fixes every param) uses the generator's 20–100 domain.
+    expect(estimateOptionValues({ kind: 'const', value: 47 })).toEqual(allowed);
   });
 
   it('numeral-pick: the answer is the lowest, middle or highest option (review: always middle)', () => {
     const t = tpl('estimate.quantity', 'numeral-pick', { representation: 'dots' });
     const ranks = new Set<number>();
     for (let n = 20; n <= 100; n += 1) {
-      const perN = new Set<number>();
       for (let seed = 0; seed < 24; seed += 1) {
         const item = generateItemFromParams(t, { n, benchmarks: 0 }, { seed });
         if (item.widget.format !== 'numeral-pick' || item.answer.kind !== 'choice') {
@@ -313,14 +343,12 @@ describe('estimate.quantity', () => {
         // Unambiguous: three distinct options, neighbours ≥ 1.5× apart, so none is within the
         // 25% estimate tolerance of another; the answer is n to the nearest ten.
         expect(new Set(values).size).toBe(3);
-        expect(answer).toBe(estimateOptions(n).answer);
+        expect(answer).toBe(estimateAnswer(n));
         expect((values[1] as number) / (values[0] as number)).toBeGreaterThanOrEqual(1.5);
         expect((values[2] as number) / (values[1] as number)).toBeGreaterThanOrEqual(1.5);
-        perN.add(values.indexOf(answer));
+        expect(values.every((v) => v >= 20 && v <= 100)).toBe(true);
+        ranks.add(values.indexOf(answer));
       }
-      // Every n has at least two places the answer can take, and the seeds use them.
-      expect(perN.size, `n = ${n}`).toBeGreaterThanOrEqual(2);
-      for (const r of perN) ranks.add(r);
     }
     expect([...ranks].sort()).toEqual([0, 1, 2]);
   });
@@ -357,22 +385,24 @@ describe('estimate.quantity', () => {
     const item = make(t, { n: 33, benchmarks: 0 });
     expect(item.answer).toEqual({ kind: 'choice', id: 'opt-30' });
     if (item.widget.format !== 'numeral-pick') throw new Error('pick');
-    expect([
-      ['opt-10', 'opt-20', 'opt-30'],
-      ['opt-130', 'opt-30', 'opt-70'],
-      ['opt-20', 'opt-30', 'opt-70'],
-    ]).toContainEqual(item.widget.options.map((o) => o.id).sort());
+    const sets = estimateOptionSets(33, estimateOptionValues(undefined)).map((x) =>
+      x.values.map((v) => `opt-${v}`).sort(),
+    );
+    expect(sets).toContainEqual(item.widget.options.map((o) => o.id).sort());
     checkItem(t, item);
     const lt = tpl('estimate.quantity', 'numeral-pick', { representation: 'number-line' });
     for (let seed = 0; seed < 8; seed += 1) {
       const lines = generateItemFromParams(lt, { n: 80, benchmarks: 0 }, { seed });
       if (lines.widget.format !== 'numeral-pick') throw new Error('pick');
-      // One line for all options: the shortest of 0–100, 0–200 and 0–500 that shows the largest.
-      const top = Math.max(...lines.widget.options.map((o) => Number(o.id.slice(4))));
-      const end = top <= 100 ? 100 : top <= 200 ? 200 : 500;
+      // One line for all options (0–100: every option is in the 20–100 domain), its two ends
+      // labelled and nothing between.
       expect(
         lines.widget.options.every(
-          (o) => o.stimulus?.kind === 'number-line' && o.stimulus.max === end && !o.label,
+          (o) =>
+            o.stimulus?.kind === 'number-line' &&
+            o.stimulus.max === 100 &&
+            o.stimulus.labelsEvery === 100 &&
+            !o.label,
         ),
       ).toBe(true);
       checkItem(lt, lines);
@@ -422,7 +452,10 @@ describe('estimate.quantity', () => {
   it('n.per50 is 0 for 20, and a reference group is at most half the group', () => {
     const t = tpl('estimate.quantity', 'numeral-pick');
     expect(itemFeatures(make(t, { n: 20, benchmarks: 0 }), t)['n.per50']).toBe(0);
-    expect(itemFeatures(make(t, { n: 120, benchmarks: 0 }), t)['n.per50']).toBe(2);
+    const pad = tpl('estimate.quantity', 'number-pad');
+    expect(itemFeatures(make(pad, { n: 120, benchmarks: 0 }), pad)['n.per50']).toBe(2);
+    // 120 is outside the numeral-pick template's 20–100 domain, so it is never an option set.
+    expect(() => make(t, { n: 120, benchmarks: 0 })).toThrow(GenerationError);
     expect(() => make(t, { n: 30, benchmarks: 20 })).toThrow(GenerationError);
     for (let seed = 1; seed <= 10; seed += 1) {
       const ft = tpl('estimate.quantity', 'dot-flash', {

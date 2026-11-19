@@ -326,9 +326,12 @@ templates:
       prompt: tp.MEA.16.t2.prompt
       hints: [h.weight.lift]
 
-  # Constructed answers (04 §7a: t1 and t2 answer with a choice). Three things far apart in weight,
-  # put in order from heavy to light; then things to sort as heavier or lighter than a shell, an
-  # apple or a brick (the weighable things with noun clips), each at least two weight steps away.
+  # Constructed answers (04 §7a: t1 and t2 answer with a choice). Only comparisons everyday
+  # knowledge settles (the generator's CLEARLY_LIGHTER table): put a light thing (feather or leaf),
+  # the apple and a heavy thing (melon, brick or pumpkin) in order from heavy to light; then sort
+  # things as heavier or lighter than a shell or an apple (weighable things with noun clips): for
+  # the shell the feather or the coconut to the pumpkin, for the apple the feather, the leaf or the
+  # melon to the pumpkin.
   - id: MEA.16.t3
     skillId: MEA.16
     format: order
@@ -338,12 +341,10 @@ templates:
     params:
       instrument: balance
       unit: none
-      value: { int: [1, 9] }
-      value2: { int: [1, 9] }
-      value3: { int: [1, 9] }
-    constraints:
-      ["abs(value - value2) >= 2", "abs(value - value3) >= 2", "abs(value2 - value3) >= 2"]
-    difficulty: { base: -0.95, features: { closeness: 1.0 } }
+      value: { choice: [1, 2] }
+      value2: 4
+      value3: { choice: [6, 7, 9] }
+    difficulty: { base: -1.15, features: { closeness: 1.5 } }
     narration:
       prompt: tp.MEA.16.t3.prompt
       hints: [h.weight.lift, h.weight.order-heavy]
@@ -357,7 +358,7 @@ templates:
     params:
       instrument: balance
       unit: none
-      value: { choice: [3, 4, 7] }
+      value: { choice: [3, 4] }
       cards: { int: [4, 6] }
       hits: { int: [1, 5] }
     difficulty: { base: -0.2, features: { cards: 0.2 } }

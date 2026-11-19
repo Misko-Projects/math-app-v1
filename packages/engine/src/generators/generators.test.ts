@@ -1047,9 +1047,6 @@ describe('accepts rejects invalid params', () => {
     // CNT.15's abstract tier: the place after k, on the pad only, while place k + 1 has a clip.
     ['count.ordinal', { ask: 'after', k: 9, n: 10, from: 'left' }, true],
     ['count.ordinal', { ask: 'after', k: 10, n: 10, from: 'left' }, false],
-    // GEO.10–11: the pad asks how many of the one piece a shape is made of.
-    ['geo.compose', { outline: 'hexagon-from-triangles', ask: 'which' }, true],
-    ['geo.compose', { outline: 'trapezoid-from-triangle-rhombus', ask: 'which' }, false],
   ])('%s.accepts(%j) → %s', (id, params, want) => {
     const g = registry.get(id);
     expect(g?.accepts?.(params, tpl(id, 'number-pad'))).toBe(want);

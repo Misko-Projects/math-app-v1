@@ -54,7 +54,5 @@ tp.GEO.09.t3.prompt:
   text: "Find every shape with {sides} straight sides."
 tp.GEO.10.t3.prompt:
   text: "Which two shapes make this {whole|shape:one}?"
-tp.GEO.10.t4.prompt:
-  text: "How many {piece|shape:many} make this {whole|shape:one}?"
 tp.GEO.11.t3.prompt:
   text: "How many {piece|shape:many} make this {whole|shape:one}?"

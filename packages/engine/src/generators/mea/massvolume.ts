@@ -7,15 +7,17 @@
 //   tilts to show it (`which-heavier`); the compare format asks from everyday knowledge.
 // - order (instrument `balance`), MEA.16: the objects `value`, `value2` and `value3` (when > 0), one
 //   picture each and no numeral; the child puts them in order from heavy to light (everyday
-//   knowledge, like compare). The answer is the weight steps, heaviest first.
+//   knowledge, like compare). The answer is the weight steps, heaviest first. Every pair in the
+//   row must be in CLEARLY_LIGHTER (MEA.16.t3: a light thing, the apple, a heavy thing).
 // - shape-sort (instrument `balance`, mode sort), MEA.16: `cards` objects to sort into heavier and
-//   lighter than the object `value` (named in the prompt), `hits` of them heavier. Cards are at
-//   least two weight steps from it, so everyday knowledge settles each one.
+//   lighter than the object `value` (named in the prompt), `hits` of them heavier. Every card is a
+//   CLEARLY_LIGHTER comparison with it, so everyday knowledge settles each one.
 // - instrument `scale` / `beaker` (number-pad, numeral-pick), MEA.17–18 (K02): read `value` in
 //   `unit` off a gauge with a tick every `ticksEvery` and a label every second tick.
 
 import type {
   LessonStep,
+  ParamValue,
   ParamValues,
   ResponseValue,
   SortRule,
@@ -33,6 +35,7 @@ import {
   type PartialOutput,
   pickVars,
   sampleAll,
+  specDomain,
 } from '../common';
 import type { BuildContext, GeneratorDef, GeneratorOutput } from '../types';
 
@@ -56,13 +59,33 @@ export const WEIGHABLES = [
 ] as const;
 const sprite = (weight: number): string => WEIGHABLES[weight - 1] ?? 'shell';
 
-/** shape-sort: how far (in weight steps) every card is from the object it is compared with. */
-const SORT_GAP = 2;
+/**
+ * The comparisons everyday knowledge settles without a balance, by weight step: each key is
+ * clearly heavier than every step listed for it. The order and shape-sort pictures carry no
+ * numeral, so they only ask about these pairs; neighbours on the step scale (a rock and a melon, a
+ * pumpkin and a brick, a leaf and a shell) are not in it. Feather and leaf are the light things;
+ * melon, brick, rock and pumpkin the heavy ones; the shell sits above the feather only, the apple
+ * above both light things, the coconut above the shell.
+ */
+export const CLEARLY_LIGHTER: Readonly<Record<number, readonly number[]>> = {
+  3: [1], // shell > feather
+  4: [1, 2], // apple > feather, leaf
+  5: [1, 2, 3], // coconut > feather, leaf, shell
+  6: [1, 2, 3, 4], // melon
+  7: [1, 2, 3, 4], // brick
+  8: [1, 2, 3, 4], // rock
+  9: [1, 2, 3, 4], // pumpkin
+};
 
-/** Weight steps at least SORT_GAP heavier (or lighter) than `ref`. */
+/** Whether everyday knowledge settles that step `light` weighs less than step `heavy`. */
+export function clearlyLighter(light: number, heavy: number): boolean {
+  return (CLEARLY_LIGHTER[heavy] ?? []).includes(light);
+}
+
+/** shape-sort: the weight steps clearly heavier (or lighter) than `ref`. */
 function sortCandidates(ref: number, heavier: boolean): number[] {
   return WEIGHABLES.map((_, i) => i + 1).filter((w) =>
-    heavier ? w >= ref + SORT_GAP : w <= ref - SORT_GAP,
+    heavier ? clearlyLighter(ref, w) : clearlyLighter(w, ref),
   );
 }
 
@@ -183,7 +206,20 @@ export const meaMassVolume: GeneratorDef = {
     'gen.mea.massvolume.sort-heavier',
     'gen.mea.massvolume.sort-lighter',
   ],
-  sample: (spec, rng) => sampleAll(spec, rng),
+  sample(spec, rng) {
+    const p = sampleAll(spec, rng);
+    // A drawn unit that cannot go with the drawn instrument is redrawn among those that can.
+    // Templates fix both, so this only keeps default-param builds (tests) from rejecting most draws.
+    const unitSpec = spec.unit;
+    if (unitSpec && unitSpec.kind !== 'const') {
+      const instrument = asStr(p.instrument);
+      const fits =
+        instrument === 'balance' ? ['none'] : instrument === 'beaker' ? ['L'] : ['g', 'kg'];
+      const allowed = specDomain(unitSpec).filter((u) => fits.includes(String(u)));
+      if (allowed.length > 0 && !allowed.includes(p.unit as ParamValue)) p.unit = rng.pick(allowed);
+    }
+    return p;
+  },
   derive: (p) => ({
     weight: asNum(p.value) * asNum(p.objects, 1),
     weight2: asNum(p.value2),
@@ -196,8 +232,9 @@ export const meaMassVolume: GeneratorDef = {
     if (t.format === 'order' || t.format === 'shape-sort') {
       if (instrument !== 'balance' || unit !== 'none' || objects !== 1) return false;
       if (t.format === 'order') {
-        const ws = orderWeights(p);
-        return ws.every((w) => w >= 1 && w <= 9) && new Set(ws).size === ws.length;
+        // Every pair in the row is a clear comparison (so the steps are also distinct).
+        const ws = orderWeights(p).sort((a, b) => a - b);
+        return ws.every((w, i) => ws.slice(i + 1).every((h) => clearlyLighter(w, h)));
       }
       const cards = asNum(p.cards);
       const hits = asNum(p.hits);

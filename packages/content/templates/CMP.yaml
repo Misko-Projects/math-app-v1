@@ -465,14 +465,16 @@ templates:
     difficulty: { base: -1.4 }
     narration: { prompt: tp.CMP.09.t2.prompt, hints: [h.numberline.middle, h.numberline.near-end] }
 
-  # Constructed practice (V27): read the arrow on a bare line; an estimate within 10 is right.
+  # Constructed practice (V27): read the arrow on a bare line (0 and 100 labelled); an estimate
+  # within 10 is right. Targets stay 10 from both ends (the generator also rejects closer ones), so
+  # no accepted answer is off the line.
   - id: CMP.09.t3
     skillId: CMP.09
     format: number-pad
     tier: pictorial
     representation: number-line
     generator: numberline.place
-    params: { min: 0, max: 100, target: { int: [1, 99] }, ticksEvery: 0, labelsEvery: 0 }
+    params: { min: 0, max: 100, target: { int: [10, 90] }, ticksEvery: 0, labelsEvery: 0 }
     difficulty: { base: -1.7 }
     narration: { prompt: tp.CMP.09.t3.prompt, hints: [h.numberline.middle, h.numberline.near-end] }
 

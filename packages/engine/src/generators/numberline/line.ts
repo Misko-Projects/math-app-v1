@@ -92,7 +92,20 @@ export function niceTick(range: number): number {
   return 1000;
 }
 
-/** A number-line picture with arrows (and labels) at the given values. */
+/**
+ * The picture's `labelsEvery`. The line always labels its two ends, but a number-line stimulus
+ * (StimulusView → NumberLineView) labels only multiples of `labelsEvery` and nothing for null, so a
+ * line with no labels between the ends gets `max − min`: exactly its two ends when `min` is a
+ * multiple of the range (0–100, 0–200, 10–20). Lines whose ends that cannot label keep null
+ * (numberline.place rejects them for its picture formats).
+ */
+export function pictureLabelsEvery(line: LineSpec): number | null {
+  if (line.labelsEvery !== null) return line.labelsEvery;
+  const range = line.max - line.min;
+  return range > 0 && line.min % range === 0 ? range : null;
+}
+
+/** A number-line picture with arrows (and labels) at the given values; its ends are labelled. */
 export function linePicture(
   line: LineSpec,
   marks: { at: number; label?: boolean }[],
@@ -102,7 +115,7 @@ export function linePicture(
     min: line.min,
     max: line.max,
     ticksEvery: line.ticksEvery,
-    labelsEvery: line.labelsEvery,
+    labelsEvery: pictureLabelsEvery(line),
     marks: marks.map((m) =>
       m.label ? { at: m.at, label: String(m.at), arrow: true } : { at: m.at, arrow: true },
     ),

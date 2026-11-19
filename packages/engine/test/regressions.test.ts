@@ -7,10 +7,15 @@ import { stateChecker } from '../src/check/state';
 import { initContent } from '../src/content/binding';
 import { render } from '../src/content/render';
 import { formatModel } from '../src/formats';
+import { registry } from '../src/generators';
+import { specDomain } from '../src/generators/common';
+import { estimateAnswer } from '../src/generators/estimate/quantity';
+import { CLEARLY_LIGHTER, clearlyLighter } from '../src/generators/mea/massvolume';
 import { GenerationError } from '../src/generators/types';
 import { checkResponse } from '../src/items/check';
-import { generateItem, generateItemFromParams } from '../src/items/generate';
-import { itemSolution, replaySteps } from '../src/items/solution';
+import { generateItem, generateItemFromParams, mergedSpec } from '../src/items/generate';
+import { itemExampleCorrect, itemSolution, replaySteps } from '../src/items/solution';
+import { createRng } from '../src/rng';
 import { numeralsIn, parseNumerals, runTemplateProperties } from '../src/testing/properties';
 import { compileFixture, fixtureTemplate, loadFixture } from './fixture';
 
@@ -486,5 +491,194 @@ describe('PR #77 review (d): CMP.02 hints follow the ask', () => {
     const greater = hintText('more');
     expect(greater).toContain('Find both numbers on the path. Which one comes last?');
     expect(greater).toContain('Count up from one. Which number do you say last?');
+  });
+});
+
+// ---------- PR #77 review (e)–(i): picture-only answers and bare lines ----------
+
+describe('PR #77 review (e): CMP.13 estimate options never name the answer without the picture', () => {
+  // n = 100 used to offer 100, 200 and 400 on a 20–100 template: only 100 could be right.
+  it.each(['CMP.13.t3', 'CMP.13.t4'])(
+    '%s: every option is a possible answer in the domain, ≥ 1.5× apart; every rank occurs',
+    (id) => {
+      loadFixture();
+      const t = fixtureTemplate(id);
+      const g = registry.get(t.generator);
+      if (!g) throw new Error(t.generator);
+      const spec = mergedSpec(t, g);
+      const domain = specDomain(spec.n as ParamSpec) as number[];
+      const inDomain = new Set(domain);
+      const answers = new Set(domain.map(estimateAnswer));
+      const benchmarks = specDomain(spec.benchmarks as ParamSpec)[0] as number;
+      const ranks = new Set<number>();
+      for (const n of domain) {
+        const params = { n, benchmarks };
+        expect(g.accepts?.(params, t), `n = ${n}`).toBe(true);
+        for (let seed = 0; seed < 40; seed += 1) {
+          const out = g.build({ params, template: t, rng: createRng(seed).fork('e') });
+          if (out.widget.format !== 'numeral-pick' || out.answer.kind !== 'choice') {
+            throw new Error('pick');
+          }
+          const values = out.widget.options.map((o) => Number(o.id.slice(4)));
+          for (const v of values) {
+            expect(inDomain.has(v) && answers.has(v), `n = ${n}: option ${v}`).toBe(true);
+          }
+          for (let i = 0; i < values.length; i += 1) {
+            for (let j = i + 1; j < values.length; j += 1) {
+              const [lo, hi] = [values[i], values[j]].sort((a, b) => (a ?? 0) - (b ?? 0));
+              expect((hi as number) / (lo as number), `n = ${n}: ${values}`).toBeGreaterThanOrEqual(
+                1.5,
+              );
+            }
+          }
+          const answer = Number(out.answer.id.slice(4));
+          expect(answer).toBe(estimateAnswer(n));
+          ranks.add([...values].sort((a, b) => a - b).indexOf(answer));
+        }
+      }
+      expect([...ranks].sort()).toEqual([0, 1, 2]);
+    },
+  );
+});
+
+describe('PR #77 review (f, g): CMP.09.t3 reads a bare 0–100 line', () => {
+  it('the picture labels exactly its two ends and draws no ticks', () => {
+    loadFixture();
+    const t = fixtureTemplate('CMP.09.t3');
+    for (let seed = 1; seed <= 200; seed += 1) {
+      const item = generateItem(t, seed);
+      if (item.widget.format !== 'number-pad' || item.widget.stimulus?.kind !== 'number-line') {
+        throw new Error('number-pad on a line');
+      }
+      const s = item.widget.stimulus;
+      expect(s.ticksEvery).toBeNull();
+      // NumberLineView (stepsBetween) labels the multiples of labelsEvery from min to max.
+      const every = s.labelsEvery as number;
+      const labelled: number[] = [];
+      for (let v = Math.ceil(s.min / every) * every; v <= s.max; v += every) labelled.push(v);
+      expect(labelled).toEqual([0, 100]);
+    }
+  });
+
+  it('no item accepts an answer off the line (target 99 accepted 109)', () => {
+    loadFixture();
+    const t = fixtureTemplate('CMP.09.t3');
+    const g = registry.get(t.generator);
+    if (!g) throw new Error(t.generator);
+    const spec = mergedSpec(t, g);
+    const fixed = Object.fromEntries(
+      Object.entries(spec)
+        .filter(([k]) => k !== 'target')
+        .map(([k, s]) => [k, specDomain(s)[0]]),
+    );
+    // Every target the template could draw, and every target the generator would build.
+    for (let target = 1; target <= 99; target += 1) {
+      const params = { ...fixed, target };
+      if (!g.accepts?.(params, t)) continue;
+      const out = g.build({ params, template: t, rng: createRng(target).fork('g') });
+      if (out.answer.kind !== 'number') throw new Error('number');
+      const tol = out.answer.tolerance ?? 0;
+      expect(out.answer.value - tol, `target ${target}`).toBeGreaterThanOrEqual(0);
+      expect(out.answer.value + tol, `target ${target}`).toBeLessThanOrEqual(100);
+    }
+    for (let seed = 1; seed <= 300; seed += 1) {
+      const item = generateItem(t, seed);
+      if (item.answer.kind !== 'number') throw new Error('number');
+      const tol = item.answer.tolerance ?? 0;
+      expect(item.answer.value - tol).toBeGreaterThanOrEqual(0);
+      expect(item.answer.value + tol).toBeLessThanOrEqual(100);
+    }
+  });
+});
+
+describe('PR #77 review (h): GEO.10.t4 and GEO.11.t4 are pictorial shape-compose', () => {
+  // As number-pads their only picture was a `shape` stimulus StimulusView cannot draw.
+  it.each(['GEO.10.t4', 'GEO.11.t4'])('%s fills an outline at the pictorial tier', (id) => {
+    loadFixture();
+    const t = fixtureTemplate(id);
+    expect(t).toMatchObject({ format: 'shape-compose', tier: 'pictorial' });
+    for (let seed = 1; seed <= 50; seed += 1) {
+      const item = generateItem(t, seed);
+      expect(item.widget).toMatchObject({ format: 'shape-compose', mode: 'fill-outline' });
+      expect(checkResponse(item, itemExampleCorrect(item, t)).correct).toBe(true);
+    }
+  });
+
+  it('no template asks geo.compose for a number-pad, and the generator no longer builds one', () => {
+    const { templates } = loadFixture();
+    expect(
+      templates.filter((t) => t.generator === 'geo.compose' && t.format === 'number-pad'),
+    ).toEqual([]);
+    expect(registry.get('geo.compose')?.formats).not.toContain('number-pad');
+  });
+});
+
+describe('PR #77 review (i): MEA.16 orders and sorts only what everyday knowledge settles', () => {
+  // A rock and a melon, a pumpkin and a brick: the pictures cannot settle a hidden weight rank.
+  it('the clear table: light things, the apple, heavy things, the shell and the coconut', () => {
+    expect(CLEARLY_LIGHTER).toEqual({
+      3: [1],
+      4: [1, 2],
+      5: [1, 2, 3],
+      6: [1, 2, 3, 4],
+      7: [1, 2, 3, 4],
+      8: [1, 2, 3, 4],
+      9: [1, 2, 3, 4],
+    });
+    for (const [a, b] of [
+      [6, 8],
+      [7, 9],
+      [1, 2],
+      [2, 3],
+      [4, 5],
+    ] as const) {
+      expect(clearlyLighter(a, b) || clearlyLighter(b, a), `${a} vs ${b}`).toBe(false);
+    }
+  });
+
+  it('MEA.16.t3: a light thing, the apple and a heavy thing; every pair is clear', () => {
+    loadFixture();
+    const t = fixtureTemplate('MEA.16.t3');
+    const rows = new Set<string>();
+    for (let seed = 1; seed <= 500; seed += 1) {
+      const item = generateItem(t, seed);
+      if (item.answer.kind !== 'numbers') throw new Error('numbers');
+      const heavyFirst = item.answer.values;
+      for (let i = 0; i < heavyFirst.length; i += 1) {
+        for (let j = i + 1; j < heavyFirst.length; j += 1) {
+          expect(clearlyLighter(heavyFirst[j] as number, heavyFirst[i] as number)).toBe(true);
+        }
+      }
+      const [heavy, middle, light] = heavyFirst;
+      expect([6, 7, 9]).toContain(heavy);
+      expect(middle).toBe(4);
+      expect([1, 2]).toContain(light);
+      rows.add(heavyFirst.join(','));
+    }
+    expect(rows.size).toBe(6);
+  });
+
+  it('MEA.16.t4: a shell or an apple, and only cards clearly lighter or heavier than it', () => {
+    loadFixture();
+    const t = fixtureTemplate('MEA.16.t4');
+    const allowed: Record<number, { lighter: number[]; heavier: number[] }> = {
+      3: { lighter: [1], heavier: [5, 6, 7, 8, 9] },
+      4: { lighter: [1, 2], heavier: [6, 7, 8, 9] },
+    };
+    const refs = new Set<number>();
+    for (let seed = 1; seed <= 500; seed += 1) {
+      const item = generateItem(t, seed);
+      if (item.widget.format !== 'shape-sort') throw new Error('shape-sort');
+      const ref = item.params.value as number;
+      refs.add(ref);
+      const ok = allowed[ref];
+      expect(ok, `reference ${ref}`).toBeDefined();
+      for (const { card } of item.widget.cards) {
+        const w = 'kind' in card && card.kind === 'object' ? Number(card.props.weight) : 0;
+        expect([...(ok?.lighter ?? []), ...(ok?.heavier ?? [])], `${ref} vs ${w}`).toContain(w);
+        expect(clearlyLighter(w, ref) || clearlyLighter(ref, w)).toBe(true);
+      }
+    }
+    expect([...refs].sort()).toEqual([3, 4]);
   });
 });
