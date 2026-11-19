@@ -1,5 +1,11 @@
-import { formatModel } from '@number-island/engine';
-import type { CoinKind, ResponseValue, WidgetAction } from '@number-island/shared';
+import {
+  type CoinCountState,
+  type CountPiece,
+  formatModel,
+  runningTotal,
+  shownPieces,
+} from '@number-island/engine';
+import type { ResponseValue, WidgetAction } from '@number-island/shared';
 import { type CSSProperties, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useInteractionTrace } from '../../interaction/trace';
 import { useNarrationText, useReducedMotion, useUiPreferences } from '../../preferences/UiProvider';
@@ -8,7 +14,6 @@ import { useWidgetDemo } from '../demo';
 import {
   BillArt,
   CheckButton,
-  COIN_CENTS,
   CoinArt,
   moneyText,
   NumberPadKeys,
@@ -44,36 +49,7 @@ const KEY_MS = 340;
 type Config = ConfigFor<'coin-count'>;
 type Side = 'left' | 'right';
 
-/** The parts of the engine's coin-count state the widget animates (`formats/coin-count.ts`). */
-interface ModelState {
-  sorted: boolean;
-  counted: Record<Side, number>;
-  said: number | null;
-  choice: string | null;
-}
-
-interface Piece {
-  id: string;
-  kind: 'bill' | 'coin';
-  coin?: CoinKind;
-  dollars?: number;
-  cents: number;
-}
-
-function piecesOf(c: { coins: readonly CoinKind[]; bills: readonly number[] }, side: Side) {
-  const pre = side === 'right' ? 'r-' : '';
-  return [
-    ...c.bills.map(
-      (d, i): Piece => ({ id: `${pre}bill-${i}`, kind: 'bill', dollars: d, cents: 100 * d }),
-    ),
-    ...c.coins.map(
-      (coin, i): Piece => ({ id: `${pre}coin-${i}`, kind: 'coin', coin, cents: COIN_CENTS[coin] }),
-    ),
-  ];
-}
-
-/** Biggest first, stable (the engine model's `sort-coins`). */
-const sortPieces = (ps: Piece[]) => [...ps].sort((a, b) => b.cents - a.cents);
+type Piece = CountPiece;
 
 /** The quarter's size for a purse: big when there are few pieces, never under the tap target. */
 function quarterFor(slots: number, compare: boolean) {
@@ -121,16 +97,14 @@ export function CoinCountWidget({
   const interactive = !disabled && !demoBusy;
 
   const sides: Side[] = compare ? ['left', 'right'] : ['left'];
-  const shown = useMemo(() => {
-    const out: Record<Side, Piece[]> = { left: [], right: [] };
-    out.left = piecesOf(config, 'left');
-    if (config.compareWith) out.right = piecesOf(config.compareWith, 'right');
-    if (sorted) {
-      out.left = sortPieces(out.left);
-      out.right = sortPieces(out.right);
-    }
-    return out;
-  }, [config, sorted]);
+  // The pieces in the order shown: the engine model's order (bills first, biggest first once sorted).
+  const shown = useMemo(
+    (): Record<Side, Piece[]> => ({
+      left: shownPieces(config, 'left', sorted),
+      right: shownPieces(config, 'right', sorted),
+    }),
+    [config, sorted],
+  );
 
   // ---------- FLIP: pieces glide to their sorted places (instant with reduced motion) ----------
   const boardRef = useRef<HTMLDivElement | null>(null);
@@ -164,7 +138,7 @@ export function CoinCountWidget({
   // ---------- child input ----------
 
   const speakPiece = (p: Piece) => {
-    money.piece(p.kind === 'bill' ? 'dollar' : (p.coin as CoinKind), p.cents);
+    money.piece(p.kind === 'bill' ? 'dollar' : p.coin, p.cents);
   };
 
   const tapPiece = (p: Piece) => {
@@ -249,7 +223,7 @@ export function CoinCountWidget({
       try {
         // The engine model decides what the op does; the widget animates the result.
         const s0 = { ...model.initialState(config), sorted, counted };
-        const s = model.apply(s0, action) as typeof s0 & ModelState;
+        const s = model.apply(s0, action) as CoinCountState;
         switch (action.op) {
           case 'sort-coins':
             snapshot();
@@ -263,8 +237,8 @@ export function CoinCountWidget({
             const index = s.counted[side];
             if (index < 0 || index === counted[side]) break;
             setCounted(s.counted);
-            // The running total is exactly the sum of the pieces counted so far.
-            const cents = shown[side].slice(0, index + 1).reduce((a, p) => a + p.cents, 0);
+            // The running total is exactly the sum of the pieces counted so far (engine).
+            const cents = runningTotal(shownPieces(config, side, s.sorted), index);
             setRunning({ side, cents });
             money.count(cents);
             await pause(900);
@@ -369,9 +343,9 @@ export function CoinCountWidget({
                 onClick={() => tapPiece(p)}
               >
                 {p.kind === 'bill' ? (
-                  <BillArt dollars={p.dollars as number} height={billH} />
+                  <BillArt dollars={p.dollars} height={billH} />
                 ) : (
-                  <CoinArt kind={p.coin as CoinKind} quarterPx={quarterPx} />
+                  <CoinArt kind={p.coin} quarterPx={quarterPx} />
                 )}
                 {marked.has(p.id) ? (
                   <span className="ni-ccount__tick" aria-hidden="true">

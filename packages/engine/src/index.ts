@@ -26,9 +26,29 @@ export {
 export { type ArrayBuildState, alreadyFound, rectanglesOf } from './formats/array-build';
 export { type BaseTenBuildState, traySupply } from './formats/base-ten-build';
 export { type BaseTenTradeState, computeResult, htoValue } from './formats/base-ten-trade';
+// U05 (#14) money
+export {
+  type CoinCountState,
+  type CountPiece,
+  type CountSide,
+  runningTotal,
+  shownPieces,
+} from './formats/coin-count';
+export { type CoinPayState, trayOf } from './formats/coin-pay';
 export { type EqualGroupsState, GROUP_CAPACITY, groupsUnknown } from './formats/equal-groups';
 export { type EqualShareState, shareChoices } from './formats/equal-share';
 export { blankIds, type ExpandedFormState } from './formats/expanded-form';
+export { changeOwed, countUpStops, type MakeChangeState } from './formats/make-change';
+export {
+  PIECE_CENTS,
+  type Purse,
+  type PurseKind,
+  parseTrayKey,
+  purseLimit,
+  type Tray,
+  trayCents,
+  trayKey,
+} from './formats/money';
 export {
   COLUMNS,
   type Column,

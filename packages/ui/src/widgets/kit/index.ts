@@ -45,6 +45,16 @@ export {
   type PlacedObject,
 } from './layout';
 export {
+  type BoardItem,
+  type BoardTarget,
+  MoneyBoard,
+  type MoneyBoardProps,
+  MoneyTag,
+  PIECE_ORDER,
+  pieceCents,
+  purseLimits,
+} from './MoneyBoard';
+export {
   type NumberLineMark,
   type NumberLineScale,
   NumberLineView,

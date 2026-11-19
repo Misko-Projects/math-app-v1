@@ -225,11 +225,13 @@ export interface BillArtProps {
   dollars: number;
   /** Height in CSS px (the width is 2.35 times it, as a real bill). Numeral ≥ 32 px from 74 px. */
   height: number;
+  /** No numeral (a thumbnail too small for a ≥ 32 px numeral, e.g. a list of ways found). */
+  plain?: boolean;
   className?: string;
 }
 
 /** A dollar bill: green paper, a lace border, a shell and a star seal and the value. Decorative. */
-export function BillArt({ dollars, height, className }: BillArtProps) {
+export function BillArt({ dollars, height, plain = false, className }: BillArtProps) {
   const clip = `ni-bill-${useId().replace(/[^a-zA-Z0-9_-]/g, '')}`;
   return (
     <svg
@@ -312,17 +314,19 @@ export function BillArt({ dollars, height, className }: BillArtProps) {
         stroke={paint('leaf-deep')}
         strokeWidth={2.5}
       />
-      <text
-        x="117.5"
-        y="66"
-        textAnchor="middle"
-        fontSize="46"
-        fontWeight={800}
-        fill={paint('ink')}
-        style={{ fontFamily: 'var(--font-display)' }}
-      >
-        {dollars}
-      </text>
+      {plain ? null : (
+        <text
+          x="117.5"
+          y="66"
+          textAnchor="middle"
+          fontSize="46"
+          fontWeight={800}
+          fill={paint('ink')}
+          style={{ fontFamily: 'var(--font-display)' }}
+        >
+          {dollars}
+        </text>
+      )}
     </svg>
   );
 }
