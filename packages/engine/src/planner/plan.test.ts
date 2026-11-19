@@ -19,6 +19,7 @@ import {
   sessionPlanSchema,
 } from '@number-island/shared';
 import { describe, expect, it } from 'vitest';
+import { isConstructedTemplate } from '../items/answer-kind';
 import { createEloFireModel } from '../learner/elo-fire';
 import {
   A,
@@ -156,7 +157,7 @@ function input(over: Partial<PlanSessionInput> = {}): PlanSessionInput {
 
 /** The 04 §4 / §6.3 invariants every plan keeps. */
 function checkPlan(plan: SessionPlan): void {
-  expect(sessionPlanSchema.safeParse(plan).success).toBe(true);
+  expect(sessionPlanSchema.safeParse(plan).error?.issues).toBeUndefined();
   expect(plan.requests.length).toBeGreaterThanOrEqual(PARAMS.planner.requestsMin);
   expect(plan.requests.length).toBeLessThanOrEqual(PARAMS.planner.requestsMax);
   for (const r of plan.requests) {
@@ -554,6 +555,114 @@ describe('lessons and test-outs (04 §3, 03 §6.5)', () => {
     expect(st.skills[A]?.practicedAt).not.toBeNull();
   });
 
+  it('a choice-only draw the learner does not offer still leaves practiced evidence', () => {
+    // Review round 7 (#61): A's lesson is demonstration-only, and its test-out pool holds two
+    // abstract choice templates. P(ref) starts just below the offer, so the draw is planned on the
+    // all-right bound of the C warmup. If that warmup goes wrong, the learner never starts the
+    // test-out, and the draw items are choice responses, which never enter `recent`. A constructed
+    // practice item of A therefore follows the draw; with no room for it, the draw is not planned.
+    const a = graph.skills[A] as Skill;
+    const base = graph.templates[`${A}.t3`] as ItemTemplate;
+    const c1: ItemTemplate = { ...base, id: `${A}.t5`, format: 'numeral-pick' };
+    const c2: ItemTemplate = { ...base, id: `${A}.t6`, format: 'compare' };
+    const g: SkillGraph = {
+      ...graph,
+      templates: { ...graph.templates, [c1.id]: c1, [c2.id]: c2 },
+      skills: {
+        ...graph.skills,
+        [A]: {
+          ...a,
+          templates: [...a.templates, c1.id, c2.id],
+          lesson: { ...a.lesson, testOut: { ...a.lesson.testOut, templateIds: [c1.id, c2.id] } },
+        },
+      },
+    };
+    const s = stateWith(
+      { [C]: practiced(2, NOW + 3 * DAY_MS) },
+      { thetaG: Math.log(0.745 / 0.255) },
+    );
+    const all = cap(
+      'all-works',
+      ['tap-count', 'tenframe-fill', 'number-pad', 'number-bond', 'numeral-pick', 'compare'],
+      {
+        residents: ['nib'],
+        produces: ['stone'],
+      },
+    );
+    // K at one minute: no room for the evidence item, so no draw. K at 15 minutes: room. Grade 2 at
+    // one minute (review round 5 on #66): four item slots, all A, so sequencing would drop the
+    // fourth A item in a row (the lesson does not break the run); the draw is then not planned.
+    const cases: [ChildContext['grade'], number][] = [
+      ['K', 1],
+      ['K', 15],
+      ['2', 1],
+    ];
+    for (const [grade, minutes] of cases) {
+      const gModel = createEloFireModel(g, { childId: CHILD, isK: grade === 'K' });
+      expect(gModel.inTestOut(s, A)).toBe(false);
+      const p = plan(
+        input({ child: child(grade), graph: g, state: s, minutes, workshopsAvailable: [all] }),
+      );
+      expect(p.warmup.skillId).toBe(C);
+      const warm = gModel.apply(
+        s,
+        synthAttempt(C, Number(p.warmup.templateId.split('.t')[1]), {
+          context: 'warmup',
+          correct: false,
+          partialCredit: 0,
+        }),
+        NOW,
+      );
+      expect(gModel.inTestOut(warm, A)).toBe(false);
+      for (const r of p.requests.filter((x) => x.tasks.some((t) => t.skillId === A))) {
+        let st = warm;
+        r.tasks
+          .filter((t) => t.skillId === A && t.mode === 'item')
+          .forEach((t, k) => {
+            const tpl = g.templates[t.templateId] as ItemTemplate;
+            const choice = !isConstructedTemplate(tpl);
+            st = gModel.apply(
+              st,
+              synthAttempt(A, 3, {
+                templateId: tpl.id,
+                format: tpl.format,
+                context: t.context,
+                response: choice ? { kind: 'choice', id: 'opt-1' } : { kind: 'number', value: 1 },
+              }),
+              NOW + k + 1,
+            );
+          });
+        expect(st.skills[A]?.recent.length ?? 0).toBeGreaterThan(0);
+      }
+      if (minutes === 15) expect(drawOf(p, A)).toHaveLength(3); // room for the evidence item
+    }
+  });
+
+  it('a failed review outranks a test-out draw: the Practice Pier fallback never drops it', () => {
+    // Review round 5 (#66): a one-minute K plan. A, the sole focus, has an offered three-item
+    // test-out (placement prior 0.7); C is the sole practiced skill and failed its review. The only
+    // themed workshop hosts tap-count alone: A's lesson and practice and C's review, but not A's
+    // abstract draw. Only the Practice Pier could host the draw, and with the lesson cost there is no
+    // room for both the draw and C's review. Every alternative must still review C (04 §6.4 rule 3).
+    const prior = { p: { [A]: 0.7 }, assumed: [] };
+    const before = stateWith(
+      { [C]: practiced(1, NOW + 1) },
+      { placement: { prior, strandsPlaced: [], inProgress: null } },
+    );
+    const kModel = createEloFireModel(graph, { childId: CHILD, isK: true });
+    const s = kModel.apply(
+      before,
+      synthAttempt(C, 1, { correct: false, context: 'review', seed: 777 }),
+      NOW,
+    );
+    expect(s.skills[C]?.memory?.consecutiveFails).toBe(1);
+    const taps = cap('tap-works', ['tap-count'], { residents: ['nib'], produces: ['stone'] });
+    const p = plan(input({ child: child('K'), state: s, minutes: 1, workshopsAvailable: [taps] }));
+    for (const r of p.requests) {
+      expect(r.tasks.some((t) => t.skillId === C && t.context === 'review')).toBe(true);
+    }
+  });
+
   it('after a demonstration-only lesson warmup, the kept draw is a real, passable test-out', () => {
     // Nothing attempted; A's test-out is offered; A's lesson (demo only) is the warmup and records
     // no attempt. A's request keeps its whole draw: each item is asked at d* = 0, three clean
@@ -674,6 +783,140 @@ describe('reviews (04 §4)', () => {
     // Each request (alternatives) gets the review.
     for (const r of p.requests)
       expect(r.tasks.some((t) => t.skillId === C && t.context === 'review')).toBe(true);
+  });
+
+  it('a failed review is due again at once (a failed prerequisite probe gets scheduled)', () => {
+    // B is practiced and not due yet; adaptNext probes it in the 'review' context and the child
+    // fails it, so its dueTs moves a day ahead, but the next plan (same `now`) still reviews it.
+    const before = stateWith({ [A]: practiced(2, NOW + 3 * DAY_MS), [B]: practiced(2, NOW + 1) });
+    const s = model.apply(
+      before,
+      synthAttempt(B, 3, { correct: false, context: 'review', seed: 12345 }),
+      NOW,
+    );
+    expect(s.skills[B]?.memory?.consecutiveFails).toBe(1);
+    expect(model.status(s, B, NOW)).toBe('needs-review');
+    expect(model.dueReviews(s, NOW).map((r) => r.skillId)).not.toContain(B);
+    const p = plan(input({ state: s, workshopsAvailable: [HALL] }));
+    expect(
+      p.requests.some((r) => r.tasks.some((t) => t.skillId === B && t.context === 'review')),
+    ).toBe(true);
+    // Without the failure, B is not reviewed.
+    const q = plan(input({ state: before, workshopsAvailable: [HALL] }));
+    expect(q.requests.some((r) => r.tasks.some((t) => t.context === 'review'))).toBe(false);
+  });
+
+  it('review compression never drops a failed review behind an encompassing skill', () => {
+    // C (deeper, encompasses B at 0.8) is due; B failed its review. Compression alone would keep
+    // C and drop B, but C's implicit credit never clears B's failure, so B is reviewed too.
+    const before = stateWith({
+      [A]: practiced(2, NOW + 3 * DAY_MS),
+      [B]: practiced(2, NOW + 1),
+      [C]: practiced(2, NOW - 1),
+    });
+    const s = model.apply(
+      before,
+      synthAttempt(B, 3, { correct: false, context: 'review', seed: 12345 }),
+      NOW,
+    );
+    expect(graph.encompasses[C]?.[B]).toBeGreaterThanOrEqual(0.5);
+    const p = plan(input({ state: s, workshopsAvailable: [HALL] }));
+    const reviewed = (x: string) =>
+      p.requests.some((r) => r.tasks.some((t) => t.skillId === x && t.context === 'review'));
+    expect(reviewed(B)).toBe(true);
+    expect(reviewed(C)).toBe(true);
+  });
+
+  it('a scheduled failed review still compresses the ordinary reviews it encompasses', () => {
+    // C failed its review and encompasses the ordinary due B at 0.8; A is due on its own (C
+    // encompasses it at 0.3, below the threshold). With two review slots, C and A are reviewed: B
+    // gets C's implicit credit, as compression would give it.
+    const before = stateWith({
+      [A]: practiced(2, NOW - 1),
+      [B]: practiced(2, NOW - 1),
+      [C]: practiced(2, NOW + 1),
+    });
+    const s = model.apply(
+      before,
+      synthAttempt(C, 3, { correct: false, context: 'review', seed: 12345 }),
+      NOW,
+    );
+    expect(s.skills[C]?.memory?.consecutiveFails).toBe(1);
+    expect(s.skills[B]?.memory?.consecutiveFails).toBe(0);
+    expect(graph.encompasses[C]?.[B]).toBeGreaterThanOrEqual(PARAMS.memory.compressionMinWeight);
+    expect(graph.encompasses[C]?.[A] ?? 0).toBeLessThan(PARAMS.memory.compressionMinWeight);
+    // Grade 1: 7 items a request; round(0.35 × 7) and round(0.35 × (7 − 2)) are both 2 slots.
+    const p = plan(input({ child: child('1'), state: s, workshopsAvailable: [HALL] }));
+    const focused = p.requests.filter((r) => r.tasks.some((t) => t.context === 'practice'));
+    expect(focused.length).toBeGreaterThan(0);
+    for (const r of p.requests) {
+      const reviewed = new Set(r.tasks.filter((t) => t.context === 'review').map((t) => t.skillId));
+      expect(reviewed).toEqual(new Set([C, A]));
+    }
+  });
+
+  it('a failed review of a fluency skill is reviewed, not made the focus', () => {
+    // F (fact-fluency) is practiced, not fluent, and failed its review; every other skill is on
+    // the practiced track and not due, so F would be the only focus. A request never reviews its
+    // own focus, so F is left out of the focus pool and reviewed through the failed-review path.
+    const notDue = NOW + 3 * DAY_MS;
+    const before = stateWith({
+      [A]: practiced(2, notDue),
+      [B]: practiced(2, notDue),
+      [C]: practiced(2, notDue),
+      [N]: practiced(2, notDue),
+      [F]: practiced(1, NOW + 1),
+    });
+    const s = model.apply(
+      before,
+      synthAttempt(F, 3, { correct: false, context: 'review', seed: 12345 }),
+      NOW,
+    );
+    expect(s.skills[F]?.fluentAt).toBeNull();
+    expect(s.skills[F]?.memory?.consecutiveFails).toBe(1);
+    expect(model.status(s, F, NOW)).toBe('needs-review');
+    // Without the failure, F is the fluency focus.
+    expect(
+      rankNewSkills({ child: child('2'), state: before, graph, now: NOW }).map((x) => x.skillId),
+    ).toEqual([F]);
+    const p = plan(input({ state: s, workshopsAvailable: [HALL, ORCHARD] }));
+    expect(
+      p.requests.some((r) => r.tasks.some((t) => t.skillId === F && t.context === 'review')),
+    ).toBe(true);
+    expect(rankNewSkills({ child: child('2'), state: s, graph, now: NOW })).toEqual([]);
+  });
+
+  it('a failed review no themed workshop hosts sends the request to the Practice Pier', () => {
+    // Review round 4 (#66): F failed its review and has only a number-pad template; N is the sole
+    // (learning) focus; the only themed workshop hosts tap-count alone, so it could fill every
+    // request with N and the practiced A, B and C without F. The next plan must review F (04 §6.4
+    // rule 3), so the requests go to the Practice Pier, which hosts every format.
+    const f = graph.skills[F] as Skill;
+    const g: SkillGraph = {
+      ...graph,
+      skills: { ...graph.skills, [F]: { ...f, templates: [`${F}.t3`] } },
+    };
+    const gModel = createEloFireModel(g, { childId: CHILD, isK: false });
+    const notDue = NOW + 3 * DAY_MS;
+    const before = stateWith({
+      [A]: practiced(2, notDue),
+      [B]: practiced(2, notDue),
+      [C]: practiced(2, notDue),
+      [N]: learning(0),
+      [F]: practiced(1, NOW + 1),
+    });
+    const s = gModel.apply(
+      before,
+      synthAttempt(F, 3, { correct: false, context: 'review', seed: 12345 }),
+      NOW,
+    );
+    expect(s.skills[F]?.memory?.consecutiveFails).toBe(1);
+    const taps = cap('tap-works', ['tap-count'], { residents: ['nib'], produces: ['stone'] });
+    const p = plan(input({ graph: g, state: s, workshopsAvailable: [taps] }));
+    for (const r of p.requests) {
+      expect(r.tasks.some((t) => t.skillId === F && t.context === 'review')).toBe(true);
+      expect(r.workshopId).toBe(PRACTICE_PIER);
+    }
   });
 });
 
@@ -832,6 +1075,14 @@ describe('remediation (04 §6.4 rule 5)', () => {
       remediation: { skillId: 'CNT.99', misconceptionId: 'MC.off-by-one-counting' },
     });
     expect(q.requests.every((x) => x.narration === 'req.help')).toBe(true);
+  });
+
+  it('plans the lesson of a remediation skill that is still learning', () => {
+    const s = stateWith({ [A]: practiced(2, NOW + DAY_MS), [B]: learning(0) });
+    const p = plan(input({ state: s, workshopsAvailable: [HALL] }), {
+      remediation: { skillId: B, misconceptionId: 'MC.off-by-one-counting' },
+    });
+    expect(p.requests[0]?.tasks[0]).toMatchObject({ skillId: B, mode: 'lesson' });
   });
 });
 
