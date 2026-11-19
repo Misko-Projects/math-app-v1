@@ -2,9 +2,11 @@ import type { ExpressionSpec, ExpressionToken, StimulusSpec } from '@number-isla
 import type { CSSProperties, ReactNode } from 'react';
 import { useNarrationText } from '../../preferences/UiProvider';
 import { pictureProps } from './a11y';
+import { GaugeView } from './GaugeView';
 import { dotsLayout, groupIndexes, objectSetLayout } from './layout';
 import { NumberLineView } from './NumberLineView';
 import { ObjectSetView } from './ObjectSetView';
+import { ShapeSetView } from './ShapeView';
 import { ObjectSprite } from './sprites';
 import './kit.css';
 
@@ -186,6 +188,23 @@ export function StimulusView({
               maxHeight={maxHeight / Math.max(1, spec.sprites.length)}
             />
           ))}
+        </div>
+      );
+    case 'shape':
+      return (
+        <div className={cls} data-kind="shape">
+          <ShapeSetView
+            shapes={spec.shapes}
+            maxWidth={maxWidth}
+            maxHeight={maxHeight}
+            label={name}
+          />
+        </div>
+      );
+    case 'gauge':
+      return (
+        <div className={cls} data-kind="gauge">
+          <GaugeView spec={spec} maxWidth={maxWidth} maxHeight={maxHeight} label={name} />
         </div>
       );
     default:

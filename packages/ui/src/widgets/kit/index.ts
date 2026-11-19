@@ -19,6 +19,18 @@ export {
   useSubmitGuard,
 } from './controls';
 export {
+  DIAL_START,
+  DIAL_SWEEP,
+  dialAngle,
+  GAUGE_UNIT,
+  type GaugeSpec,
+  GaugeView,
+  type GaugeViewProps,
+  gaugeLabels,
+  gaugeTicks,
+  levelY,
+} from './GaugeView';
+export {
   dicePattern,
   dotsLayout,
   type FrameOutline,
@@ -36,6 +48,21 @@ export {
   stepsBetween,
 } from './NumberLineView';
 export { fitCell, ObjectSetView, type ObjectSetViewProps } from './ObjectSetView';
+export {
+  countedParts,
+  equalSideGroups,
+  markFor,
+  regularPolygon,
+  type ShapeGeometry,
+  type ShapeMark,
+  ShapeSetView,
+  ShapeView,
+  type ShapeViewProps,
+  shapeColor,
+  shapeExtent,
+  shapeGeometry,
+  squareCorners,
+} from './ShapeView';
 export {
   BaseTenView,
   ExpressionView,

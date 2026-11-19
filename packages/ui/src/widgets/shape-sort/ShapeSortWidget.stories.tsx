@@ -1,0 +1,717 @@
+import { stateChecker } from '@number-island/engine';
+import type { ResponseValue, WidgetConfig } from '@number-island/shared';
+import type { Meta, StoryObj } from '@storybook/react-vite';
+import { expect, fn, userEvent, waitFor, within } from 'storybook/test';
+import { AREA, areaBox, expectFitsArea, inArea } from '../../test-support/areaStory';
+import {
+  center,
+  clearSpies,
+  expectTargetGaps,
+  expectTargetSize,
+  pointerDrag,
+  spyAudio,
+} from '../../test-support/storyHelpers';
+import {
+  expectPointerOn,
+  expectTraceOrdered,
+  findWidget,
+  renderWidget,
+  traceOf,
+} from '../../test-support/widgetStory';
+import { createDemoController, UnsupportedWidgetOpError, type WidgetDemo } from '../demo';
+import type { ConfigFor } from '../types';
+import type { WidgetHostProps } from '../WidgetHost';
+
+/**
+ * `shape-sort` (03 §5.5): sort cards into bins (`{ bins }`), find every card that fits
+ * (`{ ids }`), or pick the odd one out (`choice`). Configs are real generated items (template and
+ * seed in each comment); every story checks its response with the engine's checker.
+ */
+
+type Config = ConfigFor<'shape-sort'>;
+type Shape = Extract<Config['cards'][number]['card'], { shape: string }>;
+
+const props = (
+  sides: number,
+  corners: number,
+  rightAngles: number,
+  equalSides: boolean,
+  parallelPairs: number,
+  extra: Partial<Shape['props']> = {},
+): Shape['props'] => ({
+  sides,
+  corners,
+  rightAngles,
+  equalSides,
+  parallelPairs,
+  curved: false,
+  closed: true,
+  solid: false,
+  ...extra,
+});
+const P = {
+  triangle: props(3, 3, 0, true, 0),
+  rhombus: props(4, 4, 0, true, 2),
+  hexagon: props(6, 6, 0, true, 3),
+  trapezoid: props(4, 4, 0, false, 1),
+  square: props(4, 4, 4, true, 2),
+  rectangle: props(4, 4, 4, false, 2),
+  kite: props(4, 4, 0, false, 0),
+  quadrilateral: props(4, 4, 0, false, 0),
+  circle: props(0, 0, 0, false, 0, { curved: true }),
+  'open-figure': props(3, 2, 0, false, 0, { closed: false }),
+} as const;
+const card = (
+  id: string,
+  shape: keyof typeof P,
+  color: string,
+  rotationDeg = 0,
+  scale = 1,
+): Config['cards'][number] => ({
+  id,
+  card: { id, shape, props: { ...P[shape] }, rotationDeg, scale, color },
+});
+const flat = (c: Config['cards'][number]) => {
+  const k = c.card as Shape;
+  return { id: c.id, props: { shape: k.shape, ...k.props } };
+};
+
+/** GEO.01.t1 seed 2 (geo.identify, pattern blocks): triangles and rhombuses. */
+const blocks: Config = {
+  format: 'shape-sort',
+  cards: [
+    card('c0', 'rhombus', 'blue'),
+    card('c1', 'triangle', 'green'),
+    card('c2', 'rhombus', 'blue'),
+    card('c3', 'triangle', 'green'),
+  ],
+  bins: [
+    {
+      id: 'b0',
+      label: 'shape.triangle.many',
+      rule: { prop: 'shape', op: '==', value: 'triangle' },
+    },
+    { id: 'b1', label: 'shape.rhombus.many', rule: { prop: 'shape', op: '==', value: 'rhombus' } },
+  ],
+  mode: 'sort',
+};
+const blocksTarget = {
+  cards: blocks.cards.map(flat),
+  bins: (blocks.bins ?? []).map((b) => ({ id: b.id, rule: b.rule })),
+};
+
+/** GEO.08.t2 seed 1 (geo.identify): sort by corners, 3 or 6. */
+const corners: Config = {
+  format: 'shape-sort',
+  cards: [
+    card('c0', 'triangle', 'yellow'),
+    card('c1', 'triangle', 'purple'),
+    card('c2', 'hexagon', 'green'),
+    card('c3', 'triangle', 'red'),
+    card('c4', 'hexagon', 'purple'),
+  ],
+  bins: [
+    {
+      id: 'b0',
+      label: 'gen.geo.identify.bin.corners-3',
+      rule: { prop: 'corners', op: '==', value: 3 },
+    },
+    {
+      id: 'b1',
+      label: 'gen.geo.identify.bin.corners-6',
+      rule: { prop: 'corners', op: '==', value: 6 },
+    },
+  ],
+  mode: 'sort',
+};
+
+/** MEA.16.t4 seed 1 (mea.massvolume): heavier or lighter than an apple (weight step 4). */
+const weights: Config = {
+  format: 'shape-sort',
+  cards: [
+    { id: 'c0', card: { kind: 'object', sprite: 'feather', props: { weight: 1 } } },
+    { id: 'c1', card: { kind: 'object', sprite: 'leaf', props: { weight: 2 } } },
+    { id: 'c2', card: { kind: 'object', sprite: 'brick', props: { weight: 7 } } },
+    { id: 'c3', card: { kind: 'object', sprite: 'pumpkin', props: { weight: 9 } } },
+    { id: 'c4', card: { kind: 'object', sprite: 'melon', props: { weight: 6 } } },
+    { id: 'c5', card: { kind: 'object', sprite: 'rock', props: { weight: 8 } } },
+  ],
+  bins: [
+    { id: 'b0', label: 'word.heavier', rule: { prop: 'weight', op: '>=', value: 5 } },
+    { id: 'b1', label: 'word.lighter', rule: { prop: 'weight', op: '<=', value: 3 } },
+  ],
+  mode: 'sort',
+};
+
+/** GEO.07.t1 seed 2 (geo.identify, real objects): cubes, cones and spheres, three bins. */
+const solids: Config = {
+  format: 'shape-sort',
+  cards: [
+    {
+      id: 'c0',
+      card: {
+        kind: 'object',
+        sprite: 'block',
+        props: { shape: 'cube', solid: true, curved: false },
+      },
+    },
+    {
+      id: 'c1',
+      card: {
+        kind: 'object',
+        sprite: 'dice',
+        props: { shape: 'cube', solid: true, curved: false },
+      },
+    },
+    {
+      id: 'c2',
+      card: {
+        kind: 'object',
+        sprite: 'party-hat',
+        props: { shape: 'cone', solid: true, curved: true },
+      },
+    },
+    {
+      id: 'c3',
+      card: {
+        kind: 'object',
+        sprite: 'ball',
+        props: { shape: 'sphere', solid: true, curved: true },
+      },
+    },
+    {
+      id: 'c4',
+      card: {
+        kind: 'object',
+        sprite: 'ball',
+        props: { shape: 'sphere', solid: true, curved: true },
+      },
+    },
+    {
+      id: 'c5',
+      card: {
+        kind: 'object',
+        sprite: 'party-hat',
+        props: { shape: 'cone', solid: true, curved: true },
+      },
+    },
+  ],
+  bins: [
+    { id: 'b0', label: 'shape.cube.many', rule: { prop: 'shape', op: '==', value: 'cube' } },
+    { id: 'b1', label: 'shape.cone.many', rule: { prop: 'shape', op: '==', value: 'cone' } },
+    { id: 'b2', label: 'shape.sphere.many', rule: { prop: 'shape', op: '==', value: 'sphere' } },
+  ],
+  mode: 'sort',
+};
+const solidsTarget = {
+  cards: solids.cards.map((c) => ({ id: c.id, props: (c.card as { props: object }).props })),
+  bins: (solids.bins ?? []).map((b) => ({ id: b.id, rule: b.rule })),
+};
+
+/** GEO.01.t4 seed 1 (geo.identify, near miss): find every triangle; the open figure is not one. */
+const findTriangles: Config = {
+  format: 'shape-sort',
+  cards: [
+    card('c0', 'triangle', 'red'),
+    card('c1', 'open-figure', 'green'),
+    card('c2', 'triangle', 'purple'),
+    card('c3', 'square', 'green'),
+    card('c4', 'circle', 'purple'),
+    card('c5', 'rectangle', 'yellow'),
+  ],
+  bins: null,
+  mode: 'find-all',
+};
+
+/** GEO.02.t2 seed 2 (geo.identify, non-prototypical): turned and resized shapes. */
+const findTurned: Config = {
+  format: 'shape-sort',
+  cards: [
+    card('c0', 'hexagon', 'red', 135, 0.6),
+    card('c1', 'square', 'blue', 300, 1.5),
+    card('c2', 'triangle', 'yellow', 300, 1.3),
+    card('c3', 'triangle', 'green', 300, 0.6),
+    card('c4', 'triangle', 'orange', 20, 0.75),
+    card('c5', 'open-figure', 'purple', 300, 0.75),
+  ],
+  bins: null,
+  mode: 'find-all',
+};
+
+/** GEO.08.t4 seed 1 (geo.identify): which shape has sides that are all the same? */
+const oddOne: Config = {
+  format: 'shape-sort',
+  cards: [
+    card('c0', 'quadrilateral', 'yellow'),
+    card('c1', 'trapezoid', 'yellow'),
+    card('c2', 'square', 'green'),
+    card('c3', 'kite', 'blue'),
+  ],
+  bins: null,
+  mode: 'odd-one-out',
+};
+
+const meta = {
+  title: 'Widgets/Shape sort',
+  args: {
+    config: blocks as WidgetConfig,
+    tier: 'concrete',
+    disabled: false,
+    onResponse: fn(),
+    onInteract: fn(),
+  },
+  parameters: { ui: { stage: 'centered' } },
+  render: renderWidget,
+} satisfies Meta<WidgetHostProps>;
+
+export default meta;
+type Story = StoryObj<typeof meta>;
+
+const ROOT = '.ni-ssort';
+
+const lastResponse = (spy: unknown) => {
+  const calls = (spy as ReturnType<typeof fn>).mock.calls;
+  return calls[calls.length - 1]?.[0] as ResponseValue;
+};
+const pad = (root: HTMLElement, bin: string) =>
+  root.querySelector(`[data-bin="${bin}"] > .ni-ssort__pad`) as HTMLElement;
+const cardEl = (root: HTMLElement, id: string) =>
+  root.querySelector(`.ni-ssort__card[data-id="${id}"]`) as HTMLElement;
+const inBin = (root: HTMLElement, bin: string) =>
+  [...root.querySelectorAll(`[data-bin="${bin}"] .ni-ssort__card`)].map((e) =>
+    e.getAttribute('data-id'),
+  );
+
+/**
+ * K, concrete pattern blocks (GEO.01.t1): a touch drag, a mouse drag, tap-to-place and the
+ * keyboard each sort one card; a tapped card says its name. The response passes sort.byRule.
+ */
+export const SortBlocksK: Story = {
+  globals: { ageMode: 'k' },
+  parameters: { ui: { audio: spyAudio() } },
+  play: async ({ canvasElement, args, parameters }) => {
+    const audio = parameters.ui.audio as ReturnType<typeof spyAudio>;
+    clearSpies(audio);
+    const root = await findWidget(canvasElement, ROOT);
+    const check = within(root).getByRole('button', { name: 'Check' });
+    await expect(check).toBeDisabled();
+    const cards = [...root.querySelectorAll<HTMLElement>('.ni-ssort__card')];
+    await expect(cards).toHaveLength(4);
+    for (const c of cards) await expectTargetSize(c, 'k');
+    await expectTargetGaps(cards);
+    await expectTargetGaps([pad(root, 'b0'), pad(root, 'b1')]);
+
+    // Touch drag a triangle into the triangles bin.
+    await pointerDrag(cardEl(root, 'c1'), center(pad(root, 'b0')), 'touch');
+    await waitFor(() => expect(inBin(root, 'b0')).toEqual(['c1']));
+    // Mouse drag a rhombus.
+    await pointerDrag(cardEl(root, 'c0'), center(pad(root, 'b1')), 'mouse');
+    await waitFor(() => expect(inBin(root, 'b1')).toEqual(['c0']));
+    // Tap-to-place: tap the card (it says its name), then the bin.
+    await userEvent.click(cardEl(root, 'c3'));
+    await expect(audio.say).toHaveBeenCalledWith('shape.triangle.one', undefined);
+    await userEvent.click(pad(root, 'b0'));
+    await waitFor(() => expect(inBin(root, 'b0')).toEqual(['c1', 'c3']));
+    // Keyboard: Enter picks the last card up, focus jumps to the first bin it can go in (not
+    // the tray it is in), an arrow moves to the next bin, Enter drops it there.
+    cardEl(root, 'c2').focus();
+    await userEvent.keyboard('{Enter}');
+    await waitFor(() => expect(document.activeElement).toBe(pad(root, 'b0')));
+    await userEvent.keyboard('{ArrowRight}{Enter}');
+    await waitFor(() => expect(inBin(root, 'b1')).toEqual(['c0', 'c2']));
+
+    await userEvent.click(check);
+    await expect(args.onResponse).toHaveBeenCalledTimes(1);
+    const r = lastResponse(args.onResponse);
+    await expect(r).toEqual({
+      kind: 'state',
+      value: { bins: { b0: ['c1', 'c3'], b1: ['c0', 'c2'] } },
+    });
+    await expect(
+      stateChecker('sort.byRule')?.check(
+        blocksTarget,
+        (r as { value: Record<string, unknown> }).value,
+      ),
+    ).toBe(true);
+    const trace = traceOf(args.onInteract);
+    await expect(trace.map((e) => `${e.t}:${e.target}`)).toEqual(
+      expect.arrayContaining([
+        'drag:c1',
+        'drop:b0',
+        'drag:c0',
+        'drop:b1',
+        'tap:c3',
+        'tap:b0',
+        'tap:c2',
+        'tap:b1',
+      ]),
+    );
+    await expectTraceOrdered(trace);
+  },
+};
+
+/** A card dragged back to the tray, or dropped nowhere, leaves the bins as they were. */
+export const SortBackToTray: Story = {
+  play: async ({ canvasElement }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    await pointerDrag(cardEl(root, 'c1'), center(pad(root, 'b1')), 'mouse');
+    await waitFor(() => expect(inBin(root, 'b1')).toEqual(['c1']));
+    await pointerDrag(cardEl(root, 'c1'), center(pad(root, 'tray')), 'mouse');
+    await waitFor(() => expect(inBin(root, 'b1')).toEqual([]));
+    await expect(inBin(root, 'tray')).toContain('c1');
+    // Dropped far from every bin: it glides home.
+    const box = root.getBoundingClientRect();
+    await pointerDrag(cardEl(root, 'c0'), { x: box.right + 300, y: box.top - 200 }, 'mouse');
+    await expect(inBin(root, 'tray')).toContain('c0');
+    await expect(within(root).getByRole('button', { name: 'Check' })).toBeDisabled();
+  },
+};
+
+/**
+ * GEO.08.t2: bins "3 corners" and "6 corners"; the label numerals are ≥ 32 px. Counting the
+ * corners (demo) marks each corner and shows the running count.
+ */
+export const SortByCorners: Story = {
+  args: { config: corners, tier: 'pictorial' },
+  play: async ({ canvasElement, args }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    const labels = [...root.querySelectorAll<HTMLElement>('.ni-ssort__label')];
+    await expect(labels.map((l) => l.textContent)).toEqual(['3 corners', '6 corners']);
+    for (const l of labels) {
+      await expect(Number.parseFloat(getComputedStyle(l).fontSize)).toBeGreaterThanOrEqual(32);
+    }
+    // Hexagons are drawn with six corners, triangles with three.
+    await expect(
+      cardEl(root, 'c2').querySelectorAll('polygon')[0]?.getAttribute('points')?.split(' '),
+    ).toHaveLength(6);
+    for (const id of ['c0', 'c1', 'c3']) {
+      await userEvent.click(cardEl(root, id));
+      await userEvent.click(pad(root, 'b0'));
+    }
+    for (const id of ['c2', 'c4']) {
+      await userEvent.click(cardEl(root, id));
+      await userEvent.click(pad(root, 'b1'));
+    }
+    await userEvent.click(within(root).getByRole('button', { name: 'Check' }));
+    await expect(lastResponse(args.onResponse)).toEqual({
+      kind: 'state',
+      value: { bins: { b0: ['c0', 'c1', 'c3'], b1: ['c2', 'c4'] } },
+    });
+  },
+};
+
+/** MEA.16.t4 (pictorial objects): heavier and lighter than the apple. */
+export const SortHeavierLighter: Story = {
+  args: { config: weights, tier: 'pictorial' },
+  play: async ({ canvasElement, args }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    await expect(within(root).getByRole('button', { name: 'Feather' })).toBeInTheDocument();
+    await expect(root.querySelector('[data-sprite="pumpkin"]')).not.toBeNull();
+    for (const id of ['c2', 'c3', 'c4', 'c5']) {
+      await userEvent.click(cardEl(root, id));
+      await userEvent.click(pad(root, 'b0'));
+    }
+    for (const id of ['c0', 'c1']) {
+      await userEvent.click(cardEl(root, id));
+      await userEvent.click(pad(root, 'b1'));
+    }
+    await userEvent.click(within(root).getByRole('button', { name: 'Check' }));
+    const target = {
+      cards: weights.cards.map((c) => ({ id: c.id, props: (c.card as { props: object }).props })),
+      bins: (weights.bins ?? []).map((b) => ({ id: b.id, rule: b.rule })),
+    };
+    const r = lastResponse(args.onResponse) as { value: Record<string, unknown> };
+    await expect(stateChecker('sort.byRule')?.check(target, r.value)).toBe(true);
+  },
+};
+
+/**
+ * Tablet widget area (1280 × 800 → 1226 × 493), K, three bins of real solid-shaped objects
+ * (GEO.07.t1 seed 2). Everything fits with no scroll, before and after sorting.
+ */
+export const SolidsTabletK: Story = {
+  globals: { ageMode: 'k' },
+  args: { config: solids },
+  render: inArea('tablet'),
+  play: async ({ canvasElement, args }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    const box = areaBox(canvasElement);
+    await expect(box.getBoundingClientRect().width).toBeCloseTo(AREA.tablet.width, 0);
+    const parts = () => [
+      ...root.querySelectorAll('.ni-ssort__card, .ni-ssort__pad'),
+      within(root).getByRole('button', { name: 'Check' }),
+    ];
+    await expectFitsArea(box, parts());
+    for (const [id, bin] of [
+      ['c0', 'b0'],
+      ['c1', 'b0'],
+      ['c2', 'b1'],
+      ['c5', 'b1'],
+      ['c3', 'b2'],
+      ['c4', 'b2'],
+    ] as const) {
+      await userEvent.click(cardEl(root, id));
+      await userEvent.click(pad(root, bin));
+    }
+    await expectFitsArea(box, parts());
+    for (const c of root.querySelectorAll('.ni-ssort__card')) await expectTargetSize(c, 'k');
+    await userEvent.click(within(root).getByRole('button', { name: 'Check' }));
+    const r = lastResponse(args.onResponse) as { value: Record<string, unknown> };
+    await expect(stateChecker('sort.byRule')?.check(solidsTarget, r.value)).toBe(true);
+  },
+};
+
+/**
+ * The smallest landscape area (960 × 600 → 906 × 373), K, three bins: cards shrink to the K
+ * target size and nothing scrolls, before and after sorting.
+ */
+export const SolidsLandscapeMinK: Story = {
+  ...SolidsTabletK,
+  render: inArea('landscapeMin'),
+  play: async ({ canvasElement, args }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    const box = areaBox(canvasElement);
+    await waitFor(() => expect(root).toHaveAttribute('data-compact', 'true'));
+    const parts = () => [
+      ...root.querySelectorAll('.ni-ssort__card, .ni-ssort__pad'),
+      within(root).getByRole('button', { name: 'Check' }),
+    ];
+    await expectFitsArea(box, parts());
+    const cards = [...root.querySelectorAll('.ni-ssort__card')];
+    for (const c of cards) await expectTargetSize(c, 'k');
+    await expectTargetGaps(cards);
+    for (const [id, bin] of [
+      ['c0', 'b0'],
+      ['c1', 'b0'],
+      ['c2', 'b1'],
+      ['c5', 'b1'],
+      ['c3', 'b2'],
+      ['c4', 'b2'],
+    ] as const) {
+      await userEvent.click(cardEl(root, id));
+      await userEvent.click(pad(root, bin));
+    }
+    await expectFitsArea(box, parts());
+    await userEvent.click(within(root).getByRole('button', { name: 'Check' }));
+    const r = lastResponse(args.onResponse) as { value: Record<string, unknown> };
+    await expect(stateChecker('sort.byRule')?.check(solidsTarget, r.value)).toBe(true);
+  },
+};
+
+/** Find-all at the smallest landscape area, K: six cards and Check fit with no scroll. */
+export const FindAllLandscapeMinK: Story = {
+  globals: { ageMode: 'k' },
+  args: { config: findTriangles, tier: 'pictorial' },
+  render: inArea('landscapeMin'),
+  play: async ({ canvasElement }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    const box = areaBox(canvasElement);
+    await expectFitsArea(box, [
+      ...root.querySelectorAll('.ni-ssort__card'),
+      within(root).getByRole('button', { name: 'Check' }),
+    ]);
+    const cards = [...root.querySelectorAll('.ni-ssort__card')];
+    for (const c of cards) await expectTargetSize(c, 'k');
+    await expectTargetGaps(cards);
+  },
+};
+
+/**
+ * GEO.01.t4 (pictorial, near miss): tap every triangle. The open figure is drawn open (a
+ * polyline, no fill); tapping a card again lets it go. Check answers `{ ids }`.
+ */
+export const FindAllTriangles: Story = {
+  args: { config: findTriangles, tier: 'pictorial' },
+  parameters: { ui: { audio: spyAudio() } },
+  play: async ({ canvasElement, args, parameters }) => {
+    const audio = parameters.ui.audio as ReturnType<typeof spyAudio>;
+    clearSpies(audio);
+    const root = await findWidget(canvasElement, ROOT);
+    const open = cardEl(root, 'c1');
+    await expect(open.querySelector('polyline.ni-shape__open')).not.toBeNull();
+    await expect(open.querySelector('polygon')).toBeNull();
+    await userEvent.click(cardEl(root, 'c0'));
+    await expect(audio.say).toHaveBeenCalledWith('shape.triangle.one', undefined);
+    await userEvent.click(open);
+    await userEvent.click(cardEl(root, 'c2'));
+    await expect(open).toHaveAttribute('aria-pressed', 'true');
+    await userEvent.click(open);
+    await expect(open).toHaveAttribute('aria-pressed', 'false');
+    await userEvent.click(within(root).getByRole('button', { name: 'Check' }));
+    await expect(args.onResponse).toHaveBeenCalledWith({
+      kind: 'state',
+      value: { ids: ['c0', 'c2'] },
+    });
+    await expect(
+      stateChecker('select.exactSet')?.check({ ids: ['c0', 'c2'] }, { ids: ['c0', 'c2'] }),
+    ).toBe(true);
+    await expect(traceOf(args.onInteract).map((e) => `${e.t}:${e.target}`)).toEqual([
+      'tap:c0',
+      'tap:c1',
+      'tap:c2',
+      'tap:c1',
+    ]);
+  },
+};
+
+/**
+ * GEO.02.t2 (non-prototypical): turned and resized shapes share one scale, so the 1.5 × square
+ * is drawn 1.5 / 0.6 = 2.5 × as wide as the 0.6 × hexagon's scale says; turns are applied.
+ */
+export const FindAllTurnedShapes: Story = {
+  args: { config: findTurned, tier: 'pictorial' },
+  play: async ({ canvasElement, args }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    const viewBoxes = new Set(
+      [...root.querySelectorAll('svg.ni-shape')].map((s) => s.getAttribute('viewBox')),
+    );
+    await expect(viewBoxes.size).toBe(1);
+    const sq = cardEl(root, 'c1').querySelector('svg.ni-shape g') as SVGGElement;
+    await expect(sq.getAttribute('transform')).toBe('rotate(300)');
+    const small = cardEl(root, 'c3').querySelector('polygon') as SVGPolygonElement;
+    const big = cardEl(root, 'c2').querySelector('polygon') as SVGPolygonElement;
+    await expect(big.getBBox().width / small.getBBox().width).toBeCloseTo(1.3 / 0.6, 2);
+    for (const id of ['c2', 'c3', 'c4']) await userEvent.click(cardEl(root, id));
+    await userEvent.click(within(root).getByRole('button', { name: 'Check' }));
+    await expect(args.onResponse).toHaveBeenCalledWith({
+      kind: 'state',
+      value: { ids: ['c2', 'c3', 'c4'] },
+    });
+  },
+};
+
+/** GEO.08.t4: the odd one out; picking another card changes the pick. */
+export const OddOneOut: Story = {
+  args: { config: oddOne, tier: 'pictorial' },
+  play: async ({ canvasElement, args }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    await userEvent.click(cardEl(root, 'c1'));
+    await userEvent.click(cardEl(root, 'c2'));
+    await expect(cardEl(root, 'c1')).toHaveAttribute('aria-pressed', 'false');
+    await expect(cardEl(root, 'c2')).toHaveAttribute('aria-pressed', 'true');
+    await userEvent.click(within(root).getByRole('button', { name: 'Check' }));
+    await expect(args.onResponse).toHaveBeenCalledWith({ kind: 'choice', id: 'c2' });
+  },
+};
+
+/** Keyboard (06 §7): Tab to a card, Space picks it, Tab on to Check, Enter answers. */
+export const KeyboardOddOneOut: Story = {
+  args: { config: oddOne, tier: 'pictorial' },
+  play: async ({ canvasElement, args }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    cardEl(root, 'c0').focus();
+    await userEvent.tab();
+    await userEvent.tab();
+    await expect(cardEl(root, 'c2')).toHaveFocus();
+    await userEvent.keyboard(' ');
+    await expect(cardEl(root, 'c2')).toHaveAttribute('aria-pressed', 'true');
+    await userEvent.tab();
+    await userEvent.tab();
+    await expect(within(root).getByRole('button', { name: 'Check' })).toHaveFocus();
+    await userEvent.keyboard('{Enter}');
+    await expect(args.onResponse).toHaveBeenCalledWith({ kind: 'choice', id: 'c2' });
+  },
+};
+
+/** `disabled`: nothing can be picked or moved. */
+export const Disabled: Story = {
+  args: { disabled: true },
+  play: async ({ canvasElement, args }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    await userEvent.click(cardEl(root, 'c0'));
+    await expect(cardEl(root, 'c0')).toHaveAttribute('aria-pressed', 'false');
+    await expect(args.onInteract).not.toHaveBeenCalled();
+    await expect(within(root).getByRole('button', { name: 'Check' })).toBeDisabled();
+  },
+};
+
+const demoSort: WidgetDemo = createDemoController({ strict: true });
+
+/**
+ * Demo (03 §6.3): Pip counts a hexagon's corners (each corner marked, the count shown and
+ * spoken), then sorts two cards (`drag-card`).
+ */
+export const DemoSort: Story = {
+  args: { config: corners, tier: 'pictorial', disabled: true, demo: demoSort },
+  parameters: { ui: { audio: spyAudio() } },
+  play: async ({ canvasElement, parameters }) => {
+    const audio = parameters.ui.audio as ReturnType<typeof spyAudio>;
+    clearSpies(audio);
+    const root = await findWidget(canvasElement, ROOT);
+    const shown = demoSort.play({ op: 'highlight-attribute', args: { id: 'c2', prop: 'corners' } });
+    await waitFor(() =>
+      expect(cardEl(root, 'c2').querySelectorAll('.ni-shape__corner')).toHaveLength(6),
+    );
+    const badge = root.querySelector('.ni-ssort__count') as HTMLElement;
+    await expect(badge).toHaveTextContent('6');
+    await expect(Number.parseFloat(getComputedStyle(badge).fontSize)).toBeGreaterThanOrEqual(32);
+    await shown;
+    await expect(audio.sayPhrases).toHaveBeenCalledWith([{ number: 6 }]);
+    await demoSort.play({ op: 'drag-card', args: { id: 'c2', bin: 'b1' } });
+    await demoSort.play({ op: 'drag-card', args: { id: 'c0', bin: 'b0' } });
+    await expect(inBin(root, 'b1')).toEqual(['c2']);
+    await expect(inBin(root, 'b0')).toEqual(['c0']);
+    await expect(demoSort.play({ op: 'tap' })).rejects.toBeInstanceOf(UnsupportedWidgetOpError);
+  },
+};
+
+const demoCount: WidgetDemo = createDemoController({ strict: true });
+
+/** `count-sides`: the sides light up one by one and the count goes 1, 2, 3, 4. */
+export const DemoCountSides: Story = {
+  args: { config: oddOne, tier: 'pictorial', disabled: true, demo: demoCount },
+  parameters: { ui: { audio: spyAudio() } },
+  play: async ({ canvasElement, parameters }) => {
+    const audio = parameters.ui.audio as ReturnType<typeof spyAudio>;
+    clearSpies(audio);
+    const root = await findWidget(canvasElement, ROOT);
+    const done = demoCount.play({ op: 'count-sides', args: { id: 'c2' } });
+    await waitFor(() => expect(root.querySelector('.ni-ssort__count')).toHaveTextContent('4'), {
+      timeout: 5000,
+    });
+    await expect(cardEl(root, 'c2').querySelectorAll('.ni-shape__side-mark')).toHaveLength(4);
+    await done;
+    await expect(audio.sayPhrases.mock.calls.map((c) => c[0])).toEqual([
+      [{ number: 1 }],
+      [{ number: 2 }],
+      [{ number: 3 }],
+      [{ number: 4 }],
+    ]);
+    await demoCount.play({ op: 'answer', args: { id: 'c2' } });
+    await expect(cardEl(root, 'c2')).toHaveAttribute('aria-pressed', 'true');
+  },
+};
+
+const inviteDemo: WidgetDemo = createDemoController({ strict: true });
+
+/** The child's turn: Pip's hand points at the card to move, and the bin it goes in pulses. */
+export const DemoInvite: Story = {
+  globals: { ageMode: 'k' },
+  args: { demo: inviteDemo },
+  play: async ({ canvasElement }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    inviteDemo.invite({ op: 'drag-card', args: { id: 'c1', bin: 'b0' } });
+    await waitFor(() => expect(cardEl(root, 'c1')).toHaveClass('ni-invite'));
+    await expect(pad(root, 'b0')).toHaveClass('ni-invite');
+    await expectPointerOn(root.querySelector('.ni-hand') as HTMLElement, cardEl(root, 'c1'), root);
+    // The child moves it: the invite clears.
+    await userEvent.click(cardEl(root, 'c1'));
+    await expect(root.querySelector('.ni-hand')).toBeNull();
+  },
+};
+
+const reducedDemo: WidgetDemo = createDemoController({ strict: true });
+
+/** Reduced motion: demo ops are instant state changes. */
+export const DemoReducedMotion: Story = {
+  globals: { motion: 'reduced' },
+  args: { disabled: true, demo: reducedDemo },
+  play: async ({ canvasElement }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    const started = performance.now();
+    await reducedDemo.play({ op: 'drag-card', args: { id: 'c0', bin: 'b1' } });
+    await reducedDemo.play({ op: 'count-sides', args: { id: 'c1' } });
+    await expect(performance.now() - started).toBeLessThan(500);
+    await expect(inBin(root, 'b1')).toEqual(['c0']);
+  },
+};

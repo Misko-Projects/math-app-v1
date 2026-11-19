@@ -3,6 +3,18 @@
 // misconception matching, hint ladders and the fixture formats' state models. See README.md.
 
 export { type StateChecker, stateChecker } from './check/state';
+// U05 (#14) measurement and geometry: format state types and the geometry their widgets draw.
+export { inRelation } from './check/state/compose.relative';
+export {
+  area as polygonArea,
+  FILL_TOLERANCE,
+  overlapArea,
+  PIECE_CORNERS,
+  PIECE_SYMMETRY,
+  type Placement,
+  placeCorners,
+  type Vec,
+} from './check/state/pieces';
 export {
   type ContentBinding,
   initContent,
@@ -26,9 +38,27 @@ export {
 export { type ArrayBuildState, alreadyFound, rectanglesOf } from './formats/array-build';
 export { type BaseTenBuildState, traySupply } from './formats/base-ten-build';
 export { type BaseTenTradeState, computeResult, htoValue } from './formats/base-ten-trade';
+export { type CompareLengthState, closeness, startOf } from './formats/compare-length';
 export { type EqualGroupsState, GROUP_CAPACITY, groupsUnknown } from './formats/equal-groups';
 export { type EqualShareState, shareChoices } from './formats/equal-share';
 export { blankIds, type ExpandedFormState } from './formats/expanded-form';
+export {
+  isNonStandard,
+  type LaidUnit,
+  type LengthUnit,
+  lengthIn,
+  type MeasureLengthState,
+  objectUnits,
+  SIXTEENTHS,
+  UNIT_SIZE,
+} from './formats/measure-length';
+export {
+  designRectangles,
+  type PerimeterWalkState,
+  polygonPoints,
+  resolvedSides,
+  sidesMatch,
+} from './formats/perimeter-walk';
 export {
   COLUMNS,
   type Column,
@@ -41,6 +71,16 @@ export {
   piecesValue,
 } from './formats/place-value';
 export {
+  drawingPoints,
+  type PlacedPiece,
+  pieceCentre,
+  SCENE_SIZE,
+  type ShapeComposeState,
+  stickCount,
+  turnAboutCentre,
+} from './formats/shape-compose';
+export { isShapeCard, type ShapeSortState, sortCardProps, TRAY } from './formats/shape-sort';
+export {
   type BuildContext,
   GenerationError,
   type GeneratorDef,
@@ -49,6 +89,7 @@ export {
   registry,
 } from './generators';
 export { inDomain, specDomain } from './generators/common';
+export { ANCHOR_SIZE, pointFor } from './generators/geo/position';
 export {
   generatorFeatures,
   generatorIdentifiers,

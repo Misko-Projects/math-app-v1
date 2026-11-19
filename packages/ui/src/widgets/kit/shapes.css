@@ -1,0 +1,98 @@
+/* Shape cards (ShapeView): exact shapes in the card colour, outlined in its shade. */
+
+.ni-shapes {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+}
+
+.ni-shape {
+  display: block;
+  overflow: visible;
+}
+.ni-shape__fill {
+  stroke-width: 3.5px;
+  stroke-linejoin: round;
+  vector-effect: non-scaling-stroke;
+}
+/* An open figure has no inside: only its three sides, thick enough to read the gap. */
+.ni-shape__open {
+  fill: none;
+  stroke-width: 6px;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  vector-effect: non-scaling-stroke;
+}
+.ni-shape__tint-light {
+  fill: var(--color-cloud);
+  opacity: 0.35;
+  pointer-events: none;
+}
+.ni-shape__tint-dark {
+  fill: var(--color-ink);
+  opacity: 0.16;
+  pointer-events: none;
+}
+/* Edges behind a solid: dashed, never mistaken for drawn edges. */
+.ni-shape__hidden {
+  fill: none;
+  stroke: var(--color-ink-soft);
+  stroke-width: 2px;
+  stroke-dasharray: 5 5;
+  opacity: 0.7;
+  vector-effect: non-scaling-stroke;
+}
+.ni-shape__equator {
+  fill: none;
+  stroke: var(--color-ink-soft);
+  stroke-width: 2px;
+  opacity: 0.6;
+  vector-effect: non-scaling-stroke;
+}
+.ni-shape__shine {
+  fill: none;
+  stroke: var(--color-cloud);
+  stroke-width: 5px;
+  stroke-linecap: round;
+  opacity: 0.7;
+}
+
+/* Attribute marks (highlight-attribute, count-sides): ink on a paper badge, never colour alone. */
+.ni-shape__side-mark {
+  stroke: var(--color-ink);
+  stroke-width: 5px;
+  stroke-linecap: round;
+  stroke-dasharray: 10 6;
+}
+.ni-shape__corner {
+  fill: var(--color-paper);
+  stroke: var(--color-ink);
+  stroke-width: 3px;
+}
+.ni-shape__right {
+  fill: none;
+  stroke: var(--color-ink);
+  stroke-width: 3px;
+}
+.ni-shape__hash {
+  stroke: var(--color-ink);
+  stroke-width: 3px;
+  stroke-linecap: round;
+}
+.ni-shape__badge {
+  fill: var(--color-paper);
+  stroke: var(--color-ink);
+  stroke-width: 2px;
+}
+.ni-shape__badge-text {
+  fill: var(--color-ink);
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 15px;
+}
+.ni-shape [data-highlight="true"] .ni-shape__fill,
+.ni-shape [data-highlight="true"] .ni-shape__open {
+  stroke: var(--color-ink);
+  stroke-width: 6px;
+}

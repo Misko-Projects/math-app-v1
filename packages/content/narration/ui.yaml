@@ -113,3 +113,137 @@ ui.sprite.firefly:
 ui.sprite.counter:
   text: "Counter"
   level: K
+
+# More object names (U05 #14 sprites: measuring, weighing, solid-shaped and scene objects).
+ui.sprite.apple:
+  text: "Apple"
+  level: K
+ui.sprite.kite:
+  text: "Kite"
+  level: K
+ui.sprite.bun:
+  text: "Bun"
+  level: K
+ui.sprite.coconut:
+  text: "Coconut"
+  level: K
+ui.sprite.melon:
+  text: "Watermelon"
+  level: K
+ui.sprite.pumpkin:
+  text: "Pumpkin"
+  level: K
+ui.sprite.orange:
+  text: "Orange"
+  level: K
+ui.sprite.brick:
+  text: "Brick"
+  level: K
+ui.sprite.rock:
+  text: "Rock"
+  level: K
+ui.sprite.feather:
+  text: "Feather"
+  level: K
+ui.sprite.balloon:
+  text: "Balloon"
+  level: K
+ui.sprite.button:
+  text: "Button"
+  level: K
+ui.sprite.thimble:
+  text: "Thimble"
+  level: K
+ui.sprite.bucket:
+  text: "Bucket"
+  level: K
+ui.sprite.barrel:
+  text: "Barrel"
+  level: K
+ui.sprite.tub:
+  text: "Tub"
+  level: K
+ui.sprite.jug:
+  text: "Jug"
+  level: K
+ui.sprite.cup:
+  text: "Cup"
+  level: K
+ui.sprite.spoon:
+  text: "Spoon"
+  level: K
+ui.sprite.crate:
+  text: "Crate"
+  level: K
+ui.sprite.sack:
+  text: "Sack"
+  level: K
+ui.sprite.pallet:
+  text: "Pallet"
+  level: K
+ui.sprite.lantern:
+  text: "Lantern"
+  level: K
+ui.sprite.anchor:
+  text: "Anchor"
+  level: K
+ui.sprite.fishing-rod:
+  text: "Fishing rod"
+  level: K
+ui.sprite.book:
+  text: "Book"
+  level: K
+ui.sprite.box:
+  text: "Box"
+  level: K
+ui.sprite.tent:
+  text: "Tent"
+  level: K
+ui.sprite.roof-top:
+  text: "Roof"
+  level: K
+ui.sprite.can:
+  text: "Can"
+  level: K
+ui.sprite.drum:
+  text: "Drum"
+  level: K
+ui.sprite.party-hat:
+  text: "Party hat"
+  level: K
+ui.sprite.ice-cream:
+  text: "Ice cream cone"
+  level: K
+ui.sprite.dice:
+  text: "Dice"
+  level: K
+ui.sprite.block:
+  text: "Block"
+  level: K
+ui.sprite.ball:
+  text: "Ball"
+  level: K
+ui.sprite.log:
+  text: "Log"
+  level: K
+ui.sprite.rope:
+  text: "Rope"
+  level: K
+ui.sprite.ribbon:
+  text: "Ribbon"
+  level: K
+ui.sprite.vine:
+  text: "Vine"
+  level: K
+ui.sprite.cube:
+  text: "Cube"
+  level: K
+
+# Measurement and geometry widgets (U05 #14, packages/ui/src/widgets): accessible names and
+# spoken labels.
+ui.ssort.tray:
+  text: "Cards to sort"
+  level: K
+ui.ssort.find:
+  text: "Cards"
+  level: K
