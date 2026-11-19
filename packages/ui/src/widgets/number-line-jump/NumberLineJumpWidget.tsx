@@ -4,6 +4,7 @@ import {
   type CSSProperties,
   type ReactNode,
   type RefObject,
+  useEffect,
   useLayoutEffect,
   useRef,
   useState,
@@ -592,15 +593,24 @@ export function firstHopToward(
   const hops = [...new Set(allowed)]
     .filter((b) => b !== 0)
     .sort((a, b) => Math.abs(b) - Math.abs(a));
+  if (hops.length === 0) return null;
+  // Bounded work: the hops of any path from `from` to `at` can be reordered so the hopper never
+  // strays more than one longest hop beyond the stretch between them (hop toward `at` while short
+  // of it, back while past it), so the search covers just that window of the road, and stops
+  // after a fixed number of positions whatever the road's length.
+  const reach = Math.max(...hops.map(Math.abs));
+  const lo = Math.max(road.min, Math.min(from, at) - reach);
+  const hi = Math.min(road.max, Math.max(from, at) + reach);
+  const LIMIT = 20_000;
   const first = new Map<number, number>();
   let frontier = [from];
   const seen = new Set([from]);
-  while (frontier.length > 0) {
+  while (frontier.length > 0 && seen.size < LIMIT) {
     const next: number[] = [];
     for (const p of frontier) {
       for (const by of hops) {
         const q = p + by;
-        if (q < road.min || q > road.max || seen.has(q)) continue;
+        if (q < lo || q > hi || seen.has(q)) continue;
         seen.add(q);
         first.set(q, p === from ? by : (first.get(p) as number));
         if (q === at) return first.get(q) as number;
@@ -617,6 +627,8 @@ type Cue =
   | { at: 'hop'; by: number }
   | { at: 'dial'; dir: 'smaller' | 'bigger' }
   | { at: 'key'; key: PadKey }
+  | { at: 'undo' }
+  | { at: 'sign' }
   | { at: 'check' };
 
 function cueTarget(root: HTMLElement, cue: Cue): HTMLElement | null {
@@ -639,6 +651,10 @@ function cueTarget(root: HTMLElement, cue: Cue): HTMLElement | null {
           (k) => k.dataset.key === cue.key,
         ) ?? null
       );
+    case 'undo':
+      return root.querySelector<HTMLElement>('.ni-nlj__undo');
+    case 'sign':
+      return root.querySelector<HTMLElement>('.ni-nlj__sign');
     case 'check':
       return root.querySelector<HTMLElement>('.ni-nlj__check .ni-btn');
   }
@@ -649,7 +665,7 @@ const cueKeyOf = (cue: Cue | null) => {
   if (cue.at === 'hop') return `hop:${cue.by}`;
   if (cue.at === 'dial') return `dial:${cue.dir}`;
   if (cue.at === 'key') return `key:${cue.key}`;
-  return 'check';
+  return cue.at;
 };
 
 // ---------- the widget ----------
@@ -677,9 +693,8 @@ export function NumberLineJumpWidget({
   const [hops, setHops] = useState<number[]>([]);
   const [typed, setTyped] = useState('');
   /**
-   * A landing below zero keeps its sign (a demo types −3, the readout shows −3). The pad has no
-   * minus key yet (it belongs to the shared NumberPad), so only a demo sets it: typed negative
-   * entry is a follow-up (no v1 template asks for a negative landing).
+   * A landing below zero keeps its sign. When the line goes below zero the widget shows its own
+   * minus toggle (−) beside the answer (the shared pad has no minus key); desktop "-" toggles it.
    */
   const [negative, setNegative] = useState(false);
   const [highlight, setHighlight] = useState<number | null>(null);
@@ -781,6 +796,29 @@ export function NumberLineJumpWidget({
       return next;
     });
   };
+  /** The minus toggle: on a line that goes below zero, when a number is asked for. */
+  const signShown = c.thenAsk !== null && c.min < 0;
+  const toggleSign = () => {
+    if (!interactive || !signShown) return;
+    trace('tap', 'key-minus');
+    setNegative((n) => !n);
+  };
+  const toggleSignRef = useRef(toggleSign);
+  toggleSignRef.current = toggleSign;
+  useEffect(() => {
+    if (!signShown) return;
+    const onKeyDown = (e: globalThis.KeyboardEvent) => {
+      if (e.altKey || e.ctrlKey || e.metaKey) return;
+      const el = e.target as HTMLElement | null;
+      if (el?.closest('input, textarea, select, [contenteditable="true"]')) return;
+      if (e.key === '-' || e.key === '\u2212') {
+        e.preventDefault();
+        toggleSignRef.current();
+      }
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [signShown]);
   const typedValue = (() => {
     const v = padValue(typed);
     return v === null ? null : negative ? -v : v;
@@ -900,10 +938,8 @@ export function NumberLineJumpWidget({
     const checkCue: Cue | null = ready ? { at: 'check' } : null;
     const valueCue = (want: number | null): Cue | null => {
       if (c.thenAsk === null) return checkCue;
-      // A value below zero needs a minus the pad does not have yet: cue it only once a demo has
-      // set the sign; never call an answer of the wrong sign complete.
-      if (want !== null && want < 0 !== negative)
-        return want < 0 ? null : { at: 'key', key: 'back' };
+      // The sign first: the minus toggle (below zero), or toggling it off again.
+      if (want !== null && want < 0 !== negative) return signShown ? { at: 'sign' } : null;
       const text = want === null ? null : String(Math.abs(want));
       if (text === null || typed === text) return checkCue;
       if (text.startsWith(typed)) return { at: 'key', key: text[typed.length] as PadKey };
@@ -926,6 +962,11 @@ export function NumberLineJumpWidget({
         if (c.target !== undefined && position !== c.target) {
           const by = hopToward(c.target);
           if (by !== null) return hopCue(by);
+          // A dead end (no allowed path from here) on a road that does reach the target from the
+          // start: take the last hop back, then follow the path again.
+          if (hops.length > 0 && firstHopToward(c.start, c.target, allowed, c) !== null) {
+            return { at: 'undo' };
+          }
         }
         if (hops.length === 0) return null;
         return valueCue(num(invite, 'value'));
@@ -1221,7 +1262,9 @@ export function NumberLineJumpWidget({
         : allowed.map(hopButton)}
       <button
         type="button"
-        className="ni-nlj__jump ni-nlj__undo"
+        className={['ni-nlj__jump', 'ni-nlj__undo', cue?.at === 'undo' ? 'ni-invite' : '']
+          .filter(Boolean)
+          .join(' ')}
         aria-label={t('ui.nlj.undo')}
         disabled={hops.length === 0}
         onClick={undo}
@@ -1256,8 +1299,24 @@ export function NumberLineJumpWidget({
     >
       {c.thenAsk !== null ? (
         <span ref={readoutRef} className="ni-nlj__readout">
+          {signShown ? (
+            <button
+              type="button"
+              className={['ni-nlj__sign', cue?.at === 'sign' ? 'ni-invite' : '']
+                .filter(Boolean)
+                .join(' ')}
+              aria-label={t('ui.nlj.minus')}
+              aria-pressed={negative}
+              disabled={!interactive}
+              onClick={toggleSign}
+            >
+              <span className="ni-btn__label" aria-hidden="true">
+                {'\u2212'}
+              </span>
+            </button>
+          ) : null}
           <NumberDisplay
-            value={typed === '' ? null : `${negative ? '−' : ''}${typed}`}
+            value={typed === '' && !negative ? null : `${negative ? '\u2212' : ''}${typed}`}
             digits={Math.min(2, maxDigits)}
             size={plan.short ? undefined : 'lg'}
             state={interactive && hops.length > 0 ? 'active' : 'idle'}

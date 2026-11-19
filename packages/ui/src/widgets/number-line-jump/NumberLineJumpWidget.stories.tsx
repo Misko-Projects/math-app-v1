@@ -926,7 +926,7 @@ export const NegativeLanding: Story = {
     const numerals = [...root.querySelectorAll('.ni-numberline__numeral')].map(
       (t) => t.textContent,
     );
-    await expect(numerals).toContain('\u22123');
+    await expect(numerals.some((t) => t?.startsWith('\u2212'))).toBe(true);
     await expect(numerals.some((t) => t?.includes('-'))).toBe(false);
     await userEvent.click(checkBtn(root));
     await expect(args.onResponse).toHaveBeenCalledWith({
@@ -978,5 +978,82 @@ export const InviteReachablePath: Story = {
     await userEvent.click(jump(root, 3));
     await expectTruthfulRoad(root, deadEnd, 6);
     await expectInviteOn(root, checkBtn(root));
+  },
+};
+
+const childSignInvite: WidgetDemo = createDemoController({ strict: true });
+
+/**
+ * Review r2 F4: the child enters −3 alone: hop back 2, then the minus toggle (the answer invite
+ * rings it first), 3, and Check emits −3. The toggle is full size and 12 px from the readout.
+ */
+export const NegativeLandingChild: Story = {
+  args: { config: belowZero, tier: 'pictorial', demo: childSignInvite },
+  render: inArea('tablet'),
+  play: async ({ canvasElement, args }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    const sign = within(root).getByRole('button', { name: 'Minus' });
+    await expect(sign).toHaveTextContent('\u2212');
+    await expectTargetSize(sign, 'g1-up');
+    await userEvent.click(jump(root, -2));
+    childSignInvite.invite({ op: 'answer', args: { value: -3 } });
+    await expectInviteOn(root, sign);
+    await userEvent.click(sign);
+    await expect(sign).toHaveAttribute('aria-pressed', 'true');
+    await expectInviteOn(root, key(root, '3'));
+    await userEvent.click(key(root, '3'));
+    await expect(readout(root)).toHaveTextContent('\u22123');
+    await expectInviteOn(root, checkBtn(root));
+    await userEvent.click(checkBtn(root));
+    await expect(args.onResponse).toHaveBeenCalledWith({
+      kind: 'state',
+      value: { jumps: [-2], value: -3 },
+    });
+    await expect(traceOf(args.onInteract).map((e) => e.target)).toContain('key-minus');
+    await expectJumpFits(canvasElement, root, 'g1-up');
+  },
+};
+
+/** Review r2 F4 by keyboard: "-" toggles the minus, then 3 and Enter submit −3. */
+export const NegativeLandingKeyboard: Story = {
+  args: { config: belowZero, tier: 'pictorial' },
+  play: async ({ canvasElement, args }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    await userEvent.click(jump(root, -2));
+    (document.activeElement as HTMLElement | null)?.blur();
+    await userEvent.keyboard('-3');
+    await expect(readout(root)).toHaveTextContent('\u22123');
+    await userEvent.keyboard('{Enter}');
+    await expect(args.onResponse).toHaveBeenCalledWith({
+      kind: 'state',
+      value: { jumps: [-2], value: -3 },
+    });
+  },
+};
+
+const deadEndInvite: WidgetDemo = createDemoController({ strict: true });
+
+/**
+ * Review r2 F5: the child hops 4 first (from 4 neither 3 nor 4 reaches 6): the answer cue is on
+ * take-back, then 3, 3, and Check.
+ */
+export const InviteDeadEnd: Story = {
+  args: { config: deadEnd, tier: 'pictorial', demo: deadEndInvite },
+  play: async ({ canvasElement, args }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    await userEvent.click(jump(root, 4));
+    deadEndInvite.invite({ op: 'answer', args: { value: 6 } });
+    await expectInviteOn(root, undoBtn(root));
+    await userEvent.click(undoBtn(root));
+    await expectInviteOn(root, jump(root, 3));
+    await userEvent.click(jump(root, 3));
+    await expectInviteOn(root, jump(root, 3));
+    await userEvent.click(jump(root, 3));
+    await expectInviteOn(root, checkBtn(root));
+    await userEvent.click(checkBtn(root));
+    await expect(args.onResponse).toHaveBeenCalledWith({
+      kind: 'state',
+      value: { jumps: [3, 3] },
+    });
   },
 };

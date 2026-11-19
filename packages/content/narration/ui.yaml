@@ -192,6 +192,9 @@ ui.nlj.hop-back:
 ui.nlj.undo:
   text: "Take back"
   level: K
+ui.nlj.minus:
+  text: "Minus"
+  level: K
 ui.nlj.smaller:
   text: "Smaller hop"
   level: K
