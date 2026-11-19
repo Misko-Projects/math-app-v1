@@ -367,6 +367,38 @@ export const ReadRuler: Story = {
   },
 };
 
+/** A quarter-inch ruler, 164 sixteenths = 10.25 in (review CR-1.4). */
+const quarter: Config = {
+  ...ruler,
+  object: { sprite: 'plank', length: 164 },
+  precision: 0.25,
+  startOffset: 0,
+};
+
+/** 10.25 typed on the on-screen pad (two digits, the point, two digits) is what Check sends. */
+export const ReadQuarterOnPad: Story = {
+  args: { config: quarter, tier: 'pictorial' },
+  play: async ({ canvasElement, args }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    for (const k of ['1', '0', '.', '2', '5']) await userEvent.click(key(root, k));
+    await expect(root.querySelector('.ni-entry__text')).toHaveTextContent('10.25');
+    await userEvent.click(within(root).getByRole('button', { name: 'Check' }));
+    await expect(args.onResponse).toHaveBeenCalledWith({ kind: 'number', value: 10.25 });
+  },
+};
+
+/** The same with the physical keyboard (digits, ".", Enter). */
+export const ReadQuarterOnKeyboard: Story = {
+  args: { config: quarter, tier: 'pictorial' },
+  play: async ({ canvasElement, args }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    await userEvent.keyboard('10.25');
+    await expect(root.querySelector('.ni-entry__text')).toHaveTextContent('10.25');
+    await userEvent.keyboard('{Enter}');
+    await expect(args.onResponse).toHaveBeenCalledWith({ kind: 'number', value: 10.25 });
+  },
+};
+
 /**
  * Every standard unit on its ruler: the unit symbol (in, cm, ft, m) sits in its own slot after the
  * end numeral, clear of every numeral and tick, whatever the ruler's length (an 8 m ruler ends in

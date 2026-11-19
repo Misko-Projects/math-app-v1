@@ -182,6 +182,11 @@ export function MeasureLengthWidget({
     : Math.max(24, Math.min(90, Math.floor((trackW - 2 * RULER_PAD - 80) / rulerMax)));
   // Standard units print their symbol on the ruler, in its own slot after the end numeral.
   const unitLabel = ['in', 'cm', 'ft', 'm'].includes(config.unit) ? config.unit : undefined;
+  // The pad holds the longest reading the ruler shows: its whole-number digits plus a digit for
+  // halves or two for quarters (10.25 is four digits; applyPadKey counts digits on both sides).
+  const readDigits =
+    String(Math.floor(rulerMax)).length +
+    (config.precision === 0.25 ? 2 : config.precision === 0.5 ? 1 : 0);
   const objectPx = laying ? whole * unitPxOf(config.unit) : whole * rulerUnit;
 
   const laidOf = (u: LengthUnit) => state.units.filter((x) => x.unit === u);
@@ -642,7 +647,7 @@ export function MeasureLengthWidget({
           ? units.map((u) => <UnitPiece key={u} unit={u} width={u === 'stick' ? 40 : 30} />)
           : []
       }
-      maxDigits={laying ? 2 : 3}
+      maxDigits={laying ? 2 : readDigits}
       allowDecimal={!laying && config.precision < 1}
       disabled={!interactive}
       compact
