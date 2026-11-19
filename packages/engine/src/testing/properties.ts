@@ -262,6 +262,63 @@ function stateMutation(original: StateValue): fc.Arbitrary<StateValue> {
       }),
     );
   }
+  // U04 (#13) state shapes: base-ten pieces and mat columns, array dimensions and split line,
+  // container and share counts, and the leftover. One piece, row, column or item more or less.
+  for (const key of ['thousands', 'hundreds', 'tens', 'ones', 'cols', 'split', 'leftover']) {
+    if (typeof original[key] === 'number') {
+      options.push(
+        fc.constantFrom(1, -1).map((d) => {
+          const s = clone();
+          s[key] = (original[key] as number) + d;
+          return s;
+        }),
+      );
+    }
+  }
+  if (typeof original.rows === 'number') {
+    options.push(
+      fc.constantFrom(1, -1).map((d) => {
+        const s = clone();
+        s.rows = (original.rows as number) + d;
+        return s;
+      }),
+    );
+  }
+  if (typeof original.tiles === 'string' && original.tiles.length > 0) {
+    // One tile added or taken away (area-tiles `tile`).
+    const tiles = original.tiles;
+    options.push(
+      fc.nat({ max: tiles.length - 1 }).map((i) => {
+        const s = clone();
+        s.tiles = `${tiles.slice(0, i)}${tiles[i] === '1' ? '0' : '1'}${tiles.slice(i + 1)}`;
+        return s;
+      }),
+    );
+  }
+  if (Array.isArray(original.splits) && original.splits.length > 0) {
+    // One split line taken away (area-tiles `decompose`; tiles.cover exempts what stays valid).
+    const n = original.splits.length;
+    options.push(
+      fc.nat({ max: n - 1 }).map((i) => {
+        const s = clone();
+        s.splits = (original.splits as unknown[]).filter((_, j) => j !== i);
+        return s;
+      }),
+    );
+  }
+  for (const key of ['groups', 'shares'] as const) {
+    const arr = original[key];
+    if (Array.isArray(arr) && arr.length > 0) {
+      options.push(
+        fc.tuple(fc.nat({ max: arr.length - 1 }), fc.constantFrom(1, -1)).map(([i, d]) => {
+          const s = clone();
+          const a = s[key] as number[];
+          a[i] = (a[i] as number) + d;
+          return s;
+        }),
+      );
+    }
+  }
   if (typeof original.value === 'number') {
     options.push(
       fc.constantFrom(1, -1).map((d) => {
@@ -288,6 +345,11 @@ function noNegatives(v: unknown): boolean {
 function choiceOptions(item: GeneratedItem): string[] {
   const w = item.widget;
   if (w.format === 'numeral-pick') return w.options.map((o) => o.id);
+  if (w.format === 'expanded-form' && w.wordOptions) return w.wordOptions.map((o) => o.id);
+  if (w.format === 'equal-share') {
+    if (w.ask === 'fair-or-not') return ['yes', 'no'];
+    if (w.ask === 'even-odd') return ['even', 'odd'];
+  }
   if (w.format === 'tap-count' && w.mode === 'ordinal') {
     return Array.from({ length: w.set.count }, (_, i) => `obj-${i}`);
   }
@@ -524,8 +586,10 @@ export function runTemplateProperties(
       const ids = choiceOptions(item);
       const correct = ids.filter((id) => checkResponse(item, { kind: 'choice', id }).correct);
       const objects = item.widget.format === 'tap-count';
+      // equal-share's choices are fixed pairs (yes/no, even/odd, 03 §5.5), so two is enough.
+      const pair = item.widget.format === 'equal-share';
       if (
-        ids.length < 3 ||
+        ids.length < (pair ? 2 : 3) ||
         (ids.length > 5 && !objects) ||
         new Set(ids).size !== ids.length ||
         correct.length !== 1
