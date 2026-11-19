@@ -40,7 +40,7 @@ export type SyncOutcome =
   | { kind: 'revoked'; code: string } // the server no longer accepts this device
   | { kind: 'failed'; error: string }
   | { kind: 'deferred' } // an automatic trigger inside the backoff window: the retry timer will sync
-  | { kind: 'stopped' }; // an automatic trigger after stop(): nothing was sent
+  | { kind: 'stopped' }; // an automatic trigger after stop() (nothing sent), or a run stop() interrupted (nothing more applied)
 
 /** A sync exchange (request and response body) that takes longer than this fails and is retried. */
 export const SYNC_REQUEST_TIMEOUT_MS = 30_000;
@@ -140,6 +140,13 @@ export function createSyncClient(opts: SyncClientOptions): SyncClient {
   let running = false;
   let timer: unknown = null;
   const cleanups: (() => void)[] = [];
+  /**
+   * Bumped by every start() and stop(). A run belongs to the generation it started in: once that
+   * changes (sign-out, re-pairing), its open request is aborted and nothing more it receives is
+   * applied or sent, so no response reaches the store after `stop()` returns.
+   */
+  let generation = 0;
+  const live = new Set<AbortController>();
 
   /**
    * One push/pull exchange under one deadline covering the request and the response body, so a
@@ -148,6 +155,7 @@ export function createSyncClient(opts: SyncClientOptions): SyncClient {
    */
   async function exchange(token: string, body: SyncRequest): Promise<SyncResponse> {
     const controller = new AbortController();
+    live.add(controller);
     let timedOut = false;
     let handle: unknown = null;
     const deadline = new Promise<never>((_, reject) => {
@@ -190,6 +198,7 @@ export function createSyncClient(opts: SyncClientOptions): SyncClient {
       }
     } finally {
       clearTimer(handle);
+      live.delete(controller);
     }
     if (res.status === 401) {
       const code = errorCode(json) ?? 'unauthorized';
@@ -226,6 +235,10 @@ export function createSyncClient(opts: SyncClientOptions): SyncClient {
   }
 
   async function run(reason: SyncReason): Promise<SyncOutcome> {
+    const gen = generation;
+    const current = () => {
+      if (gen !== generation) throw new SyncStop({ kind: 'stopped' });
+    };
     const device = await store.device();
     if (!device.deviceToken) return { kind: 'unpaired' };
     if (!online()) return { kind: 'offline' };
@@ -233,6 +246,7 @@ export function createSyncClient(opts: SyncClientOptions): SyncClient {
     let pulledTotal = 0;
     try {
       for (let round = 1; round <= SYNC_MAX_ROUNDS; round++) {
+        current();
         const { cursor } = await store.syncState();
         const events = await store.unsynced(SYNC_MAX_PUSH_EVENTS);
         const body: SyncRequest = {
@@ -242,6 +256,7 @@ export function createSyncClient(opts: SyncClientOptions): SyncClient {
           profiles: await store.allProfiles(),
         };
         const res = await exchange(device.deviceToken, body);
+        current();
         await apply(events, res);
         pushedTotal += events.length;
         pulledTotal += res.events.length;
@@ -256,6 +271,8 @@ export function createSyncClient(opts: SyncClientOptions): SyncClient {
         error: `still not drained after ${SYNC_MAX_ROUNDS} rounds`,
       });
     } catch (e) {
+      // Stopped mid-run (an aborted request fails too): not an error worth recording.
+      if (gen !== generation) return { kind: 'stopped' };
       const outcome: SyncOutcome =
         e instanceof SyncStop ? e.outcome : { kind: 'failed', error: errorMessage(e) };
       const message =
@@ -352,6 +369,7 @@ export function createSyncClient(opts: SyncClientOptions): SyncClient {
     start() {
       if (running) return;
       running = true;
+      generation += 1;
       const unsubscribe = store.onAppend((e) => {
         // 08 §4: after each request completes, and on wind-down.
         if (e.type === 'request.completed') void syncNow('request-completed');
@@ -367,6 +385,9 @@ export function createSyncClient(opts: SyncClientOptions): SyncClient {
     },
     stop() {
       running = false;
+      generation += 1;
+      for (const c of live) c.abort();
+      live.clear();
       clearTimerIfArmed();
       for (const c of cleanups.splice(0)) c();
       // Queued automatic requests end now, so a quick restart cannot send them.

@@ -45,6 +45,8 @@ jobs:
       # Story play functions and axe checks run in Vitest browser mode inside `pnpm test`.
       - run: pnpm exec playwright install --with-deps chromium
       - run: pnpm verify
+      # 04 §8 simulated-learner harness (fixture graph until the full curriculum lands).
+      - run: pnpm test:sim
 
   e2e:
     needs: verify

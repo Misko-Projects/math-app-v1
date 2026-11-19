@@ -77,4 +77,58 @@ describe('<App>', () => {
     expect(await screen.findByText(/^ready /)).toBeTruthy();
     expect(boot).toHaveBeenCalledTimes(2);
   });
+
+  const tick = () => new Promise((r) => setTimeout(r, 20));
+
+  it('disposes the services when it unmounts after boot (and keeps them through StrictMode)', async () => {
+    const device = testDevice();
+    restore = device.enableLiveQueries();
+    let services: AppServices | null = null;
+    let disposed = 0;
+    const boot = async () => {
+      const s = await device.boot();
+      const original = s.dispose;
+      s.dispose = () => {
+        disposed += 1;
+        original();
+      };
+      services = s;
+      return s;
+    };
+    const view = render(
+      <StrictMode>
+        <App boot={boot} router={probeRouter()} />
+      </StrictMode>,
+    );
+    expect(await screen.findByText(/^ready /)).toBeTruthy();
+    await tick();
+    expect(disposed).toBe(0); // StrictMode's simulated unmount kept them
+    view.unmount();
+    await tick();
+    expect(disposed).toBe(1);
+    expect(services).not.toBeNull();
+  });
+
+  it('disposes services whose boot finishes after the app unmounted', async () => {
+    const device = testDevice();
+    let finish: () => void = () => {};
+    const gate = new Promise<void>((r) => {
+      finish = r;
+    });
+    let disposed = 0;
+    const boot = async () => {
+      await gate;
+      const s = await device.boot();
+      const original = s.dispose;
+      s.dispose = () => {
+        disposed += 1;
+        original();
+      };
+      return s;
+    };
+    const view = render(<App boot={boot} router={probeRouter()} />);
+    view.unmount();
+    finish();
+    await vi.waitFor(() => expect(disposed).toBe(1));
+  });
 });

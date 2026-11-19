@@ -8,6 +8,7 @@ import {
   itemTemplateSchema,
   type NarrationJson,
   narrationJsonSchema,
+  skillGraphSchema,
   skillSchema,
 } from '@number-island/shared';
 import type { StoreContent } from '@/data/projections';
@@ -118,27 +119,36 @@ export async function loadContent(fetchImpl: FetchLike = globalThis.fetch): Prom
     itemTemplateSchema.array().parse(raw['templates.json']),
   );
   const graph = parse('graph.json', () => {
-    const g = raw['graph.json'] as Parameters<typeof buildSkillGraph>[0]['graph'] | null;
-    if (!g || !Array.isArray(g.nodes) || !Array.isArray(g.roots)) throw new Error('not a graph');
-    return g;
+    const g = raw['graph.json'] as Record<string, unknown> | null;
+    const isRecord = (v: unknown) => !!v && typeof v === 'object' && !Array.isArray(v);
+    if (
+      !isRecord(g) ||
+      !['nodes', 'roots', 'gateways'].every((k) => Array.isArray(g?.[k])) ||
+      !['depth', 'descendants2'].every((k) => isRecord(g?.[k]))
+    ) {
+      throw new Error('not a compiled skill graph');
+    }
+    return g as unknown as Parameters<typeof buildSkillGraph>[0]['graph'];
   });
   const templateStats = raw['template-stats.json'] as
     | Parameters<typeof buildSkillGraph>[0]['templateStats']
     | undefined;
-
-  return {
-    contentVersion: index.contentVersion,
-    narration,
-    store: {
-      contentVersion: index.contentVersion,
-      gameData,
-      graph: buildSkillGraph({
+  // Build, then check the result against the shared schema (depth maps, gateways, template stats).
+  const skillGraph = parse('the skill graph', () =>
+    skillGraphSchema.parse(
+      buildSkillGraph({
         contentVersion: index.contentVersion,
         skills,
         templates,
         graph,
-        ...(templateStats ? { templateStats } : {}),
+        ...(templateStats !== undefined ? { templateStats } : {}),
       }),
-    },
+    ),
+  );
+
+  return {
+    contentVersion: index.contentVersion,
+    narration,
+    store: { contentVersion: index.contentVersion, gameData, graph: skillGraph },
   };
 }

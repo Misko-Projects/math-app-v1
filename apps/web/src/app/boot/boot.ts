@@ -97,6 +97,7 @@ export async function bootApp(opts: BootOptions = {}): Promise<AppServices> {
   const sync = createSyncLifecycle(store, { ...opts.sync, fetch: fetchImpl });
   await sync.resume();
 
+  let disposed = false;
   return {
     content,
     store,
@@ -104,6 +105,8 @@ export async function bootApp(opts: BootOptions = {}): Promise<AppServices> {
     sync,
     fetch: fetchImpl,
     dispose() {
+      if (disposed) return;
+      disposed = true;
       sync.stop();
       audio.stop();
       store.close();
