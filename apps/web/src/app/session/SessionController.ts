@@ -1,0 +1,535 @@
+// The session lifecycle (W00; 04 §6.1, 05 §8, 02 §5.8): one child plays at a time on a device.
+//
+// - `canStart(childId)` says no during the child's quiet hours (local to the family time zone)
+//   and once today's play has used up the daily cap.
+// - `start()` appends `session.started` with `budgetMinutes = min(sessionMinutes, cap left)`.
+// - Active time counts only while the page is visible. A checkpoint of it is saved to
+//   localStorage every 15 s (and whenever the page hides), so a session that never ended (the tab
+//   was closed, the tablet died) is closed at the next boot as `abandoned` with that time.
+// - The wind-down signal fires once when the budget is used (`wind-down`), the daily cap is
+//   reached (`daily-cap`) or quiet hours begin (`quiet-hours`). The screen in charge (later the
+//   TaskRunner, I01/R01) lets the child finish the current item and then calls `end(reason)`
+//   (05 §8: no overrun beyond the current item).
+// - `end(reason)` appends `session.ended` with the active time, math time and item count.
+//
+// Framework-free: the clock, timers, page visibility and checkpoint storage are injected.
+
+import type { ChildId, EventEnvelope, EventPayloads } from '@number-island/shared';
+import { newId as defaultNewId } from '@number-island/shared';
+import type { DataStore } from '@/data/store';
+import { inQuietHours, isEventOf, localTime, playedMsOnDay, sameId } from './time';
+
+export type SessionEndReason = EventPayloads['session.ended']['reason'];
+export type WindDownReason = Extract<SessionEndReason, 'wind-down' | 'daily-cap' | 'quiet-hours'>;
+export type BlockedReason = Extract<SessionEndReason, 'daily-cap' | 'quiet-hours'>;
+export type SessionTrigger = EventPayloads['session.started']['trigger'];
+
+export type CanStartResult =
+  | { ok: true; budgetMinutes: number }
+  | { ok: false; reason: BlockedReason };
+
+export interface ActiveSession {
+  sessionId: string;
+  childId: ChildId;
+  budgetMinutes: number;
+  trigger: SessionTrigger;
+  startedAt: number;
+}
+
+export type SessionSnapshot =
+  | { status: 'idle' }
+  | { status: 'active'; session: ActiveSession; windDown: WindDownReason | null };
+
+export type SessionStore = Pick<
+  DataStore,
+  'now' | 'append' | 'events' | 'device' | 'familySettings' | 'childSettings'
+>;
+
+export interface SessionTimers {
+  setInterval(fn: () => void, ms: number): unknown;
+  clearInterval(handle: unknown): void;
+}
+
+/** Page visibility (`document.visibilityState`), injectable for tests. */
+export interface PageVisibility {
+  visible(): boolean;
+  /** Calls `onChange` when visibility may have flipped (visibilitychange, pagehide). Returns the unsubscribe. */
+  subscribe(onChange: () => void): () => void;
+}
+
+export type CheckpointStorage = Pick<Storage, 'getItem' | 'setItem' | 'removeItem'>;
+
+export interface SessionCheckpoint {
+  activeMs: number;
+  mathMs: number;
+  items: number;
+  at: number;
+}
+
+export interface SessionControllerOptions {
+  store: SessionStore;
+  /** Clock (ms epoch). Default `store.now`. */
+  now?: () => number;
+  timers?: SessionTimers;
+  visibility?: PageVisibility;
+  /** Where activity checkpoints go. Default `localStorage` (null: none). */
+  storage?: CheckpointStorage | null;
+  newId?: () => string;
+  /** How often the clock is checked against the budget, cap and quiet hours. */
+  tickMs?: number;
+  /** How often a checkpoint is saved while playing. */
+  checkpointMs?: number;
+  /** A failed write (storage full, a deleted child) is reported here, never thrown at a tick. */
+  onError?: (scope: string, error: unknown) => void;
+}
+
+const MINUTE = 60_000;
+export const SESSION_TICK_MS = 1_000;
+export const CHECKPOINT_MS = 15_000;
+/** Less than a minute of the daily cap left counts as reached: no 20-second sessions. */
+export const MIN_SESSION_MINUTES = 1;
+export const CHECKPOINT_PREFIX = 'ni.session.';
+
+export function documentVisibility(): PageVisibility {
+  return {
+    visible: () => typeof document === 'undefined' || document.visibilityState !== 'hidden',
+    subscribe(onChange) {
+      if (typeof document === 'undefined') return () => {};
+      document.addEventListener('visibilitychange', onChange);
+      window.addEventListener('pagehide', onChange);
+      return () => {
+        document.removeEventListener('visibilitychange', onChange);
+        window.removeEventListener('pagehide', onChange);
+      };
+    },
+  };
+}
+
+function defaultStorage(): CheckpointStorage | null {
+  try {
+    return globalThis.localStorage ?? null;
+  } catch {
+    return null; // storage disabled (some private modes)
+  }
+}
+
+interface Running {
+  session: ActiveSession;
+  windDown: WindDownReason | null;
+  /** Active ms banked before the current visible stretch. */
+  bankedMs: number;
+  /** Start of the current visible stretch, or null while hidden. */
+  visibleSince: number | null;
+  mathMs: number;
+  items: number;
+  lastCheckpointAt: number;
+  /** Settings and play-before-this-session, as read at start. */
+  quietHours: { start: string; end: string } | null;
+  timeZone: string;
+  capMs: number | null;
+  /** The budget is what was left of the daily cap: reaching it means the cap is reached. */
+  budgetIsCap: boolean;
+  playedBefore: { day: string; ms: number };
+  tick: unknown;
+  unsubscribeVisibility: () => void;
+}
+
+export class SessionController {
+  readonly #store: SessionStore;
+  readonly #now: () => number;
+  readonly #timers: SessionTimers;
+  readonly #visibility: PageVisibility;
+  readonly #storage: CheckpointStorage | null;
+  readonly #newId: () => string;
+  readonly #tickMs: number;
+  readonly #checkpointMs: number;
+  readonly #onError: (scope: string, error: unknown) => void;
+  readonly #listeners = new Set<() => void>();
+  readonly #windDownListeners = new Set<(reason: WindDownReason, session: ActiveSession) => void>();
+  #running: Running | null = null;
+  #snapshot: SessionSnapshot = { status: 'idle' };
+  #chain: Promise<unknown> = Promise.resolve();
+  #disposed = false;
+
+  constructor(opts: SessionControllerOptions) {
+    this.#store = opts.store;
+    this.#now = opts.now ?? (() => opts.store.now());
+    this.#timers = opts.timers ?? (globalThis as unknown as SessionTimers);
+    this.#visibility = opts.visibility ?? documentVisibility();
+    this.#storage = opts.storage === undefined ? defaultStorage() : opts.storage;
+    this.#newId = opts.newId ?? defaultNewId;
+    this.#tickMs = opts.tickMs ?? SESSION_TICK_MS;
+    this.#checkpointMs = opts.checkpointMs ?? CHECKPOINT_MS;
+    this.#onError = opts.onError ?? (() => {});
+  }
+
+  // ---------- observing ----------
+
+  /** Re-render hook for `useSyncExternalStore`: called when the snapshot changes. */
+  subscribe = (listener: () => void): (() => void) => {
+    this.#listeners.add(listener);
+    return () => this.#listeners.delete(listener);
+  };
+
+  getSnapshot = (): SessionSnapshot => this.#snapshot;
+
+  /**
+   * The wind-down hook (04 §6.4): called once per session when it should wind down. The listener
+   * lets the child finish the current item, then calls `end(reason)`. A listener added after the
+   * signal fired is called at once.
+   */
+  onWindDown(listener: (reason: WindDownReason, session: ActiveSession) => void): () => void {
+    this.#windDownListeners.add(listener);
+    const r = this.#running;
+    if (r?.windDown) listener(r.windDown, r.session);
+    return () => this.#windDownListeners.delete(listener);
+  }
+
+  /** Active (visible) milliseconds of the running session; 0 when idle. */
+  activeMs(): number {
+    const r = this.#running;
+    if (!r) return 0;
+    return r.bankedMs + (r.visibleSince === null ? 0 : Math.max(0, this.#now() - r.visibleSince));
+  }
+
+  // ---------- starting ----------
+
+  /** Whether `childId` may start a session now, and with what budget. */
+  canStart(childId: ChildId): Promise<CanStartResult> {
+    return this.#serial(async () => (await this.#plan(childId)).result);
+  }
+
+  /**
+   * Starts a session for `childId` (ending another child's running session as `child-exit`
+   * first). Resolves with the session, or with the reason it may not start. Starting the child
+   * whose session is already running returns that session.
+   */
+  start(
+    childId: ChildId,
+    trigger: SessionTrigger = 'child',
+  ): Promise<{ ok: true; session: ActiveSession } | { ok: false; reason: BlockedReason }> {
+    return this.#serial(async () => {
+      const current = this.#running;
+      if (current && sameId(current.session.childId, childId) && current.windDown === null) {
+        return { ok: true as const, session: current.session };
+      }
+      if (current) await this.#end(current.windDown ?? 'child-exit');
+      const plan = await this.#plan(childId);
+      if (!plan.result.ok) return plan.result;
+      const now = this.#now();
+      const session: ActiveSession = {
+        sessionId: this.#newId(),
+        childId,
+        budgetMinutes: plan.result.budgetMinutes,
+        trigger,
+        startedAt: now,
+      };
+      await this.#store.append(
+        'session.started',
+        { sessionId: session.sessionId, budgetMinutes: session.budgetMinutes, trigger },
+        { childId },
+      );
+      if (this.#disposed) return { ok: true as const, session };
+      const visible = this.#visibility.visible();
+      const running: Running = {
+        session,
+        windDown: null,
+        bankedMs: 0,
+        visibleSince: visible ? now : null,
+        mathMs: 0,
+        items: 0,
+        lastCheckpointAt: now,
+        quietHours: plan.quietHours,
+        timeZone: plan.timeZone,
+        capMs: plan.capMs,
+        budgetIsCap: plan.budgetIsCap,
+        playedBefore: plan.playedToday,
+        tick: null,
+        unsubscribeVisibility: () => {},
+      };
+      this.#running = running;
+      running.unsubscribeVisibility = this.#visibility.subscribe(() => this.#onVisibility());
+      running.tick = this.#timers.setInterval(() => this.#tick(), this.#tickMs);
+      this.#saveCheckpoint(running);
+      this.#publish();
+      return { ok: true as const, session };
+    });
+  }
+
+  async #plan(childId: ChildId): Promise<{
+    result: CanStartResult;
+    quietHours: Running['quietHours'];
+    timeZone: string;
+    capMs: number | null;
+    budgetIsCap: boolean;
+    playedToday: { day: string; ms: number };
+  }> {
+    const [family, child, events] = await Promise.all([
+      this.#store.familySettings(),
+      this.#store.childSettings(childId),
+      this.#store.events(),
+    ]);
+    const now = this.#now();
+    const timeZone = family.timezone;
+    const day = localTime(now, timeZone).day;
+    const r = this.#running;
+    const runningMs = r && sameId(r.session.childId, childId) ? this.activeMs() : 0;
+    const playedMs = playedMsOnDay(events, childId, day, timeZone) + runningMs;
+    const base = {
+      quietHours: child.quietHours,
+      timeZone,
+      capMs: child.dailyCapMinutes === null ? null : child.dailyCapMinutes * MINUTE,
+      playedToday: { day, ms: playedMs },
+    };
+    if (inQuietHours(now, child.quietHours, timeZone)) {
+      return { ...base, budgetIsCap: false, result: { ok: false, reason: 'quiet-hours' } };
+    }
+    if (base.capMs === null) {
+      return {
+        ...base,
+        budgetIsCap: false,
+        result: { ok: true, budgetMinutes: child.sessionMinutes },
+      };
+    }
+    const leftMinutes = Math.floor((base.capMs - playedMs) / MINUTE);
+    if (leftMinutes < MIN_SESSION_MINUTES) {
+      return { ...base, budgetIsCap: false, result: { ok: false, reason: 'daily-cap' } };
+    }
+    const budgetMinutes = Math.min(child.sessionMinutes, leftMinutes);
+    return {
+      ...base,
+      budgetIsCap: budgetMinutes < child.sessionMinutes,
+      result: { ok: true, budgetMinutes },
+    };
+  }
+
+  // ---------- hooks for the TaskRunner ----------
+
+  /** Adds time spent on math items (the TaskRunner reports it per item; 04 §7 math density). */
+  recordMath(ms: number): void {
+    const r = this.#running;
+    if (!r || !Number.isFinite(ms) || ms <= 0) return;
+    r.mathMs += ms;
+  }
+
+  /** Counts one finished item. */
+  recordItem(): void {
+    const r = this.#running;
+    if (r) r.items += 1;
+  }
+
+  // ---------- ending ----------
+
+  /** Ends the running session with `reason` and appends `session.ended`. Null when idle. */
+  end(reason: SessionEndReason): Promise<EventEnvelope<'session.ended'> | null> {
+    return this.#serial(() => this.#end(reason));
+  }
+
+  async #end(reason: SessionEndReason): Promise<EventEnvelope<'session.ended'> | null> {
+    const r = this.#running;
+    if (!r) return null;
+    this.#bank(r);
+    this.#stopTracking(r);
+    this.#running = null;
+    // If the write below fails, this checkpoint lets the next boot close it as abandoned.
+    this.#saveCheckpoint(r);
+    this.#publish();
+    const payload = this.#payload(r, reason);
+    const event = await this.#store.append('session.ended', payload, {
+      childId: r.session.childId,
+    });
+    this.#removeCheckpoint(r.session.sessionId);
+    return event;
+  }
+
+  #payload(r: Running, reason: SessionEndReason): EventPayloads['session.ended'] {
+    const activeMs = Math.round(r.bankedMs);
+    return {
+      sessionId: r.session.sessionId,
+      reason,
+      activeMs,
+      mathMs: Math.round(Math.min(r.mathMs, activeMs)),
+      items: r.items,
+    };
+  }
+
+  /**
+   * Closes this device's sessions that started but never ended (a closed tab, a dead battery):
+   * each gets `session.ended` with reason `abandoned` and the last saved checkpoint (else 0).
+   * The running session is left alone. Returns how many were closed.
+   */
+  closeAbandoned(): Promise<number> {
+    return this.#serial(async () => {
+      const [events, device] = await Promise.all([this.#store.events(), this.#store.device()]);
+      const ended = new Set<string>();
+      for (const e of events) if (isEventOf(e, 'session.ended')) ended.add(e.payload.sessionId);
+      let closed = 0;
+      for (const e of events) {
+        if (!isEventOf(e, 'session.started') || !sameId(e.deviceId, device.deviceId)) continue;
+        const { sessionId } = e.payload;
+        if (ended.has(sessionId) || this.#running?.session.sessionId === sessionId) continue;
+        ended.add(sessionId);
+        const cp = this.#readCheckpoint(sessionId);
+        const activeMs = Math.round(cp?.activeMs ?? 0);
+        try {
+          await this.#store.append(
+            'session.ended',
+            {
+              sessionId,
+              reason: 'abandoned',
+              activeMs,
+              mathMs: Math.round(Math.min(cp?.mathMs ?? 0, activeMs)),
+              items: cp?.items ?? 0,
+            },
+            { childId: e.childId },
+          );
+          closed += 1;
+          this.#removeCheckpoint(sessionId);
+        } catch (err) {
+          // A deleted child's session can't be closed (and no longer matters); others retry later.
+          this.#onError('session.abandoned', err);
+        }
+      }
+      return closed;
+    });
+  }
+
+  /** Stops the clock without ending the session (app teardown); the checkpoint stays. */
+  dispose(): void {
+    this.#disposed = true;
+    const r = this.#running;
+    if (r) {
+      this.#bank(r);
+      this.#saveCheckpoint(r);
+      this.#stopTracking(r);
+    }
+    this.#running = null;
+    this.#snapshot = { status: 'idle' };
+    this.#listeners.clear();
+    this.#windDownListeners.clear();
+  }
+
+  // ---------- internals ----------
+
+  #serial<T>(fn: () => Promise<T>): Promise<T> {
+    const run = this.#chain.then(fn, fn);
+    this.#chain = run.catch(() => {});
+    return run;
+  }
+
+  /** Moves the current visible stretch into the bank (the stretch restarts now if visible). */
+  #bank(r: Running): void {
+    if (r.visibleSince === null) return;
+    const now = this.#now();
+    r.bankedMs += Math.max(0, now - r.visibleSince);
+    r.visibleSince = now;
+  }
+
+  #stopTracking(r: Running): void {
+    r.visibleSince = null;
+    r.unsubscribeVisibility();
+    if (r.tick !== null) this.#timers.clearInterval(r.tick);
+    r.tick = null;
+  }
+
+  #onVisibility(): void {
+    const r = this.#running;
+    if (!r) return;
+    const visible = this.#visibility.visible();
+    if (visible && r.visibleSince === null) {
+      r.visibleSince = this.#now();
+    } else if (!visible && r.visibleSince !== null) {
+      this.#bank(r);
+      r.visibleSince = null;
+      this.#saveCheckpoint(r);
+    }
+  }
+
+  #tick(): void {
+    const r = this.#running;
+    if (!r) return;
+    const now = this.#now();
+    if (now - r.lastCheckpointAt >= this.#checkpointMs) {
+      this.#bank(r);
+      this.#saveCheckpoint(r);
+    }
+    if (r.windDown !== null) return;
+    const active = this.activeMs();
+    const reason = this.#windDownReason(r, now, active);
+    if (reason) this.#fireWindDown(r, reason);
+  }
+
+  #windDownReason(r: Running, now: number, active: number): WindDownReason | null {
+    if (inQuietHours(now, r.quietHours, r.timeZone)) return 'quiet-hours';
+    if (r.capMs !== null) {
+      // Past local midnight the earlier sessions belong to yesterday.
+      const day = localTime(now, r.timeZone).day;
+      const before = day === r.playedBefore.day ? r.playedBefore.ms : 0;
+      if (before + active >= r.capMs) return 'daily-cap';
+    }
+    if (active >= r.session.budgetMinutes * MINUTE)
+      return r.budgetIsCap ? 'daily-cap' : 'wind-down';
+    return null;
+  }
+
+  #fireWindDown(r: Running, reason: WindDownReason): void {
+    r.windDown = reason;
+    this.#publish();
+    for (const listener of [...this.#windDownListeners]) {
+      try {
+        listener(reason, r.session);
+      } catch (e) {
+        this.#onError('session.wind-down', e);
+      }
+    }
+  }
+
+  #publish(): void {
+    const r = this.#running;
+    this.#snapshot = r
+      ? { status: 'active', session: r.session, windDown: r.windDown }
+      : { status: 'idle' };
+    for (const listener of [...this.#listeners]) listener();
+  }
+
+  #saveCheckpoint(r: Running): void {
+    r.lastCheckpointAt = this.#now();
+    if (!this.#storage) return;
+    const cp: SessionCheckpoint = {
+      activeMs: Math.round(r.bankedMs),
+      mathMs: Math.round(r.mathMs),
+      items: r.items,
+      at: r.lastCheckpointAt,
+    };
+    try {
+      this.#storage.setItem(CHECKPOINT_PREFIX + r.session.sessionId, JSON.stringify(cp));
+    } catch (e) {
+      this.#onError('session.checkpoint', e);
+    }
+  }
+
+  #readCheckpoint(sessionId: string): SessionCheckpoint | null {
+    try {
+      const raw = this.#storage?.getItem(CHECKPOINT_PREFIX + sessionId);
+      if (!raw) return null;
+      const cp = JSON.parse(raw) as Partial<SessionCheckpoint>;
+      const num = (v: unknown) => (typeof v === 'number' && Number.isFinite(v) && v >= 0 ? v : 0);
+      return {
+        activeMs: num(cp.activeMs),
+        mathMs: num(cp.mathMs),
+        items: Math.floor(num(cp.items)),
+        at: num(cp.at),
+      };
+    } catch {
+      return null;
+    }
+  }
+
+  #removeCheckpoint(sessionId: string): void {
+    try {
+      this.#storage?.removeItem(CHECKPOINT_PREFIX + sessionId);
+    } catch {
+      // Nothing to do: a stale checkpoint is ignored once its session has ended.
+    }
+  }
+}
