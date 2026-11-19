@@ -5,16 +5,18 @@
 // that many objects form a coloured group to compare with ("here are 10"); on a number line, every
 // multiple of it is labelled (otherwise only the ends are).
 // - dot-flash: the group flashes; type about how many. Correct within 25% (03 §5.5 `estimate`).
-// - numeral-pick: about how many? The options are n rounded to ten and two distractors rounded to
-//   ten: about half and double n, both doubles (2n, 4n) or both halves (n/2, n/4), so the answer
-//   is the middle, lowest or highest option (drawn from the ranks whose neighbouring options are
-//   ≥ 1.5× apart, so an estimate can tell them apart, and fit a 0–500 line). With the
-//   `number-line` representation each option is a line with an arrow at its value.
+// - numeral-pick: about how many? The options are n rounded to ten and two distractors, each one
+//   step of 1.5× or 2× from its neighbour (rounded to ten), so the answer is the lowest, middle or
+//   highest option. Every option is itself an answer the template can have (n rounded to ten for
+//   some n in the template's own `n` domain, and inside that domain), so the options alone never
+//   name the answer; options are pairwise ≥ 1.5× apart, so none is inside another's 25% estimate
+//   tolerance. The rank is drawn among the ranks with such a set, then the set among that rank's.
+//   With the `number-line` representation each option is a line with an arrow at its value.
 // - number-pad: the picture stays up; type about how many (correct within 25%, as dot-flash). The
 //   pad always takes three digits, so its size never hints at n.
 // - number-line-place: show where n goes on a 0–100 (n ≤ 100) or 0–200 line with no ticks.
 
-import type { LessonStep, ResponseValue, StimulusSpec } from '@number-island/shared';
+import type { LessonStep, ParamSpec, ResponseValue, StimulusSpec } from '@number-island/shared';
 import { numberOptionId } from '../../formats/numeral-pick';
 import {
   asNum,
@@ -25,6 +27,7 @@ import {
   type PartialOutput,
   pickVars,
   sampleAll,
+  specDomain,
 } from '../common';
 import { say } from '../compare/shared';
 import {
@@ -43,51 +46,78 @@ export const ESTIMATE_FLASH_MS = 2000;
 
 const round10 = (x: number): number => Math.max(10, Math.round(x / 10) * 10);
 
+/** The numeral-pick answer: n to the nearest ten. */
+export const estimateAnswer = (n: number): number => round10(n);
+
 /** Where the answer sits among the three pick options, smallest first. */
 export type EstimateRank = 'lowest' | 'middle' | 'highest';
 export const ESTIMATE_RANKS: readonly EstimateRank[] = ['lowest', 'middle', 'highest'];
 /**
- * Neighbouring pick options differ by at least this factor, so none is within the 25% estimate
+ * Pick options differ pairwise by at least this factor, so none is within the 25% estimate
  * tolerance of another (1.5 > 1.25 and 1 / 1.5 < 0.75): a good estimate tells them apart.
  */
 export const ESTIMATE_OPTION_RATIO = 1.5;
-/** The longest line an option can be drawn on (lineEnd). */
-const MAX_OPTION = 500;
+/** The steps tried between neighbouring options (each ≥ ESTIMATE_OPTION_RATIO before rounding). */
+export const ESTIMATE_OPTION_STEPS: readonly number[] = [1.5, 2];
 
-/** The three options for a rank, smallest first: n rounded to ten with halves or doubles of n. */
-function optionsAt(n: number, rank: EstimateRank): [number, number, number] {
-  switch (rank) {
-    case 'lowest':
-      return [round10(n), round10(n * 2), round10(n * 4)];
-    case 'middle':
-      return [round10(n / 2), round10(n), round10(n * 2)];
-    case 'highest':
-      return [round10(n / 4), round10(n / 2), round10(n)];
-  }
-}
-
-const distinguishable = (v: readonly number[]): boolean =>
-  (v[2] as number) <= MAX_OPTION &&
-  (v[1] as number) / (v[0] as number) >= ESTIMATE_OPTION_RATIO &&
-  (v[2] as number) / (v[1] as number) >= ESTIMATE_OPTION_RATIO;
-
-/** The ranks whose options n can use (middle always can for 20–200). */
-export function estimateRanks(n: number): EstimateRank[] {
-  return ESTIMATE_RANKS.filter((r) => distinguishable(optionsAt(n, r)));
+/** One numeral-pick option set: three values, smallest first, and where the answer sits. */
+export interface EstimateOptionSet {
+  rank: EstimateRank;
+  values: [number, number, number];
 }
 
 /**
- * The pick options: n rounded to ten (the answer) and two distractors, about half and double n,
- * or both doubles (answer lowest), or both halves (answer highest), so the answer's place among
- * the options never gives it away.
+ * The values a template's numeral-pick options may take: the answers it can have (n rounded to
+ * ten over its `n` domain) that also lie inside that domain. A template that fixes n (as
+ * generateItemFromParams does for every param) has a one-value domain, so it falls back to the
+ * generator's default `n` domain.
  */
-export function estimateOptions(
-  n: number,
-  rank: EstimateRank = 'middle',
-): { answer: number; others: [number, number] } {
-  const v = optionsAt(n, rank);
-  const i = ESTIMATE_RANKS.indexOf(rank);
-  return { answer: v[i] as number, others: v.filter((_, k) => k !== i) as [number, number] };
+export function estimateOptionValues(nSpec: ParamSpec | undefined): Set<number> {
+  const own = nSpec ? specDomain(nSpec).filter((v): v is number => typeof v === 'number') : [];
+  const domain =
+    own.length > 1
+      ? own
+      : (specDomain(estimateQuantity.params.n?.default as ParamSpec) as number[]);
+  const inside = new Set(domain);
+  return new Set(domain.map(round10).filter((v) => inside.has(v)));
+}
+
+/**
+ * Every option set for n: the answer (n rounded to ten) and two distractors reached by steps of
+ * 1.5× or 2× (rounded to ten), with the answer lowest, middle or highest. Only sets whose three
+ * options are all in `allowed` (estimateOptionValues) and pairwise ≥ 1.5× apart are kept, so
+ * every option could be the answer of some item and an estimate tells them apart.
+ */
+export function estimateOptionSets(n: number, allowed: ReadonlySet<number>): EstimateOptionSet[] {
+  const a = round10(n);
+  const out: EstimateOptionSet[] = [];
+  const seen = new Set<string>();
+  for (const rank of ESTIMATE_RANKS) {
+    for (const r1 of ESTIMATE_OPTION_STEPS) {
+      for (const r2 of ESTIMATE_OPTION_STEPS) {
+        const values: [number, number, number] =
+          rank === 'lowest'
+            ? [a, round10(a * r1), round10(round10(a * r1) * r2)]
+            : rank === 'middle'
+              ? [round10(a / r1), a, round10(a * r2)]
+              : [round10(round10(a / r1) / r2), round10(a / r1), a];
+        const key = `${rank}:${values.join(',')}`;
+        if (seen.has(key)) continue;
+        seen.add(key);
+        const apart =
+          values[1] / values[0] >= ESTIMATE_OPTION_RATIO &&
+          values[2] / values[1] >= ESTIMATE_OPTION_RATIO;
+        if (apart && values.every((v) => allowed.has(v))) out.push({ rank, values });
+      }
+    }
+  }
+  return out;
+}
+
+/** The ranks the answer can take for n among `allowed` options. */
+export function estimateRanks(n: number, allowed: ReadonlySet<number>): EstimateRank[] {
+  const sets = estimateOptionSets(n, allowed);
+  return ESTIMATE_RANKS.filter((r) => sets.some((s) => s.rank === r));
 }
 
 /** The shortest of the 0–100, 0–200 and 0–500 lines that shows `v`. */
@@ -127,11 +157,16 @@ export const estimateQuantity: GeneratorDef = {
   ],
   sample: (spec, rng) => sampleAll(spec, rng),
   derive: () => ({}),
-  accepts(p) {
+  accepts(p, t) {
     const n = asNum(p.n);
     const b = asNum(p.benchmarks);
     // A reference group is at most half the group, so it never names the answer.
-    return n >= 20 && n <= 200 && b >= 0 && (b === 0 || 2 * b <= n);
+    if (!(n >= 20 && n <= 200 && b >= 0 && (b === 0 || 2 * b <= n))) return false;
+    // numeral-pick needs an option set of possible answers (always one for a 20–100 domain).
+    return (
+      t.format !== 'numeral-pick' ||
+      estimateOptionSets(n, estimateOptionValues(t.params.n)).length > 0
+    );
   },
   build(ctx: BuildContext): GeneratorOutput {
     const { params, template: t, rng } = ctx;
@@ -179,10 +214,14 @@ export const estimateQuantity: GeneratorDef = {
         };
         break;
       case 'numeral-pick': {
-        // Where the answer sits among the options is a layout choice (no feature depends on it).
-        const rank = rng.fork('rank').pick(estimateRanks(n));
-        const { answer, others } = estimateOptions(n, rank);
-        const values = rng.fork('layout').shuffle([answer, ...others]);
+        // Where the answer sits among the options is a layout choice (no feature depends on it):
+        // a rank first, so every rank n allows is as likely, then one of that rank's sets.
+        const sets = estimateOptionSets(n, estimateOptionValues(t.params.n));
+        const pickRng = rng.fork('rank');
+        const rank = pickRng.pick(ESTIMATE_RANKS.filter((r) => sets.some((s) => s.rank === r)));
+        const set = pickRng.pick(sets.filter((s) => s.rank === rank));
+        const answer = estimateAnswer(n);
+        const values = rng.fork('layout').shuffle([...set.values]);
         const onLine = rep === 'number-line';
         const line = lineFor(lineEnd(Math.max(...values)), b);
         p = {
@@ -253,7 +292,7 @@ export const estimateQuantity: GeneratorDef = {
     const w = out.widget;
     const n = asNum(out.params.n);
     const b = asNum(out.params.benchmarks);
-    const about = estimateOptions(n).answer;
+    const about = estimateAnswer(n);
     const reference =
       b > 0 && w.format !== 'number-line-place'
         ? [

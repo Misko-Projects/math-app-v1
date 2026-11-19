@@ -22,7 +22,7 @@ import { unitGaps } from '../../misconceptions/rules/unitGaps';
 import { registry } from '..';
 import { GenerationError } from '../types';
 import { lengthCloseness, NONSTANDARD_UNIT_SIZE, objectLengths } from './length';
-import { gaugeFor, WEIGHABLES } from './massvolume';
+import { clearlyLighter, gaugeFor, WEIGHABLES } from './massvolume';
 
 let nextId = 0;
 function tpl(
@@ -545,15 +545,16 @@ describe('mea.massvolume', () => {
       instrument: 'balance',
       unit: 'none',
       value: 2,
-      value2: 8,
-      value3: 6,
+      value2: 9,
+      value3: 4,
     });
     if (item.widget.format !== 'order') throw new Error('order');
     expect(item.widget.items.map((x) => x.label)).toEqual([undefined, undefined, undefined]);
     expect(
       item.widget.items.map((x) => (x.stimulus?.kind === 'objects' ? x.stimulus.set.sprite : '')),
-    ).toEqual(expect.arrayContaining(['leaf', 'rock', 'melon']));
-    expect(itemFeatures(item, t)).toMatchObject({ closeness: 0.75, magnitude: 0 });
+    ).toEqual(expect.arrayContaining(['leaf', 'pumpkin', 'apple']));
+    // The closest pair is the leaf and the apple: 2 / 4.
+    expect(itemFeatures(item, t)).toMatchObject({ closeness: 0.5, magnitude: 0 });
     // The first step only says what to think of: the worked-step hint never places an object.
     const steps = itemSolution(item, t);
     expect(steps[0]?.action).toBeUndefined();
@@ -574,14 +575,24 @@ describe('mea.massvolume', () => {
         value3: 3,
       }),
     ).toThrow(GenerationError);
+    // A row everyday knowledge cannot settle (a melon and a rock, a feather and a leaf) is never
+    // asked (review, PR #77: only CLEARLY_LIGHTER pairs).
+    for (const [value, value2, value3] of [
+      [2, 6, 8],
+      [1, 2, 9],
+      [1, 4, 5],
+    ] as const)
+      expect(() =>
+        generateItemFromParams(t, { instrument: 'balance', unit: 'none', value, value2, value3 }),
+      ).toThrow(GenerationError);
   });
 
-  it('shape-sort: every card at least two weight steps from the object it is compared with', () => {
+  it('shape-sort: every card is a clear comparison with the object it is sorted against', () => {
     const t = tpl('mea.massvolume', 'shape-sort');
     for (const [value, cards, hits] of [
       [3, 4, 3],
       [4, 4, 2],
-      [7, 6, 1],
+      [4, 6, 4],
     ] as const) {
       for (let seed = 0; seed < 20; seed += 1) {
         const item = generateItemFromParams(
@@ -595,8 +606,8 @@ describe('mea.massvolume', () => {
         );
         expect(ws).toHaveLength(cards);
         expect(new Set(ws).size).toBe(cards);
-        expect(ws.filter((w) => w >= value + 2)).toHaveLength(hits);
-        expect(ws.filter((w) => w <= value - 2)).toHaveLength(cards - hits);
+        expect(ws.filter((w) => clearlyLighter(value, w))).toHaveLength(hits);
+        expect(ws.filter((w) => clearlyLighter(w, value))).toHaveLength(cards - hits);
         expect(itemSolution(item, t)[0]?.vars).toEqual({ thing: WEIGHABLES[value - 1], one: 1 });
         // Putting every card in the heavier bin is wrong.
         const all = {
@@ -618,7 +629,8 @@ describe('mea.massvolume', () => {
         t,
       ),
     ).toMatchObject({ cards: 2 });
-    // A shell has one thing two steps lighter (a feather), a brick one two steps heavier.
+    // A shell has one thing clearly lighter (a feather); nothing is clearly heavier than a brick
+    // or lighter than a feather.
     for (const params of [
       { value: 3, cards: 4, hits: 2 },
       { value: 7, cards: 4, hits: 2 },

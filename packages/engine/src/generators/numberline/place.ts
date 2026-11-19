@@ -10,10 +10,13 @@
 //   Options are near misses one and two ticks away when the target sits on a tick, else a quarter
 //   and a half of the line away, so an estimate can tell them apart.
 // - number-pad: type the number at the arrow: exactly when the target is on a tick; on a line with
-//   no ticks (only the ends marked) an estimate within 10% of the line (READ_ESTIMATE_PCT).
+//   no ticks (only the ends labelled) an estimate within 10% of the line (READ_ESTIMATE_PCT), with
+//   the target at least that far from both ends, so no accepted answer is off the line.
 // - number-line-jump: hop from `min` to `target` by ticks and, when labels are sparser, by labels.
 // - order: put `target` and the two numbers around it in order (`benchmarks` apart, or the two ends
 //   when `benchmarks` is 0).
+// The picture formats (numeral-pick, number-pad, order) draw a number-line stimulus whose two ends
+// are always labelled (linePicture: labelsEvery max − min on a line with no labels between).
 
 import type { LessonStep, ResponseValue } from '@number-island/shared';
 import { numberOptionId, optionNumber } from '../../formats/numeral-pick';
@@ -36,6 +39,7 @@ import {
   NUMBER_LINE_PLACE_FEATURES,
   numberLinePlaceFeatures,
   onTick,
+  pictureLabelsEvery,
   placementAnswer,
   snapFor,
 } from './line';
@@ -44,6 +48,11 @@ const MODES = ['place', 'read', 'closer'] as const;
 
 /** A number read off a line with no ticks is an estimate: correct within this % of the line. */
 export const READ_ESTIMATE_PCT = 10;
+
+/** The number-pad tolerance for reading a line with no ticks (READ_ESTIMATE_PCT of the line). */
+export function readTolerance(line: LineSpec): number {
+  return Math.max(1, Math.round(((line.max - line.min) * READ_ESTIMATE_PCT) / 100));
+}
 
 /** The line a param set describes. */
 export function lineOf(p: Record<string, unknown>): LineSpec {
@@ -192,6 +201,13 @@ export const numberlinePlace: GeneratorDef = {
       const [b0, b1] = benchmarkPair(line.min, target, k);
       return b1 <= line.max && (halfwayOk || 2 * target !== b0 + b1);
     };
+    // Picture formats draw the line as a number-line stimulus, which must label both ends.
+    if (
+      (t.format === 'numeral-pick' || t.format === 'number-pad' || t.format === 'order') &&
+      pictureLabelsEvery(line) === null
+    ) {
+      return false;
+    }
     switch (t.format) {
       case 'number-line-place': {
         const mode = asStr(p.mode, 'place');
@@ -201,8 +217,14 @@ export const numberlinePlace: GeneratorDef = {
       }
       case 'numeral-pick':
         return readingDistractors(line, target) !== null;
-      case 'number-pad':
-        return onTick(line, target) || line.ticksEvery === null;
+      case 'number-pad': {
+        if (onTick(line, target)) return true;
+        if (line.ticksEvery !== null) return false;
+        // An estimate within the tolerance: the target is at least that far from both ends, so
+        // every accepted answer lies on the line (for 0–100, targets 10–90).
+        const tol = readTolerance(line);
+        return target - line.min >= tol && line.max - target >= tol;
+      }
       case 'number-line-jump':
         return (target - line.min) % jumpSizes(line).small === 0;
       case 'order':
@@ -297,11 +319,7 @@ export const numberlinePlace: GeneratorDef = {
           },
           answer: onTick(line, target)
             ? { kind: 'number', value: target }
-            : {
-                kind: 'number',
-                value: target,
-                tolerance: Math.max(1, Math.round(((max - min) * READ_ESTIMATE_PCT) / 100)),
-              },
+            : { kind: 'number', value: target, tolerance: readTolerance(line) },
         };
         break;
       case 'number-line-jump': {
