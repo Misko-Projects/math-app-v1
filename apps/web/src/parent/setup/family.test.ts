@@ -1,5 +1,4 @@
 import { childProfileSchema } from '@number-island/shared';
-import Dexie from 'dexie';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { AppServices } from '@/app/boot/boot';
 import { SERVER_DEVICE, SERVER_FAMILY, TOKEN, testDevice } from '@/app/boot/boot.test-support';
@@ -7,7 +6,6 @@ import { ApiError, type ParentApi } from '../api';
 import { createParentGate } from '../gate';
 import {
   createFamily,
-  eraseThisDevice,
   guessDeviceName,
   JoinRefusedError,
   joinFamily,
@@ -260,20 +258,6 @@ describe('setup, step by step', () => {
     expect((await app.store.allProfiles()).map((p) => p.id)).toEqual([KID_A]);
     expect(api.setup).toHaveBeenCalledTimes(1);
     gate.dispose();
-  });
-
-  it('erases this device: the local database is gone and the app reloads', async () => {
-    const { app, device } = await boot();
-    const restore = device.enableLiveQueries(); // points Dexie's statics at this fake IndexedDB
-    try {
-      expect(await Dexie.exists(app.store.db.name)).toBe(true);
-      const reload = vi.fn();
-      await eraseThisDevice(app, reload);
-      expect(reload).toHaveBeenCalledTimes(1);
-      expect(await Dexie.exists(app.store.db.name)).toBe(false);
-    } finally {
-      restore();
-    }
   });
 });
 

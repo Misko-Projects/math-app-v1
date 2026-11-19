@@ -523,7 +523,7 @@ function DeviceStep({
             aria-invalid={nameError ? true : undefined}
             maxLength={60}
             value={deviceName}
-            readOnly={serverDone}
+            readOnly={serverDone || busy}
             onChange={(e) => setDeviceName(e.target.value)}
           />
         )}
@@ -548,7 +548,8 @@ function DeviceStep({
         <Button
           disabled={busy}
           onClick={async () => {
-            if (!deviceName.trim()) {
+            // The name only matters for `/setup`; a retry after it reuses the server's answer.
+            if (!serverDone && !deviceName.trim()) {
               setNameError('Give this device a name.');
               return;
             }
@@ -613,11 +614,15 @@ export function AiStep({ onDone }: { onDone: (choices: AiChoices) => Promise<voi
 
   useEffect(() => {
     const ctl = new AbortController();
+    // Only the current check speaks: one this effect's cleanup replaced (StrictMode, a new `api`)
+    // changes nothing, so Save stays disabled until the current one settles.
+    let current = true;
     // Save waits for this answer (see below), so keep the wait short.
     const timeout = setTimeout(() => ctl.abort(), 5000);
     api.health(ctl.signal).then(
       (h) => {
         clearTimeout(timeout);
+        if (!current) return;
         setHealth(h);
         // A choice made while the keys were being checked does not survive a missing key.
         setChoices((c) => ({
@@ -628,10 +633,11 @@ export function AiStep({ onDone }: { onDone: (choices: AiChoices) => Promise<voi
       },
       () => {
         clearTimeout(timeout);
-        setHealth('unknown');
+        if (current) setHealth('unknown');
       },
     );
     return () => {
+      current = false;
       clearTimeout(timeout);
       ctl.abort();
     };

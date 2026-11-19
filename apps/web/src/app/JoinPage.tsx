@@ -3,20 +3,16 @@
 //
 // A device that already belonged to a family (signed out, or removed by a parent) rejoins that
 // same family the same way. A code for another family is refused before anything moves
-// (`joinFamily`); erasing the device first makes it a brand-new device.
+// (`joinFamily`). Starting such a device over is a grown-up action outside the app: clearing the
+// site's data in the browser's settings.
 
 import { Panel } from '@number-island/ui';
 import { type FormEvent, useState } from 'react';
 import { Link, useNavigate } from 'react-router';
-import { ApiError, describeApiError } from '@/parent/api';
+import { describeApiError } from '@/parent/api';
 import { Button, Field, Notice, TextInput } from '@/parent/kit';
 import { useParentApi } from '@/parent/ParentContext';
-import {
-  eraseThisDevice,
-  guessDeviceName,
-  JoinRefusedError,
-  joinFamily,
-} from '@/parent/setup/family';
+import { guessDeviceName, JoinRefusedError, joinFamily } from '@/parent/setup/family';
 import { useAppServices } from './AppServices';
 import { useDeviceRecord } from './hooks';
 
@@ -31,10 +27,6 @@ export function JoinPage() {
   const [nameError, setNameError] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [otherFamily, setOtherFamily] = useState(false);
-  const [confirmErase, setConfirmErase] = useState(false);
-  const [passphrase, setPassphrase] = useState('');
-  const [eraseError, setEraseError] = useState<string | null>(null);
-  const [erasing, setErasing] = useState(false);
   const [busy, setBusy] = useState(false);
   const hadFamily = device !== undefined && device.pairedAt !== null;
   const paired = Boolean(device?.deviceToken);
@@ -57,7 +49,7 @@ export function JoinPage() {
       if (err instanceof JoinRefusedError) {
         setOtherFamily(true);
         setError(
-          'That code is for a different family’s island. This device still holds its own family’s island, so it can only rejoin that one. To join this other family, erase this device first, then use a new code.',
+          'That code is for a different family’s island. This device still holds its own family’s island, so it can only rejoin that one.',
         );
       } else {
         setError(describeApiError(err));
@@ -123,6 +115,14 @@ export function JoinPage() {
             )}
           </Field>
           {error ? <Notice tone="error">{error}</Notice> : null}
+          {otherFamily ? (
+            <Notice tone="info">
+              To use this device with another family, a grown-up first clears its data: in Chrome,
+              open <strong>Settings → Privacy and security → Site settings</strong>, find this
+              island’s address and choose <strong>Delete data</strong>. That removes this device’s
+              copy of the island (not the server’s), and it starts fresh.
+            </Notice>
+          ) : null}
           <div className="flex flex-wrap items-center gap-4">
             <Button type="submit" disabled={busy}>
               {busy ? 'Joining…' : 'Join'}
@@ -135,74 +135,6 @@ export function JoinPage() {
             </Link>
           </div>
         </form>
-
-        {hadFamily ? (
-          <section aria-label="Erase this device" className="mt-8 border-t-2 border-sand-deep pt-5">
-            {otherFamily || confirmErase ? (
-              <div className="flex flex-col gap-3">
-                <p className="text-lg font-bold">Erase everything on this device?</p>
-                <p className="text-base">
-                  This removes this device’s copy of the island: the children’s profiles and any
-                  progress that hasn’t synced. The family’s island on the server and on its other
-                  devices stays as it is. A grown-up confirms with the island server’s parent
-                  passphrase.
-                </p>
-                <Field label="Parent passphrase" error={eraseError}>
-                  {({ id, describedBy }) => (
-                    <TextInput
-                      id={id}
-                      aria-describedby={describedBy}
-                      aria-invalid={eraseError ? true : undefined}
-                      type="password"
-                      autoComplete="current-password"
-                      value={passphrase}
-                      onChange={(e) => {
-                        setPassphrase(e.target.value);
-                        setEraseError(null);
-                      }}
-                    />
-                  )}
-                </Field>
-                <div className="flex flex-wrap gap-3">
-                  <Button
-                    variant="danger"
-                    disabled={erasing}
-                    onClick={async () => {
-                      // Erasing is a grown-up action (06 §3): the server checks the passphrase
-                      // (08 §2, rate-limited), since a signed-out device has no PIN check.
-                      setErasing(true);
-                      setEraseError(null);
-                      try {
-                        await api.login(passphrase);
-                      } catch (err) {
-                        setEraseError(
-                          err instanceof ApiError && err.code === 'invalid_credentials'
-                            ? 'That passphrase isn’t right.'
-                            : describeApiError(err),
-                        );
-                        setErasing(false);
-                        return;
-                      }
-                      await api.logout().catch(() => {});
-                      await eraseThisDevice(services);
-                    }}
-                  >
-                    {erasing ? 'Erasing…' : 'Erase this device'}
-                  </Button>
-                  {otherFamily ? null : (
-                    <Button variant="secondary" onClick={() => setConfirmErase(false)}>
-                      Cancel
-                    </Button>
-                  )}
-                </div>
-              </div>
-            ) : (
-              <Button variant="quiet" onClick={() => setConfirmErase(true)}>
-                Start over with an empty device
-              </Button>
-            )}
-          </section>
-        ) : null}
       </Panel>
     </main>
   );

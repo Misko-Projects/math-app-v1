@@ -203,7 +203,8 @@ export class JoinRefusedError extends Error {
  * A device that was already part of a family (`pairedAt` set: signed out, or removed by a parent)
  * may rejoin only that same family. Adopting another family's ids would re-home this device's
  * profiles and unsynced events into it and upload them (D01 `adoptFamily`), so a code for another
- * family is refused before anything moves; erase the device first (`eraseThisDevice`).
+ * family is refused before anything moves. Starting the device over is a grown-up action in the
+ * browser (clearing the site's data), outside the app.
  */
 export async function joinFamily(
   { services, api }: Omit<CreateFamilyDeps, 'gate'>,
@@ -216,23 +217,4 @@ export async function joinFamily(
   }
   await services.sync.adopt(ids);
   await services.sync.syncNow();
-}
-
-/**
- * Erases everything this device holds (the whole local database and the diagnostics log), then
- * reloads into a brand-new first run. The family's data on the server and other devices stays.
- */
-export async function eraseThisDevice(
-  services: Pick<AppServices, 'store' | 'dispose'>,
-  reload: () => void = () => window.location.reload(),
-): Promise<void> {
-  const { db } = services.store;
-  services.dispose();
-  await db.delete();
-  try {
-    globalThis.localStorage?.removeItem('number-island.diagnostics');
-  } catch {
-    // Storage blocked: nothing to clear.
-  }
-  reload();
 }

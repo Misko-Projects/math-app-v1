@@ -6,6 +6,7 @@ import { Panel } from '@number-island/ui';
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router';
 import { useAppServices } from '@/app/AppServices';
+import { recordDiagnostic } from '@/app/diagnostics';
 import { useDeviceRecord, useSyncState } from '@/app/hooks';
 import { useProfiles } from '@/data/hooks';
 import { ApiError } from './api';
@@ -134,7 +135,18 @@ export function ParentHome() {
                           return;
                         }
                       }
-                      await sync.signOut();
+                      try {
+                        await sync.signOut();
+                      } catch (e) {
+                        // The server session has ended already; only this device's token could not
+                        // be removed. Say so and keep Sign out available for a retry.
+                        recordDiagnostic('sign-out', e);
+                        setSignOutError(
+                          'This device couldn’t finish signing out. Try again; if it keeps failing, see the diagnostics page.',
+                        );
+                        setSigningOut(false);
+                        return;
+                      }
                       gate.lock();
                       navigate('/', { replace: true });
                     }}
