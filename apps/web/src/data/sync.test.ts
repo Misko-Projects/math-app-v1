@@ -1,7 +1,7 @@
 import { type SyncRequest, type SyncResponse, syncRequestSchema } from '@number-island/shared';
 import { afterEach, describe, expect, it } from 'vitest';
 import type { DataStore } from './store';
-import { DEVICE, FAMILY, testEnv } from './store.test-support';
+import { DEVICE, FAMILY, profile, testEnv } from './store.test-support';
 import {
   backoffDelay,
   createSyncClient,
@@ -576,10 +576,11 @@ describe('sync client: review round 3 regressions', () => {
     client.stop();
     const online = client.syncNow('online'); // made while stopped
     client.start(); // restarted before the held sync returns
-    release(); // ... which fails, opening a backoff window
+    release(); // ... which belongs to the stopped generation: discarded, not a failure
     expect(await online).toEqual({ kind: 'stopped' });
     await settle();
-    expect(calls).toBe(1); // nothing forced a request into the new window
+    // Only the restart's own start trigger sent a request; the one made while stopped sent none.
+    expect(calls).toBe(2);
     client.stop();
   });
 
@@ -603,6 +604,100 @@ describe('sync client: review round 3 regressions', () => {
     await settle();
     expect(timers.delays()).toEqual([SYNC_BACKOFF_BASE_MS]); // the same 5 s retry, not 48 h
     client.stop();
+  });
+});
+
+// W00 (#18) sign-out: once stop() settles, a run from before it has sent and written nothing more.
+describe('sync client: stop() cancels the run in flight', () => {
+  /** A store whose `method` waits for `release()` the next time it is called. */
+  function gateMethod<K extends 'allProfiles' | 'markSynced'>(store: DataStore, method: K) {
+    let release: () => void = () => undefined;
+    const held = new Promise<void>((r) => {
+      release = r;
+    });
+    let entered: () => void = () => undefined;
+    const reached = new Promise<void>((r) => {
+      entered = r;
+    });
+    const original = store[method].bind(store) as (...args: unknown[]) => Promise<unknown>;
+    let armed = true;
+    const gated = {
+      ...store,
+      [method]: async (...args: unknown[]) => {
+        if (armed) {
+          armed = false;
+          entered();
+          await held;
+        }
+        return original(...args);
+      },
+    } as DataStore;
+    return { gated, release, reached };
+  }
+
+  it('sends nothing when stopped while the request is being assembled', async () => {
+    const { store } = await pairedStore();
+    stores.push(store);
+    const { gated, release, reached } = gateMethod(store, 'allProfiles');
+    const server = fakeServer();
+    const client = createSyncClient({ store: gated, fetch: server.fetch, ...manualTimers() });
+    const outcome = client.syncNow();
+    await reached;
+    const stopped = client.stop();
+    release();
+    await stopped;
+    expect(await outcome).toEqual({ kind: 'stopped' });
+    expect(server.requests).toHaveLength(0);
+  });
+
+  it('writes nothing more when stopped while a response is being applied', async () => {
+    const { store } = await pairedStore();
+    stores.push(store);
+    const before = await store.syncState();
+    const { gated, release, reached } = gateMethod(store, 'markSynced');
+    const late = {
+      ...profile('019a0000-0000-7000-8000-0000000ac0ff', 'K', 'Late'),
+      familyId: FAMILY,
+    };
+    const server = fakeServer(() => ({ cursor: '999', more: true, profiles: [late] }));
+    const client = createSyncClient({ store: gated, fetch: server.fetch, ...manualTimers() });
+    const outcome = client.syncNow();
+    await reached; // the response is being applied
+    const stopped = client.stop();
+    release();
+    await stopped;
+    expect(await outcome).toEqual({ kind: 'stopped' });
+    expect((await store.allProfiles()).map((p) => p.name)).not.toContain('Late');
+    expect((await store.syncState()).cursor).toBe(before.cursor);
+    expect(server.requests).toHaveLength(1); // no second round despite `more`
+  });
+
+  it('ends a manual request queued behind the run in flight, so no run starts after stop()', async () => {
+    const { store } = await pairedStore();
+    stores.push(store);
+    let release: () => void = () => undefined;
+    const held = new Promise<void>((r) => {
+      release = r;
+    });
+    const server = fakeServer();
+    let sent = 0;
+    const fetch: SyncClientOptions['fetch'] = async (u, i) => {
+      sent += 1;
+      await held;
+      return server.fetch?.(u, i) as Promise<Response>;
+    };
+    const client = createSyncClient({ store, fetch, ...manualTimers() });
+    const first = client.syncNow();
+    await settle();
+    expect(sent).toBe(1);
+    const queued = client.syncNow('manual'); // waits for the run in flight
+    const stopped = client.stop();
+    expect(await queued).toEqual({ kind: 'stopped' });
+    release();
+    await stopped;
+    expect(await first).toEqual({ kind: 'stopped' });
+    await settle();
+    expect(sent).toBe(1);
   });
 });
 
