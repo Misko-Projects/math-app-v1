@@ -1,0 +1,493 @@
+/* make-set widget (U03): the heap, the container with ten-frame slots, and the actions. */
+
+/*
+ * The widget takes the width its host gives it and never grows to fit its content (inline-size
+ * containment), so the layout MakeSetWidget picks from that width (`data-layout`) is honest:
+ * `row` side by side, else `stack` / `column` on a grid (areas set inline). The gap is
+ * LAYOUT_GAP in MakeSetWidget.tsx.
+ */
+.ni-mset {
+  position: relative;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 32px;
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 1180px;
+  /*
+   * Safe centring in the host (.ni-widget centres its child with `align-items: center`, which is
+   * unsafe): auto margins centre the widget while it fits and drop to 0 when it is taller than
+   * the host, so it starts at the top of the scrollable area and overflows only downwards. Never
+   * above the scroll origin, where no scroll can reach the heap.
+   */
+  margin: auto;
+  padding: 12px 16px;
+  /* Inline-size only (no layout containment): the demo flight stays viewport-fixed. */
+  contain: inline-size;
+}
+.ni-mset[data-layout="stack"],
+.ni-mset[data-layout="column"],
+.ni-mset[data-layout="side"] {
+  display: grid;
+  justify-content: center;
+  justify-items: center;
+  align-items: center;
+}
+/*
+ * `side` (short areas): the container in a column of its own on the right, the heap and actions
+ * centred in a column beside it (rows `1fr auto… 1fr`, set inline; each part after the first has
+ * a 24 px top margin). The area's full size: no padding. SIDE_PAD_X and SIDE_GAP
+ * in MakeSetWidget.tsx.
+ */
+.ni-mset[data-layout="side"] {
+  gap: 0 24px;
+  padding: 0;
+}
+/* The tight frame chrome uses the area's full height too (PAD in MakeSetWidget.tsx). */
+.ni-mset[data-chrome="tight"] {
+  padding-block: 0;
+}
+/* Each part's grid area is at the end of this file (after the parts' own rules). */
+
+/* ---------- heap (supply) and the take-away pile ---------- */
+
+.ni-mset__pile {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  box-sizing: border-box;
+  padding: 26px 22px;
+  border: 3px solid var(--color-sand-deep);
+  border-radius: 64px 48px 72px 56px;
+  background: var(--color-sand);
+  box-shadow:
+    inset 0 -10px 0 var(--color-sand-shadow),
+    0 8px 0 rgb(217 187 135 / 0.6);
+}
+.ni-mset__pile[data-kind="away"] {
+  border-style: dashed;
+  border-color: var(--color-ink-soft);
+  border-radius: var(--radius-card);
+  background: var(--color-horizon);
+}
+.ni-mset__pad {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  border-radius: inherit;
+}
+/*
+ * The heap: balanced, centred rows (heap.ts) on a grid of half-width tracks, each object spanning
+ * two. The box keeps the heap's fullest size and centres what is left, so it never jumps.
+ */
+.ni-mset__heapbox {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  place-items: center;
+  pointer-events: none;
+}
+.ni-mset__heap {
+  display: grid;
+  grid-auto-rows: var(--slot);
+  gap: var(--target-gap);
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  pointer-events: none;
+}
+/*
+ * The "take away" pile's arrow: decorative (aria-hidden; the pile's drop target carries the name),
+ * so a plain ink glyph, not a disc that looks like a button.
+ */
+.ni-mset__away-icon {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  place-items: center;
+  box-sizing: border-box;
+  width: 56px;
+  height: 56px;
+  padding: 4px;
+  pointer-events: none;
+}
+
+.ni-mset__item {
+  position: relative;
+  box-sizing: border-box;
+  width: var(--slot);
+  height: var(--slot);
+  border-radius: 50%;
+  pointer-events: auto;
+}
+.ni-mset__item:focus-visible {
+  outline: 4px solid var(--color-sea-deep);
+  outline-offset: 4px;
+}
+.ni-mset__item[data-flying="true"] {
+  visibility: hidden;
+}
+.ni-mset__item .ni-sprite {
+  pointer-events: none;
+}
+/*
+ * Demo invite on one object (03 §6.3): the teal ring stays inside the object's own hit box, so it
+ * keeps the full 12 px target gap from every neighbour; the object shrinks a little inside it.
+ * No pulse (a pulse would push the ring into the gap); Pip's hand carries the motion.
+ */
+.ni-mset__item.ni-invite {
+  z-index: 3;
+  outline-offset: -5px;
+  border-radius: 24px;
+  animation: none;
+}
+.ni-mset__item.ni-invite > .ni-sprite {
+  transform: scale(0.88);
+}
+.ni-mset__item[data-counting="true"] {
+  outline: 5px solid var(--color-sea-deep);
+  outline-offset: 3px;
+}
+
+/* A counted object (count-aloud demo): a numbered pebble badge. */
+.ni-mset__mark {
+  position: absolute;
+  top: -14px;
+  right: -10px;
+  display: grid;
+  place-items: center;
+  box-sizing: border-box;
+  min-width: 46px;
+  height: 46px;
+  padding: 0.14em 6px 0;
+  border: 3px solid var(--color-ink);
+  border-radius: 999px;
+  background: var(--color-sunshine);
+  color: var(--color-ink);
+  font-family: var(--font-display);
+  font-size: 2rem;
+  font-weight: 800;
+  line-height: 1;
+  pointer-events: none;
+  animation: var(--animate-pop-in);
+}
+.ni-mset__mark--hand {
+  top: 0;
+  right: 0;
+  min-width: 56px;
+  height: 56px;
+}
+
+/* ---------- container ---------- */
+
+.ni-mset__container {
+  position: relative;
+  flex: none;
+  border-radius: 28px;
+}
+.ni-mset__art {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+}
+.ni-mset__container > .ni-mset__pad {
+  z-index: 1;
+}
+.ni-mset__frames {
+  position: absolute;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  pointer-events: none;
+  /* One ten-frame at a time: the frame slides over when the ten is tied or untied. */
+  transition: left 320ms var(--ease-soft);
+}
+/* count-aloud: the ring hugs the frames, inside the container art and clear of the heap. */
+.ni-mset__frames.ni-invite {
+  position: absolute;
+  outline-offset: 6px;
+  border-radius: 24px;
+  animation: none;
+}
+.ni-mset__frame {
+  position: relative;
+  display: grid;
+  grid-template-columns: repeat(5, var(--slot));
+  grid-auto-rows: var(--slot);
+  gap: var(--target-gap);
+  padding: 14px;
+  border: 4px solid var(--color-ink);
+  border-radius: 18px;
+  background: var(--color-paper);
+}
+.ni-mset__slot {
+  position: relative;
+  border-radius: 50%;
+  background: rgb(38 70 83 / 0.08);
+  box-shadow: inset 0 3px 0 rgb(38 70 83 / 0.14);
+}
+.ni-mset__slot[data-off="true"] {
+  opacity: 0.3;
+}
+/* A tied ten: a heavier frame and a rope band with a knot across it. */
+.ni-mset__frame[data-bundled="true"] {
+  border-width: 6px;
+  background: var(--color-sunshine-light);
+}
+.ni-mset__band {
+  position: absolute;
+  top: 14px;
+  left: 14px;
+  width: calc(100% - 28px);
+  height: calc(100% - 28px);
+  z-index: 3;
+  pointer-events: none;
+  animation: var(--animate-pop-in);
+}
+/*
+ * Tight frame chrome (short areas, `data-chrome="tight"`): 6 px padding (the slots keep visible
+ * room in their frame), a 2 px border (a tied ten too, so its size never changes) and 4 px between
+ * frames (set inline). The container's tight margins keep the frames ≥ 8 px inside its art
+ * (CONTAINER_PAD_TIGHT). Objects keep their size and 12 px gaps.
+ */
+.ni-mset[data-chrome="tight"] .ni-mset__frame,
+.ni-mset[data-chrome="tight"] .ni-mset__frame[data-bundled="true"] {
+  padding: 6px;
+  border-width: 2px;
+}
+.ni-mset[data-chrome="tight"] .ni-mset__frame > .ni-mset__band {
+  top: 6px;
+  left: 6px;
+  width: calc(100% - 12px);
+  height: calc(100% - 12px);
+}
+
+/*
+ * One ten-frame at a time (capacity 11–20 where two ten-frames don't fit; tens.ts): a small frame
+ * of 2 × 5 pieces of 32 px (TENS_* in MakeSetWidget.tsx), 96 × 188. On the ones page it is the
+ * first ten, tied like a bundled ten-frame (the same rope band, down the gap between its columns)
+ * and tagged "10" underneath, and it comes FIRST (left of the frame of ones: "10, then the
+ * ones"); with the ten untied it holds the ones, after the ten's frame. Either way a button
+ * (≥ 80 px): tapping the tied ten unties it (and says "ten"), tapping the ones ties it again. It
+ * pops in, and the frame slides over, when it changes (at once under reduced motion: both are
+ * switched off inline).
+ */
+.ni-mset__tens {
+  position: absolute;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  width: 96px;
+  margin: 0;
+  padding: 0;
+  appearance: none;
+  border: 0;
+  border-radius: 18px;
+  background: none;
+  color: var(--color-ink);
+  cursor: pointer;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  animation: var(--animate-pop-in);
+}
+/* Invited (a remove whose object is in the frame not shown): the ring stays within TENS_GAP. */
+.ni-mset__tens.ni-invite {
+  position: absolute;
+  outline-offset: 2px;
+  border-radius: 18px;
+}
+.ni-mset__tens:disabled {
+  cursor: default;
+}
+.ni-mset__tens:focus-visible {
+  outline: 4px solid var(--color-sea-deep);
+  outline-offset: 4px;
+}
+.ni-mset__tens-frame {
+  position: relative;
+  display: block;
+  box-sizing: border-box;
+  width: 96px;
+  height: 188px;
+  padding: 6px;
+  border: 4px solid var(--color-ink);
+  border-radius: 18px;
+  background: var(--color-paper);
+}
+.ni-mset__tens[data-tens="bundle"] .ni-mset__tens-frame {
+  background: var(--color-sunshine-light);
+}
+.ni-mset__tens-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 32px);
+  grid-auto-rows: 32px;
+  gap: 2px 12px;
+  pointer-events: none;
+}
+.ni-mset__tens-cell {
+  position: relative;
+  display: block;
+  border-radius: 50%;
+  background: rgb(38 70 83 / 0.08);
+}
+/* The tied ten's tag: the numeral 10 (K pre-readers), under its frame (the band ends inside it). */
+.ni-mset__tens-tag {
+  position: relative;
+  z-index: 4;
+  display: block;
+  box-sizing: border-box;
+  min-width: 64px;
+  height: 38px;
+  padding: 0 10px;
+  border: 2px solid var(--color-ink);
+  border-radius: 999px;
+  background: var(--color-sunshine);
+  font-family: var(--font-display);
+  font-size: 34px;
+  font-weight: 800;
+  line-height: 34px;
+  text-align: center;
+  pointer-events: none;
+}
+.ni-mset[data-layout] .ni-mset__tens-frame > .ni-mset__band {
+  top: 6px;
+  left: 6px;
+  width: calc(100% - 12px);
+  height: calc(100% - 12px);
+}
+
+/* ---------- hands ---------- */
+
+.ni-mset__hands {
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  gap: 56px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  min-width: 0;
+}
+.ni-mset__handbox {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  /* Room for an invite ring on a finger button (offset + width + pulse) clear of the hand card. */
+  gap: 28px;
+}
+.ni-mset__hand-btn {
+  position: relative;
+  display: grid;
+  place-items: center;
+  padding: 16px 20px 8px;
+  appearance: none;
+  border: 3px solid var(--color-sand-deep);
+  border-radius: var(--radius-card);
+  background: var(--color-paper);
+  box-shadow: var(--shadow-soft);
+  cursor: pointer;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+.ni-mset__hand-btn:disabled {
+  cursor: default;
+}
+/* count-aloud on hands: the ring stays close, clear of the finger buttons below. */
+.ni-mset__hand-btn.ni-invite {
+  outline-offset: 6px;
+}
+.ni-mset__hand-btn:focus-visible {
+  outline: 4px solid var(--color-sea-deep);
+  outline-offset: 4px;
+}
+.ni-mset__hand-controls {
+  display: flex;
+  /* Wide enough that an invite ring around one button stays ≥ 12 px clear of the other. */
+  gap: 32px;
+}
+.ni-mset__ctl {
+  position: relative;
+  display: inline-flex;
+  border-radius: 999px;
+}
+.ni-mset__arrow-up {
+  transform: rotate(-90deg);
+}
+.ni-mset__arrow-down {
+  transform: rotate(90deg);
+}
+
+/* ---------- actions ---------- */
+
+.ni-mset__actions {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 32px;
+}
+.ni-mset__action {
+  position: relative;
+  display: inline-flex;
+  border-radius: 32px;
+}
+/* A ring on a button sits close (offset 4) so it stays clear of the next button. */
+.ni-mset__actions .ni-invite,
+.ni-mset__ctl.ni-invite {
+  outline-offset: 4px;
+  border-radius: 999px;
+}
+/* Hands: the two hands in a row, the check below them, all centred. */
+.ni-mset[data-container="hands"] {
+  flex-direction: column;
+  flex-wrap: nowrap;
+  gap: 40px;
+}
+.ni-mset[data-container="hands"] .ni-mset__actions {
+  flex-direction: row;
+}
+
+.ni-mset__flight {
+  position: fixed;
+  z-index: var(--z-drag);
+  pointer-events: none;
+  transition-property: left, top;
+  transition-timing-function: var(--ease-soft);
+  filter: drop-shadow(0 14px 10px rgb(38 70 83 / 0.3));
+}
+
+/* `stack` / `column` layouts: each part's grid area (the template is set inline). */
+.ni-mset[data-layout] > [data-kind="supply"] {
+  grid-area: supply;
+}
+.ni-mset[data-layout] > [data-kind="away"] {
+  grid-area: away;
+}
+.ni-mset[data-layout] > .ni-mset__container {
+  grid-area: box;
+}
+.ni-mset[data-layout] > .ni-mset__actions {
+  grid-area: act;
+}
+
+/* `side`: the take-away pile's arrow sits beside its heap (AWAY_HEAD in MakeSetWidget.tsx). */
+.ni-mset[data-layout="side"] > .ni-mset__pile[data-kind="away"] {
+  flex-direction: row;
+}
+
+/*
+ * A compact tray (short areas, `data-tray="compact"`, PILE_EDGE_COMPACT in MakeSetWidget.tsx):
+ * where the normal padding would leave one object in a big tray, the pile hugs a grid of objects.
+ */
+.ni-mset[data-tray="compact"] > .ni-mset__pile {
+  padding: 6px;
+  border-radius: 32px 24px 36px 28px;
+}

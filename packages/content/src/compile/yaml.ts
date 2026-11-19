@@ -12,8 +12,27 @@ function lineOf(lc: LineCounter, offset: number | undefined): string {
   return ` (line ${line}, col ${col})`;
 }
 
+/**
+ * Successful parses by text. A text that parses cleanly reports no findings and gives the same
+ * data whatever file it is in, so a recompile (the compiler tests and content-check compile the
+ * catalog dozens of times, each a variant with one file edited) re-parses only the edited files.
+ * Callers get a copy, so nothing can change a cached value. Bounded: the oldest entry is dropped.
+ */
+const PARSED = new Map<string, unknown>();
+const PARSED_MAX = 512;
+
 /** Parses YAML text into plain data, or reports V01 findings and returns undefined. */
 export function parseYaml(file: string, text: string, diags: Diagnostics): unknown {
+  if (PARSED.has(text)) return structuredClone(PARSED.get(text));
+  const data = parseYamlUncached(file, text, diags);
+  if (data !== undefined) {
+    if (PARSED.size >= PARSED_MAX) PARSED.delete(PARSED.keys().next().value as string);
+    PARSED.set(text, structuredClone(data));
+  }
+  return data;
+}
+
+function parseYamlUncached(file: string, text: string, diags: Diagnostics): unknown {
   const lc = new LineCounter();
   const doc = parseDocument(text, { lineCounter: lc, uniqueKeys: true, merge: false });
   let ok = true;

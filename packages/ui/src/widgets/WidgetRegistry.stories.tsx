@@ -1,6 +1,7 @@
 import type { InteractionEvent, WidgetConfig } from '@number-island/shared';
 import type { Meta, StoryObj } from '@storybook/react-vite';
-import { useEffect, useState } from 'react';
+import { startTransition, useEffect, useState } from 'react';
+import { flushSync } from 'react-dom';
 import { expect, fn, userEvent, waitFor, within } from 'storybook/test';
 import { BigButton } from '../primitives/BigButton';
 import { ArrowIcon } from '../primitives/icons';
@@ -173,6 +174,19 @@ export const DemoMode: Story = {
   },
 };
 
+/** Runs zero-delay timers as microtasks (until the returned restore is called). */
+function zeroTimersAsMicrotasks() {
+  const timeout = window.setTimeout;
+  window.setTimeout = ((fn: () => void, ms?: number, ...rest: unknown[]) => {
+    if (ms) return timeout(fn, ms, ...rest);
+    queueMicrotask(fn);
+    return 0;
+  }) as typeof window.setTimeout;
+  return () => {
+    window.setTimeout = timeout;
+  };
+}
+
 const reducedController: WidgetDemo = createDemoController({ strict: true });
 
 /** With reduced motion, demo ops become instant state changes (03 §6.3, 06 §7). */
@@ -181,20 +195,145 @@ export const DemoReducedMotion: Story = {
   args: { disabled: true, demo: reducedController },
   play: async ({ canvasElement }) => {
     await within(canvasElement).findByRole('group', { name: 'Pebbles' }, { timeout: 10_000 });
+    // `play` resolves only once the result is on screen. Zero-delay timers run as microtasks
+    // here, so the op's own waits finish before React's scheduled commit, as on a loaded runner:
+    // a `play` that didn't wait for the commit would leave the old count on screen.
+    let restore = zeroTimersAsMicrotasks();
     const started = performance.now();
-    await reducedController.play({ op: 'drag', args: { count: 3 } });
-    await expect(pebblesIn(canvasElement)).toBe(3);
-    await expect(performance.now() - started).toBeLessThan(1500);
+    try {
+      await reducedController.play({ op: 'drag', args: { count: 3 } });
+      await expect(pebblesIn(canvasElement)).toBe(3);
+      await expect(performance.now() - started).toBeLessThan(1500);
+    } finally {
+      restore();
+    }
     // Remove is instant too, and doesn't depend on animation frames (suspended in hidden tabs).
+    // Two removes started in the same tick are batched into one commit, and both still resolve.
     const raf = window.requestAnimationFrame;
     window.requestAnimationFrame = () => 0;
+    restore = zeroTimersAsMicrotasks();
     try {
-      await reducedController.play({ op: 'remove', args: { count: 2 } });
+      const both = Promise.all([
+        reducedController.play({ op: 'remove', args: { count: 1 } }),
+        reducedController.play({ op: 'remove', args: { count: 1 } }),
+      ]).then(() => 'resolved');
+      const outcome = await Promise.race([
+        both,
+        new Promise((r) => setTimeout(() => r('timed out'), 2000)),
+      ]);
+      await expect(outcome).toBe('resolved');
+      await expect(pebblesIn(canvasElement)).toBe(1);
     } finally {
       window.requestAnimationFrame = raf;
+      restore();
     }
-    await waitFor(() => expect(pebblesIn(canvasElement)).toBe(1));
     await expect(canvasElement.querySelector('.ni-sample__flight')).toBeNull();
+  },
+};
+
+const shrinkController: WidgetDemo = createDemoController({ strict: true });
+const fullBasket: ConfigFor<'make-set'> = {
+  ...makeSet,
+  source: { sprite: 'pebble', supply: 12 },
+  start: 12,
+  capacity: 15,
+};
+const smallBasket: ConfigFor<'make-set'> = { ...fullBasket, start: 0, capacity: 10 };
+
+/** A story harness: the same item (same `itemKey`), its config swapped by a button. */
+function ShrinkLater(args: WidgetHostProps) {
+  const [small, setSmall] = useState(false);
+  return (
+    <div style={{ width: 'min(1100px, 100%)', minHeight: 520, display: 'grid' }}>
+      <WidgetHost
+        {...args}
+        itemKey="same-item"
+        config={(small ? smallBasket : fullBasket) as WidgetConfig}
+      />
+      <button type="button" onClick={() => setSmall(true)}>
+        Shrink the basket (story harness)
+      </button>
+    </div>
+  );
+}
+
+/**
+ * The same widget instance keeps its 12 pebbles when its basket shrinks to 10 slots (only 10 can
+ * show). A reduced-motion remove still resolves: `play` waits for its own state update to commit,
+ * not for a pebble count the basket may be unable to show.
+ */
+export const DemoAfterBasketShrinks: Story = {
+  globals: { motion: 'reduced' },
+  args: { disabled: true, demo: shrinkController },
+  render: (args) => <ShrinkLater {...args} />,
+  play: async ({ canvasElement }) => {
+    await within(canvasElement).findByRole('group', { name: 'Pebbles' }, { timeout: 10_000 });
+    await waitFor(() => expect(pebblesIn(canvasElement)).toBe(12));
+    await userEvent.click(within(canvasElement).getByRole('button', { name: /Shrink the basket/ }));
+    await waitFor(() => expect(pebblesIn(canvasElement)).toBe(10));
+    const outcome = await Promise.race([
+      shrinkController.play({ op: 'remove', args: { count: 1 } }).then(() => 'resolved'),
+      new Promise((r) => setTimeout(() => r('timed out'), 2000)),
+    ]);
+    await expect(outcome).toBe('resolved');
+  },
+};
+
+const urgentController: WidgetDemo = createDemoController({ strict: true });
+
+/**
+ * A higher-priority render while a demo op's basket update is pending (the op started in a
+ * transition, then an invite flushed synchronously) commits the old basket. `play` still resolves
+ * only once the basket update itself has committed: the pebble is gone when it resolves.
+ */
+export const DemoWaitsPastUrgentRender: Story = {
+  globals: { motion: 'reduced' },
+  args: { disabled: true, demo: urgentController },
+  play: async ({ canvasElement }) => {
+    await within(canvasElement).findByRole('group', { name: 'Pebbles' }, { timeout: 10_000 });
+    await urgentController.play({ op: 'drag', args: { count: 3 } });
+    await expect(pebblesIn(canvasElement)).toBe(3);
+    let removed: Promise<number> | undefined;
+    startTransition(() => {
+      removed = urgentController
+        .play({ op: 'remove', args: { count: 1 } })
+        .then(() => pebblesIn(canvasElement));
+    });
+    flushSync(() => urgentController.invite({ op: 'drag', args: { count: 1 } }));
+    await expect(await removed).toBe(2);
+  },
+};
+
+const childInputController: WidgetDemo = createDemoController({ strict: true });
+
+/**
+ * The child taps a pebble out while a demo removal is still pending (started in a transition, so
+ * the basket is still interactive). React replays the tap on top of the demo update; the basket
+ * ends with one pebble, and `play` resolves.
+ */
+export const DemoWaitsPastChildInput: Story = {
+  globals: { motion: 'reduced' },
+  args: { disabled: false, demo: childInputController },
+  play: async ({ canvasElement }) => {
+    await within(canvasElement).findByRole('group', { name: 'Pebbles' }, { timeout: 10_000 });
+    await childInputController.play({ op: 'drag', args: { count: 3 } });
+    await expect(pebblesIn(canvasElement)).toBe(3);
+    const first = canvasElement.querySelector('.ni-sample__in') as HTMLButtonElement;
+    // Input comes back once playback ends.
+    await waitFor(() => expect(first).toBeEnabled());
+    let removed: Promise<string> | undefined;
+    startTransition(() => {
+      removed = childInputController
+        .play({ op: 'remove', args: { count: 1 } })
+        .then(() => 'resolved');
+    });
+    first.click();
+    const outcome = await Promise.race([
+      removed,
+      new Promise((r) => setTimeout(() => r('timed out'), 2000)),
+    ]);
+    await expect(outcome).toBe('resolved');
+    await waitFor(() => expect(pebblesIn(canvasElement)).toBe(1));
   },
 };
 

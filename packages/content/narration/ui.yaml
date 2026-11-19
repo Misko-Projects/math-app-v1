@@ -155,3 +155,59 @@ ui.sprite.firefly:
 ui.sprite.counter:
   text: "Counter"
   level: K
+
+# tap-count, make-set, dot-flash (U03, packages/ui/src/widgets/tap-count, make-set, dot-flash)
+ui.count.marked:
+  text: "{thing}, number {n}"
+  level: K
+ui.count.start:
+  text: "Start here"
+  level: K
+ui.set.boat:
+  text: "Boat"
+  level: K
+ui.set.basket:
+  text: "Basket"
+  level: K
+ui.set.jar:
+  text: "Jar"
+  level: K
+ui.set.raft:
+  text: "Raft"
+  level: K
+ui.set.shell:
+  text: "Shell"
+  level: K
+ui.set.hands:
+  text: "Hands"
+  level: K
+ui.set.supply:
+  text: "Things to put in"
+  level: K
+ui.set.away:
+  text: "Take away"
+  level: K
+ui.set.thing:
+  text: "{thing} {n}"
+  level: K
+ui.set.bundle:
+  text: "Make a ten"
+  level: K
+ui.set.hand-left:
+  text: "Left hand"
+  level: K
+ui.set.hand-right:
+  text: "Right hand"
+  level: K
+ui.set.finger-up:
+  text: "Finger up"
+  level: K
+ui.set.finger-down:
+  text: "Finger down"
+  level: K
+ui.flash.again:
+  text: "Look again"
+  level: K
+ui.flash.hidden:
+  text: "The picture went away"
+  level: K

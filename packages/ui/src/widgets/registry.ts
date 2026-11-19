@@ -13,6 +13,9 @@ import type { WidgetRegistry } from './types';
 export const widgetRegistry: WidgetRegistry = {
   'number-pad': () => import('./number-pad/NumberPadWidget'),
   'numeral-pick': () => import('./numeral-pick/NumeralPickWidget'),
+  'tap-count': () => import('./tap-count/TapCountWidget'),
+  'make-set': () => import('./make-set/MakeSetWidget'),
+  'dot-flash': () => import('./dot-flash/DotFlashWidget'),
   'fraction-pick': () => import('./fraction-pick/FractionPickWidget'), // U05 (#14)
   'fraction-cut': () => import('./fraction-cut/FractionCutWidget'), // U05 (#14)
   'fraction-line': () => import('./fraction-line/FractionLineWidget'), // U05 (#14)
