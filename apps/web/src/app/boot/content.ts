@@ -130,9 +130,13 @@ export async function loadContent(fetchImpl: FetchLike = globalThis.fetch): Prom
     }
     return g as unknown as Parameters<typeof buildSkillGraph>[0]['graph'];
   });
-  const templateStats = raw['template-stats.json'] as
-    | Parameters<typeof buildSkillGraph>[0]['templateStats']
-    | undefined;
+  // Optional, but when the index lists it, it must be an object of per-template stats.
+  const templateStats = parse('template-stats.json', () => {
+    if (!('template-stats.json' in raw)) return undefined;
+    const t = raw['template-stats.json'];
+    if (!t || typeof t !== 'object' || Array.isArray(t)) throw new Error('not a stats object');
+    return t as Parameters<typeof buildSkillGraph>[0]['templateStats'];
+  });
   // Build, then check the result against the shared schema (depth maps, gateways, template stats).
   const skillGraph = parse('the skill graph', () =>
     skillGraphSchema.parse(

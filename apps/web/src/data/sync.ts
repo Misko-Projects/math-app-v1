@@ -79,7 +79,13 @@ export interface SyncClient {
   /** Syncs on start, then every 60 s (backing off on errors), after each completed request, on
    *  wind-down (`session.ended`, page hidden) and when the browser comes back online. */
   start(): void;
-  stop(): void;
+  /**
+   * Stops automatic syncing and cancels the run in flight: it sends nothing more and writes
+   * nothing more to the store after its current step. The returned promise settles once that run
+   * has ended, so a caller that awaits it (sign-out, re-pairing) knows no response from the old
+   * credentials can still land.
+   */
+  stop(): Promise<void>;
 }
 
 /** Thrown inside a sync to stop it with a given outcome. */
@@ -153,7 +159,13 @@ export function createSyncClient(opts: SyncClientOptions): SyncClient {
    * stalled connection fails (and is retried) instead of holding the client forever. Returns the
    * parsed response or stops the sync.
    */
-  async function exchange(token: string, body: SyncRequest): Promise<SyncResponse> {
+  async function exchange(
+    token: string,
+    body: SyncRequest,
+    current: () => void,
+  ): Promise<SyncResponse> {
+    // Assembling the body awaited the store: a stop() in between must not send it.
+    current();
     const controller = new AbortController();
     live.add(controller);
     let timedOut = false;
@@ -215,8 +227,17 @@ export function createSyncClient(opts: SyncClientOptions): SyncClient {
     return parsed.data;
   }
 
-  /** Applies one response: echo, acknowledgements, rejections, pulled events, documents, cursor. */
-  async function apply(pushed: AnyEventEnvelope[], res: SyncResponse): Promise<void> {
+  /**
+   * Applies one response: echo, acknowledgements, rejections, pulled events, documents, cursor.
+   * `current()` runs before every write, so a stop() ends the run at the next step. The cursor
+   * moves last: a run cut short pulls the same page again next time, and every step is
+   * idempotent.
+   */
+  async function apply(
+    pushed: AnyEventEnvelope[],
+    res: SyncResponse,
+    current: () => void,
+  ): Promise<void> {
     // The server's stored copy wins (02 §5.9 S3): replace the local copy's times, then rebuild.
     if (res.clamped.length > 0) {
       const byId = new Map(pushed.map((e) => [e.id, e]));
@@ -224,13 +245,20 @@ export function createSyncClient(opts: SyncClientOptions): SyncClient {
         const local = byId.get(c.id);
         return local ? [withServerTime(local, c)] : [];
       });
+      current();
       await store.ingest(corrected, { source: 'server' });
     }
+    current();
     await store.markSynced(res.accepted);
+    current();
     if (res.rejected.length > 0) await store.markRejected(res.rejected, pushed);
+    current();
     if (res.events.length > 0) await store.ingest(res.events, { source: 'server' });
+    current();
     await store.mergeSettings(res.settings, { source: 'server' });
+    current();
     await store.mergeProfiles(res.profiles, { source: 'server' });
+    current();
     await store.updateSyncState({ cursor: res.cursor });
   }
 
@@ -255,13 +283,13 @@ export function createSyncClient(opts: SyncClientOptions): SyncClient {
           settings: await store.allSettings(),
           profiles: await store.allProfiles(),
         };
-        const res = await exchange(device.deviceToken, body);
-        current();
-        await apply(events, res);
+        const res = await exchange(device.deviceToken, body, current);
+        await apply(events, res, current);
         pushedTotal += events.length;
         pulledTotal += res.events.length;
         const morePush = events.length === SYNC_MAX_PUSH_EVENTS;
         if (!res.more && !morePush) {
+          current();
           await store.updateSyncState({ lastSyncAt: now(), lastError: null });
           return { kind: 'synced', pushed: pushedTotal, pulled: pulledTotal, rounds: round };
         }
@@ -393,6 +421,8 @@ export function createSyncClient(opts: SyncClientOptions): SyncClient {
       // Queued automatic requests end now, so a quick restart cannot send them.
       for (const w of waiters) if (w.automatic) w.resolve({ kind: 'stopped' });
       waiters = waiters.filter((w) => !w.automatic);
+      // The run in flight (if any) now ends at its next step; settle once it has.
+      return inFlight ? inFlight.then(() => undefined) : Promise.resolve();
     },
   };
 }
