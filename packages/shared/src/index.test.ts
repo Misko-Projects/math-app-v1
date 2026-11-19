@@ -17,6 +17,8 @@ describe('@number-island/shared public entry', () => {
       'healthResponseSchema',
       'withSettingDefaults',
       'newId',
+      'strategyIdSchema',
+      'STRATEGY_IDS',
     ]) {
       expect(shared, name).toHaveProperty(name);
     }

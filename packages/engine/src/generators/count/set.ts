@@ -130,7 +130,13 @@ export const countSet: GeneratorDef = {
     const start = asNum(params.start);
     const sprite = asStr(params.sprite, 'shell');
     const layout = asStr(params.layout, 'line') as Layout;
-    const vars = pickVars(t, { n, start, more: Math.max(0, n - start) });
+    // `more` (add-more) and `away` (take-away, ADD.24) are the objects to put in or take out.
+    const vars = pickVars(t, {
+      n,
+      start,
+      more: Math.max(0, n - start),
+      away: Math.max(0, start - n),
+    });
     const math: Record<string, number> = {
       teen: n >= 11 ? 1 : 0,
       zero: n === 0 ? 1 : 0,

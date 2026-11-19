@@ -1,4 +1,7 @@
-# C01 fixture (03 §9.5): catalog rows from 03 §3.7.
+# ADD: Addition and subtraction within 20, catalog rows from 03 §3.7 (K01). This PR has the core
+# facts and strategies. ADD.05, ADD.10–ADD.13, ADD.20, ADD.21, ADD.23 and ADD.25 come with
+# equality.eq, story.addsub and addsub.three in a later K01 PR; ADD.14 and ADD.22 (grade 2) with
+# K02 (graph.yaml plannedIds).
 strand: ADD
 skills:
   - id: ADD.01
@@ -10,6 +13,16 @@ skills:
     gateway: false
     representations: [objects, fingers, ten-frame, symbols]
 
+  - id: ADD.02
+    name: "Fluency: add and subtract within 5"
+    kind: fact-fluency
+    grade: K
+    standards: { ccss: [K.OA.A.5] }
+    prerequisites: [ADD.01, ADD.24, CPS.01]
+    gateway: false
+    representations: [ten-frame, symbols]
+    fluency: { medianLatencyMs: 3500 }
+
   - id: ADD.03
     name: Count on from the larger number to add
     kind: strategy
@@ -19,3 +32,126 @@ skills:
     related: [CNT.07]
     gateway: false
     representations: [number-path, ten-frame, number-line, symbols]
+
+  - id: ADD.04
+    name: Count back or count up to subtract
+    kind: strategy
+    grade: 1
+    standards: { ccss: [1.OA.C.5] }
+    prerequisites: [CNT.08, ADD.03, ADD.24]
+    related: [ADD.19]
+    gateway: false
+    representations: [number-path, number-line, symbols]
+
+  - id: ADD.06
+    name: "Fluency: add and subtract within 10"
+    kind: fact-fluency
+    grade: 1
+    standards: { ccss: [1.OA.C.6], wi: [M.1.OA.C.6a] }
+    prerequisites: [CPS.02, ADD.02, ADD.03, ADD.04]
+    encompasses: { ADD.02: 1.0 }
+    gateway: false
+    representations: [ten-frame, symbols]
+    fluency: { medianLatencyMs: 3000 }
+
+  - id: ADD.07
+    name: Doubles to 10 + 10
+    kind: strategy
+    grade: 1
+    standards: { ccss: [1.OA.C.6], wi: [M.1.OA.C.6b] }
+    prerequisites: [ADD.06]
+    related: [ADD.16]
+    gateway: false
+    representations: [dots, ten-frame, double-ten-frame, symbols]
+
+  - id: ADD.08
+    name: Make ten to add (8 + 5 = 8 + 2 + 3)
+    kind: strategy
+    grade: 1
+    standards: { ccss: [1.OA.C.6], wi: [M.1.OA.C.6b] }
+    prerequisites: [CPS.11, CPS.04, ADD.06]
+    encompasses: { CPS.03: 1.0, CPS.11: 1.0 }
+    related: [ADD.16, ADD.17]
+    gateway: true
+    representations: [double-ten-frame, rekenrek, number-bond, open-number-line, symbols]
+
+  - id: ADD.09
+    name: Think addition to subtract; fact families
+    kind: strategy
+    grade: 1
+    standards: { ccss: [1.OA.B.4] }
+    prerequisites: [ADD.04, ADD.06, CPS.05]
+    gateway: false
+    representations: [number-bond, bar-model, symbols]
+
+  - id: ADD.15
+    name: Plus one, plus two, minus one, minus two
+    kind: strategy
+    grade: K
+    standards: { ccss: [], supports: [1.OA.C.5] }
+    prerequisites: [CMP.03, ADD.01]
+    gateway: false
+    representations: [number-path, ten-frame, symbols]
+
+  - id: ADD.16
+    name: Near doubles (6 + 7 = 6 + 6 + 1)
+    kind: strategy
+    grade: 1
+    standards: { ccss: [1.OA.C.6], wi: [M.1.OA.C.6b] }
+    prerequisites: [ADD.07]
+    gateway: false
+    representations: [dots, double-ten-frame, open-number-line, symbols]
+
+  - id: ADD.17
+    name: Add 9 by adding 10 and taking 1 away
+    kind: strategy
+    grade: 1
+    standards: { ccss: [1.OA.C.6], wi: [M.1.OA.C.6b] }
+    prerequisites: [ADD.08, ADD.26]
+    gateway: false
+    representations: [double-ten-frame, rekenrek, symbols]
+
+  - id: ADD.18
+    name: Subtract back to ten first (13 − 4 = 13 − 3 − 1)
+    kind: strategy
+    grade: 1
+    standards: { ccss: [1.OA.C.6], wi: [M.1.OA.C.6b] }
+    prerequisites: [ADD.08, ADD.04]
+    gateway: false
+    representations: [double-ten-frame, open-number-line, symbols]
+
+  - id: ADD.19
+    name: "Subtract by counting up through ten (13 − 8: 8 → 10 → 13)"
+    kind: strategy
+    grade: 1
+    standards: { ccss: [1.OA.C.6], wi: [M.1.OA.C.6b] }
+    prerequisites: [ADD.09, CPS.11]
+    gateway: false
+    representations: [double-ten-frame, open-number-line, symbols]
+
+  - id: ADD.24
+    name: "Separate: take-from and take-apart within 10 with objects"
+    kind: concept
+    grade: K
+    standards: { ccss: [K.OA.A.1] }
+    prerequisites: [CNT.04, CPS.01]
+    gateway: false
+    representations: [objects, fingers, ten-frame, symbols]
+
+  - id: ADD.26
+    name: Ten plus ones, and teen minus ten (10 + 7; 17 − 10)
+    kind: procedure
+    grade: 1
+    standards: { ccss: [], supports: [1.OA.C.6] }
+    prerequisites: [CPS.07]
+    gateway: false
+    representations: [double-ten-frame, base-ten, symbols]
+
+  - id: ADD.27
+    name: Add and subtract within 20 with jumps on a number line
+    kind: strategy
+    grade: 1
+    standards: { ccss: [1.OA.C.5] }
+    prerequisites: [ADD.03, CMP.04]
+    gateway: false
+    representations: [number-line, symbols]
