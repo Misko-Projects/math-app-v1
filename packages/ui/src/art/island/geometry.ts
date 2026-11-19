@@ -438,8 +438,16 @@ export function landCrop(
 export function smoothPath(points: readonly Point[]): string {
   if (points.length === 0) return '';
   const r1 = (v: number) => Math.round(v * 10) / 10;
-  const p = points;
-  let d = `M${r1((p[0] as Point).x)} ${r1((p[0] as Point).y)}`;
+  let d = `M${r1((points[0] as Point).x)} ${r1((points[0] as Point).y)}`;
+  for (const [, c1, c2, p2] of smoothSegments(points)) {
+    d += `C${r1(c1.x)} ${r1(c1.y)} ${r1(c2.x)} ${r1(c2.y)} ${r1(p2.x)} ${r1(p2.y)}`;
+  }
+  return d;
+}
+
+/** The cubic Bézier segments (start, control 1, control 2, end) that smoothPath draws. */
+function smoothSegments(p: readonly Point[]): [Point, Point, Point, Point][] {
+  const out: [Point, Point, Point, Point][] = [];
   for (let i = 0; i < p.length - 1; i++) {
     const p0 = p[i - 1] ?? (p[i] as Point);
     const p1 = p[i] as Point;
@@ -447,7 +455,37 @@ export function smoothPath(points: readonly Point[]): string {
     const p3 = p[i + 2] ?? p2;
     const c1 = { x: p1.x + (p2.x - p0.x) / 6, y: p1.y + (p2.y - p0.y) / 6 };
     const c2 = { x: p2.x - (p3.x - p1.x) / 6, y: p2.y - (p3.y - p1.y) / 6 };
-    d += `C${r1(c1.x)} ${r1(c1.y)} ${r1(c2.x)} ${r1(c2.y)} ${r1(p2.x)} ${r1(p2.y)}`;
+    out.push([p1, c1, c2, p2]);
   }
-  return d;
+  return out;
+}
+
+/**
+ * Points along the curve smoothPath draws through these points, at most about `step` scene units
+ * apart, so a mask built from them follows the drawn trail, turns included.
+ */
+export function smoothPathPoints(points: readonly Point[], step = 4): Point[] {
+  if (points.length === 1) return [points[0] as Point];
+  const out: Point[] = [];
+  for (const [a, b, c, d] of smoothSegments(points)) {
+    // The control polygon is at least as long as the curve, so steps never exceed `step`.
+    const len =
+      Math.hypot(b.x - a.x, b.y - a.y) +
+      Math.hypot(c.x - b.x, c.y - b.y) +
+      Math.hypot(d.x - c.x, d.y - c.y);
+    const n = Math.max(1, Math.ceil(len / step));
+    for (let k = 0; k <= n; k++) {
+      const t = k / n;
+      const u = 1 - t;
+      const w0 = u * u * u;
+      const w1 = 3 * u * u * t;
+      const w2 = 3 * u * t * t;
+      const w3 = t * t * t;
+      out.push({
+        x: w0 * a.x + w1 * b.x + w2 * c.x + w3 * d.x,
+        y: w0 * a.y + w1 * b.y + w2 * c.y + w3 * d.y,
+      });
+    }
+  }
+  return out;
 }

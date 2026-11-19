@@ -20,6 +20,7 @@ import {
   roundedPath,
   SCENE_H,
   SCENE_W,
+  smoothPathPoints,
   terrainOf,
   traceOutline,
 } from './island/geometry';
@@ -276,6 +277,72 @@ describe('road plan: a linear board (05 §3)', () => {
       HORIZON_GAP,
     );
     expect(HORIZON_GAP).toBeGreaterThanOrEqual(16);
+  });
+
+  it('fits three stones on one plot: all drawn, the counted and next labelled, none touching', () => {
+    // Review s_1d38d1caad61 #1: stones 1–3 share the only plot; stone 2 is counted, 3 is next.
+    const road = [
+      { n: 1, plot: [0, 0] as Plot },
+      { n: 2, plot: [0, 0] as Plot },
+      { n: 3, plot: [0, 0] as Plot },
+    ];
+    const plan = planRoad({
+      road,
+      roadLength: 2,
+      counting: 2,
+      onLand: (s) => plotKey(s.plot) === '0,0',
+    });
+    const all = [...plan.numbered, ...plan.beads];
+    expect(all.map((s) => s.n).sort()).toEqual([1, 2, 3]);
+    expect(plan.signs.map((s) => s.n).sort()).toEqual([1, 2, 3]);
+    const boxes = [...all.map((s) => s.box), ...plan.signs.map((s) => s.box)];
+    for (let i = 0; i < plan.signs.length; i++) {
+      const sign = plan.signs[i] as RoadSign;
+      for (const b of plan.beads) {
+        if (b.n !== sign.n) expect(boxesTouch(sign.box, b.box, 0), `sign ${sign.n}`).toBe(false);
+      }
+      for (let j = i + 1; j < plan.signs.length; j++) {
+        expect(boxesTouch(sign.box, (plan.signs[j] as RoadSign).box, 2)).toBe(false);
+      }
+    }
+    expect(boxes.length).toBe(6);
+  });
+
+  it('keeps detail off the trail as drawn, along its curves at turns', () => {
+    // Review s_1d38d1caad61 #2: the trail is drawn as smoothPath's curve, which leaves the straight
+    // line between stones at a turn; the mask must follow the curve.
+    const trail = [
+      { x: 0, y: 0 },
+      { x: 100, y: 0 },
+      { x: 100, y: 70 },
+    ];
+    const blocked = roadFootprint({
+      scale: MAP_STONE_SCALE,
+      numbered: [],
+      beads: [],
+      signs: [],
+      trail,
+    });
+    const at = (x: number, y: number) =>
+      blocked({ left: x - 0.5, right: x + 0.5, top: y - 0.5, bottom: y + 0.5 });
+    expect(at(70.37, -18.5)).toBe(true);
+    // Every point on the drawn stroke's edge (half of 34 × scale from the curve) is covered.
+    const curve = smoothPathPoints(trail, 1);
+    const half = (34 * MAP_STONE_SCALE) / 2;
+    for (let i = 1; i < curve.length; i++) {
+      const a = curve[i - 1] as { x: number; y: number };
+      const b = curve[i] as { x: number; y: number };
+      const len = Math.hypot(b.x - a.x, b.y - a.y);
+      if (len === 0) continue;
+      const nx = -(b.y - a.y) / len;
+      const ny = (b.x - a.x) / len;
+      for (const side of [-1, 1]) {
+        expect(at(b.x + side * nx * half, b.y + side * ny * half), `edge at ${i}`).toBe(true);
+      }
+    }
+    // Ground well clear of the stroke stays free.
+    expect(at(50, -40)).toBe(false);
+    expect(at(60, 40)).toBe(false);
   });
 
   it('keeps every piece of ground detail off the road (05 §11)', () => {

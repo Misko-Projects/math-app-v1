@@ -1,5 +1,11 @@
 import type { IslandDef } from '@number-island/shared';
-import { ISLAND_LAYOUT, type Point, roadLayout, type StonePlacement } from './geometry';
+import {
+  ISLAND_LAYOUT,
+  type Point,
+  roadLayout,
+  type StonePlacement,
+  smoothPathPoints,
+} from './geometry';
 import { type RoadStoneState, STONE_NUMERAL, type StoneExtent, stoneExtent } from './RoadStone';
 
 /**
@@ -361,19 +367,13 @@ export function roadFootprint(
     boxes.push(b.state === 'next' ? grow(b.box, NEXT_CLEAR + 12) : b.box);
   }
   for (const s of plan.signs) boxes.push(s.box, s.post);
-  const stones = plan.trail;
-  // The trail (drawn 34 × scale wide) as discs along each segment.
+  // The trail, drawn 34 × scale wide along smoothPath's curve, as discs along that same curve
+  // (turns included, where the curve leaves the straight line between stones).
   const trailR = (34 * scale) / 2 + 3;
-  const discs: { x: number; y: number; r: number }[] = [];
-  for (let i = 1; i < stones.length; i++) {
-    const a = stones[i - 1] as Point;
-    const b = stones[i] as Point;
-    const len = Math.hypot(b.x - a.x, b.y - a.y);
-    const n = Math.max(1, Math.ceil(len / 6));
-    for (let k = 0; k <= n; k++) {
-      discs.push({ x: a.x + ((b.x - a.x) * k) / n, y: a.y + ((b.y - a.y) * k) / n, r: trailR });
-    }
-  }
+  const discs =
+    plan.trail.length > 1
+      ? smoothPathPoints(plan.trail, 4).map((p) => ({ x: p.x, y: p.y, r: trailR }))
+      : [];
   // Bucket by plot-sized cells, so each test looks only at nearby road.
   const cw = ISLAND_LAYOUT.cellW;
   const ch = ISLAND_LAYOUT.cellH;
