@@ -15,6 +15,7 @@ import {
   NumberPadKeys,
   NumeralTray,
   numeralCardPx,
+  type ObjectLayout,
   ObjectSetView,
   ObjectSprite,
   objectSetLayout,
@@ -61,6 +62,56 @@ const ORDINAL_CHROME_W = 2 * 16 + 2 * (20 + 3) + 16;
 /** The Check pill beside the row (G1+ shows its word; K is icon-only and narrower) + column gap. */
 const ORDINAL_CHECK_W = 200 + 56;
 
+/**
+ * A count badge's footprint around its object's box, in px (tap-count.css `.ni-tapc__mark`): it
+ * sits on top of the box's right end (right edges flush, wide numbers growing left), from 37 px
+ * above the box's top to 5 px inside it. `w` allows for two- and three-digit pebbles.
+ */
+const BADGE = { w: 64, above: 37, below: 5, clear: 4 } as const;
+
+/**
+ * How much to stretch a layout's rows (its y axis) so that every count badge clears every other
+ * object's box by `BADGE.clear`: the band above each row must hold the badges of the row below.
+ * Because a badge never sticks out past its own box's sides, objects side by side never collide;
+ * only objects above (or just below) within the badge's columns need room. Frame layouts
+ * (ten-frames, dice, plates) keep their kit geometry: 1.
+ */
+function badgeRowStretch(layout: ObjectLayout, cell: number, box: number): number {
+  if (layout.frames.length > 0) return 1;
+  let stretch = 1;
+  for (const a of layout.objects) {
+    if (a.kind !== 'object') continue;
+    const right = (a.x + a.scale / 2) * cell + box / 2;
+    for (const b of layout.objects) {
+      if (b === a) continue;
+      const bx = (b.x + b.scale / 2) * cell;
+      const apart =
+        bx + box / 2 <= right - BADGE.w - BADGE.clear || bx - box / 2 >= right + BADGE.clear;
+      const dy = (a.y - b.y) * cell;
+      if (apart || dy === 0) continue;
+      // Centre-to-centre offset beyond the rows' own spacing (objects of different sizes).
+      const ds = ((a.scale - b.scale) * cell) / 2;
+      const need =
+        dy > 0
+          ? (box + BADGE.above + BADGE.clear - ds) / dy // b above a: a's badge under b's box
+          : (BADGE.below + BADGE.clear + ds) / -dy; // b below a: b's box under a's badge
+      stretch = Math.max(stretch, need);
+    }
+  }
+  return Math.min(stretch, 2.5);
+}
+
+/** The layout with its rows spread `stretch` times further apart (x unchanged). */
+function stretchRows(layout: ObjectLayout, stretch: number): ObjectLayout {
+  if (stretch <= 1) return layout;
+  const lowest = Math.max(0, ...layout.objects.map((o) => o.y));
+  return {
+    ...layout,
+    objects: layout.objects.map((o) => ({ ...o, y: o.y * stretch })),
+    height: layout.height + lowest * (stretch - 1),
+  };
+}
+
 type Config = ConfigFor<'tap-count'>;
 
 /** The numeral tray for `input: 'auto'`: 0–10, 0–20, or on to the next ten for larger sets. */
@@ -100,7 +151,7 @@ export function TapCountWidget({
   const n = Math.max(0, config.set.count);
   const ordinal = config.mode === 'ordinal';
   const concrete = tier === 'concrete';
-  const layout = useMemo(() => objectSetLayout(config.set), [config.set]);
+  const baseLayout = useMemo(() => objectSetLayout(config.set), [config.set]);
 
   const [taps, setTaps] = useState<number[]>([]);
   const [ringed, setRinged] = useState<number | null>(null);
@@ -126,7 +177,7 @@ export function TapCountWidget({
   // ---------- sizes (06 §4: K ≥ 80 px, G1 ≥ 64 px, ≥ 12 px apart) ----------
 
   const target = MIN_TARGET_PX[ageMode];
-  const step = Math.min(1.5, minObjectStep(layout));
+  const step = Math.min(1.5, minObjectStep(baseLayout));
   // Tappable objects: a cell big enough that `step × cell − gap` is a full target.
   const minCell = objectsTappable
     ? Math.max(target, Math.ceil((target + TARGET_GAP_PX) / step))
@@ -147,32 +198,46 @@ export function TapCountWidget({
       : Math.ceil(trayValues.length / trayCols) * (target + TARGET_GAP_PX + 6) + 30;
   // "Start here" pebble: not a target, so it stays compact enough for a row of ten K targets.
   const cueSize = Math.min(64, Math.round(target * 0.9));
-  const empty = layout.objects.length === 0;
-  const { arrange, cell } = ((): { arrange: 'side' | 'stack'; cell: number } => {
+  const empty = baseLayout.objects.length === 0;
+  const sizeFor = (set: ObjectLayout): { arrange: 'side' | 'stack'; cell: number } => {
     // Nothing to count: an empty dish centred above the answer.
     if (empty) return { arrange: 'stack', cell: 32 };
     if (ordinal) {
       // The row card (cue + objects) and Check side by side when the row still gets full-size
       // targets; otherwise Check sits centred under the row, which then takes the full width.
       const rowW = ORDINAL_AREA_W - ORDINAL_CHROME_W - cueSize;
-      const sideFit = fitCell(layout, rowW - ORDINAL_CHECK_W, 360, 32);
-      if (sideFit >= minCell && layout.width * sideFit <= rowW - ORDINAL_CHECK_W) {
+      const sideFit = fitCell(set, rowW - ORDINAL_CHECK_W, 360, 32);
+      if (sideFit >= minCell && set.width * sideFit <= rowW - ORDINAL_CHECK_W) {
         return { arrange: 'side', cell: sideFit };
       }
-      return { arrange: 'stack', cell: Math.max(minCell, fitCell(layout, rowW, 360, 32)) };
+      return { arrange: 'stack', cell: Math.max(minCell, fitCell(set, rowW, 360, 32)) };
     }
     // Side by side (picture left, answer right) when both fit the ~1100 px widget area; otherwise
     // the picture spans the width above the answer. Either way the objects grow into the room left.
     const sideW = 1100 - answerW - 240;
-    const sideCell = Math.max(minCell, fitCell(layout, sideW, 340, 32));
-    if (layout.width * sideCell <= sideW) return { arrange: 'side', cell: sideCell };
+    const sideCell = Math.max(minCell, fitCell(set, sideW, 340, 32));
+    if (set.width * sideCell <= sideW) return { arrange: 'side', cell: sideCell };
     return {
       arrange: 'stack',
-      cell: Math.max(minCell, fitCell(layout, 1000, Math.max(120, 520 - answerH), 32)),
+      cell: Math.max(minCell, fitCell(set, 1000, Math.max(120, 520 - answerH), 32)),
     };
-  })();
+  };
   // A picture (P) keeps full-size objects; tap targets leave the 12 px gap between them.
-  const hitSize = objectsTappable ? Math.min(cell, Math.floor(step * cell - TARGET_GAP_PX)) : cell;
+  const boxFor = (c: number) =>
+    objectsTappable ? Math.min(c, Math.floor(step * c - TARGET_GAP_PX)) : c;
+  // Rows get a band for the count badges (any tier: Pip's demo marks pictures too). Spreading the
+  // rows can shrink the cell, which needs a little more spread: settle in a few passes.
+  let layout = baseLayout;
+  let { arrange, cell } = sizeFor(layout);
+  for (let pass = 0; pass < 4; pass++) {
+    const next = stretchRows(baseLayout, badgeRowStretch(baseLayout, cell, boxFor(cell)));
+    const sized = sizeFor(next);
+    const settled = next === layout || sized.cell === cell;
+    layout = next;
+    ({ arrange, cell } = sized);
+    if (settled) break;
+  }
+  const hitSize = boxFor(cell);
 
   // ---------- child actions ----------
 

@@ -140,23 +140,31 @@ async function settle(root: HTMLElement) {
 }
 
 /**
- * Every count badge sits on its object's top-right corner, outside the drawing: above the top
- * edge, right of the centre line, and clear of the next object's drawing (the sprites start
- * 8/64 in from their box).
+ * Every count badge sits on top of its own object's right end, above the drawing (its bottom at
+ * most 10 % into the box, its right edge flush with the box's), and is clear of EVERY other
+ * object's box (counted objects and distractors, buttons or picture), in any row.
  */
 async function expectBadgesOffObjects(root: HTMLElement) {
   await settle(root);
-  const objs = objects(root);
-  for (const [i, o] of objs.entries()) {
-    const mark = o.querySelector('.ni-tapc__mark');
-    if (!mark) continue;
-    const m = mark.getBoundingClientRect();
-    const b = o.getBoundingClientRect();
+  const all = [...root.querySelectorAll<HTMLElement>('.ni-tapc__obj')];
+  const badges = [...root.querySelectorAll<HTMLElement>('.ni-tapc__mark')];
+  await expect(badges.length).toBeGreaterThan(0);
+  for (const badge of badges) {
+    const own = badge.closest('.ni-tapc__obj') as HTMLElement;
+    const m = badge.getBoundingClientRect();
+    const b = own.getBoundingClientRect();
     await expect(m.bottom).toBeLessThanOrEqual(b.top + b.height * 0.1);
-    await expect((m.left + m.right) / 2).toBeGreaterThanOrEqual(b.right - b.width * 0.15);
-    const next = objs[i + 1]?.getBoundingClientRect();
-    if (next && Math.abs(next.top - b.top) < 1) {
-      await expect(m.right).toBeLessThanOrEqual(next.left + next.width * (8 / 64));
+    await expect(Math.abs(m.right - b.right)).toBeLessThan(1);
+    await expect(m.left).toBeGreaterThanOrEqual(b.left);
+    for (const other of all) {
+      if (other === own) continue;
+      const o = other.getBoundingClientRect();
+      const apart =
+        m.right + 2 <= o.left ||
+        o.right + 2 <= m.left ||
+        m.bottom + 2 <= o.top ||
+        o.bottom + 2 <= m.top;
+      await expect(apart, `badge ${badge.textContent} clear of ${other.dataset.obj}`).toBe(true);
     }
   }
 }
@@ -226,6 +234,7 @@ export const CountK: Story = {
     }
     await expect(marks(root)).toEqual([1, 2, 3, 4, 5, 6, 7]);
     await expect(canvas.getByRole('button', { name: 'Leaf, number 3' })).toBeVisible();
+    await expectBadgesOffObjects(root);
     // All counted: the tray appears.
     await waitFor(() => expect(tray(root)).toHaveAttribute('data-shown', 'true'));
     const cards = [...tray(root).querySelectorAll<HTMLElement>('.ni-pick')];
@@ -408,6 +417,7 @@ export const DistractorsPick: Story = {
     await expect(marks(root)).toEqual([]);
     await userEvent.click(obj(root, 0));
     await expect(marks(root)).toEqual([1]);
+    await expectBadgesOffObjects(root);
     await expect(tray(root)).toHaveAttribute('data-shown', 'true');
     await expect(tray(root).querySelectorAll('.ni-pick')).toHaveLength(3);
     await userEvent.click(within(root).getByRole('button', { name: '5' }));
@@ -486,6 +496,7 @@ export const DemoMode: Story = {
     await expect(obj(root, 4)).toBeEnabled();
     await expectPointerOn(hand(root), obj(root, 4), root);
     await expectRingClearOfBadges(root, obj(root, 4));
+    await expectBadgesOffObjects(root);
   },
 };
 
@@ -511,6 +522,7 @@ export const DemoOrdinal: Story = {
     await expect(within(root).getByRole('button', { name: 'Check' })).toBeDisabled();
     await expectPointerOn(hand(root), obj(root, 6), root);
     await expectRingClearOfBadges(root, obj(root, 6));
+    await expectBadgesOffObjects(root);
     await expectOrdinalFits(root);
   },
 };
@@ -554,6 +566,8 @@ export const DemoReducedMotion: Story = {
     await reducedController.play({ op: 'answer', args: { value: 6 } });
     await expect(performance.now() - started).toBeLessThan(500);
     await expect(marks(root)).toEqual([1, 2, 3, 4, 5, 6]);
+    // Pip's marks on a scattered picture (several rows): each badge clear of every fish.
+    await expectBadgesOffObjects(root);
     await expect(within(root).getByRole('button', { name: 'Your answer: 6' })).toBeVisible();
     // `answer` replaces the entry, it never appends (as the engine model does).
     await reducedController.play({ op: 'answer', args: { value: 4 } });

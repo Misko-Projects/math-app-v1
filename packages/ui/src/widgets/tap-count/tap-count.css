@@ -101,15 +101,15 @@ button.ni-tapc__obj:focus-visible {
 
 /*
  * A counted object: a numbered pebble badge (shape + numeral, never colour alone, 06 §7). It sits
- * on the object's top-right corner, outside the drawing (the sprites leave that corner empty), so
- * eyes, claws and shell tops stay visible and the badge stays clear of the next object.
+ * on top of the object's right end, above the drawing, so eyes, claws and shell tops stay visible.
+ * It never sticks out past the object's sides, so it cannot reach the next object in a row; the
+ * widget spreads rows apart for it (TapCountWidget `BADGE`: 37 px above the box to 5 px inside).
  */
 .ni-tapc__mark {
   position: absolute;
-  /* A one-digit pebble is centred 4 px left of the corner and 16 px above it; wider numbers grow
-     leftwards, over the object's empty top edge rather than towards the next object. */
+  /* Centred 16 px above the box; right edges flush, so wider numbers grow leftwards. */
   top: -16px;
-  right: -17px;
+  right: 0;
   translate: 0 -50%;
   display: grid;
   place-items: center;
