@@ -437,3 +437,12 @@
 .ni-mset[data-layout="side"] > .ni-mset__pile[data-kind="away"] {
   flex-direction: row;
 }
+
+/*
+ * A compact tray (short areas, `data-tray="compact"`, PILE_EDGE_COMPACT in MakeSetWidget.tsx):
+ * where the normal padding would leave one object in a big tray, the pile hugs a grid of objects.
+ */
+.ni-mset[data-tray="compact"] > .ni-mset__pile {
+  padding: 6px;
+  border-radius: 32px 24px 36px 28px;
+}

@@ -89,6 +89,11 @@ const PILE_EDGE = 2 * (22 + 3);
 const STACK_HEAP_COLS = SUPPLY_VISIBLE / 2;
 /** A pile's padding (26) and border (3) top and bottom, as in make-set.css. */
 const PILE_EDGE_Y = 2 * (26 + 3);
+/**
+ * A compact pile (short areas, where the normal one shows fewer objects): 6 px padding and the
+ * 3 px border on every side (`data-tray="compact"` in make-set.css), so the tray hugs its objects.
+ */
+const PILE_EDGE_COMPACT = 2 * (6 + 3);
 /** The take-away pile's arrow icon (56) and the pile's gap (12) beside or above its heap. */
 const AWAY_HEAD = 56 + 12;
 /**
@@ -140,6 +145,8 @@ interface Plan {
   box: Box;
   /** Visible supply rows when fewer than the heap's full size; null shows them all. */
   supplyRows: number | null;
+  /** The piles' padding: `compact` where it lets the heap show more objects at once. */
+  tray: 'normal' | 'compact';
 }
 /**
  * Layouts in order of preference; the first that fits the measured width and height wins:
@@ -615,58 +622,63 @@ export function MakeSetWidget({
       ? Number.POSITIVE_INFINITY
       : room.height - 2 * (side || chrome === 'tight' ? 0 : PAD.y);
     const box = boxFor(chrome, oneFrame);
-    const fitCols = (w: number) => Math.floor((w - PILE_EDGE + gap) / (slot + gap));
     const awaySide = side && takeAway ? AWAY_HEAD : 0;
-    const heapCols =
-      layout === 'row'
-        ? heapCap
-        : Math.min(STACK_HEAP_COLS, fitCols(side ? innerW - box.w - g - awaySide : innerW));
-    if (heapCols < (side && !oneFrame ? 2 : 1)) return null;
-    const pileW = heapW(heapCols) + PILE_EDGE;
-    const awayH = takeAway
-      ? rowsH(Math.max(1, heapRows(awayMost, heapCols).length)) +
-        PILE_EDGE_Y +
-        (side ? 0 : AWAY_HEAD)
-      : 0;
-    const supplyH = (rows: number) => (showSupply ? rowsH(rows) + PILE_EDGE_Y : 0);
     const stacked = (hs: number[]) => {
       const parts = hs.filter((h) => h > 0);
       return parts.reduce((a, b) => a + b, 0) + Math.max(0, parts.length - 1) * g;
     };
     const aw = room.actionsW;
     const ah = room.actionsH;
-    const fits = (rows: number) => {
-      const s = supplyH(rows);
-      const [w, h] =
+    /** The best heap with a tray: as many rows as fit (all, unless `reduce`), or null. */
+    const withTray = (tray: Plan['tray']): Plan | null => {
+      const edgeX = tray === 'compact' ? PILE_EDGE_COMPACT : PILE_EDGE;
+      const edgeY = tray === 'compact' ? PILE_EDGE_COMPACT : PILE_EDGE_Y;
+      const fitCols = (w: number) => Math.floor((w - edgeX + gap) / (slot + gap));
+      const heapCols =
         layout === 'row'
-          ? [piles * pileW + box.w + aw + (piles + 1) * g, Math.max(s, box.h, awayH, ah)]
-          : layout === 'stack'
-            ? [
-                Math.max(box.w + g + aw, piles ? pileW : 0),
-                stacked([s, Math.max(box.h, ah), awayH]),
-              ]
-            : layout === 'column'
-              ? [Math.max(box.w, aw, piles ? pileW : 0), stacked([s, box.h, awayH, ah])]
-              : [
-                  box.w + g + Math.max(pileW + awaySide, aw),
-                  Math.max(box.h, stacked([s, awayH, ah])),
-                ];
-      return w <= innerW + 0.5 && h <= innerH + 0.5;
-    };
-    const full = Math.max(1, heapRows(supplyMost, heapCols).length);
-    for (let rows = full; rows >= (reduce && showSupply ? 1 : full); rows--) {
-      if (fits(rows)) {
-        return {
-          layout,
-          chrome,
-          oneFrame,
-          heapCols,
-          box,
-          supplyRows: rows === full ? null : rows,
-        };
+          ? heapCap
+          : Math.min(STACK_HEAP_COLS, fitCols(side ? innerW - box.w - g - awaySide : innerW));
+      if (heapCols < (side && !oneFrame ? 2 : 1)) return null;
+      const pileW = heapW(heapCols) + edgeX;
+      const awayH = takeAway
+        ? rowsH(Math.max(1, heapRows(awayMost, heapCols).length)) + edgeY + (side ? 0 : AWAY_HEAD)
+        : 0;
+      const supplyH = (rows: number) => (showSupply ? rowsH(rows) + edgeY : 0);
+      const fits = (rows: number) => {
+        const s = supplyH(rows);
+        const [w, h] =
+          layout === 'row'
+            ? [piles * pileW + box.w + aw + (piles + 1) * g, Math.max(s, box.h, awayH, ah)]
+            : layout === 'stack'
+              ? [
+                  Math.max(box.w + g + aw, piles ? pileW : 0),
+                  stacked([s, Math.max(box.h, ah), awayH]),
+                ]
+              : layout === 'column'
+                ? [Math.max(box.w, aw, piles ? pileW : 0), stacked([s, box.h, awayH, ah])]
+                : [
+                    box.w + g + Math.max(pileW + awaySide, aw),
+                    Math.max(box.h, stacked([s, awayH, ah])),
+                  ];
+        return w <= innerW + 0.5 && h <= innerH + 0.5;
+      };
+      const full = Math.max(1, heapRows(supplyMost, heapCols).length);
+      for (let rows = full; rows >= (reduce && showSupply ? 1 : full); rows--) {
+        if (fits(rows)) {
+          const supplyRows = rows === full ? null : rows;
+          return { layout, chrome, oneFrame, heapCols, box, supplyRows, tray };
+        }
       }
-    }
-    return null;
+      return null;
+    };
+    const normal = withTray('normal');
+    // The full heap in the normal tray, as designed; else (fewer objects at once) whichever tray
+    // shows more objects, so a short area never shows one object in a big empty tray.
+    if (!reduce || (normal && normal.supplyRows === null)) return normal;
+    const compact = withTray('compact');
+    const shown = (q: Plan | null) =>
+      q === null ? 0 : q.supplyRows === null ? supplyMost : q.supplyRows * q.heapCols;
+    return shown(compact) > shown(normal) ? compact : normal;
   };
   const firstFit = (oneFrame: boolean) =>
     PLANS.reduce<Plan | null>((found, [l, c, r]) => found ?? planFor(l, c, r, oneFrame), null);
@@ -684,6 +696,7 @@ export function MakeSetWidget({
   const oneFrame = plan?.oneFrame ?? false;
   const box = plan?.box ?? boxFor('normal', false);
   const heapCols = plan?.heapCols ?? heapCap;
+  const tray = plan?.tray ?? 'normal';
   /** Supply objects shown at once (fewer when the area is short; more appear as objects go). */
   const supplyVisible =
     plan?.supplyRows != null
@@ -1070,6 +1083,7 @@ export function MakeSetWidget({
       data-layout={hands ? undefined : layout}
       data-chrome={chrome === 'tight' ? 'tight' : undefined}
       data-one-frame={oneFrame ? 'true' : undefined}
+      data-tray={tray === 'compact' ? 'compact' : undefined}
       style={
         {
           '--slot': `${slot}px`,
