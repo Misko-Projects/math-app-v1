@@ -595,6 +595,27 @@ describe('reviews (04 §4)', () => {
     const q = plan(input({ state: before, workshopsAvailable: [HALL] }));
     expect(q.requests.some((r) => r.tasks.some((t) => t.context === 'review'))).toBe(false);
   });
+
+  it('review compression never drops a failed review behind an encompassing skill', () => {
+    // C (deeper, encompasses B at 0.8) is due; B failed its review. Compression alone would keep
+    // C and drop B, but C's implicit credit never clears B's failure, so B is reviewed too.
+    const before = stateWith({
+      [A]: practiced(2, NOW + 3 * DAY_MS),
+      [B]: practiced(2, NOW + 1),
+      [C]: practiced(2, NOW - 1),
+    });
+    const s = model.apply(
+      before,
+      synthAttempt(B, 3, { correct: false, context: 'review', seed: 12345 }),
+      NOW,
+    );
+    expect(graph.encompasses[C]?.[B]).toBeGreaterThanOrEqual(0.5);
+    const p = plan(input({ state: s, workshopsAvailable: [HALL] }));
+    const reviewed = (x: string) =>
+      p.requests.some((r) => r.tasks.some((t) => t.skillId === x && t.context === 'review'));
+    expect(reviewed(B)).toBe(true);
+    expect(reviewed(C)).toBe(true);
+  });
 });
 
 describe('hosting and the Practice Pier (04 §6.3)', () => {

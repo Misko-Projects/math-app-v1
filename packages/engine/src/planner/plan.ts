@@ -479,7 +479,20 @@ function compose(
   // Reviews: due skills this workshop can host, compressed (04 §4), deepest first.
   const dueHere = ctx.due.filter((r) => r.skillId !== S && hosted(r.skillId).length > 0);
   const reviewTarget = focus ? Math.round(P.planner[sliceKey(ctx)].reviewShare * budget) : budget;
-  const reviews = compressReviews(dueHere, graph, reviewTarget, P);
+  // A skill whose last review failed is reviewed itself: an encompassing skill's implicit credit
+  // (04 §4) lengthens its interval but never clears the failure, so compression may not drop it.
+  const failedReview = (r: DueReview) =>
+    (ctx.state.skills[r.skillId]?.memory?.consecutiveFails ?? 0) > 0;
+  const failedDue = dueHere.filter(failedReview).slice(0, reviewTarget);
+  const reviews = [
+    ...failedDue,
+    ...compressReviews(
+      dueHere.filter((r) => !failedReview(r)),
+      graph,
+      reviewTarget - failedDue.length,
+      P,
+    ),
+  ];
   const reviewIds = new Set(reviews.map((r) => r.skillId));
 
   // Challenge: practiced-track skills by highest P(ref), others before review skills.
