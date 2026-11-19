@@ -1,0 +1,571 @@
+/*
+ * area-tiles widget (U04, 03 §5.5). Left: the board, a paper card holding the tile tray (tile mode)
+ * and the field: the region drawn as a garden plot (an SVG under an HTML layer of cells and tiles),
+ * with side-length labels above and left of it, "fill this row" buttons on its right (tile) or gap
+ * markers below and right of it (decompose, partition). Right: the answer blank with its unit,
+ * "check" and the number pad. Everything in the field is placed from one cell pitch --p (layout.ts),
+ * so tiles never overlap and the tray's tile is drawn at the cells' own scale.
+ */
+
+/* The board and the answer column, centred together (the board's room is measured, see mainW). */
+.ni-atw {
+  display: grid;
+  grid-template-columns: auto auto;
+  justify-content: center;
+  align-items: center;
+  gap: 28px 40px;
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 1180px;
+  /* Room below for Pip's pointer on the bottom controls. */
+  padding: 4px 8px 28px;
+}
+
+.ni-atw__main {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 0;
+}
+
+/* ---------- the board card ---------- */
+
+.ni-atw__board {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+  box-sizing: border-box;
+  padding: 12px;
+  border: 3px solid var(--color-sand-deep);
+  border-radius: var(--radius-card);
+  background: var(--color-paper);
+  box-shadow: var(--shadow-soft);
+}
+.ni-atw__caption {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  height: 32px;
+  color: var(--color-ink);
+  font-family: var(--font-body);
+  font-size: var(--text-label);
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+.ni-atw__caption-icon {
+  flex: none;
+  width: 36px;
+  height: 36px;
+}
+.ni-atw__body {
+  display: flex;
+  align-items: center;
+  gap: 20px; /* layout.ts TRAY_GAP */
+}
+.ni-atw__field {
+  position: relative;
+  flex: none;
+}
+.ni-atw__grid {
+  position: absolute;
+}
+
+/* ---------- the plot (SVG) ---------- */
+
+.ni-atw__plot {
+  position: absolute;
+  inset: 0;
+  overflow: visible;
+  pointer-events: none;
+}
+/* Garden soil: warm sand with a faint speckle. */
+.ni-atw__soil-bg {
+  fill: var(--color-sand);
+}
+.ni-atw__soil-dot {
+  fill: var(--color-sand-deep);
+}
+/* Grid lines inside the region (gridShown): thin wood lines, ≥ 3:1 on the soil. */
+.ni-atw__gridline {
+  fill: none;
+  stroke: var(--color-wood-deep);
+  stroke-width: 2;
+  stroke-linecap: square;
+}
+/* The region's edge: a heavy wooden border with round corners. */
+.ni-atw__outline {
+  fill: none;
+  stroke: var(--color-wood-deep);
+  stroke-width: 5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+/* The decimal grid: one whole, every hundredth outlined, the region shaded inside it. */
+.ni-atw__whole {
+  fill: var(--color-cloud);
+}
+.ni-atw__hundredths {
+  fill: none;
+  stroke: var(--color-pebble-deep);
+  stroke-width: 1.5;
+}
+.ni-atw__whole-edge {
+  fill: none;
+  stroke: var(--color-ink);
+  stroke-width: 4;
+}
+
+/* Decompose pieces: a soft tone AND a pattern each (never colour alone, 06 §7). */
+.ni-atw__pat {
+  fill-opacity: 0.6;
+}
+.ni-atw__pat--0 {
+  fill: var(--color-leaf-light);
+}
+.ni-atw__pat--1 {
+  fill: var(--color-sunshine-light);
+}
+.ni-atw__pat--2 {
+  fill: var(--color-sky);
+}
+.ni-atw__pat--3 {
+  fill: var(--color-shallows);
+}
+.ni-atw__pat--4 {
+  fill: var(--color-sand);
+}
+.ni-atw__pat--5 {
+  fill: var(--color-pebble);
+}
+.ni-atw__pat-ink {
+  fill: none;
+  stroke: var(--color-ink-soft);
+  stroke-width: 2;
+  opacity: 0.55;
+}
+.ni-atw__pat-dot {
+  fill: var(--color-ink-soft);
+  opacity: 0.55;
+}
+
+/* A split line: a bold ink cut with a light halo, so it reads on every pattern. */
+.ni-atw__split-halo,
+.ni-atw__split-line {
+  fill: none;
+  stroke-linecap: round;
+}
+.ni-atw__split-halo {
+  stroke: var(--color-cloud);
+  stroke-width: 12;
+}
+.ni-atw__split-line {
+  stroke: var(--color-ink);
+  stroke-width: 6;
+}
+/* Demo: the line draws itself along its length. */
+.ni-atw__split[data-flash="true"] path {
+  stroke-dasharray: 1;
+  animation: ni-atw-draw 520ms var(--ease-soft) both;
+}
+@keyframes ni-atw-draw {
+  from {
+    stroke-dashoffset: 1;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+/* ---------- tiles and cells ---------- */
+
+.ni-atw__cell,
+.ni-atw__tile {
+  position: absolute;
+  box-sizing: border-box;
+}
+.ni-atw__cell {
+  border-radius: calc(var(--p) * 0.16);
+  cursor: pointer;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+/* Drop-target rings sit inside the cell so neighbours' rings never cross. */
+.ni-atw__cell.ni-drop-target {
+  outline-offset: -5px;
+}
+.ni-atw__cell:focus-visible {
+  outline: 4px solid var(--color-sea-deep);
+  outline-offset: -4px;
+}
+.ni-atw[data-disabled="true"] .ni-atw__cell {
+  cursor: default;
+}
+
+/* One tile: a terracotta square inset from its cell, so every tile is separate and countable. */
+.ni-atw__tile-art {
+  position: absolute;
+  inset: max(2px, calc(var(--p) * 0.05));
+  box-sizing: border-box;
+  border: 3px solid var(--color-ink-soft);
+  border-radius: calc(var(--p) * 0.16);
+  background: var(--color-sun);
+  box-shadow:
+    inset 0 3px 0 rgb(255 255 255 / 0.35),
+    inset 0 -3px 0 var(--color-sun-deep);
+  pointer-events: none;
+}
+.ni-atw__tile {
+  -webkit-tap-highlight-color: transparent;
+}
+.ni-atw__tile:not(.ni-atw__tile--static) {
+  animation: var(--animate-pop-in);
+}
+.ni-atw__tile--static {
+  cursor: pointer;
+}
+.ni-atw__tile:focus-visible {
+  outline: 4px solid var(--color-sea-deep);
+  outline-offset: 0;
+}
+/* Picked up (tap-to-place): the kit's ink ring, inside the cell, plus a lift. */
+.ni-atw__tile[data-selected="true"] {
+  outline-offset: -2px;
+  z-index: 2;
+}
+.ni-atw__tile[data-selected="true"] .ni-atw__tile-art {
+  transform: translateY(-4px);
+}
+/* Demo: the tile that just arrived, ringed. */
+.ni-atw__tile[data-flash="true"] {
+  z-index: 2;
+  outline: 4px solid var(--color-ink);
+  outline-offset: 0;
+  box-shadow: 0 0 0 8px var(--color-sunshine);
+  border-radius: calc(var(--p) * 0.2);
+}
+
+/* Demo fill-row: a sunshine ring round the row being filled. */
+.ni-atw__lit {
+  position: absolute;
+  z-index: 3;
+  box-sizing: border-box;
+  border: 4px solid var(--color-ink);
+  border-radius: calc(var(--p) * 0.22);
+  box-shadow: 0 0 0 4px var(--color-sunshine);
+  pointer-events: none;
+}
+
+/* .ni-invite sets position: relative; these stay placed, with a ring that fits a cell. */
+.ni-atw__cell.ni-invite,
+.ni-atw__tile.ni-invite,
+.ni-atw__row.ni-invite,
+.ni-atw__gap.ni-invite,
+.ni-atw__side.ni-invite {
+  position: absolute;
+  z-index: 4;
+  outline-offset: 4px;
+  border-radius: var(--radius-pebble);
+}
+
+/* ---------- the tray ---------- */
+
+.ni-atw__traycol {
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 6px;
+}
+.ni-atw__traylabel {
+  color: var(--color-ink);
+  font-family: var(--font-body);
+  font-size: var(--text-label);
+  font-weight: 700;
+  line-height: 1.1;
+  text-align: center;
+}
+.ni-atw__tray {
+  position: relative;
+  display: grid;
+  place-items: center;
+  box-sizing: border-box;
+  min-height: calc(var(--target-min) * 2.2);
+  padding: 14px 0 28px;
+}
+/* The tray itself: a wooden box behind the stack, the drop target for tiles coming back. */
+.ni-atw__traypad {
+  position: absolute;
+  inset: 0;
+  box-sizing: border-box;
+  border: 3px solid var(--color-wood-deep);
+  border-radius: var(--radius-pebble);
+  background: var(--color-wood);
+  box-shadow:
+    inset 0 -8px 0 var(--color-wood-deep),
+    var(--shadow-soft);
+}
+.ni-atw__traypad[data-armed="true"],
+.ni-atw__traypad[data-over="true"] {
+  outline-offset: 4px;
+}
+.ni-atw__stack-slot {
+  position: relative;
+  z-index: 1;
+  display: inline-flex;
+}
+/* The stack: the top tile at the cells' scale, two more peeking out under it. */
+.ni-atw__stack {
+  position: relative;
+  display: grid;
+  place-items: center;
+  box-sizing: border-box;
+  border-radius: var(--radius-pebble);
+  -webkit-tap-highlight-color: transparent;
+}
+.ni-atw__stack .ni-atw__tile-art,
+.ni-atw__stack-under {
+  inset: auto;
+  width: var(--p);
+  height: var(--p);
+}
+.ni-atw__stack .ni-atw__tile-art {
+  position: relative;
+}
+.ni-atw__stack-under {
+  position: absolute;
+  box-sizing: border-box;
+  border: 3px solid var(--color-ink-soft);
+  border-radius: calc(var(--p) * 0.16);
+  background: var(--color-sun-deep);
+  pointer-events: none;
+}
+.ni-atw__stack-under[data-layer="1"] {
+  translate: 0 6px;
+}
+.ni-atw__stack-under[data-layer="2"] {
+  translate: 0 12px;
+}
+.ni-atw__stack:focus-visible {
+  outline: 4px solid var(--color-cloud);
+  outline-offset: 4px;
+}
+.ni-atw__stack.ni-invite {
+  outline-offset: 8px;
+}
+
+/* ---------- buttons around the region ---------- */
+
+.ni-atw__row,
+.ni-atw__gap,
+.ni-atw__side {
+  position: absolute;
+  appearance: none;
+  margin: 0;
+  box-sizing: border-box;
+  border: 3px solid var(--color-ink);
+  color: var(--color-ink);
+  cursor: pointer;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+.ni-atw__row,
+.ni-atw__gap {
+  z-index: 3;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  background: var(--color-cloud);
+  box-shadow:
+    0 5px 0 var(--color-pebble-deep),
+    var(--shadow-highlight);
+}
+.ni-atw__row {
+  border-radius: var(--radius-pebble);
+}
+.ni-atw__gap {
+  border-radius: 50%;
+  transition: transform var(--duration-tap) ease-out;
+}
+.ni-atw__row-icon,
+.ni-atw__gap-icon {
+  width: 64%;
+  height: 64%;
+  pointer-events: none;
+}
+.ni-atw__row:active:not(:disabled),
+.ni-atw__gap:active:not(:disabled) {
+  transform: translateY(3px);
+  box-shadow: 0 2px 0 var(--color-pebble-deep);
+}
+/* A drawn line's marker: sunk, a thick inset ink ring and a sunshine face (never colour alone). */
+.ni-atw__gap[aria-pressed="true"] {
+  background: var(--color-sunshine-light);
+  box-shadow:
+    inset 0 0 0 4px var(--color-ink),
+    0 2px 0 var(--color-ink);
+  transform: translateY(3px);
+}
+.ni-atw__row:focus-visible,
+.ni-atw__gap:focus-visible,
+.ni-atw__side:focus-visible {
+  outline: 4px solid var(--color-sea-deep);
+  outline-offset: 4px;
+}
+.ni-atw__row:disabled,
+.ni-atw__gap:disabled,
+.ni-atw__side:disabled {
+  cursor: default;
+}
+/* Off: a dashed outline and no ledge, so it reads as "not now" without colour. */
+.ni-atw__row:disabled:not(.ni-invite),
+.ni-atw__gap:disabled:not([aria-pressed="true"]):not(.ni-invite) {
+  border-style: dashed;
+  box-shadow: none;
+}
+
+/* Side lengths: a numeral (≥ 32 px) on a paper chip sitting on the dimension line. */
+.ni-atw__dims {
+  position: absolute;
+  inset: 0;
+  overflow: visible;
+  pointer-events: none;
+}
+.ni-atw__dims path {
+  fill: none;
+  stroke: var(--color-ink-soft);
+  stroke-width: 3;
+  stroke-linecap: round;
+}
+.ni-atw__side {
+  z-index: 3;
+  display: inline-flex;
+  align-items: baseline;
+  justify-content: center;
+  gap: 4px;
+  min-width: var(--target-min);
+  padding: 0.14em 12px 0;
+  translate: -50% 0;
+  border-width: 3px;
+  border-color: var(--color-ink-soft);
+  border-radius: var(--radius-pebble);
+  background: var(--color-paper);
+  font-family: var(--font-display);
+  font-weight: 800;
+  line-height: 1;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+.ni-atw__side-num {
+  font-size: 2.5rem;
+}
+.ni-atw__side-unit {
+  font-family: var(--font-body);
+  font-size: 1.25rem;
+  font-weight: 700;
+}
+/* Demo label-side: the side lights up, with a heavier ink ring (not just a tint). */
+.ni-atw__side[data-flash="true"] {
+  border-width: 5px;
+  border-color: var(--color-ink);
+  background: var(--color-sunshine-light);
+  animation: var(--animate-pop-in);
+}
+
+/* ---------- the answer side ---------- */
+
+.ni-atw__panel {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 24px;
+  min-width: 160px;
+}
+.ni-atw__slot {
+  position: relative;
+  display: inline-flex;
+}
+/* The blank and its unit, "check", then the pad. K: check sits beside the blank. */
+.ni-atw__answer {
+  display: grid;
+  grid-template-areas:
+    "blank"
+    "pad"
+    "check";
+  justify-items: center;
+  gap: 20px;
+  min-width: 0;
+}
+.ni-atw__answer[data-k="true"] {
+  grid-template-areas:
+    "blank check"
+    "pad pad";
+  align-items: center;
+  column-gap: var(--target-gap);
+}
+.ni-atw__blank-slot {
+  grid-area: blank;
+  align-items: center;
+  gap: 12px;
+}
+.ni-atw__answer .ni-atw__check {
+  grid-area: check;
+}
+.ni-atw__pad {
+  grid-area: pad;
+}
+.ni-atw__blank {
+  min-height: var(--target-big);
+  font-variant-numeric: tabular-nums;
+}
+.ni-atw__blank[data-empty="true"] {
+  background: var(--color-sky-light);
+}
+.ni-atw__blank.ni-invite {
+  outline-offset: 5px;
+  border-radius: var(--radius-pebble);
+}
+.ni-atw__unit {
+  max-width: 4.6em;
+  color: var(--color-ink);
+  font-family: var(--font-body);
+  font-size: var(--text-label);
+  font-weight: 700;
+  line-height: 1.1;
+}
+
+/* Pip's fingertip (≈ 42 % across, 8 px down the 56 px hand) rests inside the control's bottom. */
+.ni-atw__hand {
+  left: calc(50% - 23px);
+  top: calc(100% - 26px);
+}
+
+/* ---------- motion ---------- */
+
+[data-reduced-motion="true"] .ni-atw__tile,
+[data-reduced-motion="true"] .ni-atw__side,
+[data-reduced-motion="true"] .ni-atw__split path {
+  animation: none;
+}
+[data-reduced-motion="true"] .ni-atw__gap {
+  transition-duration: 0ms;
+}
+@media (prefers-reduced-motion: reduce) {
+  .ni-atw__tile,
+  .ni-atw__side,
+  .ni-atw__split path {
+    animation: none;
+  }
+  .ni-atw__gap {
+    transition-duration: 0ms;
+  }
+}
+
+/* Portrait or narrow: the answer column moves under the board. */
+@media (max-width: 900px), (orientation: portrait) {
+  .ni-atw {
+    grid-template-columns: auto;
+    justify-items: center;
+  }
+}

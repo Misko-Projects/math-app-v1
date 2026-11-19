@@ -20,6 +20,11 @@ export const widgetRegistry: WidgetRegistry = {
   'base-ten-build': () => import('./base-ten-build/BaseTenBuildWidget'),
   'base-ten-trade': () => import('./base-ten-trade/BaseTenTradeWidget'),
   'expanded-form': () => import('./expanded-form/ExpandedFormWidget'),
+  // U04 (#13): operations
+  'array-build': () => import('./array-build/ArrayBuildWidget'),
+  'equal-groups': () => import('./equal-groups/EqualGroupsWidget'),
+  'equal-share': () => import('./equal-share/EqualShareWidget'),
+  'area-tiles': () => import('./area-tiles/AreaTilesWidget'),
 };
 
 /** Formats that have a registered widget. */

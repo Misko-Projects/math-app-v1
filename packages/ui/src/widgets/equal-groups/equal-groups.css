@@ -1,0 +1,515 @@
+/*
+ * equal-groups widget (U04, 03 §5.5). Left: the containers (rafts, baskets, plates, nests) in even
+ * rows, and in build mode the supply card and the answer blank under them. Right: the number pad
+ * and "check". Sprite sizes come from --s (sprite edge), --g (gap) and --m (rod cell), set from
+ * layout.ts so the largest configs fit the 1280 × 800 widget area.
+ */
+
+.ni-egw {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: stretch;
+  gap: 28px;
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 1180px;
+  /* A fixed height: the 1280 × 800 widget area (720 px stage) minus the stage's own frame. */
+  height: 656px;
+  /* Room below for Pip's pointer on the bottom controls. */
+  padding: 8px 12px 32px;
+}
+
+.ni-egw__scene {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  min-width: 0;
+  min-height: 0;
+}
+
+/* ---------- containers ---------- */
+
+.ni-egw__area {
+  flex: 1 1 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--group-gap);
+}
+.ni-egw__row {
+  display: flex;
+  justify-content: center;
+  gap: var(--group-gap);
+}
+
+.ni-egw__group {
+  position: relative;
+  flex: none;
+}
+.ni-egw__empty {
+  visibility: hidden;
+}
+
+/*
+ * The container is the drop target, drawn behind its contents: sprites are its visual contents
+ * but separate buttons in the DOM (targets never contain items).
+ */
+.ni-egw__pad {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  border-radius: var(--radius-card);
+  -webkit-tap-highlight-color: transparent;
+}
+.ni-egw__pad.ni-drop-target {
+  cursor: pointer;
+}
+.ni-egw__pad:focus-visible {
+  outline: 5px solid var(--color-ink);
+  outline-offset: 4px;
+}
+.ni-egw__pad.ni-drop-target[data-over="true"] {
+  transform: scale(1.02);
+}
+.ni-egw__art {
+  display: block;
+  overflow: visible;
+}
+
+/* The contents sit inside the rim, centred, in the shape the largest container needs. */
+.ni-egw__contents {
+  position: absolute;
+  inset: var(--chrome-top) var(--chrome-x) var(--chrome-bottom);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  /* Taps between sprites reach the container below. */
+  pointer-events: none;
+}
+.ni-egw__packed {
+  display: flex;
+  align-items: flex-start;
+  justify-content: flex-start;
+  gap: calc(var(--g) * 1.5);
+}
+.ni-egw__rods {
+  display: flex;
+  flex: none;
+  gap: var(--g);
+}
+.ni-egw__loose {
+  display: grid;
+  flex: none;
+  grid-auto-rows: var(--s);
+  gap: var(--g);
+}
+.ni-egw__sprite {
+  position: relative;
+  display: block;
+  width: var(--s);
+  height: var(--s);
+  border-radius: 50%;
+  pointer-events: auto;
+  -webkit-tap-highlight-color: transparent;
+}
+.ni-egw__rod {
+  position: relative;
+  display: block;
+  flex: none;
+  border-radius: 10px;
+  pointer-events: auto;
+  -webkit-tap-highlight-color: transparent;
+}
+.ni-egw__sprite:focus-visible,
+.ni-egw__rod:focus-visible,
+.ni-egw__grab:focus-visible {
+  outline: 4px solid var(--color-ink);
+  outline-offset: 3px;
+}
+/* Demo (reduced motion): the sprite that just arrived gets a ring, not only a tint. */
+.ni-egw__sprite[data-flash="true"],
+.ni-egw__rod[data-flash="true"] {
+  outline: 4px solid var(--color-sea-deep);
+  outline-offset: 2px;
+}
+.ni-egw__group--flash {
+  outline: 5px solid var(--color-sea-deep);
+  outline-offset: 6px;
+  border-radius: var(--radius-card);
+}
+
+/* A ten-rod: ten mini sprites in a framed column (a wider gap after five), like a base-ten rod. */
+.ni-egw__rodart {
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
+  border: 2px solid var(--color-ink-soft);
+  border-radius: 10px;
+  background: var(--color-paper);
+  box-shadow: 0 3px 0 rgb(38 70 83 / 0.18);
+}
+.ni-egw__rodart[data-dir="row"] {
+  flex-direction: row;
+}
+.ni-egw__rodcell {
+  display: block;
+  flex: none;
+}
+.ni-egw__rodart[data-dir="column"] .ni-egw__rodcell:nth-child(6) {
+  margin-top: var(--five-gap);
+}
+.ni-egw__rodart[data-dir="row"] .ni-egw__rodcell:nth-child(6) {
+  margin-left: var(--five-gap);
+}
+
+/* Demo skip-count: the counted group lifts inside a teal ring with its running multiple. */
+.ni-egw__group[data-counted="true"] {
+  outline: 5px solid var(--color-sea-deep);
+  outline-offset: 6px;
+  border-radius: var(--radius-card);
+}
+.ni-egw__skip {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  min-width: 0;
+  min-height: 0;
+  padding: 0.12em 0.35em 0;
+  font-size: 2.25rem;
+  pointer-events: none;
+  animation: var(--animate-pop-in);
+}
+
+/* Demo circle-group: a crayon lasso drawn round one group. */
+.ni-egw__lasso {
+  position: absolute;
+  inset: 0;
+  overflow: visible;
+  pointer-events: none;
+}
+.ni-egw__lasso path {
+  stroke-dasharray: 1;
+  stroke-dashoffset: 0;
+  animation: ni-egw-draw 700ms ease-out both;
+}
+@keyframes ni-egw-draw {
+  from {
+    stroke-dashoffset: 1;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+/* The next container's place (unknown number of groups): a dashed outline round "Add a raft". */
+.ni-egw__ghost {
+  display: grid;
+  place-items: center;
+}
+.ni-egw__ghost > .ni-egw__art {
+  position: absolute;
+  inset: 0;
+}
+.ni-egw__addslot {
+  position: relative;
+  display: inline-flex;
+}
+
+/* ---------- bottom row: the supply and the answer ---------- */
+
+.ni-egw__bottom {
+  flex: none;
+  display: flex;
+  align-items: center;
+  /* The supply on the left, the answer on the right next to the pad. */
+  justify-content: space-between;
+  gap: 20px;
+  height: var(--bottom-h);
+}
+.ni-egw__supply {
+  position: relative;
+  flex: 1 1 auto;
+  min-width: 0;
+  height: 100%;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 14px 18px;
+}
+.ni-egw__supply[data-kind="bucket"] {
+  flex: 0 1 auto;
+}
+/* The supply card is also where sprites go back to ("Put it back here"). */
+.ni-egw__supplypad {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  box-sizing: border-box;
+  border: 3px solid var(--color-sand-deep);
+  border-radius: var(--radius-card);
+  background: var(--color-paper);
+  box-shadow: var(--shadow-soft);
+}
+.ni-egw__supplypad.ni-drop-target[data-over="true"] {
+  transform: none;
+}
+.ni-egw__supplypad:focus-visible {
+  outline: 5px solid var(--color-ink);
+  outline-offset: 4px;
+}
+
+.ni-egw__source {
+  position: relative;
+  flex: none;
+  display: grid;
+  place-items: center;
+}
+/* A sand dimple under the sprite you take; dashed once the pile is used up. */
+.ni-egw__spot {
+  position: absolute;
+  inset: 0;
+  border: 3px solid var(--color-sand-deep);
+  border-radius: var(--radius-pebble);
+  background: var(--color-sand);
+  box-shadow: inset 0 4px 0 var(--color-sand-shadow);
+  pointer-events: none;
+}
+.ni-egw__spot[data-empty="true"] {
+  border-style: dashed;
+  border-color: var(--color-ink-soft);
+  background: transparent;
+  box-shadow: none;
+}
+.ni-egw__source[data-kind="bucket"] .ni-egw__spot {
+  border: 0;
+  background: none;
+  box-shadow: none;
+}
+.ni-egw__grab {
+  position: relative;
+  display: grid;
+  place-items: center;
+  box-sizing: border-box;
+  width: 100%;
+  height: 100%;
+  padding: 10%;
+  border-radius: var(--radius-pebble);
+  -webkit-tap-highlight-color: transparent;
+}
+.ni-egw__source[data-kind="bucket"] .ni-egw__grab {
+  padding: 4% 22% 34%;
+}
+.ni-egw__grab[data-empty="true"] > * {
+  visibility: hidden;
+}
+.ni-egw__grab .ni-sprite {
+  display: block;
+}
+
+/* The pile: strips of ten (two fives), wrapped into columns; it shrinks to fit, never overlaps. */
+.ni-egw__pile {
+  position: relative;
+  flex: 1 1 0;
+  min-width: 0;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  pointer-events: none;
+}
+.ni-egw__pilecols {
+  display: flex;
+  align-items: flex-start;
+}
+.ni-egw__pilecol {
+  display: flex;
+  flex-direction: column;
+}
+.ni-egw__strip {
+  display: flex;
+}
+.ni-egw__strip[data-rod="true"] {
+  outline: 2px solid var(--color-ink-soft);
+  outline-offset: 1px;
+  border-radius: 4px;
+}
+.ni-egw__pilecell {
+  display: block;
+  flex: none;
+}
+.ni-egw__pilecell:nth-child(6) {
+  margin-left: var(--five-gap);
+}
+
+.ni-egw__slot {
+  position: relative;
+  display: inline-flex;
+}
+.ni-egw__blankslot {
+  flex: none;
+}
+.ni-egw__blank {
+  min-width: 2.7em;
+  min-height: var(--target-big);
+}
+.ni-egw__blank[data-empty="true"] {
+  background: var(--color-sky-light);
+}
+.ni-egw__blank:disabled {
+  cursor: default;
+}
+
+.ni-egw__answerrow {
+  flex: none;
+  display: flex;
+  justify-content: center;
+}
+
+/* Pip's pointer: the fingertip rests just inside the target's bottom edge. */
+.ni-egw__hand {
+  left: calc(50% - 23px);
+  top: calc(100% - 30px);
+}
+
+/* ---------- side: pad and check ---------- */
+
+.ni-egw__side {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 20px;
+}
+
+/* ---------- reduced motion (06 §7) ---------- */
+
+[data-reduced-motion="true"] .ni-egw__lasso path {
+  animation: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  .ni-egw__lasso path {
+    animation: none;
+  }
+}
+
+/* On the add button the fingertip rests on the round button, above its caption. */
+.ni-egw__hand--add {
+  top: calc(var(--target-icon) - 30px);
+}
+
+/* ---------- region labels and the task ---------- */
+
+/* A region's label sits on its top edge like a tag: a picture icon, plus the word in G1+. */
+.ni-egw__legend {
+  position: absolute;
+  top: -15px;
+  left: 18px;
+  z-index: 1;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  box-sizing: border-box;
+  height: 28px;
+  padding: 0 10px 0 6px;
+  border: 2px solid var(--color-sand-deep);
+  border-radius: var(--radius-pill);
+  background: var(--color-paper);
+  color: var(--color-ink);
+  font-family: var(--font-body);
+  font-size: 1rem;
+  font-weight: 700;
+  line-height: 1;
+  white-space: nowrap;
+  pointer-events: none;
+}
+.ni-egw__legendicon {
+  display: block;
+  width: 22px;
+  height: 22px;
+}
+.ni-egw__legendicon > svg {
+  display: block;
+}
+.ni-egw__answer {
+  position: relative;
+  flex: none;
+  display: flex;
+}
+.ni-egw__answer > .ni-egw__legend {
+  left: 50%;
+  translate: -50% 0;
+}
+
+/* The task: what the child is told, centred over the containers (never the answer). */
+.ni-egw__taskrow {
+  flex: none;
+  display: flex;
+  justify-content: center;
+}
+.ni-egw__task {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  box-sizing: border-box;
+  min-height: var(--target-min);
+  margin: 0 0 5px;
+  padding: 0 22px 0 18px;
+  border: 3px solid var(--color-ink);
+  border-radius: var(--radius-pebble);
+  background: var(--color-cloud);
+  color: var(--color-ink);
+  box-shadow:
+    inset 0 -5px 0 var(--color-pebble),
+    0 5px 0 rgb(38 70 83 / 0.16);
+  cursor: pointer;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+.ni-egw__task:disabled {
+  cursor: default;
+}
+.ni-egw__task:focus-visible {
+  outline: 4px solid var(--color-ink);
+  outline-offset: 4px;
+}
+.ni-egw__tasknum {
+  padding-top: 0.12em;
+  font-family: var(--font-display);
+  font-size: var(--text-numeral);
+  font-variant-numeric: tabular-nums;
+  font-weight: 800;
+  line-height: 1;
+}
+.ni-egw__taskicon {
+  display: block;
+  width: 56px;
+  height: 44px;
+}
+.ni-egw__taskicon > .ni-sprite {
+  display: block;
+  width: 44px;
+  margin: 0 auto;
+}
+.ni-egw__taskart {
+  position: relative;
+  display: block;
+  width: 56px;
+  height: 44px;
+}
+.ni-egw__taskart > svg {
+  display: block;
+}
+.ni-egw__taskartsprite {
+  position: absolute;
+  left: 14px;
+  top: 8px;
+  width: 28px;
+  height: 28px;
+}
+.ni-egw__taskword {
+  font-family: var(--font-body);
+  font-size: var(--text-label);
+  font-weight: 700;
+}

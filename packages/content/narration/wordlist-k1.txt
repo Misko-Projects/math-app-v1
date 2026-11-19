@@ -198,6 +198,7 @@ eyes
 fact
 factory
 facts
+fair
 false
 farm
 farmer
@@ -487,6 +488,8 @@ place
 places
 plank
 planks
+plate
+plates
 play
 played
 playing

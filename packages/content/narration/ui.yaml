@@ -418,3 +418,240 @@ ui.widget.ef.story.w4305:
   text: "four thousand three hundred five"
   level: "2"
 # end expanded-form
+
+# U04 array-build widget (packages/ui/src/widgets/array-build): keys under ui.widget.ab.*
+ui.widget.ab.board:
+  text: "Make your rectangle here"
+  level: K
+ui.widget.ab.corner:
+  text: "Drag the corner"
+  level: K
+ui.widget.ab.add-row:
+  text: "Add a row"
+  level: K
+ui.widget.ab.task.dims:
+  text: "{rows} rows of {cols}"
+  level: K
+ui.widget.ab.task.dims-one:
+  text: "1 row of {cols}"
+  level: K
+ui.widget.ab.task.total:
+  text: "Make a rectangle with {n}"
+  level: K
+ui.widget.ab.task.new:
+  text: "Make {n} a new way"
+  level: K
+ui.widget.ab.found:
+  text: "You did them before"
+  level: K
+ui.widget.ab.stick:
+  text: "Split line"
+  level: K
+ui.widget.ab.gap:
+  text: "Split here {n}"
+  level: K
+# end array-build
+
+# U04 equal-groups widget (packages/ui/src/widgets/equal-groups): keys under ui.widget.eg.*
+ui.widget.eg.container.raft:
+  text: "Raft"
+  level: K
+ui.widget.eg.container.basket:
+  text: "Basket"
+  level: K
+ui.widget.eg.container.plate:
+  text: "Plate"
+  level: K
+ui.widget.eg.container.nest:
+  text: "Nest"
+  level: K
+ui.widget.eg.add.raft:
+  text: "Add a raft"
+  level: K
+ui.widget.eg.add.basket:
+  text: "Add a basket"
+  level: K
+ui.widget.eg.add.plate:
+  text: "Add a plate"
+  level: K
+ui.widget.eg.add.nest:
+  text: "Add a nest"
+  level: K
+ui.widget.eg.supply:
+  text: "Put it back here"
+  level: K
+ui.widget.eg.rod:
+  text: "A stick of ten"
+  level: K
+ui.widget.eg.region.supply:
+  text: "Take from here"
+  level: K
+ui.widget.eg.task.total:
+  text: "{n} in all"
+  level: K
+ui.widget.eg.task.each.raft:
+  text: "{n} on each raft"
+  level: K
+ui.widget.eg.task.each.basket:
+  text: "{n} in each basket"
+  level: K
+ui.widget.eg.task.each.plate:
+  text: "{n} on each plate"
+  level: K
+ui.widget.eg.task.each.nest:
+  text: "{n} in each nest"
+  level: K
+ui.widget.eg.word.total:
+  text: "in all"
+  level: K
+ui.widget.eg.word.each.raft:
+  text: "on each raft"
+  level: K
+ui.widget.eg.word.each.basket:
+  text: "in each basket"
+  level: K
+ui.widget.eg.word.each.plate:
+  text: "on each plate"
+  level: K
+ui.widget.eg.word.each.nest:
+  text: "in each nest"
+  level: K
+# end equal-groups
+
+# U04 equal-share widget (packages/ui/src/widgets/equal-share): keys under ui.widget.es.*
+ui.widget.es.kind.pebbling:
+  text: "Pebbling"
+  level: K
+ui.widget.es.kind.plate:
+  text: "Plate"
+  level: K
+ui.widget.es.region.pebbling:
+  text: "Pebblings"
+  level: K
+ui.widget.es.region.plate:
+  text: "Plates"
+  level: K
+ui.widget.es.region.basket:
+  text: "Basket"
+  level: K
+ui.widget.es.basket:
+  text: "Put it back in the basket"
+  level: K
+ui.widget.es.seagull:
+  text: "Seagull"
+  level: K
+ui.widget.es.deal-round:
+  text: "Give one to each"
+  level: K
+ui.widget.es.give-rest:
+  text: "Give the seagull what is left"
+  level: K
+ui.widget.es.why.unequal:
+  text: "They do not have the same"
+  level: K
+ui.widget.es.why.round:
+  text: "Each one can have more"
+  level: K
+ui.widget.es.why.empty:
+  text: "The basket is empty"
+  level: K
+ui.widget.es.ask.each:
+  text: "How many for each?"
+  level: K
+ui.widget.es.ask.leftover:
+  text: "How many are left over?"
+  level: K
+ui.widget.es.ask.fair:
+  text: "Is it fair?"
+  level: "1"
+ui.widget.es.ask.even-odd:
+  text: "Even or odd?"
+  level: "2"
+ui.widget.es.opt.yes:
+  text: "Fair"
+  level: "1"
+ui.widget.es.opt.no:
+  text: "Not fair"
+  level: "1"
+ui.widget.es.opt.even:
+  text: "Even"
+  level: "2"
+ui.widget.es.opt.odd:
+  text: "Odd"
+  level: "2"
+# end equal-share
+
+# U04 area-tiles widget (packages/ui/src/widgets/area-tiles): keys under ui.widget.at.*
+ui.widget.at.board.tile:
+  text: "Fill it with tiles"
+  level: "2"
+ui.widget.at.board.decompose:
+  text: "Split it into rectangles"
+  level: K
+ui.widget.at.board.partition:
+  text: "Split it into squares"
+  level: K
+ui.widget.at.whole:
+  text: "One whole"
+  level: K
+ui.widget.at.tray:
+  text: "Tile tray"
+  level: "2"
+ui.widget.at.stack:
+  text: "Take a tile"
+  level: "2"
+ui.widget.at.cell:
+  text: "Empty square"
+  level: K
+ui.widget.at.tile:
+  text: "Tile"
+  level: "2"
+ui.widget.at.row:
+  text: "Fill this row"
+  level: K
+ui.widget.at.gap.v:
+  text: "Up and down line"
+  level: K
+ui.widget.at.gap.h:
+  text: "Side to side line"
+  level: K
+ui.widget.at.name.sq-cm:
+  text: "Square centimeter"
+  level: "2"
+ui.widget.at.name.sq-m:
+  text: "Square meter"
+  level: "2"
+ui.widget.at.name.sq-in:
+  text: "Square inch"
+  level: "2"
+ui.widget.at.name.sq-ft:
+  text: "Square foot"
+  level: "2"
+ui.widget.at.unit.sq-units:
+  text: "square units"
+  level: "2"
+ui.widget.at.unit.sq-cm:
+  text: "sq cm"
+  level: "2"
+ui.widget.at.unit.sq-m:
+  text: "sq m"
+  level: "2"
+ui.widget.at.unit.sq-in:
+  text: "sq in"
+  level: "2"
+ui.widget.at.unit.sq-ft:
+  text: "sq ft"
+  level: "2"
+ui.widget.at.len.sq-cm:
+  text: "cm"
+  level: "2"
+ui.widget.at.len.sq-m:
+  text: "m"
+  level: "2"
+ui.widget.at.len.sq-in:
+  text: "in"
+  level: "2"
+ui.widget.at.len.sq-ft:
+  text: "ft"
+  level: "2"
+# end area-tiles
