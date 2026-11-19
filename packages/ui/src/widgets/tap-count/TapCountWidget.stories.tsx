@@ -591,6 +591,7 @@ export const OrdinalK: Story = {
     await expectBadgeClearOfRing(root);
     await expectOrdinalFits(root);
     await userEvent.click(canvas.getByRole('button', { name: 'Check' }));
+    canvas.getByRole('button', { name: 'Check' }).blur();
     await expect(args.onResponse).toHaveBeenCalledWith({ kind: 'choice', id: 'obj-6' });
   },
 };

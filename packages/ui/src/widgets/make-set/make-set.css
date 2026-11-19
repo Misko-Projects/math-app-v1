@@ -581,6 +581,13 @@
   align-items: center;
   gap: 32px;
 }
+/*
+ * With "make a ten" above Check, Pip's hand under an invited action (≈ 52 px below its bottom
+ * edge with the tap bob) must not touch the next one: 64 px between the actions.
+ */
+.ni-mset[data-bundling="true"] .ni-mset__actions {
+  gap: 64px;
+}
 .ni-mset__action {
   position: relative;
   display: inline-flex;

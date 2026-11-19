@@ -1066,6 +1066,17 @@ export const RegroupKShortBeforeBundle: Story = {
     await expect(root.querySelectorAll('.ni-invite')).toHaveLength(1);
     await expect(root.querySelectorAll('.ni-hand')).toHaveLength(1);
     await waitFor(() => expectPointerOn(pointerIn(makeTen), makeTen, root));
+    // Pip's hand at rest (its tap bob held at the start), and 8 px lower at the bob's bottom,
+    // stays ≥ 12 px clear of Check under the invited "Make a ten".
+    const handEl = pointerIn(makeTen);
+    for (const a of handEl.getAnimations()) {
+      a.pause();
+      a.currentTime = 0;
+    }
+    const h = handEl.getBoundingClientRect();
+    const ok = check(root).getBoundingClientRect();
+    await expect(ok.top - (h.bottom + 8), 'hand clear of Check').toBeGreaterThanOrEqual(12);
+    for (const a of handEl.getAnimations()) a.play();
     await expectFitsArea(root, areaBox(canvasElement), 'k');
   },
 };
@@ -1074,8 +1085,10 @@ const regroupAfter: WidgetDemo = createDemoController({ strict: true });
 
 /**
  * PV.09.t1, AFTER bundling (the solution's `bundle`): the ten is tied (rope and bow) and is one
- * ten in the model, so counting it as one ten is right: "10, 11, 12, 13". The story ends on the
- * last step, an invite on Check (one ring, Pip's hand).
+ * ten in the model, so counting it as one ten is right: "10, 11, 12, 13". The story ends on a
+ * count-aloud invite on the tied ten (one ring, Pip's hand with its "count" cue), where counting
+ * now starts. (An invite on Check, at the foot of the column, would need the hand's room below
+ * it, more than this short area has.)
  */
 export const RegroupKShortAfterBundle: Story = {
   globals: { ageMode: 'k' },
@@ -1094,12 +1107,9 @@ export const RegroupKShortAfterBundle: Story = {
     clearSpies(audio);
     await regroupAfter.play({ op: 'count-aloud' });
     await expect(spokenNumbers(audio)).toEqual([10, 11, 12, 13]);
-    regroupAfter.invite({ op: 'close-container' });
-    const ok = check(root);
-    await waitFor(() => expect(ok).toHaveClass('ni-invite'));
-    await expect(root.querySelectorAll('.ni-invite')).toHaveLength(1);
-    await expect(root.querySelectorAll('.ni-hand')).toHaveLength(1);
-    await waitFor(() => expectPointerOn(pointerIn(ok), ok, root));
+    regroupAfter.invite({ op: 'count-aloud' });
+    await expectInviteOn(root, tens(root) as HTMLElement);
+    await expectHandCue(root, 'count');
     await expectFitsArea(root, areaBox(canvasElement), 'k');
   },
 };

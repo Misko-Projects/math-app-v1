@@ -1280,6 +1280,7 @@ export function MakeSetWidget({
       data-layout={hands ? undefined : layout}
       data-chrome={chrome === 'tight' ? 'tight' : undefined}
       data-one-frame={oneFrame ? 'true' : undefined}
+      data-bundling={config.groupsOf === 10 ? 'true' : undefined}
       data-tray={tray === 'compact' ? 'compact' : undefined}
       style={
         {
