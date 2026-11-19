@@ -116,6 +116,8 @@ export async function expectFitsArea(
     await expectTargetSize(el, ageMode);
   }
   if (gaps) await expectTargetGaps(controls);
+  await expectCentred(root, box);
+  controlSummary(`${root.className.split(' ')[0]} @ ${box.dataset.areaSize ?? 'stage'}`, controls);
 }
 
 /**
@@ -161,4 +163,120 @@ export async function settle(el: Element) {
       .filter((a) => a.effect?.getComputedTiming().iterations !== Number.POSITIVE_INFINITY)
       .map((a) => a.finished.catch(() => undefined)),
   );
+}
+
+/** The visible controls in `root` (buttons, tap targets, sliders), as the child sees them. */
+export function visibleControls(root: Element): Element[] {
+  return [...root.querySelectorAll('button, [role="button"], [role="slider"]')].filter((el) => {
+    const cs = getComputedStyle(el);
+    const r = el.getBoundingClientRect();
+    return cs.visibility !== 'hidden' && Number(cs.opacity) > 0 && r.width > 0 && r.height > 0;
+  });
+}
+
+/**
+ * The invite state (03 §6.3, evidence rule): exactly ONE invited target (`.ni-invite` or an SVG
+ * part with `data-invite`), and its ring (outline plus offset, or the outer half of a stroke) at
+ * least 12 px clear of every other visible control.
+ */
+export async function expectSingleInvite(root: Element) {
+  const invited = [...root.querySelectorAll('.ni-invite, [data-invite="true"]')];
+  await expect(invited, 'one invited target').toHaveLength(1);
+  const target = invited[0] as Element;
+  const cs = getComputedStyle(target);
+  const ring =
+    target instanceof SVGElement
+      ? (Number.parseFloat(cs.strokeWidth) || 0) / 2
+      : (Number.parseFloat(cs.outlineWidth) || 0) + (Number.parseFloat(cs.outlineOffset) || 0);
+  const t = target.getBoundingClientRect();
+  const r = {
+    left: t.left - ring,
+    top: t.top - ring,
+    right: t.right + ring,
+    bottom: t.bottom + ring,
+  };
+  for (const el of visibleControls(root)) {
+    if (el === target || el.contains(target) || target.contains(el)) continue;
+    const b = el.getBoundingClientRect();
+    const gap = Math.max(b.left - r.right, r.left - b.right, b.top - r.bottom, r.top - b.bottom);
+    await expect(
+      gap,
+      `ring clear of ${el.getAttribute('aria-label') ?? el.tagName}`,
+    ).toBeGreaterThanOrEqual(11.5);
+  }
+}
+
+/**
+ * The widget's content is centred in its area: the left and right margins between what it draws
+ * (its children, the hand aside) and the area's inner box differ by at most 8 px.
+ */
+export async function expectCentred(root: HTMLElement, box: HTMLElement) {
+  const parts = [...root.children].filter(
+    (c) => !c.classList.contains('ni-hand') && c.getBoundingClientRect().width > 0,
+  );
+  const left = Math.min(...parts.map((p) => p.getBoundingClientRect().left));
+  const right = Math.max(...parts.map((p) => p.getBoundingClientRect().right));
+  const inner = contentBox(box);
+  const l = left - inner.left;
+  const r = inner.right - right;
+  await expect(
+    Math.abs(l - r),
+    `centred: left ${l.toFixed(1)} vs right ${r.toFixed(1)} px`,
+  ).toBeLessThanOrEqual(8);
+}
+
+/**
+ * The INK height of each element's digits as rendered (canvas `measureText` with the element's
+ * computed font: the drawn glyph box, not the font-size or the line box), in px.
+ */
+export async function numeralInk(el: Element): Promise<number> {
+  await document.fonts.ready;
+  const cs = getComputedStyle(el);
+  const ctx = document.createElement('canvas').getContext('2d') as CanvasRenderingContext2D;
+  ctx.font = `${cs.fontStyle} ${cs.fontWeight} ${cs.fontSize} ${cs.fontFamily}`;
+  const text = (el.textContent ?? '').replace(/[^0-9]/g, '') || '0';
+  const m = ctx.measureText(text);
+  // The rendered size: any CSS / SVG scaling between the font size and the screen.
+  const scale = el instanceof SVGGraphicsElement ? (el.getScreenCTM()?.a ?? 1) : 1;
+  return (m.actualBoundingBoxAscent + m.actualBoundingBoxDescent) * scale;
+}
+
+/** Every numeral the child reads has digits at least `min` px tall as drawn (05 §11: 32 px). */
+export async function expectNumeralInk(els: Iterable<Element>, min = 32) {
+  const list = [...els];
+  await expect(list.length).toBeGreaterThan(0);
+  for (const el of list) {
+    const ink = await numeralInk(el);
+    await expect(
+      ink,
+      `digits of "${el.textContent}" drawn ${ink.toFixed(1)} px tall`,
+    ).toBeGreaterThanOrEqual(min);
+  }
+}
+
+/**
+ * A one-line record of the controls' measured CSS sizes and their smallest gap, for the evidence
+ * (logged to the test output): "Check 120×80; 1 64×64; … | min gap 12".
+ */
+export function controlSummary(story: string, controls: Element[]): string {
+  const rects = controls.map((c) => c.getBoundingClientRect());
+  const sizes = controls.map((c, i) => {
+    const r = rects[i] as DOMRect;
+    const name = c.getAttribute('aria-label') ?? c.textContent?.trim() ?? c.tagName;
+    return `${name} ${Math.round(r.width)}×${Math.round(r.height)}`;
+  });
+  let gap = Number.POSITIVE_INFINITY;
+  for (let i = 0; i < rects.length; i += 1) {
+    for (let j = i + 1; j < rects.length; j += 1) {
+      const a = rects[i] as DOMRect;
+      const b = rects[j] as DOMRect;
+      gap = Math.min(
+        gap,
+        Math.max(b.left - a.right, a.left - b.right, b.top - a.bottom, a.top - b.bottom),
+      );
+    }
+  }
+  const line = `[controls] ${story}: ${sizes.join('; ')} | min gap ${Number.isFinite(gap) ? Math.round(gap) : '-'}`;
+  console.info(line);
+  return line;
 }

@@ -670,7 +670,9 @@ export function FractionCutWidget({
         const s0 = state.sectors[0];
         const si = state.sectors[i];
         if (!s0 || !si) return undefined;
-        return `rotate(${s0.a0 - si.a0}deg)`;
+        // Rotated onto the first sector, each a little lower: a pile whose top part covers the
+        // rest (no see-through), so equal parts read as the same size.
+        return `translate(0px, ${i * 4}px) rotate(${s0.a0 - si.a0}deg)`;
       }
       const r0 = state.rects[0];
       const ri = state.rects[i];
@@ -833,7 +835,6 @@ export function FractionCutWidget({
                     className="ni-fcut__guide"
                     d={guidePath(frame, g)}
                     data-line={i}
-                    data-invite={invitedLine === i ? 'true' : undefined}
                   />
                 ),
               )}

@@ -263,11 +263,30 @@ export function FractionPickWidget({
   const stimulus = config.stimulus;
   const stimFraction = fractionOf(stimulus);
   const k = ageMode === 'k';
-  const stimBox = compact
-    ? pads
-      ? { w: k ? 180 : 200, h: 220 }
-      : { w: 280, h: 230 }
-    : { w: 420, h: 330 };
+  // Option pictures share one box (abstract tier with labels: a small one beside the symbols), so
+  // every option's whole is drawn the same size.
+  const baseBox = compact ? { w: 190, h: 130 } : { w: 250, h: 170 };
+  // Many options stay on one row: each picture shrinks to its share of the width (a picture card
+  // is its picture plus 34 px; 24 px between cards), never below a K-sized card.
+  const nPictures = (config.options ?? []).length + (config.stimulus ? 1 : 0);
+  const share =
+    nPictures > 0 ? Math.floor((width - 40 - 140 - (nPictures - 1) * 24) / nPictures) - 34 : 0;
+  const fitW = Math.max(k ? 82 : 64, Math.min(baseBox.w, share));
+  const cardBox = { w: fitW, h: Math.min(baseBox.h, fitW * (baseBox.h / baseBox.w) + 20) };
+  const optionScale =
+    tier === 'abstract' && (config.options ?? []).some((o) => o.label !== undefined) ? 0.45 : 1;
+  const optionPicBox = { w: cardBox.w * optionScale, h: cardBox.h * optionScale };
+  // When the picture is compared with the options (equivalent, compare), it is drawn at their
+  // size, so the wholes are at true relative scale.
+  const comparedStimulus =
+    withOptions && (config.mode === 'equivalent' || config.mode === 'compare');
+  const stimBox = comparedStimulus
+    ? optionPicBox
+    : compact
+      ? pads
+        ? { w: k ? 180 : 200, h: 220 }
+        : { w: 280, h: 230 }
+      : { w: 420, h: 330 };
 
   const stimulusNode = stimulus ? (
     <div
@@ -331,7 +350,6 @@ export function FractionPickWidget({
       </fieldset>
     );
   } else if (withOptions) {
-    const cardBox = compact ? { w: 190, h: 130 } : { w: 250, h: 170 };
     answer = (
       <fieldset
         className="ni-fpick__options"
@@ -345,7 +363,7 @@ export function FractionPickWidget({
               option={o}
               index={i}
               tier={tier}
-              box={cardBox}
+              box={optionPicBox}
               selected={state.choice === o.id}
               highlighted={state.highlighted === o.id || invitedId === o.id}
               onPress={(speak) => choose(o.id, speak)}
@@ -435,8 +453,8 @@ function OptionCard({
         parts={fraction.parts}
         shaded={fraction.shaded}
         equalParts={fraction.equalParts}
-        maxWidth={symbolsFirst ? box.w * 0.45 : box.w}
-        maxHeight={symbolsFirst ? box.h * 0.45 : box.h}
+        maxWidth={box.w}
+        maxHeight={box.h}
       />
     ) : (
       <StimulusView spec={option.stimulus} maxWidth={box.w} maxHeight={box.h} minCell={22} />

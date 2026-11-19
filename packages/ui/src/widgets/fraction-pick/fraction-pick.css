@@ -46,7 +46,8 @@
 /* Pictures only (pick-picture): the cards in a row, "check" under them. */
 .ni-fpick__answer[data-stacked="true"] {
   flex-direction: column;
-  gap: 16px;
+  /* The invite ring around a card (10 px) stays 12 px clear of Check. */
+  gap: 24px;
 }
 .ni-fpick[data-mode="fair-or-not"] .ni-fpick__answer {
   flex-direction: column;

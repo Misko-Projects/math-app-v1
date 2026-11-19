@@ -56,7 +56,10 @@ const MARK_STEPS = 120;
 /** The keyboard cursor moves in twenty-fourths of a whole (Shift: 120ths). */
 const KEY_STEPS = 24;
 /** Numerals on the line: ≥ 32 px (05 §11). */
-const NUM_PX = 36;
+/** Numerals on the line: 52 px type, so the drawn digits are ≥ 32 px tall (05 §11). */
+const NUM_PX = 52;
+/** Labels sit this far below the band or the ticks they name, and this far from each other. */
+const LABEL_GAP = 14;
 
 type Config = ConfigFor<'fraction-line'>;
 
@@ -153,13 +156,15 @@ export function FractionLineWidget({
   const unit = (x1 - x0) / max;
   const xOf = (v: number) => x0 + v * unit;
   const valueAtX = (x: number) => (x - x0) / unit;
-  const handleZone = target + 12;
   const strip = config.skin === 'strip';
   const ruler = config.skin === 'ruler';
+  // Pins and the dot stand above the ticks (a line's ticks reach 22 px above it), never on them.
+  const handleClear = strip || ruler ? 4 : 28;
+  const handleZone = target + handleClear + 4;
   const bandH = strip ? 64 : ruler ? 70 : 0;
   const lineY = handleZone + (strip || ruler ? 0 : 10);
-  const tickBottom = lineY + (strip ? bandH : ruler ? 34 : 18);
-  const labelsTop = (strip || ruler ? lineY + bandH : tickBottom) + 10;
+  const tickBottom = lineY + (strip ? bandH : ruler ? 34 : 22);
+  const labelsTop = (strip || ruler ? lineY + bandH : tickBottom) + LABEL_GAP;
   const anyFractionLabel = config.labels === 'all' && !config.decimalLabels;
   const labelsH = config.labels === 'none' ? 0 : anyFractionLabel ? 2 * NUM_PX + 14 : NUM_PX + 8;
   const stageH = labelsTop + labelsH + 6;
@@ -456,8 +461,13 @@ export function FractionLineWidget({
     return true;
   };
   // Crowded labels keep an even stride (always including the wholes).
-  const labelW = anyFractionLabel ? 40 : config.decimalLabels ? 64 : 34;
-  const stride = Math.max(1, Math.ceil((labelW + 10) / (unit / den)));
+  const digitW = NUM_PX * 0.62;
+  const labelW = anyFractionLabel
+    ? String(den * max).length * digitW + 8
+    : config.decimalLabels
+      ? 3 * digitW + 10
+      : String(max).length * digitW + 8;
+  const stride = Math.max(1, Math.ceil((labelW + LABEL_GAP) / (unit / den)));
   const labelKs = Array.from({ length: den * max + 1 }, (_, kk) => kk).filter(
     (kk) => labelled(kk) && (kk % den === 0 || kk % stride === 0),
   );
@@ -494,7 +504,7 @@ export function FractionLineWidget({
     if (dragAt && press.current?.dot)
       return { left: dragAt.x - target / 2, top: dragAt.y - target / 2 };
     if (dotPlaced)
-      return { left: xOf(state.marker as number) - target / 2, top: lineY - target - 2 };
+      return { left: xOf(state.marker as number) - target / 2, top: lineY - target - handleClear };
     return null;
   })();
 
@@ -516,8 +526,8 @@ export function FractionLineWidget({
         </text>
         <line
           className="ni-fline__bar"
-          x1={x - 16}
-          x2={x + 16}
+          x1={x - Math.max(16, labelW / 2 - 4)}
+          x2={x + Math.max(16, labelW / 2 - 4)}
           y1={labelsTop + NUM_PX + 3}
           y2={labelsTop + NUM_PX + 3}
         />
@@ -689,11 +699,23 @@ export function FractionLineWidget({
             />
           ))}
           {tv !== null && typing ? (
+            // The pole stops above the tick and an open ring marks the point, so the tick the
+            // child reads (and its neighbours) stay fully visible.
             <g className="ni-fline__flag" data-at={tv}>
-              <line x1={xOf(tv)} x2={xOf(tv)} y1={lineY - 70} y2={lineY} />
-              <path d={`M${xOf(tv)} ${lineY - 70}l34 12l-34 12Z`} />
-              <circle cx={xOf(tv)} cy={lineY} r={9} />
+              <line x1={xOf(tv)} x2={xOf(tv)} y1={lineY - 76} y2={lineY - 28} />
+              <path d={`M${xOf(tv)} ${lineY - 76}l34 12l-34 12Z`} />
+              <circle cx={xOf(tv)} cy={lineY} r={14} />
             </g>
+          ) : null}
+          {dotPlaced && !(dragAt && press.current?.dot) ? (
+            // The placed dot stands above the ticks on a stem down to its point.
+            <line
+              className="ni-fline__stem"
+              x1={xOf(state.marker as number)}
+              x2={xOf(state.marker as number)}
+              y1={lineY - handleClear}
+              y2={lineY}
+            />
           ) : null}
           {flash !== null ? (
             <circle className="ni-fline__flash" cx={xOf(flash)} cy={lineY} r={20} />
@@ -726,7 +748,7 @@ export function FractionLineWidget({
                 type="button"
                 className="ni-fline__mark"
                 data-mark={i}
-                style={{ left: xOf(m) - target / 2, top: lineY - target - (strip ? 4 : 14) }}
+                style={{ left: xOf(m) - target / 2, top: lineY - target - handleClear }}
                 aria-label={t('ui.frac.mark', { n: i + 1 })}
                 disabled={!interactive}
                 tabIndex={-1}

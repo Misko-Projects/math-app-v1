@@ -33,10 +33,16 @@ export interface CutLayout {
 
 /** Space between a knife and the whole's edge, CSS px. */
 const KNIFE_CLEAR = 10;
-/** CSS px the parts on either side of a cut move apart in total (≥ 12 px between targets). */
-export const CUT_GAP_PX = 16;
-/** Least space between two knives' boxes (06 §4: 12 px), with a little slack. */
-const KNIFE_GAP = 14;
+/**
+ * CSS px the parts on either side of a cut move apart in total: ≥ 12 px between targets, and 12 px
+ * clear of an invited part's ring (its stroke reaches up to 4 px out).
+ */
+export const CUT_GAP_PX = 20;
+/**
+ * Least space between two knives' boxes: 12 px (06 §4) clear of an invited knife's ring, which
+ * reaches 8 px out (5 px outline, 3 px offset).
+ */
+const KNIFE_GAP = 22;
 
 interface Box {
   x0: number;

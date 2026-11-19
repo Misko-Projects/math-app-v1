@@ -6,6 +6,7 @@ import {
   areaBox,
   expectEqualShares,
   expectFitsArea,
+  expectSingleInvite,
   inArea,
   measuredShares,
   settle,
@@ -99,6 +100,7 @@ const part = (root: HTMLElement, i: number) =>
   root.querySelector(`path.ni-fcut__part[data-part="${i}"]`) as SVGPathElement;
 const check = (root: HTMLElement) => within(root).getByRole('button', { name: 'Check' });
 const fill = (root: HTMLElement) => within(root).getByRole('button', { name: 'Fill' });
+const back = (root: HTMLElement) => within(root).getByRole('button', { name: 'Take back' });
 const stage = (root: HTMLElement) => root.querySelector('.ni-fcut__stage') as HTMLElement;
 
 /** The response passes the real checker for these parts and shading. */
@@ -215,6 +217,7 @@ export const CircleFourthsLandscapeMinK: Story = {
       ...knives(root),
       fill(root),
       check(root),
+      back(root),
     ]);
     // Swipe from 12 o'clock to 6 o'clock: guided line 0.
     await swipe(at(root, 120, 20), at(root, 120, 220));
@@ -227,7 +230,7 @@ export const CircleFourthsLandscapeMinK: Story = {
       root,
       areaBox(canvasElement),
       'k',
-      [...quarters, fill(root), check(root)],
+      [...quarters, fill(root), check(root), back(root)],
       {
         gaps: false,
       },
@@ -258,7 +261,11 @@ export const SquareFourthsKeyboardTablet: Story = {
   play: async ({ canvasElement, args }) => {
     const root = await findWidget(canvasElement, ROOT);
     await expect(within(root).queryByRole('button', { name: 'Fill' })).toBeNull();
-    await expectFitsArea(root, areaBox(canvasElement), 'g1-up', [...knives(root), check(root)]);
+    await expectFitsArea(root, areaBox(canvasElement), 'g1-up', [
+      ...knives(root),
+      check(root),
+      back(root),
+    ]);
     knife(root, 0).focus();
     await userEvent.keyboard('{Enter}');
     knife(root, 1).focus();
@@ -304,7 +311,11 @@ export const RectEighthsLandscapeMin: Story = {
   play: async ({ canvasElement, args }) => {
     const root = await findWidget(canvasElement, ROOT);
     await expect(knives(root)).toHaveLength(7);
-    await expectFitsArea(root, areaBox(canvasElement), 'g1-up', [...knives(root), check(root)]);
+    await expectFitsArea(root, areaBox(canvasElement), 'g1-up', [
+      ...knives(root),
+      check(root),
+      back(root),
+    ]);
     for (let i = 0; i < 7; i += 1) await userEvent.click(knife(root, i));
     await expectEqualShares(measuredShares(stage(root)), 8);
     await userEvent.click(check(root));
@@ -324,7 +335,11 @@ export const CircleEighthsOneKnifeK: Story = {
   play: async ({ canvasElement, args }) => {
     const root = await findWidget(canvasElement, ROOT);
     await expect(knives(root)).toHaveLength(1);
-    await expectFitsArea(root, areaBox(canvasElement), 'k', [...knives(root), check(root)]);
+    await expectFitsArea(root, areaBox(canvasElement), 'k', [
+      ...knives(root),
+      check(root),
+      back(root),
+    ]);
     for (let i = 0; i < 4; i += 1) {
       await expect(knives(root)[0]).toHaveAttribute('data-knife', String(i));
       await userEvent.click(knives(root)[0] as HTMLElement);
@@ -344,7 +359,11 @@ export const CircleEighthsTabletK: Story = {
   play: async ({ canvasElement, args }) => {
     const root = await findWidget(canvasElement, ROOT);
     await expect(knives(root)).toHaveLength(4);
-    await expectFitsArea(root, areaBox(canvasElement), 'k', [...knives(root), check(root)]);
+    await expectFitsArea(root, areaBox(canvasElement), 'k', [
+      ...knives(root),
+      check(root),
+      back(root),
+    ]);
     for (let i = 0; i < 4; i += 1) await userEvent.click(knife(root, i));
     await expectEqualShares(measuredShares(stage(root)), 8);
     await userEvent.click(check(root));
@@ -463,7 +482,7 @@ export const LoafNameTablet: Story = {
     await userEvent.click(within(root).getByRole('button', { name: '2' }));
     await userEvent.click(within(root).getByRole('button', { name: 'Bottom number' }));
     await userEvent.click(within(root).getByRole('button', { name: '3' }));
-    await expectFitsArea(root, areaBox(canvasElement), 'g1-up', [check(root)]);
+    await expectFitsArea(root, areaBox(canvasElement), 'g1-up', [check(root), back(root)]);
     await userEvent.click(check(root));
     await expect(lastResponse(args.onResponse)).toMatchObject({
       kind: 'state',
@@ -524,6 +543,7 @@ export const DemoInvite: Story = {
     inviteController.invite({ op: 'cut', args: { line: 0 } });
     await waitFor(() => expect(root.querySelector('.ni-fcut__knife.ni-invite')).not.toBeNull());
     await expectPointerOn(root.querySelector('.ni-hand') as HTMLElement, knife(root, 0), root);
+    await expectSingleInvite(root);
     await userEvent.click(knife(root, 0));
     inviteController.invite({ op: 'shade', args: { part: 1 } });
     await waitFor(() => expect(part(root, 1)).toHaveAttribute('data-invite', 'true'));
@@ -535,6 +555,7 @@ export const DemoInvite: Story = {
       part(root, 1) as unknown as HTMLElement,
       root,
     );
+    await expectSingleInvite(root);
     // The story ends in the invited state: the part's ring and Pip's hand stay visible.
     await expect(part(root, 1)).toHaveAttribute('data-invite', 'true');
     await expect(root.querySelector('.ni-hand') as HTMLElement).toBeVisible();
@@ -555,5 +576,94 @@ export const DemoReducedMotion: Story = {
     await expect(performance.now() - started).toBeLessThan(500);
     await expect(partEls(root)).toHaveLength(2);
     await expectFilled(root, 1);
+  },
+};
+
+// ---------- evidence audit: stress (twelfths) and K tap sizes ----------
+
+// Authored stress configs (K01 cuts up to eighths): a rect and a circle in twelfths.
+const rectTwelfths: Cut = { ...base, shape: 'rect', parts: 12 };
+const circleTwelfths: Cut = { ...base, shape: 'circle', parts: 12 };
+
+async function cutAllAndCheck(canvasElement: HTMLElement, parts: number, ageMode: 'k' | 'g1-up') {
+  const root = await findWidget(canvasElement, ROOT);
+  await expectFitsArea(root, areaBox(canvasElement), ageMode, [
+    ...knives(root),
+    check(root),
+    back(root),
+  ]);
+  // Every line cut through whichever knife shows (one per line, or one at a time).
+  for (let i = 0; i < 12 && knives(root).length > 0; i += 1) {
+    await userEvent.click(knives(root)[0] as HTMLElement);
+  }
+  await expect(knives(root)).toHaveLength(0);
+  await settle(root);
+  await expectEqualShares(measuredShares(stage(root)), parts);
+  // Cut apart, the parts still fit the area with no scroll.
+  await expectFitsArea(root, areaBox(canvasElement), ageMode, [check(root), back(root)]);
+  await userEvent.click(check(root));
+  return root;
+}
+
+/** Stress: a rect in twelfths (eleven lines) at the tablet area. */
+export const RectTwelfthsTablet: Story = {
+  args: { config: rectTwelfths },
+  render: inArea('tablet'),
+  play: async ({ canvasElement, args }) => {
+    await cutAllAndCheck(canvasElement, 12, 'g1-up');
+    await expectCorrect(lastResponse(args.onResponse), 12, 0);
+  },
+};
+
+/** Stress: a rect in twelfths at the smallest landscape area. */
+export const RectTwelfthsLandscapeMin: Story = {
+  args: { config: rectTwelfths },
+  render: inArea('landscapeMin'),
+  play: async ({ canvasElement, args }) => {
+    await cutAllAndCheck(canvasElement, 12, 'g1-up');
+    await expectCorrect(lastResponse(args.onResponse), 12, 0);
+  },
+};
+
+/** Stress: a circle in twelfths (six diameters), K, at the tablet area. */
+export const CircleTwelfthsTabletK: Story = {
+  globals: { ageMode: 'k' },
+  args: { config: circleTwelfths },
+  render: inArea('tablet'),
+  play: async ({ canvasElement, args }) => {
+    await cutAllAndCheck(canvasElement, 12, 'k');
+    await expectCorrect(lastResponse(args.onResponse), 12, 0);
+  },
+};
+
+/** Stress: a circle in twelfths, K, at the smallest landscape area (one knife at a time). */
+export const CircleTwelfthsLandscapeMinK: Story = {
+  globals: { ageMode: 'k' },
+  args: { config: circleTwelfths },
+  render: inArea('landscapeMin'),
+  play: async ({ canvasElement, args }) => {
+    await cutAllAndCheck(canvasElement, 12, 'k');
+    await expectCorrect(lastResponse(args.onResponse), 12, 0);
+  },
+};
+
+/**
+ * K at the smallest landscape area, a strip in fourths to fill one (FRA.01.t2 with den 4): every
+ * part the child taps is K-sized, 12 px apart, and clear of the tools.
+ */
+export const BarFourthsTapSizesK: Story = {
+  globals: { ageMode: 'k' },
+  args: { config: { ...barHalves, parts: 4 } },
+  render: inArea('landscapeMin'),
+  play: async ({ canvasElement }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    for (let i = 0; i < 3; i += 1) await userEvent.click(knife(root, i));
+    await settle(root);
+    await expectFitsArea(root, areaBox(canvasElement), 'k', [
+      ...partEls(root),
+      fill(root),
+      check(root),
+      back(root),
+    ]);
   },
 };

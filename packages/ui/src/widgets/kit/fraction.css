@@ -124,7 +124,8 @@
   align-items: center;
   color: var(--color-ink);
   font-family: var(--font-display);
-  font-size: var(--frac-digit, 2.25rem);
+  /* 53 px type: Baloo 2 digits are drawn ~0.62 em, so ≥ 32 px tall (05 §11). */
+  font-size: var(--frac-digit, 3.3rem);
   font-weight: 800;
   line-height: 1;
 }
@@ -179,7 +180,8 @@
   background: var(--color-cloud);
   color: var(--color-ink);
   font-family: var(--font-display);
-  font-size: var(--text-numeral);
+  /* 53 px: the drawn digits are ≥ 32 px tall (05 §11). */
+  font-size: 3.3rem;
   font-weight: 800;
   line-height: 1;
   cursor: pointer;
@@ -200,7 +202,8 @@
   outline-offset: 3px;
 }
 .ni-fentry__box.ni-invite {
-  outline-offset: 5px;
+  /* A tight ring (7 px out): 12 px clear of the other box, the pad and Check. */
+  outline-offset: 2px;
   border-radius: var(--radius-pebble);
 }
 .ni-fentry__digits {
@@ -235,7 +238,7 @@
   background: var(--color-cloud);
   color: var(--color-ink);
   font-family: var(--font-display);
-  font-size: var(--text-numeral);
+  font-size: 3.3rem;
   font-weight: 800;
   line-height: 1;
   box-shadow:
@@ -283,5 +286,5 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 16px;
+  gap: 20px;
 }

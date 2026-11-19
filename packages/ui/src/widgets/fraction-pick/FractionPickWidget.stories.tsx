@@ -6,6 +6,8 @@ import {
   areaBox,
   expectEqualShares,
   expectFitsArea,
+  expectNumeralInk,
+  expectSingleInvite,
   inArea,
   measuredShares,
 } from '../../test-support/fractionStoryArea';
@@ -311,9 +313,9 @@ export const NamePadsLandscapeMin: Story = {
     await userEvent.click(canvas.getByRole('button', { name: '3' }));
     await userEvent.click(bottom);
     await userEvent.click(canvas.getByRole('button', { name: '4' }));
-    for (const d of root.querySelectorAll('.ni-fentry__digits')) {
-      await expect(Number.parseFloat(getComputedStyle(d).fontSize)).toBeGreaterThanOrEqual(32);
-    }
+    // Typed digits and pad digits are drawn ≥ 32 px tall.
+    await expectNumeralInk(root.querySelectorAll('.ni-fentry__digits'));
+    await expectNumeralInk(root.querySelectorAll('.ni-fentry__digit'));
     await userEvent.click(check(root));
     await expect(args.onResponse).toHaveBeenCalledWith({ kind: 'numbers', values: [3, 4] });
     await expect(traceOf(args.onInteract).map((e) => `${e.t}:${e.target}`)).toEqual([
@@ -377,10 +379,13 @@ export const CompareAbstract: Story = {
     const root = await findWidget(canvasElement, ROOT);
     const options = cards(root);
     await expect(options.map((o) => o.getAttribute('aria-label'))).toEqual(['2/3', '2/6', '2/4']);
-    for (const n of root.querySelectorAll('.ni-frac-num > span')) {
-      await expect(Number.parseFloat(getComputedStyle(n).fontSize)).toBeGreaterThanOrEqual(32);
-    }
+    await expectNumeralInk(root.querySelectorAll('.ni-frac-num > span'));
     await expectPicturesTrue(root, compareSymbols);
+    // Compared pictures share one whole: every strip is drawn the same width.
+    const strips = cards(root).map((c) =>
+      Math.round((c.querySelector('svg') as SVGElement).getBoundingClientRect().width),
+    );
+    await expect(new Set(strips).size).toBe(1);
     await userEvent.click(options[0] as HTMLElement);
     await expect(audio.say).toHaveBeenCalledWith('ui.frac.over', { a: 2, b: 3 });
     await userEvent.click(check(root));
@@ -476,6 +481,7 @@ export const DemoInvite: Story = {
     await expect(invited).toHaveAttribute('data-id', 'pic-2');
     await expect(invited).toHaveAttribute('aria-pressed', 'false');
     await expectPointerOn(root.querySelector('.ni-hand') as HTMLElement, invited, root);
+    await expectSingleInvite(root);
     // The story ends in the invited state: the ring and Pip's hand stay visible.
     await expect(root.querySelector('.ni-hand') as HTMLElement).toBeVisible();
   },
@@ -513,4 +519,135 @@ export const DemoReducedMotion: Story = {
       'true',
     );
   },
+};
+
+// ---------- evidence audit: true scale, one invite, stress ----------
+
+const bar = (parts: number, shaded: number) =>
+  ({ kind: 'fraction', shape: 'bar', parts, shaded, equalParts: true }) as const;
+
+// Authored (frac.equiv is K02): which strip shows the same amount as 1/2?
+const equivalentBars: ConfigFor<'fraction-pick'> = {
+  format: 'fraction-pick',
+  mode: 'equivalent',
+  stimulus: bar(2, 1),
+  options: [
+    { id: 'a', stimulus: bar(4, 2) },
+    { id: 'b', stimulus: bar(3, 1) },
+    { id: 'c', stimulus: bar(4, 3) },
+  ],
+};
+
+/** The compared whole is drawn at the options' size: true relative scale (smallest landscape). */
+export const EquivalentTrueScaleLandscapeMin: Story = {
+  args: { config: equivalentBars },
+  render: inArea('landscapeMin'),
+  play: async ({ canvasElement, args }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    await expectFitsArea(root, areaBox(canvasElement), 'g1-up', [...cards(root), check(root)]);
+    const widths = [
+      root.querySelector('.ni-fpick__stimulus svg'),
+      ...cards(root).map((c) => c.querySelector('svg')),
+    ].map((s) => Math.round((s as SVGElement).getBoundingClientRect().width));
+    await expect(new Set(widths).size).toBe(1);
+    await userEvent.click(cards(root)[0] as HTMLElement);
+    await userEvent.click(check(root));
+    await expect(args.onResponse).toHaveBeenCalledWith({ kind: 'choice', id: 'a' });
+  },
+};
+
+const padInvite: WidgetDemo = createDemoController({ strict: true });
+
+/** Invite on the pads: one ring, on the top box, 12 px clear of the other box, the pad and Check. */
+export const DemoInviteNamePads: Story = {
+  globals: { ageMode: 'k' },
+  args: { config: namePads, tier: 'abstract', demo: padInvite },
+  render: inArea('landscapeMin'),
+  play: async ({ canvasElement }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    padInvite.invite({ op: 'answer', args: { values: [3, 4] } });
+    await waitFor(() => expect(root.querySelector('.ni-fentry__box.ni-invite')).not.toBeNull());
+    const box = root.querySelector('.ni-fentry__box.ni-invite') as HTMLElement;
+    await expect(box).toHaveAttribute('data-slot', '0');
+    await expectSingleInvite(root);
+    await expectPointerOn(root.querySelector('.ni-hand') as HTMLElement, box, root);
+    await expect(root.querySelector('.ni-hand') as HTMLElement).toBeVisible();
+  },
+};
+
+// Stress (authored): six pictures, halves to twelfths of one circle.
+const sixPictures: ConfigFor<'fraction-pick'> = {
+  format: 'fraction-pick',
+  mode: 'pick-picture',
+  options: [2, 3, 4, 6, 8, 12].map((parts, i) => ({
+    id: `pic-${i}`,
+    stimulus: { kind: 'fraction', shape: 'circle', parts, shaded: 1, equalParts: true } as const,
+  })),
+};
+
+async function expectSixFit(canvasElement: HTMLElement, ageMode: 'k' | 'g1-up') {
+  const root = await findWidget(canvasElement, ROOT);
+  await expect(cards(root)).toHaveLength(6);
+  await expectFitsArea(root, areaBox(canvasElement), ageMode, [...cards(root), check(root)]);
+  await expectPicturesTrue(root, sixPictures);
+  // One whole, six cuts: every circle is drawn the same size.
+  const widths = cards(root).map((c) =>
+    Math.round((c.querySelector('svg') as SVGElement).getBoundingClientRect().width),
+  );
+  await expect(new Set(widths).size).toBe(1);
+}
+
+/** Stress: six picture options (to twelfths) at the tablet area, K. */
+export const SixOptionsTabletK: Story = {
+  globals: { ageMode: 'k' },
+  args: { config: sixPictures },
+  render: inArea('tablet'),
+  play: async ({ canvasElement }) => expectSixFit(canvasElement, 'k'),
+};
+
+/** Stress: six picture options at the smallest landscape area. */
+export const SixOptionsLandscapeMin: Story = {
+  args: { config: sixPictures },
+  render: inArea('landscapeMin'),
+  play: async ({ canvasElement }) => expectSixFit(canvasElement, 'g1-up'),
+};
+
+// Stress (authored): two-digit stacked fractions.
+const longLabels: ConfigFor<'fraction-pick'> = {
+  format: 'fraction-pick',
+  mode: 'compare',
+  options: [
+    { id: 'a', label: '11/12', stimulus: bar(12, 11) },
+    { id: 'b', label: '7/12', stimulus: bar(12, 7) },
+    { id: 'c', label: '10/12', stimulus: bar(12, 10) },
+  ],
+};
+
+async function expectLongLabelsFit(canvasElement: HTMLElement) {
+  const root = await findWidget(canvasElement, ROOT);
+  await expectFitsArea(root, areaBox(canvasElement), 'g1-up', [...cards(root), check(root)]);
+  // The stacked numerals: their drawn digits are ≥ 32 px tall.
+  await expectNumeralInk(root.querySelectorAll('.ni-frac-num > span'));
+  // Every stacked numeral stays inside its card.
+  for (const c of cards(root)) {
+    const cr = c.getBoundingClientRect();
+    const nr = (c.querySelector('.ni-frac-num') as HTMLElement).getBoundingClientRect();
+    await expect(nr.left).toBeGreaterThanOrEqual(cr.left);
+    await expect(nr.right).toBeLessThanOrEqual(cr.right);
+  }
+  await expectPicturesTrue(root, longLabels);
+}
+
+/** Stress: two-digit fractions (twelfths) in the abstract tier, tablet area. */
+export const LongLabelsTablet: Story = {
+  args: { config: longLabels, tier: 'abstract' },
+  render: inArea('tablet'),
+  play: async ({ canvasElement }) => expectLongLabelsFit(canvasElement),
+};
+
+/** Stress: two-digit fractions at the smallest landscape area. */
+export const LongLabelsLandscapeMin: Story = {
+  args: { config: longLabels, tier: 'abstract' },
+  render: inArea('landscapeMin'),
+  play: async ({ canvasElement }) => expectLongLabelsFit(canvasElement),
 };

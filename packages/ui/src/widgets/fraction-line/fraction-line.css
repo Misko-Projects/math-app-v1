@@ -64,7 +64,7 @@
 .ni-fline__num {
   fill: var(--color-ink);
   font-family: var(--font-display);
-  font-size: 36px;
+  font-size: 52px;
   font-weight: 800;
 }
 .ni-fline__bar {
@@ -116,9 +116,15 @@
   stroke-linejoin: round;
 }
 .ni-fline__flag circle {
-  fill: var(--color-coral);
-  stroke: var(--color-ink);
-  stroke-width: 3;
+  /* An open ring: the tick inside it stays visible. */
+  fill: none;
+  stroke: var(--color-coral-deep);
+  stroke-width: 4;
+}
+.ni-fline__stem {
+  stroke: var(--color-coral-deep);
+  stroke-width: 4;
+  stroke-linecap: round;
 }
 
 /* Mark handles: a pin above each mark (tap to take it away, drag to move it). */

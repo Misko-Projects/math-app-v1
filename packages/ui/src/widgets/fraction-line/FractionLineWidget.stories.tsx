@@ -2,7 +2,13 @@ import { stateChecker } from '@number-island/engine';
 import type { ResponseValue, WidgetConfig } from '@number-island/shared';
 import type { Meta, StoryObj } from '@storybook/react-vite';
 import { expect, fn, userEvent, waitFor, within } from 'storybook/test';
-import { areaBox, expectFitsArea, inArea } from '../../test-support/fractionStoryArea';
+import {
+  areaBox,
+  expectFitsArea,
+  expectNumeralInk,
+  expectSingleInvite,
+  inArea,
+} from '../../test-support/fractionStoryArea';
 import { expectTargetGaps, expectTargetSize, pointerDrag } from '../../test-support/storyHelpers';
 import {
   expectPointerOn,
@@ -130,13 +136,11 @@ async function expectTicksExact(root: HTMLElement, den: number, max: number) {
   }
 }
 
-/** Every numeral on the line is ≥ 32 px. */
+/** Every numeral on the line has digits drawn ≥ 32 px tall (measured from the rendered glyphs). */
 async function expectBigNumerals(root: HTMLElement, at = 1) {
   const nums = [...root.querySelectorAll<SVGTextElement>('.ni-fline__num')];
   await expect(nums.length).toBeGreaterThanOrEqual(at);
-  for (const n of nums) {
-    await expect(Number.parseFloat(getComputedStyle(n).fontSize)).toBeGreaterThanOrEqual(32);
-  }
+  await expectNumeralInk(nums);
 }
 
 /** A tap on the stage at a value. */
@@ -274,6 +278,14 @@ export const PlaceDragLandscapeMin: Story = {
     await expectFitsArea(root, areaBox(canvasElement), 'g1-up', [dot, check(root)]);
     await expectTicksExact(root, 4, 1);
     await pointerDrag(dot, scaleOf(root, 1).at(0.72), 'touch');
+    // The placed dot stands above the ticks on a stem: it covers none of them.
+    const dotBox = (
+      root.querySelector('.ni-fline__dot--on') as HTMLElement
+    ).getBoundingClientRect();
+    const tickTop = Math.min(
+      ...[...root.querySelectorAll('line[data-tick]')].map((t) => t.getBoundingClientRect().top),
+    );
+    await expect(dotBox.bottom).toBeLessThanOrEqual(tickTop);
     await userEvent.click(check(root));
     await expect(lastResponse(args.onResponse)).toEqual({ kind: 'placement', value: 0.75 });
     await expect(traceOf(args.onInteract).map((e) => `${e.t}:${e.target}`)).toEqual([
@@ -290,6 +302,7 @@ export const PlaceKeyboardThirds: Story = {
     const root = await findWidget(canvasElement, ROOT);
     await expectTicksExact(root, 3, 2);
     await expectBigNumerals(root, 5);
+    await expectLabelsClear(root);
     const range = within(root).getByRole('slider', { name: 'The number line' });
     range.focus();
     for (let i = 0; i < 4; i += 1) await userEvent.keyboard('{ArrowRight}');
@@ -321,6 +334,7 @@ export const ReadRulerLandscapeMin: Story = {
     ]);
     await expectTicksExact(root, 4, 1);
     await expectBigNumerals(root, 5);
+    await expectLabelsClear(root);
     await expect(root.querySelector('.ni-fline__flag')).toHaveAttribute('data-at', '0.75');
     await userEvent.click(top);
     await userEvent.click(canvas.getByRole('button', { name: '3' }));
@@ -427,6 +441,7 @@ export const DemoInvite: Story = {
     await expect(r.top).toBeGreaterThanOrEqual(strip.top - 1);
     await expect(r.bottom).toBeLessThanOrEqual(strip.bottom + 1);
     await expectPointerOn(root.querySelector('.ni-hand') as HTMLElement, spot, root);
+    await expectSingleInvite(root);
     // The story ends in the invited state: the ring and Pip's hand stay visible.
     await expect(spot).toBeVisible();
     await expect(root.querySelector('.ni-hand') as HTMLElement).toBeVisible();
@@ -459,5 +474,91 @@ export const EighthsPinsK: Story = {
     await expect(marks(root)).toHaveLength(7);
     for (const m of marks(root)) await expectTargetSize(m, 'k');
     await expectTargetGaps(marks(root));
+  },
+};
+
+// ---------- evidence audit: labels clear, stress ----------
+
+/**
+ * Labels sit outside the line, below the band or ticks they name (≥ 12 px), and never touch each
+ * other (≥ 12 px apart), as drawn.
+ */
+async function expectLabelsClear(root: HTMLElement) {
+  const labels = [
+    ...root.querySelectorAll<SVGGraphicsElement>(
+      '.ni-fline__labels > .ni-fline__frac, .ni-fline__labels > text',
+    ),
+  ].map((l) => l.getBoundingClientRect());
+  await expect(labels.length).toBeGreaterThan(0);
+  const bottoms = [
+    ...root.querySelectorAll<SVGGraphicsElement>(
+      'line[data-tick], .ni-fline__strip, .ni-fline__ruler, .ni-fline__axis',
+    ),
+  ].map((t) => t.getBoundingClientRect().bottom);
+  const lineBottom = Math.max(...bottoms);
+  // Vertical clearance from the DRAWN digits (the text line box includes the font's tall ascent):
+  // the top of the ink is the baseline minus the digits' measured ascent.
+  const ctx = document.createElement('canvas').getContext('2d') as CanvasRenderingContext2D;
+  for (const text of root.querySelectorAll<SVGTextElement>('.ni-fline__labels text')) {
+    const cs = getComputedStyle(text);
+    ctx.font = `${cs.fontWeight} ${cs.fontSize} ${cs.fontFamily}`;
+    const ascent = ctx.measureText(text.textContent ?? '0').actualBoundingBoxAscent;
+    const svgTop = (text.ownerSVGElement as SVGSVGElement).getBoundingClientRect().top;
+    const baseline = svgTop + (text.y.baseVal.getItem(0)?.value ?? 0);
+    await expect(baseline - ascent - lineBottom, 'label clear of the line').toBeGreaterThanOrEqual(
+      11.5,
+    );
+  }
+  const sorted = [...labels].sort((a, b) => a.left - b.left);
+  for (let i = 1; i < sorted.length; i += 1) {
+    const a = sorted[i - 1] as DOMRect;
+    const b = sorted[i] as DOMRect;
+    await expect(b.left - a.right, 'labels apart').toBeGreaterThanOrEqual(11.5);
+  }
+}
+
+// Stress (authored): a line to 3 in twelfths, every tick labelled where it fits.
+const twelfthsToThree: Line = {
+  ...base,
+  max: 3,
+  denominator: 12,
+  labels: 'all',
+  mode: 'place',
+  target: { a: 30, b: 12 },
+};
+
+async function expectTwelfthsFit(canvasElement: HTMLElement, ageMode: 'k' | 'g1-up') {
+  const root = await findWidget(canvasElement, ROOT);
+  const dot = within(root).getByRole('button', { name: 'Your dot' });
+  await expectFitsArea(root, areaBox(canvasElement), ageMode, [dot, check(root)]);
+  await expectTicksExact(root, 12, 3);
+  await expectBigNumerals(root, 4);
+  await expectLabelsClear(root);
+}
+
+/** Stress: 0 to 3 in twelfths (37 ticks), labels thinned to fit, at the tablet area. */
+export const TwelfthsToThreeTablet: Story = {
+  args: { config: twelfthsToThree },
+  render: inArea('tablet'),
+  play: async ({ canvasElement }) => expectTwelfthsFit(canvasElement, 'g1-up'),
+};
+
+/** Stress: the same at the smallest landscape area, K. */
+export const TwelfthsToThreeLandscapeMinK: Story = {
+  globals: { ageMode: 'k' },
+  args: { config: twelfthsToThree },
+  render: inArea('landscapeMin'),
+  play: async ({ canvasElement }) => expectTwelfthsFit(canvasElement, 'k'),
+};
+
+/** Stress: a strip marked into twelfths, K, smallest landscape area: twelve pins fit, spaced. */
+export const TwelfthsMarksLandscapeMin: Story = {
+  args: { config: { ...stripHalves, denominator: 12 } },
+  render: inArea('landscapeMin'),
+  play: async ({ canvasElement }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    for (let k = 1; k < 12; k += 2) await tapAt(root, k / 12, 1);
+    await expect(marks(root)).toHaveLength(6);
+    await expectFitsArea(root, areaBox(canvasElement), 'g1-up', [...marks(root), check(root)]);
   },
 };
