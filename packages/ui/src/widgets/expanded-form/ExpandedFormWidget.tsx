@@ -728,6 +728,9 @@ export function ExpandedFormWidget({
 
   const card = (id: string, v: number, where: 'tray' | 'mat', label: string) => {
     const props = dnd.itemProps(id, { label });
+    const pictorial = tier !== 'abstract';
+    // A ones card's picture is a row of legible unit cubes: the card widens to hold five.
+    const onesCue = pictorial && isPlaceValue(v)?.power === 0;
     return (
       <span className="ni-efw__cardslot" key={id}>
         <div
@@ -737,8 +740,9 @@ export function ExpandedFormWidget({
             .join(' ')}
           data-in={where}
           data-card={v}
+          data-ones-cue={onesCue ? 'true' : undefined}
         >
-          <CardFace value={v} pictorial={tier !== 'abstract'} />
+          <CardFace value={v} pictorial={pictorial} />
         </div>
         {invited === id ? <Hand /> : null}
       </span>

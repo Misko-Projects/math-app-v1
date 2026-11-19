@@ -265,6 +265,33 @@ async function expectLinesAligned(cards: HTMLElement[]) {
   }
 }
 
+/**
+ * The ones cue on pictorial cards is legible or absent: every unit cube is ≥ 12 px (≥ 16 px in
+ * K), in rows of at most five, inside its card. Returns how many cubes were checked.
+ */
+async function expectOnesCueLegible(root: HTMLElement, ageMode: 'k' | 'g1-up') {
+  const min = ageMode === 'k' ? 16 : 12;
+  let checked = 0;
+  for (const cue of root.querySelectorAll<HTMLElement>('.ni-efw__glyphs[data-place="0"]')) {
+    if (cue.getBoundingClientRect().width === 0) continue; // hidden (stacked cards)
+    const card = cue.closest('.ni-efw__card') as HTMLElement;
+    const box = card.getBoundingClientRect();
+    const rows = new Map<number, number>();
+    for (const cube of cue.querySelectorAll<HTMLElement>('.ni-efw__glyph')) {
+      const r = cube.getBoundingClientRect();
+      await expect(r.width, `ones cube on ${card.dataset.card}`).toBeGreaterThanOrEqual(min - 0.5);
+      await expect(r.height, `ones cube on ${card.dataset.card}`).toBeGreaterThanOrEqual(min - 0.5);
+      await expect(r.left).toBeGreaterThanOrEqual(box.left);
+      await expect(r.right).toBeLessThanOrEqual(box.right);
+      const top = Math.round(r.top);
+      rows.set(top, (rows.get(top) ?? 0) + 1);
+      checked += 1;
+    }
+    for (const n of rows.values()) await expect(n).toBeLessThanOrEqual(5);
+  }
+  return checked;
+}
+
 /** A numeral reads as one number: each digit starts where the previous one ends (± 2 px). */
 async function expectTightDigits(numeral: HTMLElement, digitSelector: string) {
   const digits = [...numeral.querySelectorAll<HTMLElement>(digitSelector)].map((d) =>
@@ -308,6 +335,8 @@ export const Build: Story = {
     await expect(
       trayCard(root, 300).querySelectorAll('.ni-efw__glyph[data-place="2"]'),
     ).toHaveLength(3);
+    // Five legible unit cubes on the 5 card (≥ 12 px each, one row).
+    await expect(await expectOnesCueLegible(root, 'g1-up')).toBe(5);
     // Numbers read as one number: tight digits in the target and on every card.
     await expectTightDigits(root.querySelector('.ni-efw__number') as HTMLElement, '.ni-efw__nd');
     for (const c of cards) await expectTightDigits(c, '.ni-efw__cell');
@@ -357,6 +386,7 @@ export const BuildInProgress: Story = {
     await expect(matCards(root).map((c) => c.dataset.card)).toEqual(['300', '40']);
     await expectLinesAligned(matCards(root));
     await expectLinesAligned(trayCards(root));
+    await expect(await expectOnesCueLegible(root, 'g1-up')).toBe(5);
     await expect(checkButton(root)).toBeEnabled();
     await expect(args.onResponse).not.toHaveBeenCalled();
     await expectFits(canvasElement, root);
@@ -386,6 +416,8 @@ export const BuildK: Story = {
     await expectTargetGaps(matCards(root));
     await expectLinesAligned(matCards(root));
     await expectLinesAligned(trayCards(root));
+    // K: unit cubes ≥ 16 px on the 4 card (4) and the 1 card (1), never a dot.
+    await expect(await expectOnesCueLegible(root, 'k')).toBe(5);
     await userEvent.click(check);
     await expect(args.onResponse).toHaveBeenCalledWith({ kind: 'numbers', values: [10, 4] });
     await expectFits(canvasElement, root);
@@ -892,7 +924,9 @@ export const Stress: Story = {
     for (const c of cards) await expectTargetSize(c, 'g1-up');
     await expectTargetGaps(cards);
     await expectLinesAligned(cards);
+    await expect(await expectOnesCueLegible(root, 'g1-up')).toBe(5);
     for (const v of [3000, 400, 5]) await tapPlace(root, v);
+    await expect(await expectOnesCueLegible(root, 'g1-up')).toBe(5);
     await expect(matCards(root).map((c) => c.dataset.card)).toEqual(['3000', '400', '5']);
     await expect(trayCards(root).map((c) => c.dataset.card)).toEqual([
       '300',
@@ -979,6 +1013,7 @@ export const BankEmpty: Story = {
     const spot = cue.getBoundingClientRect();
     await expect(spot.top).toBeGreaterThanOrEqual(tray.top);
     await expect(spot.bottom).toBeLessThanOrEqual(tray.bottom);
+    await expect(await expectOnesCueLegible(root, 'g1-up')).toBe(5);
     // Nothing reads as off: solid cards, an enabled check.
     for (const c of matCards(root)) {
       await expect(getComputedStyle(c).borderStyle).toBe('solid');

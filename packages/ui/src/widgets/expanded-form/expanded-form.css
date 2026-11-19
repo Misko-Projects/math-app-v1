@@ -11,6 +11,10 @@
   --ef-card-h: calc(var(--target-min) * 1.15);
   /* Card side padding: the right one is shared by every card, so stacked digits share columns. */
   --ef-pad: 14px;
+  /* A ones cube on a card: ≥ 12 px (G1+), 16 px in K (0.2 × --target-min), rows of up to 5. */
+  --ef-unit: calc(var(--target-min) * 0.2);
+  --ef-unit-gap: 4px;
+  --ef-units-row: calc(5 * var(--ef-unit) + 4 * var(--ef-unit-gap));
 
   display: flex;
   flex-direction: column;
@@ -346,9 +350,22 @@
   border-radius: 2px;
   background: var(--color-shallows);
 }
+/*
+ * Ones: legible unit cubes (rounded squares with a light top face, like the base-ten art), in
+ * rows of up to 5 (9 → 5 + 4). A ones card is wide enough for a full row of five.
+ */
+.ni-efw__glyphs[data-place="0"] {
+  gap: var(--ef-unit-gap);
+  max-width: var(--ef-units-row);
+}
+.ni-efw__card[data-ones-cue="true"] {
+  min-width: calc(var(--ef-units-row) + 2 * var(--ef-pad) + 8px);
+}
 .ni-efw__glyph[data-place="0"] {
-  width: 8px;
-  height: 8px;
+  width: var(--ef-unit);
+  height: var(--ef-unit);
+  border-radius: 3px;
+  box-shadow: inset 0 3px 0 rgb(255 255 255 / 0.55);
 }
 .ni-efw__glyph[data-place="1"] {
   width: 8px;
