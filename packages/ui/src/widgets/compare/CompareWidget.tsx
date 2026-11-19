@@ -378,8 +378,12 @@ function planLayout(opts: {
     : mid.w > 0
       ? (['beside'] as const)
       : (['beside', 'stack', 'stack-beside'] as const);
+  // An arrangement must hold its answer controls: a column beside the sides no taller than the
+  // room, a row below no wider.
+  const holds = (a: Exclude<Arrange, 'match'>) =>
+    a === 'beside' || a === 'stack-beside' ? col.h <= H + 0.5 : row.w <= W + 0.5;
   for (const a of others) {
-    if (score(a) > score(best) * 1.15) best = a;
+    if (holds(a) && (!holds(best) || score(a) > score(best) * 1.15)) best = a;
   }
   return {
     arrange: best,

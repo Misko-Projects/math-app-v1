@@ -626,10 +626,13 @@ export const OperandObjectsK: Story = {
     clearSpies(audio);
     const root = await findWidget(canvasElement, ROOT);
     const canvas = within(root);
+    await expect(root).toHaveAttribute('data-mode', 'sides');
+    await expectCompareFits(canvasElement, root, 'k');
     await userEvent.click(canvas.getByRole('button', { name: 'Left side: Shell' }));
     await expect(audio.say).toHaveBeenCalledWith('ui.sprite.shell', undefined);
     await expect(canvas.getByRole('button', { name: 'Check' })).toBeDisabled();
     await expect(traceOf(args.onInteract).map((e) => e.target)).toEqual(['side-left']);
+    (document.activeElement as HTMLElement | null)?.blur();
   },
 };
 
