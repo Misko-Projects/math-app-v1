@@ -63,7 +63,8 @@ describe('<ChildHomePage>', () => {
   it('greets the child once, with a replay button and a Home button', async () => {
     const { say } = await renderHome();
     expect(await screen.findByTestId('child-home')).toBeTruthy();
-    expect(say).toHaveBeenCalledWith('ui.home.hello', undefined);
+    // Spoken from an effect once the session is ready: wait for it rather than racing it.
+    await vi.waitFor(() => expect(say).toHaveBeenCalledWith('ui.home.hello', undefined));
     say.mockClear();
     fireEvent.click(screen.getByRole('button', { name: 'Hear it again' }));
     expect(say).toHaveBeenCalledWith('ui.home.hello', undefined);
