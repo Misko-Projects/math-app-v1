@@ -4,6 +4,7 @@ import { expect, fn, userEvent, waitFor, within } from 'storybook/test';
 import {
   center,
   clearSpies,
+  expectAreaCentred,
   expectTargetGaps,
   expectTargetSize,
   pointerDrag,
@@ -131,6 +132,8 @@ const meta = {
   },
   parameters: { ui: { stage: 'centered' } },
   render: renderWidget,
+  // Every area story's card is centred in the stage on both axes.
+  afterEach: async ({ canvasElement }) => expectAreaCentred(canvasElement),
 } satisfies Meta<WidgetHostProps>;
 
 export default meta;

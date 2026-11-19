@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { expect, fn, userEvent, waitFor, within } from 'storybook/test';
 import {
   clearSpies,
+  expectAreaCentred,
   expectTargetGaps,
   expectTargetSize,
   spyAudio,
@@ -114,6 +115,8 @@ const meta = {
   },
   parameters: { ui: { stage: 'centered' } },
   render: renderWidget,
+  // Every area story's card is centred in the stage on both axes.
+  afterEach: async ({ canvasElement }) => expectAreaCentred(canvasElement),
 } satisfies Meta<WidgetHostProps>;
 
 export default meta;
@@ -966,7 +969,7 @@ async function expectKeyboardCountingOrder(
 export const OrdinalKTablet: Story = {
   globals: { ageMode: 'k' },
   args: { config: ordinalShells },
-  parameters: { area: widgetArea(1280, 800), ui: { stage: 'flush' } },
+  parameters: { area: widgetArea(1280, 800) },
   render: renderInArea,
   play: async ({ canvasElement, args }) => {
     const root = await findWidget(canvasElement, ROOT);
