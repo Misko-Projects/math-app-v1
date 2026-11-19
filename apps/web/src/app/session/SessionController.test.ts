@@ -195,12 +195,14 @@ async function setup(
   const timers = fakeTimers();
   const vis = fakeVisibility();
   const storage = memoryStorage();
-  const make = (o: { store?: SessionStore; locks?: SessionLocks | null } = {}) => {
+  const make = (
+    o: { store?: SessionStore; locks?: SessionLocks | null; storage?: CheckpointStorage } = {},
+  ) => {
     const c = new SessionController({
       store: o.store ?? store,
       timers: timers.timers,
       visibility: vis.visibility,
-      storage,
+      storage: o.storage ?? storage,
       locks: o.locks === undefined ? locks : o.locks,
     });
     controllers.push(c);
@@ -554,7 +556,10 @@ describe('SessionController', () => {
       const other = s.make();
       expect(await other.closeAbandoned()).toBe(0);
       held.clear(); // the playing tab dies
-      expect(await other.closeAbandoned()).toBe(1); // no checkpoint: nothing says it is alive
+      // A start this recent is left open even without a checkpoint (its tab may not have saved one).
+      expect(await other.closeAbandoned()).toBe(0);
+      s.env.clock.advance(QUIET);
+      expect(await other.closeAbandoned()).toBe(1); // no checkpoint, an old start: nothing says it is alive
       const ended = (await s.sessionEvents()).find((e) => e.type === 'session.ended');
       expect(ended?.payload).toMatchObject({ reason: 'abandoned', activeMs: 0 });
 
@@ -661,43 +666,60 @@ describe('SessionController', () => {
       expect(checkpoints).toHaveLength(2);
     });
 
-    it('a sweep between a lockless start’s write and its play leaves the session alone', async () => {
-      const { locks } = fakeLocks();
-      const failing: SessionLocks = {
-        acquire: () => Promise.reject(new Error('locks unavailable')),
-      };
-      const s = await setup({ locks });
-      // Tab A's session.started commits, then its start pauses before it plays.
-      const afterCommit = gate();
-      afterCommit.close();
-      const committing: SessionStore = {
-        now: () => s.store.now(),
-        device: () => s.store.device(),
-        familySettings: () => s.store.familySettings(),
-        childSettings: (id) => s.store.childSettings(id),
-        events: () => s.store.events(),
-        append: (async (type, payload, meta) => {
-          const result = await s.store.append(type, payload, meta);
-          if (type === 'session.started') await afterCommit.wait();
-          return result;
-        }) as DataStore['append'],
-      };
-      const tabA = s.make({ store: committing, locks: failing });
-      const pending = tabA.start(CHILD_K);
-      await vi.waitFor(async () =>
-        expect((await s.sessionEvents()).map((e) => e.type)).toEqual(['session.started']),
-      );
-      // Tab B takes the free lock and sweeps in that window.
-      expect(await s.controller.closeAbandoned()).toBe(0);
-      afterCommit.open();
-      expect(await pending).toMatchObject({ ok: true });
-      expect(tabA.getSnapshot().status).toBe('active');
-      await tabA.end('child-exit');
-      const ended = (await s.sessionEvents()).filter((e) => e.type === 'session.ended');
-      expect(ended.map((e) => e.payload)).toEqual([
-        expect.objectContaining({ reason: 'child-exit' }),
-      ]);
-    });
+    const failingStorage: CheckpointStorage = {
+      getItem: () => null,
+      setItem: () => {
+        throw new Error('QuotaExceededError');
+      },
+      removeItem: () => {},
+    };
+    it.each([
+      ['its checkpoint saved', undefined],
+      ['its checkpoint write failing', failingStorage],
+    ])(
+      'a sweep between a lockless start’s write and its play leaves the session alone (%s)',
+      async (_, tabStorage) => {
+        const { locks } = fakeLocks();
+        const failing: SessionLocks = {
+          acquire: () => Promise.reject(new Error('locks unavailable')),
+        };
+        const s = await setup({ locks });
+        // Tab A's session.started commits, then its start pauses before it plays.
+        const afterCommit = gate();
+        afterCommit.close();
+        const committing: SessionStore = {
+          now: () => s.store.now(),
+          device: () => s.store.device(),
+          familySettings: () => s.store.familySettings(),
+          childSettings: (id) => s.store.childSettings(id),
+          events: () => s.store.events(),
+          append: (async (type, payload, meta) => {
+            const result = await s.store.append(type, payload, meta);
+            if (type === 'session.started') await afterCommit.wait();
+            return result;
+          }) as DataStore['append'],
+        };
+        const tabA = s.make({
+          store: committing,
+          locks: failing,
+          ...(tabStorage ? { storage: tabStorage } : {}),
+        });
+        const pending = tabA.start(CHILD_K);
+        await vi.waitFor(async () =>
+          expect((await s.sessionEvents()).map((e) => e.type)).toEqual(['session.started']),
+        );
+        // Tab B takes the free lock and sweeps in that window.
+        expect(await s.controller.closeAbandoned()).toBe(0);
+        afterCommit.open();
+        expect(await pending).toMatchObject({ ok: true });
+        expect(tabA.getSnapshot().status).toBe('active');
+        await tabA.end('child-exit');
+        const ended = (await s.sessionEvents()).filter((e) => e.type === 'session.ended');
+        expect(ended.map((e) => e.payload)).toEqual([
+          expect.objectContaining({ reason: 'child-exit' }),
+        ]);
+      },
+    );
 
     it('a start whose write fails leaves no checkpoint behind', async () => {
       const s = await setup();

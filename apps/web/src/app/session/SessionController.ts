@@ -584,8 +584,11 @@ export class SessionController {
       if (ended.has(key) || this.#running?.session.sessionId === sessionId) continue;
       const cp = this.#readCheckpoint(sessionId);
       // A checkpoint saved recently means some tab may still be playing it (one whose lock request
-      // failed, or a browser without Web Locks): leave it open; plans count its time.
-      if (cp && this.#now() - cp.at < LIVE_CHECKPOINT_MS) continue;
+      // failed, or a browser without Web Locks): leave it open; plans count its time. A session
+      // that started recently is left open too, checkpoint or not: its tab may not have saved one
+      // yet, or can't (no storage, or a failed write). This device's own clock stamped the start.
+      const startedAt = e.clientTs ?? e.ts;
+      if (this.#now() - (cp?.at ?? startedAt) < LIVE_CHECKPOINT_MS) continue;
       ended.add(key);
       const activeMs = Math.round(cp?.activeMs ?? 0);
       try {
