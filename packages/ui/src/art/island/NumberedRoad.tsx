@@ -2,7 +2,7 @@ import type { IslandDef } from '@number-island/shared';
 import { useMemo } from 'react';
 import { paint } from '../core/paint';
 import { type StonePlacement, smoothPath } from './geometry';
-import { RoadStoneMark } from './RoadStone';
+import { RoadStoneMark, TenFlag } from './RoadStone';
 import {
   beadLine,
   NEXT_HIT_RADIUS,
@@ -202,6 +202,11 @@ function Signpost({ sign }: { sign: RoadSign }) {
         strokeWidth={postWidth}
         strokeLinecap="butt"
       />
+      {/* A ten flies the stone's leaf flag, a hundred its coral flag with a dot (as on the stones),
+          its pole tucked behind the plaque's top right corner. */}
+      {n % 10 === 0 ? (
+        <TenFlag x={x + w / 2 - 8} y={y - h / 2 + 2} hundred={n % 100 === 0} />
+      ) : null}
       <rect
         x={x - w / 2}
         y={y - h / 2}

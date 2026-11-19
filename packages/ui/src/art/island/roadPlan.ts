@@ -388,14 +388,24 @@ export function planRoad({
   const highlights = beads
     .filter((b) => b.pin)
     .sort((a, b) => Number(b.state === 'counting') - Number(a.state === 'counting'));
+  // A landmark is every tenth stone of its stretch: the tens and hundreds where the road counts
+  // by ones, the hundreds where it counts by tens (05 §3: counting on by tens has landmarks).
+  const stepBefore = new Map<number, number>();
+  for (const [i, st] of road.entries()) {
+    stepBefore.set(st.n, i > 0 ? st.n - (road[i - 1]?.n ?? 0) : 1);
+  }
+  const landmark = (n: number, every: number) => {
+    const step = stepBefore.get(n) ?? 1;
+    return n % (every * step) === 0;
+  };
   const rank = (b: RoadBead) =>
     b.pin || b.state === 'planned' || b.state === 'next'
       ? 9
       : b.n === 1
         ? 2
-        : b.n % 100 === 0
+        : landmark(b.n, 100)
           ? 3
-          : b.n % 10 === 0
+          : landmark(b.n, 10)
             ? 4
             : 9;
   const wanted = beads.filter((b) => rank(b) < 9).sort((a, b) => rank(a) - rank(b) || a.n - b.n);
@@ -407,13 +417,31 @@ export function planRoad({
     }
     return placed;
   };
+  // Is a box wholly on land (all its corners on land plots)? Without a land test, anywhere is.
+  const { padX, skyH, padTop, cellW, cellH } = ISLAND_LAYOUT;
+  const landAt = (x: number, y: number) =>
+    !onLand ||
+    onLand({
+      n: 0,
+      x,
+      y,
+      plot: [Math.floor((x - padX) / cellW), Math.floor((y - skyH - padTop) / cellH)],
+    } as StonePlacement);
+  const boxOnLand = (b: StoneExtent) =>
+    landAt(b.left, b.top) &&
+    landAt(b.right, b.top) &&
+    landAt(b.left, b.bottom) &&
+    landAt(b.right, b.bottom);
   const stonesFirst = () => {
-    const stones = placeHighlights(highlights, scale, index, []);
+    const stones = placeHighlights(highlights, scale, index, [], boxOnLand);
     return { stones, signs: placeSigns(stones.map(stoneObstacle)) };
   };
   const signsFirst = () => {
     const signs = placeSigns([]);
-    return { stones: placeHighlights(highlights, scale, index, signs.map(signObstacle)), signs };
+    return {
+      stones: placeHighlights(highlights, scale, index, signs.map(signObstacle), boxOnLand),
+      signs,
+    };
   };
   const onRoad = (r: { stones: PlannedStone[] }) => r.stones.filter((st) => !st.callout).length;
   let best = stonesFirst();
@@ -444,6 +472,10 @@ const SIGN_LEANS = [0, -1, 1, -2, 2, -3, 3, -4, 4, -5, 5, -6, 6];
 const SIGN_H = 32;
 const SIGN_DIGIT_W = 14;
 const SIGN_PAD = 20;
+/** How far a signpost's flag reaches above and right of its plaque. */
+const SIGN_FLAG = 15;
+/** The most places a signpost tries, nearest first. */
+const SIGN_TRIES = 300;
 
 /**
  * Something a signpost or stem keeps clear of: its box; for a bead the disc it draws; for a
@@ -455,6 +487,8 @@ interface Obstacle {
   disc?: { x: number; y: number; r: number };
   points?: Point[];
   pw?: number;
+  /** Extra clear space kept from it (a stone beside the road, a signpost: they never crowd). */
+  gap?: number;
 }
 
 /** Obstacles bucketed by 50-unit cells (their box, and their stem's points), for local queries. */
@@ -505,19 +539,43 @@ function spanOf(box: StoneExtent, points: readonly Point[]): StoneExtent {
   };
 }
 
+/** The box around a straight post or stem from `a` to `b`. */
+function lineSpan(a: Point, b: Point): StoneExtent {
+  return {
+    left: Math.min(a.x, b.x),
+    right: Math.max(a.x, b.x),
+    top: Math.min(a.y, b.y),
+    bottom: Math.max(a.y, b.y),
+  };
+}
+
+/** True when a post or stem (its points, half-width `half`) comes too near an obstacle. */
+function lineClashes(
+  o: Obstacle,
+  points: readonly Point[],
+  span: StoneExtent,
+  half: number,
+): boolean {
+  // Only an obstacle whose box (or stem) reaches the line's own box can touch it.
+  const reach = half + 2 + (o.gap ?? 0) + (o.pw ?? 0);
+  const oSpan = o.points?.length ? spanOf(o.box, o.points) : o.box;
+  if (!boxesTouch(oSpan, span, reach)) return false;
+  return points.some((p) => lineHits(o, p, half));
+}
+
 /** True when a line point of half-width `half` comes too near an obstacle. */
 function lineHits(o: Obstacle, p: Point, half: number): boolean {
   if (o.disc) return Math.hypot(p.x - o.disc.x, p.y - o.disc.y) < o.disc.r + half + 0.2;
-  if (near(o.box, p, half + 1.5)) return true;
+  if (near(o.box, p, half + 1.5 + (o.gap ?? 0))) return true;
   const ow = (o.pw ?? 0) / 2;
   return (o.points ?? []).some((q) => Math.hypot(p.x - q.x, p.y - q.y) < ow + half + 0.3);
 }
 
 /** True when a box (a plaque or a stone) comes too near an obstacle. */
 function boxHits(o: Obstacle, box: StoneExtent, clearance: number): boolean {
-  if (boxesTouch(o.box, box, clearance)) return true;
+  if (boxesTouch(o.box, box, Math.max(clearance, o.gap ?? 0))) return true;
   const ow = (o.pw ?? 0) / 2;
-  return (o.points ?? []).some((q) => near(box, q, ow + 1.5));
+  return (o.points ?? []).some((q) => near(box, q, ow + 1.5 + (o.gap ?? 0)));
 }
 
 /**
@@ -562,11 +620,20 @@ function* besideBead(bead: RoadBead, e: StoneExtent, lengths: readonly number[])
 }
 
 /** A stone beside the road (with its stem), or a signpost, as an obstacle for the others. */
+/** Clear space always kept between a stone beside the road and a signpost (and their stems). */
+const LABEL_GAP = 8;
+
 function stoneObstacle(st: PlannedStone): Obstacle {
-  return { n: st.n, box: st.box, points: st.callout?.points ?? [], pw: st.callout?.width ?? 0 };
+  return {
+    n: st.n,
+    box: st.box,
+    points: st.callout?.points ?? [],
+    pw: st.callout?.width ?? 0,
+    gap: LABEL_GAP,
+  };
 }
 function signObstacle(sg: RoadSign): Obstacle {
-  return { n: sg.n, box: sg.box, points: sg.points, pw: sg.postWidth };
+  return { n: sg.n, box: sg.box, points: sg.points, pw: sg.postWidth, gap: LABEL_GAP };
 }
 
 /**
@@ -579,17 +646,32 @@ function* calloutsFor(
   scale: number,
   index: ObstacleIndex,
   extra: readonly Obstacle[],
+  onLand: (box: StoneExtent) => boolean,
 ): Generator<PlannedStone> {
   const e = stoneExtent(bead.n, bead.state);
   const width = postWidth(bead.gap);
   const around = scaled({ x: 0, y: 0 }, e, scale);
-  for (const c of besideBead(bead, around, STEM_LENGTHS)) {
+  // Places wholly on land first (the stone and its ring clear of the shore and its foam), within
+  // a short reach; then anywhere clear.
+  const nearLengths = STEM_LENGTHS.filter((l) => l <= 54);
+  const candidates = function* () {
+    const tried = new Set<string>();
+    for (const c of besideBead(bead, around, nearLengths)) {
+      if (!onLand(scaled(c, e, scale))) continue;
+      tried.add(`${c.x},${c.y}`);
+      yield c;
+    }
+    for (const c of besideBead(bead, around, STEM_LENGTHS)) {
+      if (!tried.has(`${c.x},${c.y}`)) yield c;
+    }
+  };
+  for (const c of candidates()) {
     const box = scaled(c, e, scale);
     const stem = postPoints(c.from, c.to);
+    const stemSpan = lineSpan(c.from, c.to);
     const clashes = (o: Obstacle) =>
       o.n !== bead.n &&
-      (boxHits(o, box, o.disc ? 2 : STONE_CLEARANCE) ||
-        stem.some((p) => lineHits(o, p, width / 2)));
+      (boxHits(o, box, o.disc ? 2 : STONE_CLEARANCE) || lineClashes(o, stem, stemSpan, width / 2));
     const near = index.near(spanOf(box, stem), STONE_CLEARANCE + width + 4);
     if (near.some(clashes) || extra.some(clashes)) continue;
     yield {
@@ -609,35 +691,62 @@ function onItsPlace(bead: RoadBead, scale: number): PlannedStone {
   return { n: bead.n, x: bead.x, y: bead.y, state: bead.state, box: scaled(bead, e, scale) };
 }
 
-/** How many places to try for the counted stone so that the next stone also finds one. */
-const JOINT_TRIES = 80;
+/** How many clear places to consider for each highlighted stone when placing them together. */
+const JOINT_TRIES = 120;
+
+/** The first `k` items of a generator. */
+function take<T>(items: Iterable<T>, k: number): T[] {
+  const out: T[] = [];
+  for (const item of items) {
+    out.push(item);
+    if (out.length >= k) break;
+  }
+  return out;
+}
+
+/** True when a stone beside the road (with its stem) would crowd an obstacle. */
+function stoneClashes(st: PlannedStone, o: Obstacle): boolean {
+  const half = (st.callout?.width ?? 0) / 2;
+  return (
+    boxHits(o, st.box, STONE_CLEARANCE) ||
+    (st.callout?.points ?? []).some((p) => lineHits(o, p, half))
+  );
+}
 
 /**
- * Stand the counted and next stones (in that order) beside the road. When the counted stone's
- * nearest place leaves no room for the next one, its next places are tried, so both stand beside
- * the road wherever the road allows; a stone with no clear place at all stands on its own place.
- * It is always a full numbered stone.
+ * Stand the counted and next stones (in that order) beside the road. Each one's clear places are
+ * found once, nearest first; the pair is the counted stone's nearest place for which the next
+ * stone still has one, so both stand beside the road wherever the road allows. A stone with no
+ * clear place at all stands on its own place: it is always a full numbered stone.
  */
 function placeHighlights(
   highlights: readonly RoadBead[],
   scale: number,
   index: ObstacleIndex,
   extra: readonly Obstacle[],
+  onLand: (box: StoneExtent) => boolean,
 ): PlannedStone[] {
   const [first, second] = highlights;
   if (!first) return [];
-  if (!second)
-    return [calloutsFor(first, scale, index, extra).next().value ?? onItsPlace(first, scale)];
-  let tries = 0;
-  for (const a of calloutsFor(first, scale, index, extra)) {
-    const b = calloutsFor(second, scale, index, [...extra, stoneObstacle(a)]).next().value;
-    if (b) return [a, b];
-    if (++tries >= JOINT_TRIES) break;
+  const nearest = (b: RoadBead, more: readonly Obstacle[]) =>
+    calloutsFor(b, scale, index, more, onLand).next().value;
+  const a0 = nearest(first, extra);
+  if (!second) return [a0 ?? onItsPlace(first, scale)];
+  // Usually each stone's nearest place works together.
+  if (a0) {
+    const b0 = nearest(second, [...extra, stoneObstacle(a0)]);
+    if (b0) return [a0, b0];
   }
-  const a = calloutsFor(first, scale, index, extra).next().value ?? onItsPlace(first, scale);
-  const b =
-    calloutsFor(second, scale, index, [...extra, stoneObstacle(a)]).next().value ??
-    onItsPlace(second, scale);
+  const firsts = take(calloutsFor(first, scale, index, extra, onLand), JOINT_TRIES);
+  const seconds = take(calloutsFor(second, scale, index, extra, onLand), JOINT_TRIES);
+  for (const a of firsts) {
+    const ao = stoneObstacle(a);
+    const b = seconds.find((c) => !stoneClashes(c, ao));
+    if (b) return [a, b];
+  }
+  const a = firsts[0] ?? onItsPlace(first, scale);
+  const ao = stoneObstacle(a);
+  const b = seconds.find((c) => !stoneClashes(c, ao)) ?? onItsPlace(second, scale);
   return [a, b];
 }
 
@@ -654,12 +763,18 @@ function placeSign(
   const w = SIGN_DIGIT_W * String(bead.n).length + SIGN_PAD;
   const h = SIGN_H;
   const pw = postWidth(bead.gap);
-  const around = { left: -w / 2, right: w / 2, top: -h / 2, bottom: h / 2 };
+  // A ten's or hundred's signpost flies the stone's flag from its top right corner.
+  const flag = bead.n % 10 === 0 ? SIGN_FLAG : 0;
+  const around = { left: -w / 2, right: w / 2 + flag, top: -h / 2 - flag, bottom: h / 2 };
+  let tried = 0;
   for (const c of besideBead(bead, around, SIGN_POSTS)) {
-    const box = { left: c.x - w / 2, right: c.x + w / 2, top: c.y - h / 2, bottom: c.y + h / 2 };
+    // A signpost is best placed near its bead: past the nearest few hundred places, give up.
+    if (++tried > SIGN_TRIES) break;
+    const box = scaled(c, around, 1);
     const post = postPoints(c.from, c.to);
+    const postSpan = lineSpan(c.from, c.to);
     const clashes = (o: Obstacle) =>
-      o.n !== bead.n && (boxHits(o, box, 2) || post.some((p) => lineHits(o, p, pw / 2)));
+      o.n !== bead.n && (boxHits(o, box, 2) || lineClashes(o, post, postSpan, pw / 2));
     const blocked =
       index.near(spanOf(box, post), pw + 6).some(clashes) ||
       extra.some(clashes) ||

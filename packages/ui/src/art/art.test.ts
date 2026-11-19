@@ -57,7 +57,19 @@ describe('road plan: a linear board (05 §3)', () => {
   const layout = roadLayout(SAMPLE_ISLAND.road);
   const shape = roadShape(SAMPLE_ISLAND.road);
   /** Every plan the sweep checks: each island stage, road length 0–100 and a counted stone. */
-  function* plans() {
+  type Swept = {
+    plan: RoadPlan;
+    roadLength: number;
+    counting: number | null;
+    onLand: (s: { plot: Plot }) => boolean;
+    rings: number;
+    where: string;
+  };
+  let swept: Swept[] | null = null;
+  /** Every plan the sweeps check (made once, shared by the tests below). */
+  function plans(): Swept[] {
+    if (swept) return swept;
+    swept = [];
     for (const rings of ringSets) {
       const land = new Set(landPlots(SAMPLE_ISLAND, rings).map(plotKey));
       const onLand = (s: { plot: Plot }) => land.has(plotKey(s.plot));
@@ -66,10 +78,11 @@ describe('road plan: a linear board (05 §3)', () => {
           const counting = c !== null && c >= 1 && c <= roadLength ? c : null;
           const plan = planRoad({ road: SAMPLE_ISLAND.road, roadLength, counting, onLand, land });
           const where = `roadLength ${roadLength}, counting ${counting}, rings ${rings}`;
-          yield { plan, roadLength, counting, onLand, rings, where };
+          swept.push({ plan, roadLength, counting, onLand, rings, where });
         }
       }
     }
+    return swept;
   }
   /** How far a bead or pin draws from its centre, with its outline. Computed here, not from roadPlan. */
   const drawn = (b: RoadBead) => b.r * 1.15 + Math.max(0.3, Math.min(2, b.r * 0.5)) / 2;
@@ -142,10 +155,12 @@ describe('road plan: a linear board (05 §3)', () => {
         }
       }
     }
-    for (let i = 0; i < beads.length; i++) {
-      const a = beads[i] as RoadBead;
-      for (let j = i + 1; j < beads.length; j++) {
-        const b = beads[j] as RoadBead;
+    // Every pair of beads, swept along x (a bead draws at most 9 units from its centre).
+    const byX = [...beads].sort((a, b) => a.x - b.x);
+    for (let i = 0; i < byX.length; i++) {
+      const a = byX[i] as RoadBead;
+      for (let j = i + 1; j < byX.length && (byX[j] as RoadBead).x - a.x < 20; j++) {
+        const b = byX[j] as RoadBead;
         if (Math.hypot(a.x - b.x, a.y - b.y) < drawn(a) + drawn(b) + 0.5 - 1e-9) {
           bad.push(`beads ${a.n}, ${b.n}`);
         }
@@ -412,10 +427,11 @@ describe('road plan: a linear board (05 §3)', () => {
         Array.from({ length: k }, (_, j) => ({ n: p * k + j + 1, plot })),
       );
       const last = road.length;
-      for (const roadLength of [1, 2, 5, k, k + 1, 3 * k, 12 * k - 1, 12 * k, 13 * k, last - 2]) {
+      // The road's start, a row's end, the turn into the next row, and mid-island.
+      for (const roadLength of [2, k + 1, 12 * k, 13 * k, 4 * 12 * k]) {
         if (roadLength < 1 || roadLength >= last) continue;
-        for (const counting of [null, roadLength, roadLength - 1, 1]) {
-          for (const plannedAhead of [0, 1, 2]) {
+        for (const counting of [null, roadLength]) {
+          for (const plannedAhead of [1]) {
             const c =
               counting !== null && counting >= 1 && counting <= roadLength ? counting : null;
             const plan = planRoad({

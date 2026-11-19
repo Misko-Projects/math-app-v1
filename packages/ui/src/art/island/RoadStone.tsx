@@ -190,8 +190,11 @@ export function RoadStoneMark({ n, state = 'laid', x = 0, y = 0 }: RoadStoneMark
   );
 }
 
-/** The little flag on every tenth stone (counting by tens has a landmark you can see). */
-function TenFlag({ x, y, hundred }: { x: number; y: number; hundred: boolean }) {
+/**
+ * The little flag on every tenth stone (counting by tens has a landmark you can see): leaf green,
+ * or coral with a white dot on a hundred. Signposts on a crowded road fly the same flag.
+ */
+export function TenFlag({ x, y, hundred }: { x: number; y: number; hundred: boolean }) {
   return (
     <g transform={`translate(${x} ${y})`} data-part="ten-flag">
       {/* Ink pole and dark outlines keep the flag ≥ 3:1 on sand and grass (06 §7). */}

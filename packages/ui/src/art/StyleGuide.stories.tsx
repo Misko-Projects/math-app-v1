@@ -296,8 +296,11 @@ export const StyleGuide: Story = {
         <p style={{ margin: 0 }}>
           Laid: solid stone and shadow. Next: dashed outline, pulsing dashed ring, hops. Counting:
           lifted, solid ring, sparkle. Planned: flat, dashed, no shadow. Each tenth stone is larger
-          and flies a flag. See the Island → Colour vision story for every state under simulated
-          colour-vision deficiencies.
+          and flies a flag: leaf green for a ten, coral with a dot for a hundred. Where the road is
+          crowded, stones are small beads: a ten or a hundred there carries its number on a signpost
+          that flies the same flag, and the next and counted stones stand beside the road as full
+          stones, pinned to their place. See the Island → Colour vision story for every state under
+          simulated colour-vision deficiencies.
         </p>
       </Section>
 
