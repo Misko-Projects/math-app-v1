@@ -1020,7 +1020,7 @@ export function MakeSetWidget({
           ) : null}
         </span>
         {bundleFirst ? (
-          <span className="ni-mset__tens-tag" aria-hidden="true">
+          <span className="ni-mset__tens-tag" aria-hidden="true" data-invite-glyph="">
             10
           </span>
         ) : null}

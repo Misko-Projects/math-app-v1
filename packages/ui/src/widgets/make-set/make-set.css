@@ -299,6 +299,13 @@
   -webkit-tap-highlight-color: transparent;
   animation: var(--animate-pop-in);
 }
+/*
+ * The tied ten keeps a strip under its "10" tag, so Pip's hand can rest its fingertip inside the
+ * button below the tag and leave the numeral fully visible (kit invite rule).
+ */
+.ni-mset__tens[data-tens="bundle"] {
+  padding-bottom: 10px;
+}
 /* Invited (a remove whose object is in the frame not shown): the ring stays within TENS_GAP. */
 .ni-mset__tens.ni-invite {
   position: absolute;

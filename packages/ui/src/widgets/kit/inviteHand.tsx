@@ -36,6 +36,8 @@ export const INVITE_GLYPH_SELECTOR = [
   '.ni-pad__icon',
   '.ni-pick__face',
   '.ni-number > span:not(.ni-number__caret):not(.ni-number__sparkle):not(.ni-number__slot)',
+  // A widget's own numeral or label on a control (e.g. make-set's "10" tag on the tied ten).
+  '[data-invite-glyph]',
 ].join(', ');
 
 interface Edges {
