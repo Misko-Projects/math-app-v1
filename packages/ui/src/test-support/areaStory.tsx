@@ -101,6 +101,31 @@ export async function expectHandStays(root: HTMLElement, target: () => HTMLEleme
   await expectPointerOn(hand as HTMLElement, target(), root);
 }
 
+/** A ruler's unit symbol overlaps none of its numerals or ticks (each ruler under `root`). */
+export async function expectRulerUnitClear(root: Element) {
+  const rulers = [...root.querySelectorAll('svg.ni-ruler')];
+  await expect(rulers.length, 'rulers').toBeGreaterThan(0);
+  for (const ruler of rulers) {
+    const unit = ruler.querySelector('.ni-ruler__unit');
+    if (!unit) continue;
+    const u = unit.getBoundingClientRect();
+    for (const other of ruler.querySelectorAll('.ni-ruler__numeral, .ni-ruler__tick')) {
+      const o = other.getBoundingClientRect();
+      const apart =
+        u.right <= o.left || o.right <= u.left || u.bottom <= o.top || o.bottom <= u.top;
+      await expect(
+        apart,
+        `unit "${unit.textContent}" clear of ${other.textContent || 'a tick'}`,
+      ).toBe(true);
+    }
+    // Inside the ruler body.
+    const body = (
+      ruler.querySelector('.ni-ruler__body') as SVGGraphicsElement
+    ).getBoundingClientRect();
+    await expect(u.right, 'unit inside the ruler').toBeLessThanOrEqual(body.right + 0.5);
+  }
+}
+
 /** Every numeral (SVG text or element) under `root` matching `selector` renders at ≥ 32 px. */
 export async function expectNumeralsAtLeast32(root: Element, selector: string) {
   const els = [...root.querySelectorAll(selector)];

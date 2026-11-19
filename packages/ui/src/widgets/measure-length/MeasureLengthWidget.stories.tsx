@@ -7,6 +7,7 @@ import {
   expectFitsArea,
   expectHandStays,
   expectNumeralsAtLeast32,
+  expectRulerUnitClear,
   inArea,
 } from '../../test-support/areaStory';
 import {
@@ -25,7 +26,7 @@ import {
 } from '../../test-support/widgetStory';
 import { createDemoController, UnsupportedWidgetOpError, type WidgetDemo } from '../demo';
 import type { ConfigFor } from '../types';
-import type { WidgetHostProps } from '../WidgetHost';
+import { WidgetHost, type WidgetHostProps } from '../WidgetHost';
 
 /**
  * `measure-length` (03 §5.5): lay units end to end and count them, measure with two units, or
@@ -349,6 +350,8 @@ export const ReadRuler: Story = {
   play: async ({ canvasElement, args }) => {
     const root = await findWidget(canvasElement, ROOT);
     await expectNumeralsAtLeast32(root, '.ni-ruler__numeral');
+    await expect(root.querySelector('.ni-ruler__unit')).toHaveTextContent('in');
+    await expectRulerUnitClear(root);
     const tick = (v: number) =>
       (
         root.querySelector(`.ni-ruler__tick[data-tick="${v}"]`) as SVGElement
@@ -361,6 +364,40 @@ export const ReadRuler: Story = {
     await userEvent.click(key(root, '5'));
     await userEvent.click(within(root).getByRole('button', { name: 'Check' }));
     await expect(args.onResponse).toHaveBeenCalledWith({ kind: 'number', value: 5 });
+  },
+};
+
+/**
+ * Every standard unit on its ruler: the unit symbol (in, cm, ft, m) sits in its own slot after the
+ * end numeral, clear of every numeral and tick, whatever the ruler's length (an 8 m ruler ends in
+ * "8 m", never "m" on top of the 8).
+ */
+export const ReadRulerEveryUnit: Story = {
+  args: { config: ruler, tier: 'pictorial' },
+  render: (args) => (
+    <div className="story-widget-stage" style={{ display: 'grid', gap: 16 }}>
+      {(['in', 'cm', 'ft', 'm'] as const).map((unit, i) => (
+        <WidgetHost
+          key={unit}
+          {...args}
+          config={{
+            ...ruler,
+            unit,
+            object: { sprite: 'plank', length: [5, 9, 3, 7][i] as number },
+            startOffset: [2, 0, 1, 0][i] as number,
+          }}
+        />
+      ))}
+    </div>
+  ),
+  play: async ({ canvasElement }) => {
+    await findWidget(canvasElement, ROOT);
+    await waitFor(() => expect(canvasElement.querySelectorAll('svg.ni-ruler')).toHaveLength(4));
+    await expect(
+      [...canvasElement.querySelectorAll('.ni-ruler__unit')].map((u) => u.textContent),
+    ).toEqual(['in', 'cm', 'ft', 'm']);
+    await expectRulerUnitClear(canvasElement);
+    await expectNumeralsAtLeast32(canvasElement, '.ni-ruler__numeral');
   },
 };
 
@@ -385,6 +422,7 @@ export const ReadTapTick: Story = {
     await expect(root.querySelector('.ni-ruler__mark[data-mark="7"]')).not.toBeNull();
     await userEvent.click(within(root).getByRole('button', { name: 'Check' }));
     await expect(args.onResponse).toHaveBeenCalledWith({ kind: 'placement', value: 7 });
+    await expectRulerUnitClear(root);
     await expect(traceOf(args.onInteract).map((e) => `${e.t}:${e.target}`)).toEqual([
       'tap:mark-6',
       'move:mark-7',
@@ -410,6 +448,7 @@ export const SlideRuler: Story = {
     const obj = (root.querySelector('.ni-mlen__object svg') as SVGElement).getBoundingClientRect();
     await expect(obj.left).toBeCloseTo(tick(0), 0);
     await expect(obj.right).toBeCloseTo(tick(5), 0);
+    await expectRulerUnitClear(root);
   },
 };
 

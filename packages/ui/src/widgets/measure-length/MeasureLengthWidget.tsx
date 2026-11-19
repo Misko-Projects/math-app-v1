@@ -30,7 +30,14 @@ import {
   useSubmitGuard,
 } from '../kit';
 import { useInviteHand } from '../kit/inviteHand';
-import { LengthObject, RULER_PAD, Ruler, UnitPiece, unitHeight } from '../kit/LengthViews';
+import {
+  LengthObject,
+  RULER_PAD,
+  Ruler,
+  rulerWidth,
+  UnitPiece,
+  unitHeight,
+} from '../kit/LengthViews';
 import { enteredValues, NumberEntry } from '../kit/NumberEntry';
 import { useAvailableSize } from '../kit/useAvailableSize';
 import type { ConfigFor, WidgetProps } from '../types';
@@ -172,7 +179,9 @@ export function MeasureLengthWidget({
   const rulerMax = Math.ceil(config.startOffset + whole) + 1;
   const rulerUnit = laying
     ? 0
-    : Math.max(24, Math.min(90, Math.floor((trackW - 2 * RULER_PAD) / rulerMax)));
+    : Math.max(24, Math.min(90, Math.floor((trackW - 2 * RULER_PAD - 80) / rulerMax)));
+  // Standard units print their symbol on the ruler, in its own slot after the end numeral.
+  const unitLabel = ['in', 'cm', 'ft', 'm'].includes(config.unit) ? config.unit : undefined;
   const objectPx = laying ? whole * unitPxOf(config.unit) : whole * rulerUnit;
 
   const laidOf = (u: LengthUnit) => state.units.filter((x) => x.unit === u);
@@ -527,7 +536,10 @@ export function MeasureLengthWidget({
     ];
     picture = (
       <fieldset className="ni-mlen__stage ni-mlen__stage--ruler" aria-label={name}>
-        <div className="ni-mlen__on-ruler" style={{ width: rulerMax * rulerUnit + 2 * RULER_PAD }}>
+        <div
+          className="ni-mlen__on-ruler"
+          style={{ width: rulerWidth(rulerMax, rulerUnit, unitLabel) }}
+        >
           <div className="ni-mlen__object" style={{ marginLeft: objectLeft, width: objectPx }}>
             <LengthObject sprite={config.object.sprite} width={objectPx} height={44} />
           </div>
@@ -575,7 +587,7 @@ export function MeasureLengthWidget({
               max={rulerMax}
               unitPx={rulerUnit}
               precision={config.precision}
-              unitLabel={['in', 'cm', 'ft', 'm'].includes(config.unit) ? config.unit : undefined}
+              unitLabel={unitLabel}
               marks={rulerMarks}
             />
           </div>

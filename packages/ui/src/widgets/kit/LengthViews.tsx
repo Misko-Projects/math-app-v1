@@ -282,6 +282,19 @@ export interface RulerProps {
  * ticks on whole units, shorter ones on halves, shortest on quarters, numerals ≥ 32 px.
  */
 export const RULER_PAD = 18;
+const UNIT_PX = 26;
+const UNIT_GAP = 12;
+/** Half the width of the widest numeral at the end of a ruler (34 px Baloo 2). */
+const numeralHalf = (max: number) => (String(Math.ceil(max)).length * 21 + 8) / 2;
+
+/**
+ * A ruler's drawn width. The unit symbol has its own slot after the end numeral (inside the
+ * ruler body, past its last mark), so it never touches a numeral or a tick.
+ */
+export function rulerWidth(max: number, unitPx: number, unitLabel?: string): number {
+  const slot = unitLabel ? numeralHalf(max) + UNIT_GAP + unitLabel.length * 16 + 10 : 0;
+  return max * unitPx + 2 * RULER_PAD + Math.max(0, slot - RULER_PAD);
+}
 export function Ruler({
   max,
   unitPx,
@@ -290,7 +303,7 @@ export function Ruler({
   marks = [],
   className,
 }: RulerProps) {
-  const width = max * unitPx + 2 * RULER_PAD;
+  const width = rulerWidth(max, unitPx, unitLabel);
   const height = 92;
   const ticks = stepsBetween(0, max, precision);
   const labels = new Set(rulerLabels(max, unitPx));
@@ -339,10 +352,11 @@ export function Ruler({
       {unitLabel ? (
         <text
           className="ni-ruler__unit"
-          x={width - 8}
-          y={height - 10}
-          fontSize={18}
-          textAnchor="end"
+          data-unit-label={unitLabel}
+          x={RULER_PAD + max * unitPx + numeralHalf(max) + UNIT_GAP}
+          y={74}
+          fontSize={UNIT_PX}
+          textAnchor="start"
         >
           {unitLabel}
         </text>
