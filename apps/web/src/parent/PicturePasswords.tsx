@@ -30,7 +30,8 @@ export function PicturePasswords() {
   const save = async (child: ChildProfile, hash: string | null, done: string) => {
     setSaving(true);
     try {
-      await store.putProfile({ ...child, picturePasswordHash: hash });
+      // Only the hash changes: the rendered copy's shared fields may be stale (08 §3, §4).
+      await store.setPicturePassword(child.id, hash);
       setNotice({ tone: 'success', text: done });
       setEditing(null);
     } catch (e) {
