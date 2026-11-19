@@ -80,11 +80,14 @@ const configSchema = fractionLineConfigSchema.superRefine((c, ctx) => {
       if (a / b > c.max) {
         ctx.addIssue({ code: 'custom', path: ['target'], message: 'the target is on the line' });
       }
-      if ((c.mode === 'read' || c.mode === 'equivalent') && (a * c.denominator) % b !== 0) {
+      // A point to read sits on a tick; with ticks shown, a point to place is a tick (03 §5.5).
+      const onTickNeeded =
+        c.mode === 'read' || c.mode === 'equivalent' || (c.mode === 'place' && c.ticksShown);
+      if (onTickNeeded && (a * c.denominator) % b !== 0) {
         ctx.addIssue({
           code: 'custom',
           path: ['target'],
-          message: 'the point to read sits on a tick',
+          message: 'the point sits on a tick',
         });
       }
       if (c.mode === 'read' && !c.decimalLabels && b !== c.denominator) {

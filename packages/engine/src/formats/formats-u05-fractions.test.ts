@@ -825,7 +825,16 @@ describe('fraction-line', () => {
         line({ mode: 'equivalent', denominator: 4, target: { a: 1, b: 2 } }),
       ),
     ).toEqual([]);
-    expect(issuePaths(fractionLine, line({ denominator: 13 }))).toEqual(['denominator']);
+    expect(issuePaths(fractionLine, line({ denominator: 13, target: { a: 1, b: 13 } }))).toEqual([
+      'denominator',
+    ]);
+    // With ticks shown, the point to place is a tick; with them hidden it may be anywhere.
+    expect(issuePaths(fractionLine, line({ denominator: 4, target: { a: 1, b: 3 } }))).toEqual([
+      'target',
+    ]);
+    expect(
+      issuePaths(fractionLine, line({ denominator: 4, ticksShown: false, target: { a: 1, b: 3 } })),
+    ).toEqual([]);
     expect(issuePaths(fractionLine, line({ decimalLabels: true }))).toEqual(['decimalLabels']);
   });
 
