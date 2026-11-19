@@ -3,6 +3,7 @@
 // parts that must not touch.
 import { expect } from 'storybook/test';
 import { type AgeMode, MIN_TARGET_PX, TARGET_GAP_PX } from '../tokens/tokens';
+import { expectAreaCentred } from './storyHelpers';
 
 type Rect = { left: number; top: number; right: number; bottom: number };
 
@@ -92,10 +93,14 @@ export function recordKeyRects(canvasElement: Element, rootSelector: string) {
   recordEvidence(root, { rects });
 }
 
-/** A story meta's `afterEach`: records the key rects of the widget under `rootSelector`. */
+/**
+ * A story meta's `afterEach`: the area card is centred in the stage on both axes (#92's
+ * `expectAreaCentred`), and the key rects of the widget under `rootSelector` are recorded.
+ */
 export const keyRectsAfterEach =
   (rootSelector: string) =>
   async ({ canvasElement }: { canvasElement: HTMLElement }) => {
+    await expectAreaCentred(canvasElement);
     recordKeyRects(canvasElement, rootSelector);
   };
 
