@@ -24,9 +24,11 @@ import {
   cellToFit,
   countLayout,
   FitPicture,
+  LINE_BARE_PAD,
   minObjectStep,
   NumberLineView,
   naturalPictureSize,
+  numberLineScale,
   type ObjectLayout,
   ObjectSetView,
   ObjectSprite,
@@ -237,7 +239,7 @@ const ROW_PICK_GAP = 20;
  */
 const OBJ_GAP = 18;
 /** Pictures never grow past this (an unbounded story stage, or a huge tablet). */
-const MAX_SIDE_H = 300;
+const MAX_SIDE_H = 420;
 
 type Arrange = 'match' | 'row' | 'beside' | 'stack' | 'stack-beside';
 
@@ -285,14 +287,21 @@ interface MatchGeometry {
   rowH: number;
 }
 
-/** Both rows at full target size: one cell for both, objects ≥ the target and 18 px apart. */
+/** A "this one" card: the K target plus a margin, so it never measures under the target. */
+const pickW = (target: number) => target + 4;
+
+/**
+ * Both rows at full target size (`k` = 1) or bigger (`k` > 1, to use the room): one cell for
+ * both, objects ≥ the target and 18 px apart.
+ */
 function matchGeometry(
   layouts: [ObjectLayout, ObjectLayout],
   target: number,
   withPick: boolean,
+  k = 1,
 ): MatchGeometry {
   const step = Math.min(...layouts.map((l) => Math.min(1.12, minObjectStep(l))));
-  const cell = Math.ceil((target + OBJ_GAP) / step);
+  const cell = Math.ceil(((target + OBJ_GAP) / step) * k);
   const button = Math.max(target, Math.floor(step * cell - OBJ_GAP));
   const overhang = Math.max(0, Math.ceil((button - cell) / 2));
   const objW = Math.max(...layouts.map((l) => l.width * cell)) + 2 * overhang;
@@ -301,7 +310,7 @@ function matchGeometry(
     cell,
     button,
     overhang,
-    rowW: objW + 2 * ROW_PAD.x + (withPick ? target + ROW_PICK_GAP : 0),
+    rowW: objW + 2 * ROW_PAD.x + (withPick ? pickW(target) + ROW_PICK_GAP : 0),
     rowH: objH + 2 * ROW_PAD.y,
   };
 }
@@ -320,23 +329,31 @@ function planLayout(opts: {
   specs: StimulusSpec[];
   mid: Box;
   answer: AnswerSize;
-  match: MatchGeometry | null;
+  /** The match rows' geometry at a size factor (null: no match mode). */
+  match: ((k: number) => MatchGeometry) | null;
   sidePick: boolean;
   stackOnly?: boolean;
+  /** Height under the stacked sides for a shared ruler (length strips). */
+  rulerH?: number;
 }): Plan {
   const { room, specs, mid, answer, match } = opts;
   const W = (room?.width ?? 1180) - 2 * ROOT_PAD.x;
   const H = (room?.height ?? Number.POSITIVE_INFINITY) - 2 * ROOT_PAD.y;
   const row = answerRow(answer);
   const col = answerColumn(answer);
-  // Match rows only when both rows fit at full target size with the answer controls.
+  // Match rows only when both rows fit at full target size with the answer controls; then the
+  // biggest objects (up to 1.5 ×) that still fit, so the rows use the room.
   if (match) {
-    const rowsH = 2 * match.rowH + ROW_GAP;
-    if (match.rowW <= W && rowsH + ANSWER_GAP + row.h <= H && row.w <= W) {
-      return { arrange: 'match', side: { w: 0, h: 0 }, answers: 'row', match };
-    }
-    if (match.rowW + ANSWER_GAP + col.w <= W && Math.max(rowsH, col.h) <= H) {
-      return { arrange: 'match', side: { w: 0, h: 0 }, answers: 'column', match };
+    const bounded = Number.isFinite(H);
+    for (let k = bounded ? 1.5 : 1; k >= 1 - 1e-9; k -= 0.05) {
+      const m = match(k);
+      const rowsH = 2 * m.rowH + ROW_GAP;
+      if (m.rowW <= W && rowsH + ANSWER_GAP + row.h <= H && row.w <= W) {
+        return { arrange: 'match', side: { w: 0, h: 0 }, answers: 'row', match: m };
+      }
+      if (m.rowW + ANSWER_GAP + col.w <= W && Math.max(rowsH, col.h) <= H) {
+        return { arrange: 'match', side: { w: 0, h: 0 }, answers: 'column', match: m };
+      }
     }
   }
   const n = specs.length;
@@ -354,17 +371,23 @@ function planLayout(opts: {
       h: capH(H) - pad,
     },
     stack: {
-      w: Math.min(W, 760) - 2 * SIDE_PAD,
+      w: (opts.stackOnly ? W : Math.min(W, 760)) - 2 * SIDE_PAD,
       h:
         capH(
-          (H - ANSWER_GAP - row.h - (mid.h > 0 ? mid.h + SIDE_GAP : 0) - (n - 1) * SIDE_GAP) / n,
+          (H -
+            ANSWER_GAP -
+            row.h -
+            (mid.h > 0 ? mid.h + SIDE_GAP : 0) -
+            (n - 1) * SIDE_GAP -
+            (opts.rulerH ?? 0)) /
+            n,
         ) - pad,
     },
     // Short and wide (the 960 × 600 minimum): the sides one above the other, each the full width
     // left of the answers, so a long row of objects draws big.
     'stack-beside': {
       w: Math.min(W - col.w - ANSWER_GAP, 900) - 2 * SIDE_PAD,
-      h: capH((H - (n - 1) * SIDE_GAP) / n) - pad,
+      h: capH((H - (n - 1) * SIDE_GAP - (opts.rulerH ?? 0)) / n) - pad,
     },
   };
   const score = (a: Exclude<Arrange, 'match'>) =>
@@ -448,6 +471,12 @@ const isLengthStrip = (spec: StimulusSpec, ask: Config['ask']) =>
   (spec.marks ?? []).length === 1 &&
   spec.marks?.[0]?.label === undefined;
 
+/** The width a length strip and the shared ruler are drawn at (one scale for both). */
+const stripWidth = (w: number) => Math.max(200, Math.min(880, Math.floor(w)));
+/** The ruler under two length strips: its height (line at 30 px, ticks and caps below). */
+const RULER_H = 60;
+
+/** One side's length: a ribbon from the ruler's 0 to its length, on the shared ruler's scale. */
 function LengthStrip({
   spec,
   width,
@@ -458,33 +487,47 @@ function LengthStrip({
   label: string;
 }) {
   const at = spec.marks?.[0]?.at ?? spec.min;
+  const w = stripWidth(width);
+  const scale = numberLineScale(spec.min, spec.max, w, LINE_BARE_PAD);
+  const x0 = scale.x(spec.min);
+  const len = Math.max(0, scale.x(at) - x0);
   return (
     <div className="ni-cmp__strip" role="img" aria-label={label} data-length={at}>
+      <svg
+        className="ni-cmp__ribbon"
+        width={w}
+        height={30}
+        viewBox={`0 0 ${w} 30`}
+        aria-hidden="true"
+        focusable="false"
+      >
+        <rect x={x0} y={4} width={len} height={22} rx={11} />
+        <path d={`M${x0 + 12} 11h${len * 0.35}`} />
+      </svg>
+    </div>
+  );
+}
+
+/** One ruler under both strips (all its ticks, 5s and 10s longer): the common start and scale. */
+function SharedRuler({
+  spec,
+  width,
+}: {
+  spec: Extract<StimulusSpec, { kind: 'number-line' }>;
+  width: number;
+}) {
+  return (
+    <div className="ni-cmp__ruler" aria-hidden="true">
       <NumberLineView
         min={spec.min}
         max={spec.max}
         ticksEvery={spec.ticksEvery}
         labelsEvery={spec.labelsEvery}
-        width={Math.max(200, Math.min(880, Math.floor(width)))}
-        pad={30}
-        headroom={50}
+        width={stripWidth(width)}
+        pad={LINE_BARE_PAD}
+        headroom={30}
         tickRhythm
-      >
-        {(scale) => (
-          <g className="ni-cmp__ribbon">
-            <rect
-              x={scale.x(spec.min)}
-              y={scale.lineY - 44}
-              width={Math.max(0, scale.x(at) - scale.x(spec.min))}
-              height={22}
-              rx={11}
-            />
-            <path
-              d={`M${scale.x(spec.min) + 12} ${scale.lineY - 37}h${Math.max(0, (scale.x(at) - scale.x(spec.min)) * 0.35)}`}
-            />
-          </g>
-        )}
-      </NumberLineView>
+      />
     </div>
   );
 }
@@ -597,6 +640,8 @@ export function CompareWidget({
     : relation
       ? { w: Math.round(target * 0.9), h: Math.round(target * 0.9) }
       : { w: 0, h: 0 };
+  // "Which is longer?" with two ruler strips: two ribbons stacked over one shared ruler.
+  const strips = specs.length === 2 && specs.every((sp) => isLengthStrip(sp, ask));
   const plan = planLayout({
     room,
     specs,
@@ -604,11 +649,12 @@ export function CompareWidget({
     answer: answerSize ?? fallbackAnswer,
     match:
       matchable && leftLayout && rightLayout
-        ? matchGeometry([leftLayout, rightLayout], target, sidePick)
+        ? (k: number) => matchGeometry([leftLayout, rightLayout], target, sidePick, k)
         : null,
     sidePick,
     // Two lengths compare one above the other from a common start.
-    stackOnly: specs.length === 2 && specs.every((sp) => isLengthStrip(sp, ask)),
+    stackOnly: strips,
+    rulerH: strips ? RULER_H + SIDE_GAP : 0,
   });
   /**
    * Match mode (concrete tier with match lines): the sets as rows of object targets. When the rows
@@ -943,7 +989,8 @@ export function CompareWidget({
           maxHeight={plan.side.h}
           cell={sharedCell ?? undefined}
           stackFrames={stackFrames}
-          maxScale={spec.kind === 'base-ten' ? 1.5 : 1}
+          // Blocks and numbers may grow to fill a roomy side (both sides share one scale).
+          maxScale={spec.kind === 'base-ten' || spec.kind === 'expression' ? 1.5 : 1}
           scale={shared.scale}
           onFit={shared.report(side)}
           label={name}
@@ -1186,6 +1233,10 @@ export function CompareWidget({
 
   const vars = {
     '--cmp-pad': `${ROOT_PAD.y}px ${ROOT_PAD.x}px`,
+    // In a bounded room the side cards take the height planned for them (06 §1: use the room).
+    ...(room && Number.isFinite(room.height) && plan.arrange !== 'match' && !strips
+      ? { '--cmp-side-h': `${Math.round(plan.side.h + 2 * SIDE_PAD)}px` }
+      : {}),
     '--cmp-gap': `${ANSWER_GAP}px`,
     '--cmp-side-gap': `${SIDE_GAP}px`,
     '--cmp-row-gap': `${ROW_GAP}px`,
@@ -1221,10 +1272,17 @@ export function CompareWidget({
           </svg>
         </div>
       ) : (
-        <div className="ni-cmp__stage" data-sides={specs.length}>
+        <div
+          className="ni-cmp__stage"
+          data-sides={specs.length}
+          data-strips={strips ? 'true' : undefined}
+        >
           {renderSide('left')}
           {renderMiddle()}
           {renderSide('right')}
+          {strips && config.left.kind === 'number-line' ? (
+            <SharedRuler spec={config.left} width={plan.side.w} />
+          ) : null}
         </div>
       )}
 

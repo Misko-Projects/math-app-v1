@@ -12,6 +12,7 @@ import {
 } from '../../test-support/storyHelpers';
 import {
   areaBox,
+  expectFill,
   expectFitsArea,
   expectPointerOn,
   expectRingClear,
@@ -324,6 +325,15 @@ const meta = {
   },
   parameters: { ui: { stage: 'centered' } },
   render: renderWidget,
+  // Every story in a workshop area: the widget uses the room (its content covers ≥ 60 % of it).
+  afterEach: async ({ canvasElement }) => {
+    const box = canvasElement.querySelector<HTMLElement>('.story-widget-area');
+    const root = canvasElement.querySelector<HTMLElement>('.ni-cmp');
+    if (!box || !root) return;
+    await expectFill(box, [
+      ...root.querySelectorAll('.ni-cmp__stage, .ni-cmp__rows, .ni-cmp__answer'),
+    ]);
+  },
 } satisfies Meta<WidgetHostProps>;
 
 export default meta;
@@ -339,6 +349,8 @@ const objects = (root: HTMLElement, side: 'left' | 'right') => [
  * the bottom row ("this one") and check. Objects are K-sized and ≥ 12 px apart.
  */
 export const MatchLinesK: Story = {
+  // In the workshop's tablet widget area (1226 × 493), as the evidence shows it.
+  render: inArea('tablet'),
   globals: { ageMode: 'k' },
   parameters: { ui: { audio: spyAudio() } },
   args: { config: matchMore, tier: 'concrete' },
@@ -365,6 +377,12 @@ export const MatchLinesK: Story = {
     const check = canvas.getByRole('button', { name: 'Check' });
     await expect(check).toBeDisabled();
     const picks = canvas.getAllByRole('button', { name: /^This one/ });
+    // Measured exactly (no rounding): a K target, ≥ 80 px both ways.
+    for (const p of picks) {
+      const r = p.getBoundingClientRect();
+      await expect(r.width).toBeGreaterThanOrEqual(80);
+      await expect(r.height).toBeGreaterThanOrEqual(80);
+    }
     await expect(picks).toHaveLength(2);
     for (const p of picks) await expectTargetSize(p, 'k');
     await userEvent.click(picks[1] as HTMLElement);
@@ -420,6 +438,8 @@ export const SameAnswer: Story = {
 
 /** K: the same, or not the same? Icon cards only (= and ≠), spoken labels. */
 export const SameOrNotK: Story = {
+  // In the workshop's tablet widget area (1226 × 493), as the evidence shows it.
+  render: inArea('tablet'),
   globals: { ageMode: 'k' },
   parameters: { ui: { audio: spyAudio() } },
   args: { config: sameOrNot, tier: 'concrete' },
@@ -446,6 +466,8 @@ export const SameOrNotK: Story = {
 
 /** Abstract, G1: tap a symbol and it goes into the gap between the numbers. */
 export const SymbolTap: Story = {
+  // In the workshop's tablet widget area (1226 × 493), as the evidence shows it.
+  render: inArea('tablet'),
   parameters: { ui: { audio: spyAudio() } },
   args: { config: symbol, tier: 'abstract' },
   play: async ({ canvasElement, args, parameters }) => {
@@ -693,6 +715,8 @@ export const NumeralSidesK: Story = {
  * thumbs never repeat the Check button's tick.
  */
 export const TrueFalse: Story = {
+  // In the workshop's tablet widget area (1226 × 493), as the evidence shows it.
+  render: inArea('tablet'),
   args: { config: trueFalse, tier: 'abstract' },
   play: async ({ canvasElement, args }) => {
     const root = await findWidget(canvasElement, ROOT);
@@ -808,6 +832,8 @@ const matchInvite: WidgetDemo = createDemoController({ strict: true });
  * the story ends (nothing picked yet, one ring).
  */
 export const InviteMatchK: Story = {
+  // In the workshop's tablet widget area (1226 × 493), as the evidence shows it.
+  render: inArea('tablet'),
   globals: { ageMode: 'k' },
   args: { config: matchMore, tier: 'concrete', demo: matchInvite },
   play: async ({ canvasElement, args }) => {
@@ -879,6 +905,8 @@ const symbolInvite: WidgetDemo = createDemoController({ strict: true });
 
 /** `place-symbol {symbol}` and `answer {id}` ring that symbol tile. */
 export const InviteSymbol: Story = {
+  // In the workshop's tablet widget area (1226 × 493), as the evidence shows it.
+  render: inArea('tablet'),
   args: { config: symbol, tier: 'abstract', demo: symbolInvite },
   play: async ({ canvasElement }) => {
     const root = await findWidget(canvasElement, ROOT);
@@ -947,6 +975,8 @@ export const MatchConflictK: Story = {
 
 /** CMP.07.t1 (K, concrete): two double ten-frames, sides to pick. */
 export const TenFramesK: Story = {
+  // In the workshop's tablet widget area (1226 × 493), as the evidence shows it.
+  render: inArea('tablet'),
   globals: { ageMode: 'k' },
   args: { config: tenFrames, tier: 'concrete' },
   play: async ({ canvasElement, args }) => {
@@ -966,6 +996,8 @@ export const TenFramesK: Story = {
 
 /** CMP.05.t3 (K): the bigger-looking side has fewer; both drawn on one cell. */
 export const DotsConflictK: Story = {
+  // In the workshop's tablet widget area (1226 × 493), as the evidence shows it.
+  render: inArea('tablet'),
   globals: { ageMode: 'k' },
   args: { config: dotsConflict, tier: 'pictorial' },
   play: async ({ canvasElement }) => {
@@ -995,6 +1027,8 @@ export const DotsConflictK: Story = {
 
 /** MEA.16.t2 (K): heavier, one object a side. */
 export const HeavierK: Story = {
+  // In the workshop's tablet widget area (1226 × 493), as the evidence shows it.
+  render: inArea('tablet'),
   globals: { ageMode: 'k' },
   args: { config: heavier, tier: 'pictorial' },
   play: async ({ canvasElement, args }) => {
@@ -1008,6 +1042,8 @@ export const HeavierK: Story = {
 
 /** MEA.01.t3 (K): two ruler strips, which is longer? */
 export const LongerK: Story = {
+  // In the workshop's tablet widget area (1226 × 493), as the evidence shows it.
+  render: inArea('tablet'),
   globals: { ageMode: 'k' },
   args: { config: longer, tier: 'pictorial' },
   play: async ({ canvasElement }) => {
@@ -1023,10 +1059,15 @@ export const LongerK: Story = {
     const b = ribbon('right');
     await expect(Math.abs(a.left - b.left)).toBeLessThan(1);
     await expect(a.width / b.width).toBeCloseTo(7 / 10, 2);
-    // Every unit tick of the ruler under each strip (0–11: 12 ticks).
-    for (const side of root.querySelectorAll('.ni-cmp__side')) {
-      await expect(side.querySelectorAll('.ni-numberline__tick')).toHaveLength(12);
-    }
+    // ONE ruler under both strips (0–11: all 12 ticks), its 0 exactly under the ribbons' start.
+    await expect(root.querySelectorAll('.ni-cmp__ruler')).toHaveLength(1);
+    await expect(root.querySelectorAll('.ni-cmp__side .ni-numberline__tick')).toHaveLength(0);
+    const ticks = [...root.querySelectorAll('.ni-cmp__ruler .ni-numberline__tick')];
+    await expect(ticks).toHaveLength(12);
+    const zero = ticks[0]?.getBoundingClientRect() as DOMRect;
+    await expect(Math.abs(zero.left + zero.width / 2 - a.left)).toBeLessThan(1.5);
+    const ruler = (root.querySelector('.ni-cmp__ruler') as HTMLElement).getBoundingClientRect();
+    await expect(ruler.top).toBeGreaterThan(Math.max(a.bottom, b.bottom));
   },
 };
 
@@ -1122,7 +1163,8 @@ async function expectCompareFits(
  * K at the 960 × 600 minimum (852 × 319): 10 fish against 9 don't fit as two rows of full-size
  * targets with the answers, so the sides are pictures and are the pick targets (no object
  * targets: matching is optional help). The sides stack, each the full width beside the answers,
- * so the fish draw big (≥ 56 px) and at one size on both sides. Picking a side answers; nothing
+ * so the fish draw as big as the room allows (59 px cells, the drawn fish ≈ 47 px) and at one size
+ * on both sides. Picking a side answers; nothing
  * scrolls.
  */
 export const MatchTenFallbackKMin: Story = {
@@ -1138,12 +1180,19 @@ export const MatchTenFallbackKMin: Story = {
     await expect(root).toHaveAttribute('data-arrange', 'stack-beside');
     await expect(root.querySelector('.ni-cmp__obj')).toBeNull();
     await expectCompareFits(canvasElement, root, 'k');
-    const fishes = [...root.querySelectorAll('.ni-objects__item')].map((f) =>
+    const cells = [...root.querySelectorAll('.ni-objects__item')].map((f) =>
       Math.round(f.getBoundingClientRect().width),
     );
-    await expect(fishes).toHaveLength(19);
-    await expect(Math.min(...fishes)).toBeGreaterThanOrEqual(56);
-    await expect(new Set(fishes).size).toBe(1);
+    await expect(cells).toHaveLength(19);
+    await expect(new Set(cells).size).toBe(1);
+    // The drawn fish (its outline, not its cell): the real maximum here, measured ≈ 47 px. Two
+    // lines of ten 1.12-cell steps across the ~700 px side give a 59 px cell, and the fish art
+    // spans 51 of the cell's 64 units.
+    const drawn = [...root.querySelectorAll('.ni-objects__item svg')].map((svg) => {
+      const parts = [...svg.querySelectorAll('path')].map((p) => p.getBoundingClientRect());
+      return Math.max(...parts.map((r) => r.right)) - Math.min(...parts.map((r) => r.left));
+    });
+    await expect(Math.min(...drawn)).toBeGreaterThanOrEqual(45);
     await expectRowsInColumn(root);
     // Picking a side names its objects (06 §5).
     await userEvent.click(within(root).getByRole('button', { name: 'Left side' }));

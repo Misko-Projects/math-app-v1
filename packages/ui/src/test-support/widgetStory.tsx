@@ -254,3 +254,26 @@ export async function expectFitsArea(
   await expectTargetGaps(targets);
   await expect(box.scrollTop).toBe(0);
 }
+
+/**
+ * How much of the area card's inner area (width × height) the widget's content covers: the
+ * bounding box of its visible parts over the inner area, 0–1.
+ */
+export function widgetFill(box: HTMLElement, parts: Element[]): number {
+  const inner = contentBox(box);
+  const rects = parts.map((p) => p.getBoundingClientRect());
+  const left = Math.max(inner.left, Math.min(...rects.map((r) => r.left)));
+  const top = Math.max(inner.top, Math.min(...rects.map((r) => r.top)));
+  const right = Math.min(inner.right, Math.max(...rects.map((r) => r.right)));
+  const bottom = Math.min(inner.bottom, Math.max(...rects.map((r) => r.bottom)));
+  const area = (inner.right - inner.left) * (inner.bottom - inner.top);
+  return area > 0 ? (Math.max(0, right - left) * Math.max(0, bottom - top)) / area : 0;
+}
+
+/** The widget uses the room: its content covers at least `min` of the area's inner area. */
+export async function expectFill(box: HTMLElement, parts: Element[], min = 0.6) {
+  const fill = widgetFill(box, parts);
+  box.dataset.fill = String(Math.round(fill * 100));
+  await expect(fill, `widget fill ${Math.round(fill * 100)} %`).toBeGreaterThanOrEqual(min);
+  return fill;
+}

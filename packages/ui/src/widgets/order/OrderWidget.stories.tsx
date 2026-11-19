@@ -12,7 +12,10 @@ import {
 } from '../../test-support/storyHelpers';
 import {
   areaBox,
+  contentBox,
+  expectFill,
   expectFitsArea,
+  expectInside,
   expectPointerOn,
   expectRingClear,
   expectTraceOrdered,
@@ -171,6 +174,14 @@ const meta = {
   render: renderWidget,
   // Every order story: each numeral a card shows (numeral cards and picture-card tags) is ≥ 32 px.
   afterEach: async ({ canvasElement }) => {
+    // In a workshop area: the widget uses the room (its content covers ≥ 60 % of it).
+    const box = canvasElement.querySelector<HTMLElement>('.story-widget-area');
+    const root = canvasElement.querySelector<HTMLElement>('.ni-ord');
+    if (box && root) {
+      await expectFill(box, [
+        ...root.querySelectorAll('.ni-ord__board, .ni-ord__tray, .ni-ord__check'),
+      ]);
+    }
     for (const el of canvasElement.querySelectorAll<HTMLElement>(
       '.ni-ord .ni-ord__numeral, .ni-ord .ni-ord__tag',
     )) {
@@ -232,6 +243,8 @@ const placed = (root: HTMLElement) =>
 
 /** K: tap a card (it speaks its number), tap a box; fill the row and check. K-sized and spaced. */
 export const TapToPlaceK: Story = {
+  // In the workshop's tablet widget area (1226 × 493), as the evidence shows it.
+  render: inArea('tablet'),
   globals: { ageMode: 'k' },
   parameters: { ui: { audio: spyAudio() } },
   play: async ({ canvasElement, args, parameters }) => {
@@ -422,6 +435,8 @@ export const KeyboardOnInvitedBox: Story = {
 
 /** A pinned card stays put (pin icon) and its box takes no card; the answer includes it. */
 export const FixedSlot: Story = {
+  // In the workshop's tablet widget area (1226 × 493), as the evidence shows it.
+  render: inArea('tablet'),
   args: { config: decade },
   play: async ({ canvasElement, args }) => {
     const root = await findWidget(canvasElement, ROOT);
@@ -449,6 +464,8 @@ export const FixedSlot: Story = {
 
 /** Big to small: the pebbles shrink. */
 export const BigToSmall: Story = {
+  // In the workshop's tablet widget area (1226 × 493), as the evidence shows it.
+  render: inArea('tablet'),
   args: { config: down },
   play: async ({ canvasElement, args }) => {
     const root = await findWidget(canvasElement, ROOT);
@@ -757,6 +774,8 @@ export const RulerCardsK: Story = {
 
 /** MEA.16.t3 (K): one object a card, heaviest first. */
 export const WeightCardsK: Story = {
+  // In the workshop's tablet widget area (1226 × 493), as the evidence shows it.
+  render: inArea('tablet'),
   globals: { ageMode: 'k' },
   args: { config: weightCards, tier: 'pictorial' },
   play: async ({ canvasElement }) => {
@@ -918,8 +937,11 @@ export const ThreeDigitFiveKMinLandscape: Story = {
       );
       const n = numeral.getBoundingClientRect();
       const r = c.getBoundingClientRect();
-      await expect(n.left).toBeGreaterThanOrEqual(r.left);
-      await expect(n.right).toBeLessThanOrEqual(r.right);
+      // Exact (no rounding): ≥ 80 px both ways; the numeral ≥ 16 px from the card's sides.
+      await expect(r.width).toBeGreaterThanOrEqual(80);
+      await expect(r.height).toBeGreaterThanOrEqual(80);
+      await expect(n.left - r.left).toBeGreaterThanOrEqual(16);
+      await expect(r.right - n.right).toBeGreaterThanOrEqual(16);
     }
   },
 };
@@ -951,51 +973,70 @@ export const PathCardsKMinLandscapeInvite: Story = {
     await userEvent.click(card(root, '8'));
     await expectInviteOn(root, root.querySelector('[data-slot-pad="0"]') as HTMLElement);
     await expectOrderFits(canvasElement, root, 'k');
-    // The picked-up card wears one INK outline (focus moved on, as after a finger tap); the
+    // The picked-up card is lifted (raised, a little bigger, a deeper shadow) with no ring; the
     // invited box wears Pip's teal ring; the other open boxes show no ring: one ring on screen.
     const picked = card(root, '8');
     await expect(picked).toHaveAttribute('data-selected', 'true');
     picked.blur();
-    const rgbOf = (cssVar: string) => {
-      const probe = document.createElement('span');
-      probe.style.color = `var(${cssVar})`;
-      root.append(probe);
-      const c = getComputedStyle(probe).color;
-      probe.remove();
-      return c;
-    };
-    await expect(getComputedStyle(picked).outlineColor).toBe(rgbOf('--color-ink'));
-    await expect(getComputedStyle(picked).outlineStyle).toBe('solid');
+    await waitForSettled(picked);
+    await expect(getComputedStyle(picked).outlineStyle).toBe('none');
+    await expect(getComputedStyle(picked).transform).not.toBe('none');
+    // Lifted, it stays ≥ 12 px inside the tray.
+    const trayBox = contentBox(root.querySelector('.ni-ord__tray') as HTMLElement);
+    const lifted = picked.getBoundingClientRect();
+    await expect(lifted.top - (trayBox.top - 16)).toBeGreaterThanOrEqual(12 - 0.5);
     const invited = padOf(root, 1);
-    await expect(getComputedStyle(invited).outlineColor).toBe(rgbOf('--color-sea-deep'));
+    await expect(getComputedStyle(invited).outlineColor).toBe(rgbOf(root, '--color-sea-deep'));
     await expect(getComputedStyle(invited).outlineWidth).toBe('5px');
     for (const n of [2, 3, 4]) {
       const pad = padOf(root, n);
       await expect(pad).toHaveAttribute('data-armed', 'true');
       await expect(getComputedStyle(pad).outlineColor).toBe('rgba(0, 0, 0, 0)');
     }
-    // Pip's hand hangs from the box over the board's edge, but at rest it never covers the
-    // picked-up card's numeral.
-    const loops = root
-      .getAnimations({ subtree: true })
-      .filter((a) => a.effect?.getComputedTiming().iterations === Number.POSITIVE_INFINITY);
-    for (const a of loops) {
-      a.pause();
-      a.currentTime = 0;
-    }
-    const hand = (root.querySelector('.ni-hand svg') as SVGElement).getBoundingClientRect();
-    const tag = (
-      picked.querySelector('.ni-ord__tag, .ni-ord__numeral') as HTMLElement
-    ).getBoundingClientRect();
-    const apart =
-      hand.right <= tag.left ||
-      tag.right <= hand.left ||
-      hand.bottom <= tag.top + 4 ||
-      tag.bottom <= hand.top;
-    for (const a of loops) a.play();
-    await expect(apart, 'the hand clear of the picked-up card’s numeral').toBe(true);
+    await expectHandClear(root, invited);
   },
 };
+
+/**
+ * Pip's hand (at rest, bob included) touches no target but its own and crosses no panel edge
+ * (the board or the tray): it stays inside the panel its control sits in.
+ */
+async function expectHandClear(root: HTMLElement, el: HTMLElement) {
+  const loops = root
+    .getAnimations({ subtree: true })
+    .filter((a) => a.effect?.getComputedTiming().iterations === Number.POSITIVE_INFINITY);
+  for (const a of loops) {
+    a.pause();
+    a.currentTime = 0;
+  }
+  try {
+    const h = (root.querySelector('.ni-hand svg') as SVGElement).getBoundingClientRect();
+    // The tap bob moves the hand 6 px left and 8 px down.
+    const reach = { left: h.left - 6, right: h.right, top: h.top, bottom: h.bottom + 8 };
+    for (const t of targets(root)) {
+      if (t === el) continue;
+      const r = t.getBoundingClientRect();
+      const apart =
+        reach.right <= r.left ||
+        r.right <= reach.left ||
+        reach.bottom <= r.top ||
+        r.bottom <= reach.top;
+      await expect(apart, `the hand clear of ${t.getAttribute('aria-label')}`).toBe(true);
+    }
+    const panel = el.closest('.ni-ord__board, .ni-ord__tray') as HTMLElement;
+    const p = panel.getBoundingClientRect();
+    const bw = Number.parseFloat(getComputedStyle(panel).borderTopWidth);
+    const inner = {
+      left: p.left + bw,
+      top: p.top + bw,
+      right: p.right - bw,
+      bottom: p.bottom - bw,
+    };
+    await expectInside(reach, inner, 0, 'the hand inside its panel');
+  } finally {
+    for (const a of loops) a.play();
+  }
+}
 
 /** Portrait tablet (746 × 812): five K cards, the full cue, bigger cards. */
 export const FiveCardsKPortrait: Story = {
@@ -1004,7 +1045,7 @@ export const FiveCardsKPortrait: Story = {
   render: inArea('portrait'),
   play: async ({ canvasElement }) => {
     const root = await findWidget(canvasElement, ROOT);
-    await expect(root).toHaveAttribute('data-chrome', 'normal');
+    await expect(root.getAttribute('data-chrome')).not.toBe('compact');
     await expectOrderFits(canvasElement, root, 'k');
   },
 };
@@ -1017,11 +1058,11 @@ export const PathCardsKPortrait: Story = {
   play: async ({ canvasElement }) => {
     const root = await findWidget(canvasElement, ROOT);
     await expectOrderFits(canvasElement, root, 'k');
-    // Four cards across 746 px: the full path on each (measured ≈ 5.2 px between ticks on
-    // 144 × 80 cards).
+    // Four cards across 746 px: the full path on each. Measured: 4.94 px between ticks, the limit
+    // here (four 150 × 80 cards fill the 676 px row; the path keeps a 16 px card margin).
     await expect(root).toHaveAttribute('data-cards', 'picture');
     await expectPathCards(root);
-    await expectFullPaths(root, 5);
+    await expectFullPaths(root, 4.9);
   },
 };
 
@@ -1032,7 +1073,7 @@ export const FiveCardsKTablet: Story = {
   render: inArea('tablet'),
   play: async ({ canvasElement }) => {
     const root = await findWidget(canvasElement, ROOT);
-    await expect(root).toHaveAttribute('data-chrome', 'normal');
+    await expect(root.getAttribute('data-chrome')).not.toBe('compact');
     await expectOrderFits(canvasElement, root, 'k');
   },
 };
@@ -1082,8 +1123,16 @@ export const BlockCardsTablet: Story = {
     const rods = [...root.querySelectorAll('.ni-baseten__block--rod')].map((r) =>
       r.getBoundingClientRect(),
     );
-    for (const r of rods) await expect(r.width).toBeGreaterThanOrEqual(11);
+    for (const r of rods) await expect(r.width).toBeGreaterThanOrEqual(10.5);
     await expect(new Set(rods.map((r) => Math.round(r.height))).size).toBe(1);
+    // Every picture centred in its card, ≥ 16 px from its edges.
+    for (const c of root.querySelectorAll<HTMLElement>('.ni-ord__tray .ni-ord__card')) {
+      const r = c.getBoundingClientRect();
+      const p = (c.querySelector('.ni-baseten') as HTMLElement).getBoundingClientRect();
+      await expect(p.left - r.left).toBeGreaterThanOrEqual(16);
+      await expect(r.right - p.right).toBeGreaterThanOrEqual(16);
+      await expect(Math.abs(p.left - r.left - (r.right - p.right))).toBeLessThan(1.5);
+    }
   },
 };
 

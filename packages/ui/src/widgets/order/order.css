@@ -179,17 +179,17 @@ button.ni-ord__card:focus-visible,
   outline-offset: 4px;
 }
 /*
- * Picked up (tap-to-place): one ink outline and a deeper, softer shadow under it (lifted in
- * place: it doesn't rise, so Pip's hand hanging from the box above never reaches its numeral).
- * Keyboard focus shows the normal focus ring instead.
+ * Picked up (tap-to-place): lifted, not ringed: it rises 3 px, grows 2 % and casts a deeper,
+ * softer shadow (no outline that could read as a second ring). The tray's 16 px top padding keeps
+ * it ≥ 12 px inside the tray. Keyboard focus shows the normal focus ring.
  */
 .ni-ord__card.ni-draggable[data-selected="true"] {
   filter: none;
-  outline: 4px solid var(--color-ink);
-  outline-offset: 3px;
+  outline: none;
+  transform: translateY(-3px) scale(1.02);
   box-shadow:
-    0 6px 0 var(--color-pebble-deep),
-    0 12px 18px -6px rgb(38 70 83 / 0.45);
+    0 9px 0 var(--color-pebble-deep),
+    0 16px 22px -6px rgb(38 70 83 / 0.4);
 }
 .ni-ord__card.ni-draggable[data-selected="true"]:focus-visible {
   outline: 4px solid var(--color-sea-deep);

@@ -70,11 +70,13 @@ const isNumeral = (label: string | undefined) => label !== undefined && /^-?\d+$
  * its own edge (no reach), so it stays ≥ 12 px clear of its neighbours, the board's and tray's
  * edges and the cue arrow (one ring at a time).
  */
-const CARD_GAP = 20;
+const CARD_GAP = 14;
 /** A card's border (3) and padding (5) around its numeral. */
 const CARD_PAD = 8;
-/** Around a picture: the border plus a margin, so a picture never touches the card's edge. */
-const PIC_PAD = 11;
+/** A numeral or picture keeps ≥ 16 px from its card's outer edge (sides). */
+const FACE_MARGIN = 16;
+/** Around a picture: the 16 px margin (left/right; top/bottom too on an untagged card). */
+const PIC_PAD = FACE_MARGIN;
 /** The numeral above a picture (40 px numeral: well above the 32 px floor, 05 §11). */
 const TAG_H = 40;
 /** Above and below a tagged picture (number-path cards): only the card border and padding. */
@@ -86,19 +88,29 @@ const CHROME = {
     board: { top: 14, x: 24, bottom: 18 },
     cue: 74,
     cueGap: 14,
-    tray: { y: 14, x: 18 },
+    tray: { top: 16, bottom: 14, x: 18 },
     gap: 24,
   },
   compact: {
-    board: { top: 4, x: 16, bottom: 14 },
+    board: { top: 4, x: 14, bottom: 12 },
     cue: 38,
     cueGap: 12,
-    tray: { y: 12, x: 14 },
-    gap: 8,
+    // 16 px over the cards: a picked-up card (lifted 3 px, 2 % bigger) stays ≥ 12 px inside.
+    tray: { top: 16, bottom: 12, x: 14 },
+    gap: 6,
+  },
+  // Tall and narrow rooms (portrait): the full cue and spacing, the compact sides (the cards get
+  // every pixel of the row).
+  tall: {
+    board: { top: 14, x: 14, bottom: 18 },
+    cue: 74,
+    cueGap: 14,
+    tray: { top: 16, bottom: 14, x: 14 },
+    gap: 24,
   },
 } as const;
 type Chrome = keyof typeof CHROME;
-const CHECK_GAP = 28;
+const CHECK_GAP = 24;
 /**
  * How far Pip's hand reaches below a card's bottom edge (kit useInviteHand: the 56 px hand, its
  * fingertip ~18 px up the card, its 8 px bob and 10 px edge margin), so a tray card's invite
@@ -131,7 +143,7 @@ interface Shape {
    * When set, the plan that fits (room for Pip's hand first) with the best score wins over the
    * tallest card (number-path cards: the widest tick pitch).
    */
-  score?: (p: Plan) => number;
+  score?: (p: Plan, size: { w: number; h: number }) => number;
 }
 
 function sizeOf(s: Shape, p: Plan) {
@@ -140,14 +152,15 @@ function sizeOf(s: Shape, p: Plan) {
   const boardW = row(s.n) + 2 * (c.board.x + BORDER);
   const boardH = 2 * BORDER + c.board.top + c.cue + c.cueGap + p.h + c.board.bottom;
   const trayW = s.tray > 0 ? row(s.tray) + 2 * (c.tray.x + BORDER) : 0;
-  const trayH = 2 * (c.tray.y + BORDER) + p.h;
+  const trayH = c.tray.top + c.tray.bottom + 2 * BORDER + p.h;
   // Board and tray share one column (the tray right under the board); Check beside the tray in a
   // column of its own, or below.
   const colW = Math.max(boardW, trayW);
   const width = p.check === 'beside' ? colW + CHECK_GAP + s.check.w : Math.max(colW, s.check.w);
   const bottomH = p.check === 'beside' ? Math.max(trayH, s.check.h) : trayH + c.gap + s.check.h;
   // Below the tray's cards: its padding and border, then Check (when below) and the widget's edge.
-  const underTray = c.tray.y + BORDER + ROOT_PAD.y + (p.check === 'below' ? c.gap + s.check.h : 0);
+  const underTray =
+    c.tray.bottom + BORDER + ROOT_PAD.y + (p.check === 'below' ? c.gap + s.check.h : 0);
   return {
     w: width + 2 * ROOT_PAD.x,
     h: boardH + c.gap + bottomH + 2 * ROOT_PAD.y,
@@ -185,15 +198,16 @@ function planLayout(s: Shape, room: WidgetRoom | null): Plan {
     for (const withHand of [true, false]) {
       let top: Plan | null = null;
       let topScore = Number.NEGATIVE_INFINITY;
-      for (const chrome of ['normal', 'compact'] as const) {
+      for (const chrome of ['normal', 'tall', 'compact'] as const) {
         for (let h = s.maxH; h >= s.target; h -= 2) {
           const { min, max } = s.width(h);
           for (const check of ['beside', 'below'] as const) {
-            for (let w = max; w >= min; w = w > min && w - 4 < min ? min : w - 4) {
+            // 1 px steps: a number-path card takes every pixel of width the row allows.
+            for (let w = max; w >= min; w -= 1) {
               const p = { w, h, chrome, check };
               const size = sizeOf(s, p);
               if (size.w <= W + 0.5 && size.h + (withHand ? size.hand : 0) <= H + 0.5) {
-                const v = score(p);
+                const v = score(p, size);
                 if (v > topScore + 0.01) {
                   top = { ...p, handPad: withHand ? size.hand : 0 };
                   topScore = v;
@@ -521,6 +535,9 @@ export function OrderWidget({
           ? (byData(root, 'card', cue.id) ?? byData(root, 'placed', cue.id) ?? null)
           : (byData(root, 'slot-pad', String(cue.slot)) ?? null),
     cueKey,
+    // A box's panel ends just under it: Pip points down at a box from above (over the cue), so
+    // the hand crosses no panel edge and covers no card.
+    cue?.kind === 'slot' ? 'above' : 'below',
   );
   const cardLit = (id: string) => highlight === id || (cue?.kind === 'card' && cue.id === id);
 
@@ -582,24 +599,30 @@ export function OrderWidget({
       }),
     );
   /** A numeral card fits its longest label at ≥ 32 px (0.62 em a digit). */
-  const numeralW = (h: number) => Math.max(h, Math.ceil(longest * 0.62 * 32) + 2 * CARD_PAD + 4);
+  const numeralW = (h: number) => Math.max(h, Math.ceil(longest * 0.62 * 32) + 2 * FACE_MARGIN);
   const cardWidth = (pictures: boolean) => (h: number) => {
     if (words) {
       const w = Math.max(h, longest * 14 + 2 * CARD_PAD + 8);
       return { min: w, max: w };
     }
+    // Cards may be up to 1.6 × as wide as tall where the row has room (06 §1: use the room).
     if (!pictures) {
       const w = numeralW(h);
-      return { min: w, max: w };
+      return { min: w, max: Math.max(w, Math.round(1.6 * h)) };
     }
     const pic = Math.min(
       Math.round(2.4 * h),
       Math.max(h, Math.round(picHeight(h) * aspect) + 2 * PIC_PAD),
     );
-    if (lines.length === 0) return { min: pic, max: pic };
+    if (lines.length === 0) return { min: pic, max: Math.max(pic, Math.round(1.6 * h)) };
     const max = Math.max(pic, Math.min(3 * h, lineWidth(h)));
     return { min: Math.min(max, Math.max(pic, Math.round(1.4 * h))), max };
   };
+  /** A plan's content covers ≥ 62 % of a bounded room (60 % measured, with a margin). */
+  const covers = (size: { w: number; h: number }) =>
+    room !== null &&
+    Number.isFinite(room.height) &&
+    (size.w * size.h) / (room.width * room.height) >= 0.62;
   /** The drawn pitch between a card's path ticks under a plan (the tightest of the cards). */
   const linePitch = (p: Plan) => {
     const w = p.w - 2 * PIC_PAD;
@@ -620,11 +643,20 @@ export function OrderWidget({
         width: cardWidth(pictures),
         target,
         // Picture cards grow to 2.2 × the target where the room allows (a ten-frame, blocks or
-        // a number line read at that size); numeral cards stay within 1.5 ×.
-        maxH: pictures ? Math.round(Math.max(target * 2.2, 150)) : Math.round(target * 1.5),
+        // a number line read at that size); numeral cards to 1.8 ×.
+        maxH: pictures ? Math.round(Math.max(target * 2.2, 150)) : Math.round(target * 1.8),
         compactGain: pictures ? 12 : Number.POSITIVE_INFINITY,
-        // Number-path cards: the plan whose path ticks stand furthest apart (all ticks kept).
-        score: pictures && lines.length > 0 ? linePitch : undefined,
+        // Number-path cards: a plan that covers ≥ 60 % of the room if any does, then the widest
+        // tick pitch (all ticks kept) up to 8 px, then the biggest path; other cards: the plan
+        // that covers the most of the room (06 §1), the full cue unless the compact one buys
+        // clearly more.
+        score:
+          pictures && lines.length > 0
+            ? (p, size) =>
+                (covers(size) ? 1000 : 0) +
+                Math.min(8, linePitch(p)) * 10 +
+                Math.min(1, picHeight(p.h) / 76)
+            : (p, size) => size.w * size.h * (p.chrome === 'compact' ? 1 : 1.15),
         check: checkSize ?? { w: TARGET_PX[ageMode].big + 8, h: TARGET_PX[ageMode].big + 6 },
       },
       room,
@@ -662,7 +694,14 @@ export function OrderWidget({
   const sharedCell = cellOf(layouts);
   const layoutOf = new Map(config.items.map((it, i) => [it.id, layouts[i] ?? undefined]));
   // One numeral size for every card, as big as the longest label lets it be (≥ 32 px, 05 §11).
-  const numeralPx = Math.max(32, Math.min(48, Math.floor((plan.w - 18) / (0.62 * longest))));
+  const numeralPx = Math.max(
+    32,
+    Math.min(
+      64,
+      Math.floor(0.55 * plan.h),
+      Math.floor((plan.w - 2 * FACE_MARGIN) / (0.62 * longest)),
+    ),
+  );
 
   // ---------- render ----------
 
@@ -732,7 +771,7 @@ export function OrderWidget({
     '--ord-gap-main': `${CHROME[plan.chrome].gap}px`,
     '--ord-board-pad': `${CHROME[plan.chrome].board.top}px ${CHROME[plan.chrome].board.x}px ${CHROME[plan.chrome].board.bottom}px`,
     '--ord-cue-gap': `${CHROME[plan.chrome].cueGap}px`,
-    '--ord-tray-pad': `${CHROME[plan.chrome].tray.y}px ${CHROME[plan.chrome].tray.x}px`,
+    '--ord-tray-pad': `${CHROME[plan.chrome].tray.top}px ${CHROME[plan.chrome].tray.x}px ${CHROME[plan.chrome].tray.bottom}px`,
     '--ord-check-gap': `${CHECK_GAP}px`,
   } as CSSProperties;
 

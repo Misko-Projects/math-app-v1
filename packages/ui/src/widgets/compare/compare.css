@@ -67,7 +67,7 @@
   justify-content: center;
   box-sizing: border-box;
   min-width: 0;
-  min-height: var(--target-min);
+  min-height: max(var(--target-min), var(--cmp-side-h, 0px));
 }
 /* A pickable side: the card and its picture share one grid cell; the picture lets taps through. */
 .ni-cmp__side[data-overlay="true"] {
@@ -169,6 +169,16 @@
 .ni-cmp__strip {
   display: flex;
   justify-content: center;
+}
+/* Two strips span the full width, stacked over one ruler, all on one centre line (one scale). */
+.ni-cmp[data-arrange] .ni-cmp__stage[data-strips="true"] {
+  grid-template-columns: minmax(0, 1fr);
+}
+.ni-cmp__ruler {
+  display: flex;
+  justify-content: center;
+  /* The side cards' border and padding, so the ruler's 0 lines up under the ribbons' start. */
+  padding: 0 19px;
 }
 .ni-cmp__ribbon rect {
   fill: var(--color-coral);
@@ -280,8 +290,8 @@
   box-shadow: var(--shadow-soft);
 }
 .ni-pick.ni-cmp__this {
-  min-width: var(--target-min);
-  width: var(--target-min);
+  min-width: calc(var(--target-min) + 4px);
+  width: calc(var(--target-min) + 4px);
   min-height: 100%;
   margin: 0;
   padding: 6px;

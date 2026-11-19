@@ -98,7 +98,15 @@ export interface InviteHandPlacement {
   top: number;
   /** Extra px `host` needs at its bottom so the hand (and its bob) stays inside it. */
   room: number;
+  /** Which way the finger points: up from below the control (default), or down from above. */
+  direction?: 'up' | 'down';
 }
+
+/**
+ * Where Pip's hand hangs: `below` the control pointing up (the default), or `above` it pointing
+ * down, for a control with no room below it (a box whose panel ends just under it).
+ */
+export type InviteHandSide = 'below' | 'above';
 
 /**
  * Where the hand goes for `target`, relative to `host` (the widget root, `position: relative`).
@@ -109,8 +117,24 @@ export function placeInviteHand(
   target: HTMLElement,
   host: HTMLElement,
   hostExtra = 0,
+  side: InviteHandSide = 'below',
 ): InviteHandPlacement {
   const S = INVITE_HAND_PX;
+  if (side === 'above') {
+    // Mirrored: the hand stands above the control, its drawn fingertip ~10 px inside the top
+    // edge at the middle (a glyph-less box), wholly above it otherwise.
+    const tipDown = { x: HAND_POINTER_TIP.down.x * S, y: HAND_POINTER_TIP.down.y * S };
+    const { t } = measure(target, host);
+    const tipX = t.left + (t.right - t.left) / 2;
+    const tipY = t.top + TIP_ABOVE_BOTTOM;
+    const maxLeft = host.clientWidth - S - EDGE;
+    return {
+      left: Math.max(EDGE + BOB.x, Math.min(tipX - tipDown.x, maxLeft)),
+      top: tipY - tipDown.y,
+      room: 0,
+      direction: 'down',
+    };
+  }
   const tip = { x: HAND_POINTER_TIP.up.x * S, y: HAND_POINTER_TIP.up.y * S };
   const { t, glyphs } = measure(target, host);
   const glyph =
@@ -142,7 +166,7 @@ export function placeInviteHand(
   // makes room for it.
   const ownHeight = host.clientHeight - hostExtra;
   const room = Math.max(0, Math.ceil(top + S + BOB.y + EDGE - ownHeight));
-  return { left, top, room };
+  return { left, top, room, direction: 'up' };
 }
 
 /**
@@ -156,6 +180,8 @@ export function useInviteHand(
   rootRef: RefObject<HTMLElement | null>,
   target: (root: HTMLElement) => HTMLElement | null,
   key: string,
+  /** `above`: the hand points down from above the control (default `below`, pointing up). */
+  side: InviteHandSide = 'below',
 ): { hand: ReactNode; rootStyle: CSSProperties | undefined } {
   const [placed, setPlaced] = useState<(InviteHandPlacement & { padBase: number }) | null>(null);
   /** The bottom room the committed DOM has for the hand (this render's value, once committed). */
@@ -171,7 +197,7 @@ export function useInviteHand(
       setPlaced(null);
       return;
     }
-    const p = placeInviteHand(el, root, applied.current);
+    const p = placeInviteHand(el, root, applied.current, side);
     const padBase =
       (Number.parseFloat(getComputedStyle(root).paddingBottom) || 0) - applied.current;
     setPlaced((prev) =>
@@ -179,6 +205,7 @@ export function useInviteHand(
       prev.left === p.left &&
       prev.top === p.top &&
       prev.room === p.room &&
+      prev.direction === p.direction &&
       prev.padBase === padBase
         ? prev
         : { ...p, padBase },
@@ -206,7 +233,7 @@ export function useInviteHand(
         aria-hidden="true"
         style={{ left: placed.left, top: placed.top }}
       >
-        <HandPointerIcon direction="up" />
+        <HandPointerIcon direction={placed.direction ?? 'up'} />
       </span>
     ),
     rootStyle: placed.room > 0 ? { paddingBottom: placed.padBase + placed.room } : undefined,
