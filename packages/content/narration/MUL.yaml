@@ -7,6 +7,4 @@ tp.MUL.12.t1.prompt:
 tp.MUL.12.t2.prompt:
   text: "Share them so each friend gets the same. The seagull gets the ones left over."
 tp.MUL.12.t3.prompt:
-  text: "Share {items} {sprite|noun:items} with {recipients} friends. Put one share in the basket."
-tp.MUL.12.t4.prompt:
   text: "Pip shares them with {recipients} friends. How many does each friend get?"

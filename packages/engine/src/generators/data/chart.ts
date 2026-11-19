@@ -7,7 +7,9 @@
 // `noun.<id>.many`. Scale 1 throughout (scaled graphs are DAT.06, K02).
 // - bar-graph-read: `question` how-many (category a), total (every category), difference (a − b,
 //   a > b), most or least (a category id; never a tie). `kind` picture, bar, tally or table.
-// - number-pad: the chart as the stimulus; the child types the total or the difference.
+// - number-pad (`kind: picture` only): the picture graph as a `scene` stimulus, one row of pictures
+//   per category in chart order (StimulusView draws scenes, not `chart`); the child types the
+//   total or the difference.
 // - compare: two one-bar charts on one scale (category a and category b); `question` more or
 //   fewer; equal counts answer `same`.
 // - bar-graph-build: `data` objects (raw objects to tally first), tally or table shows the counts;
@@ -32,6 +34,8 @@ const QUESTIONS = ['how-many', 'total', 'difference', 'most', 'least', 'more', '
 const KINDS = ['picture', 'bar', 'tally', 'table'];
 const DATA = ['objects', 'tally', 'table'];
 const MODES = ['bars', 'pictures', 'tally'];
+/** The scene a number-pad picture graph is drawn in (its rows are the categories' pictures). */
+const CHART_SCENE = 'beach-shells';
 
 type Category = ChartSpec['categories'][number];
 
@@ -96,7 +100,8 @@ export const dataChart: GeneratorDef = {
     kind: {
       type: 'string',
       values: KINDS,
-      default: { kind: 'const', value: 'bar' },
+      // A picture graph, the one kind every format can show (the number pad draws it as a scene).
+      default: { kind: 'const', value: 'picture' },
       doc: 'the chart: picture graph, bar graph, tally chart or table',
     },
     data: {
@@ -154,6 +159,8 @@ export const dataChart: GeneratorDef = {
         if (q === 'most' || q === 'least') return uniqueExtreme(vs, q);
         return q === 'how-many';
       case 'number-pad':
+        // The pad's picture is a scene of picture rows, so only a picture graph can be shown.
+        if (asStr(p.kind) !== 'picture') return false;
         if (q === 'total') return sum(vs) <= 20;
         return q === 'difference' && (vs[0] as number) > (vs[1] as number);
       case 'compare':
@@ -245,7 +252,11 @@ export const dataChart: GeneratorDef = {
           math,
           widget: {
             format: 'number-pad',
-            stimulus: { kind: 'chart', chart: chart(shown) },
+            stimulus: {
+              kind: 'scene',
+              context: CHART_SCENE,
+              sprites: shown.map((c) => ({ sprite: c.id, count: c.value })),
+            },
             blanks: [{ id: 'n', maxDigits: 2 }],
             unit: null,
           },

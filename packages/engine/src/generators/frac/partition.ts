@@ -5,9 +5,11 @@
 // - `fair-or-not` (fraction-pick, FRA.07): one shape cut into `den` parts, equal when
 //   `equalParts`; the child answers `yes` | `no`.
 // - `pick` (fraction-pick pick-picture, FRA.01): three pictures of the same shape (halves, fourths,
-//   and `den` parts that are not equal). `ask` names the one to find: `name` asks for the equal
-//   `den` parts ("cut into fourths"), `unequal` for the one whose parts are not the same size. Each
-//   picture is the answer of some item, so no option is outside the template's answers.
+//   and `unequalParts` parts that are not equal). `ask` names the one to find: `name` asks for the
+//   equal `den` parts ("cut into fourths"), `unequal` for the one whose parts are not the same size.
+//   The set depends on `shape` and `unequalParts` only, never on the key (PR #84 review: the unequal
+//   picture used to have `den` parts), each picture is the answer of some item, and the features
+//   are the set's (denominator 2: fourths are always shown).
 // - `partition` (fraction-line partition on a strip, FRA.01): mark the strip into `den` equal
 //   parts. Answer `fraction.partition`.
 
@@ -93,6 +95,11 @@ export const fracPartition: GeneratorDef = {
       default: { kind: 'const', value: 'name' },
       doc: 'pick: name (find the equal den parts) or unequal (find the parts that are not equal)',
     },
+    unequalParts: {
+      type: 'int',
+      default: { kind: 'choice', values: [2, 4] },
+      doc: 'pick: parts of the picture whose parts are not equal (2 or 4), independent of den and ask',
+    },
     acceptNonCongruent: {
       type: 'bool',
       default: { kind: 'const', value: false },
@@ -140,7 +147,10 @@ export const fracPartition: GeneratorDef = {
         return mode === 'cut';
       case 'fraction-pick':
         if (shape === 'square') return false;
-        if (mode === 'pick') return (den === 2 || den === 4) && num === 1;
+        if (mode === 'pick') {
+          const u = asNum(p.unequalParts, 2);
+          return (den === 2 || den === 4) && num === 1 && (u === 2 || u === 4);
+        }
         return mode === 'fair-or-not' && den <= 4;
       case 'fraction-line':
         return mode === 'partition' && shape === 'bar';
@@ -200,12 +210,18 @@ export const fracPartition: GeneratorDef = {
       };
     } else if (t.format === 'fraction-pick') {
       math['ask.unequal'] = ask === 'unequal' ? 1 : 0;
-      // The unequal picture has as many parts as the asked word (halves: two), so it is the
-      // picture a child who ignores equal sizes would take.
+      // The option set's feature, the same whichever picture is the key: fourths always show.
+      math.denominator = 2;
+      // The set is built before the key: halves, fourths, and unequal parts whose count is its own
+      // param. When it matches the asked word (two unequal parts for halves), it is the picture a
+      // child who ignores equal sizes would take (MC.fraction-unequal-parts).
       const kinds = [
         { kind: 'halves', stimulus: fractionPicture(picShape, 2, 0, true) },
         { kind: 'fourths', stimulus: fractionPicture(picShape, 4, 0, true) },
-        { kind: 'unequal', stimulus: fractionPicture(picShape, den, 0, false) },
+        {
+          kind: 'unequal',
+          stimulus: fractionPicture(picShape, asNum(params.unequalParts, 2), 0, false),
+        },
       ];
       const shown = rng.fork('layout').shuffle(kinds);
       const want = ask === 'unequal' ? 'unequal' : den === 2 ? 'halves' : 'fourths';

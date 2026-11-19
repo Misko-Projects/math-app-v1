@@ -37,7 +37,7 @@ templates:
     difficulty: { base: -0.9 }
     narration:
       prompt: tp.ALG.01.t2.prompt
-      hints: [h.pattern.say-it, h.pattern.keep-going]
+      hints: [h.pattern.say-it, h.pattern.core-same]
 
   # The whole pattern as cards, the first ones fixed: put the next ones (all different) in order.
   - id: ALG.01.t3
@@ -150,7 +150,9 @@ templates:
       prompt: p.pattern.find-core
       hints: [h.pattern.find-core, h.pattern.core-same]
 
-  # Finish the next repeat of the core: the cards to place are all different units.
+  # Make the next repeat: whole cores are fixed and the free cards are exactly one more core
+  # (mode core: ask = core length, shown a multiple of it, PR #84 review). The free cards must all
+  # be different units, so the core repeats none (AB, ABC).
   - id: ALG.04.t3
     skillId: ALG.04
     format: order
@@ -158,13 +160,14 @@ templates:
     representation: objects
     generator: pattern.repeat
     params:
-      core: { choice: [AB, AAB, ABB, ABC, AABB] }
-      shown: { int: [4, 7] }
-      ask: { int: [2, 3] }
+      mode: core
+      core: { choice: [AB, ABC] }
+      shown: { choice: [4, 6] }
+      ask: { choice: [2, 3] }
     difficulty: { base: -0.8 }
     narration:
       prompt: tp.ALG.04.t3.prompt
-      hints: [h.pattern.find-core, h.pattern.keep-going]
+      hints: [h.pattern.find-core, h.pattern.core-same]
 
   # ---------- ALG.05: balanced means the same amount on both sides (K) ----------
   - id: ALG.05.t1
