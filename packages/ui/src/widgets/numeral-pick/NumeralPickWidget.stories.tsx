@@ -8,6 +8,7 @@ import {
   spyAudio,
 } from '../../test-support/storyHelpers';
 import {
+  expectPointerOn,
   expectTraceOrdered,
   findWidget,
   renderWidget,
@@ -201,6 +202,10 @@ export const PictureChoices: Story = {
     await userEvent.click(canvas.getByRole('button', { name: 'Check' }));
     await expect(args.onResponse).toHaveBeenCalledWith({ kind: 'choice', id: 'a' });
     await expectTargetGaps(canvas.getAllByRole('button', { name: /^Pick/ }));
+    // The whole widget fits a 1280 × 800 tablet with no vertical scroll: the stage stays within
+    // 800 px minus the 2 × 40 px story padding.
+    const stage = canvasElement.querySelector('.story-widget-stage') as HTMLElement;
+    await expect(stage.getBoundingClientRect().height).toBeLessThanOrEqual(720);
   },
 };
 
@@ -395,6 +400,7 @@ const inviteController: WidgetDemo = createDemoController({ strict: true });
  * hand points at the choice to tap.
  */
 export const DemoInvite: Story = {
+  globals: { ageMode: 'k' },
   args: { demo: inviteController },
   play: async ({ canvasElement }) => {
     const root = await findWidget(canvasElement, ROOT);
@@ -403,13 +409,11 @@ export const DemoInvite: Story = {
     const invited = root.querySelector('.ni-pick.ni-invite') as HTMLElement;
     await expect(invited).toHaveAttribute('data-id', 'opt-8');
     await expect(invited).toHaveAttribute('aria-pressed', 'false');
-    // The hand's fingertip sits on the invited card's bottom edge, centred under it.
-    const hand = (root.querySelector('.ni-hand') as HTMLElement).getBoundingClientRect();
-    const card = invited.getBoundingClientRect();
-    await expect(
-      Math.abs(hand.left + hand.width * 0.42 - (card.left + card.width / 2)),
-    ).toBeLessThan(12); // the tap animation moves it ≤ 8 px
-    await expect(Math.abs(hand.top - card.bottom)).toBeLessThan(14);
+    await expectPointerOn(root.querySelector('.ni-hand') as HTMLElement, invited, root);
+    // K: Check is an icon with a spoken label, no text.
+    await expect(within(root).getByRole('button', { name: 'Check' })).not.toHaveTextContent(
+      'Check',
+    );
   },
 };
 

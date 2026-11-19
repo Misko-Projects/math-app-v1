@@ -63,9 +63,9 @@
   border-radius: var(--radius-pebble);
 }
 .ni-npw__hand {
-  /* Fingertip (about 42 % across the 56 px hand) touches the blank's bottom edge. */
+  /* Fingertip (about 42 % across, 8 px down the 56 px hand) rests inside the blank's bottom edge. */
   left: calc(50% - 23px);
-  top: calc(100% - 4px);
+  top: calc(100% - 26px);
 }
 .ni-npw__controls {
   display: flex;

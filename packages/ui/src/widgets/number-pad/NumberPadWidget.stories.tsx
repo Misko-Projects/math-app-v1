@@ -8,6 +8,7 @@ import {
   spyAudio,
 } from '../../test-support/storyHelpers';
 import {
+  expectPointerOn,
   expectTraceOrdered,
   findWidget,
   renderWidget,
@@ -288,7 +289,11 @@ export const DemoMode: Story = {
     );
     demoController.invite({ op: 'type', args: { blank: 't2', value: 87 } });
     await waitFor(() => expect(root.querySelector('.ni-npw__blank.ni-invite')).not.toBeNull());
-    await expect(root.querySelector('.ni-hand')).not.toBeNull();
+    await expectPointerOn(
+      root.querySelector('.ni-hand') as HTMLElement,
+      root.querySelector('.ni-npw__blank.ni-invite') as HTMLElement,
+      root,
+    );
   },
 };
 

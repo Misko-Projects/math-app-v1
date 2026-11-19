@@ -5,20 +5,21 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 36px;
+  gap: 24px;
   box-sizing: border-box;
   width: 100%;
   max-width: 1180px;
   /* Layout decisions follow the space the widget actually has, not the viewport. */
   container: npick / inline-size;
-  padding: 16px 24px;
+  /* Extra room below for Pip's pointer when it invites a choice card. */
+  padding: 16px 24px 40px;
 }
 .ni-npick__answer {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   justify-content: center;
-  gap: 28px 48px;
+  gap: 20px 48px;
 }
 /* A grid layout puts "check" under the choices, so the 2 × 2 block itself is centred. */
 .ni-npick__answer[data-layout="grid"] {
@@ -87,8 +88,9 @@
     min-width: calc((100% - var(--target-gap) * 2) / 2);
   }
 }
-/* The demo hand's fingertip (≈ 42 % across its 56 px box) touches the card's bottom edge. */
+/* The demo hand's fingertip (≈ 42 % across, 8 px down its 56 px box) rests inside the card's
+   bottom edge, centred: on the target without covering its numeral. */
 .ni-npick__hand {
   left: calc(50% - 23px);
-  top: calc(100% - 4px);
+  top: calc(100% - 26px);
 }

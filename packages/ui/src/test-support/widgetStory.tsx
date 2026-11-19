@@ -41,3 +41,20 @@ export async function expectTraceOrdered(trace: InteractionEvent[]) {
 }
 
 export type { WidgetConfig };
+/**
+ * Pip's pointer is ON its target: the fingertip (≈ 42 % across, 8 px down the hand) lies inside
+ * the target's box, the hand overlaps the target, and the hand stays inside the widget.
+ */
+export async function expectPointerOn(hand: HTMLElement, target: HTMLElement, widget: HTMLElement) {
+  const h = hand.getBoundingClientRect();
+  const t = target.getBoundingClientRect();
+  const w = widget.getBoundingClientRect();
+  const tip = { x: h.left + h.width * 0.42, y: h.top + 8 };
+  await expect(tip.x).toBeGreaterThanOrEqual(t.left);
+  await expect(tip.x).toBeLessThanOrEqual(t.right);
+  await expect(tip.y).toBeGreaterThanOrEqual(t.top);
+  await expect(tip.y).toBeLessThanOrEqual(t.bottom);
+  await expect(h.left).toBeGreaterThanOrEqual(w.left);
+  await expect(h.right).toBeLessThanOrEqual(w.right);
+  await expect(h.bottom).toBeLessThanOrEqual(w.bottom);
+}

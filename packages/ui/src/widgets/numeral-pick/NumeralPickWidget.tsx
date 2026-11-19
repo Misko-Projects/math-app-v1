@@ -148,7 +148,7 @@ export function NumeralPickWidget({
                     <StimulusView
                       spec={o.stimulus}
                       maxWidth={260}
-                      maxHeight={140}
+                      maxHeight={110}
                       minCell={22}
                       label={name}
                     />

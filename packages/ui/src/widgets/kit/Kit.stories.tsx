@@ -252,6 +252,14 @@ export const ChoicesK: Story = {
     await expect(cards).toHaveLength(11);
     for (const c of cards) await expectTargetSize(c, 'k');
     await expectTargetGaps(cards);
+    // Balanced rows: when the tray wraps, no row is left with a lonely card.
+    const rows = new Map<number, number>();
+    for (const c of cards) {
+      const top = Math.round(c.getBoundingClientRect().top);
+      rows.set(top, (rows.get(top) ?? 0) + 1);
+    }
+    const counts = [...rows.values()];
+    await expect(Math.max(...counts) - Math.min(...counts)).toBeLessThanOrEqual(1);
     // Equal cards: "10" is not a bigger target than "9".
     await expect(new Set(cards.map((c) => Math.round(c.getBoundingClientRect().width))).size).toBe(
       1,

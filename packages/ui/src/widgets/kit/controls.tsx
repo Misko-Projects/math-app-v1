@@ -7,6 +7,7 @@ import {
   useLayoutEffect,
   useMemo,
   useRef,
+  useState,
 } from 'react';
 import {
   useNarrationText,
@@ -133,12 +134,41 @@ export function NumeralTray({
   // not a bigger target than "9".
   const digits = Math.max(1, ...values.map((v) => String(v).length));
   const cardWidth = `max(calc(var(--target-min) * 1.15), ${digits * 30 + 40}px)`;
+  // Balanced rows: the fewest rows that fit, with the cards split evenly between them (0–10 on a
+  // narrow screen is 6 + 5, never 10 + a lonely 1).
+  const ref = useRef<HTMLFieldSetElement | null>(null);
+  const [cols, setCols] = useState(values.length);
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (!el || typeof ResizeObserver === 'undefined') return;
+    const measure = () => {
+      const card = el.querySelector<HTMLElement>('.ni-pick');
+      const avail = el.parentElement?.clientWidth ?? el.clientWidth;
+      if (!card || avail <= 0) return;
+      const gap = Number.parseFloat(getComputedStyle(el).columnGap) || 12;
+      const n = values.length;
+      let next = n;
+      for (let rows = 1; rows <= n; rows++) {
+        const c = Math.ceil(n / rows);
+        if (c * card.offsetWidth + (c - 1) * gap <= avail) {
+          next = c;
+          break;
+        }
+      }
+      setCols(next);
+    };
+    measure();
+    const ro = new ResizeObserver(measure);
+    if (el.parentElement) ro.observe(el.parentElement);
+    return () => ro.disconnect();
+  }, [values.length]);
   return (
     <fieldset
+      ref={ref}
       className="ni-tray-numerals"
       aria-label={t(label)}
       disabled={disabled}
-      style={{ '--card-w': cardWidth } as CSSProperties}
+      style={{ '--card-w': cardWidth, '--tray-cols': cols } as CSSProperties}
     >
       {values.map((v) => (
         <PickCard
