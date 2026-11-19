@@ -4,6 +4,7 @@
 import type { StateCheckerId } from '@number-island/shared';
 import { arrayArea } from './array.area';
 import { arrayDims } from './array.dims';
+import { balanceEqual } from './balance.equal';
 import { basetenExact } from './baseten.exact';
 import { basetenValue } from './baseten.value';
 import { bondNewWay } from './bond.newWay';
@@ -50,6 +51,8 @@ const CHECKERS: Partial<Record<StateCheckerId, StateChecker>> = {
   'groups.equal': groupsEqual,
   'share.fair': shareFair,
   'tiles.cover': tilesCover,
+  // K01 (#11): balance make-equal (the balance format has no model yet, U04)
+  'balance.equal': balanceEqual,
 };
 
 export function stateChecker(id: StateCheckerId): StateChecker | undefined {

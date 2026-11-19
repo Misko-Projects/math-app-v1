@@ -1109,12 +1109,14 @@ describe('registry', () => {
   it('has exactly the registered generators', () => {
     expect(registry.ids()).toEqual([
       'addsub.facts',
+      'addsub.three',
       'bond.parts',
       'compare.numbers',
       'compare.sets',
       'count.ordinal',
       'count.sequence',
       'count.set',
+      'equality.eq',
       'estimate.quantity',
       'geo.compose',
       'geo.draw',
@@ -1124,6 +1126,7 @@ describe('registry', () => {
       'mea.massvolume',
       'numberline.place',
       'pv.number',
+      'story.addsub',
       'subitize.flash',
     ]);
     expect(
