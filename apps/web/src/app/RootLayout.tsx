@@ -22,12 +22,14 @@ export function RootLayout() {
 /**
  * Leaving the parent area by any route (Back to the island, the browser's Back, a link) locks
  * the gate, so the browser's Forward or Back can't reopen a parent page during a child's play.
+ * It locks even when the gate is already shut: that also cancels a PIN check still on its way
+ * (its answer then opens nothing).
  */
 function ParentGateGuard() {
   const { pathname } = useLocation();
   const gate = useParentGate();
   useEffect(() => {
-    if (!PARENT_ROUTES.test(pathname) && gate.isUnlocked()) gate.lock();
+    if (!PARENT_ROUTES.test(pathname)) gate.lock();
   }, [pathname, gate]);
   return null;
 }

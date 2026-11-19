@@ -40,6 +40,8 @@ function failureText(result: Exclude<PinResult, { ok: true }>): string {
       return 'The parent area needs your island server to check the PIN. Connect to the same Wi-Fi as the server and try again. (Playing works offline.)';
     case 'not_paired':
       return 'This device is no longer part of your family. Join again with a code from a parent device, or with the parent passphrase.';
+    case 'cancelled':
+      return 'Enter your PIN again.';
   }
 }
 

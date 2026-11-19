@@ -8,7 +8,7 @@ import { Navigate, useNavigate } from 'react-router';
 import { useAppServices } from '@/app/AppServices';
 import { recordDiagnostic } from '@/app/diagnostics';
 import { useDeviceRecord } from '@/app/hooks';
-import { describeApiError } from '../api';
+import { ApiError, describeApiError } from '../api';
 import { Button, Field, Notice, OkIcon, TextInput, WarnIcon } from '../kit';
 import { useParentApi, useParentGate } from '../ParentContext';
 import { listNames } from '../ParentHome';
@@ -19,6 +19,7 @@ import {
   type FamilyIds,
   guessDeviceName,
   type NewChild,
+  recoverLostSetup,
   saveAiChoices,
   saveFamilyLocally,
   setupFamilyOnServer,
@@ -848,10 +849,25 @@ export function SetupWizard() {
                 if (!ids) {
                   try {
                     ids = await setupFamilyOnServer({ api, gate }, { ...family, deviceName });
-                    setServerIds(ids);
                   } catch (e) {
-                    return describeApiError(e);
+                    // Refused because the family exists: if it is this setup's own (its answer was
+                    // lost), the passphrase just chosen signs in, and setup carries on with these
+                    // children. Otherwise it is another family's server.
+                    if (!(e instanceof ApiError && e.code === 'setup_closed')) {
+                      return describeApiError(e);
+                    }
+                    try {
+                      ids = await recoverLostSetup(
+                        { services, api, gate },
+                        { passphrase: family.passphrase, deviceName },
+                      );
+                    } catch (recovery) {
+                      recordDiagnostic('setup.recover', recovery);
+                      return describeApiError(recovery);
+                    }
+                    if (!ids) return describeApiError(e);
                   }
+                  setServerIds(ids);
                 }
                 try {
                   setCreated(await saveFamilyLocally(services, ids, kids));

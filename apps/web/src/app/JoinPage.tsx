@@ -17,10 +17,12 @@ import { ApiError, describeApiError } from '@/parent/api';
 import { Button, Field, Notice, TextInput } from '@/parent/kit';
 import { useParentApi } from '@/parent/ParentContext';
 import {
+  closeParentSession,
   guessDeviceName,
   JoinRefusedError,
   joinFamily,
   joinWithPassphrase,
+  SessionStillOpenError,
 } from '@/parent/setup/family';
 import { useAppServices } from './AppServices';
 import { useDeviceRecord } from './hooks';
@@ -42,7 +44,22 @@ export function JoinPage() {
   const [error, setError] = useState<string | null>(null);
   const [otherFamily, setOtherFamily] = useState(false);
   const [busy, setBusy] = useState(false);
+  /** The passphrase sign-in couldn't be closed: the page stays until it is. */
+  const [sessionOpen, setSessionOpen] = useState(false);
   const hadFamily = device !== undefined && device.pairedAt !== null;
+
+  const closeSession = async () => {
+    setBusy(true);
+    try {
+      await closeParentSession(api);
+      setSessionOpen(false);
+      setBusy(false);
+      // Joined (the device holds a token now): on to the island. Otherwise the form stays.
+      if ((await services.store.device()).deviceToken) navigate('/', { replace: true });
+    } catch {
+      setBusy(false);
+    }
+  };
   const paired = Boolean(device?.deviceToken);
 
   const switchMode = (next: Mode) => {
@@ -72,7 +89,11 @@ export function JoinPage() {
       else await joinWithPassphrase({ services, api }, { passphrase, deviceName });
       navigate('/', { replace: true });
     } catch (err) {
-      if (err instanceof JoinRefusedError) {
+      if (err instanceof SessionStillOpenError) {
+        // The parent sign-in the passphrase opened is still valid on the server: don't hand the
+        // device back until it is closed.
+        setSessionOpen(true);
+      } else if (err instanceof JoinRefusedError) {
         setOtherFamily(true);
         setError(
           mode === 'code'
@@ -83,8 +104,10 @@ export function JoinPage() {
         err instanceof ApiError &&
         (err.code === 'pair_code_invalid' || err.code === 'pair_code_expired')
       ) {
-        // About the code itself: shown on the code field, which is marked invalid.
-        setCodeError(describeApiError(err));
+        // About the code itself: on the code field, which is marked invalid. With the passphrase
+        // the code was made here, so there's no field for it: say so, and Join tries again.
+        if (mode === 'code') setCodeError(describeApiError(err));
+        else setError('Joining didn’t finish this time. Tap Join to try again.');
       } else if (err instanceof ApiError && err.code === 'invalid_credentials') {
         setPassphraseError('That passphrase isn’t right. Check it and try again.');
       } else {
@@ -179,6 +202,17 @@ export function JoinPage() {
             )}
           </Field>
           {error ? <Notice tone="error">{error}</Notice> : null}
+          {sessionOpen ? (
+            <div className="flex flex-col items-start gap-3">
+              <Notice tone="error">
+                The grown-up sign-in couldn’t be closed, so the island server still lets this device
+                into the parent area. Check the connection to the server, then close it.
+              </Notice>
+              <Button onClick={() => void closeSession()} disabled={busy}>
+                {busy ? 'Closing…' : 'Close the sign-in'}
+              </Button>
+            </div>
+          ) : null}
           {otherFamily ? (
             <Notice tone="info">
               To use this device with another family, a grown-up first clears its data: in Chrome,
@@ -188,7 +222,7 @@ export function JoinPage() {
             </Notice>
           ) : null}
           <div className="flex flex-wrap items-center gap-4">
-            <Button type="submit" disabled={busy}>
+            <Button type="submit" disabled={busy || sessionOpen}>
               {busy ? 'Joining…' : 'Join'}
             </Button>
             <Link

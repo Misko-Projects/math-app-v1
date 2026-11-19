@@ -1,4 +1,4 @@
-import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { createMemoryRouter, RouterProvider } from 'react-router';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { AppProviders } from '@/app/AppServices';
@@ -60,7 +60,7 @@ async function renderParentArea(path = '/parent') {
       <RouterProvider router={router} />
     </AppProviders>,
   );
-  return { app, router };
+  return { app, router, device };
 }
 
 const holdButton = () =>
@@ -140,6 +140,36 @@ describe('parent gate UI', () => {
       fireEvent.keyDown(one, { key: 'Enter' });
     });
     expect(await screen.findByText('secret parent page')).toBeTruthy();
+  });
+
+  it('a right PIN that answers after the parent left opens nothing', async () => {
+    const { router, device } = await renderParentArea();
+    let answer: (() => void) | null = null;
+    device.net.api['/api/auth/pin'] = () =>
+      new Promise((resolve) => {
+        answer = () => resolve(json(200, { expiresAt: Date.now() + 600_000 }));
+      });
+    await openPad();
+    const key = (name: string) => screen.getByRole('button', { name });
+    for (const d of ['2', '4', '6', '8']) fireEvent.click(key(d));
+    fireEvent.click(key('Unlock')); // the check is on its way…
+    await act(async () => {
+      await router.navigate('/'); // …and the parent leaves for the island
+    });
+    expect(await screen.findByText('child home')).toBeTruthy();
+    await waitFor(() => expect(answer).not.toBeNull()); // the PIN request is out
+    await act(async () => {
+      answer?.(); // the right PIN's answer arrives
+    });
+    await act(async () => {
+      await router.navigate(-1);
+    });
+    expect(await screen.findByRole('heading', { name: 'Grown-ups only' })).toBeTruthy();
+    expect(screen.queryByText('secret parent page')).toBeNull();
+    // The session that answer started was ended.
+    await waitFor(() =>
+      expect(device.net.urls.some((u) => u.endsWith('/api/auth/logout'))).toBe(true),
+    );
   });
 
   it('leaving the parent area locks it: browser Back shows the gate, not the page', async () => {

@@ -24,7 +24,9 @@ export type PinResult =
   /** The island server can't be reached (or failed). */
   | { ok: false; reason: 'unavailable' }
   /** This device holds no device token (never paired, signed out) or was removed. */
-  | { ok: false; reason: 'not_paired' };
+  | { ok: false; reason: 'not_paired' }
+  /** The gate was locked again while the check ran (the parent area was left): nothing opens. */
+  | { ok: false; reason: 'cancelled' };
 
 export interface ParentGate {
   isUnlocked(): boolean;
@@ -56,6 +58,8 @@ export function createParentGate(opts: ParentGateOptions): ParentGate {
   const listeners = new Set<() => void>();
   let unlocked = false;
   let timer: unknown = null;
+  /** Bumped by every lock: a PIN check started before a lock never opens the gate after it. */
+  let generation = 0;
 
   /** The server parent session's end (ms epoch); activity never keeps the gate open past it. */
   let deadline: number | null = null;
@@ -83,6 +87,7 @@ export function createParentGate(opts: ParentGateOptions): ParentGate {
     }
   }
   function lock() {
+    generation += 1;
     if (timer !== null) clearTimer(timer);
     timer = null;
     deadline = null;
@@ -100,6 +105,8 @@ export function createParentGate(opts: ParentGateOptions): ParentGate {
       if (unlocked) arm();
     },
     async verifyPin(pin) {
+      // Taken before any await: a lock while the device record is read counts too.
+      const asked = generation;
       const device = await opts.store.device();
       if (!device.deviceToken) return { ok: false, reason: 'not_paired' };
       const askedAt = now();
@@ -116,6 +123,12 @@ export function createParentGate(opts: ParentGateOptions): ParentGate {
           }
         }
         return { ok: false, reason: 'unavailable' };
+      }
+      if (asked !== generation) {
+        // Locked while the check ran (the parent left the area): the right PIN arrived too late.
+        // Nothing opens, and the server session it started is ended.
+        void opts.api.logout().catch(() => {});
+        return { ok: false, reason: 'cancelled' };
       }
       // The server's PIN session lasts 10 minutes from when it answered (08 §2). Its `expiresAt` is
       // on the server's clock, which a tablet's may not match, so the deadline is measured on this

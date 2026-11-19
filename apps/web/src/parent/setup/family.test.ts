@@ -5,11 +5,14 @@ import { SERVER_DEVICE, SERVER_FAMILY, TOKEN, testDevice } from '@/app/boot/boot
 import { ApiError, type ParentApi } from '../api';
 import { createParentGate } from '../gate';
 import {
+  closeParentSession,
   createFamily,
   guessDeviceName,
   JoinRefusedError,
   joinFamily,
   joinWithPassphrase,
+  recoverLostSetup,
+  SessionStillOpenError,
   saveAiChoices,
   saveFamilyLocally,
   setupFamilyOnServer,
@@ -267,6 +270,66 @@ describe('joinWithPassphrase (no paired device at hand)', () => {
       joinWithPassphrase({ services: app, api: failing }, { passphrase: 'ok', deviceName: 'T' }),
     ).rejects.toMatchObject({ code: 'pair_code_expired' });
     expect(failing.logout).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not report the join done while the parent session stays open', async () => {
+    const { app } = await boot();
+    const api = fakeApi({
+      logout: vi.fn(async () => {
+        throw new ApiError('network', 0, 'offline');
+      }),
+    });
+    await expect(
+      joinWithPassphrase({ services: app, api }, { passphrase: 'ok', deviceName: 'T' }),
+    ).rejects.toBeInstanceOf(SessionStillOpenError);
+    // Paired already; closing the session again is what is left.
+    expect((await app.store.device()).deviceToken).toBe(TOKEN);
+    const done = fakeApi();
+    await expect(closeParentSession(done)).resolves.toBeUndefined();
+    const ended = fakeApi({
+      logout: vi.fn(async () => {
+        throw new ApiError('unauthorized', 401, 'no session');
+      }),
+    });
+    await expect(closeParentSession(ended)).resolves.toBeUndefined();
+  });
+});
+
+describe('recoverLostSetup (the first /setup answer was lost)', () => {
+  it('with this setup’s passphrase: pairs this device and keeps the parent signed in', async () => {
+    const { app } = await boot();
+    const api = fakeApi();
+    const gate = createParentGate({ store: app.store, api });
+    const ids = await recoverLostSetup(
+      { services: app, api, gate },
+      { passphrase: details.passphrase, deviceName: 'Tablet' },
+    );
+    expect(ids).toEqual({ familyId: SERVER_FAMILY, deviceId: SERVER_DEVICE, deviceToken: TOKEN });
+    expect(api.login).toHaveBeenCalledWith(details.passphrase);
+    expect(api.logout).not.toHaveBeenCalled();
+    expect(gate.isUnlocked()).toBe(true);
+    // The wizard then saves its children as usual.
+    if (!ids) throw new Error('no ids');
+    await saveFamilyLocally(app, ids, [
+      { id: KID_A, name: 'Mia', birthYear: 2020, grade: 'K', advanced: false },
+    ]);
+    expect((await app.store.allProfiles()).map((p) => p.name)).toEqual(['Mia']);
+  });
+
+  it('with another family’s server (passphrase refused): null, nothing changed', async () => {
+    const { app } = await boot();
+    const api = fakeApi({
+      login: vi.fn(async () => {
+        throw new ApiError('invalid_credentials', 401, 'Wrong passphrase');
+      }),
+    });
+    const gate = createParentGate({ store: app.store, api });
+    expect(
+      await recoverLostSetup({ services: app, api, gate }, { passphrase: 'x', deviceName: 'T' }),
+    ).toBeNull();
+    expect(api.pairStart).not.toHaveBeenCalled();
+    expect(gate.isUnlocked()).toBe(false);
+    expect((await app.store.device()).deviceToken).toBeUndefined();
   });
 });
 

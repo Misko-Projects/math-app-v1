@@ -14,7 +14,7 @@ import {
   withSettingDefaults,
 } from '@number-island/shared';
 import type { AppServices } from '@/app/boot/boot';
-import type { ParentApi } from '../api';
+import { ApiError, type ParentApi } from '../api';
 import type { ParentGate } from '../gate';
 
 export interface NewChild {
@@ -209,7 +209,7 @@ export class JoinRefusedError extends Error {
 export async function joinFamily(
   { services, api }: Omit<CreateFamilyDeps, 'gate'>,
   input: { code: string; deviceName: string },
-): Promise<void> {
+): Promise<FamilyIds> {
   const ids = await api.pairComplete({ code: input.code, deviceName: input.deviceName.trim() });
   const device = await services.store.device();
   if (device.pairedAt !== null && device.familyId.toLowerCase() !== ids.familyId.toLowerCase()) {
@@ -217,26 +217,82 @@ export async function joinFamily(
   }
   await services.sync.adopt(ids);
   await services.sync.syncNow();
+  return ids;
+}
+
+/** The parent session the passphrase opened could not be ended: the server still honours it. */
+export class SessionStillOpenError extends Error {
+  constructor(options?: ErrorOptions) {
+    super('the parent session could not be closed', options);
+    this.name = 'SessionStillOpenError';
+  }
+}
+
+/** Ends this browser's parent session (`POST /auth/logout`); one that already ended is fine. */
+export async function closeParentSession(api: Pick<ParentApi, 'logout'>): Promise<void> {
+  try {
+    await api.logout();
+  } catch (e) {
+    if (e instanceof ApiError && e.code === 'unauthorized') return;
+    throw new SessionStillOpenError({ cause: e });
+  }
 }
 
 /**
  * Pairs this device with the parent passphrase instead of a code (08 §2): `POST /auth/login`
  * starts a parent session, `POST /devices/pair/start` makes a code with it, and the code joins
  * as above (with the same refusal of another family). This is the way back in when no paired
- * device is at hand: the only device was signed out, or the first setup's answer was lost after
- * the server created the family. The parent session ends afterwards, whatever the outcome.
+ * device is at hand (the only device was signed out).
+ *
+ * The parent session is ended afterwards, whatever the outcome, and the join is not reported
+ * done until it is: a shared tablet handed back to a child must not keep a 12-hour parent
+ * session. If ending it fails, `SessionStillOpenError` (the device may already be paired), and the
+ * caller offers `closeParentSession` again.
  */
 export async function joinWithPassphrase(
   { services, api }: Omit<CreateFamilyDeps, 'gate'>,
   input: { passphrase: string; deviceName: string },
-): Promise<void> {
+): Promise<FamilyIds> {
   await api.login(input.passphrase);
+  let ids: FamilyIds;
   try {
     const { code } = await api.pairStart();
-    await joinFamily({ services, api }, { code, deviceName: input.deviceName });
-  } finally {
-    await api.logout().catch(() => {
-      // The session lasts its normal time on the server; nothing on this device depends on it.
+    ids = await joinFamily({ services, api }, { code, deviceName: input.deviceName });
+  } catch (e) {
+    await closeParentSession(api);
+    throw e;
+  }
+  await closeParentSession(api);
+  return ids;
+}
+
+/**
+ * The first setup's answer was lost: the server created the family and refuses a second
+ * `/setup` (`setup_closed`). The wizard still holds the passphrase the parent just chose, and a
+ * server holds one family, so signing in with it proves this setup made that family: this device
+ * then pairs (as `joinWithPassphrase` does) and the wizard carries on with its children. The
+ * parent session stays open, as after `/setup`, for the rest of the wizard. Null when the
+ * passphrase doesn't match (another family's server): nothing changed.
+ */
+export async function recoverLostSetup(
+  { services, api, gate }: CreateFamilyDeps,
+  input: { passphrase: string; deviceName: string },
+): Promise<FamilyIds | null> {
+  try {
+    await api.login(input.passphrase);
+  } catch (e) {
+    if (e instanceof ApiError && e.code === 'invalid_credentials') return null;
+    throw e;
+  }
+  try {
+    const { code } = await api.pairStart();
+    const ids = await joinFamily({ services, api }, { code, deviceName: input.deviceName });
+    gate.unlock();
+    return ids;
+  } catch (e) {
+    await closeParentSession(api).catch(() => {
+      // Reported through the original error; the parent can retry the whole step.
     });
+    throw e;
   }
 }
