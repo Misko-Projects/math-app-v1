@@ -894,8 +894,8 @@ describe('PR #86 review round 3', () => {
       constraints: [{ kind: 'adjacent-step', step: 1 }],
       palette: [0.5, 1, 1.5, 2],
     });
-    // Round 6: the schema now refuses this palette too; the checkers still refuse its fill.
-    expect(issuePaths(puzzleGrid, c)).toEqual(['palette']);
+    // Round 7: a palette with fractions is valid: whole fills from it are gradable.
+    expect(issuePaths(puzzleGrid, c)).toEqual([]);
     const fill = (a: number, b: number) =>
       puzzleGrid.toResponse(play(puzzleGrid, c, solve(c, [[a, b]])));
     const pairs = {
@@ -919,8 +919,10 @@ describe('PR #86 review round 3', () => {
     expect(satisfies(triangle, { kind: 'state', value: { fill: [[1, 2]] } })).toBe(false);
   });
 
-  it('the schema admits only number paths the checker can grade: whole step, givens and palette', () => {
-    // PR #84 review round 6: every config the schema validates has a correct fill.
+  it('the schema refuses only structurally ungradable number paths: a non-whole step or given', () => {
+    // PR #84 review rounds 6 and 7. The schema does not promise a correct fill exists (that is the
+    // generator's job, checked by the 500-seed property test); it refuses only what the checker
+    // could never grade.
     const path = (
       values: (number | null)[][],
       step: number,
@@ -932,14 +934,14 @@ describe('PR #86 review round 3', () => {
     expect(
       satisfies(target(ok), puzzleGrid.toResponse(play(puzzleGrid, ok, solve(ok, [[1, 2, 3]])))),
     ).toBe(true);
-    // A fractional step, and fractional or negative givens and palette values, are refused.
-    expect(issuePaths(puzzleGrid, path([[1, null]], 0.5, [1.5]))).toEqual([
-      'constraints.0',
-      'palette',
-    ]);
+    // A fractional step, and a fractional or negative given, are refused.
+    expect(issuePaths(puzzleGrid, path([[1, null]], 0.5, [1.5]))).toEqual(['constraints.0']);
     expect(issuePaths(puzzleGrid, path([[0.5, null]], 1, [2]))).toEqual(['cells.0']);
     expect(issuePaths(puzzleGrid, path([[-1, null]], 1, [0]))).toEqual(['cells.0']);
-    expect(issuePaths(puzzleGrid, path([[1, null]], 1, [-1, 2]))).toEqual(['palette']);
+    // The palette is not checked: fractional or negative palette values are allowed, since a
+    // whole value from the same palette can still fill the blank.
+    expect(issuePaths(puzzleGrid, path([[1, null]], 1, [0.5, 1, 1.5, 2]))).toEqual([]);
+    expect(issuePaths(puzzleGrid, path([[1, null]], 1, [-1, 2]))).toEqual([]);
     // Other number grids keep their own rules: a fractional magic-square palette is not this rule.
     expect(
       issuePaths(puzzleGrid, grid('missing-digit', [[1, null]], { palette: [1.5, 2] })),

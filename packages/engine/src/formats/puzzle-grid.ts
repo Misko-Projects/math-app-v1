@@ -113,8 +113,8 @@ const configSchema = puzzleGridConfigSchema.superRefine((c, ctx) => {
         message: `${k.kind} constraints are not checked for ${c.variant}`,
       });
     }
-    // A number path holds whole numbers, so only a whole-number step can be met (the checker's
-    // `stepHolds`, PR #84 review round 6).
+    // Structurally ungradable: the checker's `stepHolds` takes only whole numbers on a number
+    // path, so a non-whole step can never be met (PR #84 review rounds 6 and 7).
     if (stepPath && !Number.isInteger(k.step)) {
       ctx.addIssue({
         code: 'custom',
@@ -139,9 +139,12 @@ const configSchema = puzzleGridConfigSchema.superRefine((c, ctx) => {
     }
   }
   if (c.variant === 'number-path') {
-    // The checker takes only whole numbers of 0 or more on a number path (03 §5.5,
-    // `stepHolds`), so a given or palette value outside them could never be part of a correct
-    // fill (PR #84 review round 6).
+    // Structurally ungradable: `stepHolds` takes only whole numbers of 0 or more on a number path
+    // (03 §5.5), and a given is part of every fill, so a non-whole or negative given can never be
+    // graded correct. The palette is not checked: a blank only needs some palette value to fit,
+    // and whether one does is solvability. This schema does not guarantee a correct fill exists;
+    // that is the generator's job, verified by the 500-seed property test that replays every
+    // generated item (PR #84 review rounds 6 and 7).
     const whole = (v: unknown) => typeof v === 'number' && Number.isInteger(v) && v >= 0;
     for (const [i, cell] of c.cells.entries()) {
       if (cell.given !== undefined && !whole(cell.given)) {
@@ -151,13 +154,6 @@ const configSchema = puzzleGridConfigSchema.superRefine((c, ctx) => {
           message: 'a number path holds whole numbers',
         });
       }
-    }
-    if (!c.palette.every(whole)) {
-      ctx.addIssue({
-        code: 'custom',
-        path: ['palette'],
-        message: 'a number path holds whole numbers',
-      });
     }
   }
   if (c.constraints.filter((k) => k.kind === 'use-each').length > 1) {
