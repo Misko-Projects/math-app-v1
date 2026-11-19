@@ -1,8 +1,15 @@
 // Format state models (03 §6.3) and format features (03 §5.5), one line per format.
-// E01 registers the 11 fixture formats; U03–U05 register the others here.
+// E01 registers the 11 fixture formats; U03–U05 register the others here (U04: #13).
 
 import type { AnswerSpec, ItemFormat, WidgetConfig } from '@number-island/shared';
+import { areaTiles } from './area-tiles';
+import { arrayBuild } from './array-build';
+import { baseTenBuild } from './base-ten-build';
+import { baseTenTrade } from './base-ten-trade';
 import { dotFlash } from './dot-flash';
+import { equalGroups } from './equal-groups';
+import { equalShare } from './equal-share';
+import { expandedForm } from './expanded-form';
 import { hundredChart } from './hundred-chart';
 import { makeSet } from './make-set';
 import { numberBond } from './number-bond';
@@ -31,6 +38,14 @@ const MODELS: Partial<Record<ItemFormat, AnyModel>> = {
   rekenrek,
   'number-line-jump': numberLineJump,
   'hundred-chart': hundredChart,
+  // U04 (#13)
+  'base-ten-build': baseTenBuild,
+  'base-ten-trade': baseTenTrade,
+  'expanded-form': expandedForm,
+  'array-build': arrayBuild,
+  'equal-groups': equalGroups,
+  'equal-share': equalShare,
+  'area-tiles': areaTiles,
 };
 
 export function formatModel<F extends ItemFormat>(
