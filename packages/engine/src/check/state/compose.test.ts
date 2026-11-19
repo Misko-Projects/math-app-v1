@@ -140,6 +140,10 @@ describe('compose.fill', () => {
     ['alternative: a thin gap within the tolerance', squares([-0.01, 0], [1.01, 0]), true],
     // Union inside the outline 1.981 × 0.981 = 1.943 of 2 (2.8% uncovered), overlap 0.019.
     ['overlapping and short of the outline', squares([0, 0.019], [0.981, 0.019]), false],
+    // Each square 1.5% above the outline, overlapping by 0.0101 (0.0099485 of it inside the
+    // outline). Union inside = 2 × 0.985 − 0.0099485 = 1.9600515 ≥ 1.96: covered. Subtracting
+    // the full overlap (0.0101, part of it outside the outline) would wrongly give 1.9599.
+    ['alternative: overlap partly outside the outline', squares([0, 0.015], [0.9899, 0.015]), true],
   ];
   it.each(COVER)('2 × 1 rectangle: %s', (_name, value, expected) => {
     expect(composeFill.check(rect2, value)).toBe(expected);

@@ -27,6 +27,7 @@ import {
   requireGenerator,
 } from '../items/generate';
 import { itemExampleCorrect, itemSolution, replaySteps } from '../items/solution';
+import { attemptDifficulty } from '../learner/item-difficulty';
 import { applicableMisconceptions, sameResponse } from '../misconceptions';
 
 export interface PropertyFailure {
@@ -545,6 +546,15 @@ export function runTemplateProperties(
       if (!declared.has(f))
         fail(seed, '8.features', `feature ${f} is not declared by ${g.id} or ${t.format}`);
     }
+    // 8a. the learner rebuilds d_item from the logged params and seed (04 §2.2) with its own rng,
+    // so the difficulty must be a function of the params alone (03 §5.4).
+    const replayed = attemptDifficulty(t, item.params, item.seed);
+    if (!(Math.abs(replayed - item.difficulty) <= 1e-9))
+      fail(
+        seed,
+        '8.replay-difficulty',
+        `difficulty ${item.difficulty} rebuilds from the params as ${replayed}`,
+      );
     // 9. multiple choice: min–5 distinct options (see minChoiceOptions), exactly one correct.
     // A tap-count ordinal item (CNT.15, "tap the eighth one") answers with an object id, but its
     // objects are a line to count, not options to choose from, so the upper bound is lifted for it.

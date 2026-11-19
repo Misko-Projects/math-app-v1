@@ -129,9 +129,11 @@ export const FILL_TOLERANCE = 0.02;
  *
  * Coverage is the area of the union of the pieces inside the outline, not the sum of the pieces'
  * areas: pieces that each poke a little outside or overlap a little can add up to the outline's
- * area while leaving part of it bare. The union is bounded below by inclusion–exclusion,
- * Σ |piece ∩ outline| − Σ |piece ∩ piece|, which is exact when no three pieces share a point
- * and otherwise only errs towards "not covered" (so a layout it accepts is truly covered).
+ * area while leaving part of it bare. The union inside the outline is bounded below by
+ * inclusion–exclusion, Σ |piece ∩ outline| − Σ |piece ∩ piece ∩ outline|, which is exact when no
+ * three pieces share a point and otherwise only errs towards "not covered" (so a layout it accepts
+ * is truly covered). Only the overlap inside the outline counts against coverage: overlap outside
+ * it was never in Σ |piece ∩ outline|. The overlap limits read the whole overlap.
  */
 export function coversOutline(outline: Vec[], placed: Placement[]): boolean {
   const polys: Vec[][] = [];
@@ -143,13 +145,19 @@ export function coversOutline(outline: Vec[], placed: Placement[]): boolean {
   const whole = area(outline);
   if (whole <= 0) return false;
   let inside = 0;
+  // piece ∩ outline. The outline may be concave, so it is the subject clipped by the convex
+  // piece; the result can have zero-width seams but its area is the intersection's.
+  const within: Vec[][] = [];
   for (const poly of polys) {
     const a = area(poly);
-    const within = overlapArea(outline, poly);
-    if (a - within > FILL_TOLERANCE * a) return false;
-    inside += within;
+    const part = clipConvex(outline, poly);
+    const w = area(part);
+    if (a - w > FILL_TOLERANCE * a) return false;
+    within.push(part);
+    inside += w;
   }
   let overlap = 0;
+  let overlapInside = 0;
   for (let i = 0; i < polys.length; i += 1) {
     for (let j = i + 1; j < polys.length; j += 1) {
       const a = polys[i] as Vec[];
@@ -157,8 +165,9 @@ export function coversOutline(outline: Vec[], placed: Placement[]): boolean {
       const o = overlapArea(a, b);
       if (o > FILL_TOLERANCE * Math.min(area(a), area(b))) return false;
       overlap += o;
+      overlapInside += overlapArea(within[i] as Vec[], b);
     }
   }
   if (overlap > FILL_TOLERANCE * whole) return false;
-  return inside - overlap >= (1 - FILL_TOLERANCE) * whole;
+  return inside - overlapInside >= (1 - FILL_TOLERANCE) * whole;
 }

@@ -15,6 +15,7 @@ import { formatModel } from '../../formats';
 import { checkResponse } from '../../items/check';
 import { generateItem, generateItemFromParams } from '../../items/generate';
 import { itemExampleCorrect, itemSolution, replaySteps } from '../../items/solution';
+import { attemptDifficulty } from '../../learner/item-difficulty';
 import { geoIdentify } from './identify';
 
 let nextId = 0;
@@ -312,6 +313,62 @@ describe('geo.identify features', () => {
         expect(widgetConfigSchema.safeParse(it.widget).success).toBe(true);
         expect(checkResponse(it, itemExampleCorrect(it, t)).correct).toBe(true);
       }
+    }
+  });
+
+  // 03 §5.4: the learner rebuilds d_item from the logged params and seed with its own stream
+  // (attemptDifficulty, 04 §2.2), so the shown categories must follow from the params, not the draw.
+  it('difficulty is a function of the params: the same for every seed, and as the learner rebuilds it', () => {
+    const cases: [string, ItemTemplate, ParamValues, number | undefined][] = [
+      [
+        // GEO.01.t2 pinned: triangle + 3 distinct distractors = 4 categories (+0.4), 5 cards (+0.1).
+        'find-all by kind (GEO.01.t2)',
+        tpl(
+          'shape-sort',
+          {},
+          { representation: 'shapes', difficulty: { base: -0.6, features: {} } },
+        ),
+        {
+          set: '2d',
+          rule: 'kind',
+          mode: 'find-all',
+          kind: 'triangle',
+          cards: 5,
+          hits: 2,
+          nonPrototypical: false,
+        },
+        -0.1,
+      ],
+      [
+        'find-all by kind with a near miss (GEO.02.t2)',
+        tpl('shape-sort', {}, { representation: 'shapes' }),
+        { rule: 'kind', mode: 'find-all', kind: 'square', cards: 7, hits: 2, nearMiss: true },
+        undefined,
+      ],
+      [
+        'find-all by side count',
+        tpl('shape-sort', {}, { representation: 'pattern-blocks' }),
+        { rule: 'sides', mode: 'find-all', kind: 'square', cards: 7, hits: 3 },
+        undefined,
+      ],
+      [
+        'sort by corners (GEO.08.t2)',
+        tpl('shape-sort', {}, { representation: 'shapes' }),
+        { rule: 'corners', mode: 'sort', kind: 'triangle', other: 'rectangle', cards: 6 },
+        undefined,
+      ],
+    ];
+    for (const [name, t, params, expected] of cases) {
+      const ds = new Set<number>();
+      for (let seed = 1; seed <= 60; seed += 1) {
+        const it = generateItemFromParams(t, params, { seed });
+        expect(attemptDifficulty(t, it.params, it.seed), `${name}, seed ${seed}`).toBe(
+          it.difficulty,
+        );
+        ds.add(it.difficulty);
+      }
+      expect([...ds], name).toHaveLength(1);
+      if (expected !== undefined) expect([...ds][0], name).toBeCloseTo(expected, 9);
     }
   });
 
