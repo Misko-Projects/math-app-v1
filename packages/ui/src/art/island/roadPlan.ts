@@ -42,6 +42,8 @@ export interface RoadPlan {
   pebbles: { n: number; x: number; y: number }[];
   /** The trail through the laid stones (or through every shown stone when fewer than two are laid). */
   trail: Point[];
+  /** Every shown stone's own spot on the road (laid, next and planned-ahead stones on land). */
+  spots: StonePlacement[];
 }
 
 export interface RoadPlanInput {
@@ -284,7 +286,91 @@ export function planRoad({
   }
   // Back to front: lower stones overlap the ones behind them.
   numbered.sort((a, b) => a.y - b.y || a.n - b.n);
-  return { scale, compact, numbered, pebbles, trail };
+  return { scale, compact, numbered, pebbles, trail, spots: shown };
+}
+
+/**
+ * The ground the Numbered Road covers, for keeping ground detail off it (05 §11: nothing hides a
+ * road stone). It is the road as shown (the laid stones and the next stone), each spot at the
+ * largest extent its stone takes in any state, so counting along the road never moves a tuft;
+ * the trail at its full width; and any stone stepped out beside the road with its leader. Laying
+ * a stone clears the ground under it. Returns a test: does this box touch the road?
+ */
+export function roadFootprint(
+  plan: Pick<RoadPlan, 'numbered' | 'spots' | 'trail' | 'scale'>,
+): (box: StoneExtent) => boolean {
+  const scale = plan.scale;
+  const boxes: StoneExtent[] = plan.spots.map((s) => {
+    const e = anyStateExtent(s.n);
+    return {
+      left: s.x + e.left * scale,
+      right: s.x + e.right * scale,
+      top: s.y + e.top * scale,
+      bottom: s.y + e.bottom * scale,
+    };
+  });
+  const stones = plan.trail;
+  // The trail (drawn 34 × scale wide) as discs along each segment.
+  const trailR = (34 * scale) / 2 + 3;
+  const discs: { x: number; y: number; r: number }[] = [];
+  const segment = (a: Point, b: Point, r: number) => {
+    const len = Math.hypot(b.x - a.x, b.y - a.y);
+    const n = Math.max(1, Math.ceil(len / 6));
+    for (let i = 0; i <= n; i++) {
+      discs.push({ x: a.x + ((b.x - a.x) * i) / n, y: a.y + ((b.y - a.y) * i) / n, r });
+    }
+  };
+  for (let i = 1; i < stones.length; i++) {
+    segment(stones[i - 1] as Point, stones[i] as Point, trailR);
+  }
+  for (const s of plan.numbered) {
+    if (!s.leader) continue;
+    boxes.push(s.box);
+    segment(s.leader, s, 6);
+  }
+  // Bucket by plot-sized cells, so each test looks only at nearby road.
+  const cell = (x: number, y: number) =>
+    `${Math.floor(x / ISLAND_LAYOUT.cellW)},${Math.floor(y / ISLAND_LAYOUT.cellH)}`;
+  const boxCells = new Map<string, StoneExtent[]>();
+  for (const b of boxes) {
+    for (
+      let x = Math.floor(b.left / ISLAND_LAYOUT.cellW);
+      x <= Math.floor(b.right / ISLAND_LAYOUT.cellW);
+      x++
+    ) {
+      for (
+        let y = Math.floor(b.top / ISLAND_LAYOUT.cellH);
+        y <= Math.floor(b.bottom / ISLAND_LAYOUT.cellH);
+        y++
+      ) {
+        const k = `${x},${y}`;
+        boxCells.set(k, [...(boxCells.get(k) ?? []), b]);
+      }
+    }
+  }
+  const discCells = new Map<string, { x: number; y: number; r: number }[]>();
+  for (const d of discs) {
+    const k = cell(d.x, d.y);
+    discCells.set(k, [...(discCells.get(k) ?? []), d]);
+  }
+  return (box) => {
+    const x0 = Math.floor(box.left / ISLAND_LAYOUT.cellW) - 1;
+    const x1 = Math.floor(box.right / ISLAND_LAYOUT.cellW) + 1;
+    const y0 = Math.floor(box.top / ISLAND_LAYOUT.cellH) - 1;
+    const y1 = Math.floor(box.bottom / ISLAND_LAYOUT.cellH) + 1;
+    for (let x = x0; x <= x1; x++) {
+      for (let y = y0; y <= y1; y++) {
+        const k = `${x},${y}`;
+        if (boxCells.get(k)?.some((b) => boxesTouch(b, box, 2))) return true;
+        for (const d of discCells.get(k) ?? []) {
+          const nx = Math.max(box.left, Math.min(d.x, box.right));
+          const ny = Math.max(box.top, Math.min(d.y, box.bottom));
+          if (Math.hypot(nx - d.x, ny - d.y) < d.r) return true;
+        }
+      }
+    }
+    return false;
+  };
 }
 
 /** Leader-line step-out distances, in stone heights at the current scale. */

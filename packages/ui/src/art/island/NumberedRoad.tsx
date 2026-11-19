@@ -3,7 +3,7 @@ import { useMemo } from 'react';
 import { paint } from '../core/paint';
 import { type StonePlacement, smoothPath } from './geometry';
 import { RoadStoneMark } from './RoadStone';
-import { planRoad } from './roadPlan';
+import { planRoad, type RoadPlan } from './roadPlan';
 
 export interface NumberedRoadProps {
   /** GameData `island.road`: stone n → plot. */
@@ -20,6 +20,8 @@ export interface NumberedRoadProps {
   onLand?: (s: StonePlacement) => boolean;
   /** Land plot keys (`x,y`): a stone stepped out beside the road only lands on these. */
   land?: ReadonlySet<string>;
+  /** A plan already made with planRoad (the island scene shares one with its ground detail). */
+  plan?: RoadPlan;
 }
 
 /**
@@ -36,10 +38,11 @@ export function NumberedRoad({
   plannedAhead = 0,
   onLand,
   land,
+  plan: given,
 }: NumberedRoadProps) {
   const plan = useMemo(
-    () => planRoad({ road, roadLength, counting, showNext, plannedAhead, onLand, land }),
-    [road, roadLength, counting, showNext, plannedAhead, onLand, land],
+    () => given ?? planRoad({ road, roadLength, counting, showNext, plannedAhead, onLand, land }),
+    [given, road, roadLength, counting, showNext, plannedAhead, onLand, land],
   );
   if (plan.numbered.length === 0 && plan.pebbles.length === 0) return null;
   const trail = plan.trail.length > 1 ? smoothPath(plan.trail) : '';

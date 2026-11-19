@@ -24,6 +24,7 @@ export * from './effects';
 export {
   type Box,
   gridToScene,
+  HALO_REACH,
   HORIZON_Y,
   ISLAND_LAYOUT,
   landCrop,
@@ -57,6 +58,12 @@ export {
 export { NumberedRoad, type NumberedRoadProps } from './island/NumberedRoad';
 export { PlotMarker, type PlotMarkerProps, type PlotMarkerState } from './island/PlotMarker';
 export {
+  type Blocked,
+  type DetailItem,
+  PlotDetail,
+  plotDetailItems,
+} from './island/plotDetail';
+export {
   ROAD_STONE_SCALE,
   ROAD_STONE_STATES,
   RoadStone,
@@ -78,6 +85,7 @@ export {
   planRoad,
   type RoadPlan,
   type RoadPlanInput,
+  roadFootprint,
   STONE_CLEARANCE,
 } from './island/roadPlan';
 export { Sea, type SeaProps } from './island/Sea';

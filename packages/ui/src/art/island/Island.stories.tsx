@@ -126,23 +126,37 @@ async function expectNoSidewaysScroll() {
 }
 
 /**
- * Sea, shallows halo, foam and land are clipped at the horizon, so none of them reaches into the
- * sky. What stands on the island (road, buildings, markers) moves with the land but is not
- * clipped: tall buildings in the back row rise in front of the horizon.
+ * The whole island stays in the sea: its shallows halo (whose curved top is the highest thing the
+ * land draws) sits below the horizon, unclipped. Only the drifting wave glyphs are clipped to the
+ * sea. The road and buildings move with the land; the sky never moves.
  */
 async function expectHorizonClip(svg: SVGSVGElement) {
   const island = svg.querySelector('[data-layer="island"]') as SVGGElement;
-  const clipped = island.parentElement as unknown as SVGGElement;
-  await expect(clipped.getAttribute('clip-path') ?? '').toMatch(/^url\(#/);
+  await expect(island.closest('[clip-path]')).toBeNull();
+  const horizon = svg.getBoundingClientRect().top + HORIZON_Y * scaleOf(svg);
+  const halo = (svg.querySelector('[data-part="halo"]') as SVGPathElement).getBoundingClientRect();
+  await expect(halo.top, 'halo top below the horizon').toBeGreaterThan(horizon);
   const rect = svg.querySelector('clipPath rect');
   await expect(Number(rect?.getAttribute('y'))).toBe(HORIZON_Y);
-  await expect(clipped.contains(svg.querySelector('[data-layer="sea-far"]'))).toBe(true);
-  await expect(clipped.contains(svg.querySelector('[data-layer="land"]'))).toBe(true);
+  await expect(svg.querySelector('[data-layer="sea-far"]')?.closest('[clip-path]')).toBeTruthy();
   const on = svg.querySelector('[data-layer="on-island"]') as SVGGElement;
-  await expect(on.closest('[clip-path]')).toBeNull();
   await expect(on.getAttribute('transform')).toBe(island.getAttribute('transform'));
   // The sky is the fixed backdrop: it is never moved by the camera.
   await expect(svg.querySelector('[data-layer="sky"]')?.closest('[transform]')).toBeNull();
+}
+
+/** 05 §11: no ground detail (tuft, flower, rock, ripple) touches a road stone. */
+async function expectDetailOffRoad(root: HTMLElement) {
+  for (const svg of root.querySelectorAll<SVGSVGElement>('svg[data-scene="island"]')) {
+    const stones = [...svg.querySelectorAll('[data-stone]')].map((s) => s.getBoundingClientRect());
+    for (const d of svg.querySelectorAll('[data-detail]')) {
+      const a = d.getBoundingClientRect();
+      for (const b of stones) {
+        const touch = a.left < b.right && b.left < a.right && a.top < b.bottom && b.top < a.bottom;
+        await expect(touch, `${d.getAttribute('data-detail')} touches a road stone`).toBe(false);
+      }
+    }
+  }
 }
 
 /** The island part-grown, by day: sandbar, two rings, the road to 20. */
@@ -159,6 +173,7 @@ export const Scene: Story = {
     );
     await expectStoneNumerals(canvasElement, 18);
     await expectStonesApart(canvasElement);
+    await expectDetailOffRoad(canvasElement);
     await expectHorizonClip(svg);
     await expectNoSidewaysScroll();
   },
@@ -176,6 +191,7 @@ export const Sunset: Story = {
       'counting',
     );
     await expectStonesApart(canvasElement);
+    await expectDetailOffRoad(canvasElement);
   },
 };
 
@@ -200,6 +216,7 @@ export const LongRoad: Story = {
     ].map((s) => Number(s.dataset.stone));
     for (const n of [1, 10, 20, 50, 90, 100]) await expect(numbered).toContain(n);
     await expectStonesApart(canvasElement);
+    await expectDetailOffRoad(canvasElement);
     await expectStoneNumerals(canvasElement, 16);
     await expectNoSidewaysScroll();
   },
@@ -218,6 +235,7 @@ export const LongRoadCounting: Story = {
       ).toBeTruthy();
     }
     await expectStonesApart(canvasElement);
+    await expectDetailOffRoad(canvasElement);
   },
 };
 
@@ -236,6 +254,7 @@ export const NextBesideLandmark: Story = {
     );
     await expect(canvasElement.querySelector('[data-leader="51"]')).toBeTruthy();
     await expectStonesApart(canvasElement);
+    await expectDetailOffRoad(canvasElement);
   },
 };
 
@@ -255,6 +274,7 @@ export const PannedToTheBack: Story = {
       `-${CAMERA_MAX_Y})`,
     );
     await expectStonesApart(canvasElement);
+    await expectDetailOffRoad(canvasElement);
   },
 };
 
@@ -281,6 +301,7 @@ export const PlotMarkers: Story = {
       }
     }
     await expectStonesApart(canvasElement);
+    await expectDetailOffRoad(canvasElement);
   },
 };
 
@@ -295,6 +316,7 @@ export const Parallax: Story = {
     await expect(far).not.toBe(island);
     await expectHorizonClip(svg);
     await expectStonesApart(canvasElement);
+    await expectDetailOffRoad(canvasElement);
   },
 };
 
@@ -315,6 +337,7 @@ export const ReducedMotion: Story = {
       .filter((a) => a.effect?.getComputedTiming().iterations === Number.POSITIVE_INFINITY);
     await expect(running.length).toBe(0);
     await expectStonesApart(canvasElement);
+    await expectDetailOffRoad(canvasElement);
   },
 };
 
@@ -346,6 +369,7 @@ export const Growth: Story = {
   ),
   play: async ({ canvasElement }) => {
     await expectStonesApart(canvasElement);
+    await expectDetailOffRoad(canvasElement);
     // ≥ 18 px at the 1440 px desktop capture; the test browser's narrower viewport gives ~15 px.
     await expectStoneNumerals(canvasElement, 14);
     await expectNoSidewaysScroll();
@@ -493,6 +517,7 @@ export const ColourVision: Story = {
   ),
   play: async ({ canvasElement }) => {
     await expectStonesApart(canvasElement);
+    await expectDetailOffRoad(canvasElement);
     // ≥ 22 px in the 1440 px desktop capture; the test browser's narrower viewport gives ~20 px.
     await expectStoneNumerals(canvasElement, 18);
     // Cards wrap centred: the last row's cards sit symmetrically about the page centre.

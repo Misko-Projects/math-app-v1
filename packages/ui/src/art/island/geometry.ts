@@ -16,14 +16,20 @@ export const ISLAND_LAYOUT = {
   /** Sea margin left and right of the grid. */
   padX: 100,
   /** The sky band at the top (the tilted view shows the horizon). */
-  skyH: 150,
-  /** Sea between the horizon and the grid's first row. */
-  padTop: 70,
+  skyH: 120,
+  /**
+   * Sea between the horizon and the grid's first row: room for the shallows halo (which reaches
+   * HALO_REACH above the land) plus open sea, so the island's curved halo always sits in the sea.
+   */
+  padTop: 100,
   /** Sea below the grid's last row. */
   padBottom: 90,
   /** Height of the island's side face (the "lip" that shows the tilt). */
   lip: 16,
 } as const;
+
+/** How far the shallows halo reaches beyond the land's plots: its outline offset plus wobble. */
+export const HALO_REACH = 46 + 16;
 
 /** The whole scene's size in scene units (1400 × 870, close to the 1280 × 800 tablet ratio). */
 export const SCENE_W = ISLAND_LAYOUT.cols * ISLAND_LAYOUT.cellW + 2 * ISLAND_LAYOUT.padX;

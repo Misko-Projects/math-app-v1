@@ -7,6 +7,7 @@ import { ART_CONTRAST_PAIRS, pairRatio } from './core/contrast';
 import { OUTLINE_OF } from './core/paint';
 import { SAMPLE_ISLAND, SAMPLE_PATH } from './gallery/sampleIsland';
 import {
+  HALO_REACH,
   HORIZON_Y,
   ISLAND_LAYOUT,
   landCrop,
@@ -23,8 +24,9 @@ import {
   traceOutline,
 } from './island/geometry';
 import { CAMERA_MAX_Y, clampCamera } from './island/IslandScene';
+import { plotDetailItems } from './island/plotDetail';
 import { ROAD_STONE_SCALE, roadStoneBox, stoneExtent, stoneMetrics } from './island/RoadStone';
-import { boxesTouch, planRoad, STONE_CLEARANCE } from './island/roadPlan';
+import { boxesTouch, planRoad, roadFootprint, STONE_CLEARANCE } from './island/roadPlan';
 import {
   artIds,
   buildingArtFor,
@@ -165,12 +167,103 @@ describe('road plan: stones never touch (05 §3)', () => {
     expect(next?.leader).toBeDefined();
   });
 
-  it('holds vertical pans so land never rises above the horizon', () => {
+  it('holds vertical pans so the island and its halo stay in the sea', () => {
     expect(clampCamera({ x: 30, y: 140 })).toEqual({ x: 30, y: CAMERA_MAX_Y });
     expect(clampCamera({ x: 0, y: -60 })).toEqual({ x: 0, y: -60 });
-    // The land's top edge (grid top, less its outline offset and wobble) stays below the horizon.
-    const top = plotBox([0, 0]).y - 10 - 8 - CAMERA_MAX_Y;
-    expect(top).toBeGreaterThan(HORIZON_Y);
+    expect(CAMERA_MAX_Y).toBeGreaterThan(20);
+    // The halo's curved top (back-row plots pushed out by its reach) stays below the horizon,
+    // checked on the real traced halo outline of the full sample island.
+    const plots = landPlots(SAMPLE_ISLAND, SAMPLE_ISLAND.rings.length);
+    const haloTop =
+      Math.min(
+        ...landLoops(plots, 46)
+          .flat()
+          .map((p) => p.y),
+      ) - 16;
+    expect(haloTop - CAMERA_MAX_Y).toBeGreaterThan(HORIZON_Y);
+    expect(plotBox([0, 0]).y - HALO_REACH - CAMERA_MAX_Y).toBeGreaterThan(HORIZON_Y);
+  });
+
+  it('keeps every piece of ground detail off the road (05 §11)', () => {
+    for (const rings of [1, 2, 3, 4, SAMPLE_ISLAND.rings.length]) {
+      const plots = landPlots(SAMPLE_ISLAND, rings);
+      const land = new Set(plots.map(plotKey));
+      const onLand = (s: { plot: Plot }) => land.has(plotKey(s.plot));
+      const terrain = terrainOf(SAMPLE_ISLAND, rings);
+      for (const roadLength of [0, 12, 20, 45, 50, 70, 100]) {
+        const plan = planRoad({ road: SAMPLE_ISLAND.road, roadLength, onLand, land });
+        const blocked = roadFootprint(plan);
+        const stones = [
+          ...plan.numbered.map((s) => s.box),
+          ...plan.pebbles.map((p) => ({
+            left: p.x - 9,
+            right: p.x + 9,
+            top: p.y - 6,
+            bottom: p.y + 9,
+          })),
+        ];
+        for (const p of plots) {
+          for (const item of plotDetailItems(p, terrain.get(plotKey(p)) ?? 'sand', blocked)) {
+            expect(blocked(item.box), `${item.kind} on ${plotKey(p)} is on the road`).toBe(false);
+            for (const s of stones) {
+              expect(
+                boxesTouch(s, item.box, 0),
+                `${item.kind} on ${plotKey(p)} touches a stone`,
+              ).toBe(false);
+            }
+            // Detail stays inside its own plot.
+            const b = plotBox(p);
+            expect(item.box.left).toBeGreaterThanOrEqual(b.x);
+            expect(item.box.right).toBeLessThanOrEqual(b.x + b.w);
+          }
+        }
+      }
+    }
+  });
+
+  it('laying road only clears the ground it reaches; detail elsewhere never moves', () => {
+    const plots = landPlots(SAMPLE_ISLAND, 3);
+    const land = new Set(plots.map(plotKey));
+    const onLand = (s: { plot: Plot }) => land.has(plotKey(s.plot));
+    const at = (roadLength: number) => {
+      const plan = planRoad({ road: SAMPLE_ISLAND.road, roadLength, onLand, land });
+      const blocked = roadFootprint(plan);
+      const reached = new Set(plan.spots.map((s) => plotKey(s.plot)));
+      const items = new Map(
+        plots.map((p) => [plotKey(p), JSON.stringify(plotDetailItems(p, 'grass', blocked))]),
+      );
+      return { reached, items };
+    };
+    const before = at(5);
+    const after = at(20);
+    // Plots the longer road reaches, with their neighbours (the trail runs between plot centres).
+    const near = new Set<string>();
+    for (const k of after.reached) {
+      const [x, y] = k.split(',').map(Number) as [number, number];
+      for (const [dx, dy] of [
+        [0, 0],
+        [1, 0],
+        [-1, 0],
+        [0, 1],
+        [0, -1],
+      ] as const) {
+        near.add(`${x + dx},${y + dy}`);
+      }
+    }
+    let unchanged = 0;
+    for (const p of plots) {
+      const k = plotKey(p);
+      if (near.has(k)) continue;
+      expect(after.items.get(k), `detail on ${k} moved`).toBe(before.items.get(k));
+      unchanged++;
+    }
+    expect(unchanged).toBeGreaterThan(0);
+    // With an empty road, every grass plot has its full detail (3 tufts).
+    const empty = at(0);
+    const full = plots.filter((p) => !empty.reached.has(plotKey(p)));
+    expect(full.some((p) => JSON.parse(empty.items.get(plotKey(p)) ?? '[]').length === 3)).toBe(
+      true,
+    );
   });
 
   it('gives every stone, including a shared last plot, its own position', () => {

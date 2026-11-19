@@ -5,17 +5,20 @@ import type { ArtProps } from '../core/ArtSvg';
 import { ArtSvg } from '../core/ArtSvg';
 import {
   type Box,
+  HALO_REACH,
   HORIZON_Y,
   ISLAND_LAYOUT,
   landPlots,
   plotKey,
   SCENE_H,
   SCENE_W,
+  type StonePlacement,
   terrainOf,
 } from './geometry';
 import { IslandLand } from './IslandLand';
 import { NumberedRoad } from './NumberedRoad';
 import { PlotMarker, type PlotMarkerProps } from './PlotMarker';
+import { planRoad, roadFootprint } from './roadPlan';
 import { Sea } from './Sea';
 import { Sky } from './Sky';
 
@@ -25,12 +28,15 @@ import { Sky } from './Sky';
  */
 export const PARALLAX = { seaFar: 0.35, seaNear: 0.65, island: 1 } as const;
 
+/** The grid's top edge in scene units. */
+const GRID_TOP = ISLAND_LAYOUT.skyH + ISLAND_LAYOUT.padTop;
+
 /**
- * The camera may look at most this far down the island (positive y): any further and the back row
- * of land, with the road on it, would rise above the horizon into the sky. The land's top edge
- * (grid top less its 10-unit outline offset and up to 8 units of wobble) stays 4 units below it.
+ * The camera may look at most this far down the island (positive y). The island's shallows halo
+ * reaches HALO_REACH above the back row of land; at this pan its curved top still sits 4 units
+ * below the horizon, so the whole island, halo included, always stays in the sea.
  */
-export const CAMERA_MAX_Y = ISLAND_LAYOUT.skyH + ISLAND_LAYOUT.padTop - 10 - 8 - 4 - HORIZON_Y;
+export const CAMERA_MAX_Y = GRID_TOP - HALO_REACH - HORIZON_Y - 4;
 
 /** The camera as the scene uses it: vertical pans past CAMERA_MAX_Y are held there. */
 export function clampCamera(camera: { x: number; y: number }): { x: number; y: number } {
@@ -49,7 +55,7 @@ export interface IslandSceneProps extends Omit<ArtProps, 'lighting'> {
   lighting?: 'day' | 'sunset';
   /**
    * Camera pan in scene units (positive x looks further right, positive y further down). Vertical
-   * pans are held at CAMERA_MAX_Y, so land and road never rise above the horizon.
+   * pans are held at CAMERA_MAX_Y, so the island never reaches the horizon.
    */
   camera?: { x: number; y: number };
   /** Highlighted plots (building placement, 05 §6). Drawn on top of everything on the island. */
@@ -64,8 +70,9 @@ export interface IslandSceneProps extends Omit<ArtProps, 'lighting'> {
  * The island map (05 §3): a gently tilted top-down 12 × 8 plot grid on a layered sea, with the sky
  * at the horizon, day or sunset lighting, the Numbered Road and whatever stands on the island.
  * When the camera pans, the far and near sea move at different rates (parallax) and the sky stays
- * put. Everything below the horizon is clipped to the sea, so nothing ever crosses into the sky.
- * Under reduced motion (06 §7) the sea moves together with the island and the idle loops stop.
+ * put; the camera is held so the island and its halo always stay in the sea, below the horizon.
+ * Ground detail keeps off the road. Under reduced motion (06 §7) the sea moves together with the
+ * island and the idle loops stop.
  */
 export function IslandScene({
   island,
@@ -88,6 +95,12 @@ export function IslandScene({
   const terrain = useMemo(() => terrainOf(island, ringsUnlocked), [island, ringsUnlocked]);
   const land = useMemo(() => new Set(plots.map(plotKey)), [plots]);
   const marked = useMemo(() => plotMarkers.flatMap((m) => markerPlots(m)), [plotMarkers]);
+  const onLand = useMemo(() => (s: StonePlacement) => land.has(plotKey(s.plot)), [land]);
+  const plan = useMemo(
+    () => planRoad({ road: island.road, roadLength, counting, onLand, land }),
+    [island.road, roadLength, counting, onLand, land],
+  );
+  const blocked = useMemo(() => roadFootprint(plan), [plan]);
   const cam = clampCamera(camera);
   const f = (k: keyof typeof PARALLAX) => (reduced ? 1 : PARALLAX[k]);
   const shift = (k: keyof typeof PARALLAX) => ({ x: -cam.x * f(k), y: -cam.y * f(k) });
@@ -112,6 +125,7 @@ export function IslandScene({
         </clipPath>
       </defs>
       <Sky width={SCENE_W} horizon={HORIZON_Y} lighting={lighting} />
+      {/* Only the drifting wave glyphs are clipped to the sea; the island never needs a clip. */}
       <g clipPath={`url(#${clip})`}>
         <Sea
           width={SCENE_W}
@@ -120,20 +134,12 @@ export function IslandScene({
           far={shift('seaFar')}
           near={shift('seaNear')}
         />
-        <g data-layer="island" transform={`translate(${isl.x} ${isl.y})`}>
-          <IslandLand plots={plots} terrain={terrain} clearPlots={marked} />
-        </g>
       </g>
-      {/* What stands on the island is not clipped: a tall building in the back row rises in front
-          of the horizon, as it would in the tilted view. */}
+      <g data-layer="island" transform={`translate(${isl.x} ${isl.y})`}>
+        <IslandLand plots={plots} terrain={terrain} clearPlots={marked} blocked={blocked} />
+      </g>
       <g data-layer="on-island" transform={`translate(${isl.x} ${isl.y})`}>
-        <NumberedRoad
-          road={island.road}
-          roadLength={roadLength}
-          counting={counting}
-          onLand={(s) => land.has(plotKey(s.plot))}
-          land={land}
-        />
+        <NumberedRoad road={island.road} roadLength={roadLength} plan={plan} />
         {children}
         {plotMarkers.map((m) => (
           <PlotMarker key={plotKey(m.plot)} {...m} />
