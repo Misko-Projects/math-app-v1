@@ -139,7 +139,7 @@ export function coversOutline(outline: Vec[], placed: Placement[]): boolean {
     polys.push(corners);
   }
   const whole = area(outline);
-  if (whole <= 0 || polys.length > MAX_PIECES) return false;
+  if (whole <= 0) return false;
   for (const poly of polys) {
     // piece ∩ outline. The outline may be concave, so it is the subject clipped by the convex
     // piece; the result can have zero-width seams but its area is the intersection's.
@@ -160,14 +160,13 @@ export function coversOutline(outline: Vec[], placed: Placement[]): boolean {
   return unionInside(outline, polys) >= (1 - FILL_TOLERANCE) * whole;
 }
 
-/** More pieces than any outline needs; it also bounds the 2^n inclusion–exclusion below. */
-const MAX_PIECES = 12;
-
 /**
  * The exact area of (p1 ∪ … ∪ pn) ∩ outline for convex pieces, by inclusion–exclusion over every
  * non-empty subset S: Σ (−1)^(|S|+1) |outline ∩ ⋂S|. Clipping the outline by each convex piece of S
  * in turn gives outline ∩ ⋂S (Sutherland–Hodgman keeps the area right for a concave subject). A
- * subset whose intersection is already empty is skipped together with all its supersets.
+ * subset whose intersection is already empty is skipped together with all its supersets, so the
+ * work follows the pieces that really overlap: a tiling (neighbours share only edges) visits each
+ * piece once, whatever the piece count. `coversOutline` rejects heavy overlap before calling this.
  */
 export function unionInside(outline: Vec[], pieces: readonly Vec[][]): number {
   let total = 0;

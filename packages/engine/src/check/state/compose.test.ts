@@ -172,6 +172,24 @@ describe('compose.fill', () => {
     expect(OUTLINES.some((o) => o.id === 'big-square-from-squares')).toBe(true);
   });
 
+  // Review round 4 (#57): no cap on the piece count. 13 unit squares edge to edge on a 13 × 1
+  // outline is an exact tiling, and a 50-piece tiling stays fast (neighbours share only edges).
+  it.each([13, 50])('a %i × 1 strip tiled by unit squares is accepted', (n) => {
+    const strip = {
+      outline: [
+        [0, 0],
+        [n, 0],
+        [n, 1],
+        [0, 1],
+      ],
+      pieces: [{ kind: 'square', count: n }],
+    };
+    const pieces = Array.from({ length: n }, (_, i) => ({ kind: 'square', at: [i, 0], rot: 0 }));
+    expect(composeFill.check(strip, { pieces })).toBe(true);
+    // Leaving more than 2% of the strip bare is not a fill.
+    expect(composeFill.check(strip, { pieces: pieces.slice(Math.ceil(0.03 * n)) })).toBe(false);
+  });
+
   it('unionInside is the exact union area inside the outline', () => {
     const sq = (x: number, y: number, s = 1): [number, number][] => [
       [x, y],
