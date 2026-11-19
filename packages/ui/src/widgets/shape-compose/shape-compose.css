@@ -96,8 +96,8 @@
   padding: 0;
   border: 0;
   min-width: 0;
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  align-content: center;
   gap: var(--target-gap);
 }
 .ni-scomp__tray-row {

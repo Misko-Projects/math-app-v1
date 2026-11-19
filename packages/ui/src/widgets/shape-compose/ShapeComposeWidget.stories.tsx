@@ -261,6 +261,53 @@ export const FillNeedsTurn: Story = {
 };
 
 /** Pictorial shapes kit (GEO.10.t2), lines hidden, at the smallest landscape area (K). */
+/** GEO.11.t1 seed 13 (geo.compose, hexagon-from-three-kinds, extra): four piece kinds. */
+const fourKinds: Config = {
+  format: 'shape-compose',
+  mode: 'fill-outline',
+  pieces: [
+    { id: 'p-trapezoid', kind: 'trapezoid', count: 1 },
+    { id: 'p-triangle', kind: 'triangle', count: 1 },
+    { id: 'p-rhombus', kind: 'rhombus', count: 1 },
+    { id: 'p-hexagon', kind: 'hexagon', count: 2 },
+  ],
+  outline: {
+    points: [
+      [0, 0],
+      [1, 0],
+      [1.5, H],
+      [1, 2 * H],
+      [0, 2 * H],
+      [-0.5, H],
+    ],
+  },
+  showOutlineLines: true,
+  rotationStep: 60,
+};
+
+/**
+ * Smallest landscape area, K, four piece kinds (review CR-1.1): every tile, turn button, the
+ * outline and Check fit with nothing scrolling; tiles keep the K size and gaps.
+ */
+export const FillFourKindsLandscapeMinK: Story = {
+  globals: { ageMode: 'k' },
+  args: { config: fourKinds },
+  render: inArea('landscapeMin'),
+  play: async ({ canvasElement }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    const controls = [...root.querySelectorAll<HTMLElement>('.ni-scomp__tile, .ni-scomp__rotate')];
+    await expect(controls).toHaveLength(8);
+    await expectFitsArea(areaBox(canvasElement), [
+      root.querySelector('.ni-scomp__board') as HTMLElement,
+      ...controls,
+      ...root.querySelectorAll('.ni-scomp__undo'),
+      within(root).getByRole('button', { name: 'Check' }),
+    ]);
+    for (const c of controls) await expectTargetSize(c, 'k');
+    await expectTargetGaps(controls);
+  },
+};
+
 export const FillCornerLandscapeMinK: Story = {
   globals: { ageMode: 'k' },
   args: { config: corner, tier: 'pictorial' },

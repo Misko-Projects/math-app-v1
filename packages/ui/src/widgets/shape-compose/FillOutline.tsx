@@ -58,10 +58,17 @@ export function FillOutline({
   const w = b.maxX - b.minX;
   const h = b.maxY - b.minY;
   const minT = MIN_TARGET_PX[ageMode];
-  const trayW = 2 * minT + 48;
-  const boardW = Math.max(240, (avail?.width ?? 1100) - trayW - CHECK_W - 80);
+  // The tray: one tile and its turn button per piece kind, in two columns when a column of them
+  // would be taller than a short area (review CR-1.1: four kinds at 960 × 600).
+  const tile = Math.max(minT + 16, 96);
+  const rowsFit = Math.max(1, Math.floor(((avail?.height ?? 640) - 16 + 12) / (tile + 12)));
+  const trayCols = pieces.length > rowsFit ? 2 : 1;
+  const trayW = trayCols * (tile + 12 + minT) + (trayCols - 1) * 12;
+  const checkW = ageMode === 'k' ? minT + 24 : CHECK_W;
+  const boardW = Math.max(200, (avail?.width ?? 1100) - trayW - checkW - 80);
   const boardH = Math.max(200, (avail?.height ?? 600) - 40);
-  const u = Math.max(40, Math.min(160, boardW / w, boardH / h));
+  // The board adds its 14 px padding on each side.
+  const u = Math.max(40, Math.min(160, (boardW - 28) / w, (boardH - 28) / h));
   const pad = 14;
   const toPx = ([x, y]: Vec): Vec => [pad + (x - b.minX) * u, pad + (b.maxY - y) * u];
   const toUnits = (px: number, py: number): Vec => [
@@ -212,7 +219,6 @@ export function FillOutline({
   const boardP = dnd.targetProps('board', { label: t('ui.scomp.outline') });
   const svgW = w * u + 2 * pad;
   const svgH = h * u + 2 * pad;
-  const tile = Math.max(minT + 16, 96);
   // One scale for every tray piece (from the widest piece, any turn), so a triangle looks half a
   // trapezoid in the tray as on the outline.
   const diameter = (kind: string) => {
@@ -274,7 +280,11 @@ export function FillOutline({
           <polygon className="ni-scomp__outline" points={pts(outline, toPx)} />
         </svg>
       </div>
-      <fieldset className="ni-scomp__tray" aria-label={t('ui.scomp.pieces')}>
+      <fieldset
+        className="ni-scomp__tray"
+        aria-label={t('ui.scomp.pieces')}
+        style={{ gridTemplateColumns: `repeat(${trayCols}, auto)` }}
+      >
         {pieces.map((piece) => {
           const n = left(piece.id);
           const rot = state.trayRot[piece.id] ?? 0;
