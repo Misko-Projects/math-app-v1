@@ -51,8 +51,8 @@ test.describe('parent gate', () => {
     page,
   }) => {
     // No pairing needed (the API limits pairing tries): the page's file fails before any gate.
-    // Diagnostics' file never arrives (as if the device went offline before fetching it).
-    await page.route(/DiagnosticsPage-[^/]*\.js$/, (route) => route.abort('internetdisconnected'));
+    // The parent pages' file never arrives (as if the device went offline before fetching it).
+    await page.route(/\/assets\/area-[^/]*\.js$/, (route) => route.abort('internetdisconnected'));
     await page.goto('/parent/diagnostics');
     const screen = page.getByTestId('route-error');
     await expect(screen).toBeVisible();
@@ -60,9 +60,18 @@ test.describe('parent gate', () => {
       screen.getByRole('heading', { name: 'This part of the island didn’t open' }),
     ).toBeVisible();
     await expect(screen.getByRole('button', { name: 'Try again' })).toBeVisible();
+    // Back to the island stays in the running app: no new page load, so it works offline too.
+    const documents: string[] = [];
+    await page.route('**/*', (route) => {
+      if (route.request().resourceType() !== 'document') return route.fallback();
+      documents.push(route.request().url());
+      return route.abort('internetdisconnected');
+    });
     await screen.getByRole('button', { name: 'Back to the island' }).click();
-    await expect(page).toHaveURL(/\/$/);
     await expect(page.getByTestId('route-error')).toHaveCount(0);
+    // This device never set up a family, so home is the first-run welcome.
+    await expect(page).toHaveURL(/\/welcome$/);
+    expect(documents).toEqual([]);
   });
 
   test('is entered from the corner of the child home, and closes when the device signs out', async ({
@@ -87,20 +96,17 @@ test.describe('parent gate', () => {
     await page.getByRole('button', { name: 'Unlock' }).click();
     await expect(page.getByRole('heading', { name: 'Parent area' })).toBeVisible();
 
-    // Diagnostics still opens after the connection drops: the parent pages load on demand, and
-    // the app fetched them in the background once it was idle.
-    await expect
-      .poll(() =>
-        page.evaluate(() =>
-          performance.getEntriesByType('resource').some((e) => /DiagnosticsPage-/.test(e.name)),
-        ),
-      )
-      .toBe(true);
+    // Diagnostics still opens when the connection drops right after the parent area opened: the
+    // parent pages are one on-demand file, so it came with the parent home (no own file to fetch).
     await context.setOffline(true);
     try {
       await page.getByRole('link', { name: 'diagnostics page' }).click();
       await expect(page.getByRole('heading', { name: 'Diagnostics' })).toBeVisible();
       await expect(page.getByTestId('route-error')).toHaveCount(0);
+      const ownFile = await page.evaluate(() =>
+        performance.getEntriesByType('resource').some((e) => /\/DiagnosticsPage-/.test(e.name)),
+      );
+      expect(ownFile).toBe(false);
     } finally {
       await context.setOffline(false);
     }

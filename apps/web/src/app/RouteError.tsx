@@ -1,14 +1,16 @@
 // What shows when a route can't open: most often a page loaded on demand (the parent area, the
 // first-run screens) whose file couldn't be fetched because the device went offline. A child may
 // see it too, so the words are calm and blame no one, and both buttons are safe: Try again reloads
-// this page, Back to the island goes home. Nothing is deleted or reset. Like the boot failure
-// screen, its copy is inline plain text (02 §7): it must work when nothing else could load.
+// this page, Back to the island goes home inside the running app (the picker is already loaded,
+// so it opens offline too). Nothing is deleted or reset. Like the boot failure screen, its copy is
+// inline plain text (02 §7): it must work when nothing else could load.
 
 import { Panel } from '@number-island/ui';
-import { useRouteError } from 'react-router';
+import { useNavigate, useRouteError } from 'react-router';
 
 export function RouteError() {
   const error = useRouteError();
+  const navigate = useNavigate();
   const detail = error instanceof Error ? error.message : String(error ?? '');
   return (
     <main
@@ -31,7 +33,7 @@ export function RouteError() {
           <button
             type="button"
             className="ni-btn ni-tone-cloud px-8 text-xl"
-            onClick={() => window.location.assign('/')}
+            onClick={() => navigate('/', { replace: true })}
           >
             Back to the island
           </button>

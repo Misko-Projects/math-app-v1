@@ -1,32 +1,26 @@
 // What loads on demand, so the initial JS stays within 02 §6's 350 KB: the routes that are neither
-// the app shell nor the island (first run and the parent area), and the picture-password pad. Once
-// the app is up, `warmLazyRoutes` fetches them all while the browser is idle: a parent who loaded
-// the app online still opens Diagnostics after the connection drops, whether or not a service
-// worker has precached them.
+// the app shell nor the island (first run and the parent area). Everything a child needs to play,
+// the picture-password pad included, stays in the initial JS, so a child never waits on the network.
+//
+// The parent pages are one file (`@/parent/area`): whatever opened the parent area also brought
+// Diagnostics, so it opens after the connection drops. Once the app is up, `warmLazyRoutes` also
+// fetches every on-demand file while the browser is idle, ahead of the first visit.
 
 import type { ComponentType } from 'react';
 
 type RouteModule = () => Promise<{ Component: ComponentType }>;
 
+const parentArea = () => import('@/parent/area');
+
 export const lazyRoute = {
   welcome: async () => ({ Component: (await import('./WelcomePage')).WelcomePage }),
   setup: async () => ({ Component: (await import('@/parent/setup/SetupWizard')).SetupWizard }),
   join: async () => ({ Component: (await import('./JoinPage')).JoinPage }),
-  parentLayout: async () => ({ Component: (await import('@/parent/ParentLayout')).ParentLayout }),
-  parentHome: async () => ({ Component: (await import('@/parent/ParentHome')).ParentHome }),
-  pairDevice: async () => ({
-    Component: (await import('@/parent/PairDevicePage')).PairDevicePage,
-  }),
-  diagnostics: async () => ({
-    Component: (await import('@/parent/DiagnosticsPage')).DiagnosticsPage,
-  }),
+  parentLayout: async () => ({ Component: (await parentArea()).ParentLayout }),
+  parentHome: async () => ({ Component: (await parentArea()).ParentHome }),
+  pairDevice: async () => ({ Component: (await parentArea()).PairDevicePage }),
+  diagnostics: async () => ({ Component: (await parentArea()).DiagnosticsPage }),
 } satisfies Record<string, RouteModule>;
-
-/**
- * The picture-password pad and its pictures, shown only after a child with a picture password is
- * tapped. The picker starts this while it speaks the child's name, so the pad opens without a wait.
- */
-export const loadPicturePad = () => import('./picker/PicturePad');
 
 type Idle = (run: () => void) => void;
 
@@ -42,15 +36,15 @@ const whenIdle: Idle = (run) => {
 let warmed = false;
 
 /**
- * Fetches every lazy route's chunk once, when the browser is idle. A failed fetch (offline at
- * boot) is ignored here: opening that route later tries again, and shows the route error screen
- * if it still can't load.
+ * Fetches every lazy route's file once, when the browser is idle. A failed fetch (offline at boot)
+ * is ignored here: opening that route later tries again, and shows the route error screen if it
+ * still can't load.
  */
 export function warmLazyRoutes(idle: Idle = whenIdle): void {
   if (warmed) return;
   warmed = true;
   idle(() => {
-    for (const load of [...Object.values(lazyRoute), loadPicturePad]) void load().catch(() => {});
+    for (const load of Object.values(lazyRoute)) void load().catch(() => {});
   });
 }
 

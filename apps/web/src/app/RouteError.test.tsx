@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import { createMemoryRouter, RouterProvider } from 'react-router';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { resetLazyRouteWarmingForTests, warmLazyRoutes } from './lazyRoutes';
@@ -33,6 +33,13 @@ describe('<RouteError>', () => {
     expect(screen.getByTestId('route-error').textContent).not.toMatch(
       /delete|reset|erase|sign out/i,
     );
+
+    // Back to the island navigates inside the running app (no page load, so it works offline;
+    // the e2e checks that no document is requested).
+    fireEvent.click(screen.getByRole('button', { name: 'Back to the island' }));
+    expect(await screen.findByText('home')).toBeTruthy();
+    expect(router.state.location.pathname).toBe('/');
+    expect(screen.queryByTestId('route-error')).toBeNull();
   });
 });
 
