@@ -14,7 +14,7 @@ No widget defines its own palette.
 | `NumberLineView.tsx` | Fixed-pixel number line (numerals stay 32 px): ticks, an even label stride when crowded, marks, jump arcs; `children(scale)` draws widget overlays with `scale.x(value)`, `scale.value(x)` and `scale.lineY`. |
 | `FitPicture.tsx` | `FitPicture`: a stimulus fitted to a measured box (cards, compare sides): countable pictures re-flow their cell (`countLayout`, `cellToFit`; a double ten-frame may stack), fixed-pixel ones (number line, base ten, expressions) are drawn at their size and scaled down as a whole (`Scaled`). `naturalPictureSize` gives the aspect a layout plans with. |
 | `room.ts` | `useWidgetRoom(rootRef)`: the widget's measured room (`width`, and the height its host gives it or Infinity), for container-relative layouts that keep targets full size (06 §1, §4). |
-| `controls.tsx` | `CheckButton` (debounced 400 ms, icon-only in K), `PickCard` and `NumeralTray` (picked = ink ring + check badge; demo highlight = `.ni-invite`), `NumberPadKeys` (3 × 4, decimal only when allowed, desktop digits/Backspace/Enter), `applyPadKey`/`padValue`, and demo helpers `useAlive`, `useDemoPause`. |
+| `controls.tsx` | `CheckButton` (debounced 400 ms, icon-only in K), `PickCard` and `NumeralTray` (picked = ink ring + check badge; demo highlight = `.ni-invite`), `NumberPadKeys` (3 × 4 with no empty cell: `. 0 ⌫` when decimals are allowed, else a wide 0 and ⌫; desktop digits/Backspace/Enter), `applyPadKey`/`padValue`, and demo helpers `useAlive`, `useDemoPause`. |
 
 Each widget imports its own stylesheet next to its component (`./<format>.css`), so parallel
 widget PRs never edit one shared CSS file.

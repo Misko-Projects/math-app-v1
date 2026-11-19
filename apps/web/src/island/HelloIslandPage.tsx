@@ -1,11 +1,15 @@
-import { ApiStatusChip } from '@/app/ApiStatusChip';
+import { useNavigate } from 'react-router';
+import { HoldToOpen } from '@/parent/HoldToOpen';
+import type { GateHeldState } from '@/parent/ParentGateScreen';
 import { IslandScene } from './IslandScene';
 
 /**
- * Scaffold home ("hello island"). The only child-facing copy is the title; later issues replace
- * this page with the island hub and move child strings into narration YAML.
+ * Scaffold home ("hello island"), the child home until the Profile Picker and the island hub
+ * replace it. The only child-facing copy is the title. Child screens show no network status
+ * (06 §8); the small parent-gate entry sits in the corner (06 §2).
  */
 export function HelloIslandPage() {
+  const navigate = useNavigate();
   return (
     <div className="relative h-dvh min-h-[600px] w-full">
       <main className="absolute inset-0">
@@ -20,7 +24,11 @@ export function HelloIslandPage() {
         </div>
       </main>
       <footer className="absolute right-[max(1rem,env(safe-area-inset-right))] bottom-[max(1rem,env(safe-area-inset-bottom))]">
-        <ApiStatusChip />
+        <HoldToOpen
+          onOpen={() =>
+            navigate('/parent', { state: { gateHeldAt: Date.now() } satisfies GateHeldState })
+          }
+        />
       </footer>
     </div>
   );
