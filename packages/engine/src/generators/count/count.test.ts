@@ -215,6 +215,8 @@ describe('count.sequence: hide', () => {
     ['next after 39 (a new ten)', { start: 39 }, 40],
     ['counting back from 21', { start: 21, dir: -1 }, 20],
     ['the last of 3 after 17', { start: 17, length: 3 }, 20],
+    // hide: between shows the middle terms as '?', but the pick still asks for the last one.
+    ['between: the last of 4, 5, 6, 7', { start: 4, length: 3, hide: 'between' }, 7],
   ])('a numeral pick on the number line never labels the answer (%s)', (_l, p, answer) => {
     for (const representation of ['number-line', 'number-path'] as const) {
       const t = tpl('count.sequence', 'numeral-pick', { representation });
@@ -231,12 +233,15 @@ describe('count.sequence: hide', () => {
       expect(labels(overlay)).not.toContain(String(answer));
     }
   });
-  it('an order item’s level-3 line names none of the terms to order', () => {
+  it.each<[string, ParamValues, number[]]>([
+    ['12 to 15', { start: 12, length: 3 }, [12, 13, 14, 15]],
+    // Counting back to 0: the line's left end is 0, a term, so it is left unlabelled.
+    ['3 back to 0', { start: 3, dir: -1, length: 3 }, [3, 2, 1, 0]],
+  ])('an order item’s level-3 line names none of the terms to order (%s)', (_l, p, terms) => {
     const t = tpl('count.sequence', 'order');
-    const item = expectSound(t, { start: 12, length: 3 });
+    const item = expectSound(t, p);
     const overlay = item.hints.find((h) => h.level === 3)?.overlay;
-    const terms = [12, 13, 14, 15].map(String);
-    for (const l of labels(overlay)) expect(terms).not.toContain(l);
+    for (const l of labels(overlay)) expect(terms.map(String)).not.toContain(l);
   });
 });
 
