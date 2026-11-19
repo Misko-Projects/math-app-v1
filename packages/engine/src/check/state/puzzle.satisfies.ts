@@ -6,9 +6,15 @@
 // holding the palette piece that covers it. Pieces: `square` covers one cell, `rectangle` covers two
 // side-by-side cells (either way round). Correct when every outline cell is filled and nothing
 // else, the `rectangle` cells pair up into dominoes, and the pieces used are exactly the multiset of
-// the `use-each` constraint. K01 also implements the number variants `number-path` (PUZ.01),
-// `sum-triangle` (PUZ.02) and `all-ways` (CPS.06), below. The other variants (K02) add their rules
-// here; until then they are rejected.
+// the `use-each` constraint.
+//
+// U04 (#13) adds the numeric variants (mini-KenKen `cage-sum`, `magic-square`, `missing-digit`,
+// `sum-triangle` and other number grids); see `checkNumeric` below. `cells` there is the config's
+// own cell list (`{ r, c, given?, blank?, cage? }`).
+//
+// K01 (#11) targets list `cells` as [r, c] pairs with `givens` as [r, c, value]: the number
+// variants `number-path` (PUZ.01), `sum-triangle` (PUZ.02) and `all-ways` (CPS.06), checked by
+// `checkNumbers` below. The cell shape tells the two target forms apart.
 import type { StateChecker } from './types';
 
 export type Cell = [number, number];
@@ -166,7 +172,7 @@ function cellNumber(fill: unknown[], r: number, c: number): number | undefined {
   return typeof v === 'number' && Number.isInteger(v) && v >= 0 ? v : undefined;
 }
 
-const isCell = (x: unknown): x is Cell =>
+const isPair = (x: unknown): x is Cell =>
   Array.isArray(x) && x.length === 2 && x.every((v) => Number.isInteger(v));
 
 function checkNumbers(
@@ -178,7 +184,7 @@ function checkNumbers(
   if (typeof rows !== 'number' || typeof cols !== 'number') return false;
   if (!Array.isArray(target.cells) || !Array.isArray(target.constraints)) return false;
   const cells = target.cells as unknown[];
-  if (!cells.every(isCell)) return false;
+  if (!cells.every(isPair)) return false;
   const inside = new Set((cells as Cell[]).map(([r, c]) => key(r, c)));
   const fill = value.fill;
   if (!Array.isArray(fill) || fill.length !== rows) return false;
@@ -212,7 +218,7 @@ function checkNumbers(
     const con = k as Record<string, unknown> | null;
     if (con?.kind === 'line-sum') {
       const line = con.cells;
-      if (!Array.isArray(line) || !line.every(isCell) || typeof con.sum !== 'number') return false;
+      if (!Array.isArray(line) || !line.every(isPair) || typeof con.sum !== 'number') return false;
       if (!(line as Cell[]).every((cell) => inside.has(key(cell[0], cell[1])))) return false;
       if ((line as Cell[]).reduce((s, cell) => s + at(cell), 0) !== con.sum) return false;
     } else if (con?.kind === 'adjacent-step') {
@@ -241,16 +247,167 @@ function checkNumbers(
   return true;
 }
 
+interface PuzzleCell {
+  r: number;
+  c: number;
+  given?: number | string;
+  blank?: boolean;
+  cage?: string;
+}
+
+const isCell = (x: unknown): x is PuzzleCell => {
+  if (x === null || typeof x !== 'object') return false;
+  const r = x as Record<string, unknown>;
+  return Number.isInteger(r.r) && Number.isInteger(r.c);
+};
+
+const sameMultiset = (a: readonly (number | string)[], b: readonly (number | string)[]) => {
+  if (a.length !== b.length) return false;
+  const count = new Map<string, number>();
+  for (const v of a) count.set(`${typeof v}:${v}`, (count.get(`${typeof v}:${v}`) ?? 0) + 1);
+  for (const v of b) {
+    const k = `${typeof v}:${v}`;
+    const n = count.get(k) ?? 0;
+    if (n === 0) return false;
+    count.set(k, n - 1);
+  }
+  return true;
+};
+
+/**
+ * U04 (#13) numeric variants: `cage-sum` (mini-KenKen), `magic-square`, `missing-digit`,
+ * `sum-triangle` and the other number grids. The target is `{ variant, rows, cols, cells,
+ * constraints, palette }` with the config's own `cells` (`{ r, c, given?, blank?, cage? }`) and
+ * `palette`; the response is `{ fill }` as for shape-fill. Correct when every given cell keeps its
+ * value, every blank holds a palette number, nothing sits outside the puzzle, and every
+ * constraint holds. A `cage-sum` grid (mini-KenKen) must be square (n × n) with a puzzle cell at
+ * every position, and every cell, given or filled, must hold one of the digits 1–n. The
+ * constraints are:
+ * - `cage-sum`: the cage's cells add up to `sum`;
+ * - `row-unique` / `col-unique`: no value repeats in a row / column of the puzzle;
+ * - `line-sum`: the listed cells add up to `sum`;
+ * - `use-each`: the blanks' values are exactly `values` (as a multiset), or, when `values` has one
+ *   entry per puzzle cell, all the cells' values are.
+ * Other constraint kinds (`adjacent-step`, `equation`, `clue`) are not checked yet and reject.
+ */
+function checkNumeric(
+  target: Readonly<Record<string, unknown>>,
+  value: Readonly<Record<string, unknown>>,
+): boolean {
+  const rows = target.rows;
+  const cols = target.cols;
+  if (typeof rows !== 'number' || typeof cols !== 'number') return false;
+  if (!Array.isArray(target.cells) || !target.cells.every(isCell)) return false;
+  if (!Array.isArray(target.constraints)) return false;
+  const cells = target.cells as PuzzleCell[];
+  // The digits a blank may hold (KenKen 1–n, magic square 1–9): required.
+  if (!Array.isArray(target.palette)) return false;
+  const palette = target.palette as unknown[];
+  const fill = value.fill;
+  if (!Array.isArray(fill) || fill.length !== rows) return false;
+  if (!fill.every((row) => Array.isArray(row) && row.length === cols)) return false;
+  const grid = fill as unknown[][];
+  const inside = new Map(cells.map((x) => [key(x.r, x.c), x]));
+  // Mini-KenKen fills every position of its n × n grid.
+  if (target.variant === 'cage-sum' && inside.size !== rows * cols) return false;
+  // Nothing outside the puzzle.
+  for (let r = 0; r < rows; r += 1) {
+    for (let c = 0; c < cols; c += 1) {
+      if (!inside.has(key(r, c)) && grid[r]?.[c] !== '') return false;
+    }
+  }
+  const at = (r: number, c: number) => grid[r]?.[c];
+  for (const cell of cells) {
+    const v = at(cell.r, cell.c);
+    if (cell.given !== undefined) {
+      if (v !== cell.given) return false;
+    } else if (typeof v !== 'number' || !Number.isFinite(v) || !palette.includes(v)) {
+      return false;
+    }
+    // Mini-KenKen is an n × n grid of the digits 1–n, whatever the palette or givens say.
+    if (
+      target.variant === 'cage-sum' &&
+      (rows !== cols || !Number.isInteger(v) || (v as number) < 1 || (v as number) > rows)
+    ) {
+      return false;
+    }
+  }
+  const num = (r: number, c: number): number | undefined => {
+    const v = at(r, c);
+    return typeof v === 'number' && Number.isFinite(v) ? v : undefined;
+  };
+  const sum = (list: [number, number][]): number | undefined => {
+    let total = 0;
+    for (const [r, c] of list) {
+      const v = num(r, c);
+      if (v === undefined) return undefined;
+      total += v;
+    }
+    return total;
+  };
+  const distinct = (list: PuzzleCell[]) => {
+    const vals = list.map((x) => `${typeof at(x.r, x.c)}:${at(x.r, x.c)}`);
+    return new Set(vals).size === vals.length;
+  };
+  for (const raw of target.constraints as unknown[]) {
+    const k = raw as Record<string, unknown> | null;
+    switch (k?.kind) {
+      case 'cage-sum': {
+        const members = cells
+          .filter((x) => x.cage === k.cage)
+          .map((x): [number, number] => [x.r, x.c]);
+        if (members.length === 0 || sum(members) !== k.sum) return false;
+        break;
+      }
+      case 'row-unique':
+        for (let r = 0; r < rows; r += 1)
+          if (!distinct(cells.filter((x) => x.r === r))) return false;
+        break;
+      case 'col-unique':
+        for (let c = 0; c < cols; c += 1)
+          if (!distinct(cells.filter((x) => x.c === c))) return false;
+        break;
+      case 'line-sum': {
+        const list = k.cells;
+        if (!Array.isArray(list) || !list.every((p) => Array.isArray(p) && p.length === 2)) {
+          return false;
+        }
+        const pairs = list as [number, number][];
+        if (!pairs.every(([r, c]) => inside.has(key(r, c)))) return false;
+        if (sum(pairs) !== k.sum) return false;
+        break;
+      }
+      case 'use-each': {
+        if (!Array.isArray(k.values)) return false;
+        const want = k.values as (number | string)[];
+        const pool = want.length === cells.length ? cells : cells.filter((x) => x.blank);
+        const got = pool.map((x) => at(x.r, x.c) as number | string);
+        if (!sameMultiset(got, want)) return false;
+        break;
+      }
+      default:
+        return false;
+    }
+  }
+  return true;
+}
+
 const NUMBER_VARIANTS = new Set(['number-path', 'sum-triangle', 'all-ways']);
 
 export const puzzleSatisfies: StateChecker = {
   id: 'puzzle.satisfies',
   check(target, value) {
     if (target.variant === 'shape-fill') return checkShapeFill(target, value);
-    if (typeof target.variant === 'string' && NUMBER_VARIANTS.has(target.variant)) {
-      return checkNumbers(target, value);
+    // K01 targets list cells as [r, c] pairs (checkNumbers); U04 targets as config cells.
+    const cells = target.cells;
+    if (Array.isArray(cells) && cells.length > 0 && isPair(cells[0])) {
+      return (
+        typeof target.variant === 'string' &&
+        NUMBER_VARIANTS.has(target.variant) &&
+        checkNumbers(target, value)
+      );
     }
-    return false;
+    return checkNumeric(target, value);
   },
   // all-ways: the rows may come in any order and each way either way round, so a mutation that
   // still lists every way is a valid alternative.

@@ -310,6 +310,25 @@ export function objectSetLayout(set: ObjectSet): ObjectLayout {
   return { objects, width, height, frames };
 }
 
+/**
+ * The smallest centre-to-centre step between two objects of a layout, in cells (Chebyshev
+ * distance: objects are square). A widget that turns objects into tap targets sizes its cell so
+ * that `step × cell − gap` is at least the age mode's target (06 §4: ≥ 12 px between targets).
+ * Infinity for fewer than two objects.
+ */
+export function minObjectStep(layout: Pick<ObjectLayout, 'objects'>): number {
+  const centres = layout.objects.map((o) => ({ x: o.x + o.scale / 2, y: o.y + o.scale / 2 }));
+  let best = Number.POSITIVE_INFINITY;
+  for (let i = 0; i < centres.length; i++) {
+    for (let j = i + 1; j < centres.length; j++) {
+      const a = centres[i] as { x: number; y: number };
+      const b = centres[j] as { x: number; y: number };
+      best = Math.min(best, Math.max(Math.abs(a.x - b.x), Math.abs(a.y - b.y)));
+    }
+  }
+  return best;
+}
+
 /** Dot positions for a `dots` stimulus (03 §5.1), in cells, with each dot's group. */
 export function dotsLayout(spec: Extract<StimulusSpec, { kind: 'dots' }>, seed = 1): ObjectLayout {
   const total = spec.groups.reduce((a, b) => a + Math.max(0, b), 0);

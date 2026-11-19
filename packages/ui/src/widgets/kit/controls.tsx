@@ -114,17 +114,40 @@ export interface NumeralTrayProps {
   label?: NarrationKey;
   /** Speak the number on tap (06 §5). Defaults to the child's speakOnTap. */
   speak?: boolean;
+  /**
+   * At most this many cards a row: the panel is then exactly that wide (or its container's width,
+   * if narrower). Without it the panel fills its container.
+   */
+  columns?: number;
 }
 
 /**
- * Row sizes for n cards in `rows` rows, as even as possible (the first rows take the extra):
- * 21 in 4 rows → [6, 5, 5, 5], 11 in 2 → [6, 5].
+ * A numeral card's width in px for `digits`-digit numbers at a `targetMin` px minimum target,
+ * matching NumeralTray's CSS (Baloo 2 at 48 px ≈ 30 px a digit), for widgets that plan their
+ * layout around a tray.
  */
-export function balancedRows(n: number, rows: number): number[] {
-  const r = Math.max(1, Math.min(n, Math.floor(rows)));
-  const base = Math.floor(n / r);
-  const extra = n % r;
-  return Array.from({ length: n === 0 ? 0 : r }, (_, i) => base + (i < extra ? 1 : 0));
+export function numeralCardPx(digits: number, targetMin: number, scale = 1.15): number {
+  return Math.max(targetMin * scale, Math.max(1, digits) * 30 + 40);
+}
+
+/** The tray panel's horizontal padding plus border, in px (kit.css `.ni-tray-numerals`). */
+export const TRAY_PANEL_EDGES_PX = 2 * (20 + 3);
+
+/**
+ * The tray's grid for n cards when at most `cap` fit a row: even columns (`cols` cards in every
+ * full row, so the columns line up) in the fewest rows whose last row is at least half full, so no
+ * lone card hangs under a long row. 0–20 (21 cards): 11 a row → 0–10 over 11–20; 7–10 a row →
+ * 7 × 3; 5 a row → 3 × 7. 0–10 at 9 a row → 6 over 5 (the short last row is centred).
+ */
+export function trayGrid(n: number, cap: number): { cols: number; rows: number } {
+  if (n <= 0) return { cols: 1, rows: 0 };
+  const most = Math.max(1, Math.min(n, Math.floor(cap)));
+  for (let rows = Math.ceil(n / most); rows <= n; rows++) {
+    const cols = Math.ceil(n / rows);
+    const last = n - (rows - 1) * cols;
+    if (last >= Math.ceil(cols / 2)) return { cols, rows };
+  }
+  return { cols: 1, rows: n };
 }
 
 /**
@@ -164,21 +187,22 @@ export function NumeralTray({
   highlighted = null,
   label = 'ui.widget.numbers',
   speak,
+  columns,
 }: NumeralTrayProps) {
   const t = useNarrationText();
   const prefs = useUiPreferences();
   const { sayNumber } = useSpeech();
   const speaks = speak ?? prefs.speakOnTap;
   // Every card as wide as the widest numeral (Baloo 2 at 48 px ≈ 30 px a digit), so "10" is
-  // not a bigger target than "9".
+  // not a bigger target than "9". A host can enlarge the cards with --tray-card-scale.
   const digits = Math.max(1, ...values.map((v) => String(v).length));
-  const cardWidth = `max(calc(var(--target-min) * 1.15), ${digits * 30 + 40}px)`;
-  // Balanced rows: the fewest rows that fit the tray's own (fractional) content width, with the cards split as
-  // evenly as possible (0–10 → 6 + 5, 0–20 at 680 px → 6 + 5 + 5 + 5). The cards stay ONE flat,
-  // stably keyed list (a reflow never remounts a card, so keyboard focus survives); zero-size
-  // line breaks between them end each row.
+  const cardWidth = `max(calc(var(--target-min) * var(--tray-card-scale, 1.15)), ${digits * 30 + 40}px)`;
+  // An even grid (trayGrid) sized from the tray's own (fractional) content width, inside a visible
+  // tray panel. The cards stay ONE flat, stably keyed list (a reflow never remounts a card, so
+  // keyboard focus survives) in a centred box exactly `cols` cards wide, so every full row lines
+  // up and a short last row is centred.
   const ref = useRef<HTMLFieldSetElement | null>(null);
-  const [rowCount, setRowCount] = useState(1);
+  const [cols, setCols] = useState(values.length);
   useLayoutEffect(() => {
     const el = ref.current;
     if (!el || typeof ResizeObserver === 'undefined') return;
@@ -191,37 +215,37 @@ export function NumeralTray({
       // untransformed (getBoundingClientRect includes the demo pulse's scale, which flex ignores).
       const avail = layoutBox(style).content;
       if (avail <= 0) return;
-      const gap = Number.parseFloat(style.columnGap) || 12;
+      const grid = card.parentElement ?? el;
+      const gap = Number.parseFloat(getComputedStyle(grid).columnGap) || 12;
       const cardStyle = getComputedStyle(card);
       const cardWidth =
         layoutBox(cardStyle).border +
         (Number.parseFloat(cardStyle.marginLeft) || 0) +
         (Number.parseFloat(cardStyle.marginRight) || 0);
-      const perRow = cardsPerRow(avail, cardWidth, gap);
-      setRowCount(Math.ceil(values.length / perRow));
+      setCols(trayGrid(values.length, cardsPerRow(avail, cardWidth, gap)).cols);
     };
     measure();
     const ro = new ResizeObserver(measure);
     ro.observe(el);
     return () => ro.disconnect();
   }, [values.length]);
-  // Indexes after which a row ends (no break after the last row).
-  const breaksAfter = new Set<number>();
-  let end = -1;
-  for (const size of balancedRows(values.length, rowCount).slice(0, -1)) {
-    end += size;
-    breaksAfter.add(end);
-  }
   return (
     <fieldset
       ref={ref}
       className="ni-tray-numerals"
       aria-label={t(label)}
       disabled={disabled}
-      style={{ '--card-w': cardWidth } as CSSProperties}
+      data-columns={columns ? 'fixed' : undefined}
+      style={
+        {
+          '--card-w': cardWidth,
+          '--cols': cols,
+          ...(columns ? { '--max-cols': Math.max(1, Math.floor(columns)) } : {}),
+        } as CSSProperties
+      }
     >
-      {values.flatMap((v, i) => {
-        const card = (
+      <div className="ni-tray-numerals__grid">
+        {values.map((v) => (
           <PickCard
             key={v}
             label={String(v)}
@@ -235,14 +259,8 @@ export function NumeralTray({
           >
             <span className="ni-pick__numeral">{v}</span>
           </PickCard>
-        );
-        return breaksAfter.has(i)
-          ? [
-              card,
-              <span key={`break-${v}`} className="ni-tray-numerals__break" aria-hidden="true" />,
-            ]
-          : [card];
-      })}
+        ))}
+      </div>
     </fieldset>
   );
 }

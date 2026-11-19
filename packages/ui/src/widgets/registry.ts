@@ -13,6 +13,9 @@ import type { WidgetRegistry } from './types';
 export const widgetRegistry: WidgetRegistry = {
   'number-pad': () => import('./number-pad/NumberPadWidget'),
   'numeral-pick': () => import('./numeral-pick/NumeralPickWidget'),
+  'tap-count': () => import('./tap-count/TapCountWidget'),
+  'make-set': () => import('./make-set/MakeSetWidget'),
+  'dot-flash': () => import('./dot-flash/DotFlashWidget'),
 };
 
 /** Formats that have a registered widget. */

@@ -4,6 +4,7 @@
 import type { AnswerSpec, ItemFormat, WidgetConfig } from '@number-island/shared';
 import { areaTiles } from './area-tiles';
 import { arrayBuild } from './array-build';
+import { balance } from './balance';
 import { baseTenBuild } from './base-ten-build';
 import { baseTenTrade } from './base-ten-trade';
 import { dotFlash } from './dot-flash';
@@ -17,7 +18,9 @@ import { numberLineJump } from './number-line-jump';
 import { numberPad } from './number-pad';
 import { numeralPick } from './numeral-pick';
 import { order } from './order';
+import { puzzleGrid } from './puzzle-grid';
 import { rekenrek } from './rekenrek';
+import { storyProblem } from './story-problem';
 import { tapCount } from './tap-count';
 import { tenframeFill } from './tenframe-fill';
 import type { FormatModel, FormatState } from './types';
@@ -46,6 +49,10 @@ const MODELS: Partial<Record<ItemFormat, AnyModel>> = {
   'equal-groups': equalGroups,
   'equal-share': equalShare,
   'area-tiles': areaTiles,
+  // U04 (#13): equality, stories and puzzles
+  'story-problem': storyProblem,
+  balance,
+  'puzzle-grid': puzzleGrid,
 };
 
 export function formatModel<F extends ItemFormat>(

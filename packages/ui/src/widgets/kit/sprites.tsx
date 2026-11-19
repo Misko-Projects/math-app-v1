@@ -252,7 +252,9 @@ const plank: Draw = (tone) => {
 };
 
 const firefly: Draw = (tone) => {
-  const c = toneFill({ fill: 'var(--color-sunshine)', line: 'var(--color-sunshine-deep)' }, tone);
+  // The body outline is wood-deep, not sunshine-deep: a yellow outline falls under 3:1 on the
+  // sand trays fireflies sit on (06 §7); wood-deep reads at about 4.4:1 on sand.
+  const c = toneFill({ fill: 'var(--color-sunshine)', line: 'var(--color-wood-deep)' }, tone);
   return (
     <>
       {SHADOW}
@@ -277,7 +279,7 @@ const firefly: Draw = (tone) => {
         stroke="var(--color-ink-soft)"
         strokeWidth="2.5"
       />
-      <ellipse cx="32" cy="36" rx="9" ry="12" fill={c.fill} stroke={c.line} strokeWidth="3" />
+      <ellipse cx="32" cy="36" rx="9" ry="12" fill={c.fill} stroke={c.line} strokeWidth="3.5" />
       <circle cx="32" cy="22" r="6" fill="var(--color-ink)" />
       {HIGHLIGHT('M28 32c1-2 2-3 4-3.5')}
     </>

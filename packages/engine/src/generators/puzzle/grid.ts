@@ -343,6 +343,11 @@ export const puzzleGrid: GeneratorDef = {
       const givens = path.flatMap(([r, c], i) =>
         blankIdx.has(i) ? [] : [[r, c, values[i] as number] as [number, number, number]],
       );
+      // The number tray (U04's puzzle-grid model needs one): every number from one before the
+      // path to one after it. It depends on the params only, never on which cells are blank, and
+      // its two ends are the off-by-one slips.
+      const lo = Math.max(0, start - 1);
+      const palette = Array.from({ length: last + 1 - lo + 1 }, (_, i) => lo + i);
       p = {
         params,
         vars: pickVars(t, {}),
@@ -360,7 +365,7 @@ export const puzzleGrid: GeneratorDef = {
             blankIdx.has(i) ? { r, c, blank: true } : { r, c, given: values[i] as number },
           ),
           constraints: [{ kind: 'adjacent-step', step: 1 }],
-          palette: [],
+          palette,
           uniqueSolution: true,
         },
         answer: {
@@ -373,7 +378,7 @@ export const puzzleGrid: GeneratorDef = {
             cells: path,
             givens,
             constraints: [{ kind: 'adjacent-step', step: 1 }],
-            palette: [],
+            palette,
           },
         },
       };
