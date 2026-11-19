@@ -382,8 +382,8 @@ export const ReducedMotion: Story = {
               >
                 <FrameTile id={effect} effect={effect} tile={REDUCED_TILE}>
                   {/* The live effect under reduced motion (checked by the play test). Sparkle and
-                      splash fade out within 150 ms, so the tile also shows the one frame they
-                      fade in and out, held still; confetti shows nothing at all. */}
+                      splash fade in and out, 150 ms each, so the tile also shows the one frame
+                      they fade, held still; confetti shows nothing at all. */}
                   <div
                     style={{
                       position: SHOWN_FRAME[effect] === undefined ? 'static' : 'absolute',

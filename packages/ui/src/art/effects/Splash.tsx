@@ -11,7 +11,7 @@ import {
   splashDropAt,
   splashDrops,
 } from './particles';
-import { type EffectProps, usePlayhead, useReducedFade } from './playhead';
+import { type EffectProps, usePlayhead, useReducedFade, useRunCompletion } from './playhead';
 
 /** The frame shown under reduced motion (the crown at its tallest). */
 export const SPLASH_PEAK = 0.3;
@@ -115,13 +115,15 @@ export function Splash({
   const reduced = useReducedMotion();
   const still = progress !== undefined;
   const drops = useMemo(() => splashDrops(seed), [seed]);
+  // One `onDone` per run, from the playhead or the reduced-motion fade; a new seed is a new run.
+  const { finish } = useRunCompletion(drops, onDone);
   const t = usePlayhead(
     SPLASH_MS,
     reduced ? (progress ?? SPLASH_PEAK) : progress,
     !still && !reduced,
-    onDone,
+    finish,
   );
-  const fade = useReducedFade(reduced && !still, onDone);
+  const fade = useReducedFade(reduced && !still, finish);
   return (
     <ArtSvg
       width={SPLASH_BOX.w}

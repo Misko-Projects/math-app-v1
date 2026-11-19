@@ -10,7 +10,7 @@ import {
   confettiPieces,
 } from './particles';
 import { resolveColor } from './pixi';
-import { type EffectProps, useLatest } from './playhead';
+import { type EffectProps, useRunCompletion } from './playhead';
 import { type PixiBuild, usePixiEffect } from './usePixiEffect';
 
 export interface ConfettiProps extends EffectProps {
@@ -100,7 +100,8 @@ export function Confetti({
   const host = useRef<HTMLDivElement>(null);
   const pieces = useMemo(() => confettiPieces(seed, count), [seed, count]);
   const light = useMemo(() => pieces.slice(0, CONFETTI_FALLBACK_PIECES), [pieces]);
-  const done = useLatest(onDone);
+  // One `onDone` per run, whichever path ends it; a new layout (seed, count) is a new run.
+  const { finished, finish } = useRunCompletion(pieces, onDone);
 
   const build = useCallback<PixiBuild>(
     (pixi, app, k) => {
@@ -132,7 +133,8 @@ export function Confetti({
     },
     [pieces],
   );
-  const status = usePixiEffect(live, host, CONFETTI_BOX.w, build, () => done.current?.());
+  // A finished run does not replay (e.g. when reduced motion is switched off afterwards).
+  const status = usePixiEffect(live && !finished, host, CONFETTI_BOX.w, build, finish);
 
   // The SVG fallback: the same burst with fewer pieces, driven by Motion.
   const t = useMotionValue(still ? progress * CONFETTI_MS : 0);
@@ -141,21 +143,22 @@ export function Confetti({
       t.set(progress * CONFETTI_MS);
       return;
     }
-    if (status !== 'svg') return;
+    if (status !== 'svg' || finished) return;
+    t.set(0);
     const controls = animate(t, CONFETTI_MS, {
       duration: CONFETTI_MS / 1000,
       ease: 'linear',
-      onComplete: () => done.current?.(),
+      onComplete: finish,
     });
     return () => controls.stop();
-  }, [t, still, progress, status, done]);
+  }, [t, still, progress, status, finished, finish]);
 
   // Reduced motion: confetti is off (06 §7), so the celebration is over at once.
   useEffect(() => {
-    if (reduced && !still) done.current?.();
-  }, [reduced, still, done]);
+    if (reduced && !still) finish();
+  }, [reduced, still, finish]);
 
-  const renderer = reduced && !still ? 'off' : still ? 'still' : status;
+  const renderer = still ? 'still' : reduced ? 'off' : finished ? 'done' : status;
   return (
     <div
       ref={host}

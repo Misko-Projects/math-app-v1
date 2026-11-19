@@ -11,7 +11,7 @@ import {
   sparkleCore,
   sparkleParticles,
 } from './particles';
-import { type EffectProps, usePlayhead, useReducedFade } from './playhead';
+import { type EffectProps, usePlayhead, useReducedFade, useRunCompletion } from './playhead';
 
 /** The frame shown under reduced motion (the burst at its fullest). */
 export const SPARKLE_PEAK = 0.36;
@@ -79,13 +79,15 @@ export function Sparkle({
   const reduced = useReducedMotion();
   const still = progress !== undefined;
   const particles = useMemo(() => sparkleParticles(seed), [seed]);
+  // One `onDone` per run, from the playhead or the reduced-motion fade; a new seed is a new run.
+  const { finish } = useRunCompletion(particles, onDone);
   const t = usePlayhead(
     SPARKLE_MS,
     reduced ? (progress ?? SPARKLE_PEAK) : progress,
     !still && !reduced,
-    onDone,
+    finish,
   );
-  const fade = useReducedFade(reduced && !still, onDone);
+  const fade = useReducedFade(reduced && !still, finish);
   return (
     <ArtSvg
       width={SPARKLE_BOX.w}

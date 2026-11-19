@@ -1,6 +1,8 @@
+import type { DecorDef as GameDecorDef } from '@number-island/shared';
 import type { Meta, StoryObj } from '@storybook/react-vite';
 import type { CSSProperties } from 'react';
 import { expect } from 'storybook/test';
+import decorYaml from '../../../../content/game/decor.yaml?raw';
 import { CVD_FILTERS } from '../../tokens/cvd';
 import { type Lighting, PALETTE } from '../../tokens/tokens';
 import { CVD_MATRIX, CvdMatrix } from '../gallery/Gallery';
@@ -23,7 +25,8 @@ import {
 } from './galleryChecks';
 
 /**
- * Art Gallery: decor (05 §6: flowers, lamps, flags, paths, fountains…), by where it comes from.
+ * Art Gallery: decor (05 §6: flowers, lamps, flags, paths, fountains…); each section says how its
+ * pieces are obtained, from their decor.yaml sources.
  * Every piece stands on its own plot in the island's tilted view. The sheet pages draw every piece
  * at one shared scale, so sizes compare honestly from page to page; 2-plot pieces are twice as
  * wide. Each page is one tablet screen. Lamps and lanterns light up at sunset.
@@ -41,11 +44,46 @@ const groundOf = (id: DecorId) => (DECOR[id].group === 'beach' ? 'sand' : 'grass
 
 const tileBox = decorTileBox;
 
+type DecorSource = GameDecorDef['source'];
+
+/**
+ * How each piece is obtained: its `source` in packages/content/game/decor.yaml (05 §6, §7), the
+ * game data's one list (every entry is a one-line `- { id: …, source: … }`).
+ */
+const DECOR_SOURCE: Readonly<Record<string, DecorSource>> = Object.fromEntries(
+  [...decorYaml.matchAll(/^\s*-\s*\{\s*id:\s*([\w-]+)\s*,[^}]*\bsource:\s*(\w+)/gm)].map((m) => [
+    m[1],
+    m[2] as DecorSource,
+  ]),
+);
+
+/** Gallery labels (story-only, not narration) for each source, as decor.yaml defines them. */
+const SOURCE_LABEL: Readonly<Record<DecorSource, string>> = {
+  starter: 'owned from the start',
+  project: 'earned by projects and building levels',
+  festival: 'rewarded at festivals and Storm Watch',
+  gift: "left as a parent's gift",
+  puzzle: 'earned with Puzzle Tower star shards',
+};
+
+const sourceOf = (id: DecorId) => DECOR_SOURCE[id] as DecorSource;
+
+/** How a section's pieces are obtained, from their sources (the most common first). */
+function sourcesCaption(ids: readonly DecorId[]): string {
+  const count = new Map<DecorSource, number>();
+  for (const id of ids) count.set(sourceOf(id), (count.get(sourceOf(id)) ?? 0) + 1);
+  const order = Object.keys(SOURCE_LABEL) as DecorSource[];
+  const sources = [...count.keys()].sort(
+    (a, b) => (count.get(b) ?? 0) - (count.get(a) ?? 0) || order.indexOf(a) - order.indexOf(b),
+  );
+  return new Intl.ListFormat('en', { type: 'disjunction' }).format(
+    sources.map((s) => SOURCE_LABEL[s]),
+  );
+}
+
 /** One titled run of cards on a page. Its pieces fill `cols` columns; 2-plot pieces span two. */
 interface SheetSection {
   title: string;
-  /** Where these pieces come from (05 §6, §7). */
-  source: string;
   cols: number;
   ids: readonly DecorId[];
 }
@@ -55,16 +93,13 @@ interface SheetPage {
   sections: readonly SheetSection[];
 }
 
-const FROM_BUILDING = 'earned by projects and building levels';
-
-/** The day sheets: every decor piece exactly once, by where it comes from. */
+/** The day sheets: every decor piece exactly once, in sections captioned by their sources. */
 const DAY_PAGES: readonly SheetPage[] = [
   {
     key: 'garden',
     sections: [
       {
         title: 'In the garden',
-        source: FROM_BUILDING,
         cols: 5,
         ids: [
           'tulip-patch',
@@ -86,7 +121,6 @@ const DAY_PAGES: readonly SheetPage[] = [
     sections: [
       {
         title: 'Island landmarks',
-        source: FROM_BUILDING,
         cols: 4,
         ids: [
           'palm-tree',
@@ -105,13 +139,11 @@ const DAY_PAGES: readonly SheetPage[] = [
     sections: [
       {
         title: 'Beach finds',
-        source: 'surprise gifts',
         cols: 5,
         ids: ['beach-umbrella', 'sandcastle', 'tide-pool', 'driftwood-sign', 'kite-stand'],
       },
       {
-        title: 'Puzzle Tower stars',
-        source: 'rare decor for star shards',
+        title: 'Stars and sea glass',
         cols: 5,
         ids: ['sea-glass-mosaic', 'star-statue', 'crystal-tower', 'telescope', 'moon-lamp'],
       },
@@ -121,8 +153,7 @@ const DAY_PAGES: readonly SheetPage[] = [
     key: 'festivals',
     sections: [
       {
-        title: 'Festivals and Storm Watch',
-        source: 'earned at festivals; Storm Watch reveals the rainbow',
+        title: 'Festivals, Storm Watch and gifts',
         cols: 6,
         ids: [
           'lantern-string',
@@ -250,8 +281,8 @@ function Sheet({ page, lighting }: { page: SheetPage; lighting: Lighting }) {
             >
               {s.title}
             </h2>
-            <p className="story-cell__name" style={{ margin: 0 }}>
-              {s.source}
+            <p className="story-cell__name" style={{ margin: 0 }} data-sources>
+              {sourcesCaption(s.ids)}
             </p>
           </header>
           <div
@@ -293,6 +324,35 @@ async function expectDayPagesCoverEveryDecor() {
 }
 
 /**
+ * Each section's caption is true of every piece in it (decor.yaml `source`): it names the source of
+ * each of its pieces, and no source that none of them has.
+ */
+async function expectCaptionsTrue(root: HTMLElement) {
+  await expect(Object.keys(DECOR_SOURCE).sort(), 'decor.yaml read').toEqual([...DECOR_IDS].sort());
+  const problems: string[] = [];
+  const sections = [...root.querySelectorAll<HTMLElement>('section[aria-label]')];
+  await expect(sections.length).toBeGreaterThan(0);
+  for (const section of sections) {
+    const caption = section.querySelector('[data-sources]')?.textContent ?? '';
+    const ids = [...section.querySelectorAll<HTMLElement>('[data-cell]')].map(
+      (c) => c.dataset.cell as DecorId,
+    );
+    const present = new Set(ids.map(sourceOf));
+    for (const id of ids) {
+      if (!caption.includes(SOURCE_LABEL[sourceOf(id)])) {
+        problems.push(`${section.ariaLabel}: "${caption}" misses ${id} (${sourceOf(id)})`);
+      }
+    }
+    for (const [s, label] of Object.entries(SOURCE_LABEL) as [DecorSource, string][]) {
+      if (caption.includes(label) && !present.has(s)) {
+        problems.push(`${section.ariaLabel}: "${caption}" claims ${s}`);
+      }
+    }
+  }
+  await expect(problems).toEqual([]);
+}
+
+/**
  * A sheet page renders exactly its pieces, each a titled image at the shared scale, in a tidy grid:
  * equal cards, art centred and standing on the caption line, captions of a row on one baseline.
  */
@@ -329,6 +389,7 @@ async function expectSheet(root: HTMLElement, page: SheetPage, lighting: Lightin
     if (Math.max(...caps) - Math.min(...caps) > 0.5) problems.push('captions off the baseline');
   }
   await expect(problems).toEqual([]);
+  await expectCaptionsTrue(root);
   await expectCellsApart(root);
   await expectArtInsideCells(root);
   await expectOneScreen();
@@ -445,13 +506,13 @@ function sunsetPage(page: SheetPage): Story {
 
 const page = (key: string) => DAY_PAGES.find((p) => p.key === key) as SheetPage;
 
-/** Flowers, bushes, paths and fences from projects and building levels. */
+/** Flowers, bushes, paths and fences: starter pieces and the project-earned bird bath. */
 export const ByDayGarden: Story = dayPage(page('garden'));
-/** The tall pieces from projects and building levels, and the 2 × 2 fountain. */
+/** The tall pieces (the starter palm tree, the rest from projects), and the 2 × 2 fountain. */
 export const ByDayLandmarks: Story = dayPage(page('landmarks'));
-/** Beach finds (gifts and surprises) and the Puzzle Tower's star-shard decor. */
+/** Beach finds (starters and the project kite stand), star-shard decor and a sea-glass gift. */
 export const ByDayBeachAndStars: Story = dayPage(page('beach-and-stars'));
-/** Festival decor and Storm Watch's rainbow. */
+/** Festival decor, Storm Watch's rainbow and two parent gifts. */
 export const ByDayFestivals: Story = dayPage(page('festivals'));
 export const AtSunsetGarden: Story = sunsetPage(page('garden'));
 export const AtSunsetLandmarks: Story = sunsetPage(page('landmarks'));

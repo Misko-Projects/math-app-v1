@@ -1,6 +1,6 @@
 import { animate, type MotionValue, useMotionValue } from 'motion/react';
 import type { CSSProperties } from 'react';
-import { useEffect, useRef } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import type { Lighting } from '../../tokens/tokens';
 import { EFFECT_FADE_MS } from './particles';
 
@@ -30,6 +30,31 @@ export function useLatest<T>(value: T) {
     ref.current = value;
   }, [value]);
   return ref;
+}
+
+const NO_RUN: unique symbol = Symbol('no run');
+
+/**
+ * One completion per run. `finish` calls the latest `onDone` the first time it is called for
+ * `run` and does nothing after that, so the reduced-motion, Pixi and SVG paths can all call it,
+ * StrictMode can run their effects twice and reduced motion can be switched after the end without
+ * finishing the run again. `run` identifies the run (the effect's memoised particle layout): a new
+ * one, from a new seed or key, starts a new run. `finished` says whether this run has finished.
+ */
+export function useRunCompletion(
+  run: unknown,
+  onDone?: () => void,
+): { finished: boolean; finish: () => void } {
+  const done = useLatest(onDone);
+  const finishedRun = useRef<unknown>(NO_RUN);
+  const [shownFinished, setShownFinished] = useState<unknown>(NO_RUN);
+  const finish = useCallback(() => {
+    if (finishedRun.current === run) return;
+    finishedRun.current = run;
+    setShownFinished(() => run); // `run` may be a function: never an updater
+    done.current?.();
+  }, [run, done]);
+  return { finished: shownFinished === run, finish };
 }
 
 /**

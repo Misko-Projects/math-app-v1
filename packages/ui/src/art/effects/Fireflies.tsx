@@ -1,4 +1,11 @@
-import { animate, type MotionValue, motion, useMotionValue, useTransform } from 'motion/react';
+import {
+  cancelFrame,
+  frame,
+  type MotionValue,
+  motion,
+  useMotionValue,
+  useTransform,
+} from 'motion/react';
 import { useCallback, useEffect, useMemo, useRef } from 'react';
 import { useReducedMotion } from '../../preferences/UiProvider';
 import { paint } from '../core/paint';
@@ -11,7 +18,7 @@ import {
   fireflyStatic,
 } from './particles';
 import { resolveColor } from './pixi';
-import { type EffectProps, useLatest } from './playhead';
+import { type EffectProps, useRunCompletion } from './playhead';
 import { type PixiBuild, usePixiEffect } from './usePixiEffect';
 
 export interface FirefliesProps extends EffectProps {
@@ -19,7 +26,10 @@ export interface FirefliesProps extends EffectProps {
   count?: number;
   /** Fireflies blink in this many groups (Lantern Grove: "fireflies blink in groups"). */
   groups?: number;
-  /** Stop after this many ms and call `onDone`. Default: glow until unmounted. */
+  /**
+   * Stop after this many ms (the swarm disappears) and call `onDone`. Default: glow until
+   * unmounted, never finishing.
+   */
   duration?: number;
 }
 
@@ -71,9 +81,9 @@ function FirefliesSvg({
 
 /**
  * Fireflies (Lantern Grove, 05 §4 W2): many soft lights that wander and blink in groups, on a lazily
- * loaded Pixi canvas, looping until unmounted (or for `duration` ms). Without WebGL it draws a
- * smaller SVG swarm with Motion. `progress` renders a still frame. Reduced motion (06 §7): a still,
- * softly glowing swarm.
+ * loaded Pixi canvas, looping until unmounted (or for `duration` ms, then gone). Without WebGL it
+ * draws a smaller SVG swarm with Motion, with the same lifetime. `progress` renders a still frame.
+ * Reduced motion (06 §7): a still, softly glowing swarm (also gone after `duration`).
  */
 export function Fireflies({
   seed = 1,
@@ -93,7 +103,6 @@ export function Fireflies({
   const host = useRef<HTMLDivElement>(null);
   const flies = useMemo(() => fireflies(seed, count, groups), [seed, count, groups]);
   const light = useMemo(() => flies.slice(0, FIREFLY_FALLBACK_FLIES), [flies]);
-  const done = useLatest(onDone);
   const end = duration ?? Number.POSITIVE_INFINITY;
 
   const build = useCallback<PixiBuild>(
@@ -128,9 +137,13 @@ export function Fireflies({
     },
     [flies, end],
   );
-  const status = usePixiEffect(live, host, FIREFLY_BOX.w, build, () => done.current?.());
+  // One run is this scene (the flies and the duration): every path ends it, and `onDone` fires,
+  // once. A finished run shows nothing, like the Pixi canvas, which is removed.
+  const { finished, finish } = useRunCompletion(build, onDone);
+  const status = usePixiEffect(live && !finished, host, FIREFLY_BOX.w, build, finish);
 
-  // Still frames, the reduced-motion swarm (t < 0 = static) and the SVG fallback loop.
+  // Still frames, the reduced-motion swarm (t < 0 = static) and the SVG fallback, which keeps the
+  // Pixi canvas's lifetime: it wanders for `duration` ms, or for as long as it is shown.
   const t = useMotionValue(still ? progress * FIREFLY_LOOP_MS : reduced ? -1 : 0);
   useEffect(() => {
     if (still) {
@@ -139,22 +152,27 @@ export function Fireflies({
     }
     if (reduced) {
       t.set(-1);
-      if (duration === undefined) return;
-      const timer = setTimeout(() => done.current?.(), duration);
+      if (end === Number.POSITIVE_INFINITY) return;
+      const timer = setTimeout(finish, end);
       return () => clearTimeout(timer);
     }
     if (status !== 'svg') return;
-    const span = duration ?? 3_600_000;
-    const controls = animate(t, [0, span], {
-      duration: span / 1000,
-      ease: 'linear',
-      onComplete: () => done.current?.(),
-    });
-    return () => controls.stop();
-  }, [t, still, progress, reduced, status, duration, done]);
+    let start: number | undefined;
+    const tick = ({ timestamp }: { timestamp: number }) => {
+      start ??= timestamp;
+      const ms = timestamp - start;
+      t.set(Math.min(ms, end));
+      if (ms >= end) {
+        cancelFrame(tick);
+        finish();
+      }
+    };
+    frame.update(tick, true);
+    return () => cancelFrame(tick);
+  }, [t, still, progress, reduced, status, end, finish]);
 
-  const renderer = still ? 'still' : reduced ? 'static' : status;
-  const svg = still || reduced || status === 'svg';
+  const renderer = still ? 'still' : finished ? 'done' : reduced ? 'static' : status;
+  const svg = still || (!finished && (reduced || status === 'svg'));
   return (
     <div
       ref={host}

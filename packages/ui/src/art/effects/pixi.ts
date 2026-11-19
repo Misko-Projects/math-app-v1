@@ -8,9 +8,20 @@ import { PALETTE, type PaletteColor } from '../../tokens/tokens';
 type PixiModule = typeof import('pixi.js');
 
 let pixi: Promise<PixiModule> | null = null;
+let testDouble: (() => Promise<PixiModule>) | null = null;
+
+/**
+ * Test-only (story tests): stand a fake pixi.js in for the real one and report WebGL as
+ * available, so the Pixi path runs in headless browsers without WebGL. `null` restores the real
+ * one.
+ */
+export function setPixiTestDouble(load: (() => Promise<PixiModule>) | null): void {
+  testDouble = load;
+}
 
 /** Loads pixi.js on first use (a separate chunk, never in the initial bundle). */
 export function loadPixi(): Promise<PixiModule> {
+  if (testDouble) return testDouble();
   pixi ??= import('pixi.js');
   return pixi;
 }
@@ -19,6 +30,7 @@ let webgl: boolean | null = null;
 
 /** Whether this browser can create a WebGL context (headless CI often cannot). */
 export function webglAvailable(): boolean {
+  if (testDouble) return true;
   if (webgl !== null) return webgl;
   if (typeof document === 'undefined') return false;
   try {

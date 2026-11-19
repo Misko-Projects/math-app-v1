@@ -23,6 +23,11 @@ export type PixiBuild = (
  * imported only here, on first use; the effect takes the single WebGL canvas slot and destroys its
  * canvas on finish or unmount. When WebGL is unavailable (headless CI) or the slot is taken, the
  * status is `svg` and the caller draws its small SVG fallback instead of crashing.
+ *
+ * `build` is the run: memoise it on the particle layout. A new `build` (a new seed, count or
+ * duration in place) tears the canvas down and plays the new scene from the start. The slot is
+ * held until the effect's Application is destroyed, including one still initialising when the
+ * effect is cancelled, so two WebGL contexts never overlap.
  */
 export function usePixiEffect(
   active: boolean,
@@ -32,7 +37,6 @@ export function usePixiEffect(
   onFinish: () => void,
 ): PixiStatus {
   const [status, setStatus] = useState<PixiStatus>('idle');
-  const buildRef = useLatest(build);
   const finishRef = useLatest(onFinish);
 
   useEffect(() => {
@@ -47,6 +51,8 @@ export function usePixiEffect(
     }
     setStatus('pixi');
     let cancelled = false;
+    /** True while `Application.init` is in flight: it may still create a WebGL context. */
+    let initialising = false;
     let app: Application | null = null;
     let timer: ReturnType<typeof setTimeout> | undefined;
     const teardown = () => {
@@ -56,7 +62,9 @@ export function usePixiEffect(
         a.ticker?.stop();
         a.destroy({ removeView: true }, { children: true });
       }
-      releaseCanvasSlot(owner);
+      // During an init the slot stays taken: once the init settles, its Application is
+      // destroyed and only then is the slot released (below).
+      if (!initialising) releaseCanvasSlot(owner);
     };
     (async () => {
       try {
@@ -66,20 +74,26 @@ export function usePixiEffect(
         const width = el.clientWidth || designWidth;
         const height = el.clientHeight || designWidth * 0.75;
         const a = new pixi.Application();
-        await a.init({
-          width,
-          height,
-          backgroundAlpha: 0,
-          antialias: true,
-          autoDensity: true,
-          resolution: Math.min(2, window.devicePixelRatio || 1),
-          preference: 'webgl',
-        });
-        if (cancelled) {
-          a.destroy({ removeView: true }, { children: true });
-          return;
+        initialising = true;
+        try {
+          await a.init({
+            width,
+            height,
+            backgroundAlpha: 0,
+            antialias: true,
+            autoDensity: true,
+            resolution: Math.min(2, window.devicePixelRatio || 1),
+            preference: 'webgl',
+          });
+        } finally {
+          initialising = false;
         }
         app = a;
+        if (cancelled) {
+          // Cancelled while initialising: destroy it, then let go of the slot.
+          teardown();
+          return;
+        }
         Object.assign(a.canvas.style, {
           position: 'absolute',
           inset: '0',
@@ -89,7 +103,7 @@ export function usePixiEffect(
         a.canvas.setAttribute('aria-hidden', 'true');
         a.canvas.dataset.effectCanvas = 'pixi';
         el.appendChild(a.canvas);
-        const update = buildRef.current(pixi, a, width / designWidth);
+        const update = build(pixi, a, width / designWidth);
         const start = performance.now();
         update(0);
         a.ticker.add(() => {
@@ -116,7 +130,7 @@ export function usePixiEffect(
       if (timer) clearTimeout(timer);
       teardown();
     };
-  }, [active, host, designWidth, buildRef, finishRef]);
+  }, [active, host, designWidth, build, finishRef]);
 
   return status;
 }
