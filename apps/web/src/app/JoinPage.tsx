@@ -66,7 +66,19 @@ export function JoinPage() {
     setPassphraseJoiningState(on);
   };
   const hadFamily = device !== undefined && device.pairedAt !== null;
-  const blocker = useBlocker(() => sessionOpenRef.current || passphraseJoiningRef.current);
+  /**
+   * Why the navigation now held was held, recorded when it was asked for: the refs may change
+   * (the join's logout fails, a close succeeds) before the effect below resolves it.
+   */
+  const heldFor = useRef<'open' | 'joining' | null>(null);
+  const blocker = useBlocker(() => {
+    heldFor.current = sessionOpenRef.current
+      ? 'open'
+      : passphraseJoiningRef.current
+        ? 'joining'
+        : null;
+    return heldFor.current !== null;
+  });
   const blockerRef = useRef(blocker);
   blockerRef.current = blocker;
 
@@ -94,23 +106,34 @@ export function JoinPage() {
     const closed = await closeSession();
     // A navigation held meanwhile goes on by itself (below). Otherwise, joined (the device holds a
     // token now): on to the island; not joined, the form stays.
-    if (!closed || blockerRef.current.state === 'blocked') return;
+    if (!closed || heldFor.current !== null) return;
     if ((await services.store.device()).deviceToken) navigate('/', { replace: true });
   };
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: runs once per held navigation
   useEffect(() => {
     if (blocker.state !== 'blocked') return;
-    if (!sessionOpenRef.current) {
-      // The join is still running: stay. It ends on the island, or here with the sign-in open.
+    if (heldFor.current !== 'open') {
+      // Asked for while the join was still running: stay, whatever the join did since. It ends
+      // on the island, or here with the sign-in open (then leaving is asked for again).
+      heldFor.current = null;
       blocker.reset();
+      return;
+    }
+    if (!sessionOpenRef.current) {
+      // Asked for while the sign-in was open, and a close finished since: nothing left to close.
+      blocker.proceed();
       return;
     }
     void closeSession().then((closed) => {
       const held = blockerRef.current;
       if (held.state !== 'blocked') return;
-      if (closed) held.proceed();
-      else held.reset();
+      if (closed) {
+        held.proceed();
+      } else {
+        heldFor.current = null; // staying: a later Close the sign-in moves on by itself
+        held.reset();
+      }
     });
   }, [blocker.state]);
 

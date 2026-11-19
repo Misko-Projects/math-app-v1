@@ -391,7 +391,9 @@ export function ChildrenStep({
   const [error, setError] = useState<string | null>(null);
 
   return (
-    <div className="flex flex-col gap-5">
+    // While saving (`busy`), every control here is disabled: Edit, Remove, Add another child and the
+    // child form too, so the draft being saved can't change under the save.
+    <fieldset disabled={busy} className="m-0 flex min-w-0 flex-col gap-5 border-0 p-0">
       <h2 className="font-display text-3xl font-extrabold">Who will play?</h2>
       <p className="text-lg">{intro}</p>
       {kids.length > 0 ? (
@@ -492,7 +494,7 @@ export function ChildrenStep({
           {nextLabel}
         </Button>
       </div>
-    </div>
+    </fieldset>
   );
 }
 

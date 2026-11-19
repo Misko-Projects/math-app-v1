@@ -158,6 +158,59 @@ describe('<JoinPage> with the parent passphrase', () => {
     expect(logout).toHaveBeenCalledTimes(1); // the held Back started no logout of its own
   });
 
+  it('Back asked for during the join stays even when the join’s logout fails at once', async () => {
+    let fail: () => void = () => {};
+    const logout = vi
+      .fn()
+      .mockImplementationOnce(
+        () =>
+          new Promise<void>((_, reject) => {
+            fail = () => reject(new ApiError('network', 0, 'offline'));
+          }),
+      )
+      .mockResolvedValue(undefined);
+    const { router } = await renderJoin(api({ logout }));
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: /^Join$/ }));
+    });
+    await waitFor(() => expect(logout).toHaveBeenCalledTimes(1));
+    await act(async () => {
+      void router.navigate(-1); // Back during the join…
+      fail(); // …and the join's logout fails in the same moment
+    });
+    expect(await screen.findByText(/The grown-up sign-in couldn’t be closed/)).toBeTruthy();
+    expect(router.state.location.pathname).toBe('/join');
+    expect(logout).toHaveBeenCalledTimes(1); // that Back didn't retry the logout
+  });
+
+  it('Back asked for during Close the sign-in goes on when that close succeeds at once', async () => {
+    let done: () => void = () => {};
+    const logout = vi
+      .fn()
+      .mockRejectedValueOnce(new ApiError('network', 0, 'offline')) // after joining
+      .mockImplementationOnce(
+        () =>
+          new Promise<void>((resolve) => {
+            done = resolve;
+          }),
+      )
+      .mockResolvedValue(undefined);
+    const { router } = await renderJoin(api({ logout }));
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: /^Join$/ }));
+    });
+    await screen.findByText(/The grown-up sign-in couldn’t be closed/);
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Close the sign-in' }));
+    });
+    await act(async () => {
+      void router.navigate(-1); // Back during the close…
+      done(); // …which succeeds in the same moment
+    });
+    expect(await screen.findByText('welcome')).toBeTruthy();
+    expect(logout).toHaveBeenCalledTimes(2); // the join's, and the one close
+  });
+
   it('Back during Close the sign-in waits for that one close, without a second logout', async () => {
     let done: () => void = () => {};
     const logout = vi

@@ -4,7 +4,7 @@
 // wizard never saved its children. The page reuses the wizard's children step and writes only the
 // profiles (`addChildren`), never the family's settings. Editing children is P01's Settings.
 
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router';
 import { useAppServices } from '@/app/AppServices';
 import { recordDiagnostic } from '@/app/diagnostics';
@@ -18,19 +18,39 @@ export function AddChildrenPage() {
   const [kids, setKids] = useState<NewChild[]>([]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  /** False once the page is gone (the parent left, or Lock closed the area): a save then stays put. */
+  const shown = useRef(true);
+  useEffect(() => {
+    shown.current = true;
+    return () => {
+      shown.current = false;
+    };
+  }, []);
+
+  /** Set at once (not on the next render): the draft being saved never changes under the save. */
+  const saving = useRef(false);
+  const changeKids = (next: NewChild[]) => {
+    if (!saving.current) setKids(next);
+  };
 
   const save = async () => {
+    if (saving.current) return;
+    saving.current = true;
     setBusy(true);
     setError(null);
     try {
       await addChildren(services, kids);
     } catch (e) {
       recordDiagnostic('add-children', e);
+      saving.current = false;
+      if (!shown.current) return;
       setError('Those children didn’t save on this device. Please try again.');
       setBusy(false);
       return;
     }
-    navigate('/parent', { replace: true });
+    // Saved. Back to the parent home only if this page is still the one shown: a save that ends
+    // after the parent went elsewhere never pulls them back.
+    if (shown.current) navigate('/parent', { replace: true });
   };
 
   return (
@@ -39,7 +59,7 @@ export function AddChildrenPage() {
       <section className="rounded-[2rem] bg-paper p-6 shadow-[0_6px_0_var(--color-sand-deep)] ring-2 ring-sand-deep sm:p-8">
         <ChildrenStep
           kids={kids}
-          setKids={setKids}
+          setKids={changeKids}
           onBack={() => navigate('/parent')}
           onNext={() => void save()}
           nextLabel={busy ? 'Saving…' : 'Save children'}
