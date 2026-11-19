@@ -15,6 +15,7 @@ export const widgetRegistry: WidgetRegistry = {
   'numeral-pick': () => import('./numeral-pick/NumeralPickWidget'),
   // U05 (#14) measurement and geometry
   'shape-sort': () => import('./shape-sort/ShapeSortWidget'),
+  'compare-length': () => import('./compare-length/CompareLengthWidget'),
 };
 
 /** Formats that have a registered widget. */

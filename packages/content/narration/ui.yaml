@@ -247,3 +247,18 @@ ui.ssort.tray:
 ui.ssort.find:
   text: "Cards"
   level: K
+ui.clen.object:
+  text: "{name} {n}"
+  level: K
+ui.clen.badge:
+  text: "Number {n}"
+  level: K
+ui.clen.badges:
+  text: "Number cards"
+  level: K
+ui.clen.string:
+  text: "String"
+  level: K
+ui.clen.strings:
+  text: "The strings"
+  level: K

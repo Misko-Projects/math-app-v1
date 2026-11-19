@@ -671,7 +671,7 @@ export const DemoCountSides: Story = {
     });
     await expect(cardEl(root, 'c2').querySelectorAll('.ni-shape__side-mark')).toHaveLength(4);
     await done;
-    await expect(audio.sayPhrases.mock.calls.map((c) => c[0])).toEqual([
+    await expect((audio.sayPhrases.mock.calls as unknown[][]).map((c) => c[0])).toEqual([
       [{ number: 1 }],
       [{ number: 2 }],
       [{ number: 3 }],

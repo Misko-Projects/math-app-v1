@@ -1,0 +1,257 @@
+/* compare-length widget (U05): objects in lanes from one start line, on one scale. */
+
+.ni-clen {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 24px;
+  box-sizing: border-box;
+  width: 100%;
+  padding: 8px 8px 28px;
+}
+.ni-clen__main {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 14px;
+  min-width: 0;
+}
+.ni-clen__lanes {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  min-width: 0;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: var(--target-gap);
+}
+.ni-clen__lane {
+  position: relative;
+  border-radius: 16px;
+  background: var(--color-horizon);
+  box-shadow: inset 0 -4px 0 var(--color-sand-shadow);
+}
+.ni-clen[data-tier="pictorial"] .ni-clen__lane {
+  background: var(--color-paper);
+  box-shadow: inset 0 0 0 2px var(--color-sand-deep);
+}
+/* The start line every left end is measured from. */
+.ni-clen__line {
+  position: absolute;
+  top: -8px;
+  bottom: -8px;
+  z-index: 1;
+  width: 0;
+  margin-left: -2px;
+  border-left: 4px dashed var(--color-ink-soft);
+  pointer-events: none;
+}
+/* Unit ticks along the floor (pictorial tier, how-much-longer): one per unit, from the line. */
+.ni-clen__floor {
+  position: absolute;
+  bottom: -9px;
+  z-index: 1;
+  height: 10px;
+  background-image: linear-gradient(to right, var(--color-ink-soft) 2px, transparent 2px);
+  background-size: var(--unit) 100%;
+  background-position: -1px 0;
+  border-top: 2px solid var(--color-ink-soft);
+  pointer-events: none;
+}
+.ni-clen__pad {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  padding: 0;
+  border: 0;
+  border-radius: 16px;
+  background: transparent;
+}
+.ni-clen__obj {
+  position: absolute;
+  top: 0;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.ni-clen__obj:focus-visible {
+  outline: 4px solid var(--color-ink);
+  outline-offset: 2px;
+  border-radius: 12px;
+}
+.ni-clen__obj--slides {
+  touch-action: none;
+  cursor: grab;
+}
+.ni-clen__art {
+  position: relative;
+  display: block;
+  pointer-events: none;
+}
+/* Picked: a thick ink ring around the object, never colour alone. */
+.ni-clen__ring {
+  position: absolute;
+  inset: -10px -8px;
+  border: 4px solid var(--color-ink);
+  border-radius: 14px;
+}
+.ni-clen__laid {
+  position: absolute;
+  z-index: 3;
+  pointer-events: none;
+}
+/* The part of the longer object that sticks out past the shorter one. */
+.ni-clen__diff {
+  position: absolute;
+  z-index: 3;
+  box-sizing: border-box;
+  border: 3px dashed var(--color-coral-deep);
+  border-radius: 10px;
+  background: repeating-linear-gradient(45deg, rgb(231 111 81 / 0.28) 0 6px, transparent 6px 12px);
+  pointer-events: none;
+}
+.ni-clen__hand-at {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  z-index: 4;
+  pointer-events: none;
+}
+.ni-clen__hand-at .ni-clen__hand,
+.ni-clen__badge-slot .ni-clen__hand,
+.ni-clen__spool-slot .ni-clen__hand {
+  left: -23px;
+  top: calc(100% - 30px);
+}
+
+/* Badges (order): numbered tokens dragged onto the objects. */
+.ni-clen__placed {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 4px;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.ni-clen__badge-slot,
+.ni-clen__spool-slot {
+  position: relative;
+  display: flex;
+}
+.ni-clen__badge-slot .ni-clen__hand {
+  left: calc(50% - 23px);
+}
+.ni-clen__badge {
+  display: grid;
+  place-items: center;
+  box-sizing: border-box;
+  width: var(--target-min);
+  height: var(--target-min);
+  border: 4px solid var(--color-ink);
+  border-radius: 50%;
+  background: var(--color-sunshine-light);
+  color: var(--color-ink);
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: 40px;
+  line-height: 1;
+  user-select: none;
+  -webkit-user-select: none;
+}
+.ni-clen__lane .ni-clen__badge {
+  width: calc(var(--target-min) - 4px);
+  height: calc(var(--target-min) - 4px);
+}
+.ni-clen__side {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+}
+.ni-clen__badges {
+  position: relative;
+  padding: 10px;
+}
+.ni-clen__tray {
+  position: absolute;
+  inset: 0;
+  padding: 0;
+  border: 3px dashed var(--color-sand-deep);
+  border-radius: var(--radius-card);
+  background: var(--color-sand);
+}
+.ni-clen__badge-grid {
+  position: relative;
+  display: grid;
+  grid-template-columns: repeat(2, var(--target-min));
+  gap: var(--target-gap);
+  pointer-events: none;
+}
+.ni-clen__badge-grid > * {
+  pointer-events: auto;
+}
+/* Where a placed badge came from: a faint numbered dent. */
+.ni-clen__badge-gap {
+  display: grid;
+  place-items: center;
+  width: var(--target-min);
+  height: var(--target-min);
+  border: 3px dashed var(--color-sand-deep);
+  border-radius: 50%;
+  color: var(--color-sand-deep);
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: 34px;
+  pointer-events: none;
+}
+
+/* The string (indirect). */
+.ni-clen__spool {
+  display: grid;
+  place-items: center;
+  box-sizing: border-box;
+  width: var(--target-min);
+  height: var(--target-min);
+  padding: 8px;
+  border: 3px solid var(--color-wood-deep);
+  border-radius: 20px;
+  background: var(--color-horizon);
+}
+.ni-clen__strings {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 10px 0;
+  border-radius: 16px;
+  background: var(--color-paper);
+  box-shadow: inset 0 0 0 2px var(--color-sand-deep);
+}
+.ni-clen__string-row {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.ni-clen__string-tag {
+  display: inline-flex;
+  align-items: center;
+}
+.ni-clen__entry {
+  align-self: center;
+}
+.ni-clen[data-compact="true"] {
+  gap: 16px;
+  padding: 2px 4px 4px;
+}
+.ni-clen[data-compact="true"] .ni-clen__main {
+  gap: 10px;
+}

@@ -92,7 +92,7 @@ export function ShapeSortWidget({
   const flip = useFlip(root);
   // The smallest landscape area (≈ 906 × 373) gets target-sized cards so nothing scrolls.
   const avail = useAvailableSize(root);
-  const compact = avail !== null && avail.height < 460;
+  const compact = avail !== null && avail.height < 400;
   const minCard = MIN_TARGET_PX[ageMode] - 16;
   const traySize = compact ? minCard : 104;
   const binSize = compact ? minCard : 84;
@@ -238,7 +238,7 @@ export function ShapeSortWidget({
     switch (c.card.kind) {
       case 'object':
         return (
-          <span className="ni-ssort__sprite" style={{ width: size * 0.8, height: size * 0.8 }}>
+          <span className="ni-ssort__sprite" style={{ width: size * 0.92, height: size * 0.92 }}>
             <ObjectSprite sprite={c.card.sprite} />
           </span>
         );
