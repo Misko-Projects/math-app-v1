@@ -287,6 +287,14 @@ export function SampleSetWidget({
           }
           setCounting(null);
         }
+        // Resolve only once the basket on screen shows the result. A reduced-motion op is a plain
+        // state change, so without this, play could resolve before React commits it.
+        if ((action.op === 'drag' || action.op === 'remove') && alive.current) {
+          const shown = () =>
+            rootRef.current?.querySelectorAll('.ni-sample__in').length ===
+            inBasketRef.current.length;
+          if (!shown()) await afterCommitWhere(shown);
+        }
       } finally {
         setDemoBusy(false);
       }

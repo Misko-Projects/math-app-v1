@@ -173,6 +173,19 @@ export const DemoMode: Story = {
   },
 };
 
+/** Runs zero-delay timers as microtasks (until the returned restore is called). */
+function zeroTimersAsMicrotasks() {
+  const timeout = window.setTimeout;
+  window.setTimeout = ((fn: () => void, ms?: number, ...rest: unknown[]) => {
+    if (ms) return timeout(fn, ms, ...rest);
+    queueMicrotask(fn);
+    return 0;
+  }) as typeof window.setTimeout;
+  return () => {
+    window.setTimeout = timeout;
+  };
+}
+
 const reducedController: WidgetDemo = createDemoController({ strict: true });
 
 /** With reduced motion, demo ops become instant state changes (03 §6.3, 06 §7). */
@@ -181,19 +194,29 @@ export const DemoReducedMotion: Story = {
   args: { disabled: true, demo: reducedController },
   play: async ({ canvasElement }) => {
     await within(canvasElement).findByRole('group', { name: 'Pebbles' }, { timeout: 10_000 });
+    // `play` resolves only once the result is on screen. Zero-delay timers run as microtasks
+    // here, so the op's own waits finish before React's scheduled commit, as on a loaded runner:
+    // a `play` that didn't wait for the commit would leave the old count on screen.
+    let restore = zeroTimersAsMicrotasks();
     const started = performance.now();
-    await reducedController.play({ op: 'drag', args: { count: 3 } });
-    await expect(pebblesIn(canvasElement)).toBe(3);
-    await expect(performance.now() - started).toBeLessThan(1500);
+    try {
+      await reducedController.play({ op: 'drag', args: { count: 3 } });
+      await expect(pebblesIn(canvasElement)).toBe(3);
+      await expect(performance.now() - started).toBeLessThan(1500);
+    } finally {
+      restore();
+    }
     // Remove is instant too, and doesn't depend on animation frames (suspended in hidden tabs).
     const raf = window.requestAnimationFrame;
     window.requestAnimationFrame = () => 0;
+    restore = zeroTimersAsMicrotasks();
     try {
       await reducedController.play({ op: 'remove', args: { count: 2 } });
+      await expect(pebblesIn(canvasElement)).toBe(1);
     } finally {
       window.requestAnimationFrame = raf;
+      restore();
     }
-    await waitFor(() => expect(pebblesIn(canvasElement)).toBe(1));
     await expect(canvasElement.querySelector('.ni-sample__flight')).toBeNull();
   },
 };
