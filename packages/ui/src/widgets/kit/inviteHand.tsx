@@ -109,6 +109,12 @@ export function placeInviteHand(
   target: HTMLElement,
   host: HTMLElement,
   hostExtra = 0,
+  /**
+   * How far the hand may hang below the widget's bottom edge before the widget grows to hold
+   * it (default 0). Only for a widget whose host keeps free, uncovered room under it (the
+   * workshop card's padding at the 960 × 600 minimum); the hand covers nothing there.
+   */
+  overhang = 0,
 ): InviteHandPlacement {
   const S = INVITE_HAND_PX;
   const tip = { x: HAND_POINTER_TIP.up.x * S, y: HAND_POINTER_TIP.up.y * S };
@@ -141,7 +147,7 @@ export function placeInviteHand(
   // The hand (with its bob) stays inside the widget: below a control at the bottom, the widget
   // makes room for it.
   const ownHeight = host.clientHeight - hostExtra;
-  const room = Math.max(0, Math.ceil(top + S + BOB.y + EDGE - ownHeight));
+  const room = Math.max(0, Math.ceil(top + S + BOB.y + EDGE - ownHeight - overhang));
   return { left, top, room };
 }
 
@@ -156,6 +162,8 @@ export function useInviteHand(
   rootRef: RefObject<HTMLElement | null>,
   target: (root: HTMLElement) => HTMLElement | null,
   key: string,
+  /** See `placeInviteHand`: px the hand may hang below the widget (default 0). */
+  overhang = 0,
 ): { hand: ReactNode; rootStyle: CSSProperties | undefined } {
   const [placed, setPlaced] = useState<(InviteHandPlacement & { padBase: number }) | null>(null);
   /** The bottom room the committed DOM has for the hand (this render's value, once committed). */
@@ -171,7 +179,7 @@ export function useInviteHand(
       setPlaced(null);
       return;
     }
-    const p = placeInviteHand(el, root, applied.current);
+    const p = placeInviteHand(el, root, applied.current, overhang);
     const padBase =
       (Number.parseFloat(getComputedStyle(root).paddingBottom) || 0) - applied.current;
     setPlaced((prev) =>

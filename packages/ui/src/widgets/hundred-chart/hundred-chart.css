@@ -351,3 +351,9 @@ button.ni-hc__cell:disabled {
 .ni-hc__cell[data-selected="true"]:focus-visible {
   outline-color: var(--color-ink);
 }
+
+/* K at the minimum: the pad stands at the top, so Pip's hand under its bottom row has the room
+   below it (it may hang into the card's padding, covering nothing). */
+.ni-hc[data-overhang] .ni-hc__entry {
+  align-self: flex-start;
+}

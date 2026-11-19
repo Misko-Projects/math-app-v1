@@ -307,8 +307,16 @@ export const Chart120: Story = {
 };
 
 /** Keyboard: one tab stop, arrows move between cells (the window follows), Enter taps. */
+const keyboardDemo: WidgetDemo = createDemoController({ strict: true });
+
+/**
+ * Keyboard: one tab stop, arrows move between cells (the window follows), Enter taps. Focus
+ * moves only with an arrow key (review F1): a row stepper and Check keep the focus they get,
+ * even while the chart re-renders.
+ */
 export const Keyboard: Story = {
-  args: { config: find },
+  // A 1–120 chart: "go down" stays enabled after one step, so it can keep its focus.
+  args: { config: chart120, demo: keyboardDemo },
   play: async ({ canvasElement, args }) => {
     const root = await findWidget(canvasElement, ROOT);
     cell(root, 1).focus();
@@ -316,12 +324,58 @@ export const Keyboard: Story = {
     await waitFor(() => expect(document.activeElement).toBe(cell(root, 22)));
     await expect(cell(root, 22)).toHaveAttribute('tabindex', '0');
     await expect(cell(root, 1)).toHaveAttribute('tabindex', '-1');
-    for (let i = 0; i < 8; i++) await userEvent.keyboard('{ArrowDown}');
+    // Go down with 22 still in view: the stepper keeps the focus.
+    await userEvent.click(step(root, 'down'));
+    await expect(cell(root, 22)).not.toBeNull();
+    await new Promise((r) => requestAnimationFrame(r));
+    await expect(document.activeElement).toBe(step(root, 'down'));
+    cell(root, 22).focus();
+    for (let i = 0; i < 7; i++) await userEvent.keyboard('{ArrowDown}');
     await waitFor(() => expect(document.activeElement).toBe(cell(root, 92)));
     await userEvent.keyboard('{Enter}');
     await expect(cell(root, 92)).toHaveAttribute('aria-pressed', 'true');
+    // Check keeps focus through an unrelated render (a lesson's invite appearing).
+    checkBtn(root).focus();
+    keyboardDemo.invite({ op: 'tap', args: { n: 92 } });
+    await waitFor(() => expect(checkBtn(root)).toHaveClass('ni-invite'));
+    await new Promise((r) => requestAnimationFrame(r));
+    await expect(document.activeElement).toBe(checkBtn(root));
+    keyboardDemo.invite(null);
     await userEvent.click(checkBtn(root));
     await expect(args.onResponse).toHaveBeenCalledWith({ kind: 'number', value: 92 });
+  },
+};
+
+/** Review F2: an unsorted hidden list [48, 46, 47] answers its blanks in reading order. */
+export const FillUnsortedHidden: Story = {
+  args: { config: { ...fill, hidden: [48, 46, 47] } },
+  play: async ({ canvasElement, args }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    await expect(cell(root, 46)).toHaveAttribute('data-active', 'true');
+    await typeKeys(root, '464748');
+    for (const n of [46, 47, 48]) {
+      await expect(cell(root, n).querySelector('.ni-hc__num')).toHaveTextContent(String(n));
+    }
+    await userEvent.click(checkBtn(root));
+    await expect(args.onResponse).toHaveBeenCalledWith({ kind: 'numbers', values: [46, 47, 48] });
+  },
+};
+
+const fillTapInvite: WidgetDemo = createDemoController({ strict: true });
+
+/** Review F3: with 46 filled, a tap invite on 47 rings 4, then 7 (filled and other blanks skipped). */
+export const InviteFillTapAfterFilled: Story = {
+  args: { config: fill, demo: fillTapInvite },
+  play: async ({ canvasElement }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    await typeKeys(root, '46');
+    await expect(cell(root, 47)).toHaveAttribute('data-active', 'true');
+    fillTapInvite.invite({ op: 'tap', args: { n: 47 } });
+    await expectInviteOn(root, key(root, '4'));
+    await userEvent.click(key(root, '4'));
+    await expectInviteOn(root, key(root, '7'));
+    await userEvent.click(key(root, '7'));
+    await waitFor(() => expect(root.querySelector('.ni-invite')).toBeNull());
   },
 };
 
@@ -494,7 +548,7 @@ export const NextKMinLandscape: Story = {
   play: async ({ canvasElement, args }) => {
     const root = await findWidget(canvasElement, ROOT);
     await expect(root).toHaveAttribute('data-cells', 'type');
-    await expectHcFits(canvasElement, root, 'k', 'at-rest');
+    await expectHcFits(canvasElement, root, 'k');
     await expectTruthfulChart(root, next);
     await typeKeys(root, '13');
     await userEvent.click(checkBtn(root));
@@ -502,14 +556,38 @@ export const NextKMinLandscape: Story = {
   },
 };
 
-/** K fill at the minimum (CNT.09.t2 tens): the window follows the blank being filled. */
+const tensInvite: WidgetDemo = createDemoController({ strict: true });
+
+/**
+ * K fill at the minimum (CNT.09.t2 tens): the window follows the blank being filled. Review F4:
+ * an answer invite on the bottom-row 0 key keeps Pip's hand inside the area card (it may hang
+ * into the card's padding, covering nothing) and nothing scrolls.
+ */
 export const FillTensKMinLandscape: Story = {
   globals: { ageMode: 'k' },
-  args: { config: fillTens },
+  args: { config: fillTens, demo: tensInvite },
   render: inArea('landscapeMin'),
   play: async ({ canvasElement, args }) => {
     const root = await findWidget(canvasElement, ROOT);
-    await expectHcFits(canvasElement, root, 'k', 'at-rest');
+    await expectHcFits(canvasElement, root, 'k');
+    tensInvite.invite({ op: 'answer', args: { values: [20, 30, 40, 50] } });
+    await waitFor(() => expect(key(root, '2')).toHaveClass('ni-invite'));
+    await userEvent.click(key(root, '2'));
+    (document.activeElement as HTMLElement | null)?.blur();
+    await waitFor(() => expect(key(root, '0')).toHaveClass('ni-invite'));
+    await expect(root.querySelectorAll('.ni-invite')).toHaveLength(1);
+    await waitForSettled(key(root, '0'));
+    await new Promise((r) => requestAnimationFrame(r));
+    const hand = root.querySelector('.ni-hand') as HTMLElement;
+    // The fingertip on 0, clear of its digit, the hand (bob included) inside the area card.
+    await expectPointerOn(hand, key(root, '0'), areaBox(canvasElement));
+    await expectHandClearOfOthers(
+      hand,
+      [...root.querySelectorAll('button')].filter((b) => b !== key(root, '0')),
+    );
+    await expectHcFits(canvasElement, root, 'k');
+    tensInvite.invite(null);
+    await userEvent.click(key(root, 'back'));
     await expectTruthfulChart(root, fillTens);
     await typeKeys(root, '20304050');
     await expect(cell(root, 50)).not.toBeNull();

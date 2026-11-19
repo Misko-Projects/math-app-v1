@@ -91,6 +91,13 @@ const MAP_CELL = 5;
  * up the key, the 56 px hand, its 8 px bob and 10 px edge margin, less the key's 4 px ledge).
  */
 const HAND_REACH = 52;
+/**
+ * At the 960 × 600 minimum in K, three rows of K pad keys and Pip's hand under the bottom row
+ * cannot both fit 319 px: the hand may hang this far into the workshop card's padding (24 px),
+ * where it covers nothing (06 §2 minimum-area relief), and the pad's rows close up to 14 px.
+ */
+const K_SHORT_OVERHANG = 22;
+const K_SHORT_ROW_GAP = 14;
 
 type Config = ConfigFor<'hundred-chart'>;
 type Dir = 'up' | 'down' | 'left' | 'right';
@@ -123,6 +130,9 @@ interface Plan {
   pad: { shape: PadShape; key: number } | null;
   map: boolean;
   short: boolean;
+  /** Px between pad rows, and how far Pip's hand may hang below the widget. */
+  padRowGap: number;
+  overhang: number;
   /** Fits with room for Pip's hand under the pad; fits while no pad key is invited. */
   fits: boolean;
   fitsAtRest: boolean;
@@ -146,12 +156,12 @@ const PAD_ROW_GAP = 26;
 const padDigit = (key: number) =>
   key >= 96 ? undefined : key >= 84 ? '44px' : key >= 76 ? '40px' : '32px';
 
-function padBox(shape: PadShape, key: number) {
+function padBox(shape: PadShape, key: number, rowGap = PAD_ROW_GAP) {
   const cols = shape === '3x4' ? 3 : 4;
   const rows = shape === '3x4' ? 4 : 3;
   return {
     w: cols * key + (cols - 1) * TARGET_GAP_PX,
-    h: rows * key + (rows - 1) * PAD_ROW_GAP,
+    h: rows * key + (rows - 1) * rowGap,
   };
 }
 
@@ -170,6 +180,10 @@ function planLayout(c: Config, room: WidgetRoom | null, age: AgeMode, m: Measure
   const big = age === 'k' ? 96 : 76;
   const roomH = room?.height ?? Number.POSITIVE_INFINITY;
   const short = roomH < SHORT_ROOM;
+  // K at the minimum: closer pad rows and the hand's relief into the card padding (see above).
+  const kShort = short && age === 'k';
+  const padRowGap = kShort ? K_SHORT_ROW_GAP : PAD_ROW_GAP;
+  const overhang = kShort ? K_SHORT_OVERHANG : 0;
   const G = short ? TARGET_GAP_PX : 20;
   const W = Math.min(room?.width ?? 1180, 1180) - 2 * EDGE;
   // An unbounded room (a growing page) still gets a chart a screen can hold.
@@ -219,6 +233,8 @@ function planLayout(c: Config, room: WidgetRoom | null, age: AgeMode, m: Measure
           pad: null,
           map,
           short,
+          padRowGap,
+          overhang,
           fits: ok,
           fitsAtRest: ok,
           h,
@@ -245,7 +261,7 @@ function planLayout(c: Config, room: WidgetRoom | null, age: AgeMode, m: Measure
       m.check.w;
     const underH = Math.max(T + 6, m.check.h, readout ? m.readout.h : 0);
     for (const pad of pads) {
-      const p = padBox(pad.shape, pad.key);
+      const p = padBox(pad.shape, pad.key, padRowGap);
       // side: the pad beside the chart (a picture chart has a 3 px frame).
       {
         const chartW = W - G - p.w - 6;
@@ -268,6 +284,8 @@ function planLayout(c: Config, room: WidgetRoom | null, age: AgeMode, m: Measure
           pad,
           map,
           short,
+          padRowGap,
+          overhang,
           fits: ok && Math.max(chartH, p.h + reach) <= H,
           fitsAtRest: ok && Math.max(chartH - reach, p.h) <= H,
           h: Math.max(chartH, p.h + reach),
@@ -302,6 +320,8 @@ function planLayout(c: Config, room: WidgetRoom | null, age: AgeMode, m: Measure
           pad,
           map: rowsShown < c.rows,
           short,
+          padRowGap,
+          overhang,
           fits: ok && h + reach <= H,
           fitsAtRest: ok && h <= H,
           h: h + reach,
@@ -310,7 +330,7 @@ function planLayout(c: Config, room: WidgetRoom | null, age: AgeMode, m: Measure
     }
     return plans;
   };
-  const strict = gen(HAND_REACH);
+  const strict = gen(HAND_REACH - overhang);
   const best = strict.find((p) => p.fits);
   if (best) return best;
   // Nothing keeps room for the hand: the first plan that fits at rest (an invite on a bottom
@@ -506,17 +526,22 @@ export function HundredChartWidget({
     if (next === null) return;
     e.preventDefault();
     if (!onChart(next)) return;
+    // Focus moves to the new cell once the window shows it, and only for this arrow-key move.
+    wantFocus.current = next;
     setFocusCell(next);
     reveal(next);
   };
-  // Focus follows the roving cell once the window shows it.
-  const wantFocus = useRef(false);
+  /** The cell an arrow-key move is taking focus to; null once it has it (never re-taken later). */
+  const wantFocus = useRef<number | null>(null);
   useLayoutEffect(() => {
-    if (!wantFocus.current) return;
+    const want = wantFocus.current;
+    if (want === null) return;
     const el = [
       ...(gridRef.current?.querySelectorAll<HTMLElement>('button.ni-hc__cell') ?? []),
-    ].find((b) => b.dataset.n === String(focusCell));
-    if (el && document.activeElement !== el) el.focus();
+    ].find((b) => b.dataset.n === String(want));
+    if (!el) return;
+    wantFocus.current = null;
+    if (document.activeElement !== el) el.focus();
   });
 
   // ---------- typing ----------
@@ -575,7 +600,8 @@ export function HundredChartWidget({
     if (!MODEL) return null;
     let s = MODEL.initialState(c);
     if (fill) {
-      const values = c.hidden.map((h) => padValue(typed[h] ?? ''));
+      // The blanks in reading order (03 §5.5), whatever order the config lists them in.
+      const values = readingOrder.map((h) => padValue(typed[h] ?? ''));
       if (values.some((v) => v === null)) return null;
       s = MODEL.apply(s, { op: 'answer', args: { values: values as number[] } });
     } else if (pattern) {
@@ -720,8 +746,9 @@ export function HundredChartWidget({
               // `answer` replaces every entry, like the engine model: unnamed cells clear.
               typedRef.current = {};
               setTyped({});
-              for (let i = 0; i < c.hidden.length; i++) {
-                const h = c.hidden[i] as number;
+              // `values` are the blanks in reading order, like the response.
+              for (let i = 0; i < readingOrder.length; i++) {
+                const h = readingOrder[i] as number;
                 const v = list[i];
                 if (v !== undefined) await typeCell(h, v);
                 if (!alive.current) return;
@@ -735,7 +762,7 @@ export function HundredChartWidget({
             if (fill) {
               typedRef.current = {};
               setTyped({});
-              const h = c.hidden[0];
+              const h = readingOrder[0];
               if (h !== undefined) await typeCell(h, v);
             } else if (pattern) setPicked(onChart(v) ? [v] : []);
             else if (onChart(v)) await chooseCell(v);
@@ -776,39 +803,48 @@ export function HundredChartWidget({
       return pattern ? { at: 'mark' } : checkCue;
     };
     /** Fill the blanks with `values` (hidden order): the next key of the first wrong blank. */
-    const fillCue = (values: number[]): Cue | null => {
+    /**
+     * Fill the blanks `wanted` names (blank → value): the next key of the first one, in reading
+     * order, that does not hold its value yet. Blanks it does not name, and blanks already right,
+     * are skipped; nothing is cued while another blank is being filled.
+     */
+    const fillCue = (wanted: Map<number, number>, done: Cue | null): Cue | null => {
       for (const h of readingOrder) {
-        const i = c.hidden.indexOf(h);
-        const want = values[i];
+        const want = wanted.get(h);
         if (want === undefined) continue;
         const have = typed[h] ?? '';
         if (have === String(want)) continue;
         if (active !== h) return null;
         return keysFor(String(want), have);
       }
-      return checkCue;
+      return done;
     };
+    const inReadingOrder = (values: number[]) =>
+      new Map(
+        readingOrder.flatMap((h, i) => (values[i] === undefined ? [] : [[h, values[i] as number]])),
+      );
     if (invite.op === 'tap') {
       const v = num(invite, 'n');
       if (v === null) return null;
-      if (fill)
-        return hidden.has(v) ? fillCue(c.hidden.map((h) => (h === v ? v : Number.NaN))) : null;
+      // The blank v holds v; once it is in, the tap invite is done.
+      if (fill) return hidden.has(v) ? fillCue(new Map([[v, v]]), null) : null;
       return chooseCue(v);
     }
     if (invite.op !== 'answer') return null;
     const values = invite.args?.values;
     if (Array.isArray(values)) {
       const list = values.filter((v): v is number => typeof v === 'number');
-      return fill ? fillCue(list) : checkCue;
+      return fill ? fillCue(inReadingOrder(list), checkCue) : checkCue;
     }
     const v = num(invite, 'value');
     if (v === null) return checkCue;
-    return fill ? fillCue([v]) : chooseCue(v);
+    return fill ? fillCue(inReadingOrder([v]), checkCue) : chooseCue(v);
   })();
   const { hand: inviteHand, rootStyle: handRootStyle } = useInviteHand(
     rootRef,
     (root) => (cue ? cueTarget(root, cue) : null),
     cue ? `${cueKeyOf(cue)}|${plan.layout}|${plan.cellW}|${shownTop}` : '',
+    plan.overhang,
   );
 
   // ---------- render ----------
@@ -887,10 +923,7 @@ export function HundredChartWidget({
         tabIndex={focusCell === v || (!inWindow(focusCell) && v === firstShown) ? 0 : -1}
         disabled={!interactive}
         onClick={() => tapCell(v)}
-        onKeyDown={(e) => {
-          wantFocus.current = true;
-          onCellKeyDown(e, v);
-        }}
+        onKeyDown={(e) => onCellKeyDown(e, v)}
         onFocus={() => setFocusCell(v)}
       >
         {body}
@@ -999,13 +1032,19 @@ export function HundredChartWidget({
       data-top={shownTop + 1}
       data-pad-shape={plan.pad?.shape}
       data-fits={plan.fits ? 'true' : plan.fitsAtRest ? 'at-rest' : 'false'}
+      data-overhang={plan.overhang || undefined}
       data-disabled={disabled ? 'true' : undefined}
       style={
         {
           '--pad-key': plan.pad ? `${plan.pad.key}px` : undefined,
-          '--pad-row-gap': `${PAD_ROW_GAP}px`,
+          '--pad-row-gap': `${plan.padRowGap}px`,
           // Digits sized so Pip's hand clears its own key's digit and the one below.
-          '--pad-digit': plan.pad ? padDigit(plan.pad.key) : undefined,
+          // Closer rows (K at the minimum) take the smallest digit, so the hand clears the row below.
+          '--pad-digit': plan.pad
+            ? plan.overhang > 0
+              ? '32px'
+              : padDigit(plan.pad.key)
+            : undefined,
           '--hc-gap': `${plan.short ? TARGET_GAP_PX : 20}px`,
           ...handRootStyle,
         } as CSSProperties
