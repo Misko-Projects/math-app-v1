@@ -571,6 +571,32 @@ export const SticksLandscapeMinK: Story = {
   },
 };
 
+/**
+ * Tap-only mode (06 §7, review CR-1.6): a drag from dot to dot draws nothing; tapping dots and the
+ * keyboard still draw.
+ */
+export const TapOnlyDots: Story = {
+  args: { config: draw3 },
+  parameters: { ui: { tapOnly: true } },
+  play: async ({ canvasElement }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    const a = dotPoint(root, 1, 1);
+    const b = dotPoint(root, 3, 1);
+    await userEvent.pointer([
+      { keys: '[TouchA>]', target: dotsBoard(root), coords: { clientX: a.x, clientY: a.y } },
+      { pointerName: 'TouchA', target: dotsBoard(root), coords: { clientX: b.x, clientY: b.y } },
+      { keys: '[/TouchA]', target: dotsBoard(root), coords: { clientX: b.x, clientY: b.y } },
+    ]);
+    await expect(root.querySelectorAll('.ni-scomp__line')).toHaveLength(0);
+    await tapDot(root, 0, 0);
+    await tapDot(root, 4, 0);
+    await expect(root.querySelectorAll('.ni-scomp__line')).toHaveLength(1);
+    dotsBoard(root).focus();
+    await userEvent.keyboard('{ArrowDown}{Enter}');
+    await expect(root.querySelectorAll('.ni-scomp__line')).toHaveLength(2);
+  },
+};
+
 /** `disabled`: nothing can be picked up or drawn. */
 export const Disabled: Story = {
   args: { disabled: true },

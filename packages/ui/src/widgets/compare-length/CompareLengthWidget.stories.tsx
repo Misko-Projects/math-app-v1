@@ -396,6 +396,30 @@ export const HowMuchLongerLandscapeMinK: Story = {
   },
 };
 
+/**
+ * Tap-only mode (06 §7, review CR-1.6): dragging the misaligned ribbon does nothing; a tap still
+ * picks, and ← on the keyboard still lines it up.
+ */
+export const TapOnlyNoSlide: Story = {
+  parameters: { ui: { tapOnly: true } },
+  play: async ({ canvasElement, args }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    const r = obj(root, 'obj-0').getBoundingClientRect();
+    await pointerDrag(
+      obj(root, 'obj-0'),
+      { x: r.left + r.width / 2 - 2 * unitPx(root), y: r.top + r.height / 2 },
+      'touch',
+    );
+    await expect(obj(root, 'obj-0')).toHaveAttribute('data-start', '2');
+    await expect(traceOf(args.onInteract).map((e) => e.t)).not.toContain('drag');
+    obj(root, 'obj-0').focus();
+    await userEvent.keyboard('{ArrowLeft}');
+    await expect(obj(root, 'obj-0')).toHaveAttribute('data-start', '0');
+    await userEvent.click(obj(root, 'obj-1'));
+    await expect(obj(root, 'obj-1')).toHaveAttribute('aria-pressed', 'true');
+  },
+};
+
 /** `disabled`: objects cannot be picked or slid. */
 export const Disabled: Story = {
   args: { disabled: true },

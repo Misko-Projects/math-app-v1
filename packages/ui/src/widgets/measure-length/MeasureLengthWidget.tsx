@@ -103,7 +103,7 @@ export function MeasureLengthWidget({
   if (!model) throw new Error('measure-length has no engine model');
   const t = useNarrationText();
   const { say, sayNumber } = useSpeech();
-  const { speakOnTap, ageMode } = useUiPreferences();
+  const { speakOnTap, ageMode, tapOnly } = useUiPreferences();
   const trace = useInteractionTrace(onInteract);
   const alive = useAlive();
   const pause = useDemoPause();
@@ -252,7 +252,8 @@ export function MeasureLengthWidget({
 
   // ---------- the ruler: slides on the concrete tier; tap-tick marks the end ----------
   const onRulerDown = (e: ReactPointerEvent) => {
-    if (!interactive || tier !== 'concrete' || config.mode !== 'read') return;
+    // Tap-only mode (06 §7) has no drags; ←/→ on the ruler still slide it.
+    if (!interactive || tapOnly || tier !== 'concrete' || config.mode !== 'read') return;
     const x0 = e.clientX;
     const from = state.rulerStart;
     const pointer = e.pointerId;

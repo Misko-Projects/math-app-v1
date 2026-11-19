@@ -265,6 +265,30 @@ export const DesignLandscapeMin: Story = {
   },
 };
 
+/**
+ * Tap-only mode (06 §7, review CR-1.6): dragging the rectangle's corner does nothing; tapping a
+ * square sets the corner there, and the arrow keys still change it.
+ */
+export const TapOnlyDesign: Story = {
+  args: { config: design },
+  parameters: { ui: { tapOnly: true } },
+  play: async ({ canvasElement }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    await pointerDrag(board(root), cellCentre(root, 4, 3), 'touch');
+    await expect(board(root)).not.toHaveAttribute('data-size');
+    const p = cellCentre(root, 3, 4);
+    await userEvent.pointer({
+      keys: '[MouseLeft]',
+      target: board(root),
+      coords: { clientX: p.x, clientY: p.y },
+    });
+    await expect(board(root)).toHaveAttribute('data-size', '3x4');
+    board(root).focus();
+    await userEvent.keyboard('{ArrowRight}');
+    await expect(board(root)).toHaveAttribute('data-size', '4x4');
+  },
+};
+
 /** `disabled`: nothing can be walked or typed. */
 export const Disabled: Story = {
   args: { disabled: true },

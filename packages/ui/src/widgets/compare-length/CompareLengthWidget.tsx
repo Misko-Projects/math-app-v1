@@ -70,7 +70,7 @@ export function CompareLengthWidget({
   if (!model) throw new Error('compare-length has no engine model');
   const t = useNarrationText();
   const { say } = useSpeech();
-  const { speakOnTap, ageMode } = useUiPreferences();
+  const { speakOnTap, ageMode, tapOnly } = useUiPreferences();
   const reduced = useReducedMotion();
   const trace = useInteractionTrace(onInteract);
   const alive = useAlive();
@@ -125,7 +125,8 @@ export function CompareLengthWidget({
 
   const drag = useRef<{ id: string; x: number; moved: boolean; pointer: number } | null>(null);
   const onObjectDown = (o: Obj, e: ReactPointerEvent) => {
-    if (!interactive || !slidable || state.aligned.includes(o.id)) return;
+    // Tap-only mode (06 §7) has no drags; ← on the keyboard still lines an object up.
+    if (!interactive || tapOnly || !slidable || state.aligned.includes(o.id)) return;
     if (e.pointerType === 'mouse' && e.button !== 0) return;
     drag.current = { id: o.id, x: e.clientX, moved: false, pointer: e.pointerId };
     const offsetPx = startOf(state, o.id) * unit;

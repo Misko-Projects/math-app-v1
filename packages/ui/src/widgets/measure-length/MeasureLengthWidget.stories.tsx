@@ -498,6 +498,26 @@ export const EstimatePick: Story = {
   },
 };
 
+/**
+ * Tap-only mode (06 §7, review CR-1.6): dragging the ruler does nothing; → on the keyboard still
+ * slides it (a smaller mark under the plank's start), and units are still laid by tapping.
+ */
+export const TapOnlyRuler: Story = {
+  args: { config: ruler },
+  parameters: { ui: { tapOnly: true } },
+  play: async ({ canvasElement, args }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    const r = within(root).getByRole('slider', { name: 'Ruler' });
+    const c = center(r);
+    await pointerDrag(r, { x: c.x + 120, y: c.y }, 'touch');
+    await expect(r).toHaveAttribute('data-ruler-start', '2');
+    await expect(traceOf(args.onInteract).map((e) => e.t)).not.toContain('drag');
+    r.focus();
+    await userEvent.keyboard('{ArrowRight}');
+    await expect(r).toHaveAttribute('data-ruler-start', '1');
+  },
+};
+
 /** `disabled`: nothing can be laid. */
 export const Disabled: Story = {
   args: { disabled: true, config: cubes3 },

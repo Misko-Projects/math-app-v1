@@ -38,7 +38,7 @@ export function DotGrid({
   avail,
 }: ModeProps) {
   const t = useNarrationText();
-  const { ageMode } = useUiPreferences();
+  const { ageMode, tapOnly } = useUiPreferences();
   const reduced = useReducedMotion();
   const alive = useAlive();
   const pause = useDemoPause();
@@ -103,6 +103,8 @@ export function DotGrid({
     const dot = dotAt(e.clientX, e.clientY);
     if (!dot) return;
     if (Math.hypot(e.clientX - p.x, e.clientY - p.y) >= 8 && !same(dot, p.dot)) {
+      // Tap-only mode (06 §7): a press that moved is no drag, and no tap either.
+      if (tapOnly) return;
       // A drag from one dot to another: that line.
       setInvite(null);
       trace('drag', `dot-${p.dot[0]}-${p.dot[1]}`);

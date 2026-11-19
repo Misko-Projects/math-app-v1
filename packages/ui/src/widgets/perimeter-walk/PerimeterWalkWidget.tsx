@@ -60,7 +60,7 @@ export function PerimeterWalkWidget({
   if (!model) throw new Error('perimeter-walk has no engine model');
   const t = useNarrationText();
   const { sayNumber } = useSpeech();
-  const { speakOnTap, ageMode } = useUiPreferences();
+  const { speakOnTap, ageMode, tapOnly } = useUiPreferences();
   const reduced = useReducedMotion();
   const trace = useInteractionTrace(onInteract);
   const alive = useAlive();
@@ -173,13 +173,19 @@ export function PerimeterWalkWidget({
     const start = cellAt(e.clientX, e.clientY);
     if (!start) return;
     const id = e.pointerId;
+    const x0 = e.clientX;
+    const y0 = e.clientY;
     let moved = false;
     const move = (ev: PointerEvent) => {
       if (ev.pointerId !== id) return;
+      if (!moved && Math.hypot(ev.clientX - x0, ev.clientY - y0) < 8) return;
+      const first = !moved;
+      moved = true;
+      // Tap-only mode (06 §7): no drags; the corner only moves on a tap.
+      if (tapOnly) return;
       const c = cellAt(ev.clientX, ev.clientY);
       if (!c) return;
-      if (!moved) trace('drag', 'corner');
-      moved = true;
+      if (first) trace('drag', 'corner');
       apply({
         op: 'answer',
         args: {
@@ -191,6 +197,7 @@ export function PerimeterWalkWidget({
       if (ev.pointerId !== id) return;
       window.removeEventListener('pointermove', move);
       window.removeEventListener('pointerup', up);
+      if (moved && tapOnly) return;
       const c = cellAt(ev.clientX, ev.clientY) ?? start;
       setSize(c[0], c[1], moved ? 'drag' : 'tap');
     };
