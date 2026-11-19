@@ -8,16 +8,14 @@ import type {
   ChildContext,
   EventPayloads,
   Grade,
-  ItemTemplate,
   PlannedTask,
   SkillGraph,
   SkillId,
   SkillState,
   TemplateId,
 } from '@number-island/shared';
-import { FORMAT_SUPPORT } from '@number-island/shared';
 import { isEvent, sameId, sortEvents } from '../folds/order';
-import { generateItem } from '../items/generate';
+import { isConstructedTemplate } from '../items/answer-kind';
 import { createEloFireModel } from '../learner/elo-fire';
 import { descendantsWithin } from '../learner/graph';
 import { type EngineParams, PARAMS } from '../params';
@@ -170,31 +168,9 @@ const descendants = (graph: SkillGraph, skill: SkillId, maxHops: number): Hop[] 
 
 const TIER_RANK: Readonly<Record<string, number>> = { abstract: 0, pictorial: 1, concrete: 2 };
 
-const answerKindCache = new WeakMap<ItemTemplate, string | null>();
-
-/**
- * Whether a template asks for a constructed response. A format can allow several answer kinds
- * (tap-count answers with a number, or with a choice in ordinal mode), so the template's own
- * answer kind decides: it is read from a sample item. A template whose generator is not
- * registered falls back to its format's answer kinds.
- */
-function constructedTemplate(t: ItemTemplate): boolean {
-  let kind = answerKindCache.get(t);
-  if (kind === undefined) {
-    try {
-      kind = generateItem(t, 0).answer.kind;
-    } catch {
-      kind = null;
-    }
-    answerKindCache.set(t, kind);
-  }
-  if (kind !== null) return kind !== 'choice';
-  return FORMAT_SUPPORT[t.format].answers.some((k) => k !== 'choice');
-}
-
 /**
  * §5 step 2: the templates a probe of `skill` rotates through. Abstract or pictorial tier with a
- * constructed response (`constructedTemplate`); else any abstract or pictorial template; else any
+ * constructed response (`isConstructedTemplate`, the template's own answer kind); else any abstract or pictorial template; else any
  * template. Abstract first, then by id.
  */
 export function probeTemplates(graph: SkillGraph, skill: SkillId): TemplateId[] {
@@ -207,7 +183,7 @@ export function probeTemplates(graph: SkillGraph, skill: SkillId): TemplateId[] 
   });
   const constructed = tiered.filter((t) => {
     const tpl = graph.templates[t];
-    return tpl !== undefined && constructedTemplate(tpl);
+    return tpl !== undefined && isConstructedTemplate(tpl);
   });
   const pool = constructed.length > 0 ? constructed : tiered.length > 0 ? tiered : all;
   const rank = (t: TemplateId) => TIER_RANK[graph.templates[t]?.tier ?? 'concrete'] ?? 2;

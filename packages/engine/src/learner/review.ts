@@ -25,11 +25,23 @@ export function compressReviews(
     if (picked.length >= budget) break;
     if (removed.has(r.skillId)) continue;
     picked.push(r);
-    for (const [b, w] of Object.entries(graph.encompasses[r.skillId] ?? {})) {
-      if (w >= params.memory.compressionMinWeight) removed.add(b);
-    }
+    for (const b of compressedBy(graph, r.skillId, params)) removed.add(b);
   }
   return picked;
+}
+
+/**
+ * The skills a review of `s` removes from the due set in review compression (04 §4): those it
+ * encompasses with weight ≥ `compressionMinWeight` (a success gives them implicit credit).
+ */
+export function compressedBy(
+  graph: SkillGraph,
+  s: SkillId,
+  params: EngineParams = PARAMS,
+): SkillId[] {
+  return Object.entries(graph.encompasses[s] ?? {})
+    .filter(([, w]) => w >= params.memory.compressionMinWeight)
+    .map(([b]) => b);
 }
 
 /**
