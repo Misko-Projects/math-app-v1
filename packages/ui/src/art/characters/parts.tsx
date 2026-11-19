@@ -236,7 +236,7 @@ export function Blink({
       <g className="motion-loop art-blink-open" style={style}>
         {children}
       </g>
-      <g className="motion-loop art-blink-lid" style={style} data-part="lids" aria-hidden="true">
+      <g className="motion-loop art-blink-lid" style={style} data-part="lids">
         {eyes.map((e) => (
           <Lid key={`${e.x},${e.y}`} {...e} />
         ))}
