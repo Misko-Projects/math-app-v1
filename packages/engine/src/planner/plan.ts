@@ -49,11 +49,13 @@
 //   ('learning'), with an evidence template; (d) the highest-P(ref) 'ready' skill whose lesson mode
 //   is 'none'; (e) with nothing attempted, a focus skill's lesson as the warmup (mode 'lesson'),
 //   preferring one without an offered test-out, and requests on that skill omit their lesson (and
-//   its lessonItemCost); (f) else an evidence template of the first focus skill. An item warmup is
-//   never the first attempt on a ready skill with a lesson, so it never starts or cancels a
-//   test-out before the child picks a request, and the requests continue its run (≤ maxRun in a
-//   row). Ties by id; templates prefer a format an available themed workshop hosts, then
-//   pictorial/abstract, then constructed (`isConstructedTemplate`), then id.
+//   its lessonItemCost) but keep their draw; (f) else an evidence template of the first focus skill.
+//   An item warmup is never the first attempt on a ready skill with a lesson, so it never starts or
+//   cancels a test-out before the child picks a request; the requests continue its run (≤ maxRun in
+//   a row). One test-out rule: a draw is planned only when the learner's own offer (inTestOut) holds
+//   even after a wrong warmup item, so plan, learner and targetDifficulty agree. Ties by id;
+//   templates prefer a format an available themed workshop hosts, then pictorial/abstract, then
+//   constructed (`isConstructedTemplate`), then id.
 // - Challenge: round(challengeShare × the plan's item budgets) items, dealt round-robin from the
 //   last request backward (the remediation request last); each goes to the request's on-track
 //   skills by highest P(ref), placed late. A request without such a skill turns them into new
@@ -76,6 +78,7 @@ import type {
   Skill,
   SkillGraph,
   SkillId,
+  SkillState,
   SkillStatus,
   WorkshopCapability,
   WorkshopId,
@@ -672,6 +675,12 @@ export function planSession(input: PlanSessionInput, opts: PlanOptions = {}): Se
     ),
   );
 
+  // An item warmup (rules a–d) is the only attempt before a request's first items, so a test-out
+  // is planned only when the learner would still offer it after that warmup went wrong: the plan
+  // and the learner (which decides at the first evidence attempt, 04 §7a) then agree.
+  const itemWarmup = warmupBeforeFocus(ctx, themed);
+  const offerState = itemWarmup ? afterWrongAttempt(state, itemWarmup.skillId, model, P) : state;
+
   const focusOf = (i: number): Focus | null => {
     if (focusIds.length === 0) return null;
     const s = focusIds[i % focusIds.length] as SkillId;
@@ -686,11 +695,8 @@ export function planSession(input: PlanSessionInput, opts: PlanOptions = {}): Se
     }
     const ready = status.get(s) === 'ready';
     const lesson = ready && skill.lesson.mode !== 'none';
-    const offered =
-      lesson &&
-      skill.lesson.testOut.items >= 1 &&
-      ((state.placement.prior?.p[s] ?? 0) >= P.mastery.testOutMinPrior ||
-        (pRef.get(s) ?? 0) >= P.mastery.testOutMinPRef);
+    // The learner's own offer rule (03 §6.5, 04 §7a), on the worst case of the warmup.
+    const offered = lesson && model.inTestOut(offerState, s);
     return { skillId: s, lesson, testOut: offered, remediation: false };
   };
   let focuses = Array.from({ length: nReq }, (_, i) => focusOf(i));
@@ -829,22 +835,22 @@ export function planSession(input: PlanSessionInput, opts: PlanOptions = {}): Se
   // An item warmup only ever comes from a skill already attempted or one with no lesson (rules
   // a–d), so it never starts or cancels a test-out whatever request the child then picks. The
   // requests continue the warmup's run (≤ 3 items of one skill in a row, 04 §4).
-  let warmup = warmupBeforeFocus(ctx, themed);
+  let warmup = itemWarmup;
   ctx.runStart = warmup?.skillId ?? null;
   let built = build(focuses);
   if (!warmup) {
     // (e) Nothing is attempted yet: a focus skill's lesson is the warmup, preferring one whose
-    // test-out is not offered. Requests on that skill then skip their lesson (and its cost); its
-    // first items are ordinary practice, whichever request the child picks.
+    // test-out is not offered. Requests on that skill skip the lesson task (and its cost) and keep
+    // any planned test-out draw first. A lesson leaves the skill `ready` until its first rated
+    // attempt, so the learner still decides the test-out at that attempt (04 §7a), and
+    // targetDifficulty follows it; whichever request the child picks, plan and learner agree.
     const withLesson = focuses.filter((f): f is Focus => f?.lesson === true);
     const f0 = withLesson.find((f) => !f.testOut) ?? withLesson[0];
     const lessonId = f0 ? graph.skills[f0.skillId]?.lesson.templateId : undefined;
     const lessonTpl = lessonId ? graph.templates[lessonId] : undefined;
     if (f0 && lessonTpl) {
       warmup = warmupTask(ctx, f0.skillId, lessonTpl.id, 'lesson', 'lesson');
-      focuses = focuses.map((f) =>
-        f && f.skillId === f0.skillId ? { ...f, lesson: false, testOut: false } : f,
-      );
+      focuses = focuses.map((f) => (f && f.skillId === f0.skillId ? { ...f, lesson: false } : f));
       built = build(focuses);
     } else {
       // (f) No lesson is planned at all: an evidence template of the first focus skill.
@@ -860,6 +866,41 @@ export function planSession(input: PlanSessionInput, opts: PlanOptions = {}): Se
     requests: built.requests,
     warmup,
     windDownAtMs: now + minutes * 60_000,
+  };
+}
+
+/**
+ * The state after the worst first attempt on `skill`: a wrong, full-weight answer (e = −1) lowers
+ * θg by Kg(N) and the skill's offset by Ks(n) (04 §2.3). Used to plan only test-outs the learner
+ * still offers whatever the warmup's outcome (a wrong answer lowers P(ref); a right one raises it).
+ */
+function afterWrongAttempt(
+  state: LearnerState,
+  skill: SkillId,
+  model: EloFireModel,
+  P: EngineParams,
+): LearnerState {
+  const st = state.skills[skill];
+  const n = st?.n ?? 0;
+  const theta = model.skillOffset(state, skill) - P.rating.ks / (1 + P.rating.ksDecay * n);
+  const base: SkillState = st ?? {
+    theta,
+    n: 0,
+    recent: [],
+    assumed: false,
+    override: null,
+    practicedAt: null,
+    fluentAt: null,
+    masteredAt: null,
+    memory: null,
+    atRiskDueTs: null,
+    misconceptionHits: [],
+  };
+  return {
+    ...state,
+    thetaG: state.thetaG - P.rating.kg / (1 + P.rating.kgDecay * state.nTotal),
+    nTotal: state.nTotal + 1,
+    skills: { ...state.skills, [skill]: { ...base, theta, n: n + 1 } },
   };
 }
 
