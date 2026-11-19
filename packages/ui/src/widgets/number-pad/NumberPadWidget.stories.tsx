@@ -150,6 +150,17 @@ export const PictureCountK: Story = {
     const keys = [...root.querySelectorAll<HTMLElement>('.ni-pad__key')];
     for (const k of keys) await expectTargetSize(k, 'k');
     await expectTargetGaps(keys);
+    // No decimal key: the bottom row is a wide 0 under 7–8 and backspace under 9, no empty cell.
+    await expect(keys.map((k) => k.dataset.key)).toEqual([
+      ...['1', '2', '3', '4', '5', '6', '7', '8', '9', '0', 'back'],
+    ]);
+    const k7 = key(root, '7').getBoundingClientRect();
+    const k9 = key(root, '9').getBoundingClientRect();
+    const k0 = key(root, '0').getBoundingClientRect();
+    const kBack = key(root, 'back').getBoundingClientRect();
+    await expect(Math.abs(k0.left - k7.left)).toBeLessThan(1);
+    await expect(Math.abs(kBack.right - k9.right)).toBeLessThan(1);
+    await expect(kBack.left - k0.right).toBeGreaterThanOrEqual(11.5);
     await userEvent.click(key(root, '7'));
     // Tapping a number speaks its name (06 §5).
     await expect(audio.sayPhrases).toHaveBeenCalledWith([{ number: 7 }]);
