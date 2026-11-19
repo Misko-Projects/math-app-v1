@@ -14,10 +14,12 @@ type Files = Record<string, string>;
 type Yaml = { [k: string]: any };
 
 /**
- * Diagnostics other than the expected ones. SUB.03.t5 was added after SUB.03.t4 shipped; template
- * ids are stable (03 §4.3), so its V10 tier-order warning is expected.
+ * Diagnostics other than the expected ones. SUB.03.t5 was added after SUB.03.t4 shipped, and the
+ * pictorial constructed-practice templates CNT.14.t6 and GEO.05.t3 after their skills' shipped
+ * abstract templates; template ids are stable (03 §4.3), so their V10 tier-order warnings are
+ * expected.
  */
-const LATE_PICTORIAL = ['SUB.03.t5'];
+const LATE_PICTORIAL = ['SUB.03.t5', 'CNT.14.t6', 'GEO.05.t3'];
 const EXPECTED = (d: Diagnostic) =>
   d.check === 'V10' && LATE_PICTORIAL.some((id) => d.message.startsWith(`${id} (pictorial)`));
 /**
@@ -1626,10 +1628,10 @@ describe('V24 and contentVersion (03 §9.1)', () => {
     // Pinned to the current content; K01 (#11) updates these numbers as each strand group lands.
     expect(manifest.counts).toEqual({
       // CMP (K01) added 9 skills, 31 templates and MC.perceptual-size; CPS and SUB.04/SUB.07 (K01)
-      // added 7 skills and 27 templates; V27 (constructed practice) added 7 CMP templates and 17
+      // added 7 skills and 27 templates; V27 (constructed practice) added 7 CMP templates and 18
       // for CNT, SUB, GEO and MEA skills.
       skills: 57,
-      templates: 212,
+      templates: 213,
       misconceptions: 9,
       narrationKeys: Object.keys(r.content?.narration ?? {}).length,
     });

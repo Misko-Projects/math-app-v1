@@ -1289,7 +1289,7 @@ interface WidgetBase { format: ItemFormat; theme?: string /* workshop skin id, v
 | `compare-length` | objects | objects, ruler | C, P | choice, numbers, number |
 | `area-tiles` | tiles | tiles, area-grid, area-model | C, P | state, number |
 | `perimeter-walk` | shapes | shapes, dot-grid, area-grid | P | number, state |
-| `shape-compose` | pattern-blocks | shapes, pattern-blocks, dot-grid, objects | C | state |
+| `shape-compose` | pattern-blocks | shapes, pattern-blocks, dot-grid, objects | C, P | state |
 | `shape-sort` | shapes | any (cards may be shapes, solids, numbers, objects, coins, events) | C, P | state, choice |
 | `pattern-extend` | objects | objects, shapes, tiles, symbols, table | C, P, A | state, number, numbers |
 | `balance` | balance | balance | C, P | choice, number, state |
