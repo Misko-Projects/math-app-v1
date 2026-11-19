@@ -1,3 +1,4 @@
+import { PIECE_CORNERS } from '@number-island/engine';
 import type { ShapeCard, ShapeKind } from '@number-island/shared';
 import { pictureProps } from './a11y';
 import './shapes.css';
@@ -10,7 +11,7 @@ import './shapes.css';
  * edges dashed). `rotationDeg` turns the shape about its centre and `scale` resizes it; shapes in
  * one picture share one scale (`extent`), so a card at scale 1.5 really is 1.5 × as big.
  *
- * Geometry is in design units: y down, centred on (0, 0); one card at scale 1 spans about 80.
+ * Geometry is in design units: y down, centred on (0, 0); one piece side is `PIECE_SIDE` (52).
  */
 
 type Pt = [number, number];
@@ -44,109 +45,77 @@ function centred(points: Pt[]): Pt[] {
   return points.map(([x, y]) => [round(x - cx), round(y - cy)]);
 }
 
+/**
+ * Design units per piece side. The pattern-block kinds and the 2 × 1 rectangle are drawn from the
+ * engine's own piece corners (`PIECE_CORNERS`, the compose.fill geometry), so pieces and the shapes
+ * they make share one scale: a square card is 1 × 1 sides, a rectangle 2 × 1, a trapezoid three
+ * triangles. A composition picture (GEO.10, GEO.11) is therefore true to scale (review CR-1.2).
+ */
+export const PIECE_SIDE = 52;
+
+/** The other kinds are sized to sit beside the pieces (about a piece and a half across). */
+const K = 0.8;
+
+/** A piece kind's corners: y flipped to y down, one side = PIECE_SIDE, centred. */
+function pieceOutline(kind: string): Pt[] | undefined {
+  if (!Object.hasOwn(PIECE_CORNERS, kind)) return undefined;
+  const corners = PIECE_CORNERS[kind] as [number, number][];
+  return centred(corners.map(([x, y]) => [x * PIECE_SIDE, -y * PIECE_SIDE] as Pt));
+}
+
+const scaled = (points: Pt[], k: number): Pt[] =>
+  points.map(([x, y]) => [round(x * k), round(y * k)]);
+
 /** The exact geometry of a shape kind (design units, y down, centred). */
 export function shapeGeometry(kind: ShapeKind): ShapeGeometry {
+  const piece = pieceOutline(kind);
+  if (piece) return { type: 'polygon', points: piece };
   switch (kind) {
     case 'circle':
-      return { type: 'circle', r: 38 };
+      return { type: 'circle', r: 30 };
     case 'oval':
-      return { type: 'ellipse', rx: 44, ry: 27 };
-    case 'triangle': {
-      // Equilateral, side 80.
-      const h = (80 * SQ3) / 2;
-      return {
-        type: 'polygon',
-        points: centred([
-          [-40, h / 2],
-          [0, -h / 2],
-          [40, h / 2],
-        ]),
-      };
-    }
-    case 'square':
-      return {
-        type: 'polygon',
-        points: [
-          [-33, -33],
-          [33, -33],
-          [33, 33],
-          [-33, 33],
-        ],
-      };
-    case 'rectangle':
-      // 88 × 46: clearly longer than tall.
-      return {
-        type: 'polygon',
-        points: [
-          [-44, -23],
-          [44, -23],
-          [44, 23],
-          [-44, 23],
-        ],
-      };
-    case 'rhombus': {
-      // Side 52 with 60° and 120° corners (the pattern-block rhombus), standing on a corner.
-      const s = 52;
-      return {
-        type: 'polygon',
-        points: [
-          [0, -(s * SQ3) / 2],
-          [s / 2, 0],
-          [0, (s * SQ3) / 2],
-          [-s / 2, 0],
-        ].map(([x, y]) => [round(x as number), round(y as number)]) as Pt[],
-      };
-    }
-    case 'trapezoid': {
-      // The pattern-block trapezoid: bottom 2s, top and legs s, 60° base corners.
-      const s = 42;
-      const h = (s * SQ3) / 2;
-      return {
-        type: 'polygon',
-        points: centred([
-          [-s, h / 2],
-          [-s / 2, -h / 2],
-          [s / 2, -h / 2],
-          [s, h / 2],
-        ]),
-      };
-    }
+      return { type: 'ellipse', rx: 35, ry: 21 };
     case 'kite':
       return {
         type: 'polygon',
-        points: [
-          [0, -42],
-          [28, -12],
-          [0, 44],
-          [-28, -12],
-        ],
+        points: scaled(
+          [
+            [0, -42],
+            [28, -12],
+            [0, 44],
+            [-28, -12],
+          ],
+          K,
+        ),
       };
     case 'quadrilateral':
       // Clearly irregular: four different side lengths, no parallel sides, no square corner.
       return {
         type: 'polygon',
-        points: [
-          [-44, -30],
-          [10, -34],
-          [44, 30],
-          [-30, 18],
-        ],
+        points: scaled(
+          [
+            [-44, -30],
+            [10, -34],
+            [44, 30],
+            [-30, 18],
+          ],
+          K,
+        ),
       };
     case 'pentagon':
-      return { type: 'polygon', points: regularPolygon(5, 42) };
-    case 'hexagon':
-      return { type: 'polygon', points: regularPolygon(6, 40) };
+      return { type: 'polygon', points: regularPolygon(5, 42 * K) };
     case 'octagon':
-      return { type: 'polygon', points: regularPolygon(8, 42) };
+      return { type: 'polygon', points: regularPolygon(8, 42 * K) };
     case 'open-figure': {
       // A triangle with a gap at its top: three sides, two corners, not closed.
-      const h = (80 * SQ3) / 2;
+      const side = 80 * K;
+      const h = (side * SQ3) / 2;
       const [l, top, r] = centred([
-        [-40, h / 2],
+        [-side / 2, h / 2],
         [0, -h / 2],
-        [40, h / 2],
+        [side / 2, h / 2],
       ]) as [Pt, Pt, Pt];
-      const gap = 0.3; // each side stops 30 % short of the top corner
+      const gap = 0.35; // each side stops 35 % short of the top corner
       const short = (from: Pt): Pt => [
         round(top[0] + (from[0] - top[0]) * gap),
         round(top[1] + (from[1] - top[1]) * gap),
@@ -154,9 +123,12 @@ export function shapeGeometry(kind: ShapeKind): ShapeGeometry {
       return { type: 'open', points: [short(l), l, r, short(r)] };
     }
     default:
-      return { type: 'solid', solid: kind };
+      return { type: 'solid', solid: kind as SolidKind };
   }
 }
+
+/** Solids are drawn about ±50 design units and shrunk by K to sit beside the flat shapes. */
+const SOLID_R = 50 * K;
 
 /** The radius of the circle (about the centre) that holds a card at scale 1, unrotated or not. */
 export function baseRadius(kind: ShapeKind): number {
@@ -167,15 +139,55 @@ export function baseRadius(kind: ShapeKind): number {
     case 'ellipse':
       return Math.max(g.rx, g.ry);
     case 'solid':
-      return 50;
+      return SOLID_R;
     default:
       return Math.max(...g.points.map(([x, y]) => Math.hypot(x, y)));
   }
 }
 
+/** Room around a drawing for its outline and corner marks (design units). */
+const PAD = 8;
+
 /** Half the side of the square box a card needs: radius × scale plus room for the outline. */
 export const shapeExtent = (card: Pick<ShapeCard, 'shape' | 'scale'>): number =>
-  baseRadius(card.shape) * card.scale + 8;
+  baseRadius(card.shape) * card.scale + PAD;
+
+export interface ShapeBox {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
+/** The tight box a card's drawing needs, turned and scaled, outline room included (design units). */
+export function shapeBox(card: Pick<ShapeCard, 'shape' | 'scale' | 'rotationDeg'>): ShapeBox {
+  const g = shapeGeometry(card.shape);
+  const k = card.scale;
+  const a = g.type === 'solid' ? 0 : (card.rotationDeg * Math.PI) / 180;
+  const c = Math.cos(a);
+  const s = Math.sin(a);
+  let x0: number;
+  let y0: number;
+  let x1: number;
+  let y1: number;
+  if (g.type === 'polygon' || g.type === 'open') {
+    // SVG rotate(a) with y down: (x, y) → (x cos − y sin, x sin + y cos).
+    const pts = g.points.map(([x, y]) => [k * (x * c - y * s), k * (x * s + y * c)] as Pt);
+    x0 = Math.min(...pts.map((p) => p[0]));
+    y0 = Math.min(...pts.map((p) => p[1]));
+    x1 = Math.max(...pts.map((p) => p[0]));
+    y1 = Math.max(...pts.map((p) => p[1]));
+  } else {
+    const [hx, hy] =
+      g.type === 'circle'
+        ? [g.r * k, g.r * k]
+        : g.type === 'ellipse'
+          ? [k * Math.hypot(g.rx * c, g.ry * s), k * Math.hypot(g.rx * s, g.ry * c)]
+          : [SOLID_R * k, SOLID_R * k];
+    [x0, y0, x1, y1] = [-hx, -hy, hx, hy];
+  }
+  return { x: x0 - PAD, y: y0 - PAD, width: x1 - x0 + 2 * PAD, height: y1 - y0 + 2 * PAD };
+}
 
 // ---------- colours ----------
 
@@ -465,6 +477,11 @@ export interface ShapeViewProps {
   extent?: number;
   /** Size in CSS px (the drawing is square). */
   size?: number;
+  /**
+   * CSS px per design unit. When set, the drawing is boxed tightly (`shapeBox`) at this scale
+   * instead of in a square of `size`, so cards in separate pictures still share one scale.
+   */
+  unitPx?: number;
   mark?: ShapeMark;
   /** How many sides or corners the mark has reached (counting one by one); all by default. */
   upto?: number;
@@ -477,12 +494,22 @@ export function ShapeView({
   card,
   extent,
   size = 120,
+  unitPx,
   mark = null,
   upto,
   label,
   className,
 }: ShapeViewProps) {
   const e = extent ?? shapeExtent(card);
+  const tight = unitPx === undefined ? null : shapeBox(card);
+  const view = tight
+    ? {
+        box: `${tight.x} ${tight.y} ${tight.width} ${tight.height}`,
+        w: tight.width,
+        h: tight.height,
+      }
+    : { box: `${-e} ${-e} ${2 * e} ${2 * e}`, w: size, h: size };
+  const px = unitPx ?? 1;
   const g = shapeGeometry(card.shape);
   const c = shapeColor(card.color);
   const rotation = g.type === 'solid' ? 0 : card.rotationDeg;
@@ -546,7 +573,7 @@ export function ShapeView({
     }
     case 'solid':
       body = (
-        <g transform={`scale(${k})`}>
+        <g transform={`scale(${k * K})`}>
           <Solid kind={g.solid} c={c} />
         </g>
       );
@@ -556,9 +583,9 @@ export function ShapeView({
     // biome-ignore lint/a11y/noSvgWithoutTitle: a named img when labelled, aria-hidden otherwise (pictureProps)
     <svg
       className={['ni-shape', className].filter(Boolean).join(' ')}
-      width={size}
-      height={size}
-      viewBox={`${-e} ${-e} ${2 * e} ${2 * e}`}
+      width={view.w * px}
+      height={view.h * px}
+      viewBox={view.box}
       focusable="false"
       data-shape={card.shape}
       data-mark={mark ?? undefined}
@@ -574,28 +601,51 @@ export function ShapeView({
   );
 }
 
-/** Several shapes on one scale (the `shape` stimulus): a row of cards, no controls. */
+/** The largest scale a shape picture is drawn at (CSS px per design unit). */
+const MAX_UNIT_PX = 2.4;
+const SET_GAP = 16;
+
+/**
+ * The scale (CSS px per design unit) that fits a set of shapes in a box: as large as the box
+ * allows, one row when it fits, but never so small that the biggest card is under 96 px across (a
+ * long set wraps onto more rows instead), and never a card bigger than the box.
+ */
+export function shapeSetUnit(
+  shapes: readonly Pick<ShapeCard, 'shape' | 'scale' | 'rotationDeg'>[],
+  maxWidth: number,
+  maxHeight: number,
+): number {
+  if (shapes.length === 0) return 1;
+  const boxes = shapes.map(shapeBox);
+  const w = Math.max(...boxes.map((b) => b.width));
+  const h = Math.max(...boxes.map((b) => b.height));
+  const row = (maxWidth - SET_GAP * (shapes.length - 1)) / boxes.reduce((s, b) => s + b.width, 0);
+  return Math.min(MAX_UNIT_PX, maxWidth / w, maxHeight / h, Math.max(row, 96 / Math.max(w, h)));
+}
+
+/**
+ * Several shapes on one scale (the `shape` stimulus): a row of cards, no controls. `unitPx` puts
+ * separate pictures on one scale: a composition's target and the pieces in its choices
+ * (numeral-pick passes the smallest `shapeSetUnit` of its pictures).
+ */
 export function ShapeSetView({
   shapes,
   maxWidth = 720,
   maxHeight = 240,
+  unitPx,
   label,
 }: {
   shapes: readonly ShapeCard[];
   maxWidth?: number;
   maxHeight?: number;
+  unitPx?: number;
   label?: string;
 }) {
-  const extent = Math.max(...shapes.map(shapeExtent), 1);
-  const gap = 16;
-  // Each card gets an even share of the width, but never less than 96 px (or the box height):
-  // a long set wraps onto more rows instead of shrinking to icons.
-  const share = (maxWidth - gap * (shapes.length - 1)) / Math.max(1, shapes.length);
-  const size = Math.min(maxHeight, 220, Math.max(Math.min(96, maxHeight), share));
+  const unit = unitPx ?? shapeSetUnit(shapes, maxWidth, maxHeight);
   return (
-    <div className="ni-shapes" style={{ gap }} {...pictureProps(label)}>
+    <div className="ni-shapes" style={{ gap: SET_GAP }} {...pictureProps(label)}>
       {shapes.map((s) => (
-        <ShapeView key={s.id} card={s} extent={extent} size={size} />
+        <ShapeView key={s.id} card={s} unitPx={unit} />
       ))}
     </div>
   );

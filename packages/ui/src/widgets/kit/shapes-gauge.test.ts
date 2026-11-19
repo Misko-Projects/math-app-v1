@@ -1,5 +1,6 @@
 // Maths truth for the U05 kit pictures (#14): every shape card is drawn exactly as its kind, and
 // every gauge reads exactly its value on correctly spaced ticks.
+import { PIECE_CORNERS } from '@number-island/engine';
 import type { ShapeKind } from '@number-island/shared';
 import { describe, expect, it } from 'vitest';
 import {
@@ -16,9 +17,12 @@ import {
   baseRadius,
   countedParts,
   equalSideGroups,
+  PIECE_SIDE,
   regularPolygon,
+  shapeBox,
   shapeExtent,
   shapeGeometry,
+  shapeSetUnit,
   squareCorners,
 } from './ShapeView';
 
@@ -132,7 +136,7 @@ describe('ShapeView geometry (03 §5.1 ShapeKind, ShapeProps)', () => {
   });
 
   it('circle, oval and solids', () => {
-    expect(shapeGeometry('circle')).toEqual({ type: 'circle', r: 38 });
+    expect(shapeGeometry('circle')).toEqual({ type: 'circle', r: 30 });
     const o = shapeGeometry('oval');
     expect(o.type === 'ellipse' && o.rx > o.ry).toBe(true);
     for (const s of ['cube', 'cone', 'cylinder', 'sphere', 'rect-prism', 'pyramid'] as const) {
@@ -145,6 +149,45 @@ describe('ShapeView geometry (03 §5.1 ShapeKind, ShapeProps)', () => {
       1.5 * baseRadius('square'),
       6,
     );
+  });
+
+  // Review CR-1.2: composition items compare pieces with the shape they make.
+  it('pieces are the engine pieces (PIECE_CORNERS) on one side length', () => {
+    for (const kind of Object.keys(PIECE_CORNERS) as ShapeKind[]) {
+      const want = lens((PIECE_CORNERS[kind] as Pt[]).map(([x, y]) => [x, y] as Pt));
+      expect(
+        lens(pointsOf(kind)).map((l) => l / PIECE_SIDE),
+        kind,
+      ).toEqual(want.map((l) => expect.closeTo(l, 6)));
+    }
+    const box = (shape: ShapeKind, scale = 1) => shapeBox({ shape, scale, rotationDeg: 0 });
+    // rectangle 2 × 1, square 1 × 1: two rectangles make a square of scale 2.
+    expect(box('rectangle').width - 16).toBeCloseTo(2 * PIECE_SIDE, 6);
+    expect(box('rectangle').height - 16).toBeCloseTo(PIECE_SIDE, 6);
+    expect(box('square', 2).width - 16).toBeCloseTo(2 * PIECE_SIDE, 6);
+    expect(box('trapezoid').width - 16).toBeCloseTo(2 * PIECE_SIDE, 6);
+    expect(box('hexagon').height - 16).toBeCloseTo(Math.sqrt(3) * PIECE_SIDE, 6);
+  });
+
+  it('shapeBox is the tight box of the turned, scaled drawing', () => {
+    const b = shapeBox({ shape: 'square', scale: 1, rotationDeg: 45 });
+    expect(b.width - 16).toBeCloseTo(Math.SQRT2 * PIECE_SIDE, 6);
+    expect(b.height).toBeCloseTo(b.width, 6);
+    const o = shapeBox({ shape: 'oval', scale: 1, rotationDeg: 90 });
+    expect(o.height).toBeGreaterThan(o.width);
+  });
+
+  it('every GEO.10/GEO.11 pair of kit pieces fits a choice without shrinking below the target', () => {
+    // NumeralPickWidget draws the question and the choices at the smallest fit of them all.
+    const kinds = Object.keys(PIECE_CORNERS) as ShapeKind[];
+    const pieceCard = (shape: ShapeKind) => ({ shape, scale: 1, rotationDeg: 0 });
+    for (const a of kinds) {
+      for (const b of kinds) {
+        const unit = shapeSetUnit([pieceCard(a), pieceCard(b)], 260, 110);
+        expect(unit, `${a}+${b}`).toBeGreaterThanOrEqual(1);
+      }
+      expect(shapeSetUnit([{ ...pieceCard(a), scale: 2 }], 760, 280)).toBeGreaterThanOrEqual(1);
+    }
   });
 });
 

@@ -28,6 +28,8 @@ export interface StimulusViewProps {
   maxHeight?: number;
   /** Smallest object cell in px (default 28); small pictures (choice cards) may go lower. */
   minCell?: number;
+  /** CSS px per design unit for a `shape` picture, shared by separate pictures of one item. */
+  shapeUnitPx?: number;
   /** Renders a blank token of an expression stimulus (number-pad draws its entry slots here). */
   renderBlank?: (id: string) => ReactNode;
   /** Accessible name; defaults to the generic "picture" label. */
@@ -40,6 +42,7 @@ export function StimulusView({
   maxWidth = 720,
   maxHeight = 300,
   minCell,
+  shapeUnitPx,
   renderBlank,
   label,
   className,
@@ -197,6 +200,7 @@ export function StimulusView({
             shapes={spec.shapes}
             maxWidth={maxWidth}
             maxHeight={maxHeight}
+            unitPx={shapeUnitPx}
             label={name}
           />
         </div>

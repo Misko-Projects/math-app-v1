@@ -1,8 +1,11 @@
-import type { ShapeCard, ShapeKind, StimulusSpec } from '@number-island/shared';
+import type { ShapeCard, ShapeKind, StimulusSpec, WidgetConfig } from '@number-island/shared';
 import type { Meta, StoryObj } from '@storybook/react-vite';
-import { expect } from 'storybook/test';
+import { expect, fn } from 'storybook/test';
 import { expectNumeralsAtLeast32 } from '../../test-support/areaStory';
+import { findWidget, renderWidget } from '../../test-support/widgetStory';
+import type { WidgetHostProps } from '../WidgetHost';
 import { dialAngle, type GaugeSpec } from './GaugeView';
+import { PIECE_SIDE } from './ShapeView';
 import { StimulusView } from './StimulusView';
 
 /**
@@ -100,8 +103,8 @@ export const TurnedAndResized: Story = {
   play: async ({ canvasElement }) => {
     const [sq, tri] = [...canvasElement.querySelectorAll<SVGPolygonElement>('polygon')];
     // Scale 1.5 against 0.6, before turning: the polygons' own sizes compare truly.
-    await expect((sq as SVGPolygonElement).getBBox().width).toBeCloseTo(1.5 * 66, 3);
-    await expect((tri as SVGPolygonElement).getBBox().width).toBeCloseTo(0.6 * 80, 3);
+    await expect((sq as SVGPolygonElement).getBBox().width).toBeCloseTo(1.5 * PIECE_SIDE, 3);
+    await expect((tri as SVGPolygonElement).getBBox().width).toBeCloseTo(0.6 * PIECE_SIDE, 3);
   },
 };
 
@@ -163,5 +166,78 @@ export const Thermometer: Story = {
     const tick = canvasElement.querySelector('[data-tick="25"]') as SVGLineElement;
     await expect(column.y.baseVal.value).toBeCloseTo(tick.y1.baseVal.value, 6);
     await expectNumeralsAtLeast32(canvasElement, '.ni-gauge__numeral');
+  },
+};
+
+// ---------- composition pictures share one scale (review CR-1.2) ----------
+
+const piece = (id: string, shape: ShapeKind, scale = 1): ShapeCard => ({
+  ...card(shape, 6),
+  id,
+  scale,
+  color: 'tan',
+});
+
+/** GEO.10.t3 seed 21 (geo.compose, square-from-rectangles): which two pieces make the square? */
+const squareFromRectangles: WidgetConfig = {
+  format: 'numeral-pick',
+  stimulus: { kind: 'shape', shapes: [piece('whole', 'square', 2)] },
+  options: [
+    {
+      id: 'pair-rectangle-triangle',
+      stimulus: {
+        kind: 'shape',
+        shapes: [piece('piece-0', 'rectangle'), piece('piece-1', 'triangle')],
+      },
+    },
+    {
+      id: 'pair-rectangle-square',
+      stimulus: {
+        kind: 'shape',
+        shapes: [piece('piece-0', 'rectangle'), piece('piece-1', 'square')],
+      },
+    },
+    {
+      id: 'pair-rectangle-rectangle',
+      stimulus: {
+        kind: 'shape',
+        shapes: [piece('piece-0', 'rectangle'), piece('piece-1', 'rectangle')],
+      },
+    },
+  ],
+  layout: 'row',
+};
+
+/**
+ * The target square and the pieces in the choices are drawn on one scale with the pattern-block
+ * proportions (rectangle 2 × 1, square 1 × 1): each rectangle of the right pair spans the
+ * square's whole side one way and exactly half of it the other; the square piece is half a side.
+ */
+export const CompositionOneScale: StoryObj<WidgetHostProps> = {
+  args: {
+    config: squareFromRectangles,
+    tier: 'pictorial',
+    disabled: false,
+    onResponse: fn(),
+    onInteract: fn(),
+  },
+  render: renderWidget,
+  play: async ({ canvasElement }) => {
+    const root = await findWidget(canvasElement, '.ni-npick');
+    const box = (el: Element) =>
+      (el.querySelector('polygon') as SVGPolygonElement).getBoundingClientRect();
+    const target = box(root.querySelector('.ni-stimulus') as Element);
+    await expect(Math.abs(target.width - target.height)).toBeLessThan(1);
+    const option = root.querySelector('[data-id="pair-rectangle-rectangle"]') as HTMLElement;
+    const rects = [...option.querySelectorAll('svg.ni-shape')].map(box);
+    await expect(rects).toHaveLength(2);
+    for (const r of rects) {
+      await expect(Math.max(r.width, r.height)).toBeCloseTo(target.width, 0);
+      await expect(Math.min(r.width, r.height)).toBeCloseTo(target.width / 2, 0);
+    }
+    const sq = box(
+      root.querySelectorAll('[data-id="pair-rectangle-square"] svg.ni-shape')[1] as Element,
+    );
+    await expect(sq.width).toBeCloseTo(target.width / 2, 0);
   },
 };
