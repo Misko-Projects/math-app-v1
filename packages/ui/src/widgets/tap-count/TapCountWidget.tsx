@@ -37,7 +37,9 @@ import './tap-count.css';
  *
  * - **Concrete** (C): every object is a tap target. A tapped object gets a numbered pebble badge
  *   with the count it was given (`marks`, never colour alone), and `countAloud` speaks the running
- *   count. Tapping a counted object again speaks its number and is traced again (the trace drives
+ *   count. On a ten-frame picture no number goes on an object (the cell above holds the next
+ *   row's): each counted cell gets a dot and the running count shows once, in the card's corner.
+ *   Tapping a counted object again speaks its number and is traced again (the trace drives
  *   MC.off-by-one-counting and MC.recount-from-one). Distractors can be tapped to hear their name,
  *   but they are never counted or marked.
  * - **Pictorial** (P): a static picture; the child only answers.
@@ -201,6 +203,27 @@ const BADGE_ORDINAL = { w: 76, above: 66, below: -14, clear: 4 + RING_OUT } as c
 type BadgeFootprint = typeof BADGE | typeof BADGE_ORDINAL;
 
 /**
+ * Ten-frame pictures (`ObjectSet.layout` ten-frame / double-ten-frame): the cell above holds the
+ * next row's object, so no numbered badge goes on an object. Every counted cell gets a dot and the
+ * running count shows once, in the picture card's top-right corner (`.ni-tapc__count`, in the
+ * card's top padding, above every object). Groups (plates), dice and every other layout keep the
+ * numbered badge above each object.
+ */
+const FRAME_LAYOUTS: ReadonlySet<string> = new Set(['ten-frame', 'double-ten-frame']);
+/**
+ * A counted frame cell, in px inside the object's box (the box is the cell in P, 12 px smaller in
+ * C): the dot sits at the bottom centre, `DOT_BOTTOM` up (an edge cell's box reaches 4 px past its
+ * frame cell, over the frame's border), 20 % of the box (≥ 8 px); the object's drawing moves up and
+ * shrinks so its box stays `DOT_CLEAR` above the dot and `SPRITE_TOP` below the box's top.
+ */
+const DOT_BOTTOM = 5;
+const DOT_CLEAR = 3;
+const SPRITE_TOP = 2;
+const frameDot = (box: number) => Math.max(8, Math.round(0.2 * box));
+const frameCountedSprite = (box: number, sprite: number) =>
+  Math.max(0, Math.min(sprite, box - DOT_BOTTOM - frameDot(box) - DOT_CLEAR - SPRITE_TOP));
+
+/**
  * How much to stretch a layout's rows (its y axis) so that every count badge clears every other
  * object's box by `BADGE.clear`: the band above each row must hold the badges of the row below.
  * Because a badge never sticks out past its own box's sides, objects side by side never collide;
@@ -309,6 +332,8 @@ export function TapCountWidget({
   const objectsTappable = concrete || ordinal;
   // Pip's counting (demo) always marks, so a "show me" leaves the counted picture behind.
   const showMarks = (concrete && config.marks) || demoMarked;
+  /** A ten-frame picture: dots in the counted cells and one running count (FRAME_LAYOUTS). */
+  const onFrames = FRAME_LAYOUTS.has(config.set.layout);
 
   // ---------- sizes (06 §4: K ≥ 80 px, G1 ≥ 64 px, ≥ 12 px apart) ----------
 
@@ -419,7 +444,15 @@ export function TapCountWidget({
     }
     // Side by side (picture left, answer right) when both fit the ~1100 px widget area; otherwise
     // the picture spans the width above the answer. Either way the objects grow into the room left.
-    const sideW = 1100 - answerW - 240 - shortfall;
+    // A ten-frame picture in a narrow widget (the 960 × 600 minimum) takes the width actually left
+    // beside the answer: the widget's padding (2 × 24), the column gap (56), the card's padding
+    // and border (2 × 31) and 8 px to spare. Its cells then hold a counted object above its dot.
+    const sideW = Math.max(
+      1100 - answerW - 240 - shortfall,
+      onFrames && widgetW !== null
+        ? Math.min(1100 - answerW - 240, widgetW - answerW - 2 * 24 - 56 - 2 * 31 - 8)
+        : 0,
+    );
     const sideCell = Math.max(minCell, Math.min(wrappedCap, fitCell(set, sideW, 340, 32)));
     if (set.width * sideCell <= sideW) return { arrange: 'side', cell: sideCell };
     return {
@@ -675,18 +708,29 @@ export function TapCountWidget({
     const isObject = o.kind === 'object';
     const mark = isObject ? markOf.get(o.index) : undefined;
     const box: CSSProperties = { left, top, width: hitSize, height: hitSize };
+    // A counted cell of a ten-frame picture: a dot at the cell's bottom, the drawing above it.
+    const dotted = onFrames && mark !== undefined && showMarks;
+    const dot = frameDot(hitSize);
+    const drawn = dotted ? frameCountedSprite(hitSize, spriteSize) : spriteSize;
     const sprite = (
-      <span className="ni-tapc__sprite" style={{ width: spriteSize, height: spriteSize }}>
+      <span
+        className="ni-tapc__sprite"
+        style={{
+          width: drawn,
+          height: drawn,
+          ...(dotted ? { alignSelf: 'start', marginTop: SPRITE_TOP } : {}),
+        }}
+      >
         <ObjectSprite sprite={o.sprite} tone={o.tone} />
       </span>
     );
-    // Ten-frame pictures (follow-up from #76): the cell above holds the next row's object, so a
-    // badge above the box would cover it. Counted cells get a small dot inside the cell instead,
-    // and only the latest count shows its number, centred in its own cell.
-    const onFrames = layout.frames.length > 0;
     const badge =
-      mark === undefined || !showMarks ? null : onFrames && mark !== order.length ? (
-        <span className="ni-tapc__dot" aria-hidden="true" />
+      mark === undefined || !showMarks ? null : dotted ? (
+        <span
+          className="ni-tapc__dot"
+          aria-hidden="true"
+          style={{ width: dot, height: dot, bottom: DOT_BOTTOM }}
+        />
       ) : (
         <span className="ni-tapc__mark" aria-hidden="true">
           {mark}
@@ -702,6 +746,7 @@ export function TapCountWidget({
           className="ni-tapc__obj"
           style={box}
           data-kind={o.kind}
+          data-obj={isObject ? `obj-${o.index}` : `distractor-${o.index}`}
           data-counting={counting === o.index && isObject ? 'true' : undefined}
           data-ringed={isRinged ? 'true' : undefined}
           aria-hidden="true"
@@ -750,11 +795,17 @@ export function TapCountWidget({
       data-tier={tier}
       data-mode={ordinal ? 'ordinal' : 'how-many'}
       data-arrange={arrange}
-      data-frames={layout.frames.length > 0 ? 'true' : undefined}
+      data-frames={onFrames ? 'true' : undefined}
       data-disabled={disabled ? 'true' : undefined}
       style={handRootStyle}
     >
       <div className="ni-tapc__picture" data-from={ordinal ? from : undefined}>
+        {onFrames && showMarks && order.length > 0 ? (
+          // The running count, once, outside the frame cells (the count is also spoken).
+          <span key={order.length} className="ni-tapc__count" aria-hidden="true">
+            {order.length}
+          </span>
+        ) : null}
         {ordinal ? (
           // "Start here": an arrow on the counting side, level with the first row (no words).
           <span

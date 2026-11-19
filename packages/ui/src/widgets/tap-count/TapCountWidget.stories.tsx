@@ -170,45 +170,92 @@ async function expectBadgesOffObjects(root: HTMLElement) {
   }
 }
 
+const overlaps = (a: DOMRect, o: DOMRect) =>
+  !(a.right <= o.left || o.right <= a.left || a.bottom <= o.top || o.bottom <= a.top);
+type Edges = { left: number; top: number; right: number; bottom: number };
+/** `inner` lies inside `outer` with at least `margin` px on every side. */
+async function expectWithin(inner: Edges, outer: Edges, margin: number, what: string) {
+  await expect(inner.left - outer.left, `${what}: left`).toBeGreaterThanOrEqual(margin - 0.5);
+  await expect(inner.top - outer.top, `${what}: top`).toBeGreaterThanOrEqual(margin - 0.5);
+  await expect(outer.right - inner.right, `${what}: right`).toBeGreaterThanOrEqual(margin - 0.5);
+  await expect(outer.bottom - inner.bottom, `${what}: bottom`).toBeGreaterThanOrEqual(margin - 0.5);
+}
+/** The ten-frame cell of counted object `i` (frame ⌊i / 10⌋, cell i mod 10). */
+function frameCell(root: HTMLElement, i: number): HTMLElement {
+  const frame = root.querySelectorAll('.ni-objects__frame')[Math.floor(i / 10)] as Element;
+  return frame.querySelectorAll<HTMLElement>('.ni-objects__cell')[i % 10] as HTMLElement;
+}
+const objIndex = (el: Element) =>
+  Number((el.closest('.ni-tapc__obj') as HTMLElement).dataset.obj?.replace('obj-', ''));
+
 /**
- * Pip's count on a ten-frame picture: one numbered badge, the latest count `n`, centred on its own
- * object (numeral ≥ 32 px), inside the frame and clear of every other object's drawing; each of
- * the other n − 1 counted objects has a small dot, and no dot touches another object's drawing.
+ * Counting on a ten-frame picture (marks equal the number): no number on any object; exactly `n`
+ * dots, one in each counted cell — fully inside its frame cell, ≤ 30 % of the cell, ≥ 3 px clear
+ * of its own drawing and clear of every other drawing; and ONE running count `n` (numeral
+ * ≥ 32 px) inside the widget and the picture card, outside every frame and clear of every drawing.
  */
 async function expectFrameMarks(root: HTMLElement, n: number) {
   await settle(root);
   const sprites = [...root.querySelectorAll<HTMLElement>('.ni-tapc__sprite')];
-  const overlaps = (a: DOMRect, o: DOMRect) =>
-    !(a.right <= o.left || o.right <= a.left || a.bottom <= o.top || o.bottom <= a.top);
-  const badges = [...root.querySelectorAll<HTMLElement>('.ni-tapc__mark')];
-  await expect(badges.map((b) => Number(b.textContent))).toEqual([n]);
-  const badge = badges[0] as HTMLElement;
-  const own = badge.closest('.ni-tapc__obj') as HTMLElement;
-  const m = badge.getBoundingClientRect();
-  const b = own.getBoundingClientRect();
-  await expect(Math.abs(m.left + m.width / 2 - (b.left + b.width / 2))).toBeLessThan(1);
-  await expect(Math.abs(m.top + m.height / 2 - (b.top + b.height / 2))).toBeLessThan(1);
-  await expect(Number.parseFloat(getComputedStyle(badge).fontSize)).toBeGreaterThanOrEqual(32);
-  const frame = [...root.querySelectorAll('.ni-objects__frame')].find((f) =>
-    overlaps(m, f.getBoundingClientRect()),
-  ) as Element;
-  const fr = frame.getBoundingClientRect();
-  await expect(
-    m.left >= fr.left && m.right <= fr.right && m.top >= fr.top && m.bottom <= fr.bottom,
-  ).toBe(true);
+  await expect(root.querySelectorAll('.ni-tapc__mark')).toHaveLength(0);
   const dots = [...root.querySelectorAll<HTMLElement>('.ni-tapc__dot')];
-  await expect(dots).toHaveLength(n - 1);
-  for (const mark of [badge, ...dots]) {
-    const r = mark.getBoundingClientRect();
-    const mine = mark.closest('.ni-tapc__obj')?.querySelector('.ni-tapc__sprite');
+  await expect(dots).toHaveLength(n);
+  await expect(dots.map(objIndex).sort((a, b) => a - b)).toEqual(
+    Array.from({ length: n }, (_, i) => i),
+  );
+  for (const dot of dots) {
+    const i = objIndex(dot);
+    const d = dot.getBoundingClientRect();
+    const cell = frameCell(root, i).getBoundingClientRect();
+    await expectWithin(d, cell, 0, `dot ${i + 1} in its cell`);
+    await expect(d.width, `dot ${i + 1} size`).toBeLessThanOrEqual(0.3 * cell.width);
+    const mine = dot.closest('.ni-tapc__obj')?.querySelector('.ni-tapc__sprite') as Element;
+    const own = mine.getBoundingClientRect();
+    const gap = Math.max(d.left - own.right, own.left - d.right, d.top - own.bottom);
+    await expect(gap, `dot ${i + 1} clear of its own drawing`).toBeGreaterThanOrEqual(3 - 0.5);
     for (const s of sprites) {
       if (s === mine) continue;
-      await expect(
-        overlaps(r, s.getBoundingClientRect()),
-        'a count mark covers another object',
-      ).toBe(false);
+      await expect(overlaps(d, s.getBoundingClientRect()), `dot ${i + 1} on another`).toBe(false);
     }
   }
+  const counts = [...root.querySelectorAll<HTMLElement>('.ni-tapc__count')];
+  await expect(counts.map((c) => Number(c.textContent))).toEqual([n]);
+  const count = counts[0] as HTMLElement;
+  await expect(Number.parseFloat(getComputedStyle(count).fontSize)).toBeGreaterThanOrEqual(32);
+  const c = count.getBoundingClientRect();
+  await expectWithin(c, root.getBoundingClientRect(), 0, 'count in the widget');
+  const card = root.querySelector('.ni-tapc__picture') as HTMLElement;
+  await expectWithin(c, card.getBoundingClientRect(), 3, 'count in the picture card');
+  for (const f of root.querySelectorAll('.ni-objects__frame')) {
+    await expect(overlaps(c, f.getBoundingClientRect()), 'count off the frames').toBe(false);
+  }
+  for (const s of sprites) {
+    await expect(overlaps(c, s.getBoundingClientRect()), 'count off every drawing').toBe(false);
+  }
+}
+
+/**
+ * Pip's counting highlight on a frame cell (the object being counted, mid-count) stays inside its
+ * frame cell: a ring 5 px inside the object's box, never a lift or a ring outside it.
+ */
+async function expectCountingInCell(root: HTMLElement) {
+  const now = await waitFor(() => {
+    const el = root.querySelector<HTMLElement>('.ni-tapc__obj[data-counting="true"]');
+    if (!el) throw new Error('nothing is being counted');
+    return el;
+  });
+  const style = getComputedStyle(now, '::before');
+  await expect(style.content).not.toBe('none');
+  const inset = Number.parseFloat(style.top);
+  const b = now.getBoundingClientRect();
+  const ring = {
+    left: b.left + inset,
+    top: b.top + inset,
+    right: b.right - inset,
+    bottom: b.bottom - inset,
+  };
+  await expectWithin(ring, frameCell(root, objIndex(now)).getBoundingClientRect(), 0, 'ring');
+  await expect(getComputedStyle(now).outlineStyle).toBe('none');
 }
 
 /**
@@ -678,9 +725,10 @@ export const DemoReducedMotion: Story = {
 const frameCount: WidgetDemo = createDemoController({ strict: true });
 
 /**
- * Pip counts aloud on a double ten-frame picture (follow-up from #76): no count mark covers the
- * cell above or any other crab. Counted cells keep a small dot; only the latest count shows its
- * number, centred on its own crab — part-way (7, first frame) and at the end (15, second frame).
+ * Pip counts aloud on a double ten-frame picture (follow-up from #76): the marks equal the number.
+ * Every counted cell gets a dot inside the cell (its crab moves up, clear of it) and the running
+ * count shows once, in the card's top-right corner, over no crab — part-way (7, first frame) and
+ * at the end (15 dots and one "15").
  */
 export const DemoCountAloudTenFrame: Story = {
   globals: { ageMode: 'k', motion: 'reduced' },
@@ -692,6 +740,100 @@ export const DemoCountAloudTenFrame: Story = {
     await expectFrameMarks(root, 7);
     await frameCount.play({ op: 'count-aloud', args: { upTo: 15 } });
     await expectFrameMarks(root, 15);
+  },
+};
+
+const frameCountMin: WidgetDemo = createDemoController({ strict: true });
+
+/**
+ * DemoCountAloudTenFrame at the 960 × 600 minimum (widget area 906 × 373), where the K pad leaves
+ * the frame cells ~36 px: the same rules hold (dots inside their own cells, ≤ 30 % of the cell,
+ * clear of every crab; one running count ≥ 32 px, inside the widget, over no crab), and Pip's
+ * counting highlight stays inside the cell being counted.
+ */
+export const DemoCountAloudTenFrameMin: Story = {
+  globals: { ageMode: 'k' },
+  args: { config: doubleFrame, tier: 'pictorial', disabled: true, demo: frameCountMin },
+  parameters: { area: widgetArea(960, 600) },
+  render: renderInArea,
+  play: async ({ canvasElement }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    await expect(root).toHaveAttribute('data-frames', 'true');
+    // The picture takes the width left beside the pad, inside the widget, never under the pad.
+    await expect(root).toHaveAttribute('data-arrange', 'side');
+    await expect(root.scrollWidth).toBeLessThanOrEqual(root.clientWidth + 1);
+    const card = (root.querySelector('.ni-tapc__picture') as HTMLElement).getBoundingClientRect();
+    const answer = (root.querySelector('.ni-tapc__answer') as HTMLElement).getBoundingClientRect();
+    await expect(card.right).toBeLessThanOrEqual(answer.left);
+    await expectWithin(card, root.getBoundingClientRect(), 0, 'the picture card');
+    // Room for a counted crab above its dot: cells of at least 48 px.
+    await expect(frameCell(root, 0).getBoundingClientRect().width).toBeGreaterThanOrEqual(48);
+    const counting = frameCountMin.play({ op: 'count-aloud', args: { upTo: 7 } });
+    await expectCountingInCell(root);
+    await counting;
+    await expectFrameMarks(root, 7);
+    await frameCountMin.play({ op: 'count-aloud', args: { upTo: 15 } });
+    await expectFrameMarks(root, 15);
+  },
+};
+
+/**
+ * K, concrete, on a ten-frame (marks on; no template generates this today, the format allows it):
+ * the frame cells are tap targets, every one ≥ 80 px and 12 px apart. Tapping counts with a dot
+ * per counted cell and one running count.
+ */
+export const TenFrameConcreteK: Story = {
+  globals: { ageMode: 'k' },
+  args: {
+    config: {
+      ...leaves,
+      set: { count: 7, sprite: 'crab', layout: 'ten-frame', layoutSeed: 559465306 },
+    },
+    tier: 'concrete',
+  },
+  play: async ({ canvasElement }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    await expect(objects(root)).toHaveLength(7);
+    for (const o of objects(root)) await expectTargetSize(o, 'k');
+    await expectTargetGaps(objects(root));
+    for (let i = 0; i < 4; i++) await userEvent.click(obj(root, i));
+    await expectFrameMarks(root, 4);
+    await expect(obj(root, 3)).toHaveAccessibleName(/, number 4$/);
+  },
+};
+
+/**
+ * CNT.19.t2 seed 1 (concrete, a real generated item): 29 crabs on three plates (groups of 10, 10,
+ * 9). Plates are not ten-frames: each counted crab keeps its numbered badge above it (1 … n), as
+ * before, with no frame dots and no corner count.
+ */
+const groupsOfTen: ConfigFor<'tap-count'> = {
+  format: 'tap-count',
+  set: { count: 29, sprite: 'crab', layout: 'groups', layoutSeed: 11681668, groups: [10, 10, 9] },
+  mode: 'how-many',
+  input: 'auto',
+  marks: true,
+  countAloud: true,
+};
+
+export const GroupsOfTenBadges: Story = {
+  args: { config: groupsOfTen },
+  play: async ({ canvasElement }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    await expect(root).not.toHaveAttribute('data-frames');
+    await expect(root.querySelectorAll('.ni-objects__frame[data-kind="plate"]')).toHaveLength(3);
+    for (let i = 0; i < 12; i++) await userEvent.click(obj(root, i));
+    await expect(marks(root)).toEqual(Array.from({ length: 12 }, (_, i) => i + 1));
+    await expect(root.querySelectorAll('.ni-tapc__dot')).toHaveLength(0);
+    await expect(root.querySelectorAll('.ni-tapc__count')).toHaveLength(0);
+    await expectBadgeNumerals(root);
+    // Each badge sits on its own crab's top-right end, above the drawing.
+    for (const badge of root.querySelectorAll<HTMLElement>('.ni-tapc__mark')) {
+      const box = (badge.closest('.ni-tapc__obj') as HTMLElement).getBoundingClientRect();
+      const m = badge.getBoundingClientRect();
+      await expect(m.bottom).toBeLessThanOrEqual(box.top + box.height * 0.1);
+      await expect(Math.abs(m.right - box.right)).toBeLessThan(1);
+    }
   },
 };
 
