@@ -130,8 +130,11 @@ ui.widget.chart.slot:
 ui.widget.chart.at:
   text: "Above {n}"
   level: K
-ui.widget.chart.less:
-  text: "Take one away from the {name}"
+ui.widget.chart.take-back:
+  text: "Take one back"
+  level: K
+ui.widget.chart.half-picture:
+  text: "Half a picture"
   level: K
 ui.widget.chart.mark.tally:
   text: "Tally mark"

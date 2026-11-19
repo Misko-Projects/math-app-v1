@@ -193,7 +193,10 @@ function lineGeometry(
   }));
   const geo: SlotGeometry[] = slots.map((s, i) => {
     const v = values[i] ?? 0;
-    const lane = { x: at(i) - spacing / 2, y: top, w: spacing, h: axisY - top };
+    // Each position's lane is the strip around it, clipped to the chart.
+    const x0 = Math.max(4, at(i) - spacing / 2);
+    const x1 = Math.min(width - 4, at(i) + spacing / 2);
+    const lane = { x: x0, y: top, w: x1 - x0, h: axisY - top };
     return {
       ...s,
       index: i,
@@ -246,14 +249,18 @@ export function chartGeometry(chart: ChartSpec, opts: ChartLayoutOptions): Chart
 
   if (chart.orientation === 'horizontal') {
     const axisH = chart.kind === 'bar' ? NUMERAL_PX + 22 : 0;
-    const labelW = Math.min(200, Math.max(o.target, 150, Math.round(o.width * 0.24)));
+    // A table is a label column and a count column that share the width it has.
+    const tableW = Math.round(Math.min(132, Math.max(72, (o.width - 2 * PAD) * 0.38)));
+    const labelW =
+      chart.kind === 'table'
+        ? Math.max(o.target, Math.min(200, o.width - 2 * PAD - tableW))
+        : Math.min(200, Math.max(o.target, 150, Math.round(o.width * 0.24)));
     const avail = o.height - keyH - axisH - 2 * PAD;
     const rowH = Math.max(o.target, Math.min(104, (avail - (n - 1) * o.gap) / n));
     const rowsH = n * rowH + (n - 1) * o.gap;
     const y0 = PAD + keyH;
     const height = Math.max(o.height, y0 + rowsH + axisH + PAD);
     const plotX = PAD + labelW + (chart.kind === 'table' ? 0 : 16);
-    const tableW = 132;
     const plotR =
       chart.kind === 'table'
         ? plotX + tableW

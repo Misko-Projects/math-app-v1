@@ -1,0 +1,179 @@
+/* bar-graph-build widget (U05 #14): the data, the chart being built, and the tools (supply chip,
+   take one back, check). */
+
+.ni-bgb {
+  box-sizing: border-box;
+  width: 100%;
+  height: 100%;
+  max-width: 1180px;
+  container: bgb / inline-size;
+}
+.ni-bgb__layout {
+  display: grid;
+  grid-template-columns: minmax(0, 0.75fr) minmax(0, 1.25fr) auto;
+  grid-template-rows: minmax(0, 1fr);
+  align-items: center;
+  gap: 16px;
+  width: 100%;
+  height: 100%;
+}
+.ni-bgb__data,
+.ni-bgb__chart {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  justify-self: stretch;
+  width: 100%;
+  min-width: 0;
+  min-height: 0;
+  height: 100%;
+}
+.ni-bgb__board {
+  box-sizing: border-box;
+  border: 3px solid var(--color-sand-deep);
+  border-radius: var(--radius-card);
+  background: var(--color-paper);
+  box-shadow: var(--shadow-soft);
+}
+.ni-bgb__data .ni-bgb__board {
+  padding: 8px;
+  background: var(--color-cloud);
+}
+
+/* The objects to count: a scattered, fixed heap (decorative; the board names it). */
+.ni-bgb__objects {
+  position: relative;
+}
+.ni-bgb__object {
+  position: absolute;
+  display: block;
+  transform: rotate(var(--tilt, 0deg));
+}
+.ni-bgb__lengths {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 10px;
+  max-width: 300px;
+  padding: 8px;
+}
+.ni-bgb__length {
+  min-width: 56px;
+  padding: 6px 12px 2px;
+  border: 3px solid var(--color-ink);
+  border-radius: var(--radius-pebble);
+  background: var(--color-cloud);
+  color: var(--color-ink);
+  font-family: var(--font-display);
+  font-size: 32px;
+  font-weight: 800;
+  line-height: 1.1;
+  text-align: center;
+}
+
+/* Drop targets over each row, column or line-plot position: clear, so the marks show through. */
+.ni-bgb__laneslot {
+  position: absolute;
+  display: block;
+}
+.ni-bgb__lane {
+  display: block;
+  box-sizing: border-box;
+  width: 100%;
+  height: 100%;
+  border-radius: 12px;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+.ni-bgb__lane:focus-visible {
+  outline: 4px solid var(--color-sea-deep);
+  outline-offset: 2px;
+}
+.ni-bgb__lane[data-armed="true"] {
+  background: rgb(42 157 143 / 0.08);
+}
+.ni-bgb__lane.ni-invite {
+  outline-offset: 4px;
+  border-radius: 14px;
+}
+.ni-bgb__hand {
+  left: calc(50% - 23px);
+  top: calc(50% - 8px);
+}
+
+.ni-bgb__tools {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--target-gap);
+}
+.ni-bgb__supply {
+  display: flex;
+  gap: var(--target-gap);
+}
+.ni-bgb__chip {
+  display: grid;
+  place-items: center;
+  box-sizing: border-box;
+  width: var(--target-min);
+  height: var(--target-min);
+  margin: 0 0 4px;
+  padding: 8px;
+  appearance: none;
+  border: 3px solid var(--color-ink);
+  border-radius: var(--radius-pebble);
+  background: var(--color-cloud);
+  box-shadow:
+    0 5px 0 var(--color-pebble-deep),
+    var(--shadow-highlight);
+}
+.ni-bgb__chip:focus-visible {
+  outline: 4px solid var(--color-sea-deep);
+  outline-offset: 3px;
+}
+.ni-bgb__chip > svg {
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+.ni-bgb__stamp {
+  position: relative;
+  display: block;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+.ni-bgb__stampart {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+/* Half a picture: its left half, the cut edge dashed (as the chart draws it). */
+.ni-bgb__stamp[data-half="true"] {
+  width: 50%;
+  overflow: hidden;
+  border-right: 3px dashed var(--color-ink-soft);
+  justify-self: start;
+}
+.ni-bgb__stamp[data-half="true"] .ni-bgb__stampart {
+  width: 200%;
+}
+.ni-bgb__back {
+  width: var(--target-min);
+  height: var(--target-min);
+}
+.ni-bgb__back:disabled {
+  opacity: 0.55;
+}
+
+/* Narrow (portrait): data on top, the chart, the tools in a row. */
+@container bgb (max-width: 760px) {
+  .ni-bgb__layout {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: minmax(0, 0.8fr) minmax(0, 1.2fr) auto;
+  }
+  .ni-bgb__tools {
+    flex-direction: row;
+    justify-content: center;
+  }
+}

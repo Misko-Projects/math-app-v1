@@ -15,6 +15,7 @@ export const widgetRegistry: WidgetRegistry = {
   'numeral-pick': () => import('./numeral-pick/NumeralPickWidget'),
   // U05 (#14) patterns and data
   'bar-graph-read': () => import('./bar-graph-read/BarGraphReadWidget'),
+  'bar-graph-build': () => import('./bar-graph-build/BarGraphBuildWidget'),
 };
 
 /** Formats that have a registered widget. */
