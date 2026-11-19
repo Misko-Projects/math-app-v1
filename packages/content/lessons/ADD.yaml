@@ -1,0 +1,113 @@
+# Authored lessons (03 §4.5, §6). Skills without an entry get an auto lesson (03 §6.4).
+# ADD.08 (gateway): make ten on the double ten-frame (8 + 5: move 2 over, ten and 3 make 13). The
+# faded examples move to the open number line (jump to ten, then the rest), a second
+# representation (03 §6.4); their steps come from the generator's solution.
+strand: ADD
+lessons:
+  - skillId: ADD.08
+    mode: authored
+    templateId: ADD.08.t1
+    worked:
+      - params: { a: 8, b: 5, op: "+", unknown: result, family: make-ten }
+        steps:
+          - actor: demo
+            say: ls.ADD.08.w1.s1
+            vars: { a: 8, b: 5 }
+            action: { op: show-addends }
+          - actor: demo
+            say: ls.ADD.08.w1.s2
+            vars: { give: 2 }
+            action: { op: move-counters, args: { fromFrame: 1, toFrame: 0, count: 2 } }
+          - actor: demo
+            say: ls.ADD.08.w1.s3
+            action: { op: highlight, args: { target: frame-0 } }
+          - actor: demo
+            say: ls.ADD.08.w1.s4
+            vars: { keep: 3, n: 13 }
+            action: { op: count-total }
+    faded:
+      - templateId: ADD.08.t3
+        params: { a: 9, b: 4, op: "+", unknown: result, family: make-ten }
+        childSteps: 1
+      - templateId: ADD.08.t3
+        params: { a: 7, b: 6, op: "+", unknown: result, family: make-ten }
+        childSteps: 2
+    scaffolded: { count: 2, hintStart: 2 }
+    testOut: { items: 3, minCorrect: 3 }
+    outro: ls.ADD.08.outro
+
+  # ADD.10 (gateway): the balance shows what "=" means. 3 + 4 shells against 5: the light side goes
+  # up, counting on from 5 to 7 finds what it is missing, and only the last step names and places
+  # the two more that make it level, so 3 + 4 is the same as 5 + 2. The faded examples move to the
+  # equation (a second representation, 03 §6.4), with steps from the generator's solution. The
+  # test-out is pinned to the constructed templates (objects and symbols): the balance judge and
+  # compare templates answer with a choice, which the compiler cannot tell from balance's formats.
+  - skillId: ADD.10
+    mode: authored
+    templateId: ADD.10.t1
+    worked:
+      - params: { form: a+b=c+_, mode: make-equal, a: 3, b: 4, c: 5 }
+        steps:
+          - actor: demo
+            say: ls.ADD.10.w1.s1
+            vars: { a: 3, b: 4 }
+            action: { op: highlight-side, args: { side: left } }
+          - actor: demo
+            say: ls.ADD.10.w1.s2
+            vars: { c: 5 }
+            action: { op: highlight-side, args: { side: right } }
+          - actor: demo
+            say: ls.ADD.10.w1.s3
+            vars: { c: 5, m: 7 }
+            action: { op: highlight-side, args: { side: right } }
+          - actor: demo
+            say: ls.ADD.10.w1.s4
+            vars: { a: 3, b: 4, c: 5, n: 2 }
+            action:
+              { op: place, args: { side: right, term: { object: shell, count: 1 }, count: 2 } }
+    faded:
+      - templateId: ADD.10.t5
+        params: { form: a+b=c+_, a: 5, b: 3, c: 6 }
+        childSteps: 1
+      - templateId: ADD.10.t5
+        params: { form: a+b=_+c, a: 6, b: 2, c: 5 }
+        childSteps: 2
+    scaffolded: { count: 2, hintStart: 2 }
+    testOut: { items: 3, minCorrect: 3, templateIds: [ADD.10.t2, ADD.10.t5] }
+    outro: ls.ADD.10.outro
+
+  # ADD.11 (gateway): the box can be on either side. 8 + □ = 11 on the balance: the right pan is
+  # 11, the left has 8 and the box, and 3 makes both sides 11. The faded examples are equations
+  # with the box first and on the right of a two-sided equation (steps from the generator). The
+  # test-out is pinned to the constructed bar-model and symbol templates (03 §6.5).
+  - skillId: ADD.11
+    mode: authored
+    templateId: ADD.11.t1
+    worked:
+      - params: { form: a+_=c, op: "+", a: 8, b: 3, c: 1 }
+        steps:
+          - actor: demo
+            say: ls.ADD.11.w1.s1
+            vars: { n: 11 }
+            action: { op: highlight-side, args: { side: right } }
+          - actor: demo
+            say: ls.ADD.11.w1.s2
+            vars: { a: 8 }
+            action: { op: highlight-side, args: { side: left } }
+          - actor: demo
+            say: ls.ADD.11.w1.s3
+            vars: { a: 8, n: 11 }
+          - actor: demo
+            say: ls.ADD.11.w1.s4
+            vars: { b: 3, n: 11 }
+            action: { op: place, args: { side: left, term: { n: 3 } } }
+    faded:
+      - templateId: ADD.11.t4
+        params: { form: _+b=c, op: "+", a: 5, b: 4, c: 1 }
+        childSteps: 1
+      - templateId: ADD.11.t4
+        params: { form: a+b=_+c, op: "+", a: 6, b: 7, c: 5 }
+        childSteps: 2
+    scaffolded: { count: 2, hintStart: 2 }
+    testOut: { items: 3, minCorrect: 3, templateIds: [ADD.11.t3, ADD.11.t4] }
+    outro: ls.ADD.11.outro

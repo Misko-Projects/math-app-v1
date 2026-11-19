@@ -30,21 +30,26 @@ const GRADE_INDEX: Readonly<Record<Grade, number>> = {
 };
 
 /**
- * P(skill known | all its prerequisites known), by the skill's grade label relative to the
- * profile's grade. A skill with an unknown prerequisite is never known (the set is downward
- * closed), so the marginal known-rate of a deep skill is the product along its prerequisite
- * chains: the conditional rates sit above the marginal rates they are meant to produce.
+ * How often a skill is known, by its grade label relative to the profile's grade. A skill with an
+ * unknown prerequisite is never known (the set is downward closed).
+ *
+ * - Content already taught (`wellBelow`, `below`) is a *marginal* target, P(known): a second
+ *   grader knows nearly all of grade 1, however deep the skill sits. A fixed conditional rate would
+ *   compound along prerequisite chains (0.93 per link put a G2 child's make-ten at 0.4), so
+ *   `conditionalKnownRates` calibrates each skill's conditional rate on the graph instead.
+ * - Content being learned (`at`, `above`, `far`) is a *conditional* rate, P(known | prerequisites
+ *   known): within the year, a deeper skill is known less often than the ones before it.
  */
 export interface KnownRates {
-  /** ≤ g − 2 */
+  /** ≤ g − 2, marginal */
   wellBelow: number;
-  /** = g − 1 */
+  /** = g − 1, marginal */
   below: number;
-  /** = g */
+  /** = g, conditional */
   at: number;
-  /** = g + 1 */
+  /** = g + 1, conditional */
   above: number;
-  /** ≥ g + 2 */
+  /** ≥ g + 2, conditional */
   far: number;
 }
 
@@ -174,7 +179,7 @@ const BASE: Omit<LearnerProfile, 'name' | 'grade' | 'known'> = {
   learning: LEARNING,
 };
 
-/** Typical conditional known-rates: a child has nearly all content two grades down. */
+/** Typical marginal known-rates: a child has nearly all content two grades down. */
 export const DEFAULT_KNOWN_RATES: KnownRates = {
   wellBelow: 0.98,
   below: 0.93,
@@ -268,7 +273,8 @@ export interface SimLearner {
   recall(skill: SkillId, now: number): number;
 }
 
-function knownRate(rates: KnownRates, skillGrade: Grade, childGrade: number): number {
+/** The `KnownRates` entry for a skill of `skillGrade`, for a child at grade index `childGrade`. */
+export function knownRate(rates: KnownRates, skillGrade: Grade, childGrade: number): number {
   const d = GRADE_INDEX[skillGrade] - childGrade;
   if (d <= -2) return rates.wellBelow;
   if (d === -1) return rates.below;
@@ -279,6 +285,65 @@ function knownRate(rates: KnownRates, skillGrade: Grade, childGrade: number): nu
 
 const uniform = (rng: Rng, [lo, hi]: readonly [number, number]): number =>
   lo + (hi - lo) * rng.float();
+
+/** Monte Carlo children behind `conditionalKnownRates` (rates stable to about ±0.01). */
+export const CALIBRATION_SAMPLES = 8000;
+const CALIBRATION_SEED = 0x6b0c_a11b;
+const calibrations = new WeakMap<SkillGraph, Map<string, Record<SkillId, number>>>();
+
+/** Whether a skill's `KnownRates` entry is a marginal target (content already taught). */
+export function isMarginalRate(skillGrade: Grade, childGrade: number): boolean {
+  return GRADE_INDEX[skillGrade] - childGrade <= -1;
+}
+
+/**
+ * Each skill's P(known | all its prerequisites known). A conditional `KnownRates` entry is used as
+ * it is. A marginal one is calibrated so that the skill's marginal known-rate is the target: in
+ * topological order, c = min(1, target / q), with q the share of CALIBRATION_SAMPLES fixed-seed
+ * synthetic children who know all its prerequisites. When q is below the target the downward
+ * closure cannot reach it (several prerequisite chains, or a prerequisite with a lower target)
+ * and c = 1: the skill is known whenever its prerequisites are. Deterministic and memoized per
+ * graph, rates and grade.
+ */
+export function conditionalKnownRates(
+  graph: SkillGraph,
+  rates: KnownRates,
+  childGrade: number,
+): Record<SkillId, number> {
+  const key = `${childGrade}:${JSON.stringify(rates)}`;
+  let byKey = calibrations.get(graph);
+  if (!byKey) {
+    byKey = new Map();
+    calibrations.set(graph, byKey);
+  }
+  const memo = byKey.get(key);
+  if (memo) return memo;
+  const rng = createRng(CALIBRATION_SEED).fork(`calibrate:${key}`);
+  const N = CALIBRATION_SAMPLES;
+  const known: Record<SkillId, Uint8Array> = {};
+  const out: Record<SkillId, number> = {};
+  for (const s of graph.nodes) {
+    const prereqs = (graph.prereqs[s] ?? []).map((p) => known[p] as Uint8Array);
+    const eligible = new Uint8Array(N);
+    let q = 0;
+    for (let i = 0; i < N; i += 1) {
+      if (prereqs.every((k) => k[i] === 1)) {
+        eligible[i] = 1;
+        q += 1;
+      }
+    }
+    const skill = graph.skills[s];
+    const rate = skill ? knownRate(rates, skill.grade, childGrade) : 0;
+    const marginal = skill !== undefined && isMarginalRate(skill.grade, childGrade);
+    const c = !marginal ? rate : q === 0 ? 0 : Math.min(1, (rate * N) / q);
+    out[s] = c;
+    const row = new Uint8Array(N);
+    for (let i = 0; i < N; i += 1) row[i] = eligible[i] === 1 && rng.float() < c ? 1 : 0;
+    known[s] = row;
+  }
+  byKey.set(key, out);
+  return out;
+}
 
 /** A synthetic child over `graph` (generic constructor; see PROFILES for K and G2). */
 export function createLearner(
@@ -298,11 +363,11 @@ export function createLearner(
   const known = new Set<SkillId>();
   const ability: Record<SkillId, number> = {};
   const halfLifeDays: Record<SkillId, number> = {};
+  const conditional = conditionalKnownRates(graph, profile.known, g);
   // graph.nodes is topological: prerequisites are decided first.
   for (const s of graph.nodes) {
-    const skill = graph.skills[s];
     const prereqsKnown = (graph.prereqs[s] ?? []).every((p) => known.has(p));
-    const rate = skill ? knownRate(profile.known, skill.grade, g) : 0;
+    const rate = conditional[s] ?? 0;
     const roll = setup.float();
     const jitter = (2 * setup.float() - 1) * profile.abilityJitter;
     const isKnown = prereqsKnown && roll < rate;

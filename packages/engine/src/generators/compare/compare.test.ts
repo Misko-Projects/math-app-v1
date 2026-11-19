@@ -224,6 +224,55 @@ describe('compare.sets', () => {
     expect(() => make(t, { a: 4, b: 6, ask: 'fewer' })).toThrow(GenerationError);
   });
 
+  it('balance make-equal (ALG.05): add objects to the light pan, any amount that balances', () => {
+    const t = tpl('compare.sets', 'balance', { tier: 'concrete', representation: 'balance' });
+    const item = make(t, { a: 6, b: 2, ask: 'make', sprite: 'shell' });
+    expect(item.widget).toMatchObject({ mode: 'make-equal', showTilt: true });
+    expect(item.answer).toEqual({
+      kind: 'state',
+      checker: 'balance.equal',
+      target: { left: 6, right: 2 },
+    });
+    const ex = itemExampleCorrect(item, t);
+    expect(ex).toEqual({ kind: 'state', value: { left: 0, right: 4 } });
+    expect(checkResponse(item, ex).correct).toBe(true);
+    expect(checkResponse(item, { kind: 'state', value: { left: 1, right: 5 } }).correct).toBe(true);
+    expect(checkResponse(item, { kind: 'state', value: { left: 0, right: 3 } }).correct).toBe(
+      false,
+    );
+    const steps = itemSolution(item, t);
+    expect(steps[steps.length - 1]?.action).toEqual({
+      op: 'place',
+      args: { side: 'right', term: { object: 'shell', count: 1 }, count: 4 },
+    });
+    for (const s of steps.slice(0, -1)) expect(s.action?.op).toBe('highlight-side');
+    // The gap, not closeness, sets the difficulty; the pictorial tier hides the tilt.
+    expect(itemFeatures(item, t)).toMatchObject({ gap: 0.6, 'showTilt.off': 0 });
+    expect(itemFeatures(item, t).closeness).toBeUndefined();
+    const pic = tpl('compare.sets', 'balance', { representation: 'balance' });
+    expect(itemFeatures(make(pic, { a: 3, b: 4, ask: 'make' }), pic)).toMatchObject({
+      gap: 0,
+      'showTilt.off': 1,
+    });
+    expect(() => make(t, { a: 4, b: 4, ask: 'make' })).toThrow(GenerationError);
+  });
+
+  it('compare same-or-not (ALG.05): same or not-same', () => {
+    const t = tpl('compare.sets', 'compare', { tier: 'concrete' });
+    const same = make(t, { a: 4, b: 4, ask: 'same' });
+    expect(same.widget).toMatchObject({ ask: 'same-or-not', allowMatchLines: true });
+    expect(same.answer).toEqual({ kind: 'choice', id: 'same' });
+    const not = make(t, { a: 4, b: 6, ask: 'same' });
+    expect(not.answer).toEqual({ kind: 'choice', id: 'not-same' });
+    const steps = itemSolution(not, t);
+    expect(steps[steps.length - 1]).toMatchObject({
+      say: 'gen.compare.sets.not-same',
+      action: { op: 'answer', args: { id: 'not-same' } },
+    });
+    for (const item of [same, not]) checkItem(t, item);
+    expect(() => make(t, { a: 4, b: 6, ask: 'same', conflict: true })).toThrow(GenerationError);
+  });
+
   it('rejects the conflict cue where it cannot be drawn', () => {
     expect(() =>
       make(tpl('compare.sets', 'compare', { representation: 'ten-frame' }), {

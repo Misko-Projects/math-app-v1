@@ -43,7 +43,7 @@ export const ESTIMATE_FLASH_MS = 2000;
 
 const round10 = (x: number): number => Math.max(10, Math.round(x / 10) * 10);
 
-/** The numeral-pick answer: n to the nearest ten. */
+/** n to the nearest ten: what the dot-flash and number-pad solutions say (numeral-pick answers with estimateRung). */
 export const estimateAnswer = (n: number): number => round10(n);
 
 /** The numeral-pick options of every item: estimate to a benchmark, never to a near neighbour. */

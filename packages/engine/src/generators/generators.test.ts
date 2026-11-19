@@ -635,6 +635,32 @@ const ADDSUB: Case[] = [
     },
     widget: { goal: 'subtract', labelsEvery: 5, path: 'line' },
   },
+  // K01 (#11): rekenrek, dot-flash and number-bond (more in addsub/facts.test.ts).
+  {
+    name: 'rekenrek 8 + 5 (make ten)',
+    t: tpl('addsub.facts', 'rekenrek', { tier: 'concrete' }),
+    params: { a: 8, b: 5, family: 'make-ten' },
+    answer: {
+      kind: 'state',
+      checker: 'rekenrek.total',
+      target: { n: 13, rowRule: 'fill-top-first', value: 13 },
+    },
+    widget: { preset: [8, 5], mode: 'make-ten', thenAsk: 'total' },
+  },
+  {
+    name: 'dot-flash 4 + 4',
+    t: tpl('addsub.facts', 'dot-flash'),
+    params: { a: 4, b: 4, family: 'doubles' },
+    answer: { kind: 'number', value: 8 },
+    widget: { stimulus: { kind: 'dots', arrangement: 'groups', groups: [4, 4] } },
+  },
+  {
+    name: 'number-bond 12 − 5 (think addition)',
+    t: tpl('addsub.facts', 'number-bond'),
+    params: { a: 12, b: 5, op: '-', family: 'think-add' },
+    answer: { kind: 'number', value: 7 },
+    widget: { whole: 12, parts: [5, null], mode: 'missing-part' },
+  },
 ];
 
 describe.each([
@@ -1037,9 +1063,9 @@ describe('addsub family enforcement', () => {
       (p) => p.a === p.b,
     ],
     [
-      'make-ten with b in [2, 4]',
+      'make-ten with b in [2, 4] (one-digit addends that pass ten)',
       { a: int(0, 10), b: int(2, 4), family: c('make-ten'), op: c('+') },
-      (p) => (p.a as number) + (p.b as number) === 10,
+      (p) => (p.a as number) <= 9 && (p.a as number) + (p.b as number) >= 11,
     ],
     [
       'plus1 with a in [2, 9]',
@@ -1049,7 +1075,7 @@ describe('addsub family enforcement', () => {
     [
       'back-to-ten',
       { a: int(11, 19), b: int(0, 9), family: c('back-to-ten'), op: c('-') },
-      (p) => (p.a as number) - (p.b as number) === 10,
+      (p) => (p.a as number) - (p.b as number) <= 10 && (p.b as number) >= 1,
     ],
   ])(
     '%s: every item is in the family and every param in its ParamSpec',
@@ -1083,12 +1109,14 @@ describe('registry', () => {
   it('has exactly the registered generators', () => {
     expect(registry.ids()).toEqual([
       'addsub.facts',
+      'addsub.three',
       'bond.parts',
       'compare.numbers',
       'compare.sets',
       'count.ordinal',
       'count.sequence',
       'count.set',
+      'equality.eq',
       'estimate.quantity',
       'geo.compose',
       'geo.draw',
@@ -1098,6 +1126,7 @@ describe('registry', () => {
       'mea.massvolume',
       'numberline.place',
       'pv.number',
+      'story.addsub',
       'subitize.flash',
     ]);
     expect(

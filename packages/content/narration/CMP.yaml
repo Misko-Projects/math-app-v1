@@ -13,6 +13,9 @@ sk.CMP.06.intro:
   text: "Let's put numbers in order, from small to big."
 sk.CMP.07.intro:
   text: "Teen numbers have a ten. Let's compare them!"
+sk.CMP.08.intro:
+  text: "Let's compare numbers with <, > and =."
+  say: "Let's compare numbers with less than, greater than and equals."
 sk.CMP.09.intro:
   text: "We see the start and the end. Where does the number go?"
 sk.CMP.13.intro:
@@ -78,6 +81,12 @@ tp.CMP.07.t3.prompt:
   text: "Put the frames in order, fewest dots first."
 tp.CMP.07.t4.prompt:
   text: "Put the numbers in order, smallest first."
+tp.CMP.08.t1.prompt:
+  text: "Add blocks to the light side. Stop when it balances."
+tp.CMP.08.t2.prompt:
+  text: "Which mark goes between the two numbers?"
+tp.CMP.08.t4.prompt:
+  text: "What number makes it true?"
 tp.CMP.09.t1.prompt:
   text: "The line shows the start and the end. Where does {target} go?"
 tp.CMP.09.t2.prompt:
