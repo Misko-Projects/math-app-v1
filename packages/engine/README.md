@@ -216,6 +216,28 @@ Response shapes and state-checker targets of the place-value and operations form
 - `area-tiles` features scale by `(area − 1) / 10`; `array-build` and `equal-groups` `product` by `(product − 1) / 10`; `equal-share` `items` by `(items − recipients) / 10`, so the easiest item scores 0 (03 §5.4).
 - The property test's near-miss mutations (03 §9.4 step 5) also add or remove one piece, row, column, item, leftover or tile in these shapes; A decompose split line may also be taken away. `array.dims` exempts moving the split line, and `tiles.cover` exempts taking away a line when the rest is still a valid decomposition.
 
+## Conventions the U05 formats fix (#14)
+
+### Time and money
+
+Money helpers (purses, trays, multiset keys, fewest pieces) are in `src/formats/money.ts`. A dollar bill (`dollar`) is 100¢.
+
+| Format | Response | Checker target |
+|---|---|---|
+| `coin-pay` `pay` | `{ coins: { penny, nickel, dime, quarter, dollar? } }`: the tray's counts (`dollar` only when the purse has bills) | `coins.total` `{ cents, purse? }`: any pieces worth `cents`, within the purse when given |
+| `coin-pay` `requireFewest` | same | `coins.fewest` `{ cents, purse? }`: also the fewest pieces the purse allows (no purse: every coin unlimited, no bills) |
+| `coin-pay` `new-way` | same | `coins.total` (or `coins.fewest`) with `found`: the tray's multiset key must not be in it |
+| `make-change` | `{ coins }`: the change given | `coins.total` `{ cents: paid − price, purse? }` |
+| `coin-count` `cents` | `number` (cents) | — |
+| `coin-count` `dollars-cents` | `numbers` `[dollars, cents]` (ordered) | — |
+| `coin-count` `compareWith` | `choice` `left` \| `right` \| `same` | — |
+
+- **Multiset key** (`trayKey`): `q<n>d<n>n<n>p<n>`, quarters first, with `b<n>` in front when the tray holds dollar bills (`"q1d0n1p0"`, `"b1q1d0n0p0"`). `found` keys are compared in canonical form (a `b0` prefix is dropped), and every `found` key of a `new-way` config is a way to pay `target`.
+- **Ops.** coin-pay and make-change `drop {coin, to?, index?}`: one piece from the purse into the tray (never more of a kind than the purse holds); `to: 'purse'` takes one back (the tray's `index`-th piece, else the last of that kind). coin-pay `count-up {coin?}` drops `coin` and says the new running total (no `coin`: counts the tray, biggest first), `say-total` says the tray's total. make-change `count-up {to}` gives the one piece worth `to` − (price + change so far), or nothing when no piece of the purse is. The generic `answer {coins}` sets the whole tray. coin-count `sort-coins` (biggest first, bills before coins, stable), `count-up {index, side?}` (the running total is the sum of the pieces shown up to `index`), `say-running {value}`, and `answer {value}` / `{values}` / `{id}`.
+- **coin-count pieces** are drawn bills first, then the coins in config order (a `sorted` config lists them biggest first). Ids are `bill-<i>` and `coin-<i>` (config index), `r-bill-<i>` and `r-coin-<i>` for the `compareWith` purse.
+- **Config rules** (`configSchema`): the purse can pay the target (make-change: the change) exactly, within its counts; at most $10 to pay (`MAX_PAY_CENTS`); `found` only in `new-way`, and a way not found yet exists. coin-count draws at most 20 coins (12 a purse with `compareWith`) and 5 bills of $1, $2, $5, $10 or $20.
+- **Features.** coin-pay `target` and make-change `change` are `(cents − 1) / 25`; coin-pay `kinds` counts coin kinds (bills are the `dollars` feature: target ≥ 100¢); coin-count `kinds` counts bills as one kind and both purses' coins; make-change `crossDollar` is a whole dollar strictly between price and paid.
+
 ## Tests
 
 - `pnpm exec vitest run --project engine`: unit tests under `src/` and the fixture property test under `test/`. Seeds come from `CONTENT_PROPERTY_N`: 50 locally, 100 on PR CI, 500 nightly.

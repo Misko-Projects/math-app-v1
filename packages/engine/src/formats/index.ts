@@ -6,11 +6,14 @@ import { areaTiles } from './area-tiles';
 import { arrayBuild } from './array-build';
 import { baseTenBuild } from './base-ten-build';
 import { baseTenTrade } from './base-ten-trade';
+import { coinCount } from './coin-count';
+import { coinPay } from './coin-pay';
 import { dotFlash } from './dot-flash';
 import { equalGroups } from './equal-groups';
 import { equalShare } from './equal-share';
 import { expandedForm } from './expanded-form';
 import { hundredChart } from './hundred-chart';
+import { makeChange } from './make-change';
 import { makeSet } from './make-set';
 import { numberBond } from './number-bond';
 import { numberLineJump } from './number-line-jump';
@@ -46,6 +49,10 @@ const MODELS: Partial<Record<ItemFormat, AnyModel>> = {
   'equal-groups': equalGroups,
   'equal-share': equalShare,
   'area-tiles': areaTiles,
+  // U05 (#14)
+  'coin-pay': coinPay,
+  'coin-count': coinCount,
+  'make-change': makeChange,
 };
 
 export function formatModel<F extends ItemFormat>(

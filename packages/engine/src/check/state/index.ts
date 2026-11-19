@@ -9,6 +9,8 @@ import { basetenExact } from './baseten.exact';
 import { basetenValue } from './baseten.value';
 import { bondNewWay } from './bond.newWay';
 import { bondSplit } from './bond.split';
+import { coinsFewest } from './coins.fewest';
+import { coinsTotal } from './coins.total';
 import { composeFill } from './compose.fill';
 import { composeRelative } from './compose.relative';
 import { gridPolygon } from './grid.polygon';
@@ -53,6 +55,9 @@ const CHECKERS: Partial<Record<StateCheckerId, StateChecker>> = {
   'tiles.cover': tilesCover,
   // K01 (#11): balance make-equal (the balance format has no model yet, U04)
   'balance.equal': balanceEqual,
+  // U05 (#14)
+  'coins.total': coinsTotal,
+  'coins.fewest': coinsFewest,
 };
 
 export function stateChecker(id: StateCheckerId): StateChecker | undefined {
