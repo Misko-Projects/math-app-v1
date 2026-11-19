@@ -55,6 +55,29 @@ describe('<ParentHome> for a family with no children', () => {
     expect(await app.store.allProfiles()).toEqual([]);
   });
 
+  it('a signed-out device with no children gets no Sync hint (it has no Sync now button)', async () => {
+    const device = testDevice();
+    restore = device.enableLiveQueries();
+    const app = await device.boot();
+    booted.push(app);
+    // Never paired: no device token, so This device offers joining instead of syncing.
+    expect((await app.store.device()).deviceToken).toBeUndefined();
+    const api = { logout: vi.fn(), pairStart: vi.fn() } as unknown as ParentApi;
+    const router = createMemoryRouter([{ path: '/parent', element: <ParentHome /> }], {
+      initialEntries: ['/parent'],
+    });
+    render(
+      <AppProviders services={app}>
+        <ParentContextForTests api={api} gate={createParentGate({ store: app.store, api })}>
+          <RouterProvider router={router} />
+        </ParentContextForTests>
+      </AppProviders>,
+    );
+    expect(await screen.findByText('No children on this island yet.')).toBeTruthy();
+    expect(screen.queryByText(/Just paired this device\?/)).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Sync now' })).toBeNull();
+  });
+
   it('no app screen recommends resetting the island server', () => {
     // Every source file of the app (tests aside): none may tell a parent to run the reset.
     // From the repo root (pnpm test) or from apps/web (vitest there).
