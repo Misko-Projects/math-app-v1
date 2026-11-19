@@ -44,9 +44,6 @@ export function inArea(area: keyof typeof AREA) {
         boxShadow: 'var(--shadow-soft)',
       }}
     >
-      {/* #76 makes this the host's own rule (main still has a flat 360 px minimum, taller than the
-          smallest landscape area); until it lands, the story applies it so it measures the widget. */}
-      <style>{'.story-widget-area > .ni-widget { min-height: min(360px, 100%); }'}</style>
       <WidgetHost {...args} />
     </div>
   );

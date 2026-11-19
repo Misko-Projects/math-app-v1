@@ -26,7 +26,7 @@ import {
   useUiPreferences,
 } from '../../preferences/UiProvider';
 import { BigButton } from '../../primitives/BigButton';
-import { BackIcon, HandPointerIcon } from '../../primitives/icons';
+import { BackIcon } from '../../primitives/icons';
 import { useWidgetDemo } from '../demo';
 import {
   applyPadKey,
@@ -40,6 +40,7 @@ import {
   shapeFrame,
   useAlive,
   useDemoPause,
+  useInviteHand,
   useSubmitGuard,
   WholeBase,
   WholeOutline,
@@ -99,16 +100,6 @@ function useSize() {
     return () => ro.disconnect();
   }, []);
   return { ref, size };
-}
-
-/** Pip's hand at a point on the stage (fingertip there): one helper, easy to swap later. */
-function InviteHand({ at }: { at: { x: number; y: number } | null }) {
-  if (!at) return null;
-  return (
-    <span className="ni-hand ni-fcut__hand" style={{ left: at.x - 23, top: at.y - 8 }}>
-      <HandPointerIcon />
-    </span>
-  );
 }
 
 /** A knife: a blade and a wooden handle, the blade pointing at `angle` (0 = up). */
@@ -689,13 +680,6 @@ export function FractionCutWidget({
     const o = offsets[i];
     return o && (o.dx !== 0 || o.dy !== 0) ? `translate(${o.dx}px, ${o.dy}px)` : undefined;
   };
-  /** A part's centre on the stage, CSS px (for Pip's hand). */
-  const partCentre = (i: number) => {
-    const g = geoms[i];
-    const o = offsets[i] ?? { dx: 0, dy: 0 };
-    if (!g) return null;
-    return { x: lay.svgX + (g.cx + o.dx) * scale, y: lay.svgY + (g.cy + o.dy) * scale };
-  };
 
   const nextLine = guides.findIndex((_, i) => !state.linesCut.includes(i));
   const invitedLine =
@@ -706,12 +690,32 @@ export function FractionCutWidget({
   const invitedPart =
     invite?.op === 'shade' && typeof invite.args?.part === 'number' ? invite.args.part : null;
   const invitedSlot: 0 | 1 | null = invite?.op === 'answer' ? active : null;
-  const knifeHand = (() => {
-    if (invitedLine === null || !guided) return null;
-    const spot = lay.knives.find((s) => s.line === invitedLine);
-    return spot ? { x: spot.x, y: spot.y + knifePx / 2 - 18 } : null;
-  })();
-  const handAt = knifeHand ?? (invitedPart !== null ? partCentre(invitedPart) : null);
+  // Pip's up-pointing hand under the invited knife, part or box to type into (kit `useInviteHand`).
+  const { hand: inviteHand, rootStyle: handRootStyle } = useInviteHand(
+    ref,
+    (root) => {
+      if (invitedLine !== null && guided) {
+        return root.querySelector<HTMLElement>(`.ni-fcut__knife[data-knife="${invitedLine}"]`);
+      }
+      if (invitedPart !== null) {
+        // A part is an SVG path; the hand only reads its box.
+        return root.querySelector(
+          `path.ni-fcut__part[data-part="${invitedPart}"]`,
+        ) as HTMLElement | null;
+      }
+      if (invitedSlot !== null) {
+        return root.querySelector<HTMLElement>(`.ni-fentry__box[data-slot="${invitedSlot}"]`);
+      }
+      return null;
+    },
+    invitedLine !== null && guided
+      ? `line:${invitedLine}`
+      : invitedPart !== null
+        ? `part:${invitedPart}:${partCount(state)}`
+        : invitedSlot !== null
+          ? `slot:${invitedSlot}`
+          : '',
+  );
 
   const freePreview = (() => {
     if (!freeKnife) return null;
@@ -740,6 +744,7 @@ export function FractionCutWidget({
       data-parts={partCount(state)}
       data-filled={filledCount}
       data-disabled={disabled ? 'true' : undefined}
+      style={handRootStyle}
     >
       <fieldset
         ref={stageRef}
@@ -868,7 +873,6 @@ export function FractionCutWidget({
               );
             })
           : null}
-        <InviteHand at={handAt} />
       </fieldset>
       <div
         ref={toolsRef}
@@ -938,6 +942,7 @@ export function FractionCutWidget({
           />
         ) : null}
       </div>
+      {inviteHand}
     </div>
   );
 }

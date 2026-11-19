@@ -1,6 +1,7 @@
 /* fraction-line widget (U05, #14): the line (ruler, strip) on the left, its tools or pad beside. */
 
 .ni-fline {
+  position: relative;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -194,11 +195,17 @@
   opacity: 0;
   pointer-events: none;
 }
-.ni-fline__hand {
-  pointer-events: none;
-}
 .ni-fline__side {
   display: flex;
   flex: none;
   align-items: center;
+}
+/* The spot Pip invites the child to mark or drop on (its ring is `.ni-invite`). */
+.ni-fline__spot {
+  position: absolute;
+  box-sizing: border-box;
+  width: 44px;
+  border-radius: 22px;
+  outline-offset: 4px;
+  pointer-events: none;
 }

@@ -1,6 +1,7 @@
 /* fraction-cut widget (U05, #14): the whole and its knives on the left, the tools on the right. */
 
 .ni-fcut {
+  position: relative;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -196,9 +197,6 @@
 .ni-fcut__fill-icon {
   width: 72%;
   height: 72%;
-}
-.ni-fcut__hand {
-  pointer-events: none;
 }
 
 @media (prefers-reduced-motion: reduce) {

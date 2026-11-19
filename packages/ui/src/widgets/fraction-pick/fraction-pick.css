@@ -1,6 +1,7 @@
 /* fraction-pick widget (U05, #14): the picture on the left, the choices and "check" beside it. */
 
 .ni-fpick {
+  position: relative;
   display: flex;
   flex-wrap: wrap;
   align-items: center;
@@ -109,14 +110,6 @@
 .ni-fpick__entry {
   display: flex;
   align-items: center;
-}
-/* The demo hand's fingertip rests inside the target's bottom edge, centred. */
-.ni-fpick__hand {
-  left: calc(50% - 23px);
-  top: calc(100% - 30px);
-}
-.ni-fpick__hand--picture {
-  top: calc(100% - 44px);
 }
 .ni-fpick[data-compact="true"] .ni-fpick__answer {
   gap: 16px 20px;

@@ -15,7 +15,7 @@ import {
   useSpeech,
   useUiPreferences,
 } from '../../preferences/UiProvider';
-import { CheckIcon, CloseIcon, HandPointerIcon } from '../../primitives/icons';
+import { CheckIcon, CloseIcon } from '../../primitives/icons';
 import { useWidgetDemo } from '../demo';
 import {
   applyPadKey,
@@ -29,6 +29,7 @@ import {
   StimulusView,
   useAlive,
   useDemoPause,
+  useInviteHand,
   useSubmitGuard,
 } from '../kit';
 import type { ConfigFor, WidgetProps } from '../types';
@@ -78,16 +79,6 @@ function useWidth() {
     return () => ro.disconnect();
   }, []);
   return { ref, width };
-}
-
-/** Pip's hand on an invited target: one small helper, easy to swap for `useInviteHand` later. */
-function InviteHand({ show, className }: { show: boolean; className?: string }) {
-  if (!show) return null;
-  return (
-    <span className={['ni-hand', 'ni-fpick__hand', className].filter(Boolean).join(' ')}>
-      <HandPointerIcon />
-    </span>
-  );
 }
 
 const fractionOf = (s: StimulusSpec | undefined) => (s?.kind === 'fraction' ? s : null);
@@ -242,6 +233,30 @@ export function FractionPickWidget({
       : null;
   const inviteStimulus = invite?.op === 'count-parts' || invitedId === 'stimulus';
   const invitedSlot: 0 | 1 | null = pads && invite?.op === 'answer' && !invitedId ? active : null;
+  // Pip's up-pointing hand under the invited card, the picture or the box to type into (kit
+  // `useInviteHand`). Option ids are matched by value, not in a selector.
+  const { hand: inviteHand, rootStyle: handRootStyle } = useInviteHand(
+    ref,
+    (root) => {
+      if (inviteStimulus) return root.querySelector<HTMLElement>('.ni-fpick__stimulus');
+      if (invitedSlot !== null) {
+        return root.querySelector<HTMLElement>(`.ni-fentry__box[data-slot="${invitedSlot}"]`);
+      }
+      if (invitedId === null) return null;
+      return (
+        [...root.querySelectorAll<HTMLElement>('.ni-pick[data-id]')].find(
+          (el) => el.dataset.id === invitedId,
+        ) ?? null
+      );
+    },
+    inviteStimulus
+      ? 'stimulus'
+      : invitedSlot !== null
+        ? `slot:${invitedSlot}`
+        : invitedId === null
+          ? ''
+          : `opt:${invitedId}`,
+  );
 
   // ---------- render ----------
 
@@ -279,7 +294,6 @@ export function FractionPickWidget({
       ) : (
         <StimulusView spec={stimulus} maxWidth={stimBox.w} maxHeight={stimBox.h} />
       )}
-      <InviteHand show={inviteStimulus} className="ni-fpick__hand--picture" />
     </div>
   ) : null;
 
@@ -312,7 +326,6 @@ export function FractionPickWidget({
                 <span className="ni-fpick__word">{t(o.key)}</span>
               </span>
             </PickCard>
-            <InviteHand show={invitedId === o.id} />
           </span>
         ))}
       </fieldset>
@@ -337,7 +350,6 @@ export function FractionPickWidget({
               highlighted={state.highlighted === o.id || invitedId === o.id}
               onPress={(speak) => choose(o.id, speak)}
             />
-            <InviteHand show={invitedId === o.id} />
           </span>
         ))}
       </fieldset>
@@ -372,12 +384,14 @@ export function FractionPickWidget({
       data-tier={tier}
       data-compact={compact ? 'true' : undefined}
       data-disabled={disabled ? 'true' : undefined}
+      style={handRootStyle}
     >
       {stimulusNode}
       <div className="ni-fpick__answer" data-stacked={stimulus ? undefined : 'true'}>
         {answer}
         {pads ? null : checkButton}
       </div>
+      {inviteHand}
     </div>
   );
 }

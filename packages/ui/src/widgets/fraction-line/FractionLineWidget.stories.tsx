@@ -5,6 +5,7 @@ import { expect, fn, userEvent, waitFor, within } from 'storybook/test';
 import { areaBox, expectFitsArea, inArea } from '../../test-support/fractionStoryArea';
 import { expectTargetGaps, expectTargetSize, pointerDrag } from '../../test-support/storyHelpers';
 import {
+  expectPointerOn,
   expectTraceOrdered,
   findWidget,
   renderWidget,
@@ -418,12 +419,14 @@ export const DemoInvite: Story = {
     const root = await findWidget(canvasElement, ROOT);
     inviteController.invite({ op: 'drop', args: { at: 0.5 } });
     await waitFor(() => expect(root.querySelector('.ni-hand')).not.toBeNull());
-    const h = (root.querySelector('.ni-hand') as HTMLElement).getBoundingClientRect();
-    const tip = h.left + h.width * 0.42;
-    await expect(Math.abs(tip - scaleOf(root, 1).at(0.5).x)).toBeLessThan(3);
+    // The invited spot is ringed, centred on 1/2 and on the strip; the hand points at it.
+    const spot = root.querySelector('.ni-fline__spot') as HTMLElement;
+    const r = spot.getBoundingClientRect();
+    await expect(Math.abs((r.left + r.right) / 2 - scaleOf(root, 1).at(0.5).x)).toBeLessThan(1);
     const strip = (root.querySelector('.ni-fline__strip') as SVGElement).getBoundingClientRect();
-    await expect(h.top + 8).toBeGreaterThanOrEqual(strip.top);
-    await expect(h.top + 8).toBeLessThanOrEqual(strip.bottom);
+    await expect(r.top).toBeGreaterThanOrEqual(strip.top - 1);
+    await expect(r.bottom).toBeLessThanOrEqual(strip.bottom + 1);
+    await expectPointerOn(root.querySelector('.ni-hand') as HTMLElement, spot, root);
   },
 };
 

@@ -527,14 +527,14 @@ export const DemoInvite: Story = {
     await userEvent.click(knife(root, 0));
     inviteController.invite({ op: 'shade', args: { part: 1 } });
     await waitFor(() => expect(part(root, 1)).toHaveAttribute('data-invite', 'true'));
-    const hand = root.querySelector('.ni-hand') as HTMLElement;
-    const h = hand.getBoundingClientRect();
-    const tip = { x: h.left + h.width * 0.42, y: h.top + 8 };
-    const p = part(root, 1).getBoundingClientRect();
-    await expect(tip.x).toBeGreaterThanOrEqual(p.left);
-    await expect(tip.x).toBeLessThanOrEqual(p.right);
-    await expect(tip.y).toBeGreaterThanOrEqual(p.top);
-    await expect(tip.y).toBeLessThanOrEqual(p.bottom);
+    await settle(root);
+    await waitFor(() => expect(root.querySelector('.ni-hand')).not.toBeNull());
+    // The hand is measured where the part comes to rest (parts move apart once cut).
+    await expectPointerOn(
+      root.querySelector('.ni-hand') as HTMLElement,
+      part(root, 1) as unknown as HTMLElement,
+      root,
+    );
   },
 };
 

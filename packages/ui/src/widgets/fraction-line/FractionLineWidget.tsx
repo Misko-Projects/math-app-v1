@@ -17,7 +17,6 @@ import {
 } from 'react';
 import { useInteractionTrace } from '../../interaction/trace';
 import { useNarrationText, useSpeech, useUiPreferences } from '../../preferences/UiProvider';
-import { HandPointerIcon } from '../../primitives/icons';
 import { useWidgetDemo } from '../demo';
 import {
   applyPadKey,
@@ -27,6 +26,7 @@ import {
   padValue,
   useAlive,
   useDemoPause,
+  useInviteHand,
   useSubmitGuard,
 } from '../kit';
 import type { ConfigFor, WidgetProps } from '../types';
@@ -80,16 +80,6 @@ function useWidth() {
     return () => ro.disconnect();
   }, []);
   return { ref, width };
-}
-
-/** Pip's hand at a stage point (fingertip there): one helper, easy to swap later. */
-function InviteHand({ at }: { at: { x: number; y: number } | null }) {
-  if (!at) return null;
-  return (
-    <span className="ni-hand ni-fline__hand" style={{ left: at.x - 23, top: at.y - 8 }}>
-      <HandPointerIcon />
-    </span>
-  );
 }
 
 const near = (a: number, b: number, eps = 1e-6) => Math.abs(a - b) < eps;
@@ -483,13 +473,21 @@ export function FractionLineWidget({
       : invite?.op === 'hop' && typeof invite.args?.k === 'number'
         ? invite.args.k / den
         : null;
-  const handAt =
-    invitedAt !== null
-      ? { x: xOf(invitedAt), y: lineY + (strip ? bandH / 2 : 4) }
-      : invite?.op === 'partition'
-        ? { x: xOf(max / 2), y: lineY + (strip ? bandH / 2 : 4) }
-        : null;
+  // The invited place on the line (a drop or hop lands there; partition points at the middle).
+  const spotAt = invitedAt ?? (invite?.op === 'partition' ? max / 2 : null);
   const invitedSlot: 0 | 1 | null = typing && invite?.op === 'answer' ? active : null;
+  // Pip's up-pointing hand under the invited spot on the line or the box to type into (kit
+  // `useInviteHand`).
+  const { hand: inviteHand, rootStyle: handRootStyle } = useInviteHand(
+    ref,
+    (root) =>
+      spotAt !== null
+        ? root.querySelector<HTMLElement>('.ni-fline__spot')
+        : invitedSlot !== null
+          ? root.querySelector<HTMLElement>(`.ni-fentry__box[data-slot="${invitedSlot}"]`)
+          : null,
+    spotAt !== null ? `at:${spotAt}` : invitedSlot !== null ? `slot:${invitedSlot}` : '',
+  );
 
   const dotPlaced = mode === 'place' && state.marker !== null;
   const dotStyle = (() => {
@@ -587,6 +585,7 @@ export function FractionLineWidget({
       data-tier={tier}
       data-compact={compact ? 'true' : undefined}
       data-disabled={disabled ? 'true' : undefined}
+      style={handRootStyle}
     >
       <div
         ref={stageRef}
@@ -764,11 +763,23 @@ export function FractionLineWidget({
             style={{ left: x0, width: x1 - x0, top: lineY - 20 }}
           />
         )}
-        <InviteHand at={handAt} />
+        {spotAt !== null ? (
+          // The invited spot on the line: a ring Pip's hand points at (and the child sees).
+          <span
+            className="ni-fline__spot ni-invite"
+            aria-hidden="true"
+            style={{
+              left: xOf(spotAt) - 22,
+              top: strip ? lineY : lineY - 22,
+              height: strip ? bandH : 44,
+            }}
+          />
+        ) : null}
       </div>
       <div ref={sideRef} className="ni-fline__side">
         {side}
       </div>
+      {inviteHand}
     </div>
   );
 }
