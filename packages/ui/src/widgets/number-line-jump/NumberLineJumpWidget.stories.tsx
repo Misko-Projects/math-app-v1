@@ -559,6 +559,8 @@ const stonesInvite: WidgetDemo = createDemoController({ strict: true });
 export const InviteAnswerK: Story = {
   globals: { ageMode: 'k' },
   args: { demo: stonesInvite },
+  // In the tablet's widget area, so the whole widget (and the invite) is on one screen.
+  render: inArea('tablet'),
   play: async ({ canvasElement }) => {
     const root = await findWidget(canvasElement, ROOT);
     stonesInvite.invite({ op: 'answer', args: { value: 6 } });
@@ -581,6 +583,8 @@ const bridgeInvite: WidgetDemo = createDemoController({ strict: true });
  */
 export const InviteBridgeOpen: Story = {
   args: { config: openBack, tier: 'pictorial', demo: bridgeInvite },
+  // In the tablet's widget area, so the whole widget (and the invite) is on one screen.
+  render: inArea('tablet'),
   play: async ({ canvasElement }) => {
     const root = await findWidget(canvasElement, ROOT);
     bridgeInvite.invite({ op: 'bridge-to', args: { at: 41 } });
