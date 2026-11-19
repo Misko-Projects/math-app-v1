@@ -3,7 +3,7 @@ import { expect } from 'storybook/test';
 import type { Lighting } from '../../tokens/tokens';
 import { ArtSvg } from '../core/ArtSvg';
 import { paint } from '../core/paint';
-import { CvdCompare, GalleryCell, GalleryGrid, GallerySection } from '../gallery/Gallery';
+import { CvdCompare, GalleryCell, GallerySection } from '../gallery/Gallery';
 import { Glim } from './Glim';
 import { Pebbling } from './Pebbling';
 import { Pip } from './Pip';
@@ -357,13 +357,25 @@ export const HundredWhale: Story = {
   },
 };
 
-/** The specials: Half-Crabs (fractions), Clockfish (o'clock) and Coin Clams. */
+/** One centred row of special Pebblings. */
+const SPECIALS_ROW = {
+  display: 'flex',
+  justifyContent: 'center',
+  alignItems: 'flex-end',
+  gap: 28,
+  width: 'min(1200px, 100%)',
+} as const;
+
+/**
+ * The specials: Half-Crabs (fractions, also at sunset), Clockfish (o'clock) and Coin Clams, and
+ * what a shell does with a number it can't show exactly: it is drawn plain.
+ */
 export const FractionsClocksCoins: Story = {
   parameters: { controls: { disable: true } },
   render: () => (
-    <div style={{ display: 'grid', gap: 28 }}>
+    <div style={{ display: 'grid', gap: 18 }}>
       <GallerySection title="Half-Crabs (fractions)">
-        <GalleryGrid col={170}>
+        <div style={SPECIALS_ROW}>
           {[
             [0.5, '1/2'],
             [0.25, '1/4'],
@@ -378,18 +390,59 @@ export const FractionsClocksCoins: Story = {
                 palette="coral"
                 number={Number(v)}
                 family="fraction"
-                size={160}
+                size={124}
                 title={`half-crab ${name}`}
               />
             </GalleryCell>
           ))}
-        </GalleryGrid>
+        </div>
+      </GallerySection>
+      <GallerySection title="At sunset, and numbers no shell can show (drawn plain)">
+        <div style={SPECIALS_ROW}>
+          {[
+            [0.5, '1/2'],
+            [0.25, '1/4'],
+            [0.75, '3/4'],
+          ].map(([v, name]) => (
+            <GalleryCell key={`sunset ${name}`} name={`${name} at sunset`}>
+              <Pebbling
+                species="crab"
+                palette="coral"
+                number={Number(v)}
+                family="fraction"
+                lighting="sunset"
+                size={124}
+                title={`half-crab ${name} at sunset`}
+              />
+            </GalleryCell>
+          ))}
+          <GalleryCell name="1/7: no such shell">
+            <Pebbling
+              species="crab"
+              palette="coral"
+              number={1 / 7}
+              family="fraction"
+              size={124}
+              title="half-crab given 1/7, drawn plain"
+            />
+          </GalleryCell>
+          <GalleryCell name="7¢: no such coin">
+            <Pebbling
+              species="clam"
+              palette="sand"
+              number={7}
+              family="coin"
+              size={124}
+              title="coin clam given 7, drawn plain"
+            />
+          </GalleryCell>
+        </div>
       </GallerySection>
       <GallerySection title="Clockfish (o'clock) and Coin Clams">
         <div
           style={{
             display: 'grid',
-            gridTemplateColumns: 'repeat(8, minmax(0, 140px))',
+            gridTemplateColumns: 'repeat(8, minmax(0, 128px))',
             gap: 12,
             alignItems: 'end',
             justifyContent: 'center',
@@ -403,7 +456,7 @@ export const FractionsClocksCoins: Story = {
                 palette={(['sky', 'sunshine', 'sea'] as const)[i] ?? 'sky'}
                 number={h}
                 family="clock"
-                size={136}
+                size={124}
                 title={`clockfish ${h}`}
               />
             </GalleryCell>
@@ -415,7 +468,7 @@ export const FractionsClocksCoins: Story = {
                 palette="sand"
                 number={v}
                 family="coin"
-                size={136}
+                size={124}
                 title={`coin clam ${v}`}
               />
             </GalleryCell>
@@ -427,7 +480,7 @@ export const FractionsClocksCoins: Story = {
               number={25}
               family="coin"
               showValue
-              size={136}
+              size={124}
               title="coin clam 25 with numeral"
             />
           </GalleryCell>
@@ -440,7 +493,33 @@ export const FractionsClocksCoins: Story = {
     const fractions = [
       ...canvasElement.querySelectorAll<SVGGElement>('[data-part="fraction"]'),
     ].map((f) => `${f.dataset.filled}/${f.dataset.parts}`);
-    await expect(fractions).toEqual(['1/2', '1/4', '3/4', '1/3', '2/3', '2/2']);
+    // A whole is one undivided shell (1/1); then the same shells at sunset.
+    await expect(fractions).toEqual([
+      '1/2',
+      '1/4',
+      '3/4',
+      '1/3',
+      '2/3',
+      '1/1',
+      '1/2',
+      '1/4',
+      '3/4',
+    ]);
+    const whole = canvasElement.querySelector('[data-part="fraction"][data-parts="1"]') as Element;
+    await expect(whole.querySelectorAll('[data-part="spoke"]').length).toBe(0);
+    for (const s of canvasElement.querySelectorAll(
+      'svg[data-lighting="sunset"] [data-part="fraction"]',
+    ))
+      await expect(s.querySelectorAll('[data-part="spoke"]').length).toBeGreaterThan(1);
+    // Numbers a shell can't show exactly draw a plain shell: no wedges, no coin.
+    const plain = [
+      ...canvasElement.querySelectorAll<SVGSVGElement>('svg[data-unsupported-number]'),
+    ];
+    await expect(plain.map((s) => s.dataset.pebbling)).toEqual(['crab', 'clam']);
+    for (const s of plain) {
+      await expect(s.querySelector('[data-part="fraction"], [data-part="coin"]')).toBeNull();
+      await expect(s.dataset.number).toBeUndefined();
+    }
     const hours = [...canvasElement.querySelectorAll<SVGGElement>('[data-part="clock"]')].map(
       (c) => c.dataset.hour,
     );
@@ -554,7 +633,7 @@ export const ColourVision: Story = {
     <CvdCompare col={224}>
       <PaletteFrames />
       <div style={{ display: 'flex', justifyContent: 'center', gap: 4, marginTop: 8 }}>
-        <Pebbling species="turtle" palette="leaf" number={7} size={86} title="turtle 7" />
+        <Pebbling species="snail" palette="leaf" number={7} size={86} title="snail 7" />
         <Pebbling
           species="crab"
           palette="sun"

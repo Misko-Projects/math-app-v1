@@ -44,12 +44,17 @@ export function FractionShell({
         const [x1, y1] = polar(r - 5, (i + 1) * step);
         const large = step > 180 ? 1 : 0;
         const lit = i < filled;
+        // One part (a whole, or nothing) is the full disc: no wedge edge, no divider.
+        const d =
+          parts === 1
+            ? `M${-(r - 5)} 0A${r - 5} ${r - 5} 0 1 1 ${r - 5} 0A${r - 5} ${r - 5} 0 1 1 ${-(r - 5)} 0Z`
+            : `M0 0L${x0} ${y0}A${r - 5} ${r - 5} 0 ${large} 1 ${x1} ${y1}Z`;
         return (
           <path
             // biome-ignore lint/suspicious/noArrayIndexKey: wedges are positional
             key={i}
             data-fraction={lit ? 'filled' : 'empty'}
-            d={`M0 0L${x0} ${y0}A${r - 5} ${r - 5} 0 ${large} 1 ${x1} ${y1}Z`}
+            d={d}
             fill={lit ? paint(PEBBLE_MARK.lit) : 'none'}
             stroke={paint(lit ? PEBBLE_MARK.litEdge : PEBBLE_MARK.empty)}
             strokeWidth={lit ? 2 : 2.5}
@@ -60,7 +65,7 @@ export function FractionShell({
       })}
       {/* Two-tone spokes between every part: a dark line that shows on the light shell bed, with a
           light core that shows between two filled (dark) parts, so the equal parts always read. */}
-      {Array.from({ length: parts }, (_, i) => {
+      {Array.from({ length: parts > 1 ? parts : 0 }, (_, i) => {
         const [x, y] = polar(r - 5, i * step);
         return (
           // biome-ignore lint/suspicious/noArrayIndexKey: spokes are positional

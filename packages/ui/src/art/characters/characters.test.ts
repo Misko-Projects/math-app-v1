@@ -219,8 +219,8 @@ describe('family values', () => {
     expect(fractionParts(1 / 3)).toEqual({ parts: 3, filled: 1 });
     expect(fractionParts(0.333)).toEqual({ parts: 3, filled: 1 });
     expect(fractionParts(2 / 3)).toEqual({ parts: 3, filled: 2 });
-    expect(fractionParts(1)).toEqual({ parts: 2, filled: 2 });
-    expect(fractionParts(0)).toEqual({ parts: 2, filled: 0 });
+    expect(fractionParts(1)).toEqual({ parts: 1, filled: 1 });
+    expect(fractionParts(0)).toEqual({ parts: 1, filled: 0 });
   });
 
   it('reads clock hours 1–12', () => {

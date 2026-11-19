@@ -140,7 +140,8 @@ const FRACTION_DENOMINATORS = [2, 3, 4, 5, 6, 8, 10, 12];
 /** The Half-Crab's shell (05 §5): equal parts, `filled` of them filled. 0.75 → 3 of 4. */
 export function fractionParts(value: number): { parts: number; filled: number } {
   const v = Number.isFinite(value) ? Math.min(1, Math.max(0, value)) : 0;
-  if (v === 0 || v === 1) return { parts: 2, filled: v * 2 };
+  // A whole (or nothing) is one undivided shell, never 2/2 (or 0/2).
+  if (v === 0 || v === 1) return { parts: 1, filled: v };
   for (const d of FRACTION_DENOMINATORS) {
     const f = v * d;
     if (Math.abs(f - Math.round(f)) < 0.02) return { parts: d, filled: Math.round(f) };
