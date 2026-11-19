@@ -496,6 +496,11 @@ describe('pv.number formats and modes', () => {
       ['opt-12', 'opt-13', 'opt-21', 'opt-31'].sort(),
     );
     expect(() => generateItemFromParams(t, { n: 23, mode: 'words', digitMax: 3 })).toThrow();
+    // Round 3: a non-numeric bound leaves no pairs, never an empty option set.
+    expect(nameClass(12, Number.NaN)).toBeNull();
+    expect(() =>
+      generateItemFromParams(t, { n: 12, mode: 'words', digitMax: Number.NaN }),
+    ).toThrow();
   });
 
   it('numeral-pick digit-value offers the value, the bare digit and the digit one place up', () => {

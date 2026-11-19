@@ -262,6 +262,31 @@ describe('PR #83 review (4): PV.09.t2 makes the ten only by bundling', () => {
     expect(checkResponse(item, r as ResponseValue).correct).toBe(false);
   });
 
+  it('round 3: every accepted build direction keeps limits.tight and replays its solution', () => {
+    let accepted = 0;
+    for (const places of [2, 3]) {
+      for (const n of [14, 26, 47, 52, 99, 120, 305, 340]) {
+        for (const from of ['canonical', 'regrouped', 'ones']) {
+          for (const to of ['canonical', 'regrouped', 'ones']) {
+            let item: GeneratedItem;
+            try {
+              item = generateItemFromParams(t, { n, from, to, places });
+            } catch {
+              continue;
+            }
+            accepted += 1;
+            expect(itemFeatures(item, t)['limits.tight']).toBe(1);
+            const steps = itemSolution(item, t);
+            expect(steps.some((s) => s.action?.op === 'split')).toBe(false);
+            const r = replaySteps(item, steps);
+            expect(checkResponse(item, r as ResponseValue).correct).toBe(true);
+          }
+        }
+      }
+    }
+    expect(accepted).toBeGreaterThanOrEqual(10);
+  });
+
   it('every pv.regroup build: no made kind in the tray, any number of the used-up kind', () => {
     for (const tt of fixture.templates.filter(
       (x) => x.generator === 'pv.regroup' && x.format === 'base-ten-build',

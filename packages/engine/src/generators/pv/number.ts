@@ -238,7 +238,8 @@ export function nameClass(n: number, digitMax: number): number[] | null {
   const classes = Math.floor(pairs.length / 2);
   const classOf = (i: number) => Math.floor(i / 2);
   const mine = classOf(pairs.findIndex(([p, q]) => p === lo && q === hi));
-  if (mine >= classes) return null;
+  // mine < 0: n's pair is not in the list (a non-finite digitMax leaves it empty).
+  if (mine < 0 || mine >= classes) return null;
   return pairs
     .filter((_, i) => classOf(i) === mine)
     .flatMap(([p, q]) => [10 * p + q, 10 * q + p])
