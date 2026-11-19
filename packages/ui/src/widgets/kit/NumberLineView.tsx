@@ -82,6 +82,16 @@ export interface NumberLineViewProps {
    * so a small line keeps one tick per step and still reads at a glance. Default: all alike.
    */
   tickRhythm?: boolean;
+  /**
+   * The step the tick rhythm counts in (default `ticksEvery`): a line thinned to ticks every 5
+   * still ranks them by value (5, 15 are fives; 10, 20 are tens).
+   */
+  rhythmUnit?: number;
+  /**
+   * Marks are a pointer standing clear above the tallest tick (no dot on the line), so a small
+   * line's mark never sits on a tick or touches the end arrow (picture cards).
+   */
+  pointerMarks?: boolean;
   /** Space above the line, in px (default: room for whatever marks and jumps it shows). */
   headroom?: number;
   /** Overlay drawn in the line's SVG coordinate space. */
@@ -92,6 +102,13 @@ export interface NumberLineViewProps {
 const LINE_Y = 104;
 /** Numeral size on the line: well above the 32 px floor (05 §11), so it reads as big as the cards. */
 const NUMERAL_PX = 40;
+/**
+ * `pointerMarks`: the pointer's tip stands this far above the line, clear of the tallest tick (a
+ * tenth tick reaches 18 px up, its round cap 2 more) by ≈ 5 px with both outlines. The pointer is
+ * 22 px tall, so the line needs `POINTER_HEADROOM` above it.
+ */
+const POINTER_TIP_Y = 27;
+export const POINTER_HEADROOM = POINTER_TIP_Y + 22 + 3;
 
 /** Rough width of a numeral string at 32 px Baloo 2 (for thinning crowded labels). */
 const numeralWidth = (s: string) => s.length * 24 + 8;
@@ -109,6 +126,8 @@ export function NumberLineView({
   headroom,
   pad: padProp,
   tickRhythm = false,
+  rhythmUnit,
+  pointerMarks = false,
   children,
   className,
 }: NumberLineViewProps) {
@@ -139,7 +158,7 @@ export function NumberLineView({
     headroom ??
     (jumps.length > 0 ? LINE_Y : marks.some((m) => m.arrow || m.label !== undefined) ? 88 : 30);
   // Room below the line only when numerals are drawn there.
-  const height = lineY + (labels.length > 0 ? 64 : 30);
+  const height = lineY + (labels.length > 0 ? 64 : pointerMarks ? 22 : 30);
   const svg = (
     // biome-ignore lint/a11y/noSvgWithoutTitle: decorative (aria-hidden) when static; a named group when a widget draws controls in it
     <svg
@@ -190,7 +209,7 @@ export function NumberLineView({
         d={`M${pad - 30} ${lineY}l12 -9v18z M${width - pad + 30} ${lineY}l-12 -9v18z`}
       />
       {ticks.map((v) => {
-        const step = Math.round(v / (ticksEvery ?? 1));
+        const step = Math.round(v / (rhythmUnit ?? ticksEvery ?? 1));
         const rank = !tickRhythm
           ? 'all'
           : step % 10 === 0
@@ -226,18 +245,25 @@ export function NumberLineView({
       ))}
       {marks.map((m) => (
         <g key={`m${m.at}`} className="ni-numberline__mark" data-at={m.at}>
-          <circle cx={s.x(m.at)} cy={lineY} r={9} />
-          {m.arrow && !jumpEnds.has(m.at) ? (
+          {pointerMarks ? null : <circle cx={s.x(m.at)} cy={lineY} r={9} />}
+          {(m.arrow || pointerMarks) && !jumpEnds.has(m.at) ? (
             <path
               className="ni-numberline__pointer"
-              d={`M${s.x(m.at)} ${lineY - 16}l-14 -22h28z`}
+              d={
+                pointerMarks
+                  ? `M${s.x(m.at)} ${lineY - POINTER_TIP_Y}l-11 -22h22z`
+                  : `M${s.x(m.at)} ${lineY - 16}l-14 -22h28z`
+              }
             />
           ) : null}
           {m.label !== undefined ? (
             <text
               className="ni-numberline__marklabel"
               x={s.x(m.at)}
-              y={lineY - (m.arrow && !jumpEnds.has(m.at) ? 44 : 20)}
+              y={
+                lineY -
+                (pointerMarks ? POINTER_TIP_Y + 28 : m.arrow && !jumpEnds.has(m.at) ? 44 : 20)
+              }
               fontSize={NUMERAL_PX}
               textAnchor="middle"
             >

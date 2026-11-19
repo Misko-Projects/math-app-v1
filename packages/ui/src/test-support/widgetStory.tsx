@@ -149,6 +149,15 @@ export function inArea(area: keyof typeof AREA) {
 export const areaBox = (canvasElement: HTMLElement) =>
   canvasElement.querySelector('.story-widget-area') as HTMLElement;
 
+/**
+ * Records a value the play function measured (`data-m-<key>` on the area card, or on the canvas
+ * outside an area), so evidence labels quote the browser's numbers, never a planned guess.
+ */
+export function noteMeasure(canvasElement: HTMLElement, key: string, value: string | number) {
+  const el = areaBox(canvasElement) ?? canvasElement;
+  el.setAttribute(`data-m-${key}`, String(value));
+}
+
 export type Edges = { left: number; top: number; right: number; bottom: number };
 
 /** An element's content box: inside its border and padding. */

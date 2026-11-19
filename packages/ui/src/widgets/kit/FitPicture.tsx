@@ -2,9 +2,9 @@ import type { StimulusSpec } from '@number-island/shared';
 import { type ReactNode, useCallback, useLayoutEffect, useRef, useState } from 'react';
 import { useNarrationText } from '../../preferences/UiProvider';
 import { dotsLayout, type ObjectLayout, objectSetLayout, type PlacedObject } from './layout';
-import { NumberLineView } from './NumberLineView';
+import { NumberLineView, POINTER_HEADROOM } from './NumberLineView';
 import { ObjectSetView } from './ObjectSetView';
-import { StimulusView } from './StimulusView';
+import { baseTenOnesWidth, StimulusView } from './StimulusView';
 import './kit.css';
 
 /**
@@ -104,12 +104,18 @@ export function countLayout(spec: StimulusSpec, stackFrames = false): ObjectLayo
  * marks with no numeral over them need only the pointer's height (38 px) above the line, so a
  * fitted line wastes no headroom.
  */
-function lineHeadroom(spec: Extract<StimulusSpec, { kind: 'number-line' }>): number {
+function lineHeadroom(
+  spec: Extract<StimulusSpec, { kind: 'number-line' }>,
+  pointerMarks = false,
+): number {
   const marks = spec.marks ?? [];
   if ((spec.jumps?.length ?? 0) > 0) return LINE_Y_JUMPS;
   if (marks.some((m) => m.label !== undefined)) return LINE_Y_MARKS;
+  if (pointerMarks && marks.length > 0) return POINTER_HEADROOM;
   return marks.some((m) => m.arrow) ? LINE_Y_POINTER : LINE_Y_BARE;
 }
+/** Below a bare line with `pointerMarks`: the tallest tick's half (18) and cap, its stroke, air. */
+const LINE_BELOW_POINTER = 22;
 
 /** A number line prints numerals (tick labels or mark labels). */
 const numerals = (spec: Extract<StimulusSpec, { kind: 'number-line' }>) =>
@@ -117,9 +123,21 @@ const numerals = (spec: Extract<StimulusSpec, { kind: 'number-line' }>) =>
 /** End room of a line with no numerals (its end caps' reach): more of a small line for ticks. */
 export const LINE_BARE_PAD = 30;
 
-/** A fitted number line's drawn height in px, which its width does not change. */
-export function numberLineHeight(spec: Extract<StimulusSpec, { kind: 'number-line' }>): number {
-  return lineHeadroom(spec) + (spec.labelsEvery !== null ? LINE_BELOW_NUMERALS : LINE_BELOW_BARE);
+/**
+ * A fitted number line's drawn height in px, which its width does not change (`pointerMarks`:
+ * drawn with NumberLineView's `pointerMarks`).
+ */
+export function numberLineHeight(
+  spec: Extract<StimulusSpec, { kind: 'number-line' }>,
+  pointerMarks = false,
+): number {
+  const below =
+    spec.labelsEvery !== null
+      ? LINE_BELOW_NUMERALS
+      : pointerMarks
+        ? LINE_BELOW_POINTER
+        : LINE_BELOW_BARE;
+  return lineHeadroom(spec, pointerMarks) + below;
 }
 
 /**
@@ -136,10 +154,16 @@ export function naturalPictureSize(
     case 'number-line':
       return { w: 560, h: numberLineHeight(spec), flexWidth: true };
     case 'base-ten': {
-      // BaseTenView: 14 px units, 10 px gaps; cubes, flats (140 × 140), rods (14 × 140), ones.
+      // BaseTenView: 14 px units, 10 px gaps; cubes, flats (140 × 140), rods (14 × 140), and a
+      // ones column as wide as its cubes.
       const blocks = (spec.thousands ?? 0) + spec.hundreds + spec.tens;
+      const parts = blocks + (spec.ones > 0 ? 1 : 0);
       const w =
-        (spec.thousands ?? 0) * 158 + spec.hundreds * 140 + spec.tens * 14 + blocks * 10 + 32;
+        (spec.thousands ?? 0) * 158 +
+        spec.hundreds * 140 +
+        spec.tens * 14 +
+        baseTenOnesWidth(spec.ones) +
+        Math.max(0, parts - 1) * 10;
       const onesRows = Math.ceil(spec.ones / 2);
       const h =
         Math.max(blocks > 0 ? 140 : 0, onesRows * 18, 14) + ((spec.thousands ?? 0) ? 18 : 0);
@@ -263,6 +287,10 @@ export interface FitPictureProps {
   cell?: number;
   /** A number line marks every 5th and 10th tick longer (all ticks kept). */
   tickRhythm?: boolean;
+  /** The step the tick rhythm counts in, for a line thinned to fewer ticks (NumberLineView). */
+  rhythmUnit?: number;
+  /** A number line's marks are pointers clear above its ticks (NumberLineView `pointerMarks`). */
+  pointerMarks?: boolean;
   /** The countable picture's layout, when the widget re-arranged it (`wrapLine`). */
   layout?: ObjectLayout;
   /** Draw a double ten-frame as two rows. */
@@ -303,6 +331,8 @@ export function FitPicture({
   cell,
   layout: given,
   tickRhythm = false,
+  rhythmUnit,
+  pointerMarks = false,
   stackFrames = false,
   maxScale = 1,
   label,
@@ -324,7 +354,7 @@ export function FitPicture({
   if (spec.kind === 'number-line') {
     // The line takes the box's width at the scale its fixed height allows, so it is scaled no
     // more than it must be and its numerals stay as big as the box lets them.
-    const s = Math.min(1, h / numberLineHeight(spec));
+    const s = Math.min(1, h / numberLineHeight(spec, pointerMarks));
     return (
       <div className="ni-fitpic" data-kind={spec.kind}>
         <Scaled maxWidth={w} maxHeight={h} scale={scale} onFit={onFit}>
@@ -336,9 +366,11 @@ export function FitPicture({
             marks={spec.marks}
             jumps={spec.jumps}
             width={Math.min(LINE_MAX_W, Math.floor(w / s))}
-            headroom={lineHeadroom(spec)}
+            headroom={lineHeadroom(spec, pointerMarks)}
             pad={numerals(spec) ? undefined : LINE_BARE_PAD}
             tickRhythm={tickRhythm}
+            rhythmUnit={rhythmUnit}
+            pointerMarks={pointerMarks}
             label={label ?? pictureName}
           />
         </Scaled>

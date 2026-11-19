@@ -36,6 +36,8 @@ export const INVITE_GLYPH_SELECTOR = [
   '.ni-pad__icon',
   '.ni-pick__face',
   '.ni-number > span:not(.ni-number__caret):not(.ni-number__sparkle):not(.ni-number__slot)',
+  // A widget's own glyph (a card's numeral or picture) opts in with this class.
+  '.ni-invite-glyph',
 ].join(', ');
 
 interface Edges {
@@ -103,10 +105,12 @@ export interface InviteHandPlacement {
 }
 
 /**
- * Where Pip's hand hangs: `below` the control pointing up (the default), or `above` it pointing
- * down, for a control with no room below it (a box whose panel ends just under it).
+ * Where Pip's hand hangs: `below` the control pointing up (the default), `above` it pointing
+ * down, for a control with no room below it, or `inside` an empty box (a drop box with no glyph),
+ * pointing down into it ("put it here"): the whole hand, its bob included, stays inside the box,
+ * so it crosses nothing around it (a cue above, a panel edge or a tray below).
  */
-export type InviteHandSide = 'below' | 'above';
+export type InviteHandSide = 'below' | 'above' | 'inside';
 
 /**
  * Where the hand goes for `target`, relative to `host` (the widget root, `position: relative`).
@@ -120,6 +124,20 @@ export function placeInviteHand(
   side: InviteHandSide = 'below',
 ): InviteHandPlacement {
   const S = INVITE_HAND_PX;
+  if (side === 'inside') {
+    // The hand and its bob (6 px left, 8 px down) centred in the box, pointing down: the
+    // fingertip lands in the box's lower half, the hand above it, all of it inside the box.
+    const tipDown = { x: HAND_POINTER_TIP.down.x * S, y: HAND_POINTER_TIP.down.y * S };
+    const { t } = measure(target, host);
+    const spanW = S + BOB.x;
+    const spanH = S + BOB.y;
+    const left = t.left + (t.right - t.left - spanW) / 2 + BOB.x;
+    const top = t.top + (t.bottom - t.top - spanH) / 2;
+    // Never above the box's top edge or past its bottom (a box shorter than the hand: the tip
+    // stays inside it).
+    const tipY = Math.min(t.bottom - TIP_MIN_INSIDE, top + tipDown.y);
+    return { left, top: tipY - tipDown.y, room: 0, direction: 'down' };
+  }
   if (side === 'above') {
     // Mirrored: the hand stands above the control, its drawn fingertip ~10 px inside the top
     // edge at the middle (a glyph-less box), wholly above it otherwise.

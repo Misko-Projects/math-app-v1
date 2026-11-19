@@ -21,6 +21,7 @@ import {
   expectTraceOrdered,
   findWidget,
   inArea,
+  noteMeasure,
   renderWidget,
   traceOf,
 } from '../../test-support/widgetStory';
@@ -786,40 +787,131 @@ export const WeightCardsK: Story = {
 
 // ---------- the workshop's widget area (06 §1, §2) ----------
 
+/** What a number-path card measures as drawn (CSS px). */
+interface PathMeasure {
+  /** The card's size. */
+  card: { w: number; h: number };
+  /** Ticks drawn on each path, and the value step between them. */
+  ticks: number;
+  every: number;
+  /** Drawn px between neighbouring ticks (the tightest card). */
+  pitch: number;
+}
+
 /**
- * Maths truth on number-path cards: every unit tick is drawn ((max − min) / ticksEvery + 1 of
- * them, never thinned), evenly spaced, 5s and 10s longer, and the mark sits exactly on its value.
- * Legible: ticks ≥ 6 px apart as drawn.
+ * Maths truth and legibility on number-path cards, measured as drawn: the whole path from its
+ * first to its last value; ticks evenly spaced ≥ 8 px apart, every unit tick when that fits, else
+ * every 5th (5s and 10s, longer ones at the 10s, ranked by value); the mark's pointer exactly over
+ * its own value's place, standing clear above every tick (never on one) and ≥ 4 px clear of the
+ * end arrow.
  */
-async function expectFullPaths(root: HTMLElement, minPitch = 6): Promise<number> {
-  let pitch = Number.POSITIVE_INFINITY;
+async function expectPaths(root: HTMLElement): Promise<PathMeasure> {
   const tray = [...root.querySelectorAll<HTMLElement>('.ni-ord__tray .ni-ord__card')];
   await expect(tray.length).toBeGreaterThan(0);
+  let pitch = Number.POSITIVE_INFINITY;
+  let ticksDrawn = 0;
+  let every = 0;
   for (const c of tray) {
     const item = pathCards.items.find((it) => it.label === c.getAttribute('aria-label'));
     const spec = item?.stimulus;
     if (spec?.kind !== 'number-line' || !spec.ticksEvery) throw new Error('not a path card');
     const ticks = [...c.querySelectorAll<SVGLineElement>('.ni-numberline__tick')];
-    await expect(ticks).toHaveLength((spec.max - spec.min) / spec.ticksEvery + 1);
-    const xs = ticks.map((t) => Number(t.getAttribute('x1')));
-    const step = (xs[1] ?? 0) - (xs[0] ?? 0);
+    const at = ticks.map((t) => Number(t.dataset.at));
+    // The whole path: from its first value to its last.
+    await expect(at[0]).toBe(spec.min);
+    await expect(at.at(-1)).toBe(spec.max);
+    const step = (at[1] ?? 0) - (at[0] ?? 0);
+    await expect([spec.ticksEvery, 5 * spec.ticksEvery]).toContain(step);
+    await expect(ticks).toHaveLength((spec.max - spec.min) / step + 1);
+    const xs = ticks.map((t) => {
+      const r = t.getBoundingClientRect();
+      return r.left + r.width / 2;
+    });
+    const gap = (xs[1] ?? 0) - (xs[0] ?? 0);
     for (let i = 1; i < xs.length; i++) {
-      await expect((xs[i] ?? 0) - (xs[i - 1] ?? 0)).toBeCloseTo(step, 3);
+      await expect((xs[i] ?? 0) - (xs[i - 1] ?? 0), 'ticks evenly spaced').toBeCloseTo(gap, 1);
     }
-    const drawn = ticks.map((t) => t.getBoundingClientRect().left);
-    pitch = Math.min(pitch, (drawn[1] ?? 0) - (drawn[0] ?? 0));
-    await expect(pitch, 'drawn tick pitch').toBeGreaterThanOrEqual(minPitch);
+    await expect(gap, 'drawn tick pitch').toBeGreaterThanOrEqual(8);
+    pitch = Math.min(pitch, gap);
+    ticksDrawn = ticks.length;
+    every = step;
     for (const t of ticks) {
-      const at = Number(t.dataset.at);
-      const rank = at % 10 === 0 ? 'ten' : at % 5 === 0 ? 'five' : 'one';
-      await expect(t.dataset.rank).toBe(rank);
+      const v = Number(t.dataset.at);
+      await expect(t.dataset.rank).toBe(v % 10 === 0 ? 'ten' : v % 5 === 0 ? 'five' : 'one');
     }
+    // The mark: a pointer over its own value's place (between the ticks, by the scale).
     const mark = spec.marks?.[0]?.at ?? Number.NaN;
-    const dot = c.querySelector('.ni-numberline__mark circle') as SVGCircleElement;
-    const tickAt = ticks.find((t) => Number(t.dataset.at) === mark) as SVGLineElement;
-    await expect(Number(dot.getAttribute('cx'))).toBeCloseTo(Number(tickAt.getAttribute('x1')), 3);
+    await expect(c.querySelector('.ni-numberline__mark circle')).toBeNull();
+    const pointer = (
+      c.querySelector('.ni-numberline__pointer') as SVGPathElement
+    ).getBoundingClientRect();
+    const x0 = xs[0] ?? 0;
+    const x1 = xs.at(-1) ?? 0;
+    const want = x0 + ((mark - spec.min) / (spec.max - spec.min)) * (x1 - x0);
+    await expect(pointer.left + pointer.width / 2, `mark ${mark} on its place`).toBeCloseTo(
+      want,
+      0,
+    );
+    const tickTop = Math.min(...ticks.map((t) => t.getBoundingClientRect().top));
+    await expect(tickTop - pointer.bottom, 'the pointer stands above the ticks').toBeGreaterThan(
+      0.5,
+    );
+    // The end arrow (NumberLineView: 18–30 px past the last value, 9 px each side of the line),
+    // at the line's drawn scale.
+    const svg = c.querySelector('svg.ni-numberline') as SVGSVGElement;
+    const s = svg.getBoundingClientRect().width / svg.width.baseVal.value;
+    const axis = (
+      c.querySelector('.ni-numberline__axis') as SVGLineElement
+    ).getBoundingClientRect();
+    const capLeft = x1 + 18 * s;
+    const capTop = axis.top + axis.height / 2 - 9 * s;
+    await expect(
+      Math.max(capLeft - pointer.right, capTop - pointer.bottom),
+      'the pointer clear of the end arrow',
+    ).toBeGreaterThanOrEqual(4);
   }
-  return pitch;
+  const r = (tray[0] as HTMLElement).getBoundingClientRect();
+  return { card: { w: r.width, h: r.height }, ticks: ticksDrawn, every, pitch };
+}
+
+/** Records a path measure for the evidence label (`data-m-path`). */
+const notePaths = (canvasElement: HTMLElement, m: PathMeasure) =>
+  noteMeasure(
+    canvasElement,
+    'path',
+    `cards ${Math.round(m.card.w)}×${Math.round(m.card.h)} px, ${m.ticks} ticks (every ${m.every}) ${m.pitch.toFixed(1)} px apart`,
+  );
+
+/**
+ * Pip's hand at rest (its bob included) covers no ink of the cue or of any path: no pebble, no
+ * arrow, no tick, line, end arrow or mark.
+ */
+async function expectHandOffInk(root: HTMLElement) {
+  const loops = root
+    .getAnimations({ subtree: true })
+    .filter((a) => a.effect?.getComputedTiming().iterations === Number.POSITIVE_INFINITY);
+  for (const a of loops) {
+    a.pause();
+    a.currentTime = 0;
+  }
+  try {
+    const h = (root.querySelector('.ni-hand svg') as SVGElement).getBoundingClientRect();
+    const reach = { left: h.left - 6, right: h.right, top: h.top, bottom: h.bottom + 8 };
+    const ink = root.querySelectorAll(
+      '.ni-ord__pebble, .ni-ord__arrow, .ni-ord__arrowhead, .ni-numberline__tick, .ni-numberline__axis, .ni-numberline__cap, .ni-numberline__pointer',
+    );
+    for (const el of ink) {
+      const r = el.getBoundingClientRect();
+      const apart =
+        reach.right <= r.left ||
+        r.right <= reach.left ||
+        reach.bottom <= r.top ||
+        r.bottom <= reach.top;
+      await expect(apart, `the hand clear of ${el.getAttribute('class')}`).toBe(true);
+    }
+  } finally {
+    for (const a of loops) a.play();
+  }
 }
 
 /** The widget fits the area: no scroll, every part inside, every target full size and spaced. */
@@ -873,7 +965,12 @@ export const FiveCardsKMinLandscape: Story = {
 
 const minInvite: WidgetDemo = createDemoController({ strict: true });
 
-/** The same area with a drag invite: Pip's hand under the tray card still fits; no scroll. */
+/**
+ * The same area with a drag invite: Pip's hand under the tray card still fits; no scroll. At the
+ * minimum area (and only there) the hand may cross the tray's lower edge (the Orchestrator's
+ * min-area relief), as long as it covers nothing: it stays ≥ 12 px from every other target and
+ * off its own card's numeral.
+ */
 export const FiveCardsKMinLandscapeInvite: Story = {
   globals: { ageMode: 'k' },
   args: { config: fiveUp, demo: minInvite },
@@ -881,8 +978,19 @@ export const FiveCardsKMinLandscapeInvite: Story = {
   play: async ({ canvasElement }) => {
     const root = await findWidget(canvasElement, ROOT);
     minInvite.invite({ op: 'drag', args: { id: 'item-1', slot: 0 } });
-    await expectInviteOn(root, card(root, '11'));
+    const invited = card(root, '11');
+    await expectInviteOn(root, invited);
     await expectOrderFits(canvasElement, root, 'k');
+    await expectHandClear(root, invited, false);
+    await expectHandOffInk(root);
+    // Measured for the label: does the hand (bob included) cross the tray's edge?
+    const h = (root.querySelector('.ni-hand svg') as SVGElement).getBoundingClientRect();
+    const tray = (root.querySelector('.ni-ord__tray') as HTMLElement).getBoundingClientRect();
+    noteMeasure(
+      canvasElement,
+      'relief',
+      h.bottom + 8 > tray.bottom - 3 ? 'hand crosses tray edge' : '',
+    );
   },
 };
 
@@ -893,13 +1001,15 @@ export const PathCardsKMinLandscape: Story = {
   render: inArea('landscapeMin'),
   play: async ({ canvasElement }) => {
     const root = await findWidget(canvasElement, ROOT);
-    // The path stays at the minimum (CMP.06's hint points at it): every one of the 21 ticks,
-    // 5s and 10s longer, the mark on its tick, under a 40 px numeral. Measured: the ticks are
-    // about 5.3 px apart here (148 × 80 cards: as wide as the row allows beside Check).
+    // The whole path stays at the minimum (CMP.06's hint points at it). Its 21 unit ticks would
+    // be ~5 px apart on cards this size, too close to read, so the path keeps its 5s and 10s
+    // (0, 5, 10, 15, 20) ≥ 8 px apart, the mark's pointer over its own place.
     await expect(root).toHaveAttribute('data-cards', 'picture');
     await expectPathCards(root);
     await expectOrderFits(canvasElement, root, 'k');
-    await expectFullPaths(root, 5);
+    const m = await expectPaths(root);
+    await expect(m.every).toBe(5);
+    notePaths(canvasElement, m);
   },
 };
 
@@ -965,14 +1075,18 @@ export const PathCardsKMinLandscapeInvite: Story = {
     await expectInviteOn(root, card(root, '8'));
     await expect(root).toHaveAttribute('data-cards', 'picture');
     await expectPathCards(root);
-    await expectFullPaths(root, 5);
+    notePaths(canvasElement, await expectPaths(root));
     await expectOrderFits(canvasElement, root, 'k');
+    // Under the card, Pip's hand stays off its path (and off every cue mark).
+    await expectHandOffInk(root);
     // The cards did not move or resize when Pip came in.
     const after = box(card(root, '8'));
     await expect(after).toEqual(before);
     await userEvent.click(card(root, '8'));
     await expectInviteOn(root, root.querySelector('[data-slot-pad="0"]') as HTMLElement);
     await expectOrderFits(canvasElement, root, 'k');
+    // In the empty box, pointing down into it: off the cue's pebbles and arrow, off every path.
+    await expectHandOffInk(root);
     // The picked-up card is lifted (raised, a little bigger, a deeper shadow) with no ring; the
     // invited box wears Pip's teal ring; the other open boxes show no ring: one ring on screen.
     const picked = card(root, '8');
@@ -998,10 +1112,11 @@ export const PathCardsKMinLandscapeInvite: Story = {
 };
 
 /**
- * Pip's hand (at rest, bob included) touches no target but its own and crosses no panel edge
- * (the board or the tray): it stays inside the panel its control sits in.
+ * Pip's hand (at rest, bob included) stays ≥ 12 px from every target but its own and from the
+ * cue's pebbles and arrow, and ≥ 12 px inside the panel its control sits in (the board or the
+ * tray), crossing no panel edge.
  */
-async function expectHandClear(root: HTMLElement, el: HTMLElement) {
+async function expectHandClear(root: HTMLElement, el: HTMLElement, inPanel = true) {
   const loops = root
     .getAnimations({ subtree: true })
     .filter((a) => a.effect?.getComputedTiming().iterations === Number.POSITIVE_INFINITY);
@@ -1013,16 +1128,25 @@ async function expectHandClear(root: HTMLElement, el: HTMLElement) {
     const h = (root.querySelector('.ni-hand svg') as SVGElement).getBoundingClientRect();
     // The tap bob moves the hand 6 px left and 8 px down.
     const reach = { left: h.left - 6, right: h.right, top: h.top, bottom: h.bottom + 8 };
-    for (const t of targets(root)) {
-      if (t === el) continue;
+    // ≥ 12 px from every other target (06 §4), and from the cue's pebbles and arrow.
+    const others = [
+      ...targets(root).filter((t) => t !== el),
+      ...root.querySelectorAll('.ni-ord__pebble, .ni-ord__arrow, .ni-ord__arrowhead'),
+    ];
+    for (const t of others) {
       const r = t.getBoundingClientRect();
-      const apart =
-        reach.right <= r.left ||
-        r.right <= reach.left ||
-        reach.bottom <= r.top ||
-        r.bottom <= reach.top;
-      await expect(apart, `the hand clear of ${t.getAttribute('aria-label')}`).toBe(true);
+      const gap = Math.max(
+        r.left - reach.right,
+        reach.left - r.right,
+        r.top - reach.bottom,
+        reach.top - r.bottom,
+      );
+      await expect(
+        gap,
+        `the hand clear of ${t.getAttribute('aria-label') ?? t.getAttribute('class')}`,
+      ).toBeGreaterThanOrEqual(12 - 0.5);
     }
+    if (!inPanel) return;
     const panel = el.closest('.ni-ord__board, .ni-ord__tray') as HTMLElement;
     const p = panel.getBoundingClientRect();
     const bw = Number.parseFloat(getComputedStyle(panel).borderTopWidth);
@@ -1032,7 +1156,7 @@ async function expectHandClear(root: HTMLElement, el: HTMLElement) {
       right: p.right - bw,
       bottom: p.bottom - bw,
     };
-    await expectInside(reach, inner, 0, 'the hand inside its panel');
+    await expectInside(reach, inner, 12, 'the hand inside its panel');
   } finally {
     for (const a of loops) a.play();
   }
@@ -1058,11 +1182,11 @@ export const PathCardsKPortrait: Story = {
   play: async ({ canvasElement }) => {
     const root = await findWidget(canvasElement, ROOT);
     await expectOrderFits(canvasElement, root, 'k');
-    // Four cards across 746 px: the full path on each. Measured: 4.94 px between ticks, the limit
-    // here (four 150 × 80 cards fill the 676 px row; the path keeps a 16 px card margin).
+    // Four cards across 746 px: the whole path on each, its ticks ≥ 8 px apart (every 5th tick
+    // when the unit ticks would crowd).
     await expect(root).toHaveAttribute('data-cards', 'picture');
     await expectPathCards(root);
-    await expectFullPaths(root, 4.9);
+    notePaths(canvasElement, await expectPaths(root));
   },
 };
 
@@ -1086,7 +1210,12 @@ export const PathCardsKTablet: Story = {
   play: async ({ canvasElement }) => {
     const root = await findWidget(canvasElement, ROOT);
     await expectOrderFits(canvasElement, root, 'k');
-    await expectFullPaths(root);
+    await expectPathCards(root);
+    // The tablet area has the width for every unit tick ≥ 8 px apart: all 21 are drawn. The card
+    // size and pitch the label quotes are measured here.
+    const m = await expectPaths(root);
+    await expect(m.every).toBe(1);
+    notePaths(canvasElement, m);
   },
 };
 
@@ -1125,14 +1254,25 @@ export const BlockCardsTablet: Story = {
     );
     for (const r of rods) await expect(r.width).toBeGreaterThanOrEqual(10.5);
     await expect(new Set(rods.map((r) => Math.round(r.height))).size).toBe(1);
-    // Every picture centred in its card, ≥ 16 px from its edges.
+    // Every DRAWN picture (its rods and cubes, not its box) centred in its card: left and right
+    // margins ≥ 16 px and within 2 px of each other (91's lone one leaves no empty column).
+    const margins: string[] = [];
     for (const c of root.querySelectorAll<HTMLElement>('.ni-ord__tray .ni-ord__card')) {
       const r = c.getBoundingClientRect();
-      const p = (c.querySelector('.ni-baseten') as HTMLElement).getBoundingClientRect();
-      await expect(p.left - r.left).toBeGreaterThanOrEqual(16);
-      await expect(r.right - p.right).toBeGreaterThanOrEqual(16);
-      await expect(Math.abs(p.left - r.left - (r.right - p.right))).toBeLessThan(1.5);
+      const drawn = [...c.querySelectorAll('.ni-baseten__block, .ni-baseten__unit')].map((b) =>
+        b.getBoundingClientRect(),
+      );
+      const left = Math.min(...drawn.map((b) => b.left)) - r.left;
+      const right = r.right - Math.max(...drawn.map((b) => b.right));
+      await expect(left).toBeGreaterThanOrEqual(16);
+      await expect(right).toBeGreaterThanOrEqual(16);
+      await expect(
+        Math.abs(left - right),
+        `${c.getAttribute('aria-label')} centred`,
+      ).toBeLessThanOrEqual(2);
+      margins.push(`${Math.round(left)}/${Math.round(right)}`);
     }
+    noteMeasure(canvasElement, 'margins', margins.join(', '));
   },
 };
 

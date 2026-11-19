@@ -42,6 +42,7 @@ import {
   useSubmitGuard,
   useWidgetRoom,
   type WidgetRoom,
+  wrapLine,
 } from '../kit';
 import type { ConfigFor, WidgetProps } from '../types';
 import './compare.css';
@@ -240,6 +241,13 @@ const ROW_PICK_GAP = 20;
 const OBJ_GAP = 18;
 /** Pictures never grow past this (an unbounded story stage, or a huge tablet). */
 const MAX_SIDE_H = 420;
+/**
+ * Room Pip's hand needs under the content's lowest control, past the widget's 6 px padding: the
+ * kit hangs it ~18 px up that control, 56 px tall, plus its 8 px bob and a 10 px edge (57 px from
+ * the control's bottom to the widget's). A widget that can invite (a demo is attached) plans its
+ * layout without it, so an invite never moves anything or scrolls.
+ */
+const HAND_ROOM = 51;
 
 type Arrange = 'match' | 'row' | 'beside' | 'stack' | 'stack-beside';
 
@@ -335,23 +343,30 @@ function planLayout(opts: {
   stackOnly?: boolean;
   /** Height under the stacked sides for a shared ruler (length strips). */
   rulerH?: number;
+  /** Height held back for Pip's hand (a widget that can invite). */
+  handRoom?: number;
 }): Plan {
   const { room, specs, mid, answer, match } = opts;
   const W = (room?.width ?? 1180) - 2 * ROOT_PAD.x;
-  const H = (room?.height ?? Number.POSITIVE_INFINITY) - 2 * ROOT_PAD.y;
+  const H = (room?.height ?? Number.POSITIVE_INFINITY) - 2 * ROOT_PAD.y - (opts.handRoom ?? 0);
   const row = answerRow(answer);
   const col = answerColumn(answer);
   // Match rows only when both rows fit at full target size with the answer controls; then the
   // biggest objects (up to 1.5 ×) that still fit, so the rows use the room.
-  if (match) {
-    const bounded = Number.isFinite(H);
+  // Match rows win over the hand's room: rows that fit only without it still beat the pictures
+  // (10 against 9 in K at the tablet area), and Pip's hand then makes its own room below.
+  const fullH = H + (opts.handRoom ?? 0);
+  const heights = !match ? [] : fullH > H ? [H, fullH] : [H];
+  for (const h of heights) {
+    if (!match) break;
+    const bounded = Number.isFinite(h);
     for (let k = bounded ? 1.5 : 1; k >= 1 - 1e-9; k -= 0.05) {
       const m = match(k);
       const rowsH = 2 * m.rowH + ROW_GAP;
-      if (m.rowW <= W && rowsH + ANSWER_GAP + row.h <= H && row.w <= W) {
+      if (m.rowW <= W && rowsH + ANSWER_GAP + row.h <= h && row.w <= W) {
         return { arrange: 'match', side: { w: 0, h: 0 }, answers: 'row', match: m };
       }
-      if (m.rowW + ANSWER_GAP + col.w <= W && Math.max(rowsH, col.h) <= H) {
+      if (m.rowW + ANSWER_GAP + col.w <= W && Math.max(rowsH, col.h) <= h) {
         return { arrange: 'match', side: { w: 0, h: 0 }, answers: 'column', match: m };
       }
     }
@@ -642,6 +657,14 @@ export function CompareWidget({
       : { w: 0, h: 0 };
   // "Which is longer?" with two ruler strips: two ribbons stacked over one shared ruler.
   const strips = specs.length === 2 && specs.every((sp) => isLengthStrip(sp, ask));
+  const bounded = room !== null && Number.isFinite(room.height);
+  // A widget in a bounded room fills its height and keeps room under its content for Pip's hand
+  // (see `lift` below). When centring the planned layout leaves less than `HAND_ROOM` there, the
+  // layout is planned again with that much held back (once per room size, so it never flips).
+  const reserve = bounded && room !== null;
+  const roomKey = room ? `${room.width}x${room.height}` : '';
+  const [tightRoom, setTightRoom] = useState<string | null>(null);
+  const holdBack = reserve && tightRoom === roomKey;
   const plan = planLayout({
     room,
     specs,
@@ -655,6 +678,7 @@ export function CompareWidget({
     // Two lengths compare one above the other from a common start.
     stackOnly: strips,
     rulerH: strips ? RULER_H + SIDE_GAP : 0,
+    handRoom: holdBack ? HAND_ROOM : 0,
   });
   /**
    * Match mode (concrete tier with match lines): the sets as rows of object targets. When the rows
@@ -663,6 +687,33 @@ export function CompareWidget({
    * help, never the answer) is simply not offered.
    */
   const matchMode = plan.arrange === 'match';
+
+  /**
+   * Pip's hand under the lowest control (an answer, a row's "this one") needs `HAND_ROOM` below
+   * the content. Any widget may be invited (03 §6.3), so the room is there in both states, with
+   * an invite and without, and an invite never moves anything: the widget fills its room's height
+   * with its content centred, raised just enough to leave that room under it (`lift`).
+   */
+  const [contentH, setContentH] = useState(0);
+  useLayoutEffect(() => {
+    const root = rootRef.current;
+    if (!reserve || !root) return;
+    const parts = [
+      ...root.querySelectorAll(
+        ':scope > .ni-cmp__stage, :scope > .ni-cmp__rows, :scope > .ni-cmp__answer',
+      ),
+    ];
+    if (parts.length === 0) return;
+    const rects = parts.map((p) => p.getBoundingClientRect());
+    const h = Math.max(...rects.map((r) => r.bottom)) - Math.min(...rects.map((r) => r.top));
+    setContentH((cur) => (Math.abs(cur - h) < 0.5 ? cur : h));
+    if (!holdBack && room && room.height - 2 * ROOT_PAD.y - h < HAND_ROOM - 0.5) {
+      setTightRoom(roomKey);
+    }
+  });
+  const fillH = reserve && room ? Math.floor(room.height) : 0;
+  const slack = Math.max(0, fillH - 2 * ROOT_PAD.y - contentH);
+  const lift = reserve ? Math.min(slack, Math.max(0, Math.ceil(2 * HAND_ROOM - slack))) : 0;
 
   const speakKey = (key: string) => {
     if (speakOnTap) say(key);
@@ -934,12 +985,28 @@ export function CompareWidget({
   // Two counted pictures share one object size, so size is never a cue the numbers don't give
   // (a line of 6 must not look smaller than a scatter of 6). A double ten-frame stacks when that
   // draws it bigger.
-  const sharedCount = (stack: boolean) => {
-    const ls = sideLayouts(specs, stack);
+  // Stacked sides keep their objects in column (one left edge, one cell, as match rows do), so
+  // object i sits above object i and a longer row's extra objects stand out at its end.
+  const stacked = plan.arrange === 'stack' || plan.arrange === 'stack-beside';
+  // Two plain lines of more than five objects, stacked, may each wrap into rows of five (reading
+  // order kept, both sides alike, so they stay in column: 10 reads 5 + 5 above 9 = 5 + 4) when
+  // that draws the objects bigger: a tall side card is then used, not a thin strip of it.
+  const wrappable =
+    stacked &&
+    specs.length === 2 &&
+    specs.every((sp) => sp.kind === 'objects' && sp.set.layout === 'line' && !sp.set.sizeVaries) &&
+    specs.some((sp) => sp.kind === 'objects' && sp.set.count > 5);
+  const layoutsOf = (stack: boolean, wrap: boolean) =>
+    sideLayouts(specs, stack).map((l) => (l && wrap ? wrapLine(l, 5) : l));
+  const sharedCount = (stack: boolean, wrap = false) => {
+    const ls = layoutsOf(stack, wrap);
     if (specs.length < 2 || ls.some((l) => l === null)) return null;
     return Math.min(...ls.map((l) => cellToFit(l as ObjectLayout, plan.side.w, plan.side.h)));
   };
-  const flatCell = sharedCount(false);
+  const plainCell = sharedCount(false);
+  const wrapCell = wrappable ? sharedCount(false, true) : null;
+  const wrapRows = wrapCell !== null && plainCell !== null && wrapCell > plainCell;
+  const flatCell = wrapRows ? wrapCell : plainCell;
   /**
    * What tapping a side says (06 §5): its number when it shows one (a numeral, a number line's
    * labelled mark), or the name of its objects; never a count the child is asked for. A number
@@ -965,19 +1032,17 @@ export function CompareWidget({
     : null;
   const stackFrames = stackedCell !== null && flatCell !== null && stackedCell > flatCell;
   const sharedCell = stackFrames ? stackedCell : flatCell;
-  // Stacked sides keep their objects in column (one left edge, one cell, as match rows do), so
-  // object i sits above object i and a longer row's extra objects stand out at its end.
-  const stacked = plan.arrange === 'stack' || plan.arrange === 'stack-beside';
+  const shownLayouts = layoutsOf(stackFrames, wrapRows);
   const columnW =
     stacked && sharedCell !== null
-      ? Math.max(...sideLayouts(specs, stackFrames).map((l) => (l?.width ?? 0) * sharedCell))
+      ? Math.max(...shownLayouts.map((l) => (l?.width ?? 0) * sharedCell))
       : null;
 
   const renderSide = (side: Side) => {
     const spec = config[side];
     if (spec.kind === 'none') return null;
     const name = sidePick ? undefined : sideLabel(side);
-    const layout = sideLayouts(specs, stackFrames)[side === 'left' ? 0 : 1] ?? undefined;
+    const layout = shownLayouts[side === 'left' ? 0 : 1] ?? undefined;
     const picture =
       isLengthStrip(spec, ask) && spec.kind === 'number-line' ? (
         <LengthStrip spec={spec} width={plan.side.w} label={name ?? t('ui.widget.picture')} />
@@ -1255,7 +1320,12 @@ export function CompareWidget({
       data-arrange={plan.arrange}
       data-answers={plan.answers}
       data-disabled={disabled ? 'true' : undefined}
-      style={{ ...vars, ...handRootStyle }}
+      data-hand-room={reserve ? 'true' : undefined}
+      style={{
+        ...vars,
+        ...(reserve ? { minHeight: fillH, paddingBottom: ROOT_PAD.y + lift } : {}),
+        ...handRootStyle,
+      }}
     >
       {matchMode ? (
         <div className="ni-cmp__rows" ref={rowsRef}>

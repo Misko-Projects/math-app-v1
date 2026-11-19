@@ -19,6 +19,7 @@ import {
   expectTraceOrdered,
   findWidget,
   inArea,
+  noteMeasure,
   renderWidget,
   traceOf,
 } from '../../test-support/widgetStory';
@@ -839,6 +840,9 @@ export const InviteMatchK: Story = {
   play: async ({ canvasElement, args }) => {
     const root = await findWidget(canvasElement, ROOT);
     await expect(root).toHaveAttribute('data-mode', 'match');
+    await waitForSettled(root);
+    // The layout before any invite: every invite below leaves it exactly as it is.
+    const before = layoutOf(root);
     matchInvite.invite({ op: 'match', args: { left: 1, right: 1 } });
     await expectInviteOn(root, obj(root, 'left-obj-1'));
     await userEvent.click(obj(root, 'left-obj-1'));
@@ -854,6 +858,10 @@ export const InviteMatchK: Story = {
     const picks = within(root).getAllByRole('button', { name: /^This one/ });
     await expectInviteOn(root, picks[1] as HTMLElement);
     await expect(root.querySelector('[aria-pressed="true"]')).toBeNull();
+    // The invite on the bottom row's "this one" moved nothing (Pip's hand uses room the layout
+    // already has), and the hand stays ≥ 12 px inside the panel.
+    await expectSameLayout(before, layoutOf(root));
+    await expectHandInsideArea(canvasElement, root);
     // End on what the child sees: the one invite (no leftover focus ring from the taps).
     (document.activeElement as HTMLElement | null)?.blur();
     await expect(args.onResponse).not.toHaveBeenCalled();
@@ -910,10 +918,16 @@ export const InviteSymbol: Story = {
   args: { config: symbol, tier: 'abstract', demo: symbolInvite },
   play: async ({ canvasElement }) => {
     const root = await findWidget(canvasElement, ROOT);
+    await waitForSettled(root);
+    const before = layoutOf(root);
     symbolInvite.invite({ op: 'place-symbol', args: { symbol: '=' } });
     await expectInviteOn(root, within(root).getByRole('button', { name: 'Equal to' }));
     symbolInvite.invite({ op: 'answer', args: { id: '<' } });
     await expectInviteOn(root, within(root).getByRole('button', { name: 'Less than' }));
+    // Pip's hand under the bottom row uses room the layout holds for it: nothing moved, and the
+    // hand stays ≥ 12 px inside the panel's border.
+    await expectSameLayout(before, layoutOf(root));
+    await expectHandInsideArea(canvasElement, root);
     // The invite is the child's turn: one ring and Pip's hand, nothing chosen, the gap empty.
     for (const name of ['Less than', 'Equal to', 'Greater than']) {
       await expect(within(root).getByRole('button', { name })).toHaveAttribute(
@@ -1126,6 +1140,105 @@ async function expectRowsInColumn(root: HTMLElement) {
   }
 }
 
+/**
+ * Every drawn fish (its outline, not its cell) is at least `min` px wide, all one size; returns
+ * the measured width.
+ */
+async function expectFish(root: HTMLElement, min: number): Promise<number> {
+  const drawn = [...root.querySelectorAll('.ni-objects__item svg')].map((svg) => {
+    const parts = [...svg.querySelectorAll('path')].map((p) => p.getBoundingClientRect());
+    return Math.max(...parts.map((r) => r.right)) - Math.min(...parts.map((r) => r.left));
+  });
+  await expect(drawn.length).toBeGreaterThan(0);
+  await expect(Math.max(...drawn) - Math.min(...drawn)).toBeLessThan(0.5);
+  await expect(Math.min(...drawn), 'drawn fish width').toBeGreaterThanOrEqual(min);
+  return Math.min(...drawn);
+}
+
+/**
+ * Every base-ten side's DRAWN blocks (rods and cubes, not the picture's box) sit centred in its
+ * card: left and right margins within 2 px of each other; returns them ("L/R" per side).
+ */
+async function expectBlocksCentred(root: HTMLElement): Promise<string> {
+  const out: string[] = [];
+  for (const side of root.querySelectorAll<HTMLElement>('.ni-cmp__side')) {
+    const card = (side.querySelector('.ni-cmp__tray') as HTMLElement).getBoundingClientRect();
+    const drawn = [...side.querySelectorAll('.ni-baseten__block, .ni-baseten__unit')].map((b) =>
+      b.getBoundingClientRect(),
+    );
+    await expect(drawn.length).toBeGreaterThan(0);
+    const left = Math.min(...drawn.map((b) => b.left)) - card.left;
+    const right = card.right - Math.max(...drawn.map((b) => b.right));
+    await expect(Math.abs(left - right), 'blocks centred in their card').toBeLessThanOrEqual(2);
+    out.push(`${Math.round(left)}/${Math.round(right)}`);
+  }
+  return out.join(', ');
+}
+
+/** The boxes of everything a child sees and uses, to prove an invite moves none of them. */
+const layoutOf = (root: HTMLElement) =>
+  [
+    ...root.querySelectorAll<HTMLElement>(
+      '.ni-cmp__stage, .ni-cmp__rows, .ni-cmp__row, .ni-cmp__side, .ni-cmp__answer, .ni-pick, .ni-cmp__obj, .ni-cmp__pad, .ni-cmp__check',
+    ),
+  ].map((el) => {
+    // Layout boxes, not drawn ones (an invite ring's pulse scales its control a little).
+    let x = 0;
+    let y = 0;
+    for (
+      let e: HTMLElement | null = el;
+      e && e !== root;
+      e = e.offsetParent as HTMLElement | null
+    ) {
+      x += e.offsetLeft;
+      y += e.offsetTop;
+    }
+    return [x, y, el.offsetWidth, el.offsetHeight];
+  });
+
+/** Nothing moved or resized: every box within 1 px of where it was. */
+async function expectSameLayout(before: number[][], after: number[][]) {
+  await expect(after).toHaveLength(before.length);
+  for (let i = 0; i < before.length; i++) {
+    for (let k = 0; k < 4; k++) {
+      await expect(
+        Math.abs((after[i]?.[k] ?? 0) - (before[i]?.[k] ?? 0)),
+        `box ${i} unchanged by the invite`,
+      ).toBeLessThanOrEqual(1);
+    }
+  }
+}
+
+/**
+ * Pip's hand at rest, its bob included, stays ≥ 12 px inside the area card's border (the panel
+ * the widget sits in); returns the clearance.
+ */
+async function expectHandInsideArea(canvasElement: HTMLElement, root: HTMLElement) {
+  const loops = root
+    .getAnimations({ subtree: true })
+    .filter((a) => a.effect?.getComputedTiming().iterations === Number.POSITIVE_INFINITY);
+  for (const a of loops) {
+    a.pause();
+    a.currentTime = 0;
+  }
+  try {
+    const h = (root.querySelector('.ni-hand svg') as SVGElement).getBoundingClientRect();
+    const box = areaBox(canvasElement);
+    const b = box.getBoundingClientRect();
+    const bw = Number.parseFloat(getComputedStyle(box).borderTopWidth);
+    const clear = Math.min(
+      h.left - 6 - (b.left + bw),
+      b.right - bw - h.right,
+      h.top - (b.top + bw),
+      b.bottom - bw - (h.bottom + 8),
+    );
+    await expect(clear, 'the hand ≥ 12 px inside the panel border').toBeGreaterThanOrEqual(12);
+    return clear;
+  } finally {
+    for (const a of loops) a.play();
+  }
+}
+
 /** Every numeral a number line draws (tick and mark labels) is ≥ 32 CSS px as rendered (scaled). */
 async function expectLineNumerals(root: HTMLElement) {
   const texts = [
@@ -1185,14 +1298,11 @@ export const MatchTenFallbackKMin: Story = {
     );
     await expect(cells).toHaveLength(19);
     await expect(new Set(cells).size).toBe(1);
-    // The drawn fish (its outline, not its cell): the real maximum here, measured ≈ 47 px. Two
-    // lines of ten 1.12-cell steps across the ~700 px side give a 59 px cell, and the fish art
-    // spans 51 of the cell's 64 units.
-    const drawn = [...root.querySelectorAll('.ni-objects__item svg')].map((svg) => {
-      const parts = [...svg.querySelectorAll('path')].map((p) => p.getBoundingClientRect());
-      return Math.max(...parts.map((r) => r.right)) - Math.min(...parts.map((r) => r.left));
-    });
-    await expect(Math.min(...drawn)).toBeGreaterThanOrEqual(45);
+    // The drawn fish (its outline, not its cell), the real maximum here: two lines of ten
+    // 1.12-cell steps across the side give a 59 px cell, and the fish art spans 51 of the cell's
+    // 64 units, so each fish measures 47 px wide. The label quotes this measurement.
+    const fish = await expectFish(root, 45);
+    noteMeasure(canvasElement, 'fish', `fish ${fish.toFixed(0)} px wide, 10 + 9 in two lines`);
     await expectRowsInColumn(root);
     // Picking a side names its objects (06 §5).
     await userEvent.click(within(root).getByRole('button', { name: 'Left side' }));
@@ -1231,7 +1341,11 @@ export const MatchTenKTablet: Story = {
   },
 };
 
-/** Portrait (746 × 812): 10 fish don't fit a row at K size: pictures, stacked or side by side. */
+/**
+ * Portrait (746 × 812): 10 fish don't fit a row at K size, so the sides are pictures, stacked.
+ * Each line wraps into rows of five (10 = 5 + 5 above 9 = 5 + 4, still in column), so the fish
+ * use the tall side cards: ≥ 75 px each, the fish block ≥ 70 % of its card's height.
+ */
 export const MatchTenKPortrait: Story = {
   globals: { ageMode: 'k' },
   args: { config: matchTen, tier: 'concrete' },
@@ -1240,6 +1354,25 @@ export const MatchTenKPortrait: Story = {
     const root = await findWidget(canvasElement, ROOT);
     await expectCompareFits(canvasElement, root, 'k');
     await expectRowsInColumn(root);
+    const fish = await expectFish(root, 75);
+    const shares: number[] = [];
+    for (const side of root.querySelectorAll<HTMLElement>('.ni-cmp__side')) {
+      const rows = new Set(
+        [...side.querySelectorAll('.ni-objects__item')].map((o) =>
+          Math.round(o.getBoundingClientRect().top),
+        ),
+      );
+      await expect(rows.size).toBe(2);
+      const card = (side.querySelector('.ni-cmp__tray') as HTMLElement).getBoundingClientRect();
+      const pic = (side.querySelector('.ni-fitpic') as HTMLElement).getBoundingClientRect();
+      shares.push(pic.height / card.height);
+    }
+    await expect(Math.min(...shares)).toBeGreaterThanOrEqual(0.7);
+    noteMeasure(
+      canvasElement,
+      'fish',
+      `fish ${fish.toFixed(0)} px wide in rows of 5, ${Math.round(Math.min(...shares) * 100)} % of the card height`,
+    );
   },
 };
 
@@ -1307,10 +1440,11 @@ export const BaseTenKMin: Story = {
     );
     await expect(rods).toHaveLength(16);
     await expect(new Set(rods).size).toBe(1);
+    await expectBlocksCentred(root);
   },
 };
 
-/** Tablet: base-ten blocks. */
+/** Tablet: base-ten blocks, each side's drawn blocks centred in its card. */
 export const BaseTenKTablet: Story = {
   globals: { ageMode: 'k' },
   args: { config: baseTen, tier: 'pictorial' },
@@ -1319,6 +1453,18 @@ export const BaseTenKTablet: Story = {
     const root = await findWidget(canvasElement, ROOT);
     await expectCompareFits(canvasElement, root, 'k');
     await expectPicturesInside(root);
+    noteMeasure(canvasElement, 'margins', await expectBlocksCentred(root));
+  },
+};
+
+/** One ten and one one (11) against two tens (20): a lone one or no ones still centre. */
+export const BaseTenLoneOne: Story = {
+  args: { config: { ...baseTen, left: blocks(1, 1), right: blocks(2, 0) }, tier: 'pictorial' },
+  render: inArea('tablet'),
+  play: async ({ canvasElement }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    await expectCompareFits(canvasElement, root, 'g1-up');
+    await expectBlocksCentred(root);
   },
 };
 

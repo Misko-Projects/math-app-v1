@@ -243,6 +243,13 @@ button.ni-ord__card:focus-visible,
   font-size: var(--text-label);
   font-weight: 700;
 }
+/* A tagged picture card keeps 10 px under its picture: Pip's fingertip rests there, off the path. */
+.ni-ord[data-tagged="true"] .ni-ord__card {
+  padding-bottom: 7px;
+}
+.ni-ord__pic {
+  display: flex;
+}
 /* A picture card: its numeral (when the picture doesn't print it) above the fitted picture. */
 .ni-ord__face {
   display: flex;
