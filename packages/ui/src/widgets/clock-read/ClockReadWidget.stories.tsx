@@ -1,6 +1,7 @@
 import type { WidgetConfig } from '@number-island/shared';
 import type { Meta, StoryObj } from '@storybook/react-vite';
 import { expect, fn, userEvent, waitFor, within } from 'storybook/test';
+import { expectHandsLeaveNumerals, expectNumeralsSolid } from '../../test-support/clockChecks';
 import {
   clearSpies,
   expectTargetGaps,
@@ -154,6 +155,11 @@ export const WithNumerals: Story = {
       const off = Math.abs(deg - ((k * 30) % 360));
       await expect(Math.min(off, 360 - off)).toBeLessThan(0.5);
     }
+    // Every number the same ink at full opacity, nothing pale over it (the 11 once sat under the
+    // face's glass shine), and the hands leave every number readable.
+    const face = root.querySelector('.ni-clock') as SVGSVGElement;
+    await expectNumeralsSolid(face);
+    await expectHandsLeaveNumerals(face);
     // Numerals ≥ 32 px.
     await expect((nums[0] as SVGTextElement).getBoundingClientRect().height).toBeGreaterThanOrEqual(
       32,

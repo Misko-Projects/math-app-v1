@@ -1,6 +1,7 @@
 import type { WidgetConfig } from '@number-island/shared';
 import type { Meta, StoryObj } from '@storybook/react-vite';
 import { expect, fn, userEvent, waitFor, within } from 'storybook/test';
+import { expectNumeralsSolid } from '../../test-support/clockChecks';
 import {
   clearSpies,
   expectTargetGaps,
@@ -202,6 +203,7 @@ export const DragGeared: Story = {
     // And back past 12 the other way: the long hand from 1 back to 11 rewinds an hour.
     await turn(root, 115, 30, -30, 'touch');
     await expectGeared(root, 3, 55);
+    await expectNumeralsSolid(root.querySelector('.ni-clock') as SVGSVGElement);
     await userEvent.click(within(root).getByRole('button', { name: 'Check' }));
     await expect(args.onResponse).toHaveBeenCalledWith({ kind: 'state', value: { h: 3, m: 55 } });
     const trace = traceOf(args.onInteract).map((e) => `${e.t}:${e.target}`);

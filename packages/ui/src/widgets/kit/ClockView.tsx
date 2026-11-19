@@ -59,9 +59,13 @@ function Hand({ kind, deg, lit }: { kind: 'hour' | 'minute'; deg: number; lit: b
   const len = kind === 'hour' ? CLOCK.hourLen : CLOCK.minuteLen;
   const w = kind === 'hour' ? 10 : 5.5;
   const color = kind === 'hour' ? 'ink' : 'sea-deep';
-  // Pointed tip: the hour hand a broad arrow, the minute hand a slim one.
-  const tip = kind === 'hour' ? 14 : 12;
-  const d = `M${-w / 2} 12L${-w / 2} ${-(len - tip)}L0 ${-len}L${w / 2} ${-(len - tip)}L${w / 2} 12Z`;
+  // The hour hand: a broad arrow that stops short of the numbers. The minute hand reaches the
+  // minute ticks, as a real one does, but slims to a needle where it crosses the number it points
+  // at (from r 50), so that number stays readable under it.
+  const d =
+    kind === 'hour'
+      ? `M${-w / 2} 12L${-w / 2} ${-(len - 14)}L0 ${-len}L${w / 2} ${-(len - 14)}L${w / 2} 12Z`
+      : `M${-w / 2} 12L${-w / 2} -48L-1.1 -55L-1.1 ${-(len - 6)}L0 ${-len}L1.1 ${-(len - 6)}L1.1 -55L${w / 2} -48L${w / 2} 12Z`;
   return (
     <g
       className="ni-clock__hand"
@@ -83,8 +87,9 @@ function Hand({ kind, deg, lit }: { kind: 'hour' | 'minute'; deg: number; lit: b
         d={d}
         fill={paint(color)}
         stroke={paint(color)}
-        strokeWidth={2}
+        strokeWidth={kind === 'hour' ? 2 : 1}
         strokeLinejoin="round"
+        data-hand-shape={kind}
       />
     </g>
   );
@@ -145,6 +150,9 @@ export function ClockFace({
         strokeWidth={2}
         opacity={0.6}
       />
+      {/* The glass shine sits on the face, UNDER the ticks, numbers and hands: drawn on top it
+          paled the numbers it crosses (10 and 11). */}
+      <Shine x={0} y={0} rx={CLOCK.r - 6} opacity={0.3} />
       {sweep ? <path d={sweep} className="ni-clock__sweep" /> : null}
       <g className="ni-clock__ticks">
         {ticks.map((k) => (
@@ -184,7 +192,6 @@ export function ClockFace({
       <Hand kind="hour" deg={hourAngle(t)} lit={highlight === 'hour'} />
       <Hand kind="minute" deg={minuteAngle(t)} lit={highlight === 'minute'} />
       <circle r={7} fill={paint('coral')} stroke={paint('ink')} strokeWidth={2} />
-      <Shine x={0} y={0} rx={CLOCK.r - 6} opacity={0.3} />
       {children}
     </svg>
   );

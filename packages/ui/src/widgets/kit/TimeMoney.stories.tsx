@@ -1,6 +1,8 @@
 import type { StimulusSpec } from '@number-island/shared';
 import type { Meta, StoryObj } from '@storybook/react-vite';
 import { expect, within } from 'storybook/test';
+import { expectHandsLeaveNumerals, expectNumeralsSolid } from '../../test-support/clockChecks';
+import { ClockFace, faceTime } from './ClockView';
 import { BillArt, CoinArt } from './CoinArt';
 import { StimulusView } from './StimulusView';
 
@@ -109,5 +111,29 @@ export const ClockStimulus: Story = {
     );
     await expect(canvasElement.querySelector('.ni-digital')).toHaveAttribute('data-time', '3:30');
     await expect(canvasElement.querySelector('[data-unsupported]')).toBeNull();
+  },
+};
+
+/**
+ * The hands over the numbers at 12:00, 3:00, 6:00 and 9:00: the long hand reaches the minute
+ * ticks but slims to a needle across the number it points at, the short hand stops short of the
+ * numbers, so every number stays readable (≤ 20% of its box under a hand); every number is the
+ * same solid ink, nothing pale over it.
+ */
+export const ClockNumbersReadable: Story = {
+  render: () => (
+    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 16, justifyContent: 'center' }}>
+      {[12, 3, 6, 9].map((h) => (
+        <ClockFace key={h} t={faceTime(h, 0)} size={288} />
+      ))}
+    </div>
+  ),
+  play: async ({ canvasElement }) => {
+    const faces = [...canvasElement.querySelectorAll<SVGSVGElement>('.ni-clock')];
+    await expect(faces).toHaveLength(4);
+    for (const face of faces) {
+      await expectNumeralsSolid(face);
+      await expectHandsLeaveNumerals(face, 0.2);
+    }
   },
 };
