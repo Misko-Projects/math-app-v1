@@ -55,9 +55,11 @@ import './make-set.css';
  *   raise a finger, "finger down" (or ArrowDown) to fold one. Parts are `[left, right]`.
  * - `showRunningCount` shows (and speaks) the count; otherwise placing an object only clicks.
  * - `groupsOf: 10` (CNT.19): a "make a ten" button ties every full ten-frame into a bundle.
- * - Layout follows the widget's measured width (06 §1): heap, container and actions in a row
- *   where they fit (1280 × 800), else the heap above the container (`stack`, `column`). Targets
- *   and gaps never shrink.
+ * - Layout follows the widget's measured width and, when its host sets one, height (06 §1):
+ *   heap, container and actions in a row where they fit (1280 × 800), else the heap above the
+ *   container (`stack`, `column`); in a short area the frames' chrome tightens and the heap and
+ *   actions go beside the container (`side`), showing fewer supply objects at once if needed.
+ *   Targets and gaps never shrink.
  * - Check is enabled whenever input is on: every state, the untouched one included, has a response.
  *
  * Every change goes through the engine model (`formatModel('make-set')`), which also gives the
@@ -82,6 +84,53 @@ const LAYOUT_GAP = 32;
 const PILE_EDGE = 2 * (22 + 3);
 /** Most objects per heap row when the heap has a row of its own (12 visible → two rows). */
 const STACK_HEAP_COLS = SUPPLY_VISIBLE / 2;
+/** A pile's padding (26) and border (3) top and bottom, as in make-set.css. */
+const PILE_EDGE_Y = 2 * (26 + 3);
+/** The take-away pile's arrow icon (56) and the pile's gap (12) above its heap. */
+const AWAY_HEAD = 56 + 12;
+/** The root's padding (make-set.css): normally 12 / 16; `side` uses the area's full height. */
+const PAD = { x: 16, y: 12 };
+const SIDE_PAD = { x: 4, y: 0 };
+/** The gap between the container and the `side` column, and between the column's parts. */
+const SIDE_GAP = 24;
+/** A height no host grows to unless it grows with its content (the room probe). */
+const PROBE_PX = 100_000;
+
+type Layout = 'row' | 'stack' | 'column' | 'side';
+type Chrome = 'normal' | 'tight';
+interface Room {
+  width: number;
+  height: number;
+  actionsW: number;
+  actionsH: number;
+}
+interface Plan {
+  layout: Layout;
+  chrome: Chrome;
+  heapCols: number;
+  box: { w: number; h: number; top: number; frameGap: number };
+  /** Visible supply rows when fewer than the heap's full size; null shows them all. */
+  supplyRows: number | null;
+}
+/**
+ * Layouts in order of preference; the first that fits the measured width and height wins:
+ * the designed layouts, then the tight frame chrome, then the `side` layout, then fewer
+ * visible supply rows. `[layout, chrome, may show fewer supply rows]`.
+ */
+const PLANS: readonly [Layout, Chrome, boolean][] = [
+  ['row', 'normal', false],
+  ['stack', 'normal', false],
+  ['column', 'normal', false],
+  ['row', 'tight', false],
+  ['stack', 'tight', false],
+  ['side', 'normal', false],
+  ['side', 'tight', false],
+  ['column', 'tight', false],
+  ['side', 'normal', true],
+  ['column', 'normal', true],
+  ['side', 'tight', true],
+  ['column', 'tight', true],
+];
 
 type Config = ConfigFor<'make-set'>;
 type ItemId = `set-${number}`;
@@ -415,71 +464,179 @@ export function MakeSetWidget({
   const frames = Math.max(1, Math.ceil(capacity / 10));
   const frameW = 5 * slot + 4 * gap;
   const frameH = 2 * slot + gap;
-  const FRAME_GAP = 18;
-  /** A frame's padding (14) and ink border (4) on each side, as in make-set.css. */
-  const FRAME_EDGE = 2 * (14 + 4);
-  const gridH = frames * (frameH + FRAME_EDGE) + (frames - 1) * FRAME_GAP;
   const kind = (hands ? 'basket' : config.container) as ContainerKind;
   const pad = CONTAINER_PAD[kind];
-  const boxW = frameW + FRAME_EDGE + pad.left + pad.right;
-  const boxH = gridH + pad.top + pad.bottom;
   const containerName = t(`ui.set.${config.container}`);
 
-  // ---------- layout: follows the width the widget has (06 §1: container-relative) ----------
+  /**
+   * The container's size for a frame chrome (make-set.css): `normal`, a frame's padding (14) and
+   * ink border (4) a side and 18 px between frames; `tight` (short areas), no padding, a 3 px
+   * border and 8 px between frames (objects in two frames stay 3 + 8 + 3 = 14 px apart). With a
+   * `fit` height (the `side` layout, where the container has a column of its own) the art's top
+   * and bottom margins shrink as far as needed; the slots never do.
+   */
+  const boxFor = (chrome: Chrome, fit: number | null) => {
+    const edge = chrome === 'tight' ? 2 * 3 : 2 * (14 + 4);
+    const frameGap = chrome === 'tight' ? 8 : 18;
+    const gridH = frames * (frameH + edge) + (frames - 1) * frameGap;
+    let top = pad.top;
+    let bottom = pad.bottom;
+    if (fit !== null && gridH + top + bottom > fit) {
+      const free = Math.max(0, Math.floor(fit - gridH));
+      top = Math.min(pad.top, Math.floor(free / 2));
+      bottom = Math.min(pad.bottom, free - top);
+    }
+    return { w: frameW + edge + pad.left + pad.right, h: gridH + top + bottom, top, frameGap };
+  };
+
+  // ---------- layout: follows the room the widget has (06 §1: container-relative) ----------
 
   const actionsRef = useRef<HTMLDivElement | null>(null);
-  /** The root's content width and the actions column's width, measured; null until mounted. */
-  const [room, setRoom] = useState<{ avail: number; actions: number } | null>(null);
+  /**
+   * Measured, null until mounted: the root's width (border box), the height its host gives it
+   * (Infinity when the host grows with its content, as in a plain story) and the actions column.
+   */
+  const [room, setRoom] = useState<Room | null>(null);
   useLayoutEffect(() => {
     const el = rootRef.current;
     if (!el || hands) return;
+    const host = el.parentElement;
     const measure = () => {
-      const cs = getComputedStyle(el);
-      const avail =
-        el.getBoundingClientRect().width -
-        Number.parseFloat(cs.paddingLeft) -
-        Number.parseFloat(cs.paddingRight);
-      const actions = actionsRef.current?.getBoundingClientRect().width ?? 0;
-      setRoom((r) => (r && r.avail === avail && r.actions === actions ? r : { avail, actions }));
+      const width = el.getBoundingClientRect().width;
+      // Does the host bound the widget's height? Grow the root for one synchronous layout (no
+      // paint): a host sized by its content grows with it; a host with a set height does not.
+      let height = Number.POSITIVE_INFINITY;
+      if (host) {
+        const before = el.style.height;
+        el.style.height = `${PROBE_PX}px`;
+        const grown = host.clientHeight;
+        el.style.height = before;
+        if (grown < PROBE_PX) height = host.clientHeight;
+      }
+      const a = actionsRef.current?.getBoundingClientRect();
+      const next: Room = { width, height, actionsW: a?.width ?? 0, actionsH: a?.height ?? 0 };
+      setRoom((r) =>
+        r &&
+        r.width === next.width &&
+        r.height === next.height &&
+        r.actionsW === next.actionsW &&
+        r.actionsH === next.actionsH
+          ? r
+          : next,
+      );
     };
     measure();
     if (typeof ResizeObserver === 'undefined') return;
     const ro = new ResizeObserver(measure);
     ro.observe(el);
+    if (host) ro.observe(host);
     if (actionsRef.current) ro.observe(actionsRef.current);
     return () => ro.disconnect();
   }, [hands]);
 
   const heapCap = ageMode === 'k' ? HEAP_COLS_K : HEAP_COLS;
   const heapW = (cols: number) => cols * slot + (cols - 1) * gap;
+  const rowsH = (rows: number) => rows * slot + (rows - 1) * gap;
   const showSupply = !takeAway || outside.length > 0;
   const piles = (showSupply ? 1 : 0) + (takeAway ? 1 : 0);
+  /** The heaps' fullest sizes (each heap box keeps it, so the layout never jumps). */
+  const supplyMost = Math.min(SUPPLY_VISIBLE, total);
+  const awayMost = Math.min(MAX_OBJECTS, total);
+
   /**
+   * Whether `layout` with `chrome` fits the measured room, and with what heap: the objects per
+   * heap row and, when `reduce` allows, fewer visible supply rows (more objects appear as objects
+   * are taken, as with SUPPLY_VISIBLE). Targets and gaps never shrink.
    * - `row` (as designed for 1280 × 800): heap, container, (take-away pile,) actions side by side.
-   * - `stack`: the heap on its own row above (wider, so fewer rows), the container with the
-   *   actions beside it, the take-away pile below.
+   * - `stack`: the heap on its own row above, the container with the actions beside it, the
+   *   take-away pile below.
    * - `column`: everything in one column, actions last.
-   * Each is chosen only when it fits the measured width; targets and gaps never shrink.
+   * - `side` (short areas, e.g. 960 × 600): the container on the right, the heap, the take-away
+   *   pile and the actions in a column beside it.
    */
-  const layout: 'row' | 'stack' | 'column' = (() => {
-    if (hands || !room) return 'row';
-    const rowNeed =
-      piles * (heapW(heapCap) + PILE_EDGE) + boxW + room.actions + (piles + 1) * LAYOUT_GAP;
-    if (rowNeed <= room.avail + 0.5) return 'row';
-    return boxW + LAYOUT_GAP + room.actions <= room.avail + 0.5 ? 'stack' : 'column';
-  })();
-  /** Objects per heap row: as designed in a row; as many as fit (up to 6) on a row of its own. */
-  const heapCols =
-    layout === 'row' || !room
-      ? heapCap
-      : Math.max(
-          1,
-          Math.min(STACK_HEAP_COLS, Math.floor((room.avail - PILE_EDGE + gap) / (slot + gap))),
-        );
+  const planFor = (
+    layout: Layout,
+    chrome: Chrome,
+    reduce: boolean,
+    widthOnly = false,
+  ): Plan | null => {
+    if (!room) return null;
+    const side = layout === 'side';
+    const g = side ? SIDE_GAP : LAYOUT_GAP;
+    const innerW = room.width - 2 * (side ? SIDE_PAD.x : PAD.x);
+    const innerH = widthOnly
+      ? Number.POSITIVE_INFINITY
+      : room.height - 2 * (side ? SIDE_PAD.y : PAD.y);
+    const box = boxFor(chrome, side && Number.isFinite(innerH) ? innerH : null);
+    const fitCols = (w: number) => Math.floor((w - PILE_EDGE + gap) / (slot + gap));
+    const heapCols =
+      layout === 'row'
+        ? heapCap
+        : Math.min(STACK_HEAP_COLS, fitCols(side ? innerW - box.w - g : innerW));
+    if (heapCols < (side ? 2 : 1)) return null;
+    const pileW = heapW(heapCols) + PILE_EDGE;
+    const awayH = takeAway
+      ? rowsH(Math.max(1, heapRows(awayMost, heapCols).length)) + PILE_EDGE_Y + AWAY_HEAD
+      : 0;
+    const supplyH = (rows: number) => (showSupply ? rowsH(rows) + PILE_EDGE_Y : 0);
+    const stacked = (hs: number[]) => {
+      const parts = hs.filter((h) => h > 0);
+      return parts.reduce((a, b) => a + b, 0) + Math.max(0, parts.length - 1) * g;
+    };
+    const aw = room.actionsW;
+    const ah = room.actionsH;
+    const fits = (rows: number) => {
+      const s = supplyH(rows);
+      const [w, h] =
+        layout === 'row'
+          ? [piles * pileW + box.w + aw + (piles + 1) * g, Math.max(s, box.h, awayH, ah)]
+          : layout === 'stack'
+            ? [
+                Math.max(box.w + g + aw, piles ? pileW : 0),
+                stacked([s, Math.max(box.h, ah), awayH]),
+              ]
+            : layout === 'column'
+              ? [Math.max(box.w, aw, piles ? pileW : 0), stacked([s, box.h, awayH, ah])]
+              : [box.w + g + Math.max(pileW, aw), Math.max(box.h, stacked([s, awayH, ah]))];
+      return w <= innerW + 0.5 && h <= innerH + 0.5;
+    };
+    const full = Math.max(1, heapRows(supplyMost, heapCols).length);
+    for (let rows = full; rows >= (reduce && showSupply ? 1 : full); rows--) {
+      if (fits(rows)) {
+        return { layout, chrome, heapCols, box, supplyRows: rows === full ? null : rows };
+      }
+    }
+    return null;
+  };
+  const plan: Plan | null = hands
+    ? null
+    : (PLANS.reduce<Plan | null>((found, [l, c, r]) => found ?? planFor(l, c, r), null) ??
+      // Nothing fits the height: as wide as fits, and the area scrolls down.
+      planFor('row', 'normal', false, true) ??
+      planFor('stack', 'normal', false, true) ??
+      planFor('column', 'normal', false, true));
+  const layout: Layout = plan?.layout ?? 'row';
+  const chrome: Chrome = plan?.chrome ?? 'normal';
+  const box = plan?.box ?? boxFor('normal', null);
+  const heapCols = plan?.heapCols ?? heapCap;
+  /** Supply objects shown at once (fewer when the area is short; more appear as objects go). */
+  const supplyVisible =
+    plan?.supplyRows != null
+      ? Math.min(SUPPLY_VISIBLE, plan.supplyRows * heapCols)
+      : SUPPLY_VISIBLE;
+  /** The `side` layout's left column, top to bottom. */
+  const sideParts = [showSupply && 'supply', takeAway && 'away', 'act'].filter(
+    (p): p is string => typeof p === 'string',
+  );
+  /** In `side`, each part of the left column after the first sits SIDE_GAP below the last. */
+  const sideGap = (part: string): CSSProperties | undefined =>
+    layout === 'side' && sideParts.indexOf(part) > 0 ? { marginTop: SIDE_GAP } : undefined;
   const areas =
     layout === 'stack'
       ? [showSupply && 'supply supply', 'box act', takeAway && 'away away']
-      : [showSupply && 'supply', 'box', takeAway && 'away', 'act'];
+      : layout === 'side'
+        ? ['. box', ...sideParts.map((p) => `${p} box`), '. box']
+        : [showSupply && 'supply', 'box', takeAway && 'away', 'act'];
   const layoutStyle: CSSProperties =
     layout === 'row'
       ? {}
@@ -488,6 +645,9 @@ export function MakeSetWidget({
             .filter(Boolean)
             .map((a) => `"${a}"`)
             .join(' '),
+          ...(layout === 'side'
+            ? { gridTemplateRows: `1fr ${sideParts.map(() => 'auto').join(' ')} 1fr` }
+            : {}),
         };
 
   // Demo invite (03 §6.3): the ring and Pip's hand sit on the ONE thing the child acts on next.
@@ -503,7 +663,7 @@ export function MakeSetWidget({
         ? 'remove'
         : null;
   /** The heap the child drags from: in take-away, the "take away" pile goes back first. */
-  const shownOutside = outside.slice(0, SUPPLY_VISIBLE);
+  const shownOutside = outside.slice(0, supplyVisible);
   const dragFrom = takeAway ? (lists.away.length > 0 ? lists.away : shownOutside) : shownOutside;
   // The last object of its heap: it sits in the bottom row, so the hand below it covers nothing.
   const invitedItem: ItemId | null =
@@ -586,13 +746,18 @@ export function MakeSetWidget({
   const pileArea = (which: 'supply' | 'away') => {
     const items = which === 'away' ? lists.away : outside;
     const isTarget = which === 'away' ? takeAway : !takeAway;
-    const most = which === 'away' ? MAX_OBJECTS : SUPPLY_VISIBLE;
+    const most = which === 'away' ? MAX_OBJECTS : supplyVisible;
     const shown = items.slice(0, most);
     const label = which === 'away' ? t('ui.set.away') : t('ui.set.supply');
     const targetProps = isTarget ? dnd.targetProps('pile', { label }) : null;
     const cells = heapCells(shown.length, heapCols);
     return (
-      <div className="ni-mset__pile" data-area={isTarget ? 'pile' : 'supply'} data-kind={which}>
+      <div
+        className="ni-mset__pile"
+        data-area={isTarget ? 'pile' : 'supply'}
+        data-kind={which}
+        style={sideGap(which)}
+      >
         {targetProps ? (
           <div {...targetProps} className={`${targetProps.className} ni-mset__pad`} />
         ) : null}
@@ -629,14 +794,14 @@ export function MakeSetWidget({
     <div
       className="ni-mset__container"
       data-container={config.container}
-      style={{ width: boxW, height: boxH } as CSSProperties}
+      style={{ width: box.w, height: box.h } as CSSProperties}
     >
-      <ContainerArt kind={kind} width={boxW} height={boxH} closed={closed} />
+      <ContainerArt kind={kind} width={box.w} height={box.h} closed={closed} />
       <div {...containerProps} className={`${containerProps.className} ni-mset__pad`} />
       {/* count-aloud invites counting what is in the frames: the ring hugs them, not the art. */}
       <div
         className={['ni-mset__frames', invitedCount ? 'ni-invite' : ''].filter(Boolean).join(' ')}
-        style={{ top: pad.top, left: pad.left, gap: FRAME_GAP } as CSSProperties}
+        style={{ top: box.top, left: pad.left, gap: box.frameGap } as CSSProperties}
       >
         {Array.from({ length: frames }, (_, f) => (
           // biome-ignore lint/suspicious/noArrayIndexKey: ten-frames are positional
@@ -766,6 +931,7 @@ export function MakeSetWidget({
       data-container={config.container}
       data-disabled={disabled ? 'true' : undefined}
       data-layout={hands ? undefined : layout}
+      data-chrome={chrome === 'tight' ? 'tight' : undefined}
       style={
         {
           '--slot': `${slot}px`,
@@ -787,7 +953,7 @@ export function MakeSetWidget({
         </>
       )}
 
-      <div className="ni-mset__actions" ref={actionsRef}>
+      <div className="ni-mset__actions" ref={actionsRef} style={sideGap('act')}>
         {config.showRunningCount ? (
           <NumberDisplay value={v.count} size="lg" label="ui.widget.answer" />
         ) : null}

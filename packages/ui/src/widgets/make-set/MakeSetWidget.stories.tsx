@@ -202,46 +202,6 @@ async function drag(el: HTMLElement, target: HTMLElement, pointerType: 'mouse' |
 }
 
 /**
- * In a fixed widget area that scrolls (06 §1), every object, the container and Check start
- * at or below the area's top at scrollTop 0 (nothing sits above the scroll origin, where no scroll
- * can reach), and scrolling the area to each object and Check makes a real touch at its
- * centre land on it.
- */
-async function expectReachableInArea(root: HTMLElement, box: HTMLElement) {
-  box.scrollIntoView({ block: 'start', inline: 'start' });
-  box.scrollTop = 0;
-  box.scrollLeft = 0;
-  await nextFrame();
-  const b = box.getBoundingClientRect();
-  const parts = [
-    ...allItems(root),
-    root.querySelector('.ni-mset__container') as Element,
-    check(root),
-  ];
-  for (const part of parts) {
-    await expect(
-      part.getBoundingClientRect().top,
-      `${describe(part)} top at or below the area's scroll origin`,
-    ).toBeGreaterThanOrEqual(b.top - 0.5);
-  }
-  for (const el of [...allItems(root), check(root)]) {
-    const r = el.getBoundingClientRect();
-    const bb = box.getBoundingClientRect();
-    if (r.bottom > bb.bottom) box.scrollTop += r.bottom - bb.bottom;
-    else if (r.top < bb.top) box.scrollTop -= bb.top - r.top;
-    // The story page itself may be shorter than the area (the test viewport): scroll the page
-    // too, never the area, so only the area's own scrolling decides what is reachable.
-    const v = el.getBoundingClientRect();
-    if (v.bottom > window.innerHeight) window.scrollBy(0, v.bottom - window.innerHeight);
-    else if (v.top < 0) window.scrollBy(0, v.top);
-    await nextFrame();
-    await expectHit(el, center(el), `${describe(el)} after scrolling it into view`);
-  }
-  box.scrollTop = 0;
-  await nextFrame();
-}
-
-/**
  * A heap lays out in balanced, centred rows: row lengths differ by at most one (no object hangs
  * alone under the others), every row is centred on the heap, and the rows sit in the middle of
  * the heap's box (no empty lower half).
@@ -505,20 +465,28 @@ export const TwentyK: Story = {
 };
 
 /**
- * The workshop's widget area (06 §1, §2) as a fixed host box. Sizes come from the workshop frame
- * (patterns/WorkshopFrame.stories.tsx, K): its chrome takes 2 × 24 px padding + 2 × 3 px stage
- * border across, and 288 px down (2 × 16 padding, the 94 px top bar, the 132 px product tray,
- * 2 × 12 gaps, 2 × 3 border; measured at a 1200 × 900 viewport, where the stage is 1146 × 612).
- * So 960 × 600 leaves 906 × 312, 800 × 1280 leaves 746 × 992 and 1280 × 800 leaves 1226 wide.
- * The box scrolls like a stage would: it never grows to fit the widget. It has no outline or
- * border of its own (a debug-looking marker must not read as product UI): it is invisible.
+ * The workshop's widget area at a viewport, as in tap-count's area stories: the width less the
+ * workshop frame's 2 × 24 px padding and the stage's 2 × 3 px border; the height is the 06 §2
+ * minimum, 60 % of the screen over that width, less the border. 1280 × 800 → 1226 × 493,
+ * 960 × 600 (06 §1 minimum) → 906 × 373, 800 × 1280 → 746 × 812. (Today's WorkshopFrame chrome
+ * leaves less than 60 %; that is the frame's to fix, not the widget's.)
  */
+function widgetArea(vw: number, vh: number) {
+  const outer = vw - 2 * 24;
+  return { width: outer - 2 * 3, height: Math.ceil((0.6 * vw * vh) / outer) - 2 * 3 };
+}
+
 const AREA = {
-  landscapeMin: { width: 906, height: 312 },
-  portrait: { width: 746, height: 992 },
-  tablet: { width: 1226, height: 512 },
+  landscapeMin: widgetArea(960, 600),
+  portrait: widgetArea(800, 1280),
+  tablet: widgetArea(1280, 800),
 } as const;
 
+/**
+ * Renders the widget in the workshop's warm widget card, exactly the area's size (no border or
+ * padding). The card is a scroll box like a stage, so the play functions can prove nothing
+ * scrolls: it never grows to fit the widget.
+ */
 function inArea(area: keyof typeof AREA) {
   return (args: WidgetHostProps) => (
     <div
@@ -530,6 +498,9 @@ function inArea(area: keyof typeof AREA) {
         boxSizing: 'border-box',
         display: 'grid',
         overflow: 'auto',
+        borderRadius: 'var(--radius-card)',
+        background: 'var(--color-sand)',
+        boxShadow: 'var(--shadow-soft)',
       }}
     >
       <WidgetHost {...args} />
@@ -541,44 +512,66 @@ const areaBox = (canvasElement: HTMLElement) =>
   canvasElement.querySelector('.story-widget-area') as HTMLElement;
 
 /**
- * Heap, container and Check sit inside the host box across (and down too, with `vertical`), the
- * box never scrolls sideways, and the targets keep their size and 12 px gaps.
+ * The whole widget fits its area with no scroll (06 §1, §2): at scrollTop 0 the area scrolls
+ * neither way; every object (heap and container), every slot, the piles, the container and Check
+ * lie inside it; a real touch (the browser's hit test) at each object's and Check's centre lands
+ * on it; and the targets keep their size and 12 px gaps.
  */
-async function expectFitsArea(
-  root: HTMLElement,
-  box: HTMLElement,
-  ageMode: 'k' | 'g1-up',
-  { vertical }: { vertical: boolean },
-) {
+async function expectFitsArea(root: HTMLElement, box: HTMLElement, ageMode: 'k' | 'g1-up') {
+  box.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+  box.scrollTop = 0;
+  box.scrollLeft = 0;
+  await nextFrame();
+  await expect(box.scrollHeight, 'the area does not scroll down').toBeLessThanOrEqual(
+    box.clientHeight + 1,
+  );
+  await expect(box.scrollWidth, 'the area does not scroll across').toBeLessThanOrEqual(
+    box.clientWidth + 1,
+  );
+  await expect(root.scrollWidth).toBeLessThanOrEqual(root.clientWidth + 1);
   const b = box.getBoundingClientRect();
   const parts = [
     ...root.querySelectorAll<HTMLElement>('.ni-mset__pile'),
     root.querySelector('.ni-mset__container') as HTMLElement,
+    ...root.querySelectorAll<HTMLElement>('.ni-mset__slot'),
+    ...allItems(root),
     check(root),
   ];
-  await expect(parts.length).toBeGreaterThanOrEqual(3);
+  await expect(parts.length).toBeGreaterThanOrEqual(4);
   for (const part of parts) {
     const r = part.getBoundingClientRect();
-    await expect(r.left, 'left edge inside the area').toBeGreaterThanOrEqual(b.left - 0.5);
-    await expect(r.right, 'right edge inside the area').toBeLessThanOrEqual(b.right + 0.5);
-    if (vertical) {
-      await expect(r.top, 'top edge inside the area').toBeGreaterThanOrEqual(b.top - 0.5);
-      await expect(r.bottom, 'bottom edge inside the area').toBeLessThanOrEqual(b.bottom + 0.5);
-    }
+    const what = describe(part);
+    await expect(r.left, `${what} left edge inside the area`).toBeGreaterThanOrEqual(b.left - 0.5);
+    await expect(r.right, `${what} right edge inside the area`).toBeLessThanOrEqual(b.right + 0.5);
+    await expect(r.top, `${what} top edge inside the area`).toBeGreaterThanOrEqual(b.top - 0.5);
+    await expect(r.bottom, `${what} bottom edge inside the area`).toBeLessThanOrEqual(
+      b.bottom + 0.5,
+    );
   }
-  await expect(box.scrollWidth).toBeLessThanOrEqual(box.clientWidth);
-  await expect(root.scrollWidth).toBeLessThanOrEqual(root.clientWidth + 1);
-  if (vertical) await expect(box.scrollHeight).toBeLessThanOrEqual(box.clientHeight);
+  for (const el of [...allItems(root), check(root)]) {
+    await expectHit(el, center(el), describe(el));
+  }
+  await expect(box.scrollTop).toBe(0);
   const targets = [...allItems(root), check(root)];
   for (const el of targets) await expectTargetSize(el, ageMode);
   await expectTargetGaps(targets);
 }
 
+/** Check passes a real hit test at its centre and answers when tapped there. */
+async function expectCheckTaps(root: HTMLElement) {
+  const ok = check(root);
+  await expectHit(ok, center(ok), 'Check');
+  await expect(ok).toBeEnabled();
+  await userEvent.click(ok);
+}
+
 /**
- * TwentyK at the minimum landscape (960 × 600 → a 906 px wide area): the row (1108 px) can't fit,
- * so the heap goes above the boat (wider, two rows) with Check beside the boat. Drag and
- * tap-to-place still work. The area is 312 px tall and two K ten-frames need 434 px, so it scrolls
- * down (never sideways).
+ * TwentyK at the minimum landscape (960 × 600 → 906 × 373). Neither the row (1108 px wide) nor
+ * the heap above the boat (806 px tall) fits, so the `side` layout: the boat with two ten-frames
+ * in tight chrome (4 × 80 px rows + 3 × 12 px gaps = 356 px of slots, 364 px of frames, 373 px
+ * with the art) on the right, the heap (3 × 2 crabs, 314 × 230) with Check under it on the left.
+ * The heap shows 6 crabs at a time (a third row and Check need 448 px); more appear as crabs are
+ * taken. Drag and tap-to-place work with no scroll.
  */
 export const TwentyKMinLandscape: Story = {
   globals: { ageMode: 'k' },
@@ -587,18 +580,27 @@ export const TwentyKMinLandscape: Story = {
   play: async ({ canvasElement, args }) => {
     const root = await findWidget(canvasElement, ROOT);
     const box = areaBox(canvasElement);
-    await expect(root).toHaveAttribute('data-layout', 'stack');
-    await expectFitsArea(root, box, 'k', { vertical: false });
-    await expectReachableInArea(root, box);
+    await waitFor(() => expect(root).toHaveAttribute('data-layout', 'side'));
+    await expect(root).toHaveAttribute('data-chrome', 'tight');
+    await expectFitsArea(root, box, 'k');
+    await expect(heap(root)).toHaveLength(6);
     await expectEvenHeap(pileArea(root));
+    // The heap and Check sit left of the boat, Check under the heap.
+    const pile = pileArea(root).getBoundingClientRect();
+    const boat = (root.querySelector('.ni-mset__container') as HTMLElement).getBoundingClientRect();
+    const ok = check(root).getBoundingClientRect();
+    await expect(pile.right).toBeLessThan(boat.left);
+    await expect(ok.right).toBeLessThan(boat.left);
+    await expect(ok.top).toBeGreaterThan(pile.bottom);
     await drag(heap(root)[0] as HTMLElement, containerPad(root), 'touch');
     await waitFor(() => expect(inside(root)).toHaveLength(1));
     await userEvent.click(heap(root)[0] as HTMLElement);
     await userEvent.click(containerPad(root));
     await waitFor(() => expect(inside(root)).toHaveLength(2));
-    await expectFitsArea(root, box, 'k', { vertical: false });
-    await expectReachableInArea(root, box);
-    await userEvent.click(check(root));
+    // Two crabs taken, two more appear: the heap stays full.
+    await expect(heap(root)).toHaveLength(6);
+    await expectFitsArea(root, box, 'k');
+    await expectCheckTaps(root);
     await expect(args.onResponse).toHaveBeenCalledWith({
       kind: 'state',
       value: { count: 2, removed: 0 },
@@ -606,87 +608,107 @@ export const TwentyKMinLandscape: Story = {
   },
 };
 
-/** TwentyK in portrait (800 × 1280 → 746 × 992): heap, boat, then Check, all inside. */
+/**
+ * TwentyK in portrait (800 × 1280 → 746 × 812): the heap (6 × 2) above, the boat (tight frames)
+ * with Check beside it; all inside, no scroll.
+ */
 export const TwentyKPortrait: Story = {
   globals: { ageMode: 'k' },
   args: { config: twenty },
   render: inArea('portrait'),
-  play: async ({ canvasElement }) => {
+  play: async ({ canvasElement, args }) => {
     const root = await findWidget(canvasElement, ROOT);
-    await expect(root).toHaveAttribute('data-layout', 'column');
-    await expectFitsArea(root, areaBox(canvasElement), 'k', { vertical: true });
-    await expectReachableInArea(root, areaBox(canvasElement));
+    await waitFor(() => expect(root).toHaveAttribute('data-layout', 'stack'));
+    await expectFitsArea(root, areaBox(canvasElement), 'k');
+    await expect(heap(root)).toHaveLength(12);
     await expectEvenHeap(pileArea(root));
+    await expectCheckTaps(root);
+    await expect(args.onResponse).toHaveBeenCalledWith({
+      kind: 'state',
+      value: { count: 0, removed: 0 },
+    });
   },
 };
 
 /**
- * TwentyK at the tablet baseline (1280 × 800 → 1226 wide): it fits in one row, unchanged: heap,
- * boat and Check side by side, centred on one line.
+ * TwentyK at the tablet baseline (1280 × 800 → 1226 × 493): one row as designed, heap, boat and
+ * Check side by side, centred on one line; the boat's frames are in tight chrome (the normal one
+ * is 520 px tall).
  */
 export const TwentyKTablet: Story = {
   globals: { ageMode: 'k' },
   args: { config: twenty },
   render: inArea('tablet'),
-  play: async ({ canvasElement }) => {
+  play: async ({ canvasElement, args }) => {
     const root = await findWidget(canvasElement, ROOT);
+    await waitFor(() => expect(root).toHaveAttribute('data-chrome', 'tight'));
     await expect(root).toHaveAttribute('data-layout', 'row');
-    await expectFitsArea(root, areaBox(canvasElement), 'k', { vertical: false });
-    await expectReachableInArea(root, areaBox(canvasElement));
+    await expectFitsArea(root, areaBox(canvasElement), 'k');
     const pile = pileArea(root).getBoundingClientRect();
     const boat = (root.querySelector('.ni-mset__container') as HTMLElement).getBoundingClientRect();
     const ok = check(root).getBoundingClientRect();
     await expect(pile.right).toBeLessThan(boat.left);
     await expect(boat.right).toBeLessThan(ok.left);
-    // Three columns of K objects, as before.
+    // Three columns of K objects, all 12 shown, as before.
+    await expect(heap(root)).toHaveLength(12);
     await expect(new Set(heap(root).map((el) => el.getBoundingClientRect().left)).size).toBe(3);
-  },
-};
-
-/** The open shell, K (as wide as the K boat, 584 px), at the minimum landscape and in portrait. */
-export const ShellKMinLandscape: Story = {
-  globals: { ageMode: 'k' },
-  args: { config: shell },
-  render: inArea('landscapeMin'),
-  play: async ({ canvasElement }) => {
-    const root = await findWidget(canvasElement, ROOT);
-    await expect(root).toHaveAttribute('data-layout', 'stack');
-    await expectFitsArea(root, areaBox(canvasElement), 'k', { vertical: false });
-    await expectReachableInArea(root, areaBox(canvasElement));
-    await expectEvenHeap(pileArea(root));
-  },
-};
-
-export const ShellKPortrait: Story = {
-  globals: { ageMode: 'k' },
-  args: { config: shell },
-  render: inArea('portrait'),
-  play: async ({ canvasElement }) => {
-    const root = await findWidget(canvasElement, ROOT);
-    await expectFitsArea(root, areaBox(canvasElement), 'k', { vertical: true });
-    await expectReachableInArea(root, areaBox(canvasElement));
-    await expectEvenHeap(pileArea(root));
+    await expectCheckTaps(root);
+    await expect(args.onResponse).toHaveBeenCalledTimes(1);
   },
 };
 
 /**
- * Take away at the minimum landscape: the boat with Check beside it, the "take away" pile below;
- * both parts stay visible and inside the area.
+ * The open shell, K, at the minimum landscape (906 × 373): `side`, the shell (one ten-frame,
+ * tight chrome, 554 × 298) on the right, all five pebbles (3 + 2) and Check on the left.
+ */
+export const ShellKMinLandscape: Story = {
+  globals: { ageMode: 'k' },
+  args: { config: shell },
+  render: inArea('landscapeMin'),
+  play: async ({ canvasElement, args }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    await waitFor(() => expect(root).toHaveAttribute('data-layout', 'side'));
+    await expectFitsArea(root, areaBox(canvasElement), 'k');
+    await expect(heap(root)).toHaveLength(5);
+    await expectEvenHeap(pileArea(root));
+    await expectCheckTaps(root);
+    await expect(args.onResponse).toHaveBeenCalledTimes(1);
+  },
+};
+
+/** The open shell, K, in portrait (746 × 812): heap, shell, then Check, all inside. */
+export const ShellKPortrait: Story = {
+  globals: { ageMode: 'k' },
+  args: { config: shell },
+  render: inArea('portrait'),
+  play: async ({ canvasElement, args }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    await expectFitsArea(root, areaBox(canvasElement), 'k');
+    await expectEvenHeap(pileArea(root));
+    await expectCheckTaps(root);
+    await expect(args.onResponse).toHaveBeenCalledTimes(1);
+  },
+};
+
+/**
+ * Take away at the minimum landscape (906 × 373): `side`, the boat on the right, the "take away"
+ * pile with Check under it on the left; both parts stay visible and inside the area, no scroll.
  */
 export const TakeAwayMinLandscape: Story = {
   args: { config: takeAway },
   render: inArea('landscapeMin'),
   play: async ({ canvasElement, args }) => {
     const root = await findWidget(canvasElement, ROOT);
+    await waitFor(() => expect(root).toHaveAttribute('data-layout', 'side'));
+    await expectFitsArea(root, areaBox(canvasElement), 'g1-up');
     await drag(inside(root)[4] as HTMLElement, pilePad(root), 'mouse');
     await waitFor(() => expect(heap(root)).toHaveLength(1));
     await userEvent.click(inside(root)[3] as HTMLElement);
     await userEvent.click(pilePad(root));
     await waitFor(() => expect(heap(root)).toHaveLength(2));
-    await expectFitsArea(root, areaBox(canvasElement), 'g1-up', { vertical: false });
-    await expectReachableInArea(root, areaBox(canvasElement));
+    await expectFitsArea(root, areaBox(canvasElement), 'g1-up');
     await expectEvenHeap(pileArea(root));
-    await userEvent.click(check(root));
+    await expectCheckTaps(root);
     await expect(args.onResponse).toHaveBeenCalledWith({
       kind: 'state',
       value: { count: 3, removed: 2, parts: [3, 2] },
@@ -804,27 +826,35 @@ export const Disabled: Story = {
   },
 };
 
-/** A zero item (03 §5.5 `count.set` mode zero): the empty basket, with nothing to put in. */
+/**
+ * A zero item (03 §5.5 `count.set` mode zero): five shells wait beside the basket, so leaving it
+ * empty is a choice; the running count shows the basket's 0, as in the other states.
+ */
 const zeroSet: ConfigFor<'make-set'> = {
   format: 'make-set',
   target: 0,
   mode: 'make',
-  source: { sprite: 'shell', supply: 0 },
+  source: { sprite: 'shell', supply: 5 },
   container: 'basket',
   capacity: 10,
-  showRunningCount: false,
+  showRunningCount: true,
 };
 
 /**
- * The untouched container is the answer (target 0, supply 0): with no move possible, Check is
- * enabled and answers the model's response for the initial state, exactly once (a double tap is
- * debounced). Nothing is sent before the tap.
+ * The untouched container is the answer (target 0): the shells are there to take, the count
+ * reads 0, and Check is enabled and answers the model's response for the initial state, exactly
+ * once (a double tap is debounced). Nothing is sent before the tap, and no move is made.
  */
 export const EmptyIsTheAnswer: Story = {
   args: { config: zeroSet },
   play: async ({ canvasElement, args }) => {
     const root = await findWidget(canvasElement, ROOT);
-    await expect(allItems(root)).toHaveLength(0);
+    // Zero is a visible choice: a full heap beside the empty basket, and the count at 0.
+    await expect(heap(root)).toHaveLength(5);
+    for (const el of heap(root)) await expect(el).toBeVisible();
+    await expectEvenHeap(pileArea(root));
+    await expect(inside(root)).toHaveLength(0);
+    await expect(within(root).getByRole('button', { name: 'Your answer: 0' })).toBeVisible();
     await expect(check(root)).toBeEnabled();
     await expect(args.onResponse).not.toHaveBeenCalled();
     await userEvent.dblClick(check(root));
@@ -834,6 +864,7 @@ export const EmptyIsTheAnswer: Story = {
       value: { count: 0, removed: 0 },
     });
     await expect(args.onInteract).not.toHaveBeenCalled();
+    await expect(inside(root)).toHaveLength(0);
   },
 };
 
