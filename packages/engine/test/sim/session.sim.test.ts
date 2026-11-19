@@ -7,15 +7,19 @@
 // 1. per-session first-try accuracy (first attempts on items in practice, review, warmup,
 //    challenge and transfer-probe contexts) within [0.78, 0.92] for ≥ 80% of sessions, pooled over
 //    the children of a profile. Asserted on the expected accuracy (mean hidden P of the counted
-//    first tries): the observed one is reported with its binomial-noise ceiling;
+//    first tries) of the reachable items (E03 reading, see the band tests below); the observed one
+//    is reported with its binomial-noise ceiling;
 // 2. mastered skills that are forgotten are re-reviewed before their hidden recall drops below
-//    0.6 in ≥ 90% of cases. A case is a between-session memory segment of a skill the model rates
-//    mastered: it starts at the skill's last retrieval in a session (recall 1, half-life h after
-//    it), and its recall would cross 0.6 at T = start + h·log2(1/0.6). The case succeeds if the
-//    skill is attempted again (any context but placement) before T. Segments whose T falls after
-//    the end of the simulation are censored, and segments of a skill the model no longer rates
-//    mastered at the last session start before the re-review or T (it was demoted) are left out
-//    and counted. The same is reported for practiced-track skills.
+//    0.6 in ≥ 90% of cases. A segment is a between-session memory segment of a skill the model
+//    rates mastered: it starts at the skill's last retrieval in a session (recall 1, half-life h
+//    after it), its recall would cross 0.6 at T = start + h·log2(1/0.6), and it ends at the
+//    skill's next retrieval. A segment whose next retrieval is an explicit review (`review` or
+//    `transfer-probe`) before T is a reviewed case. One with no retrieval before T is a missed case,
+//    or is censored when T falls after the end of the simulation. One whose next retrieval before T
+//    is anything else (warmup, practice, challenge, placement) refreshed the memory without a
+//    scheduled review, so it is left out and counted, as are segments of a skill the model no
+//    longer rates mastered at the last session start before that retrieval or T (it was demoted).
+//    The same is reported for practiced-track skills.
 // Content changes keep changing the graph, so only these thresholds are asserted, never exact
 // numbers. The printed diagnostics separate engine behaviour from sampling noise: the share of
 // sessions whose expected accuracy (the mean hidden P of their items) is in the band, and the
