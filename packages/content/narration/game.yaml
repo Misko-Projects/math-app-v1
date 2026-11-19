@@ -615,6 +615,12 @@ res.quarta.thanks:
   text: "Thank you! You make every cent count."
   level: "2"
 
+# ---------- requests (E03 planner: PlannedRequest.narration, voiced by the request's resident) ----------
+req.help:
+  text: "Can you help me make some things?"
+req.idea:
+  text: "I know a fun new trick! Want to try it with me?"
+
 # ---------- Pip ----------
 game.pip.welcome:
   text: "Welcome to the island! I'm Pip."
