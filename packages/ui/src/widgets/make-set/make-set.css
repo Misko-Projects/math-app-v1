@@ -130,6 +130,10 @@
   right: -3px;
   border-radius: 4px 10px 10px 4px;
 }
+/* Room under the objects for Pip's hand while a drag invite shows (HAND_ROOM). */
+.ni-mset__pile[data-kind="supply"][data-hand-room="true"] {
+  padding-bottom: 80px;
+}
 /* The tag: on the crate's floor, under the rim (≥ 3 px clear of it) and above the objects. */
 .ni-mset__supply-icon {
   position: absolute;
@@ -663,4 +667,13 @@
 }
 .ni-mset[data-tray="compact"] .ni-mset__supply-icon {
   display: none;
+}
+
+/*
+ * A disabled widget shows no drop affordance: no armed, over or focus ring on the container or
+ * a pile (a tap on it while input is off leaves nothing drawn).
+ */
+.ni-mset[data-disabled="true"] .ni-drop-target,
+.ni-mset[data-disabled="true"] .ni-drop-target:focus-visible {
+  outline: none;
 }

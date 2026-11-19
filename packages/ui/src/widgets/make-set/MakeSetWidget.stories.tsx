@@ -1104,6 +1104,33 @@ export const RegroupKShortAfterBundle: Story = {
       expect((tens(root) as HTMLElement).querySelector('.ni-mset__bundle-tie')).not.toBeNull(),
     );
     await expectTenFirst(root);
+    // Review round 3 (F3): untie the view (the full, bundled frame with the ones beside it): the
+    // bow's ink stays ≥ 12 px clear of the small frame of ones.
+    await userEvent.click(tens(root) as HTMLElement);
+    await waitFor(() => expect(tens(root)).toHaveAttribute('data-tens', 'ones'));
+    await framesSettled(root);
+    const bundled = root.querySelector('.ni-mset__frame[data-bundled="true"]') as HTMLElement;
+    await waitForSettled(bundled.querySelector('.ni-mset__band') as Element);
+    const ones = (tens(root) as HTMLElement).getBoundingClientRect();
+    for (const bow of bundled.querySelectorAll('.ni-mset__bow')) {
+      const r = bow.getBoundingClientRect();
+      const ink = {
+        left: r.left - 1.5,
+        top: r.top - 1.5,
+        right: r.right + 1.5,
+        bottom: r.bottom + 1.5,
+      };
+      const gap = Math.max(
+        ones.left - ink.right,
+        ink.left - ones.right,
+        ones.top - ink.bottom,
+        ink.top - ones.bottom,
+      );
+      await expect(gap, 'bow clear of the small frame').toBeGreaterThanOrEqual(12 - 0.5);
+    }
+    await userEvent.click(tens(root) as HTMLElement);
+    await waitFor(() => expect(tens(root)).toHaveAttribute('data-tens', 'bundle'));
+    (document.activeElement as HTMLElement | null)?.blur();
     clearSpies(audio);
     await regroupAfter.play({ op: 'count-aloud' });
     await expect(spokenNumbers(audio)).toEqual([10, 11, 12, 13]);
@@ -1397,6 +1424,13 @@ export const Disabled: Story = {
     await expect(inside(root)).toHaveLength(0);
     await expect(check(root)).toBeDisabled();
     await expect(args.onInteract).not.toHaveBeenCalled();
+    // Input off: no drop affordance on the container or the pile, even after a tap on them.
+    for (const target of root.querySelectorAll('.ni-drop-target')) {
+      await expect(getComputedStyle(target).outlineStyle, 'no drop ring when disabled').toBe(
+        'none',
+      );
+    }
+    (document.activeElement as HTMLElement | null)?.blur();
   },
 };
 
@@ -1533,6 +1567,21 @@ export const DemoInvite: Story = {
     await expectPointerOn(pointerIn(fish), fish, root);
     await expectRingClear(fish, allItems(root));
     await expectEvenHeap(pileArea(root));
+    // The crate keeps room under its objects for the hand: at the bottom of its tap bob (8 px)
+    // the hand stays ≥ 12 px above the crate's rim (3 px border, 11 px rim).
+    const crate = pileArea(root);
+    await expect(crate).toHaveAttribute('data-hand-room', 'true');
+    const handEl = pointerIn(fish);
+    for (const a of handEl.getAnimations()) {
+      a.pause();
+      a.currentTime = 0;
+    }
+    const rim = crate.getBoundingClientRect().bottom - 3 - 11;
+    await expect(
+      rim - (handEl.getBoundingClientRect().bottom + 8),
+      'hand above the rim',
+    ).toBeGreaterThanOrEqual(12);
+    for (const a of handEl.getAnimations()) a.play();
     // It stays: nothing clears the invite until the child acts.
     await new Promise((r) => setTimeout(r, 600));
     await expect(fish.classList.contains('ni-invite')).toBe(true);
@@ -1687,6 +1736,27 @@ export const DemoAnswerBundles: Story = {
 };
 
 /**
+ * The distance from `x` (screen px) rightwards to the inner edge of the container art's drawn wall
+ * at height `y`, where the art body is one shape (the basket): scanned along its fill, less half
+ * its stroke. Null where the body is a group of shapes (the boat), measured by its box instead.
+ */
+function wallGapAt(root: HTMLElement, x: number, y: number): number | null {
+  const body = root.querySelector('.ni-mset__body');
+  if (!(body instanceof SVGGeometryElement)) return null;
+  const svg = body.ownerSVGElement as SVGSVGElement;
+  const s = svg.getBoundingClientRect();
+  const stroke = Number.parseFloat(getComputedStyle(body).strokeWidth) || 0;
+  const pt = svg.createSVGPoint();
+  pt.y = y - s.top;
+  let at = x - s.left;
+  for (; at < s.width; at += 0.5) {
+    pt.x = at;
+    if (!body.isPointInFill(pt)) break;
+  }
+  return at - stroke / 2 - (x - s.left);
+}
+
+/**
  * A bundled ten-frame's bow (its knot and loops) sits fully outside the frame, never on its
  * border, and inside the container; the band reaches it across the frame's edge.
  */
@@ -1710,11 +1780,12 @@ async function expectKnotOffBorder(root: HTMLElement) {
     };
     await expect(b.left - f.right, 'bow 12 px outside the frame').toBeGreaterThanOrEqual(12 - 0.5);
     await expectInside(b, box, 12, 'bow 12 px inside the container');
-    // And ≥ 12 px inside the container's drawn wall (the basket's or boat's outline).
-    const body = (root.querySelector('.ni-mset__body') as Element).getBoundingClientRect();
-    await expect(body.right - b.right, 'bow 12 px inside the drawn wall').toBeGreaterThanOrEqual(
-      12 - 0.5,
-    );
+    // And ≥ 12 px inside the container's drawn wall at the bow's own height (a basket's wall
+    // slants inwards): from the bow's right edge to the wall's inner stroke edge.
+    const wall = wallGapAt(root, b.right, (b.top + b.bottom) / 2);
+    if (wall !== null) {
+      await expect(wall, 'bow 12 px inside the drawn wall').toBeGreaterThanOrEqual(12 - 0.5);
+    }
     if (crate) {
       const gap = Math.max(
         b.left - crate.right,

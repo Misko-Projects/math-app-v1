@@ -219,9 +219,25 @@ function wrapPlates(layout: ObjectLayout, perRow: number): ObjectLayout {
   const plateOf = (o: PlacedObject) =>
     plates.findIndex((p) => o.x + o.scale / 2 >= p.x && o.x + o.scale / 2 <= p.x + p.cols);
   const lastDy = (rows - 1) * (rowH + 0.6);
+  // Distractors (a loose row under the plates): re-flowed in rows that fit the wrapped width,
+  // centred, under the last row of plates, in their own order.
+  const loose = layout.objects.filter((o) => o.kind !== 'object' || plateOf(o) < 0);
+  const perLine = Math.max(1, Math.floor((width + 0.12) / 1.12));
+  const looseTop = lastDy + rowH + 0.4;
+  const looseAt = new Map(
+    loose.map((o, k) => {
+      const line = Math.floor(k / perLine);
+      const inLine = Math.min(perLine, loose.length - line * perLine);
+      const lineW = inLine * 1.12 - 0.12;
+      const x0 = (width - lineW) / 2;
+      const inset = (1 - o.scale) / 2;
+      return [o, { x: x0 + (k % perLine) * 1.12 + inset, y: looseTop + line * 1.12 + inset }];
+    }),
+  );
   const objects = layout.objects.map((o) => {
-    const i = o.kind === 'object' ? plateOf(o) : -1;
-    const m = i >= 0 ? (moveOf[i] as { dx: number; dy: number }) : { dx: 0, dy: lastDy };
+    const at = looseAt.get(o);
+    if (at) return { ...o, ...at };
+    const m = moveOf[plateOf(o)] as { dx: number; dy: number };
     return { ...o, x: o.x + m.dx, y: o.y + m.dy };
   });
   const frames = plates.map((p, i) => {
@@ -526,7 +542,40 @@ export function TapCountWidget({
     () => (ordinal && config.set.layout === 'line' ? flattenLine(baseLayout) : baseLayout),
     [baseLayout, ordinal, config.set.layout],
   );
+  /**
+   * An ordinal line in a host that sets a height (a widget area) grows into the room: the rows,
+   * arrangement (Check beside or under) and cell that give the biggest objects inside the area
+   * (≤ 112 px cells), each row's badges 12 px clear (BADGE_ORDINAL), more rows only for objects
+   * ≥ 8 % bigger. A host that grows with its content keeps the designed one-row layout.
+   */
+  const ordinalFit = (() => {
+    if (!ordinal || config.set.layout !== 'line' || !Number.isFinite(hostH) || widgetW === null) {
+      return null;
+    }
+    const count = lineLayout.objects.length;
+    const w = Math.min(ORDINAL_AREA_W, widgetW) - 2 * 16;
+    const h = hostH - 2 * PAD_Y;
+    const pitchExtra = BADGE_ORDINAL.above + BADGE_ORDINAL.clear;
+    const cardW = cueSize + 16 + 2 * (20 + 3);
+    const cardH = 76 + 24 + 2 * 3;
+    let best: { rows: number; arrange: 'side' | 'stack'; cell: number } | null = null;
+    for (let rows = 1; rows <= Math.min(4, count); rows++) {
+      const perRow = Math.ceil(count / rows);
+      const units = (perRow - 1) * 1.12 + 1;
+      for (const arrange of ['side', 'stack'] as const) {
+        const cw = ((arrange === 'side' ? w - ORDINAL_CHECK_W : w) - cardW) / units;
+        const ch =
+          ((arrange === 'side' ? h : h - 16 - CHECK_W) - cardH - (rows - 1) * pitchExtra) / rows;
+        const c = Math.floor(Math.min(cw, ch, 112));
+        if (c < minCell) continue;
+        if (!best || c > best.cell * (rows > best.rows ? 1.08 : 1))
+          best = { rows, arrange, cell: c };
+      }
+    }
+    return best;
+  })();
   const wrapRows = (() => {
+    if (ordinalFit) return ordinalFit.rows;
     if (config.set.layout !== 'line' || lineLayout.height > 1 || lineLayout.frames.length > 0) {
       return 1;
     }
@@ -569,6 +618,7 @@ export function TapCountWidget({
   const sizeFor = (set: ObjectLayout): { arrange: 'side' | 'stack'; cell: number } => {
     // Nothing to count: an empty dish centred above the answer.
     if (empty) return { arrange: 'stack', cell: 32 };
+    if (ordinal && ordinalFit) return { arrange: ordinalFit.arrange, cell: ordinalFit.cell };
     if (ordinal) {
       // The row card (cue + objects) and Check side by side when the row still gets full-size
       // targets; otherwise Check sits centred under the row, which then takes the full width.
@@ -863,20 +913,29 @@ export function TapCountWidget({
   /**
    * The object counted last, and where the running count goes: above that object's place (its
    * column), in the card's top padding, so the number is tied to the object it was counted on.
-   * `countX` is the place's centre from the card's padding edge (the set starts after the card's
-   * 28 px left padding); CSS keeps the badge ≥ 12 px in from the card's sides.
+   * `countX` is the place's centre measured from the laid-out card (its padding edge), so a start
+   * marker or any padding before the set is counted in; CSS keeps the badge ≥ 12 px in from the
+   * card's sides.
    */
   const latestIndex = order.at(-1) ?? null;
-  const latestObject =
-    latestIndex === null
-      ? null
-      : (layout.objects.find((o) => o.kind === 'object' && o.index === latestIndex) ?? null);
-  const countX = (() => {
-    if (!latestObject) return null;
-    const left = (latestObject.x + latestObject.scale / 2) * cell - hitSize / 2;
-    const top = (latestObject.y + latestObject.scale / 2) * cell - hitSize / 2;
-    return cardPadX + left + placeBand(latestObject, left, top).centreX;
-  })();
+  const [countX, setCountX] = useState<number | null>(null);
+  useLayoutEffect(() => {
+    const root = rootRef.current;
+    if (!root || latestIndex === null || !onDots) return;
+    const card = root.querySelector<HTMLElement>('.ni-tapc__picture');
+    const obj = root.querySelector<HTMLElement>(`.ni-tapc__obj[data-obj="obj-${latestIndex}"]`);
+    if (!card || !obj) return;
+    const frames = onGrid ? [...root.querySelectorAll('.ni-objects__frame')] : [];
+    const place = onGrid
+      ? (frames[Math.floor(latestIndex / 10)]?.querySelectorAll('.ni-objects__cell')[
+          latestIndex % 10
+        ] ?? obj)
+      : obj;
+    const p = place.getBoundingClientRect();
+    const c = card.getBoundingClientRect();
+    const x = Math.round((p.left + p.width / 2 - (c.left + card.clientLeft)) * 2) / 2;
+    setCountX((prev) => (prev === x ? prev : x));
+  });
 
   const renderObject = (o: PlacedObject, style: CSSProperties) => {
     const left = Number(style.left) + Number(style.width) / 2 - hitSize / 2;

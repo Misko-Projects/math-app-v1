@@ -1021,6 +1021,77 @@ export const GroupsOfTenAllCounted: Story = {
   },
 };
 
+/**
+ * Review round 3 (F1): an ordinal item on a ten-frame, with its start marker before the frame.
+ * The running count is placed from the counted cell's measured box, so with the marker and its
+ * gap before the set it still sits over that cell's column.
+ */
+export const OrdinalTenFrameCount: Story = {
+  globals: { ageMode: 'k' },
+  args: {
+    config: {
+      ...ordinalShells,
+      set: { count: 10, sprite: 'shell', layout: 'ten-frame', layoutSeed: 160159383 },
+    },
+  },
+  play: async ({ canvasElement }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    await expect(within(root).getByRole('img', { name: 'Start here' })).toBeVisible();
+    await userEvent.click(obj(root, 0));
+    await userEvent.click(obj(root, 1));
+    await settle(root);
+    const count = root.querySelector('.ni-tapc__count') as HTMLElement;
+    await expect(count).toHaveTextContent('2');
+    const c = count.getBoundingClientRect();
+    const cell = frameCell(root, 1).getBoundingClientRect();
+    const cx = (c.left + c.right) / 2;
+    await expect(cx, 'count over the counted cell').toBeGreaterThanOrEqual(cell.left);
+    await expect(cx, 'count over the counted cell').toBeLessThanOrEqual(cell.right);
+    (document.activeElement as HTMLElement | null)?.blur();
+  },
+};
+
+/**
+ * Review round 3 (F2): equal groups [4, 5, 5] with 9 distractors (concrete, G1) in a host as wide
+ * as the 960 × 600 minimum's area (906 px). The plates wrap into rows, and the distractors' row is
+ * re-flowed inside the wrapped width: every distractor lies inside the picture card and a tap at
+ * its centre lands on it.
+ */
+const groupsWithDistractors: ConfigFor<'tap-count'> = {
+  format: 'tap-count',
+  set: {
+    count: 14,
+    sprite: 'shell',
+    layout: 'groups',
+    groups: [4, 5, 5],
+    layoutSeed: 7,
+    distractors: { sprite: 'crab', count: 9 },
+  },
+  mode: 'how-many',
+  input: 'auto',
+  marks: true,
+  countAloud: true,
+};
+
+export const GroupsDistractorsMin: Story = {
+  args: { config: groupsWithDistractors },
+  // A host 906 px wide (the 960 × 600 minimum's width), tall enough for 23 G1 targets.
+  parameters: { area: { w: 906, h: 900 } },
+  render: renderInArea,
+  play: async ({ canvasElement }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    const card = (root.querySelector('.ni-tapc__picture') as HTMLElement).getBoundingClientRect();
+    const distractors = [...root.querySelectorAll<HTMLElement>('[data-kind="distractor"]')];
+    await expect(distractors).toHaveLength(9);
+    for (const d of distractors) {
+      const r = d.getBoundingClientRect();
+      await expectWithin(r, card, 3, `${d.dataset.obj} in the card`);
+      const hit = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
+      await expect(d.contains(hit), `a tap on ${d.dataset.obj} lands on it`).toBe(true);
+    }
+  },
+};
+
 // ---------- invites follow the next ENABLED control (03 §6.3) ----------
 
 /** The invite is ON `el` alone: the one teal ring, and one hand pointing at it. */
@@ -1354,8 +1425,23 @@ async function expectKeyboardCountingOrder(
 }
 
 /**
- * CNT.15.t1 (K) at the 1280 × 800 baseline (widget area 1226 × 493): unchanged, one row of ten
- * 80 px shells with Check under it.
+ * The widget's content (the row card and Check, the hand left out) covers ≥ 60 % of its area box.
+ */
+async function expectFill(root: HTMLElement) {
+  const area = (root.closest('.story-host-box') as HTMLElement).getBoundingClientRect();
+  const parts = [...root.children]
+    .filter((c) => !c.classList.contains('ni-hand'))
+    .map((c) => c.getBoundingClientRect())
+    .filter((r) => r.width > 0);
+  const w = Math.max(...parts.map((r) => r.right)) - Math.min(...parts.map((r) => r.left));
+  const h = Math.max(...parts.map((r) => r.bottom)) - Math.min(...parts.map((r) => r.top));
+  await expect((w * h) / (area.width * area.height), 'area fill').toBeGreaterThanOrEqual(0.6);
+}
+
+/**
+ * CNT.15.t1 (K) at the 1280 × 800 baseline (widget area 1226 × 493): the strip grows into the
+ * area, two rows of five 112 px shells with Check beside them, filling ≥ 60 % of it; the
+ * badges keep their 12 px clearances.
  */
 export const OrdinalKTablet: Story = {
   globals: { ageMode: 'k' },
@@ -1364,11 +1450,12 @@ export const OrdinalKTablet: Story = {
   render: renderInArea,
   play: async ({ canvasElement, args }) => {
     const root = await findWidget(canvasElement, ROOT);
-    await waitFor(() => expect(rowsOf(root)).toEqual([ids(0, 9)]));
-    await expect(root).toHaveAttribute('data-arrange', 'stack');
+    await waitFor(() => expect(rowsOf(root)).toEqual([ids(0, 4), ids(5, 9)]));
+    await expect(root).toHaveAttribute('data-arrange', 'side');
     for (const o of objects(root)) {
-      await expect(Math.round(o.getBoundingClientRect().width)).toBe(80);
+      await expect(o.getBoundingClientRect().width).toBeGreaterThanOrEqual(100);
     }
+    await expectFill(root);
     await expectOrdinalInArea(root, 'k');
     await expectCueBeforeFirstRow(root, obj(root, 0), 'left');
     // One row, from the left: Tab runs obj-0 to obj-9.
@@ -1405,7 +1492,10 @@ export const OrdinalKMinLandscape: Story = {
   },
 };
 
-/** CNT.15.t1 (K) in 800 × 1280 portrait (widget area 746 × 812): 5 + 5, Check under the rows. */
+/**
+ * CNT.15.t1 (K) in 800 × 1280 portrait (widget area 746 × 812): 5 + 5 shells grown into the
+ * area (≥ 100 px), Check under the rows, filling ≥ 60 % of it.
+ */
 export const OrdinalKPortrait: Story = {
   globals: { ageMode: 'k' },
   args: { config: ordinalShells },
@@ -1414,6 +1504,10 @@ export const OrdinalKPortrait: Story = {
   play: async ({ canvasElement, args }) => {
     const root = await findWidget(canvasElement, ROOT);
     await waitFor(() => expect(rowsOf(root)).toEqual([ids(0, 4), ids(5, 9)]));
+    for (const o of objects(root)) {
+      await expect(o.getBoundingClientRect().width).toBeGreaterThanOrEqual(100);
+    }
+    await expectFill(root);
     await expectOrdinalInArea(root, 'k');
     await expectCueBeforeFirstRow(root, obj(root, 0), 'left');
     const set = (root.querySelector('.ni-tapc__set') as HTMLElement).getBoundingClientRect();

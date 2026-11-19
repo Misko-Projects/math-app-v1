@@ -94,6 +94,11 @@ const PILE_EDGE_Y = 2 * (26 + 3);
 /** The supply crate's taller top (44 px padding): its tag sits on the floor, under the rim. */
 const CRATE_TAG_Y = 44 - 26;
 /**
+ * Under a drag invite the crate's bottom padding grows from 26 to 80 px: Pip's hand hangs ~52 px
+ * below the invited object (with its tap bob), and stays ≥ 12 px above the 11 px rim.
+ */
+const HAND_ROOM = 80 - 26;
+/**
  * A compact pile (short areas, where the normal one shows fewer objects): 6 px padding and the
  * 3 px border on every side (`data-tray="compact"` in make-set.css), so the tray hugs its objects.
  */
@@ -135,6 +140,12 @@ const BUNDLE_H = BUNDLE_ART_H + TENS_TAG_GAP + TENS_TAG + 10;
  */
 const TENS_GAP = 24;
 /**
+ * With groupsOf 10 the ten's frame can be bundled while the small frame of ones sits beside it:
+ * its bow's ink reaches 29 px past the frame's edge (12 px out, the 17 px knot), so the gap holds
+ * it and 12 px more (and the 4 px of a bundled frame's thicker border).
+ */
+const TENS_GAP_BOW = 29 + 12 + 4;
+/**
  * One ten-frame at a time, the frames sit 4 px lower in the tight chrome, so an invite ring on
  * them or on the thing beside them (drawn inside their boxes) keeps ≥ 12 px below the boat's top
  * edge (the hull's top is 10 px down; the tight top margin is 18).
@@ -144,9 +155,10 @@ const ONE_FRAME_TOP = 4;
  * A bundled frame's bow sits ≥ 12 px outside its right edge and spans 17 px (the knot, 7 px plus
  * its outline): with 12 px to the container's edge, a container with groupsOf 10 needs this much
  * room right of its frames (4 px more: a bundled frame's border is 2 px thicker a side; 8 px more:
- * a drawn wall, the basket's, lies up to 8 px inside the container's box).
+ * a drawn wall, the basket's, lies up to 8 px inside the container's box; 12 px more: the basket's
+ * wall slants inwards, so at the knot's height it is further in still).
  */
-const BOW_ROOM = 12 + 17 + 12 + 4 + 8;
+const BOW_ROOM = 12 + 17 + 12 + 4 + 8 + 12;
 /** The frame's slide when the ten is tied or untied (make-set.css `.ni-mset__frames`). */
 const SLIDE_MS = 320;
 
@@ -316,6 +328,20 @@ export function MakeSetWidget({
   const [closed, setClosed] = useState(false);
   const rootRef = useRef<HTMLDivElement | null>(null);
   const interactive = tier === 'concrete' && !disabled && !demoBusy;
+  /** Between the shown frame and the thing beside it (TENS_GAP, or room for a bow). */
+  const tensGap = config.groupsOf === 10 ? TENS_GAP_BOW : TENS_GAP;
+  /**
+   * A drag invite points at the last object of the supply crate (its bottom row): Pip's hand hangs
+   * below it, so the crate keeps room under its objects for the hand while the invite shows
+   * (≥ 12 px above the crate's rim; `data-hand-room` in make-set.css, HAND_ROOM in the plans).
+   */
+  const dragInvite =
+    config.container !== 'hands' &&
+    interactive &&
+    (invite?.op === 'drag' ||
+      (invite?.op === 'answer' &&
+        Number.isFinite(Number(invite.args?.value)) &&
+        Number(invite.args?.value) > view(stateRef.current).count));
 
   /** Moves one object into the container (from the pile or supply). False when it can't. */
   const moveIn = (id: ItemId): boolean => {
@@ -627,7 +653,7 @@ export function MakeSetWidget({
       right: config.groupsOf === 10 ? Math.max(base.right, BOW_ROOM) : base.right,
     };
     const innerH = oneFrame ? Math.max(gridH, BUNDLE_H) : gridH;
-    const innerW = frameW + edge + (oneFrame ? TENS_GAP + TENS_W : 0);
+    const innerW = frameW + edge + (oneFrame ? tensGap + TENS_W : 0);
     return {
       w: innerW + pad.left + pad.right,
       h: innerH + pad.top + pad.bottom,
@@ -742,7 +768,11 @@ export function MakeSetWidget({
         ? rowsH(Math.max(1, heapRows(awayMost, heapCols).length)) + edgeY + (side ? 0 : AWAY_HEAD)
         : 0;
       const supplyH = (rows: number) =>
-        showSupply ? rowsH(rows) + edgeY + (tray === 'compact' ? 0 : CRATE_TAG_Y) : 0;
+        showSupply
+          ? rowsH(rows) +
+            edgeY +
+            (tray === 'compact' ? 0 : CRATE_TAG_Y + (dragInvite && !takeAway ? HAND_ROOM : 0))
+          : 0;
       const fits = (rows: number) => {
         const s = supplyH(rows);
         const [w, h] =
@@ -1007,6 +1037,7 @@ export function MakeSetWidget({
         className="ni-mset__pile"
         data-area={isTarget ? 'pile' : 'supply'}
         data-kind={which}
+        data-hand-room={which === 'supply' && dragInvite && !takeAway ? 'true' : undefined}
         style={sideGap(which)}
       >
         {targetProps ? (
@@ -1058,7 +1089,7 @@ export function MakeSetWidget({
    * the ten untied, the ten's frame first and the small frame of ones after it (right).
    */
   const bundleFirst = beside === 'bundle';
-  const framesLeft = box.pad.left + (bundleFirst ? TENS_W + TENS_GAP : 0);
+  const framesLeft = box.pad.left + (bundleFirst ? TENS_W + tensGap : 0);
   /**
    * count-aloud with one ten-frame at a time: the objects not in the shown frame are counted on the
    * thing beside it. A tied ten is counted as one ten ("ten", step 9: the whole small frame is
@@ -1088,7 +1119,7 @@ export function MakeSetWidget({
         disabled={!interactive}
         onClick={toggleTen}
         style={{
-          left: bundleFirst ? box.pad.left : box.pad.left + box.frameOuterW + TENS_GAP,
+          left: bundleFirst ? box.pad.left : box.pad.left + box.frameOuterW + tensGap,
           top: bundleFirst ? box.bundleTop : box.onesTop,
           ...(reduced ? { animation: 'none' } : {}),
         }}
