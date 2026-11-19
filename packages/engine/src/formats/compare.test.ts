@@ -328,6 +328,25 @@ describe('compare features (03 §5.5)', () => {
     expect(compare.featureValues(shapes, answer('=')).equal).toBe(1);
   });
 
+  it('a known answer decides equal over the read-off counts (one feather, one pumpkin)', () => {
+    const one = (sprite: string) => ({
+      kind: 'objects' as const,
+      set: { count: 1, sprite, layout: 'line' as const, layoutSeed: 1 },
+    });
+    const heavier: Config = {
+      ...base,
+      left: one('feather'),
+      right: one('pumpkin'),
+      ask: 'heavier',
+    };
+    expect(compare.featureValues(heavier, answer('right')).equal).toBe(0);
+    expect(compare.featureValues(heavier, answer('left')).equal).toBe(0);
+    expect(compare.featureValues(heavier, answer('same')).equal).toBe(1);
+    // Two different-looking sets that count the same but are answered "same": 1.
+    const sets: Config = { ...base, left: objects(3), right: objects(5), ask: 'more' };
+    expect(compare.featureValues(sets, answer('same')).equal).toBe(1);
+  });
+
   it.each([
     [objects(4), 4],
     [{ kind: 'dots', arrangement: 'dice', groups: [3, 2] }, 5],

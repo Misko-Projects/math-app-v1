@@ -468,9 +468,6 @@ export const meaLength: GeneratorDef = {
       const want = ask === 'fewer' ? big : small;
       math.closeness = ratio100((unitSize(small) ?? 1) / (unitSize(big) ?? 1));
       math['ask.fewer'] = ask === 'fewer' ? 1 : 0;
-      // Each side pictures one unit, so the compare format model would read the sides as equal;
-      // the answer is always a unit, never "same".
-      math.equal = 0;
       const pic = (u: string): StimulusSpec => ({
         kind: 'objects',
         set: { count: 1, sprite: u, layout: 'line', layoutSeed: layoutSeed(rng) },

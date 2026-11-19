@@ -180,6 +180,11 @@ export const compare: FormatModel<'compare', CompareState> = {
     const hi = both ? Math.max(Math.abs(a), Math.abs(b)) : 0;
     const lo = both ? Math.min(Math.abs(a), Math.abs(b)) : 0;
     const answerId = answer.kind === 'choice' ? answer.id : null;
+    // A known answer decides `equal` (the sides may picture different things that read as the
+    // same count: one feather against one pumpkin answers "right", never "same"); a true-false
+    // answer says nothing about the sides being equal; otherwise the read-off values do.
+    const answered =
+      answerId !== null && c.ask !== 'true-false' && compareChoiceIds(c.ask).includes(answerId);
     const equalByAnswer = answerId === 'same' || answerId === '=';
     return {
       // 0 when either value cannot be read off the stimulus.
@@ -188,7 +193,13 @@ export const compare: FormatModel<'compare', CompareState> = {
       conflict: 0,
       'ask.fewer': c.ask === 'fewer' ? 1 : 0,
       'ask.symbol': c.ask === 'symbol' ? 1 : 0,
-      equal: equalByAnswer || (c.ask !== 'true-false' && both && a === b) ? 1 : 0,
+      equal: answered
+        ? equalByAnswer
+          ? 1
+          : 0
+        : c.ask !== 'true-false' && both && a === b
+          ? 1
+          : 0,
       magnitude: both ? Math.max(0, digitCount(hi) - 1) : 0,
     };
   },
