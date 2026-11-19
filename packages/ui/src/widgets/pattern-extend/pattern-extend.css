@@ -2,6 +2,8 @@
    "check". Cells share one size (--cell, from the widget's width, never below the target). */
 
 .ni-pattern {
+  /* The kit's invite hand is placed relative to the widget root. */
+  position: relative;
   box-sizing: border-box;
   width: 100%;
   height: 100%;
@@ -277,12 +279,6 @@
   fill: var(--color-sun);
   stroke: var(--color-sun-deep);
   stroke-width: 1;
-}
-
-/* Fingertip (≈ 42 % across, 8 px down the 56 px hand) inside the target's bottom edge. */
-.ni-pattern__hand {
-  left: calc(50% - 23px);
-  top: calc(100% - 26px);
 }
 
 /* Narrow (portrait): the pad goes under the pattern. */

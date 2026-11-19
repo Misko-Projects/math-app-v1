@@ -1,6 +1,8 @@
 /* bar-graph-read widget (U05 #14): the chart on a paper board, the answer beside it. */
 
 .ni-bgr {
+  /* The kit's invite hand is placed relative to the widget root. */
+  position: relative;
   box-sizing: border-box;
   width: 100%;
   height: 100%;
@@ -102,16 +104,12 @@
   min-height: 0;
   padding: 2px 4px;
 }
-.ni-bgr .ni-bgr__cat .ni-pick__face {
-  width: 100%;
-  height: 100%;
+/* The card's face hugs its picture and name, leaving room under it for Pip's invite hand. */
+.ni-bgr .ni-bgr__cat .ni-pick__face,
+.ni-bgr .ni-bgr__cat .ni-chart__labelface {
+  width: auto;
+  height: auto;
 }
-/* Fingertip (≈ 42 % across, 8 px down the 56 px hand) inside the target's bottom edge. */
-.ni-bgr__hand {
-  left: calc(50% - 23px);
-  top: calc(100% - 26px);
-}
-
 /* Narrow (portrait): the answer goes under the chart. */
 @container bgr (max-width: 760px) {
   .ni-bgr__layout {

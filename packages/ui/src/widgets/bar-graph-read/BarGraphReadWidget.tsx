@@ -14,7 +14,6 @@ import {
   useSpeech,
   useUiPreferences,
 } from '../../preferences/UiProvider';
-import { HandPointerIcon } from '../../primitives/icons';
 import { useWidgetDemo } from '../demo';
 import {
   applyPadKey,
@@ -28,6 +27,7 @@ import {
   Stepper,
   useAlive,
   useDemoPause,
+  useInviteHand,
   useMeasuredBox,
   useSubmitGuard,
 } from '../kit';
@@ -62,15 +62,6 @@ function useModel(): FormatModel<'bar-graph-read', BarGraphReadState> {
 const idOf = (action: WidgetAction | null): string | null =>
   typeof action?.args?.id === 'string' ? action.args.id : null;
 
-/** Pip's hand on a target (one helper, so it is easy to swap for the kit's useInviteHand later). */
-function InviteHand({ className }: { className: string }) {
-  return (
-    <span className={`ni-hand ${className}`}>
-      <HandPointerIcon />
-    </span>
-  );
-}
-
 export function BarGraphReadWidget({
   config,
   tier,
@@ -89,6 +80,7 @@ export function BarGraphReadWidget({
   const pause = useDemoPause();
   const [areaRef, area] = useMeasuredBox<HTMLDivElement>();
   const [state, setState] = useState<BarGraphReadState>(() => model.initialState(config));
+  const rootRef = useRef<HTMLDivElement | null>(null);
   const stateRef = useRef(state);
   stateRef.current = state;
   const [text, setText] = useState('');
@@ -254,6 +246,17 @@ export function BarGraphReadWidget({
 
   const invitedCat = invite && (invite.op !== 'answer' || choice) ? idOf(invite) : null;
   const invitedAnswer = invite?.op === 'answer' && !choice;
+  // Pip's up-pointing hand hangs below the invited control (kit `useInviteHand`).
+  const { hand: inviteHand, rootStyle: handRootStyle } = useInviteHand(
+    rootRef,
+    (root) =>
+      invitedCat !== null
+        ? root.querySelector<HTMLElement>(`.ni-bgr__catslot [data-id="${CSS.escape(invitedCat)}"]`)
+        : invitedAnswer
+          ? root.querySelector<HTMLElement>('.ni-bgr__display, .ni-stepper__value')
+          : null,
+    invitedCat !== null ? `cat-${invitedCat}` : invitedAnswer ? 'answer' : '',
+  );
 
   const renderLabel = (slot: SlotGeometry, content: ReactNode) => {
     const name = slot.label ? t(slot.label) : String(slot.at ?? slot.id);
@@ -285,7 +288,6 @@ export function BarGraphReadWidget({
             {content}
           </button>
         )}
-        {invited ? <InviteHand className="ni-bgr__hand" /> : null}
       </span>
     );
   };
@@ -303,13 +305,14 @@ export function BarGraphReadWidget({
       >
         {text === '' ? <span className="ni-number__slot" /> : <span>{text}</span>}
       </output>
-      {invitedAnswer ? <InviteHand className="ni-bgr__hand" /> : null}
     </span>
   );
 
   return (
     <div
+      ref={rootRef}
       className="ni-bgr"
+      style={handRootStyle}
       data-tier={tier}
       data-answer={choice ? 'choice' : usePad ? 'pad' : 'stepper'}
       data-disabled={disabled ? 'true' : undefined}
@@ -360,7 +363,6 @@ export function BarGraphReadWidget({
                     setCount(v);
                   }}
                 />
-                {invitedAnswer ? <InviteHand className="ni-bgr__hand" /> : null}
               </span>
               <CheckButton onPress={submit} disabled={!interactive || !ready} />
             </div>
@@ -368,6 +370,7 @@ export function BarGraphReadWidget({
           {choice ? <CheckButton onPress={submit} disabled={!interactive || !ready} /> : null}
         </div>
       </div>
+      {inviteHand}
     </div>
   );
 }

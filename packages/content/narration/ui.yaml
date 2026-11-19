@@ -242,3 +242,4 @@ ui.widget.pattern.out:
   level: K
 ui.widget.pattern.jump:
   text: "How big is each jump?"
+  level: K

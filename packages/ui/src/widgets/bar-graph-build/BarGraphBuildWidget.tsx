@@ -16,7 +16,6 @@ import {
   useSpeech,
   useUiPreferences,
 } from '../../preferences/UiProvider';
-import { HandPointerIcon } from '../../primitives/icons';
 import { useWidgetDemo } from '../demo';
 import {
   ChartView,
@@ -25,6 +24,7 @@ import {
   type SlotGeometry,
   useAlive,
   useDemoPause,
+  useInviteHand,
   useMeasuredBox,
   useSubmitGuard,
 } from '../kit';
@@ -55,15 +55,6 @@ function useModel(): FormatModel<'bar-graph-build', BarGraphBuildState> {
   if (!model) throw new Error('bar-graph-build has no engine model');
   // The registry stores models type-erased; this one's state is BarGraphBuildState.
   return model as unknown as FormatModel<'bar-graph-build', BarGraphBuildState>;
-}
-
-/** Pip's hand on a target (one helper, so it is easy to swap for the kit's useInviteHand later). */
-function InviteHand({ className }: { className: string }) {
-  return (
-    <span className={`ni-hand ${className}`}>
-      <HandPointerIcon />
-    </span>
-  );
 }
 
 /** The op that adds `count` marks to slot `i` in this mode. */
@@ -250,6 +241,7 @@ export function BarGraphBuildWidget({
   const [chartRef, chartArea] = useMeasuredBox<HTMLDivElement>();
   const [dataRef, dataArea] = useMeasuredBox<HTMLDivElement>();
   const [state, setState] = useState<BarGraphBuildState>(() => model.initialState(config));
+  const rootRef = useRef<HTMLDivElement | null>(null);
   const stateRef = useRef(state);
   stateRef.current = state;
   const [history, setHistory] = useState<{ i: number; count: number }[]>([]);
@@ -384,6 +376,16 @@ export function BarGraphBuildWidget({
   // ---------- render ----------
 
   const invitedSlot = invite && invite.op !== 'answer' ? slotOfAction(invite) : -1;
+  const invitedId = slots[invitedSlot]?.id ?? null;
+  // Pip's up-pointing hand hangs below the invited row (kit `useInviteHand`).
+  const { hand: inviteHand, rootStyle: handRootStyle } = useInviteHand(
+    rootRef,
+    (root) =>
+      invitedId === null
+        ? null
+        : root.querySelector<HTMLElement>(`.ni-bgb__lane[data-slot="${CSS.escape(invitedId)}"]`),
+    invitedId === null ? '' : `slot-${invitedId}`,
+  );
   const pad = 8;
 
   const renderOverlay = (g: { slots: SlotGeometry[] }) =>
@@ -403,7 +405,6 @@ export function BarGraphBuildWidget({
             data-slot={s.id}
             data-flash={flash === s.id ? 'true' : undefined}
           />
-          {invited ? <InviteHand className="ni-bgb__hand" /> : null}
         </span>
       );
     });
@@ -426,7 +427,9 @@ export function BarGraphBuildWidget({
 
   return (
     <div
+      ref={rootRef}
       className="ni-bgb"
+      style={handRootStyle}
       data-tier={tier}
       data-mode={config.mode}
       data-disabled={disabled ? 'true' : undefined}
@@ -512,6 +515,7 @@ export function BarGraphBuildWidget({
           <CheckButton onPress={submit} disabled={!interactive || !ready} />
         </div>
       </div>
+      {inviteHand}
     </div>
   );
 }

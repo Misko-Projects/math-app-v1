@@ -23,18 +23,18 @@ import {
   useSpeech,
   useUiPreferences,
 } from '../../preferences/UiProvider';
-import { HandPointerIcon } from '../../primitives/icons';
 import { useWidgetDemo } from '../demo';
 import {
   applyPadKey,
-  balancedRows,
   CheckButton,
   NumberPadKeys,
   type PadKey,
   padValue,
   Stepper,
+  trayGrid,
   useAlive,
   useDemoPause,
+  useInviteHand,
   useMeasuredBox,
   useSubmitGuard,
 } from '../kit';
@@ -70,15 +70,6 @@ function useModel(): FormatModel<'pattern-extend', PatternExtendState> {
   return model as unknown as FormatModel<'pattern-extend', PatternExtendState>;
 }
 
-/** Pip's hand on a target (one helper, so it is easy to swap for the kit's useInviteHand later). */
-function InviteHand() {
-  return (
-    <span className="ni-hand ni-pattern__hand">
-      <HandPointerIcon />
-    </span>
-  );
-}
-
 const sameToken = (a: PatternToken | null | undefined, b: PatternToken | null | undefined) =>
   Boolean(a && b) && JSON.stringify(a) === JSON.stringify(b);
 
@@ -105,6 +96,7 @@ export function PatternExtendWidget({
   const pause = useDemoPause();
   const [rowRef, rowBox] = useMeasuredBox<HTMLDivElement>();
   const [state, setState] = useState<PatternExtendState>(() => model.initialState(config));
+  const rootRef = useRef<HTMLDivElement | null>(null);
   const stateRef = useRef(state);
   stateRef.current = state;
 
@@ -401,7 +393,11 @@ export function PatternExtendWidget({
       ? target
       : Math.max(target, Math.min(104, Math.floor((width - (len - 1) * gap) / len)));
   const perRow = Math.max(1, Math.floor((width + gap) / (cell + gap)));
-  const rows = balancedRows(len, Math.ceil(len / perRow));
+  // Even columns (as the numeral tray lays out cards): full rows line up, the last is centred.
+  const grid = trayGrid(len, perRow);
+  const rows = Array.from({ length: grid.rows }, (_, r) =>
+    Math.min(grid.cols, len - r * grid.cols),
+  );
   const rowsOf = (n: number) => {
     const out: number[][] = [];
     let k = 0;
@@ -423,6 +419,27 @@ export function PatternExtendWidget({
       ? units.findIndex((u) => sameToken(u, invite.args?.token as PatternToken))
       : -1;
   const selected = new Set(state.selected);
+  // Pip's up-pointing hand hangs below the invited control (kit `useInviteHand`).
+  const handScope =
+    mode === 'translate' && invite?.op === 'place-token'
+      ? '[data-row="new"]'
+      : mode === 'table'
+        ? '.ni-pattern__table'
+        : '[data-row="pattern"]';
+  const { hand: inviteHand, rootStyle: handRootStyle } = useInviteHand(
+    rootRef,
+    (root) =>
+      invitedIndex !== null
+        ? root.querySelector<HTMLElement>(`${handScope} [data-index="${invitedIndex}"]`)
+        : invite?.op === 'answer'
+          ? root.querySelector<HTMLElement>('.ni-pattern__answer, .ni-pattern__blank')
+          : null,
+    invitedIndex !== null
+      ? `${invite?.op}-${invitedIndex}`
+      : invite?.op === 'answer'
+        ? 'answer'
+        : '',
+  );
   const coreEdge = (i: number) => {
     if (!selected.has(i)) return undefined;
     const start = !selected.has(i - 1);
@@ -459,7 +476,6 @@ export function PatternExtendWidget({
         >
           <PatternTokenView token={token} frame={tileFrame} />
         </button>
-        {invited ? <InviteHand /> : null}
       </span>
     );
   };
@@ -499,7 +515,6 @@ export function PatternExtendWidget({
           >
             {placed ? <PatternTokenView token={placed} frame={tileFrame} /> : null}
           </span>
-          {invited ? <InviteHand /> : null}
         </span>
       );
     }
@@ -539,7 +554,6 @@ export function PatternExtendWidget({
             <span className="ni-pattern__numeral">{text}</span>
           )}
         </button>
-        {invited ? <InviteHand /> : null}
       </span>
     );
   };
@@ -680,7 +694,6 @@ export function PatternExtendWidget({
             >
               {ruleText === '' ? <span className="ni-number__slot" /> : <span>{ruleText}</span>}
             </output>
-            {invite?.op === 'answer' ? <InviteHand /> : null}
           </div>
         ) : null}
       </>
@@ -689,13 +702,14 @@ export function PatternExtendWidget({
 
   return (
     <div
+      ref={rootRef}
       className="ni-pattern"
       data-tier={tier}
       data-mode={mode}
       data-family={family}
       data-typed={typed ? 'true' : undefined}
       data-disabled={disabled ? 'true' : undefined}
-      style={style}
+      style={{ ...style, ...handRootStyle }}
     >
       <div className="ni-pattern__layout">
         <div className="ni-pattern__main" ref={rowRef}>
@@ -715,6 +729,7 @@ export function PatternExtendWidget({
           <CheckButton onPress={submit} disabled={!interactive || response === null} />
         </div>
       </div>
+      {inviteHand}
     </div>
   );
 }

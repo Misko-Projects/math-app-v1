@@ -27,8 +27,6 @@ export const AREA = {
  * Renders the widget in the warm widget card (as `.story-widget-stage`: a 3 px tan border, 24 px
  * padding, sand), the card exactly the area's size, so the widget gets the inner area
  * (906 × 373 → 852 × 319). The card is a scroll box, so a play function can prove nothing scrolls.
- * The widget host may not be taller than the area (main's `.ni-widget` has a 360 px floor that
- * PR #76 relaxes to `min(360px, 100%)`; the story applies the same rule).
  */
 export function inArea(area: keyof typeof AREA) {
   return (args: WidgetHostProps) => (
@@ -48,7 +46,6 @@ export function inArea(area: keyof typeof AREA) {
         boxShadow: 'var(--shadow-soft)',
       }}
     >
-      <style>{'.story-widget-area > .ni-widget { min-height: min(360px, 100%); }'}</style>
       <WidgetHost {...args} />
     </div>
   );

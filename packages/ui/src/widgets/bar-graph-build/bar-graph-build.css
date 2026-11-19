@@ -2,6 +2,8 @@
    take one back, check). */
 
 .ni-bgb {
+  /* The kit's invite hand is placed relative to the widget root. */
+  position: relative;
   box-sizing: border-box;
   width: 100%;
   height: 100%;
@@ -95,10 +97,6 @@
 .ni-bgb__lane.ni-invite {
   outline-offset: 4px;
   border-radius: 14px;
-}
-.ni-bgb__hand {
-  left: calc(50% - 23px);
-  top: calc(50% - 8px);
 }
 
 .ni-bgb__tools {
