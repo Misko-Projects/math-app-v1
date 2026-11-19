@@ -366,6 +366,9 @@ export class SessionController {
         trigger,
         startedAt: now,
       };
+      // A fresh checkpoint exists before the start is in the log: a sweep in another tab (one that
+      // got the lock this tab's failed request missed) sees a live session, never an abandoned one.
+      this.#writeCheckpoint(session.sessionId, { activeMs: 0, mathMs: 0, items: 0, at: now });
       try {
         await this.#store.append(
           'session.started',
@@ -373,6 +376,7 @@ export class SessionController {
           { childId },
         );
       } catch (e) {
+        this.#removeCheckpoint(session.sessionId);
         releaseLock();
         throw e;
       }
@@ -723,15 +727,18 @@ export class SessionController {
 
   #saveCheckpoint(r: Running): void {
     r.lastCheckpointAt = this.#now();
-    if (!this.#storage) return;
-    const cp: SessionCheckpoint = {
+    this.#writeCheckpoint(r.session.sessionId, {
       activeMs: Math.round(r.bankedMs),
       mathMs: Math.round(r.mathMs),
       items: r.items,
       at: r.lastCheckpointAt,
-    };
+    });
+  }
+
+  #writeCheckpoint(sessionId: string, cp: SessionCheckpoint): void {
+    if (!this.#storage) return;
     try {
-      this.#storage.setItem(CHECKPOINT_PREFIX + r.session.sessionId, JSON.stringify(cp));
+      this.#storage.setItem(CHECKPOINT_PREFIX + sessionId, JSON.stringify(cp));
     } catch (e) {
       this.#onError('session.checkpoint', e);
     }

@@ -6,7 +6,7 @@ import {
   type EventPayloads,
   settingsKey,
 } from '@number-island/shared';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { DataStore } from '@/data/store';
 import {
   CHILD_G2,
@@ -659,6 +659,61 @@ describe('SessionController', () => {
       expect((await s.sessionEvents()).filter((e) => e.type === 'session.ended')).toEqual([]);
       const checkpoints = [...s.storage.map.keys()].filter((k) => k.startsWith(CHECKPOINT_PREFIX));
       expect(checkpoints).toHaveLength(2);
+    });
+
+    it('a sweep between a lockless start’s write and its play leaves the session alone', async () => {
+      const { locks } = fakeLocks();
+      const failing: SessionLocks = {
+        acquire: () => Promise.reject(new Error('locks unavailable')),
+      };
+      const s = await setup({ locks });
+      // Tab A's session.started commits, then its start pauses before it plays.
+      const afterCommit = gate();
+      afterCommit.close();
+      const committing: SessionStore = {
+        now: () => s.store.now(),
+        device: () => s.store.device(),
+        familySettings: () => s.store.familySettings(),
+        childSettings: (id) => s.store.childSettings(id),
+        events: () => s.store.events(),
+        append: (async (type, payload, meta) => {
+          const result = await s.store.append(type, payload, meta);
+          if (type === 'session.started') await afterCommit.wait();
+          return result;
+        }) as DataStore['append'],
+      };
+      const tabA = s.make({ store: committing, locks: failing });
+      const pending = tabA.start(CHILD_K);
+      await vi.waitFor(async () =>
+        expect((await s.sessionEvents()).map((e) => e.type)).toEqual(['session.started']),
+      );
+      // Tab B takes the free lock and sweeps in that window.
+      expect(await s.controller.closeAbandoned()).toBe(0);
+      afterCommit.open();
+      expect(await pending).toMatchObject({ ok: true });
+      expect(tabA.getSnapshot().status).toBe('active');
+      await tabA.end('child-exit');
+      const ended = (await s.sessionEvents()).filter((e) => e.type === 'session.ended');
+      expect(ended.map((e) => e.payload)).toEqual([
+        expect.objectContaining({ reason: 'child-exit' }),
+      ]);
+    });
+
+    it('a start whose write fails leaves no checkpoint behind', async () => {
+      const s = await setup();
+      const broken: SessionStore = {
+        now: () => s.store.now(),
+        device: () => s.store.device(),
+        familySettings: () => s.store.familySettings(),
+        childSettings: (id) => s.store.childSettings(id),
+        events: () => s.store.events(),
+        append: (async () => {
+          throw new Error('storage full');
+        }) as DataStore['append'],
+      };
+      const tab = s.make({ store: broken });
+      await expect(tab.start(CHILD_K)).rejects.toThrow('storage full');
+      expect([...s.storage.map.keys()].filter((k) => k.startsWith(CHECKPOINT_PREFIX))).toEqual([]);
     });
 
     it('a plan reads an end written meanwhile, so the ended session still counts', async () => {
