@@ -212,9 +212,15 @@ function TraySection({ title, children }: { title: string; children: ReactNode }
   );
 }
 
-/** Icons where they live: the workshop's product tray, in ten-frames (05 §4 rule 3, 06 §2). */
+/**
+ * Icons where they live: the workshop's product tray, in ten-frames (05 §4 rule 3, 06 §2), shown
+ * at the K size (the youngest players). The tray is a display of earned, countable products, not a
+ * control: no cell takes a tap or focus (05 §2 step 3: products fly to the tray and parade to the
+ * Storehouse), so tap-target sizes don't apply; each icon is about 40 px with clear gaps.
+ */
 export const InTray: Story = {
   parameters: { controls: { disable: true } },
+  globals: { ...GALLERY_VIEWPORT.globals, ageMode: 'k' },
   render: () => (
     <div style={{ display: 'grid', gap: 24, justifyItems: 'start' }}>
       <TraySection title="Ten-Boat Dock: 7 planks of 10">
@@ -244,9 +250,18 @@ export const InTray: Story = {
       const icon = (
         item.querySelector('svg[data-material]') as SVGSVGElement
       ).getBoundingClientRect();
-      await expect(icon.width).toBeGreaterThan(30);
+      // Countable at a glance for a K child: about 40 px icons, inside their slots.
+      await expect(icon.width).toBeGreaterThanOrEqual(38);
       await expect(icon.width).toBeLessThanOrEqual(slot.width);
       await expect(icon.height).toBeLessThanOrEqual(slot.height);
+    }
+    // Display only: nothing in a tray is interactive or focusable.
+    for (const t of canvasElement.querySelectorAll<HTMLElement>('.ni-tray')) {
+      const interactive = t.querySelectorAll(
+        'button, a, input, [tabindex], [role="button"], [role="link"], [onclick]',
+      );
+      await expect(interactive.length).toBe(0);
+      await expect(t.hasAttribute('tabindex')).toBe(false);
     }
     await expectOneScreen();
   },
