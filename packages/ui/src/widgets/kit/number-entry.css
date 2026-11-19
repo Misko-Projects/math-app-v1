@@ -62,9 +62,16 @@
 .ni-entry[data-compact="true"] .ni-pad__key {
   margin-bottom: 0;
 }
+/* The answer box is tapped (it picks the box to type into): the full target size (evidence
+   review: compact boxes were 4 px short, 76 in K and 60 in G1+). */
 .ni-entry[data-compact="true"] .ni-entry__box {
-  min-height: calc(var(--target-min) - 4px);
+  min-height: var(--target-min);
   font-size: 40px;
+}
+/* The demo invite on an answer box: one ring, inside the box (12 px gaps kept), no pulse. */
+.ni-entry .ni-entry__box.ni-invite {
+  outline-offset: -5px;
+  animation: none;
 }
 .ni-entry[data-compact="true"][data-shape="tall"] .ni-pad {
   grid-template-columns: repeat(3, var(--target-min));

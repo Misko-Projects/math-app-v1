@@ -20,7 +20,11 @@ export function boxGap(a: Rect, b: Rect): number {
 export function outlineBox(el: Element): Rect {
   const r = rectOf(el);
   const cs = getComputedStyle(el);
-  if (cs.outlineStyle === 'none') return r;
+  // Only a ring that shows counts (a transparent or zero-width outline paints nothing).
+  const invisible = /rgba\([^)]*,\s*0\)$|transparent/.test(cs.outlineColor);
+  if (cs.outlineStyle === 'none' || invisible || Number.parseFloat(cs.outlineWidth) === 0) {
+    return r;
+  }
   const grow = Math.max(
     0,
     (Number.parseFloat(cs.outlineOffset) || 0) + (Number.parseFloat(cs.outlineWidth) || 0),
@@ -115,6 +119,32 @@ export async function expectRenderedNumerals(root: Element, selector: string, mi
     const r = el.getBoundingClientRect();
     await expect(r.height, `"${el.textContent}" rendered height`).toBeGreaterThanOrEqual(min - 0.5);
   }
+}
+
+/**
+ * Every numeral matching `selector` draws digits at least `min` CSS px tall as SEEN: the ink of
+ * its glyphs (canvas text metrics in its own computed font, times the SVG scale on screen), not
+ * the font size (a Baloo 2 digit is about 0.65 em tall). Returns the smallest ink height.
+ */
+export async function expectNumeralInk(root: Element, selector: string, min = 32) {
+  await document.fonts.ready;
+  const els = [...root.querySelectorAll(selector)];
+  await expect(els.length, `numerals (${selector})`).toBeGreaterThan(0);
+  const ctx = document.createElement('canvas').getContext('2d') as CanvasRenderingContext2D;
+  let least = Number.POSITIVE_INFINITY;
+  for (const el of els) {
+    const cs = getComputedStyle(el);
+    const scale =
+      el instanceof SVGGraphicsElement
+        ? Math.hypot(el.getScreenCTM()?.a ?? 1, el.getScreenCTM()?.b ?? 0)
+        : 1;
+    ctx.font = `${cs.fontWeight} ${cs.fontSize} ${cs.fontFamily}`;
+    const m = ctx.measureText(el.textContent ?? '');
+    const ink = (m.actualBoundingBoxAscent + m.actualBoundingBoxDescent) * scale;
+    least = Math.min(least, ink);
+    await expect(ink, `"${el.textContent}" digit ink height`).toBeGreaterThanOrEqual(min - 0.5);
+  }
+  return least;
 }
 
 /** `a` and `b` do not touch: at least `gap` CSS px apart, edge to edge. */

@@ -152,7 +152,7 @@ export function MeasureLengthWidget({
   const whole = objectUnits(config);
   const cubes = whole * UNIT_SIZE[config.unit];
   // How tall a unit may be drawn: a cube is as tall as it is long, a shell half its length.
-  const rowBudget = compact ? (config.mode === 'two-units' ? 34 : 84) : 120;
+  const rowBudget = compact ? (config.mode === 'two-units' ? 28 : 84) : 120;
   // One px scale: iterate measures in its own unit, two-units in cubes (both units to scale). A
   // row leaves room for one unit past the object's end (a unit laid one too far still shows).
   const basePx =
@@ -177,11 +177,16 @@ export function MeasureLengthWidget({
   const unitPxOf = (u: LengthUnit) =>
     config.mode === 'two-units' ? basePx * UNIT_SIZE[u] : basePx;
   const rulerMax = Math.ceil(config.startOffset + whole) + 1;
-  const rulerUnit = laying
-    ? 0
-    : Math.max(24, Math.min(90, Math.floor((trackW - 2 * RULER_PAD - 80) / rulerMax)));
   // Standard units print their symbol on the ruler, in its own slot after the end numeral.
   const unitLabel = ['in', 'cm', 'ft', 'm'].includes(config.unit) ? config.unit : undefined;
+  // The ruler fills the track: its width is `rulerMax × unit` plus its fixed ends (padding, the
+  // end numeral's half and the unit symbol's slot), so a long ruler (30 cm) still fits.
+  const rulerUnit = laying
+    ? 0
+    : Math.max(
+        12,
+        Math.min(90, Math.floor((trackW - rulerWidth(rulerMax, 0, unitLabel)) / rulerMax)),
+      );
   // The pad holds the longest reading the ruler shows: its whole-number digits plus a digit for
   // halves or two for quarters (10.25 is four digits; applyPadKey counts digits on both sides).
   const readDigits =
@@ -466,7 +471,11 @@ export function MeasureLengthWidget({
 
   const pile = (u: LengthUnit) => {
     const p = dnd.itemProps(pileId(u), { label: t('ui.mlen.pile', { unit: unitName(u) }) });
-    const px = Math.min(unitPxOf(u), 64);
+    // Two units stacked inside the pile's box (border 3, padding 4 each side), to scale between
+    // kinds where they fit: a 64 px cube stack was 130 px tall in an 80 px pile.
+    const inner = MIN_TARGET_PX[ageMode] - 14;
+    let px = Math.min(unitPxOf(u), inner);
+    while (px > 8 && 2 * unitHeight(u, px) + 2 > inner) px -= 1;
     return (
       <span key={u} className="ni-mlen__pile-slot">
         <span
@@ -549,6 +558,16 @@ export function MeasureLengthWidget({
           <div className="ni-mlen__object" style={{ marginLeft: objectLeft, width: objectPx }}>
             <LengthObject sprite={config.object.sprite} width={objectPx} height={44} />
           </div>
+          {/* Where the object starts, when that is not 0: a bold line from its end down onto the
+              ruler and an arrow on the mark (evidence review). It stays with the object. */}
+          {config.startOffset > 0 ? (
+            <span
+              className="ni-mlen__start-mark"
+              data-start-mark={config.startOffset}
+              style={{ left: objectLeft }}
+              aria-hidden="true"
+            />
+          ) : null}
           {/* The ruler is a slider: tap-tick moves the end mark along it; on the concrete tier
               the ruler itself slides (drag, or ←/→). */}
           <div

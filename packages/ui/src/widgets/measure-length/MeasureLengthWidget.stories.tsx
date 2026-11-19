@@ -11,6 +11,12 @@ import {
   inArea,
 } from '../../test-support/areaStory';
 import {
+  expectControls,
+  expectNumeralInk,
+  expectOneInviteRing,
+  expectRenderedNumerals,
+} from '../../test-support/evidence';
+import {
   center,
   clearSpies,
   expectTargetSize,
@@ -297,12 +303,60 @@ export const TwoUnitsPictorial: Story = {
   },
 };
 
-/** Tablet widget area, K: the 11-cube vine, the pile, the pad and Check fit with no scroll. */
-export const IterateTabletK: Story = {
-  globals: { ageMode: 'k' },
-  args: { config: cubes11 },
-  render: inArea('tablet'),
-  play: async ({ canvasElement }) => {
+/**
+ * Evidence review, laying layouts: every control target-size and 12 px apart (piles, undo, the
+ * drop zone, keys, answer boxes, Check; logged), the drop zone 12 px from the keypad, each pile's
+ * two units inside the pile, and the content centred in the area.
+ */
+async function expectLayingLayout(
+  story: string,
+  canvasElement: HTMLElement,
+  root: HTMLElement,
+  ageMode: 'k' | 'g1-up',
+) {
+  const check = within(root).getByRole('button', { name: 'Check' });
+  await expectControls(story, ageMode, {
+    piles: [...root.querySelectorAll('.ni-mlen__pile')],
+    undo: [...root.querySelectorAll('.ni-mlen__undo')],
+    'drop zone': [...root.querySelectorAll('.ni-mlen__pad')],
+    keys: [...root.querySelectorAll('.ni-pad__key')],
+    boxes: [...root.querySelectorAll('.ni-entry__box')],
+    check: [check],
+  });
+  for (const p of root.querySelectorAll('.ni-mlen__pile')) {
+    const box = p.getBoundingClientRect();
+    for (const u of p.querySelectorAll('.ni-unit')) {
+      const r = u.getBoundingClientRect();
+      await expect(r.top, 'pile stack inside its box').toBeGreaterThanOrEqual(box.top);
+      await expect(r.bottom, 'pile stack inside its box').toBeLessThanOrEqual(box.bottom);
+      await expect(r.left).toBeGreaterThanOrEqual(box.left);
+      await expect(r.right).toBeLessThanOrEqual(box.right);
+    }
+  }
+  await expectContentCentred(canvasElement, root);
+}
+
+/** The widget's stage and answer row are centred across the area (evidence review). */
+async function expectContentCentred(canvasElement: HTMLElement, root: HTMLElement) {
+  const parts = [...root.querySelectorAll('.ni-mlen__stage, .ni-mlen__answer')].map((e) =>
+    e.getBoundingClientRect(),
+  );
+  const left = Math.min(...parts.map((r) => r.left));
+  const right = Math.max(...parts.map((r) => r.right));
+  const a = areaBox(canvasElement);
+  const r = a.getBoundingClientRect();
+  const cs = getComputedStyle(a);
+  const inset =
+    (Number.parseFloat(cs.borderLeftWidth) || 0) + (Number.parseFloat(cs.paddingLeft) || 0);
+  await expect(
+    Math.abs(left - (r.left + inset) - (r.right - inset - right)),
+    'centred',
+  ).toBeLessThanOrEqual(4);
+}
+
+const iteratePlay =
+  (story: string) =>
+  async ({ canvasElement }: { canvasElement: HTMLElement }) => {
     const root = await findWidget(canvasElement, ROOT);
     for (let i = 0; i < 11; i += 1) {
       pile(root, 'cube').focus();
@@ -317,13 +371,22 @@ export const IterateTabletK: Story = {
       within(root).getByRole('button', { name: 'Check' }),
     ]);
     for (const k of root.querySelectorAll('.ni-pad__key')) await expectTargetSize(k, 'k');
-  },
+    await expectLayingLayout(story, canvasElement, root, 'k');
+  };
+
+/** Tablet widget area, K: the 11-cube vine, the pile, the pad and Check fit with no scroll. */
+export const IterateTabletK: Story = {
+  globals: { ageMode: 'k' },
+  args: { config: cubes11 },
+  render: inArea('tablet'),
+  play: iteratePlay('measure-length IterateTabletK'),
 };
 
 /** Smallest landscape area, K: the same fits with no scroll. */
 export const IterateLandscapeMinK: Story = {
   ...IterateTabletK,
   render: inArea('landscapeMin'),
+  play: iteratePlay('measure-length IterateLandscapeMinK'),
 };
 
 /** Smallest landscape area, K, two units (two piles, two rows, two boxes). */
@@ -334,11 +397,53 @@ export const TwoUnitsLandscapeMinK: Story = {
   play: async ({ canvasElement }) => {
     const root = await findWidget(canvasElement, ROOT);
     await expectFitsArea(areaBox(canvasElement), [
-      ...root.querySelectorAll('.ni-mlen__pile, .ni-mlen__undo, .ni-pad__key, .ni-entry__box'),
+      ...root.querySelectorAll(
+        '.ni-mlen__pile, .ni-mlen__undo, .ni-pad__key, .ni-entry__box, .ni-mlen__pad',
+      ),
       root.querySelector('.ni-mlen__object') as HTMLElement,
       within(root).getByRole('button', { name: 'Check' }),
     ]);
+    await expectLayingLayout('measure-length TwoUnitsLandscapeMinK', canvasElement, root, 'k');
   },
+};
+
+/** A vine 16 cubes long (MEA.02's longest is 11): the stress case for laying many units. */
+const cubes16: Config = { ...cubes11, object: { sprite: 'vine', length: 16 } };
+
+const stressCubes =
+  (story: string) =>
+  async ({ canvasElement }: { canvasElement: HTMLElement }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    for (let i = 0; i < 16; i += 1) {
+      pile(root, 'cube').focus();
+      await userEvent.keyboard('{Enter}{Enter}');
+    }
+    await waitFor(() => expect(laid(root, 'cube')).toHaveLength(16));
+    await expect(laid(root, 'cube')).toEqual(Array.from({ length: 16 }, (_, i) => i));
+    await expectFitsArea(areaBox(canvasElement), [
+      ...root.querySelectorAll(
+        '.ni-mlen__pile, .ni-mlen__undo, .ni-pad__key, .ni-entry__box, .ni-mlen__laid, .ni-mlen__pad',
+      ),
+      root.querySelector('.ni-mlen__object') as HTMLElement,
+      within(root).getByRole('button', { name: 'Check' }),
+    ]);
+    await expect(objectPx(root)).toBeCloseTo(16 * unitPx(root, 'cube'), 0);
+    await expectLayingLayout(story, canvasElement, root, 'k');
+  };
+
+/** Stress, tablet area, K: 16 cubes laid along a 16-cube vine; everything fits, to scale. */
+export const StressSixteenCubesTabletK: Story = {
+  globals: { ageMode: 'k' },
+  args: { config: cubes16 },
+  render: inArea('tablet'),
+  play: stressCubes('measure-length StressSixteenCubesTabletK'),
+};
+
+/** Stress, smallest landscape area, K: the same 16 cubes. */
+export const StressSixteenCubesLandscapeMinK: Story = {
+  ...StressSixteenCubesTabletK,
+  render: inArea('landscapeMin'),
+  play: stressCubes('measure-length StressSixteenCubesLandscapeMinK'),
 };
 
 /**
@@ -361,6 +466,23 @@ export const ReadRuler: Story = {
     const obj = (root.querySelector('.ni-mlen__object svg') as SVGElement).getBoundingClientRect();
     await expect(obj.left).toBeCloseTo(tick(2), 0);
     await expect(obj.right).toBeCloseTo(tick(7), 0);
+    // Evidence review: digits at least 32 px tall as seen, and a bold start marker on mark 2.
+    await expectNumeralInk(root, '.ni-ruler__numeral');
+    await expectRenderedNumerals(root, '.ni-ruler__numeral');
+    const marker = root.querySelector('.ni-mlen__start-mark') as HTMLElement;
+    await expect(marker).toHaveAttribute('data-start-mark', '2');
+    const m = marker.getBoundingClientRect();
+    const t2 = (
+      root.querySelector('.ni-ruler__tick[data-tick="2"]') as SVGElement
+    ).getBoundingClientRect();
+    await expect(Math.abs((m.left + m.right) / 2 - (t2.left + t2.right) / 2)).toBeLessThan(1.5);
+    const rulerTop = (root.querySelector('svg.ni-ruler') as SVGElement).getBoundingClientRect().top;
+    await expect(m.bottom).toBeGreaterThan(rulerTop + 10);
+    await expectControls('measure-length ReadRuler', 'g1-up', {
+      keys: [...root.querySelectorAll('.ni-pad__key')],
+      boxes: [...root.querySelectorAll('.ni-entry__box')],
+      check: [within(root).getByRole('button', { name: 'Check' })],
+    });
     await userEvent.click(key(root, '5'));
     await userEvent.click(within(root).getByRole('button', { name: 'Check' }));
     await expect(args.onResponse).toHaveBeenCalledWith({ kind: 'number', value: 5 });
@@ -430,7 +552,85 @@ export const ReadRulerEveryUnit: Story = {
     ).toEqual(['in', 'cm', 'ft', 'm']);
     await expectRulerUnitClear(canvasElement);
     await expectNumeralsAtLeast32(canvasElement, '.ni-ruler__numeral');
+    await expectNumeralInk(canvasElement, '.ni-ruler__numeral');
   },
+};
+
+/** A 12-inch plank on a quarter-inch ruler (192 sixteenths). */
+const inches12: Config = {
+  ...ruler,
+  object: { sprite: 'plank', length: 192 },
+  precision: 0.25,
+  startOffset: 0,
+};
+/** A 30 cm plank on a half-centimetre ruler (480 sixteenths). */
+const cm30: Config = {
+  ...ruler,
+  unit: 'cm',
+  object: { sprite: 'plank', length: 480 },
+  precision: 0.5,
+  startOffset: 0,
+};
+
+const stressRuler =
+  (story: string, config: Config, whole: number) =>
+  async ({ canvasElement }: { canvasElement: HTMLElement }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    await expectFitsArea(areaBox(canvasElement), [
+      root.querySelector('svg.ni-ruler') as Element,
+      root.querySelector('.ni-mlen__object') as HTMLElement,
+      ...root.querySelectorAll('.ni-pad__key, .ni-entry__box, .ni-ruler__numeral, .ni-ruler__unit'),
+      within(root).getByRole('button', { name: 'Check' }),
+    ]);
+    await expectNumeralInk(root, '.ni-ruler__numeral');
+    await expectRenderedNumerals(root, '.ni-ruler__numeral');
+    await expectRulerUnitClear(root);
+    // Numerals never touch: each one's box clear of the next.
+    const nums = [...root.querySelectorAll('.ni-ruler__numeral')].map((n) =>
+      n.getBoundingClientRect(),
+    );
+    for (let i = 1; i < nums.length; i += 1) {
+      await expect((nums[i] as DOMRect).left).toBeGreaterThan((nums[i - 1] as DOMRect).right);
+    }
+    const tick = (v: number) =>
+      (
+        root.querySelector(`.ni-ruler__tick[data-tick="${v}"]`) as SVGElement
+      ).getBoundingClientRect().left;
+    await expect(objectPx(root)).toBeCloseTo(whole * (tick(1) - tick(0)), 0);
+    await expect(root.querySelectorAll('.ni-ruler__tick')).toHaveLength(
+      Math.round((whole + 1) / config.precision) + 1,
+    );
+    await expectControls(story, 'g1-up', {
+      keys: [...root.querySelectorAll('.ni-pad__key')],
+      boxes: [...root.querySelectorAll('.ni-entry__box')],
+      check: [within(root).getByRole('button', { name: 'Check' })],
+    });
+    await expectContentCentred(canvasElement, root);
+  };
+
+/** Stress, tablet area: a 12-inch ruler in quarter inches; numerals labelled where they fit. */
+export const StressRuler12InTablet: Story = {
+  args: { config: inches12, tier: 'pictorial' },
+  render: inArea('tablet'),
+  play: stressRuler('measure-length StressRuler12InTablet', inches12, 12),
+};
+/** Stress, smallest landscape area: the 12-inch quarter-inch ruler. */
+export const StressRuler12InLandscapeMin: Story = {
+  ...StressRuler12InTablet,
+  render: inArea('landscapeMin'),
+  play: stressRuler('measure-length StressRuler12InLandscapeMin', inches12, 12),
+};
+/** Stress, tablet area: a 30 cm ruler in half centimetres; every 5th or 10th mark labelled. */
+export const StressRuler30CmTablet: Story = {
+  args: { config: cm30, tier: 'pictorial' },
+  render: inArea('tablet'),
+  play: stressRuler('measure-length StressRuler30CmTablet', cm30, 30),
+};
+/** Stress, smallest landscape area: the 30 cm ruler. */
+export const StressRuler30CmLandscapeMin: Story = {
+  ...StressRuler30CmTablet,
+  render: inArea('landscapeMin'),
+  play: stressRuler('measure-length StressRuler30CmLandscapeMin', cm30, 30),
 };
 
 /** Tap-tick: tap the ruler at the plank's end; ←/→ move the mark (keyboard). A placement. */
@@ -589,6 +789,35 @@ export const DemoInvite: Story = {
     await waitFor(() => expect(pile(root, 'cube')).toHaveClass('ni-invite'));
     await expectPointerOn(root.querySelector('.ni-hand') as HTMLElement, pile(root, 'cube'), root);
     await expectHandStays(root, () => pile(root, 'cube'));
+    // One ring, inside the pile, 12 px clear of the drop zone, undo and the keypad.
+    await expectOneInviteRing(root, {
+      clearOf: [
+        ...root.querySelectorAll('.ni-mlen__pad, .ni-mlen__undo, .ni-pad__key, .ni-entry__box'),
+      ],
+    });
+  },
+};
+
+const inviteEntry: WidgetDemo = createDemoController({ strict: true });
+
+/**
+ * The child's turn to answer (read): one ring, inside the answer box, 12 px clear of the keys;
+ * Pip's hand points at the box without covering its text.
+ */
+export const DemoInviteAnswer: Story = {
+  args: { config: ruler, tier: 'pictorial', demo: inviteEntry },
+  play: async ({ canvasElement }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    inviteEntry.invite({ op: 'answer', args: { value: 5 } });
+    const box = () => root.querySelector('.ni-entry__box') as HTMLElement;
+    await waitFor(() => expect(box()).toHaveClass('ni-invite'));
+    await expectHandStays(root, box);
+    await expectOneInviteRing(root, {
+      clearOf: [
+        ...root.querySelectorAll('.ni-pad__key'),
+        within(root).getByRole('button', { name: 'Check' }),
+      ],
+    });
   },
 };
 

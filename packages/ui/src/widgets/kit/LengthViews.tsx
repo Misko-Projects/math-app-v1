@@ -252,14 +252,21 @@ export function UnitPiece({ unit, width, className }: UnitPieceProps) {
   );
 }
 
-export const RULER_NUMERAL_PX = 34;
+/**
+ * Ruler numerals (evidence review): a Baloo 2 digit's ink is about 0.65 em tall, so 50 px draws
+ * digits at least 32 px tall as seen, not only a 32 px font size. A digit is about 31 px wide.
+ */
+export const RULER_NUMERAL_PX = 50;
+const DIGIT_W = 31;
+/** The widest numeral on a ruler to `max`, with room either side (px). */
+const numeralW = (max: number) => String(Math.ceil(max)).length * DIGIT_W + 12;
 
 /**
  * The marks a ruler labels: every whole unit, thinned by an even stride (1, 2, 5, 10) when
  * numerals would touch at `unitPx` px per unit.
  */
 export function rulerLabels(max: number, unitPx: number): number[] {
-  const widest = String(Math.ceil(max)).length * 21 + 8;
+  const widest = numeralW(max);
   const stride = [1, 2, 5, 10, 20].find((k) => k * unitPx >= widest) ?? 20;
   return stepsBetween(0, max, 1).filter((v) => v % stride === 0);
 }
@@ -284,8 +291,10 @@ export interface RulerProps {
 export const RULER_PAD = 18;
 const UNIT_PX = 26;
 const UNIT_GAP = 12;
-/** Half the width of the widest numeral at the end of a ruler (34 px Baloo 2). */
-const numeralHalf = (max: number) => (String(Math.ceil(max)).length * 21 + 8) / 2;
+/** Half the width of the widest numeral at the end of a ruler. */
+const numeralHalf = (max: number) => numeralW(max) / 2;
+/** The numerals' baseline: their ink clears the marks (y 34 to 47) and sits in the body. */
+const NUMERAL_BASELINE = 84;
 
 /**
  * A ruler's drawn width. The unit symbol has its own slot after the end numeral (inside the
@@ -342,7 +351,7 @@ export function Ruler({
           className="ni-ruler__numeral"
           data-label={v}
           x={RULER_PAD + v * unitPx}
-          y={74}
+          y={NUMERAL_BASELINE}
           fontSize={RULER_NUMERAL_PX}
           textAnchor="middle"
         >
@@ -354,7 +363,7 @@ export function Ruler({
           className="ni-ruler__unit"
           data-unit-label={unitLabel}
           x={RULER_PAD + max * unitPx + numeralHalf(max) + UNIT_GAP}
-          y={74}
+          y={NUMERAL_BASELINE}
           fontSize={UNIT_PX}
           textAnchor="start"
         >
