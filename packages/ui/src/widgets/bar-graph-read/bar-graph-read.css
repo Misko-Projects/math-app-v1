@@ -11,10 +11,13 @@
 }
 .ni-bgr__layout {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  grid-template-rows: minmax(0, 1fr);
+  /* The chart (sized from the room the answer leaves) and the answer, centred together. */
+  grid-template-columns: auto auto;
+  grid-template-rows: auto;
+  justify-content: center;
+  align-content: center;
   align-items: center;
-  gap: 24px;
+  gap: 16px;
   width: 100%;
   height: 100%;
 }
@@ -22,11 +25,8 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  justify-self: stretch;
-  width: 100%;
   min-width: 0;
   min-height: 0;
-  height: 100%;
 }
 .ni-bgr__board {
   box-sizing: border-box;
@@ -58,8 +58,13 @@
   background: var(--color-sky-light);
 }
 .ni-bgr__display.ni-invite,
-.ni-bgr__name.ni-invite {
-  outline-offset: 5px;
+.ni-bgr__name.ni-invite,
+.ni-bgr .ni-bgr__cat.ni-invite,
+.ni-bgr .ni-stepper__key.ni-invite {
+  /* Demo invite: one ring INSIDE the control's own box, no pulse, so it keeps the full 12 px
+     gap to every neighbour's outline (Pip's hand carries the motion). */
+  outline-offset: -9px;
+  animation: none;
   border-radius: var(--radius-pebble);
 }
 /* A compact 3 × 4 pad: keys at the age-mode target, so it fits the 960 × 600 widget area. */
@@ -113,8 +118,8 @@
 /* Narrow (portrait): the answer goes under the chart. */
 @container bgr (max-width: 760px) {
   .ni-bgr__layout {
-    grid-template-columns: minmax(0, 1fr);
-    grid-template-rows: minmax(0, 1fr) auto;
+    grid-template-columns: auto;
+    grid-template-rows: auto auto;
     justify-items: center;
   }
 }

@@ -243,3 +243,9 @@ ui.widget.pattern.out:
 ui.widget.pattern.jump:
   text: "How big is each jump?"
   level: K
+ui.widget.chart.data-title:
+  text: "Count each one"
+  level: K
+ui.widget.chart.build-title:
+  text: "Your graph"
+  level: K

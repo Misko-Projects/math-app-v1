@@ -12,8 +12,11 @@
 }
 .ni-bgb__layout {
   display: grid;
-  grid-template-columns: minmax(0, 0.75fr) minmax(0, 1.25fr) auto;
-  grid-template-rows: minmax(0, 1fr);
+  /* The data, the chart and the tools, sized from the room there is, centred together. */
+  grid-template-columns: auto auto auto;
+  grid-template-rows: auto;
+  justify-content: center;
+  align-content: center;
   align-items: center;
   gap: 16px;
   width: 100%;
@@ -24,11 +27,8 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  justify-self: stretch;
-  width: 100%;
   min-width: 0;
   min-height: 0;
-  height: 100%;
 }
 .ni-bgb__board {
   box-sizing: border-box;
@@ -37,9 +37,26 @@
   background: var(--color-paper);
   box-shadow: var(--shadow-soft);
 }
+.ni-bgb__board {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+/* The data board (what to count) is white; the child's graph is on paper, and each is labelled. */
 .ni-bgb__data .ni-bgb__board {
-  padding: 8px;
   background: var(--color-cloud);
+}
+.ni-bgb__title {
+  display: block;
+  align-self: flex-start;
+  height: 26px;
+  margin: 0 0 4px 6px;
+  color: var(--color-ink);
+  font-family: var(--font-body);
+  font-size: 20px;
+  font-weight: 700;
+  line-height: 26px;
+  white-space: nowrap;
 }
 
 /* The objects to count: a scattered, fixed heap (decorative; the board names it). */
@@ -67,7 +84,7 @@
   background: var(--color-cloud);
   color: var(--color-ink);
   font-family: var(--font-display);
-  font-size: 32px;
+  font-size: 40px;
   font-weight: 800;
   line-height: 1.1;
   text-align: center;
@@ -95,7 +112,10 @@
   background: rgb(42 157 143 / 0.08);
 }
 .ni-bgb__lane.ni-invite {
-  outline-offset: 4px;
+  /* Demo invite: one ring INSIDE the control's own box, no pulse, so it keeps the full 12 px
+     gap to every neighbour's outline (Pip's hand carries the motion). */
+  outline-offset: -9px;
+  animation: none;
   border-radius: 14px;
 }
 
@@ -167,8 +187,9 @@
 /* Narrow (portrait): data on top, the chart, the tools in a row. */
 @container bgb (max-width: 760px) {
   .ni-bgb__layout {
-    grid-template-columns: minmax(0, 1fr);
-    grid-template-rows: minmax(0, 0.8fr) minmax(0, 1.2fr) auto;
+    grid-template-columns: auto;
+    grid-template-rows: auto auto auto;
+    justify-items: center;
   }
   .ni-bgb__tools {
     flex-direction: row;

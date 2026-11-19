@@ -89,16 +89,28 @@
 .ni-chart__symbol {
   position: absolute;
   display: block;
+  box-sizing: border-box;
   overflow: hidden;
+  border: 2px solid var(--color-sand-deep);
+  border-radius: 10px;
+  background: var(--color-cloud);
   pointer-events: none;
 }
+/*
+ * A part symbol (half a picture at scale 2): the tile itself is cut, square-cornered on its cut
+ * side, and the cut edge is a thick dashed ink line, so a half reads as half a tile, even in
+ * greyscale and whatever the sprite's shape.
+ */
 .ni-chart__symbol[data-part] {
-  /* The cut edge: a dashed ink line, so a half reads as half even in greyscale. */
-  border-right: 3px dashed var(--color-ink-soft);
-  box-sizing: border-box;
+  border-right: 4px dashed var(--color-ink);
+  border-top-right-radius: 0;
+  border-bottom-right-radius: 0;
 }
 .ni-chart__symbolart {
   display: block;
+  box-sizing: border-box;
+  margin: -2px 0 0 -2px;
+  padding: 3px;
 }
 .ni-chart__symbol[data-counted="true"]::after {
   content: "";
@@ -116,7 +128,7 @@
   gap: 6px;
   color: var(--color-ink);
   font-family: var(--font-display);
-  font-size: 32px;
+  font-size: 40px;
   font-weight: 800;
   line-height: 1;
 }

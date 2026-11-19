@@ -7,7 +7,16 @@ import {
   expectTargetSize,
   spyAudio,
 } from '../../test-support/storyHelpers';
-import { areaBox, expectChartShows, expectFitsArea, inArea } from '../../test-support/widgetArea';
+import {
+  areaBox,
+  expectChartShows,
+  expectFitsArea,
+  expectNumeralsReadable,
+  expectOneInvite,
+  expectSymbolsOneSize,
+  inArea,
+  namedStory,
+} from '../../test-support/widgetArea';
 import {
   expectPointerOn,
   expectTraceOrdered,
@@ -178,6 +187,7 @@ const meta = {
   },
   parameters: { ui: { stage: 'centered' } },
   render: renderWidget,
+  decorators: [namedStory],
 } satisfies Meta<WidgetHostProps>;
 
 export default meta;
@@ -187,7 +197,9 @@ const ROOT = '.ni-bgr';
 const labels = (root: HTMLElement) => [
   ...root.querySelectorAll<HTMLElement>('.ni-bgr__name, .ni-bgr__cat'),
 ];
-const padKeys = (root: HTMLElement) => [...root.querySelectorAll<HTMLElement>('.ni-pad__key')];
+const padKeys = (root: HTMLElement) => [
+  ...root.querySelectorAll<HTMLElement>('.ni-pad .ni-pad__key'),
+];
 const check = (root: HTMLElement) => within(root).getByRole('button', { name: 'Check' });
 
 /**
@@ -504,8 +516,8 @@ export const Invite: Story = {
     const hand = root.querySelector('.ni-hand') as HTMLElement;
     await expectPointerOn(hand, card, root);
     await expect(card).toBeEnabled();
-    // The story ends in the invited state: Pip's hand stays under its target.
-    await expect(root.querySelector('.ni-hand')).toBeVisible();
+    // One invited control, one ring inside it; the story ends with Pip's hand visible under it.
+    await expectOneInvite(root);
   },
 };
 
@@ -521,5 +533,98 @@ export const InviteCleared: Story = {
     await clearController.invite(null);
     await waitFor(() => expect(root.querySelector('.ni-hand')).toBeNull());
     await expect(root.querySelector('.ni-invite')).toBeNull();
+  },
+};
+
+// ---------- stress states (06 §1, §2: nothing clips or scrolls) ----------
+
+/** Four bars, one at the top of a 0–20 axis (labels every other tick so 32 px numerals fit). */
+const fourBarsAtMax: Config = {
+  format: 'bar-graph-read',
+  chart: {
+    kind: 'bar',
+    orientation: 'vertical',
+    categories: [cat('fish', 20), cat('crab', 13), cat('shell', 7), cat('apple', 18)],
+    scale: 1,
+    axisMax: 20,
+  },
+  question: { type: 'difference', categories: ['fish', 'shell'] },
+};
+
+/** A picture-graph row of 10 symbols beside rows of 9 and 4, all one size. */
+const tenInARow: Config = {
+  format: 'bar-graph-read',
+  chart: {
+    kind: 'picture',
+    orientation: 'horizontal',
+    categories: [cat('fish', 10), cat('crab', 9), cat('apple', 4)],
+    scale: 1,
+    axisMax: 10,
+  },
+  question: { type: 'how-many', categories: ['crab'] },
+};
+
+const stressRead =
+  (config: Config, values: Record<string, number>, age: 'k' | 'g1-up') =>
+  async ({ canvasElement }: { canvasElement: HTMLElement }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    await expectChartShows(root, values);
+    await expectNumeralsReadable(root);
+    if (config.chart.kind === 'picture') await expectSymbolsOneSize(root);
+    const controls = [
+      ...labels(root),
+      ...padKeys(root),
+      ...root.querySelectorAll<HTMLElement>('.ni-stepper__key'),
+      check(root),
+    ];
+    await expectFitsArea(areaBox(canvasElement), controls, age, [
+      root.querySelector('.ni-chart') as HTMLElement,
+    ]);
+  };
+
+/** Stress: four bars up to 20 at the tablet area. */
+export const StressFourBarsAtMaxTablet: Story = {
+  args: { config: fourBarsAtMax },
+  render: inArea('tablet'),
+  play: stressRead(fourBarsAtMax, { fish: 20, crab: 13, shell: 7, apple: 18 }, 'g1-up'),
+};
+
+/** Stress: four bars up to 20 at the 960 × 600 minimum. */
+export const StressFourBarsAtMaxLandscapeMin: Story = {
+  args: { config: fourBarsAtMax },
+  render: inArea('landscapeMin'),
+  play: stressRead(fourBarsAtMax, { fish: 20, crab: 13, shell: 7, apple: 18 }, 'g1-up'),
+};
+
+/** Stress, K: a row of 10 pictures at the tablet area. */
+export const StressTenPicturesKTablet: Story = {
+  globals: { ageMode: 'k' },
+  args: { config: tenInARow },
+  render: inArea('tablet'),
+  play: stressRead(tenInARow, { fish: 10, crab: 9, apple: 4 }, 'k'),
+};
+
+/** Stress, K: a row of 10 pictures at the 960 × 600 minimum. */
+export const StressTenPicturesKLandscapeMin: Story = {
+  globals: { ageMode: 'k' },
+  args: { config: tenInARow },
+  render: inArea('landscapeMin'),
+  play: stressRead(tenInARow, { fish: 10, crab: 9, apple: 4 }, 'k'),
+};
+
+const stepperInvite: WidgetDemo = createDemoController({ strict: true });
+
+/** K invite on a counting question: one ring, on "one more", with Pip's hand under it. */
+export const InviteStepperK: Story = {
+  globals: { ageMode: 'k' },
+  args: { demo: stepperInvite },
+  play: async ({ canvasElement }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    await stepperInvite.invite({ op: 'answer', args: { value: 3 } });
+    const more = within(root).getByRole('button', { name: 'One more' });
+    await waitFor(() => expect(more).toHaveClass('ni-invite'));
+    await waitFor(() => expect(root.querySelector('.ni-hand')).not.toBeNull());
+    await expectPointerOn(root.querySelector('.ni-hand') as HTMLElement, more, root);
+    await expectOneInvite(root);
   },
 };

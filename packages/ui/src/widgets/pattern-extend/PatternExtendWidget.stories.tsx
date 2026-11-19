@@ -2,7 +2,14 @@ import type { PatternToken, WidgetConfig } from '@number-island/shared';
 import type { Meta, StoryObj } from '@storybook/react-vite';
 import { expect, fn, userEvent, waitFor, within } from 'storybook/test';
 import { center, clearSpies, pointerDrag, spyAudio } from '../../test-support/storyHelpers';
-import { areaBox, expectFitsArea, inArea } from '../../test-support/widgetArea';
+import {
+  areaBox,
+  expectFitsArea,
+  expectNumeralsReadable,
+  expectOneInvite,
+  inArea,
+  namedStory,
+} from '../../test-support/widgetArea';
 import {
   expectPointerOn,
   expectTraceOrdered,
@@ -138,6 +145,7 @@ const meta = {
   },
   parameters: { ui: { stage: 'centered' } },
   render: renderWidget,
+  decorators: [namedStory],
 } satisfies Meta<WidgetHostProps>;
 
 export default meta;
@@ -154,7 +162,9 @@ const shownCells = (root: HTMLElement) => [
     '[data-row="pattern"] button.ni-pattern__cell:not(.ni-pattern__blank)',
   ),
 ];
-const padKeys = (root: HTMLElement) => [...root.querySelectorAll<HTMLElement>('.ni-pad__key')];
+const padKeys = (root: HTMLElement) => [
+  ...root.querySelectorAll<HTMLElement>('.ni-pad .ni-pad__key'),
+];
 
 /** The strip shows exactly the sequence: each shown unit in its place, a blank for each null. */
 async function expectShowsSequence(root: HTMLElement, sequence: (PatternToken | null)[]) {
@@ -499,10 +509,10 @@ export const Invite: Story = {
     await inviteController.invite({ op: 'place-token', args: { index: 5, token: ySquare } });
     const blank = cell(root, 5);
     await waitFor(() => expect(blank).toHaveClass('ni-invite'));
-    await expect(units(root)[0]).toHaveClass('ni-invite');
+    await expect(units(root)[0]).not.toHaveClass('ni-invite');
     await expectPointerOn(root.querySelector('.ni-hand') as HTMLElement, blank, root);
-    // The story ends in the invited state: Pip's hand stays under its target.
-    await expect(root.querySelector('.ni-hand')).toBeVisible();
+    // One invited control, one ring inside it; the story ends with Pip's hand visible under it.
+    await expectOneInvite(root);
   },
 };
 
@@ -518,5 +528,70 @@ export const InviteCleared: Story = {
     await clearController.invite(null);
     await waitFor(() => expect(root.querySelector('.ni-hand')).toBeNull());
     await expect(root.querySelector('.ni-invite')).toBeNull();
+  },
+};
+
+// ---------- stress states (06 §1, §2: nothing clips or scrolls) ----------
+
+/** AABB three times: twelve units to mark the core in. */
+const longCore: Config = {
+  format: 'pattern-extend',
+  sequence: [shell, shell, fish, fish, shell, shell, fish, fish, shell, shell, fish, fish],
+  palette: [shell, fish],
+  mode: 'core',
+  kind: 'repeat',
+};
+
+const stressCore =
+  (age: 'k' | 'g1-up') =>
+  async ({
+    canvasElement,
+    args,
+  }: {
+    canvasElement: HTMLElement;
+    args: { onResponse: unknown };
+  }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    await expectShowsSequence(root, longCore.sequence);
+    // Pattern units are one size, the pieces and the strip alike (true relative scale).
+    const sizes = new Set(shownCells(root).map((c) => Math.round(c.getBoundingClientRect().width)));
+    await expect(sizes.size).toBe(1);
+    await expectFitsArea(areaBox(canvasElement), [...shownCells(root), check(root)], age);
+    await userEvent.click(cell(root, 0));
+    await userEvent.click(cell(root, 3));
+    await userEvent.click(check(root));
+    await expect(args.onResponse).toHaveBeenCalledWith({
+      kind: 'state',
+      value: { values: [0, 1, 2, 3] },
+    });
+  };
+
+/** Stress, K: twelve units at the tablet area. */
+export const StressLongCoreKTablet: Story = {
+  globals: { ageMode: 'k' },
+  args: { config: longCore },
+  render: inArea('tablet'),
+  play: stressCore('k'),
+};
+
+/** Stress, K: twelve units at the 960 × 600 minimum. */
+export const StressLongCoreKLandscapeMin: Story = {
+  globals: { ageMode: 'k' },
+  args: { config: longCore },
+  render: inArea('landscapeMin'),
+  play: stressCore('k'),
+};
+
+/** Pieces and pattern units are drawn at one size (true relative scale), numerals ≥ 32 px. */
+export const PiecesMatchPatternScale: Story = {
+  args: { config: shapesExtend, tier: 'pictorial' },
+  render: inArea('tablet'),
+  play: async ({ canvasElement }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    const width = (el: Element) => Math.round(el.getBoundingClientRect().width);
+    const art = (el: Element) => el.querySelector('svg') as SVGElement;
+    const sizes = new Set([...shownCells(root), ...units(root)].map((c) => width(art(c))));
+    await expect(sizes.size).toBe(1);
+    await expectNumeralsReadable(root);
   },
 };

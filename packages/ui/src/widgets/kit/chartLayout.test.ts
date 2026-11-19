@@ -180,6 +180,32 @@ describe('tally charts: groups of five, four strokes and a gate', () => {
     }
   });
 
+  it.each([
+    ['horizontal', 360, 260],
+    ['horizontal', 520, 300],
+    ['vertical', 420, 300],
+  ] as const)('20 marks stay inside their %s lane (%i × %i)', (orientation, width, height) => {
+    const g = chartGeometry(
+      chart({ kind: 'tally', orientation, axisMax: 20, categories: cats(20, 3) }),
+      { width, height, target: 80 },
+    );
+    for (const s of g.slots) {
+      const lines = (s.tally ?? []).flat();
+      expect(lines).toHaveLength(s.value);
+      for (const [x1, y1, x2, y2] of lines) {
+        for (const [x, y] of [
+          [x1, y1],
+          [x2, y2],
+        ] as const) {
+          expect(x).toBeGreaterThanOrEqual(s.lane.x - 0.5);
+          expect(x).toBeLessThanOrEqual(s.lane.x + s.lane.w + 0.5);
+          expect(y).toBeGreaterThanOrEqual(s.lane.y - 0.5);
+          expect(y).toBeLessThanOrEqual(s.lane.y + s.lane.h + 0.5);
+        }
+      }
+    }
+  });
+
   it('a tally chart row holds its marks', () => {
     const g = chartGeometry(
       chart({ kind: 'tally', orientation: 'horizontal', categories: cats(13, 5, 2) }),

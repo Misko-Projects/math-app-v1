@@ -13,7 +13,8 @@
 .ni-pattern__layout {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
-  grid-template-rows: minmax(0, 1fr) auto;
+  grid-template-rows: auto auto;
+  align-content: center;
   align-items: center;
   justify-items: center;
   gap: 16px;
@@ -22,15 +23,17 @@
 }
 /* Typed patterns (numbers, rules, tables): the pad sits beside the pattern. */
 .ni-pattern[data-typed="true"] .ni-pattern__layout {
-  grid-template-columns: minmax(0, 1fr) auto;
-  grid-template-rows: minmax(0, 1fr);
+  /* The strip and the pad, centred together (equal margins either side). */
+  grid-template-columns: auto auto;
+  grid-template-rows: auto;
+  justify-content: center;
+  align-content: center;
 }
 .ni-pattern__main {
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  justify-self: stretch;
   gap: 16px;
   min-width: 0;
   min-height: 0;
@@ -135,7 +138,10 @@
     0 0 0 8px var(--color-sea-deep);
 }
 .ni-pattern__cell.ni-invite {
-  outline-offset: 6px;
+  /* Demo invite: one ring INSIDE the control's own box, no pulse, so it keeps the full 12 px
+     gap to every neighbour's outline (Pip's hand carries the motion). */
+  outline-offset: -9px;
+  animation: none;
   border-radius: var(--radius-pebble);
 }
 
@@ -188,6 +194,12 @@
   display: flex;
   align-items: center;
   gap: 12px;
+}
+.ni-pattern__answer.ni-invite {
+  /* Demo invite: one ring INSIDE the control's own box, no pulse, so it keeps the full 12 px
+     gap to every neighbour's outline (Pip's hand carries the motion). */
+  outline-offset: -9px;
+  animation: none;
 }
 .ni-pattern__answer {
   min-width: calc(var(--target-min) * 1.4);
@@ -284,7 +296,7 @@
 /* Narrow (portrait): the pad goes under the pattern. */
 @container pattern (max-width: 760px) {
   .ni-pattern[data-typed="true"] .ni-pattern__layout {
-    grid-template-columns: minmax(0, 1fr);
-    grid-template-rows: minmax(0, 1fr) auto;
+    grid-template-columns: auto;
+    grid-template-rows: auto auto;
   }
 }

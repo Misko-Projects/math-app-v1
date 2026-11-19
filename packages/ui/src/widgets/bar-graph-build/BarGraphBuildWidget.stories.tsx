@@ -2,7 +2,16 @@ import type { WidgetConfig } from '@number-island/shared';
 import type { Meta, StoryObj } from '@storybook/react-vite';
 import { expect, fn, userEvent, waitFor, within } from 'storybook/test';
 import { center, clearSpies, pointerDrag, spyAudio } from '../../test-support/storyHelpers';
-import { areaBox, expectChartShows, expectFitsArea, inArea } from '../../test-support/widgetArea';
+import {
+  areaBox,
+  expectChartShows,
+  expectFitsArea,
+  expectNumeralsReadable,
+  expectOneInvite,
+  expectSymbolsOneSize,
+  inArea,
+  namedStory,
+} from '../../test-support/widgetArea';
 import {
   expectPointerOn,
   expectTraceOrdered,
@@ -117,6 +126,7 @@ const meta = {
   },
   parameters: { ui: { stage: 'centered' } },
   render: renderWidget,
+  decorators: [namedStory],
 } satisfies Meta<WidgetHostProps>;
 
 export default meta;
@@ -419,8 +429,8 @@ export const Invite: Story = {
     const row = lane(root, 'crab');
     await waitFor(() => expect(row).toHaveClass('ni-invite'));
     await expectPointerOn(root.querySelector('.ni-hand') as HTMLElement, row, root);
-    // The story ends in the invited state: Pip's hand stays under its target.
-    await expect(root.querySelector('.ni-hand')).toBeVisible();
+    // One invited control, one ring inside it; the story ends with Pip's hand visible under it.
+    await expectOneInvite(root);
   },
 };
 
@@ -436,5 +446,76 @@ export const InviteCleared: Story = {
     await clearController.invite(null);
     await waitFor(() => expect(root.querySelector('.ni-hand')).toBeNull());
     await expect(root.querySelector('.ni-invite')).toBeNull();
+  },
+};
+
+// ---------- stress states (06 §1, §2: nothing clips or scrolls) ----------
+
+/** A tally of 20 (four gates) beside a tally of 3, from a table. */
+const tally20: Config = {
+  format: 'bar-graph-build',
+  chart: {
+    kind: 'tally',
+    orientation: 'horizontal',
+    categories: zero('fish', 'shell'),
+    scale: 1,
+    axisMax: 20,
+  },
+  data: { kind: 'table', values: [20, 3] },
+  mode: 'tally',
+};
+
+const stressTally =
+  (age: 'k' | 'g1-up') =>
+  async ({ canvasElement }: { canvasElement: HTMLElement }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    await userEvent.click(chip(root));
+    for (let i = 0; i < 20; i += 1) await userEvent.click(lane(root, 'fish'));
+    for (let i = 0; i < 3; i += 1) await userEvent.click(lane(root, 'shell'));
+    await expectChartShows(built(root), { fish: 20, shell: 3 });
+    await expectNumeralsReadable(root);
+    await expectFitsArea(
+      areaBox(canvasElement),
+      [...lanes(root), chip(root), back(root), check(root)],
+      age,
+      boards(root),
+    );
+  };
+
+/** Stress: 20 tally marks in a row at the tablet area. */
+export const StressTally20Tablet: Story = {
+  args: { config: tally20, tier: 'pictorial' },
+  render: inArea('tablet'),
+  play: stressTally('g1-up'),
+};
+
+/** Stress, K: 20 tally marks in a row at the 960 × 600 minimum. */
+export const StressTally20KLandscapeMin: Story = {
+  globals: { ageMode: 'k' },
+  args: { config: tally20, tier: 'pictorial' },
+  render: inArea('landscapeMin'),
+  play: stressTally('k'),
+};
+
+/** Pictures at scale 2: every symbol one size, halves a cut tile; the two chips spaced. */
+export const ScaledPicturesHalvesLandscapeMin: Story = {
+  args: { config: scaledPictures, tier: 'pictorial' },
+  render: inArea('landscapeMin'),
+  play: async ({ canvasElement }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    await userEvent.click(chip(root));
+    for (let i = 0; i < 3; i += 1) await userEvent.click(lane(root, 'apple'));
+    for (let i = 0; i < 2; i += 1) await userEvent.click(lane(root, 'fish'));
+    await userEvent.click(chip(root, 'half'));
+    await userEvent.click(lane(root, 'apple'));
+    await expectChartShows(built(root), { apple: 7, fish: 4 }, 2);
+    await expectSymbolsOneSize(built(root));
+    await expectNumeralsReadable(root);
+    await expectFitsArea(
+      areaBox(canvasElement),
+      [...lanes(root), chip(root), chip(root, 'half'), back(root), check(root)],
+      'g1-up',
+      boards(root),
+    );
   },
 };

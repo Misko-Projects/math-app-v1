@@ -92,6 +92,8 @@ export interface ChartLayoutOptions {
   gap?: number;
   /** Counts to draw instead of the chart's own (bar-graph-build). */
   values?: readonly number[];
+  /** Space above and below the rows of a horizontal chart (default 12). */
+  padY?: number;
 }
 
 export const NUMERAL_PX = 32;
@@ -167,7 +169,7 @@ export function tallyLength(count: number, stroke: number): number {
 function lineGeometry(
   chart: ChartSpec,
   values: number[],
-  o: Required<Omit<ChartLayoutOptions, 'values'>>,
+  o: Required<Omit<ChartLayoutOptions, 'values' | 'padY'>>,
 ): ChartGeometry {
   const slots = chartSlots(chart);
   const width = o.width;
@@ -194,8 +196,8 @@ function lineGeometry(
   const geo: SlotGeometry[] = slots.map((s, i) => {
     const v = values[i] ?? 0;
     // Each position's lane is the strip around it, clipped to the chart.
-    const x0 = Math.max(4, at(i) - spacing / 2);
-    const x1 = Math.min(width - 4, at(i) + spacing / 2);
+    const x0 = Math.max(4, at(i) - spacing / 2 + 6);
+    const x1 = Math.min(width - 4, at(i) + spacing / 2 - 6);
     const lane = { x: x0, y: top, w: x1 - x0, h: axisY - top };
     return {
       ...s,
@@ -238,6 +240,7 @@ export function chartGeometry(chart: ChartSpec, opts: ChartLayoutOptions): Chart
     target: opts.target ?? 56,
     gap: opts.gap ?? 12,
   };
+  const padY = opts.padY ?? PAD;
   const values = opts.values ? [...opts.values] : slotValues(chart);
   if (chart.kind === 'line-plot') return lineGeometry(chart, values, o);
   const slots = chartSlots(chart);
@@ -253,14 +256,14 @@ export function chartGeometry(chart: ChartSpec, opts: ChartLayoutOptions): Chart
     const tableW = Math.round(Math.min(132, Math.max(72, (o.width - 2 * PAD) * 0.38)));
     const labelW =
       chart.kind === 'table'
-        ? Math.max(o.target, Math.min(200, o.width - 2 * PAD - tableW))
+        ? Math.max(o.target, Math.min(200, o.width - 2 * PAD - tableW - o.gap))
         : Math.min(200, Math.max(o.target, 150, Math.round(o.width * 0.24)));
-    const avail = o.height - keyH - axisH - 2 * PAD;
+    const avail = o.height - keyH - axisH - 2 * padY;
     const rowH = Math.max(o.target, Math.min(104, (avail - (n - 1) * o.gap) / n));
     const rowsH = n * rowH + (n - 1) * o.gap;
-    const y0 = PAD + keyH;
-    const height = Math.max(o.height, y0 + rowsH + axisH + PAD);
-    const plotX = PAD + labelW + (chart.kind === 'table' ? 0 : 16);
+    const y0 = padY + keyH;
+    const height = Math.max(o.height, y0 + rowsH + axisH + padY);
+    const plotX = PAD + labelW + (chart.kind === 'table' ? o.gap : 16);
     const plotR =
       chart.kind === 'table'
         ? plotX + tableW
@@ -271,7 +274,9 @@ export function chartGeometry(chart: ChartSpec, opts: ChartLayoutOptions): Chart
     const symCols = Math.round(top / scale);
     const sgap = 6;
     const sym = Math.max(14, Math.min(rowH - 14, 64, (plot.w - (symCols - 1) * sgap) / symCols));
-    const stroke = Math.min(rowH * 0.64, 56);
+    const groupsMax = Math.max(1, Math.ceil(top / 5));
+    const strokeFit = (plot.w - 12) / (0.32 * (4 * groupsMax + 1.7 * (groupsMax - 1) + 1));
+    const stroke = Math.min(rowH * 0.64, 56, strokeFit);
     const geo: SlotGeometry[] = slots.map((s, i) => {
       const v = values[i] ?? 0;
       const y = y0 + i * (rowH + o.gap);
@@ -342,7 +347,8 @@ export function chartGeometry(chart: ChartSpec, opts: ChartLayoutOptions): Chart
   const symRows = Math.round(top / scale);
   const sgap = 5;
   const sym = Math.max(14, Math.min(colW - 16, 64, (plotH - (symRows - 1) * sgap) / symRows));
-  const stroke = Math.min(colW * 0.5, 52);
+  const stacks = Math.max(1, Math.ceil(top / 5));
+  const stroke = Math.min(colW * 0.5, 52, plotH / (stacks * 1.52));
   const geo: SlotGeometry[] = slots.map((s, i) => {
     const v = values[i] ?? 0;
     const x = x0 + i * (colW + o.gap);

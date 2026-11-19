@@ -48,6 +48,8 @@ export interface ChartViewProps {
   readLine?: string | null;
   /** The first `n` marks of a slot are ringed (demo `count-pictures`). */
   counted?: { id: string; n: number } | null;
+  /** Space above and below a horizontal chart's rows (default 12; a build board needs less). */
+  padY?: number;
   className?: string;
 }
 
@@ -145,11 +147,12 @@ export function ChartView({
   pointed = null,
   readLine = null,
   counted = null,
+  padY,
   className,
 }: ChartViewProps) {
   const t = useNarrationText();
   const size = chartBox(chart, maxWidth, maxHeight, target);
-  const g = chartGeometry(chart, { ...size, target, values });
+  const g = chartGeometry(chart, { ...size, target, values, padY });
   const interactive = Boolean(renderLabel || renderOverlay);
   const name = label ?? t('ui.widget.picture');
   const cls = ['ni-chart', className].filter(Boolean).join(' ');
@@ -343,7 +346,7 @@ export function ChartView({
             </g>
           ) : null,
         )}
-        {chart.kind === 'table' ? <TableGrid g={g} /> : null}
+        {chart.kind === 'table' ? <TableGrid g={g} labelCells={!renderLabel} /> : null}
         {g.slots.map((s) =>
           s.cell ? (
             <text
@@ -452,8 +455,11 @@ function LinePlotAxis({ g }: { g: ChartGeometry }) {
   );
 }
 
-function TableGrid({ g }: { g: ChartGeometry }) {
-  const boxes = g.slots.flatMap((s) => [s.labelBox, s.cell].filter((b): b is Box => Boolean(b)));
+/** The table's cells (label cells only when the labels are not buttons with their own frame). */
+function TableGrid({ g, labelCells }: { g: ChartGeometry; labelCells: boolean }) {
+  const boxes = g.slots.flatMap((s) =>
+    [labelCells ? s.labelBox : null, s.cell].filter((b): b is Box => Boolean(b)),
+  );
   return (
     <>
       {boxes.map((b) => (

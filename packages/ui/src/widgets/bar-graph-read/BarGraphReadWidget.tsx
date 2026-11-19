@@ -78,7 +78,10 @@ export function BarGraphReadWidget({
   const trace = useInteractionTrace(onInteract);
   const alive = useAlive();
   const pause = useDemoPause();
-  const [areaRef, area] = useMeasuredBox<HTMLDivElement>();
+  // The chart takes the room the answer leaves; the chart and the answer then sit together,
+  // centred in the widget area (equal margins either side).
+  const [layoutRef, layout] = useMeasuredBox<HTMLDivElement>();
+  const [answerRef, answerSize] = useMeasuredBox<HTMLDivElement>();
   const [state, setState] = useState<BarGraphReadState>(() => model.initialState(config));
   const rootRef = useRef<HTMLDivElement | null>(null);
   const stateRef = useRef(state);
@@ -253,7 +256,7 @@ export function BarGraphReadWidget({
       invitedCat !== null
         ? root.querySelector<HTMLElement>(`.ni-bgr__catslot [data-id="${CSS.escape(invitedCat)}"]`)
         : invitedAnswer
-          ? root.querySelector<HTMLElement>('.ni-bgr__display, .ni-stepper__value')
+          ? root.querySelector<HTMLElement>('.ni-bgr__display, .ni-stepper__key[data-key="more"]')
           : null,
     invitedCat !== null ? `cat-${invitedCat}` : invitedAnswer ? 'answer' : '',
   );
@@ -292,7 +295,15 @@ export function BarGraphReadWidget({
     );
   };
 
-  const boardPad = 14;
+  const boardPad = 10;
+  const GAP = 16;
+  const stacked = (layout?.width ?? 1000) <= 760;
+  const area =
+    layout && answerSize
+      ? stacked
+        ? { width: layout.width, height: layout.height - answerSize.height - GAP }
+        : { width: layout.width - answerSize.width - GAP, height: layout.height }
+      : null;
   const answerBox = (
     <span className="ni-bgr__answerbox">
       <output
@@ -317,16 +328,16 @@ export function BarGraphReadWidget({
       data-answer={choice ? 'choice' : usePad ? 'pad' : 'stepper'}
       data-disabled={disabled ? 'true' : undefined}
     >
-      <div className="ni-bgr__layout">
-        <div className="ni-bgr__chart" ref={areaRef}>
+      <div className="ni-bgr__layout" ref={layoutRef}>
+        <div className="ni-bgr__chart">
           {area ? (
             <div className="ni-bgr__board" style={{ padding: boardPad }}>
               <ChartView
                 chart={chart}
                 maxWidth={Math.max(200, area.width - 2 * boardPad - 6)}
                 maxHeight={Math.max(160, area.height - 2 * boardPad - 6)}
-                // Label cells hold a target-sized card plus its 6 px ledge.
-                target={target + 8}
+                // A choice card needs room for its 6 px ledge; a name button is target-sized.
+                target={choice ? target + 8 : target}
                 label={t('ui.widget.chart.graph')}
                 renderLabel={renderLabel}
                 pointed={pointed}
@@ -336,7 +347,7 @@ export function BarGraphReadWidget({
             </div>
           ) : null}
         </div>
-        <div className="ni-bgr__answer">
+        <div className="ni-bgr__answer" ref={answerRef}>
           {choice ? null : usePad ? (
             <>
               <div className="ni-bgr__entry">
@@ -356,6 +367,7 @@ export function BarGraphReadWidget({
                 <Stepper
                   value={count}
                   max={99}
+                  highlighted={invitedAnswer ? 'more' : null}
                   disabled={!interactive}
                   onPress={(k) => trace('tap', `step-${k}`)}
                   onChange={(v) => {

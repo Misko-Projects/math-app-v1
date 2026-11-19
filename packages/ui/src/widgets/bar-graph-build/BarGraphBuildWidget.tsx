@@ -238,8 +238,10 @@ export function BarGraphBuildWidget({
   const trace = useInteractionTrace(onInteract);
   const alive = useAlive();
   const pause = useDemoPause();
-  const [chartRef, chartArea] = useMeasuredBox<HTMLDivElement>();
-  const [dataRef, dataArea] = useMeasuredBox<HTMLDivElement>();
+  // The data and the chart share the room the tools leave; all three then sit together, centred
+  // in the widget area (equal margins either side).
+  const [layoutRef, layout] = useMeasuredBox<HTMLDivElement>();
+  const [toolsRef, tools] = useMeasuredBox<HTMLDivElement>();
   const [state, setState] = useState<BarGraphBuildState>(() => model.initialState(config));
   const rootRef = useRef<HTMLDivElement | null>(null);
   const stateRef = useRef(state);
@@ -386,7 +388,29 @@ export function BarGraphBuildWidget({
         : root.querySelector<HTMLElement>(`.ni-bgb__lane[data-slot="${CSS.escape(invitedId)}"]`),
     invitedId === null ? '' : `slot-${invitedId}`,
   );
-  const pad = 8;
+  const pad = 6;
+  const GAP = 16;
+  /** A board's caption line ("Count each one", "Your graph") and the space under it. */
+  const CAPTION = 30;
+  const stacked = (layout?.width ?? 1000) <= 760;
+  let dataArea: { width: number; height: number } | null = null;
+  let chartArea: { width: number; height: number } | null = null;
+  if (layout && tools) {
+    if (stacked) {
+      const h = layout.height - tools.height - 2 * GAP;
+      dataArea = { width: layout.width, height: Math.round(h * 0.4) };
+      chartArea = { width: layout.width, height: h - dataArea.height };
+    } else {
+      const w = layout.width - tools.width - 2 * GAP;
+      dataArea = { width: Math.round(w * 0.38), height: layout.height };
+      chartArea = { width: w - dataArea.width, height: layout.height };
+    }
+  }
+  /** The room inside a board, under its caption. */
+  const inner = (a: { width: number; height: number }) => ({
+    width: a.width - 2 * pad - 6,
+    height: a.height - 2 * pad - 6 - CAPTION,
+  });
 
   const renderOverlay = (g: { slots: SlotGeometry[] }) =>
     g.slots.map((s) => {
@@ -434,23 +458,28 @@ export function BarGraphBuildWidget({
       data-mode={config.mode}
       data-disabled={disabled ? 'true' : undefined}
     >
-      <div className="ni-bgb__layout">
-        <div className="ni-bgb__data" ref={dataRef}>
+      <div className="ni-bgb__layout" ref={layoutRef}>
+        <div className="ni-bgb__data">
           {dataArea ? (
-            <div className="ni-bgb__board" data-kind={config.data.kind}>
+            <div className="ni-bgb__board" data-kind={config.data.kind} style={{ padding: pad }}>
+              {/* What to count (the target) and the child's graph are labelled boards. */}
+              <span className="ni-bgb__title" data-board="data">
+                {t('ui.widget.chart.data-title')}
+              </span>
               {config.data.kind === 'objects' ? (
                 <DataObjects
                   config={config}
-                  width={dataArea.width - 22}
-                  height={dataArea.height - 22}
+                  width={inner(dataArea).width}
+                  height={inner(dataArea).height}
                   label={dataLabel}
                 />
               ) : dataChart ? (
                 <ChartView
                   chart={dataChart}
-                  maxWidth={dataArea.width - 22}
-                  maxHeight={dataArea.height - 22}
+                  maxWidth={inner(dataArea).width}
+                  maxHeight={inner(dataArea).height}
                   target={48}
+                  padY={4}
                   label={dataLabel}
                 />
               ) : (
@@ -466,14 +495,18 @@ export function BarGraphBuildWidget({
             </div>
           ) : null}
         </div>
-        <div className="ni-bgb__chart" ref={chartRef}>
+        <div className="ni-bgb__chart">
           {chartArea ? (
-            <div className="ni-bgb__board" style={{ padding: pad }}>
+            <div className="ni-bgb__board" data-board="build" style={{ padding: pad }}>
+              <span className="ni-bgb__title" data-board="build">
+                {t('ui.widget.chart.build-title')}
+              </span>
               <ChartView
                 chart={config.chart}
                 values={state.values}
-                maxWidth={chartArea.width - 2 * pad - 6}
-                maxHeight={chartArea.height - 2 * pad - 6}
+                maxWidth={inner(chartArea).width}
+                maxHeight={inner(chartArea).height}
+                padY={4}
                 target={target}
                 label={t('ui.widget.chart.graph')}
                 renderOverlay={renderOverlay}
@@ -482,7 +515,7 @@ export function BarGraphBuildWidget({
             </div>
           ) : null}
         </div>
-        <div className="ni-bgb__tools">
+        <div className="ni-bgb__tools" ref={toolsRef}>
           <span className="ni-bgb__supply">
             {(halves ? (['mark', 'half'] as const) : (['mark'] as const)).map((item) => {
               const p = place.itemProps(item, {

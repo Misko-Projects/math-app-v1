@@ -94,7 +94,10 @@ export function PatternExtendWidget({
   const trace = useInteractionTrace(onInteract);
   const alive = useAlive();
   const pause = useDemoPause();
-  const [rowRef, rowBox] = useMeasuredBox<HTMLDivElement>();
+  // The strip takes the room the controls leave beside it (typed patterns) or the whole width;
+  // the strip and the controls then sit together, centred in the widget area.
+  const [layoutRef, layoutBox] = useMeasuredBox<HTMLDivElement>();
+  const [controlsRef, controlsBox] = useMeasuredBox<HTMLDivElement>();
   const [state, setState] = useState<PatternExtendState>(() => model.initialState(config));
   const rootRef = useRef<HTMLDivElement | null>(null);
   const stateRef = useRef(state);
@@ -387,7 +390,9 @@ export function PatternExtendWidget({
   const len = config.sequence.length;
   const gap = 12;
   // The strip's padding and border take 40 px of the measured width.
-  const width = (rowBox?.width ?? 840) - 40;
+  const beside = typed && (layoutBox?.width ?? 1000) > 760;
+  const room = (layoutBox?.width ?? 880) - (beside ? (controlsBox?.width ?? 0) + 16 : 0);
+  const width = room - 40;
   const cell =
     mode === 'table'
       ? target
@@ -414,10 +419,6 @@ export function PatternExtendWidget({
       : invite?.op === 'bracket-core'
         ? argIndex(invite, 'from')
         : null;
-  const invitedUnit =
-    invite?.op === 'place-token'
-      ? units.findIndex((u) => sameToken(u, invite.args?.token as PatternToken))
-      : -1;
   const selected = new Set(state.selected);
   // Pip's up-pointing hand hangs below the invited control (kit `useInviteHand`).
   const handScope =
@@ -588,7 +589,7 @@ export function PatternExtendWidget({
     <fieldset className="ni-pattern__palette" aria-label={t('ui.widget.pattern.pieces')}>
       {units.map((u, k) => {
         const p = place.itemProps(`unit-${k}`, { label: tokenName(u, t) });
-        const invited = invitedUnit === k || flashUnit === k;
+        const invited = flashUnit === k;
         return (
           <span key={JSON.stringify(u)} className="ni-pattern__slot">
             <button
@@ -711,11 +712,9 @@ export function PatternExtendWidget({
       data-disabled={disabled ? 'true' : undefined}
       style={{ ...style, ...handRootStyle }}
     >
-      <div className="ni-pattern__layout">
-        <div className="ni-pattern__main" ref={rowRef}>
-          {main}
-        </div>
-        <div className="ni-pattern__controls">
+      <div className="ni-pattern__layout" ref={layoutRef}>
+        <div className="ni-pattern__main">{main}</div>
+        <div className="ni-pattern__controls" ref={controlsRef}>
           {palette}
           {tilesControl}
           {typed ? (
