@@ -137,15 +137,19 @@ export function PerimeterWalkWidget({
     config.polygon.sides.length === 4
       ? (config.polygon.sides as [number, number, number, number])
       : null;
-  // A grid big enough for the squarest rectangle that works (and the one to compare with), with
-  // room to spare: long thin answers still fit when they fit, but the squares stay big to tap.
-  const squarest = [...options].sort((a, b) => Math.max(a.w, a.h) - Math.max(b.w, b.h))[0];
-  const side = Math.max(squarest?.w ?? 3, squarest?.h ?? 3);
-  const gridCols = Math.max(side + 2, (ref?.[0] ?? 0) + 1, 5);
-  const gridRows = Math.max(side + 1, (ref?.[1] ?? 0) + 1, 4);
+  // A grid that holds every rectangle the checker accepts (12 × 1 and 1 × 12 for area 12, review
+  // CR-1.3) and the one to compare with, plus a spare row and column; the squares shrink to fit.
+  const gridCols = Math.max(5, (ref?.[0] ?? 0) + 1, ...options.map((r) => r.w + 1));
+  const gridRows = Math.max(4, (ref?.[1] ?? 0) + 1, ...options.map((r) => r.h + 1));
   const cell = Math.max(
-    18,
-    Math.min(60, (boxW * (ref ? 0.68 : 1) - 24) / gridCols, (boxH - 24) / gridRows),
+    14,
+    Math.min(
+      60,
+      (Math.min(boxW, 900) * (ref ? 0.68 : 1) - 24) / gridCols,
+      // Capped: a stage that grows with its content must not grow the grid (the squares would
+      // change size under a dragging finger).
+      (Math.min(boxH, 420) - 24) / gridRows,
+    ),
   );
   const size = state.size;
   const setSize = (w: number, h: number, via: 'drag' | 'tap' | 'move') => {
@@ -156,9 +160,13 @@ export function PerimeterWalkWidget({
   };
   const grid = useRef<HTMLDivElement>(null);
   const cellAt = (clientX: number, clientY: number) => {
-    const r = grid.current?.getBoundingClientRect();
-    if (!r) return null;
-    return [Math.ceil((clientX - r.left) / cell), Math.ceil((clientY - r.top) / cell)] as Pt;
+    const el = grid.current;
+    if (!el) return null;
+    const r = el.getBoundingClientRect();
+    // Squares start inside the board's border.
+    const x = clientX - r.left - el.clientLeft;
+    const y = clientY - r.top - el.clientTop;
+    return [Math.ceil(x / cell), Math.ceil(y / cell)] as Pt;
   };
   const onGridDown = (e: ReactPointerEvent) => {
     if (!interactive) return;
@@ -439,6 +447,7 @@ export function PerimeterWalkWidget({
           aria-valuenow={w * h}
           aria-disabled={!interactive || undefined}
           data-size={size ? `${w}x${h}` : undefined}
+          data-cell={cell}
           style={{
             width: gridCols * cell,
             height: gridRows * cell,

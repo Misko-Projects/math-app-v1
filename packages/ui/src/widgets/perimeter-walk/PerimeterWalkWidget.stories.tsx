@@ -161,7 +161,7 @@ const board = (root: HTMLElement) => root.querySelector('.ni-pwalk__grid-board')
 function cellCentre(root: HTMLElement, c: number, r: number) {
   const b = board(root).getBoundingClientRect();
   // One grid square is the board's background tile (border 3 px).
-  const size = Number.parseFloat(getComputedStyle(board(root)).backgroundSize);
+  const size = Number(board(root).dataset.cell);
   return { x: b.left + 3 + (c - 0.5) * size, y: b.top + 3 + (r - 0.5) * size };
 }
 
@@ -188,6 +188,33 @@ export const DesignSameArea: Story = {
     await expect(board(root)).toHaveAttribute('data-size', '6x2');
     await expect(stateChecker('rect.perimeterArea')?.check(target, { w: 6, h: 2 })).toBe(false);
     await expectNumeralsAtLeast32(root, '.ni-pwalk__dim');
+    // Every rectangle the checker accepts can be built (review CR-1.3): 12 × 1 and 1 × 12.
+    const submitSize = async (w: number, h: number) => {
+      board(root).focus();
+      const [cw, ch] = (board(root).dataset.size ?? '1x1').split('x').map(Number) as [
+        number,
+        number,
+      ];
+      const keys = [
+        ...Array(Math.max(0, w - cw)).fill('{ArrowRight}'),
+        ...Array(Math.max(0, cw - w)).fill('{ArrowLeft}'),
+        ...Array(Math.max(0, h - ch)).fill('{ArrowDown}'),
+        ...Array(Math.max(0, ch - h)).fill('{ArrowUp}'),
+      ].join('');
+      await userEvent.keyboard(keys);
+      await expect(board(root)).toHaveAttribute('data-size', `${w}x${h}`);
+      // Check is debounced (400 ms, 06 §4) after the previous answer.
+      await new Promise((r) => setTimeout(r, 450));
+      await userEvent.click(within(root).getByRole('button', { name: 'Check' }));
+      const last = (args.onResponse as ReturnType<typeof fn>).mock.calls.at(-1)?.[0] as {
+        value: Record<string, unknown>;
+      };
+      await expect(last.value).toEqual({ w, h });
+      await expect(stateChecker('rect.perimeterArea')?.check(target, last.value)).toBe(true);
+    };
+    await submitSize(12, 1);
+    await new Promise((r) => setTimeout(r, 450));
+    await submitSize(1, 12);
   },
 };
 
