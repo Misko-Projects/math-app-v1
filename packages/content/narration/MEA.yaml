@@ -18,6 +18,10 @@ tp.MEA.01.t2.prompt:
   text: "Which one is shorter?"
 tp.MEA.01.t3.prompt:
   text: "Which one is longer? They may be the same."
+tp.MEA.01.t4.prompt:
+  text: "Put them in order. Start with the longest."
+tp.MEA.01.t5.prompt:
+  text: "They start at one line. Put them in order, longest first."
 tp.MEA.02.t1.prompt:
   text: "Lay {unit|unit:many} end to end along it. How many fit?"
 tp.MEA.02.t2.prompt:
@@ -34,10 +38,16 @@ tp.MEA.15.t2.prompt:
   text: "Put each thing in the bin where it goes."
 tp.MEA.15.t3.prompt:
   text: "Which one is {attr|word}?"
+tp.MEA.15.t4.prompt:
+  text: "Look at each thing. Put it in the bin where it goes."
 tp.MEA.16.t1.prompt:
   text: "Which side is heavier? They may weigh the same."
 tp.MEA.16.t2.prompt:
   text: "Which one is heavier?"
+tp.MEA.16.t3.prompt:
+  text: "Put them in order, from heavy to light."
+tp.MEA.16.t4.prompt:
+  text: "Sort them. Which are heavier than the {thing|noun:one}, which are lighter?"
 tp.MEA.22.t1.prompt:
   text: "Measure it with {unit|unit:many}. Then measure it with {altUnit|unit:many}."
 tp.MEA.22.t2.prompt:

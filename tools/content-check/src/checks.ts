@@ -1,4 +1,4 @@
-// tools/content-check (03 §9.2): the engine-dependent content checks V13–V15, V22 and V25, the
+// tools/content-check (03 §9.2): the engine-dependent content checks V13–V15, V22, V25 and V27, the
 // engine parts of V04, V16, V17, V18 and V21, and `template-stats.json`. It imports the compiled
 // content (packages/content/dist) and the engine, which packages/content never does (02 §2).
 
@@ -15,9 +15,11 @@ import {
   generatorParams,
   generatorRegistered,
   initContent,
+  isConstructedTemplate,
   itemFeatures,
   mergedSpec,
   misconceptionRule,
+  PARAMS,
   registry,
   specDomain,
 } from '@number-island/engine';
@@ -47,7 +49,8 @@ export type EngineCheckId =
   | 'V18'
   | 'V21'
   | 'V22'
-  | 'V25';
+  | 'V25'
+  | 'V27';
 
 export interface EngineDiagnostic {
   check: EngineCheckId;
@@ -437,6 +440,35 @@ export function runEngineChecks(input: CompiledInput, opts: EngineCheckOptions):
           `${t.id} generates choice answers, but the skill has constructed-response templates for its test-out (03 §6.5)`,
         );
       }
+    }
+  }
+
+  // ---------- V27: ordinary practice can reach practiced (04 §3, §7a) ----------
+  // Only constructed-answer first attempts are evidence, so a skill's constructed templates alone
+  // must be able to meet its practiced variety rule: a standard skill needs 2 distinct formats or
+  // tiers among them with a pictorial or abstract one, a gateway skill 3 representations with an
+  // abstract one. Otherwise practice never makes the skill practiced and its dependents stay locked.
+  const { standard, gateway } = PARAMS.mastery;
+  for (const s of input.skills) {
+    const evidence = input.templates.filter((t) => t.skillId === s.id && isConstructedTemplate(t));
+    const file = `skills/${s.strand}.yaml`;
+    const ids = evidence.map((t) => t.id).join(', ') || 'none';
+    const reachable = s.gateway
+      ? new Set(evidence.map((t) => t.representation)).size >= gateway.variety &&
+        evidence.some((t) => t.tier === 'abstract')
+      : (new Set(evidence.map((t) => t.format)).size >= standard.variety ||
+          new Set(evidence.map((t) => t.tier)).size >= standard.variety) &&
+        evidence.some((t) => t.tier === 'pictorial' || t.tier === 'abstract');
+    if (!reachable) {
+      const need = s.gateway
+        ? `≥ ${gateway.variety} representations including an abstract one`
+        : `≥ ${standard.variety} distinct formats or tiers, one pictorial or abstract`;
+      err(
+        'V27',
+        file,
+        s.id,
+        `${s.id} cannot reach practiced through practice: its constructed-answer templates (${ids}) need ${need} (04 §3)`,
+      );
     }
   }
 

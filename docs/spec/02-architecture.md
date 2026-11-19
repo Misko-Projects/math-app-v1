@@ -667,6 +667,12 @@ Contract adjustment made by #50 (per-voice clip sets, 2026-11-18):
 |---|---|---|
 | V1 | **Voice-qualified clip ids.** *New* `voiceClipId(clip: ClipId, voice: NarrationVoice): ClipId` in `packages/shared/src/audio.ts`: the clip id unchanged for `narrator`, `<voice>:<clip>` otherwise. The manifest shape and `ClipId` stay as they were, and every existing id is the narrator's. The AudioManager tries a clip-set word in the line's voice before the narrator's (§5.5). | 03 §8.3 renders clip sets once per voice, but the clip ids carried no voice, so Pip's and Glim's lines stitched numbers in the narrator's voice (07 §3). |
 
+Contract adjustment made by K01 (#11, constructed practice for position words, 2026-11-19):
+
+| # | Change | Why |
+|---|---|---|
+| K1 | **`shape-compose` at the pictorial tier.** `FORMAT_SUPPORT['shape-compose'].tiers` is `[C, P]` (was `[C]`; 03 §5.5). Nothing else changes: the config, ops and answers are the same at both tiers. GEO.05.t3 is place-relative at the pictorial tier: the scene is a flat drawing of the anchor and item instead of objects on a table, and the child still drags the item to the named position. **#14 (U05) must render `shape-compose` place-relative at the pictorial tier** (a drawn scene, drag to the named position); `packages/engine/test/fixtures/geo05-t3-pictorial.json` is a generated GEO.05.t3 item to build against. | Only constructed-answer attempts are practiced evidence (04 §3, §7a), and a standard skill needs two formats or tiers among them, one pictorial or abstract (content-check V27). GEO.05's only constructed format is place-relative, so with a concrete-only `shape-compose` it could become practiced only through its test-out. |
+
 ## 6. Performance budgets (enforced in CI where possible)
 
 - Initial JS (app shell + island) ≤ 350 KB gzip; each workshop chunk ≤ 120 KB gzip; Pixi chunk loads only when needed. **Content JSON (`dist/*.json`) is never bundled into JS**: it is fetched as a precached static asset at startup.

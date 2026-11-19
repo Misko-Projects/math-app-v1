@@ -28,6 +28,9 @@ export function stimulusQuantity(s: StimulusSpec): number | null {
       return s.filled.reduce((a, b) => a + b, 0);
     case 'rekenrek':
       return s.rows[0] + s.rows[1];
+    case 'base-ten':
+      // A quick-read base-ten picture (SUB.08): its value in units (hundredths when wholeIs flat).
+      return (s.thousands ?? 0) * 1000 + s.hundreds * 100 + s.tens * 10 + s.ones;
     default:
       return null;
   }
@@ -44,6 +47,12 @@ export function stimulusGroups(s: StimulusSpec): number {
       return s.filled.filter((g) => g > 0).length;
     case 'rekenrek':
       return s.rows.filter((g) => g > 0).length;
+    case 'base-ten':
+      // One group per kind of piece shown (tens, ones, …).
+      return Math.max(
+        1,
+        [s.thousands ?? 0, s.hundreds, s.tens, s.ones].filter((g) => g > 0).length,
+      );
     default:
       return 1;
   }

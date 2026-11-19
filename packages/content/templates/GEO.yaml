@@ -59,6 +59,28 @@ templates:
       prompt: p.geo.which-kind
       hints: [h.geo.any-turn]
 
+  # Pictorial and constructed (04 §7a: only constructed answers are evidence, and t3 answers with a
+  # choice): find every shape of one kind among pictures, some turned or resized, with a near miss.
+  - id: GEO.01.t4
+    skillId: GEO.01
+    format: shape-sort
+    tier: pictorial
+    representation: shapes
+    generator: geo.identify
+    params:
+      set: 2d
+      rule: kind
+      mode: find-all
+      kind: { choice: [circle, triangle, square, rectangle, hexagon] }
+      cards: { int: [5, 7] }
+      hits: { int: [2, 3] }
+      nonPrototypical: { bool: 0.5 }
+      nearMiss: { bool: 0.4 }
+    difficulty: { base: -1.2 }
+    narration:
+      prompt: p.geo.find-every
+      hints: [h.geo.any-turn, h.geo.count-sides]
+
   # GEO.02: sides and corners make the shape; color and size do not
   - id: GEO.02.t1
     skillId: GEO.02
@@ -128,6 +150,24 @@ templates:
       prompt: tp.GEO.05.t2.prompt
       hints: [h.geo.flip]
 
+  # GEO.05.t3: the same task on a drawn scene (pictorial tier, 02 §5.9 K1); appended after the
+  # shipped t2, so V10 warns about its tier order.
+  - id: GEO.05.t3
+    skillId: GEO.05
+    format: shape-compose
+    tier: pictorial
+    representation: objects
+    generator: geo.position
+    params:
+      relation: { choice: [above, below, beside, next-to, in-front-of, behind] }
+      anchor: { choice: [crate, sack, pallet, jug, lantern] }
+      item: { choice: [crab, fish, apple, shell, kite, firefly, pebble, bun] }
+      scene: { choice: [one, two] }
+    difficulty: { base: -0.3 }
+    narration:
+      prompt: tp.GEO.05.t1.prompt
+      hints: [h.geo.where-word]
+
   # GEO.06: flat or solid
   - id: GEO.06.t1
     skillId: GEO.06
@@ -162,6 +202,26 @@ templates:
     difficulty: { base: -0.8 }
     narration:
       prompt: tp.GEO.06.t2.prompt
+      hints: [h.geo.flat-solid]
+
+  # Pictorial and constructed (04 §7a): tap every flat shape, or every solid one.
+  - id: GEO.06.t3
+    skillId: GEO.06
+    format: shape-sort
+    tier: pictorial
+    representation: solids
+    generator: geo.identify
+    params:
+      set: 3d
+      rule: flat-solid
+      mode: find-all
+      has: { bool: 0.5 }
+      cards: { int: [4, 6] }
+      hits: { int: [2, 3] }
+      nonPrototypical: { bool: 0.3 }
+    difficulty: { base: -1.2 }
+    narration:
+      prompt: tp.GEO.06.t3.prompt
       hints: [h.geo.flat-solid]
 
   # GEO.07: name solid shapes
@@ -215,6 +275,25 @@ templates:
     difficulty: { base: -0.6 }
     narration:
       prompt: tp.GEO.07.t3.prompt
+      hints: [h.geo.like-what]
+
+  # Pictorial and constructed (04 §7a): find every solid of one kind among solid shape pictures.
+  - id: GEO.07.t4
+    skillId: GEO.07
+    format: shape-sort
+    tier: pictorial
+    representation: solids
+    generator: geo.identify
+    params:
+      set: solids
+      rule: kind
+      mode: find-all
+      kind: { choice: [cube, cone, cylinder, sphere] }
+      cards: { int: [4, 6] }
+      hits: { int: [2, 3] }
+    difficulty: { base: -0.7 }
+    narration:
+      prompt: p.geo.find-every
       hints: [h.geo.like-what]
 
   # GEO.08: compare shapes by sides, corners, equal sides and rolling
@@ -293,6 +372,27 @@ templates:
     narration:
       prompt: tp.GEO.08.t4.prompt
       hints: [h.geo.side-lengths]
+
+  # Pictorial and constructed (04 §7a: t3 and t4 answer with a choice): find every shape with the
+  # same number of sides as the named one, among polygons turned or resized.
+  - id: GEO.08.t5
+    skillId: GEO.08
+    format: shape-sort
+    tier: pictorial
+    representation: shapes
+    generator: geo.identify
+    params:
+      set: polygons
+      rule: sides
+      mode: find-all
+      kind: { choice: [triangle, square, pentagon, hexagon] }
+      cards: { int: [5, 6] }
+      hits: { int: [2, 3] }
+      nonPrototypical: { bool: 0.4 }
+    difficulty: { base: -0.8 }
+    narration:
+      prompt: tp.GEO.08.t5.prompt
+      hints: [h.geo.count-sides, h.geo.any-turn]
 
   # GEO.09: build shapes from sticks and corners
   - id: GEO.09.t1
@@ -409,6 +509,37 @@ templates:
       prompt: tp.GEO.10.t3.prompt
       hints: [h.geo.pieces-inside]
 
+  # Pictorial and constructed (04 §7a: t3 answers with a choice): t1 and t2's fill-outline task at
+  # the pictorial tier (02 §5.9 K1: the same config, ops and answers), over both their outlines.
+  - id: GEO.10.t4
+    skillId: GEO.10
+    format: shape-compose
+    tier: pictorial
+    representation: shapes
+    generator: geo.compose
+    params:
+      outline:
+        {
+          choice:
+            [
+              rhombus-from-triangles,
+              hexagon-from-trapezoids,
+              trapezoid-from-triangle-rhombus,
+              triangle-from-trapezoid-triangle,
+              house,
+              rectangle-from-squares,
+              square-from-rectangles,
+              long-rectangle,
+              corner-shape,
+            ],
+        }
+      extra: { bool: 0.4 }
+      linesHidden: { bool: 0.3 }
+    difficulty: { base: -0.3 }
+    narration:
+      prompt: p.geo.fill-outline
+      hints: [h.geo.outline-edges, h.geo.turn-piece]
+
   # GEO.11: bigger designs
   - id: GEO.11.t1
     skillId: GEO.11
@@ -477,3 +608,33 @@ templates:
     narration:
       prompt: tp.GEO.11.t3.prompt
       hints: [h.geo.pieces-inside]
+
+  # Pictorial and constructed (04 §7a: t3 answers with a choice): t1 and t2's fill-outline task at
+  # the pictorial tier (02 §5.9 K1), over both their outlines.
+  - id: GEO.11.t4
+    skillId: GEO.11
+    format: shape-compose
+    tier: pictorial
+    representation: shapes
+    generator: geo.compose
+    params:
+      outline:
+        {
+          choice:
+            [
+              trapezoid-from-triangles,
+              hexagon-from-rhombuses,
+              hexagon-from-triangles,
+              hexagon-from-three-kinds,
+              big-triangle-from-triangles,
+              boat,
+              big-square-from-squares,
+              wide-rectangle,
+            ],
+        }
+      linesHidden: { bool: 0.4 }
+      extra: { bool: 0.4 }
+    difficulty: { base: -1.2 }
+    narration:
+      prompt: p.geo.fill-outline
+      hints: [h.geo.outline-edges, h.geo.turn-piece]

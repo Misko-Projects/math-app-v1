@@ -1,4 +1,5 @@
-# C01 fixture (03 §9.5): catalog rows from 03 §3.6.
+# CPS: Composing and decomposing, catalog rows from 03 §3.6 (K01). CPS.06 (needs puzzle.grid),
+# CPS.09 (needs PV.10) and the grade-2 CPS.10 come in later PRs (graph.yaml plannedIds).
 strand: CPS
 skills:
   - id: CPS.01
@@ -11,7 +12,7 @@ skills:
     representations: [objects, fingers, ten-frame, number-bond]
 
   - id: CPS.02
-    name: Break numbers to 10 into two parts
+    name: Break numbers to 10 into two parts; record with a drawing or equation
     kind: concept
     grade: K
     standards: { ccss: [K.OA.A.3] }
@@ -27,3 +28,48 @@ skills:
     prerequisites: [CPS.02]
     gateway: false
     representations: [ten-frame, rekenrek, number-bond, symbols]
+
+  - id: CPS.04
+    name: Teen numbers are ten ones and some more ones
+    kind: concept
+    grade: K
+    standards: { ccss: [K.NBT.A.1] }
+    prerequisites: [CPS.03, CNT.06]
+    gateway: true
+    representations: [double-ten-frame, rekenrek, bundles, symbols]
+
+  - id: CPS.05
+    name: Find the missing part when the whole is up to 10
+    kind: concept
+    grade: K
+    standards: { ccss: [K.OA.A.3] }
+    prerequisites: [CPS.02]
+    gateway: false
+    representations: [ten-frame, number-bond, symbols]
+
+  - id: CPS.07
+    name: Write a teen number as 10 plus ones (10 + 4 = 14)
+    kind: procedure
+    grade: K
+    standards: { ccss: [K.NBT.A.1] }
+    prerequisites: [CPS.04]
+    gateway: false
+    representations: [double-ten-frame, number-bond, expanded, symbols]
+
+  - id: CPS.08
+    name: Break numbers to 20 into parts several ways (13 = 9 + 4 = 10 + 3)
+    kind: concept
+    grade: 1
+    standards: { ccss: [], supports: [1.OA.C.6] }
+    prerequisites: [CPS.07, CPS.05]
+    gateway: false
+    representations: [double-ten-frame, rekenrek, number-bond]
+
+  - id: CPS.11
+    name: "Split a number to finish a ten (8 + 5: give 2, keep 3)"
+    kind: strategy
+    grade: 1
+    standards: { ccss: [], supports: [1.OA.C.6] }
+    prerequisites: [CPS.05, CPS.03]
+    gateway: false
+    representations: [ten-frame, rekenrek, number-bond]

@@ -2258,7 +2258,7 @@
           "formats": ["numeral-pick", "order"],
           "nextReviewTs": 1798336936809,
           "override": null,
-          "pRef": 0.985203473913,
+          "pRef": 0.986124837781,
           "recent": [
             {
               "context": "review",
@@ -2349,7 +2349,7 @@
           "formats": ["make-set", "tap-count"],
           "nextReviewTs": 1798336911175,
           "override": null,
-          "pRef": 0.987188483469,
+          "pRef": 0.987996947225,
           "recent": [
             {
               "context": "review",
@@ -2418,7 +2418,7 @@
           "formats": ["number-pad", "numeral-pick", "tap-count"],
           "nextReviewTs": 1799385884666,
           "override": null,
-          "pRef": 0.978160878529,
+          "pRef": 0.979524998176,
           "recent": [
             {
               "context": "practice",
@@ -2542,7 +2542,7 @@
           "formats": ["make-set", "tenframe-fill"],
           "nextReviewTs": 1801635579607,
           "override": "mastered",
-          "pRef": 0.931026987353,
+          "pRef": 0.935175314999,
           "recent": [
             {
               "context": "review",
@@ -2666,7 +2666,7 @@
           "formats": ["number-pad", "numeral-pick", "tap-count"],
           "nextReviewTs": 1798539761535,
           "override": null,
-          "pRef": 0.977932760948,
+          "pRef": 0.979255911801,
           "recent": [
             {
               "context": "review",
@@ -2790,7 +2790,7 @@
           "formats": ["make-set", "number-pad", "tap-count"],
           "nextReviewTs": 1800387066778,
           "override": null,
-          "pRef": 0.9631803931,
+          "pRef": 0.965226307198,
           "recent": [
             {
               "context": "practice",
@@ -2914,7 +2914,7 @@
           "formats": ["hundred-chart", "number-line-jump", "numeral-pick"],
           "nextReviewTs": 1798110061626,
           "override": null,
-          "pRef": 0.924623476694,
+          "pRef": 0.927131740151,
           "recent": [
             {
               "context": "challenge",
@@ -3038,7 +3038,7 @@
           "formats": ["dot-flash", "numeral-pick"],
           "nextReviewTs": 1798337081887,
           "override": null,
-          "pRef": 0.988856058858,
+          "pRef": 0.989559900454,
           "recent": [
             {
               "context": "review",
@@ -3118,7 +3118,7 @@
           "formats": ["dot-flash", "make-set", "numeral-pick"],
           "nextReviewTs": 1801565734565,
           "override": null,
-          "pRef": 0.983132207332,
+          "pRef": 0.984143467398,
           "recent": [
             {
               "context": "review",
@@ -3242,7 +3242,7 @@
           "formats": ["make-set", "number-bond", "tenframe-fill"],
           "nextReviewTs": 1798990041073,
           "override": null,
-          "pRef": 0.959703080557,
+          "pRef": 0.968934516381,
           "recent": [
             {
               "context": "review",
@@ -3366,7 +3366,7 @@
           "formats": ["make-set", "number-pad", "tenframe-fill"],
           "nextReviewTs": 1798362036461,
           "override": null,
-          "pRef": 0.914907282276,
+          "pRef": 0.916741565417,
           "recent": [
             {
               "context": "review",
@@ -3490,7 +3490,7 @@
           "formats": ["number-line-jump", "number-pad", "tenframe-fill"],
           "nextReviewTs": 1797638447083,
           "override": null,
-          "pRef": 0.898195899065,
+          "pRef": 0.897972512072,
           "recent": [
             {
               "context": "practice",
@@ -3614,7 +3614,7 @@
           "formats": ["dot-flash", "number-pad", "tenframe-fill"],
           "nextReviewTs": 1798990269287,
           "override": null,
-          "pRef": 0.970452292123,
+          "pRef": 0.972307212244,
           "recent": [
             {
               "context": "review",
@@ -3738,7 +3738,7 @@
           "formats": ["number-bond", "number-pad", "rekenrek"],
           "nextReviewTs": 1798399847224,
           "override": null,
-          "pRef": 0.886789394342,
+          "pRef": 0.930140225335,
           "recent": [
             {
               "context": "practice",
@@ -3862,7 +3862,7 @@
           "formats": ["number-bond", "number-pad", "tenframe-fill"],
           "nextReviewTs": 1797300046796,
           "override": null,
-          "pRef": 0.904757338199,
+          "pRef": 0.948252987698,
           "recent": [
             {
               "context": "practice",
@@ -4055,7 +4055,7 @@
             "misconceptionHits": [],
             "n": 59,
             "override": null,
-            "practicedAt": 1795885253870,
+            "practicedAt": 1795802743153,
             "recent": [
               {
                 "context": "review",
@@ -4168,7 +4168,7 @@
                 "ts": 1797188638633
               }
             ],
-            "theta": 0.658538858538
+            "theta": 0.592698175894
           },
           "ADD.03": {
             "_attempts": 75,
@@ -4303,7 +4303,7 @@
                 "ts": 1797274888220
               }
             ],
-            "theta": 0.460795395381
+            "theta": 0.36871920075
           },
           "CNT.01": {
             "_attempts": 10,
@@ -4405,7 +4405,7 @@
                 "ts": 1797275111152
               }
             ],
-            "theta": 2.48191335097
+            "theta": 2.45750461545
           },
           "CNT.02": {
             "_attempts": 7,
@@ -4485,7 +4485,7 @@
                 "ts": 1797098639593
               }
             ],
-            "theta": 2.6279740798
+            "theta": 2.6043406021
           },
           "CNT.03": {
             "_attempts": 39,
@@ -4620,7 +4620,7 @@
                 "ts": 1797275142105
               }
             ],
-            "theta": 2.08542881759
+            "theta": 2.06168504914
           },
           "CNT.04": {
             "_attempts": 19,
@@ -4755,7 +4755,7 @@
                 "ts": 1797012505413
               }
             ],
-            "theta": 0.886030545319
+            "theta": 0.862869551739
           },
           "CNT.05": {
             "_attempts": 24,
@@ -4890,7 +4890,7 @@
                 "ts": 1797274951432
               }
             ],
-            "theta": 2.07480439126
+            "theta": 2.04835371916
           },
           "CNT.06": {
             "_attempts": 37,
@@ -5025,7 +5025,7 @@
                 "ts": 1797188542605
               }
             ],
-            "theta": 1.54766780686
+            "theta": 1.5173234517
           },
           "CNT.07": {
             "_attempts": 68,
@@ -5047,7 +5047,7 @@
             "misconceptionHits": [],
             "n": 58,
             "override": null,
-            "practicedAt": 1795637381390,
+            "practicedAt": 1795637108791,
             "recent": [
               {
                 "context": "challenge",
@@ -5160,7 +5160,7 @@
                 "ts": 1797098528823
               }
             ],
-            "theta": 0.790348325891
+            "theta": 0.737264528346
           },
           "CPS.01": {
             "_attempts": 51,
@@ -5182,7 +5182,7 @@
             "misconceptionHits": [],
             "n": 46,
             "override": null,
-            "practicedAt": 1794683311261,
+            "practicedAt": 1794600526426,
             "recent": [
               {
                 "context": "review",
@@ -5295,7 +5295,7 @@
                 "ts": 1797188518228
               }
             ],
-            "theta": 1.45380650814
+            "theta": 1.63392168924
           },
           "CPS.02": {
             "_attempts": 59,
@@ -5317,7 +5317,7 @@
             "misconceptionHits": [],
             "n": 50,
             "override": null,
-            "practicedAt": 1795287904504,
+            "practicedAt": 1795201460078,
             "recent": [
               {
                 "context": "practice",
@@ -5430,7 +5430,7 @@
                 "ts": 1797274847224
               }
             ],
-            "theta": 0.341815255261
+            "theta": 0.782667350413
           },
           "CPS.03": {
             "_attempts": 62,
@@ -5452,7 +5452,7 @@
             "misconceptionHits": [],
             "n": 54,
             "override": null,
-            "practicedAt": 1796145000824,
+            "practicedAt": 1795716249160,
             "recent": [
               {
                 "context": "practice",
@@ -5565,7 +5565,7 @@
                 "ts": 1797275059235
               }
             ],
-            "theta": 0.534696391585
+            "theta": 1.10207664368
           },
           "SUB.01": {
             "_attempts": 8,
@@ -5656,7 +5656,7 @@
                 "ts": 1797275097379
               }
             ],
-            "theta": 2.76911041208
+            "theta": 2.74542819139
           },
           "SUB.02": {
             "_attempts": 13,
@@ -5791,7 +5791,7 @@
                 "ts": 1797275040502
               }
             ],
-            "theta": 2.34879514844
+            "theta": 2.32201212924
           },
           "SUB.03": {
             "_attempts": 24,
@@ -5928,11 +5928,11 @@
                 "ts": 1797188706952
               }
             ],
-            "theta": 1.77521365812
+            "theta": 1.75232181659
           }
         },
         "successOffset": 0.45576463563,
-        "thetaG": 1.716542412
+        "thetaG": 1.80617799045
       },
       "statuses": {
         "ADD.01": "mastered",
