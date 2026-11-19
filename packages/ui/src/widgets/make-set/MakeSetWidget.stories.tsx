@@ -902,6 +902,12 @@ export const TwentyKMinCountAloud: Story = {
     await expect(tens(root)).toHaveAttribute('data-counting', 'true');
     await untied;
     await expect(spokenNumbers(audio)).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]);
+
+    // Tie the ten again: the count-aloud invite is back on the tied ten (the story's end state).
+    await userEvent.click(tens(root) as HTMLElement);
+    await waitFor(() => expect(tens(root)).toHaveAttribute('data-tens', 'bundle'));
+    oneFrameCount.invite({ op: 'count-aloud' });
+    await expectInviteOn(root, tens(root) as HTMLElement);
   },
 };
 
