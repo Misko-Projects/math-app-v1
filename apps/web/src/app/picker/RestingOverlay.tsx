@@ -1,16 +1,41 @@
-// "The island is resting": shown on the picker when a child may not start now (quiet hours, or
-// today's play time is used up). Calm and guilt-free (05 §7): a sleepy moon, one spoken line, a
-// replay button and an "okay" that goes back to the picker. No session starts.
+// "The island is resting": shown on the picker when a child may not start now (quiet hours,
+// today's play time is used up, or another window of the app is playing). Calm and guilt-free
+// (05 §7): a sleepy moon, one spoken line, a replay button and an "okay" that goes back to the
+// picker. No session starts. During quiet hours the line says when the island opens again.
 
 import type { NarrationKey } from '@number-island/shared';
 import { BigButton, icons, ReplayButton, useNarrationText, useSpeech } from '@number-island/ui';
 import { useEffect, useRef } from 'react';
 import type { BlockedReason } from '../session/SessionController';
 
-export const RESTING_LINES: Record<BlockedReason, NarrationKey> = {
+/** Why the island rests: a blocked time, or another window of the app is already playing. */
+export type RestingReason = BlockedReason | 'elsewhere';
+
+export const RESTING_LINES: Record<RestingReason, NarrationKey> = {
   'quiet-hours': 'ui.rest.quiet-hours',
   'daily-cap': 'ui.rest.daily-cap',
+  elsewhere: 'ui.rest.elsewhere',
 };
+
+/**
+ * The spoken line, with its vars. Quiet hours name the reopening time ("HH:MM", 24-hour) in a
+ * child's words: "7:00 in the morning". Without a valid time, the general line.
+ */
+export function restingLine(
+  reason: RestingReason,
+  opensAt?: string,
+): { key: NarrationKey; vars?: Record<string, string> } {
+  if (reason === 'quiet-hours' && opensAt) {
+    const m = /^(\d{2}):(\d{2})$/.exec(opensAt);
+    const hour = m ? Number(m[1]) : Number.NaN;
+    if (m && hour >= 0 && hour < 24) {
+      const part = hour < 12 ? 'morning' : hour < 17 ? 'afternoon' : 'evening';
+      const at = `${hour % 12 === 0 ? 12 : hour % 12}:${m[2]}`;
+      return { key: `ui.rest.quiet-hours.${part}`, vars: { at } };
+    }
+  }
+  return { key: RESTING_LINES[reason] };
+}
 
 export function SleepyMoon({ className }: { className?: string }) {
   return (
@@ -59,15 +84,24 @@ export function SleepyMoon({ className }: { className?: string }) {
   );
 }
 
-export function RestingOverlay({ reason, onDone }: { reason: BlockedReason; onDone: () => void }) {
+export function RestingOverlay({
+  reason,
+  opensAt,
+  onDone,
+}: {
+  reason: RestingReason;
+  opensAt?: string;
+  onDone: () => void;
+}) {
   const { say } = useSpeech();
   const text = useNarrationText();
-  const line = RESTING_LINES[reason];
+  const { key: line, vars } = restingLine(reason, opensAt);
+  const at = vars?.at;
   const okay = useRef<HTMLDivElement>(null);
   useEffect(() => {
-    say(line);
+    say(line, at === undefined ? undefined : { at });
     okay.current?.querySelector('button')?.focus();
-  }, [say, line]);
+  }, [say, line, at]);
   return (
     <div
       role="dialog"
@@ -80,14 +114,21 @@ export function RestingOverlay({ reason, onDone }: { reason: BlockedReason; onDo
       <div className="motion-entrance animate-pop-in flex w-full max-w-[40rem] flex-col items-center gap-6 rounded-[2.5rem] bg-[#22385a] px-8 pt-8 pb-10 text-center shadow-[0_12px_0_#152640,0_30px_60px_-20px_rgb(0_0_0/0.6)] ring-4 ring-[#3b5683]">
         <SleepyMoon className="h-[min(11rem,24vh)] w-auto" />
         <div className="flex items-center gap-5">
-          <ReplayButton onPress={() => say(line)} />
+          <ReplayButton onPress={() => say(line, vars)} />
           <p
             id="resting-line"
-            className="max-w-[24rem] text-left font-body text-[1.75rem] leading-snug font-bold text-cloud"
+            className="max-w-[24rem] text-pretty text-left font-body text-[1.75rem] leading-snug font-bold text-cloud"
           >
-            {text(line)}
+            {text(line, vars)}
           </p>
         </div>
+        {reason === 'elsewhere' ? (
+          // For the grown-up (parent copy is inline, 02 §7): why, and what to do.
+          <p className="max-w-[30rem] text-balance font-body text-lg leading-snug text-[#dbe5f5]">
+            For grown-ups: Number Island is open in another tab or window on this device. Close it
+            there, then tap Okay.
+          </p>
+        ) : null}
         <div ref={okay}>
           <BigButton
             label="ui.btn.okay"

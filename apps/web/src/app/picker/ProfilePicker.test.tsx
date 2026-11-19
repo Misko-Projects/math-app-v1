@@ -180,6 +180,29 @@ describe('<ProfilePicker>', () => {
     expect(ended?.payload).toMatchObject({ reason: 'child-exit' });
   });
 
+  it('tells the child (and the grown-up) when another window is playing', async () => {
+    const { app, say } = await renderPicker();
+    await tapToStart();
+    vi.spyOn(app.session, 'start').mockResolvedValueOnce({ ok: false, reason: 'elsewhere' });
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Mia' }));
+    });
+    const overlay = await screen.findByTestId('resting-overlay');
+    expect(overlay.getAttribute('data-reason')).toBe('elsewhere');
+    expect(
+      screen.getByText(
+        'Someone is playing in another window. Let\u2019s take turns!'.replace('\u2019', "'"),
+      ),
+    ).toBeTruthy();
+    expect(
+      screen.getByText(/For grown-ups: Number Island is open in another tab or window/),
+    ).toBeTruthy();
+    expect(say).toHaveBeenCalledWith('ui.rest.elsewhere', undefined);
+    expect(await sessionEvents(app)).toEqual([]);
+    fireEvent.click(screen.getByRole('button', { name: 'Okay!' }));
+    await waitFor(() => expect(screen.queryByTestId('resting-overlay')).toBeNull());
+  });
+
   it('shows the resting overlay, and starts nothing, during quiet hours', async () => {
     const { app, say } = await renderPicker({ quiet: true });
     await tapToStart();
@@ -188,8 +211,11 @@ describe('<ProfilePicker>', () => {
     });
     const overlay = await screen.findByTestId('resting-overlay');
     expect(overlay.getAttribute('data-reason')).toBe('quiet-hours');
-    expect(screen.getByText('Play time is over for now. Come back soon!')).toBeTruthy();
-    expect(say).toHaveBeenCalledWith('ui.rest.quiet-hours', undefined);
+    // Quiet hours end at 08:59: the child hears when the island opens again.
+    expect(
+      screen.getByText('The island is resting. It opens again at 8:59 in the morning!'),
+    ).toBeTruthy();
+    expect(say).toHaveBeenCalledWith('ui.rest.quiet-hours.morning', { at: '8:59' });
     expect(await sessionEvents(app)).toEqual([]);
     fireEvent.click(screen.getByRole('button', { name: 'Okay!' }));
     await waitFor(() => expect(screen.queryByTestId('resting-overlay')).toBeNull());

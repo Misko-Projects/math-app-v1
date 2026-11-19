@@ -498,9 +498,17 @@ describe('SessionController', () => {
       expect((await s.controller.canStart(CHILD_K)).ok).toBe(true);
       // 21:00 and 06:59 in Chicago: quiet.
       s.env.clock.set(Date.UTC(2026, 10, 19, 3));
-      expect(await s.controller.canStart(CHILD_K)).toEqual({ ok: false, reason: 'quiet-hours' });
+      expect(await s.controller.canStart(CHILD_K)).toEqual({
+        ok: false,
+        reason: 'quiet-hours',
+        opensAt: '07:00',
+      });
       s.env.clock.set(Date.UTC(2026, 10, 19, 12, 59));
-      expect(await s.controller.start(CHILD_K)).toEqual({ ok: false, reason: 'quiet-hours' });
+      expect(await s.controller.start(CHILD_K)).toEqual({
+        ok: false,
+        reason: 'quiet-hours',
+        opensAt: '07:00',
+      });
       expect(await s.sessionEvents()).toEqual([]);
       s.env.clock.set(Date.UTC(2026, 10, 19, 13));
       expect((await s.controller.canStart(CHILD_K)).ok).toBe(true);
@@ -515,7 +523,11 @@ describe('SessionController', () => {
         child: { quietHours: { start: '22:00', end: '06:00' } },
         timezone: 'Asia/Tokyo',
       });
-      expect(await s.controller.canStart(CHILD_K)).toEqual({ ok: false, reason: 'quiet-hours' });
+      expect(await s.controller.canStart(CHILD_K)).toEqual({
+        ok: false,
+        reason: 'quiet-hours',
+        opensAt: '06:00',
+      });
     });
 
     it('winds down with quiet-hours when they begin mid-session', async () => {

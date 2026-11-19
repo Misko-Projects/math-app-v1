@@ -126,14 +126,21 @@ function ChildHome({
           className="absolute inset-0 size-full"
           title="A sunny little island with palm trees, a workshop hut and friendly shore critters."
         />
-        <div className="absolute top-[max(1rem,env(safe-area-inset-top))] left-[max(1rem,env(safe-area-inset-left))] z-10">
+        {/* Top left: Home (back to "Who is playing?", 06 §2 Island hub) and who is playing. The
+            top right stays clear for the scene's sun. */}
+        <div className="absolute top-[max(1rem,env(safe-area-inset-top))] left-[max(1rem,env(safe-area-inset-left))] z-10 flex items-center gap-4">
           <HomeButton onPress={() => void goHome()} />
-        </div>
-        <div className="absolute top-[max(1rem,env(safe-area-inset-top))] right-[max(1rem,env(safe-area-inset-right))] flex items-center gap-3 rounded-pill bg-paper/90 py-2 pr-6 pl-2 shadow-soft ring-4 ring-sand-deep">
-          <ChildAvatar name={child.name} avatar={child.avatar} index={index} className="size-16" />
-          <span className="max-w-[12rem] truncate font-body text-[1.5rem] font-bold text-ink">
-            {child.name}
-          </span>
+          <div className="flex items-center gap-3 rounded-pill bg-paper/90 py-2 pr-6 pl-2 shadow-soft ring-4 ring-sand-deep">
+            <ChildAvatar
+              name={child.name}
+              avatar={child.avatar}
+              index={index}
+              className="size-16"
+            />
+            <span className="max-w-[12rem] truncate font-body text-[1.5rem] font-bold text-ink">
+              {child.name}
+            </span>
+          </div>
         </div>
         <div className="pointer-events-none relative flex items-center justify-center gap-5 px-6 pt-[clamp(6.5rem,16vh,9rem)] *:pointer-events-auto">
           <SpeechBubble say="ui.home.hello" tail="none" showText />

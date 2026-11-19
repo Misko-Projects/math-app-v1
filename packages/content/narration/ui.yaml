@@ -53,8 +53,20 @@ ui.picture.turtle:
 ui.rest.quiet-hours:
   text: "Play time is over for now. Come back soon!"
   level: K
+ui.rest.quiet-hours.morning:
+  text: "The island is resting. It opens again at {at|time} in the morning!"
+  level: K
+ui.rest.quiet-hours.afternoon:
+  text: "The island is resting. It opens again at {at|time} in the afternoon!"
+  level: K
+ui.rest.quiet-hours.evening:
+  text: "The island is resting. It opens again at {at|time} in the evening!"
+  level: K
 ui.rest.daily-cap:
   text: "You did so much playing! Come back next time."
+  level: K
+ui.rest.elsewhere:
+  text: "Someone is playing in another window. Let's take turns!"
   level: K
 ui.btn.okay:
   text: "Okay!"

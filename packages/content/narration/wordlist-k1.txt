@@ -7,12 +7,14 @@ added
 adding
 adds
 after
+afternoon
 again
 all
 along
 am
 an
 and
+another
 answer
 any
 apple
@@ -192,6 +194,7 @@ end
 equal
 equals
 equation
+evening
 every
 eye
 eyes
@@ -278,10 +281,10 @@ great
 greater
 greatest
 ground
-grown
 group
 groups
 grove
+grown
 guess
 had
 half
@@ -513,6 +516,7 @@ rectangle
 rectangles
 red
 reef
+resting
 rhythm
 ride
 rider
@@ -592,6 +596,7 @@ snow
 so
 solid
 some
+someone
 song
 soon
 sort

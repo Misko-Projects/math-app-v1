@@ -17,11 +17,11 @@ import type { GateHeldState } from '@/parent/ParentGateScreen';
 import { ChildUi, useAppServices } from '../AppServices';
 import { recordDiagnostic } from '../diagnostics';
 import { useAudioState } from '../hooks';
-import type { BlockedReason } from '../session/SessionController';
+
 import { useSession } from '../session/SessionProvider';
 import { ChildAvatar } from './ChildAvatar';
 import { PicturePad } from './PicturePad';
-import { RestingOverlay } from './RestingOverlay';
+import { RestingOverlay, type RestingReason } from './RestingOverlay';
 import { TapToStart } from './TapToStart';
 
 /** How long a tapped card waits for its name to be spoken before moving on. */
@@ -30,7 +30,7 @@ export const NAME_WAIT_MS = 1400;
 type Phase =
   | { kind: 'pick' }
   | { kind: 'password'; child: ChildProfile }
-  | { kind: 'resting'; reason: BlockedReason };
+  | { kind: 'resting'; reason: RestingReason; opensAt?: string | undefined };
 
 /** Balanced rows: 1–4 in one row, 5–6 as 3 + 3, 7–8 as 4 + 4 (no scroll at 1280×800 for ≤ 6). */
 export function pickerColumns(n: number): number {
@@ -131,15 +131,11 @@ function PickerScreen() {
           navigate(`/play/${child.id}`);
         } else if (result.reason === 'cancelled') {
           // Closed meanwhile: the picker is already showing; nothing started.
-        } else if (result.reason === 'elsewhere') {
-          // Another window kept playing (it didn't yield in time): back to the picker, nothing
-          // started. A tap tries again.
-          recordDiagnostic('picker.start', new Error('another window is still playing'));
-          setSelected(null);
-          setPhase({ kind: 'pick' });
         } else {
+          // A blocked time, or another window kept playing (it didn't yield in time): the
+          // resting overlay says so kindly; nothing started, and Okay returns to the picker.
           setSelected(null);
-          setPhase({ kind: 'resting', reason: result.reason });
+          setPhase({ kind: 'resting', reason: result.reason, opensAt: result.opensAt });
         }
       } catch (e) {
         recordDiagnostic('picker.start', e);
@@ -166,7 +162,7 @@ function PickerScreen() {
       if (!mounted.current) return;
       if (!allowed.ok) {
         setSelected(null);
-        setPhase({ kind: 'resting', reason: allowed.reason });
+        setPhase({ kind: 'resting', reason: allowed.reason, opensAt: allowed.opensAt });
       } else if (child.picturePasswordHash) {
         setPhase({ kind: 'password', child });
       } else {
@@ -236,7 +232,11 @@ function PickerScreen() {
         />
       ) : null}
       {phase.kind === 'resting' ? (
-        <RestingOverlay reason={phase.reason} onDone={backToPicker} />
+        <RestingOverlay
+          reason={phase.reason}
+          {...(phase.opensAt ? { opensAt: phase.opensAt } : {})}
+          onDone={backToPicker}
+        />
       ) : null}
       {locked ? <TapToStart onStart={unlock} /> : null}
 
@@ -287,13 +287,10 @@ function ProfileCard({
         index={index}
         className="size-[168px] flex-none"
       />
-      <span
-        className={[
-          'line-clamp-2 w-full px-1 text-center font-body leading-[1.15] font-bold [overflow-wrap:break-word] text-ink',
-          child.name.length > 10 ? 'text-[1.5rem]' : 'text-[1.75rem]',
-        ].join(' ')}
-      >
-        {child.name}
+      {/* Every card keeps a two-line name box at one size, so cards in a row are the same
+          height: a long name wraps onto the second line instead of shrinking. */}
+      <span className="flex h-[2.3em] w-full items-center justify-center px-1 font-body text-[1.5rem] leading-[1.15] font-bold text-ink">
+        <span className="line-clamp-2 text-center [overflow-wrap:anywhere]">{child.name}</span>
       </span>
     </button>
   );

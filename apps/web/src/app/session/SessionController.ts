@@ -38,7 +38,12 @@ export type SessionTrigger = EventPayloads['session.started']['trigger'];
 
 export type CanStartResult =
   | { ok: true; budgetMinutes: number }
-  | { ok: false; reason: BlockedReason };
+  | {
+      ok: false;
+      reason: BlockedReason;
+      /** For quiet hours: when play opens again, "HH:MM" in the family time zone. */
+      opensAt?: string;
+    };
 /**
  * Why `start()` refused: a blocked time, another tab kept playing (it didn't yield in time), or
  * the caller cancelled (its signal aborted).
@@ -353,7 +358,9 @@ export class SessionController {
     childId: ChildId,
     trigger: SessionTrigger = 'child',
     opts: { signal?: AbortSignal } = {},
-  ): Promise<{ ok: true; session: ActiveSession } | { ok: false; reason: StartRefusal }> {
+  ): Promise<
+    { ok: true; session: ActiveSession } | { ok: false; reason: StartRefusal; opensAt?: string }
+  > {
     return this.#serial(async () => {
       if (opts.signal?.aborted) return { ok: false as const, reason: 'cancelled' as const };
       const current = this.#running;
@@ -506,7 +513,11 @@ export class SessionController {
       playedToday: { day, ms: playedMs },
     };
     if (inQuietHours(now, child.quietHours, timeZone)) {
-      return { ...base, budgetIsCap: false, result: { ok: false, reason: 'quiet-hours' } };
+      return {
+        ...base,
+        budgetIsCap: false,
+        result: { ok: false, reason: 'quiet-hours', opensAt: child.quietHours?.end ?? '' },
+      };
     }
     if (base.capMs === null) {
       return {

@@ -244,7 +244,12 @@ test('the picker, picture passwords and the session lifecycle', async ({ page })
     const resting = page.getByTestId('resting-overlay');
     await expect(resting).toBeVisible();
     await expect(resting).toHaveAttribute('data-reason', 'quiet-hours');
-    await expect(resting.getByText('Play time is over for now. Come back soon!')).toBeVisible();
+    // Quiet hours end an hour from now: the child hears when the island opens again.
+    await expect(
+      resting.getByText(
+        /^The island is resting\. It opens again at \d{1,2}:\d{2} in the (morning|afternoon|evening)!$/,
+      ),
+    ).toBeVisible();
     await expect(page).toHaveURL(/\/$/);
     expect(await started(page)).toHaveLength(2);
     await resting.getByRole('button', { name: 'Okay!' }).click();
