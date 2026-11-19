@@ -149,6 +149,44 @@ describe('count.ordinal number-pad (CNT.15 constructed answer)', () => {
   });
 });
 
+describe('count.ordinal number-pad ask after (CNT.15 abstract tier)', () => {
+  const abstract = tpl('number-pad', { tier: 'abstract', representation: 'words' });
+
+  it.each([1, 5, 9])('after place %i, no line, the next place typed', (k) => {
+    const item = expectSound(abstract, { ask: 'after', k, n: 10, from: 'left' });
+    if (item.widget.format !== 'number-pad') throw new Error('expected number-pad');
+    expect(item.widget.stimulus).toEqual({ kind: 'none' });
+    expect(item.answer).toEqual({ kind: 'number', value: k + 1 });
+    // Typing the named place itself is the slip it catches.
+    expect(checkResponse(item, { kind: 'number', value: k }).correct).toBe(false);
+    // The solution names place k first, and only its last step types the answer.
+    const steps = itemSolution(item, abstract);
+    expect(steps.map((s) => s.say)).toEqual([
+      'gen.count.ordinal.say-to',
+      'gen.count.ordinal.after',
+    ]);
+    expect(steps[0]?.action).toBeUndefined();
+    expect(steps[0]?.vars).toEqual({ k });
+  });
+
+  it('has no end to count from, whatever `from` says', () => {
+    const got = itemFeatures(
+      generateItemFromParams(abstract, { ask: 'after', k: 8, n: 10, from: 'right' }),
+      abstract,
+    );
+    expect(got['ordinal.fromRight']).toBe(0);
+    expect(got['k.over5']).toBeCloseTo(0.6, 9);
+  });
+
+  it.each<[string, ItemFormat, ParamValues]>([
+    ['after tenth (no eleventh clip)', 'number-pad', { ask: 'after', k: 10, n: 10 }],
+    ['after on a tap-count line', 'tap-count', { ask: 'after', k: 3, n: 6 }],
+    ['after on a numeral-pick', 'numeral-pick', { ask: 'after', k: 3, n: 6 }],
+  ])('rejects %s', (_label, format, params) => {
+    expect(() => generateItemFromParams(tpl(format), params)).toThrow(GenerationError);
+  });
+});
+
 describe('count.ordinal features and validity', () => {
   it.each<[string, ItemFormat, ParamValues, Record<string, number>]>([
     [
@@ -197,6 +235,8 @@ describe('count.ordinal features and validity', () => {
       'gen.count.ordinal.start-left',
       'gen.count.ordinal.start-right',
       'gen.count.ordinal.this-one',
+      'gen.count.ordinal.say-to',
+      'gen.count.ordinal.after',
     ]);
   });
 });

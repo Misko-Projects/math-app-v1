@@ -14,11 +14,13 @@ type Files = Record<string, string>;
 type Yaml = { [k: string]: any };
 
 /**
- * Diagnostics other than the expected ones. SUB.03.t5 was added after SUB.03.t4 shipped, and template
- * ids are stable (03 §4.3), so its V10 tier-order warning is expected.
+ * Diagnostics other than the expected ones. SUB.03.t5 was added after SUB.03.t4 shipped, and
+ * CNT.14.t6 (its constructed number-path template, 04 §7a) after CNT.14.t4; template ids are stable
+ * (03 §4.3), so their V10 tier-order warnings are expected.
  */
 const EXPECTED = (d: Diagnostic) =>
-  d.check === 'V10' && d.message.startsWith('SUB.03.t5 (pictorial)');
+  d.check === 'V10' &&
+  (d.message.startsWith('SUB.03.t5 (pictorial)') || d.message.startsWith('CNT.14.t6 (pictorial)'));
 /**
  * Game data unlock rules may name catalog skills that are not authored yet (03 §9.2): they warn
  * until the curriculum issues author them.
@@ -62,7 +64,7 @@ describe('the C01 fixture set (03 §9.5)', () => {
   it('compiles with no errors and no warnings', () => {
     const result = compileContent(FIXTURE);
     expect(unexpected(result.diagnostics)).toEqual([]);
-    expect(result.diagnostics.filter(EXPECTED)).toHaveLength(1);
+    expect(result.diagnostics.filter(EXPECTED)).toHaveLength(2);
     expect(result.content?.skills.map((s) => s.id)).toEqual([
       'ADD.01',
       'ADD.02',
@@ -1337,7 +1339,8 @@ describe('V21: the test-out pool (03 §6.5) is resolved into testOut.templateIds
   it('uses abstract templates, else pictorial, and never choice-only ones when others remain', () => {
     expect(pool(FIXTURE, 'ADD.03')).toEqual(['ADD.03.t4']);
     expect(pool(FIXTURE, 'CPS.01')).toEqual(['CPS.01.t4', 'CPS.01.t5']);
-    expect(pool(FIXTURE, 'SUB.01')).toEqual(['SUB.01.t1', 'SUB.01.t2']); // SUB.01.t3 is numeral-pick
+    // SUB.01.t3 is numeral-pick; SUB.01.t4 is the number-pad one.
+    expect(pool(FIXTURE, 'SUB.01')).toEqual(['SUB.01.t1', 'SUB.01.t2', 'SUB.01.t4']);
   });
   it('adds pictorial templates for a gateway skill whose abstract ones span one representation', () => {
     expect(pool(FIXTURE, 'CNT.03')).toEqual(['CNT.03.t2', 'CNT.03.t4']); // t3 is choice-only
@@ -1641,9 +1644,10 @@ describe('V24 and contentVersion (03 §9.1)', () => {
     expect(manifest.counts).toEqual({
       // CMP (K01) added 9 skills, 31 templates and MC.perceptual-size; CPS and SUB.04/SUB.07 (K01)
       // added 7 skills and 27 templates; ADD facts and strategies (K01) added 14 skills, 57
-      // templates, MC.forgot-the-ten and MC.wrong-operation.
+      // templates, MC.forgot-the-ten and MC.wrong-operation. Constructed-answer templates for
+      // CNT, SUB, GEO and MEA skills that practice could not make practiced (V27) added 17.
       skills: 71,
-      templates: 245,
+      templates: 262,
       misconceptions: 11,
       narrationKeys: Object.keys(r.content?.narration ?? {}).length,
     });

@@ -34,6 +34,18 @@ templates:
     difficulty: { base: -0.6 }
     narration: { prompt: p.subitize.how-many, hints: [h.subitize.look-again] }
 
+  # Constructed answer in a second format (04 §7a: t1 and t2 are both dot-flash): t3's picture of
+  # 1 to 4 things, and the child types how many.
+  - id: SUB.01.t4
+    skillId: SUB.01
+    format: number-pad
+    tier: pictorial
+    representation: objects
+    generator: subitize.flash
+    params: { n: { int: [1, 4] }, arrangement: scatter }
+    difficulty: { base: -0.15 }
+    narration: { prompt: tp.SUB.01.t4.prompt, hints: [h.subitize.look-again] }
+
   # ---------- SUB.02: up to 5; dice and finger patterns ----------
 
   - id: SUB.02.t1

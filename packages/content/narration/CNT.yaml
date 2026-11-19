@@ -44,6 +44,8 @@ tp.CNT.15.t3.prompt:
   text: "Start at the {from|word}. What place is the different one?"
 tp.CNT.15.t4.prompt:
   text: "Start at the {from|word}. The different one is in which place?"
+tp.CNT.15.t5.prompt:
+  text: "What place comes just after {k|ord}?"
 
 ls.CNT.03.w1.s1:
   text: "Watch me touch each shell as I count."
