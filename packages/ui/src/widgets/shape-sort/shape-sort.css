@@ -172,6 +172,28 @@
 .ni-ssort__tray {
   flex: 1;
 }
+/*
+ * A bin's or the tray's rings (keyboard focus; armed or hovered while a card is carried) lie
+ * inside its frame, 6 px clear of the border, so they never merge with the frame or reach a
+ * neighbouring bin (evidence review: a focus ring hugged the Triangles bin 4 px outside it).
+ */
+.ni-ssort .ni-ssort__bin > .ni-ssort__pad:focus-visible,
+.ni-ssort .ni-ssort__bin > .ni-ssort__pad.ni-drop-target[data-armed="true"],
+.ni-ssort .ni-ssort__bin > .ni-ssort__pad.ni-drop-target[data-over="true"] {
+  outline-offset: -14px;
+}
+.ni-ssort .ni-ssort__tray > .ni-ssort__pad:focus-visible,
+.ni-ssort .ni-ssort__tray > .ni-ssort__pad.ni-drop-target[data-armed="true"],
+.ni-ssort .ni-ssort__tray > .ni-ssort__pad.ni-drop-target[data-over="true"] {
+  outline-offset: -13px;
+}
+.ni-ssort .ni-ssort__bin > .ni-ssort__pad.ni-drop-target[data-over="true"],
+.ni-ssort .ni-ssort__tray > .ni-ssort__pad.ni-drop-target[data-over="true"] {
+  transform: none;
+  box-shadow:
+    inset 0 0 0 12px rgb(42 157 143 / 0.18),
+    inset 0 -10px 0 var(--color-sand-shadow);
+}
 /* Targets sit behind the cards (cards are never DOM children of a target). */
 .ni-ssort__pad {
   position: absolute;

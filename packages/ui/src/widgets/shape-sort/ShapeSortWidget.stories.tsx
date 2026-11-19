@@ -15,6 +15,7 @@ import {
   expectNumeralInk,
   expectOneInviteRing,
   expectRenderedNumerals,
+  settleFocus,
 } from '../../test-support/evidence';
 import {
   center,
@@ -588,6 +589,7 @@ export const StressSixteenTabletK: Story = {
       'k',
       present(sortControls(root)),
     );
+    await settleFocus();
   },
 };
 
@@ -631,8 +633,29 @@ export const StressSevenLandscapeMinK: Story = {
       'k',
       present(sortControls(root)),
     );
+    await expectBinRingsInside(root);
+    await settleFocus();
   },
 };
+
+/**
+ * Keyboard focus on a bin or the tray draws its ring inside the frame, at least 6 px clear of
+ * the border (evidence review), so it never merges with the frame or reaches another bin.
+ */
+async function expectBinRingsInside(root: HTMLElement) {
+  for (const id of ['tray', 'b0', 'b1']) {
+    const p = pad(root, id);
+    if (!p) continue;
+    p.focus();
+    await new Promise((r) => setTimeout(r, 50));
+    const cs = getComputedStyle(p);
+    await expect(cs.outlineStyle, `${id} focus ring shows`).not.toBe('none');
+    const border = Number.parseFloat(cs.borderTopWidth) || 0;
+    const outer =
+      (Number.parseFloat(cs.outlineOffset) || 0) + (Number.parseFloat(cs.outlineWidth) || 0);
+    await expect(-outer - border, `${id} ring clear of its border`).toBeGreaterThanOrEqual(6);
+  }
+}
 
 /** Find-all at the smallest landscape area, K: six cards and Check fit with no scroll. */
 export const FindAllLandscapeMinK: Story = {
