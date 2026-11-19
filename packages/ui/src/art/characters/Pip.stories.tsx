@@ -54,6 +54,16 @@ export const Playground: Story = {
   },
 };
 
+/**
+ * Test only: the Playground with Storybook's Reduced motion global (review s_30013473fe6d #2):
+ * Pip holds still, so its loop check expects no idle loop instead.
+ */
+export const PlaygroundReducedMotion: Story = {
+  ...Playground,
+  tags: ['!dev', '!autodocs', '!visual'],
+  globals: { motion: 'reduced' },
+};
+
 const CELLS: { pose: PipPose; direction?: 'left' | 'right'; name: string }[] = [
   { pose: 'idle', name: 'idle' },
   { pose: 'talk', name: 'talk' },

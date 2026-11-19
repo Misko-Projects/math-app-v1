@@ -9,6 +9,7 @@ import {
   expectCellsApart,
   expectNoSidewaysScroll,
   expectSomeLoops,
+  reducedMotionOn,
 } from './storyChecks';
 
 /**
@@ -49,6 +50,16 @@ export const Playground: Story = {
     await expect(svg.querySelector('[data-part="screen-eyes"]')).toBeTruthy();
     await expectSomeLoops();
   },
+};
+
+/**
+ * Test only: the Playground with Storybook's Reduced motion global (review s_30013473fe6d #2):
+ * Glim holds still, so its loop check expects no idle loop instead.
+ */
+export const PlaygroundReducedMotion: Story = {
+  ...Playground,
+  tags: ['!dev', '!autodocs', '!visual'],
+  globals: { motion: 'reduced' },
 };
 
 /** Glim's four states side by side. */
@@ -104,15 +115,6 @@ async function expectGlimStates(canvasElement: HTMLElement) {
   await expectNoSidewaysScroll();
 }
 
-/** Reduced motion is on: Storybook's global (UiProvider's data-reduced-motion) or the OS setting. */
-function reducedMotion(root: HTMLElement) {
-  return (
-    root.querySelector('[data-reduced-motion="true"]') !== null ||
-    root.closest('[data-reduced-motion="true"]') !== null ||
-    window.matchMedia('(prefers-reduced-motion: reduce)').matches
-  );
-}
-
 /**
  * Glim blinks by swapping its light bars for curved light lids, never by squashing a bar (review
  * s_eab7ff900e77 #4): at the closed moment (97% of the 5 s blink) every blinking Glim shows its
@@ -126,7 +128,7 @@ async function expectGlimBlinks(root: HTMLElement) {
   // Every state but "appear" (happy chevrons) has blinking bars.
   await expect(blinks.length).toBe(GLIM_STATES.length);
   const opacity = (el: Element | null) => Number(getComputedStyle(el as Element).opacity);
-  if (reducedMotion(root)) {
+  if (reducedMotionOn(root)) {
     for (const b of blinks) {
       await expect(b.getAnimations({ subtree: true }).length, 'no blink runs').toBe(0);
       await expect(opacity(b.querySelector('.art-blink-open')), 'bars shown').toBe(1);

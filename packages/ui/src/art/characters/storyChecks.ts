@@ -148,10 +148,61 @@ export async function expectNoLoops() {
   await expect(running.length).toBe(0);
 }
 
-/** With motion allowed, idle loops do run (so the reduced-motion check is meaningful). */
+/**
+ * Reduced motion is on (06 §7): Storybook's Reduced motion global (UiProvider's
+ * data-reduced-motion) or the operating-system setting.
+ */
+export function reducedMotionOn(root: ParentNode = document) {
+  return (
+    root.querySelector('[data-reduced-motion="true"]') !== null ||
+    (root instanceof Element && root.closest('[data-reduced-motion="true"]') !== null) ||
+    window.matchMedia('(prefers-reduced-motion: reduce)').matches
+  );
+}
+
+/**
+ * With motion allowed, idle loops do run (so the reduced-motion check is meaningful). Under
+ * reduced motion the characters hold still instead, so then no loop may run (review
+ * s_30013473fe6d #2).
+ */
 export async function expectSomeLoops() {
+  if (reducedMotionOn()) {
+    await expectNoLoops();
+    return;
+  }
   const running = document
     .getAnimations()
     .filter((a) => a.effect?.getComputedTiming().iterations === Number.POSITIVE_INFINITY);
   await expect(running.length).toBeGreaterThan(0);
+}
+
+/**
+ * Every character drawing in `pane` stays inside the pane's width and clear of every other one
+ * (review s_30013473fe6d #1: in a narrower canvas a gallery wraps or shrinks, never overlaps).
+ */
+export async function expectPaneTidy(pane: HTMLElement) {
+  const name = pane.dataset.pane ?? 'pane';
+  const box = pane.getBoundingClientRect();
+  const art = [...pane.querySelectorAll<SVGSVGElement>('svg[role="img"]')].filter(
+    (s) => !s.parentElement?.closest('svg[role="img"]'),
+  );
+  await expect(art.length, name).toBeGreaterThan(0);
+  const rects = art.map((s) => s.getBoundingClientRect());
+  for (const [i, r] of rects.entries()) {
+    const what = `${name}: ${art[i]?.getAttribute('aria-label') ?? i}`;
+    await expect(r.left, `${what} left edge`).toBeGreaterThanOrEqual(box.left - 0.5);
+    await expect(r.right, `${what} right edge`).toBeLessThanOrEqual(box.right + 0.5);
+  }
+  for (let i = 0; i < rects.length; i++) {
+    for (let j = i + 1; j < rects.length; j++) {
+      const a = rects[i] as DOMRect;
+      const b = rects[j] as DOMRect;
+      const overlap =
+        a.left < b.right - 1 &&
+        b.left < a.right - 1 &&
+        a.top < b.bottom - 1 &&
+        b.top < a.bottom - 1;
+      await expect(overlap, `${name}: drawings ${i} and ${j} overlap`).toBe(false);
+    }
+  }
 }

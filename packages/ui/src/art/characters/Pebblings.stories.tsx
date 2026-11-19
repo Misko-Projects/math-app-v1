@@ -118,6 +118,13 @@ const SPECIES_PAGES = {
   sea: ['puffin', 'seahorse', 'whale', 'clockfish', 'clam'],
 } as const satisfies Record<string, readonly PebblingSpecies[]>;
 
+/**
+ * A gallery drawing never grows past its cell: in a canvas narrower than the tablet stage its
+ * column shrinks, and the drawing shrinks with it rather than overlapping its neighbour (review
+ * s_30013473fe6d #1). On the tablet and desktop stages every cell is wider than its drawing.
+ */
+const FIT_CELL = { maxWidth: '100%' } as const;
+
 /** One column per species (each in its own palettes), carrying 3, 6 and 10 down the column. */
 function SpeciesSheet({ title, species }: { title: string; species: readonly PebblingSpecies[] }) {
   return (
@@ -147,6 +154,7 @@ function SpeciesSheet({ title, species }: { title: string; species: readonly Peb
                   palette={palette}
                   number={n}
                   size={150}
+                  style={FIT_CELL}
                   title={`${s} ${n}`}
                   pose={j === 1 ? 'wave' : 'idle'}
                 />
@@ -220,7 +228,14 @@ export const NumbersToTen: Story = {
       >
         {ONES.map((n) => (
           <GalleryCell key={n} name={String(n)}>
-            <Pebbling species="crab" palette="sun" number={n} size={176} title={`crab ${n}`} />
+            <Pebbling
+              species="crab"
+              palette="sun"
+              number={n}
+              size={176}
+              style={FIT_CELL}
+              title={`crab ${n}`}
+            />
           </GalleryCell>
         ))}
       </div>
@@ -259,6 +274,7 @@ export const NumbersTeens: Story = {
               number={n}
               family="tens"
               size={220}
+              style={FIT_CELL}
               title={`crab ${n}`}
             />
           </GalleryCell>
@@ -329,7 +345,15 @@ export const HundredWhale: Story = {
   parameters: { controls: { disable: true } },
   render: () => (
     <GallerySection title="The Hundred Whale">
-      <div style={{ display: 'flex', justifyContent: 'center', gap: 48, alignItems: 'flex-end' }}>
+      <div
+        style={{
+          display: 'flex',
+          flexWrap: 'wrap',
+          justifyContent: 'center',
+          gap: 48,
+          alignItems: 'flex-end',
+        }}
+      >
         {[100, 46].map((n) => (
           <GalleryCell key={n} name={String(n)}>
             <Pebbling
@@ -338,6 +362,7 @@ export const HundredWhale: Story = {
               number={n}
               family="hundreds"
               size={480}
+              style={FIT_CELL}
               title={`hundred whale ${n}`}
             />
           </GalleryCell>
@@ -622,6 +647,16 @@ export const IdleCast: Story = {
     await expectSomeLoops();
     await expectNoSidewaysScroll();
   },
+};
+
+/**
+ * Test only: the idle cast with Storybook's Reduced motion global (review s_30013473fe6d #2): the
+ * cast holds still, so its loop check expects no idle loop instead.
+ */
+export const IdleCastReducedMotion: Story = {
+  ...IdleCast,
+  tags: ['!dev', '!autodocs', '!visual'],
+  globals: { motion: 'reduced' },
 };
 
 /** Ten-frames on every palette's shell, 7 lit: one filled stone kind, one hollow ring kind. */
