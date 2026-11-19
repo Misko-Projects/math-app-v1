@@ -75,6 +75,13 @@ const configSchema = puzzleGridConfigSchema.superRefine((c, ctx) => {
   if (c.palette.length === 0) {
     ctx.addIssue({ code: 'custom', path: ['palette'], message: 'the palette is empty' });
   }
+  if (c.variant !== 'shape-fill' && !c.palette.every((v) => typeof v === 'number')) {
+    ctx.addIssue({
+      code: 'custom',
+      path: ['palette'],
+      message: 'number grids use number palettes',
+    });
+  }
   const cages = new Set(c.cells.flatMap((x) => (x.cage ? [x.cage] : [])));
   for (const [i, k] of c.constraints.entries()) {
     if (k.kind === 'cage-sum' && !cages.has(k.cage)) {
@@ -91,12 +98,31 @@ const configSchema = puzzleGridConfigSchema.superRefine((c, ctx) => {
         message: 'a line-sum names a cell outside the puzzle',
       });
     }
-    if (c.variant !== 'shape-fill' && !NUMERIC_CONSTRAINTS.includes(k.kind)) {
+    if (
+      c.variant === 'shape-fill' ? k.kind !== 'use-each' : !NUMERIC_CONSTRAINTS.includes(k.kind)
+    ) {
       ctx.addIssue({
         code: 'custom',
         path: ['constraints', i],
-        message: `${k.kind} constraints are not checked yet`,
+        message: `${k.kind} constraints are not checked for ${c.variant}`,
       });
+    }
+    if (c.variant !== 'shape-fill' && k.kind === 'use-each') {
+      // The values fill the blanks (or every cell, one value each), as numbers from the palette.
+      const blanks = c.cells.filter((x) => x.blank).length;
+      const fits = k.values.length === blanks || k.values.length === c.cells.length;
+      const pool = k.values.length === blanks ? k.values : [];
+      if (
+        !fits ||
+        !k.values.every((v) => typeof v === 'number') ||
+        !pool.every((v) => c.palette.includes(v))
+      ) {
+        ctx.addIssue({
+          code: 'custom',
+          path: ['constraints', i],
+          message: 'use-each lists numbers for the blanks or for every cell, from the palette',
+        });
+      }
     }
   }
 });
@@ -142,9 +168,11 @@ export const puzzleGrid: FormatModel<'puzzle-grid', PuzzleGridState> = {
         const cell = s.config.cells.find((x) => x.r === r && x.c === col);
         if (!cell?.blank || r === undefined || col === undefined) return s;
         let v: PuzzleValue = '';
-        if (typeof raw === 'number' && Number.isFinite(raw)) v = raw;
-        else if (typeof raw === 'string') v = raw;
-        else if (raw !== undefined && raw !== null) return s;
+        if (typeof raw === 'number' || typeof raw === 'string') {
+          // Only palette values go in a blank ('' clears it).
+          if (raw !== '' && !s.config.palette.includes(raw)) return s;
+          v = raw;
+        } else if (raw !== undefined && raw !== null) return s;
         const fill = s.fill.map((row) => [...row]);
         (fill[r] as PuzzleValue[])[col] = v;
         return { ...s, fill };

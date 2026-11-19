@@ -10,7 +10,7 @@ import {
 } from '@number-island/shared';
 import { describe, expect, it } from 'vitest';
 import { stateChecker } from '../check/state';
-import { balance, balanceBlanks, sideValue } from './balance';
+import { balance, balanceBlanks, heavier, sideValue } from './balance';
 import { formatModel } from './index';
 import { puzzleBlanks, puzzleGrid } from './puzzle-grid';
 import { type FormatModel, type FormatState, UnsupportedOpError } from './types';
@@ -88,7 +88,7 @@ describe('balance', () => {
     });
   });
 
-  it('which-heavier (MEA.16, as K01 builds it): pans start empty, place, tilt, answer', () => {
+  it('which-heavier (MEA.16, as K01 builds it): pans hold the objects; placing them again is a no-op', () => {
     const c: WidgetConfigOf<'balance'> = {
       format: 'balance',
       left: { terms: [{ object: 'feather', count: 2 }] },
@@ -99,7 +99,7 @@ describe('balance', () => {
     };
     expect(issuePaths(balance, c)).toEqual([]);
     const s0 = balance.initialState(c);
-    expect([s0.left, s0.right]).toEqual([[], []]);
+    expect([s0.left, s0.right]).toEqual([c.left.terms, c.right.terms]);
     const s = play(balance, c, [
       act('place', { side: 'left', term: c.left.terms[0] }),
       act('place', { side: 'right', term: c.right.terms[0] }),
@@ -143,6 +143,13 @@ describe('balance', () => {
       play(balance, c, [act('place', { side: 'right', term: { n: 1 }, count: 3 })]),
     );
     expect(three).toEqual({ kind: 'state', value: { left: 0, right: 3 } });
+    // The pans still evaluate and now balance.
+    const s3 = play(balance, c, [act('place', { side: 'right', term: { n: 1 }, count: 3 })]);
+    expect(heavier(sideValue(s3.left), sideValue(s3.right))).toBe('same');
+    // A huge count is clamped, never thrown.
+    expect(() =>
+      play(balance, c, [act('place', { side: 'right', term: { n: 1 }, count: 4294967296 })]),
+    ).not.toThrow();
     expect(three?.kind === 'state' && check?.check(target, three.value)).toBe(true);
     // Alternative: one more on each pan also levels it.
     const both = balance.toResponse(
@@ -169,7 +176,13 @@ describe('balance', () => {
     const s = play(balance, c, [
       act('place', { side: 'right', term: { object: 'shell', count: 1 }, count: 3 }),
     ]);
-    expect(s.right).toHaveLength(4);
+    // The added objects go on as one more term: 2 + 3 shells, still a value.
+    expect(s.right).toEqual([
+      { object: 'shell', count: 2 },
+      { op: '+' },
+      { object: 'shell', count: 3 },
+    ]);
+    expect(sideValue(s.right, { shell: 1 })).toBe(5);
     expect(balance.toResponse(s)).toEqual({ kind: 'state', value: { left: 0, right: 3 } });
   });
 
@@ -235,6 +248,7 @@ const target = (c: WidgetConfigOf<'puzzle-grid'>) => ({
   cols: c.cols,
   cells: c.cells,
   constraints: c.constraints,
+  palette: c.palette,
 });
 
 /** Fill every blank from a full solution grid. */
@@ -310,6 +324,22 @@ describe('puzzle-grid', () => {
     expect(satisfies(target(c), puzzleGrid.toResponse(play(puzzleGrid, c, solve(c, alt))))).toBe(
       false,
     ); // cage b is 4 here: 3 + 1
+    // Digits outside the palette keep the cage sums and distinctness but are not allowed.
+    const outside = {
+      kind: 'state',
+      value: {
+        fill: [
+          [1, 0, 5],
+          [2, 3, 1],
+          [3, 1, 2],
+        ],
+      },
+    };
+    expect(satisfies(target(c), outside)).toBe(false);
+    expect(
+      puzzleGrid.apply(puzzleGrid.initialState(c), act('fill', { r: 0, c: 0, value: 7 }))
+        .fill[0]?.[0],
+    ).toBe('');
     const bad = sol.map((row) => [...row]);
     (bad[0] as number[])[0] = 2; // breaks cage a and column 0
     expect(satisfies(target(c), puzzleGrid.toResponse(play(puzzleGrid, c, solve(c, bad))))).toBe(
@@ -367,6 +397,12 @@ describe('puzzle-grid', () => {
     expect(satisfies(target(c), puzzleGrid.toResponse(play(puzzleGrid, c, solve(c, alt))))).toBe(
       true,
     );
+    // Row 3 as [4, 3, 1, 2] keeps every cage sum and every row distinct, but columns 2 and 3 repeat.
+    const colRepeat = sol.map((row) => [...row]);
+    colRepeat[3] = [4, 3, 1, 2];
+    expect(
+      satisfies(target(c), puzzleGrid.toResponse(play(puzzleGrid, c, solve(c, colRepeat)))),
+    ).toBe(false);
     // A given cell can't be changed.
     expect(
       puzzleGrid.apply(puzzleGrid.initialState(c), act('fill', { r: 0, c: 0, value: 4 }))

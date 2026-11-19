@@ -180,9 +180,10 @@ const sameMultiset = (a: readonly (number | string)[], b: readonly (number | str
 /**
  * U04 (#13) numeric variants: `cage-sum` (mini-KenKen), `magic-square`, `missing-digit`,
  * `sum-triangle` and the other number grids. The target is `{ variant, rows, cols, cells,
- * constraints }` with the config's own `cells` (`{ r, c, given?, blank?, cage? }`); the response is
- * `{ fill }` as for shape-fill. Correct when every given cell keeps its value, every blank holds a
- * number, nothing sits outside the puzzle, and every constraint holds:
+ * constraints, palette }` with the config's own `cells` (`{ r, c, given?, blank?, cage? }`) and
+ * `palette`; the response is `{ fill }` as for shape-fill. Correct when every given cell keeps its
+ * value, every blank holds a palette number, nothing sits outside the puzzle, and every
+ * constraint holds:
  * - `cage-sum`: the cage's cells add up to `sum`;
  * - `row-unique` / `col-unique`: no value repeats in a row / column of the puzzle;
  * - `line-sum`: the listed cells add up to `sum`;
@@ -200,6 +201,9 @@ function checkNumeric(
   if (!Array.isArray(target.cells) || !target.cells.every(isCell)) return false;
   if (!Array.isArray(target.constraints)) return false;
   const cells = target.cells as PuzzleCell[];
+  // The digits a blank may hold (KenKen 1–n, magic square 1–9): required.
+  if (!Array.isArray(target.palette)) return false;
+  const palette = target.palette as unknown[];
   const fill = value.fill;
   if (!Array.isArray(fill) || fill.length !== rows) return false;
   if (!fill.every((row) => Array.isArray(row) && row.length === cols)) return false;
@@ -216,7 +220,7 @@ function checkNumeric(
     const v = at(cell.r, cell.c);
     if (cell.given !== undefined) {
       if (v !== cell.given) return false;
-    } else if (typeof v !== 'number' || !Number.isFinite(v)) {
+    } else if (typeof v !== 'number' || !Number.isFinite(v) || !palette.includes(v)) {
       return false;
     }
   }

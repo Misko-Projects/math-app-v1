@@ -6,9 +6,11 @@
 // - `make-equal`: the child adds unit blocks (or more of the pan's objects, one unit each) with
 //   `place {side, term, count?}` until the pans level; answers state `{ left, right }`, the units
 //   added to each pan, checked by `balance.equal` `{ left, right }` (what each pan already weighs).
-// - `which-heavier` (MEA.16): the pans start empty and the objects wait beside the balance;
-//   `place {side, term}` puts a term in a pan. Answers `choice` `left` | `right` | `same` (the
-//   answer is a choice, so items whose solutions don't place anything are answered the same way).
+// - `which-heavier`: the pans hold the config's terms; `place {side, term}` of a term already on
+//   the pan changes nothing (MEA.16's worked solution places its objects). Answers `choice`
+//   `left` | `right` | `same`.
+// A placed term (`count` copies, at most MAX_BLOCKS) goes on its pan as `+ term`, so the pan
+// keeps a value (sideValue).
 // `tilt` and `level` show the beam's reaction (visual); `highlight-side {side}` highlights a pan.
 // `objectWeights` are hidden weights for object terms (riddles, PUZ.05); a side's value is its
 // arithmetic with × before + and −.
@@ -19,6 +21,7 @@ import {
   balanceConfigSchema,
   type WidgetConfigOf,
 } from '@number-island/shared';
+import { MAX_BLOCKS } from '../check/state/balance.equal';
 import {
   argNumber,
   argNumbers,
@@ -58,6 +61,11 @@ export function balanceBlanks(c: Pick<Config, 'left' | 'right'>): string[] {
 }
 
 const isOp = (t: BalanceTerm): t is { op: '+' | '-' | '×' } => 'op' in t;
+
+/** Whether two terms are the same number or the same objects. */
+const sameTerm = (a: BalanceTerm, b: BalanceTerm): boolean =>
+  ('n' in a && 'n' in b && a.n === b.n) ||
+  ('object' in a && 'object' in b && a.object === b.object && a.count === b.count);
 
 /**
  * A side's value: numbers, objects (count × hidden weight) and filled blanks, combined with ×
@@ -189,11 +197,10 @@ export const balance: FormatModel<'balance', BalanceState> = {
     };
   },
   initialState(config) {
-    const empty = config.mode === 'which-heavier';
     return {
       config,
-      left: empty ? [] : [...config.left.terms],
-      right: empty ? [] : [...config.right.terms],
+      left: [...config.left.terms],
+      right: [...config.right.terms],
       entries: balanceBlanks(config).map(() => null),
       added: { left: 0, right: 0 },
       choice: null,
@@ -207,7 +214,7 @@ export const balance: FormatModel<'balance', BalanceState> = {
         const side = argString(a, 'side');
         const term = a.args?.term as BalanceTerm | undefined;
         if ((side !== 'left' && side !== 'right') || !term || typeof term !== 'object') return s;
-        const copies = Math.max(1, Math.trunc(argNumber(a, 'count') ?? 1));
+        const copies = Math.min(MAX_BLOCKS, Math.max(1, Math.trunc(argNumber(a, 'count') ?? 1)));
         if (s.config.mode === 'fill-blank') {
           // A number placed on a pan fills that pan's blank.
           if (!('n' in term)) return s;
@@ -217,10 +224,22 @@ export const balance: FormatModel<'balance', BalanceState> = {
           if (i < 0) return s;
           return { ...s, entries: s.entries.map((e, j) => (j === i ? term.n : e)) };
         }
-        const pan = [...s[side], ...new Array<BalanceTerm>(copies).fill(term)];
+        if (!('n' in term) && !('object' in term)) return s;
+        if (s.config.mode === 'which-heavier' && s[side].some((t) => sameTerm(t, term))) {
+          // The objects already on the pan (compare.sets, compare.numbers): placing them again
+          // (MEA.16's worked solution) changes nothing.
+          return s;
+        }
+        // The copies go on as one more term, joined with +, so the pan keeps a value.
+        const added: BalanceTerm =
+          'n' in term
+            ? { n: term.n * copies }
+            : { object: term.object, count: term.count * copies };
+        const pan: BalanceTerm[] =
+          s[side].length === 0 ? [added] : [...s[side], { op: '+' }, added];
         if (s.config.mode === 'make-equal') {
-          // One unit per block or object added.
-          const units = 'object' in term ? term.count * copies : 'n' in term ? term.n * copies : 0;
+          // One unit per block or object added (K01: balance.equal counts units).
+          const units = 'n' in added ? added.n : added.count;
           return { ...s, [side]: pan, added: { ...s.added, [side]: s.added[side] + units } };
         }
         return { ...s, [side]: pan };

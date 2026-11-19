@@ -221,13 +221,14 @@ Response shapes and state-checker targets of the place-value and operations form
 - **Balance** follows K01's conventions above:
   - `make-equal` answers the units added to each pan, one per block or object.
   - In `fill-blank`, `place {side, term: {n}}` fills that pan's blank.
-  - In `which-heavier` the pans start empty, and `place {side, term}` puts the objects on them.
+  - In `which-heavier` the pans hold the config's terms. Placing a term that is already on the pan changes nothing, so MEA.16's worked solution replays.
+  - A placed term (`count` copies, at most `MAX_BLOCKS`) goes on its pan as `+ term`, so the pan keeps a value.
   - A side's value uses × before + and −; objects count as `count × objectWeights[sprite]`.
 - **Story-problem:** `situation` is the 03 §5.5 prior itself (weight 1). `extraneous` and `inconsistentLanguage` are 0 from the config alone; the generator sets them, and generator values win.
-- **Puzzle-grid** answers `{ fill }`: rows × cols, each puzzle cell's value (given or filled), with `''` outside the puzzle, checked by `puzzle.satisfies` `{ variant, rows, cols, cells, constraints }`. The generic `answer {values}` fills the blanks in reading order.
-  - **Numeric variants** (`cage-sum` mini-KenKen 3 × 3 and 4 × 4, `magic-square`, `missing-digit`, `sum-triangle`, `digit-cards`) take the config's own `cells` (`{ r, c, given?, blank?, cage? }`). Given cells keep their values, and every blank holds a number.
+- **Puzzle-grid** answers `{ fill }`: rows × cols, each puzzle cell's value (given or filled), with `''` outside the puzzle, checked by `puzzle.satisfies` `{ variant, rows, cols, cells, constraints, palette }`. The generic `answer {values}` fills the blanks in reading order.
+  - **Numeric variants** (`cage-sum` mini-KenKen 3 × 3 and 4 × 4, `magic-square`, `missing-digit`, `sum-triangle`, `digit-cards`) take the config's own `cells` (`{ r, c, given?, blank?, cage? }`). Given cells keep their values, and every blank holds a number from the target's `palette` (required for these variants). The model's `fill` only takes palette values.
   - **Supported constraints:** `cage-sum`, `row-unique`, `col-unique`, `line-sum` and `use-each`. `use-each` covers the blanks, or every cell when it lists one value per cell.
-  - **Not checked yet:** `adjacent-step`, `equation` and `clue`. They fail the `puzzle-grid` schema, and the checker rejects them.
+  - **Not checked yet:** `adjacent-step`, `equation` and `clue`. They fail the `puzzle-grid` schema, and the checker rejects them. The schema also requires a number palette for these variants, `use-each` values that are palette numbers matching the blanks or every cell, and only `use-each` for `shape-fill`.
   - `shape-fill` (K01) keeps its own rules, with `cells` given as `[r, c]`.
 
 ## Tests
