@@ -26,6 +26,7 @@ import {
   type PadKey,
   padValue,
   useAlive,
+  useCommitWait,
   useDemoPause,
   useInviteHand,
   useSubmitGuard,
@@ -418,6 +419,7 @@ export function HundredChartWidget({
   const trace = useInteractionTrace(onInteract);
   const alive = useAlive();
   const pause = useDemoPause();
+  const waitForCommit = useCommitWait();
   const c = config;
   const last = c.first + c.rows * 10 - 1;
   const hidden = new Set(c.hidden);
@@ -639,8 +641,8 @@ export function HundredChartWidget({
       const next = { ...typedRef.current, [cell]: String(value) };
       typedRef.current = next;
       setTyped(next);
-      // Let the state commit before the op resolves (a demo play resolves after it).
-      await pause(0);
+      // The op resolves only once this state has committed (a demo play resolves after it).
+      await waitForCommit();
       return;
     }
     setActive(cell);
@@ -661,8 +663,8 @@ export function HundredChartWidget({
   const typeAnswer = async (value: number) => {
     if (reduced) {
       setAnswerText(String(value));
-      // Let the state commit before the op resolves (a demo play resolves after it).
-      await pause(0);
+      // The op resolves only once this state has committed (a demo play resolves after it).
+      await waitForCommit();
       return;
     }
     let text = '';

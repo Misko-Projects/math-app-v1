@@ -35,6 +35,7 @@ import {
   padValue,
   stepsBetween,
   useAlive,
+  useCommitWait,
   useDemoPause,
   useInviteHand,
   useSubmitGuard,
@@ -302,6 +303,13 @@ function landing(c: Config, at: number): number {
   return drop(roundTo(drop(at), resolution(c)));
 }
 
+/**
+ * What the pad shows for a value (no sign): the exact decimal, with as many places as it has
+ * (0.125 → "0.125", 13 → "13"), never rounded to hundredths. The same text a demo types and an
+ * invite asks for, so its digits are the keys to press.
+ */
+const padText = (shown: number) => String(Number(Math.abs(shown).toFixed(6)));
+
 /** Decimal places of a number as written (0.25 → 2), at 6-decimal precision. */
 const decimalsOf = (v: number) => {
   const text = String(Number(v.toFixed(6)));
@@ -470,6 +478,7 @@ export function NumberLinePlaceWidget({
   const trace = useInteractionTrace(onInteract);
   const alive = useAlive();
   const pause = useDemoPause();
+  const waitForCommit = useCommitWait();
   const c = config;
   const fmt = formatter(c);
   const mode = c.mode;
@@ -695,14 +704,14 @@ export function NumberLinePlaceWidget({
       // Reduced motion: the number appears at once (no key-by-key typing).
       const shownNow = showValue(v);
       setNegative(shownNow < 0);
-      setTyped(String(Math.abs(Number(shownNow.toFixed(2)))));
-      // Let the state commit before the op resolves (a demo play resolves after it).
-      await pause(0);
+      setTyped(padText(shownNow));
+      // The op resolves only once this state has committed (a demo play resolves after it).
+      await waitForCommit();
       return;
     }
     const shown = showValue(v);
     setNegative(shown < 0);
-    const chars = String(Math.abs(Number(shown.toFixed(2)))).split('') as PadKey[];
+    const chars = padText(shown).split('') as PadKey[];
     let text = '';
     setTyped('');
     for (const ch of chars) {
@@ -816,7 +825,7 @@ export function NumberLinePlaceWidget({
     if (v === null) return check;
     const shown = showValue(v);
     if (shown < 0 !== negative) return c.min < 0 ? { at: 'minus' } : null;
-    const want = String(Math.abs(Number(shown.toFixed(2))));
+    const want = padText(shown);
     if (typed === want) return check;
     if (want.startsWith(typed)) return { at: 'key', key: want[typed.length] as PadKey };
     return { at: 'key', key: 'back' };

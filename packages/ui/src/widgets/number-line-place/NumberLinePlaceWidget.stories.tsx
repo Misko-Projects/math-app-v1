@@ -438,6 +438,60 @@ export const ReadTenths: Story = {
   },
 };
 
+/** Read on 0 to 1 by eighths: the 0.125 tick. */
+const eighths: Config = {
+  ...read,
+  min: 0,
+  max: 1,
+  ticksEvery: 0.125,
+  labelsEvery: 0.5,
+  target: 0.125,
+};
+
+const eighthsDemo: WidgetDemo = createDemoController({ strict: true });
+
+/** Review r2 F3: the read demo types 0.125 exactly (not 0.13). */
+export const ReadEighthsDemo: Story = {
+  args: { config: eighths, disabled: true, demo: eighthsDemo },
+  play: async ({ canvasElement }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    await eighthsDemo.play({ op: 'answer', args: { value: 0.125 } });
+    await expect(root.querySelector('.ni-nlp__readout')).toHaveTextContent('0.125');
+  },
+};
+
+const eighthsReduced: WidgetDemo = createDemoController({ strict: true });
+
+/** Review r2 F3 with reduced motion: the instant answer is 0.125 too. */
+export const ReadEighthsDemoReducedMotion: Story = {
+  globals: { motion: 'reduced' },
+  args: { config: eighths, disabled: true, demo: eighthsReduced },
+  play: async ({ canvasElement }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    await eighthsReduced.play({ op: 'answer', args: { value: 0.125 } });
+    await expect(root.querySelector('.ni-nlp__readout')).toHaveTextContent('0.125');
+  },
+};
+
+const eighthsInvite: WidgetDemo = createDemoController({ strict: true });
+
+/** Review r2 F3: the invite leads key by key to 0.125, then Check, which submits 0.125. */
+export const InviteReadEighths: Story = {
+  args: { config: eighths, demo: eighthsInvite },
+  play: async ({ canvasElement, args }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    const key = (k: string) => root.querySelector(`.ni-pad__key[data-key="${k}"]`) as HTMLElement;
+    eighthsInvite.invite({ op: 'answer', args: { value: 0.125 } });
+    for (const k of ['0', '.', '1', '2', '5']) {
+      await waitFor(() => expect(key(k)).toHaveClass('ni-invite'));
+      await userEvent.click(key(k));
+    }
+    await waitFor(() => expect(checkBtn(root)).toHaveClass('ni-invite'));
+    await userEvent.click(checkBtn(root));
+    await expect(args.onResponse).toHaveBeenCalledWith({ kind: 'number', value: 0.125 });
+  },
+};
+
 /** Hundredths (DEC.03): labels read 0, 0.5 and 1; the response stays in hundredths. */
 export const Hundredths: Story = {
   args: { config: hundredths },

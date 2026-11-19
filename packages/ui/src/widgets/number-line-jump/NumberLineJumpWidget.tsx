@@ -29,6 +29,7 @@ import {
   type PadKey,
   padValue,
   useAlive,
+  useCommitWait,
   useDemoPause,
   useInviteHand,
   useSubmitGuard,
@@ -668,6 +669,7 @@ export function NumberLineJumpWidget({
   const trace = useInteractionTrace(onInteract);
   const alive = useAlive();
   const pause = useDemoPause();
+  const waitForCommit = useCommitWait();
   const c = config;
   const stones = c.path === 'stones';
   const T = MIN_TARGET_PX[ageMode];
@@ -815,8 +817,8 @@ export function NumberLineJumpWidget({
     if (reduced) {
       // Reduced motion: the number appears at once (no key-by-key typing).
       setTyped(String(Math.abs(v)));
-      // Let the state commit before the op resolves (a demo play resolves after it).
-      await pause(0);
+      // The op resolves only once this state has committed (a demo play resolves after it).
+      await waitForCommit();
       return;
     }
     const chars = String(Math.abs(v)).split('') as PadKey[];
