@@ -46,6 +46,7 @@ export {
   stepsBetween,
 } from './NumberLineView';
 export { fitCell, ObjectSetView, type ObjectSetViewProps } from './ObjectSetView';
+export { useWidgetRoom, type WidgetRoom } from './room';
 export {
   BaseTenView,
   ExpressionView,
