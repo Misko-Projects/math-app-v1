@@ -36,13 +36,27 @@ export const CONTAINER_PAD_TIGHT: typeof CONTAINER_PAD = {
 const INK = 'var(--color-ink)';
 const HIGHLIGHT = 'rgb(255 255 255 / 0.55)';
 
+/**
+ * The strip of water under the boat and the raft: a wavy top `depth` px above the bottom (eight
+ * waves of `amp`), with round ends and a 2 px inset, so its outline closes softly inside the box.
+ */
+function waterPath(w: number, h: number, depth: number, amp: number) {
+  const top = h - depth;
+  const tall = depth - 2;
+  const r = tall / 2;
+  const x0 = r + 2;
+  const step = (w - 2 * x0) / 8;
+  const waves = ` t ${step} 0`.repeat(7);
+  return `M${x0} ${top} q ${step / 2} ${-amp} ${step} 0${waves} a ${r} ${r} 0 0 1 0 ${tall} H ${x0} a ${r} ${r} 0 0 1 0 ${-tall} Z`;
+}
+
 function Boat({ w, h, closed }: { w: number; h: number; closed: boolean }) {
   const deckBottom = h - 40;
   return (
     <>
       {/* Water */}
       <path
-        d={`M0 ${h - 18} q ${w / 16} -10 ${w / 8} 0 t ${w / 8} 0 t ${w / 8} 0 t ${w / 8} 0 t ${w / 8} 0 t ${w / 8} 0 t ${w / 8} 0 t ${w / 8} 0 V ${h} H 0 Z`}
+        d={waterPath(w, h, 18, 10)}
         fill="var(--color-shallows)"
         stroke="var(--color-sea-deep)"
         strokeWidth="3"
@@ -104,7 +118,7 @@ function Raft({ w, h, closed }: { w: number; h: number; closed: boolean }) {
   return (
     <>
       <path
-        d={`M0 ${h - 14} q ${w / 16} -9 ${w / 8} 0 t ${w / 8} 0 t ${w / 8} 0 t ${w / 8} 0 t ${w / 8} 0 t ${w / 8} 0 t ${w / 8} 0 t ${w / 8} 0 V ${h} H 0 Z`}
+        d={waterPath(w, h, 14, 9)}
         fill="var(--color-shallows)"
         stroke="var(--color-sea-deep)"
         strokeWidth="3"
@@ -393,8 +407,8 @@ export function ContainerArt({
  * two rows (no thicker than the gap), with the bow on the frame's right edge, over its padding and
  * border, so it never covers a slot. `vertical`: the same band down the gap between two columns,
  * the bow under the bottom edge (the tied ten beside a frame of ones, one ten-frame at a time).
- * `bow={false}`: no bow; the band runs on 12 px past the end (through the frame's padding, border
- * and the 2 px gap) to the tag tied under it.
+ * `bow={false}`: no bow; the band ends inside the frame, 2 px in from both ends (inside the
+ * padding, clear of the border), so it reads the same at the top and the bottom.
  */
 export function BundleBand({
   width,
@@ -409,10 +423,13 @@ export function BundleBand({
 }) {
   const along = vertical ? height : width;
   const across = (vertical ? width : height) / 2;
-  const knot = bow ? along + 8 : along + 12;
+  const knot = along + 8;
+  /** Where the band starts and how long it is, along it: to the bow, or symmetric in the frame. */
+  const start = bow ? -8 : -2;
+  const length = bow ? knot + 8 : along + 4;
   /** (a, c): `a` along the band, `c` across it. */
   const at = (a: number, c: number) => (vertical ? { x: c, y: a } : { x: a, y: c });
-  const band = at(-8, across - 6);
+  const band = at(start, across - 6);
   return (
     <svg
       className="ni-mset__band"
@@ -426,8 +443,8 @@ export function BundleBand({
       <rect
         x={band.x}
         y={band.y}
-        width={vertical ? 12 : knot + 8}
-        height={vertical ? knot + 8 : 12}
+        width={vertical ? 12 : length}
+        height={vertical ? length : 12}
         rx="6"
         fill="var(--color-sunshine)"
         stroke={INK}

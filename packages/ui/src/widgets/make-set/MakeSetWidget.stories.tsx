@@ -724,6 +724,20 @@ export const TwentyKMinLandscape: Story = {
     await expect(ten).toHaveAccessibleName('10');
     await expect(ten.querySelectorAll('.ni-sprite')).toHaveLength(10);
     await expect(ten.querySelector('.ni-mset__band')).not.toBeNull();
+    // The band (with its outline) ends inside the small frame's border, the same at both ends.
+    await waitForSettled(ten.querySelector('.ni-mset__band') as Element);
+    const miniFrame = ten.querySelector('.ni-mset__tens-frame') as HTMLElement;
+    const mf = miniFrame.getBoundingClientRect();
+    const border = Number.parseFloat(getComputedStyle(miniFrame).borderTopWidth);
+    const band = (
+      ten.querySelector('.ni-mset__band rect') as SVGGraphicsElement
+    ).getBoundingClientRect();
+    const stroke = 1.5;
+    const topRoom = band.top - stroke - (mf.top + border);
+    const bottomRoom = mf.bottom - border - (band.bottom + stroke);
+    await expect(topRoom, 'band clear of the top border').toBeGreaterThanOrEqual(0);
+    await expect(bottomRoom, 'band clear of the bottom border').toBeGreaterThanOrEqual(0);
+    await expect(Math.abs(topRoom - bottomRoom), 'band symmetric').toBeLessThanOrEqual(0.5);
     await expect(root.querySelector('[data-slot="10"]')).not.toBeNull();
     await expect(root.querySelector('[data-slot="0"]')).toBeNull();
     await expectTenFirst(root);

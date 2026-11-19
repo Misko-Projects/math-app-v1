@@ -339,7 +339,7 @@
   border-radius: 50%;
   background: rgb(38 70 83 / 0.08);
 }
-/* The tied ten's tag: the numeral 10 (K pre-readers), on the end of the band. */
+/* The tied ten's tag: the numeral 10 (K pre-readers), under its frame (the band ends inside it). */
 .ni-mset__tens-tag {
   position: relative;
   z-index: 4;
