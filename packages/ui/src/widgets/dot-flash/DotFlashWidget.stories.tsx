@@ -7,7 +7,7 @@ import {
   expectTargetSize,
   spyAudio,
 } from '../../test-support/storyHelpers';
-import { findWidget, renderWidget, traceOf } from '../../test-support/widgetStory';
+import { expectPointerOn, findWidget, renderWidget, traceOf } from '../../test-support/widgetStory';
 import { createDemoController, UnsupportedWidgetOpError, type WidgetDemo } from '../demo';
 import type { ConfigFor } from '../types';
 import type { WidgetHostProps } from '../WidgetHost';
@@ -91,6 +91,51 @@ const hidden = (root: HTMLElement) =>
 /** The board's state once React has committed (a demo op resolves as its last change lands). */
 const shownIs = (root: HTMLElement, v: 'true' | 'false') =>
   waitFor(() => expect(board(root)).toHaveAttribute('data-shown', v), { timeout: 500 });
+const hand = (root: HTMLElement) => root.querySelector('.ni-hand') as HTMLElement;
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+/**
+ * The pick tray is even and centred: equal gaps between the cards in a row, the cards centred in
+ * the tray panel, and "check" centred under the tray.
+ */
+async function expectTrayEven(root: HTMLElement) {
+  const tray = (root.querySelector('.ni-tray-numerals') as HTMLElement).getBoundingClientRect();
+  const cards = [...root.querySelectorAll<HTMLElement>('.ni-flash__tray .ni-pick')].map((c) =>
+    c.getBoundingClientRect(),
+  );
+  const row = cards.filter((c) => Math.abs(c.top - (cards[0]?.top ?? 0)) < 1);
+  const gaps = row.slice(1).map((c, i) => c.left - (row[i] as DOMRect).right);
+  for (const g of gaps) await expect(Math.abs(g - (gaps[0] ?? 0))).toBeLessThan(1);
+  const mid = (r: { left: number; right: number }) => (r.left + r.right) / 2;
+  const cardsMid = (Math.min(...row.map((c) => c.left)) + Math.max(...row.map((c) => c.right))) / 2;
+  await expect(Math.abs(cardsMid - mid(tray))).toBeLessThan(1.5);
+  const check = (
+    root.querySelector('.ni-flash__check .ni-btn') as HTMLElement
+  ).getBoundingClientRect();
+  await expect(Math.abs(mid(check) - mid(tray))).toBeLessThan(1.5);
+}
+
+/**
+ * The picture is up and stays up past any real flash (K: 1500 ms): no cover, "look again" waits
+ * (nothing to re-show), and the answer controls are already usable.
+ */
+async function expectPictureHeld(root: HTMLElement) {
+  await shownIs(root, 'true');
+  await sleep(1600);
+  await expect(board(root)).toHaveAttribute('data-shown', 'true');
+  const canvas = within(root);
+  await expect(canvas.getByRole('img', { name: 'Look at the picture' })).toBeVisible();
+  await expect(canvas.queryByRole('img', { name: 'The picture went away' })).toBeNull();
+  const cover = root.querySelector('.ni-flash__cover') as HTMLElement;
+  await waitFor(() => expect(getComputedStyle(cover).opacity).toBe('0'));
+  await expect(canvas.getByRole('button', { name: 'Look again' })).toBeDisabled();
+  const controls = root.querySelectorAll<HTMLButtonElement>('.ni-pad__key, .ni-pick');
+  await expect(controls.length).toBeGreaterThan(0);
+  for (const c of controls) await expect(c).toBeEnabled();
+}
+
+/** Evidence stories hold the flash open (10 minutes) so the picture art can be reviewed. */
+const HELD_MS = 600_000;
 
 /**
  * K (SUB.01.t1): the dots show by themselves, then hide. Type 4 while they're hidden and check.
@@ -167,6 +212,7 @@ export const FiveFramePick: Story = {
     await expect(cards.map((c) => c.textContent)).toEqual(['6', '7', '8']);
     for (const c of cards) await expectTargetSize(c, 'k');
     await expectTargetGaps(cards);
+    await expectTrayEven(root);
     await userEvent.click(within(root).getByRole('button', { name: '7' }));
     await userEvent.click(within(root).getByRole('button', { name: 'Check' }));
     await expect(args.onResponse).toHaveBeenCalledWith({ kind: 'number', value: 7 });
@@ -208,6 +254,55 @@ export const Estimate: Story = {
   },
 };
 
+/*
+ * Picture evidence: the stories above capture the covered board once their flash is over, so
+ * these hold the flash open (`flashMs` 10 minutes) to show each picture kind while it is visible.
+ */
+
+/** Held flash, SUB.06.t2: shells on two plates, 1 and 5. */
+export const FlashShownPlates: Story = {
+  args: { config: { ...plates, flashMs: HELD_MS } },
+  play: async ({ canvasElement }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    await expect(root.querySelectorAll('[data-sprite="shell"]')).toHaveLength(6);
+    await expectPictureHeld(root);
+  },
+};
+
+/** Held flash, SUB.03.t3: a ten-frame showing 6. */
+export const FlashShownTenFrame: Story = {
+  args: { config: { ...tenFrame, flashMs: HELD_MS } },
+  play: async ({ canvasElement }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    await expect(root.querySelector('.ni-flash__picture .ni-stimulus')).toHaveAttribute(
+      'data-kind',
+      'ten-frame',
+    );
+    await expectPictureHeld(root);
+  },
+};
+
+/** Held flash, SUB.05.t2: two hands, 5 and 5 fingers. */
+export const FlashShownFingers: Story = {
+  args: { config: { ...fingers, flashMs: HELD_MS } },
+  play: async ({ canvasElement }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    await expect(root.querySelectorAll('.ni-hand-art')).toHaveLength(2);
+    await expectPictureHeld(root);
+  },
+};
+
+/** Held flash, SUB.03.t5 (K): five-frames 5 + 2, with the pick tray beside them. */
+export const FlashShownFiveFramePick: Story = {
+  globals: { ageMode: 'k' },
+  args: { config: { ...fiveFrames, flashMs: HELD_MS } },
+  play: async ({ canvasElement }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    await expectPictureHeld(root);
+    await expectTrayEven(root);
+  },
+};
+
 /** `disabled` (e.g. a demo is coming): no look by itself, no input, nothing traced. */
 export const Disabled: Story = {
   args: { disabled: true },
@@ -224,8 +319,10 @@ export const Disabled: Story = {
 const demoController: WidgetDemo = createDemoController({ strict: true });
 
 /**
- * Demo mode (03 §6.3), the SUB.03.t5 solution: Pip shows the frames, rings the 5 and the 2, flashes
- * once more, and types 7. Then "look again" is invited.
+ * Demo mode (03 §6.3), a worked example of the SUB.03.t5 solution: Pip shows the frames, rings the
+ * 5 and the 2, flashes once more, and types 7. Input stays off throughout (the host passes
+ * `disabled`), so an invite sent now is held back: no ring and no hand on a control the child can't
+ * press. The child's turn, with its invite, is `DemoInvite`.
  */
 export const DemoMode: Story = {
   args: { config: { ...fiveFrames, input: 'pad' }, disabled: true, demo: demoController },
@@ -249,21 +346,90 @@ export const DemoMode: Story = {
     await expect(demoController.play({ op: 'tap' })).rejects.toBeInstanceOf(
       UnsupportedWidgetOpError,
     );
+    // Invites while input is off are held back (Look again and Check are disabled here).
+    await expect(within(root).getByRole('button', { name: 'Look again' })).toBeDisabled();
+    await expect(within(root).getByRole('button', { name: 'Check' })).toBeDisabled();
     demoController.invite({ op: 'flash' });
-    await waitFor(() => expect(root.querySelector('.ni-flash__again.ni-invite')).not.toBeNull());
-    await expect(root.querySelector('.ni-hand')).not.toBeNull();
+    await sleep(100);
+    demoController.invite({ op: 'answer', args: { value: 7 } });
+    await sleep(100);
+    await expect(root.querySelector('.ni-invite')).toBeNull();
+    await expect(root.querySelector('.ni-hand')).toBeNull();
+    demoController.invite(null);
+  },
+};
+
+const inviteController: WidgetDemo = createDemoController({ strict: true });
+
+/**
+ * Demo invite (03 §6.3), a faded example of SUB.03.t5: the child's turn. Input is on. Pip's ring
+ * and hand point at the ONE control to press next, and only once it can be pressed: "look again"
+ * after the first look has gone; then, after Pip rings the groups and flashes, the 7 key for
+ * `answer 7`, moving to Check once 7 is in. Ends on the ring and hand on an enabled Check.
+ */
+export const DemoInvite: Story = {
+  args: { config: { ...fiveFrames, input: 'pad' }, demo: inviteController },
+  play: async ({ canvasElement, args }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    const canvas = within(root);
+    const again = canvas.getByRole('button', { name: 'Look again' });
+    // During the first look "look again" can't be pressed, so its invite waits.
+    await shownIs(root, 'true');
+    inviteController.invite({ op: 'flash' });
+    await sleep(100);
+    await expect(board(root)).toHaveAttribute('data-shown', 'true');
+    await expect(again).toBeDisabled();
+    await expect(root.querySelector('.ni-invite')).toBeNull();
+    await expect(root.querySelector('.ni-hand')).toBeNull();
+    // Once the picture has gone, the invite shows on the enabled button.
+    await hidden(root);
+    await waitFor(() => expect(again).toHaveClass('ni-invite'));
+    await expect(again).toBeEnabled();
+    await expectPointerOn(hand(root), again, root);
+
+    // Pip's part of the faded example (input off while Pip plays; the invite is cleared).
+    await inviteController.play({ op: 'circle-groups', args: { groups: [5, 2] } });
+    await inviteController.play({ op: 'flash' });
+    await shownIs(root, 'false');
+
+    // The child's step, `answer 7`: first the 7 key, then Check.
+    inviteController.invite({ op: 'answer', args: { value: 7 } });
+    const seven = key(root, '7');
+    await waitFor(() => expect(seven).toHaveClass('ni-invite'));
+    await expect(seven).toBeEnabled();
+    await expect(root.querySelectorAll('.ni-invite')).toHaveLength(1);
+    await expectPointerOn(hand(root), seven, root);
+    await userEvent.click(seven);
+    // A finger tap leaves no focus ring; drop the synthetic click's so only the invite shows.
+    seven.blur();
+    const check = canvas.getByRole('button', { name: 'Check' });
+    await waitFor(() => expect(check).toHaveClass('ni-invite'));
+    await expect(check).toBeEnabled();
+    await expect(root.querySelectorAll('.ni-invite')).toHaveLength(1);
+    await expect(root.querySelectorAll('.ni-hand')).toHaveLength(1);
+    await expectPointerOn(hand(root), check, root);
+    await expect(canvas.getByRole('button', { name: 'Your answer: 7' })).toBeVisible();
+    await expect(args.onResponse).not.toHaveBeenCalled();
+    await expect(traceOf(args.onInteract).map((e) => `${e.t}:${e.target}`)).toEqual(['tap:key-7']);
   },
 };
 
 const fingersDemo: WidgetDemo = createDemoController({ strict: true });
 
-/** Demo: rings around each hand (SUB.05.t2 solution, circle-groups [5, 5]). */
+/**
+ * Demo, worked-example step: Pip's `circle-groups [5, 5]` op (SUB.05.t2 solution) draws a coral
+ * ring around each hand while the picture shows. This shows Pip's op, not a child step: input is
+ * off and nothing is invited, so there is no teal invite ring or pointing hand (see `DemoInvite`).
+ */
 export const DemoFingerRings: Story = {
   args: { config: fingers, disabled: true, demo: fingersDemo },
   play: async ({ canvasElement }) => {
     const root = await findWidget(canvasElement, ROOT);
     await fingersDemo.play({ op: 'circle-groups', args: { groups: [5, 5] } });
     await expect(root.querySelectorAll('.ni-flash__ring')).toHaveLength(2);
+    await expect(board(root)).toHaveAttribute('data-shown', 'true');
+    await expect(root.querySelector('.ni-invite')).toBeNull();
+    await expect(root.querySelector('.ni-hand')).toBeNull();
   },
 };
 

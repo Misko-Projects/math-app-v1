@@ -265,6 +265,9 @@ const FINGERS = [
  */
 const RAISE_ORDER: readonly number[] = [4, 0, 1, 2, 3];
 
+/** Left edge of a hand's drawing box: room for the raised thumb's tip and outline. */
+const HAND_X0 = -6;
+
 /**
  * One hand with `up` fingers raised (index first, thumb last; RAISE_ORDER), decorative. `mirror`
  * draws the other hand; `group` tags the stimulus group it belongs to (`data-group`, for overlays
@@ -330,9 +333,11 @@ export function HandArt({
   return (
     <svg
       className="ni-hand-art"
-      viewBox="0 0 100 124"
+      // The raised thumb, tilted out about its base, has a box reaching x ≈ -4.2 with its outline:
+      // the drawing starts at HAND_X0 so the whole thumb shows (an SVG clips at its viewBox).
+      viewBox={`${HAND_X0} 0 ${100 - HAND_X0} 124`}
       height={height}
-      width={(height * 100) / 124}
+      width={(height * (100 - HAND_X0)) / 124}
       aria-hidden="true"
       focusable="false"
       data-up={up}

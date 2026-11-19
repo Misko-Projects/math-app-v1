@@ -53,6 +53,14 @@ import './tap-count.css';
 const OPS = ['tap', 'count-aloud', 'ring', 'say-total', 'answer'] as const;
 const COUNT_MS = 650;
 
+// Ordinal layout budget, in px (tap-count.css). The whole widget must fit the workshop's widget
+// area (a 1200 px stage with 24 px padding, so ~1146 px inside) with room to spare on both sides.
+const ORDINAL_AREA_W = 1080;
+/** `.ni-tapc[data-mode="ordinal"]` side padding, the row card's padding + border, the cue gap. */
+const ORDINAL_CHROME_W = 2 * 16 + 2 * (20 + 3) + 16;
+/** The Check pill beside the row (G1+ shows its word; K is icon-only and narrower) + column gap. */
+const ORDINAL_CHECK_W = 200 + 56;
+
 type Config = ConfigFor<'tap-count'>;
 
 /** The numeral tray for `input: 'auto'`: 0–10, 0–20, or on to the next ten for larger sets. */
@@ -131,26 +139,38 @@ export function TapCountWidget({
   const trayDigits = Math.max(1, ...trayValues.map((v) => String(v).length));
   const card = numeralCardPx(trayDigits, target) + TARGET_GAP_PX;
   const trayW = trayCols * card - TARGET_GAP_PX + TRAY_PANEL_EDGES_PX;
-  const answerW =
-    config.input === 'pad' ? 3 * (target + 16) + 2 * TARGET_GAP_PX : ordinal ? 0 : trayW;
+  // The answer column of a how-many layout (ordinal layouts budget their own, below).
+  const answerW = config.input === 'pad' ? 3 * (target + 16) + 2 * TARGET_GAP_PX : trayW;
   const answerH =
     config.input === 'pad'
       ? 560
-      : ordinal
-        ? 110
-        : Math.ceil(trayValues.length / trayCols) * (target + TARGET_GAP_PX + 6) + 30;
-  // Side by side (picture left, answer right) when both fit the ~1100 px widget area; otherwise
-  // the picture spans the width above the answer. Either way the objects grow into the room left.
-  const sideW = 1100 - answerW - 240;
-  const sideCell = Math.max(minCell, fitCell(layout, sideW, ordinal ? 360 : 340, 32));
-  const arrange = layout.width * sideCell <= sideW ? 'side' : 'stack';
-  const cell =
-    arrange === 'side'
-      ? sideCell
-      : Math.max(
-          minCell,
-          fitCell(layout, ordinal ? 980 - target : 1000, Math.max(120, 520 - answerH), 32),
-        );
+      : Math.ceil(trayValues.length / trayCols) * (target + TARGET_GAP_PX + 6) + 30;
+  // "Start here" pebble: not a target, so it stays compact enough for a row of ten K targets.
+  const cueSize = Math.min(64, Math.round(target * 0.9));
+  const empty = layout.objects.length === 0;
+  const { arrange, cell } = ((): { arrange: 'side' | 'stack'; cell: number } => {
+    // Nothing to count: an empty dish centred above the answer.
+    if (empty) return { arrange: 'stack', cell: 32 };
+    if (ordinal) {
+      // The row card (cue + objects) and Check side by side when the row still gets full-size
+      // targets; otherwise Check sits centred under the row, which then takes the full width.
+      const rowW = ORDINAL_AREA_W - ORDINAL_CHROME_W - cueSize;
+      const sideFit = fitCell(layout, rowW - ORDINAL_CHECK_W, 360, 32);
+      if (sideFit >= minCell && layout.width * sideFit <= rowW - ORDINAL_CHECK_W) {
+        return { arrange: 'side', cell: sideFit };
+      }
+      return { arrange: 'stack', cell: Math.max(minCell, fitCell(layout, rowW, 360, 32)) };
+    }
+    // Side by side (picture left, answer right) when both fit the ~1100 px widget area; otherwise
+    // the picture spans the width above the answer. Either way the objects grow into the room left.
+    const sideW = 1100 - answerW - 240;
+    const sideCell = Math.max(minCell, fitCell(layout, sideW, 340, 32));
+    if (layout.width * sideCell <= sideW) return { arrange: 'side', cell: sideCell };
+    return {
+      arrange: 'stack',
+      cell: Math.max(minCell, fitCell(layout, 1000, Math.max(120, 520 - answerH), 32)),
+    };
+  })();
   // A picture (P) keeps full-size objects; tap targets leave the 12 px gap between them.
   const hitSize = objectsTappable ? Math.min(cell, Math.floor(step * cell - TARGET_GAP_PX)) : cell;
 
@@ -397,12 +417,12 @@ export function TapCountWidget({
 
   const from = config.ordinal?.from ?? 'left';
   const firstRowTop = Math.min(...layout.objects.map((o) => o.y), 0);
-  const cueSize = Math.round(target * 0.9);
 
   return (
     <div
       className="ni-tapc"
       data-tier={tier}
+      data-mode={ordinal ? 'ordinal' : 'how-many'}
       data-arrange={arrange}
       data-disabled={disabled ? 'true' : undefined}
     >
@@ -423,13 +443,18 @@ export function TapCountWidget({
             <ArrowIcon />
           </span>
         ) : null}
-        <ObjectSetView
-          layout={layout}
-          cell={cell}
-          label={t('ui.widget.picture')}
-          renderObject={renderObject}
-          className="ni-tapc__set"
-        />
+        {empty ? (
+          // Nothing to count (CNT.13): an empty dish, so the picture never reads as a missing image.
+          <span className="ni-tapc__empty" role="img" aria-label={t('ui.widget.picture')} />
+        ) : (
+          <ObjectSetView
+            layout={layout}
+            cell={cell}
+            label={t('ui.widget.picture')}
+            renderObject={renderObject}
+            className="ni-tapc__set"
+          />
+        )}
       </div>
 
       <div className="ni-tapc__answer">

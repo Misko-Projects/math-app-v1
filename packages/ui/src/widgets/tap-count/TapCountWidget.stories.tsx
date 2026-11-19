@@ -8,6 +8,7 @@ import {
   spyAudio,
 } from '../../test-support/storyHelpers';
 import {
+  expectPointerOn,
   expectTraceOrdered,
   findWidget,
   renderWidget,
@@ -128,6 +129,78 @@ const marks = (root: HTMLElement) =>
 const tray = (root: HTMLElement) => root.querySelector('.ni-tapc__tray') as HTMLElement;
 const key = (root: HTMLElement, k: string) =>
   root.querySelector(`.ni-pad__key[data-key="${k}"]`) as HTMLElement;
+const hand = (root: HTMLElement) => root.querySelector('.ni-hand') as HTMLElement;
+
+/** Waits for the one-shot animations (badge pop-in, tray rise) so boxes are at full size. */
+async function settle(root: HTMLElement) {
+  const once = root
+    .getAnimations({ subtree: true })
+    .filter((a) => a.effect?.getTiming().iterations !== Number.POSITIVE_INFINITY);
+  await Promise.all(once.map((a) => a.finished.catch(() => undefined)));
+}
+
+/**
+ * Every count badge sits on its object's top-right corner, outside the drawing: above the top
+ * edge, right of the centre line, and clear of the next object's drawing (the sprites start
+ * 8/64 in from their box).
+ */
+async function expectBadgesOffObjects(root: HTMLElement) {
+  await settle(root);
+  const objs = objects(root);
+  for (const [i, o] of objs.entries()) {
+    const mark = o.querySelector('.ni-tapc__mark');
+    if (!mark) continue;
+    const m = mark.getBoundingClientRect();
+    const b = o.getBoundingClientRect();
+    await expect(m.bottom).toBeLessThanOrEqual(b.top + b.height * 0.1);
+    await expect((m.left + m.right) / 2).toBeGreaterThanOrEqual(b.right - b.width * 0.15);
+    const next = objs[i + 1]?.getBoundingClientRect();
+    if (next && Math.abs(next.top - b.top) < 1) {
+      await expect(m.right).toBeLessThanOrEqual(next.left + next.width * (8 / 64));
+    }
+  }
+}
+
+/**
+ * Pip's teal invite ring around `invited` (a circle `outline-offset + outline-width` outside the
+ * object, pulsing up to 5 % larger) stays at least 8 px clear of every count badge (pebbles:
+ * capsules of the badge's height).
+ */
+async function expectRingClearOfBadges(root: HTMLElement, invited: HTMLElement) {
+  await settle(root);
+  const style = getComputedStyle(invited);
+  const ring =
+    (invited.offsetWidth / 2 +
+      Number.parseFloat(style.outlineOffset) +
+      Number.parseFloat(style.outlineWidth)) *
+    1.05;
+  const box = invited.getBoundingClientRect();
+  const cx = (box.left + box.right) / 2;
+  const cy = (box.top + box.bottom) / 2;
+  const badges = [...root.querySelectorAll('.ni-tapc__mark')];
+  await expect(badges.length).toBeGreaterThan(0);
+  for (const badge of badges) {
+    const m = badge.getBoundingClientRect();
+    const r = m.height / 2;
+    const x = Math.min(Math.max(cx, m.left + r), m.right - r);
+    const gap = Math.hypot(cx - x, cy - (m.top + r)) - r - ring;
+    await expect(gap).toBeGreaterThanOrEqual(8);
+  }
+}
+
+/**
+ * The ordinal layout fits the widget area with room to spare: the row card and Check together
+ * span at most 1080 px (the stage's inside is ~1146 px), and Check sits under or beside the row.
+ */
+async function expectOrdinalFits(root: HTMLElement) {
+  const picture = (root.querySelector('.ni-tapc__picture') as HTMLElement).getBoundingClientRect();
+  const check = within(root).getByRole('button', { name: 'Check' }).getBoundingClientRect();
+  const left = Math.min(picture.left, check.left);
+  const right = Math.max(picture.right, check.right);
+  await expect(right - left).toBeLessThanOrEqual(1080);
+  const set = root.querySelector('.ni-tapc__set') as HTMLElement;
+  await expect(set.getBoundingClientRect().right).toBeLessThanOrEqual(picture.right);
+}
 
 /**
  * K, concrete (CNT.02.t1): tap the 7 leaves. Each gets a numbered pebble and the running count is
@@ -217,6 +290,8 @@ export const CountTeenG1: Story = {
     await expect(args.onResponse).toHaveBeenCalledWith({ kind: 'number', value: 18 });
     const trace = traceOf(args.onInteract);
     await expect(trace.filter((e) => e.target === 'obj-2')).toHaveLength(2);
+    // The badges sit above each crab's top-right corner: eyes and claws stay visible.
+    await expectBadgesOffObjects(root);
   },
 };
 
@@ -289,6 +364,8 @@ export const OrdinalK: Story = {
     await expect(obj(root, 6)).toHaveAttribute('aria-pressed', 'true');
     await expect(root.querySelectorAll('[data-ringed="true"]')).toHaveLength(1);
     await expect(marks(root)).toEqual([1, 2, 3, 4, 5, 6, 7]);
+    await expectBadgesOffObjects(root);
+    await expectOrdinalFits(root);
     await userEvent.click(canvas.getByRole('button', { name: 'Check' }));
     await expect(args.onResponse).toHaveBeenCalledWith({ kind: 'choice', id: 'obj-6' });
   },
@@ -304,6 +381,7 @@ export const OrdinalPictureFromRight: Story = {
     await expect(cue.getBoundingClientRect().left).toBeGreaterThan(
       obj(root, 5).getBoundingClientRect().right,
     );
+    await expectOrdinalFits(root);
     await userEvent.click(obj(root, 4));
     await userEvent.click(obj(root, 3));
     await expect(marks(root)).toEqual([]);
@@ -343,11 +421,25 @@ export const DistractorsPick: Story = {
   },
 };
 
-/** CNT.13: nothing to count, so the tray is there straight away; 0 is an answer. */
+/**
+ * CNT.13: nothing to count. The picture is an empty dish, centred above the answer; the tray is
+ * there straight away; 0 is an answer.
+ */
 export const Zero: Story = {
   args: { config: zero },
   play: async ({ canvasElement, args }) => {
     const root = await findWidget(canvasElement, ROOT);
+    await expect(root).toHaveAttribute('data-arrange', 'stack');
+    const dish = within(root).getByRole('img', { name: 'Look at the picture' });
+    await expect(dish).toHaveClass('ni-tapc__empty');
+    const picture = (
+      root.querySelector('.ni-tapc__picture') as HTMLElement
+    ).getBoundingClientRect();
+    const answer = (root.querySelector('.ni-tapc__answer') as HTMLElement).getBoundingClientRect();
+    await expect(
+      Math.abs((picture.left + picture.right) / 2 - (answer.left + answer.right) / 2),
+    ).toBeLessThan(2);
+    await expect(picture.bottom).toBeLessThan(answer.top);
     await expect(tray(root)).toHaveAttribute('data-shown', 'true');
     await userEvent.click(within(root).getByRole('button', { name: '0' }));
     await userEvent.click(within(root).getByRole('button', { name: 'Check' }));
@@ -370,50 +462,88 @@ export const Disabled: Story = {
 const demoController: WidgetDemo = createDemoController({ strict: true });
 
 /**
- * Demo mode (03 §6.3), the CNT.02.t1 solution: Pip counts aloud (each leaf marked in turn), says
- * the total (picked on the tray), then invites the child to tap a leaf.
+ * Demo mode (03 §6.3), a faded CNT.02.t1 example: Pip counts the first four leaves aloud (each
+ * marked in turn), then it is the child's turn: the teal ring and Pip's hand invite the next
+ * uncounted leaf ("keep counting").
  */
 export const DemoMode: Story = {
   globals: { ageMode: 'k' },
-  args: { disabled: true, demo: demoController },
+  args: { demo: demoController },
   play: async ({ canvasElement }) => {
     const root = await findWidget(canvasElement, ROOT);
     await demoController.play({ op: 'tap', args: { index: 0 } });
     await expect(marks(root)).toEqual([1]);
-    await demoController.play({ op: 'count-aloud', args: { upTo: 7 } });
-    await expect(marks(root)).toEqual([1, 2, 3, 4, 5, 6, 7]);
-    await demoController.play({ op: 'say-total' });
-    await expect(within(root).getByRole('button', { name: '7' })).toHaveAttribute(
-      'aria-pressed',
-      'true',
-    );
+    await demoController.play({ op: 'count-aloud', args: { upTo: 4 } });
+    await expect(marks(root)).toEqual([1, 2, 3, 4]);
+    await expect(tray(root)).toHaveAttribute('data-shown', 'false');
     await expect(demoController.play({ op: 'flash' })).rejects.toBeInstanceOf(
       UnsupportedWidgetOpError,
     );
-    demoController.invite({ op: 'tap', args: { index: 3 } });
-    await waitFor(() => expect(obj(root, 3)).toHaveClass('ni-invite'));
-    await expect(root.querySelector('.ni-hand')).not.toBeNull();
+    demoController.invite({ op: 'count-aloud' });
+    await waitFor(() => expect(obj(root, 4)).toHaveClass('ni-invite'));
+    await expect(root.querySelectorAll('.ni-invite')).toHaveLength(1);
+    await expect(obj(root, 4)).not.toHaveAttribute('data-marked');
+    await expect(obj(root, 4)).toBeEnabled();
+    await expectPointerOn(hand(root), obj(root, 4), root);
+    await expectRingClearOfBadges(root, obj(root, 4));
   },
 };
 
 const ordinalDemo: WidgetDemo = createDemoController({ strict: true });
 
-/** Demo mode, ordinal (CNT.15.t1 solution): tap the first shell, then ring the seventh. */
+/**
+ * Demo mode, ordinal (a faded CNT.15.t1 example): Pip counts on from the "start here" arrow to
+ * the sixth shell, then it is the child's turn: the teal ring and Pip's hand invite the seventh.
+ * Nothing is picked yet.
+ */
 export const DemoOrdinal: Story = {
-  args: { config: ordinalShells, disabled: true, demo: ordinalDemo },
+  args: { config: ordinalShells, demo: ordinalDemo },
   play: async ({ canvasElement }) => {
     const root = await findWidget(canvasElement, ROOT);
     await ordinalDemo.play({ op: 'tap', args: { index: 0 } });
-    await ordinalDemo.play({ op: 'ring', args: { index: 6 } });
-    await expect(obj(root, 6)).toHaveAttribute('data-ringed', 'true');
-    await ordinalDemo.play({ op: 'answer', args: { id: 'obj-5' } });
+    await ordinalDemo.play({ op: 'count-aloud', args: { upTo: 6 } });
+    await expect(marks(root)).toEqual([1, 2, 3, 4, 5, 6]);
+    ordinalDemo.invite({ op: 'ring', args: { index: 6 } });
+    await waitFor(() => expect(obj(root, 6)).toHaveClass('ni-invite'));
+    await expect(root.querySelectorAll('.ni-invite')).toHaveLength(1);
+    await expect(root.querySelectorAll('[data-ringed="true"]')).toHaveLength(0);
+    await expect(obj(root, 6)).toHaveAttribute('aria-pressed', 'false');
+    await expect(within(root).getByRole('button', { name: 'Check' })).toBeDisabled();
+    await expectPointerOn(hand(root), obj(root, 6), root);
+    await expectRingClearOfBadges(root, obj(root, 6));
+    await expectOrdinalFits(root);
+  },
+};
+
+const ordinalRingDemo: WidgetDemo = createDemoController({ strict: true });
+
+/**
+ * Demo mode, ordinal "show me" (CNT.15.t1 solution): Pip counts to seven and rings the seventh
+ * shell. The generic `answer {id}` op rings an object too; there is one ring at a time, so the
+ * later `ring` moves it.
+ */
+export const DemoOrdinalRing: Story = {
+  args: { config: ordinalShells, disabled: true, demo: ordinalRingDemo },
+  play: async ({ canvasElement }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    await ordinalRingDemo.play({ op: 'count-aloud', args: { upTo: 7 } });
+    await expect(marks(root)).toEqual([1, 2, 3, 4, 5, 6, 7]);
+    await ordinalRingDemo.play({ op: 'answer', args: { id: 'obj-5' } });
     await expect(obj(root, 5)).toHaveAttribute('data-ringed', 'true');
+    await ordinalRingDemo.play({ op: 'ring', args: { index: 6 } });
+    await expect(obj(root, 6)).toHaveAttribute('data-ringed', 'true');
+    await expect(root.querySelectorAll('[data-ringed="true"]')).toHaveLength(1);
+    await expect(root.querySelector('.ni-invite')).toBeNull();
+    await expectOrdinalFits(root);
   },
 };
 
 const reducedController: WidgetDemo = createDemoController({ strict: true });
 
-/** Reduced motion: counting aloud and the generic `answer` op are instant. */
+/**
+ * Reduced motion: counting aloud and the generic `answer` op are instant. `say-total` enters the
+ * number counted.
+ */
 export const DemoReducedMotion: Story = {
   globals: { motion: 'reduced' },
   args: { config: fishPicture, tier: 'pictorial', disabled: true, demo: reducedController },
@@ -428,5 +558,7 @@ export const DemoReducedMotion: Story = {
     // `answer` replaces the entry, it never appends (as the engine model does).
     await reducedController.play({ op: 'answer', args: { value: 4 } });
     await expect(within(root).getByRole('button', { name: 'Your answer: 4' })).toBeVisible();
+    await reducedController.play({ op: 'say-total' });
+    await expect(within(root).getByRole('button', { name: 'Your answer: 6' })).toBeVisible();
   },
 };

@@ -19,7 +19,7 @@ export const CONTAINER_PAD: Readonly<
   raft: { top: 26, right: 30, bottom: 46, left: 30 },
   basket: { top: 44, right: 30, bottom: 40, left: 30 },
   jar: { top: 56, right: 30, bottom: 30, left: 30 },
-  shell: { top: 52, right: 56, bottom: 56, left: 56 },
+  shell: { top: 60, right: 50, bottom: 60, left: 50 },
 };
 
 const INK = 'var(--color-ink)';
@@ -235,35 +235,82 @@ function Jar({ w, h, closed }: { w: number; h: number; closed: boolean }) {
   );
 }
 
+/** The open shell's scalloped lip: the valleys sit on this line; the scallops rise above it. */
+const SHELL_LIP = 22;
+const SHELL_SIDE = 6;
+const SHELL_CORNER = 34;
+
+/** x of each valley of the shell's lip (between two scallops), corner to corner. */
+function shellValleys(w: number): number[] {
+  const from = SHELL_SIDE + SHELL_CORNER;
+  const to = w - SHELL_SIDE - SHELL_CORNER;
+  const n = Math.max(4, Math.round((to - from) / 64));
+  return Array.from({ length: n + 1 }, (_, i) => from + ((to - from) * i) / n);
+}
+
+/**
+ * The open shell: rounded top corners with a row of scallops between them, straight sides and a
+ * wide bowl that narrows to the hinge. The ten-frame (pad 50/60) sits wholly inside the outline,
+ * and the ribs are short grooves under the lip that stop well above the frame.
+ */
 function Shell({ w, h, closed }: { w: number; h: number; closed: boolean }) {
-  const ribs = 7;
+  const x0 = SHELL_SIDE;
+  const x1 = w - SHELL_SIDE;
+  const lip = SHELL_LIP;
+  const valleys = shellValleys(w);
+  const seg = (valleys[1] ?? 0) - (valleys[0] ?? 0);
+  const scallops = valleys
+    .slice(1)
+    .map(() => `q ${seg / 2} -16 ${seg} 0`)
+    .join(' ');
+  const hingeY = h - 8;
+  const outline = [
+    `M${x0} ${lip + SHELL_CORNER}`,
+    `Q ${x0} ${lip} ${x0 + SHELL_CORNER} ${lip}`,
+    scallops,
+    `Q ${x1} ${lip} ${x1} ${lip + SHELL_CORNER}`,
+    `V ${h * 0.5}`,
+    `C ${x1} ${h - 6} ${w * 0.8} ${hingeY} ${w / 2} ${hingeY}`,
+    `C ${w * 0.2} ${hingeY} ${x0} ${h - 6} ${x0} ${h * 0.5}`,
+    'Z',
+  ].join(' ');
+  const hinge = { x: w / 2, y: h - 14 };
   return (
     <>
       <ellipse cx={w / 2} cy={h - 4} rx={w * 0.4} ry="6" fill="rgb(38 70 83 / 0.16)" />
       <path
-        d={`M${w / 2} ${h - 10} C ${w * 0.1} ${h - 10} 4 ${h * 0.6} 8 ${h * 0.3} Q ${w * 0.25} 2 ${w / 2} 4 Q ${w * 0.75} 2 ${w - 8} ${h * 0.3} C ${w - 4} ${h * 0.6} ${w * 0.9} ${h - 10} ${w / 2} ${h - 10} Z`}
+        className="ni-mset__outline"
+        d={outline}
         fill="var(--color-horizon)"
         stroke="var(--color-coral-deep)"
         strokeWidth="4"
         strokeLinejoin="round"
       />
-      {Array.from({ length: ribs }, (_, i) => {
-        // Ribs fan out from the hinge and stop inside the shell's edge.
-        const a = ((i / (ribs - 1)) * 2 - 1) * (Math.PI / 3);
-        const x = w / 2 + Math.sin(a) * (w / 2 - 14) * 0.9;
-        const y = h - 14 - Math.cos(a) * (h - 30) * 0.9;
+      {valleys.map((vx) => {
+        // A groove from the valley towards the hinge, 6–26 px in: it ends above the frame.
+        const dx = hinge.x - vx;
+        const dy = hinge.y - lip;
+        const len = Math.hypot(dx, dy);
+        const a = 6 / len;
+        const b = 26 / len;
         return (
           <path
-            // biome-ignore lint/suspicious/noArrayIndexKey: ribs are positional art
-            key={i}
-            d={`M${w / 2} ${h - 14} L ${x} ${y}`}
+            key={vx}
+            className="ni-mset__rib"
+            d={`M${vx + dx * a} ${lip + dy * a} L ${vx + dx * b} ${lip + dy * b}`}
             stroke="var(--color-coral)"
             strokeWidth="3"
             strokeLinecap="round"
-            opacity="0.45"
+            opacity="0.55"
           />
         );
       })}
+      <path
+        d={`M${x0 + 16} ${lip + SHELL_CORNER + 6} V ${h * 0.6}`}
+        stroke={HIGHLIGHT}
+        strokeWidth="6"
+        strokeLinecap="round"
+      />
       <path
         d={`M${w / 2 - 30} ${h - 10} h 60 l 8 10 h -76 Z`}
         fill="var(--color-coral)"
@@ -323,9 +370,14 @@ export function ContainerArt({
   );
 }
 
-/** A tied bundle of ten (groupsOf 10): a rope band with a knot, drawn over a full ten-frame. */
+/**
+ * A tied bundle of ten (groupsOf 10): a rope band across a full ten-frame, in the gap between its
+ * two rows (no thicker than the gap), with the bow on the frame's right edge, over its padding and
+ * border, so it never covers a slot.
+ */
 export function BundleBand({ width, height }: { width: number; height: number }) {
   const y = height / 2;
+  const knot = width + 8;
   return (
     <svg
       className="ni-mset__band"
@@ -337,33 +389,33 @@ export function BundleBand({ width, height }: { width: number; height: number })
       overflow="visible"
     >
       <rect
-        x="-6"
-        y={y - 9}
-        width={width + 12}
-        height="18"
-        rx="9"
+        x="-8"
+        y={y - 6}
+        width={knot + 8}
+        height="12"
+        rx="6"
         fill="var(--color-sunshine)"
         stroke={INK}
         strokeWidth="3"
       />
-      <path
-        d={`M${width / 2 - 4} ${y} c -18 -22 -34 -4 -18 8 c -14 14 6 22 18 -8 Z`}
-        fill="var(--color-sunshine)"
-        stroke={INK}
-        strokeWidth="3"
-        strokeLinejoin="round"
-      />
-      <path
-        d={`M${width / 2 + 4} ${y} c 18 -22 34 -4 18 8 c 14 14 -6 22 -18 -8 Z`}
-        fill="var(--color-sunshine)"
-        stroke={INK}
-        strokeWidth="3"
-        strokeLinejoin="round"
-      />
+      {[-1, 1].map((side) => (
+        <ellipse
+          key={side}
+          className="ni-mset__bow"
+          cx={knot}
+          cy={y + side * 15}
+          rx="6"
+          ry="11"
+          fill="var(--color-sunshine)"
+          stroke={INK}
+          strokeWidth="3"
+        />
+      ))}
       <circle
-        cx={width / 2}
+        className="ni-mset__bow"
+        cx={knot}
         cy={y}
-        r="8"
+        r="7"
         fill="var(--color-sunshine-deep)"
         stroke={INK}
         strokeWidth="3"

@@ -31,6 +31,7 @@ import {
   ContainerArt,
   type ContainerKind,
 } from './containers';
+import { HEAP_COLS, HEAP_COLS_K, type HeapCell, heapCells, heapRows } from './heap';
 import './make-set.css';
 
 /**
@@ -400,38 +401,80 @@ export function MakeSetWidget({
   const boxH = gridH + pad.top + pad.bottom;
   const containerName = t(`ui.set.${config.container}`);
 
-  const invitedTarget =
-    invite?.op === 'drag' || invite?.op === 'count-aloud' || invite?.op === 'answer'
-      ? 'container'
-      : invite?.op === 'remove'
-        ? 'pile'
+  // Demo invite (03 §6.3): the ring and Pip's hand sit on the ONE thing the child acts on next.
+  // `answer` invites a drag or a remove, whichever moves the count towards the value.
+  const answerWant = invite?.op === 'answer' ? Number(invite.args?.value) : Number.NaN;
+  const inviteStep: 'drag' | 'remove' | null =
+    invite?.op === 'drag' || (Number.isFinite(answerWant) && answerWant > v.count)
+      ? 'drag'
+      : invite?.op === 'remove' || (Number.isFinite(answerWant) && answerWant < v.count)
+        ? 'remove'
         : null;
-  const invitedCheck = invite?.op === 'close-container';
+  /** The heap the child drags from: in take-away, the "take away" pile goes back first. */
+  const shownOutside = outside.slice(0, SUPPLY_VISIBLE);
+  const dragFrom = takeAway ? (lists.away.length > 0 ? lists.away : shownOutside) : shownOutside;
+  // The last object of its heap: it sits in the bottom row, so the hand below it covers nothing.
+  const invitedItem: ItemId | null = hands
+    ? null
+    : inviteStep === 'drag'
+      ? lists.inside.length < capacity
+        ? (dragFrom.at(-1) ?? null)
+        : null
+      : inviteStep === 'remove'
+        ? (lists.inside.at(-1) ?? null)
+        : null;
+  /** Hands: the finger button the child presses next (drag → "finger up", remove → "down"). */
+  const invitedHand: 0 | 1 | null =
+    !hands || !invite || !inviteStep
+      ? null
+      : (handArg(invite) ??
+        (inviteStep === 'drag' ? (handParts[0] < 5 ? 0 : 1) : handParts[1] > 0 ? 1 : 0));
+  const invitedCount = invite?.op === 'count-aloud';
+  const invitedCheck =
+    invite?.op === 'close-container' ||
+    (Number.isFinite(answerWant) && answerWant === v.count && inviteStep === null);
   const invitedBundle = invite?.op === 'bundle';
+
+  // ---------- the heap's layout ----------
+
+  const heapCap = ageMode === 'k' ? HEAP_COLS_K : HEAP_COLS;
+  /** The heap keeps the size of its fullest state, so it never jumps as objects leave. */
+  const heapBox = (most: number) => {
+    const rows = Math.max(1, heapRows(most, heapCap).length);
+    return {
+      width: heapCap * slot + (heapCap - 1) * gap,
+      minHeight: rows * slot + (rows - 1) * gap,
+    };
+  };
 
   // ---------- render ----------
 
   const thingName = t(spriteNameKey(sprite));
 
-  const renderItem = (id: ItemId, place: 'inside' | 'outside', index: number) => {
+  const pointer = (
+    <span className="ni-hand ni-mset__hand">
+      <HandPointerIcon />
+    </span>
+  );
+
+  const renderItem = (
+    id: ItemId,
+    place: 'inside' | 'outside',
+    index: number,
+    style?: CSSProperties,
+  ) => {
     const label =
       place === 'inside' ? t('ui.set.thing', { thing: thingName, n: index + 1 }) : thingName;
     const props = dnd.itemProps(id, { label });
-    const hand =
-      place === 'outside' && index === 0 && invite?.op === 'drag' ? (
-        <span className="ni-hand ni-mset__hand">
-          <HandPointerIcon />
-        </span>
-      ) : place === 'inside' && index === lists.inside.length - 1 && invite?.op === 'remove' ? (
-        <span className="ni-hand ni-mset__hand">
-          <HandPointerIcon />
-        </span>
-      ) : null;
+    const invited = invitedItem === id;
     return (
       <div
         key={id}
         {...props}
-        className={`${props.className} ni-mset__item`}
+        className={[props.className, 'ni-mset__item', invited ? 'ni-invite' : '']
+          .filter(Boolean)
+          .join(' ')}
+        style={style}
         data-item={id}
         data-flying={flyingId === id ? 'true' : undefined}
         data-counting={place === 'inside' && counting === index ? 'true' : undefined}
@@ -442,7 +485,7 @@ export function MakeSetWidget({
             {index + 1}
           </span>
         ) : null}
-        {hand}
+        {invited ? pointer : null}
       </div>
     );
   };
@@ -450,17 +493,13 @@ export function MakeSetWidget({
   const pileArea = (which: 'supply' | 'away') => {
     const items = which === 'away' ? lists.away : outside;
     const isTarget = which === 'away' ? takeAway : !takeAway;
-    const shown = items.slice(0, which === 'away' ? MAX_OBJECTS : SUPPLY_VISIBLE);
+    const most = which === 'away' ? MAX_OBJECTS : SUPPLY_VISIBLE;
+    const shown = items.slice(0, most);
     const label = which === 'away' ? t('ui.set.away') : t('ui.set.supply');
     const targetProps = isTarget ? dnd.targetProps('pile', { label }) : null;
+    const cells = heapCells(shown.length, heapCap);
     return (
-      <div
-        className={['ni-mset__pile', isTarget && invitedTarget === 'pile' ? 'ni-invite' : '']
-          .filter(Boolean)
-          .join(' ')}
-        data-area={isTarget ? 'pile' : 'supply'}
-        data-kind={which}
-      >
+      <div className="ni-mset__pile" data-area={isTarget ? 'pile' : 'supply'} data-kind={which}>
         {targetProps ? (
           <div {...targetProps} className={`${targetProps.className} ni-mset__pad`} />
         ) : null}
@@ -469,9 +508,21 @@ export function MakeSetWidget({
             <ArrowIcon />
           </span>
         ) : null}
-        <fieldset className="ni-mset__heap" aria-label={label}>
-          {shown.map((id, i) => renderItem(id, 'outside', i))}
-        </fieldset>
+        <div className="ni-mset__heapbox" style={heapBox(Math.min(most, total))}>
+          <fieldset
+            className="ni-mset__heap"
+            aria-label={label}
+            style={{ gridTemplateColumns: `repeat(${2 * heapCap}, var(--heap-half))` }}
+          >
+            {shown.map((id, i) => {
+              const cell = cells[i] as HeapCell;
+              return renderItem(id, 'outside', i, {
+                gridColumn: `${cell.col + 1} / span 2`,
+                gridRow: cell.row + 1,
+              });
+            })}
+          </fieldset>
+        </div>
       </div>
     );
   };
@@ -483,16 +534,15 @@ export function MakeSetWidget({
 
   const containerBox = (
     <div
-      className={['ni-mset__container', invitedTarget === 'container' ? 'ni-invite' : '']
-        .filter(Boolean)
-        .join(' ')}
+      className="ni-mset__container"
       data-container={config.container}
       style={{ width: boxW, height: boxH } as CSSProperties}
     >
       <ContainerArt kind={kind} width={boxW} height={boxH} closed={closed} />
       <div {...containerProps} className={`${containerProps.className} ni-mset__pad`} />
+      {/* count-aloud invites counting what is in the frames: the ring hugs them, not the art. */}
       <div
-        className="ni-mset__frames"
+        className={['ni-mset__frames', invitedCount ? 'ni-invite' : ''].filter(Boolean).join(' ')}
         style={{ top: pad.top, left: pad.left, gap: FRAME_GAP } as CSSProperties}
       >
         {Array.from({ length: frames }, (_, f) => (
@@ -515,21 +565,18 @@ export function MakeSetWidget({
             {f < bundles ? <BundleBand width={frameW} height={frameH} /> : null}
           </div>
         ))}
+        {invitedCount ? pointer : null}
       </div>
-      {invitedTarget === 'container' && invite?.op !== 'drag' ? (
-        <span className="ni-hand" style={{ left: 'calc(50% - 28px)', top: -40 }}>
-          <HandPointerIcon />
-        </span>
-      ) : null}
     </div>
   );
 
   const handBox = (h: 0 | 1) => {
     const up = handParts[h];
     const name = t(h === 0 ? 'ui.set.hand-left' : 'ui.set.hand-right');
-    const invited =
-      (invite?.op === 'drag' || invite?.op === 'remove') &&
-      (handArg(invite) === h || (handArg(invite) === null && h === 0));
+    const invitedUp = invitedHand === h && inviteStep === 'drag';
+    const invitedDown = invitedHand === h && inviteStep === 'remove';
+    // count-aloud: counting starts on the left hand.
+    const invitedCard = invitedCount && h === 0;
     const onKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'ArrowUp') {
         e.preventDefault();
@@ -543,7 +590,9 @@ export function MakeSetWidget({
       <div className="ni-mset__handbox" key={h}>
         <button
           type="button"
-          className={['ni-mset__hand-btn', invited ? 'ni-invite' : ''].filter(Boolean).join(' ')}
+          className={['ni-mset__hand-btn', invitedCard ? 'ni-invite' : '']
+            .filter(Boolean)
+            .join(' ')}
           aria-label={`${name}: ${up}`}
           data-hand={h}
           data-up={up}
@@ -554,7 +603,7 @@ export function MakeSetWidget({
           <HandArt
             up={up}
             tone={h === 0 ? 'a' : 'b'}
-            height={ageMode === 'k' ? 250 : 220}
+            height={ageMode === 'k' ? 230 : 210}
             mirror={h === 1}
           />
           {counting !== null && h === (counting < handParts[0] ? 0 : 1) ? (
@@ -562,27 +611,39 @@ export function MakeSetWidget({
               {counting + 1}
             </span>
           ) : null}
-          {invited ? (
-            <span className="ni-hand ni-mset__hand">
+          {invitedCard ? (
+            <span className="ni-hand ni-mset__hand ni-mset__hand--card">
               <HandPointerIcon />
             </span>
           ) : null}
         </button>
         <div className="ni-mset__hand-controls">
-          <BigButton
-            label="ui.set.finger-up"
-            icon={<ArrowIcon className="ni-mset__arrow-up" />}
-            tone="cloud"
-            disabled={!interactive || !canRaise(h)}
-            onPress={() => raise(h, 'button')}
-          />
-          <BigButton
-            label="ui.set.finger-down"
-            icon={<ArrowIcon className="ni-mset__arrow-down" />}
-            tone="cloud"
-            disabled={!interactive || up <= 0}
-            onPress={() => fold(h)}
-          />
+          <span
+            className={['ni-mset__ctl', invitedUp ? 'ni-invite' : ''].filter(Boolean).join(' ')}
+            data-ctl="up"
+          >
+            <BigButton
+              label="ui.set.finger-up"
+              icon={<ArrowIcon className="ni-mset__arrow-up" />}
+              tone="cloud"
+              disabled={!interactive || !canRaise(h)}
+              onPress={() => raise(h, 'button')}
+            />
+            {invitedUp ? pointer : null}
+          </span>
+          <span
+            className={['ni-mset__ctl', invitedDown ? 'ni-invite' : ''].filter(Boolean).join(' ')}
+            data-ctl="down"
+          >
+            <BigButton
+              label="ui.set.finger-down"
+              icon={<ArrowIcon className="ni-mset__arrow-down" />}
+              tone="cloud"
+              disabled={!interactive || up <= 0}
+              onPress={() => fold(h)}
+            />
+            {invitedDown ? pointer : null}
+          </span>
         </div>
       </div>
     );
@@ -610,7 +671,7 @@ export function MakeSetWidget({
       data-mode={config.mode}
       data-container={config.container}
       data-disabled={disabled ? 'true' : undefined}
-      style={{ '--slot': `${slot}px` } as CSSProperties}
+      style={{ '--slot': `${slot}px`, '--heap-half': `${(slot - gap) / 2}px` } as CSSProperties}
     >
       {hands ? (
         <fieldset className="ni-mset__hands" aria-label={containerName}>
@@ -638,6 +699,7 @@ export function MakeSetWidget({
               disabled={!interactive || !canBundle}
               onPress={bundle}
             />
+            {invitedBundle ? pointer : null}
           </span>
         ) : null}
         <span className="ni-mset__action">
@@ -646,11 +708,7 @@ export function MakeSetWidget({
             disabled={!interactive || moves === 0}
             invited={invitedCheck}
           />
-          {invitedCheck ? (
-            <span className="ni-hand ni-mset__hand">
-              <HandPointerIcon />
-            </span>
-          ) : null}
+          {invitedCheck ? pointer : null}
         </span>
       </div>
 

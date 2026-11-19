@@ -17,6 +17,10 @@
 .ni-tapc[data-arrange="stack"] {
   grid-template-columns: minmax(0, auto);
 }
+/* Ordinal rows are wide (ten K targets plus the cue): tighter side padding (ORDINAL_CHROME_W). */
+.ni-tapc[data-mode="ordinal"] {
+  padding-inline: 16px;
+}
 
 /* ---------- the picture ---------- */
 
@@ -26,11 +30,16 @@
   gap: 24px;
   box-sizing: border-box;
   max-width: 100%;
-  padding: 24px 28px;
+  /* Extra room on top for the count badges, which sit above each object's top-right corner. */
+  padding: 40px 28px 20px;
   border: 3px solid var(--color-sand-deep);
   border-radius: var(--radius-card);
   background: var(--color-paper);
   box-shadow: var(--shadow-soft);
+}
+.ni-tapc__picture[data-from] {
+  gap: 16px;
+  padding-inline: 20px;
 }
 .ni-tapc__picture[data-from="right"] {
   flex-direction: row-reverse;
@@ -90,16 +99,23 @@ button.ni-tapc__obj:focus-visible {
   transform: scale(0.88);
 }
 
-/* A counted object: a numbered pebble badge (shape + numeral, never colour alone, 06 §7). */
+/*
+ * A counted object: a numbered pebble badge (shape + numeral, never colour alone, 06 §7). It sits
+ * on the object's top-right corner, outside the drawing (the sprites leave that corner empty), so
+ * eyes, claws and shell tops stay visible and the badge stays clear of the next object.
+ */
 .ni-tapc__mark {
   position: absolute;
+  /* A one-digit pebble is centred 4 px left of the corner and 16 px above it; wider numbers grow
+     leftwards, over the object's empty top edge rather than towards the next object. */
   top: -16px;
-  right: -12px;
+  right: -17px;
+  translate: 0 -50%;
   display: grid;
   place-items: center;
   box-sizing: border-box;
-  min-width: 46px;
-  height: 46px;
+  min-width: 42px;
+  height: 42px;
   padding: 0.14em 6px 0;
   border: 3px solid var(--color-ink);
   border-radius: 999px;
@@ -145,11 +161,36 @@ button.ni-tapc__obj:focus-visible {
 .ni-tapc__obj.ni-invite {
   position: absolute;
   border-radius: 50%;
-  outline-offset: 6px;
+  /* Close around the object, so the ring stays clear of the neighbours' count badges. */
+  outline-offset: 2px;
 }
+/* The demo hand's fingertip (≈ 42 % across, 8 px down its 56 px box) rests on the object's
+   lower middle: on the target, the top of the drawing still visible. */
 .ni-tapc__hand {
-  left: calc(50% - 8px);
-  top: calc(100% - 8px);
+  left: calc(50% - 23px);
+  top: calc(58% - 8px);
+}
+
+/* Nothing to count (CNT.13): an empty sand dish, a white rim around a shallow well. */
+.ni-tapc__empty {
+  position: relative;
+  display: block;
+  box-sizing: border-box;
+  width: 240px;
+  height: 150px;
+  border: 3px solid var(--color-sand-deep);
+  border-radius: 50%;
+  background: var(--color-cloud);
+  box-shadow: 0 6px 0 var(--color-sand-deep);
+}
+.ni-tapc__empty::after {
+  content: "";
+  position: absolute;
+  inset: 20px 28px;
+  border: 3px solid var(--color-sand-deep);
+  border-radius: 50%;
+  background: var(--color-horizon);
+  box-shadow: inset 0 6px 0 rgb(38 70 83 / 0.08);
 }
 
 /* ---------- the answer ---------- */

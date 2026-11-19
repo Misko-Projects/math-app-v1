@@ -459,15 +459,19 @@
 .ni-pick[data-variant="picture"] {
   padding: 12px;
 }
+/*
+ * The picked card's check badge sits on its top-right corner, reaching at most 6 px past the
+ * card's side, so it stays clear of a neighbour ≥ 12 px away (06 §4) instead of touching it.
+ */
 .ni-pick__badge {
   position: absolute;
-  top: -16px;
-  right: -16px;
+  top: -12px;
+  right: -6px;
   display: grid;
   place-items: center;
-  width: 40px;
-  height: 40px;
-  padding: 6px;
+  width: 34px;
+  height: 34px;
+  padding: 5px;
   box-sizing: border-box;
   border: 3px solid var(--color-cloud);
   border-radius: 50%;

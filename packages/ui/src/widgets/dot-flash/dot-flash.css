@@ -1,6 +1,8 @@
 /* dot-flash widget (U03): the flash board and "look again" on the left, the answer on the right. */
 
 .ni-flash {
+  /* Positioned: Pip's invite hand is placed in widget coordinates. */
+  position: relative;
   display: grid;
   grid-template-columns: auto auto;
   align-items: center;
@@ -81,9 +83,10 @@
   display: inline-flex;
   border-radius: 32px;
 }
+/* Pip's hand: left/top are measured onto the invited control (DotFlashWidget). */
 .ni-flash__hand {
-  left: calc(50% - 8px);
-  top: calc(100% - 8px);
+  left: 0;
+  top: 0;
 }
 
 .ni-flash__answer {

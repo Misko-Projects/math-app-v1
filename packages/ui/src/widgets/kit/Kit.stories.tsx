@@ -192,7 +192,7 @@ export const BondWithControls: Story = {
  */
 export const NumberLineHiddenTerm: Story = {
   render: () => (
-    <div style={{ display: 'grid', gap: 32 }}>
+    <div style={{ display: 'grid', gap: 4 }}>
       <div data-testid="hidden" className="story-cell">
         <StimulusView
           spec={{
@@ -342,6 +342,12 @@ export const TrayTwentyK: Story = {
     await waitFor(() => expect(trayRows(tray)).toEqual([7, 7, 7]));
     await expectEvenGrid(tray);
     await expect(five).toHaveFocus();
+    // The picked card's check badge stays clear of its right-hand neighbour.
+    const badge = five.querySelector('.ni-pick__badge') as HTMLElement;
+    const six = within(tray).getByRole('button', { name: '6' });
+    await expect(
+      six.getBoundingClientRect().left - badge.getBoundingClientRect().right,
+    ).toBeGreaterThanOrEqual(4);
   },
 };
 
