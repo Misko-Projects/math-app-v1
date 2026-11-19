@@ -183,7 +183,7 @@ templates:
     difficulty: { base: -0.2 }
     narration:
       prompt: tp.DAT.09.t2.prompt
-      hints: [h.data.tally-five, h.data.count-by-five]
+      hints: [h.data.tally-five, h.data.count-once]
 
   - id: DAT.09.t3
     skillId: DAT.09

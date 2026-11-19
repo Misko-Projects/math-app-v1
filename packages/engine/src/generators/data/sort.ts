@@ -39,7 +39,7 @@ import { SHAPE_PROPS } from '../geo/shapes';
 import type { BuildContext, GeneratorDef, GeneratorOutput } from '../types';
 
 /** Island objects the sorts use: contexts.yaml nouns (noun.<id> clips) with art-kit sprites. */
-export const SORT_KINDS = ['fish', 'crab', 'shell', 'apple'] as const;
+export const SORT_KINDS = ['fish', 'crab', 'shell', 'firefly'] as const;
 const COLORS = ['red', 'blue', 'yellow'] as const;
 const SHAPES = ['circle', 'triangle', 'square'] as const;
 const SIZES = ['big', 'small'] as const;

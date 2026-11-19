@@ -1,6 +1,6 @@
 // 03 §5.6 div.share, frac.partition and frac.compare: fixed params → answer, widget and solution per
 // format, exampleCorrect is correct, solutions replay through the format models that exist
-// (equal-share, make-set, number-pad, order), feature values at the extremes, validity (accepts),
+// (equal-share, number-pad, order), feature values at the extremes, validity (accepts),
 // and the three K01 fraction and sharing misconception rules.
 
 import {
@@ -106,23 +106,23 @@ const CASES: Case[] = [
   {
     name: 'equal-share fair-or-not: unfair',
     t: tpl('div.share', 'equal-share'),
-    params: { ask: 'fair-or-not', items: 9, recipients: 3, fair: false, shift: 2, sprite: 'apple' },
+    params: {
+      ask: 'fair-or-not',
+      items: 9,
+      recipients: 3,
+      fair: false,
+      shift: 2,
+      sprite: 'pebble',
+    },
     answer: { kind: 'choice', id: 'no' },
     lastOp: 'answer',
   },
   {
     name: 'equal-share fair-or-not: fair',
     t: tpl('div.share', 'equal-share'),
-    params: { ask: 'fair-or-not', items: 8, recipients: 2, fair: true, shift: 1, sprite: 'apple' },
+    params: { ask: 'fair-or-not', items: 8, recipients: 2, fair: true, shift: 1, sprite: 'pebble' },
     answer: { kind: 'choice', id: 'yes' },
     lastOp: 'answer',
-  },
-  {
-    name: 'make-set: one fair share of 12 for 3',
-    t: tpl('div.share', 'make-set', { representation: 'groups' }),
-    params: { ask: 'each', items: 12, recipients: 3, sprite: 'shell' },
-    answer: { kind: 'state', checker: 'set.count', target: { count: 4 } },
-    lastOp: 'drag',
   },
   {
     name: 'number-pad each: 10 for 2',
@@ -409,11 +409,13 @@ describe('MC.fraction-unequal-parts (fractionUnequalParts)', () => {
     const equal = build(pic, { mode: 'fair-or-not', shape: 'circle', den: 4, equalParts: true });
     expect(rule.predict?.(equal)).toBeNull();
   });
-  it('pick: takes the unequal picture with as many parts', () => {
+  it('pick: takes the unequal picture with as many parts, when the set has one', () => {
     const pic = tpl('frac.partition', 'fraction-pick', { tier: 'pictorial' });
-    const item = build(pic, { mode: 'pick', shape: 'rect', den: 2, ask: 'name' });
+    const item = build(pic, { mode: 'pick', shape: 'rect', den: 2, ask: 'name', unequalParts: 2 });
     const id = pick(item, (s) => s.equalParts === false);
     expect(rule.predict?.(item)).toEqual({ kind: 'choice', id });
+    const four = build(pic, { mode: 'pick', shape: 'rect', den: 2, ask: 'name', unequalParts: 4 });
+    expect(rule.predict?.(four)).toBeNull();
     // Asked for the unequal one, the rule cannot tell.
     const asked = build(pic, { mode: 'pick', shape: 'rect', den: 2, ask: 'unequal' });
     expect(rule.predict?.(asked)).toBeNull();

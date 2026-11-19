@@ -1400,7 +1400,7 @@ h.data.find-row:
 h.data.bar-top:
   text: "Look at the top of each bar. Find the number beside it."
 h.data.bar-tops:
-  text: "Look at the tops of the bars. Which one is taller?"
+  text: "Look at the tops of the bars. Compare how tall they are."
 h.data.count-up:
   text: "Count up from the top of the short bar to the top of the tall bar."
 h.data.compare-groups:
@@ -1513,8 +1513,6 @@ gen.div.share.give:
   text: "Give them to the one with fewer."
 gen.div.share.in-turn:
   text: "Give them out one at a time, one to each friend."
-gen.div.share.one-share:
-  text: "One friend gets {each}."
 gen.div.share.make-same:
   text: "Move them one at a time. Stop when both have the same."
 gen.div.share.moves:
@@ -1622,6 +1620,13 @@ fb.number-pad.retry:
   text: "Let's look again. Then tap the number."
 fb.order.retry:
   text: "Find the smallest one first."
+# order retry lines that fit the item (items/check.ts retryFeedback, PR #84 review)
+fb.order.retry-desc:
+  text: "Find the biggest one first."
+fb.order.retry-pattern:
+  text: "Say the pattern. What comes next?"
+fb.order.retry-day:
+  text: "Think about your day. What comes first?"
 fb.tenframe-fill.retry:
   text: "Let's count the frame again. Start at the top."
 fb.number-bond.retry:
@@ -1711,6 +1716,11 @@ h.time.between:
   text: "The short hand is between two numbers. The hour is the one it is after."
 h.time.between-set:
   text: "At half past, the short hand stops between two numbers."
+# true at o'clock and at half past (TIM.04 mixes both, PR #84 review)
+h.time.top-or-bottom:
+  text: "The long hand is at the top at o'clock, and at the bottom at half past."
+h.time.hour-or-half:
+  text: "The short hand is on the hour at o'clock, and between two numbers at half past."
 h.time.just-after:
   text: "Find the number just before the short hand. That is the hour."
 h.time.day-first:
@@ -1718,7 +1728,7 @@ h.time.day-first:
 h.time.day-next:
   text: "What comes next? What comes last?"
 h.time.day-strip:
-  text: "Look at the one in its place. What comes before it?"
+  text: "Look at the one in its place. What goes next to it?"
 h.time.morning-or-night:
   text: "Is the sun up? Is it time for bed?"
 gen.time.clock.long-hand:
@@ -1765,8 +1775,10 @@ p.puzzle.sum-triangle:
   text: "Every side must make {sum}. Fill in the missing numbers."
 h.pattern.say-it:
   text: "Say the pattern out loud. Listen for the part that repeats."
+# Not "what came after the last one before?": in AAB or ABB that unit has been followed by two
+# different units (PR #84 review).
 h.pattern.keep-going:
-  text: "Look at the last one. What came after it before?"
+  text: "Find where the pattern starts again. What comes next from there?"
 h.pattern.find-core:
   text: "Find where the pattern starts again."
 h.pattern.core-same:
@@ -1776,7 +1788,7 @@ h.pattern.grow-look:
 h.pattern.grow-rule:
   text: "Count up from one number to the next."
 h.pattern.grow-same:
-  text: "It grows the same way each time. Do it once more."
+  text: "It grows the same way each time. Do it again and again."
 h.puzzle.path-given:
   text: "Start next to a number you can see."
 h.puzzle.path-step:
@@ -1790,7 +1802,7 @@ h.puzzle.side-one:
 h.puzzle.side-add:
   text: "Add the numbers you see on that side. What more makes the side?"
 h.puzzle.corner-two:
-  text: "A corner is on two sides. Find it, then put it on both."
+  text: "A number in a corner is on two sides. It counts for both."
 h.puzzle.bond-corners:
   text: "The two corners together are one part of the side."
 h.bond.ways-in-order:
@@ -1831,6 +1843,8 @@ gen.puzzle.grid.ways-start:
   text: "Let's start with one in the first part."
 gen.puzzle.grid.ways-next:
   text: "Here is the next way."
+gen.puzzle.grid.ways-rest:
+  text: "Then find the part that makes the whole."
 gen.puzzle.grid.piece:
   text: "Look at the numbers next to the piece."
 gen.puzzle.grid.piece-fill:

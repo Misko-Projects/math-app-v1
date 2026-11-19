@@ -95,6 +95,8 @@ export const fracCompare: GeneratorDef = {
     },
   },
   narration: [
+    // its descending order retry line (items/check.ts retryFeedback)
+    'fb.order.retry-desc',
     'gen.frac.compare.look',
     'gen.frac.compare.bigger',
     'gen.frac.compare.same',

@@ -2,7 +2,13 @@
 // format, exampleCorrect is correct, solutions replay through the models that exist (order,
 // number-pad), feature values at the extremes, validity (accepts), and the chart.values checker.
 
-import type { GeneratedItem, ItemFormat, ItemTemplate, ParamValues } from '@number-island/shared';
+import type {
+  GeneratedItem,
+  ItemFormat,
+  ItemTemplate,
+  ParamValues,
+  StimulusSpec,
+} from '@number-island/shared';
 import { widgetConfigSchema } from '@number-island/shared';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { chartValues } from '../../check/state/chart.values';
@@ -214,12 +220,18 @@ describe('data.chart', () => {
     ).toThrow(GenerationError);
   });
 
-  it('number-pad: the chart is the stimulus', () => {
+  it('number-pad: the picture graph is a scene of rows (StimulusView draws no chart)', () => {
     const t = tpl('data.chart', 'number-pad');
     const item = make(t, { kind: 'picture', categories: 2, a: 8, b: 5, question: 'total' });
     expect(item.answer).toEqual({ kind: 'number', value: 13 });
-    expect((item.widget as { stimulus: { kind: string } }).stimulus.kind).toBe('chart');
+    const s = (item.widget as { stimulus: StimulusSpec }).stimulus;
+    expect(s.kind).toBe('scene');
+    if (s.kind !== 'scene') throw new Error('scene');
+    expect(s.sprites.map((x) => x.count).sort((x, y) => x - y)).toEqual([5, 8]);
     expectSound(item, t);
+    expect(() => make(t, { kind: 'bar', categories: 2, a: 8, b: 5, question: 'total' })).toThrow(
+      GenerationError,
+    );
     expect(() => make(t, { kind: 'picture', categories: 2, a: 8, b: 5, question: 'most' })).toThrow(
       GenerationError,
     );

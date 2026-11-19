@@ -191,6 +191,8 @@ export const meaMassVolume: GeneratorDef = {
     cards: { weight: 0.1, doc: 'shape-sort format feature (03 §5.5): card count − 4' },
   },
   narration: [
+    // its descending order retry line (items/check.ts retryFeedback)
+    'fb.order.retry-desc',
     'gen.mea.massvolume.place-first',
     'gen.mea.massvolume.place-second',
     'gen.mea.massvolume.watch',

@@ -271,6 +271,7 @@ export const puzzleGrid: GeneratorDef = {
     'gen.puzzle.grid.side-fill',
     'gen.puzzle.grid.ways-start',
     'gen.puzzle.grid.ways-next',
+    'gen.puzzle.grid.ways-rest',
     'gen.puzzle.grid.piece',
     'gen.puzzle.grid.piece-fill',
   ],
@@ -576,7 +577,9 @@ export const puzzleGrid: GeneratorDef = {
       say(intro, {}),
       ...blanks.map(({ r, c }) => {
         const value = fill[r]?.[c] as number;
-        return say(each, w.variant === 'all-ways' ? {} : { n: value }, {
+        // All ways: a row is one way, so only its first cell starts the next one (PR #84 review).
+        const line = w.variant === 'all-ways' && c > 0 ? 'gen.puzzle.grid.ways-rest' : each;
+        return say(line, w.variant === 'all-ways' ? {} : { n: value }, {
           op: 'fill',
           args: { r, c, value },
         });

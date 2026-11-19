@@ -172,12 +172,18 @@ describe('time.clock clock-read', () => {
     distractors: [{ rule: 'MC.hour-hand-next' }, { rule: 'MC.hour-minute-swap' }],
   });
 
-  it('offers the hour, the next hour and the long-hand number on the hour pick', () => {
+  it("offers the hour's run of four hours on the hour pick (PR #84 review: not built round the key)", () => {
     const item = build(pick, { h: 2, m: 40 });
     const ids =
       item.widget.format === 'clock-read' ? (item.widget.options ?? []).map((o) => o.id) : [];
     expect(item.answer).toEqual({ kind: 'choice', id: 'opt-2' });
-    expect([...ids].sort()).toEqual(['opt-1', 'opt-2', 'opt-3', 'opt-8']);
+    expect([...ids].sort()).toEqual(['opt-1', 'opt-2', 'opt-3', 'opt-4']);
+    for (const h of [1, 3, 4]) {
+      const other = build(pick, { h, m: 40 });
+      const o =
+        other.widget.format === 'clock-read' ? (other.widget.options ?? []).map((x) => x.id) : [];
+      expect([...o].sort()).toEqual([...ids].sort());
+    }
     const f = itemFeatures(item, pick);
     expect(f['input.pick']).toBe(1);
     expect(f.afterHalf).toBe(1);
@@ -188,21 +194,20 @@ describe('time.clock clock-read', () => {
     });
   });
 
-  it('fills distinct hours round the face, three without distractors', () => {
+  it('runs of three without distractors, of four with them', () => {
     const plain = tpl('time.clock', 'clock-read', {
       params: { input: { kind: 'const', value: 'pick' }, ask: { kind: 'const', value: 'hour' } },
     });
     const item = build(plain, { h: 12, m: 10 });
     const ids =
       item.widget.format === 'clock-read' ? (item.widget.options ?? []).map((o) => o.id) : [];
-    expect([...ids].sort()).toEqual(['opt-1', 'opt-11', 'opt-12']);
+    expect([...ids].sort()).toEqual(['opt-10', 'opt-11', 'opt-12']);
     const swapIsNext = build(pick, { h: 5, m: 30 }); // the long hand on 6 is also the next hour
     const ids2 =
       swapIsNext.widget.format === 'clock-read'
         ? (swapIsNext.widget.options ?? []).map((o) => o.id)
         : [];
-    expect(new Set(ids2).size).toBe(4);
-    expect(ids2).toContain('opt-6');
+    expect([...ids2].sort()).toEqual(['opt-5', 'opt-6', 'opt-7', 'opt-8']);
   });
 
   it('every generated item is valid and deterministic', () => {
@@ -268,10 +273,12 @@ describe('MC.hour-minute-swap and MC.hour-hand-next', () => {
   });
 
   it('swap names the long-hand number on the hour pick, unless it is the next hour', () => {
-    expect(hourMinuteSwap.predict?.(build(pick, { h: 2, m: 40 }))).toEqual({
+    expect(hourMinuteSwap.predict?.(build(pick, { h: 2, m: 20 }))).toEqual({
       kind: 'choice',
-      id: 'opt-8',
+      id: 'opt-4',
     });
+    // 8 is not in the run 1-4, so the pick cannot show the swap.
+    expect(hourMinuteSwap.predict?.(build(pick, { h: 2, m: 40 }))).toBeNull();
     expect(hourMinuteSwap.predict?.(build(pick, { h: 5, m: 30 }))).toBeNull();
     expect(hourMinuteSwap.predict?.(build(pick, { h: 2, m: 10 }))).toBeNull(); // the long hand is on 2
   });

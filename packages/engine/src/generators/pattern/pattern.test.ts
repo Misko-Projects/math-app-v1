@@ -170,7 +170,9 @@ describe('pattern.repeat', () => {
     const order = tpl('pattern.repeat', 'order', 'pictorial', 'objects');
     const extend = tpl('pattern.repeat', 'pattern-extend', 'concrete', 'objects');
     expect(patternRepeat.accepts?.({ core: 'ABB', shown: 4, ask: 2, theme: 0 }, order)).toBe(false);
-    expect(patternRepeat.accepts?.({ core: 'ABB', shown: 3, ask: 2, theme: 0 }, order)).toBe(true);
+    // PR #84 review: more than one whole core comes before the free cards.
+    expect(patternRepeat.accepts?.({ core: 'ABB', shown: 3, ask: 2, theme: 0 }, order)).toBe(false);
+    expect(patternRepeat.accepts?.({ core: 'ABB', shown: 6, ask: 2, theme: 0 }, order)).toBe(true);
     expect(
       patternRepeat.accepts?.({ core: 'ABC', shown: 5, ask: 1, theme: 0, mode: 'core' }, extend),
     ).toBe(false);
