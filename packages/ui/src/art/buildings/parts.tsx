@@ -1,6 +1,6 @@
 import type { CSSProperties, ReactNode } from 'react';
 import type { PaletteColor } from '../../tokens/tokens';
-import { filled, OUTLINE_OF, outline, paint, STROKE } from '../core/paint';
+import { filled, hashSeed, OUTLINE_OF, outline, paint, STROKE, seededRandom } from '../core/paint';
 import { ContactShadow, Highlight } from '../core/Shading';
 import type { BuildingStage } from '../core/types';
 
@@ -962,32 +962,75 @@ export function Rock({ x, y, w = 24, h = 14 }: { x: number; y: number; w?: numbe
 /** How far below the anchor (the footprint's front edge) a water inlet runs: past the beach and lip. */
 export const WATER_EDGE = 30;
 
-/** A strip of water (docks, piers, the ferry, the bridge) opening forward into the sea. */
+/** How far the shallows rim reaches beyond the water, and the most any edge wobbles. */
+const WATER_RIM = 6;
+const WATER_WOBBLE = 3;
+
+/**
+ * A soft pond outline inside a box: a rounded superellipse whose edge swells and dips gently in a
+ * few long, smooth waves (within ±WATER_WOBBLE; the phases come from `seed`, so it is the same on
+ * every load), drawn as a closed smooth spline. Loops with the same seed swell together, so a rim
+ * drawn round a pool keeps an even width. It never leaves the box.
+ */
+function blobLoop(b: { x: number; y: number; w: number; h: number }, seed: number): string {
+  const rnd = seededRandom(seed);
+  const [p2, p3] = [rnd() * 2 * Math.PI, rnd() * 2 * Math.PI];
+  const n = 32;
+  const cx = b.x + b.w / 2;
+  const cy = b.y + b.h / 2;
+  const rx = b.w / 2 - WATER_WOBBLE;
+  const ry = b.h / 2 - WATER_WOBBLE;
+  const pts = Array.from({ length: n }, (_, i) => {
+    const t = (i / n) * 2 * Math.PI;
+    const o = WATER_WOBBLE * (0.6 * Math.sin(2 * t + p2) + 0.4 * Math.sin(3 * t + p3));
+    // Exponent 2.6: rounder than a rectangle, fuller than an ellipse (room for piers and boats).
+    const c = Math.cos(t);
+    const s = Math.sin(t);
+    const px = Math.sign(c) * Math.abs(c) ** (2 / 2.6);
+    const py = Math.sign(s) * Math.abs(s) ** (2 / 2.6);
+    return { x: cx + px * (rx + o), y: cy + py * (ry + o) };
+  });
+  const r1 = (v: number) => Math.round(v * 10) / 10;
+  const at = (i: number) => pts[(i + n) % n] as { x: number; y: number };
+  let d = `M${r1(at(0).x)} ${r1(at(0).y)}`;
+  for (let i = 0; i < n; i++) {
+    const [q0, q1, q2, q3] = [at(i - 1), at(i), at(i + 1), at(i + 2)];
+    d += `C${r1(q1.x + (q2.x - q0.x) / 6)} ${r1(q1.y + (q2.y - q0.y) / 6)} ${r1(q2.x - (q3.x - q1.x) / 6)} ${r1(q2.y - (q3.y - q1.y) / 6)} ${r1(q2.x)} ${r1(q2.y)}`;
+  }
+  return `${d}Z`;
+}
+
+/**
+ * A little cove (docks, piers, the ferry, the bridge): an organic pool of sea with a pale shallows
+ * rim and a broken foam line, the same colours as the island's own shallows halo. It runs from `y`
+ * (behind the footprint's front edge) forward to just short of WATER_EDGE, so on a coast plot it
+ * spills over the beach and the island's lip into the sea's halo and reads as part of the shore;
+ * standalone it is a whole, soft-edged pool. Every edge is a smooth wobbling curve (05 §11: soft
+ * rounded shapes, no straight edges), and the rim stays inside the art box (BUILDING_PAD.water).
+ */
 export function Water({ x, y, w, h }: { x: number; y: number; w: number; h: number }) {
   const foam = loop('shimmer');
-  // An inlet: rounded at the back, it runs forward past the footprint's edge (to WATER_EDGE),
-  // across the beach and the island's lip, so on the map it joins the sea instead of reading as a
-  // pool in the land.
-  const r = Math.min(h / 2, 20);
-  const shape = (o: number) =>
-    `M${x - o} ${WATER_EDGE}V${y - o + r}Q${x - o} ${y - o} ${x - o + r} ${y - o}H${x + w + o - r}Q${x + w + o} ${y - o} ${x + w + o} ${y - o + r}V${WATER_EDGE}`;
-  const n = Math.max(2, Math.round(w / 22));
-  const step = (w + 6) / n;
-  let waves = '';
-  for (let i = 0; i < n; i++) waves += `q${-step / 2} 4 ${-step} 0`;
+  const front = WATER_EDGE - WATER_RIM;
+  const seed = hashSeed(Math.round(x), Math.round(w));
+  const pool = (o: number) =>
+    blobLoop({ x: x - o, y: y - o, w: w + 2 * o, h: front - y + 2 * o }, seed);
+  const body = pool(0);
+  const rim = pool(WATER_RIM);
+  const deep = pool(-Math.min(14, h / 4));
   return (
     <g data-part="water">
-      <path d={`${shape(3)}${waves}Z`} fill={paint('shallows')} />
-      <path d={`${shape(0)}H${x}Z`} fill={paint('sea')} />
+      <path d={rim} fill={paint('shallows')} />
+      <path d={body} fill={paint('sea')} />
+      <path d={deep} fill={paint('sea-deep')} opacity={0.35} />
       <path
-        d={shape(0)}
+        d={body}
         fill="none"
-        stroke={outline('sea')}
-        strokeWidth={STROKE.outline}
-        strokeLinejoin="round"
+        stroke={paint('foam')}
+        strokeWidth={2.5}
         strokeLinecap="round"
+        strokeDasharray="22 7 9 7"
+        opacity={0.9}
       />
-      <path d={`M${x + w + 3} ${WATER_EDGE}${waves}`} {...line('foam', 3)} />
       <path
         className={foam.className}
         style={foam.style}

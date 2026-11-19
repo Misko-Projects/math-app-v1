@@ -2,11 +2,11 @@ import type { Plot } from '@number-island/shared';
 import type { Meta, StoryObj } from '@storybook/react-vite';
 import type { CSSProperties } from 'react';
 import { expect } from 'storybook/test';
+import { CVD_FILTERS } from '../../tokens/cvd';
 import type { Lighting } from '../../tokens/tokens';
 import { ArtSvg } from '../core/ArtSvg';
 import { paint } from '../core/paint';
 import { BUILDING_STAGES, type BuildingStage } from '../core/types';
-import { CvdCompare } from '../gallery/Gallery';
 import { SAMPLE_ISLAND } from '../gallery/sampleIsland';
 import { ISLAND_LAYOUT, landPlots, plotKey, SCENE_H, SCENE_W } from '../island/geometry';
 import { IslandScene } from '../island/IslandScene';
@@ -549,39 +549,69 @@ export const AtSunsetOnTheWater: Story = sunsetPage(page('on-the-water'));
 export const AtSunsetStorehouseAndProjects: Story = sunsetPage(page('storehouse-and-projects'));
 export const AtSunsetHomes: Story = sunsetPage(page('homes'));
 
-/** Where each building sits, front rows drawn last, so nearer buildings overlap farther ones. */
-const TOWN: readonly { id: BuildingArtId; plot: Plot; stage: BuildingStage }[] = [
+/** A building placed on the island map: its footprint's top-left plot and its stage. */
+interface Placed {
+  id: BuildingArtId;
+  plot: Plot;
+  stage: BuildingStage;
+}
+
+/**
+ * The island town by day (05 §3): the road runs through the middle, the tall landmarks stand along
+ * the back, workshops sit either side, and the dock, pier and clock tower's ferry open onto the
+ * sea from coast plots. Every building has room of its own and keeps clear of the road.
+ */
+const TOWN: readonly Placed[] = [
   { id: 'lighthouse', plot: [2, 0], stage: 3 },
-  { id: 'lantern-grove', plot: [4, 0], stage: 2 },
-  { id: 'puzzle-tower', plot: [6, 0], stage: 2 },
-  { id: 'storehouse', plot: [7, 0], stage: 2 },
-  { id: 'rhythm-orchard', plot: [9, 0], stage: 1 },
-  { id: 'reef-house', plot: [11, 1], stage: 1 },
-  { id: 'brick-factory', plot: [2, 2], stage: 1 },
-  { id: 'shell-cottage', plot: [9, 2], stage: 1 },
-  { id: 'treasure-beach', plot: [10, 2], stage: 2 },
-  { id: 'burrow-house', plot: [9, 3], stage: 2 },
-  { id: 'practice-pier', plot: [10, 3], stage: 1 },
-  { id: 'builders-yard', plot: [0, 3], stage: 1 },
-  { id: 'weigh-station', plot: [2, 4], stage: 1 },
-  { id: 'garden-terraces', plot: [9, 4], stage: 2 },
+  { id: 'lantern-grove', plot: [5, 0], stage: 2 },
+  { id: 'rhythm-orchard', plot: [8, 0], stage: 1 },
+  { id: 'shell-cottage', plot: [10, 1], stage: 1 },
+  { id: 'festival-stage', plot: [1, 2], stage: 1 },
+  { id: 'driftwood-hut', plot: [11, 2], stage: 3 },
+  { id: 'garden-terraces', plot: [9, 3], stage: 2 },
   { id: 'clock-tower', plot: [2, 5], stage: 1 },
-  { id: 'festival-stage', plot: [3, 5], stage: 1 },
-  { id: 'bakery', plot: [5, 5], stage: 2 },
-  { id: 'market', plot: [7, 5], stage: 1 },
-  { id: 'road-crew', plot: [5, 6], stage: 'construction' },
+  { id: 'practice-pier', plot: [9, 6], stage: 2 },
+  { id: 'ten-boat-dock', plot: [4, 7], stage: 2 },
+];
+
+/**
+ * The rest of the town at sunset: the other workshops, the Storehouse and the bridge, laid out
+ * round the same road, so together with TOWN every building but the homes stands on the island.
+ */
+const REST_OF_TOWN: readonly Placed[] = [
+  { id: 'weigh-station', plot: [2, 1], stage: 2 },
+  { id: 'puzzle-tower', plot: [5, 0], stage: 2 },
+  { id: 'bakery', plot: [7, 1], stage: 1 },
+  { id: 'brick-factory', plot: [9, 0], stage: 1 },
+  { id: 'builders-yard', plot: [1, 2], stage: 1 },
+  { id: 'storehouse', plot: [9, 3], stage: 2 },
+  { id: 'road-crew', plot: [2, 5], stage: 2 },
   { id: 'east-bridge', plot: [8, 6], stage: 2 },
-  { id: 'ten-boat-dock', plot: [3, 7], stage: 1 },
-  { id: 'driftwood-hut', plot: [6, 7], stage: 2 },
+  { id: 'market', plot: [3, 7], stage: 1 },
+  { id: 'treasure-beach', plot: [5, 7], stage: 1 },
+];
+
+const HOMES: readonly BuildingArtId[] = [
+  'shell-cottage',
+  'driftwood-hut',
+  'burrow-house',
+  'reef-house',
 ];
 
 const TOWN_ISLAND = SAMPLE_ISLAND;
+const TOWN_ROAD = 12;
 
-function bottomRow(t: (typeof TOWN)[number]) {
+/**
+ * Room kept between a building's drawing and the road (stones and trail), in scene units: about
+ * 8 CSS px when the map fills a 1280 × 800 tablet screen (05 §11: nothing hides a road stone).
+ */
+const ROAD_CLEARANCE = 9;
+
+function bottomRow(t: Placed) {
   return t.plot[1] + BUILDING_DESIGN[t.id].footprint[1];
 }
 
-function footprintPlots(t: (typeof TOWN)[number]): Plot[] {
+function footprintPlots(t: Placed): Plot[] {
   const [w, h] = BUILDING_DESIGN[t.id].footprint;
   const out: Plot[] = [];
   for (let dx = 0; dx < w; dx++)
@@ -589,87 +619,311 @@ function footprintPlots(t: (typeof TOWN)[number]): Plot[] {
   return out;
 }
 
-/** The buildings on the island map, placed with plotBox(plot, footprint) by the hub's helper. */
-export const OnTheIsland: Story = {
-  parameters: { ui: { stage: 'flush' } },
-  args: { lighting: 'day' },
-  argTypes: { id: { table: { disable: true } }, stage: { table: { disable: true } } },
-  render: (args) => (
+/** The island with buildings on it, scaled to fit the screen whole (no scrolling). */
+function IslandTown({
+  town,
+  roadLength,
+  lighting,
+  title,
+}: {
+  town: readonly Placed[];
+  roadLength: number;
+  lighting: Lighting;
+  title: string;
+}) {
+  return (
     <div style={{ display: 'grid', placeItems: 'center', minHeight: '100vh' }}>
       <div style={{ width: `min(100vw, calc(100vh * ${SCENE_W / SCENE_H}))` }}>
         <IslandScene
           island={TOWN_ISLAND}
           ringsUnlocked={TOWN_ISLAND.rings.length}
-          roadLength={12}
-          lighting={args.lighting}
-          title="The island town"
+          roadLength={roadLength}
+          lighting={lighting}
+          title={title}
         >
-          {[...TOWN]
+          {/* Back rows first, so nearer buildings are drawn over farther ones. */}
+          {[...town]
             .sort((a, b) => bottomRow(a) - bottomRow(b) || a.plot[0] - b.plot[0])
             .map((t) => (
-              <PlacedBuilding key={t.id} {...t} lighting={args.lighting} />
+              <PlacedBuilding key={t.id} {...t} lighting={lighting} />
             ))}
         </IslandScene>
       </div>
     </div>
-  ),
-  play: async ({ canvasElement }) => {
-    const placed = [...canvasElement.querySelectorAll<SVGGElement>('g[data-building]')];
-    await expect(placed.length).toBe(TOWN.length);
-    const land = new Set(landPlots(TOWN_ISLAND, TOWN_ISLAND.rings.length).map(plotKey));
-    const taken = new Set<string>();
-    for (const t of TOWN) {
-      const plots = footprintPlots(t);
-      for (const p of plots) {
-        await expect(taken.has(plotKey(p)), `${t.id} overlaps another building`).toBe(false);
-        taken.add(plotKey(p));
+  );
+}
+
+interface SceneBox {
+  l: number;
+  t: number;
+  r: number;
+  b: number;
+}
+
+/** The gap between two boxes (0 when they touch or overlap). */
+function gapBetween(a: SceneBox, b: SceneBox): number {
+  const dx = Math.max(a.l - b.r, b.l - a.r, 0);
+  const dy = Math.max(a.t - b.b, b.t - a.b, 0);
+  return Math.hypot(dx, dy);
+}
+
+function intersects(a: SceneBox, b: SceneBox): boolean {
+  return a.l < b.r && b.l < a.r && a.t < b.b && b.t < a.b;
+}
+
+/** Converts on-screen boxes into the island's scene units. */
+function sceneUnits(scene: Element): (r: DOMRect) => SceneBox {
+  const m = (scene.querySelector('[data-layer="on-island"]') as SVGGElement).getScreenCTM();
+  if (!m) throw new Error('the island layer has no screen transform');
+  return (r) => ({
+    l: (r.left - m.e) / m.a,
+    t: (r.top - m.f) / m.d,
+    r: (r.right - m.e) / m.a,
+    b: (r.bottom - m.f) / m.d,
+  });
+}
+
+/** How opaque an element is drawn, its groups' opacity included (up to `top`). */
+function drawnOpacity(el: Element, top: Element): number {
+  let o = 1;
+  for (let n: Element | null = el; n && n !== top; n = n.parentElement) {
+    o *= Number(getComputedStyle(n).opacity);
+  }
+  return o;
+}
+
+/**
+ * Everything each placed building draws, in scene units, over its whole idle loop: every shape
+ * (roofs, flags, smoke puffs, boats, the water) as the box it sweeps while visible. Running
+ * animations are paused and stepped through their loops, then resumed.
+ */
+function buildingShapes(scene: Element): Map<string, SceneBox[]> {
+  const toScene = sceneUnits(scene);
+  const groups = [...scene.querySelectorAll('g[data-building]')];
+  const anims = document.getAnimations().filter((a) => {
+    const target = (a.effect as KeyframeEffect | null)?.target;
+    return target ? groups.some((g) => g.contains(target)) : false;
+  });
+  const saved = anims.map((a) => ({ a, time: a.currentTime, running: a.playState === 'running' }));
+  for (const a of anims) a.pause();
+  const swept = new Map<Element, SceneBox>();
+  const owner = new Map<Element, string>();
+  const STEPS = 16;
+  try {
+    for (let k = 0; k < STEPS; k++) {
+      for (const a of anims) {
+        const d = Number(a.effect?.getComputedTiming().duration) || 0;
+        a.currentTime = (k / STEPS) * d;
       }
-      if (COAST_BUILDINGS.includes(t.id)) {
-        // On the coast: the footprint or the plots just in front of it touch the sea.
-        const below = plots.map((p): Plot => [p[0], p[1] + 1]);
-        const wet = [...plots, ...below].some((p) => !land.has(plotKey(p)));
-        await expect(wet, `${t.id} sits on the coast`).toBe(true);
-        await expect(land.has(plotKey(t.plot)), `${t.id} starts on land`).toBe(true);
-      } else {
-        for (const p of plots) await expect(land.has(plotKey(p)), `${t.id} on land`).toBe(true);
+      for (const g of groups) {
+        for (const el of g.querySelectorAll('*')) {
+          if (el.children.length > 0 || drawnOpacity(el, g) < 0.05) continue;
+          const r = el.getBoundingClientRect();
+          if (r.width === 0 && r.height === 0) continue;
+          const s = toScene(r);
+          const was = swept.get(el);
+          swept.set(
+            el,
+            was
+              ? {
+                  l: Math.min(was.l, s.l),
+                  t: Math.min(was.t, s.t),
+                  r: Math.max(was.r, s.r),
+                  b: Math.max(was.b, s.b),
+                }
+              : s,
+          );
+          owner.set(el, `${g.getAttribute('data-building')}`);
+        }
       }
     }
+  } finally {
+    for (const { a, time, running } of saved) {
+      a.currentTime = time;
+      if (running) a.play();
+    }
+  }
+  const out = new Map<string, SceneBox[]>();
+  for (const [el, box] of swept) {
+    const id = owner.get(el) as string;
+    out.set(id, [...(out.get(id) ?? []), box]);
+  }
+  return out;
+}
+
+/** The whole box of a building's drawing (every shape, effects included). */
+function outerBox(shapes: readonly SceneBox[]): SceneBox {
+  return shapes.reduce((a, s) => ({
+    l: Math.min(a.l, s.l),
+    t: Math.min(a.t, s.t),
+    r: Math.max(a.r, s.r),
+    b: Math.max(a.b, s.b),
+  }));
+}
+
+/**
+ * The road as drawn, in scene units: every stone, bead, pin and signpost as its box, and the trail
+ * as discs (its stroke's half-width) every few units along its centre line.
+ */
+function roadMarks(scene: Element): {
+  boxes: SceneBox[];
+  discs: { x: number; y: number; r: number }[];
+} {
+  const toScene = sceneUnits(scene);
+  const layer = scene.querySelector('[data-layer="road"]') as SVGGElement;
+  const boxes = [...layer.children]
+    .filter((c) => c.tagName.toLowerCase() !== 'path')
+    .map((c) => toScene(c.getBoundingClientRect()));
+  const discs: { x: number; y: number; r: number }[] = [];
+  for (const p of layer.querySelectorAll<SVGPathElement>(':scope > path')) {
+    const r = Number(p.getAttribute('stroke-width')) / 2;
+    const len = p.getTotalLength();
+    for (let s = 0; s <= len; s += 4) {
+      const pt = p.getPointAtLength(s);
+      discs.push({ x: pt.x, y: pt.y, r });
+    }
+  }
+  return { boxes, discs };
+}
+
+/**
+ * The town reads cleanly: no two buildings' drawings (effects included, over their whole loop)
+ * overlap, and no building comes within ROAD_CLEARANCE of a road stone or the trail.
+ */
+async function expectTownClear(scene: Element, count: number) {
+  const shapes = buildingShapes(scene);
+  await expect(shapes.size, 'every building draws something').toBe(count);
+  const road = roadMarks(scene);
+  await expect(road.boxes.length).toBeGreaterThan(0);
+  await expect(road.discs.length).toBeGreaterThan(0);
+  const problems: string[] = [];
+  const outer = [...shapes].map(([id, s]) => ({ id, box: outerBox(s) }));
+  for (let i = 0; i < outer.length; i++) {
+    for (let j = i + 1; j < outer.length; j++) {
+      const a = outer[i] as (typeof outer)[number];
+      const b = outer[j] as (typeof outer)[number];
+      if (intersects(a.box, b.box)) problems.push(`${a.id} overlaps ${b.id}`);
+    }
+  }
+  for (const [id, list] of shapes) {
+    let nearest = Number.POSITIVE_INFINITY;
+    for (const s of list) {
+      for (const b of road.boxes) nearest = Math.min(nearest, gapBetween(s, b));
+      for (const d of road.discs) {
+        const dx = Math.max(s.l - d.x, d.x - s.r, 0);
+        const dy = Math.max(s.t - d.y, d.y - s.b, 0);
+        nearest = Math.min(nearest, Math.hypot(dx, dy) - d.r);
+      }
+    }
+    if (nearest < ROAD_CLEARANCE)
+      problems.push(`${id} is ${nearest.toFixed(1)} units from the road`);
+  }
+  await expect(problems).toEqual([]);
+}
+
+/**
+ * Each building of a town has its own plots on land; a coast building's water opens onto the sea
+ * (its footprint, or the plots just in front of it, touch the sea).
+ */
+async function expectTownPlots(town: readonly Placed[]) {
+  const land = new Set(landPlots(TOWN_ISLAND, TOWN_ISLAND.rings.length).map(plotKey));
+  const taken = new Set<string>();
+  for (const t of town) {
+    const plots = footprintPlots(t);
+    for (const p of plots) {
+      await expect(taken.has(plotKey(p)), `${t.id} overlaps another building`).toBe(false);
+      taken.add(plotKey(p));
+    }
+    if (COAST_BUILDINGS.includes(t.id)) {
+      const below = plots.map((p): Plot => [p[0], p[1] + 1]);
+      const wet = [...plots, ...below].some((p) => !land.has(plotKey(p)));
+      await expect(wet, `${t.id} sits on the coast`).toBe(true);
+      await expect(land.has(plotKey(t.plot)), `${t.id} starts on land`).toBe(true);
+    } else {
+      for (const p of plots) await expect(land.has(plotKey(p)), `${t.id} on land`).toBe(true);
+    }
+  }
+}
+
+const islandStory: Pick<Story, 'parameters' | 'argTypes'> = {
+  parameters: { ui: { stage: 'flush' } },
+  argTypes: { id: { table: { disable: true } }, stage: { table: { disable: true } } },
+};
+
+/**
+ * The buildings on the island map, placed with plotBox(plot, footprint) by the hub's helper: each
+ * on plots of its own, clear of its neighbours and of the road, the water buildings on the coast.
+ */
+export const OnTheIsland: Story = {
+  ...islandStory,
+  args: { lighting: 'day' },
+  render: (args) => (
+    <IslandTown
+      town={TOWN}
+      roadLength={TOWN_ROAD}
+      lighting={args.lighting}
+      title="The island town"
+    />
+  ),
+  play: async ({ canvasElement }) => {
+    await expect(canvasElement.querySelectorAll('g[data-building]').length).toBe(TOWN.length);
+    await expectTownPlots(TOWN);
+    await expectTownClear(canvasElement, TOWN.length);
+    await expectNoSidewaysScroll();
+  },
+};
+
+/** The rest of the town at sunset, round the same road: windows and lanterns lit. */
+export const TheRestOfTheTownAtSunset: Story = {
+  ...islandStory,
+  args: { lighting: 'sunset' },
+  render: (args) => (
+    <IslandTown
+      town={REST_OF_TOWN}
+      roadLength={TOWN_ROAD}
+      lighting={args.lighting}
+      title="The rest of the island town at sunset"
+    />
+  ),
+  play: async ({ canvasElement }) => {
+    // The two island stories together show every building but the homes, each once.
+    const shown = [...TOWN, ...REST_OF_TOWN].map((t) => t.id).filter((id) => !HOMES.includes(id));
+    await expect(new Set(shown).size).toBe(shown.length);
+    await expect([...shown].sort()).toEqual(
+      BUILDING_IDS.filter((id) => !HOMES.includes(id)).sort(),
+    );
+    await expect(canvasElement.querySelectorAll('g[data-building]').length).toBe(
+      REST_OF_TOWN.length,
+    );
+    await expectTownPlots(REST_OF_TOWN);
+    await expectTownClear(canvasElement, REST_OF_TOWN.length);
     await expectNoSidewaysScroll();
   },
 };
 
 /**
  * Buildings beside the next stone (05 §3: buildings sit beside numbered stones; 05 §11: nothing
- * hides a road stone). The road ends at 20, so 21 (on plot 7,5) is next. A bakery stands right in
- * front of it and a tall puzzle tower at its front left, both drawn nearer. The stone stays on top
- * and readable, and its tap target takes the tap everywhere over the stone, roofs included.
+ * hides a road stone). The road ends at 20, so 21 (on plot 7,5) is next. A market stands at its
+ * front left and a cottage is going up right in front of it, both low enough to leave every
+ * stone, the trail and the next stone's ring clear. The stone stays on top and readable, and its
+ * tap target takes the tap everywhere over the stone.
  */
-const NEXT_BESIDE: readonly { id: BuildingArtId; plot: Plot; stage: BuildingStage }[] = [
-  { id: 'puzzle-tower', plot: [6, 6], stage: 2 },
-  { id: 'bakery', plot: [7, 6], stage: 3 },
+const NEXT_BESIDE: readonly Placed[] = [
+  { id: 'market', plot: [5, 6], stage: 1 },
+  { id: 'shell-cottage', plot: [7, 6], stage: 'construction' },
 ];
 const NEXT_BESIDE_ROAD = 20;
 
 export const BesideTheNextStone: Story = {
-  parameters: { ui: { stage: 'flush' } },
+  ...islandStory,
   args: { lighting: 'day' },
-  argTypes: { id: { table: { disable: true } }, stage: { table: { disable: true } } },
   render: (args) => (
-    <div style={{ display: 'grid', placeItems: 'center', minHeight: '100vh' }}>
-      <div style={{ width: `min(100vw, calc(100vh * ${SCENE_W / SCENE_H}))` }}>
-        <IslandScene
-          island={TOWN_ISLAND}
-          ringsUnlocked={TOWN_ISLAND.rings.length}
-          roadLength={NEXT_BESIDE_ROAD}
-          lighting={args.lighting}
-          title="Buildings beside the next stone"
-        >
-          {NEXT_BESIDE.map((t) => (
-            <PlacedBuilding key={t.id} {...t} lighting={args.lighting} />
-          ))}
-        </IslandScene>
-      </div>
-    </div>
+    <IslandTown
+      town={NEXT_BESIDE}
+      roadLength={NEXT_BESIDE_ROAD}
+      lighting={args.lighting}
+      title="Buildings beside the next stone"
+    />
   ),
   play: async ({ canvasElement }) => {
     const next = NEXT_BESIDE_ROAD + 1;
@@ -690,6 +944,8 @@ export const BesideTheNextStone: Story = {
       );
       await expect(beside, `${t.id} beside stone ${next}`).toBe(true);
     }
+    // Clear: no building (smoke and flags included) covers or crowds any stone or the trail.
+    await expectTownClear(canvasElement, NEXT_BESIDE.length);
     // Readable: the stone (and its numeral) is drawn after, so above, every building.
     const numeral = stone?.querySelector('text') as SVGTextElement;
     for (const b of canvasElement.querySelectorAll('g[data-building]')) {
@@ -712,38 +968,98 @@ export const BesideTheNextStone: Story = {
   },
 };
 
+/** The building the colour-vision matrix shows, and its scale (fits 4 rows in one tablet screen). */
+const CVD_BUILDING: BuildingArtId = 'lantern-grove';
+const CVD_SCALE = 0.65;
+const CVD_LABEL_W = 150;
+
 /**
- * 06 §7 colour-vision check: stages differ by silhouette (scaffold, wings, towers, flags), and the
- * sunset glow is a halo shape, so they stay distinct in every column.
+ * 06 §7 colour-vision check: one building's four stages (rows) under each simulation (columns).
+ * Stages differ by silhouette (a roped plot; two trees and a cart; a third tree and a lamp post; a
+ * treehouse and bunting), never by colour alone, so every column still reads all four.
  */
 export const ColourVision: Story = {
-  parameters: { controls: { disable: true } },
+  parameters: { controls: { disable: true }, ui: { stage: 'centered' } },
   render: () => (
-    <CvdCompare col={330}>
-      <div style={{ display: 'grid', gap: 10, justifyItems: 'center' }}>
-        <div style={{ display: 'flex', gap: 6, alignItems: 'flex-end' }}>
-          {BUILDING_STAGES.map((s) => (
-            <BuildingTile
-              key={String(s)}
-              id="shell-cottage"
-              stage={s}
-              lighting="day"
-              scale={0.45}
-            />
-          ))}
-        </div>
-        <div style={{ display: 'flex', gap: 6, alignItems: 'flex-end' }}>
-          {([1, 3] as const).map((s) => (
-            <BuildingTile key={s} id="bakery" stage={s} lighting="day" scale={0.45} />
-          ))}
-        </div>
-        <div style={{ display: 'flex', gap: 6, alignItems: 'flex-end' }}>
-          <BuildingTile id="lantern-grove" stage={2} lighting="day" scale={0.45} />
-          <BuildingTile id="lantern-grove" stage={2} lighting="sunset" scale={0.45} />
-        </div>
+    <section aria-label={`${NAMES[CVD_BUILDING]} under colour-vision simulations`}>
+      <svg width="0" height="0" style={{ position: 'absolute' }} aria-hidden="true">
+        {CVD_FILTERS.filter((f) => f.matrix).map((f) => (
+          <filter key={f.id} id={`art-cvd-${f.id}`}>
+            <feColorMatrix type="matrix" values={f.matrix as string} />
+          </filter>
+        ))}
+      </svg>
+      <h2 className="story-heading" style={{ margin: '0 0 12px', fontSize: '1.3rem' }}>
+        {NAMES[CVD_BUILDING]}: every stage under colour-vision simulations
+      </h2>
+      <div
+        data-cvd-matrix
+        style={{
+          display: 'grid',
+          gridTemplateColumns: `${CVD_LABEL_W}px repeat(${CVD_FILTERS.length}, minmax(0, 1fr))`,
+          gap: 8,
+          alignItems: 'end',
+          justifyItems: 'center',
+          width: `min(${PAGE_ROOM.w}px, 100%)`,
+          padding: CARD_PAD,
+          borderRadius: 24,
+          border: `${CARD_BORDER}px solid var(--color-sand-deep)`,
+          background: 'var(--color-paper)',
+          boxSizing: 'border-box',
+        }}
+      >
+        <span />
+        {CVD_FILTERS.map((f) => (
+          <span key={f.id} className="story-cell__name" data-col={f.id}>
+            {f.name}
+          </span>
+        ))}
+        {BUILDING_STAGES.map((s) => (
+          <div key={String(s)} style={{ display: 'contents' }} data-cvd-row={String(s)}>
+            <span
+              className="story-cell__name"
+              style={{ justifySelf: 'start', alignSelf: 'center', textAlign: 'left' }}
+            >
+              {stageName(s)}
+            </span>
+            {CVD_FILTERS.map((f) => (
+              <div
+                key={f.id}
+                data-cvd={f.id}
+                style={{ filter: f.matrix ? `url(#art-cvd-${f.id})` : undefined }}
+              >
+                <BuildingTile id={CVD_BUILDING} stage={s} lighting="day" scale={CVD_SCALE} />
+              </div>
+            ))}
+          </div>
+        ))}
       </div>
-    </CvdCompare>
+    </section>
   ),
+  play: async ({ canvasElement }) => {
+    // Every stage under every simulation, each at least 120 px wide.
+    for (const s of BUILDING_STAGES) {
+      const row = [
+        ...canvasElement.querySelectorAll<SVGSVGElement>(
+          `[data-cvd-row="${String(s)}"] svg[data-building="${CVD_BUILDING}"]`,
+        ),
+      ];
+      await expect(row.length).toBe(CVD_FILTERS.length);
+      for (const svg of row) {
+        await expect(svg.dataset.stage).toBe(String(s));
+        await expect(svg.getBoundingClientRect().width).toBeGreaterThanOrEqual(120);
+      }
+    }
+    // Stages differ by shape: each adds parts the one before lacks.
+    const parts = (s: BuildingStage) =>
+      canvasElement.querySelectorAll(
+        `[data-cvd="none"] svg[data-stage="${String(s)}"] [data-part="art"] *`,
+      ).length;
+    await expect(parts(2)).toBeGreaterThan(parts(1));
+    await expect(parts(3)).toBeGreaterThan(parts(2));
+    await expectArtInsideBoxes(canvasElement);
+    await expectNoSidewaysScroll();
+  },
 };
 
 /** 06 §7: with reduced motion no idle loop runs (smoke, flags, boats, lanterns, stars). */

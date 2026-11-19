@@ -342,8 +342,17 @@ export function Storehouse({ stage, lit }: DrawProps) {
       ) : null}
       {lv === 3 ? (
         <g>
-          <path d={`M-10 ${yb - 100}V${yb - 118}M-18 ${yb - 112}H-2`} {...stroke('ink', 2.5)} />
-          <path d={`M-2 ${yb - 112}l-4 -3v6z`} {...filled('sunshine', 1.5)} />
+          {/* A fish weathervane: a golden fish on a pole, turning in the sea breeze. */}
+          <g data-part="weathervane">
+            <path d={`M-10 ${yb - 100}V${yb - 117}`} {...stroke('wood-deep', 2.5)} />
+            <circle cx={-10} cy={yb - 103} r={2.6} {...filled('sunshine', 1.5)} />
+            <path
+              d={`M-24 ${yb - 126}L-17 ${yb - 121}L-24 ${yb - 116}Z`}
+              {...filled('sunshine', 1.8)}
+            />
+            <ellipse cx={-8} cy={yb - 121} rx={10} ry={5.5} {...filled('sunshine', 1.8)} />
+            <circle cx={-3} cy={yb - 122} r={1.3} fill={paint('ink')} />
+          </g>
           <Flag x={71} y={yb - 98} h={24} fill="coral" />
           <Bunting x1={-78} y1={yb - 54} x2={56} y2={yb - 54} sag={5} n={10} />
           <Lantern x={-40} y={yb - 22} hang={6} lit={lit} s={0.8} />
