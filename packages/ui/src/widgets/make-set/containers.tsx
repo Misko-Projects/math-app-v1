@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import type { ConfigFor } from '../types';
 
 /**
@@ -427,8 +428,8 @@ export function BundleBand({
 }) {
   const along = vertical ? height : width;
   const across = (vertical ? width : height) / 2;
-  /** The knot's centre: its loops (7.5 px along it with their outline) start 2.5 px past the edge. */
-  const knot = along + edge + 10;
+  /** The knot's centre: the knot (8.5 px along it with its outline) starts 12 px past the edge. */
+  const knot = along + edge + 12 + 8.5;
   /** Where the band starts and how long it is, along it: to the bow, or symmetric in the frame. */
   const start = bow ? -Math.min(8, edge - 2) : -2;
   const length = bow ? knot - start : along + 4;
@@ -482,6 +483,83 @@ export function BundleBand({
           strokeWidth="3"
         />
       ) : null}
+    </svg>
+  );
+}
+
+/** Where the ten objects of a `TenBundle` sit (left, top in px): a sheaf of two packed columns. */
+const BUNDLE_SPOTS: readonly [number, number][] = Array.from({ length: 10 }, (_, i) => {
+  const col = i % 2;
+  const row = Math.floor(i / 2);
+  // Odd rows lean in a little, like a tied sheaf.
+  const lean = row % 2 === 1 ? (col === 0 ? 3 : -3) : 0;
+  return [8 + col * 44 + lean, row * 24] as [number, number];
+});
+
+/**
+ * A tied ten as ONE bundle (one ten-frame at a time, make-set): ten objects packed in a sheaf of
+ * two columns (36 px each, overlapping), a rope band round the middle, and a bow tied on the
+ * front (the same rope and bow as a bundled ten-frame). 96 × 132; it never reads as a frame:
+ * no cells, no outline. `tied={false}`: the same sheaf with no rope (a ten still to be bundled).
+ */
+export function TenBundle({ sprite, tied = true }: { sprite: ReactNode; tied?: boolean }) {
+  const mid = 66;
+  return (
+    <span className="ni-mset__bundle" data-tied={tied ? 'true' : undefined} aria-hidden="true">
+      <span className="ni-mset__bundle-ground" />
+      {BUNDLE_SPOTS.map(([left, top], i) => (
+        // biome-ignore lint/suspicious/noArrayIndexKey: the bundle's spots are positional
+        <span key={i} className="ni-mset__bundle-obj" style={{ left, top }}>
+          {sprite}
+        </span>
+      ))}
+      {tied ? <BundleTie mid={mid} /> : null}
+    </span>
+  );
+}
+
+function BundleTie({ mid }: { mid: number }) {
+  return (
+    <svg
+      className="ni-mset__bundle-tie"
+      viewBox="0 0 96 132"
+      width="96"
+      height="132"
+      aria-hidden="true"
+      focusable="false"
+    >
+      <rect
+        x="2"
+        y={mid - 7}
+        width="92"
+        height="14"
+        rx="7"
+        fill="var(--color-sunshine)"
+        stroke={INK}
+        strokeWidth="3"
+      />
+      {[-1, 1].map((side) => (
+        <ellipse
+          key={side}
+          className="ni-mset__bow"
+          cx={48 + side * 15}
+          cy={mid}
+          rx="12"
+          ry="8"
+          fill="var(--color-sunshine)"
+          stroke={INK}
+          strokeWidth="3"
+        />
+      ))}
+      <circle
+        className="ni-mset__bow"
+        cx="48"
+        cy={mid}
+        r="8"
+        fill="var(--color-sunshine-deep)"
+        stroke={INK}
+        strokeWidth="3"
+      />
     </svg>
   );
 }

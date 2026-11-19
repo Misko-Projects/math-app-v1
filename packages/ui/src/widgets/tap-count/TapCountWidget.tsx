@@ -243,11 +243,11 @@ const BADGE = { w: 76, above: 48, below: 4, clear: 4 } as const;
 const RING_OUT = 2 + 6;
 /**
  * Ordinal badges sit higher, above the selection ring (`.ni-tapc[data-mode="ordinal"]
- * .ni-tapc__mark`): from 66 px above the box to 14 px above it, so a counted object's badge
- * clears its own ring by 6 px. They also clear the ring of a ringed object in the row above
- * (`clear` includes the ring).
+ * .ni-tapc__mark`, a 44 px pebble with a 32 px numeral): from 64 px above the box to 20 px above
+ * it, so a counted object's badge clears its own ring by 12 px. They also clear the ring of a
+ * ringed object in the row above by 12 px (`clear` includes the ring).
  */
-const BADGE_ORDINAL = { w: 76, above: 66, below: -14, clear: 4 + RING_OUT } as const;
+const BADGE_ORDINAL = { w: 76, above: 64, below: -20, clear: 12 + RING_OUT } as const;
 type BadgeFootprint = typeof BADGE | typeof BADGE_ORDINAL;
 
 /**

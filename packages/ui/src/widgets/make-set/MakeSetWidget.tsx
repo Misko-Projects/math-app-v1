@@ -39,6 +39,7 @@ import {
   CONTAINER_PAD_TIGHT,
   ContainerArt,
   type ContainerKind,
+  TenBundle,
 } from './containers';
 import { HEAP_COLS, HEAP_COLS_K, type HeapCell, heapCells, heapRows } from './heap';
 import './make-set.css';
@@ -90,6 +91,8 @@ const PILE_EDGE = 2 * (22 + 3);
 const STACK_HEAP_COLS = SUPPLY_VISIBLE / 2;
 /** A pile's padding (26) and border (3) top and bottom, as in make-set.css. */
 const PILE_EDGE_Y = 2 * (26 + 3);
+/** The supply crate's taller top (44 px padding): its tag sits on the floor, under the rim. */
+const CRATE_TAG_Y = 44 - 26;
 /**
  * A compact pile (short areas, where the normal one shows fewer objects): 6 px padding and the
  * 3 px border on every side (`data-tray="compact"` in make-set.css), so the tray hugs its objects.
@@ -119,14 +122,31 @@ const TENS_H = 5 * TENS_PIECE + 4 * 2 + 2 * (6 + 4);
 /** The tied ten's "10" tag under it (`.ni-mset__tens-tag`: 34 px numeral, 2 px border) and gap. */
 const TENS_TAG = 2 + 34 + 2;
 const TENS_TAG_GAP = 2;
-/** The tied ten with its tag. */
-const BUNDLE_H = TENS_H + TENS_TAG_GAP + TENS_TAG;
 /**
- * Between the shown frame and the small frame beside it: wide enough that an invite ring on either
- * stays ≥ 12 px clear of the other (the frames' count-aloud ring reaches 6 + 5 px out, the small
- * frame's 2 + 5 px; neither pulses).
+ * The tied ten drawn as ONE bundle (containers.tsx `TenBundle`): ten 36 px objects packed in a
+ * sheaf, tied round the middle with the rope band and a bow. 96 × 132.
+ */
+const BUNDLE_ART_H = 132;
+/** The tied ten: the bundle, its "10" tag, and a 10 px strip under the tag for Pip's fingertip. */
+const BUNDLE_H = BUNDLE_ART_H + TENS_TAG_GAP + TENS_TAG + 10;
+/**
+ * Between the shown frame and the thing beside it: the invite rings on both sit inside their own
+ * boxes (make-set.css), so they stay ≥ 12 px clear of each other.
  */
 const TENS_GAP = 24;
+/**
+ * One ten-frame at a time, the frames sit 4 px lower in the tight chrome, so an invite ring on
+ * them or on the thing beside them (drawn inside their boxes) keeps ≥ 12 px below the boat's top
+ * edge (the hull's top is 10 px down; the tight top margin is 18).
+ */
+const ONE_FRAME_TOP = 4;
+/**
+ * A bundled frame's bow sits ≥ 12 px outside its right edge and spans 17 px (the knot, 7 px plus
+ * its outline): with 12 px to the container's edge, a container with groupsOf 10 needs this much
+ * room right of its frames (4 px more: a bundled frame's border is 2 px thicker a side; 8 px more:
+ * a drawn wall, the basket's, lies up to 8 px inside the container's box).
+ */
+const BOW_ROOM = 12 + 17 + 12 + 4 + 8;
 /** The frame's slide when the ten is tied or untied (make-set.css `.ni-mset__frames`). */
 const SLIDE_MS = 320;
 
@@ -199,6 +219,17 @@ interface Flight {
 }
 
 const ID = (i: number): ItemId => `set-${i}`;
+
+/** The "count" cue on Pip's hand: three counting dots in a row. */
+function CountDots() {
+  return (
+    <svg viewBox="0 0 24 24" width="100%" height="100%" aria-hidden="true" focusable="false">
+      {[4, 12, 20].map((cx) => (
+        <circle key={cx} cx={cx} cy="12" r="3.2" fill="var(--color-sea-deep)" />
+      ))}
+    </svg>
+  );
+}
 
 export function MakeSetWidget({
   config,
@@ -589,7 +620,12 @@ export function MakeSetWidget({
     const frameGap = tight ? 4 : 18;
     const shown = oneFrame ? 1 : frames;
     const gridH = shown * (frameH + edge) + (shown - 1) * frameGap;
-    const pad = (tight ? CONTAINER_PAD_TIGHT : CONTAINER_PAD)[kind];
+    const base = (tight ? CONTAINER_PAD_TIGHT : CONTAINER_PAD)[kind];
+    const pad = {
+      ...base,
+      top: base.top + (oneFrame && tight ? ONE_FRAME_TOP : 0),
+      right: config.groupsOf === 10 ? Math.max(base.right, BOW_ROOM) : base.right,
+    };
     const innerH = oneFrame ? Math.max(gridH, BUNDLE_H) : gridH;
     const innerW = frameW + edge + (oneFrame ? TENS_GAP + TENS_W : 0);
     return {
@@ -705,7 +741,8 @@ export function MakeSetWidget({
       const awayH = takeAway
         ? rowsH(Math.max(1, heapRows(awayMost, heapCols).length)) + edgeY + (side ? 0 : AWAY_HEAD)
         : 0;
-      const supplyH = (rows: number) => (showSupply ? rowsH(rows) + edgeY : 0);
+      const supplyH = (rows: number) =>
+        showSupply ? rowsH(rows) + edgeY + (tray === 'compact' ? 0 : CRATE_TAG_Y) : 0;
       const fits = (rows: number) => {
         const s = supplyH(rows);
         const [w, h] =
@@ -903,10 +940,26 @@ export function MakeSetWidget({
             : invitedCheck
               ? '.ni-mset__action .ni-btn.ni-invite'
               : null;
+  /**
+   * What Pip's hand asks for, on its wrist (kit `useInviteHand` cue), so a remove invite never
+   * looks like a count invite on the same thing: "take one out" (an arrow up, out of the
+   * container) or "count" (three counting dots).
+   */
+  const handCue: 'take' | 'count' | null =
+    inviteStep === 'remove' && (invitedItem !== null || invitedTens)
+      ? 'take'
+      : invitedCount || invitedCountTens
+        ? 'count'
+        : null;
   const { hand: inviteHand, rootStyle: handRootStyle } = useInviteHand(
     rootRef,
     (root) => (handTarget ? root.querySelector<HTMLElement>(handTarget) : null),
-    handTarget ?? '',
+    handTarget ? `${handTarget}|${handCue ?? ''}` : '',
+    handCue === null ? undefined : (
+      <span className="ni-mset__cue" data-cue={handCue}>
+        {handCue === 'take' ? <ArrowIcon className="ni-mset__arrow-up" /> : <CountDots />}
+      </span>
+    ),
   );
 
   const renderItem = (
@@ -1015,9 +1068,9 @@ export function MakeSetWidget({
   const tensCounting = counting !== null && beside === 'bundle' && counting === 9;
   const onesCounting = beside === 'ones' && counting !== null && counting >= 10 ? counting : null;
   /**
-   * The ten beside the ones is drawn tied (the rope band) only when it is one: bundled in the model
-   * (groupsOf 10), or in an item with no bundling. A ten the child still has to bundle is a plain
-   * full frame.
+   * The ten beside the ones is drawn tied (the rope band and bow) only when it is one: bundled in
+   * the model (groupsOf 10), or in an item with no bundling. A ten the child still has to bundle is
+   * the same sheaf of ten, untied.
    */
   const tenTied = bundleFirst && (!config.groupsOf || bundles >= 1);
   const tensBeside =
@@ -1040,28 +1093,24 @@ export function MakeSetWidget({
           ...(reduced ? { animation: 'none' } : {}),
         }}
       >
-        <span className="ni-mset__tens-frame">
-          <span className="ni-mset__tens-grid">
-            {Array.from({ length: 10 }, (_, k) => (
-              <span
-                // biome-ignore lint/suspicious/noArrayIndexKey: the small frame's cells are positional
-                key={k}
-                className="ni-mset__tens-cell"
-                data-counting={onesCounting === 10 + k ? 'true' : undefined}
-              >
-                {bundleFirst || k < onesShown ? <ObjectSprite sprite={sprite} /> : null}
-              </span>
-            ))}
+        {bundleFirst ? (
+          <TenBundle sprite={<ObjectSprite sprite={sprite} />} tied={tenTied} />
+        ) : (
+          <span className="ni-mset__tens-frame">
+            <span className="ni-mset__tens-grid">
+              {Array.from({ length: 10 }, (_, k) => (
+                <span
+                  // biome-ignore lint/suspicious/noArrayIndexKey: the small frame's cells are positional
+                  key={k}
+                  className="ni-mset__tens-cell"
+                  data-counting={onesCounting === 10 + k ? 'true' : undefined}
+                >
+                  {k < onesShown ? <ObjectSprite sprite={sprite} /> : null}
+                </span>
+              ))}
+            </span>
           </span>
-          {tenTied ? (
-            <BundleBand
-              width={TENS_W - 2 * (6 + 4)}
-              height={TENS_H - 2 * (6 + 4)}
-              vertical
-              bow={false}
-            />
-          ) : null}
-        </span>
+        )}
         {bundleFirst ? (
           <span className="ni-mset__tens-tag" aria-hidden="true" data-invite-glyph="">
             10

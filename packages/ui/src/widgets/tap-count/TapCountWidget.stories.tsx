@@ -337,7 +337,7 @@ async function expectBadgeNumerals(root: HTMLElement) {
   for (const badge of badges) {
     const size = Number.parseFloat(getComputedStyle(badge).fontSize);
     await expect(size, `badge ${badge.textContent} font-size`).toBeGreaterThanOrEqual(32);
-    await expect(badge.getBoundingClientRect().height).toBeGreaterThanOrEqual(48);
+    await expect(badge.getBoundingClientRect().height).toBeGreaterThanOrEqual(44);
   }
 }
 
@@ -512,10 +512,54 @@ async function expectBadgeClearOfRing(root: HTMLElement, required = true) {
       ring.top - m.bottom,
       m.top - ring.bottom,
     );
-    await expect(gap, `badge ${badge.textContent} clear of its ring`).toBeGreaterThanOrEqual(4);
+    await expect(gap, `badge ${badge.textContent} clear of its ring`).toBeGreaterThanOrEqual(12);
     checked++;
   }
   if (required) await expect(checked, 'a counted, ringed object').toBeGreaterThan(0);
+  await expectBadgesClearOfCard(root);
+}
+
+/**
+ * Every count badge on the row card keeps ≥ 12 px from the card's border (inside it), and from
+ * the selection ring of every ringed object (the ring box: the object's box grown by the
+ * outline's offset and width).
+ */
+async function expectBadgesClearOfCard(root: HTMLElement) {
+  const card = root.querySelector('.ni-tapc__picture') as HTMLElement;
+  const cr = card.getBoundingClientRect();
+  const bw = Number.parseFloat(getComputedStyle(card).borderTopWidth);
+  const inner = {
+    left: cr.left + bw,
+    top: cr.top + bw,
+    right: cr.right - bw,
+    bottom: cr.bottom - bw,
+  };
+  const rings = [...root.querySelectorAll<HTMLElement>('.ni-tapc__obj[data-ringed="true"]')].map(
+    (o) => {
+      const cs = getComputedStyle(o);
+      const out = Number.parseFloat(cs.outlineOffset) + Number.parseFloat(cs.outlineWidth);
+      const b = o.getBoundingClientRect();
+      return { left: b.left - out, top: b.top - out, right: b.right + out, bottom: b.bottom + out };
+    },
+  );
+  for (const badge of root.querySelectorAll<HTMLElement>('.ni-tapc__mark')) {
+    const m = badge.getBoundingClientRect();
+    await expect(
+      m.top - inner.top,
+      `badge ${badge.textContent} under the border`,
+    ).toBeGreaterThanOrEqual(12 - 0.5);
+    for (const ring of rings) {
+      const gap = Math.max(
+        ring.left - m.right,
+        m.left - ring.right,
+        ring.top - m.bottom,
+        m.top - ring.bottom,
+      );
+      await expect(gap, `badge ${badge.textContent} clear of a ring`).toBeGreaterThanOrEqual(
+        12 - 0.5,
+      );
+    }
+  }
 }
 
 /**
@@ -716,6 +760,9 @@ export const DemoOrdinalRing: Story = {
     await expect(obj(root, 6)).toHaveAttribute('data-ringed', 'true');
     await expect(root.querySelectorAll('[data-ringed="true"]')).toHaveLength(1);
     await expect(root.querySelector('.ni-invite')).toBeNull();
+    // At rest: Pip's counting lift on the rung shell has ended.
+    await waitFor(() => expect(root.querySelector('[data-counting="true"]')).toBeNull());
+    await settled(root);
     await expectBadgeClearOfRing(root);
     await expectBadgesOffObjects(root);
     await expectOrdinalFits(root);
