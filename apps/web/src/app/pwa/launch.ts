@@ -4,20 +4,19 @@
 // At launch, before the app renders:
 //   1. Look up the existing registration (no network).
 //   2. If an update is already installed and waiting, and this page is controlled by the old
-//      worker, this launch is the "next launch": ask the waiting worker to take over (the
-//      handshake in ./protocol.ts).
-//      - The worker answers within SKIP_WAITING_ANSWER_MS or never acts on the request (it ignores
-//        requests older than SKIP_WAITING_MAX_AGE_MS), so a page that gave up waiting can render
-//        without a late takeover under it.
-//      - If it declines (other app windows are open) or doesn't answer, the update keeps waiting
-//        and the app starts normally on the current version.
-//      - If it agrees, the page never renders the old build: it reloads once the new worker
-//        controls it, or after TAKEOVER_WAIT_MS at the latest, and the next load runs the new build.
+//      worker, this launch is the "next launch": run the two-phase handshake in ./protocol.ts.
+//      - QUERY; the worker answers READY or DECLINED. Without an answer within
+//        SKIP_WAITING_ANSWER_MS, or with DECLINED (other app windows are open), the page renders
+//        on the current version and never sends GO, so the worker never activates under it.
+//      - On READY the page commits: it sends GO (the only thing that lets the worker activate),
+//        never renders the old build, and reloads once the new worker controls it, or after
+//        TAKEOVER_WAIT_MS at the latest. A tab that committed within the last minute without a
+//        takeover renders normally next time instead of looping.
 //   3. Otherwise render, then register /sw.js. On a first install the worker claims the page, so
 //      offline works without a reload. An update found later, while the app runs, installs and
 //      waits: no reload and no prompt (children never see update UI).
 
-import { SKIP_WAITING_ANSWER_MS, skipWaitingRequest } from './protocol';
+import { SKIP_WAITING_ANSWER_MS, skipWaitingGo, skipWaitingQuery } from './protocol';
 
 /** The parts of `ServiceWorker` the launch logic uses. */
 export interface LaunchWorker {
@@ -50,6 +49,8 @@ export interface LaunchOptions {
   takeoverTimeoutMs?: number;
   /** Clock for the request's timestamp. Default `Date.now`. */
   now?: () => number;
+  /** Where a committed takeover attempt is remembered (this tab). Default `sessionStorage`. */
+  attemptStore?: Pick<Storage, 'getItem' | 'setItem'> | null;
   /** Non-fatal problems (registration failures). Default: console.warn. */
   warn?: (message: string, error: unknown) => void;
   createChannel?: () => MessageChannel;
@@ -59,6 +60,17 @@ export type LaunchOutcome = 'no-service-worker' | 'reloading' | 'started';
 
 export const SW_URL = '/sw.js';
 export const TAKEOVER_WAIT_MS = 15_000;
+const ATTEMPT_KEY = 'number-island.sw-takeover-attempt';
+const RETRY_AFTER_MS = 60_000;
+
+type AttemptStore = Pick<Storage, 'getItem' | 'setItem'>;
+function defaultAttemptStore(): AttemptStore | null {
+  try {
+    return globalThis.sessionStorage ?? null;
+  } catch {
+    return null;
+  }
+}
 
 export type TakeoverResult = 'took-over' | 'agreed-no-takeover' | 'declined' | 'no-answer';
 
@@ -74,6 +86,8 @@ export function activateWaitingWorker(
     takeoverTimeoutMs: number;
     now: () => number;
     createChannel: () => MessageChannel;
+    /** Called just before GO is sent (the page has committed to reloading). */
+    onCommit?: () => void;
   },
 ): Promise<TakeoverResult> {
   return new Promise<TakeoverResult>((resolve) => {
@@ -97,18 +111,21 @@ export function activateWaitingWorker(
     container.addEventListener('controllerchange', onControllerChange);
     timer = setTimeout(() => finish('no-answer'), opts.answerTimeoutMs);
     channel.port1.onmessage = (event: MessageEvent) => {
-      const data = event.data as { activating?: unknown } | null;
-      if (!data || typeof data.activating !== 'boolean') return;
-      if (!data.activating) {
+      // Once finished (the answer timeout fired), the page renders: it must never send GO.
+      if (settled || tookOver) return;
+      const data = event.data as { type?: unknown; ready?: unknown } | null;
+      if (data?.type !== 'SKIP_WAITING_ANSWER' || typeof data.ready !== 'boolean') return;
+      if (!data.ready) {
         finish('declined');
         return;
       }
-      if (tookOver) return;
-      // Agreed: from now on the old build is never rendered.
+      // Commit: from here on the old build is never rendered; only GO lets the worker activate.
       if (timer !== null) clearTimeout(timer);
+      opts.onCommit?.();
+      channel.port1.postMessage(skipWaitingGo());
       timer = setTimeout(() => finish('agreed-no-takeover'), opts.takeoverTimeoutMs);
     };
-    waiting.postMessage(skipWaitingRequest(opts.now()), [channel.port2]);
+    waiting.postMessage(skipWaitingQuery(opts.now()), [channel.port2]);
   });
 }
 
@@ -128,12 +145,25 @@ export async function launchApp(opts: LaunchOptions): Promise<LaunchOutcome> {
     warn('service worker: could not read the registration', e);
   }
   const waiting = registration?.waiting;
-  if (waiting && container.controller) {
+  const now = opts.now ?? (() => Date.now());
+  const marker = opts.attemptStore === undefined ? defaultAttemptStore() : opts.attemptStore;
+  // A takeover this tab committed to moments ago did not happen (the worker never activated):
+  // render on the current version rather than reloading in a loop. The update keeps waiting.
+  const lastAttempt = Number(marker?.getItem(ATTEMPT_KEY) ?? Number.NaN);
+  const recentlyTried = Number.isFinite(lastAttempt) && now() - lastAttempt < RETRY_AFTER_MS;
+  if (waiting && container.controller && !recentlyTried) {
     const result = await activateWaitingWorker(container, waiting, {
       answerTimeoutMs: opts.answerTimeoutMs ?? SKIP_WAITING_ANSWER_MS,
       takeoverTimeoutMs: opts.takeoverTimeoutMs ?? TAKEOVER_WAIT_MS,
-      now: opts.now ?? (() => Date.now()),
+      now,
       createChannel: opts.createChannel ?? (() => new MessageChannel()),
+      onCommit: () => {
+        try {
+          marker?.setItem(ATTEMPT_KEY, String(now()));
+        } catch {
+          // Storage blocked: at worst one more attempt on the next load.
+        }
+      },
     });
     if (result === 'took-over' || result === 'agreed-no-takeover') {
       reload();

@@ -14,7 +14,12 @@ import {
   precacheAndRoute,
 } from 'workbox-precaching';
 import { NavigationRoute, registerRoute } from 'workbox-routing';
-import { decideSkipWaiting } from './app/pwa/protocol';
+import {
+  answerSkipWaiting,
+  isSkipWaitingGo,
+  isSkipWaitingQuery,
+  SKIP_WAITING_GO_WAIT_MS,
+} from './app/pwa/protocol';
 
 declare const self: ServiceWorkerGlobalScope & {
   __WB_MANIFEST: Array<{ url: string; revision: string | null } | string>;
@@ -29,22 +34,33 @@ registerRoute(
 );
 
 // Update flow (06 §8): a new worker activates on the next app launch, never mid-session, so it
-// does not call skipWaiting() on install; it waits. At launch, before the app is in use, the page
-// asks a waiting worker to take over (SKIP_WAITING) and then reloads once. The worker agrees only
-// to a fresh request (a page that gave up waiting has rendered, so its request is stale by then)
-// from the app's only window, because activating also switches every other open window, possibly
-// mid-session. It answers on the message port. See src/app/pwa/protocol.ts.
+// does not call skipWaiting() on install; it waits. At launch, before the page renders, it runs a
+// two-phase handshake with the page (src/app/pwa/protocol.ts): QUERY → READY → GO. The worker
+// activates only on GO, which the page sends only while it has not rendered, committing to a
+// reload. Activating switches every open window, so it also requires the app's only window.
+const appWindows = async () =>
+  (await self.clients.matchAll({ type: 'window', includeUncontrolled: true })).length;
+
 self.addEventListener('message', (event) => {
-  if (decideSkipWaiting(event.data, Date.now(), 0) === null) return;
-  const reply = event.ports[0];
+  const query = event.data;
+  if (!isSkipWaitingQuery(query)) return;
+  const port = event.ports[0];
+  if (!port) return;
   event.waitUntil(
     (async () => {
-      const windows = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
-      // Judged after the window lookup, so slow client enumeration counts against the request.
-      const answer = decideSkipWaiting(event.data, Date.now(), windows.length);
-      if (!answer) return;
-      reply?.postMessage(answer);
-      if (answer.activating) await self.skipWaiting();
+      const answer = answerSkipWaiting(query, Date.now(), await appWindows());
+      port.postMessage(answer);
+      if (!answer.ready) return;
+      const go = await new Promise<boolean>((resolve) => {
+        const timer = setTimeout(() => resolve(false), SKIP_WAITING_GO_WAIT_MS);
+        port.onmessage = (e: MessageEvent) => {
+          if (!isSkipWaitingGo(e.data)) return;
+          clearTimeout(timer);
+          resolve(true);
+        };
+      });
+      port.close();
+      if (go && (await appWindows()) <= 1) await self.skipWaiting();
     })(),
   );
 });
