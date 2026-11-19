@@ -36,6 +36,7 @@
     "db:reset": "pnpm --filter @number-island/api db:reset",
     "db:seed": "pnpm --filter @number-island/api db:seed",
     "preview:full": "pnpm --filter @number-island/web build && pnpm --filter @number-island/api preview",
+    "preview:e2e": "pnpm --filter @number-island/web build && pnpm --filter @number-island/api preview:e2e",
     "bundle-size": "node scripts/bundle-size.mjs",
     "verify": "pnpm content:build && pnpm typecheck && pnpm lint && pnpm content:validate && pnpm test && pnpm build"
   },

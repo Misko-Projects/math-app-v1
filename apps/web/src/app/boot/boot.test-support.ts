@@ -52,11 +52,17 @@ export interface FakeNetwork {
   contentReachable: boolean;
   /** Overrides an asset's body. */
   assets: Record<string, string>;
+  /** Answers for other `/api/*` routes, by path (e.g. `/api/auth/pin`). */
+  api: Record<string, (init: RequestInit | undefined) => Response | Promise<Response>>;
   /** Fields merged into every `/api/sync` answer (e.g. pulled `events`, `more`). */
   syncAnswer: Partial<SyncResponse>;
   /** While set, `/api/sync` answers wait for this promise (an in-flight sync). */
   holdSync: Promise<void> | null;
 }
+
+/** A JSON response, as the API sends it. */
+export const json = (status: number, body: unknown): Response =>
+  new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json' } });
 
 export function fakeNetwork(): FakeNetwork {
   const net: FakeNetwork = {
@@ -65,6 +71,7 @@ export function fakeNetwork(): FakeNetwork {
     apiReachable: true,
     contentReachable: true,
     assets: contentAssets(),
+    api: {},
     syncAnswer: {},
     holdSync: null,
     fetch: async (input, init) => {
@@ -72,6 +79,8 @@ export function fakeNetwork(): FakeNetwork {
       net.urls.push(url);
       if (url.startsWith('/api/')) {
         if (!net.apiReachable) throw new TypeError('Failed to fetch');
+        const handler = net.api[url];
+        if (handler) return handler(init);
         if (url === '/api/sync') {
           const body = syncRequestSchema.parse(JSON.parse(String(init?.body)));
           net.syncRequests.push({

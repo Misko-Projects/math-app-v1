@@ -3,6 +3,7 @@ import { RouterProvider } from 'react-router/dom';
 import { AppProviders } from './AppServices';
 import { BootFailure, BootSplash } from './BootScreens';
 import { type AppServices, type BootError, bootApp } from './boot/boot';
+import { installErrorCapture, recordDiagnostic } from './diagnostics';
 import { router as defaultRouter } from './router';
 
 type BootState =
@@ -27,6 +28,9 @@ export function App({ boot = bootApp, router = defaultRouter }: AppProps) {
     dispose: ReturnType<typeof setTimeout> | null;
   } | null>(null);
 
+  // Uncaught errors go to the local diagnostics log (08 §8), never to a third party.
+  useEffect(() => installErrorCapture(), []);
+
   useEffect(() => {
     if (started.current?.attempt !== attempt) {
       started.current = { attempt, promise: boot(), dispose: null };
@@ -41,6 +45,7 @@ export function App({ boot = bootApp, router = defaultRouter }: AppProps) {
         if (active) setState({ kind: 'ready', services });
       },
       (error: unknown) => {
+        if (active) recordDiagnostic('boot', error);
         if (active) {
           setState({
             kind: 'error',
