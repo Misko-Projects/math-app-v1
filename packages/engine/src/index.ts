@@ -38,6 +38,13 @@ export { type EqualGroupsState, GROUP_CAPACITY, groupsUnknown } from './formats/
 export { type EqualShareState, shareChoices } from './formats/equal-share';
 export { blankIds, type ExpandedFormState } from './formats/expanded-form';
 export {
+  lineLabels,
+  lineSteps,
+  lineTicks,
+  type NumberLinePlaceState,
+  snapPlacement,
+} from './formats/number-line-place';
+export {
   COLUMNS,
   type Column,
   canonicalPieces,

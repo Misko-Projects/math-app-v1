@@ -4,12 +4,14 @@
 import type {
   AnswerSpec,
   ItemFormat,
+  ResponseValue,
   StimulusSpec,
   WidgetAction,
   WidgetConfig,
   WidgetConfigOf,
 } from '@number-island/shared';
 import { describe, expect, it } from 'vitest';
+import { matches } from '../items/check';
 import { dotFlash, stimulusGroups, stimulusQuantity } from './dot-flash';
 import { chartLast, hundredChart } from './hundred-chart';
 import {
@@ -1521,10 +1523,10 @@ describe('hundred-chart', () => {
     ],
     ['fill: partly filled is not submittable', fill, [act('answer', { values: [15] })], null],
     [
-      'fill: hidden cells in config order',
+      'fill: the values are the blanks in reading order (12, then 15), not config order',
       fill,
-      [act('answer', { values: [15, 12] })],
-      { kind: 'numbers', values: [15, 12] },
+      [act('answer', { values: [12, 15] })],
+      { kind: 'numbers', values: [12, 15] },
     ],
     ['pattern: an empty selection is still submittable', pattern, [], values([])],
     [
@@ -1541,6 +1543,21 @@ describe('hundred-chart', () => {
     ],
   ] as const)('%s', (_name, config, ops, expected) => {
     expect(respond(hundredChart, config, [...ops])).toEqual(expected);
+  });
+
+  it('fill: an unsorted hidden list is answered and checked in reading order (03 §5.5)', () => {
+    // The generator's answer for blanks 46, 47, 48 is in reading order, whatever order the
+    // config lists them in; the response the widget builds must match it.
+    const unsorted: WidgetConfigOf<'hundred-chart'> = {
+      ...chartBase,
+      mode: 'fill',
+      hidden: [48, 46, 47],
+    };
+    const r = respond(hundredChart, unsorted, [act('answer', { values: [46, 47, 48] })]);
+    expect(r).toEqual({ kind: 'numbers', values: [46, 47, 48] });
+    const answer: AnswerSpec = { kind: 'numbers', values: [46, 47, 48], ordered: true };
+    expect(matches(answer, r as ResponseValue)).toBe(true);
+    expect(matches(answer, { kind: 'numbers', values: [48, 46, 47] })).toBe(false);
   });
 
   it('records row, column and slide highlights', () => {

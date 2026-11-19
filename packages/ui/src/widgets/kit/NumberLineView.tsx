@@ -1,3 +1,4 @@
+import { lineSteps } from '@number-island/engine';
 import { type ReactNode, useId } from 'react';
 import { pictureProps } from './a11y';
 import './kit.css';
@@ -42,15 +43,12 @@ export function numberLineScale(
   };
 }
 
-/** Values from min to max in steps of `every` (aligned to multiples of `every`), plus the ends. */
+/**
+ * Values from min to max in steps of `every` (multiples of `every`): the engine's `lineSteps`, the
+ * same function the number-line format model snaps to, so drawn ticks and model ticks agree.
+ */
 export function stepsBetween(min: number, max: number, every: number | null): number[] {
-  if (every === null || every <= 0) return [];
-  const out: number[] = [];
-  const first = Math.ceil(min / every) * every;
-  // Integer step counting avoids floating drift (0.1 steps).
-  const n = Math.floor((max - first) / every + 1e-9);
-  for (let i = 0; i <= n && i < 2000; i++) out.push(Number((first + i * every).toFixed(6)));
-  return out;
+  return lineSteps(min, max, every);
 }
 
 export interface NumberLineMark {

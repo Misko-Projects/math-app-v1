@@ -847,3 +847,80 @@ export const LineTenHopsG1Tablet: Story = {
     await expectJumpFits(canvasElement, root, 'g1-up');
   },
 };
+
+// ---------- review round 1 ----------
+
+/** A −5..5 line: start at −1, hop back 2, land on −3. */
+const belowZero: Config = {
+  ...stones,
+  min: -5,
+  max: 5,
+  start: -1,
+  goal: 'subtract',
+  target: -3,
+  allowedJumps: [-2],
+  path: 'line',
+};
+
+const signDemo: WidgetDemo = createDemoController({ strict: true });
+
+/** Review F8: a landing below zero keeps its sign: the demo labels −3 and the answer is −3. */
+export const NegativeLanding: Story = {
+  args: { config: belowZero, tier: 'pictorial', demo: signDemo },
+  play: async ({ canvasElement, args }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    await signDemo.play({ op: 'hop', args: { by: -2 } });
+    await signDemo.play({ op: 'label-landing' });
+    await expect(readout(root)).toHaveTextContent('−3');
+    await userEvent.click(checkBtn(root));
+    await expect(args.onResponse).toHaveBeenCalledWith({
+      kind: 'state',
+      value: { jumps: [-2], value: -3 },
+    });
+  },
+};
+
+const signReduced: WidgetDemo = createDemoController({ strict: true });
+
+/** Review F8 with reduced motion: the instant label keeps the sign too. */
+export const NegativeLandingReducedMotion: Story = {
+  globals: { motion: 'reduced' },
+  args: { config: belowZero, tier: 'pictorial', demo: signReduced },
+  play: async ({ canvasElement }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    await signReduced.play({ op: 'hop', args: { by: -2 } });
+    await signReduced.play({ op: 'label-landing' });
+    await expect(readout(root)).toHaveTextContent('−3');
+  },
+};
+
+/** 0 to 8 with hops of 3 and 4: 6 is reached by 3 + 3 (a first hop of 4 is a dead end). */
+const deadEnd: Config = {
+  ...stones,
+  min: 0,
+  max: 8,
+  start: 0,
+  goal: 'add',
+  target: 6,
+  allowedJumps: [3, 4],
+  path: 'line',
+  thenAsk: null,
+};
+
+const pathInvite: WidgetDemo = createDemoController({ strict: true });
+
+/** Review F9: the answer cue follows a reachable path: hop 3, hop 3, then Check. */
+export const InviteReachablePath: Story = {
+  args: { config: deadEnd, tier: 'pictorial', demo: pathInvite },
+  render: inArea('tablet'),
+  play: async ({ canvasElement }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    pathInvite.invite({ op: 'answer', args: { value: 6 } });
+    await expectInviteOn(root, jump(root, 3));
+    await userEvent.click(jump(root, 3));
+    await expectInviteOn(root, jump(root, 3));
+    await userEvent.click(jump(root, 3));
+    await expectTruthfulRoad(root, deadEnd, 6);
+    await expectInviteOn(root, checkBtn(root));
+  },
+};

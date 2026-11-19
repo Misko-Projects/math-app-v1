@@ -534,6 +534,42 @@ function useBoxSize(ref: RefObject<HTMLElement | null>, fallback: { w: number; h
   return size;
 }
 
+/**
+ * The first hop of a shortest path from `from` to `at` over the allowed hops, staying on the road
+ * (breadth-first search), or null when `at` is unreachable or already there. A greedy "biggest hop
+ * that fits" can walk into a dead end (0 → 4 with hops 3 and 4 never reaches 6; 3 then 3 does).
+ * Ties keep the biggest first hop, so a tens-and-ones bridge still leads with the tens.
+ */
+export function firstHopToward(
+  from: number,
+  at: number,
+  allowed: readonly number[],
+  road: { min: number; max: number },
+): number | null {
+  if (from === at) return null;
+  const hops = [...new Set(allowed)]
+    .filter((b) => b !== 0)
+    .sort((a, b) => Math.abs(b) - Math.abs(a));
+  const first = new Map<number, number>();
+  let frontier = [from];
+  const seen = new Set([from]);
+  while (frontier.length > 0) {
+    const next: number[] = [];
+    for (const p of frontier) {
+      for (const by of hops) {
+        const q = p + by;
+        if (q < road.min || q > road.max || seen.has(q)) continue;
+        seen.add(q);
+        first.set(q, p === from ? by : (first.get(p) as number));
+        if (q === at) return first.get(q) as number;
+        next.push(q);
+      }
+    }
+    frontier = next;
+  }
+  return null;
+}
+
 /** Where an invite points: one pressable control. */
 type Cue =
   | { at: 'hop'; by: number }
@@ -597,6 +633,12 @@ export function NumberLineJumpWidget({
 
   const [hops, setHops] = useState<number[]>([]);
   const [typed, setTyped] = useState('');
+  /**
+   * A landing below zero keeps its sign (a demo types −3, the readout shows −3). The pad has no
+   * minus key yet (it belongs to the shared NumberPad), so only a demo sets it: typed negative
+   * entry is a follow-up (no v1 template asks for a negative landing).
+   */
+  const [negative, setNegative] = useState(false);
   const [highlight, setHighlight] = useState<number | null>(null);
   const [invite, setInvite] = useState<WidgetAction | null>(null);
   const [demoBusy, setDemoBusy] = useState(false);
@@ -689,9 +731,17 @@ export function NumberLineJumpWidget({
   const onKey = (key: PadKey) => {
     if (!interactive) return;
     trace('tap', `key-${key}`);
-    setTyped((prev) => applyPadKey(prev, key, maxDigits));
+    setTyped((prev) => {
+      const next = applyPadKey(prev, key, maxDigits);
+      // An emptied answer loses a demo's minus sign too.
+      if (next === '') setNegative(false);
+      return next;
+    });
   };
-  const typedValue = padValue(typed);
+  const typedValue = (() => {
+    const v = padValue(typed);
+    return v === null ? null : negative ? -v : v;
+  })();
 
   // ---------- check (through the format model) ----------
 
@@ -720,9 +770,12 @@ export function NumberLineJumpWidget({
   };
 
   const typeValue = async (v: number) => {
+    setNegative(v < 0);
     if (reduced) {
       // Reduced motion: the number appears at once (no key-by-key typing).
       setTyped(String(Math.abs(v)));
+      // Let the state commit before the op resolves (a demo play resolves after it).
+      await pause(0);
       return;
     }
     const chars = String(Math.abs(v)).split('') as PadKey[];
@@ -792,15 +845,7 @@ export function NumberLineJumpWidget({
   // ---------- the invite: ONE enabled control, only while the child can act ----------
 
   /** The hop that heads from here toward `at`: the biggest allowed one that does not overshoot. */
-  const hopToward = (at: number): number | null => {
-    const gap = at - position;
-    if (gap === 0) return null;
-    const fits = allowed.filter(
-      (by) => Math.sign(by) === Math.sign(gap) && Math.abs(by) <= Math.abs(gap),
-    );
-    const by = fits.sort((a, b) => Math.abs(b) - Math.abs(a))[0];
-    return by !== undefined && canHop(by) ? by : null;
-  };
+  const hopToward = (at: number): number | null => firstHopToward(position, at, allowed, c);
   /** The control that hops by `by`: its button, or (dial) the step toward that size first. */
   const hopCue = (by: number): Cue => {
     if (plan.hops !== 'dial' || by === dialBy) return { at: 'hop', by };
@@ -812,6 +857,10 @@ export function NumberLineJumpWidget({
     const checkCue: Cue | null = ready ? { at: 'check' } : null;
     const valueCue = (want: number | null): Cue | null => {
       if (c.thenAsk === null) return checkCue;
+      // A value below zero needs a minus the pad does not have yet: cue it only once a demo has
+      // set the sign; never call an answer of the wrong sign complete.
+      if (want !== null && want < 0 !== negative)
+        return want < 0 ? null : { at: 'key', key: 'back' };
       const text = want === null ? null : String(Math.abs(want));
       if (text === null || typed === text) return checkCue;
       if (text.startsWith(typed)) return { at: 'key', key: text[typed.length] as PadKey };
@@ -1164,7 +1213,7 @@ export function NumberLineJumpWidget({
       {c.thenAsk !== null ? (
         <span ref={readoutRef} className="ni-nlj__readout">
           <NumberDisplay
-            value={typed === '' ? null : typed}
+            value={typed === '' ? null : `${negative ? '−' : ''}${typed}`}
             digits={Math.min(2, maxDigits)}
             size={plan.short ? undefined : 'lg'}
             state={interactive && hops.length > 0 ? 'active' : 'idle'}

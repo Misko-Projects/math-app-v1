@@ -613,6 +613,8 @@ export function HundredChartWidget({
       const next = { ...typedRef.current, [cell]: String(value) };
       typedRef.current = next;
       setTyped(next);
+      // Let the state commit before the op resolves (a demo play resolves after it).
+      await pause(0);
       return;
     }
     setActive(cell);
@@ -633,6 +635,8 @@ export function HundredChartWidget({
   const typeAnswer = async (value: number) => {
     if (reduced) {
       setAnswerText(String(value));
+      // Let the state commit before the op resolves (a demo play resolves after it).
+      await pause(0);
       return;
     }
     let text = '';

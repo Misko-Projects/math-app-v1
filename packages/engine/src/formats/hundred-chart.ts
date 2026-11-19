@@ -21,6 +21,11 @@ type Config = WidgetConfigOf<'hundred-chart'>;
 export interface HundredChartState extends FormatState<'hundred-chart'> {
   tapped: number | null;
   selected: number[];
+  /**
+   * The blanks' values in READING order (ascending cell number, 03 §5.5 "hidden cells in reading
+   * order"), whatever order `config.hidden` lists them in: `filled[i]` is the i-th blank read
+   * left to right, top to bottom. `answer {values}` gives them in that order too.
+   */
   filled: (number | null)[];
   highlighted: string | null;
 }

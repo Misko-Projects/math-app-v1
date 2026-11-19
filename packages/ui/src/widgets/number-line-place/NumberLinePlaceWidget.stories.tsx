@@ -1,3 +1,4 @@
+import { lineTicks } from '@number-island/engine';
 import type { WidgetConfig } from '@number-island/shared';
 import type { Meta, StoryObj } from '@storybook/react-vite';
 import { expect, fn, userEvent, waitFor, within } from 'storybook/test';
@@ -349,6 +350,88 @@ export const BenchmarksK: Story = {
       ) as SVGGElement;
       await expect(Number(g.querySelector('line')?.getAttribute('x1'))).toBeCloseTo(s.x(b), 2);
     }
+  },
+};
+
+/** A tens line that snaps to its ticks: 0 to 100 by tens, target 10. */
+const tensSnap: Config = { ...tens, target: 10, snap: 'tick' };
+
+/**
+ * Review F5: the raw value snaps, not a rounded one. 5.25 is nearer 10 than 0 on a tens line (a
+ * value rounded to 5 first would tie and snap down to 0). By tap, then by drag.
+ */
+export const SnapRawTapAndDrag: Story = {
+  args: { config: tensSnap },
+  play: async ({ canvasElement, args }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    const s = scaleOf(root, tensSnap);
+    const stage = stageOf(root).getBoundingClientRect();
+    // A pixel point whose value is 5.25 on this line (x for 5.25, then back to its value).
+    const x = stage.left + s.x(5.25);
+    await expect(s.value(x - stage.left)).toBeCloseTo(5.25, 6);
+    tapAt(strip(root), { x, y: stage.top + s.lineY - 60 });
+    await waitFor(() => expect(placedValue(root)).toBe(10));
+    // Move it away, then drag it back so its pin lands on 5.25.
+    tapAt(strip(root), linePoint(root, tensSnap, 50));
+    await waitFor(() => expect(placedValue(root)).toBe(50));
+    const pinOffset = (() => {
+      const m = marker(root).getBoundingClientRect();
+      const pin = (root.querySelector('.ni-nlp__pin') as HTMLElement).getBoundingClientRect();
+      return {
+        dx: m.left + m.width / 2 - (pin.left + pin.width / 2),
+        dy: m.top + m.height / 2 - pin.bottom,
+      };
+    })();
+    await pointerDrag(
+      marker(root),
+      { x: x + pinOffset.dx, y: stage.top + s.lineY + pinOffset.dy },
+      'mouse',
+    );
+    await waitFor(() => expect(placedValue(root)).toBe(10));
+    await expectTruthfulLine(root, tensSnap);
+    await userEvent.click(checkBtn(root));
+    await expect(args.onResponse).toHaveBeenCalledWith({ kind: 'placement', value: 10 });
+  },
+};
+
+/** 0.07 to 0.10 by hundredths: the floating-point first tick (0.07 / 0.01 = 7.000000000000001). */
+const smallSteps: Config = {
+  ...place,
+  min: 0.07,
+  max: 0.1,
+  ticksEvery: 0.01,
+  labelsEvery: 0.01,
+  target: 0.08,
+};
+
+/** Review F6: the line draws exactly the model's ticks, 0.07 included. */
+export const SharedTicks: Story = {
+  args: { config: smallSteps },
+  play: async ({ canvasElement }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    const s = scaleOf(root, smallSteps);
+    const drawn = [...root.querySelectorAll<SVGLineElement>('.ni-numberline__tick')].map((l) =>
+      Number(s.value(Number(l.getAttribute('x1'))).toFixed(6)),
+    );
+    await expect(drawn).toEqual(lineTicks(smallSteps));
+    await expect(drawn[0]).toBe(0.07);
+    await expect(within(root).getByText('0.07')).toBeInTheDocument();
+    await expectTruthfulLine(root, smallSteps);
+  },
+};
+
+/** Review F7: read on 0 to 1 by tenths; ".5" is typed as 0.5 (the leading "0." counts). */
+export const ReadTenths: Story = {
+  args: {
+    config: { ...read, min: 0, max: 1, ticksEvery: 0.1, labelsEvery: 0.5, target: 0.5 },
+  },
+  play: async ({ canvasElement, args }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    await userEvent.click(root.querySelector('.ni-pad__key[data-key="."]') as HTMLElement);
+    await userEvent.click(root.querySelector('.ni-pad__key[data-key="5"]') as HTMLElement);
+    await expect(root.querySelector('.ni-nlp__readout')).toHaveTextContent('0.5');
+    await userEvent.click(checkBtn(root));
+    await expect(args.onResponse).toHaveBeenCalledWith({ kind: 'number', value: 0.5 });
   },
 };
 

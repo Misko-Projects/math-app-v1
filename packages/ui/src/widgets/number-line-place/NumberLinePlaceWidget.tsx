@@ -287,14 +287,27 @@ function roundTo(v: number, step: number) {
 /** Where a drop at `at` lands, through the format model (snapping and clamping live there). */
 function landing(c: Config, at: number): number {
   if (!MODEL) return at;
-  const free = roundTo(at, resolution(c));
-  const s = MODEL.apply(MODEL.initialState({ ...c, mode: 'place' }), {
-    op: 'drop',
-    args: { at: free },
-  });
-  const r = MODEL.toResponse(s);
-  return r?.kind === 'placement' ? r.value : free;
+  // Snap the RAW value: rounding first could move it across the halfway point between two ticks
+  // (5.25 on a line by tens would round to 5, a tie, and snap down to 0 instead of up to 10). A
+  // free placement (no snapping) is rounded to the line's resolution after the model clamps it.
+  const drop = (v: number) => {
+    const st = MODEL.apply(MODEL.initialState({ ...c, mode: 'place' }), {
+      op: 'drop',
+      args: { at: v },
+    });
+    const r = MODEL.toResponse(st);
+    return r?.kind === 'placement' ? r.value : v;
+  };
+  if (c.snap === 'tick' && c.ticksEvery !== null) return drop(at);
+  return drop(roundTo(drop(at), resolution(c)));
 }
+
+/** Decimal places of a number as written (0.25 → 2), at 6-decimal precision. */
+const decimalsOf = (v: number) => {
+  const text = String(Number(v.toFixed(6)));
+  const i = text.indexOf('.');
+  return i < 0 ? 0 : text.length - i - 1;
+};
 
 /** Numbers drawn on an upright line: an even stride, so the pattern stays regular. */
 function verticalLabels(c: Config, geo: LineGeo): number[] {
@@ -604,9 +617,17 @@ export function NumberLinePlaceWidget({
 
   // ---------- read and closer answers ----------
 
+  // Whole-number digits (a leading "0" of "0.5" counts as one: the pad counts it) plus the
+  // decimal places the line is written in (its spacing, its numbers; hundredths with valueScale 100).
+  const shownOf = (v: number) => v / c.valueScale;
   const maxDigits =
-    String(Math.trunc(Math.max(Math.abs(c.min), Math.abs(c.max)) / c.valueScale)).length +
-    (c.valueScale === 100 ? 2 : 0);
+    String(Math.trunc(Math.max(Math.abs(shownOf(c.min)), Math.abs(shownOf(c.max))))).length +
+    Math.max(
+      c.valueScale === 100 ? 2 : 0,
+      ...[c.ticksEvery, c.labelsEvery, c.min, c.max, c.target]
+        .filter((x): x is number => x !== null)
+        .map((x) => decimalsOf(shownOf(x))),
+    );
   const allowDecimal =
     c.valueScale === 100 || [c.ticksEvery, c.labelsEvery].some((x) => x !== null && x % 1 !== 0);
   const typedValue = (() => {
@@ -675,6 +696,8 @@ export function NumberLinePlaceWidget({
       const shownNow = showValue(v);
       setNegative(shownNow < 0);
       setTyped(String(Math.abs(Number(shownNow.toFixed(2)))));
+      // Let the state commit before the op resolves (a demo play resolves after it).
+      await pause(0);
       return;
     }
     const shown = showValue(v);

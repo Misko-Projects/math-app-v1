@@ -38,15 +38,25 @@ export interface NumberLinePlaceState extends FormatState<'number-line-place'> {
 
 const round6 = (v: number) => Number(v.toFixed(6));
 
-/** Ticks drawn on the line: multiples of `ticksEvery` inside [min, max] (as the kit draws them). */
-export function lineTicks(c: Config): number[] {
-  const every = c.ticksEvery;
-  if (every === null || every <= 0) return [];
-  const first = Math.ceil(round6(c.min / every)) * every;
-  const n = Math.floor((c.max - first) / every + 1e-9);
+/**
+ * The multiples of `every` inside [min, max], ascending, at 6-decimal precision: THE tick and
+ * label positions of a number line. The model and the kit's `NumberLineView` (through
+ * `stepsBetween`) both use this one function, so a drawn tick is always a tick the model snaps
+ * to. The first multiple is found from the quotient rounded to 6 decimals, so 0.07 / 0.01
+ * (7.000000000000001 in floating point) still starts the line at 0.07.
+ */
+export function lineSteps(min: number, max: number, every: number | null): number[] {
+  if (every === null || !(every > 0)) return [];
+  const first = round6(Math.ceil(round6(min / every)) * every);
+  const n = Math.floor(round6((max - first) / every) + 1e-9);
   const out: number[] = [];
   for (let i = 0; i <= n && i < 2000; i++) out.push(round6(first + i * every));
   return out;
+}
+
+/** Ticks drawn on the line: multiples of `ticksEvery` inside [min, max] (as the kit draws them). */
+export function lineTicks(c: Config): number[] {
+  return lineSteps(c.min, c.max, c.ticksEvery);
 }
 
 /**
@@ -54,13 +64,7 @@ export function lineTicks(c: Config): number[] {
  * with `labelsEvery: null` still shows where it starts and ends).
  */
 export function lineLabels(c: Config): number[] {
-  const out = new Set<number>([c.min, c.max]);
-  const every = c.labelsEvery;
-  if (every !== null && every > 0) {
-    const first = Math.ceil(round6(c.min / every)) * every;
-    const n = Math.floor((c.max - first) / every + 1e-9);
-    for (let i = 0; i <= n && i < 2000; i++) out.add(round6(first + i * every));
-  }
+  const out = new Set<number>([c.min, c.max, ...lineSteps(c.min, c.max, c.labelsEvery)]);
   return [...out].sort((a, b) => a - b);
 }
 

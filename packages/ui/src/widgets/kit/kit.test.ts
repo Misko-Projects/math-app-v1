@@ -1,3 +1,4 @@
+import { lineTicks } from '@number-island/engine';
 import type { ObjectSet } from '@number-island/shared';
 import { describe, expect, it } from 'vitest';
 import {
@@ -149,6 +150,12 @@ describe('number line steps', () => {
     expect(stepsBetween(0, 1, 0.1)).toHaveLength(11);
     expect(stepsBetween(0, 1, 0.1).at(-1)).toBe(1);
     expect(stepsBetween(0, 10, null)).toEqual([]);
+    // 0.07 / 0.01 is 7.000000000000001 in floating point: the line still starts at 0.07, and the
+    // kit draws exactly the ticks the number-line model snaps to.
+    expect(stepsBetween(0.07, 0.1, 0.01)).toEqual([0.07, 0.08, 0.09, 0.1]);
+    expect(stepsBetween(0.07, 0.1, 0.01)).toEqual(
+      lineTicks({ min: 0.07, max: 0.1, ticksEvery: 0.01 } as Parameters<typeof lineTicks>[0]),
+    );
   });
 
   it('numberLineViewScale matches the view: end padding for the widest numeral', () => {
