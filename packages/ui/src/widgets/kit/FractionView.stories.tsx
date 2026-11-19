@@ -46,13 +46,20 @@ const GALLERY: Fraction[] = [
   pic('loaf', 3, 0, false),
 ];
 
+/**
+ * As many columns as fit (each card is at most 262 px: a 200 px picture in the stimulus card), so
+ * the gallery wraps inside any viewport instead of running off its right edge.
+ */
 function Gallery() {
   return (
     <div
+      className="kit-fraction-gallery"
       style={{
         display: 'grid',
-        gridTemplateColumns: 'repeat(5, 230px)',
+        gridTemplateColumns: 'repeat(auto-fill, minmax(270px, 1fr))',
         gap: 20,
+        width: '100%',
+        boxSizing: 'border-box',
         alignItems: 'center',
         justifyItems: 'center',
       }}
@@ -70,10 +77,71 @@ function Gallery() {
   );
 }
 
+/** Margin every card keeps from the edges of the viewport (or of the frame it is drawn in), px. */
+const EDGE = 8;
+
+/**
+ * Every picture card lies fully inside the viewport with EDGE px to spare, or inside `frame` (the
+ * stage content box at a given viewport, already 40 px in from its edges), and nothing scrolls
+ * sideways.
+ */
+async function expectCardsInside(canvasElement: HTMLElement, frame?: HTMLElement) {
+  const margin = frame ? 0 : EDGE;
+  const box = frame?.getBoundingClientRect() ?? {
+    left: 0,
+    right: document.documentElement.clientWidth,
+  };
+  const cards = [...canvasElement.querySelectorAll<HTMLElement>('.kit-fraction-cell .ni-stimulus')];
+  await expect(cards.length).toBeGreaterThan(0);
+  for (const [i, card] of cards.entries()) {
+    const r = card.getBoundingClientRect();
+    await expect(r.left, `card ${i} left`).toBeGreaterThanOrEqual(box.left + margin);
+    await expect(r.right, `card ${i} right`).toBeLessThanOrEqual(box.right - margin);
+  }
+  if (frame) {
+    await expect(frame.scrollWidth, 'the frame does not scroll across').toBeLessThanOrEqual(
+      frame.clientWidth + 1,
+    );
+    return;
+  }
+  const root = document.documentElement;
+  await expect(root.scrollWidth, 'the page does not scroll across').toBeLessThanOrEqual(
+    root.clientWidth + 1,
+  );
+}
+
+const frameOf = (canvasElement: HTMLElement) =>
+  canvasElement.querySelector('.kit-fraction-frame') as HTMLElement;
+
+/** The tablet viewport (1280 × 800): the gallery wraps, every card fully visible. */
+export const PicturesAt1280: Story = {
+  render: atViewport(1280),
+  play: async ({ canvasElement }) => expectCardsInside(canvasElement, frameOf(canvasElement)),
+};
+
+/** The desktop viewport (1440 × 900): the same. */
+export const PicturesAt1440: Story = {
+  render: atViewport(1440),
+  play: async ({ canvasElement }) => expectCardsInside(canvasElement, frameOf(canvasElement)),
+};
+
+/**
+ * The gallery as the padded story stage lays it out at a viewport `vw` px wide (40 px padding
+ * each side), whatever viewport the story runs in.
+ */
+function atViewport(vw: number) {
+  return () => (
+    <div className="kit-fraction-frame" style={{ width: vw - 80, maxWidth: 'none' }}>
+      <Gallery />
+    </div>
+  );
+}
+
 /** The gallery: each picture measures true (part count, equal or not, filled count, outlines). */
 export const Pictures: Story = {
   render: () => <Gallery />,
   play: async ({ canvasElement }) => {
+    await expectCardsInside(canvasElement);
     const cells = [...canvasElement.querySelectorAll<HTMLElement>('.kit-fraction-cell')];
     await expect(cells).toHaveLength(GALLERY.length);
     for (const cell of cells) {
@@ -101,18 +169,23 @@ export const Pictures: Story = {
   },
 };
 
-/** The pictures frac.compare's order items show: strips of 2, 3, 4, 6 and 8 with one part filled. */
-export const CompareStrips: Story = {
-  render: () => (
-    <div style={{ display: 'grid', gap: 16 }}>
+function Strips() {
+  return (
+    <div style={{ display: 'grid', gap: 16, justifyItems: 'start', maxWidth: '100%' }}>
       {[2, 3, 4, 6, 8].map((d) => (
-        <div key={d} className="kit-fraction-cell" data-parts={d}>
+        <div key={d} className="kit-fraction-cell" data-parts={d} style={{ maxWidth: '100%' }}>
           <StimulusView spec={pic('bar', d, 1)} maxWidth={420} maxHeight={90} />
         </div>
       ))}
     </div>
-  ),
+  );
+}
+
+/** The pictures frac.compare's order items show: strips of 2, 3, 4, 6 and 8 with one part filled. */
+export const CompareStrips: Story = {
+  render: () => <Strips />,
   play: async ({ canvasElement }) => {
+    await expectCardsInside(canvasElement);
     const cells = [...canvasElement.querySelectorAll<HTMLElement>('.kit-fraction-cell')];
     // Same whole: every strip is drawn the same width, so one part of each compares by eye.
     const widths = cells.map((c) =>
@@ -121,6 +194,24 @@ export const CompareStrips: Story = {
     await expect(new Set(widths).size).toBe(1);
     for (const c of cells) {
       await expectEqualShares(measuredShares(c), Number(c.dataset.parts));
+    }
+  },
+};
+
+/** The strips at the tablet (1280) and desktop (1440) viewports: fully visible, no side scroll. */
+export const CompareStripsAt1280And1440: Story = {
+  render: () => (
+    <div style={{ display: 'grid', gap: 24 }}>
+      {[1280, 1440].map((vw) => (
+        <div key={vw} className="kit-fraction-frame" data-vw={vw} style={{ width: vw - 80 }}>
+          <Strips />
+        </div>
+      ))}
+    </div>
+  ),
+  play: async ({ canvasElement }) => {
+    for (const frame of canvasElement.querySelectorAll<HTMLElement>('.kit-fraction-frame')) {
+      await expectCardsInside(frame, frame);
     }
   },
 };
