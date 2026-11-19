@@ -5,8 +5,13 @@
 // - `start()` appends `session.started` with `budgetMinutes = min(sessionMinutes, cap left)`.
 // - Active time counts only while the page is visible. A checkpoint of it is saved to
 //   localStorage every 15 s (and whenever the page hides), so a session that never ended (the tab
-//   was closed, the tablet died) is closed at the next boot as `abandoned` with that time. A
-//   running session holds a Web Lock, so another tab of the same browser never closes it.
+//   was closed, the tablet died) is closed at the next boot as `abandoned` with that time.
+// - Tabs of one browser share the device, its log and the checkpoints. One device-wide Web Lock,
+//   `ni.play`, is held while a session runs, so only one tab plays at a time. Starting in a second
+//   tab asks the playing tab to yield: that tab ends its session (`child-exit`), writing the end
+//   before it lets go, so the new tab's budget counts that play. Closing abandoned sessions also
+//   takes the lock and reads the log only once it holds it, so it never ends a live session and
+//   never writes a second end.
 // - The daily cap counts each session once, on the local day it started (./time.ts).
 // - The wind-down signal fires once when the budget is used (`wind-down`), the daily cap is
 //   reached (`daily-cap`) or quiet hours begin (`quiet-hours`). The screen in charge (later the
@@ -29,6 +34,8 @@ export type SessionTrigger = EventPayloads['session.started']['trigger'];
 export type CanStartResult =
   | { ok: true; budgetMinutes: number }
   | { ok: false; reason: BlockedReason };
+/** Why `start()` refused: a blocked time, or another tab kept playing (it didn't yield in time). */
+export type StartRefusal = BlockedReason | 'elsewhere';
 
 export interface ActiveSession {
   sessionId: string;
@@ -62,15 +69,15 @@ export interface PageVisibility {
 export type CheckpointStorage = Pick<Storage, 'getItem' | 'setItem' | 'removeItem'>;
 
 /**
- * Cross-tab ownership of a running session. Tabs of one browser profile share the device id and
- * the checkpoints, so without it a second tab would close the first tab's live session as
- * abandoned. The browser releases a held lock when its tab closes or crashes.
+ * Exclusive locks shared by the tabs of one browser profile (Web Locks). The browser releases a
+ * held lock when its tab closes or crashes.
  */
 export interface SessionLocks {
-  /** Takes the lock `name` and resolves once it is held, with the function that releases it. */
-  hold(name: string): Promise<() => void>;
-  /** True while some tab of this browser profile holds `name`. */
-  isHeld(name: string): Promise<boolean>;
+  /**
+   * Takes the lock `name`: at once if it is free (`waitMs` 0), or waiting up to `waitMs`.
+   * Resolves with the function that releases it, or null when it wasn't taken.
+   */
+  acquire(name: string, waitMs: number): Promise<(() => void) | null>;
 }
 
 /** `navigator.locks` (Web Locks API) as SessionLocks; null where the browser lacks it. */
@@ -78,23 +85,54 @@ export function webLocks(): SessionLocks | null {
   const locks = typeof navigator === 'undefined' ? undefined : navigator.locks;
   if (!locks) return null;
   return {
-    hold(name) {
-      return new Promise<() => void>((resolveHeld, rejectHeld) => {
+    acquire(name, waitMs) {
+      return new Promise<(() => void) | null>((resolve, reject) => {
         let release: () => void = () => {};
         const released = new Promise<void>((r) => {
           release = r;
         });
+        const abort = waitMs > 0 ? new AbortController() : null;
+        const timer = abort ? setTimeout(() => abort.abort(), waitMs) : null;
+        const options: LockOptions = abort ? { signal: abort.signal } : { ifAvailable: true };
         locks
-          .request(name, () => {
-            resolveHeld(release);
+          .request(name, options, (lock) => {
+            if (timer !== null) clearTimeout(timer);
+            if (!lock) {
+              resolve(null);
+              return undefined;
+            }
+            resolve(release);
             return released;
           })
-          .catch(rejectHeld);
+          .catch((e: unknown) => {
+            if (timer !== null) clearTimeout(timer);
+            if (e instanceof DOMException && e.name === 'AbortError') resolve(null);
+            else reject(e);
+          });
       });
     },
-    async isHeld(name) {
-      const snapshot = await locks.query();
-      return (snapshot.held ?? []).some((lock) => lock.name === name);
+  };
+}
+
+/** Asks the tab that is playing to end its session (`BroadcastChannel`), injectable for tests. */
+export interface SessionBus {
+  /** Tells the other tabs that this one wants to play. */
+  askToYield(): void;
+  /** Calls `onYield` when another tab wants to play. Returns the unsubscribe. */
+  subscribe(onYield: () => void): () => void;
+}
+
+export function broadcastBus(): SessionBus | null {
+  if (typeof BroadcastChannel === 'undefined') return null;
+  const channel = new BroadcastChannel('ni.session');
+  return {
+    askToYield: () => channel.postMessage({ type: 'yield' }),
+    subscribe(onYield) {
+      const listener = (e: MessageEvent) => {
+        if ((e.data as { type?: unknown } | null)?.type === 'yield') onYield();
+      };
+      channel.addEventListener('message', listener);
+      return () => channel.removeEventListener('message', listener);
     },
   };
 }
@@ -114,8 +152,12 @@ export interface SessionControllerOptions {
   visibility?: PageVisibility;
   /** Where activity checkpoints go. Default `localStorage` (null: none). */
   storage?: CheckpointStorage | null;
-  /** Cross-tab session ownership. Default `webLocks()` (null: none, as in browsers without it). */
+  /** Cross-tab play lock. Default `webLocks()` (null: none, as in browsers without it). */
   locks?: SessionLocks | null;
+  /** Cross-tab "please yield" messages. Default `broadcastBus()` (null: none). */
+  bus?: SessionBus | null;
+  /** How long a start waits for the playing tab to yield. Default YIELD_WAIT_MS. */
+  yieldWaitMs?: number;
   newId?: () => string;
   /** How often the clock is checked against the budget, cap and quiet hours. */
   tickMs?: number;
@@ -131,8 +173,10 @@ export const CHECKPOINT_MS = 15_000;
 /** Less than a minute of the daily cap left counts as reached: no 20-second sessions. */
 export const MIN_SESSION_MINUTES = 1;
 export const CHECKPOINT_PREFIX = 'ni.session.';
-/** Web Lock name prefix: `ni.session.<sessionId>` is held while that session runs in some tab. */
-export const SESSION_LOCK_PREFIX = 'ni.session.';
+/** The device-wide Web Lock held while a session runs in some tab (one player per device). */
+export const PLAY_LOCK = 'ni.play';
+/** How long a start waits for another tab to end its session after asking it to yield. */
+export const YIELD_WAIT_MS = 3_000;
 
 export function documentVisibility(): PageVisibility {
   return {
@@ -146,6 +190,16 @@ export function documentVisibility(): PageVisibility {
         window.removeEventListener('pagehide', onChange);
       };
     },
+  };
+}
+
+/** `fn` that runs at most once (a lock released twice would be harmless, but explicit is clearer). */
+function once(fn: () => void): () => void {
+  let done = false;
+  return () => {
+    if (done) return;
+    done = true;
+    fn();
   };
 }
 
@@ -176,8 +230,18 @@ interface Running {
   playedBefore: { day: string; ms: number };
   tick: unknown;
   unsubscribeVisibility: () => void;
-  /** Releases this session's cross-tab lock (a no-op without locks). */
+  unsubscribeBus: () => void;
+  /** Releases the device's play lock (a no-op without locks). */
   releaseLock: () => void;
+}
+
+interface Plan {
+  result: CanStartResult;
+  quietHours: Running['quietHours'];
+  timeZone: string;
+  capMs: number | null;
+  budgetIsCap: boolean;
+  playedToday: { day: string; ms: number };
 }
 
 export class SessionController {
@@ -187,6 +251,8 @@ export class SessionController {
   readonly #visibility: PageVisibility;
   readonly #storage: CheckpointStorage | null;
   readonly #locks: SessionLocks | null;
+  readonly #bus: SessionBus | null;
+  readonly #yieldWaitMs: number;
   readonly #newId: () => string;
   readonly #tickMs: number;
   readonly #checkpointMs: number;
@@ -205,6 +271,8 @@ export class SessionController {
     this.#visibility = opts.visibility ?? documentVisibility();
     this.#storage = opts.storage === undefined ? defaultStorage() : opts.storage;
     this.#locks = opts.locks === undefined ? webLocks() : opts.locks;
+    this.#bus = opts.bus === undefined ? broadcastBus() : opts.bus;
+    this.#yieldWaitMs = opts.yieldWaitMs ?? YIELD_WAIT_MS;
     this.#newId = opts.newId ?? defaultNewId;
     this.#tickMs = opts.tickMs ?? SESSION_TICK_MS;
     this.#checkpointMs = opts.checkpointMs ?? CHECKPOINT_MS;
@@ -250,20 +318,33 @@ export class SessionController {
   /**
    * Starts a session for `childId` (ending another child's running session as `child-exit`
    * first). Resolves with the session, or with the reason it may not start. Starting the child
-   * whose session is already running returns that session.
+   * whose session is already running returns that session. A session running in another tab is
+   * asked to end first; if it doesn't within `yieldWaitMs`, the start is refused (`elsewhere`).
    */
   start(
     childId: ChildId,
     trigger: SessionTrigger = 'child',
-  ): Promise<{ ok: true; session: ActiveSession } | { ok: false; reason: BlockedReason }> {
+  ): Promise<{ ok: true; session: ActiveSession } | { ok: false; reason: StartRefusal }> {
     return this.#serial(async () => {
       const current = this.#running;
       if (current && sameId(current.session.childId, childId) && current.windDown === null) {
         return { ok: true as const, session: current.session };
       }
       if (current) await this.#end(current.windDown ?? 'child-exit');
-      const plan = await this.#plan(childId);
-      if (!plan.result.ok) return plan.result;
+      // The play lock first: the plan below then sees every other tab's play, ended and written.
+      const releaseLock = await this.#takePlayLock();
+      if (!releaseLock) return { ok: false as const, reason: 'elsewhere' as const };
+      let plan: Plan;
+      try {
+        plan = await this.#plan(childId);
+      } catch (e) {
+        releaseLock();
+        throw e;
+      }
+      if (!plan.result.ok) {
+        releaseLock();
+        return plan.result;
+      }
       const now = this.#now();
       const session: ActiveSession = {
         sessionId: this.#newId(),
@@ -272,8 +353,6 @@ export class SessionController {
         trigger,
         startedAt: now,
       };
-      // Held before the start is written, so no other tab ever sees this session unowned.
-      const releaseLock = await this.#holdLock(session.sessionId);
       try {
         await this.#store.append(
           'session.started',
@@ -304,10 +383,17 @@ export class SessionController {
         playedBefore: plan.playedToday,
         tick: null,
         unsubscribeVisibility: () => {},
+        unsubscribeBus: () => {},
         releaseLock,
       };
       this.#running = running;
       running.unsubscribeVisibility = this.#visibility.subscribe(() => this.#onVisibility());
+      // Another tab wants to play: end this session (its end is written before the lock goes).
+      running.unsubscribeBus =
+        this.#bus?.subscribe(() => {
+          if (this.#running !== running) return;
+          void this.end('child-exit').catch((e) => this.#onError('session.yield', e));
+        }) ?? (() => {});
       running.tick = this.#timers.setInterval(() => this.#tick(), this.#tickMs);
       this.#saveCheckpoint(running);
       this.#publish();
@@ -315,14 +401,7 @@ export class SessionController {
     });
   }
 
-  async #plan(childId: ChildId): Promise<{
-    result: CanStartResult;
-    quietHours: Running['quietHours'];
-    timeZone: string;
-    capMs: number | null;
-    budgetIsCap: boolean;
-    playedToday: { day: string; ms: number };
-  }> {
+  async #plan(childId: ChildId): Promise<Plan> {
     const [family, child, events] = await Promise.all([
       this.#store.familySettings(),
       this.#store.childSettings(childId),
@@ -421,43 +500,60 @@ export class SessionController {
    * Closes this device's sessions that started but never ended (a closed tab, a dead battery):
    * each gets `session.ended` with reason `abandoned` and the last saved checkpoint (else 0).
    * The running session is left alone. Returns how many were closed.
+   *
+   * It runs holding the play lock and reads the log only then: no other tab is playing, and any
+   * session another tab ended is already in the log. While another tab plays, nothing is closed
+   * (the next sweep, at the next picker visit or boot, tries again).
    */
   closeAbandoned(): Promise<number> {
     return this.#serial(async () => {
-      const [events, device] = await Promise.all([this.#store.events(), this.#store.device()]);
-      const ended = new Set<string>();
-      for (const e of events) if (isEventOf(e, 'session.ended')) ended.add(e.payload.sessionId);
-      let closed = 0;
-      for (const e of events) {
-        if (!isEventOf(e, 'session.started') || !sameId(e.deviceId, device.deviceId)) continue;
-        const { sessionId } = e.payload;
-        if (ended.has(sessionId) || this.#running?.session.sessionId === sessionId) continue;
-        // Another tab of this browser is still playing it: not abandoned.
-        if (await this.#lockHeldElsewhere(sessionId)) continue;
-        ended.add(sessionId);
-        const cp = this.#readCheckpoint(sessionId);
-        const activeMs = Math.round(cp?.activeMs ?? 0);
-        try {
-          await this.#store.append(
-            'session.ended',
-            {
-              sessionId,
-              reason: 'abandoned',
-              activeMs,
-              mathMs: Math.round(Math.min(cp?.mathMs ?? 0, activeMs)),
-              items: cp?.items ?? 0,
-            },
-            { childId: e.childId },
-          );
-          closed += 1;
-          this.#removeCheckpoint(sessionId);
-        } catch (err) {
-          // A deleted child's session can't be closed (and no longer matters); others retry later.
-          this.#onError('session.abandoned', err);
-        }
+      // A running session here means this controller already holds the play lock.
+      let release: (() => void) | null = () => {};
+      if (!this.#running) release = await this.#tryPlayLock();
+      if (!release) return 0;
+      try {
+        return await this.#closeAbandoned();
+      } finally {
+        release();
       }
-      return closed;
     });
+  }
+
+  async #closeAbandoned(): Promise<number> {
+    const [events, device] = await Promise.all([this.#store.events(), this.#store.device()]);
+    const ended = new Set<string>();
+    for (const e of events) {
+      if (isEventOf(e, 'session.ended')) ended.add(e.payload.sessionId.toLowerCase());
+    }
+    let closed = 0;
+    for (const e of events) {
+      if (!isEventOf(e, 'session.started') || !sameId(e.deviceId, device.deviceId)) continue;
+      const { sessionId } = e.payload;
+      const key = sessionId.toLowerCase();
+      if (ended.has(key) || this.#running?.session.sessionId === sessionId) continue;
+      ended.add(key);
+      const cp = this.#readCheckpoint(sessionId);
+      const activeMs = Math.round(cp?.activeMs ?? 0);
+      try {
+        await this.#store.append(
+          'session.ended',
+          {
+            sessionId,
+            reason: 'abandoned',
+            activeMs,
+            mathMs: Math.round(Math.min(cp?.mathMs ?? 0, activeMs)),
+            items: cp?.items ?? 0,
+          },
+          { childId: e.childId },
+        );
+        closed += 1;
+        this.#removeCheckpoint(sessionId);
+      } catch (err) {
+        // A deleted child's session can't be closed (and no longer matters); others retry later.
+        this.#onError('session.abandoned', err);
+      }
+    }
+    return closed;
   }
 
   /** Stops the clock without ending the session (app teardown); the checkpoint stays. */
@@ -478,31 +574,35 @@ export class SessionController {
 
   // ---------- internals ----------
 
-  /** Takes the session's cross-tab lock; without locks (or if taking it fails) a no-op release. */
-  async #holdLock(sessionId: string): Promise<() => void> {
+  /**
+   * Takes the play lock to start a session. If another tab holds it, asks that tab to yield and
+   * waits up to `yieldWaitMs`. Null when it stays taken. Without locks, or if the lock API fails,
+   * a no-op release (play goes on; cross-tab exclusivity is lost, never the child's session).
+   */
+  async #takePlayLock(): Promise<(() => void) | null> {
     if (!this.#locks) return () => {};
     try {
-      const release = await this.#locks.hold(SESSION_LOCK_PREFIX + sessionId);
-      let done = false;
-      return () => {
-        if (done) return;
-        done = true;
-        release();
-      };
+      let release = await this.#locks.acquire(PLAY_LOCK, 0);
+      if (!release) {
+        this.#bus?.askToYield();
+        release = await this.#locks.acquire(PLAY_LOCK, this.#yieldWaitMs);
+      }
+      return release ? once(release) : null;
     } catch (e) {
       this.#onError('session.lock', e);
       return () => {};
     }
   }
 
-  /** Whether another tab holds `sessionId`'s lock. If the check fails, assume it does (retry later). */
-  async #lockHeldElsewhere(sessionId: string): Promise<boolean> {
-    if (!this.#locks) return false;
+  /** The play lock if it is free now (for closing abandoned sessions); null if not, or on error. */
+  async #tryPlayLock(): Promise<(() => void) | null> {
+    if (!this.#locks) return () => {};
     try {
-      return await this.#locks.isHeld(SESSION_LOCK_PREFIX + sessionId);
+      const release = await this.#locks.acquire(PLAY_LOCK, 0);
+      return release ? once(release) : null;
     } catch (e) {
       this.#onError('session.lock', e);
-      return true;
+      return null;
     }
   }
 
@@ -523,6 +623,7 @@ export class SessionController {
   #stopTracking(r: Running): void {
     r.visibleSince = null;
     r.unsubscribeVisibility();
+    r.unsubscribeBus();
     if (r.tick !== null) this.#timers.clearInterval(r.tick);
     r.tick = null;
   }

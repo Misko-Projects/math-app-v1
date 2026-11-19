@@ -20,6 +20,8 @@ import {
   CHECKPOINT_PREFIX,
   type CheckpointStorage,
   type PageVisibility,
+  PLAY_LOCK,
+  type SessionBus,
   SessionController,
   type SessionLocks,
   type SessionTimers,
@@ -72,16 +74,52 @@ function fakeVisibility() {
 /** Web Locks shared by the controllers of one test, like tabs of one browser profile. */
 function fakeLocks() {
   const held = new Set<string>();
+  const waiters = new Map<string, Array<() => void>>();
+  const take = (name: string) => {
+    held.add(name);
+    return () => {
+      held.delete(name);
+      waiters.get(name)?.shift()?.();
+    };
+  };
   const locks: SessionLocks = {
-    async hold(name) {
-      held.add(name);
-      return () => void held.delete(name);
-    },
-    async isHeld(name) {
-      return held.has(name);
+    acquire(name, waitMs) {
+      if (!held.has(name)) return Promise.resolve(take(name));
+      if (waitMs === 0) return Promise.resolve(null);
+      return new Promise((resolve) => {
+        const queue = waiters.get(name) ?? [];
+        waiters.set(name, queue);
+        const grant = () => {
+          clearTimeout(timer);
+          resolve(take(name));
+        };
+        const timer = setTimeout(() => {
+          queue.splice(queue.indexOf(grant), 1);
+          resolve(null);
+        }, waitMs);
+        queue.push(grant);
+      });
     },
   };
   return { locks, held };
+}
+
+/** BroadcastChannel stand-in: each controller gets its own end; a message reaches the others. */
+function fakeBusNet() {
+  const ends: Set<() => void>[] = [];
+  return (): SessionBus => {
+    const mine = new Set<() => void>();
+    ends.push(mine);
+    return {
+      askToYield: () => {
+        for (const end of ends) if (end !== mine) for (const f of [...end]) f();
+      },
+      subscribe(onYield) {
+        mine.add(onYield);
+        return () => mine.delete(onYield);
+      },
+    };
+  };
 }
 
 function memoryStorage(): CheckpointStorage & { map: Map<string, string> } {
@@ -102,7 +140,12 @@ afterEach(() => {
 });
 
 async function setup(
-  opts: { child?: Partial<ChildSettings>; timezone?: string; locks?: SessionLocks } = {},
+  opts: {
+    child?: Partial<ChildSettings>;
+    timezone?: string;
+    locks?: SessionLocks;
+    bus?: () => SessionBus;
+  } = {},
 ) {
   const env = testEnv();
   const store = await env.open();
@@ -122,13 +165,16 @@ async function setup(
   const timers = fakeTimers();
   const vis = fakeVisibility();
   const storage = memoryStorage();
-  const make = () => {
+  const make = (o: { yields?: boolean } = {}) => {
     const c = new SessionController({
       store,
       timers: timers.timers,
       visibility: vis.visibility,
       storage,
       locks: opts.locks ?? null,
+      // A tab that never yields (frozen, or an old build) gets a dead bus end.
+      bus: opts.bus && o.yields !== false ? opts.bus() : null,
+      yieldWaitMs: 100,
     });
     controllers.push(c);
     return c;
@@ -499,6 +545,56 @@ describe('SessionController', () => {
       s.controller.dispose(); // the tab closed: the browser releases its lock
       expect(held.size).toBe(0);
       expect(await s.make().closeAbandoned()).toBe(1);
+    });
+
+    it('two sweeps racing over a crashed session write one end in total', async () => {
+      const { locks } = fakeLocks();
+      const s = await setup({ locks });
+      await s.controller.start(CHILD_K);
+      s.advance(16_000);
+      s.controller.dispose(); // crashed: the lock is gone, no end written
+      const [b, c] = [s.make(), s.make()];
+      const closed = await Promise.all([b.closeAbandoned(), c.closeAbandoned()]);
+      expect(closed[0] + closed[1]).toBe(1);
+      expect(await b.closeAbandoned()).toBe(0);
+      expect(await c.closeAbandoned()).toBe(0);
+      const ends = (await s.sessionEvents()).filter((e) => e.type === 'session.ended');
+      expect(ends).toHaveLength(1);
+    });
+
+    it('a second tab starting the same child counts the first tab’s play: one player, one budget', async () => {
+      const { locks, held } = fakeLocks();
+      const s = await setup({
+        child: { dailyCapMinutes: 10, sessionMinutes: 10 },
+        locks,
+        bus: fakeBusNet(),
+      });
+      const tabA = s.controller;
+      const tabB = s.make();
+      await tabA.start(CHILD_K);
+      for (let t = 0; t < 5 * MIN; t += 15_000) s.advance(15_000); // five minutes in tab A
+      const started = await tabB.start(CHILD_K);
+      // Tab A yielded: its session ended (child-exit, with its five minutes) before B planned.
+      expect(tabA.getSnapshot()).toEqual({ status: 'idle' });
+      const ends = (await s.sessionEvents()).filter((e) => e.type === 'session.ended');
+      expect(ends).toHaveLength(1);
+      expect(ends[0]?.payload).toMatchObject({ reason: 'child-exit', activeMs: 5 * MIN });
+      expect(started).toMatchObject({ ok: true, session: { budgetMinutes: 5 } });
+      expect(held.has(PLAY_LOCK)).toBe(true);
+      await tabB.end('child-exit');
+      expect(held.size).toBe(0);
+    });
+
+    it('refuses a start while another tab plays and doesn’t yield (elsewhere)', async () => {
+      const { locks } = fakeLocks();
+      const s = await setup({ locks, bus: fakeBusNet() });
+      const frozen = s.make({ yields: false });
+      await frozen.start(CHILD_K);
+      const tabB = s.make();
+      expect(await tabB.start(CHILD_G2)).toEqual({ ok: false, reason: 'elsewhere' });
+      expect(tabB.getSnapshot()).toEqual({ status: 'idle' });
+      const started = (await s.sessionEvents()).filter((e) => e.type === 'session.started');
+      expect(started).toHaveLength(1);
     });
 
     it('charges a session recovered the next morning to the evening it was played', async () => {

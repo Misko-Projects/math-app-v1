@@ -108,6 +108,12 @@ function PickerScreen() {
         if (!mounted.current) return;
         if (result.ok) {
           navigate(`/play/${child.id}`);
+        } else if (result.reason === 'elsewhere') {
+          // Another window kept playing (it didn't yield in time): back to the picker, nothing
+          // started. A tap tries again.
+          recordDiagnostic('picker.start', new Error('another window is still playing'));
+          setSelected(null);
+          setPhase({ kind: 'pick' });
         } else {
           setSelected(null);
           setPhase({ kind: 'resting', reason: result.reason });
