@@ -15,7 +15,9 @@ import {
   expectHandTouchesOnlyInvited,
   expectOneInviteRing,
   outlineBox,
+  recordEvidence,
   settleFocus,
+  visibleBox,
 } from '../../test-support/evidence';
 import {
   center,
@@ -76,6 +78,17 @@ const order: Config = {
   ],
   ask: 'order',
   aligned: false,
+};
+
+/**
+ * MEA.07.t1 seed 7 lined up (`aligned: true`, every offset 0): the same three ropes, all from the
+ * start line, for the area and invite stories (evidence review: ropes start at the line unless
+ * the item says `aligned: false`).
+ */
+const orderAligned: Config = {
+  ...order,
+  objects: order.objects.map((o) => ({ ...o, offset: 0 })),
+  aligned: true,
 };
 
 /** MEA.01.t4 seed 3 (pictorial): longest first. */
@@ -157,6 +170,45 @@ async function expectToScale(root: HTMLElement, config: Config) {
 }
 
 /**
+ * Every ring (picked or invited) lies 6+ px inside its lane and encloses the whole drawing, 6+ px
+ * between the inner edge of its stroke and the drawing on every side (evidence review: a log
+ * poked out of its ring). Returns the ring.
+ */
+async function expectRingsAround(root: HTMLElement) {
+  const rings = [...root.querySelectorAll<HTMLElement>('.ni-clen__ring')];
+  await expect(rings.length, 'rings').toBeGreaterThan(0);
+  let inLane = Number.POSITIVE_INFINITY;
+  let pad = Number.POSITIVE_INFINITY;
+  for (const ring of rings) {
+    const l = (ring.closest('.ni-clen__lane') as HTMLElement).getBoundingClientRect();
+    const r = ring.getBoundingClientRect();
+    const cs = getComputedStyle(ring);
+    const outline = cs.outlineStyle === 'none' ? 0 : Number.parseFloat(cs.outlineWidth) || 0;
+    const stroke = Math.max(Number.parseFloat(cs.borderTopWidth) || 0, outline);
+    await expect(stroke, 'a thick ring').toBeGreaterThanOrEqual(4);
+    const a = (
+      (ring.closest('.ni-clen__art') as HTMLElement).querySelector('svg.ni-len') as SVGSVGElement
+    ).getBoundingClientRect();
+    const i = Math.min(r.left - l.left, r.top - l.top, l.right - r.right, l.bottom - r.bottom);
+    const p = Math.min(
+      a.left - (r.left + stroke),
+      a.top - (r.top + stroke),
+      r.right - stroke - a.right,
+      r.bottom - stroke - a.bottom,
+    );
+    await expect(i, 'ring 6+ px inside its lane').toBeGreaterThanOrEqual(5.5);
+    await expect(p, 'drawing 6+ px inside the ring').toBeGreaterThanOrEqual(5.5);
+    inLane = Math.min(inLane, i);
+    pad = Math.min(pad, p);
+  }
+  recordEvidence(root, { ring_in_lane: Math.round(inLane), ring_pad: Math.round(pad) });
+  console.info(
+    `[ring] ${Math.round(inLane)} px inside the lane; drawing ${Math.round(pad)} px inside the stroke`,
+  );
+  return rings[0] as HTMLElement;
+}
+
+/**
  * K concrete (MEA.01.t1): the short ribbon starts 2 units past the line. Drag it to the line to
  * line it up (touch), then tap the longer one (it says its name). Both drawn to scale.
  */
@@ -209,10 +261,8 @@ export const LongerSlideToLineK: Story = {
       ).getBoundingClientRect().height;
       await expect(band / laneH, `${id} ribbon thickness`).toBeGreaterThanOrEqual(0.55);
     }
-    // The pick ring on the longer ribbon stays right of the dashed start line.
-    const ring = (root.querySelector('.ni-clen__ring') as HTMLElement).getBoundingClientRect();
-    const startLine = (root.querySelector('.ni-clen__line') as HTMLElement).getBoundingClientRect();
-    await expect(ring.left, 'ring clear of the start line').toBeGreaterThan(startLine.right);
+    // The pick ring encloses the whole ribbon, inside its lane.
+    await expectRingsAround(root);
   },
 };
 
@@ -263,8 +313,9 @@ export const ShorterPictorial: Story = {
   play: async ({ canvasElement, args }) => {
     const root = await findWidget(canvasElement, ROOT);
     await expectToScale(root, shorter);
-    await expect(root.querySelector('.ni-clen__floor')).not.toBeNull();
+    await expect(root.querySelector('.ni-clen__ticks')).not.toBeNull();
     await userEvent.click(obj(root, 'obj-1'));
+    await expectRingsAround(root);
     await userEvent.click(within(root).getByRole('button', { name: 'Check' }));
     await expect(args.onResponse).toHaveBeenCalledWith({ kind: 'choice', id: 'obj-1' });
   },
@@ -276,10 +327,34 @@ const lanePad = (root: HTMLElement, id: string) =>
   root.querySelector(`[data-lane="${id}"] > .ni-clen__pad`) as HTMLElement;
 
 /**
- * MEA.07.t1 (concrete, K): shortest first. Badge 1 by touch drag, badge 2 by tap-then-tap, badge
+ * Order (evidence review): each lane's badge slot (or badge) is 12+ px clear of the start line
+ * and of its rope; ropes are smooth with a knot at each end (no repeating mark along them).
+ */
+async function expectOrderLanes(root: HTMLElement) {
+  const startLine = visibleBox(root.querySelector('.ni-clen__line') as HTMLElement);
+  let least = Number.POSITIVE_INFINITY;
+  for (const laneEl of root.querySelectorAll<HTMLElement>('.ni-clen__lane')) {
+    const spot = laneEl.querySelector('.ni-clen__slot, .ni-clen__badge') as HTMLElement;
+    const rope = laneEl.querySelector('svg.ni-len') as SVGSVGElement;
+    const s = spot.getBoundingClientRect();
+    const toLine = startLine.left - s.right;
+    const toRope = rope.getBoundingClientRect().left - s.right;
+    await expect(toLine, 'badge slot clear of the start line').toBeGreaterThanOrEqual(12);
+    await expect(toRope, 'badge slot clear of the rope').toBeGreaterThanOrEqual(12);
+    least = Math.min(least, toLine, toRope);
+    await expect(laneEl.querySelectorAll('.ni-len__rope-knot')).toHaveLength(2);
+  }
+  await expect(root.querySelector('.ni-len__rope-twist')).toBeNull();
+  recordEvidence(root, { slot_to_line_rope: Math.round(least) });
+  console.info(`[order] badge slot to the start line / rope: ${Math.round(least)} px`);
+}
+
+/**
+ * MEA.07.t1 (concrete, K), the generated item as it is (`aligned: false`: the 2-unit rope starts
+ * 3 units past the line): shortest first. Badge 1 by touch drag, badge 2 by tap-then-tap, badge
  * 3 by keyboard. Check answers the lengths in badge order.
  */
-export const OrderBadgesK: Story = {
+export const OrderBadgesMisalignedK: Story = {
   globals: { ageMode: 'k' },
   args: { config: order },
   play: async ({ canvasElement, args }) => {
@@ -292,6 +367,7 @@ export const OrderBadgesK: Story = {
     // Each lane shows where its badge goes (evidence review), and the ropes stand out from the
     // lane: their dark edge is at least 3:1 against it.
     await expect(root.querySelectorAll('.ni-clen__slot')).toHaveLength(3);
+    await expectOrderLanes(root);
     const edge = getComputedStyle(root.querySelector('.ni-len__rope-edge') as Element).stroke;
     const laneBg = getComputedStyle(
       root.querySelector('.ni-clen__lane') as Element,
@@ -353,7 +429,12 @@ const orderPlay =
       ...root.querySelectorAll('.ni-clen__obj, .ni-clen__badge, .ni-clen__lane'),
       within(root).getByRole('button', { name: 'Check' }),
     ]);
-    await expectToScale(root, order);
+    await expectToScale(root, orderAligned);
+    // Lined up (`aligned: true`): every rope starts at the start line.
+    for (const o of orderAligned.objects) {
+      await expect(obj(root, o.id)).toHaveAttribute('data-start', '0');
+    }
+    await expectOrderLanes(root);
     await expectContentCentred(canvasElement, root);
     await expectControls(story, 'k', {
       badges: [...root.querySelectorAll('.ni-clen__badge')],
@@ -362,19 +443,22 @@ const orderPlay =
     });
   };
 
-/** Tablet widget area, K: the three ropes, badges and Check fit with no scroll, centred. */
-export const OrderTabletK: Story = {
+/**
+ * Tablet widget area, K, the ropes lined up (`aligned: true`): the three ropes, badges and Check
+ * fit with no scroll, centred.
+ */
+export const OrderAlignedTabletK: Story = {
   globals: { ageMode: 'k' },
-  args: { config: order },
+  args: { config: orderAligned },
   render: inArea('tablet'),
-  play: orderPlay('compare-length OrderTabletK'),
+  play: orderPlay('compare-length OrderAlignedTabletK'),
 };
 
-/** Smallest landscape area, K: lanes, badges and Check fit with no scroll; still to scale. */
-export const OrderLandscapeMinK: Story = {
-  ...OrderTabletK,
+/** Smallest landscape area, K, lined up: lanes, badges and Check fit with no scroll; to scale. */
+export const OrderAlignedLandscapeMinK: Story = {
+  ...OrderAlignedTabletK,
   render: inArea('landscapeMin'),
-  play: orderPlay('compare-length OrderLandscapeMinK'),
+  play: orderPlay('compare-length OrderAlignedLandscapeMinK'),
 };
 
 /**
@@ -440,13 +524,21 @@ export const IndirectStrings: Story = {
       'spool clear of Check and its ring',
     ).toBeGreaterThanOrEqual(11.5);
     await userEvent.click(obj(root, 'obj-1'));
-    // The laid string sits clear under the picked log's ring (evidence review: it lay on the
-    // ring's bottom edge); strings are 6 px cords with end beads.
+    await settleFocus();
+    // The ring encloses the whole log, inside its lane (evidence review: the log poked out).
+    await expectRingsAround(root);
+    // The laid string lies along the log, end to end across its middle, inside the picked log's
+    // ring (never on the ring's edge); strings are 6 px cords with end beads.
     const ring = (root.querySelector('.ni-clen__ring') as HTMLElement).getBoundingClientRect();
+    const log = art(root, 'obj-1').getBoundingClientRect();
     const laid = (
       root.querySelector('[data-string="obj-1"] svg') as SVGElement
     ).getBoundingClientRect();
-    await expect(laid.top - ring.bottom, 'string clear of the ring').toBeGreaterThanOrEqual(6);
+    await expect(laid.left).toBeCloseTo(log.left, 0);
+    await expect(laid.width).toBeCloseTo(log.width, 0);
+    await expect(laid.top + laid.height / 2).toBeCloseTo(log.top + log.height / 2, 0);
+    await expect(laid.top - ring.top, 'string inside the ring').toBeGreaterThanOrEqual(6);
+    await expect(ring.bottom - laid.bottom, 'string inside the ring').toBeGreaterThanOrEqual(6);
     const cord = root.querySelector('[data-string="obj-1"] .ni-string__cord') as SVGLineElement;
     await expect(Number.parseFloat(getComputedStyle(cord).strokeWidth)).toBeGreaterThanOrEqual(6);
     await expect(root.querySelectorAll('[data-string="obj-1"] .ni-string__end')).toHaveLength(2);
@@ -505,6 +597,37 @@ export const HowMuchLongerLandscapeMinK: Story = {
       within(root).getByRole('button', { name: 'Check' }),
     ]);
     await expectNumeralsAtLeast32(root, '.ni-entry__text, .ni-pad__digit');
+    // The unit ticks: their own strip, 12+ px from the lanes and from the answer box and keys;
+    // ink ticks, 3 px every fifth unit and 2 px between (evidence review).
+    const strip = (root.querySelector('.ni-clen__ticks') as HTMLElement).getBoundingClientRect();
+    const lanes = [...root.querySelectorAll('.ni-clen__lane')].map((e) =>
+      e.getBoundingClientRect(),
+    );
+    const below = [...root.querySelectorAll('.ni-entry__box, .ni-pad__key')].map((e) =>
+      e.getBoundingClientRect(),
+    );
+    const toLanes = Math.min(...lanes.map((r) => strip.top - r.bottom));
+    const toKeys = Math.min(...below.map((r) => boxGap(strip, r)));
+    await expect(toLanes, 'ticks clear of the lanes').toBeGreaterThanOrEqual(12);
+    await expect(toKeys, 'ticks clear of the keys').toBeGreaterThanOrEqual(12);
+    const width = (sel: string) =>
+      Number.parseFloat(getComputedStyle(root.querySelector(sel) as Element).strokeWidth);
+    await expect(width('.ni-clen__tick--major')).toBeGreaterThanOrEqual(3);
+    await expect(width('.ni-clen__tick:not(.ni-clen__tick--major)')).toBeGreaterThanOrEqual(2);
+    // Ink (#264653), not the soft grey.
+    for (const t of root.querySelectorAll('.ni-clen__tick')) {
+      await expect(getComputedStyle(t).stroke, 'ink ticks').toBe('rgb(38, 70, 83)');
+    }
+    await expect(root.querySelectorAll('.ni-clen__tick')).toHaveLength(
+      difference.objects.reduce((m, o) => Math.max(m, o.length), 0) + 1,
+    );
+    recordEvidence(root, {
+      ticks_to_lanes: Math.round(toLanes),
+      ticks_to_keys: Math.round(toKeys),
+    });
+    console.info(
+      `[ticks] ${Math.round(toLanes)} px under the lanes, ${Math.round(toKeys)} px above the keys`,
+    );
     await settleFocus();
     await expectControls('compare-length HowMuchLongerLandscapeMinK', 'k', {
       keys: [...root.querySelectorAll('.ni-pad__key')],
@@ -617,19 +740,28 @@ export const DemoInvite: Story = {
   play: async ({ canvasElement }) => {
     const root = await findWidget(canvasElement, ROOT);
     inviteDemo.invite({ op: 'align', args: { id: 'obj-0' } });
-    await waitFor(() => expect(obj(root, 'obj-0')).toHaveClass('ni-invite'));
+    await waitFor(() =>
+      expect(obj(root, 'obj-0').querySelector('.ni-clen__ring.ni-invite')).not.toBeNull(),
+    );
     await expectPointerOn(root.querySelector('.ni-hand') as HTMLElement, obj(root, 'obj-0'), root);
     await expectHandStays(root, () => obj(root, 'obj-0'));
-    // One ring, inside the object's own box, 12 px clear of the other object and Check.
+    // One ring round the whole ribbon, inside its lane, 12 px clear of the other object and Check.
     await expectOneInviteRing(root, {
       clearOf: [obj(root, 'obj-1'), within(root).getByRole('button', { name: 'Check' })],
     });
-    // The whole hand touches only the invited ribbon: not the other ribbon or its lane.
-    await expectHandTouchesOnlyInvited(root, [
-      obj(root, 'obj-1'),
-      root.querySelector('[data-lane="obj-1"]') as Element,
-      within(root).getByRole('button', { name: 'Check' }),
-    ]);
+    const ring = await expectRingsAround(root);
+    // The whole hand touches only the invited ribbon, and starts under its ring (never on the
+    // ring's stroke): not the other ribbon or its lane.
+    await expectHandTouchesOnlyInvited(
+      root,
+      [
+        ring,
+        obj(root, 'obj-1'),
+        root.querySelector('[data-lane="obj-1"]') as Element,
+        within(root).getByRole('button', { name: 'Check' }),
+      ],
+      { min: 3 },
+    );
   },
 };
 
@@ -639,9 +771,9 @@ const inviteBadge: WidgetDemo = createDemoController({ strict: true });
  * The child's turn in `order` (K): Pip's hand points at badge 1, below its numeral (the hand never
  * covers it); one ring, inside the badge, 12 px clear of the other badges.
  */
-export const DemoInviteBadgeK: Story = {
+export const DemoInviteBadgeAlignedK: Story = {
   globals: { ageMode: 'k' },
-  args: { config: order, demo: inviteBadge },
+  args: { config: orderAligned, demo: inviteBadge },
   play: async ({ canvasElement }) => {
     const root = await findWidget(canvasElement, ROOT);
     inviteBadge.invite({ op: 'answer', args: { values: [2, 6, 9] } });

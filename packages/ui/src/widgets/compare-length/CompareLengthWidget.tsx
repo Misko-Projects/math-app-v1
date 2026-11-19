@@ -24,7 +24,7 @@ import { MIN_TARGET_PX } from '../../tokens/tokens';
 import { useWidgetDemo } from '../demo';
 import { CheckButton, spriteNameKey, useAlive, useDemoPause, useSubmitGuard } from '../kit';
 import { useInviteHand } from '../kit/inviteHand';
-import { LengthObject, StringPiece } from '../kit/LengthViews';
+import { LengthObject, STRING_H, StringPiece } from '../kit/LengthViews';
 import { enteredValues, NumberEntry } from '../kit/NumberEntry';
 import { useAvailableSize } from '../kit/useAvailableSize';
 import type { ConfigFor, WidgetProps } from '../types';
@@ -54,8 +54,27 @@ const STRING = 'string';
 type Config = ConfigFor<'compare-length'>;
 type Obj = Config['objects'][number];
 
-/** Room under an invited lane for Pip's hand (it hangs about 46 px below the object). */
-const HAND_ROOM = 40;
+/** Room under an invited lane for Pip's hand (it hangs below the ring, about 55 px down). */
+const HAND_ROOM = 52;
+/**
+ * The ring around a picked or invited object (evidence review): 6 px inside its lane, a 5 px
+ * stroke, 6 px clear of the drawing on every side. Under it 13 px of lane, so Pip's hand (which
+ * starts below the ring, `RING_ZONE` px clear) still points inside the object's box.
+ */
+const RING_INSET = 6;
+const RING_STROKE = 5;
+const RING_PAD = 6;
+const RING_BELOW = 13;
+const RING_ZONE = 4;
+/** The drawing's top in its lane, and the lane left under it (the ring and the room below). */
+const ART_TOP = RING_INSET + RING_STROKE + RING_PAD;
+const ART_BELOW = RING_BELOW + RING_STROKE + RING_PAD;
+/** The unit tick strip under the lanes (pictorial, how-much-longer): its height and gap. */
+const TICKS_H = 14;
+const TICKS_GAP = 12;
+/** Order: the badge slot's left edge in its lane. Indirect: the tag's. */
+const BADGE_LEFT = 8;
+const TAG_LEFT = 8;
 /** The largest unit (px): a short object still reads as an object, not a bar across the screen. */
 const UNIT_MAX = 120;
 /** Indirect: each object's tag (its colour and mark), on its lane and on its string. */
@@ -108,29 +127,44 @@ export function CompareLengthWidget({
   // Lanes take the height they have (evidence review: thin ribbons in a mostly empty card), from
   // the target size up to 140 px; indirect keeps room for the strings box under them.
   const nObj = config.objects.length;
+  const ticks = tier === 'pictorial' || typed;
   const lanesBudget =
-    (avail?.height ?? 560) - 48 - (ask === 'indirect' ? nObj * TAG_PX + (nObj - 1) * 12 + 34 : 0);
+    (avail?.height ?? 560) -
+    48 -
+    (ask === 'indirect' ? nObj * TAG_PX + (nObj - 1) * 12 + 34 : 0) -
+    (ticks ? TICKS_H + TICKS_GAP + 4 : 0);
   const rowFloor = compact ? minTarget : minTarget + 8;
   const rowH = typed
     ? compact
-      ? 56
+      ? 46
       : minTarget + 8
     : Math.max(rowFloor, Math.min(140, Math.floor((lanesBudget - (nObj - 1) * 12) / nObj)));
-  // The object's drawing: most of the lane (ribbons ≈ 60 % of it). Indirect draws it at the top
-  // of the lane and lays the string under it, clear of the pick ring.
-  const artH = ask === 'indirect' ? rowH - 34 : typed && compact ? 44 : rowH - 12;
+  // The object's drawing: the lane less its ring (6 px in, 5 px stroke, 6 px clear of the
+  // drawing) and the room under it. Indirect lays the string along the log, inside the ring.
+  // How-much-longer has no ring (nothing is picked): the drawing takes most of the lane.
+  const artH = typed ? (compact ? 38 : rowH - 12) : rowH - ART_TOP - ART_BELOW;
   // The side column's real width (Check is 114 px in K, 180 px with its word; the badge tray is
   // two badges, a 12 px gap and 10 px padding): an estimate off by a few px feeds back through
   // the measured area into the scale.
   const checkW = ageMode === 'k' ? 114 : 180;
   const sideW = Math.max(checkW, ask === 'order' ? 2 * minTarget + 32 : minTarget);
   const width = Math.max(320, (avail?.width ?? 1100) - sideW - 48);
-  // Indirect: each lane starts with its object's tag (the same tag marks its string).
-  const lineX = ask === 'order' ? minTarget + 16 : ask === 'indirect' ? TAG_PX + 20 : 20;
+  // Left of the start line: the ring's 11 px and 6 px of lane; in order, the badge slot first
+  // (8 px in, then 18 px to the line: evidence review); in indirect, the object's tag (the same
+  // tag marks its string), 10 px clear of the ring.
+  const ringOut = RING_STROKE + RING_PAD;
+  const lineX =
+    ask === 'order'
+      ? BADGE_LEFT + (minTarget - 4) + 18
+      : ask === 'indirect'
+        ? TAG_LEFT + TAG_PX + 10 + ringOut
+        : RING_INSET + ringOut + 4;
   const maxEnd = Math.max(...config.objects.map((o) => o.offset + o.length));
-  // The objects use the width they have (evidence review: the ribbons used a quarter of it).
-  const unit = Math.max(8, Math.min(UNIT_MAX, Math.floor((width - lineX - 16) / maxEnd)));
-  const lanesW = Math.min(width, lineX + maxEnd * unit + 24);
+  // The objects use the width they have (evidence review: the ribbons used a quarter of it),
+  // leaving the ring and 6 px of lane past the longest one's end.
+  const tail = ringOut + RING_INSET + 8;
+  const unit = Math.max(8, Math.min(UNIT_MAX, Math.floor((width - lineX - tail) / maxEnd)));
+  const lanesW = Math.min(width, lineX + maxEnd * unit + tail);
   const slidable = tier === 'concrete' && !config.aligned && ask !== 'indirect';
 
   const nameOf = (o: Obj, i: number) =>
@@ -353,13 +387,17 @@ export function CompareLengthWidget({
           />
         ) : null}
         {ask === 'order' && slot >= 0 ? (
-          <span className="ni-clen__placed" style={{ width: lineX - 8 }}>
+          <span className="ni-clen__placed" style={{ left: BADGE_LEFT, width: minTarget - 4 }}>
             {badge(slot)}
           </span>
         ) : null}
         {/* Where this lane's badge goes, until one is there (evidence review). */}
         {ask === 'order' && slot < 0 ? (
-          <span className="ni-clen__placed" style={{ width: lineX - 8 }} aria-hidden="true">
+          <span
+            className="ni-clen__placed"
+            style={{ left: BADGE_LEFT, width: minTarget - 4 }}
+            aria-hidden="true"
+          >
             <span className="ni-clen__slot" data-slot-for={o.id} />
           </span>
         ) : null}
@@ -368,7 +406,7 @@ export function CompareLengthWidget({
           className={[
             'ni-clen__obj',
             picked ? 'ni-clen__obj--picked' : '',
-            invite === o.id ? 'ni-invite' : '',
+            invite === o.id ? 'ni-clen__obj--invited' : '',
             slidable && !state.aligned.includes(o.id) ? 'ni-clen__obj--slides' : '',
           ]
             .filter(Boolean)
@@ -408,20 +446,40 @@ export function CompareLengthWidget({
         >
           <span
             className="ni-clen__art"
-            style={{
-              width: objW,
-              ...(ask === 'indirect' ? { alignSelf: 'flex-start', marginTop: 4 } : {}),
-            }}
+            style={
+              typed ? { width: objW } : { width: objW, alignSelf: 'flex-start', marginTop: ART_TOP }
+            }
           >
             <LengthObject sprite={o.sprite} width={objW} height={artH} unitPx={unit} />
-            {picked ? <span className="ni-clen__ring" aria-hidden="true" /> : null}
+            {picked || invite === o.id ? (
+              // The ring encloses the whole drawing. Invited, its zone (the ring and 4 px round
+              // it) is the control's glyph, so Pip's hand starts under the ring, never on it.
+              <span
+                className={['ni-clen__ring-zone', invite === o.id ? 'ni-btn__label' : '']
+                  .filter(Boolean)
+                  .join(' ')}
+                style={{ inset: -(ringOut + RING_ZONE) }}
+                aria-hidden="true"
+              >
+                <span
+                  className={[
+                    'ni-clen__ring',
+                    picked ? 'ni-clen__ring--picked' : '',
+                    invite === o.id ? 'ni-invite' : '',
+                  ]
+                    .filter(Boolean)
+                    .join(' ')}
+                  style={{ inset: RING_ZONE }}
+                />
+              </span>
+            ) : null}
           </span>
         </button>
         {state.strings.includes(o.id) ? (
           <span
             className="ni-clen__laid"
-            // Under the log, 10 px below its pick ring's edge.
-            style={{ left: startPx(o), top: 4 + artH + 10 }}
+            // Along the log, end to end, across its middle (inside its ring when picked).
+            style={{ left: startPx(o), top: ART_TOP + (artH - STRING_H) / 2 }}
             data-string={o.id}
           >
             <StringPiece width={objW} />
@@ -517,15 +575,9 @@ export function CompareLengthWidget({
           data-unit-px={unit}
         >
           <span className="ni-clen__line" style={{ left: lineX }} aria-hidden="true" />
-          {tier === 'pictorial' || typed ? (
-            <span
-              className="ni-clen__floor"
-              style={{ left: lineX, width: maxEnd * unit }}
-              aria-hidden="true"
-            />
-          ) : null}
           {config.objects.map(lane)}
           {difference}
+          {ticks ? <UnitTicks left={lineX} units={maxEnd} unit={unit} /> : null}
         </fieldset>
         {ask === 'indirect' && state.strings.length > 0 ? (
           <div
@@ -608,6 +660,37 @@ function ObjectTag({ i, id }: { i: number; id: string }) {
         <g fill="var(--color-paper)" stroke="var(--color-ink)" strokeWidth="2.5">
           {marks[tone.mark]}
         </g>
+      </svg>
+    </span>
+  );
+}
+
+/**
+ * The unit ticks under the lanes (pictorial, how-much-longer): an ink baseline from the start
+ * line with a tick per unit, every fifth one longer and thicker (3 px; the others 2 px). Its own
+ * strip, 12 px under the last lane and clear of the keys below (evidence review).
+ */
+function UnitTicks({ left, units, unit }: { left: number; units: number; unit: number }) {
+  const w = units * unit;
+  return (
+    <span
+      className="ni-clen__ticks"
+      style={{ marginLeft: left - 1.5, width: w + 3, height: TICKS_H, marginTop: TICKS_GAP - 12 }}
+      aria-hidden="true"
+    >
+      <svg width={w + 3} height={TICKS_H} focusable="false" aria-hidden="true">
+        <line className="ni-clen__tick-base" x1={0} x2={w + 3} y1={1.5} y2={1.5} />
+        {Array.from({ length: units + 1 }, (_, i) => (
+          <line
+            // biome-ignore lint/suspicious/noArrayIndexKey: one tick per unit
+            key={i}
+            className={i % 5 === 0 ? 'ni-clen__tick ni-clen__tick--major' : 'ni-clen__tick'}
+            x1={1.5 + i * unit}
+            x2={1.5 + i * unit}
+            y1={0}
+            y2={i % 5 === 0 ? TICKS_H : TICKS_H * 0.65}
+          />
+        ))}
       </svg>
     </span>
   );

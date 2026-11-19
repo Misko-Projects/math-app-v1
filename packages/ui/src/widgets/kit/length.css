@@ -49,11 +49,14 @@
   stroke: var(--color-wood);
   stroke-linecap: round;
 }
-.ni-len__rope-twist {
-  stroke: var(--color-wood-deep);
-  stroke-width: 2.5px;
+.ni-len__rope-sheen {
+  stroke: var(--color-sunshine-light);
   stroke-linecap: round;
-  opacity: 0.7;
+  opacity: 0.55;
+}
+.ni-len__rope-knot {
+  fill: var(--color-wood);
+  stroke: var(--color-wood-deep);
 }
 .ni-len__ribbon {
   fill: var(--color-coral);

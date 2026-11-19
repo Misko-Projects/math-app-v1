@@ -48,17 +48,29 @@
   border-left: 4px dashed var(--color-ink-soft);
   pointer-events: none;
 }
-/* Unit ticks along the floor (pictorial tier, how-much-longer): one per unit, from the line. */
-.ni-clen__floor {
-  position: absolute;
-  bottom: -9px;
-  z-index: 1;
-  height: 10px;
-  background-image: linear-gradient(to right, var(--color-ink-soft) 2px, transparent 2px);
-  background-size: var(--unit) 100%;
-  background-position: -1px 0;
-  border-top: 2px solid var(--color-ink-soft);
+/* Unit ticks under the lanes (pictorial tier, how-much-longer): their own strip, 12 px under the
+   last lane and 12+ px above the keys; ink ticks, 3 px every fifth unit, 2 px between. */
+.ni-clen__ticks {
+  position: relative;
+  display: block;
+  flex: none;
+  margin-bottom: 4px;
   pointer-events: none;
+}
+.ni-clen__ticks svg {
+  display: block;
+  overflow: visible;
+}
+.ni-clen__tick-base,
+.ni-clen__tick {
+  stroke: var(--color-ink);
+  stroke-width: 2px;
+}
+.ni-clen__tick-base {
+  stroke-width: 3px;
+}
+.ni-clen__tick--major {
+  stroke-width: 3px;
 }
 .ni-clen__pad {
   position: absolute;
@@ -95,14 +107,21 @@
   display: block;
   pointer-events: none;
 }
-/* Picked: a thick ink ring around the object, never colour alone. */
-/* Inside the lane (4 px over and under the drawing), and starting 6 px right of the object's left
-   end, so it never crosses the dashed start line (evidence review). */
+/* Picked: a thick ink ring around the whole object, never colour alone; invited: the demo ring in
+   the same place. It lies 6 px inside the lane and 6 px clear of the drawing on every side
+   (evidence review); its zone (4 px round it) is what Pip's hand keeps clear of. */
+.ni-clen__ring-zone {
+  position: absolute;
+  display: block;
+  pointer-events: none;
+}
 .ni-clen__ring {
   position: absolute;
-  inset: -4px -6px -4px 6px;
-  border: 4px solid var(--color-ink);
+  box-sizing: border-box;
   border-radius: 14px;
+}
+.ni-clen__ring--picked {
+  border: 5px solid var(--color-ink);
 }
 /* Order: where a lane's badge goes, until one is placed: an empty numbered-badge outline. */
 .ni-clen__slot {
@@ -266,7 +285,7 @@
 }
 
 /* The demo invite: one ring, inside the invited control (12 px gaps kept), no pulse. */
-.ni-clen .ni-clen__obj.ni-invite {
+.ni-clen .ni-clen__ring.ni-invite {
   position: absolute;
   outline-offset: -5px;
   border-radius: 14px;

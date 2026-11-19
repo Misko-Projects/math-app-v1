@@ -19,8 +19,8 @@ export interface LengthObjectProps {
   width: number;
   height?: number;
   /**
-   * The px length of one unit, where the object is measured: a periodic mark (a vine's leaves,
-   * a rope's twists) then repeats exactly once per unit, centred in it, so it never reads as a
+   * The px length of one unit, where the object is measured: a periodic mark (a vine's leaves)
+   * then repeats exactly once per unit, centred in it, so it never reads as a
    * second, wrong scale (evidence review). Without it the marks follow the drawing's height.
    */
   unitPx?: number;
@@ -51,27 +51,34 @@ export function LengthObject({ sprite, width, height = 40, unitPx, className }: 
   let body: ReactElement;
   switch (sprite) {
     case 'rope': {
+      // A smooth rope with a knot at each end: no repeating mark along it (evidence review: evenly
+      // spaced twists read as a second scale). The knots lie inside the drawing, so its ends are
+      // still exactly 0 and `width`.
       const t = h * 0.42;
       const y = h / 2;
-      // Twists: short diagonal strokes along the rope, inside its ends.
-      const twists = marksAlong(w, unitPx, t, t * 0.9, w - t / 2);
+      const k = Math.min(t * 0.62, w / 4);
       body = (
-        <g data-art="rope" data-mark-period={unitPx ?? undefined}>
+        <g data-art="rope">
           {/* A dark edge under the rope (≥ 3:1 against a pale lane; evidence review). */}
+          <line className="ni-len__rope-edge" x1={k} x2={w - k} y1={y} y2={y} strokeWidth={t + 5} />
+          <line className="ni-len__rope" x1={k} x2={w - k} y1={y} y2={y} strokeWidth={t} />
+          {/* One unbroken sheen along the top: it reads as round cord, not as marks. */}
           <line
-            className="ni-len__rope-edge"
-            x1={t / 2}
-            x2={w - t / 2}
-            y1={y}
-            y2={y}
-            strokeWidth={t + 5}
+            className="ni-len__rope-sheen"
+            x1={k * 1.6}
+            x2={w - k * 1.6}
+            y1={r2(y - t * 0.2)}
+            y2={r2(y - t * 0.2)}
+            strokeWidth={Math.max(2, t * 0.16)}
           />
-          <line className="ni-len__rope" x1={t / 2} x2={w - t / 2} y1={y} y2={y} strokeWidth={t} />
-          {twists.map((x) => (
-            <path
+          {[k, w - k].map((x) => (
+            <circle
               key={x}
-              className="ni-len__rope-twist"
-              d={`M${r2(x - t * 0.25)} ${r2(y + t * 0.38)} L${r2(x + t * 0.25)} ${r2(y - t * 0.38)}`}
+              className="ni-len__rope-knot"
+              cx={r2(x)}
+              cy={y}
+              r={r2(k - 1.5)}
+              strokeWidth={3}
             />
           ))}
         </g>
@@ -79,11 +86,11 @@ export function LengthObject({ sprite, width, height = 40, unitPx, className }: 
       break;
     }
     case 'ribbon': {
-      // A chunky band (70 % of the drawing's height; evidence review: it was a thin strip), its
+      // A chunky band (82 % of the drawing's height; evidence review: it was a thin strip), its
       // top edge scalloped in a whole number of even waves between the two notched ends, so the
       // last wave ends exactly where the forked tail starts (no leftover nub).
-      const top = h * 0.15;
-      const bot = h * 0.85;
+      const top = h * 0.09;
+      const bot = h * 0.91;
       const notch = Math.min(Math.max(10, h * 0.25), w / 6);
       const span = w - 2 * notch;
       const n = Math.max(1, Math.round(span / Math.max(12, h * 0.6)));
