@@ -1027,7 +1027,11 @@ export function CompareWidget({
   );
 
   const renderSymbol = (s: Symbol) => {
-    const props = dnd.itemProps(s, { label: t(SYMBOL_KEY[s]) });
+    // Pressed = the committed symbol (the drag hook's own aria-pressed is only its pick-up).
+    const props = {
+      ...dnd.itemProps(s, { label: t(SYMBOL_KEY[s]) }),
+      'aria-pressed': symbol === s,
+    };
     const id = `symbol-${s}`;
     return (
       <span key={s} className="ni-cmp__choice">
@@ -1038,7 +1042,6 @@ export function CompareWidget({
             .join(' ')}
           data-symbol={s}
           data-chosen={symbol === s ? 'true' : undefined}
-          aria-pressed={symbol === s}
         >
           <span className="ni-cmp__glyph">
             <Glyph kind={SYMBOL_GLYPH[s]} />

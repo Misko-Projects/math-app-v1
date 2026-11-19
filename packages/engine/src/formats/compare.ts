@@ -193,13 +193,7 @@ export const compare: FormatModel<'compare', CompareState> = {
       conflict: 0,
       'ask.fewer': c.ask === 'fewer' ? 1 : 0,
       'ask.symbol': c.ask === 'symbol' ? 1 : 0,
-      equal: answered
-        ? equalByAnswer
-          ? 1
-          : 0
-        : c.ask !== 'true-false' && both && a === b
-          ? 1
-          : 0,
+      equal: answered ? (equalByAnswer ? 1 : 0) : c.ask !== 'true-false' && both && a === b ? 1 : 0,
       magnitude: both ? Math.max(0, digitCount(hi) - 1) : 0,
     };
   },

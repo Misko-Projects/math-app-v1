@@ -859,7 +859,7 @@ export const PathCardsKTablet: Story = {
     const ticks = [...card(root, '8').querySelectorAll('.ni-numberline__tick')].map(
       (t) => t.getBoundingClientRect().left,
     );
-    await expect(ticks[1]! - ticks[0]!).toBeGreaterThanOrEqual(10);
+    await expect((ticks[1] ?? 0) - (ticks[0] ?? 0)).toBeGreaterThanOrEqual(10);
   },
 };
 
