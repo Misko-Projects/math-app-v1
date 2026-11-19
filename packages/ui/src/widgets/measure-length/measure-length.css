@@ -30,9 +30,11 @@
   position: relative;
   display: flex;
 }
+/* The units sit at the top of the pile (their glyph and invite ring), room under them for Pip's
+   finger when the pile is invited. */
 .ni-mlen__pile {
   display: grid;
-  place-items: center;
+  place-items: start center;
   box-sizing: border-box;
   width: var(--target-min);
   height: var(--target-min);
@@ -43,12 +45,14 @@
 }
 .ni-mlen__pile-units {
   display: flex;
+  pointer-events: none;
+}
+.ni-mlen__pile-stack {
+  display: flex;
   flex-direction: column;
   align-items: center;
   gap: 2px;
-  max-width: calc(var(--target-min) - 14px);
-  max-height: calc(var(--target-min) - 22px);
-  pointer-events: none;
+  border-radius: 12px;
 }
 /* The measure's drop zone (`__pad`) fills it exactly: nothing sticks out into the 12 px gaps
    around it (evidence review: it reached 7 px from the keypad). */
@@ -57,7 +61,6 @@
   display: flex;
   flex-direction: column;
   gap: 6px;
-  padding: 6px;
 }
 .ni-mlen__row {
   z-index: 1;
@@ -122,12 +125,15 @@
   display: flex;
   align-items: center;
 }
+/* The start line: across every row, 10 px in from the zone's top and bottom (8 px inside its
+   2 px border), and 14 px inside its left border (left set inline). */
 .ni-mlen__start {
   position: absolute;
-  left: -2px;
-  top: -10px;
-  bottom: -10px;
+  z-index: 1;
+  top: 10px;
+  bottom: 10px;
   border-left: 4px dashed var(--color-ink-soft);
+  pointer-events: none;
 }
 .ni-mlen__undo {
   display: grid;
@@ -222,14 +228,14 @@
 }
 
 /* The demo invite: one ring, inside the invited control (12 px gaps kept), no pulse. */
-.ni-mlen .ni-mlen__pile.ni-invite,
+.ni-mlen .ni-mlen__pile-stack.ni-invite,
 .ni-mlen .ni-mlen__ruler.ni-invite,
 .ni-mlen .ni-mlen__options.ni-invite {
   outline-offset: -5px;
   animation: none;
 }
-.ni-mlen .ni-mlen__pile.ni-invite {
-  border-radius: 18px;
+.ni-mlen .ni-mlen__pile-stack.ni-invite {
+  border-radius: 12px;
 }
 [data-reduced-motion="true"] .ni-mlen__ruler {
   transition: none;

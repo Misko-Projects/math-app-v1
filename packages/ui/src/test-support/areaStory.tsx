@@ -137,6 +137,7 @@ export async function expectHandStays(root: HTMLElement, target: () => HTMLEleme
 export async function expectRulerUnitClear(root: Element) {
   const rulers = [...root.querySelectorAll('svg.ni-ruler')];
   await expect(rulers.length, 'rulers').toBeGreaterThan(0);
+  let least = Number.POSITIVE_INFINITY;
   for (const ruler of rulers) {
     const unit = ruler.querySelector('.ni-ruler__unit');
     if (!unit) continue;
@@ -150,11 +151,21 @@ export async function expectRulerUnitClear(root: Element) {
         `unit "${unit.textContent}" clear of ${other.textContent || 'a tick'}`,
       ).toBe(true);
     }
-    // Inside the ruler body.
+    // Inside the ruler body, 12+ px from its right edge (the edge's 3 px stroke is centred on
+    // the body's outline; evidence review: "cm" nearly touched it).
     const body = (
       ruler.querySelector('.ni-ruler__body') as SVGGraphicsElement
     ).getBoundingClientRect();
-    await expect(u.right, 'unit inside the ruler').toBeLessThanOrEqual(body.right + 0.5);
+    const toEdge = body.right - 1.5 - u.right;
+    await expect(
+      toEdge,
+      `"${unit.textContent}" 12 px in from the right edge`,
+    ).toBeGreaterThanOrEqual(12);
+    least = Math.min(least, toEdge);
+  }
+  if (Number.isFinite(least)) {
+    console.info(`[ruler] unit symbol to the right edge: ${Math.round(least)} px`);
+    recordEvidence(root, { unit_to_edge: Math.round(least) });
   }
 }
 

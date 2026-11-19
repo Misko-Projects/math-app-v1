@@ -66,6 +66,23 @@ import './measure-length.css';
 const OPS = ['lay-unit', 'slide-ruler', 'align-zero', 'count-units', 'read-end', 'answer'] as const;
 /** Room under the stage while a pile is invited: the hand hangs about 57 px below the pile. */
 const PILE_HAND_ROOM = 44;
+/**
+ * The drop zone's inner padding (evidence review): 12 px inside its 2 px border round the rows,
+ * 16 on the left, so the start line (4 px, centred on the object's start) stays 12+ px inside it.
+ */
+const ZONE_PAD = 14;
+const ZONE_PAD_LEFT = 18;
+/**
+ * The pile's invite ring (evidence review: Pip's hand crossed the ring on the pile's edge): a 5 px
+ * ring round the pile's units, 2 px clear of them, inside the pile; 3 px round the ring is the
+ * pile's glyph, so the hand starts under it (kit useInviteHand) and never touches the stroke.
+ */
+const PILE_RING = 5;
+const PILE_RING_PAD = 2;
+const PILE_ZONE = 3;
+const PILE_TOP = 2;
+/** Under the glyph: the hand's finger above its tip (about 8 px) and the tip's 1 px inside. */
+const PILE_FINGER = 9;
 /** A drop within this many unit lengths of another unit's end (or the start) snaps to it. */
 export const SNAP_UNITS = 0.25;
 
@@ -150,7 +167,14 @@ export function MeasureLengthWidget({
   // Beside the measure: the piles and "take one back" (target-sized, with their gaps).
   const piles = laying && !drawnUnits ? units.length : 0;
   const sideW = piles > 0 ? (piles + 1) * (MIN_TARGET_PX[ageMode] + 16) + 16 : 0;
-  const trackW = Math.max(240, Math.min(1000, (avail?.width ?? 1100) - sideW - 24));
+  // The measure's own width (its padding is outside it).
+  const trackW = Math.max(
+    240,
+    Math.min(
+      1000,
+      (avail?.width ?? 1100) - sideW - 24 - (laying ? ZONE_PAD + ZONE_PAD_LEFT - 12 : 0),
+    ),
+  );
   const whole = objectUnits(config);
   const cubes = whole * UNIT_SIZE[config.unit];
   // How tall a unit may be drawn: a cube is as tall as it is long, a shell half its length.
@@ -470,7 +494,7 @@ export function MeasureLengthWidget({
       <LengthObject
         sprite={config.object.sprite}
         width={objectPx}
-        height={44}
+        height={compact ? (config.mode === 'two-units' ? 28 : 36) : 44}
         unitPx={unitPxOf(config.unit)}
       />
     </div>
@@ -482,14 +506,17 @@ export function MeasureLengthWidget({
     // kinds where they fit: a 64 px cube stack was 130 px tall in an 80 px pile.
     // Inside the pile with room under the stack for the hand's fingertip (the hand points under
     // the cubes, inside the pile, when the pile is invited).
-    const inner = MIN_TARGET_PX[ageMode] - 22;
-    let px = Math.min(unitPxOf(u), inner);
+    const ring = PILE_ZONE + PILE_RING + PILE_RING_PAD;
+    const inner = MIN_TARGET_PX[ageMode] - 6 - PILE_TOP - 2 * ring - PILE_FINGER;
+    const innerW = MIN_TARGET_PX[ageMode] - 6 - 2 * ring;
+    let px = Math.min(unitPxOf(u), innerW);
     while (px > 8 && 2 * unitHeight(u, px) + 2 > inner) px -= 1;
+    const invited = invite === pileId(u);
     return (
       <span key={u} className="ni-mlen__pile-slot">
         <span
           {...p}
-          className={[p.className, 'ni-mlen__pile', invite === pileId(u) ? 'ni-invite' : '']
+          className={[p.className, 'ni-mlen__pile', invited ? 'ni-mlen__pile--invited' : '']
             .filter(Boolean)
             .join(' ')}
           data-pile={u}
@@ -509,11 +536,22 @@ export function MeasureLengthWidget({
             p.onPointerDown(e);
           }}
         >
-          {/* The units are the pile's picture: a glyph Pip's hand keeps clear of (it points
-              under them, never on the lower cube; evidence review). */}
-          <span className="ni-mlen__pile-units ni-btn__label" aria-hidden="true">
-            <UnitPiece unit={u} width={px} />
-            <UnitPiece unit={u} width={px} />
+          {/* The units are the pile's picture, in their ring's place: a glyph Pip's hand keeps
+              clear of (it points under them and under the invite ring; evidence review). */}
+          <span
+            className="ni-mlen__pile-units ni-btn__label"
+            style={{ padding: PILE_ZONE, marginTop: PILE_TOP }}
+            aria-hidden="true"
+          >
+            <span
+              className={['ni-mlen__pile-stack', invited ? 'ni-invite' : '']
+                .filter(Boolean)
+                .join(' ')}
+              style={{ padding: PILE_RING + PILE_RING_PAD }}
+            >
+              <UnitPiece unit={u} width={px} />
+              <UnitPiece unit={u} width={px} />
+            </span>
           </span>
         </span>
       </span>
@@ -533,14 +571,24 @@ export function MeasureLengthWidget({
         {!drawnUnits ? <div className="ni-mlen__piles">{units.map(pile)}</div> : null}
         <div
           className="ni-mlen__measure"
-          style={{ width: objectPx + Math.max(...units.map(unitPxOf)) }}
+          style={{
+            // The rows (the object and one unit past its end), in a zone up to twice as long
+            // where there is room (evidence review: a short object's zone was a small target).
+            width: Math.max(
+              objectPx + Math.max(...units.map(unitPxOf)),
+              Math.min(trackW, 2.5 * (objectPx + Math.max(...units.map(unitPxOf)))),
+            ),
+            // The width is the rows'; the padding is round them.
+            boxSizing: 'content-box',
+            flex: 'none',
+            padding: `${ZONE_PAD}px ${ZONE_PAD}px ${ZONE_PAD}px ${ZONE_PAD_LEFT}px`,
+          }}
         >
           {track}
+          {/* The start line, across every row, inside the zone (evidence review). */}
+          <span className="ni-mlen__start" style={{ left: ZONE_PAD_LEFT - 2 }} aria-hidden="true" />
           {unitRow(units[0] as LengthUnit)}
-          <div className="ni-mlen__object-line">
-            <span className="ni-mlen__start" aria-hidden="true" />
-            {objectRow}
-          </div>
+          <div className="ni-mlen__object-line">{objectRow}</div>
           {units[1] ? unitRow(units[1]) : null}
         </div>
         {!drawnUnits ? (

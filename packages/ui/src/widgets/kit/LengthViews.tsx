@@ -346,7 +346,8 @@ const NUMERAL_BASELINE = 84;
  * ruler body, past its last mark), so it never touches a numeral or a tick.
  */
 export function rulerWidth(max: number, unitPx: number, unitLabel?: string): number {
-  const slot = unitLabel ? numeralHalf(max) + UNIT_GAP + unitLabel.length * 16 + 10 : 0;
+  // The symbol ends 12+ px inside the body's right edge (evidence review: "cm" nearly touched it).
+  const slot = unitLabel ? numeralHalf(max) + UNIT_GAP + unitLabel.length * 14 + 30 : 0;
   return max * unitPx + 2 * RULER_PAD + Math.max(0, slot - RULER_PAD);
 }
 export function Ruler({
