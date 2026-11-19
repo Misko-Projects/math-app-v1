@@ -122,14 +122,14 @@ export function shapeGeometry(kind: ShapeKind): ShapeGeometry {
         ],
       };
     case 'quadrilateral':
-      // No equal sides, no parallel sides, no square corner.
+      // Clearly irregular: four different side lengths, no parallel sides, no square corner.
       return {
         type: 'polygon',
         points: [
-          [-36, -24],
-          [30, -34],
-          [40, 28],
-          [-24, 34],
+          [-44, -30],
+          [10, -34],
+          [44, 30],
+          [-30, 18],
         ],
       };
     case 'pentagon':

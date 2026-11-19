@@ -13,7 +13,7 @@ import './kit.css';
 /**
  * Static pictures for `StimulusSpec` (03 §5.1): what many formats show above their answer control
  * (numeral-pick, number-pad, dot-flash, compare, …). Each kind has one renderer below. Kinds that
- * belong to later widget issues (clock, coins, fractions, gauges, charts, shapes, bar models) are
+ * belong to later widget issues (clock, coins, fractions, charts, bar models) are
  * added here by those issues, one `case` each; until then they draw a neutral card (and a dev tag),
  * so an item never breaks.
  *
