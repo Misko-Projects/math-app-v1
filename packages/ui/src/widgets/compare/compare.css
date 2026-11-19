@@ -51,6 +51,9 @@
   justify-content: center;
   justify-items: stretch;
 }
+.ni-cmp[data-arrange="stack-beside"] .ni-cmp__stage {
+  grid-template-columns: minmax(0, 1fr);
+}
 
 .ni-cmp__side {
   position: relative;

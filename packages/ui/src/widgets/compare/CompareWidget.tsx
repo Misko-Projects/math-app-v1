@@ -195,7 +195,7 @@ const OBJ_GAP = 18;
 /** Pictures never grow past this (an unbounded story stage, or a huge tablet). */
 const MAX_SIDE_H = 300;
 
-type Arrange = 'match' | 'row' | 'beside' | 'stack';
+type Arrange = 'match' | 'row' | 'beside' | 'stack' | 'stack-beside';
 
 interface Box {
   w: number;
@@ -315,6 +315,12 @@ function planLayout(opts: {
           (H - ANSWER_GAP - row.h - (mid.h > 0 ? mid.h + SIDE_GAP : 0) - (n - 1) * SIDE_GAP) / n,
         ) - pad,
     },
+    // Short and wide (the 960 × 600 minimum): the sides one above the other, each the full width
+    // left of the answers, so a long row of objects draws big.
+    'stack-beside': {
+      w: Math.min(W - col.w - ANSWER_GAP, 900) - 2 * SIDE_PAD,
+      h: capH((H - (n - 1) * SIDE_GAP) / n) - pad,
+    },
   };
   const score = (a: Exclude<Arrange, 'match'>) =>
     Math.min(...specs.map((s) => fitScore(s, boxes[a])));
@@ -322,13 +328,14 @@ function planLayout(opts: {
   // bigger (short rooms: answers beside; narrow ones: the sides stacked). A relation between
   // the sides (a symbol's gap, a statement's =) reads left to right, so those never stack.
   let best: Exclude<Arrange, 'match'> = 'row';
-  for (const a of mid.w > 0 ? (['beside'] as const) : (['beside', 'stack'] as const)) {
+  const others = mid.w > 0 ? (['beside'] as const) : (['beside', 'stack', 'stack-beside'] as const);
+  for (const a of others) {
     if (score(a) > score(best) * 1.15) best = a;
   }
   return {
     arrange: best,
     side: { w: Math.max(1, boxes[best].w), h: Math.max(1, boxes[best].h) },
-    answers: best === 'beside' ? 'column' : 'row',
+    answers: best === 'beside' || best === 'stack-beside' ? 'column' : 'row',
     match: null,
   };
 }

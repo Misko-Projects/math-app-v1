@@ -920,8 +920,10 @@ async function expectCompareFits(
 
 /**
  * K at the 960 × 600 minimum (852 × 319): 10 fish against 9 don't fit as two rows of full-size
- * targets with the answers, so the sides are pictures side by side and are the pick targets (no
- * object targets: matching is optional help). Picking a side answers; nothing scrolls.
+ * targets with the answers, so the sides are pictures and are the pick targets (no object
+ * targets: matching is optional help). The sides stack, each the full width beside the answers,
+ * so the fish draw big (≥ 56 px) and at one size on both sides. Picking a side answers; nothing
+ * scrolls.
  */
 export const MatchTenFallbackKMin: Story = {
   globals: { ageMode: 'k' },
@@ -930,8 +932,15 @@ export const MatchTenFallbackKMin: Story = {
   play: async ({ canvasElement, args }) => {
     const root = await findWidget(canvasElement, ROOT);
     await expect(root).toHaveAttribute('data-mode', 'sides');
+    await expect(root).toHaveAttribute('data-arrange', 'stack-beside');
     await expect(root.querySelector('.ni-cmp__obj')).toBeNull();
     await expectCompareFits(canvasElement, root, 'k');
+    const fishes = [...root.querySelectorAll('.ni-objects__item')].map((f) =>
+      Math.round(f.getBoundingClientRect().width),
+    );
+    await expect(fishes).toHaveLength(19);
+    await expect(Math.min(...fishes)).toBeGreaterThanOrEqual(56);
+    await expect(new Set(fishes).size).toBe(1);
     await userEvent.click(within(root).getByRole('button', { name: 'Left side' }));
     await userEvent.click(within(root).getByRole('button', { name: 'Check' }));
     await expect(args.onResponse).toHaveBeenCalledWith({ kind: 'choice', id: 'left' });

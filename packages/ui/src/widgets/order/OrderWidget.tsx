@@ -70,9 +70,9 @@ const CARD_GAP = 20;
 /** A card's border (3) and padding (5) around its numeral. */
 const CARD_PAD = 8;
 /** Around a picture: the border plus a margin, so a picture never touches the card's edge. */
-const PIC_PAD = 13;
+const PIC_PAD = 11;
 /** The numeral above a picture (32 px numeral, 05 §11). */
-const TAG_H = 34;
+const TAG_H = 30;
 const ROOT_PAD = { x: 8, y: 4 };
 const BORDER = 3;
 const CHROME = {
@@ -84,11 +84,11 @@ const CHROME = {
     gap: 24,
   },
   compact: {
-    board: { top: 8, x: 16, bottom: 12 },
-    cue: 40,
-    cueGap: 6,
-    tray: { y: 10, x: 14 },
-    gap: 10,
+    board: { top: 4, x: 16, bottom: 12 },
+    cue: 32,
+    cueGap: 8,
+    tray: { y: 8, x: 14 },
+    gap: 8,
   },
 } as const;
 type Chrome = keyof typeof CHROME;
@@ -105,6 +105,8 @@ interface Plan {
   h: number;
   chrome: Chrome;
   check: 'beside' | 'below';
+  /** Bottom room held for Pip's hand under a tray card, so an invite never moves or scrolls. */
+  handPad?: number;
 }
 
 interface Shape {
@@ -115,8 +117,6 @@ interface Shape {
   width: (h: number) => { min: number; max: number };
   target: number;
   check: { w: number; h: number };
-  /** Plan room for Pip's hand under a tray card (numeral cards; pictures prefer size). */
-  handRoom: boolean;
 }
 
 function sizeOf(s: Shape, p: Plan) {
@@ -147,7 +147,7 @@ function planLayout(s: Shape, room: WidgetRoom | null): Plan {
   const W = room?.width ?? 1180;
   const H = room?.height ?? Number.POSITIVE_INFINITY;
   const hi = Math.round(s.target * 1.5);
-  for (const withHand of s.handRoom ? [true, false] : [false]) {
+  for (const withHand of [true, false]) {
     for (const chrome of ['normal', 'compact'] as const) {
       for (let h = hi; h >= s.target; h -= 2) {
         const { min, max } = s.width(h);
@@ -155,7 +155,9 @@ function planLayout(s: Shape, room: WidgetRoom | null): Plan {
           for (let w = max; w >= min; w = w > min && w - 4 < min ? min : w - 4) {
             const p = { w, h, chrome, check };
             const size = sizeOf(s, p);
-            if (size.w <= W + 0.5 && size.h + (withHand ? size.hand : 0) <= H + 0.5) return p;
+            if (size.w <= W + 0.5 && size.h + (withHand ? size.hand : 0) <= H + 0.5) {
+              return { ...p, handPad: withHand ? size.hand : 0 };
+            }
             if (w === min) break;
           }
         }
@@ -550,7 +552,6 @@ export function OrderWidget({
       width: cardWidth,
       target,
       check: checkSize ?? { w: TARGET_PX[ageMode].big + 8, h: TARGET_PX[ageMode].big + 6 },
-      handRoom: !pictures,
     },
     room,
   );
@@ -600,7 +601,7 @@ export function OrderWidget({
 
   const asc = config.direction === 'asc';
   const compact = plan.chrome === 'compact';
-  const [cueMin, cueMax] = compact ? [12, 24] : [20, 50];
+  const [cueMin, cueMax] = compact ? [10, 20] : [20, 50];
   const cueSizes = Array.from({ length: n }, (_, k) => {
     const f = n === 1 ? 1 : k / (n - 1);
     return Math.round(cueMin + (cueMax - cueMin) * (asc ? f : 1 - f));
@@ -625,6 +626,7 @@ export function OrderWidget({
     '--ord-cue-cell': `${cueMax + 4}px`,
     '--ord-pad-x': `${ROOT_PAD.x}px`,
     '--ord-pad-y': `${ROOT_PAD.y}px`,
+    '--ord-pad-bottom': `${ROOT_PAD.y + (plan.handPad ?? 0)}px`,
     '--ord-gap-main': `${CHROME[plan.chrome].gap}px`,
     '--ord-board-pad': `${CHROME[plan.chrome].board.top}px ${CHROME[plan.chrome].board.x}px ${CHROME[plan.chrome].board.bottom}px`,
     '--ord-cue-gap': `${CHROME[plan.chrome].cueGap}px`,

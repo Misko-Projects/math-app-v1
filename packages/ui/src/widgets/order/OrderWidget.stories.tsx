@@ -684,6 +684,32 @@ export const PathCardsKMinLandscape: Story = {
   },
 };
 
+const pathInvite: WidgetDemo = createDemoController({ strict: true });
+
+/**
+ * The same area with an invite on a picture card: the layout already holds room for Pip's hand
+ * under the tray, so nothing moves or scrolls; then on its box once the card is picked up.
+ */
+export const PathCardsKMinLandscapeInvite: Story = {
+  globals: { ageMode: 'k' },
+  args: { config: pathCards, tier: 'pictorial', demo: pathInvite },
+  render: inArea('landscapeMin'),
+  play: async ({ canvasElement }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    const before = card(root, '8').getBoundingClientRect();
+    pathInvite.invite({ op: 'drag', args: { id: 'item-0', slot: 0 } });
+    await expectInviteOn(root, card(root, '8'));
+    await expectOrderFits(canvasElement, root, 'k');
+    // The cards did not move or resize when Pip came in.
+    const after = card(root, '8').getBoundingClientRect();
+    const px = (r: DOMRect) => [r.top, r.width, r.height].map(Math.round);
+    await expect(px(after)).toEqual(px(before));
+    await userEvent.click(card(root, '8'));
+    await expectInviteOn(root, root.querySelector('[data-slot-pad="0"]') as HTMLElement);
+    await expectOrderFits(canvasElement, root, 'k');
+  },
+};
+
 /** Portrait tablet (746 × 812): five K cards, the full cue, bigger cards. */
 export const FiveCardsKPortrait: Story = {
   globals: { ageMode: 'k' },

@@ -17,7 +17,7 @@
   /* Safe centring in the host: centred while it fits, top-aligned (never above the scroll origin)
      when it does not. */
   margin: auto;
-  padding: var(--ord-pad-y) var(--ord-pad-x);
+  padding: var(--ord-pad-y) var(--ord-pad-x) var(--ord-pad-bottom);
   /* The widget takes the width its host gives it; its layout is planned from that width. */
   contain: inline-size;
 }
@@ -47,7 +47,7 @@
   padding-bottom: 20px;
 }
 .ni-ord[data-chrome="compact"] .ni-ord__cue {
-  padding-bottom: 12px;
+  padding-bottom: 8px;
 }
 .ni-ord__cue-cell {
   display: flex;
@@ -82,13 +82,13 @@
   height: 24px;
 }
 .ni-ord[data-chrome="compact"] .ni-ord__arrow {
-  bottom: 0;
+  bottom: -2px;
   height: 8px;
 }
 .ni-ord[data-chrome="compact"] .ni-ord__arrowhead {
   bottom: -5px;
-  width: 18px;
-  height: 18px;
+  width: 14px;
+  height: 14px;
 }
 .ni-ord__arrowhead path {
   fill: var(--color-ink);
@@ -196,11 +196,11 @@ button.ni-ord__card:focus-visible,
   pointer-events: none;
 }
 .ni-ord__tag {
-  height: 34px;
+  height: 30px;
   font-family: var(--font-display);
   font-size: 2rem;
   font-weight: 800;
-  line-height: 34px;
+  line-height: 30px;
   padding-top: 0.1em;
   font-variant-numeric: tabular-nums;
 }
