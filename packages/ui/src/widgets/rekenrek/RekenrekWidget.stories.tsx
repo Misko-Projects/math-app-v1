@@ -579,7 +579,29 @@ export const DemoCancelsDrag: Story = {
     wire.dispatchEvent(new PointerEvent('pointerup', init(from.x - 180, 0)));
     await new Promise((r) => requestAnimationFrame(() => r(null)));
     await expect(pushed(root, 0)).toBe(0);
+
+    // PR #93 round 2 F3: a relative slide started (from an async callback) during a five-bead
+    // preview moves from the row as it was before the drag (0 + 2), not from the preview (5 + 2);
+    // lifting the finger afterwards leaves it at 2.
+    const again = (x: number, buttons: number) => ({ ...init(x, buttons), pointerId: 42 });
+    wire.dispatchEvent(new PointerEvent('pointerdown', again(from.x, 1)));
+    for (let i = 1; i <= 6; i++) {
+      wire.dispatchEvent(new PointerEvent('pointermove', again(from.x - 30 * i, 1)));
+      await new Promise((r) => requestAnimationFrame(() => r(null)));
+    }
+    await waitFor(() => expect(pushed(root, 0)).toBe(5));
+    await new Promise<void>((resolve, reject) => {
+      setTimeout(() => {
+        cancelController
+          .play({ op: 'slide', args: { row: 0, count: 2 } })
+          .then(() => resolve(), reject);
+      }, 0);
+    });
+    await expect(pushed(root, 0)).toBe(2);
+    wire.dispatchEvent(new PointerEvent('pointerup', again(from.x - 180, 0)));
+    await new Promise((r) => requestAnimationFrame(() => r(null)));
+    await expect(pushed(root, 0)).toBe(2);
     const trace = traceOf(args.onInteract).map((e) => `${e.t}:${e.target}`);
-    await expect(trace).toEqual(['drag:bead-0-4']);
+    await expect(trace).toEqual(['drag:bead-0-4', 'drag:bead-0-4']);
   },
 };

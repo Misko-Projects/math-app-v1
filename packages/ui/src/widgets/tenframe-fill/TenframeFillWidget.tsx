@@ -92,10 +92,16 @@ const OPS = [
 
 type Config = ConfigFor<'tenframe-fill'>;
 type ItemId = `counter-${number}`;
-type TargetId = `cell-${number}-${number}`;
+/** A cell, or (paged) the small frame: a counter put there goes in that frame's first empty cell. */
+type TargetId = `cell-${number}-${number}` | `mini-${number}`;
 type Step = 'build' | 'ask';
 
 const counterIndex = (s: string) => Number(s.slice('counter-'.length));
+const miniTarget = (frame: number): TargetId => `mini-${frame}`;
+const parseMini = (target: string): number | null => {
+  const m = /^mini-(\d+)$/.exec(target);
+  return m ? Number(m[1]) : null;
+};
 
 function Counter({ color }: { color: number }) {
   return <ObjectSprite sprite="counter" tone={color === COLOR_B ? 'b' : 'a'} />;
@@ -216,7 +222,13 @@ export function TenframeFillWidget({
   const shownStep: Step = steps ? step : 'build';
   const paged = plan.paged;
   const layout = shownStep === 'ask' && plan.ask ? plan.ask.arrangement : plan.build.arrangement;
-  /** Every part drawn this much larger where the area has room (targets only ever grow). */
+  /**
+   * Every part drawn this much larger where the area has room (targets only ever grow). The frames,
+   * the small frame and the counter tray, where counters are dragged, are drawn at real lengths
+   * (`--tf-cell`, `--tf-s`): CSS `zoom` there would make a drag's viewport pointer delta move a
+   * counter `zoom` times as far (useDragToTarget writes it as a local translate). The answer step's
+   * picture, the numeral answer and the buttons (taps only) use CSS `zoom` (`--tf-zoom`).
+   */
   const zoom = shownStep === 'ask' ? plan.askZoom : plan.buildZoom;
   zoomRef.current = zoom;
   const entryLayout: EntryLayout | null =
@@ -252,6 +264,8 @@ export function TenframeFillWidget({
     disabled: !interactive || !concrete,
     trace,
     canPlace: (_item, target) => {
+      const mini = parseMini(target);
+      if (mini !== null) return (boardRef.current.cells[mini] ?? []).includes(EMPTY);
       const cell = parseCell(target);
       return cell !== null && boardRef.current.cells[cell.frame]?.[cell.index] === EMPTY;
     },
@@ -259,8 +273,12 @@ export function TenframeFillWidget({
       if (item && speakOnTap) say(spriteNameKey('counter'));
     },
     onPlace: ({ item, target }) => {
-      const cell = parseCell(target);
-      if (!cell) return;
+      const mini = parseMini(target);
+      const cell: Cell | null =
+        mini !== null
+          ? { frame: mini, index: (boardRef.current.cells[mini] ?? []).indexOf(EMPTY) }
+          : parseCell(target);
+      if (!cell || cell.index < 0) return;
       const id = counterIndex(item);
       // A counter already on the frames (make ten) leaves its cell for the new one.
       const next = placeCounter(
@@ -273,8 +291,9 @@ export function TenframeFillWidget({
       if (next === boardRef.current) return;
       setInvite(null);
       setBoard(next);
+      // Put on the small frame: the frame in front stays (the next counter is picked up there).
       const at = cellOf(next, id);
-      if (at) showFrame(at.frame);
+      if (at && mini === null) showFrame(at.frame);
       speakAfter(next.cells);
     },
   });
@@ -741,34 +760,54 @@ export function TenframeFillWidget({
     </fieldset>
   );
 
-  /** Paged: the other frame, small, as a button that brings it to the front. */
+  /**
+   * Paged: the other frame, small, as a button that brings it to the front. Concrete, it is also a
+   * drop target: a counter picked up (tap, keyboard) or dragged onto it goes in that frame's first
+   * empty cell and the frame in front stays, so counters move between the frames (make ten) with
+   * no page switch dropping the one picked up. With nothing picked up, a tap switches the frames.
+   */
   const renderMini = (frame: number) => {
     const cells = board.cells[frame] ?? [];
     const n = cells.filter((c) => c !== EMPTY).length;
+    const label = `${t(frameKey, { n: frame + 1 })}: ${n}`;
+    const drop = concrete ? dnd.targetProps(miniTarget(frame), { label }) : null;
+    const takes = drop?.['data-armed'] === 'true';
     return (
       <button
         key={`mini-${frame}`}
+        ref={drop?.ref}
         type="button"
-        className={['ni-tf__mini', cueOf('mini')].filter(Boolean).join(' ')}
+        className={['ni-tf__mini', drop?.className, cueOf('mini')].filter(Boolean).join(' ')}
         data-cue="mini"
         data-frame={frame}
-        aria-label={`${t(frameKey, { n: frame + 1 })}: ${n}`}
+        data-place-target={drop?.['data-place-target']}
+        data-armed={drop?.['data-armed']}
+        aria-label={label}
         disabled={!interactive}
-        onClick={() => swapPage(frame)}
-        style={{ '--tf-rows': rows, '--tf-mini': `${MINI_PIECE[ageMode]}px` } as CSSProperties}
+        onClick={(e) => (takes && drop ? drop.onClick(e) : swapPage(frame))}
+        onKeyDown={(e) => {
+          // Enter and Space click the button (above); arrows move between the drop targets.
+          if (drop && e.key !== 'Enter' && e.key !== ' ') drop.onKeyDown(e);
+        }}
+        style={
+          { '--tf-rows': rows, '--tf-mini': `${MINI_PIECE[ageMode] * zoom}px` } as CSSProperties
+        }
       >
-        {cells.map((c, i) => (
-          // biome-ignore lint/suspicious/noArrayIndexKey: the small frame's cells are positional
-          <span key={i} className="ni-tf__mini-cell">
-            {c !== EMPTY ? <Counter color={c} /> : null}
-          </span>
-        ))}
+        {cells.map((c, i) => {
+          const lit = highlight === 'empty-cells' && c === EMPTY ? 'true' : undefined;
+          return (
+            // biome-ignore lint/suspicious/noArrayIndexKey: the small frame's cells are positional
+            <span key={i} className="ni-tf__mini-cell" data-lit={lit}>
+              {c !== EMPTY ? <Counter color={c} /> : null}
+            </span>
+          );
+        })}
       </button>
     );
   };
 
   const framesBlock = (
-    <div className="ni-tf__frames" data-chrome={chrome} style={{ gap: FRAME_GAP[chrome] }}>
+    <div className="ni-tf__frames" data-chrome={chrome} style={{ gap: FRAME_GAP[chrome] * zoom }}>
       {paged
         ? Array.from({ length: config.frames }, (_, f) =>
             f === page ? renderFrame(f) : renderMini(f),
@@ -810,8 +849,8 @@ export function TenframeFillWidget({
           {
             '--tf-supply-cols': shape[0],
             '--tf-supply-rows': shape[1],
-            width: shape[0] * target + (shape[0] - 1) * 12 + 2 * SUPPLY_EDGE,
-            height: shape[1] * target + (shape[1] - 1) * 12 + 2 * SUPPLY_EDGE,
+            width: (shape[0] * target + (shape[0] - 1) * 12 + 2 * SUPPLY_EDGE) * zoom,
+            height: (shape[1] * target + (shape[1] - 1) * 12 + 2 * SUPPLY_EDGE) * zoom,
           } as CSSProperties
         }
       >
@@ -914,7 +953,14 @@ export function TenframeFillWidget({
       data-paged={paged ? 'true' : undefined}
       data-asks={asks ? 'true' : undefined}
       data-disabled={disabled ? 'true' : undefined}
-      style={{ '--tf-cell': `${target}px`, '--tf-zoom': zoom, ...handRootStyle } as CSSProperties}
+      style={
+        {
+          '--tf-cell': `${target * zoom}px`,
+          '--tf-s': zoom,
+          '--tf-zoom': zoom,
+          ...handRootStyle,
+        } as CSSProperties
+      }
     >
       {shownStep === 'ask' ? (
         plan.ask && plan.ask.view > 0 ? (

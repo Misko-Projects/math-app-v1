@@ -16,6 +16,7 @@ import {
   expectTargetSize,
   pointerDrag,
   spyAudio,
+  touchDragAndHold,
 } from '../../test-support/storyHelpers';
 import {
   areaBox,
@@ -682,5 +683,36 @@ export const SplitSingleDigitAdvances: Story = {
     await userEvent.click(button(root, '7'));
     await userEvent.click(button(root, 'Check'));
     await expect(args.onResponse).toHaveBeenCalledWith({ kind: 'state', value: { parts: [5, 7] } });
+  },
+};
+
+/**
+ * PR #93 round 2 F2: the concrete bond drawn above 1× (SUB.06.t1 5 + 5 in G1 on a tablet area:
+ * 1.36×). A counter dragged from a part to the whole stays under the finger the whole way (no CSS
+ * `zoom` multiplying the pointer delta) and lands in the whole's pool.
+ */
+export const DragAtScaleConcreteG1: Story = {
+  args: { config: wholeFromParts55, tier: 'concrete' },
+  render: inArea('tablet'),
+  play: async ({ canvasElement }) => {
+    const root = await expectFits(canvasElement, 'g1-up');
+    await expect(Number(root.style.getPropertyValue('--bond-zoom'))).toBeGreaterThan(1.2);
+    await expect(
+      (root.querySelector('.ni-bondw__counter') as HTMLElement).getBoundingClientRect().width,
+    ).toBeGreaterThan(64 * 1.2);
+    // The layout is final (fonts in, measured buttons) before the finger goes down.
+    await document.fonts.ready;
+    await new Promise((r) => setTimeout(r, 300));
+    const item = root.querySelector('[data-pool="part-1"] .ni-bondw__counter') as HTMLElement;
+    const to = center(poolPad(root, 'whole'));
+    const lift = await touchDragAndHold(item, to, 12);
+    // Before release: the counter's centre is under the finger.
+    const at = center(item);
+    await expect(Math.abs(at.x - to.x)).toBeLessThan(2);
+    await expect(Math.abs(at.y - to.y)).toBeLessThan(2);
+    await expect(poolPad(root, 'whole')).toHaveAttribute('data-over', 'true');
+    await lift();
+    await waitFor(() => expect(inPool(root, 'whole')).toBe(1));
+    await expect(inPool(root, 'part-1')).toBe(4);
   },
 };

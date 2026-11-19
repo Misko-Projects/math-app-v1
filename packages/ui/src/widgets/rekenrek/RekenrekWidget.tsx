@@ -252,15 +252,21 @@ export function RekenrekWidget({
     if (setRow(row, tapBead(p.bead, p.start))) speakAfter(rowsRef.current);
   };
 
-  // Input goes away (disabled, or Pip starts a demo) mid-gesture: the gesture is cancelled and the
-  // wire goes back to where it was, as useDragToTarget does.
-  // biome-ignore lint/correctness/useExhaustiveDependencies: runs when input goes away
-  useEffect(() => {
-    if (canSlide) return;
+  /**
+   * Input goes away (disabled, or Pip starts a demo) mid-gesture: the gesture is cancelled and the
+   * wire goes back to where it was, as useDragToTarget does. Synchronous (rowsRef at once), so no
+   * demo op ever reads a drag's preview.
+   */
+  const cancelPress = () => {
     const p = press.current;
     if (!p) return;
     press.current = null;
     setRow(p.row, p.start);
+  };
+  // Disabled from outside: before the browser paints the next frame (a demo cancels in `play`).
+  // biome-ignore lint/correctness/useExhaustiveDependencies: runs when input goes away
+  useLayoutEffect(() => {
+    if (!canSlide) cancelPress();
   }, [canSlide]);
 
   const onPointerCancel = (row: number) => () => {
@@ -355,6 +361,8 @@ export function RekenrekWidget({
   useWidgetDemo(demo, {
     ops: OPS,
     play: async (action) => {
+      // A drag in progress ends first: every op below reads the row as it was before the drag.
+      cancelPress();
       setDemoBusy(true);
       setInvite(null);
       try {

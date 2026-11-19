@@ -152,6 +152,20 @@ export function poolsBox(input: BondInput): PoolsLayout {
   };
 }
 
+/**
+ * The concrete bond drawn `z` times as large, in real lengths (the widget draws it with no CSS
+ * `zoom`: counters are dragged there, and the drag code moves them by viewport pointer deltas).
+ */
+export function scalePools(l: PoolsLayout, z: number): PoolsLayout {
+  const box = (b: Box): Box => ({ x: b.x * z, y: b.y * z, w: b.w * z, h: b.h * z });
+  const all = (r: PoolsLayout['pools']) => ({
+    whole: box(r.whole),
+    'part-0': box(r['part-0']),
+    'part-1': box(r['part-1']),
+  });
+  return { size: { w: l.size.w * z, h: l.size.h * z }, pools: all(l.pools), badges: all(l.badges) };
+}
+
 /** The ways already found: small bonds side by side in a panel. */
 export function foundSize(n: number): Size | null {
   if (n <= 0) return null;

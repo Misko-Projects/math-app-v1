@@ -17,6 +17,7 @@ import {
   expectTargetSize,
   pointerDrag,
   spyAudio,
+  touchDragAndHold,
 } from '../../test-support/storyHelpers';
 import {
   areaBox,
@@ -112,6 +113,20 @@ const makeTenShell: Config = {
   goal: 'make-ten',
   thenAsk: 'missing',
   skin: 'shell',
+};
+
+/** ADD.08.t1 (make ten, as addsub.facts builds it): 8 in frame 1, 5 of colour b in frame 2. */
+const makeTen85: Config = {
+  ...base,
+  frames: 2,
+  prefilled: [
+    { frame: 0, color: 'a', count: 8 },
+    { frame: 1, color: 'b', count: 5 },
+  ],
+  goal: 'make-ten',
+  a: 8,
+  b: 5,
+  thenAsk: 'total',
 };
 
 /** A five-frame: show 4, how many? */
@@ -786,20 +801,7 @@ export const AreaInviteTeenK: Story = {
  * tenframe.makeTen checker accepts the response.
  */
 export const MakeTenMoveCounters: Story = {
-  args: {
-    config: {
-      ...base,
-      frames: 2,
-      prefilled: [
-        { frame: 0, color: 'a', count: 8 },
-        { frame: 1, color: 'b', count: 5 },
-      ],
-      goal: 'make-ten',
-      a: 8,
-      b: 5,
-      thenAsk: 'total',
-    },
-  },
+  args: { config: makeTen85 },
   play: async ({ canvasElement, args }) => {
     const root = await findWidget(canvasElement, ROOT);
     await expect(root.querySelector('.ni-tf__supply')).toBeNull();
@@ -850,5 +852,226 @@ export const DemoHighlightEmptyCells: Story = {
     }
     await playing;
     await expect(root.querySelectorAll('.ni-tf__cell[data-lit="true"]')).toHaveLength(0);
+  },
+};
+
+// ---------- PR #93 review round 2 ----------
+
+const frontFrame = (root: HTMLElement) =>
+  root.querySelector('.ni-tf__frame')?.getAttribute('data-frame') ?? null;
+const miniOf = (root: HTMLElement) => root.querySelector('.ni-tf__mini') as HTMLElement;
+/** Counters drawn in the small frame. */
+const inMini = (root: HTMLElement) => miniOf(root).querySelectorAll('.ni-tf__mini-cell svg').length;
+const placedCounter = (root: HTMLElement, id: number) =>
+  root.querySelector(`.ni-tf__placed[data-counter="${id}"]`) as HTMLElement;
+
+/** The response passes the engine's make-ten checker for 8 + 5 (a full first frame, 13 in all). */
+async function expectMakeTen(onResponse: unknown) {
+  const calls = (onResponse as { mock: { calls: [ResponseValue][] } }).mock.calls;
+  await expect(calls).toHaveLength(1);
+  const response = calls[0]?.[0] as ResponseValue;
+  const { cells, value } = (response as unknown as { value: { cells: number[][]; value: number } })
+    .value;
+  await expect(cells[0]?.every((c) => c !== 0)).toBe(true);
+  await expect(cells.flat().filter((c) => c !== 0)).toHaveLength(13);
+  await expect(value).toBe(13);
+  await expect(
+    matches(
+      { kind: 'state', checker: 'tenframe.makeTen', target: { total: 13, value: 13 } },
+      response,
+    ),
+  ).toBe(true);
+}
+
+/**
+ * PR #93 round 2 F1: make ten (ADD.08.t1, 8 + 5) in K at the minimum area, tap-only. The frames
+ * are paged; a counter picked up in frame 2 and tapped onto the small frame 1 goes in frame 1's
+ * first empty cell, and the picked-up counter is never dropped by a page switch. Two moves make
+ * ten; the end state passes tenframe.makeTen.
+ */
+export const MakeTenAreaTapOnlyK: Story = {
+  globals: { ageMode: 'k', tapOnly: 'on' },
+  args: { config: makeTen85 },
+  render: inArea('landscapeMin'),
+  play: async ({ canvasElement, args }) => {
+    const root = await expectFits(canvasElement, 'k');
+    await expect(root.dataset.paged).toBe('true');
+    await expect(frontFrame(root)).toBe('0');
+    // Frame 2 to the front (nothing picked up: the small frame switches the frames).
+    await userEvent.click(miniOf(root));
+    await waitFor(() => expect(frontFrame(root)).toBe('1'));
+    await expect(inMini(root)).toBe(8);
+    for (const [id, inFrame1] of [
+      [12, 9],
+      [11, 10],
+    ] as const) {
+      await userEvent.click(placedCounter(root, id));
+      await waitFor(() => expect(placedCounter(root, id)).toHaveAttribute('aria-pressed', 'true'));
+      await expect(miniOf(root)).toHaveAttribute('data-armed', 'true');
+      await userEvent.click(miniOf(root));
+      await waitFor(() => expect(inMini(root)).toBe(inFrame1));
+      // Frame 2 stays in front for the next counter.
+      await expect(frontFrame(root)).toBe('1');
+    }
+    await expect(cellsOf(root, 1).filter(Boolean)).toHaveLength(3);
+    await expectFits(canvasElement, 'k');
+    if (root.dataset.step === 'build') {
+      await userEvent.click(button(root, 'Next'));
+      await waitFor(() => expect(root.dataset.step).toBe('ask'));
+    }
+    await userEvent.click(button(root, '13'));
+    await userEvent.click(button(root, 'Check'));
+    await expectMakeTen(args.onResponse);
+  },
+};
+
+/** Presses `key` until `want` has the focus (at most `max` times). */
+async function pressUntilFocused(want: () => Element | null, key: string, max = 14) {
+  for (let i = 0; i < max && document.activeElement !== want(); i++) {
+    await userEvent.keyboard(key);
+  }
+  await expect(document.activeElement).toBe(want());
+}
+
+/**
+ * PR #93 round 2 F1, by keyboard: Enter on the small frame brings frame 2 forward; Enter picks a
+ * counter up (focus goes to a drop target); the arrow keys reach the small frame, now a drop
+ * target, and Enter puts the counter in frame 1's first empty cell. Then Next, 13 and Check, all
+ * by keyboard; the end state passes tenframe.makeTen.
+ */
+export const MakeTenAreaKeyboardK: Story = {
+  globals: { ageMode: 'k' },
+  args: { config: makeTen85 },
+  render: inArea('landscapeMin'),
+  play: async ({ canvasElement, args }) => {
+    const root = await expectFits(canvasElement, 'k');
+    await expect(root.dataset.paged).toBe('true');
+    miniOf(root).focus();
+    await userEvent.keyboard('{Enter}');
+    await waitFor(() => expect(frontFrame(root)).toBe('1'));
+    await waitFor(() => expect(document.activeElement).toBe(miniOf(root)));
+    for (const [id, inFrame1] of [
+      [12, 9],
+      [11, 10],
+    ] as const) {
+      placedCounter(root, id).focus();
+      await userEvent.keyboard('{Enter}');
+      await waitFor(() => expect(placedCounter(root, id)).toHaveAttribute('aria-pressed', 'true'));
+      await expect(document.activeElement?.hasAttribute('data-place-target')).toBe(true);
+      await pressUntilFocused(() => miniOf(root), '{ArrowLeft}');
+      await userEvent.keyboard('{Enter}');
+      await waitFor(() => expect(inMini(root)).toBe(inFrame1));
+      await expect(frontFrame(root)).toBe('1');
+    }
+    if (root.dataset.step === 'build') {
+      button(root, 'Next').focus();
+      await userEvent.keyboard('{Enter}');
+      await waitFor(() => expect(root.dataset.step).toBe('ask'));
+    }
+    button(root, '13').focus();
+    await userEvent.keyboard('{Enter}');
+    button(root, 'Check').focus();
+    await userEvent.keyboard('{Enter}');
+    await expectMakeTen(args.onResponse);
+  },
+};
+
+/** The hint's glow is drawn: a lit cell's box-shadow (and the small frame's fill) differ. */
+async function expectGlow(lit: Element, unlit: Element) {
+  const a = getComputedStyle(lit);
+  const b = getComputedStyle(unlit);
+  await expect(a.boxShadow).not.toBe('none');
+  await expect(a.boxShadow).toContain('rgb');
+  await expect(`${a.boxShadow}|${a.backgroundColor}`).not.toBe(
+    `${b.boxShadow}|${b.backgroundColor}`,
+  );
+}
+
+const pagedHighlight: WidgetDemo = createDemoController({ strict: true });
+
+/**
+ * PR #93 round 2 F4: the empty-cells hint on paged frames (make ten 8 + 5, K, minimum area) lights
+ * the 2 empty cells of the frame in front and the 5 empty cells of the small frame, visibly.
+ */
+export const DemoHighlightEmptyCellsPagedK: Story = {
+  globals: { ageMode: 'k' },
+  args: { config: makeTen85, demo: pagedHighlight },
+  render: inArea('landscapeMin'),
+  play: async ({ canvasElement }) => {
+    const root = await expectFits(canvasElement, 'k');
+    await expect(root.dataset.paged).toBe('true');
+    await expect(frontFrame(root)).toBe('0');
+    const playing = pagedHighlight.play({ op: 'highlight', args: { target: 'empty-cells' } });
+    await waitFor(() =>
+      expect(root.querySelectorAll('.ni-tf__cell[data-lit="true"]')).toHaveLength(2),
+    );
+    const miniLit = [...miniOf(root).querySelectorAll('.ni-tf__mini-cell[data-lit="true"]')];
+    await expect(miniLit).toHaveLength(5);
+    const miniFilled = miniOf(root).querySelector('.ni-tf__mini-cell:not([data-lit])') as Element;
+    for (const cell of miniLit) await expectGlow(cell, miniFilled);
+    const filled = root.querySelector('.ni-tf__cell[data-filled="true"]') as Element;
+    for (const cell of root.querySelectorAll('.ni-tf__cell[data-lit="true"]')) {
+      await expectGlow(cell, filled);
+    }
+    await playing;
+    await expect(root.querySelectorAll('[data-lit="true"]')).toHaveLength(0);
+  },
+};
+
+const miniHighlight: WidgetDemo = createDemoController({ strict: true });
+
+/**
+ * PR #93 round 2 F4: every remaining empty cell is in the small frame (CNT.14.t2, 10 + 2, with
+ * the full frame 1 in front): the hint lights all 8 of them there, visibly, and none in front.
+ */
+export const DemoHighlightEmptyCellsAllInMiniK: Story = {
+  globals: { ageMode: 'k' },
+  args: { config: oneMore12, demo: miniHighlight },
+  render: inArea('landscapeMin'),
+  play: async ({ canvasElement }) => {
+    const root = await expectFits(canvasElement, 'k');
+    await expect(frontFrame(root)).toBe('1');
+    await userEvent.click(miniOf(root));
+    await waitFor(() => expect(frontFrame(root)).toBe('0'));
+    const playing = miniHighlight.play({ op: 'highlight', args: { target: 'empty-cells' } });
+    await waitFor(() =>
+      expect(miniOf(root).querySelectorAll('.ni-tf__mini-cell[data-lit="true"]')).toHaveLength(8),
+    );
+    await expect(root.querySelectorAll('.ni-tf__cell[data-lit="true"]')).toHaveLength(0);
+    const filled = miniOf(root).querySelector('.ni-tf__mini-cell:not([data-lit])') as Element;
+    for (const cell of miniOf(root).querySelectorAll('.ni-tf__mini-cell[data-lit="true"]')) {
+      await expectGlow(cell, filled);
+    }
+    await playing;
+  },
+};
+
+/**
+ * PR #93 round 2 F2: drawn above 1× (CPS.02.t1, show 7 on two frames, in G1 on a tablet area:
+ * 1.24×), a dragged counter stays under the finger the whole way (no CSS `zoom` multiplying the
+ * pointer delta) and lands in the cell it is dropped on (frame 2, cell 4).
+ */
+export const DragAtScaleG1: Story = {
+  args: { config: split7 },
+  render: inArea('tablet'),
+  play: async ({ canvasElement }) => {
+    const root = await expectFits(canvasElement, 'g1-up');
+    // Drawn larger than design size (the frames and the tray at real lengths).
+    await expect(Number(root.style.getPropertyValue('--tf-zoom'))).toBeGreaterThan(1.2);
+    await expect(pad(root, 1, 3).getBoundingClientRect().width).toBeGreaterThan(64 * 1.2);
+    // The layout is final (fonts in, measured buttons) before the finger goes down.
+    await document.fonts.ready;
+    await new Promise((r) => setTimeout(r, 300));
+    const item = supplyCounters(root).at(-1) as HTMLElement;
+    const to = center(pad(root, 1, 3));
+    const lift = await touchDragAndHold(item, to, 12);
+    // Before release: the counter's centre is under the finger.
+    const at = center(item);
+    await expect(Math.abs(at.x - to.x)).toBeLessThan(2);
+    await expect(Math.abs(at.y - to.y)).toBeLessThan(2);
+    await expect(pad(root, 1, 3)).toHaveAttribute('data-over', 'true');
+    await lift();
+    await waitFor(() => expect(cellsOf(root, 1)).toEqual([0, 0, 0, 1, 0, 0, 0, 0, 0, 0]));
+    await expect(cellsOf(root, 0).filter(Boolean)).toHaveLength(0);
   },
 };

@@ -40,7 +40,17 @@ import {
   type Slot,
   splitResponse,
 } from './bond';
-import { BOND_PAD, BOND_W, bondSize, circleFont, FOUND_C, miniC, planBond, poolsBox } from './plan';
+import {
+  BOND_PAD,
+  BOND_W,
+  bondSize,
+  circleFont,
+  FOUND_C,
+  miniC,
+  planBond,
+  poolsBox,
+  scalePools,
+} from './plan';
 import './number-bond.css';
 
 /**
@@ -190,7 +200,12 @@ export function NumberBondWidget({
   const steps = plan.steps;
   const shownStep: Step = steps ? step : 'bond';
   const layout = shownStep === 'ask' && plan.ask ? plan.ask.arrangement : plan.arrangement;
-  /** Every part drawn this much larger where the area has room (targets only ever grow). */
+  /**
+   * Every part drawn this much larger where the area has room (targets only ever grow). The
+   * concrete bond, where counters are dragged, is drawn at real lengths (scalePools, `--bond-cell`,
+   * `--bond-s`): CSS `zoom` there would make a drag's viewport pointer delta move a counter `zoom`
+   * times as far (useDragToTarget writes it as a local translate). Tapped parts use CSS `zoom`.
+   */
   const zoom = shownStep === 'ask' ? plan.askZoom : plan.zoom;
   zoomRef.current = zoom;
   const entryLayout = shownStep === 'ask' ? (plan.ask?.entry ?? null) : plan.entry;
@@ -595,7 +610,7 @@ export function NumberBondWidget({
   // ---------- render: the concrete bond (pools of counters) ----------
 
   const renderPools = () => {
-    const box = poolsBox(input);
+    const box = scalePools(poolsBox(input), zoom);
     const centre = (slot: Slot) => box.pools[slot].x + box.pools[slot].w / 2;
     const badgeOf = (slot: Slot) => {
       const known = given(config, slot);
@@ -818,12 +833,14 @@ export function NumberBondWidget({
     </div>
   );
 
+  /** The concrete bond (counters are dragged there) is drawn at real lengths, not CSS `zoom`. */
+  const pools = shownStep !== 'ask' && concrete;
   const main =
     shownStep === 'ask'
       ? plan.ask?.mini
         ? renderBond(miniC(biggest), false, true)
         : null
-      : concrete
+      : pools
         ? renderPools()
         : renderBond(c, true, false, plan.spread);
 
@@ -837,10 +854,19 @@ export function NumberBondWidget({
       data-step={steps ? shownStep : undefined}
       data-disabled={disabled ? 'true' : undefined}
       style={
-        { '--bond-cell': `${target}px`, '--bond-zoom': zoom, ...handRootStyle } as CSSProperties
+        {
+          '--bond-cell': `${target * zoom}px`,
+          '--bond-s': zoom,
+          '--bond-zoom': zoom,
+          ...handRootStyle,
+        } as CSSProperties
       }
     >
-      {main ? <div className="ni-bondw__main">{main}</div> : null}
+      {main ? (
+        <div className="ni-bondw__main" data-real-size={pools ? 'true' : undefined}>
+          {main}
+        </div>
+      ) : null}
       <div className="ni-bondw__items">
         {foundBlock}
         {shownStep === 'ask' || !steps ? entryBlock : null}
