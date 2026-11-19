@@ -24,11 +24,21 @@ export interface FixtureContent {
 }
 
 let cached: FixtureContent | null = null;
+let compiled: ReturnType<typeof compileContent> | null = null;
+
+/**
+ * The one in-memory compile of the live content that every helper below reads, so a test file
+ * that uses the fixture, its graph and its game data compiles the catalog once, not three times.
+ */
+function liveCompile(): ReturnType<typeof compileContent> {
+  compiled ??= compileContent(readContentFiles());
+  return compiled;
+}
 
 /** The compiled fixture, parsed from the exact `dist/` bytes the compiler would write. */
 export function compileFixture(): FixtureContent {
   if (cached) return cached;
-  const result = compileContent(readContentFiles());
+  const result = liveCompile();
   if (!result.outputs) {
     const errors = result.diagnostics.filter((d) => d.severity === 'error').map(formatDiagnostic);
     throw new Error(`the fixture content does not compile:\n${errors.join('\n')}`);
@@ -54,7 +64,7 @@ let cachedGraph: SkillGraph | null = null;
 /** The fixture's 02 §5.8 SkillGraph and GameData, built from the same in-memory compile. */
 export function fixtureGraph(): SkillGraph {
   if (cachedGraph) return cachedGraph;
-  const result = compileContent(readContentFiles());
+  const result = liveCompile();
   if (!result.content || !result.contentVersion)
     throw new Error('the fixture content does not compile');
   cachedGraph = buildSkillGraph({
@@ -67,9 +77,10 @@ export function fixtureGraph(): SkillGraph {
 }
 
 export function fixtureGameData(): GameData {
-  const result = compileContent(readContentFiles());
+  const result = liveCompile();
   if (!result.content) throw new Error('the fixture content does not compile');
-  return result.content.game;
+  // A fresh copy per call, as before the compile was shared: a test may edit what it gets.
+  return structuredClone(result.content.game);
 }
 
 export interface CompiledContent {
