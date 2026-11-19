@@ -197,7 +197,8 @@ describe('<ProfilePicker>', () => {
     expect(
       screen.getByText(/For grown-ups: Number Island is open in another tab or window/),
     ).toBeTruthy();
-    expect(say).toHaveBeenCalledWith('ui.rest.elsewhere', undefined);
+    // The overlay speaks from a mount effect, which can run just after its DOM appears.
+    await waitFor(() => expect(say).toHaveBeenCalledWith('ui.rest.elsewhere', undefined));
     expect(await sessionEvents(app)).toEqual([]);
     fireEvent.click(screen.getByRole('button', { name: 'Okay!' }));
     await waitFor(() => expect(screen.queryByTestId('resting-overlay')).toBeNull());
@@ -215,7 +216,9 @@ describe('<ProfilePicker>', () => {
     expect(
       screen.getByText('The island is resting. It opens again at 8:59 in the morning!'),
     ).toBeTruthy();
-    expect(say).toHaveBeenCalledWith('ui.rest.quiet-hours.morning', { at: '8:59' });
+    await waitFor(() =>
+      expect(say).toHaveBeenCalledWith('ui.rest.quiet-hours.morning', { at: '8:59' }),
+    );
     expect(await sessionEvents(app)).toEqual([]);
     fireEvent.click(screen.getByRole('button', { name: 'Okay!' }));
     await waitFor(() => expect(screen.queryByTestId('resting-overlay')).toBeNull());
@@ -238,7 +241,7 @@ describe('picture password pad', () => {
     });
     const pad = await screen.findByTestId('picture-pad');
     expect(pad).toBeTruthy();
-    expect(say).toHaveBeenCalledWith('ui.picture.prompt', undefined);
+    await waitFor(() => expect(say).toHaveBeenCalledWith('ui.picture.prompt', undefined));
     // Tapping a picture speaks it and fills a slot; undo takes it back.
     fireEvent.click(screen.getByRole('button', { name: 'Crab' }));
     expect(say).toHaveBeenCalledWith('ui.picture.crab', undefined);
