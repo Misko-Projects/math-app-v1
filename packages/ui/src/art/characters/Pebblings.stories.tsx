@@ -22,6 +22,7 @@ import {
 import {
   expectArtInsideBox,
   expectCellsApart,
+  expectedFrames,
   expectLitMatchesNumber,
   expectNoLoops,
   expectNoSidewaysScroll,
@@ -669,6 +670,12 @@ export const PebbleSlotsVisible: Story = {
     for (const box of cases) {
       box.style.display = 'block';
       const svg = box.querySelector('svg') as SVGSVGElement;
+      // Each critter has all its ten-frames, ten slots each (none may go missing unnoticed).
+      const frames = [...svg.querySelectorAll('[data-part="ten-frame"]')];
+      if (frames.length !== expectedFrames(Number(svg.dataset.number), svg.dataset.family))
+        bad.push(`${box.dataset.slotCase}: ${frames.length} frames`);
+      if (frames.some((f) => f.querySelectorAll('[data-pebble]').length !== 10))
+        bad.push(`${box.dataset.slotCase}: a frame without ten slots`);
       const anims = svg.getAnimations({ subtree: true });
       for (const a of anims) a.pause();
       // Limbs move the same whatever the number, so one single (7) and one teen (17) per species

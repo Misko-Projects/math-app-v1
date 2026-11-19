@@ -58,18 +58,26 @@ export function FractionShell({
           />
         );
       })}
-      {/* Solid ink-soft spokes between every part, so the equal parts read even when all are empty. */}
+      {/* Two-tone spokes between every part: a dark line that shows on the light shell bed, with a
+          light core that shows between two filled (dark) parts, so the equal parts always read. */}
       {Array.from({ length: parts }, (_, i) => {
         const [x, y] = polar(r - 5, i * step);
         return (
-          <path
-            // biome-ignore lint/suspicious/noArrayIndexKey: spokes are positional
-            key={`s${i}`}
-            d={`M0 0L${x} ${y}`}
-            stroke={paint(PEBBLE_MARK.empty)}
-            strokeWidth={3}
-            strokeLinecap="round"
-          />
+          // biome-ignore lint/suspicious/noArrayIndexKey: spokes are positional
+          <g key={`s${i}`} data-part="spoke">
+            <path
+              d={`M0 0L${x} ${y}`}
+              stroke={paint(PEBBLE_MARK.empty)}
+              strokeWidth={4.5}
+              strokeLinecap="round"
+            />
+            <path
+              d={`M0 0L${x} ${y}`}
+              stroke={paint(PEBBLE_MARK.spokeCore)}
+              strokeWidth={1.8}
+              strokeLinecap="round"
+            />
+          </g>
         );
       })}
       <circle r={4} fill={paint(PEBBLE_MARK.empty)} />

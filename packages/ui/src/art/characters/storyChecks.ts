@@ -7,6 +7,16 @@ export function litCount(el: Element): number {
   return el.querySelectorAll('[data-pebble="lit"]').length;
 }
 
+/**
+ * How many ten-frames a Pebbling with number `n` shows: one for a single critter (0–10), one per
+ * Ten Turtle plus one for a friend carrying the ones, and always ten for the Hundred Whale.
+ */
+export function expectedFrames(n: number, family: string | undefined): number {
+  if (family === 'hundreds') return 10;
+  if (family === 'tens') return Math.max(1, Math.floor(n / 10) + (n % 10 > 0 ? 1 : 0));
+  return 1;
+}
+
 /** Every Pebbling in the canvas shows exactly its number as lit pebbles (0–20 and tens families). */
 export async function expectLitMatchesNumber(root: HTMLElement) {
   const all = [...root.querySelectorAll<SVGSVGElement>('svg[data-pebbling]')];
@@ -15,9 +25,14 @@ export async function expectLitMatchesNumber(root: HTMLElement) {
     const family = svg.dataset.family;
     if (family && family !== 'tens' && family !== 'hundreds') continue;
     const n = Number(svg.dataset.number);
-    await expect(litCount(svg), `${svg.dataset.pebbling} ${n}`).toBe(n);
-    const sockets = svg.querySelectorAll('[data-pebble]').length;
-    await expect(sockets % 10, 'every frame has ten sockets').toBe(0);
+    const where = `${svg.dataset.pebbling} ${n}`;
+    await expect(litCount(svg), where).toBe(n);
+    // The right number of ten-frames (a zero still shows its one empty frame), each with ten
+    // sockets, so a frame that goes missing can't pass as "nothing lit" (review s_eab7ff900e77 #6).
+    const frames = [...svg.querySelectorAll('[data-part="ten-frame"]')];
+    await expect(frames.length, `${where} frames`).toBe(expectedFrames(n, family));
+    for (const f of frames)
+      await expect(f.querySelectorAll('[data-pebble]').length, where).toBe(10);
     if (family === 'tens' && n > 10 && n < 20) {
       const ten = svg.querySelector('[data-role="ten"]') as Element;
       const ones = svg.querySelector('[data-role="ones"]') as Element;

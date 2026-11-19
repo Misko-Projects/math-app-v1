@@ -85,6 +85,8 @@ export const PEBBLE_MARK = {
   lit: 'sea-deep',
   litEdge: 'sea-dark',
   empty: 'ink-soft',
+  /** The light core of the Half-Crab's spokes, between two filled parts. */
+  spokeCore: 'cloud',
 } as const satisfies Record<string, PaletteColor>;
 
 /** Ten-frame geometry at a Pebbling's design size (a single critter's art is 220 units wide). */
@@ -230,14 +232,15 @@ function slug(s: string): string {
 export function speciesOf(name: string): PebblingSpecies | undefined {
   const s = slug(name);
   if ((PEBBLING_SPECIES as readonly string[]).includes(s)) return s as PebblingSpecies;
-  return SPECIES_ALIASES[s];
+  // Own keys only: an inherited name such as "constructor" is unknown, not Object's function.
+  return Object.hasOwn(SPECIES_ALIASES, s) ? SPECIES_ALIASES[s] : undefined;
 }
 
 /** A palette name from game data as a generator palette. */
 export function paletteOf(name: string): PebblingPalette | undefined {
   const s = slug(name);
   if ((PEBBLING_PALETTES as readonly string[]).includes(s)) return s as PebblingPalette;
-  return PALETTE_ALIASES[s];
+  return Object.hasOwn(PALETTE_ALIASES, s) ? PALETTE_ALIASES[s] : undefined;
 }
 
 /**
@@ -258,6 +261,38 @@ export function pebblingFromResident(
   const spec: PebblingSpec = { species, palette, number: def.number };
   if (family) spec.family = family;
   return spec;
+}
+
+/**
+ * Whether a Pebbling can show `number` exactly in its family (05 §5: the drawn quantity is the
+ * number). Plain critters show whole numbers 0–10 (above 10 they ride with the Ten Turtles, up to
+ * 109); the Hundred Whale 0–100; Clockfish whole hours 1–12; Coin Clams 1, 5, 10 or 25¢; Half-Crabs
+ * a fraction from 0 to 1 with one of the shell's denominators. Anything else would be drawn as a
+ * nearby quantity, so it is not drawable: the Pebbling then shows a plain shell instead.
+ */
+export function drawableNumber(spec: Pick<PebblingSpec, 'number' | 'family'>): boolean {
+  const n = spec.number;
+  if (n === null) return true;
+  if (!Number.isFinite(n)) return false;
+  const whole = Number.isInteger(n);
+  switch (effectiveFamily(spec)) {
+    case 'fraction':
+      return (
+        n >= 0 &&
+        n <= 1 &&
+        FRACTION_DENOMINATORS.some((d) => Math.abs(n - Math.round(n * d) / d) < 1e-3)
+      );
+    case 'coin':
+      return (COIN_VALUES as readonly number[]).includes(n);
+    case 'clock':
+      return whole && n >= 1 && n <= 12;
+    case 'hundreds':
+      return whole && n >= 0 && n <= 100;
+    case 'tens':
+      return whole && n >= 0 && n <= 109;
+    default:
+      return whole && n >= 0 && n <= 10;
+  }
 }
 
 /** The family a spec is drawn as: a plain number above 10 rides with the Ten Turtles. */

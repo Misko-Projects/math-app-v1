@@ -1,5 +1,7 @@
 import { readdirSync, readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
+import { compileContent } from '@number-island/content';
+import { readContentFiles } from '@number-island/content/node';
 import { describe, expect, it } from 'vitest';
 import { PALETTE } from '../../tokens/tokens';
 import { pairRatio } from '../core/contrast';
@@ -10,6 +12,7 @@ import {
   CRITTER_W,
   clockHour,
   coinValue,
+  drawableNumber,
   effectiveFamily,
   fractionParts,
   hundredFrames,
@@ -115,11 +118,51 @@ describe('ResidentDef → Pebbling props', () => {
     expect(pebblingFromResident(resident({ number: null })).number).toBeNull();
   });
 
+  it('treats inherited names such as "constructor" as unknown (review s_eab7ff900e77 #2)', () => {
+    for (const name of ['constructor', 'toString', '__proto__', 'hasOwnProperty']) {
+      expect(speciesOf(name), name).toBeUndefined();
+      expect(paletteOf(name), name).toBeUndefined();
+      const spec = pebblingFromResident(resident({ species: name, palette: name, number: 4 }));
+      expect(PEBBLING_SPECIES, name).toContain(spec.species);
+      expect(PEBBLING_PALETTES, name).toContain(spec.palette);
+    }
+  });
+
   it('draws a plain number above ten as the tens family', () => {
     expect(effectiveFamily({ number: 7 })).toBeUndefined();
     expect(effectiveFamily({ number: 14 })).toBe('tens');
     expect(effectiveFamily({ number: null })).toBeUndefined();
     expect(effectiveFamily({ number: 3, family: 'clock' })).toBe('clock');
+  });
+});
+
+describe('only numbers a family can show exactly are drawn (review s_eab7ff900e77 #1)', () => {
+  it('accepts exact values and rejects ones that would be drawn as a nearby quantity', () => {
+    const ok = (number: number | null, family?: (typeof PEBBLING_FAMILIES)[number]) =>
+      drawableNumber(family ? { number, family } : { number });
+    // Plain critters 0–10; above ten the Ten Turtles, to 109.
+    expect([0, 7, 10, 14, 100, 109].every((n) => ok(n))).toBe(true);
+    expect([2.5, -1, 110, Number.NaN].some((n) => ok(n))).toBe(false);
+    // Half-Crabs: fractions with the shell's denominators.
+    expect([0, 0.5, 0.25, 1 / 3, 0.333, 2 / 3, 0.75, 1].every((v) => ok(v, 'fraction'))).toBe(true);
+    expect([1 / 7, 0.14, 1.5, -0.25].some((v) => ok(v, 'fraction'))).toBe(false);
+    // Coin Clams: 1, 5, 10, 25 only.
+    expect([1, 5, 10, 25].every((v) => ok(v, 'coin'))).toBe(true);
+    expect([7, 2, 50].some((v) => ok(v, 'coin'))).toBe(false);
+    // Clockfish: whole hours 1–12. The Hundred Whale: 0–100.
+    expect(ok(12, 'clock') && !ok(0, 'clock') && !ok(3.5, 'clock') && !ok(13, 'clock')).toBe(true);
+    expect(ok(100, 'hundreds') && ok(46, 'hundreds') && !ok(101, 'hundreds')).toBe(true);
+    expect(ok(null) && ok(null, 'coin')).toBe(true);
+  });
+
+  it('every resident in the game data is drawn exactly', () => {
+    const game = compileContent(readContentFiles()).content?.game;
+    expect(game?.residents.length).toBeGreaterThanOrEqual(40);
+    const off = (game?.residents ?? [])
+      .map((r) => ({ id: r.id, spec: pebblingFromResident(r) }))
+      .filter(({ spec }) => !drawableNumber(spec))
+      .map(({ id, spec }) => `${id} ${spec.family ?? 'plain'} ${spec.number}`);
+    expect(off).toEqual([]);
   });
 });
 

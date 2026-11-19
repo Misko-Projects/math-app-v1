@@ -17,6 +17,20 @@ export const CHARACTER_CONTRAST_PAIRS: readonly ArtContrastPair[] = [
     ];
   }),
   { use: 'Pebbling pupil (ink on the eye white)', fg: 'ink', bg: 'cloud', min: 3 },
+  // Between two filled Half-Crab parts the spoke's light core is the boundary (review
+  // s_eab7ff900e77 #3): it must stand out from the filled fill and from the filled edge.
+  {
+    use: 'Half-Crab spoke core between filled parts',
+    fg: PEBBLE_MARK.spokeCore,
+    bg: PEBBLE_MARK.lit,
+    min: 3,
+  },
+  {
+    use: 'Half-Crab spoke core against a filled part’s edge',
+    fg: PEBBLE_MARK.spokeCore,
+    bg: PEBBLE_MARK.litEdge,
+    min: 3,
+  },
   { use: 'Pip pupil (ink on the white face)', fg: 'ink', bg: 'cloud', min: 3 },
   { use: 'Pip eye marks (ink-soft on the white face)', fg: 'ink-soft', bg: 'cloud', min: 3 },
   { use: 'Pip anchor badge (sea-dark on sunshine)', fg: 'sea-dark', bg: 'sunshine', min: 3 },

@@ -78,6 +78,40 @@ export const States: Story = {
     await expectCellsApart(canvasElement);
     await expectArtInsideBox(canvasElement, 'svg[data-character="glim"]');
     await expectCaptionsAligned(canvasElement);
+    await expectGlimBlinks(canvasElement);
     await expectNoSidewaysScroll();
   },
 };
+
+/**
+ * Glim blinks by swapping its light bars for curved light lids, never by squashing a bar (review
+ * s_eab7ff900e77 #4): at the closed moment (97% of the 5 s blink) every blinking Glim shows its
+ * lids and hides its bars; at rest it shows the bars.
+ */
+async function expectGlimBlinks(root: HTMLElement) {
+  const blinks = [
+    ...root.querySelectorAll<SVGGElement>('[data-part="screen-eyes"] [data-part="blink"]'),
+  ];
+  // Every state but "appear" (happy chevrons) has blinking bars.
+  await expect(blinks.length).toBe(GLIM_STATES.length);
+  const seek = (ms: number) => {
+    for (const b of blinks) {
+      for (const a of b.getAnimations({ subtree: true })) {
+        a.pause();
+        a.currentTime = ms + Number(a.effect?.getTiming().delay ?? 0);
+      }
+    }
+  };
+  const opacity = (el: Element | null) => Number(getComputedStyle(el as Element).opacity);
+  seek(4850);
+  for (const b of blinks) {
+    await expect(opacity(b.querySelector('.art-blink-open')), 'bars hidden').toBe(0);
+    await expect(opacity(b.querySelector('[data-part="lids"]')), 'lids shown').toBe(1);
+  }
+  seek(1000);
+  for (const b of blinks) {
+    await expect(opacity(b.querySelector('.art-blink-open')), 'bars shown').toBe(1);
+    await expect(opacity(b.querySelector('[data-part="lids"]')), 'lids hidden').toBe(0);
+  }
+  for (const b of blinks) for (const a of b.getAnimations({ subtree: true })) a.play();
+}

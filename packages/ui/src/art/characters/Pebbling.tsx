@@ -8,6 +8,7 @@ import {
   CRITTER_H,
   CRITTER_W,
   coinValue,
+  drawableNumber,
   effectiveFamily,
   hundredFrames,
   PALETTE_FILLS,
@@ -244,7 +245,11 @@ export function Pebbling({
   lighting,
   ...rest
 }: PebblingProps) {
-  const layout = layoutFor({ species, palette, number, family, pose, showValue });
+  // A number the family can't show exactly is never drawn as a nearby quantity: the Pebbling shows
+  // a plain shell and marks the value it was given (data-unsupported-number).
+  const drawable = drawableNumber({ number: number ?? null, family });
+  const shown = drawable ? (number ?? null) : null;
+  const layout = layoutFor({ species, palette, number: shown, family, pose, showValue });
   const pad = 6;
   return (
     <ArtSvg
@@ -257,8 +262,9 @@ export function Pebbling({
       lighting={lighting}
       rootProps={{
         'data-pebbling': species,
-        'data-number': number ?? undefined,
-        'data-family': effectiveFamily({ number, family }),
+        'data-number': shown ?? undefined,
+        'data-unsupported-number': drawable ? undefined : String(number),
+        'data-family': effectiveFamily({ number: shown, family }),
         'data-pose': pose,
       }}
       {...rest}

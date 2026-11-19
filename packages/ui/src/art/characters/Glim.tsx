@@ -1,7 +1,7 @@
 import type { ArtProps } from '../core/ArtSvg';
 import { ArtSvg } from '../core/ArtSvg';
 import { paint } from '../core/paint';
-import { fillOf, Loop, Pivot, Tube } from './parts';
+import { Blink, fillOf, Loop, Pivot, Tube } from './parts';
 
 /**
  * Glim (07 §7, 06 §6): the small lantern-robot who voices every AI-originated line. Clearly a
@@ -38,9 +38,18 @@ function ScreenFace({ state }: { state: GlimState }) {
     );
   }
   const lookUp = state === 'think';
+  const eyeY = lookUp ? 94 + 6.5 : 98 + 9;
   return (
     <g data-part="screen-eyes">
-      <Loop token="blink" delay={-1.3}>
+      {/* Blinks swap the light bars for curved light lids (never a squashed bar). */}
+      <Blink
+        eyes={[
+          { x: (lookUp ? 70 : 72) + 6, y: eyeY, r: 8 },
+          { x: (lookUp ? 94 : 96) + 6, y: eyeY, r: 8 },
+        ]}
+        delay={-1.3}
+        lid={EYE}
+      >
         <rect
           x={lookUp ? 70 : 72}
           y={lookUp ? 94 : 98}
@@ -57,7 +66,7 @@ function ScreenFace({ state }: { state: GlimState }) {
           rx={6}
           fill={paint(EYE)}
         />
-      </Loop>
+      </Blink>
       {state === 'talk' ? (
         <g data-part="voice-bars">
           {[0, 1, 2, 3, 4].map((i) => (
