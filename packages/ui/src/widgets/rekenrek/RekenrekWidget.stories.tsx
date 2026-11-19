@@ -12,6 +12,7 @@ import {
 import {
   center,
   clearSpies,
+  expectAreaCentred,
   expectTargetGaps,
   expectTargetSize,
   pointerDrag,
@@ -124,8 +125,10 @@ const meta = {
   render: renderWidget,
   // Every story ends with nothing focused: a leftover keyboard focus ring must not read as an
   // invite in the evidence (invite stories keep their one ring and hand: those are not focus).
-  afterEach: async () => {
+  // Every area story's card is centred in the stage on both axes (#92).
+  afterEach: async ({ canvasElement }) => {
     (document.activeElement as HTMLElement | null)?.blur();
+    await expectAreaCentred(canvasElement);
   },
 } satisfies Meta<WidgetHostProps>;
 

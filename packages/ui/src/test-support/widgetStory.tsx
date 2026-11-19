@@ -125,6 +125,10 @@ export function inArea(area: keyof typeof AREA) {
       style={{
         ...AREA[area],
         maxWidth: 'none',
+        // Centred in the stage even when wider than its padded content box (the 1226 px tablet
+        // area in a 1280 px viewport), as make-set's and tap-count's area cards (#92).
+        justifySelf: 'center',
+        marginInline: `min(0px, calc((100% - ${AREA[area].width}px) / 2))`,
         boxSizing: 'border-box',
         display: 'grid',
         overflow: 'auto',
