@@ -1,0 +1,17 @@
+# Authored lessons (03 §4.5, §6). Skills without an entry get an auto lesson (03 §6.4).
+strand: TIM
+lessons:
+  # This lesson only pins the test-out pool (03 §6.5) to TIM.09's pictorial constructed-answer
+  # template (04 §7a). clock-read can also answer with a choice, and the hour pick (t3) does, so the
+  # auto pool would mix them. The examples are exactly what the auto lesson plays: the same seeds
+  # and targets on the concrete template.
+  - skillId: TIM.09
+    mode: authored
+    templateId: TIM.09.t1
+    worked:
+      - { seed: 1103943362, target: easy }
+    faded:
+      - { seed: 1103943363, target: typical, childSteps: 1 }
+      - { seed: 1103943364, target: typical, childSteps: 2 }
+    scaffolded: { count: 2, hintStart: 2 }
+    testOut: { items: 3, minCorrect: 3, templateIds: [TIM.09.t2] }

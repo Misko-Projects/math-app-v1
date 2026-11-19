@@ -1,0 +1,30 @@
+# K01 (#11): the grade-1 FRA rows of 03 §3.11. FRA.02–06 and FRA.09–17 are grade 2–3 (K02;
+# graph.yaml plannedIds).
+strand: FRA
+skills:
+  - id: FRA.01
+    name: Halves and fourths of circles and rectangles
+    kind: concept
+    grade: 1
+    standards: { ccss: [1.G.A.3] }
+    prerequisites: [FRA.07, GEO.02]
+    gateway: false
+    representations: [fraction-shape, fraction-strip, words]
+
+  - id: FRA.07
+    name: "Equal parts or not? Spot fair shares"
+    kind: concept
+    grade: 1
+    standards: { ccss: [], supports: [1.G.A.3] }
+    prerequisites: [GEO.01, MUL.12]
+    gateway: false
+    representations: [objects, fraction-shape]
+
+  - id: FRA.08
+    name: More equal parts means smaller parts
+    kind: concept
+    grade: 1
+    standards: { ccss: [1.G.A.3] }
+    prerequisites: [FRA.01]
+    gateway: false
+    representations: [fraction-shape, fraction-strip]

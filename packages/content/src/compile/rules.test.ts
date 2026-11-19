@@ -95,6 +95,9 @@ describe('the C01 fixture set (03 §9.5)', () => {
       'ADD.25',
       'ADD.26',
       'ADD.27',
+      'ALG.01',
+      'ALG.02',
+      'ALG.04',
       'ALG.05',
       'CMP.01',
       'CMP.02',
@@ -128,10 +131,18 @@ describe('the C01 fixture set (03 §9.5)', () => {
       'CPS.03',
       'CPS.04',
       'CPS.05',
+      'CPS.06',
       'CPS.07',
       'CPS.08',
       'CPS.09',
       'CPS.11',
+      'DAT.01',
+      'DAT.02',
+      'DAT.09',
+      'DAT.10',
+      'FRA.01',
+      'FRA.07',
+      'FRA.08',
       'GEO.01',
       'GEO.02',
       'GEO.05',
@@ -151,6 +162,9 @@ describe('the C01 fixture set (03 §9.5)', () => {
       'MEA.15',
       'MEA.16',
       'MEA.22',
+      'MUL.12',
+      'PUZ.01',
+      'PUZ.02',
       'PUZ.03',
       'PV.01',
       'PV.02',
@@ -167,6 +181,10 @@ describe('the C01 fixture set (03 §9.5)', () => {
       'SUB.06',
       'SUB.07',
       'SUB.08',
+      'TIM.01',
+      'TIM.04',
+      'TIM.08',
+      'TIM.09',
     ]);
     expect(result.content?.misconceptions.map((m) => m.id)).toEqual([
       'MC.bigger-unit-more',
@@ -177,14 +195,20 @@ describe('the C01 fixture set (03 §9.5)', () => {
       'MC.equals-means-answer',
       'MC.face-value',
       'MC.forgot-the-ten',
+      'MC.fraction-bigger-denominator',
+      'MC.fraction-unequal-parts',
+      'MC.hour-hand-next',
+      'MC.hour-minute-swap',
       'MC.keyword-more-means-add',
       'MC.off-by-one-counting',
+      'MC.pattern-restart',
       'MC.perceptual-size',
       'MC.place-swap',
       'MC.recount-from-one',
       'MC.start-unknown-reversed',
       'MC.symbol-reversed',
       'MC.teen-reversal',
+      'MC.unequal-share',
       'MC.unit-gaps',
       'MC.write-as-spoken',
       'MC.wrong-operation',
@@ -221,6 +245,17 @@ describe('the C01 fixture set (03 §9.5)', () => {
         // K01 (#11): composing and decomposing (CPS.04, CPS.07)
         'pv.number',
         'estimate.quantity',
+        // K01 (#11): fractions, sharing, time, data, patterns and puzzles
+        'div.share',
+        'frac.partition',
+        'frac.compare',
+        'time.clock',
+        'time.sequence',
+        'data.sort',
+        'data.chart',
+        'pattern.repeat',
+        'pattern.grow',
+        'puzzle.grid',
         // K01 (#11): place value and two-digit addition and subtraction
         'pv.regroup',
         'pv.tenmore',
@@ -257,6 +292,18 @@ describe('the C01 fixture set (03 §9.5)', () => {
         // K01 (#11): CPS (pv.number on the U04 models)
         'base-ten-build',
         'expanded-form',
+        // K01 (#11): fractions, sharing, time, data and patterns (no engine model yet for
+        // fraction-cut, fraction-pick, fraction-line, clock-set, clock-read, bar-graph-read,
+        // bar-graph-build and pattern-extend; equal-share on the U04 model)
+        'equal-share',
+        'fraction-cut',
+        'fraction-pick',
+        'fraction-line',
+        'clock-set',
+        'clock-read',
+        'bar-graph-read',
+        'bar-graph-build',
+        'pattern-extend',
         // K01 (#11): PV and MDA
         'base-ten-trade',
         // K01 (#11): equality and story problems
@@ -1307,6 +1354,10 @@ describe('V19: standards codes', () => {
 });
 
 describe('V20: coverage', () => {
+  it('covers every K and grade-1 code: K01 sets coverageGrades [K, 1]', () => {
+    expect((parse(FIXTURE['graph.yaml'] as string) as Yaml).coverageGrades).toEqual(['K', 1]);
+    expect(compileContent(FIXTURE).diagnostics.filter((d) => d.check === 'V20')).toEqual([]);
+  });
   it('rejects an uncovered code in a covered grade', () => {
     const diags = variant((f) => {
       editYaml(f, 'graph.yaml', (doc) => (doc.coverageGrades = ['K']));
@@ -1316,9 +1367,20 @@ describe('V20: coverage', () => {
         'skills/CNT.yaml',
         (doc) => (skill(doc, 'CNT.14').standards.ccss = ['K.CC.B.4b']),
       );
+      // ADD.20 is the only skill tagged K.OA.A.2; a supports tag does not address it.
+      editYaml(
+        f,
+        'skills/ADD.yaml',
+        (doc) => (skill(doc, 'ADD.20').standards = { ccss: [], supports: ['K.OA.A.2'] }),
+      );
+      // DAT.02 is the only skill tagged 1.MD.C.4; grade 1 is not judged here.
+      editYaml(
+        f,
+        'skills/DAT.yaml',
+        (doc) => (skill(doc, 'DAT.02').standards = { ccss: [], supports: ['1.MD.C.4'] }),
+      );
     });
-    // K.MD.B.3 (DAT.01, DAT.10) has no skill yet; CMP.01 and CMP.05 cover K.CC.C.6 since K01 CMP.
-    expectFinding(diags, 'V20', /uncovered standard K.MD.B.3/);
+    expectFinding(diags, 'V20', /uncovered standard K.OA.A.2/);
     expectFinding(diags, 'V20', /uncovered standard K.CC.B.4 \(untagged parts: K.CC.B.4c\)/);
     // Supports never count: K.OA.A.3 is addressed by CPS.01/CPS.02, K.CC.B.5 by CNT.04/CNT.06.
     expect(diags.some((d) => /standard K.OA.A.3\b/.test(d.message))).toBe(false);
@@ -1584,7 +1646,7 @@ describe('V16: string vars in authored lesson steps need typed slots', () => {
 });
 
 describe('V20: grade-4 codes a skill names', () => {
-  it('rejects a named grade-4 sub-part nobody addresses, even with empty coverageGrades', () => {
+  it('rejects a named grade-4 sub-part nobody addresses, though coverageGrades leaves grade 4 out', () => {
     const named = (f: Files) =>
       editYaml(
         f,
@@ -1722,10 +1784,11 @@ describe('V24 and contentVersion (03 §9.1)', () => {
       // templates, MC.forgot-the-ten and MC.wrong-operation; place value and two-digit addition and
       // subtraction (K01) added 15 skills, 56 templates, MC.place-swap, MC.face-value and
       // MC.write-as-spoken; equality and story problems (K01) added 11 skills (ALG.05 and CMP.08
-      // among them), 41 templates and 5 misconceptions.
-      skills: 97,
-      templates: 368,
-      misconceptions: 19,
+      // among them), 41 templates and 5 misconceptions; fractions, sharing, time, data, patterns
+      // and puzzles (K01) added 18 skills, 63 templates and six misconceptions.
+      skills: 115,
+      templates: 431,
+      misconceptions: 25,
       narrationKeys: Object.keys(r.content?.narration ?? {}).length,
     });
     expect(Object.keys(manifest.files).sort()).toEqual([
@@ -1744,11 +1807,19 @@ describe('V24 and contentVersion (03 §9.1)', () => {
 describe('graph.json (03 §9.1)', () => {
   it('orders nodes topologically with ties by id, and computes depth and descendants2', () => {
     const g = compileContent(FIXTURE).content?.graph;
-    expect(g?.nodes[0]).toBe('CNT.01');
+    expect(g?.nodes[0]).toBe('ALG.01');
     const pos = new Map(g?.nodes.map((id, i) => [id, i]));
     for (const [from, to] of g?.edges ?? [])
       expect(pos.get(from) as number).toBeLessThan(pos.get(to) as number);
-    expect(g?.roots).toEqual(['CNT.01', 'GEO.01', 'GEO.05', 'MEA.15', 'SUB.01']);
+    expect(g?.roots).toEqual([
+      'ALG.01',
+      'CNT.01',
+      'GEO.01',
+      'GEO.05',
+      'MEA.15',
+      'SUB.01',
+      'TIM.08',
+    ]);
     expect(g?.gateways).toEqual([
       'ADD.08',
       'ADD.10',
@@ -1765,9 +1836,9 @@ describe('graph.json (03 §9.1)', () => {
     expect(g?.depth['ADD.03']).toBe(6); // CNT.01 → 02 → 03 → 04 → 06 → 07 → ADD.03
     // CPS.04, CPS.09, CPS.11; then ADD.08, ADD.19, CMP.07, CPS.07, PV.09 and SUB.04
     expect(g?.descendants2['CPS.03']).toBe(9);
-    // CNT.07, CNT.15, CPS.04, MEA.02, PV.09; then ADD.03, ADD.08, CMP.03, CMP.07, CNT.08, CNT.09,
-    // CNT.14, CNT.19, CPS.07, MEA.22, PV.10, PV.11 and SUB.04
-    expect(g?.descendants2['CNT.06']).toBe(18);
+    // CNT.07, CNT.15, CPS.04, DAT.09, MEA.02, MUL.12, PV.09; then ADD.03, ADD.08, CMP.03, CMP.07,
+    // CNT.08, CNT.09, CNT.14, CNT.19, CPS.07, FRA.07, MEA.22, PV.10, PV.11 and SUB.04
+    expect(g?.descendants2['CNT.06']).toBe(21);
     expect(g?.encompasses).toEqual([
       ['ADD.06', 'ADD.02', 1],
       ['ADD.08', 'CPS.03', 1],
