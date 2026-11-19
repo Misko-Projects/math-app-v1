@@ -324,16 +324,69 @@ describe('warmup (04 §6.1)', () => {
     expect(r.tasks.some((t) => t.mode === 'lesson')).toBe(false);
   });
 
-  it('a rated lesson warmup: other test-outs are planned only if they survive its steps', () => {
-    // No priors; both roots offered only through P(ref) = 0.751. A's lesson has two rated items,
-    // whose worst case lowers θg below the offer, so B is planned lesson first (no draw). With a
-    // demonstration-only lesson nothing can move the offer, and B keeps its draw.
+  it('a rated lesson warmup: a rated lesson draws only if certain, a demonstration whenever possible', () => {
+    // No priors; both roots offered only through P(ref) = 0.751. A's lesson (the warmup) has two
+    // rated items, whose worst case lowers θg below the offer. B with a rated lesson is planned
+    // lesson first, which touches B, so the learner never offers it. B with a demonstration-only
+    // lesson stays untouched after it, so the learner may still offer B's test-out at its first
+    // evidence item: B's whole draw is planned.
     const s = stateWith({}, { thetaG: Math.log(0.751 / 0.249) });
-    const rated = plan(input({ graph: twoRoots(2), state: s, workshopsAvailable: [HALL] }));
+    const ratedB = withRatedLesson(twoRoots(2), B, 1);
+    const rated = plan(input({ graph: ratedB, state: s, workshopsAvailable: [HALL] }));
     expect(rated.warmup).toMatchObject({ skillId: A, mode: 'lesson' });
     expect(drawOf(rated, B)).toHaveLength(0);
-    const demo = plan(input({ graph: twoRoots(0), state: s, workshopsAvailable: [HALL] }));
-    expect(drawOf(demo, B)).toHaveLength(3);
+    const demoB = plan(input({ graph: twoRoots(2), state: s, workshopsAvailable: [HALL] }));
+    expect(demoB.warmup).toMatchObject({ skillId: A, mode: 'lesson' });
+    expect(drawOf(demoB, B)).toHaveLength(3);
+  });
+
+  it('a learner test-out after a rated lesson warmup is always a planned, passable draw', () => {
+    // Review round 6 (#61): θg = logit(0.75) + 0.04, no priors. A's lesson (the warmup) has one
+    // scaffolded item; B's is demonstration-only, on B.t3 (number-pad). The only themed workshop
+    // hosts number-pad alone, so it hosts one of B's two pool templates. A hinted correct answer
+    // on A's scaffolded item keeps B offered. The learner starts B's test-out at B's first evidence
+    // item, so it must be the planned draw, passable at the Practice Pier.
+    const b = graph.skills[B] as Skill;
+    const g0 = twoRoots(1);
+    const g: SkillGraph = {
+      ...g0,
+      skills: { ...g0.skills, [B]: { ...b, lesson: { ...b.lesson, templateId: `${B}.t3` } } },
+    };
+    const s = stateWith({}, { thetaG: Math.log(0.75 / 0.25) + 0.04 });
+    const padOnly = cap('pad-works', ['number-pad'], { residents: ['nib'], produces: ['stone'] });
+    const p = plan(input({ graph: g, state: s, workshopsAvailable: [padOnly] }));
+    expect(p.warmup).toMatchObject({ skillId: A, mode: 'lesson' });
+    const r = p.requests.find((x) => x.tasks[0]?.skillId === B) as PlannedRequest;
+    expect(r.workshopId).toBe(PRACTICE_PIER);
+    const draw = drawOf(p, B);
+    expect(draw).toHaveLength(3);
+    expect(new Set(draw.map((t) => t.templateId)).size).toBe(2);
+
+    const gModel = createEloFireModel(g, { childId: CHILD, isK: false });
+    const n = (templateId: string) => Number(templateId.split('.t')[1]);
+    let st = gModel.apply(
+      s,
+      synthAttempt(A, 1, { context: 'lesson', hintsUsed: 1, partialCredit: 0.5 }),
+      NOW,
+    );
+    expect(gModel.inTestOut(st, B)).toBe(true);
+    draw.forEach((t, k) => {
+      expect(targetDifficulty(st, B, t.context, child('1'), g)).toBe(0);
+      st = gModel.apply(st, synthAttempt(B, n(t.templateId), { context: t.context }), NOW + k + 1);
+    });
+    expect(st.skills[B]?.practicedAt).not.toBeNull();
+  });
+
+  it('keeps the lesson of a queued remediation when its skill is every request focus', () => {
+    // Review round 6 (#61): the single ready root A has a queued remediation, so both requests
+    // cycle through A. The lesson warmup may be A's, but the remediation request still starts
+    // with A's lesson (04 §6.4).
+    const p = plan(input({ workshopsAvailable: [HALL] }), {
+      remediation: { skillId: A, misconceptionId: 'MC.test' },
+    });
+    const r0 = p.requests[0] as PlannedRequest;
+    expect(r0.narration).toBe('req.idea');
+    expect(r0.tasks[0]).toMatchObject({ skillId: A, mode: 'lesson' });
   });
 
   it('keeps a queued remediation in the first request when another root is offered a test-out', () => {
@@ -351,13 +404,17 @@ describe('warmup (04 §6.1)', () => {
 
 /** Two untouched roots A and B; A's lesson gets `rated` scaffolded (rated) items. */
 function twoRoots(rated: number): SkillGraph {
-  const a = graph.skills[A] as Skill;
+  return withRatedLesson({ ...graph, prereqs: { ...graph.prereqs, [B]: [] } }, A, rated);
+}
+
+/** `g` with skill s's lesson given `rated` scaffolded (rated) items; 0 keeps it demonstration-only. */
+function withRatedLesson(g: SkillGraph, s: string, rated: number): SkillGraph {
+  const k = g.skills[s] as Skill;
   return {
-    ...graph,
-    prereqs: { ...graph.prereqs, [B]: [] },
+    ...g,
     skills: {
-      ...graph.skills,
-      [A]: { ...a, lesson: { ...a.lesson, scaffolded: { count: rated, hintStart: 1 } } },
+      ...g.skills,
+      [s]: { ...k, lesson: { ...k.lesson, scaffolded: { count: rated, hintStart: 1 } } },
     },
   };
 }
@@ -372,8 +429,9 @@ function drawOf(p: SessionPlan, s: string): PlannedRequest['tasks'] {
 
 describe('lessons and test-outs (04 §3, 03 §6.5)', () => {
   it('starts a ready skill with its lesson when no test-out is offered', () => {
-    // The warmup goes to the on-track A; the ready B (gateway, a lesson) starts with its lesson.
-    const s = stateWith({ [A]: practiced(2, NOW + DAY_MS) });
+    // The warmup goes to the on-track A; the ready B (gateway, a lesson) starts with its lesson. A
+    // low θg keeps B's test-out unoffered whatever the warmup's outcome.
+    const s = stateWith({ [A]: practiced(2, NOW + DAY_MS) }, { thetaG: -4 });
     const p = plan(input({ state: s, workshopsAvailable: [HALL] }));
     expect(p.warmup.skillId).toBe(A);
     const r = p.requests.find((x) => x.tasks.some((t) => t.skillId === B)) as PlannedRequest;
@@ -429,15 +487,39 @@ describe('lessons and test-outs (04 §3, 03 §6.5)', () => {
 
   it('plans a test-out only when it stays offered after a wrong warmup (plan and learner agree)', () => {
     // A untouched with no prior: offered only through P(ref) = 0.751, just above 0.75. A wrong
-    // warmup on C would lower θg below it, so no draw is planned: A starts with its lesson.
+    // warmup on C would lower θg below it. With a rated lesson no draw is planned: A starts with
+    // its lesson, which touches A, so the learner never offers the test-out either.
     const s = stateWith({ [C]: practiced(2, NOW + DAY_MS) }, { thetaG: Math.log(0.751 / 0.249) });
     expect(model.pRef(s, A)).toBeGreaterThan(0.75);
-    const p = plan(input({ state: s, workshopsAvailable: [HALL] }));
+    const p = plan(
+      input({ graph: withRatedLesson(graph, A, 1), state: s, workshopsAvailable: [HALL] }),
+    );
     expect(p.warmup.skillId).toBe(C);
     for (const r of p.requests.filter((x) => x.tasks.some((t) => t.skillId === A))) {
       const first = r.tasks.find((t) => t.skillId === A);
       expect(first?.mode).toBe('lesson');
     }
+
+    // With a demonstration-only lesson A stays untouched, so the learner may still offer the
+    // test-out after a right warmup: the draw is planned. After a wrong warmup the learner does not
+    // offer it, and the draw items are ordinary practice, asked at their adaptive target.
+    const d = plan(input({ state: s, workshopsAvailable: [HALL] }));
+    const drawD = drawOf(d, A);
+    expect(drawD).toHaveLength(3);
+    const nD = (templateId: string) => Number(templateId.split('.t')[1]);
+    const warm = (correct: boolean) =>
+      model.apply(
+        s,
+        synthAttempt(C, nD(d.warmup.templateId), {
+          context: 'warmup',
+          correct,
+          partialCredit: correct ? 1 : 0,
+        }),
+        NOW,
+      );
+    expect(model.inTestOut(warm(true), A)).toBe(true);
+    expect(model.inTestOut(warm(false), A)).toBe(false);
+    expect(targetDifficulty(warm(false), A, 'practice', child('1'), graph)).not.toBe(0);
 
     // With a robust offer (placement prior 0.7) the draw is planned; after a WRONG warmup the
     // learner still offers it, the draw is asked at d* = 0 and three clean answers earn the skip.
