@@ -221,14 +221,22 @@ Response shapes and state-checker targets of the place-value and operations form
 - **Balance** follows K01's conventions above:
   - `make-equal` answers the units added to each pan, one per block or object.
   - In `fill-blank`, `place {side, term: {n}}` fills that pan's blank.
-  - In `which-heavier` the pans hold the config's terms. Placing a term that is already on the pan changes nothing, so MEA.16's worked solution replays.
+  - In `which-heavier` the pans hold the config's terms. MEA.16's worked solution places them again, so a single placement that matches a preloaded term changes nothing. Each preloaded term can be matched once. Any other placement adds to the pan: a repeat, a new term, or a `count` above 1.
   - A placed term (`count` copies, at most `MAX_BLOCKS`) goes on its pan as `+ term`, so the pan keeps a value.
   - A side's value uses × before + and −; objects count as `count × objectWeights[sprite]`.
 - **Story-problem:** `situation` is the 03 §5.5 prior itself (weight 1). `extraneous` and `inconsistentLanguage` are 0 from the config alone; the generator sets them, and generator values win.
 - **Puzzle-grid** answers `{ fill }`: rows × cols, each puzzle cell's value (given or filled), with `''` outside the puzzle, checked by `puzzle.satisfies` `{ variant, rows, cols, cells, constraints, palette }`. The generic `answer {values}` fills the blanks in reading order.
   - **Numeric variants** (`cage-sum` mini-KenKen 3 × 3 and 4 × 4, `magic-square`, `missing-digit`, `sum-triangle`, `digit-cards`) take the config's own `cells` (`{ r, c, given?, blank?, cage? }`). Given cells keep their values, and every blank holds a number from the target's `palette` (required for these variants). The model's `fill` only takes palette values.
+  - **Mini-KenKen** (`cage-sum`) is an n × n grid of the digits 1–n. The schema requires a square grid, and palette and given values from 1–n. The checker rejects any other value, whatever the target's palette says.
   - **Supported constraints:** `cage-sum`, `row-unique`, `col-unique`, `line-sum` and `use-each`. `use-each` covers the blanks, or every cell when it lists one value per cell.
-  - **Not checked yet:** `adjacent-step`, `equation` and `clue`. They fail the `puzzle-grid` schema, and the checker rejects them. The schema also requires a number palette for these variants, `use-each` values that are palette numbers matching the blanks or every cell, and only `use-each` for `shape-fill`.
+  - **Not checked yet:** `adjacent-step`, `equation` and `clue`. They fail the `puzzle-grid` schema, and the checker rejects them.
+  - **What the schema rejects:** configs that can't be met for structural reasons. That covers:
+    - a non-number palette or a non-number given in a number grid;
+    - more than one `use-each` list;
+    - a numeric `use-each` that isn't palette numbers for the blanks, or the givens plus palette numbers for every cell;
+    - a `shape-fill` `use-each` whose pieces aren't in the palette, don't add up to the outline's cells, or need more rectangles than the outline has disjoint side-by-side pairs (a maximum matching);
+    - only `use-each` constraints are allowed for `shape-fill`.
+  - **What it doesn't check:** whether the sums and uniqueness rules have a solution. That is the generator's promise. The property test replays each generator's solution through the model and checker (03 §9.4), as it does for `uniqueSolution`.
   - `shape-fill` (K01) keeps its own rules, with `cells` given as `[r, c]`.
 
 ## Tests

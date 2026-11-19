@@ -42,6 +42,8 @@ export interface BalanceState extends FormatState<'balance'> {
   entries: (number | null)[];
   /** make-equal: the units the child added to each pan. */
   added: Record<Side, number>;
+  /** which-heavier: the preloaded terms (indices into the config's pan) a placement has matched. */
+  matched: Record<Side, number[]>;
   choice: string | null;
   /** The beam's shown reaction: `tilt` (towards the heavier pan) or `level`, once asked. */
   shown: 'tilt' | 'level' | null;
@@ -203,6 +205,7 @@ export const balance: FormatModel<'balance', BalanceState> = {
       right: [...config.right.terms],
       entries: balanceBlanks(config).map(() => null),
       added: { left: 0, right: 0 },
+      matched: { left: [], right: [] },
       choice: null,
       shown: null,
       highlighted: null,
@@ -225,10 +228,18 @@ export const balance: FormatModel<'balance', BalanceState> = {
           return { ...s, entries: s.entries.map((e, j) => (j === i ? term.n : e)) };
         }
         if (!('n' in term) && !('object' in term)) return s;
-        if (s.config.mode === 'which-heavier' && s[side].some((t) => sameTerm(t, term))) {
-          // The objects already on the pan (compare.sets, compare.numbers): placing them again
-          // (MEA.16's worked solution) changes nothing.
-          return s;
+        if (s.config.mode === 'which-heavier' && copies === 1) {
+          // A comparison's pans start with the config's objects (compare.sets, compare.numbers).
+          // MEA.16's worked solution places them again: a single placement of a term that matches
+          // a preloaded one not yet matched is that object going on, so it changes no value. Any
+          // other placement (a repeat, a new term, a count above 1) adds to the pan.
+          const preloaded = s.config[side].terms;
+          const i = preloaded.findIndex(
+            (t, j) => !s.matched[side].includes(j) && sameTerm(t, term),
+          );
+          if (i >= 0) {
+            return { ...s, matched: { ...s.matched, [side]: [...s.matched[side], i] } };
+          }
         }
         // The copies go on as one more term, joined with +, so the pan keeps a value.
         const added: BalanceTerm =

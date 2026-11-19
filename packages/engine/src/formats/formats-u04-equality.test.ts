@@ -279,7 +279,7 @@ describe('puzzle-grid', () => {
 
   it('mini-KenKen 3 × 3: cages, rows and columns unique; any valid solution', () => {
     // Cages: a = (0,0)+(1,0) sum 3, b = (0,1)+(0,2) sum 5, c = (1,1)+(1,2)+(2,2) sum 6,
-    // d = (2,0)+(2,1) sum 4. Two Latin squares satisfy them; both are correct.
+    // d = (2,0)+(2,1) sum 4. Another Latin square that breaks cage b is rejected.
     const cages = [
       ['a', 'b', 'b'],
       ['a', 'c', 'c'],
@@ -623,5 +623,209 @@ describe('puzzle-grid', () => {
         },
       ),
     ).toBe(false);
+  });
+});
+
+describe('PR #86 review round 2', () => {
+  // The 3 × 3 KenKen from above: cages a (3), b (5), c (6), d (4).
+  const cages = [
+    ['a', 'b', 'b'],
+    ['a', 'c', 'c'],
+    ['d', 'd', 'c'],
+  ];
+  const kenken = (
+    values: (number | null)[][],
+    sums: Record<string, number>,
+    extra: Partial<WidgetConfigOf<'puzzle-grid'>> = {},
+  ) =>
+    grid(
+      'cage-sum',
+      values,
+      {
+        constraints: [
+          { kind: 'row-unique' },
+          { kind: 'col-unique' },
+          ...Object.entries(sums).map(([cage, sum]) => ({ kind: 'cage-sum' as const, cage, sum })),
+        ],
+        palette: [1, 2, 3],
+        uniqueSolution: false,
+        ...extra,
+      },
+      cages,
+    );
+  const empty = [
+    [null, null, null],
+    [null, null, null],
+    [null, null, null],
+  ];
+  const sums = { a: 3, b: 5, c: 6, d: 4 };
+  const state = (fill: number[][]) => ({ kind: 'state', value: { fill } });
+
+  it('mini-KenKen only takes the digits 1–n, whatever the palette or givens say', () => {
+    const wide = kenken(empty, sums, { palette: [0, 1, 2, 3, 5] });
+    expect(issuePaths(puzzleGrid, wide)).toEqual(['palette']);
+    const outside = [
+      [1, 0, 5],
+      [2, 3, 1],
+      [3, 1, 2],
+    ];
+    expect(satisfies(target(wide), state(outside))).toBe(false);
+    // A given 4 in a 3 × 3 grid: the schema rejects it, and so does the checker.
+    const four = kenken(
+      [
+        [4, null, null],
+        [null, null, null],
+        [null, null, null],
+      ],
+      { ...sums, a: 6 },
+    );
+    expect(issuePaths(puzzleGrid, four)).toEqual(['cells.0']);
+    const withFour = [
+      [4, 2, 3],
+      [2, 3, 1],
+      [3, 1, 2],
+    ];
+    expect(satisfies(target(four), state(withFour))).toBe(false);
+    // KenKen grids are square.
+    expect(issuePaths(puzzleGrid, { ...kenken(empty, sums), cols: 4 })).toContain('cols');
+    // The valid fill still passes.
+    expect(
+      satisfies(
+        target(kenken(empty, sums)),
+        state([
+          [1, 2, 3],
+          [2, 3, 1],
+          [3, 1, 2],
+        ]),
+      ),
+    ).toBe(true);
+  });
+
+  it('row-unique alone rejects a repeated digit in a row', () => {
+    const c = kenken(empty, sums);
+    // Every cage sum, every column and the palette hold; only row 0 (2, 2, 3) and row 1 repeat.
+    const rowRepeat = [
+      [2, 2, 3],
+      [1, 3, 1],
+      [3, 1, 2],
+    ];
+    expect(satisfies(target(c), state(rowRepeat))).toBe(false);
+    const noRowRule = {
+      ...target(c),
+      constraints: c.constraints.filter((k) => k.kind !== 'row-unique'),
+    };
+    expect(satisfies(noRowRule, state(rowRepeat))).toBe(true);
+  });
+
+  it('the schema rejects use-each lists no fill can meet', () => {
+    // Whole grid [1, 3] with a given 1 needs a 3 in the blank, and the palette has only 2.
+    const two = grid('missing-digit', [[1, null]], {
+      constraints: [{ kind: 'use-each', values: [1, 3] }],
+      palette: [2],
+    });
+    expect(issuePaths(puzzleGrid, two)).toEqual(['constraints.0']);
+    // The givens must be part of a whole-grid list.
+    expect(
+      issuePaths(puzzleGrid, {
+        ...two,
+        constraints: [{ kind: 'use-each', values: [2, 2] }],
+      }),
+    ).toEqual(['constraints.0']);
+    expect(
+      issuePaths(puzzleGrid, { ...two, constraints: [{ kind: 'use-each', values: [1, 2] }] }),
+    ).toEqual([]);
+    // One use-each list at most.
+    expect(
+      issuePaths(puzzleGrid, {
+        ...two,
+        constraints: [
+          { kind: 'use-each', values: [2] },
+          { kind: 'use-each', values: [1, 2] },
+        ],
+      }),
+    ).toEqual(['constraints']);
+    // Number grids have number givens.
+    expect(
+      issuePaths(puzzleGrid, {
+        ...two,
+        constraints: [],
+        cells: [
+          { r: 0, c: 0, given: 'x' },
+          { r: 0, c: 1, blank: true },
+        ],
+      }),
+    ).toEqual(['cells.0']);
+  });
+
+  it('the schema rejects shape-fill pieces that cannot tile the outline', () => {
+    const outline = (
+      cells: [number, number][],
+      values: string[],
+    ): WidgetConfigOf<'puzzle-grid'> => ({
+      format: 'puzzle-grid',
+      variant: 'shape-fill',
+      rows: 2,
+      cols: 2,
+      cells: cells.map(([r, c]) => ({ r, c, blank: true })),
+      constraints: [{ kind: 'use-each', values }],
+      palette: ['square', 'rectangle'],
+      uniqueSolution: true,
+    });
+    // One cell can't hold a rectangle.
+    expect(issuePaths(puzzleGrid, outline([[0, 0]], ['rectangle']))).toEqual(['constraints.0']);
+    // Two cells that only touch at a corner can't either, though the area matches.
+    expect(
+      issuePaths(
+        puzzleGrid,
+        outline(
+          [
+            [0, 0],
+            [1, 1],
+          ],
+          ['rectangle'],
+        ),
+      ),
+    ).toEqual(['constraints.0']);
+    // The pieces come from the palette.
+    expect(
+      issuePaths(puzzleGrid, { ...outline([[0, 0]], ['square']), palette: ['rectangle'] }),
+    ).toEqual(['constraints.0']);
+    // A full 2 × 2 takes two rectangles, or a rectangle and two squares.
+    const full: [number, number][] = [
+      [0, 0],
+      [0, 1],
+      [1, 0],
+      [1, 1],
+    ];
+    expect(issuePaths(puzzleGrid, outline(full, ['rectangle', 'rectangle']))).toEqual([]);
+    expect(issuePaths(puzzleGrid, outline(full, ['rectangle', 'square', 'square']))).toEqual([]);
+    expect(issuePaths(puzzleGrid, outline(full, ['rectangle', 'square']))).toEqual([
+      'constraints.0',
+    ]);
+  });
+
+  it('which-heavier: repeated placements add up; only one placement matches each preloaded object', () => {
+    const c: WidgetConfigOf<'balance'> = {
+      format: 'balance',
+      left: { terms: [{ n: 1 }] },
+      right: { terms: [{ n: 3 }] },
+      mode: 'which-heavier',
+      showTilt: true,
+    };
+    expect(issuePaths(balance, c)).toEqual([]);
+    const twice = play(balance, c, [
+      act('place', { side: 'left', term: { n: 2 } }),
+      act('place', { side: 'left', term: { n: 2 } }),
+    ]);
+    expect(sideValue(twice.left, {})).toBe(5);
+    // The preloaded 1 placed once is that object going on (no change); a second 1 adds.
+    const ones = play(balance, c, [
+      act('place', { side: 'left', term: { n: 1 } }),
+      act('place', { side: 'left', term: { n: 1 } }),
+    ]);
+    expect(sideValue(ones.left, {})).toBe(2);
+    // An explicit count above 1 always adds its copies.
+    const three = play(balance, c, [act('place', { side: 'left', term: { n: 1 }, count: 3 })]);
+    expect(sideValue(three.left, {})).toBe(4);
   });
 });
