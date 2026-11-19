@@ -279,14 +279,27 @@ describe('sync lifecycle: sign-out and re-pairing', () => {
     await vi.waitFor(() => expect(device.net.syncRequests.length).toBe(before + 1));
     const queued = app.sync.syncNow(); // waits behind the active run
     const signingOut = app.sync.signOut();
+    // The sign-out has stopped the client and waits for the held run to end: a sync asked for
+    // now must wait for the token removal (it would still read the old token otherwise).
+    await vi.waitFor(() => expect(app.sync.isRunning()).toBe(false));
+    const during = app.sync.syncNow();
     release();
     await signingOut;
     expect(await active).toEqual({ kind: 'stopped' });
     expect(await queued).toEqual({ kind: 'stopped' });
-    // A sync asked for after the sign-out started runs only once it finished: no token, no send.
-    expect(await app.sync.syncNow()).toEqual({ kind: 'unpaired' });
+    expect(await during).toEqual({ kind: 'unpaired' });
     await new Promise((r) => setTimeout(r, 20));
     expect(device.net.syncRequests.length).toBe(before + 1);
+  });
+
+  it('runs no sync after teardown, even one asked for just before it', async () => {
+    const { device, app } = await pairedApp();
+    const before = device.net.syncRequests.length;
+    const asked = app.sync.syncNow();
+    app.sync.stop(); // teardown in the same turn; the store stays open
+    expect(await asked).toEqual({ kind: 'stopped' });
+    await new Promise((r) => setTimeout(r, 20));
+    expect(device.net.syncRequests.length).toBe(before);
   });
 
   it('reports that resume did not start when the app was torn down meanwhile', async () => {
