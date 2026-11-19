@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import type { Plot } from '@number-island/shared';
+import type { IslandDef, Plot } from '@number-island/shared';
 import { describe, expect, it } from 'vitest';
 import { PALETTE, type PaletteColor } from '../tokens/tokens';
 import { ART_CONTRAST_PAIRS, pairRatio } from './core/contrast';
@@ -26,15 +26,8 @@ import {
 } from './island/geometry';
 import { CAMERA_MAX_Y, clampCamera, HORIZON_GAP } from './island/IslandScene';
 import { plotDetailItems } from './island/plotDetail';
+import { ROAD_STONE_SCALE, roadStoneBox, stoneExtent, stoneMetrics } from './island/RoadStone';
 import {
-  ROAD_STONE_SCALE,
-  roadStoneBox,
-  type StoneExtent,
-  stoneExtent,
-  stoneMetrics,
-} from './island/RoadStone';
-import {
-  BEAD_RING_K,
   beadExtent,
   boxesTouch,
   MAP_STONE_SCALE,
@@ -43,6 +36,7 @@ import {
   type PlannedStone,
   planRoad,
   type RoadBead,
+  type RoadPlan,
   type RoadSign,
   roadFootprint,
   roadShape,
@@ -61,7 +55,7 @@ import {
 describe('road plan: a linear board (05 §3)', () => {
   const ringSets = [1, 2, 3, 4, SAMPLE_ISLAND.rings.length];
   const layout = roadLayout(SAMPLE_ISLAND.road);
-  const spotOf = new Map(layout.map((s) => [s.n, s]));
+  const shape = roadShape(SAMPLE_ISLAND.road);
   /** Every plan the sweep checks: each island stage, road length 0–100 and a counted stone. */
   function* plans() {
     for (const rings of ringSets) {
@@ -77,29 +71,122 @@ describe('road plan: a linear board (05 §3)', () => {
       }
     }
   }
-  /** A bead's disc, with its ink outline. */
-  /** How far a bead draws from its centre in its state: its ring when highlighted (at the pulse
-   * peak, with its outline), else the bead with its outline. Computed here, not from roadPlan. */
-  const drawn = (b: RoadBead) =>
-    (b.state === 'next' || b.state === 'counting') && b.ringed
-      ? b.r * BEAD_RING_K * 1.05 + 1.25
-      : b.r * 1.15 + Math.max(0.3, Math.min(2, b.r * 0.5)) / 2;
+  /** How far a bead or pin draws from its centre, with its outline. Computed here, not from roadPlan. */
+  const drawn = (b: RoadBead) => b.r * 1.15 + Math.max(0.3, Math.min(2, b.r * 0.5)) / 2;
   /** How far a signpost's post line reaches either side of its centre line. */
   const half = (s: RoadSign) => s.postWidth / 2;
 
-  it('draws every stone in the range exactly once, at its own spot, in order', () => {
-    for (const { plan, roadLength, onLand, where } of plans()) {
-      const drawn = [...plan.numbered, ...plan.beads].map((s) => s.n).sort((a, b) => a - b);
-      const expected = layout.filter((s) => s.n <= roadLength + 1 && onLand(s)).map((s) => s.n);
-      expect(drawn, where).toEqual(expected);
-      for (const s of [...plan.numbered, ...plan.beads]) {
-        expect({ x: s.x, y: s.y }, `${where}: stone ${s.n} moved`).toEqual({
-          x: spotOf.get(s.n)?.x,
-          y: spotOf.get(s.n)?.y,
-        });
+  /**
+   * Everything the road must hold for one plan: one mark on the road for every shown number, at
+   * its place; the next and counted stones full numbered stones; nothing touching anything.
+   */
+  function problems(
+    plan: RoadPlan,
+    road: IslandDef['road'],
+    shown: readonly number[],
+    roadLength: number,
+    counting: number | null,
+  ): string[] {
+    const bad: string[] = [];
+    const { numbered, beads, signs } = plan;
+    const pos = roadShape(road).pos;
+    // One mark on the road per shown number, at its place: a numbered stone there, or a bead or pin.
+    const onRoad = [...numbered.filter((s) => !s.callout), ...beads];
+    const ns = onRoad.map((s) => s.n).sort((a, b) => a - b);
+    if (JSON.stringify(ns) !== JSON.stringify([...shown])) bad.push(`marks ${ns} ≠ ${shown}`);
+    for (const s of onRoad) {
+      const p = pos.get(s.n);
+      if (!p || Math.abs(p.x - s.x) > 1e-9 || Math.abs(p.y - s.y) > 1e-9) bad.push(`${s.n} moved`);
+    }
+    // The next and counted stones are always full numbered stones, never beads.
+    for (const n of [roadLength + 1, counting]) {
+      if (n === null || !shown.includes(n)) continue;
+      const stone = numbered.find((s) => s.n === n);
+      if (!stone) bad.push(`${n} is not a numbered stone`);
+      const bead = beads.find((b) => b.n === n);
+      if (bead && !(bead.pin && stone?.callout)) bad.push(`${n} drawn as a bead`);
+      if (stone?.callout) {
+        const sp = stone.callout.spot;
+        if (!bead || bead.x !== sp.x || bead.y !== sp.y) bad.push(`${n}'s stem not from its pin`);
       }
     }
-    // On the whole island, the stones are exactly 1 … roadLength + 1: one for every number.
+    // Nothing touches.
+    for (let i = 0; i < numbered.length; i++) {
+      const a = numbered[i] as PlannedStone;
+      for (let j = i + 1; j < numbered.length; j++) {
+        const b = numbered[j] as PlannedStone;
+        if (boxesTouch(a.box, b.box, STONE_CLEARANCE - 0.01)) bad.push(`stones ${a.n}, ${b.n}`);
+      }
+      for (const b of beads) {
+        if (b.n === a.n && a.callout) continue;
+        if (boxesTouch(a.box, beadExtent(b), 0)) bad.push(`stone ${a.n}, bead ${b.n}`);
+      }
+      for (const p of a.callout?.points ?? []) {
+        const w = (a.callout?.width ?? 0) / 2;
+        for (const b of beads) {
+          if (b.n !== a.n && Math.hypot(p.x - b.x, p.y - b.y) <= drawn(b) + w) {
+            bad.push(`stem ${a.n} through ${b.n}`);
+          }
+        }
+        for (const t of numbered) {
+          const box = t.box;
+          if (
+            t.n !== a.n &&
+            p.x > box.left - w &&
+            p.x < box.right + w &&
+            p.y > box.top - w &&
+            p.y < box.bottom + w
+          ) {
+            bad.push(`stem ${a.n} through stone ${t.n}`);
+          }
+        }
+      }
+    }
+    for (let i = 0; i < beads.length; i++) {
+      const a = beads[i] as RoadBead;
+      for (let j = i + 1; j < beads.length; j++) {
+        const b = beads[j] as RoadBead;
+        if (Math.hypot(a.x - b.x, a.y - b.y) < drawn(a) + drawn(b) + 0.5 - 1e-9) {
+          bad.push(`beads ${a.n}, ${b.n}`);
+        }
+      }
+    }
+    for (let i = 0; i < signs.length; i++) {
+      const s = signs[i] as RoadSign;
+      const own = pos.get(s.n);
+      if (own?.x !== s.anchor.x || own?.y !== s.anchor.y) bad.push(`sign ${s.n} off its bead`);
+      for (const b of beads) {
+        if (b.n === s.n) continue;
+        if (boxesTouch(s.box, beadExtent(b), 0)) bad.push(`sign ${s.n} on ${b.n}`);
+        if (s.points.some((p) => Math.hypot(p.x - b.x, p.y - b.y) <= drawn(b) + half(s))) {
+          bad.push(`post ${s.n} through ${b.n}`);
+        }
+      }
+      for (const t of numbered) {
+        if (boxesTouch(s.box, t.box, 0)) bad.push(`sign ${s.n} on stone ${t.n}`);
+        for (const q of t.callout?.points ?? []) {
+          if (q.x > s.box.left && q.x < s.box.right && q.y > s.box.top && q.y < s.box.bottom) {
+            bad.push(`stem ${t.n} through sign ${s.n}`);
+          }
+        }
+      }
+      for (let j = i + 1; j < signs.length; j++) {
+        const t = signs[j] as RoadSign;
+        if (boxesTouch(s.box, t.box, 2)) bad.push(`signs ${s.n}, ${t.n}`);
+      }
+    }
+    return bad;
+  }
+
+  const shownOf = (road: IslandDef['road'], last: number, onLand: (s: { plot: Plot }) => boolean) =>
+    road.filter((s) => s.n <= last && onLand(s)).map((s) => s.n);
+
+  it('draws one mark for every number, in order; next and counted stones are full stones', () => {
+    for (const { plan, roadLength, counting, onLand, where } of plans()) {
+      const shown = shownOf(SAMPLE_ISLAND.road, roadLength + 1, onLand);
+      expect(problems(plan, SAMPLE_ISLAND.road, shown, roadLength, counting), where).toEqual([]);
+    }
+    // On the whole island, the marks are exactly 1 … roadLength + 1: one for every number.
     const land = new Set(landPlots(SAMPLE_ISLAND, SAMPLE_ISLAND.rings.length).map(plotKey));
     for (const roadLength of [0, 9, 39, 40, 41, 66, 99]) {
       const plan = planRoad({
@@ -107,18 +194,17 @@ describe('road plan: a linear board (05 §3)', () => {
         roadLength,
         onLand: (s) => land.has(plotKey(s.plot)),
       });
-      const count = plan.numbered.length + plan.beads.length;
-      expect(count, `road ${roadLength}`).toBe(roadLength + 1);
+      const marks = plan.numbered.filter((s) => !s.callout).length + plan.beads.length;
+      expect(marks, `road ${roadLength}`).toBe(roadLength + 1);
     }
-  });
+  }, 60_000);
 
   it('walks the road in order: each stone is next to the one before it, never past it', () => {
-    // Along the trail, stone n + 1 is always nearer to n than any later stone is (no doubling
-    // back), and the trail visits the laid stones in number order.
+    const at = (n: number) => shape.pos.get(n) as { x: number; y: number };
     for (let n = 1; n < layout.length - 1; n++) {
-      const a = layout[n - 1] as (typeof layout)[number];
-      const b = layout[n] as (typeof layout)[number];
-      const c = layout[n + 1] as (typeof layout)[number];
+      const a = at(n);
+      const b = at(n + 1);
+      const c = at(n + 2);
       const ab = Math.hypot(a.x - b.x, a.y - b.y);
       const ac = Math.hypot(a.x - c.x, a.y - c.y);
       expect(ac, `stone ${n + 2} comes before ${n + 1}`).toBeGreaterThan(ab);
@@ -130,90 +216,82 @@ describe('road plan: a linear board (05 §3)', () => {
       counting: 99,
       onLand: (s) => land.has(plotKey(s.plot)),
     });
-    expect(plan.trail).toEqual(layout.map((s) => ({ x: s.x, y: s.y })));
+    expect(plan.trail).toEqual(layout.map((s) => at(s.n)));
   });
 
-  it('spaces stones sharing plots evenly (on the ground, before the map tilt)', () => {
-    const perPlot = new Map<string, number>();
-    for (const s of layout) perPlot.set(plotKey(s.plot), (perPlot.get(plotKey(s.plot)) ?? 0) + 1);
+  it('spaces beads evenly in world units, with no gap wider than the steps beside it', () => {
+    // Evidence review at 6cecddc: 40 → 41 (from one stone to a plot to three) read as a missing
+    // stone. A stretch of one density is evenly spaced in world units (the map's tilt undone: a
+    // step down the map looks shorter on screen only because of foreshortening), and no gap between
+    // beads is wider than both of the steps beside it.
     const tilt = ISLAND_LAYOUT.cellW / ISLAND_LAYOUT.cellH;
-    for (let i = 1; i < layout.length; i++) {
-      const a = layout[i - 1] as (typeof layout)[number];
-      const b = layout[i] as (typeof layout)[number];
-      const m = perPlot.get(plotKey(a.plot)) ?? 1;
-      if (m < 2 || perPlot.get(plotKey(b.plot)) !== m) continue;
-      const ground = Math.hypot(b.x - a.x, (b.y - a.y) * tilt);
-      const step = ISLAND_LAYOUT.cellW / m;
-      expect(ground, `stones ${a.n} and ${b.n}`).toBeGreaterThan(step * 0.8);
-      expect(ground, `stones ${a.n} and ${b.n}`).toBeLessThan(step * 1.2);
+    const wgap = (pos: ReadonlyMap<number, { x: number; y: number }>, n: number) => {
+      const a = pos.get(n) as { x: number; y: number };
+      const b = pos.get(n + 1) as { x: number; y: number };
+      return Math.hypot(b.x - a.x, (b.y - a.y) * tilt);
+    };
+    const check = (road: IslandDef['road'], label: string) => {
+      const sh = roadShape(road);
+      const bead = (n: number) => sh.pos.has(n) && !sh.numbered.has(n);
+      const perPlot = new Map<string, number>();
+      for (const s2 of road) perPlot.set(`${s2.plot}`, (perPlot.get(`${s2.plot}`) ?? 0) + 1);
+      const m = (n: number) => perPlot.get(`${road.find((s2) => s2.n === n)?.plot}`) ?? 1;
+      const ns = road.map((s2) => s2.n);
+      for (const n of ns) {
+        if (!bead(n) || !bead(n + 1)) continue;
+        const g = wgap(sh.pos, n);
+        // Same density on both stones' plots, and on the stones either side: an even step.
+        if (m(n) === m(n + 1) && m(n) > 1) {
+          expect(g, `${label}: ${n} → ${n + 1}`).toBeGreaterThan(
+            (ISLAND_LAYOUT.cellW / m(n)) * 0.7,
+          );
+          expect(g, `${label}: ${n} → ${n + 1}`).toBeLessThan((ISLAND_LAYOUT.cellW / m(n)) * 1.02);
+        }
+        const before = bead(n - 1) ? wgap(sh.pos, n - 1) : 0;
+        const after = bead(n + 2) ? wgap(sh.pos, n + 1) : 0;
+        if (before && after) {
+          expect(
+            g,
+            `${label}: ${n} → ${n + 1} wider than both steps beside it`,
+          ).toBeLessThanOrEqual(Math.max(before, after) * 1.05);
+        }
+      }
+    };
+    check(SAMPLE_ISLAND.road, 'sample');
+    // The sample's crowded stretch, 41–100, three to a plot: every step the same.
+    const steps = Array.from({ length: 59 }, (_, i) => wgap(shape.pos, 41 + i));
+    const mean = steps.reduce((a, b) => a + b, 0) / steps.length;
+    for (const [i, st] of steps.entries()) {
+      expect(st, `step ${41 + i}`).toBeLessThan(mean * 1.02);
+      expect(st, `step ${41 + i}`).toBeGreaterThan(mean * 0.7);
     }
+    // A lone stone on its plot between denser stretches steps towards them.
+    const lone = [
+      ...Array.from({ length: 3 }, (_, i) => ({ n: i + 1, plot: [3, 3] as Plot })),
+      { n: 4, plot: [4, 3] as Plot },
+      ...Array.from({ length: 3 }, (_, i) => ({ n: i + 5, plot: [5, 3] as Plot })),
+    ];
+    check(lone, 'lone');
   });
 
-  it('never lets a stone, bead or signpost touch another', () => {
-    // Failures are collected (one expect per plan keeps the sweep fast).
-    for (const { plan, where } of plans()) {
-      const { numbered, beads, signs } = plan;
-      const bad: string[] = [];
-      for (let i = 0; i < numbered.length; i++) {
-        const a = numbered[i] as PlannedStone;
-        for (let j = i + 1; j < numbered.length; j++) {
-          const b = numbered[j] as PlannedStone;
-          if (boxesTouch(a.box, b.box, STONE_CLEARANCE - 0.01)) bad.push(`stones ${a.n}, ${b.n}`);
-        }
-        for (const b of beads)
-          if (boxesTouch(a.box, b.box, 0)) bad.push(`stone ${a.n}, bead ${b.n}`);
-      }
-      for (let i = 0; i < beads.length; i++) {
-        const a = beads[i] as RoadBead;
-        for (let j = i + 1; j < beads.length; j++) {
-          const b = beads[j] as RoadBead;
-          const d = Math.hypot(a.x - b.x, a.y - b.y);
-          if (d < drawn(a) + drawn(b) + 0.5 - 1e-9) {
-            bad.push(`beads ${a.n}, ${b.n}`);
-          }
-        }
-      }
-      const marks = [
-        ...numbered.map((s) => ({ n: s.n, box: s.box })),
-        ...beads.map((b) => ({ n: b.n, box: beadExtent(b) })),
-      ];
-      for (let i = 0; i < signs.length; i++) {
-        const s = signs[i] as RoadSign;
-        const own = spotOf.get(s.n);
-        if (own?.x !== s.anchor.x || own?.y !== s.anchor.y) bad.push(`sign ${s.n} off its bead`);
-        for (const m of marks) {
-          if (m.n !== s.n && boxesTouch(s.box, m.box, 0)) bad.push(`sign ${s.n} on ${m.n}`);
-        }
-        for (let j = i + 1; j < signs.length; j++) {
-          const t = signs[j] as RoadSign;
-          if (boxesTouch(s.box, t.box, 2)) bad.push(`signs ${s.n}, ${t.n}`);
-        }
-      }
-      expect(bad, where).toEqual([]);
-    }
-  }, 30_000);
-
-  it('labels the numbers that matter where the road is beads: 1, the tens, next and counted', () => {
-    for (const { plan, roadLength, counting, where } of plans()) {
+  it('labels stone 1, the tens and the hundreds where the road is beads', () => {
+    for (const { plan, roadLength, where } of plans()) {
       const signed = new Set(plan.signs.map((s) => s.n));
       for (const b of plan.beads) {
-        const matters =
-          b.n === roadLength + 1 ||
-          b.n === counting ||
-          (b.n <= roadLength && (b.n === 1 || b.n % 10 === 0));
+        const matters = !b.pin && b.n <= roadLength && (b.n === 1 || b.n % 10 === 0);
         expect(signed.has(b.n), `${where}: bead ${b.n} sign`).toBe(matters);
       }
-      for (const s of plan.signs) expect(plan.beads.some((b) => b.n === s.n)).toBe(true);
     }
   });
 
-  it('keeps a stone in one form as the road grows, is counted or the island grows', () => {
-    const shape = roadShape(SAMPLE_ISLAND.road);
-    // The sample's stones 1–39 have a plot each; 41 onwards share plots three to a plot.
-    for (let n = 1; n <= 39; n++) expect(shape.numbered.has(n), `stone ${n}`).toBe(true);
+  it('keeps a stone in one form and place as the road grows, is counted or the island grows', () => {
+    // The sample's stones 1–40 have a plot each; 41 onwards share plots three to a plot.
+    for (let n = 1; n <= 40; n++) expect(shape.numbered.has(n), `stone ${n}`).toBe(true);
     for (let n = 41; n <= 100; n++) expect(shape.numbered.has(n), `stone ${n}`).toBe(false);
     for (const { plan, where } of plans()) {
-      for (const s of plan.numbered) expect(shape.numbered.has(s.n), where).toBe(true);
+      for (const s of plan.numbered) {
+        if (!s.callout) expect(shape.numbered.has(s.n), where).toBe(true);
+      }
       for (const b of plan.beads) expect(shape.numbered.has(b.n), where).toBe(false);
     }
   });
@@ -228,15 +306,16 @@ describe('road plan: a linear board (05 §3)', () => {
     for (const { plan, where } of plans()) expect(plan.scale, where).toBe(MAP_STONE_SCALE);
   });
 
-  it('gives the next stone a tap target ≥ 80 CSS px and clear ground around it', () => {
+  it('gives the next stone a tap target ≥ 80 CSS px on the stone, and clear ground around it', () => {
     expect(2 * NEXT_HIT_RADIUS * (1280 / SCENE_W)).toBeGreaterThanOrEqual(80);
     for (const { plan, roadLength, onLand, where } of plans()) {
-      const spot = spotOf.get(roadLength + 1);
+      const spot = layout.find((s) => s.n === roadLength + 1);
       if (!spot || !onLand(spot)) {
         expect(plan.next, where).toBeNull();
         continue;
       }
-      expect(plan.next, where).toEqual({ x: spot.x, y: spot.y });
+      const stone = plan.numbered.find((s) => s.n === roadLength + 1) as PlannedStone;
+      expect(plan.next, where).toEqual({ x: stone.x, y: stone.y });
     }
     // The ground 14 units beyond the next stone's own extent is kept clear of detail.
     const land = new Set(landPlots(SAMPLE_ISLAND, SAMPLE_ISLAND.rings.length).map(plotKey));
@@ -247,17 +326,16 @@ describe('road plan: a linear board (05 §3)', () => {
         onLand: (s) => land.has(plotKey(s.plot)),
       });
       const blocked = roadFootprint(plan);
-      const next = plan.next as { x: number; y: number };
-      const stone = [...plan.numbered, ...plan.beads].find((s) => s.n === roadLength + 1);
-      const own = stone?.box as StoneExtent;
+      const stone = plan.numbered.find((s) => s.n === roadLength + 1) as PlannedStone;
+      const own = stone.box;
       for (const [dx, dy] of [
         [-1, 0],
         [1, 0],
         [0, -1],
         [0, 1],
       ] as const) {
-        const x = dx < 0 ? own.left - 12 : dx > 0 ? own.right + 12 : next.x;
-        const y = dy < 0 ? own.top - 12 : dy > 0 ? own.bottom + 12 : next.y;
+        const x = dx < 0 ? own.left - 12 : dx > 0 ? own.right + 12 : stone.x;
+        const y = dy < 0 ? own.top - 12 : dy > 0 ? own.bottom + 12 : stone.y;
         expect(
           blocked({ left: x - 1, right: x + 1, top: y - 1, bottom: y + 1 }),
           `${dx},${dy}`,
@@ -270,8 +348,6 @@ describe('road plan: a linear board (05 §3)', () => {
     expect(clampCamera({ x: 30, y: 140 })).toEqual({ x: 30, y: CAMERA_MAX_Y });
     expect(clampCamera({ x: 0, y: -60 })).toEqual({ x: 0, y: -60 });
     expect(CAMERA_MAX_Y).toBeGreaterThan(20);
-    // The halo's curved top (back-row plots pushed out by its reach) stays HORIZON_GAP below the
-    // horizon, checked on the real traced halo outline of the full sample island.
     const plots = landPlots(SAMPLE_ISLAND, SAMPLE_ISLAND.rings.length);
     const haloTop =
       Math.min(
@@ -286,162 +362,30 @@ describe('road plan: a linear board (05 §3)', () => {
     expect(HORIZON_GAP).toBeGreaterThanOrEqual(16);
   });
 
-  it('keeps a counted bead and the next bead beside it apart, rings and all', () => {
-    // Review s_6b67c8a45d54 #1: on the whole sample island, 41 is counted and 42 is next, 70/3
-    // apart; both rings at their pulse peak with outlines must stay clear of each other.
+  it('stands the next stone, 51, as a full stone beside the ten 50 (evidence review)', () => {
     const land = new Set(landPlots(SAMPLE_ISLAND, SAMPLE_ISLAND.rings.length).map(plotKey));
     const plan = planRoad({
       road: SAMPLE_ISLAND.road,
-      roadLength: 41,
-      counting: 41,
+      roadLength: 50,
+      counting: 49,
       onLand: (s) => land.has(plotKey(s.plot)),
     });
-    const a = plan.beads.find((b) => b.n === 41) as RoadBead;
-    const b = plan.beads.find((b) => b.n === 42) as RoadBead;
-    expect([a.state, b.state]).toEqual(['counting', 'next']);
-    expect(Math.hypot(a.x - b.x, a.y - b.y)).toBeGreaterThan(drawn(a) + drawn(b));
-  });
-
-  it('labels the counted and next beads on a dense plot of ten, clear of their neighbours', () => {
-    // Review s_6b67c8a45d54 #2: stones 1–10 share one plot (10 units apart), 1–5 laid, 4 counted,
-    // 6 next and 7 planned ahead.
-    const road = Array.from({ length: 10 }, (_, i) => ({ n: i + 1, plot: [4, 3] as Plot }));
-    const plan = planRoad({
-      road,
-      roadLength: 5,
-      counting: 4,
-      plannedAhead: 1,
-      onLand: () => true,
-    });
-    expect(plan.beads.map((b) => b.n)).toEqual([1, 2, 3, 4, 5, 6, 7]);
-    const signed = new Set(plan.signs.map((s) => s.n));
-    for (const n of [1, 4, 6]) expect(signed.has(n), `sign ${n}`).toBe(true);
-    for (const s of plan.signs) {
-      for (const b of plan.beads) {
-        if (b.n === s.n) continue;
-        expect(boxesTouch(s.box, beadExtent(b), 0), `sign ${s.n} on bead ${b.n}`).toBe(false);
-        for (const p of s.points) {
-          expect(Math.hypot(p.x - b.x, p.y - b.y), `post ${s.n} by bead ${b.n}`).toBeGreaterThan(
-            drawn(b) + half(s),
-          );
-        }
-      }
+    for (const [n, state] of [
+      [51, 'next'],
+      [49, 'counting'],
+    ] as const) {
+      const stone = plan.numbered.find((s) => s.n === n) as PlannedStone;
+      expect(stone.state).toBe(state);
+      expect(stone.callout).toBeDefined();
+      // A full stone: the same extent as a numbered stone in that state, at map scale.
+      const e = stoneExtent(n, state);
+      expect(stone.box.right - stone.box.left).toBeCloseTo((e.right - e.left) * MAP_STONE_SCALE);
+      expect(plan.beads.find((b) => b.n === n)?.pin).toBe(true);
     }
-    for (let i = 0; i < plan.beads.length; i++) {
-      for (let j = i + 1; j < plan.beads.length; j++) {
-        const a = plan.beads[i] as RoadBead;
-        const b = plan.beads[j] as RoadBead;
-        expect(Math.hypot(a.x - b.x, a.y - b.y), `beads ${a.n}, ${b.n}`).toBeGreaterThan(
-          drawn(a) + drawn(b),
-        );
-      }
-    }
-  });
-
-  it('keeps highlights apart and labelled however many stones share a plot (to 64)', () => {
-    // Review s_8b4e1e17e009 #1–2: GameData puts no cap on stones per plot. Two neighbouring
-    // plots, down the map and across it, with k stones each; the middle stone is counted and the
-    // next one beside it, with one planned ahead.
-    const bad: string[] = [];
-    for (const k of [12, 16, 24, 32, 48, 64]) {
-      for (const [a, b] of [
-        [
-          [4, 3],
-          [4, 4],
-        ],
-        [
-          [4, 3],
-          [5, 3],
-        ],
-      ] as const) {
-        const road = [
-          ...Array.from({ length: k }, (_, i) => ({ n: i + 1, plot: a as unknown as Plot })),
-          ...Array.from({ length: k }, (_, i) => ({ n: k + i + 1, plot: b as unknown as Plot })),
-        ];
-        const plan = planRoad({
-          road,
-          roadLength: k,
-          counting: k,
-          plannedAhead: 1,
-          onLand: () => true,
-        });
-        const where = `k ${k}, ${a} → ${b}`;
-        for (let i = 0; i < plan.beads.length; i++) {
-          for (let j = i + 1; j < plan.beads.length; j++) {
-            const x = plan.beads[i] as RoadBead;
-            const y = plan.beads[j] as RoadBead;
-            if (Math.hypot(x.x - y.x, x.y - y.y) <= drawn(x) + drawn(y)) {
-              bad.push(`${where}: beads ${x.n}, ${y.n}`);
-            }
-          }
-        }
-        const signed = new Set(plan.signs.map((s) => s.n));
-        for (const n of [1, k, k + 1]) if (!signed.has(n)) bad.push(`${where}: no sign for ${n}`);
-        for (const s of plan.signs) {
-          for (const b2 of plan.beads) {
-            if (b2.n === s.n) continue;
-            if (boxesTouch(s.box, beadExtent(b2), 0)) bad.push(`${where}: sign ${s.n} on ${b2.n}`);
-            if (s.points.some((p) => Math.hypot(p.x - b2.x, p.y - b2.y) <= drawn(b2) + half(s))) {
-              bad.push(`${where}: post ${s.n} through ${b2.n}`);
-            }
-          }
-        }
-      }
-    }
-    expect(bad.slice(0, 12)).toEqual([]);
-  });
-
-  it('keeps neighbouring highlights apart and labelled on a dense vertical stretch', () => {
-    // Review s_1a5e5e67ad99 #1–2: twelve stones to a plot on a road running down the map (70 / 12
-    // ≈ 5.8 apart), 6 counted, 7 next and 8 planned ahead. No room for rings there: the beads
-    // stay plain and apart, and both highlights keep their signposts.
-    const road = [
-      ...Array.from({ length: 12 }, (_, i) => ({ n: i + 1, plot: [4, 3] as Plot })),
-      ...Array.from({ length: 12 }, (_, i) => ({ n: i + 13, plot: [4, 4] as Plot })),
-    ];
-    const plan = planRoad({
-      road,
-      roadLength: 6,
-      counting: 6,
-      plannedAhead: 1,
-      onLand: () => true,
-    });
-    const at = (n: number) => plan.beads.find((b) => b.n === n) as RoadBead;
-    expect([at(6).state, at(7).state]).toEqual(['counting', 'next']);
-    expect(at(6).ringed).toBe(false);
-    for (let i = 0; i < plan.beads.length; i++) {
-      for (let j = i + 1; j < plan.beads.length; j++) {
-        const a = plan.beads[i] as RoadBead;
-        const b = plan.beads[j] as RoadBead;
-        expect(Math.hypot(a.x - b.x, a.y - b.y), `beads ${a.n}, ${b.n}`).toBeGreaterThan(
-          drawn(a) + drawn(b),
-        );
-      }
-    }
-    const signed = new Set(plan.signs.map((s) => s.n));
-    for (const n of [1, 6, 7]) expect(signed.has(n), `sign ${n}`).toBe(true);
-    for (const s of plan.signs) {
-      for (const b of plan.beads) {
-        if (b.n === s.n) continue;
-        expect(boxesTouch(s.box, beadExtent(b), 0), `sign ${s.n} on bead ${b.n}`).toBe(false);
-        for (const p of s.points) {
-          expect(Math.hypot(p.x - b.x, p.y - b.y), `post ${s.n} by bead ${b.n}`).toBeGreaterThan(
-            drawn(b) + half(s),
-          );
-        }
-      }
-    }
-    // A sparser stretch of the same road keeps larger, ringed beads: sizes follow the local gap.
-    const sample = planRoad({
-      road: SAMPLE_ISLAND.road,
-      roadLength: 60,
-      onLand: () => true,
-    });
-    expect(sample.beads.every((b) => b.ringed)).toBe(true);
+    expect(plan.signs.map((s) => s.n)).toContain(50);
   });
 
   it("keeps the next stone's tap target ≥ 80 CSS px at every supported viewport (06 §1, §4)", () => {
-    // CSS px per scene unit for the full 1400 × 870 map fitted to each viewport.
     const fitted = (w: number, h: number) => Math.min(w / SCENE_W, h / SCENE_H);
     for (const [w, h] of [
       [1280, 800],
@@ -457,9 +401,7 @@ describe('road plan: a linear board (05 §3)', () => {
     expect(nextHitRadius(0)).toBe(NEXT_HIT_RADIUS);
   });
 
-  it('keeps beads apart and the next and counted stones labelled at any density (1–12 a plot)', () => {
-    // A road snaking across the whole 12 × 8 grid (rows left to right, then right to left), with
-    // `k` stones to a plot, so it has long horizontal runs and short vertical turns.
+  it('holds at any density: a snake road with 1–12 stones to a plot', () => {
     const snake: Plot[] = [];
     for (let y = 0; y < 8; y++) {
       for (let i = 0; i < 12; i++) snake.push([y % 2 === 0 ? i : 11 - i, y]);
@@ -483,52 +425,56 @@ describe('road plan: a linear board (05 §3)', () => {
               plannedAhead,
               onLand: () => true,
             });
+            const shown = shownOf(road, roadLength + 1 + plannedAhead, () => true);
             const where = `k ${k}, road ${roadLength}, counting ${c}, ahead ${plannedAhead}`;
-            const { beads, signs, numbered } = plan;
-            for (let i = 0; i < beads.length; i++) {
-              const a = beads[i] as RoadBead;
-              for (let j = i + 1; j < beads.length; j++) {
-                const b = beads[j] as RoadBead;
-                if (Math.hypot(a.x - b.x, a.y - b.y) <= drawn(a) + drawn(b)) {
-                  bad.push(`${where}: beads ${a.n}, ${b.n}`);
-                }
-              }
-            }
-            // The next and counted stones and stone 1 are always labelled; on a map packed this
-            // densely the tens are labelled where there is room (the sample-island sweep requires
-            // every one).
-            const signed = new Set(signs.map((s) => s.n));
-            for (const b of beads) {
-              const matters = b.n === roadLength + 1 || b.n === c || b.n === 1;
-              if (matters && !signed.has(b.n)) bad.push(`${where}: no sign for ${b.n}`);
-            }
-            for (let i = 0; i < signs.length; i++) {
-              const s = signs[i] as RoadSign;
-              for (const b of beads) {
-                if (b.n === s.n) continue;
-                if (boxesTouch(s.box, beadExtent(b), 0))
-                  bad.push(`${where}: sign ${s.n} on ${b.n}`);
-                if (s.points.some((p) => Math.hypot(p.x - b.x, p.y - b.y) <= drawn(b) + half(s))) {
-                  bad.push(`${where}: post ${s.n} through ${b.n}`);
-                }
-              }
-              for (const t of numbered) {
-                if (boxesTouch(s.box, t.box, 0)) bad.push(`${where}: sign ${s.n} on stone ${t.n}`);
-              }
-              for (let j = i + 1; j < signs.length; j++) {
-                if (boxesTouch(s.box, (signs[j] as RoadSign).box, 2)) {
-                  bad.push(`${where}: signs ${s.n}, ${(signs[j] as RoadSign).n}`);
-                }
-              }
-            }
+            for (const p of problems(plan, road, shown, roadLength, c)) bad.push(`${where}: ${p}`);
           }
+        }
+      }
+    }
+    expect(bad.slice(0, 12)).toEqual([]);
+  }, 120_000);
+
+  it('holds however many stones share a plot (12–64), down the map and across it', () => {
+    const bad: string[] = [];
+    for (const k of [12, 16, 24, 32, 48, 64]) {
+      for (const [a, b] of [
+        [
+          [4, 3],
+          [4, 4],
+        ],
+        [
+          [4, 3],
+          [5, 3],
+        ],
+      ] as const) {
+        const road = [
+          ...Array.from({ length: k }, (_, i) => ({ n: i + 1, plot: a as unknown as Plot })),
+          ...Array.from({ length: k }, (_, i) => ({ n: k + i + 1, plot: b as unknown as Plot })),
+        ];
+        for (const [roadLength, counting] of [
+          [k, k],
+          [k, k - 1],
+          [3, 2],
+        ] as const) {
+          const plan = planRoad({
+            road,
+            roadLength,
+            counting,
+            plannedAhead: 1,
+            onLand: () => true,
+          });
+          const shown = shownOf(road, roadLength + 2, () => true);
+          const where = `k ${k}, ${a} → ${b}, road ${roadLength}, counting ${counting}`;
+          for (const p of problems(plan, road, shown, roadLength, counting))
+            bad.push(`${where}: ${p}`);
         }
       }
     }
     expect(bad.slice(0, 12)).toEqual([]);
   }, 60_000);
 
-  it('fits three stones on one plot: all drawn, the counted and next labelled, none touching', () => {
+  it('fits three stones on one plot: all drawn, the counted and next full stones, none touching', () => {
     // Review s_1d38d1caad61 #1: stones 1–3 share the only plot; stone 2 is counted, 3 is next.
     const road = [
       { n: 1, plot: [0, 0] as Plot },
@@ -541,20 +487,7 @@ describe('road plan: a linear board (05 §3)', () => {
       counting: 2,
       onLand: (s) => plotKey(s.plot) === '0,0',
     });
-    const all = [...plan.numbered, ...plan.beads];
-    expect(all.map((s) => s.n).sort()).toEqual([1, 2, 3]);
-    expect(plan.signs.map((s) => s.n).sort()).toEqual([1, 2, 3]);
-    const boxes = [...all.map((s) => s.box), ...plan.signs.map((s) => s.box)];
-    for (let i = 0; i < plan.signs.length; i++) {
-      const sign = plan.signs[i] as RoadSign;
-      for (const b of plan.beads) {
-        if (b.n !== sign.n) expect(boxesTouch(sign.box, b.box, 0), `sign ${sign.n}`).toBe(false);
-      }
-      for (let j = i + 1; j < plan.signs.length; j++) {
-        expect(boxesTouch(sign.box, (plan.signs[j] as RoadSign).box, 2)).toBe(false);
-      }
-    }
-    expect(boxes.length).toBe(6);
+    expect(problems(plan, road, [1, 2, 3], 2, 2)).toEqual([]);
   });
 
   it('keeps detail off the trail as drawn, along its curves at turns', () => {

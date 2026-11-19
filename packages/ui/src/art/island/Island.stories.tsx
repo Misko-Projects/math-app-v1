@@ -120,15 +120,22 @@ async function expectStoneNumerals(root: HTMLElement, minPx: number) {
 }
 
 /**
- * 05 §3: no two road stones touch, whole stones included (rings, flags, lift and sparkle), and no
- * signpost touches a stone but its own or another sign. Measured on the rendered page.
+ * 05 §3: no two road stones touch, whole stones included (rings, flags, lift and sparkle), beads
+ * and pins included, and no signpost touches a stone but its own or another sign. A stone standing
+ * beside the road and its own pin are one stone. Measured on the rendered page.
  */
 async function expectStonesApart(root: HTMLElement) {
   for (const svg of root.querySelectorAll<SVGSVGElement>('svg[data-scene="island"]')) {
-    const stones = [...svg.querySelectorAll<SVGGElement>('[data-stone]')].map((g) => ({
-      n: g.dataset.stone,
-      box: g.getBoundingClientRect(),
-    }));
+    const stones = [
+      ...[...svg.querySelectorAll<SVGGElement>('[data-stone]')].map((g) => ({
+        n: g.dataset.stone,
+        box: g.getBoundingClientRect(),
+      })),
+      ...[...svg.querySelectorAll<SVGCircleElement>('[data-spot]')].map((c) => ({
+        n: c.dataset.spot,
+        box: c.getBoundingClientRect(),
+      })),
+    ];
     const signs = [...svg.querySelectorAll<SVGGElement>('[data-sign]')].map((g) => ({
       n: g.dataset.sign,
       box: (g.querySelector('rect') as SVGRectElement).getBoundingClientRect(),
@@ -140,7 +147,7 @@ async function expectStonesApart(root: HTMLElement) {
       const a = stones[i] as (typeof stones)[number];
       for (let j = i + 1; j < stones.length; j++) {
         const b = stones[j] as (typeof stones)[number];
-        if (touch(a.box, b.box)) bad.push(`stones ${a.n} and ${b.n}`);
+        if (a.n !== b.n && touch(a.box, b.box)) bad.push(`stones ${a.n} and ${b.n}`);
       }
       for (const s of signs) {
         if (s.n !== a.n && touch(a.box, s.box)) bad.push(`sign ${s.n} on stone ${a.n}`);
@@ -158,15 +165,24 @@ async function expectStonesApart(root: HTMLElement) {
 }
 
 /**
- * 05 §3, a linear board: the road shows one stone for every number from 1 to the next stone,
- * each once, and each stone follows the one before it along the road (never doubling back).
+ * 05 §3, a linear board: the road shows one mark for every number from 1 to the next stone, each
+ * once (a numbered stone, a bead, or the pin of a stone standing beside the road), and each follows
+ * the one before it along the road (never doubling back).
  */
 async function expectLinearBoard(root: HTMLElement, last: number) {
   const svg = root.querySelector('svg[data-scene="island"]') as SVGSVGElement;
-  const stones = [...svg.querySelectorAll<SVGGElement>('[data-stone]')].map((g) => {
-    const b = g.getBoundingClientRect();
-    return { n: Number(g.dataset.stone), x: b.left + b.width / 2, y: b.top + b.height / 2 };
-  });
+  const centre = (el: Element, n: string | undefined) => {
+    const b = el.getBoundingClientRect();
+    return { n: Number(n), x: b.left + b.width / 2, y: b.top + b.height / 2 };
+  };
+  const stones = [
+    ...[...svg.querySelectorAll<SVGGElement>('[data-stone]')]
+      .filter((g) => !g.closest('[data-callout]'))
+      .map((g) => centre(g, g.dataset.stone)),
+    ...[...svg.querySelectorAll<SVGCircleElement>('[data-spot]')].map((c) =>
+      centre(c, c.dataset.spot),
+    ),
+  ];
   const numbers = stones.map((s) => s.n).sort((a, b) => a - b);
   await expect(numbers).toEqual(Array.from({ length: last }, (_, i) => i + 1));
   const at = new Map(stones.map((s) => [s.n, s]));
@@ -370,8 +386,8 @@ export const Sandbar: Story = {
 
 /**
  * The whole island and a road of 100 (stress state), a linear board: one stone for every number.
- * Where stones have a plot each they are numbered stones; where three share a plot they are evenly
- * spaced beads, and signposts carry 40, 50 … 100 and the next stone at the same numeral size.
+ * Where stones have a plot each they are numbered stones (1–40); where three share a plot they are
+ * evenly spaced beads, and signposts carry 50 … 100 at the same numeral size.
  */
 export const LongRoad: Story = {
   args: { ringsUnlocked: SAMPLE_RING_COUNT, roadLength: 100 },
@@ -380,11 +396,11 @@ export const LongRoad: Story = {
     const numbered = [
       ...canvasElement.querySelectorAll<SVGGElement>('[data-stone]:not([data-bead])'),
     ].map((s) => Number(s.dataset.stone));
-    for (let n = 1; n <= 39; n++) await expect(numbered).toContain(n);
+    for (let n = 1; n <= 40; n++) await expect(numbered).toContain(n);
     const signs = [...canvasElement.querySelectorAll<SVGGElement>('[data-sign]')].map((s) =>
       Number(s.dataset.sign),
     );
-    for (const n of [40, 50, 60, 70, 80, 90, 100]) await expect(signs).toContain(n);
+    for (const n of [50, 60, 70, 80, 90, 100]) await expect(signs).toContain(n);
     await expectStonesApart(canvasElement);
     await expectDetailOffRoad(canvasElement);
     await expectStoneNumerals(canvasElement, 18);
@@ -393,18 +409,19 @@ export const LongRoad: Story = {
 };
 
 /**
- * Counting the last stones of a long road: 99 is counted in order, between 98 and 100 on the road,
- * with its own signpost; the 90 and 100 signposts stay where they are.
+ * Counting the last stones of a long road: 99 is counted as a full stone (lifted, in its sunshine
+ * ring) standing beside the road, joined by a stem to its pin between 98 and 100; the 90 and 100
+ * signposts stay where they are.
  */
 export const LongRoadCounting: Story = {
   args: { ringsUnlocked: SAMPLE_RING_COUNT, roadLength: 100, counting: 99 },
   play: async ({ canvasElement }) => {
-    await expect(canvasElement.querySelector('[data-stone="99"]')?.getAttribute('data-state')).toBe(
-      'counting',
-    );
-    await expect(canvasElement.querySelector('[data-sign="99"]')?.getAttribute('data-state')).toBe(
-      'counting',
-    );
+    await expect(
+      canvasElement
+        .querySelector('[data-callout="99"] [data-stone="99"]')
+        ?.getAttribute('data-state'),
+    ).toBe('counting');
+    await expect(canvasElement.querySelector('[data-spot="99"]')).toBeTruthy();
     for (const n of [90, 100])
       await expect(canvasElement.querySelector(`[data-sign="${n}"]`)).toBeTruthy();
     await expectLinearBoard(canvasElement, 100);
@@ -415,9 +432,11 @@ export const LongRoadCounting: Story = {
 };
 
 /**
- * The next stone, 51, right beside the ten-stone 50 on a crowded stretch: both keep a readable
- * signpost, the next stone has clear ground around it, and its tap target is ≥ 80 px and on top.
- * (The buildings slice of the art kit adds the same check with a building beside the road.)
+ * The next stone, 51, right after the ten 50 on a crowded stretch: 51 is a full numbered stone with
+ * the next treatment (dashed outline, pulsing ring), standing beside the road on a stem from the
+ * pin at its own place; 50 keeps its signpost. The next stone has clear ground around it, and its
+ * tap target is ≥ 80 px and on top. (The buildings slice of the art kit adds the same check with a
+ * building beside the road.)
  */
 export const NextBesideTen: Story = {
   args: { ringsUnlocked: SAMPLE_RING_COUNT, roadLength: 50 },
@@ -425,9 +444,12 @@ export const NextBesideTen: Story = {
     await expect(canvasElement.querySelector('[data-sign="50"]')?.getAttribute('data-state')).toBe(
       'laid',
     );
-    await expect(canvasElement.querySelector('[data-sign="51"]')?.getAttribute('data-state')).toBe(
-      'next',
-    );
+    await expect(
+      canvasElement
+        .querySelector('[data-callout="51"] [data-stone="51"]')
+        ?.getAttribute('data-state'),
+    ).toBe('next');
+    await expect(canvasElement.querySelector('[data-spot="51"]')).toBeTruthy();
     await expectLinearBoard(canvasElement, 51);
     await expectNextTappable(canvasElement, 51);
     await expectStonesApart(canvasElement);
@@ -749,7 +771,7 @@ export const StoneNumerals: Story = {
 
 const CVD_CROP = landCrop(SAMPLE_ISLAND, 2, 1.7, 40);
 /** A crowded stretch of the long road: laid, counted (47) and next (51) beads, with signposts. */
-const CVD_BEADS_CROP = { x: 800, y: 500, w: 500, h: 265 };
+const CVD_BEADS_CROP = { x: 690, y: 500, w: 610, h: 300 };
 
 /**
  * 06 §7 colour-vision check: the stone states, bead and signpost states and plot markers under
@@ -798,19 +820,20 @@ export const ColourVision: Story = {
     await expectDetailOffRoad(canvasElement);
     // ≥ 20 px in the 1280 and 1440 px captures; the test browser's narrow viewport gives less.
     await expectStoneNumerals(canvasElement, window.innerWidth >= 1280 ? 20 : 12);
-    // The crowded stretch shows each bead state with its signpost, in every column.
+    // The crowded stretch, in every column: the counted (47) and next (51) stones as full stones
+    // beside the road with their pins, and the ten (50) as a bead with its signpost.
     for (const [n, state] of [
       [47, 'counting'],
-      [50, 'laid'],
       [51, 'next'],
     ] as const) {
-      const signs = canvasElement.querySelectorAll(`[data-sign="${n}"][data-state="${state}"]`);
-      const beads = canvasElement.querySelectorAll(
-        `[data-bead][data-stone="${n}"][data-state="${state}"]`,
+      const stones = canvasElement.querySelectorAll(
+        `[data-callout="${n}"] [data-stone="${n}"][data-state="${state}"]`,
       );
-      await expect(signs.length, `sign ${n}`).toBe(5);
-      await expect(beads.length, `bead ${n}`).toBe(5);
+      await expect(stones.length, `stone ${n}`).toBe(5);
+      await expect(canvasElement.querySelectorAll(`[data-spot="${n}"]`).length, `pin ${n}`).toBe(5);
     }
+    await expect(canvasElement.querySelectorAll('[data-sign="50"]').length, 'sign 50').toBe(5);
+    await expect(canvasElement.querySelectorAll('[data-bead][data-stone="50"]').length).toBe(5);
     // Cards wrap centred: the last row's cards sit symmetrically about the page centre.
     const grid = canvasElement.querySelector('[data-cvd-grid]') as HTMLElement;
     const cards = [...grid.querySelectorAll(':scope > figure')].map((c) =>

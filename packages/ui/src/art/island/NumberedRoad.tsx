@@ -5,8 +5,8 @@ import { type StonePlacement, smoothPath } from './geometry';
 import { RoadStoneMark } from './RoadStone';
 import {
   beadLine,
-  beadRing,
   NEXT_HIT_RADIUS,
+  type PlannedStone,
   planRoad,
   type RoadBead,
   type RoadPlan,
@@ -35,8 +35,9 @@ export interface NumberedRoadProps {
  * The Numbered Road (05 §3), a linear board: a soft sandy trail through the stones in order, one
  * stone for every number, each at its own spot. Where the road has room, a stone is a numbered
  * stone. Where stones crowd (`planRoad`), each is an evenly spaced bead, so the beads between two
- * numbers always match the numbers missing, and signposts carry the numerals that matter there
- * (1, the tens and hundreds, the next stone and the one being counted) at the same size.
+ * numbers always match the numbers missing, and signposts carry stone 1, the tens and the
+ * hundreds at the same numeral size. The next and counted stones are always full numbered stones:
+ * among beads they stand just beside the road on a stem from an ink pin at their own place.
  */
 export function NumberedRoad({
   road,
@@ -78,13 +79,9 @@ export function NumberedRoad({
           />
         </>
       ) : null}
+      {plan.beads.map((b) => (b.pin ? <Pin key={b.n} bead={b} /> : <Bead key={b.n} bead={b} />))}
       {plan.numbered.map((s) => (
-        <g key={s.n} transform={`translate(${s.x} ${s.y}) scale(${plan.scale})`}>
-          <RoadStoneMark n={s.n} state={s.state} />
-        </g>
-      ))}
-      {plan.beads.map((b) => (
-        <Bead key={b.n} bead={b} />
+        <Stone key={s.n} stone={s} scale={plan.scale} />
       ))}
       {plan.signs.map((s) => (
         <Signpost key={`sign-${s.n}`} sign={s} />
@@ -94,27 +91,46 @@ export function NumberedRoad({
 }
 
 /**
- * One stone as a bead, where the road is crowded. States differ by shape and motion, not colour
- * alone (06 §7): laid is a solid little stone with a highlight; next is a light dashed bead;
- * planned is a dashed outline. Where there is room (`ringed`), the next bead also wears a dashed
- * ring that pulses and the counted bead is lifted inside a solid sunshine ring; on a very dense
- * stretch the counted bead is sunshine with a thicker outline, and its signpost (sunshine, with a
- * thick border) and the next one's (dashed border) carry the highlight. Every outline is ink
- * (≥ 3:1 on sand and grass).
+ * A numbered stone. One standing beside a crowded road (the next or counted stone among beads)
+ * is joined to the pin at its own place by an ink stem.
+ */
+function Stone({ stone, scale }: { stone: PlannedStone; scale: number }) {
+  const { n, x, y, state, callout } = stone;
+  const start = callout?.points[0];
+  const end = callout?.points[callout.points.length - 1];
+  return (
+    <g data-callout={callout ? n : undefined}>
+      {callout && start && end ? (
+        <path
+          d={`M${start.x} ${start.y}L${end.x} ${end.y}`}
+          stroke={paint('ink')}
+          strokeWidth={callout.width}
+          strokeLinecap="butt"
+        />
+      ) : null}
+      <g transform={`translate(${x} ${y}) scale(${scale})`}>
+        <RoadStoneMark n={n} state={state} />
+      </g>
+    </g>
+  );
+}
+
+/**
+ * One stone as a bead, where the road is crowded. States differ by shape, not colour alone
+ * (06 §7): laid is a solid little stone with a highlight; planned is a dashed outline. (The next
+ * and counted stones are never beads: they stand beside the road as full stones, see Stone.)
+ * Every outline is ink (≥ 3:1 on sand and grass).
  */
 function Bead({ bead }: { bead: RoadBead }) {
-  const { n, x, y, r, state, ringed } = bead;
+  const { n, x, y, r, state } = bead;
   const planned = state === 'planned';
-  const next = state === 'next';
-  const counting = state === 'counting';
-  const lift = counting && ringed ? -1.5 : 0;
   const line = beadLine(r);
   return (
     <g
       transform={`translate(${x} ${y})`}
       data-stone={n}
       data-state={state}
-      data-bead={ringed ? 'ringed' : 'plain'}
+      data-bead="true"
       data-ten={n % 10 === 0 ? 'true' : undefined}
     >
       {planned ? null : (
@@ -127,45 +143,19 @@ function Bead({ bead }: { bead: RoadBead }) {
           opacity={0.15}
         />
       )}
-      {counting && ringed ? (
-        <circle
-          cx={0}
-          cy={0}
-          r={beadRing(r).radius}
-          fill={paint('sunshine-light')}
-          stroke={paint('ink')}
-          strokeWidth={2.5}
-        />
-      ) : null}
-      {next && ringed ? (
-        <circle
-          className="motion-loop art-loop art-ring"
-          cx={0}
-          cy={0}
-          r={beadRing(r).radius}
-          fill="none"
-          stroke={paint('ink')}
-          strokeWidth={2.5}
-          strokeDasharray="5 4"
-        />
-      ) : null}
       <circle
         cx={0}
-        cy={lift}
+        cy={0}
         r={r}
-        fill={paint(
-          planned ? 'sand' : next ? 'pebble' : counting && !ringed ? 'sunshine' : 'pebble-deep',
-        )}
+        fill={paint(planned ? 'sand' : 'pebble-deep')}
         stroke={paint(planned ? 'ink-soft' : 'ink')}
         strokeWidth={line}
-        strokeDasharray={
-          planned || next ? `${Math.max(1, r * 0.6)} ${Math.max(0.8, r * 0.5)}` : undefined
-        }
+        strokeDasharray={planned ? `${Math.max(1, r * 0.6)} ${Math.max(0.8, r * 0.5)}` : undefined}
       />
       {/* A laid bead is a solid little stone: a darker body with a light highlight on top. */}
-      {planned || next || r < 2.5 ? null : (
+      {planned || r < 2.5 ? null : (
         <path
-          d={`M${-r * 0.5} ${-r * 0.2 + lift}Q${-r * 0.35} ${-r * 0.6 + lift} ${r * 0.1} ${-r * 0.6 + lift}`}
+          d={`M${-r * 0.5} ${-r * 0.2}Q${-r * 0.35} ${-r * 0.6} ${r * 0.1} ${-r * 0.6}`}
           fill="none"
           stroke={paint('pebble')}
           strokeWidth={Math.min(2, r * 0.3)}
@@ -177,9 +167,25 @@ function Bead({ bead }: { bead: RoadBead }) {
 }
 
 /**
- * A numbered signpost by its bead: an ink post from the bead to a plaque with the numeral, at the
- * same size as a numbered stone's. The counted stone's plaque is sunshine with a thick border; the
- * next stone's border is dashed (shape, not colour alone, 06 §7).
+ * The pin at the next or counted stone's own place on a crowded road, where its stem starts: a
+ * solid ink dot the size of a bead, so the count along the road stays true.
+ */
+function Pin({ bead }: { bead: RoadBead }) {
+  return (
+    <circle
+      data-spot={bead.n}
+      data-state={bead.state}
+      cx={bead.x}
+      cy={bead.y}
+      r={bead.r}
+      fill={paint('ink')}
+    />
+  );
+}
+
+/**
+ * A numbered signpost by its bead (stone 1, a ten or a hundred among beads): an ink post from the
+ * bead to a plaque with the numeral, at the same size as a numbered stone's.
  */
 function Signpost({ sign }: { sign: RoadSign }) {
   const { n, x, y, w, h, anchor, state, points, postWidth } = sign;
