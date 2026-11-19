@@ -7,11 +7,13 @@
   align-items: center;
   justify-content: center;
   justify-items: center;
-  gap: 28px 56px;
+  /* Tight vertically (16 px rows, 8 px padding): a G1 0–20 item with spread badge rows must still
+     fit the 1280 × 800 tablet without scrolling. 16 px stays above the 12 px target gap. */
+  gap: 16px 56px;
   box-sizing: border-box;
   width: 100%;
   max-width: 1180px;
-  padding: 12px 24px;
+  padding: 8px 24px;
 }
 .ni-tapc[data-arrange="side"] {
   grid-template-columns: auto auto;
