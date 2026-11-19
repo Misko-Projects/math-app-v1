@@ -192,6 +192,116 @@ h.pv.ten-card:
   text: "Find the ten card first. Then find the ones."
 h.pv.teen-order:
   text: "We say the ones first, but the ten comes first."
+h.pv.tens-first:
+  text: "Start with the tens. Each bundle is ten."
+h.pv.ones-last:
+  text: "Then the ones. They come last."
+h.pv.rod-is-ten:
+  text: "Each long rod is ten. Each small block is one."
+h.pv.count-tens-ones:
+  text: "Count by tens first. Then count on the ones."
+h.pv.ten-ones-bundle:
+  text: "Ten ones make one ten. Put them together."
+h.pv.ones-under-ten:
+  text: "Stop when there are fewer than ten ones."
+h.pv.tens-card:
+  text: "Find the card for the tens first."
+h.pv.ones-card:
+  text: "Then find the card for the ones."
+h.pv.tens-first-digit:
+  text: "The tens come first in the number."
+h.pv.one-rod:
+  text: "Ten more is one more rod. Ten less is one rod less."
+h.pv.ones-stay:
+  text: "The ones are the same. Just the tens move."
+h.pv.chart-row:
+  text: "Ten more is one row down. Ten less is one row up."
+h.pv.tens-change:
+  text: "Think of the tens. One ten more goes up, one ten less goes down."
+h.pv.bundle-ten:
+  text: "Count out ten. Make them one bundle."
+h.pv.rest-ones:
+  text: "When fewer than ten are left, they are ones."
+h.pv.split-rod:
+  text: "Split one rod. It is ten small blocks."
+h.pv.same-number:
+  text: "Split a ten. How many in all is the same."
+h.pv.ten-of-the-ones:
+  text: "Ten of the ones make one more ten."
+h.pv.bundles-by-ten:
+  text: "Each bundle is ten. Count by tens."
+h.pv.no-ones:
+  text: "There are no ones left over."
+h.pv.big-part-tens:
+  text: "The big part is the tens. The small part is the ones."
+h.pv.join-parts:
+  text: "Put the tens first. The ones go after them."
+h.pv.listen-tens:
+  text: "Listen for the tens. Then listen for the ones."
+h.pv.bundle-is-ten:
+  text: "Each bundle is ten sticks. Count by tens first."
+h.compare.same-tens:
+  text: "When the tens are the same, look at the ones."
+h.compare.symbol-open:
+  text: "The open side goes by the greater number."
+h.mda.tens-with-tens:
+  text: "Put tens with the tens."
+h.mda.ones-with-ones:
+  text: "Put ones with the ones."
+h.mda.chart-down:
+  text: "Each ten more is one row down."
+h.mda.chart-right:
+  text: "Each one more is one box to the right."
+h.mda.jump-tens:
+  text: "Jump by tens for the tens."
+h.mda.jump-ones:
+  text: "Then jump the ones."
+h.mda.take-tens:
+  text: "Take away rods. Each rod is ten."
+h.mda.ones-stay:
+  text: "The ones are the same."
+h.mda.count-back-tens:
+  text: "Count back by tens from the first number."
+h.mda.then-add-rest:
+  text: "Then add the ones that are left."
+h.mda.chart-up:
+  text: "Each ten less is one row up."
+h.mda.jump-back-tens:
+  text: "Jump back by tens."
+h.mda.ten-ones-bundle:
+  text: "Ten ones make a ten. Bundle them."
+h.mda.count-tens-ones:
+  text: "Count the tens, then the ones."
+h.mda.to-next-ten:
+  text: "How many make the next ten? Add them first."
+h.mda.add-the-tens:
+  text: "Add the tens first."
+h.mda.add-the-ones:
+  text: "Then add the ones."
+h.count.bundle-each-ten:
+  text: "Count out ten and make a bundle. Do it again."
+h.count.tens-then-ones:
+  text: "Count the tens first. Then count on the ones."
+h.count.groups-of-ten:
+  text: "Each group has ten. Count by tens."
+h.count.then-boxes:
+  text: "Then move one box to the right for each one."
+h.count.back-tens-first:
+  text: "Jump back by tens first."
+h.count.then-back-ones:
+  text: "Then jump back by ones."
+h.count.tens-row:
+  text: "Ten more each time. Then one more each time."
+h.count.then-ones-on:
+  text: "After the tens, count on by ones."
+h.bond.tens-up:
+  text: "Count on by tens. Stop at ten tens."
+h.bond.ten-tens:
+  text: "Ten tens make one hundred."
+h.bond.chart-tens:
+  text: "Go down the tens. Count the rows to the bottom."
+h.bond.tens-like-ones:
+  text: "Tens make partners like ones do. Think of partners of ten."
 h.subitize.ten-and:
   text: "One full row is ten. How many more?"
 h.subitize.full-ten:
@@ -508,6 +618,8 @@ gen.bond.parts.left-over:
   text: "{n} are left over."
 gen.bond.parts.ten-and:
   text: "That is ten and {n} more."
+gen.bond.parts.put-in:
+  text: "Put in {n} more."
 gen.pv.number.ones:
   text: "The ones: {count}."
 gen.pv.number.tens:
@@ -553,6 +665,142 @@ gen.pv.number.place-ten-thousands:
 gen.pv.number.place-hundred-thousands:
   text: "It is in the hundred thousands place."
   level: "2"
+gen.pv.tenmore.start:
+  text: "Start at {n}."
+gen.pv.tenmore.row-down:
+  text: "Ten more is one row down."
+gen.pv.tenmore.row-up:
+  text: "Ten less is one row up."
+gen.pv.tenmore.box-right:
+  text: "One more is one box to the right."
+gen.pv.tenmore.box-left:
+  text: "One less is one box to the left."
+gen.pv.tenmore.add-tens:
+  text: "Put in more tens: {count}."
+gen.pv.tenmore.take-tens:
+  text: "Take away tens: {count}."
+gen.pv.tenmore.add-hundreds:
+  text: "Put in more hundreds: {count}."
+gen.pv.tenmore.take-hundreds:
+  text: "Take away hundreds: {count}."
+gen.pv.tenmore.add-ones:
+  text: "Put in more ones: {count}."
+gen.pv.tenmore.take-ones:
+  text: "Take away ones: {count}."
+gen.pv.tenmore.jump-ten:
+  text: "Jump ten."
+gen.pv.tenmore.jump-back-ten:
+  text: "Jump back ten."
+gen.pv.tenmore.jump-hundred:
+  text: "Jump one hundred."
+gen.pv.tenmore.jump-back-hundred:
+  text: "Jump back one hundred."
+gen.pv.tenmore.jump-one:
+  text: "Jump one."
+gen.pv.tenmore.jump-back-one:
+  text: "Jump back one."
+gen.pv.tenmore.think-more:
+  text: "Count on by tens. The ones are the same."
+gen.pv.tenmore.think-less:
+  text: "Count back by tens. The ones are the same."
+gen.pv.tenmore.think-hundred-more:
+  text: "Count on by hundreds. The tens and ones are the same."
+gen.pv.tenmore.think-hundred-less:
+  text: "Count back by hundreds. The tens and ones are the same."
+gen.pv.tenmore.think-mixed:
+  text: "Count by tens first. Then count by ones."
+gen.pv.tenmore.is:
+  text: "That is {v}."
+gen.pv.regroup.look:
+  text: "Look at the tens and the ones."
+gen.pv.regroup.split-ten:
+  text: "Split one ten into ten ones."
+gen.pv.regroup.split-hundred:
+  text: "Split one hundred into ten tens."
+gen.pv.regroup.make-ten:
+  text: "Put ten ones together to make one ten."
+gen.pv.regroup.make-hundred:
+  text: "Put ten tens together to make one hundred."
+gen.pv.regroup.count-ones:
+  text: "Count out ten ones."
+gen.pv.regroup.tens-first:
+  text: "Count the tens first. Then count on the ones."
+gen.pv.regroup.now:
+  text: "Now the tens: {tens}. The ones: {ones}."
+gen.pv.regroup.now-hundreds:
+  text: "Now the hundreds: {hundreds}, the tens: {tens}, the ones: {ones}."
+gen.pv.regroup.is:
+  text: "That is {v}."
+gen.mda.addsub.start:
+  text: "Start at {a}."
+gen.mda.addsub.add-tens:
+  text: "Put in {count} tens."
+gen.mda.addsub.add-ones:
+  text: "Put in {count} ones."
+gen.mda.addsub.take-tens:
+  text: "Take away {count} tens."
+gen.mda.addsub.take-ones:
+  text: "Take away {count} ones."
+gen.mda.addsub.add-hundreds:
+  text: "Put in {count} hundreds."
+  level: "2"
+gen.mda.addsub.take-hundreds:
+  text: "Take away {count} hundreds."
+  level: "2"
+gen.mda.addsub.join-ones:
+  text: "Put the ones together."
+gen.mda.addsub.join-tens:
+  text: "Put the tens together."
+gen.mda.addsub.join-hundreds:
+  text: "Put the hundreds together."
+  level: "2"
+gen.mda.addsub.trade-ones:
+  text: "Ten ones make one ten. Bundle them."
+gen.mda.addsub.trade-tens:
+  text: "Ten tens make one hundred. Bundle them."
+gen.mda.addsub.split-ten:
+  text: "We need more ones. Split one ten into ten ones."
+gen.mda.addsub.split-hundred:
+  text: "Split one hundred into ten tens."
+  level: "2"
+gen.mda.addsub.jump-ten:
+  text: "Jump ten."
+gen.mda.addsub.jump-back-ten:
+  text: "Jump back ten."
+gen.mda.addsub.jump:
+  text: "Jump {count}."
+gen.mda.addsub.jump-back:
+  text: "Jump back {count}."
+gen.mda.addsub.to-ten:
+  text: "Jump {count} to the next ten."
+gen.mda.addsub.back-to-ten:
+  text: "Jump back {count} to the ten."
+gen.mda.addsub.row-down:
+  text: "Slide down one row. That is ten more."
+gen.mda.addsub.row-up:
+  text: "Slide up one row. That is ten less."
+gen.mda.addsub.slide-ones:
+  text: "Now move {count} to the right."
+gen.mda.addsub.slide-back:
+  text: "Now move {count} to the left."
+gen.mda.addsub.tens-then-ones:
+  text: "Add the tens. Then add the ones."
+gen.mda.addsub.take-tens-then-ones:
+  text: "Take away the tens. Then take away the ones."
+gen.mda.addsub.sum-tens:
+  text: "Add the tens."
+gen.mda.addsub.sum-ones:
+  text: "Now add the ones."
+gen.mda.addsub.diff-tens:
+  text: "Take away the tens."
+gen.mda.addsub.diff-ones:
+  text: "Now take away the ones."
+gen.mda.addsub.count-on:
+  text: "Count on from {a} to {result}."
+gen.mda.addsub.count-back:
+  text: "Count back from {a} to {result}."
+gen.mda.addsub.is:
+  text: "That is {v}."
 gen.addsub.facts.start-at:
   text: "Start at {a}. Then count on {b}."
 gen.addsub.facts.start-back:
@@ -963,6 +1211,8 @@ fb.rekenrek.retry:
   text: "Let's count the beads on the left."
 fb.base-ten-build.retry:
   text: "Let's count the tens and the ones again."
+fb.base-ten-trade.retry:
+  text: "Let's look at each place again: the tens, then the ones."
 fb.expanded-form.retry:
   text: "Look at the tens and the ones on each card."
 fb.number-line-jump.retry:
@@ -1006,5 +1256,11 @@ fb.mc.decade-transition:
   text: "Look at the tens. After nine ones, a new ten starts."
 fb.mc.teen-reversal:
   text: "Look at the tens. The ten comes first, then the ones."
+fb.mc.place-swap:
+  text: "Look at the tens. The tens come first, then the ones."
+fb.mc.face-value:
+  text: "Each bundle is ten, not one. Count the tens by tens."
+fb.mc.write-as-spoken:
+  text: "A number with tens and ones has two places. The ones go where the zero was."
 fb.mc.perceptual-size:
   text: "Size can trick our eyes. Match them up, one and one."

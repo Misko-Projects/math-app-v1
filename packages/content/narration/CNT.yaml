@@ -29,6 +29,10 @@ sk.CNT.16.intro:
   text: "Let's count back from big numbers, one at a time."
 sk.CNT.18.intro:
   text: "Some numbers are missing from the road. Let's find them!"
+sk.CNT.19.intro:
+  text: "So many to count! Make groups of ten first."
+sk.CNT.20.intro:
+  text: "Count on by tens, then by ones."
 
 tp.CNT.07.t1.prompt:
   text: "Start on {start}. Hop to the next stone."
@@ -46,6 +50,20 @@ tp.CNT.15.t4.prompt:
   text: "Start at the {from|word}. The different one is in which place?"
 tp.CNT.15.t5.prompt:
   text: "What place comes just after {k|ord}?"
+tp.CNT.19.t1.prompt:
+  text: "Put in {n}. Make a bundle for each ten."
+tp.CNT.19.t2.prompt:
+  text: "How many? Count the groups of ten, then the ones left."
+tp.CNT.19.t3.prompt:
+  text: "Show {n} with bundles of ten and some sticks."
+tp.CNT.19.t4.prompt:
+  text: "How many? A full frame is ten."
+tp.CNT.20.t1.prompt:
+  text: "Start at {n}. Go {by} more, then {ones} more."
+tp.CNT.20.t2.prompt:
+  text: "Start at {n}. Jump back {by}, then back {ones}."
+tp.CNT.20.t3.prompt:
+  text: "Count on by tens, then by ones. Fill in the numbers."
 
 ls.CNT.03.w1.s1:
   text: "Watch me touch each shell as I count."

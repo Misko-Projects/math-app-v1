@@ -1,5 +1,5 @@
-# CPS: Composing and decomposing, catalog rows from 03 §3.6 (K01). CPS.06 (needs puzzle.grid),
-# CPS.09 (needs PV.10) and the grade-2 CPS.10 come in later PRs (graph.yaml plannedIds).
+# CPS: Composing and decomposing, catalog rows from 03 §3.6 (K01). CPS.06 (needs puzzle.grid) and
+# the grade-2 CPS.10 come in later PRs (graph.yaml plannedIds).
 strand: CPS
 skills:
   - id: CPS.01
@@ -64,6 +64,15 @@ skills:
     prerequisites: [CPS.07, CPS.05]
     gateway: false
     representations: [double-ten-frame, rekenrek, number-bond]
+
+  - id: CPS.09
+    name: Tens partners of 100 (30 + 70)
+    kind: concept
+    grade: 1
+    standards: { ccss: [], supports: [2.NBT.B.5] }
+    prerequisites: [CPS.03, PV.10]
+    gateway: false
+    representations: [base-ten, hundred-chart, number-bond]
 
   - id: CPS.11
     name: "Split a number to finish a ten (8 + 5: give 2, keep 3)"

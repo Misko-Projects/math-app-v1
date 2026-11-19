@@ -1,0 +1,160 @@
+# MDA templates (03 §4.3), K01: the grade-1 two-digit addition and subtraction rows (mda.addsub).
+strand: MDA
+templates:
+  # ---------- MDA.01 add tens; add ones without crossing a ten ----------
+  # b is some tens or some ones, and the ones never make a new ten.
+  - id: MDA.01.t1
+    skillId: MDA.01
+    format: base-ten-build
+    tier: concrete
+    representation: base-ten
+    generator: mda.addsub
+    params: { a: { int: [11, 89] }, b: { int: [1, 80] }, op: "+" }
+    constraints: ["b % 10 == 0 || b < 10", "carries == 0", "result <= 99"]
+    difficulty: { base: -0.07 }
+    narration: { prompt: tp.MDA.01.t1.prompt, hints: [h.mda.tens-with-tens, h.mda.ones-with-ones] }
+
+  - id: MDA.01.t2
+    skillId: MDA.01
+    format: hundred-chart
+    tier: pictorial
+    generator: mda.addsub
+    params: { a: { int: [11, 89] }, b: { int: [1, 80] }, op: "+" }
+    constraints: ["b % 10 == 0 || b < 10", "carries == 0", "result <= 99"]
+    difficulty: { base: -0.75 }
+    narration: { prompt: tp.MDA.01.t2.prompt, hints: [h.mda.chart-down, h.mda.chart-right] }
+
+  - id: MDA.01.t3
+    skillId: MDA.01
+    format: number-line-jump
+    tier: pictorial
+    representation: open-number-line
+    generator: mda.addsub
+    params: { a: { int: [11, 89] }, b: { int: [1, 80] }, op: "+", strategy: tens-ones }
+    constraints: ["b % 10 == 0 || b < 10", "carries == 0", "result <= 99"]
+    difficulty: { base: -1.18 }
+    narration: { prompt: tp.MDA.01.t3.prompt, hints: [h.mda.jump-tens, h.mda.jump-ones] }
+
+  - id: MDA.01.t4
+    skillId: MDA.01
+    format: number-pad
+    tier: abstract
+    representation: symbols
+    generator: mda.addsub
+    params: { a: { int: [11, 89] }, b: { int: [1, 80] }, op: "+" }
+    constraints: ["b % 10 == 0 || b < 10", "carries == 0", "result <= 99"]
+    difficulty: { base: -0.38 }
+    narration: { prompt: tp.MDA.01.t4.prompt, hints: [h.mda.tens-with-tens, h.mda.ones-with-ones] }
+
+  # ---------- MDA.02 subtract multiples of 10 ----------
+  - id: MDA.02.t1
+    skillId: MDA.02
+    format: base-ten-build
+    tier: concrete
+    representation: base-ten
+    generator: mda.addsub
+    params: { a: { int: [20, 99] }, b: { int: [10, 90], step: 10 }, op: "-" }
+    constraints: ["result >= 1"]
+    difficulty: { base: -0.45 }
+    narration: { prompt: tp.MDA.02.t1.prompt, hints: [h.mda.take-tens, h.mda.ones-stay] }
+
+  - id: MDA.02.t2
+    skillId: MDA.02
+    format: hundred-chart
+    tier: pictorial
+    generator: mda.addsub
+    params: { a: { int: [20, 99] }, b: { int: [10, 90], step: 10 }, op: "-" }
+    constraints: ["result >= 1"]
+    difficulty: { base: -1.2 }
+    narration: { prompt: tp.MDA.02.t2.prompt, hints: [h.mda.chart-up, h.mda.ones-stay] }
+
+  - id: MDA.02.t3
+    skillId: MDA.02
+    format: number-line-jump
+    tier: pictorial
+    representation: open-number-line
+    generator: mda.addsub
+    params: { a: { int: [20, 99] }, b: { int: [10, 90], step: 10 }, op: "-", strategy: tens-ones }
+    constraints: ["result >= 1"]
+    difficulty: { base: -2.45 }
+    narration: { prompt: tp.MDA.02.t3.prompt, hints: [h.mda.jump-back-tens, h.mda.ones-stay] }
+
+  - id: MDA.02.t4
+    skillId: MDA.02
+    format: number-pad
+    tier: abstract
+    representation: symbols
+    generator: mda.addsub
+    params: { a: { int: [20, 99] }, b: { int: [10, 90], step: 10 }, op: "-" }
+    constraints: ["result >= 1"]
+    difficulty: { base: -0.75 }
+    narration: { prompt: tp.MDA.02.t4.prompt, hints: [h.mda.count-back-tens, h.mda.ones-stay] }
+
+  # ---------- MDA.08 add a one-digit number across a ten ----------
+  - id: MDA.08.t1
+    skillId: MDA.08
+    format: base-ten-trade
+    tier: concrete
+    representation: base-ten
+    generator: mda.addsub
+    params: { a: { int: [11, 88] }, b: { int: [2, 9] }, op: "+" }
+    constraints: ["carries == 1", "result <= 99"]
+    difficulty: { base: -1.34 }
+    narration:
+      { prompt: tp.MDA.08.t1.prompt, hints: [h.mda.ten-ones-bundle, h.mda.count-tens-ones] }
+
+  - id: MDA.08.t2
+    skillId: MDA.08
+    format: number-line-jump
+    tier: pictorial
+    representation: open-number-line
+    generator: mda.addsub
+    params: { a: { int: [11, 88] }, b: { int: [2, 9] }, op: "+", strategy: next-ten }
+    constraints: ["carries == 1", "result <= 99"]
+    difficulty: { base: -2.44 }
+    narration: { prompt: tp.MDA.08.t2.prompt, hints: [h.numberline.jump-to-ten, h.mda.to-next-ten] }
+
+  - id: MDA.08.t3
+    skillId: MDA.08
+    format: number-pad
+    tier: abstract
+    representation: symbols
+    generator: mda.addsub
+    params: { a: { int: [11, 88] }, b: { int: [2, 9] }, op: "+" }
+    constraints: ["carries == 1", "result <= 99"]
+    difficulty: { base: -1.64 }
+    narration: { prompt: tp.MDA.08.t3.prompt, hints: [h.mda.to-next-ten, h.mda.then-add-rest] }
+
+  # ---------- MDA.09 add two-digit numbers without regrouping ----------
+  - id: MDA.09.t1
+    skillId: MDA.09
+    format: base-ten-build
+    tier: concrete
+    representation: base-ten
+    generator: mda.addsub
+    params: { a: { int: [11, 88] }, b: { int: [11, 88] }, op: "+" }
+    constraints: ["carries == 0", "result <= 99"]
+    difficulty: { base: -0.45 }
+    narration: { prompt: tp.MDA.09.t1.prompt, hints: [h.mda.tens-with-tens, h.mda.ones-with-ones] }
+
+  - id: MDA.09.t2
+    skillId: MDA.09
+    format: expanded-form
+    tier: pictorial
+    representation: expanded
+    generator: mda.addsub
+    params: { a: { int: [11, 88] }, b: { int: [11, 88] }, op: "+" }
+    constraints: ["carries == 0", "result <= 99"]
+    difficulty: { base: -0.45 }
+    narration: { prompt: tp.MDA.09.t2.prompt, hints: [h.mda.add-the-tens, h.mda.add-the-ones] }
+
+  - id: MDA.09.t3
+    skillId: MDA.09
+    format: number-pad
+    tier: abstract
+    representation: symbols
+    generator: mda.addsub
+    params: { a: { int: [11, 88] }, b: { int: [11, 88] }, op: "+" }
+    constraints: ["carries == 0", "result <= 99"]
+    difficulty: { base: -0.76 }
+    narration: { prompt: tp.MDA.09.t3.prompt, hints: [h.mda.add-the-tens, h.mda.add-the-ones] }

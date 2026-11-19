@@ -301,3 +301,34 @@ templates:
     difficulty: { base: -2.65, features: { n.over4: 0.1 } }
     narration:
       { prompt: p.subitize.how-many, hints: [h.subitize.look-again, h.subitize.frame-fives] }
+
+  # ---------- SUB.08 quick-read tens and ones from a base-ten picture ----------
+  - id: SUB.08.t1
+    skillId: SUB.08
+    format: dot-flash
+    tier: pictorial
+    representation: base-ten
+    generator: pv.number
+    params: { n: { int: [21, 59] }, mode: read, flashMs: 2000 }
+    difficulty: { base: -1.5, features: { n.over4: 0.02 } }
+    narration: { prompt: tp.SUB.08.t1.prompt, hints: [h.pv.rod-is-ten, h.pv.count-tens-ones] }
+
+  - id: SUB.08.t2
+    skillId: SUB.08
+    format: dot-flash
+    tier: pictorial
+    representation: bundles
+    generator: pv.number
+    params: { n: { int: [21, 59] }, mode: read, flashMs: 2000 }
+    difficulty: { base: -1.48, features: { n.over4: 0.02 } }
+    narration: { prompt: tp.SUB.08.t2.prompt, hints: [h.pv.bundle-is-ten, h.pv.count-tens-ones] }
+
+  - id: SUB.08.t3
+    skillId: SUB.08
+    format: number-pad
+    tier: pictorial
+    representation: bundles
+    generator: pv.number
+    params: { n: { int: [21, 99] }, mode: read }
+    difficulty: { base: -1.0 }
+    narration: { prompt: tp.SUB.08.t3.prompt, hints: [h.pv.bundle-is-ten, h.pv.count-tens-ones] }
