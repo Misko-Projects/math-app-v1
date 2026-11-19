@@ -395,7 +395,7 @@ export function ShapeSortWidget({
           className="ni-ssort__tray"
           data-bin={TRAY}
           // An empty tray keeps one row of room (the cards' padding is 12 or 14 px).
-          style={{ minHeight: outer + (compact ? 24 : 28) }}
+          style={{ minHeight: outer + (compact ? 12 + 36 : 14 + 38) }}
         >
           {pad(TRAY, t('ui.ssort.tray'))}
           <div className="ni-ssort__tray-cards">
@@ -413,7 +413,11 @@ export function ShapeSortWidget({
             className="ni-ssort__bin"
             data-bin={b.id}
             // Bins widen with their cards, so a full bin keeps one row where it can.
-            style={{ flexGrow: binWeight((state.bins[b.id] ?? []).length) }}
+            style={{
+              flexGrow: binWeight((state.bins[b.id] ?? []).length),
+              // An empty bin keeps a row of room: label, padding, one card, the room for its lip.
+              minHeight: (compact ? 42 + 12 + 20 : 45 + 14 + 24) + outer,
+            }}
           >
             {pad(b.id, t(b.label))}
             <span className="ni-ssort__label" aria-hidden="true">
@@ -450,8 +454,11 @@ export function sortCardSize(a: {
 }): number {
   const gap = 12;
   const css = a.compact
-    ? { padX: 8, padY: 8, gapY: 12, topGap: 12, binsGap: 12, cardsPad: 12, label: 36 }
-    : { padX: 24, padY: 44, gapY: 16, topGap: 20, binsGap: 20, cardsPad: 14, label: 45 };
+    ? { padX: 8, padY: 8, gapY: 12, topGap: 12, binsGap: 12, cardsPad: 12, label: 42 }
+    : { padX: 24, padY: 16, gapY: 16, topGap: 20, binsGap: 20, cardsPad: 14, label: 45 };
+  // Under the cards (shape-sort.css): the tray leaves room for Pip's hand, a bin its lip.
+  const trayBottom = a.compact ? 36 : 38;
+  const binBottom = a.compact ? 20 : 24;
   const checkW = a.kMode ? 120 : 210;
   const trayW = a.width - css.padX - css.topGap - checkW;
   const binsW = a.width - css.padX - Math.max(0, a.bins.length - 1) * css.binsGap;
@@ -459,17 +466,18 @@ export function sortCardSize(a: {
   const total = weights.reduce((s, w) => s + w, 0) || 1;
   const perRow = (w: number, c: number) =>
     Math.max(1, Math.floor((w - 2 * css.cardsPad + gap) / (c + gap)));
-  const block = (n: number, per: number, c: number) => {
+  const block = (n: number, per: number, c: number, bottom: number) => {
     const rows = Math.max(1, Math.ceil(n / per));
-    return rows * c + (rows - 1) * gap + 2 * css.cardsPad;
+    return rows * c + (rows - 1) * gap + css.cardsPad + bottom;
   };
   const min = a.minT + 4;
   for (let c = 120; c > min; c -= 4) {
-    const tray = block(a.tray, perRow(trayW, c), c);
+    const tray = block(a.tray, perRow(trayW, c), c, trayBottom);
     const bin = Math.max(
       0,
       ...a.bins.map(
-        (n, i) => css.label + block(n, perRow((binsW * (weights[i] ?? 1)) / total, c), c) + 6,
+        (n, i) =>
+          css.label + block(n, perRow((binsW * (weights[i] ?? 1)) / total, c), c, binBottom) + 6,
       ),
     );
     if (css.padY + tray + css.gapY + bin <= a.height) return c;

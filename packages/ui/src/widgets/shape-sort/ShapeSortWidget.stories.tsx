@@ -12,6 +12,7 @@ import {
 import {
   expectApart,
   expectControls,
+  expectHandTouchesOnlyInvited,
   expectNumeralInk,
   expectOneInviteRing,
   expectRenderedNumerals,
@@ -472,6 +473,7 @@ export const SolidsTabletK: Story = {
     await expectFitsArea(box, parts());
     for (const c of root.querySelectorAll('.ni-ssort__card')) await expectTargetSize(c, 'k');
     await expectControls('shape-sort SolidsTabletK (sorted)', 'k', present(sortControls(root)));
+    await expectBinLips(root);
     await userEvent.click(within(root).getByRole('button', { name: 'Check' }));
     const r = lastResponse(args.onResponse) as { value: Record<string, unknown> };
     await expect(stateChecker('sort.byRule')?.check(solidsTarget, r.value)).toBe(true);
@@ -516,6 +518,7 @@ export const SolidsLandscapeMinK: Story = {
       'k',
       present(sortControls(root)),
     );
+    await expectBinLips(root);
     await userEvent.click(within(root).getByRole('button', { name: 'Check' }));
     const r = lastResponse(args.onResponse) as { value: Record<string, unknown> };
     await expect(stateChecker('sort.byRule')?.check(solidsTarget, r.value)).toBe(true);
@@ -589,6 +592,7 @@ export const StressSixteenTabletK: Story = {
       'k',
       present(sortControls(root)),
     );
+    await expectBinLips(root);
     await settleFocus();
   },
 };
@@ -633,10 +637,50 @@ export const StressSevenLandscapeMinK: Story = {
       'k',
       present(sortControls(root)),
     );
+    await expectBinLips(root);
     await expectBinRingsInside(root);
     await settleFocus();
   },
 };
+
+/**
+ * Every bin keeps its lower lip visible (evidence review: cards sat on it): each card's bottom
+ * is at least a side padding (12 px compact, 14 px) above the bin's inner bottom edge, the card's
+ * 6 px ledge clears the lip, and the bin's label starts at least 6 px below its top border.
+ * Logs the measured paddings.
+ */
+async function expectBinLips(root: HTMLElement) {
+  const compact = root.dataset.compact === 'true';
+  const side = compact ? 12 : 14;
+  let least = Number.POSITIVE_INFINITY;
+  let labelRoom = Number.POSITIVE_INFINITY;
+  for (const bin of root.querySelectorAll<HTMLElement>('.ni-ssort__bin')) {
+    const p = bin.querySelector('.ni-ssort__pad') as HTMLElement;
+    const r = p.getBoundingClientRect();
+    const cs = getComputedStyle(p);
+    const innerBottom = r.bottom - (Number.parseFloat(cs.borderBottomWidth) || 0);
+    const lip = Number(/inset\s+0(?:px)?\s+-(\d+)px/.exec(cs.boxShadow)?.[1] ?? 0);
+    for (const card of bin.querySelectorAll('.ni-ssort__card')) {
+      const gap = innerBottom - card.getBoundingClientRect().bottom;
+      least = Math.min(least, gap);
+      await expect(gap, 'card above the bin floor by a side padding').toBeGreaterThanOrEqual(
+        side - 0.5,
+      );
+      await expect(gap - 6, 'card ledge clears the lip').toBeGreaterThanOrEqual(lip - 0.5);
+    }
+    // The label's text starts at its content edge (its line box), below its top padding.
+    const label = bin.querySelector('.ni-ssort__label') as HTMLElement;
+    const textTop =
+      label.getBoundingClientRect().top +
+      (Number.parseFloat(getComputedStyle(label).paddingTop) || 0);
+    const room = textTop - (r.top + (Number.parseFloat(cs.borderTopWidth) || 0));
+    labelRoom = Math.min(labelRoom, room);
+    await expect(room, 'label room under the top border').toBeGreaterThanOrEqual(6);
+  }
+  console.info(
+    `[bins] card bottom to bin floor ≥ ${Math.round(least)} px (side ${side}); label under top border ≥ ${Math.round(labelRoom)} px`,
+  );
+}
 
 /**
  * Keyboard focus on a bin or the tray draws its ring inside the frame, at least 6 px clear of
@@ -656,6 +700,93 @@ async function expectBinRingsInside(root: HTMLElement) {
     await expect(-outer - border, `${id} ring clear of its border`).toBeGreaterThanOrEqual(6);
   }
 }
+
+const trayPlay =
+  (story: string) =>
+  async ({ canvasElement }: { canvasElement: HTMLElement }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    const box = areaBox(canvasElement);
+    await settle(root);
+    await expectFitsArea(box, sortParts(root));
+    for (const c of root.querySelectorAll('[data-bin="tray"] .ni-ssort__card')) {
+      await expectFitsArea(box, [c]);
+    }
+    await expectControls(story, 'k', present(sortControls(root)));
+    await settleFocus();
+  };
+
+/**
+ * Stress, tablet area, K: the TRAY with 16 unsorted cards (real items have at most 7). They wrap
+ * into rows of target-size cards (84 px), nothing clips or scrolls.
+ */
+export const StressTraySixteenTabletK: Story = {
+  globals: { ageMode: 'k' },
+  args: { config: manyBlocks(8), tier: 'pictorial' },
+  render: inArea('tablet'),
+  play: trayPlay('shape-sort StressTraySixteenTabletK'),
+};
+
+/**
+ * Stress, smallest landscape area, K: the tray with the template maximum, 7 unsorted cards, in
+ * one row beside Check; nothing clips or scrolls (the height holds one row: see
+ * StressSevenLandscapeMinK).
+ */
+export const StressTraySevenLandscapeMinK: Story = {
+  globals: { ageMode: 'k' },
+  args: {
+    config: { ...manyBlocks(4), cards: manyBlocks(4).cards.slice(0, 7) },
+    tier: 'pictorial',
+  },
+  render: inArea('landscapeMin'),
+  play: trayPlay('shape-sort StressTraySevenLandscapeMinK'),
+};
+
+/**
+ * Smallest landscape area, K, mid-sort: one card picked up (its ring inside the card) and the
+ * bins armed to take it (their rings inside their frames, 6 px clear of the border). Ends in that
+ * state, so the rings show.
+ */
+export const StressSevenSelectedLandscapeMinK: Story = {
+  ...StressTraySevenLandscapeMinK,
+  play: async ({ canvasElement }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    for (let i = 0; i < 4; i += 1) {
+      await userEvent.click(cardEl(root, `c${i}`));
+      await userEvent.click(pad(root, i % 2 === 0 ? 'b0' : 'b1'));
+    }
+    await settle(root);
+    await settleFocus();
+    await userEvent.click(cardEl(root, 'c4'));
+    await waitFor(() => expect(pad(root, 'b0')).toHaveAttribute('data-armed', 'true'));
+    await new Promise((r) => setTimeout(r, 300));
+    const picked = cardEl(root, 'c4');
+    await expect(picked).toHaveAttribute('data-selected', 'true');
+    // The picked card's ring is inside it: its visible box is its own box.
+    const ring = getComputedStyle(picked);
+    await expect(ring.outlineStyle).not.toBe('none');
+    await expect(
+      (Number.parseFloat(ring.outlineOffset) || 0) + (Number.parseFloat(ring.outlineWidth) || 0),
+    ).toBeLessThanOrEqual(0);
+    // Each armed bin's ring is inside its frame, 6 px clear of the border.
+    for (const id of ['b0', 'b1']) {
+      const cs = getComputedStyle(pad(root, id));
+      await expect(cs.outlineColor).not.toMatch(/rgba\([^)]*,\s*0\)|transparent/);
+      const outer =
+        (Number.parseFloat(cs.outlineOffset) || 0) + (Number.parseFloat(cs.outlineWidth) || 0);
+      await expect(
+        -outer - (Number.parseFloat(cs.borderTopWidth) || 0),
+        `${id} ring clear of its border`,
+      ).toBeGreaterThanOrEqual(6);
+    }
+    await expectControls(
+      'shape-sort StressSevenSelectedLandscapeMinK',
+      'k',
+      present(sortControls(root)),
+    );
+    await expectBinLips(root);
+    await expectFitsArea(areaBox(canvasElement), sortParts(root));
+  },
+};
 
 /** Find-all at the smallest landscape area, K: six cards and Check fit with no scroll. */
 export const FindAllLandscapeMinK: Story = {
@@ -875,6 +1006,13 @@ export const DemoInvite: Story = {
       clearOf: [...others, pad(root, 'b0'), pad(root, 'b1')],
       inside: [pad(root, 'tray')],
     });
+    // The whole hand (and its bob) touches only the invited card: not a bin, not another card.
+    await expectHandTouchesOnlyInvited(root, [
+      ...others,
+      pad(root, 'b0'),
+      pad(root, 'b1'),
+      within(root).getByRole('button', { name: 'Check' }),
+    ]);
     await expectControls('shape-sort DemoInvite', 'k', {
       cards: [...root.querySelectorAll('.ni-ssort__card')],
     });

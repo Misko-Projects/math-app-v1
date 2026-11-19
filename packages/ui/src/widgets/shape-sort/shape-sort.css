@@ -8,7 +8,7 @@
   box-sizing: border-box;
   width: 100%;
   max-width: 1180px;
-  padding: 8px 12px 36px;
+  padding: 8px 12px 8px; /* the tray keeps room for the hand under its cards */
   container: ssort / inline-size;
 }
 .ni-ssort[data-mode="find-all"],
@@ -77,6 +77,15 @@
  * from the neighbouring cards and the tray's or bin's border. No pulse (it would push the ring
  * into the gap); Pip's hand carries the motion.
  */
+/* A picked-up card's ring (and its double ring when it also has keyboard focus) lies inside the
+   card too, so it never reaches the next card or the tray's border. */
+.ni-ssort .ni-ssort__card[data-selected="true"] {
+  outline-offset: -8px;
+}
+.ni-ssort .ni-ssort__card[data-selected="true"]:focus-visible {
+  outline-width: 10px;
+  outline-offset: -14px;
+}
 .ni-ssort__card.ni-invite {
   z-index: 3;
   outline-offset: -5px;
@@ -177,11 +186,13 @@
  * inside its frame, 6 px clear of the border, so they never merge with the frame or reach a
  * neighbouring bin (evidence review: a focus ring hugged the Triangles bin 4 px outside it).
  */
+.ni-ssort .ni-ssort__bin > .ni-ssort__pad.ni-drop-target,
 .ni-ssort .ni-ssort__bin > .ni-ssort__pad:focus-visible,
 .ni-ssort .ni-ssort__bin > .ni-ssort__pad.ni-drop-target[data-armed="true"],
 .ni-ssort .ni-ssort__bin > .ni-ssort__pad.ni-drop-target[data-over="true"] {
   outline-offset: -14px;
 }
+.ni-ssort .ni-ssort__tray > .ni-ssort__pad.ni-drop-target,
 .ni-ssort .ni-ssort__tray > .ni-ssort__pad:focus-visible,
 .ni-ssort .ni-ssort__tray > .ni-ssort__pad.ni-drop-target[data-armed="true"],
 .ni-ssort .ni-ssort__tray > .ni-ssort__pad.ni-drop-target[data-over="true"] {
@@ -226,6 +237,18 @@
   padding: 14px;
   pointer-events: none;
 }
+/*
+ * Evidence review. The tray leaves room under its cards for Pip's hand, which hangs below an
+ * invited card (about 51 px with its bob), so the hand touches no bin. A bin keeps its lower lip
+ * and the cards' ledge visible: the cards stop more than a side padding above its inner bottom.
+ * (sortCardSize counts these.)
+ */
+.ni-ssort__tray-cards {
+  padding-bottom: 38px;
+}
+.ni-ssort__bin-cards {
+  padding-bottom: 24px;
+}
 .ni-ssort__tray-cards > *,
 .ni-ssort__bin-cards > * {
   pointer-events: auto;
@@ -238,7 +261,6 @@
 .ni-ssort__bin {
   flex: 1 1 0;
   min-width: min-content;
-  min-height: 188px;
 }
 .ni-ssort__label {
   position: relative;
@@ -267,17 +289,25 @@
 .ni-ssort[data-compact="true"] .ni-ssort__bins {
   gap: 12px;
 }
-.ni-ssort[data-compact="true"] .ni-ssort__bin {
-  min-height: calc(var(--target-min) + 60px);
-}
 .ni-ssort[data-compact="true"] .ni-ssort__label {
-  padding: 4px 8px 0;
+  padding: 10px 8px 0;
   line-height: 1;
 }
-/* 12 px round the cards: an invited card's ring stays 12 px inside the tray's or bin's border. */
-.ni-ssort[data-compact="true"] .ni-ssort__tray-cards,
+/* 12 px round the cards: an invited card's ring stays 12 px inside the tray's or bin's border;
+   room for the hand under the tray's cards, and the bin's (thinner) lip under its cards. */
+.ni-ssort[data-compact="true"] .ni-ssort__tray-cards {
+  padding: 12px 12px 36px;
+}
 .ni-ssort[data-compact="true"] .ni-ssort__bin-cards {
-  padding: 12px;
+  padding: 12px 12px 20px;
+}
+.ni-ssort[data-compact="true"] .ni-ssort__bin > .ni-ssort__pad {
+  box-shadow: inset 0 -6px 0 var(--color-sand-shadow);
+}
+.ni-ssort[data-compact="true"][data-tier="concrete"] .ni-ssort__bin > .ni-ssort__pad {
+  box-shadow:
+    inset 0 -6px 0 var(--color-sand-shadow),
+    0 6px 0 var(--color-wood-deep);
 }
 .ni-ssort[data-compact="true"] .ni-ssort__cards {
   padding: 8px 4px;
