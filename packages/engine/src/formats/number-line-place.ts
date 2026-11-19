@@ -38,26 +38,50 @@ export interface NumberLinePlaceState extends FormatState<'number-line-place'> {
 
 const round6 = (v: number) => Number(v.toFixed(6));
 
+/** Most steps a line ever gets; a finer line is drawn (and snapped) by its two ends only. */
+export const LINE_STEPS_CAP = 2000;
+
+/** Decimal places in the shortest form of `v` (1e-24 has 24, 0.125 has 3, 20 has 0). */
+function decimalPlaces(v: number): number {
+  const [mantissa = '', exponent = '0'] = String(Math.abs(v)).split('e');
+  const fraction = mantissa.split('.')[1]?.length ?? 0;
+  return Math.max(0, fraction - Number(exponent));
+}
+
 /**
- * The multiples of `every` inside [min, max], ascending, at 6-decimal precision: THE tick and
- * label positions of a number line. The model and the kit's `NumberLineView` (through
- * `stepsBetween`) both use this one function, so a drawn tick is always a tick the model snaps
- * to. The first multiple is found from the quotient rounded to 6 decimals, so 0.07 / 0.01
- * (7.000000000000001 in floating point) still starts the line at 0.07, and no step lies past either
- * end of the line.
+ * The multiples of `every` inside [min, max], ascending: THE tick and label positions of a number
+ * line. The model and the kit's `NumberLineView` (through `stepsBetween`) both use this one
+ * function, so a drawn tick is always a tick the model snaps to.
+ *
+ * Each multiple `k × every` is rounded to the step's own decimal places (the step read to 12
+ * significant digits, so a computed step such as 0.1 / 10 counts as 0.01) and then compared with
+ * min and max exactly, with no slack: 3 × 0.1 is 0.3, 7 × 0.01 is 0.07, and a 0–19.999999995 line
+ * by tens stops at 10. The index runs on its own bounded counter: a line that would need more
+ * than `LINE_STEPS_CAP` steps, or whose indexes or values are not exactly representable, gets
+ * just its two ends.
  */
 export function lineSteps(min: number, max: number, every: number | null): number[] {
-  if (every === null || !(every > 0)) return [];
-  // Floating-point slack, in units of the step: a quotient within a billionth of a step of a whole
-  // number counts as that number at either end, and nothing past an end is ever produced (a
-  // 0–19.999999 line by tens stops at 10; rounding the quotient 1.9999999 to 2 would add 20).
-  const EPS = 1e-9;
-  const k0 = Math.ceil(min / every - EPS);
-  const k1 = Math.floor(max / every + EPS);
+  if (every === null || !(every > 0) || !Number.isFinite(every)) return [];
+  if (!Number.isFinite(min) || !Number.isFinite(max) || min > max) return [];
+  const ends = min === max ? [min] : [min, max];
+  const places = decimalPlaces(Number(every.toPrecision(12)));
+  // One index either side of the quotients: the rounded values below decide, exactly.
+  const first = Math.ceil(min / every) - 1;
+  const last = Math.floor(max / every) + 1;
+  const count = last - first + 1;
+  if (
+    places > 100 ||
+    !Number.isSafeInteger(first) ||
+    !Number.isSafeInteger(last) ||
+    !(count <= LINE_STEPS_CAP + 2)
+  ) {
+    return ends;
+  }
   const out: number[] = [];
-  for (let k = k0; k <= k1 && out.length < 2000; k++) {
-    const v = round6(k * every);
-    if (v >= min - EPS * every && v <= max + EPS * every) out.push(v);
+  for (let i = 0; i < count; i++) {
+    const v = Number(((first + i) * every).toFixed(places));
+    if (!Number.isFinite(v)) return ends;
+    if (v >= min && v <= max && v !== out.at(-1)) out.push(v);
   }
   return out;
 }
@@ -81,10 +105,12 @@ export function lineLabels(c: Config): number[] {
  * `snap: 'tick'` (ties go to the smaller tick).
  */
 export function snapPlacement(c: Config, at: number): number {
-  const v = Math.min(c.max, Math.max(c.min, at));
-  if (c.snap !== 'tick') return round6(v);
+  const clamp = (x: number) => Math.min(c.max, Math.max(c.min, x));
+  const v = clamp(at);
+  // Rounding never carries a drop past an end (19.9999999 rounds to 20 on a line ending there).
+  if (c.snap !== 'tick') return clamp(round6(v));
   const ticks = lineTicks(c);
-  if (ticks.length === 0) return round6(v);
+  if (ticks.length === 0) return clamp(round6(v));
   let best = ticks[0] as number;
   for (const t of ticks) if (Math.abs(t - v) < Math.abs(best - v) - 1e-9) best = t;
   return best;

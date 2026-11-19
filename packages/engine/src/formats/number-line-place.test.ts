@@ -4,6 +4,7 @@ import { FORMAT_SUPPORT, type WidgetAction, type WidgetConfigOf } from '@number-
 import { describe, expect, it } from 'vitest';
 import { formatFeatures, formatModel, formatModels, UnsupportedOpError } from './index';
 import {
+  LINE_STEPS_CAP,
   lineLabels,
   lineSteps,
   lineTicks,
@@ -125,6 +126,46 @@ describe('number-line-place model', () => {
     expect(snapPlacement(nearEnd, 19.999999)).toBe(10);
     expect(snapPlacement(nearEnd, 25)).toBe(10);
     expect(snapPlacement(tenths, 0.33)).toBe(0.3);
+  });
+
+  it('steps are exact at the step precision and never leave [min, max] (review r3 F2)', () => {
+    // No slack: 20 lies past a 0–19.999999995 line, by any amount.
+    expect(lineSteps(0, 19.999999995, 10)).toEqual([0, 10]);
+    expect(lineSteps(0.000000005, 20, 10)).toEqual([10, 20]);
+    expect(lineSteps(0.07, 0.1, 0.01)).toEqual([0.07, 0.08, 0.09, 0.1]);
+    expect(lineSteps(0, 1, 0.1)).toContain(0.3);
+    expect(lineSteps(0, 1, 0.1)).toHaveLength(11);
+    // A computed step (0.1 / 10 is 0.010000000000000002) still lands on hundredths.
+    expect(lineSteps(0.3, 0.4, (0.4 - 0.3) / 10)).toEqual([
+      0.3, 0.31, 0.32, 0.33, 0.34, 0.35, 0.36, 0.37, 0.38, 0.39, 0.4,
+    ]);
+    expect(lineSteps(0, 1, 1 / 3).at(-1)).toBe(1);
+    const odd: Config = { ...base, min: 0, max: 19.999999995, ticksEvery: 10, target: 6 };
+    for (const snap of ['tick', 'none'] as const) {
+      const line = { ...odd, snap };
+      for (const at of [-5, 0, 0.0000001, 19.9999999, 19.999999995, 20, 25]) {
+        const v = snapPlacement(line, at);
+        expect(v).toBeGreaterThanOrEqual(line.min);
+        expect(v).toBeLessThanOrEqual(line.max);
+      }
+    }
+    expect(snapPlacement({ ...odd, snap: 'tick' }, 19.999999995)).toBe(10);
+    expect(snapPlacement({ ...odd, snap: 'tick' }, 0)).toBe(0);
+    const low: Config = { ...odd, min: 0.000000005, max: 20, snap: 'tick' };
+    expect(snapPlacement(low, 0.000000005)).toBe(10);
+  });
+
+  it('a line too fine to step terminates with just its ends (review r3 F1)', () => {
+    const started = performance.now();
+    // The first index is near 1e17, where k + 1 === k.
+    expect(lineSteps(1e-7, 2e-7, 1e-24)).toEqual([1e-7, 2e-7]);
+    expect(lineSteps(0, 1e6, 1e-3)).toEqual([0, 1e6]);
+    expect(lineSteps(1e20, 1e20 + 1e5, 1)).toEqual([1e20, 1e20 + 1e5]);
+    expect(lineSteps(0, 1999, 1)).toHaveLength(LINE_STEPS_CAP);
+    expect(lineSteps(0, 2000, 1)).toEqual([0, 2000]);
+    expect(lineSteps(0, 10, Number.MIN_VALUE)).toEqual([0, 10]);
+    expect(lineSteps(5, 5, 1)).toEqual([5]);
+    expect(performance.now() - started).toBeLessThan(200);
   });
 
   it('hundredths stay in config units (valueScale 100)', () => {

@@ -161,6 +161,19 @@ describe('number line steps', () => {
     expect(stepsBetween(0.07, 0.1, 0.01)).toEqual(
       lineTicks({ min: 0.07, max: 0.1, ticksEvery: 0.01 } as Parameters<typeof lineTicks>[0]),
     );
+    // Review r3 F1/F2: exact at the step precision, no slack, and a line too fine to step gets
+    // its two ends; the kit draws exactly what the model snaps to in every case.
+    expect(stepsBetween(0, 19.999999995, 10)).toEqual([0, 10]);
+    expect(stepsBetween(1e-7, 2e-7, 1e-24)).toEqual([1e-7, 2e-7]);
+    for (const [min, max, ticksEvery] of [
+      [0, 19.999999995, 10],
+      [1e-7, 2e-7, 1e-24],
+      [0, 1, 0.1],
+    ] as const) {
+      expect(stepsBetween(min, max, ticksEvery)).toEqual(
+        lineTicks({ min, max, ticksEvery } as Parameters<typeof lineTicks>[0]),
+      );
+    }
   });
 
   it('numberLineViewScale matches the view: end padding for the widest numeral', () => {
