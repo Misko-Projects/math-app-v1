@@ -496,7 +496,9 @@ export const ThreeDigitK: Story = {
     for (const c of trayCards) {
       await expectTargetSize(c, 'k');
       const numeral = c.querySelector('.ni-ord__numeral') as HTMLElement;
-      await expect(Number.parseFloat(getComputedStyle(numeral).fontSize)).toBeGreaterThanOrEqual(32);
+      await expect(Number.parseFloat(getComputedStyle(numeral).fontSize)).toBeGreaterThanOrEqual(
+        32,
+      );
       // The numeral fits inside its card.
       await expect(numeral.scrollWidth).toBeLessThanOrEqual(c.clientWidth);
     }

@@ -1,6 +1,8 @@
 import type { StimulusSpec } from '@number-island/shared';
 import { type ReactNode, useLayoutEffect, useRef, useState } from 'react';
+import { useNarrationText } from '../../preferences/UiProvider';
 import { dotsLayout, type ObjectLayout, objectSetLayout, type PlacedObject } from './layout';
+import { NumberLineView } from './NumberLineView';
 import { ObjectSetView } from './ObjectSetView';
 import { StimulusView } from './StimulusView';
 import './kit.css';
@@ -21,6 +23,7 @@ const MAX_CELL = 112;
 const LINE_Y_MARKS = 88;
 const LINE_Y_JUMPS = 104;
 const LINE_Y_BARE = 30;
+const LINE_Y_POINTER = 46;
 const LINE_BELOW_NUMERALS = 64;
 const LINE_BELOW_BARE = 30;
 /** Widest a number line is drawn (NumberLineView default). */
@@ -96,16 +99,21 @@ export function countLayout(spec: StimulusSpec, stackFrames = false): ObjectLayo
   }
 }
 
-/** A number line's drawn height in px (NumberLineView), which its width does not change. */
-export function numberLineHeight(spec: Extract<StimulusSpec, { kind: 'number-line' }>): number {
+/**
+ * Where the line sits in a fitted number line: NumberLineView's own choice, except that arrow
+ * marks with no numeral over them need only the pointer's height (38 px) above the line, so a
+ * fitted line wastes no headroom.
+ */
+function lineHeadroom(spec: Extract<StimulusSpec, { kind: 'number-line' }>): number {
   const marks = spec.marks ?? [];
-  const lineY =
-    (spec.jumps?.length ?? 0) > 0
-      ? LINE_Y_JUMPS
-      : marks.some((m) => m.arrow || m.label !== undefined)
-        ? LINE_Y_MARKS
-        : LINE_Y_BARE;
-  return lineY + (spec.labelsEvery !== null ? LINE_BELOW_NUMERALS : LINE_BELOW_BARE);
+  if ((spec.jumps?.length ?? 0) > 0) return LINE_Y_JUMPS;
+  if (marks.some((m) => m.label !== undefined)) return LINE_Y_MARKS;
+  return marks.some((m) => m.arrow) ? LINE_Y_POINTER : LINE_Y_BARE;
+}
+
+/** A fitted number line's drawn height in px, which its width does not change. */
+export function numberLineHeight(spec: Extract<StimulusSpec, { kind: 'number-line' }>): number {
+  return lineHeadroom(spec) + (spec.labelsEvery !== null ? LINE_BELOW_NUMERALS : LINE_BELOW_BARE);
 }
 
 /**
@@ -127,7 +135,8 @@ export function naturalPictureSize(
       const w =
         (spec.thousands ?? 0) * 158 + spec.hundreds * 140 + spec.tens * 14 + blocks * 10 + 32;
       const onesRows = Math.ceil(spec.ones / 2);
-      const h = Math.max(blocks > 0 ? 140 : 0, onesRows * 18, 14) + ((spec.thousands ?? 0) ? 18 : 0);
+      const h =
+        Math.max(blocks > 0 ? 140 : 0, onesRows * 18, 14) + ((spec.thousands ?? 0) ? 18 : 0);
       return { w, h };
     }
     case 'expression': {
@@ -223,6 +232,8 @@ export function FitPicture({
   maxScale = 1,
   label,
 }: FitPictureProps) {
+  const t = useNarrationText();
+  const pictureName = t('ui.widget.picture');
   const w = Math.max(1, maxWidth);
   const h = Math.max(1, maxHeight);
   const layout = countLayout(spec, stackFrames);
@@ -240,11 +251,16 @@ export function FitPicture({
     return (
       <div className="ni-fitpic" data-kind={spec.kind}>
         <Scaled maxWidth={w} maxHeight={h}>
-          <StimulusView
-            spec={spec}
-            maxWidth={Math.min(LINE_MAX_W, Math.floor(w / s))}
-            label={label}
-            className="ni-fitpic__bare"
+          <NumberLineView
+            min={spec.min}
+            max={spec.max}
+            ticksEvery={spec.ticksEvery}
+            labelsEvery={spec.labelsEvery}
+            marks={spec.marks}
+            jumps={spec.jumps}
+            width={Math.min(LINE_MAX_W, Math.floor(w / s))}
+            headroom={lineHeadroom(spec)}
+            label={label ?? pictureName}
           />
         </Scaled>
       </div>

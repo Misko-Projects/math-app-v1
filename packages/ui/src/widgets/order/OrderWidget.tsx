@@ -13,8 +13,11 @@ import { MIN_TARGET_PX, TARGET_PX } from '../../tokens/tokens';
 import { useWidgetDemo, wait } from '../demo';
 import {
   CheckButton,
+  cellToFit,
+  countLayout,
   FitPicture,
   naturalPictureSize,
+  numberLineHeight,
   useAlive,
   useDemoPause,
   useInviteHand,
@@ -63,10 +66,12 @@ const isNumeral = (label: string | undefined) => label !== undefined && /^-?\d+$
  * so a ringed card stays ≥ 12 px clear of its neighbours (one ring at a time, 06 §4).
  */
 const CARD_GAP = 20;
-/** A card's border (3) and padding (5): the picture box is the card less this on each side. */
+/** A card's border (3) and padding (5) around its numeral. */
 const CARD_PAD = 8;
-/** The numeral above a picture (32 px numeral, 05 §11) and its spacing. */
-const TAG_H = 38;
+/** Around a picture: the border plus a margin, so a picture never touches the card's edge. */
+const PIC_PAD = 13;
+/** The numeral above a picture (32 px numeral, 05 §11). */
+const TAG_H = 34;
 const ROOT_PAD = { x: 8, y: 4 };
 const BORDER = 3;
 const CHROME = {
@@ -105,10 +110,12 @@ interface Shape {
   n: number;
   /** Cards in the tray (the unpinned ones). */
   tray: number;
-  /** Card width for a card height. */
-  width: (h: number) => number;
+  /** The card widths a card height allows (picture cards: up to what the picture can use). */
+  width: (h: number) => { min: number; max: number };
   target: number;
   check: { w: number; h: number };
+  /** Plan room for Pip's hand under a tray card (numeral cards; pictures prefer size). */
+  handRoom: boolean;
 }
 
 function sizeOf(s: Shape, p: Plan) {
@@ -118,13 +125,10 @@ function sizeOf(s: Shape, p: Plan) {
   const boardH = 2 * BORDER + c.board.top + c.cue + c.cueGap + p.h + c.board.bottom;
   const trayW = s.tray > 0 ? row(s.tray) + 2 * (c.tray.x + BORDER) : 0;
   const trayH = 2 * (c.tray.y + BORDER) + p.h;
-  const bottomW =
-    p.check === 'beside' ? trayW + CHECK_GAP + s.check.w : Math.max(trayW, s.check.w);
-  const bottomH =
-    p.check === 'beside' ? Math.max(trayH, s.check.h) : trayH + c.gap + s.check.h;
+  const bottomW = p.check === 'beside' ? trayW + CHECK_GAP + s.check.w : Math.max(trayW, s.check.w);
+  const bottomH = p.check === 'beside' ? Math.max(trayH, s.check.h) : trayH + c.gap + s.check.h;
   // Below the tray's cards: its padding and border, then Check (when below) and the widget's edge.
-  const underTray =
-    c.tray.y + BORDER + ROOT_PAD.y + (p.check === 'below' ? c.gap + s.check.h : 0);
+  const underTray = c.tray.y + BORDER + ROOT_PAD.y + (p.check === 'below' ? c.gap + s.check.h : 0);
   return {
     w: Math.max(boardW, bottomW) + 2 * ROOT_PAD.x,
     h: boardH + c.gap + bottomH + 2 * ROOT_PAD.y,
@@ -134,25 +138,30 @@ function sizeOf(s: Shape, p: Plan) {
 
 /**
  * The biggest card that fits the room: the full cue first (the compact one only when the height
- * is short), Check beside the tray when it fits, room for Pip's hand when there is some. Nothing
- * fits: the smallest layout (the area then scrolls; targets never shrink below the minimum).
+ * is short), then the tallest card, Check beside the tray when it fits, the widest card its
+ * picture can use; room for Pip's hand under a numeral card when there is some. Nothing fits: the
+ * smallest layout (the area then scrolls; targets never shrink below the minimum).
  */
 function planLayout(s: Shape, room: WidgetRoom | null): Plan {
   const W = room?.width ?? 1180;
   const H = room?.height ?? Number.POSITIVE_INFINITY;
   const hi = Math.round(s.target * 1.5);
-  for (const withHand of [true, false]) {
+  for (const withHand of s.handRoom ? [true, false] : [false]) {
     for (const chrome of ['normal', 'compact'] as const) {
       for (let h = hi; h >= s.target; h -= 2) {
+        const { min, max } = s.width(h);
         for (const check of ['beside', 'below'] as const) {
-          const p = { w: s.width(h), h, chrome, check };
-          const size = sizeOf(s, p);
-          if (size.w <= W + 0.5 && size.h + (withHand ? size.hand : 0) <= H + 0.5) return p;
+          for (let w = max; w >= min; w = w > min && w - 4 < min ? min : w - 4) {
+            const p = { w, h, chrome, check };
+            const size = sizeOf(s, p);
+            if (size.w <= W + 0.5 && size.h + (withHand ? size.hand : 0) <= H + 0.5) return p;
+            if (w === min) break;
+          }
         }
       }
     }
   }
-  const smallest = { w: s.width(s.target), h: s.target, chrome: 'compact' as const };
+  const smallest = { w: s.width(s.target).min, h: s.target, chrome: 'compact' as const };
   const beside = { ...smallest, check: 'beside' as const };
   return sizeOf(s, beside).w <= W + 0.5 ? beside : { ...smallest, check: 'below' };
 }
@@ -481,30 +490,56 @@ export function OrderWidget({
   }, []);
 
   const pictures = config.items.some((it) => it.stimulus && it.stimulus.kind !== 'none');
-  const tagRow = pictures && config.items.some((it) => it.label && !markShows(it.stimulus, it.label));
-  // Picture cards: as wide as the widest picture wants (at most 2.4 × the height), all one size.
-  const pictureAspect = Math.min(
+  const tagRow =
+    pictures && config.items.some((it) => it.label && !markShows(it.stimulus, it.label));
+  const longest = Math.max(...config.items.map((it) => (it.label ?? String(it.value)).length));
+  const words = !pictures && config.items.some((it) => it.label && !isNumeral(it.label));
+  const cardPics = config.items.map((it) =>
+    it.stimulus && it.stimulus.kind !== 'none' ? cardPicture(it.stimulus) : null,
+  );
+  /** The picture box of an h-tall card (its width is the card's less PIC_PAD each side). */
+  const picHeight = (h: number) => h - 2 * PIC_PAD - (tagRow ? TAG_H : 0);
+  // Picture cards are all one size: as wide as the widest picture wants for the card's height (at
+  // most 2.4 × the height); a number line takes what width there is (its height is fixed).
+  const aspect = Math.min(
     2.4,
     Math.max(
       0.8,
-      ...config.items.map((it) => {
-        if (!it.stimulus) return 1;
-        const s = naturalPictureSize(cardPicture(it.stimulus), true);
-        return s.flexWidth ? 2.4 : s.w / Math.max(1, s.h);
+      ...cardPics.map((spec) => {
+        if (!spec) return 1;
+        const nat = naturalPictureSize(spec, true);
+        return nat.flexWidth ? 0.8 : nat.w / Math.max(1, nat.h);
       }),
     ),
   );
-  const longest = Math.max(...config.items.map((it) => (it.label ?? String(it.value)).length));
-  const words = !pictures && config.items.some((it) => it.label && !isNumeral(it.label));
-  const cardWidth = (h: number) =>
-    pictures
-      ? Math.min(
-          Math.round(2.4 * h),
-          Math.max(h, Math.round((h - 2 * CARD_PAD - (tagRow ? TAG_H : 0)) * pictureAspect) + 2 * CARD_PAD),
-        )
-      : words
-        ? Math.max(h, longest * 14 + 2 * CARD_PAD + 8)
-        : h;
+  const lines = cardPics.filter(
+    (spec): spec is Extract<StimulusSpec, { kind: 'number-line' }> => spec?.kind === 'number-line',
+  );
+  /** Width a card's number line reads well at: ~16 px a tick at full size (plus end room). */
+  const lineWidth = (h: number) =>
+    Math.max(
+      0,
+      ...lines.map((spec) => {
+        const span = spec.max - spec.min;
+        const ticks = Math.min(40, span / (spec.ticksEvery ?? span / 10));
+        const scale = Math.min(1, picHeight(h) / numberLineHeight(spec));
+        return Math.round(scale * (80 + ticks * 16)) + 2 * PIC_PAD;
+      }),
+    );
+  const cardWidth = (h: number) => {
+    if (words) {
+      const w = Math.max(h, longest * 14 + 2 * CARD_PAD + 8);
+      return { min: w, max: w };
+    }
+    if (!pictures) return { min: h, max: h };
+    const pic = Math.min(
+      Math.round(2.4 * h),
+      Math.max(h, Math.round(picHeight(h) * aspect) + 2 * PIC_PAD),
+    );
+    if (lines.length === 0) return { min: pic, max: pic };
+    const max = Math.max(pic, Math.min(3 * h, lineWidth(h)));
+    return { min: Math.min(max, Math.max(pic, Math.round(1.4 * h))), max };
+  };
   const plan = planLayout(
     {
       n,
@@ -512,11 +547,19 @@ export function OrderWidget({
       width: cardWidth,
       target,
       check: checkSize ?? { w: TARGET_PX[ageMode].big + 8, h: TARGET_PX[ageMode].big + 6 },
+      handRoom: !pictures,
     },
     room,
   );
-  const picW = plan.w - 2 * CARD_PAD;
-  const picH = plan.h - 2 * CARD_PAD - (tagRow ? TAG_H : 0);
+  const picW = plan.w - 2 * PIC_PAD;
+  const picH = picHeight(plan.h);
+  // Countable pictures share one cell, so a picture's size is never a cue its count doesn't give.
+  const sharedCell = Math.min(
+    ...cardPics.map((spec) => {
+      const layout = spec ? countLayout(spec, true) : null;
+      return layout ? cellToFit(layout, picW, picH) : Number.POSITIVE_INFINITY;
+    }),
+  );
   // One numeral size for every card, as big as the longest label lets it be (≥ 32 px, 05 §11).
   const numeralPx = Math.max(32, Math.min(48, Math.floor((plan.w - 18) / (0.62 * longest))));
 
@@ -533,7 +576,13 @@ export function OrderWidget({
               {tag ? it.label : ''}
             </span>
           ) : null}
-          <FitPicture spec={cardPicture(spec)} maxWidth={picW} maxHeight={picH} stackFrames />
+          <FitPicture
+            spec={cardPicture(spec)}
+            maxWidth={picW}
+            maxHeight={picH}
+            cell={Number.isFinite(sharedCell) ? sharedCell : undefined}
+            stackFrames
+          />
         </span>
       );
     }
