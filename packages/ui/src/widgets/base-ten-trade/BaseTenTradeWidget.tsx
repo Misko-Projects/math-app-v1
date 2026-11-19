@@ -755,8 +755,7 @@ function TradeMat({
       }),
     [age, config, showWork, answerInWork, places, box, baseCaps, path],
   );
-  const { wideWork, workInSide, checkBeside, showProblemRow, problemH, cardH, spaceH, sideH } =
-    side;
+  const { workInSide, checkBeside, showProblemRow, problemH, cardH, spaceH, sideH } = side;
   const spaceW = box.main > 0 ? box.main : 900;
   // One scale for the whole item, chosen so every step on the expected path fits.
   const unit = useMemo(
@@ -1646,9 +1645,11 @@ function TradeMat({
       style={handRootStyle}
     >
       <div ref={mainRef} className="ni-btt__main">
-        {/* The problem centred over the mat (the algorithm beside it when the side is full). */}
-        {/* A wide algorithm is the problem row on its own: it writes the problem in columns. */}
-        {showProblemRow && wideWork ? (
+        {/* The problem centred over the mat. */}
+        {/* An algorithm above the mat is the problem row on its own, centred: it writes the
+            problem in columns (as it does in the side). Beside an expression it could be wider
+            than the row's side cell and run into the side panel. */}
+        {showProblemRow && showWork ? (
           <div className="ni-btt__problemrow ni-btt__problemrow--work" style={{ height: problemH }}>
             {work}
           </div>
@@ -1656,7 +1657,7 @@ function TradeMat({
           <div className="ni-btt__problemrow" style={{ height: problemH }}>
             <span />
             {problem}
-            <span className="ni-btt__problemside">{workInSide ? null : work}</span>
+            <span />
           </div>
         ) : null}
         <fieldset

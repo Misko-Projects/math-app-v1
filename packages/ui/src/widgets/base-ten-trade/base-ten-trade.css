@@ -48,10 +48,6 @@
   display: flex;
   justify-content: center;
 }
-.ni-btt__problemside {
-  display: flex;
-  justify-content: flex-start;
-}
 .ni-btt__problem {
   display: flex;
   align-items: center;
@@ -566,6 +562,16 @@
   /* The pad's keys and "check" at the target size (64 px G1, 80 px K): a narrower side panel
      leaves the mat room for 20 px pieces. */
   --target-big: var(--target-min);
+}
+/*
+ * Each pad key keeps 4 px under it for its shadow (kit.css .ni-pad__key, PAD_KEY_SHADOW in
+ * layout.ts), inside its grid row: the rows are the target plus 4 px, so every key is a full
+ * target (64 × 64 G1, 80 × 80 K), 12 px apart across and 16 px down. The columns stay the target
+ * wide, so the pad (and the side panel) is no wider.
+ */
+.ni-btt__side .ni-pad {
+  grid-template-columns: repeat(3, var(--target-min));
+  grid-auto-rows: calc(var(--target-min) + 4px);
 }
 /* "Check" in a wrapper exactly its size (the widget measures it to plan the side panel). */
 .ni-btt__checkwrap {

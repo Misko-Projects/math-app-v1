@@ -355,7 +355,7 @@ async function expectNoReveal(root: HTMLElement, result: number) {
 function controls(root: HTMLElement) {
   return [
     ...root.querySelectorAll<HTMLElement>(
-      '[data-place-item], [data-place-target], .ni-btt__speak, .ni-btt__trade, .ni-btn, button.ni-btt__box',
+      '[data-place-item], [data-place-target], .ni-btt__speak, .ni-btt__trade, .ni-btn, button.ni-btt__box, .ni-pad__key',
     ),
   ].filter((el, i, all) => all.indexOf(el) === i);
 }

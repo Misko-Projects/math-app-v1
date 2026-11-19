@@ -112,6 +112,8 @@ export function ageSizes(age: AgeMode): AgeSizes {
 /** The widget's design height at 1280 × 800 (06 §2 widget area), padding included. */
 export const BUDGET = 660;
 export const ROOT_PAD_Y = 6;
+/** The space kit.css keeps under each number-pad key for its shadow (`.ni-pad__key` margin). */
+export const PAD_KEY_SHADOW = 4;
 /** The algorithm card's height (.ni-btt__work in the stylesheet; K is 16 px taller). */
 export const WORK_H = 226;
 export const SIDE_GAP = 12;
@@ -157,8 +159,9 @@ export function sideLayout(o: {
   const sz = ageSizes(o.age);
   const limit = BUDGET - 2 * ROOT_PAD_Y;
   const workH = WORK_H + (o.age === 'k' ? 16 : 0);
-  // The pad's keys and "check" are target-sized (base-ten-trade.css: .ni-btt__side).
-  const padH = 4 * sz.target + 3 * 12;
+  // The pad's keys and "check" are target-sized (base-ten-trade.css: .ni-btt__side); each pad
+  // row is the target plus the key's 4 px shadow margin (kit.css .ni-pad__key).
+  const padH = 4 * (sz.target + PAD_KEY_SHADOW) + 3 * 12;
   const checkH = sz.target + 6;
   const work = o.showWork ? workH + SIDE_GAP : 0;
   const fullSide = work + (o.thenAsk ? padH + SIDE_GAP : 0) + checkH;
@@ -689,7 +692,9 @@ export function measurePlan(
       contentW(c, across, u, per),
       tray ? contentW(c, tray[c], u, 10) + 2 * GROUP_PAD : 0,
     );
-    colW[c] = Math.ceil(Math.max(sz.headerMin[c], need + 2 * COL_PAD));
+    // The column's own control (its drop target, tap pad or grab item, inset by GAP from each
+    // side) is at least a target wide.
+    colW[c] = Math.ceil(Math.max(sz.headerMin[c], sz.target + 2 * GAP, need + 2 * COL_PAD));
   }
   const strips = (cols.length - 1) * stripWidth(age);
   const matW = 2 * MAT_BORDER + cols.reduce((a, c) => a + colW[c], 0) + strips;
