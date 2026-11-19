@@ -402,6 +402,7 @@ export function DotFlashWidget({
               selected={picked}
               onPick={pick}
               disabled={!interactive}
+              columns={3}
             />
           </div>
         )}

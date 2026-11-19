@@ -2,11 +2,11 @@ import type { ObjectSet } from '@number-island/shared';
 import { describe, expect, it } from 'vitest';
 import {
   applyPadKey,
-  balancedRows,
   cardsPerRow,
   createSubmitGuard,
   layoutBox,
   padValue,
+  trayGrid,
 } from './controls';
 import { dicePattern, dotsLayout, groupIndexes, minObjectStep, objectSetLayout } from './layout';
 import { stepsBetween } from './NumberLineView';
@@ -247,19 +247,27 @@ describe('review regressions (PR #63 round 3)', () => {
   });
 });
 
-describe('review regressions (PR #63 round 8)', () => {
-  it('balancedRows splits cards as evenly as possible, never a lonely last card', () => {
-    expect(balancedRows(21, 4)).toEqual([6, 5, 5, 5]);
-    expect(balancedRows(21, 5)).toEqual([5, 4, 4, 4, 4]);
-    expect(balancedRows(11, 2)).toEqual([6, 5]);
-    expect(balancedRows(11, 1)).toEqual([11]);
-    expect(balancedRows(3, 9)).toEqual([1, 1, 1]);
-    expect(balancedRows(0, 2)).toEqual([]);
+describe('trayGrid (PR #63 evidence ruling: even columns, no lone last card)', () => {
+  it('lays 0–20 out as 0–10 over 11–20, 7 × 3 or 3 × 7 by width', () => {
+    expect(trayGrid(21, 11)).toEqual({ cols: 11, rows: 2 });
+    expect(trayGrid(21, 12)).toEqual({ cols: 11, rows: 2 });
+    expect(trayGrid(21, 10)).toEqual({ cols: 7, rows: 3 });
+    expect(trayGrid(21, 7)).toEqual({ cols: 7, rows: 3 });
+    expect(trayGrid(21, 6)).toEqual({ cols: 6, rows: 4 });
+    expect(trayGrid(21, 5)).toEqual({ cols: 3, rows: 7 });
+    expect(trayGrid(11, 9)).toEqual({ cols: 6, rows: 2 });
+    expect(trayGrid(11, 11)).toEqual({ cols: 11, rows: 1 });
+    expect(trayGrid(10, 4)).toEqual({ cols: 4, rows: 3 });
+    expect(trayGrid(0, 5)).toEqual({ cols: 1, rows: 0 });
+  });
+  it('always fits the width, fills every row but the last, and keeps the last row half full', () => {
     for (let n = 1; n <= 30; n++) {
-      for (let r = 1; r <= n; r++) {
-        const s = balancedRows(n, r);
-        expect(s.reduce((a, b) => a + b, 0)).toBe(n);
-        expect(Math.max(...s) - Math.min(...s)).toBeLessThanOrEqual(1);
+      for (let cap = 1; cap <= n + 2; cap++) {
+        const { cols, rows } = trayGrid(n, cap);
+        const last = n - (rows - 1) * cols;
+        expect(cols).toBeLessThanOrEqual(Math.max(1, cap));
+        expect(last).toBeGreaterThanOrEqual(Math.ceil(cols / 2));
+        expect(last).toBeLessThanOrEqual(cols);
       }
     }
   });

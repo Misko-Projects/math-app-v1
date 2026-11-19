@@ -110,14 +110,11 @@
 }
 .ni-flash__tray {
   border-radius: var(--radius-card);
-}
-.ni-flash__tray .ni-tray-numerals {
-  display: grid;
-  grid-template-columns: repeat(3, auto);
-  gap: calc(var(--target-gap) * 2);
+  /* Bigger, wider-spaced cards: NumeralTray's own hooks, so its even grid still lines up. */
+  --tray-card-scale: 1.4;
+  --tray-gap: calc(var(--target-gap) * 2);
 }
 .ni-flash__tray .ni-pick {
-  min-width: calc(var(--target-min) * 1.4);
   min-height: calc(var(--target-min) * 1.4);
 }
 

@@ -14,6 +14,7 @@ import {
   minObjectStep,
   NumberPadKeys,
   NumeralTray,
+  numeralCardPx,
   ObjectSetView,
   ObjectSprite,
   objectSetLayout,
@@ -21,6 +22,7 @@ import {
   type PlacedObject,
   padValue,
   spriteNameKey,
+  TRAY_PANEL_EDGES_PX,
   useAlive,
   useDemoPause,
   useSubmitGuard,
@@ -122,14 +124,21 @@ export function TapCountWidget({
     ? Math.max(target, Math.ceil((target + TARGET_GAP_PX) / step))
     : 32;
   const trayValues = config.input === 'pick' ? (config.pickOptions ?? []) : autoTrayValues(n);
-  // Numeral cards in rows: 0–10 as 6 + 5, 0–20 as three rows of 7, pick options up to 4 a row.
+  // Numeral cards in an even grid (NumeralTray `columns`): 0–10 as 6 over 5, 0–20 as 7 × 3, pick
+  // options up to 4 a row.
   const trayCols =
     config.input === 'pick' ? Math.min(4, trayValues.length) : trayValues.length > 11 ? 7 : 6;
-  const card = target * 1.15 + TARGET_GAP_PX;
+  const trayDigits = Math.max(1, ...trayValues.map((v) => String(v).length));
+  const card = numeralCardPx(trayDigits, target) + TARGET_GAP_PX;
+  const trayW = trayCols * card - TARGET_GAP_PX + TRAY_PANEL_EDGES_PX;
   const answerW =
-    config.input === 'pad' ? 3 * (target + 16) + 2 * TARGET_GAP_PX : ordinal ? 0 : trayCols * card;
+    config.input === 'pad' ? 3 * (target + 16) + 2 * TARGET_GAP_PX : ordinal ? 0 : trayW;
   const answerH =
-    config.input === 'pad' ? 560 : ordinal ? 110 : Math.ceil(trayValues.length / trayCols) * card;
+    config.input === 'pad'
+      ? 560
+      : ordinal
+        ? 110
+        : Math.ceil(trayValues.length / trayCols) * (target + TARGET_GAP_PX + 6) + 30;
   // Side by side (picture left, answer right) when both fit the ~1100 px widget area; otherwise
   // the picture spans the width above the answer. Either way the objects grow into the room left.
   const sideW = 1100 - answerW - 240;
@@ -449,7 +458,6 @@ export function TapCountWidget({
               .filter(Boolean)
               .join(' ')}
             data-shown={trayShown ? 'true' : 'false'}
-            style={{ '--cols': trayCols } as CSSProperties}
             inert={!trayShown}
           >
             <NumeralTray
@@ -457,6 +465,7 @@ export function TapCountWidget({
               selected={picked}
               onPick={pick}
               disabled={!interactive || !trayShown}
+              columns={trayCols}
             />
           </div>
         ) : null}

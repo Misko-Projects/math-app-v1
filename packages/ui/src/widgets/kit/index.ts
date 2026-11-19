@@ -2,7 +2,6 @@
 // See ./README.md. Widgets import from here; workshops never do (they render WidgetHost).
 export {
   applyPadKey,
-  balancedRows,
   CheckButton,
   type CheckButtonProps,
   createSubmitGuard,
@@ -10,10 +9,13 @@ export {
   type NumberPadKeysProps,
   NumeralTray,
   type NumeralTrayProps,
+  numeralCardPx,
   type PadKey,
   PickCard,
   type PickCardProps,
   padValue,
+  TRAY_PANEL_EDGES_PX,
+  trayGrid,
   useAlive,
   useDemoPause,
   useSubmitGuard,

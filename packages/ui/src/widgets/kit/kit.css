@@ -330,26 +330,56 @@
 
 .ni-tray-numerals {
   /*
-   * NumeralTray: one flat list of cards that wraps centred; zero-size breaks end each balanced
-   * row (balancedRows). The tray fills its container and measures its own content width.
+   * NumeralTray: a visible tray panel that fills its container and measures its own content
+   * width; the cards sit in an even grid (trayGrid) centred inside it.
    */
+  display: block;
+  width: 100%;
+  max-width: 100%;
+  /*
+   * The tray takes its width from its container, never from its cards: without this a
+   * content-sized parent would grow to the one-row grid the tray measures before it wraps.
+   */
+  contain: inline-size;
+  box-sizing: border-box;
+  margin: 0;
+  /* The cards' own bottom margin spaces the rows and the panel's bottom edge. */
+  padding: 18px 20px 6px;
+  border: 3px solid var(--color-sand-deep);
+  border-radius: var(--radius-card);
+  background: var(--color-horizon);
+  min-width: 0;
+}
+/*
+ * Exactly `--cols` cards wide (+1 px of slack for sub-pixel rounding, far less than a card), so
+ * every full row has the same columns and a short last row is centred under them.
+ */
+.ni-tray-numerals__grid {
   display: flex;
   flex-wrap: wrap;
   justify-content: center;
-  column-gap: var(--target-gap);
+  column-gap: var(--tray-gap, var(--target-gap));
   row-gap: 0;
-  width: 100%;
+  width: calc(
+    var(--cols) *
+    var(--card-w) +
+    (var(--cols) - 1) *
+    var(--tray-gap, var(--target-gap)) +
+    1px
+  );
   max-width: 100%;
-  box-sizing: border-box;
-  margin: 0;
-  padding: 0;
-  border: 0;
-  min-width: 0;
+  margin-inline: auto;
 }
-/* A full-width, zero-height line break that ends a balanced row (no row gap: cards space rows). */
-.ni-tray-numerals__break {
-  flex-basis: 100%;
-  height: 0;
+/* `columns`: the panel is exactly `--max-cols` cards wide (padding and border included). */
+.ni-tray-numerals[data-columns="fixed"] {
+  width: calc(
+    var(--max-cols) *
+    var(--card-w) +
+    (var(--max-cols) - 1) *
+    var(--tray-gap, var(--target-gap)) +
+    46px +
+    1px
+  );
 }
 
 .ni-pick {

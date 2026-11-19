@@ -177,11 +177,6 @@ button.ni-tapc__obj:focus-visible {
 .ni-tapc__tray {
   border-radius: var(--radius-card);
 }
-.ni-tapc__tray .ni-tray-numerals {
-  display: grid;
-  grid-template-columns: repeat(var(--cols, 6), auto);
-  gap: var(--target-gap);
-}
 .ni-tapc__tray[data-shown="false"] {
   visibility: hidden;
 }
