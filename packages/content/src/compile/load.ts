@@ -49,7 +49,13 @@ export interface LoadedContent {
   misconceptions: (Located<MisconceptionSource> & { area: string })[];
   narration: Map<string, Located<NarrationEntry>>;
   contexts: Located<StoryContext>[];
-  graph: { file: string; roots: string[]; coverageGrades: Grade[]; plannedIds: string[] } | null;
+  graph: {
+    file: string;
+    roots: string[];
+    coverageGrades: Grade[];
+    plannedIds: string[];
+    pendingGameSkills: Record<string, string[]>;
+  } | null;
   retired: { skills: Set<string>; templates: Set<string> };
   wiExceptions: Map<string, string | null>;
   ccssCodes: string[];
@@ -59,7 +65,16 @@ export interface LoadedContent {
   denylist: Set<string>;
   game: GameData | null;
   gameFiles: string[];
+  /** Where each merged game data entry was authored (diagnostics name the file, not `game/`). */
+  gameOrigin: GameOrigin;
   outlines: { id: string }[];
+}
+
+export interface GameOrigin {
+  /** section → merged index → the file and the index inside it. */
+  sections: Record<string, { file: string; index: number }[]>;
+  /** The file that defines `island`. */
+  island: string | null;
 }
 
 const STRAND_FILE = /^(skills|templates|lessons)\/([A-Z]{2,4})\.yaml$/;
@@ -122,6 +137,7 @@ export function loadContent(files: ContentFiles, diags: Diagnostics): LoadedCont
     denylist: new Set(),
     game: null,
     gameFiles: [],
+    gameOrigin: { sections: {}, island: null },
     outlines: [],
   };
 
@@ -269,6 +285,7 @@ export function loadContent(files: ContentFiles, diags: Diagnostics): LoadedCont
             roots: data.roots,
             coverageGrades: data.coverageGrades,
             plannedIds: data.plannedIds ?? [],
+            pendingGameSkills: data.pendingGameSkills ?? {},
           };
         }
         break;
@@ -327,7 +344,7 @@ export function loadContent(files: ContentFiles, diags: Diagnostics): LoadedCont
     }
   }
 
-  out.game = mergeGameData(gameParts, diags);
+  out.game = mergeGameData(gameParts, diags, out.gameOrigin);
   return out;
 }
 
@@ -344,6 +361,7 @@ const GAME_ARRAYS = [
 function mergeGameData(
   parts: { file: string; data: Record<string, unknown> }[],
   diags: Diagnostics,
+  out: GameOrigin,
 ): GameData | null {
   if (parts.length === 0) {
     diags.error('V01', 'game/', '', 'no game data files (game/*.yaml, 02 §5.8)');
@@ -383,6 +401,8 @@ function mergeGameData(
     diags.error('V01', 'game/', 'island', 'no game data file defines island');
     return null;
   }
+  out.sections = Object.fromEntries(origin);
+  out.island = island.file;
   const input = { ...merged, island: island.value };
   const result = gameDataSchema.safeParse(input);
   if (!result.success) {
