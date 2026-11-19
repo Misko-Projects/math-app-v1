@@ -127,15 +127,16 @@ describe('demo controller (03 §6.3)', () => {
 });
 
 describe('widget registry', () => {
+  // Loads every registered widget module, transforming each one (and the kit) on first import.
+  // That cost grows with each widget U03–U05 register and with machine load (a busy CI runner
+  // took over 5 s), so the modules load in parallel and the test gets its own timeout.
   it('each registered format loads a widget component (U03–U05 add one line each)', async () => {
     const formats = registeredFormats();
     expect(formats).toEqual(expect.arrayContaining(['number-pad', 'numeral-pick']));
-    for (const format of formats) {
-      const mod = await widgetRegistry[format]?.();
-      expect(typeof mod?.default, format).toBe('function');
-    }
-    // Each widget's chunk is transformed on first import; with every format registered this
-    // exceeds the 5 s default under a loaded CI runner.
+    const mods = await Promise.all(formats.map((format) => widgetRegistry[format]?.()));
+    formats.forEach((format, i) => {
+      expect(typeof mods[i]?.default, format).toBe('function');
+    });
   }, 30_000);
 
   it('lists registered formats', () => {
