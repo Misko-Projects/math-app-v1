@@ -51,6 +51,12 @@ import {
 } from './runner';
 import { NUMBER_PAD_EVERYWHERE, SIM_WORKSHOPS } from './workshops';
 
+/**
+ * Each session simulation runs over the whole graph, which grows with every curriculum PR (the G2
+ * run takes about 45 s on an idle machine with the K–1 catalog).
+ */
+const SIM_TIMEOUT = 180_000;
+
 const CHILDREN = 20;
 const SESSIONS = 60;
 const T0 = Date.UTC(2026, 10, 2, 16);
@@ -510,7 +516,7 @@ describe('session simulation (04 §8)', () => {
         const r = simulateProfile(graph, profile, CHILDREN);
         reports.set(profile.name, r);
         printReport(graph, r);
-      }, 60_000);
+      }, SIM_TIMEOUT);
       const report = () => reports.get(profile.name) as ProfileReport;
 
       it('keeps the incremental learner state equal to the full fold', () => {
@@ -569,27 +575,31 @@ describe('session simulation (04 §8)', () => {
     });
   }
 
-  it('reports the sensitivity runs; the stationary learners meet the reachable-items band', () => {
-    const stationaryRuns = [
-      simulateProfile(graph, stationary(PROFILES.K), SENSITIVITY_CHILDREN),
-      simulateProfile(graph, stationary(PROFILES.G2), SENSITIVITY_CHILDREN),
-    ];
-    const numberPad = simulateProfile(
-      graph,
-      PROFILES.K,
-      SENSITIVITY_CHILDREN,
-      NUMBER_PAD_EVERYWHERE,
-      'K (number-pad at Road Crew and Lantern Grove)',
-    );
-    for (const r of [...stationaryRuns, numberPad]) {
-      printReport(graph, r);
-      expect(r.sessions).toBeGreaterThan(0);
-    }
-    for (const r of stationaryRuns) {
-      assertMeasured(r);
-      assertReachableBand(r);
-    }
-  }, 60_000);
+  it(
+    'reports the sensitivity runs; the stationary learners meet the reachable-items band',
+    () => {
+      const stationaryRuns = [
+        simulateProfile(graph, stationary(PROFILES.K), SENSITIVITY_CHILDREN),
+        simulateProfile(graph, stationary(PROFILES.G2), SENSITIVITY_CHILDREN),
+      ];
+      const numberPad = simulateProfile(
+        graph,
+        PROFILES.K,
+        SENSITIVITY_CHILDREN,
+        NUMBER_PAD_EVERYWHERE,
+        'K (number-pad at Road Crew and Lantern Grove)',
+      );
+      for (const r of [...stationaryRuns, numberPad]) {
+        printReport(graph, r);
+        expect(r.sessions).toBeGreaterThan(0);
+      }
+      for (const r of stationaryRuns) {
+        assertMeasured(r);
+        assertReachableBand(r);
+      }
+    },
+    SIM_TIMEOUT,
+  );
 
   it('offers the break after the confidence item, also when it completes the request', () => {
     const complete = { action: 'end-request', reason: 'complete' } as const;
