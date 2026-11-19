@@ -73,9 +73,9 @@ export interface EngineCheckOptions {
   /** Seeds for the V22 statistics and V25 discrimination (03 §9.2: 500). */
   statsN?: number;
   /**
-   * Whether the V15 property test checks difficulty targeting (100 targeted items per template,
-   * whatever propertyN is). Default true; only a quick test run that relies on
-   * `pnpm content:validate` for the full check turns it off.
+   * Run V15's difficulty-targeting property (default true). It costs about 100 targeted items per
+   * template whatever `propertyN` is; the CLI (`pnpm content:validate`) always runs it, and a test
+   * that only checks the run end to end may skip it.
    */
   targeting?: boolean;
 }
@@ -335,7 +335,7 @@ export function runEngineChecks(input: CompiledInput, opts: EngineCheckOptions):
     const report = runTemplateProperties(t, {
       n: opts.propertyN,
       stats,
-      targeting: opts.targeting ?? true,
+      targeting: opts.targeting !== false,
     });
     for (const f of report.failures.slice(0, 5)) {
       const check: EngineCheckId = f.step === '7.hint-reveals' ? 'V17' : 'V15';
@@ -350,11 +350,9 @@ export function runEngineChecks(input: CompiledInput, opts: EngineCheckOptions):
       err('V15', file, t.id, `… and ${report.failures.length - 5} more property failure(s)`);
     }
     // Every feature an item emits must have a weight somewhere (V13, checked on generated items).
-    // 50 seeds, or fewer when the run asks for fewer statistics seeds (the quick fixture test;
-    // `pnpm content:validate` always runs 100 or more).
     const g = registry.get(t.generator);
     const unweighted = new Set<string>();
-    for (let seed = 1; g && seed <= Math.min(50, statsN); seed += 1) {
+    for (let seed = 1; g && seed <= 50; seed += 1) {
       for (const f of Object.keys(itemFeatures(generateItem(t, seed), t))) {
         if (featureWeight(t, g, f) === undefined) unweighted.add(f);
       }
