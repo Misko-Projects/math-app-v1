@@ -344,7 +344,7 @@ function noNegatives(v: unknown): boolean {
   return true;
 }
 
-function choiceOptions(item: GeneratedItem): string[] {
+export function choiceOptions(item: GeneratedItem): string[] {
   const w = item.widget;
   if (w.format === 'numeral-pick') return w.options.map((o) => o.id);
   if (w.format === 'expanded-form' && w.wordOptions) return w.wordOptions.map((o) => o.id);
