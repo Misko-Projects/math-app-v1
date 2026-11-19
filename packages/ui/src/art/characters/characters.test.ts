@@ -1,0 +1,236 @@
+import { readdirSync, readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
+import { describe, expect, it } from 'vitest';
+import { PALETTE } from '../../tokens/tokens';
+import { pairRatio } from '../core/contrast';
+import { OUTLINE_OF } from '../core/paint';
+import { CHARACTER_CONTRAST_PAIRS } from './contrast';
+import {
+  COIN_LOOK,
+  CRITTER_W,
+  clockHour,
+  coinValue,
+  effectiveFamily,
+  fractionParts,
+  hundredFrames,
+  PALETTE_FILLS,
+  PEBBLE_MARK,
+  PEBBLING_FAMILIES,
+  PEBBLING_PALETTES,
+  PEBBLING_SPECIES,
+  paletteOf,
+  pebblingFromResident,
+  speciesOf,
+  TEN_FRAME,
+  tenFrameSlots,
+  tensLayout,
+} from './pebbling';
+
+const resident = (over: Partial<Parameters<typeof pebblingFromResident>[0]> = {}) => ({
+  id: 'res-7' as Parameters<typeof pebblingFromResident>[0]['id'],
+  species: 'crab',
+  palette: 'coral',
+  number: 7,
+  ...over,
+});
+
+describe('species and palettes (05 §5)', () => {
+  it('lists exactly the species and palettes the game data uses', () => {
+    expect([...PEBBLING_SPECIES].sort()).toEqual(
+      [
+        'crab',
+        'hermit-crab',
+        'turtle',
+        'snail',
+        'starfish',
+        'seal',
+        'puffin',
+        'seahorse',
+        'whale',
+        'clockfish',
+        'clam',
+      ].sort(),
+    );
+    expect([...PEBBLING_PALETTES].sort()).toEqual(
+      ['coral', 'sun', 'sunshine', 'leaf', 'sea', 'sky', 'sand', 'wood'].sort(),
+    );
+    expect([...PEBBLING_FAMILIES].sort()).toEqual([
+      'clock',
+      'coin',
+      'fraction',
+      'hundreds',
+      'tens',
+    ]);
+  });
+
+  it('maps every palette to token fills, outlined in the fill’s own shade', () => {
+    expect(Object.keys(PALETTE_FILLS).sort()).toEqual([...PEBBLING_PALETTES].sort());
+    for (const p of PEBBLING_PALETTES) {
+      const f = PALETTE_FILLS[p];
+      for (const c of [f.body, f.deep, f.accent, f.belly, f.cheek])
+        expect(PALETTE).toHaveProperty(c);
+      expect(f.deep).toBe(OUTLINE_OF[f.body]);
+    }
+  });
+});
+
+describe('ResidentDef → Pebbling props', () => {
+  it('passes species, palette, number and family through', () => {
+    expect(pebblingFromResident(resident())).toEqual({
+      species: 'crab',
+      palette: 'coral',
+      number: 7,
+    });
+    expect(
+      pebblingFromResident(resident({ species: 'turtle', number: 30, family: 'tens' })),
+    ).toEqual({
+      species: 'turtle',
+      palette: 'coral',
+      number: 30,
+      family: 'tens',
+    });
+  });
+
+  it('normalises game-data spellings', () => {
+    expect(speciesOf('hermit crab')).toBe('hermit-crab');
+    expect(speciesOf('Sea Star')).toBe('starfish');
+    expect(speciesOf('seal pup')).toBe('seal');
+    expect(speciesOf('puffin chick')).toBe('puffin');
+    expect(paletteOf('Sea-Glass')).toBe('sea');
+    expect(paletteOf('moss')).toBe('leaf');
+  });
+
+  it('falls back to the family’s own species and a stable palette for unknown names', () => {
+    const a = pebblingFromResident(
+      resident({ species: 'kraken', palette: 'plaid', family: 'clock', number: 3 }),
+    );
+    expect(a.species).toBe('clockfish');
+    expect(PEBBLING_PALETTES).toContain(a.palette);
+    expect(
+      pebblingFromResident(
+        resident({ species: 'kraken', palette: 'plaid', family: 'clock', number: 3 }),
+      ),
+    ).toEqual(a);
+    expect(pebblingFromResident(resident({ species: 'kraken' })).species).toBe('crab');
+    expect(pebblingFromResident(resident({ number: null })).number).toBeNull();
+  });
+
+  it('draws a plain number above ten as the tens family', () => {
+    expect(effectiveFamily({ number: 7 })).toBeUndefined();
+    expect(effectiveFamily({ number: 14 })).toBe('tens');
+    expect(effectiveFamily({ number: null })).toBeUndefined();
+    expect(effectiveFamily({ number: 3, family: 'clock' })).toBe('clock');
+  });
+});
+
+describe('ten-frame (05 §5)', () => {
+  it('fills the top row left → right, then the bottom row', () => {
+    for (let n = 0; n <= 10; n++) {
+      const slots = tenFrameSlots(n);
+      expect(slots).toHaveLength(10);
+      expect(slots.filter((s) => s.lit)).toHaveLength(n);
+      const order = slots.filter((s) => s.lit).map((s) => [s.row, s.col]);
+      const expected = Array.from({ length: n }, (_, i) => [Math.floor(i / 5), i % 5]);
+      expect(order).toEqual(expected);
+    }
+    // 3 lights the first three of the top row; the bottom row stays empty until five.
+    expect(tenFrameSlots(3).filter((s) => s.row === 1 && s.lit)).toHaveLength(0);
+    expect(
+      tenFrameSlots(6)
+        .filter((s) => s.row === 0)
+        .every((s) => s.lit),
+    ).toBe(true);
+    expect(tenFrameSlots(-2).some((s) => s.lit)).toBe(false);
+    expect(tenFrameSlots(14).every((s) => s.lit)).toBe(true);
+  });
+
+  it('keeps pebbles countable: ≥ 9 CSS px across at a 120 px buddy', () => {
+    expect((TEN_FRAME.pebbleR * 2 * 120) / CRITTER_W).toBeGreaterThanOrEqual(9);
+  });
+
+  it('splits 0–100 into Ten Turtles (rows of five) and a friend with the ones', () => {
+    expect(tensLayout(10)).toEqual({ tens: 1, ones: 0, rows: [1] });
+    for (let n = 11; n <= 19; n++)
+      expect(tensLayout(n)).toEqual({ tens: 1, ones: n - 10, rows: [1] });
+    expect(tensLayout(40)).toEqual({ tens: 4, ones: 0, rows: [4] });
+    expect(tensLayout(70)).toEqual({ tens: 7, ones: 0, rows: [5, 2] });
+    expect(tensLayout(100)).toEqual({ tens: 10, ones: 0, rows: [5, 5] });
+    for (let n = 0; n <= 100; n++) {
+      const t = tensLayout(n);
+      expect(t.tens * 10 + t.ones).toBe(n);
+    }
+  });
+
+  it('lights the Hundred Whale frame by frame', () => {
+    expect(hundredFrames(100)).toEqual(Array(10).fill(10));
+    expect(hundredFrames(46)).toEqual([10, 10, 10, 10, 6, 0, 0, 0, 0, 0]);
+    expect(hundredFrames(0).reduce((a, b) => a + b, 0)).toBe(0);
+  });
+});
+
+describe('family values', () => {
+  it('reads fractions as equal parts', () => {
+    expect(fractionParts(0.5)).toEqual({ parts: 2, filled: 1 });
+    expect(fractionParts(0.25)).toEqual({ parts: 4, filled: 1 });
+    expect(fractionParts(0.75)).toEqual({ parts: 4, filled: 3 });
+    expect(fractionParts(1 / 3)).toEqual({ parts: 3, filled: 1 });
+    expect(fractionParts(0.333)).toEqual({ parts: 3, filled: 1 });
+    expect(fractionParts(2 / 3)).toEqual({ parts: 3, filled: 2 });
+    expect(fractionParts(1)).toEqual({ parts: 2, filled: 2 });
+    expect(fractionParts(0)).toEqual({ parts: 2, filled: 0 });
+  });
+
+  it('reads clock hours 1–12', () => {
+    expect([1, 3, 12, 0, 13, 24].map(clockHour)).toEqual([1, 3, 12, 12, 1, 12]);
+  });
+
+  it('tells coins apart by size and rim', () => {
+    expect([1, 5, 10, 25, 30, 7].map(coinValue)).toEqual([1, 5, 10, 25, 25, 5]);
+    expect(COIN_LOOK[10].r).toBeLessThan(COIN_LOOK[1].r);
+    expect(COIN_LOOK[1].r).toBeLessThan(COIN_LOOK[5].r);
+    expect(COIN_LOOK[5].r).toBeLessThan(COIN_LOOK[25].r);
+    expect(COIN_LOOK[10].rim).toBe('reeded');
+    expect(COIN_LOOK[5].rim).toBe('smooth');
+  });
+});
+
+describe('contrast of pebbles, eyes and marks (06 §7)', () => {
+  it('covers every palette’s pebble bed', () => {
+    for (const p of PEBBLING_PALETTES) {
+      const bed = PALETTE_FILLS[p].belly;
+      expect(CHARACTER_CONTRAST_PAIRS.some((r) => r.fg === PEBBLE_MARK.lit && r.bg === bed)).toBe(
+        true,
+      );
+      expect(CHARACTER_CONTRAST_PAIRS.some((r) => r.fg === PEBBLE_MARK.empty && r.bg === bed)).toBe(
+        true,
+      );
+    }
+  });
+
+  for (const p of CHARACTER_CONTRAST_PAIRS) {
+    for (const l of ['day', 'sunset'] as const) {
+      it(`${p.use} (${l}) ≥ ${p.min}:1`, () => {
+        expect(pairRatio(p, l)).toBeGreaterThanOrEqual(p.min);
+      });
+    }
+  }
+});
+
+describe('character source', () => {
+  it('never hard-codes a colour outside the tokens', () => {
+    const dir = fileURLToPath(new URL('.', import.meta.url));
+    const files = readdirSync(dir).filter((f) => /\.tsx?$/.test(f) && !f.endsWith('.test.ts'));
+    expect(files.length).toBeGreaterThan(5);
+    for (const f of files) {
+      const src = readFileSync(`${dir}${f}`, 'utf8');
+      expect(src, f).not.toMatch(/#[0-9a-fA-F]{3,8}\b|rgba?\(|hsla?\(/);
+    }
+  });
+
+  it('never uses Math.random (art must render the same every time)', () => {
+    const dir = fileURLToPath(new URL('.', import.meta.url));
+    for (const f of readdirSync(dir).filter((x) => /\.tsx?$/.test(x) && !x.endsWith('.test.ts'))) {
+      expect(readFileSync(`${dir}${f}`, 'utf8'), f).not.toMatch(/Math\.random/);
+    }
+  });
+});
