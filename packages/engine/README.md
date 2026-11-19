@@ -121,7 +121,7 @@ Create `src/formats/<format>.ts` exporting a `FormatModel`: `configSchema` (the 
 
 ## Conventions the geo generators fix (K01)
 
-The shape-sort, shape-compose, compare and puzzle-grid format models belong to U03–U05; until they land, the property test checks these widgets against the shared schema and skips the solution replay. The response shapes the K01 checkers read:
+The shape-sort, shape-compose and compare format models belong to U03–U05; until they land, the property test checks these widgets against the shared schema and skips the solution replay. The puzzle-grid model landed with U04 (#86), so puzzle-grid items now replay their solutions too. The response shapes the K01 checkers read:
 
 - **shape-sort** cards have ids `c0`, `c1`, … in display order. `sort` responds `{ bins: Record<binId, cardId[]> }` (a card in no bin is in the tray; `sort.byRule`). `find-all` responds `{ ids }` (`select.exactSet`, which also still takes numeric `{ values }`). `odd-one-out` answers `choice` with a card id. Demo ops: `drag-card {id, bin}` (no `bin` in find-all: select the card), `highlight-attribute {id, prop}`, generic `answer {id}`.
 - **compare** answers `left`, `right` or `same`; demo ops `highlight {side}`, then `answer {id}`.
@@ -218,7 +218,7 @@ The balance and story-problem models (U04, #13) follow these conventions, so the
 - **order** (time.sequence): one objects picture per daily event (sprite `event-<id>`: wake-up, breakfast, lunch, dinner, bedtime), no label; values are the event's place in the day (1–5), `direction: asc`. On the timeline template one event is pre-placed through `fixed` on its own slot. Solutions start with a line that places nothing, then `drag {id, slot}` for every slot that is not fixed.
 - **shape-sort** `sort` (time.sequence): `event` cards (no `isPm`, which would show the bin), target props `{ part: 'morning' | 'night' }`, bins `b0` (`word.morning`) and `b1` (`word.night`); `sort.byRule`. Solutions `drag-card {id, bin}`.
 
-### Pattern and puzzle formats (K01: pattern.repeat, pattern.grow, puzzle.grid; pattern-extend and puzzle-grid have no model yet)
+### Pattern and puzzle formats (K01: pattern.repeat, pattern.grow, puzzle.grid; pattern-extend has no model yet, puzzle-grid's is U04's, see below)
 
 - **pattern-extend** `extend` and `fill` answer state `pattern.tokens { expected }`: the response is `{ tokens }`, the tokens placed in the blanks (the `null` entries of `sequence`) in reading order, each the same unit as expected (`{ sprite, color? }`, `{ n }` or `{ tiles }`, every field equal). `fill` hides the tokens ending one before the last, after at least one whole core. `core` answers `select.exactSet { values }`: the indices of the first repeat of the core (the prompt asks to mark it from the start). `rule` answers `number`, the step. `palette` holds the units a repeating pattern uses (A, B, C order) and is empty for number patterns, which are typed. Solutions use `place-token {index, token}` per blank, or `highlight {index}` and `bracket-core {from, to}`, after a first line that places nothing. The property test's near misses take away the last token or swap one for its neighbour.
 - **Pattern units** (pattern.repeat) come from the params: `theme` picks three units from `OBJECT_THEMES` (island sprites) or, with the `shapes` representation, `SHAPE_THEMES` (a shape kind as the sprite plus a colour; every unit differs in both). pattern.repeat and pattern.grow emit the pattern-extend format features they use (`core.len`, `hidden.middle`, `step.notOne`) themselves.
@@ -269,8 +269,8 @@ Response shapes and state-checker targets of the place-value and operations form
 - **Puzzle-grid** answers `{ fill }`: rows × cols, each puzzle cell's value (given or filled), with `''` outside the puzzle, checked by `puzzle.satisfies` `{ variant, rows, cols, cells, constraints, palette }`. The generic `answer {values}` fills the blanks in reading order.
   - **Numeric variants** (`cage-sum` mini-KenKen 3 × 3 and 4 × 4, `magic-square`, `missing-digit`, `sum-triangle`, `digit-cards`) take the config's own `cells` (`{ r, c, given?, blank?, cage? }`). Given cells keep their values, and every blank holds a number from the target's `palette` (required for these variants). The model's `fill` only takes palette values.
   - **Mini-KenKen** (`cage-sum`) is an n × n grid of the digits 1–n. The schema requires a square grid with a cell at every position, and palette and given values from 1–n. The checker rejects any other value or a missing position, whatever the target's palette says.
-  - **Supported constraints:** `cage-sum`, `row-unique`, `col-unique`, `line-sum` and `use-each`. `use-each` covers the blanks, or every cell when it lists one value per cell.
-  - **Not checked yet:** `adjacent-step`, `equation` and `clue`. They fail the `puzzle-grid` schema, and the checker rejects them.
+  - **Supported constraints:** `cage-sum`, `row-unique`, `col-unique`, `line-sum` and `use-each`. `use-each` covers the blanks, or every cell when it lists one value per cell. `adjacent-step` is accepted for `number-path` only (K01's PUZ.01): each cell, in `cells` order (the path), is `step` more than the one before it. Both target forms check it: K01's `[r, c]` targets (above) and config-cell targets.
+  - **Not checked yet:** `equation` and `clue`, and `adjacent-step` on any variant but `number-path`. They fail the `puzzle-grid` schema, and the checker rejects them.
   - **What the schema rejects:** configs that can't be met for structural reasons. That covers:
     - a non-number palette or a non-number given in a number grid;
     - more than one `use-each` list;

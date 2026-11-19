@@ -287,8 +287,11 @@ const sameMultiset = (a: readonly (number | string)[], b: readonly (number | str
  * - `row-unique` / `col-unique`: no value repeats in a row / column of the puzzle;
  * - `line-sum`: the listed cells add up to `sum`;
  * - `use-each`: the blanks' values are exactly `values` (as a multiset), or, when `values` has one
- *   entry per puzzle cell, all the cells' values are.
- * Other constraint kinds (`adjacent-step`, `equation`, `clue`) are not checked yet and reject.
+ *   entry per puzzle cell, all the cells' values are;
+ * - `adjacent-step` (`number-path` only): each cell, in the order `cells` lists them (the path),
+ *   is `step` more than the one before it (PR #84 review round 4: the model admits it, so both
+ *   target forms check it).
+ * Other constraint kinds (`equation`, `clue`) are not checked yet and reject.
  */
 function checkNumeric(
   target: Readonly<Record<string, unknown>>,
@@ -383,6 +386,17 @@ function checkNumeric(
         const pool = want.length === cells.length ? cells : cells.filter((x) => x.blank);
         const got = pool.map((x) => at(x.r, x.c) as number | string);
         if (!sameMultiset(got, want)) return false;
+        break;
+      }
+      case 'adjacent-step': {
+        if (target.variant !== 'number-path' || typeof k.step !== 'number') return false;
+        for (let i = 1; i < cells.length; i += 1) {
+          const prev = cells[i - 1] as PuzzleCell;
+          const here = cells[i] as PuzzleCell;
+          const a = num(prev.r, prev.c);
+          const b = num(here.r, here.c);
+          if (a === undefined || b === undefined || b - a !== k.step) return false;
+        }
         break;
       }
       default:

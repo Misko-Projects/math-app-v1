@@ -869,4 +869,21 @@ describe('PR #86 review round 3', () => {
     const blank = { ...c, cells: c.cells.map(({ r, c: col }) => ({ r, c: col, blank: true })) };
     expect(issuePaths(puzzleGrid, blank)).toEqual([]);
   });
+
+  it('a number path validates, and its config-cell target checks the adjacent step (PR #84)', () => {
+    // K01's number path (PUZ.01) counts on cell by cell. The model admits its adjacent-step
+    // constraint, so a target built from the config's own cells must check it too.
+    const c = grid('number-path', [[1, null, 3]], {
+      constraints: [{ kind: 'adjacent-step', step: 1 }],
+      palette: [0, 1, 2, 3, 4],
+    });
+    expect(issuePaths(puzzleGrid, c)).toEqual([]);
+    const fill = (v: number) => puzzleGrid.toResponse(play(puzzleGrid, c, solve(c, [[1, v, 3]])));
+    expect(satisfies(target(c), fill(2))).toBe(true);
+    expect(satisfies(target(c), fill(4))).toBe(false);
+    expect(satisfies(target(c), fill(0))).toBe(false);
+    // Only a number path takes the step: on another variant it still fails the schema.
+    const other = { ...c, variant: 'missing-digit' as const };
+    expect(issuePaths(puzzleGrid, other)).toContain('constraints.0');
+  });
 });
