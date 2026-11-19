@@ -3,7 +3,7 @@ import type { WidgetAction } from '@number-island/shared';
 import { type CSSProperties, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useInteractionTrace } from '../../interaction/trace';
 import { useNarrationText, useSpeech, useUiPreferences } from '../../preferences/UiProvider';
-import { ArrowIcon, CheckIcon, HandPointerIcon } from '../../primitives/icons';
+import { ArrowIcon, CheckIcon } from '../../primitives/icons';
 import { NumberDisplay } from '../../primitives/NumberDisplay';
 import { MIN_TARGET_PX, TARGET_GAP_PX } from '../../tokens/tokens';
 import { useWidgetDemo } from '../demo';
@@ -26,6 +26,7 @@ import {
   TRAY_PANEL_EDGES_PX,
   useAlive,
   useDemoPause,
+  useInviteHand,
   useSubmitGuard,
 } from '../kit';
 import type { ConfigFor, WidgetProps } from '../types';
@@ -88,37 +89,6 @@ type Cue =
   | { at: 'key'; key: PadKey }
   | { at: 'card'; value: number }
   | { at: 'check' };
-
-/** The hand's fingertip (≈ 42 % across, 8 px down the 56 px hand) rests inside its target. */
-const HAND_TIP_X = 23.5;
-const HAND_TIP_Y = 8;
-const HAND_SIZE = 56;
-const HAND_EDGE = 10;
-/** How far the hand's tap animation (`ni-hand-tap`) moves it down. */
-const HAND_BOB_Y = 8;
-
-/** `el`'s untransformed layout box relative to `root` (the invite pulse scales; offsets don't). */
-function offsetBox(el: HTMLElement, root: HTMLElement) {
-  let left = 0;
-  let top = 0;
-  let node: HTMLElement | null = el;
-  while (node && node !== root) {
-    left += node.offsetLeft;
-    top += node.offsetTop;
-    const parent = node.offsetParent as HTMLElement | null;
-    if (parent && parent !== root) {
-      left += parent.clientLeft;
-      top += parent.clientTop;
-    }
-    node = parent;
-  }
-  if (node !== root) {
-    const r = el.getBoundingClientRect();
-    const b = root.getBoundingClientRect();
-    return { left: r.left - b.left, top: r.top - b.top, width: r.width, height: r.height };
-  }
-  return { left, top, width: el.offsetWidth, height: el.offsetHeight };
-}
 
 /** The pressable element a cue points at. */
 function cueTarget(root: HTMLElement, cue: Cue): HTMLElement | null {
@@ -189,6 +159,27 @@ function inCountingOrder(layout: ObjectLayout, from: 'left' | 'right'): ObjectLa
     (a, b) => rank(a) - rank(b) || (a.kind === 'object' ? dir : 1) * (a.index - b.index),
   );
   return { ...layout, objects };
+}
+
+/**
+ * A `line` layout as ONE row in slot order (the kit breaks lines into rows of ten). Ordinal rows
+ * are then wrapped by `wrapRow`, so any length wraps in reading order from the start marker.
+ */
+function flattenLine(layout: ObjectLayout): ObjectLayout {
+  if (layout.height <= 1) return layout;
+  const inset = (o: PlacedObject) => (1 - o.scale) / 2;
+  const slots = [...layout.objects].sort(
+    (a, b) => a.y - inset(a) - (b.y - inset(b)) || a.x - inset(a) - (b.x - inset(b)),
+  );
+  const flat = new Map(
+    slots.map((o, i) => [o, { ...o, x: i * 1.12 + inset(o), y: inset(o) }] as const),
+  );
+  return {
+    ...layout,
+    objects: layout.objects.map((o) => flat.get(o) ?? o),
+    width: (slots.length - 1) * 1.12 + 1,
+    height: 1,
+  };
 }
 
 /**
@@ -359,22 +350,28 @@ export function TapCountWidget({
   // A single line of objects that cannot keep full-size targets in one row at this width wraps
   // into as few rows as fit (ten K targets in a 906 px widget: 5 + 5), in reading order.
   const rowLimit = ordinal ? ordinalRowW : stackW;
+  // An ordinal line of any length is first laid out as one row (the kit's rows of ten would put
+  // obj-10 under obj-0, away from a right-hand marker), then wrapped below in reading order.
+  const lineLayout = useMemo(
+    () => (ordinal && config.set.layout === 'line' ? flattenLine(baseLayout) : baseLayout),
+    [baseLayout, ordinal, config.set.layout],
+  );
   const wrapRows = (() => {
-    if (config.set.layout !== 'line' || baseLayout.height > 1 || baseLayout.frames.length > 0) {
+    if (config.set.layout !== 'line' || lineLayout.height > 1 || lineLayout.frames.length > 0) {
       return 1;
     }
-    for (let rows = 1; rows < baseLayout.objects.length; rows++) {
-      const perRow = Math.ceil(baseLayout.objects.length / rows);
-      const w = rows === 1 ? baseLayout.width : (perRow - 1) * 1.12 + 1;
+    for (let rows = 1; rows < lineLayout.objects.length; rows++) {
+      const perRow = Math.ceil(lineLayout.objects.length / rows);
+      const w = rows === 1 ? lineLayout.width : (perRow - 1) * 1.12 + 1;
       if (w * minCell <= rowLimit) return rows;
     }
-    return baseLayout.objects.length;
+    return lineLayout.objects.length;
   })();
   const fitLayout = useMemo(() => {
     // Ordinal objects render in counting order (DOM = Tab = reading order), from the marker.
-    const counted = ordinal ? inCountingOrder(baseLayout, from) : baseLayout;
+    const counted = ordinal ? inCountingOrder(lineLayout, from) : lineLayout;
     return wrapRows > 1 ? wrapRow(counted, wrapRows, ordinal ? from : 'left') : counted;
-  }, [baseLayout, wrapRows, ordinal, from]);
+  }, [lineLayout, wrapRows, ordinal, from]);
   // Wrapped rows keep the size the one-row layout gets at 1280 × 800, so a narrower screen never
   // draws bigger objects than a wide one.
   const wrappedCap =
@@ -382,7 +379,7 @@ export function TapCountWidget({
       ? Math.max(
           minCell,
           fitCell(
-            baseLayout,
+            lineLayout,
             ordinal ? ORDINAL_AREA_W - ORDINAL_CHROME_W - cueSize : 1000,
             ordinal ? 360 : Math.max(120, 520 - answerH),
             32,
@@ -643,53 +640,13 @@ export function TapCountWidget({
   const cueId = cue ? `${cue.at}:${cueObject ?? cueKey ?? cueCard ?? ''}` : '';
 
   // Pip's hand sits on the invited control, measured from the laid-out widget.
-  const [handAt, setHandAt] = useState<{ left: number; top: number } | null>(null);
-  // Extra room under the widget when the hand, hanging below a control at the bottom, needs it.
-  const [handRoom, setHandRoom] = useState(0);
-  const handRoomRef = useRef(0);
-  handRoomRef.current = handRoom;
-  // biome-ignore lint/correctness/useExhaustiveDependencies: cueId stands for the cue; the layout keys move it
-  useLayoutEffect(() => {
-    const root = rootRef.current;
-    const el = root && cue ? cueTarget(root, cue) : null;
-    if (!root || !el) {
-      setHandAt(null);
-      setHandRoom(0);
-      return;
-    }
-    const onObject = cue?.at === 'obj';
-    const place = () => {
-      const b = offsetBox(el, root);
-      // On an object: its lower middle (the top of the drawing stays visible). On a control (an
-      // icon, numeral or word on a button): the fingertip rests low in its lower-right quarter and
-      // the hand hangs below it, so the glyph stays fully visible; the tap bob (8 px down) keeps
-      // the fingertip inside.
-      const tipX = onObject ? b.left + b.width / 2 : b.left + b.width * 0.75;
-      const tipY = onObject ? b.top + b.height * 0.58 : b.top + b.height - HAND_BOB_Y - 2;
-      const top = tipY - HAND_TIP_Y;
-      // The whole hand stays inside the widget: across, it slides along the edge (the fingertip
-      // still on the target); below a control at the bottom, the widget makes room for it.
-      const bottom = top + HAND_SIZE + HAND_BOB_Y + HAND_EDGE;
-      const room = onObject
-        ? 0
-        : Math.max(0, Math.ceil(bottom - (root.clientHeight - handRoomRef.current)));
-      const clampX = (v: number) =>
-        Math.max(HAND_EDGE, Math.min(v, root.clientWidth - HAND_SIZE - HAND_EDGE));
-      const clampY = (v: number) =>
-        Math.max(
-          HAND_EDGE,
-          Math.min(v, root.clientHeight - handRoomRef.current + room - HAND_SIZE - HAND_EDGE),
-        );
-      setHandRoom(room);
-      setHandAt({ left: clampX(tipX - HAND_TIP_X), top: clampY(top) });
-    };
-    place();
-    if (typeof ResizeObserver === 'undefined') return;
-    const ro = new ResizeObserver(place);
-    ro.observe(root);
-    ro.observe(el);
-    return () => ro.disconnect();
-  }, [cueId, cell, arrange, wrapRows]);
+  // Pip's up-pointing hand hangs below the invited control (kit `useInviteHand`), its fingertip
+  // inside the control's bottom edge and clear of its glyph; it re-measures when the layout moves.
+  const { hand: inviteHand, rootStyle: handRootStyle } = useInviteHand(
+    rootRef,
+    (root) => (cue ? cueTarget(root, cue) : null),
+    cue ? `${cueId}|${cell}|${arrange}|${wrapRows}` : '',
+  );
 
   // ---------- render ----------
 
@@ -770,7 +727,7 @@ export function TapCountWidget({
       data-mode={ordinal ? 'ordinal' : 'how-many'}
       data-arrange={arrange}
       data-disabled={disabled ? 'true' : undefined}
-      style={handRoom > 0 ? { paddingBottom: 12 + handRoom } : undefined}
+      style={handRootStyle}
     >
       <div className="ni-tapc__picture" data-from={ordinal ? from : undefined}>
         {ordinal ? (
@@ -843,15 +800,7 @@ export function TapCountWidget({
           <CheckButton onPress={submit} disabled={!canCheck} invited={cue?.at === 'check'} />
         </span>
       </div>
-      {handAt ? (
-        <span
-          className="ni-hand ni-tapc__hand"
-          aria-hidden="true"
-          style={{ left: handAt.left, top: handAt.top }}
-        >
-          <HandPointerIcon />
-        </span>
-      ) : null}
+      {inviteHand}
     </div>
   );
 }

@@ -84,11 +84,6 @@
   border-radius: 32px;
 }
 /* Pip's hand: left/top are measured onto the invited control (DotFlashWidget). */
-.ni-flash__hand {
-  left: 0;
-  top: 0;
-}
-
 .ni-flash__answer {
   display: flex;
   align-items: center;

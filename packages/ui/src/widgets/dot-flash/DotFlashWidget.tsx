@@ -4,7 +4,6 @@ import { type CSSProperties, useEffect, useLayoutEffect, useRef, useState } from
 import { useInteractionTrace } from '../../interaction/trace';
 import { useNarrationText, useReducedMotion, useSpeech } from '../../preferences/UiProvider';
 import { BigButton } from '../../primitives/BigButton';
-import { HandPointerIcon } from '../../primitives/icons';
 import { NumberDisplay } from '../../primitives/NumberDisplay';
 import { useWidgetDemo } from '../demo';
 import {
@@ -17,6 +16,7 @@ import {
   StimulusView,
   useAlive,
   useDemoPause,
+  useInviteHand,
   useSubmitGuard,
 } from '../kit';
 import type { ConfigFor, WidgetProps } from '../types';
@@ -52,12 +52,6 @@ type Cue =
   | { at: 'again' | 'check' | 'board' | 'slot' | 'tray' }
   | { at: 'key'; key: PadKey }
   | { at: 'card'; value: number };
-
-/** The hand's fingertip (≈ 42 % across, 8 px down the 56 px hand) rests inside its target. */
-const HAND_TIP_X = 23.5;
-const HAND_TIP_Y = 8;
-const HAND_SIZE = 56;
-const HAND_EDGE = 10;
 
 interface Ring {
   left: number;
@@ -162,29 +156,6 @@ function cueTarget(root: HTMLElement, cue: Cue): HTMLElement | null {
   }
 }
 
-/** `el`'s untransformed layout box relative to `root` (the invite pulse scales; offsets don't). */
-function offsetBox(el: HTMLElement, root: HTMLElement) {
-  let left = 0;
-  let top = 0;
-  let node: HTMLElement | null = el;
-  while (node && node !== root) {
-    left += node.offsetLeft;
-    top += node.offsetTop;
-    const parent = node.offsetParent as HTMLElement | null;
-    if (parent && parent !== root) {
-      left += parent.clientLeft;
-      top += parent.clientTop;
-    }
-    node = parent;
-  }
-  if (node !== root) {
-    const r = el.getBoundingClientRect();
-    const b = root.getBoundingClientRect();
-    return { left: r.left - b.left, top: r.top - b.top, width: r.width, height: r.height };
-  }
-  return { left, top, width: el.offsetWidth, height: el.offsetHeight };
-}
-
 /** Rings around consecutive groups of the drawn picture, in reading order (`circle-groups`). */
 function measureRings(board: HTMLElement, sizes: readonly number[]): Ring[] {
   const base = board.getBoundingClientRect();
@@ -262,7 +233,6 @@ export function DotFlashWidget({
   const [pressedKey, setPressedKey] = useState<PadKey | null>(null);
   const [demoBusy, setDemoBusy] = useState(false);
   const [invite, setInvite] = useState<WidgetAction | null>(null);
-  const [handAt, setHandAt] = useState<{ left: number; top: number } | null>(null);
   const rootRef = useRef<HTMLDivElement | null>(null);
   const boardRef = useRef<HTMLDivElement | null>(null);
   // The timed flash now showing (a new number per flash), or null: the hide timer belongs to the
@@ -440,35 +410,13 @@ export function DotFlashWidget({
   const cueCard = cue?.at === 'card' ? cue.value : null;
   const cueId = cue ? `${cue.at}:${cueKey ?? cueCard ?? ''}` : '';
 
-  // Pip's hand sits on the invited control, measured from the laid-out widget.
-  // biome-ignore lint/correctness/useExhaustiveDependencies: cueId stands for the cue
-  useLayoutEffect(() => {
-    const root = rootRef.current;
-    const el = root && cue ? cueTarget(root, cue) : null;
-    if (!root || !el) {
-      setHandAt(null);
-      return;
-    }
-    const place = () => {
-      const b = offsetBox(el, root);
-      // Fingertip just right of centre, low on the control (its label stays clear).
-      const tipX = b.left + b.width / 2 + 6;
-      const tipY = b.top + b.height - Math.min(18, b.height * 0.25);
-      // The whole hand stays inside the widget, with room for its tap bob (6 px left, 8 px down):
-      // near an edge it slides up or across, the fingertip still on the control.
-      const clamp = (v: number, max: number) => Math.max(HAND_EDGE, Math.min(v, max));
-      setHandAt({
-        left: clamp(tipX - HAND_TIP_X, root.clientWidth - HAND_SIZE - HAND_EDGE),
-        top: clamp(tipY - HAND_TIP_Y, root.clientHeight - HAND_SIZE - HAND_EDGE),
-      });
-    };
-    place();
-    if (typeof ResizeObserver === 'undefined') return;
-    const ro = new ResizeObserver(place);
-    ro.observe(root);
-    ro.observe(el);
-    return () => ro.disconnect();
-  }, [cueId]);
+  // Pip's up-pointing hand hangs below the invited control (kit `useInviteHand`), its fingertip
+  // inside the control's bottom edge and clear of its glyph.
+  const { hand: inviteHand, rootStyle: handRootStyle } = useInviteHand(
+    rootRef,
+    (root) => (cue ? cueTarget(root, cue) : null),
+    cue && cue.at !== 'board' ? cueId : '',
+  );
 
   // ---------- render ----------
 
@@ -478,6 +426,7 @@ export function DotFlashWidget({
       className="ni-flash"
       data-tier={tier}
       data-disabled={disabled ? 'true' : undefined}
+      style={handRootStyle}
     >
       <div className="ni-flash__look">
         <div
@@ -559,15 +508,7 @@ export function DotFlashWidget({
           <CheckButton onPress={submit} disabled={!canCheck} invited={cue?.at === 'check'} />
         </span>
       </div>
-      {handAt ? (
-        <span
-          className="ni-hand ni-flash__hand"
-          aria-hidden="true"
-          style={{ left: handAt.left, top: handAt.top }}
-        >
-          <HandPointerIcon />
-        </span>
-      ) : null}
+      {inviteHand}
     </div>
   );
 }

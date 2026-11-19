@@ -17,7 +17,7 @@ import {
   useUiPreferences,
 } from '../../preferences/UiProvider';
 import { BigButton } from '../../primitives/BigButton';
-import { ArrowIcon, HandPointerIcon } from '../../primitives/icons';
+import { ArrowIcon } from '../../primitives/icons';
 import { NumberDisplay } from '../../primitives/NumberDisplay';
 import { MIN_TARGET_PX, TARGET_GAP_PX } from '../../tokens/tokens';
 import { useWidgetDemo, wait } from '../demo';
@@ -28,6 +28,7 @@ import {
   spriteNameKey,
   useAlive,
   useDemoPause,
+  useInviteHand,
   useSubmitGuard,
 } from '../kit';
 import type { ConfigFor, WidgetProps } from '../types';
@@ -704,10 +705,34 @@ export function MakeSetWidget({
 
   const thingName = t(spriteNameKey(sprite));
 
-  const pointer = (
-    <span className="ni-hand ni-mset__hand">
-      <HandPointerIcon />
-    </span>
+  // Pip's up-pointing hand hangs below the ONE invited thing (kit `useInviteHand`): an object, the
+  // frames, a hand card or a button, its fingertip inside the bottom edge and clear of the
+  // button's icon.
+  const invitedFinger = (h: 0 | 1) =>
+    invitedHand !== h
+      ? null
+      : inviteStep === 'drag' && canRaise(h)
+        ? 'up'
+        : inviteStep === 'remove' && handParts[h] > 0
+          ? 'down'
+          : null;
+  const handTarget: string | null = invitedItem
+    ? `[data-item="${invitedItem}"]`
+    : invitedCount
+      ? hands
+        ? '.ni-mset__handbox:nth-child(1) .ni-mset__hand-btn'
+        : '.ni-mset__frames'
+      : invitedHand !== null && invitedFinger(invitedHand)
+        ? `.ni-mset__handbox:nth-child(${invitedHand + 1}) [data-ctl="${invitedFinger(invitedHand)}"] .ni-btn`
+        : invitedBundle
+          ? '.ni-mset__action.ni-invite .ni-btn'
+          : invitedCheck
+            ? '.ni-mset__action .ni-btn.ni-invite'
+            : null;
+  const { hand: inviteHand, rootStyle: handRootStyle } = useInviteHand(
+    rootRef,
+    (root) => (handTarget ? root.querySelector<HTMLElement>(handTarget) : null),
+    handTarget ?? '',
   );
 
   const renderItem = (
@@ -738,7 +763,6 @@ export function MakeSetWidget({
             {index + 1}
           </span>
         ) : null}
-        {invited ? pointer : null}
       </div>
     );
   };
@@ -823,7 +847,6 @@ export function MakeSetWidget({
             {f < bundles ? <BundleBand width={frameW} height={frameH} /> : null}
           </div>
         ))}
-        {invitedCount ? pointer : null}
       </div>
     </div>
   );
@@ -870,11 +893,6 @@ export function MakeSetWidget({
               {counting + 1}
             </span>
           ) : null}
-          {invitedCard ? (
-            <span className="ni-hand ni-mset__hand ni-mset__hand--card">
-              <HandPointerIcon />
-            </span>
-          ) : null}
         </button>
         <div className="ni-mset__hand-controls">
           <span
@@ -888,7 +906,6 @@ export function MakeSetWidget({
               disabled={!interactive || !canRaise(h)}
               onPress={() => raise(h, 'button')}
             />
-            {invitedUp ? pointer : null}
           </span>
           <span
             className={['ni-mset__ctl', invitedDown ? 'ni-invite' : ''].filter(Boolean).join(' ')}
@@ -901,7 +918,6 @@ export function MakeSetWidget({
               disabled={!interactive || up <= 0}
               onPress={() => fold(h)}
             />
-            {invitedDown ? pointer : null}
           </span>
         </div>
       </div>
@@ -937,6 +953,7 @@ export function MakeSetWidget({
           '--slot': `${slot}px`,
           '--heap-half': `${(slot - gap) / 2}px`,
           ...layoutStyle,
+          ...handRootStyle,
         } as CSSProperties
       }
     >
@@ -966,12 +983,10 @@ export function MakeSetWidget({
               disabled={!interactive || !canBundle}
               onPress={bundle}
             />
-            {invitedBundle ? pointer : null}
           </span>
         ) : null}
         <span className="ni-mset__action">
           <CheckButton onPress={submit} disabled={!canCheck} invited={invitedCheck} />
-          {invitedCheck ? pointer : null}
         </span>
       </div>
 
@@ -980,6 +995,7 @@ export function MakeSetWidget({
           <ObjectSprite sprite={flight.sprite} />
         </div>
       ) : null}
+      {inviteHand}
     </div>
   );
 }

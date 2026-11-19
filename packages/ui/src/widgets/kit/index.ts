@@ -21,6 +21,13 @@ export {
   useSubmitGuard,
 } from './controls';
 export {
+  INVITE_GLYPH_SELECTOR,
+  INVITE_HAND_PX,
+  type InviteHandPlacement,
+  placeInviteHand,
+  useInviteHand,
+} from './inviteHand';
+export {
   dicePattern,
   dotsLayout,
   type FrameOutline,

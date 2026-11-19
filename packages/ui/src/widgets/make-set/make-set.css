@@ -341,20 +341,6 @@
   outline-offset: 4px;
   border-radius: 999px;
 }
-/*
- * Pip's hand under its target: the fingertip (about 42 % across, 8 px down the 56 px hand) rests
- * inside the target's bottom edge, as in numeral-pick.
- */
-.ni-mset__hand {
-  left: calc(50% - 23px);
-  top: calc(100% - 26px);
-}
-/* On a hand card (count-aloud): in its lower corner, clear of the finger buttons below. */
-.ni-mset__hand--card {
-  left: calc(100% - 52px);
-  top: calc(100% - 44px);
-}
-
 /* Hands: the two hands in a row, the check below them, all centred. */
 .ni-mset[data-container="hands"] {
   flex-direction: column;

@@ -153,7 +153,9 @@ const pilePad = (root: HTMLElement) =>
 const pileArea = (root: HTMLElement) => root.querySelector('[data-area="pile"]') as HTMLElement;
 const check = (root: HTMLElement) => within(root).getByRole('button', { name: 'Check' });
 const allItems = (root: HTMLElement) => [...root.querySelectorAll<HTMLElement>('.ni-mset__item')];
-const pointerIn = (el: Element) => el.querySelector(':scope > .ni-hand') as HTMLElement;
+/** Pip's hand (one per widget, placed under the invited thing by the kit's `useInviteHand`). */
+const pointerIn = (el: Element) =>
+  el.closest('.ni-mset')?.querySelector(':scope > .ni-hand') as HTMLElement;
 const nextFrame = () => new Promise<void>((r) => requestAnimationFrame(() => r()));
 
 const describe = (el: Element | null) =>

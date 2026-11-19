@@ -605,18 +605,9 @@ async function expectCueOn(root: HTMLElement, el: HTMLElement) {
   await expect([...root.querySelectorAll('.ni-invite')]).toEqual([el]);
   await expect(root.querySelectorAll('.ni-hand')).toHaveLength(1);
   await expect(el).toBeEnabled();
+  // The drawn fingertip inside the control, the hand clear of its glyph (expectPointerOn).
   await waitFor(() => expectPointerOn(hand(root), el, root));
-  // On a control, the hand hangs below its glyph (icon, numeral or word): the glyph stays visible.
-  for (const glyph of el.querySelectorAll(GLYPHS)) {
-    await waitFor(() =>
-      expect(
-        hand(root).getBoundingClientRect().top,
-        'hand clear of the glyph',
-      ).toBeGreaterThanOrEqual(glyph.getBoundingClientRect().bottom),
-    );
-  }
 }
-const GLYPHS = '.ni-btn__icon, .ni-btn__label, .ni-pad__digit, .ni-pad__icon, .ni-pick__numeral';
 
 /** No cue at all: no ring, no hand. */
 async function expectNoCue(root: HTMLElement) {
@@ -1017,5 +1008,39 @@ export const OrdinalElevenFromLeft: Story = {
     const root = await findWidget(canvasElement, ROOT);
     await waitFor(() => expect(obj(root, 10)).toBeVisible());
     await expectKeyboardCountingOrder(root, args.onInteract, ids(0, 10));
+  },
+};
+
+/**
+ * Eleven shells counted from the RIGHT, asking for the first (K): the line wraps in counting order
+ * (6 + 5, right-aligned), so the start marker sits beside obj-10 on the first row, Tab starts on
+ * obj-10 and follows the count to obj-0, and the first from the right is `obj-10`.
+ */
+export const OrdinalElevenFromRight: Story = {
+  globals: { ageMode: 'k' },
+  args: {
+    config: {
+      ...ordinalShells,
+      set: { ...ordinalShells.set, count: 11 },
+      ordinal: { k: 1, from: 'right' },
+    },
+  },
+  play: async ({ canvasElement, args }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    await waitFor(() => expect(obj(root, 10)).toBeVisible());
+    await expectCueBeforeFirstRow(root, obj(root, 10), 'right');
+    // obj-10 is the top row's rightmost shell, next to the marker.
+    for (const o of objects(root)) {
+      if (o === obj(root, 10)) continue;
+      const r = o.getBoundingClientRect();
+      const first = obj(root, 10).getBoundingClientRect();
+      await expect(r.top >= first.top - 1 && (r.top > first.top + 1 || r.right < first.left)).toBe(
+        true,
+      );
+    }
+    await expectKeyboardCountingOrder(root, args.onInteract, ids(0, 10).reverse());
+    await userEvent.click(obj(root, 10));
+    await userEvent.click(checkButton(root));
+    await expect(args.onResponse).toHaveBeenCalledWith({ kind: 'choice', id: 'obj-10' });
   },
 };
