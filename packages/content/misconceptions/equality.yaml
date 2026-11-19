@@ -1,0 +1,63 @@
+# Equality and relation-symbol misconceptions (03 §7.2). K01 lists the K–1 skills authored so far;
+# ALG.06, ALG.07, MDA.22, PV.02, PV.06 and FRA.06 join these rows when they are authored (K02).
+area: equality
+misconceptions:
+  - id: MC.equals-means-answer
+    name: Reads the equal sign as "the answer comes next"
+    detect: { kind: answer, rule: equalsMeansAnswer }
+    appliesTo: { generators: [equality.eq] }
+    skills: [ADD.10, ADD.11]
+    remediation: [ALG.05, ADD.10]
+    feedback: fb.mc.equals-means-answer
+    parentTip: >-
+      Read "=" as "is the same as" together, and check that both sides really make the same number.
+    examples:
+      - params: { form: a+b=c+_, mode: fill, op: "+", a: 3, b: 4, c: 5 }
+        response: { kind: number, value: 7 }
+        match: true
+      - params: { form: a+b=c+_, mode: fill, op: "+", a: 3, b: 4, c: 5 }
+        response: { kind: number, value: 2 }
+        match: false
+      - params: { form: a+b=c+_, mode: fill, op: "+", a: 3, b: 4, c: 5 }
+        response: { kind: number, value: 12 }
+        match: false
+
+  - id: MC.equals-add-all
+    name: Adds every number shown, whatever the equal sign says
+    detect: { kind: answer, rule: equalsAddAll }
+    appliesTo: { generators: [equality.eq] }
+    skills: [ADD.11]
+    remediation: [ALG.05, ADD.10]
+    feedback: fb.mc.equals-add-all
+    parentTip: >-
+      Cover one side of the equation and work it out, then ask what the other side needs to match.
+    examples:
+      - params: { form: a+b=c+_, mode: fill, op: "+", a: 3, b: 4, c: 5 }
+        response: { kind: number, value: 12 }
+        match: true
+      - params: { form: a+_=c, mode: fill, op: "+", a: 8, b: 3, c: 1 }
+        response: { kind: number, value: 19 }
+        match: true
+      - params: { form: a+b=c+_, mode: fill, op: "+", a: 3, b: 4, c: 5 }
+        response: { kind: number, value: 7 }
+        match: false
+
+  - id: MC.symbol-reversed
+    name: Writes the less-than and greater-than signs the wrong way round
+    detect: { kind: answer, rule: symbolReversed }
+    appliesTo: { generators: [compare.numbers] }
+    skills: [CMP.08]
+    remediation: [CMP.08]
+    feedback: fb.mc.symbol-reversed
+    parentTip: >-
+      Point out that the open side of the sign always faces the greater number, then read it aloud.
+    examples:
+      - params: { a: 7, b: 3, extra: 0, min: 0, max: 20, ask: symbol }
+        response: { kind: choice, id: "<" }
+        match: true
+      - params: { a: 7, b: 3, extra: 0, min: 0, max: 20, ask: symbol }
+        response: { kind: choice, id: "=" }
+        match: false
+      - params: { a: 7, b: 7, extra: 0, min: 0, max: 20, ask: symbol }
+        response: { kind: choice, id: "<" }
+        match: false
