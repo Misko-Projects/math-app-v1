@@ -21,7 +21,12 @@
 //
 // Framework-free: the clock, timers, page visibility and checkpoint storage are injected.
 
-import type { ChildId, EventEnvelope, EventPayloads } from '@number-island/shared';
+import type {
+  AnyEventEnvelope,
+  ChildId,
+  EventEnvelope,
+  EventPayloads,
+} from '@number-island/shared';
 import { newId as defaultNewId } from '@number-island/shared';
 import type { DataStore } from '@/data/store';
 import { inQuietHours, isEventOf, localTime, playedMsOnDay, sameId } from './time';
@@ -451,6 +456,34 @@ export class SessionController {
     });
   }
 
+  /**
+   * Checkpointed play of `childId`'s sessions that started on `day` and have no end yet, other
+   * than this controller's own. With an exclusive play lock the sweep before planning has closed
+   * them all, so this is 0. Without Web Locks a session another tab may still be playing is left
+   * open, and its time so far must still count toward the daily cap.
+   */
+  #unendedCheckpointMs(
+    events: readonly AnyEventEnvelope[],
+    childId: ChildId,
+    day: string,
+    timeZone: string,
+  ): number {
+    const ended = new Set<string>();
+    for (const e of events) {
+      if (isEventOf(e, 'session.ended')) ended.add(e.payload.sessionId.toLowerCase());
+    }
+    const own = this.#running?.session.sessionId.toLowerCase();
+    let total = 0;
+    for (const e of events) {
+      if (!isEventOf(e, 'session.started') || !sameId(e.childId, childId)) continue;
+      const key = e.payload.sessionId.toLowerCase();
+      if (ended.has(key) || key === own) continue;
+      if (localTime(e.ts, timeZone).day !== day) continue;
+      total += this.#readCheckpoint(e.payload.sessionId)?.activeMs ?? 0;
+    }
+    return total;
+  }
+
   async #plan(childId: ChildId): Promise<Plan> {
     const [family, child, events] = await Promise.all([
       this.#store.familySettings(),
@@ -462,7 +495,10 @@ export class SessionController {
     const day = localTime(now, timeZone).day;
     const r = this.#running;
     const runningMs = r && sameId(r.session.childId, childId) ? this.activeMs() : 0;
-    const playedMs = playedMsOnDay(events, childId, day, timeZone) + runningMs;
+    const playedMs =
+      playedMsOnDay(events, childId, day, timeZone) +
+      runningMs +
+      this.#unendedCheckpointMs(events, childId, day, timeZone);
     const base = {
       quietHours: child.quietHours,
       timeZone,

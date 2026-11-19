@@ -807,6 +807,17 @@ describe('SessionController', () => {
       expect(await tabB.closeAbandoned()).toBe(1);
     });
 
+    it('without Web Locks, a live session in another tab still counts toward the daily cap', async () => {
+      const s = await setup({ locks: null, child: { dailyCapMinutes: 10, sessionMinutes: 10 } });
+      await s.controller.start(CHILD_K); // tab A plays the same child
+      for (let t = 0; t < 6 * MIN; t += 15_000) s.advance(15_000); // six checkpointed minutes
+      const tabB = s.make();
+      // A's session is left open (it may still be playing), but its six minutes are counted.
+      expect(await tabB.canStart(CHILD_K)).toEqual({ ok: true, budgetMinutes: 4 });
+      expect(await tabB.start(CHILD_K)).toMatchObject({ ok: true, session: { budgetMinutes: 4 } });
+      expect((await s.sessionEvents()).filter((e) => e.type === 'session.ended')).toEqual([]);
+    });
+
     it('refuses a start while another tab plays and doesn’t yield (elsewhere)', async () => {
       const { locks } = fakeLocks();
       const s = await setup({ locks, bus: fakeBusNet() });
