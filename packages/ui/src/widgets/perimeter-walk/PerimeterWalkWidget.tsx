@@ -10,6 +10,7 @@ import type { WidgetAction } from '@number-island/shared';
 import {
   type KeyboardEvent,
   type PointerEvent as ReactPointerEvent,
+  useMemo,
   useRef,
   useState,
 } from 'react';
@@ -120,28 +121,45 @@ export function PerimeterWalkWidget({
   const pad =
     Math.max(minT / 2, ...config.polygon.sides.map((_, i) => bubbleSize(i)[0] / 2)) + 8 + 12;
   const sizes = config.polygon.sides.map((_, i) => bubbleSize(i));
-  // The scale: the fence and every side number (placed outside it) fit the box. Bubbles that had
-  // to move further out grow the picture, so shrink the scale until it all fits.
-  const fence = (() => {
-    let scale = Math.max(
-      8,
-      Math.min(70, (boxW - 2 * pad) / Math.max(fw, 1), (boxH - 2 * pad) / Math.max(fh, 1)),
-    );
-    let out = { u: scale, centres: [] as Pt[], minX: 0, minY: 0, w: 0, h: 0 };
-    for (let k = 0; k < 8; k += 1) {
+  // The scale: the largest at which the fence and every side number (placed outside it) fit the
+  // box with every number beside its own side's midpoint (evidence review: a fence too small for
+  // an L's notch pushed a number far from its side). A larger fence is what makes room in a
+  // notch, so the scale goes down only as far as the box needs; where no scale fits uncrowded
+  // (the notch cannot hold both numbers in this box), the largest that fits is used, `crowded`.
+  // Memoised: the scan lays the numbers out at each scale tried (the walker re-renders often).
+  // biome-ignore lint/correctness/useExhaustiveDependencies: the geometry, by value
+  const fence = useMemo(() => {
+    const layout = (scale: number) => {
       const at = (p: Pt): Pt => [pad + p[0] * scale, pad + p[1] * scale];
-      const centres = points ? placeSideLabels(points.map(at), sizes) : [];
-      const boxes = centres.map((c, i) => boxAt(c, sizes[i] as Pt));
+      const placed = points
+        ? placeSideLabelsInfo(points.map(at), sizes)
+        : { centres: [], crowded: false };
+      const boxes = placed.centres.map((c, i) => boxAt(c, sizes[i] as Pt));
       const minX = Math.min(0, ...boxes.map((b) => b.l - 2));
       const minY = Math.min(0, ...boxes.map((b) => b.t - 2));
       const maxX = Math.max(fw * scale + 2 * pad, ...boxes.map((b) => b.r + 2));
       const maxY = Math.max(fh * scale + 2 * pad, ...boxes.map((b) => b.b + 2));
-      out = { u: scale, centres, minX, minY, w: maxX - minX, h: maxY - minY };
-      if ((out.w <= boxW + 0.5 && out.h <= boxH + 0.5) || scale <= 8) break;
-      scale = Math.max(8, scale * Math.min(boxW / out.w, boxH / out.h) * 0.97);
+      return {
+        u: scale,
+        centres: placed.centres,
+        crowded: placed.crowded,
+        minX,
+        minY,
+        w: maxX - minX,
+        h: maxY - minY,
+      };
+    };
+    const fits = (o: ReturnType<typeof layout>) => o.w <= boxW + 0.5 && o.h <= boxH + 0.5;
+    const top = Math.max(8, Math.min(70, boxW / Math.max(fw, 1), boxH / Math.max(fh, 1)));
+    let firstFit: ReturnType<typeof layout> | null = null;
+    for (let scale = Math.floor(top * 2) / 2; scale >= 8; scale -= 0.5) {
+      const o = layout(scale);
+      if (!fits(o)) continue;
+      if (!o.crowded) return o;
+      firstFit ??= o;
     }
-    return out;
-  })();
+    return firstFit ?? layout(8);
+  }, [JSON.stringify(points), JSON.stringify(sizes), boxW, boxH, pad, fw, fh]);
   const u = fence.u;
   const toPx = ([x, y]: Pt): Pt => [pad + x * u, pad + y * u];
   const svgW = fw * u + 2 * pad;
@@ -242,13 +260,13 @@ export function PerimeterWalkWidget({
       cell: Math.floor(Math.max(14, Math.min(72, Math.max(besideCell, stackedCell)))),
     };
   };
-  const belowRoom = GRIP_GAP + GRIP + 2;
-  const rightRoom = GRIP / 2 + 2;
-  const underGrid = squares(belowRoom);
-  const besideGrid = squares(rightRoom);
-  const gripPlace = underGrid.cell >= besideGrid.cell ? 'below' : 'right';
-  const GRIP_BELOW = gripPlace === 'below' ? belowRoom : rightRoom;
-  const { refAbove, cell } = gripPlace === 'below' ? underGrid : besideGrid;
+  // The grip always sits right of the grid's frame (evidence review: room reserved for it on the
+  // right and left empty pushed the composition off-centre; under the grid it needs height the
+  // smallest area does not have). It shows before anything is built too, so the composition
+  // never changes width.
+  const gripPlace = 'right';
+  const GRIP_BELOW = GRIP / 2 + 2;
+  const { refAbove, cell } = squares(GRIP_BELOW);
   // A tap picks a square only when squares are full-size targets (06 §3); otherwise the steppers
   // are the tap path (and dragging the corner still works).
   const tapCells = cell >= minT;
@@ -484,7 +502,11 @@ export function PerimeterWalkWidget({
     // evidence review): a leader from its edge to a dot on the side's midpoint.
     const leaders = sideLeaders(points.map(toPx), centres, sizes);
     picture = (
-      <div className="ni-pwalk__fence" style={{ width: fence.w, height: fence.h }}>
+      <div
+        className="ni-pwalk__fence"
+        style={{ width: fence.w, height: fence.h }}
+        data-crowded={fence.crowded ? 'true' : undefined}
+      >
         <div
           className="ni-pwalk__fence-inner"
           style={{ left: -fence.minX, top: -fence.minY, width: svgW, height: svgH }}
@@ -595,21 +617,15 @@ export function PerimeterWalkWidget({
     const h = size?.h ?? 0;
     // The grip: a round handle (visible disc ≥ 64 px) outside the grid, below-right of the
     // rectangle's corner, with a connector to the corner. It covers no square.
-    const gripX =
-      gripPlace === 'below'
-        ? w * cell + BORDER / 2 + GRIP_GAP
-        : gridCols * cell + BORDER / 2 + GRIP_GAP;
-    const gripY =
-      gripPlace === 'below'
-        ? gridRows * cell + BORDER / 2 + GRIP_GAP
-        : Math.min(h * cell + GRIP_GAP, gridRows * cell + BORDER / 2 + GRIP_BELOW - 2 - GRIP);
-    // The connector runs along a grid line (the rectangle's right edge carried down, or its bottom
-    // edge carried right) to the frame, then to the disc's edge: it crosses no square.
+    const gripX = gridCols * cell + BORDER / 2 + GRIP_GAP;
+    const gripY = Math.min(
+      h * cell + GRIP_GAP,
+      gridRows * cell + BORDER / 2 + GRIP_BELOW - 2 - GRIP,
+    );
+    // The connector runs along a grid line (the rectangle's bottom edge carried right) to the
+    // frame, then to the disc's edge: it crosses no square.
     const gripC: Pt = [gripX + GRIP / 2, gripY + GRIP / 2];
-    const bend: Pt =
-      gripPlace === 'below'
-        ? [w * cell, gridRows * cell + BORDER / 2]
-        : [gridCols * cell + BORDER / 2, h * cell];
+    const bend: Pt = [gridCols * cell + BORDER / 2, h * cell];
     const toDisc = Math.hypot(gripC[0] - bend[0], gripC[1] - bend[1]) || 1;
     const linkEnd: Pt = [
       gripC[0] - ((gripC[0] - bend[0]) / toDisc) * (GRIP / 2),
@@ -682,20 +698,18 @@ export function PerimeterWalkWidget({
           onKeyDown={onGridKey}
         >
           {size ? (
-            <>
-              <svg className="ni-pwalk__grip-link" aria-hidden="true" focusable="false">
-                <polyline points={linkPoints} />
-              </svg>
-              <span
-                className="ni-pwalk__corner"
-                data-place={gripPlace}
-                aria-hidden="true"
-                style={{ left: gripX, top: gripY, width: GRIP, height: GRIP }}
-              >
-                <GripIcon />
-              </span>
-            </>
+            <svg className="ni-pwalk__grip-link" aria-hidden="true" focusable="false">
+              <polyline points={linkPoints} />
+            </svg>
           ) : null}
+          <span
+            className="ni-pwalk__corner"
+            data-place={gripPlace}
+            aria-hidden="true"
+            style={{ left: gripX, top: gripY, width: GRIP, height: GRIP }}
+          >
+            <GripIcon />
+          </span>
           {size ? (
             <span className="ni-pwalk__rect" style={{ width: w * cell, height: h * cell }}>
               <span className="ni-pwalk__dim ni-pwalk__dim--w" aria-hidden="true">
@@ -812,8 +826,11 @@ export function PerimeterWalkWidget({
   );
 }
 
-/** A side-number bubble: border and padding (px), and one 38 px digit's width. */
-const LABEL_EDGE = 26;
+/**
+ * A side-number bubble: border and padding (px; 3 + 4 each side), and one 38 px digit's width:
+ * a two-digit number fits a round target-size bubble (a smaller fence needs less room round it).
+ */
+const LABEL_EDGE = 14;
 const LABEL_DIGIT = 24;
 /** Bubbles keep this far from each other (px). */
 const LABEL_GAP = 12;
@@ -821,7 +838,7 @@ const LABEL_GAP = 12;
  * A bubble's edge from a side line's centre (px): the 6 px line's half and 12 px clear of it
  * (evidence review: bubbles sat 9 to 10 px from their sides).
  */
-const LABEL_LINE = 3 + 12 + 1;
+const LABEL_LINE = 3 + 12;
 
 type Box = { l: number; t: number; r: number; b: number };
 const boxAt = (c: Pt, s: Pt): Box => ({
@@ -868,6 +885,14 @@ function segmentToBox(a: Pt, b: Pt, box: Box): number {
  * pushed further out.
  */
 export function placeSideLabels(poly: readonly Pt[], sizes: readonly Pt[]): Pt[] {
+  return placeSideLabelsInfo(poly, sizes).centres;
+}
+
+/** `placeSideLabels`, and whether any number could not sit beside its own side (`crowded`). */
+export function placeSideLabelsInfo(
+  poly: readonly Pt[],
+  sizes: readonly Pt[],
+): { centres: Pt[]; crowded: boolean } {
   const n = poly.length;
   const sides = poly.map((a, i) => {
     const b = poly[(i + 1) % n] as Pt;
@@ -891,8 +916,8 @@ export function placeSideLabels(poly: readonly Pt[], sizes: readonly Pt[]): Pt[]
     ];
   };
   const box = (i: number) => boxAt(centre(i), sizes[i] as Pt);
-  // How far a bubble may slide along its side: a quarter of the side from its midpoint.
-  const slide = (k: number) => (sides[k] as (typeof sides)[number]).len / 4;
+  // How far a bubble may slide along its side: a tenth of the side from its midpoint.
+  const slide = (k: number) => (sides[k] as (typeof sides)[number]).len / 10;
   for (let round = 0; round < 60; round += 1) {
     let moved = false;
     for (let i = 0; i < n; i += 1) {
@@ -960,7 +985,17 @@ export function placeSideLabels(poly: readonly Pt[], sizes: readonly Pt[]): Pt[]
     }
     if (!moved) break;
   }
-  return sides.map((_, i) => centre(i));
+  const centres = sides.map((_, i) => centre(i));
+  // Crowded: a number ended more than 24 px from its own side, or closer than 12 px to another.
+  const base = sides.map((s, i) => {
+    const sz = sizes[i] as Pt;
+    return Math.abs(s.nrm[0]) * (sz[0] / 2) + Math.abs(s.nrm[1]) * (sz[1] / 2);
+  });
+  let crowded = out.some((o, i) => o - (base[i] as number) > 3 + 24 + 0.5);
+  for (let i = 0; i < n && !crowded; i += 1) {
+    for (let j = i + 1; j < n; j += 1) if (gapOf(box(i), box(j)) < LABEL_GAP - 0.5) crowded = true;
+  }
+  return { centres, crowded };
 }
 
 /** A bubble further than this (px) from the middle half of its own side gets a leader. */

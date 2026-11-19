@@ -142,9 +142,14 @@ export const TotalRectangle: Story = {
   },
 };
 
-/** MEA.11 (L shape): the missing side shows "?", is drawn exactly 2 long, and the fence sign says 22. */
+/**
+ * MEA.11 (L shape, tablet area): the missing side shows "?", is drawn exactly 2 long, and the
+ * fence sign says 22. (Its notch needs 51.5 px a unit for both inner numbers beside their sides:
+ * a 471 × 420 px fence, which the tablet area holds.)
+ */
 export const MissingSideL: Story = {
   args: { config: lShape },
+  render: inArea('tablet'),
   play: async ({ canvasElement, args }) => {
     const root = await findWidget(canvasElement, ROOT);
     await expect(label(root, 4)).toHaveTextContent('?');
@@ -323,10 +328,16 @@ async function expectSideLabels(root: HTMLElement) {
       getComputedStyle(root.querySelector('line.ni-pwalk__side') as Element).strokeWidth,
     ) / 2;
   let nearest = Number.POSITIVE_INFINITY;
+  let farthest = 0;
   let offMid = 0;
+  // A fence whose L notch cannot hold both its numbers in this area (the widget marks it): the
+  // number that had to step out keeps a leader; recorded as an exception (reported for decision).
+  const crowded =
+    (root.querySelector('.ni-pwalk__fence') as HTMLElement).dataset.crowded === 'true';
   for (const l of labels) {
     const r = l.getBoundingClientRect();
     const own = Number(l.dataset.labelSide);
+    const led = crowded && root.querySelector(`.ni-pwalk__leader[data-leader-for="${own}"]`);
     for (const s of segs) {
       const gap = dist(s, r) - strokeHalf;
       nearest = Math.min(nearest, gap);
@@ -342,13 +353,19 @@ async function expectSideLabels(root: HTMLElement) {
     const half = (Math.abs(d[0]) * r.width + Math.abs(d[1]) * r.height) / 2;
     await expect(t, `bubble ${own} across from its side`).toBeGreaterThanOrEqual(-half);
     await expect(t, `bubble ${own} across from its side`).toBeLessThanOrEqual(len + half);
-    // Centred on its own side's midpoint: moved along the side (only to keep 12 px from another
-    // bubble) by no more than a quarter of the side (evidence review).
+    // Directly beside its own side's midpoint (evidence review): moved along the side only to
+    // keep 12 px from another bubble, by no more than a tenth of the side, and 12 to 24 px out
+    // from the side's line.
     const shift = Math.abs(t - len / 2) / len;
     offMid = Math.max(offMid, shift);
-    await expect(shift, `bubble ${own} near its side's midpoint`).toBeLessThanOrEqual(
-      0.25 + 0.5 / len,
+    await expect(shift, `bubble ${own} at its side's midpoint`).toBeLessThanOrEqual(
+      0.1 + 0.5 / len,
     );
+    const ownGap = dist(s, r) - strokeHalf;
+    if (!led) {
+      farthest = Math.max(farthest, ownGap);
+      await expect(ownGap, `bubble ${own} 12 to 24 px from its side`).toBeLessThanOrEqual(24.5);
+    }
     const tc = Math.min(len, Math.max(0, t));
     const foot: [number, number] = [s.a[0] + d[0] * tc, s.a[1] + d[1] * tc];
     for (const other of segs) {
@@ -360,13 +377,21 @@ async function expectSideLabels(root: HTMLElement) {
     }
   }
   await expectTargetGaps(labels);
-  await expectLeaders(root);
+  await expectLeaders(root, crowded);
+  if (crowded) {
+    recordEvidence(root, {
+      exceptions: {
+        crowded_notch:
+          "the L's notch cannot hold both numbers beside their sides in this area (reported)",
+      },
+    });
+  }
   recordEvidence(root, {
-    bubble_to_side: Math.round(nearest),
+    bubble_to_side: `${Math.round(nearest)}-${Math.round(farthest)}`,
     bubble_off_mid_pct: Math.round(offMid * 100),
   });
   console.info(
-    `[bubbles] nearest side line ${Math.round(nearest)} px; furthest from a midpoint ${Math.round(offMid * 100)} % of its side`,
+    `[bubbles] ${Math.round(nearest)} to ${Math.round(farthest)} px from their sides; furthest from a midpoint ${Math.round(offMid * 100)} % of its side`,
   );
 }
 
@@ -376,7 +401,7 @@ async function expectSideLabels(root: HTMLElement) {
  * bubble to a dot ON its own side within a quarter of the side from the midpoint, crossing no
  * other bubble. Records `leaders` (side index: the leader's length in px).
  */
-async function expectLeaders(root: HTMLElement) {
+async function expectLeaders(root: HTMLElement, crowded = false) {
   const svg = root.querySelector('.ni-pwalk__fence svg') as SVGSVGElement;
   const ctm = svg.getScreenCTM() as DOMMatrix;
   const client = (x: number, y: number): [number, number] => {
@@ -432,12 +457,14 @@ async function expectLeaders(root: HTMLElement) {
     await expect(
       Math.abs(on.t - on.len / 2),
       `leader ${i}: its dot near the side's midpoint`,
-    ).toBeLessThanOrEqual(on.len / 4 + 0.5);
+    ).toBeLessThanOrEqual(on.len / 10 + 0.5);
     const poly = g.querySelector('polyline') as SVGPolylineElement;
     const cs = getComputedStyle(poly);
     await expect(Number.parseFloat(cs.strokeWidth), `leader ${i}: 2+ px`).toBeGreaterThanOrEqual(2);
     await expect(cs.stroke, `leader ${i}: ink`).toBe('rgb(38, 70, 83)');
     const total = poly.getTotalLength();
+    // Short, and crossing no side (a leader only where unavoidable; evidence review).
+    if (!crowded) await expect(total, `leader ${i}: 40 px or less`).toBeLessThanOrEqual(40);
     for (let d = 0; d <= total; d += 2) {
       const p = poly.getPointAtLength(d);
       const [x, y] = client(p.x, p.y);
@@ -615,6 +642,28 @@ export const DesignSteppers: Story = {
   },
 };
 
+/**
+ * The design composition as SEEN (the target, the reference, the grid, its numbers, the grip, the
+ * steppers, "yours" and Check) is centred across its area or stage, left and right margins
+ * within 4 px (evidence review: 40 / 115 px while the widget box measured centred). Records them.
+ */
+async function expectDesignCentred(root: HTMLElement) {
+  const host = (root.closest('.story-widget-area') ??
+    root.closest('.story-widget-stage')) as HTMLElement;
+  const h = host.getBoundingClientRect();
+  const parts = [
+    ...root.querySelectorAll(
+      '.ni-pwalk__target, .ni-pwalk__ref, .ni-pwalk__grid-board, .ni-pwalk__corner svg, .ni-pwalk__dim, .ni-pwalk__step, .ni-pwalk__yours',
+    ),
+    within(root).getByRole('button', { name: 'Check' }),
+  ].map((e) => e.getBoundingClientRect());
+  const left = Math.min(...parts.map((r) => r.left)) - h.left;
+  const right = h.right - Math.max(...parts.map((r) => r.right));
+  await expect(Math.abs(left - right), 'the composition centred').toBeLessThanOrEqual(4);
+  recordEvidence(root, { composition_lr: `${Math.round(left)}/${Math.round(right)}` });
+  console.info(`[composition] L/R ${Math.round(left)}/${Math.round(right)}`);
+}
+
 /** The corner grip (evidence review): visible, target-size, and the other controls' sizes. */
 async function expectDesignControls(story: string, root: HTMLElement) {
   await expectControls(story, 'g1-up', {
@@ -643,6 +692,7 @@ export const DesignWideGridTablet: Story = {
     ]);
     await settleFocus();
     await expectDesignControls('perimeter-walk DesignWideGridTablet', root);
+    await expectDesignCentred(root);
     await expectFitsArea(areaBox(canvasElement), [
       ...root.querySelectorAll('.ni-pwalk__dim, .ni-pwalk__corner'),
     ]);
@@ -762,6 +812,38 @@ export const DesignWideGridLandscapeMin: Story = {
     ]);
     await settleFocus();
     await expectDesignControls('perimeter-walk DesignWideGridLandscapeMin', root);
+    await expectDesignCentred(root);
+  },
+};
+
+/**
+ * Smallest landscape area, design, a 4 × 3 rectangle built (evidence review: no shot showed the
+ * grip there): the grip right of the grid's frame, 64 px, fully inside the area, covering no
+ * square; the composition centred.
+ */
+export const DesignBuiltLandscapeMin: Story = {
+  args: { config: design },
+  render: inArea('landscapeMin'),
+  play: async ({ canvasElement }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    board(root).focus();
+    await userEvent.keyboard('{ArrowRight}{ArrowLeft}');
+    await userEvent.keyboard('{ArrowRight}{ArrowRight}{ArrowRight}{ArrowDown}{ArrowDown}');
+    await expect(board(root)).toHaveAttribute('data-size', '4x3');
+    await settleFocus();
+    await expectGripOutside(root, '4×3');
+    const grip = root.querySelector('.ni-pwalk__corner') as HTMLElement;
+    await expectFitsArea(areaBox(canvasElement), [
+      grip,
+      board(root),
+      ...root.querySelectorAll(
+        '.ni-pwalk__dim, .ni-pwalk__step, .ni-pwalk__target, .ni-pwalk__ref',
+      ),
+      within(root).getByRole('button', { name: 'Check' }),
+    ]);
+    await expect(getComputedStyle(grip).visibility).toBe('visible');
+    await expectDesignCentred(root);
+    await expectDesignControls('perimeter-walk DesignBuiltLandscapeMin', root);
   },
 };
 
@@ -892,6 +974,7 @@ export const DemoInviteDesign: Story = {
     ];
     await expectOneInviteRing(root, { clearOf: [...others, board(root)] });
     await expectHandTouchesOnlyInvited(root, [...others, board(root)]);
+    await expectDesignCentred(root);
   },
 };
 
