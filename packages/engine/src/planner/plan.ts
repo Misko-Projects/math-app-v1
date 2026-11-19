@@ -493,7 +493,7 @@ function compose(
   let lesson: Slot | null = null;
   let draw: ItemTemplate[] | null = null;
   let cancelMissing = false;
-  /** A choice-answer cancelling item, scheduled once as the focus skill's first item. */
+  /** The cancelling item (outside the test-out pool), scheduled once as the focus skill's first item. */
   let cancelOnce: ItemTemplate | null = null;
   if (focus && skill) {
     practice = hostedEvidence(focus.skillId);
@@ -517,11 +517,13 @@ function compose(
       const outside = hosted(focus.skillId).filter((x) => !pool.has(x.id));
       const cancel = outside.find(isConstructedTemplate) ?? outside[0];
       if (!cancel) cancelMissing = true;
-      // A constructed canceller leads the practice cycle (it is evidence itself). A choice one is
-      // scheduled once, and practice then cycles through the evidence templates only.
-      else if (isConstructedTemplate(cancel))
-        practice = [cancel, ...practice.filter((x) => x.id !== cancel.id)];
-      else cancelOnce = cancel;
+      else {
+        // The canceller is scheduled once; practice then cycles through the other evidence
+        // templates (the canceller too only when it is the skill's sole one).
+        cancelOnce = cancel;
+        const rest = practice.filter((x) => x.id !== cancel.id);
+        if (rest.length > 0) practice = rest;
+      }
     }
   }
   const t = draw?.length ?? 0;

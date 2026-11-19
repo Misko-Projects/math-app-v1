@@ -924,6 +924,53 @@ describe('lessons and test-outs (04 §3, 03 §6.5)', () => {
     }
   });
 
+  it('choice-only cancellation schedules the canceller once', () => {
+    // Review round 3 (#71): A has only choice templates: a concrete one outside the test-out pool
+    // and two pictorial ones in it. Its lesson is demonstration-only and its offer uncertain, so
+    // the concrete template cancels the test-out as A's first item, once; the following items are
+    // the two pool templates, so the first three A items are three distinct templates.
+    const a = graph.skills[A] as Skill;
+    const base = graph.templates[`${A}.t2`] as ItemTemplate;
+    const k1: ItemTemplate = { ...base, id: `${A}.t5`, tier: 'concrete', format: 'compare' };
+    const p1: ItemTemplate = { ...base, id: `${A}.t6`, format: 'numeral-pick' };
+    const p2: ItemTemplate = { ...base, id: `${A}.t7`, format: 'numeral-pick' };
+    const g: SkillGraph = {
+      ...graph,
+      templates: { ...graph.templates, [k1.id]: k1, [p1.id]: p1, [p2.id]: p2 },
+      skills: {
+        ...graph.skills,
+        [A]: {
+          ...a,
+          templates: [k1.id, p1.id, p2.id],
+          lesson: {
+            ...a.lesson,
+            templateId: k1.id,
+            testOut: { ...a.lesson.testOut, templateIds: [p1.id, p2.id] },
+          },
+        },
+      },
+    };
+    const s = stateWith(
+      { [C]: practiced(2, NOW + 3 * DAY_MS) },
+      { thetaG: Math.log(0.751 / 0.249) },
+    );
+    const choices = cap('choice-works', ['tap-count', 'number-pad', 'compare', 'numeral-pick'], {
+      residents: ['nib'],
+      produces: ['stone'],
+    });
+    const p = plan(input({ graph: g, state: s, workshopsAvailable: [choices] }));
+    expect(drawOf(p, A)).toHaveLength(0);
+    const focusRequests = p.requests.filter((x) => x.tasks.some((t) => t.skillId === A));
+    expect(focusRequests.length).toBeGreaterThan(0);
+    for (const r of focusRequests) {
+      const items = r.tasks.filter((t) => t.skillId === A && t.mode === 'item');
+      expect(items.length).toBeGreaterThanOrEqual(3);
+      expect(items[0]?.templateId).toBe(k1.id);
+      expect(new Set(items.slice(0, 3).map((t) => t.templateId)).size).toBe(3);
+      expect(items.filter((t) => t.templateId === k1.id)).toHaveLength(1);
+    }
+  });
+
   it('after a demonstration-only lesson warmup, the kept draw is a real, passable test-out', () => {
     // Nothing attempted; A's test-out is offered; A's lesson (demo only) is the warmup and records
     // no attempt. A's request keeps its whole draw: each item is asked at d* = 0, three clean
