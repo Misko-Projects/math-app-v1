@@ -19,6 +19,7 @@ function fakeApi(pin: (token: string, pin: string) => Promise<{ expiresAt: numbe
     logout: vi.fn(async () => {}),
     pairStart: unused,
     pairComplete: unused,
+    login: unused,
   };
 }
 
@@ -131,8 +132,9 @@ describe('parent gate', () => {
     let t = 1_000_000;
     const gate = createParentGate({
       store: app.store,
-      // The server's PIN session lasts 10 minutes from the PIN (08 §2).
-      api: fakeApi(async () => ({ expiresAt: t + PARENT_GATE_IDLE_MS })),
+      // The server's PIN session lasts 10 minutes from the PIN (08 §2). Its clock runs 5 minutes
+      // ahead of this tablet's: its `expiresAt` must not stretch the gate.
+      api: fakeApi(async () => ({ expiresAt: t + 5 * 60_000 + PARENT_GATE_IDLE_MS })),
       setTimer: timers.setTimer,
       clearTimer: timers.clearTimer,
       now: () => t,
@@ -140,7 +142,8 @@ describe('parent gate', () => {
     expect(await gate.verifyPin('2468')).toEqual({ ok: true });
     t += 9 * 60_000; // nine busy minutes later
     gate.touch();
-    expect(timers.pending()?.ms).toBe(60_000); // only the session's last minute is left
+    // Only the session's last minute (less a 5 s margin) is left, on this tablet's own clock.
+    expect(timers.pending()?.ms).toBe(55_000);
     timers.fire();
     expect(gate.isUnlocked()).toBe(false);
     gate.dispose();

@@ -13,6 +13,9 @@ import { ApiError, type ParentApi } from './api';
 
 export const PARENT_GATE_HOLD_MS = 2000;
 export const PARENT_GATE_IDLE_MS = 10 * 60_000;
+/** `POST /auth/pin` grants a 10-minute parent session (08 §2). */
+export const PARENT_PIN_SESSION_MS = 10 * 60_000;
+const CLOCK_MARGIN_MS = 5_000;
 
 export type PinResult =
   | { ok: true }
@@ -99,9 +102,9 @@ export function createParentGate(opts: ParentGateOptions): ParentGate {
     async verifyPin(pin) {
       const device = await opts.store.device();
       if (!device.deviceToken) return { ok: false, reason: 'not_paired' };
-      let session: { expiresAt: number };
+      const askedAt = now();
       try {
-        session = await opts.api.pin(device.deviceToken, pin);
+        await opts.api.pin(device.deviceToken, pin);
       } catch (e) {
         if (e instanceof ApiError) {
           if (e.code === 'invalid_pin') return { ok: false, reason: 'wrong' };
@@ -114,7 +117,10 @@ export function createParentGate(opts: ParentGateOptions): ParentGate {
         }
         return { ok: false, reason: 'unavailable' };
       }
-      unlock(session.expiresAt);
+      // The server's PIN session lasts 10 minutes from when it answered (08 §2). Its `expiresAt` is
+      // on the server's clock, which a tablet's may not match, so the deadline is measured on this
+      // device's clock from when the request was sent: never later than the server's.
+      unlock(askedAt + PARENT_PIN_SESSION_MS - CLOCK_MARGIN_MS);
       return { ok: true };
     },
     subscribe(listener) {

@@ -8,7 +8,7 @@
 import { Panel } from '@number-island/ui';
 import { type FormEvent, useState } from 'react';
 import { Link, useNavigate } from 'react-router';
-import { describeApiError } from '@/parent/api';
+import { ApiError, describeApiError } from '@/parent/api';
 import { Button, Field, Notice, TextInput } from '@/parent/kit';
 import { useParentApi } from '@/parent/ParentContext';
 import {
@@ -32,6 +32,9 @@ export function JoinPage() {
   const [error, setError] = useState<string | null>(null);
   const [otherFamily, setOtherFamily] = useState(false);
   const [confirmErase, setConfirmErase] = useState(false);
+  const [passphrase, setPassphrase] = useState('');
+  const [eraseError, setEraseError] = useState<string | null>(null);
+  const [erasing, setErasing] = useState(false);
   const [busy, setBusy] = useState(false);
   const hadFamily = device !== undefined && device.pairedAt !== null;
   const paired = Boolean(device?.deviceToken);
@@ -141,11 +144,50 @@ export function JoinPage() {
                 <p className="text-base">
                   This removes this device’s copy of the island: the children’s profiles and any
                   progress that hasn’t synced. The family’s island on the server and on its other
-                  devices stays as it is.
+                  devices stays as it is. A grown-up confirms with the island server’s parent
+                  passphrase.
                 </p>
+                <Field label="Parent passphrase" error={eraseError}>
+                  {({ id, describedBy }) => (
+                    <TextInput
+                      id={id}
+                      aria-describedby={describedBy}
+                      aria-invalid={eraseError ? true : undefined}
+                      type="password"
+                      autoComplete="current-password"
+                      value={passphrase}
+                      onChange={(e) => {
+                        setPassphrase(e.target.value);
+                        setEraseError(null);
+                      }}
+                    />
+                  )}
+                </Field>
                 <div className="flex flex-wrap gap-3">
-                  <Button variant="danger" onClick={() => void eraseThisDevice(services)}>
-                    Erase this device
+                  <Button
+                    variant="danger"
+                    disabled={erasing}
+                    onClick={async () => {
+                      // Erasing is a grown-up action (06 §3): the server checks the passphrase
+                      // (08 §2, rate-limited), since a signed-out device has no PIN check.
+                      setErasing(true);
+                      setEraseError(null);
+                      try {
+                        await api.login(passphrase);
+                      } catch (err) {
+                        setEraseError(
+                          err instanceof ApiError && err.code === 'invalid_credentials'
+                            ? 'That passphrase isn’t right.'
+                            : describeApiError(err),
+                        );
+                        setErasing(false);
+                        return;
+                      }
+                      await api.logout().catch(() => {});
+                      await eraseThisDevice(services);
+                    }}
+                  >
+                    {erasing ? 'Erasing…' : 'Erase this device'}
                   </Button>
                   {otherFamily ? null : (
                     <Button variant="secondary" onClick={() => setConfirmErase(false)}>

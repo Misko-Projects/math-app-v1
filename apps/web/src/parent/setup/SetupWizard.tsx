@@ -16,10 +16,11 @@ import {
   type AiChoices,
   CHILD_NAME_MAX,
   type FamilyDetails,
+  type FamilyIds,
   guessDeviceName,
   type NewChild,
   saveAiChoices,
-  saveChildren,
+  saveFamilyLocally,
   setupFamilyOnServer,
 } from './family';
 
@@ -612,8 +613,11 @@ export function AiStep({ onDone }: { onDone: (choices: AiChoices) => Promise<voi
 
   useEffect(() => {
     const ctl = new AbortController();
+    // Save waits for this answer (see below), so keep the wait short.
+    const timeout = setTimeout(() => ctl.abort(), 5000);
     api.health(ctl.signal).then(
       (h) => {
+        clearTimeout(timeout);
         setHealth(h);
         // A choice made while the keys were being checked does not survive a missing key.
         setChoices((c) => ({
@@ -622,9 +626,15 @@ export function AiStep({ onDone }: { onDone: (choices: AiChoices) => Promise<voi
           avatarPhoto: c.avatarPhoto && h.ai.vision,
         }));
       },
-      () => setHealth('unknown'),
+      () => {
+        clearTimeout(timeout);
+        setHealth('unknown');
+      },
     );
-    return () => ctl.abort();
+    return () => {
+      clearTimeout(timeout);
+      ctl.abort();
+    };
   }, [api]);
 
   return (
@@ -693,8 +703,10 @@ export function AiStep({ onDone }: { onDone: (choices: AiChoices) => Promise<voi
       </ul>
       <div className="flex justify-end">
         <Button
-          disabled={busy}
+          // Saving waits for the key check (at most 5 s), so the saved choices are the ones shown.
+          disabled={busy || health === null}
           onClick={async () => {
+            if (health === null) return;
             setBusy(true);
             // Save exactly what the wizard shows: a feature whose key is missing is Off.
             const keyFor = (k: keyof AiChoices) =>
@@ -708,7 +720,7 @@ export function AiStep({ onDone }: { onDone: (choices: AiChoices) => Promise<voi
             });
           }}
         >
-          {busy ? 'Saving…' : 'Save and finish'}
+          {busy ? 'Saving…' : health === null ? 'Checking the server…' : 'Save and finish'}
         </Button>
       </div>
     </div>
@@ -764,7 +776,7 @@ export function SetupWizard() {
   const [family, setFamily] = useState<FamilyDetails>({ familyName: '', passphrase: '', pin: '' });
   const [kids, setKids] = useState<NewChild[]>([]);
   const [created, setCreated] = useState<ChildProfile[]>([]);
-  const [serverDone, setServerDone] = useState(false);
+  const [serverIds, setServerIds] = useState<FamilyIds | null>(null);
   const headingRef = useRef<HTMLElement>(null);
 
   useEffect(() => {
@@ -808,23 +820,25 @@ export function SetupWizard() {
           ) : step === 2 ? (
             <DeviceStep
               onBack={() => go(1)}
-              serverDone={serverDone}
+              serverDone={serverIds !== null}
               onCreate={async (deviceName) => {
-                // `POST /setup` succeeds once per server; a retry after a local failure only
-                // repeats this device's part (saveChildren is idempotent by child id).
-                if (!serverDone) {
+                // `POST /setup` succeeds once per server: its ids are kept the moment it answers,
+                // and a retry after any local failure only repeats this device's part (adopting
+                // the ids and saving the children, both idempotent).
+                let ids = serverIds;
+                if (!ids) {
                   try {
-                    await setupFamilyOnServer({ services, api, gate }, { ...family, deviceName });
-                    setServerDone(true);
+                    ids = await setupFamilyOnServer({ api, gate }, { ...family, deviceName });
+                    setServerIds(ids);
                   } catch (e) {
                     return describeApiError(e);
                   }
                 }
                 try {
-                  setCreated(await saveChildren(services, kids));
+                  setCreated(await saveFamilyLocally(services, ids, kids));
                 } catch (e) {
                   recordDiagnostic('setup', e);
-                  return 'Your island was created, but this device couldn’t save the children. Try again.';
+                  return 'Your island was created, but this device couldn’t finish saving it. Try again.';
                 }
                 go(3);
                 return null;

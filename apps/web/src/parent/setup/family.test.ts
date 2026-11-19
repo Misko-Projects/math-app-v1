@@ -12,7 +12,7 @@ import {
   JoinRefusedError,
   joinFamily,
   saveAiChoices,
-  saveChildren,
+  saveFamilyLocally,
   setupFamilyOnServer,
   startingAvatar,
 } from './family';
@@ -45,6 +45,7 @@ function fakeApi(overrides: Partial<ParentApi> = {}): ParentApi {
     logout: vi.fn(async () => {}),
     pairStart: vi.fn(async () => ({ code: '123456', expiresAt: 1 })),
     pairComplete: vi.fn(async () => ids),
+    login: vi.fn(async () => ({ expiresAt: 1 })),
     ...overrides,
   };
 }
@@ -214,7 +215,7 @@ describe('setup, step by step', () => {
     const { app } = await boot();
     const api = fakeApi();
     const gate = createParentGate({ store: app.store, api });
-    await setupFamilyOnServer({ services: app, api, gate }, { ...details });
+    const ids = await setupFamilyOnServer({ api, gate }, { ...details });
     const kids = [
       { id: KID_A, name: 'Mia', birthYear: 2020, grade: 'K' as const, advanced: false },
       { id: KID_B, name: 'Leo', birthYear: 2018, grade: '2' as const, advanced: true },
@@ -226,10 +227,37 @@ describe('setup, step by step', () => {
       if (calls === 2) throw new Error('QuotaExceededError');
       return put(p);
     };
-    await expect(saveChildren(app, kids)).rejects.toThrow('QuotaExceededError');
+    await expect(saveFamilyLocally(app, ids, kids)).rejects.toThrow('QuotaExceededError');
     expect((await app.store.allProfiles()).map((p) => p.id)).toEqual([KID_A]);
-    await saveChildren(app, kids);
+    await saveFamilyLocally(app, ids, kids);
     expect((await app.store.allProfiles()).map((p) => p.id).sort()).toEqual([KID_A, KID_B].sort());
+    expect(api.setup).toHaveBeenCalledTimes(1);
+    gate.dispose();
+  });
+
+  it('retries a failed adoption of the new family locally, without a second /setup', async () => {
+    const { app } = await boot();
+    const api = fakeApi();
+    const gate = createParentGate({ store: app.store, api });
+    const ids = await setupFamilyOnServer({ api, gate }, { ...details });
+    // The server has the family now; this device has not adopted it yet.
+    expect((await app.store.device()).pairedAt).toBeNull();
+    const adopt = app.sync.adopt.bind(app.sync);
+    let failed = false;
+    app.sync.adopt = async (x) => {
+      if (!failed) {
+        failed = true;
+        throw new Error('transaction aborted');
+      }
+      return adopt(x);
+    };
+    const kids = [
+      { id: KID_A, name: 'Mia', birthYear: 2020, grade: 'K' as const, advanced: false },
+    ];
+    await expect(saveFamilyLocally(app, ids, kids)).rejects.toThrow('transaction aborted');
+    await saveFamilyLocally(app, ids, kids);
+    expect(await app.store.device()).toMatchObject({ familyId: SERVER_FAMILY, deviceToken: TOKEN });
+    expect((await app.store.allProfiles()).map((p) => p.id)).toEqual([KID_A]);
     expect(api.setup).toHaveBeenCalledTimes(1);
     gate.dispose();
   });

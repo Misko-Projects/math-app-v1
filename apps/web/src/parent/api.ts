@@ -86,6 +86,8 @@ export interface ParentApi {
   setup(body: SetupRequest): Promise<SetupResponse>;
   /** Device-authenticated PIN check → a 10-minute parent session cookie (08 §2). */
   pin(deviceToken: string, pin: string): Promise<ParentSessionResponse>;
+  /** The parent passphrase (08 §2): needs no device token, so it works on a signed-out device. */
+  login(passphrase: string): Promise<ParentSessionResponse>;
   logout(): Promise<void>;
   pairStart(): Promise<PairStartResponse>;
   pairComplete(body: PairCompleteRequest): Promise<PairCompleteResponse>;
@@ -97,6 +99,7 @@ export function createParentApi(fetchImpl?: FetchLike): ParentApi {
     health: (signal) => call(f, apiRoutes.health, signal ? { signal } : {}),
     setup: (body) => call(f, apiRoutes.setup, { body }),
     pin: (token, pin) => call(f, apiRoutes.pin, { token, body: { pin } }),
+    login: (passphrase) => call(f, apiRoutes.login, { body: { passphrase } }),
     logout: async () => {
       await call(f, apiRoutes.logout);
     },

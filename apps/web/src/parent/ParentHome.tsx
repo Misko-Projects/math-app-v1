@@ -8,6 +8,7 @@ import { Link, useNavigate } from 'react-router';
 import { useAppServices } from '@/app/AppServices';
 import { useDeviceRecord, useSyncState } from '@/app/hooks';
 import { useProfiles } from '@/data/hooks';
+import { ApiError } from './api';
 import { Button, Notice } from './kit';
 import { useParentApi, useParentGate } from './ParentContext';
 
@@ -38,6 +39,8 @@ export function ParentHome() {
   const navigate = useNavigate();
   const [confirmSignOut, setConfirmSignOut] = useState(false);
   const [syncNote, setSyncNote] = useState<string | null>(null);
+  const [signingOut, setSigningOut] = useState(false);
+  const [signOutError, setSignOutError] = useState<string | null>(null);
   const paired = Boolean(device?.deviceToken);
 
   const syncNow = async () => {
@@ -104,19 +107,39 @@ export function ParentHome() {
                   It stops syncing with the family. Everything already on this device stays, and you
                   can join again with a code.
                 </p>
+                {signOutError ? (
+                  <div className="mt-3">
+                    <Notice tone="error">{signOutError}</Notice>
+                  </div>
+                ) : null}
                 <div className="mt-3 flex flex-wrap gap-3">
                   <Button
                     variant="danger"
+                    disabled={signingOut}
                     onClick={async () => {
+                      // First end the parent session on the server (its cookie would otherwise
+                      // stay valid); only then forget the device token, close the area and hand
+                      // the device back. Without the server, nothing changes.
+                      setSigningOut(true);
+                      setSignOutError(null);
+                      try {
+                        await api.logout();
+                      } catch (e) {
+                        // An already-ended session is fine; anything else keeps the device as is.
+                        if (!(e instanceof ApiError && e.code === 'unauthorized')) {
+                          setSignOutError(
+                            'Couldn’t reach the island server to sign out. Connect to the same Wi-Fi as the server and try again.',
+                          );
+                          setSigningOut(false);
+                          return;
+                        }
+                      }
                       await sync.signOut();
-                      // A signed-out device has no parent area: close it and end the parent
-                      // session on the server too, then hand the device back.
                       gate.lock();
-                      void api.logout().catch(() => {});
                       navigate('/', { replace: true });
                     }}
                   >
-                    Sign out
+                    {signingOut ? 'Signing out…' : 'Sign out'}
                   </Button>
                   <Button variant="secondary" onClick={() => setConfirmSignOut(false)}>
                     Cancel

@@ -88,14 +88,17 @@ export interface CreateFamilyDeps {
   gate: ParentGate;
 }
 
+export type FamilyIds = Awaited<ReturnType<ParentApi['setup']>>;
+
 /**
  * Step one of creating the family: `POST /setup` (once per server, 08 §2), which signs the parent
- * in, then this device adopts the server's ids and starts syncing.
+ * in. Nothing local happens here: the caller keeps the returned ids for step two, so a local
+ * failure never needs a second `/setup`.
  */
 export async function setupFamilyOnServer(
-  { services, api, gate }: CreateFamilyDeps,
+  { api, gate }: Pick<CreateFamilyDeps, 'api' | 'gate'>,
   details: FamilyDetails & { deviceName: string },
-): Promise<void> {
+): Promise<FamilyIds> {
   const ids = await api.setup({
     familyName: details.familyName.trim(),
     passphrase: details.passphrase,
@@ -104,13 +107,24 @@ export async function setupFamilyOnServer(
   });
   // `/setup` set the parent session cookie: the parent is signed in for the rest of the wizard.
   gate.unlock();
-  await services.sync.adopt(ids);
+  return ids;
 }
 
 /**
- * Step two, local only and safe to repeat: writes each child's profile under its own id (an
- * upsert, so a retry after a failed write saves each child exactly once) and the family settings.
+ * Step two, local only and safe to repeat: this device adopts the server's ids (starting sync),
+ * then each child's profile is written under its own id (an upsert, so a retry after a failed
+ * write saves each child exactly once), then the family settings.
  */
+export async function saveFamilyLocally(
+  services: Pick<AppServices, 'store' | 'sync' | 'content'>,
+  ids: FamilyIds,
+  children: readonly NewChild[],
+): Promise<ChildProfile[]> {
+  const device = await services.store.device();
+  if (device.deviceToken !== ids.deviceToken) await services.sync.adopt(ids);
+  return saveChildren(services, children);
+}
+
 export async function saveChildren(
   services: Pick<AppServices, 'store' | 'sync' | 'content'>,
   children: readonly NewChild[],
@@ -149,8 +163,8 @@ export async function createFamily(
   deps: CreateFamilyDeps,
   details: FamilyDetails & { deviceName: string; children: readonly NewChild[] },
 ): Promise<ChildProfile[]> {
-  await setupFamilyOnServer(deps, details);
-  return saveChildren(deps.services, details.children);
+  const ids = await setupFamilyOnServer(deps, details);
+  return saveFamilyLocally(deps.services, ids, details.children);
 }
 
 export interface AiChoices {
