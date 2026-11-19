@@ -1,16 +1,20 @@
+import type { Column } from '@number-island/engine';
 import type { WidgetConfigOf } from '@number-island/shared';
 import { describe, expect, it } from 'vitest';
 import { breakGhosts, bundleGhosts, gatherBox, moveGhosts, slices, transformFrom } from './fx';
 import {
+  type AgeMode,
   answerPlaces,
   arrangeTaken,
   type Box,
   COL_PAD,
+  chooseSide,
   digitsValue,
   extent,
   growCaps,
   itemUnit,
   lyingRods,
+  type MatState,
   naturalLayout,
   nestInner,
   pathStates,
@@ -20,6 +24,7 @@ import {
   planCaps,
   planMat,
   rodStacks,
+  sideLayout,
   stateCaps,
   stripWidth,
   U_FLOOR,
@@ -28,6 +33,19 @@ import {
 } from './layout';
 
 type Config = WidgetConfigOf<'base-ten-trade'>;
+
+/** The widget's mat-and-side width in the 1200 px tablet stage (mat + 12 px gap + side). */
+const CONTENT_W = 1138;
+/** The side panel's parts as the stage measures them: the pad and "check" (K and G1). */
+const PARTS: Record<AgeMode, { pad: number; check: number }> = {
+  k: { pad: 264, check: 114 },
+  'g1-up': { pad: 216, check: 98 },
+};
+/** The algorithm card's width: the sign column, a target-wide column a place, padding, border. */
+const cardWidth = (age: AgeMode, places: number) => {
+  const target = age === 'k' ? 80 : 64;
+  return 24 + places * (target + 12) + 2 * 16 + 2 * 3;
+};
 
 const cfg = (over: Partial<Config>): Config => ({
   format: 'base-ten-trade',
@@ -174,13 +192,14 @@ describe('layout', () => {
   });
 });
 
-describe('the nest holds everything a take-away can take (1280 × 800)', () => {
-  // The widget's width beside the 3-place algorithm card and pad (a 634 px nest inside), and a
-  // wider one; the height budget less the root padding.
-  const sizes = [
-    { width: 870, height: 648 },
-    { width: 1180, height: 648 },
-  ];
+describe('the nest holds everything a take-away can take (1280 × 800, K and G1)', () => {
+  // The mat's width beside the side panel, as the 1200 px tablet stage lays it out (measured in
+  // the StressNineFlatsTaken / StressTakeAll stories): G1 with a 3- or 4-place algorithm card,
+  // K with the card above its pad and "check" beside the pad.
+  const widths: Record<AgeMode, Record<number, number>> = {
+    'g1-up': { 3: 836, 4: 760 },
+    k: { 3: 736, 4: 696 },
+  };
   const worst = [
     [9, 0, 0, 9, 0, 0], // 900 − 900 (the review's case)
     [9, 9, 9, 9, 9, 9], // 999 − 999
@@ -188,39 +207,161 @@ describe('the nest holds everything a take-away can take (1280 × 800)', () => {
     [12, 0, 0, 12, 0, 0], // 1200 − 1200 (a 4-digit start)
     [10, 0, 0, 9, 9, 9], // 1000 − 999 (borrows across two zeros)
   ] as const;
-  for (const [sh, st, so, oh, ot, oo] of worst) {
-    it(`${sh * 100 + st * 10 + so} − ${oh * 100 + ot * 10 + oo}`, () => {
-      const config = cfg({
-        start: { hundreds: sh, tens: st, ones: so },
-        operation: { op: '-', operand: { hundreds: oh, tens: ot, ones: oo } },
-        showAlgorithm: true,
-        thenAsk: true,
-      });
-      const base = planCaps(config);
-      const path = pathStates(config);
-      for (const { width, height } of sizes) {
-        const unit = itemUnit({ age: 'g1-up', width, height, base, path });
-        for (const s of path) {
-          const taken = s.taken ?? { hundreds: 0, tens: 0, ones: 0 };
-          const plan = planMat({
-            age: 'g1-up',
-            width,
-            height,
-            caps: [growCaps(base, s.mat, taken), stateCaps(base, s.mat, null, taken)],
-            unit,
-          });
-          expect(plan.fits).toBe(true);
-          expect(plan.totalH).toBeLessThanOrEqual(height);
-          const inner = nestInner(plan.matW, plan.nestH);
-          const placed = placeTaken(taken, plan.u, inner);
-          expect(overlaps(all(placed))).toBe(false);
-          for (const b of all(placed)) expect(inside(b, inner)).toBe(true);
-          // One scale: the nest's pieces are drawn at the mat's unit.
-          if (placed.hundreds[0]) expect(placed.hundreds[0].w).toBe(plan.u * 10);
-        }
+  /** The take steps one piece at a time in `order`, from the mat the trades leave. */
+  const takeSteps = (path: MatState[], order: readonly Column[]): MatState[] => {
+    const traded = [...path].reverse().find((s) => {
+      const t = s.taken;
+      return !t || t.hundreds + t.tens + t.ones === 0;
+    }) as MatState;
+    const end = path.at(-1)?.taken ?? { hundreds: 0, tens: 0, ones: 0 };
+    const mat = { ...traded.mat };
+    const taken = { hundreds: 0, tens: 0, ones: 0 };
+    const out: MatState[] = [];
+    for (const k of order) {
+      for (let i = 0; i < end[k]; i++) {
+        mat[k] -= 1;
+        taken[k] += 1;
+        out.push({ mat: { ...mat }, pending: null, taken: { ...taken } });
       }
-    });
+    }
+    return out;
+  };
+  for (const age of ['g1-up', 'k'] as const) {
+    for (const [sh, st, so, oh, ot, oo] of worst) {
+      it(`${age}: ${sh * 100 + st * 10 + so} − ${oh * 100 + ot * 10 + oo}`, () => {
+        const config = cfg({
+          start: { hundreds: sh, tens: st, ones: so },
+          operation: { op: '-', operand: { hundreds: oh, tens: ot, ones: oo } },
+          showAlgorithm: true,
+          thenAsk: true,
+        });
+        const places = answerPlaces(config);
+        const base = planCaps(config);
+        const path = pathStates(config);
+        // The widget's choice, from the side panel's measured parts at 1200 px.
+        const { side, width: chosenW } = chooseSide({
+          age,
+          goal: 'compute',
+          showWork: true,
+          thenAsk: true,
+          answerInWork: true,
+          places,
+          contentW: CONTENT_W,
+          parts: { ...PARTS[age], card: cardWidth(age, places) },
+          base,
+          path,
+        });
+        // K keeps the algorithm in the side ("check" beside the pad): the mat has the full height,
+        // and the width the widget measures.
+        expect(side.workInSide).toBe(true);
+        expect(side.checkBeside).toBe(age === 'k');
+        expect(chosenW).toBe(widths[age][places]);
+        const height = side.spaceH;
+        // The expected path takes ones, tens, then hundreds; a child may take in any order.
+        const steps = [
+          ...path,
+          ...takeSteps(path, ['hundreds', 'tens', 'ones']),
+          ...takeSteps(path, ['tens', 'hundreds', 'ones']),
+        ];
+        for (const width of [chosenW, CONTENT_W - 12 - 216]) {
+          const unit = itemUnit({ age, width, height, base, path });
+          for (const s of steps) {
+            const taken = s.taken ?? { hundreds: 0, tens: 0, ones: 0 };
+            const plan = planMat({
+              age,
+              width,
+              height,
+              caps: [growCaps(base, s.mat, taken), stateCaps(base, s.mat, null, taken)],
+              unit,
+            });
+            const at = `${width} px, mat ${JSON.stringify(s.mat)}, nest ${JSON.stringify(taken)}`;
+            expect(plan.fits, at).toBe(true);
+            expect(plan.totalH, at).toBeLessThanOrEqual(height);
+            const inner = nestInner(plan.matW, plan.nestH);
+            const placed = placeTaken(taken, plan.u, inner);
+            expect(overlaps(all(placed)), at).toBe(false);
+            for (const b of all(placed)) expect(inside(b, inner), at).toBe(true);
+            // One scale: the nest's pieces are drawn at the mat's unit.
+            if (placed.hundreds[0]) expect(placed.hundreds[0].w).toBe(plan.u * 10);
+          }
+        }
+      });
+    }
   }
+});
+
+describe('chooseSide', () => {
+  const args = {
+    goal: 'compute' as const,
+    showWork: true,
+    thenAsk: true,
+    answerInWork: true,
+    places: 4,
+    contentW: CONTENT_W,
+    parts: { ...PARTS.k, card: cardWidth('k', 4) },
+  };
+  it('K: a take-away of many flats takes the height, an addition of many flats the width', () => {
+    const minus = cfg({
+      start: { hundreds: 9, tens: 0, ones: 0 },
+      operation: { op: '-', operand: { hundreds: 9, tens: 0, ones: 0 } },
+    });
+    const take = chooseSide({
+      ...args,
+      age: 'k',
+      places: 3,
+      parts: { ...PARTS.k, card: cardWidth('k', 3) },
+      base: planCaps(minus),
+      path: pathStates(minus),
+    });
+    expect(take.side.checkBeside).toBe(true);
+    const plus = cfg({
+      start: { hundreds: 5, tens: 0, ones: 0 },
+      operation: { op: '+', operand: { hundreds: 5, tens: 0, ones: 0 } },
+    });
+    const add = chooseSide({ ...args, age: 'k', base: planCaps(plus), path: pathStates(plus) });
+    expect(add.side.checkBeside).toBe(false);
+    expect(add.side.showProblemRow).toBe(true);
+  });
+  it('G1 has no choice to make: the card, the pad and "check" stack in the side', () => {
+    const c = cfg({ showAlgorithm: true, thenAsk: true });
+    const g1 = chooseSide({
+      ...args,
+      age: 'g1-up',
+      places: 3,
+      parts: { ...PARTS['g1-up'], card: cardWidth('g1-up', 3) },
+      base: planCaps(c),
+      path: pathStates(c),
+    });
+    expect([g1.side.workInSide, g1.side.checkBeside]).toEqual([true, false]);
+    expect(g1.width).toBe(836);
+  });
+});
+
+describe('sideLayout', () => {
+  const o = {
+    goal: 'compute' as const,
+    showWork: true,
+    thenAsk: true,
+    answerInWork: true,
+    places: 3,
+  };
+  it('keeps "check" under the pad in G1 and beside it in K, the algorithm in the side', () => {
+    const g1 = sideLayout({ ...o, age: 'g1-up' });
+    expect([g1.workInSide, g1.checkBeside, g1.showProblemRow]).toEqual([true, false, false]);
+    expect(g1.spaceH).toBe(648);
+    const k = sideLayout({ ...o, age: 'k' });
+    expect([k.workInSide, k.checkBeside, k.showProblemRow]).toEqual([true, true, false]);
+    expect(k.spaceH).toBe(648);
+    expect(k.sideH).toBeLessThanOrEqual(648);
+  });
+  it('puts a 5-place algorithm above the mat, and no pad means "check" under the card', () => {
+    const wide = sideLayout({ ...o, age: 'k', places: 5 });
+    expect([wide.wideWork, wide.workInSide, wide.checkBeside]).toEqual([true, false, false]);
+    const noPad = sideLayout({ ...o, age: 'k', thenAsk: false, answerInWork: false });
+    expect([noPad.workInSide, noPad.checkBeside]).toEqual([true, false]);
+    const plain = sideLayout({ ...o, age: 'k', showWork: false, answerInWork: false });
+    expect([plain.showProblemRow, plain.checkBeside]).toEqual([true, false]);
+  });
 });
 
 describe('planMat', () => {
@@ -309,17 +450,20 @@ describe('one scale per item', () => {
   // The 1280 × 800 widget area beside a side panel with the algorithm card (see the widget).
   const space = { age: 'g1-up', width: 866, height: 548 } as const;
 
-  it('walks the expected path: borrow across zero, then take column by column', () => {
+  it('walks the expected path: borrow across zero, then take piece by piece', () => {
     const c = cfg({
       start: { hundreds: 3, tens: 0, ones: 4 },
       operation: { op: '-', operand: { hundreds: 1, tens: 2, ones: 8 } },
     });
     const path = pathStates(c);
+    const ones = (n: number) => ({ hundreds: 2, tens: 9, ones: n });
     expect(path.map((s) => s.mat)).toEqual([
       { hundreds: 3, tens: 0, ones: 4 },
       { hundreds: 2, tens: 10, ones: 4 },
-      { hundreds: 2, tens: 9, ones: 14 },
-      { hundreds: 2, tens: 9, ones: 6 },
+      ones(14),
+      // Eight ones, one at a time, then two tens and a hundred.
+      ...[13, 12, 11, 10, 9, 8, 7, 6].map(ones),
+      { hundreds: 2, tens: 8, ones: 6 },
       { hundreds: 2, tens: 7, ones: 6 },
       { hundreds: 1, tens: 7, ones: 6 },
     ]);

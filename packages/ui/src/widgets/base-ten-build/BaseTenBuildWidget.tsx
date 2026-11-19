@@ -485,14 +485,13 @@ export function BaseTenBuildWidget({
   const sideSpec: SideSpec = {
     k: kMode,
     piles: trayKinds.map((k) => Number.isFinite(traySupply(config, state.taken, k))),
+    tall: trayKinds.map((k) => k === 'tens'),
     goal: goalHidden ? null : String(goalValue),
     exact: exactKinds,
     height: WIDGET_H - 2 * ROOT_PAD_Y,
   };
   const baseSideMin = kMode ? 150 : 156;
-  const side = read ? { width: padSide, crowded: false } : sideNeed(sideSpec, baseSideMin);
-
-  layoutInput.current = {
+  const matInput = {
     units: unitCandidates(kMode),
     // Half a px of slack: computed widths are fractional.
     width: avail - 0.5,
@@ -501,10 +500,20 @@ export function BaseTenBuildWidget({
     columnPad: COL_PAD,
     frame: FRAME + INSET,
     gap: SIDE_GAP,
-    sideMin: read ? padSide : side.width,
-    sideMax: read ? padSide : Math.max(260, side.width),
-    headerWidth: (kind) =>
+    headerWidth: (kind: PieceKind) =>
       prefs.textLabels ? 44 + 11 * t(colKey(kind, decimal)).length : kMode ? 56 : 44,
+  };
+  const sideRoom = (w: number) => ({ sideMin: w, sideMax: Math.max(260, w) });
+  const side = read
+    ? { width: padSide, crowded: false }
+    : sideNeed(
+        sideSpec,
+        baseSideMin,
+        (w) => !matLayout({ ...matInput, ...sideRoom(w), kinds, counts: state.mat }).overflow,
+      );
+  layoutInput.current = {
+    ...matInput,
+    ...(read ? { sideMin: padSide, sideMax: padSide } : sideRoom(side.width)),
   };
   const layout = matLayout({ ...layoutInput.current, kinds, counts: state.mat });
   const layoutRef = useRef(layout);
@@ -1265,24 +1274,26 @@ export function BaseTenBuildWidget({
                   >
                     <PileArt kind={k} />
                     {limited ? (
-                      // The tray's stock of this piece: a crate icon and "2 left" (K: the pieces
-                      // left, drawn small; a numeral at 0 or above 5).
-                      <span className="ni-btb__stock" data-empty={empty ? 'true' : undefined}>
+                      // The tray's stock of this piece, a pebble chip under the picture: a crate
+                      // icon and the count as a math numeral (≥ 32 px, 05 §11), with the small
+                      // word "left" under it in text mode (K: icon and number, no reading). The
+                      // count is the class `ni-btn__label`, so an invite hand leaves it in view.
+                      <span
+                        className="ni-btb__stock"
+                        data-empty={empty ? 'true' : undefined}
+                        // Three digits: the count alone (the crate would crowd the tile).
+                        data-wide={n > 99 ? 'true' : undefined}
+                      >
                         <span className="ni-btb__stockicon" aria-hidden="true">
                           <StockIcon />
                         </span>
-                        {prefs.textLabels ? (
-                          <span className="ni-btb__stocktext">{left}</span>
-                        ) : n > 0 && n <= 5 ? (
-                          <span className="ni-btb__stockmini" aria-hidden="true">
-                            {Array.from({ length: n }, (_, i) => (
-                              // biome-ignore lint/suspicious/noArrayIndexKey: identical marks
-                              <span key={i} className="ni-btb__stockpiece" data-kind={k} />
-                            ))}
-                          </span>
-                        ) : (
-                          <span className="ni-btb__stocktext">{n}</span>
-                        )}
+                        <span className="ni-btn__label ni-btb__stockcount">
+                          <span className="ni-btb__stocknum">{n}</span>
+                          {prefs.textLabels && left ? (
+                            // "2 left" less its number (the space stays: the text reads "2 left").
+                            <span className="ni-btb__stockword">{left.replace(String(n), '')}</span>
+                          ) : null}
+                        </span>
                       </span>
                     ) : null}
                   </span>

@@ -499,15 +499,16 @@
   cursor: default;
 }
 /*
- * A limited pile carries its stock tag inside its own tile, under the picture: a crate icon and
- * "2 left" (K: the pieces left, drawn small). It is the tray's supply, never the answer.
+ * A limited pile carries its stock tag inside its own tile, under the picture: a pebble chip with a
+ * crate icon and the count as a math numeral (≥ 32 px), the small word "left" under it in text
+ * mode (K: icon and number). It is the tray's supply, never the answer.
  */
 .ni-btb__piles {
   --pile-w: max(var(--pile), 104px);
 }
 .ni-btb__piles[data-limited="true"] .ni-btb__pile {
   flex-direction: column;
-  gap: 6px;
+  gap: 4px;
   width: var(--pile-w);
   height: auto;
   min-height: var(--pile);
@@ -517,15 +518,14 @@
   display: inline-flex;
   flex: none;
   align-items: center;
-  gap: 4px;
+  gap: 5px;
   box-sizing: border-box;
-  height: 28px;
-  padding: 0 9px 0 5px;
-  border-radius: var(--radius-pill);
+  padding: 2px 9px 2px 6px;
+  border-radius: var(--radius-pebble);
+  /* Cloud on ink: well above 4.5:1, and kept at full strength on an empty (dimmed) pile. */
   background: var(--color-ink);
   color: var(--color-cloud);
   font-family: var(--font-display);
-  font-size: 1.1rem;
   font-variant-numeric: tabular-nums;
   font-weight: 800;
   line-height: 1;
@@ -535,33 +535,25 @@
 .ni-btb__stockicon {
   display: inline-flex;
   flex: none;
-  width: 20px;
-  height: 20px;
+  width: 22px;
+  height: 22px;
 }
-.ni-btb__stocktext {
-  padding-top: 0.14em;
+.ni-btb__stock[data-wide="true"] .ni-btb__stockicon {
+  display: none;
 }
-.ni-btb__stockmini {
+.ni-btb__stockcount {
   display: inline-flex;
-  align-items: flex-end;
-  gap: 3px;
+  flex-direction: column;
+  align-items: center;
 }
-.ni-btb__stockpiece {
-  box-sizing: border-box;
-  width: 10px;
-  height: 10px;
-  border: 2px solid var(--color-cloud);
-  border-radius: 2px;
-  background: var(--color-shallows);
+/* The count is a math numeral (05 §11: ≥ 32 px). */
+.ni-btb__stocknum {
+  padding-top: 0.12em;
+  font-size: max(2rem, 32px);
 }
-.ni-btb__stockpiece[data-kind="tens"] {
-  width: 6px;
-  height: 18px;
-}
-.ni-btb__stockpiece[data-kind="hundreds"],
-.ni-btb__stockpiece[data-kind="thousands"] {
-  width: 14px;
-  height: 14px;
+.ni-btb__stockword {
+  margin-top: -2px;
+  font-size: 0.95rem;
 }
 
 .ni-btb__pileart {

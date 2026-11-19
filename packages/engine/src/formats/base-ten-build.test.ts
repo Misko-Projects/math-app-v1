@@ -4,7 +4,7 @@
 
 import type { WidgetConfigOf } from '@number-island/shared';
 import { describe, expect, it } from 'vitest';
-import { baseTenBuild, MAT_MAX, overfullKinds } from './base-ten-build';
+import { baseTenBuild, MAT_MAX, MAT_MAX_FLAT, overfullKinds } from './base-ten-build';
 
 type Config = WidgetConfigOf<'base-ten-build'>;
 
@@ -104,5 +104,43 @@ describe('base-ten-build: MAT_MAX', () => {
     expect(baseTenBuild.configSchema.safeParse(c).success).toBe(true);
     // Its pieces are still capped.
     expect(valid(read({ thousands: 10, hundreds: 0, tens: 0, ones: 0 }, 10_000))).toBe(false);
+  });
+
+  it('caps a decimal mat (flat = 1) at its own MAT_MAX_FLAT (review round 3)', () => {
+    // Wider column names (Tenths, Hundredths) leave room for fewer flats beside the full panel.
+    const decimalWorst: Config = {
+      format: 'base-ten-build',
+      target: 9999,
+      mode: 'build-exact',
+      pieces: ALL,
+      wholeIs: 'flat',
+      exact: { hundreds: 9, tens: 9, ones: 9 },
+      limits: { hundreds: 0 },
+      prebuilt: { thousands: 9, hundreds: 19, tens: 29, ones: 199 },
+    };
+    expect(overfullKinds(decimalWorst)).toEqual([
+      { kind: 'hundreds', path: ['prebuilt', 'hundreds'], need: 19 },
+    ]);
+    expect(valid(decimalWorst)).toBe(false);
+    expect(
+      valid({ ...decimalWorst, prebuilt: { thousands: 9, hundreds: 14, tens: 29, ones: 199 } }),
+    ).toBe(true);
+    // The same mat in ones (flat = 100) keeps the wider cap.
+    expect(valid({ ...decimalWorst, wholeIs: 'unit' })).toBe(true);
+    // Each decimal cap, and one past it.
+    const value = { thousands: 1000, hundreds: 100, tens: 10, ones: 1 } as const;
+    for (const k of ['thousands', 'hundreds', 'tens', 'ones'] as const) {
+      const at = (n: number) => ({
+        ...read({ hundreds: 0, tens: 0, ones: 0, [k]: n }, n * value[k]),
+        wholeIs: 'flat' as const,
+      });
+      expect(valid(at(MAT_MAX_FLAT[k])), `${k} at the cap`).toBe(true);
+      expect(valid(at(MAT_MAX_FLAT[k] + 1)), `${k} past the cap`).toBe(false);
+    }
+    // Above pv.number's decimal maxima: 9 thousands, 10 hundreds, 10 tens, 19 ones.
+    expect(MAT_MAX_FLAT.thousands).toBeGreaterThanOrEqual(9);
+    expect(MAT_MAX_FLAT.hundreds).toBeGreaterThan(10);
+    expect(MAT_MAX_FLAT.tens).toBeGreaterThan(10);
+    expect(MAT_MAX_FLAT.ones).toBeGreaterThan(19);
   });
 });

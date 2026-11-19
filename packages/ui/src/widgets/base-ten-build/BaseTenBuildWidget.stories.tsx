@@ -154,6 +154,8 @@ async function expectFits(canvasElement: HTMLElement, root: HTMLElement) {
   const b = board(root).getBoundingClientRect();
   const side = root.querySelector('.ni-btb__side')?.getBoundingClientRect();
   if (side) await expect(b.right, 'mat clear of the side panel').toBeLessThanOrEqual(side.left);
+  // Stock tags: big counts, inside their piles, clear of the pictures.
+  await expectTagsOnPiles(root);
   for (const p of root.querySelectorAll<HTMLElement>('.ni-btb__piece')) {
     const r = p.getBoundingClientRect();
     await expect(r.left).toBeGreaterThanOrEqual(b.left);
@@ -240,8 +242,8 @@ const btbModel = () => {
 
 /** Column headers: the place's name in text mode (G1+), the icon alone in K. */
 /**
- * Every stock tag ("2 left") belongs visibly to its own pile: its box lies inside the pile's
- * box (or directly under it), never nearer another pile.
+ * Every stock tag ("2 left") belongs visibly to its own pile: its box lies inside the pile's box,
+ * clear of the pile's picture and of every other pile, and its count is a ≥ 32 px numeral.
  */
 async function expectTagsOnPiles(root: HTMLElement) {
   const piles = [...root.querySelectorAll<HTMLElement>('.ni-btb__pile')];
@@ -253,9 +255,19 @@ async function expectTagsOnPiles(root: HTMLElement) {
     await expect(t.left, 'tag inside its pile (left)').toBeGreaterThanOrEqual(b.left);
     await expect(t.right, 'tag inside its pile (right)').toBeLessThanOrEqual(b.right);
     await expect(t.top, 'tag inside its pile (top)').toBeGreaterThanOrEqual(b.top);
-    await expect(t.bottom, 'tag inside or directly under its pile').toBeLessThanOrEqual(
-      b.bottom + 4,
-    );
+    await expect(t.bottom, 'tag inside its pile (bottom)').toBeLessThanOrEqual(b.bottom);
+    // The count is a math numeral (05 §11: ≥ 32 px), drawn at full strength.
+    const num = tag.querySelector('.ni-btb__stocknum') as HTMLElement;
+    await expect(num, 'the tag shows its count').not.toBeNull();
+    await expect(Number.parseFloat(getComputedStyle(num).fontSize)).toBeGreaterThanOrEqual(32);
+    await expect(getComputedStyle(tag).opacity).toBe('1');
+    // The tag never covers the pile's picture.
+    const art = p.querySelector('.ni-btb__pileart')?.getBoundingClientRect();
+    if (art) {
+      const clear =
+        t.top >= art.bottom || t.bottom <= art.top || t.left >= art.right || t.right <= art.left;
+      await expect(clear, 'tag clear of the pile picture').toBe(true);
+    }
     for (const other of piles) {
       if (other === p) continue;
       const o = other.getBoundingClientRect();
@@ -785,8 +797,10 @@ const limits: Config = {
  * it is supply, not the answer. Once both are taken the pile is off, dashed and hatched, its tag
  * reads "0 left", and the child must trade.
  */
+const limitsInvite: WidgetDemo = createDemoController({ strict: true });
+
 export const Limits: Story = {
-  args: { config: limits },
+  args: { config: limits, demo: limitsInvite },
   play: async ({ canvasElement }) => {
     const root = await findWidget(canvasElement, ROOT);
     const tens = pile(root, 'tens');
@@ -796,6 +810,14 @@ export const Limits: Story = {
     await expect(tag.querySelector('.ni-btb__stockicon svg')).not.toBeNull();
     await expect(pile(root, 'ones').querySelector('.ni-btb__stock')).toBeNull();
     await expectTagsOnPiles(root);
+    for (const c of controls(root)) await expectTargetSize(c, 'g1-up');
+    await expectTargetGaps(controls(root));
+    // An invite on the limited pile leaves its count in view.
+    limitsInvite.invite({ op: 'add-piece', args: { kind: 'tens' } });
+    await waitFor(() => expect(tens).toHaveClass('ni-invite'));
+    await expectPointerOn(root.querySelector('.ni-hand') as HTMLElement, tens, root);
+    limitsInvite.invite(null);
+    await waitFor(() => expect(root.querySelector('.ni-hand')).toBeNull());
     await tapPlace(root, 'tens', 2);
     await expectMat(root, { tens: 2 });
     await expect(tens).toHaveAccessibleName('Ten, 0 left');
@@ -817,17 +839,18 @@ export const Limits: Story = {
   },
 };
 
-/** Limits in K: the stock tag draws the rods left instead of words. */
+/** Limits in K: the stock tag is the crate and the count (a big numeral), no words. */
 export const LimitsK: Story = {
   globals: { ageMode: 'k' },
   args: { config: { ...limits, limits: { tens: 3 } } satisfies Config },
   play: async ({ canvasElement }) => {
     const root = await findWidget(canvasElement, ROOT);
-    // K: the tag shows the crate and the rods left, drawn small (no reading needed).
+    // K: the tag shows the crate and the count, no word to read.
     const tag = pile(root, 'tens').querySelector('.ni-btb__stock') as HTMLElement;
-    await expect(tag.querySelectorAll('.ni-btb__stockpiece')).toHaveLength(3);
+    await expect(tag).toHaveTextContent(/^3$/);
+    await expect(tag.querySelector('.ni-btb__stockword')).toBeNull();
     await tapPlace(root, 'tens', 1);
-    await waitFor(() => expect(tag.querySelectorAll('.ni-btb__stockpiece')).toHaveLength(2));
+    await waitFor(() => expect(tag).toHaveTextContent(/^2$/));
     await expect(pile(root, 'tens')).toHaveAccessibleName('Ten, 2 left');
     await expectTagsOnPiles(root);
     await tapPlace(root, 'ones', 3);
@@ -1203,6 +1226,50 @@ const worstCase = (ageMode: 'k' | 'g1-up', config: Config): Story => ({
 export const StressExactWorstK = worstCase('k', exactWorst);
 /** The same item in G1. */
 export const StressExactWorstG1 = worstCase('g1-up', exactWorst);
+
+/**
+ * The decimal worst case (review round 3): a full mat with the flat as the whole, so the columns
+ * are Tens, Ones, Tenths and Hundredths (wider names) and the goal reads 99.99, with three chips
+ * and four piles. The review's mat (19 flats) can't fit beside that panel even at the smallest
+ * unit, so the engine caps a decimal mat at 14 flats (MAT_MAX_FLAT); this is the largest it
+ * accepts, and the review's config is rejected.
+ */
+const decimalReview: Config = {
+  format: 'base-ten-build',
+  target: 9999,
+  mode: 'build-exact',
+  pieces: ALL,
+  wholeIs: 'flat',
+  exact: { hundreds: 9, tens: 9, ones: 9 },
+  limits: { hundreds: 0 },
+  prebuilt: { thousands: 9, hundreds: 19, tens: 29, ones: 199 },
+};
+const decimalWorst: Config = {
+  ...decimalReview,
+  prebuilt: { thousands: 9, hundreds: 14, tens: 29, ones: 199 },
+};
+const decimalWorstCase = (ageMode: 'k' | 'g1-up'): Story => {
+  const story = worstCase(ageMode, decimalWorst);
+  return {
+    ...story,
+    play: async (ctx) => {
+      const schema = btbModel().configSchema;
+      await expect(schema.safeParse(decimalReview).success).toBe(false);
+      await expect(schema.safeParse({ ...decimalReview, wholeIs: 'unit' }).success).toBe(true);
+      await story.play?.(ctx);
+      const root = ctx.canvasElement.querySelector(ROOT) as HTMLElement;
+      await expectHeaders(
+        root,
+        ageMode === 'k' ? ['', '', '', ''] : ['Tens', 'Ones', 'Tenths', 'Hundredths'],
+      );
+      await expect(within(root).getByRole('button', { name: 'Make 99.99' })).toBeInTheDocument();
+    },
+  };
+};
+/** The decimal review case in G1 (text headers). */
+export const StressDecimalWorstG1 = decimalWorstCase('g1-up');
+/** The same in K (icon headers, K controls). */
+export const StressDecimalWorstK = decimalWorstCase('k');
 
 /**
  * A plain build (the goal shows, four piles) filled to the largest mat the engine allows: with no

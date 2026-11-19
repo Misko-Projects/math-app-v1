@@ -96,6 +96,16 @@ export function limitsForceTrade(c: Config): boolean {
  * place the mat does not have.
  */
 export const MAT_MAX: Readonly<Pieces> = { thousands: 9, hundreds: 19, tens: 29, ones: 199 };
+/**
+ * The decimal mat (`wholeIs: 'flat'`) has wider column names (Tenths, Hundredths), so it holds fewer
+ * flats beside the fullest side panel. Still above pv.number, the only decimal generator: at most
+ * 9 thousands, 10 hundreds, 10 tens and 19 ones (one unit moved down a place).
+ */
+export const MAT_MAX_FLAT: Readonly<Pieces> = { thousands: 9, hundreds: 14, tens: 29, ones: 199 };
+
+/** The cap for an item's mat. */
+export const matMax = (c: Pick<Config, 'wholeIs'>): Readonly<Pieces> =>
+  c.wholeIs === 'flat' ? MAT_MAX_FLAT : MAT_MAX;
 
 /**
  * The pieces of `value` taking as many of each `kinds` piece as fit, largest first (what a mat
@@ -112,15 +122,16 @@ function greedyPieces(value: number, kinds: readonly PieceKind[]): Pieces {
 }
 
 /**
- * Where an item needs more pieces of a kind on the mat than MAT_MAX: the prebuilt pieces plus what
- * a limited tray can add, the `exact` counts and the fewest pieces the rest needs, and the target's
- * own pieces. (An unlimited tray is bounded by the widget, which never lets a move overfill the
- * mat.)
+ * Where an item needs more pieces of a kind on the mat than its cap (matMax): the prebuilt pieces
+ * plus what a limited tray can add, the `exact` counts and the fewest pieces the rest needs, and the
+ * target's own pieces. (An unlimited tray is bounded by the widget, which never lets a move
+ * overfill the mat.)
  */
 export function overfullKinds(c: Config): { kind: PieceKind; path: string[]; need: number }[] {
   const out: { kind: PieceKind; path: string[]; need: number }[] = [];
+  const cap = matMax(c);
   const over = (kind: PieceKind, need: number, path: string[]) => {
-    if (need > MAT_MAX[kind]) out.push({ kind, path, need });
+    if (need > cap[kind]) out.push({ kind, path, need });
   };
   const pre: Partial<Pieces> = c.prebuilt ?? {};
   for (const k of PIECE_KINDS) {
@@ -158,7 +169,7 @@ const configSchema = baseTenBuildConfigSchema.superRefine((c, ctx) => {
     ctx.addIssue({
       code: 'custom',
       path: o.path,
-      message: `the mat would need ${o.need} ${o.kind}; it fits at most ${MAT_MAX[o.kind]}`,
+      message: `the mat would need ${o.need} ${o.kind}; it fits at most ${matMax(c)[o.kind]}`,
     });
   }
   if (c.mode === 'read') {

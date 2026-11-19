@@ -46,6 +46,7 @@ import {
   answerPlaces,
   type Box,
   COL_PAD,
+  chooseSide,
   digitsValue,
   extent,
   GAP,
@@ -62,6 +63,7 @@ import {
   planCaps,
   planMat,
   ROW_GAP,
+  SIDE_GAP,
   stateCaps,
   stripWidth,
 } from './layout';
@@ -88,12 +90,6 @@ const OPS = ['trade', 'combine', 'take', 'write-digit', 'answer'] as const;
 const KEY_MS = 340;
 const FLASH_MS = 900;
 const POP_MS = 320;
-/** The widget's design height at 1280 × 800 (06 §2 widget area), padding included. */
-const BUDGET = 660;
-const ROOT_PAD_Y = 6;
-/** The algorithm card's height (see .ni-btt__work in the stylesheet). */
-const WORK_H = 226;
-const SIDE_GAP = 12;
 
 type Config = ConfigFor<'base-ten-trade'>;
 type State = BaseTenTradeState;
@@ -652,7 +648,8 @@ function TradeMat({
   const [invite, setInvite] = useState<WidgetAction | null>(null);
   const [pressedKey, setPressedKey] = useState<PadKey | null>(null);
   const [demoHi, setDemoHi] = useState<string | null>(null);
-  const [mainW, setMainW] = useState(0);
+  /** Measured widths (px): the mat's area, the side panel and its parts (pad, "check", card). */
+  const [box, setBox] = useState({ main: 0, side: 0, pad: 0, check: 0, card: 0 });
 
   const rootRef = useRef<HTMLDivElement | null>(null);
   const mainRef = useRef<HTMLDivElement | null>(null);
@@ -692,12 +689,32 @@ function TradeMat({
 
   useLayoutEffect(() => {
     const el = mainRef.current;
-    if (!el) return;
-    const measure = () => setMainW(el.getBoundingClientRect().width);
+    const root = rootRef.current;
+    if (!el || !root) return;
+    const width = (sel: string) => root.querySelector(sel)?.getBoundingClientRect().width ?? 0;
+    const measure = () => {
+      const next = {
+        main: el.getBoundingClientRect().width,
+        side: width('.ni-btt__side'),
+        pad: width('.ni-btt__side .ni-pad'),
+        check: width('.ni-btt__checkwrap'),
+        card: width('.ni-btt__work'),
+      };
+      setBox((prev) =>
+        prev.main === next.main &&
+        prev.side === next.side &&
+        prev.pad === next.pad &&
+        prev.check === next.check &&
+        prev.card === next.card
+          ? prev
+          : next,
+      );
+    };
     measure();
     if (typeof ResizeObserver === 'undefined') return;
     const ro = new ResizeObserver(measure);
     ro.observe(el);
+    ro.observe(root);
     return () => ro.disconnect();
   }, []);
 
@@ -718,32 +735,33 @@ function TradeMat({
     );
     return [planned, now];
   }, [baseCaps, state.mat, state.taken, state.pending, trayEmpty, isPlus, isMinus]);
-  const bigTarget = age === 'k' ? 96 : 76;
-  // The side panel's pad keys and "check" are target-sized (base-ten-trade.css: .ni-btt__side).
-  const sideKey = sizes.target;
-  const workH = WORK_H + (age === 'k' ? 16 : 0);
-  const padH = 4 * sideKey + 3 * 12;
-  const checkH = sideKey + 6;
-  // The side panel: the algorithm, the pad, then "check" right by the pad. If that is too tall
-  // (K, with its bigger keys), the algorithm moves up to the problem row. So does an algorithm of
-  // five places or more (a 4-digit addend): beside the mat it would leave the mat no room.
-  const fullSide =
-    (showWork ? workH + SIDE_GAP : 0) + (config.thenAsk ? padH + SIDE_GAP : 0) + checkH;
-  const wideWork = showWork && places > 4;
-  const workInSide = showWork && !wideWork && fullSide <= BUDGET - 2 * ROOT_PAD_Y;
-  const cardH =
-    config.thenAsk && !answerInWork ? bigTarget + 26 : config.goal === 'regroup-to' ? 92 : 76;
-  // With the algorithm, the problem is written there (in columns), so no separate expression row:
-  // the mat gets that height.
-  const showProblemRow = !showWork || !workInSide;
-  const problemH = !showProblemRow ? 0 : showWork ? workH : cardH;
-  const spaceW = mainW > 0 ? mainW : 900;
-  const spaceH = BUDGET - 2 * ROOT_PAD_Y - (showProblemRow ? problemH + ROW_GAP : 0);
+  const path = useMemo(() => pathStates(config), [config]);
+  // Where the algorithm, the pad and "check" go, and the height left for the mat (layout.ts):
+  // when K's side can't stack them, the arrangement at which every step of the item fits.
+  const { side } = useMemo(
+    () =>
+      chooseSide({
+        age,
+        goal: config.goal,
+        showWork,
+        thenAsk: config.thenAsk,
+        answerInWork,
+        places,
+        // The mat's area and the side panel together, with the grid gap between them.
+        contentW: box.main > 0 ? box.main + GAP + box.side : 0,
+        parts: box,
+        base: baseCaps,
+        path,
+      }),
+    [age, config, showWork, answerInWork, places, box, baseCaps, path],
+  );
+  const { wideWork, workInSide, checkBeside, showProblemRow, problemH, cardH, spaceH, sideH } =
+    side;
+  const spaceW = box.main > 0 ? box.main : 900;
   // One scale for the whole item, chosen so every step on the expected path fits.
   const unit = useMemo(
-    () =>
-      itemUnit({ age, width: spaceW, height: spaceH, base: baseCaps, path: pathStates(config) }),
-    [baseCaps, config, age, spaceW, spaceH],
+    () => itemUnit({ age, width: spaceW, height: spaceH, base: baseCaps, path }),
+    [baseCaps, path, age, spaceW, spaceH],
   );
   const plan = useMemo(
     () => planMat({ age, width: spaceW, height: spaceH, caps: capsOptions, unit }),
@@ -752,7 +770,6 @@ function TradeMat({
   const caps = plan.caps;
   // The side panel lines up with the mat when its contents fit beside it; otherwise it starts at
   // the top, level with the problem.
-  const sideH = workInSide ? fullSide : fullSide - (showWork ? workH + SIDE_GAP : 0);
   const sideTop = showProblemRow && sideH <= spaceH ? problemH + ROW_GAP : 0;
   const u = plan.u;
   const strip = stripWidth(age);
@@ -1603,6 +1620,21 @@ function TradeMat({
       })()
     : null;
 
+  const padKeys = (
+    <NumberPadKeys
+      onKey={onKey}
+      onEnter={submit}
+      disabled={!interactive}
+      highlighted={pressedKey}
+    />
+  );
+  // Wrapped so its width can be measured (chooseSide); the wrapper is exactly the button's box.
+  const check = (
+    <span className="ni-btt__checkwrap">
+      <CheckButton onPress={submit} disabled={!interactive || !canSubmit} />
+    </span>
+  );
+
   return (
     <div
       ref={rootRef}
@@ -1650,16 +1682,20 @@ function TradeMat({
       </div>
       <div className="ni-btt__side" style={{ paddingTop: sideTop, gap: SIDE_GAP }}>
         {workInSide ? work : null}
-        {config.thenAsk ? (
-          <NumberPadKeys
-            onKey={onKey}
-            onEnter={submit}
-            disabled={!interactive}
-            highlighted={pressedKey}
-          />
-        ) : null}
-        {/* "check" right by the pad (06 §4), or at the mat's foot without one. */}
-        <CheckButton onPress={submit} disabled={!interactive || !canSubmit} />
+        {checkBeside ? (
+          // K with the algorithm above: "check" stands beside the pad's foot, so the algorithm,
+          // the pad and "check" all fit beside the mat and the mat keeps the widget's height.
+          <div className="ni-btt__padrow" style={{ gap: SIDE_GAP }}>
+            {padKeys}
+            {check}
+          </div>
+        ) : (
+          <>
+            {config.thenAsk ? padKeys : null}
+            {/* "check" right by the pad (06 §4), or at the mat's foot without one. */}
+            {check}
+          </>
+        )}
       </div>
       <div ref={fxRef} className="ni-btt__fx" aria-hidden="true" />
       {inviteHand}

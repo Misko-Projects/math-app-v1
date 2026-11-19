@@ -107,6 +107,135 @@ export function ageSizes(age: AgeMode): AgeSizes {
   };
 }
 
+// ---------- the widget's rows and side panel ----------
+
+/** The widget's design height at 1280 × 800 (06 §2 widget area), padding included. */
+export const BUDGET = 660;
+export const ROOT_PAD_Y = 6;
+/** The algorithm card's height (.ni-btt__work in the stylesheet; K is 16 px taller). */
+export const WORK_H = 226;
+export const SIDE_GAP = 12;
+
+export interface SideLayout {
+  /** Five places or more: the algorithm is the problem row on its own, above the mat. */
+  wideWork: boolean;
+  /** The algorithm sits in the side panel, above the pad. */
+  workInSide: boolean;
+  /** "Check" stands beside the pad's foot (K, with the algorithm and the pad in the side). */
+  checkBeside: boolean;
+  showProblemRow: boolean;
+  problemH: number;
+  /** The expression card's height (in the problem row). */
+  cardH: number;
+  /** The height left for the mat, the tray and the nest. */
+  spaceH: number;
+  /** The side panel's content height. */
+  sideH: number;
+}
+
+/**
+ * Where the algorithm, the pad and "check" go, and the height left for the mat. The side panel
+ * holds the algorithm, the pad, then "check" right under the pad (06 §4). If that is too tall
+ * (K, with its 80 px keys), there are two ways (`allowBeside` picks; the widget plans both and
+ * takes the one whose mat fits, at the bigger unit):
+ * - "check" beside the pad's foot: the algorithm stays in the side and the mat keeps the
+ *   widget's whole height, but a narrower width (a nine-flat take-away needs the height);
+ * - the algorithm up in the problem row: the mat is wider but shorter (many flats to add need
+ *   the width).
+ * An algorithm of five places or more (a 4-digit addend) is the problem row: beside the mat it
+ * leaves the mat no room.
+ */
+export function sideLayout(o: {
+  age: AgeMode;
+  goal: Config['goal'];
+  showWork: boolean;
+  thenAsk: boolean;
+  answerInWork: boolean;
+  places: number;
+  allowBeside?: boolean;
+}): SideLayout {
+  const sz = ageSizes(o.age);
+  const limit = BUDGET - 2 * ROOT_PAD_Y;
+  const workH = WORK_H + (o.age === 'k' ? 16 : 0);
+  // The pad's keys and "check" are target-sized (base-ten-trade.css: .ni-btt__side).
+  const padH = 4 * sz.target + 3 * 12;
+  const checkH = sz.target + 6;
+  const work = o.showWork ? workH + SIDE_GAP : 0;
+  const fullSide = work + (o.thenAsk ? padH + SIDE_GAP : 0) + checkH;
+  const besideSide = work + Math.max(padH, checkH);
+  const wideWork = o.showWork && o.places > 4;
+  const fits = fullSide <= limit;
+  const checkBeside =
+    (o.allowBeside ?? true) && o.showWork && !wideWork && o.thenAsk && !fits && besideSide <= limit;
+  const workInSide = o.showWork && !wideWork && (fits || checkBeside);
+  const bigTarget = o.age === 'k' ? 96 : 76;
+  const cardH = o.thenAsk && !o.answerInWork ? bigTarget + 26 : o.goal === 'regroup-to' ? 92 : 76;
+  // With the algorithm, the problem is written there (in columns), so no separate expression row:
+  // the mat gets that height.
+  const showProblemRow = !o.showWork || !workInSide;
+  const problemH = !showProblemRow ? 0 : o.showWork ? workH : cardH;
+  const spaceH = limit - (showProblemRow ? problemH + ROW_GAP : 0);
+  const sideH = checkBeside
+    ? besideSide
+    : workInSide
+      ? fullSide
+      : fullSide - (o.showWork ? workH + SIDE_GAP : 0);
+  return {
+    wideWork,
+    workInSide,
+    checkBeside,
+    showProblemRow,
+    problemH,
+    cardH,
+    spaceH,
+    sideH,
+  };
+}
+
+/** The measured widths (px) of the side panel's parts; the panel is as wide as what it holds. */
+export interface SideParts {
+  pad: number;
+  check: number;
+  card: number;
+}
+
+/** The side panel's width for a layout, from its parts' widths. */
+export function sideWidth(s: SideLayout, parts: SideParts): number {
+  const card = s.workInSide ? parts.card : 0;
+  return s.checkBeside
+    ? Math.max(card, parts.pad + SIDE_GAP + parts.check)
+    : Math.max(card, parts.pad, parts.check);
+}
+
+/**
+ * Chooses between sideLayout's two ways when the side can't hold the algorithm, the pad and
+ * "check" stacked: the one at which every step of the item fits (itemFit), at the bigger unit; a
+ * tie keeps the algorithm in the problem row. `contentW` is the widget's width for the mat and
+ * the side panel together (the grid gap, GAP, between them included).
+ */
+export function chooseSide(
+  o: Parameters<typeof sideLayout>[0] & {
+    contentW: number;
+    parts: SideParts;
+    base: MatCaps;
+    path: readonly MatState[];
+  },
+): { side: SideLayout; width: number } {
+  const { contentW, parts, base, path, ...args } = o;
+  const widthFor = (s: SideLayout) => contentW - GAP - sideWidth(s, parts);
+  const beside = sideLayout({ ...args, allowBeside: true });
+  const row = sideLayout({ ...args, allowBeside: false });
+  if (!beside.checkBeside) return { side: beside, width: widthFor(beside) };
+  if (contentW <= 0) return { side: row, width: 0 };
+  const fit = (s: SideLayout) =>
+    itemFit({ age: args.age, width: widthFor(s), height: s.spaceH, base, path });
+  const a = fit(beside);
+  const b = fit(row);
+  const useBeside = (a.fits && !b.fits) || (a.fits === b.fits && a.unit > b.unit);
+  const side = useBeside ? beside : row;
+  return { side, width: widthFor(side) };
+}
+
 /**
  * The strip between two columns: a pair of trade buttons exactly as wide as a target. The target
  * gap to the columns is kept inside them: their hit pads are inset by GAP (.ni-btt__pad).
@@ -631,8 +760,9 @@ export interface MatState {
 }
 
 /**
- * The states a child passes through on the expected path: every trade, add and take (takes a
- * column at a time). The item's scale is chosen so that all of them fit.
+ * The states a child passes through on the expected path: every trade, add and take (takes one
+ * piece at a time: a piece leaves the mat before the nest's next row is needed, but every step
+ * in between must fit too). The item's scale is chosen so that all of them fit.
  */
 export function pathStates(c: Config): MatState[] {
   const op = c.goal === 'compute' ? c.operation : undefined;
@@ -683,10 +813,11 @@ export function pathStates(c: Config): MatState[] {
     if (mat.tens < o.tens && mat.hundreds > 0) brk('hundreds', 'tens');
     for (const k of ['ones', 'tens', 'hundreds'] as const) {
       const n = Math.min(o[k], mat[k]);
-      if (n === 0) continue;
-      mat[k] -= n;
-      taken[k] += n;
-      snap();
+      for (let i = 0; i < n; i++) {
+        mat[k] -= 1;
+        taken[k] += 1;
+        snap();
+      }
     }
   }
   return out;
@@ -700,15 +831,22 @@ export function pathStates(c: Config): MatState[] {
 export function itemUnit(
   input: Omit<PlanInput, 'caps'> & { base: MatCaps; path: readonly MatState[] },
 ): number {
+  return itemFit(input).unit;
+}
+
+/** itemUnit's unit, and whether the item fits at it at all (false: even U_MIN overflows). */
+export function itemFit(
+  input: Omit<PlanInput, 'caps'> & { base: MatCaps; path: readonly MatState[] },
+): { unit: number; fits: boolean } {
   const { base, path, ...rest } = input;
   for (let u = U_MAX; u >= U_MIN; u--) {
-    if (firstFit({ ...rest, caps: base }, u)) return u;
+    if (firstFit({ ...rest, caps: base }, u)) return { unit: u, fits: true };
     const all = path.every((s) =>
       firstFit({ ...rest, caps: stateCaps(base, s.mat, s.pending, s.taken) }, u),
     );
-    if (all) return u;
+    if (all) return { unit: u, fits: true };
   }
-  return U_MIN;
+  return { unit: U_MIN, fits: false };
 }
 
 /** How uneven the columns are once stretched: the widest minus the narrowest, px. */

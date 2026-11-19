@@ -266,14 +266,16 @@ export function matLayout(input: MatLayoutInput): MatLayout {
 
 /**
  * The side panel's sizes (px) as base-ten-build.css and the kit draw them at 1280 × 800, per age
- * mode (measured; the tablet stories check the panel fits). A pile with a stock tag stands taller.
+ * mode (measured; the tablet stories check the panel fits). A pile with a stock tag stands taller
+ * (its count is a 32 px numeral), the rods' tile tallest (`stockH`; the others `stockShortH`).
  */
 export const SIDE_PX = {
   k: {
     pile: 100,
     pileLimited: 104,
     pileH: 100,
-    stockH: 116,
+    stockH: 126,
+    stockShortH: 118,
     goalH: 96,
     goalLgH: 96,
     chipH: 80,
@@ -286,7 +288,8 @@ export const SIDE_PX = {
     pile: 80,
     pileLimited: 104,
     pileH: 80,
-    stockH: 116,
+    stockH: 139,
+    stockShortH: 131,
     goalH: 76,
     goalLgH: 91,
     chipH: 80,
@@ -307,6 +310,8 @@ export interface SideSpec {
   k: boolean;
   /** The tray's piles in order, true for one with a stock tag (a limited kind). */
   piles: readonly boolean[];
+  /** Per pile, whether its picture is tall (the rods); absent: all tall. */
+  tall?: readonly boolean[];
   /** The goal numeral as shown ("1.25"), or null without a goal card. */
   goal: string | null;
   /** The exact chips, in order. */
@@ -351,7 +356,10 @@ export function sidePlan(spec: SideSpec, width: number, crowded: boolean): SideP
   let trayH = TRAY_PAD.top + TRAY_PAD.bottom;
   for (let r = 0; r * pileCols < n; r++) {
     const row = spec.piles.slice(r * pileCols, (r + 1) * pileCols);
-    trayH += (r > 0 ? PILE_GAP.y : 0) + (row.some(Boolean) ? px.stockH : px.pileH);
+    const tileH = row.map((stock, j) =>
+      !stock ? px.pileH : (spec.tall?.[r * pileCols + j] ?? true) ? px.stockH : px.stockShortH,
+    );
+    trayH += (r > 0 ? PILE_GAP.y : 0) + Math.max(...tileH);
   }
   const cells = (spec.goal !== null ? 1 : 0) + spec.exact.length;
   const askCols: 1 | 2 = crowded && cells >= 2 ? 2 : 1;
@@ -403,10 +411,16 @@ export function sidePlan(spec: SideSpec, width: number, crowded: boolean): SideP
 }
 
 /**
- * The narrowest side panel (px, at least `min`) whose contents fit its height, and whether it must
- * be crowded (goal and chips two to a row). The mat shrinks its unit to leave it that much room.
+ * The side panel (px, at least `min`) whose contents fit its height, and whether it must be
+ * crowded (goal and chips two to a row, three piles 2 + 1). The usual (balanced) panel at its
+ * narrowest comes first, if `matFits` says the mat still fits beside it; else the narrower crowded
+ * one. The mat shrinks its unit to leave the panel that room.
  */
-export function sideNeed(spec: SideSpec, min: number): { width: number; crowded: boolean } {
+export function sideNeed(
+  spec: SideSpec,
+  min: number,
+  matFits: (width: number) => boolean = () => true,
+): { width: number; crowded: boolean } {
   const narrowest = (crowded: boolean) => {
     for (let w = Math.ceil(min); w <= 600; w++) {
       const p = sidePlan(spec, w, crowded);
@@ -415,13 +429,15 @@ export function sideNeed(spec: SideSpec, min: number): { width: number; crowded:
     return Number.POSITIVE_INFINITY;
   };
   const loose = narrowest(false);
-  // The usual panel unless only crowding it saves room.
   if (loose <= Math.ceil(min)) return { width: loose, crowded: false };
   const crowded = narrowest(true);
-  if (!Number.isFinite(loose) && !Number.isFinite(crowded)) {
-    return { width: Math.ceil(min), crowded: true };
-  }
-  return crowded < loose ? { width: crowded, crowded: true } : { width: loose, crowded: false };
+  const options = [
+    ...(Number.isFinite(loose) ? [{ width: loose, crowded: false }] : []),
+    ...(Number.isFinite(crowded) && crowded < loose ? [{ width: crowded, crowded: true }] : []),
+  ];
+  const last = options.at(-1);
+  if (!last) return { width: Math.ceil(min), crowded: true };
+  return options.find((o) => matFits(o.width)) ?? last;
 }
 
 /** Half the width and height of the bundle ten pieces of `kind` gather into (px). */

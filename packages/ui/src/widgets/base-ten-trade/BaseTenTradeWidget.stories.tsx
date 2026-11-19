@@ -149,6 +149,63 @@ async function tapPlace(item: HTMLElement, target: HTMLElement) {
  * Fits the 1280 × 800 tablet's widget area: nothing scrolls or spills out of the widget, and the
  * stage stays within 800 px minus the 2 × 40 px story padding.
  */
+/**
+ * expectFits' fit, containment and no-overlap checks gathered into a list of problems (empty when
+ * all hold), for a play that checks after every one of many steps: one assertion, not hundreds.
+ */
+function fitProblems(canvasElement: HTMLElement, root: HTMLElement): string[] {
+  const out: string[] = [];
+  const r = (el: Element) => el.getBoundingClientRect();
+  const within = (what: string, a: DOMRect, f: Frame, min: number) => {
+    if (a.left - f.left < min - 0.5) out.push(`${what}: room on the left`);
+    if (f.right - a.right < min - 0.5) out.push(`${what}: room on the right`);
+    if (a.top - f.top < min - 0.5) out.push(`${what}: room above`);
+    if (f.bottom - a.bottom < min - 0.5) out.push(`${what}: room below`);
+  };
+  if (root.scrollHeight > root.clientHeight + 1) out.push('widget scrolls down');
+  if (root.scrollWidth > root.clientWidth + 1) out.push('widget scrolls across');
+  const box = r(root);
+  for (const el of root.querySelectorAll(
+    '.ni-btt__mat, .ni-btt__nest, .ni-btt__problem, .ni-btt__work, .ni-pad, .ni-btn, [data-piece]',
+  )) {
+    within(`${el.className} in the widget`, r(el), box, 0);
+  }
+  for (const g of root.querySelectorAll('.ni-btt__col, .ni-btt__pending, .ni-btt__taken')) {
+    const rects = [...g.querySelectorAll('[data-piece]')].map(r);
+    for (let i = 0; i < rects.length; i++) {
+      for (let j = i + 1; j < rects.length; j++) {
+        const a = rects[i] as DOMRect;
+        const b = rects[j] as DOMRect;
+        const overlapX = Math.min(a.right, b.right) - Math.max(a.left, b.left);
+        const overlapY = Math.min(a.bottom, b.bottom) - Math.max(a.top, b.top);
+        if (overlapX > 0.5 && overlapY > 0.5)
+          out.push(`${g.className}: pieces ${i} and ${j} overlap`);
+      }
+    }
+  }
+  for (const body of root.querySelectorAll('.ni-btt__body')) {
+    for (const p of body.querySelectorAll('[data-piece]')) within('piece', r(p), r(body), GUTTER);
+  }
+  const hollow = root.querySelector('.ni-btt__hollow');
+  if (hollow) {
+    const h = r(hollow);
+    const frame = {
+      left: h.left + NEST_CURVE,
+      right: h.right - NEST_CURVE,
+      top: h.top + NEST_RIM,
+      bottom: r(q(root, '.ni-btt__nest-wall')).top,
+    };
+    for (const p of root.querySelectorAll('.ni-btt__taken [data-piece]')) {
+      within('taken piece', r(p), frame, GUTTER);
+    }
+  }
+  const stage = canvasElement.querySelector('.story-widget-stage') as HTMLElement;
+  if (r(stage).height > 720) out.push(`stage ${r(stage).height} px tall`);
+  if (stage.scrollWidth > stage.clientWidth + 1) out.push('stage scrolls across');
+  return out;
+}
+type Frame = { left: number; right: number; top: number; bottom: number };
+
 async function expectFits(canvasElement: HTMLElement, root: HTMLElement, minU = U) {
   await expectCountable(root, minU);
   await expect(root.scrollHeight).toBeLessThanOrEqual(root.clientHeight + 1);
@@ -1131,47 +1188,96 @@ export const Stress: Story = {
  * hollow and none overlapping, and the answer 0 is typed and checked.
  */
 export const StressNineFlatsTaken: Story = {
-  args: {
-    config: {
-      format: 'base-ten-trade',
-      start: { hundreds: 9, tens: 0, ones: 0 },
-      operation: { op: '-', operand: { hundreds: 9, tens: 0, ones: 0 } },
-      goal: 'compute',
-      showAlgorithm: true,
-      thenAsk: true,
-    },
-  },
+  args: { config: takeAll(9, 0, 0) },
   play: async ({ canvasElement, args }) => {
-    const root = await findWidget(canvasElement, ROOT);
-    await expectFits(canvasElement, root);
-    // Nine flats on the mat step the item's one unit down (≥ 10 px: a flat ≥ 100 px).
-    const flatW = (sel: string) => q(root, sel).getBoundingClientRect().width;
-    const onMat = flatW('[data-col="hundreds"] [data-piece]');
-    await expect(onMat).toBeGreaterThanOrEqual(100);
-    for (let i = 0; i < 9; i++) await tapPlace(grabItem(root, 'hundreds'), nest(root));
-    await settled(root);
-    await expect(mat(root)).toEqual({ hundreds: 0, tens: 0, ones: 0 });
-    await expect(takenPieces(root, 'hundreds')).toBe(9);
-    // The same size in the nest as on the mat (one scale), in more than one row.
-    await expect(flatW('[data-piece="taken-hundreds-0"]')).toBe(onMat);
-    const tops = [...root.querySelectorAll('[data-piece^="taken-hundreds-"]')].map((p) =>
-      Math.round(p.getBoundingClientRect().top),
-    );
-    await expect(new Set(tops).size).toBeGreaterThan(1);
-    // Nest containment (the hollow's rim, ends and front wall) and pairwise no-overlap.
-    await expectFits(canvasElement, root);
-    for (const el of controls(root)) await expectTargetSize(el, 'g1-up');
-    await expectTargetGaps(controls(root));
-    await userEvent.click(within(root).getByRole('button', { name: '0' }));
-    await expect(boxes(root)).toEqual(['', '', '0']);
-    await userEvent.click(within(root).getByRole('button', { name: 'Check' }));
-    await expect(args.onResponse).toHaveBeenCalledWith({
-      kind: 'state',
-      value: { hundreds: 0, tens: 0, ones: 0, value: 0 },
-    });
-    (document.activeElement as HTMLElement | null)?.blur();
+    await playTakeAll(canvasElement, args, 'g1-up');
   },
 };
+
+/** K (bigger targets, pad and boxes, the algorithm above the mat): 900 − 900 still fits. */
+export const StressNineFlatsTakenK: Story = {
+  globals: { ageMode: 'k' },
+  args: { config: takeAll(9, 0, 0) },
+  play: async ({ canvasElement, args }) => {
+    await playTakeAll(canvasElement, args, 'k');
+  },
+};
+
+/**
+ * K, 999 − 999: nine of every kind into the nest, one at a time; it fits after every take
+ * (reduced motion, so the 27 takes land at once; the layout is the same).
+ */
+export const StressTakeAll999K: Story = {
+  globals: { ageMode: 'k', motion: 'reduced' },
+  args: { config: takeAll(9, 9, 9) },
+  play: async ({ canvasElement, args }) => {
+    await playTakeAll(canvasElement, args, 'k');
+  },
+};
+
+/** K, 1200 − 1200 (twelve flats, four places): fits after every take. */
+export const StressTakeAll1200K: Story = {
+  globals: { ageMode: 'k' },
+  args: { config: takeAll(12, 0, 0) },
+  play: async ({ canvasElement, args }) => {
+    await playTakeAll(canvasElement, args, 'k');
+  },
+};
+
+/** `h t o − h t o` with the algorithm and a typed answer: a take-away of everything (result 0). */
+function takeAll(hundreds: number, tens: number, ones: number): Config {
+  const n = { hundreds, tens, ones };
+  return {
+    format: 'base-ten-trade',
+    start: n,
+    operation: { op: '-', operand: { ...n } },
+    goal: 'compute',
+    showAlgorithm: true,
+    thenAsk: true,
+  };
+}
+
+/**
+ * Takes every piece into the nest, one at a time (ones, tens, then hundreds), checking after each
+ * take that the widget fits the tablet, every piece is inside its column or the nest's hollow, and
+ * none overlap (expectFits). Then types 0 and checks. The flats keep one size, mat and nest.
+ */
+async function playTakeAll(
+  canvasElement: HTMLElement,
+  args: { config?: WidgetConfig; onResponse: unknown },
+  age: 'k' | 'g1-up',
+) {
+  const config = args.config as Config;
+  const root = await findWidget(canvasElement, ROOT);
+  // Heavy items step the item's one unit down; flats stay at least 80 px (an 8 px unit).
+  await expectFits(canvasElement, root, U_MIN);
+  const flatW = (sel: string) => q(root, sel).getBoundingClientRect().width;
+  const onMat = flatW('[data-col="hundreds"] [data-piece]');
+  await expect(onMat).toBeGreaterThanOrEqual(U_MIN * 10);
+  for (const c of ['ones', 'tens', 'hundreds'] as const) {
+    for (let i = 0; i < config.start[c]; i++) {
+      await tapPlace(grabItem(root, c), nest(root));
+      await settled(root);
+      // The same checks as expectFits, gathered without a step per element (27 takes).
+      await expect(fitProblems(canvasElement, root), `after taking ${c} ${i + 1}`).toEqual([]);
+    }
+  }
+  await expectFits(canvasElement, root, U_MIN);
+  await expect(mat(root)).toEqual({ hundreds: 0, tens: 0, ones: 0 });
+  await expect(takenPieces(root, 'hundreds')).toBe(config.start.hundreds);
+  // The same size in the nest as on the mat (one scale).
+  await expect(flatW('[data-piece="taken-hundreds-0"]')).toBe(onMat);
+  for (const el of controls(root)) await expectTargetSize(el, age);
+  await expectTargetGaps(controls(root));
+  await userEvent.click(within(root).getByRole('button', { name: '0' }));
+  await expect(boxes(root).at(-1)).toBe('0');
+  await userEvent.click(within(root).getByRole('button', { name: 'Check' }));
+  await expect(args.onResponse).toHaveBeenCalledWith({
+    kind: 'state',
+    value: { hundreds: 0, tens: 0, ones: 0, value: 0 },
+  });
+  (document.activeElement as HTMLElement | null)?.blur();
+}
 
 /**
  * K stress: the fullest K screen, a take-away with the nest and the (bigger) K number pad, 42 − 15

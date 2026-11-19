@@ -567,6 +567,15 @@
      leaves the mat room for 20 px pieces. */
   --target-big: var(--target-min);
 }
+/* "Check" in a wrapper exactly its size (the widget measures it to plan the side panel). */
+.ni-btt__checkwrap {
+  display: inline-flex;
+}
+/* K with the algorithm in the side: "check" beside the pad, level with its bottom row. */
+.ni-btt__padrow {
+  display: flex;
+  align-items: flex-end;
+}
 
 /* The column algorithm, as a child writes it: start, operand with its sign, a line, the result. */
 /*

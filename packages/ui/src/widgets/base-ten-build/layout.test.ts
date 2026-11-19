@@ -182,7 +182,7 @@ describe('dense packing (extreme counts only)', () => {
  * The engine caps what an item may start with or need on the mat (MAT_MAX in the engine's
  * base-ten-build model). Probe the cap through the model's own schema, so this test follows it.
  */
-function engineCap(kind: (typeof KINDS)[number]): number {
+function engineCap(kind: (typeof KINDS)[number], wholeIs: 'unit' | 'flat'): number {
   const schema = formatModel('base-ten-build')?.configSchema;
   if (!schema) throw new Error('no base-ten-build model');
   const value = { thousands: 1000, hundreds: 100, tens: 10, ones: 1 }[kind];
@@ -192,7 +192,7 @@ function engineCap(kind: (typeof KINDS)[number]): number {
       target: n * value,
       mode: 'read',
       pieces: { thousands: true, hundreds: true, tens: true, ones: true },
-      wholeIs: 'unit',
+      wholeIs,
       prebuilt: { hundreds: 0, tens: 0, ones: 0, [kind]: n },
     } satisfies WidgetConfig).success;
   let n = 1;
@@ -200,91 +200,130 @@ function engineCap(kind: (typeof KINDS)[number]): number {
   return n;
 }
 
-describe('the largest mat the engine allows', () => {
-  const cap = counts(
-    engineCap('thousands'),
-    engineCap('hundreds'),
-    engineCap('tens'),
-    engineCap('ones'),
-  );
+/** Column names with the flat as the whole (`wholeIs: 'flat'`): wider than the ones mat's. */
+const DECIMAL_WORDS: Record<string, string> = {
+  thousands: 'Tens',
+  hundreds: 'Ones',
+  tens: 'Tenths',
+  ones: 'Hundredths',
+};
 
-  it('is well above every generator (9 thousands, 10 hundreds, 19 tens, 99 ones)', () => {
-    expect(cap).toEqual(counts(9, 19, 29, 199));
-  });
+for (const wholeIs of ['unit', 'flat'] as const) {
+  const flat = wholeIs === 'flat';
+  describe(`the largest mat the engine allows (wholeIs: ${wholeIs})`, () => {
+    const cap = counts(
+      engineCap('thousands', wholeIs),
+      engineCap('hundreds', wholeIs),
+      engineCap('tens', wholeIs),
+      engineCap('ones', wholeIs),
+    );
 
-  // Every age mode and mode, all four columns full at once, beside the fullest side panels: four
-  // piles (plain, or with stock tags), the goal (or none: arithmetic), and build-exact's goal with
-  // three chips. The panel claims the room it needs to fit its height (sideNeed); the mat shrinks.
-  const panels: [string, Omit<SideSpec, 'k' | 'height'>][] = [
-    ['no goal', { piles: [false, false, false, false], goal: null, exact: [] }],
-    ['goal', { piles: [false, false, false, false], goal: '9999', exact: [] }],
-    ['goal, limits', { piles: [false, true, true, true], goal: '9999', exact: [] }],
-    [
-      'exact',
-      { piles: [false, true, true, true], goal: '9111', exact: ['hundreds', 'tens', 'ones'] },
-    ],
-  ];
-  const envs: [string, Omit<MatLayoutInput, 'kinds' | 'counts'>, SideSpec | null][] = [];
-  for (const k of [false, true]) {
-    const age = k ? 'K' : 'G1';
-    for (const [name, p] of panels) {
-      const spec: SideSpec = { ...p, k, height: SIDE_H };
-      const need = sideNeed(spec, tablet(k).sideMin);
-      envs.push([
-        `${age} build, ${name}`,
-        { ...tablet(k), sideMin: need.width, sideMax: Math.max(260, need.width) },
-        spec,
-      ]);
-    }
-    envs.push([`${age} read`, tabletRead(k), null]);
-  }
-  for (const [name, env, spec] of envs) {
-    it(`fits 1280 × 800 without overlap (${name})`, () => {
-      // The widget measures fractional widths and keeps half a px of slack.
-      const l = matLayout({ kinds: KINDS, counts: cap, ...env, width: 1146 - 0.5 });
-      expect(l.overflow).toBe(false);
-      expect(l.sideWidth).toBeGreaterThanOrEqual(env.sideMin);
-      expect(l.matWidth + env.gap + l.sideWidth).toBeLessThanOrEqual(1146 - 0.5);
-      if (spec) {
-        // The side panel, laid out at its width, fits the widget's height.
-        const crowded = sideNeed(spec, tablet(spec.k).sideMin).crowded;
-        const p = sidePlan(spec, l.sideWidth, crowded);
-        expect(p.width).toBeLessThanOrEqual(l.sideWidth);
-        expect(p.height).toBeLessThanOrEqual(SIDE_H);
-      }
-      for (const c of l.columns) {
-        const n = cap[c.kind];
-        const box = c.kind === 'ones' ? onesFrame(l.u, l.orient) : pieceBox(c.kind, l.u);
-        // Every piece (or frame of ten ones) has its own cell, and the cells tile apart.
-        const cells = c.kind === 'ones' ? Math.ceil(n / 10) : n;
-        expect(c.plan.cols * c.plan.rows).toBeGreaterThanOrEqual(cells);
-        expect(c.plan.w).toBeGreaterThanOrEqual(c.plan.cols * box.w);
-        expect(c.plan.h).toBeGreaterThanOrEqual(c.plan.rows * box.h);
-        // The cells fit their column and the mat's height.
-        expect(c.plan.w + 8).toBeLessThanOrEqual(c.width);
-        expect(c.plan.h).toBeLessThanOrEqual(env.height);
-      }
+    it('is above every generator (unit: 9/10/19/99; decimals, pv.number: 9/10/10/19)', () => {
+      expect(cap).toEqual(flat ? counts(9, 14, 29, 199) : counts(9, 19, 29, 199));
     });
-  }
 
-  it('fits every smaller mat too (each kind swept from 0 to its cap, the rest full)', () => {
-    for (const [, env] of envs) {
-      for (const kind of KINDS) {
-        for (let n = 0; n <= cap[kind]; n++) {
-          const l = matLayout({ kinds: KINDS, counts: { ...cap, [kind]: n }, ...env });
-          expect(l.overflow, `${kind} ${n}`).toBe(false);
+    // Every age mode and label style, all four columns full at once, beside the fullest side
+    // panels: four piles (plain, or with stock tags), the goal (or none: arithmetic), and
+    // build-exact's goal with three chips. The panel claims the room it needs to fit its height
+    // (sideNeed); the mat shrinks.
+    const big = flat ? '99.99' : '9999';
+    const exactGoal = flat ? '91.11' : '9111';
+    const panels: [string, Omit<SideSpec, 'k' | 'height'>][] = [
+      ['no goal', { piles: [false, false, false, false], goal: null, exact: [] }],
+      ['goal', { piles: [false, false, false, false], goal: big, exact: [] }],
+      ['goal, limits', { piles: [false, true, true, true], goal: big, exact: [] }],
+      [
+        'exact',
+        { piles: [false, true, true, true], goal: exactGoal, exact: ['hundreds', 'tens', 'ones'] },
+      ],
+      [
+        'exact, 99.99',
+        { piles: [false, true, true, true], goal: big, exact: ['hundreds', 'tens', 'ones'] },
+      ],
+      [
+        'exact, three piles',
+        { piles: [true, true, true], goal: exactGoal, exact: ['hundreds', 'tens', 'ones'] },
+      ],
+      ['goal, three piles', { piles: [true, true, true], goal: big, exact: [] }],
+    ];
+    const words = flat ? DECIMAL_WORDS : WORDS;
+    const labels = [
+      ['G1 words', false, (kind: string) => 44 + 11 * (words[kind] ?? '').length],
+      ['G1 icons', false, () => 44],
+      ['K', true, () => 56],
+    ] as const;
+    const envs: [
+      string,
+      Omit<MatLayoutInput, 'kinds' | 'counts'>,
+      (SideSpec & { crowded: boolean }) | null,
+    ][] = [];
+    for (const [age, k, headerWidth] of labels) {
+      const base = { ...tablet(k), headerWidth };
+      for (const [name, p] of panels) {
+        const spec: SideSpec = { ...p, k, height: SIDE_H };
+        const room = (w: number) => ({ sideMin: w, sideMax: Math.max(260, w) });
+        // As the widget chooses: the usual panel if the mat fits beside it, else the crowded one.
+        const need = sideNeed(
+          spec,
+          tablet(k).sideMin,
+          (w) =>
+            !matLayout({ kinds: KINDS, counts: cap, ...base, ...room(w), width: 1145.5 }).overflow,
+        );
+        envs.push([
+          `${age} build, ${name}`,
+          { ...base, ...room(need.width) },
+          { ...spec, crowded: need.crowded },
+        ]);
+      }
+      envs.push([`${age} read`, { ...tabletRead(k), headerWidth }, null]);
+    }
+    for (const [name, env, spec] of envs) {
+      it(`fits 1280 × 800 without overlap (${name})`, () => {
+        // The widget measures fractional widths and keeps half a px of slack.
+        const l = matLayout({ kinds: KINDS, counts: cap, ...env, width: 1146 - 0.5 });
+        expect(l.overflow).toBe(false);
+        expect(l.sideWidth).toBeGreaterThanOrEqual(env.sideMin);
+        expect(l.matWidth + env.gap + l.sideWidth).toBeLessThanOrEqual(1146 - 0.5);
+        if (spec) {
+          // The side panel, laid out at its width, fits the widget's height.
+          const p = sidePlan(spec, l.sideWidth, spec.crowded);
+          expect(p.width).toBeLessThanOrEqual(l.sideWidth);
+          expect(p.height).toBeLessThanOrEqual(SIDE_H);
+        }
+        for (const c of l.columns) {
+          const n = cap[c.kind];
+          const box = c.kind === 'ones' ? onesFrame(l.u, l.orient) : pieceBox(c.kind, l.u);
+          // Every piece (or frame of ten ones) has its own cell, and the cells tile apart.
+          const cells = c.kind === 'ones' ? Math.ceil(n / 10) : n;
+          expect(c.plan.cols * c.plan.rows).toBeGreaterThanOrEqual(cells);
+          expect(c.plan.w).toBeGreaterThanOrEqual(c.plan.cols * box.w);
+          expect(c.plan.h).toBeGreaterThanOrEqual(c.plan.rows * box.h);
+          // The cells and the column's name fit the column, and the cells the mat's height.
+          expect(c.plan.w + 8).toBeLessThanOrEqual(c.width);
+          expect(env.headerWidth(c.kind) + 8).toBeLessThanOrEqual(c.width);
+          expect(c.plan.h).toBeLessThanOrEqual(env.height);
+        }
+      });
+    }
+
+    it('fits every smaller mat too (each kind swept from 0 to its cap, the rest full)', () => {
+      for (const [, env] of envs) {
+        for (const kind of KINDS) {
+          for (let n = 0; n <= cap[kind]; n++) {
+            const l = matLayout({ kinds: KINDS, counts: { ...cap, [kind]: n }, ...env });
+            expect(l.overflow, `${kind} ${n}`).toBe(false);
+          }
         }
       }
-    }
+    });
   });
-});
+}
 
 describe('side panel', () => {
   it('keeps the usual narrow panel for authored items (one column of piles, goal and chips)', () => {
     const items: SideSpec[] = [
       { k: false, piles: [true, false], goal: '34', exact: ['tens'], height: SIDE_H },
       { k: true, piles: [false, false], goal: '13', exact: [], height: SIDE_H },
-      { k: false, piles: [true, true, false], goal: '1.25', exact: [], height: SIDE_H },
       { k: false, piles: [false, false, false], goal: '999', exact: [], height: SIDE_H },
     ];
     for (const s of items) {
@@ -293,6 +332,23 @@ describe('side panel', () => {
         crowded: false,
       });
     }
+  });
+
+  it('stands three tall stock-tag piles in one row rather than a column too tall for the panel', () => {
+    // Three limited piles, each with a ≥ 32 px count on its tag.
+    const s: SideSpec = {
+      k: false,
+      piles: [true, true, true],
+      goal: '1.25',
+      exact: [],
+      height: SIDE_H,
+    };
+    expect(sidePlan(s, 156, false).height).toBeGreaterThan(SIDE_H);
+    const need = sideNeed(s, 156);
+    expect(need).toEqual({ width: 20 + 3 * 104 + 2 * 12, crowded: false });
+    expect(sidePlan(s, need.width, false)).toMatchObject({ pileCols: 3 });
+    // When the mat can't spare that room, the piles go 2 + 1 instead.
+    expect(sideNeed(s, 156, (w) => w < 300)).toEqual({ width: 240, crowded: true });
   });
 
   it('review case: four piles, the goal and three chips need a crowded, wider panel in K', () => {
