@@ -18,12 +18,7 @@ import { generateItem, generateItemFromParams, itemFeatures } from '../../items/
 import { itemExampleCorrect, itemSolution, replaySteps } from '../../items/solution';
 import { createRng } from '../../rng';
 import { registry } from '..';
-import {
-  estimateAnswer,
-  estimateOptionSets,
-  estimateOptionValues,
-  estimateRanks,
-} from '../estimate/quantity';
+import { ESTIMATE_LADDER, estimateRung } from '../estimate/quantity';
 import { GenerationError } from '../types';
 import { lineFeatures, niceTick, placementAnswer } from './line';
 import { benchmarkPair, readingDistractors } from './place';
@@ -316,41 +311,34 @@ describe('numberline.place', () => {
 // ---------- estimate.quantity ----------
 
 describe('estimate.quantity', () => {
-  it('options: possible answers only, pairwise ≥ 1.5× apart (review: n = 100 among 100, 200, 400)', () => {
-    const allowed = estimateOptionValues({ kind: 'int', min: 20, max: 100 });
-    expect([...allowed].sort((a, b) => a - b)).toEqual([20, 30, 40, 50, 60, 70, 80, 90, 100]);
-    // 100 is the top of the domain, so it can only be the highest option; 20 only the lowest.
-    expect(estimateOptionSets(100, allowed)).toEqual([{ rank: 'highest', values: [30, 50, 100] }]);
-    expect(estimateRanks(20, allowed)).toEqual(['lowest']);
-    expect(estimateRanks(47, allowed)).toEqual(['middle', 'highest']);
-    expect(estimateRanks(40, allowed)).toEqual(['lowest', 'middle']);
-    expect(estimateAnswer(47)).toBe(50);
-    // A fixed n (generateItemFromParams fixes every param) uses the generator's 20–100 domain.
-    expect(estimateOptionValues({ kind: 'const', value: 47 })).toEqual(allowed);
+  it('the ladder: n within 20% of a rung estimates to it; between rungs there is no item', () => {
+    expect(ESTIMATE_LADDER).toEqual([20, 50, 100]);
+    expect([16, 20, 24].map(estimateRung)).toEqual([20, 20, 20]);
+    expect([40, 47, 60].map(estimateRung)).toEqual([50, 50, 50]);
+    expect([80, 100, 120].map(estimateRung)).toEqual([100, 100, 100]);
+    expect([25, 33, 39, 61, 79].map(estimateRung)).toEqual([null, null, null, null, null]);
   });
 
-  it('numeral-pick: the answer is the lowest, middle or highest option (review: always middle)', () => {
+  it('numeral-pick: always the ladder; the answer is the rung n is near (review: rank cues, ties)', () => {
     const t = tpl('estimate.quantity', 'numeral-pick', { representation: 'dots' });
-    const ranks = new Set<number>();
+    const g = registry.get('estimate.quantity');
+    const answers = new Set<number>();
     for (let n = 20; n <= 100; n += 1) {
-      for (let seed = 0; seed < 24; seed += 1) {
+      const rung = estimateRung(n);
+      expect(g?.accepts?.({ n, benchmarks: 0 }, t), `n = ${n}`).toBe(rung !== null);
+      if (rung === null) continue;
+      for (let seed = 0; seed < 8; seed += 1) {
         const item = generateItemFromParams(t, { n, benchmarks: 0 }, { seed });
         if (item.widget.format !== 'numeral-pick' || item.answer.kind !== 'choice') {
           throw new Error('pick');
         }
-        const values = item.widget.options.map((o) => Number(o.id.slice(4))).sort((a, b) => a - b);
-        const answer = Number(item.answer.id.slice(4));
-        // Unambiguous: three distinct options, neighbours ≥ 1.5× apart, so none is within the
-        // 25% estimate tolerance of another; the answer is n to the nearest ten.
-        expect(new Set(values).size).toBe(3);
-        expect(answer).toBe(estimateAnswer(n));
-        expect((values[1] as number) / (values[0] as number)).toBeGreaterThanOrEqual(1.5);
-        expect((values[2] as number) / (values[1] as number)).toBeGreaterThanOrEqual(1.5);
-        expect(values.every((v) => v >= 20 && v <= 100)).toBe(true);
-        ranks.add(values.indexOf(answer));
+        const values = item.widget.options.map((o) => Number(o.id.slice(4)));
+        expect([...values].sort((x, y) => x - y)).toEqual([20, 50, 100]);
+        expect(item.answer.id).toBe(`opt-${rung}`);
+        answers.add(rung);
       }
     }
-    expect([...ranks].sort()).toEqual([0, 1, 2]);
+    expect([...answers].sort((x, y) => x - y)).toEqual([20, 50, 100]);
   });
 
   it('dot-flash: a flashed group, correct within 25%', () => {
@@ -382,13 +370,10 @@ describe('estimate.quantity', () => {
 
   it('numeral-pick: numerals, or (number-line) lines with an arrow', () => {
     const t = tpl('estimate.quantity', 'numeral-pick', { representation: 'dots' });
-    const item = make(t, { n: 33, benchmarks: 0 });
-    expect(item.answer).toEqual({ kind: 'choice', id: 'opt-30' });
+    const item = make(t, { n: 47, benchmarks: 0 });
+    expect(item.answer).toEqual({ kind: 'choice', id: 'opt-50' });
     if (item.widget.format !== 'numeral-pick') throw new Error('pick');
-    const sets = estimateOptionSets(33, estimateOptionValues(undefined)).map((x) =>
-      x.values.map((v) => `opt-${v}`).sort(),
-    );
-    expect(sets).toContainEqual(item.widget.options.map((o) => o.id).sort());
+    expect(item.widget.options.map((o) => o.id).sort()).toEqual(['opt-100', 'opt-20', 'opt-50']);
     checkItem(t, item);
     const lt = tpl('estimate.quantity', 'numeral-pick', { representation: 'number-line' });
     for (let seed = 0; seed < 8; seed += 1) {
@@ -454,8 +439,8 @@ describe('estimate.quantity', () => {
     expect(itemFeatures(make(t, { n: 20, benchmarks: 0 }), t)['n.per50']).toBe(0);
     const pad = tpl('estimate.quantity', 'number-pad');
     expect(itemFeatures(make(pad, { n: 120, benchmarks: 0 }), pad)['n.per50']).toBe(2);
-    // 120 is outside the numeral-pick template's 20–100 domain, so it is never an option set.
-    expect(() => make(t, { n: 120, benchmarks: 0 })).toThrow(GenerationError);
+    // 70 is near no rung of the ladder, so numeral-pick never asks for it.
+    expect(() => make(t, { n: 70, benchmarks: 0 })).toThrow(GenerationError);
     expect(() => make(t, { n: 30, benchmarks: 20 })).toThrow(GenerationError);
     for (let seed = 1; seed <= 10; seed += 1) {
       const ft = tpl('estimate.quantity', 'dot-flash', {

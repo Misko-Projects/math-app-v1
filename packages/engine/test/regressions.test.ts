@@ -9,7 +9,7 @@ import { render } from '../src/content/render';
 import { formatModel } from '../src/formats';
 import { registry } from '../src/generators';
 import { specDomain } from '../src/generators/common';
-import { estimateAnswer } from '../src/generators/estimate/quantity';
+import { ESTIMATE_LADDER, estimateRung } from '../src/generators/estimate/quantity';
 import { CLEARLY_LIGHTER, clearlyLighter } from '../src/generators/mea/massvolume';
 import { GenerationError } from '../src/generators/types';
 import { checkResponse } from '../src/items/check';
@@ -497,9 +497,11 @@ describe('PR #77 review (d): CMP.02 hints follow the ask', () => {
 // ---------- PR #77 review (e)–(i): picture-only answers and bare lines ----------
 
 describe('PR #77 review (e): CMP.13 estimate options never name the answer without the picture', () => {
-  // n = 100 used to offer 100, 200 and 400 on a 20–100 template: only 100 could be right.
+  // Rounds 2 and 3: n = 100 offered 100, 200, 400 (only 100 possible); [20, 40, 70] could only
+  // key 70; n = 25 offered 20, 30, 50, where 20 and 30 are equally close. Every item now offers
+  // the same ladder, and n sits near exactly one rung.
   it.each(['CMP.13.t3', 'CMP.13.t4'])(
-    '%s: every option is a possible answer in the domain, ≥ 1.5× apart; every rank occurs',
+    '%s: one option set for every item; the key is the unique closest option, ≥ 25% clear of the rest',
     (id) => {
       loadFixture();
       const t = fixtureTemplate(id);
@@ -507,36 +509,35 @@ describe('PR #77 review (e): CMP.13 estimate options never name the answer witho
       if (!g) throw new Error(t.generator);
       const spec = mergedSpec(t, g);
       const domain = specDomain(spec.n as ParamSpec) as number[];
-      const inDomain = new Set(domain);
-      const answers = new Set(domain.map(estimateAnswer));
       const benchmarks = specDomain(spec.benchmarks as ParamSpec)[0] as number;
-      const ranks = new Set<number>();
+      const sets = new Set<string>();
+      const keys = new Set<number>();
       for (const n of domain) {
         const params = { n, benchmarks };
-        expect(g.accepts?.(params, t), `n = ${n}`).toBe(true);
-        for (let seed = 0; seed < 40; seed += 1) {
+        if (!g.accepts?.(params, t)) {
+          expect(estimateRung(n), `n = ${n}`).toBeNull();
+          continue;
+        }
+        for (let seed = 0; seed < 20; seed += 1) {
           const out = g.build({ params, template: t, rng: createRng(seed).fork('e') });
           if (out.widget.format !== 'numeral-pick' || out.answer.kind !== 'choice') {
             throw new Error('pick');
           }
           const values = out.widget.options.map((o) => Number(o.id.slice(4)));
+          sets.add([...values].sort((x, y) => x - y).join(','));
+          const key = Number(out.answer.id.slice(4));
+          keys.add(key);
+          // The key is the closest option to the pictured count, and every other option is
+          // further than the 25% estimate tolerance from it: no tie, no near miss marked wrong.
           for (const v of values) {
-            expect(inDomain.has(v) && answers.has(v), `n = ${n}: option ${v}`).toBe(true);
+            if (v === key) continue;
+            expect(Math.abs(v - n), `n = ${n}: ${v} vs ${key}`).toBeGreaterThan(Math.abs(key - n));
+            expect(Math.abs(v - n) / n, `n = ${n}: ${v}`).toBeGreaterThan(0.25);
           }
-          for (let i = 0; i < values.length; i += 1) {
-            for (let j = i + 1; j < values.length; j += 1) {
-              const [lo, hi] = [values[i], values[j]].sort((a, b) => (a ?? 0) - (b ?? 0));
-              expect((hi as number) / (lo as number), `n = ${n}: ${values}`).toBeGreaterThanOrEqual(
-                1.5,
-              );
-            }
-          }
-          const answer = Number(out.answer.id.slice(4));
-          expect(answer).toBe(estimateAnswer(n));
-          ranks.add([...values].sort((a, b) => a - b).indexOf(answer));
         }
       }
-      expect([...ranks].sort()).toEqual([0, 1, 2]);
+      expect([...sets]).toEqual([ESTIMATE_LADDER.join(',')]);
+      expect([...keys].sort((x, y) => x - y)).toEqual([...ESTIMATE_LADDER]);
     },
   );
 });
