@@ -9,6 +9,12 @@ import {
   inArea,
 } from '../../test-support/areaStory';
 import {
+  boxGap,
+  expectControls,
+  expectOneInviteRing,
+  outlineBox,
+} from '../../test-support/evidence';
+import {
   center,
   clearSpies,
   expectTargetGaps,
@@ -130,6 +136,12 @@ const line = (root: HTMLElement) => center(root.querySelector('.ni-clen__line') 
 
 /** Every object is drawn to scale from where it starts: left end at start, width length × unit. */
 async function expectToScale(root: HTMLElement, config: Config) {
+  // The scale follows the measured area: wait until it has settled (no drift between frames).
+  await waitFor(async () => {
+    const before = unitPx(root);
+    await new Promise((r) => setTimeout(r, 120));
+    await expect(unitPx(root)).toBe(before);
+  });
   const u = unitPx(root);
   for (const o of config.objects) {
     const el = obj(root, o.id);
@@ -177,8 +189,33 @@ export const LongerSlideToLineK: Story = {
       'tap:obj-1',
     ]);
     await expectTraceOrdered(trace);
+    // The ribbons use the width (evidence review): the longer one spans most of the widget.
+    const longest = art(root, 'obj-1').getBoundingClientRect().width;
+    await expect(longest / root.getBoundingClientRect().width).toBeGreaterThanOrEqual(0.6);
+    await expectControls('compare-length LongerSlideToLineK', 'k', {
+      objects: [obj(root, 'obj-0'), obj(root, 'obj-1')],
+      check: [within(root).getByRole('button', { name: 'Check' })],
+    });
   },
 };
+
+/** The widget's content (lanes and side column) is centred across the area (evidence review). */
+async function expectContentCentred(canvasElement: HTMLElement, root: HTMLElement) {
+  const parts = [...root.querySelectorAll('.ni-clen__main, .ni-clen__side')].map((e) =>
+    e.getBoundingClientRect(),
+  );
+  const left = Math.min(...parts.map((r) => r.left));
+  const right = Math.max(...parts.map((r) => r.right));
+  const a = areaBox(canvasElement);
+  const r = a.getBoundingClientRect();
+  const cs = getComputedStyle(a);
+  const inset =
+    (Number.parseFloat(cs.borderLeftWidth) || 0) + (Number.parseFloat(cs.paddingLeft) || 0);
+  await expect(
+    Math.abs(left - (r.left + inset) - (r.right - inset - right)),
+    'centred',
+  ).toBeLessThanOrEqual(4);
+}
 
 /** A slide that stops short of the line goes back; ← on the object lines it up (keyboard). */
 export const SlideKeyboard: Story = {
@@ -283,25 +320,36 @@ export const OrderMoveBadge: Story = {
   },
 };
 
-/** Tablet widget area, K: the three ropes, badges and Check fit with no scroll. */
-export const OrderTabletK: Story = {
-  globals: { ageMode: 'k' },
-  args: { config: order },
-  render: inArea('tablet'),
-  play: async ({ canvasElement }) => {
+const orderPlay =
+  (story: string) =>
+  async ({ canvasElement }: { canvasElement: HTMLElement }) => {
     const root = await findWidget(canvasElement, ROOT);
     await expectFitsArea(areaBox(canvasElement), [
       ...root.querySelectorAll('.ni-clen__obj, .ni-clen__badge, .ni-clen__lane'),
       within(root).getByRole('button', { name: 'Check' }),
     ]);
     await expectToScale(root, order);
-  },
+    await expectContentCentred(canvasElement, root);
+    await expectControls(story, 'k', {
+      badges: [...root.querySelectorAll('.ni-clen__badge')],
+      objects: [...root.querySelectorAll('.ni-clen__obj')],
+      check: [within(root).getByRole('button', { name: 'Check' })],
+    });
+  };
+
+/** Tablet widget area, K: the three ropes, badges and Check fit with no scroll, centred. */
+export const OrderTabletK: Story = {
+  globals: { ageMode: 'k' },
+  args: { config: order },
+  render: inArea('tablet'),
+  play: orderPlay('compare-length OrderTabletK'),
 };
 
 /** Smallest landscape area, K: lanes, badges and Check fit with no scroll; still to scale. */
 export const OrderLandscapeMinK: Story = {
   ...OrderTabletK,
   render: inArea('landscapeMin'),
+  play: orderPlay('compare-length OrderLandscapeMinK'),
 };
 
 /**
@@ -335,6 +383,36 @@ export const IndirectStrings: Story = {
       ...root.querySelectorAll('.ni-clen__obj, .ni-clen__strings'),
       within(root).getByRole('button', { name: 'Check' }),
     ]);
+    // Each string carries its log's tag (colour and mark), in the logs' order (evidence review).
+    const laneTops: number[] = [];
+    const rowTops: number[] = [];
+    for (const o of indirect.objects) {
+      const laneTag = root.querySelector(
+        `[data-lane="${o.id}"] [data-tag="${o.id}"]`,
+      ) as HTMLElement;
+      const rowTag = root.querySelector(`[data-row="${o.id}"] [data-tag="${o.id}"]`) as HTMLElement;
+      await expect(rowTag.dataset.mark).toBe(laneTag.dataset.mark);
+      await expect(rowTag.getBoundingClientRect().height).toBeGreaterThanOrEqual(40);
+      laneTops.push(laneTag.getBoundingClientRect().top);
+      rowTops.push(rowTag.getBoundingClientRect().top);
+    }
+    await expect(rowTops[0] as number).toBeLessThan(rowTops[1] as number);
+    await expect(laneTops[0] as number).toBeLessThan(laneTops[1] as number);
+    await expect(root.querySelector('[data-tag="obj-0"]')?.getAttribute('data-mark')).not.toBe(
+      root.querySelector('[data-tag="obj-1"]')?.getAttribute('data-mark'),
+    );
+    await expectControls('compare-length IndirectStrings', 'k', {
+      objects: [obj(root, 'obj-0'), obj(root, 'obj-1')],
+      spool: [spool],
+      check: [within(root).getByRole('button', { name: 'Check' })],
+    });
+    await expect(
+      boxGap(
+        outlineBox(within(root).getByRole('button', { name: 'Check' })),
+        spool.getBoundingClientRect(),
+      ),
+      'spool clear of Check and its ring',
+    ).toBeGreaterThanOrEqual(11.5);
     await userEvent.click(obj(root, 'obj-1'));
     await userEvent.click(within(root).getByRole('button', { name: 'Check' }));
     await expect(args.onResponse).toHaveBeenCalledWith({ kind: 'choice', id: 'obj-1' });
@@ -391,6 +469,10 @@ export const HowMuchLongerLandscapeMinK: Story = {
       within(root).getByRole('button', { name: 'Check' }),
     ]);
     await expectNumeralsAtLeast32(root, '.ni-entry__text, .ni-pad__digit');
+    await expectControls('compare-length HowMuchLongerLandscapeMinK', 'k', {
+      keys: [...root.querySelectorAll('.ni-pad__key')],
+      check: [within(root).getByRole('button', { name: 'Check' })],
+    });
     await userEvent.click(within(root).getByRole('button', { name: 'Check' }));
     await expect(args.onResponse).toHaveBeenCalledWith({ kind: 'number', value: 3 });
   },
@@ -501,6 +583,29 @@ export const DemoInvite: Story = {
     await waitFor(() => expect(obj(root, 'obj-0')).toHaveClass('ni-invite'));
     await expectPointerOn(root.querySelector('.ni-hand') as HTMLElement, obj(root, 'obj-0'), root);
     await expectHandStays(root, () => obj(root, 'obj-0'));
+    // One ring, inside the object's own box, 12 px clear of the other object and Check.
+    await expectOneInviteRing(root, {
+      clearOf: [obj(root, 'obj-1'), within(root).getByRole('button', { name: 'Check' })],
+    });
+  },
+};
+
+const inviteBadge: WidgetDemo = createDemoController({ strict: true });
+
+/**
+ * The child's turn in `order` (K): Pip's hand points at badge 1, below its numeral (the hand never
+ * covers it); one ring, inside the badge, 12 px clear of the other badges.
+ */
+export const DemoInviteBadgeK: Story = {
+  globals: { ageMode: 'k' },
+  args: { config: order, demo: inviteBadge },
+  play: async ({ canvasElement }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    inviteBadge.invite({ op: 'answer', args: { values: [2, 6, 9] } });
+    await waitFor(() => expect(badge(root, 0)).toHaveClass('ni-invite'));
+    await expectPointerOn(root.querySelector('.ni-hand') as HTMLElement, badge(root, 0), root);
+    await expectHandStays(root, () => badge(root, 0));
+    await expectOneInviteRing(root, { clearOf: [badge(root, 1), badge(root, 2)] });
   },
 };
 

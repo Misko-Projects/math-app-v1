@@ -7,6 +7,7 @@ import {
 import type { WidgetAction } from '@number-island/shared';
 import {
   type CSSProperties,
+  type ReactNode,
   type PointerEvent as ReactPointerEvent,
   useRef,
   useState,
@@ -53,6 +54,17 @@ const STRING = 'string';
 type Config = ConfigFor<'compare-length'>;
 type Obj = Config['objects'][number];
 
+/** The largest unit (px): a short object still reads as an object, not a bar across the screen. */
+const UNIT_MAX = 120;
+/** Indirect: each object's tag (its colour and mark), on its lane and on its string. */
+const TAG_PX = 44;
+const TAG_TONES = [
+  { fill: 'var(--color-coral)', mark: 'circle' },
+  { fill: 'var(--color-sea)', mark: 'triangle' },
+  { fill: 'var(--color-sunshine)', mark: 'square' },
+  { fill: 'var(--color-leaf)', mark: 'diamond' },
+] as const;
+
 const badgeId = (slot: number) => `slot-${slot}`;
 const slotOf = (id: string) => Number(id.replace('slot-', ''));
 
@@ -91,12 +103,18 @@ export function CompareLengthWidget({
   const compact = avail !== null && avail.height < 400;
   const minTarget = MIN_TARGET_PX[ageMode];
   const typed = ask === 'how-much-longer';
-  const rowH = typed && compact ? 56 : minTarget + 8;
-  const sideW = ask === 'order' ? 2 * minTarget + 12 : minTarget + 8;
+  const rowH = typed && compact ? 56 : compact ? minTarget : minTarget + 8;
+  // The side column's real width (Check is 114 px in K, 180 px with its word; the badge tray is
+  // two badges, a 12 px gap and 10 px padding): an estimate off by a few px feeds back through
+  // the measured area into the scale.
+  const checkW = ageMode === 'k' ? 114 : 180;
+  const sideW = Math.max(checkW, ask === 'order' ? 2 * minTarget + 32 : minTarget);
   const width = Math.max(320, (avail?.width ?? 1100) - sideW - 48);
-  const lineX = ask === 'order' ? minTarget + 16 : 20;
+  // Indirect: each lane starts with its object's tag (the same tag marks its string).
+  const lineX = ask === 'order' ? minTarget + 16 : ask === 'indirect' ? TAG_PX + 20 : 20;
   const maxEnd = Math.max(...config.objects.map((o) => o.offset + o.length));
-  const unit = Math.max(8, Math.min(64, Math.floor((width - lineX - 16) / maxEnd)));
+  // The objects use the width they have (evidence review: the ribbons used a quarter of it).
+  const unit = Math.max(8, Math.min(UNIT_MAX, Math.floor((width - lineX - 16) / maxEnd)));
   const lanesW = Math.min(width, lineX + maxEnd * unit + 24);
   const slidable = tier === 'concrete' && !config.aligned && ask !== 'indirect';
 
@@ -287,7 +305,8 @@ export function CompareLengthWidget({
             .join(' ')}
           data-badge={slot}
         >
-          {slot + 1}
+          {/* The numeral is a glyph Pip's hand keeps clear of (kit useInviteHand). */}
+          <span className="ni-btn__label">{slot + 1}</span>
         </span>
       </span>
     );
@@ -303,6 +322,7 @@ export function CompareLengthWidget({
     const pickable = ask === 'longer' || ask === 'shorter' || ask === 'indirect';
     return (
       <div key={o.id} className="ni-clen__lane" data-lane={o.id} style={{ height: rowH }}>
+        {ask === 'indirect' ? <ObjectTag i={i} id={o.id} /> : null}
         {targetP ? (
           <button
             type="button"
@@ -476,19 +496,19 @@ export function CompareLengthWidget({
             role="img"
           >
             <span className="ni-clen__line" style={{ left: lineX }} aria-hidden="true" />
-            {state.strings.map((id) => {
-              const o = config.objects.find((x) => x.id === id) as Obj;
+            {/* One row per object, in the objects' order, each starting with that object's tag. */}
+            {config.objects.map((o, i) => {
+              const laid = state.strings.includes(o.id);
               return (
                 <span
-                  key={id}
+                  key={o.id}
                   className="ni-clen__string-row"
-                  style={{ paddingLeft: lineX }}
-                  data-string-row={id}
+                  style={{ paddingLeft: lineX, height: TAG_PX }}
+                  data-row={o.id}
+                  data-string-row={laid ? o.id : undefined}
                 >
-                  <StringPiece width={o.length * unit} />
-                  <span className="ni-clen__string-tag" style={{ width: 30, height: 30 }}>
-                    <LengthObject sprite={o.sprite} width={30} height={20} />
-                  </span>
+                  <ObjectTag i={i} id={o.id} />
+                  {laid ? <StringPiece width={o.length * unit} /> : null}
                 </span>
               );
             })}
@@ -518,6 +538,39 @@ export function CompareLengthWidget({
       {side}
       {hand}
     </div>
+  );
+}
+
+/**
+ * An object's tag in `indirect`: its colour and a mark (circle, triangle, square, diamond: never
+ * colour alone), at the start of its lane and of its string, so each string says whose it is.
+ */
+function ObjectTag({ i, id }: { i: number; id: string }) {
+  const tone = TAG_TONES[i % TAG_TONES.length] as (typeof TAG_TONES)[number];
+  const marks: Record<string, ReactNode> = {
+    circle: <circle cx="22" cy="22" r="10" />,
+    triangle: <path d="M22 10 34 32H10z" />,
+    square: <rect x="12" y="12" width="20" height="20" rx="2" />,
+    diamond: <path d="M22 9 35 22 22 35 9 22z" />,
+  };
+  return (
+    <span className="ni-clen__tag" data-tag={id} data-mark={tone.mark} aria-hidden="true">
+      <svg viewBox="0 0 44 44" width={TAG_PX} height={TAG_PX} focusable="false" aria-hidden="true">
+        <rect
+          x="2"
+          y="2"
+          width="40"
+          height="40"
+          rx="10"
+          fill={tone.fill}
+          stroke="var(--color-ink)"
+          strokeWidth="3"
+        />
+        <g fill="var(--color-paper)" stroke="var(--color-ink)" strokeWidth="2.5">
+          {marks[tone.mark]}
+        </g>
+      </svg>
+    </span>
   );
 }
 

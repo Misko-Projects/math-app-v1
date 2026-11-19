@@ -155,11 +155,12 @@
   width: calc(var(--target-min) - 4px);
   height: calc(var(--target-min) - 4px);
 }
+/* 24 px between the side's controls: Check's 8 px focus ring stays 16 px clear (06 §4). */
 .ni-clen__side {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 16px;
+  gap: 24px;
 }
 .ni-clen__badges {
   position: relative;
@@ -226,9 +227,36 @@
   align-items: center;
   gap: 8px;
 }
-.ni-clen__string-tag {
-  display: inline-flex;
-  align-items: center;
+/* An object's tag (indirect), at the left of its lane and of its string row, same place. */
+.ni-clen__tag {
+  position: absolute;
+  top: 50%;
+  left: 8px;
+  z-index: 2;
+  display: block;
+  transform: translateY(-50%);
+  pointer-events: none;
+}
+.ni-clen__tag svg {
+  display: block;
+}
+
+/* The demo invite: one ring, inside the invited control (12 px gaps kept), no pulse. */
+.ni-clen .ni-clen__obj.ni-invite {
+  position: absolute;
+  outline-offset: -5px;
+  border-radius: 14px;
+  animation: none;
+}
+.ni-clen .ni-clen__badge.ni-invite {
+  outline-offset: -5px;
+  border-radius: 50%;
+  animation: none;
+}
+.ni-clen .ni-clen__spool.ni-invite {
+  outline-offset: -5px;
+  border-radius: 20px;
+  animation: none;
 }
 .ni-clen__entry {
   align-self: center;
