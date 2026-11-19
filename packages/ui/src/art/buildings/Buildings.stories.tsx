@@ -970,7 +970,7 @@ export const BesideTheNextStone: Story = {
 
 /** The building the colour-vision matrix shows, and its scale (fits 4 rows in one tablet screen). */
 const CVD_BUILDING: BuildingArtId = 'lantern-grove';
-const CVD_SCALE = 0.65;
+const CVD_SCALE = 0.62;
 const CVD_LABEL_W = 150;
 
 /**
