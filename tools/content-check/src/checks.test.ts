@@ -8,7 +8,12 @@ import { type CompiledInput, parameterSpace, runEngineChecks } from './checks';
 import { compileInMemory } from './dist';
 
 const fixture = compileInMemory();
-const opts = { propertyN: 20, statsN: 100 };
+// A quick run: this test proves the checks run clean and write stats for every template. The
+// full gate is `pnpm content:validate` (100 property seeds per template with difficulty
+// targeting; nightly 500), which `pnpm verify` runs on the same catalog just before the tests.
+// Targeting alone is 100 targeted items per template whatever the seed count, so with it this
+// test took over its 180 s budget on CI once the K–1 catalog reached 430 templates (#11, PR #84).
+const opts = { propertyN: 10, statsN: 20, targeting: false };
 
 // The defect tests look for one diagnostic each, so they run on a slice of the content (the
 // addition skills their defects touch) with few seeds: the whole K–1 catalog takes the full run
