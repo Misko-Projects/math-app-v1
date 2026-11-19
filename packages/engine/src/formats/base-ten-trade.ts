@@ -78,11 +78,11 @@ const configSchema = baseTenTradeConfigSchema.superRefine((c, ctx) => {
         path: ['operation'],
         message: 'the result is negative',
       });
-    } else if (computeResult(c) >= 1000) {
+    } else if (computeResult(c) > 1000) {
       ctx.addIssue({
         code: 'custom',
         path: ['operation'],
-        message: 'the mat has no thousands column',
+        message: 'the mat holds at most 1,000 (ten hundreds)',
       });
     }
   } else {
@@ -206,7 +206,8 @@ export const baseTenTrade: FormatModel<'base-ten-trade', BaseTenTradeState> = {
     if (s.config.thenAsk && s.value === null) return null;
     return {
       kind: 'state',
-      value: { ...s.mat, ...(s.value !== null ? { value: s.value } : {}) },
+      // The typed value is part of the answer only when the item asks for it (thenAsk).
+      value: { ...s.mat, ...(s.config.thenAsk && s.value !== null ? { value: s.value } : {}) },
     };
   },
 };
