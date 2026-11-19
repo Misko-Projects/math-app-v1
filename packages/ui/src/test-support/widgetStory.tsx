@@ -3,9 +3,11 @@
 import type { InteractionEvent, WidgetConfig } from '@number-island/shared';
 import { expect, type fn, waitFor } from 'storybook/test';
 import { HAND_POINTER_TIP } from '../primitives/icons';
+import { type AgeMode, TARGET_GAP_PX } from '../tokens/tokens';
 import { INVITE_GLYPH_SELECTOR } from '../widgets/kit';
 import type { WidgetHostProps } from '../widgets/WidgetHost';
 import { WidgetHost } from '../widgets/WidgetHost';
+import { expectTargetGaps, expectTargetSize } from './storyHelpers';
 
 /** The widget area of a workshop (06 §2: ≥ 60% of the screen), as a fixed story stage. */
 export function renderWidget(args: WidgetHostProps) {
@@ -87,4 +89,163 @@ export async function expectPointerOn(hand: HTMLElement, target: HTMLElement, wi
   } finally {
     for (const a of loops) a.play();
   }
+}
+
+// ---------- the workshop's widget area (shared by every widget's area stories) ----------
+
+/**
+ * The workshop's widget area at a viewport: the width less the workshop frame's 2 × 24 px padding
+ * and the stage's 2 × 3 px border; the height is the 06 §2 minimum, 60 % of the screen over that
+ * width, less the border. 1280 × 800 → 1226 × 493, 960 × 600 (06 §1 minimum) → 906 × 373,
+ * 800 × 1280 → 746 × 812. (Today's WorkshopFrame chrome leaves less than 60 %; that is the
+ * frame's to fix, not the widget's.) Same numbers as tap-count's and make-set's area stories.
+ */
+export function widgetArea(vw: number, vh: number) {
+  const outer = vw - 2 * 24;
+  return { width: outer - 2 * 3, height: Math.ceil((0.6 * vw * vh) / outer) - 2 * 3 };
+}
+
+export const AREA = {
+  landscapeMin: widgetArea(960, 600),
+  portrait: widgetArea(800, 1280),
+  tablet: widgetArea(1280, 800),
+} as const;
+
+/**
+ * Renders the widget in the normal warm widget card (as `.story-widget-stage`: a 3 px tan border,
+ * 24 px padding, sand), the card exactly the area's size, so the widget gets the inner area
+ * (906 × 373 → 852 × 319). The card is a scroll box like a stage, so a play function can prove
+ * nothing scrolls: it never grows to fit the widget.
+ */
+export function inArea(area: keyof typeof AREA) {
+  return (args: WidgetHostProps) => (
+    <div
+      className="story-widget-area"
+      data-area-size={area}
+      style={{
+        ...AREA[area],
+        maxWidth: 'none',
+        boxSizing: 'border-box',
+        display: 'grid',
+        overflow: 'auto',
+        padding: 24,
+        border: '3px solid var(--color-sand-deep)',
+        borderRadius: 'var(--radius-card)',
+        background: 'var(--color-sand)',
+        boxShadow: 'var(--shadow-soft)',
+      }}
+    >
+      <WidgetHost {...args} />
+    </div>
+  );
+}
+
+/** The area card `inArea` renders. */
+export const areaBox = (canvasElement: HTMLElement) =>
+  canvasElement.querySelector('.story-widget-area') as HTMLElement;
+
+export type Edges = { left: number; top: number; right: number; bottom: number };
+
+/** An element's content box: inside its border and padding. */
+export function contentBox(el: Element): Edges {
+  const r = el.getBoundingClientRect();
+  const cs = getComputedStyle(el);
+  const n = (v: string) => Number.parseFloat(v) || 0;
+  return {
+    left: r.left + n(cs.borderLeftWidth) + n(cs.paddingLeft),
+    top: r.top + n(cs.borderTopWidth) + n(cs.paddingTop),
+    right: r.right - n(cs.borderRightWidth) - n(cs.paddingRight),
+    bottom: r.bottom - n(cs.borderBottomWidth) - n(cs.paddingBottom),
+  };
+}
+
+/** `inner` lies inside `outer` with at least `margin` px on every side. */
+export async function expectInside(inner: Edges, outer: Edges, margin: number, what: string) {
+  await expect(inner.left - outer.left, `${what}: left margin`).toBeGreaterThanOrEqual(
+    margin - 0.5,
+  );
+  await expect(inner.top - outer.top, `${what}: top margin`).toBeGreaterThanOrEqual(margin - 0.5);
+  await expect(outer.right - inner.right, `${what}: right margin`).toBeGreaterThanOrEqual(
+    margin - 0.5,
+  );
+  await expect(outer.bottom - inner.bottom, `${what}: bottom margin`).toBeGreaterThanOrEqual(
+    margin - 0.5,
+  );
+}
+
+const describeEl = (el: Element | null) =>
+  el ? `${el.tagName.toLowerCase()}.${[...el.classList].join('.')}` : 'nothing';
+
+/**
+ * A real touch at `at` lands on `el`: the browser's hit test (`elementFromPoint`) returns `el` or
+ * something inside it, so nothing covers it, it is not clipped away and it is on screen.
+ */
+export async function expectHit(el: Element, at: { x: number; y: number }, what: string) {
+  const hit = document.elementFromPoint(at.x, at.y);
+  await expect(
+    hit !== null && el.contains(hit),
+    `${what}: a touch at (${Math.round(at.x)}, ${Math.round(at.y)}) hits ${describeEl(hit)}, not ${describeEl(el)}`,
+  ).toBe(true);
+}
+
+/** The area card is scrolled to its origin and scrolls neither way (06 §1: one screen). */
+export async function expectNoScroll(box: HTMLElement) {
+  box.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+  box.scrollTop = 0;
+  box.scrollLeft = 0;
+  await new Promise<void>((r) => requestAnimationFrame(() => r()));
+  await expect(box.scrollHeight, 'the area does not scroll down').toBeLessThanOrEqual(
+    box.clientHeight + 1,
+  );
+  await expect(box.scrollWidth, 'the area does not scroll across').toBeLessThanOrEqual(
+    box.clientWidth + 1,
+  );
+}
+
+/**
+ * An invite ring (outline) stays ≥ 12 px clear of every other target: the ringed element's box,
+ * grown by its outline's reach, against each other target's box.
+ */
+export async function expectRingClear(ringed: HTMLElement, others: Element[]) {
+  const cs = getComputedStyle(ringed);
+  await expect(cs.outlineStyle).toBe('solid');
+  const reach = Math.max(
+    0,
+    Number.parseFloat(cs.outlineOffset) + Number.parseFloat(cs.outlineWidth),
+  );
+  const r = ringed.getBoundingClientRect();
+  for (const other of others) {
+    if (other === ringed || ringed.contains(other) || other.contains(ringed)) continue;
+    const b = other.getBoundingClientRect();
+    const dx = Math.max(b.left - (r.right + reach), r.left - reach - b.right);
+    const dy = Math.max(b.top - (r.bottom + reach), r.top - reach - b.bottom);
+    await expect(Math.max(dx, dy), `ring clearance to ${describeEl(other)}`).toBeGreaterThanOrEqual(
+      TARGET_GAP_PX - 0.5,
+    );
+  }
+}
+
+/**
+ * The whole widget fits the area card (06 §1, §2): nothing scrolls; every part lies inside the
+ * card's inner area; a real touch at each target's centre lands on it; and the targets keep the
+ * age mode's size and 12 px gaps (06 §4).
+ */
+export async function expectFitsArea(
+  box: HTMLElement,
+  parts: Element[],
+  targets: Element[],
+  ageMode: AgeMode,
+) {
+  await expectNoScroll(box);
+  const inner = contentBox(box);
+  for (const part of parts) {
+    await expectInside(part.getBoundingClientRect(), inner, 0, `${describeEl(part)} in the area`);
+  }
+  for (const el of targets) {
+    const r = el.getBoundingClientRect();
+    await expectHit(el, { x: r.left + r.width / 2, y: r.top + r.height / 2 }, describeEl(el));
+  }
+  for (const el of targets) await expectTargetSize(el, ageMode);
+  await expectTargetGaps(targets);
+  await expect(box.scrollTop).toBe(0);
 }
