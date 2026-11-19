@@ -199,6 +199,9 @@ export const fractionPick: FormatModel<'fraction-pick', FractionPickState> = {
     const c = s.config;
     switch (a.op) {
       case 'highlight': {
+        // No id clears the highlight; an id the item does not show is ignored.
+        if (a.args?.id === undefined)
+          return s.highlighted === null ? s : { ...s, highlighted: null };
         const id = argString(a, 'id');
         if (id === undefined || (id !== 'stimulus' && !pickChoices(c).includes(id))) return s;
         return { ...s, highlighted: id };

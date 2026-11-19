@@ -2,6 +2,7 @@ import type { ExpressionSpec, ExpressionToken, StimulusSpec } from '@number-isla
 import type { CSSProperties, ReactNode } from 'react';
 import { useNarrationText } from '../../preferences/UiProvider';
 import { pictureProps } from './a11y';
+import { FractionView } from './FractionView';
 import { dotsLayout, groupIndexes, objectSetLayout } from './layout';
 import { NumberLineView } from './NumberLineView';
 import { ObjectSetView } from './ObjectSetView';
@@ -166,6 +167,20 @@ export function StimulusView({
             tens={spec.tens}
             ones={spec.ones}
             thousands={spec.thousands ?? 0}
+            label={name}
+          />
+        </div>
+      );
+    case 'fraction':
+      return (
+        <div className={cls} data-kind="fraction">
+          <FractionView
+            shape={spec.shape}
+            parts={spec.parts}
+            shaded={spec.shaded}
+            equalParts={spec.equalParts}
+            maxWidth={maxWidth}
+            maxHeight={maxHeight}
             label={name}
           />
         </div>

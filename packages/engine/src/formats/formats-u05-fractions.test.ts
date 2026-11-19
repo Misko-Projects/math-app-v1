@@ -788,6 +788,7 @@ describe('fraction-pick', () => {
     let s = play(fractionPick, pictures, [act('highlight', { id: 'pic-1' })]);
     expect(s.highlighted).toBe('pic-1');
     expect(fractionPick.apply(s, act('highlight', { id: 'nope' }))).toBe(s);
+    expect(fractionPick.apply(s, act('highlight')).highlighted).toBeNull();
     s = play(fractionPick, pickBase, [act('overlay', { a: 1, b: 2 }), act('count-parts')]);
     expect(s).toMatchObject({ overlay: { a: 1, b: 2 }, counted: 1, choice: null });
     expect(fractionPick.apply(s, act('overlay')).overlay).toBeNull();

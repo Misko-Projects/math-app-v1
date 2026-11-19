@@ -18,6 +18,29 @@ export {
   useDemoPause,
   useSubmitGuard,
 } from './controls';
+export { FractionEntry, type FractionEntryProps } from './FractionEntry';
+export {
+  CutLines,
+  FracNumeral,
+  FractionParts,
+  FractionView,
+  type FractionViewProps,
+  WholeBase,
+  WholeOutline,
+} from './FractionView';
+export {
+  boxCutPaths,
+  cutPaths,
+  fitScale,
+  GRID_CELL,
+  type PartGeom,
+  pictureGeoms,
+  rectParts,
+  type ShapeFrame,
+  sectorParts,
+  sectorPath,
+  shapeFrame,
+} from './fractionShapes';
 export {
   dicePattern,
   dotsLayout,

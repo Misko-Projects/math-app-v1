@@ -79,6 +79,48 @@ ui.widget.key.point:
   text: "Dot"
   level: K
 
+# Fraction widgets (U05 #14: fraction-cut, fraction-pick, fraction-line). Accessible names and
+# spoken labels; the prompts themselves are the templates' tp.* keys.
+ui.frac.over:
+  text: "{a} over {b}"
+  level: K
+ui.frac.cut-line:
+  text: "Cut here {n}"
+  level: K
+ui.frac.cut-down:
+  text: "Cut up and down"
+  level: K
+ui.frac.cut-side:
+  text: "Cut side to side"
+  level: K
+ui.frac.part:
+  text: "Part {n}"
+  level: K
+ui.frac.fill:
+  text: "Fill"
+  level: K
+ui.frac.take-back:
+  text: "Take back"
+  level: K
+ui.frac.top:
+  text: "Top number"
+  level: K
+ui.frac.bottom:
+  text: "Bottom number"
+  level: K
+ui.frac.line:
+  text: "The number line"
+  level: K
+ui.frac.strip:
+  text: "The strip"
+  level: K
+ui.frac.mark:
+  text: "Mark {n}"
+  level: K
+ui.frac.dot:
+  text: "Your dot"
+  level: K
+
 # Object names (U03 widget sprites): spoken when a child taps an object.
 ui.sprite.shell:
   text: "Shell"
