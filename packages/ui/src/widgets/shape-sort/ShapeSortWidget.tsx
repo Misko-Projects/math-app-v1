@@ -424,7 +424,14 @@ export function ShapeSortWidget({
           {pad(TRAY, t('ui.ssort.tray'))}
           <div
             className="ni-ssort__tray-cards"
-            style={trayInvited ? { paddingBottom: L.cardsPad + TRAY_HAND_ROOM } : undefined}
+            style={
+              trayInvited
+                ? {
+                    paddingTop: L.cardsPad + TRAY_HAND_ROOM,
+                    paddingBottom: L.cardsPad + TRAY_HAND_ROOM,
+                  }
+                : undefined
+            }
           >
             {trayCards.map((c) => cardButton(c, traySize))}
           </div>
@@ -472,10 +479,13 @@ export function ShapeSortWidget({
   );
 }
 
-/** Room under an invited tray card for Pip's hand, 8+ px clear of the tray's border. */
-const TRAY_HAND_ROOM = 46;
-/** A bin's picture: the face of a card it takes, at least 40 px. */
-const BIN_ICON_PX = 52;
+/**
+ * Room for Pip's hand under an invited tray card (8+ px clear of the tray's border), added above
+ * the cards too, so they stay centred in the tray (evidence review: top-packed, 14 vs 53 px).
+ */
+const TRAY_HAND_ROOM = 42;
+/** A bin's picture: the face of a card it takes, at least 40 px (8 px clear of the frame). */
+const BIN_ICON_PX = 46;
 
 /**
  * The sort layout's measures (px), mirrored by shape-sort.css: root padding, gaps (the Check
@@ -491,7 +501,7 @@ export function sortLayout(compact: boolean) {
         gapY: 12,
         topGap: 20,
         binsGap: 12,
-        cardsPad: 12,
+        cardsPad: 16,
         head: 58,
         lip: 6,
         binBottom: 28,
@@ -502,7 +512,7 @@ export function sortLayout(compact: boolean) {
         gapY: 16,
         topGap: 24,
         binsGap: 20,
-        cardsPad: 14,
+        cardsPad: 16,
         head: 64,
         lip: 10,
         binBottom: 32,
@@ -543,7 +553,8 @@ export function sortCardSize(a: {
   };
   const min = a.minT + 4;
   for (let c = 120; c > min; c -= 4) {
-    const tray = block(a.tray, perRow(trayW, c), c, trayBottom);
+    // The hand room goes above the cards as well as below them (they stay centred).
+    const tray = block(a.tray, perRow(trayW, c), c, trayBottom) + (a.handRoom ?? 0);
     const bin = Math.max(
       0,
       ...a.bins.map(

@@ -18,6 +18,7 @@ import {
   expectOneInviteRing,
   expectRenderedNumerals,
   keyRectsAfterEach,
+  recordEvidence,
   settleFocus,
 } from '../../test-support/evidence';
 import {
@@ -280,13 +281,39 @@ const meta = {
   parameters: { ui: { stage: 'centered' } },
   render: renderWidget,
   // Evidence: every story leaves its key rects in the area's `data-evidence`.
-  afterEach: keyRectsAfterEach('.ni-ssort'),
+  afterEach: [keyRectsAfterEach('.ni-ssort'), expectCheckRule],
 } satisfies Meta<WidgetHostProps>;
 
 export default meta;
 type Story = StoryObj<typeof meta>;
 
 const ROOT = '.ni-ssort';
+
+/**
+ * Check's rule, the same in every story (03 §5.5: a card that fits no bin stays in the tray, so
+ * Check cannot wait for an empty tray): disabled until the child has placed a card (find-all:
+ * picked one; odd-one-out: picked one), enabled after; always disabled in a disabled widget.
+ * Checked at the end of every story and recorded in `data-evidence`.
+ */
+async function expectCheckRule({ canvasElement }: { canvasElement: HTMLElement }) {
+  const root = canvasElement.querySelector<HTMLElement>(ROOT);
+  if (!root) return;
+  const check = within(root).queryByRole('button', { name: 'Check' }) as HTMLButtonElement | null;
+  if (!check) return;
+  const mode = root.dataset.mode;
+  const moved =
+    mode === 'sort'
+      ? root.querySelectorAll('.ni-ssort__bin .ni-ssort__card').length > 0
+      : root.querySelectorAll('.ni-ssort__card[aria-pressed="true"]').length > 0;
+  const off = root.dataset.disabled === 'true';
+  const enabled = !check.disabled;
+  await expect(enabled, 'Check enabled exactly after the first placement').toBe(moved && !off);
+  recordEvidence(root, {
+    check_rule: 'enabled after first placement (03 §5.5: non-matching cards stay in the tray)',
+    check: enabled ? 'enabled' : 'disabled',
+  });
+  console.info(`[check] ${enabled ? 'enabled' : 'disabled'} (${moved ? 'placed' : 'none placed'})`);
+}
 
 const lastResponse = (spy: unknown) => {
   const calls = (spy as ReturnType<typeof fn>).mock.calls;
@@ -697,21 +724,51 @@ async function expectBinLips(root: HTMLElement) {
 }
 
 /**
- * Keyboard focus on a bin or the tray draws its ring inside the frame, at least 6 px clear of
- * the border (evidence review), so it never merges with the frame or reaches another bin.
+ * A bin's or the tray's ring (focus, armed) lies ON its frame, round the whole of its content
+ * (evidence review: an inner ring ran under the bin cards' top edges): never outside the frame,
+ * and every card in it at least 12 px inside the ring. Returns the least ring-to-card (px).
  */
+async function expectRingClearOfCards(root: HTMLElement, id: string) {
+  const p = pad(root, id);
+  const cs = getComputedStyle(p);
+  await expect(cs.outlineStyle, `${id} ring shows`).not.toBe('none');
+  const offset = Number.parseFloat(cs.outlineOffset) || 0;
+  const width = Number.parseFloat(cs.outlineWidth) || 0;
+  await expect(offset + width, `${id} ring on its frame, not outside it`).toBeLessThanOrEqual(0.5);
+  const r = p.getBoundingClientRect();
+  const inner = {
+    left: r.left - offset,
+    top: r.top - offset,
+    right: r.right + offset,
+    bottom: r.bottom + offset,
+  };
+  const sel =
+    id === 'tray'
+      ? '[data-bin="tray"] .ni-ssort__card'
+      : `.ni-ssort__bin[data-bin="${id}"] .ni-ssort__card`;
+  let least = Number.POSITIVE_INFINITY;
+  for (const c of root.querySelectorAll(sel)) {
+    const b = c.getBoundingClientRect();
+    const g = Math.min(
+      b.left - inner.left,
+      b.top - inner.top,
+      inner.right - b.right,
+      inner.bottom - b.bottom,
+    );
+    least = Math.min(least, g);
+    await expect(g, `${id} ring 12 px clear of its cards`).toBeGreaterThanOrEqual(12);
+  }
+  return least;
+}
+
+/** Keyboard focus on a bin or the tray: its ring on the frame, 12+ px clear of the cards. */
 async function expectBinRingsInside(root: HTMLElement) {
   for (const id of ['tray', 'b0', 'b1']) {
     const p = pad(root, id);
     if (!p) continue;
     p.focus();
     await new Promise((r) => setTimeout(r, 50));
-    const cs = getComputedStyle(p);
-    await expect(cs.outlineStyle, `${id} focus ring shows`).not.toBe('none');
-    const border = Number.parseFloat(cs.borderTopWidth) || 0;
-    const outer =
-      (Number.parseFloat(cs.outlineOffset) || 0) + (Number.parseFloat(cs.outlineWidth) || 0);
-    await expect(-outer - border, `${id} ring clear of its border`).toBeGreaterThanOrEqual(6);
+    await expectRingClearOfCards(root, id);
   }
 }
 
@@ -733,6 +790,7 @@ async function expectTrayLayout(root: HTMLElement) {
     const below = t.bottom - bw - Math.max(...cards.map((c) => c.bottom));
     await expect(Math.abs(above - below), 'tray cards centred').toBeLessThanOrEqual(4);
     line = `tray top/bottom ${Math.round(above)}/${Math.round(below)} px; `;
+    recordEvidence(root, { tray_top_bottom: `${Math.round(above)}/${Math.round(below)}` });
   }
   const check = within(root).getByRole('button', { name: 'Check' }).getBoundingClientRect();
   const ring = {
@@ -814,16 +872,15 @@ export const StressSevenSelectedLandscapeMinK: Story = {
     await expect(
       (Number.parseFloat(ring.outlineOffset) || 0) + (Number.parseFloat(ring.outlineWidth) || 0),
     ).toBeLessThanOrEqual(0);
-    // Each armed bin's ring is inside its frame, 6 px clear of the border.
+    // Each armed bin's ring is on its frame, round all its cards, 12+ px clear of every card
+    // (evidence review: it ran under the cards' top edges).
+    let ringToCard = Number.POSITIVE_INFINITY;
     for (const id of ['b0', 'b1']) {
       const cs = getComputedStyle(pad(root, id));
       await expect(cs.outlineColor).not.toMatch(/rgba\([^)]*,\s*0\)|transparent/);
+      ringToCard = Math.min(ringToCard, await expectRingClearOfCards(root, id));
       const outer =
         (Number.parseFloat(cs.outlineOffset) || 0) + (Number.parseFloat(cs.outlineWidth) || 0);
-      await expect(
-        -outer - (Number.parseFloat(cs.borderTopWidth) || 0),
-        `${id} ring clear of its border`,
-      ).toBeGreaterThanOrEqual(6);
       // ... and 6+ px from the bin's name (its glyphs), which sits above the frame.
       const r = pad(root, id).getBoundingClientRect();
       const ringBox = {
@@ -840,6 +897,8 @@ export const StressSevenSelectedLandscapeMinK: Story = {
       console.info(`[ring] ${id} armed ring to its name ${Math.round(toLabel)} px`);
       await expect(toLabel, `${id} ring clear of its name`).toBeGreaterThanOrEqual(6);
     }
+    console.info(`[ring] armed ring to the nearest card ${Math.round(ringToCard)} px`);
+    recordEvidence(root, { ring_to_card: Math.round(ringToCard) });
     await expectControls(
       'shape-sort StressSevenSelectedLandscapeMinK',
       'k',
@@ -1083,6 +1142,8 @@ export const DemoInvite: Story = {
     await expectControls('shape-sort DemoInvite', 'k', {
       cards: [...root.querySelectorAll('.ni-ssort__card')],
     });
+    // The room for the hand is above the cards as well as below: they stay centred in the tray.
+    await expectTrayLayout(root);
   },
 };
 
