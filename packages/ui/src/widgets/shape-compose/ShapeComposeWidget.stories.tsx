@@ -3,7 +3,7 @@ import type { ResponseValue, WidgetConfig } from '@number-island/shared';
 import type { Meta, StoryObj } from '@storybook/react-vite';
 import { expect, fn, userEvent, waitFor, within } from 'storybook/test';
 import geo05t3 from '../../../../engine/test/fixtures/geo05-t3-pictorial.json';
-import { areaBox, expectFitsArea, inArea } from '../../test-support/areaStory';
+import { areaBox, expectFitsArea, expectHandStays, inArea } from '../../test-support/areaStory';
 import {
   center,
   expectTargetGaps,
@@ -669,6 +669,7 @@ export const DemoInvite: Story = {
       tile(root, 'p-triangle'),
       root,
     );
+    await expectHandStays(root, () => tile(root, 'p-triangle'));
   },
 };
 

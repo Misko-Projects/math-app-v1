@@ -5,6 +5,7 @@ import { expect, fn, userEvent, waitFor, within } from 'storybook/test';
 import {
   areaBox,
   expectFitsArea,
+  expectHandStays,
   expectNumeralsAtLeast32,
   inArea,
 } from '../../test-support/areaStory';
@@ -496,6 +497,7 @@ export const DemoInvite: Story = {
     inviteDemo.invite({ op: 'lay-unit', args: { index: 0 } });
     await waitFor(() => expect(pile(root, 'cube')).toHaveClass('ni-invite'));
     await expectPointerOn(root.querySelector('.ni-hand') as HTMLElement, pile(root, 'cube'), root);
+    await expectHandStays(root, () => pile(root, 'cube'));
   },
 };
 

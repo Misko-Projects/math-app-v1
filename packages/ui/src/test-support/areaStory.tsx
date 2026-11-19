@@ -3,6 +3,7 @@
 // assertions that nothing scrolls and every control sits inside it.
 import { expect } from 'storybook/test';
 import { WidgetHost, type WidgetHostProps } from '../widgets/WidgetHost';
+import { expectPointerOn } from './widgetStory';
 
 /** The widget area of a viewport: 60 % of the screen at full width, minus frame and border. */
 export function widgetArea(vw: number, vh: number) {
@@ -83,6 +84,21 @@ export async function expectFitsArea(box: HTMLElement, parts: readonly Element[]
     await expect(r.top, `${name} top`).toBeGreaterThanOrEqual(inner.top - 0.5);
     await expect(r.bottom, `${name} bottom`).toBeLessThanOrEqual(inner.bottom + 0.5);
   }
+}
+
+/**
+ * The settled end of a DemoInvite story: after the widget has had time to re-render and re-measure,
+ * Pip's hand is still there, visible (non-zero size) and pointing at `target`.
+ */
+export async function expectHandStays(root: HTMLElement, target: () => HTMLElement) {
+  await new Promise((r) => setTimeout(r, 600));
+  await nextFrame();
+  const hand = root.querySelector<HTMLElement>('.ni-hand');
+  await expect(hand, 'the hand is still shown').not.toBeNull();
+  const r = (hand as HTMLElement).getBoundingClientRect();
+  await expect(r.width * r.height, 'the hand has a size').toBeGreaterThan(0);
+  await expect(getComputedStyle(hand as HTMLElement).visibility).toBe('visible');
+  await expectPointerOn(hand as HTMLElement, target(), root);
 }
 
 /** Every numeral (SVG text or element) under `root` matching `selector` renders at ≥ 32 px. */

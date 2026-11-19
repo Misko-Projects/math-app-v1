@@ -588,10 +588,10 @@ export function ShapeSetView({
 }) {
   const extent = Math.max(...shapes.map(shapeExtent), 1);
   const gap = 16;
-  const size = Math.max(
-    56,
-    Math.min(maxHeight, (maxWidth - gap * (shapes.length - 1)) / Math.max(1, shapes.length), 220),
-  );
+  // Each card gets an even share of the width, but never less than 96 px (or the box height):
+  // a long set wraps onto more rows instead of shrinking to icons.
+  const share = (maxWidth - gap * (shapes.length - 1)) / Math.max(1, shapes.length);
+  const size = Math.min(maxHeight, 220, Math.max(Math.min(96, maxHeight), share));
   return (
     <div className="ni-shapes" style={{ gap }} {...pictureProps(label)}>
       {shapes.map((s) => (

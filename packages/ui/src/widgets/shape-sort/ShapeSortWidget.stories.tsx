@@ -2,7 +2,13 @@ import { stateChecker } from '@number-island/engine';
 import type { ResponseValue, WidgetConfig } from '@number-island/shared';
 import type { Meta, StoryObj } from '@storybook/react-vite';
 import { expect, fn, userEvent, waitFor, within } from 'storybook/test';
-import { AREA, areaBox, expectFitsArea, inArea } from '../../test-support/areaStory';
+import {
+  AREA,
+  areaBox,
+  expectFitsArea,
+  expectHandStays,
+  inArea,
+} from '../../test-support/areaStory';
 import {
   center,
   clearSpies,
@@ -694,9 +700,24 @@ export const DemoInvite: Story = {
     await waitFor(() => expect(cardEl(root, 'c1')).toHaveClass('ni-invite'));
     await expect(pad(root, 'b0')).toHaveClass('ni-invite');
     await expectPointerOn(root.querySelector('.ni-hand') as HTMLElement, cardEl(root, 'c1'), root);
-    // The child moves it: the invite clears.
+    // Settled: the story ends invited, the hand still under the card.
+    await expectHandStays(root, () => cardEl(root, 'c1'));
+  },
+};
+
+const inviteTap: WidgetDemo = createDemoController({ strict: true });
+
+/** When the child picks the invited card up, the invite (ring and hand) clears. */
+export const DemoInviteClearsOnTap: Story = {
+  globals: { ageMode: 'k' },
+  args: { demo: inviteTap },
+  play: async ({ canvasElement }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    inviteTap.invite({ op: 'drag-card', args: { id: 'c1', bin: 'b0' } });
+    await waitFor(() => expect(root.querySelector('.ni-hand')).not.toBeNull());
     await userEvent.click(cardEl(root, 'c1'));
-    await expect(root.querySelector('.ni-hand')).toBeNull();
+    await waitFor(() => expect(root.querySelector('.ni-hand')).toBeNull());
+    await expect(cardEl(root, 'c1')).not.toHaveClass('ni-invite');
   },
 };
 
