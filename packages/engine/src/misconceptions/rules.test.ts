@@ -189,15 +189,18 @@ describe('registry', () => {
       'decadeTransition',
       'equalsAddAll',
       'equalsMeansAnswer',
+      'faceValue',
       'forgotTheTen',
       'keywordMoreMeansAdd',
       'offByOneCounting',
       'perceptualSize',
+      'placeSwap',
       'recountFromOne',
       'startUnknownReversed',
       'symbolReversed',
       'teenReversal',
       'unitGaps',
+      'writeAsSpoken',
       'wrongOperation',
     ]);
     expect(misconceptionRule('countStartNumber')).toBe(countStartNumber);

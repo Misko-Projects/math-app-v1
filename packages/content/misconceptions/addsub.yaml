@@ -1,5 +1,5 @@
 # Addition and subtraction misconceptions (03 §7.2). K01 lists the K–1 skills authored so far;
-# ADD.14, ADD.22 and the MDA skills join these rows when they are authored (K02).
+# ADD.14, ADD.22 and the K02 MDA skills join these rows when they are authored.
 area: addsub
 misconceptions:
   - id: MC.count-start-number
@@ -87,8 +87,8 @@ misconceptions:
   - id: MC.forgot-the-ten
     name: Makes a ten, then leaves the ten out of the answer
     detect: { kind: answer, rule: forgotTheTen }
-    appliesTo: { generators: [addsub.facts, addsub.three] }
-    skills: [ADD.08, ADD.13, ADD.26]
+    appliesTo: { generators: [addsub.facts, addsub.three, mda.addsub] }
+    skills: [ADD.08, ADD.13, ADD.26, MDA.08]
     remediation: [CPS.04, ADD.26]
     feedback: fb.mc.forgot-the-ten
     parentTip: >-
@@ -97,6 +97,24 @@ misconceptions:
       - params: { a: 8, b: 5, op: "+", unknown: result }
         response: { kind: number, value: 3 }
         match: true
+      # 37 + 5 (MDA.08): the new ten made from the ones is left out, 32.
+      - generator: mda.addsub
+        params: { a: 37, b: 5, op: "+" }
+        response: { kind: number, value: 32 }
+        match: true
+      - generator: mda.addsub
+        params: { a: 37, b: 5, op: "+" }
+        response: { kind: state, value: { hundreds: 0, tens: 4, ones: 2, value: 32 } }
+        match: true
+      # The mat left at 37 (nothing combined) with 32 typed shows no ten made and dropped.
+      - generator: mda.addsub
+        params: { a: 37, b: 5, op: "+" }
+        response: { kind: state, value: { hundreds: 0, tens: 3, ones: 7, value: 32 } }
+        match: false
+      - generator: mda.addsub
+        params: { a: 37, b: 5, op: "+" }
+        response: { kind: number, value: 41 }
+        match: false
       - params: { a: 8, b: 5, op: "+", unknown: result }
         response: { kind: number, value: 12 }
         match: false

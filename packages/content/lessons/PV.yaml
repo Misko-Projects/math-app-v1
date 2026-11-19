@@ -1,0 +1,80 @@
+# Authored lessons (03 §4.5, §6) for the PV gateways. Other PV skills get an auto lesson (03 §6.4).
+strand: PV
+lessons:
+  # PV.01 (gateway): 34 is 3 bundles of ten and 4 single sticks. The faded examples move to the
+  # place-value cards, a second representation (03 §6.4). The test-out spans the numeral, the
+  # base-ten picture and the cards (gateway: ≥ 2 representations, constructed answers only).
+  - skillId: PV.01
+    mode: authored
+    templateId: PV.01.t1
+    worked:
+      - params: { n: 34, mode: build }
+        steps:
+          - actor: demo
+            say: ls.PV.01.w1.s1
+            vars: { n: 34, t: 3 }
+            action: { op: add-piece, args: { kind: tens, count: 3 } }
+          - actor: demo
+            say: ls.PV.01.w1.s2
+            vars: { o: 4 }
+            action: { op: add-piece, args: { kind: ones, count: 4 } }
+          - actor: demo
+            say: ls.PV.01.w1.s3
+            vars: { n: 34 }
+            action: { op: count-by, args: { kind: tens } }
+    faded:
+      - templateId: PV.01.t5
+        params: { n: 52, mode: build }
+        childSteps: 1
+      - templateId: PV.01.t5
+        params: { n: 47, mode: build }
+        childSteps: 2
+    scaffolded: { count: 2, hintStart: 2 }
+    testOut: { items: 3, minCorrect: 3, templateIds: [PV.01.t6, PV.01.t2, PV.01.t5] }
+    outro: ls.PV.01.outro
+
+  # PV.09 (gateway): fourteen single sticks; ten of them become one bundle. The faded examples
+  # bundle bigger piles, two tens. The test-out spans the numeral, the ten-frame and the
+  # place-value mat (gateway: ≥ 2 representations, constructed answers only).
+  - skillId: PV.09
+    mode: authored
+    templateId: PV.09.t2
+    worked:
+      - params: { n: 14, from: ones, to: canonical }
+        steps:
+          - actor: demo
+            say: ls.PV.09.w1.s1
+            vars: { n: 14 }
+            action: { op: count-by, args: { kind: ones } }
+          - actor: demo
+            say: ls.PV.09.w1.s2
+            action: { op: fuse, args: { kind: ones } }
+          - actor: demo
+            say: ls.PV.09.w1.s3
+            vars: { n: 14, o: 4 }
+            action: { op: count-by, args: { kind: tens } }
+    faded:
+      - templateId: PV.09.t2
+        params: { n: 26, from: ones, to: canonical }
+        childSteps: 1
+      - templateId: PV.09.t2
+        params: { n: 32, from: ones, to: canonical }
+        childSteps: 2
+    scaffolded: { count: 2, hintStart: 2 }
+    testOut: { items: 3, minCorrect: 3, templateIds: [PV.09.t5, PV.09.t4, PV.09.t3] }
+    outro: ls.PV.09.outro
+
+  # PV.13 only pins the test-out pool (03 §6.5) to its abstract constructed-answer template: the
+  # compiler reads answer kinds from formats, expanded-form can also answer with a choice, so the
+  # auto pool would mix PV.13.t3 with the name pick (PV.13.t4). The examples are exactly what the
+  # auto lesson plays: the same seeds (fnv1a32 of the skill id) and targets.
+  - skillId: PV.13
+    mode: authored
+    templateId: PV.13.t1
+    worked:
+      - { seed: 2881576427, target: easy }
+    faded:
+      - { seed: 2881576428, target: typical, childSteps: 1 }
+      - { seed: 2881576429, target: typical, childSteps: 2 }
+    scaffolded: { count: 2, hintStart: 2 }
+    testOut: { items: 3, minCorrect: 3, templateIds: [PV.13.t3] }

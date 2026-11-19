@@ -121,6 +121,8 @@ describe('the C01 fixture set (03 §9.5)', () => {
       'CNT.15',
       'CNT.16',
       'CNT.18',
+      'CNT.19',
+      'CNT.20',
       'CPS.01',
       'CPS.02',
       'CPS.03',
@@ -128,6 +130,7 @@ describe('the C01 fixture set (03 §9.5)', () => {
       'CPS.05',
       'CPS.07',
       'CPS.08',
+      'CPS.09',
       'CPS.11',
       'GEO.01',
       'GEO.02',
@@ -138,6 +141,10 @@ describe('the C01 fixture set (03 §9.5)', () => {
       'GEO.09',
       'GEO.10',
       'GEO.11',
+      'MDA.01',
+      'MDA.02',
+      'MDA.08',
+      'MDA.09',
       'MEA.01',
       'MEA.02',
       'MEA.07',
@@ -145,6 +152,13 @@ describe('the C01 fixture set (03 §9.5)', () => {
       'MEA.16',
       'MEA.22',
       'PUZ.03',
+      'PV.01',
+      'PV.02',
+      'PV.03',
+      'PV.09',
+      'PV.10',
+      'PV.11',
+      'PV.13',
       'SUB.01',
       'SUB.02',
       'SUB.03',
@@ -152,6 +166,7 @@ describe('the C01 fixture set (03 §9.5)', () => {
       'SUB.05',
       'SUB.06',
       'SUB.07',
+      'SUB.08',
     ]);
     expect(result.content?.misconceptions.map((m) => m.id)).toEqual([
       'MC.bigger-unit-more',
@@ -160,15 +175,18 @@ describe('the C01 fixture set (03 §9.5)', () => {
       'MC.decade-transition',
       'MC.equals-add-all',
       'MC.equals-means-answer',
+      'MC.face-value',
       'MC.forgot-the-ten',
       'MC.keyword-more-means-add',
       'MC.off-by-one-counting',
       'MC.perceptual-size',
+      'MC.place-swap',
       'MC.recount-from-one',
       'MC.start-unknown-reversed',
       'MC.symbol-reversed',
       'MC.teen-reversal',
       'MC.unit-gaps',
+      'MC.write-as-spoken',
       'MC.wrong-operation',
     ]);
   });
@@ -203,6 +221,10 @@ describe('the C01 fixture set (03 §9.5)', () => {
         // K01 (#11): composing and decomposing (CPS.04, CPS.07)
         'pv.number',
         'estimate.quantity',
+        // K01 (#11): place value and two-digit addition and subtraction
+        'pv.regroup',
+        'pv.tenmore',
+        'mda.addsub',
         // K01 (#11): equality and story problems
         'equality.eq',
         'story.addsub',
@@ -235,6 +257,8 @@ describe('the C01 fixture set (03 §9.5)', () => {
         // K01 (#11): CPS (pv.number on the U04 models)
         'base-ten-build',
         'expanded-form',
+        // K01 (#11): PV and MDA
+        'base-ten-trade',
         // K01 (#11): equality and story problems
         'story-problem',
       ]),
@@ -1695,11 +1719,13 @@ describe('V24 and contentVersion (03 §9.1)', () => {
       // CMP (K01) added 9 skills, 31 templates and MC.perceptual-size; CPS and SUB.04/SUB.07 (K01)
       // added 7 skills and 27 templates; V27 (constructed practice) added 7 CMP templates and 18
       // for CNT, SUB, GEO and MEA skills; ADD facts and strategies (K01) added 14 skills, 58
-      // templates, MC.forgot-the-ten and MC.wrong-operation; equality and story problems (K01) added
-      // 11 skills (ALG.05 and CMP.08 among them), 41 templates and 5 misconceptions.
-      skills: 82,
-      templates: 312,
-      misconceptions: 16,
+      // templates, MC.forgot-the-ten and MC.wrong-operation; place value and two-digit addition and
+      // subtraction (K01) added 15 skills, 56 templates, MC.place-swap, MC.face-value and
+      // MC.write-as-spoken; equality and story problems (K01) added 11 skills (ALG.05 and CMP.08
+      // among them), 41 templates and 5 misconceptions.
+      skills: 97,
+      templates: 368,
+      misconceptions: 19,
       narrationKeys: Object.keys(r.content?.narration ?? {}).length,
     });
     expect(Object.keys(manifest.files).sort()).toEqual([
@@ -1731,15 +1757,17 @@ describe('graph.json (03 §9.1)', () => {
       'CNT.14',
       'CPS.02',
       'CPS.04',
+      'PV.01',
+      'PV.09',
       'SUB.03',
     ]);
     expect(g?.depth['CNT.01']).toBe(0);
     expect(g?.depth['ADD.03']).toBe(6); // CNT.01 → 02 → 03 → 04 → 06 → 07 → ADD.03
-    // CPS.04, CPS.11; then ADD.08, ADD.19, CMP.07, CPS.07 and SUB.04
-    expect(g?.descendants2['CPS.03']).toBe(7);
-    // CNT.07, CNT.15, CPS.04, MEA.02; then ADD.03, ADD.08, CMP.03, CMP.07, CNT.08, CNT.09, CNT.14,
-    // CPS.07, MEA.22 and SUB.04
-    expect(g?.descendants2['CNT.06']).toBe(14);
+    // CPS.04, CPS.09, CPS.11; then ADD.08, ADD.19, CMP.07, CPS.07, PV.09 and SUB.04
+    expect(g?.descendants2['CPS.03']).toBe(9);
+    // CNT.07, CNT.15, CPS.04, MEA.02, PV.09; then ADD.03, ADD.08, CMP.03, CMP.07, CNT.08, CNT.09,
+    // CNT.14, CNT.19, CPS.07, MEA.22, PV.10, PV.11 and SUB.04
+    expect(g?.descendants2['CNT.06']).toBe(18);
     expect(g?.encompasses).toEqual([
       ['ADD.06', 'ADD.02', 1],
       ['ADD.08', 'CPS.03', 1],
@@ -1747,6 +1775,8 @@ describe('graph.json (03 §9.1)', () => {
       ['CNT.06', 'CNT.04', 1],
       ['CNT.06', 'CNT.05', 0.5],
       ['CNT.10', 'CNT.09', 1],
+      ['MDA.01', 'ADD.06', 0.5],
+      ['MDA.01', 'PV.03', 0.5],
     ]);
     expect(g?.strands.SUB).toEqual([
       'SUB.01',
@@ -1756,6 +1786,7 @@ describe('graph.json (03 §9.1)', () => {
       'SUB.05',
       'SUB.06',
       'SUB.07',
+      'SUB.08',
     ]);
   });
 });

@@ -60,6 +60,20 @@ interface Case {
 
 const COUNT_SET: Case[] = [
   {
+    name: 'tap-count 34 in groups of ten (CNT.19)',
+    t: tpl('count.set', 'tap-count', { tier: 'concrete' }),
+    params: { n: 34, layout: 'groups', groupsOf: 10 },
+    answer: { kind: 'number', value: 34 },
+    widget: { set: { count: 34, layout: 'groups', groups: [10, 10, 10, 4] } },
+  },
+  {
+    name: 'make-set a big collection: 37 in a container for 40, every ten bundled',
+    t: tpl('count.set', 'make-set', { tier: 'concrete' }),
+    params: { n: 37, mode: 'make', groupsOf: 10 },
+    answer: { kind: 'state', checker: 'set.count', target: { count: 37, groupsOf: 10 } },
+    widget: { target: 37, capacity: 40, groupsOf: 10 },
+  },
+  {
     name: 'tap-count concrete n=5',
     t: tpl('count.set', 'tap-count', { tier: 'concrete' }),
     params: { n: 5 },
@@ -157,6 +171,30 @@ const COUNT_SET: Case[] = [
 ];
 
 const COUNT_SEQUENCE: Case[] = [
+  {
+    name: 'number-pad tens then ones from 34 (CNT.20), the start drawn as base-ten pieces',
+    t: tpl('count.sequence', 'number-pad', { representation: 'base-ten' }),
+    params: { start: 34, length: 4, tens: 2, hide: 'all-after' },
+    answer: { kind: 'numbers', values: [44, 54, 55, 56], ordered: true },
+    widget: {
+      stimulus: { kind: 'base-ten', hundreds: 0, tens: 3, ones: 4 },
+      expression: {
+        tokens: [
+          { t: 'num', v: 34 },
+          { t: 'blank', id: 't1' },
+          { t: 'blank', id: 't2' },
+          { t: 'blank', id: 't3' },
+          { t: 'blank', id: 't4' },
+        ],
+      },
+    },
+  },
+  {
+    name: 'number-pad back by tens then ones from 62, only the last hidden',
+    t: tpl('count.sequence', 'number-pad', { tier: 'abstract' }),
+    params: { start: 62, dir: -1, length: 3, tens: 2, hide: 'last' },
+    answer: { kind: 'number', value: 41 },
+  },
   {
     name: 'numeral-pick what comes after 7',
     t: tpl('count.sequence', 'numeral-pick', { representation: 'number-path' }),
@@ -358,6 +396,32 @@ const SUBITIZE: Case[] = [
 ];
 
 const BOND: Case[] = [
+  {
+    name: 'base-ten-build tens partner of 100: 3 tens on the mat, build 100',
+    t: tpl('bond.parts', 'base-ten-build', { tier: 'concrete', representation: 'base-ten' }),
+    params: { whole: 10, part: 3, tensOnly: true },
+    answer: { kind: 'state', checker: 'baseten.value', target: { value: 100 } },
+    widget: {
+      target: 100,
+      mode: 'build',
+      pieces: { thousands: false, hundreds: false, tens: true, ones: false },
+      prebuilt: { hundreds: 0, tens: 3, ones: 0 },
+    },
+  },
+  {
+    name: 'base-ten-build missing part of ones: 4 on the mat, build 9',
+    t: tpl('bond.parts', 'base-ten-build', { tier: 'concrete' }),
+    params: { whole: 9, part: 4 },
+    answer: { kind: 'state', checker: 'baseten.value', target: { value: 9 } },
+    widget: { pieces: { tens: true, ones: true }, prebuilt: { tens: 0, ones: 4 } },
+  },
+  {
+    name: 'hundred-chart tens partner: 30 and ? make 100, tap 70',
+    t: tpl('bond.parts', 'hundred-chart'),
+    params: { whole: 10, part: 3, tensOnly: true },
+    answer: { kind: 'number', value: 70 },
+    widget: { first: 1, rows: 10, hidden: [], mode: 'find' },
+  },
   {
     name: 'number-bond missing part 7 = 3 + ?',
     t: tpl('bond.parts', 'number-bond'),
@@ -1122,10 +1186,13 @@ describe('registry', () => {
       'geo.draw',
       'geo.identify',
       'geo.position',
+      'mda.addsub',
       'mea.length',
       'mea.massvolume',
       'numberline.place',
       'pv.number',
+      'pv.regroup',
+      'pv.tenmore',
       'story.addsub',
       'subitize.flash',
     ]);

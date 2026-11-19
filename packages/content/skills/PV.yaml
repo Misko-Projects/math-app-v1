@@ -1,0 +1,66 @@
+# PV: Place value, catalog rows from 03 §3.8 (K01: the grade-1 rows). The grade-2 to grade-4 rows
+# are K02; PV.04–PV.08 and PV.12 sit between authored ids, so they are graph.yaml plannedIds.
+strand: PV
+skills:
+  - id: PV.01
+    name: Two-digit numbers are tens and ones
+    kind: concept
+    grade: 1
+    standards: { ccss: [1.NBT.B.2] }
+    prerequisites: [PV.10, PV.11, CNT.10]
+    gateway: true
+    representations: [bundles, ten-frame, base-ten, pv-chart, expanded, symbols]
+
+  - id: PV.02
+    name: Compare two-digit numbers with <, = and >
+    kind: procedure
+    grade: 1
+    standards: { ccss: [1.NBT.B.3] }
+    prerequisites: [PV.01, CMP.08]
+    gateway: false
+    representations: [base-ten, number-line, symbols]
+
+  - id: PV.03
+    name: Find 10 more and 10 less in your head
+    kind: procedure
+    grade: 1
+    standards: { ccss: [1.NBT.C.5] }
+    prerequisites: [PV.01]
+    gateway: false
+    representations: [base-ten, hundred-chart, symbols]
+
+  - id: PV.09
+    name: "Ten ones make one ten: bundle and unbundle"
+    kind: concept
+    grade: 1
+    standards: { ccss: [1.NBT.B.2a] }
+    prerequisites: [CPS.04, CNT.06]
+    gateway: true
+    representations: [objects, bundles, ten-frame, base-ten, symbols]
+
+  - id: PV.10
+    name: Decade numbers are some tens and no ones (60 = 6 tens)
+    kind: concept
+    grade: 1
+    standards: { ccss: [1.NBT.B.2c] }
+    prerequisites: [PV.09, CNT.09]
+    gateway: false
+    representations: [bundles, base-ten, symbols]
+
+  - id: PV.11
+    name: Teen numbers are one ten and some ones
+    kind: concept
+    grade: 1
+    standards: { ccss: [1.NBT.B.2b] }
+    prerequisites: [PV.09]
+    gateway: false
+    representations: [bundles, double-ten-frame, base-ten]
+
+  - id: PV.13
+    name: Two-digit numbers in expanded form and words (40 + 7)
+    kind: procedure
+    grade: 1
+    standards: { ccss: [1.NBT.B.2] }
+    prerequisites: [PV.01]
+    gateway: false
+    representations: [expanded, words, symbols]

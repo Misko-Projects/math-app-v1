@@ -40,19 +40,30 @@ const MODES = ['how-many', 'make', 'take-away', 'add-more', 'zero'];
 /** Formats with their own size feature; count.over5 is emitted only for the others. */
 const SIZED_FORMATS = new Set<ItemFormat>(['make-set', 'tenframe-fill', 'dot-flash']);
 
-function objectSet(n: number, sprite: string, layout: Layout, seed: number): ObjectSet {
-  // A ten-frame holds 10; larger sets use the double frame. Dice show up to 6 per die.
+function objectSet(
+  n: number,
+  sprite: string,
+  layout: Layout,
+  seed: number,
+  groupsOf = 0,
+): ObjectSet {
+  // A ten-frame holds 10; larger sets use the double frame. Dice show up to 6 per die. Groups are
+  // fives, or tens when every full ten is grouped (groupsOf 10, CNT.19: 34 as 10, 10, 10, 4).
   const lay: Layout = layout === 'ten-frame' && n > 10 ? 'double-ten-frame' : layout;
   const set: ObjectSet = { count: n, sprite, layout: lay, layoutSeed: seed };
   if (lay === 'array') set.rows = n > 10 ? 4 : 2;
   if (lay === 'dice' || lay === 'groups') {
+    const size = lay === 'dice' ? 6 : groupsOf === 10 ? 10 : 5;
     const groups: number[] = [];
-    for (let left = n; left > 0; left -= Math.min(lay === 'dice' ? 6 : 5, left)) {
-      groups.push(Math.min(lay === 'dice' ? 6 : 5, left));
-    }
+    for (let left = n; left > 0; left -= Math.min(size, left)) groups.push(Math.min(size, left));
     set.groups = groups;
   }
   return set;
+}
+
+/** A container that holds the set: 10, 20, or the next ten up for bigger collections (CNT.19). */
+export function containerCapacity(count: number): number {
+  return count <= 10 ? 10 : count <= 20 ? 20 : Math.ceil(count / 10) * 10;
 }
 
 const say = (
@@ -92,7 +103,7 @@ export const countSet: GeneratorDef = {
     groupsOf: {
       type: 'int',
       default: { kind: 'const', value: 0 },
-      doc: '10: every full ten must be bundled (CNT.19); 0: no bundling',
+      doc: '10: every full ten must be bundled (make-set), and a groups layout groups the objects in tens (CNT.19); 0: no bundling',
     },
   },
   features: {
@@ -143,7 +154,7 @@ export const countSet: GeneratorDef = {
       'n.over20': Math.max(0, n - 20) / 10,
     };
     if (!SIZED_FORMATS.has(t.format)) math['count.over5'] = Math.max(0, n - 5) / 5;
-    const set = objectSet(n, sprite, layout, layoutSeed(rng));
+    const set = objectSet(n, sprite, layout, layoutSeed(rng), asNum(params.groupsOf));
     const picture: StimulusSpec = { kind: 'objects', set };
     const overlay = tenFrameOverlay(n);
     let p: PartialOutput;
@@ -172,7 +183,7 @@ export const countSet: GeneratorDef = {
         const hands = t.representation === 'fingers';
         const raft = t.representation === 'ten-frame';
         const startIn = mode === 'add-more' || mode === 'take-away' ? start : 0;
-        const capacity = hands ? 10 : Math.max(n, startIn) > 10 ? 20 : 10;
+        const capacity = hands ? 10 : containerCapacity(Math.max(n, startIn));
         p = {
           params,
           vars,

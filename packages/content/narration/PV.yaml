@@ -1,0 +1,112 @@
+# PV narration (03 §8): skill intros, template prompts and lesson lines owned by the strand.
+# Shared hints and the pv.number, pv.regroup and pv.tenmore solution lines are in common.yaml.
+sk.PV.01.intro:
+  text: "Big numbers have tens and ones."
+sk.PV.02.intro:
+  text: "Which number is greater? Look at the tens first."
+sk.PV.03.intro:
+  text: "Ten more, ten less. The ones are the same!"
+sk.PV.09.intro:
+  text: "Ten ones make one ten. Let's bundle them!"
+sk.PV.10.intro:
+  text: "Some numbers are all tens, with no ones."
+sk.PV.11.intro:
+  text: "A teen number is one ten and some ones."
+sk.PV.13.intro:
+  text: "A number can be split into its tens and its ones."
+
+tp.PV.01.t1.prompt:
+  text: "Build {n} with bundles of ten and some sticks."
+tp.PV.01.t2.prompt:
+  text: "How many? Count the tens, then the ones."
+tp.PV.01.t3.prompt:
+  text: "How many in all? A full frame is ten."
+tp.PV.01.t4.prompt:
+  text: "Make a ten from ten ones. Stop when the ones are fewer than ten."
+tp.PV.01.t5.prompt:
+  text: "Make {n} with the cards: the tens and the ones."
+tp.PV.01.t6.prompt:
+  text: "Tens: {t}, ones: {o}. What number is that?"
+
+tp.PV.02.t1.prompt:
+  text: "Which number is {ask|word}? They may be the same."
+tp.PV.02.t2.prompt:
+  text: "Put the numbers in order, smallest first."
+tp.PV.02.t3.prompt:
+  text: "Which number is {ask|word}? They may be the same."
+tp.PV.02.t4.prompt:
+  text: "Tap what goes in the box."
+tp.PV.02.t5.prompt:
+  text: "Put the numbers in order, smallest first."
+
+tp.PV.03.t1.prompt:
+  text: "Here is {n}. Make it ten {dir|word}."
+tp.PV.03.t2.prompt:
+  text: "Start at {n}. Find ten {dir|word}."
+tp.PV.03.t3.prompt:
+  text: "What is ten {dir|word} than {n}?"
+
+tp.PV.09.t1.prompt:
+  text: "Make a bundle for each ten. Do not bundle the ones left."
+tp.PV.09.t2.prompt:
+  text: "Here are {n} sticks. Make bundles of ten."
+tp.PV.09.t3.prompt:
+  text: "Split one ten into ten ones. The number is the same."
+tp.PV.09.t4.prompt:
+  text: "A full frame is ten ones. How many in all?"
+tp.PV.09.t5.prompt:
+  text: "Tens: {fromTens}, ones: {fromOnes}. How many is that?"
+
+tp.PV.10.t1.prompt:
+  text: "Build {n} with bundles of ten."
+tp.PV.10.t2.prompt:
+  text: "How many? Count by tens."
+tp.PV.10.t3.prompt:
+  text: "Tens: {t} and no ones. What number is that?"
+
+tp.PV.11.t1.prompt:
+  text: "Show {n} with one bundle of ten and some ones."
+tp.PV.11.t2.prompt:
+  text: "How many? One rod is ten."
+tp.PV.11.t3.prompt:
+  text: "How many dots? Look for the full ten."
+
+tp.PV.13.t1.prompt:
+  text: "Put the parts together. What number is it?"
+tp.PV.13.t2.prompt:
+  text: "Make {n} with the cards: the tens and the ones."
+tp.PV.13.t3.prompt:
+  text: "Listen to the number. Then tap it in."
+tp.PV.13.t4.prompt:
+  text: "Which one says {n}? Tap to listen."
+
+# PV.01 (gateway): build 34 with bundles, then count by tens and on by ones. The faded examples
+# move to the place-value cards (03 §6.4: a second representation).
+ls.PV.01.w1.s1:
+  text: "{n} has {t} tens. Put in {t} bundles of ten."
+  voice: pip
+ls.PV.01.w1.s2:
+  text: "It has {o} ones. Put in {o} sticks."
+  voice: pip
+ls.PV.01.w1.s3:
+  text: "Count the tens, then count on the ones. That is {n}!"
+  voice: pip
+  style: excited
+ls.PV.01.outro:
+  text: "Tens first, then ones. Now you can build big numbers!"
+  voice: pip
+
+# PV.09 (gateway): fourteen loose sticks become one bundle of ten and four ones.
+ls.PV.09.w1.s1:
+  text: "Here are {n} sticks. That is so many to count!"
+  voice: pip
+ls.PV.09.w1.s2:
+  text: "Ten sticks make one bundle. One ten!"
+  voice: pip
+ls.PV.09.w1.s3:
+  text: "One ten and {o} ones. It is the same {n}!"
+  voice: pip
+  style: excited
+ls.PV.09.outro:
+  text: "Ten ones make one ten. Bundles are fast to count!"
+  voice: pip
