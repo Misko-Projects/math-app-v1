@@ -42,6 +42,11 @@ export const widgetRegistry: WidgetRegistry = {
   rekenrek: () => import('./rekenrek/RekenrekWidget'),
   compare: () => import('./compare/CompareWidget'),
   order: () => import('./order/OrderWidget'),
+  // U04 (#13): operations
+  'array-build': () => import('./array-build/ArrayBuildWidget'),
+  'equal-groups': () => import('./equal-groups/EqualGroupsWidget'),
+  'equal-share': () => import('./equal-share/EqualShareWidget'),
+  'area-tiles': () => import('./area-tiles/AreaTilesWidget'),
 };
 
 /** Formats that have a registered widget. */
