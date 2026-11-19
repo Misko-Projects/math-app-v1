@@ -165,8 +165,9 @@ export async function expectChartShows(
       const symbols = [...(row?.querySelectorAll<HTMLElement>('.ni-chart__symbol') ?? [])];
       await expect(Number(row?.getAttribute('data-symbols') ?? 0), `${id} symbols`).toBe(v / scale);
       await expect(symbols).toHaveLength(Math.ceil(v / scale));
-      const whole = symbols[0]?.getBoundingClientRect().width ?? 0;
       const last = symbols.at(-1);
+      // A whole symbol's width is its drawing's (a cut symbol keeps a full-size drawing inside).
+      const whole = last?.querySelector('.ni-chart__symbolart')?.getBoundingClientRect().width ?? 0;
       const part = v / scale - Math.floor(v / scale);
       if (last && part > 0) {
         await expect(last.getBoundingClientRect().width / whole).toBeCloseTo(part, 1);
