@@ -250,6 +250,27 @@ button.ni-ord__card:focus-visible,
 .ni-ord__pic {
   display: flex;
 }
+/* A small card's compact path: its numeral beside it, the path's ink in fixed screen px. */
+.ni-ord__face[data-face="side"] {
+  flex-direction: row;
+  gap: 6px;
+}
+.ni-ord__face[data-face="side"] .ni-ord__tag {
+  height: auto;
+  font-size: 2rem;
+  line-height: 1;
+  padding-top: 0.12em;
+  text-align: center;
+}
+.ni-ord__path .ni-numberline__axis {
+  stroke-width: 4;
+}
+.ni-ord__path .ni-numberline__tick {
+  stroke-width: 3.5;
+}
+.ni-ord__path .ni-numberline__pointer {
+  stroke-width: 2.5;
+}
 /* A picture card: its numeral (when the picture doesn't print it) above the fitted picture. */
 .ni-ord__face {
   display: flex;

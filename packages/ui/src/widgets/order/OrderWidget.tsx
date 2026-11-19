@@ -20,6 +20,7 @@ import {
   naturalPictureSize,
   numberLineHeight,
   type ObjectLayout,
+  stepsBetween,
   useAlive,
   useDemoPause,
   useInviteHand,
@@ -87,6 +88,105 @@ const TAG_PAD_Y = 8;
 const TAG_PAD_BOTTOM = 10;
 /** Drawn px between a path's ticks: closer than this, the path keeps every 5th tick (5s and 10s). */
 const MIN_TICK_PITCH = 8;
+/** A compact path's numeral (≥ 32 px, 05 §11), beside the path with this gap. */
+const SIDE_TAG_PX = 32;
+const SIDE_TAG_GAP = 6;
+
+/**
+ * A compact number path for a small card, in fixed screen-px ink so it reads at K size however
+ * small the card (the card-scaled path would be hairlines): a 4 px track, ticks 3.5 px wide and
+ * ≥ 12 px tall (14 at 5s, 18 at 10s), the mark an 18 × 18 px pointer standing ≥ 6 px above the
+ * tallest tick, end arrows 10 px long ≥ 6 px from any pointer. Every tick stays evenly spaced: the
+ * unit ticks when they are ≥ 8 px apart, else every 5th (or 10th), ranked by value; the pointer
+ * sits exactly over its own value's place. Same classes as NumberLineView.
+ */
+const PATH = {
+  pad: 16,
+  axis: 4,
+  tick: 3.5,
+  half: { one: 6, five: 7, ten: 9 },
+  pointer: 18,
+  pointerStroke: 2.5,
+  gap: 7,
+  cap: { from: 4, to: 14, half: 6 },
+} as const;
+/** Line y: room above for the tallest tick, the gap and the pointer (all with their strokes). */
+const PATH_TIP = PATH.half.ten + PATH.tick / 2 + PATH.gap + PATH.pointerStroke / 2;
+const PATH_Y = Math.ceil(PATH_TIP + PATH.pointer + PATH.pointerStroke / 2 + 1);
+const PATH_H = PATH_Y + Math.ceil(PATH.half.ten + PATH.tick / 2 + 1);
+
+function CardPath({
+  spec,
+  width,
+}: {
+  spec: Extract<StimulusSpec, { kind: 'number-line' }>;
+  width: number;
+}) {
+  const { min, max } = spec;
+  const unit = spec.ticksEvery ?? 1;
+  const span = Math.max(unit, max - min);
+  const inner = width - 2 * PATH.pad;
+  const x = (v: number) => PATH.pad + ((v - min) / span) * inner;
+  const fits = (k: number) =>
+    (inner * unit * k) / span >= MIN_TICK_PITCH &&
+    Math.abs(span / (unit * k) - Math.round(span / (unit * k))) < 1e-9;
+  const k = [1, 5, 10].find(fits) ?? 10;
+  const ticks = stepsBetween(min, max, unit * k);
+  const y = PATH_Y;
+  return (
+    <svg
+      className="ni-numberline ni-ord__path"
+      width={width}
+      height={PATH_H}
+      viewBox={`0 0 ${width} ${PATH_H}`}
+      aria-hidden="true"
+      focusable="false"
+    >
+      <line
+        className="ni-numberline__axis"
+        x1={PATH.pad - PATH.cap.from - 2}
+        x2={width - PATH.pad + PATH.cap.from + 2}
+        y1={y}
+        y2={y}
+      />
+      <path
+        className="ni-numberline__cap"
+        data-end="min"
+        d={`M${PATH.pad - PATH.cap.to} ${y}l${PATH.cap.to - PATH.cap.from} -${PATH.cap.half}v${2 * PATH.cap.half}z`}
+      />
+      <path
+        className="ni-numberline__cap"
+        data-end="max"
+        d={`M${width - PATH.pad + PATH.cap.to} ${y}l-${PATH.cap.to - PATH.cap.from} -${PATH.cap.half}v${2 * PATH.cap.half}z`}
+      />
+      {ticks.map((v) => {
+        const step = Math.round(v / unit);
+        const rank = step % 10 === 0 ? 'ten' : step % 5 === 0 ? 'five' : 'one';
+        const h = PATH.half[rank];
+        return (
+          <line
+            key={`t${v}`}
+            className="ni-numberline__tick"
+            data-rank={rank}
+            data-at={v}
+            x1={x(v)}
+            x2={x(v)}
+            y1={y - h}
+            y2={y + h}
+          />
+        );
+      })}
+      {(spec.marks ?? []).map((m) => (
+        <g key={`m${m.at}`} className="ni-numberline__mark" data-at={m.at}>
+          <path
+            className="ni-numberline__pointer"
+            d={`M${x(m.at)} ${y - PATH_TIP}l-${PATH.pointer / 2} -${PATH.pointer}h${PATH.pointer}z`}
+          />
+        </g>
+      ))}
+    </svg>
+  );
+}
 const ROOT_PAD = { x: 8, y: 4 };
 const BORDER = 3;
 const CHROME = {
@@ -678,26 +778,20 @@ export function OrderWidget({
   const picW = plan.w - 2 * PIC_PAD;
   const picH = picHeight(plan.h);
   /**
-   * A card's path as drawn: every unit tick when they are ≥ 8 px apart; otherwise only every 5th
-   * (or 10th) tick, still evenly spaced and ranked by value (5s, 10s longer), the mark on its own
-   * value. The whole path stays (CMP.06's hint points at it); a crowd of ticks would not read.
+   * A card's path: drawn to the card's scale with every unit tick when they are ≥ 8 px apart;
+   * otherwise a compact path (`CardPath`) in fixed screen-px ink, its numeral beside it.
    */
-  const drawnLine = (spec: Extract<StimulusSpec, { kind: 'number-line' }>) => {
+  const compactLine = (spec: Extract<StimulusSpec, { kind: 'number-line' }>) => {
     const every = spec.ticksEvery;
-    if (every === null || every <= 0) return { spec, rhythmUnit: undefined };
+    if (every === null || every <= 0) return false;
     const span = spec.max - spec.min;
     const scale = Math.min(1, picH / numberLineHeight(spec, true));
     const pitch = ((picW - 2 * LINE_BARE_PAD * scale) * every) / Math.max(every, span);
-    if (pitch >= MIN_TICK_PITCH) return { spec, rhythmUnit: undefined };
-    const k = [5, 10].find(
-      (f) =>
-        pitch * f >= MIN_TICK_PITCH &&
-        Math.abs(span / (every * f) - Math.round(span / (every * f))) < 1e-9,
-    );
-    return k === undefined
-      ? { spec, rhythmUnit: undefined }
-      : { spec: { ...spec, ticksEvery: every * k }, rhythmUnit: every };
+    return pitch < MIN_TICK_PITCH;
   };
+  /** The numeral beside a compact path: as wide as the longest label at 32 px. */
+  const sideTagW = Math.ceil(longest * 0.62 * SIDE_TAG_PX) + 2;
+  const compactW = Math.max(40, plan.w - 2 * PIC_PAD - sideTagW - SIDE_TAG_GAP);
   // A plain line of more than five objects may wrap into two rows of reading order (as tap-count
   // wraps lines) when that draws every card bigger, unless the set's look is the point (spread
   // versus bunched, drawn big: compare.sets conflict items keep their pictures as given).
@@ -741,8 +835,25 @@ export function OrderWidget({
     if (pictures && spec && spec.kind !== 'none') {
       const tag = it.label !== undefined && !markShows(spec, it.label);
       const pic = cardPicture(spec);
-      const line = pic.kind === 'number-line' ? drawnLine(pic) : null;
       // The numeral and the picture are the card's glyphs: Pip's hand stays off both.
+      if (pic.kind === 'number-line' && compactLine(pic)) {
+        return (
+          <span className="ni-ord__face" data-face="side">
+            {it.label !== undefined ? (
+              <span
+                className="ni-ord__tag ni-invite-glyph"
+                aria-hidden="true"
+                style={{ width: sideTagW }}
+              >
+                {it.label}
+              </span>
+            ) : null}
+            <span className="ni-ord__pic ni-invite-glyph">
+              <CardPath spec={pic} width={compactW} />
+            </span>
+          </span>
+        );
+      }
       return (
         <span className="ni-ord__face">
           {tagRow ? (
@@ -752,11 +863,10 @@ export function OrderWidget({
           ) : null}
           <span className="ni-ord__pic ni-invite-glyph">
             <FitPicture
-              spec={line?.spec ?? pic}
+              spec={pic}
               // 5s and 10s are longer to read at a glance on a small card; the mark is a pointer
               // standing clear above the ticks (never on one, never at the end arrow).
               tickRhythm
-              rhythmUnit={line?.rhythmUnit}
               pointerMarks
               maxWidth={picW}
               maxHeight={picH}

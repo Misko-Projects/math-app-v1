@@ -869,8 +869,11 @@ async function expectPaths(root: HTMLElement): Promise<PathMeasure> {
     const axis = (
       c.querySelector('.ni-numberline__axis') as SVGLineElement
     ).getBoundingClientRect();
-    const capLeft = x1 + 18 * s;
-    const capTop = axis.top + axis.height / 2 - 9 * s;
+    // A compact path draws each end arrow on its own (`data-end`); a scaled one draws both in one.
+    const maxCap = c.querySelector('.ni-numberline__cap[data-end="max"]');
+    const capBox = maxCap?.getBoundingClientRect();
+    const capLeft = capBox ? capBox.left : x1 + 18 * s;
+    const capTop = capBox ? capBox.top : axis.top + axis.height / 2 - 9 * s;
     await expect(
       Math.max(capLeft - pointer.right, capTop - pointer.bottom),
       'the pointer clear of the end arrow',
@@ -886,6 +889,61 @@ const notePaths = (canvasElement: HTMLElement, m: PathMeasure) =>
     canvasElement,
     'path',
     `cards ${Math.round(m.card.w)}×${Math.round(m.card.h)} px, ${m.ticks} ticks @ ${m.pitch.toFixed(1)} px`,
+  );
+
+/** The tablet card's path ink in screen px (PathCardsKTablet measures it: track 3.5, ticks 2.8). */
+const TABLET_INK = { track: 3.5, tick: 2.8 };
+
+/**
+ * K-legible path ink on every tray card, measured in screen px (strokes at the drawn scale):
+ * the track and ticks at least as heavy as the tablet card's, every tick ≥ 12 px tall, the mark's
+ * pointer ≥ 16 px each way, and ≥ 6 px of air between the pointer and the tallest tick under it
+ * and between the pointer and the end arrow (ink to ink, strokes included). Returns the smallest
+ * of each, for the label.
+ */
+async function expectPathInk(root: HTMLElement) {
+  const ink = { track: Infinity, tick: Infinity, tall: Infinity, pointer: Infinity, gap: Infinity };
+  for (const c of root.querySelectorAll<HTMLElement>('.ni-ord__tray .ni-ord__card')) {
+    const svg = c.querySelector('svg.ni-numberline') as SVGSVGElement;
+    const s = svg.getBoundingClientRect().width / svg.width.baseVal.value;
+    const stroke = (el: Element) => Number.parseFloat(getComputedStyle(el).strokeWidth) * s;
+    const axis = c.querySelector('.ni-numberline__axis') as SVGLineElement;
+    const ticks = [...c.querySelectorAll<SVGLineElement>('.ni-numberline__tick')];
+    const pointer = c.querySelector('.ni-numberline__pointer') as SVGPathElement;
+    const ps = stroke(pointer);
+    const p = pointer.getBoundingClientRect();
+    const pInk = { left: p.left - ps / 2, right: p.right + ps / 2, bottom: p.bottom + ps / 2 };
+    ink.track = Math.min(ink.track, stroke(axis));
+    for (const t of ticks) {
+      ink.tick = Math.min(ink.tick, stroke(t));
+      ink.tall = Math.min(ink.tall, t.getBoundingClientRect().height);
+    }
+    ink.pointer = Math.min(ink.pointer, p.width, p.height);
+    // The tallest tick's ink top (its round cap past the line's end).
+    const tickTop = Math.min(...ticks.map((t) => t.getBoundingClientRect().top - stroke(t) / 2));
+    ink.gap = Math.min(ink.gap, tickTop - pInk.bottom);
+    for (const cap of c.querySelectorAll('.ni-numberline__cap[data-end]')) {
+      const b = cap.getBoundingClientRect();
+      ink.gap = Math.min(
+        ink.gap,
+        Math.max(b.left - pInk.right, pInk.left - b.right, b.top - pInk.bottom),
+      );
+    }
+  }
+  await expect(ink.track, 'track stroke (screen px)').toBeGreaterThanOrEqual(TABLET_INK.track);
+  await expect(ink.tick, 'tick stroke (screen px)').toBeGreaterThanOrEqual(TABLET_INK.tick);
+  await expect(ink.tall, 'tick height (screen px)').toBeGreaterThanOrEqual(12);
+  await expect(ink.pointer, 'pointer size (screen px)').toBeGreaterThanOrEqual(16);
+  await expect(ink.gap, 'pointer to tick and end arrow (screen px)').toBeGreaterThanOrEqual(6);
+  return ink;
+}
+
+/** Records the path ink for the evidence label (`data-m-ink`). */
+const noteInk = (canvasElement: HTMLElement, ink: Awaited<ReturnType<typeof expectPathInk>>) =>
+  noteMeasure(
+    canvasElement,
+    'ink',
+    `track ${ink.track.toFixed(1)} px, ticks ≥ ${ink.tall.toFixed(0)} px, pointer ${ink.pointer.toFixed(0)} px, gaps ≥ ${ink.gap.toFixed(0)} px`,
   );
 
 /**
@@ -1008,18 +1066,23 @@ export const PathCardsKMinLandscape: Story = {
   play: async ({ canvasElement }) => {
     const root = await findWidget(canvasElement, ROOT);
     // The whole path stays at the minimum (CMP.06's hint points at it). Its 21 unit ticks would
-    // be ~5 px apart on cards this size, too close to read, so the path keeps its 5s and 10s
-    // (0, 5, 10, 15, 20) ≥ 8 px apart, the mark's pointer over its own place.
+    // be ~5 px apart on cards this size, too close to read, so the card draws a compact path in
+    // K-sized ink, its numeral beside it: the 5s and 10s (0, 5, 10, 15, 20) ≥ 8 px apart, the
+    // mark's pointer over its own place.
     await expect(root).toHaveAttribute('data-cards', 'picture');
     await expectPathCards(root);
     await expectOrderFits(canvasElement, root, 'k');
     const m = await expectPaths(root);
     await expect(m.every).toBe(5);
     notePaths(canvasElement, m);
+    noteInk(canvasElement, await expectPathInk(root));
   },
 };
 
-/** Path cards: numeral tags ≥ 32 px inside the card, above the path. */
+/**
+ * Path cards: numeral tags ≥ 32 px inside the card, above the path (beside a compact path, never
+ * on it), the path ≥ 16 px from the card's sides.
+ */
 async function expectPathCards(root: HTMLElement) {
   for (const c of root.querySelectorAll<HTMLElement>('.ni-ord__tray .ni-ord__card')) {
     await expectTargetSize(c, 'k');
@@ -1028,7 +1091,14 @@ async function expectPathCards(root: HTMLElement) {
     const t = tag.getBoundingClientRect();
     const line = (c.querySelector('.ni-numberline') as SVGElement).getBoundingClientRect();
     const r = c.getBoundingClientRect();
-    await expect(t.bottom).toBeLessThanOrEqual(line.top + 0.5);
+    if (c.querySelector('[data-face="side"]')) {
+      await expect(t.right).toBeLessThanOrEqual(line.left + 0.5);
+      await expect(line.top).toBeGreaterThanOrEqual(r.top);
+      await expect(r.right - line.right).toBeGreaterThanOrEqual(16 - 0.5);
+      await expect(t.left - r.left).toBeGreaterThanOrEqual(16 - 0.5);
+    } else {
+      await expect(t.bottom).toBeLessThanOrEqual(line.top + 0.5);
+    }
     await expect(line.left).toBeGreaterThanOrEqual(r.left);
     await expect(line.right).toBeLessThanOrEqual(r.right + 0.5);
     await expect(line.bottom).toBeLessThanOrEqual(r.bottom + 0.5);
@@ -1082,6 +1152,8 @@ export const PathCardsKMinLandscapeInvite: Story = {
     await expect(root).toHaveAttribute('data-cards', 'picture');
     await expectPathCards(root);
     notePaths(canvasElement, await expectPaths(root));
+    // The compact path's ink reads at K size (screen px), as on the tablet card.
+    noteInk(canvasElement, await expectPathInk(root));
     await expectOrderFits(canvasElement, root, 'k');
     // Under the card, Pip's hand stays off its path (and off every cue mark).
     await expectHandOffInk(root);
@@ -1222,6 +1294,14 @@ export const PathCardsKTablet: Story = {
     const m = await expectPaths(root);
     await expect(m.every).toBe(1);
     notePaths(canvasElement, m);
+    // The tablet card's ink in screen px: the bar a compact path matches (TABLET_INK).
+    const c = root.querySelector('.ni-ord__tray .ni-ord__card') as HTMLElement;
+    const svg = c.querySelector('svg.ni-numberline') as SVGSVGElement;
+    const s = svg.getBoundingClientRect().width / svg.width.baseVal.value;
+    const px = (sel: string) =>
+      Number.parseFloat(getComputedStyle(c.querySelector(sel) as Element).strokeWidth) * s;
+    await expect(px('.ni-numberline__axis')).toBeCloseTo(TABLET_INK.track, 1);
+    await expect(px('.ni-numberline__tick')).toBeCloseTo(TABLET_INK.tick, 1);
   },
 };
 
