@@ -1,11 +1,93 @@
 # ADD narration (03 §8): skill intros, template prompts and lesson lines owned by the strand.
+# Shared prompts, hints, feedback and the addsub.facts solution lines are in common.yaml.
 sk.ADD.01.intro:
   text: "When we add, we put groups together."
+sk.ADD.02.intro:
+  text: "Let's add and take away small numbers. You will get fast!"
 sk.ADD.03.intro:
   text: "Start with the bigger number and count on. No need to start at one!"
+sk.ADD.04.intro:
+  text: "To take away, count back. When the numbers are close, count up!"
+sk.ADD.06.intro:
+  text: "Let's get fast at adding and taking away up to ten."
+sk.ADD.07.intro:
+  text: "A double is two of the same number. Doubles are fun to know!"
+sk.ADD.08.intro:
+  text: "Let's make a ten first. A full ten helps you add!"
+sk.ADD.09.intro:
+  text: "To take away, think: what do I add?"
+sk.ADD.15.intro:
+  text: "One more, two more, one less, two less. Let's hop!"
+sk.ADD.16.intro:
+  text: "A near double is a double and one more."
+sk.ADD.17.intro:
+  text: "Adding nine? Add ten, then take one away!"
+sk.ADD.18.intro:
+  text: "Take away to get back to ten first. Then take away more."
+sk.ADD.19.intro:
+  text: "Count up from the small number to the big one. Stop at ten on the way!"
+sk.ADD.24.intro:
+  text: "When we take away, some go away. How many are left?"
+sk.ADD.26.intro:
+  text: "Ten and some ones make a teen number. Take the ten away to get the ones!"
+sk.ADD.27.intro:
+  text: "Jump on the number line to add and take away."
 
+tp.ADD.01.t2.prompt:
+  text: "Show {start} fingers. Put up more to make {n}."
 tp.ADD.03.t1.prompt:
   text: "Start on {a} and hop {b} more. Where do you land?"
 tp.ADD.03.t4.prompt:
   text: "{a} + {b} = ?"
   say: "What is {a} plus {b}? Start with the bigger number."
+tp.ADD.04.t2.prompt:
+  text: "Start on {b} and hop up to {a}. How many hops?"
+tp.ADD.07.t3.prompt:
+  text: "Look fast! How many dots in all?"
+tp.ADD.08.t1.prompt:
+  text: "Fill the first frame to make ten. How many is {a} + {b}?"
+  say: "Fill the first frame to make ten. How many is {a} plus {b}?"
+tp.ADD.08.t2.prompt:
+  text: "Slide beads to fill the top row. How many is {a} + {b}?"
+  say: "Slide beads to fill the top row. How many is {a} plus {b}?"
+tp.ADD.08.t4.prompt:
+  text: "{a} + {b} = ? Split {b} to make ten."
+  say: "What is {a} plus {b}? Split {b} to make ten."
+tp.ADD.09.t1.prompt:
+  text: "{a} − {b} = ? Think: {b} and what make {a}?"
+  say: "What is {a} take away {b}? Think: {b} and what make {a}?"
+tp.ADD.09.t4.prompt:
+  text: "{a} + ? = {result}"
+  say: "{a} plus what number makes {result}?"
+tp.ADD.17.t1.prompt:
+  text: "How many is {a} + {b}? Slide a full ten, then take one away."
+  say: "How many is {a} plus {b}? Slide a full ten, then take one away."
+tp.ADD.19.t1.prompt:
+  text: "{a} − {b} = ? Start at {b} and jump up to {a}."
+  say: "What is {a} take away {b}? Start at {b} and jump up to {a}."
+tp.ADD.24.t1.prompt:
+  text: "There are {start} in the boat. Take {away} out."
+tp.ADD.24.t2.prompt:
+  text: "Show {start} fingers. Then put {away} down."
+tp.ADD.26.t1.prompt:
+  text: "Put {b} more next to the full ten. How many in all?"
+tp.ADD.26.t2.prompt:
+  text: "Think of ten and some ones. What number goes in the box?"
+
+# ADD.08 authored lesson: make ten on the frames, then on the open number line.
+ls.ADD.08.w1.s1:
+  text: "Here are {a} and {b}."
+  voice: pip
+ls.ADD.08.w1.s2:
+  text: "Move {give} from this group to fill the ten."
+  voice: pip
+ls.ADD.08.w1.s3:
+  text: "Now this frame is a full ten."
+  voice: pip
+ls.ADD.08.w1.s4:
+  text: "Ten and {keep} make {n}!"
+  voice: pip
+  style: excited
+ls.ADD.08.outro:
+  text: "You got to ten first. That helps you add!"
+  voice: pip

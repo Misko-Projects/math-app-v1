@@ -1,12 +1,12 @@
-# C01 fixture misconceptions (03 §9.5, library rows in 03 §7.2). Only the fixture skills are
-# listed; K01 restores ADD.04, ADD.06, ADD.08, ADD.13, ADD.15, ADD.27 and MDA.13.
+# Addition and subtraction misconceptions (03 §7.2). K01 lists the K–1 skills authored so far;
+# ADD.13, ADD.14, ADD.22 and the MDA skills join these rows when they are authored.
 area: addsub
 misconceptions:
   - id: MC.count-start-number
     name: Counts the starting number when counting on
     detect: { kind: answer, rule: countStartNumber }
     appliesTo: { generators: [addsub.facts] }
-    skills: [ADD.03]
+    skills: [ADD.03, ADD.04, ADD.15, ADD.27]
     remediation: [CNT.07, ADD.03]
     feedback: fb.mc.count-start-number
     priority: 60
@@ -24,7 +24,7 @@ misconceptions:
     name: Counts both groups from 1 instead of counting on
     detect: { kind: process, rule: countAllInstead }
     appliesTo: { generators: [addsub.facts] }
-    skills: [ADD.03]
+    skills: [ADD.03, ADD.06, ADD.08]
     remediation: [ADD.03]
     feedback: fb.mc.count-all-instead
     priority: 40
@@ -53,4 +53,44 @@ misconceptions:
             - { t: tap, target: counter-5, ms: 0 }
             - { t: tap, target: counter-6, ms: 600 }
             - { t: tap, target: counter-7, ms: 1200 }
+        match: false
+
+  - id: MC.forgot-the-ten
+    name: Makes a ten, then leaves the ten out of the answer
+    detect: { kind: answer, rule: forgotTheTen }
+    appliesTo: { generators: [addsub.facts] }
+    skills: [ADD.08, ADD.26]
+    remediation: [CPS.04, ADD.26]
+    feedback: fb.mc.forgot-the-ten
+    parentTip: >-
+      After making a ten, point to the full ten-frame and say "ten" before counting the ones left.
+    examples:
+      - params: { a: 8, b: 5, op: "+", unknown: result }
+        response: { kind: number, value: 3 }
+        match: true
+      - params: { a: 8, b: 5, op: "+", unknown: result }
+        response: { kind: number, value: 12 }
+        match: false
+      - params: { a: 8, b: 5, op: "+", unknown: result }
+        response: { kind: number, value: 13 }
+        match: false
+
+  - id: MC.wrong-operation
+    name: Adds when the fact takes away, or takes away when it adds
+    detect: { kind: answer, rule: wrongOperation }
+    appliesTo: { generators: [addsub.facts] }
+    skills: [ADD.06, ADD.09]
+    remediation: [ADD.09]
+    feedback: fb.mc.wrong-operation
+    parentTip: >-
+      Before solving, have your child point to the sign and say "plus" or "take away" out loud.
+    examples:
+      - params: { a: 9, b: 4, op: "-", unknown: result }
+        response: { kind: number, value: 13 }
+        match: true
+      - params: { a: 6, b: 3, op: "+", unknown: result }
+        response: { kind: number, value: 3 }
+        match: true
+      - params: { a: 9, b: 4, op: "-", unknown: result }
+        response: { kind: number, value: 4 }
         match: false

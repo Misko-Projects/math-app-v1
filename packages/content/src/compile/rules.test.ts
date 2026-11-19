@@ -58,7 +58,21 @@ describe('the C01 fixture set (03 §9.5)', () => {
     expect(result.diagnostics.filter(EXPECTED)).toHaveLength(1);
     expect(result.content?.skills.map((s) => s.id)).toEqual([
       'ADD.01',
+      'ADD.02',
       'ADD.03',
+      'ADD.04',
+      'ADD.06',
+      'ADD.07',
+      'ADD.08',
+      'ADD.09',
+      'ADD.15',
+      'ADD.16',
+      'ADD.17',
+      'ADD.18',
+      'ADD.19',
+      'ADD.24',
+      'ADD.26',
+      'ADD.27',
       'CMP.01',
       'CMP.02',
       'CMP.03',
@@ -120,11 +134,13 @@ describe('the C01 fixture set (03 §9.5)', () => {
       'MC.count-all-instead',
       'MC.count-start-number',
       'MC.decade-transition',
+      'MC.forgot-the-ten',
       'MC.off-by-one-counting',
       'MC.perceptual-size',
       'MC.recount-from-one',
       'MC.teen-reversal',
       'MC.unit-gaps',
+      'MC.wrong-operation',
     ]);
   });
 
@@ -389,7 +405,7 @@ describe('V03: sequential ids', () => {
     expectFinding(
       variant((f) => editYaml(f, 'graph.yaml', (doc) => (doc.plannedIds = []))),
       'V03',
-      /missing ADD.02/,
+      /missing ADD.05/,
     );
     expectFinding(
       variant((f) =>
@@ -401,13 +417,13 @@ describe('V03: sequential ids', () => {
   });
   it('accepts a retired gap', () => {
     const diags = variant((f) => {
-      // ADD.02 moves from planned to retired; the other planned gaps stay planned.
+      // ADD.05 moves from planned to retired; the other planned gaps stay planned.
       editYaml(
         f,
         'graph.yaml',
-        (doc) => (doc.plannedIds = (doc.plannedIds as string[]).filter((id) => id !== 'ADD.02')),
+        (doc) => (doc.plannedIds = (doc.plannedIds as string[]).filter((id) => id !== 'ADD.05')),
       );
-      f['retired.yaml'] = 'skills: [ADD.02]\n';
+      f['retired.yaml'] = 'skills: [ADD.05]\n';
     });
     expect(diags.filter((d) => d.check === 'V03')).toEqual([]);
   });
@@ -453,20 +469,20 @@ describe('V04: references resolve', () => {
     expectFinding(
       variant((f) =>
         editYaml(f, 'misconceptions/addsub.yaml', (doc) =>
-          doc.misconceptions[0].skills.push('ADD.27'),
+          doc.misconceptions[0].skills.push('ADD.25'),
         ),
       ),
       'V04',
-      /unknown skill ADD.27/,
+      /unknown skill ADD.25/,
     );
     expectFinding(
       variant((f) =>
         editYaml(f, 'misconceptions/addsub.yaml', (doc) =>
-          doc.misconceptions[0].remediation.push('ADD.27'),
+          doc.misconceptions[0].remediation.push('ADD.25'),
         ),
       ),
       'V04',
-      /unknown remediation skill ADD.27/,
+      /unknown remediation skill ADD.25/,
     );
     expectFinding(
       variant((f) =>
@@ -1157,10 +1173,10 @@ describe('V21: test-out choice rule and gateway item count', () => {
 });
 
 describe('V02/V03: excused ids must be canonical', () => {
-  it('does not let ADD.2 excuse the missing ADD.02', () => {
-    const diags = variant((f) => editYaml(f, 'graph.yaml', (doc) => (doc.plannedIds = ['ADD.2'])));
-    expectFinding(diags, 'V02', /'ADD.2' is not a canonical SkillId or TemplateId/);
-    expectFinding(diags, 'V03', /missing ADD.02/);
+  it('does not let ADD.5 excuse the missing ADD.05', () => {
+    const diags = variant((f) => editYaml(f, 'graph.yaml', (doc) => (doc.plannedIds = ['ADD.5'])));
+    expectFinding(diags, 'V02', /'ADD.5' is not a canonical SkillId or TemplateId/);
+    expectFinding(diags, 'V03', /missing ADD.05/);
   });
   it('rejects excused template ids that could never be authored', () => {
     expectFinding(
@@ -1347,10 +1363,11 @@ describe('V24 and contentVersion (03 §9.1)', () => {
     // Pinned to the current content; K01 (#11) updates these numbers as each strand group lands.
     expect(manifest.counts).toEqual({
       // CMP (K01) added 9 skills, 31 templates and MC.perceptual-size; CPS and SUB.04/SUB.07 (K01)
-      // added 7 skills and 27 templates.
-      skills: 57,
-      templates: 188,
-      misconceptions: 9,
+      // added 7 skills and 27 templates; ADD facts and strategies (K01) added 14 skills, 57
+      // templates, MC.forgot-the-ten and MC.wrong-operation.
+      skills: 71,
+      templates: 245,
+      misconceptions: 11,
       narrationKeys: Object.keys(r.content?.narration ?? {}).length,
     });
     expect(Object.keys(manifest.files).sort()).toEqual([
@@ -1374,15 +1391,18 @@ describe('graph.json (03 §9.1)', () => {
     for (const [from, to] of g?.edges ?? [])
       expect(pos.get(from) as number).toBeLessThan(pos.get(to) as number);
     expect(g?.roots).toEqual(['CNT.01', 'GEO.01', 'GEO.05', 'MEA.15', 'SUB.01']);
-    expect(g?.gateways).toEqual(['CNT.03', 'CNT.14', 'CPS.02', 'CPS.04', 'SUB.03']);
+    expect(g?.gateways).toEqual(['ADD.08', 'CNT.03', 'CNT.14', 'CPS.02', 'CPS.04', 'SUB.03']);
     expect(g?.depth['CNT.01']).toBe(0);
     expect(g?.depth['ADD.03']).toBe(6); // CNT.01 → 02 → 03 → 04 → 06 → 07 → ADD.03
-    // CPS.04, CPS.11; then CMP.07, CPS.07 and SUB.04
-    expect(g?.descendants2['CPS.03']).toBe(5);
-    // CNT.07, CNT.15, CPS.04, MEA.02; then ADD.03, CMP.03, CMP.07, CNT.08, CNT.09, CNT.14, CPS.07,
-    // MEA.22 and SUB.04
-    expect(g?.descendants2['CNT.06']).toBe(13);
+    // CPS.04, CPS.11; then ADD.08, ADD.19, CMP.07, CPS.07 and SUB.04
+    expect(g?.descendants2['CPS.03']).toBe(7);
+    // CNT.07, CNT.15, CPS.04, MEA.02; then ADD.03, ADD.08, CMP.03, CMP.07, CNT.08, CNT.09, CNT.14,
+    // CPS.07, MEA.22 and SUB.04
+    expect(g?.descendants2['CNT.06']).toBe(14);
     expect(g?.encompasses).toEqual([
+      ['ADD.06', 'ADD.02', 1],
+      ['ADD.08', 'CPS.03', 1],
+      ['ADD.08', 'CPS.11', 1],
       ['CNT.06', 'CNT.04', 1],
       ['CNT.06', 'CNT.05', 0.5],
       ['CNT.10', 'CNT.09', 1],

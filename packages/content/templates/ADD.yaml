@@ -1,6 +1,12 @@
-# C01 fixture templates (03 §9.5) on the E01 reference generators count.set and addsub.facts.
+# ADD templates (K01) on count.set and addsub.facts (03 §5.6). ADD.01 and ADD.03 keep the ids,
+# formats, tiers and representations they shipped with in C01 (03 §4.3). One template per catalog
+# format at least, every catalog representation used, ordered concrete → pictorial → abstract.
+# Every skill has a constructed-answer template; numeral-pick templates are diagnostic extras.
+# Prompts name the operation, so a template keeps one `op` (except ADD.26, whose ten-and-ones
+# prompt fits both). Bases are tuned from template-stats so each median sits near d = 0.
 strand: ADD
 templates:
+  # ---------- ADD.01: join within 10 with objects (K) ----------
   - id: ADD.01.t1
     skillId: ADD.01
     format: make-set
@@ -20,7 +26,7 @@ templates:
     params: { start: { int: [1, 5] }, n: { int: [2, 10] }, mode: add-more }
     constraints: ["start < n"]
     difficulty: { base: -0.6 }
-    narration: { prompt: p.add.add-more, hints: [h.add.fingers] }
+    narration: { prompt: tp.ADD.01.t2.prompt, hints: [h.add.fingers] }
 
   - id: ADD.01.t3
     skillId: ADD.01
@@ -42,6 +48,58 @@ templates:
     difficulty: { base: 0.0 }
     narration: { prompt: p.add.what-is, hints: [h.add.join, h.add.fingers] }
 
+  # ---------- ADD.02: fluency within 5 (K, fact-fluency) ----------
+  - id: ADD.02.t1
+    skillId: ADD.02
+    format: number-pad
+    tier: pictorial
+    representation: ten-frame
+    generator: addsub.facts
+    params: { a: { int: [0, 5] }, b: { int: [0, 5] }, op: "+", unknown: result, maxSum: 5 }
+    difficulty: { base: 0.6 }
+    narration: { prompt: p.add.what-is, hints: [h.addsub.know-it, h.addsub.picture] }
+
+  - id: ADD.02.t2
+    skillId: ADD.02
+    format: number-pad
+    tier: pictorial
+    representation: ten-frame
+    generator: addsub.facts
+    params: { a: { int: [1, 5] }, b: { int: [0, 5] }, op: "-", unknown: result, maxSum: 5 }
+    difficulty: { base: 0.25 }
+    narration: { prompt: p.sub.what-is, hints: [h.addsub.know-it, h.addsub.picture] }
+
+  - id: ADD.02.t3
+    skillId: ADD.02
+    format: number-pad
+    tier: abstract
+    representation: symbols
+    generator: addsub.facts
+    params: { a: { int: [0, 5] }, b: { int: [0, 5] }, op: "+", unknown: result, maxSum: 5 }
+    difficulty: { base: 0.6 }
+    narration: { prompt: p.add.what-is, hints: [h.addsub.know-it, h.add.fingers] }
+
+  - id: ADD.02.t4
+    skillId: ADD.02
+    format: number-pad
+    tier: abstract
+    representation: symbols
+    generator: addsub.facts
+    params: { a: { int: [1, 5] }, b: { int: [0, 5] }, op: "-", unknown: result, maxSum: 5 }
+    difficulty: { base: 0.25 }
+    narration: { prompt: p.sub.what-is, hints: [h.addsub.know-it, h.sub.fingers-down] }
+
+  - id: ADD.02.t5
+    skillId: ADD.02
+    format: numeral-pick
+    tier: abstract
+    representation: symbols
+    generator: addsub.facts
+    params: { a: { int: [0, 5] }, b: { int: [0, 5] }, op: "+", unknown: result, maxSum: 5 }
+    difficulty: { base: 0.6 }
+    narration: { prompt: p.add.what-is, hints: [h.addsub.know-it] }
+
+  # ---------- ADD.03: count on from the larger number (C01 ids) ----------
   - id: ADD.03.t1
     skillId: ADD.03
     format: number-line-jump
@@ -70,7 +128,7 @@ templates:
     generator: addsub.facts
     params: { a: { int: [4, 16] }, b: { int: [1, 4] }, op: "+", unknown: result, family: count-up }
     constraints: ["a >= b", "a + b <= 20"]
-    difficulty: { base: -0.3 }
+    difficulty: { base: -0.95 }
     narration: { prompt: tp.ADD.03.t1.prompt, hints: [h.add.count-on, h.add.start-big] }
 
   - id: ADD.03.t4
@@ -80,5 +138,662 @@ templates:
     generator: addsub.facts
     params: { a: { int: [1, 16] }, b: { int: [1, 16] }, op: "+", unknown: result, family: count-up }
     constraints: ["max(a, b) >= 4", "min(a, b) <= 4", "a + b <= 20"]
-    difficulty: { base: 0.0 }
+    difficulty: { base: -0.8 }
     narration: { prompt: tp.ADD.03.t4.prompt, hints: [h.add.start-big, h.add.count-on] }
+
+  # ---------- ADD.04: count back or count up to subtract ----------
+  - id: ADD.04.t1
+    skillId: ADD.04
+    format: number-line-jump
+    tier: concrete
+    representation: number-path
+    generator: addsub.facts
+    params: { a: { int: [4, 20] }, b: { int: [1, 3] }, op: "-", unknown: result, family: any }
+    difficulty: { base: -1.35 }
+    expectedLatencyMs: 12000
+    narration: { prompt: p.sub.hop-back, hints: [h.sub.count-back, h.sequence.look-path-back] }
+
+  - id: ADD.04.t2
+    skillId: ADD.04
+    format: number-line-jump
+    tier: concrete
+    representation: number-path
+    generator: addsub.facts
+    params: { a: { int: [4, 20] }, b: { int: [2, 19] }, op: "-", unknown: result, family: count-up }
+    constraints: ["result <= 4"]
+    difficulty: { base: -1.25 }
+    expectedLatencyMs: 12000
+    narration: { prompt: tp.ADD.04.t2.prompt, hints: [h.sub.count-up, h.sub.count-hops] }
+
+  - id: ADD.04.t3
+    skillId: ADD.04
+    format: number-line-jump
+    tier: pictorial
+    representation: number-line
+    generator: addsub.facts
+    params: { a: { int: [6, 20] }, b: { int: [1, 4] }, op: "-", unknown: result, family: any }
+    difficulty: { base: -1.85 }
+    narration: { prompt: p.sub.jump-back, hints: [h.sub.count-back, h.numberline.hop-back] }
+
+  - id: ADD.04.t4
+    skillId: ADD.04
+    format: number-pad
+    tier: abstract
+    representation: symbols
+    generator: addsub.facts
+    params: { a: { int: [3, 20] }, b: { int: [1, 19] }, op: "-", unknown: result, family: any }
+    constraints: ["b <= 3 || result <= 3"]
+    difficulty: { base: -0.55 }
+    narration: { prompt: p.sub.what-is, hints: [h.sub.back-or-up, h.sub.count-up] }
+
+  # ---------- ADD.06: fluency within 10 (fact-fluency) ----------
+  - id: ADD.06.t1
+    skillId: ADD.06
+    format: number-pad
+    tier: pictorial
+    representation: ten-frame
+    generator: addsub.facts
+    params: { a: { int: [0, 10] }, b: { int: [0, 10] }, op: "+", unknown: result, maxSum: 10 }
+    difficulty: { base: 0.4 }
+    narration: { prompt: p.add.what-is, hints: [h.addsub.know-it, h.addsub.picture] }
+
+  - id: ADD.06.t2
+    skillId: ADD.06
+    format: number-pad
+    tier: pictorial
+    representation: ten-frame
+    generator: addsub.facts
+    params: { a: { int: [1, 10] }, b: { int: [0, 10] }, op: "-", unknown: result, maxSum: 10 }
+    difficulty: { base: -0.35 }
+    narration: { prompt: p.sub.what-is, hints: [h.addsub.know-it, h.addsub.picture] }
+
+  - id: ADD.06.t3
+    skillId: ADD.06
+    format: number-pad
+    tier: abstract
+    representation: symbols
+    generator: addsub.facts
+    params: { a: { int: [0, 10] }, b: { int: [0, 10] }, op: "+", unknown: result, maxSum: 10 }
+    difficulty: { base: 0.4 }
+    narration: { prompt: p.add.what-is, hints: [h.addsub.know-it, h.addsub.picture] }
+
+  - id: ADD.06.t4
+    skillId: ADD.06
+    format: number-pad
+    tier: abstract
+    representation: symbols
+    generator: addsub.facts
+    params: { a: { int: [1, 10] }, b: { int: [0, 10] }, op: "-", unknown: result, maxSum: 10 }
+    difficulty: { base: -0.35 }
+    narration: { prompt: p.sub.what-is, hints: [h.addsub.know-it, h.sub.think-add] }
+
+  - id: ADD.06.t5
+    skillId: ADD.06
+    format: numeral-pick
+    tier: abstract
+    representation: symbols
+    generator: addsub.facts
+    params: { a: { int: [2, 10] }, b: { int: [1, 9] }, op: "-", unknown: result, maxSum: 10 }
+    difficulty: { base: -0.7 }
+    narration: { prompt: p.sub.what-is, hints: [h.addsub.check-sign] }
+    distractors:
+      - { rule: MC.wrong-operation }
+
+  - id: ADD.06.t6
+    skillId: ADD.06
+    format: numeral-pick
+    tier: abstract
+    representation: symbols
+    generator: addsub.facts
+    params: { a: { int: [1, 9] }, b: { int: [1, 9] }, op: "+", unknown: result, maxSum: 10 }
+    difficulty: { base: -0.25 }
+    narration: { prompt: p.add.what-is, hints: [h.addsub.check-sign] }
+    distractors:
+      - { rule: MC.wrong-operation }
+
+  # ---------- ADD.07: doubles to 10 + 10 ----------
+  - id: ADD.07.t1
+    skillId: ADD.07
+    format: tenframe-fill
+    tier: concrete
+    representation: ten-frame
+    generator: addsub.facts
+    params: { a: { int: [1, 5] }, b: { int: [1, 5] }, op: "+", unknown: result, family: doubles }
+    difficulty: { base: 0.1 }
+    expectedLatencyMs: 12000
+    narration: { prompt: p.add.how-many-in-all, hints: [h.add.double-same, h.add.double-think] }
+
+  - id: ADD.07.t2
+    skillId: ADD.07
+    format: tenframe-fill
+    tier: concrete
+    representation: double-ten-frame
+    generator: addsub.facts
+    params: { a: { int: [3, 10] }, b: { int: [3, 10] }, op: "+", unknown: result, family: doubles }
+    difficulty: { base: -1.75 }
+    expectedLatencyMs: 12000
+    narration: { prompt: p.add.next-frame, hints: [h.add.double-same, h.add.double-think] }
+
+  - id: ADD.07.t3
+    skillId: ADD.07
+    format: dot-flash
+    tier: pictorial
+    representation: dots
+    generator: addsub.facts
+    params: { a: { int: [1, 10] }, b: { int: [1, 10] }, op: "+", unknown: result, family: doubles }
+    # The flash is not counted dot by dot: size comes from the fact (size), not from n.over4.
+    difficulty: { base: -0.1, features: { n.over4: 0 } }
+    narration: { prompt: tp.ADD.07.t3.prompt, hints: [h.add.double-same, h.add.double-think] }
+
+  - id: ADD.07.t4
+    skillId: ADD.07
+    format: number-pad
+    tier: abstract
+    representation: symbols
+    generator: addsub.facts
+    params: { a: { int: [1, 10] }, b: { int: [1, 10] }, op: "+", unknown: result, family: doubles }
+    difficulty: { base: -0.3 }
+    narration: { prompt: p.add.what-is, hints: [h.add.double-think, h.add.double-same] }
+
+  # ---------- ADD.08: make ten to add (gateway; authored lesson in lessons/ADD.yaml) ----------
+  # Both addends one digit, the sum 11–18 (family make-ten). The frames and the rack start with a
+  # in frame 0 (the top row) and b in frame 1 (the bottom row); a >= b, so the bigger one is made ten.
+  - id: ADD.08.t1
+    skillId: ADD.08
+    format: tenframe-fill
+    tier: concrete
+    representation: double-ten-frame
+    generator: addsub.facts
+    params: { a: { int: [6, 9] }, b: { int: [3, 9] }, op: "+", unknown: result, family: make-ten }
+    constraints: ["a >= b"]
+    difficulty: { base: -2.6, features: { size: 0.5 } }
+    expectedLatencyMs: 12000
+    narration:
+      prompt: tp.ADD.08.t1.prompt
+      hints: [h.addsub.make-ten.nudge, h.bond.fill-ten, h.addsub.make-ten.ten-and]
+
+  - id: ADD.08.t2
+    skillId: ADD.08
+    format: rekenrek
+    tier: concrete
+    representation: rekenrek
+    generator: addsub.facts
+    params: { a: { int: [6, 9] }, b: { int: [3, 9] }, op: "+", unknown: result, family: make-ten }
+    constraints: ["a >= b"]
+    difficulty: { base: -2.2, features: { size: 0.5 } }
+    expectedLatencyMs: 12000
+    narration:
+      prompt: tp.ADD.08.t2.prompt
+      hints: [h.addsub.make-ten.nudge, h.bond.beads-ten, h.addsub.make-ten.ten-and]
+
+  - id: ADD.08.t3
+    skillId: ADD.08
+    format: number-line-jump
+    tier: pictorial
+    representation: open-number-line
+    generator: addsub.facts
+    params: { a: { int: [5, 9] }, b: { int: [2, 9] }, op: "+", unknown: result, family: make-ten }
+    difficulty: { base: -2.9, features: { size: 0.5 } }
+    narration:
+      prompt: p.add.jump-on
+      hints: [h.addsub.make-ten.nudge, h.numberline.jump-to-ten, h.addsub.make-ten.ten-and]
+
+  - id: ADD.08.t4
+    skillId: ADD.08
+    format: number-pad
+    tier: pictorial
+    representation: number-bond
+    generator: addsub.facts
+    params: { a: { int: [6, 9] }, b: { int: [3, 9] }, op: "+", unknown: result, family: make-ten }
+    constraints: ["a >= b"]
+    difficulty: { base: -1.7, features: { size: 0.5 } }
+    narration:
+      prompt: tp.ADD.08.t4.prompt
+      hints: [h.addsub.make-ten.nudge, h.addsub.make-ten.split, h.addsub.make-ten.ten-and]
+
+  - id: ADD.08.t5
+    skillId: ADD.08
+    format: number-pad
+    tier: abstract
+    representation: symbols
+    generator: addsub.facts
+    params: { a: { int: [2, 9] }, b: { int: [2, 9] }, op: "+", unknown: result, family: make-ten }
+    difficulty: { base: -1.7, features: { size: 0.5 } }
+    narration:
+      prompt: p.add.what-is
+      hints: [h.addsub.make-ten.nudge, h.addsub.make-ten.split, h.addsub.make-ten.ten-and]
+
+  - id: ADD.08.t6
+    skillId: ADD.08
+    format: numeral-pick
+    tier: abstract
+    representation: symbols
+    generator: addsub.facts
+    params: { a: { int: [2, 9] }, b: { int: [2, 9] }, op: "+", unknown: result, family: make-ten }
+    difficulty: { base: -1.75, features: { size: 0.5 } }
+    narration:
+      { prompt: p.add.what-is, hints: [h.addsub.make-ten.nudge, h.addsub.make-ten.ten-and] }
+    distractors:
+      - { rule: MC.forgot-the-ten }
+
+  # ---------- ADD.09: think addition to subtract; fact families ----------
+  - id: ADD.09.t1
+    skillId: ADD.09
+    format: number-bond
+    tier: pictorial
+    representation: number-bond
+    generator: addsub.facts
+    params: { a: { int: [5, 18] }, b: { int: [2, 9] }, op: "-", unknown: result, family: think-add }
+    constraints: ["result >= 2"]
+    difficulty: { base: -3.1 }
+    narration: { prompt: tp.ADD.09.t1.prompt, hints: [h.sub.think-add, h.bond.count-on] }
+
+  - id: ADD.09.t2
+    skillId: ADD.09
+    format: number-pad
+    tier: pictorial
+    representation: bar-model
+    generator: addsub.facts
+    params: { a: { int: [5, 18] }, b: { int: [2, 9] }, op: "-", unknown: result, family: think-add }
+    constraints: ["result >= 2"]
+    difficulty: { base: -1.35 }
+    narration: { prompt: p.sub.what-is, hints: [h.sub.think-add, h.sub.bar-whole] }
+
+  - id: ADD.09.t3
+    skillId: ADD.09
+    format: number-pad
+    tier: abstract
+    representation: symbols
+    generator: addsub.facts
+    params: { a: { int: [5, 18] }, b: { int: [2, 9] }, op: "-", unknown: result, family: think-add }
+    constraints: ["result >= 2"]
+    difficulty: { base: -1.35 }
+    narration: { prompt: p.sub.what-is, hints: [h.sub.think-add, h.sub.fact-family] }
+
+  - id: ADD.09.t4
+    skillId: ADD.09
+    format: number-pad
+    tier: abstract
+    representation: symbols
+    generator: addsub.facts
+    params: { a: { int: [2, 9] }, b: { int: [2, 9] }, op: "+", unknown: change, family: any }
+    difficulty: { base: -1.45 }
+    narration: { prompt: tp.ADD.09.t4.prompt, hints: [h.sub.fact-family, h.bond.count-on] }
+
+  # ---------- ADD.15: plus one, plus two, minus one, minus two (K) ----------
+  - id: ADD.15.t1
+    skillId: ADD.15
+    format: number-line-jump
+    tier: concrete
+    representation: number-path
+    generator: addsub.facts
+    params:
+      a: { int: [0, 8] }
+      b: { int: [1, 2] }
+      op: "+"
+      unknown: result
+      family: { choice: [plus1, plus2] }
+      maxSum: 10
+    difficulty: { base: 0.4 }
+    expectedLatencyMs: 12000
+    narration: { prompt: p.add.hop-on, hints: [h.add.count-on, h.add.say-hops] }
+
+  - id: ADD.15.t2
+    skillId: ADD.15
+    format: number-line-jump
+    tier: concrete
+    representation: number-path
+    generator: addsub.facts
+    params:
+      a: { int: [2, 10] }
+      b: { int: [1, 2] }
+      op: "-"
+      unknown: result
+      family: { choice: [plus1, plus2] }
+      maxSum: 10
+    difficulty: { base: -0.85 }
+    expectedLatencyMs: 12000
+    narration: { prompt: p.sub.hop-back, hints: [h.sub.count-back, h.sequence.look-path-back] }
+
+  - id: ADD.15.t3
+    skillId: ADD.15
+    format: tenframe-fill
+    tier: concrete
+    representation: ten-frame
+    generator: addsub.facts
+    params:
+      a: { int: [1, 8] }
+      b: { int: [1, 2] }
+      op: "+"
+      unknown: result
+      family: { choice: [plus1, plus2] }
+      maxSum: 10
+    difficulty: { base: 0.15 }
+    expectedLatencyMs: 12000
+    narration: { prompt: p.add.how-many-in-all, hints: [h.add.count-on, h.count.touch-each] }
+
+  - id: ADD.15.t4
+    skillId: ADD.15
+    format: number-pad
+    tier: abstract
+    representation: symbols
+    generator: addsub.facts
+    params:
+      a: { int: [0, 8] }
+      b: { int: [1, 2] }
+      op: "+"
+      unknown: result
+      family: { choice: [plus1, plus2] }
+      maxSum: 10
+    difficulty: { base: 0.55 }
+    narration: { prompt: p.add.what-is, hints: [h.add.count-on, h.count.one-more-next] }
+
+  - id: ADD.15.t5
+    skillId: ADD.15
+    format: number-pad
+    tier: abstract
+    representation: symbols
+    generator: addsub.facts
+    params:
+      a: { int: [2, 10] }
+      b: { int: [1, 2] }
+      op: "-"
+      unknown: result
+      family: { choice: [plus1, plus2] }
+      maxSum: 10
+    difficulty: { base: -0.05 }
+    narration: { prompt: p.sub.what-is, hints: [h.sub.count-back, h.sequence.count-back] }
+
+  # ---------- ADD.16: near doubles ----------
+  - id: ADD.16.t1
+    skillId: ADD.16
+    format: tenframe-fill
+    tier: concrete
+    representation: double-ten-frame
+    generator: addsub.facts
+    params:
+      { a: { int: [2, 10] }, b: { int: [2, 10] }, op: "+", unknown: result, family: near-doubles }
+    difficulty: { base: -1.6 }
+    expectedLatencyMs: 12000
+    narration: { prompt: p.add.next-frame, hints: [h.add.near-double, h.add.near-double-smaller] }
+
+  - id: ADD.16.t2
+    skillId: ADD.16
+    format: number-pad
+    tier: pictorial
+    representation: dots
+    generator: addsub.facts
+    params:
+      { a: { int: [2, 10] }, b: { int: [2, 10] }, op: "+", unknown: result, family: near-doubles }
+    difficulty: { base: -0.45 }
+    narration: { prompt: p.add.what-is, hints: [h.add.near-double, h.add.near-double-smaller] }
+
+  - id: ADD.16.t3
+    skillId: ADD.16
+    format: number-pad
+    tier: abstract
+    representation: symbols
+    generator: addsub.facts
+    params:
+      { a: { int: [2, 10] }, b: { int: [2, 10] }, op: "+", unknown: result, family: near-doubles }
+    difficulty: { base: -0.45 }
+    narration: { prompt: p.add.what-is, hints: [h.add.near-double, h.add.near-double-smaller] }
+
+  # ---------- ADD.17: add 9 as 10 take away 1 ----------
+  - id: ADD.17.t1
+    skillId: ADD.17
+    format: rekenrek
+    tier: concrete
+    representation: rekenrek
+    generator: addsub.facts
+    params: { a: { int: [2, 9] }, b: 9, op: "+", unknown: result, family: plus9 }
+    difficulty: { base: -2.4, features: { size: 0.55 } }
+    expectedLatencyMs: 12000
+    narration: { prompt: tp.ADD.17.t1.prompt, hints: [h.add.nine-ten, h.add.nine-take-one] }
+
+  - id: ADD.17.t2
+    skillId: ADD.17
+    format: number-pad
+    tier: pictorial
+    representation: double-ten-frame
+    generator: addsub.facts
+    params: { a: { int: [2, 9] }, b: 9, op: "+", unknown: result, family: plus9 }
+    difficulty: { base: -1.8, features: { size: 0.55 } }
+    narration: { prompt: p.add.what-is, hints: [h.add.nine-ten, h.add.nine-take-one] }
+
+  - id: ADD.17.t3
+    skillId: ADD.17
+    format: number-pad
+    tier: abstract
+    representation: symbols
+    generator: addsub.facts
+    params: { a: { int: [2, 9] }, b: { int: [2, 9] }, op: "+", unknown: result, family: plus9 }
+    difficulty: { base: -1.8, features: { size: 0.55 } }
+    narration: { prompt: p.add.what-is, hints: [h.add.nine-take-one, h.add.nine-ten] }
+
+  # ---------- ADD.18: subtract back to ten first ----------
+  - id: ADD.18.t1
+    skillId: ADD.18
+    format: tenframe-fill
+    tier: concrete
+    representation: double-ten-frame
+    generator: addsub.facts
+    params:
+      { a: { int: [11, 18] }, b: { int: [2, 9] }, op: "-", unknown: result, family: back-to-ten }
+    constraints: ["result <= 9"]
+    difficulty: { base: -2.6 }
+    expectedLatencyMs: 12000
+    narration: { prompt: p.sub.take-from, hints: [h.sub.back-to-ten, h.sub.then-more] }
+
+  - id: ADD.18.t2
+    skillId: ADD.18
+    format: number-line-jump
+    tier: pictorial
+    representation: open-number-line
+    generator: addsub.facts
+    params:
+      { a: { int: [11, 18] }, b: { int: [2, 9] }, op: "-", unknown: result, family: back-to-ten }
+    constraints: ["result <= 9"]
+    difficulty: { base: -3.6 }
+    narration: { prompt: p.sub.jump-back, hints: [h.numberline.back-to-ten, h.sub.then-more] }
+
+  - id: ADD.18.t3
+    skillId: ADD.18
+    format: number-pad
+    tier: abstract
+    representation: symbols
+    generator: addsub.facts
+    params:
+      { a: { int: [11, 18] }, b: { int: [2, 9] }, op: "-", unknown: result, family: back-to-ten }
+    constraints: ["result <= 9"]
+    difficulty: { base: -1.6 }
+    narration: { prompt: p.sub.what-is, hints: [h.sub.back-to-ten, h.sub.then-more] }
+
+  # ---------- ADD.19: subtract by counting up through ten ----------
+  # family count-up on subtraction: a − b ≤ b, so counting up from b is the short way.
+  - id: ADD.19.t1
+    skillId: ADD.19
+    format: number-line-jump
+    tier: pictorial
+    representation: open-number-line
+    generator: addsub.facts
+    params: { a: { int: [11, 18] }, b: { int: [4, 9] }, op: "-", unknown: result, family: count-up }
+    difficulty: { base: -3.15 }
+    narration: { prompt: tp.ADD.19.t1.prompt, hints: [h.sub.count-up-ten, h.sub.count-hops] }
+
+  - id: ADD.19.t2
+    skillId: ADD.19
+    format: number-pad
+    tier: pictorial
+    representation: double-ten-frame
+    generator: addsub.facts
+    params: { a: { int: [11, 18] }, b: { int: [4, 9] }, op: "-", unknown: result, family: count-up }
+    difficulty: { base: -1.65 }
+    narration: { prompt: p.sub.what-is, hints: [h.sub.count-up, h.sub.count-up-ten] }
+
+  - id: ADD.19.t3
+    skillId: ADD.19
+    format: number-pad
+    tier: abstract
+    representation: symbols
+    generator: addsub.facts
+    params: { a: { int: [11, 18] }, b: { int: [4, 9] }, op: "-", unknown: result, family: count-up }
+    difficulty: { base: -1.65 }
+    narration: { prompt: p.sub.what-is, hints: [h.sub.count-up, h.sub.count-up-ten] }
+
+  # ---------- ADD.24: separate within 10 with objects (K) ----------
+  - id: ADD.24.t1
+    skillId: ADD.24
+    format: make-set
+    tier: concrete
+    representation: objects
+    generator: count.set
+    params: { start: { int: [2, 10] }, n: { int: [1, 9] }, mode: take-away }
+    constraints: ["start > n"]
+    difficulty: { base: -0.6, features: { target.over5: 0.8 } }
+    narration: { prompt: tp.ADD.24.t1.prompt, hints: [h.sub.take-out, h.count.touch-each] }
+
+  - id: ADD.24.t2
+    skillId: ADD.24
+    format: make-set
+    tier: concrete
+    representation: fingers
+    generator: count.set
+    params: { start: { int: [2, 10] }, n: { int: [1, 9] }, mode: take-away }
+    constraints: ["start > n"]
+    difficulty: { base: -0.6, features: { target.over5: 0.8 } }
+    narration: { prompt: tp.ADD.24.t2.prompt, hints: [h.sub.fingers-down] }
+
+  - id: ADD.24.t3
+    skillId: ADD.24
+    format: tenframe-fill
+    tier: concrete
+    representation: ten-frame
+    generator: addsub.facts
+    params: { a: { int: [2, 10] }, b: { int: [1, 9] }, op: "-", unknown: result, family: any }
+    difficulty: { base: -1.0 }
+    expectedLatencyMs: 12000
+    narration: { prompt: p.sub.take-from, hints: [h.sub.take-away, h.count.touch-each] }
+
+  - id: ADD.24.t4
+    skillId: ADD.24
+    format: number-pad
+    tier: abstract
+    representation: symbols
+    generator: addsub.facts
+    params: { a: { int: [1, 10] }, b: { int: [0, 10] }, op: "-", unknown: result, family: any }
+    difficulty: { base: -0.35 }
+    narration: { prompt: p.sub.what-is, hints: [h.sub.take-away, h.sub.fingers-down] }
+
+  # ---------- ADD.26: ten plus ones, and teen minus ten ----------
+  # t2 and t3 mix 10 + n with 1n − 10 under one ten-and-ones prompt, so MC.forgot-the-ten (a total
+  # of 11 or more) can show up on every template of the skill.
+  - id: ADD.26.t1
+    skillId: ADD.26
+    format: tenframe-fill
+    tier: concrete
+    representation: double-ten-frame
+    generator: addsub.facts
+    params: { a: 10, b: { int: [1, 9] }, op: "+", unknown: result, family: ten-plus }
+    difficulty: { base: -1.3 }
+    expectedLatencyMs: 12000
+    narration: { prompt: tp.ADD.26.t1.prompt, hints: [h.add.ten-plus, h.pv.ten-and-more] }
+
+  - id: ADD.26.t2
+    skillId: ADD.26
+    format: number-pad
+    tier: pictorial
+    representation: base-ten
+    generator: addsub.facts
+    params:
+      a:
+        {
+          choice: [10, 11, 12, 13, 14, 15, 16, 17, 18, 19],
+          weights: [9, 1, 1, 1, 1, 1, 1, 1, 1, 1],
+        }
+      b: { int: [1, 10] }
+      op: { choice: ["+", "-"] }
+      unknown: result
+      family: { choice: [ten-plus, teen-minus-ten] }
+    constraints: ['(op == "+" && a == 10 && b <= 9) || (op == "-" && b == 10)']
+    difficulty: { base: -0.85 }
+    narration: { prompt: tp.ADD.26.t2.prompt, hints: [h.add.ten-and-ones, h.pv.count-ones] }
+
+  - id: ADD.26.t3
+    skillId: ADD.26
+    format: number-pad
+    tier: abstract
+    representation: symbols
+    generator: addsub.facts
+    params:
+      a:
+        {
+          choice: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19],
+          weights: [1, 1, 1, 1, 1, 1, 1, 1, 1, 9, 1, 1, 1, 1, 1, 1, 1, 1, 1],
+        }
+      b: { int: [1, 10] }
+      op: { choice: ["+", "-"] }
+      unknown: result
+      family: { choice: [ten-plus, teen-minus-ten] }
+    constraints:
+      - '(op == "+" && ((a == 10 && b <= 9) || (b == 10 && a <= 9))) || (op == "-" && b == 10)'
+    difficulty: { base: -0.85 }
+    narration: { prompt: tp.ADD.26.t2.prompt, hints: [h.add.ten-and-ones, h.add.ten-plus] }
+
+  # ---------- ADD.27: add and subtract within 20 with jumps on a number line ----------
+  # Free jumps (1–10): a child may hop by ones, or jump to ten first.
+  - id: ADD.27.t1
+    skillId: ADD.27
+    format: number-line-jump
+    tier: pictorial
+    representation: number-line
+    generator: addsub.facts
+    params:
+      {
+        a: { int: [3, 15] },
+        b: { int: [2, 9] },
+        op: "+",
+        unknown: result,
+        family: any,
+        jumps: free,
+      }
+    difficulty: { base: -1.4 }
+    narration: { prompt: p.add.jump-on, hints: [h.numberline.hop-ones, h.numberline.jump-to-ten] }
+
+  - id: ADD.27.t2
+    skillId: ADD.27
+    format: number-line-jump
+    tier: pictorial
+    representation: number-line
+    generator: addsub.facts
+    params:
+      {
+        a: { int: [5, 20] },
+        b: { int: [2, 9] },
+        op: "-",
+        unknown: result,
+        family: any,
+        jumps: free,
+      }
+    difficulty: { base: -2.15 }
+    narration: { prompt: p.sub.jump-back, hints: [h.numberline.hop-back, h.numberline.back-to-ten] }
+
+  - id: ADD.27.t3
+    skillId: ADD.27
+    format: number-pad
+    tier: abstract
+    representation: symbols
+    generator: addsub.facts
+    params: { a: { int: [3, 15] }, b: { int: [2, 9] }, op: "+", unknown: result, family: any }
+    difficulty: { base: -1.0 }
+    narration: { prompt: p.add.what-is, hints: [h.numberline.picture, h.numberline.jump-to-ten] }
+
+  - id: ADD.27.t4
+    skillId: ADD.27
+    format: number-pad
+    tier: abstract
+    representation: symbols
+    generator: addsub.facts
+    params: { a: { int: [5, 20] }, b: { int: [2, 9] }, op: "-", unknown: result, family: any }
+    difficulty: { base: -1.35 }
+    narration: { prompt: p.sub.what-is, hints: [h.numberline.picture, h.numberline.back-to-ten] }

@@ -1,7 +1,8 @@
 // MC.count-start-number (03 §7.2): counts the start number when counting on, so 5 + 3 → "5, 6, 7"
 // → 7. Answer: `+` and r = v − 1, or `-` and r = v + 1, on count-on/back items (family plus1,
 // plus2, count-up, any with a ≥ 3, or a number-line-jump item). State: landing = target − 1 (or
-// target + 1 when counting back).
+// target + 1 when counting back). Counting up to subtract (a jump with goal `difference`, K01):
+// the typed hop count is v + 1.
 
 import type { GeneratedItem, ResponseValue } from '@number-island/shared';
 import { numberOptionId, responseNumber } from '../../formats/numeral-pick';
@@ -69,6 +70,13 @@ export const countStartNumber: MisconceptionRule = {
         if (item.answer.checker !== 'jumps.reach' || item.widget.format !== 'number-line-jump') {
           return null;
         }
+        if (item.widget.goal === 'difference') {
+          // Counting up from b to a (K01): the hops are right, the count includes the start.
+          const w = item.widget;
+          const hops = (w.target ?? w.start) - w.start;
+          if (hops <= 0 || !w.thenAsk || !w.allowedJumps.includes(1)) return null;
+          return { kind: 'state', value: { jumps: new Array<number>(hops).fill(1), value: r } };
+        }
         const start = item.widget.start;
         const step = item.params.op === '+' ? 1 : -1;
         const hops = Math.abs(r - start);
@@ -97,6 +105,8 @@ export const countStartNumber: MisconceptionRule = {
         );
       }
       if (item.widget.format !== 'number-line-jump') return false;
+      // Counting up (goal difference): the typed number of hops is one too many.
+      if (item.widget.goal === 'difference') return r.value.value === buggy;
       const jumps = r.value.jumps;
       if (!Array.isArray(jumps) || !jumps.every((j) => typeof j === 'number')) return false;
       const landing = item.widget.start + (jumps as number[]).reduce((a, b) => a + b, 0);

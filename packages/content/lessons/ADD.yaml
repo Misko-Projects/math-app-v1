@@ -1,0 +1,37 @@
+# Authored lessons (03 §4.5, §6). Skills without an entry get an auto lesson (03 §6.4).
+# ADD.08 (gateway): make ten on the double ten-frame (8 + 5: move 2 over, ten and 3 make 13). The
+# faded examples move to the open number line (jump to ten, then the rest), a second
+# representation (03 §6.4); their steps come from the generator's solution.
+strand: ADD
+lessons:
+  - skillId: ADD.08
+    mode: authored
+    templateId: ADD.08.t1
+    worked:
+      - params: { a: 8, b: 5, op: "+", unknown: result, family: make-ten }
+        steps:
+          - actor: demo
+            say: ls.ADD.08.w1.s1
+            vars: { a: 8, b: 5 }
+            action: { op: show-addends }
+          - actor: demo
+            say: ls.ADD.08.w1.s2
+            vars: { give: 2 }
+            action: { op: move-counters, args: { fromFrame: 1, toFrame: 0, count: 2 } }
+          - actor: demo
+            say: ls.ADD.08.w1.s3
+            action: { op: highlight, args: { target: frame-0 } }
+          - actor: demo
+            say: ls.ADD.08.w1.s4
+            vars: { keep: 3, n: 13 }
+            action: { op: count-total }
+    faded:
+      - templateId: ADD.08.t3
+        params: { a: 9, b: 4, op: "+", unknown: result, family: make-ten }
+        childSteps: 1
+      - templateId: ADD.08.t3
+        params: { a: 7, b: 6, op: "+", unknown: result, family: make-ten }
+        childSteps: 2
+    scaffolded: { count: 2, hintStart: 2 }
+    testOut: { items: 3, minCorrect: 3 }
+    outro: ls.ADD.08.outro

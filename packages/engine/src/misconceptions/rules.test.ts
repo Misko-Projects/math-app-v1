@@ -187,11 +187,13 @@ describe('registry', () => {
       'countAllInstead',
       'countStartNumber',
       'decadeTransition',
+      'forgotTheTen',
       'offByOneCounting',
       'perceptualSize',
       'recountFromOne',
       'teenReversal',
       'unitGaps',
+      'wrongOperation',
     ]);
     expect(misconceptionRule('countStartNumber')).toBe(countStartNumber);
     expect(misconceptionRule('nope')).toBeUndefined();
@@ -247,7 +249,7 @@ describe('countStartNumber.predict', () => {
     ['a doubles fact with a < 3 (not a count-on family)', { a: 2, b: 2, family: 'doubles' }],
     ['a doubles fact with a ≥ 3 (still not a count-on family)', { a: 5, b: 5, family: 'doubles' }],
     ['family any with a < 3', { a: 2, b: 6 }],
-    ['a make-ten fact', { a: 6, b: 4, family: 'make-ten' }],
+    ['a make-ten fact', { a: 8, b: 5, family: 'make-ten' }],
     ['a change-unknown item', { a: 5, b: 3, unknown: 'change' }],
     ['a start-unknown item', { a: 5, b: 3, unknown: 'start' }],
   ])(

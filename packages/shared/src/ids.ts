@@ -10,6 +10,7 @@ export const UUID_V7_PATTERN =
 export const SKILL_ID_PATTERN = /^[A-Z]{2,4}\.\d{2}$/;
 export const TEMPLATE_ID_PATTERN = /^[A-Z]{2,4}\.\d{2}\.t\d+$/;
 export const MISCONCEPTION_ID_PATTERN = /^MC\.[a-z0-9]+(?:-[a-z0-9]+)*$/;
+export const STRATEGY_ID_PATTERN = /^strategy\.[a-z0-9]+(?:-[a-z0-9]+)*$/;
 export const KEBAB_ID_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 
 export type EventId = string;
@@ -22,6 +23,11 @@ export type SkillId = string;
 export type TemplateId = string;
 /** `MC.kebab-case`. */
 export type MisconceptionId = string;
+/**
+ * `strategy.kebab-case`, e.g. `strategy.made-ten`: a desirable strategy the engine's
+ * `detectStrategies` reports on a correct response (03 §5.7). Never a `MisconceptionId`.
+ */
+export type StrategyId = string;
 export type WorkshopId = string;
 export type MaterialId = string;
 export type BuildingId = string;
@@ -40,6 +46,9 @@ export const templateIdSchema = z
 export const misconceptionIdSchema = z
   .string()
   .regex(MISCONCEPTION_ID_PATTERN, 'expected a MisconceptionId like MC.count-all');
+export const strategyIdSchema = z
+  .string()
+  .regex(STRATEGY_ID_PATTERN, 'expected a StrategyId like strategy.made-ten');
 const kebabIdSchema = z.string().regex(KEBAB_ID_PATTERN, 'expected a kebab-case id');
 export const workshopIdSchema = kebabIdSchema;
 export const materialIdSchema = kebabIdSchema;
@@ -49,6 +58,18 @@ export const decorIdSchema = kebabIdSchema;
 
 assertType<Equals<z.infer<typeof eventIdSchema>, EventId>>(true);
 assertType<Equals<z.infer<typeof skillIdSchema>, SkillId>>(true);
+assertType<Equals<z.infer<typeof strategyIdSchema>, StrategyId>>(true);
+
+/**
+ * The strategies v1 detects (03 §5.7). Each `strategy.<name>` has the praise line
+ * `fb.praise.<name>` in `narration/common.yaml`, which the TaskRunner may play instead of
+ * `fb.correct.*`.
+ */
+export const STRATEGY_IDS = [
+  'strategy.counted-on',
+  'strategy.made-ten',
+  'strategy.used-doubles',
+] as const;
 
 /** A new time-ordered UUIDv7 for events, children, devices and families. */
 export function newId(): string {

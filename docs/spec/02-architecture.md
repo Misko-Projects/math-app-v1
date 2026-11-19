@@ -77,6 +77,7 @@ All durable state that kids create is an **append-only event log**. Projections 
 - `SkillId`: `^[A-Z]{2,4}\.\d{2}$` (e.g. `CPS.03`); never reused.
 - `TemplateId`: `${SkillId}.t${n}` (e.g. `CPS.03.t2`).
 - `MisconceptionId`: `MC.kebab-case`.
+- `StrategyId`: `strategy.kebab-case` (`^strategy\.[a-z0-9]+(-[a-z0-9]+)*$`, e.g. `strategy.made-ten`): a desirable strategy that `detectStrategies` praises (§5.2, 03 §5.7). It is never a `MisconceptionId`. v1 has three, `STRATEGY_IDS`: `strategy.counted-on`, `strategy.made-ten`, `strategy.used-doubles`.
 - `WorkshopId`, `MaterialId`, `BuildingId`, `ResidentId`, `DecorId`: kebab-case strings defined in content/game data.
 
 ### 4.2 Event envelope (`packages/shared/src/events.ts`)
@@ -272,8 +273,12 @@ export interface CheckResult {
 export function generateItem(t: ItemTemplate, seed: number, target?: { difficulty: number }): GeneratedItem;
 export function checkResponse(item: GeneratedItem, r: ResponseValue): CheckResult;
 export function detectProcessMisconceptions(item: GeneratedItem, r: ResponseValue,
-  meta: { latencyMs: number; trace?: InteractionEvent[] }): MisconceptionId[]; // process errors and strategy praise (03 §5.7, §7.1)
+  meta: { latencyMs: number; trace?: InteractionEvent[] }): MisconceptionId[]; // process misconceptions only (03 §5.7, §7.1)
+export function detectStrategies(item: GeneratedItem, r: ResponseValue,
+  meta: { latencyMs: number; trace?: InteractionEvent[] }): StrategyId[];      // strategy praise, correct responses only (03 §5.7)
 ```
+
+The `TaskRunner` (§5.6) calls both process detectors after `checkResponse`. It merges `detectProcessMisconceptions`' ids into `AttemptPayload.misconceptionIds`. When the response is correct and `detectStrategies` returns ids, it may replace the `fb.correct.*` key with `fb.praise.<name>` for the first id (`strategy.made-ten` → `fb.praise.made-ten`). Strategy ids are never logged as misconceptions.
 
 The supporting types `Tier`, `Representation`, `ParamSpec`, `GeneratorId`, `WidgetConfig`, `AnswerSpec`, `HintStep`, `LessonSpec`, `NarrationKey`, `FeedbackKey`, `StrandId` and `InteractionEvent` are defined in **03-curriculum §1, §5.1, §5.2 and §6.1**, and declared in `packages/shared` exactly as written there.
 
@@ -666,6 +671,12 @@ Contract adjustment made by #50 (per-voice clip sets, 2026-11-18):
 | # | Change | Why |
 |---|---|---|
 | V1 | **Voice-qualified clip ids.** *New* `voiceClipId(clip: ClipId, voice: NarrationVoice): ClipId` in `packages/shared/src/audio.ts`: the clip id unchanged for `narrator`, `<voice>:<clip>` otherwise. The manifest shape and `ClipId` stay as they were, and every existing id is the narrator's. The AudioManager tries a clip-set word in the line's voice before the narrator's (§5.5). | 03 §8.3 renders clip sets once per voice, but the clip ids carried no voice, so Pip's and Glim's lines stitched numbers in the narrator's voice (07 §3). |
+
+Contract adjustment made by K01 (#11, strategy praise, 2026-11-18):
+
+| # | Change | Why |
+|---|---|---|
+| K1 | **Strategy ids and `detectStrategies`.** *New* `StrategyId` (`strategy.kebab-case`, §4.1) with `strategyIdSchema`, `STRATEGY_ID_PATTERN` and `STRATEGY_IDS` (`strategy.counted-on`, `strategy.made-ten`, `strategy.used-doubles`) in `packages/shared/src/ids.ts`. *New* engine export `detectStrategies(item, r, meta): StrategyId[]` (§5.2), pure and deterministic. It reports strategies only for correct responses, and never when the trace shows `MC.count-all-instead`. Each strategy has a `fb.praise.<name>` line in `narration/common.yaml`. `detectProcessMisconceptions` and `MisconceptionId` are unchanged and stay misconception-only. The detector definitions are in `packages/engine/src/strategies/index.ts` and 03 §5.7. | 03 §5.7 had "a process detector" report strategies, but the only process detector returns `MisconceptionId[]`. A strategy is not a misconception: it must not reach `AttemptPayload.misconceptionIds`, the 04 §6.4 remediation, or the misconception alerts. |
 
 ## 6. Performance budgets (enforced in CI where possible)
 
