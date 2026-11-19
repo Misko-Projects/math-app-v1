@@ -218,11 +218,40 @@ describe('count.sequence: hide', () => {
     expect(overlay).toMatchObject({ labelsEvery: null });
   });
 
-  it('a numeral pick on the number line shows the line', () => {
-    const t = tpl('count.sequence', 'numeral-pick', { representation: 'number-line' });
-    const item = expectSound(t, { start: 39 });
-    if (item.widget.format !== 'numeral-pick') throw new Error('expected numeral-pick');
-    expect(item.widget.stimulus).toMatchObject({ kind: 'number-line', marks: [{ at: 39 }] });
+  // #12 evidence (CNT.09.t3): the numeral-pick line labelled every tick, so the answer showed
+  // beside the marked start. The line and the level-3 overlay now label only the shown terms.
+  const labels = (s: unknown): string[] => {
+    const line = s as { labelsEvery: number | null; marks?: { label?: string }[] };
+    expect(line.labelsEvery).toBeNull();
+    return (line.marks ?? []).flatMap((m) => (m.label ? [m.label] : []));
+  };
+  it.each<[string, ParamValues, number]>([
+    ['next after 33', { start: 33 }, 34],
+    ['next after 39 (a new ten)', { start: 39 }, 40],
+    ['counting back from 21', { start: 21, dir: -1 }, 20],
+    ['the last of 3 after 17', { start: 17, length: 3 }, 20],
+  ])('a numeral pick on the number line never labels the answer (%s)', (_l, p, answer) => {
+    for (const representation of ['number-line', 'number-path'] as const) {
+      const t = tpl('count.sequence', 'numeral-pick', { representation });
+      const item = expectSound(t, p);
+      if (item.widget.format !== 'numeral-pick') throw new Error('expected numeral-pick');
+      const shown = labels(item.widget.stimulus);
+      expect(shown).toContain(String(p.start));
+      expect(shown).toContain('?');
+      expect(shown).not.toContain(String(answer));
+      expect(item.widget.stimulus).toMatchObject({
+        marks: expect.arrayContaining([{ at: p.start, label: String(p.start), arrow: true }]),
+      });
+      const overlay = item.hints.find((h) => h.level === 3)?.overlay;
+      expect(labels(overlay)).not.toContain(String(answer));
+    }
+  });
+  it('an order item’s level-3 line names none of the terms to order', () => {
+    const t = tpl('count.sequence', 'order');
+    const item = expectSound(t, { start: 12, length: 3 });
+    const overlay = item.hints.find((h) => h.level === 3)?.overlay;
+    const terms = [12, 13, 14, 15].map(String);
+    for (const l of labels(overlay)) expect(terms).not.toContain(l);
   });
 });
 
