@@ -47,13 +47,13 @@
 // - Warmup: the first available of (a) the on-track skill with the highest P(ref) ≥ warmupMinP;
 //   (b) the highest-P(ref) on-track skill; (c) the highest-P(ref) frontier skill already attempted
 //   ('learning'), with an evidence template; (d) the highest-P(ref) 'ready' skill whose lesson mode
-//   is 'none'; (e) when the first request plans its focus skill's test-out, the last template of
-//   that draw in the 'warmup' context (the learner counts it as test-out item 1, so the test-out
-//   is not lost; the extra planned item is practice); (f) otherwise that focus skill's lesson as
-//   the warmup (mode 'lesson'), and every request focused on that skill then omits its lesson (and
-//   its lessonItemCost). So the warmup is never the first rated attempt on a ready skill whose
-//   lesson a request plans. Ties by id; templates prefer a format an available themed workshop
-//   hosts, then pictorial/abstract, then constructed (`isConstructedTemplate`), then id.
+//   is 'none'; (e) with nothing attempted, a focus skill's lesson as the warmup (mode 'lesson'),
+//   preferring one without an offered test-out, and requests on that skill omit their lesson (and
+//   its lessonItemCost); (f) else an evidence template of the first focus skill. An item warmup is
+//   never the first attempt on a ready skill with a lesson, so it never starts or cancels a
+//   test-out before the child picks a request, and the requests continue its run (≤ maxRun in a
+//   row). Ties by id; templates prefer a format an available themed workshop hosts, then
+//   pictorial/abstract, then constructed (`isConstructedTemplate`), then id.
 // - Challenge: round(challengeShare × the plan's item budgets) items, dealt round-robin from the
 //   last request backward (the remediation request last); each goes to the request's on-track
 //   skills by highest P(ref), placed late. A request without such a skill turns them into new
@@ -133,6 +133,8 @@ interface Ctx {
   /** The new-skill pool in rank order (in-progress first, then score). */
   ranked: RankedSkill[];
   maxRun: number;
+  /** The warmup item's skill: a request's first items continue its run (04 §4, ≤ 3 in a row). */
+  runStart: SkillId | null;
   lessonCost: number;
   itemRange: [number, number];
   /** K column for slices (04 §2.4: only a K child). */
@@ -359,6 +361,7 @@ function sequence(
   focus: SkillId | null,
   lessonAfter: number,
   maxRun: number,
+  runStart: SkillId | null,
 ): (Slot & { mode: PlannedTask['mode'] })[] {
   const out: (Slot & { mode: PlannedTask['mode'] })[] = [];
   let lessonPlaced = false;
@@ -376,8 +379,9 @@ function sequence(
   for (const q of Object.values(queues))
     for (const s of q) counts.set(s.skillId, (counts.get(s.skillId) ?? 0) + 1);
   let total = queues.new.length + queues.review.length + queues.challenge.length;
-  let last: SkillId | null = null;
-  let run = 0;
+  // The warmup item (an item of `runStart`) comes right before the request: its run continues.
+  let last: SkillId | null = runStart;
+  let run = runStart === null ? 0 : 1;
   let nNew = 0;
   let nReview = 0;
   let placedFocus = 0;
@@ -500,7 +504,9 @@ function compose(
   let s2 = 0;
   let f = 0;
   if (focus) {
-    while (s > maxRun * (budget - s + 1) && s - 1 >= t) {
+    // A warmup item of the focus skill starts its first run, so that run holds one item fewer.
+    const startRun = ctx.runStart === S ? 1 : 0;
+    while (s > maxRun * (budget - s + 1) - startRun && s - 1 >= t) {
       s -= 1;
       if (second) s2 += 1;
       else if (fillers.length > 0) f += 1;
@@ -564,6 +570,7 @@ function compose(
     S,
     t,
     maxRun,
+    ctx.runStart,
   );
   if (focus && draw) {
     const at = ordered.findIndex((x) => x.mode === 'lesson');
@@ -637,6 +644,7 @@ export function planSession(input: PlanSessionInput, opts: PlanOptions = {}): Se
     onTrackRanked,
     ranked: rankWith(graph, state, now, model, P),
     maxRun: P.planner.maxRun,
+    runStart: null,
     lessonCost: P.planner.lessonItemCost,
     itemRange,
     isK: child.isK,
@@ -818,29 +826,33 @@ export function planSession(input: PlanSessionInput, opts: PlanOptions = {}): Se
   };
 
   // ---------- warmup (04 §6.1) ----------
-  let built = build(focuses);
+  // An item warmup only ever comes from a skill already attempted or one with no lesson (rules
+  // a–d), so it never starts or cancels a test-out whatever request the child then picks. The
+  // requests continue the warmup's run (≤ 3 items of one skill in a row, 04 §4).
   let warmup = warmupBeforeFocus(ctx, themed);
+  ctx.runStart = warmup?.skillId ?? null;
+  let built = build(focuses);
   if (!warmup) {
-    const f0 = focuses[0] ?? null;
-    const c0 = built.comps[0];
+    // (e) Nothing is attempted yet: a focus skill's lesson is the warmup, preferring one whose
+    // test-out is not offered. Requests on that skill then skip their lesson (and its cost); its
+    // first items are ordinary practice, whichever request the child picks.
+    const withLesson = focuses.filter((f): f is Focus => f?.lesson === true);
+    const f0 = withLesson.find((f) => !f.testOut) ?? withLesson[0];
     const lessonId = f0 ? graph.skills[f0.skillId]?.lesson.templateId : undefined;
     const lessonTpl = lessonId ? graph.templates[lessonId] : undefined;
-    const last = c0?.testOut[c0.testOut.length - 1];
-    if (f0 && last) {
-      // (e) A test-out template in the warmup context: the learner counts it as test-out item 1.
-      warmup = warmupTask(ctx, f0.skillId, last, 'warmup', 'item');
-    } else if (f0 && c0 && c0.lessons > 0 && lessonTpl) {
-      // (f) The focus skill's lesson is the warmup; its requests no longer repeat it.
+    if (f0 && lessonTpl) {
       warmup = warmupTask(ctx, f0.skillId, lessonTpl.id, 'lesson', 'lesson');
       focuses = focuses.map((f) =>
         f && f.skillId === f0.skillId ? { ...f, lesson: false, testOut: false } : f,
       );
       built = build(focuses);
     } else {
-      // Nothing above applies (no lesson is planned for the focus skill): its own templates.
-      const s = f0?.skillId ?? (ctx.skills[0] as SkillId);
+      // (f) No lesson is planned at all: an evidence template of the first focus skill.
+      const s = focuses[0]?.skillId ?? (ctx.skills[0] as SkillId);
       const tpl = warmupTemplate(evidenceTemplates(graph, s), themed);
       warmup = warmupTask(ctx, s, tpl.id, 'warmup', 'item');
+      ctx.runStart = s;
+      built = build(focuses);
     }
   }
 

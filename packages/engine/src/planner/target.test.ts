@@ -3,7 +3,14 @@ import { defaultChildSettings } from '@number-island/shared';
 import { describe, expect, it } from 'vitest';
 import { createEloFireModel } from '../learner/elo-fire';
 import { logit } from '../learner/math';
-import { A, B, C, syntheticGraph } from '../learner/synthetic.test-support';
+import {
+  A,
+  B,
+  C,
+  attempt as synthAttempt,
+  syntheticGraph,
+  T0,
+} from '../learner/synthetic.test-support';
 import { PARAMS } from '../params';
 import { targetDifficulty, targetSuccess } from './target';
 
@@ -128,5 +135,38 @@ describe('targetSuccess / targetDifficulty (04 §2.4)', () => {
     expect(targetDifficulty(reset, C, 'practice', ch)).toBeCloseTo(base - 0.7, 12);
     // Unknown skill: 0.
     expect(targetDifficulty(s, 'CNT.99', 'practice', ch)).toBeCloseTo(base, 12);
+  });
+});
+
+describe('test-out items at the reference difficulty (03 §6.5)', () => {
+  const ch = child('1');
+  const model = createEloFireModel(graph, { childId: CHILD, isK: false });
+  const start = model.init(graph, { p: { [A]: 0.7 }, assumed: [] });
+  const at = (state: LearnerState, context: AttemptPayload['context']) =>
+    targetDifficulty(state, A, context, ch, graph);
+
+  it('an offered test-out asks at d* = 0; ordinary items of the same skill stay adaptive', () => {
+    expect(at(start, 'practice')).toBe(0);
+    expect(at(start, 'warmup')).toBe(0);
+    expect(at(start, 'lesson')).not.toBe(0); // lessons are not test-out items
+    // A skill without an offered test-out (low prior, low P(ref)) keeps its adaptive target.
+    const low = model.init(graph, { p: { [A]: 0.2 }, assumed: [] });
+    expect(at(low, 'practice')).not.toBe(0);
+  });
+
+  it('stays at 0 while the test-out runs, then the skill is adaptive again', () => {
+    let s = model.apply(start, synthAttempt(A, 3), T0);
+    expect(at(s, 'practice')).toBe(0);
+    // Without the graph, a test-out in progress is still known from the state.
+    expect(targetDifficulty(s, A, 'practice', ch)).toBe(0);
+    s = model.apply(s, synthAttempt(A, 4), T0 + 1_000);
+    s = model.apply(s, synthAttempt(A, 3), T0 + 2_000); // the third item decides the test-out
+    expect(at(s, 'practice')).not.toBe(0);
+    expect(at(s, 'review')).not.toBe(0);
+  });
+
+  it('an out-of-pool first item cancels the test-out', () => {
+    const s = model.apply(start, synthAttempt(A, 1), T0); // concrete: outside the abstract pool
+    expect(at(s, 'practice')).not.toBe(0);
   });
 });
