@@ -252,6 +252,15 @@ export function MakeSetWidget({
   const outside = takeAway ? lists.supply : [...lists.away, ...lists.supply];
   /** One ten-frame at a time: the page (tens.ts), kept in step with the container's count. */
   const [tenPage, setTenPage] = useState<TenPage>(() => pageAfter(0, 0, start));
+  /** The button beside the one shown frame; tying or untying swaps it, so focus follows it. */
+  const tensRef = useRef<HTMLButtonElement | null>(null);
+  const refocusTens = useRef(false);
+  // biome-ignore lint/correctness/useExhaustiveDependencies: runs when the tens button is replaced
+  useLayoutEffect(() => {
+    if (!refocusTens.current) return;
+    refocusTens.current = false;
+    tensRef.current?.focus();
+  }, [tenPage]);
   const lastInside = useRef(start);
   useLayoutEffect(() => {
     const n = lists.inside.length;
@@ -747,6 +756,8 @@ export function MakeSetWidget({
   /** Untie the ten (it shows in the frame again, so objects can come out) or tie it again. */
   const toggleTen = () => {
     if (!interactive || beside === null) return;
+    // Keyboard (or a focused tap): the replacement button takes the focus.
+    refocusTens.current = tensRef.current !== null && document.activeElement === tensRef.current;
     if (beside === 'bundle') {
       setTenPage(0);
       sayNumber(10);
@@ -771,6 +782,13 @@ export function MakeSetWidget({
   /** The heap the child drags from: in take-away, the "take away" pile goes back first. */
   const shownOutside = outside.slice(0, supplyVisible);
   const dragFrom = takeAway ? (lists.away.length > 0 ? lists.away : shownOutside) : shownOutside;
+  /**
+   * One ten-frame at a time: the object a remove takes out (the last one in) can be in the frame
+   * not shown (exactly ten, tied; or the ones, while the ten is shown). The invite then goes on the
+   * button beside the frame, which shows that frame; the object is invited once it is in view.
+   */
+  const removeHidden =
+    oneFrame && insideCount > 0 && (insideCount - 1 < 10 ? 0 : 1) !== page && beside !== null;
   // The last object of its heap: it sits in the bottom row, so the hand below it covers nothing.
   const invitedItem: ItemId | null =
     hands || !cue
@@ -779,9 +797,10 @@ export function MakeSetWidget({
         ? lists.inside.length < capacity
           ? (dragFrom.at(-1) ?? null)
           : null
-        : inviteStep === 'remove'
+        : inviteStep === 'remove' && !removeHidden
           ? (lists.inside.at(-1) ?? null)
           : null;
+  const invitedTens = !hands && cue && inviteStep === 'remove' && removeHidden;
   /** Hands: the finger button the child presses next (drag → "finger up", remove → "down"). */
   const invitedHand: 0 | 1 | null =
     !hands || !invite || !inviteStep || !cue
@@ -829,11 +848,13 @@ export function MakeSetWidget({
         : '.ni-mset__frames'
       : invitedHand !== null && invitedFinger(invitedHand)
         ? `.ni-mset__handbox:nth-child(${invitedHand + 1}) [data-ctl="${invitedFinger(invitedHand)}"] .ni-btn`
-        : invitedBundle
-          ? '.ni-mset__action.ni-invite .ni-btn'
-          : invitedCheck
-            ? '.ni-mset__action .ni-btn.ni-invite'
-            : null;
+        : invitedTens
+          ? '.ni-mset__tens'
+          : invitedBundle
+            ? '.ni-mset__action.ni-invite .ni-btn'
+            : invitedCheck
+              ? '.ni-mset__action .ni-btn.ni-invite'
+              : null;
   const { hand: inviteHand, rootStyle: handRootStyle } = useInviteHand(
     rootRef,
     (root) => (handTarget ? root.querySelector<HTMLElement>(handTarget) : null),
@@ -932,8 +953,9 @@ export function MakeSetWidget({
     beside === null ? null : (
       <button
         key={beside}
+        ref={tensRef}
         type="button"
-        className="ni-mset__tens"
+        className={['ni-mset__tens', invitedTens ? 'ni-invite' : ''].filter(Boolean).join(' ')}
         data-tens={beside}
         aria-label={String(bundleFirst ? 10 : onesShown)}
         disabled={!interactive}

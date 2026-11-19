@@ -47,18 +47,26 @@ interface Edges {
 
 /**
  * `target`'s box and its glyphs' boxes relative to `host`'s padding edge (where the absolutely
- * placed hand's left/top are measured from), in sub-pixel CSS px. They are measured AT REST: the
- * invite ring's pulse (and any other loop) is held at its start for the measurement, so a scaled
- * frame never moves the hand.
+ * placed hand's left/top are measured from), in sub-pixel CSS px. They are measured AT REST, as
+ * the target will settle: every animation on the target, its glyphs or an ancestor inside `host`
+ * is held for the measurement, a loop (the invite ring's pulse) at its start and a finite one (a
+ * tray rising in, a card popping in) at its end. A transform fires no resize, so measuring
+ * mid-entrance would leave the hand where the target was, not where it comes to rest.
  */
 function measure(target: HTMLElement, host: HTMLElement): { t: Edges; glyphs: Edges[] } {
-  const loops = target
-    .getAnimations({ subtree: true })
-    .filter((a) => a.effect?.getComputedTiming().iterations === Number.POSITIVE_INFINITY);
-  const saved = loops.map((a) => ({ time: a.currentTime, running: a.playState === 'running' }));
-  for (const a of loops) {
+  const all = typeof host.getAnimations === 'function' ? host.getAnimations({ subtree: true }) : [];
+  // Only running ones: a finished one already shows its end, a paused one is held on purpose.
+  const moving = all.filter((a) => {
+    const el = (a.effect as KeyframeEffect | null)?.target ?? null;
+    return a.playState === 'running' && el !== null && (el.contains(target) || target.contains(el));
+  });
+  const saved = moving.map((a) => a.currentTime);
+  for (const a of moving) {
+    const timing = a.effect?.getComputedTiming();
+    const end = Number(timing?.endTime ?? 0);
     a.pause();
-    a.currentTime = 0;
+    a.currentTime =
+      timing?.iterations === Number.POSITIVE_INFINITY || !Number.isFinite(end) ? 0 : end;
   }
   try {
     const hb = host.getBoundingClientRect();
@@ -77,9 +85,9 @@ function measure(target: HTMLElement, host: HTMLElement): { t: Edges; glyphs: Ed
       ),
     };
   } finally {
-    loops.forEach((a, i) => {
-      a.currentTime = saved[i]?.time ?? 0;
-      if (saved[i]?.running) a.play();
+    moving.forEach((a, i) => {
+      a.currentTime = saved[i] ?? 0;
+      a.play();
     });
   }
 }

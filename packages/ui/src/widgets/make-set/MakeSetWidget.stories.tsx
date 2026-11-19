@@ -646,10 +646,19 @@ async function tapIn(root: HTMLElement, n: number) {
   }
 }
 
-/** The frame slides over as the ten is tied or untied: wait until it has arrived. */
+/**
+ * The frame slides over as the ten is tied or untied, and the button beside it pops in: wait
+ * until both have arrived.
+ */
 async function framesSettled(root: HTMLElement) {
   const frames = root.querySelector('.ni-mset__frames') as HTMLElement;
   await waitFor(() => expect(getComputedStyle(frames).left).toBe(frames.style.left));
+  const popping = (tens(root)?.getAnimations() ?? []).filter(
+    (a) =>
+      a.playState === 'running' &&
+      a.effect?.getComputedTiming().iterations !== Number.POSITIVE_INFINITY,
+  );
+  await Promise.all(popping.map((a) => a.finished.catch(() => undefined)));
   await nextFrame();
 }
 
@@ -741,10 +750,18 @@ export const TwentyKMinLandscape: Story = {
     await userEvent.click(pilePad(root));
     await waitFor(() => expect(tens(root)).toHaveAccessibleName('3'));
     await expect(inside(root)).toHaveLength(10);
-    // Tie it again from the keyboard: the ones' button, Enter.
+    // Tie it again from the keyboard (Tab to the ones' button, Enter): focus stays on the button
+    // that replaces it (the tied ten), so Enter unties it again and focus comes back.
     (tens(root) as HTMLElement).focus();
     await userEvent.keyboard('{Enter}');
     await waitFor(() => expect(tens(root)).toHaveAttribute('data-tens', 'bundle'));
+    await expect(tens(root)).toHaveFocus();
+    await userEvent.keyboard('{Enter}');
+    await waitFor(() => expect(tens(root)).toHaveAttribute('data-tens', 'ones'));
+    await expect(tens(root)).toHaveFocus();
+    await userEvent.keyboard('{Enter}');
+    await waitFor(() => expect(tens(root)).toHaveAttribute('data-tens', 'bundle'));
+    await expect(tens(root)).toHaveFocus();
     await expect(inside(root)).toHaveLength(3);
     await expectTenFirst(root);
     await expectFitsArea(root, box, 'k');
@@ -758,6 +775,62 @@ export const TwentyKMinLandscape: Story = {
     // Tying and untying are presentation only: no trace events for them.
     const trace = traceOf(args.onInteract);
     await expect(trace.some((e) => !/^set-\d+$|^container$|^pile$/.test(e.target))).toBe(false);
+  },
+};
+
+const oneFrameInvite: WidgetDemo = createDemoController({ strict: true });
+
+/** The ring and Pip's hand on `el` and nothing else, the ring clear of every object. */
+async function expectInviteOn(root: HTMLElement, el: HTMLElement) {
+  await waitFor(() => expect(el).toHaveClass('ni-invite'));
+  await expect(root.querySelectorAll('.ni-invite')).toHaveLength(1);
+  await expect(root.querySelectorAll('.ni-hand')).toHaveLength(1);
+  await framesSettled(root);
+  await expectPointerOn(pointerIn(el), el, root);
+  await expectRingClear(el, allItems(root));
+}
+
+/**
+ * One ten-frame at a time (TwentyKMinLandscape's layout) with a remove invite: the object to take
+ * out is the last one in, and it can be in the frame not shown. Then the ring and Pip's hand go
+ * on the button beside the frame that shows it (the ones, or the tied ten), and on the object
+ * once it is in view.
+ */
+export const TwentyKMinRemoveInvite: Story = {
+  globals: { ageMode: 'k' },
+  args: { config: twenty, demo: oneFrameInvite },
+  render: inArea('landscapeMin'),
+  play: async ({ canvasElement }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    await waitFor(() => expect(root).toHaveAttribute('data-one-frame', 'true'));
+    await tapIn(root, 12);
+    await waitFor(() => expect(tens(root)).toHaveAttribute('data-tens', 'bundle'));
+
+    // 12, the ten tied: the last crab is in the frame of ones, in view.
+    oneFrameInvite.invite({ op: 'answer', args: { value: 11 } });
+    await expectInviteOn(root, inside(root).at(-1) as HTMLElement);
+    // Untie the ten: the last crab is now among the ones beside it, so the ones' button is invited.
+    await userEvent.click(tens(root) as HTMLElement);
+    await waitFor(() => expect(tens(root)).toHaveAttribute('data-tens', 'ones'));
+    await expectInviteOn(root, tens(root) as HTMLElement);
+    // Tie it again: the crab is in view and invited.
+    await userEvent.click(tens(root) as HTMLElement);
+    await waitFor(() => expect(tens(root)).toHaveAttribute('data-tens', 'bundle'));
+    await expectInviteOn(root, inside(root).at(-1) as HTMLElement);
+
+    // Take two out: exactly ten, all in the tied ten, and the frame of ones is empty.
+    for (let i = 0; i < 2; i++) {
+      await userEvent.click(inside(root).at(-1) as HTMLElement);
+      await userEvent.click(pilePad(root));
+    }
+    await waitFor(() => expect(inside(root)).toHaveLength(0));
+    await expect(tens(root)).toHaveAttribute('data-tens', 'bundle');
+    oneFrameInvite.invite({ op: 'answer', args: { value: 9 } });
+    await expectInviteOn(root, tens(root) as HTMLElement);
+    // Untie it: the ten is in the frame, and its last crab is invited.
+    await userEvent.click(tens(root) as HTMLElement);
+    await waitFor(() => expect(inside(root)).toHaveLength(10));
+    await expectInviteOn(root, inside(root).at(-1) as HTMLElement);
   },
 };
 

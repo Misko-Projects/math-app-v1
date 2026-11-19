@@ -423,6 +423,36 @@ export const DemoInvite: Story = {
   },
 };
 
+/** Option IDs are any string (the shared schema): these hold quotes and a bracket. */
+const quotedOptions: ConfigFor<'numeral-pick'> = {
+  ...heardOnly,
+  options: [
+    { id: 'o"18', label: '18' },
+    { id: 'o"]19', label: '19' },
+    { id: "o'17", label: '17' },
+  ],
+};
+
+const quotedController: WidgetDemo = createDemoController({ strict: true });
+
+/**
+ * An option whose ID holds a quote (any string is a valid ID): inviting it rings that card and
+ * Pip's hand points at it; the widget stays mounted.
+ */
+export const DemoInviteQuotedId: Story = {
+  globals: { ageMode: 'k' },
+  args: { config: quotedOptions as WidgetConfig, demo: quotedController },
+  play: async ({ canvasElement }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    quotedController.invite({ op: 'tap', args: { id: 'o"]19' } });
+    await waitFor(() => expect(root.querySelector('.ni-pick.ni-invite')).not.toBeNull());
+    const invited = root.querySelector('.ni-pick.ni-invite') as HTMLElement;
+    await expect(invited.dataset.id).toBe('o"]19');
+    await expect(root.isConnected).toBe(true);
+    await expectPointerOn(root.querySelector('.ni-hand') as HTMLElement, invited, root);
+  },
+};
+
 const reducedController: WidgetDemo = createDemoController({ strict: true });
 
 /** Reduced motion: the `answer` op picks instantly. */

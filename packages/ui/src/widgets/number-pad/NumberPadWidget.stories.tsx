@@ -297,6 +297,42 @@ export const DemoMode: Story = {
   },
 };
 
+/** Blank IDs are any string (the shared schema): these hold quotes and a backslash. */
+const quotedBlanks: ConfigFor<'number-pad'> = {
+  ...twoBlanks,
+  expression: {
+    tokens: [
+      { t: 'num', v: 85 },
+      { t: 'blank', id: 'b"1' },
+      { t: 'blank', id: 'b"]\\2' },
+      { t: 'num', v: 88 },
+    ],
+  },
+  blanks: [
+    { id: 'b"1', maxDigits: 2 },
+    { id: 'b"]\\2', maxDigits: 2 },
+  ],
+};
+
+const quotedController: WidgetDemo = createDemoController({ strict: true });
+
+/**
+ * A blank whose ID holds a quote (any string is a valid ID): inviting it rings that blank and Pip's
+ * hand points at it; the widget stays mounted.
+ */
+export const DemoInviteQuotedId: Story = {
+  args: { config: quotedBlanks, tier: 'pictorial', demo: quotedController },
+  play: async ({ canvasElement }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    quotedController.invite({ op: 'type', args: { blank: 'b"]\\2', value: 87 } });
+    await waitFor(() => expect(root.querySelector('.ni-npw__blank.ni-invite')).not.toBeNull());
+    const invited = root.querySelector('.ni-npw__blank.ni-invite') as HTMLElement;
+    await expect(invited.dataset.blank).toBe('b"]\\2');
+    await expect(root.isConnected).toBe(true);
+    await expectPointerOn(root.querySelector('.ni-hand') as HTMLElement, invited, root);
+  },
+};
+
 const reducedController: WidgetDemo = createDemoController({ strict: true });
 
 /** Reduced motion: the generic `answer` op fills every blank at once. */

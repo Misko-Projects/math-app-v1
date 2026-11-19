@@ -299,6 +299,12 @@
   -webkit-tap-highlight-color: transparent;
   animation: var(--animate-pop-in);
 }
+/* Invited (a remove whose object is in the frame not shown): the ring stays within TENS_GAP. */
+.ni-mset__tens.ni-invite {
+  position: absolute;
+  outline-offset: 2px;
+  border-radius: 18px;
+}
 .ni-mset__tens:disabled {
   cursor: default;
 }

@@ -192,8 +192,13 @@ export function NumberPadWidget({
   const invitedId = invitedBlank >= 0 ? (blanks[invitedBlank]?.id ?? null) : null;
   const { hand: inviteHand, rootStyle: handRootStyle } = useInviteHand(
     rootRef,
+    // Matched by value, not a selector: a config ID may hold any character (a quote included).
     (root) =>
-      invitedId === null ? null : root.querySelector<HTMLElement>(`[data-blank="${invitedId}"]`),
+      invitedId === null
+        ? null
+        : ([...root.querySelectorAll<HTMLElement>('[data-blank]')].find(
+            (el) => el.dataset.blank === invitedId,
+          ) ?? null),
     invitedId ?? '',
   );
 

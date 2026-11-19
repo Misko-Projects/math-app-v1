@@ -644,6 +644,23 @@ async function expectCueOn(root: HTMLElement, el: HTMLElement) {
   await expect(el).toBeEnabled();
   // The drawn fingertip inside the control, the hand clear of its glyph (expectPointerOn).
   await waitFor(() => expectPointerOn(hand(root), el, root));
+  // And still there once every entrance (the tray rising in, a card popping in) has settled: the
+  // hand is placed where the control comes to rest, not where it was mid-entrance.
+  await settled(root);
+  await expect(el).toHaveClass('ni-invite');
+  await expectPointerOn(hand(root), el, root);
+}
+
+/** Every running finite animation in the widget has finished (loops keep running). */
+async function settled(root: HTMLElement) {
+  const finite = root
+    .getAnimations({ subtree: true })
+    .filter(
+      (a) =>
+        a.playState === 'running' &&
+        a.effect?.getComputedTiming().iterations !== Number.POSITIVE_INFINITY,
+    );
+  await Promise.all(finite.map((a) => a.finished.catch(() => undefined)));
 }
 
 /** No cue at all: no ring, no hand. */

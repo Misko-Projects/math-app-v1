@@ -53,8 +53,13 @@ export function NumeralPickWidget({
   // the card's bottom edge and clear of its numeral, word or picture.
   const { hand: inviteHand, rootStyle: handRootStyle } = useInviteHand(
     rootRef,
+    // Matched by value, not a selector: an option ID may hold any character (a quote included).
     (root) =>
-      invite === null ? null : root.querySelector<HTMLElement>(`.ni-pick[data-id="${invite}"]`),
+      invite === null
+        ? null
+        : ([...root.querySelectorAll<HTMLElement>('.ni-pick[data-id]')].find(
+            (el) => el.dataset.id === invite,
+          ) ?? null),
     invite ?? '',
   );
   const [demoBusy, setDemoBusy] = useState(false);
