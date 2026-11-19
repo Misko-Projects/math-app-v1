@@ -27,6 +27,12 @@ res.tenley:
 res.tenley.hello:
   text: "I carry ten pebbles in my shell. A full ten!"
 
+# ---------- requests (E03 planner: PlannedRequest.narration, voiced by the request's resident) ----------
+req.help:
+  text: "Can you help me make some things?"
+req.idea:
+  text: "I know a fun new trick! Want to try it with me?"
+
 # ---------- Pip ----------
 game.pip.welcome:
   text: "Welcome to the island! I'm Pip."

@@ -16,7 +16,7 @@ All durable state lives in one Dexie 4 database (02 §4.4). Its tables:
 
 ## The store
 
-`createDataStore({ db, content, now?, newId?, timezone? })` opens the database and returns a `DataStore`. `content` is `{ contentVersion, gameData, graph }`, which the app shell loads from the precached `dist/*.json` (content JSON is never bundled, 02 §6). On open, the store:
+`createDataStore({ db, content, now?, newId?, timezone? })` opens the database and returns a `DataStore`. `content` is `{ contentVersion, gameData, graph }`, which the app shell loads from the precached `dist/*.json` (content JSON is never bundled, 02 §6; see `src/app/boot/content.ts`). On open, the store:
 
 1. creates the device singleton if it is missing, with a local `deviceId` and `familyId`, so the app works offline before setup;
 2. calls `navigator.storage.persist()`, on first run only;
@@ -73,7 +73,14 @@ Rows are maintained for every live child that has a profile or events.
 
 ## Sync client (08 §4)
 
-`sync.ts` exports `createSyncClient({ store, fetch?, baseUrl?, now?, online?, setTimer?, clearTimer?, random?, intervalMs? })`, which returns `{ syncNow(reason?), start(), stop() }`. Nothing in the app calls it yet: the app shell (W00, #18) is meant to create one client per store, after `adoptFamily` has run for `/setup` or pairing, and call `start()`. Until then only the tests drive it.
+`sync.ts` exports `createSyncClient({ store, fetch?, baseUrl?, now?, online?, setTimer?, clearTimer?, random?, intervalMs? })`, which returns `{ syncNow(reason?), start(), stop() }`.
+
+**How the app uses it (W00, `src/app/boot/`).** `bootApp()` loads the content from `/content/index.json` (the dist files, served as static assets by `apps/web/content-assets.ts`: plain names under `pnpm dev`, content-hashed in builds), opens the store, creates the AudioManager, and wraps one sync client in a `SyncLifecycle`. The client runs exactly while the device holds a token:
+- at boot, `resume()` starts it when the device is already paired (a returning family; offline too, where it reports `offline` and retries on its own);
+- after `/setup` or pairing, `adopt(ids)` stops it, runs `adoptFamily`, then starts it;
+- `signOut()` stops it and removes the device token. The events, profiles and settings stay on the device.
+
+`<AppProviders>` (`src/app/AppServices.tsx`) puts the services, `<DataProvider>` and the `UiProvider` (AudioManager and narration text) around the router. The boot tests (`src/app/boot/boot.test.ts`) cover a fresh setup, a returning family and an offline start.
 
 **One sync** pushes up to 500 `unsynced()` events with every settings document and profile, plus the stored cursor and the device's Bearer token. It then applies the answer in this order:
 1. **The clamp echo (02 §5.9 S3).** For each entry of `clamped`, the local copy takes the server's `ts` and `clientTs`, through `ingest(…, { source: 'server' })`. The store then replaces the copy and rebuilds the projections. Folds keep ordering by the server-bounded `ts`.
@@ -91,7 +98,7 @@ The client repeats this while the server reports `more` or a full batch was push
 - `revoked`: a 401, for example after the parent removed the device. The queue is kept.
 - `failed`: a network error, an HTTP error, a malformed answer, or a timeout. Each exchange, request and response body, has a 30 s deadline (`requestTimeoutMs`). The queue is kept.
 - `deferred`: an automatic trigger inside the backoff window. The retry timer syncs instead.
-- `stopped`: an automatic trigger after `stop()`, including a follow-up queued before it. Nothing is sent.
+- `stopped`: an automatic trigger after `stop()`, including a follow-up queued before it. Nothing is sent. Also a run that `stop()` interrupted: every `start()` and `stop()` begins a new generation, and `stop()` aborts the open request. A run from an earlier generation checks before it sends and before every store write, so it ends at its next step without sending or writing anything more (the cursor moves last, so a page cut short is pulled again later). `stop()` returns a promise that settles once that run has ended; sign-out and re-pairing await it, so nothing from the old credentials lands afterwards. Such a run is not a failure and opens no backoff window.
 
 `syncNow` never rejects. A trigger that arrives during a sync joins one follow-up run.
 

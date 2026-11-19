@@ -40,7 +40,7 @@ export type SyncOutcome =
   | { kind: 'revoked'; code: string } // the server no longer accepts this device
   | { kind: 'failed'; error: string }
   | { kind: 'deferred' } // an automatic trigger inside the backoff window: the retry timer will sync
-  | { kind: 'stopped' }; // an automatic trigger after stop(): nothing was sent
+  | { kind: 'stopped' }; // an automatic trigger after stop() (nothing sent), or a run stop() interrupted (nothing more applied)
 
 /** A sync exchange (request and response body) that takes longer than this fails and is retried. */
 export const SYNC_REQUEST_TIMEOUT_MS = 30_000;
@@ -79,7 +79,13 @@ export interface SyncClient {
   /** Syncs on start, then every 60 s (backing off on errors), after each completed request, on
    *  wind-down (`session.ended`, page hidden) and when the browser comes back online. */
   start(): void;
-  stop(): void;
+  /**
+   * Stops automatic syncing and cancels the run in flight: it sends nothing more and writes
+   * nothing more to the store after its current step. The returned promise settles once that run
+   * has ended, so a caller that awaits it (sign-out, re-pairing) knows no response from the old
+   * credentials can still land.
+   */
+  stop(): Promise<void>;
 }
 
 /** Thrown inside a sync to stop it with a given outcome. */
@@ -128,7 +134,7 @@ export function createSyncClient(opts: SyncClientOptions): SyncClient {
 
   let inFlight: Promise<SyncOutcome> | null = null;
   /** Callers waiting for the next run (see `pump`). */
-  let waiters: {
+  const waiters: {
     resolve: (o: SyncOutcome) => void;
     reason: SyncReason;
     forced: boolean;
@@ -140,14 +146,28 @@ export function createSyncClient(opts: SyncClientOptions): SyncClient {
   let running = false;
   let timer: unknown = null;
   const cleanups: (() => void)[] = [];
+  /**
+   * Bumped by every start() and stop(). A run belongs to the generation it started in: once that
+   * changes (sign-out, re-pairing), its open request is aborted and nothing more it receives is
+   * applied or sent, so no response reaches the store after `stop()` returns.
+   */
+  let generation = 0;
+  const live = new Set<AbortController>();
 
   /**
    * One push/pull exchange under one deadline covering the request and the response body, so a
    * stalled connection fails (and is retried) instead of holding the client forever. Returns the
    * parsed response or stops the sync.
    */
-  async function exchange(token: string, body: SyncRequest): Promise<SyncResponse> {
+  async function exchange(
+    token: string,
+    body: SyncRequest,
+    current: () => void,
+  ): Promise<SyncResponse> {
+    // Assembling the body awaited the store: a stop() in between must not send it.
+    current();
     const controller = new AbortController();
+    live.add(controller);
     let timedOut = false;
     let handle: unknown = null;
     const deadline = new Promise<never>((_, reject) => {
@@ -190,6 +210,7 @@ export function createSyncClient(opts: SyncClientOptions): SyncClient {
       }
     } finally {
       clearTimer(handle);
+      live.delete(controller);
     }
     if (res.status === 401) {
       const code = errorCode(json) ?? 'unauthorized';
@@ -206,8 +227,17 @@ export function createSyncClient(opts: SyncClientOptions): SyncClient {
     return parsed.data;
   }
 
-  /** Applies one response: echo, acknowledgements, rejections, pulled events, documents, cursor. */
-  async function apply(pushed: AnyEventEnvelope[], res: SyncResponse): Promise<void> {
+  /**
+   * Applies one response: echo, acknowledgements, rejections, pulled events, documents, cursor.
+   * `current()` runs before every write, so a stop() ends the run at the next step. The cursor
+   * moves last: a run cut short pulls the same page again next time, and every step is
+   * idempotent.
+   */
+  async function apply(
+    pushed: AnyEventEnvelope[],
+    res: SyncResponse,
+    current: () => void,
+  ): Promise<void> {
     // The server's stored copy wins (02 §5.9 S3): replace the local copy's times, then rebuild.
     if (res.clamped.length > 0) {
       const byId = new Map(pushed.map((e) => [e.id, e]));
@@ -215,17 +245,28 @@ export function createSyncClient(opts: SyncClientOptions): SyncClient {
         const local = byId.get(c.id);
         return local ? [withServerTime(local, c)] : [];
       });
+      current();
       await store.ingest(corrected, { source: 'server' });
     }
+    current();
     await store.markSynced(res.accepted);
+    current();
     if (res.rejected.length > 0) await store.markRejected(res.rejected, pushed);
+    current();
     if (res.events.length > 0) await store.ingest(res.events, { source: 'server' });
+    current();
     await store.mergeSettings(res.settings, { source: 'server' });
+    current();
     await store.mergeProfiles(res.profiles, { source: 'server' });
+    current();
     await store.updateSyncState({ cursor: res.cursor });
   }
 
   async function run(reason: SyncReason): Promise<SyncOutcome> {
+    const gen = generation;
+    const current = () => {
+      if (gen !== generation) throw new SyncStop({ kind: 'stopped' });
+    };
     const device = await store.device();
     if (!device.deviceToken) return { kind: 'unpaired' };
     if (!online()) return { kind: 'offline' };
@@ -233,6 +274,7 @@ export function createSyncClient(opts: SyncClientOptions): SyncClient {
     let pulledTotal = 0;
     try {
       for (let round = 1; round <= SYNC_MAX_ROUNDS; round++) {
+        current();
         const { cursor } = await store.syncState();
         const events = await store.unsynced(SYNC_MAX_PUSH_EVENTS);
         const body: SyncRequest = {
@@ -241,12 +283,13 @@ export function createSyncClient(opts: SyncClientOptions): SyncClient {
           settings: await store.allSettings(),
           profiles: await store.allProfiles(),
         };
-        const res = await exchange(device.deviceToken, body);
-        await apply(events, res);
+        const res = await exchange(device.deviceToken, body, current);
+        await apply(events, res, current);
         pushedTotal += events.length;
         pulledTotal += res.events.length;
         const morePush = events.length === SYNC_MAX_PUSH_EVENTS;
         if (!res.more && !morePush) {
+          current();
           await store.updateSyncState({ lastSyncAt: now(), lastError: null });
           return { kind: 'synced', pushed: pushedTotal, pulled: pulledTotal, rounds: round };
         }
@@ -256,6 +299,8 @@ export function createSyncClient(opts: SyncClientOptions): SyncClient {
         error: `still not drained after ${SYNC_MAX_ROUNDS} rounds`,
       });
     } catch (e) {
+      // Stopped mid-run (an aborted request fails too): not an error worth recording.
+      if (gen !== generation) return { kind: 'stopped' };
       const outcome: SyncOutcome =
         e instanceof SyncStop ? e.outcome : { kind: 'failed', error: errorMessage(e) };
       const message =
@@ -352,6 +397,7 @@ export function createSyncClient(opts: SyncClientOptions): SyncClient {
     start() {
       if (running) return;
       running = true;
+      generation += 1;
       const unsubscribe = store.onAppend((e) => {
         // 08 §4: after each request completes, and on wind-down.
         if (e.type === 'request.completed') void syncNow('request-completed');
@@ -367,11 +413,16 @@ export function createSyncClient(opts: SyncClientOptions): SyncClient {
     },
     stop() {
       running = false;
+      generation += 1;
+      for (const c of live) c.abort();
+      live.clear();
       clearTimerIfArmed();
       for (const c of cleanups.splice(0)) c();
-      // Queued automatic requests end now, so a quick restart cannot send them.
-      for (const w of waiters) if (w.automatic) w.resolve({ kind: 'stopped' });
-      waiters = waiters.filter((w) => !w.automatic);
+      // Every queued request ends now, manual ones too: none may start a run with the old
+      // credentials once the run in flight ends (and a quick restart cannot send them either).
+      for (const w of waiters.splice(0)) w.resolve({ kind: 'stopped' });
+      // The run in flight (if any) now ends at its next step; settle once it has.
+      return inFlight ? inFlight.then(() => undefined) : Promise.resolve();
     },
   };
 }
