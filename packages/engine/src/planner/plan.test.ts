@@ -776,6 +776,39 @@ describe('reviews (04 §4)', () => {
     ).toBe(true);
     expect(rankNewSkills({ child: child('2'), state: s, graph, now: NOW })).toEqual([]);
   });
+
+  it('a failed review no themed workshop hosts sends the request to the Practice Pier', () => {
+    // Review round 4 (#66): F failed its review and has only a number-pad template; N is the sole
+    // (learning) focus; the only themed workshop hosts tap-count alone, so it could fill every
+    // request with N and the practiced A, B and C without F. The next plan must review F (04 §6.4
+    // rule 3), so the requests go to the Practice Pier, which hosts every format.
+    const f = graph.skills[F] as Skill;
+    const g: SkillGraph = {
+      ...graph,
+      skills: { ...graph.skills, [F]: { ...f, templates: [`${F}.t3`] } },
+    };
+    const gModel = createEloFireModel(g, { childId: CHILD, isK: false });
+    const notDue = NOW + 3 * DAY_MS;
+    const before = stateWith({
+      [A]: practiced(2, notDue),
+      [B]: practiced(2, notDue),
+      [C]: practiced(2, notDue),
+      [N]: learning(0),
+      [F]: practiced(1, NOW + 1),
+    });
+    const s = gModel.apply(
+      before,
+      synthAttempt(F, 3, { correct: false, context: 'review', seed: 12345 }),
+      NOW,
+    );
+    expect(s.skills[F]?.memory?.consecutiveFails).toBe(1);
+    const taps = cap('tap-works', ['tap-count'], { residents: ['nib'], produces: ['stone'] });
+    const p = plan(input({ graph: g, state: s, workshopsAvailable: [taps] }));
+    for (const r of p.requests) {
+      expect(r.tasks.some((t) => t.skillId === F && t.context === 'review')).toBe(true);
+      expect(r.workshopId).toBe(PRACTICE_PIER);
+    }
+  });
 });
 
 describe('hosting and the Practice Pier (04 §6.3)', () => {
