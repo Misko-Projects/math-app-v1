@@ -99,7 +99,7 @@ export function Notice({
   return (
     <div
       role={tone === 'error' ? 'alert' : 'status'}
-      className={`flex items-start gap-3 rounded-2xl px-4 py-3 ring-2 ${styles}`}
+      className={`flex items-start gap-3 rounded-2xl px-4 py-3 text-left ring-2 ${styles}`}
     >
       {tone === 'error' ? <WarnIcon /> : tone === 'success' ? <OkIcon /> : <InfoIcon />}
       <div className="min-w-0 flex-1">{children}</div>

@@ -74,7 +74,11 @@ export function JoinPage() {
                   autoComplete="one-time-code"
                   maxLength={7}
                   value={code}
-                  onChange={(e) => setCode(e.target.value.replace(/[^\d ]/g, ''))}
+                  onChange={(e) => {
+                    setCode(e.target.value.replace(/[^\d ]/g, ''));
+                    setError(null);
+                    setCodeError(null);
+                  }}
                   className="min-h-16 font-display text-3xl! font-bold tracking-[0.3em] tabular-nums"
                   placeholder="123456"
                 />
