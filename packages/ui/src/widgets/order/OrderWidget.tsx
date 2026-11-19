@@ -16,8 +16,10 @@ import {
   cellToFit,
   countLayout,
   FitPicture,
+  LINE_BARE_PAD,
   naturalPictureSize,
   numberLineHeight,
+  type ObjectLayout,
   useAlive,
   useDemoPause,
   useInviteHand,
@@ -25,6 +27,7 @@ import {
   useSubmitGuard,
   useWidgetRoom,
   type WidgetRoom,
+  wrapLine,
 } from '../kit';
 import type { ConfigFor, WidgetProps } from '../types';
 import './order.css';
@@ -63,8 +66,9 @@ const isNumeral = (label: string | undefined) => label !== undefined && /^-?\d+$
 // ---------- layout ----------
 
 /**
- * Between cards: the 12 px target gap plus the invite ring's reach (4 px wide, 3 px out: 7 px),
- * so a ringed card stays ≥ 12 px clear of its neighbours (one ring at a time, 06 §4).
+ * Between cards (≥ the 12 px target gap, 06 §4). The invite ring on a card or slot is drawn over
+ * its own edge (no reach), so it stays ≥ 12 px clear of its neighbours, the board's and tray's
+ * edges and the cue arrow (one ring at a time).
  */
 const CARD_GAP = 20;
 /** A card's border (3) and padding (5) around its numeral. */
@@ -79,15 +83,15 @@ const CHROME = {
   normal: {
     board: { top: 14, x: 24, bottom: 18 },
     cue: 74,
-    cueGap: 10,
+    cueGap: 14,
     tray: { y: 14, x: 18 },
     gap: 24,
   },
   compact: {
-    board: { top: 4, x: 16, bottom: 12 },
-    cue: 32,
-    cueGap: 8,
-    tray: { y: 8, x: 14 },
+    board: { top: 4, x: 16, bottom: 14 },
+    cue: 38,
+    cueGap: 12,
+    tray: { y: 12, x: 14 },
     gap: 8,
   },
 } as const;
@@ -116,6 +120,10 @@ interface Shape {
   /** The card widths a card height allows (picture cards: up to what the picture can use). */
   width: (h: number) => { min: number; max: number };
   target: number;
+  /** The tallest card worth drawing (picture cards grow to use the room). */
+  maxH: number;
+  /** Take the compact cue only when it buys at least this much card height (pictures). */
+  compactGain: number;
   check: { w: number; h: number };
 }
 
@@ -126,43 +134,50 @@ function sizeOf(s: Shape, p: Plan) {
   const boardH = 2 * BORDER + c.board.top + c.cue + c.cueGap + p.h + c.board.bottom;
   const trayW = s.tray > 0 ? row(s.tray) + 2 * (c.tray.x + BORDER) : 0;
   const trayH = 2 * (c.tray.y + BORDER) + p.h;
-  const bottomW = p.check === 'beside' ? trayW + CHECK_GAP + s.check.w : Math.max(trayW, s.check.w);
+  // Board and tray share one column (the tray right under the board); Check beside the tray in a
+  // column of its own, or below.
+  const colW = Math.max(boardW, trayW);
+  const width = p.check === 'beside' ? colW + CHECK_GAP + s.check.w : Math.max(colW, s.check.w);
   const bottomH = p.check === 'beside' ? Math.max(trayH, s.check.h) : trayH + c.gap + s.check.h;
   // Below the tray's cards: its padding and border, then Check (when below) and the widget's edge.
   const underTray = c.tray.y + BORDER + ROOT_PAD.y + (p.check === 'below' ? c.gap + s.check.h : 0);
   return {
-    w: Math.max(boardW, bottomW) + 2 * ROOT_PAD.x,
+    w: width + 2 * ROOT_PAD.x,
     h: boardH + c.gap + bottomH + 2 * ROOT_PAD.y,
     hand: s.tray > 0 ? Math.max(0, HAND_REACH - underTray) : 0,
   };
 }
 
 /**
- * The biggest card that fits the room: the full cue first (the compact one only when the height
- * is short), then the tallest card, Check beside the tray when it fits, the widest card its
- * picture can use; room for Pip's hand under a numeral card when there is some. Nothing fits: the
- * smallest layout (the area then scrolls; targets never shrink below the minimum).
+ * The biggest card that fits the room with room held for Pip's hand under a tray card: the
+ * tallest card, Check beside the tray when it fits, the widest card its picture can use; the full
+ * cue unless the compact one buys clearly bigger cards (or the full one fits nothing). Nothing
+ * fits: the smallest layout (the area then scrolls; targets never shrink below the minimum).
  */
 function planLayout(s: Shape, room: WidgetRoom | null): Plan {
   const W = room?.width ?? 1180;
   const H = room?.height ?? Number.POSITIVE_INFINITY;
-  const hi = Math.round(s.target * 1.5);
-  for (const withHand of [true, false]) {
-    for (const chrome of ['normal', 'compact'] as const) {
-      for (let h = hi; h >= s.target; h -= 2) {
-        const { min, max } = s.width(h);
-        for (const check of ['beside', 'below'] as const) {
-          for (let w = max; w >= min; w = w > min && w - 4 < min ? min : w - 4) {
-            const p = { w, h, chrome, check };
-            const size = sizeOf(s, p);
-            if (size.w <= W + 0.5 && size.h + (withHand ? size.hand : 0) <= H + 0.5) {
-              return { ...p, handPad: withHand ? size.hand : 0 };
-            }
-            if (w === min) break;
+  const best = (chrome: Chrome, withHand: boolean): Plan | null => {
+    for (let h = s.maxH; h >= s.target; h -= 2) {
+      const { min, max } = s.width(h);
+      for (const check of ['beside', 'below'] as const) {
+        for (let w = max; w >= min; w = w > min && w - 4 < min ? min : w - 4) {
+          const p = { w, h, chrome, check };
+          const size = sizeOf(s, p);
+          if (size.w <= W + 0.5 && size.h + (withHand ? size.hand : 0) <= H + 0.5) {
+            return { ...p, handPad: withHand ? size.hand : 0 };
           }
+          if (w === min) break;
         }
       }
     }
+    return null;
+  };
+  for (const withHand of [true, false]) {
+    const normal = best('normal', withHand);
+    const compact = best('compact', withHand);
+    if (normal && (!compact || compact.h < normal.h + s.compactGain)) return normal;
+    if (compact) return compact;
   }
   const smallest = { w: s.width(s.target).min, h: s.target, chrome: 'compact' as const };
   const beside = { ...smallest, check: 'beside' as const };
@@ -520,7 +535,7 @@ export function OrderWidget({
   const lines = cardPics.filter(
     (spec): spec is Extract<StimulusSpec, { kind: 'number-line' }> => spec?.kind === 'number-line',
   );
-  /** Width a card's number line reads well at: ~16 px a tick at full size (plus end room). */
+  /** Width a card's number line reads well at: ~22 px a tick at full size (plus end room). */
   const lineWidth = (h: number) =>
     Math.max(
       0,
@@ -528,7 +543,7 @@ export function OrderWidget({
         const span = spec.max - spec.min;
         const ticks = Math.min(40, span / (spec.ticksEvery ?? span / 10));
         const scale = Math.min(1, picHeight(h) / numberLineHeight(spec));
-        return Math.round(scale * (80 + ticks * 16)) + 2 * PIC_PAD;
+        return Math.round(scale * (2 * LINE_BARE_PAD + ticks * 22)) + 2 * PIC_PAD;
       }),
     );
   const cardWidth = (h: number) => {
@@ -551,19 +566,60 @@ export function OrderWidget({
       tray: n - fixedIds.size,
       width: cardWidth,
       target,
+      // Picture cards grow to 2.2 × the target where the room allows (a ten-frame, blocks or a
+      // number line read at that size); numeral cards stay within 1.5 ×.
+      maxH: pictures ? Math.round(Math.max(target * 2.2, 150)) : Math.round(target * 1.5),
+      compactGain: pictures ? 12 : Number.POSITIVE_INFINITY,
       check: checkSize ?? { w: TARGET_PX[ageMode].big + 8, h: TARGET_PX[ageMode].big + 6 },
     },
     room,
   );
   const picW = plan.w - 2 * PIC_PAD;
   const picH = picHeight(plan.h);
-  // Countable pictures share one cell, so a picture's size is never a cue its count doesn't give.
-  const sharedCell = Math.min(
-    ...cardPics.map((spec) => {
-      const layout = spec ? countLayout(spec, true) : null;
-      return layout ? cellToFit(layout, picW, picH) : Number.POSITIVE_INFINITY;
-    }),
+  /**
+   * A card's number line keeps its ticks evenly spaced but, when the card is too small to show
+   * every tick apart (a barcode), draws every 2nd, 5th or 10th tick: the mark keeps its exact
+   * place; the stride only thins the ticks, like NumberLineView's label stride.
+   */
+  const cardLine = (spec: StimulusSpec): StimulusSpec => {
+    if (spec.kind !== 'number-line' || !spec.ticksEvery) return spec;
+    const every = spec.ticksEvery;
+    const span = spec.max - spec.min;
+    const s = Math.min(1, picH / numberLineHeight(spec));
+    const inner = picW - 2 * LINE_BARE_PAD * s;
+    const step = (inner * every) / span;
+    if (step >= 10) return spec;
+    const stride = [2, 5, 10].find(
+      (k) => step * k >= 10 && Math.abs((span / (every * k)) % 1) < 1e-9,
+    );
+    return stride ? { ...spec, ticksEvery: every * stride } : spec;
+  };
+  // A plain line of more than five objects may wrap into two rows of reading order (as tap-count
+  // wraps lines) when that draws every card bigger, unless the set's look is the point (spread
+  // versus bunched, drawn big: compare.sets conflict items keep their pictures as given).
+  const lookMatters = cardPics.some(
+    (spec) => spec?.kind === 'objects' && (spec.set.layout !== 'line' || spec.set.sizeVaries),
   );
+  const cardLayouts = (wrap: boolean) =>
+    cardPics.map((spec) => {
+      const layout = spec ? countLayout(spec, true) : null;
+      return layout &&
+        wrap &&
+        spec?.kind === 'objects' &&
+        layout.height === 1 &&
+        layout.objects.length > 5
+        ? wrapLine(layout, 2)
+        : layout;
+    });
+  const cellOf = (layouts: (ObjectLayout | null)[]) =>
+    Math.min(...layouts.map((l) => (l ? cellToFit(l, picW, picH) : Number.POSITIVE_INFINITY)));
+  const flatLayouts = cardLayouts(false);
+  const wrappedLayouts = lookMatters ? flatLayouts : cardLayouts(true);
+  const wrap = !lookMatters && cellOf(wrappedLayouts) > cellOf(flatLayouts);
+  const layouts = wrap ? wrappedLayouts : flatLayouts;
+  // Countable pictures share one cell, so a picture's size is never a cue its count doesn't give.
+  const sharedCell = cellOf(layouts);
+  const layoutOf = new Map(config.items.map((it, i) => [it.id, layouts[i] ?? undefined]));
   // One numeral size for every card, as big as the longest label lets it be (≥ 32 px, 05 §11).
   const numeralPx = Math.max(32, Math.min(48, Math.floor((plan.w - 18) / (0.62 * longest))));
 
@@ -581,10 +637,12 @@ export function OrderWidget({
             </span>
           ) : null}
           <FitPicture
-            spec={cardPicture(spec)}
+            spec={cardLine(cardPicture(spec))}
             maxWidth={picW}
             maxHeight={picH}
             cell={Number.isFinite(sharedCell) ? sharedCell : undefined}
+            layout={layoutOf.get(it.id) ?? undefined}
+            maxScale={spec.kind === 'base-ten' ? 1.5 : 1}
             stackFrames
             scale={shared.scale}
             onFit={shared.report(it.id)}
@@ -601,7 +659,7 @@ export function OrderWidget({
 
   const asc = config.direction === 'asc';
   const compact = plan.chrome === 'compact';
-  const [cueMin, cueMax] = compact ? [10, 20] : [20, 50];
+  const [cueMin, cueMax] = compact ? [14, 26] : [20, 50];
   const cueSizes = Array.from({ length: n }, (_, k) => {
     const f = n === 1 ? 1 : k / (n - 1);
     return Math.round(cueMin + (cueMax - cueMin) * (asc ? f : 1 - f));
@@ -681,21 +739,26 @@ export function OrderWidget({
           {slots.map((id, k) => {
             const isFixed = fixedSlots.has(k);
             const it = id === null ? undefined : itemById.get(id);
-            const pad = dnd.targetProps(slotId(k), {
-              label: t('ui.widget.blank', { n: k + 1 }),
-              disabled: isFixed,
-            });
             const padLit = cue?.kind === 'slot' && cue.slot === k;
+            // A slot holding a card (placed or pinned) is no target: its pad is only the
+            // backdrop, out of the tab order and of the arrow keys' way.
+            const pad = it
+              ? null
+              : dnd.targetProps(slotId(k), { label: t('ui.widget.blank', { n: k + 1 }) });
             return (
               // biome-ignore lint/suspicious/noArrayIndexKey: slots are positional
               <div key={k} className="ni-ord__slot">
-                <div
-                  {...pad}
-                  className={[pad.className, 'ni-ord__pad', padLit ? 'ni-invite' : '']
-                    .filter(Boolean)
-                    .join(' ')}
-                  data-slot-pad={k}
-                />
+                {pad ? (
+                  <div
+                    {...pad}
+                    className={[pad.className, 'ni-ord__pad', padLit ? 'ni-invite' : '']
+                      .filter(Boolean)
+                      .join(' ')}
+                    data-slot-pad={k}
+                  />
+                ) : (
+                  <div className="ni-ord__pad" data-slot-pad={k} aria-hidden="true" />
+                )}
                 {it && isFixed ? (
                   <div
                     className="ni-ord__card"

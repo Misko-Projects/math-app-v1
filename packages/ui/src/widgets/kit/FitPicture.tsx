@@ -111,6 +111,12 @@ function lineHeadroom(spec: Extract<StimulusSpec, { kind: 'number-line' }>): num
   return marks.some((m) => m.arrow) ? LINE_Y_POINTER : LINE_Y_BARE;
 }
 
+/** A number line prints numerals (tick labels or mark labels). */
+const numerals = (spec: Extract<StimulusSpec, { kind: 'number-line' }>) =>
+  spec.labelsEvery !== null || (spec.marks ?? []).some((m) => m.label !== undefined);
+/** End room of a line with no numerals (its end caps' reach): more of a small line for ticks. */
+export const LINE_BARE_PAD = 30;
+
 /** A fitted number line's drawn height in px, which its width does not change. */
 export function numberLineHeight(spec: Extract<StimulusSpec, { kind: 'number-line' }>): number {
   return lineHeadroom(spec) + (spec.labelsEvery !== null ? LINE_BELOW_NUMERALS : LINE_BELOW_BARE);
@@ -152,6 +158,34 @@ export function naturalPictureSize(
     default:
       return { w: 160, h: 160 };
   }
+}
+
+/**
+ * A one-row line layout wrapped into `rows` rows in reading order (each row continues left to
+ * right under the one above; spacing inside a row kept), as tap-count wraps long lines. Object
+ * order is unchanged, so object i is still obj-<i>.
+ */
+export function wrapLine(layout: ObjectLayout, rows: number): ObjectLayout {
+  const slots = [...layout.objects].sort((a, b) => a.x - b.x);
+  const perRow = Math.ceil(slots.length / rows);
+  const base = (o: PlacedObject) => o.x - (1 - o.scale) / 2;
+  const chunks = Array.from({ length: rows }, (_, r) =>
+    slots.slice(r * perRow, (r + 1) * perRow),
+  ).filter((c) => c.length > 0);
+  if (chunks.length < 2) return layout;
+  const lo = (c: PlacedObject[]) => Math.min(...c.map(base));
+  const hi = (c: PlacedObject[]) => Math.max(...c.map((o) => base(o) + 1));
+  const moved = new Map<PlacedObject, PlacedObject>();
+  chunks.forEach((c, r) => {
+    const shift = -lo(c);
+    for (const o of c) moved.set(o, { ...o, x: o.x + shift, y: o.y + r * 1.2 });
+  });
+  return {
+    ...layout,
+    objects: layout.objects.map((o) => moved.get(o) ?? o),
+    width: Math.max(...chunks.map((c) => hi(c) - lo(c))),
+    height: (chunks.length - 1) * 1.2 + layout.height,
+  };
 }
 
 /** The largest cell `layout` gets in a w × h box (no floor: small cards may draw small dots). */
@@ -226,6 +260,8 @@ export interface FitPictureProps {
   maxHeight: number;
   /** Cell size for a countable picture (two pictures compared share one); default: fit the box. */
   cell?: number;
+  /** The countable picture's layout, when the widget re-arranged it (`wrapLine`). */
+  layout?: ObjectLayout;
   /** Draw a double ten-frame as two rows. */
   stackFrames?: boolean;
   /** How far a fixed-pixel picture (base-ten blocks) may grow, default 1. */
@@ -262,6 +298,7 @@ export function FitPicture({
   maxWidth,
   maxHeight,
   cell,
+  layout: given,
   stackFrames = false,
   maxScale = 1,
   label,
@@ -272,7 +309,7 @@ export function FitPicture({
   const pictureName = t('ui.widget.picture');
   const w = Math.max(1, maxWidth);
   const h = Math.max(1, maxHeight);
-  const layout = countLayout(spec, stackFrames);
+  const layout = given ?? countLayout(spec, stackFrames);
   if (layout) {
     return (
       <div className="ni-fitpic" data-kind={spec.kind}>
@@ -296,6 +333,7 @@ export function FitPicture({
             jumps={spec.jumps}
             width={Math.min(LINE_MAX_W, Math.floor(w / s))}
             headroom={lineHeadroom(spec)}
+            pad={numerals(spec) ? undefined : LINE_BARE_PAD}
             label={label ?? pictureName}
           />
         </Scaled>

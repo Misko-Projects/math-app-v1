@@ -25,11 +25,13 @@ export {
   countLayout,
   FitPicture,
   type FitPictureProps,
+  LINE_BARE_PAD,
   naturalPictureSize,
   numberLineHeight,
   Scaled,
   tenFrameLayout,
   useSharedScale,
+  wrapLine,
 } from './FitPicture';
 export {
   INVITE_GLYPH_SELECTOR,

@@ -179,6 +179,9 @@ const card = (root: HTMLElement, name: string) =>
   within(root.querySelector('.ni-ord__tray') as HTMLElement).getByRole('button', { name });
 const slot = (root: HTMLElement, n: number) =>
   within(root).getByRole('button', { name: `Box ${n}` });
+/** Box n's pad: a drop target, or (holding a card) only its backdrop. */
+const padOf = (root: HTMLElement, n: number) =>
+  root.querySelector(`[data-slot-pad="${n - 1}"]`) as HTMLElement;
 const placed = (root: HTMLElement) =>
   [...root.querySelectorAll<HTMLElement>('.ni-ord__slot')].map(
     (s) => s.querySelector('.ni-ord__card')?.textContent ?? '',
@@ -248,7 +251,7 @@ export const DragMouseAndTouch: Story = {
     await pointerDrag(card(root, '6'), center(slot(root, 1)), 'touch');
     await waitFor(() => expect(placed(root)[0]).toBe('6'));
     // Onto a full box: nothing moves.
-    await pointerDrag(card(root, '8'), center(slot(root, 1)), 'mouse');
+    await pointerDrag(card(root, '8'), center(padOf(root, 1)), 'mouse');
     await expect(placed(root)).toEqual(['6', '', '', '9']);
     // Tap a placed card: it goes back to the tray.
     await userEvent.click(
@@ -310,6 +313,34 @@ export const Keyboard: Story = {
     await userEvent.click(check);
     await expect(args.onResponse).toHaveBeenCalledTimes(1);
     await expect(args.onResponse).toHaveBeenCalledWith({ kind: 'numbers', values: [6, 7, 8, 9] });
+  },
+};
+
+/**
+ * Keyboard: a box holding a card (placed or pinned) is not a target: its pad leaves the tab order
+ * and the arrow keys step over it, from the first empty box to the next empty one.
+ */
+export const KeyboardSkipsFullBoxes: Story = {
+  args: { config: decade },
+  play: async ({ canvasElement }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    // Box 3 holds the pinned 30; put 29 in box 2.
+    await userEvent.click(card(root, '29'));
+    await userEvent.click(slot(root, 2));
+    await expect(placed(root)).toEqual(['', '29', '30', '']);
+    for (const n of [2, 3]) {
+      await expect(padOf(root, n)).not.toHaveAttribute('role');
+      await expect(padOf(root, n)).not.toHaveAttribute('tabindex');
+    }
+    card(root, '31').focus();
+    await userEvent.keyboard('{Enter}');
+    await expect(slot(root, 1)).toHaveFocus();
+    await userEvent.keyboard('{ArrowRight}');
+    await expect(slot(root, 4)).toHaveFocus();
+    await userEvent.keyboard('{ArrowRight}');
+    await expect(slot(root, 1)).toHaveFocus();
+    await userEvent.keyboard('{ArrowLeft}{Enter}');
+    await expect(placed(root)).toEqual(['', '29', '30', '31']);
   },
 };
 
@@ -414,13 +445,58 @@ export const DemoMode: Story = {
   },
 };
 
-/** Every target a child can use: tray cards, placed cards, empty slots (a full slot's card covers its pad), check. */
+/** Every target a child can use: tray cards, placed cards, empty slots (drop pads), check. */
 const targets = (root: HTMLElement) => [
   ...root.querySelectorAll<HTMLElement>(
-    '.ni-ord__tray .ni-ord__card, button.ni-ord__card, .ni-ord__slot:not(:has(.ni-ord__card)) .ni-ord__pad',
+    '.ni-ord__tray .ni-ord__card, button.ni-ord__card, .ni-ord__pad.ni-drop-target',
   ),
   within(root).getByRole('button', { name: 'Check' }),
 ];
+
+/**
+ * The invite ring, at rest, stays ≥ 12 px inside the board or tray it sits in (inside their
+ * border) and ≥ 12 px below the cue arrow.
+ */
+async function expectRingInside(root: HTMLElement, el: HTMLElement) {
+  const loops = root
+    .getAnimations({ subtree: true })
+    .filter((a) => a.effect?.getComputedTiming().iterations === Number.POSITIVE_INFINITY);
+  for (const a of loops) {
+    a.pause();
+    a.currentTime = 0;
+  }
+  try {
+    const cs = getComputedStyle(el);
+    const reach = Math.max(
+      0,
+      Number.parseFloat(cs.outlineOffset) + Number.parseFloat(cs.outlineWidth),
+    );
+    const r = el.getBoundingClientRect();
+    const ring = {
+      left: r.left - reach,
+      top: r.top - reach,
+      right: r.right + reach,
+      bottom: r.bottom + reach,
+    };
+    const box = el.closest('.ni-ord__board, .ni-ord__tray') as HTMLElement;
+    const b = box.getBoundingClientRect();
+    const border = Number.parseFloat(getComputedStyle(box).borderTopWidth);
+    await expect(ring.left - (b.left + border), 'ring to the left edge').toBeGreaterThanOrEqual(
+      11.5,
+    );
+    await expect(b.right - border - ring.right, 'ring to the right edge').toBeGreaterThanOrEqual(
+      11.5,
+    );
+    await expect(b.bottom - border - ring.bottom, 'ring to the bottom edge').toBeGreaterThanOrEqual(
+      11.5,
+    );
+    const arrow = box.querySelector('.ni-ord__arrow');
+    const above = arrow ? arrow.getBoundingClientRect().bottom : b.top + border;
+    await expect(ring.top - above, 'ring below the arrow or edge').toBeGreaterThanOrEqual(11.5);
+  } finally {
+    for (const a of loops) a.play();
+  }
+}
 
 /** ONE ring, on `el`; Pip's fingertip on it at rest; the ring ≥ 12 px clear of every other target. */
 async function expectInviteOn(root: HTMLElement, el: HTMLElement) {
@@ -434,6 +510,7 @@ async function expectInviteOn(root: HTMLElement, el: HTMLElement) {
     el,
     targets(root).filter((t) => t !== el),
   );
+  await expectRingInside(root, el);
 }
 
 const noInvite = async (root: HTMLElement) => {
@@ -623,6 +700,12 @@ async function expectOrderFits(canvasElement: HTMLElement, root: HTMLElement, ag
     root.querySelector('.ni-ord__check'),
   ].filter((p): p is HTMLElement => p !== null);
   await expectFitsArea(areaBox(canvasElement), parts, targets(root), age);
+  // The tray sits centred right under the board (Check beside it, not shifting it).
+  const board = (root.querySelector('.ni-ord__board') as HTMLElement).getBoundingClientRect();
+  const tray = (root.querySelector('.ni-ord__tray') as HTMLElement).getBoundingClientRect();
+  await expect(Math.abs(board.left + board.width / 2 - (tray.left + tray.width / 2))).toBeLessThan(
+    1,
+  );
 }
 
 /**
@@ -707,6 +790,25 @@ export const PathCardsKMinLandscapeInvite: Story = {
     await userEvent.click(card(root, '8'));
     await expectInviteOn(root, root.querySelector('[data-slot-pad="0"]') as HTMLElement);
     await expectOrderFits(canvasElement, root, 'k');
+    // The picked-up card is lifted inside an INK ring (not the teal invite ring), and the other
+    // open boxes show no ring at all: one ring on screen.
+    const picked = card(root, '8');
+    await expect(picked).toHaveAttribute('data-selected', 'true');
+    const ink = getComputedStyle(root).getPropertyValue('--color-ink').trim();
+    const inkRgb = (() => {
+      const probe = document.createElement('span');
+      probe.style.color = ink;
+      document.body.append(probe);
+      const c = getComputedStyle(probe).color;
+      probe.remove();
+      return c;
+    })();
+    await expect(getComputedStyle(picked).outlineColor).toBe(inkRgb);
+    for (const n of [2, 3, 4]) {
+      const pad = padOf(root, n);
+      await expect(pad).toHaveAttribute('data-armed', 'true');
+      await expect(getComputedStyle(pad).outlineColor).toBe('rgba(0, 0, 0, 0)');
+    }
   },
 };
 
@@ -753,6 +855,49 @@ export const PathCardsKTablet: Story = {
   play: async ({ canvasElement }) => {
     const root = await findWidget(canvasElement, ROOT);
     await expectOrderFits(canvasElement, root, 'k');
+    // The card's number path is drawn big enough to read (not a barcode): ≥ 10 px between ticks.
+    const ticks = [...card(root, '8').querySelectorAll('.ni-numberline__tick')].map(
+      (t) => t.getBoundingClientRect().left,
+    );
+    await expect(ticks[1]! - ticks[0]!).toBeGreaterThanOrEqual(10);
+  },
+};
+
+/**
+ * Tablet: dot cards use the room. A plain line of ten dots wraps into two rows of five (reading
+ * order kept), so every card's dots draw big (one shared size).
+ */
+export const DotCardsKTablet: Story = {
+  globals: { ageMode: 'k' },
+  args: { config: dotCards, tier: 'pictorial' },
+  render: inArea('tablet'),
+  play: async ({ canvasElement }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    await expectOrderFits(canvasElement, root, 'k');
+    await expectPictureCards(root, 3, 'k');
+    const ten = card(root, 'Picture 2');
+    const dots = [...ten.querySelectorAll('.ni-objects__item')].map((d) =>
+      d.getBoundingClientRect(),
+    );
+    await expect(dots).toHaveLength(10);
+    await expect(new Set(dots.map((d) => Math.round(d.top))).size).toBe(2);
+    for (const d of dots) await expect(d.width).toBeGreaterThanOrEqual(28);
+  },
+};
+
+/** Tablet (G1): base-ten cards use the room, rods wide enough to count. */
+export const BlockCardsTablet: Story = {
+  args: { config: blockCards, tier: 'pictorial' },
+  render: inArea('tablet'),
+  play: async ({ canvasElement }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    await expectOrderFits(canvasElement, root, 'g1-up');
+    await expectPictureCards(root, 3, 'g1-up');
+    const rods = [...root.querySelectorAll('.ni-baseten__block--rod')].map((r) =>
+      r.getBoundingClientRect(),
+    );
+    for (const r of rods) await expect(r.width).toBeGreaterThanOrEqual(11);
+    await expect(new Set(rods.map((r) => Math.round(r.height))).size).toBe(1);
   },
 };
 

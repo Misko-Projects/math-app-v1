@@ -1,16 +1,22 @@
 /*
- * order widget (U03): the direction cue and slots on a board, the tray of cards and "check" below.
- * Sizes come from OrderWidget's layout plan (06 §1: container-relative) through custom properties:
- * --ord-w × --ord-h cards, --ord-gap between them, and the chrome (normal or compact) paddings.
+ * order widget (U03): the direction cue and slots on a board, the tray of cards right under it and
+ * "check" beside the tray (or below). Sizes come from OrderWidget's layout plan (06 §1:
+ * container-relative) through custom properties: --ord-w × --ord-h cards, --ord-gap between them,
+ * and the chrome (normal or compact) paddings.
  */
 
 .ni-ord {
   position: relative;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
+  /* Board and tray share one column, so the tray sits centred under the board; Check gets a
+     column of its own beside the tray (data-check="beside") or a row below. */
+  display: grid;
+  grid-template-columns: auto;
+  grid-template-areas: "board" "tray" "check";
+  align-content: center;
   justify-content: center;
-  gap: var(--ord-gap-main);
+  justify-items: center;
+  align-items: center;
+  gap: var(--ord-gap-main) var(--ord-check-gap);
   box-sizing: border-box;
   width: 100%;
   max-width: 1180px;
@@ -22,7 +28,13 @@
   contain: inline-size;
 }
 
+.ni-ord[data-check="beside"] {
+  grid-template-columns: auto auto;
+  grid-template-areas: "board ." "tray check";
+}
+
 .ni-ord__board {
+  grid-area: board;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -81,14 +93,17 @@
   width: 24px;
   height: 24px;
 }
+/* Compact: a thinner shaft that runs into a smaller head (no gap between them). */
 .ni-ord[data-chrome="compact"] .ni-ord__arrow {
-  bottom: -2px;
+  right: 12px;
+  bottom: 0;
+  width: calc(100% - 20px);
   height: 8px;
 }
 .ni-ord[data-chrome="compact"] .ni-ord__arrowhead {
-  bottom: -5px;
-  width: 14px;
-  height: 14px;
+  bottom: -4px;
+  width: 16px;
+  height: 16px;
 }
 .ni-ord__arrowhead path {
   fill: var(--color-ink);
@@ -115,6 +130,13 @@
   border: 4px dashed var(--color-ink-soft);
   border-radius: var(--radius-pebble);
   background: var(--color-sky-light);
+}
+/* A card is picked up: the open boxes say "put it here" quietly (darker dashes, a lighter pad),
+   never with a ring that could read as Pip's invite. */
+.ni-ord__pad.ni-drop-target[data-armed="true"] {
+  outline-color: transparent;
+  border-color: var(--color-ink);
+  background: var(--color-foam);
 }
 
 /* ---------- cards ---------- */
@@ -156,12 +178,25 @@ button.ni-ord__card:focus-visible,
   outline: 4px solid var(--color-sea-deep);
   outline-offset: 4px;
 }
-/* The invite ring hugs the card or slot (7 px reach), so it stays ≥ 12 px clear of its
-   neighbours 20 px away (06 §4). */
+/* Picked up (tap-to-place): lifted on a deeper ledge with a thick INK ring, unlike Pip's teal
+   invite ring; picked up and focused: a double ink ring. */
+.ni-ord__card.ni-draggable[data-selected="true"] {
+  transform: translateY(-4px);
+  outline: 4px solid var(--color-ink);
+  outline-offset: 3px;
+  box-shadow:
+    0 10px 0 var(--color-pebble-deep),
+    var(--shadow-lift);
+}
+.ni-ord__card.ni-draggable[data-selected="true"]:focus-visible {
+  outline: 10px double var(--color-ink);
+}
+/* The invite ring is drawn over the card's or slot's own edge (no reach beyond it), so it stays
+   ≥ 12 px clear of its neighbours, the board's and tray's edges and the cue arrow (06 §4). */
 .ni-ord__card.ni-invite,
 .ni-ord__pad.ni-invite {
   outline-width: 4px;
-  outline-offset: 3px;
+  outline-offset: -4px;
   border-radius: var(--radius-pebble);
 }
 .ni-ord__card[data-fixed="true"] {
@@ -215,16 +250,12 @@ button.ni-ord__card:focus-visible,
 
 /* ---------- tray and check ---------- */
 
+/* The tray and Check are grid items of the widget (areas above). */
 .ni-ord__bottom {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: var(--ord-gap-main) var(--ord-check-gap);
-}
-.ni-ord[data-check="below"] .ni-ord__bottom {
-  flex-direction: column;
+  display: contents;
 }
 .ni-ord__tray {
+  grid-area: tray;
   display: flex;
   justify-content: center;
   gap: var(--ord-gap);
@@ -243,8 +274,12 @@ button.ni-ord__card:focus-visible,
   border-radius: var(--radius-pebble);
 }
 .ni-ord__check {
+  grid-area: check;
   display: inline-flex;
   flex: none;
+}
+.ni-ord[data-check="beside"] .ni-ord__check {
+  justify-self: start;
 }
 
 .ni-ord__flight {

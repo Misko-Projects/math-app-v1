@@ -72,6 +72,11 @@ export interface NumberLineViewProps {
   format?: (value: number) => string;
   /** Accessible name. Defaults to none (decorative inside a labelled widget). */
   label?: string;
+  /**
+   * Room at each end in px (default: half the widest end numeral, at least 40). A line with no
+   * numerals may go down to 30, the end caps' reach.
+   */
+  pad?: number;
   /** Space above the line, in px (default: room for whatever marks and jumps it shows). */
   headroom?: number;
   /** Overlay drawn in the line's SVG coordinate space. */
@@ -97,11 +102,12 @@ export function NumberLineView({
   format = (v) => String(v),
   label,
   headroom,
+  pad: padProp,
   children,
   className,
 }: NumberLineViewProps) {
   const arrowId = `ni-arrow-${useId().replace(/[^a-zA-Z0-9_-]/g, '')}`;
-  const pad = Math.max(40, numeralWidth(format(max)) / 2 + 8);
+  const pad = Math.max(30, padProp ?? Math.max(40, numeralWidth(format(max)) / 2 + 8));
   const s = numberLineScale(min, max, width, pad);
   const ticks = stepsBetween(min, max, ticksEvery);
   // Numerals: every labelsEvery. When they would touch, keep an even stride (every 2nd, 5th, 10th…
