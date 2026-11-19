@@ -1,0 +1,98 @@
+# CMP narration (03 §8): skill intros and template prompts owned by the strand.
+sk.CMP.01.intro:
+  text: "Which group has more? Let's find out!"
+sk.CMP.02.intro:
+  text: "Some numbers are greater. Let's compare them!"
+sk.CMP.03.intro:
+  text: "One more is the next number. One less is the number before."
+sk.CMP.04.intro:
+  text: "Each number has a place on the number line."
+sk.CMP.05.intro:
+  text: "Some look big, some look small. Let's match them and see!"
+sk.CMP.06.intro:
+  text: "Let's put numbers in order, from small to big."
+sk.CMP.07.intro:
+  text: "Teen numbers have a ten. Let's compare them!"
+sk.CMP.09.intro:
+  text: "We see the start and the end. Where does the number go?"
+sk.CMP.13.intro:
+  text: "Too many to count? Let's guess about how many!"
+
+tp.CMP.01.t1.prompt:
+  text: "Which group has {ask|word}? They may be the same."
+tp.CMP.01.t2.prompt:
+  text: "That raft has {b}. Make this raft the same."
+tp.CMP.01.t3.prompt:
+  text: "Which frame has {ask|word}? They may be the same."
+tp.CMP.01.t4.prompt:
+  text: "Which side has {ask|word} dots? They may be the same."
+tp.CMP.01.t5.prompt:
+  text: "Put the groups in order. The one with the fewest goes first."
+tp.CMP.02.t1.prompt:
+  text: "Which number is {ask|word}? They may be the same."
+tp.CMP.02.t2.prompt:
+  text: "Put the numbers in order, smallest first."
+tp.CMP.02.t3.prompt:
+  text: "Which number is {ask|word}? They may be the same."
+tp.CMP.02.t4.prompt:
+  text: "Tap the greatest number."
+tp.CMP.02.t5.prompt:
+  text: "Put the numbers in order, greatest first."
+tp.CMP.03.t1.prompt:
+  text: "Here are {a}. Put in one more and say how many now."
+tp.CMP.03.t2.prompt:
+  text: "Here are {a}. Take one away and say how many now."
+tp.CMP.03.t3.prompt:
+  text: "Start at {a}. Hop to the number that is one more."
+tp.CMP.03.t4.prompt:
+  text: "Start at {a}. Hop to the number that is one less."
+tp.CMP.03.t5.prompt:
+  text: "What is one more than {a}?"
+tp.CMP.03.t6.prompt:
+  text: "What is one less than {a}?"
+tp.CMP.04.t1.prompt:
+  text: "Put {target} on the path."
+tp.CMP.04.t2.prompt:
+  text: "Put {target} on the number line."
+tp.CMP.04.t3.prompt:
+  text: "Put the numbers in order, smallest first."
+tp.CMP.05.t1.prompt:
+  text: "Which group has {ask|word}? Match them to check."
+tp.CMP.05.t2.prompt:
+  text: "The basket has {b}. Make the boat the same."
+tp.CMP.05.t3.prompt:
+  text: "Which side has {ask|word} dots? They may be the same."
+tp.CMP.05.t4.prompt:
+  text: "Put the groups in order, fewest first. Count, do not guess!"
+tp.CMP.06.t1.prompt:
+  text: "Put the numbers in order, smallest first."
+tp.CMP.06.t2.prompt:
+  text: "Put {a} on the path. Look at the numbers you see."
+tp.CMP.06.t3.prompt:
+  text: "Put the numbers in order, smallest first."
+tp.CMP.07.t1.prompt:
+  text: "Which number is {ask|word}? They may be the same."
+tp.CMP.07.t2.prompt:
+  text: "Which number is {ask|word}? They may be the same."
+tp.CMP.07.t3.prompt:
+  text: "Put the frames in order, fewest dots first."
+tp.CMP.07.t4.prompt:
+  text: "Put the numbers in order, smallest first."
+tp.CMP.09.t1.prompt:
+  text: "The line shows the start and the end. Where does {target} go?"
+tp.CMP.09.t2.prompt:
+  text: "What number is the arrow at?"
+tp.CMP.09.t3.prompt:
+  text: "What number is the arrow at? Make a good guess."
+tp.CMP.09.t4.prompt:
+  text: "Which arrow shows {target}?"
+tp.CMP.13.t1.prompt:
+  text: "Look fast! About how many do you see?"
+tp.CMP.13.t2.prompt:
+  text: "Look fast! About how many dots do you see?"
+tp.CMP.13.t3.prompt:
+  text: "About how many dots are there?"
+tp.CMP.13.t4.prompt:
+  text: "About how many dots? Pick the line that shows it."
+tp.CMP.13.t5.prompt:
+  text: "Here is a group of {b}. About how many dots are there in all?"

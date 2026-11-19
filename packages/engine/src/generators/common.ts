@@ -160,14 +160,15 @@ export function numberOptions(
   value: number,
   rng: Rng,
   min = 0,
+  max = Number.POSITIVE_INFINITY,
 ): NumberOptions {
   const want = (t.distractors?.length ?? 0) > 0 ? 4 : 3;
   const picked: number[] = [value];
   const add = (n: number) => {
-    if (picked.length < want && Number.isInteger(n) && n >= min && !picked.includes(n))
+    if (picked.length < want && Number.isInteger(n) && n >= min && n <= max && !picked.includes(n))
       picked.push(n);
   };
-  const diag = diagnosticNumbers(t, params, value).filter((n) => n >= min);
+  const diag = diagnosticNumbers(t, params, value).filter((n) => n >= min && n <= max);
   for (const n of diag) add(n);
   const diagnostic = picked.length - 1;
   for (const n of [value + 1, value - 1, value + 10, value - 10, reverseDigits(value)]) add(n);

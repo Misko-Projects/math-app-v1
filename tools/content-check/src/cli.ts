@@ -1,4 +1,4 @@
-// `pnpm content:validate`, engine half (03 §9.2): V13–V15, V22, V25 plus the engine parts of V04,
+// `pnpm content:validate`, engine half (03 §9.2): V13–V15, V22, V25, V27 plus the engine parts of V04,
 // V16, V17, V18 and V21, then writes packages/content/dist/template-stats.json.
 
 import { propertyN } from '@number-island/engine/testing';
@@ -19,7 +19,7 @@ function main(): number {
   const file = writeDistJson('template-stats.json', templateStats);
   const seconds = ((performance.now() - started) / 1000).toFixed(1);
   console.log(
-    `content-check (engine checks V13–V15, V22, V25; ${input.templates.length} templates, ${n} property seeds each): ${errors.length} error(s), ${warnings.length} warning(s) in ${seconds}s; wrote ${file}`,
+    `content-check (engine checks V13–V15, V22, V25, V27; ${input.templates.length} templates, ${n} property seeds each): ${errors.length} error(s), ${warnings.length} warning(s) in ${seconds}s; wrote ${file}`,
   );
   return errors.length > 0 ? 1 : 0;
 }

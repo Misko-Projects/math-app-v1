@@ -263,7 +263,7 @@ export const FORMAT_SUPPORT: Readonly<Record<ItemFormat, FormatSupport>> = {
   },
   'shape-compose': {
     representations: ['shapes', 'pattern-blocks', 'dot-grid', 'objects'],
-    tiers: [C],
+    tiers: [C, P],
     ops: ['drag-piece', 'rotate', 'draw-edge', 'highlight-region'],
     answers: ['state'],
   },

@@ -1,0 +1,51 @@
+# Authored lessons (03 §4.5, §6). Skills without an entry get an auto lesson (03 §6.4).
+strand: GEO
+lessons:
+  # These lessons only pin the test-out pool (03 §6.5) to each skill's pictorial constructed-answer
+  # template (04 §7a). The compiler reads answer kinds from formats, and shape-sort can answer
+  # either way (odd-one-out is a choice), so the auto pool would mix the pictorial shape-sort with
+  # the numeral-pick (or odd-one-out) choice templates. The examples are exactly what the auto
+  # lesson plays: the same seeds and targets on the concrete template.
+  - skillId: GEO.01
+    mode: authored
+    templateId: GEO.01.t1
+    worked:
+      - { seed: 1480843383, target: easy }
+    faded:
+      - { seed: 1480843384, target: typical, childSteps: 1 }
+      - { seed: 1480843385, target: typical, childSteps: 2 }
+    scaffolded: { count: 2, hintStart: 2 }
+    testOut: { items: 3, minCorrect: 3, templateIds: [GEO.01.t4] }
+
+  - skillId: GEO.06
+    mode: authored
+    templateId: GEO.06.t1
+    worked:
+      - { seed: 1430510526, target: easy }
+    faded:
+      - { seed: 1430510527, target: typical, childSteps: 1 }
+      - { seed: 1430510528, target: typical, childSteps: 2 }
+    scaffolded: { count: 2, hintStart: 2 }
+    testOut: { items: 3, minCorrect: 3, templateIds: [GEO.06.t3] }
+
+  - skillId: GEO.07
+    mode: authored
+    templateId: GEO.07.t1
+    worked:
+      - { seed: 1447288145, target: easy }
+    faded:
+      - { seed: 1447288146, target: typical, childSteps: 1 }
+      - { seed: 1447288147, target: typical, childSteps: 2 }
+    scaffolded: { count: 2, hintStart: 2 }
+    testOut: { items: 3, minCorrect: 3, templateIds: [GEO.07.t4] }
+
+  - skillId: GEO.08
+    mode: authored
+    templateId: GEO.08.t1
+    worked:
+      - { seed: 1329844812, target: easy }
+    faded:
+      - { seed: 1329844813, target: typical, childSteps: 1 }
+      - { seed: 1329844814, target: typical, childSteps: 2 }
+    scaffolded: { count: 2, hintStart: 2 }
+    testOut: { items: 3, minCorrect: 3, templateIds: [GEO.08.t5] }
