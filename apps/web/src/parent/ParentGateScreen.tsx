@@ -39,7 +39,7 @@ function failureText(result: Exclude<PinResult, { ok: true }>): string {
     case 'unavailable':
       return 'The parent area needs your island server to check the PIN. Connect to the same Wi-Fi as the server and try again. (Playing works offline.)';
     case 'not_paired':
-      return 'This device is no longer part of your family. Join again with a code from a parent device.';
+      return 'This device is no longer part of your family. Join again with a code from a parent device, or with the parent passphrase.';
   }
 }
 
@@ -93,7 +93,11 @@ export function ParentGateScreen() {
   useEffect(() => {
     if (!held) return;
     const onKey = (e: KeyboardEvent) => {
-      if (e.target instanceof HTMLButtonElement && (e.key === 'Enter' || e.key === ' ')) return;
+      // Space presses the focused key. Enter does too, except on a digit key: there it submits
+      // (focus starts on "1", and a typed PIN followed by Enter means "unlock", not another 1).
+      const button = e.target instanceof HTMLButtonElement ? e.target : null;
+      if (button && e.key === ' ') return;
+      if (button && e.key === 'Enter' && button.dataset.digit === undefined) return;
       if (/^\d$/.test(e.key)) press(e.key);
       else if (e.key === 'Backspace') press('back');
       else if (e.key === 'Enter') press('ok');
@@ -121,8 +125,8 @@ export function ParentGateScreen() {
           // is nothing to check it with, so the way back in is pairing again.
           <div className="mt-6 flex flex-col items-center gap-5 text-center">
             <Notice tone="info">
-              This device isn’t signed in to a family, so the parent area is closed here. Pair it
-              again with a code from a parent device.
+              This device isn’t signed in to a family, so the parent area is closed here. Join again
+              with a code from a parent device, or with the parent passphrase.
             </Notice>
             <Button onClick={() => navigate('/join')}>Join with a code</Button>
           </div>
@@ -205,6 +209,7 @@ function PadKey({
     <button
       type="button"
       aria-label={glyph ? label : undefined}
+      data-digit={/^\d$/.test(label) ? label : undefined}
       onClick={onPress}
       disabled={disabled}
       className={[

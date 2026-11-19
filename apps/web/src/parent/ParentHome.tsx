@@ -106,7 +106,7 @@ export function ParentHome() {
                 <p className="text-lg font-bold">Sign this device out?</p>
                 <p className="mt-1 text-base">
                   It stops syncing with the family. Everything already on this device stays, and you
-                  can join again with a code.
+                  can join again with a code from another device or with the parent passphrase.
                 </p>
                 {signOutError ? (
                   <div className="mt-3">

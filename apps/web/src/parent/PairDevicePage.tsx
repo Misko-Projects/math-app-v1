@@ -8,6 +8,13 @@ import { ApiError, describeApiError } from './api';
 import { Button, Notice } from './kit';
 import { useParentApi, useParentGate } from './ParentContext';
 
+/**
+ * How long a code works (08 §2: 10 minutes). The countdown runs from when this device received
+ * the code: the server's `expiresAt` is on the server's clock, and a tablet whose clock runs
+ * ahead would otherwise show a fresh code as already expired.
+ */
+export const PAIR_CODE_VALID_MS = 10 * 60 * 1000;
+
 function useNow(intervalMs = 1000): number {
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
@@ -20,7 +27,7 @@ function useNow(intervalMs = 1000): number {
 export function PairDevicePage() {
   const api = useParentApi();
   const gate = useParentGate();
-  const [code, setCode] = useState<PairStartResponse | null>(null);
+  const [code, setCode] = useState<(PairStartResponse & { shownUntil: number }) | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const now = useNow();
@@ -29,7 +36,8 @@ export function PairDevicePage() {
     setBusy(true);
     setError(null);
     try {
-      setCode(await api.pairStart());
+      const started = await api.pairStart();
+      setCode({ ...started, shownUntil: Date.now() + PAIR_CODE_VALID_MS });
     } catch (e) {
       setCode(null);
       // The server's parent session ended (it lasts 10 minutes from the PIN, 08 §2): close the
@@ -51,7 +59,7 @@ export function PairDevicePage() {
     void make();
   }, [make]);
 
-  const left = code ? Math.max(0, code.expiresAt - now) : 0;
+  const left = code ? Math.max(0, code.shownUntil - now) : 0;
   const expired = code !== null && left === 0;
   const mm = Math.floor(left / 60000);
   const ss = Math.floor((left % 60000) / 1000)

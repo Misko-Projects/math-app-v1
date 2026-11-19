@@ -121,7 +121,7 @@ export function describeApiError(e: unknown): string {
         : 'Too many tries. Please wait a few minutes and try again.';
     }
     case 'setup_closed':
-      return 'This server already has a family. Join it with a code from a parent device instead.';
+      return 'This server already has a family. Join it with a code from a parent device, or with the parent passphrase.';
     case 'pair_code_invalid':
       return 'That code didn’t match. Check the 6 digits on the parent device and try again.';
     case 'pair_code_expired':

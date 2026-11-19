@@ -68,6 +68,25 @@ test.describe('parent gate', () => {
     await page.getByRole('button', { name: 'Unlock' }).click();
     await expect(page.getByRole('heading', { name: 'Parent area' })).toBeVisible();
 
+    // Back to the island locks the area: the browser's Back shows the gate, not the parent page.
+    await page.getByRole('button', { name: 'Back to the island' }).click();
+    await expect(page).toHaveURL(/\/$/);
+    // The child home has rendered (its corner entry shows), then the browser's Back.
+    await expect(corner).toBeVisible();
+    await page.goBack();
+    await expect(page).toHaveURL(/\/parent$/);
+    await expect(page.getByRole('heading', { name: 'Grown-ups only' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Parent area' })).toHaveCount(0);
+    // This history entry carries the corner hold from moments ago, so the gate may go straight to
+    // the PIN pad; otherwise it asks for the hold first. Either way the PIN is still needed.
+    const gateLock = page.getByRole('button', { name: 'Grown-ups: press and hold for 2 seconds' });
+    if (await gateLock.isVisible()) await holdFor(page, gateLock);
+    await expect(page.getByText('Enter your parent PIN')).toBeVisible();
+    // A typed PIN and Enter unlock at once (focus starts on the 1 key).
+    await page.keyboard.type(E2E_FAMILY.pin);
+    await page.keyboard.press('Enter');
+    await expect(page.getByRole('heading', { name: 'Parent area' })).toBeVisible();
+
     // Signing this device out closes the parent area and ends the parent session. The device no
     // longer syncs: it lands on the join page, which says so; Back returns to the child home.
     await page.getByRole('button', { name: 'Sign this device out' }).click();
@@ -82,5 +101,24 @@ test.describe('parent gate', () => {
     await expect(page.getByRole('button', { name: 'Join with a code' })).toBeVisible();
     const pairStart = await page.request.post('/api/devices/pair/start', { data: {} });
     expect(pairStart.status()).toBe(401);
+
+    // No other device at hand: the parent passphrase rejoins this one (its own family).
+    await page.getByRole('button', { name: 'Join with a code' }).click();
+    await expect(page).toHaveURL(/\/join$/);
+    await page.getByRole('button', { name: 'Use the parent passphrase instead' }).click();
+    await page.getByLabel('Parent passphrase').fill('not-the-passphrase');
+    await page.getByRole('button', { name: 'Join', exact: true }).click();
+    await expect(
+      page.getByText('That passphrase isn’t right. Check it and try again.'),
+    ).toBeVisible();
+    await page.getByLabel('Parent passphrase').fill(E2E_FAMILY.passphrase);
+    await page.getByRole('button', { name: 'Join', exact: true }).click();
+    await expect(page).toHaveURL(/\/$/);
+    await page.goto('/parent');
+    await expect(page.getByRole('heading', { name: 'Grown-ups only' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Join with a code' })).toHaveCount(0);
+    // The passphrase's parent session ended after pairing.
+    const after = await page.request.post('/api/devices/pair/start', { data: {} });
+    expect(after.status()).toBe(401);
   });
 });

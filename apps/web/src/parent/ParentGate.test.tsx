@@ -117,4 +117,46 @@ describe('parent gate UI', () => {
     fireEvent.click(key('Unlock'));
     expect(await screen.findByText('secret parent page')).toBeTruthy();
   });
+
+  /** Holds the lock for the full 2 s, so the PIN pad shows. */
+  async function openPad() {
+    vi.useFakeTimers({ toFake: ['requestAnimationFrame', 'cancelAnimationFrame', 'performance'] });
+    await screen.findByRole('heading', { name: 'Grown-ups only' });
+    fireEvent.pointerDown(holdButton(), { pointerId: 1 });
+    act(() => {
+      vi.advanceTimersByTime(PARENT_GATE_HOLD_MS + 100);
+    });
+    vi.useRealTimers();
+    await screen.findByText('Enter your parent PIN');
+  }
+
+  it('a typed PIN and Enter unlock at once, though focus starts on the 1 key', async () => {
+    await renderParentArea();
+    await openPad();
+    const one = screen.getByRole('button', { name: '1' });
+    expect(document.activeElement).toBe(one);
+    for (const d of '2468') fireEvent.keyDown(one, { key: d });
+    await act(async () => {
+      fireEvent.keyDown(one, { key: 'Enter' });
+    });
+    expect(await screen.findByText('secret parent page')).toBeTruthy();
+  });
+
+  it('leaving the parent area locks it: browser Back shows the gate, not the page', async () => {
+    const { router } = await renderParentArea();
+    await openPad();
+    const key = (name: string) => screen.getByRole('button', { name });
+    for (const d of ['2', '4', '6', '8']) fireEvent.click(key(d));
+    fireEvent.click(key('Unlock'));
+    expect(await screen.findByText('secret parent page')).toBeTruthy();
+    await act(async () => {
+      await router.navigate('/'); // Back to the island
+    });
+    expect(await screen.findByText('child home')).toBeTruthy();
+    await act(async () => {
+      await router.navigate(-1); // the browser's Back
+    });
+    expect(await screen.findByRole('heading', { name: 'Grown-ups only' })).toBeTruthy();
+    expect(screen.queryByText('secret parent page')).toBeNull();
+  });
 });

@@ -50,12 +50,19 @@ test('golden journey 1: fresh setup, two children, this device paired, a second 
   await page.getByLabel('Name for this device').fill(E2E_FAMILY.deviceName);
   await page.getByRole('button', { name: 'Create our island' }).click();
 
-  // 4. AI helpers: key status is read-only; CI has no keys, so every feature stays off.
+  // 4. AI helpers: each feature is a checkbox when the server has its key, else "Off" with what
+  //    it needs. CI has no keys; a developer's `pnpm secrets:link` may provide some, so the step
+  //    follows what /api/health reports. Every feature is saved off unless chosen.
   await expect(page.getByRole('heading', { name: 'AI helpers (optional)' })).toBeVisible();
-  await expect(page.getByText('Needs OPENAI_API_KEY', { exact: false }).first()).toBeVisible();
-  await expect(page.getByText('Needs ANTHROPIC_API_KEY', { exact: false })).toBeVisible();
-  await expect(page.getByText('Off', { exact: true })).toHaveCount(3);
-  await expect(page.getByRole('checkbox')).toHaveCount(0);
+  const health = (await (await page.request.get('/api/health')).json()) as {
+    ai: Record<string, boolean>;
+  };
+  const withKey = Object.values(health.ai).filter(Boolean).length;
+  await expect(page.getByRole('checkbox')).toHaveCount(withKey);
+  await expect(page.getByText('Off', { exact: true })).toHaveCount(3 - withKey);
+  if (withKey < 3) {
+    await expect(page.getByText(/Needs (OPENAI|ANTHROPIC)_API_KEY/).first()).toBeVisible();
+  }
   await page.getByRole('button', { name: 'Save and finish' }).click();
 
   // 5. Ready.

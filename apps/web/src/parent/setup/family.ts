@@ -218,3 +218,25 @@ export async function joinFamily(
   await services.sync.adopt(ids);
   await services.sync.syncNow();
 }
+
+/**
+ * Pairs this device with the parent passphrase instead of a code (08 §2): `POST /auth/login`
+ * starts a parent session, `POST /devices/pair/start` makes a code with it, and the code joins
+ * as above (with the same refusal of another family). This is the way back in when no paired
+ * device is at hand: the only device was signed out, or the first setup's answer was lost after
+ * the server created the family. The parent session ends afterwards, whatever the outcome.
+ */
+export async function joinWithPassphrase(
+  { services, api }: Omit<CreateFamilyDeps, 'gate'>,
+  input: { passphrase: string; deviceName: string },
+): Promise<void> {
+  await api.login(input.passphrase);
+  try {
+    const { code } = await api.pairStart();
+    await joinFamily({ services, api }, { code, deviceName: input.deviceName });
+  } finally {
+    await api.logout().catch(() => {
+      // The session lasts its normal time on the server; nothing on this device depends on it.
+    });
+  }
+}

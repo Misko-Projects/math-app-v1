@@ -1,6 +1,10 @@
 // Pair this device with a family (08 §2: `POST /devices/pair/complete` with the 6-digit code from
 // a parent device), then pull the family's profiles and progress (08 §4).
 //
+// Without a paired device at hand (the only device was signed out, or the first setup's answer
+// was lost after the server created the family), the parent passphrase does the same: it signs in
+// (`POST /auth/login`), makes a code and joins with it (`joinWithPassphrase`).
+//
 // A device that already belonged to a family (signed out, or removed by a parent) rejoins that
 // same family the same way. A code for another family is refused before anything moves
 // (`joinFamily`). Starting such a device over is a grown-up action outside the app: clearing the
@@ -12,18 +16,28 @@ import { Link, useNavigate } from 'react-router';
 import { ApiError, describeApiError } from '@/parent/api';
 import { Button, Field, Notice, TextInput } from '@/parent/kit';
 import { useParentApi } from '@/parent/ParentContext';
-import { guessDeviceName, JoinRefusedError, joinFamily } from '@/parent/setup/family';
+import {
+  guessDeviceName,
+  JoinRefusedError,
+  joinFamily,
+  joinWithPassphrase,
+} from '@/parent/setup/family';
 import { useAppServices } from './AppServices';
 import { useDeviceRecord } from './hooks';
+
+type Mode = 'code' | 'passphrase';
 
 export function JoinPage() {
   const services = useAppServices();
   const api = useParentApi();
   const navigate = useNavigate();
   const device = useDeviceRecord();
+  const [mode, setMode] = useState<Mode>('code');
   const [code, setCode] = useState('');
+  const [passphrase, setPassphrase] = useState('');
   const [deviceName, setDeviceName] = useState(() => guessDeviceName());
   const [codeError, setCodeError] = useState<string | null>(null);
+  const [passphraseError, setPassphraseError] = useState<string | null>(null);
   const [nameError, setNameError] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [otherFamily, setOtherFamily] = useState(false);
@@ -31,25 +45,39 @@ export function JoinPage() {
   const hadFamily = device !== undefined && device.pairedAt !== null;
   const paired = Boolean(device?.deviceToken);
 
+  const switchMode = (next: Mode) => {
+    setMode(next);
+    setError(null);
+    setCodeError(null);
+    setPassphraseError(null);
+    setOtherFamily(false);
+  };
+
   const submit = async (e: FormEvent) => {
     e.preventDefault();
     const c = code.replace(/\D/g, '');
-    const cErr = c.length === 6 ? null : 'Enter all 6 digits of the code.';
+    const cErr = mode === 'code' && c.length !== 6 ? 'Enter all 6 digits of the code.' : null;
+    const pErr =
+      mode === 'passphrase' && !passphrase ? 'Enter the parent passphrase chosen at setup.' : null;
     const nErr = deviceName.trim() ? null : 'Give this device a name, like “Kitchen tablet”.';
     setCodeError(cErr);
+    setPassphraseError(pErr);
     setNameError(nErr);
-    if (cErr || nErr) return;
+    if (cErr || pErr || nErr) return;
     setBusy(true);
     setError(null);
     setOtherFamily(false);
     try {
-      await joinFamily({ services, api }, { code: c, deviceName });
+      if (mode === 'code') await joinFamily({ services, api }, { code: c, deviceName });
+      else await joinWithPassphrase({ services, api }, { passphrase, deviceName });
       navigate('/', { replace: true });
     } catch (err) {
       if (err instanceof JoinRefusedError) {
         setOtherFamily(true);
         setError(
-          'That code is for a different family’s island. This device still holds its own family’s island, so it can only rejoin that one.',
+          mode === 'code'
+            ? 'That code is for a different family’s island. This device still holds its own family’s island, so it can only rejoin that one.'
+            : 'This server holds a different family’s island. This device still holds its own family’s island, so it can only rejoin that one.',
         );
       } else if (
         err instanceof ApiError &&
@@ -57,6 +85,8 @@ export function JoinPage() {
       ) {
         // About the code itself: shown on the code field, which is marked invalid.
         setCodeError(describeApiError(err));
+      } else if (err instanceof ApiError && err.code === 'invalid_credentials') {
+        setPassphraseError('That passphrase isn’t right. Check it and try again.');
       } else {
         setError(describeApiError(err));
       }
@@ -69,42 +99,69 @@ export function JoinPage() {
       <Panel as="section" className="w-full max-w-xl" aria-label="Join your family’s island">
         <h1 className="font-display text-4xl font-extrabold">Join your family’s island</h1>
         <form className="mt-4 flex flex-col gap-5" onSubmit={submit} noValidate>
-          <p className="text-lg">
-            On a device that’s already set up, open the parent area and choose{' '}
-            <strong>Pair a new device</strong>. Type the code it shows here.
-          </p>
+          {mode === 'code' ? (
+            <p className="text-lg">
+              On a device that’s already set up, open the parent area and choose{' '}
+              <strong>Pair a new device</strong>. Type the code it shows here.
+            </p>
+          ) : (
+            <p className="text-lg">
+              No paired device at hand? Type the parent passphrase chosen when the island was set
+              up.
+            </p>
+          )}
           {hadFamily ? (
             <Notice tone="info">
               {paired
-                ? 'This device is paired with a family. Joining with a new code from that family replaces its pairing.'
-                : 'This device is signed out, so it doesn’t sync. Its island stays on it, and children can keep playing. To sync again, join with a code from the same family.'}
+                ? 'This device is paired with a family. Joining that family again replaces its pairing.'
+                : 'This device is signed out, so it doesn’t sync. Its island stays on it, and children can keep playing. To sync again, join the same family with a code or the parent passphrase.'}
             </Notice>
           ) : null}
-          <Field
-            label="Pairing code"
-            error={codeError}
-            hint="The 6-digit code from the parent device. Each code works once, for 10 minutes."
-          >
-            {({ id, describedBy }) => (
-              <TextInput
-                id={id}
-                aria-describedby={describedBy}
-                aria-invalid={codeError ? true : undefined}
-                inputMode="numeric"
-                autoComplete="one-time-code"
-                maxLength={7}
-                value={code}
-                onChange={(e) => {
-                  setCode(e.target.value.replace(/[^\d ]/g, ''));
-                  setError(null);
-                  setCodeError(null);
-                }}
-                // No example digits: an empty field must look empty (a grey sample code reads as
-                // filled in). The hint says what goes here.
-                className="min-h-16 font-display text-3xl! font-bold tracking-[0.3em] tabular-nums"
-              />
-            )}
-          </Field>
+          {mode === 'code' ? (
+            <Field
+              label="Pairing code"
+              error={codeError}
+              hint="The 6-digit code from the parent device. Each code works once, for 10 minutes."
+            >
+              {({ id, describedBy }) => (
+                <TextInput
+                  id={id}
+                  aria-describedby={describedBy}
+                  aria-invalid={codeError ? true : undefined}
+                  inputMode="numeric"
+                  autoComplete="one-time-code"
+                  maxLength={7}
+                  value={code}
+                  onChange={(e) => {
+                    setCode(e.target.value.replace(/[^\d ]/g, ''));
+                    setError(null);
+                    setCodeError(null);
+                  }}
+                  // No example digits: an empty field must look empty (a grey sample code reads
+                  // as filled in). The hint says what goes here.
+                  className="min-h-16 font-display text-3xl! font-bold tracking-[0.3em] tabular-nums"
+                />
+              )}
+            </Field>
+          ) : (
+            <Field label="Parent passphrase" error={passphraseError}>
+              {({ id, describedBy }) => (
+                <TextInput
+                  id={id}
+                  type="password"
+                  autoComplete="current-password"
+                  aria-describedby={describedBy}
+                  aria-invalid={passphraseError ? true : undefined}
+                  value={passphrase}
+                  onChange={(e) => {
+                    setPassphrase(e.target.value);
+                    setError(null);
+                    setPassphraseError(null);
+                  }}
+                />
+              )}
+            </Field>
+          )}
           <Field
             label="Name for this device"
             error={nameError}
@@ -141,6 +198,14 @@ export function JoinPage() {
               Back
             </Link>
           </div>
+          <Button
+            variant="quiet"
+            className="self-start px-0"
+            disabled={busy}
+            onClick={() => switchMode(mode === 'code' ? 'passphrase' : 'code')}
+          >
+            {mode === 'code' ? 'Use the parent passphrase instead' : 'Use a pairing code instead'}
+          </Button>
         </form>
       </Panel>
     </main>

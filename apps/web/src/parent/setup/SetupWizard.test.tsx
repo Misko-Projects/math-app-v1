@@ -114,4 +114,42 @@ describe('Setup Wizard: AI helpers', () => {
     await act(async () => {});
     expect(saved).toEqual([{ feedback: false, parentSummary: false, avatarPhoto: false }]);
   });
+
+  it('a failed save says so and can be tried again, with the same choices', async () => {
+    const api = {
+      health: vi.fn(async () => ({
+        ok: true,
+        version: '0',
+        contentVersion: 'dev',
+        ai: { feedback: true, vision: false, summary: false },
+      })),
+    } as unknown as ParentApi;
+    const tries: AiChoices[] = [];
+    const onDone = vi.fn(async (c: AiChoices) => {
+      tries.push(c);
+      if (tries.length === 1) throw new Error('QuotaExceededError');
+    });
+    render(
+      <ParentContextForTests api={api}>
+        <AiStep onDone={onDone} />
+      </ParentContextForTests>,
+    );
+    const save = await screen.findByRole('button', { name: 'Save and finish' });
+    fireEvent.click(screen.getAllByRole('checkbox')[0] as HTMLElement);
+    await act(async () => {
+      fireEvent.click(save);
+    });
+    expect(
+      screen.getByText('Those choices didn’t save on this device. Please try again.'),
+    ).toBeTruthy();
+    const again = screen.getByRole('button', { name: 'Save and finish' }) as HTMLButtonElement;
+    expect(again.disabled).toBe(false);
+    await act(async () => {
+      fireEvent.click(again);
+    });
+    expect(tries).toEqual([
+      { feedback: true, parentSummary: false, avatarPhoto: false },
+      { feedback: true, parentSummary: false, avatarPhoto: false },
+    ]);
+  });
 });

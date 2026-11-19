@@ -613,6 +613,7 @@ export function AiStep({ onDone }: { onDone: (choices: AiChoices) => Promise<voi
     avatarPhoto: false,
   });
   const [busy, setBusy] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
 
   useEffect(() => {
     const ctl = new AbortController();
@@ -721,16 +722,26 @@ export function AiStep({ onDone }: { onDone: (choices: AiChoices) => Promise<voi
               health && health !== 'unknown'
                 ? health.ai[AI_FEATURES.find((f) => f.key === k)?.provider ?? 'feedback']
                 : true;
-            await onDone({
-              feedback: choices.feedback && keyFor('feedback'),
-              parentSummary: choices.parentSummary && keyFor('parentSummary'),
-              avatarPhoto: choices.avatarPhoto && keyFor('avatarPhoto'),
-            });
+            setSaveError(null);
+            try {
+              await onDone({
+                feedback: choices.feedback && keyFor('feedback'),
+                parentSummary: choices.parentSummary && keyFor('parentSummary'),
+                avatarPhoto: choices.avatarPhoto && keyFor('avatarPhoto'),
+              });
+            } catch (e) {
+              // The device's storage refused the write (quota, a failed transaction): say so and
+              // keep the choices, so Save and finish can be tried again.
+              recordDiagnostic('setup.ai-choices', e);
+              setSaveError('Those choices didn’t save on this device. Please try again.');
+              setBusy(false);
+            }
           }}
         >
           {busy ? 'Saving…' : health === null ? 'Checking the server…' : 'Save and finish'}
         </Button>
       </div>
+      {saveError ? <Notice tone="error">{saveError}</Notice> : null}
     </div>
   );
 }

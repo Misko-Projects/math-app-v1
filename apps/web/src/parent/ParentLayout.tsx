@@ -101,7 +101,16 @@ export function ParentLayout() {
             <OfflineCloud label="Can’t reach the island server: changes sync when it’s back" />
           ) : null}
           <div className="ml-auto flex items-center gap-3">
-            <Button variant="secondary" onClick={() => navigate('/')}>
+            <Button
+              variant="secondary"
+              onClick={() => {
+                // Closed before leaving: the island renders in a transition, and the browser's Back
+                // pressed before it shows must not find the area still open. (RootLayout's guard
+                // locks it for every other way out.)
+                gate.lock();
+                navigate('/');
+              }}
+            >
               Back to the island
             </Button>
             <Button variant="primary" onClick={lock}>

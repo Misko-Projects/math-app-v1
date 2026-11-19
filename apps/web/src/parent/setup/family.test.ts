@@ -9,6 +9,7 @@ import {
   guessDeviceName,
   JoinRefusedError,
   joinFamily,
+  joinWithPassphrase,
   saveAiChoices,
   saveFamilyLocally,
   setupFamilyOnServer,
@@ -205,6 +206,67 @@ describe('joinFamily (pairing by code)', () => {
     expect(app.sync.isRunning()).toBe(false);
     expect((await app.store.allProfiles()).map((p) => p.familyId)).toEqual([SERVER_FAMILY]);
     expect(device.net.syncRequests.length).toBe(sentBefore);
+  });
+});
+
+describe('joinWithPassphrase (no paired device at hand)', () => {
+  it('signs in, makes a code, joins with it, and ends the parent session', async () => {
+    const { app } = await boot();
+    const api = fakeApi();
+    await joinWithPassphrase(
+      { services: app, api },
+      { passphrase: details.passphrase, deviceName: 'Tablet' },
+    );
+    expect(api.login).toHaveBeenCalledWith(details.passphrase);
+    expect(api.pairStart).toHaveBeenCalledTimes(1);
+    expect(api.pairComplete).toHaveBeenCalledWith({ code: '123456', deviceName: 'Tablet' });
+    expect(api.logout).toHaveBeenCalledTimes(1);
+    expect((await app.store.device()).deviceToken).toBe(TOKEN);
+    expect(app.sync.isRunning()).toBe(true);
+  });
+
+  it('rescues the only device after it was signed out (its own family, its data kept)', async () => {
+    const { app } = await boot();
+    const api = fakeApi();
+    await createFamily(
+      { services: app, api, gate: createParentGate({ store: app.store, api }) },
+      {
+        ...details,
+        children: [{ id: KID_A, name: 'Mia', birthYear: 2020, grade: 'K', advanced: false }],
+      },
+    );
+    await app.sync.signOut();
+    await joinWithPassphrase(
+      { services: app, api },
+      { passphrase: details.passphrase, deviceName: 'Tablet' },
+    );
+    expect((await app.store.device()).deviceToken).toBe(TOKEN);
+    expect((await app.store.allProfiles()).map((p) => p.id)).toEqual([KID_A]);
+  });
+
+  it('a wrong passphrase changes nothing; a failed join still ends the parent session', async () => {
+    const { app } = await boot();
+    const wrong = fakeApi({
+      login: vi.fn(async () => {
+        throw new ApiError('invalid_credentials', 401, 'Wrong passphrase');
+      }),
+    });
+    await expect(
+      joinWithPassphrase({ services: app, api: wrong }, { passphrase: 'nope', deviceName: 'T' }),
+    ).rejects.toMatchObject({ code: 'invalid_credentials' });
+    expect(wrong.pairStart).not.toHaveBeenCalled();
+    expect(wrong.logout).not.toHaveBeenCalled();
+    expect((await app.store.device()).deviceToken).toBeUndefined();
+
+    const failing = fakeApi({
+      pairComplete: vi.fn(async () => {
+        throw new ApiError('pair_code_expired', 410, 'Expired');
+      }),
+    });
+    await expect(
+      joinWithPassphrase({ services: app, api: failing }, { passphrase: 'ok', deviceName: 'T' }),
+    ).rejects.toMatchObject({ code: 'pair_code_expired' });
+    expect(failing.logout).toHaveBeenCalledTimes(1);
   });
 });
 
