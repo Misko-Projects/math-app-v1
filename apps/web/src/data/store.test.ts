@@ -393,6 +393,57 @@ describe('tombstones (08 §4)', () => {
   });
 });
 
+describe('putProfiles: several profiles, all or none', () => {
+  it('writes every profile in one go, each stamped', async () => {
+    const env = testEnv();
+    const store = await track(env.open('batch'));
+    const saved = await store.putProfiles([
+      profile(CHILD_K, 'K', 'Ada'),
+      profile(CHILD_G2, '2', 'Ben'),
+    ]);
+    expect(saved.map((p) => p.updatedAt)).toEqual([env.clock.now(), env.clock.now()]);
+    expect((await store.allProfiles()).map((p) => p.name).sort()).toEqual(['Ada', 'Ben']);
+  });
+
+  it('one invalid profile writes none of them', async () => {
+    const store = await track(testEnv().open('batch-invalid'));
+    await expect(
+      store.putProfiles([profile(CHILD_K, 'K', 'Ada'), { ...profile(CHILD_G2, '2'), name: '' }]),
+    ).rejects.toMatchObject({ code: 'invalid_profile' });
+    expect(await store.allProfiles()).toEqual([]);
+  });
+
+  it('a failure after the write, inside the transaction, rolls every profile back', async () => {
+    const store = await track(testEnv().open('batch-rollback'));
+    const table = store.db.profiles;
+    const write = table.bulkPut.bind(table);
+    const spy = vi.spyOn(table, 'bulkPut').mockImplementation((async (
+      ...args: Parameters<typeof write>
+    ) => {
+      await write(...args);
+      throw new Error('disk full'); // the rows were written, then the transaction fails
+    }) as never);
+    await expect(
+      store.putProfiles([profile(CHILD_K, 'K', 'Ada'), profile(CHILD_G2, '2', 'Ben')]),
+    ).rejects.toThrow('disk full');
+    spy.mockRestore();
+    expect(await store.allProfiles()).toEqual([]);
+  });
+
+  it('a deleted child in the list writes none of them', async () => {
+    const env = testEnv();
+    const store = await track(env.open('batch-deleted'));
+    const tomb = serverEvent('child.deleted', { childId: CHILD_K }, env.clock.now(), null, {
+      deviceId: FAMILY,
+    });
+    await store.ingest([tomb], { source: 'server' });
+    await expect(
+      store.putProfiles([profile(CHILD_G2, '2', 'Ben'), profile(CHILD_K, 'K', 'Ada')]),
+    ).rejects.toMatchObject({ code: 'child_deleted' });
+    expect(await store.allProfiles()).toEqual([]);
+  });
+});
+
 describe('profiles and settings (LWW per document)', () => {
   it('putProfile stamps updatedAt; mergeProfiles keeps the newer whole document', async () => {
     const { env, store } = await familyStore();

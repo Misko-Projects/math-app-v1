@@ -1,7 +1,9 @@
 import { expect, test } from '@playwright/test';
 
 test.describe('hello island', { tag: '@smoke' }, () => {
-  test('home page renders with a connected API and no console errors', async ({ page }) => {
+  test('a brand-new device opens on the welcome screen with no console errors', async ({
+    page,
+  }) => {
     const errors: string[] = [];
     page.on('console', (msg) => {
       if (msg.type() === 'error') errors.push(msg.text());
@@ -10,12 +12,13 @@ test.describe('hello island', { tag: '@smoke' }, () => {
 
     await page.goto('/');
 
-    await expect(page.getByRole('heading', { level: 1, name: 'Number Island' })).toBeVisible();
+    await expect(page).toHaveURL(/\/welcome$/);
+    await expect(
+      page.getByRole('heading', { level: 1, name: 'Welcome to Number Island' }),
+    ).toBeVisible();
     await expect(page.getByRole('img', { name: /island/i })).toBeVisible();
-
-    const status = page.getByRole('status');
-    await expect(status).toHaveAttribute('data-status', 'connected');
-    await expect(status).toContainText('Connected');
+    await expect(page.getByRole('link', { name: /Set up our island/ })).toBeVisible();
+    await expect(page.getByRole('link', { name: /Join with a code/ })).toBeVisible();
 
     // No horizontal overflow at this viewport.
     const overflow = await page.evaluate(() => ({
@@ -48,7 +51,9 @@ test.describe('hello island', { tag: '@smoke' }, () => {
 
   test('unknown deep links fall back to the app shell', async ({ page }) => {
     await page.goto('/some/deep/link');
-    await expect(page.getByRole('heading', { level: 1, name: 'Number Island' })).toBeVisible();
-    await expect(page).toHaveURL('/');
+    await expect(
+      page.getByRole('heading', { level: 1, name: 'Welcome to Number Island' }),
+    ).toBeVisible();
+    await expect(page).toHaveURL(/\/welcome$/);
   });
 });
