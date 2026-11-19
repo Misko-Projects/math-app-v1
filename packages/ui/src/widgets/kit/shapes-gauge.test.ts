@@ -183,6 +183,27 @@ describe('GaugeView readings', () => {
     ]);
   });
 
+  it('a minimum off the step grid: ticks start at min, labels at min + k · labelsEvery (CR-1.7)', () => {
+    const g: GaugeSpec = {
+      kind: 'gauge',
+      instrument: 'thermometer',
+      min: -5,
+      max: 25,
+      ticksEvery: 2,
+      labelsEvery: 10,
+      value: 7,
+      unit: 'degC',
+    };
+    const ticks = gaugeTicks(g);
+    expect(ticks[0]).toBe(-5);
+    expect(ticks.at(-1)).toBe(25);
+    expect(ticks.slice(1).every((v, i) => Math.abs(v - (ticks[i] as number) - 2) < 1e-9)).toBe(
+      true,
+    );
+    expect(ticks).toContain(7);
+    expect(gaugeLabels(g, 100, 40)).toEqual([-5, 5, 15, 25]);
+  });
+
   it('the beaker water and the thermometer column stop exactly at the value', () => {
     const beaker: GaugeSpec = { ...scale, instrument: 'beaker', unit: 'L', value: 3 };
     const y = levelY(beaker, 3, BEAKER.top, BEAKER.bottom);

@@ -1,6 +1,5 @@
 import type { StimulusSpec } from '@number-island/shared';
 import { pictureProps } from './a11y';
-import { stepsBetween } from './NumberLineView';
 import './gauge.css';
 
 /**
@@ -31,9 +30,17 @@ const clamp01 = (x: number) => Math.min(1, Math.max(0, x));
 export const gaugeFraction = (g: GaugeSpec, v: number): number =>
   clamp01((v - g.min) / (g.max - g.min || 1));
 
-/** Tick values (every ticksEvery, from min to max). */
-export const gaugeTicks = (g: GaugeSpec): number[] =>
-  stepsBetween(g.min, g.max, g.ticksEvery > 0 ? g.ticksEvery : null);
+/** Values from `from` to `to` in steps of `step`, counted from `from` (integer steps, no drift). */
+function stepsFrom(from: number, to: number, step: number): number[] {
+  if (!(step > 0)) return [];
+  const n = Math.floor((to - from) / step + 1e-9);
+  return Array.from({ length: Math.min(n, 2000) + 1 }, (_, i) =>
+    Number((from + i * step).toFixed(6)),
+  );
+}
+
+/** Tick values: min, min + ticksEvery, … up to max (a gauge starts its scale at its min). */
+export const gaugeTicks = (g: GaugeSpec): number[] => stepsFrom(g.min, g.max, g.ticksEvery);
 
 const onStep = (v: number, from: number, step: number) =>
   Math.abs((v - from) / step - Math.round((v - from) / step)) < 1e-6;
