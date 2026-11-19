@@ -127,7 +127,11 @@ export async function saveFamilyLocally(
   return saveChildren(services, children);
 }
 
-/** Writes each child's profile under its own id (an upsert: a retry saves each exactly once). */
+/**
+ * Writes the children's profiles, each under its own id, in one transaction: all or none, so an
+ * interruption (a reload, a full disk) never leaves part of the list. An upsert, so a retry
+ * saves each child exactly once.
+ */
 async function putChildren(
   services: Pick<AppServices, 'store' | 'content'>,
   children: readonly NewChild[],
@@ -135,25 +139,21 @@ async function putChildren(
   const { store } = services;
   const device = await store.device();
   const avatar = startingAvatar(services.content.store.gameData);
-  const saved: ChildProfile[] = [];
-  for (const child of children) {
-    const now = store.now();
-    saved.push(
-      await store.putProfile({
-        id: child.id,
-        familyId: device.familyId,
-        name: child.name.trim(),
-        birthYear: child.birthYear,
-        grade: child.grade,
-        advanced: child.advanced,
-        avatar,
-        picturePasswordHash: null,
-        createdAt: now,
-        updatedAt: now,
-      }),
-    );
-  }
-  return saved;
+  const now = store.now();
+  return store.putProfiles(
+    children.map((child) => ({
+      id: child.id,
+      familyId: device.familyId,
+      name: child.name.trim(),
+      birthYear: child.birthYear,
+      grade: child.grade,
+      advanced: child.advanced,
+      avatar,
+      picturePasswordHash: null,
+      createdAt: now,
+      updatedAt: now,
+    })),
+  );
 }
 
 /** The wizard's children, then the new family's settings (its defaults and this timezone). */

@@ -338,15 +338,16 @@ describe('setup, step by step', () => {
       { id: KID_A, name: 'Mia', birthYear: 2020, grade: 'K' as const, advanced: false },
       { id: KID_B, name: 'Leo', birthYear: 2018, grade: '2' as const, advanced: true },
     ];
-    const put = app.store.putProfile.bind(app.store);
+    const put = app.store.putProfiles.bind(app.store);
     let calls = 0;
-    app.store.putProfile = async (p) => {
+    app.store.putProfiles = async (p) => {
       calls += 1;
-      if (calls === 2) throw new Error('QuotaExceededError');
+      if (calls === 1) throw new Error('QuotaExceededError');
       return put(p);
     };
     await expect(saveFamilyLocally(app, ids, kids)).rejects.toThrow('QuotaExceededError');
-    expect((await app.store.allProfiles()).map((p) => p.id)).toEqual([KID_A]);
+    // One transaction for all the children: a failed write leaves none of them, never a part.
+    expect(await app.store.allProfiles()).toEqual([]);
     await saveFamilyLocally(app, ids, kids);
     expect((await app.store.allProfiles()).map((p) => p.id).sort()).toEqual([KID_A, KID_B].sort());
     expect(api.setup).toHaveBeenCalledTimes(1);

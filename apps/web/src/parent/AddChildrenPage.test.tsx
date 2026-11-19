@@ -11,7 +11,8 @@ import { ParentContextForTests } from './ParentContext';
 import { ParentHome } from './ParentHome';
 
 // A setup whose answer was lost: the server made the family, the parent joined it with the
-// passphrase, and the wizard never saved its children. The parent area lets them be added.
+// passphrase, and the wizard never saved its children. The parent area lets them be added. A save
+// never navigates by itself: when done, the page shows what was added and a Done button.
 
 const booted: AppServices[] = [];
 let restore = () => {};
@@ -20,6 +21,8 @@ afterEach(() => {
   for (const s of booted.splice(0)) s.dispose();
   restore();
 });
+
+const ADD = '/parent/children/add';
 
 async function renderParentArea(path: string, entries: string[] = [path]) {
   const device = testDevice();
@@ -33,7 +36,7 @@ async function renderParentArea(path: string, entries: string[] = [path]) {
     [
       { path: '/', element: <p>island</p> },
       { path: '/parent', element: <ParentHome /> },
-      { path: '/parent/children/add', element: <AddChildrenPage /> },
+      { path: ADD, element: <AddChildrenPage /> },
     ],
     { initialEntries: entries, initialIndex: entries.lastIndexOf(path) },
   );
@@ -47,6 +50,39 @@ async function renderParentArea(path: string, entries: string[] = [path]) {
   return { app, router };
 }
 
+/** Holds the profile write until `release()`. */
+function holdWrites(app: AppServices) {
+  let release: () => void = () => {};
+  const held = new Promise<void>((r) => {
+    release = r;
+  });
+  const real = app.store.putProfiles.bind(app.store);
+  vi.spyOn(app.store, 'putProfiles').mockImplementation(async (p) => {
+    await held;
+    return real(p);
+  });
+  return () => release();
+}
+
+async function addChild(name: string, first: boolean) {
+  if (!first) fireEvent.click(screen.getByRole('button', { name: '+ Add another child' }));
+  fireEvent.change(screen.getByLabelText('First name or nickname'), { target: { value: name } });
+  fireEvent.click(screen.getByRole('button', { name: 'Add child' }));
+}
+
+async function draft(...names: string[]) {
+  await screen.findByRole('heading', { name: 'Add your children' });
+  for (const [i, name] of names.entries()) await addChild(name, i === 0);
+}
+
+async function save() {
+  await act(async () => {
+    fireEvent.click(screen.getByRole('button', { name: 'Save children' }));
+  });
+}
+
+const names = async (app: AppServices) => (await app.store.allProfiles()).map((p) => p.name).sort();
+
 describe('adding children from the parent area', () => {
   it('a family with no children is offered Add your children', async () => {
     const { router } = await renderParentArea('/parent');
@@ -54,57 +90,51 @@ describe('adding children from the parent area', () => {
     await act(async () => {
       fireEvent.click(screen.getByRole('button', { name: 'Add your children' }));
     });
-    expect(router.state.location.pathname).toBe('/parent/children/add');
+    expect(router.state.location.pathname).toBe(ADD);
   });
 
-  it('saves the children’s profiles in this family, and leaves the family settings alone', async () => {
-    const { app, router } = await renderParentArea('/parent/children/add');
-    await screen.findByRole('heading', { name: 'Add your children' });
-    fireEvent.change(screen.getByLabelText('First name or nickname'), {
-      target: { value: 'Mia' },
-    });
-    fireEvent.click(screen.getByRole('button', { name: 'Add child' }));
-    await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: 'Save children' }));
-    });
-    // Back on the parent home, which now lists the child.
-    expect(await screen.findByText('Mia plays on this island.')).toBeTruthy();
-    expect(router.state.location.pathname).toBe('/parent');
-    expect(screen.queryByRole('button', { name: 'Add your children' })).toBeNull();
-    const profiles = await app.store.allProfiles();
-    expect(profiles.map((p) => [p.name, p.familyId])).toEqual([['Mia', SERVER_FAMILY]]);
+  it('saves the profiles in this family, says so, and leaves no saved child as a draft', async () => {
+    const { app, router } = await renderParentArea(ADD);
+    await draft('Mia', 'Leo');
+    await save();
+    expect(await screen.findByText('Mia and Leo can start playing now.')).toBeTruthy();
+    // The saved children are not an editable draft any more.
+    expect(screen.queryByRole('button', { name: 'Remove Mia' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Save children' })).toBeNull();
+    expect(router.state.location.pathname).toBe(ADD); // no navigation by itself
+    expect(await names(app)).toEqual(['Leo', 'Mia']);
+    expect((await app.store.allProfiles()).every((p) => p.familyId === SERVER_FAMILY)).toBe(true);
     expect((await app.store.allSettings()).some((s) => s.key === 'family')).toBe(false);
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Done' }));
+    });
+    expect(await screen.findByText('Mia and Leo play on this island.')).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Add your children' })).toBeNull();
   });
 
-  /** Holds every profile write until `release()`. */
-  function holdWrites(app: AppServices) {
-    let release: () => void = () => {};
-    const held = new Promise<void>((r) => {
-      release = r;
-    });
-    const real = app.store.putProfile.bind(app.store);
-    vi.spyOn(app.store, 'putProfile').mockImplementation(async (p) => {
-      await held;
-      return real(p);
-    });
-    return () => release();
-  }
-
-  async function addMiaAndSave() {
-    await screen.findByRole('heading', { name: 'Add your children' });
-    fireEvent.change(screen.getByLabelText('First name or nickname'), {
-      target: { value: 'Mia' },
-    });
-    fireEvent.click(screen.getByRole('button', { name: 'Add child' }));
-    await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: 'Save children' }));
-    });
-  }
+  it('a failed save writes nothing and keeps the draft; trying again saves each child once', async () => {
+    const { app } = await renderParentArea(ADD);
+    const real = app.store.putProfiles.bind(app.store);
+    vi.spyOn(app.store, 'putProfiles')
+      .mockRejectedValueOnce(new Error('QuotaExceededError'))
+      .mockImplementation(real);
+    await draft('Mia', 'Leo');
+    await save();
+    expect(
+      await screen.findByText('Those children didn’t save on this device. Please try again.'),
+    ).toBeTruthy();
+    expect(await names(app)).toEqual([]);
+    expect(screen.getByRole('button', { name: 'Edit Mia' })).toBeTruthy(); // the draft is kept
+    await save();
+    expect(await screen.findByText('Mia and Leo can start playing now.')).toBeTruthy();
+    expect(await names(app)).toEqual(['Leo', 'Mia']);
+  });
 
   it('while saving, the draft can’t change: Edit, Remove and Add another child are disabled', async () => {
-    const { app } = await renderParentArea('/parent/children/add');
+    const { app } = await renderParentArea(ADD);
     const release = holdWrites(app);
-    await addMiaAndSave();
+    await draft('Mia');
+    await save();
     // Disabled through the step's fieldset (`:disabled` covers that; the `disabled` property doesn't).
     const disabled = (name: string) => screen.getByRole('button', { name }).matches(':disabled');
     expect(disabled('Edit Mia')).toBe(true);
@@ -116,105 +146,96 @@ describe('adding children from the parent area', () => {
     await act(async () => {
       release();
     });
-    expect(await screen.findByText('Mia plays on this island.')).toBeTruthy();
+    expect(await screen.findByText('Mia can start playing now.')).toBeTruthy();
   });
 
-  it('a save that ends after the parent left never pulls them back', async () => {
-    const { app, router } = await renderParentArea('/parent/children/add');
+  // Every way a save can overlap navigation: the page never navigates after a save, so wherever
+  // the parent went is where they stay.
+
+  it('Back to the island during the save stays on the island', async () => {
+    const { app, router } = await renderParentArea(ADD);
     const release = holdWrites(app);
-    await addMiaAndSave();
+    await draft('Mia');
+    await save();
     await act(async () => {
-      await router.navigate('/'); // Back to the island while the save runs
+      await router.navigate('/');
     });
     await act(async () => {
       release();
     });
-    await waitFor(async () => expect((await app.store.allProfiles()).length).toBe(1));
+    await waitFor(async () => expect(await names(app)).toEqual(['Mia']));
     expect(router.state.location.pathname).toBe('/');
   });
 
   it('a save ending while the page is still on screen, but the router has left, stays put', async () => {
-    const { app, router } = await renderParentArea('/parent/children/add');
+    const { app, router } = await renderParentArea(ADD);
     const release = holdWrites(app);
-    await addMiaAndSave();
+    await draft('Mia');
+    await save();
     await act(async () => {
       void router.navigate('/'); // the router takes the new location at once…
       expect(router.state.location.pathname).toBe('/');
-      expect(screen.getByRole('heading', { name: 'Add your children' })).toBeTruthy(); // …the page is still shown
+      expect(screen.getByRole('heading', { name: 'Add your children' })).toBeTruthy(); // …still shown
       release(); // and the save ends in that same moment
       await new Promise((r) => setTimeout(r, 50));
     });
-    expect((await app.store.allProfiles()).map((p) => p.name)).toEqual(['Mia']);
+    expect(await names(app)).toEqual(['Mia']);
     expect(router.state.location.pathname).toBe('/');
     expect(await screen.findByText('island')).toBeTruthy();
   });
 
-  it('after a jump to another Add children entry, a save still returns to the parent home', async () => {
-    const device = testDevice();
-    restore = device.enableLiveQueries();
-    const app = await device.boot();
-    booted.push(app);
-    await app.sync.adopt({ familyId: SERVER_FAMILY, deviceId: SERVER_DEVICE, deviceToken: TOKEN });
-    const api = { logout: vi.fn(), pairStart: vi.fn() } as unknown as ParentApi;
-    const gate = createParentGate({ store: app.store, api });
-    const router = createMemoryRouter(
-      [
-        { path: '/', element: <p>island</p> },
-        { path: '/parent', element: <ParentHome /> },
-        { path: '/parent/children/add', element: <AddChildrenPage /> },
-      ],
-      {
-        initialEntries: ['/parent/children/add', '/parent', '/parent/children/add'],
-        initialIndex: 2,
-      },
-    );
-    render(
-      <AppProviders services={app}>
-        <ParentContextForTests api={api} gate={gate}>
-          <RouterProvider router={router} />
-        </ParentContextForTests>
-      </AppProviders>,
-    );
-    await screen.findByRole('heading', { name: 'Add your children' });
-    const before = router.state.location.key;
+  it('Save pressed on the still-shown form after the router left keeps the parent’s destination', async () => {
+    const { app, router } = await renderParentArea(ADD);
+    await draft('Mia');
     await act(async () => {
-      await router.navigate(-2); // the browser's history menu: the first Add children entry
+      void router.navigate('/'); // the browser's Back to the island…
+      const island = router.state.location.key;
+      // …and Save on the form that is still on screen, before the route change is drawn.
+      fireEvent.click(screen.getByRole('button', { name: 'Save children' }));
+      await new Promise((r) => setTimeout(r, 50));
+      expect(router.state.location.key).toBe(island);
     });
-    expect(router.state.location.key).not.toBe(before);
-    expect(router.state.location.pathname).toBe('/parent/children/add');
-    await addMiaAndSave();
-    expect(await screen.findByText('Mia plays on this island.')).toBeTruthy();
-    expect((await app.store.allProfiles()).map((p) => p.name)).toEqual(['Mia']);
+    expect(router.state.location.pathname).toBe('/');
+    expect(await screen.findByText('island')).toBeTruthy();
+    expect(await names(app)).toEqual(['Mia']);
   });
 
-  it('a jump to another Add children entry during the save: no redirect, and the form is free again', async () => {
-    const entries = ['/parent/children/add', '/parent', '/parent/children/add'];
-    const { app, router } = await renderParentArea('/parent/children/add', entries);
+  it('a jump to another Add children entry during the save stays there, showing what was added', async () => {
+    const { app, router } = await renderParentArea(ADD, [ADD, '/parent', ADD]);
     const release = holdWrites(app);
-    await addMiaAndSave();
-    const startedOn = router.state.location.key;
+    await draft('Mia');
+    await save();
     await act(async () => {
       await router.navigate(-2); // the history menu, while the save runs
     });
     const jumpedTo = router.state.location.key;
-    expect(jumpedTo).not.toBe(startedOn);
     await act(async () => {
       release();
     });
-    await waitFor(async () => expect((await app.store.allProfiles()).length).toBe(1));
-    // Stays on the entry the parent chose, with the form released (not stuck on Saving…).
+    expect(await screen.findByText('Mia can start playing now.')).toBeTruthy();
     expect(router.state.location.key).toBe(jumpedTo);
-    expect(
-      (await screen.findByRole('button', { name: 'Save children' })).matches(':disabled'),
-    ).toBe(false);
+    expect(await names(app)).toEqual(['Mia']);
+  });
+
+  it('after a jump to another Add children entry, a save completes', async () => {
+    const { app, router } = await renderParentArea(ADD, [ADD, '/parent', ADD]);
+    await screen.findByRole('heading', { name: 'Add your children' });
+    const before = router.state.location.key;
+    await act(async () => {
+      await router.navigate(-2);
+    });
+    expect(router.state.location.key).not.toBe(before);
+    await draft('Mia');
+    await save();
+    expect(await screen.findByText('Mia can start playing now.')).toBeTruthy();
+    expect(await names(app)).toEqual(['Mia']);
   });
 
   it('Forward during the save (to the parent home) stays there', async () => {
-    const entries = ['/parent/children/add', '/parent'];
-    const { app, router } = await renderParentArea('/parent/children/add', entries);
-    // renderParentArea opened the first entry; Forward leads to the parent home.
+    const { app, router } = await renderParentArea(ADD, [ADD, '/parent']);
     const release = holdWrites(app);
-    await addMiaAndSave();
+    await draft('Mia');
+    await save();
     await act(async () => {
       await router.navigate(1);
     });
@@ -223,11 +244,11 @@ describe('adding children from the parent area', () => {
     });
     expect(await screen.findByText('Mia plays on this island.')).toBeTruthy();
     expect(router.state.location.pathname).toBe('/parent');
-    expect(router.state.historyAction).toBe('POP'); // it is the Forward, not a redirect (REPLACE)
+    expect(router.state.historyAction).toBe('POP');
   });
 
   it('needs at least one child before saving', async () => {
-    const { app } = await renderParentArea('/parent/children/add');
+    const { app } = await renderParentArea(ADD);
     await screen.findByRole('heading', { name: 'Add your children' });
     fireEvent.click(screen.getByRole('button', { name: 'Save children' }));
     expect(screen.getByText('Add at least one child to continue.')).toBeTruthy();
