@@ -513,7 +513,7 @@ describe('state checkers (03 §5.7)', () => {
       'select.exactSet',
     ];
     for (const id of ids) expect(stateChecker(id)?.id).toBe(id);
-    expect(stateChecker('baseten.value')).toBeUndefined();
+    expect(stateChecker('not.a.checker' as StateCheckerId)).toBeUndefined();
   });
 });
 

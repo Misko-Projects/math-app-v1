@@ -14,6 +14,32 @@ export { render } from './content/render';
 export * from './folds';
 export type { FormatModel, FormatState } from './formats';
 export { formatFeatures, formatModel, formatModels, UnsupportedOpError } from './formats';
+// U04 (#13) format state types and the helpers their widgets render from.
+export {
+  type AreaTilesState,
+  isRectangle,
+  isRectPiece,
+  maskArea,
+  regionPieces,
+  type Split,
+} from './formats/area-tiles';
+export { type ArrayBuildState, alreadyFound, rectanglesOf } from './formats/array-build';
+export { type BaseTenBuildState, traySupply } from './formats/base-ten-build';
+export { type BaseTenTradeState, computeResult, htoValue } from './formats/base-ten-trade';
+export { type EqualGroupsState, GROUP_CAPACITY, groupsUnknown } from './formats/equal-groups';
+export { type EqualShareState, shareChoices } from './formats/equal-share';
+export { blankIds, type ExpandedFormState } from './formats/expanded-form';
+export {
+  COLUMNS,
+  type Column,
+  canonicalPieces,
+  type Hto,
+  PIECE_KINDS,
+  PIECE_VALUE,
+  type PieceKind,
+  type Pieces,
+  piecesValue,
+} from './formats/place-value';
 export {
   type BuildContext,
   GenerationError,

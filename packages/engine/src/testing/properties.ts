@@ -262,6 +262,41 @@ function stateMutation(original: StateValue): fc.Arbitrary<StateValue> {
       }),
     );
   }
+  // U04 (#13) state shapes: base-ten pieces and mat columns, array dimensions and split line,
+  // container and share counts, and the leftover. One piece, row, column or item more or less.
+  for (const key of ['thousands', 'hundreds', 'tens', 'ones', 'cols', 'split', 'leftover']) {
+    if (typeof original[key] === 'number') {
+      options.push(
+        fc.constantFrom(1, -1).map((d) => {
+          const s = clone();
+          s[key] = (original[key] as number) + d;
+          return s;
+        }),
+      );
+    }
+  }
+  if (typeof original.rows === 'number') {
+    options.push(
+      fc.constantFrom(1, -1).map((d) => {
+        const s = clone();
+        s.rows = (original.rows as number) + d;
+        return s;
+      }),
+    );
+  }
+  for (const key of ['groups', 'shares'] as const) {
+    const arr = original[key];
+    if (Array.isArray(arr) && arr.length > 0) {
+      options.push(
+        fc.tuple(fc.nat({ max: arr.length - 1 }), fc.constantFrom(1, -1)).map(([i, d]) => {
+          const s = clone();
+          const a = s[key] as number[];
+          a[i] = (a[i] as number) + d;
+          return s;
+        }),
+      );
+    }
+  }
   if (typeof original.value === 'number') {
     options.push(
       fc.constantFrom(1, -1).map((d) => {
