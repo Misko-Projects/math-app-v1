@@ -225,7 +225,7 @@ const palmTree = decor(
           />
           {rings.map((r) => (
             <path
-              key={r.x}
+              key={`${r.x},${r.y}`}
               d={`M${r.x - r.nx * 4.5} ${r.y - r.ny * 4.5}q${r.ny * 2} ${-r.nx * 2} ${r.nx * 9} ${r.ny * 9}`}
               fill="none"
               stroke={paint('wood-deep')}

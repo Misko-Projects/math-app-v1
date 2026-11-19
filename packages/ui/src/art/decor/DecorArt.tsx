@@ -84,6 +84,20 @@ export interface DecorTileProps extends ArtProps {
 const TILE_PAD = 8;
 const LIP = 9;
 
+/** The top of a DecorTile's viewBox: the art's top or the plot's back edge, less the padding. */
+function tileTop(id: DecorId): number {
+  const def = DECOR[id];
+  return Math.min(def.viewBox.y, -def.footprint[1] * 70) - TILE_PAD;
+}
+
+/**
+ * The size of a DecorTile's viewBox in scene units (the plot, the art above it, padding and lip),
+ * for laying out cards: at `size` px wide a tile is `size * h / w` px tall.
+ */
+export function decorTileBox(id: DecorId): { w: number; h: number } {
+  return { w: DECOR[id].footprint[0] * 100 + 2 * TILE_PAD, h: -tileTop(id) + LIP + TILE_PAD };
+}
+
 /**
  * A decor item standing on its own plot (its footprint drawn as a little island tile), for shop
  * and reward cards and the gallery: shows how big the item is and how it sits on the ground.
@@ -92,7 +106,7 @@ export function DecorTile({ id, ground = 'sand', lighting, ...art }: DecorTilePr
   const def = DECOR[id];
   const w = def.footprint[0] * 100;
   const h = def.footprint[1] * 70;
-  const top = Math.min(def.viewBox.y, -h) - TILE_PAD;
+  const top = tileTop(id);
   const x0 = -w / 2 - TILE_PAD;
   const fill = ground === 'grass' ? 'leaf-light' : 'sand';
   const edge = ground === 'grass' ? 'leaf-deep' : 'sand-deep';

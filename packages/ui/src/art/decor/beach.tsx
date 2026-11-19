@@ -28,7 +28,7 @@ const beachUmbrella = decor([1, 1], -120, -16, 'beach', () => {
         const q = pts[i + 1] as { x: number; y: number };
         return (
           <path
-            key={p.x}
+            key={`${p.x},${p.y}`}
             d={`M${apex.x} ${apex.y}L${p.x} ${p.y}A${s} ${s} 0 0 0 ${q.x} ${q.y}Z`}
             fill={paint(i % 2 ? 'paper' : 'coral')}
             stroke={paint('coral-deep')}

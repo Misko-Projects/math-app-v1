@@ -2,9 +2,16 @@ import type { Meta, StoryObj } from '@storybook/react-vite';
 import type { CSSProperties, ReactNode } from 'react';
 import { expect } from 'storybook/test';
 import { ProductTray } from '../../primitives/ProductTray';
+import { CVD_FILTERS } from '../../tokens/cvd';
 import type { Lighting } from '../../tokens/tokens';
-import { expectCellsApart, expectNoSidewaysScroll } from '../decor/galleryChecks';
-import { CvdCompare, GallerySection } from '../gallery/Gallery';
+import {
+  expectArtInsideCells,
+  expectCellsApart,
+  expectOneScreen,
+  GALLERY_ROOM,
+  GALLERY_VIEWPORT,
+} from '../decor/galleryChecks';
+import { CvdMatrix, GallerySection } from '../gallery/Gallery';
 import { MATERIAL_IDS, type MaterialId, materialArt } from '.';
 
 /**
@@ -20,53 +27,71 @@ interface MaterialArgs {
 
 const name = (id: string) => id.replace('-', ' ');
 
+const CELL = { pad: 8, border: 3, gap: 6, captionH: 20 } as const;
+const GRID_GAP = 16;
+
 const cellStyle: CSSProperties = {
   margin: 0,
   display: 'grid',
   justifyItems: 'center',
   alignContent: 'end',
-  gap: 8,
-  padding: 12,
+  gap: CELL.gap,
+  padding: CELL.pad,
   borderRadius: 20,
   background: 'var(--color-paper)',
-  border: '3px solid var(--color-sand-shadow)',
+  border: `${CELL.border}px solid var(--color-sand-deep)`,
+  boxSizing: 'border-box',
 };
 
 function Cell({ id, children, style }: { id: string; children: ReactNode; style?: CSSProperties }) {
   return (
     <figure data-cell={id} style={{ ...cellStyle, ...style }}>
       {children}
-      <figcaption className="story-cell__name" style={{ color: 'var(--color-ink)' }}>
+      <figcaption
+        className="story-cell__name"
+        style={{ color: 'var(--color-ink)', lineHeight: `${CELL.captionH}px` }}
+      >
         {name(id.split('@')[0] ?? id)}
       </figcaption>
     </figure>
   );
 }
 
+/** Columns for 14 icons at `size`: as few rows as fit the room, then the rows evened out. */
+function iconCols(size: number): number {
+  const fit = Math.floor(
+    (GALLERY_ROOM.w + GRID_GAP) / (size + 2 * (CELL.pad + CELL.border) + 16 + GRID_GAP),
+  );
+  const rows = Math.ceil(MATERIAL_IDS.length / Math.max(1, fit));
+  return Math.ceil(MATERIAL_IDS.length / rows);
+}
+
 function IconGrid({
   size,
   lighting,
-  title = true,
+  row,
 }: {
   size: number;
   lighting?: Lighting;
-  title?: boolean;
+  /** A test hook naming the grid. */
+  row?: string;
 }) {
   return (
     <div
       data-lighting={lighting}
+      data-row={row}
       style={{
         display: 'grid',
-        gridTemplateColumns: `repeat(auto-fill, minmax(${Math.max(112, size + 28)}px, 1fr))`,
-        gap: 16,
-        width: 'min(1180px, 100%)',
+        gridTemplateColumns: `repeat(${iconCols(size)}, minmax(0, 1fr))`,
+        gap: GRID_GAP,
+        width: `min(${GALLERY_ROOM.w}px, 100%)`,
       }}
     >
       {MATERIAL_IDS.map((id) => {
         const Icon = materialArt[id];
         return (
-          <Cell key={id} id={id}>
-            <Icon size={size} lighting={lighting} title={title ? name(id) : undefined} />
+          <Cell key={id} id={row ? `${id}@${row}` : id}>
+            <Icon size={size} lighting={lighting} title={name(id)} />
           </Cell>
         );
       })}
@@ -76,7 +101,8 @@ function IconGrid({
 
 const meta = {
   title: 'Art Gallery/Materials',
-  parameters: { ui: { stage: 'padded' } },
+  parameters: { ui: { stage: 'centered' }, ...GALLERY_VIEWPORT.parameters },
+  globals: GALLERY_VIEWPORT.globals,
   argTypes: {
     size: { control: { type: 'range', min: 32, max: 160, step: 4 } },
     lighting: { control: 'inline-radio', options: ['day', 'sunset'] },
@@ -102,68 +128,69 @@ export const Icons: Story = {
       await expect(Math.round(s.getBoundingClientRect().width)).toBe(args.size);
     }
     await expectCellsApart(canvasElement);
-    await expectNoSidewaysScroll();
+    await expectArtInsideCells(canvasElement);
+    await expectOneScreen();
   },
 };
 
-/** 48 px (the tray) and 96 px side by side, then the 48 px icons under simulated CVD. */
+const TITLE = { h: 24, gap: 10 } as const;
+const MATRIX_COL = 64;
+
+function SizeSection({ title, children }: { title: string; children: ReactNode }) {
+  return (
+    <section aria-label={title} style={{ display: 'grid', gap: TITLE.gap }}>
+      <h2
+        className="story-heading"
+        style={{ margin: 0, fontSize: '1.25rem', lineHeight: `${TITLE.h}px` }}
+      >
+        {title}
+      </h2>
+      {children}
+    </section>
+  );
+}
+
+/**
+ * Every icon at 96 px, then at the product tray's 48 px under each simulated colour-vision
+ * deficiency (06 §7): a row per simulation, a column per material, so each silhouette can be
+ * compared down its column.
+ */
 export const Sizes: Story = {
   parameters: { controls: { disable: true } },
   render: () => (
-    <div style={{ display: 'grid', gap: 28, justifyItems: 'center' }}>
-      {[48, 96].map((size) => (
-        <GallerySection key={size} title={`${size} px`}>
-          <div
-            data-row={size}
-            style={{
-              display: 'flex',
-              flexWrap: 'wrap',
-              gap: 12,
-              justifyContent: 'center',
-              width: 'min(1180px, 100%)',
-            }}
-          >
-            {MATERIAL_IDS.map((id) => {
-              const Icon = materialArt[id];
-              return (
-                <Cell key={id} id={`${id}@${size}`} style={{ padding: 8, minWidth: size + 16 }}>
-                  <Icon size={size} title={name(id)} />
-                </Cell>
-              );
-            })}
-          </div>
-        </GallerySection>
-      ))}
-      <GallerySection title="Silhouettes under colour-vision simulation">
-        <div style={{ width: 'min(1180px, calc(100vw - 80px))' }}>
-          <CvdCompare col={300}>
-            <div
-              style={{
-                display: 'grid',
-                gridTemplateColumns: 'repeat(5, 48px)',
-                gap: 10,
-                justifyContent: 'center',
-              }}
-            >
-              {MATERIAL_IDS.map((id) => {
-                const Icon = materialArt[id];
-                return <Icon key={id} size={48} />;
-              })}
-            </div>
-          </CvdCompare>
-        </div>
-      </GallerySection>
+    <div style={{ display: 'grid', gap: 20, width: `min(${GALLERY_ROOM.w}px, 100%)` }}>
+      <SizeSection title="Every material, large">
+        <IconGrid size={96} row="96" />
+      </SizeSection>
+      <SizeSection title="At the product tray's size, under colour-vision simulations">
+        <CvdMatrix
+          columns={MATERIAL_IDS.map((id) => ({ key: id, label: name(id), width: MATRIX_COL }))}
+          cell={(id) => {
+            const Icon = materialArt[id as MaterialId];
+            return <Icon size={48} title={name(id)} />;
+          }}
+          headSize="0.8rem"
+          rowGap={6}
+          colGap={8}
+        />
+      </SizeSection>
     </div>
   ),
   play: async ({ canvasElement }) => {
-    for (const size of [48, 96]) {
-      const row = canvasElement.querySelector(`[data-row="${size}"]`) as HTMLElement;
-      const icons = row.querySelectorAll<SVGSVGElement>('svg[data-material]');
-      await expect(icons.length).toBe(MATERIAL_IDS.length);
-      for (const s of icons) await expect(Math.round(s.getBoundingClientRect().width)).toBe(size);
+    const big = canvasElement.querySelectorAll<SVGSVGElement>('[data-row="96"] svg[data-material]');
+    await expect(big.length).toBe(MATERIAL_IDS.length);
+    for (const s of big) await expect(Math.round(s.getBoundingClientRect().width)).toBe(96);
+    await expect(canvasElement.querySelectorAll('[data-col]').length).toBe(MATERIAL_IDS.length);
+    for (const f of CVD_FILTERS) {
+      const row = canvasElement.querySelector(`[data-cvd-row="${f.id}"]`) as HTMLElement;
+      await expect(row.textContent).toContain(f.name);
+      const icons = [...row.querySelectorAll<SVGSVGElement>('svg[data-material]')];
+      await expect(icons.map((s) => s.dataset.material)).toEqual([...MATERIAL_IDS]);
+      for (const s of icons) await expect(Math.round(s.getBoundingClientRect().width)).toBe(48);
     }
     await expectCellsApart(canvasElement);
-    await expectNoSidewaysScroll();
+    await expectArtInsideCells(canvasElement);
+    await expectOneScreen();
   },
 };
 
@@ -173,27 +200,43 @@ const tray = (ids: readonly MaterialId[]) =>
     return { id: `${id}-${i}`, icon: <Icon /> };
   });
 
+/** A tray with its caption above it; captions carry counts, so they are ≥ 32 px (05 §11). */
+function TraySection({ title, children }: { title: string; children: ReactNode }) {
+  return (
+    <section aria-label={title} data-cell={title} style={{ display: 'grid', gap: 10 }}>
+      <h2 className="story-heading" style={{ margin: 0, fontSize: '2rem', lineHeight: 1.2 }}>
+        {title}
+      </h2>
+      {children}
+    </section>
+  );
+}
+
 /** Icons where they live: the workshop's product tray, in ten-frames (05 §4 rule 3, 06 §2). */
 export const InTray: Story = {
   parameters: { controls: { disable: true } },
   render: () => (
-    <div style={{ display: 'grid', gap: 28, justifyItems: 'center' }}>
-      <GallerySection title="Ten-Boat Dock: 7 planks of 10">
+    <div style={{ display: 'grid', gap: 24, justifyItems: 'start' }}>
+      <TraySection title="Ten-Boat Dock: 7 planks of 10">
         <ProductTray
           items={tray(Array.from({ length: 7 }, () => 'plank' as const))}
           goal={10}
           showLabel
         />
-      </GallerySection>
-      <GallerySection title="Bakery: 4 loaves of 6">
+      </TraySection>
+      <TraySection title="Bakery: 4 loaves of 6">
         <ProductTray items={tray(['bread', 'bread', 'bread', 'bread'])} goal={6} showLabel />
-      </GallerySection>
-      <GallerySection title="One of every material">
+      </TraySection>
+      <TraySection title="One of every material">
         <ProductTray items={tray(MATERIAL_IDS)} showLabel />
-      </GallerySection>
+      </TraySection>
     </div>
   ),
   play: async ({ canvasElement }) => {
+    for (const h of canvasElement.querySelectorAll('h2')) {
+      await expect(Number.parseFloat(getComputedStyle(h).fontSize)).toBeGreaterThanOrEqual(32);
+    }
+    await expectCellsApart(canvasElement);
     const items = [...canvasElement.querySelectorAll<HTMLElement>('.ni-tray__item')];
     await expect(items.length).toBe(7 + 4 + MATERIAL_IDS.length);
     for (const item of items) {
@@ -205,6 +248,6 @@ export const InTray: Story = {
       await expect(icon.width).toBeLessThanOrEqual(slot.width);
       await expect(icon.height).toBeLessThanOrEqual(slot.height);
     }
-    await expectNoSidewaysScroll();
+    await expectOneScreen();
   },
 };

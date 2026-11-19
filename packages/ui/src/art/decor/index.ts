@@ -19,6 +19,7 @@ export {
   type DecorTileProps,
   decorAnchor,
   decorBox,
+  decorTileBox,
 } from './DecorArt';
 export {
   DECOR_GROUPS,
