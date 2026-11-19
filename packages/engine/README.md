@@ -257,6 +257,29 @@ Response shapes and state-checker targets of the place-value and operations form
 - `area-tiles` features scale by `(area − 1) / 10`; `array-build` and `equal-groups` `product` by `(product − 1) / 10`; `equal-share` `items` by `(items − recipients) / 10`, so the easiest item scores 0 (03 §5.4).
 - The property test's near-miss mutations (03 §9.4 step 5) also add or remove one piece, row, column, item, leftover or tile in these shapes; A decompose split line may also be taken away. `array.dims` exempts moving the split line, and `tiles.cover` exempts taking away a line when the rest is still a valid decomposition.
 
+## Conventions the U05 formats fix (#14)
+
+### Patterns and data (pattern-extend, bar-graph-read, bar-graph-build)
+
+The models follow the K01 conventions above ("Data formats", "Pattern and puzzle formats") and fix the rest. The chart maths the models and the widgets' `ChartView` share is in `src/formats/chart.ts`.
+
+| Format | Response | Checker target |
+|---|---|---|
+| `pattern-extend` `extend`, `fill` | `{ tokens }`: the tokens in the blanks (`null` entries), reading order | `pattern.tokens` `{ expected }` |
+| `pattern-extend` `core` | `{ values }`: the marked positions (`bracket-core {from, to}`, inclusive) | `select.exactSet` `{ values }` (the first repeat) |
+| `pattern-extend` `translate` | `{ tokens }`: the whole new row, built from `translateTo` | `pattern.isomorphic` `{ source, units? }`: any one-to-one renaming of the units |
+| `pattern-extend` `rule` | `number`: the typed step | — |
+| `pattern-extend` `table` | `numbers`, ordered: the missing outputs, top to bottom | — |
+| `bar-graph-read` | `number` (how-many, total, difference, how-many-more-to, two-step); `choice` with a category id (most, least) | — |
+| `bar-graph-build` | `{ values }`: the count in each slot, in chart order, whatever the marks; null while the chart is empty | `chart.values` `{ values }` |
+
+- **Ops.** pattern-extend: `place-token {index, token}` (no token clears the blank; in `table` the index is the row and the token `{ n }`), `bracket-core {from, to}`, `highlight {index}`, `answer {value}` (rule) or `{values}` (number blanks, table outputs, core positions). bar-graph-read: `point-bar {id}`, `read-axis {id}`, `count-pictures {id}` (visual), `answer {value}` or `{id}`. bar-graph-build: `raise-bar {id, to}` (whole counts), `add-picture {id, count?}` (`count` in symbols, default 1, each worth `scale`; 0.5 is a half symbol), `tally {id, count?}` (marks), `add-x {at, count?}` (Xs above a position); a negative count takes marks away, counts stay in 0 … `axisMax`, and `answer {values}` sets every count.
+- **Tokens.** `{ sprite }` is an island sprite; a coloured shape is `{ sprite: <shape kind>, color }` with a shape from `PATTERN_SHAPES` and a colour from `PATTERN_COLORS` (red, blue, yellow, green, orange). The units of one pattern differ by shape as well as colour (06 §7): the schema rejects two units with the same sprite. A placed token must be one of the `palette` (or `translateTo`) units; number blanks take `{ n }`, tile patterns `{ tiles }` (1–30).
+- **Slots.** Picture graphs, bar graphs, tally charts and tables count per category, in chart order. A line plot counts per position of `lineScale` (min, min + step, …, max); its categories name the positions that have Xs (id = the position as written by `positionId`, e.g. `"1.5"`), and line-plot questions name positions the same way. bar-graph-build `measurements` are raw lengths, each on a position; the target is the Xs per position (`buildTargets`).
+- **Drawing rules the schema enforces.** Category ids are distinct; every value is in 0 … `axisMax`; a picture-graph value is a whole number of half symbols (`2 × value / scale` is whole); tally charts and tables count in ones; only a bar stands between whole counts. bar-graph-build: the mode draws its kind (bars → bar, pictures → picture, tally → tally, xs → line plot), every chart value is 0 (the counts are only in `data`), and a pictures count can be built from whole and half symbols.
+- **bar-graph-read questions.** `how-many` and `how-many-more-to` name one category (`extra` is the goal, above the count), `difference` two (the bigger first), `total` and `two-step` one or more (`two-step` with `extra`); `most` and `least` list every category and never tie.
+- **Features.** `horizontal` counts only a bar graph with horizontal bars: picture rows, tally charts and tables read left to right anyway (K01 draws them horizontal). `inverse` is 0 from the config (a table shows every input); a generator that asks for inputs emits it. `core.len`, `hidden.middle` and `step.notOne` read the sequence; pattern.repeat and pattern.grow emit their own values, which win.
+
 ## Tests
 
 - `pnpm exec vitest run --project engine`: unit tests under `src/` and the fixture property test under `test/`. Seeds come from `CONTENT_PROPERTY_N`: 50 locally, 100 on PR CI, 500 nightly.

@@ -14,7 +14,8 @@ export { render } from './content/render';
 export * from './folds';
 export type { FormatModel, FormatState } from './formats';
 export { formatFeatures, formatModel, formatModels, UnsupportedOpError } from './formats';
-// U04 (#13) format state types and the helpers their widgets render from.
+// U04 (#13) and U05 (#14) format state types and the helpers their widgets render from (U05
+// patterns and data: bar-graph-*, chart and pattern-extend).
 export {
   type AreaTilesState,
   isRectangle,
@@ -24,11 +25,35 @@ export {
   type Split,
 } from './formats/area-tiles';
 export { type ArrayBuildState, alreadyFound, rectanglesOf } from './formats/array-build';
+export { type BarGraphBuildState, buildTargets } from './formats/bar-graph-build';
+export { asksCategory, type BarGraphReadState } from './formats/bar-graph-read';
 export { type BaseTenBuildState, traySupply } from './formats/base-ten-build';
 export { type BaseTenTradeState, computeResult, htoValue } from './formats/base-ten-trade';
+export {
+  axisTicks,
+  axisTop,
+  type ChartSlot,
+  chartSlots,
+  linePositions,
+  positionId,
+  slotValues,
+  symbolParts,
+  tallyGroups,
+} from './formats/chart';
 export { type EqualGroupsState, GROUP_CAPACITY, groupsUnknown } from './formats/equal-groups';
 export { type EqualShareState, shareChoices } from './formats/equal-share';
 export { blankIds, type ExpandedFormState } from './formats/expanded-form';
+export {
+  blankIndexes,
+  MAX_TILES,
+  PATTERN_COLORS,
+  PATTERN_SHAPES,
+  type PatternExtendState,
+  smallestPeriod,
+  tableBlanks,
+  tokenFamily,
+  tokenNumber,
+} from './formats/pattern-extend';
 export {
   COLUMNS,
   type Column,

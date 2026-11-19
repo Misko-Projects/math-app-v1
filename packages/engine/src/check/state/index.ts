@@ -18,6 +18,7 @@ import { fractionPartition } from './fraction.partition';
 import { gridPolygon } from './grid.polygon';
 import { groupsEqual } from './groups.equal';
 import { jumpsReach } from './jumps.reach';
+import { patternIsomorphic } from './pattern.isomorphic';
 import { patternTokens } from './pattern.tokens';
 import { puzzleSatisfies } from './puzzle.satisfies';
 import { rekenrekTotal } from './rekenrek.total';
@@ -61,6 +62,8 @@ const CHECKERS: Partial<Record<StateCheckerId, StateChecker>> = {
   'groups.equal': groupsEqual,
   'share.fair': shareFair,
   'tiles.cover': tilesCover,
+  // U05 (#14)
+  'pattern.isomorphic': patternIsomorphic,
   // K01 (#11): balance make-equal (the balance format has no model yet, U04)
   'balance.equal': balanceEqual,
 };

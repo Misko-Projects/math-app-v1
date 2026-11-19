@@ -4,6 +4,8 @@
 import type { AnswerSpec, ItemFormat, WidgetConfig } from '@number-island/shared';
 import { areaTiles } from './area-tiles';
 import { arrayBuild } from './array-build';
+import { barGraphBuild } from './bar-graph-build';
+import { barGraphRead } from './bar-graph-read';
 import { baseTenBuild } from './base-ten-build';
 import { baseTenTrade } from './base-ten-trade';
 import { dotFlash } from './dot-flash';
@@ -17,6 +19,7 @@ import { numberLineJump } from './number-line-jump';
 import { numberPad } from './number-pad';
 import { numeralPick } from './numeral-pick';
 import { order } from './order';
+import { patternExtend } from './pattern-extend';
 import { rekenrek } from './rekenrek';
 import { tapCount } from './tap-count';
 import { tenframeFill } from './tenframe-fill';
@@ -46,6 +49,10 @@ const MODELS: Partial<Record<ItemFormat, AnyModel>> = {
   'equal-groups': equalGroups,
   'equal-share': equalShare,
   'area-tiles': areaTiles,
+  // U05 (#14)
+  'pattern-extend': patternExtend,
+  'bar-graph-read': barGraphRead,
+  'bar-graph-build': barGraphBuild,
 };
 
 export function formatModel<F extends ItemFormat>(
