@@ -174,12 +174,24 @@ function BuildingTile({
  */
 const FX_HEADROOM = 110;
 
-/** One building at a large scale on its footprint (a grassy plot), for the controls. */
-function BuildingView({ id, stage, lighting }: BuildingArgs) {
+/** The effects sweep: every building at level 3 in an 8-wide grid, each view in a 128 × 170 room. */
+const FX_GRID_COLS = 8;
+const FX_ROOM = { w: 128, h: 170 } as const;
+
+/**
+ * One building on its footprint (a grassy plot), for the controls: as large as fits `room` (CSS
+ * px), with FX_HEADROOM kept free above it.
+ */
+function BuildingView({
+  id,
+  stage,
+  lighting,
+  room = { w: 640, h: 560 },
+}: BuildingArgs & { room?: { w: number; h: number } }) {
   const d = BUILDING_DESIGN[id];
   const vb = d.viewBox;
   // Room above the art for idle effects that rise out of it (smoke drifts up to 70 units).
-  const scale = Math.min(3, 640 / vb.w, 560 / (vb.h + FX_HEADROOM));
+  const scale = Math.min(3, room.w / vb.w, room.h / (vb.h + FX_HEADROOM));
   const fw = d.footprint[0] * ISLAND_LAYOUT.cellW;
   const fh = d.footprint[1] * ISLAND_LAYOUT.cellH;
   const box: CSSProperties = {
@@ -545,16 +557,31 @@ async function expectEffectsOnPage(svg: SVGSVGElement) {
 
 /** Every building at level 3 in the single-building view: idle effects stay on the page. */
 export const EffectsStayOnPage: Story = {
-  parameters: { controls: { disable: true } },
+  parameters: { controls: { disable: true }, ui: { stage: 'centered' } },
   render: () => (
-    <div style={{ display: 'grid', gap: 24 }}>
+    <div
+      data-effects-grid
+      style={{
+        display: 'grid',
+        gridTemplateColumns: `repeat(${FX_GRID_COLS}, ${FX_ROOM.w}px)`,
+        width: 'max-content',
+        gap: '8px 8px',
+        alignItems: 'end',
+        justifyContent: 'center',
+      }}
+    >
       {BUILDING_IDS.map((id) => (
-        <BuildingView key={id} id={id} stage={3} lighting="day" />
+        <BuildingView key={id} id={id} stage={3} lighting="day" room={FX_ROOM} />
       ))}
     </div>
   ),
   play: async ({ canvasElement }) => {
     await expectEffectsOnPageForAll(canvasElement);
+    // One screen (review s_10a4c0889357 #1): the whole sweep fits the tablet room.
+    const grid = canvasElement.querySelector('[data-effects-grid]') as HTMLElement;
+    await expect(grid.getBoundingClientRect().height).toBeLessThanOrEqual(PAGE_ROOM.h);
+    await expect(grid.getBoundingClientRect().width).toBeLessThanOrEqual(PAGE_ROOM.w);
+    await expectNoSidewaysScroll();
   },
 };
 
