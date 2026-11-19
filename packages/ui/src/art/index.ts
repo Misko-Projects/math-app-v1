@@ -47,7 +47,13 @@ export {
   traceOutline,
 } from './island/geometry';
 export { IslandLand, type IslandLandProps } from './island/IslandLand';
-export { IslandScene, type IslandSceneProps, PARALLAX } from './island/IslandScene';
+export {
+  CAMERA_MAX_Y,
+  clampCamera,
+  IslandScene,
+  type IslandSceneProps,
+  PARALLAX,
+} from './island/IslandScene';
 export { NumberedRoad, type NumberedRoadProps } from './island/NumberedRoad';
 export { PlotMarker, type PlotMarkerProps, type PlotMarkerState } from './island/PlotMarker';
 export {

@@ -1,5 +1,5 @@
 import type { IslandDef } from '@number-island/shared';
-import { type Point, roadLayout, type StonePlacement } from './geometry';
+import { ISLAND_LAYOUT, type Point, roadLayout, type StonePlacement } from './geometry';
 import { type RoadStoneState, type StoneExtent, stoneExtent } from './RoadStone';
 
 /** The largest scale road stones are drawn at on the island map (fraction of design size). */
@@ -25,6 +25,11 @@ export interface PlannedStone {
   state: RoadStoneState;
   /** Scene-unit box of everything the stone draws (after scaling). */
   box: StoneExtent;
+  /**
+   * The stone's true spot on the road when it is drawn stepped out beside it (a counted or next
+   * stone on a road too tight for it); a dashed leader joins the two.
+   */
+  leader?: Point;
 }
 
 export interface RoadPlan {
@@ -46,6 +51,14 @@ export interface RoadPlanInput {
   showNext?: boolean;
   plannedAhead?: number;
   onLand?: (s: StonePlacement) => boolean;
+  /** Land plot keys (`x,y`): a stepped-out stone only lands on these. */
+  land?: ReadonlySet<string>;
+}
+
+/** The key of the plot under a scene point. */
+function plotKeyAt(x: number, y: number): string {
+  const top = ISLAND_LAYOUT.skyH + ISLAND_LAYOUT.padTop;
+  return `${Math.floor((x - ISLAND_LAYOUT.padX) / ISLAND_LAYOUT.cellW)},${Math.floor((y - top) / ISLAND_LAYOUT.cellH)}`;
 }
 
 /** What a stone may draw in any of the states it can take on the road (laid, next, counting). */
@@ -95,10 +108,11 @@ export function fitScale(
  * below MIN_STONE_SCALE, for example many stones sharing plots) goes compact: only landmarks,
  * the next stone and the counted stone are scaled to fit, roomy stretches still number every
  * stone, crowded stretches number only landmarks and fives, and the other laid stones become small
- * plain pebbles. Numbered stones are placed in priority order (counted, next, 1, hundreds, tens,
- * fives, the rest) and a stone keeps its numeral only if everything it draws stays
- * STONE_CLEARANCE from the stones already placed, so stones never touch. Only the next stone can
- * yield, and only to the counted stone beside it.
+ * plain pebbles. Numbered stones are placed in priority order (1, hundreds, tens, the counted
+ * stone, the next stone, fives, the rest) and a stone keeps its numeral only if everything it
+ * draws stays STONE_CLEARANCE from the stones already placed, so stones never touch. Landmarks
+ * never yield: a counted or next stone with no room on the road steps out beside it, joined to its
+ * spot by a dashed leader.
  */
 export function planRoad({
   road,
@@ -107,6 +121,7 @@ export function planRoad({
   showNext = true,
   plannedAhead = 0,
   onLand,
+  land,
 }: RoadPlanInput): RoadPlan {
   const placed = roadLayout(road);
   const lastShown = roadLength + (showNext ? 1 + plannedAhead : 0);
@@ -161,34 +176,95 @@ export function planRoad({
     highlighted(s.n) ||
     s.n > roadLength ||
     !crowded(s);
+  // Landmarks first, so the tens a child counts by never disappear; then the counted and the next
+  // stone, which step out beside the road on a leader line when the road is too tight for them.
   const rank = (n: number) =>
-    n === counting
+    n === 1
       ? 0
-      : n === roadLength + 1
+      : n % 100 === 0
         ? 1
-        : n === 1
+        : n % 10 === 0
           ? 2
-          : n % 100 === 0
+          : n === counting
             ? 3
-            : n % 10 === 0
+            : n === roadLength + 1
               ? 4
               : n % 5 === 0
                 ? 5
                 : 6;
   const order = [...shown].sort((a, b) => rank(a.n) - rank(b.n) || a.n - b.n);
+  const boxAt = (n: number, state: RoadStoneState, x: number, y: number): StoneExtent => {
+    const e = stoneExtent(n, state);
+    return {
+      left: x + e.left * scale,
+      right: x + e.right * scale,
+      top: y + e.top * scale,
+      bottom: y + e.bottom * scale,
+    };
+  };
+  const centre = shown.reduce(
+    (c, s) => ({ x: c.x + s.x / shown.length, y: c.y + s.y / shown.length }),
+    { x: 0, y: 0 },
+  );
   const numbered: PlannedStone[] = [];
+  const clear = (box: StoneExtent) =>
+    !numbered.some((k) => boxesTouch(k.box, box, STONE_CLEARANCE));
+  // Every stone's own spot on the road: numbered candidates at their full extent, the others as
+  // pebbles. A stepped-out stone must clear all of them, not just the stones placed before it.
+  const spots = shown.map((s) => ({
+    n: s.n,
+    box: candidate(s)
+      ? boxAt(s.n, stateOf(s.n), s.x, s.y)
+      : {
+          left: s.x + PEBBLE.left,
+          right: s.x + PEBBLE.right,
+          top: s.y + PEBBLE.top,
+          bottom: s.y + PEBBLE.bottom,
+        },
+  }));
   for (const s of order) {
     if (!candidate(s)) continue;
     const state = stateOf(s.n);
-    const e = stoneExtent(s.n, state);
-    const box = {
-      left: s.x + e.left * scale,
-      right: s.x + e.right * scale,
-      top: s.y + e.top * scale,
-      bottom: s.y + e.bottom * scale,
-    };
-    if (numbered.some((k) => boxesTouch(k.box, box, STONE_CLEARANCE))) continue;
-    numbered.push({ n: s.n, x: s.x, y: s.y, state, box });
+    const box = boxAt(s.n, state, s.x, s.y);
+    if (clear(box)) {
+      numbered.push({ n: s.n, x: s.x, y: s.y, state, box });
+      continue;
+    }
+    if (!highlighted(s.n)) continue;
+    // The counted or next stone must show: step it out beside the road, perpendicular to the
+    // road's direction, onto free ground (never onto another stone's spot, never into the sea),
+    // joined to its own spot by a leader.
+    // First look for open ground (no stone's spot at all); failing that, ground where only an
+    // ordinary stone stands (it becomes a plain pebble), never a landmark's or the other
+    // highlighted stone's spot.
+    const onIsland = (x: number, y: number) => !land || land.has(plotKeyAt(x, y));
+    const open = (b: StoneExtent, x: number, y: number) =>
+      clear(b) &&
+      !spots.some((o) => o.n !== s.n && boxesTouch(o.box, b, STONE_CLEARANCE)) &&
+      onIsland(x, y);
+    const keepsLandmarks = (b: StoneExtent, x: number, y: number) =>
+      clear(b) &&
+      !spots.some(
+        (o) =>
+          o.n !== s.n &&
+          (landmark(o.n) || highlighted(o.n)) &&
+          boxesTouch(o.box, b, STONE_CLEARANCE),
+      ) &&
+      onIsland(x, y);
+    const boxFor = (x: number, y: number) => boxAt(s.n, state, x, y);
+    const callout =
+      calloutFor(s, byN, centre, boxFor, open, scale) ??
+      calloutFor(s, byN, centre, boxFor, keepsLandmarks, scale);
+    if (callout) {
+      numbered.push({ n: s.n, ...callout, state, leader: { x: s.x, y: s.y } });
+    } else {
+      // Nowhere clear (an extreme crowd): it takes its own spot and the stones it touches yield.
+      for (let i = numbered.length - 1; i >= 0; i--) {
+        const k = numbered[i] as PlannedStone;
+        if (!highlighted(k.n) && boxesTouch(k.box, box, STONE_CLEARANCE)) numbered.splice(i, 1);
+      }
+      numbered.push({ n: s.n, x: s.x, y: s.y, state, box });
+    }
   }
   const kept = new Set(numbered.map((s) => s.n));
   const pebbles: RoadPlan['pebbles'] = [];
@@ -209,6 +285,61 @@ export function planRoad({
   // Back to front: lower stones overlap the ones behind them.
   numbered.sort((a, b) => a.y - b.y || a.n - b.n);
   return { scale, compact, numbered, pebbles, trail };
+}
+
+/** Leader-line step-out distances, in stone heights at the current scale. */
+const CALLOUT_STEPS = [1.1, 1.5, 1.9, 2.4, 3, 3.7];
+
+/**
+ * A clear spot for a highlighted stone beside the road: perpendicular to the road through it,
+ * towards the island's middle first, a little further out each try.
+ */
+function calloutFor(
+  s: StonePlacement,
+  byN: ReadonlyMap<number, StonePlacement>,
+  centre: Point,
+  boxAt: (x: number, y: number) => StoneExtent,
+  free: (box: StoneExtent, x: number, y: number) => boolean,
+  scale: number,
+): { x: number; y: number; box: StoneExtent } | null {
+  const a = byN.get(s.n - 1) ?? s;
+  const b = byN.get(s.n + 1) ?? s;
+  let dx = b.x - a.x;
+  let dy = b.y - a.y;
+  if (dx === 0 && dy === 0) dx = 1;
+  const len = Math.hypot(dx, dy);
+  dx /= len;
+  dy /= len;
+  // The two normals, the one pointing away from the island's middle first: the road's outer side
+  // is usually open beach, the inner side the road's earlier loops.
+  const inward = (centre.x - s.x) * -dy + (centre.y - s.y) * dx >= 0 ? 1 : -1;
+  const out = { x: -dy * -inward, y: dx * -inward }; // the outward normal
+  const along = { x: dx, y: dy };
+  // Directions to try at each distance: straight out, straight in, the four diagonals, then
+  // along the road either way.
+  const dirs = [
+    out,
+    { x: -out.x, y: -out.y },
+    { x: out.x + along.x, y: out.y + along.y },
+    { x: out.x - along.x, y: out.y - along.y },
+    { x: -out.x + along.x, y: -out.y + along.y },
+    { x: -out.x - along.x, y: -out.y - along.y },
+    along,
+    { x: -along.x, y: -along.y },
+  ].map((d) => {
+    const l = Math.hypot(d.x, d.y) || 1;
+    return { x: d.x / l, y: d.y / l };
+  });
+  const unit = 60 * scale; // about one stone with its ring
+  for (const step of CALLOUT_STEPS) {
+    for (const d of dirs) {
+      const x = s.x + d.x * unit * step;
+      const y = s.y + d.y * unit * step;
+      const box = boxAt(x, y);
+      if (free(box, x, y)) return { x, y, box };
+    }
+  }
+  return null;
 }
 
 /** True when two boxes come closer than `clearance`. */

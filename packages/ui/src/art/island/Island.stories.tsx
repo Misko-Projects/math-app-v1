@@ -4,7 +4,7 @@ import type { Lighting } from '../../tokens/tokens';
 import { CvdCompare, GalleryCell, GalleryGrid, GallerySection } from '../gallery/Gallery';
 import { SAMPLE_ISLAND, SAMPLE_RING_COUNT } from '../gallery/sampleIsland';
 import { HORIZON_Y, landCrop, plotKey, SCENE_H, SCENE_W } from './geometry';
-import { IslandScene } from './IslandScene';
+import { CAMERA_MAX_Y, IslandScene } from './IslandScene';
 import type { PlotMarkerProps } from './PlotMarker';
 import { ROAD_STONE_STATES, RoadStone } from './RoadStone';
 import { TerrainTile, TILE_KINDS } from './TerrainTile';
@@ -211,6 +211,48 @@ export const LongRoadCounting: Story = {
   play: async ({ canvasElement }) => {
     await expect(canvasElement.querySelector('[data-stone="99"]')?.getAttribute('data-state')).toBe(
       'counting',
+    );
+    for (const n of [90, 100]) {
+      await expect(
+        canvasElement.querySelector(`[data-stone="${n}"] [data-part="ten-flag"]`),
+      ).toBeTruthy();
+    }
+    await expectStonesApart(canvasElement);
+  },
+};
+
+/**
+ * A crowded road at 50: landmark 50 keeps its numeral and flag, and the next stone, 51, steps out
+ * beside the road on a dashed leader to its own spot, since there is no room for both on the road.
+ */
+export const NextBesideLandmark: Story = {
+  args: { ringsUnlocked: SAMPLE_RING_COUNT, roadLength: 50 },
+  play: async ({ canvasElement }) => {
+    await expect(
+      canvasElement.querySelector('[data-stone="50"] [data-part="ten-flag"]'),
+    ).toBeTruthy();
+    await expect(canvasElement.querySelector('[data-stone="51"]')?.getAttribute('data-state')).toBe(
+      'next',
+    );
+    await expect(canvasElement.querySelector('[data-leader="51"]')).toBeTruthy();
+    await expectStonesApart(canvasElement);
+  },
+};
+
+/** Panned far down the island: the camera holds, so land and road never rise into the sky. */
+export const PannedToTheBack: Story = {
+  args: { ringsUnlocked: 4, roadLength: 100, cameraY: 140 },
+  play: async ({ canvasElement }) => {
+    const svg = canvasElement.querySelector('svg[data-scene="island"]') as SVGSVGElement;
+    const horizon = svg.getBoundingClientRect().top + HORIZON_Y * scaleOf(svg);
+    // The land's own top surface (the halo and foam around it are clipped at the horizon, which
+    // bounding boxes ignore) and the road trail both stay below the horizon.
+    for (const sel of ['[data-part="land-top"]', '[data-layer="road"] > path']) {
+      const top = (svg.querySelector(sel) as SVGGraphicsElement).getBoundingClientRect().top;
+      await expect(top, `${sel} top below the horizon`).toBeGreaterThanOrEqual(horizon);
+    }
+    await expect(svg.querySelector('[data-layer="island"]')?.getAttribute('transform')).toContain(
+      `-${CAMERA_MAX_Y})`,
     );
     await expectStonesApart(canvasElement);
   },

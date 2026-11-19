@@ -67,6 +67,7 @@ export function IslandLand({ plots, terrain, clearPlots = [] }: IslandLandProps)
         strokeLinejoin="round"
       />
       <path
+        data-part="land-top"
         d={paths.land}
         fill={paint('sand')}
         stroke={paint('sand-deep')}

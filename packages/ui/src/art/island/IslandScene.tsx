@@ -3,7 +3,16 @@ import { type ReactNode, useId, useMemo } from 'react';
 import { useReducedMotion } from '../../preferences/UiProvider';
 import type { ArtProps } from '../core/ArtSvg';
 import { ArtSvg } from '../core/ArtSvg';
-import { type Box, HORIZON_Y, landPlots, plotKey, SCENE_H, SCENE_W, terrainOf } from './geometry';
+import {
+  type Box,
+  HORIZON_Y,
+  ISLAND_LAYOUT,
+  landPlots,
+  plotKey,
+  SCENE_H,
+  SCENE_W,
+  terrainOf,
+} from './geometry';
 import { IslandLand } from './IslandLand';
 import { NumberedRoad } from './NumberedRoad';
 import { PlotMarker, type PlotMarkerProps } from './PlotMarker';
@@ -16,6 +25,18 @@ import { Sky } from './Sky';
  */
 export const PARALLAX = { seaFar: 0.35, seaNear: 0.65, island: 1 } as const;
 
+/**
+ * The camera may look at most this far down the island (positive y): any further and the back row
+ * of land, with the road on it, would rise above the horizon into the sky. The land's top edge
+ * (grid top less its 10-unit outline offset and up to 8 units of wobble) stays 4 units below it.
+ */
+export const CAMERA_MAX_Y = ISLAND_LAYOUT.skyH + ISLAND_LAYOUT.padTop - 10 - 8 - 4 - HORIZON_Y;
+
+/** The camera as the scene uses it: vertical pans past CAMERA_MAX_Y are held there. */
+export function clampCamera(camera: { x: number; y: number }): { x: number; y: number } {
+  return { x: camera.x, y: Math.min(camera.y, CAMERA_MAX_Y) };
+}
+
 export interface IslandSceneProps extends Omit<ArtProps, 'lighting'> {
   /** GameData `island` (rings and road). */
   island: Pick<IslandDef, 'rings' | 'road'>;
@@ -26,7 +47,10 @@ export interface IslandSceneProps extends Omit<ArtProps, 'lighting'> {
   /** The road stone being counted aloud, if any. */
   counting?: number | null;
   lighting?: 'day' | 'sunset';
-  /** Camera pan in scene units (positive x looks further right). */
+  /**
+   * Camera pan in scene units (positive x looks further right, positive y further down). Vertical
+   * pans are held at CAMERA_MAX_Y, so land and road never rise above the horizon.
+   */
   camera?: { x: number; y: number };
   /** Highlighted plots (building placement, 05 §6). Drawn on top of everything on the island. */
   plotMarkers?: readonly PlotMarkerProps[];
@@ -64,8 +88,9 @@ export function IslandScene({
   const terrain = useMemo(() => terrainOf(island, ringsUnlocked), [island, ringsUnlocked]);
   const land = useMemo(() => new Set(plots.map(plotKey)), [plots]);
   const marked = useMemo(() => plotMarkers.flatMap((m) => markerPlots(m)), [plotMarkers]);
+  const cam = clampCamera(camera);
   const f = (k: keyof typeof PARALLAX) => (reduced ? 1 : PARALLAX[k]);
-  const shift = (k: keyof typeof PARALLAX) => ({ x: -camera.x * f(k), y: -camera.y * f(k) });
+  const shift = (k: keyof typeof PARALLAX) => ({ x: -cam.x * f(k), y: -cam.y * f(k) });
   const isl = shift('island');
   const view = crop ?? { x: 0, y: 0, w: SCENE_W, h: SCENE_H };
   return (
@@ -107,6 +132,7 @@ export function IslandScene({
           roadLength={roadLength}
           counting={counting}
           onLand={(s) => land.has(plotKey(s.plot))}
+          land={land}
         />
         {children}
         {plotMarkers.map((m) => (

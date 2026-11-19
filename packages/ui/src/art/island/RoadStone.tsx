@@ -73,7 +73,8 @@ export function stoneExtent(n: number, state: RoadStoneState): StoneExtent {
     bottom = Math.max(bottom, -lift + ry + COUNT_RING.dy + 3);
   }
   if (m.ten) {
-    right = Math.max(right, rx - 6 + 21);
+    // The hundred flag's tip reaches 21 past the pole, plus half its 2.5 outline.
+    right = Math.max(right, rx - 6 + 21 + 1.5);
     top = Math.min(top, -lift - ry + 2 - FLAG_POLE - 2);
   }
   return { left, right, top, bottom };

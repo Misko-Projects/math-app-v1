@@ -22,6 +22,7 @@ import {
   terrainOf,
   traceOutline,
 } from './island/geometry';
+import { CAMERA_MAX_Y, clampCamera } from './island/IslandScene';
 import { ROAD_STONE_SCALE, roadStoneBox, stoneExtent, stoneMetrics } from './island/RoadStone';
 import { boxesTouch, planRoad, STONE_CLEARANCE } from './island/roadPlan';
 import {
@@ -43,7 +44,7 @@ describe('road plan: stones never touch (05 §3)', () => {
         const countings = [null, roadLength, roadLength - 1, roadLength - (roadLength % 10), 1];
         for (const c of countings) {
           const counting = c !== null && c >= 1 && c <= roadLength ? c : null;
-          const plan = planRoad({ road: SAMPLE_ISLAND.road, roadLength, counting, onLand });
+          const plan = planRoad({ road: SAMPLE_ISLAND.road, roadLength, counting, onLand, land });
           const where = `roadLength ${roadLength}, counting ${counting}, rings ${rings}`;
           for (let i = 0; i < plan.numbered.length; i++) {
             for (let j = i + 1; j < plan.numbered.length; j++) {
@@ -61,21 +62,49 @@ describe('road plan: stones never touch (05 §3)', () => {
             (s) => onLand(s) && s.n <= roadLength + 1,
           );
           const isShown = (n: number) => shown.some((s) => s.n === n);
-          // The next stone always shows its numeral, except that it may yield to the counted
-          // stone right beside it while counting runs.
-          if (isShown(roadLength + 1) && counting === null) {
+          // The next stone and the counted stone always show their numerals (stepping out beside
+          // the road on a leader when there is no room on it)…
+          if (isShown(roadLength + 1)) {
             expect(numbered.has(roadLength + 1), `${where}: next missing`).toBe(true);
           }
           if (counting !== null && isShown(counting)) {
             expect(numbered.has(counting), `${where}: counting missing`).toBe(true);
           }
-          // Stone 1 and the tens always keep their numerals on the sample road.
+          // …and stone 1 and the tens never yield to them.
           for (const n of [1, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100]) {
-            if (!isShown(n) || n === roadLength + 1 || n === counting) continue;
-            const near = plan.numbered.some(
-              (k) => (k.n === counting || k.n === roadLength + 1) && Math.abs(k.n - n) <= 1,
+            if (!isShown(n)) continue;
+            expect(numbered.has(n), `${where}: landmark ${n} missing`).toBe(true);
+          }
+          // On the roomy stretch (sample stones 1–39 have a plot each) a stone keeps its numeral,
+          // unless a stepped-out highlighted stone had no open ground and stands on its spot (the
+          // sample's road fills every plot, so that can happen here; landmarks never give way).
+          const steppedOut = plan.numbered.filter((k) => k.leader);
+          for (let n = 1; n <= Math.min(39, roadLength + 1); n++) {
+            if (!isShown(n) || numbered.has(n)) continue;
+            const spot = shown.find((t) => t.n === n) as (typeof shown)[number];
+            const covered = steppedOut.some(
+              (k) => Math.abs(k.x - spot.x) < 70 && Math.abs(k.y - spot.y) < 60,
             );
-            if (!near) expect(numbered.has(n), `${where}: landmark ${n} missing`).toBe(true);
+            expect(covered, `${where}: stone ${n} missing with no stepped-out stone on it`).toBe(
+              true,
+            );
+          }
+          // A stepped-out stone lands on land.
+          for (const s of plan.numbered) {
+            if (!s.leader) continue;
+            const key = `${Math.floor((s.x - ISLAND_LAYOUT.padX) / ISLAND_LAYOUT.cellW)},${Math.floor(
+              (s.y - ISLAND_LAYOUT.skyH - ISLAND_LAYOUT.padTop) / ISLAND_LAYOUT.cellH,
+            )}`;
+            expect(land.has(key), `${where}: ${s.n} stepped into the sea`).toBe(true);
+          }
+          // A stepped-out stone keeps its leader to its own spot on the road.
+          for (const s of plan.numbered) {
+            if (!s.leader) continue;
+            expect(s.n === counting || s.n === roadLength + 1, `${where}: leader on ${s.n}`).toBe(
+              true,
+            );
+            const spot = shown.find((t) => t.n === s.n);
+            expect(s.leader).toEqual({ x: spot?.x, y: spot?.y });
           }
           for (const p of plan.pebbles) expect(numbered.has(p.n)).toBe(false);
           for (let i = 0; i < plan.pebbles.length; i++) {
@@ -120,6 +149,28 @@ describe('road plan: stones never touch (05 §3)', () => {
     for (let n = 1; n <= 39; n++) expect(numbered.has(n), `stone ${n}`).toBe(true);
     // 40 is a landmark and 46 the next stone; 45 sits right beside 46, so it may yield to it.
     for (const n of [40, 46]) expect(numbered.has(n), `stone ${n}`).toBe(true);
+  });
+
+  it('keeps landmark 50 when the next stone 51 shares its plot (it steps out instead)', () => {
+    const land = new Set(landPlots(SAMPLE_ISLAND, SAMPLE_ISLAND.rings.length).map(plotKey));
+    const plan = planRoad({
+      road: SAMPLE_ISLAND.road,
+      roadLength: 50,
+      onLand: (s) => land.has(plotKey(s.plot)),
+    });
+    const fifty = plan.numbered.find((s) => s.n === 50);
+    const next = plan.numbered.find((s) => s.n === 51);
+    expect(fifty?.leader).toBeUndefined();
+    expect(next?.state).toBe('next');
+    expect(next?.leader).toBeDefined();
+  });
+
+  it('holds vertical pans so land never rises above the horizon', () => {
+    expect(clampCamera({ x: 30, y: 140 })).toEqual({ x: 30, y: CAMERA_MAX_Y });
+    expect(clampCamera({ x: 0, y: -60 })).toEqual({ x: 0, y: -60 });
+    // The land's top edge (grid top, less its outline offset and wobble) stays below the horizon.
+    const top = plotBox([0, 0]).y - 10 - 8 - CAMERA_MAX_Y;
+    expect(top).toBeGreaterThan(HORIZON_Y);
   });
 
   it('gives every stone, including a shared last plot, its own position', () => {

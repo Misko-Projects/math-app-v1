@@ -18,6 +18,8 @@ export interface NumberedRoadProps {
   plannedAhead?: number;
   /** Only stones whose plot passes this test are drawn (for example, plots that are land). */
   onLand?: (s: StonePlacement) => boolean;
+  /** Land plot keys (`x,y`): a stone stepped out beside the road only lands on these. */
+  land?: ReadonlySet<string>;
 }
 
 /**
@@ -33,10 +35,11 @@ export function NumberedRoad({
   showNext = true,
   plannedAhead = 0,
   onLand,
+  land,
 }: NumberedRoadProps) {
   const plan = useMemo(
-    () => planRoad({ road, roadLength, counting, showNext, plannedAhead, onLand }),
-    [road, roadLength, counting, showNext, plannedAhead, onLand],
+    () => planRoad({ road, roadLength, counting, showNext, plannedAhead, onLand, land }),
+    [road, roadLength, counting, showNext, plannedAhead, onLand, land],
   );
   if (plan.numbered.length === 0 && plan.pebbles.length === 0) return null;
   const trail = plan.trail.length > 1 ? smoothPath(plan.trail) : '';
@@ -70,6 +73,28 @@ export function NumberedRoad({
       {plan.pebbles.map((p) => (
         <Pebble key={p.n} n={p.n} x={p.x} y={p.y} />
       ))}
+      {/* A stepped-out stone's leader: a dashed ink line from its true spot, which gets a dot. */}
+      {plan.numbered.map((s) =>
+        s.leader ? (
+          <g key={`leader-${s.n}`} data-leader={s.n}>
+            <path
+              d={`M${s.leader.x} ${s.leader.y}L${s.x} ${s.y}`}
+              stroke={paint('ink')}
+              strokeWidth={3}
+              strokeDasharray="5 5"
+              strokeLinecap="round"
+            />
+            <circle
+              cx={s.leader.x}
+              cy={s.leader.y}
+              r={5}
+              fill={paint('pebble')}
+              stroke={paint('ink')}
+              strokeWidth={2.5}
+            />
+          </g>
+        ) : null,
+      )}
       {plan.numbered.map((s) => (
         <g key={s.n} transform={`translate(${s.x} ${s.y}) scale(${plan.scale})`}>
           <RoadStoneMark n={s.n} state={s.state} />
