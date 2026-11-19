@@ -301,6 +301,16 @@ button.ni-bondw__badge:disabled {
   outline-offset: 4px;
   border-radius: 50%;
 }
+/* Disabled: taps do nothing and leave no focus or drop style behind. */
+.ni-bondw[data-disabled="true"] .ni-bondw__pad,
+.ni-bondw[data-disabled="true"] .ni-bondw__counter,
+.ni-bondw[data-disabled="true"] .ni-bondw__circle,
+.ni-bondw[data-disabled="true"] .ni-bondw__badge {
+  pointer-events: none;
+}
+.ni-bondw[data-disabled="true"] :focus {
+  outline: none;
+}
 .ni-bondw [data-flying="true"] {
   visibility: hidden;
 }

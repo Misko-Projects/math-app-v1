@@ -102,6 +102,12 @@ const trayRowPx = (targetMin: number, gap: number) => numeralCardH(targetMin) + 
  */
 export const compactCardH = (targetMin: number) => Math.max(targetMin, 48 * 1.12 + 8 + 6);
 /**
+ * A compact card's width: the minimum target, or wide enough for its numerals (about 30 px a
+ * digit at 48 px, plus 2 × 4 px padding and 2 × 3 px border): 80 in K, 74 for G1 two-digit cards.
+ */
+export const compactCardW = (digits: number, targetMin: number) =>
+  Math.max(targetMin, Math.max(1, digits) * 30 + 14);
+/**
  * The compact tray panel: 3 px top padding (a picked card's check badge may stand over the panel's top
  * edge, like a sticker), none below (the cards' own margin holds the ledge), 3 px borders.
  */
@@ -123,7 +129,7 @@ export function numeralTraySize(
   columnGap: number = gap,
   compact = false,
 ): Size {
-  const card = compact ? targetMin : numeralCardPx(digits, targetMin);
+  const card = compact ? compactCardW(digits, targetMin) : numeralCardPx(digits, targetMin);
   const { rows } = trayGrid(n, columns);
   const row = compact ? compactCardH(targetMin) + gap + 6 : trayRowPx(targetMin, gap);
   return {

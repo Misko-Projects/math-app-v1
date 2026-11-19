@@ -1,7 +1,13 @@
 import type { WidgetConfig } from '@number-island/shared';
 import type { Meta, StoryObj } from '@storybook/react-vite';
 import { expect, fn, userEvent, waitFor, within } from 'storybook/test';
-import { expectOneInvite, settledAll, targetsOf } from '../../test-support/inviteStory';
+import {
+  expectNumeralsInside,
+  expectOneInvite,
+  lookOf,
+  settledAll,
+  targetsOf,
+} from '../../test-support/inviteStory';
 import {
   center,
   clearSpies,
@@ -186,6 +192,7 @@ export const AddDragAndTap: Story = {
 
     await expect(check).toBeDisabled();
     await userEvent.click(button(root, '9'));
+    await expectNumeralsInside(root);
     await userEvent.click(check);
     await userEvent.click(check);
     await expect(args.onResponse).toHaveBeenCalledTimes(1);
@@ -434,14 +441,18 @@ export const TakeAway: Story = {
   },
 };
 
-/** `disabled`: no input at all. */
+/** `disabled`: no input at all, and a tap leaves no focus or drop style behind. */
 export const Disabled: Story = {
   args: { disabled: true },
   play: async ({ canvasElement, args }) => {
     const root = await findWidget(canvasElement, ROOT);
-    await userEvent.click(supplyCounter(root, 6));
-    await userEvent.click(pad(root, 0, 6));
+    const cell = root.querySelector('[data-cell="cell-0-6"]') as HTMLElement;
+    const watched = [supplyCounter(root, 6), pad(root, 0, 6), cell];
+    const before = watched.map(lookOf);
+    await userEvent.click(root.querySelector('.ni-tf__supply') as HTMLElement);
+    await userEvent.click(cell);
     await expect(cellsOf(root)[6]).toBe(0);
+    await expect(watched.map(lookOf)).toEqual(before);
     await expect(button(root, 'Check')).toBeDisabled();
     await expect(args.onInteract).not.toHaveBeenCalled();
   },
@@ -545,6 +556,7 @@ async function expectFits(canvasElement: HTMLElement, ageMode: AgeMode) {
     ),
   ];
   await expectFitsArea(areaBox(canvasElement), parts, targetsOf(root), ageMode);
+  await expectNumeralsInside(root);
   return root;
 }
 

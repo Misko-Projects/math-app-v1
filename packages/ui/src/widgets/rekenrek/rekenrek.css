@@ -127,6 +127,13 @@
   border-radius: 14px;
   animation: none;
 }
+/* Disabled: the wires take no taps and show no focus ring. */
+.ni-rk[data-disabled="true"] .ni-rk__row {
+  pointer-events: none;
+}
+.ni-rk[data-disabled="true"] :focus {
+  outline: none;
+}
 /* The wire. */
 .ni-rk__row::before {
   content: "";

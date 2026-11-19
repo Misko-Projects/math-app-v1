@@ -608,12 +608,12 @@
   padding-bottom: 0;
 }
 .ni-entry[data-compact="true"] .ni-tray-numerals__grid {
-  --card-w: var(--target-min);
+  --card-w: var(--entry-card-w, var(--target-min));
 }
 .ni-entry[data-compact="true"] .ni-tray-numerals[data-columns="fixed"] {
   width: calc(
     var(--max-cols) *
-    var(--target-min) +
+    var(--entry-card-w, var(--target-min)) +
     (var(--max-cols) - 1) *
     var(--tray-gap, var(--target-gap)) +
     46px +
@@ -621,7 +621,7 @@
   );
 }
 .ni-entry[data-compact="true"] .ni-tray-numerals .ni-pick {
-  min-width: var(--target-min);
+  min-width: var(--entry-card-w, var(--target-min));
   min-height: var(--target-min);
   padding: 4px;
 }

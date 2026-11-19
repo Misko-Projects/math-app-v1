@@ -1,7 +1,13 @@
 import type { WidgetConfig } from '@number-island/shared';
 import type { Meta, StoryObj } from '@storybook/react-vite';
 import { expect, fn, userEvent, waitFor, within } from 'storybook/test';
-import { expectOneInvite, settledAll, targetsOf } from '../../test-support/inviteStory';
+import {
+  expectNumeralsInside,
+  expectOneInvite,
+  lookOf,
+  settledAll,
+  targetsOf,
+} from '../../test-support/inviteStory';
 import {
   center,
   clearSpies,
@@ -220,6 +226,7 @@ export const NewWay: Story = {
       await expect(Number.parseFloat(getComputedStyle(n).fontSize)).toBeGreaterThanOrEqual(32);
     }
     await userEvent.click(button(root, '12'));
+    await expectNumeralsInside(root);
     await userEvent.click(button(root, '4'));
     await userEvent.click(button(root, 'Check'));
     await expect(args.onResponse).toHaveBeenCalledWith({
@@ -319,14 +326,18 @@ export const HundredPad: Story = {
   },
 };
 
-/** `disabled`: no input at all. */
+/** `disabled`: no input at all, and a tap leaves no focus or drop style behind. */
 export const Disabled: Story = {
   args: { config: splitCounters6, tier: 'concrete', disabled: true },
   play: async ({ canvasElement, args }) => {
     const root = await findWidget(canvasElement, ROOT);
-    await userEvent.click(counter(root, 0));
-    await userEvent.click(poolPad(root, 'part-0'));
+    const pool = (slot: string) => root.querySelector(`[data-pool="${slot}"]`) as HTMLElement;
+    const watched = [pool('whole'), pool('part-0'), poolPad(root, 'part-0'), counter(root, 0)];
+    const before = watched.map(lookOf);
+    await userEvent.click(pool('whole'));
+    await userEvent.click(pool('part-0'));
     await expect(inPool(root, 'part-0')).toBe(0);
+    await expect(watched.map(lookOf)).toEqual(before);
     await expect(button(root, 'Check')).toBeDisabled();
     await expect(args.onInteract).not.toHaveBeenCalled();
   },
@@ -440,6 +451,7 @@ async function expectFits(canvasElement: HTMLElement, ageMode: AgeMode) {
   // A pool's drop pad lies under its counters: the counters are the targets to measure.
   const targets = targetsOf(root).filter((el) => !el.classList.contains('ni-bondw__pad'));
   await expectFitsArea(areaBox(canvasElement), parts, targets, ageMode);
+  await expectNumeralsInside(root);
   return root;
 }
 

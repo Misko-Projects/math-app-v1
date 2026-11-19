@@ -319,3 +319,15 @@
 [data-reduced-motion="true"] .ni-tf [data-counting="true"] {
   transition: none;
 }
+
+/* Disabled: taps do nothing and leave no focus or drop style behind. */
+.ni-tf[data-disabled="true"] .ni-tf__pad,
+.ni-tf[data-disabled="true"] .ni-tf__counter,
+.ni-tf[data-disabled="true"] .ni-tf__placed,
+.ni-tf[data-disabled="true"] .ni-tf__shade,
+.ni-tf[data-disabled="true"] .ni-tf__mini {
+  pointer-events: none;
+}
+.ni-tf[data-disabled="true"] :focus {
+  outline: none;
+}

@@ -1,7 +1,13 @@
 import type { WidgetConfig } from '@number-island/shared';
 import type { Meta, StoryObj } from '@storybook/react-vite';
 import { expect, fn, userEvent, waitFor, within } from 'storybook/test';
-import { expectOneInvite, settledAll, targetsOf } from '../../test-support/inviteStory';
+import {
+  expectNumeralsInside,
+  expectOneInvite,
+  lookOf,
+  settledAll,
+  targetsOf,
+} from '../../test-support/inviteStory';
 import {
   center,
   clearSpies,
@@ -299,6 +305,7 @@ export const Read: Story = {
     await expectTargetGaps(cards);
     await expect(button(root, 'Check')).toBeDisabled();
     await userEvent.click(button(root, '11'));
+    await expectNumeralsInside(root);
     await userEvent.click(button(root, 'Check'));
     await expect(args.onResponse).toHaveBeenCalledWith({ kind: 'number', value: 11 });
   },
@@ -316,15 +323,17 @@ export const RowRuleNeverBlocks: Story = {
   },
 };
 
-/** `disabled`: no input at all. */
+/** `disabled`: no input at all, and nothing changes how the wires look. */
 export const Disabled: Story = {
   args: { disabled: true },
   play: async ({ canvasElement, args }) => {
     const root = await findWidget(canvasElement, ROOT);
+    const before = lookOf(row(root, 0));
     await tapBeadAt(bead(root, 0, 4));
     row(root, 0).focus();
     await userEvent.keyboard('{ArrowLeft}');
     await expect(pushed(root, 0)).toBe(0);
+    await expect(lookOf(row(root, 0))).toBe(before);
     await expect(button(root, 'Check')).toBeDisabled();
     await expect(args.onInteract).not.toHaveBeenCalled();
   },
@@ -405,6 +414,7 @@ async function expectFits(canvasElement: HTMLElement, ageMode: AgeMode) {
   await settledAll(root);
   const parts = [...root.querySelectorAll<HTMLElement>('.ni-rk__frame, .ni-entry, .ni-rk__act')];
   await expectFitsArea(areaBox(canvasElement), parts, targetsOf(root), ageMode);
+  await expectNumeralsInside(root);
   return root;
 }
 

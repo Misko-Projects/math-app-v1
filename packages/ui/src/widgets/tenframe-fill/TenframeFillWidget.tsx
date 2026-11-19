@@ -914,7 +914,9 @@ function ShellArt() {
   const body = `M20 16 ${rim} Q${W - 4} 24 ${W - 6} 60 L${W - 6} ${H - 40} Q${W - 8} ${H - 4} ${W - 44} ${H - 4} L44 ${H - 4} Q8 ${H - 4} 6 ${H - 40} L6 60 Q4 24 20 16 Z`;
   const ribs = Array.from({ length: scallops - 1 }, (_, i) => {
     const x = 20 + (i + 1) * step;
-    return `M${W / 2} ${H - 8} L${x.toFixed(1)} 18`;
+    // Each rib fans out from the shell's base towards its scallop, ending inside the outline.
+    const base = W / 2 + (x - W / 2) * 0.35;
+    return `M${base.toFixed(1)} ${H - 22} L${x.toFixed(1)} 24`;
   }).join(' ');
   return (
     <svg

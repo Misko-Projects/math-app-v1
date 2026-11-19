@@ -6,6 +6,7 @@ export {
   type Arrangement,
   ASK_ARRANGEMENTS,
   arrangedSize,
+  compactCardW,
   firstFit,
   INVITE_ROOM_PX,
   numeralCardH,

@@ -1,3 +1,4 @@
+import type { CSSProperties } from 'react';
 import type { TraceRecorder } from '../../interaction/trace';
 import { NumberDisplay } from '../../primitives/NumberDisplay';
 import { type AgeMode, MIN_TARGET_PX, TARGET_GAP_PX, TARGET_PX } from '../../tokens/tokens';
@@ -166,7 +167,18 @@ export function NumberEntry({
   const cls = ['ni-entry', className].filter(Boolean).join(' ');
   if (kind === 'tray') {
     return (
-      <div className={cls} data-kind="tray" data-compact={compact ? 'true' : undefined}>
+      <div
+        className={cls}
+        data-kind="tray"
+        data-compact={compact ? 'true' : undefined}
+        style={
+          compact
+            ? ({
+                '--entry-card-w': `max(var(--target-min), ${digitsOf(max) * 30 + 14}px)`,
+              } as CSSProperties)
+            : undefined
+        }
+      >
         <NumeralTray
           values={entryValues(max)}
           selected={value}
