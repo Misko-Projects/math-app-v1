@@ -36,6 +36,8 @@ export {
 export {
   INVITE_GLYPH_SELECTOR,
   INVITE_HAND_PX,
+  INVITE_TARGET_SELECTOR,
+  type InviteHandDirection,
   type InviteHandPlacement,
   type InviteHandSide,
   placeInviteHand,

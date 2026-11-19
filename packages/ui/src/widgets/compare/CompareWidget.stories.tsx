@@ -15,6 +15,7 @@ import {
   areaBox,
   expectFill,
   expectFitsArea,
+  expectHandClearOfOthers,
   expectPointerOn,
   expectRingClear,
   expectTraceOrdered,
@@ -814,6 +815,8 @@ async function expectInviteOn(root: HTMLElement, el: HTMLElement) {
     el,
     targets(root).filter((t) => t !== el),
   );
+  // Pip's hand covers no other control: ≥ 12 px from each, off every glyph.
+  await expectHandClearOfOthers(root, el);
 }
 
 const noInvite = async (root: HTMLElement) => {
@@ -1326,8 +1329,13 @@ export const MatchTenFallbackKMinInvite: Story = {
     const root = await findWidget(canvasElement, ROOT);
     fallbackInvite.invite({ op: 'match', args: { left: 0, right: 0 } });
     await noInvite(root);
+    // The upper card: Pip's hand hangs in the room kept between the stacked cards, ≥ 12 px from
+    // the lower card (and every other control); then the lower card, the hand in the room kept
+    // under the content.
     fallbackInvite.invite({ op: 'highlight', args: { side: 'left' } });
     await expectInviteOn(root, within(root).getByRole('button', { name: 'Left side' }));
+    fallbackInvite.invite({ op: 'highlight', args: { side: 'right' } });
+    await expectInviteOn(root, within(root).getByRole('button', { name: 'Right side' }));
   },
 };
 
@@ -1347,7 +1355,8 @@ export const MatchTenKTablet: Story = {
 /**
  * Portrait (746 × 812): 10 fish don't fit a row at K size, so the sides are pictures, stacked.
  * Each line wraps into rows of five (10 = 5 + 5 above 9 = 5 + 4, still in column), so the fish
- * use the tall side cards: ≥ 75 px each, the fish block ≥ 70 % of its card's height.
+ * use the tall side cards: ≥ 72 px each (the room kept between the cards for Pip's hand costs a
+ * little height), the fish block ≥ 70 % of its card's height.
  */
 export const MatchTenKPortrait: Story = {
   globals: { ageMode: 'k' },
@@ -1357,7 +1366,7 @@ export const MatchTenKPortrait: Story = {
     const root = await findWidget(canvasElement, ROOT);
     await expectCompareFits(canvasElement, root, 'k');
     await expectRowsInColumn(root);
-    const fish = await expectFish(root, 75);
+    const fish = await expectFish(root, 72);
     const shares: number[] = [];
     for (const side of root.querySelectorAll<HTMLElement>('.ni-cmp__side')) {
       const rows = new Set(

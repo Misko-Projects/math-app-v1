@@ -543,7 +543,7 @@ export function OrderWidget({
     cueKey,
     // An open box is empty: Pip points down into it ("put it here"), the whole hand inside the
     // box, so it covers neither the cue's pebbles and arrow above it nor the tray below it.
-    cue?.kind === 'slot' ? 'inside' : 'below',
+    cue?.kind === 'slot' ? 'inside' : undefined,
   );
   const cardLit = (id: string) => highlight === id || (cue?.kind === 'card' && cue.id === id);
 

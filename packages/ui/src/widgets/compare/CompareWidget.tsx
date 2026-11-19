@@ -223,6 +223,11 @@ const hasRelation = (s: StimulusSpec) =>
 const ROOT_PAD = { x: 8, y: 6 };
 /** Between the sides (and the gap or relation between them), and between sides and answers. */
 const SIDE_GAP = 24;
+/**
+ * Between stacked sides the child picks: room for Pip's hand under the upper card (it hangs
+ * ~46 px below the card, bob included) ≥ 12 px clear of the card below, past its 6 px ledge.
+ */
+const STACK_PICK_GAP = 53;
 const ANSWER_GAP = 24;
 /** A framed side: its border and padding around the picture. */
 const SIDE_PAD = 19;
@@ -374,6 +379,7 @@ function planLayout(opts: {
   const n = specs.length;
   const midW = mid.w > 0 ? mid.w + SIDE_GAP : 0;
   const capH = (h: number) => Math.min(MAX_SIDE_H, h);
+  const stackGap = opts.sidePick ? STACK_PICK_GAP : SIDE_GAP;
   // A side the child picks keeps a target-sized card (and its ledge) around the picture.
   const pad = 2 * SIDE_PAD + (opts.sidePick ? 6 : 0);
   const boxes: Record<Exclude<Arrange, 'match'>, Box> = {
@@ -393,7 +399,7 @@ function planLayout(opts: {
             ANSWER_GAP -
             row.h -
             (mid.h > 0 ? mid.h + SIDE_GAP : 0) -
-            (n - 1) * SIDE_GAP -
+            (n - 1) * stackGap -
             (opts.rulerH ?? 0)) /
             n,
         ) - pad,
@@ -402,7 +408,7 @@ function planLayout(opts: {
     // left of the answers, so a long row of objects draws big.
     'stack-beside': {
       w: Math.min(W - col.w - ANSWER_GAP, 900) - 2 * SIDE_PAD,
-      h: capH((H - (n - 1) * SIDE_GAP - (opts.rulerH ?? 0)) / n) - pad,
+      h: capH((H - (n - 1) * stackGap - (opts.rulerH ?? 0)) / n) - pad,
     },
   };
   const score = (a: Exclude<Arrange, 'match'>) =>
@@ -677,7 +683,7 @@ export function CompareWidget({
     sidePick,
     // Two lengths compare one above the other from a common start.
     stackOnly: strips,
-    rulerH: strips ? RULER_H + SIDE_GAP : 0,
+    rulerH: strips ? RULER_H + (sidePick ? STACK_PICK_GAP : SIDE_GAP) : 0,
     handRoom: holdBack ? HAND_ROOM : 0,
   });
   /**
@@ -1303,7 +1309,7 @@ export function CompareWidget({
       ? { '--cmp-side-h': `${Math.round(plan.side.h + 2 * SIDE_PAD)}px` }
       : {}),
     '--cmp-gap': `${ANSWER_GAP}px`,
-    '--cmp-side-gap': `${SIDE_GAP}px`,
+    '--cmp-side-gap': `${stacked && sidePick ? STACK_PICK_GAP : SIDE_GAP}px`,
     '--cmp-row-gap': `${ROW_GAP}px`,
     '--cmp-choice-gap': `${CHOICE_GAP}px`,
     '--cmp-check-gap': `${CHECK_GAP}px`,

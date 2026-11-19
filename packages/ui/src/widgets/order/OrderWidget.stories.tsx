@@ -16,6 +16,7 @@ import {
   contentBox,
   expectFill,
   expectFitsArea,
+  expectHandClearOfOthers,
   expectInside,
   expectPointerOn,
   expectRingClear,
@@ -608,6 +609,8 @@ async function expectInviteOn(root: HTMLElement, el: HTMLElement) {
     targets(root).filter((t) => t !== el),
   );
   await expectRingInside(root, el);
+  // Pip's hand covers no other control: ≥ 12 px from each, off every glyph.
+  await expectHandClearOfOthers(root, el);
 }
 
 const noInvite = async (root: HTMLElement) => {

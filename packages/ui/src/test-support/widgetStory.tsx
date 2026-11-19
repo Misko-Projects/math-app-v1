@@ -4,7 +4,7 @@ import type { InteractionEvent, WidgetConfig } from '@number-island/shared';
 import { expect, type fn, waitFor } from 'storybook/test';
 import { HAND_POINTER_TIP } from '../primitives/icons';
 import { type AgeMode, TARGET_GAP_PX } from '../tokens/tokens';
-import { INVITE_GLYPH_SELECTOR } from '../widgets/kit';
+import { INVITE_GLYPH_SELECTOR, INVITE_TARGET_SELECTOR } from '../widgets/kit';
 import type { WidgetHostProps } from '../widgets/WidgetHost';
 import { WidgetHost } from '../widgets/WidgetHost';
 import { expectTargetGaps, expectTargetSize } from './storyHelpers';
@@ -61,7 +61,8 @@ export async function expectPointerOn(hand: HTMLElement, target: HTMLElement, wi
   }
   try {
     const svg = hand.querySelector('svg');
-    const direction = svg?.dataset.direction === 'up' ? 'up' : 'down';
+    const named = svg?.dataset.direction ?? 'down';
+    const direction = (named in HAND_POINTER_TIP ? named : 'down') as keyof typeof HAND_POINTER_TIP;
     const h = (svg ?? hand).getBoundingClientRect();
     const t = target.getBoundingClientRect();
     const w = widget.getBoundingClientRect();
@@ -86,6 +87,64 @@ export async function expectPointerOn(hand: HTMLElement, target: HTMLElement, wi
     await expect(h.left - 6).toBeGreaterThanOrEqual(w.left);
     await expect(h.right).toBeLessThanOrEqual(w.right);
     await expect(h.bottom + 8).toBeLessThanOrEqual(w.bottom);
+  } finally {
+    for (const a of loops) a.play();
+  }
+}
+
+/**
+ * Pip's hand at rest, its bob included, covers no other control: it stays ≥ `margin` px (default
+ * 12, 06 §4) from every target but `target` (the kit's `INVITE_TARGET_SELECTOR`) and overlaps no
+ * glyph outside `target`. Returns the smallest gap to another target.
+ */
+export async function expectHandClearOfOthers(
+  widget: HTMLElement,
+  target: HTMLElement,
+  margin = TARGET_GAP_PX,
+): Promise<number> {
+  const loops = widget
+    .getAnimations({ subtree: true })
+    .filter((a) => a.effect?.getComputedTiming().iterations === Number.POSITIVE_INFINITY);
+  for (const a of loops) {
+    a.pause();
+    a.currentTime = 0;
+  }
+  try {
+    const h = (widget.querySelector('.ni-hand svg') as SVGElement).getBoundingClientRect();
+    const reach = { left: h.left - 6, top: h.top, right: h.right, bottom: h.bottom + 8 };
+    const gapTo = (r: DOMRect) =>
+      Math.max(
+        r.left - reach.right,
+        reach.left - r.right,
+        r.top - reach.bottom,
+        reach.top - r.bottom,
+      );
+    const shown = (el: Element) => {
+      const r = el.getBoundingClientRect();
+      return r.width > 0 && r.height > 0 && getComputedStyle(el).visibility !== 'hidden';
+    };
+    // A zone the target sits in (a boat, a supply tray) is where the hand points, not a neighbour.
+    const tb = target.getBoundingClientRect();
+    const encloses = (r: DOMRect) =>
+      r.left <= tb.left && r.top <= tb.top && r.right >= tb.right && r.bottom >= tb.bottom;
+    let min = Number.POSITIVE_INFINITY;
+    for (const el of widget.querySelectorAll(INVITE_TARGET_SELECTOR)) {
+      if (el === target || el.contains(target) || target.contains(el) || !shown(el)) continue;
+      if (encloses(el.getBoundingClientRect())) continue;
+      const g = gapTo(el.getBoundingClientRect());
+      min = Math.min(min, g);
+      await expect(g, `the hand ≥ ${margin} px from ${describeEl(el)}`).toBeGreaterThanOrEqual(
+        margin - 0.5,
+      );
+    }
+    for (const el of widget.querySelectorAll(INVITE_GLYPH_SELECTOR)) {
+      if (target.contains(el) || !shown(el)) continue;
+      await expect(
+        gapTo(el.getBoundingClientRect()),
+        `the hand off ${describeEl(el)}`,
+      ).toBeGreaterThanOrEqual(0);
+    }
+    return min;
   } finally {
     for (const a of loops) a.play();
   }
