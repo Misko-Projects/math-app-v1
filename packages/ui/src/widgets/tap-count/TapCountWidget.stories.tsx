@@ -728,7 +728,9 @@ const frameCount: WidgetDemo = createDemoController({ strict: true });
  * Pip counts aloud on a double ten-frame picture (follow-up from #76): the marks equal the number.
  * Every counted cell gets a dot inside the cell (its crab moves up, clear of it) and the running
  * count shows once, in the card's top-right corner, over no crab — part-way (7, first frame) and
- * at the end (15 dots and one "15").
+ * at the end (15 dots and one "15"). Pictorial: the frame cells are a picture, not tap targets
+ * (the child answers on the pad), so they are not held to the 80 px K target size; tappable K
+ * frame cells are (TenFrameConcreteK).
  */
 export const DemoCountAloudTenFrame: Story = {
   globals: { ageMode: 'k', motion: 'reduced' },
@@ -746,10 +748,11 @@ export const DemoCountAloudTenFrame: Story = {
 const frameCountMin: WidgetDemo = createDemoController({ strict: true });
 
 /**
- * DemoCountAloudTenFrame at the 960 × 600 minimum (widget area 906 × 373), where the K pad leaves
- * the frame cells ~36 px: the same rules hold (dots inside their own cells, ≤ 30 % of the cell,
- * clear of every crab; one running count ≥ 32 px, inside the widget, over no crab), and Pip's
- * counting highlight stays inside the cell being counted.
+ * DemoCountAloudTenFrame at the 960 × 600 minimum (widget area 906 × 373). The picture takes the
+ * width left beside the K pad (cells ≥ 48 px, up from ~36 px; pictorial cells are not tap targets)
+ * and the same rules hold (dots inside their own cells, ≤ 30 % of the cell, clear of every crab;
+ * one running count ≥ 32 px, inside the widget, over no crab); Pip's counting highlight stays
+ * inside the cell being counted.
  */
 export const DemoCountAloudTenFrameMin: Story = {
   globals: { ageMode: 'k' },
