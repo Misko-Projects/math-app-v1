@@ -6,7 +6,8 @@
   "exports": {
     ".": "./src/index.ts",
     "./theme.css": "./src/tokens/theme.css",
-    "./primitives.css": "./src/styles/primitives.css"
+    "./primitives.css": "./src/styles/primitives.css",
+    "./art.css": "./src/art/art.css"
   },
   "scripts": {
     "storybook": "storybook dev -p 6006",
