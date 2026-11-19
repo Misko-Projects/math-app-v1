@@ -37,7 +37,7 @@
 .ni-entry__box--active {
   border-style: solid;
   border-color: var(--color-ink);
-  box-shadow: 0 0 0 3px var(--color-ink);
+  box-shadow: inset 0 0 0 3px var(--color-ink); /* inside: boxes stay 12 px apart */
 }
 .ni-entry__text[data-empty="true"] {
   color: var(--color-ink-soft);

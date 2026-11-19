@@ -83,7 +83,7 @@
 }
 .ni-clen__obj:focus-visible {
   outline: 4px solid var(--color-ink);
-  outline-offset: 2px;
+  outline-offset: -6px; /* inside the object: lanes stay 12 px apart */
   border-radius: 12px;
 }
 .ni-clen__obj--slides {

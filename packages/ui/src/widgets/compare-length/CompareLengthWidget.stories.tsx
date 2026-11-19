@@ -13,6 +13,7 @@ import {
   expectControls,
   expectOneInviteRing,
   outlineBox,
+  settleFocus,
 } from '../../test-support/evidence';
 import {
   center,
@@ -401,6 +402,7 @@ export const IndirectStrings: Story = {
     await expect(root.querySelector('[data-tag="obj-0"]')?.getAttribute('data-mark')).not.toBe(
       root.querySelector('[data-tag="obj-1"]')?.getAttribute('data-mark'),
     );
+    await settleFocus();
     await expectControls('compare-length IndirectStrings', 'k', {
       objects: [obj(root, 'obj-0'), obj(root, 'obj-1')],
       spool: [spool],
@@ -469,6 +471,7 @@ export const HowMuchLongerLandscapeMinK: Story = {
       within(root).getByRole('button', { name: 'Check' }),
     ]);
     await expectNumeralsAtLeast32(root, '.ni-entry__text, .ni-pad__digit');
+    await settleFocus();
     await expectControls('compare-length HowMuchLongerLandscapeMinK', 'k', {
       keys: [...root.querySelectorAll('.ni-pad__key')],
       check: [within(root).getByRole('button', { name: 'Check' })],

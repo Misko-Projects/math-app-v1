@@ -147,7 +147,7 @@ export function MeasureLengthWidget({
   const compact = avail !== null && avail.height < 460;
   // Beside the measure: the piles and "take one back" (target-sized, with their gaps).
   const piles = laying && !drawnUnits ? units.length : 0;
-  const sideW = piles > 0 ? (piles + 1) * (MIN_TARGET_PX[ageMode] + 12) + 12 : 0;
+  const sideW = piles > 0 ? (piles + 1) * (MIN_TARGET_PX[ageMode] + 16) + 16 : 0;
   const trackW = Math.max(240, Math.min(1000, (avail?.width ?? 1100) - sideW - 24));
   const whole = objectUnits(config);
   const cubes = whole * UNIT_SIZE[config.unit];

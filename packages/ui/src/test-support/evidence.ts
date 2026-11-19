@@ -38,8 +38,38 @@ export function outlineBox(el: Element): Rect {
 }
 
 /**
+ * The outermost box an element visibly paints: its border box, a visible outline, and any
+ * outward (non-inset) box-shadow ring with its spread and blur. Gaps are measured from this.
+ */
+export function visibleBox(el: Element): Rect {
+  const o = outlineBox(el);
+  const cs = getComputedStyle(el);
+  let grow = 0;
+  if (cs.boxShadow && cs.boxShadow !== 'none') {
+    // Each shadow: "<color> x y blur spread [inset]" (computed values list the colour first).
+    for (const part of cs.boxShadow.split(/,(?![^(]*\))/)) {
+      if (/inset/.test(part)) continue;
+      if (/rgba\([^)]*,\s*0\)/.test(part)) continue;
+      const nums = [...part.replace(/rgba?\([^)]*\)/, '').matchAll(/(-?[\d.]+)px/g)].map((m) =>
+        Number(m[1]),
+      );
+      // A ring (spread > 0); an offset ledge (a card's base) is part of the object, not a ring.
+      const [x = 0, y = 0, blur = 0, spread = 0] = nums;
+      if (spread > 0) grow = Math.max(grow, spread + blur + Math.max(Math.abs(x), Math.abs(y)));
+    }
+  }
+  const r = rectOf(el);
+  return {
+    left: Math.min(o.left, r.left - grow),
+    top: Math.min(o.top, r.top - grow),
+    right: Math.max(o.right, r.right + grow),
+    bottom: Math.max(o.bottom, r.bottom + grow),
+  };
+}
+
+/**
  * Records each group's measured CSS size (the smallest width × height in the group) and the
- * smallest edge-to-edge gap inside the group and to every other listed control, asserts them
+ * smallest edge-to-edge gap (between visible boxes: border, outline and ring) inside the group and to every other listed control, asserts them
  * (≥ the age mode's target size, ≥ 12 px apart), logs a one-line summary and returns it, e.g.
  * `keys 80×80 gap 12; check 120×80`.
  */
@@ -62,7 +92,7 @@ export async function expectControls(
     for (const el of els) {
       for (const other of all) {
         if (other.el === el) continue;
-        gap = Math.min(gap, boxGap(rectOf(el), rectOf(other.el)));
+        gap = Math.min(gap, boxGap(visibleBox(el), visibleBox(other.el)));
       }
     }
     if (Number.isFinite(gap)) {
@@ -145,6 +175,15 @@ export async function expectNumeralInk(root: Element, selector: string, min = 32
     await expect(ink, `"${el.textContent}" digit ink height`).toBeGreaterThanOrEqual(min - 0.5);
   }
   return least;
+}
+
+/**
+ * Ends a story on its settled picture: focus moved off (no focus ring left on a control after
+ * keyboard moves) and transitions finished.
+ */
+export async function settleFocus() {
+  (document.activeElement as HTMLElement | null)?.blur();
+  await new Promise((r) => setTimeout(r, 300));
 }
 
 /** `a` and `b` do not touch: at least `gap` CSS px apart, edge to edge. */

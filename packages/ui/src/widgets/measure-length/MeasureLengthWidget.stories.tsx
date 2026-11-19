@@ -11,10 +11,12 @@ import {
   inArea,
 } from '../../test-support/areaStory';
 import {
+  boxGap,
   expectControls,
   expectNumeralInk,
   expectOneInviteRing,
   expectRenderedNumerals,
+  visibleBox,
 } from '../../test-support/evidence';
 import {
   center,
@@ -315,6 +317,35 @@ async function expectLayingLayout(
   ageMode: 'k' | 'g1-up',
 ) {
   const check = within(root).getByRole('button', { name: 'Check' });
+  // The drop zone's visible frame (with its focus ring, and its ring while a unit is carried)
+  // stays at least 12 px from the keys, the piles, undo and Check (evidence review).
+  const pad = root.querySelector('.ni-mlen__pad') as HTMLElement | null;
+  if (pad) {
+    const others = [
+      ...root.querySelectorAll('.ni-pad__key, .ni-entry__box, .ni-mlen__pile, .ni-mlen__undo'),
+      check,
+    ];
+    const clear = async (state: string) => {
+      await new Promise((r) => setTimeout(r, 250));
+      for (const o of others) {
+        await expect(
+          boxGap(visibleBox(pad), visibleBox(o)),
+          `drop zone (${state}) to ${o.className}`,
+        ).toBeGreaterThanOrEqual(11.5);
+      }
+    };
+    pad.focus();
+    await clear('focused');
+    const firstPile = root.querySelector('.ni-mlen__pile') as HTMLElement;
+    await userEvent.click(firstPile);
+    await waitFor(() => expect(pad).toHaveAttribute('data-armed', 'true'));
+    await clear('armed');
+    await userEvent.click(firstPile);
+    await waitFor(() => expect(pad).not.toHaveAttribute('data-armed', 'true'));
+  }
+  // The settled picture: no focus ring left on any control.
+  (document.activeElement as HTMLElement | null)?.blur();
+  await new Promise((r) => setTimeout(r, 250));
   await expectControls(story, ageMode, {
     piles: [...root.querySelectorAll('.ni-mlen__pile')],
     undo: [...root.querySelectorAll('.ni-mlen__undo')],
