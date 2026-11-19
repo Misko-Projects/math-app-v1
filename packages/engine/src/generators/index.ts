@@ -3,21 +3,27 @@
 
 import type { GeneratorId } from '@number-island/shared';
 import { addsubFacts } from './addsub/facts';
+import { addsubThree } from './addsub/three';
 import { bondParts } from './bond/parts';
 import { compareNumbers } from './compare/numbers';
 import { compareSets } from './compare/sets';
 import { countOrdinal } from './count/ordinal';
 import { countSequence } from './count/sequence';
 import { countSet } from './count/set';
+import { equalityEq } from './equality/eq';
 import { estimateQuantity } from './estimate/quantity';
 import { geoCompose } from './geo/compose';
 import { geoDraw } from './geo/draw';
 import { geoIdentify } from './geo/identify';
 import { geoPosition } from './geo/position';
+import { mdaAddSub } from './mda/addsub';
 import { meaLength } from './mea/length';
 import { meaMassVolume } from './mea/massvolume';
 import { numberlinePlace } from './numberline/place';
 import { pvNumber } from './pv/number';
+import { pvRegroup } from './pv/regroup';
+import { pvTenMore } from './pv/tenmore';
+import { storyAddsub } from './story/addsub';
 import { subitizeFlash } from './subitize/flash';
 import type { GeneratorDef } from './types';
 
@@ -39,6 +45,13 @@ const GENERATORS: GeneratorDef[] = [
   compareNumbers,
   numberlinePlace,
   estimateQuantity,
+  // K01 (#11): place value and two-digit addition and subtraction
+  pvRegroup,
+  pvTenMore,
+  mdaAddSub,
+  equalityEq,
+  storyAddsub,
+  addsubThree,
 ];
 
 const BY_ID = new Map<GeneratorId, GeneratorDef>(GENERATORS.map((g) => [g.id, g]));

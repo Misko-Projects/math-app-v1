@@ -60,6 +60,20 @@ interface Case {
 
 const COUNT_SET: Case[] = [
   {
+    name: 'tap-count 34 in groups of ten (CNT.19)',
+    t: tpl('count.set', 'tap-count', { tier: 'concrete' }),
+    params: { n: 34, layout: 'groups', groupsOf: 10 },
+    answer: { kind: 'number', value: 34 },
+    widget: { set: { count: 34, layout: 'groups', groups: [10, 10, 10, 4] } },
+  },
+  {
+    name: 'make-set a big collection: 37 in a container for 40, every ten bundled',
+    t: tpl('count.set', 'make-set', { tier: 'concrete' }),
+    params: { n: 37, mode: 'make', groupsOf: 10 },
+    answer: { kind: 'state', checker: 'set.count', target: { count: 37, groupsOf: 10 } },
+    widget: { target: 37, capacity: 40, groupsOf: 10 },
+  },
+  {
     name: 'tap-count concrete n=5',
     t: tpl('count.set', 'tap-count', { tier: 'concrete' }),
     params: { n: 5 },
@@ -157,6 +171,30 @@ const COUNT_SET: Case[] = [
 ];
 
 const COUNT_SEQUENCE: Case[] = [
+  {
+    name: 'number-pad tens then ones from 34 (CNT.20), the start drawn as base-ten pieces',
+    t: tpl('count.sequence', 'number-pad', { representation: 'base-ten' }),
+    params: { start: 34, length: 4, tens: 2, hide: 'all-after' },
+    answer: { kind: 'numbers', values: [44, 54, 55, 56], ordered: true },
+    widget: {
+      stimulus: { kind: 'base-ten', hundreds: 0, tens: 3, ones: 4 },
+      expression: {
+        tokens: [
+          { t: 'num', v: 34 },
+          { t: 'blank', id: 't1' },
+          { t: 'blank', id: 't2' },
+          { t: 'blank', id: 't3' },
+          { t: 'blank', id: 't4' },
+        ],
+      },
+    },
+  },
+  {
+    name: 'number-pad back by tens then ones from 62, only the last hidden',
+    t: tpl('count.sequence', 'number-pad', { tier: 'abstract' }),
+    params: { start: 62, dir: -1, length: 3, tens: 2, hide: 'last' },
+    answer: { kind: 'number', value: 41 },
+  },
   {
     name: 'numeral-pick what comes after 7',
     t: tpl('count.sequence', 'numeral-pick', { representation: 'number-path' }),
@@ -358,6 +396,32 @@ const SUBITIZE: Case[] = [
 ];
 
 const BOND: Case[] = [
+  {
+    name: 'base-ten-build tens partner of 100: 3 tens on the mat, build 100',
+    t: tpl('bond.parts', 'base-ten-build', { tier: 'concrete', representation: 'base-ten' }),
+    params: { whole: 10, part: 3, tensOnly: true },
+    answer: { kind: 'state', checker: 'baseten.value', target: { value: 100 } },
+    widget: {
+      target: 100,
+      mode: 'build',
+      pieces: { thousands: false, hundreds: false, tens: true, ones: false },
+      prebuilt: { hundreds: 0, tens: 3, ones: 0 },
+    },
+  },
+  {
+    name: 'base-ten-build missing part of ones: 4 on the mat, build 9',
+    t: tpl('bond.parts', 'base-ten-build', { tier: 'concrete' }),
+    params: { whole: 9, part: 4 },
+    answer: { kind: 'state', checker: 'baseten.value', target: { value: 9 } },
+    widget: { pieces: { tens: true, ones: true }, prebuilt: { tens: 0, ones: 4 } },
+  },
+  {
+    name: 'hundred-chart tens partner: 30 and ? make 100, tap 70',
+    t: tpl('bond.parts', 'hundred-chart'),
+    params: { whole: 10, part: 3, tensOnly: true },
+    answer: { kind: 'number', value: 70 },
+    widget: { first: 1, rows: 10, hidden: [], mode: 'find' },
+  },
   {
     name: 'number-bond missing part 7 = 3 + ?',
     t: tpl('bond.parts', 'number-bond'),
@@ -634,6 +698,32 @@ const ADDSUB: Case[] = [
       target: { start: 9, target: 6, allowedJumps: [-1], value: 6 },
     },
     widget: { goal: 'subtract', labelsEvery: 5, path: 'line' },
+  },
+  // K01 (#11): rekenrek, dot-flash and number-bond (more in addsub/facts.test.ts).
+  {
+    name: 'rekenrek 8 + 5 (make ten)',
+    t: tpl('addsub.facts', 'rekenrek', { tier: 'concrete' }),
+    params: { a: 8, b: 5, family: 'make-ten' },
+    answer: {
+      kind: 'state',
+      checker: 'rekenrek.total',
+      target: { n: 13, rowRule: 'fill-top-first', value: 13 },
+    },
+    widget: { preset: [8, 5], mode: 'make-ten', thenAsk: 'total' },
+  },
+  {
+    name: 'dot-flash 4 + 4',
+    t: tpl('addsub.facts', 'dot-flash'),
+    params: { a: 4, b: 4, family: 'doubles' },
+    answer: { kind: 'number', value: 8 },
+    widget: { stimulus: { kind: 'dots', arrangement: 'groups', groups: [4, 4] } },
+  },
+  {
+    name: 'number-bond 12 − 5 (think addition)',
+    t: tpl('addsub.facts', 'number-bond'),
+    params: { a: 12, b: 5, op: '-', family: 'think-add' },
+    answer: { kind: 'number', value: 7 },
+    widget: { whole: 12, parts: [5, null], mode: 'missing-part' },
   },
 ];
 
@@ -1037,9 +1127,9 @@ describe('addsub family enforcement', () => {
       (p) => p.a === p.b,
     ],
     [
-      'make-ten with b in [2, 4]',
+      'make-ten with b in [2, 4] (one-digit addends that pass ten)',
       { a: int(0, 10), b: int(2, 4), family: c('make-ten'), op: c('+') },
-      (p) => (p.a as number) + (p.b as number) === 10,
+      (p) => (p.a as number) <= 9 && (p.a as number) + (p.b as number) >= 11,
     ],
     [
       'plus1 with a in [2, 9]',
@@ -1049,7 +1139,7 @@ describe('addsub family enforcement', () => {
     [
       'back-to-ten',
       { a: int(11, 19), b: int(0, 9), family: c('back-to-ten'), op: c('-') },
-      (p) => (p.a as number) - (p.b as number) === 10,
+      (p) => (p.a as number) - (p.b as number) <= 10 && (p.b as number) >= 1,
     ],
   ])(
     '%s: every item is in the family and every param in its ParamSpec',
@@ -1083,21 +1173,27 @@ describe('registry', () => {
   it('has exactly the registered generators', () => {
     expect(registry.ids()).toEqual([
       'addsub.facts',
+      'addsub.three',
       'bond.parts',
       'compare.numbers',
       'compare.sets',
       'count.ordinal',
       'count.sequence',
       'count.set',
+      'equality.eq',
       'estimate.quantity',
       'geo.compose',
       'geo.draw',
       'geo.identify',
       'geo.position',
+      'mda.addsub',
       'mea.length',
       'mea.massvolume',
       'numberline.place',
       'pv.number',
+      'pv.regroup',
+      'pv.tenmore',
+      'story.addsub',
       'subitize.flash',
     ]);
     expect(

@@ -1,6 +1,6 @@
-# CNT: Counting (03 §3.3). K01 (#11) authors the K and grade-1 rows except CNT.19 and CNT.20,
-# which need place-value skills from a later PR. CNT.11, CNT.12 and CNT.17 are grade 2 (K02) and
-# are planned ids in graph.yaml.
+# CNT: Counting (03 §3.3). K01 (#11) authors the K and grade-1 rows; CNT.19 and CNT.20 came with
+# the place-value strand. CNT.11, CNT.12 and CNT.17 are grade 2 (K02) and are planned ids in
+# graph.yaml.
 strand: CNT
 skills:
   - id: CNT.01
@@ -139,3 +139,21 @@ skills:
     prerequisites: [CNT.10]
     gateway: false
     representations: [number-path, hundred-chart]
+
+  - id: CNT.19
+    name: Count a big collection by making groups of ten
+    kind: strategy
+    grade: 1
+    standards: { ccss: [1.NBT.B.2a] }
+    prerequisites: [CNT.09, PV.09]
+    gateway: false
+    representations: [objects, bundles, ten-frame]
+
+  - id: CNT.20
+    name: Count on and back by tens and ones from any number (34, 44, 45)
+    kind: procedure
+    grade: 1
+    standards: { ccss: [], supports: [1.NBT.C.5] }
+    prerequisites: [CNT.10, PV.03]
+    gateway: false
+    representations: [base-ten, hundred-chart, open-number-line]

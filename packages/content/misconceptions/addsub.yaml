@@ -1,12 +1,12 @@
-# C01 fixture misconceptions (03 §9.5, library rows in 03 §7.2). Only the fixture skills are
-# listed; K01 restores ADD.04, ADD.06, ADD.08, ADD.13, ADD.15, ADD.27 and MDA.13.
+# Addition and subtraction misconceptions (03 §7.2). K01 lists the K–1 skills authored so far;
+# ADD.14, ADD.22 and the K02 MDA skills join these rows when they are authored.
 area: addsub
 misconceptions:
   - id: MC.count-start-number
     name: Counts the starting number when counting on
     detect: { kind: answer, rule: countStartNumber }
     appliesTo: { generators: [addsub.facts] }
-    skills: [ADD.03]
+    skills: [ADD.03, ADD.04, ADD.15, ADD.27]
     remediation: [CNT.07, ADD.03]
     feedback: fb.mc.count-start-number
     priority: 60
@@ -23,8 +23,8 @@ misconceptions:
   - id: MC.count-all-instead
     name: Counts both groups from 1 instead of counting on
     detect: { kind: process, rule: countAllInstead }
-    appliesTo: { generators: [addsub.facts] }
-    skills: [ADD.03]
+    appliesTo: { generators: [addsub.facts, addsub.three] }
+    skills: [ADD.03, ADD.06, ADD.08, ADD.13]
     remediation: [ADD.03]
     feedback: fb.mc.count-all-instead
     priority: 40
@@ -54,3 +54,145 @@ misconceptions:
             - { t: tap, target: counter-6, ms: 600 }
             - { t: tap, target: counter-7, ms: 1200 }
         match: false
+      # Three addends (ADD.13): every one of the 3 + 2 + 4 counters, from the first.
+      - generator: addsub.three
+        params: { a: 3, b: 2, c: 4 }
+        response: { kind: number, value: 9 }
+        meta:
+          latencyMs: 9000
+          trace:
+            - { t: tap, target: counter-0, ms: 0 }
+            - { t: tap, target: counter-1, ms: 500 }
+            - { t: tap, target: counter-2, ms: 1000 }
+            - { t: tap, target: counter-3, ms: 1500 }
+            - { t: tap, target: counter-4, ms: 2000 }
+            - { t: tap, target: counter-5, ms: 2500 }
+            - { t: tap, target: counter-6, ms: 3000 }
+            - { t: tap, target: counter-7, ms: 3500 }
+            - { t: tap, target: counter-8, ms: 4000 }
+        match: true
+      - generator: addsub.three
+        params: { a: 3, b: 2, c: 4 }
+        response: { kind: number, value: 9 }
+        meta:
+          latencyMs: 4000
+          trace:
+            - { t: tap, target: counter-0, ms: 0 }
+            - { t: tap, target: counter-1, ms: 500 }
+            - { t: tap, target: counter-2, ms: 1000 }
+            - { t: tap, target: counter-3, ms: 1500 }
+            - { t: tap, target: counter-4, ms: 2000 }
+        match: false
+
+  - id: MC.forgot-the-ten
+    name: Makes a ten, then leaves the ten out of the answer
+    detect: { kind: answer, rule: forgotTheTen }
+    appliesTo: { generators: [addsub.facts, addsub.three, mda.addsub] }
+    skills: [ADD.08, ADD.13, ADD.26, MDA.08]
+    remediation: [CPS.04, ADD.26]
+    feedback: fb.mc.forgot-the-ten
+    parentTip: >-
+      After making a ten, point to the full ten-frame and say "ten" before counting the ones left.
+    examples:
+      - params: { a: 8, b: 5, op: "+", unknown: result }
+        response: { kind: number, value: 3 }
+        match: true
+      # 37 + 5 (MDA.08): the new ten made from the ones is left out, 32.
+      - generator: mda.addsub
+        params: { a: 37, b: 5, op: "+" }
+        response: { kind: number, value: 32 }
+        match: true
+      - generator: mda.addsub
+        params: { a: 37, b: 5, op: "+" }
+        response: { kind: state, value: { hundreds: 0, tens: 4, ones: 2, value: 32 } }
+        match: true
+      # The mat left at 37 (nothing combined) with 32 typed shows no ten made and dropped.
+      - generator: mda.addsub
+        params: { a: 37, b: 5, op: "+" }
+        response: { kind: state, value: { hundreds: 0, tens: 3, ones: 7, value: 32 } }
+        match: false
+      - generator: mda.addsub
+        params: { a: 37, b: 5, op: "+" }
+        response: { kind: number, value: 41 }
+        match: false
+      - params: { a: 8, b: 5, op: "+", unknown: result }
+        response: { kind: number, value: 12 }
+        match: false
+      - params: { a: 8, b: 5, op: "+", unknown: result }
+        response: { kind: number, value: 13 }
+        match: false
+      - generator: addsub.three
+        params: { a: 7, b: 3, c: 5 }
+        response: { kind: number, value: 5 }
+        match: true
+
+  - id: MC.wrong-operation
+    name: Adds when the fact takes away, or takes away when it adds
+    detect: { kind: answer, rule: wrongOperation }
+    appliesTo: { generators: [addsub.facts] }
+    skills: [ADD.06, ADD.09]
+    remediation: [ADD.09]
+    feedback: fb.mc.wrong-operation
+    parentTip: >-
+      Before solving, have your child point to the sign and say "plus" or "take away" out loud.
+    examples:
+      - params: { a: 9, b: 4, op: "-", unknown: result }
+        response: { kind: number, value: 13 }
+        match: true
+      - params: { a: 6, b: 3, op: "+", unknown: result }
+        response: { kind: number, value: 3 }
+        match: true
+      - params: { a: 9, b: 4, op: "-", unknown: result }
+        response: { kind: number, value: 4 }
+        match: false
+
+  - id: MC.keyword-more-means-add
+    name: Adds whenever a story says "more", even when it takes away
+    detect: { kind: answer, rule: keywordMoreMeansAdd }
+    appliesTo: { generators: [story.addsub] }
+    skills: [ADD.12, ADD.21]
+    remediation: [ADD.21]
+    feedback: fb.mc.keyword-more-means-add
+    parentTip: >-
+      Act the story out with two rows of objects, matching them up, before choosing to add or take away.
+    examples:
+      - params: { situation: compare/difference-more, context: beach-shells, a: 9, b: 3 }
+        response: { kind: number, value: 12 }
+        match: true
+      - params: { situation: compare/smaller-more, context: beach-shells, a: 9, b: 3 }
+        response: { kind: number, value: 12 }
+        match: true
+      - params: { situation: compare/difference-more, context: beach-shells, a: 9, b: 3 }
+        response: { kind: number, value: 5 }
+        match: false
+      - params: { situation: compare/bigger-more, context: beach-shells, a: 9, b: 3 }
+        response: { kind: number, value: 12 }
+        match: false
+
+  - id: MC.start-unknown-reversed
+    name: With the start unknown, does the operation it sees instead of undoing it
+    detect: { kind: answer, rule: startUnknownReversed }
+    appliesTo: { generators: [equality.eq, story.addsub, addsub.facts] }
+    skills: [ADD.11, ADD.12]
+    remediation: [ADD.09, ADD.11]
+    feedback: fb.mc.start-unknown-reversed
+    priority: 55
+    parentTip: >-
+      Try the answer in the first box and read the whole sentence aloud to check that it is true.
+    examples:
+      - generator: equality.eq
+        params: { form: _+b=c, mode: fill, op: "-", a: 8, b: 3 }
+        response: { kind: number, value: 2 }
+        match: true
+      - generator: equality.eq
+        params: { form: _+b=c, mode: fill, op: "+", a: 5, b: 3 }
+        response: { kind: number, value: 11 }
+        match: true
+      - generator: equality.eq
+        params: { form: _+b=c, mode: fill, op: "-", a: 8, b: 3 }
+        response: { kind: number, value: 5 }
+        match: false
+      - generator: story.addsub
+        params: { situation: take-from/start, context: beach-shells, a: 3, b: 5 }
+        response: { kind: number, value: 2 }
+        match: true

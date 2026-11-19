@@ -21,11 +21,18 @@ import { compileFixture, fixtureTemplate, loadFixture } from './fixture';
 
 describe('F1: authored lessons replay to a correct demonstration', () => {
   const fixture = compileFixture();
+  const formatOf = new Map(fixture.templates.map((t) => [t.id, t.format]));
+  // Only formats with an engine state model can replay steps. The balance worked examples of
+  // ADD.10 and ADD.11 (K01) wait for the U04 balance model; V21 checks their ops meanwhile.
   const cases = fixture.skills.flatMap((s) =>
     s.lesson.mode === 'authored'
       ? s.lesson.worked
           .filter((ex) => ex.params && ex.steps?.every((st) => st.actor === 'demo'))
           .map((ex) => ({ skill: s.id, templateId: ex.templateId ?? s.lesson.templateId, ex }))
+          .filter((c) => {
+            const format = formatOf.get(c.templateId);
+            return format !== undefined && formatModel(format) !== undefined;
+          })
       : [],
   );
 

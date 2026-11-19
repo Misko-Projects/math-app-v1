@@ -2,9 +2,18 @@
 // (any two parts), or new-way (a split not found yet; `found` ways are shown as already found).
 // Derived: `other` = whole − part. With `addend` (CPS.11, split to finish a ten), the whole is the
 // second addend and the part is what the addend needs to make ten (8 + 5: give 2, keep 3).
-// Formats: number-bond, tenframe-fill, rekenrek, number-pad, number-line-jump, make-set.
+// Formats: number-bond, tenframe-fill, rekenrek, number-pad, number-line-jump, make-set, and (part
+// unknown, CPS.09 tens partners of 100) base-ten-build and hundred-chart: the known part is built
+// on the mat and the child adds pieces until the mat is worth the whole (`baseten.value`), or taps
+// the missing part on a 1–100 chart.
 
-import type { LessonStep, ParamValues, ResponseValue, StimulusSpec } from '@number-island/shared';
+import type {
+  LessonStep,
+  ParamValues,
+  ResponseValue,
+  StimulusSpec,
+  WidgetAction,
+} from '@number-island/shared';
 import { BEADS_PER_ROW } from '../../formats/rekenrek';
 import {
   asNum,
@@ -98,6 +107,8 @@ export const bondParts: GeneratorDef = {
     'number-pad',
     'number-line-jump',
     'make-set',
+    'base-ten-build',
+    'hundred-chart',
   ],
   params: {
     whole: { type: 'int', default: { kind: 'int', min: 2, max: 10 }, doc: 'the whole' },
@@ -155,6 +166,7 @@ export const bondParts: GeneratorDef = {
     'gen.bond.parts.make-ten',
     'gen.bond.parts.left-over',
     'gen.bond.parts.ten-and',
+    'gen.bond.parts.put-in',
   ],
   sample(spec, rng) {
     const p = sampleAll(spec, rng);
@@ -183,6 +195,12 @@ export const bondParts: GeneratorDef = {
     }
     const part = asNum(p.part);
     if (part < 0 || part > whole) return false;
+    // The mat and the chart find a missing part (CPS.09); the chart is 1–100.
+    if (t.format === 'base-ten-build' || t.format === 'hundred-chart') {
+      const scale = p.tensOnly === true ? 10 : 1;
+      if (addend !== 0 || p.unknown !== 'part' || part >= whole) return false;
+      return t.format === 'base-ten-build' ? whole * scale <= 999 : whole * scale <= 100;
+    }
     if (addend !== 0) {
       // The part is what the addend needs to make ten, and something is kept from the whole.
       if (addend < 1 || addend > 9 || p.unknown !== 'part' || p.tensOnly === true) return false;
@@ -222,7 +240,8 @@ export const bondParts: GeneratorDef = {
       whole: unknown === 'whole' ? '?' : whole,
       parts: unknown === 'whole' ? [part, other] : [part, '?'],
     };
-    const overlay = tenFrameOverlay(whole, [part, other]);
+    // A bond of tens is pictured as the bond of its tens (30 and 70 as 3 and 7 on a ten-frame).
+    const overlay = tenFrameOverlay(whole / scale, [part / scale, other / scale]);
     // Every split widget asks for two nonzero parts (`nonZero: true`); both checkers do too.
     const splitAnswer =
       unknown === 'new-way'
@@ -504,6 +523,39 @@ export const bondParts: GeneratorDef = {
         }
         break;
       }
+      case 'base-ten-build': {
+        // The known part is on the mat; the child puts in pieces until it is worth the whole.
+        if (unknown !== 'part') throw new RangeError('bond.parts: base-ten-build finds a part');
+        p = {
+          params,
+          vars,
+          math,
+          widget: {
+            format: 'base-ten-build',
+            target: whole,
+            mode: 'build',
+            pieces: { thousands: false, hundreds: false, tens: true, ones: scale === 1 },
+            prebuilt: { hundreds: 0, tens: Math.floor(part / 10), ones: part % 10 },
+            wholeIs: 'unit',
+          },
+          answer: { kind: 'state', checker: 'baseten.value', target: { value: whole } },
+          highlight: [{ op: 'count-by', args: { kind: scale === 10 ? 'tens' : 'ones' } }],
+        };
+        break;
+      }
+      case 'hundred-chart': {
+        // Tap the missing part on a 1–100 chart (30 and ? make 100: count the rows down to 100).
+        if (unknown !== 'part') throw new RangeError('bond.parts: hundred-chart finds a part');
+        p = {
+          params,
+          vars,
+          math,
+          widget: { format: 'hundred-chart', first: 1, rows: 10, hidden: [], mode: 'find' },
+          answer: { kind: 'number', value: other },
+          nudge: [chartColumn(part, scale)],
+        };
+        break;
+      }
       default:
         throw new Error(`bond.parts cannot build ${t.format}`);
     }
@@ -571,6 +623,14 @@ export const bondParts: GeneratorDef = {
             jumps: new Array<number>((goal - start) / jump).fill(jump),
             value: goal - start,
           },
+        };
+      }
+      case 'baseten.value': {
+        // The whole as tens and ones (the tray offers no hundreds): 100 is ten tens.
+        const whole = asNum(target.value as number);
+        return {
+          kind: 'state',
+          value: { thousands: 0, hundreds: 0, tens: Math.floor(whole / 10), ones: whole % 10 },
         };
       }
       case 'set.count': {
@@ -745,6 +805,24 @@ export const bondParts: GeneratorDef = {
         steps.push(say('gen.bond.parts.missing-is', { n: other }, { op: 'label-landing' }));
         return steps;
       }
+      case 'base-ten-build': {
+        // Count the known part, put in the missing pieces, then count the whole.
+        const kind = scale === 10 ? 'tens' : 'ones';
+        return [
+          say('gen.bond.parts.count-on', { part, whole }, { op: 'count-by', args: { kind } }),
+          say(
+            'gen.bond.parts.put-in',
+            { n: other },
+            { op: 'add-piece', args: { kind, count: other / scale } },
+          ),
+          say('gen.bond.parts.whole-is', { whole }, { op: 'count-by', args: { kind } }),
+        ];
+      }
+      case 'hundred-chart':
+        return [
+          say('gen.bond.parts.count-on', { part, whole }, chartColumn(part, scale)),
+          say('gen.bond.parts.missing-is', { n: other }, { op: 'tap', args: { n: other } }),
+        ];
       case 'make-set':
         if (
           out.answer.kind === 'state' &&
@@ -773,6 +851,16 @@ export const bondParts: GeneratorDef = {
     }
   },
 };
+
+/**
+ * The hundred-chart cue for finding a part: the tens column a tens bond climbs down (30 → 100), or
+ * the row a part of ones starts on. Never the missing part's own cell.
+ */
+function chartColumn(part: number, scale: number): WidgetAction {
+  return scale === 10
+    ? { op: 'highlight-col', args: { n: part > 0 ? part : 10 } }
+    : { op: 'highlight-row', args: { n: Math.max(1, part) } };
+}
 
 /** The split a split or new-way item's demo shows (not already found, and fits the widget). */
 function splitShown(out: GeneratorOutput): [number, number] {

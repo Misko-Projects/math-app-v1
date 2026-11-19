@@ -46,13 +46,15 @@ export function askedNumbers(item: GeneratedItem): number[] | null {
 
 /**
  * State answers that carry the asked number as `target.value`: the typed landing of a jump, the
- * typed total after filling frames or sliding beads (thenAsk), and a base-ten build's value.
+ * typed total after filling frames or sliding beads (thenAsk), a base-ten build's value, and the
+ * result typed after computing on the place-value mat (base-ten-trade `compute` with thenAsk).
  */
 const VALUE_STATE_FORMATS = new Set<string>([
   'number-line-jump',
   'tenframe-fill',
   'rekenrek',
   'base-ten-build',
+  'base-ten-trade',
 ]);
 
 /** The non-zero place values of n, largest first (41 → 40, 1). */
@@ -63,6 +65,15 @@ function placeTerms(n: number): number[] {
     if (d > 0) out.push(d * 10 ** k);
   }
   return out;
+}
+
+/** Whether a base-ten-trade mat `{ hundreds, tens, ones }` is worth the item's computed result. */
+function matShowsResult(item: GeneratedItem, mat: Readonly<Record<string, unknown>>): boolean {
+  const result = item.answer.kind === 'state' ? Number(item.answer.target.result) : Number.NaN;
+  const [h, t, o] = [mat.hundreds, mat.tens, mat.ones].map((x) => (typeof x === 'number' ? x : 0));
+  return (
+    Number.isInteger(result) && (h as number) * 100 + (t as number) * 10 + (o as number) === result
+  );
 }
 
 /** The numbers a response gives, in the shape `askedNumbers` reads. */
@@ -78,6 +89,11 @@ export function givenNumbers(item: GeneratedItem, r: ResponseValue): number[] | 
       const pieces = matPieces(r.value);
       return pieces ? [piecesValue(pieces)] : null;
     }
+    // A number typed after computing on the place-value mat is read only when the mat is worth
+    // the result (PR #83 review): the pieces were combined (or taken), so a wrong typed number is
+    // a slip in reading the mat. An untouched mat (3 tens 7 ones for 37 + 5) with 32 typed shows
+    // nothing about a ten that was made and dropped.
+    if (item.widget.format === 'base-ten-trade' && !matShowsResult(item, r.value)) return null;
     return VALUE_STATE_FORMATS.has(item.widget.format) && typeof r.value.value === 'number'
       ? [r.value.value]
       : null;
@@ -126,6 +142,15 @@ export function responseWith(item: GeneratedItem, values: number[]): ResponseVal
         return {
           kind: 'state',
           value: { rows: [Math.min(10, shown), Math.max(0, shown - 10)], value: v },
+        };
+      }
+      // Computed right on the mat (any trades), then the rewritten number typed.
+      const result = Number(a.target.result);
+      if (w.format === 'base-ten-trade' && Number.isInteger(result)) {
+        const c = canonicalPieces(result);
+        return {
+          kind: 'state',
+          value: { hundreds: c.hundreds + 10 * c.thousands, tens: c.tens, ones: c.ones, value: v },
         };
       }
       if (item.widget.format !== 'number-line-jump') return null;

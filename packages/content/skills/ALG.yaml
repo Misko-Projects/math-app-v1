@@ -1,0 +1,13 @@
+# K01 (#11): ALG.05 from 03 §3.18, the equality foundation ADD.10 builds on. The pattern rows
+# ALG.01 and ALG.04 (K) land in a later K01 PR, ALG.02 with them, and ALG.03, ALG.06–10 are
+# grade 2–3 (K02); graph.yaml plans ALG.01–04 so the ids may stay unauthored.
+strand: ALG
+skills:
+  - id: ALG.05
+    name: Balanced means the same amount on both sides
+    kind: concept
+    grade: K
+    standards: { ccss: [], supports: [1.OA.D.7] }
+    prerequisites: [CMP.01]
+    gateway: false
+    representations: [objects, balance]

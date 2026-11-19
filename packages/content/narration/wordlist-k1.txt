@@ -198,6 +198,7 @@ eyes
 fact
 factory
 facts
+false
 farm
 farmer
 farther
@@ -684,6 +685,7 @@ triangles
 trick
 tried
 tries
+true
 try
 trying
 turn

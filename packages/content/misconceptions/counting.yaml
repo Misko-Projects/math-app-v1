@@ -1,13 +1,13 @@
-# Counting misconceptions (03 §7.2). Skills list the catalog skills authored so far: CNT.19 joins
-# MC.off-by-one-counting, CNT.17 joins MC.decade-transition, and PV.11 and PV.13 join
-# MC.teen-reversal (with remediation PV.11) when those skills land.
+# Counting misconceptions (03 §7.2). Skills list the catalog skills authored so far: CNT.17 joins
+# MC.decade-transition when that K02 skill lands. MC.decade-transition's PV.10 remediation waits
+# too: PV.10 is no ancestor of its K01 skills (V18).
 area: counting
 misconceptions:
   - id: MC.off-by-one-counting
     name: Skips an object or counts one twice
     detect: { kind: process, rule: offByOneCounting }
     appliesTo: { generators: [count.set] }
-    skills: [CNT.02, CNT.03, CNT.06]
+    skills: [CNT.02, CNT.03, CNT.06, CNT.19]
     remediation: [CNT.02]
     feedback: fb.mc.off-by-one-counting
     priority: 50
@@ -99,8 +99,8 @@ misconceptions:
     name: Swaps the digits of a teen number (13 written as 31)
     detect: { kind: answer, rule: teenReversal }
     appliesTo: { generators: [count.set, count.sequence, pv.number, bond.parts] }
-    skills: [CNT.05, CNT.10, CPS.04, CPS.07]
-    remediation: [CNT.05, CPS.04]
+    skills: [CNT.05, CNT.10, CPS.04, CPS.07, PV.11, PV.13]
+    remediation: [PV.11, CPS.04]
     feedback: fb.mc.teen-reversal
     priority: 50
     parentTip: >-

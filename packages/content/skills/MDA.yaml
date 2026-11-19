@@ -1,0 +1,40 @@
+# MDA: Multi-digit addition and subtraction, catalog rows from 03 §3.9 (K01: the grade-1 rows).
+# The grade-2 and grade-3 rows MDA.03–MDA.07 and MDA.10–MDA.25 are K02 (graph.yaml plannedIds).
+strand: MDA
+skills:
+  - id: MDA.01
+    name: Add tens to a two-digit number; add ones without crossing a ten
+    kind: procedure
+    grade: 1
+    standards: { ccss: [1.NBT.C.4] }
+    prerequisites: [PV.01, PV.03, ADD.06]
+    encompasses: { ADD.06: 0.5, PV.03: 0.5 }
+    gateway: false
+    representations: [base-ten, hundred-chart, open-number-line, symbols]
+
+  - id: MDA.02
+    name: Subtract multiples of 10 (10–90)
+    kind: procedure
+    grade: 1
+    standards: { ccss: [1.NBT.C.6] }
+    prerequisites: [PV.03]
+    gateway: false
+    representations: [base-ten, hundred-chart, open-number-line, symbols]
+
+  - id: MDA.08
+    name: Add a one-digit number across a ten (37 + 5 → 40 + 2)
+    kind: strategy
+    grade: 1
+    standards: { ccss: [1.NBT.C.4] }
+    prerequisites: [MDA.01, ADD.08]
+    gateway: false
+    representations: [base-ten, open-number-line, symbols]
+
+  - id: MDA.09
+    name: Add two-digit numbers without regrouping
+    kind: procedure
+    grade: 1
+    standards: { ccss: [1.NBT.C.4] }
+    prerequisites: [MDA.01]
+    gateway: false
+    representations: [base-ten, expanded, symbols]
