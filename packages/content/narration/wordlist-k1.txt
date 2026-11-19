@@ -328,6 +328,7 @@ lands
 lantern
 lanterns
 last
+leaf
 learn
 least
 left

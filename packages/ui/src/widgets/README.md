@@ -3,7 +3,9 @@
 Every `ItemFormat` has exactly one widget (02 §5.2). The workshops and the lesson player never
 import a widget directly. They render `<WidgetHost>`, which looks up the format in the registry,
 lazily loads the widget's chunk and passes it the props below. This document is the contract that
-U03–U05 implement against. `sample/SampleSetWidget.tsx` is a complete worked example.
+U03–U05 implement against. `sample/SampleSetWidget.tsx` is a complete worked example, and
+`kit/` (see `kit/README.md`) holds the shared pictures, layouts and answer controls the real
+widgets compose.
 
 ## Registering a widget
 
