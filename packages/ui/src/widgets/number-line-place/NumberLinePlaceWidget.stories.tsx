@@ -492,6 +492,65 @@ export const InviteReadEighths: Story = {
   },
 };
 
+/** An eighths answer on a line ticked and labelled in wholes (review r3 F3). */
+const eighthOnWholes: Config = {
+  ...read,
+  min: 0,
+  max: 2,
+  ticksEvery: 1,
+  labelsEvery: 1,
+  target: 0.125,
+};
+const eighthOnWholesInvite: WidgetDemo = createDemoController({ strict: true });
+
+/**
+ * Review r3 F3: the answer alone needs decimal places, so the pad shows "."; the invite leads
+ * through 0 . 1 2 5 and Check, every cued key is a rendered key, and the response is 0.125.
+ */
+export const InviteReadEighthOnWholes: Story = {
+  args: { config: eighthOnWholes, demo: eighthOnWholesInvite },
+  play: async ({ canvasElement, args }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    const key = (k: string) => root.querySelector<HTMLElement>(`.ni-pad__key[data-key="${k}"]`);
+    await expect(key('.')).toBeVisible();
+    eighthOnWholesInvite.invite({ op: 'answer', args: { value: 0.125 } });
+    for (const k of ['0', '.', '1', '2', '5']) {
+      await expect(key(k)).not.toBeNull();
+      await waitFor(() => expect(key(k)).toHaveClass('ni-invite'));
+      // The one ringed control is that rendered key.
+      await expect(root.querySelectorAll('.ni-invite')).toHaveLength(1);
+      await userEvent.click(key(k) as HTMLElement);
+    }
+    await expect(root.querySelector('.ni-nlp__readout')).toHaveTextContent('0.125');
+    await waitFor(() => expect(checkBtn(root)).toHaveClass('ni-invite'));
+    await userEvent.click(checkBtn(root));
+    await expect(args.onResponse).toHaveBeenCalledWith({ kind: 'number', value: 0.125 });
+  },
+};
+
+const wholeInvite: WidgetDemo = createDemoController({ strict: true });
+
+/**
+ * Review r3 F3: on a line written only in wholes (no "." key), an invite for a value the pad can't
+ * type rings nothing, rather than a key that isn't there.
+ */
+export const InviteUntypableValue: Story = {
+  args: { config: { ...read, target: 1 }, demo: wholeInvite },
+  play: async ({ canvasElement }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    await expect(root.querySelector('.ni-pad__key[data-key="."]')).toBeNull();
+    wholeInvite.invite({ op: 'answer', args: { value: 0.5 } });
+    await new Promise((r) => setTimeout(r, 300));
+    await expect(root.querySelector('.ni-invite')).toBeNull();
+    await expect(root.querySelector('.ni-invite-hand')).toBeNull();
+    // A typeable value is still invited.
+    wholeInvite.invite({ op: 'answer', args: { value: 1 } });
+    await waitFor(() =>
+      expect(root.querySelector('.ni-pad__key[data-key="1"]')).toHaveClass('ni-invite'),
+    );
+  },
+};
+
 /** Hundredths (DEC.03): labels read 0, 0.5 and 1; the response stays in hundredths. */
 export const Hundredths: Story = {
   args: { config: hundredths },

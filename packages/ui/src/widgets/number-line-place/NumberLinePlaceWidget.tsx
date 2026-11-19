@@ -629,16 +629,23 @@ export function NumberLinePlaceWidget({
   // Whole-number digits (a leading "0" of "0.5" counts as one: the pad counts it) plus the
   // decimal places the line is written in (its spacing, its numbers; hundredths with valueScale 100).
   const shownOf = (v: number) => v / c.valueScale;
+  const places = Math.max(
+    c.valueScale === 100 ? 2 : 0,
+    ...[c.ticksEvery, c.labelsEvery, c.min, c.max, c.target]
+      .filter((x): x is number => x !== null)
+      .map((x) => decimalsOf(shownOf(x))),
+  );
   const maxDigits =
     String(Math.trunc(Math.max(Math.abs(shownOf(c.min)), Math.abs(shownOf(c.max))))).length +
-    Math.max(
-      c.valueScale === 100 ? 2 : 0,
-      ...[c.ticksEvery, c.labelsEvery, c.min, c.max, c.target]
-        .filter((x): x is number => x !== null)
-        .map((x) => decimalsOf(shownOf(x))),
-    );
-  const allowDecimal =
-    c.valueScale === 100 || [c.ticksEvery, c.labelsEvery].some((x) => x !== null && x % 1 !== 0);
+    places;
+  // The decimal key is there whenever any number of the line, the answer included, is written
+  // with decimal places (a 0.125 target on a line ticked in wholes still needs ".").
+  const allowDecimal = places > 0;
+  /** Whether the pad as rendered can type `text`: only its own keys, within its digit limit. */
+  const padCanType = (text: string) =>
+    /^\d*(\.\d*)?$/.test(text) &&
+    (allowDecimal || !text.includes('.')) &&
+    text.replace('.', '').length <= maxDigits;
   const typedValue = (() => {
     const v = padValue(typed);
     if (v === null) return null;
@@ -826,6 +833,8 @@ export function NumberLinePlaceWidget({
     const shown = showValue(v);
     if (shown < 0 !== negative) return c.min < 0 ? { at: 'minus' } : null;
     const want = padText(shown);
+    // Never cue a key the pad doesn't render (or one it would refuse): no hand at all instead.
+    if (!padCanType(want)) return null;
     if (typed === want) return check;
     if (want.startsWith(typed)) return { at: 'key', key: want[typed.length] as PadKey };
     return { at: 'key', key: 'back' };
