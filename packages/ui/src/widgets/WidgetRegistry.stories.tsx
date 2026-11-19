@@ -221,6 +221,54 @@ export const DemoReducedMotion: Story = {
   },
 };
 
+const shrinkController: WidgetDemo = createDemoController({ strict: true });
+const fullBasket: ConfigFor<'make-set'> = {
+  ...makeSet,
+  source: { sprite: 'pebble', supply: 12 },
+  start: 12,
+  capacity: 15,
+};
+const smallBasket: ConfigFor<'make-set'> = { ...fullBasket, start: 0, capacity: 10 };
+
+/** A story harness: the same item (same `itemKey`), its config swapped by a button. */
+function ShrinkLater(args: WidgetHostProps) {
+  const [small, setSmall] = useState(false);
+  return (
+    <div style={{ width: 'min(1100px, 100%)', minHeight: 520, display: 'grid' }}>
+      <WidgetHost
+        {...args}
+        itemKey="same-item"
+        config={(small ? smallBasket : fullBasket) as WidgetConfig}
+      />
+      <button type="button" onClick={() => setSmall(true)}>
+        Shrink the basket (story harness)
+      </button>
+    </div>
+  );
+}
+
+/**
+ * The same widget instance keeps its 12 pebbles when its basket shrinks to 10 slots (only 10 can
+ * show). A reduced-motion remove still resolves: `play` waits for its own state update to commit,
+ * not for a pebble count the basket may be unable to show.
+ */
+export const DemoAfterBasketShrinks: Story = {
+  globals: { motion: 'reduced' },
+  args: { disabled: true, demo: shrinkController },
+  render: (args) => <ShrinkLater {...args} />,
+  play: async ({ canvasElement }) => {
+    await within(canvasElement).findByRole('group', { name: 'Pebbles' }, { timeout: 10_000 });
+    await waitFor(() => expect(pebblesIn(canvasElement)).toBe(12));
+    await userEvent.click(within(canvasElement).getByRole('button', { name: /Shrink the basket/ }));
+    await waitFor(() => expect(pebblesIn(canvasElement)).toBe(10));
+    const outcome = await Promise.race([
+      shrinkController.play({ op: 'remove', args: { count: 1 } }).then(() => 'resolved'),
+      new Promise((r) => setTimeout(() => r('timed out'), 2000)),
+    ]);
+    await expect(outcome).toBe('resolved');
+  },
+};
+
 /** `disabled`: nothing responds (feedback showing, or demo playback). */
 export const Disabled: Story = {
   args: { disabled: true },

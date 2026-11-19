@@ -152,8 +152,11 @@ export function SampleSetWidget({
       for (const w of waiters) w.resolve();
     };
   }, []);
+  /** The basket state of the latest commit. */
+  const committedBasket = useRef(inBasket);
   // After each commit, release the waits whose condition the committed DOM now meets.
   useLayoutEffect(() => {
+    committedBasket.current = inBasket;
     if (commitWaiters.current.length === 0) return;
     commitWaiters.current = commitWaiters.current.filter((w) => {
       if (!w.ready()) return true;
@@ -287,13 +290,12 @@ export function SampleSetWidget({
           }
           setCounting(null);
         }
-        // Resolve only once the basket on screen shows the result. A reduced-motion op is a plain
-        // state change, so without this, play could resolve before React commits it.
+        // Resolve only once React has committed the op's last basket update. A reduced-motion op
+        // is a plain state change, so without this, play could resolve before the screen shows it.
         if ((action.op === 'drag' || action.op === 'remove') && alive.current) {
-          const shown = () =>
-            rootRef.current?.querySelectorAll('.ni-sample__in').length ===
-            inBasketRef.current.length;
-          if (!shown()) await afterCommitWhere(shown);
+          const latest = inBasketRef.current;
+          const committed = () => committedBasket.current === latest;
+          if (!committed()) await afterCommitWhere(committed);
         }
       } finally {
         setDemoBusy(false);
