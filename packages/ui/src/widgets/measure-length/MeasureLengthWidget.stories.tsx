@@ -18,6 +18,7 @@ import {
   expectOneInviteRing,
   expectRenderedNumerals,
   fillPercent,
+  keyRectsAfterEach,
   recordEvidence,
   visibleBox,
 } from '../../test-support/evidence';
@@ -113,6 +114,8 @@ const meta = {
   },
   parameters: { ui: { stage: 'centered' } },
   render: renderWidget,
+  // Evidence: every story leaves its key rects in the area's `data-evidence`.
+  afterEach: keyRectsAfterEach('.ni-mlen'),
 } satisfies Meta<WidgetHostProps>;
 
 export default meta;

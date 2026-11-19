@@ -14,6 +14,7 @@ import {
   expectControls,
   expectHandTouchesOnlyInvited,
   expectOneInviteRing,
+  keyRectsAfterEach,
   outlineBox,
   recordEvidence,
   settleFocus,
@@ -136,6 +137,8 @@ const meta = {
   },
   parameters: { ui: { stage: 'centered' } },
   render: renderWidget,
+  // Evidence: every story leaves its key rects in the area's `data-evidence`.
+  afterEach: keyRectsAfterEach('.ni-clen'),
 } satisfies Meta<WidgetHostProps>;
 
 export default meta;

@@ -59,6 +59,46 @@ export function recordEvidence(anchor: Element | null, entries: Record<string, u
   host.setAttribute('data-evidence', JSON.stringify({ ...prev, ...entries }));
 }
 
+/** What `recordKeyRects` measures: every control, the invite ring and Pip's hand. */
+const KEY_PARTS =
+  'button, [role="button"], [role="slider"], [role="application"], .ni-invite, .ni-hand';
+
+/**
+ * Evidence for every story (a story meta's `afterEach`): the live rects of the widget's key
+ * parts (every control, the invite ring, Pip's hand) as `"x,y,w,h"` in CSS px from the story's
+ * area (or stage) box, under `rects` in its `data-evidence`. Names are the part's accessible
+ * name (or its first class), numbered when repeated; the ring is `ring:…`, the hand `hand`.
+ */
+export function recordKeyRects(canvasElement: Element, rootSelector: string) {
+  const root = canvasElement.querySelector(rootSelector);
+  if (!root) return;
+  const host =
+    root.closest('.story-widget-area') ?? root.closest('.story-widget-stage') ?? canvasElement;
+  const h = host.getBoundingClientRect();
+  const rects: Record<string, string> = {};
+  const seen = new Map<string, number>();
+  for (const el of root.querySelectorAll(KEY_PARTS)) {
+    const r = el.getBoundingClientRect();
+    if (r.width === 0 && r.height === 0) continue;
+    const label = (el.getAttribute('aria-label') ?? el.textContent ?? '').trim().slice(0, 24);
+    let base = el.classList.contains('ni-hand') ? 'hand' : label || el.classList[0] || el.tagName;
+    if (el.classList.contains('ni-invite')) base = `ring:${base}`;
+    const n = (seen.get(base) ?? 0) + 1;
+    seen.set(base, n);
+    rects[n > 1 ? `${base}#${n}` : base] = [r.left - h.left, r.top - h.top, r.width, r.height]
+      .map((v) => Math.round(v))
+      .join(',');
+  }
+  recordEvidence(root, { rects });
+}
+
+/** A story meta's `afterEach`: records the key rects of the widget under `rootSelector`. */
+export const keyRectsAfterEach =
+  (rootSelector: string) =>
+  async ({ canvasElement }: { canvasElement: HTMLElement }) => {
+    recordKeyRects(canvasElement, rootSelector);
+  };
+
 /** A rect as "W×H" (rounded CSS px), for evidence. */
 export const sizeOf = (el: Element) => {
   const r = el.getBoundingClientRect();

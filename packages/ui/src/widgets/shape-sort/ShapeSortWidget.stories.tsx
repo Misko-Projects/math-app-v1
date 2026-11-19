@@ -17,6 +17,7 @@ import {
   expectNumeralInk,
   expectOneInviteRing,
   expectRenderedNumerals,
+  keyRectsAfterEach,
   settleFocus,
 } from '../../test-support/evidence';
 import {
@@ -278,6 +279,8 @@ const meta = {
   },
   parameters: { ui: { stage: 'centered' } },
   render: renderWidget,
+  // Evidence: every story leaves its key rects in the area's `data-evidence`.
+  afterEach: keyRectsAfterEach('.ni-ssort'),
 } satisfies Meta<WidgetHostProps>;
 
 export default meta;

@@ -15,6 +15,7 @@ import {
   expectControls,
   expectHandTouchesOnlyInvited,
   expectOneInviteRing,
+  keyRectsAfterEach,
   outlineBox,
   settleFocus,
 } from '../../test-support/evidence';
@@ -78,6 +79,8 @@ const meta = {
   },
   parameters: { ui: { stage: 'centered' } },
   render: renderWidget,
+  // Evidence: every story leaves its key rects in the area's `data-evidence`.
+  afterEach: keyRectsAfterEach('.ni-pwalk'),
 } satisfies Meta<WidgetHostProps>;
 
 export default meta;
