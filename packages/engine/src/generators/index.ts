@@ -16,10 +16,13 @@ import { geoCompose } from './geo/compose';
 import { geoDraw } from './geo/draw';
 import { geoIdentify } from './geo/identify';
 import { geoPosition } from './geo/position';
+import { mdaAddSub } from './mda/addsub';
 import { meaLength } from './mea/length';
 import { meaMassVolume } from './mea/massvolume';
 import { numberlinePlace } from './numberline/place';
 import { pvNumber } from './pv/number';
+import { pvRegroup } from './pv/regroup';
+import { pvTenMore } from './pv/tenmore';
 import { storyAddsub } from './story/addsub';
 import { subitizeFlash } from './subitize/flash';
 import type { GeneratorDef } from './types';
@@ -42,6 +45,10 @@ const GENERATORS: GeneratorDef[] = [
   compareNumbers,
   numberlinePlace,
   estimateQuantity,
+  // K01 (#11): place value and two-digit addition and subtraction
+  pvRegroup,
+  pvTenMore,
+  mdaAddSub,
   equalityEq,
   storyAddsub,
   addsubThree,

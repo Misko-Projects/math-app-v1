@@ -13,6 +13,8 @@ sk.CPS.07.intro:
   text: "Ten plus some ones makes a teen number."
 sk.CPS.08.intro:
   text: "Big numbers split many ways. Ten and some more is one way!"
+sk.CPS.09.intro:
+  text: "Some tens are partners. Together they make one hundred!"
 sk.CPS.11.intro:
   text: "Split a number to fill the ten. Then add what is left."
 
@@ -45,6 +47,12 @@ tp.CPS.08.t1.prompt:
   text: "{whole} is {wayA} and {wayB}. Show it a new way on the frames."
 tp.CPS.08.t2.prompt:
   text: "{whole} is {wayA} and {wayB}. Show it a new way with the beads."
+tp.CPS.09.t1.prompt:
+  text: "Here is {part}. Put in tens to make {whole}."
+tp.CPS.09.t2.prompt:
+  text: "{part} and what number make {whole}? Tap it."
+tp.CPS.09.t3.prompt:
+  text: "{part} and what number make {whole}?"
 tp.CPS.11.t1.prompt:
   text: "{addend} + {whole}: fill the first frame. How many are left?"
 tp.CPS.11.t2.prompt:

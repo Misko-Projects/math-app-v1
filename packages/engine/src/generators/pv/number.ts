@@ -217,6 +217,38 @@ export function forcedTrade(n: number): {
     : { place: 'tens', up: 'hundreds', digit, limits: { tens: digit - 1, ones: 0 } };
 }
 
+/**
+ * The options of a numeral-pick `words` item (PR #83 review): n's name class, two reversal pairs
+ * of the digits 1 … digitMax. The unordered digit pairs {p < q} are listed in order (12, 13, …,
+ * 45) and paired off two at a time, so every class has exactly four options (numeral-pick allows
+ * at most five). Every member of a class has the same options, the set never depends on which
+ * member is the key, every option is a possible key, and each option's reversal (the
+ * MC.place-swap and MC.teen-reversal answer) is an option too. Ascending; null when n's digits are
+ * not two distinct digits in 1 … digitMax, or n's pair is the unpaired last one when the count of
+ * pairs is odd (PR #83 review round 2: it used to join the class before it, making six options).
+ */
+export function nameClass(n: number, digitMax: number): number[] | null {
+  if (!Number.isInteger(n) || n < 10 || n > 99) return null;
+  const lo = Math.min(Math.floor(n / 10), n % 10);
+  const hi = Math.max(Math.floor(n / 10), n % 10);
+  const max = Math.min(9, Math.trunc(digitMax));
+  if (lo < 1 || lo === hi || hi > max) return null;
+  const pairs: [number, number][] = [];
+  for (let p = 1; p <= max; p += 1) for (let q = p + 1; q <= max; q += 1) pairs.push([p, q]);
+  const classes = Math.floor(pairs.length / 2);
+  const classOf = (i: number) => Math.floor(i / 2);
+  const mine = classOf(pairs.findIndex(([p, q]) => p === lo && q === hi));
+  // mine < 0: n's pair is not in the list (a non-finite digitMax leaves it empty).
+  if (mine < 0 || mine >= classes) return null;
+  return pairs
+    .filter((_, i) => classOf(i) === mine)
+    .flatMap(([p, q]) => [10 * p + q, 10 * q + p])
+    .sort((x, y) => x - y);
+}
+
+const isNamePick = (p: ParamValues, format: string): boolean =>
+  format === 'numeral-pick' && pvMode(p, format) === 'words';
+
 /** The math features of an item: a function of its params and the template's format only. */
 export function pvFeatures(p: ParamValues, format: string): Record<string, number> {
   const n = asNum(p.n);
@@ -232,6 +264,7 @@ export function pvFeatures(p: ParamValues, format: string): Record<string, numbe
     // expanded-form has its own words feature (mode.words), so words counts once.
     words: mode === 'words' && format !== 'expanded-form' ? 1 : 0,
     'ones.over5': n < 100 ? Math.max(0, o - 5) / 4 : 0,
+    'tens.over5': n < 100 ? Math.max(0, (Math.floor(n / 10) % 10) - 5) / 4 : 0,
     unusualOrder: p.unusualOrder === true && mode === 'expanded' ? 1 : 0,
     decimal: asStr(p.wholeIs, 'unit') === 'flat' ? 1 : 0,
   };
@@ -243,6 +276,16 @@ export function pvFeatures(p: ParamValues, format: string): Record<string, numbe
     f['limits.tight'] = mode === 'build' && nonCanonical ? 1 : 0;
   }
   if (format === 'expanded-form') f['mode.words'] = mode === 'words' ? 1 : 0;
+  // A name pick's size features belong to its option set, not to the key (rule 4: the same for
+  // every member of the class). A class is closed under reversal, so its largest ones digit is
+  // its largest tens digit.
+  const names = isNamePick(p, format) ? nameClass(n, asNum(p.digitMax, 9)) : null;
+  if (names) {
+    const top = Math.max(...names.map((x) => x % 10));
+    f.teen = names.some((x) => x <= 19) ? 1 : 0;
+    f['ones.over5'] = Math.max(0, top - 5) / 4;
+    f['tens.over5'] = Math.max(0, top - 5) / 4;
+  }
   return f;
 }
 
@@ -394,6 +437,11 @@ export const pvNumber: GeneratorDef = {
       default: { kind: 'const', value: 1000 },
       doc: 'dot-flash: flash time in ms',
     },
+    digitMax: {
+      type: 'int',
+      default: { kind: 'const', value: 9 },
+      doc: "numeral-pick words: n's two digits are distinct and in 1 … digitMax, and the options are n's name class (two reversal pairs of those digits, nameClass)",
+    },
   },
   derived: ['h', 't', 'o'],
   features: {
@@ -406,6 +454,10 @@ export const pvNumber: GeneratorDef = {
     'ones.over5': {
       weight: 0.4,
       doc: 'n < 100: max(0, ones − 5) / 4 (ones past five are counted, not seen at a glance)',
+    },
+    'tens.over5': {
+      weight: 0.4,
+      doc: 'n < 100: max(0, tens − 5) / 4 (tens past five are counted, not seen at a glance)',
     },
     unusualOrder: { weight: 0.5, doc: 'expanded terms smallest place first' },
     decimal: { weight: 0.5, doc: 'wholeIs flat: decimals on base-ten pieces' },
@@ -508,7 +560,7 @@ export const pvNumber: GeneratorDef = {
         TWENTY_REPS.has(rep) &&
         t.format !== 'hundred-chart');
     if (twenty && n > 20) return false;
-    if (t.format === 'numeral-pick' && mode === 'words' && n > 99) return false;
+    if (isNamePick(p, t.format) && !nameClass(n, asNum(p.digitMax, 9))) return false;
     if (t.format === 'hundred-chart' && n > 999) return false;
     return true;
   },
@@ -675,14 +727,14 @@ export const pvNumber: GeneratorDef = {
           value = asked;
           opts = numberOptions(t, params, value, rng, 1);
         } else if (mode === 'words') {
-          // See the numeral (in the prompt), pick its name: each option is a num.* name clip.
-          const named = numberOptions(t, params, n, rng, 0, 99);
+          // See the numeral (in the prompt), pick its name: each option is a num.* name clip. The
+          // options are n's name class, built without the key; only the layout is shuffled.
+          const names = rng
+            .fork('layout')
+            .shuffle(nameClass(n, asNum(params.digitMax, 9)) ?? unsupported());
           opts = {
-            diagnostic: named.diagnostic,
-            options: named.options.map((o) => ({
-              id: o.id,
-              speak: `num.${o.label}`,
-            })),
+            diagnostic: 0,
+            options: names.map((v) => ({ id: numberOptionId(v), speak: `num.${v}` })),
           };
           stimulus = { kind: 'none' };
         } else if (mode === 'digit-value') {

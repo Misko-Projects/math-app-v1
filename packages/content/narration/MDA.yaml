@@ -1,0 +1,46 @@
+# MDA narration (03 §8): skill intros and template prompts owned by the strand. Shared hints and
+# the mda.addsub solution lines are in common.yaml.
+sk.MDA.01.intro:
+  text: "Add tens to tens and ones to ones."
+sk.MDA.02.intro:
+  text: "Take away tens. The ones are the same!"
+sk.MDA.08.intro:
+  text: "Fill up to the next ten, then add the ones left."
+sk.MDA.09.intro:
+  text: "Add big numbers: the tens, then the ones."
+
+tp.MDA.01.t1.prompt:
+  text: "Here is {a}. Put in {b} more and build the new number."
+tp.MDA.01.t2.prompt:
+  text: "Start at {a}. Move {b} more and tap where you land."
+tp.MDA.01.t3.prompt:
+  text: "Start at {a} and jump {b} more. Where do you land?"
+tp.MDA.01.t4.prompt:
+  text: "{a} + {b} = ?"
+  say: "{a} plus {b} equals what number?"
+
+tp.MDA.02.t1.prompt:
+  text: "Here is {a}. Take away {b} and build what is left."
+tp.MDA.02.t2.prompt:
+  text: "Start at {a}. Go back {b} and tap where you land."
+tp.MDA.02.t3.prompt:
+  text: "Start at {a} and jump back {b}. Where do you land?"
+tp.MDA.02.t4.prompt:
+  text: "{a} − {b} = ?"
+  say: "{a} minus {b} equals what number?"
+
+tp.MDA.08.t1.prompt:
+  text: "Here is {a}. Put in {b} more ones and find how many in all."
+tp.MDA.08.t2.prompt:
+  text: "Start at {a} and jump {b} more. Stop at the next ten on the way."
+tp.MDA.08.t3.prompt:
+  text: "{a} + {b} = ?"
+  say: "{a} plus {b} equals what number?"
+
+tp.MDA.09.t1.prompt:
+  text: "Here is {a}. Put in {b} more and build the new number."
+tp.MDA.09.t2.prompt:
+  text: "Add {a} and {b}: the tens, then the ones."
+tp.MDA.09.t3.prompt:
+  text: "{a} + {b} = ?"
+  say: "{a} plus {b} equals what number?"

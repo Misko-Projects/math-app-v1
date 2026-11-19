@@ -1,6 +1,6 @@
-# CMP: Comparing, ordering and the number line, catalog rows from 03 §3.5 (K01). CMP.08 (it needs
-# equality.eq from the ADD PR) and the grade-2+ rows CMP.10–CMP.12 and CMP.14 come later
-# (graph.yaml plannedIds).
+# CMP: Comparing, ordering and the number line, catalog rows from 03 §3.5 (K01; CMP.08 is authored
+# with equality.eq). The grade-2+ rows CMP.10–CMP.12 and CMP.14 come later (graph.yaml
+# plannedIds).
 strand: CMP
 skills:
   - id: CMP.01
