@@ -717,14 +717,25 @@ function coveredSlots(svg: SVGSVGElement): string[] {
 /**
  * Countability (05 §5): every pebble slot of every critter stays fully visible — no limb, claw,
  * head or effect ever covers one, in any species, pose or number, at any point of its idle loop.
- * Each critter is shown alone and its loops are stepped through eight phases. (A test story: the
- * gallery pages show the same critters.)
+ * Each critter is shown alone and its loops are stepped through eight phases. (Test stories, split
+ * in two so each runs well inside the story-test timeout; the gallery pages show the same critters.)
  */
-export const PebbleSlotsVisible: Story = {
-  parameters: { controls: { disable: true }, ui: { stage: 'flush' } },
-  render: () => (
+function slotStory(species: readonly PebblingSpecies[]): Story {
+  const cases = SLOT_CASES.filter((c) => species.includes(c.species));
+  return {
+    parameters: { controls: { disable: true }, ui: { stage: 'flush' } },
+    render: () => <SlotCases cases={cases} />,
+    play: async ({ canvasElement }) => expectSlotsVisible(canvasElement, cases.length),
+  };
+}
+
+export const PebbleSlotsVisibleShore: Story = slotStory(SPECIES_PAGES.shore);
+export const PebbleSlotsVisibleSea: Story = slotStory(SPECIES_PAGES.sea);
+
+function SlotCases({ cases }: { cases: typeof SLOT_CASES }) {
+  return (
     <div style={{ position: 'relative', width: 400, height: 340 }}>
-      {SLOT_CASES.map((c) => (
+      {cases.map((c) => (
         <div
           key={`${c.species}-${c.pose}-${c.number}`}
           data-slot-case={`${c.species} ${c.pose} ${c.number}`}
@@ -742,45 +753,46 @@ export const PebbleSlotsVisible: Story = {
         </div>
       ))}
     </div>
-  ),
-  play: async ({ canvasElement }) => {
-    const cases = [...canvasElement.querySelectorAll<HTMLElement>('[data-slot-case]')];
-    await expect(cases.length).toBe(SLOT_CASES.length);
-    const bad: string[] = [];
-    let slots = 0;
-    for (const box of cases) {
-      box.style.display = 'block';
-      const svg = box.querySelector('svg') as SVGSVGElement;
-      // Each critter has all its ten-frames, ten slots each (none may go missing unnoticed).
-      const frames = [...svg.querySelectorAll('[data-part="ten-frame"]')];
-      if (frames.length !== expectedFrames(Number(svg.dataset.number), svg.dataset.family))
-        bad.push(`${box.dataset.slotCase}: ${frames.length} frames`);
-      if (frames.some((f) => f.querySelectorAll('[data-pebble]').length !== 10))
-        bad.push(`${box.dataset.slotCase}: a frame without ten slots`);
-      const anims = svg.getAnimations({ subtree: true });
-      for (const a of anims) a.pause();
-      // Limbs move the same whatever the number, so one single (7) and one teen (17) per species
-      // and pose step through eight phases of every loop; the other numbers are checked paused.
-      const n = Number(svg.dataset.number);
-      const phases = n === 7 || n === 17 || n === 46 ? 8 : 2;
-      for (let k = 0; k < 8; k += 8 / phases) {
-        for (const a of anims) {
-          const d = Number(a.effect?.getComputedTiming().duration) || 0;
-          a.currentTime = (d * k) / 8;
-        }
-        slots += svg.querySelectorAll('[data-pebble]').length;
-        const covered = coveredSlots(svg);
-        if (covered.length > 0) bad.push(`${box.dataset.slotCase} (phase ${k}/8): ${covered[0]}`);
-        if (anims.length === 0) break;
+  );
+}
+
+async function expectSlotsVisible(canvasElement: HTMLElement, expected: number) {
+  const cases = [...canvasElement.querySelectorAll<HTMLElement>('[data-slot-case]')];
+  await expect(cases.length).toBe(expected);
+  const bad: string[] = [];
+  let slots = 0;
+  for (const box of cases) {
+    box.style.display = 'block';
+    const svg = box.querySelector('svg') as SVGSVGElement;
+    // Each critter has all its ten-frames, ten slots each (none may go missing unnoticed).
+    const frames = [...svg.querySelectorAll('[data-part="ten-frame"]')];
+    if (frames.length !== expectedFrames(Number(svg.dataset.number), svg.dataset.family))
+      bad.push(`${box.dataset.slotCase}: ${frames.length} frames`);
+    if (frames.some((f) => f.querySelectorAll('[data-pebble]').length !== 10))
+      bad.push(`${box.dataset.slotCase}: a frame without ten slots`);
+    const anims = svg.getAnimations({ subtree: true });
+    for (const a of anims) a.pause();
+    // Limbs move the same whatever the number, so one single (7) and one teen (17) per species
+    // and pose step through eight phases of every loop; the other numbers are checked paused.
+    const n = Number(svg.dataset.number);
+    const phases = n === 7 || n === 17 || n === 46 ? 8 : 1;
+    for (let k = 0; k < 8; k += 8 / phases) {
+      for (const a of anims) {
+        const d = Number(a.effect?.getComputedTiming().duration) || 0;
+        a.currentTime = (d * k) / 8;
       }
-      for (const a of anims) a.play();
-      box.style.display = 'none';
+      slots += svg.querySelectorAll('[data-pebble]').length;
+      const covered = coveredSlots(svg);
+      if (covered.length > 0) bad.push(`${box.dataset.slotCase} (phase ${k}/8): ${covered[0]}`);
+      if (anims.length === 0) break;
     }
-    // Not vacuous: thousands of slots were checked.
-    await expect(slots).toBeGreaterThan(SLOT_CASES.length * 10);
-    await expect(bad.slice(0, 20)).toEqual([]);
-  },
-};
+    for (const a of anims) a.play();
+    box.style.display = 'none';
+  }
+  // Not vacuous: thousands of slots were checked.
+  await expect(slots).toBeGreaterThan(expected * 10);
+  await expect(bad.slice(0, 20)).toEqual([]);
+}
 
 /** 06 §7: with reduced motion every character holds still: no bob, blink, sway, glow or hop. */
 export const ReducedMotion: Story = {
