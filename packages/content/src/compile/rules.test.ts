@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { parse, stringify } from 'yaml';
 import type { CheckId, Diagnostic } from '../diagnostics';
 import { readContentFiles } from '../fs';
@@ -7,8 +7,10 @@ import { compileContent } from './compile';
 
 // Each compiler check (03 §9.2) against the C01 fixture set with one deliberate defect.
 
-// Every test here compiles the full K–1 catalog (or a variant), which takes seconds per compile on CI.
-vi.setConfig({ testTimeout: 30_000 });
+// Every test here compiles the full K–1 catalog (or a variant with one file edited). The compiler
+// caches clean YAML parses by text (compile/yaml.ts), so after the first compile a variant
+// re-parses only its edited files: about 0.1–1.3 s per test at full parallelism, inside the default
+// budget.
 
 const FIXTURE = readContentFiles();
 

@@ -16,7 +16,9 @@
   "dependencies": {
     "@number-island/content": "workspace:*",
     "@number-island/engine": "workspace:*",
-    "@number-island/shared": "workspace:*"
+    "@number-island/shared": "workspace:*",
+    "motion": "^14.14.0",
+    "pixi.js": "^8.23.0"
   },
   "peerDependencies": {
     "react": "^19.0.0",
