@@ -304,6 +304,39 @@ export const DemoWaitsPastUrgentRender: Story = {
   },
 };
 
+const childInputController: WidgetDemo = createDemoController({ strict: true });
+
+/**
+ * The child taps a pebble out while a demo removal is still pending (started in a transition, so
+ * the basket is still interactive). React replays the tap on top of the demo update; the basket
+ * ends with one pebble, and `play` resolves.
+ */
+export const DemoWaitsPastChildInput: Story = {
+  globals: { motion: 'reduced' },
+  args: { disabled: false, demo: childInputController },
+  play: async ({ canvasElement }) => {
+    await within(canvasElement).findByRole('group', { name: 'Pebbles' }, { timeout: 10_000 });
+    await childInputController.play({ op: 'drag', args: { count: 3 } });
+    await expect(pebblesIn(canvasElement)).toBe(3);
+    const first = canvasElement.querySelector('.ni-sample__in') as HTMLButtonElement;
+    // Input comes back once playback ends.
+    await waitFor(() => expect(first).toBeEnabled());
+    let removed: Promise<string> | undefined;
+    startTransition(() => {
+      removed = childInputController
+        .play({ op: 'remove', args: { count: 1 } })
+        .then(() => 'resolved');
+    });
+    first.click();
+    const outcome = await Promise.race([
+      removed,
+      new Promise((r) => setTimeout(() => r('timed out'), 2000)),
+    ]);
+    await expect(outcome).toBe('resolved');
+    await waitFor(() => expect(pebblesIn(canvasElement)).toBe(1));
+  },
+};
+
 /** `disabled`: nothing responds (feedback showing, or demo playback). */
 export const Disabled: Story = {
   args: { disabled: true },

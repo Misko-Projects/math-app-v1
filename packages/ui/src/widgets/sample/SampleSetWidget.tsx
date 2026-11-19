@@ -129,9 +129,16 @@ export function SampleSetWidget({
     () => Array.from({ length: supply }, (_, i) => `p${i}` as PebbleId),
     [supply],
   );
-  const [inBasket, setInBasket] = useState<PebbleId[]>(() =>
-    allIds.slice(0, Math.min(config.start ?? 0, supply)),
-  );
+  /**
+   * The pebbles in the basket, with the number of the latest demo basket update they include
+   * (`seq`, see `requestedSeq`). The child's own changes are updaters that keep the number of the
+   * state they build on, so a child change React replays on top of a demo update keeps its number.
+   */
+  const [basket, setBasket] = useState<{ ids: PebbleId[]; seq: number }>(() => ({
+    ids: allIds.slice(0, Math.min(config.start ?? 0, supply)),
+    seq: 0,
+  }));
+  const inBasket = basket.ids;
   const [invite, setInvite] = useState<WidgetAction | null>(null);
   const [flight, setFlight] = useState<Flight | null>(null);
   const [counting, setCounting] = useState<number | null>(null);
@@ -154,16 +161,14 @@ export function SampleSetWidget({
   }, []);
   /**
    * Demo basket updates are numbered: `requestedSeq` is the latest one asked for, and
-   * `committedSeq` the latest one React has committed. An array a demo op sets is recorded with its
-   * number, so a commit counts only when it carries that update (or a later one): a commit that
-   * skipped a pending update (a higher-priority render) leaves `committedSeq` where it was.
+   * `committedSeq` the latest one React has committed (the committed basket's `seq`). A commit
+   * that skipped a pending update (a higher-priority render) leaves `committedSeq` where it was.
    */
   const requestedSeq = useRef(0);
   const committedSeq = useRef(0);
-  const seqOf = useRef(new WeakMap<PebbleId[], number>());
   // After each commit, release the waits whose condition the committed DOM now meets.
   useLayoutEffect(() => {
-    committedSeq.current = Math.max(committedSeq.current, seqOf.current.get(inBasket) ?? 0);
+    committedSeq.current = Math.max(committedSeq.current, basket.seq);
     if (commitWaiters.current.length === 0) return;
     commitWaiters.current = commitWaiters.current.filter((w) => {
       if (!w.ready()) return true;
@@ -181,9 +186,8 @@ export function SampleSetWidget({
   /** A demo op's basket update: numbered (see `requestedSeq`), then set. */
   const setDemoBasket = (next: PebbleId[]) => {
     requestedSeq.current += 1;
-    seqOf.current.set(next, requestedSeq.current);
     inBasketRef.current = next;
-    setInBasket(next);
+    setBasket({ ids: next, seq: requestedSeq.current });
   };
 
   const pile = allIds.filter((id) => !inBasket.includes(id));
@@ -193,11 +197,11 @@ export function SampleSetWidget({
 
   const addToBasket = useCallback(
     (id: PebbleId) => {
-      setInBasket((prev) => {
-        if (prev.includes(id) || prev.length >= capacity) return prev;
-        const next = [...prev, id];
+      setBasket((prev) => {
+        if (prev.ids.includes(id) || prev.ids.length >= capacity) return prev;
+        const next = [...prev.ids, id];
         if (speakOnTap) sayNumber(next.length);
-        return next;
+        return { ids: next, seq: prev.seq };
       });
     },
     [capacity, sayNumber, speakOnTap],
@@ -216,7 +220,7 @@ export function SampleSetWidget({
   const takeOut = (id: PebbleId) => {
     if (!interactive) return;
     trace('undo', id);
-    setInBasket((prev) => prev.filter((p) => p !== id));
+    setBasket((prev) => ({ ids: prev.ids.filter((p) => p !== id), seq: prev.seq }));
   };
 
   // ---------- demo mode (03 §6.3) ----------
