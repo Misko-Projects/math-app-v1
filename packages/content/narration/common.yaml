@@ -59,6 +59,22 @@ p.add.how-many-in-all:
 p.add.what-is:
   text: "{a} + {b} = ?"
   say: "What is {a} plus {b}?"
+# ADD (K01): take away, hops and jumps, the second frame.
+p.sub.what-is:
+  text: "{a} − {b} = ?"
+  say: "What is {a} take away {b}?"
+p.sub.take-from:
+  text: "Take {b} away from {a}. How many are left?"
+p.add.next-frame:
+  text: "Put {b} in the next frame. How many in all?"
+p.add.hop-on:
+  text: "Start on {a} and hop {b} more. Where do you land?"
+p.sub.hop-back:
+  text: "Start on {a} and hop back {b}. Where do you land?"
+p.add.jump-on:
+  text: "Start at {a} and jump {b} more. Where do you land?"
+p.sub.jump-back:
+  text: "Start at {a} and jump back {b}. Where do you land?"
 
 p.geo.which-kind:
   text: "Which one is a {kind|shape:one}?"
@@ -194,6 +210,82 @@ h.add.count-on:
   text: "Say the first number. Then count on."
 h.add.start-big:
   text: "Start with the bigger number."
+# ADD (K01) hints. No line names a number from the item; counting words are in letters.
+h.add.say-hops:
+  text: "Say each number as you hop."
+h.add.double-same:
+  text: "Both parts are the same. That is a double."
+h.add.double-think:
+  text: "Think of a double you know."
+h.add.near-double:
+  text: "Find the double first. Then add one more."
+h.add.near-double-smaller:
+  text: "Double the smaller number. Then add one more."
+h.add.nine-ten:
+  text: "Nine is one less than ten."
+h.add.nine-take-one:
+  text: "Add ten. Then take one away."
+h.add.ten-plus:
+  text: "A full ten and some ones make a teen number."
+h.add.ten-and-ones:
+  text: "A teen number is ten and some ones. Look at the ones."
+h.addsub.know-it:
+  text: "Do you just know this one? Think of a fact you know."
+h.addsub.picture:
+  text: "Look at the counters. They show the numbers."
+h.addsub.check-sign:
+  text: "Look again at the fact. Is it plus, is it take away?"
+h.addsub.make-ten.nudge:
+  text: "Can you make a ten first?"
+h.addsub.make-ten.split:
+  text: "Split the smaller number. Give some to make ten."
+h.addsub.make-ten.ten-and:
+  text: "You have a ten and some more. Say the teen number."
+h.sub.take-out:
+  text: "Take them out one at a time. Count as you go."
+h.sub.fingers-down:
+  text: "Put down one finger at a time."
+h.sub.take-away:
+  text: "Take that many away. Count the ones left."
+h.sub.count-back:
+  text: "Start at the first number. Count back."
+h.sub.count-up:
+  text: "Start at the smaller number. Count up to the bigger one."
+h.sub.count-up-ten:
+  text: "Jump up to ten first. Then jump to the bigger number."
+# count-hops only where every hop is one (ones jumps); on the open line a jump can be longer, so
+# jump-total asks for the whole distance (8 → 10 → 13 is 5, not 2 jumps).
+h.sub.count-hops:
+  text: "Count your hops. That is the answer."
+h.sub.jump-total:
+  text: "Put your jumps together. How much did you jump in all?"
+h.sub.back-or-up:
+  text: "Count back to take away a small number. Count up when numbers are close."
+h.sub.think-add:
+  text: "Think: what do you add to the part to make the whole?"
+h.sub.bar-whole:
+  text: "The long part is the whole. Find the missing part."
+h.sub.fact-family:
+  text: "The same three numbers make a plus fact and a take away fact."
+h.sub.back-to-ten:
+  text: "Take away the ones first. That gets you to ten."
+h.sub.then-more:
+  text: "From ten, take away the ones that are left to take."
+h.numberline.jump-to-ten:
+  text: "Jump to ten first. Then jump what is left."
+h.numberline.back-to-ten:
+  text: "Jump back to ten first. Then jump back again."
+# For facts that may or may not pass ten (ADD.27): the advice holds for every fact.
+h.numberline.big-jumps:
+  text: "You can make big jumps too. Check where you land."
+h.numberline.big-jumps-back:
+  text: "You can make big jumps back too. Check where you land."
+h.numberline.hop-ones:
+  text: "Make one hop for each one you add."
+h.numberline.hop-back:
+  text: "Make one hop back for each one you take away."
+h.numberline.picture:
+  text: "Think of a number line. Jump from the first number."
 
 # geometry (K01: GEO, PUZ.03) and measurable attributes (MEA.15)
 h.geo.count-sides:
@@ -482,6 +574,65 @@ gen.addsub.facts.answer:
   text: "The answer is {n}."
 gen.addsub.facts.join:
   text: "Put {a} and {b} together."
+# addsub.facts strategy steps (K01): lines before the last never say the answer.
+gen.addsub.facts.up-to:
+  text: "Start at {a}. Count up to {n}."
+gen.addsub.facts.back-to:
+  text: "Start at {a}. Count back to {n}."
+gen.addsub.facts.double:
+  text: "{a} and {a} is a double."
+gen.addsub.facts.near-double:
+  text: "{small} and {small} make {double}. Then one more."
+gen.addsub.facts.put-more:
+  text: "Put in {b} more."
+gen.addsub.facts.make-ten.need:
+  text: "{a} needs {give} more to make ten."
+gen.addsub.facts.make-ten.split:
+  text: "{b} is {give} and {keep}."
+gen.addsub.facts.make-ten.move:
+  text: "Move {give} over. Now the first frame is ten."
+gen.addsub.facts.make-ten.full:
+  text: "Slide them up. Now the top row is ten."
+gen.addsub.facts.ten-and:
+  text: "Ten and {keep} make {n}."
+gen.addsub.facts.nine.ten:
+  text: "{other} and ten make {ten}."
+gen.addsub.facts.nine.take-one:
+  text: "Nine is one less than ten. Take one away."
+gen.addsub.facts.ten-plus:
+  text: "Ten and {n} more."
+gen.addsub.facts.full-ten:
+  text: "Here is a full ten."
+gen.addsub.facts.take-ten:
+  text: "Take the ten away from {a}."
+gen.addsub.facts.back-to-ten:
+  text: "Take away {ones} to get back to ten."
+gen.addsub.facts.back-rest:
+  text: "Then take away {rest} more."
+gen.addsub.facts.up-to-ten:
+  text: "Start at {b}. Count up to ten."
+gen.addsub.facts.up-rest:
+  text: "Then count up to {a}."
+gen.addsub.facts.up-from:
+  text: "Start at {b}. Count up to {a}."
+gen.addsub.facts.jump-to-ten:
+  text: "Jump {give} to get to ten."
+gen.addsub.facts.jump-double:
+  text: "Jump {a} again to make the double."
+gen.addsub.facts.jump-rest:
+  text: "Then jump {rest} more."
+gen.addsub.facts.jump-back-ten:
+  text: "Jump back {ones} to ten."
+gen.addsub.facts.jump-back-rest:
+  text: "Then jump back {rest} more."
+gen.addsub.facts.hops:
+  text: "That is {n} in all."
+gen.addsub.facts.last-hop:
+  text: "Make the last hop."
+gen.addsub.facts.think-add:
+  text: "Think: {b} and what make {a}?"
+gen.addsub.facts.see-groups:
+  text: "I see {a} and {b}."
 
 gen.geo.identify.look:
   text: "Let's look at each one."
@@ -783,6 +934,16 @@ fb.correct.5:
 fb.correct.6:
   text: "Hooray! That's right."
   style: excited
+# Strategy praise (03 §5.7): fb.praise.<name> for each strategy.<name> detectStrategies reports.
+fb.praise.counted-on:
+  text: "You counted on! That is a great way to add."
+  style: excited
+fb.praise.made-ten:
+  text: "You got to ten first! That helped you add."
+  style: excited
+fb.praise.used-doubles:
+  text: "A double helped you add! Great thinking."
+  style: excited
 fb.retry:
   text: "Let's look at it one more time."
 fb.reveal:
@@ -841,6 +1002,11 @@ fb.mc.count-start-number:
   text: "Start with the first number. Count the hops after it."
 fb.mc.count-all-instead:
   text: "Start at the bigger number. Then count on."
+fb.mc.forgot-the-ten:
+  text: "There is a full ten. Count the ten too!"
+  level: K
+fb.mc.wrong-operation:
+  text: "Look again. Is it plus, is it take away?"
 fb.mc.unit-gaps:
   text: "Put each one right at the end of the last one."
 fb.mc.bigger-unit-more:

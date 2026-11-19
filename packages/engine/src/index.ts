@@ -81,3 +81,4 @@ export * from './placement';
 export * from './planner';
 export { createRng, fnv1a32, type Rng } from './rng';
 export * from './signals';
+export { detectStrategies } from './strategies';

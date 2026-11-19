@@ -24,6 +24,7 @@ const near = generateItem(template, seed, { difficulty: d }); // 24 candidates, 
 // 3. Check. Pure; partialCredit is 1 or 0 (the TaskRunner applies hint credit).
 const result = checkResponse(item, response);  // { correct, partialCredit, misconceptionIds, feedback, closeness? }
 const process = detectProcessMisconceptions(item, response, { latencyMs, trace }); // may tag correct answers
+const praise = detectStrategies(item, response, { latencyMs, trace }); // StrategyId[]; correct answers only
 
 // Repeats, lessons and demo mode
 itemKey(item);                        // templateId + ':' + canonical params
@@ -39,7 +40,8 @@ formatModel(item.widget.format);      // { configSchema, initialState, apply, to
 | `generateItem(t, seed, target?)` | 03 §5.3, implemented once for every generator. It merges the generator's param defaults with the template's params, draws by rejection sampling (constraints plus the generator's `accepts`), builds, and computes `difficulty`. With a target it builds 24 candidates (odd ones use `sampleToward` when the generator has it) and returns the closest. A target outside the template's `[p10, p90]` emits a dev-only `difficulty.miss` through `setDevLogger`. Throws `GenerationError` when nothing satisfies the constraints. |
 | `generateItemFromParams(t, params, opts?)` | Builds from fixed params (authored lesson examples, misconception examples). |
 | `checkResponse(item, r)` | 03 §5.7. Answer and state misconception rules run on incorrect responses only, sorted by priority (descending) then id. When two rules predict the same response, only the higher-priority one is tagged. Feedback is `fb.correct.<1 + seed mod 6>`, the first misconception's `feedback`, or `fb.<format>.retry`. |
-| `detectProcessMisconceptions(item, r, meta)` | Process rules (trace and latency). The runner merges these ids with `checkResponse`'s. |
+| `detectProcessMisconceptions(item, r, meta)` | Process rules (trace and latency). The runner merges these ids with `checkResponse`'s. It returns misconception ids only. |
+| `detectStrategies(item, r, meta)` | 03 §5.7 strategy praise (02 §5.9 K2): the `StrategyId`s a correct response shows (`strategy.counted-on`, `strategy.made-ten`, `strategy.used-doubles`), in `STRATEGY_IDS` order. The runner may play `fb.praise.<name>` for the first one instead of `fb.correct.*`. The detectors are defined in `src/strategies/index.ts`. |
 | `difficulty`, `featureWeight`, `resolvedWeights` | 03 §5.4: `d = base + Σ w·x`, with the weight resolved template → generator → format. |
 | `buildHints` | 03 §5.8 ladder: 1 replay, 2 nudge, 3 representation (an overlay off the concrete tier, a highlight on it), 4 worked step (the first half of the solution, never its last step), 5 show me. Missing template hint keys skip their levels; each rung keeps its level number. |
 | `formatModel`, `formatModels`, `formatFeatures` | Format state models (03 §6.3) and format features (03 §5.5). |
@@ -150,6 +152,8 @@ The shape-sort, shape-compose, compare and puzzle-grid format models belong to U
 - **expanded-form** (`pv.number`): `build` answers the chosen cards (unordered numbers, the non-zero place values; `cards` adds the digits in the wrong places, 1 and 40 for 14), `to-standard`, `fill`, `words` (the widget speaks the target's name; the child types the numeral) and `digit-value` answer a number. `digitIndex` and `highlight-digit {index}` count from the left (U04), while pv.number's `place` counts from the ones. Solutions use `place-card {value}`, `stack-cards`, `highlight-digit {index}` and end with `stack-cards` or `answer {value}`.
 - **numeral-pick** words options (`pv.number`) carry `speak: num.<n>` and no label: the widget shows and speaks the number name, and the id is still `opt-<n>`.
 - **MC.teen-reversal** reads these as asking for the number itself: the typed total after filling frames or sliding beads (`thenAsk`, `target.value`), the value of a base-ten build, and the number place-value cards make. Its prediction is the right build with the reversed total typed, the pieces of the reversed number, or its cards.
+- **addsub.facts** (K01): a make-ten tenframe-fill starts with `a` colour-a counters in frame 0 and `b` colour-b counters in frame 1 and asks for the total (`tenframe.makeTen`); a make-ten rekenrek starts with `a` on the top row and `b` below, and a plus9 rekenrek puts the other addend (at most 10) on the bottom row; a fact whose preset would not fit two rows of ten is not a rekenrek item. Counting up to subtract is a `number-line-jump` with `goal: difference` from `b` to `a`, answering `{ jumps, value }` with the total jump; MC.count-start-number tags it only when the path lands on `a` and the typed total is one too many. The open number line (and `jumps: free`) allows hops of 1–10 in the item's direction; its near-double solution (`b = a + 1`) jumps `a` again to the double and then 1, the jumps `strategy.used-doubles` praises. **MC.forgot-the-ten** and **MC.wrong-operation** read the asked number the same way as MC.teen-reversal (`rules/asked.ts`): a built item predicts the right build with the wrong number typed.
+
 ## Conventions the U04 formats fix (#13)
 
 Response shapes and state-checker targets of the place-value and operations formats. Generators that build these formats emit these targets.
