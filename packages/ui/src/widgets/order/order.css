@@ -178,26 +178,33 @@ button.ni-ord__card:focus-visible,
   outline: 4px solid var(--color-sea-deep);
   outline-offset: 4px;
 }
-/* Picked up (tap-to-place): lifted on a deeper ledge with a thick INK ring, unlike Pip's teal
-   invite ring; picked up and focused: a double ink ring. */
+/*
+ * Picked up (tap-to-place): one ink outline and a deeper, softer shadow under it (lifted in
+ * place: it doesn't rise, so Pip's hand hanging from the box above never reaches its numeral).
+ * Keyboard focus shows the normal focus ring instead.
+ */
 .ni-ord__card.ni-draggable[data-selected="true"] {
-  transform: translateY(-4px);
+  filter: none;
   outline: 4px solid var(--color-ink);
   outline-offset: 3px;
   box-shadow:
-    0 10px 0 var(--color-pebble-deep),
-    var(--shadow-lift);
+    0 6px 0 var(--color-pebble-deep),
+    0 12px 18px -6px rgb(38 70 83 / 0.45);
 }
 .ni-ord__card.ni-draggable[data-selected="true"]:focus-visible {
-  outline: 8px double var(--color-ink);
-  outline-offset: 2px;
+  outline: 4px solid var(--color-sea-deep);
+  outline-offset: 4px;
 }
-/* The invite ring is drawn over the card's or slot's own edge (no reach beyond it), so it stays
-   ≥ 12 px clear of its neighbours, the board's and tray's edges and the cue arrow (06 §4). */
+/*
+ * Pip's invite: the shared pulsing teal ring (.ni-invite), drawn over the card's or box's own
+ * edge (no reach past it), so it stays ≥ 12 px clear of its neighbours, the board's and tray's
+ * edges and the cue arrow (06 §4). It wins over a box's quiet "put it here" look.
+ */
 .ni-ord__card.ni-invite,
-.ni-ord__pad.ni-invite {
-  outline-width: 4px;
-  outline-offset: -4px;
+.ni-ord__pad.ni-invite,
+.ni-ord__pad.ni-drop-target.ni-invite[data-armed="true"] {
+  outline: 5px solid var(--color-sea-deep);
+  outline-offset: -5px;
   border-radius: var(--radius-pebble);
 }
 .ni-ord__card[data-fixed="true"] {

@@ -790,25 +790,47 @@ export const PathCardsKMinLandscapeInvite: Story = {
     await userEvent.click(card(root, '8'));
     await expectInviteOn(root, root.querySelector('[data-slot-pad="0"]') as HTMLElement);
     await expectOrderFits(canvasElement, root, 'k');
-    // The picked-up card is lifted inside an INK ring (not the teal invite ring), and the other
-    // open boxes show no ring at all: one ring on screen.
+    // The picked-up card wears one INK outline (focus moved on, as after a finger tap); the
+    // invited box wears Pip's teal ring; the other open boxes show no ring: one ring on screen.
     const picked = card(root, '8');
     await expect(picked).toHaveAttribute('data-selected', 'true');
-    const ink = getComputedStyle(root).getPropertyValue('--color-ink').trim();
-    const inkRgb = (() => {
+    picked.blur();
+    const rgbOf = (cssVar: string) => {
       const probe = document.createElement('span');
-      probe.style.color = ink;
-      document.body.append(probe);
+      probe.style.color = `var(${cssVar})`;
+      root.append(probe);
       const c = getComputedStyle(probe).color;
       probe.remove();
       return c;
-    })();
-    await expect(getComputedStyle(picked).outlineColor).toBe(inkRgb);
+    };
+    await expect(getComputedStyle(picked).outlineColor).toBe(rgbOf('--color-ink'));
+    await expect(getComputedStyle(picked).outlineStyle).toBe('solid');
+    const invited = padOf(root, 1);
+    await expect(getComputedStyle(invited).outlineColor).toBe(rgbOf('--color-sea-deep'));
+    await expect(getComputedStyle(invited).outlineWidth).toBe('5px');
     for (const n of [2, 3, 4]) {
       const pad = padOf(root, n);
       await expect(pad).toHaveAttribute('data-armed', 'true');
       await expect(getComputedStyle(pad).outlineColor).toBe('rgba(0, 0, 0, 0)');
     }
+    // Pip's hand hangs from the box over the board's edge, but at rest it never covers the
+    // picked-up card's numeral.
+    const loops = root
+      .getAnimations({ subtree: true })
+      .filter((a) => a.effect?.getComputedTiming().iterations === Number.POSITIVE_INFINITY);
+    for (const a of loops) {
+      a.pause();
+      a.currentTime = 0;
+    }
+    const hand = (root.querySelector('.ni-hand svg') as SVGElement).getBoundingClientRect();
+    const tag = (picked.querySelector('.ni-ord__tag') as HTMLElement).getBoundingClientRect();
+    const apart =
+      hand.right <= tag.left ||
+      tag.right <= hand.left ||
+      hand.bottom <= tag.top + 4 ||
+      tag.bottom <= hand.top;
+    for (const a of loops) a.play();
+    await expect(apart, 'the hand clear of the picked-up card’s numeral').toBe(true);
   },
 };
 
