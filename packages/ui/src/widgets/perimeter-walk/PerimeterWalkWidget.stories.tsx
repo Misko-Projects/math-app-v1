@@ -13,6 +13,7 @@ import {
   boxGap,
   expectApart,
   expectControls,
+  expectHandTouchesOnlyInvited,
   expectOneInviteRing,
   outlineBox,
   settleFocus,
@@ -342,6 +343,13 @@ async function expectDimsClear(root: HTMLElement, sizes: [number, number][]) {
     ].join('');
     if (keys) await userEvent.keyboard(keys);
     await expect(board(root)).toHaveAttribute('data-size', `${w}x${h}`);
+    // The grip covers no built square (evidence review): it lies right of the rectangle.
+    const grip = (root.querySelector('.ni-pwalk__corner svg') as Element).getBoundingClientRect();
+    const built = (root.querySelector('.ni-pwalk__rect') as Element).getBoundingClientRect();
+    await expect(
+      grip.left - built.right,
+      `${w}×${h}: grip off the built squares`,
+    ).toBeGreaterThanOrEqual(0);
     // The board has focus here: its outermost line (frame or focus ring) counts.
     const b = outlineBox(board(root));
     for (const dim of root.querySelectorAll('.ni-pwalk__dim')) {
@@ -708,11 +716,19 @@ export const DemoInviteDesign: Story = {
   play: async ({ canvasElement }) => {
     const root = await findWidget(canvasElement, ROOT);
     inviteDesign.invite({ op: 'answer', args: { values: [4, 3] } });
-    await waitFor(() => expect(board(root)).toHaveClass('ni-invite'));
-    await expectHandStays(root, () => board(root));
-    await expectOneInviteRing(root, {
-      clearOf: [...root.querySelectorAll('.ni-pwalk__step, .ni-pwalk__ref')],
-    });
+    // A real control is invited (evidence review: the board was): "one more column", the first
+    // step. One ring, inside it; the hand on it, clear of its "+" and of every other control.
+    const plus = () => stepper(root, 'w-more');
+    await waitFor(() => expect(plus()).toHaveClass('ni-invite'));
+    await expect(board(root)).not.toHaveClass('ni-invite');
+    await expectPointerOn(root.querySelector('.ni-hand') as HTMLElement, plus(), root);
+    await expectHandStays(root, plus);
+    const others = [
+      ...[...root.querySelectorAll('.ni-pwalk__step')].filter((s) => s !== plus()),
+      within(root).getByRole('button', { name: 'Check' }),
+    ];
+    await expectOneInviteRing(root, { clearOf: [...others, board(root)] });
+    await expectHandTouchesOnlyInvited(root, [...others, board(root)]);
   },
 };
 

@@ -224,6 +224,20 @@
   border-radius: 8px;
   animation: none;
 }
+.ni-pwalk .ni-pwalk__step.ni-invite {
+  outline-offset: -5px;
+  border-radius: 50%;
+  animation: none;
+}
+/* The grip's connector: a short ink line from the rectangle's corner to the grip. */
+.ni-pwalk__grip-link {
+  position: absolute;
+  z-index: 2;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--color-ink);
+  pointer-events: none;
+}
 .ni-pwalk .ni-pwalk__label.ni-invite {
   outline-offset: -5px;
   animation: none;

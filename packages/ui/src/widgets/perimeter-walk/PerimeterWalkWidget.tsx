@@ -193,8 +193,12 @@ export function PerimeterWalkWidget({
   const DIM_TOP = 36 + DIM_CLEAR;
   const DIM_LEFT = 24 * String(gridRows).length + DIM_CLEAR;
   const BORDER = 6;
-  // The grip reaches this far past the rectangle's corner (and so past the board's edge).
-  const GRIP_OUT = 10;
+  // The grip sits OUTSIDE the rectangle, right of its bottom-right corner (GRIP_GAP away, joined
+  // by a short connector), so it covers no built square (evidence review). The board keeps room
+  // for it on the right (the whole grip) and below (half of it).
+  const GRIP_GAP = 8;
+  const GRIP_RIGHT = GRIP_GAP + minT - BORDER / 2 + 2;
+  const GRIP_BELOW = minT / 2 - BORDER / 2 + 2;
   // The ref's "6 × 2" caption under it, and the gap between the side column and the board.
   const CAPTION = 34;
   const GAP = 24;
@@ -212,8 +216,8 @@ export function PerimeterWalkWidget({
   // size under a dragging finger).
   const designW = Math.min((avail?.width ?? 1100) - 40, 1200);
   const designH = Math.min((avail?.height ?? 640) - (minT + 40), 420);
-  const boardX = DIM_LEFT + BORDER + GRIP_OUT;
-  const boardY = DIM_TOP + BORDER + GRIP_OUT;
+  const boardX = DIM_LEFT + BORDER + GRIP_RIGHT;
+  const boardY = DIM_TOP + BORDER + GRIP_BELOW;
   // The side column beside the board, or above it: whichever gives the larger squares.
   const besideCell = Math.min(
     (designW - boardX - GAP - TARGET_W) / gridCols,
@@ -377,7 +381,8 @@ export function PerimeterWalkWidget({
       if (action.op === 'walk-side' || action.op === 'add-label') {
         return setInvite(`side-${String(action.args?.index ?? 0)}`);
       }
-      setInvite(action.op === 'answer' ? (design ? 'corner' : 'entry') : null);
+      // Design: invite the first step, one more column (a real control; evidence review).
+      setInvite(action.op === 'answer' ? (design ? 'step' : 'entry') : null);
     },
   });
 
@@ -388,7 +393,8 @@ export function PerimeterWalkWidget({
       if (!invite) return null;
       if (invite.startsWith('side-'))
         return r.querySelector<HTMLElement>(`[data-label-side="${invite.slice(5)}"]`);
-      if (invite === 'corner') return r.querySelector<HTMLElement>('.ni-pwalk__grid-board');
+      if (invite === 'step')
+        return r.querySelector<HTMLElement>('.ni-pwalk__step[data-step="w-more"]');
       return r.querySelector<HTMLElement>('.ni-entry__box');
     },
     invite ?? '',
@@ -558,10 +564,10 @@ export function PerimeterWalkWidget({
   } else if (design) {
     const w = size?.w ?? 0;
     const h = size?.h ?? 0;
-    // The grip: a round, target-size handle on the rectangle's corner (inside the board where the
-    // rectangle is small), see-through so the squares under it still show.
-    const gripX = Math.max(-3, w * cell + GRIP_OUT - minT);
-    const gripY = Math.max(-3, h * cell + GRIP_OUT - minT);
+    // The grip: a round, target-size handle just outside the rectangle's bottom-right corner, on
+    // its bottom edge line, with a connector to the corner. It never covers a built square.
+    const gripX = w * cell + GRIP_GAP;
+    const gripY = Math.max(-3, h * cell - minT / 2);
     picture = (
       <div className="ni-pwalk__design" data-ref-above={refAbove ? 'true' : undefined}>
         <div className="ni-pwalk__side-col" style={{ minWidth: TARGET_W }}>
@@ -606,9 +612,7 @@ export function PerimeterWalkWidget({
         </div>
         <div
           ref={grid}
-          className={['ni-pwalk__grid-board', invite === 'corner' ? 'ni-invite' : '']
-            .filter(Boolean)
-            .join(' ')}
+          className={['ni-pwalk__grid-board'].filter(Boolean).join(' ')}
           role="slider"
           tabIndex={interactive ? 0 : -1}
           aria-label={t('ui.pwalk.build')}
@@ -620,7 +624,7 @@ export function PerimeterWalkWidget({
           data-size={size ? `${w}x${h}` : undefined}
           data-cell={cell}
           style={{
-            margin: `${DIM_TOP}px ${GRIP_OUT}px ${GRIP_OUT}px ${DIM_LEFT}px`,
+            margin: `${DIM_TOP}px ${GRIP_RIGHT}px ${GRIP_BELOW}px ${DIM_LEFT}px`,
             // Border-box: the squares fill the inside of the 3 px border.
             width: gridCols * cell + BORDER,
             height: gridRows * cell + BORDER,
@@ -630,13 +634,20 @@ export function PerimeterWalkWidget({
           onKeyDown={onGridKey}
         >
           {size ? (
-            <span
-              className="ni-pwalk__corner"
-              aria-hidden="true"
-              style={{ left: gripX, top: gripY, width: minT, height: minT }}
-            >
-              <GripIcon />
-            </span>
+            <>
+              <span
+                className="ni-pwalk__grip-link"
+                aria-hidden="true"
+                style={{ left: w * cell, top: h * cell - 2, width: GRIP_GAP + 4 }}
+              />
+              <span
+                className="ni-pwalk__corner"
+                aria-hidden="true"
+                style={{ left: gripX, top: gripY, width: minT, height: minT }}
+              >
+                <GripIcon />
+              </span>
+            </>
           ) : null}
           {size ? (
             <span className="ni-pwalk__rect" style={{ width: w * cell, height: h * cell }}>
@@ -706,6 +717,7 @@ export function PerimeterWalkWidget({
               value={size?.w ?? 0}
               max={gridCols}
               disabled={!interactive}
+              invited={invite === 'step'}
               onStep={(d) => stepBy(d, 0, d > 0 ? 'col-more' : 'col-less')}
             />
             <Stepper
@@ -878,6 +890,7 @@ function Stepper({
   value,
   max,
   disabled,
+  invited = false,
   onStep,
 }: {
   dim: 'w' | 'h';
@@ -886,6 +899,8 @@ function Stepper({
   value: number;
   max: number;
   disabled: boolean;
+  /** The demo invites "one more" (the design's first step). */
+  invited?: boolean;
   onStep: (d: 1 | -1) => void;
 }) {
   return (
@@ -898,7 +913,7 @@ function Stepper({
         disabled={disabled || value <= 1}
         onClick={() => onStep(-1)}
       >
-        −
+        <span className="ni-btn__label">−</span>
       </button>
       <svg
         className="ni-pwalk__step-arrow"
@@ -920,13 +935,13 @@ function Stepper({
       </svg>
       <button
         type="button"
-        className="ni-pwalk__step"
+        className={['ni-pwalk__step', invited ? 'ni-invite' : ''].filter(Boolean).join(' ')}
         data-step={`${dim}-more`}
         aria-label={more}
         disabled={disabled || value >= max}
         onClick={() => onStep(1)}
       >
-        +
+        <span className="ni-btn__label">+</span>
       </button>
     </div>
   );
