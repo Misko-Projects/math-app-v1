@@ -593,6 +593,8 @@ gen.addsub.facts.up-from:
   text: "Start at {b}. Count up to {a}."
 gen.addsub.facts.jump-to-ten:
   text: "Jump {give} to get to ten."
+gen.addsub.facts.jump-double:
+  text: "Jump {a} again to make the double."
 gen.addsub.facts.jump-rest:
   text: "Then jump {rest} more."
 gen.addsub.facts.jump-back-ten:

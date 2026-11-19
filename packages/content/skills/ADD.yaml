@@ -100,7 +100,7 @@ skills:
     standards: { ccss: [1.OA.C.6], wi: [M.1.OA.C.6b] }
     prerequisites: [ADD.07]
     gateway: false
-    representations: [dots, double-ten-frame, symbols]
+    representations: [dots, double-ten-frame, open-number-line, symbols]
 
   - id: ADD.17
     name: Add 9 by adding 10 and taking 1 away

@@ -530,6 +530,18 @@ templates:
 
   - id: ADD.16.t3
     skillId: ADD.16
+    format: number-line-jump
+    tier: pictorial
+    representation: open-number-line
+    generator: addsub.facts
+    params:
+      { a: { int: [2, 9] }, b: { int: [3, 10] }, op: "+", unknown: result, family: near-doubles }
+    constraints: ["b > a"]
+    difficulty: { base: -1.65 }
+    narration: { prompt: p.add.jump-on, hints: [h.add.near-double, h.add.near-double-smaller] }
+
+  - id: ADD.16.t4
+    skillId: ADD.16
     format: number-pad
     tier: abstract
     representation: symbols

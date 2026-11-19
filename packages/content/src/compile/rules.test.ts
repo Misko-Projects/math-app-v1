@@ -1647,7 +1647,7 @@ describe('V24 and contentVersion (03 §9.1)', () => {
       // templates, MC.forgot-the-ten and MC.wrong-operation. Constructed-answer templates for
       // CNT, SUB, GEO and MEA skills that practice could not make practiced (V27) added 17.
       skills: 71,
-      templates: 262,
+      templates: 263,
       misconceptions: 11,
       narrationKeys: Object.keys(r.content?.narration ?? {}).length,
     });

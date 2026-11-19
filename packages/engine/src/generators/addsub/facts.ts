@@ -463,6 +463,7 @@ export const addsubFacts: GeneratorDef = {
     'gen.addsub.facts.up-rest',
     'gen.addsub.facts.up-from',
     'gen.addsub.facts.jump-to-ten',
+    'gen.addsub.facts.jump-double',
     'gen.addsub.facts.jump-rest',
     'gen.addsub.facts.jump-back-ten',
     'gen.addsub.facts.jump-back-rest',
@@ -1034,6 +1035,15 @@ function jumpSolution(f: FactParts, open: boolean, start: number): LessonStep[] 
   }
   const label = say('gen.addsub.facts.answer', { n: result }, { op: 'label-landing' });
   if (open) {
+    // A near double from the smaller addend: jump it again to the double, then one more
+    // (6 + 7 as 6 + 6 + 1), the jumps strategy.used-doubles reads (03 §5.7).
+    if (op === '+' && f.strategy === 'near-double' && b === a + 1) {
+      return [
+        say('gen.addsub.facts.jump-double', { a }, { op: 'hop', args: { by: a } }),
+        say('gen.addsub.facts.jump-rest', { rest: 1 }, { op: 'hop', args: { by: 1 } }),
+        label,
+      ];
+    }
     if (op === '+' && a < 10 && result > 10) {
       return [
         say(

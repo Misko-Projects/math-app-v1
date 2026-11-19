@@ -15,7 +15,7 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { initContent, resetContent } from '../content/binding';
 import { checkResponse, detectProcessMisconceptions } from '../items/check';
 import { generateItemFromParams } from '../items/generate';
-import { itemExampleCorrect } from '../items/solution';
+import { itemExampleCorrect, itemSolution } from '../items/solution';
 import { detectStrategies } from '.';
 
 function tpl(id: string, skillId: string, format: ItemFormat, over: Partial<ItemTemplate> = {}) {
@@ -40,6 +40,7 @@ const T = {
     representation: 'double-ten-frame',
   }),
   jump: tpl('T.jump', 'ADD.08', 'number-line-jump', { representation: 'open-number-line' }),
+  near: tpl('T.near', 'ADD.16', 'number-line-jump', { representation: 'open-number-line' }),
 };
 
 const COUNT_ALL: MisconceptionSpec = {
@@ -361,6 +362,18 @@ describe('strategy.used-doubles', () => {
       expect(checkResponse(item, r).correct).toBe(true);
       expect(detectStrategies(item, r, meta())).not.toContain('strategy.used-doubles');
     }
+  });
+
+  it('the ADD.16 open-line worked solution jumps the double, then one more, and is praised', () => {
+    const item = make(T.near, { a: 6, b: 7, op: '+', unknown: 'result', family: 'near-doubles' });
+    const hopsBy = itemSolution(item, T.near)
+      .map((s) => s.action)
+      .filter((a) => a?.op === 'hop')
+      .map((a) => a?.args?.by);
+    expect(hopsBy).toEqual([6, 1]);
+    const r = hops([6, 1], 13);
+    expect(checkResponse(item, r).correct).toBe(true);
+    expect(detectStrategies(item, r, meta())).toEqual(['strategy.used-doubles']);
   });
 
   it('a wrong landing number gets no praise', () => {

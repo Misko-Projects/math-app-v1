@@ -322,7 +322,7 @@ Derived fields are not in the tables: `templates` (from template files), `miscon
 | ADD.13 | Add three numbers, making ten first when you can | strategy | 1 | 1.OA.B.3 | ADD.05, ADD.08 | N | ten-frame, number-bond, symbols | tenframe-fill, number-pad | — |
 | ADD.14 | Fluency: sums within 20 | fact-fluency | 2 | 2.OA.B.2 | ADD.07, ADD.16, ADD.08, ADD.17 | N | symbols | number-pad, numeral-pick | 3500 |
 | ADD.15 | Plus one, plus two, minus one, minus two | strategy | K | ~1.OA.C.5 | CMP.03, ADD.01 | N | number-path, ten-frame, symbols | number-line-jump, number-pad | — |
-| ADD.16 | Near doubles (6 + 7 = 6 + 6 + 1) | strategy | 1 | 1.OA.C.6 | ADD.07 | N | dots, double-ten-frame, symbols | tenframe-fill, number-pad | — |
+| ADD.16 | Near doubles (6 + 7 = 6 + 6 + 1) | strategy | 1 | 1.OA.C.6 | ADD.07 | N | dots, double-ten-frame, open-number-line, symbols | tenframe-fill, number-pad, number-line-jump | — |
 | ADD.17 | Add 9 by adding 10 and taking 1 away | strategy | 1 | 1.OA.C.6 | ADD.08, ADD.26 | N | double-ten-frame, rekenrek, symbols | rekenrek, number-pad | — |
 | ADD.18 | Subtract back to ten first (13 − 4 = 13 − 3 − 1) | strategy | 1 | 1.OA.C.6 | ADD.08, ADD.04 | N | double-ten-frame, open-number-line, symbols | tenframe-fill, number-line-jump, number-pad | — |
 | ADD.19 | Subtract by counting up through ten (13 − 8: 8 → 10 → 13) | strategy | 1 | 1.OA.C.6 | ADD.09, CPS.11 | N | double-ten-frame, open-number-line, symbols | number-line-jump, number-pad | — |
