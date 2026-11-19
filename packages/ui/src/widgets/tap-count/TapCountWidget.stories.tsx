@@ -171,6 +171,47 @@ async function expectBadgesOffObjects(root: HTMLElement) {
 }
 
 /**
+ * Pip's count on a ten-frame picture: one numbered badge, the latest count `n`, centred on its own
+ * object (numeral ≥ 32 px), inside the frame and clear of every other object's drawing; each of
+ * the other n − 1 counted objects has a small dot, and no dot touches another object's drawing.
+ */
+async function expectFrameMarks(root: HTMLElement, n: number) {
+  await settle(root);
+  const sprites = [...root.querySelectorAll<HTMLElement>('.ni-tapc__sprite')];
+  const overlaps = (a: DOMRect, o: DOMRect) =>
+    !(a.right <= o.left || o.right <= a.left || a.bottom <= o.top || o.bottom <= a.top);
+  const badges = [...root.querySelectorAll<HTMLElement>('.ni-tapc__mark')];
+  await expect(badges.map((b) => Number(b.textContent))).toEqual([n]);
+  const badge = badges[0] as HTMLElement;
+  const own = badge.closest('.ni-tapc__obj') as HTMLElement;
+  const m = badge.getBoundingClientRect();
+  const b = own.getBoundingClientRect();
+  await expect(Math.abs(m.left + m.width / 2 - (b.left + b.width / 2))).toBeLessThan(1);
+  await expect(Math.abs(m.top + m.height / 2 - (b.top + b.height / 2))).toBeLessThan(1);
+  await expect(Number.parseFloat(getComputedStyle(badge).fontSize)).toBeGreaterThanOrEqual(32);
+  const frame = [...root.querySelectorAll('.ni-objects__frame')].find((f) =>
+    overlaps(m, f.getBoundingClientRect()),
+  ) as Element;
+  const fr = frame.getBoundingClientRect();
+  await expect(
+    m.left >= fr.left && m.right <= fr.right && m.top >= fr.top && m.bottom <= fr.bottom,
+  ).toBe(true);
+  const dots = [...root.querySelectorAll<HTMLElement>('.ni-tapc__dot')];
+  await expect(dots).toHaveLength(n - 1);
+  for (const mark of [badge, ...dots]) {
+    const r = mark.getBoundingClientRect();
+    const mine = mark.closest('.ni-tapc__obj')?.querySelector('.ni-tapc__sprite');
+    for (const s of sprites) {
+      if (s === mine) continue;
+      await expect(
+        overlaps(r, s.getBoundingClientRect()),
+        'a count mark covers another object',
+      ).toBe(false);
+    }
+  }
+}
+
+/**
  * Pip's teal invite ring around `invited` (a circle `outline-offset + outline-width` outside the
  * object, pulsing up to 5 % larger) stays at least 8 px clear of every count badge (pebbles:
  * capsules of the badge's height).
@@ -631,6 +672,26 @@ export const DemoReducedMotion: Story = {
     await expect(within(root).getByRole('button', { name: 'Your answer: 4' })).toBeVisible();
     await reducedController.play({ op: 'say-total' });
     await expect(within(root).getByRole('button', { name: 'Your answer: 6' })).toBeVisible();
+  },
+};
+
+const frameCount: WidgetDemo = createDemoController({ strict: true });
+
+/**
+ * Pip counts aloud on a double ten-frame picture (follow-up from #76): no count mark covers the
+ * cell above or any other crab. Counted cells keep a small dot; only the latest count shows its
+ * number, centred on its own crab — part-way (7, first frame) and at the end (15, second frame).
+ */
+export const DemoCountAloudTenFrame: Story = {
+  globals: { ageMode: 'k', motion: 'reduced' },
+  args: { config: doubleFrame, tier: 'pictorial', disabled: true, demo: frameCount },
+  play: async ({ canvasElement }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    await expect(root).toHaveAttribute('data-frames', 'true');
+    await frameCount.play({ op: 'count-aloud', args: { upTo: 7 } });
+    await expectFrameMarks(root, 7);
+    await frameCount.play({ op: 'count-aloud', args: { upTo: 15 } });
+    await expectFrameMarks(root, 15);
   },
 };
 

@@ -146,6 +146,36 @@ button.ni-tapc__obj:focus-visible {
   top: -40px;
 }
 
+/*
+ * Ten-frame pictures (follow-up from #76): the cell above holds the next row's object, so a badge
+ * above the box would cover it. Only the latest count shows its number, centred on its own object
+ * (box and cell share a centre; numeral still ≥ 32 px); every other counted cell keeps a small
+ * teal dot in its top-left corner, so the counted cells stay visible without covering anything.
+ */
+.ni-tapc[data-frames="true"] .ni-tapc__mark {
+  top: 50%;
+  right: auto;
+  left: 50%;
+  translate: -50% -50%;
+  min-width: 44px;
+  height: 44px;
+  padding: 0.14em 5px 0;
+  font-size: 2rem;
+}
+.ni-tapc__dot {
+  position: absolute;
+  top: calc(50% - 26px);
+  left: calc(50% - 26px);
+  width: 16px;
+  height: 16px;
+  box-sizing: border-box;
+  border: 3px solid var(--color-paper);
+  border-radius: 50%;
+  background: var(--color-sea-deep);
+  pointer-events: none;
+  animation: var(--animate-pop-in);
+}
+
 /* Ordinal pick: a thick ink ring around the object and a check badge. */
 .ni-tapc__obj[data-ringed="true"] {
   outline: 6px solid var(--color-ink);

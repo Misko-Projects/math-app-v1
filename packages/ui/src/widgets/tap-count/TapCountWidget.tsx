@@ -680,12 +680,18 @@ export function TapCountWidget({
         <ObjectSprite sprite={o.sprite} tone={o.tone} />
       </span>
     );
+    // Ten-frame pictures (follow-up from #76): the cell above holds the next row's object, so a
+    // badge above the box would cover it. Counted cells get a small dot inside the cell instead,
+    // and only the latest count shows its number, centred in its own cell.
+    const onFrames = layout.frames.length > 0;
     const badge =
-      mark !== undefined && showMarks ? (
+      mark === undefined || !showMarks ? null : onFrames && mark !== order.length ? (
+        <span className="ni-tapc__dot" aria-hidden="true" />
+      ) : (
         <span className="ni-tapc__mark" aria-hidden="true">
           {mark}
         </span>
-      ) : null;
+      );
     const isRinged = isObject && ringed === o.index;
     const invited = isObject && cueObject === o.index;
     const tappable = objectsTappable && (isObject || concrete);
@@ -744,6 +750,7 @@ export function TapCountWidget({
       data-tier={tier}
       data-mode={ordinal ? 'ordinal' : 'how-many'}
       data-arrange={arrange}
+      data-frames={layout.frames.length > 0 ? 'true' : undefined}
       data-disabled={disabled ? 'true' : undefined}
       style={handRootStyle}
     >
