@@ -7,9 +7,10 @@
 //   base-ten-trade  `regroup-to`: the mat starts at `from` and must show exactly `to`
 //                   (trade.result `{ regroupTarget }`)
 //   base-ten-build  `build-exact`: `from` is prebuilt; fuse and split until the mat holds exactly
-//                   the `to` counts (baseten.exact `{ value, exact }`). The tray `limits` are 0
-//                   for every kind, so no piece can be swapped through the tray
-//                   instead of fused or split
+//                   the `to` counts (baseten.exact `{ value, exact }`). The tray `limits`
+//                   (tradeLimits) hold none of the kinds the trades make, so no piece can be
+//                   swapped through the tray instead of fused or split, and any number of the
+//                   kind they use up, so putting pieces back never strands the item
 //   number-pad      how many is the `from` decomposition (a picture of its pieces on base-ten or
 //                   bundles, ten-frames for a canonical teen or 20, or words in the prompt)?
 //                   `to` is not used
@@ -80,6 +81,28 @@ export function tradesBetween(
   for (let i = 0; i < k; i += 1) out.push({ kind: 'tens', dir: 'down' });
   for (let i = 0; i < -k; i += 1) out.push({ kind: 'ones', dir: 'up' });
   for (let i = 0; i < dh; i += 1) out.push({ kind: 'tens', dir: 'up' });
+  return out;
+}
+
+/**
+ * The tray limits of a build-exact regroup item (PR #83 review, rounds 1 and 2). The mat starts at
+ * `from`, already worth n, and must end with the `to` counts:
+ * - a kind the trades use up (fewer in `to` than in `from`) holds any number, so a learner who
+ *   puts pieces back can always take them again and finish (the model does not return prebuilt
+ *   pieces to the tray), and any other kind can be rebuilt by trading it;
+ * - every other shown kind holds none, so the tray never stands in for any one of the trades
+ *   (no putting ten ones back for a rod).
+ */
+export function tradeLimits(
+  from: Hto,
+  to: Hto,
+  withHundreds: boolean,
+): Partial<Record<'hundreds' | 'tens' | 'ones', number>> {
+  const kinds = withHundreds
+    ? (['hundreds', 'tens', 'ones'] as const)
+    : (['tens', 'ones'] as const);
+  const out: Partial<Record<'hundreds' | 'tens' | 'ones', number>> = {};
+  for (const k of kinds) if (to[k] >= from[k]) out[k] = 0;
   return out;
 }
 
@@ -231,10 +254,7 @@ export const pvRegroup: GeneratorDef = {
           tens: to.tens,
           ones: to.ones,
         };
-        // The tray holds nothing (PR #83 review): the prebuilt mat is already worth n, so the
-        // only way to reach the `to` counts is to fuse and split on the mat. Putting ten ones
-        // back and taking a rod (or a rod back for ten ones) is no longer possible.
-        const limits = { ...(withHundreds ? { hundreds: 0 } : {}), tens: 0, ones: 0 };
+        const limits = tradeLimits(from, to, withHundreds);
         p = {
           params,
           vars,

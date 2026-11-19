@@ -220,11 +220,12 @@ export function forcedTrade(n: number): {
 /**
  * The options of a numeral-pick `words` item (PR #83 review): n's name class, two reversal pairs
  * of the digits 1 … digitMax. The unordered digit pairs {p < q} are listed in order (12, 13, …,
- * 45) and paired off two at a time, a last odd pair joining the class before it, so the classes
- * split the domain: every member of a class has the same options, the set never depends on
- * which member is the key, every option is a possible key, and each option's reversal (the
+ * 45) and paired off two at a time, so every class has exactly four options (numeral-pick allows
+ * at most five). Every member of a class has the same options, the set never depends on which
+ * member is the key, every option is a possible key, and each option's reversal (the
  * MC.place-swap and MC.teen-reversal answer) is an option too. Ascending; null when n's digits are
- * not two distinct digits in 1 … digitMax, or digitMax leaves fewer than two pairs.
+ * not two distinct digits in 1 … digitMax, or n's pair is the unpaired last one when the count of
+ * pairs is odd (PR #83 review round 2: it used to join the class before it, making six options).
  */
 export function nameClass(n: number, digitMax: number): number[] | null {
   if (!Number.isInteger(n) || n < 10 || n > 99) return null;
@@ -234,10 +235,10 @@ export function nameClass(n: number, digitMax: number): number[] | null {
   if (lo < 1 || lo === hi || hi > max) return null;
   const pairs: [number, number][] = [];
   for (let p = 1; p <= max; p += 1) for (let q = p + 1; q <= max; q += 1) pairs.push([p, q]);
-  if (pairs.length < 2) return null;
-  const last = Math.floor(pairs.length / 2) - 1;
-  const classOf = (i: number) => Math.min(Math.floor(i / 2), last);
+  const classes = Math.floor(pairs.length / 2);
+  const classOf = (i: number) => Math.floor(i / 2);
   const mine = classOf(pairs.findIndex(([p, q]) => p === lo && q === hi));
+  if (mine >= classes) return null;
   return pairs
     .filter((_, i) => classOf(i) === mine)
     .flatMap(([p, q]) => [10 * p + q, 10 * q + p])

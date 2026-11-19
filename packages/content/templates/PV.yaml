@@ -187,7 +187,7 @@ templates:
     representation: bundles
     generator: pv.regroup
     params: { n: { int: [11, 39] }, from: ones, to: canonical }
-    # The empty tray (limits 0) adds limits.tight (0.5): only fusing makes the tens.
+    # No rods in the tray (tens limit 0) adds limits.tight (0.5): only fusing makes the tens.
     difficulty: { base: -2.9 }
     narration: { prompt: tp.PV.09.t2.prompt, hints: [h.pv.bundle-ten, h.pv.rest-ones] }
 

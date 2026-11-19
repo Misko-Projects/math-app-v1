@@ -473,13 +473,29 @@ describe('pv.number formats and modes', () => {
         const c = nameClass(n, max);
         if (!c) continue;
         expect(c).toContain(n);
+        // Exactly two reversal pairs, never more than numeral-pick's five options (round 2).
+        expect(c).toHaveLength(4);
         for (const m of c) expect(nameClass(m, max)).toEqual(c);
       }
     }
+    // An odd count of pairs leaves the last pair out instead of growing a class to six.
+    expect(nameClass(12, 3)).toEqual([12, 13, 21, 31]);
+    expect(nameClass(23, 3)).toBeNull();
+    expect(nameClass(32, 3)).toBeNull();
     expect(nameClass(33, 9)).toBeNull();
     expect(nameClass(40, 9)).toBeNull();
     expect(nameClass(16, 5)).toBeNull();
     expect(nameClass(12, 2)).toBeNull();
+  });
+
+  it('numeral-pick words with an odd count of digit pairs still offers four options', () => {
+    const t = tpl('numeral-pick', 'abstract', 'words');
+    const item = generateItemFromParams(t, { n: 12, mode: 'words', digitMax: 3 });
+    if (item.widget.format !== 'numeral-pick') throw new Error('format');
+    expect(item.widget.options.map((o) => o.id).sort()).toEqual(
+      ['opt-12', 'opt-13', 'opt-21', 'opt-31'].sort(),
+    );
+    expect(() => generateItemFromParams(t, { n: 23, mode: 'words', digitMax: 3 })).toThrow();
   });
 
   it('numeral-pick digit-value offers the value, the bare digit and the digit one place up', () => {

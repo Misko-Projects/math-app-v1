@@ -207,7 +207,8 @@ describe('PR #83 review (4): PV.09.t2 makes the ten only by bundling', () => {
       const item = generateItemFromParams(t, params);
       const n = Number(params.n);
       if (item.widget.format !== 'base-ten-build') throw new Error('base-ten-build');
-      expect(item.widget.limits).toEqual({ tens: 0, ones: 0 });
+      // Round 2: no rods in the tray, any number of loose sticks.
+      expect(item.widget.limits).toEqual({ tens: 0 });
       const swaps: WidgetAction[] = [];
       for (let k = 0; k < Math.floor(n / 10); k += 1) {
         swaps.push(
@@ -217,6 +218,17 @@ describe('PR #83 review (4): PV.09.t2 makes the ten only by bundling', () => {
       }
       const swapped = play(item, swaps);
       expect(checkResponse(item, swapped as ResponseValue).correct).toBe(false);
+      // Nor one swap with the other tens fused (round 2: the tray holds no rods at all).
+      if (n >= 20) {
+        const partial = play(item, [
+          ...swaps.slice(0, 2),
+          ...Array.from({ length: Math.floor(n / 10) - 1 }, () => ({
+            op: 'fuse' as const,
+            args: { kind: 'ones' },
+          })),
+        ]);
+        expect(checkResponse(item, partial as ResponseValue).correct).toBe(false);
+      }
       const fused = play(
         item,
         Array.from({ length: Math.floor(n / 10) }, () => ({
@@ -228,19 +240,43 @@ describe('PR #83 review (4): PV.09.t2 makes the ten only by bundling', () => {
     },
   );
 
-  it('every pv.regroup build offers an empty tray, across the seeds', () => {
+  it('round 2: a learner who puts sticks back can still finish', () => {
+    const item = generateItemFromParams(t, { n: 14, from: 'ones', to: 'canonical' });
+    const ones = (count: number): WidgetAction => ({
+      op: 'add-piece',
+      args: { kind: 'ones', count },
+    });
+    const fuse: WidgetAction = { op: 'fuse', args: { kind: 'ones' } };
+    const rodBack: WidgetAction = { op: 'add-piece', args: { kind: 'tens', count: -1 } };
+    for (const actions of [
+      [ones(-1), ones(1), fuse],
+      [ones(-14), ones(14), fuse],
+      [fuse, rodBack, ones(10), fuse],
+    ]) {
+      const r = play(item, actions);
+      expect(r).not.toBeNull();
+      expect(checkResponse(item, r as ResponseValue).correct).toBe(true);
+    }
+    // The tray still never stands in for the bundle.
+    const r = play(item, [ones(-10), { op: 'add-piece', args: { kind: 'tens', count: 1 } }]);
+    expect(checkResponse(item, r as ResponseValue).correct).toBe(false);
+  });
+
+  it('every pv.regroup build: no made kind in the tray, any number of the used-up kind', () => {
     for (const tt of fixture.templates.filter(
       (x) => x.generator === 'pv.regroup' && x.format === 'base-ten-build',
     )) {
       for (const it of items(tt, 100)) {
         if (it.widget.format !== 'base-ten-build') throw new Error('base-ten-build');
-        for (const v of Object.values(it.widget.limits ?? {})) expect(v).toBe(0);
-        expect(Object.keys(it.widget.limits ?? {}).sort()).toEqual(
-          Object.entries(it.widget.pieces)
-            .filter(([k, on]) => on && k !== 'thousands')
-            .map(([k]) => k)
-            .sort(),
-        );
+        const w = it.widget;
+        for (const k of ['hundreds', 'tens', 'ones'] as const) {
+          if (!w.pieces[k]) continue;
+          const made = (w.exact?.[k] ?? 0) - (w.prebuilt?.[k] ?? 0);
+          const limit = w.limits?.[k];
+          if (made < 0) expect(limit).toBeUndefined();
+          else expect(limit).toBe(0);
+        }
+        expect(itemFeatures(it, tt)['limits.tight']).toBe(1);
       }
     }
   });
