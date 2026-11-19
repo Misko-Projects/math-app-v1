@@ -32,6 +32,7 @@ import {
 } from '../learner/synthetic.test-support';
 import { DAY_MS, PARAMS } from '../params';
 import { neededTemplates, type PlanOptions, planSession, rankNewSkills } from './plan';
+import { targetDifficulty } from './target';
 import { PRACTICE_PIER, PUZZLE_TOWER, RHYTHM_ORCHARD } from './workshops';
 
 const CHILD = '019a0000-0000-7000-8000-00000000c001';
@@ -306,23 +307,41 @@ describe('warmup (04 §6.1)', () => {
     });
   });
 
-  it('never an item warmup on a ready skill with a lesson, whichever request the child picks', () => {
-    // Two untouched lesson skills offered as alternatives (A, and B once A's lesson is done would
-    // need A on track: use a graph where B is a second root). A test-out is offered for both.
+  it('a test-out warmup is shared by every request, whichever the child picks', () => {
+    // Two untouched lesson roots, both offered a test-out, nothing attempted. The warmup is test-out
+    // item 1 of one of them, and every request focuses that skill and asks the rest of its draw.
     const g: SkillGraph = { ...graph, prereqs: { ...graph.prereqs, [B]: [] } };
     const prior = { p: { [A]: 0.7, [B]: 0.7 }, assumed: [] };
     const s = stateWith({}, { placement: { prior, strandsPlaced: [], inProgress: null } });
     const p = plan(input({ graph: g, state: s, workshopsAvailable: [HALL] }));
-    // The warmup is a lesson (it never starts a test-out the child may not pick).
-    expect(p.warmup.mode).toBe('lesson');
-    const lessoned = p.warmup.skillId;
-    // The other skill keeps its own test-out and lesson in its request.
-    const other = p.requests.find((r) => r.tasks.some((t) => t.skillId !== lessoned));
-    expect(other).toBeDefined();
-    const otherSkill = (other as PlannedRequest).tasks.find((t) => t.skillId !== lessoned)?.skillId;
-    expect(
-      (other as PlannedRequest).tasks.some((t) => t.mode === 'lesson' && t.skillId === otherSkill),
-    ).toBe(true);
+    expect(p.warmup).toMatchObject({ mode: 'item', context: 'warmup' });
+    const f = p.warmup.skillId;
+    expect(model.inTestOut(s, f)).toBe(true);
+    for (const r of p.requests) {
+      expect(r.tasks[0]?.skillId).toBe(f);
+      // No request plans another skill's draw before its lesson.
+      const other = r.tasks.find((t) => t.skillId !== f && t.skillId !== undefined);
+      if (other) expect(model.status(s, other.skillId, NOW)).not.toBe('ready');
+    }
+  });
+
+  it('a rated lesson warmup never precedes another skill’s planned draw', () => {
+    // Two untouched roots offered only through P(ref) = 0.751 (no priors). A lesson warmup with
+    // rated child steps could lower θg below the offer; so the plan uses a draw item as the
+    // warmup instead, and no request plans a draw for a different skill.
+    const g: SkillGraph = { ...graph, prereqs: { ...graph.prereqs, [B]: [] } };
+    const s = stateWith({}, { thetaG: Math.log(0.751 / 0.249) });
+    const p = plan(input({ graph: g, state: s, workshopsAvailable: [HALL] }));
+    if (p.warmup.mode === 'lesson') {
+      // A lesson warmup: no request may plan a draw at all.
+      for (const r of p.requests) {
+        const at = r.tasks.findIndex((t) => t.mode === 'lesson');
+        expect(at === -1 || at === 0 || r.tasks[0]?.skillId !== r.tasks[at]?.skillId).toBe(true);
+      }
+    } else {
+      expect(p.warmup.context).toBe('warmup');
+      for (const r of p.requests) expect(r.tasks[0]?.skillId).toBe(p.warmup.skillId);
+    }
   });
 });
 
@@ -372,8 +391,7 @@ describe('lessons and test-outs (04 §3, 03 §6.5)', () => {
     });
     expect(st.skills[A]?.practicedAt).not.toBeNull();
 
-    // With nothing attempted at all, A's lesson is the warmup instead (its test-out is forgone,
-    // never half-started), and no request repeats the lesson.
+    // With nothing attempted at all, the draw's first item is the warmup (test-out item 1).
     const fresh = stateWith(
       {},
       {
@@ -381,9 +399,98 @@ describe('lessons and test-outs (04 §3, 03 §6.5)', () => {
       },
     );
     const q = plan(input({ state: fresh, workshopsAvailable: [HALL] }));
-    expect(q.warmup).toMatchObject({ skillId: A, mode: 'lesson', context: 'lesson' });
-    for (const x of q.requests)
-      expect(x.tasks.some((t) => t.mode === 'lesson' && t.skillId === A)).toBe(false);
+    expect(q.warmup).toMatchObject({ skillId: A, mode: 'item', context: 'warmup' });
+    expect([`${A}.t3`, `${A}.t4`]).toContain(q.warmup.templateId);
+  });
+
+  it('plans a test-out only when it stays offered after a wrong warmup (plan and learner agree)', () => {
+    // A untouched with no prior: offered only through P(ref) = 0.751, just above 0.75. A wrong
+    // warmup on C would lower θg below it, so no draw is planned: A starts with its lesson.
+    const s = stateWith({ [C]: practiced(2, NOW + DAY_MS) }, { thetaG: Math.log(0.751 / 0.249) });
+    expect(model.pRef(s, A)).toBeGreaterThan(0.75);
+    const p = plan(input({ state: s, workshopsAvailable: [HALL] }));
+    expect(p.warmup.skillId).toBe(C);
+    for (const r of p.requests.filter((x) => x.tasks.some((t) => t.skillId === A))) {
+      const first = r.tasks.find((t) => t.skillId === A);
+      expect(first?.mode).toBe('lesson');
+    }
+
+    // With a robust offer (placement prior 0.7) the draw is planned; after a WRONG warmup the
+    // learner still offers it, the draw is asked at d* = 0 and three clean answers earn the skip.
+    const prior = { p: { [A]: 0.7 }, assumed: [] };
+    const robust = stateWith(
+      { [C]: practiced(2, NOW + DAY_MS) },
+      { placement: { prior, strandsPlaced: [], inProgress: null } },
+    );
+    const q = plan(input({ state: robust, workshopsAvailable: [HALL] }));
+    const r = q.requests.find((x) => x.tasks[0]?.skillId === A) as PlannedRequest;
+    const draw = r.tasks.slice(
+      0,
+      r.tasks.findIndex((t) => t.mode === 'lesson'),
+    );
+    const drawA = draw.filter((t) => t.skillId === A);
+    expect(drawA).toHaveLength(3);
+    const n = (templateId: string) => Number(templateId.split('.t')[1]);
+    const c = child('1');
+    let st = model.apply(
+      robust,
+      synthAttempt(C, n(q.warmup.templateId), {
+        context: 'warmup',
+        correct: false,
+        partialCredit: 0,
+      }),
+      NOW,
+    );
+    drawA.forEach((t, k) => {
+      expect(targetDifficulty(st, A, t.context, c, graph)).toBe(0);
+      st = model.apply(st, synthAttempt(A, n(t.templateId), { context: t.context }), NOW + k + 1);
+    });
+    expect(st.skills[A]?.practicedAt).not.toBeNull();
+  });
+
+  it('with nothing attempted, the warmup is test-out item 1 and each request asks the rest', () => {
+    // Nothing attempted; A's test-out is offered. The warmup is the draw's first item; each request
+    // starts with the remaining draw items, then the lesson (skipped by the runner on a pass). The
+    // warmup plus the draw stay within 3 in a row, every draw item is asked at d* = 0, and clean
+    // answers put A on the practiced track; afterwards A is adaptive again.
+    const prior = { p: { [A]: 0.7 }, assumed: [] };
+    const fresh = stateWith({}, { placement: { prior, strandsPlaced: [], inProgress: null } });
+    const p = plan(input({ state: fresh, workshopsAvailable: [HALL] }));
+    expect(p.warmup).toMatchObject({ skillId: A, mode: 'item', context: 'warmup' });
+    const n = (templateId: string) => Number(templateId.split('.t')[1]);
+    for (const r of p.requests) {
+      const at = r.tasks.findIndex((t) => t.mode === 'lesson');
+      const draw = r.tasks.slice(0, at).filter((t) => t.skillId === A);
+      expect(draw).toHaveLength(2); // items − the warmup
+      expect(r.tasks[at]).toMatchObject({ skillId: A, mode: 'lesson' });
+      let st = fresh;
+      for (const t of [p.warmup, ...draw]) {
+        expect(targetDifficulty(st, A, t.context, child('1'), graph)).toBe(0);
+        st = model.apply(st, synthAttempt(A, n(t.templateId), { context: t.context }), NOW);
+      }
+      expect(st.skills[A]?.practicedAt).not.toBeNull();
+      expect(targetDifficulty(st, A, 'practice', child('1'), graph)).not.toBe(0);
+    }
+  });
+
+  it('a test-out no themed workshop can host as a passable draw goes to the Practice Pier', () => {
+    // A's pool is t3 (number-pad) and t4 (number-bond); a workshop hosting only number-pad could
+    // only repeat t3, which can never pass the two-template rule. The request goes to the pier.
+    const PAD = cap('pad-hut', ['number-pad', 'tap-count'], {
+      strands: ['CNT'],
+      residents: ['nib'],
+    });
+    const prior = { p: { [A]: 0.7 }, assumed: [] };
+    const s = stateWith(
+      { [C]: practiced(2, NOW + DAY_MS) },
+      { placement: { prior, strandsPlaced: [], inProgress: null } },
+    );
+    const p = plan(input({ state: s, workshopsAvailable: [PAD] }));
+    const r = p.requests.find((x) => x.tasks[0]?.skillId === A) as PlannedRequest;
+    expect(r.workshopId).toBe(PRACTICE_PIER);
+    const at = r.tasks.findIndex((t) => t.mode === 'lesson');
+    const draw = r.tasks.slice(0, at).filter((t) => t.skillId === A);
+    expect(new Set(draw.map((t) => t.templateId)).size).toBe(2);
   });
 
   it('the warmup item starts the run: warmup plus a request never holds 4 of one skill in a row', () => {
