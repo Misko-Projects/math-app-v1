@@ -467,6 +467,14 @@ export const SymbolTap: Story = {
       'data-chosen',
       'true',
     );
+    // The committed symbol is announced (pressed); the others are not.
+    await expect(canvas.getByRole('button', { name: 'Less than' })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    );
+    for (const name of ['Equal to', 'Greater than']) {
+      await expect(canvas.getByRole('button', { name })).toHaveAttribute('aria-pressed', 'false');
+    }
     await userEvent.click(canvas.getByRole('button', { name: 'Check' }));
     await expect(args.onResponse).toHaveBeenCalledTimes(1);
     await expect(args.onResponse).toHaveBeenCalledWith({ kind: 'choice', id: '<' });
@@ -495,6 +503,14 @@ export const SymbolDrag: Story = {
     // A drop away from the gap changes nothing.
     await pointerDrag(canvas.getByRole('button', { name: 'Equal to' }), { x: 10, y: 10 }, 'mouse');
     await expect(root.querySelector('.ni-cmp__placed [data-glyph="lt"]')).not.toBeNull();
+    await expect(canvas.getByRole('button', { name: 'Less than' })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    );
+    await expect(canvas.getByRole('button', { name: 'Equal to' })).toHaveAttribute(
+      'aria-pressed',
+      'false',
+    );
     await userEvent.click(canvas.getByRole('button', { name: 'Check' }));
     await expect(args.onResponse).toHaveBeenCalledWith({ kind: 'choice', id: '<' });
     await expect(traceOf(args.onInteract).map((e) => `${e.t}:${e.target}`)).toEqual([
@@ -525,6 +541,10 @@ export const SymbolKeyboard: Story = {
     await userEvent.keyboard('{Enter}');
     await waitFor(() =>
       expect(root.querySelector('.ni-cmp__placed [data-glyph="eq"]')).not.toBeNull(),
+    );
+    await expect(canvas.getByRole('button', { name: 'Equal to' })).toHaveAttribute(
+      'aria-pressed',
+      'true',
     );
     const check = canvas.getByRole('button', { name: 'Check' });
     check.focus();
@@ -558,6 +578,57 @@ export const SidesKeyboard: Story = {
   },
 };
 
+/**
+ * Tapping operands speaks them (06 §5) and never answers: the numbers of a symbol question (each
+ * side a button that only speaks), and a side pick names its objects.
+ */
+export const OperandSpeechK: Story = {
+  globals: { ageMode: 'k' },
+  parameters: { ui: { audio: spyAudio() } },
+  args: { config: symbolHundreds, tier: 'abstract' },
+  play: async ({ canvasElement, args, parameters }) => {
+    const audio = parameters.ui.audio as ReturnType<typeof spyAudio>;
+    clearSpies(audio);
+    const root = await findWidget(canvasElement, ROOT);
+    const canvas = within(root);
+    const left = canvas.getByRole('button', { name: 'Left side: 105' });
+    const right = canvas.getByRole('button', { name: 'Right side: 150' });
+    for (const b of [left, right]) await expectTargetSize(b, 'k');
+    await userEvent.click(left);
+    await expect(audio.sayPhrases).toHaveBeenCalledWith([{ number: 105 }]);
+    await userEvent.click(right);
+    await expect(audio.sayPhrases).toHaveBeenCalledWith([{ number: 150 }]);
+    // Speaking is all: nothing is chosen, Check stays off, the trace has the taps.
+    await expect(root.querySelector('.ni-cmp__placed')).toBeNull();
+    await expect(canvas.getByRole('button', { name: 'Check' })).toBeDisabled();
+    await expect(traceOf(args.onInteract).map((e) => `${e.t}:${e.target}`)).toEqual([
+      'tap:side-left',
+      'tap:side-right',
+    ]);
+    // The symbol tiles still answer.
+    await userEvent.click(canvas.getByRole('button', { name: 'Less than' }));
+    await userEvent.click(canvas.getByRole('button', { name: 'Check' }));
+    await expect(args.onResponse).toHaveBeenCalledWith({ kind: 'choice', id: '<' });
+  },
+};
+
+/** Same or not (K): an objects side is a button that names its objects; it never answers. */
+export const OperandObjectsK: Story = {
+  globals: { ageMode: 'k' },
+  parameters: { ui: { audio: spyAudio() } },
+  args: { config: sameOrNot },
+  play: async ({ canvasElement, args, parameters }) => {
+    const audio = parameters.ui.audio as ReturnType<typeof spyAudio>;
+    clearSpies(audio);
+    const root = await findWidget(canvasElement, ROOT);
+    const canvas = within(root);
+    await userEvent.click(canvas.getByRole('button', { name: 'Left side: Shell' }));
+    await expect(audio.say).toHaveBeenCalledWith('ui.sprite.shell', undefined);
+    await expect(canvas.getByRole('button', { name: 'Check' })).toBeDisabled();
+    await expect(traceOf(args.onInteract).map((e) => e.target)).toEqual(['side-left']);
+  },
+};
+
 /** Tapping a side that is a number speaks it (06 §5). */
 export const NumeralSidesK: Story = {
   globals: { ageMode: 'k' },
@@ -575,7 +646,10 @@ export const NumeralSidesK: Story = {
   },
 };
 
-/** True or not? 3 + 4 = 7: yes (check) or no (cross), with text labels from G1. */
+/**
+ * True or not? 3 + 4 = 7: yes (thumb up) or no (thumb down), with text labels from G1. The
+ * thumbs never repeat the Check button's tick.
+ */
 export const TrueFalse: Story = {
   args: { config: trueFalse, tier: 'abstract' },
   play: async ({ canvasElement, args }) => {
@@ -585,6 +659,8 @@ export const TrueFalse: Story = {
     const yes = canvas.getByRole('button', { name: 'Yes' });
     const no = canvas.getByRole('button', { name: 'No' });
     await expect(yes).toHaveTextContent('Yes');
+    await expect(yes.querySelector('[data-glyph="thumb-up"]')).not.toBeNull();
+    await expect(no.querySelector('[data-glyph="thumb-down"]')).not.toBeNull();
     await expectTargetGaps([yes, no]);
     await userEvent.click(no);
     await userEvent.click(yes);
@@ -652,7 +728,7 @@ export const DemoPlaceSymbol: Story = {
 /** Every target a child can use: picks, choices, symbols, objects, the gap, check. */
 const targets = (root: HTMLElement) => [
   ...root.querySelectorAll<HTMLElement>(
-    '.ni-pick, .ni-cmp__obj, .ni-cmp__pad, .ni-cmp__check .ni-btn',
+    '.ni-pick, .ni-cmp__obj, .ni-cmp__operand, .ni-cmp__pad, .ni-cmp__check .ni-btn',
   ),
 ];
 
@@ -684,30 +760,33 @@ const matchInvite: WidgetDemo = createDemoController({ strict: true });
 
 /**
  * The child's turn (03 §6.3), `match {left, right}` in match mode: the ring and Pip's hand on the
- * left object; once the child taps it, on the right one; once they are joined, nothing. Then
- * `highlight {side}` rings that row's "this one" card, and `answer {id: same}` the same card.
+ * left object; once the child taps it, on the right one; once they are joined (a straight line:
+ * object 1 above object 1), nothing. `answer {id: same}` rings "the same"; the faded example then
+ * moves on to `highlight {side}`: the ring and the hand on the bottom row's "this one" card, where
+ * the story ends (nothing picked yet, one ring).
  */
 export const InviteMatchK: Story = {
   globals: { ageMode: 'k' },
   args: { config: matchMore, tier: 'concrete', demo: matchInvite },
-  play: async ({ canvasElement }) => {
+  play: async ({ canvasElement, args }) => {
     const root = await findWidget(canvasElement, ROOT);
     await expect(root).toHaveAttribute('data-mode', 'match');
-    matchInvite.invite({ op: 'match', args: { left: 1, right: 2 } });
+    matchInvite.invite({ op: 'match', args: { left: 1, right: 1 } });
     await expectInviteOn(root, obj(root, 'left-obj-1'));
     await userEvent.click(obj(root, 'left-obj-1'));
-    await expectInviteOn(root, obj(root, 'right-obj-2'));
-    await userEvent.click(obj(root, 'right-obj-2'));
+    await expectInviteOn(root, obj(root, 'right-obj-1'));
+    await userEvent.click(obj(root, 'right-obj-1'));
     await waitFor(() => expect(root.querySelectorAll('.ni-cmp__line')).toHaveLength(1));
+    const line = root.querySelector('.ni-cmp__line line') as SVGLineElement;
+    await expect(Number(line.getAttribute('x1'))).toBeCloseTo(Number(line.getAttribute('x2')), 0);
     await noInvite(root);
+    matchInvite.invite({ op: 'answer', args: { id: 'same' } });
+    await expectInviteOn(root, within(root).getByRole('button', { name: 'The same' }));
     matchInvite.invite({ op: 'highlight', args: { side: 'right' } });
     const picks = within(root).getAllByRole('button', { name: /^This one/ });
     await expectInviteOn(root, picks[1] as HTMLElement);
-    matchInvite.invite({ op: 'answer', args: { id: 'same' } });
-    await expectInviteOn(root, within(root).getByRole('button', { name: 'The same' }));
-    // Picking answers the invite.
-    await userEvent.click(within(root).getByRole('button', { name: 'The same' }));
-    await noInvite(root);
+    await expect(root.querySelector('[aria-pressed="true"]')).toBeNull();
+    await expect(args.onResponse).not.toHaveBeenCalled();
   },
 };
 
@@ -862,7 +941,10 @@ export const LongerK: Story = {
   },
 };
 
-/** GEO.08.t3 (K): shapes (drawn by U05; a neutral card until then). */
+/**
+ * GEO.08.t3 (K): which shape has more corners? Shapes render as the kit's neutral card until U05
+ * draws them (kit README: shape drawing belongs to U05); the sides are still the pick targets.
+ */
 export const ShapesK: Story = {
   globals: { ageMode: 'k' },
   args: { config: shapes, tier: 'pictorial' },
@@ -899,6 +981,35 @@ export const SymbolLines: Story = {
 
 // ---------- the workshop's widget area (06 §1, §2) ----------
 
+/**
+ * Stacked sides keep their objects in column, as match rows do: the same left edge and one cell,
+ * so object i sits above object i and the longer row's extra object stands out at its end.
+ */
+async function expectRowsInColumn(root: HTMLElement) {
+  const rows = [...root.querySelectorAll<HTMLElement>('.ni-cmp__side')].map((side) =>
+    [...side.querySelectorAll('.ni-objects__item')].map((o) => o.getBoundingClientRect()),
+  );
+  await expect(rows).toHaveLength(2);
+  const [a, b] = rows as [DOMRect[], DOMRect[]];
+  for (let i = 0; i < Math.min(a.length, b.length); i++) {
+    await expect(Math.abs((a[i] as DOMRect).left - (b[i] as DOMRect).left)).toBeLessThan(1);
+  }
+}
+
+/** Every numeral a number line draws (tick and mark labels) is ≥ 32 CSS px as rendered (scaled). */
+async function expectLineNumerals(root: HTMLElement) {
+  const texts = [
+    ...root.querySelectorAll<SVGTextElement>('.ni-numberline__numeral, .ni-numberline__marklabel'),
+  ];
+  await expect(texts.length).toBeGreaterThan(0);
+  for (const text of texts) {
+    const svg = text.ownerSVGElement as SVGSVGElement;
+    const scale = svg.getBoundingClientRect().width / svg.width.baseVal.value;
+    const px = Number.parseFloat(text.getAttribute('font-size') ?? '0') * scale;
+    await expect(px, `numeral ${text.textContent} size`).toBeGreaterThanOrEqual(32);
+  }
+}
+
 /** The widget fits the area: no scroll, every part inside, every target full size and spaced. */
 async function expectCompareFits(
   canvasElement: HTMLElement,
@@ -927,9 +1038,12 @@ async function expectCompareFits(
  */
 export const MatchTenFallbackKMin: Story = {
   globals: { ageMode: 'k' },
+  parameters: { ui: { audio: spyAudio() } },
   args: { config: matchTen, tier: 'concrete' },
   render: inArea('landscapeMin'),
-  play: async ({ canvasElement, args }) => {
+  play: async ({ canvasElement, args, parameters }) => {
+    const audio = parameters.ui.audio as ReturnType<typeof spyAudio>;
+    clearSpies(audio);
     const root = await findWidget(canvasElement, ROOT);
     await expect(root).toHaveAttribute('data-mode', 'sides');
     await expect(root).toHaveAttribute('data-arrange', 'stack-beside');
@@ -941,7 +1055,10 @@ export const MatchTenFallbackKMin: Story = {
     await expect(fishes).toHaveLength(19);
     await expect(Math.min(...fishes)).toBeGreaterThanOrEqual(56);
     await expect(new Set(fishes).size).toBe(1);
+    await expectRowsInColumn(root);
+    // Picking a side names its objects (06 §5).
     await userEvent.click(within(root).getByRole('button', { name: 'Left side' }));
+    await expect(audio.say).toHaveBeenCalledWith('ui.sprite.fish', undefined);
     await userEvent.click(within(root).getByRole('button', { name: 'Check' }));
     await expect(args.onResponse).toHaveBeenCalledWith({ kind: 'choice', id: 'left' });
   },
@@ -984,6 +1101,7 @@ export const MatchTenKPortrait: Story = {
   play: async ({ canvasElement }) => {
     const root = await findWidget(canvasElement, ROOT);
     await expectCompareFits(canvasElement, root, 'k');
+    await expectRowsInColumn(root);
   },
 };
 
@@ -1075,6 +1193,7 @@ export const NumberLinesKMin: Story = {
     const root = await findWidget(canvasElement, ROOT);
     await expectCompareFits(canvasElement, root, 'k');
     await expectPicturesInside(root);
+    await expectLineNumerals(root);
   },
 };
 

@@ -16,7 +16,7 @@ import {
   useSpeech,
   useUiPreferences,
 } from '../../preferences/UiProvider';
-import { CheckIcon, CloseIcon, HandPointerIcon } from '../../primitives/icons';
+import { CheckIcon, HandPointerIcon } from '../../primitives/icons';
 import { MIN_TARGET_PX, TARGET_PX } from '../../tokens/tokens';
 import { useWidgetDemo, wait } from '../demo';
 import {
@@ -117,8 +117,7 @@ function choicesFor(ask: Config['ask']): Choice[] {
 
 /** Chunky relation glyphs (ink strokes on light cards, ≥ 3:1). */
 function Glyph({ kind }: { kind: GlyphKind }) {
-  if (kind === 'yes') return <CheckIcon />;
-  if (kind === 'no') return <CloseIcon />;
+  if (kind === 'yes' || kind === 'no') return <Thumb up={kind === 'yes'} />;
   const ink = 'var(--color-ink)';
   const paths: Record<Exclude<GlyphKind, 'yes' | 'no'>, ReactNode> = {
     eq: <path d="M10 18h28M10 30h28" stroke={ink} strokeWidth="6" />,
@@ -145,6 +144,50 @@ function Glyph({ kind }: { kind: GlyphKind }) {
       data-glyph={kind}
     >
       {paths[kind]}
+    </svg>
+  );
+}
+
+/**
+ * Yes / no for a statement: a thumb up or down (the Check button already shows a tick, so a K
+ * child must never see the same mark on "yes"). Island style: a warm hand, ink outline, one
+ * highlight, a sea-blue cuff.
+ */
+function Thumb({ up }: { up: boolean }) {
+  const ink = 'var(--color-ink)';
+  return (
+    <svg
+      viewBox="0 0 48 48"
+      width="100%"
+      height="100%"
+      fill="none"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+      focusable="false"
+      className="ni-cmp__glyph-svg"
+      data-glyph={up ? 'thumb-up' : 'thumb-down'}
+    >
+      <g transform={up ? undefined : 'matrix(1 0 0 -1 0 48)'}>
+        <rect
+          x="5"
+          y="21"
+          width="9"
+          height="21"
+          rx="2.5"
+          fill="var(--color-sea)"
+          stroke={ink}
+          strokeWidth="3"
+        />
+        <path
+          d="M14 22h5l6-11c1.5-3 6.5-2.5 7 1l-1 8h8.5c3 0 5 2.6 4.4 5.5l-2.6 12c-.6 2.6-2.8 4.5-5.5 4.5H14Z"
+          fill="var(--color-sunshine-light)"
+          stroke={ink}
+          strokeWidth="3"
+        />
+        <path d="M29 28h9M29 34h8M28 40h6" stroke={ink} strokeWidth="2" opacity="0.55" />
+        <path d="M24 15c1-2 2-3 3.5-3.2" stroke="#fff" strokeWidth="2.5" opacity="0.7" />
+      </g>
     </svg>
   );
 }
@@ -414,14 +457,14 @@ export function CompareWidget({
     const el = answerRef.current;
     if (!el) return;
     const measure = () => {
-      const box = (e: Element | null, ledge = 0): Box => {
+      const box = (e: Element | null): Box => {
         const r = e?.getBoundingClientRect();
-        return { w: Math.ceil(r?.width ?? 0), h: Math.ceil((r?.height ?? 0) + ledge) };
+        return { w: Math.ceil(r?.width ?? 0), h: Math.ceil(r?.height ?? 0) };
       };
+      // Each wrapper already holds its control's 6 px ledge (the control's bottom margin).
       const next: AnswerSize = {
-        // Each pick's ledge (6 px margin) sits below its box.
-        items: [...el.querySelectorAll('.ni-cmp__choice')].map((c) => box(c, 6)),
-        check: box(el.querySelector('.ni-cmp__check'), 6),
+        items: [...el.querySelectorAll('.ni-cmp__choice')].map((c) => box(c)),
+        check: box(el.querySelector('.ni-cmp__check')),
       };
       setAnswerSize((cur) => (cur && JSON.stringify(cur) === JSON.stringify(next) ? cur : next));
     };
@@ -744,11 +787,36 @@ export function CompareWidget({
     return Math.min(...ls.map((l) => cellToFit(l as ObjectLayout, plan.side.w, plan.side.h)));
   };
   const flatCell = sharedCount(false);
+  /**
+   * What tapping a side says (06 §5): its number when it shows one (a numeral, a number line's
+   * labelled mark), or the name of its objects; never a count the child is asked for.
+   */
+  const sideSpeech = (spec: StimulusSpec): { name: string; speak: () => void } | null => {
+    const n = sideNumeral(spec);
+    if (n !== null) return { name: String(n), speak: () => sayNumber(n) };
+    if (spec.kind === 'objects') {
+      const key = spriteNameKey(spec.set.sprite);
+      return { name: t(key), speak: () => say(key) };
+    }
+    if (spec.kind === 'number-line') {
+      const labels = (spec.marks ?? []).filter((m) => m.label !== undefined);
+      const v = labels.length === 1 ? Number(labels[0]?.label) : Number.NaN;
+      if (Number.isFinite(v)) return { name: String(v), speak: () => sayNumber(v) };
+    }
+    return null;
+  };
   const stackedCell = specs.some((s) => s.kind === 'ten-frame' && s.frames === 2)
     ? sharedCount(true)
     : null;
   const stackFrames = stackedCell !== null && flatCell !== null && stackedCell > flatCell;
   const sharedCell = stackFrames ? stackedCell : flatCell;
+  // Stacked sides keep their objects in column (one left edge, one cell, as match rows do), so
+  // object i sits above object i and a longer row's extra objects stand out at its end.
+  const stacked = plan.arrange === 'stack' || plan.arrange === 'stack-beside';
+  const columnW =
+    stacked && sharedCell !== null
+      ? Math.max(...specs.map((sp) => (countLayout(sp, stackFrames)?.width ?? 0) * sharedCell))
+      : null;
 
   const renderSide = (side: Side) => {
     const spec = config[side];
@@ -768,8 +836,21 @@ export function CompareWidget({
       />
     );
     const n = sideNumeral(spec);
+    const speech = sideSpeech(spec);
+    const face =
+      columnW !== null ? (
+        <div className="ni-cmp__column" style={{ width: columnW }}>
+          {picture}
+        </div>
+      ) : (
+        picture
+      );
+    // A side that says something on tap but is no answer (symbol and true-false operands, same
+    // or not) is a plain button: a tap speaks and joins the trace, the answer never changes.
+    const operand = !sidePick && speech !== null;
+    const overlay = sidePick || operand;
     return (
-      <div className="ni-cmp__side" data-side={side} data-pick={sidePick ? 'true' : undefined}>
+      <div className="ni-cmp__side" data-side={side} data-overlay={overlay ? 'true' : undefined}>
         {sidePick ? (
           <PickCard
             className="ni-cmp__tray"
@@ -781,20 +862,33 @@ export function CompareWidget({
             disabled={!interactive}
             onPress={() =>
               choose(side, () => {
-                if (n !== null && speakOnTap) sayNumber(n);
+                if (speakOnTap) speech?.speak();
               })
             }
           >
             <span className="ni-cmp__trayspace" />
           </PickCard>
+        ) : operand ? (
+          <button
+            type="button"
+            className="ni-cmp__tray ni-cmp__tray--static ni-cmp__operand"
+            aria-label={`${sideLabel(side)}: ${speech.name}`}
+            data-operand={side}
+            disabled={!interactive}
+            onClick={() => {
+              if (!interactive) return;
+              trace('tap', `side-${side}`);
+              if (speakOnTap) speech.speak();
+            }}
+          />
         ) : (
-          <div className="ni-cmp__tray ni-cmp__tray--static">{picture}</div>
+          <div className="ni-cmp__tray ni-cmp__tray--static">{face}</div>
         )}
-        {/* A pickable side draws its picture over the card (the card is named by its side), so
-            the button holds no text of its own (axe label-content-name-mismatch). */}
-        {sidePick ? (
+        {/* A side that is a button draws its picture over it (the button is named by its side),
+            so the button holds no text of its own (axe label-content-name-mismatch). */}
+        {overlay ? (
           <div className="ni-cmp__trayface" aria-hidden="true">
-            {picture}
+            {face}
           </div>
         ) : null}
       </div>
@@ -944,6 +1038,7 @@ export function CompareWidget({
             .join(' ')}
           data-symbol={s}
           data-chosen={symbol === s ? 'true' : undefined}
+          aria-pressed={symbol === s}
         >
           <span className="ni-cmp__glyph">
             <Glyph kind={SYMBOL_GLYPH[s]} />

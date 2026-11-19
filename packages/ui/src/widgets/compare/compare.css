@@ -70,10 +70,10 @@
   min-height: var(--target-min);
 }
 /* A pickable side: the card and its picture share one grid cell; the picture lets taps through. */
-.ni-cmp__side[data-pick="true"] {
+.ni-cmp__side[data-overlay="true"] {
   display: grid;
 }
-.ni-cmp__side[data-pick="true"] > .ni-cmp__tray,
+.ni-cmp__side[data-overlay="true"] > .ni-cmp__tray,
 .ni-cmp__trayface {
   grid-area: 1 / 1;
 }
@@ -100,6 +100,32 @@
   border-radius: var(--radius-card);
   background: var(--color-paper);
   box-shadow: var(--shadow-soft);
+}
+/* An operand side (symbol, true-false, same-or-not): a button that only speaks; no ledge. */
+.ni-cmp__operand {
+  width: 100%;
+  margin: 0;
+  appearance: none;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+.ni-cmp__operand:disabled {
+  cursor: default;
+}
+.ni-cmp__operand:focus-visible {
+  outline: 4px solid var(--color-sea-deep);
+  outline-offset: 4px;
+}
+.ni-cmp__operand + .ni-cmp__trayface {
+  padding: 19px;
+}
+/* Stacked sides: the picture in a left-aligned column of the longer row's width. */
+.ni-cmp__column {
+  display: flex;
+  justify-content: flex-start;
 }
 /* A side that is a number or a statement reads big (numerals ≥ 32 px, 05 §11). */
 .ni-cmp__side .ni-stimulus[data-kind="expression"] .ni-expr {
