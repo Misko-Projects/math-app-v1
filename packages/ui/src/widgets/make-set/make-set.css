@@ -308,6 +308,11 @@
 .ni-mset__tens:disabled {
   cursor: default;
 }
+/* count-aloud, one ten-frame at a time: the tied ten (as "ten") or the ones beside, being counted. */
+.ni-mset__tens[data-counting="true"] .ni-mset__tens-frame {
+  outline: 5px solid var(--color-sea-deep);
+  outline-offset: 3px;
+}
 .ni-mset__tens:focus-visible {
   outline: 4px solid var(--color-sea-deep);
   outline-offset: 4px;

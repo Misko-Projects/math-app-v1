@@ -852,6 +852,59 @@ export const TwentyKMinRemoveInvite: Story = {
   },
 };
 
+const oneFrameCount: WidgetDemo = createDemoController({ strict: true });
+
+/** The spoken numbers, in order (`sayNumber` speaks a `{ number }` phrase). */
+const spokenNumbers = (audio: ReturnType<typeof spyAudio>) =>
+  (audio.sayPhrases.mock.calls as unknown as [{ number?: number }[]][]).flatMap(([phrases]) =>
+    phrases.flatMap((p) => (p.number === undefined ? [] : [p.number])),
+  );
+
+/**
+ * One ten-frame at a time, count-aloud (follow-up from #76): nothing is counted out of sight.
+ * With the ten tied beside the ones, the invite goes on the tied ten and Pip counts it as one ten
+ * ("ten", on the bundle), then on through the ones in view. With the ten shown, Pip counts 1–10
+ * in the frame and the ones on their small frame beside it, which shows the running count.
+ */
+export const TwentyKMinCountAloud: Story = {
+  globals: { ageMode: 'k' },
+  args: { config: twenty, demo: oneFrameCount },
+  parameters: { ui: { audio: spyAudio() } },
+  render: inArea('landscapeMin'),
+  play: async ({ canvasElement, parameters }) => {
+    const audio = parameters.ui.audio as ReturnType<typeof spyAudio>;
+    const root = await findWidget(canvasElement, ROOT);
+    await waitFor(() => expect(root).toHaveAttribute('data-one-frame', 'true'));
+    await tapIn(root, 12);
+    await waitFor(() => expect(tens(root)).toHaveAttribute('data-tens', 'bundle'));
+
+    // The tied ten: invited first, counted as "ten", then 11 and 12 in the frame of ones.
+    oneFrameCount.invite({ op: 'count-aloud' });
+    await expectInviteOn(root, tens(root) as HTMLElement);
+    clearSpies(audio);
+    const tied = oneFrameCount.play({ op: 'count-aloud' });
+    await waitFor(() => expect(tens(root)).toHaveAttribute('data-counting', 'true'));
+    await tied;
+    await expect(spokenNumbers(audio)).toEqual([10, 11, 12]);
+
+    // Untie: the first ten is in the frame and the ones are beside it; counting reaches them.
+    await userEvent.click(tens(root) as HTMLElement);
+    await waitFor(() => expect(tens(root)).toHaveAttribute('data-tens', 'ones'));
+    oneFrameCount.invite({ op: 'count-aloud' });
+    await waitFor(() => expect(root.querySelector('.ni-mset__frames')).toHaveClass('ni-invite'));
+    clearSpies(audio);
+    const untied = oneFrameCount.play({ op: 'count-aloud' });
+    // Ten counting steps (≈ 600 ms each) come first.
+    await waitFor(
+      () => expect(tens(root)?.querySelector('.ni-mset__mark')).toHaveTextContent('11'),
+      { timeout: 15_000 },
+    );
+    await expect(tens(root)).toHaveAttribute('data-counting', 'true');
+    await untied;
+    await expect(spokenNumbers(audio)).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]);
+  },
+};
+
 /** Spies for the one-frame twin in OneFrameMatchesTwoFrames. */
 const twin = { onResponse: fn(), onInteract: fn() };
 

@@ -481,7 +481,17 @@ export function MakeSetWidget({
             break;
           case 'count-aloud': {
             const n = view(stateRef.current).count;
-            for (let i = 0; i < n; i++) {
+            // One ten-frame at a time with the ten tied beside the ones: count it as one ten
+            // ("ten", on the bundle), then on through the ones in view (the K teen-number idea).
+            let from = 0;
+            if (!hands && oneFrame && beside === 'bundle' && n >= 10) {
+              setCounting(9);
+              sayNumber(10);
+              await pause(COUNT_MS);
+              if (!alive.current) return;
+              from = 10;
+            }
+            for (let i = from; i < n; i++) {
               setCounting(i);
               sayNumber(i + 1);
               await pause(COUNT_MS);
@@ -511,10 +521,7 @@ export function MakeSetWidget({
               const ok = count < want ? await demoDragOne(null) : await demoRemoveOne(null);
               if (!ok || !alive.current) break;
             }
-            if (
-              alive.current &&
-              (view(end).bundles ?? 0) > (view(stateRef.current).bundles ?? 0)
-            ) {
+            if (alive.current && (view(end).bundles ?? 0) > (view(stateRef.current).bundles ?? 0)) {
               apply({ op: 'bundle' });
               sfx('fuse');
               await pause(COUNT_MS);
@@ -819,7 +826,12 @@ export function MakeSetWidget({
       ? null
       : (handArg(invite) ??
         (inviteStep === 'drag' ? (handParts[0] < 5 ? 0 : 1) : handParts[1] > 0 ? 1 : 0));
-  const invitedCount = cue && invite?.op === 'count-aloud';
+  /**
+   * count-aloud invites the thing counting starts on: the frames, or, with one ten-frame at a time
+   * and the ten tied beside the ones, the tied ten (counted first, as "ten").
+   */
+  const invitedCountTens = cue && invite?.op === 'count-aloud' && oneFrame && beside === 'bundle';
+  const invitedCount = cue && invite?.op === 'count-aloud' && !invitedCountTens;
   const invitedCheck =
     canCheck &&
     (invite?.op === 'close-container' ||
@@ -860,7 +872,7 @@ export function MakeSetWidget({
         : '.ni-mset__frames'
       : invitedHand !== null && invitedFinger(invitedHand)
         ? `.ni-mset__handbox:nth-child(${invitedHand + 1}) [data-ctl="${invitedFinger(invitedHand)}"] .ni-btn`
-        : invitedTens
+        : invitedTens || invitedCountTens
           ? '.ni-mset__tens'
           : invitedBundle
             ? '.ni-mset__action.ni-invite .ni-btn'
@@ -961,14 +973,25 @@ export function MakeSetWidget({
    */
   const bundleFirst = beside === 'bundle';
   const framesLeft = box.pad.left + (bundleFirst ? TENS_W + TENS_GAP : 0);
+  /**
+   * count-aloud with one ten-frame at a time: the objects not in the shown frame are counted on the
+   * thing beside it. The tied ten is counted as one ten ("ten", step 9), then the ones in view; with
+   * the first ten shown, the ones after it are counted on their small frame (steps 10 and up).
+   */
+  const tensCounting =
+    counting !== null &&
+    ((beside === 'bundle' && counting === 9) || (beside === 'ones' && counting >= 10));
   const tensBeside =
     beside === null ? null : (
       <button
         key={beside}
         ref={tensRef}
         type="button"
-        className={['ni-mset__tens', invitedTens ? 'ni-invite' : ''].filter(Boolean).join(' ')}
+        className={['ni-mset__tens', invitedTens || invitedCountTens ? 'ni-invite' : '']
+          .filter(Boolean)
+          .join(' ')}
         data-tens={beside}
+        data-counting={tensCounting ? 'true' : undefined}
         aria-label={String(bundleFirst ? 10 : onesShown)}
         disabled={!interactive}
         onClick={toggleTen}
@@ -999,6 +1022,11 @@ export function MakeSetWidget({
         {bundleFirst ? (
           <span className="ni-mset__tens-tag" aria-hidden="true">
             10
+          </span>
+        ) : null}
+        {beside === 'ones' && counting !== null && counting >= 10 ? (
+          <span className="ni-mset__mark" aria-hidden="true">
+            {counting + 1}
           </span>
         ) : null}
       </button>
