@@ -10,7 +10,10 @@ import type { WidgetRegistry } from './types';
  * A widget module default-exports a `WidgetComponent<'tap-count'>`. Formats without an entry render
  * the PlaceholderWidget. See README.md in this folder for the contract.
  */
-export const widgetRegistry: WidgetRegistry = {};
+export const widgetRegistry: WidgetRegistry = {
+  'number-pad': () => import('./number-pad/NumberPadWidget'),
+  'numeral-pick': () => import('./numeral-pick/NumeralPickWidget'),
+};
 
 /** Formats that have a registered widget. */
 export function registeredFormats(registry: WidgetRegistry = widgetRegistry): ItemFormat[] {

@@ -1,0 +1,436 @@
+# U02 game data: residents, the Pebblings (02 §5.8 ResidentDef; 05 §5). Each resident has a name
+# clip `res.<id>` and the lines it lists (`res.<id>.<line>`) in narration/game.yaml.
+#
+# - `number` is the quantity shown in the shell (lit pebbles in a 2 × 5 ten-frame). Teens (11–19)
+#   and 20 are `family: tens`: a Ten Turtle plus a small friend (the friend is the `species`), or
+#   two Ten Turtles. Families of Ten Turtles (30 … 100) ride together and come as the road grows.
+# - Specials: the Hundred Whale (`hundreds`), Half-Crabs (`fraction`, number = the fraction),
+#   Clockfish (`clock`, number = the hour) and Coin Clams (`coin`, number = cents).
+# - Starter buddies (`starterBuddy: true`) are there from the start; every other resident arrives
+#   when a home is built or upgraded (`via: home`) or on the ferry (`via: ferry`), in step with the
+#   island (05 §5 Arrival). A building level that brings a resident names it (`resident:<id>`).
+# - `affinity`: the workshops the resident makes requests for (04 §6.3).
+
+residents:
+  - id: nib
+    name: Nib
+    species: hermit-crab
+    number: 1
+    palette: coral
+    lines: [res.nib.hello, res.nib.likes, res.nib.dislikes, res.nib.home, res.nib.thanks]
+    affinity: [road-crew]
+    arrival: { via: start, unlock: { start: true } }
+    starterBuddy: true
+  - id: tuck
+    name: Tuck
+    species: snail
+    number: 2
+    palette: leaf
+    lines: [res.tuck.hello, res.tuck.likes, res.tuck.dislikes, res.tuck.home, res.tuck.thanks]
+    affinity: [lantern-grove]
+    arrival: { via: start, unlock: { start: true } }
+    starterBuddy: true
+  - id: bimi
+    name: Bimi
+    species: seal
+    number: 3
+    palette: sun
+    lines: [res.bimi.hello, res.bimi.likes, res.bimi.dislikes, res.bimi.home, res.bimi.thanks]
+    affinity: [lantern-grove, road-crew]
+    arrival: { via: start, unlock: { start: true } }
+    starterBuddy: true
+  - id: wim
+    name: Wim
+    species: puffin
+    number: 4
+    palette: sky
+    lines: [res.wim.hello, res.wim.likes, res.wim.dislikes, res.wim.home, res.wim.thanks]
+    affinity: [road-crew, practice-pier]
+    arrival: { via: start, unlock: { start: true } }
+    starterBuddy: true
+  - id: seela
+    name: Seela
+    species: seahorse
+    number: 5
+    palette: sea
+    lines: [res.seela.hello, res.seela.likes, res.seela.dislikes, res.seela.home, res.seela.thanks]
+    affinity: [ten-boat-dock, lantern-grove]
+    arrival: { via: start, unlock: { start: true } }
+    starterBuddy: true
+  - id: kesi
+    name: Kesi
+    species: crab
+    number: 2
+    palette: sand
+    lines: [res.kesi.hello, res.kesi.likes, res.kesi.dislikes, res.kesi.home, res.kesi.thanks]
+    affinity: [lantern-grove, practice-pier]
+    arrival: { via: start, unlock: { start: true } }
+    starterBuddy: true
+  - id: fig
+    name: Fig
+    species: starfish
+    number: 4
+    palette: wood
+    lines: [res.fig.hello, res.fig.likes, res.fig.dislikes, res.fig.home, res.fig.thanks]
+    affinity: [road-crew, ten-boat-dock]
+    arrival: { via: start, unlock: { start: true } }
+    starterBuddy: true
+  - id: marlo
+    name: Marlo
+    species: starfish
+    number: 5
+    palette: sun
+    lines: [res.marlo.hello, res.marlo.likes, res.marlo.dislikes, res.marlo.home, res.marlo.thanks]
+    affinity: [ten-boat-dock]
+    arrival: { via: ferry, unlock: { building: ten-boat-dock } }
+    starterBuddy: false
+  - id: hobb
+    name: Hobb
+    species: crab
+    number: 6
+    palette: wood
+    lines: [res.hobb.hello, res.hobb.likes, res.hobb.dislikes, res.hobb.home, res.hobb.thanks]
+    affinity: [ten-boat-dock, road-crew]
+    arrival: { via: home, home: shell-cottage, unlock: { building: shell-cottage } }
+    starterBuddy: false
+  - id: lark
+    name: Lark
+    species: puffin
+    number: 7
+    palette: sunshine
+    lines: [res.lark.hello, res.lark.likes, res.lark.dislikes, res.lark.home, res.lark.thanks]
+    affinity: [lantern-grove, ten-boat-dock]
+    arrival: { via: home, home: shell-cottage, unlock: { building: shell-cottage, level: 2 } }
+    starterBuddy: false
+  - id: ollo
+    name: Ollo
+    species: snail
+    number: 0
+    palette: sand
+    lines: [res.ollo.hello, res.ollo.likes, res.ollo.dislikes, res.ollo.home, res.ollo.thanks]
+    affinity: [lantern-grove, practice-pier]
+    arrival: { via: home, home: shell-cottage, unlock: { building: shell-cottage, level: 3 } }
+    starterBuddy: false
+  - id: ottie
+    name: Ottie
+    species: seal
+    number: 8
+    palette: sky
+    lines: [res.ottie.hello, res.ottie.likes, res.ottie.dislikes, res.ottie.home, res.ottie.thanks]
+    affinity: [ten-boat-dock, builders-yard]
+    arrival: { via: home, home: driftwood-hut, unlock: { building: driftwood-hut } }
+    starterBuddy: false
+  - id: niva
+    name: Niva
+    species: seahorse
+    number: 9
+    palette: coral
+    lines: [res.niva.hello, res.niva.likes, res.niva.dislikes, res.niva.home, res.niva.thanks]
+    affinity: [ten-boat-dock, treasure-beach]
+    arrival: { via: home, home: driftwood-hut, unlock: { building: driftwood-hut, level: 2 } }
+    starterBuddy: false
+  - id: tenley
+    name: Tenley
+    species: turtle
+    number: 10
+    family: tens
+    palette: sea
+    lines:
+      [res.tenley.hello, res.tenley.likes, res.tenley.dislikes, res.tenley.home, res.tenley.thanks]
+    affinity: [ten-boat-dock, brick-factory]
+    arrival: { via: ferry, unlock: { skill: CPS.03, atLeast: practiced } }
+    starterBuddy: false
+  - id: pell
+    name: Pell
+    species: crab
+    number: 11
+    family: tens
+    palette: sand
+    lines: [res.pell.hello, res.pell.likes, res.pell.dislikes, res.pell.home, res.pell.thanks]
+    affinity: [treasure-beach, brick-factory]
+    arrival: { via: home, home: driftwood-hut, unlock: { building: driftwood-hut, level: 3 } }
+    starterBuddy: false
+  - id: fennie
+    name: Fennie
+    species: snail
+    number: 12
+    family: tens
+    palette: coral
+    lines:
+      [res.fennie.hello, res.fennie.likes, res.fennie.dislikes, res.fennie.home, res.fennie.thanks]
+    affinity: [brick-factory, rhythm-orchard]
+    arrival: { via: home, home: burrow-house, unlock: { building: burrow-house } }
+    starterBuddy: false
+  - id: wendle
+    name: Wendle
+    species: seal
+    number: 13
+    family: tens
+    palette: leaf
+    lines:
+      [res.wendle.hello, res.wendle.likes, res.wendle.dislikes, res.wendle.home, res.wendle.thanks]
+    affinity: [treasure-beach, weigh-station]
+    arrival: { via: home, home: burrow-house, unlock: { building: burrow-house, level: 2 } }
+    starterBuddy: false
+  - id: mavi
+    name: Mavi
+    species: puffin
+    number: 14
+    family: tens
+    palette: sky
+    lines: [res.mavi.hello, res.mavi.likes, res.mavi.dislikes, res.mavi.home, res.mavi.thanks]
+    affinity: [brick-factory, builders-yard]
+    arrival: { via: home, home: burrow-house, unlock: { building: burrow-house, level: 3 } }
+    starterBuddy: false
+  - id: sefa
+    name: Sefa
+    species: seahorse
+    number: 15
+    family: tens
+    palette: sun
+    lines: [res.sefa.hello, res.sefa.likes, res.sefa.dislikes, res.sefa.home, res.sefa.thanks]
+    affinity: [rhythm-orchard, treasure-beach]
+    arrival: { via: home, home: reef-house, unlock: { building: reef-house } }
+    starterBuddy: false
+  - id: brin
+    name: Brin
+    species: starfish
+    number: 16
+    family: tens
+    palette: coral
+    lines: [res.brin.hello, res.brin.likes, res.brin.dislikes, res.brin.home, res.brin.thanks]
+    affinity: [brick-factory, weigh-station]
+    arrival: { via: home, home: reef-house, unlock: { building: reef-house, level: 2 } }
+    starterBuddy: false
+  - id: pom
+    name: Pom
+    species: hermit-crab
+    number: 17
+    family: tens
+    palette: sunshine
+    lines: [res.pom.hello, res.pom.likes, res.pom.dislikes, res.pom.home, res.pom.thanks]
+    affinity: [treasure-beach, puzzle-tower]
+    arrival: { via: home, home: reef-house, unlock: { building: reef-house, level: 3 } }
+    starterBuddy: false
+  - id: kibo
+    name: Kibo
+    species: seal
+    number: 18
+    family: tens
+    palette: sand
+    lines: [res.kibo.hello, res.kibo.likes, res.kibo.dislikes, res.kibo.home, res.kibo.thanks]
+    affinity: [ten-boat-dock, brick-factory]
+    arrival: { via: ferry, unlock: { building: ten-boat-dock, level: 2 } }
+    starterBuddy: false
+  - id: zinna
+    name: Zinna
+    species: snail
+    number: 19
+    family: tens
+    palette: wood
+    lines: [res.zinna.hello, res.zinna.likes, res.zinna.dislikes, res.zinna.home, res.zinna.thanks]
+    affinity: [rhythm-orchard, ten-boat-dock]
+    arrival: { via: ferry, unlock: { building: ten-boat-dock, level: 3 } }
+    starterBuddy: false
+  - id: toma
+    name: Toma
+    species: turtle
+    number: 20
+    family: tens
+    palette: leaf
+    lines: [res.toma.hello, res.toma.likes, res.toma.dislikes, res.toma.home, res.toma.thanks]
+    affinity: [road-crew, treasure-beach]
+    arrival: { via: ferry, unlock: { roadLength: 20 } }
+    starterBuddy: false
+  - id: nuno
+    name: Nuno
+    species: turtle
+    number: 30
+    family: tens
+    palette: sea
+    lines: [res.nuno.hello, res.nuno.likes, res.nuno.dislikes, res.nuno.home, res.nuno.thanks]
+    affinity: [road-crew, brick-factory]
+    arrival: { via: ferry, unlock: { roadLength: 30 } }
+    starterBuddy: false
+  - id: fenno
+    name: Fenno
+    species: turtle
+    number: 40
+    family: tens
+    palette: sand
+    lines: [res.fenno.hello, res.fenno.likes, res.fenno.dislikes, res.fenno.home, res.fenno.thanks]
+    affinity: [treasure-beach, garden-terraces]
+    arrival: { via: ferry, unlock: { roadLength: 40 } }
+    starterBuddy: false
+  - id: soli
+    name: Soli
+    species: turtle
+    number: 50
+    family: tens
+    palette: sun
+    lines: [res.soli.hello, res.soli.likes, res.soli.dislikes, res.soli.home, res.soli.thanks]
+    affinity: [brick-factory, market]
+    arrival: { via: ferry, unlock: { roadLength: 50 } }
+    starterBuddy: false
+  - id: vina
+    name: Vina
+    species: turtle
+    number: 60
+    family: tens
+    palette: leaf
+    lines: [res.vina.hello, res.vina.likes, res.vina.dislikes, res.vina.home, res.vina.thanks]
+    affinity: [garden-terraces, rhythm-orchard]
+    arrival: { via: ferry, unlock: { roadLength: 60 } }
+    starterBuddy: false
+  - id: delo
+    name: Delo
+    species: turtle
+    number: 70
+    family: tens
+    palette: wood
+    lines: [res.delo.hello, res.delo.likes, res.delo.dislikes, res.delo.home, res.delo.thanks]
+    affinity: [builders-yard, road-crew]
+    arrival: { via: ferry, unlock: { roadLength: 70 } }
+    starterBuddy: false
+  - id: ilo
+    name: Ilo
+    species: turtle
+    number: 80
+    family: tens
+    palette: sky
+    lines: [res.ilo.hello, res.ilo.likes, res.ilo.dislikes, res.ilo.home, res.ilo.thanks]
+    affinity: [weigh-station, brick-factory]
+    arrival: { via: ferry, unlock: { roadLength: 80 } }
+    starterBuddy: false
+  - id: ema
+    name: Ema
+    species: turtle
+    number: 90
+    family: tens
+    palette: coral
+    lines: [res.ema.hello, res.ema.likes, res.ema.dislikes, res.ema.home, res.ema.thanks]
+    affinity: [treasure-beach, puzzle-tower]
+    arrival: { via: ferry, unlock: { roadLength: 90 } }
+    starterBuddy: false
+  - id: moku
+    name: Moku
+    species: turtle
+    number: 100
+    family: tens
+    palette: sunshine
+    lines: [res.moku.hello, res.moku.likes, res.moku.dislikes, res.moku.home, res.moku.thanks]
+    affinity: [road-crew, brick-factory]
+    arrival: { via: ferry, unlock: { roadLength: 100 } }
+    starterBuddy: false
+  - id: ula
+    name: Ula
+    species: whale
+    number: 100
+    family: hundreds
+    palette: sea
+    lines: [res.ula.hello, res.ula.likes, res.ula.dislikes, res.ula.home, res.ula.thanks]
+    affinity: [brick-factory, puzzle-tower]
+    arrival: { via: ferry, unlock: { roadLength: 200 } }
+    starterBuddy: false
+  - id: halvie
+    name: Halvie
+    species: crab
+    number: 0.5
+    family: fraction
+    palette: coral
+    lines:
+      [res.halvie.hello, res.halvie.likes, res.halvie.dislikes, res.halvie.home, res.halvie.thanks]
+    affinity: [bakery]
+    arrival: { via: ferry, unlock: { building: bakery } }
+    starterBuddy: false
+  - id: tibo
+    name: Tibo
+    species: crab
+    number: 0.25
+    family: fraction
+    palette: sand
+    lines: [res.tibo.hello, res.tibo.likes, res.tibo.dislikes, res.tibo.home, res.tibo.thanks]
+    affinity: [bakery, garden-terraces]
+    arrival: { via: ferry, unlock: { building: bakery, level: 2 } }
+    starterBuddy: false
+  - id: pira
+    name: Pira
+    species: crab
+    number: 0.75
+    family: fraction
+    palette: sunshine
+    lines: [res.pira.hello, res.pira.likes, res.pira.dislikes, res.pira.home, res.pira.thanks]
+    affinity: [bakery]
+    arrival: { via: ferry, unlock: { building: bakery, level: 3 } }
+    starterBuddy: false
+  - id: minna
+    name: Minna
+    species: clockfish
+    number: 3
+    family: clock
+    palette: sky
+    lines: [res.minna.hello, res.minna.likes, res.minna.dislikes, res.minna.home, res.minna.thanks]
+    affinity: [clock-tower]
+    arrival: { via: ferry, unlock: { building: clock-tower } }
+    starterBuddy: false
+  - id: horo
+    name: Horo
+    species: clockfish
+    number: 6
+    family: clock
+    palette: sea
+    lines: [res.horo.hello, res.horo.likes, res.horo.dislikes, res.horo.home, res.horo.thanks]
+    affinity: [clock-tower]
+    arrival: { via: ferry, unlock: { building: clock-tower, level: 2 } }
+    starterBuddy: false
+  - id: sundy
+    name: Sundy
+    species: clockfish
+    number: 9
+    family: clock
+    palette: sun
+    lines: [res.sundy.hello, res.sundy.likes, res.sundy.dislikes, res.sundy.home, res.sundy.thanks]
+    affinity: [clock-tower, weigh-station]
+    arrival: { via: ferry, unlock: { building: clock-tower, level: 3 } }
+    starterBuddy: false
+  - id: centa
+    name: Centa
+    species: clam
+    number: 1
+    family: coin
+    palette: wood
+    lines: [res.centa.hello, res.centa.likes, res.centa.dislikes, res.centa.home, res.centa.thanks]
+    affinity: [market]
+    arrival: { via: ferry, unlock: { building: market } }
+    starterBuddy: false
+  - id: nell
+    name: Nell
+    species: clam
+    number: 5
+    family: coin
+    palette: leaf
+    lines: [res.nell.hello, res.nell.likes, res.nell.dislikes, res.nell.home, res.nell.thanks]
+    affinity: [market]
+    arrival: { via: ferry, unlock: { building: market, level: 2 } }
+    starterBuddy: false
+  - id: dimi
+    name: Dimi
+    species: clam
+    number: 10
+    family: coin
+    palette: sky
+    lines: [res.dimi.hello, res.dimi.likes, res.dimi.dislikes, res.dimi.home, res.dimi.thanks]
+    affinity: [market, bakery]
+    arrival: { via: ferry, unlock: { building: market, level: 2 } }
+    starterBuddy: false
+  - id: quarta
+    name: Quarta
+    species: clam
+    number: 25
+    family: coin
+    palette: sunshine
+    lines:
+      [res.quarta.hello, res.quarta.likes, res.quarta.dislikes, res.quarta.home, res.quarta.thanks]
+    affinity: [market]
+    arrival: { via: ferry, unlock: { building: market, level: 3 } }
+    starterBuddy: false

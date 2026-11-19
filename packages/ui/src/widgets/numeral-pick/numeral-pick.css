@@ -1,0 +1,96 @@
+/* numeral-pick widget (U03): picture on top, choices and "check" below. */
+
+.ni-npick {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 24px;
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 1180px;
+  /* Layout decisions follow the space the widget actually has, not the viewport. */
+  container: npick / inline-size;
+  /* Extra room below for Pip's pointer when it invites a choice card. */
+  padding: 16px 24px 40px;
+}
+.ni-npick__answer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 20px 48px;
+}
+/* A grid layout puts "check" under the choices, so the 2 × 2 block itself is centred. */
+.ni-npick__answer[data-layout="grid"] {
+  flex-direction: column;
+}
+/*
+ * Choices. Row: a centred, wrapping line, so wide pictures move to a new line instead of running
+ * off the screen. Numeral and word cards share one width (--card-w, from the longest label).
+ * Grid: equal tracks that never shrink below their content, so a picture never spills over.
+ */
+.ni-npick__options {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: calc(var(--target-gap) * 2);
+  max-width: 100%;
+  margin: 0;
+  padding: 8px;
+  border: 0;
+  min-width: 0;
+}
+.ni-npick__options[data-layout="grid"] {
+  display: grid;
+  grid-template-columns: repeat(var(--cols, 2), minmax(min-content, 1fr));
+  grid-auto-rows: 1fr;
+  width: max-content;
+}
+.ni-npick__slot {
+  position: relative;
+  display: flex;
+}
+.ni-npick__options .ni-pick {
+  min-width: calc(var(--target-min) * 1.4);
+  min-height: calc(var(--target-min) * 1.4);
+}
+.ni-npick__options .ni-pick[data-variant="numeral"],
+.ni-npick__options .ni-pick[data-variant="word"] {
+  width: max(var(--card-w, 0px), calc(var(--target-min) * 1.4));
+}
+.ni-npick__options .ni-pick[data-variant="word"] {
+  min-width: calc(var(--target-min) * 2);
+  padding: 10px 24px;
+}
+.ni-npick__options .ni-pick[data-variant="picture"] .ni-stimulus {
+  padding: 8px;
+  border: 0;
+  box-shadow: none;
+  background: transparent;
+}
+.ni-npick__options[data-layout="grid"] > .ni-npick__slot > .ni-pick {
+  width: 100%;
+  height: 100%;
+}
+/*
+ * Narrow screens (portrait tablets, 06 §1): two columns. An odd last card spans both columns and
+ * sits centred, at least one column wide (wider only if its picture needs it), so the block
+ * stays centred and nothing is ever narrower than its picture.
+ */
+@container npick (max-width: 1000px) {
+  .ni-npick__options[data-layout="grid"] {
+    grid-template-columns: repeat(2, minmax(min-content, 1fr));
+  }
+  .ni-npick__options[data-layout="grid"] > .ni-npick__slot:last-child:nth-child(odd) {
+    grid-column: 1 / -1;
+    justify-self: center;
+    min-width: calc((100% - var(--target-gap) * 2) / 2);
+  }
+}
+/* The demo hand's fingertip (≈ 42 % across, 8 px down its 56 px box) rests inside the card's
+   bottom edge, centred: on the target without covering its numeral. */
+.ni-npick__hand {
+  left: calc(50% - 23px);
+  top: calc(100% - 26px);
+}
