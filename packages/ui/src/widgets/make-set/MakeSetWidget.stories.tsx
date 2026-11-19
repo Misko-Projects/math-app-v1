@@ -278,6 +278,7 @@ export const MakeK: Story = {
     const audio = parameters.ui.audio as ReturnType<typeof spyAudio>;
     clearSpies(audio);
     const root = await findWidget(canvasElement, ROOT);
+    await expectArtHolds(root, stage(canvasElement));
     await expect(heap(root)).toHaveLength(12);
     for (const el of heap(root)) await expectTargetSize(el, 'k');
     await expectTargetGaps(heap(root));
@@ -449,6 +450,7 @@ export const TwentyK: Story = {
   args: { config: twenty },
   play: async ({ canvasElement }) => {
     const root = await findWidget(canvasElement, ROOT);
+    await expectArtHolds(root, stage(canvasElement));
     await expect(root.querySelectorAll('.ni-mset__frame')).toHaveLength(2);
     await expect(root.querySelectorAll('.ni-mset__slot')).toHaveLength(20);
     await expect(root.scrollWidth).toBeLessThanOrEqual(root.clientWidth + 1);
@@ -485,9 +487,10 @@ const AREA = {
 } as const;
 
 /**
- * Renders the widget in the workshop's warm widget card, exactly the area's size (no border or
- * padding). The card is a scroll box like a stage, so the play functions can prove nothing
- * scrolls: it never grows to fit the widget.
+ * Renders the widget in the normal warm widget card (as `.story-widget-stage`: a 3 px tan border,
+ * 24 px padding, sand), the card exactly the area's size, so the widget gets the inner area
+ * (906 × 373 → 852 × 319). The card is a scroll box like a stage, so the play functions can prove
+ * nothing scrolls: it never grows to fit the widget.
  */
 function inArea(area: keyof typeof AREA) {
   return (args: WidgetHostProps) => (
@@ -500,6 +503,8 @@ function inArea(area: keyof typeof AREA) {
         boxSizing: 'border-box',
         display: 'grid',
         overflow: 'auto',
+        padding: 24,
+        border: '3px solid var(--color-sand-deep)',
         borderRadius: 'var(--radius-card)',
         background: 'var(--color-sand)',
         boxShadow: 'var(--shadow-soft)',
@@ -512,12 +517,72 @@ function inArea(area: keyof typeof AREA) {
 
 const areaBox = (canvasElement: HTMLElement) =>
   canvasElement.querySelector('.story-widget-area') as HTMLElement;
+const tens = (root: HTMLElement) => root.querySelector<HTMLElement>('.ni-mset__tens');
+
+/** An element's content box: inside its border and padding. */
+function contentBox(el: Element) {
+  const r = el.getBoundingClientRect();
+  const cs = getComputedStyle(el);
+  const n = (v: string) => Number.parseFloat(v) || 0;
+  return {
+    left: r.left + n(cs.borderLeftWidth) + n(cs.paddingLeft),
+    top: r.top + n(cs.borderTopWidth) + n(cs.paddingTop),
+    right: r.right - n(cs.borderRightWidth) - n(cs.paddingRight),
+    bottom: r.bottom - n(cs.borderBottomWidth) - n(cs.paddingBottom),
+  };
+}
+
+type Edges = { left: number; top: number; right: number; bottom: number };
+/** `inner` lies inside `outer` with at least `margin` px on every side. */
+async function expectInside(inner: Edges, outer: Edges, margin: number, what: string) {
+  await expect(inner.left - outer.left, `${what}: left margin`).toBeGreaterThanOrEqual(
+    margin - 0.5,
+  );
+  await expect(inner.top - outer.top, `${what}: top margin`).toBeGreaterThanOrEqual(margin - 0.5);
+  await expect(outer.right - inner.right, `${what}: right margin`).toBeGreaterThanOrEqual(
+    margin - 0.5,
+  );
+  await expect(outer.bottom - inner.bottom, `${what}: bottom margin`).toBeGreaterThanOrEqual(
+    margin - 0.5,
+  );
+}
 
 /**
- * The whole widget fits its area with no scroll (06 §1, §2): at scrollTop 0 the area scrolls
- * neither way; every object (heap and container), every slot, the piles, the container and Check
- * lie inside it; a real touch (the browser's hit test) at each object's and Check's centre lands
- * on it; and the targets keep their size and 12 px gaps.
+ * The container holds its frames: each shown ten-frame (and the small frame beside it, one
+ * ten-frame at a time) lies ≥ 8 px inside the art's body (the hull, the raft's logs, the basket,
+ * the jar or the shell); each slot has ≥ 4 px of room inside its frame's border; and the whole
+ * drawing (water, handle, lid) lies inside `card`'s inner area, never clipped.
+ */
+async function expectArtHolds(root: HTMLElement, card: Element) {
+  const body = (root.querySelector('.ni-mset__body') as Element).getBoundingClientRect();
+  const held = [
+    ...root.querySelectorAll('.ni-mset__frame'),
+    ...root.querySelectorAll('.ni-mset__tens'),
+  ];
+  await expect(held.length).toBeGreaterThan(0);
+  for (const el of held) await expectInside(el.getBoundingClientRect(), body, 8, describe(el));
+  for (const s of root.querySelectorAll('.ni-mset__slot')) {
+    const frame = s.closest('.ni-mset__frame') as Element;
+    const cs = getComputedStyle(frame);
+    const f = frame.getBoundingClientRect();
+    const b = Number.parseFloat(cs.borderTopWidth);
+    const room = { left: f.left + b, top: f.top + b, right: f.right - b, bottom: f.bottom - b };
+    await expectInside(s.getBoundingClientRect(), room, 4, `slot ${s.getAttribute('data-slot')}`);
+  }
+  const drawn = (root.querySelector('.ni-mset__drawn') as Element).getBoundingClientRect();
+  await expectInside(drawn, contentBox(card), 0, 'the container art');
+}
+
+/** The plain story stage (renderWidget): the card a regular story draws the widget in. */
+const stage = (canvasElement: HTMLElement) =>
+  canvasElement.querySelector('.story-widget-stage') as HTMLElement;
+
+/**
+ * The whole widget fits its card's inner area with no scroll (06 §1, §2): at scrollTop 0 the
+ * card scrolls neither way; every object (heap and container), every slot, the piles, the
+ * container, the small ten-frame and Check lie inside the inner area; the container holds its
+ * frames (expectArtHolds); a real touch (the browser's hit test) at each object's, the small
+ * frame's and Check's centre lands on it; and the targets keep their size and 12 px gaps.
  */
 async function expectFitsArea(root: HTMLElement, box: HTMLElement, ageMode: 'k' | 'g1-up') {
   box.scrollIntoView({ block: 'nearest', inline: 'nearest' });
@@ -531,30 +596,27 @@ async function expectFitsArea(root: HTMLElement, box: HTMLElement, ageMode: 'k' 
     box.clientWidth + 1,
   );
   await expect(root.scrollWidth).toBeLessThanOrEqual(root.clientWidth + 1);
-  const b = box.getBoundingClientRect();
+  const inner = contentBox(box);
   const parts = [
     ...root.querySelectorAll<HTMLElement>('.ni-mset__pile'),
     root.querySelector('.ni-mset__container') as HTMLElement,
     ...root.querySelectorAll<HTMLElement>('.ni-mset__slot'),
+    ...root.querySelectorAll<HTMLElement>('.ni-mset__tens'),
     ...allItems(root),
     check(root),
   ];
   await expect(parts.length).toBeGreaterThanOrEqual(4);
   for (const part of parts) {
-    const r = part.getBoundingClientRect();
-    const what = describe(part);
-    await expect(r.left, `${what} left edge inside the area`).toBeGreaterThanOrEqual(b.left - 0.5);
-    await expect(r.right, `${what} right edge inside the area`).toBeLessThanOrEqual(b.right + 0.5);
-    await expect(r.top, `${what} top edge inside the area`).toBeGreaterThanOrEqual(b.top - 0.5);
-    await expect(r.bottom, `${what} bottom edge inside the area`).toBeLessThanOrEqual(
-      b.bottom + 0.5,
-    );
+    await expectInside(part.getBoundingClientRect(), inner, 0, `${describe(part)} in the area`);
   }
-  for (const el of [...allItems(root), check(root)]) {
-    await expectHit(el, center(el), describe(el));
-  }
+  await expectArtHolds(root, box);
+  const targets = [
+    ...allItems(root),
+    ...root.querySelectorAll<HTMLElement>('.ni-mset__tens'),
+    check(root),
+  ];
+  for (const el of targets) await expectHit(el, center(el), describe(el));
   await expect(box.scrollTop).toBe(0);
-  const targets = [...allItems(root), check(root)];
   for (const el of targets) await expectTargetSize(el, ageMode);
   await expectTargetGaps(targets);
 }
@@ -567,52 +629,158 @@ async function expectCheckTaps(root: HTMLElement) {
   await userEvent.click(ok);
 }
 
+/** Puts `n` objects in, one at a time: tap the first heap object, then the container. */
+async function tapIn(root: HTMLElement, n: number) {
+  for (let i = 0; i < n; i++) {
+    await userEvent.click(heap(root)[0] as HTMLElement);
+    await userEvent.click(containerPad(root));
+  }
+}
+
 /**
- * TwentyK at the minimum landscape (960 × 600 → 906 × 373). Neither the row (1108 px wide) nor
- * the heap above the boat (806 px tall) fits, so the `side` layout: the boat with two ten-frames
- * in tight chrome (4 × 80 px rows + 3 × 12 px gaps = 356 px of slots, 364 px of frames, 373 px
- * with the art) on the right, the heap (3 × 2 crabs, 314 × 230) with Check under it on the left.
- * The heap shows 6 crabs at a time (a third row and Check need 448 px); more appear as crabs are
- * taken. Drag and tap-to-place work with no scroll.
+ * TwentyK at the minimum landscape (960 × 600 → a 906 × 373 card, 852 × 319 inside). Two K
+ * ten-frames need 356 px of slots, so the boat shows one ten-frame at a time (03 §5.5): when the
+ * first ten fills it ties into a bundle (the bundled ten-frame's rope band on a small 2 × 5 frame,
+ * 92 × 186) beside the frame, which goes on filling with the ones. Fourteen crabs show as the
+ * tied ten plus a frame holding 4. Tapping the ten unties it (and says "ten") so crabs can come
+ * out; tapping the ones (or Enter on them) ties it again. The heap and Check sit in a column
+ * beside the boat; no scroll.
  */
 export const TwentyKMinLandscape: Story = {
   globals: { ageMode: 'k' },
   args: { config: twenty },
+  parameters: { ui: { audio: spyAudio() } },
   render: inArea('landscapeMin'),
-  play: async ({ canvasElement, args }) => {
+  play: async ({ canvasElement, args, parameters }) => {
+    const audio = parameters.ui.audio as ReturnType<typeof spyAudio>;
+    clearSpies(audio);
     const root = await findWidget(canvasElement, ROOT);
     const box = areaBox(canvasElement);
-    await waitFor(() => expect(root).toHaveAttribute('data-layout', 'side'));
-    await expect(root).toHaveAttribute('data-chrome', 'tight');
+    await waitFor(() => expect(root).toHaveAttribute('data-one-frame', 'true'));
+    await expect(root).toHaveAttribute('data-layout', 'side');
+    await expect(root.querySelectorAll('.ni-mset__frame')).toHaveLength(1);
+    await expect(tens(root)).toBeNull();
     await expectFitsArea(root, box, 'k');
-    await expect(heap(root)).toHaveLength(6);
-    await expectEvenHeap(pileArea(root));
-    // The heap and Check sit left of the boat, Check under the heap.
-    const pile = pileArea(root).getBoundingClientRect();
-    const boat = (root.querySelector('.ni-mset__container') as HTMLElement).getBoundingClientRect();
-    const ok = check(root).getBoundingClientRect();
-    await expect(pile.right).toBeLessThan(boat.left);
-    await expect(ok.right).toBeLessThan(boat.left);
-    await expect(ok.top).toBeGreaterThan(pile.bottom);
+
+    // One crab by touch drag, then 13 by tap-to-place: the first ten ties up at 10.
     await drag(heap(root)[0] as HTMLElement, containerPad(root), 'touch');
     await waitFor(() => expect(inside(root)).toHaveLength(1));
-    await userEvent.click(heap(root)[0] as HTMLElement);
-    await userEvent.click(containerPad(root));
-    await waitFor(() => expect(inside(root)).toHaveLength(2));
-    // Two crabs taken, two more appear: the heap stays full.
-    await expect(heap(root)).toHaveLength(6);
+    await tapIn(root, 9);
+    await waitFor(() => expect(tens(root)).toHaveAttribute('data-tens', 'bundle'));
+    await expect(inside(root)).toHaveLength(0);
+    await tapIn(root, 4);
+    await waitFor(() => expect(inside(root)).toHaveLength(4));
+    // 14: the tied ten (ten pieces, named "10") beside the frame of ones (slots 10–19).
+    const ten = tens(root) as HTMLElement;
+    await expect(ten).toHaveAttribute('data-tens', 'bundle');
+    await expect(ten).toHaveAccessibleName('10');
+    await expect(ten.querySelectorAll('.ni-sprite')).toHaveLength(10);
+    await expect(ten.querySelector('.ni-mset__band')).not.toBeNull();
+    await expect(root.querySelector('[data-slot="10"]')).not.toBeNull();
+    await expect(root.querySelector('[data-slot="0"]')).toBeNull();
+    const frame = (root.querySelector('.ni-mset__frame') as Element).getBoundingClientRect();
+    await expect(ten.getBoundingClientRect().left).toBeGreaterThan(frame.right);
     await expectFitsArea(root, box, 'k');
+
+    // Tap the ten (a real touch on it): it unties into the frame and says "ten".
+    await expectHit(ten, center(ten), 'the tied ten');
+    await userEvent.click(ten);
+    await waitFor(() => expect(inside(root)).toHaveLength(10));
+    await expect(audio.sayPhrases).toHaveBeenLastCalledWith([{ number: 10 }]);
+    await expect(tens(root)).toHaveAttribute('data-tens', 'ones');
+    await expect(tens(root)).toHaveAccessibleName('4');
+    await expect((tens(root) as HTMLElement).querySelectorAll('.ni-sprite')).toHaveLength(4);
+    await expectFitsArea(root, box, 'k');
+    // A crab comes out of the ten: 13, the ten still shown.
+    await userEvent.click(inside(root)[9] as HTMLElement);
+    await userEvent.click(pilePad(root));
+    await waitFor(() => expect(tens(root)).toHaveAccessibleName('3'));
+    await expect(inside(root)).toHaveLength(10);
+    // Tie it again from the keyboard: the ones' button, Enter.
+    (tens(root) as HTMLElement).focus();
+    await userEvent.keyboard('{Enter}');
+    await waitFor(() => expect(tens(root)).toHaveAttribute('data-tens', 'bundle'));
+    await expect(inside(root)).toHaveLength(3);
+    await expectFitsArea(root, box, 'k');
+
     await expectCheckTaps(root);
+    await expect(args.onResponse).toHaveBeenCalledTimes(1);
     await expect(args.onResponse).toHaveBeenCalledWith({
       kind: 'state',
-      value: { count: 2, removed: 0 },
+      value: { count: 13, removed: 1 },
     });
+    // Tying and untying are presentation only: no trace events for them.
+    const trace = traceOf(args.onInteract);
+    await expect(trace.some((e) => !/^set-\d+$|^container$|^pile$/.test(e.target))).toBe(false);
+  },
+};
+
+/** Spies for the one-frame twin in OneFrameMatchesTwoFrames. */
+const twin = { onResponse: fn(), onInteract: fn() };
+
+/**
+ * The same moves give the same response and the same trace with two ten-frames (the plain stage)
+ * and one ten-frame at a time (the 960 × 600 card): twelve crabs in, one back out, one in by
+ * keyboard, Check. In the one-frame widget the ten is also untied and tied again mid-way, which
+ * changes neither.
+ */
+export const OneFrameMatchesTwoFrames: Story = {
+  globals: { ageMode: 'k' },
+  args: { config: twenty },
+  render: (args) => (
+    <div style={{ display: 'grid', gap: 24, justifyItems: 'center' }}>
+      {renderWidget(args)}
+      {inArea('landscapeMin')({ ...args, ...twin })}
+    </div>
+  ),
+  play: async ({ canvasElement, args }) => {
+    twin.onResponse.mockClear();
+    twin.onInteract.mockClear();
+    await findWidget(canvasElement, ROOT);
+    const two = stage(canvasElement).querySelector(ROOT) as HTMLElement;
+    const one = await findWidget(areaBox(canvasElement), ROOT);
+    await waitFor(() => expect(one).toHaveAttribute('data-one-frame', 'true'));
+    await expect(two).not.toHaveAttribute('data-one-frame');
+    await expect(two.querySelectorAll('.ni-mset__frame')).toHaveLength(2);
+
+    const run = async (root: HTMLElement, retie: boolean) => {
+      await tapIn(root, 12);
+      if (retie) {
+        await userEvent.click(tens(root) as HTMLElement);
+        await waitFor(() => expect(tens(root)).toHaveAttribute('data-tens', 'ones'));
+        await userEvent.click(tens(root) as HTMLElement);
+        await waitFor(() => expect(tens(root)).toHaveAttribute('data-tens', 'bundle'));
+      }
+      // The last crab in comes back out (it is in view in both).
+      await userEvent.click(root.querySelector('[data-item="set-11"]') as HTMLElement);
+      await userEvent.click(pilePad(root));
+      // One in by keyboard: Enter picks it up, Enter puts it in the container.
+      (heap(root)[0] as HTMLElement).focus();
+      await userEvent.keyboard('{Enter}');
+      await userEvent.keyboard('{Enter}');
+      await userEvent.click(check(root));
+    };
+    await run(two, false);
+    await run(one, true);
+
+    await expect(args.onResponse).toHaveBeenCalledTimes(1);
+    await expect(twin.onResponse.mock.calls).toEqual(
+      (args.onResponse as ReturnType<typeof fn>).mock.calls,
+    );
+    await expect(twin.onResponse).toHaveBeenCalledWith({
+      kind: 'state',
+      value: { count: 12, removed: 0 },
+    });
+    const strip = (calls: unknown) => traceOf(calls).map(({ t, target }) => ({ t, target }));
+    const traceTwo = strip(args.onInteract);
+    await expect(traceTwo.length).toBeGreaterThan(20);
+    await expect(strip(twin.onInteract)).toEqual(traceTwo);
   },
 };
 
 /**
- * TwentyK in portrait (800 × 1280 → 746 × 812): the heap (6 × 2) above, the boat (tight frames)
- * with Check beside it; all inside, no scroll.
+ * TwentyK in portrait (800 × 1280 → a 746 × 812 card, 692 × 758 inside): both ten-frames, in the
+ * tight frame chrome, the heap (one row) above the boat and Check under it; no scroll.
  */
 export const TwentyKPortrait: Story = {
   globals: { ageMode: 'k' },
@@ -620,9 +788,10 @@ export const TwentyKPortrait: Story = {
   render: inArea('portrait'),
   play: async ({ canvasElement, args }) => {
     const root = await findWidget(canvasElement, ROOT);
-    await waitFor(() => expect(root).toHaveAttribute('data-layout', 'stack'));
+    await waitFor(() => expect(root).toHaveAttribute('data-chrome', 'tight'));
+    await expect(root).not.toHaveAttribute('data-one-frame');
+    await expect(root.querySelectorAll('.ni-mset__frame')).toHaveLength(2);
     await expectFitsArea(root, areaBox(canvasElement), 'k');
-    await expect(heap(root)).toHaveLength(12);
     await expectEvenHeap(pileArea(root));
     await expectCheckTaps(root);
     await expect(args.onResponse).toHaveBeenCalledWith({
@@ -633,9 +802,8 @@ export const TwentyKPortrait: Story = {
 };
 
 /**
- * TwentyK at the tablet baseline (1280 × 800 → 1226 × 493): one row as designed, heap, boat and
- * Check side by side, centred on one line; the boat's frames are in tight chrome (the normal one
- * is 520 px tall).
+ * TwentyK at the tablet baseline (1280 × 800 → a 1226 × 493 card, 1172 × 439 inside): one row as
+ * designed, heap, boat and Check side by side, both ten-frames in view (tight frame chrome).
  */
 export const TwentyKTablet: Story = {
   globals: { ageMode: 'k' },
@@ -645,6 +813,8 @@ export const TwentyKTablet: Story = {
     const root = await findWidget(canvasElement, ROOT);
     await waitFor(() => expect(root).toHaveAttribute('data-chrome', 'tight'));
     await expect(root).toHaveAttribute('data-layout', 'row');
+    await expect(root).not.toHaveAttribute('data-one-frame');
+    await expect(root.querySelectorAll('.ni-mset__frame')).toHaveLength(2);
     await expectFitsArea(root, areaBox(canvasElement), 'k');
     const pile = pileArea(root).getBoundingClientRect();
     const boat = (root.querySelector('.ni-mset__container') as HTMLElement).getBoundingClientRect();
@@ -659,10 +829,7 @@ export const TwentyKTablet: Story = {
   },
 };
 
-/**
- * The open shell, K, at the minimum landscape (906 × 373): `side`, the shell (one ten-frame,
- * tight chrome, 554 × 298) on the right, all five pebbles (3 + 2) and Check on the left.
- */
+/** The open shell, K, at the minimum landscape (852 × 319 inside): `side`, no scroll. */
 export const ShellKMinLandscape: Story = {
   globals: { ageMode: 'k' },
   args: { config: shell },
@@ -671,14 +838,13 @@ export const ShellKMinLandscape: Story = {
     const root = await findWidget(canvasElement, ROOT);
     await waitFor(() => expect(root).toHaveAttribute('data-layout', 'side'));
     await expectFitsArea(root, areaBox(canvasElement), 'k');
-    await expect(heap(root)).toHaveLength(5);
     await expectEvenHeap(pileArea(root));
     await expectCheckTaps(root);
     await expect(args.onResponse).toHaveBeenCalledTimes(1);
   },
 };
 
-/** The open shell, K, in portrait (746 × 812): heap, shell, then Check, all inside. */
+/** The open shell, K, in portrait (692 × 758 inside): heap, shell, then Check, all inside. */
 export const ShellKPortrait: Story = {
   globals: { ageMode: 'k' },
   args: { config: shell },
@@ -693,8 +859,9 @@ export const ShellKPortrait: Story = {
 };
 
 /**
- * Take away at the minimum landscape (906 × 373): `side`, the boat on the right, the "take away"
- * pile with Check under it on the left; both parts stay visible and inside the area, no scroll.
+ * Take away at the minimum landscape (852 × 319 inside): `side`, the boat on the right, the
+ * "take away" pile (its arrow beside its heap) with Check under it on the left; both parts stay
+ * visible and inside the area, no scroll.
  */
 export const TakeAwayMinLandscape: Story = {
   args: { config: takeAway },
@@ -770,6 +937,7 @@ export const Jar: Story = {
   args: { config: jar },
   play: async ({ canvasElement }) => {
     const root = await findWidget(canvasElement, ROOT);
+    await expectArtHolds(root, stage(canvasElement));
     for (let i = 0; i < 4; i++) {
       await userEvent.click(heap(root)[0] as HTMLElement);
       await userEvent.click(containerPad(root));
@@ -792,6 +960,7 @@ export const ShellK: Story = {
   args: { config: shell },
   play: async ({ canvasElement }) => {
     const root = await findWidget(canvasElement, ROOT);
+    await expectArtHolds(root, stage(canvasElement));
     await expect(within(root).getByRole('button', { name: 'Shell' })).toBeVisible();
     for (const el of heap(root)) await expectTargetSize(el, 'k');
     await expectTargetGaps(heap(root));
@@ -916,6 +1085,7 @@ const inviteController: WidgetDemo = createDemoController({ strict: true });
  * below it covers nothing), never the whole raft.
  */
 export const DemoInvite: Story = {
+  globals: { ageMode: 'k' },
   args: { disabled: false, demo: inviteController },
   play: async ({ canvasElement }) => {
     const root = await findWidget(canvasElement, ROOT);
@@ -1035,6 +1205,7 @@ const handsInvite: WidgetDemo = createDemoController({ strict: true });
  * the hand card.
  */
 export const DemoInviteHands: Story = {
+  globals: { ageMode: 'k' },
   args: { config: { ...hands, target: 7 }, disabled: false, demo: handsInvite },
   play: async ({ canvasElement }) => {
     const root = await findWidget(canvasElement, ROOT);

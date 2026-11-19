@@ -22,6 +22,17 @@ export const CONTAINER_PAD: Readonly<
   shell: { top: 60, right: 50, bottom: 60, left: 50 },
 };
 
+/**
+ * The space around the slot grid in the tight frame chrome (short areas): only the boat's shrinks,
+ * and only as far as keeps the frames ≥ 8 px inside its hull. The hull's top is at y 10 (top 18);
+ * at the frames' bottom (h - 40, the deck line) the stern curves in to x 22 (left 32) and the bow
+ * to w - 64 (right 74), and the hull's bottom is at h - 26 (14 px below the frames).
+ */
+export const CONTAINER_PAD_TIGHT: typeof CONTAINER_PAD = {
+  ...CONTAINER_PAD,
+  boat: { top: 18, right: 74, bottom: 40, left: 32 },
+};
+
 const INK = 'var(--color-ink)';
 const HIGHLIGHT = 'rgb(255 255 255 / 0.55)';
 
@@ -38,6 +49,7 @@ function Boat({ w, h, closed }: { w: number; h: number; closed: boolean }) {
       />
       {/* Hull: the deck the slots sit on, a curved bow on the right. */}
       <path
+        className="ni-mset__body"
         d={`M8 10 H ${w - 64} Q ${w - 4} 10 ${w - 6} ${deckBottom * 0.45} Q ${w - 20} ${deckBottom} ${w - 90} ${deckBottom + 14} H 52 Q 14 ${deckBottom + 6} 8 ${deckBottom - 26} Z`}
         fill="var(--color-wood)"
         stroke="var(--color-wood-deep)"
@@ -97,20 +109,22 @@ function Raft({ w, h, closed }: { w: number; h: number; closed: boolean }) {
         stroke="var(--color-sea-deep)"
         strokeWidth="3"
       />
-      {Array.from({ length: logs }, (_, i) => (
-        <rect
-          // biome-ignore lint/suspicious/noArrayIndexKey: the logs are positional art
-          key={i}
-          x={i % 2 === 0 ? 4 : 12}
-          y={top + i * lh}
-          width={w - 16}
-          height={lh - 3}
-          rx={(lh - 3) / 2}
-          fill="var(--color-wood)"
-          stroke="var(--color-wood-deep)"
-          strokeWidth="3.5"
-        />
-      ))}
+      <g className="ni-mset__body">
+        {Array.from({ length: logs }, (_, i) => (
+          <rect
+            // biome-ignore lint/suspicious/noArrayIndexKey: the logs are positional art
+            key={i}
+            x={i % 2 === 0 ? 4 : 12}
+            y={top + i * lh}
+            width={w - 16}
+            height={lh - 3}
+            rx={(lh - 3) / 2}
+            fill="var(--color-wood)"
+            stroke="var(--color-wood-deep)"
+            strokeWidth="3.5"
+          />
+        ))}
+      </g>
       {[0.2, 0.8].map((f) => (
         <path
           key={f}
@@ -157,6 +171,7 @@ function Basket({ w, h, closed }: { w: number; h: number; closed: boolean }) {
       />
       {/* Woven body */}
       <path
+        className="ni-mset__body"
         d={`M6 30 H ${w - 6} L ${w - 22} ${h - 10} Q ${w - 26} ${h - 2} ${w - 40} ${h - 2} H 40 Q 26 ${h - 2} 22 ${h - 10} Z`}
         fill="var(--color-wood)"
         stroke="var(--color-wood-deep)"
@@ -202,6 +217,7 @@ function Jar({ w, h, closed }: { w: number; h: number; closed: boolean }) {
     <>
       <ellipse cx={w / 2} cy={h - 3} rx={w * 0.4} ry="6" fill="rgb(38 70 83 / 0.16)" />
       <path
+        className="ni-mset__body"
         d={`M${w * 0.22} 18 H ${w * 0.78} V 42 Q ${w - 4} 50 ${w - 4} 84 V ${h - 30} Q ${w - 4} ${h - 6} ${w - 30} ${h - 6} H 30 Q 4 ${h - 6} 4 ${h - 30} V 84 Q 4 50 ${w * 0.22} 42 Z`}
         fill="var(--color-sky-light)"
         stroke="var(--color-sea-deep)"
@@ -279,7 +295,7 @@ function Shell({ w, h, closed }: { w: number; h: number; closed: boolean }) {
     <>
       <ellipse cx={w / 2} cy={h - 4} rx={w * 0.4} ry="6" fill="rgb(38 70 83 / 0.16)" />
       <path
-        className="ni-mset__outline"
+        className="ni-mset__outline ni-mset__body"
         d={outline}
         fill="var(--color-horizon)"
         stroke="var(--color-coral-deep)"
@@ -365,7 +381,9 @@ export function ContainerArt({
       data-container={kind}
       data-closed={closed ? 'true' : undefined}
     >
-      <Draw w={width} h={height} closed={closed} />
+      <g className="ni-mset__drawn">
+        <Draw w={width} h={height} closed={closed} />
+      </g>
     </svg>
   );
 }
@@ -373,11 +391,24 @@ export function ContainerArt({
 /**
  * A tied bundle of ten (groupsOf 10): a rope band across a full ten-frame, in the gap between its
  * two rows (no thicker than the gap), with the bow on the frame's right edge, over its padding and
- * border, so it never covers a slot.
+ * border, so it never covers a slot. `vertical`: the same band down the gap between two columns,
+ * the bow under the bottom edge (the tied ten beside a frame of ones, one ten-frame at a time).
  */
-export function BundleBand({ width, height }: { width: number; height: number }) {
-  const y = height / 2;
-  const knot = width + 8;
+export function BundleBand({
+  width,
+  height,
+  vertical = false,
+}: {
+  width: number;
+  height: number;
+  vertical?: boolean;
+}) {
+  const along = vertical ? height : width;
+  const across = (vertical ? width : height) / 2;
+  const knot = along + 8;
+  /** (a, c): `a` along the band, `c` across it. */
+  const at = (a: number, c: number) => (vertical ? { x: c, y: a } : { x: a, y: c });
+  const band = at(-8, across - 6);
   return (
     <svg
       className="ni-mset__band"
@@ -389,32 +420,35 @@ export function BundleBand({ width, height }: { width: number; height: number })
       overflow="visible"
     >
       <rect
-        x="-8"
-        y={y - 6}
-        width={knot + 8}
-        height="12"
+        x={band.x}
+        y={band.y}
+        width={vertical ? 12 : knot + 8}
+        height={vertical ? knot + 8 : 12}
         rx="6"
         fill="var(--color-sunshine)"
         stroke={INK}
         strokeWidth="3"
       />
-      {[-1, 1].map((side) => (
-        <ellipse
-          key={side}
-          className="ni-mset__bow"
-          cx={knot}
-          cy={y + side * 15}
-          rx="6"
-          ry="11"
-          fill="var(--color-sunshine)"
-          stroke={INK}
-          strokeWidth="3"
-        />
-      ))}
+      {[-1, 1].map((side) => {
+        const c = at(knot, across + side * 15);
+        return (
+          <ellipse
+            key={side}
+            className="ni-mset__bow"
+            cx={c.x}
+            cy={c.y}
+            rx={vertical ? 11 : 6}
+            ry={vertical ? 6 : 11}
+            fill="var(--color-sunshine)"
+            stroke={INK}
+            strokeWidth="3"
+          />
+        );
+      })}
       <circle
         className="ni-mset__bow"
-        cx={knot}
-        cy={y}
+        cx={at(knot, across).x}
+        cy={at(knot, across).y}
         r="7"
         fill="var(--color-sunshine-deep)"
         stroke={INK}

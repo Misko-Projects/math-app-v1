@@ -36,11 +36,13 @@ import {
   BundleBand,
   BundleIcon,
   CONTAINER_PAD,
+  CONTAINER_PAD_TIGHT,
   ContainerArt,
   type ContainerKind,
 } from './containers';
 import { HEAP_COLS, HEAP_COLS_K, type HeapCell, heapCells, heapRows } from './heap';
 import './make-set.css';
+import { besideFrame, pageAfter, shownPage, type TenPage } from './tens';
 
 /**
  * `make-set` (03 §5.5): make a set of exactly `target` in a container (concrete only).
@@ -87,15 +89,30 @@ const PILE_EDGE = 2 * (22 + 3);
 const STACK_HEAP_COLS = SUPPLY_VISIBLE / 2;
 /** A pile's padding (26) and border (3) top and bottom, as in make-set.css. */
 const PILE_EDGE_Y = 2 * (26 + 3);
-/** The take-away pile's arrow icon (56) and the pile's gap (12) above its heap. */
+/** The take-away pile's arrow icon (56) and the pile's gap (12) beside or above its heap. */
 const AWAY_HEAD = 56 + 12;
-/** The root's padding (make-set.css): normally 12 / 16; `side` uses the area's full height. */
+/**
+ * The root's padding (make-set.css): normally 12 / 16; the tight chrome and `side` use the area's
+ * full height, and `side` its full width too (the card around it has its own padding).
+ */
 const PAD = { x: 16, y: 12 };
-const SIDE_PAD = { x: 4, y: 0 };
+const SIDE_PAD_X = 0;
 /** The gap between the container and the `side` column, and between the column's parts. */
 const SIDE_GAP = 24;
 /** A height no host grows to unless it grows with its content (the room probe). */
 const PROBE_PX = 100_000;
+/**
+ * One ten-frame at a time: the small frame beside the shown one (the tied ten, or the ones), as in
+ * make-set.css `.ni-mset__tens`: 2 × 5 pieces of 30 px, 12 px between the columns (the band's
+ * gap, as in a bundled ten-frame) and 4 px between rows, 6 px padding and a 4 px border.
+ */
+const TENS_PIECE = 30;
+const TENS_W = 2 * TENS_PIECE + 12 + 2 * (6 + 4);
+const TENS_H = 5 * TENS_PIECE + 4 * 4 + 2 * (6 + 4);
+/** The band's bow hangs this far below the tied ten. */
+const TENS_BOW = 19;
+/** Between the shown frame and the small frame beside it. */
+const TENS_GAP = 12;
 
 type Layout = 'row' | 'stack' | 'column' | 'side';
 type Chrome = 'normal' | 'tight';
@@ -105,18 +122,31 @@ interface Room {
   actionsW: number;
   actionsH: number;
 }
+interface Box {
+  w: number;
+  h: number;
+  pad: { top: number; right: number; bottom: number; left: number };
+  /** Frames' top and gap, and the small frame's top (one ten-frame at a time), in the box. */
+  framesTop: number;
+  frameGap: number;
+  tensTop: number;
+}
 interface Plan {
   layout: Layout;
   chrome: Chrome;
+  /** One ten-frame at a time (capacity 11–20 where two ten-frames don't fit). */
+  oneFrame: boolean;
   heapCols: number;
-  box: { w: number; h: number; top: number; frameGap: number };
+  box: Box;
   /** Visible supply rows when fewer than the heap's full size; null shows them all. */
   supplyRows: number | null;
 }
 /**
  * Layouts in order of preference; the first that fits the measured width and height wins:
  * the designed layouts, then the tight frame chrome, then the `side` layout, then fewer
- * visible supply rows. `[layout, chrome, may show fewer supply rows]`.
+ * visible supply rows. `[layout, chrome, may show fewer supply rows]`. Every container keeps
+ * all its ten-frames in view where one of these fits; only then (capacity 11–20) the same list
+ * runs again with one ten-frame at a time.
  */
 const PLANS: readonly [Layout, Chrome, boolean][] = [
   ['row', 'normal', false],
@@ -205,6 +235,16 @@ export function MakeSetWidget({
   };
   /** The heap the child takes from: the pile first (the model's order), then the supply. */
   const outside = takeAway ? lists.supply : [...lists.away, ...lists.supply];
+  /** One ten-frame at a time: the page (tens.ts), kept in step with the container's count. */
+  const [tenPage, setTenPage] = useState<TenPage>(() => pageAfter(0, 0, start));
+  const lastInside = useRef(start);
+  useLayoutEffect(() => {
+    const n = lists.inside.length;
+    const before = lastInside.current;
+    if (n === before) return;
+    lastInside.current = n;
+    setTenPage((p) => pageAfter(p, before, n));
+  }, [lists.inside.length]);
 
   const [demoBusy, setDemoBusy] = useState(false);
   const [invite, setInvite] = useState<WidgetAction | null>(null);
@@ -466,28 +506,33 @@ export function MakeSetWidget({
   const frameW = 5 * slot + 4 * gap;
   const frameH = 2 * slot + gap;
   const kind = (hands ? 'basket' : config.container) as ContainerKind;
-  const pad = CONTAINER_PAD[kind];
   const containerName = t(`ui.set.${config.container}`);
 
   /**
-   * The container's size for a frame chrome (make-set.css): `normal`, a frame's padding (14) and
-   * ink border (4) a side and 18 px between frames; `tight` (short areas), no padding, a 3 px
-   * border and 8 px between frames (objects in two frames stay 3 + 8 + 3 = 14 px apart). With a
-   * `fit` height (the `side` layout, where the container has a column of its own) the art's top
-   * and bottom margins shrink as far as needed; the slots never do.
+   * The container's size (make-set.css). Frame chrome `normal`: a frame's padding (14) and ink
+   * border (4) a side, 18 px between frames, the container's own margins (CONTAINER_PAD); `tight`
+   * (short areas): 6 px padding (the slots keep visible room), a 2 px border, 4 px between frames
+   * (objects in two frames stay 6 + 2 + 4 + 2 + 6 = 20 px apart) and the tight margins
+   * (CONTAINER_PAD_TIGHT), so the frames always sit ≥ 8 px inside the art. `oneFrame`: one
+   * ten-frame, with the small frame (TENS_W × TENS_H, its bow below) beside it.
    */
-  const boxFor = (chrome: Chrome, fit: number | null) => {
-    const edge = chrome === 'tight' ? 2 * 3 : 2 * (14 + 4);
-    const frameGap = chrome === 'tight' ? 8 : 18;
-    const gridH = frames * (frameH + edge) + (frames - 1) * frameGap;
-    let top = pad.top;
-    let bottom = pad.bottom;
-    if (fit !== null && gridH + top + bottom > fit) {
-      const free = Math.max(0, Math.floor(fit - gridH));
-      top = Math.min(pad.top, Math.floor(free / 2));
-      bottom = Math.min(pad.bottom, free - top);
-    }
-    return { w: frameW + edge + pad.left + pad.right, h: gridH + top + bottom, top, frameGap };
+  const boxFor = (chrome: Chrome, oneFrame: boolean): Box => {
+    const tight = chrome === 'tight';
+    const edge = tight ? 2 * (6 + 2) : 2 * (14 + 4);
+    const frameGap = tight ? 4 : 18;
+    const shown = oneFrame ? 1 : frames;
+    const gridH = shown * (frameH + edge) + (shown - 1) * frameGap;
+    const pad = (tight ? CONTAINER_PAD_TIGHT : CONTAINER_PAD)[kind];
+    const innerH = oneFrame ? Math.max(gridH, TENS_H + TENS_BOW) : gridH;
+    const innerW = frameW + edge + (oneFrame ? TENS_GAP + TENS_W : 0);
+    return {
+      w: innerW + pad.left + pad.right,
+      h: innerH + pad.top + pad.bottom,
+      pad,
+      framesTop: pad.top + (innerH - gridH) / 2,
+      frameGap,
+      tensTop: pad.top + (innerH - TENS_H - TENS_BOW) / 2,
+    };
   };
 
   // ---------- layout: follows the room the widget has (06 §1: container-relative) ----------
@@ -553,31 +598,35 @@ export function MakeSetWidget({
    *   take-away pile below.
    * - `column`: everything in one column, actions last.
    * - `side` (short areas, e.g. 960 × 600): the container on the right, the heap, the take-away
-   *   pile and the actions in a column beside it.
+   *   pile (its arrow beside its heap) and the actions in a column beside it.
    */
   const planFor = (
     layout: Layout,
     chrome: Chrome,
     reduce: boolean,
+    oneFrame: boolean,
     widthOnly = false,
   ): Plan | null => {
     if (!room) return null;
     const side = layout === 'side';
     const g = side ? SIDE_GAP : LAYOUT_GAP;
-    const innerW = room.width - 2 * (side ? SIDE_PAD.x : PAD.x);
+    const innerW = room.width - 2 * (side ? SIDE_PAD_X : PAD.x);
     const innerH = widthOnly
       ? Number.POSITIVE_INFINITY
-      : room.height - 2 * (side ? SIDE_PAD.y : PAD.y);
-    const box = boxFor(chrome, side && Number.isFinite(innerH) ? innerH : null);
+      : room.height - 2 * (side || chrome === 'tight' ? 0 : PAD.y);
+    const box = boxFor(chrome, oneFrame);
     const fitCols = (w: number) => Math.floor((w - PILE_EDGE + gap) / (slot + gap));
+    const awaySide = side && takeAway ? AWAY_HEAD : 0;
     const heapCols =
       layout === 'row'
         ? heapCap
-        : Math.min(STACK_HEAP_COLS, fitCols(side ? innerW - box.w - g : innerW));
-    if (heapCols < (side ? 2 : 1)) return null;
+        : Math.min(STACK_HEAP_COLS, fitCols(side ? innerW - box.w - g - awaySide : innerW));
+    if (heapCols < (side && !oneFrame ? 2 : 1)) return null;
     const pileW = heapW(heapCols) + PILE_EDGE;
     const awayH = takeAway
-      ? rowsH(Math.max(1, heapRows(awayMost, heapCols).length)) + PILE_EDGE_Y + AWAY_HEAD
+      ? rowsH(Math.max(1, heapRows(awayMost, heapCols).length)) +
+        PILE_EDGE_Y +
+        (side ? 0 : AWAY_HEAD)
       : 0;
     const supplyH = (rows: number) => (showSupply ? rowsH(rows) + PILE_EDGE_Y : 0);
     const stacked = (hs: number[]) => {
@@ -598,27 +647,42 @@ export function MakeSetWidget({
               ]
             : layout === 'column'
               ? [Math.max(box.w, aw, piles ? pileW : 0), stacked([s, box.h, awayH, ah])]
-              : [box.w + g + Math.max(pileW, aw), Math.max(box.h, stacked([s, awayH, ah]))];
+              : [
+                  box.w + g + Math.max(pileW + awaySide, aw),
+                  Math.max(box.h, stacked([s, awayH, ah])),
+                ];
       return w <= innerW + 0.5 && h <= innerH + 0.5;
     };
     const full = Math.max(1, heapRows(supplyMost, heapCols).length);
     for (let rows = full; rows >= (reduce && showSupply ? 1 : full); rows--) {
       if (fits(rows)) {
-        return { layout, chrome, heapCols, box, supplyRows: rows === full ? null : rows };
+        return {
+          layout,
+          chrome,
+          oneFrame,
+          heapCols,
+          box,
+          supplyRows: rows === full ? null : rows,
+        };
       }
     }
     return null;
   };
+  const firstFit = (oneFrame: boolean) =>
+    PLANS.reduce<Plan | null>((found, [l, c, r]) => found ?? planFor(l, c, r, oneFrame), null);
   const plan: Plan | null = hands
     ? null
-    : (PLANS.reduce<Plan | null>((found, [l, c, r]) => found ?? planFor(l, c, r), null) ??
+    : (firstFit(false) ??
+      // Two ten-frames fit nowhere (capacity 11–20): one ten-frame at a time.
+      (frames === 2 ? firstFit(true) : null) ??
       // Nothing fits the height: as wide as fits, and the area scrolls down.
-      planFor('row', 'normal', false, true) ??
-      planFor('stack', 'normal', false, true) ??
-      planFor('column', 'normal', false, true));
+      planFor('row', 'normal', false, false, true) ??
+      planFor('stack', 'normal', false, false, true) ??
+      planFor('column', 'normal', false, false, true));
   const layout: Layout = plan?.layout ?? 'row';
   const chrome: Chrome = plan?.chrome ?? 'normal';
-  const box = plan?.box ?? boxFor('normal', null);
+  const oneFrame = plan?.oneFrame ?? false;
+  const box = plan?.box ?? boxFor('normal', false);
   const heapCols = plan?.heapCols ?? heapCap;
   /** Supply objects shown at once (fewer when the area is short; more appear as objects go). */
   const supplyVisible =
@@ -650,6 +714,24 @@ export function MakeSetWidget({
             ? { gridTemplateRows: `1fr ${sideParts.map(() => 'auto').join(' ')} 1fr` }
             : {}),
         };
+
+  // ---------- one ten-frame at a time (presentation only) ----------
+
+  const insideCount = lists.inside.length;
+  /** The frame shown: the first ten, or the ones with the ten tied beside them (tens.ts). */
+  const page = shownPage(tenPage, insideCount);
+  const beside = oneFrame ? besideFrame(tenPage, insideCount) : null;
+  /** Untie the ten (it shows in the frame again, so objects can come out) or tie it again. */
+  const toggleTen = () => {
+    if (!interactive || beside === null) return;
+    if (beside === 'bundle') {
+      setTenPage(0);
+      sayNumber(10);
+    } else {
+      setTenPage(1);
+      sfx('fuse');
+    }
+  };
 
   // Demo invite (03 §6.3): the ring and Pip's hand sit on the ONE thing the child acts on next.
   // `answer` invites a drag or a remove, whichever moves the count towards the value.
@@ -814,10 +896,44 @@ export function MakeSetWidget({
     disabled: lists.inside.length >= capacity,
   });
 
+  /** The ten-frames shown: all of them, or one at a time (the page's). */
+  const shownFrames = oneFrame ? [page] : Array.from({ length: frames }, (_, f) => f);
+  const onesShown = Math.max(0, insideCount - 10);
+  const tensBeside =
+    beside === null ? null : (
+      <button
+        key={beside}
+        type="button"
+        className="ni-mset__tens"
+        data-tens={beside}
+        aria-label={String(beside === 'bundle' ? 10 : onesShown)}
+        disabled={!interactive}
+        onClick={toggleTen}
+        style={{
+          left: box.pad.left + frameW + (chrome === 'tight' ? 16 : 36) + TENS_GAP,
+          top: box.tensTop,
+          ...(reduced ? { animation: 'none' } : {}),
+        }}
+      >
+        <span className="ni-mset__tens-grid">
+          {Array.from({ length: 10 }, (_, k) => (
+            // biome-ignore lint/suspicious/noArrayIndexKey: the small frame's cells are positional
+            <span key={k} className="ni-mset__tens-cell">
+              {beside === 'bundle' || k < onesShown ? <ObjectSprite sprite={sprite} /> : null}
+            </span>
+          ))}
+        </span>
+        {beside === 'bundle' ? (
+          <BundleBand width={TENS_W - 2 * (6 + 4)} height={TENS_H - 2 * (6 + 4)} vertical />
+        ) : null}
+      </button>
+    );
+
   const containerBox = (
     <div
       className="ni-mset__container"
       data-container={config.container}
+      data-one-frame={oneFrame ? 'true' : undefined}
       style={{ width: box.w, height: box.h } as CSSProperties}
     >
       <ContainerArt kind={kind} width={box.w} height={box.h} closed={closed} />
@@ -825,11 +941,15 @@ export function MakeSetWidget({
       {/* count-aloud invites counting what is in the frames: the ring hugs them, not the art. */}
       <div
         className={['ni-mset__frames', invitedCount ? 'ni-invite' : ''].filter(Boolean).join(' ')}
-        style={{ top: box.top, left: pad.left, gap: box.frameGap } as CSSProperties}
+        style={{ top: box.framesTop, left: box.pad.left, gap: box.frameGap } as CSSProperties}
       >
-        {Array.from({ length: frames }, (_, f) => (
-          // biome-ignore lint/suspicious/noArrayIndexKey: ten-frames are positional
-          <div key={f} className="ni-mset__frame" data-bundled={f < bundles ? 'true' : undefined}>
+        {shownFrames.map((f) => (
+          <div
+            key={f}
+            className="ni-mset__frame"
+            data-frame={f}
+            data-bundled={f < bundles ? 'true' : undefined}
+          >
             {Array.from({ length: 10 }, (_, k) => {
               const s = f * 10 + k;
               const id = lists.inside[s];
@@ -848,6 +968,7 @@ export function MakeSetWidget({
           </div>
         ))}
       </div>
+      {tensBeside}
     </div>
   );
 
@@ -948,6 +1069,7 @@ export function MakeSetWidget({
       data-disabled={disabled ? 'true' : undefined}
       data-layout={hands ? undefined : layout}
       data-chrome={chrome === 'tight' ? 'tight' : undefined}
+      data-one-frame={oneFrame ? 'true' : undefined}
       style={
         {
           '--slot': `${slot}px`,
