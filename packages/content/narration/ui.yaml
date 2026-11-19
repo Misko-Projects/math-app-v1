@@ -316,6 +316,24 @@ ui.pwalk.compare:
 ui.pwalk.build:
   text: "Your rectangle"
   level: "2"
+ui.pwalk.make:
+  text: "Make"
+  level: "2"
+ui.pwalk.squares-inside:
+  text: "squares inside"
+  level: "2"
+ui.pwalk.all-around:
+  text: "all the way around"
+  level: "2"
+ui.pwalk.target-area:
+  text: "Make {n} squares inside"
+  level: "2"
+ui.pwalk.target-around:
+  text: "Make it {n} all the way around"
+  level: "2"
+ui.pwalk.yours:
+  text: "Your rectangle: {area} squares inside, {around} all the way around"
+  level: "2"
 ui.pwalk.col-more:
   text: "Add a column"
   level: "2"

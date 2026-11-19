@@ -37,9 +37,16 @@ import './perimeter-walk.css';
  * walked sides turn solid. The child types the total (`total`), or the missing side from the
  * fence's length (`missing-side`). In `design` the child builds a rectangle on the grid: drag its
  * corner, or use the column and row steppers (arrow keys on the board; tapping a square works
- * when squares are target-size), and Check answers `{ w, h }` (`rect.perimeterArea`). The grid is
- * wide: a turned rectangle is the same one, so a tall answer (1 × 12) is built lying down (12 × 1).
- * The rectangle to compare with is drawn lying down at the grid's square size, beside or above.
+ * when squares are target-size), and Check answers `{ w, h }` (`rect.perimeterArea`).
+ * - The grid is WIDE on purpose: rect.perimeterArea takes a turned rectangle as the same one, so
+ *   every accepted rectangle is built lying down (area 12: a 12 × 3 grid; 1 × 12 is built as
+ *   12 × 1). Columns are the longest side any accepted rectangle needs, rows the longest short side.
+ * - The target says what to make in words ("Make 12 squares inside", "Make it 20 all the way
+ *   around") over the rectangle to compare with, drawn lying down at the grid's square size; the
+ *   child's own rectangle shows its squares and fence apart from the target.
+ * - The corner grip is a visible, target-size ring with arrows; side numbers sit 12 px clear of
+ *   the board's frame. In the fence modes every side's number sits outside the fence beside its
+ *   own side, never on a side line, 12 px from the others.
  *
  * Demo ops: `walk-side {index}`, `add-label {index}`, `trace`, plus `answer`.
  */
@@ -87,9 +94,9 @@ export function PerimeterWalkWidget({
   const ys = (points ?? [[0, 0]]).map((p) => p[1]);
   const fw = Math.max(...xs) - Math.min(...xs);
   const fh = Math.max(...ys) - Math.min(...ys);
-  // Short areas (the smallest landscape screen) put the fence beside a tall 3 × 4 pad; taller
+  // Short areas (up to the 1280 × 800 tablet) put the fence beside a tall 3 × 4 pad; taller
   // ones put a wide 6 × 2 pad under it.
-  const beside = !design && avail !== null && avail.height < 420;
+  const beside = !design && avail !== null && avail.height < 460;
   // Beside: a column (sign, box, Check) and a 3-wide pad.
   const entryW = 190 + 16 + 3 * minT + 24;
   const boxW = Math.max(
@@ -100,12 +107,42 @@ export function PerimeterWalkWidget({
     160,
     (avail?.height ?? 640) - (design ? minT + 40 : beside ? 12 : 2 * minT + 12 + 74),
   );
-  // Room around the fence for the side numbers, which sit just outside each side.
-  const pad = minT * 0.8;
-  const u = Math.max(
-    8,
-    Math.min(70, (boxW - 2 * pad) / Math.max(fw, 1), (boxH - 2 * pad) / Math.max(fh, 1)),
-  );
+  // Room around the fence for the side numbers, which sit outside each side (evidence review):
+  // the widest bubble's half plus its 8 px offset and a margin.
+  const labelText = (i: number) => {
+    const known = config.polygon.sides[i];
+    return known === null || known === undefined ? '?' : String(known);
+  };
+  const bubbleSize = (i: number): Pt => [
+    Math.max(minT, LABEL_EDGE + LABEL_DIGIT * labelText(i).length),
+    minT,
+  ];
+  const pad =
+    Math.max(minT / 2, ...config.polygon.sides.map((_, i) => bubbleSize(i)[0] / 2)) + 8 + 12;
+  const sizes = config.polygon.sides.map((_, i) => bubbleSize(i));
+  // The scale: the fence and every side number (placed outside it) fit the box. Bubbles that had
+  // to move further out grow the picture, so shrink the scale until it all fits.
+  const fence = (() => {
+    let scale = Math.max(
+      8,
+      Math.min(70, (boxW - 2 * pad) / Math.max(fw, 1), (boxH - 2 * pad) / Math.max(fh, 1)),
+    );
+    let out = { u: scale, centres: [] as Pt[], minX: 0, minY: 0, w: 0, h: 0 };
+    for (let k = 0; k < 8; k += 1) {
+      const at = (p: Pt): Pt => [pad + p[0] * scale, pad + p[1] * scale];
+      const centres = points ? placeSideLabels(points.map(at), sizes) : [];
+      const boxes = centres.map((c, i) => boxAt(c, sizes[i] as Pt));
+      const minX = Math.min(0, ...boxes.map((b) => b.l - 2));
+      const minY = Math.min(0, ...boxes.map((b) => b.t - 2));
+      const maxX = Math.max(fw * scale + 2 * pad, ...boxes.map((b) => b.r + 2));
+      const maxY = Math.max(fh * scale + 2 * pad, ...boxes.map((b) => b.b + 2));
+      out = { u: scale, centres, minX, minY, w: maxX - minX, h: maxY - minY };
+      if ((out.w <= boxW + 0.5 && out.h <= boxH + 0.5) || scale <= 8) break;
+      scale = Math.max(8, scale * Math.min(boxW / out.w, boxH / out.h) * 0.97);
+    }
+    return out;
+  })();
+  const u = fence.u;
   const toPx = ([x, y]: Pt): Pt => [pad + x * u, pad + y * u];
   const svgW = fw * u + 2 * pad;
   const svgH = fh * u + 2 * pad;
@@ -156,29 +193,37 @@ export function PerimeterWalkWidget({
   const DIM_TOP = 36 + DIM_CLEAR;
   const DIM_LEFT = 24 * String(gridRows).length + DIM_CLEAR;
   const BORDER = 6;
-  // The ref's "6 × 2" caption under it, and the gap between the ref and the board.
-  const CAPTION = 46;
+  // The grip reaches this far past the rectangle's corner (and so past the board's edge).
+  const GRIP_OUT = 10;
+  // The ref's "6 × 2" caption under it, and the gap between the side column and the board.
+  const CAPTION = 34;
   const GAP = 24;
+  // The side column: the target badge ("Make 12 squares inside", up to two lines) over the ref.
+  // A target line is 66 px tall (two lines of words beside its icon); lines are 8 px apart.
+  const TARGET_W = 240;
+  const targets = (config.area !== undefined ? 1 : 0) + (config.perimeter !== undefined ? 1 : 0);
+  const TARGET_H = 66 * targets + 8 * Math.max(0, targets - 1);
+  const refH = refRect ? refRect.h : 0;
+  // Under the target: a 12 px gap, the ref (4 px margin each side), a 6 px gap and its caption.
+  const refExtra = refRect ? 12 + 8 + 6 + CAPTION : 0;
   // Capped: a stage that grows with its content must not grow the grid (the squares would change
   // size under a dragging finger).
   const designW = Math.min((avail?.width ?? 1100) - 40, 1200);
   const designH = Math.min((avail?.height ?? 640) - (minT + 40), 420);
-  const fitW = (cols: number) => (designW - DIM_LEFT - BORDER) / cols;
-  const fitH = (rows: number) => (designH - DIM_TOP - BORDER) / rows;
-  // The ref beside the board, or above it: whichever gives the larger squares.
-  const besideCell = refRect
-    ? Math.min(
-        (designW - DIM_LEFT - BORDER - GAP - 8) / (gridCols + refRect.w),
-        fitH(gridRows),
-        (designH - CAPTION - 8) / refRect.h,
-      )
-    : Math.min(fitW(gridCols), fitH(gridRows));
-  const stackedCell = refRect
-    ? Math.min(
-        fitW(Math.max(gridCols, refRect.w)),
-        (designH - DIM_TOP - BORDER - GAP - CAPTION - 8) / (gridRows + refRect.h),
-      )
-    : 0;
+  const boardX = DIM_LEFT + BORDER + GRIP_OUT;
+  const boardY = DIM_TOP + BORDER + GRIP_OUT;
+  // The side column beside the board, or above it: whichever gives the larger squares.
+  const besideCell = Math.min(
+    (designW - boardX - GAP - TARGET_W) / gridCols,
+    refRect ? (designW - boardX - GAP - 8) / (gridCols + refRect.w) : Number.POSITIVE_INFINITY,
+    (designH - boardY) / gridRows,
+    refRect ? (designH - TARGET_H - refExtra) / refH : Number.POSITIVE_INFINITY,
+  );
+  const stackedCell = Math.min(
+    (designW - boardX) / gridCols,
+    refRect ? (designW - 8) / refRect.w : Number.POSITIVE_INFINITY,
+    (designH - TARGET_H - refExtra - GAP - boardY) / (gridRows + refH),
+  );
   const refAbove = stackedCell > besideCell;
   const cell = Math.floor(Math.max(14, Math.min(72, Math.max(besideCell, stackedCell))));
   // A tap picks a square only when squares are full-size targets (06 §3); otherwise the steppers
@@ -345,6 +390,55 @@ export function PerimeterWalkWidget({
     invite ?? '',
   );
 
+  // ---------- design: the target, and what the child has built ----------
+  // The target, in words (evidence review: a bare "12" beside a 1 × 3 was confusing): "Make 12
+  // squares inside" and/or "Make it 20 all the way around", each with its icon.
+  const targetLine = (kind: 'area' | 'perimeter', n: number) => (
+    <span
+      className="ni-pwalk__target-line"
+      data-target={kind}
+      role="img"
+      aria-label={t(kind === 'area' ? 'ui.pwalk.target-area' : 'ui.pwalk.target-around', { n })}
+    >
+      {kind === 'area' ? <SquaresIcon /> : <FenceIcon />}
+      <span aria-hidden="true" className="ni-pwalk__target-words">
+        {t('ui.pwalk.make')} <span className="ni-pwalk__target-n">{n}</span>{' '}
+        {t(kind === 'area' ? 'ui.pwalk.squares-inside' : 'ui.pwalk.all-around')}
+      </span>
+    </span>
+  );
+  const targetBadge = design ? (
+    <div className="ni-pwalk__target">
+      {config.area !== undefined ? targetLine('area', config.area) : null}
+      {config.perimeter !== undefined ? targetLine('perimeter', config.perimeter) : null}
+    </div>
+  ) : null;
+  // What the child's rectangle has now, apart from the target: its squares and its fence.
+  const builtArea = state.size ? state.size.w * state.size.h : null;
+  const builtAround = state.size ? 2 * (state.size.w + state.size.h) : null;
+  const readout = design ? (
+    <span
+      className="ni-pwalk__yours"
+      role="img"
+      data-area={builtArea ?? undefined}
+      data-around={builtAround ?? undefined}
+      aria-label={
+        builtArea === null
+          ? t('ui.pwalk.build')
+          : t('ui.pwalk.yours', { area: builtArea, around: builtAround ?? 0 })
+      }
+    >
+      <SquaresIcon />
+      <span className="ni-pwalk__yours-n" aria-hidden="true">
+        {builtArea ?? '?'}
+      </span>
+      <FenceIcon />
+      <span className="ni-pwalk__yours-n" aria-hidden="true">
+        {builtAround ?? '?'}
+      </span>
+    </span>
+  ) : null;
+
   // ---------- drawing ----------
   let picture: React.ReactNode = null;
   if (!design && points && sides) {
@@ -356,144 +450,150 @@ export function PerimeterWalkWidget({
           return [a[0] + (b[0] - a[0]) * walker.t, a[1] + (b[1] - a[1]) * walker.t];
         })()
       : null;
-    const cx = xs.reduce((s, x) => s + x, 0) / n;
-    const cy = ys.reduce((s, y) => s + y, 0) / n;
+    // Every side's number outside the fence beside its own side, never over a side line, 12 px
+    // from the others (evidence review: the "?" covered its side in the L's notch).
+    const centres = fence.centres;
     picture = (
-      <div className="ni-pwalk__fence" style={{ width: svgW, height: svgH }}>
-        <svg
-          width={svgW}
-          height={svgH}
-          viewBox={`0 0 ${svgW} ${svgH}`}
-          aria-hidden="true"
-          focusable="false"
+      <div className="ni-pwalk__fence" style={{ width: fence.w, height: fence.h }}>
+        <div
+          className="ni-pwalk__fence-inner"
+          style={{ left: -fence.minX, top: -fence.minY, width: svgW, height: svgH }}
         >
-          {config.polygon.grid ? (
-            <g className="ni-pwalk__grid">
-              {Array.from({ length: Math.floor(fw) + 1 }, (_, i) => pad + i * u).map((x) => (
-                <line key={`v${x}`} x1={x} x2={x} y1={pad} y2={pad + fh * u} />
-              ))}
-              {Array.from({ length: Math.floor(fh) + 1 }, (_, i) => pad + i * u).map((y) => (
-                <line key={`h${y}`} x1={pad} x2={pad + fw * u} y1={y} y2={y} />
-              ))}
-            </g>
-          ) : null}
-          <polygon
-            className="ni-pwalk__inside"
-            points={points.map((p) => toPx(p).join(',')).join(' ')}
-          />
-          {points.map((p, i) => {
-            const a = toPx(p);
-            const b = toPx(points[(i + 1) % n] as Pt);
+          <svg
+            width={svgW}
+            height={svgH}
+            viewBox={`0 0 ${svgW} ${svgH}`}
+            aria-hidden="true"
+            focusable="false"
+          >
+            {config.polygon.grid ? (
+              <g className="ni-pwalk__grid">
+                {Array.from({ length: Math.floor(fw) + 1 }, (_, i) => pad + i * u).map((x) => (
+                  <line key={`v${x}`} x1={x} x2={x} y1={pad} y2={pad + fh * u} />
+                ))}
+                {Array.from({ length: Math.floor(fh) + 1 }, (_, i) => pad + i * u).map((y) => (
+                  <line key={`h${y}`} x1={pad} x2={pad + fw * u} y1={y} y2={y} />
+                ))}
+              </g>
+            ) : null}
+            <polygon
+              className="ni-pwalk__inside"
+              points={points.map((p) => toPx(p).join(',')).join(' ')}
+            />
+            {points.map((p, i) => {
+              const a = toPx(p);
+              const b = toPx(points[(i + 1) % n] as Pt);
+              return (
+                <line
+                  // biome-ignore lint/suspicious/noArrayIndexKey: one side per index
+                  key={i}
+                  className={
+                    state.walked.includes(i)
+                      ? 'ni-pwalk__side ni-pwalk__side--walked'
+                      : 'ni-pwalk__side'
+                  }
+                  data-side={i}
+                  data-length={sides[i]}
+                  x1={a[0]}
+                  y1={a[1]}
+                  x2={b[0]}
+                  y2={b[1]}
+                />
+              );
+            })}
+            {points.map((p, i) => {
+              const [x, y] = toPx(p);
+              // biome-ignore lint/suspicious/noArrayIndexKey: one post per corner
+              return <circle key={i} className="ni-pwalk__post" cx={x} cy={y} r={6} />;
+            })}
+          </svg>
+          {points.map((_, i) => {
+            const label = labelText(i);
+            const c = centres[i] as Pt;
             return (
-              <line
-                // biome-ignore lint/suspicious/noArrayIndexKey: one side per index
-                key={i}
-                className={
-                  state.walked.includes(i)
-                    ? 'ni-pwalk__side ni-pwalk__side--walked'
-                    : 'ni-pwalk__side'
-                }
-                data-side={i}
-                data-length={sides[i]}
-                x1={a[0]}
-                y1={a[1]}
-                x2={b[0]}
-                y2={b[1]}
-              />
+              <span
+                // biome-ignore lint/suspicious/noArrayIndexKey: one label per side
+                key={`l${i}`}
+                className="ni-pwalk__label-slot"
+                style={{ left: c[0], top: c[1] }}
+              >
+                <button
+                  type="button"
+                  className={[
+                    'ni-pwalk__label',
+                    state.walked.includes(i) ? 'ni-pwalk__label--walked' : '',
+                    invite === `side-${i}` ? 'ni-invite' : '',
+                  ]
+                    .filter(Boolean)
+                    .join(' ')}
+                  data-label-side={i}
+                  aria-label={t('ui.pwalk.side', { n: i + 1, len: label })}
+                  aria-pressed={state.walked.includes(i)}
+                  disabled={!interactive}
+                  onClick={() => tapSide(i)}
+                  style={{ minWidth: bubbleSize(i)[0] }}
+                >
+                  {/* A glyph Pip's hand keeps clear of (kit useInviteHand). */}
+                  <span className="ni-btn__label">{label}</span>
+                </button>
+              </span>
             );
           })}
-          {points.map((p, i) => {
-            const [x, y] = toPx(p);
-            // biome-ignore lint/suspicious/noArrayIndexKey: one post per corner
-            return <circle key={i} className="ni-pwalk__post" cx={x} cy={y} r={6} />;
-          })}
-        </svg>
-        {points.map((p, i) => {
-          const a = toPx(p);
-          const b = toPx(points[(i + 1) % n] as Pt);
-          // The label sits just outside the side's midpoint.
-          const mx = (a[0] + b[0]) / 2;
-          const my = (a[1] + b[1]) / 2;
-          const ox = mx - toPx([cx, cy])[0];
-          const oy = my - toPx([cx, cy])[1];
-          const d = Math.hypot(ox, oy) || 1;
-          const off = minT * 0.3;
-          const known = config.polygon.sides[i];
-          const label = known === null ? '?' : String(known);
-          return (
+          {walkerAt ? (
             <span
-              // biome-ignore lint/suspicious/noArrayIndexKey: one label per side
-              key={`l${i}`}
-              className="ni-pwalk__label-slot"
-              style={{ left: mx + (ox / d) * off, top: my + (oy / d) * off }}
+              className="ni-pwalk__walker"
+              style={{ left: walkerAt[0], top: walkerAt[1] }}
+              aria-hidden="true"
             >
-              <button
-                type="button"
-                className={[
-                  'ni-pwalk__label',
-                  state.walked.includes(i) ? 'ni-pwalk__label--walked' : '',
-                  invite === `side-${i}` ? 'ni-invite' : '',
-                ]
-                  .filter(Boolean)
-                  .join(' ')}
-                data-label-side={i}
-                aria-label={t('ui.pwalk.side', { n: i + 1, len: label })}
-                aria-pressed={state.walked.includes(i)}
-                disabled={!interactive}
-                onClick={() => tapSide(i)}
-              >
-                {label}
-              </button>
+              <Pebbling species="crab" palette="sunshine" number={null} size={54} />
             </span>
-          );
-        })}
-        {walkerAt ? (
-          <span
-            className="ni-pwalk__walker"
-            style={{ left: walkerAt[0], top: walkerAt[1] }}
-            aria-hidden="true"
-          >
-            <Pebbling species="crab" palette="sunshine" number={null} size={54} />
-          </span>
-        ) : null}
+          ) : null}
+        </div>
       </div>
     );
   } else if (design) {
     const w = size?.w ?? 0;
     const h = size?.h ?? 0;
+    // The grip: a round, target-size handle on the rectangle's corner (inside the board where the
+    // rectangle is small), see-through so the squares under it still show.
+    const gripX = Math.max(-3, w * cell + GRIP_OUT - minT);
+    const gripY = Math.max(-3, h * cell + GRIP_OUT - minT);
     picture = (
       <div className="ni-pwalk__design" data-ref-above={refAbove ? 'true' : undefined}>
-        {refRect ? (
-          <div className="ni-pwalk__ref" aria-label={t('ui.pwalk.compare')} role="img">
-            <svg
-              width={refRect.w * cell + 8}
-              height={refRect.h * cell + 8}
-              data-cell={cell}
-              aria-hidden="true"
-              focusable="false"
-            >
-              <rect
-                className="ni-pwalk__ref-rect"
-                x={4}
-                y={4}
-                width={refRect.w * cell}
-                height={refRect.h * cell}
-              />
-              {/* Its squares, the same size as the board's, so they can be counted. */}
-              <g className="ni-pwalk__ref-squares">
-                {Array.from({ length: refRect.w - 1 }, (_, i) => (i + 1) * cell + 4).map((x) => (
-                  <line key={`v${x}`} x1={x} x2={x} y1={4} y2={4 + refRect.h * cell} />
-                ))}
-                {Array.from({ length: refRect.h - 1 }, (_, i) => (i + 1) * cell + 4).map((y) => (
-                  <line key={`h${y}`} x1={4} x2={4 + refRect.w * cell} y1={y} y2={y} />
-                ))}
-              </g>
-            </svg>
-            <span className="ni-pwalk__dims" aria-hidden="true">
-              {refRect.w} × {refRect.h}
-            </span>
-          </div>
-        ) : null}
+        <div className="ni-pwalk__side-col" style={{ minWidth: TARGET_W }}>
+          {targetBadge}
+          {refRect ? (
+            <div className="ni-pwalk__ref" aria-label={t('ui.pwalk.compare')} role="img">
+              <svg
+                width={refRect.w * cell + 8}
+                height={refRect.h * cell + 8}
+                data-cell={cell}
+                aria-hidden="true"
+                focusable="false"
+              >
+                <rect
+                  className="ni-pwalk__ref-rect"
+                  x={4}
+                  y={4}
+                  width={refRect.w * cell}
+                  height={refRect.h * cell}
+                />
+                {/* Its squares, the same size as the board's, so they can be counted. */}
+                <g className="ni-pwalk__ref-squares">
+                  {Array.from({ length: refRect.w - 1 }, (_, i) => (i + 1) * cell + 4).map((x) => (
+                    <line key={`v${x}`} x1={x} x2={x} y1={4} y2={4 + refRect.h * cell} />
+                  ))}
+                  {Array.from({ length: refRect.h - 1 }, (_, i) => (i + 1) * cell + 4).map((y) => (
+                    <line key={`h${y}`} x1={4} x2={4 + refRect.w * cell} y1={y} y2={y} />
+                  ))}
+                </g>
+              </svg>
+              <span className="ni-pwalk__dims" aria-hidden="true">
+                {refRect.w} × {refRect.h}
+              </span>
+            </div>
+          ) : null}
+        </div>
         <div
           ref={grid}
           className={['ni-pwalk__grid-board', invite === 'corner' ? 'ni-invite' : '']
@@ -510,7 +610,7 @@ export function PerimeterWalkWidget({
           data-size={size ? `${w}x${h}` : undefined}
           data-cell={cell}
           style={{
-            margin: `${DIM_TOP}px 0 0 ${DIM_LEFT}px`,
+            margin: `${DIM_TOP}px ${GRIP_OUT}px ${GRIP_OUT}px ${DIM_LEFT}px`,
             // Border-box: the squares fill the inside of the 3 px border.
             width: gridCols * cell + BORDER,
             height: gridRows * cell + BORDER,
@@ -520,8 +620,16 @@ export function PerimeterWalkWidget({
           onKeyDown={onGridKey}
         >
           {size ? (
+            <span
+              className="ni-pwalk__corner"
+              aria-hidden="true"
+              style={{ left: gripX, top: gripY, width: minT, height: minT }}
+            >
+              <GripIcon />
+            </span>
+          ) : null}
+          {size ? (
             <span className="ni-pwalk__rect" style={{ width: w * cell, height: h * cell }}>
-              <span className="ni-pwalk__corner" aria-hidden="true" />
               <span className="ni-pwalk__dim ni-pwalk__dim--w" aria-hidden="true">
                 {w}
               </span>
@@ -580,8 +688,7 @@ export function PerimeterWalkWidget({
       <div className="ni-pwalk__answer">
         {design ? (
           <>
-            {sign}
-            {areaSign}
+            {readout}
             <Stepper
               dim="w"
               less={t('ui.pwalk.col-less')}
@@ -634,6 +741,123 @@ export function PerimeterWalkWidget({
       {hand}
     </div>
   );
+}
+
+/** A side-number bubble: border and padding (px), and one 38 px digit's width. */
+const LABEL_EDGE = 26;
+const LABEL_DIGIT = 24;
+/** Bubbles keep this far from each other and from every side line (px). */
+const LABEL_GAP = 12;
+
+type Box = { l: number; t: number; r: number; b: number };
+const boxAt = (c: Pt, s: Pt): Box => ({
+  l: c[0] - s[0] / 2,
+  t: c[1] - s[1] / 2,
+  r: c[0] + s[0] / 2,
+  b: c[1] + s[1] / 2,
+});
+const gapOf = (a: Box, b: Box) => Math.max(b.l - a.r, a.l - b.r, b.t - a.b, a.t - b.b);
+
+function insidePolygon(p: Pt, poly: readonly Pt[]): boolean {
+  let inside = false;
+  for (let i = 0, j = poly.length - 1; i < poly.length; j = i, i += 1) {
+    const a = poly[i] as Pt;
+    const b = poly[j] as Pt;
+    if (
+      a[1] > p[1] !== b[1] > p[1] &&
+      p[0] < ((b[0] - a[0]) * (p[1] - a[1])) / (b[1] - a[1]) + a[0]
+    )
+      inside = !inside;
+  }
+  return inside;
+}
+
+/** Distance from a box to a segment (0 when they touch or cross). */
+function segmentToBox(a: Pt, b: Pt, box: Box): number {
+  let best = Number.POSITIVE_INFINITY;
+  for (let k = 0; k <= 40; k += 1) {
+    const x = a[0] + ((b[0] - a[0]) * k) / 40;
+    const y = a[1] + ((b[1] - a[1]) * k) / 40;
+    const dx = Math.max(box.l - x, 0, x - box.r);
+    const dy = Math.max(box.t - y, 0, y - box.b);
+    best = Math.min(best, Math.hypot(dx, dy));
+  }
+  return best;
+}
+
+/**
+ * Where each side's number goes (centres, px): outside the polygon beside the middle of its own
+ * side, along the side's outward normal; bubbles closer than 12 px slide along their own sides
+ * (away from each other, never past the side's ends), and any bubble nearer than 8 px to a side
+ * line is pushed further out.
+ */
+export function placeSideLabels(poly: readonly Pt[], sizes: readonly Pt[]): Pt[] {
+  const n = poly.length;
+  const sides = poly.map((a, i) => {
+    const b = poly[(i + 1) % n] as Pt;
+    const len = Math.hypot(b[0] - a[0], b[1] - a[1]) || 1;
+    const d: Pt = [(b[0] - a[0]) / len, (b[1] - a[1]) / len];
+    const mid: Pt = [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2];
+    let nrm: Pt = [-d[1], d[0]];
+    if (insidePolygon([mid[0] + nrm[0] * 2, mid[1] + nrm[1] * 2], poly)) nrm = [d[1], -d[0]];
+    return { a, b, len, d, mid, nrm };
+  });
+  const along = sides.map(() => 0);
+  const out = sides.map((s, i) => {
+    const sz = sizes[i] as Pt;
+    return Math.abs(s.nrm[0]) * (sz[0] / 2) + Math.abs(s.nrm[1]) * (sz[1] / 2) + 8;
+  });
+  const centre = (i: number): Pt => {
+    const s = sides[i] as (typeof sides)[number];
+    return [
+      s.mid[0] + s.d[0] * (along[i] as number) + s.nrm[0] * (out[i] as number),
+      s.mid[1] + s.d[1] * (along[i] as number) + s.nrm[1] * (out[i] as number),
+    ];
+  };
+  const box = (i: number) => boxAt(centre(i), sizes[i] as Pt);
+  // How far a bubble may slide along its side: to the side's end, or a little past it for a side
+  // shorter than the bubble (it stays beside that side, never beside another).
+  const slide = (k: number) => {
+    const s = sides[k] as (typeof sides)[number];
+    const sz = sizes[k] as Pt;
+    const across = Math.abs(s.d[0]) * sz[0] + Math.abs(s.d[1]) * sz[1];
+    return Math.max(s.len / 2, across / 2);
+  };
+  for (let round = 0; round < 60; round += 1) {
+    let moved = false;
+    for (let i = 0; i < n; i += 1) {
+      for (let j = i + 1; j < n; j += 1) {
+        const g = gapOf(box(i), box(j));
+        if (g >= LABEL_GAP) continue;
+        moved = true;
+        const step = (LABEL_GAP - g) / 2 + 1;
+        for (const [k, other] of [
+          [i, j],
+          [j, i],
+        ] as const) {
+          const s = sides[k] as (typeof sides)[number];
+          const ck = centre(k);
+          const co = centre(other);
+          const along_ = (ck[0] - co[0]) * s.d[0] + (ck[1] - co[1]) * s.d[1];
+          const away = (ck[0] - co[0]) * s.nrm[0] + (ck[1] - co[1]) * s.nrm[1];
+          const sign = Math.sign(along_) || 1;
+          const next = (along[k] as number) + sign * step;
+          if (Math.abs(next) <= slide(k)) along[k] = next;
+          // At the end of its side: move out along the normal only if that takes it away from
+          // the other bubble (two bubbles facing the same way would only travel together).
+          else if (away > 0) out[k] = (out[k] as number) + step;
+        }
+      }
+    }
+    for (let i = 0; i < n; i += 1) {
+      while (sides.some((s) => segmentToBox(s.a, s.b, box(i)) < 8) && (out[i] as number) < 400) {
+        out[i] = (out[i] as number) + 4;
+        moved = true;
+      }
+    }
+    if (!moved) break;
+  }
+  return sides.map((_, i) => centre(i));
 }
 
 /** One fewer / one more column (or row): two target-size buttons either side of an arrow. */
@@ -695,6 +919,36 @@ function Stepper({
         +
       </button>
     </div>
+  );
+}
+
+/** The corner grip: a see-through ring with four arrows (drag me any way). */
+function GripIcon() {
+  return (
+    <svg viewBox="0 0 64 64" width="100%" height="100%" aria-hidden="true" focusable="false">
+      <circle
+        cx="32"
+        cy="32"
+        r="28"
+        fill="rgb(255 255 255 / 0.35)"
+        stroke="var(--color-ink)"
+        strokeWidth="5"
+      />
+      <g fill="var(--color-ink)">
+        <path d="M32 8l7 9h-14z" />
+        <path d="M32 56l7-9h-14z" />
+        <path d="M8 32l9-7v14z" />
+        <path d="M56 32l-9-7v14z" />
+      </g>
+      <circle
+        cx="32"
+        cy="32"
+        r="6"
+        fill="var(--color-sunshine)"
+        stroke="var(--color-ink)"
+        strokeWidth="3"
+      />
+    </svg>
   );
 }
 
