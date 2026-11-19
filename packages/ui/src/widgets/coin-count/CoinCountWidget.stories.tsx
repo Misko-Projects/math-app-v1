@@ -445,3 +445,26 @@ export const CompareLandscapeMin: Story = {
     await expectFitsArea(canvasElement, root);
   },
 };
+
+const inviteController: WidgetDemo = createDemoController({ strict: true });
+
+/**
+ * Demo invite (03 §6.3): Pip invites the child to count the third coin: it is ringed and Pip's hand hangs under it. The story ends in the invited state, so the settled
+ * picture shows the ring and the hand.
+ */
+export const DemoInvite: Story = {
+  args: { disabled: true, demo: inviteController },
+  play: async ({ canvasElement }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    inviteController.invite({ op: 'count-up', args: { index: 2 } });
+    await waitFor(() => expect(root.querySelector('.ni-ccount__piece.ni-invite')).not.toBeNull());
+    await waitFor(() => expect(root.querySelector('.ni-invite-hand')).not.toBeNull());
+    const hand = root.querySelector('.ni-invite-hand') as HTMLElement;
+    await expect(hand).toBeVisible();
+    await expectPointerOn(
+      hand,
+      root.querySelector('.ni-ccount__piece.ni-invite') as HTMLElement,
+      root,
+    );
+  },
+};

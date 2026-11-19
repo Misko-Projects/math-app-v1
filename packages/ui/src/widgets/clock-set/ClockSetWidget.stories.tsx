@@ -361,3 +361,26 @@ export const LandscapeMinArea: Story = {
     await expectGeared(root, 12, 55);
   },
 };
+
+const inviteController: WidgetDemo = createDemoController({ strict: true });
+
+/**
+ * Demo invite (03 §6.3): Pip invites the child to turn the long hand: its button is ringed (the hand on the clock glows) and Pip's hand hangs under it. The story ends in the invited state, so the settled
+ * picture shows the ring and the hand.
+ */
+export const DemoInvite: Story = {
+  args: { disabled: true, demo: inviteController },
+  play: async ({ canvasElement }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    inviteController.invite({ op: 'drag-minute', args: { to: 30 } });
+    await waitFor(() => expect(root.querySelector('.ni-cset__handbtn.ni-invite')).not.toBeNull());
+    await waitFor(() => expect(root.querySelector('.ni-invite-hand')).not.toBeNull());
+    const hand = root.querySelector('.ni-invite-hand') as HTMLElement;
+    await expect(hand).toBeVisible();
+    await expectPointerOn(
+      hand,
+      root.querySelector('.ni-cset__handbtn.ni-invite') as HTMLElement,
+      root,
+    );
+  },
+};
