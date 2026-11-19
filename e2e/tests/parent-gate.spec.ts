@@ -47,8 +47,27 @@ test.describe('parent gate', () => {
     await expect(page.getByRole('heading', { name: 'Grown-ups only' })).toBeVisible();
   });
 
+  test('a page whose file cannot load shows a calm error screen with safe ways out', async ({
+    page,
+  }) => {
+    // No pairing needed (the API limits pairing tries): the page's file fails before any gate.
+    // Diagnostics' file never arrives (as if the device went offline before fetching it).
+    await page.route(/DiagnosticsPage-[^/]*\.js$/, (route) => route.abort('internetdisconnected'));
+    await page.goto('/parent/diagnostics');
+    const screen = page.getByTestId('route-error');
+    await expect(screen).toBeVisible();
+    await expect(
+      screen.getByRole('heading', { name: 'This part of the island didn’t open' }),
+    ).toBeVisible();
+    await expect(screen.getByRole('button', { name: 'Try again' })).toBeVisible();
+    await screen.getByRole('button', { name: 'Back to the island' }).click();
+    await expect(page).toHaveURL(/\/$/);
+    await expect(page.getByTestId('route-error')).toHaveCount(0);
+  });
+
   test('is entered from the corner of the child home, and closes when the device signs out', async ({
     page,
+    context,
   }) => {
     await pairThisContext(page, 'Corner test device');
     await page.goto('/');
@@ -66,6 +85,26 @@ test.describe('parent gate', () => {
     for (const d of E2E_FAMILY.pin)
       await page.getByRole('button', { name: d, exact: true }).click();
     await page.getByRole('button', { name: 'Unlock' }).click();
+    await expect(page.getByRole('heading', { name: 'Parent area' })).toBeVisible();
+
+    // Diagnostics still opens after the connection drops: the parent pages load on demand, and
+    // the app fetched them in the background once it was idle.
+    await expect
+      .poll(() =>
+        page.evaluate(() =>
+          performance.getEntriesByType('resource').some((e) => /DiagnosticsPage-/.test(e.name)),
+        ),
+      )
+      .toBe(true);
+    await context.setOffline(true);
+    try {
+      await page.getByRole('link', { name: 'diagnostics page' }).click();
+      await expect(page.getByRole('heading', { name: 'Diagnostics' })).toBeVisible();
+      await expect(page.getByTestId('route-error')).toHaveCount(0);
+    } finally {
+      await context.setOffline(false);
+    }
+    await page.goBack();
     await expect(page.getByRole('heading', { name: 'Parent area' })).toBeVisible();
 
     // Back to the island locks the area: the browser's Back shows the gate, not the parent page.

@@ -17,10 +17,10 @@ import type { GateHeldState } from '@/parent/ParentGateScreen';
 import { ChildUi, useAppServices } from '../AppServices';
 import { recordDiagnostic } from '../diagnostics';
 import { useAudioState } from '../hooks';
-
+import { loadPicturePad } from '../lazyRoutes';
 import { useSession } from '../session/SessionProvider';
 import { ChildAvatar } from './ChildAvatar';
-import { PicturePad } from './PicturePad';
+import type { PicturePad } from './PicturePad';
 import { RestingOverlay, type RestingReason } from './RestingOverlay';
 import { TapToStart } from './TapToStart';
 
@@ -29,7 +29,8 @@ export const NAME_WAIT_MS = 1400;
 
 type Phase =
   | { kind: 'pick' }
-  | { kind: 'password'; child: ChildProfile }
+  // The pad loads on demand (lazyRoutes); the phase carries it once loaded.
+  | { kind: 'password'; child: ChildProfile; Pad: typeof PicturePad }
   | { kind: 'resting'; reason: RestingReason; opensAt?: string | undefined };
 
 /** Balanced rows: 1–4 in one row, 5–6 as 3 + 3, 7–8 as 4 + 4 (no scroll at 1280×800 for ≤ 6). */
@@ -154,6 +155,9 @@ function PickerScreen() {
     if (busy.current || locked || phase.kind !== 'pick') return;
     busy.current = true;
     setSelected(child.id);
+    // The pad's file loads while the name is spoken (it is usually fetched already, at idle).
+    const pad = child.picturePasswordHash ? loadPicturePad() : null;
+    pad?.catch(() => {}); // awaited below, or not needed when the start is refused
     try {
       audio.cancelSpeech();
       // Names aren't pre-rendered: on-device Web Speech says them (02 §5.5).
@@ -163,8 +167,10 @@ function PickerScreen() {
       if (!allowed.ok) {
         setSelected(null);
         setPhase({ kind: 'resting', reason: allowed.reason, opensAt: allowed.opensAt });
-      } else if (child.picturePasswordHash) {
-        setPhase({ kind: 'password', child });
+      } else if (pad) {
+        const { PicturePad: Pad } = await pad;
+        if (!mounted.current) return;
+        setPhase({ kind: 'password', child, Pad });
       } else {
         await begin(child);
       }
@@ -224,7 +230,7 @@ function PickerScreen() {
       </main>
 
       {phase.kind === 'password' ? (
-        <PicturePad
+        <phase.Pad
           child={phase.child}
           index={indexOf(phase.child.id)}
           onClose={backToPicker}
