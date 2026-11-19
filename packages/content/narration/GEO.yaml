@@ -1,0 +1,54 @@
+# GEO narration (03 §8): skill intros and template prompts owned by the strand.
+sk.GEO.01.intro:
+  text: "A big triangle and a little triangle are the same shape!"
+sk.GEO.02.intro:
+  text: "Count sides and corners to tell a shape. Size does not count."
+sk.GEO.05.intro:
+  text: "Let's tell where things are!"
+sk.GEO.06.intro:
+  text: "Some shapes are flat. Some shapes are solid."
+sk.GEO.07.intro:
+  text: "A ball is a sphere. Let's find more solid shapes!"
+sk.GEO.08.intro:
+  text: "Let's count sides and corners to compare shapes."
+sk.GEO.09.intro:
+  text: "Let's build shapes with sticks and corners."
+sk.GEO.10.intro:
+  text: "Two shapes can make a new shape!"
+sk.GEO.11.intro:
+  text: "Put shapes together to make a big picture."
+
+tp.GEO.01.t1.prompt:
+  text: "Sort the blocks. Put each one with its shape."
+tp.GEO.06.t1.prompt:
+  text: "Put each flat shape and each solid shape in its bin."
+tp.GEO.06.t2.prompt:
+  text: "Which one is {w|word}?"
+tp.GEO.07.t1.prompt:
+  text: "Sort the things by shape."
+tp.GEO.07.t3.prompt:
+  text: "Which thing looks like a {kind|shape:one}?"
+tp.GEO.08.t1.prompt:
+  text: "Which ones can roll? Sort them."
+tp.GEO.08.t2.prompt:
+  text: "Sort the shapes by how many corners they have."
+tp.GEO.08.t3.prompt:
+  text: "Which shape has more {w|word}? Are they the same?"
+tp.GEO.08.t4.prompt:
+  text: "Which shape has sides that are all the same?"
+tp.GEO.02.t1.prompt:
+  text: "Draw a closed shape with {sides} sides."
+tp.GEO.05.t1.prompt:
+  text: "Put the {item|noun:one} {rel|word} the {anchor|noun:one}."
+tp.GEO.05.t2.prompt:
+  text: "The {item|noun:one} is {rel|word} the {anchor|noun:one}. Where is the {anchor|noun:one}?"
+tp.GEO.09.t1.prompt:
+  text: "Make a {kind|shape:one} with sticks."
+tp.GEO.09.t2.prompt:
+  text: "Draw a {kind|shape:one} on the dots."
+tp.GEO.09.t3.prompt:
+  text: "Find every shape with {sides} straight sides."
+tp.GEO.10.t3.prompt:
+  text: "Which two shapes make this {whole|shape:one}?"
+tp.GEO.11.t3.prompt:
+  text: "How many {piece|shape:many} make this {whole|shape:one}?"

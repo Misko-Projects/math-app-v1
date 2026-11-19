@@ -58,7 +58,12 @@ export function hiddenTerms(terms: number[], hide: Hide): number[] {
  * A number path (or line) that labels only the terms shown, with '?' on the hidden ones, so the
  * picture never gives a blank away (number-pad on the number-path or number-line representation).
  */
-function partialPath(terms: number[], hidden: number[], step: number): StimulusSpec {
+function partialPath(
+  terms: number[],
+  hidden: number[],
+  step: number,
+  arrowAt?: number,
+): StimulusSpec {
   const lo = Math.min(...terms);
   const hi = Math.max(...terms);
   return {
@@ -67,7 +72,31 @@ function partialPath(terms: number[], hidden: number[], step: number): StimulusS
     max: hi + step,
     ticksEvery: step,
     labelsEvery: null,
-    marks: terms.map((v) => ({ at: v, label: hidden.includes(v) ? '?' : String(v) })),
+    marks: terms.map((v) => ({
+      at: v,
+      label: hidden.includes(v) ? '?' : String(v),
+      ...(v === arrowAt ? { arrow: true } : {}),
+    })),
+  };
+}
+
+/**
+ * A number line with ticks every step and only its two ends labelled: a counting aid that names no
+ * term of the sequence (the level-3 picture for an order item, whose answer is every term).
+ */
+function endsOnlyLine(terms: number[], step: number): StimulusSpec {
+  const lo = Math.min(...terms);
+  const hi = Math.max(...terms);
+  const min = Math.max(0, lo - step);
+  const max = hi + step;
+  return {
+    kind: 'number-line',
+    min,
+    max,
+    ticksEvery: step,
+    labelsEvery: null,
+    // An end that is itself a term (0 when the sequence reaches 0) stays unlabelled.
+    marks: [min, max].filter((v) => !terms.includes(v)).map((v) => ({ at: v, label: String(v) })),
   };
 }
 
@@ -160,20 +189,18 @@ export const countSequence: GeneratorDef = {
       zero: terms.slice(1).includes(0) ? 1 : 0,
     };
     const vars = pickVars(t, { start, last, step, length });
-    const path: StimulusSpec = {
-      kind: 'number-line',
-      min: Math.max(0, lo - 2 * step),
-      max: hi + 2 * step,
-      ticksEvery: step,
-      labelsEvery: step,
-      marks: [{ at: start, arrow: true }],
-    };
     const hiddenAfter = hiddenTerms(terms, asStrHide(params.hide));
     const onPath = t.representation === 'number-path' || t.representation === 'number-line';
     let p: PartialOutput;
     switch (t.format) {
       case 'numeral-pick': {
         const opts = numberOptions(t, params, length === 1 ? next : last, rng);
+        // Label the start (with its arrow) and the shown terms only; the asked term is '?', so
+        // neither the picture nor the level-3 overlay names the answer (#12 evidence, CNT.09.t3).
+        // The asked term is always hidden too: with hide: between, the pick asks for the last
+        // term, which the sequence itself would otherwise show.
+        const asked = length === 1 ? next : last;
+        const path = partialPath(terms, [...new Set([...hiddenAfter, asked])], step, start);
         p = {
           params,
           vars,
@@ -261,7 +288,7 @@ export const countSequence: GeneratorDef = {
             direction: dir > 0 ? 'asc' : 'desc',
           },
           answer: { kind: 'numbers', values: sorted, ordered: true },
-          overlay: path,
+          overlay: endsOnlyLine(terms, step),
         };
         break;
       }

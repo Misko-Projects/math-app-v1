@@ -1624,9 +1624,8 @@ describe('format registry', () => {
     allowMatchLines: false,
   };
 
-  it('registers exactly the 11 fixture formats', () => {
-    expect(formatModels()).toHaveLength(11);
-    expect([...formatModels()].sort()).toEqual([...formats].sort());
+  it('registers the 11 fixture formats (U03–U05 add theirs; formats-u04.test.ts covers U04)', () => {
+    expect(formatModels()).toEqual(expect.arrayContaining(formats));
   });
 
   it.each(MODEL_ROWS.map((r) => [r.model.format as string, r] as const))(
@@ -1650,10 +1649,11 @@ describe('format registry', () => {
     expect(formatFeatureValues(compare, { kind: 'choice', id: 'left' })).toEqual({});
   });
 
-  it('every feature has a positive weight and a doc', () => {
+  it('every feature has a non-zero weight and a doc', () => {
     for (const f of formatModels()) {
       for (const [name, feat] of Object.entries(formatFeatures(f))) {
-        expect(feat.weight, `${f}.${name}`).toBeGreaterThan(0);
+        // 03 §5.5 gives a few format features a negative prior (mode.read, mode.build, predealt).
+        expect(feat.weight, `${f}.${name}`).not.toBe(0);
         expect(feat.doc.length, `${f}.${name}`).toBeGreaterThan(0);
       }
     }

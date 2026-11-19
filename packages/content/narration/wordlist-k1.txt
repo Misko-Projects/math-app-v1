@@ -8,6 +8,7 @@ adds
 after
 again
 all
+along
 am
 an
 and
@@ -27,6 +28,7 @@ away
 baby
 back
 bakery
+balance
 ball
 balls
 basket
@@ -48,10 +50,14 @@ between
 big
 bigger
 biggest
+bin
+bins
 bird
 birds
 birthday
 black
+block
+blocks
 blue
 boat
 boats
@@ -83,6 +89,8 @@ came
 can
 can't
 car
+card
+cards
 carefully
 carry
 cars
@@ -101,6 +109,8 @@ clam
 clams
 clay
 clock
+close
+closed
 closely
 coat
 coin
@@ -122,6 +132,7 @@ counter
 counters
 counting
 counts
+cover
 cow
 crab
 crabs
@@ -130,6 +141,7 @@ crates
 crew
 cube
 cubes
+curved
 cylinder
 cylinders
 dance
@@ -151,6 +163,7 @@ double
 doubles
 down
 drag
+draw
 driftwood
 drum
 duck
@@ -160,6 +173,8 @@ east
 eat
 eating
 eats
+edge
+edges
 egg
 eggs
 eight
@@ -180,6 +195,7 @@ factory
 facts
 farm
 farmer
+farther
 fast
 father
 feet
@@ -201,6 +217,7 @@ fireflies
 firefly
 first
 fish
+fit
 five
 flag
 flags
@@ -229,6 +246,8 @@ fun
 funny
 game
 games
+gap
+gaps
 garden
 gem
 gems
@@ -282,6 +301,9 @@ hi
 hill
 him
 his
+hold
+holding
+holds
 home
 homes
 hooray
@@ -316,6 +338,8 @@ jumping
 jumps
 just
 kept
+kind
+kinds
 kite
 kites
 kitty
@@ -328,6 +352,7 @@ lands
 lantern
 lanterns
 last
+lay
 leaf
 learn
 least
@@ -337,6 +362,8 @@ less
 let
 let's
 letter
+level
+lift
 light
 lighter
 lighthouse
@@ -351,6 +378,7 @@ live
 lives
 loaf
 loaves
+log
 long
 longer
 longest
@@ -366,11 +394,13 @@ makes
 making
 man
 many
+mark
 market
 match
 may
 me
 measure
+measured
 men
 middle
 milk
@@ -419,6 +449,7 @@ orchard
 order
 our
 out
+outline
 outside
 over
 pair
@@ -438,6 +469,8 @@ pebblings
 pick
 picture
 pie
+piece
+pieces
 pier
 pies
 pig
@@ -484,6 +517,8 @@ road
 robin
 rod
 rods
+roll
+rolls
 rope
 round
 row
@@ -575,7 +610,9 @@ stops
 storehouse
 storm
 story
+straight
 street
+string
 sun
 super
 table
@@ -615,6 +652,8 @@ three
 ticket
 tickets
 time
+tip
+tips
 to
 together
 too
@@ -639,6 +678,8 @@ tries
 try
 trying
 turn
+turned
+turning
 turtle
 turtles
 twelve

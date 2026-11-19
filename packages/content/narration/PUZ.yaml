@@ -1,0 +1,6 @@
+# PUZ narration (03 §8): skill intros and template prompts owned by the strand.
+sk.PUZ.03.intro:
+  text: "Here is a shape puzzle. Can you fill the whole outline?"
+
+tp.PUZ.03.t2.prompt:
+  text: "Fill the outline with {rects} {rk|shape:rects} and {squares} {sk|shape:squares}."

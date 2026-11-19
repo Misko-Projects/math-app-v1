@@ -36,6 +36,27 @@ export const WORD_IDS = [
   'yes',
   'no',
   'box',
+  // K01: geometry and measurement words (GEO, MEA.15)
+  'flat',
+  'solid',
+  'sides',
+  'corners',
+  'heavy',
+  'light',
+  'long',
+  'short',
+  'heavier',
+  'longer',
+  'holds-more',
+  'holds-less',
+  'above',
+  'below',
+  'beside',
+  'next-to',
+  'in-front-of',
+  'behind',
+  'left-of',
+  'right-of',
 ] as const;
 
 export const TIME_IDS = [

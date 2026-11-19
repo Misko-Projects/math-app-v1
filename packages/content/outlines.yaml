@@ -1,3 +1,112 @@
-# Shape outlines for the geo.compose generator (03 §5.6). Stub: K01 adds the outlines GEO.10,
-# GEO.11 and PUZ.03 use. Each outline is a closed polygon on the pattern-block grid.
-outlines: []
+# Shape outlines for the geo.compose generator (03 §5.6): GEO.10, GEO.11 and PUZ.03.
+# The engine table packages/engine/src/generators/geo/outlines.ts is the source of each outline's
+# geometry and reference tiling; packages/engine/src/generators/geo/outlines.test.ts keeps this file
+# in step with it (ids, points to 6 decimals, pieces).
+# Pattern-block and shapes-kit outlines: x right, y up, one unit = one block side; `pieces` are the
+# pieces of the reference tiling. grid-* outlines are puzzle-grid shape-fill outlines on square
+# cells (x = column, y = row counted down from the top).
+outlines:
+  - id: rhombus-from-triangles
+    points: [[0, 0], [1, 0], [1.5, 0.866025], [0.5, 0.866025]]
+    pieces: [triangle, triangle]
+  - id: hexagon-from-trapezoids
+    points: [[0, 0], [1, 0], [1.5, 0.866025], [1, 1.732051], [0, 1.732051], [-0.5, 0.866025]]
+    pieces: [trapezoid, trapezoid]
+  - id: trapezoid-from-triangle-rhombus
+    points: [[0, 0], [2, 0], [1.5, 0.866025], [0.5, 0.866025]]
+    pieces: [triangle, rhombus]
+  - id: triangle-from-trapezoid-triangle
+    points: [[0, 0], [2, 0], [1, 1.732051]]
+    pieces: [trapezoid, triangle]
+  - id: house
+    points: [[0, 0], [1, 0], [1, 1], [0.5, 1.866025], [0, 1]]
+    pieces: [square, triangle]
+  - id: rectangle-from-squares
+    points: [[0, 0], [2, 0], [2, 1], [0, 1]]
+    pieces: [square, square]
+  - id: square-from-rectangles
+    points: [[0, 0], [2, 0], [2, 2], [0, 2]]
+    pieces: [rectangle, rectangle]
+  - id: long-rectangle
+    points: [[0, 0], [3, 0], [3, 1], [0, 1]]
+    pieces: [rectangle, square]
+  - id: corner-shape
+    points: [[0, 0], [2, 0], [2, 1], [1, 1], [1, 2], [0, 2]]
+    pieces: [rectangle, square]
+  - id: trapezoid-from-triangles
+    points: [[0, 0], [2, 0], [1.5, 0.866025], [0.5, 0.866025]]
+    pieces: [triangle, triangle, triangle]
+  - id: hexagon-from-rhombuses
+    points: [[0, 0], [1, 0], [1.5, 0.866025], [1, 1.732051], [0, 1.732051], [-0.5, 0.866025]]
+    pieces: [rhombus, rhombus, rhombus]
+  - id: hexagon-from-triangles
+    points: [[0, 0], [1, 0], [1.5, 0.866025], [1, 1.732051], [0, 1.732051], [-0.5, 0.866025]]
+    pieces: [triangle, triangle, triangle, triangle, triangle, triangle]
+  - id: hexagon-from-three-kinds
+    points: [[0, 0], [1, 0], [1.5, 0.866025], [1, 1.732051], [0, 1.732051], [-0.5, 0.866025]]
+    pieces: [trapezoid, triangle, rhombus]
+  - id: big-triangle-from-triangles
+    points: [[0, 0], [2, 0], [1, 1.732051]]
+    pieces: [triangle, triangle, triangle, triangle]
+  - id: boat
+    points:
+      [
+        [0.5, 0],
+        [1.5, 0],
+        [2, 0.866025],
+        [1.5, 0.866025],
+        [2, 1.732051],
+        [1, 1.732051],
+        [0.5, 0.866025],
+        [0, 0.866025],
+      ]
+    pieces: [trapezoid, triangle, triangle]
+  - id: star
+    points:
+      [
+        [0, 0],
+        [0.5, -0.866025],
+        [1, 0],
+        [2, 0],
+        [1.5, 0.866025],
+        [2, 1.732051],
+        [1, 1.732051],
+        [0.5, 2.598076],
+        [0, 1.732051],
+        [-1, 1.732051],
+        [-0.5, 0.866025],
+        [-1, 0],
+      ]
+    pieces: [hexagon, triangle, triangle, triangle, triangle, triangle, triangle]
+  - id: big-square-from-squares
+    points: [[0, 0], [2, 0], [2, 2], [0, 2]]
+    pieces: [square, square, square, square]
+  - id: wide-rectangle
+    points: [[0, 0], [3, 0], [3, 2], [0, 2]]
+    pieces: [rectangle, rectangle, rectangle]
+  - id: grid-block
+    points: [[0, 0], [3, 0], [3, 2], [0, 2]]
+  - id: grid-corner
+    points: [[0, 0], [1, 0], [1, 2], [3, 2], [3, 3], [0, 3]]
+  - id: grid-steps
+    points: [[0, 0], [1, 0], [1, 1], [2, 1], [2, 2], [3, 2], [3, 3], [0, 3]]
+  - id: grid-cross
+    points:
+      [
+        [1, 0],
+        [2, 0],
+        [2, 1],
+        [3, 1],
+        [3, 2],
+        [2, 2],
+        [2, 3],
+        [1, 3],
+        [1, 2],
+        [0, 2],
+        [0, 1],
+        [1, 1],
+      ]
+  - id: grid-tower
+    points: [[1, 0], [2, 0], [2, 1], [3, 1], [3, 4], [0, 4], [0, 1], [1, 1]]
+  - id: grid-big
+    points: [[0, 0], [4, 0], [4, 2], [0, 2]]

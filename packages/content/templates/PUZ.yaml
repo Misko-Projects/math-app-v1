@@ -1,0 +1,42 @@
+# K01 (#11) PUZ templates. PUZ.03 uses geo.compose: a pattern-block design with no guide lines, and
+# a puzzle-grid shape-fill (cover a grid outline with the listed squares and rectangles).
+strand: PUZ
+templates:
+  - id: PUZ.03.t1
+    skillId: PUZ.03
+    format: shape-compose
+    tier: concrete
+    representation: pattern-blocks
+    generator: geo.compose
+    params:
+      outline:
+        {
+          choice:
+            [
+              star,
+              boat,
+              hexagon-from-three-kinds,
+              hexagon-from-triangles,
+              big-triangle-from-triangles,
+            ],
+        }
+      linesHidden: true
+      extra: { bool: 0.5 }
+    difficulty: { base: -1.8 }
+    narration:
+      prompt: p.geo.fill-outline
+      hints: [h.geo.outline-edges, h.geo.turn-piece]
+
+  - id: PUZ.03.t2
+    skillId: PUZ.03
+    format: puzzle-grid
+    tier: pictorial
+    representation: shapes
+    generator: geo.compose
+    params:
+      outline: { choice: [grid-block, grid-corner, grid-steps, grid-cross, grid-tower, grid-big] }
+      pieces: { int: [3, 9] }
+    difficulty: { base: -0.8 }
+    narration:
+      prompt: tp.PUZ.03.t2.prompt
+      hints: [h.geo.grid-rects]

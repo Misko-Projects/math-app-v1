@@ -162,7 +162,17 @@ const COUNT_SEQUENCE: Case[] = [
     t: tpl('count.sequence', 'numeral-pick', { representation: 'number-path' }),
     params: { start: 7 },
     answer: { kind: 'choice', id: 'opt-8' },
-    widget: { stimulus: { kind: 'number-line', marks: [{ at: 7, arrow: true }] } },
+    // Only the start is labelled; the asked term is '?' (never its numeral).
+    widget: {
+      stimulus: {
+        kind: 'number-line',
+        labelsEvery: null,
+        marks: [
+          { at: 7, label: '7', arrow: true },
+          { at: 8, label: '?' },
+        ],
+      },
+    },
   },
   {
     name: 'numeral-pick length 3 asks for the last term',
@@ -1063,13 +1073,19 @@ describe('addsub family enforcement', () => {
 // ---------- registry ----------
 
 describe('registry', () => {
-  it('has exactly the five reference generators and the K01 generators', () => {
+  it('has exactly the registered generators', () => {
     expect(registry.ids()).toEqual([
       'addsub.facts',
       'bond.parts',
       'count.ordinal',
       'count.sequence',
       'count.set',
+      'geo.compose',
+      'geo.draw',
+      'geo.identify',
+      'geo.position',
+      'mea.length',
+      'mea.massvolume',
       'subitize.flash',
     ]);
     expect(

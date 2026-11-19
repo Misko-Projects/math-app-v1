@@ -84,6 +84,22 @@ describe('the C01 fixture set (03 §9.5)', () => {
       'CPS.01',
       'CPS.02',
       'CPS.03',
+      'GEO.01',
+      'GEO.02',
+      'GEO.05',
+      'GEO.06',
+      'GEO.07',
+      'GEO.08',
+      'GEO.09',
+      'GEO.10',
+      'GEO.11',
+      'MEA.01',
+      'MEA.02',
+      'MEA.07',
+      'MEA.15',
+      'MEA.16',
+      'MEA.22',
+      'PUZ.03',
       'SUB.01',
       'SUB.02',
       'SUB.03',
@@ -91,12 +107,14 @@ describe('the C01 fixture set (03 §9.5)', () => {
       'SUB.06',
     ]);
     expect(result.content?.misconceptions.map((m) => m.id)).toEqual([
+      'MC.bigger-unit-more',
       'MC.count-all-instead',
       'MC.count-start-number',
       'MC.decade-transition',
       'MC.off-by-one-counting',
       'MC.recount-from-one',
       'MC.teen-reversal',
+      'MC.unit-gaps',
     ]);
   });
 
@@ -109,6 +127,16 @@ describe('the C01 fixture set (03 §9.5)', () => {
       new Set([
         'count.set',
         'count.sequence',
+        'subitize.flash',
+        'bond.parts',
+        'addsub.facts',
+        // K01 (#11): geometry and measurement
+        'geo.identify',
+        'geo.compose',
+        'geo.position',
+        'geo.draw',
+        'mea.length',
+        'mea.massvolume',
         'count.ordinal',
         'subitize.flash',
         'bond.parts',
@@ -128,6 +156,14 @@ describe('the C01 fixture set (03 §9.5)', () => {
         'hundred-chart',
         'order',
         'rekenrek',
+        // K01 (#11): geometry and measurement formats
+        'balance',
+        'compare',
+        'compare-length',
+        'measure-length',
+        'puzzle-grid',
+        'shape-compose',
+        'shape-sort',
       ]),
     );
   });
@@ -1556,9 +1592,9 @@ describe('V24 and contentVersion (03 §9.1)', () => {
     expect(manifest.schemaVersion).toBe(1);
     // Pinned to the current content; K01 (#11) updates these numbers as each strand group lands.
     expect(manifest.counts).toEqual({
-      skills: 25,
-      templates: 86,
-      misconceptions: 6,
+      skills: 41,
+      templates: 128,
+      misconceptions: 8,
       narrationKeys: Object.keys(r.content?.narration ?? {}).length,
     });
     expect(Object.keys(manifest.files).sort()).toEqual([
@@ -1581,13 +1617,13 @@ describe('graph.json (03 §9.1)', () => {
     const pos = new Map(g?.nodes.map((id, i) => [id, i]));
     for (const [from, to] of g?.edges ?? [])
       expect(pos.get(from) as number).toBeLessThan(pos.get(to) as number);
-    expect(g?.roots).toEqual(['CNT.01', 'SUB.01']);
+    expect(g?.roots).toEqual(['CNT.01', 'GEO.01', 'GEO.05', 'MEA.15', 'SUB.01']);
     expect(g?.gateways).toEqual(['CNT.03', 'CNT.14', 'CPS.02', 'SUB.03']);
     expect(g?.depth['CNT.01']).toBe(0);
     expect(g?.depth['ADD.03']).toBe(6); // CNT.01 → 02 → 03 → 04 → 06 → 07 → ADD.03
     expect(g?.descendants2['CPS.03']).toBe(0);
-    // CNT.07, CNT.15; then ADD.03, CNT.08, CNT.09, CNT.14 (through CNT.07)
-    expect(g?.descendants2['CNT.06']).toBe(6);
+    // CNT.07, CNT.15, MEA.02; then ADD.03, CNT.08, CNT.09, CNT.14 and MEA.22
+    expect(g?.descendants2['CNT.06']).toBe(8);
     expect(g?.encompasses).toEqual([
       ['CNT.06', 'CNT.04', 1],
       ['CNT.06', 'CNT.05', 0.5],
