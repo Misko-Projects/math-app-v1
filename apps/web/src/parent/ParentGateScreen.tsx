@@ -4,6 +4,7 @@
 import { Panel } from '@number-island/ui';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router';
+import { useDeviceRecord } from '@/app/hooks';
 import type { PinResult } from './gate';
 import { HoldToOpen } from './HoldToOpen';
 import { Button, GateIcon, Notice } from './kit';
@@ -36,7 +37,9 @@ function failureText(result: Exclude<PinResult, { ok: true }>): string {
         : 'Too many tries. Wait a few minutes, then try again.';
     }
     case 'unavailable':
-      return 'This device needs the island server the first time it opens the parent area. Connect to the same Wi-Fi as the server and try again.';
+      return 'The parent area needs your island server to check the PIN. Connect to the same Wi-Fi as the server and try again. (Playing works offline.)';
+    case 'not_paired':
+      return 'This device is no longer part of your family. Join again with a code from a parent device.';
   }
 }
 
@@ -44,6 +47,8 @@ export function ParentGateScreen() {
   const location = useLocation();
   const navigate = useNavigate();
   const gate = useParentGate();
+  const device = useDeviceRecord();
+  const signedOut = device !== undefined && !device.deviceToken;
   const [held, setHeld] = useState(() => heldRecently(location.state));
   const [pin, setPin] = useState('');
   const [busy, setBusy] = useState(false);
@@ -108,7 +113,17 @@ export function ParentGateScreen() {
           <h1 className="font-display text-3xl font-extrabold">Grown-ups only</h1>
         </div>
 
-        {!held ? (
+        {signedOut ? (
+          // The PIN is checked by the server for this device (08 §2): without a family token there
+          // is nothing to check it with, so the way back in is pairing again.
+          <div className="mt-6 flex flex-col items-center gap-5 text-center">
+            <Notice tone="info">
+              This device isn’t signed in to a family, so the parent area is closed here. Pair it
+              again with a code from a parent device.
+            </Notice>
+            <Button onClick={() => navigate('/join')}>Join with a code</Button>
+          </div>
+        ) : !held ? (
           <div className="mt-6 flex flex-col items-center gap-5 text-center">
             <p className="text-lg">Press and hold the lock for 2 seconds.</p>
             <HoldToOpen size="large" onOpen={() => setHeld(true)} />

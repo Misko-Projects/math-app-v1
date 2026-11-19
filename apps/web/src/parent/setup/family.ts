@@ -98,7 +98,6 @@ export async function createFamily(
   });
   // `/setup` set the parent session cookie: the parent is signed in for the rest of the wizard.
   gate.unlock();
-  await gate.rememberPin(details.pin);
   const device = await services.sync.adopt(ids);
   const { store } = services;
   const created: ChildProfile[] = [];

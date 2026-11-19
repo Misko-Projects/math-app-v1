@@ -2,25 +2,14 @@ import { childProfileSchema } from '@number-island/shared';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { AppServices } from '@/app/boot/boot';
 import { SERVER_DEVICE, SERVER_FAMILY, TOKEN, testDevice } from '@/app/boot/boot.test-support';
-import { hashLocalSecret } from '@/app/localHash';
 import { ApiError, type ParentApi } from '../api';
-import { createParentGate, type KeyValueStorage, PARENT_PIN_STORAGE_KEY } from '../gate';
+import { createParentGate } from '../gate';
 import { createFamily, guessDeviceName, joinFamily, saveAiChoices, startingAvatar } from './family';
 
 const open: AppServices[] = [];
 afterEach(() => {
   for (const s of open.splice(0)) s.dispose();
 });
-
-function memoryStorage(): KeyValueStorage & { data: Map<string, string> } {
-  const data = new Map<string, string>();
-  return {
-    data,
-    getItem: (k) => data.get(k) ?? null,
-    setItem: (k, v) => void data.set(k, v),
-    removeItem: (k) => void data.delete(k),
-  };
-}
 
 function fakeApi(overrides: Partial<ParentApi> = {}): ParentApi {
   const ids = { familyId: SERVER_FAMILY, deviceId: SERVER_DEVICE, deviceToken: TOKEN };
@@ -51,13 +40,7 @@ describe('createFamily (Setup Wizard)', () => {
   it('creates the family, pairs this device, writes the children and starts syncing', async () => {
     const { app, device } = await boot();
     const api = fakeApi();
-    const storage = memoryStorage();
-    const gate = createParentGate({
-      store: app.store,
-      api,
-      storage,
-      hash: (s) => hashLocalSecret(s, 1000),
-    });
+    const gate = createParentGate({ store: app.store, api });
 
     const kids = await createFamily(
       { services: app, api, gate },
@@ -87,7 +70,7 @@ describe('createFamily (Setup Wizard)', () => {
     });
     expect(app.sync.isRunning()).toBe(true);
     expect(gate.isUnlocked()).toBe(true);
-    expect(storage.data.get(PARENT_PIN_STORAGE_KEY)).toBeDefined();
+    expect(localStorage.length).toBe(0); // nothing about the PIN stays on the device
 
     expect(kids.map((k) => [k.name, k.grade, k.advanced])).toEqual([
       ['Mia', 'K', false],
@@ -118,7 +101,7 @@ describe('createFamily (Setup Wizard)', () => {
         throw new ApiError('setup_closed', 409, 'closed');
       }),
     });
-    const gate = createParentGate({ store: app.store, api, storage: memoryStorage() });
+    const gate = createParentGate({ store: app.store, api });
     await expect(
       createFamily(
         { services: app, api, gate },
