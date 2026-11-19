@@ -203,7 +203,49 @@ export function Eye({ x, y, r = 10, edge = 'ink', look = [0, 0], sclera = true }
   );
 }
 
-/** A pair of eyes that blink together (theme `--animate-blink`). */
+/** A closed eye: one clean curved lid line (no squashed eye, so no slivers at small sizes). */
+function Lid({ x, y, r }: { x: number; y: number; r: number }) {
+  return (
+    <path
+      d={`M${x - r * 0.8} ${y}Q${x} ${y + r * 0.6} ${x + r * 0.8} ${y}`}
+      fill="none"
+      stroke={paint('ink')}
+      strokeWidth={Math.max(2.5, r * 0.3)}
+      strokeLinecap="round"
+    />
+  );
+}
+
+/**
+ * Eyes that blink (art.css `art-blink-open` / `art-blink-lid`, 5 s): for a moment the open eyes hide
+ * and curved lids show. Under reduced motion the eyes stay open and the lids hidden.
+ */
+export function Blink({
+  eyes,
+  delay,
+  children,
+}: {
+  eyes: readonly { x: number; y: number; r: number }[];
+  delay?: number;
+  children: ReactNode;
+}) {
+  const style: CSSProperties | undefined =
+    delay !== undefined ? { animationDelay: `${delay}s` } : undefined;
+  return (
+    <g data-part="blink">
+      <g className="motion-loop art-blink-open" style={style}>
+        {children}
+      </g>
+      <g className="motion-loop art-blink-lid" style={style} data-part="lids" aria-hidden="true">
+        {eyes.map((e) => (
+          <Lid key={`${e.x},${e.y}`} {...e} />
+        ))}
+      </g>
+    </g>
+  );
+}
+
+/** A pair of eyes that blink together. */
 export function Eyes({
   left,
   right,
@@ -214,11 +256,18 @@ export function Eyes({
   right: readonly [number, number];
   delay?: number;
 }) {
+  const r = eye.r ?? 10;
   return (
-    <g {...loopProps('blink', { delay })}>
+    <Blink
+      eyes={[
+        { x: left[0], y: left[1], r },
+        { x: right[0], y: right[1], r },
+      ]}
+      delay={delay}
+    >
       <Eye x={left[0]} y={left[1]} {...eye} />
       <Eye x={right[0]} y={right[1]} {...eye} />
-    </g>
+    </Blink>
   );
 }
 

@@ -575,15 +575,24 @@ export const ColourVision: Story = {
 
 /** 06 §7: with reduced motion every character holds still: no bob, blink, sway, glow or hop. */
 export const ReducedMotion: Story = {
-  parameters: { controls: { disable: true } },
+  parameters: { controls: { disable: true }, ui: { stage: 'centered' } },
   globals: { motion: 'reduced' },
   render: () => (
-    <GalleryGrid col={220}>
+    <div
+      style={{
+        display: 'flex',
+        flexWrap: 'wrap',
+        justifyContent: 'center',
+        alignItems: 'flex-end',
+        gap: '24px 48px',
+        width: 'min(1200px, 100%)',
+      }}
+    >
       <GalleryCell name="Pip cheering">
-        <Pip pose="cheer" size={216} title="Pip cheering" />
+        <Pip pose="cheer" size={250} title="Pip cheering" />
       </GalleryCell>
       <GalleryCell name="Glim talking">
-        <Glim state="talk" size={140} title="Glim talking" />
+        <Glim state="talk" size={190} title="Glim talking" />
       </GalleryCell>
       <GalleryCell name="Seahorse waving">
         <Pebbling
@@ -591,25 +600,31 @@ export const ReducedMotion: Story = {
           palette="sky"
           number={4}
           pose="wave"
-          size={180}
+          size={220}
           title="seahorse 4"
         />
       </GalleryCell>
+      {/* Two Ten Turtles at the shared character scale: each about as big as the seahorse. */}
       <GalleryCell name="Ten Turtles cheering">
         <Pebbling
           species="turtle"
           palette="leaf"
-          number={30}
+          number={20}
           family="tens"
           pose="cheer"
-          size={210}
-          title="tens 30"
+          size={440}
+          title="tens 20 cheering"
         />
       </GalleryCell>
-    </GalleryGrid>
+    </div>
   ),
   play: async ({ canvasElement }) => {
     await expect(canvasElement.querySelectorAll('svg[role="img"]').length).toBe(4);
+    // Every pebble is a readable size (≥ 9 CSS px across), the Ten Turtles' included.
+    for (const mark of canvasElement.querySelectorAll('[data-pebble="lit"] circle')) {
+      await expect(mark.getBoundingClientRect().width).toBeGreaterThanOrEqual(9);
+    }
     await expectNoLoops();
+    await expectNoSidewaysScroll();
   },
 };

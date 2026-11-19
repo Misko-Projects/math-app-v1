@@ -7,6 +7,7 @@ import type { PaletteFills, PebblingPose, PebblingSpecies } from './pebbling';
 const OUTLINE = (fill: PaletteColor): PaletteColor => OUTLINE_OF[fill];
 
 import {
+  Blink,
   Cheeks,
   Eye,
   Eyes,
@@ -303,14 +304,34 @@ function Turtle({ c, pose, slot, delay }: BodyProps) {
       {/* Head. */}
       <circle cx={186} cy={98} r={26} {...fillOf(c.accent)} />
       <Shine x={186} y={98} rx={26} opacity={0.35} />
-      <Eyes
-        left={[175, 92]}
-        right={[199, 90]}
-        r={10.5}
-        edge={OUTLINE(c.accent)}
-        look={[0.3, 0.1]}
-        delay={delay}
-      />
+      {pose === 'cheer' ? (
+        <g data-part="cheer">
+          {/* Cheering: happy arched eyes and three little joy marks above the head. */}
+          <path
+            d="M168 94Q175 84 182 94M192 92Q199 82 206 92"
+            fill="none"
+            stroke={paint('ink')}
+            strokeWidth={3.5}
+            strokeLinecap="round"
+          />
+          <path
+            d="M170 62L164 52M188 58V45M206 62L212 52"
+            fill="none"
+            stroke={paint('sun-deep')}
+            strokeWidth={4}
+            strokeLinecap="round"
+          />
+        </g>
+      ) : (
+        <Eyes
+          left={[175, 92]}
+          right={[199, 90]}
+          r={10.5}
+          edge={OUTLINE(c.accent)}
+          look={[0.3, 0.1]}
+          delay={delay}
+        />
+      )}
       <Cheeks left={[170, 108]} right={[206, 106]} color={c.cheek} rx={5} />
       <Smile x={190} y={110} w={12} open={pose === 'cheer'} />
     </g>
@@ -323,9 +344,9 @@ function Stalk({ c, len = 40, delay }: { c: PaletteFills; len?: number; delay: n
   return (
     <g>
       <Tube d={`M0 0L0 ${-len}`} w={6} fill={c.accent} />
-      <Loop token="blink" delay={delay}>
+      <Blink eyes={[{ x: 0, y: -len - 6, r: 11 }]} delay={delay}>
         <Eye x={0} y={-len - 6} r={11} edge={OUTLINE(c.accent)} look={[0.15, 0.2]} />
-      </Loop>
+      </Blink>
     </g>
   );
 }

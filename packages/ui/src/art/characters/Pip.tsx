@@ -67,7 +67,7 @@ function Nudge({
 
 /**
  * The puffin's big striped beak, seen from the front: a sunshine ridge at the base, a sun band and
- * a coral tip. The lower beak drops to talk (and stays open in a cheer).
+ * a coral tip. The lower beak drops open to talk (chattering) and in a cheer.
  */
 function Beak({ talking, open }: { talking: boolean; open: boolean }) {
   return (
@@ -168,6 +168,29 @@ function Scarf() {
         strokeLinecap="round"
       />
       <circle cx={145} cy={174} r={8} {...fillOf('sea')} />
+    </g>
+  );
+}
+
+/** Talking: sound arcs beside Pip's head, pulsing gently, so the pose reads as speech at a glance. */
+function Speech() {
+  return (
+    <g data-part="speech">
+      {[
+        { x: 22, r: 12, d: 0 },
+        { x: 10, r: 21, d: -0.25 },
+        { x: -2, r: 30, d: -0.5 },
+      ].map((a) => (
+        <Loop key={a.r} token="pulse-soft" delay={a.d}>
+          <path
+            d={`M${a.x + a.r * 0.5} ${118 - a.r}Q${a.x - a.r * 0.5} 118 ${a.x + a.r * 0.5} ${118 + a.r}`}
+            fill="none"
+            stroke={paint('sea-deep')}
+            strokeWidth={4.5}
+            strokeLinecap="round"
+          />
+        </Loop>
+      ))}
     </g>
   );
 }
@@ -321,7 +344,7 @@ export function Pip({
                 </Pivot>
               ) : null}
               <g transform={`translate(${faceShift} 0)`}>
-                <Beak talking={pose === 'talk'} open={cheer} />
+                <Beak talking={pose === 'talk'} open={cheer || pose === 'talk'} />
               </g>
               <Cap />
               {point ? nudged(pointWing ?? 'r', pointWing === 'l' ? wingL : wingR) : null}
@@ -339,6 +362,7 @@ export function Pip({
         />
       </Hop>
       {think ? <Thought /> : null}
+      {pose === 'talk' ? <Speech /> : null}
     </ArtSvg>
   );
 }
