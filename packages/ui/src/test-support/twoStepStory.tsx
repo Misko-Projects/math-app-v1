@@ -92,19 +92,46 @@ export async function expectAreaFit(canvasElement: HTMLElement, fit: AreaFit) {
   });
 }
 
+/** What a sprite draws, on screen: its SVG content's box (not the box it is laid out in). */
+function inkOf(svg: SVGSVGElement) {
+  const bb = svg.getBBox();
+  const m = svg.getScreenCTM() as DOMMatrix;
+  const p = new DOMPoint(bb.x, bb.y).matrixTransform(m);
+  const w = bb.width * Math.hypot(m.a, m.b);
+  const h = bb.height * Math.hypot(m.c, m.d);
+  return { left: p.x, top: p.y, right: p.x + w, bottom: p.y + h, w, h };
+}
+
 /**
- * Every countable picture under `root` is drawn large enough to count: its sprite's box on
- * screen (the cell times the kit's ITEM_DRAW_SCALE) is at least `min` px. The kit sprites fill
- * about three quarters of that box, so 29 px of box is about 22 px of drawn object.
+ * Every countable picture under `root` can be counted: what each sprite draws is at least `min`
+ * px wide and tall on screen, and no two drawings touch.
  */
-export async function expectCountable(root: Element, min = 29) {
-  const sprites = [...root.querySelectorAll('svg.ni-sprite')].filter(
+export async function expectCountable(root: Element, min = 22) {
+  const sprites = [...root.querySelectorAll<SVGSVGElement>('svg.ni-sprite')].filter(
     (el) => el.getBoundingClientRect().width > 0,
   );
   await expect(sprites.length, 'sprites').toBeGreaterThan(0);
-  const least = Math.min(...sprites.map((el) => el.getBoundingClientRect().width));
-  await expect(least, 'the smallest sprite box on screen').toBeGreaterThanOrEqual(min);
-  recordEvidence(root, { sprite_box: Math.round(least * 10) / 10 });
+  const inks = sprites.map(inkOf);
+  const w = Math.min(...inks.map((i) => i.w));
+  const h = Math.min(...inks.map((i) => i.h));
+  await expect(w, 'the narrowest drawn sprite').toBeGreaterThanOrEqual(min);
+  await expect(h, 'the shortest drawn sprite').toBeGreaterThanOrEqual(min);
+  let apart = Number.POSITIVE_INFINITY;
+  for (let i = 0; i < inks.length; i += 1) {
+    for (let j = i + 1; j < inks.length; j += 1) {
+      const a = inks[i] as (typeof inks)[number];
+      const b = inks[j] as (typeof inks)[number];
+      apart = Math.min(
+        apart,
+        Math.max(b.left - a.right, a.left - b.right, b.top - a.bottom, a.top - b.bottom),
+      );
+    }
+  }
+  if (inks.length > 1) await expect(apart, 'drawn sprites apart').toBeGreaterThan(0);
+  recordEvidence(root, {
+    drawn: `${Math.floor(w)}x${Math.floor(h)}`,
+    drawn_gap: Math.floor(apart),
+  });
 }
 
 /** An element (a handle's enlarged hit area, a container) is at least the age mode's target. */

@@ -7,15 +7,16 @@
 /**
  * A countable thing's cell is never smaller than this. Its picture is drawn `ITEM_DRAW_SCALE`
  * times the cell (the kit sprites leave a margin inside their box), so the smallest drawn object
- * is about 22 px wide: below that a child cannot count them (evidence review, PR #103).
+ * is at least 22 px wide: below that a child cannot count them (evidence review, PR #103).
  */
 export const MIN_ITEM_PX = 26;
 /**
- * How much larger than its cell a sprite is drawn (the widgets' CSS scales it by this). It stays
- * under 1 + the gap ratio of `itemGap` (0.16), so even a sprite that filled its whole box would
- * not touch its neighbour.
+ * How much larger than its cell a sprite is drawn (the widgets' CSS scales it by this). Cells
+ * are 1.16 cells apart (`itemGap`), and a kit sprite's drawing takes at most 0.85 of its box,
+ * so two neighbours' drawings stay apart (1.3 × 0.85 < 1.16); the widgets' stories measure the
+ * drawings themselves for every sprite the sharing content uses.
  */
-export const ITEM_DRAW_SCALE = 1.15;
+export const ITEM_DRAW_SCALE = 1.3;
 
 /** The gap between neighbouring items of size `s`. */
 export const itemGap = (s: number) => Math.max(4, Math.round(s * 0.16));

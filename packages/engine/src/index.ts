@@ -124,9 +124,9 @@ export {
   GROUPS_PILE_MAX,
   GROUPS_PILE_MAX_MANY,
   GROUPS_PILE_WIDE,
+  groupsAnswerMax,
   groupsPileMax,
   groupsPlaces,
-  groupsAnswerMax,
   groupsSupply,
   groupsUnknown,
 } from './formats/equal-groups';

@@ -169,7 +169,7 @@
   display: block;
   pointer-events: none;
   /* kit ITEM_DRAW_SCALE: the picture uses the margin its box leaves; neighbours never touch. */
-  transform: scale(1.15);
+  transform: scale(1.3);
 }
 [data-flash="true"].ni-esw__item,
 .ni-esw__rec[data-flash="true"] > .ni-esw__zone,

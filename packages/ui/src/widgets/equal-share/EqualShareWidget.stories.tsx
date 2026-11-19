@@ -729,6 +729,19 @@ export const StressPileAtMaximum: Story = {
   },
 };
 
+/** The same pile with each other thing the sharing content shares: all can be counted. */
+const pileOf = (sprite: Config['sprite']): Story => ({
+  args: { config: { ...bound, sprite } },
+  play: async ({ canvasElement }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    await expectShown(root, { shares: [0, 0, 0, 0], pile: 24 });
+    await expectCountable(root);
+  },
+});
+export const StressPileOfShells: Story = pileOf('shell');
+export const StressPileOfFish: Story = pileOf('fish');
+export const StressPileOfCrabs: Story = pileOf('crab');
+
 /** An answer above ten: 24 between 2 plates is 12 each, typed on the pad in the smallest area. */
 export const AskAboveTen: Story = {
   args: { config: { ...bound, recipients: 2, recipientsKind: 'plate' } },

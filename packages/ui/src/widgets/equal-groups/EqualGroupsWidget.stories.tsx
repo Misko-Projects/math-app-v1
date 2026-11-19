@@ -683,6 +683,21 @@ export const StressPileAtMaximum: Story = {
   },
 };
 
+/** The same pile with other things: all can be counted. */
+const pileOf = (sprite: Config['sprite']): Story => ({
+  args: { config: { ...bound, sprite } },
+  play: async ({ canvasElement }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    await expectShown(root, { groups: [0, 0, 0, 0], pile: 40 });
+    await expectCountable(root);
+  },
+});
+export const StressPileOfShells: Story = pileOf('shell');
+export const StressPileOfFish: Story = pileOf('fish');
+export const StressPileOfCrabs: Story = pileOf('crab');
+export const StressPileOfStarfish: Story = pileOf('starfish');
+export const StressPileOfCounters: Story = pileOf('counter');
+
 const demoBound: WidgetDemo = createDemoController({ strict: true });
 /** 4 nests of 10 from a pile of 40 (the model's bound): everything fits, sprites apart. */
 export const StressAtBoundBuild: Story = {
