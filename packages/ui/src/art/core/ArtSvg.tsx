@@ -23,6 +23,12 @@ export interface ArtSvgProps extends ArtProps {
   /** viewBox origin, when the art reaches outside 0,0 (for example a cast shadow). */
   originX?: number;
   originY?: number;
+  /**
+   * `width` (default): the art is `size` wide and its height follows. `cover`: the art fills its
+   * container on both axes, keeping its aspect and trimming the overflow at the edges (a
+   * full-screen scene, whose sky and sea bleed past the viewBox, so no edge is ever unpainted).
+   */
+  fit?: 'width' | 'cover';
   children: ReactNode;
   /** Extra attributes for the root (for example data-* test hooks). */
   rootProps?: Record<`data-${string}`, string | number | undefined>;
@@ -38,6 +44,7 @@ export function ArtSvg({
   originX = 0,
   originY = 0,
   size = '100%',
+  fit = 'width',
   title,
   lighting,
   className,
@@ -45,13 +52,17 @@ export function ArtSvg({
   children,
   rootProps,
 }: ArtSvgProps) {
+  const cover = fit === 'cover';
   return (
     <svg
       viewBox={`${originX} ${originY} ${width} ${height}`}
-      width={size}
-      style={{ display: 'block', overflow: 'visible', height: 'auto', ...style }}
+      width={cover ? '100%' : size}
+      height={cover ? '100%' : undefined}
+      preserveAspectRatio={cover ? 'xMidYMid slice' : undefined}
+      style={{ display: 'block', overflow: 'visible', height: cover ? '100%' : 'auto', ...style }}
       className={className}
       data-lighting={lighting}
+      data-fit={cover ? 'cover' : undefined}
       focusable="false"
       role={title ? 'img' : undefined}
       aria-label={title}

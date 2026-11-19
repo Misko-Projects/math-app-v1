@@ -16,7 +16,7 @@ import {
   terrainOf,
 } from './geometry';
 import { IslandLand } from './IslandLand';
-import { NumberedRoad } from './NumberedRoad';
+import { NextStoneHit, NumberedRoad } from './NumberedRoad';
 import { PlotMarker, type PlotMarkerProps } from './PlotMarker';
 import { planRoad, roadFootprint } from './roadPlan';
 import { Sea } from './Sea';
@@ -31,12 +31,16 @@ export const PARALLAX = { seaFar: 0.35, seaNear: 0.65, island: 1 } as const;
 /** The grid's top edge in scene units. */
 const GRID_TOP = ISLAND_LAYOUT.skyH + ISLAND_LAYOUT.padTop;
 
+/** Open sea always kept between the island's halo and the horizon, in scene units. */
+export const HORIZON_GAP = 16;
+
 /**
  * The camera may look at most this far down the island (positive y). The island's shallows halo
- * reaches HALO_REACH above the back row of land; at this pan its curved top still sits 4 units
- * below the horizon, so the whole island, halo included, always stays in the sea.
+ * reaches HALO_REACH above the back row of land; at this pan its curved top still sits HORIZON_GAP
+ * below the horizon, so the whole island, halo included, always stays in the sea with a clear
+ * band of water behind it.
  */
-export const CAMERA_MAX_Y = GRID_TOP - HALO_REACH - HORIZON_Y - 4;
+export const CAMERA_MAX_Y = GRID_TOP - HALO_REACH - HORIZON_Y - HORIZON_GAP;
 
 /** The camera as the scene uses it: vertical pans past CAMERA_MAX_Y are held there. */
 export function clampCamera(camera: { x: number; y: number }): { x: number; y: number } {
@@ -64,6 +68,11 @@ export interface IslandSceneProps extends Omit<ArtProps, 'lighting'> {
   crop?: Box;
   /** Things on the island (buildings, decor, residents), positioned with plotBox/plotCenter. */
   children?: ReactNode;
+  /**
+   * `cover` fills the container on both axes (a full-screen map): the sky and sea bleed past the
+   * scene, so no edge is ever left unpainted. Default `width` (the scene is `size` wide).
+   */
+  fit?: 'width' | 'cover';
 }
 
 /**
@@ -71,8 +80,9 @@ export interface IslandSceneProps extends Omit<ArtProps, 'lighting'> {
  * at the horizon, day or sunset lighting, the Numbered Road and whatever stands on the island.
  * When the camera pans, the far and near sea move at different rates (parallax) and the sky stays
  * put; the camera is held so the island and its halo always stay in the sea, below the horizon.
- * Ground detail keeps off the road. Under reduced motion (06 §7) the sea moves together with the
- * island and the idle loops stop.
+ * Ground detail keeps off the road, with a clear zone around the next stone, whose tap target
+ * (`data-hit="next"`) is drawn on top of all. Under reduced motion (06 §7) the sea moves together
+ * with the island and the idle loops stop.
  */
 export function IslandScene({
   island,
@@ -84,6 +94,7 @@ export function IslandScene({
   plotMarkers = [],
   crop,
   children,
+  fit,
   size,
   title,
   className,
@@ -113,6 +124,7 @@ export function IslandScene({
       originX={view.x}
       originY={view.y}
       size={size}
+      fit={fit}
       title={title}
       lighting={lighting}
       className={className}
@@ -138,12 +150,15 @@ export function IslandScene({
       <g data-layer="island" transform={`translate(${isl.x} ${isl.y})`}>
         <IslandLand plots={plots} terrain={terrain} clearPlots={marked} blocked={blocked} />
       </g>
+      {/* What stands on the island, then the road above it (05 §11: nothing hides a road stone),
+          the plot markers, and the next stone's tap target on top of all. */}
       <g data-layer="on-island" transform={`translate(${isl.x} ${isl.y})`}>
-        <NumberedRoad road={island.road} roadLength={roadLength} plan={plan} />
         {children}
+        <NumberedRoad road={island.road} roadLength={roadLength} plan={plan} />
         {plotMarkers.map((m) => (
           <PlotMarker key={plotKey(m.plot)} {...m} />
         ))}
+        <NextStoneHit plan={plan} />
       </g>
     </ArtSvg>
   );

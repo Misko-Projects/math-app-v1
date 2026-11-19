@@ -15,14 +15,21 @@ export type RoadStoneState = 'laid' | 'next' | 'counting' | 'planned';
 
 export const ROAD_STONE_STATES: readonly RoadStoneState[] = ['laid', 'next', 'counting', 'planned'];
 
-/** Design-size metrics of a stone for a number (wider for more digits; bigger every ten). */
+/** A stone's numeral size at design size: the same for every number, 1 to 1000. */
+export const STONE_NUMERAL = 27;
+
+/**
+ * Design-size metrics of a stone for a number: wider for more digits and bigger every ten, while
+ * the numeral stays one size (05 §11: readable and consistent; a long number widens its stone,
+ * never shrinks its text).
+ */
 export function stoneMetrics(n: number) {
   const digits = String(Math.max(0, Math.floor(n))).length;
   const ten = n > 0 && n % 10 === 0;
   const scale = ten ? 1.16 : 1;
   const w = (52 + Math.max(0, digits - 1) * 20) * scale;
   const h = 40 * scale;
-  const font = (digits <= 2 ? 27 : digits === 3 ? 25 : 23) * scale;
+  const font = STONE_NUMERAL;
   return { w, h, font, ten, hundred: n > 0 && n % 100 === 0 };
 }
 

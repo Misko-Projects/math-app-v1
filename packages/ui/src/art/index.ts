@@ -72,20 +72,24 @@ export {
   type RoadStoneProps,
   type RoadStoneState,
   roadStoneBox,
+  STONE_NUMERAL,
   type StoneExtent,
   stoneExtent,
   stoneMetrics,
 } from './island/RoadStone';
 export {
   boxesTouch,
-  fitScale,
   MAP_STONE_SCALE,
-  MIN_STONE_SCALE,
+  NEXT_HIT_RADIUS,
   type PlannedStone,
   planRoad,
+  type RoadBead,
   type RoadPlan,
   type RoadPlanInput,
+  type RoadSign,
   roadFootprint,
+  roadShape,
+  SIGN_NUMERAL,
   STONE_CLEARANCE,
 } from './island/roadPlan';
 export { Sea, type SeaProps } from './island/Sea';

@@ -44,6 +44,11 @@ All Number Island art is SVG React components, parameterised by state (05 §11).
 
 GameData `art` ids (02 §5.8) are `<group>/<id>` and resolve with `buildingArtFor`, `decorArtFor`
 and `materialArtFor`; each group's map is keyed by the bare `<id>` (`buildingArt['road-crew']`).
-Road stones on the map are laid out by `planRoad`, which keeps every numbered stone's full extent
-(`stoneExtent`: rings, lift, flag, shadow) clear of every other.
+The Numbered Road is a linear board (05 §3): `planRoad` draws every stone of the shown range once,
+at its own spot, in order. Where a stone's full extent (`stoneExtent`: rings, lift, flag, shadow)
+has room it is a numbered stone; where stones crowd it is an evenly spaced bead, and signposts
+carry 1, the tens, the hundreds, the next and the counted stone. Every numeral on the map is one
+size (`SIGN_NUMERAL`, about 21 CSS px at the default zoom). `roadShape` fixes each stone's form
+from the whole road, so nothing changes form as the road grows. The next stone's tap target
+(`data-hit="next"`, ≥ 80 CSS px) is drawn above everything on the island.
 Anything that stands on the island is positioned with `plotBox(plot, footprint)` in scene units.

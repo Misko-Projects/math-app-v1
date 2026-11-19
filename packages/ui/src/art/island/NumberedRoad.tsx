@@ -3,7 +3,14 @@ import { useMemo } from 'react';
 import { paint } from '../core/paint';
 import { type StonePlacement, smoothPath } from './geometry';
 import { RoadStoneMark } from './RoadStone';
-import { planRoad, type RoadPlan } from './roadPlan';
+import {
+  NEXT_HIT_RADIUS,
+  planRoad,
+  type RoadBead,
+  type RoadPlan,
+  type RoadSign,
+  SIGN_NUMERAL,
+} from './roadPlan';
 
 export interface NumberedRoadProps {
   /** GameData `island.road`: stone n → plot. */
@@ -18,17 +25,16 @@ export interface NumberedRoadProps {
   plannedAhead?: number;
   /** Only stones whose plot passes this test are drawn (for example, plots that are land). */
   onLand?: (s: StonePlacement) => boolean;
-  /** Land plot keys (`x,y`): a stone stepped out beside the road only lands on these. */
-  land?: ReadonlySet<string>;
   /** A plan already made with planRoad (the island scene shares one with its ground detail). */
   plan?: RoadPlan;
 }
 
 /**
- * The Numbered Road (05 §3): a soft sandy trail through the stones in order, with each laid stone
- * numbered, the next stone waiting and optional planned stones beyond. `planRoad` decides which
- * stones keep their numerals so that no two numbered stones (rings, flags and lift included) ever
- * touch; on a crowded road the others become small plain pebbles and the tens stay as landmarks.
+ * The Numbered Road (05 §3), a linear board: a soft sandy trail through the stones in order, one
+ * stone for every number, each at its own spot. Where the road has room, a stone is a numbered
+ * stone. Where stones crowd (`planRoad`), each is an evenly spaced bead, so the beads between two
+ * numbers always match the numbers missing, and signposts carry the numerals that matter there
+ * (1, the tens and hundreds, the next stone and the one being counted) at the same size.
  */
 export function NumberedRoad({
   road,
@@ -37,28 +43,25 @@ export function NumberedRoad({
   showNext = true,
   plannedAhead = 0,
   onLand,
-  land,
   plan: given,
 }: NumberedRoadProps) {
   const plan = useMemo(
-    () => given ?? planRoad({ road, roadLength, counting, showNext, plannedAhead, onLand, land }),
-    [given, road, roadLength, counting, showNext, plannedAhead, onLand, land],
+    () => given ?? planRoad({ road, roadLength, counting, showNext, plannedAhead, onLand }),
+    [given, road, roadLength, counting, showNext, plannedAhead, onLand],
   );
-  if (plan.numbered.length === 0 && plan.pebbles.length === 0) return null;
+  if (plan.numbered.length === 0 && plan.beads.length === 0) return null;
   const trail = plan.trail.length > 1 ? smoothPath(plan.trail) : '';
+  const outer = 34 * plan.scale;
+  const inner = 26 * plan.scale;
   return (
-    <g
-      data-layer="road"
-      data-road-length={roadLength}
-      data-compact={plan.compact ? 'true' : undefined}
-    >
+    <g data-layer="road" data-road-length={roadLength}>
       {trail && roadLength > 1 ? (
         <>
           <path
             d={trail}
             fill="none"
             stroke={paint('sand-deep')}
-            strokeWidth={34 * plan.scale}
+            strokeWidth={outer}
             strokeLinecap="round"
             strokeLinejoin="round"
             opacity={0.55}
@@ -67,60 +70,161 @@ export function NumberedRoad({
             d={trail}
             fill="none"
             stroke={paint('sand-shadow')}
-            strokeWidth={26 * plan.scale}
+            strokeWidth={inner}
             strokeLinecap="round"
             strokeLinejoin="round"
           />
         </>
       ) : null}
-      {plan.pebbles.map((p) => (
-        <Pebble key={p.n} n={p.n} x={p.x} y={p.y} />
-      ))}
-      {/* A stepped-out stone's leader: a dashed ink line from its true spot, which gets a dot. */}
-      {plan.numbered.map((s) =>
-        s.leader ? (
-          <g key={`leader-${s.n}`} data-leader={s.n}>
-            <path
-              d={`M${s.leader.x} ${s.leader.y}L${s.x} ${s.y}`}
-              stroke={paint('ink')}
-              strokeWidth={3}
-              strokeDasharray="5 5"
-              strokeLinecap="round"
-            />
-            <circle
-              cx={s.leader.x}
-              cy={s.leader.y}
-              r={5}
-              fill={paint('pebble')}
-              stroke={paint('ink')}
-              strokeWidth={2.5}
-            />
-          </g>
-        ) : null,
-      )}
       {plan.numbered.map((s) => (
         <g key={s.n} transform={`translate(${s.x} ${s.y}) scale(${plan.scale})`}>
           <RoadStoneMark n={s.n} state={s.state} />
         </g>
       ))}
+      {plan.beads.map((b) => (
+        <Bead key={b.n} bead={b} />
+      ))}
+      {plan.signs.map((s) => (
+        <Signpost key={`sign-${s.n}`} sign={s} />
+      ))}
     </g>
   );
 }
 
-/** A laid stone without its number, on a crowded road. */
-function Pebble({ n, x, y }: { n: number; x: number; y: number }) {
+/**
+ * One stone as a bead, where the road is crowded. States differ by shape and motion, not colour
+ * alone (06 §7): laid is a solid little stone with a highlight; next is a light dashed bead in a
+ * dashed ring that pulses; counting is lifted inside a solid sunshine ring; planned is a dashed
+ * outline. Every outline is ink (≥ 3:1 on sand and grass).
+ */
+function Bead({ bead }: { bead: RoadBead }) {
+  const { n, x, y, r, state } = bead;
+  const planned = state === 'planned';
+  const next = state === 'next';
+  const counting = state === 'counting';
   return (
-    <g transform={`translate(${x} ${y})`} data-stone={n} data-state="laid" data-compact="true">
-      <ellipse cx={0} cy={6} rx={9} ry={3} fill={paint('ink')} opacity={0.15} />
-      <ellipse
+    <g
+      transform={`translate(${x} ${y})`}
+      data-stone={n}
+      data-state={state}
+      data-bead="true"
+      data-ten={n % 10 === 0 ? 'true' : undefined}
+    >
+      {planned ? null : (
+        <ellipse
+          cx={0}
+          cy={r * 0.7}
+          rx={r * 1.05}
+          ry={r * 0.4}
+          fill={paint('ink')}
+          opacity={0.15}
+        />
+      )}
+      {counting ? (
+        <circle
+          cx={0}
+          cy={0}
+          r={r + 4}
+          fill={paint('sunshine-light')}
+          stroke={paint('ink')}
+          strokeWidth={2.5}
+        />
+      ) : null}
+      {next ? (
+        <circle
+          className="motion-loop art-loop art-ring"
+          cx={0}
+          cy={0}
+          r={r + 4}
+          fill="none"
+          stroke={paint('ink')}
+          strokeWidth={2.5}
+          strokeDasharray="5 4"
+        />
+      ) : null}
+      <circle
         cx={0}
-        cy={0}
-        rx={8}
-        ry={6}
-        fill={paint('pebble')}
-        stroke={paint('pebble-deep')}
-        strokeWidth={2.5}
+        cy={counting ? -1.5 : 0}
+        r={r}
+        fill={paint(planned ? 'sand' : next ? 'pebble' : 'pebble-deep')}
+        stroke={paint(planned ? 'ink-soft' : 'ink')}
+        strokeWidth={r < 5 ? 1.5 : 2}
+        strokeDasharray={planned || next ? '3 2.5' : undefined}
       />
+      {/* A laid bead is a solid little stone: a darker body with a light highlight on top. */}
+      {planned || next ? null : (
+        <path
+          d={`M${-r * 0.5} ${-r * 0.2 + (counting ? -1.5 : 0)}Q${-r * 0.35} ${-r * 0.6 + (counting ? -1.5 : 0)} ${r * 0.1} ${-r * 0.6 + (counting ? -1.5 : 0)}`}
+          fill="none"
+          stroke={paint('pebble')}
+          strokeWidth={2}
+          strokeLinecap="round"
+        />
+      )}
     </g>
+  );
+}
+
+/**
+ * A numbered signpost by its bead: an ink post from the bead to a plaque with the numeral, at the
+ * same size as a numbered stone's. The counted stone's plaque is sunshine with a thick border; the
+ * next stone's border is dashed (shape, not colour alone, 06 §7).
+ */
+function Signpost({ sign }: { sign: RoadSign }) {
+  const { n, x, y, w, h, anchor, state, points } = sign;
+  const counting = state === 'counting';
+  const next = state === 'next';
+  const end = points[points.length - 1] ?? { x, y };
+  return (
+    <g data-sign={n} data-state={state}>
+      <path
+        d={`M${anchor.x} ${anchor.y}L${end.x} ${end.y}`}
+        stroke={paint('ink')}
+        strokeWidth={3}
+        strokeLinecap="round"
+      />
+      <rect
+        x={x - w / 2}
+        y={y - h / 2}
+        width={w}
+        height={h}
+        rx={10}
+        fill={paint(counting ? 'sunshine-light' : 'cloud')}
+        stroke={paint('ink')}
+        strokeWidth={counting ? 4 : 2.5}
+        strokeDasharray={next ? '7 5' : undefined}
+      />
+      <text
+        x={x}
+        y={y + SIGN_NUMERAL * 0.36}
+        textAnchor="middle"
+        fontSize={SIGN_NUMERAL}
+        fontWeight={800}
+        fill={paint('ink')}
+        style={{ fontFamily: 'var(--font-display)' }}
+      >
+        {n}
+      </text>
+    </g>
+  );
+}
+
+/**
+ * The next stone's tap target: an invisible disc at least 80 CSS px across at the default zoom
+ * (06 §4), drawn above everything that stands on the island, so a building beside the road never
+ * takes the tap. Art stays presentational: the map screen listens for pointer events on the scene
+ * and treats a target with `data-hit="next"` as the next stone, next to its own accessible control.
+ */
+export function NextStoneHit({ plan }: { plan: RoadPlan }) {
+  if (!plan.next) return null;
+  return (
+    <circle
+      data-hit="next"
+      cx={plan.next.x}
+      cy={plan.next.y}
+      r={NEXT_HIT_RADIUS}
+      fill="transparent"
+      pointerEvents="all"
+    />
   );
 }

@@ -16,9 +16,13 @@ export interface PlotMarkerProps {
   state?: PlotMarkerState;
 }
 
+/** How far a marker's outline sits inside its plot, in scene units. */
+export const PLOT_MARKER_INSET = 14;
+
 export function PlotMarker({ plot, footprint = [1, 1], state = 'available' }: PlotMarkerProps) {
   const b = plotBox(plot, footprint);
-  const inset = 8;
+  // Inset well inside the plot, so the outline reads as on the plot, clear of the grass edge.
+  const inset = PLOT_MARKER_INSET;
   const cx = b.x + b.w / 2;
   const cy = b.y + b.h / 2;
   const selected = state === 'selected';

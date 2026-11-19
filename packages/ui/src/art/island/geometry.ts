@@ -383,8 +383,9 @@ export function roadLayout(road: IslandDef['road']): StonePlacement[] {
   runs.forEach((run, i) => {
     const m = run.ns.length;
     run.ns.forEach((n, j) => {
-      // Spread the run across the middle 60% of its plot, from the side the road enters.
-      const t = m === 1 ? i : i - 0.3 + (0.6 * j) / (m - 1);
+      // m stones share their plot in equal steps of 1/m (centred), so a stretch of shared plots
+      // is evenly spaced across plot borders too: a linear board, one step per number (05 §3).
+      const t = i - 0.5 + (j + 0.5) / m;
       // Before the first or past the last plot centre, continue along the end segment, so every
       // stone of a shared end plot still gets its own position.
       const last = centres.length - 1;
