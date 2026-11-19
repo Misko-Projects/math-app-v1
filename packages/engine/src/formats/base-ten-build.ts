@@ -52,34 +52,27 @@ export function traySupply(c: Config, taken: Pieces, k: PieceKind): number {
 }
 
 /**
- * Whether `target` can be built from the tray: with fusing and splitting every enabled kind can
- * become any smaller enabled kind, so it needs the smallest enabled kind to divide the target and
- * the tray to hold enough value in total.
+ * Whether `target` can be built: splitting turns any piece into smaller ones and any piece can go
+ * back to the tray, so every value up to what the prebuilt pieces and the tray hold together is
+ * reachable.
  */
 export function buildable(c: Config, target: number): boolean {
   const kinds = PIECE_KINDS.filter((k) => c.pieces[k]);
-  const smallest = kinds[kinds.length - 1];
-  if (smallest === undefined) return false;
-  const start = piecesValue(c.prebuilt ?? {});
-  const need = target - start;
-  if (need < 0) return false;
-  if (need % PIECE_VALUE[smallest] !== 0) return false;
   const supply = kinds.reduce((a, k) => a + traySupply(c, emptyPieces(), k) * PIECE_VALUE[k], 0);
-  return supply >= need;
+  return piecesValue(c.prebuilt ?? {}) + supply >= target;
 }
 
 /**
- * Whether some mat with exactly the `exact` counts is worth the target: what the named counts
- * leave over must be a whole number of the smallest enabled kind `exact` leaves free.
+ * Whether some mat with exactly the `exact` counts is worth the target. Fusing and splitting make
+ * every kind, so what the named counts leave over must be a whole number of the smallest kind
+ * `exact` leaves free (always, when ones are free).
  */
 export function exactReachable(c: Config): boolean {
   const exact = c.exact ?? {};
   const rest = c.target - piecesValue(exact);
   if (rest < 0) return false;
   if (rest === 0) return true;
-  const free = PIECE_KINDS.filter(
-    (k) => c.pieces[k] && (k === 'thousands' || exact[k] === undefined),
-  );
+  const free = PIECE_KINDS.filter((k) => k === 'thousands' || exact[k] === undefined);
   const smallest = free[free.length - 1];
   return smallest !== undefined && rest % PIECE_VALUE[smallest] === 0;
 }
@@ -135,13 +128,6 @@ const configSchema = baseTenBuildConfigSchema.superRefine((c, ctx) => {
         code: 'custom',
         path: ['exact'],
         message: 'no mat with these exact counts is worth the target',
-      });
-    }
-    if (fixed.some((k) => !c.pieces[k])) {
-      ctx.addIssue({
-        code: 'custom',
-        path: ['exact'],
-        message: 'exact names a kind the tray lacks',
       });
     }
   }

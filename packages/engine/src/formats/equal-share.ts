@@ -2,8 +2,9 @@
 // Pebblings or plates. What cannot be shared fairly goes to the seagull (05 §4, W7).
 // - `deal {to, count?}` gives `count` (default 1) from the pile to recipient `to`; a negative count
 //   takes items back. `deal-round` gives one to each recipient in turn while the pile lasts.
-//   `set-aside-leftover` gives what is left in the pile to the seagull once it is too small to go
-//   round again (fewer than the recipients); before that it does nothing.
+//   `set-aside-leftover` gives what is left in the pile to the seagull once the shares are equal and
+//   the pile is too small to go round again (fewer than the recipients); before that it does
+//   nothing, so the seagull only ever gets the true leftover.
 // - `each`, `leftover`: answer state `{ shares, leftover, value }` (`share.fair`), where `leftover`
 //   is everything not dealt (the pile plus the seagull's) and `value` the typed answer.
 // - `fair-or-not` (a pre-dealt share): answer `choice` `yes` | `no`.
@@ -128,8 +129,10 @@ export const equalShare: FormatModel<'equal-share', EqualShareState> = {
         return { ...s, shares, pile };
       }
       case 'set-aside-leftover':
-        // Only the true leftover goes to the seagull: while the pile can go round again, nothing.
+        // Only the true leftover goes to the seagull: the shares are equal and the pile cannot go
+        // round again. Otherwise nothing happens.
         if (s.pile === 0 || s.pile >= s.shares.length) return s;
+        if (!s.shares.every((x) => x === s.shares[0])) return s;
         return { ...s, pile: 0, seagull: s.seagull + s.pile };
       case 'answer': {
         const id = argString(a, 'id');

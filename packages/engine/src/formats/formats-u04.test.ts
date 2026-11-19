@@ -381,9 +381,10 @@ describe('base-ten-build', () => {
   });
 
   it('rejects configs the tray cannot build or that contradict their mode', () => {
-    expect(issuePaths(baseTenBuild, { ...t34, pieces: { ...t34.pieces, ones: false } })).toEqual([
-      'pieces',
-    ]);
+    // Tens only still builds 34: split a ten and put the extra ones back.
+    expect(issuePaths(baseTenBuild, { ...t34, pieces: { ...t34.pieces, ones: false } })).toEqual(
+      [],
+    );
     expect(issuePaths(baseTenBuild, { ...t34, limits: { tens: 1, ones: 5 } })).toEqual(['pieces']);
     expect(issuePaths(baseTenBuild, { ...t34, mode: 'read' })).toEqual(['prebuilt']);
     expect(issuePaths(baseTenBuild, { ...t34, mode: 'build-exact' })).toEqual(['exact']);
