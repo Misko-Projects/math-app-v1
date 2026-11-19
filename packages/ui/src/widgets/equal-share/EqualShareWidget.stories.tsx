@@ -582,6 +582,39 @@ export const DragFromTheEdgeOfTheHandle: Story = {
 };
 
 /**
+ * The window losing the focus during the drag changes nothing either: the offset lives exactly as
+ * long as the drag does (until the same pointer is lifted), so the item is still under the finger
+ * and lands in the third plate.
+ */
+export const WindowBlurDuringADrag: Story = {
+  args: { config: { ...bound, recipientsKind: 'plate' } },
+  play: async ({ canvasElement }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    await userEvent.click(take(root));
+    await userEvent.click(recipient(root, 0));
+    const area = hit(root, 0).getBoundingClientRect();
+    const third = recipient(root, 2).getBoundingClientRect();
+    const y = area.top + area.height / 2;
+    let under = Number.POSITIVE_INFINITY;
+    await touchDragBetween(
+      hit(root, 0),
+      { x: area.right - 4, y },
+      { x: third.left + 4, y },
+      10,
+      async () => {
+        window.dispatchEvent(new Event('blur'));
+        await new Promise((r) => requestAnimationFrame(() => r(null)));
+        const item = handle(root, 0).getBoundingClientRect();
+        const finger = area.right - 4 + (third.left + 4 - (area.right - 4)) / 2;
+        under = Math.abs(item.left + item.width / 2 - finger);
+      },
+    );
+    await expect(under).toBeLessThan(6);
+    await expectShown(root, { shares: [0, 0, 1, 0], pile: 23 });
+  },
+};
+
+/**
  * A second finger that taps and lifts during the drag (on the dragged item's own target, and on
  * another control) changes nothing: the item stays under the first finger and lands where that
  * finger lets go.

@@ -24,15 +24,11 @@ export function useGrabUnderFinger() {
     const clear = (e: globalThis.PointerEvent) => {
       if (e.pointerId === pointerId) setGrab(null);
     };
-    // A window that loses the focus may never see the pointer lifted.
-    const drop = () => setGrab(null);
     window.addEventListener('pointerup', clear);
     window.addEventListener('pointercancel', clear);
-    window.addEventListener('blur', drop);
     return () => {
       window.removeEventListener('pointerup', clear);
       window.removeEventListener('pointercancel', clear);
-      window.removeEventListener('blur', drop);
     };
   }, [pointerId]);
   return {
