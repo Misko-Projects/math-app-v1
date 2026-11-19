@@ -491,6 +491,9 @@ describe('the island (05 §3)', () => {
     // put each newly unlocked one on the first road-free open plot from which every building
     // unlocked but not yet placed, and every building still to unlock, can still fit, each on
     // the land of the stage that unlocks it, with ≥ 4 plots left for decor at every stage.
+    // The walk starts where a family does (05 §10 step 5): no residents, only the 3-plot sandbar
+    // open, and the first build is a Pebbling home, off every plot the road will ever use. Its
+    // resident opens the first shore (the engine's island-rings.test.ts folds that arrival).
     const DECOR = 4;
     const roadPlots = new Set(road.map((s) => key(s.plot)));
     const second = ['east-bridge', 'festival-stage'] as const;
@@ -502,6 +505,10 @@ describe('the island (05 §3)', () => {
     type Stage = {
       open: number;
       road: number;
+      /** Residents moved in (1 from the first home on); `residentCount` rules read it. */
+      residents?: number;
+      /** The sandbar stage: only homes are built, and the 3 plots leave no room for decor. */
+      firstHome?: true;
       skills: string[];
       kinds: string[];
       grade: Grade;
@@ -513,6 +520,18 @@ describe('the island (05 §3)', () => {
     const walks = second.map((first): Stage[] => {
       const other = second.find((p) => p !== first) as string;
       return [
+        {
+          open: 1,
+          road: 0,
+          residents: 0,
+          firstHome: true,
+          skills: [],
+          kinds: [],
+          grade: 'K',
+          mastered: 0,
+          built: [],
+          next: [],
+        },
         { open: 2, road: 19, skills: [], kinds: [], grade: 'K', mastered: 0, built: [], next: [] },
         {
           open: 3,
@@ -568,7 +587,9 @@ describe('the island (05 §3)', () => {
     for (const stages of walks) {
       // Pass 1: what each stage has unlocked, which does not depend on where things stand.
       const unlocked = stages.map((st) => {
-        const label = `${st.open} rings, projects ${[...st.built, ...st.next].join(', ')}`;
+        const label = st.firstHome
+          ? 'the sandbar, no residents yet'
+          : `${st.open} rings, projects ${[...st.built, ...st.next].join(', ')}`;
         const built = new Set<string>(st.built);
         const holds = (r: UnlockRule): boolean => {
           if ('start' in r) return true;
@@ -580,12 +601,13 @@ describe('the island (05 §3)', () => {
           if ('masteredCount' in r) return st.mastered >= r.masteredCount;
           if ('building' in r) return built.has(r.building) && (r.level ?? 1) === 1;
           if ('roadLength' in r) return st.road >= r.roadLength;
-          return r.residentCount <= 1;
+          return r.residentCount <= (st.residents ?? 1);
         };
         for (let grew = true; grew; ) {
           grew = false;
           for (const b of game.buildings) {
             if (b.kind === 'project' || built.has(b.id) || !holds(b.unlock)) continue;
+            if (st.firstHome && b.kind !== 'home') continue;
             built.add(b.id);
             grew = true;
           }
@@ -599,6 +621,7 @@ describe('the island (05 §3)', () => {
           expect(holds(def(p).unlock), `${label}: ${p} is unlocked`).toBe(true);
           built.add(p);
         }
+        if (st.firstHome) expect(built.size, `${label}: a home is buildable`).toBeGreaterThan(0);
         // The open land the road does not use. Rings only grow, so each stage's land holds
         // the land of every stage before it.
         const land = new Set(
@@ -607,7 +630,8 @@ describe('the island (05 §3)', () => {
             .flatMap((r) => r.plots.map(key))
             .filter((p) => !roadPlots.has(p)),
         );
-        return { label, built, land, cells: [...land].map(toCell) };
+        const decor = st.firstHome ? 0 : DECOR;
+        return { label, built, land, cells: [...land].map(toCell), decor };
       });
       const last = unlocked[unlocked.length - 1];
       expect([...(last?.built ?? [])].sort()).toEqual(ids(game.buildings).sort());
@@ -643,7 +667,7 @@ describe('the island (05 §3)', () => {
         };
         return fit(0);
       };
-      unlocked.forEach(({ label, built, land, cells }) => {
+      unlocked.forEach(({ label, built, land, cells, decor }) => {
         const fresh = [...built]
           .filter((id) => !placed.has(id))
           .map(def)
@@ -669,7 +693,7 @@ describe('the island (05 §3)', () => {
         // Every building this stage unlocked stands on its land, earlier ones where they were.
         expect([...placed.keys()].sort(), label).toEqual([...built].sort());
         const free = [...land].filter((c) => !used.has(c)).length;
-        expect(free, `${label}: free plots left for decor`).toBeGreaterThanOrEqual(DECOR);
+        expect(free, `${label}: free plots left for decor`).toBeGreaterThanOrEqual(decor);
       });
       expect(placed.size).toBe(game.buildings.length);
     }

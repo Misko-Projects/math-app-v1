@@ -47,6 +47,55 @@ function ringsAlong(order: readonly string[], road: number): number[] {
   return out;
 }
 
+describe('the first home (05 §10 step 5)', () => {
+  it('fits on the sandbar off the whole road, and its resident opens the first shore', () => {
+    const { rings, road } = game.island;
+    const key = ([x, y]: readonly number[]) => `${x},${y}`;
+    const roadPlots = new Set(road.map((s) => key(s.plot)));
+    const sandbar = new Set((rings[0]?.plots ?? []).map(key));
+    expect(foldIsland([], game).ringsUnlocked).toBe(1);
+    // Every home a family can build before anyone moves in: the first build is one of them.
+    const homes = game.buildings.filter((b) => b.kind === 'home' && 'start' in b.unlock);
+    expect(homes.length).toBeGreaterThan(0);
+    for (const home of homes) {
+      const [w, h] = home.footprint;
+      const covers = ([x = 0, y = 0]: readonly number[]) =>
+        Array.from({ length: w * h }, (_, i) => key([x + (i % w), y + Math.floor(i / w)]));
+      // Off every plot the road will ever use, not just the stones laid so far.
+      const plot = rings[0]?.plots.find((p) =>
+        covers(p).every((c) => sandbar.has(c) && !roadPlots.has(c)),
+      );
+      expect(plot, `${home.id} has a road-free plot on the sandbar`).toBeDefined();
+      const resident = home.levels[0]?.unlocks.find((u) => u.startsWith('resident:'));
+      expect(resident, `${home.id} level 1 brings a resident`).toBeDefined();
+      const events: AnyEventEnvelope[] = [
+        envelope(
+          1,
+          'building.placed',
+          { instanceId: 'home-1', buildingId: home.id, plot: plot ?? [0, 0] },
+          T0,
+          CHILD_1,
+        ),
+      ];
+      expect(foldIsland(events, game).ringsUnlocked, `${home.id} placed`).toBe(1);
+      events.push(
+        envelope(
+          2,
+          'resident.arrived',
+          {
+            residentId: (resident ?? '').slice('resident:'.length),
+            homeInstanceId: 'home-1',
+            via: 'home',
+          },
+          T0 + 1,
+          CHILD_1,
+        ),
+      );
+      expect(foldIsland(events, game).ringsUnlocked, `${home.id}'s resident moved in`).toBe(2);
+    }
+  });
+});
+
 describe('island rings (05 §3) open the same in every project order', () => {
   it('has the three shared projects', () => {
     expect(PROJECTS.sort()).toEqual(['east-bridge', 'festival-stage', 'lighthouse']);

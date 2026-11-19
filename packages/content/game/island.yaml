@@ -11,7 +11,8 @@
 # The Numbered Road winds from the sandbar across the first shore (stones 1–20), along the south
 # of ring 2 (21–100, one plot per ten), and on by tens to 1,000 around the outer shore (one plot
 # per hundred), so the Road Crew counts by ones, tens and hundreds. Consecutive stones share a
-# plot or sit on neighbouring plots.
+# plot or sit on neighbouring plots. The road leaves the sandbar's west plot free: the first build
+# is a Pebbling home, before anyone has moved in to open the first shore (05 §10 step 5).
 
 island:
   grid: [12, 8]
@@ -154,13 +155,15 @@ island:
           - { building: festival-stage }
       plots: [[10, 6], [11, 6], [10, 7], [11, 7]]
   road:
-    # stones 1–20: two stones per plot, on the sandbar and the first shore
-    - { n: 1, plot: [3, 4] }
-    - { n: 2, plot: [3, 4] }
+    # stones 1–6: three per plot on the east of the sandbar, so its west plot [3, 4] stays off the
+    # road for the first Pebbling home (05 §10 step 5) before the first shore opens
+    - { n: 1, plot: [4, 4] }
+    - { n: 2, plot: [4, 4] }
     - { n: 3, plot: [4, 4] }
-    - { n: 4, plot: [4, 4] }
+    - { n: 4, plot: [5, 4] }
     - { n: 5, plot: [5, 4] }
     - { n: 6, plot: [5, 4] }
+    # stones 7–20: two per plot, on the first shore
     - { n: 7, plot: [6, 4] }
     - { n: 8, plot: [6, 4] }
     - { n: 9, plot: [7, 4] }

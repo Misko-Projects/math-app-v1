@@ -514,7 +514,7 @@ res.pira:
 res.pira.hello:
   text: "Hi, I'm Pira! I show three fourths."
 res.pira.likes:
-  text: "I like a pie in four parts. I have three!"
+  text: "I like a pie in four equal parts. I have three!"
 res.pira.dislikes:
   text: "I do not like a pie with no parts left."
 res.pira.home:
