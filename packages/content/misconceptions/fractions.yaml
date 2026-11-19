@@ -1,0 +1,50 @@
+# Fraction misconceptions (03 §7.2). K01 (#11) adds the rows its grade-1 skills track. K02 adds
+# MC.fraction-part-to-part (FRA.02, FRA.03, FRA.09: FRA.01 names fractions in words and never
+# answers [a, b]) and the grade 2–3 skills of these rows.
+area: fractions
+misconceptions:
+  - id: MC.fraction-unequal-parts
+    name: Calls unequal pieces halves or fourths, or an unequal share fair
+    detect: { kind: answer, rule: fractionUnequalParts }
+    appliesTo: { generators: [frac.partition, div.share] }
+    skills: [FRA.01, FRA.07]
+    remediation: [FRA.07]
+    feedback: fb.mc.fraction-unequal-parts
+    priority: 50
+    parentTip: >-
+      When you cut a sandwich or a pizza together, ask whether the pieces are the same size before
+      you call them halves or fourths.
+    examples:
+      - params: { mode: cut, shape: circle, den: 4, num: 1 }
+        response: { kind: state, value: { regions: [0.4, 0.2, 0.2, 0.2], shaded: [0] } }
+        match: true
+      - params: { mode: cut, shape: circle, den: 4, num: 1 }
+        response: { kind: state, value: { regions: [0.5, 0.5], shaded: [0] } }
+        match: false
+      - generator: div.share
+        params: { ask: fair-or-not, items: 6, recipients: 2, fair: false, shift: 1 }
+        response: { kind: choice, id: "yes" }
+        match: true
+      - generator: div.share
+        params: { ask: fair-or-not, items: 6, recipients: 2, fair: true, shift: 1 }
+        response: { kind: choice, id: "no" }
+        match: false
+
+  - id: MC.fraction-bigger-denominator
+    name: Thinks a whole cut into more parts has bigger parts
+    detect: { kind: answer, rule: fractionBiggerDenominator }
+    appliesTo: { generators: [frac.compare] }
+    skills: [FRA.08]
+    remediation: [FRA.08]
+    feedback: fb.mc.fraction-bigger-denominator
+    priority: 50
+    parentTip: >-
+      Cut one apple into two pieces and another into four, and let your child hold one piece of
+      each to feel which is bigger.
+    examples:
+      - params: { shape: bar, den: 2, den2: 4 }
+        response: { kind: choice, id: right }
+        match: true
+      - params: { shape: bar, den: 2, den2: 4 }
+        response: { kind: choice, id: same }
+        match: false

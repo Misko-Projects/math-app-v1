@@ -12,14 +12,20 @@ import { equalsAddAll } from './rules/equalsAddAll';
 import { equalsMeansAnswer } from './rules/equalsMeansAnswer';
 import { faceValue } from './rules/faceValue';
 import { forgotTheTen } from './rules/forgotTheTen';
+import { fractionBiggerDenominator } from './rules/fractionBiggerDenominator';
+import { fractionUnequalParts } from './rules/fractionUnequalParts';
+import { hourHandNext } from './rules/hourHandNext';
+import { hourMinuteSwap } from './rules/hourMinuteSwap';
 import { keywordMoreMeansAdd } from './rules/keywordMoreMeansAdd';
 import { offByOneCounting } from './rules/offByOneCounting';
+import { patternRestart } from './rules/patternRestart';
 import { perceptualSize } from './rules/perceptualSize';
 import { placeSwap } from './rules/placeSwap';
 import { recountFromOne } from './rules/recountFromOne';
 import { startUnknownReversed } from './rules/startUnknownReversed';
 import { symbolReversed } from './rules/symbolReversed';
 import { teenReversal } from './rules/teenReversal';
+import { unequalShare } from './rules/unequalShare';
 import { unitGaps } from './rules/unitGaps';
 import { writeAsSpoken } from './rules/writeAsSpoken';
 import { wrongOperation } from './rules/wrongOperation';
@@ -36,6 +42,12 @@ const RULES: Record<string, MisconceptionRule> = {
   perceptualSize: perceptualSize,
   forgotTheTen: forgotTheTen,
   wrongOperation: wrongOperation,
+  hourMinuteSwap: hourMinuteSwap, // K01 time
+  hourHandNext: hourHandNext, // K01 time
+  fractionUnequalParts: fractionUnequalParts, // K01 fractions
+  fractionBiggerDenominator: fractionBiggerDenominator, // K01 fractions
+  unequalShare: unequalShare, // K01 sharing
+  patternRestart: patternRestart, // K01 patterns
   placeSwap: placeSwap,
   faceValue: faceValue,
   writeAsSpoken: writeAsSpoken,

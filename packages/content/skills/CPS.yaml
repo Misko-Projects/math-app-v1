@@ -1,5 +1,5 @@
-# CPS: Composing and decomposing, catalog rows from 03 §3.6 (K01). CPS.06 (needs puzzle.grid) and
-# the grade-2 CPS.10 come in later PRs (graph.yaml plannedIds).
+# CPS: Composing and decomposing, catalog rows from 03 §3.6 (K01). The grade-2 CPS.10 comes
+# with K02 (graph.yaml plannedIds).
 strand: CPS
 skills:
   - id: CPS.01
@@ -46,6 +46,15 @@ skills:
     prerequisites: [CPS.02]
     gateway: false
     representations: [ten-frame, number-bond, symbols]
+
+  - id: CPS.06
+    name: Find all the ways to make a number up to 10
+    kind: problem-solving
+    grade: 1
+    standards: { ccss: [K.OA.A.3] }
+    prerequisites: [CPS.05]
+    gateway: false
+    representations: [objects, number-bond]
 
   - id: CPS.07
     name: Write a teen number as 10 plus ones (10 + 4 = 14)
