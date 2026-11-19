@@ -8,7 +8,11 @@ import { type CompiledInput, parameterSpace, runEngineChecks } from './checks';
 import { compileInMemory } from './dist';
 
 const fixture = compileInMemory();
-const opts = { propertyN: 20, statsN: 100 };
+// The full engine checks over the whole catalog, minus V15's difficulty-targeting property: that one
+// costs about 100 targeted items per template whatever the seed count, so on the K–1 catalog it made
+// this test take 2–5 minutes on a loaded CI runner and time out. `pnpm content:validate`, which
+// `pnpm verify` runs before the tests, still runs targeting on every template.
+const opts = { propertyN: 20, statsN: 100, targeting: false };
 
 // The defect tests look for one diagnostic each, so they run on a slice of the content (the
 // addition skills their defects touch) with few seeds: the whole K–1 catalog takes the full run
@@ -29,8 +33,8 @@ function withTemplate(t: ItemTemplate, extra: Partial<CompiledInput> = {}): Comp
 
 const base = fixture.templates.find((t) => t.id === 'ADD.01.t4') as ItemTemplate;
 
-// The full run checks the whole content set (about 35 s on a CI runner with the K–1 catalog), so it
-// gets its own timeout; the rest of the project keeps Vitest's default.
+// The full run still checks every template of the whole content set, so it keeps its own timeout as
+// a margin; the rest of the project keeps Vitest's default.
 const FULL_RUN = { timeout: 180_000 };
 
 describe('runEngineChecks on the fixture set', FULL_RUN, () => {

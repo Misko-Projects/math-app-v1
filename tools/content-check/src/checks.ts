@@ -72,6 +72,12 @@ export interface EngineCheckOptions {
   propertyN: number;
   /** Seeds for the V22 statistics and V25 discrimination (03 §9.2: 500). */
   statsN?: number;
+  /**
+   * Run V15's difficulty-targeting property (default true). It costs about 100 targeted items per
+   * template whatever `propertyN` is; the CLI (`pnpm content:validate`) always runs it, and a test
+   * that only checks the run end to end may skip it.
+   */
+  targeting?: boolean;
 }
 
 export interface EngineCheckResult {
@@ -326,7 +332,11 @@ export function runEngineChecks(input: CompiledInput, opts: EngineCheckOptions):
       continue;
     }
     templateStats[t.id] = stats;
-    const report = runTemplateProperties(t, { n: opts.propertyN, stats });
+    const report = runTemplateProperties(t, {
+      n: opts.propertyN,
+      stats,
+      targeting: opts.targeting !== false,
+    });
     for (const f of report.failures.slice(0, 5)) {
       const check: EngineCheckId = f.step === '7.hint-reveals' ? 'V17' : 'V15';
       err(

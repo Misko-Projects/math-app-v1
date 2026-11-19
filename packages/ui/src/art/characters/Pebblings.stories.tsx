@@ -789,7 +789,8 @@ function coveredSlots(svg: SVGSVGElement): string[] {
  * Countability (05 §5): every pebble slot of every critter stays fully visible — no limb, claw,
  * head or effect ever covers one, in any species, pose or number, at any point of its idle loop.
  * Each critter is shown alone and its loops are stepped through eight phases. (Test stories, split
- * in two so each runs well inside the story-test timeout; the gallery pages show the same critters.)
+ * into four of at most three species each so each runs well inside the story-test timeout on a
+ * loaded CI runner; together they cover every species. The gallery pages show the same critters.)
  */
 function slotStory(species: readonly PebblingSpecies[]): Story {
   const cases = SLOT_CASES.filter((c) => species.includes(c.species));
@@ -800,8 +801,10 @@ function slotStory(species: readonly PebblingSpecies[]): Story {
   };
 }
 
-export const PebbleSlotsVisibleShore: Story = slotStory(SPECIES_PAGES.shore);
-export const PebbleSlotsVisibleSea: Story = slotStory(SPECIES_PAGES.sea);
+export const PebbleSlotsVisibleShore: Story = slotStory(SPECIES_PAGES.shore.slice(0, 3));
+export const PebbleSlotsVisibleShoreMore: Story = slotStory(SPECIES_PAGES.shore.slice(3));
+export const PebbleSlotsVisibleSea: Story = slotStory(SPECIES_PAGES.sea.slice(0, 3));
+export const PebbleSlotsVisibleSeaMore: Story = slotStory(SPECIES_PAGES.sea.slice(3));
 
 function SlotCases({ cases }: { cases: typeof SLOT_CASES }) {
   return (
