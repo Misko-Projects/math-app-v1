@@ -1,6 +1,13 @@
 import { formatModel } from '@number-island/engine';
 import type { WidgetAction } from '@number-island/shared';
-import { type CSSProperties, type KeyboardEvent, useMemo, useRef, useState } from 'react';
+import {
+  type CSSProperties,
+  type KeyboardEvent,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import { useInteractionTrace } from '../../interaction/trace';
 import { useDragToTarget } from '../../interaction/useDragToTarget';
 import {
@@ -48,6 +55,10 @@ import './make-set.css';
  *   raise a finger, "finger down" (or ArrowDown) to fold one. Parts are `[left, right]`.
  * - `showRunningCount` shows (and speaks) the count; otherwise placing an object only clicks.
  * - `groupsOf: 10` (CNT.19): a "make a ten" button ties every full ten-frame into a bundle.
+ * - Layout follows the widget's measured width (06 §1): heap, container and actions in a row
+ *   where they fit (1280 × 800), else the heap above the container (`stack`, `column`). Targets
+ *   and gaps never shrink.
+ * - Check is enabled whenever input is on: every state, the untouched one included, has a response.
  *
  * Every change goes through the engine model (`formatModel('make-set')`), which also gives the
  * response on "check": `{ count, removed, parts?, bundles? }` (packages/engine/README.md).
@@ -65,6 +76,12 @@ const DEMO_GAP_MS = 220;
 const SUPPLY_VISIBLE = 12;
 /** Rendered objects are capped (content stays ≤ 20 + supply); the model still tracks the rest. */
 const MAX_OBJECTS = 40;
+/** The gap between the heap, the container and the actions (`.ni-mset` gap in make-set.css). */
+const LAYOUT_GAP = 32;
+/** A pile's padding (22) and border (3) on each side, as in make-set.css. */
+const PILE_EDGE = 2 * (22 + 3);
+/** Most objects per heap row when the heap has a row of its own (12 visible → two rows). */
+const STACK_HEAP_COLS = SUPPLY_VISIBLE / 2;
 
 type Config = ConfigFor<'make-set'>;
 type ItemId = `set-${number}`;
@@ -110,7 +127,6 @@ export function MakeSetWidget({
   const [state, setState] = useState(initial);
   const stateRef = useRef(state);
   stateRef.current = state;
-  const [moves, setMoves] = useState(0);
   /** What the model says the container holds now (its response shape, engine README). */
   const view = (s: typeof state): View => {
     const r = model && s ? model.toResponse(s) : null;
@@ -121,7 +137,6 @@ export function MakeSetWidget({
     if (!model || !stateRef.current) return view(stateRef.current);
     stateRef.current = model.apply(stateRef.current, action);
     setState(stateRef.current);
-    setMoves((m) => m + 1);
     return view(stateRef.current);
   };
 
@@ -242,9 +257,18 @@ export function MakeSetWidget({
     sfx('fuse');
   };
 
+  /**
+   * What "check" sends for a state: the model's response once the container is closed. Every
+   * state has one, the untouched initial state included (a zero item's empty container is the
+   * answer), so Check never waits for a first move. It still sends only on the child's tap, once
+   * per submission (useSubmitGuard), and the runner judges it.
+   */
+  const responseFor = (s: typeof state) =>
+    model && s ? model.toResponse(model.apply(s, { op: 'close-container' })) : null;
+  const canCheck = interactive && responseFor(state) !== null;
   const submit = useSubmitGuard(() => {
-    if (!interactive || moves === 0 || !model || !stateRef.current) return false;
-    const response = model.toResponse(model.apply(stateRef.current, { op: 'close-container' }));
+    if (!interactive) return false;
+    const response = responseFor(stateRef.current);
     if (!response) return false;
     onResponse(response);
     return true;
@@ -401,6 +425,71 @@ export function MakeSetWidget({
   const boxH = gridH + pad.top + pad.bottom;
   const containerName = t(`ui.set.${config.container}`);
 
+  // ---------- layout: follows the width the widget has (06 §1: container-relative) ----------
+
+  const actionsRef = useRef<HTMLDivElement | null>(null);
+  /** The root's content width and the actions column's width, measured; null until mounted. */
+  const [room, setRoom] = useState<{ avail: number; actions: number } | null>(null);
+  useLayoutEffect(() => {
+    const el = rootRef.current;
+    if (!el || hands) return;
+    const measure = () => {
+      const cs = getComputedStyle(el);
+      const avail =
+        el.getBoundingClientRect().width -
+        Number.parseFloat(cs.paddingLeft) -
+        Number.parseFloat(cs.paddingRight);
+      const actions = actionsRef.current?.getBoundingClientRect().width ?? 0;
+      setRoom((r) => (r && r.avail === avail && r.actions === actions ? r : { avail, actions }));
+    };
+    measure();
+    if (typeof ResizeObserver === 'undefined') return;
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    if (actionsRef.current) ro.observe(actionsRef.current);
+    return () => ro.disconnect();
+  }, [hands]);
+
+  const heapCap = ageMode === 'k' ? HEAP_COLS_K : HEAP_COLS;
+  const heapW = (cols: number) => cols * slot + (cols - 1) * gap;
+  const showSupply = !takeAway || outside.length > 0;
+  const piles = (showSupply ? 1 : 0) + (takeAway ? 1 : 0);
+  /**
+   * - `row` (as designed for 1280 × 800): heap, container, (take-away pile,) actions side by side.
+   * - `stack`: the heap on its own row above (wider, so fewer rows), the container with the
+   *   actions beside it, the take-away pile below.
+   * - `column`: everything in one column, actions last.
+   * Each is chosen only when it fits the measured width; targets and gaps never shrink.
+   */
+  const layout: 'row' | 'stack' | 'column' = (() => {
+    if (hands || !room) return 'row';
+    const rowNeed =
+      piles * (heapW(heapCap) + PILE_EDGE) + boxW + room.actions + (piles + 1) * LAYOUT_GAP;
+    if (rowNeed <= room.avail + 0.5) return 'row';
+    return boxW + LAYOUT_GAP + room.actions <= room.avail + 0.5 ? 'stack' : 'column';
+  })();
+  /** Objects per heap row: as designed in a row; as many as fit (up to 6) on a row of its own. */
+  const heapCols =
+    layout === 'row' || !room
+      ? heapCap
+      : Math.max(
+          1,
+          Math.min(STACK_HEAP_COLS, Math.floor((room.avail - PILE_EDGE + gap) / (slot + gap))),
+        );
+  const areas =
+    layout === 'stack'
+      ? [showSupply && 'supply supply', 'box act', takeAway && 'away away']
+      : [showSupply && 'supply', 'box', takeAway && 'away', 'act'];
+  const layoutStyle: CSSProperties =
+    layout === 'row'
+      ? {}
+      : {
+          gridTemplateAreas: areas
+            .filter(Boolean)
+            .map((a) => `"${a}"`)
+            .join(' '),
+        };
+
   // Demo invite (03 §6.3): the ring and Pip's hand sit on the ONE thing the child acts on next.
   // `answer` invites a drag or a remove, whichever moves the count towards the value.
   // The cue shows only while the child can act on it: never on a disabled control, and not while
@@ -435,20 +524,18 @@ export function MakeSetWidget({
         (inviteStep === 'drag' ? (handParts[0] < 5 ? 0 : 1) : handParts[1] > 0 ? 1 : 0));
   const invitedCount = cue && invite?.op === 'count-aloud';
   const invitedCheck =
-    cue &&
-    moves > 0 &&
+    canCheck &&
     (invite?.op === 'close-container' ||
       (Number.isFinite(answerWant) && answerWant === v.count && inviteStep === null));
   const invitedBundle = cue && canBundle && invite?.op === 'bundle';
 
   // ---------- the heap's layout ----------
 
-  const heapCap = ageMode === 'k' ? HEAP_COLS_K : HEAP_COLS;
   /** The heap keeps the size of its fullest state, so it never jumps as objects leave. */
   const heapBox = (most: number) => {
-    const rows = Math.max(1, heapRows(most, heapCap).length);
+    const rows = Math.max(1, heapRows(most, heapCols).length);
     return {
-      width: heapCap * slot + (heapCap - 1) * gap,
+      width: heapW(heapCols),
       minHeight: rows * slot + (rows - 1) * gap,
     };
   };
@@ -503,7 +590,7 @@ export function MakeSetWidget({
     const shown = items.slice(0, most);
     const label = which === 'away' ? t('ui.set.away') : t('ui.set.supply');
     const targetProps = isTarget ? dnd.targetProps('pile', { label }) : null;
-    const cells = heapCells(shown.length, heapCap);
+    const cells = heapCells(shown.length, heapCols);
     return (
       <div className="ni-mset__pile" data-area={isTarget ? 'pile' : 'supply'} data-kind={which}>
         {targetProps ? (
@@ -518,7 +605,7 @@ export function MakeSetWidget({
           <fieldset
             className="ni-mset__heap"
             aria-label={label}
-            style={{ gridTemplateColumns: `repeat(${2 * heapCap}, var(--heap-half))` }}
+            style={{ gridTemplateColumns: `repeat(${2 * heapCols}, var(--heap-half))` }}
           >
             {shown.map((id, i) => {
               const cell = cells[i] as HeapCell;
@@ -678,7 +765,14 @@ export function MakeSetWidget({
       data-mode={config.mode}
       data-container={config.container}
       data-disabled={disabled ? 'true' : undefined}
-      style={{ '--slot': `${slot}px`, '--heap-half': `${(slot - gap) / 2}px` } as CSSProperties}
+      data-layout={hands ? undefined : layout}
+      style={
+        {
+          '--slot': `${slot}px`,
+          '--heap-half': `${(slot - gap) / 2}px`,
+          ...layoutStyle,
+        } as CSSProperties
+      }
     >
       {hands ? (
         <fieldset className="ni-mset__hands" aria-label={containerName}>
@@ -687,13 +781,13 @@ export function MakeSetWidget({
         </fieldset>
       ) : (
         <>
-          {!takeAway || outside.length > 0 ? pileArea('supply') : null}
+          {showSupply ? pileArea('supply') : null}
           {containerBox}
           {takeAway ? pileArea('away') : null}
         </>
       )}
 
-      <div className="ni-mset__actions">
+      <div className="ni-mset__actions" ref={actionsRef}>
         {config.showRunningCount ? (
           <NumberDisplay value={v.count} size="lg" label="ui.widget.answer" />
         ) : null}
@@ -710,11 +804,7 @@ export function MakeSetWidget({
           </span>
         ) : null}
         <span className="ni-mset__action">
-          <CheckButton
-            onPress={submit}
-            disabled={!interactive || moves === 0}
-            invited={invitedCheck}
-          />
+          <CheckButton onPress={submit} disabled={!canCheck} invited={invitedCheck} />
           {invitedCheck ? pointer : null}
         </span>
       </div>

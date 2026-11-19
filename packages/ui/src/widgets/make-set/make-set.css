@@ -1,8 +1,15 @@
 /* make-set widget (U03): the heap, the container with ten-frame slots, and the actions. */
 
+/*
+ * The widget takes the width its host gives it and never grows to fit its content (inline-size
+ * containment), so the layout MakeSetWidget picks from that width (`data-layout`) is honest:
+ * `row` side by side, else `stack` / `column` on a grid (areas set inline). The gap is
+ * LAYOUT_GAP in MakeSetWidget.tsx.
+ */
 .ni-mset {
   position: relative;
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: center;
   gap: 32px;
@@ -10,7 +17,17 @@
   width: 100%;
   max-width: 1180px;
   padding: 12px 16px;
+  /* Inline-size only (no layout containment): the demo flight stays viewport-fixed. */
+  contain: inline-size;
 }
+.ni-mset[data-layout="stack"],
+.ni-mset[data-layout="column"] {
+  display: grid;
+  justify-content: center;
+  justify-items: center;
+  align-items: center;
+}
+/* Each part's grid area is at the end of this file (after the parts' own rules). */
 
 /* ---------- heap (supply) and the take-away pile ---------- */
 
@@ -307,6 +324,7 @@
 /* Hands: the two hands in a row, the check below them, all centred. */
 .ni-mset[data-container="hands"] {
   flex-direction: column;
+  flex-wrap: nowrap;
   gap: 40px;
 }
 .ni-mset[data-container="hands"] .ni-mset__actions {
@@ -322,9 +340,16 @@
   filter: drop-shadow(0 14px 10px rgb(38 70 83 / 0.3));
 }
 
-/* Narrow or portrait: stack the parts. */
-@media (max-width: 900px), (orientation: portrait) {
-  .ni-mset {
-    flex-wrap: wrap;
-  }
+/* `stack` / `column` layouts: each part's grid area (the template is set inline). */
+.ni-mset[data-layout] > [data-kind="supply"] {
+  grid-area: supply;
+}
+.ni-mset[data-layout] > [data-kind="away"] {
+  grid-area: away;
+}
+.ni-mset[data-layout] > .ni-mset__container {
+  grid-area: box;
+}
+.ni-mset[data-layout] > .ni-mset__actions {
+  grid-area: act;
 }
