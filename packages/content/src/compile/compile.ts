@@ -751,7 +751,13 @@ function check(c: LoadedContent, d: Diagnostics): CompiledContent | null {
   }
 
   // ---------- game data references ----------
-  if (c.game) checkGame(c.game, c.gameOrigin, skills, c.retired.skills, c.narration, d);
+  if (c.game) {
+    const pending = {
+      file: c.graph?.file ?? 'graph.yaml',
+      ids: c.graph?.pendingGameSkills ?? [],
+    };
+    checkGame(c.game, c.gameOrigin, skills, c.retired.skills, pending, c.narration, d);
+  }
 
   // ---------- derive skills, templates, misconceptions ----------
   const misconceptionsBySkill = new Map<string, string[]>();
@@ -908,6 +914,16 @@ function checkExcusedIds(c: LoadedContent, d: Diagnostics): void {
         c.graph?.file ?? 'graph.yaml',
         'plannedIds',
         `'${id}' is not a canonical SkillId or TemplateId (e.g. ADD.02, ADD.02.t4)`,
+      );
+    }
+  }
+  for (const id of c.graph?.pendingGameSkills ?? []) {
+    if (!canonicalSkill(id)) {
+      d.error(
+        'V02',
+        c.graph?.file ?? 'graph.yaml',
+        'pendingGameSkills',
+        `'${id}' is not a canonical SkillId (e.g. CPS.04)`,
       );
     }
   }
@@ -1463,6 +1479,7 @@ function checkGame(
   origin: GameOrigin,
   skills: Map<string, unknown>,
   retired: ReadonlySet<string>,
+  pending: { file: string; ids: readonly string[] },
   narration: LoadedContent['narration'],
   d: Diagnostics,
 ): void {
@@ -1503,15 +1520,19 @@ function checkGame(
     workshops.add(b.workshopId);
   });
 
+  const pendingIds = new Set(pending.ids);
+  const namedSkills = new Set<string>();
   const rule = (loc: Loc, r: UnlockRule) => {
     for (const { where, rule: a } of atomicRules(loc.path, r)) {
       const here = { file: loc.file, path: where };
       if ('building' in a && !buildings.has(a.building))
         err('V04', here, `unlock rule names unknown building ${a.building}`);
-      if (!('skill' in a) || skills.has(a.skill)) continue;
-      // 03 §9.2 reading: a canonical catalog id that is not authored yet only warns; the rule
-      // stays unsatisfied until the skill exists. Retired, reserved-strand and unknown-strand ids
-      // can never be reached.
+      if (!('skill' in a)) continue;
+      namedSkills.add(a.skill);
+      if (skills.has(a.skill)) continue;
+      // 03 §9.2 reading: a skill listed in graph.yaml: pendingGameSkills that is not authored yet
+      // only warns, and the rule stays unsatisfied until the skill exists. Any other unauthored
+      // id is an error, so a typo never ships a building that can never unlock.
       const strand = a.skill.slice(0, a.skill.indexOf('.'));
       if (retired.has(a.skill))
         err('V04', here, `unlock rule names retired skill ${a.skill}; it can never be reached`);
@@ -1523,6 +1544,12 @@ function checkGame(
         );
       else if (!ACTIVE_STRAND_SET.has(strand))
         err('V04', here, `unlock rule names unknown skill ${a.skill} (no strand ${strand})`);
+      else if (!pendingIds.has(a.skill))
+        err(
+          'V04',
+          here,
+          `unlock rule names unknown skill ${a.skill}; a catalog skill that is not authored yet must be listed in graph.yaml: pendingGameSkills`,
+        );
       else
         d.warn(
           'V04',
@@ -1562,11 +1589,12 @@ function checkGame(
       lv.unlocks.forEach((u, k) => {
         const uloc = sub(lloc, `.unlocks[${k}]`);
         const sep = u.indexOf(':');
-        const kind = sep < 0 ? u : u.slice(0, sep);
-        const ids = Object.hasOwn(grants, kind) ? grants[kind] : undefined;
-        if (!ids) err('V04', uloc, `'${u}' is not decor:<id>, outfit:<option> or resident:<id>`);
-        else if (!ids.has(u.slice(sep + 1)))
-          err('V04', uloc, `unknown ${kind} ${u.slice(sep + 1)}`);
+        const kind = u.slice(0, sep);
+        const id = u.slice(sep + 1);
+        const ids = sep > 0 && Object.hasOwn(grants, kind) ? grants[kind] : undefined;
+        if (!ids || id === '')
+          err('V04', uloc, `'${u}' is not decor:<id>, outfit:<option> or resident:<id>`);
+        else if (!ids.has(id)) err('V04', uloc, `unknown ${kind} ${id}`);
       });
     });
   });
@@ -1634,6 +1662,23 @@ function checkGame(
         err('V04', sub(at('festivals', i), `.rewardDecor[${j}]`), `unknown decor ${x}`);
     });
   });
+  // A stale pendingGameSkills entry warns, so a curriculum PR that authors one keeps passing.
+  for (const id of pendingIds) {
+    if (skills.has(id))
+      d.warn(
+        'V03',
+        pending.file,
+        'pendingGameSkills',
+        `${id} is authored; remove it from pendingGameSkills`,
+      );
+    else if (!namedSkills.has(id))
+      d.warn(
+        'V04',
+        pending.file,
+        'pendingGameSkills',
+        `no game data unlock rule names ${id}; remove it from pendingGameSkills`,
+      );
+  }
 }
 
 // ---------- narration ----------

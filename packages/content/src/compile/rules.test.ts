@@ -469,14 +469,45 @@ describe('V04: game data references', () => {
       /unlock rule names unknown building castle/,
     );
   });
-  it('warns, not errors, on a canonical catalog skill that is not authored yet (03 §9.2)', () => {
+  it('warns, not errors, on an unauthored skill listed in pendingGameSkills (03 §9.2)', () => {
     const diags = gameVariant('buildings', (doc) => {
-      byId(doc.buildings, 'lighthouse').unlock.all[1].skill = 'MUL.13';
+      byId(doc.buildings, 'lighthouse').unlock.all[1].skill = 'MUL.02';
     });
-    const hit = expectFinding(diags, 'V04', /skill MUL.13, which is not authored yet/, 'warn');
+    const hit = expectFinding(diags, 'V04', /skill MUL.02, which is not authored yet/, 'warn');
     expect(hit.file).toBe('game/buildings.yaml');
     expect(hit.path).toMatch(/^buildings\[\d+\]\.unlock\.all\[1\]$/);
     expect(diags.filter((d) => d.severity === 'error')).toEqual([]);
+  });
+  it('rejects any other unauthored skill, such as a typo of an authored one', () => {
+    expectFinding(
+      gameVariant('buildings', (doc) => {
+        byId(doc.buildings, 'lighthouse').unlock.all[1].skill = 'CPS.30';
+      }),
+      'V04',
+      /unknown skill CPS.30; .* must be listed in graph.yaml: pendingGameSkills/,
+    );
+  });
+  it('a stale pendingGameSkills entry warns, never errors', () => {
+    const pendingPlus = (id: string) =>
+      variant((f) => {
+        f['graph.yaml'] = (f['graph.yaml'] as string).replace(
+          'pendingGameSkills: [',
+          `pendingGameSkills: [${id}, `,
+        );
+      });
+    const authored = pendingPlus('CNT.01');
+    expectFinding(authored, 'V03', /CNT.01 is authored; remove it from pendingGameSkills/, 'warn');
+    expect(authored.filter((d) => d.severity === 'error')).toEqual([]);
+    const unused = pendingPlus('ADD.09');
+    const hit = expectFinding(
+      unused,
+      'V04',
+      /no game data unlock rule names ADD.09; remove it from pendingGameSkills/,
+      'warn',
+    );
+    expect(hit.file).toBe('graph.yaml');
+    expect(unused.filter((d) => d.severity === 'error')).toEqual([]);
+    expectFinding(pendingPlus('CPS.4'), 'V02', /'CPS.4' is not a canonical SkillId/);
   });
   it('rejects unlock skills of unknown or reserved strands, and retired skills', () => {
     const lighthouse = (skill: string) =>
@@ -509,6 +540,18 @@ describe('V04: game data references', () => {
     expectFinding(unlocks('decor:castle'), 'V04', /unknown decor castle/);
     expectFinding(unlocks('outfit:hat-crown'), 'V04', /unknown outfit hat-crown/);
     expectFinding(unlocks('resident:nobody'), 'V04', /unknown resident nobody/);
+    expectFinding(unlocks('decor:'), 'V04', /'decor:' is not decor:<id>/);
+    expectFinding(unlocks(':shell-bench'), 'V04', /':shell-bench' is not decor:<id>/);
+    // A bare prefix is not a grant, even when a decor happens to be called 'decor'.
+    const bare = variant((f) => {
+      editYaml(f, 'game/decor.yaml', (doc) =>
+        doc.decor.push({ id: 'decor', art: 'decor/decor', footprint: [1, 1], source: 'starter' }),
+      );
+      editYaml(f, 'game/buildings.yaml', (doc) => {
+        byId(doc.buildings, 'road-crew').levels[1].unlocks = ['decor'];
+      });
+    });
+    expectFinding(bare, 'V04', /'decor' is not decor:<id>/);
     for (const ok of ['decor:fountain', 'outfit:hat-captain', 'resident:marlo']) {
       expect(unlocks(ok).filter((d) => d.severity === 'error')).toEqual([]);
     }

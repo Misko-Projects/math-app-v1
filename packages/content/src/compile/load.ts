@@ -49,7 +49,13 @@ export interface LoadedContent {
   misconceptions: (Located<MisconceptionSource> & { area: string })[];
   narration: Map<string, Located<NarrationEntry>>;
   contexts: Located<StoryContext>[];
-  graph: { file: string; roots: string[]; coverageGrades: Grade[]; plannedIds: string[] } | null;
+  graph: {
+    file: string;
+    roots: string[];
+    coverageGrades: Grade[];
+    plannedIds: string[];
+    pendingGameSkills: string[];
+  } | null;
   retired: { skills: Set<string>; templates: Set<string> };
   wiExceptions: Map<string, string | null>;
   ccssCodes: string[];
@@ -279,6 +285,7 @@ export function loadContent(files: ContentFiles, diags: Diagnostics): LoadedCont
             roots: data.roots,
             coverageGrades: data.coverageGrades,
             plannedIds: data.plannedIds ?? [],
+            pendingGameSkills: data.pendingGameSkills ?? [],
           };
         }
         break;

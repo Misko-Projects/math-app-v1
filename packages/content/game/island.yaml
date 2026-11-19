@@ -1,7 +1,11 @@
 # U02 game data: the island (02 §5.8; 05 §3). A 12 × 8 plot grid ([x, y], x 0–11 west to east,
 # y 0–7 north to south). It starts as a 3-plot sandbar and grows outward in rings: a ring opens
 # when its rule holds over island facts (built buildings, road length, residents; 02 §4.3), and the
-# rings open in order. Together the rings cover the whole grid.
+# rings open in order: the island fold stops at the first ring whose rule does not hold. So each
+# ring's rule implies the rules before it, and the project rings count the shared projects
+# (Lighthouse, Bridge to East Beach, Festival Stage: any one, any two, all three) rather than name
+# one, so the order the family builds them in never changes what is open. Together the rings
+# cover the whole grid.
 #
 # The Numbered Road winds from the sandbar around the first shore (stones 1–20), then around ring
 # 2 (21–100, one plot per ten), and on by tens to 1,000 (one plot per hundred), so the Road Crew
@@ -44,7 +48,7 @@ island:
           [8, 5],
         ]
     # ring 2: the road reaches 20 and the island grows around it (26 plots)
-    - unlock: { roadLength: 20 }
+    - unlock: { all: [{ residentCount: 1 }, { roadLength: 20 }] }
       plots:
         [
           [1, 1],
@@ -74,8 +78,17 @@ island:
           [8, 6],
           [9, 6],
         ]
-    # ring 3: the north and west shore, once the Lighthouse is built or the road reaches 100 (17 plots)
-    - unlock: { any: [{ building: lighthouse }, { roadLength: 100 }] }
+    # ring 3: the north and west shore, once any one shared project is built or the road reaches
+    # 100 (17 plots)
+    - unlock:
+        all:
+          - { residentCount: 1 }
+          - { roadLength: 20 }
+          - any:
+              - { building: lighthouse }
+              - { building: east-bridge }
+              - { building: festival-stage }
+              - { roadLength: 100 }
       plots:
         [
           [0, 0],
@@ -96,8 +109,15 @@ island:
           [8, 0],
           [9, 0],
         ]
-    # ring 4: East Beach, across the Bridge to East Beach (16 plots)
-    - unlock: { building: east-bridge }
+    # ring 4: East Beach, once any two of the three shared projects are built (16 plots)
+    - unlock:
+        all:
+          - { residentCount: 1 }
+          - { roadLength: 20 }
+          - any:
+              - all: [{ building: lighthouse }, { building: east-bridge }]
+              - all: [{ building: lighthouse }, { building: festival-stage }]
+              - all: [{ building: east-bridge }, { building: festival-stage }]
       plots:
         [
           [10, 0],
@@ -117,8 +137,14 @@ island:
           [10, 7],
           [11, 7],
         ]
-    # ring 5: the south shore, once the Festival Stage is built (9 plots)
-    - unlock: { building: festival-stage }
+    # ring 5: the south shore, once all three shared projects are built (9 plots)
+    - unlock:
+        all:
+          - { residentCount: 1 }
+          - { roadLength: 20 }
+          - { building: lighthouse }
+          - { building: east-bridge }
+          - { building: festival-stage }
       plots: [[1, 7], [2, 7], [3, 7], [4, 7], [5, 7], [6, 7], [7, 7], [8, 7], [9, 7]]
   road:
     # stones 1–20: two stones per plot, on the sandbar and the first shore

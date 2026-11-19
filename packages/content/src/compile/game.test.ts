@@ -451,6 +451,13 @@ describe('the island (05 §3)', () => {
     expect(ringOf.size).toBe(12 * 8);
     for (const r of rings.slice(1)) expect('start' in r.unlock).toBe(false);
   });
+  it('each ring rule implies the ones before it, so rings open in order (02 §4.3)', () => {
+    rings.forEach((r, i) => {
+      const prev = rings[i - 1];
+      if (prev)
+        expect(implies(r.unlock, prev.unlock), `ring ${i} implies ring ${i - 1}`).toBe(true);
+    });
+  });
   it('the road counts 1…100 by ones, then by tens to 1,000', () => {
     const want = [
       ...Array.from({ length: 100 }, (_, i) => i + 1),

@@ -8,3 +8,8 @@ coverageGrades: []
 # catalog one strand group at a time, so these gaps are later K01 PRs (ADD.02, SUB.04) or K02
 # (grade 2: CNT.11, CNT.12, CNT.17). K01 clears the K–1 entries; K02 clears the rest.
 plannedIds: [ADD.02, CNT.11, CNT.12, CNT.17, SUB.04]
+# pendingGameSkills: catalog skills (03 §3) that game data unlock rules name before the curriculum
+# authors them (03 §9.2); such a rule warns and stays unsatisfied until the skill exists. Any other
+# unauthored skill in an unlock rule is an error. The PR that authors one removes it here (a stale
+# entry only warns).
+pendingGameSkills: [CPS.04, GEO.01, MUL.02, MUL.05, FRA.01, MON.01, TIM.01, ALG.01]
