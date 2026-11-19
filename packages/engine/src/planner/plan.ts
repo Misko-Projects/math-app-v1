@@ -48,15 +48,21 @@
 // - Warmup: the first available of (a) the on-track skill with the highest P(ref) ≥ warmupMinP;
 //   (b) the highest-P(ref) on-track skill; (c) the highest-P(ref) frontier skill already attempted
 //   ('learning'), with an evidence template; (d) the highest-P(ref) 'ready' skill whose lesson mode
-//   is 'none'; (e) with nothing attempted, the lesson of a (non-remediation) focus skill, preferring
-//   one without an offered test-out: requests on it skip that lesson, and it keeps its draw only
-//   when the lesson is demonstration-only (no rated child steps, so it stays untouched); (f) else
-//   an evidence template of the first focus skill. An item warmup is never the first attempt on a
-//   ready skill with a lesson; the requests continue its run (≤ maxRun in a row). One test-out
-//   rule: a draw is planned only when the learner's own offer (inTestOut) holds after the worst
-//   case of the warmup (a wrong item, or every rated step of the warmup lesson wrong), and an
-//   offered draw no themed workshop can host goes to the Practice Pier, so plan, learner and
-//   targetDifficulty agree. Ties by id;
+//   is 'none'; (e) with nothing attempted, the lesson of a focus skill, preferring a skill with no
+//   queued remediation and then one without an offered test-out: the other requests on it skip
+//   that lesson (a queued remediation request keeps its own), and it keeps its draw only when the
+//   lesson is demonstration-only (no rated child steps, so it stays untouched); (f) else an
+//   evidence template of the first focus skill. An item warmup is never the first attempt on a
+//   ready skill with a lesson; the requests continue its run (≤ maxRun in a row).
+// - One test-out rule: the learner decides at the skill's first evidence attempt, after the warmup,
+//   so the planner applies the learner's own offer (inTestOut) to the bounds of every warmup
+//   outcome (all wrong / all right). A lesson with rated child steps plans its draw only when the
+//   offer holds in the all-wrong state (else lesson first, which touches the skill). A
+//   demonstration-only lesson plans it whenever the offer holds in the all-right state, so every
+//   test-out the learner starts is a planned, passable draw (the Practice Pier when no themed
+//   workshop hosts one). Such a draw may turn out to be ordinary practice, so a draw with no
+//   constructed template is followed by a constructed practice item of the skill: the request
+//   always produces practiced evidence. Ties by id;
 //   templates prefer a format an available themed workshop hosts, then pictorial/abstract, then
 //   constructed (`isConstructedTemplate`), then id.
 // - Challenge: round(challengeShare × the plan's item budgets) items, dealt round-robin from the
@@ -317,10 +323,16 @@ function testOutPool(graph: SkillGraph, skill: Skill): ItemTemplate[] {
 const representationOf = (t: ItemTemplate) =>
   t.representation ?? FORMAT_DEFAULT_REPRESENTATION[t.format];
 
-/** Round-robin over representations so consecutive draws differ in template and representation. */
+/**
+ * Round-robin over representations so consecutive draws differ in template and representation.
+ * Within a representation, constructed-answer templates come first: a draw that turns out to be
+ * ordinary practice then still produces evidence when it can.
+ */
 function interleaveByRepresentation(ts: readonly ItemTemplate[]): ItemTemplate[] {
   const groups = new Map<string, ItemTemplate[]>();
-  for (const t of [...ts].sort((a, b) => byId(a.id, b.id))) {
+  const constructedFirst = (a: ItemTemplate, b: ItemTemplate) =>
+    Number(isConstructedTemplate(b)) - Number(isConstructedTemplate(a)) || byId(a.id, b.id);
+  for (const t of [...ts].sort(constructedFirst)) {
     const r = representationOf(t);
     groups.set(r, [...(groups.get(r) ?? []), t]);
   }
@@ -483,8 +495,11 @@ function compose(
     }
   }
   const t = draw?.length ?? 0;
-
-  // Reviews: due skills this workshop can host, compressed (04 §4), deepest first.
+  // A planned draw can turn out to be ordinary practice (a demonstration-only lesson's draw that the
+  // learner does not offer after all). A draw with no constructed template then records no practiced
+  // evidence (choice responses never enter `recent`), so one constructed practice item of the skill
+  // follows it.
+  const evidenceAfter = draw && !draw.some(isConstructedTemplate) && practice.length > 0 ? 1 : 0;
   const dueHere = ctx.due.filter((r) => r.skillId !== S && hosted(r.skillId).length > 0);
   const reviewTarget = focus ? Math.round(P.planner[sliceKey(ctx)].reviewShare * budget) : budget;
   // A skill whose last review failed is reviewed itself: an encompassing skill's implicit credit
@@ -513,13 +528,23 @@ function compose(
   let c = challengeSkills.length > 0 ? Math.min(challengeWanted, budget) : 0;
   let r = Math.min(reviews.length, Math.max(0, budget - c));
   let s = focus ? budget - r - c : 0;
-  if (focus && s < t) {
-    const cut = Math.min(c, t - s);
+  const need = t + evidenceAfter;
+  if (focus && s < need) {
+    const cut = Math.min(c, need - s);
     c -= cut;
     s += cut;
-    const cutR = Math.min(r, t - s);
+    const cutR = Math.min(r, need - s);
     r -= cutR;
     s += cutR;
+  }
+  if (focus && draw && s < need) {
+    // No room for the evidence item after a choice-only draw. When no hosted pool template takes a
+    // constructed answer, the request is planned without the draw: the skill's first evidence item is
+    // then out of the pool, which cancels any test-out the learner would start (04 §7b).
+    const pool = testOutPool(graph, skill as Skill).filter((x) => hosts(cap, x.format));
+    if (!pool.some(isConstructedTemplate)) {
+      return compose(ctx, i, { ...focus, testOut: false }, cap, budgetIn, challengeWanted);
+    }
   }
 
   // Breakers for the focus skill's runs: one other new skill that needs no lesson first, then
@@ -540,7 +565,7 @@ function compose(
   if (focus) {
     // A warmup item of the focus skill starts its first run, so that run holds one item fewer.
     const startRun = ctx.runStart === S ? 1 : 0;
-    while (s > maxRun * (budget - s + 1) - startRun && s - 1 >= t) {
+    while (s > maxRun * (budget - s + 1) - startRun && s - 1 >= need) {
       s -= 1;
       if (second) s2 += 1;
       else if (fillers.length > 0) f += 1;

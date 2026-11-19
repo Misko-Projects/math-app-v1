@@ -19,6 +19,7 @@ import {
   sessionPlanSchema,
 } from '@number-island/shared';
 import { describe, expect, it } from 'vitest';
+import { isConstructedTemplate } from '../items/answer-kind';
 import { createEloFireModel } from '../learner/elo-fire';
 import {
   A,
@@ -156,7 +157,7 @@ function input(over: Partial<PlanSessionInput> = {}): PlanSessionInput {
 
 /** The 04 §4 / §6.3 invariants every plan keeps. */
 function checkPlan(plan: SessionPlan): void {
-  expect(sessionPlanSchema.safeParse(plan).success).toBe(true);
+  expect(sessionPlanSchema.safeParse(plan).error?.issues).toBeUndefined();
   expect(plan.requests.length).toBeGreaterThanOrEqual(PARAMS.planner.requestsMin);
   expect(plan.requests.length).toBeLessThanOrEqual(PARAMS.planner.requestsMax);
   for (const r of plan.requests) {
@@ -552,6 +553,81 @@ describe('lessons and test-outs (04 §3, 03 §6.5)', () => {
       st = model.apply(st, synthAttempt(A, n(t.templateId), { context: t.context }), NOW + k + 1);
     });
     expect(st.skills[A]?.practicedAt).not.toBeNull();
+  });
+
+  it('a choice-only draw the learner does not offer still leaves practiced evidence', () => {
+    // Review round 7 (#61): A's lesson is demonstration-only, and its test-out pool holds two
+    // abstract choice templates. P(ref) starts just below the offer, so the draw is planned on the
+    // all-right bound of the C warmup. If that warmup goes wrong, the learner never starts the
+    // test-out, and the draw items are choice responses, which never enter `recent`. A constructed
+    // practice item of A therefore follows the draw; with no room for it, the draw is not planned.
+    const a = graph.skills[A] as Skill;
+    const base = graph.templates[`${A}.t3`] as ItemTemplate;
+    const c1: ItemTemplate = { ...base, id: `${A}.t5`, format: 'numeral-pick' };
+    const c2: ItemTemplate = { ...base, id: `${A}.t6`, format: 'compare' };
+    const g: SkillGraph = {
+      ...graph,
+      templates: { ...graph.templates, [c1.id]: c1, [c2.id]: c2 },
+      skills: {
+        ...graph.skills,
+        [A]: {
+          ...a,
+          templates: [...a.templates, c1.id, c2.id],
+          lesson: { ...a.lesson, testOut: { ...a.lesson.testOut, templateIds: [c1.id, c2.id] } },
+        },
+      },
+    };
+    const gModel = createEloFireModel(g, { childId: CHILD, isK: true });
+    const s = stateWith(
+      { [C]: practiced(2, NOW + 3 * DAY_MS) },
+      { thetaG: Math.log(0.745 / 0.255) },
+    );
+    expect(gModel.inTestOut(s, A)).toBe(false);
+    const all = cap(
+      'all-works',
+      ['tap-count', 'tenframe-fill', 'number-pad', 'number-bond', 'numeral-pick', 'compare'],
+      {
+        residents: ['nib'],
+        produces: ['stone'],
+      },
+    );
+    for (const minutes of [1, 15]) {
+      const p = plan(
+        input({ child: child('K'), graph: g, state: s, minutes, workshopsAvailable: [all] }),
+      );
+      expect(p.warmup.skillId).toBe(C);
+      const warm = gModel.apply(
+        s,
+        synthAttempt(C, Number(p.warmup.templateId.split('.t')[1]), {
+          context: 'warmup',
+          correct: false,
+          partialCredit: 0,
+        }),
+        NOW,
+      );
+      expect(gModel.inTestOut(warm, A)).toBe(false);
+      for (const r of p.requests.filter((x) => x.tasks.some((t) => t.skillId === A))) {
+        let st = warm;
+        r.tasks
+          .filter((t) => t.skillId === A && t.mode === 'item')
+          .forEach((t, k) => {
+            const tpl = g.templates[t.templateId] as ItemTemplate;
+            const choice = !isConstructedTemplate(tpl);
+            st = gModel.apply(
+              st,
+              synthAttempt(A, 3, {
+                templateId: tpl.id,
+                format: tpl.format,
+                context: t.context,
+                response: choice ? { kind: 'choice', id: 'opt-1' } : { kind: 'number', value: 1 },
+              }),
+              NOW + k + 1,
+            );
+          });
+        expect(st.skills[A]?.recent.length ?? 0).toBeGreaterThan(0);
+      }
+      if (minutes === 15) expect(drawOf(p, A)).toHaveLength(3); // room for the evidence item
+    }
   });
 
   it('after a demonstration-only lesson warmup, the kept draw is a real, passable test-out', () => {
