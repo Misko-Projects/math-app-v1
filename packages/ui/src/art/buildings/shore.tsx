@@ -267,8 +267,24 @@ export function TreasureBeach({ stage, lit }: DrawProps) {
   );
 }
 
+/** The time the tower clock shows: ten past ten, a clear, friendly face. */
+export const TOWER_CLOCK_TIME = { hour: 10, minute: 10 } as const;
+
+/**
+ * Clockwise angles from twelve, in degrees, of the hour and minute hands at `hour:minute`. Both
+ * come from the one time, so the hands always agree (the hour hand moves on as the minutes pass).
+ */
+export function clockHandAngles(hour: number, minute: number): { hour: number; minute: number } {
+  return { hour: ((hour % 12) * 30 + minute * 0.5) % 360, minute: (minute * 6) % 360 };
+}
+
 /** The clock face (W9): twelve tick marks and two hands, no digits. Ink on cloud (contrast.ts). */
 function ClockFace({ x, y, r }: { x: number; y: number; r: number }) {
+  const angles = clockHandAngles(TOWER_CLOCK_TIME.hour, TOWER_CLOCK_TIME.minute);
+  const hand = (deg: number, len: number) => {
+    const a = (deg * Math.PI) / 180;
+    return `M${x} ${y}L${(x + Math.sin(a) * len).toFixed(2)} ${(y - Math.cos(a) * len).toFixed(2)}`;
+  };
   const ticks: string[] = [];
   for (let i = 0; i < 12; i++) {
     const a = (i * Math.PI) / 6;
@@ -284,10 +300,9 @@ function ClockFace({ x, y, r }: { x: number; y: number; r: number }) {
       <circle cx={x} cy={y} r={r + 4} {...filled('sunshine', 2.5)} />
       <circle cx={x} cy={y} r={r} fill={paint('cloud')} stroke={paint('ink')} strokeWidth={2.5} />
       <path d={ticks.join('')} {...stroke('ink', 2)} />
-      <path
-        d={`M${x} ${y}L${x - r * 0.38} ${y - r * 0.3}M${x} ${y}L${x + r * 0.22} ${y - r * 0.66}`}
-        {...stroke('ink', 2.8)}
-      />
+      {/* The hour hand is short, the minute hand long, both from TOWER_CLOCK_TIME. */}
+      <path data-hand="hour" d={hand(angles.hour, r * 0.48)} {...stroke('ink', 3.2)} />
+      <path data-hand="minute" d={hand(angles.minute, r * 0.72)} {...stroke('ink', 2.4)} />
       <circle cx={x} cy={y} r={2.2} fill={paint('ink')} />
     </g>
   );

@@ -1,5 +1,7 @@
 import { readdirSync, readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
+import { createElement } from 'react';
+import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
 import { pairRatio } from '../core/contrast';
 import { BUILDING_STAGES } from '../core/types';
@@ -14,6 +16,7 @@ import {
   buildingAnchor,
   COAST_BUILDINGS,
 } from './design';
+import { clockHandAngles, TOWER_CLOCK_TIME } from './shore';
 
 /** GameData footprints [w, h] in plots (packages/content/game, U02). */
 const GAME_FOOTPRINTS: Record<string, [number, number]> = {
@@ -94,6 +97,40 @@ describe('building palette (05 §11)', () => {
     for (const f of files) {
       const src = readFileSync(`${dir}${f}`, 'utf8');
       expect(src, f).not.toMatch(/#[0-9a-fA-F]{3,8}\b|rgba?\(|hsla?\(/);
+    }
+  });
+});
+
+describe('the tower clock tells one time (W9)', () => {
+  it('both hand angles come from the same time', () => {
+    expect(clockHandAngles(10, 10)).toEqual({ hour: 305, minute: 60 });
+    expect(clockHandAngles(3, 0)).toEqual({ hour: 90, minute: 0 });
+    expect(clockHandAngles(12, 30)).toEqual({ hour: 15, minute: 180 });
+    expect(clockHandAngles(6, 45)).toEqual({ hour: 202.5, minute: 270 });
+  });
+
+  it('the drawn hands agree at every built level (review s_02c13a977f91 #2)', () => {
+    const angleOf = (d: string) => {
+      const [x0 = 0, y0 = 0, x1 = 0, y1 = 0] = (d.match(/-?\d+(\.\d+)?/g) ?? []).map(Number);
+      return ((Math.atan2(x1 - x0, y0 - y1) * 180) / Math.PI + 360) % 360;
+    };
+    const want = clockHandAngles(TOWER_CLOCK_TIME.hour, TOWER_CLOCK_TIME.minute);
+    const Tower = buildingArt['clock-tower'];
+    expect(Tower).toBeDefined();
+    if (!Tower) return;
+    for (const stage of [1, 2, 3] as const) {
+      const html = renderToStaticMarkup(
+        createElement(Tower, { stage, lighting: 'day', size: 200 }),
+      );
+      const d = (hand: string) =>
+        html.match(new RegExp(`data-hand="${hand}" d="([^"]+)"`))?.[1] ?? '';
+      const minute = angleOf(d('minute'));
+      const hour = angleOf(d('hour'));
+      expect(minute, `level ${stage} minute`).toBeCloseTo(want.minute, 0);
+      expect(hour, `level ${stage} hour`).toBeCloseTo(want.hour, 0);
+      // One time: the hour hand sits where the minute hand says it should between two hours.
+      const between = (((hour - minute / 12) % 30) + 30) % 30;
+      expect(Math.min(between, 30 - between), `level ${stage}`).toBeLessThan(0.5);
     }
   });
 });

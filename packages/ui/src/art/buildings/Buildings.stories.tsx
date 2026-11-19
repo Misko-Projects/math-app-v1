@@ -168,14 +168,25 @@ function BuildingTile({
   );
 }
 
+/**
+ * Scene units kept free above a building in the single-building view, for rising smoke: puffs
+ * start above some chimneys and drift up 70 more.
+ */
+const FX_HEADROOM = 110;
+
 /** One building at a large scale on its footprint (a grassy plot), for the controls. */
 function BuildingView({ id, stage, lighting }: BuildingArgs) {
   const d = BUILDING_DESIGN[id];
   const vb = d.viewBox;
-  const scale = Math.min(3, 640 / vb.w, 560 / vb.h);
+  // Room above the art for idle effects that rise out of it (smoke drifts up to 70 units).
+  const scale = Math.min(3, 640 / vb.w, 560 / (vb.h + FX_HEADROOM));
   const fw = d.footprint[0] * ISLAND_LAYOUT.cellW;
   const fh = d.footprint[1] * ISLAND_LAYOUT.cellH;
-  const box: CSSProperties = { position: 'relative', width: vb.w * scale };
+  const box: CSSProperties = {
+    position: 'relative',
+    width: vb.w * scale,
+    marginTop: FX_HEADROOM * scale,
+  };
   return (
     <figure style={{ margin: 0, display: 'grid', justifyItems: 'center', gap: 16 }}>
       <div style={box} data-lighting={lighting}>
@@ -482,7 +493,68 @@ export const Building: Story = {
     await expect(svg.dataset.building).toBe(args.id);
     await expect(svg.dataset.stage).toBe(String(STAGE_OF[args.stage]));
     await expectArtInsideBoxes(canvasElement);
+    await expectEffectsOnPage(svg);
     await expectNoSidewaysScroll();
+  },
+};
+
+/** Every building's idle effects stay on the page (see effectsOffPage). */
+async function expectEffectsOnPageForAll(root: HTMLElement) {
+  const problems: string[] = [];
+  for (const svg of root.querySelectorAll<SVGSVGElement>('svg[data-building]')) {
+    problems.push(...(await effectsOffPage(svg)));
+  }
+  await expect(problems).toEqual([]);
+}
+
+/**
+ * Idle effects (smoke, flags, sparkles) stay inside the building's own view through their whole
+ * loop: every loop is stepped through eight phases and no visible shape may rise above the view
+ * (its reserved headroom included) or leave the page at the sides (review s_02c13a977f91 #1:
+ * bakery smoke rising off the canvas).
+ */
+async function effectsOffPage(svg: SVGSVGElement): Promise<string[]> {
+  const problems: string[] = [];
+  const anims = svg.getAnimations({ subtree: true });
+  for (const a of anims) a.pause();
+  const view = (svg.closest('figure') ?? svg).getBoundingClientRect();
+  const pageW = document.documentElement.scrollWidth;
+  for (let k = 0; k < 8; k++) {
+    for (const a of anims) {
+      const dur = Number(a.effect?.getComputedTiming().duration) || 0;
+      a.currentTime = (dur * k) / 8;
+    }
+    for (const el of svg.querySelectorAll<SVGGraphicsElement>('circle, path, rect, ellipse')) {
+      if (Number(getComputedStyle(el).opacity) < 0.05) continue;
+      const r = el.getBoundingClientRect();
+      if (r.width === 0 && r.height === 0) continue;
+      const left = r.left + window.scrollX;
+      if (r.top < view.top - 0.5 || left < -0.5 || left + r.width > pageW + 0.5) {
+        problems.push(`${svg.dataset.building} ${svg.dataset.stage}: leaves its view at ${k}/8`);
+        break;
+      }
+    }
+  }
+  for (const a of anims) a.play();
+  return [...new Set(problems)];
+}
+
+async function expectEffectsOnPage(svg: SVGSVGElement) {
+  await expect(await effectsOffPage(svg)).toEqual([]);
+}
+
+/** Every building at level 3 in the single-building view: idle effects stay on the page. */
+export const EffectsStayOnPage: Story = {
+  parameters: { controls: { disable: true } },
+  render: () => (
+    <div style={{ display: 'grid', gap: 24 }}>
+      {BUILDING_IDS.map((id) => (
+        <BuildingView key={id} id={id} stage={3} lighting="day" />
+      ))}
+    </div>
+  ),
+  play: async ({ canvasElement }) => {
+    await expectEffectsOnPageForAll(canvasElement);
   },
 };
 
