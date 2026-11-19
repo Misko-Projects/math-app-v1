@@ -1,0 +1,47 @@
+# ALG templates (K01): ALG.05 on compare.sets (03 §5.6). Making the pans balance (make-equal,
+# balance.equal) is the constructed practice at the concrete and pictorial tiers (V27); "do they
+# balance?" and "are they the same?" are choice extras.
+strand: ALG
+templates:
+  # ---------- ALG.05: balanced means the same amount on both sides (K) ----------
+  - id: ALG.05.t1
+    skillId: ALG.05
+    format: balance
+    tier: concrete
+    representation: balance
+    generator: compare.sets
+    params: { a: { int: [1, 8] }, b: { int: [1, 8] }, ask: make }
+    constraints: ["a != b"]
+    difficulty: { base: -0.2 }
+    narration: { prompt: tp.ALG.05.t1.prompt, hints: [h.weight.goes-down, h.balance.add-one] }
+
+  - id: ALG.05.t2
+    skillId: ALG.05
+    format: compare
+    tier: concrete
+    representation: objects
+    generator: compare.sets
+    params: { a: { int: [1, 8] }, b: { int: [1, 8] }, ask: same }
+    difficulty: { base: -0.65 }
+    narration: { prompt: tp.ALG.05.t2.prompt, hints: [h.compare.match, h.compare.left-over] }
+
+  - id: ALG.05.t3
+    skillId: ALG.05
+    format: balance
+    tier: pictorial
+    representation: balance
+    generator: compare.sets
+    params: { a: { int: [1, 8] }, b: { int: [1, 8] }, ask: same }
+    difficulty: { base: -1.35 }
+    narration: { prompt: tp.ALG.05.t3.prompt, hints: [h.weight.level, h.compare.count-each] }
+
+  - id: ALG.05.t4
+    skillId: ALG.05
+    format: balance
+    tier: pictorial
+    representation: balance
+    generator: compare.sets
+    params: { a: { int: [1, 8] }, b: { int: [1, 8] }, ask: make }
+    constraints: ["a != b"]
+    difficulty: { base: -0.6 }
+    narration: { prompt: tp.ALG.05.t4.prompt, hints: [h.compare.count-each, h.balance.add-one] }

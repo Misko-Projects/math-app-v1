@@ -1,0 +1,94 @@
+# CMP: Comparing, ordering and the number line, catalog rows from 03 §3.5 (K01; CMP.08 is authored
+# with equality.eq). The grade-2+ rows CMP.10–CMP.12 and CMP.14 come later (graph.yaml
+# plannedIds).
+strand: CMP
+skills:
+  - id: CMP.01
+    name: Compare two groups up to 10 (more, fewer, the same)
+    kind: concept
+    grade: K
+    standards: { ccss: [K.CC.C.6] }
+    prerequisites: [CNT.03]
+    gateway: false
+    representations: [objects, ten-frame, dots]
+
+  - id: CMP.02
+    name: Compare two numerals from 1 to 10
+    kind: concept
+    grade: K
+    standards: { ccss: [K.CC.C.7] }
+    prerequisites: [CMP.01, CNT.05]
+    gateway: false
+    representations: [number-path, symbols]
+
+  - id: CMP.03
+    name: One more and one less than a number to 20
+    kind: concept
+    grade: K
+    standards: { ccss: [], supports: [K.CC.A.2] }
+    prerequisites: [CNT.07, CNT.08]
+    gateway: false
+    representations: [ten-frame, number-path, symbols]
+
+  - id: CMP.04
+    name: Place numbers on 0–20 and 0–100 number lines
+    kind: concept
+    grade: 1
+    standards: { ccss: [], supports: [2.MD.B.6] }
+    prerequisites: [CMP.02, CNT.09]
+    gateway: false
+    representations: [number-path, number-line]
+
+  - id: CMP.05
+    name: Compare groups by matching when looks mislead (spread out or bunched up)
+    kind: concept
+    grade: K
+    standards: { ccss: [K.CC.C.6] }
+    prerequisites: [CMP.01]
+    gateway: false
+    representations: [objects, dots]
+
+  - id: CMP.06
+    name: Put three or more numbers to 20 in order
+    kind: concept
+    grade: K
+    standards: { ccss: [], supports: [K.CC.C.7] }
+    prerequisites: [CMP.02]
+    gateway: false
+    representations: [number-path, symbols]
+
+  - id: CMP.07
+    name: Compare numbers from 11 to 20
+    kind: concept
+    grade: K
+    standards: { ccss: [], supports: [K.CC.C.7] }
+    prerequisites: [CMP.02, CPS.04]
+    gateway: false
+    representations: [double-ten-frame, number-line, symbols]
+
+  - id: CMP.08
+    name: Use <, > and = to compare numbers to 20
+    kind: procedure
+    grade: 1
+    standards: { ccss: [1.NBT.B.3] }
+    prerequisites: [CMP.07]
+    gateway: false
+    representations: [balance, number-line, symbols]
+
+  - id: CMP.09
+    name: Estimate where a number goes on a 0–100 line with only the ends marked
+    kind: concept
+    grade: 1
+    standards: { ccss: [], supports: [2.MD.B.6] }
+    prerequisites: [CMP.04]
+    gateway: false
+    representations: [number-line, symbols]
+
+  - id: CMP.13
+    name: Estimate how many are in a big group
+    kind: concept
+    grade: 1
+    standards: { ccss: [], supports: [1.NBT.B.2] }
+    prerequisites: [CMP.01, CNT.09, SUB.06]
+    gateway: false
+    representations: [objects, dots, number-line]

@@ -226,9 +226,9 @@ function simulate(graph: SkillGraph, profile: LearnerProfile): Metrics {
 const pct = (x: number) => `${(100 * x).toFixed(1)}%`;
 
 /**
- * Sensitivity profiles (reported, not asserted): every below-grade skill known with conditional
- * probability 0.9 and at-grade 0.55. Along prerequisite chains this compounds to marginal rates
- * well under the 0.85 the grade priors assume for below-grade content.
+ * Sensitivity profiles (reported, not asserted): every below-grade skill known with probability
+ * 0.9 (a marginal target, near the 0.85 the grade priors assume) and at-grade skills with
+ * conditional probability 0.55.
  */
 const LITERAL_RATES = { wellBelow: 0.9, below: 0.9, at: 0.55, above: 0.2, far: 0.05 };
 const SENSITIVITY = [

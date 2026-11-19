@@ -8,6 +8,8 @@
  */
 @import "@number-island/ui/theme.css";
 @import "@number-island/ui/primitives.css";
+/* Art kit idle loops (05 §11), with their own reduced-motion rules (06 §7). */
+@import "@number-island/ui/art.css";
 
 @layer base {
   html,

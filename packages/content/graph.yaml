@@ -1,24 +1,71 @@
 # Graph-level settings (03 §4.1, §9.2).
 # roots: the only skills allowed to have no prerequisites (V05).
-roots: [CNT.01, SUB.01]
+roots: [CNT.01, SUB.01, GEO.01, GEO.05, MEA.15]
 # coverageGrades: grades whose catalog is complete; V20 checks standards coverage only for these.
 # K01 (#11) lands the K–1 catalog in several PRs and sets [K, 1] in the last one; K02 sets [K, 1, 2, 3].
 coverageGrades: []
 # plannedIds: catalog ids (03 §3) not authored yet; V03 accepts a gap there. K01 authors the K–1
-# catalog one strand group at a time, so these gaps are later K01 PRs (ADD.02, SUB.04) or K02
-# (grade 2: CNT.11, CNT.12, CNT.17). K01 clears the K–1 entries; K02 clears the rest.
-plannedIds: [ADD.02, CNT.11, CNT.12, CNT.17, SUB.04]
+# catalog one strand group at a time, so these gaps are later K01 PRs (ALG.01, ALG.02, ALG.04,
+# CPS.06, PUZ.01, PUZ.02) or K02 (grade 2–3: ADD.14, ADD.22, ALG.03, CNT.11, CNT.12, CNT.17,
+# CMP.10–12, CPS.10, MDA.03–07, PV.04–08, PV.12 and the GEO and MEA rows). ALG.05 is authored
+# before ALG.01–04, so they are planned too. K01 clears the K–1 entries; K02 clears the rest.
+plannedIds:
+  [
+    ADD.14,
+    ADD.22,
+    ALG.01,
+    ALG.02,
+    ALG.03,
+    ALG.04,
+    CMP.10,
+    CMP.11,
+    CMP.12,
+    CNT.11,
+    CNT.12,
+    CNT.17,
+    CPS.06,
+    CPS.10,
+    GEO.03,
+    GEO.04,
+    MDA.03,
+    MDA.04,
+    MDA.05,
+    MDA.06,
+    MDA.07,
+    MEA.03,
+    MEA.04,
+    MEA.05,
+    MEA.06,
+    MEA.08,
+    MEA.09,
+    MEA.10,
+    MEA.11,
+    MEA.12,
+    MEA.13,
+    MEA.14,
+    MEA.17,
+    MEA.18,
+    MEA.19,
+    MEA.20,
+    MEA.21,
+    PUZ.01,
+    PUZ.02,
+    PV.04,
+    PV.05,
+    PV.06,
+    PV.07,
+    PV.08,
+    PV.12,
+  ]
 # pendingGameSkills: catalog skills (03 §3) that game data unlock rules name before the curriculum
 # authors them (03 §9.2), each with the exact places allowed to name it (building:<id>,
 # resident:<id>, outfit:<option>, ring:<index>). Such a rule warns and stays unsatisfied until the
 # skill exists; an unauthored skill anywhere else is an error. The PR that authors a skill removes
 # its entry (a stale entry or place only warns).
 pendingGameSkills:
-  CPS.04: [building:brick-factory]
   MUL.02: [building:garden-terraces]
   FRA.01: [building:bakery]
   MUL.05: [building:bakery]
   MON.01: [building:market]
   TIM.01: [building:clock-tower]
-  GEO.01: [building:builders-yard]
   ALG.01: [building:weigh-station]

@@ -1,0 +1,331 @@
+# PV templates (03 §4.3), K01: the grade-1 place-value rows. Base-ten pieces follow the U04 models
+# (engine README, "Conventions the U04 formats fix"): a build answers with the mat, checked by
+# baseten.value (any pieces worth the number) or baseten.exact.
+strand: PV
+templates:
+  # ---------- PV.01 two-digit numbers are tens and ones (gateway) ----------
+  - id: PV.01.t1
+    skillId: PV.01
+    format: base-ten-build
+    tier: concrete
+    representation: bundles
+    generator: pv.number
+    params: { n: { int: [21, 99] }, mode: build }
+    difficulty: { base: -0.7 }
+    narration: { prompt: tp.PV.01.t1.prompt, hints: [h.pv.tens-first, h.pv.ones-last] }
+
+  - id: PV.01.t2
+    skillId: PV.01
+    format: base-ten-build
+    tier: pictorial
+    representation: base-ten
+    generator: pv.number
+    params: { n: { int: [21, 99] }, mode: read }
+    difficulty: { base: -0.5 }
+    narration: { prompt: tp.PV.01.t2.prompt, hints: [h.pv.rod-is-ten, h.pv.count-tens-ones] }
+
+  # A full ten-frame is a ten (ten-frame pictures hold at most 20).
+  - id: PV.01.t3
+    skillId: PV.01
+    format: number-pad
+    tier: pictorial
+    representation: ten-frame
+    generator: count.set
+    params: { n: { int: [11, 20] }, layout: ten-frame, mode: how-many }
+    difficulty: { base: -1.7 }
+    narration: { prompt: tp.PV.01.t3.prompt, hints: [h.subitize.full-ten, h.pv.ten-and-more] }
+
+  # The place-value chart: ten ones in the ones column become one more ten.
+  - id: PV.01.t4
+    skillId: PV.01
+    format: base-ten-trade
+    tier: pictorial
+    representation: pv-chart
+    generator: pv.regroup
+    params: { n: { int: [21, 99] }, from: regrouped, to: canonical }
+    difficulty: { base: -0.8 }
+    narration: { prompt: tp.PV.01.t4.prompt, hints: [h.pv.ten-ones-bundle, h.pv.ones-under-ten] }
+
+  - id: PV.01.t5
+    skillId: PV.01
+    format: expanded-form
+    tier: pictorial
+    representation: expanded
+    generator: pv.number
+    params: { n: { int: [21, 99] }, mode: build }
+    difficulty: { base: -0.7 }
+    narration: { prompt: tp.PV.01.t5.prompt, hints: [h.pv.tens-card, h.pv.ones-card] }
+
+  - id: PV.01.t6
+    skillId: PV.01
+    format: number-pad
+    tier: abstract
+    representation: symbols
+    generator: pv.number
+    params: { n: { int: [21, 99] }, mode: write }
+    difficulty: { base: -1.0 }
+    narration: { prompt: tp.PV.01.t6.prompt, hints: [h.pv.tens-first-digit, h.pv.ones-last] }
+
+  # ---------- PV.02 compare two-digit numbers ----------
+  - id: PV.02.t1
+    skillId: PV.02
+    format: compare
+    tier: pictorial
+    representation: base-ten
+    generator: compare.numbers
+    params:
+      a: { int: [10, 99] }
+      b: { int: [10, 99] }
+      extra: 0
+      min: 10
+      max: 99
+      ask: { choice: [more, fewer], weights: [3, 1] }
+    difficulty: { base: -0.92 }
+    narration: { prompt: tp.PV.02.t1.prompt, hints: [h.compare.tens, h.compare.same-tens] }
+
+  # Constructed practice (V27): two-digit numbers as base-ten pictures, no numerals.
+  - id: PV.02.t2
+    skillId: PV.02
+    format: order
+    tier: pictorial
+    representation: base-ten
+    generator: compare.numbers
+    params: { a: { int: [10, 99] }, b: { int: [10, 99] }, extra: 1, min: 10, max: 99, ask: fewer }
+    difficulty: { base: -0.3, features: { closeness: 0.5 } }
+    narration: { prompt: tp.PV.02.t2.prompt, hints: [h.compare.tens, h.order.fewest-first] }
+
+  - id: PV.02.t3
+    skillId: PV.02
+    format: compare
+    tier: pictorial
+    representation: number-line
+    generator: compare.numbers
+    params:
+      a: { int: [10, 99] }
+      b: { int: [10, 99] }
+      extra: 0
+      min: 0
+      max: 100
+      ask: { choice: [more, fewer], weights: [1, 1] }
+    difficulty: { base: -1.07 }
+    narration: { prompt: tp.PV.02.t3.prompt, hints: [h.compare.line, h.compare.tens] }
+
+  - id: PV.02.t4
+    skillId: PV.02
+    format: compare
+    tier: abstract
+    representation: symbols
+    generator: compare.numbers
+    params: { a: { int: [10, 99] }, b: { int: [10, 99] }, extra: 0, min: 10, max: 99, ask: symbol }
+    difficulty: { base: -1.31 }
+    # 10–99 on both sides can draw the same number twice (42 _ 42), so the mark hint covers =.
+    narration: { prompt: tp.PV.02.t4.prompt, hints: [h.compare.tens, h.cmp.mark-fits] }
+
+  - id: PV.02.t5
+    skillId: PV.02
+    format: order
+    tier: abstract
+    representation: symbols
+    generator: compare.numbers
+    params:
+      {
+        a: { int: [10, 99] },
+        b: { int: [10, 99] },
+        extra: { int: [1, 2] },
+        min: 10,
+        max: 99,
+        ask: fewer,
+      }
+    difficulty: { base: -0.6, features: { closeness: 0.5 } }
+    narration: { prompt: tp.PV.02.t5.prompt, hints: [h.order.smallest, h.compare.tens] }
+
+  # ---------- PV.03 ten more and ten less ----------
+  - id: PV.03.t1
+    skillId: PV.03
+    format: base-ten-build
+    tier: concrete
+    representation: base-ten
+    generator: pv.tenmore
+    params: { n: { int: [11, 89] }, delta: { choice: [10, -10] } }
+    difficulty: { base: -0.5 }
+    narration: { prompt: tp.PV.03.t1.prompt, hints: [h.pv.one-rod, h.pv.ones-stay] }
+
+  - id: PV.03.t2
+    skillId: PV.03
+    format: hundred-chart
+    tier: pictorial
+    generator: pv.tenmore
+    params: { n: { int: [11, 89] }, delta: { choice: [10, -10] } }
+    difficulty: { base: -0.55 }
+    narration: { prompt: tp.PV.03.t2.prompt, hints: [h.pv.chart-row, h.pv.ones-stay] }
+
+  - id: PV.03.t3
+    skillId: PV.03
+    format: number-pad
+    tier: abstract
+    representation: symbols
+    generator: pv.tenmore
+    params: { n: { int: [11, 89] }, delta: { choice: [10, -10] } }
+    difficulty: { base: -0.3 }
+    narration: { prompt: tp.PV.03.t3.prompt, hints: [h.pv.ones-stay, h.pv.tens-change] }
+
+  # ---------- PV.09 ten ones make one ten (gateway) ----------
+  - id: PV.09.t1
+    skillId: PV.09
+    format: make-set
+    tier: concrete
+    representation: objects
+    generator: pv.regroup
+    params: { n: { int: [11, 39] }, from: ones }
+    difficulty: { base: -3.2 }
+    narration: { prompt: tp.PV.09.t1.prompt, hints: [h.pv.bundle-ten, h.pv.rest-ones] }
+
+  - id: PV.09.t2
+    skillId: PV.09
+    format: base-ten-build
+    tier: concrete
+    representation: bundles
+    generator: pv.regroup
+    params: { n: { int: [11, 39] }, from: ones, to: canonical }
+    # No rods in the tray (tens limit 0) adds limits.tight (0.5): only fusing makes the tens.
+    difficulty: { base: -2.9 }
+    narration: { prompt: tp.PV.09.t2.prompt, hints: [h.pv.bundle-ten, h.pv.rest-ones] }
+
+  # Unbundle: one ten becomes ten ones.
+  - id: PV.09.t3
+    skillId: PV.09
+    format: base-ten-trade
+    tier: pictorial
+    representation: base-ten
+    generator: pv.regroup
+    params: { n: { int: [11, 49] }, from: canonical, to: regrouped }
+    difficulty: { base: -0.6 }
+    narration: { prompt: tp.PV.09.t3.prompt, hints: [h.pv.split-rod, h.pv.same-number] }
+
+  - id: PV.09.t4
+    skillId: PV.09
+    format: number-pad
+    tier: pictorial
+    representation: ten-frame
+    generator: pv.regroup
+    params: { n: { int: [11, 19] }, from: canonical }
+    difficulty: { base: -0.3 }
+    narration: { prompt: tp.PV.09.t4.prompt, hints: [h.subitize.full-ten, h.pv.ten-and-more] }
+
+  - id: PV.09.t5
+    skillId: PV.09
+    format: number-pad
+    tier: abstract
+    representation: symbols
+    generator: pv.regroup
+    params: { n: { int: [21, 59] }, from: regrouped }
+    difficulty: { base: -0.9 }
+    narration: { prompt: tp.PV.09.t5.prompt, hints: [h.pv.ten-of-the-ones, h.pv.count-tens-ones] }
+
+  # ---------- PV.10 decade numbers ----------
+  - id: PV.10.t1
+    skillId: PV.10
+    format: base-ten-build
+    tier: concrete
+    representation: bundles
+    generator: pv.number
+    params: { n: { int: [20, 90], step: 10 }, mode: build }
+    difficulty: { base: -0.7 }
+    narration: { prompt: tp.PV.10.t1.prompt, hints: [h.pv.bundles-by-ten, h.pv.no-ones] }
+
+  - id: PV.10.t2
+    skillId: PV.10
+    format: number-pad
+    tier: pictorial
+    representation: base-ten
+    generator: pv.number
+    params: { n: { int: [20, 90], step: 10 }, mode: read }
+    difficulty: { base: -1.0 }
+    narration: { prompt: tp.PV.10.t2.prompt, hints: [h.pv.bundles-by-ten, h.pv.no-ones] }
+
+  - id: PV.10.t3
+    skillId: PV.10
+    format: number-pad
+    tier: abstract
+    representation: symbols
+    generator: pv.number
+    params: { n: { int: [20, 90], step: 10 }, mode: write }
+    difficulty: { base: -1.0 }
+    narration: { prompt: tp.PV.10.t3.prompt, hints: [h.pv.bundles-by-ten, h.pv.no-ones] }
+
+  # ---------- PV.11 teen numbers are one ten and some ones ----------
+  - id: PV.11.t1
+    skillId: PV.11
+    format: base-ten-build
+    tier: concrete
+    representation: bundles
+    generator: pv.number
+    params: { n: { int: [11, 19] }, mode: exact }
+    difficulty: { base: -1.5 }
+    narration: { prompt: tp.PV.11.t1.prompt, hints: [h.pv.bundle-first, h.pv.count-ones] }
+
+  - id: PV.11.t2
+    skillId: PV.11
+    format: base-ten-build
+    tier: pictorial
+    representation: base-ten
+    generator: pv.number
+    params: { n: { int: [11, 19] }, mode: read }
+    difficulty: { base: -0.6 }
+    narration: { prompt: tp.PV.11.t2.prompt, hints: [h.pv.rod-is-ten, h.pv.teen-order] }
+
+  - id: PV.11.t3
+    skillId: PV.11
+    format: number-pad
+    tier: pictorial
+    representation: double-ten-frame
+    generator: pv.number
+    params: { n: { int: [11, 19] }, mode: read }
+    difficulty: { base: -1.1 }
+    narration: { prompt: tp.PV.11.t3.prompt, hints: [h.subitize.full-ten, h.pv.ten-and-more] }
+
+  # ---------- PV.13 expanded form and words ----------
+  # Teens are in range so MC.teen-reversal can discriminate (03 §7.1, V25).
+  - id: PV.13.t1
+    skillId: PV.13
+    format: expanded-form
+    tier: pictorial
+    representation: expanded
+    generator: pv.number
+    params: { n: { int: [11, 59] }, mode: expanded }
+    difficulty: { base: -0.6 }
+    narration: { prompt: tp.PV.13.t1.prompt, hints: [h.pv.big-part-tens, h.pv.join-parts] }
+
+  - id: PV.13.t2
+    skillId: PV.13
+    format: expanded-form
+    tier: pictorial
+    representation: expanded
+    generator: pv.number
+    params: { n: { int: [11, 59] }, mode: build }
+    difficulty: { base: -0.6 }
+    narration: { prompt: tp.PV.13.t2.prompt, hints: [h.pv.tens-card, h.pv.ones-card] }
+
+  # Hear the number name, enter the numeral.
+  - id: PV.13.t3
+    skillId: PV.13
+    format: expanded-form
+    tier: abstract
+    representation: words
+    generator: pv.number
+    params: { n: { int: [11, 59] }, mode: words }
+    difficulty: { base: -1.0 }
+    narration: { prompt: tp.PV.13.t3.prompt, hints: [h.pv.listen-tens, h.pv.tens-first-digit] }
+
+  # See the numeral, pick its spoken name. The options are n's name class: two reversal pairs of
+  # the digits 1–5 (12, 21, 13, 31), the same set whichever member is the key, so every option can
+  # be asked, and the swapped number and the reversed teen are always offered (PR #83 review).
+  - id: PV.13.t4
+    skillId: PV.13
+    format: numeral-pick
+    tier: abstract
+    representation: symbols
+    generator: pv.number
+    params: { n: { int: [12, 54] }, mode: words, digitMax: 5 }
+    difficulty: { base: -1.25 }
+    narration: { prompt: tp.PV.13.t4.prompt, hints: [h.pv.listen-tens, h.pv.tens-first-digit] }

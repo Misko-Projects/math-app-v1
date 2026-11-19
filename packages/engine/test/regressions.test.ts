@@ -7,20 +7,32 @@ import { stateChecker } from '../src/check/state';
 import { initContent } from '../src/content/binding';
 import { render } from '../src/content/render';
 import { formatModel } from '../src/formats';
+import { registry } from '../src/generators';
+import { specDomain } from '../src/generators/common';
+import { ESTIMATE_LADDER, estimateRung } from '../src/generators/estimate/quantity';
+import { CLEARLY_LIGHTER, clearlyLighter } from '../src/generators/mea/massvolume';
 import { GenerationError } from '../src/generators/types';
 import { checkResponse } from '../src/items/check';
-import { generateItem, generateItemFromParams } from '../src/items/generate';
-import { itemSolution, replaySteps } from '../src/items/solution';
+import { generateItem, generateItemFromParams, mergedSpec } from '../src/items/generate';
+import { itemExampleCorrect, itemSolution, replaySteps } from '../src/items/solution';
+import { createRng } from '../src/rng';
 import { numeralsIn, parseNumerals, runTemplateProperties } from '../src/testing/properties';
 import { compileFixture, fixtureTemplate, loadFixture } from './fixture';
 
 describe('F1: authored lessons replay to a correct demonstration', () => {
   const fixture = compileFixture();
+  const formatOf = new Map(fixture.templates.map((t) => [t.id, t.format]));
+  // Only formats with an engine state model can replay steps. The balance worked examples of
+  // ADD.10 and ADD.11 (K01) wait for the U04 balance model; V21 checks their ops meanwhile.
   const cases = fixture.skills.flatMap((s) =>
     s.lesson.mode === 'authored'
       ? s.lesson.worked
           .filter((ex) => ex.params && ex.steps?.every((st) => st.actor === 'demo'))
           .map((ex) => ({ skill: s.id, templateId: ex.templateId ?? s.lesson.templateId, ex }))
+          .filter((c) => {
+            const format = formatOf.get(c.templateId);
+            return format !== undefined && formatModel(format) !== undefined;
+          })
       : [],
   );
 
@@ -464,5 +476,217 @@ describe('R5–R7: numerals in hint text follow a strict grammar', () => {
     expect(
       hintReveals(t, { 'h.test.list': { text: 'Count on: 6,7,8.', clips: [] } }, 'h.test.list'),
     ).toBe(true);
+  });
+});
+
+describe('PR #77 review (d): CMP.02 hints follow the ask', () => {
+  // CMP.02.t1/t2 ask "which is less?" a quarter of the time; the path and count-up hints used to
+  // point at the greater number ("Which one comes after?", "Which number do you say last?").
+  it.each(['CMP.02.t1', 'CMP.02.t3'])('%s: less → first, greater → last', (id) => {
+    loadFixture();
+    const t = fixtureTemplate(id);
+    const hintText = (ask: string) => {
+      const item = generateItemFromParams(t, { a: 3, b: 8, extra: 0, min: 1, max: 10, ask });
+      return item.hints
+        .filter((h) => h.level === 2 || h.level === 3)
+        .map((h) => render(h.say, h.vars ?? {}));
+    };
+    const less = hintText('fewer');
+    expect(less).toContain('Find both numbers on the path. Which one comes first?');
+    expect(less).toContain('Count up from one. Which number do you say first?');
+    expect(less.join(' ')).not.toMatch(/last|after/);
+    const greater = hintText('more');
+    expect(greater).toContain('Find both numbers on the path. Which one comes last?');
+    expect(greater).toContain('Count up from one. Which number do you say last?');
+  });
+});
+
+// ---------- PR #77 review (e)–(i): picture-only answers and bare lines ----------
+
+describe('PR #77 review (e): CMP.13 estimate options never name the answer without the picture', () => {
+  // Rounds 2 and 3: n = 100 offered 100, 200, 400 (only 100 possible); [20, 40, 70] could only
+  // key 70; n = 25 offered 20, 30, 50, where 20 and 30 are equally close. Every item now offers
+  // the same ladder, and n sits near exactly one rung.
+  it.each(['CMP.13.t3', 'CMP.13.t4'])(
+    '%s: one option set for every item; the key is the unique closest option, ≥ 25% clear of the rest',
+    (id) => {
+      loadFixture();
+      const t = fixtureTemplate(id);
+      const g = registry.get(t.generator);
+      if (!g) throw new Error(t.generator);
+      const spec = mergedSpec(t, g);
+      const domain = specDomain(spec.n as ParamSpec) as number[];
+      const benchmarks = specDomain(spec.benchmarks as ParamSpec)[0] as number;
+      const sets = new Set<string>();
+      const keys = new Set<number>();
+      for (const n of domain) {
+        const params = { n, benchmarks };
+        if (!g.accepts?.(params, t)) {
+          expect(estimateRung(n), `n = ${n}`).toBeNull();
+          continue;
+        }
+        for (let seed = 0; seed < 20; seed += 1) {
+          const out = g.build({ params, template: t, rng: createRng(seed).fork('e') });
+          if (out.widget.format !== 'numeral-pick' || out.answer.kind !== 'choice') {
+            throw new Error('pick');
+          }
+          const values = out.widget.options.map((o) => Number(o.id.slice(4)));
+          sets.add([...values].sort((x, y) => x - y).join(','));
+          const key = Number(out.answer.id.slice(4));
+          keys.add(key);
+          // The key is the closest option to the pictured count, and every other option is
+          // further than the 25% estimate tolerance from it: no tie, no near miss marked wrong.
+          for (const v of values) {
+            if (v === key) continue;
+            expect(Math.abs(v - n), `n = ${n}: ${v} vs ${key}`).toBeGreaterThan(Math.abs(key - n));
+            expect(Math.abs(v - n) / n, `n = ${n}: ${v}`).toBeGreaterThan(0.25);
+          }
+        }
+      }
+      expect([...sets]).toEqual([ESTIMATE_LADDER.join(',')]);
+      expect([...keys].sort((x, y) => x - y)).toEqual([...ESTIMATE_LADDER]);
+    },
+  );
+});
+
+describe('PR #77 review (f, g): CMP.09.t3 reads a bare 0–100 line', () => {
+  it('the picture labels exactly its two ends and draws no ticks', () => {
+    loadFixture();
+    const t = fixtureTemplate('CMP.09.t3');
+    for (let seed = 1; seed <= 200; seed += 1) {
+      const item = generateItem(t, seed);
+      if (item.widget.format !== 'number-pad' || item.widget.stimulus?.kind !== 'number-line') {
+        throw new Error('number-pad on a line');
+      }
+      const s = item.widget.stimulus;
+      expect(s.ticksEvery).toBeNull();
+      // NumberLineView (stepsBetween) labels the multiples of labelsEvery from min to max.
+      const every = s.labelsEvery as number;
+      const labelled: number[] = [];
+      for (let v = Math.ceil(s.min / every) * every; v <= s.max; v += every) labelled.push(v);
+      expect(labelled).toEqual([0, 100]);
+    }
+  });
+
+  it('no item accepts an answer off the line (target 99 accepted 109)', () => {
+    loadFixture();
+    const t = fixtureTemplate('CMP.09.t3');
+    const g = registry.get(t.generator);
+    if (!g) throw new Error(t.generator);
+    const spec = mergedSpec(t, g);
+    const fixed = Object.fromEntries(
+      Object.entries(spec)
+        .filter(([k]) => k !== 'target')
+        .map(([k, s]) => [k, specDomain(s)[0]]),
+    );
+    // Every target the template could draw, and every target the generator would build.
+    for (let target = 1; target <= 99; target += 1) {
+      const params = { ...fixed, target };
+      if (!g.accepts?.(params, t)) continue;
+      const out = g.build({ params, template: t, rng: createRng(target).fork('g') });
+      if (out.answer.kind !== 'number') throw new Error('number');
+      const tol = out.answer.tolerance ?? 0;
+      expect(out.answer.value - tol, `target ${target}`).toBeGreaterThanOrEqual(0);
+      expect(out.answer.value + tol, `target ${target}`).toBeLessThanOrEqual(100);
+    }
+    for (let seed = 1; seed <= 300; seed += 1) {
+      const item = generateItem(t, seed);
+      if (item.answer.kind !== 'number') throw new Error('number');
+      const tol = item.answer.tolerance ?? 0;
+      expect(item.answer.value - tol).toBeGreaterThanOrEqual(0);
+      expect(item.answer.value + tol).toBeLessThanOrEqual(100);
+    }
+  });
+});
+
+describe('PR #77 review (h): GEO.10.t4 and GEO.11.t4 are pictorial shape-compose', () => {
+  // As number-pads their only picture was a `shape` stimulus StimulusView cannot draw.
+  it.each(['GEO.10.t4', 'GEO.11.t4'])('%s fills an outline at the pictorial tier', (id) => {
+    loadFixture();
+    const t = fixtureTemplate(id);
+    expect(t).toMatchObject({ format: 'shape-compose', tier: 'pictorial' });
+    for (let seed = 1; seed <= 50; seed += 1) {
+      const item = generateItem(t, seed);
+      expect(item.widget).toMatchObject({ format: 'shape-compose', mode: 'fill-outline' });
+      expect(checkResponse(item, itemExampleCorrect(item, t)).correct).toBe(true);
+    }
+  });
+
+  it('no template asks geo.compose for a number-pad, and the generator no longer builds one', () => {
+    const { templates } = loadFixture();
+    expect(
+      templates.filter((t) => t.generator === 'geo.compose' && t.format === 'number-pad'),
+    ).toEqual([]);
+    expect(registry.get('geo.compose')?.formats).not.toContain('number-pad');
+  });
+});
+
+describe('PR #77 review (i): MEA.16 orders and sorts only what everyday knowledge settles', () => {
+  // A rock and a melon, a pumpkin and a brick: the pictures cannot settle a hidden weight rank.
+  it('the clear table: light things, the apple, heavy things, the shell and the coconut', () => {
+    expect(CLEARLY_LIGHTER).toEqual({
+      3: [1],
+      4: [1, 2],
+      5: [1, 2, 3],
+      6: [1, 2, 3, 4],
+      7: [1, 2, 3, 4],
+      8: [1, 2, 3, 4],
+      9: [1, 2, 3, 4],
+    });
+    for (const [a, b] of [
+      [6, 8],
+      [7, 9],
+      [1, 2],
+      [2, 3],
+      [4, 5],
+    ] as const) {
+      expect(clearlyLighter(a, b) || clearlyLighter(b, a), `${a} vs ${b}`).toBe(false);
+    }
+  });
+
+  it('MEA.16.t3: a light thing, the apple and a heavy thing; every pair is clear', () => {
+    loadFixture();
+    const t = fixtureTemplate('MEA.16.t3');
+    const rows = new Set<string>();
+    for (let seed = 1; seed <= 500; seed += 1) {
+      const item = generateItem(t, seed);
+      if (item.answer.kind !== 'numbers') throw new Error('numbers');
+      const heavyFirst = item.answer.values;
+      for (let i = 0; i < heavyFirst.length; i += 1) {
+        for (let j = i + 1; j < heavyFirst.length; j += 1) {
+          expect(clearlyLighter(heavyFirst[j] as number, heavyFirst[i] as number)).toBe(true);
+        }
+      }
+      const [heavy, middle, light] = heavyFirst;
+      expect([6, 7, 9]).toContain(heavy);
+      expect(middle).toBe(4);
+      expect([1, 2]).toContain(light);
+      rows.add(heavyFirst.join(','));
+    }
+    expect(rows.size).toBe(6);
+  });
+
+  it('MEA.16.t4: a shell or an apple, and only cards clearly lighter or heavier than it', () => {
+    loadFixture();
+    const t = fixtureTemplate('MEA.16.t4');
+    const allowed: Record<number, { lighter: number[]; heavier: number[] }> = {
+      3: { lighter: [1], heavier: [5, 6, 7, 8, 9] },
+      4: { lighter: [1, 2], heavier: [6, 7, 8, 9] },
+    };
+    const refs = new Set<number>();
+    for (let seed = 1; seed <= 500; seed += 1) {
+      const item = generateItem(t, seed);
+      if (item.widget.format !== 'shape-sort') throw new Error('shape-sort');
+      const ref = item.params.value as number;
+      refs.add(ref);
+      const ok = allowed[ref];
+      expect(ok, `reference ${ref}`).toBeDefined();
+      for (const { card } of item.widget.cards) {
+        const w = 'kind' in card && card.kind === 'object' ? Number(card.props.weight) : 0;
+        expect([...(ok?.lighter ?? []), ...(ok?.heavier ?? [])], `${ref} vs ${w}`).toContain(w);
+        expect(clearlyLighter(w, ref) || clearlyLighter(ref, w)).toBe(true);
+      }
+    }
+    expect([...refs].sort()).toEqual([3, 4]);
   });
 });

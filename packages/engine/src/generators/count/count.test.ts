@@ -173,6 +173,21 @@ describe('count.sequence: hide', () => {
     expect(named).toEqual(want);
   });
 
+  it.each<[string, ParamValues, string]>([
+    ['by ones: the start row', { start: 23, length: 3, hide: 'between' }, 'highlight-row'],
+    [
+      'by tens: the start column',
+      { start: 24, step: 10, length: 3, hide: 'between' },
+      'highlight-col',
+    ],
+  ])('the hundred-chart nudge and first solution step cue %s', (_l, p, op) => {
+    const t = tpl('count.sequence', 'hundred-chart');
+    const item = expectSound(t, p);
+    const nudge = item.hints.find((h) => h.level === 2);
+    expect(nudge?.actions?.map((a) => a.op)).toEqual([op]);
+    expect(itemSolution(item, t)[0]?.action?.op).toBe(op);
+  });
+
   it('between needs a term between start and last', () => {
     const t = tpl('count.sequence', 'number-pad');
     expect(() => generateItemFromParams(t, { start: 4, length: 1, hide: 'between' })).toThrow(
@@ -203,11 +218,45 @@ describe('count.sequence: hide', () => {
     expect(overlay).toMatchObject({ labelsEvery: null });
   });
 
-  it('a numeral pick on the number line shows the line', () => {
-    const t = tpl('count.sequence', 'numeral-pick', { representation: 'number-line' });
-    const item = expectSound(t, { start: 39 });
-    if (item.widget.format !== 'numeral-pick') throw new Error('expected numeral-pick');
-    expect(item.widget.stimulus).toMatchObject({ kind: 'number-line', marks: [{ at: 39 }] });
+  // #12 evidence (CNT.09.t3): the numeral-pick line labelled every tick, so the answer showed
+  // beside the marked start. The line and the level-3 overlay now label only the shown terms.
+  const labels = (s: unknown): string[] => {
+    const line = s as { labelsEvery: number | null; marks?: { label?: string }[] };
+    expect(line.labelsEvery).toBeNull();
+    return (line.marks ?? []).flatMap((m) => (m.label ? [m.label] : []));
+  };
+  it.each<[string, ParamValues, number]>([
+    ['next after 33', { start: 33 }, 34],
+    ['next after 39 (a new ten)', { start: 39 }, 40],
+    ['counting back from 21', { start: 21, dir: -1 }, 20],
+    ['the last of 3 after 17', { start: 17, length: 3 }, 20],
+    // hide: between shows the middle terms as '?', but the pick still asks for the last one.
+    ['between: the last of 4, 5, 6, 7', { start: 4, length: 3, hide: 'between' }, 7],
+  ])('a numeral pick on the number line never labels the answer (%s)', (_l, p, answer) => {
+    for (const representation of ['number-line', 'number-path'] as const) {
+      const t = tpl('count.sequence', 'numeral-pick', { representation });
+      const item = expectSound(t, p);
+      if (item.widget.format !== 'numeral-pick') throw new Error('expected numeral-pick');
+      const shown = labels(item.widget.stimulus);
+      expect(shown).toContain(String(p.start));
+      expect(shown).toContain('?');
+      expect(shown).not.toContain(String(answer));
+      expect(item.widget.stimulus).toMatchObject({
+        marks: expect.arrayContaining([{ at: p.start, label: String(p.start), arrow: true }]),
+      });
+      const overlay = item.hints.find((h) => h.level === 3)?.overlay;
+      expect(labels(overlay)).not.toContain(String(answer));
+    }
+  });
+  it.each<[string, ParamValues, number[]]>([
+    ['12 to 15', { start: 12, length: 3 }, [12, 13, 14, 15]],
+    // Counting back to 0: the line's left end is 0, a term, so it is left unlabelled.
+    ['3 back to 0', { start: 3, dir: -1, length: 3 }, [3, 2, 1, 0]],
+  ])('an order item’s level-3 line names none of the terms to order (%s)', (_l, p, terms) => {
+    const t = tpl('count.sequence', 'order');
+    const item = expectSound(t, p);
+    const overlay = item.hints.find((h) => h.level === 3)?.overlay;
+    for (const l of labels(overlay)) expect(terms.map(String)).not.toContain(l);
   });
 });
 

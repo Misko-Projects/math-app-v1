@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { parse, stringify } from 'yaml';
 import type { CheckId, Diagnostic } from '../diagnostics';
 import { readContentFiles } from '../fs';
@@ -7,6 +7,9 @@ import { compileContent } from './compile';
 
 // Each compiler check (03 §9.2) against the C01 fixture set with one deliberate defect.
 
+// Every test here compiles the full K–1 catalog (or a variant), which takes seconds per compile on CI.
+vi.setConfig({ testTimeout: 30_000 });
+
 const FIXTURE = readContentFiles();
 
 type Files = Record<string, string>;
@@ -14,11 +17,14 @@ type Files = Record<string, string>;
 type Yaml = { [k: string]: any };
 
 /**
- * Diagnostics other than the expected ones. SUB.03.t5 was added after SUB.03.t4 shipped, and template
- * ids are stable (03 §4.3), so its V10 tier-order warning is expected.
+ * Diagnostics other than the expected ones. SUB.03.t5 was added after SUB.03.t4 shipped, and the
+ * pictorial constructed-practice templates CNT.14.t6 and GEO.05.t3 after their skills' shipped
+ * abstract templates; template ids are stable (03 §4.3), so their V10 tier-order warnings are
+ * expected.
  */
+const LATE_PICTORIAL = ['SUB.03.t5', 'CNT.14.t6', 'GEO.05.t3'];
 const EXPECTED = (d: Diagnostic) =>
-  d.check === 'V10' && d.message.startsWith('SUB.03.t5 (pictorial)');
+  d.check === 'V10' && LATE_PICTORIAL.some((id) => d.message.startsWith(`${id} (pictorial)`));
 /**
  * Game data unlock rules may name catalog skills that are not authored yet (03 §9.2): they warn
  * until the curriculum issues author them.
@@ -62,10 +68,44 @@ describe('the C01 fixture set (03 §9.5)', () => {
   it('compiles with no errors and no warnings', () => {
     const result = compileContent(FIXTURE);
     expect(unexpected(result.diagnostics)).toEqual([]);
-    expect(result.diagnostics.filter(EXPECTED)).toHaveLength(1);
+    expect(result.diagnostics.filter(EXPECTED)).toHaveLength(LATE_PICTORIAL.length);
     expect(result.content?.skills.map((s) => s.id)).toEqual([
       'ADD.01',
+      'ADD.02',
       'ADD.03',
+      'ADD.04',
+      'ADD.05',
+      'ADD.06',
+      'ADD.07',
+      'ADD.08',
+      'ADD.09',
+      'ADD.10',
+      'ADD.11',
+      'ADD.12',
+      'ADD.13',
+      'ADD.15',
+      'ADD.16',
+      'ADD.17',
+      'ADD.18',
+      'ADD.19',
+      'ADD.20',
+      'ADD.21',
+      'ADD.23',
+      'ADD.24',
+      'ADD.25',
+      'ADD.26',
+      'ADD.27',
+      'ALG.05',
+      'CMP.01',
+      'CMP.02',
+      'CMP.03',
+      'CMP.04',
+      'CMP.05',
+      'CMP.06',
+      'CMP.07',
+      'CMP.08',
+      'CMP.09',
+      'CMP.13',
       'CNT.01',
       'CNT.02',
       'CNT.03',
@@ -81,22 +121,73 @@ describe('the C01 fixture set (03 §9.5)', () => {
       'CNT.15',
       'CNT.16',
       'CNT.18',
+      'CNT.19',
+      'CNT.20',
       'CPS.01',
       'CPS.02',
       'CPS.03',
+      'CPS.04',
+      'CPS.05',
+      'CPS.07',
+      'CPS.08',
+      'CPS.09',
+      'CPS.11',
+      'GEO.01',
+      'GEO.02',
+      'GEO.05',
+      'GEO.06',
+      'GEO.07',
+      'GEO.08',
+      'GEO.09',
+      'GEO.10',
+      'GEO.11',
+      'MDA.01',
+      'MDA.02',
+      'MDA.08',
+      'MDA.09',
+      'MEA.01',
+      'MEA.02',
+      'MEA.07',
+      'MEA.15',
+      'MEA.16',
+      'MEA.22',
+      'PUZ.03',
+      'PV.01',
+      'PV.02',
+      'PV.03',
+      'PV.09',
+      'PV.10',
+      'PV.11',
+      'PV.13',
       'SUB.01',
       'SUB.02',
       'SUB.03',
+      'SUB.04',
       'SUB.05',
       'SUB.06',
+      'SUB.07',
+      'SUB.08',
     ]);
     expect(result.content?.misconceptions.map((m) => m.id)).toEqual([
+      'MC.bigger-unit-more',
       'MC.count-all-instead',
       'MC.count-start-number',
       'MC.decade-transition',
+      'MC.equals-add-all',
+      'MC.equals-means-answer',
+      'MC.face-value',
+      'MC.forgot-the-ten',
+      'MC.keyword-more-means-add',
       'MC.off-by-one-counting',
+      'MC.perceptual-size',
+      'MC.place-swap',
       'MC.recount-from-one',
+      'MC.start-unknown-reversed',
+      'MC.symbol-reversed',
       'MC.teen-reversal',
+      'MC.unit-gaps',
+      'MC.write-as-spoken',
+      'MC.wrong-operation',
     ]);
   });
 
@@ -109,10 +200,35 @@ describe('the C01 fixture set (03 §9.5)', () => {
       new Set([
         'count.set',
         'count.sequence',
+        'subitize.flash',
+        'bond.parts',
+        'addsub.facts',
+        // K01 (#11): geometry and measurement
+        'geo.identify',
+        'geo.compose',
+        'geo.position',
+        'geo.draw',
+        'mea.length',
+        'mea.massvolume',
         'count.ordinal',
         'subitize.flash',
         'bond.parts',
         'addsub.facts',
+        // K01 (#11): comparing, ordering, number lines, estimating
+        'compare.sets',
+        'compare.numbers',
+        'numberline.place',
+        // K01 (#11): composing and decomposing (CPS.04, CPS.07)
+        'pv.number',
+        'estimate.quantity',
+        // K01 (#11): place value and two-digit addition and subtraction
+        'pv.regroup',
+        'pv.tenmore',
+        'mda.addsub',
+        // K01 (#11): equality and story problems
+        'equality.eq',
+        'story.addsub',
+        'addsub.three',
       ]),
     );
     expect(new Set(c?.templates.map((t) => t.format))).toEqual(
@@ -128,6 +244,23 @@ describe('the C01 fixture set (03 §9.5)', () => {
         'hundred-chart',
         'order',
         'rekenrek',
+        // K01 (#11): geometry and measurement formats
+        'balance',
+        'compare',
+        'compare-length',
+        'measure-length',
+        'puzzle-grid',
+        'shape-compose',
+        'shape-sort',
+        // K01 (#11): CMP
+        'number-line-place',
+        // K01 (#11): CPS (pv.number on the U04 models)
+        'base-ten-build',
+        'expanded-form',
+        // K01 (#11): PV and MDA
+        'base-ten-trade',
+        // K01 (#11): equality and story problems
+        'story-problem',
       ]),
     );
   });
@@ -331,7 +464,7 @@ describe('V03: sequential ids', () => {
     expectFinding(
       variant((f) => editYaml(f, 'graph.yaml', (doc) => (doc.plannedIds = []))),
       'V03',
-      /missing ADD.02/,
+      /missing ADD.14/,
     );
     expectFinding(
       variant((f) =>
@@ -343,13 +476,13 @@ describe('V03: sequential ids', () => {
   });
   it('accepts a retired gap', () => {
     const diags = variant((f) => {
-      // ADD.02 moves from planned to retired; the other planned gaps stay planned.
+      // ADD.14 moves from planned to retired; the other planned gaps stay planned.
       editYaml(
         f,
         'graph.yaml',
-        (doc) => (doc.plannedIds = (doc.plannedIds as string[]).filter((id) => id !== 'ADD.02')),
+        (doc) => (doc.plannedIds = (doc.plannedIds as string[]).filter((id) => id !== 'ADD.14')),
       );
-      f['retired.yaml'] = 'skills: [ADD.02]\n';
+      f['retired.yaml'] = 'skills: [ADD.14]\n';
     });
     expect(diags.filter((d) => d.check === 'V03')).toEqual([]);
   });
@@ -395,20 +528,20 @@ describe('V04: references resolve', () => {
     expectFinding(
       variant((f) =>
         editYaml(f, 'misconceptions/addsub.yaml', (doc) =>
-          doc.misconceptions[0].skills.push('ADD.27'),
+          doc.misconceptions[0].skills.push('ADD.28'),
         ),
       ),
       'V04',
-      /unknown skill ADD.27/,
+      /unknown skill ADD.28/,
     );
     expectFinding(
       variant((f) =>
         editYaml(f, 'misconceptions/addsub.yaml', (doc) =>
-          doc.misconceptions[0].remediation.push('ADD.27'),
+          doc.misconceptions[0].remediation.push('ADD.28'),
         ),
       ),
       'V04',
-      /unknown remediation skill ADD.27/,
+      /unknown remediation skill ADD.28/,
     );
     expectFinding(
       variant((f) =>
@@ -737,6 +870,28 @@ describe('V01/V02: game data shape', () => {
     const hit = expectFinding(swapped, 'V02', /increasing order \(1 after 2\)/);
     expect(hit.file).toBe('game/island.yaml');
   });
+  it('a plot holds at most 64 road stones, the most the road planner is tested to fit', () => {
+    const crowd = (k: number) =>
+      gameVariant('island', (doc) => {
+        const plot = doc.island.road[0].plot;
+        const last = doc.island.road.at(-1).n as number;
+        for (let i = 1; i <= k; i++) doc.island.road.push({ n: last + i, plot: [...plot] });
+      });
+    const stonesOn = (k: number) => {
+      const doc = parse(FIXTURE['game/island.yaml'] as string) as Yaml;
+      const key = doc.island.road[0].plot.join(',');
+      return doc.island.road.filter((s: Yaml) => s.plot.join(',') === key).length + k;
+    };
+    const atCap = 64 - stonesOn(0);
+    expect(atCap).toBeGreaterThan(0);
+    expect(stonesOn(atCap)).toBe(64);
+    expect(unexpected(crowd(atCap)).filter((d) => d.severity === 'error')).toEqual([]);
+    const hits = unexpected(crowd(atCap + 1)).filter((d) =>
+      /more than 64 road stones/.test(d.message),
+    );
+    expect(hits).toHaveLength(1);
+    expect(hits[0]).toMatchObject({ check: 'V02', file: 'game/island.yaml', severity: 'error' });
+  });
 });
 
 describe('V05: roots allowlist', () => {
@@ -847,7 +1002,8 @@ describe('V08–V12: templates per skill', () => {
         editYaml(f, 'templates/CNT.yaml', (doc) => (template(doc, 'CNT.01.t1').tier = 'abstract')),
       ),
       'V10',
-      /comes after a more abstract template/,
+      // The mutated skill's own template, not the expected SUB.03.t5 warning in the baseline.
+      /^CNT\.01\.t\d+ \(\w+\) comes after a more abstract template/,
       'warn',
     );
   });
@@ -1161,7 +1317,8 @@ describe('V20: coverage', () => {
         (doc) => (skill(doc, 'CNT.14').standards.ccss = ['K.CC.B.4b']),
       );
     });
-    expectFinding(diags, 'V20', /uncovered standard K.CC.C.6/);
+    // K.MD.B.3 (DAT.01, DAT.10) has no skill yet; CMP.01 and CMP.05 cover K.CC.C.6 since K01 CMP.
+    expectFinding(diags, 'V20', /uncovered standard K.MD.B.3/);
     expectFinding(diags, 'V20', /uncovered standard K.CC.B.4 \(untagged parts: K.CC.B.4c\)/);
     // Supports never count: K.OA.A.3 is addressed by CPS.01/CPS.02, K.CC.B.5 by CNT.04/CNT.06.
     expect(diags.some((d) => /standard K.OA.A.3\b/.test(d.message))).toBe(false);
@@ -1253,8 +1410,9 @@ describe('V21: the test-out pool (03 §6.5) is resolved into testOut.templateIds
     compileContent(files).content?.skills.find((s) => s.id === id)?.lesson.testOut.templateIds;
   it('uses abstract templates, else pictorial, and never choice-only ones when others remain', () => {
     expect(pool(FIXTURE, 'ADD.03')).toEqual(['ADD.03.t4']);
-    expect(pool(FIXTURE, 'CPS.01')).toEqual(['CPS.01.t4']);
-    expect(pool(FIXTURE, 'SUB.01')).toEqual(['SUB.01.t1', 'SUB.01.t2']); // SUB.01.t3 is numeral-pick
+    expect(pool(FIXTURE, 'CPS.01')).toEqual(['CPS.01.t4', 'CPS.01.t5']);
+    // SUB.01.t3 is numeral-pick; SUB.01.t4 is the number-pad one.
+    expect(pool(FIXTURE, 'SUB.01')).toEqual(['SUB.01.t1', 'SUB.01.t2', 'SUB.01.t4']);
   });
   it('adds pictorial templates for a gateway skill whose abstract ones span one representation', () => {
     expect(pool(FIXTURE, 'CNT.03')).toEqual(['CNT.03.t2', 'CNT.03.t4']); // t3 is choice-only
@@ -1367,10 +1525,12 @@ describe('V21: test-out choice rule and gateway item count', () => {
 });
 
 describe('V02/V03: excused ids must be canonical', () => {
-  it('does not let ADD.2 excuse the missing ADD.02', () => {
-    const diags = variant((f) => editYaml(f, 'graph.yaml', (doc) => (doc.plannedIds = ['ADD.2'])));
-    expectFinding(diags, 'V02', /'ADD.2' is not a canonical SkillId or TemplateId/);
-    expectFinding(diags, 'V03', /missing ADD.02/);
+  it('does not let ADD.014 excuse the missing ADD.14', () => {
+    const diags = variant((f) =>
+      editYaml(f, 'graph.yaml', (doc) => (doc.plannedIds = ['ADD.014'])),
+    );
+    expectFinding(diags, 'V02', /'ADD.014' is not a canonical SkillId or TemplateId/);
+    expectFinding(diags, 'V03', /missing ADD.14/);
   });
   it('rejects excused template ids that could never be authored', () => {
     expectFinding(
@@ -1556,9 +1716,16 @@ describe('V24 and contentVersion (03 §9.1)', () => {
     expect(manifest.schemaVersion).toBe(1);
     // Pinned to the current content; K01 (#11) updates these numbers as each strand group lands.
     expect(manifest.counts).toEqual({
-      skills: 25,
-      templates: 86,
-      misconceptions: 6,
+      // CMP (K01) added 9 skills, 31 templates and MC.perceptual-size; CPS and SUB.04/SUB.07 (K01)
+      // added 7 skills and 27 templates; V27 (constructed practice) added 7 CMP templates and 18
+      // for CNT, SUB, GEO and MEA skills; ADD facts and strategies (K01) added 14 skills, 58
+      // templates, MC.forgot-the-ten and MC.wrong-operation; place value and two-digit addition and
+      // subtraction (K01) added 15 skills, 56 templates, MC.place-swap, MC.face-value and
+      // MC.write-as-spoken; equality and story problems (K01) added 11 skills (ALG.05 and CMP.08
+      // among them), 41 templates and 5 misconceptions.
+      skills: 97,
+      templates: 368,
+      misconceptions: 19,
       narrationKeys: Object.keys(r.content?.narration ?? {}).length,
     });
     expect(Object.keys(manifest.files).sort()).toEqual([
@@ -1581,18 +1748,45 @@ describe('graph.json (03 §9.1)', () => {
     const pos = new Map(g?.nodes.map((id, i) => [id, i]));
     for (const [from, to] of g?.edges ?? [])
       expect(pos.get(from) as number).toBeLessThan(pos.get(to) as number);
-    expect(g?.roots).toEqual(['CNT.01', 'SUB.01']);
-    expect(g?.gateways).toEqual(['CNT.03', 'CNT.14', 'CPS.02', 'SUB.03']);
+    expect(g?.roots).toEqual(['CNT.01', 'GEO.01', 'GEO.05', 'MEA.15', 'SUB.01']);
+    expect(g?.gateways).toEqual([
+      'ADD.08',
+      'ADD.10',
+      'ADD.11',
+      'CNT.03',
+      'CNT.14',
+      'CPS.02',
+      'CPS.04',
+      'PV.01',
+      'PV.09',
+      'SUB.03',
+    ]);
     expect(g?.depth['CNT.01']).toBe(0);
     expect(g?.depth['ADD.03']).toBe(6); // CNT.01 → 02 → 03 → 04 → 06 → 07 → ADD.03
-    expect(g?.descendants2['CPS.03']).toBe(0);
-    // CNT.07, CNT.15; then ADD.03, CNT.08, CNT.09, CNT.14 (through CNT.07)
-    expect(g?.descendants2['CNT.06']).toBe(6);
+    // CPS.04, CPS.09, CPS.11; then ADD.08, ADD.19, CMP.07, CPS.07, PV.09 and SUB.04
+    expect(g?.descendants2['CPS.03']).toBe(9);
+    // CNT.07, CNT.15, CPS.04, MEA.02, PV.09; then ADD.03, ADD.08, CMP.03, CMP.07, CNT.08, CNT.09,
+    // CNT.14, CNT.19, CPS.07, MEA.22, PV.10, PV.11 and SUB.04
+    expect(g?.descendants2['CNT.06']).toBe(18);
     expect(g?.encompasses).toEqual([
+      ['ADD.06', 'ADD.02', 1],
+      ['ADD.08', 'CPS.03', 1],
+      ['ADD.08', 'CPS.11', 1],
       ['CNT.06', 'CNT.04', 1],
       ['CNT.06', 'CNT.05', 0.5],
       ['CNT.10', 'CNT.09', 1],
+      ['MDA.01', 'ADD.06', 0.5],
+      ['MDA.01', 'PV.03', 0.5],
     ]);
-    expect(g?.strands.SUB).toEqual(['SUB.01', 'SUB.02', 'SUB.03', 'SUB.05', 'SUB.06']);
+    expect(g?.strands.SUB).toEqual([
+      'SUB.01',
+      'SUB.02',
+      'SUB.03',
+      'SUB.04',
+      'SUB.05',
+      'SUB.06',
+      'SUB.07',
+      'SUB.08',
+    ]);
   });
 });

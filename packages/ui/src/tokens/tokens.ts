@@ -99,6 +99,39 @@ export const PALETTE = {
 
 export type PaletteColor = keyof typeof PALETTE;
 
+/** Island lighting (05 §3): art scenes are drawn by day or at sunset. */
+export type Lighting = 'day' | 'sunset';
+
+/**
+ * The sunset remap of the environment colours, as in theme.css `[data-lighting="sunset"]`. Colours
+ * not listed (ink, pebble, paper, cloud, coral, sun…) are the same at sunset, so text and numerals
+ * drawn in them keep their contrast.
+ */
+export const SUNSET_PALETTE = {
+  sky: '#f3b98f',
+  'sky-light': '#fbdcbc',
+  horizon: '#f8cd9c',
+  sea: '#2b8789',
+  'sea-deep': '#236779',
+  'sea-dark': '#1b5163',
+  shallows: '#9fcbbd',
+  foam: '#fdeee0',
+  sand: '#f1d5b2',
+  'sand-deep': '#cfa173',
+  'sand-shadow': '#e3bc93',
+  leaf: '#5b8e4c',
+  'leaf-light': '#79a65f',
+  'leaf-deep': '#3e6b36',
+} as const satisfies Partial<Record<PaletteColor, string>>;
+
+/** The hex value of a palette colour under the given lighting. */
+export function litColor(color: PaletteColor, lighting: Lighting = 'day'): string {
+  if (lighting === 'sunset' && color in SUNSET_PALETTE) {
+    return SUNSET_PALETTE[color as keyof typeof SUNSET_PALETTE];
+  }
+  return PALETTE[color];
+}
+
 /**
  * Foreground/background pairs the primitives use for text, numerals and icons. Each must reach
  * 4.5:1 (06 §7); tokens.test.ts checks them.

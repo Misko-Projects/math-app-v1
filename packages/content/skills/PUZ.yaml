@@ -1,0 +1,12 @@
+# K01 (#11): the grade-1 PUZ rows of 03 §3.18. PUZ.01 and PUZ.02 land in a later K01 PR (graph.yaml
+# plannedIds); PUZ.04–10 are grade 2–3 (K02). Enrichment puzzles carry supporting tags only.
+strand: PUZ
+skills:
+  - id: PUZ.03
+    name: "Shape puzzles: fill the outline"
+    kind: problem-solving
+    grade: 1
+    standards: { ccss: [], supports: [1.G.A.2] }
+    prerequisites: [GEO.11]
+    gateway: false
+    representations: [pattern-blocks, shapes]

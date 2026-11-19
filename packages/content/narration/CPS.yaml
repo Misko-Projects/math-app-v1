@@ -5,10 +5,60 @@ sk.CPS.02.intro:
   text: "Let's split numbers up to ten in different ways."
 sk.CPS.03.intro:
   text: "Some numbers are partners. Together they make ten!"
+sk.CPS.04.intro:
+  text: "A teen number is ten and some more ones."
+sk.CPS.05.intro:
+  text: "We know the whole and one part. Let's find the missing part."
+sk.CPS.07.intro:
+  text: "Ten plus some ones makes a teen number."
+sk.CPS.08.intro:
+  text: "Big numbers split many ways. Ten and some more is one way!"
+sk.CPS.09.intro:
+  text: "Some tens are partners. Together they make one hundred!"
+sk.CPS.11.intro:
+  text: "Split a number to fill the ten. Then add what is left."
 
 tp.CPS.03.t4.prompt:
   text: "{part} + ? = 10"
   say: "{part} and what number make ten?"
+tp.CPS.04.t1.prompt:
+  text: "Make ten, then put {o} more. How many is that?"
+tp.CPS.04.t2.prompt:
+  text: "Slide ten on top and {o} below. How many beads?"
+tp.CPS.04.t3.prompt:
+  text: "Show {n} with a bundle of ten and some ones."
+tp.CPS.04.t4.prompt:
+  text: "How many in all? Look for the full ten."
+tp.CPS.04.t5.prompt:
+  text: "Ten and {o} more. What number is that?"
+tp.CPS.05.t3.prompt:
+  text: "{part} + ? = {whole}"
+  say: "{part} and what number make {whole}?"
+tp.CPS.07.t1.prompt:
+  text: "Ten and some ones make a teen number. Find the missing number."
+tp.CPS.07.t2.prompt:
+  text: "The frames show ten and {o}. What number is that?"
+tp.CPS.07.t3.prompt:
+  text: "Make {n} with two cards: a ten and the ones."
+tp.CPS.07.t4.prompt:
+  text: "10 + {o} = ?"
+  say: "Ten plus {o} equals what number?"
+tp.CPS.08.t1.prompt:
+  text: "{whole} is {wayA} and {wayB}. Show it a new way on the frames."
+tp.CPS.08.t2.prompt:
+  text: "{whole} is {wayA} and {wayB}. Show it a new way with the beads."
+tp.CPS.09.t1.prompt:
+  text: "Here is {part}. Put in tens to make {whole}."
+tp.CPS.09.t2.prompt:
+  text: "{part} and what number make {whole}? Tap it."
+tp.CPS.09.t3.prompt:
+  text: "{part} and what number make {whole}?"
+tp.CPS.11.t1.prompt:
+  text: "{addend} + {whole}: fill the first frame. How many are left?"
+tp.CPS.11.t2.prompt:
+  text: "{addend} + {whole}: slide beads up to fill the top row."
+tp.CPS.11.t3.prompt:
+  text: "{addend} needs {part} to make ten. {whole} is {part} and what?"
 
 ls.CPS.02.w1.s1:
   text: "Here are {whole} counters on the ten-frame."
@@ -18,5 +68,15 @@ ls.CPS.02.w1.s2:
   voice: pip
 ls.CPS.02.w1.s3:
   text: "{whole} is {a} and {b}. Two parts make the whole!"
+  voice: pip
+  style: excited
+ls.CPS.04.w1.s1:
+  text: "Ten counters fill one whole frame."
+  voice: pip
+ls.CPS.04.w1.s2:
+  text: "{o} more go in the next frame."
+  voice: pip
+ls.CPS.04.w1.s3:
+  text: "Ten and {o} more make {n}!"
   voice: pip
   style: excited

@@ -1,8 +1,19 @@
 // bond.parts (03 §5.6): part–part–whole. `unknown` is part (find the missing part), whole, split
-// (any two parts), or new-way (a split not found yet). Derived: `other` = whole − part.
-// Formats: number-bond, tenframe-fill, rekenrek, number-pad, number-line-jump, make-set.
+// (any two parts), or new-way (a split not found yet; `found` ways are shown as already found).
+// Derived: `other` = whole − part. With `addend` (CPS.11, split to finish a ten), the whole is the
+// second addend and the part is what the addend needs to make ten (8 + 5: give 2, keep 3).
+// Formats: number-bond, tenframe-fill, rekenrek, number-pad, number-line-jump, make-set, and (part
+// unknown, CPS.09 tens partners of 100) base-ten-build and hundred-chart: the known part is built
+// on the mat and the child adds pieces until the mat is worth the whole (`baseten.value`), or taps
+// the missing part on a 1–100 chart.
 
-import type { LessonStep, ParamValues, ResponseValue, StimulusSpec } from '@number-island/shared';
+import type {
+  LessonStep,
+  ParamValues,
+  ResponseValue,
+  StimulusSpec,
+  WidgetAction,
+} from '@number-island/shared';
 import { BEADS_PER_ROW } from '../../formats/rekenrek';
 import {
   asNum,
@@ -18,8 +29,14 @@ import type { BuildContext, GeneratorDef, GeneratorOutput } from '../types';
 
 const UNKNOWNS = ['part', 'whole', 'split', 'new-way'];
 
-/** Formats with their own size feature; whole.over5 is emitted only for the others. */
-const SIZED = new Set(['tenframe-fill', 'rekenrek', 'make-set']);
+/**
+ * Formats with their own size feature; whole.over5 is emitted only for the others. The rekenrek's
+ * own size feature (n.over10) only marks the second row, so it gets whole.over5 too.
+ */
+const SIZED = new Set(['tenframe-fill', 'make-set']);
+
+/** Formats that can show an addend being finished to ten (number-bond and number-pad show the split). */
+const ADDEND_FORMATS = new Set(['tenframe-fill', 'rekenrek', 'number-bond', 'number-pad']);
 
 const say = (
   key: string,
@@ -28,10 +45,57 @@ const say = (
 ): LessonStep =>
   action ? { actor: 'demo', say: key, vars, action } : { actor: 'demo', say: key, vars };
 
+const wayKey = (a: number, b: number): string => `${Math.min(a, b)}+${Math.max(a, b)}`;
+
 /** The canonical split a demo shows: as even as possible, both parts non-zero. */
 export function demoSplit(whole: number): [number, number] {
   const a = Math.max(1, Math.floor(whole / 2));
   return [a, whole - a];
+}
+
+/**
+ * The ways a new-way item shows as already found, in a fixed order so they depend on the params
+ * only: ten and the rest (13 is 10 and 3), then one less and one, then the near double, then the
+ * remaining splits from the top. Both parts are non-zero; turn-arounds count once.
+ */
+export function knownWays(whole: number, count: number): [number, number][] {
+  const out: [number, number][] = [];
+  const seen = new Set<string>();
+  const push = (a: number, b: number) => {
+    if (out.length >= count || a <= 0 || b <= 0 || seen.has(wayKey(a, b))) return;
+    seen.add(wayKey(a, b));
+    out.push([a, b]);
+  };
+  if (whole > 10) push(10, whole - 10);
+  push(whole - 1, 1);
+  push(Math.ceil(whole / 2), Math.floor(whole / 2));
+  for (let a = whole - 2; a >= 1 && out.length < count; a -= 1) push(a, whole - a);
+  return out;
+}
+
+/**
+ * The split a demo shows that is not already found and fits the widget (`cap` per part: ten cells
+ * in a frame, ten beads on a row, five fingers on a hand): the most even one available. Null when
+ * none is left.
+ */
+export function freshSplit(
+  whole: number,
+  found: readonly [number, number][],
+  cap = Number.POSITIVE_INFINITY,
+): [number, number] | null {
+  const seen = new Set(found.map(([a, b]) => wayKey(a, b)));
+  for (let a = Math.max(1, Math.floor(whole / 2)); a >= 1; a -= 1) {
+    const b = whole - a;
+    if (b >= 1 && a <= cap && b <= cap && !seen.has(wayKey(a, b))) return [a, b];
+  }
+  return null;
+}
+
+/** The most one part can hold on a split widget. */
+function partCap(format: string, representation: string | undefined): number {
+  if (format === 'tenframe-fill' || format === 'rekenrek') return BEADS_PER_ROW;
+  if (format === 'make-set' && representation === 'fingers') return 5;
+  return Number.POSITIVE_INFINITY;
 }
 
 export const bondParts: GeneratorDef = {
@@ -43,6 +107,8 @@ export const bondParts: GeneratorDef = {
     'number-pad',
     'number-line-jump',
     'make-set',
+    'base-ten-build',
+    'hundred-chart',
   ],
   params: {
     whole: { type: 'int', default: { kind: 'int', min: 2, max: 10 }, doc: 'the whole' },
@@ -62,6 +128,16 @@ export const bondParts: GeneratorDef = {
       default: { kind: 'const', value: false },
       doc: 'multiples of ten only (MDA.16); whole and part are given in tens',
     },
+    found: {
+      type: 'int',
+      default: { kind: 'const', value: 0 },
+      doc: 'new-way: how many ways are shown as already found (knownWays order: ten and the rest first)',
+    },
+    addend: {
+      type: 'int',
+      default: { kind: 'const', value: 0 },
+      doc: 'split to finish a ten (CPS.11): the addend being made ten; the whole is the other addend and the part is 10 − addend (0: off)',
+    },
   },
   derived: ['other'],
   features: {
@@ -72,6 +148,14 @@ export const bondParts: GeneratorDef = {
       weight: 0.4,
       doc: 'max(0, whole − 5) / 5, for formats without their own size feature',
     },
+    'whole.upTo5': {
+      weight: 0.15,
+      doc: 'max(0, min(whole, 5) − 2): size of a small whole (2 splits one way, 5 four ways)',
+    },
+    'missing.over4': {
+      weight: 0.4,
+      doc: 'part unknown: max(0, missing part − 4) / 5 (a big missing part is counted on, not seen)',
+    },
   },
   narration: [
     'gen.bond.parts.whole-is',
@@ -79,6 +163,10 @@ export const bondParts: GeneratorDef = {
     'gen.bond.parts.missing-is',
     'gen.bond.parts.split',
     'gen.bond.parts.together',
+    'gen.bond.parts.make-ten',
+    'gen.bond.parts.left-over',
+    'gen.bond.parts.ten-and',
+    'gen.bond.parts.put-in',
   ],
   sample(spec, rng) {
     const p = sampleAll(spec, rng);
@@ -90,12 +178,39 @@ export const bondParts: GeneratorDef = {
     return { other: asNum(p.whole) - asNum(p.part) };
   },
   accepts(p, t) {
+    const whole = asNum(p.whole);
+    const addend = asNum(p.addend);
+    const found = asNum(p.found);
+    if (found < 0 || (found > 0 && p.unknown !== 'new-way')) return false;
     const split = p.unknown === 'split' || p.unknown === 'new-way';
-    if (split) return asNum(p.whole) >= 2;
+    if (split) {
+      if (whole < 2 || addend !== 0) return false;
+      if (p.unknown === 'split') return true;
+      // A new way must be left that the widget can show.
+      const ways = knownWays(whole, found);
+      return (
+        ways.length === found &&
+        freshSplit(whole, ways, partCap(t.format, t.representation)) !== null
+      );
+    }
     const part = asNum(p.part);
-    if (part < 0 || part > asNum(p.whole)) return false;
+    if (part < 0 || part > whole) return false;
+    // The mat and the chart find a missing part (CPS.09); the chart is 1–100.
+    if (t.format === 'base-ten-build' || t.format === 'hundred-chart') {
+      const scale = p.tensOnly === true ? 10 : 1;
+      if (addend !== 0 || p.unknown !== 'part' || part >= whole) return false;
+      return t.format === 'base-ten-build' ? whole * scale <= 999 : whole * scale <= 100;
+    }
+    if (addend !== 0) {
+      // The part is what the addend needs to make ten, and something is kept from the whole.
+      if (addend < 1 || addend > 9 || p.unknown !== 'part' || p.tensOnly === true) return false;
+      if (addend + part !== 10 || part >= whole || !ADDEND_FORMATS.has(t.format)) return false;
+      if ((t.format === 'tenframe-fill' || t.format === 'rekenrek') && whole > BEADS_PER_ROW)
+        return false;
+      return true;
+    }
     // A jump item needs at least one hop.
-    return t.format !== 'number-line-jump' || part < asNum(p.whole);
+    return t.format !== 'number-line-jump' || part < whole;
   },
   build(ctx: BuildContext): GeneratorOutput {
     const { params, template: t } = ctx;
@@ -104,28 +219,50 @@ export const bondParts: GeneratorDef = {
     const whole = asNum(params.whole) * scale;
     const part = asNum(params.part) * scale;
     const other = whole - part;
+    const addend = asNum(params.addend);
     const isSplit = unknown === 'split' || unknown === 'new-way';
     if (!isSplit && (part < 0 || other < 0)) throw new RangeError('bond.parts: part exceeds whole');
+    const found = unknown === 'new-way' ? knownWays(whole, asNum(params.found)) : [];
+    // Feature values depend on the params only (the learner rebuilds them from params and seed).
     const math: Record<string, number> = {
       zeroPart: !isSplit && (part === 0 || other === 0) ? 1 : 0,
       'whole.over20': Math.max(0, whole - 20) / 10,
       tensBond: scale === 10 ? 1 : 0,
+      'whole.upTo5': Math.max(0, Math.min(whole / scale, 5) - 2),
+      'missing.over4': unknown === 'part' ? Math.max(0, other / scale - 4) / 5 : 0,
     };
     if (!SIZED.has(t.format)) math['whole.over5'] = Math.max(0, whole - 5) / 5;
-    const vars = pickVars(t, { whole, part, other });
+    const [wayA, wayB] = found[0] ?? [0, 0];
+    const vars = pickVars(t, { whole, part, other, addend, total: addend + whole, wayA, wayB });
     const missing = unknown === 'whole' ? whole : other;
     const bondPicture: StimulusSpec = {
       kind: 'number-bond',
       whole: unknown === 'whole' ? '?' : whole,
       parts: unknown === 'whole' ? [part, other] : [part, '?'],
     };
-    const overlay = tenFrameOverlay(whole, [part, other]);
-    const splitAnswer = {
-      kind: 'state' as const,
-      checker: 'bond.split' as const,
-      target: { whole, nonZero: true },
-    };
+    // A bond of tens is pictured as the bond of its tens (30 and 70 as 3 and 7 on a ten-frame).
+    const overlay = tenFrameOverlay(whole / scale, [part / scale, other / scale]);
+    // Every split widget asks for two nonzero parts (`nonZero: true`); both checkers do too.
+    const splitAnswer =
+      unknown === 'new-way'
+        ? {
+            kind: 'state' as const,
+            checker: 'bond.newWay' as const,
+            target: { whole, found, nonZero: true },
+          }
+        : {
+            kind: 'state' as const,
+            checker: 'bond.split' as const,
+            target: { whole, nonZero: true },
+          };
     let p: PartialOutput;
+    if (addend > 0 && (t.format === 'tenframe-fill' || t.format === 'rekenrek')) {
+      p = finishTenOutput(t.format, { params, vars, math, addend, whole, give: part, keep: other });
+      return finish(bondParts, ctx, p);
+    }
+    if (addend > 0 && !ADDEND_FORMATS.has(t.format)) {
+      throw new RangeError(`bond.parts: ${t.format} cannot show an addend made ten`);
+    }
     switch (t.format) {
       case 'number-bond': {
         const counters = t.tier === 'concrete';
@@ -139,7 +276,7 @@ export const bondParts: GeneratorDef = {
                 whole,
                 parts: [null, null],
                 mode: unknown === 'new-way' ? 'new-way' : 'split',
-                ...(unknown === 'new-way' ? { found: [] } : {}),
+                ...(unknown === 'new-way' ? { found } : {}),
                 counters,
                 nonZero: true,
               }
@@ -160,11 +297,7 @@ export const bondParts: GeneratorDef = {
                   counters,
                   nonZero: false,
                 },
-          answer: isSplit
-            ? unknown === 'new-way'
-              ? { kind: 'state', checker: 'bond.newWay', target: { whole, found: [] } }
-              : splitAnswer
-            : { kind: 'number', value: missing },
+          answer: isSplit ? splitAnswer : { kind: 'number', value: missing },
           nudge: [{ op: 'highlight', args: { slot: unknown === 'whole' ? 'whole' : 'part-1' } }],
           overlay,
         };
@@ -272,6 +405,7 @@ export const bondParts: GeneratorDef = {
         break;
       }
       case 'number-pad': {
+        if (isSplit) throw new RangeError('bond.parts: number-pad needs a part or whole unknown');
         const abstract = t.tier === 'abstract';
         p = {
           params,
@@ -308,7 +442,6 @@ export const bondParts: GeneratorDef = {
           answer: { kind: 'number', value: missing },
           overlay,
         };
-        if (isSplit) throw new RangeError('bond.parts: number-pad needs a part or whole unknown');
         break;
       }
       case 'number-line-jump': {
@@ -390,6 +523,39 @@ export const bondParts: GeneratorDef = {
         }
         break;
       }
+      case 'base-ten-build': {
+        // The known part is on the mat; the child puts in pieces until it is worth the whole.
+        if (unknown !== 'part') throw new RangeError('bond.parts: base-ten-build finds a part');
+        p = {
+          params,
+          vars,
+          math,
+          widget: {
+            format: 'base-ten-build',
+            target: whole,
+            mode: 'build',
+            pieces: { thousands: false, hundreds: false, tens: true, ones: scale === 1 },
+            prebuilt: { hundreds: 0, tens: Math.floor(part / 10), ones: part % 10 },
+            wholeIs: 'unit',
+          },
+          answer: { kind: 'state', checker: 'baseten.value', target: { value: whole } },
+          highlight: [{ op: 'count-by', args: { kind: scale === 10 ? 'tens' : 'ones' } }],
+        };
+        break;
+      }
+      case 'hundred-chart': {
+        // Tap the missing part on a 1–100 chart (30 and ? make 100: count the rows down to 100).
+        if (unknown !== 'part') throw new RangeError('bond.parts: hundred-chart finds a part');
+        p = {
+          params,
+          vars,
+          math,
+          widget: { format: 'hundred-chart', first: 1, rows: 10, hidden: [], mode: 'find' },
+          answer: { kind: 'number', value: other },
+          nudge: [chartColumn(part, scale)],
+        };
+        break;
+      }
       default:
         throw new Error(`bond.parts cannot build ${t.format}`);
     }
@@ -402,8 +568,8 @@ export const bondParts: GeneratorDef = {
     switch (out.answer.checker) {
       case 'bond.split':
       case 'bond.newWay': {
-        const whole = asNum(target.whole as number);
-        const [a, b] = demoSplit(whole);
+        const [a, b] = splitShown(out);
+        const whole = a + b;
         if (w.format === 'tenframe-fill') {
           // One part per frame.
           const cells = [a, b].map((part) =>
@@ -422,6 +588,14 @@ export const bondParts: GeneratorDef = {
       case 'tenframe.total':
       case 'tenframe.makeTen': {
         if (w.format !== 'tenframe-fill') break;
+        const addend = asNum(out.params.addend);
+        if (addend > 0) {
+          // Finish the ten: the addend and the given part fill frame 0, the rest stays in frame 1.
+          const keep = asNum(target.value as number);
+          const first = Array.from({ length: 10 }, (_, i) => (i < addend ? 1 : 2));
+          const second = Array.from({ length: 10 }, (_, i) => (i < keep ? 2 : 0));
+          return { kind: 'state', value: { cells: [first, second], value: keep } };
+        }
         const part = w.prefilled.reduce((s, x) => s + x.count, 0);
         const whole = asNum((target.n ?? target.total) as number);
         const cells = Array.from({ length: w.frames }, (_, f) =>
@@ -451,6 +625,14 @@ export const bondParts: GeneratorDef = {
           },
         };
       }
+      case 'baseten.value': {
+        // The whole as tens and ones (the tray offers no hundreds): 100 is ten tens.
+        const whole = asNum(target.value as number);
+        return {
+          kind: 'state',
+          value: { thousands: 0, hundreds: 0, tens: Math.floor(whole / 10), ones: whole % 10 },
+        };
+      }
       case 'set.count': {
         if (w.format !== 'make-set') break;
         const count = asNum(target.count as number);
@@ -477,7 +659,26 @@ export const bondParts: GeneratorDef = {
     const whole = asNum(out.params.whole) * scale;
     const part = asNum(out.params.part) * scale;
     const other = whole - part;
-    const [a, b] = demoSplit(whole);
+    const addend = asNum(out.params.addend);
+    const isSplit = unknown === 'split' || unknown === 'new-way';
+    const [a, b] = isSplit ? splitShown(out) : demoSplit(whole);
+    if (addend > 0 && w.format === 'tenframe-fill') {
+      return [
+        say(
+          'gen.bond.parts.make-ten',
+          { part },
+          { op: 'move-counters', args: { fromFrame: 1, toFrame: 0, count: part } },
+        ),
+        say('gen.bond.parts.left-over', { n: other }, { op: 'answer', args: { value: other } }),
+      ];
+    }
+    if (addend > 0 && w.format === 'rekenrek') {
+      return [
+        say('gen.bond.parts.make-ten', { part }, { op: 'slide', args: { row: 1, count: -part } }),
+        say('gen.bond.parts.make-ten', { part }, { op: 'slide', args: { row: 0, count: part } }),
+        say('gen.bond.parts.ten-and', { n: other }, { op: 'count-total' }),
+      ];
+    }
     switch (w.format) {
       case 'number-bond':
         if (w.mode === 'split' || w.mode === 'new-way') {
@@ -546,7 +747,7 @@ export const bondParts: GeneratorDef = {
           w.preset[0] === 0 &&
           w.preset[1] === 0 &&
           out.answer.kind === 'state' &&
-          out.answer.checker === 'bond.split'
+          (out.answer.checker === 'bond.split' || out.answer.checker === 'bond.newWay')
         ) {
           return [
             say('gen.bond.parts.whole-is', { whole }, { op: 'slide', args: { row: 0, count: a } }),
@@ -604,8 +805,29 @@ export const bondParts: GeneratorDef = {
         steps.push(say('gen.bond.parts.missing-is', { n: other }, { op: 'label-landing' }));
         return steps;
       }
+      case 'base-ten-build': {
+        // Count the known part, put in the missing pieces, then count the whole.
+        const kind = scale === 10 ? 'tens' : 'ones';
+        return [
+          say('gen.bond.parts.count-on', { part, whole }, { op: 'count-by', args: { kind } }),
+          say(
+            'gen.bond.parts.put-in',
+            { n: other },
+            { op: 'add-piece', args: { kind, count: other / scale } },
+          ),
+          say('gen.bond.parts.whole-is', { whole }, { op: 'count-by', args: { kind } }),
+        ];
+      }
+      case 'hundred-chart':
+        return [
+          say('gen.bond.parts.count-on', { part, whole }, chartColumn(part, scale)),
+          say('gen.bond.parts.missing-is', { n: other }, { op: 'tap', args: { n: other } }),
+        ];
       case 'make-set':
-        if (out.answer.kind === 'state' && out.answer.checker === 'bond.split') {
+        if (
+          out.answer.kind === 'state' &&
+          (out.answer.checker === 'bond.split' || out.answer.checker === 'bond.newWay')
+        ) {
           return w.container === 'hands'
             ? [
                 say(
@@ -629,3 +851,92 @@ export const bondParts: GeneratorDef = {
     }
   },
 };
+
+/**
+ * The hundred-chart cue for finding a part: the tens column a tens bond climbs down (30 → 100), or
+ * the row a part of ones starts on. Never the missing part's own cell.
+ */
+function chartColumn(part: number, scale: number): WidgetAction {
+  return scale === 10
+    ? { op: 'highlight-col', args: { n: part > 0 ? part : 10 } }
+    : { op: 'highlight-row', args: { n: Math.max(1, part) } };
+}
+
+/** The split a split or new-way item's demo shows (not already found, and fits the widget). */
+function splitShown(out: GeneratorOutput): [number, number] {
+  const scale = out.params.tensOnly === true ? 10 : 1;
+  const whole = asNum(out.params.whole) * scale;
+  const found = out.params.unknown === 'new-way' ? knownWays(whole, asNum(out.params.found)) : [];
+  const w = out.widget;
+  const cap =
+    w.format === 'tenframe-fill' || w.format === 'rekenrek'
+      ? BEADS_PER_ROW
+      : w.format === 'make-set' && w.container === 'hands'
+        ? 5
+        : Number.POSITIVE_INFINITY;
+  return freshSplit(whole, found, cap) ?? demoSplit(whole);
+}
+
+interface FinishTen {
+  params: ParamValues;
+  vars: Record<string, string | number>;
+  math: Record<string, number>;
+  addend: number;
+  whole: number;
+  give: number;
+  keep: number;
+}
+
+/**
+ * Split to finish a ten (CPS.11): the addend sits in frame 0 (or on the top row) and the whole in
+ * frame 1 (the bottom row). Moving `give` over fills the ten; `keep` is left.
+ */
+function finishTenOutput(format: 'tenframe-fill' | 'rekenrek', o: FinishTen): PartialOutput {
+  const { params, vars, math, addend, whole, keep } = o;
+  if (format === 'tenframe-fill') {
+    return {
+      params,
+      vars,
+      math,
+      widget: {
+        format: 'tenframe-fill',
+        frames: 2,
+        size: 10,
+        prefilled: [
+          { frame: 0, color: 'a', count: addend },
+          { frame: 1, color: 'b', count: whole },
+        ],
+        goal: 'make-ten',
+        requireStandardFill: false,
+        thenAsk: 'missing',
+        skin: 'frame',
+      },
+      answer: {
+        kind: 'state',
+        checker: 'tenframe.makeTen',
+        target: { total: addend + whole, value: keep },
+      },
+      highlight: [{ op: 'highlight', args: { target: 'empty-cells' } }],
+    };
+  }
+  return {
+    params,
+    vars,
+    math,
+    widget: {
+      format: 'rekenrek',
+      rows: 2,
+      preset: [addend, whole],
+      mode: 'make-ten',
+      target: addend + whole,
+      rowRule: 'fill-top-first',
+      thenAsk: null,
+    },
+    answer: {
+      kind: 'state',
+      checker: 'rekenrek.total',
+      target: { n: addend + whole, rowRule: 'fill-top-first' },
+    },
+    highlight: [{ op: 'highlight', args: { row: 0, upTo: addend } }],
+  };
+}

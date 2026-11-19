@@ -1,0 +1,54 @@
+# MEA narration (03 §8): skill intros and template prompts owned by the strand.
+sk.MEA.01.intro:
+  text: "Let's find out which one is longer."
+sk.MEA.02.intro:
+  text: "Line them up end to end. Then count them!"
+sk.MEA.07.intro:
+  text: "Let's put things in order, from short to long."
+sk.MEA.15.intro:
+  text: "Some things are long, some are heavy, and some hold water!"
+sk.MEA.16.intro:
+  text: "A balance tips down on the heavier side."
+sk.MEA.22.intro:
+  text: "Big ones and small ones. Let's measure both ways!"
+
+tp.MEA.01.t1.prompt:
+  text: "Which one is longer?"
+tp.MEA.01.t2.prompt:
+  text: "Which one is shorter?"
+tp.MEA.01.t3.prompt:
+  text: "Which one is longer? They may be the same."
+tp.MEA.01.t4.prompt:
+  text: "Put them in order. Start with the longest."
+tp.MEA.01.t5.prompt:
+  text: "They start at one line. Put them in order, longest first."
+tp.MEA.02.t1.prompt:
+  text: "Lay {unit|unit:many} end to end along it. How many fit?"
+tp.MEA.02.t2.prompt:
+  text: "How many {unit|unit:many} long is it?"
+tp.MEA.07.t1.prompt:
+  text: "Put them in order. Start with the shortest."
+tp.MEA.07.t2.prompt:
+  text: "They can not move, so lay the string on them. Which is longer?"
+tp.MEA.07.t3.prompt:
+  text: "Pip measured some ropes in {unit|unit:many}. Put them in order, shortest first."
+tp.MEA.15.t1.prompt:
+  text: "Tap each thing that is {attr|word}."
+tp.MEA.15.t2.prompt:
+  text: "Put each thing in the bin where it goes."
+tp.MEA.15.t3.prompt:
+  text: "Which one is {attr|word}?"
+tp.MEA.15.t4.prompt:
+  text: "Look at each thing. Put it in the bin where it goes."
+tp.MEA.16.t1.prompt:
+  text: "Which side is heavier? They may weigh the same."
+tp.MEA.16.t2.prompt:
+  text: "Which one is heavier?"
+tp.MEA.16.t3.prompt:
+  text: "Put them in order, from heavy to light."
+tp.MEA.16.t4.prompt:
+  text: "Sort them. Which are heavier than the {thing|noun:one}, which are lighter?"
+tp.MEA.22.t1.prompt:
+  text: "Measure it with {unit|unit:many}. Then measure it with {altUnit|unit:many}."
+tp.MEA.22.t2.prompt:
+  text: "We measure one log two ways. Which do we need {ask|word} of?"

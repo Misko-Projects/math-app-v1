@@ -1,5 +1,4 @@
-# SUB: Subitizing, catalog rows from 03 §3.4 (K01). SUB.04 and SUB.07 (they need CPS.04) and the
-# grade-2 SUB.08–SUB.09 rows come in later PRs (graph.yaml plannedIds).
+# SUB: Subitizing, catalog rows from 03 §3.4 (K01). The grade-2 SUB.09 comes with K02.
 strand: SUB
 skills:
   - id: SUB.01
@@ -29,6 +28,15 @@ skills:
     gateway: true
     representations: [fingers, five-frame, ten-frame, dots, symbols]
 
+  - id: SUB.04
+    name: See 11–20 on double ten-frames as ten and some more
+    kind: concept
+    grade: 1
+    standards: { ccss: [], supports: [1.NBT.B.2] }
+    prerequisites: [SUB.03, CPS.04]
+    gateway: false
+    representations: [rekenrek, double-ten-frame, dots]
+
   - id: SUB.05
     name: Show and read finger patterns to 10
     kind: concept
@@ -46,3 +54,21 @@ skills:
     prerequisites: [SUB.03]
     gateway: false
     representations: [objects, dots, number-bond]
+
+  - id: SUB.07
+    name: Quick-read beads on a rekenrek to 20
+    kind: concept
+    grade: 1
+    standards: { ccss: [], supports: [1.OA.C.5], wi: [M.1.OA.C.5b] }
+    prerequisites: [SUB.04]
+    gateway: false
+    representations: [rekenrek, double-ten-frame]
+
+  - id: SUB.08
+    name: Quick-read tens and ones from a base-ten picture
+    kind: concept
+    grade: 1
+    standards: { ccss: [], supports: [1.NBT.B.2] }
+    prerequisites: [SUB.04, PV.01]
+    gateway: false
+    representations: [bundles, base-ten]
