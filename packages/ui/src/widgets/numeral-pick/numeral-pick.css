@@ -28,9 +28,11 @@
   border: 0;
   min-width: 0;
 }
+/* Grid: equal cells, cards fill them, so the choices line up and the block stays centred. */
 .ni-npick__options[data-layout="grid"] {
   display: grid;
-  grid-template-columns: repeat(3, auto);
+  grid-template-columns: repeat(var(--cols, 2), minmax(0, 1fr));
+  grid-auto-rows: 1fr;
 }
 .ni-npick__slot {
   position: relative;
@@ -49,6 +51,10 @@
   border: 0;
   box-shadow: none;
   background: transparent;
+}
+.ni-npick__options[data-layout="grid"] > .ni-npick__slot > .ni-pick {
+  width: 100%;
+  height: 100%;
 }
 .ni-npick__hand {
   left: calc(50% - 10px);

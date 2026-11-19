@@ -200,7 +200,9 @@ export function objectSetLayout(set: ObjectSet): ObjectLayout {
       // Dice sit on die tiles (die faces up to 6, dominoes up to 10); groups sit on round plates.
       // One cluster per explicit group (an empty group is an empty plate), sized as actually drawn:
       // `groupIndexes` clamps groups that don't sum to the count.
-      const groupCount = set.groups && set.groups.length > 0 ? set.groups.length : 1;
+      // An explicit list (even empty: zero groups) sets the clusters; no list means one cluster.
+      const groupCount =
+        set.groups && (set.groups.length > 0 || count === 0) ? set.groups.length : 1;
       const sizes = Array.from(
         { length: groupCount },
         (_, g) => groupOf.filter((x) => x === g).length,

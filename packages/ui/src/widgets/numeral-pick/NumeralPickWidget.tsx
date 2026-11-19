@@ -1,6 +1,6 @@
 import { formatModel } from '@number-island/engine';
 import type { WidgetAction } from '@number-island/shared';
-import { useState } from 'react';
+import { type CSSProperties, useState } from 'react';
 import { useInteractionTrace } from '../../interaction/trace';
 import { useNarrationText, useSpeech, useUiPreferences } from '../../preferences/UiProvider';
 import { HandPointerIcon } from '../../primitives/icons';
@@ -111,6 +111,8 @@ export function NumeralPickWidget({
         <fieldset
           className="ni-npick__options"
           data-layout={config.layout}
+          // Grid: even columns (2 for up to 4 choices, else 3) so no choice sits alone off-centre.
+          style={{ '--cols': config.options.length <= 4 ? 2 : 3 } as CSSProperties}
           aria-label={t('ui.widget.choices')}
           disabled={!interactive}
         >

@@ -226,6 +226,38 @@ describe('review regressions (PR #63 round 3)', () => {
   });
 });
 
+describe('review regressions (PR #63 round 4)', () => {
+  it('zero groups draw zero plates; a missing list with objects still draws one', () => {
+    expect(objectSetLayout(set({ count: 0, layout: 'groups', groups: [] })).frames).toHaveLength(0);
+    expect(
+      objectSetLayout(set({ count: 0, layout: 'groups', groups: [0, 0, 0] })).frames,
+    ).toHaveLength(3);
+    const loose = objectSetLayout(set({ count: 4, layout: 'groups', groups: [] }));
+    expect(loose.frames).toHaveLength(1);
+    expect(loose.objects).toHaveLength(4);
+  });
+
+  it('a nested submit is refused even when onResponse runs past the window', () => {
+    let t = 0;
+    const guard = createSubmitGuard(400, () => t);
+    let nestedSent = false;
+    guard(() => {
+      t += 400; // slow host work inside onResponse
+      nestedSent = guard(() => true);
+      return true;
+    });
+    expect(nestedSent).toBe(false);
+    // A throwing submit releases the in-flight lock.
+    expect(() =>
+      guard(() => {
+        throw new Error('boom');
+      }),
+    ).toThrow('boom');
+    t += 500;
+    expect(guard(() => true)).toBe(true);
+  });
+});
+
 describe('review regressions (PR #63 round 2)', () => {
   const check = (s: ObjectSet, counted: number, distractors: number) => {
     const l = objectSetLayout(s);

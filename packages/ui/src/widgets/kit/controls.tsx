@@ -312,13 +312,22 @@ export function padValue(text: string): number | null {
  */
 export function createSubmitGuard(ms: number, now: () => number) {
   let last = Number.NEGATIVE_INFINITY;
+  // A submit in progress refuses every nested one, however long the host's onResponse takes.
+  let inFlight = false;
   return (submit: () => boolean): boolean => {
+    if (inFlight) return false;
     const t = now();
     if (t - last < ms) return false;
     const previous = last;
     last = t;
-    const sent = submit();
-    if (!sent) last = previous;
+    inFlight = true;
+    let sent = false;
+    try {
+      sent = submit();
+    } finally {
+      inFlight = false;
+      if (!sent) last = previous;
+    }
     return sent;
   };
 }
