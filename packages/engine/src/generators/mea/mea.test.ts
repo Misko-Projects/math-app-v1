@@ -454,17 +454,28 @@ describe('mea.length', () => {
         length: 4,
       }),
     ).toEqual({ closeness: 0.25, 'ask.fewer': 1 });
+    // The measure-length model (U05, #14) adds its 03 §5.5 format features; those the generator
+    // does not set come from the config, 0 on these items.
+    const mlZero = {
+      offset: 0,
+      'precision.half': 0,
+      'precision.quarter': 0,
+      'mode.estimate': 0,
+      twoUnits: 0,
+    };
     expect(features('measure-length', { mode: 'iterate', length: 3 }, 'concrete')).toEqual({
+      ...mlZero,
       'length.over10': 0,
       'units.over5': 0,
       'tool.units': 1,
     });
     expect(
       features('measure-length', { mode: 'two-units', unit: 'cube', altUnit: 'shell', length: 12 }),
-    ).toEqual({ 'length.over10': 1, 'units.over5': 1.4, 'tool.units': 1, twoUnits: 1 });
+    ).toEqual({ ...mlZero, 'length.over10': 1, 'units.over5': 1.4, 'tool.units': 1, twoUnits: 1 });
     expect(
       features('measure-length', { mode: 'read', unit: 'in', length: 36, precision: 4, offset: 1 }),
     ).toEqual({
+      ...mlZero,
       'length.over10': 0,
       offset: 1,
       'precision.half': 0,

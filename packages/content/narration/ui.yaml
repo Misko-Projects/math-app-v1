@@ -303,16 +303,16 @@ ui.scomp.sticks-left:
   level: K
 ui.pwalk.side:
   text: "Side {n}: {len}"
-  level: 2
+  level: "2"
 ui.pwalk.around:
   text: "All the way around: {n}"
-  level: 2
+  level: "2"
 ui.pwalk.inside:
   text: "Squares inside: {n}"
-  level: 2
+  level: "2"
 ui.pwalk.compare:
   text: "Make one that is not this one"
-  level: 2
+  level: "2"
 ui.pwalk.build:
   text: "Your rectangle"
-  level: 2
+  level: "2"
