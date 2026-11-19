@@ -23,6 +23,16 @@ const chromeVersion =
   /Chrome\/([\d.]+)/.exec(devices['Desktop Chrome'].userAgent)?.[1] ?? '146.0.0.0';
 const androidTabletUserAgent = `Mozilla/5.0 (Linux; Android 16; SM-X710) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/${chromeVersion} Safari/537.36`;
 
+const androidTablet = {
+  browserName: 'chromium' as const,
+  userAgent: androidTabletUserAgent,
+  viewport: { width: 1280, height: 800 },
+  screen: { width: 1280, height: 800 },
+  deviceScaleFactor: 2,
+  isMobile: true,
+  hasTouch: true,
+};
+
 export default defineConfig({
   testDir: './tests',
   outputDir: './test-results',
@@ -36,21 +46,25 @@ export default defineConfig({
     trace: 'retain-on-failure',
   },
   projects: [
+    // Golden journey 1 (09 §3) creates the run's family through the Setup Wizard, once, on the
+    // primary device (06 §1). Every other project starts after it and can pair with that family
+    // (e2e/fixtures/family.ts).
+    {
+      name: 'golden-setup',
+      testMatch: /journey-1-setup\.spec\.ts$/,
+      use: androidTablet,
+    },
     {
       name: 'chromium-desktop',
+      testIgnore: /journey-1-setup\.spec\.ts$/,
+      dependencies: ['golden-setup'],
       use: { ...devices['Desktop Chrome'], viewport: { width: 1440, height: 900 } },
     },
     {
       name: 'android-tablet',
-      use: {
-        browserName: 'chromium',
-        userAgent: androidTabletUserAgent,
-        viewport: { width: 1280, height: 800 },
-        screen: { width: 1280, height: 800 },
-        deviceScaleFactor: 2,
-        isMobile: true,
-        hasTouch: true,
-      },
+      testIgnore: /journey-1-setup\.spec\.ts$/,
+      dependencies: ['golden-setup'],
+      use: androidTablet,
     },
     ...(wantsWebkit
       ? [
@@ -62,11 +76,14 @@ export default defineConfig({
         ]
       : []),
   ],
+  // The production topology with its own fresh D1 database per run (apps/api/scripts/db-e2e.mjs):
+  // golden journey 1 creates the family, which `POST /setup` allows only once (08 §2). A server
+  // already on :8787 (e.g. `pnpm preview:full` with dev data) is never reused; stop it first.
   webServer: {
-    command: 'pnpm preview:full',
+    command: 'pnpm preview:e2e',
     cwd: '..',
     url: `${baseURL}/api/health`,
-    reuseExistingServer: !process.env.CI,
+    reuseExistingServer: false,
     timeout: 240_000,
     stdout: 'pipe',
     stderr: 'pipe',

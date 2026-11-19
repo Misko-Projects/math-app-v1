@@ -20,6 +20,8 @@ export interface AppServices {
   store: DataStore;
   audio: WebAudioManager;
   sync: SyncLifecycle;
+  /** The fetch every client of the app uses (tests inject a fake network). */
+  fetch: FetchLike;
   /** Stops syncing and audio and closes the database. */
   dispose(): void;
 }
@@ -100,6 +102,7 @@ export async function bootApp(opts: BootOptions = {}): Promise<AppServices> {
     store,
     audio,
     sync,
+    fetch: fetchImpl,
     dispose() {
       sync.stop();
       audio.stop();
