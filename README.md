@@ -27,6 +27,17 @@ To run the tests (`pnpm verify`, `pnpm e2e`), the scripts download Playwright's 
 
 `pnpm dev:lan` serves the app on your home network so a tablet can open `http://<laptop-ip>:5173`. Contributor commands and rules are in [`AGENTS.md`](AGENTS.md).
 
+## Troubleshooting
+
+**The parent area says "No children on this island yet."** On a device you just paired, first tap **Sync now**: the family's children arrive with the first sync, so a failed or slow sync can show an empty family for a while. Check that the device is on the same network as the island server.
+
+**Setup was interrupted after the island was made.** If setup's answer was lost after the server created your family (the wizard said the island may have been made, and you joined it with the passphrase), the family has no children, and v1 adds children only in setup. To run setup again on a local island:
+
+> **Warning: this erases the whole island on that server: every child, their progress and every paired device.** Do it only when the family really has no children on any device. Syncing a device that shows none is not enough proof.
+
+1. Stop the island server (`pnpm dev`), run `pnpm db:reset`, and start it again.
+2. On each device, clear this site's data in the browser's settings, then choose **Set up our island** on one of them.
+
 ## License
 
 MIT (code). Third-party assets and their licences are listed in `LICENSES-ASSETS.md`.
