@@ -779,6 +779,143 @@ describe('lessons and test-outs (04 §3, 03 §6.5)', () => {
     expect(st.skills[A]?.practicedAt).not.toBeNull();
   });
 
+  it('a request that cannot cancel a test-out goes to the Practice Pier, keeping both failed reviews', () => {
+    // Review round 1 (#71): a three-minute K plan (five item slots after A's lesson). C (number-pad
+    // only) and N (number-bond only) both failed their reviews. A is the sole focus; its lesson is
+    // demonstration-only on A.t3 and its offer is uncertain, so it gets no draw and its first item
+    // must lie outside the pool. Pad-bond hosts both reviews but only A's pool templates; pad-tap
+    // hosts a cancelling item (A.t1) and only C's review. Neither may win: the Practice Pier hosts
+    // both reviews and the cancelling item.
+    const a = graph.skills[A] as Skill;
+    const c = graph.skills[C] as Skill;
+    const nSkill = graph.skills[N] as Skill;
+    const g: SkillGraph = {
+      ...graph,
+      skills: {
+        ...graph.skills,
+        [A]: { ...a, lesson: { ...a.lesson, templateId: `${A}.t3` } },
+        [C]: { ...c, templates: [`${C}.t3`] },
+        [N]: { ...nSkill, templates: [`${N}.t4`] },
+      },
+    };
+    const kModel = createEloFireModel(g, { childId: CHILD, isK: true });
+    const before = stateWith(
+      { [C]: practiced(1, NOW + 1), [N]: practiced(1, NOW + 1) },
+      { thetaG: Math.log(0.751 / 0.249) },
+    );
+    const s1 = kModel.apply(
+      before,
+      synthAttempt(C, 3, { correct: false, context: 'review', seed: 11 }),
+      NOW,
+    );
+    // The failed reviews lower θg; it is reset to just above A's offer, so the offer is uncertain.
+    const s = {
+      ...kModel.apply(s1, synthAttempt(N, 4, { correct: false, context: 'review', seed: 12 }), NOW),
+      thetaG: Math.log(0.751 / 0.249),
+    };
+    expect(kModel.inTestOut(s, A)).toBe(true);
+    expect(s.skills[C]?.memory?.consecutiveFails).toBe(1);
+    expect(s.skills[N]?.memory?.consecutiveFails).toBe(1);
+    const padBond = cap('pad-bond', ['number-pad', 'number-bond'], {
+      residents: ['nib'],
+      produces: ['stone'],
+    });
+    const padTap = cap('pad-tap', ['number-pad', 'tap-count'], {
+      residents: ['nib'],
+      produces: ['stone'],
+    });
+    const p = plan(
+      input({
+        child: child('K'),
+        graph: g,
+        state: s,
+        minutes: 3,
+        workshopsAvailable: [padBond, padTap],
+      }),
+    );
+    expect(drawOf(p, A)).toHaveLength(0); // the offer is uncertain: no draw
+    for (const r of p.requests.filter((x) => x.tasks.some((t) => t.skillId === A))) {
+      expect(r.workshopId).toBe(PRACTICE_PIER);
+      expect(r.tasks.some((t) => t.skillId === C && t.context === 'review')).toBe(true);
+      expect(r.tasks.some((t) => t.skillId === N && t.context === 'review')).toBe(true);
+    }
+    firstItemsOutsidePool(p, A, g);
+  });
+
+  it('a choice template outside the pool cancels the test-out when no constructed one is', () => {
+    // Review round 1 (#71): A is a gateway skill with a demonstration-only lesson and an uncertain
+    // offer. Its four constructed templates are all in the pool, the first three in one
+    // representation, and one choice template lies outside it. After a right warmup the learner
+    // offers the test-out; A's first item is the choice template, which cancels it (04 §7a), and a
+    // constructed item still follows for practiced evidence.
+    const a = graph.skills[A] as Skill;
+    const base = graph.templates[`${A}.t3`] as ItemTemplate;
+    const t7: ItemTemplate = { ...base, id: `${A}.t7` };
+    const t8: ItemTemplate = { ...base, id: `${A}.t8` };
+    const t5: ItemTemplate = { ...base, id: `${A}.t5`, format: 'numeral-pick' };
+    const pool = [`${A}.t3`, t7.id, t8.id, `${A}.t4`];
+    const g: SkillGraph = {
+      ...graph,
+      templates: { ...graph.templates, [t5.id]: t5, [t7.id]: t7, [t8.id]: t8 },
+      skills: {
+        ...graph.skills,
+        [A]: {
+          ...a,
+          gateway: true,
+          templates: [...pool, t5.id],
+          lesson: {
+            ...a.lesson,
+            templateId: `${A}.t3`,
+            testOut: { ...a.lesson.testOut, templateIds: pool },
+          },
+        },
+      },
+    };
+    const gModel = createEloFireModel(g, { childId: CHILD, isK: false });
+    const s = stateWith(
+      { [C]: practiced(2, NOW + 3 * DAY_MS) },
+      { thetaG: Math.log(0.751 / 0.249) },
+    );
+    const all = cap(
+      'all-works',
+      ['tap-count', 'tenframe-fill', 'number-pad', 'number-bond', 'numeral-pick'],
+      {
+        residents: ['nib'],
+        produces: ['stone'],
+      },
+    );
+    const p = plan(input({ graph: g, state: s, workshopsAvailable: [all] }));
+    expect(p.warmup.skillId).toBe(C);
+    expect(drawOf(p, A)).toHaveLength(0);
+    const warm = gModel.apply(
+      s,
+      synthAttempt(C, Number(p.warmup.templateId.split('.t')[1]), { context: 'warmup' }),
+      NOW,
+    );
+    expect(gModel.inTestOut(warm, A)).toBe(true);
+    for (const r of p.requests.filter((x) => x.tasks.some((t) => t.skillId === A))) {
+      const items = r.tasks.filter((t) => t.skillId === A && t.mode === 'item');
+      const first = items[0] as PlannedRequest['tasks'][number];
+      expect(first.templateId).toBe(t5.id);
+      const st = gModel.apply(
+        warm,
+        synthAttempt(A, 3, {
+          templateId: t5.id,
+          format: t5.format,
+          context: first.context,
+          response: { kind: 'choice', id: 'opt-1' },
+        }),
+        NOW + 1,
+      );
+      expect(gModel.inTestOut(st, A)).toBe(false);
+      expect(
+        items
+          .slice(1)
+          .some((t) => isConstructedTemplate(g.templates[t.templateId] as ItemTemplate)),
+      ).toBe(true);
+    }
+  });
+
   it('after a demonstration-only lesson warmup, the kept draw is a real, passable test-out', () => {
     // Nothing attempted; A's test-out is offered; A's lesson (demo only) is the warmup and records
     // no attempt. A's request keeps its whole draw: each item is asked at d* = 0, three clean

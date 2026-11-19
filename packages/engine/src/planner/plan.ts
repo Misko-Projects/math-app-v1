@@ -108,7 +108,6 @@ import {
   byTier,
   hosts,
   materialsFor,
-  PRACTICE_PIER,
   PUZZLE_TOWER,
   practicePier,
   RHYTHM_ORCHARD,
@@ -188,6 +187,11 @@ interface Composition {
   testOutHosted: boolean;
   /** The focus skill's test-out draw, all of it placed before its lesson; [] without one. */
   testOut: string[];
+  /**
+   * The learner may still offer the focus skill's test-out, there is no draw, and this workshop
+   * hosts no template outside the pool to cancel it with (04 §7b).
+   */
+  cancelMissing: boolean;
 }
 
 const onTrack = (state: LearnerState, s: SkillId): boolean => {
@@ -488,6 +492,7 @@ function compose(
   let practice: ItemTemplate[] = [];
   let lesson: Slot | null = null;
   let draw: ItemTemplate[] | null = null;
+  let cancelMissing = false;
   if (focus && skill) {
     practice = hostedEvidence(focus.skillId);
     if (practice.length === 0) return null;
@@ -501,17 +506,16 @@ function compose(
       if (draw && draw.length > budget) draw = null;
     }
     // The learner may still offer the test-out of this demonstration-only skill, and this request
-    // has no draw for it: its practice starts outside the test-out pool, which cancels the test-out
-    // (04 §7b). A themed workshop that hosts no such template does not qualify; the Practice Pier
-    // hosts every format.
+    // has no draw for it: its first item is a hosted template outside the test-out pool, which
+    // cancels the test-out (04 §7a, §7b). A constructed one is preferred; a choice one cancels too.
+    // When this workshop hosts none, the composition is marked, ranked below those that can, and
+    // replaced by the Practice Pier's (which hosts every format) in `build`.
     if (focus.mayOffer && !draw) {
       const pool = new Set(testOutPool(graph, skill).map((x) => x.id));
-      practice = [
-        ...practice.filter((x) => !pool.has(x.id)),
-        ...practice.filter((x) => pool.has(x.id)),
-      ];
-      if (pool.has((practice[0] as ItemTemplate).id) && cap.workshopId !== PRACTICE_PIER)
-        return null;
+      const outside = hosted(focus.skillId).filter((x) => !pool.has(x.id));
+      const cancel = outside.find(isConstructedTemplate) ?? outside[0];
+      if (cancel) practice = [cancel, ...practice.filter((x) => x.id !== cancel.id)];
+      else cancelMissing = true;
     }
   }
   const t = draw?.length ?? 0;
@@ -665,6 +669,7 @@ function compose(
     lessons: tasks.length - items.length,
     testOutHosted: draw !== null,
     testOut: (draw ?? []).map((x) => x.id),
+    cancelMissing,
   };
 }
 
@@ -875,6 +880,7 @@ export function planSession(input: PlanSessionInput, opts: PlanOptions = {}): Se
         skill
           ? [
               failedReviewed(o.comp),
+              o.comp.cancelMissing ? 0 : 1,
               hostsNeeded(o.cap) ? 1 : 0,
               fillable(o.comp) ? 1 : 0,
               focus?.testOut && o.comp.testOutHosted ? 1 : 0,
@@ -933,6 +939,18 @@ export function planSession(input: PlanSessionInput, opts: PlanOptions = {}): Se
         }
         if (pierComp && (!best || fillable(pierComp))) best = { cap: pier, comp: pierComp };
       }
+      // A request that cannot cancel a test-out the learner may still start (no template outside
+      // the pool here) goes to the Practice Pier, which hosts every format, when the pier request
+      // keeps every failed review (04 §6.4 rule 3 still comes first).
+      if (best?.comp.cancelMissing) {
+        const pierComp = compose(ctx, i, focus, pier, budget, challenge[i] ?? 0);
+        if (
+          pierComp &&
+          !pierComp.cancelMissing &&
+          failedReviewed(pierComp) >= failedReviewed(best.comp)
+        )
+          best = { cap: pier, comp: pierComp };
+      }
       const chosenCap = best?.cap ?? pier;
       const comp: Composition = best?.comp ?? {
         tasks: [],
@@ -941,6 +959,7 @@ export function planSession(input: PlanSessionInput, opts: PlanOptions = {}): Se
         lessons: 0,
         testOutHosted: false,
         testOut: [],
+        cancelMissing: false,
       };
       comps.push(comp);
 
