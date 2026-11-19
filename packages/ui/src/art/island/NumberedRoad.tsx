@@ -94,21 +94,26 @@ export function NumberedRoad({
 
 /**
  * One stone as a bead, where the road is crowded. States differ by shape and motion, not colour
- * alone (06 §7): laid is a solid little stone with a highlight; next is a light dashed bead in a
- * dashed ring that pulses; counting is lifted inside a solid sunshine ring; planned is a dashed
- * outline. Every outline is ink (≥ 3:1 on sand and grass).
+ * alone (06 §7): laid is a solid little stone with a highlight; next is a light dashed bead;
+ * planned is a dashed outline. Where there is room (`ringed`), the next bead also wears a dashed
+ * ring that pulses and the counted bead is lifted inside a solid sunshine ring; on a very dense
+ * stretch the counted bead is sunshine with a thicker outline, and its signpost (sunshine, with a
+ * thick border) and the next one's (dashed border) carry the highlight. Every outline is ink
+ * (≥ 3:1 on sand and grass).
  */
 function Bead({ bead }: { bead: RoadBead }) {
-  const { n, x, y, r, state } = bead;
+  const { n, x, y, r, state, ringed } = bead;
   const planned = state === 'planned';
   const next = state === 'next';
   const counting = state === 'counting';
+  const lift = counting && ringed ? -1.5 : 0;
+  const line = r < 2 ? 1 : r < 5 ? 1.5 : 2;
   return (
     <g
       transform={`translate(${x} ${y})`}
       data-stone={n}
       data-state={state}
-      data-bead="true"
+      data-bead={ringed ? 'ringed' : 'plain'}
       data-ten={n % 10 === 0 ? 'true' : undefined}
     >
       {planned ? null : (
@@ -121,7 +126,7 @@ function Bead({ bead }: { bead: RoadBead }) {
           opacity={0.15}
         />
       )}
-      {counting ? (
+      {counting && ringed ? (
         <circle
           cx={0}
           cy={0}
@@ -131,7 +136,7 @@ function Bead({ bead }: { bead: RoadBead }) {
           strokeWidth={2.5}
         />
       ) : null}
-      {next ? (
+      {next && ringed ? (
         <circle
           className="motion-loop art-loop art-ring"
           cx={0}
@@ -145,20 +150,24 @@ function Bead({ bead }: { bead: RoadBead }) {
       ) : null}
       <circle
         cx={0}
-        cy={counting ? -1.5 : 0}
+        cy={lift}
         r={r}
-        fill={paint(planned ? 'sand' : next ? 'pebble' : 'pebble-deep')}
+        fill={paint(
+          planned ? 'sand' : next ? 'pebble' : counting && !ringed ? 'sunshine' : 'pebble-deep',
+        )}
         stroke={paint(planned ? 'ink-soft' : 'ink')}
-        strokeWidth={r < 5 ? 1.5 : 2}
-        strokeDasharray={planned || next ? '3 2.5' : undefined}
+        strokeWidth={counting && !ringed ? Math.min(2, line + 0.5) : line}
+        strokeDasharray={
+          planned || next ? `${Math.max(1, r * 0.6)} ${Math.max(0.8, r * 0.5)}` : undefined
+        }
       />
       {/* A laid bead is a solid little stone: a darker body with a light highlight on top. */}
-      {planned || next ? null : (
+      {planned || next || r < 2.5 ? null : (
         <path
-          d={`M${-r * 0.5} ${-r * 0.2 + (counting ? -1.5 : 0)}Q${-r * 0.35} ${-r * 0.6 + (counting ? -1.5 : 0)} ${r * 0.1} ${-r * 0.6 + (counting ? -1.5 : 0)}`}
+          d={`M${-r * 0.5} ${-r * 0.2 + lift}Q${-r * 0.35} ${-r * 0.6 + lift} ${r * 0.1} ${-r * 0.6 + lift}`}
           fill="none"
           stroke={paint('pebble')}
-          strokeWidth={2}
+          strokeWidth={Math.min(2, r * 0.3)}
           strokeLinecap="round"
         />
       )}
@@ -211,19 +220,26 @@ function Signpost({ sign }: { sign: RoadSign }) {
 }
 
 /**
- * The next stone's tap target: an invisible disc at least 80 CSS px across at the default zoom
- * (06 §4), drawn above everything that stands on the island, so a building beside the road never
- * takes the tap. Art stays presentational: the map screen listens for pointer events on the scene
- * and treats a target with `data-hit="next"` as the next stone, next to its own accessible control.
+ * The next stone's tap target: an invisible disc at least 80 CSS px across however large the map
+ * is drawn (06 §4; `radius` from nextHitRadius), drawn above everything that stands on the
+ * island, so a building beside the road never takes the tap. Art stays presentational: the map
+ * screen listens for pointer events on the scene and treats a target with `data-hit="next"` as
+ * the next stone, next to its own accessible control.
  */
-export function NextStoneHit({ plan }: { plan: RoadPlan }) {
+export function NextStoneHit({
+  plan,
+  radius = NEXT_HIT_RADIUS,
+}: {
+  plan: RoadPlan;
+  radius?: number;
+}) {
   if (!plan.next) return null;
   return (
     <circle
       data-hit="next"
       cx={plan.next.x}
       cy={plan.next.y}
-      r={NEXT_HIT_RADIUS}
+      r={radius}
       fill="transparent"
       pointerEvents="all"
     />

@@ -267,7 +267,9 @@ async function expectNextTappable(root: HTMLElement, next: number) {
   const hit = svg.querySelector('[data-hit="next"]') as SVGCircleElement;
   await expect(hit).toBeTruthy();
   const page = sceneToPage(svg);
-  await expect(2 * Number(hit.getAttribute('r')) * (1280 / 1400)).toBeGreaterThanOrEqual(80);
+  // As rendered at this viewport, whatever its size or orientation.
+  const box = hit.getBoundingClientRect();
+  await expect(Math.min(box.width, box.height), 'tap target CSS px').toBeGreaterThanOrEqual(80);
   const stone = svg.querySelector(`[data-stone="${next}"]`) as SVGGElement;
   await expect(stone.getAttribute('data-state')).toBe('next');
   const x = page.x(Number(hit.getAttribute('cx')));

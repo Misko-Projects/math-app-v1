@@ -1,4 +1,4 @@
-import type { CSSProperties, ReactNode } from 'react';
+import type { CSSProperties, ReactNode, Ref } from 'react';
 import type { Lighting } from '../../tokens/tokens';
 
 /** Props every art component accepts (05 §11 implementation note). */
@@ -34,6 +34,8 @@ export interface ArtSvgProps extends ArtProps {
   children: ReactNode;
   /** Extra attributes for the root (for example data-* test hooks). */
   rootProps?: Record<`data-${string}`, string | number | undefined>;
+  /** A ref to the root `<svg>` (for example to measure how large the art is drawn). */
+  svgRef?: Ref<SVGSVGElement>;
 }
 
 /**
@@ -53,10 +55,12 @@ export function ArtSvg({
   style,
   children,
   rootProps,
+  svgRef,
 }: ArtSvgProps) {
   const fill = fit === 'fill';
   return (
     <svg
+      ref={svgRef}
       viewBox={`${originX} ${originY} ${width} ${height}`}
       width={fill ? '100%' : size}
       height={fill ? '100%' : undefined}

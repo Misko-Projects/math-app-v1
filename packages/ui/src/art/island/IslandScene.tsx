@@ -1,5 +1,5 @@
 import type { IslandDef } from '@number-island/shared';
-import { type ReactNode, useId, useMemo } from 'react';
+import { type ReactNode, useId, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useReducedMotion } from '../../preferences/UiProvider';
 import type { ArtProps } from '../core/ArtSvg';
 import { ArtSvg } from '../core/ArtSvg';
@@ -19,7 +19,7 @@ import {
 import { IslandLand } from './IslandLand';
 import { NextStoneHit, NumberedRoad } from './NumberedRoad';
 import { PlotMarker, type PlotMarkerProps } from './PlotMarker';
-import { planRoad, roadFootprint } from './roadPlan';
+import { nextHitRadius, planRoad, roadFootprint } from './roadPlan';
 import { Sea } from './Sea';
 import { Sky } from './Sky';
 
@@ -120,8 +120,26 @@ export function IslandScene({
   const shift = (k: keyof typeof PARALLAX) => ({ x: -cam.x * f(k), y: -cam.y * f(k) });
   const isl = shift('island');
   const view = crop ?? { x: 0, y: 0, w: SCENE_W, h: SCENE_H };
+  // CSS px per scene unit as drawn, so the next stone's tap target stays ≥ 80 px however small
+  // the map is (portrait, small screens; 06 §1, §4).
+  const svgRef = useRef<SVGSVGElement>(null);
+  const [pxPerUnit, setPxPerUnit] = useState(0);
+  useLayoutEffect(() => {
+    const svg = svgRef.current;
+    if (!svg) return;
+    const measure = () => {
+      const m = svg.getScreenCTM();
+      if (m) setPxPerUnit(Math.hypot(m.a, m.b));
+    };
+    measure();
+    if (typeof ResizeObserver === 'undefined') return;
+    const observer = new ResizeObserver(measure);
+    observer.observe(svg);
+    return () => observer.disconnect();
+  }, []);
   return (
     <ArtSvg
+      svgRef={svgRef}
       width={view.w}
       height={view.h}
       originX={view.x}
@@ -166,7 +184,7 @@ export function IslandScene({
         {plotMarkers.map((m) => (
           <PlotMarker key={plotKey(m.plot)} {...m} />
         ))}
-        <NextStoneHit plan={plan} />
+        <NextStoneHit plan={plan} radius={nextHitRadius(pxPerUnit)} />
       </g>
     </ArtSvg>
   );

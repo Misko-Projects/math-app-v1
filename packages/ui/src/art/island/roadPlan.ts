@@ -18,8 +18,20 @@ export const MAP_STONE_SCALE = 0.85;
 export const STONE_CLEARANCE = 4;
 /** Numeral size on road signposts, in scene units: exactly a map stone's. */
 export const SIGN_NUMERAL = STONE_NUMERAL * MAP_STONE_SCALE;
-/** The next stone's tap target radius in scene units: about 84 CSS px across at the default zoom (≥ 80). */
+/**
+ * The next stone's smallest tap target radius in scene units (about 84 CSS px across at the
+ * default zoom). Where the map is drawn smaller (portrait, small screens) the scene widens it to
+ * stay ≥ 80 CSS px across (nextHitRadius).
+ */
 export const NEXT_HIT_RADIUS = 46;
+/** The tap target's smallest diameter in CSS px (06 §4: K targets ≥ 80 px), with a small margin. */
+export const NEXT_HIT_MIN_PX = 84;
+
+/** The tap target's radius in scene units when one scene unit is `pxPerUnit` CSS px. */
+export function nextHitRadius(pxPerUnit: number): number {
+  if (!(pxPerUnit > 0)) return NEXT_HIT_RADIUS;
+  return Math.max(NEXT_HIT_RADIUS, NEXT_HIT_MIN_PX / 2 / pxPerUnit);
+}
 /** Clear ground kept around the next stone, beyond its own extent (05 §11). */
 const NEXT_CLEAR = 14;
 /** Pairs further apart than this (scene units) can never touch at MAP_STONE_SCALE. */
@@ -36,23 +48,38 @@ export function beadRing(r: number): { radius: number; reach: number } {
   return { radius, reach: radius * RING_PULSE + RING_STROKE / 2 };
 }
 
-/**
- * The bead radius for stones `gap` apart: as large as possible (up to 8) while two neighbouring
- * highlighted beads (a counted stone beside the next one) keep their rings, at the pulse peak with
- * outlines, at least 0.5 apart.
- */
-export function beadRadius(gap: number): number {
-  const fit = (gap - 0.5 - RING_STROKE) / (2 * BEAD_RING_K * RING_PULSE);
-  return Math.max(2, Math.min(8, fit));
+/** The smallest bead radius that still carries a ring when highlighted. */
+const RINGED_MIN_R = 3;
+
+/** How far a plain bead (no ring) draws from its centre: the bead with its shadow and outline. */
+function plainReach(r: number): number {
+  return r * 1.15 + 1;
 }
 
-/** A bead's disc as drawn in its state: its ring when highlighted, else the bead and its shadow. */
-export function beadReach(b: Pick<RoadBead, 'r' | 'state'>): number {
-  return b.state === 'next' || b.state === 'counting' ? beadRing(b.r).reach : b.r * 1.15 + 1;
+/**
+ * The bead size for stones `gap` apart. Two neighbouring beads, both highlighted (a counted stone
+ * beside the next one), always stay at least 0.5 apart, drawn in full:
+ * - `ringed`: where there is room, a highlighted bead wears a ring (at its pulse peak, with its
+ *   outline), and the radius is as large as that allows, up to 8;
+ * - otherwise (a very dense stretch, many stones to a plot) beads wear no rings: the state shows
+ *   in the bead's own fill and outline and on its signpost, and the radius is as large as plain
+ *   beads allow.
+ */
+export function beadRadius(gap: number): { r: number; ringed: boolean } {
+  const ringedFit = (gap - 0.5 - RING_STROKE) / (2 * BEAD_RING_K * RING_PULSE);
+  if (ringedFit >= RINGED_MIN_R) return { r: Math.min(8, ringedFit), ringed: true };
+  // 2 × plainReach(r) + 0.5 ≤ gap
+  return { r: Math.max(0.8, Math.min(8, (gap - 2.5) / 2.3)), ringed: false };
+}
+
+/** A bead's disc as drawn in its state: its ring when highlighted and ringed, else the bead. */
+export function beadReach(b: Pick<RoadBead, 'r' | 'state' | 'ringed'>): number {
+  const highlighted = b.state === 'next' || b.state === 'counting';
+  return highlighted && b.ringed ? beadRing(b.r).reach : plainReach(b.r);
 }
 
 /** The box around a bead as drawn in its current state (beadReach all round). */
-export function beadExtent(b: Pick<RoadBead, 'x' | 'y' | 'r' | 'state'>): StoneExtent {
+export function beadExtent(b: Pick<RoadBead, 'x' | 'y' | 'r' | 'state' | 'ringed'>): StoneExtent {
   const d = beadReach(b);
   return { left: b.x - d, right: b.x + d, top: b.y - d, bottom: b.y + d };
 }
@@ -73,6 +100,8 @@ export interface RoadBead {
   y: number;
   r: number;
   state: RoadStoneState;
+  /** Whether a highlighted bead wears a ring (false on very dense stretches; see beadRadius). */
+  ringed: boolean;
   /** Scene-unit box of everything the bead may draw in any state (its ring included). */
   box: StoneExtent;
 }
@@ -143,20 +172,21 @@ function scaled(s: { x: number; y: number }, e: StoneExtent, scale: number): Sto
   };
 }
 
-/** Everything a bead may draw in any state: its ring at the pulse peak, or its shadow below. */
-function beadBox(s: { x: number; y: number }, r: number): StoneExtent {
-  const ring = beadRing(r).reach;
-  return {
-    left: s.x - ring,
-    right: s.x + ring,
-    top: s.y - ring,
-    bottom: s.y + Math.max(ring, r * 1.15 + 1),
-  };
+/** Everything a bead may draw in any state: its ring at the pulse peak, or the plain bead. */
+function beadBox(s: { x: number; y: number }, size: BeadSize): StoneExtent {
+  const d = size.ringed ? Math.max(beadRing(size.r).reach, plainReach(size.r)) : plainReach(size.r);
+  return { left: s.x - d, right: s.x + d, top: s.y - d, bottom: s.y + d };
+}
+
+interface BeadSize {
+  r: number;
+  ringed: boolean;
 }
 
 interface RoadShape {
   numbered: ReadonlySet<number>;
-  beadR: number;
+  /** Each stone's bead size, from the gap to its nearer neighbour on the road. */
+  bead: ReadonlyMap<number, BeadSize>;
 }
 
 const shapes = new WeakMap<IslandDef['road'], RoadShape>();
@@ -164,39 +194,54 @@ const shapes = new WeakMap<IslandDef['road'], RoadShape>();
 /**
  * Which stones of a road are numbered stones and which are beads, decided once from the whole
  * road's layout (so a stone never changes form as the road grows, is counted or the island grows).
- * Walking the road from stone 1, a stone is numbered when its whole extent, in any state, clears
- * every numbered stone before it and every other stone's bead; otherwise it is a bead. Beads share
- * one radius, set by the closest two stones on the road.
+ * Landmarks first (stone 1, then the tens and hundreds), then every other stone in road order, a
+ * stone is numbered when its whole extent, in any state, clears every stone numbered so far and
+ * every other stone's bead; otherwise it is a bead. Each bead
+ * is sized by beadRadius from the gap to its nearer neighbour, so two neighbours always fit side
+ * by side (each one's size fits the gap between them), and a sparse stretch keeps larger beads
+ * than a dense one.
  */
 export function roadShape(road: IslandDef['road']): RoadShape {
   const cached = shapes.get(road);
   if (cached) return cached;
   const placed = roadLayout(road);
-  let gap = Number.POSITIVE_INFINITY;
-  for (let i = 1; i < placed.length; i++) {
-    const a = placed[i - 1] as StonePlacement;
-    const b = placed[i] as StonePlacement;
-    gap = Math.min(gap, Math.hypot(a.x - b.x, a.y - b.y));
-  }
-  const beadR = Number.isFinite(gap) ? beadRadius(gap) : 8;
-  const beads = placed.map((s) => beadBox(s, beadR));
+  const dist = (i: number, j: number) => {
+    const a = placed[i];
+    const b = placed[j];
+    return a && b ? Math.hypot(a.x - b.x, a.y - b.y) : Number.POSITIVE_INFINITY;
+  };
+  const bead = new Map<number, BeadSize>();
+  const sizes = placed.map((s, i) => {
+    const gap = Math.min(dist(i - 1, i), dist(i, i + 1));
+    const size = Number.isFinite(gap) ? beadRadius(gap) : { r: 8, ringed: true };
+    bead.set(s.n, size);
+    return size;
+  });
+  const beads = placed.map((s, i) => beadBox(s, sizes[i] as BeadSize));
   const full = placed.map((s) => scaled(s, anyStateExtent(s.n), MAP_STONE_SCALE));
   const numbered = new Set<number>();
   const isNumbered: boolean[] = [];
-  for (let i = 0; i < placed.length; i++) {
+  // Landmarks first (stone 1, the hundreds, the tens), so they keep their own numerals wherever
+  // there is room; then every other stone in road order.
+  const landmark = (n: number) => n === 1 || n % 10 === 0;
+  const order = placed
+    .map((s, i) => ({ i, n: s.n }))
+    .sort((a, b) => Number(landmark(b.n)) - Number(landmark(a.n)) || a.n - b.n);
+  for (const { i } of order) {
     const a = placed[i] as StonePlacement;
     let clear = true;
     for (let j = 0; j < placed.length && clear; j++) {
       if (j === i) continue;
       const b = placed[j] as StonePlacement;
       if (Math.abs(a.x - b.x) > NEAR || Math.abs(a.y - b.y) > NEAR) continue;
-      const other = j < i && isNumbered[j] ? full[j] : beads[j];
+      // A stone already numbered is checked at its full extent; any other at its bead.
+      const other = isNumbered[j] ? full[j] : beads[j];
       if (boxesTouch(full[i] as StoneExtent, other as StoneExtent, STONE_CLEARANCE)) clear = false;
     }
     isNumbered[i] = clear;
     if (clear) numbered.add(a.n);
   }
-  const shape = { numbered, beadR };
+  const shape = { numbered, bead };
   shapes.set(road, shape);
   return shape;
 }
@@ -209,8 +254,10 @@ export function roadShape(road: IslandDef['road']): RoadShape {
  * - where the road has room, as a numbered stone (one scale, so every numeral is one size);
  * - where stones crowd (for example three to a plot), as a small bead, evenly spaced, so the beads
  *   between two numbers always equal the numbers missing. The numerals that matter there stand on
- *   signposts by their beads, at the same size as a stone's: the counted stone, the next stone,
- *   stone 1, the hundreds and the tens. A sign rises above its bead (or leans beside it, or hangs
+ *   signposts by their beads, at the same size as a stone's: the counted stone and the next stone
+ *   always (they are placed first), then stone 1, the hundreds and the tens wherever there is room
+ *   (on a map packed with beads a ten may stay unlabelled; landmarks are numbered stones first
+ *   wherever they fit, see roadShape). A sign rises above its bead (or leans beside it, or hangs
  *   below), never touching a stone, a bead or another sign.
  */
 export function planRoad({
@@ -252,8 +299,16 @@ export function planRoad({
         box: scaled(s, stoneExtent(s.n, state), scale),
       });
     } else {
-      const r = shape.beadR;
-      beads.push({ n: s.n, x: s.x, y: s.y, r, state, box: beadBox(s, r) });
+      const size = shape.bead.get(s.n) ?? { r: 8, ringed: true };
+      beads.push({
+        n: s.n,
+        x: s.x,
+        y: s.y,
+        r: size.r,
+        ringed: size.ringed,
+        state,
+        box: beadBox(s, size),
+      });
     }
   }
   // Drawn back to front, so a lower stone's ring or flag is never hidden by the row behind it.
@@ -294,8 +349,8 @@ export function planRoad({
 }
 
 /** Signpost post lengths and sideways leans to try, nearest first. */
-const SIGN_POSTS = [16, 28, 42, 58, 76, 96];
-const SIGN_LEANS = [0, -1, 1, -2, 2, -3, 3];
+const SIGN_POSTS = [16, 28, 42, 58, 76, 96, 120, 150];
+const SIGN_LEANS = [0, -1, 1, -2, 2, -3, 3, -4, 4];
 /** A sign's plaque height, and its width per digit (plus padding), in scene units. */
 const SIGN_H = 32;
 const SIGN_DIGIT_W = 14;
