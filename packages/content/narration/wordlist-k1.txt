@@ -636,6 +636,7 @@ straight
 street
 string
 strip
+strips
 sum
 sun
 super

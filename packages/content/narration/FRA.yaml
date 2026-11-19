@@ -31,4 +31,6 @@ tp.FRA.08.t2.prompt:
 tp.FRA.08.t3.prompt:
   text: "Put them in order. Start with the biggest piece."
 tp.FRA.08.t4.prompt:
-  text: "Each number is how many parts a strip is cut into. Put the biggest pieces first."
+  # The order holds only because the wholes are the same size and each is cut into equal parts,
+  # so the prompt says both (PR #84 review round 3).
+  text: "Same size strips, cut into equal parts. The number says how many; biggest pieces first."

@@ -1071,3 +1071,24 @@ describe('PR #84 review round 2: class sweep', () => {
     }
   });
 });
+
+describe('PR #84 review round 3: the abstract FRA.08 order states what makes it unique', () => {
+  it('the part-count prompt says the strips are the same size and cut into equal parts', () => {
+    // A number alone settles the order only for same-size wholes cut into equal parts: a long
+    // strip's fourths can be bigger than a short strip's halves.
+    const t = fixtureTemplate('FRA.08.t4');
+    const text = fixture.narration[t.narration.prompt]?.text ?? '';
+    expect(text).toMatch(/same size/i);
+    expect(text).toMatch(/equal parts/i);
+    expect(text).toMatch(/how many/i);
+  });
+
+  it('every FRA.08.t4 item is cards of part counts, ordered biggest piece first', () => {
+    const t = fixtureTemplate('FRA.08.t4');
+    for (let seed = 1; seed <= 60; seed += 1) {
+      const item = generateItemFromParams(t, generateItem(t, seed).params);
+      if (item.widget.format !== 'order') throw new Error('order');
+      expect(item.widget.direction, t.id).toBe('desc');
+    }
+  });
+});
