@@ -13,7 +13,8 @@
 // - Request count: 3 when there are ≥ 3 distinct focus skills or ≥ 3 available themed workshops
 //   host a focus skill's (or, with no focus skill, a due review's) templates; else 2.
 // - New-skill pool: the frontier plus fact-fluency skills on the practiced track that are not
-//   fluent (04 §6.5); unlockValue divides by the maximum over that pool.
+//   fluent (04 §6.5) and whose last review did not fail (such a skill is reviewed first);
+//   unlockValue divides by the maximum over that pool.
 // - Breakers: a request never has more than maxRun consecutive items of one skill. When reviews
 //   and challenges cannot break the focus skill's runs, one other new skill that needs no lesson
 //   first (learning, lesson mode 'none', or fluency) adds items, then practiced-track skills
@@ -47,15 +48,21 @@
 // - Warmup: the first available of (a) the on-track skill with the highest P(ref) ≥ warmupMinP;
 //   (b) the highest-P(ref) on-track skill; (c) the highest-P(ref) frontier skill already attempted
 //   ('learning'), with an evidence template; (d) the highest-P(ref) 'ready' skill whose lesson mode
-//   is 'none'; (e) with nothing attempted, the lesson of a (non-remediation) focus skill, preferring
-//   one without an offered test-out: requests on it skip that lesson, and it keeps its draw only
-//   when the lesson is demonstration-only (no rated child steps, so it stays untouched); (f) else
-//   an evidence template of the first focus skill. An item warmup is never the first attempt on a
-//   ready skill with a lesson; the requests continue its run (≤ maxRun in a row). One test-out
-//   rule: a draw is planned only when the learner's own offer (inTestOut) holds after the worst
-//   case of the warmup (a wrong item, or every rated step of the warmup lesson wrong), and an
-//   offered draw no themed workshop can host goes to the Practice Pier, so plan, learner and
-//   targetDifficulty agree. Ties by id;
+//   is 'none'; (e) with nothing attempted, the lesson of a focus skill, preferring a skill with no
+//   queued remediation and then one without an offered test-out: the other requests on it skip
+//   that lesson (a queued remediation request keeps its own), and it keeps its draw only when the
+//   lesson is demonstration-only (no rated child steps, so it stays untouched); (f) else an
+//   evidence template of the first focus skill. An item warmup is never the first attempt on a
+//   ready skill with a lesson; the requests continue its run (≤ maxRun in a row).
+// - One test-out rule: the learner decides at the skill's first evidence attempt, after the warmup,
+//   so the planner applies the learner's own offer (inTestOut) to the bounds of every warmup
+//   outcome. A draw is planned only when the offer holds in the all-wrong state, so it is always a
+//   real test-out (the Practice Pier when no themed workshop hosts it as a passable draw). Without
+//   a draw, a lesson with rated child steps comes first and touches the skill. A
+//   demonstration-only lesson does not, so when the offer holds in the all-right state its
+//   practice starts outside the test-out pool, which cancels the test-out (the Practice Pier when
+//   no themed workshop hosts such a template). Every learner test-out is a planned, passable draw.
+//   Ties by id;
 //   templates prefer a format an available themed workshop hosts, then pictorial/abstract, then
 //   constructed (`isConstructedTemplate`), then id.
 // - Challenge: round(challengeShare × the plan's item budgets) items, dealt round-robin from the
@@ -63,7 +70,13 @@
 //   skills by highest P(ref), placed late. A request without such a skill turns them into new
 //   items.
 // - Reviews: transfer probes need a hosted abstract template; otherwise the task stays 'review'.
-// - Remediation: the lesson task is planned unless the skill's lesson mode is 'none'.
+//   A failed review is due again at once: besides `dueReviews`, every practiced-track skill that is
+//   'needs-review' with `memory.consecutiveFails > 0` joins the due list as an ordinary review
+//   (dueTs = now, not at risk), in the same order (depth desc, dueTs, id). Failed reviews are
+//   scheduled ahead of compression, and the ordinary reviews they encompass (w ≥ 0.5) are dropped
+//   before the rest is compressed.
+// - Remediation: the lesson task is planned unless the skill's lesson mode is 'none', whatever the
+//   skill's status (ready, learning or on the practiced track).
 // - Puzzle Tower requests always carry decor (when `puzzleDecor` is non-empty), like requests
 //   with challenge items.
 
@@ -88,7 +101,7 @@ import type {
 import { FORMAT_DEFAULT_REPRESENTATION } from '@number-island/shared';
 import { isConstructedTemplate } from '../items/answer-kind';
 import { createEloFireModel, type EloFireModel } from '../learner/elo-fire';
-import { compressReviews, reviewContext } from '../learner/review';
+import { compressedBy, compressReviews, reviewContext } from '../learner/review';
 import { DAY_MS, type EngineParams, PARAMS } from '../params';
 import { createRng, fnv1a32, type Rng } from '../rng';
 import {
@@ -149,7 +162,13 @@ interface Ctx {
 interface Focus {
   skillId: SkillId;
   lesson: boolean;
+  /** A draw is planned: the learner offers the test-out whatever the warmup's outcome. */
   testOut: boolean;
+  /**
+   * The skill's lesson is demonstration-only and the learner may still offer its test-out (the
+   * warmup goes all right): without a draw, its practice must start outside the test-out pool.
+   */
+  mayOffer?: boolean;
   remediation: boolean;
 }
 
@@ -168,6 +187,11 @@ interface Composition {
   testOutHosted: boolean;
   /** The focus skill's test-out draw, all of it placed before its lesson; [] without one. */
   testOut: string[];
+  /**
+   * The learner may still offer the focus skill's test-out, there is no draw, and this workshop
+   * hosts no template outside the pool to cancel it with (04 §7b).
+   */
+  cancelMissing: boolean;
 }
 
 const onTrack = (state: LearnerState, s: SkillId): boolean => {
@@ -220,6 +244,10 @@ export function neededTemplates(
   return evidence.filter((t) => !formats.has(t.format) || !tiers.has(t.tier));
 }
 
+/** The skill's last explicit review failed (`memory.consecutiveFails > 0`). */
+const failedReview = (state: LearnerState, s: SkillId): boolean =>
+  (state.skills[s]?.memory?.consecutiveFails ?? 0) > 0;
+
 /** Fact-fluency skills on the practiced track that are not fluent yet (04 §6.5). */
 function needsFluency(graph: SkillGraph, state: LearnerState, s: SkillId): boolean {
   return (
@@ -252,7 +280,11 @@ function rankWith(
 ): RankedSkill[] {
   const plannable = (s: SkillId) => templatesOf(graph, s).length > 0;
   const pool = new Set(model.frontier(state).filter(plannable));
-  for (const s of graph.nodes) if (plannable(s) && needsFluency(graph, state, s)) pool.add(s);
+  // A fluency skill whose last review failed is `needs-review`: it is reviewed first (the failed
+  // review path of `dueNow`), not a focus, because a request never reviews its own focus skill.
+  for (const s of graph.nodes) {
+    if (plannable(s) && needsFluency(graph, state, s) && !failedReview(state, s)) pool.add(s);
+  }
   const ids = [...pool].sort(byId);
 
   // The strand's latest attempt: the max ts over its skills' evidence (SkillState.recent).
@@ -302,10 +334,16 @@ function testOutPool(graph: SkillGraph, skill: Skill): ItemTemplate[] {
 const representationOf = (t: ItemTemplate) =>
   t.representation ?? FORMAT_DEFAULT_REPRESENTATION[t.format];
 
-/** Round-robin over representations so consecutive draws differ in template and representation. */
+/**
+ * Round-robin over representations so consecutive draws differ in template and representation.
+ * Within a representation, constructed-answer templates come first: a draw that turns out to be
+ * ordinary practice then still produces evidence when it can.
+ */
 function interleaveByRepresentation(ts: readonly ItemTemplate[]): ItemTemplate[] {
   const groups = new Map<string, ItemTemplate[]>();
-  for (const t of [...ts].sort((a, b) => byId(a.id, b.id))) {
+  const constructedFirst = (a: ItemTemplate, b: ItemTemplate) =>
+    Number(isConstructedTemplate(b)) - Number(isConstructedTemplate(a)) || byId(a.id, b.id);
+  for (const t of [...ts].sort(constructedFirst)) {
     const r = representationOf(t);
     groups.set(r, [...(groups.get(r) ?? []), t]);
   }
@@ -454,6 +492,9 @@ function compose(
   let practice: ItemTemplate[] = [];
   let lesson: Slot | null = null;
   let draw: ItemTemplate[] | null = null;
+  let cancelMissing = false;
+  /** The cancelling item (outside the test-out pool), scheduled once as the focus skill's first item. */
+  let cancelOnce: ItemTemplate | null = null;
   if (focus && skill) {
     practice = hostedEvidence(focus.skillId);
     if (practice.length === 0) return null;
@@ -466,13 +507,43 @@ function compose(
       draw = testOutDraw(graph, skill, cap);
       if (draw && draw.length > budget) draw = null;
     }
+    // The learner may still offer the test-out of this demonstration-only skill, and this request
+    // has no draw for it: its first item is a hosted template outside the test-out pool, which
+    // cancels the test-out (04 §7a, §7b). A constructed one is preferred; a choice one cancels too.
+    // When this workshop hosts none, the composition is marked, ranked below those that can, and
+    // replaced by the Practice Pier's (which hosts every format) in `build`.
+    if (focus.mayOffer && !draw) {
+      const pool = new Set(testOutPool(graph, skill).map((x) => x.id));
+      const outside = hosted(focus.skillId).filter((x) => !pool.has(x.id));
+      const cancel = outside.find(isConstructedTemplate) ?? outside[0];
+      if (!cancel) cancelMissing = true;
+      else {
+        // The canceller is scheduled once; practice then cycles through the other evidence
+        // templates (the canceller too only when it is the skill's sole one).
+        cancelOnce = cancel;
+        const rest = practice.filter((x) => x.id !== cancel.id);
+        if (rest.length > 0) practice = rest;
+      }
+    }
   }
   const t = draw?.length ?? 0;
-
-  // Reviews: due skills this workshop can host, compressed (04 §4), deepest first.
   const dueHere = ctx.due.filter((r) => r.skillId !== S && hosted(r.skillId).length > 0);
   const reviewTarget = focus ? Math.round(P.planner[sliceKey(ctx)].reviewShare * budget) : budget;
-  const reviews = compressReviews(dueHere, graph, reviewTarget, P);
+  // A skill whose last review failed is reviewed itself: an encompassing skill's implicit credit
+  // (04 §4) lengthens its interval but never clears the failure, so compression may not drop it.
+  const failed = (r: DueReview) => failedReview(ctx.state, r.skillId);
+  const failedDue = dueHere.filter(failed).slice(0, reviewTarget);
+  // A scheduled failed review still compresses the ordinary reviews it encompasses.
+  const covered = new Set(failedDue.flatMap((r) => compressedBy(graph, r.skillId, P)));
+  const reviews = [
+    ...failedDue,
+    ...compressReviews(
+      dueHere.filter((r) => !failed(r) && !covered.has(r.skillId)),
+      graph,
+      reviewTarget - failedDue.length,
+      P,
+    ),
+  ];
   const reviewIds = new Set(reviews.map((r) => r.skillId));
 
   // Challenge: practiced-track skills by highest P(ref), others before review skills.
@@ -484,14 +555,22 @@ function compose(
   let c = challengeSkills.length > 0 ? Math.min(challengeWanted, budget) : 0;
   let r = Math.min(reviews.length, Math.max(0, budget - c));
   let s = focus ? budget - r - c : 0;
+  // Room for the draw comes from challenge items, then ordinary reviews. A failed review is never
+  // cut: the next plan must review it (04 §6.4 rule 3), so it outranks a test-out draw. `reviews`
+  // lists the failed ones first.
+  const failedKept = Math.min(r, failedDue.length);
   if (focus && s < t) {
     const cut = Math.min(c, t - s);
     c -= cut;
     s += cut;
-    const cutR = Math.min(r, t - s);
+    const cutR = Math.min(r - failedKept, t - s);
     r -= cutR;
     s += cutR;
   }
+  /** A request without the draw, lesson first (the draw is never truncated). */
+  const withoutDraw = () =>
+    compose(ctx, i, { ...(focus as Focus), testOut: false }, cap, budgetIn, challengeWanted);
+  if (focus && draw && s < t) return withoutDraw();
 
   // Breakers for the focus skill's runs: one other new skill that needs no lesson first, then
   // practiced-track skills.
@@ -528,7 +607,14 @@ function compose(
       newSlots.push({ skillId: S, templateId: tpl.id, context: 'practice' });
     }
     const rot = (ctx.state.skills[S]?.n ?? 0) % practice.length;
-    for (let k = 0; k < s - t; k++) {
+    const once = cancelOnce && s - t > 0 ? 1 : 0;
+    if (once)
+      newSlots.push({
+        skillId: S,
+        templateId: (cancelOnce as ItemTemplate).id,
+        context: 'practice',
+      });
+    for (let k = 0; k < s - t - once; k++) {
       const tpl = practice[(rot + k) % practice.length] as ItemTemplate;
       newSlots.push({ skillId: S, templateId: tpl.id, context: 'practice' });
     }
@@ -581,9 +667,7 @@ function compose(
     const at = ordered.findIndex((x) => x.mode === 'lesson');
     const before = ordered.slice(0, at < 0 ? ordered.length : at);
     const placed = before.filter((x) => x.skillId === S && x.mode === 'item').length;
-    if (placed < draw.length) {
-      return compose(ctx, i, { ...focus, testOut: false }, cap, budgetIn, challengeWanted);
-    }
+    if (placed < draw.length) return withoutDraw();
   }
   const tasks: PlannedTask[] = ordered.map((x, j) => ({
     skillId: x.skillId,
@@ -600,6 +684,7 @@ function compose(
     lessons: tasks.length - items.length,
     testOutHosted: draw !== null,
     testOut: (draw ?? []).map((x) => x.id),
+    cancelMissing,
   };
 }
 
@@ -612,6 +697,36 @@ function compareDesc(a: readonly number[], b: readonly number[]): number {
     if (d !== 0) return d;
   }
   return 0;
+}
+
+/**
+ * The planner's due list: `dueReviews` plus every practiced-track skill that is `needs-review`
+ * because of a failed review (`memory.consecutiveFails > 0`), which is due again at once (a failed
+ * review moves `dueTs` ≥ 1 day ahead, so `dueReviews` alone would not schedule it; a failed
+ * prerequisite probe relies on this). Such a skill is an ordinary review with `dueTs = now`. Same
+ * order as `dueReviews`: depth desc, then dueTs, then id.
+ */
+function dueNow(
+  model: EloFireModel,
+  state: LearnerState,
+  graph: SkillGraph,
+  now: number,
+  status: ReadonlyMap<SkillId, SkillStatus>,
+): DueReview[] {
+  const due = model.dueReviews(state, now);
+  const listed = new Set(due.map((r) => r.skillId));
+  for (const s of Object.keys(state.skills).sort(byId)) {
+    if (listed.has(s) || !onTrack(state, s) || status.get(s) !== 'needs-review') continue;
+    if (!failedReview(state, s)) continue;
+    due.push({
+      skillId: s,
+      dueTs: now,
+      retrievability: model.retrievability(state, s, now) ?? 1,
+      depth: graph.depth[s] ?? 0,
+      atRisk: false,
+    });
+  }
+  return due.sort((a, b) => b.depth - a.depth || a.dueTs - b.dueTs || byId(a.skillId, b.skillId));
 }
 
 export function planSession(input: PlanSessionInput, opts: PlanOptions = {}): SessionPlan {
@@ -645,7 +760,7 @@ export function planSession(input: PlanSessionInput, opts: PlanOptions = {}): Se
     status,
     pRef,
     skills,
-    due: model.dueReviews(state, now).filter((r) => plannable.has(r.skillId)),
+    due: dueNow(model, state, graph, now, status).filter((r) => plannable.has(r.skillId)),
     onTrackRanked,
     ranked: rankWith(graph, state, now, model, P),
     maxRun: P.planner.maxRun,
@@ -677,19 +792,19 @@ export function planSession(input: PlanSessionInput, opts: PlanOptions = {}): Se
     ),
   );
 
-  // One test-out rule. The learner decides a test-out at the skill's first evidence attempt
-  // (04 §7a), after the warmup, whose outcome the plan cannot know; the plan must agree whatever it
-  // is. A lesson with rated child steps touches the skill, so the learner never offers a test-out
-  // after it: its draw (which comes first) is planned only when the learner offers it even after
-  // the warmup went all wrong. A demonstration-only lesson leaves the skill untouched, so the
-  // learner may offer the test-out at the first evidence item whatever the plan did: its draw is
-  // planned whenever the learner may offer it, after the warmup went all right. Any test-out the
-  // learner starts is then a planned, passable draw (03 §6.5).
-  const plannedTestOut = (s: SkillId, before: Before | null): boolean => {
-    const skill = graph.skills[s] as Skill;
-    const sign = lessonChildSteps(skill) === 0 ? 1 : -1;
-    return model.inTestOut(afterAttempts(state, before, model, P, sign), s);
-  };
+  // One test-out rule (04 §7b). The learner decides a test-out at the skill's first evidence
+  // attempt (04 §7a), after the warmup, whose outcome the plan cannot know. A draw is planned only
+  // when the learner offers the test-out even if the warmup goes all wrong, so a planned draw is
+  // always a real test-out. A lesson with rated child steps touches the skill, so without a draw it
+  // comes first and the learner never offers a test-out after it. A demonstration-only lesson leaves
+  // the skill untouched: when the learner may still offer the test-out (the warmup goes all right),
+  // a request without the draw starts that skill's practice outside the test-out pool, which cancels
+  // it (`mayOffer`, in `compose`). Every test-out the learner starts is then a planned, passable draw.
+  const plannedTestOut = (s: SkillId, before: Before | null): boolean =>
+    model.inTestOut(afterAttempts(state, before, model, P, -1), s);
+  const mayOffer = (s: SkillId, before: Before | null): boolean =>
+    lessonChildSteps(graph.skills[s] as Skill) === 0 &&
+    model.inTestOut(afterAttempts(state, before, model, P, 1), s);
   const itemWarmup = warmupBeforeFocus(ctx, themed);
   const itemBefore: Before | null = itemWarmup
     ? { skillId: itemWarmup.skillId, w: 1, times: 1 }
@@ -713,6 +828,7 @@ export function planSession(input: PlanSessionInput, opts: PlanOptions = {}): Se
       skillId: s,
       lesson,
       testOut: lesson && plannedTestOut(s, itemBefore),
+      mayOffer: lesson && mayOffer(s, itemBefore),
       remediation: false,
     };
   };
@@ -767,9 +883,19 @@ export function planSession(input: PlanSessionInput, opts: PlanOptions = {}): Se
       /** Due reviews a workshop hosts (ranks review-only requests). */
       const dueHosted = (c: WorkshopCapability) =>
         ctx.due.filter((r) => templatesOf(graph, r.skillId).some((t) => hosts(c, t.format))).length;
+      /** Failed reviews a composition schedules: the next plan must review them (04 §6.4 rule 3). */
+      const failedReviewed = (c: Composition) =>
+        c.tasks.filter(
+          (t) =>
+            t.mode === 'item' &&
+            (t.context === 'review' || t.context === 'transfer-probe') &&
+            failedReview(state, t.skillId),
+        ).length;
       const key = (o: { cap: WorkshopCapability; comp: Composition }): number[] =>
         skill
           ? [
+              failedReviewed(o.comp),
+              o.comp.cancelMissing ? 0 : 1,
               hostsNeeded(o.cap) ? 1 : 0,
               fillable(o.comp) ? 1 : 0,
               focus?.testOut && o.comp.testOutHosted ? 1 : 0,
@@ -778,6 +904,7 @@ export function planSession(input: PlanSessionInput, opts: PlanOptions = {}): Se
               formatsHosted(o.cap),
             ]
           : [
+              failedReviewed(o.comp),
               dueHosted(o.cap),
               fillable(o.comp) ? 1 : 0,
               used.has(o.cap.workshopId) ? 0 : 1,
@@ -797,11 +924,20 @@ export function planSession(input: PlanSessionInput, opts: PlanOptions = {}): Se
         const pierComp = compose(ctx, i, focus, pier, budget, challenge[i] ?? 0);
         if (pierComp && pierComp.items > 0) best = { cap: pier, comp: pierComp };
       }
+      // A failed review is scheduled by the next plan (04 §6.4 rule 3): when no themed workshop
+      // can review one, the request goes to the Practice Pier, which hosts every format.
+      if (!best || failedReviewed(best.comp) === 0) {
+        const pierComp = compose(ctx, i, focus, pier, budget, challenge[i] ?? 0);
+        if (pierComp && failedReviewed(pierComp) > 0) best = { cap: pier, comp: pierComp };
+      }
       // An offered test-out no themed workshop can host as a passable draw goes to the Practice
       // Pier, which hosts every format: a planned test-out is always a draw the learner can pass.
+      // It never trades away a failed review (04 §6.4 rule 3 outranks the test-out).
       if (focus?.testOut && !(best?.comp.testOutHosted ?? false)) {
         const pierComp = compose(ctx, i, focus, pier, budget, challenge[i] ?? 0);
-        if (pierComp?.testOutHosted) best = { cap: pier, comp: pierComp };
+        const keepsFailed = (c: Composition) =>
+          failedReviewed(c) >= (best ? failedReviewed(best.comp) : 0);
+        if (pierComp?.testOutHosted && keepsFailed(pierComp)) best = { cap: pier, comp: pierComp };
       }
       if (!best || !fillable(best.comp)) {
         let pierComp = compose(ctx, i, focus, pier, budget, challenge[i] ?? 0);
@@ -818,6 +954,18 @@ export function planSession(input: PlanSessionInput, opts: PlanOptions = {}): Se
         }
         if (pierComp && (!best || fillable(pierComp))) best = { cap: pier, comp: pierComp };
       }
+      // A request that cannot cancel a test-out the learner may still start (no template outside
+      // the pool here) goes to the Practice Pier, which hosts every format, when the pier request
+      // keeps every failed review (04 §6.4 rule 3 still comes first).
+      if (best?.comp.cancelMissing) {
+        const pierComp = compose(ctx, i, focus, pier, budget, challenge[i] ?? 0);
+        if (
+          pierComp &&
+          !pierComp.cancelMissing &&
+          failedReviewed(pierComp) >= failedReviewed(best.comp)
+        )
+          best = { cap: pier, comp: pierComp };
+      }
       const chosenCap = best?.cap ?? pier;
       const comp: Composition = best?.comp ?? {
         tasks: [],
@@ -826,6 +974,7 @@ export function planSession(input: PlanSessionInput, opts: PlanOptions = {}): Se
         lessons: 0,
         testOutHosted: false,
         testOut: [],
+        cancelMissing: false,
       };
       comps.push(comp);
 
@@ -885,8 +1034,17 @@ export function planSession(input: PlanSessionInput, opts: PlanOptions = {}): Se
       focuses = focuses.map((f) => {
         if (!f || f.remediation) return f;
         if (f.skillId === f0.skillId)
-          return { ...f, lesson: false, testOut: f.testOut && steps === 0 };
-        return { ...f, testOut: f.lesson && plannedTestOut(f.skillId, lessonBefore) };
+          return {
+            ...f,
+            lesson: false,
+            testOut: f.testOut && steps === 0,
+            mayOffer: f.mayOffer === true && steps === 0,
+          };
+        return {
+          ...f,
+          testOut: f.lesson && plannedTestOut(f.skillId, lessonBefore),
+          mayOffer: f.lesson && mayOffer(f.skillId, lessonBefore),
+        };
       });
       built = build(focuses);
     } else {
