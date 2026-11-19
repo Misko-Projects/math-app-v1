@@ -36,3 +36,16 @@ plannedIds:
     PUZ.02,
     SUB.04,
   ]
+# pendingGameSkills: catalog skills (03 §3) that game data unlock rules name before the curriculum
+# authors them (03 §9.2), each with the exact places allowed to name it (building:<id>,
+# resident:<id>, outfit:<option>, ring:<index>). Such a rule warns and stays unsatisfied until the
+# skill exists; an unauthored skill anywhere else is an error. The PR that authors a skill removes
+# its entry (a stale entry or place only warns).
+pendingGameSkills:
+  CPS.04: [building:brick-factory]
+  MUL.02: [building:garden-terraces]
+  FRA.01: [building:bakery]
+  MUL.05: [building:bakery]
+  MON.01: [building:market]
+  TIM.01: [building:clock-tower]
+  ALG.01: [building:weigh-station]

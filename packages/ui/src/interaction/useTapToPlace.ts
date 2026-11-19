@@ -1,0 +1,448 @@
+import {
+  type KeyboardEvent,
+  type MouseEvent,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
+import type { TraceRecorder } from './trace';
+
+/** How a placement happened. */
+export type PlaceVia = 'drag' | 'tap' | 'keyboard';
+
+export interface PlaceEvent<I extends string, T extends string> {
+  item: I;
+  target: T;
+  via: PlaceVia;
+}
+
+export interface TapToPlaceOptions<I extends string, T extends string> {
+  /** An item was placed on a target. The widget updates its state (the hook keeps none). */
+  onPlace: (e: PlaceEvent<I, T>) => void;
+  /** Whether `item` may go on `target` now (a full container, a used slot…). Default: yes. */
+  canPlace?: (item: I, target: T) => boolean;
+  /** Called when the selection changes (to speak the item's name, 06 §5). */
+  onSelect?: (item: I | null) => void;
+  /** No interaction at all (demo playback, feedback showing). */
+  disabled?: boolean;
+  /** Interaction trace recorder (useInteractionTrace). */
+  trace?: TraceRecorder;
+}
+
+export interface PlaceItemOptions {
+  /** Accessible name, e.g. "Pebble 3". */
+  label: string;
+  disabled?: boolean;
+}
+
+export interface PlaceTargetOptions {
+  /** Accessible name, e.g. "Basket". */
+  label: string;
+  disabled?: boolean;
+}
+
+/** Props to spread on an item element (any element; it gets role="button"). */
+export interface PlaceItemProps {
+  ref: (el: HTMLElement | SVGElement | null) => void;
+  role: 'button';
+  tabIndex: 0 | -1;
+  'aria-label': string;
+  'aria-pressed': boolean;
+  'aria-disabled'?: true;
+  'data-place-item': string;
+  'data-selected'?: 'true';
+  onClick: (e: MouseEvent) => void;
+  onKeyDown: (e: KeyboardEvent) => void;
+}
+
+/** Props to spread on a target element. */
+export interface PlaceTargetProps {
+  ref: (el: HTMLElement | SVGElement | null) => void;
+  role: 'button';
+  tabIndex: 0 | -1;
+  'aria-label': string;
+  'aria-disabled'?: true;
+  'data-place-target': string;
+  'data-target-disabled'?: 'true';
+  'data-armed'?: 'true';
+  className: string;
+  onClick: (e: MouseEvent) => void;
+  onKeyDown: (e: KeyboardEvent) => void;
+}
+
+export interface TapToPlace<I extends string, T extends string> {
+  /** The item waiting to be placed, if any. */
+  selected: I | null;
+  select: (item: I | null) => void;
+  itemProps: (id: I, opts: PlaceItemOptions) => PlaceItemProps;
+  targetProps: (id: T, opts: PlaceTargetOptions) => PlaceTargetProps;
+}
+
+/** @internal State shared with useDragToTarget. */
+export interface PlacementCore<I extends string, T extends string> extends TapToPlace<I, T> {
+  items: Map<I, HTMLElement | SVGElement>;
+  targets: Map<T, HTMLElement | SVGElement>;
+  isTargetOpen: (item: I, target: T) => boolean;
+  isItemAvailable: (item: I) => boolean;
+  place: (item: I, target: T, via: PlaceVia) => void;
+  /** Ignore the click that a browser fires after a drag ends. */
+  suppressNextClick: () => void;
+  latest: { current: TapToPlaceOptions<I, T> };
+}
+
+/** Disabled by ARIA (`aria-disabled="true"`) or natively (a disabled button or fieldset). */
+export function isElementDisabled(el: Element | null | undefined): boolean {
+  if (!el) return true;
+  return el.getAttribute('aria-disabled') === 'true' || el.matches(':disabled');
+}
+
+const ACTIVATE = new Set(['Enter', ' ']);
+const NEXT = new Set(['ArrowRight', 'ArrowDown']);
+const PREV = new Set(['ArrowLeft', 'ArrowUp']);
+
+function focusSibling<K>(
+  map: Map<K, HTMLElement | SVGElement>,
+  current: K,
+  step: 1 | -1 | 'first' | 'last',
+) {
+  // Document order, not registration order: items re-mount as they move between containers.
+  const els = [...map.values()]
+    .filter((el) => el.isConnected)
+    .sort((a, b) => (a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING ? -1 : 1));
+  if (els.length === 0) return;
+  const at = els.indexOf(map.get(current) as HTMLElement | SVGElement);
+  let next: number;
+  if (step === 'first') next = 0;
+  else if (step === 'last') next = els.length - 1;
+  else next = (at + step + els.length) % els.length;
+  els[next]?.focus();
+}
+
+/** @internal */
+export function usePlacementCore<I extends string, T extends string>(
+  options: TapToPlaceOptions<I, T>,
+): PlacementCore<I, T> {
+  const latest = useRef(options);
+  latest.current = options;
+  const [selected, setSelected] = useState<I | null>(null);
+  const selectedRef = useRef<I | null>(null);
+  selectedRef.current = selected;
+  const items = useRef(new Map<I, HTMLElement | SVGElement>()).current;
+  const targets = useRef(new Map<T, HTMLElement | SVGElement>()).current;
+  const keyActivated = useRef(false);
+  const clickSuppressed = useRef(false);
+  const refCallbacks = useRef(
+    new Map<string, (el: HTMLElement | SVGElement | null) => void>(),
+  ).current;
+
+  const select = useCallback((item: I | null) => {
+    if (selectedRef.current === item) return;
+    selectedRef.current = item;
+    setSelected(item);
+    latest.current.onSelect?.(item);
+  }, []);
+
+  /** The item is still rendered, connected and enabled (it may have moved, gone or been disabled). */
+  const isItemAvailable = useCallback(
+    (item: I) => {
+      const el = items.get(item);
+      return Boolean(el?.isConnected) && !isElementDisabled(el);
+    },
+    [items],
+  );
+
+  // Deselect when interaction is switched off (demo playback) so no stale selection remains.
+  useEffect(() => {
+    if (options.disabled) select(null);
+  }, [options.disabled, select]);
+
+  // After every commit: a selected item that was removed or disabled can no longer be placed.
+  useEffect(() => {
+    const current = selectedRef.current;
+    if (current !== null && !isItemAvailable(current)) select(null);
+  });
+
+  const isTargetOpen = useCallback(
+    (item: I, target: T) => {
+      if (targets.get(target)?.getAttribute('data-target-disabled') === 'true') return false;
+      return latest.current.canPlace ? latest.current.canPlace(item, target) : true;
+    },
+    [targets],
+  );
+
+  const place = useCallback(
+    (item: I, target: T, via: PlaceVia) => {
+      select(null);
+      latest.current.onPlace({ item, target, via });
+    },
+    [select],
+  );
+
+  const suppressNextClick = useCallback(() => {
+    clickSuppressed.current = true;
+    setTimeout(() => {
+      clickSuppressed.current = false;
+    }, 0);
+  }, []);
+
+  /**
+   * Whether a click should act. The click a browser fires right after a drag does nothing, and so
+   * does the click it synthesises from a key press the keydown handler already handled (keyboard
+   * clicks have `detail === 0`). Pointer clicks always act.
+   */
+  const consumeClick = useCallback((e: MouseEvent) => {
+    if (clickSuppressed.current) return false;
+    if (keyActivated.current && e.detail === 0) return false;
+    return true;
+  }, []);
+
+  /**
+   * Marks a keyboard activation until that key is released anywhere (focus may have moved to a
+   * target, or the element may be gone) or the window loses focus.
+   */
+  const removeKeyListeners = useRef<(() => void) | null>(null);
+  const markKeyActivation = useCallback(() => {
+    keyActivated.current = true;
+    if (removeKeyListeners.current) return; // already waiting for this key's release
+    const clear = () => {
+      remove();
+      setTimeout(() => {
+        keyActivated.current = false;
+      }, 0);
+    };
+    const remove = () => {
+      window.removeEventListener('keyup', clear, true);
+      window.removeEventListener('blur', clear);
+      removeKeyListeners.current = null;
+    };
+    window.addEventListener('keyup', clear, true);
+    window.addEventListener('blur', clear);
+    removeKeyListeners.current = remove;
+  }, []);
+  // Don't leave window listeners behind when the widget unmounts mid-press.
+  // Also reset the flag: React can hide and later restore a subtree (Activity) with hook state
+  // intact, and with the listeners gone nothing else would clear it.
+  useEffect(
+    () => () => {
+      removeKeyListeners.current?.();
+      keyActivated.current = false;
+    },
+    [],
+  );
+
+  const stableRef = useCallback(
+    <K extends string>(kind: 'i' | 't', map: Map<K, HTMLElement | SVGElement>, id: K) => {
+      const key = `${kind}:${id}`;
+      let cb = refCallbacks.get(key);
+      if (!cb) {
+        cb = (el) => {
+          if (el) map.set(id, el);
+          else map.delete(id);
+        };
+        refCallbacks.set(key, cb);
+      }
+      return cb;
+    },
+    [refCallbacks],
+  );
+
+  const activateItem = useCallback(
+    (id: I, via: 'tap' | 'keyboard') => {
+      const o = latest.current;
+      if (o.disabled) return;
+      if (isElementDisabled(items.get(id))) return;
+      o.trace?.('tap', id);
+      if (selectedRef.current === id) {
+        select(null);
+        return;
+      }
+      select(id);
+      if (via === 'keyboard') {
+        // Keyboard play: jump to the first target that can take this item.
+        for (const [tid, el] of targets) {
+          if (el.isConnected && isTargetOpen(id, tid)) {
+            el.focus();
+            break;
+          }
+        }
+      }
+    },
+    [isTargetOpen, items, select, targets],
+  );
+
+  const activateTarget = useCallback(
+    (id: T, via: 'tap' | 'keyboard') => {
+      const o = latest.current;
+      const item = selectedRef.current;
+      if (o.disabled || item === null) return;
+      if (!isItemAvailable(item)) {
+        select(null);
+        return;
+      }
+      if (!isTargetOpen(item, id)) return;
+      o.trace?.('tap', id);
+      place(item, id, via);
+    },
+    [isItemAvailable, isTargetOpen, place, select],
+  );
+
+  const itemProps = useCallback(
+    (id: I, opts: PlaceItemOptions): PlaceItemProps => {
+      const off = Boolean(options.disabled || opts.disabled);
+      const isSelected = selected === id;
+      return {
+        ref: stableRef('i', items, id),
+        role: 'button',
+        tabIndex: off ? -1 : 0,
+        'aria-label': opts.label,
+        'aria-pressed': isSelected,
+        'aria-disabled': off ? true : undefined,
+        'data-place-item': id,
+        'data-selected': isSelected ? 'true' : undefined,
+        onClick: (e) => {
+          if (!consumeClick(e)) return;
+          activateItem(id, 'tap');
+        },
+        onKeyDown: (e) => {
+          if (ACTIVATE.has(e.key)) {
+            e.preventDefault();
+            if (e.repeat) return;
+            markKeyActivation();
+            activateItem(id, 'keyboard');
+          } else if (NEXT.has(e.key)) {
+            e.preventDefault();
+            focusSibling(items, id, 1);
+          } else if (PREV.has(e.key)) {
+            e.preventDefault();
+            focusSibling(items, id, -1);
+          } else if (e.key === 'Home' || e.key === 'End') {
+            e.preventDefault();
+            focusSibling(items, id, e.key === 'Home' ? 'first' : 'last');
+          } else if (e.key === 'Escape' && selectedRef.current !== null) {
+            e.preventDefault();
+            select(null);
+          }
+        },
+      };
+    },
+    [
+      activateItem,
+      consumeClick,
+      items,
+      options.disabled,
+      markKeyActivation,
+      select,
+      selected,
+      stableRef,
+    ],
+  );
+
+  const targetProps = useCallback(
+    (id: T, opts: PlaceTargetOptions): PlaceTargetProps => {
+      const off = Boolean(options.disabled || opts.disabled);
+      const armed =
+        !off && selected !== null && (options.canPlace ? options.canPlace(selected, id) : true);
+      return {
+        ref: stableRef('t', targets, id),
+        role: 'button',
+        tabIndex: off ? -1 : 0,
+        'aria-label': opts.label,
+        'aria-disabled': armed ? undefined : true,
+        'data-place-target': id,
+        'data-target-disabled': opts.disabled ? 'true' : undefined,
+        'data-armed': armed ? 'true' : undefined,
+        className: 'ni-drop-target',
+        onClick: (e) => {
+          if (!consumeClick(e)) return;
+          activateTarget(id, 'tap');
+        },
+        onKeyDown: (e) => {
+          if (ACTIVATE.has(e.key)) {
+            e.preventDefault();
+            if (e.repeat) return;
+            markKeyActivation();
+            activateTarget(id, 'keyboard');
+          } else if (NEXT.has(e.key)) {
+            e.preventDefault();
+            focusSibling(targets, id, 1);
+          } else if (PREV.has(e.key)) {
+            e.preventDefault();
+            focusSibling(targets, id, -1);
+          } else if (e.key === 'Escape') {
+            const item = selectedRef.current;
+            if (item !== null) {
+              e.preventDefault();
+              select(null);
+              items.get(item)?.focus();
+            }
+          }
+        },
+      };
+    },
+    [
+      activateTarget,
+      consumeClick,
+      items,
+      options.canPlace,
+      options.disabled,
+      markKeyActivation,
+      select,
+      selected,
+      stableRef,
+      targets,
+    ],
+  );
+
+  return useMemo(
+    () => ({
+      selected,
+      select,
+      itemProps,
+      targetProps,
+      items,
+      targets,
+      isTargetOpen,
+      isItemAvailable,
+      place,
+      suppressNextClick,
+      latest,
+    }),
+    [
+      selected,
+      select,
+      itemProps,
+      targetProps,
+      items,
+      targets,
+      isTargetOpen,
+      isItemAvailable,
+      place,
+      suppressNextClick,
+    ],
+  );
+}
+
+/**
+ * Tap-to-select → tap-to-place (06 §4): tap an item to pick it up (it lifts with a sunshine ring),
+ * then tap a target to put it there. Tapping the item again puts it back down.
+ *
+ * Keyboard (06 §7): items and targets are focusable buttons. Enter or Space picks an item up and
+ * moves focus to the first target that can take it; Enter or Space on a target places it; arrow
+ * keys move between items or between targets; Escape cancels.
+ */
+export function useTapToPlace<I extends string, T extends string>(
+  options: TapToPlaceOptions<I, T>,
+): TapToPlace<I, T> {
+  const core = usePlacementCore(options);
+  return useMemo(
+    () => ({
+      selected: core.selected,
+      select: core.select,
+      itemProps: core.itemProps,
+      targetProps: core.targetProps,
+    }),
+    [core.selected, core.select, core.itemProps, core.targetProps],
+  );
+}

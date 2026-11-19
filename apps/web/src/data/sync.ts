@@ -1,0 +1,428 @@
+// D01 sync client (08 §4): pushes the local event queue, settings and profiles to `POST /api/sync`
+// and pulls the other devices' events by cursor, looping until both directions are drained. It
+// applies the clamp echo (02 §5.9 S3), the per-event rejections (S1), the server's LWW settings and
+// profiles, and pulled tombstones (through the store). It never throws to its callers and never
+// blocks gameplay: everything runs in the background, and a failure only schedules a retry.
+
+import {
+  type AnyEventEnvelope,
+  apiErrorBodySchema,
+  SYNC_MAX_PUSH_EVENTS,
+  type SyncClampedEvent,
+  type SyncRequest,
+  type SyncResponse,
+  syncResponseSchema,
+} from '@number-island/shared';
+import type { DataStore } from './store';
+
+/** 08 §4: every 60 s while online. */
+export const SYNC_INTERVAL_MS = 60_000;
+/** Backoff after a failed sync: 5 s doubling to 5 min, with ±20 % jitter. */
+export const SYNC_BACKOFF_BASE_MS = 5_000;
+export const SYNC_BACKOFF_MAX_MS = 5 * 60_000;
+/** Upper bound on push/pull round trips in one sync, so a misbehaving server cannot spin us. */
+export const SYNC_MAX_ROUNDS = 50;
+
+/** Why a sync started (08 §4 triggers), recorded for diagnostics. */
+export type SyncReason =
+  | 'start'
+  | 'interval'
+  | 'request-completed'
+  | 'wind-down'
+  | 'online'
+  | 'retry'
+  | 'manual';
+
+export type SyncOutcome =
+  | { kind: 'synced'; pushed: number; pulled: number; rounds: number }
+  | { kind: 'unpaired' } // no device token yet: setup or pairing has not happened
+  | { kind: 'offline' }
+  | { kind: 'revoked'; code: string } // the server no longer accepts this device
+  | { kind: 'failed'; error: string }
+  | { kind: 'deferred' } // an automatic trigger inside the backoff window: the retry timer will sync
+  | { kind: 'stopped' }; // an automatic trigger after stop() (nothing sent), or a run stop() interrupted (nothing more applied)
+
+/** A sync exchange (request and response body) that takes longer than this fails and is retried. */
+export const SYNC_REQUEST_TIMEOUT_MS = 30_000;
+
+/**
+ * Requests that run even inside the backoff window: an explicit call and the network returning.
+ * (The client's own retry/interval timer is forced too; it is never stale, see `pump`.)
+ */
+const BYPASSES_BACKOFF: ReadonlySet<SyncReason> = new Set(['manual', 'online']);
+
+export interface SyncClientOptions {
+  store: DataStore;
+  /** Defaults to `globalThis.fetch`. Tests pass the Worker's fetch. */
+  fetch?: (input: string, init: RequestInit) => Promise<Response>;
+  /** Origin prefix for `/api/sync`; '' (same origin) by default. */
+  baseUrl?: string;
+  now?: () => number;
+  /** Whether the browser reports a connection; defaults to `navigator.onLine` (true if unknown). */
+  online?: () => boolean;
+  /** Timer functions (tests use fake timers). */
+  setTimer?: (fn: () => void, ms: number) => unknown;
+  clearTimer?: (handle: unknown) => void;
+  /** 0..1, for backoff jitter; defaults to `Math.random`. */
+  random?: () => number;
+  intervalMs?: number;
+  /** Deadline for one exchange, request and response body (default 30 s). */
+  requestTimeoutMs?: number;
+}
+
+export interface SyncClient {
+  /**
+   * Runs one sync now (or joins the one in flight and runs once more after it, so a trigger that
+   * arrives mid-sync is never lost). Never rejects.
+   */
+  syncNow(reason?: SyncReason): Promise<SyncOutcome>;
+  /** Syncs on start, then every 60 s (backing off on errors), after each completed request, on
+   *  wind-down (`session.ended`, page hidden) and when the browser comes back online. */
+  start(): void;
+  /**
+   * Stops automatic syncing and cancels the run in flight: it sends nothing more and writes
+   * nothing more to the store after its current step. The returned promise settles once that run
+   * has ended, so a caller that awaits it (sign-out, re-pairing) knows no response from the old
+   * credentials can still land.
+   */
+  stop(): Promise<void>;
+}
+
+/** Thrown inside a sync to stop it with a given outcome. */
+class SyncStop extends Error {
+  constructor(readonly outcome: SyncOutcome) {
+    super(outcome.kind);
+  }
+}
+
+/** The local copy with the server's stored time (02 §5.9 S3): `clientTs` only when the server has one. */
+export function withServerTime(
+  local: AnyEventEnvelope,
+  echo: Pick<SyncClampedEvent, 'ts' | 'clientTs'>,
+): AnyEventEnvelope {
+  const { clientTs: _local, ...rest } = local;
+  return {
+    ...rest,
+    ts: echo.ts,
+    ...(echo.clientTs === undefined ? {} : { clientTs: echo.clientTs }),
+  } as AnyEventEnvelope;
+}
+
+/** Backoff delay after `failures` consecutive failed syncs (1 = first failure). */
+export function backoffDelay(failures: number, random: () => number = Math.random): number {
+  const base = Math.min(SYNC_BACKOFF_MAX_MS, SYNC_BACKOFF_BASE_MS * 2 ** Math.max(0, failures - 1));
+  return Math.round(base * (0.8 + 0.4 * random()));
+}
+
+const errorCode = (json: unknown) => apiErrorBodySchema.safeParse(json).data?.error.code;
+
+const errorMessage = (e: unknown) => (e instanceof Error ? e.message : String(e)).slice(0, 300);
+
+export function createSyncClient(opts: SyncClientOptions): SyncClient {
+  const { store } = opts;
+  const doFetch = opts.fetch ?? ((input, init) => globalThis.fetch(input, init));
+  const url = `${opts.baseUrl ?? ''}/api/sync`;
+  const now = opts.now ?? (() => Date.now());
+  const online =
+    opts.online ??
+    (() => (globalThis as { navigator?: { onLine?: boolean } }).navigator?.onLine !== false);
+  const setTimer = opts.setTimer ?? ((fn, ms) => setTimeout(fn, ms));
+  const clearTimer = opts.clearTimer ?? ((h) => clearTimeout(h as ReturnType<typeof setTimeout>));
+  const random = opts.random ?? Math.random;
+  const intervalMs = opts.intervalMs ?? SYNC_INTERVAL_MS;
+  const requestTimeoutMs = opts.requestTimeoutMs ?? SYNC_REQUEST_TIMEOUT_MS;
+
+  let inFlight: Promise<SyncOutcome> | null = null;
+  /** Callers waiting for the next run (see `pump`). */
+  const waiters: {
+    resolve: (o: SyncOutcome) => void;
+    reason: SyncReason;
+    forced: boolean;
+    automatic: boolean;
+  }[] = [];
+  let failures = 0;
+  /** While failures > 0, unforced requests wait until this time (the retry timer). */
+  let retryAt = 0;
+  let running = false;
+  let timer: unknown = null;
+  const cleanups: (() => void)[] = [];
+  /**
+   * Bumped by every start() and stop(). A run belongs to the generation it started in: once that
+   * changes (sign-out, re-pairing), its open request is aborted and nothing more it receives is
+   * applied or sent, so no response reaches the store after `stop()` returns.
+   */
+  let generation = 0;
+  const live = new Set<AbortController>();
+
+  /**
+   * One push/pull exchange under one deadline covering the request and the response body, so a
+   * stalled connection fails (and is retried) instead of holding the client forever. Returns the
+   * parsed response or stops the sync.
+   */
+  async function exchange(
+    token: string,
+    body: SyncRequest,
+    current: () => void,
+  ): Promise<SyncResponse> {
+    // Assembling the body awaited the store: a stop() in between must not send it.
+    current();
+    const controller = new AbortController();
+    live.add(controller);
+    let timedOut = false;
+    let handle: unknown = null;
+    const deadline = new Promise<never>((_, reject) => {
+      handle = setTimer(() => {
+        timedOut = true;
+        controller.abort();
+        reject(new Error('timeout'));
+      }, requestTimeoutMs);
+    });
+    deadline.catch(() => undefined); // settled by the race below; never an unhandled rejection
+    const timeout = () =>
+      new SyncStop({ kind: 'failed', error: `timeout after ${requestTimeoutMs} ms` });
+    let res: Response;
+    let json: unknown;
+    try {
+      try {
+        res = await Promise.race([
+          doFetch(url, {
+            method: 'POST',
+            headers: {
+              authorization: `Bearer ${token}`,
+              'content-type': 'application/json',
+              accept: 'application/json',
+            },
+            body: JSON.stringify(body),
+            cache: 'no-store',
+            signal: controller.signal,
+          }),
+          deadline,
+        ]);
+      } catch (e) {
+        throw timedOut
+          ? timeout()
+          : new SyncStop({ kind: 'failed', error: `network: ${errorMessage(e)}` });
+      }
+      try {
+        json = await Promise.race([res.json().catch(() => null), deadline]);
+      } catch {
+        throw timeout();
+      }
+    } finally {
+      clearTimer(handle);
+      live.delete(controller);
+    }
+    if (res.status === 401) {
+      const code = errorCode(json) ?? 'unauthorized';
+      throw new SyncStop({ kind: 'revoked', code });
+    }
+    if (!res.ok) {
+      const code = errorCode(json) ?? 'unknown';
+      throw new SyncStop({ kind: 'failed', error: `HTTP ${res.status} ${code}` });
+    }
+    const parsed = syncResponseSchema.safeParse(json);
+    if (!parsed.success) {
+      throw new SyncStop({ kind: 'failed', error: 'the server sent an invalid sync response' });
+    }
+    return parsed.data;
+  }
+
+  /**
+   * Applies one response: echo, acknowledgements, rejections, pulled events, documents, cursor.
+   * `current()` runs before every write, so a stop() ends the run at the next step. The cursor
+   * moves last: a run cut short pulls the same page again next time, and every step is
+   * idempotent.
+   */
+  async function apply(
+    pushed: AnyEventEnvelope[],
+    res: SyncResponse,
+    current: () => void,
+  ): Promise<void> {
+    // The server's stored copy wins (02 §5.9 S3): replace the local copy's times, then rebuild.
+    if (res.clamped.length > 0) {
+      const byId = new Map(pushed.map((e) => [e.id, e]));
+      const corrected = res.clamped.flatMap((c) => {
+        const local = byId.get(c.id);
+        return local ? [withServerTime(local, c)] : [];
+      });
+      current();
+      await store.ingest(corrected, { source: 'server' });
+    }
+    current();
+    await store.markSynced(res.accepted);
+    current();
+    if (res.rejected.length > 0) await store.markRejected(res.rejected, pushed);
+    current();
+    if (res.events.length > 0) await store.ingest(res.events, { source: 'server' });
+    current();
+    await store.mergeSettings(res.settings, { source: 'server' });
+    current();
+    await store.mergeProfiles(res.profiles, { source: 'server' });
+    current();
+    await store.updateSyncState({ cursor: res.cursor });
+  }
+
+  async function run(reason: SyncReason): Promise<SyncOutcome> {
+    const gen = generation;
+    const current = () => {
+      if (gen !== generation) throw new SyncStop({ kind: 'stopped' });
+    };
+    const device = await store.device();
+    if (!device.deviceToken) return { kind: 'unpaired' };
+    if (!online()) return { kind: 'offline' };
+    let pushedTotal = 0;
+    let pulledTotal = 0;
+    try {
+      for (let round = 1; round <= SYNC_MAX_ROUNDS; round++) {
+        current();
+        const { cursor } = await store.syncState();
+        const events = await store.unsynced(SYNC_MAX_PUSH_EVENTS);
+        const body: SyncRequest = {
+          cursor,
+          events,
+          settings: await store.allSettings(),
+          profiles: await store.allProfiles(),
+        };
+        const res = await exchange(device.deviceToken, body, current);
+        await apply(events, res, current);
+        pushedTotal += events.length;
+        pulledTotal += res.events.length;
+        const morePush = events.length === SYNC_MAX_PUSH_EVENTS;
+        if (!res.more && !morePush) {
+          current();
+          await store.updateSyncState({ lastSyncAt: now(), lastError: null });
+          return { kind: 'synced', pushed: pushedTotal, pulled: pulledTotal, rounds: round };
+        }
+      }
+      throw new SyncStop({
+        kind: 'failed',
+        error: `still not drained after ${SYNC_MAX_ROUNDS} rounds`,
+      });
+    } catch (e) {
+      // Stopped mid-run (an aborted request fails too): not an error worth recording.
+      if (gen !== generation) return { kind: 'stopped' };
+      const outcome: SyncOutcome =
+        e instanceof SyncStop ? e.outcome : { kind: 'failed', error: errorMessage(e) };
+      const message =
+        outcome.kind === 'revoked'
+          ? `device not accepted (${outcome.code})`
+          : outcome.kind === 'failed'
+            ? outcome.error
+            : outcome.kind;
+      await store.updateSyncState({ lastError: `${reason}: ${message}` }).catch(() => undefined);
+      return outcome;
+    }
+  }
+
+  // ---------- scheduling ----------
+  //
+  // One rule set, in one place (`pump`):
+  // - Requests wait in `waiters` and are served together by the next run.
+  // - A forced request (an explicit call, the browser coming back online, or the client's own
+  //   timer) runs even inside the backoff window. Any other request waiting alone in the window
+  //   is answered `deferred`, and the timer is (re-)armed for the end of the window.
+  // - After stop(), automatic requests are answered `stopped` and never send.
+  // - There is one timer: the retry after a failure, else the 60 s interval. It is cleared when a
+  //   run starts and armed again after every run or deferral, so it can never fire stale.
+
+  function clearTimerIfArmed(): void {
+    if (timer !== null) clearTimer(timer);
+    timer = null;
+  }
+
+  function arm(delay: number): void {
+    clearTimerIfArmed();
+    if (!running) return;
+    const reason: SyncReason = failures > 0 ? 'retry' : 'interval';
+    timer = setTimer(() => {
+      timer = null;
+      void request(reason, true);
+    }, delay);
+  }
+
+  const inBackoff = () => failures > 0 && now() < retryAt;
+
+  function pump(): void {
+    if (inFlight || waiters.length === 0) return;
+    if (inBackoff() && !waiters.some((w) => w.forced)) {
+      for (const w of waiters.splice(0)) w.resolve({ kind: 'deferred' });
+      // Keep a retry timer that is already armed: a clock change must not move it. Arm one only
+      // when none is (after a restart), never for longer than the longest backoff.
+      if (timer === null) arm(Math.min(SYNC_BACKOFF_MAX_MS, Math.max(0, retryAt - now())));
+      return;
+    }
+    const batch = waiters.splice(0);
+    const reason = (batch.find((w) => w.forced) ?? batch[0])?.reason ?? 'manual';
+    clearTimerIfArmed();
+    inFlight = run(reason)
+      .catch((e: unknown): SyncOutcome => ({ kind: 'failed', error: errorMessage(e) }))
+      .then((outcome) => {
+        inFlight = null;
+        let delay = intervalMs;
+        if (outcome.kind === 'failed') {
+          failures += 1;
+          delay = backoffDelay(failures, random);
+          retryAt = now() + delay;
+        } else failures = 0;
+        arm(delay);
+        for (const w of batch) w.resolve(outcome);
+        pump();
+        return outcome;
+      });
+  }
+
+  function request(reason: SyncReason, forced: boolean): Promise<SyncOutcome> {
+    const automatic = reason !== 'manual';
+    // An automatic request made while stopped is answered at once and never queued, so a later
+    // start() cannot pick it up.
+    if (automatic && !running) return Promise.resolve({ kind: 'stopped' });
+    return new Promise((resolve) => {
+      waiters.push({ resolve, reason, forced, automatic });
+      pump();
+    });
+  }
+
+  function syncNow(reason: SyncReason = 'manual'): Promise<SyncOutcome> {
+    return request(reason, BYPASSES_BACKOFF.has(reason));
+  }
+
+  function listen(target: EventTarget | undefined, type: string, fn: () => void): void {
+    if (!target?.addEventListener) return;
+    target.addEventListener(type, fn);
+    cleanups.push(() => target.removeEventListener(type, fn));
+  }
+
+  return {
+    syncNow,
+    start() {
+      if (running) return;
+      running = true;
+      generation += 1;
+      const unsubscribe = store.onAppend((e) => {
+        // 08 §4: after each request completes, and on wind-down.
+        if (e.type === 'request.completed') void syncNow('request-completed');
+        else if (e.type === 'session.ended') void syncNow('wind-down');
+      });
+      cleanups.push(unsubscribe);
+      const g = globalThis as { window?: EventTarget; document?: Document };
+      listen(g.window, 'online', () => void syncNow('online'));
+      listen(g.document, 'visibilitychange', () => {
+        if (g.document?.visibilityState === 'hidden') void syncNow('wind-down');
+      });
+      void syncNow('start');
+    },
+    stop() {
+      running = false;
+      generation += 1;
+      for (const c of live) c.abort();
+      live.clear();
+      clearTimerIfArmed();
+      for (const c of cleanups.splice(0)) c();
+      // Every queued request ends now, manual ones too: none may start a run with the old
+      // credentials once the run in flight ends (and a quick restart cannot send them either).
+      for (const w of waiters.splice(0)) w.resolve({ kind: 'stopped' });
+      // The run in flight (if any) now ends at its next step; settle once it has.
+      return inFlight ? inFlight.then(() => undefined) : Promise.resolve();
+    },
+  };
+}

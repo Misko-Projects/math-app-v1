@@ -712,14 +712,15 @@ describe('review round 2 regressions (PR #54)', () => {
     const b = foldGoals(events, lowerFirst).byChild[C1];
     expect(a).toEqual(b);
     expect(a).toMatchObject({ target: 1, weeksCompleted: 1 }); // the canonical lower-case key wins
-    const mixedOnly = {
-      [C1.toUpperCase()]: { weeklyGoal: 3 },
-      [C1.replace('c', 'C')]: { weeklyGoal: 4 },
-    };
-    const reversed = Object.fromEntries(Object.entries(mixedOnly).reverse());
-    expect(foldGoals(events, mixedOnly).byChild[C1]?.target).toBe(
-      foldGoals(events, reversed).byChild[C1]?.target,
-    );
+    // Two genuinely different non-canonical spellings and no canonical key: the smallest key
+    // ('019A…' sorts before '019a…') wins in either record order.
+    const allUpper = C1.toUpperCase(); // 019A0000-…-00000000C001
+    const mixed = C1.replace('c001', 'C001'); // 019a0000-…-00000000C001
+    expect(new Set([C1, allUpper, mixed]).size).toBe(3);
+    const upperThenMixed = { [allUpper]: { weeklyGoal: 3 }, [mixed]: { weeklyGoal: 4 } };
+    const mixedThenUpper = { [mixed]: { weeklyGoal: 4 }, [allUpper]: { weeklyGoal: 3 } };
+    expect(foldGoals(events, upperThenMixed).byChild[C1]?.target).toBe(3);
+    expect(foldGoals(events, mixedThenUpper).byChild[C1]?.target).toBe(3);
   });
 
   it('building-level grants with an empty or invalid id never reach the collection', () => {
