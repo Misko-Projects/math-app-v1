@@ -1026,10 +1026,9 @@ export function Water({ x, y, w, h }: { x: number; y: number; w: number; h: numb
         d={body}
         fill="none"
         stroke={paint('foam')}
-        strokeWidth={2.5}
+        strokeWidth={2}
         strokeLinecap="round"
-        strokeDasharray="22 7 9 7"
-        opacity={0.9}
+        opacity={0.7}
       />
       <path
         className={foam.className}
