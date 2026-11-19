@@ -472,15 +472,19 @@ describe('session simulation (04 §8)', () => {
       // not the targeting. The raw metric is printed and kept as an expected failure below.
       //
       // K is an expected failure on this reading too (orchestrator decision; the sim learner is
-      // not recalibrated to pass). Measured on the fixture graph: 39.8% of sessions in the band,
-      // 42% above and 15% below; mean expected P 0.892; mean d − d* on reachable items +0.07.
+      // not recalibrated to pass). Measured on the fixture graph: 37.4% of reachable-item
+      // sessions in the band (39.8% before the adaptNext round-2 fixes); raw sessions 42.8% above
+      // the band and 14.9% below; practice items mean P 0.892, mean d − d* +0.06 (+0.07 before).
       // Follow-up (folded into #17): re-check the K band on the full K–3 graph and, if it still
       // fails, tune young-learner adaptation (Ks / the rolling controller, a 04 §2.3–2.4
       // change). When it starts passing, the expected failure flips and the suite says so.
       const reachable = profile === PROFILES.K ? it.fails : it;
-      reachable('expected first-try accuracy within [0.78, 0.92] for ≥ 80% of sessions, on reachable items', () => {
-        assertReachableBand(report());
-      });
+      reachable(
+        'expected first-try accuracy within [0.78, 0.92] for ≥ 80% of sessions, on reachable items',
+        () => {
+          assertReachableBand(report());
+        },
+      );
 
       // Expected failure on the current content (re-asserted on the full K–3 graph: follow-up
       // "Re-assert the raw 04 §8 accuracy band on the full K–3 graph", folded into #17). When the
