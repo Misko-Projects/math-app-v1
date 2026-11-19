@@ -419,7 +419,22 @@ export const Invite: Story = {
     const row = lane(root, 'crab');
     await waitFor(() => expect(row).toHaveClass('ni-invite'));
     await expectPointerOn(root.querySelector('.ni-hand') as HTMLElement, row, root);
-    await inviteController.invite(null);
+    // The story ends in the invited state: Pip's hand stays under its target.
+    await expect(root.querySelector('.ni-hand')).toBeVisible();
+  },
+};
+
+const clearController: WidgetDemo = createDemoController({ strict: true });
+
+/** Clearing an invite (`invite(null)`) takes Pip's hand and the ring away. */
+export const InviteCleared: Story = {
+  args: { config: tableTally, demo: clearController, tier: 'pictorial' },
+  play: async ({ canvasElement }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    await clearController.invite({ op: 'tally', args: { id: 'crab', count: 1 } });
+    await waitFor(() => expect(root.querySelector('.ni-hand')).not.toBeNull());
+    await clearController.invite(null);
     await waitFor(() => expect(root.querySelector('.ni-hand')).toBeNull());
+    await expect(root.querySelector('.ni-invite')).toBeNull();
   },
 };
