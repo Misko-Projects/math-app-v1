@@ -1339,7 +1339,7 @@ export function CompareWidget({
           {renderRow('right')}
           <svg className="ni-cmp__lines" aria-hidden="true" focusable="false">
             {lines.map((l) => (
-              <g key={l.key} className="ni-cmp__line">
+              <g key={l.key} className="ni-cmp__line" data-pair={l.key}>
                 <line x1={l.x1} y1={l.y1} x2={l.x2} y2={l.y2} />
                 <circle cx={l.x1} cy={l.y1} r="7" />
                 <circle cx={l.x2} cy={l.y2} r="7" />

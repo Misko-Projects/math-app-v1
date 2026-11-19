@@ -834,7 +834,8 @@ const matchInvite: WidgetDemo = createDemoController({ strict: true });
 /**
  * The child's turn (03 §6.3), `match {left, right}` in match mode: the ring and Pip's hand on the
  * left object; once the child taps it, on the right one; once they are joined (a straight line:
- * object 1 above object 1), nothing. `answer {id: same}` rings "the same"; the faded example then
+ * object 1 above object 1), nothing. The demo matches left to right from pair 1 (then pair 2), as
+ * one-to-one matching goes. `answer {id: same}` rings "the same"; the faded example then
  * moves on to `highlight {side}`: the ring and the hand on the bottom row's "this one" card, where
  * the story ends (nothing picked yet, one ring).
  */
@@ -849,15 +850,33 @@ export const InviteMatchK: Story = {
     await waitForSettled(root);
     // The layout before any invite: every invite below leaves it exactly as it is.
     const before = layoutOf(root);
-    matchInvite.invite({ op: 'match', args: { left: 1, right: 1 } });
-    await expectInviteOn(root, obj(root, 'left-obj-1'));
-    await userEvent.click(obj(root, 'left-obj-1'));
-    await expectInviteOn(root, obj(root, 'right-obj-1'));
-    await userEvent.click(obj(root, 'right-obj-1'));
-    await waitFor(() => expect(root.querySelectorAll('.ni-cmp__line')).toHaveLength(1));
-    const line = root.querySelector('.ni-cmp__line line') as SVGLineElement;
-    await expect(Number(line.getAttribute('x1'))).toBeCloseTo(Number(line.getAttribute('x2')), 0);
-    await noInvite(root);
+    // One-to-one matching, left to right: the demo starts at pair 1 (object 1 above object 1),
+    // then pair 2, as a child would.
+    for (const [k, pair] of [0, 1].entries()) {
+      matchInvite.invite({ op: 'match', args: { left: pair, right: pair } });
+      await expectInviteOn(root, obj(root, `left-obj-${pair}`));
+      await userEvent.click(obj(root, `left-obj-${pair}`));
+      await expectInviteOn(root, obj(root, `right-obj-${pair}`));
+      await userEvent.click(obj(root, `right-obj-${pair}`));
+      await waitFor(() => expect(root.querySelectorAll('.ni-cmp__line')).toHaveLength(k + 1));
+      await noInvite(root);
+    }
+    // The lines run in pair order from pair 1: line i joins object i to object i, straight down,
+    // each right of the one before.
+    const lines = [...root.querySelectorAll<SVGLineElement>('.ni-cmp__line line')];
+    await expect(lines.map((l) => l.closest('.ni-cmp__line')?.getAttribute('data-pair'))).toEqual([
+      '0-0',
+      '1-1',
+    ]);
+    for (const [i, l] of lines.entries()) {
+      const at = (id: string) => {
+        const r = obj(root, id).getBoundingClientRect();
+        const rows = (root.querySelector('.ni-cmp__rows') as HTMLElement).getBoundingClientRect();
+        return r.left + r.width / 2 - rows.left;
+      };
+      await expect(Number(l.getAttribute('x1'))).toBeCloseTo(at(`left-obj-${i}`), 0);
+      await expect(Number(l.getAttribute('x2'))).toBeCloseTo(at(`right-obj-${i}`), 0);
+    }
     matchInvite.invite({ op: 'answer', args: { id: 'same' } });
     await expectInviteOn(root, within(root).getByRole('button', { name: 'The same' }));
     matchInvite.invite({ op: 'highlight', args: { side: 'right' } });
