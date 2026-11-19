@@ -82,8 +82,9 @@ lessons:
 
   # CNT.15 is authored only to pin its test-out pool (03 §6.5). The compiler reads answer kinds
   # from formats, and tap-count can answer either way, so its own pool would mix the tap-count
-  # ordinal items (choice answers) with CNT.15.t4 (a typed place number). The examples are what the
-  # auto lesson would play: generator solutions on the concrete template.
+  # ordinal items (choice answers) with CNT.15.t4 (a typed place number). CNT.15.t5 (the place just
+  # after, typed) joins it, so the test-out spans the pictorial and abstract tiers. The examples are
+  # what the auto lesson would play: generator solutions on the concrete template.
   - skillId: CNT.15
     mode: authored
     templateId: CNT.15.t1
@@ -93,4 +94,4 @@ lessons:
       - params: { k: 5, n: 7, from: left }
         childSteps: 1
     scaffolded: { count: 2, hintStart: 2 }
-    testOut: { items: 3, minCorrect: 3, templateIds: [CNT.15.t4] }
+    testOut: { items: 3, minCorrect: 3, templateIds: [CNT.15.t4, CNT.15.t5] }

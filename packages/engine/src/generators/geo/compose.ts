@@ -1,6 +1,7 @@
 // geo.compose (03 §5.6): put shapes together to fill an outline (GEO.10, GEO.11, PUZ.03).
 // Formats: shape-compose (fill-outline, compose.fill), numeral-pick (which two pieces make this
-// shape, or how many of a piece) and puzzle-grid (shape-fill: cover a grid outline with the listed
+// shape, or how many of a piece), number-pad (how many of a piece, typed: the constructed-answer
+// form of `how-many`, 04 §7a) and puzzle-grid (shape-fill: cover a grid outline with the listed
 // squares and rectangles, puzzle.satisfies).
 //
 // The outline comes from ./outlines.ts (mirrored in packages/content/outlines.yaml). Until the
@@ -112,7 +113,7 @@ const pieceId = (kind: string) => `p-${kind}`;
 
 export const geoCompose: GeneratorDef = {
   id: 'geo.compose',
-  formats: ['shape-compose', 'numeral-pick', 'puzzle-grid'],
+  formats: ['shape-compose', 'numeral-pick', 'number-pad', 'puzzle-grid'],
   params: {
     outline: {
       type: 'string',
@@ -181,10 +182,11 @@ export const geoCompose: GeneratorDef = {
     }
     if (o.kit === 'grid') return false;
     if (t.representation === 'pattern-blocks' && o.kit !== 'pattern-blocks') return false;
-    if (t.format === 'numeral-pick') {
+    if (t.format === 'numeral-pick' || t.format === 'number-pad') {
       // The child sees only the target card, so the card must be the outline itself.
       if (!drawsAsCard(o)) return false;
-      if (p.ask === 'how-many') return uniform(o);
+      // number-pad always asks how many of the one piece the shape is made of.
+      if (p.ask === 'how-many' || t.format === 'number-pad') return uniform(o);
       return o.result !== undefined && o.tiling.length === 2;
     }
     return true;
@@ -235,7 +237,7 @@ export const geoCompose: GeneratorDef = {
         ],
       });
     }
-    if (t.format === 'numeral-pick') {
+    if (t.format === 'numeral-pick' || t.format === 'number-pad') {
       const result = o.result as ShapeKind;
       const stimulus = {
         kind: 'shape' as const,
@@ -256,6 +258,21 @@ export const geoCompose: GeneratorDef = {
         'outline.linesHidden': 0,
         extra: 0,
       };
+      if (t.format === 'number-pad') {
+        const piece = counts[0]?.kind ?? 'triangle';
+        return finish(geoCompose, ctx, {
+          params,
+          vars: pickVars(t, { piece, whole: result, one: 1, many: 2 }),
+          widget: {
+            format: 'number-pad',
+            stimulus,
+            blanks: [{ id: 'n', maxDigits: String(o.tiling.length).length }],
+            unit: null,
+          },
+          answer: { kind: 'number', value: o.tiling.length },
+          math,
+        });
+      }
       if (params.ask === 'how-many') {
         const piece = counts[0]?.kind ?? 'triangle';
         const n = o.tiling.length;
@@ -378,6 +395,18 @@ export const geoCompose: GeneratorDef = {
               args: { id: pieceId(p.kind), to: [...p.at], rot: p.rot },
             },
           ),
+        ),
+      ];
+    }
+    if (w.format === 'number-pad' && a.kind === 'number') {
+      const piece = o.tiling[0]?.kind ?? 'triangle';
+      // The first step only shows the shape: the worked-step hint (level 4) plays it.
+      return [
+        step('gen.geo.compose.look', {}, { op: 'show-stimulus' }),
+        step(
+          'gen.geo.compose.count',
+          { n: a.value, piece, many: 2 },
+          { op: 'type', args: { blank: 'n', value: a.value } },
         ),
       ];
     }

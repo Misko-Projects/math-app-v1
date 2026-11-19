@@ -6,7 +6,9 @@
 // - numeral-pick: one object in the line looks different (its own colour group); the options are
 //   position words (`ord.<k>` clips) and the child picks its place. Option ids are `opt-<k>`.
 // - number-pad: the same marked line; the child types the place as a number (3 for third). This is
-//   CNT.15's constructed-answer format (04 §7b: only constructed answers are evidence).
+//   CNT.15's constructed-answer format (04 §7b: only constructed answers are evidence). With
+//   `ask: after` (the abstract tier) there is no line: the prompt names place k and the child types
+//   the number of the place just after it (6 after fifth), so k is 1 to 9.
 
 import type { LessonStep, ObjectSet, ResponseValue } from '@number-island/shared';
 import { boundNarration } from '../../content/binding';
@@ -26,6 +28,7 @@ import type { BuildContext, GeneratorDef, GeneratorOutput } from '../types';
 
 const FROM = ['left', 'right'] as const;
 type From = (typeof FROM)[number];
+const ASKS = ['place', 'after'] as const;
 
 /** The 0-based reading-order index of position k counted from `from` in a line of n. */
 export function ordinalIndex(k: number, n: number, from: From): number {
@@ -84,6 +87,12 @@ export const countOrdinal: GeneratorDef = {
       default: { kind: 'choice', values: [...DEFAULT_SPRITES] },
       doc: 'art-kit object sprite id',
     },
+    ask: {
+      type: 'string',
+      values: [...ASKS],
+      default: { kind: 'const', value: 'place' },
+      doc: 'place: the place of object k (every format); after (number-pad only): no line, type the place just after place k',
+    },
   },
   features: {
     'k.over5': { weight: 0.3, doc: 'max(0, k − 5) / 5' },
@@ -96,12 +105,16 @@ export const countOrdinal: GeneratorDef = {
     'gen.count.ordinal.start-left',
     'gen.count.ordinal.start-right',
     'gen.count.ordinal.this-one',
+    'gen.count.ordinal.say-to',
+    'gen.count.ordinal.after',
   ],
   sample: (spec, rng) => sampleAll(spec, rng),
   derive: () => ({}),
-  accepts(p) {
+  accepts(p, t) {
     const k = asNum(p.k);
     const n = asNum(p.n);
+    // `after` asks for place k + 1, which needs a clip too (… tenth): number-pad only.
+    if (asStr(p.ask, 'place') === 'after') return t.format === 'number-pad' && k >= 1 && k <= 9;
     // Ordinal words have clips for first … tenth; the line holds at least k objects and at least 3
     // (a numeral-pick needs three positions to choose from).
     return k >= 1 && k <= 10 && n >= k && n >= 3;
@@ -116,7 +129,8 @@ export const countOrdinal: GeneratorDef = {
     const vars = pickVars(t, { k, n, from });
     const math: Record<string, number> = {
       'k.over5': Math.max(0, k - 5) / 5,
-      'ordinal.fromRight': from === 'right' ? 1 : 0,
+      // An `after` item shows no line, so it has no end to count from.
+      'ordinal.fromRight': from === 'right' && asStr(params.ask, 'place') !== 'after' ? 1 : 0,
     };
     const set: ObjectSet = { count: n, sprite, layout: 'line', layoutSeed: layoutSeed(rng) };
     let p: PartialOutput;
@@ -165,6 +179,7 @@ export const countOrdinal: GeneratorDef = {
         break;
       }
       case 'number-pad': {
+        const after = asStr(params.ask, 'place') === 'after';
         const marked: ObjectSet = { ...set, groups: [index, 1, n - index - 1] };
         p = {
           params,
@@ -172,11 +187,11 @@ export const countOrdinal: GeneratorDef = {
           math,
           widget: {
             format: 'number-pad',
-            stimulus: { kind: 'objects', set: marked },
+            stimulus: after ? { kind: 'none' } : { kind: 'objects', set: marked },
             blanks: [{ id: 'n', maxDigits: 2 }],
             unit: null,
           },
-          answer: { kind: 'number', value: k },
+          answer: { kind: 'number', value: after ? k + 1 : k },
         };
         break;
       }
@@ -206,6 +221,16 @@ export const countOrdinal: GeneratorDef = {
           say('gen.count.ordinal.this-one', { k }, { op: 'tap', args: { id: numberOptionId(k) } }),
         ];
       case 'number-pad':
+        if (asStr(out.params.ask, 'place') === 'after') {
+          return [
+            say('gen.count.ordinal.say-to', { k }),
+            say(
+              'gen.count.ordinal.after',
+              { k, n: k + 1 },
+              { op: 'type', args: { blank: 'n', value: k + 1 } },
+            ),
+          ];
+        }
         return [
           say(start, { k }),
           say('gen.count.ordinal.this-one', { k }, { op: 'type', args: { blank: 'n', value: k } }),

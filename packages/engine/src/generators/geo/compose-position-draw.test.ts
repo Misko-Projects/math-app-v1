@@ -119,6 +119,36 @@ describe('geo.compose', () => {
     ).toBe(true);
   });
 
+  it.each([
+    ['hexagon-from-triangles', 'triangle', 6],
+    ['trapezoid-from-triangles', 'triangle', 3],
+    ['rectangle-from-squares', 'square', 2],
+  ] as const)('number-pad: %s takes %s pieces, typed (%i)', (outline, piece, n) => {
+    const t = tpl('geo.compose', 'number-pad', { representation: 'shapes' as Representation });
+    const it = item(t, { outline });
+    expect(it.answer).toEqual({ kind: 'number', value: n });
+    if (it.widget.format !== 'number-pad') throw new Error('pad');
+    // The same target card numeral-pick shows; the box never hints the count.
+    expect(it.widget.stimulus).toMatchObject({ kind: 'shape', shapes: [{ id: 'whole' }] });
+    expect(it.widget.blanks).toEqual([{ id: 'n', maxDigits: 1 }]);
+    // The solution replays through the number-pad model; only its last step types the count.
+    const steps = itemSolution(it, t);
+    expect(steps[0]?.action).toEqual({ op: 'show-stimulus' });
+    expect(steps[1]?.vars).toEqual({ n, piece, many: 2 });
+    const replayed = replaySteps(it, steps);
+    expect(replayed && checkResponse(it, replayed).correct).toBe(true);
+    // ask is a numeral-pick choice; the pad always asks how many.
+    expect(item(t, { outline, ask: 'which' }).answer).toEqual({ kind: 'number', value: n });
+  });
+
+  it('number-pad only draws uniform outlines its target card is exactly', () => {
+    const t = tpl('geo.compose', 'number-pad', { representation: 'shapes' as Representation });
+    // Two kinds of piece, a 3 × 1 rectangle the 2 × 1 card cannot show, a picture outline.
+    for (const outline of ['trapezoid-from-triangle-rhombus', 'long-rectangle', 'house'])
+      expect(geoCompose.accepts?.({ outline }, t), outline).toBe(false);
+    expect(geoCompose.accepts?.({ outline: 'hexagon-from-rhombuses' }, t)).toBe(true);
+  });
+
   it('numeral-pick which: the right pair among pairs that cannot fit', () => {
     const t = tpl('geo.compose', 'numeral-pick');
     const it = item(t, { outline: 'rhombus-from-triangles', ask: 'which' });

@@ -14,12 +14,10 @@ type Files = Record<string, string>;
 type Yaml = { [k: string]: any };
 
 /**
- * Diagnostics other than the expected ones. SUB.03.t5 was added after SUB.03.t4 shipped, and the
- * pictorial CMP.02.t4, CMP.07.t4 and CMP.09.t4 after their skills' abstract templates (V27
- * constructed practice); template ids are stable (03 §4.3), so their V10 tier-order warnings are
- * expected.
+ * Diagnostics other than the expected ones. SUB.03.t5 was added after SUB.03.t4 shipped; template
+ * ids are stable (03 §4.3), so its V10 tier-order warning is expected.
  */
-const LATE_PICTORIAL = ['SUB.03.t5', 'CMP.02.t4', 'CMP.07.t4', 'CMP.09.t4'];
+const LATE_PICTORIAL = ['SUB.03.t5'];
 const EXPECTED = (d: Diagnostic) =>
   d.check === 'V10' && LATE_PICTORIAL.some((id) => d.message.startsWith(`${id} (pictorial)`));
 /**
@@ -1324,7 +1322,8 @@ describe('V21: the test-out pool (03 §6.5) is resolved into testOut.templateIds
   it('uses abstract templates, else pictorial, and never choice-only ones when others remain', () => {
     expect(pool(FIXTURE, 'ADD.03')).toEqual(['ADD.03.t4']);
     expect(pool(FIXTURE, 'CPS.01')).toEqual(['CPS.01.t4', 'CPS.01.t5']);
-    expect(pool(FIXTURE, 'SUB.01')).toEqual(['SUB.01.t1', 'SUB.01.t2']); // SUB.01.t3 is numeral-pick
+    // SUB.01.t3 is numeral-pick; SUB.01.t4 is the number-pad one.
+    expect(pool(FIXTURE, 'SUB.01')).toEqual(['SUB.01.t1', 'SUB.01.t2', 'SUB.01.t4']);
   });
   it('adds pictorial templates for a gateway skill whose abstract ones span one representation', () => {
     expect(pool(FIXTURE, 'CNT.03')).toEqual(['CNT.03.t2', 'CNT.03.t4']); // t3 is choice-only
@@ -1627,9 +1626,10 @@ describe('V24 and contentVersion (03 §9.1)', () => {
     // Pinned to the current content; K01 (#11) updates these numbers as each strand group lands.
     expect(manifest.counts).toEqual({
       // CMP (K01) added 9 skills, 31 templates and MC.perceptual-size; CPS and SUB.04/SUB.07 (K01)
-      // added 7 skills and 27 templates; V27 (constructed practice) added 7 CMP templates.
+      // added 7 skills and 27 templates; V27 (constructed practice) added 7 CMP templates and 17
+      // for CNT, SUB, GEO and MEA skills.
       skills: 57,
-      templates: 195,
+      templates: 212,
       misconceptions: 9,
       narrationKeys: Object.keys(r.content?.narration ?? {}).length,
     });

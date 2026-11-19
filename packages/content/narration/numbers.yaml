@@ -487,6 +487,8 @@ word.short:
   text: "short"
 word.heavier:
   text: "heavier"
+word.lighter:
+  text: "lighter"
 word.longer:
   text: "longer"
 word.holds-more:

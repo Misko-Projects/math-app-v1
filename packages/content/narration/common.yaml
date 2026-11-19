@@ -115,6 +115,8 @@ h.ordinal.say-places:
   text: "Say first, second, third as you touch each one."
 h.ordinal.stones:
   text: "Start at the first stone. Say first, second, third."
+h.ordinal.say-on:
+  text: "Say the places in order. Which one comes next?"
 h.subitize.look-again:
   text: "Look again. Do you see a shape you know?"
 h.subitize.look-groups:
@@ -256,6 +258,10 @@ h.length.order-shortest:
   text: "Find the shortest one. It goes first."
 h.length.order-next:
   text: "Then find the shortest one that is left."
+h.length.order-longest:
+  text: "Find the longest one. It goes first."
+h.length.order-next-long:
+  text: "Then find the longest one that is left."
 h.length.order-numbers:
   text: "The smallest number is the shortest. It goes first."
 h.measure.start-at-end:
@@ -280,6 +286,8 @@ h.weight.more-things:
   text: "More things can be lighter. Watch the balance."
 h.weight.lift:
   text: "Think of how heavy each one is. Which one is heavier?"
+h.weight.order-heavy:
+  text: "The one that is most heavy goes first."
 
 # comparing, ordering, number lines and estimating (K01: CMP)
 h.compare.match:
@@ -387,6 +395,10 @@ gen.count.ordinal.start-right:
   text: "Start at the right. Count each one."
 gen.count.ordinal.this-one:
   text: "This one is {k|ord}."
+gen.count.ordinal.say-to:
+  text: "Say the places, first, second, up to {k|ord}."
+gen.count.ordinal.after:
+  text: "After {k|ord} comes {n|ord}. So we tap {n}."
 gen.subitize.flash.look:
   text: "Look at the dots again."
 gen.subitize.flash.see-groups:
@@ -576,6 +588,12 @@ gen.mea.length.order-start-long:
   text: "The longest is {n}. It goes first."
 gen.mea.length.order-next:
   text: "Next comes {n}."
+gen.mea.length.order-first-short:
+  text: "The shortest one goes first."
+gen.mea.length.order-first-long:
+  text: "The longest one goes first."
+gen.mea.length.order-then:
+  text: "Then this one."
 gen.mea.length.sticks-out:
   text: "Look at the part that sticks out."
 gen.mea.length.longer-by:
@@ -622,6 +640,16 @@ gen.mea.massvolume.find-mark:
   text: "Find the mark it is at."
 gen.mea.massvolume.reads:
   text: "It shows {n}."
+gen.mea.massvolume.order-first:
+  text: "This one is the most heavy. It goes first."
+gen.mea.massvolume.order-then:
+  text: "Then this one."
+gen.mea.massvolume.sort-look:
+  text: "Think of the {thing|noun:one}. Is each one heavier, is it lighter?"
+gen.mea.massvolume.sort-heavier:
+  text: "This one is heavier than the {thing|noun:one}."
+gen.mea.massvolume.sort-lighter:
+  text: "This one is lighter than the {thing|noun:one}."
 
 gen.compare.sets.match:
   text: "Let's match them, one from each side."

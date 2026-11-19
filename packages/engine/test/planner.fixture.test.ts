@@ -81,17 +81,20 @@ describe('F3: evidence follows the template answer kind, not the format', () => 
   it('falls back to every template of a choice-only skill, none of which is ever needed', () => {
     const model = createEloFireModel(graph, { childId: CHILD_1, isK: false });
     const state = model.init(graph, null);
-    // K01 (#11) gives CNT.15 one constructed template (CNT.15.t4), its only evidence. Without it,
-    // the ordinal tap-count and numeral-pick templates (all choice) are the fallback.
+    // K01 (#11) gives CNT.15 two constructed templates (CNT.15.t4, t5), its only evidence.
+    // Without them, the ordinal tap-count and numeral-pick templates (all choice) are the fallback.
     const skill = graph.skills['CNT.15'] as Skill;
     const constructed = skill.templates.filter((id) => isConstructedTemplate(tpl(id)));
-    expect(constructed).toEqual(['CNT.15.t4']);
+    expect(constructed).toEqual(['CNT.15.t4', 'CNT.15.t5']);
     expect(ids(evidenceTemplates(graph, 'CNT.15'))).toEqual(constructed);
     const choiceOnly: SkillGraph = {
       ...graph,
       skills: {
         ...graph.skills,
-        'CNT.15': { ...skill, templates: skill.templates.filter((id) => id !== 'CNT.15.t4') },
+        'CNT.15': {
+          ...skill,
+          templates: skill.templates.filter((id) => !constructed.includes(id)),
+        },
       },
     };
     expect(ids(evidenceTemplates(choiceOnly, 'CNT.15')).sort()).toEqual([

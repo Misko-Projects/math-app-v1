@@ -14,6 +14,8 @@ sk.SUB.06.intro:
 sk.SUB.07.intro:
   text: "Each row of beads has two fives. See how many fast!"
 
+tp.SUB.01.t4.prompt:
+  text: "How many do you see?"
 tp.SUB.03.t1.prompt:
   text: "Show {n} on the ten-frame. Fill the top row first."
 tp.SUB.03.t4.prompt:
