@@ -175,6 +175,20 @@ function cellNumber(fill: unknown[], r: number, c: number): number | undefined {
 const isPair = (x: unknown): x is Cell =>
   Array.isArray(x) && x.length === 2 && x.every((v) => Number.isInteger(v));
 
+/**
+ * The number path's `adjacent-step` rule, one rule for both target forms (PR #84 review rounds 4
+ * and 5): only a `number-path` has it, every value along the path is a whole number (03 §5.5),
+ * and each is `step` more than the one before it.
+ */
+function stepHolds(variant: unknown, step: unknown, path: readonly unknown[]): boolean {
+  if (variant !== 'number-path' || typeof step !== 'number' || !Number.isInteger(step)) {
+    return false;
+  }
+  if (!path.every((v) => typeof v === 'number' && Number.isInteger(v) && v >= 0)) return false;
+  const values = path as number[];
+  return values.every((v, i) => i === 0 || v - (values[i - 1] as number) === step);
+}
+
 function checkNumbers(
   target: Readonly<Record<string, unknown>>,
   value: Readonly<Record<string, unknown>>,
@@ -222,10 +236,7 @@ function checkNumbers(
       if (!(line as Cell[]).every((cell) => inside.has(key(cell[0], cell[1])))) return false;
       if ((line as Cell[]).reduce((s, cell) => s + at(cell), 0) !== con.sum) return false;
     } else if (con?.kind === 'adjacent-step') {
-      if (typeof con.step !== 'number') return false;
-      for (let i = 1; i < cells.length; i += 1) {
-        if (at(cells[i] as Cell) - at(cells[i - 1] as Cell) !== con.step) return false;
-      }
+      if (!stepHolds(target.variant, con.step, (cells as Cell[]).map(at))) return false;
     } else {
       return false;
     }
@@ -289,8 +300,8 @@ const sameMultiset = (a: readonly (number | string)[], b: readonly (number | str
  * - `use-each`: the blanks' values are exactly `values` (as a multiset), or, when `values` has one
  *   entry per puzzle cell, all the cells' values are;
  * - `adjacent-step` (`number-path` only): each cell, in the order `cells` lists them (the path),
- *   is `step` more than the one before it (PR #84 review round 4: the model admits it, so both
- *   target forms check it).
+ *   is a whole number `step` more than the one before it (`stepHolds`, the same rule as K01's
+ *   [r, c] targets; PR #84 review rounds 4 and 5).
  * Other constraint kinds (`equation`, `clue`) are not checked yet and reject.
  */
 function checkNumeric(
@@ -388,17 +399,16 @@ function checkNumeric(
         if (!sameMultiset(got, want)) return false;
         break;
       }
-      case 'adjacent-step': {
-        if (target.variant !== 'number-path' || typeof k.step !== 'number') return false;
-        for (let i = 1; i < cells.length; i += 1) {
-          const prev = cells[i - 1] as PuzzleCell;
-          const here = cells[i] as PuzzleCell;
-          const a = num(prev.r, prev.c);
-          const b = num(here.r, here.c);
-          if (a === undefined || b === undefined || b - a !== k.step) return false;
-        }
+      case 'adjacent-step':
+        if (
+          !stepHolds(
+            target.variant,
+            k.step,
+            cells.map((x) => at(x.r, x.c)),
+          )
+        )
+          return false;
         break;
-      }
       default:
         return false;
     }

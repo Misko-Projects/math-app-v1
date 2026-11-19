@@ -886,4 +886,35 @@ describe('PR #86 review round 3', () => {
     const other = { ...c, variant: 'missing-digit' as const };
     expect(issuePaths(puzzleGrid, other)).toContain('constraints.0');
   });
+
+  it('both target forms take whole numbers on a number path, and the step on no other variant', () => {
+    // PR #84 review round 5: a fractional path steps by 1 too, but a number path holds whole
+    // numbers (03 §5.5).
+    const c = grid('number-path', [[null, null]], {
+      constraints: [{ kind: 'adjacent-step', step: 1 }],
+      palette: [0.5, 1, 1.5, 2],
+    });
+    expect(issuePaths(puzzleGrid, c)).toEqual([]);
+    const fill = (a: number, b: number) =>
+      puzzleGrid.toResponse(play(puzzleGrid, c, solve(c, [[a, b]])));
+    const pairs = {
+      variant: 'number-path',
+      rows: 1,
+      cols: 2,
+      cells: [
+        [0, 0],
+        [0, 1],
+      ],
+      givens: [],
+      constraints: [{ kind: 'adjacent-step', step: 1 }],
+      palette: c.palette,
+    };
+    for (const t of [target(c), pairs]) {
+      expect(satisfies(t, fill(1, 2))).toBe(true);
+      expect(satisfies(t, fill(0.5, 1.5))).toBe(false);
+    }
+    // The [r, c] form refuses the step on another variant, as the schema and config form do.
+    const triangle = { ...pairs, variant: 'sum-triangle', palette: [] };
+    expect(satisfies(triangle, { kind: 'state', value: { fill: [[1, 2]] } })).toBe(false);
+  });
 });
