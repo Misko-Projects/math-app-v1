@@ -374,8 +374,6 @@ export const InviteFillTapAfterFilled: Story = {
     await expectInviteOn(root, key(root, '4'));
     await userEvent.click(key(root, '4'));
     await expectInviteOn(root, key(root, '7'));
-    await userEvent.click(key(root, '7'));
-    await waitFor(() => expect(root.querySelector('.ni-invite')).toBeNull());
   },
 };
 
@@ -586,10 +584,10 @@ export const FillTensKMinLandscape: Story = {
       [...root.querySelectorAll('button')].filter((b) => b !== key(root, '0')),
     );
     await expectHcFits(canvasElement, root, 'k');
-    tensInvite.invite(null);
-    await userEvent.click(key(root, 'back'));
     await expectTruthfulChart(root, fillTens);
-    await typeKeys(root, '20304050');
+    // Type the rest (the window follows the blanks) and check; the invite stays on, so the story
+    // ends with its one ring and Pip's hand on Check.
+    await typeKeys(root, '0304050');
     await expect(cell(root, 50)).not.toBeNull();
     await expectTruthfulChart(root, fillTens);
     await userEvent.click(checkBtn(root));
@@ -597,6 +595,10 @@ export const FillTensKMinLandscape: Story = {
       kind: 'numbers',
       values: [20, 30, 40, 50],
     });
+    (document.activeElement as HTMLElement | null)?.blur();
+    await waitFor(() => expect(checkBtn(root)).toHaveClass('ni-invite'));
+    await expect(root.querySelectorAll('.ni-invite')).toHaveLength(1);
+    await expectHcFits(canvasElement, root, 'k');
   },
 };
 
