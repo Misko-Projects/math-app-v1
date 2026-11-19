@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { parse, stringify } from 'yaml';
 import type { CheckId, Diagnostic } from '../diagnostics';
 import { readContentFiles } from '../fs';
@@ -6,6 +6,9 @@ import { validateContent } from '../validate';
 import { compileContent } from './compile';
 
 // Each compiler check (03 §9.2) against the C01 fixture set with one deliberate defect.
+
+// Every test here compiles the full K–1 catalog (or a variant), which takes seconds per compile on CI.
+vi.setConfig({ testTimeout: 30_000 });
 
 const FIXTURE = readContentFiles();
 
@@ -1693,9 +1696,9 @@ describe('V24 and contentVersion (03 §9.1)', () => {
       // added 7 skills and 27 templates; V27 (constructed practice) added 7 CMP templates and 18
       // for CNT, SUB, GEO and MEA skills; ADD facts and strategies (K01) added 14 skills, 58
       // templates, MC.forgot-the-ten and MC.wrong-operation; equality and story problems (K01) added
-      // 11 skills (ALG.05 and CMP.08 among them), 42 templates and 5 misconceptions.
+      // 11 skills (ALG.05 and CMP.08 among them), 41 templates and 5 misconceptions.
       skills: 82,
-      templates: 313,
+      templates: 312,
       misconceptions: 16,
       narrationKeys: Object.keys(r.content?.narration ?? {}).length,
     });

@@ -24,6 +24,23 @@ const CASES: [string, Rec, Rec, boolean][] = [
   ['fractional blocks', { left: 7, right: 5 }, { left: 0, right: 2.5 }, false],
   ['missing pan', { left: 7, right: 5 }, { right: 2 }, false],
   ['malformed target', { left: 'seven', right: 5 }, { left: 0, right: 2 }, false],
+  // Past 2^53 the sums round: 7 + MAX_SAFE_INTEGER and 5 + (MAX_SAFE_INTEGER + 1) are the same
+  // float, although the pans differ by one block. Counts are bounded, so neither is accepted.
+  [
+    'a huge count that would round level',
+    { left: 7, right: 5 },
+    { left: Number.MAX_SAFE_INTEGER, right: Number.MAX_SAFE_INTEGER + 1 },
+    false,
+  ],
+  [
+    'level, but with counts past MAX_BLOCKS',
+    { left: 7, right: 5 },
+    { left: Number.MAX_SAFE_INTEGER - 2, right: Number.MAX_SAFE_INTEGER },
+    false,
+  ],
+  ['a count over MAX_BLOCKS', { left: 7, right: 5 }, { left: 1000, right: 1002 }, false],
+  ['MAX_BLOCKS itself is a count', { left: 0, right: 0 }, { left: 1000, right: 1000 }, true],
+  ['a huge target pan', { left: Number.MAX_SAFE_INTEGER, right: 5 }, { left: 0, right: 0 }, false],
 ];
 
 describe('balance.equal', () => {

@@ -193,28 +193,90 @@ describe('formats', () => {
     checkItem(t, take);
   });
 
-  it('numeral-pick offers the 2 × 2 grid of equations around the told numbers', () => {
+  it('numeral-pick: the told equation is the `corner` cell of the 2 × 2 grid', () => {
     const t = tpl('numeral-pick', { representation: 'objects' });
-    const item = make(t, { situation: 'add-to/result', a: 5, b: 2, ask: 'equation' });
-    expect(
-      item.widget.format === 'numeral-pick' && item.widget.options.map((o) => o.label).sort(),
-    ).toEqual(['4 + 1 = 5', '4 + 2 = 6', '5 + 1 = 6', '5 + 2 = 7']);
-    expect(item.answer).toEqual({ kind: 'choice', id: 'eq-5-plus-2' });
-    checkItem(t, item);
+    const labels = (corner: number) => {
+      const item = make(t, { situation: 'add-to/result', a: 5, b: 2, ask: 'equation', corner });
+      checkItem(t, item);
+      expect(item.answer).toEqual({ kind: 'choice', id: 'eq-5-plus-2' });
+      return item.widget.format === 'numeral-pick' ? item.widget.options.map((o) => o.label) : [];
+    };
+    // The key 5 + 2 is the least, the greatest, or a middle cell, as `corner` says.
+    expect(labels(0).sort()).toEqual(['5 + 2 = 7', '5 + 3 = 8', '6 + 2 = 8', '6 + 3 = 9']);
+    expect(labels(1).sort()).toEqual(['4 + 2 = 6', '4 + 3 = 7', '5 + 2 = 7', '5 + 3 = 8']);
+    expect(labels(2).sort()).toEqual(['5 + 1 = 6', '5 + 2 = 7', '6 + 1 = 7', '6 + 2 = 8']);
+    expect(labels(3).sort()).toEqual(['4 + 1 = 5', '4 + 2 = 6', '5 + 1 = 6', '5 + 2 = 7']);
   });
 
-  it('equationGrid takes one less (one more for 1) and never goes below 0', () => {
-    expect(
-      equationGrid({ situation: 'add-to/result', a: 1, b: 1 })?.map((e) => [e.x, e.y]),
-    ).toEqual([
-      [1, 1],
-      [1, 2],
-      [2, 1],
-      [2, 2],
+  it('equationGrid: the set depends on (x0, y0) only; no turn-around pair; cells stay in 1–maxTold', () => {
+    const cells = (p: ParamValues) =>
+      equationGrid({ situation: 'add-to/result', ...p })?.options.map((e) => [e.x, e.y]);
+    // The same set from each of its four cells.
+    const set = [
+      [2, 3],
+      [3, 3],
+      [2, 4],
+      [3, 4],
+    ];
+    expect(cells({ a: 2, b: 3, corner: 0 })).toEqual(set);
+    expect(cells({ a: 3, b: 3, corner: 1 })).toEqual(set);
+    expect(cells({ a: 2, b: 4, corner: 2 })).toEqual(set);
+    expect(cells({ a: 3, b: 4, corner: 3 })).toEqual(set);
+    // x0 = y0 would offer 1 + 2 beside 2 + 1, which the two-group picture cannot tell apart.
+    expect(equationGrid({ situation: 'add-to/result', a: 2, b: 2, corner: 3 })).toBeNull();
+    expect(equationGrid({ situation: 'add-to/result', a: 2, b: 2, corner: 1 })).not.toBeNull();
+    // Below 1, or past maxTold.
+    expect(cells({ a: 1, b: 2, corner: 1 })).toBeUndefined();
+    expect(cells({ a: 5, b: 2, corner: 0, maxTold: 5 })).toBeUndefined();
+    expect(cells({ a: 5, b: 2, corner: 1, maxTold: 5 })).toEqual([
+      [4, 2],
+      [5, 2],
+      [4, 3],
+      [5, 3],
     ]);
-    // 2 − 1: the grid has 1 − 2, below 0.
-    expect(equationGrid({ situation: 'take-from/result', a: 2, b: 1 })).toBeNull();
+    // 2 − 1 with corner 0: the grid has 2 − 2 = 0, which no story here asks.
+    expect(equationGrid({ situation: 'take-from/result', a: 2, b: 1, corner: 0 })).toBeNull();
     expect(equationGrid({ situation: 'add-to/change', a: 1, b: 3 })).toBeNull();
+  });
+});
+
+describe('put-together/both (a free split of the whole a)', () => {
+  it('the level-3 picture shows the whole a with two unknown parts', () => {
+    const t = tpl('story-problem');
+    const item = make(t, { situation: 'put-together/both', a: 6, b: 1 });
+    const level3 = item.hints.find((h) => h.level === 3);
+    expect(level3?.overlay).toEqual({ kind: 'bar-model', parts: ['?', '?'], whole: 6 });
+  });
+
+  it('b changes neither the widget, the picture nor the difficulty', () => {
+    const t = tpl('story-problem');
+    const build = (b: number) =>
+      registry.get('story.addsub')?.build({
+        params: { context: 'beach-shells', situation: 'put-together/both', a: 6, b, result: 6 },
+        template: t,
+        rng: createRng(3).fork('x'),
+      });
+    const one = build(1);
+    for (const b of [2, 5, 9, 19]) {
+      const other = build(b);
+      expect(other?.widget).toEqual(one?.widget);
+      expect(other?.hints).toEqual(one?.hints);
+      expect(other?.features).toEqual(one?.features);
+      expect(other?.vars).toEqual(one?.vars);
+    }
+    expect(one?.features).toMatchObject({ size: 0.1, bridge10: 0 });
+  });
+
+  it('sampling pins b to its least value', () => {
+    const p = storyAddsub.sample(
+      {
+        situation: { kind: 'const', value: 'put-together/both' },
+        a: { kind: 'int', min: 2, max: 10 },
+        b: { kind: 'int', min: 3, max: 9 },
+      },
+      createRng(5),
+    );
+    expect(p.b).toBe(3);
   });
 });
 

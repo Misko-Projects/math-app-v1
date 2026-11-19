@@ -4,7 +4,10 @@
 //
 // `situation` is a 03 §5.5 SituationType of the add-to, take-from, put-together or compare
 // families. `a` and `b` are the two numbers the story tells, in the order it tells them, and `c` a
-// third addend (add-to/result and put-together/total only; 0 = none). The answer is `result`:
+// third addend (add-to/result and put-together/total only; 0 = none). put-together/both tells only
+// the whole `a`: `b` is ignored (the story model reads it as 0, and sampling pins it to its
+// domain's least value), so nothing the child sees or the difficulty depends on it. The answer is
+// `result`:
 //   add-to/result a + b (+ c)        add-to/change b − a        add-to/start b − a
 //   take-from/result a − b           take-from/change a − b     take-from/start a + b
 //   put-together/total a + b (+ c)   put-together/addend a − b  put-together/both: any split of a
@@ -23,8 +26,12 @@
 //   child to finish (numbers `[b, result]`).
 // - make-set: act out add-to/result or take-from/result; the basket starts with `a`.
 // - numeral-pick (always the equation, whatever `ask`): pick the equation that matches. The
-//   options are a 2 × 2 grid around the told numbers (a or a ± 1 with b or b ± 1, one operation),
-//   so no number alone points at the answer.
+//   options are a 2 × 2 grid x0 or x0 + 1 with y0 or y0 + 1 (one operation), and `corner` (a
+//   param, drawn uniformly) says which cell the told a op b is, so the option set does not tell
+//   which option is the key: for every set, each cell is the key of some draw. Every cell's
+//   numbers are 1 to `maxTold` (a template whose a and b domains are 1 to maxTold can ask each),
+//   and an addition grid never has x0 = y0, which would offer x + y beside its turn-around y + x
+//   (the same two groups).
 
 import type {
   ExpressionToken,
@@ -47,7 +54,7 @@ import {
   pickVars,
   sampleAll,
 } from '../common';
-import type { BuildContext, GeneratorDef, GeneratorOutput } from '../types';
+import type { BuildContext, GeneratorDef, GeneratorOutput, ParamDecl } from '../types';
 import { STORY_CONTEXT_IDS, STORY_CONTEXTS, type StoryContext } from './contexts';
 import {
   SITUATION_WEIGHT,
@@ -81,36 +88,96 @@ function nounOf(s: Story, ctx: StoryContext): string {
   return ctx.item;
 }
 
-/**
- * The 2 × 2 grid of equations around the told numbers (numeral-pick), the true one first: a or
- * its neighbour with b or its neighbour, where the neighbour is one less (one more for 1). A
- * template whose a and b domains run from 1 therefore only offers equations it could ask. Null
- * when a grid equation would go below 0 or past maxN (the draw is rejected).
- */
-export function equationGrid(p: ParamValues): { x: number; y: number; op: '+' | '-' }[] | null {
-  const s = story(p);
-  if (!EQUATION_SITUATIONS.has(s.situation) || s.c !== 0) return null;
-  const maxN = asNum(p.maxN, 20);
-  const ok = (x: number, y: number) => {
-    const r = s.op === '-' ? x - y : x + y;
-    return x >= 1 && y >= 1 && r >= 0 && r <= maxN && x <= maxN && y <= maxN;
-  };
-  const near = (v: number): number => (v > 1 ? v - 1 : v + 1);
-  const x2 = near(s.a);
-  const y2 = near(s.b);
-  const grid = [
-    { x: s.a, y: s.b },
-    { x: s.a, y: y2 },
-    { x: x2, y: s.b },
-    { x: x2, y: y2 },
-  ];
-  if (!grid.every((g) => ok(g.x, g.y))) return null;
-  return grid.map((g) => ({ ...g, op: s.op }));
+const PARAMS: Record<string, ParamDecl> = {
+  situation: {
+    type: 'string',
+    values: [...STORY_SITUATIONS],
+    default: { kind: 'const', value: 'add-to/result' },
+    doc: 'the 03 §5.5 SituationType (add-to, take-from, put-together and compare families)',
+  },
+  a: { type: 'int', default: { kind: 'int', min: 1, max: 9 }, doc: 'the first number told' },
+  b: { type: 'int', default: { kind: 'int', min: 1, max: 9 }, doc: 'the second number told' },
+  c: {
+    type: 'int',
+    default: { kind: 'const', value: 0 },
+    doc: 'a third addend (add-to/result, put-together/total); 0 = none',
+  },
+  context: {
+    type: 'string',
+    values: [...STORY_CONTEXT_IDS],
+    default: { kind: 'choice', values: [...STORY_CONTEXT_IDS] },
+    doc: 'the contexts.yaml story context (scene, nouns, verbs)',
+  },
+  ask: {
+    type: 'string',
+    values: ['answer', 'equation'],
+    default: { kind: 'const', value: 'answer' },
+    doc: 'number-pad: answer (the asked number) or equation (finish a op _ = _); numeral-pick always picks the equation',
+  },
+  workspace: {
+    type: 'string',
+    values: [...WORKSPACES],
+    default: { kind: 'const', value: 'counters' },
+    doc: 'story-problem: the tool beside the story (never graded)',
+  },
+  corner: {
+    type: 'int',
+    default: { kind: 'const', value: 0 },
+    doc: 'numeral-pick: the cell (0–3) of the 2 × 2 equation grid the told equation is in; a numeral-pick template draws it, { int: [0, 3] }',
+  },
+  maxN: {
+    type: 'int',
+    default: { kind: 'const', value: 20 },
+    doc: 'largest number in the story',
+  },
+  maxTold: {
+    type: 'int',
+    default: { kind: 'const', value: 20 },
+    doc: 'largest number the story tells (a, b, c); numeral-pick: every option number too',
+  },
+};
+
+export interface GridEquation {
+  x: number;
+  y: number;
+  op: '+' | '-';
 }
 
-const eqId = (e: { x: number; y: number; op: '+' | '-' }): string =>
-  `eq-${e.x}-${e.op === '-' ? 'minus' : 'plus'}-${e.y}`;
-const eqLabel = (e: { x: number; y: number; op: '+' | '-' }): string =>
+/**
+ * The 2 × 2 grid of equations a numeral-pick item offers, and which one is the key. The grid is
+ * x0 or x0 + 1 with y0 or y0 + 1, in the order (x0, y0), (x0 + 1, y0), (x0, y0 + 1),
+ * (x0 + 1, y0 + 1); `corner` (0–3) is the key's cell, so x0 = a − (corner & 1) and
+ * y0 = b − (corner >> 1). The set depends on (x0, y0) only, and every cell is the key of the draw
+ * that tells it with that corner. Null (the draw is rejected) when a cell is not a story the
+ * template could tell (a number below 1 or past maxTold, a result under 1 or past maxN), or when
+ * an addition grid has x0 = y0 and so a turn-around pair (x + y and y + x).
+ */
+export function equationGrid(p: ParamValues): { options: GridEquation[]; key: number } | null {
+  const s = story(p);
+  if (!EQUATION_SITUATIONS.has(s.situation) || s.c !== 0) return null;
+  const corner = asNum(p.corner, 0);
+  if (!Number.isInteger(corner) || corner < 0 || corner > 3) return null;
+  const maxN = asNum(p.maxN, 20);
+  const maxTold = asNum(p.maxTold, 20);
+  const x0 = s.a - (corner & 1);
+  const y0 = s.b - (corner >> 1);
+  if (s.op === '+' && x0 === y0) return null;
+  const ok = (x: number, y: number) => {
+    const r = s.op === '-' ? x - y : x + y;
+    return x >= 1 && y >= 1 && Math.max(x, y) <= maxTold && r >= 1 && r <= maxN;
+  };
+  const options: GridEquation[] = [
+    { x: x0, y: y0, op: s.op },
+    { x: x0 + 1, y: y0, op: s.op },
+    { x: x0, y: y0 + 1, op: s.op },
+    { x: x0 + 1, y: y0 + 1, op: s.op },
+  ];
+  if (!options.every((e) => ok(e.x, e.y))) return null;
+  return { options, key: corner };
+}
+
+const eqId = (e: GridEquation): string => `eq-${e.x}-${e.op === '-' ? 'minus' : 'plus'}-${e.y}`;
+const eqLabel = (e: GridEquation): string =>
   `${e.x} ${e.op === '-' ? '−' : '+'} ${e.y} = ${e.op === '-' ? e.x - e.y : e.x + e.y}`;
 
 function valid(p: ParamValues, t: ItemTemplate): boolean {
@@ -118,8 +185,10 @@ function valid(p: ParamValues, t: ItemTemplate): boolean {
   const ctx = contextOf(p);
   if (!ctx?.families.includes(s.family)) return false;
   const maxN = asNum(p.maxN, 20);
-  if (s.a < 1 || s.b < 1 || s.c < 0) return false;
+  if (s.a < 1 || s.c < 0) return false;
+  if (s.b < 1 && s.situation !== 'put-together/both') return false;
   if (Math.max(s.a, s.b, s.c, s.result) > maxN) return false;
+  if (Math.max(s.a, s.b, s.c) > asNum(p.maxTold, 20)) return false;
   if (s.situation === 'put-together/both' ? s.result < 2 : s.result < 1) return false;
   const ask = asStr(p.ask, 'answer');
   switch (t.format) {
@@ -140,17 +209,23 @@ function valid(p: ParamValues, t: ItemTemplate): boolean {
 
 /**
  * Draws the params; when the told numbers come in the wrong order for the situation (a change
- * that would be negative), swaps a and b if both stay in their domains.
+ * that would be negative), swaps a and b if both stay in their domains. put-together/both does not
+ * tell b, so b is pinned to its domain's least value: two draws that differ only in b would be
+ * the same item.
  */
 function sampleStory(spec: Record<string, ParamSpec>, rng: Rng): ParamValues {
   const p = sampleAll(spec, rng);
   const s = story(p);
+  if (s.situation === 'put-together/both') {
+    const sb = spec.b;
+    if (sb?.kind === 'int' && inDomain(sb, sb.min)) p.b = sb.min;
+    return p;
+  }
   const swapped = { ...p, a: p.b, b: p.a } as ParamValues;
   const sa = spec.a;
   const sb = spec.b;
   if (
     s.result < 1 &&
-    s.situation !== 'put-together/both' &&
     sa &&
     sb &&
     inDomain(sa, s.b) &&
@@ -334,8 +409,9 @@ function barModel(s: Story): StimulusSpec {
     case 'compare/smaller-fewer':
     case 'compare/smaller-more':
       return { kind: 'bar-model', parts: ['?', b], whole: a, compare: { bigger: a, smaller: '?' } };
-    default:
-      return { kind: 'bar-model', parts: [a, '?'], whole: '?' };
+    case 'put-together/both':
+      // The whole is told; both parts are the child's free split.
+      return { kind: 'bar-model', parts: ['?', '?'], whole: a };
   }
 }
 
@@ -429,44 +505,7 @@ function thinkLine(s: Story, action?: LessonStep['action']): LessonStep {
 export const storyAddsub: GeneratorDef = {
   id: 'story.addsub',
   formats: ['story-problem', 'number-pad', 'make-set', 'numeral-pick'],
-  params: {
-    situation: {
-      type: 'string',
-      values: [...STORY_SITUATIONS],
-      default: { kind: 'const', value: 'add-to/result' },
-      doc: 'the 03 §5.5 SituationType (add-to, take-from, put-together and compare families)',
-    },
-    a: { type: 'int', default: { kind: 'int', min: 1, max: 9 }, doc: 'the first number told' },
-    b: { type: 'int', default: { kind: 'int', min: 1, max: 9 }, doc: 'the second number told' },
-    c: {
-      type: 'int',
-      default: { kind: 'const', value: 0 },
-      doc: 'a third addend (add-to/result, put-together/total); 0 = none',
-    },
-    context: {
-      type: 'string',
-      values: [...STORY_CONTEXT_IDS],
-      default: { kind: 'choice', values: [...STORY_CONTEXT_IDS] },
-      doc: 'the contexts.yaml story context (scene, nouns, verbs)',
-    },
-    ask: {
-      type: 'string',
-      values: ['answer', 'equation'],
-      default: { kind: 'const', value: 'answer' },
-      doc: 'number-pad: answer (the asked number) or equation (finish a op _ = _); numeral-pick always picks the equation',
-    },
-    workspace: {
-      type: 'string',
-      values: [...WORKSPACES],
-      default: { kind: 'const', value: 'counters' },
-      doc: 'story-problem: the tool beside the story (never graded)',
-    },
-    maxN: {
-      type: 'int',
-      default: { kind: 'const', value: 20 },
-      doc: 'largest number in the story',
-    },
-  },
+  params: PARAMS,
   derived: ['result'],
   features: {
     size: { weight: 0.3, doc: 'max(0, largest number − 5) / 10' },
@@ -618,9 +657,10 @@ export const storyAddsub: GeneratorDef = {
       case 'numeral-pick': {
         const grid = equationGrid(params);
         if (!grid) throw new RangeError('story.addsub: no equation options');
+        const key = grid.options[grid.key] as GridEquation;
         const options = rng
           .fork('layout')
-          .shuffle(grid)
+          .shuffle(grid.options)
           .map((e) => ({
             id: eqId(e),
             label: eqLabel(e),
@@ -636,7 +676,7 @@ export const storyAddsub: GeneratorDef = {
           vars,
           math,
           widget: { format: 'numeral-pick', stimulus, options, layout: 'grid' },
-          answer: { kind: 'choice', id: eqId(grid[0] as { x: number; y: number; op: '+' | '-' }) },
+          answer: { kind: 'choice', id: eqId(key) },
         };
         break;
       }

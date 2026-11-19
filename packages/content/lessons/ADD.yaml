@@ -37,7 +37,8 @@ lessons:
     outro: ls.ADD.08.outro
 
   # ADD.10 (gateway): the balance shows what "=" means. 3 + 4 shells against 5: the light side goes
-  # up, two more make it level, so 3 + 4 is the same as 5 + 2. The faded examples move to the
+  # up, counting on from 5 to 7 finds what it is missing, and only the last step names and places
+  # the two more that make it level, so 3 + 4 is the same as 5 + 2. The faded examples move to the
   # equation (a second representation, 03 §6.4), with steps from the generator's solution. The
   # test-out is pinned to the constructed templates (objects and symbols): the balance judge and
   # compare templates answer with a choice, which the compiler cannot tell from balance's formats.
@@ -57,13 +58,13 @@ lessons:
             action: { op: highlight-side, args: { side: right } }
           - actor: demo
             say: ls.ADD.10.w1.s3
-            vars: { n: 2 }
-            action:
-              { op: place, args: { side: right, term: { object: shell, count: 1 }, count: 2 } }
+            vars: { c: 5, m: 7 }
+            action: { op: highlight-side, args: { side: right } }
           - actor: demo
             say: ls.ADD.10.w1.s4
             vars: { a: 3, b: 4, c: 5, n: 2 }
-            action: { op: level }
+            action:
+              { op: place, args: { side: right, term: { object: shell, count: 1 }, count: 2 } }
     faded:
       - templateId: ADD.10.t5
         params: { form: a+b=c+_, a: 5, b: 3, c: 6 }
