@@ -126,7 +126,9 @@ export function createSyncLifecycle(
       }),
     // Waits for a credential change in progress (it never runs between a sign-out's stop and its
     // token removal), without holding up the changes queued after it.
-    syncNow: (reason) => queue.then(() => client.syncNow(reason)),
+    // After teardown nothing runs, including a sync asked for just before it.
+    syncNow: (reason) =>
+      queue.then(() => (closed ? ({ kind: 'stopped' } as const) : client.syncNow(reason))),
     stop() {
       closed = true;
       void pause();
