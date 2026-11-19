@@ -61,6 +61,31 @@ function contentBox(el: Element) {
 }
 
 /**
+ * Evidence review (PR #88): logs whether the widget is centred inside its OWN host (the
+ * WidgetHost `.ni-widget` box), apart from where the host sits in the area (the shared story
+ * harness, #12): `[centre] host in area L/R a/b; widget in host L/R x/y` (CSS px). The widget's
+ * extent is the union of its root's in-flow children (Pip's hand and overlays excluded).
+ */
+function logCentring(box: HTMLElement, inner: { left: number; right: number }) {
+  const host = box.querySelector<HTMLElement>('.ni-widget');
+  const root = host?.firstElementChild as HTMLElement | null;
+  if (!host || !root) return;
+  const h = host.getBoundingClientRect();
+  const kids = [...root.children].filter(
+    (c) => getComputedStyle(c).position !== 'absolute' && !c.classList.contains('ni-hand'),
+  );
+  if (kids.length === 0) return;
+  const rects = kids.map((c) => c.getBoundingClientRect());
+  const left = Math.min(...rects.map((r) => r.left));
+  const right = Math.max(...rects.map((r) => r.right));
+  const n = (v: number) => Math.round(v);
+  console.info(
+    `[centre] host in area L/R ${n(h.left - inner.left)}/${n(inner.right - h.right)}; ` +
+      `widget in host L/R ${n(left - h.left)}/${n(h.right - right)}`,
+  );
+}
+
+/**
  * Nothing in the area scrolls, and every listed part (controls, pictures) lies inside the area's
  * content box.
  */
@@ -75,6 +100,7 @@ export async function expectFitsArea(box: HTMLElement, parts: readonly Element[]
     box.clientWidth + 1,
   );
   const inner = contentBox(box);
+  logCentring(box, inner);
   await expect(parts.length, 'parts to check').toBeGreaterThan(0);
   for (const part of parts) {
     const r = part.getBoundingClientRect();
