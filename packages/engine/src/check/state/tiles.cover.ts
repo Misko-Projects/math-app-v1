@@ -39,4 +39,10 @@ export const tilesCover: StateChecker = {
     if (value.tiles !== mask) return false;
     return askedValueOk(target, value);
   },
+  // Decompose: taking away a split line that still leaves only rectangles is another valid
+  // decomposition, not a near miss.
+  exempt: (target, original, mutated) =>
+    target.decompose === true &&
+    num(original.value) === num(mutated.value) &&
+    tilesCover.check(target, mutated),
 };

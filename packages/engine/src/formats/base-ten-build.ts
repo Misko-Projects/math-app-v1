@@ -97,9 +97,6 @@ const configSchema = baseTenBuildConfigSchema.superRefine((c, ctx) => {
     });
     return;
   }
-  if (!PIECE_KINDS.some((k) => c.pieces[k]) && c.mode !== 'read') {
-    ctx.addIssue({ code: 'custom', path: ['pieces'], message: 'the tray offers no pieces' });
-  }
   if (c.mode === 'read') {
     if (!c.prebuilt || piecesValue(c.prebuilt) !== c.target) {
       ctx.addIssue({

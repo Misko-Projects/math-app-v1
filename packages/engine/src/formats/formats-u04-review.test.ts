@@ -326,3 +326,39 @@ describe('review round 2 (s_837d2818b4af)', () => {
     expect(issuePaths(areaTiles, { ...one, region: { w: 2, h: 1, mask: '11' } })).toEqual([]);
   });
 });
+
+describe('review round 3 (s_7e4096989e85)', () => {
+  it('base-ten-build: prebuilt pieces alone may be enough, with no tray', () => {
+    const c: WidgetConfigOf<'base-ten-build'> = {
+      format: 'base-ten-build',
+      target: 10,
+      mode: 'build-exact',
+      pieces: { thousands: false, hundreds: false, tens: false, ones: false },
+      exact: { ones: 10 },
+      prebuilt: { hundreds: 0, tens: 1, ones: 0 },
+      wholeIs: 'unit',
+    };
+    expect(issuePaths(baseTenBuild, c)).toEqual([]);
+    const r = baseTenBuild.toResponse(play(baseTenBuild, c, [act('split', { kind: 'tens' })]));
+    expect(pass('baseten.exact', { value: 10, exact: { ones: 10 } }, r)).toBe(true);
+    // Nothing on the mat and nothing in the tray: refused.
+    expect(issuePaths(baseTenBuild, { ...c, prebuilt: undefined })).toEqual(['pieces']);
+  });
+
+  it('tiles.cover exempts a split taken away only while the rest still decomposes', () => {
+    const exempt = stateChecker('tiles.cover')?.exempt;
+    if (!exempt) throw new Error('tiles.cover has no exemption');
+    const target = { mask: '111111', w: 3, h: 2, decompose: true, value: 6 };
+    const two = {
+      splits: [
+        { dir: 'v', at: 1 },
+        { dir: 'v', at: 2 },
+      ],
+      value: 6,
+    };
+    expect(exempt(target, two, { splits: [{ dir: 'v', at: 1 }], value: 6 })).toBe(true);
+    const one = { splits: [{ dir: 'v', at: 1 }], value: 6 };
+    expect(exempt(target, one, { splits: [], value: 6 })).toBe(false);
+    expect(exempt({ mask: '111111', value: 6 }, one, { splits: [], value: 6 })).toBe(false);
+  });
+});
