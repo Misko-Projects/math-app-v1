@@ -29,6 +29,33 @@ export { type BaseTenTradeState, computeResult, htoValue } from './formats/base-
 export { type EqualGroupsState, GROUP_CAPACITY, groupsUnknown } from './formats/equal-groups';
 export { type EqualShareState, shareChoices } from './formats/equal-share';
 export { blankIds, type ExpandedFormState } from './formats/expanded-form';
+// U05 (#14) fraction format states and the geometry their widgets draw from.
+export {
+  type CutRect,
+  type CutSector,
+  cutGuides,
+  cutShares,
+  type FractionCutState,
+  MAX_CUT_PARTS,
+  partCount,
+  shadedParts,
+} from './formats/fraction-cut';
+export * from './formats/fraction-geometry';
+export {
+  type FractionLineState,
+  lineTicks,
+  MAX_LINE_DENOMINATOR,
+  targetValue,
+} from './formats/fraction-line';
+export {
+  FAIR_CHOICES,
+  type FractionPickState,
+  labelFraction,
+  MIN_PICK_OPTIONS,
+  nameInputOf,
+  pickChoices,
+  usesOptions,
+} from './formats/fraction-pick';
 export {
   COLUMNS,
   type Column,

@@ -10,6 +10,9 @@ import { dotFlash } from './dot-flash';
 import { equalGroups } from './equal-groups';
 import { equalShare } from './equal-share';
 import { expandedForm } from './expanded-form';
+import { fractionCut } from './fraction-cut';
+import { fractionLine } from './fraction-line';
+import { fractionPick } from './fraction-pick';
 import { hundredChart } from './hundred-chart';
 import { makeSet } from './make-set';
 import { numberBond } from './number-bond';
@@ -46,6 +49,10 @@ const MODELS: Partial<Record<ItemFormat, AnyModel>> = {
   'equal-groups': equalGroups,
   'equal-share': equalShare,
   'area-tiles': areaTiles,
+  // U05 (#14)
+  'fraction-cut': fractionCut,
+  'fraction-pick': fractionPick,
+  'fraction-line': fractionLine,
 };
 
 export function formatModel<F extends ItemFormat>(

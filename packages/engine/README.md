@@ -257,6 +257,28 @@ Response shapes and state-checker targets of the place-value and operations form
 - `area-tiles` features scale by `(area − 1) / 10`; `array-build` and `equal-groups` `product` by `(product − 1) / 10`; `equal-share` `items` by `(items − recipients) / 10`, so the easiest item scores 0 (03 §5.4).
 - The property test's near-miss mutations (03 §9.4 step 5) also add or remove one piece, row, column, item, leftover or tile in these shapes; A decompose split line may also be taken away. `array.dims` exempts moving the split line, and `tiles.cover` exempts taking away a line when the rest is still a valid decomposition.
 
+## Conventions the U05 formats fix (#14)
+
+### Fractions (fraction-cut, fraction-pick, fraction-line)
+
+The models follow K01's shapes ("Sharing and fraction formats" above). Picture geometry is `src/formats/fraction-geometry.ts`: the fraction-cut model computes its areas from it and the widgets draw exactly those parts, so a picture cannot disagree with its numbers. A rectangle-like whole is the unit box (x right, y down); a circle's parts are sectors in degrees clockwise from 12 o'clock. Parts are numbered in reading order (a circle: clockwise from 12 o'clock).
+
+| Format / mode | Response | Checker / answer | Ops (args) |
+|---|---|---|---|
+| `fraction-cut` | `{ regions, shaded }` (+ `name: [a, b]` with `thenName`); null until the whole is cut | `fraction.cut { parts, shade, acceptNonCongruent, thenName? }` | `cut {line}` (guided line, from 0); free: `cut {dir: 'v' \| 'h', at}` (rect-like, 0 < at < 1; a grid snaps to cell lines), `cut {angle, through?}` (circle radius or diameter), `cut {dir, at, part}` (inside one part, only with `acceptNonCongruent`); `shade {part, off?}`; `separate`, `stack-parts` (views); `answer {values: [a, b]}` |
+| `fraction-pick` `fair-or-not` | `choice` `yes` \| `no` | `choice` | `count-parts`, `highlight {id: 'stimulus'}`, `answer {id}` |
+| `fraction-pick` `pick-picture`, `compare`, `equivalent`, `name` + `words` | `choice` option id (pick-picture: `pic-<k>`) | `choice` | `highlight {id}`, `overlay {a, b}`, `answer {id}` |
+| `fraction-pick` `name` + `pads` (the default) | `numbers` `[a, b]` | `numbers`, ordered | `answer {values}` or `answer {value, slot}` (slot 0 top, 1 bottom) |
+| `fraction-line` `partition` | `{ cuts }`: marks in units from 0, sorted; null while none | `fraction.partition { denominator, max }` | `drop {at, remove?}`, `partition {b}` (every non-whole k/b) |
+| `fraction-line` `place` | `placement`, the value in units | `placement` | `drop {at}`, `hop {k}` (to k/denominator) |
+| `fraction-line` `read`, `equivalent` | `numbers` `[a, b]`; `read` with `decimalLabels`: `number` | `numbers` (`equivalentOk` for equivalent) | `answer {values}` or `{value, slot}`; `label {a, b}`, `hop {k}`, `partition {b}` are visual hints here |
+
+- **Guided lines** (`guidedLines(shape, parts, gridSize)`; their count is `cutLines` in `generators/frac/partition.ts`): a circle's diameters for an even count (line i through i·360/parts and the opposite angle) or radii for an odd one; a rect or square in fourths the cross (line 0 vertical, line 1 horizontal); a grid strips along cell lines (columns if they divide into the parts, else rows); otherwise vertical lines at k/parts. Cutting a line again does nothing; cutting a filled part leaves both pieces filled; a circle with one radius is still whole (a slit).
+- **Congruence** is the widget's rule (the response holds areas only): without `acceptNonCongruent` every cut runs the full length, and equal-area parts made that way are congruent; with it, `cut {…, part}` cuts inside one part, so equal areas of different shapes can be made (FRA.14, FRA.16).
+- **Schemas.** fraction-cut: 2–12 parts, `shade ≤ parts`, `thenName` needs `shade ≥ 1`, `gridSize` exactly on the grid (≤ 100 cells, sharing evenly into the parts; guided grids need strips). fraction-pick: every mode with options shows ≥ 3 with distinct ids (03 §5.1), pick-picture options are `fraction` pictures, fair-or-not and name have a `stimulus` (fair-or-not a fraction), only `name` has `nameInput`. fraction-line: `partition` has no target and 2+ parts; the other modes have a target on the line, `read`/`equivalent` targets sit on a tick, `read` asks for the line's own denominator, `decimalLabels` are tenths, at most 12 parts a whole.
+- **Fraction pictures** (`fractionPicture(shape, parts, equalParts)`): equal parts are the guided cut of the whole, exact by construction. Unequal parts use `UNEQUAL_WEIGHTS` (the biggest part ≥ 1.5 times the smallest, so no unequal picture passes for equal): an off-centre cross for a rect in fourths, an off-centre chord for a circle in two, otherwise strips or sectors of different sizes. The first `shaded` parts are filled.
+- **Features.** fraction-pick reads only sets and maxima of what it shows (options are shuffled): `denominator` is the largest shown − 2, and `unequalDistractor` an unequal option that is not the answer. fraction-line's `ticks.hidden` is 0 in `partition` (it never shows the ticks it asks for). Where frac.partition emits a feature itself (`denominator`, `parts.hard`, `shape.circle`), its value wins.
+
 ## Tests
 
 - `pnpm exec vitest run --project engine`: unit tests under `src/` and the fixture property test under `test/`. Seeds come from `CONTENT_PROPERTY_N`: 50 locally, 100 on PR CI, 500 nightly.
