@@ -34,6 +34,8 @@ import {
   stoneMetrics,
 } from './island/RoadStone';
 import {
+  BEAD_RING_K,
+  beadExtent,
   boxesTouch,
   MAP_STONE_SCALE,
   NEXT_HIT_RADIUS,
@@ -75,10 +77,10 @@ describe('road plan: a linear board (05 §3)', () => {
     }
   }
   /** A bead's disc, with its ink outline. */
-  const core = (b: RoadBead) => b.r + 1;
-  /** A highlighted bead's ring (next or counting), with its outline. */
-  const ring = (b: RoadBead) =>
-    b.state === 'next' || b.state === 'counting' ? (b.r + 4) * 1.05 + 1.25 : core(b);
+  /** How far a bead draws from its centre in its state: its ring when highlighted (at the pulse
+   * peak, with its outline), else the bead with its outline. Computed here, not from roadPlan. */
+  const drawn = (b: RoadBead) =>
+    b.state === 'next' || b.state === 'counting' ? b.r * BEAD_RING_K * 1.05 + 1.25 : b.r + 1;
 
   it('draws every stone in the range exactly once, at its own spot, in order', () => {
     for (const { plan, roadLength, onLand, where } of plans()) {
@@ -161,14 +163,14 @@ describe('road plan: a linear board (05 §3)', () => {
         for (let j = i + 1; j < beads.length; j++) {
           const b = beads[j] as RoadBead;
           const d = Math.hypot(a.x - b.x, a.y - b.y);
-          if (d <= Math.max(ring(a) + core(b), core(a) + ring(b)) + 0.5) {
+          if (d < drawn(a) + drawn(b) + 0.5 - 1e-9) {
             bad.push(`beads ${a.n}, ${b.n}`);
           }
         }
       }
       const marks = [
         ...numbered.map((s) => ({ n: s.n, box: s.box })),
-        ...beads.map((b) => ({ n: b.n, box: b.box })),
+        ...beads.map((b) => ({ n: b.n, box: beadExtent(b) })),
       ];
       for (let i = 0; i < signs.length; i++) {
         const s = signs[i] as RoadSign;
@@ -277,6 +279,58 @@ describe('road plan: a linear board (05 §3)', () => {
       HORIZON_GAP,
     );
     expect(HORIZON_GAP).toBeGreaterThanOrEqual(16);
+  });
+
+  it('keeps a counted bead and the next bead beside it apart, rings and all', () => {
+    // Review s_6b67c8a45d54 #1: on the whole sample island, 41 is counted and 42 is next, 70/3
+    // apart; both rings at their pulse peak with outlines must stay clear of each other.
+    const land = new Set(landPlots(SAMPLE_ISLAND, SAMPLE_ISLAND.rings.length).map(plotKey));
+    const plan = planRoad({
+      road: SAMPLE_ISLAND.road,
+      roadLength: 41,
+      counting: 41,
+      onLand: (s) => land.has(plotKey(s.plot)),
+    });
+    const a = plan.beads.find((b) => b.n === 41) as RoadBead;
+    const b = plan.beads.find((b) => b.n === 42) as RoadBead;
+    expect([a.state, b.state]).toEqual(['counting', 'next']);
+    expect(Math.hypot(a.x - b.x, a.y - b.y)).toBeGreaterThan(drawn(a) + drawn(b));
+  });
+
+  it('labels the counted and next beads on a dense plot of ten, clear of their neighbours', () => {
+    // Review s_6b67c8a45d54 #2: stones 1–10 share one plot (10 units apart), 1–5 laid, 4 counted,
+    // 6 next and 7 planned ahead.
+    const road = Array.from({ length: 10 }, (_, i) => ({ n: i + 1, plot: [4, 3] as Plot }));
+    const plan = planRoad({
+      road,
+      roadLength: 5,
+      counting: 4,
+      plannedAhead: 1,
+      onLand: () => true,
+    });
+    expect(plan.beads.map((b) => b.n)).toEqual([1, 2, 3, 4, 5, 6, 7]);
+    const signed = new Set(plan.signs.map((s) => s.n));
+    for (const n of [1, 4, 6]) expect(signed.has(n), `sign ${n}`).toBe(true);
+    for (const s of plan.signs) {
+      for (const b of plan.beads) {
+        if (b.n === s.n) continue;
+        expect(boxesTouch(s.box, beadExtent(b), 0), `sign ${s.n} on bead ${b.n}`).toBe(false);
+        for (const p of s.points) {
+          expect(Math.hypot(p.x - b.x, p.y - b.y), `post ${s.n} by bead ${b.n}`).toBeGreaterThan(
+            drawn(b),
+          );
+        }
+      }
+    }
+    for (let i = 0; i < plan.beads.length; i++) {
+      for (let j = i + 1; j < plan.beads.length; j++) {
+        const a = plan.beads[i] as RoadBead;
+        const b = plan.beads[j] as RoadBead;
+        expect(Math.hypot(a.x - b.x, a.y - b.y), `beads ${a.n}, ${b.n}`).toBeGreaterThan(
+          drawn(a) + drawn(b),
+        );
+      }
+    }
   });
 
   it('fits three stones on one plot: all drawn, the counted and next labelled, none touching', () => {

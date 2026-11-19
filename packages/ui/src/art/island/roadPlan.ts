@@ -24,8 +24,38 @@ export const NEXT_HIT_RADIUS = 44;
 const NEXT_CLEAR = 14;
 /** Pairs further apart than this (scene units) can never touch at MAP_STONE_SCALE. */
 const NEAR = 260;
-/** A bead's ring (next or counting) reaches this far beyond the bead. */
-const BEAD_RING = 4;
+/** A highlighted bead's ring (next or counting) radius, as a multiple of the bead's radius. */
+export const BEAD_RING_K = 1.45;
+/** The next ring's pulse peak (art-ring), and a bead ring's outline width. */
+const RING_PULSE = 1.05;
+const RING_STROKE = 2.5;
+
+/** A highlighted bead's ring radius, and how far it reaches at its pulse peak with its outline. */
+export function beadRing(r: number): { radius: number; reach: number } {
+  const radius = r * BEAD_RING_K;
+  return { radius, reach: radius * RING_PULSE + RING_STROKE / 2 };
+}
+
+/**
+ * The bead radius for stones `gap` apart: as large as possible (up to 8) while two neighbouring
+ * highlighted beads (a counted stone beside the next one) keep their rings, at the pulse peak with
+ * outlines, at least 0.5 apart.
+ */
+export function beadRadius(gap: number): number {
+  const fit = (gap - 0.5 - RING_STROKE) / (2 * BEAD_RING_K * RING_PULSE);
+  return Math.max(2, Math.min(8, fit));
+}
+
+/** A bead's disc as drawn in its state: its ring when highlighted, else the bead and its shadow. */
+export function beadReach(b: Pick<RoadBead, 'r' | 'state'>): number {
+  return b.state === 'next' || b.state === 'counting' ? beadRing(b.r).reach : b.r * 1.15 + 1;
+}
+
+/** The box around a bead as drawn in its current state (beadReach all round). */
+export function beadExtent(b: Pick<RoadBead, 'x' | 'y' | 'r' | 'state'>): StoneExtent {
+  const d = beadReach(b);
+  return { left: b.x - d, right: b.x + d, top: b.y - d, bottom: b.y + d };
+}
 
 export interface PlannedStone {
   n: number;
@@ -113,15 +143,14 @@ function scaled(s: { x: number; y: number }, e: StoneExtent, scale: number): Sto
   };
 }
 
+/** Everything a bead may draw in any state: its ring at the pulse peak, or its shadow below. */
 function beadBox(s: { x: number; y: number }, r: number): StoneExtent {
-  // The ring (r + BEAD_RING, at the peak of the next ring's 1.05 pulse, with its outline), and
-  // the shadow below.
-  const ring = (r + BEAD_RING) * 1.05 + 1.5;
+  const ring = beadRing(r).reach;
   return {
     left: s.x - ring,
     right: s.x + ring,
     top: s.y - ring,
-    bottom: s.y + Math.max(ring, r + 3),
+    bottom: s.y + Math.max(ring, r * 1.15 + 1),
   };
 }
 
@@ -149,7 +178,7 @@ export function roadShape(road: IslandDef['road']): RoadShape {
     const b = placed[i] as StonePlacement;
     gap = Math.min(gap, Math.hypot(a.x - b.x, a.y - b.y));
   }
-  const beadR = Number.isFinite(gap) ? Math.max(3.5, Math.min(8, gap * 0.34)) : 8;
+  const beadR = Number.isFinite(gap) ? beadRadius(gap) : 8;
   const beads = placed.map((s) => beadBox(s, beadR));
   const full = placed.map((s) => scaled(s, anyStateExtent(s.n), MAP_STONE_SCALE));
   const numbered = new Set<number>();
@@ -245,8 +274,14 @@ export function planRoad({
                 ? 4
                 : 9;
   const wanted = beads.filter((b) => rank(b) < 9).sort((a, b) => rank(a) - rank(b) || a.n - b.n);
-  const obstacles = [
-    ...beads.map((b) => ({ n: b.n, box: b.box })),
+  // Signs keep clear of each bead as drawn in its state (a plaque clears the box around it, a
+  // thin post its disc) and of each numbered stone's largest extent.
+  const obstacles: Obstacle[] = [
+    ...beads.map((b) => ({
+      n: b.n,
+      box: beadExtent(b),
+      disc: { x: b.x, y: b.y, r: beadReach(b) },
+    })),
     ...numbered.map((s) => ({ n: s.n, box: scaled(s, anyStateExtent(s.n), scale) })),
   ];
   const signs: RoadSign[] = [];
@@ -266,13 +301,25 @@ const SIGN_H = 32;
 const SIGN_DIGIT_W = 14;
 const SIGN_PAD = 20;
 
+/** Something a signpost keeps clear of: its box, and for a bead the disc it draws. */
+interface Obstacle {
+  n: number;
+  box: StoneExtent;
+  disc?: { x: number; y: number; r: number };
+}
+
+/** True when a post point comes within `by` of an obstacle (its disc, or else its box). */
+function postHits(o: Obstacle, p: Point, by: number): boolean {
+  return o.disc ? Math.hypot(p.x - o.disc.x, p.y - o.disc.y) < o.disc.r + by : near(o.box, p, by);
+}
+
 /**
  * Find a clear spot for a bead's signpost, the shortest post first: above the bead, below it, or
  * to its left or right (beside a road that runs up the map), each leaning a little either way.
  */
 function placeSign(
   bead: RoadBead,
-  obstacles: readonly { n: number; box: StoneExtent }[],
+  obstacles: readonly Obstacle[],
   signs: readonly RoadSign[],
 ): RoadSign | null {
   const w = SIGN_DIGIT_W * String(bead.n).length + SIGN_PAD;
@@ -299,7 +346,7 @@ function placeSign(
         const blocked =
           obstacles.some(
             (o) =>
-              o.n !== bead.n && (boxesTouch(o.box, box, 2) || post.some((p) => near(o.box, p, 2))),
+              o.n !== bead.n && (boxesTouch(o.box, box, 2) || post.some((p) => postHits(o, p, 2))),
           ) ||
           signs.some(
             (s) =>

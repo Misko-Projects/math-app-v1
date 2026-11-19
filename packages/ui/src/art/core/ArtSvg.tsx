@@ -24,11 +24,13 @@ export interface ArtSvgProps extends ArtProps {
   originX?: number;
   originY?: number;
   /**
-   * `width` (default): the art is `size` wide and its height follows. `cover`: the art fills its
-   * container on both axes, keeping its aspect and trimming the overflow at the edges (a
-   * full-screen scene, whose sky and sea bleed past the viewBox, so no edge is ever unpainted).
+   * `width` (default): the art is `size` wide and its height follows. `fill`: the SVG fills its
+   * container on both axes and the art scales to fit inside it, whole and centred (06 §1: the map
+   * scales to fit, landscape or portrait); what it draws past its viewBox shows around it (a
+   * full-screen scene bleeds its sky and sea, so no edge is ever unpainted). Give the container
+   * `overflow: hidden`.
    */
-  fit?: 'width' | 'cover';
+  fit?: 'width' | 'fill';
   children: ReactNode;
   /** Extra attributes for the root (for example data-* test hooks). */
   rootProps?: Record<`data-${string}`, string | number | undefined>;
@@ -52,17 +54,17 @@ export function ArtSvg({
   children,
   rootProps,
 }: ArtSvgProps) {
-  const cover = fit === 'cover';
+  const fill = fit === 'fill';
   return (
     <svg
       viewBox={`${originX} ${originY} ${width} ${height}`}
-      width={cover ? '100%' : size}
-      height={cover ? '100%' : undefined}
-      preserveAspectRatio={cover ? 'xMidYMid slice' : undefined}
-      style={{ display: 'block', overflow: 'visible', height: cover ? '100%' : 'auto', ...style }}
+      width={fill ? '100%' : size}
+      height={fill ? '100%' : undefined}
+      preserveAspectRatio={fill ? 'xMidYMid meet' : undefined}
+      style={{ display: 'block', overflow: 'visible', height: fill ? '100%' : 'auto', ...style }}
       className={className}
       data-lighting={lighting}
-      data-fit={cover ? 'cover' : undefined}
+      data-fit={fill ? 'fill' : undefined}
       focusable="false"
       role={title ? 'img' : undefined}
       aria-label={title}

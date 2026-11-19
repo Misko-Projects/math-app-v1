@@ -1,7 +1,15 @@
 import type { Plot } from '@number-island/shared';
 import { useMemo } from 'react';
 import { paint } from '../core/paint';
-import { ISLAND_LAYOUT, landLoops, organicPath, plotKey, type TerrainKind } from './geometry';
+import {
+  GRASS_INSET,
+  GRASS_WOBBLE,
+  ISLAND_LAYOUT,
+  landLoops,
+  organicPath,
+  plotKey,
+  type TerrainKind,
+} from './geometry';
 import { type Blocked, PlotDetail } from './plotDetail';
 
 export interface IslandLandProps {
@@ -38,7 +46,12 @@ export function IslandLand({ plots, terrain, clearPlots = [], blocked }: IslandL
       land: organicPath(landLoops(plots, 10), { radius: ROUND, wobble: 8, step: 52, seed: 7 }),
       grass:
         green.length > 0
-          ? organicPath(landLoops(green, -8), { radius: 34, wobble: 4, step: 38, seed: 11 })
+          ? organicPath(landLoops(green, -GRASS_INSET), {
+              radius: 34,
+              wobble: GRASS_WOBBLE,
+              step: 38,
+              seed: 11,
+            })
           : '',
     };
   }, [plots, terrain]);
@@ -73,6 +86,7 @@ export function IslandLand({ plots, terrain, clearPlots = [], blocked }: IslandL
       />
       {paths.grass ? (
         <path
+          data-part="grass"
           d={paths.grass}
           fill={paint('leaf-light')}
           stroke={paint('leaf-deep')}

@@ -3,9 +3,9 @@ import { expect } from 'storybook/test';
 import type { Lighting } from '../../tokens/tokens';
 import { CvdCompare, GalleryCell, GalleryGrid, GallerySection } from '../gallery/Gallery';
 import { SAMPLE_ISLAND, SAMPLE_RING_COUNT } from '../gallery/sampleIsland';
-import { HORIZON_Y, landCrop, plotKey } from './geometry';
+import { HORIZON_Y, landCrop, plotKey, SCENE_H, SCENE_W } from './geometry';
 import { CAMERA_MAX_Y, HORIZON_GAP, IslandScene } from './IslandScene';
-import { PLOT_MARKER_INSET, type PlotMarkerProps } from './PlotMarker';
+import { PLOT_MARKER_INSET, PLOT_MARKER_STROKE, type PlotMarkerProps } from './PlotMarker';
 import { ROAD_STONE_STATES, RoadStone, STONE_NUMERAL } from './RoadStone';
 import { TerrainTile, TILE_KINDS } from './TerrainTile';
 
@@ -46,7 +46,7 @@ function SceneView(a: SceneArgs) {
         lighting={a.lighting}
         camera={{ x: a.cameraX, y: a.cameraY }}
         plotMarkers={a.markers ? MARKERS : []}
-        fit="cover"
+        fit="fill"
         title="The island map"
       />
     </div>
@@ -183,14 +183,36 @@ async function expectNoSidewaysScroll() {
   await expect(document.documentElement.scrollWidth).toBeLessThanOrEqual(window.innerWidth);
 }
 
-/** A full-screen scene covers the viewport: no edge of the page is left unpainted. */
+/**
+ * A full-screen scene fills the viewport (06 §1: the map scales to fit, landscape or portrait):
+ * its whole view is on screen, and the sky and sea it bleeds paint every corner of the page.
+ */
 async function expectCoversViewport(svg: SVGSVGElement) {
   const r = svg.getBoundingClientRect();
+  const vw = document.documentElement.clientWidth;
+  const vh = window.innerHeight;
   await expect(r.top).toBeLessThanOrEqual(0);
   await expect(r.left).toBeLessThanOrEqual(0);
-  await expect(r.bottom).toBeGreaterThanOrEqual(window.innerHeight);
-  await expect(r.right).toBeGreaterThanOrEqual(document.documentElement.clientWidth);
-  await expect(svg.getAttribute('preserveAspectRatio')).toBe('xMidYMid slice');
+  await expect(r.bottom).toBeGreaterThanOrEqual(vh);
+  await expect(r.right).toBeGreaterThanOrEqual(vw);
+  await expect(svg.getAttribute('preserveAspectRatio')).toBe('xMidYMid meet');
+  // The whole view (the viewBox) is on screen.
+  const vb = svg.viewBox.baseVal;
+  const page = sceneToPage(svg);
+  await expect(page.x(vb.x)).toBeGreaterThanOrEqual(-1);
+  await expect(page.y(vb.y)).toBeGreaterThanOrEqual(-1);
+  await expect(page.x(vb.x + vb.width)).toBeLessThanOrEqual(vw + 1);
+  await expect(page.y(vb.y + vb.height)).toBeLessThanOrEqual(vh + 1);
+  // Every corner of the page is painted by the scene (sky above, sea below).
+  for (const [x, y] of [
+    [1, 1],
+    [vw - 2, 1],
+    [1, vh - 2],
+    [vw - 2, vh - 2],
+  ] as const) {
+    const hit = document.elementFromPoint(x, y);
+    await expect(hit?.closest('svg[data-scene="island"]'), `corner ${x},${y}`).toBe(svg);
+  }
 }
 
 /**
@@ -299,16 +321,47 @@ export const Sunset: Story = {
   },
 };
 
-/** Day one: the 3-plot sandbar (05 §3), with the first stone waiting to be laid. */
+/**
+ * Day one, framed close: the view centred on the sandbar at 800 of the scene's 1400 units across
+ * (about 1.75 × the full map's zoom), so the first stone reads large.
+ */
+const SANDBAR_VIEW = (() => {
+  const w = 800;
+  const h = w / (SCENE_W / SCENE_H);
+  const land = landCrop(SAMPLE_ISLAND, 1);
+  return { x: land.x + land.w / 2 - w / 2, y: land.y + land.h / 2 - h / 2, w, h };
+})();
+
+/**
+ * Day one: the 3-plot sandbar (05 §3), with the first stone waiting to be laid. A tiny island is
+ * framed close, so its one numeral is larger than on the full map (≥ 28 CSS px at 1280).
+ */
 export const Sandbar: Story = {
   args: { ringsUnlocked: 1, roadLength: 0 },
+  render: (args) => (
+    <div style={{ width: '100%', height: '100vh', overflow: 'hidden' }}>
+      <IslandScene
+        island={SAMPLE_ISLAND}
+        ringsUnlocked={args.ringsUnlocked}
+        roadLength={args.roadLength}
+        lighting={args.lighting}
+        crop={SANDBAR_VIEW}
+        fit="fill"
+        title="The island map on day one"
+      />
+    </div>
+  ),
   play: async ({ canvasElement }) => {
+    const svg = canvasElement.querySelector('svg[data-scene="island"]') as SVGSVGElement;
     await expect(canvasElement.querySelectorAll('[data-terrain]').length).toBe(3);
     await expect(canvasElement.querySelectorAll('[data-terrain="sand"]').length).toBe(3);
     await expect(canvasElement.querySelector('[data-stone="1"]')?.getAttribute('data-state')).toBe(
       'next',
     );
     await expectNextTappable(canvasElement, 1);
+    await expectStoneNumerals(canvasElement, window.innerWidth >= 1280 ? 28 : 12);
+    await expectCoversViewport(svg);
+    await expectNoSidewaysScroll();
   },
 };
 
@@ -429,6 +482,36 @@ export const PlotMarkers: Story = {
     for (const rect of canvasElement.querySelectorAll('[data-plot-marker] > rect')) {
       await expect(Number(rect.getAttribute('x')) % 100).toBe(PLOT_MARKER_INSET);
     }
+    // Every marker sits fully on the grass of its plots, with a margin of one outline width all
+    // round: points just outside its outline, plus that margin, are all inside the grass fill.
+    const grass = canvasElement.querySelector('[data-part="grass"]') as SVGPathElement;
+    const outside: string[] = [];
+    for (const rect of canvasElement.querySelectorAll<SVGRectElement>(
+      '[data-plot-marker] > rect',
+    )) {
+      const [x, y, w, h, rx, sw] = ['x', 'y', 'width', 'height', 'rx', 'stroke-width'].map((a) =>
+        Number(rect.getAttribute(a)),
+      ) as [number, number, number, number, number, number];
+      const o = sw / 2 + PLOT_MARKER_STROKE;
+      const pts: [number, number][] = [];
+      for (let px = x + rx; px <= x + w - rx; px += 4) pts.push([px, y - o], [px, y + h + o]);
+      for (let py = y + rx; py <= y + h - rx; py += 4) pts.push([x - o, py], [x + w + o, py]);
+      for (const [cx, cy, ang] of [
+        [x + rx, y + rx, 225],
+        [x + w - rx, y + rx, 315],
+        [x + rx, y + h - rx, 135],
+        [x + w - rx, y + h - rx, 45],
+      ] as const) {
+        const a = (ang * Math.PI) / 180;
+        pts.push([cx + Math.cos(a) * (rx + o), cy + Math.sin(a) * (rx + o)]);
+      }
+      for (const [px, py] of pts) {
+        if (!grass.isPointInFill(new DOMPoint(px, py))) {
+          outside.push(`${rect.parentElement?.dataset.plot} at ${px.toFixed(0)},${py.toFixed(0)}`);
+        }
+      }
+    }
+    await expect(outside).toEqual([]);
     await expectStonesApart(canvasElement);
     await expectDetailOffRoad(canvasElement);
   },

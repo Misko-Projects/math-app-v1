@@ -1,5 +1,6 @@
 import { useId } from 'react';
 import { hashSeed, paint, seededRandom } from '../core/paint';
+import { SCENE_BLEED } from './geometry';
 
 export interface SeaLayerOffset {
   x: number;
@@ -58,15 +59,29 @@ export function Sea({ width, top, height, far, near }: SeaProps) {
   return (
     <g data-layer="sea">
       <defs>
-        <linearGradient id={wash} x1="0" y1="0" x2="0" y2="1">
+        <linearGradient
+          id={wash}
+          gradientUnits="userSpaceOnUse"
+          x1={0}
+          y1={top}
+          x2={0}
+          y2={top + height + 300}
+        >
           <stop offset="0" stopColor={paint('sea-deep')} />
           <stop offset="0.55" stopColor={paint('sea')} />
           <stop offset="1" stopColor={paint('sea')} />
         </linearGradient>
       </defs>
-      <rect x={-300} y={top} width={width + 600} height={height + 300} fill={`url(#${wash})`} />
+      {/* Bleeds far past the scene; the wash is in scene units, so it looks the same inside it. */}
+      <rect
+        x={-SCENE_BLEED}
+        y={top}
+        width={width + 2 * SCENE_BLEED}
+        height={height + SCENE_BLEED}
+        fill={`url(#${wash})`}
+      />
       <path
-        d={`M-300 ${top}H${width + 300}`}
+        d={`M${-SCENE_BLEED} ${top}H${width + SCENE_BLEED}`}
         stroke={paint('foam')}
         strokeWidth={3}
         opacity={0.6}

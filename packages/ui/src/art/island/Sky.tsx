@@ -1,6 +1,7 @@
 import { useId } from 'react';
 import type { Lighting } from '../../tokens/tokens';
 import { paint } from '../core/paint';
+import { SCENE_BLEED } from './geometry';
 
 export interface SkyProps {
   width: number;
@@ -33,13 +34,28 @@ export function Sky({ width, horizon, lighting }: SkyProps) {
   return (
     <g data-layer="sky">
       <defs>
-        <linearGradient id={wash} x1="0" y1="0" x2="0" y2="1">
+        <linearGradient
+          id={wash}
+          gradientUnits="userSpaceOnUse"
+          x1={0}
+          y1={-200}
+          x2={0}
+          y2={horizon}
+        >
           <stop offset="0" stopColor={paint('sky')} />
           <stop offset="0.65" stopColor={paint('sky-light')} />
           <stop offset="1" stopColor={paint('horizon')} />
         </linearGradient>
       </defs>
-      <rect x={-200} y={-200} width={width + 400} height={horizon + 200} fill={`url(#${wash})`} />
+      {/* Bleeds far past the scene (a full-screen map shows it around the scene); the wash is in
+          scene units, so the sky inside the scene is the same at any bleed. */}
+      <rect
+        x={-SCENE_BLEED}
+        y={-SCENE_BLEED}
+        width={width + 2 * SCENE_BLEED}
+        height={horizon + SCENE_BLEED}
+        fill={`url(#${wash})`}
+      />
       {sunset ? (
         <g data-part="sun">
           <circle

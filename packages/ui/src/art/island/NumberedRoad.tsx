@@ -4,6 +4,7 @@ import { paint } from '../core/paint';
 import { type StonePlacement, smoothPath } from './geometry';
 import { RoadStoneMark } from './RoadStone';
 import {
+  beadRing,
   NEXT_HIT_RADIUS,
   planRoad,
   type RoadBead,
@@ -124,7 +125,7 @@ function Bead({ bead }: { bead: RoadBead }) {
         <circle
           cx={0}
           cy={0}
-          r={r + 4}
+          r={beadRing(r).radius}
           fill={paint('sunshine-light')}
           stroke={paint('ink')}
           strokeWidth={2.5}
@@ -135,7 +136,7 @@ function Bead({ bead }: { bead: RoadBead }) {
           className="motion-loop art-loop art-ring"
           cx={0}
           cy={0}
-          r={r + 4}
+          r={beadRing(r).radius}
           fill="none"
           stroke={paint('ink')}
           strokeWidth={2.5}

@@ -10,6 +10,7 @@ import {
   ISLAND_LAYOUT,
   landPlots,
   plotKey,
+  SCENE_BLEED,
   SCENE_H,
   SCENE_W,
   type StonePlacement,
@@ -69,10 +70,12 @@ export interface IslandSceneProps extends Omit<ArtProps, 'lighting'> {
   /** Things on the island (buildings, decor, residents), positioned with plotBox/plotCenter. */
   children?: ReactNode;
   /**
-   * `cover` fills the container on both axes (a full-screen map): the sky and sea bleed past the
-   * scene, so no edge is ever left unpainted. Default `width` (the scene is `size` wide).
+   * `fill`: a full-screen map. The scene fills its container, scaled to fit whole and centred
+   * (06 §1: landscape or portrait), and its sky and sea bleed past it to every edge, so no edge is
+   * left unpainted. Give the container `overflow: hidden`. Default `width` (the scene is `size`
+   * wide).
    */
-  fit?: 'width' | 'cover';
+  fit?: 'width' | 'fill';
 }
 
 /**
@@ -128,12 +131,17 @@ export function IslandScene({
       title={title}
       lighting={lighting}
       className={className}
-      style={{ overflow: 'hidden', ...style }}
+      style={{ overflow: fit === 'fill' ? 'visible' : 'hidden', ...style }}
       rootProps={{ 'data-scene': 'island', 'data-parallax': reduced ? 'off' : 'on' }}
     >
       <defs>
         <clipPath id={clip}>
-          <rect x={-600} y={HORIZON_Y} width={SCENE_W + 1200} height={SCENE_H} />
+          <rect
+            x={-SCENE_BLEED}
+            y={HORIZON_Y}
+            width={SCENE_W + 2 * SCENE_BLEED}
+            height={SCENE_H + SCENE_BLEED}
+          />
         </clipPath>
       </defs>
       <Sky width={SCENE_W} horizon={HORIZON_Y} lighting={lighting} />

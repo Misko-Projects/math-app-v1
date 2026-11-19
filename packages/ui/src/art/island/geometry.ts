@@ -30,6 +30,9 @@ export const ISLAND_LAYOUT = {
 
 /** How far the shallows halo reaches beyond the land's plots: its outline offset plus wobble. */
 export const HALO_REACH = 46 + 16;
+/** The grass outline sits this far inside its plots' edge, within ±GRASS_WOBBLE. */
+export const GRASS_INSET = 8;
+export const GRASS_WOBBLE = 4;
 
 /** The whole scene's size in scene units (1400 × 870, close to the 1280 × 800 tablet ratio). */
 export const SCENE_W = ISLAND_LAYOUT.cols * ISLAND_LAYOUT.cellW + 2 * ISLAND_LAYOUT.padX;
@@ -41,6 +44,12 @@ export const SCENE_H =
 
 /** y of the horizon line. */
 export const HORIZON_Y = ISLAND_LAYOUT.skyH;
+/**
+ * How far the sky and sea are painted past the scene on every side, in scene units: enough that a
+ * full-screen map (fit="fill") never shows an unpainted edge, even in portrait or on a very wide
+ * screen.
+ */
+export const SCENE_BLEED = 3000;
 const GRID_X = ISLAND_LAYOUT.padX;
 const GRID_Y = ISLAND_LAYOUT.skyH + ISLAND_LAYOUT.padTop;
 

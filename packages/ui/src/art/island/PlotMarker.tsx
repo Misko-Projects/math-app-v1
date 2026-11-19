@@ -1,6 +1,6 @@
 import type { Plot } from '@number-island/shared';
 import { paint } from '../core/paint';
-import { plotBox } from './geometry';
+import { GRASS_INSET, GRASS_WOBBLE, plotBox } from './geometry';
 
 /**
  * A buildable-plot highlight (05 §6: "tap a highlighted plot"). States differ by shape and motion,
@@ -16,16 +16,25 @@ export interface PlotMarkerProps {
   state?: PlotMarkerState;
 }
 
-/** How far a marker's outline sits inside its plot, in scene units. */
-export const PLOT_MARKER_INSET = 14;
+/** A marker's thickest outline (selected), in scene units. */
+export const PLOT_MARKER_STROKE = 5;
+/**
+ * How far a marker's outline (its stroke's centre line) sits inside its plot, in scene units: the
+ * marker stays fully inside the grass drawn on the plot (GRASS_INSET + GRASS_WOBBLE in, plus the
+ * grass edge's own 1.5-unit line) with a clear margin of one outline width.
+ */
+export const PLOT_MARKER_INSET =
+  GRASS_INSET + GRASS_WOBBLE + 1.5 + PLOT_MARKER_STROKE + PLOT_MARKER_STROKE / 2;
+/** The plus or check badge's radius. */
+const BADGE_R = 9.5;
 
 export function PlotMarker({ plot, footprint = [1, 1], state = 'available' }: PlotMarkerProps) {
   const b = plotBox(plot, footprint);
-  // Inset well inside the plot, so the outline reads as on the plot, clear of the grass edge.
   const inset = PLOT_MARKER_INSET;
   const cx = b.x + b.w / 2;
   const cy = b.y + b.h / 2;
   const selected = state === 'selected';
+  const k = BADGE_R / 15; // the badge's icon, scaled from its 15-unit design
   return (
     <g data-plot-marker={state} data-plot={`${plot[0]},${plot[1]}`}>
       <rect
@@ -33,12 +42,12 @@ export function PlotMarker({ plot, footprint = [1, 1], state = 'available' }: Pl
         y={b.y + inset}
         width={b.w - 2 * inset}
         height={b.h - 2 * inset}
-        rx={16}
+        rx={11}
         fill={paint('cloud')}
         fillOpacity={selected ? 0.5 : 0.32}
         stroke={paint('ink')}
-        strokeWidth={selected ? 6 : 4}
-        strokeDasharray={selected ? undefined : '12 9'}
+        strokeWidth={selected ? PLOT_MARKER_STROKE : 3.5}
+        strokeDasharray={selected ? undefined : '10 7'}
         strokeLinecap="round"
       />
       <g
@@ -48,16 +57,20 @@ export function PlotMarker({ plot, footprint = [1, 1], state = 'available' }: Pl
         <circle
           cx={cx}
           cy={cy}
-          r={15}
+          r={BADGE_R}
           fill={paint(selected ? 'ink' : 'cloud')}
           stroke={paint(selected ? 'cloud' : 'ink')}
-          strokeWidth={3}
+          strokeWidth={2.5}
         />
         <path
-          d={selected ? `M${cx - 7} ${cy}l5 5l9 -10` : `M${cx - 7} ${cy}h14M${cx} ${cy - 7}v14`}
+          d={
+            selected
+              ? `M${cx - 7 * k} ${cy}l${5 * k} ${5 * k}l${9 * k} ${-10 * k}`
+              : `M${cx - 7 * k} ${cy}h${14 * k}M${cx} ${cy - 7 * k}v${14 * k}`
+          }
           fill="none"
           stroke={paint(selected ? 'cloud' : 'ink')}
-          strokeWidth={3.5}
+          strokeWidth={3}
           strokeLinecap="round"
           strokeLinejoin="round"
         />
