@@ -47,11 +47,14 @@ import {
   type Box,
   COL_PAD,
   chooseSide,
+  colInsets,
   digitsValue,
   extent,
   GAP,
   GROUP_PAD,
   growCaps,
+  holderMargins,
+  holderWidth,
   itemUnit,
   MAT_BORDER,
   naturalLayout,
@@ -1405,7 +1408,7 @@ function TradeMat({
             const p = dnd.itemProps(itemId, { label: t(PIECE_KEY[c]) });
             const b = boxes[slot] as Box;
             // The grabbed piece's box in the column body. At rest the item is the whole column (its
-            // hit pad, inset by GAP from the column sides) with the piece inside it; while dragged
+            // hit pad, inset by GAP from a side with a trade strip) with the piece inside it; while dragged
             // (`data-dragging`, set by useDragToTarget) the item shrinks to the piece's own box, so
             // the drop test measures where the piece is drawn (base-ten-trade.css: .ni-btt__grab).
             const at = {
@@ -1413,7 +1416,6 @@ function TradeMat({
               '--btt-py': `${b.y + COL_PAD}px`,
               '--btt-pw': `${b.w}px`,
               '--btt-ph': `${b.h}px`,
-              '--btt-inset': `${GAP}px`,
             } as CSSProperties;
             return (
               <div
@@ -1439,12 +1441,22 @@ function TradeMat({
           })()
         : null;
     const bodyInvited = invited === `mat-${c}`;
+    // The column's hit pad (drop target, tap pad or grab item) keeps GAP clear of a trade strip's
+    // buttons beside it; on an outer side it runs closer to the mat frame when the column is narrow
+    // (layout.ts colInsets): a target wide however narrow the column (measurePlan).
+    const inset = colInsets(columns.indexOf(c), columns.length, plan.colW[c], age);
     return (
       <div
         key={c}
         className="ni-btt__col"
         data-col={c}
         data-flash={flash.has(`col-${c}`) ? 'true' : undefined}
+        style={
+          {
+            '--btt-inset-l': `${inset.left}px`,
+            '--btt-inset-r': `${inset.right}px`,
+          } as CSSProperties
+        }
       >
         {pad}
         {head}
@@ -1528,8 +1540,10 @@ function TradeMat({
           const n = state.pending[c];
           const boxes = naturalLayout(c, n, u, 10);
           const ext = extent(boxes);
-          const w = Math.max(sizes.target, ext.w + 2 * GROUP_PAD);
+          const w = holderWidth(c, n, u, age);
           const h = Math.max(sizes.target, ext.h + 2 * GROUP_PAD);
+          // In a narrow outer cell the holder keeps clear of the tray's border (layout.ts).
+          const m = holderMargins(i, columns.length, plan.colW[c], w);
           const id = `pending-${c}`;
           const isInvited = invited === id;
           return (
@@ -1555,7 +1569,12 @@ function TradeMat({
                           .filter(Boolean)
                           .join(' ')}
                         data-item={id}
-                        style={{ width: w, height: h }}
+                        style={{
+                          width: w,
+                          height: h,
+                          marginLeft: m.left || undefined,
+                          marginRight: m.right || undefined,
+                        }}
                       >
                         {boxes.map((b, k) => (
                           <Piece

@@ -316,17 +316,22 @@
 .ni-btt__pad ~ .ni-btt__body {
   pointer-events: none;
 }
+/* In a column: GAP clear of a trade strip, to the mat's frame on an outer side (colInsets). */
+.ni-btt__col > .ni-btt__pad {
+  left: var(--btt-inset-l);
+  right: var(--btt-inset-r);
+}
 
 /* Take away: the column's pieces are one draggable item; the piece under the finger comes along. */
 .ni-btt__grab {
   position: absolute;
-  inset: 0 var(--btt-inset);
+  inset: 0 var(--btt-inset-r) 0 var(--btt-inset-l);
   border-radius: 14px;
   -webkit-tap-highlight-color: transparent;
 }
 /* The grabbed piece, placed in the column body (--btt-px/py, in body coordinates). */
 .ni-btt__grab > .ni-btt__piece {
-  left: calc(var(--btt-px) - var(--btt-inset));
+  left: calc(var(--btt-px) - var(--btt-inset-l));
   top: var(--btt-py);
 }
 /*

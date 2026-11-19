@@ -9,12 +9,18 @@ import {
   type Box,
   COL_PAD,
   chooseSide,
+  colInsets,
+  colMinWidth,
   digitsValue,
   extent,
   growCaps,
+  holderMargins,
+  holderWidth,
   itemUnit,
   lyingRods,
+  MAT_BORDER,
   type MatState,
+  measurePlan,
   naturalLayout,
   nestInner,
   pathStates,
@@ -287,6 +293,150 @@ describe('the nest holds everything a take-away can take (1280 × 800, K and G1)
         }
       });
     }
+  }
+});
+
+/** Every column's hit pad is a target wide, and every waiting group's holder fits its cell. */
+function expectColumnTargets(plan: ReturnType<typeof planMat>, age: AgeMode, at: string) {
+  const cols = plan.caps.columns;
+  const target = age === 'k' ? 80 : 64;
+  cols.forEach((c, i) => {
+    const w = plan.colW[c];
+    const inset = colInsets(i, cols.length, w, age);
+    // GAP beside a strip (the trade buttons fill it); 0 to GAP at the mat's frame.
+    if (i > 0) expect(inset.left).toBe(12);
+    if (i < cols.length - 1) expect(inset.right).toBe(12);
+    expect(w - inset.left - inset.right, `${at}: ${c} hit pad`).toBeGreaterThanOrEqual(target);
+    const n = plan.caps.tray?.[c] ?? 0;
+    if (n > 0) {
+      const holder = holderWidth(c, n, plan.u, age);
+      const m = holderMargins(i, cols.length, w, holder);
+      // Inside the cell, and GUTTER clear of the tray's border (the cell starts MAT_BORDER in).
+      expect(holder + m.left + m.right, `${at}: ${c} holder`).toBeLessThanOrEqual(w + 0.01);
+      const outerRoom = (w - holder) / 2 + (m.left + m.right) / 2;
+      if (i === 0 || i === cols.length - 1) {
+        expect(outerRoom + MAT_BORDER, `${at}: ${c} holder room`).toBeGreaterThanOrEqual(15);
+      }
+    }
+  });
+}
+
+describe('K five-place additions with large mats (PR #74 round 8)', () => {
+  // The reviewer's config: 1580 + 1 as 14 hundreds and 18 tens, algorithm on, no pad. The
+  // five-place card is the problem row (394 px left), "check" alone in the side (1012 px wide).
+  const reviewer = cfg({
+    start: { hundreds: 14, tens: 18, ones: 0 },
+    operation: { op: '+', operand: { hundreds: 0, tens: 0, ones: 1 } },
+    showAlgorithm: true,
+    thenAsk: false,
+  });
+  const side = sideLayout({
+    age: 'k',
+    goal: 'compute',
+    showWork: true,
+    thenAsk: false,
+    answerInWork: false,
+    places: answerPlaces(reviewer),
+  });
+
+  it('fits at the new planner, where widening the ones column to 104 px overflowed', () => {
+    expect(answerPlaces(reviewer)).toBe(5);
+    expect(side.spaceH).toBe(394);
+    const width = CONTENT_W - 12 - PARTS.k.check;
+    expect(width).toBe(1012);
+    const base = planCaps(reviewer);
+    const unit = itemUnit({
+      age: 'k',
+      width,
+      height: side.spaceH,
+      base,
+      path: pathStates(reviewer),
+    });
+    const now = stateCaps(base, reviewer.start, base.tray, null);
+    const plan = planMat({ age: 'k', width, height: side.spaceH, caps: [base, now], unit });
+    expect(plan.fits).toBe(true);
+    expect(plan.totalH).toBeLessThanOrEqual(side.spaceH);
+    expect(plan.flatsPerRow).toBeGreaterThanOrEqual(7);
+    expectColumnTargets(plan, 'k', 'reviewer');
+    // The same arrangement unstretched: its columns are the planner's minimum.
+    const raw = measurePlan(
+      { age: 'k', width, height: side.spaceH, caps: plan.caps },
+      plan.u,
+      plan.rodsPerRow,
+      plan.flatsPerRow,
+    );
+    expect(raw.matW).toBeLessThanOrEqual(width);
+    // The ones column is an outer column: K's 96 px header minimum is enough (an 84 px hit pad
+    // to the mat's frame). The round-7 planner made every column ≥ 104 px (a target plus GAP on
+    // both sides): that ones column would push the mat past the width.
+    expect(raw.colW.ones).toBeLessThan(104);
+    expect(colMinWidth('k', 2, 3)).toBe(92);
+    expect(colMinWidth('k', 1, 3)).toBe(104);
+    expect(raw.matW + (104 - raw.colW.ones)).toBeGreaterThan(width);
+  });
+
+  // Large-mat additions in K (and G1) at the widths the 1200 px stage gives them. The supported
+  // envelope at U_MIN: a five-place K item holds up to 14 hundreds without the pad, 10 with it.
+  const cases: [AgeMode, boolean, [number, number, number], [number, number, number]][] = [
+    ['k', false, [14, 18, 0], [0, 0, 1]],
+    ['k', false, [14, 9, 9], [0, 0, 1]],
+    ['k', false, [12, 9, 9], [0, 0, 1]],
+    ['k', false, [10, 9, 9], [0, 0, 1]],
+    ['k', true, [10, 0, 0], [0, 0, 1]],
+    ['k', true, [10, 9, 9], [0, 0, 1]],
+    ['k', true, [9, 9, 0], [0, 1, 0]],
+    ['k', true, [5, 0, 0], [5, 0, 0]],
+    ['g1-up', true, [12, 0, 0], [3, 0, 0]],
+    ['g1-up', false, [14, 18, 0], [0, 0, 1]],
+  ];
+  for (const [age, thenAsk, s, o] of cases) {
+    const [sh, st, so] = s;
+    const [oh, ot, oo] = o;
+    it(`${age}${thenAsk ? ' with the pad' : ''}: ${sh}|${st}|${so} + ${oh}|${ot}|${oo}`, () => {
+      const config = cfg({
+        start: { hundreds: sh, tens: st, ones: so },
+        operation: { op: '+', operand: { hundreds: oh, tens: ot, ones: oo } },
+        showAlgorithm: true,
+        thenAsk,
+      });
+      const places = answerPlaces(config);
+      const base = planCaps(config);
+      const path = pathStates(config);
+      const { side: chosen, width } = chooseSide({
+        age,
+        goal: 'compute',
+        showWork: true,
+        thenAsk,
+        answerInWork: thenAsk,
+        places,
+        contentW: CONTENT_W,
+        parts: {
+          pad: thenAsk ? PARTS[age].pad : 0,
+          check: PARTS[age].check,
+          card: cardWidth(age, places),
+        },
+        base,
+        path,
+      });
+      const height = chosen.spaceH;
+      const unit = itemUnit({ age, width, height, base, path });
+      for (const st8 of path) {
+        const plan = planMat({
+          age,
+          width,
+          height,
+          caps: [
+            growCaps(base, st8.mat, { hundreds: 0, tens: 0, ones: 0 }),
+            stateCaps(base, st8.mat, st8.pending, null),
+          ],
+          unit,
+        });
+        const at = `${width} px, mat ${JSON.stringify(st8.mat)}`;
+        expect(plan.fits, at).toBe(true);
+        expect(plan.totalH, at).toBeLessThanOrEqual(height);
+        expectColumnTargets(plan, age, at);
+      }
+    });
   }
 });
 

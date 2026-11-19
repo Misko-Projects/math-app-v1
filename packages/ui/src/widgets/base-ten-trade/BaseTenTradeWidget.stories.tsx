@@ -1224,6 +1224,50 @@ export const StressTakeAll1200K: Story = {
   },
 };
 
+/** The reviewer's K addition (PR #74 round 8): 1580 + 1 as 14 hundreds and 18 tens. */
+const bigAddK: Config = {
+  format: 'base-ten-trade',
+  start: { hundreds: 14, tens: 18, ones: 0 },
+  operation: { op: '+', operand: { hundreds: 0, tens: 0, ones: 1 } },
+  goal: 'compute',
+  showAlgorithm: true,
+  thenAsk: false,
+};
+
+/**
+ * Regression (PR #74 round 8), K: 1580 + 1 with fourteen flats and eighteen rods on the mat, one
+ * one waiting, and the five-place algorithm above the mat. The mat and the tray fit the tablet,
+ * and every control, the narrow ones column's drop target included, is a K target 12 px clear of
+ * its neighbours: an outer column's target runs closer to the mat's frame instead of widening it.
+ */
+export const StressBigAddK: Story = {
+  globals: { ageMode: 'k' },
+  args: { config: bigAddK },
+  play: async ({ canvasElement, args }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    await expect(mat(root)).toEqual({ hundreds: 14, tens: 18, ones: 0 });
+    await expectFits(canvasElement, root, U_MIN);
+    // The mat and the tray (its waiting one) inside the widget.
+    const box = root.getBoundingClientRect();
+    for (const sel of ['.ni-btt__mat', '.ni-btt__tray', '.ni-btt__work']) {
+      const r = q(root, sel).getBoundingClientRect();
+      await expect(r.top).toBeGreaterThanOrEqual(box.top - 0.5);
+      await expect(r.bottom, `${sel} bottom`).toBeLessThanOrEqual(box.bottom + 0.5);
+    }
+    for (const el of controls(root)) await expectTargetSize(el, 'k');
+    await expectTargetGaps(controls(root));
+    // The child adds the one; it still fits.
+    await tapPlace(pending(root, 'ones'), columnPad(root, 'ones'));
+    await settled(root);
+    await expectFits(canvasElement, root, U_MIN);
+    await userEvent.click(within(root).getByRole('button', { name: 'Check' }));
+    await expect(args.onResponse).toHaveBeenCalledWith({
+      kind: 'state',
+      value: { hundreds: 14, tens: 18, ones: 1 },
+    });
+  },
+};
+
 /** `h t o − h t o` with the algorithm and a typed answer: a take-away of everything (result 0). */
 function takeAll(hundreds: number, tens: number, ones: number): Config {
   const n = { hundreds, tens, ones };

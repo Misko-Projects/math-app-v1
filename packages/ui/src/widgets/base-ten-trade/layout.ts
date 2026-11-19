@@ -245,6 +245,59 @@ export function chooseSide(
  */
 export const stripWidth = (age: AgeMode) => ageSizes(age).target;
 
+/**
+ * How far a column's hit pad (its drop target, tap pad or grab item) is inset from the column's
+ * sides, px. Beside a trade strip always GAP: the strip's buttons fill it, so the two targets
+ * stay 12 px apart. On the mat's outer side GAP too, unless the column (`colW` px wide) is too
+ * narrow for a target-wide pad: then less, down to 0. Only the mat's frame is there; the next
+ * target outside it is the grid gap plus the frame away.
+ */
+export function colInsets(
+  index: number,
+  count: number,
+  colW = Number.POSITIVE_INFINITY,
+  age: AgeMode = 'g1-up',
+): { left: number; right: number } {
+  const innerL = index > 0;
+  const innerR = index < count - 1;
+  const inner = (innerL ? GAP : 0) + (innerR ? GAP : 0);
+  const outer = Math.max(0, Math.min(GAP, colW - ageSizes(age).target - inner));
+  return { left: innerL ? GAP : outer, right: innerR ? GAP : outer };
+}
+
+/**
+ * How far a waiting group's holder must sit from the outer side of an outer tray cell: GUTTER
+ * clear of the tray's border (the cell starts MAT_BORDER inside the tray's outer edge).
+ */
+const TRAY_EDGE = GUTTER + TRAY_BORDER - MAT_BORDER;
+
+/** A waiting group's holder width: a target at least (it is dragged), and its pieces padded. */
+export const holderWidth = (kind: Column, n: number, u: number, age: AgeMode) =>
+  Math.max(ageSizes(age).target, contentW(kind, n, u, 10) + 2 * GROUP_PAD);
+
+/**
+ * The margins that keep a waiting group's holder (`holderW` px) TRAY_EDGE clear of the tray's
+ * border in an outer cell `colW` px wide. Centred when there is room (no margin); otherwise it
+ * moves toward the mat's middle just enough (a flex-centred item moves by half its margin).
+ */
+export function holderMargins(
+  index: number,
+  count: number,
+  colW: number,
+  holderW: number,
+): { left: number; right: number } {
+  const shift = Math.max(0, TRAY_EDGE - (colW - holderW) / 2);
+  return {
+    left: index === 0 ? 2 * shift : 0,
+    right: index === count - 1 && index !== 0 ? 2 * shift : 0,
+  };
+}
+
+/** The narrowest a column may be so its hit pad is at least a target wide inside its insets. */
+export function colMinWidth(age: AgeMode, index: number, count: number): number {
+  return ageSizes(age).target + (index > 0 ? GAP : 0) + (index < count - 1 ? GAP : 0);
+}
+
 // ---------- pieces ----------
 
 export const pieceSize = (kind: Column, u: number): { w: number; h: number } =>
@@ -684,7 +737,7 @@ export function measurePlan(
       ? caps.mat[c]
       : // A column always has room for one piece of its kind (a flat only if one can exist).
         Math.max(c === 'hundreds' && !caps.flatReachable ? 0 : 1, caps.mat[c]);
-  for (const c of cols) {
+  cols.forEach((c, i) => {
     const per = perRowFor(c, rodsPerRow, flatsPerRow);
     // The ones column always has room for a full row of five (nine ones), never squeezed.
     const across = c === 'ones' ? Math.max(ONES_PER_ROW, planned(c)) : Math.min(planned(c), per);
@@ -692,10 +745,17 @@ export function measurePlan(
       contentW(c, across, u, per),
       tray ? contentW(c, tray[c], u, 10) + 2 * GROUP_PAD : 0,
     );
-    // The column's own control (its drop target, tap pad or grab item, inset by GAP from each
-    // side) is at least a target wide.
-    colW[c] = Math.ceil(Math.max(sz.headerMin[c], sz.target + 2 * GAP, need + 2 * COL_PAD));
-  }
+    // A waiting group's holder (target-wide at least) keeps TRAY_EDGE clear of the tray's border
+    // in an outer cell (holderMargins).
+    const outer = i === 0 || i === cols.length - 1;
+    const holder =
+      tray && tray[c] > 0 ? holderWidth(c, tray[c], u, age) + (outer ? TRAY_EDGE : 0) : 0;
+    // The column's own control (its drop target, tap pad or grab item) is at least a target
+    // wide inside its insets (colInsets): GAP only beside a trade strip.
+    colW[c] = Math.ceil(
+      Math.max(sz.headerMin[c], colMinWidth(age, i, cols.length), holder, need + 2 * COL_PAD),
+    );
+  });
   const strips = (cols.length - 1) * stripWidth(age);
   const matW = 2 * MAT_BORDER + cols.reduce((a, c) => a + colW[c], 0) + strips;
   // The trade strip spans header and body: two buttons and a gap between them.
