@@ -177,11 +177,17 @@ function wrapRow(layout: ObjectLayout, rows: number, from: 'left' | 'right'): Ob
  * An ordinal line's objects in the order a child counts them from the "start here" arrow (left to
  * right, or right to left), positions unchanged. The objects render in this order, so Tab and a
  * screen reader start at the marked object and follow the count, however the rows are drawn.
- * Ids stay `obj-<index>`.
+ * Ids stay `obj-<index>`. The order comes from the line's own reading-order index (`obj-0` is the
+ * first object along the line), never from drawn positions: a line the kit wraps into a second row
+ * (more than ten objects) must still go obj-0, obj-1, … rather than column by column. Distractors
+ * follow the counted objects, in their own order.
  */
 function inCountingOrder(layout: ObjectLayout, from: 'left' | 'right'): ObjectLayout {
   const dir = from === 'right' ? -1 : 1;
-  const objects = [...layout.objects].sort((a, b) => dir * (a.x - b.x) || dir * (a.y - b.y));
+  const rank = (o: PlacedObject) => (o.kind === 'object' ? 0 : 1);
+  const objects = [...layout.objects].sort(
+    (a, b) => rank(a) - rank(b) || (a.kind === 'object' ? dir : 1) * (a.index - b.index),
+  );
   return { ...layout, objects };
 }
 

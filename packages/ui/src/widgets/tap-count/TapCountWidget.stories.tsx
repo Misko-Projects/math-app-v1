@@ -998,3 +998,24 @@ export const OrdinalKFromRightPortrait: Story = {
     await expect(args.onResponse).toHaveBeenCalledWith({ kind: 'choice', id: 'obj-7' });
   },
 };
+
+/**
+ * A longer ordinal line (11 shells, valid for the format), counted from the left. The kit wraps it
+ * into a second row; Tab and the screen reader still follow the line: obj-0 … obj-10, never jumping
+ * between rows column by column (review round 3).
+ */
+export const OrdinalElevenFromLeft: Story = {
+  globals: { ageMode: 'k' },
+  args: {
+    config: {
+      ...ordinalShells,
+      set: { ...ordinalShells.set, count: 11 },
+      ordinal: { k: 4, from: 'left' },
+    },
+  },
+  play: async ({ canvasElement, args }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    await waitFor(() => expect(obj(root, 10)).toBeVisible());
+    await expectKeyboardCountingOrder(root, args.onInteract, ids(0, 10));
+  },
+};
