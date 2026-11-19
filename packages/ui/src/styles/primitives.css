@@ -815,8 +815,13 @@ button.ni-number {
 .ni-widget {
   position: relative;
   display: flex;
-  align-items: center;
-  justify-content: center;
+  /*
+   * Safe centring: a widget taller or wider than its host starts at the host's top/left edge
+   * and overflows only downwards/rightwards, so a scrolling workshop area can always reach it
+   * (plain centring would push its top above the scroll origin).
+   */
+  align-items: safe center;
+  justify-content: safe center;
   box-sizing: border-box;
   width: 100%;
   height: 100%;

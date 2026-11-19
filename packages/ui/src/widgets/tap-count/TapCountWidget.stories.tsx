@@ -392,6 +392,8 @@ export const OrdinalPictureFromRight: Story = {
       obj(root, 5).getBoundingClientRect().right,
     );
     await expectOrdinalFits(root);
+    // One row, from the right: Tab starts on obj-5 beside the marker and runs to obj-0.
+    await expectKeyboardCountingOrder(root, args.onInteract, ids(0, 5).reverse());
     await userEvent.click(obj(root, 4));
     await userEvent.click(obj(root, 3));
     await expect(marks(root)).toEqual([]);
@@ -821,6 +823,37 @@ async function expectCueBeforeFirstRow(
 }
 
 /**
+ * Keyboard and screen-reader order follow the counting order (`order`, from the start marker),
+ * whatever the drawn rows: the objects are in that order in the DOM, Tab from before the widget
+ * lands on the marked object first and walks the rest in order, then Check. Space on each one
+ * rings it and traces its own `obj-<i>` (ids never depend on the order).
+ */
+async function expectKeyboardCountingOrder(
+  root: HTMLElement,
+  onInteract: unknown,
+  order: string[],
+) {
+  (document.activeElement as HTMLElement | null)?.blur();
+  for (let guard = 0; guard < 20 && !root.contains(document.activeElement); guard++) {
+    await userEvent.tab();
+  }
+  const visited: string[] = [];
+  for (let i = 0; i < order.length; i++) {
+    const el = document.activeElement as HTMLElement;
+    visited.push(el.dataset.obj ?? el.tagName);
+    await userEvent.keyboard(' ');
+    await expect(el).toHaveAttribute('aria-pressed', 'true');
+    await userEvent.tab();
+  }
+  await expect(visited).toEqual(order);
+  await expect(document.activeElement).toBe(checkButton(root));
+  // Screen readers read the DOM: the same order.
+  await expect(objects(root).map((o) => o.dataset.obj)).toEqual(order);
+  const taps = traceOf(onInteract).filter((e) => e.t === 'tap');
+  await expect(taps.slice(-order.length).map((e) => e.target)).toEqual(order);
+}
+
+/**
  * CNT.15.t1 (K) at the 1280 × 800 baseline (widget area 1226 × 493): unchanged, one row of ten
  * 80 px shells with Check under it.
  */
@@ -829,7 +862,7 @@ export const OrdinalKTablet: Story = {
   args: { config: ordinalShells },
   parameters: { area: widgetArea(1280, 800), ui: { stage: 'flush' } },
   render: renderInArea,
-  play: async ({ canvasElement }) => {
+  play: async ({ canvasElement, args }) => {
     const root = await findWidget(canvasElement, ROOT);
     await waitFor(() => expect(rowsOf(root)).toEqual([ids(0, 9)]));
     await expect(root).toHaveAttribute('data-arrange', 'stack');
@@ -838,6 +871,8 @@ export const OrdinalKTablet: Story = {
     }
     await expectOrdinalInArea(root, 'k');
     await expectCueBeforeFirstRow(root, obj(root, 0), 'left');
+    // One row, from the left: Tab runs obj-0 to obj-9.
+    await expectKeyboardCountingOrder(root, args.onInteract, ids(0, 9));
   },
 };
 
@@ -874,19 +909,22 @@ export const OrdinalKPortrait: Story = {
   args: { config: ordinalShells },
   parameters: { area: widgetArea(800, 1280) },
   render: renderInArea,
-  play: async ({ canvasElement }) => {
+  play: async ({ canvasElement, args }) => {
     const root = await findWidget(canvasElement, ROOT);
     await waitFor(() => expect(rowsOf(root)).toEqual([ids(0, 4), ids(5, 9)]));
     await expectOrdinalInArea(root, 'k');
     await expectCueBeforeFirstRow(root, obj(root, 0), 'left');
     const set = (root.querySelector('.ni-tapc__set') as HTMLElement).getBoundingClientRect();
     await expect(checkButton(root).getBoundingClientRect().top).toBeGreaterThan(set.bottom);
+    // Keyboard: Tab starts on obj-0 beside the marker, the top row first, then the second row.
+    await expectKeyboardCountingOrder(root, args.onInteract, ids(0, 9));
   },
 };
 
 /**
  * Counted from the right, in portrait (K): the first row holds the five shells counted first,
- * right-aligned next to the start marker (obj-9 first), the next five under them.
+ * right-aligned next to the start marker (obj-9 first), the next five under them. Tab follows the
+ * count: obj-9 beside the marker first, down to obj-0.
  */
 export const OrdinalKFromRightPortrait: Story = {
   globals: { ageMode: 'k' },
@@ -900,6 +938,8 @@ export const OrdinalKFromRightPortrait: Story = {
     await expect(Math.abs(right(4) - right(9))).toBeLessThan(1);
     await expectOrdinalInArea(root, 'k');
     await expectCueBeforeFirstRow(root, obj(root, 9), 'right');
+    // Keyboard: Tab starts on obj-9 beside the marker and counts on to obj-0.
+    await expectKeyboardCountingOrder(root, args.onInteract, ids(0, 9).reverse());
     await userEvent.click(obj(root, 7));
     await userEvent.click(checkButton(root));
     await expect(args.onResponse).toHaveBeenCalledWith({ kind: 'choice', id: 'obj-7' });

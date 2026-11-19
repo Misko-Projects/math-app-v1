@@ -154,6 +154,92 @@ const pileArea = (root: HTMLElement) => root.querySelector('[data-area="pile"]')
 const check = (root: HTMLElement) => within(root).getByRole('button', { name: 'Check' });
 const allItems = (root: HTMLElement) => [...root.querySelectorAll<HTMLElement>('.ni-mset__item')];
 const pointerIn = (el: Element) => el.querySelector(':scope > .ni-hand') as HTMLElement;
+const nextFrame = () => new Promise<void>((r) => requestAnimationFrame(() => r()));
+
+const describe = (el: Element | null) =>
+  el ? `${el.tagName.toLowerCase()}.${[...el.classList].join('.')}` : 'nothing';
+
+/**
+ * A real touch at `at` lands on `el`: the browser's hit test (`elementFromPoint`) returns `el` or
+ * something inside it, so nothing covers it, it is not clipped away and it is on screen.
+ */
+async function expectHit(el: Element, at: { x: number; y: number }, what: string) {
+  const hit = document.elementFromPoint(at.x, at.y);
+  await expect(
+    hit !== null && el.contains(hit),
+    `${what}: a touch at (${Math.round(at.x)}, ${Math.round(at.y)}) hits ${describe(hit)}, not ${describe(el)}`,
+  ).toBe(true);
+}
+
+/** The middle of the part of `el` that is on screen: clipped by every scrolling ancestor. */
+function reachableCenter(el: Element) {
+  let { left, top, right, bottom } = el.getBoundingClientRect();
+  for (let p = el.parentElement; p; p = p.parentElement) {
+    const cs = getComputedStyle(p);
+    if (cs.overflowX === 'visible' && cs.overflowY === 'visible') continue;
+    const c = p.getBoundingClientRect();
+    left = Math.max(left, c.left);
+    top = Math.max(top, c.top);
+    right = Math.min(right, c.right);
+    bottom = Math.min(bottom, c.bottom);
+  }
+  right = Math.min(right, window.innerWidth);
+  bottom = Math.min(bottom, window.innerHeight);
+  return { x: (Math.max(0, left) + right) / 2, y: (Math.max(0, top) + bottom) / 2 };
+}
+
+/**
+ * pointerDrag, but only where a real finger could do it: the press goes to the object's centre
+ * only after the browser's hit test there returns the object, and the drop point (the middle of
+ * the drop zone's visible part) must hit the drop zone (the container or the pile).
+ */
+async function drag(el: HTMLElement, target: HTMLElement, pointerType: 'mouse' | 'touch') {
+  await expectHit(el, center(el), 'the dragged object');
+  const to = reachableCenter(target);
+  const zone = target.closest('.ni-mset__container, .ni-mset__pile') ?? target;
+  await expectHit(zone, to, 'the drop zone');
+  await pointerDrag(el, to, pointerType);
+}
+
+/**
+ * In a fixed widget area that scrolls (06 §1), every object, the container and Check start
+ * at or below the area's top at scrollTop 0 (nothing sits above the scroll origin, where no scroll
+ * can reach), and scrolling the area to each object and Check makes a real touch at its
+ * centre land on it.
+ */
+async function expectReachableInArea(root: HTMLElement, box: HTMLElement) {
+  box.scrollIntoView({ block: 'start', inline: 'start' });
+  box.scrollTop = 0;
+  box.scrollLeft = 0;
+  await nextFrame();
+  const b = box.getBoundingClientRect();
+  const parts = [
+    ...allItems(root),
+    root.querySelector('.ni-mset__container') as Element,
+    check(root),
+  ];
+  for (const part of parts) {
+    await expect(
+      part.getBoundingClientRect().top,
+      `${describe(part)} top at or below the area's scroll origin`,
+    ).toBeGreaterThanOrEqual(b.top - 0.5);
+  }
+  for (const el of [...allItems(root), check(root)]) {
+    const r = el.getBoundingClientRect();
+    const bb = box.getBoundingClientRect();
+    if (r.bottom > bb.bottom) box.scrollTop += r.bottom - bb.bottom;
+    else if (r.top < bb.top) box.scrollTop -= bb.top - r.top;
+    // The story page itself may be shorter than the area (the test viewport): scroll the page
+    // too, never the area, so only the area's own scrolling decides what is reachable.
+    const v = el.getBoundingClientRect();
+    if (v.bottom > window.innerHeight) window.scrollBy(0, v.bottom - window.innerHeight);
+    else if (v.top < 0) window.scrollBy(0, v.top);
+    await nextFrame();
+    await expectHit(el, center(el), `${describe(el)} after scrolling it into view`);
+  }
+  box.scrollTop = 0;
+  await nextFrame();
+}
 
 /**
  * A heap lays out in balanced, centred rows: row lengths differ by at most one (no object hangs
@@ -240,9 +326,9 @@ export const MakeK: Story = {
     await expect(check(root)).toBeEnabled();
     await expect(args.onResponse).not.toHaveBeenCalled();
 
-    await pointerDrag(heap(root)[0] as HTMLElement, center(containerPad(root)), 'mouse');
+    await drag(heap(root)[0] as HTMLElement, containerPad(root), 'mouse');
     await waitFor(() => expect(inside(root)).toHaveLength(1));
-    await pointerDrag(heap(root)[0] as HTMLElement, center(containerPad(root)), 'touch');
+    await drag(heap(root)[0] as HTMLElement, containerPad(root), 'touch');
     await waitFor(() => expect(inside(root)).toHaveLength(2));
     await userEvent.click(heap(root)[0] as HTMLElement);
     await expect(audio.say).toHaveBeenLastCalledWith('ui.sprite.fish', undefined);
@@ -301,7 +387,7 @@ export const AddMoreG1: Story = {
     await expect(inside(root)).toHaveLength(1);
     await expect(within(root).getByRole('button', { name: 'Your answer: 1' })).toBeVisible();
     for (let i = 0; i < 3; i++) {
-      await pointerDrag(heap(root)[0] as HTMLElement, center(containerPad(root)), 'touch');
+      await drag(heap(root)[0] as HTMLElement, containerPad(root), 'touch');
       await waitFor(() => expect(inside(root)).toHaveLength(2 + i));
     }
     await expect(audio.sayPhrases).toHaveBeenLastCalledWith([{ number: 4 }]);
@@ -328,9 +414,9 @@ export const TakeAwaySplit: Story = {
     const root = await findWidget(canvasElement, ROOT);
     await expect(inside(root)).toHaveLength(5);
     await expect(supplyItems(root)).toHaveLength(0);
-    await pointerDrag(inside(root)[4] as HTMLElement, center(pilePad(root)), 'mouse');
+    await drag(inside(root)[4] as HTMLElement, pilePad(root), 'mouse');
     await waitFor(() => expect(inside(root)).toHaveLength(4));
-    await pointerDrag(inside(root)[3] as HTMLElement, center(pilePad(root)), 'touch');
+    await drag(inside(root)[3] as HTMLElement, pilePad(root), 'touch');
     await waitFor(() => expect(heap(root)).toHaveLength(2));
     // The two taken away sit centred in the "take away" pile.
     await expectEvenHeap(pileArea(root));
@@ -503,13 +589,15 @@ export const TwentyKMinLandscape: Story = {
     const box = areaBox(canvasElement);
     await expect(root).toHaveAttribute('data-layout', 'stack');
     await expectFitsArea(root, box, 'k', { vertical: false });
+    await expectReachableInArea(root, box);
     await expectEvenHeap(pileArea(root));
-    await pointerDrag(heap(root)[0] as HTMLElement, center(containerPad(root)), 'touch');
+    await drag(heap(root)[0] as HTMLElement, containerPad(root), 'touch');
     await waitFor(() => expect(inside(root)).toHaveLength(1));
     await userEvent.click(heap(root)[0] as HTMLElement);
     await userEvent.click(containerPad(root));
     await waitFor(() => expect(inside(root)).toHaveLength(2));
     await expectFitsArea(root, box, 'k', { vertical: false });
+    await expectReachableInArea(root, box);
     await userEvent.click(check(root));
     await expect(args.onResponse).toHaveBeenCalledWith({
       kind: 'state',
@@ -527,6 +615,7 @@ export const TwentyKPortrait: Story = {
     const root = await findWidget(canvasElement, ROOT);
     await expect(root).toHaveAttribute('data-layout', 'column');
     await expectFitsArea(root, areaBox(canvasElement), 'k', { vertical: true });
+    await expectReachableInArea(root, areaBox(canvasElement));
     await expectEvenHeap(pileArea(root));
   },
 };
@@ -543,6 +632,7 @@ export const TwentyKTablet: Story = {
     const root = await findWidget(canvasElement, ROOT);
     await expect(root).toHaveAttribute('data-layout', 'row');
     await expectFitsArea(root, areaBox(canvasElement), 'k', { vertical: false });
+    await expectReachableInArea(root, areaBox(canvasElement));
     const pile = pileArea(root).getBoundingClientRect();
     const boat = (root.querySelector('.ni-mset__container') as HTMLElement).getBoundingClientRect();
     const ok = check(root).getBoundingClientRect();
@@ -562,6 +652,7 @@ export const ShellKMinLandscape: Story = {
     const root = await findWidget(canvasElement, ROOT);
     await expect(root).toHaveAttribute('data-layout', 'stack');
     await expectFitsArea(root, areaBox(canvasElement), 'k', { vertical: false });
+    await expectReachableInArea(root, areaBox(canvasElement));
     await expectEvenHeap(pileArea(root));
   },
 };
@@ -573,6 +664,7 @@ export const ShellKPortrait: Story = {
   play: async ({ canvasElement }) => {
     const root = await findWidget(canvasElement, ROOT);
     await expectFitsArea(root, areaBox(canvasElement), 'k', { vertical: true });
+    await expectReachableInArea(root, areaBox(canvasElement));
     await expectEvenHeap(pileArea(root));
   },
 };
@@ -586,12 +678,13 @@ export const TakeAwayMinLandscape: Story = {
   render: inArea('landscapeMin'),
   play: async ({ canvasElement, args }) => {
     const root = await findWidget(canvasElement, ROOT);
-    await pointerDrag(inside(root)[4] as HTMLElement, center(pilePad(root)), 'mouse');
+    await drag(inside(root)[4] as HTMLElement, pilePad(root), 'mouse');
     await waitFor(() => expect(heap(root)).toHaveLength(1));
     await userEvent.click(inside(root)[3] as HTMLElement);
     await userEvent.click(pilePad(root));
     await waitFor(() => expect(heap(root)).toHaveLength(2));
     await expectFitsArea(root, areaBox(canvasElement), 'g1-up', { vertical: false });
+    await expectReachableInArea(root, areaBox(canvasElement));
     await expectEvenHeap(pileArea(root));
     await userEvent.click(check(root));
     await expect(args.onResponse).toHaveBeenCalledWith({

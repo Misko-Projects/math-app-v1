@@ -16,6 +16,13 @@
   box-sizing: border-box;
   width: 100%;
   max-width: 1180px;
+  /*
+   * Safe centring in the host (.ni-widget centres its child with `align-items: center`, which is
+   * unsafe): auto margins centre the widget while it fits and drop to 0 when it is taller than
+   * the host, so it starts at the top of the scrollable area and overflows only downwards. Never
+   * above the scroll origin, where no scroll can reach the heap.
+   */
+  margin: auto;
   padding: 12px 16px;
   /* Inline-size only (no layout containment): the demo flight stays viewport-fixed. */
   contain: inline-size;

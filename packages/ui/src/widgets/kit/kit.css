@@ -550,10 +550,15 @@
   height: var(--icon-size);
 }
 
-/* Demo invites on small controls hug the control, so the ring never touches a neighbour. */
+/*
+ * Demo invites on small controls hug the control, so the ring never touches a neighbour 12 px
+ * away (06 §4), even at the pulse's 1.05 peak: (2 px offset + 4 px ring) × 1.05 plus the scale's
+ * own growth (2.4 px on a 96 px card) stays under 9 px. The 4 px sea-deep ring keeps ≥ 3:1.
+ */
 .ni-pick.ni-invite,
 .ni-pad__key.ni-invite {
-  outline-offset: 5px;
+  outline-width: 4px;
+  outline-offset: 2px;
   border-radius: var(--radius-pebble);
 }
 

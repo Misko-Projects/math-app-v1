@@ -383,6 +383,16 @@ export const TrayTwentyInviteK: Story = {
         expect(zero.getBoundingClientRect().width).toBeGreaterThan(zero.offsetWidth * 1.04),
       );
     }
+    // At the pulse's peak (or static, with reduced motion) the invite ring stays clear of the
+    // next card: the outline's outer edge (offset + width, scaled with the card) is left of "1".
+    const ring = getComputedStyle(zero);
+    const zr = zero.getBoundingClientRect();
+    const scale = zr.width / zero.offsetWidth;
+    const ringEdge =
+      zr.right +
+      (Number.parseFloat(ring.outlineOffset) + Number.parseFloat(ring.outlineWidth)) * scale;
+    const one = within(tray).getByRole('button', { name: '1' });
+    await expect(one.getBoundingClientRect().left - ringEdge).toBeGreaterThanOrEqual(2);
     setTrayContentWidth(canvasElement, tray, 772);
     // Let the resize observer run and React re-render, then check the grid it planned (a
     // transformed measurement would have planned 6 a row: 6 + 6 + 6 + 3).

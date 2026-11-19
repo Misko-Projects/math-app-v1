@@ -61,6 +61,8 @@ import './tap-count.css';
  * Layout is container-relative (06 §1): the widget measures its own width. A row of objects that
  * cannot keep full-size targets in one row at that width wraps into rows in reading order (ten
  * K shells at the 960 × 600 minimum: 5 + 5), the "start here" arrow before the first row.
+ * Ordinal objects render in counting order from the arrow, so Tab and screen readers start at the
+ * marked object and follow the count whatever the rows look like.
  */
 
 const OPS = ['tap', 'count-aloud', 'ring', 'say-total', 'answer'] as const;
@@ -161,11 +163,24 @@ function wrapRow(layout: ObjectLayout, rows: number, from: 'left' | 'right'): Ob
   });
   return {
     ...layout,
-    // Same order as before (obj-0 first), so focus order and keys are unchanged.
+    // Same order as given (the counting order, see `inCountingOrder`), so DOM order, focus order
+    // and keys are unchanged by the wrap.
     objects: layout.objects.map((o) => moved.get(o) ?? o),
     width,
     height: (chunks.length - 1) * 1.2 + layout.height,
   };
+}
+
+/**
+ * An ordinal line's objects in the order a child counts them from the "start here" arrow (left to
+ * right, or right to left), positions unchanged. The objects render in this order, so Tab and a
+ * screen reader start at the marked object and follow the count, however the rows are drawn.
+ * Ids stay `obj-<index>`.
+ */
+function inCountingOrder(layout: ObjectLayout, from: 'left' | 'right'): ObjectLayout {
+  const dir = from === 'right' ? -1 : 1;
+  const objects = [...layout.objects].sort((a, b) => dir * (a.x - b.x) || dir * (a.y - b.y));
+  return { ...layout, objects };
 }
 
 /**
@@ -341,10 +356,11 @@ export function TapCountWidget({
     }
     return baseLayout.objects.length;
   })();
-  const fitLayout = useMemo(
-    () => (wrapRows > 1 ? wrapRow(baseLayout, wrapRows, ordinal ? from : 'left') : baseLayout),
-    [baseLayout, wrapRows, ordinal, from],
-  );
+  const fitLayout = useMemo(() => {
+    // Ordinal objects render in counting order (DOM = Tab = reading order), from the marker.
+    const counted = ordinal ? inCountingOrder(baseLayout, from) : baseLayout;
+    return wrapRows > 1 ? wrapRow(counted, wrapRows, ordinal ? from : 'left') : counted;
+  }, [baseLayout, wrapRows, ordinal, from]);
   // Wrapped rows keep the size the one-row layout gets at 1280 × 800, so a narrower screen never
   // draws bigger objects than a wide one.
   const wrappedCap =
