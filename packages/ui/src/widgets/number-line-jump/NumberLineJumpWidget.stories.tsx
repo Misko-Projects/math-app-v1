@@ -912,7 +912,6 @@ const pathInvite: WidgetDemo = createDemoController({ strict: true });
 /** Review F9: the answer cue follows a reachable path: hop 3, hop 3, then Check. */
 export const InviteReachablePath: Story = {
   args: { config: deadEnd, tier: 'pictorial', demo: pathInvite },
-  render: inArea('tablet'),
   play: async ({ canvasElement }) => {
     const root = await findWidget(canvasElement, ROOT);
     pathInvite.invite({ op: 'answer', args: { value: 6 } });

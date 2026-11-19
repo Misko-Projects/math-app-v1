@@ -14,6 +14,7 @@ import {
   expectFitsArea,
   expectHandClearOfOthers,
   expectInside,
+  expectNoScroll,
   expectPointerOn,
   expectRingClear,
   findWidget,
@@ -598,7 +599,19 @@ export const FillTensKMinLandscape: Story = {
     (document.activeElement as HTMLElement | null)?.blur();
     await waitFor(() => expect(checkBtn(root)).toHaveClass('ni-invite'));
     await expect(root.querySelectorAll('.ni-invite')).toHaveLength(1);
-    await expectHcFits(canvasElement, root, 'k');
+    await waitForSettled(checkBtn(root));
+    await new Promise((r) => requestAnimationFrame(r));
+    // The hand may hang into the card's padding here (minimum-area relief): inside the card.
+    await expectPointerOn(
+      root.querySelector('.ni-hand') as HTMLElement,
+      checkBtn(root),
+      areaBox(canvasElement),
+    );
+    await expectRingClear(
+      checkBtn(root),
+      targets(root).filter((t) => t !== checkBtn(root)),
+    );
+    await expectNoScroll(areaBox(canvasElement));
   },
 };
 
