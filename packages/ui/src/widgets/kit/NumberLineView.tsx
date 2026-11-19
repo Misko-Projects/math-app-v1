@@ -111,13 +111,11 @@ export function NumberLineView({
   const spacing = labelsEvery ? Math.abs(s.x(min + labelsEvery) - s.x(min)) : 0;
   const stride = [1, 2, 5, 10, 20, 50, 100].find((k) => spacing * k >= widest + 10) ?? 100;
   const unit = (labelsEvery ?? 1) * stride;
-  // A marked point never shows its own numeral: the mark is what the child is asked to read.
-  const marked = new Set(marks.map((m) => m.at));
+  // Numerals are drawn exactly as the stimulus asks (labelsEvery): which numbers a question hides
+  // is the generator's decision (03 §5.1), not the renderer's; a marked start must stay readable.
   // Where a jump lands, its own arrowhead points at the mark; no second pointer on top of it.
   const jumpEnds = new Set(jumps.map((j) => j.to));
-  const labels = candidates.filter(
-    (v) => Math.abs(v / unit - Math.round(v / unit)) < 1e-6 && !marked.has(v),
-  );
+  const labels = candidates.filter((v) => Math.abs(v / unit - Math.round(v / unit)) < 1e-6);
   // Jump arcs and arrow pointers need room above the line; a bare line doesn't.
   const lineY =
     headroom ??

@@ -102,6 +102,18 @@ export function NumeralPickWidget({
   });
 
   const stimulus = config.stimulus;
+  // Numeral and word cards share one width, sized for the longest label (Baloo 2 numerals ≈ 30 px
+  // a digit at 48 px; Andika words ≈ 18 px a letter at 32 px). Picture cards keep their own size.
+  const longestNumeral = Math.max(
+    1,
+    ...config.options.map((o) => (isNumeral(o.label) ? (o.label ?? '').length : 0)),
+  );
+  const longestWord = Math.max(
+    0,
+    ...config.options.map((o) => (!o.stimulus && !isNumeral(o.label) ? (o.label ?? '').length : 0)),
+  );
+  const cardWidth =
+    longestWord > 0 ? `${longestWord * 18 + 56}px` : `${longestNumeral * 30 + 44}px`;
   return (
     <div className="ni-npick" data-tier={tier} data-disabled={disabled ? 'true' : undefined}>
       {stimulus.kind !== 'none' ? (
@@ -112,7 +124,9 @@ export function NumeralPickWidget({
           className="ni-npick__options"
           data-layout={config.layout}
           // Grid: even columns (2 for up to 4 choices, else 3) so no choice sits alone off-centre.
-          style={{ '--cols': config.options.length <= 4 ? 2 : 3 } as CSSProperties}
+          style={
+            { '--cols': config.options.length <= 4 ? 2 : 3, '--card-w': cardWidth } as CSSProperties
+          }
           aria-label={t('ui.widget.choices')}
           disabled={!interactive}
         >

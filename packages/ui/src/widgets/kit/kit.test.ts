@@ -226,6 +226,26 @@ describe('review regressions (PR #63 round 3)', () => {
   });
 });
 
+describe('review regressions (PR #63 round 6)', () => {
+  it('ten-frames keep sizeVaries, each object inside its cell, deterministically', () => {
+    const s = set({ count: 7, layout: 'ten-frame', sizeVaries: true, layoutSeed: 11 });
+    const l = objectSetLayout(s);
+    expect(new Set(l.objects.map((o) => o.scale.toFixed(3))).size).toBeGreaterThan(1);
+    l.objects.forEach((o, i) => {
+      const cellX = i % 5;
+      const cellY = Math.floor(i / 5);
+      expect(o.x).toBeGreaterThan(cellX);
+      expect(o.x + o.scale).toBeLessThan(cellX + 1);
+      expect(o.y).toBeGreaterThan(cellY);
+      expect(o.y + o.scale).toBeLessThan(cellY + 1);
+    });
+    expect(objectSetLayout(s)).toEqual(l);
+    // Without sizeVaries every object has the same in-cell size.
+    const plain = objectSetLayout({ ...s, sizeVaries: false });
+    expect(new Set(plain.objects.map((o) => o.scale)).size).toBe(1);
+  });
+});
+
 describe('review regressions (PR #63 round 4)', () => {
   it('zero groups draw zero plates; a missing list with objects still draws one', () => {
     expect(objectSetLayout(set({ count: 0, layout: 'groups', groups: [] })).frames).toHaveLength(0);

@@ -143,18 +143,21 @@ export const DiceK: Story = {
   },
 };
 
-/** A number line with an arrow: which number is it? (G1+). */
+/**
+ * CNT.09.t3 (count.sequence): the arrow marks where counting starts (33); "what number comes
+ * next?" The line shows exactly the numerals the generator asks for (G1+).
+ */
 export const NumberLine: Story = {
   args: { config: numberLine },
   play: async ({ canvasElement, args }) => {
     const root = await findWidget(canvasElement, ROOT);
     const canvas = within(root);
-    // The picture never shows the answer: the marked point has no numeral under it (and no other
-    // numeral equals it), while its neighbours keep theirs.
+    // The renderer draws exactly the stimulus: the marked start keeps its numeral (the child reads
+    // it to count on); which numerals a question hides is the generator's choice.
     const picture = root.querySelector('.ni-stimulus') as HTMLElement;
     const numerals = [...picture.querySelectorAll('text')].map((t) => t.textContent);
-    await expect(numerals).not.toContain('33');
-    await expect(numerals).toEqual(expect.arrayContaining(['32', '34']));
+    await expect(numerals).toEqual(expect.arrayContaining(['31', '33', '36']));
+
     for (const t of picture.querySelectorAll('text')) {
       await expect(Number.parseFloat(getComputedStyle(t).fontSize)).toBeGreaterThanOrEqual(32);
     }
@@ -166,9 +169,9 @@ export const NumberLine: Story = {
       .getAllByRole('button', { pressed: false })
       .map((b) => Math.round(b.getBoundingClientRect().width));
     await expect(new Set(widths).size).toBe(1);
-    await userEvent.click(canvas.getByRole('button', { name: '33' }));
+    await userEvent.click(canvas.getByRole('button', { name: '34' }));
     await userEvent.click(canvas.getByRole('button', { name: 'Check' }));
-    await expect(args.onResponse).toHaveBeenCalledWith({ kind: 'choice', id: 'opt-33' });
+    await expect(args.onResponse).toHaveBeenCalledWith({ kind: 'choice', id: 'opt-34' });
   },
 };
 
@@ -253,17 +256,18 @@ export const PortraitPictureGridK: Story = {
       format: 'numeral-pick',
       stimulus: { kind: 'expression', expr: { tokens: [{ t: 'num', v: 10 }] } },
       options: [
-        { id: 'a', stimulus: { kind: 'ten-frame', frames: 1, filled: [9] } },
+        { id: 'a', stimulus: { kind: 'dots', arrangement: 'dice', groups: [1] } },
+        { id: 'b', stimulus: { kind: 'dots', arrangement: 'dice', groups: [2] } },
+        { id: 'c', stimulus: { kind: 'dots', arrangement: 'dice', groups: [3] } },
+        { id: 'd', stimulus: { kind: 'dots', arrangement: 'dice', groups: [4] } },
+        // The odd last card holds the widest picture: it must still contain it.
         {
-          id: 'b',
+          id: 'e',
           stimulus: {
             kind: 'objects',
             set: { count: 10, sprite: 'shell', layout: 'line', layoutSeed: 3 },
           },
         },
-        { id: 'c', stimulus: { kind: 'dots', arrangement: 'dice', groups: [5, 4] } },
-        { id: 'd', stimulus: { kind: 'dots', arrangement: 'fingers', groups: [5, 4] } },
-        { id: 'e', stimulus: { kind: 'ten-frame', frames: 1, filled: [8] } },
       ],
       layout: 'grid',
     } satisfies ConfigFor<'numeral-pick'>,
@@ -271,20 +275,68 @@ export const PortraitPictureGridK: Story = {
   render: (args) => <div style={{ width: 800, maxWidth: '100%' }}>{renderWidget(args)}</div>,
   play: async ({ canvasElement }) => {
     const root = await findWidget(canvasElement, ROOT);
-    const cards = [...root.querySelectorAll<HTMLElement>('.ni-pick')];
-    await expect(cards).toHaveLength(5);
-    for (const card of cards) {
-      const box = card.getBoundingClientRect();
-      const picture = (card.querySelector('.ni-stimulus') as HTMLElement).getBoundingClientRect();
-      await expect(picture.left).toBeGreaterThanOrEqual(box.left - 0.5);
-      await expect(picture.right).toBeLessThanOrEqual(box.right + 0.5);
-      await expect(picture.bottom).toBeLessThanOrEqual(box.bottom + 0.5);
-    }
-    await expectTargetGaps(cards);
-    const stage = canvasElement.querySelector('.story-widget-stage') as HTMLElement;
-    await expect(stage.scrollWidth).toBeLessThanOrEqual(stage.clientWidth + 1);
+    await expectPicturesInsideCards(root, 5);
+    await expectTargetGaps([...root.querySelectorAll<HTMLElement>('.ni-pick')]);
+    await expectNoSideOverflow(canvasElement);
   },
 };
+
+/** Portrait, row layout: five wide pictures wrap onto new lines instead of running off-screen. */
+export const PortraitPictureRowK: Story = {
+  globals: { ageMode: 'k' },
+  args: {
+    config: {
+      format: 'numeral-pick',
+      stimulus: { kind: 'none' },
+      options: (['shell', 'fish', 'leaf', 'crab', 'starfish'] as const).map((sprite, i) => ({
+        id: `o${i}`,
+        stimulus: {
+          kind: 'objects' as const,
+          set: { count: 10, sprite, layout: 'line' as const, layoutSeed: i },
+        },
+      })),
+      layout: 'row',
+    } satisfies ConfigFor<'numeral-pick'>,
+  },
+  render: (args) => <div style={{ width: 800, maxWidth: '100%' }}>{renderWidget(args)}</div>,
+  play: async ({ canvasElement, args }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    await expectPicturesInsideCards(root, 5);
+    await expectNoSideOverflow(canvasElement);
+    const stage = (
+      canvasElement.querySelector('.story-widget-stage') as HTMLElement
+    ).getBoundingClientRect();
+    for (const card of root.querySelectorAll<HTMLElement>('.ni-pick')) {
+      const box = card.getBoundingClientRect();
+      await expect(box.left).toBeGreaterThanOrEqual(stage.left);
+      await expect(box.right).toBeLessThanOrEqual(stage.right);
+    }
+    await userEvent.click(within(root).getByRole('button', { name: 'Pick 5' }));
+    await userEvent.click(within(root).getByRole('button', { name: 'Check' }));
+    await expect(args.onResponse).toHaveBeenCalledWith({ kind: 'choice', id: 'o4' });
+  },
+};
+
+/** Every picture (its drawn objects, not only the wrapper) lies inside its own card. */
+async function expectPicturesInsideCards(root: HTMLElement, count: number) {
+  const cards = [...root.querySelectorAll<HTMLElement>('.ni-pick')];
+  await expect(cards).toHaveLength(count);
+  for (const card of cards) {
+    const box = card.getBoundingClientRect();
+    for (const part of card.querySelectorAll<HTMLElement>('.ni-stimulus, .ni-objects')) {
+      const r = part.getBoundingClientRect();
+      await expect(r.left).toBeGreaterThanOrEqual(box.left - 0.5);
+      await expect(r.right).toBeLessThanOrEqual(box.right + 0.5);
+      await expect(r.top).toBeGreaterThanOrEqual(box.top - 0.5);
+      await expect(r.bottom).toBeLessThanOrEqual(box.bottom + 0.5);
+    }
+  }
+}
+
+async function expectNoSideOverflow(canvasElement: HTMLElement) {
+  const stage = canvasElement.querySelector('.story-widget-stage') as HTMLElement;
+  await expect(stage.scrollWidth).toBeLessThanOrEqual(stage.clientWidth + 1);
+}
 
 /** Keyboard (06 §7): Tab to a choice, Space picks it, Tab to check, Enter answers. */
 export const Keyboard: Story = {

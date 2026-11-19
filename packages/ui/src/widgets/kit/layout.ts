@@ -151,7 +151,9 @@ export function objectSetLayout(set: ObjectSet): ObjectLayout {
     structured ? slots.slice(count) : rng.shuffle(slots).slice(0, extra),
   );
   let fixedScale: number | null = null;
-  const scaleFor = () => fixedScale ?? (set.sizeVaries ? 0.7 + rng.float() * 0.3 : 1);
+  // Frames keep a margin inside each cell (cellScale); sizeVaries still varies within it.
+  let cellScale = 1;
+  const scaleFor = () => fixedScale ?? cellScale * (set.sizeVaries ? 0.7 + rng.float() * 0.3 : 1);
   const frames: FrameOutline[] = [];
   let points: { x: number; y: number }[] = [];
   let width = 1;
@@ -164,12 +166,12 @@ export function objectSetLayout(set: ObjectSet): ObjectLayout {
       // nearly empty), so every counted object has its own cell.
       const frameCount = Math.max(set.layout === 'double-ten-frame' ? 2 : 1, Math.ceil(count / 10));
       for (let f = 0; f < frameCount; f++) frames.push({ x: 0, y: f * 2.5, cols: 5, rows: 2 });
-      fixedScale = 0.82;
+      cellScale = 0.82;
       points = Array.from({ length: count }, (_, i) => {
         const f = Math.floor(i / 10);
         const k = i % 10;
         // Objects sit inside their cell with a margin, so they never touch the frame lines.
-        return { x: (k % 5) + 0.09, y: f * 2.5 + Math.floor(k / 5) + 0.09 };
+        return { x: k % 5, y: f * 2.5 + Math.floor(k / 5) };
       });
       width = 5;
       height = frameCount * 2.5 - 0.5;
