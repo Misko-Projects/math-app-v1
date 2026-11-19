@@ -82,7 +82,9 @@ export type DataStoreErrorCode =
   | 'child_deleted'
   | 'invalid_profile'
   | 'invalid_settings'
-  | 'invalid_ids';
+  | 'invalid_ids'
+  /** `putProfiles(…, { intoEmptyFamily: true })` found children already stored. */
+  | 'family_has_children';
 
 export class DataStoreError extends Error {
   constructor(
@@ -167,9 +169,14 @@ export interface DataStore {
   putProfile(profile: ChildProfile): Promise<ChildProfile>;
   /**
    * Several profiles in one transaction: all are written or none (an invalid profile, a deleted
-   * child or an interruption such as a reload leaves the store as it was).
+   * child or an interruption such as a reload leaves the store as it was). With
+   * `intoEmptyFamily`, the write is refused (`family_has_children`) when any profile is already
+   * stored, checked inside the same transaction: a first roster is saved once, never twice.
    */
-  putProfiles(profiles: readonly ChildProfile[]): Promise<ChildProfile[]>;
+  putProfiles(
+    profiles: readonly ChildProfile[],
+    opts?: { intoEmptyFamily?: boolean },
+  ): Promise<ChildProfile[]>;
   /** LWW merge (see `MergeSource` for ties); returns how many documents changed. */
   mergeProfiles(profiles: readonly unknown[], opts: { source: MergeSource }): Promise<number>;
   allProfiles(): Promise<ChildProfile[]>;
@@ -738,7 +745,7 @@ export async function createDataStore(opts: DataStoreOptions): Promise<DataStore
       return saved as ChildProfile;
     },
 
-    async putProfiles(profiles) {
+    async putProfiles(profiles, opts = {}) {
       const stamp = now();
       const valid = profiles.map((profile) => {
         const parsed = childProfileSchema.safeParse({ ...profile, updatedAt: stamp });
@@ -748,6 +755,9 @@ export async function createDataStore(opts: DataStoreOptions): Promise<DataStore
         return parsed.data;
       });
       return db.transaction('rw', all, async () => {
+        if (opts.intoEmptyFamily && (await db.profiles.count()) > 0) {
+          throw new DataStoreError('family_has_children', 'this family has children already');
+        }
         const deleted = await tombstoned();
         for (const p of valid) {
           if (deleted.has(childKey(p.id))) {

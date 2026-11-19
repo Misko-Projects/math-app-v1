@@ -8,12 +8,19 @@
 // A save never navigates by itself. When it is done the form is replaced by what was added and a
 // Done button, so nothing a save does can override where the parent went meanwhile, and no saved
 // child is left behind as an editable draft.
+//
+// The form is only for a family with no children: the page reads the stored profiles, and once
+// there are any (this page saved them, another tab did, or the parent came back with Back or a
+// reload) it says who plays here instead. The save itself is refused in its own transaction when
+// children are already stored (`family_has_children`), so a first roster is never saved twice.
 
 import { Panel } from '@number-island/ui';
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router';
 import { useAppServices } from '@/app/AppServices';
 import { recordDiagnostic } from '@/app/diagnostics';
+import { useProfiles } from '@/data/hooks';
+import { DataStoreError } from '@/data/store';
 import { Button, Notice } from './kit';
 import { listNames } from './ParentHome';
 import { addChildren, type NewChild } from './setup/family';
@@ -27,6 +34,7 @@ export function AddChildrenPage() {
   const [error, setError] = useState<string | null>(null);
   /** The names just saved: the form is gone and the page says so. */
   const [added, setAdded] = useState<string[] | null>(null);
+  const profiles = useProfiles();
   /** False once the page is gone (the parent left, or Lock closed the area). */
   const shown = useRef(true);
   useEffect(() => {
@@ -49,8 +57,13 @@ export function AddChildrenPage() {
     try {
       await addChildren(services, kids);
     } catch (e) {
-      recordDiagnostic('add-children', e);
       saving.current = false;
+      if (e instanceof DataStoreError && e.code === 'family_has_children') {
+        // Children were saved elsewhere meanwhile: the page shows who plays here instead.
+        if (shown.current) setBusy(false);
+        return;
+      }
+      recordDiagnostic('add-children', e);
       if (!shown.current) return;
       // Nothing was written (one transaction): the same draft can be saved again.
       setError('Those children didn’t save on this device. Please try again.');
@@ -64,10 +77,28 @@ export function AddChildrenPage() {
     setBusy(false);
   };
 
+  // The stored children (live). While a save runs, the form stays (its own children appear here
+  // as it commits); after it, the confirmation shows.
+  const stored = !added && !busy && profiles !== undefined && profiles.length > 0;
+
   return (
     <div className="flex flex-col gap-6">
       <h1 className="font-display text-4xl font-extrabold">Add your children</h1>
-      {added ? (
+      {profiles === undefined && !added ? (
+        <p className="text-lg">Loading…</p>
+      ) : stored ? (
+        <Panel as="section" title="Your children are here">
+          <div className="mt-3 flex flex-col items-start gap-4">
+            <p className="text-lg" role="status">
+              {listNames(
+                [...(profiles ?? [])].sort((a, b) => a.createdAt - b.createdAt).map((p) => p.name),
+              )}{' '}
+              {profiles?.length === 1 ? 'plays' : 'play'} on this island already.
+            </p>
+            <Button onClick={() => navigate('/parent')}>Back to the parent area</Button>
+          </div>
+        </Panel>
+      ) : added ? (
         <Panel as="section" title="Children added">
           <div className="mt-3 flex flex-col items-start gap-4">
             <p className="text-lg" role="status">

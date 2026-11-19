@@ -413,6 +413,32 @@ describe('putProfiles: several profiles, all or none', () => {
     expect(await store.allProfiles()).toEqual([]);
   });
 
+  it('a failure after the write, inside the transaction, rolls every profile back', async () => {
+    const store = await track(testEnv().open('batch-rollback'));
+    const table = store.db.profiles;
+    const write = table.bulkPut.bind(table);
+    const spy = vi.spyOn(table, 'bulkPut').mockImplementation((async (
+      ...args: Parameters<typeof write>
+    ) => {
+      await write(...args);
+      throw new Error('disk full'); // the rows were written, then the transaction fails
+    }) as never);
+    await expect(
+      store.putProfiles([profile(CHILD_K, 'K', 'Ada'), profile(CHILD_G2, '2', 'Ben')]),
+    ).rejects.toThrow('disk full');
+    spy.mockRestore();
+    expect(await store.allProfiles()).toEqual([]);
+  });
+
+  it('intoEmptyFamily refuses when children are stored, and writes nothing', async () => {
+    const store = await track(testEnv().open('batch-first-roster'));
+    await store.putProfiles([profile(CHILD_K, 'K', 'Ada')], { intoEmptyFamily: true });
+    await expect(
+      store.putProfiles([profile(CHILD_G2, '2', 'Ben')], { intoEmptyFamily: true }),
+    ).rejects.toMatchObject({ code: 'family_has_children' });
+    expect((await store.allProfiles()).map((p) => p.name)).toEqual(['Ada']);
+  });
+
   it('a deleted child in the list writes none of them', async () => {
     const env = testEnv();
     const store = await track(env.open('batch-deleted'));

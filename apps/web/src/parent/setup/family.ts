@@ -135,6 +135,7 @@ export async function saveFamilyLocally(
 async function putChildren(
   services: Pick<AppServices, 'store' | 'content'>,
   children: readonly NewChild[],
+  opts: { intoEmptyFamily?: boolean } = {},
 ): Promise<ChildProfile[]> {
   const { store } = services;
   const device = await store.device();
@@ -153,6 +154,7 @@ async function putChildren(
       createdAt: now,
       updatedAt: now,
     })),
+    opts,
   );
 }
 
@@ -175,12 +177,16 @@ export async function saveChildren(
  * made the family but never saved its children, and the parent joined it instead (06 §3). Only
  * the profiles are written. The family's settings are left as they are: a family that exists
  * may have its own, and a fresh default document would replace them (newer wins on sync).
+ *
+ * Only into a family with no children, checked in the same transaction as the write: this is
+ * the first roster, saved once (a second tab, or a return to the page after a save, is refused
+ * with `family_has_children`). The wizard's own save is a plain upsert, so it can be retried.
  */
 export async function addChildren(
   services: Pick<AppServices, 'store' | 'sync' | 'content'>,
   children: readonly NewChild[],
 ): Promise<ChildProfile[]> {
-  const saved = await putChildren(services, children);
+  const saved = await putChildren(services, children, { intoEmptyFamily: true });
   void services.sync.syncNow();
   return saved;
 }

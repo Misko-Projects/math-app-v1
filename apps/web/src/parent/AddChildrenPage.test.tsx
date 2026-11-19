@@ -9,6 +9,7 @@ import type { ParentApi } from './api';
 import { createParentGate } from './gate';
 import { ParentContextForTests } from './ParentContext';
 import { ParentHome } from './ParentHome';
+import { startingAvatar } from './setup/family';
 
 // A setup whose answer was lost: the server made the family, the parent joined it with the
 // passphrase, and the wizard never saved its children. The parent area lets them be added. A save
@@ -57,9 +58,9 @@ function holdWrites(app: AppServices) {
     release = r;
   });
   const real = app.store.putProfiles.bind(app.store);
-  vi.spyOn(app.store, 'putProfiles').mockImplementation(async (p) => {
+  vi.spyOn(app.store, 'putProfiles').mockImplementation(async (...args) => {
     await held;
-    return real(p);
+    return real(...args);
   });
   return () => release();
 }
@@ -71,7 +72,7 @@ async function addChild(name: string, first: boolean) {
 }
 
 async function draft(...names: string[]) {
-  await screen.findByRole('heading', { name: 'Add your children' });
+  await screen.findByLabelText('First name or nickname'); // the form, once the roster has loaded
   for (const [i, name] of names.entries()) await addChild(name, i === 0);
 }
 
@@ -247,10 +248,92 @@ describe('adding children from the parent area', () => {
     expect(router.state.historyAction).toBe('POP');
   });
 
+  it('Back after Done shows who plays here, not a form for a second first roster', async () => {
+    const { app, router } = await renderParentArea('/parent');
+    const add = await screen.findByRole('button', { name: 'Add your children' });
+    await act(async () => {
+      fireEvent.click(add);
+    });
+    await draft('Mia', 'Leo');
+    await save();
+    const done = await screen.findByRole('button', { name: 'Done' });
+    await act(async () => {
+      fireEvent.click(done);
+    });
+    await screen.findByText('Mia and Leo play on this island.');
+    await act(async () => {
+      await router.navigate(-1); // the browser's Back, to the Add children entry
+    });
+    expect(router.state.location.pathname).toBe(ADD);
+    expect(await screen.findByText('Mia and Leo play on this island already.')).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Save children' })).toBeNull();
+    expect(screen.queryByLabelText('First name or nickname')).toBeNull();
+    expect(await names(app)).toEqual(['Leo', 'Mia']);
+  });
+
+  it('a fresh visit (a reload) after the save shows who plays here, with no form', async () => {
+    const { app } = await renderParentArea(ADD);
+    await draft('Mia');
+    await save();
+    await screen.findByText('Mia can start playing now.');
+    cleanup(); // the page goes away (a reload), the same device's store stays
+    const router = createMemoryRouter(
+      [
+        { path: '/parent', element: <ParentHome /> },
+        { path: ADD, element: <AddChildrenPage /> },
+      ],
+      { initialEntries: [ADD] },
+    );
+    const api = { logout: vi.fn(), pairStart: vi.fn() } as unknown as ParentApi;
+    render(
+      <AppProviders services={app}>
+        <ParentContextForTests api={api} gate={createParentGate({ store: app.store, api })}>
+          <RouterProvider router={router} />
+        </ParentContextForTests>
+      </AppProviders>,
+    );
+    expect(await screen.findByText('Mia plays on this island already.')).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Save children' })).toBeNull();
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Back to the parent area' }));
+    });
+    expect(router.state.location.pathname).toBe('/parent');
+  });
+
+  it('children saved elsewhere during the save (another tab): this save is refused, nothing doubles', async () => {
+    const { app } = await renderParentArea(ADD);
+    const release = holdWrites(app);
+    await draft('Mia');
+    await save(); // held before its transaction starts
+    // Another tab saves its first roster meanwhile (written past this page's held save).
+    const merged = await app.store.mergeProfiles(
+      [
+        {
+          id: '019a0000-0000-7000-8000-0000000ac0c3',
+          familyId: SERVER_FAMILY,
+          name: 'Ana',
+          birthYear: 2019,
+          grade: 'K',
+          advanced: false,
+          avatar: startingAvatar(app.content.store.gameData),
+          picturePasswordHash: null,
+          createdAt: 1,
+          updatedAt: 1,
+        },
+      ],
+      { source: 'server' },
+    );
+    expect(merged).toBe(1);
+    await act(async () => {
+      release();
+    });
+    expect(await screen.findByText('Ana plays on this island already.')).toBeTruthy();
+    expect(await names(app)).toEqual(['Ana']);
+  });
+
   it('needs at least one child before saving', async () => {
     const { app } = await renderParentArea(ADD);
-    await screen.findByRole('heading', { name: 'Add your children' });
-    fireEvent.click(screen.getByRole('button', { name: 'Save children' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Save children' }));
     expect(screen.getByText('Add at least one child to continue.')).toBeTruthy();
     expect(await app.store.allProfiles()).toEqual([]);
   });
