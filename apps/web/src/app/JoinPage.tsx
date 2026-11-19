@@ -83,7 +83,7 @@ export function JoinPage() {
           <Field
             label="Pairing code"
             error={codeError}
-            hint="6 digits. Each code works once, for 10 minutes."
+            hint="The 6-digit code from the parent device. Each code works once, for 10 minutes."
           >
             {({ id, describedBy }) => (
               <TextInput
@@ -99,8 +99,9 @@ export function JoinPage() {
                   setError(null);
                   setCodeError(null);
                 }}
+                // No example digits: an empty field must look empty (a grey sample code reads as
+                // filled in). The hint says what goes here.
                 className="min-h-16 font-display text-3xl! font-bold tracking-[0.3em] tabular-nums"
-                placeholder="123456"
               />
             )}
           </Field>
