@@ -4,6 +4,7 @@ import { expect, fn, userEvent, waitFor, within } from 'storybook/test';
 import {
   center,
   clearSpies,
+  expectAreaCentred,
   expectTargetGaps,
   expectTargetSize,
   pointerDrag,
@@ -175,6 +176,8 @@ const meta = {
   render: renderWidget,
   // Every order story: each numeral a card shows (numeral cards and picture-card tags) is ≥ 32 px.
   afterEach: async ({ canvasElement }) => {
+    // The area card is centred in the stage on both axes (story harness, #92).
+    await expectAreaCentred(canvasElement);
     // In a workshop area: the widget uses the room (its content covers ≥ 60 % of it).
     const box = canvasElement.querySelector<HTMLElement>('.story-widget-area');
     const root = canvasElement.querySelector<HTMLElement>('.ni-ord');
@@ -879,7 +882,7 @@ const notePaths = (canvasElement: HTMLElement, m: PathMeasure) =>
   noteMeasure(
     canvasElement,
     'path',
-    `cards ${Math.round(m.card.w)}×${Math.round(m.card.h)} px, ${m.ticks} ticks (every ${m.every}) ${m.pitch.toFixed(1)} px apart`,
+    `cards ${Math.round(m.card.w)}×${Math.round(m.card.h)} px, ${m.ticks} ticks @ ${m.pitch.toFixed(1)} px`,
   );
 
 /**

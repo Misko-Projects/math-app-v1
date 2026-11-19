@@ -4,6 +4,7 @@ import { expect, fn, userEvent, waitFor, within } from 'storybook/test';
 import {
   center,
   clearSpies,
+  expectAreaCentred,
   expectTargetGaps,
   expectTargetSize,
   pointerDrag,
@@ -328,6 +329,8 @@ const meta = {
   render: renderWidget,
   // Every story in a workshop area: the widget uses the room (its content covers ≥ 60 % of it).
   afterEach: async ({ canvasElement }) => {
+    // The area card is centred in the stage on both axes (story harness, #92).
+    await expectAreaCentred(canvasElement);
     const box = canvasElement.querySelector<HTMLElement>('.story-widget-area');
     const root = canvasElement.querySelector<HTMLElement>('.ni-cmp');
     if (!box || !root) return;
