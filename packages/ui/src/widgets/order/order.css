@@ -189,7 +189,8 @@ button.ni-ord__card:focus-visible,
     var(--shadow-lift);
 }
 .ni-ord__card.ni-draggable[data-selected="true"]:focus-visible {
-  outline: 10px double var(--color-ink);
+  outline: 8px double var(--color-ink);
+  outline-offset: 2px;
 }
 /* The invite ring is drawn over the card's or slot's own edge (no reach beyond it), so it stays
    ≥ 12 px clear of its neighbours, the board's and tray's edges and the cue arrow (06 §4). */

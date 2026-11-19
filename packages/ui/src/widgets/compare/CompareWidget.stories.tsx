@@ -786,6 +786,8 @@ export const InviteMatchK: Story = {
     const picks = within(root).getAllByRole('button', { name: /^This one/ });
     await expectInviteOn(root, picks[1] as HTMLElement);
     await expect(root.querySelector('[aria-pressed="true"]')).toBeNull();
+    // End on what the child sees: the one invite (no leftover focus ring from the taps).
+    (document.activeElement as HTMLElement | null)?.blur();
     await expect(args.onResponse).not.toHaveBeenCalled();
   },
 };
