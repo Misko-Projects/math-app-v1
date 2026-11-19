@@ -1,5 +1,6 @@
 # Dolch sight words pre-primer to grade 3 (public domain, 1936/1948) plus our own K-3 math and island vocabulary
 a
+a.m
 about
 above
 add
@@ -552,6 +553,7 @@ out
 outside
 over
 own
+p.m
 pair
 pairs
 paper

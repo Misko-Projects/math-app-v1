@@ -209,5 +209,5 @@ ui.clock.start:
   text: "It starts at"
   level: "2"
 ui.clock.later:
-  text: "{minutes} minutes later"
+  text: "Add {minutes} minutes"
   level: "2"
