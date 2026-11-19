@@ -279,7 +279,9 @@ export function DotGrid({
                 strokeWidth="2"
               />
             </svg>
-            <span aria-hidden="true">{sticksLeft}</span>
+            <span className="ni-scomp__sticks-n" aria-hidden="true">
+              {sticksLeft}
+            </span>
           </span>
         ) : null}
         <UndoButton

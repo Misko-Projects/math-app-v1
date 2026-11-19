@@ -19,11 +19,13 @@
   justify-content: center;
   gap: 24px;
 }
+/* Undo above Check: 24 px apart, so the Check button's 8 px focus ring stays 16 px clear. */
 .ni-scomp__check {
   display: flex;
+  flex: none;
   flex-direction: column;
   align-items: center;
-  gap: 16px;
+  gap: 24px;
 }
 .ni-scomp__pad {
   position: absolute;
@@ -37,8 +39,10 @@
 .ni-scomp__undo {
   display: grid;
   place-items: center;
-  width: var(--target-min);
-  height: var(--target-min);
+  flex: none;
+  box-sizing: border-box;
+  width: calc(var(--target-min) + 8px);
+  height: calc(var(--target-min) + 8px);
   border: 3px solid var(--color-ink);
   border-radius: 50%;
   background: var(--color-cloud);
@@ -91,23 +95,26 @@
 .ni-scomp[data-tier="concrete"] .ni-scomp__board .ni-scomp__piece {
   filter: drop-shadow(0 3px 0 rgb(38 70 83 / 0.25));
 }
+/* The tray: one column per piece kind (count badge, tile, turn button); gaps set inline. */
 .ni-scomp__tray {
   margin: 0;
   padding: 0;
   border: 0;
   min-width: 0;
-  display: grid;
-  align-content: center;
-  gap: var(--target-gap);
+  display: flex;
+  flex: none;
+  align-items: flex-start;
 }
 .ni-scomp__tray-row {
   display: flex;
+  flex-direction: column;
   align-items: center;
-  gap: var(--target-gap);
 }
 .ni-scomp__tile-slot {
   position: relative;
   display: flex;
+  flex-direction: column;
+  align-items: center;
 }
 .ni-scomp__tile {
   position: relative;
@@ -128,34 +135,43 @@
 .ni-scomp__tile svg {
   pointer-events: none;
 }
+/* How many are left: above the tile, off the piece (its corners are what a child counts). A Baloo
+   digit is about 0.7 em tall, so 40 px draws a numeral of about 28 px ink in a 52 px badge. */
 .ni-scomp__count {
-  position: absolute;
-  right: -10px;
-  bottom: -10px;
   display: grid;
   place-items: center;
-  min-width: 40px;
-  height: 40px;
+  flex: none;
+  min-width: 52px;
+  height: 52px;
+  padding: 0 8px;
   box-sizing: border-box;
   border: 3px solid var(--color-ink);
-  border-radius: 20px;
+  border-radius: 26px;
   background: var(--color-paper);
   color: var(--color-ink);
   font-family: var(--font-display);
   font-weight: 800;
-  font-size: 32px;
+  font-size: 40px;
   line-height: 1;
   pointer-events: none;
 }
 .ni-scomp__rotate {
   display: grid;
   place-items: center;
+  flex: none;
+  box-sizing: border-box;
   width: var(--target-min);
   height: var(--target-min);
   border: 3px solid var(--color-ink);
   border-radius: 50%;
   background: var(--color-cloud);
   cursor: pointer;
+}
+/* A picked-up tile, keyboard-focused: the kit's double ring (12 px at 4 px) would reach within
+   8 px of the next tile; 10 px at 2 px keeps it 12 px clear (tiles are 24 px apart). */
+.ni-scomp .ni-scomp__tile[data-selected="true"]:focus-visible {
+  outline-width: 10px;
+  outline-offset: 2px;
 }
 
 /* ---------- place-relative ---------- */
@@ -226,17 +242,6 @@
   border-bottom: 3px solid var(--color-ink-soft);
   background: none;
 }
-/* An item behind a thing: its outline shows through, dashed. */
-.ni-scomp__xray {
-  position: absolute;
-  z-index: 3;
-  display: block;
-  box-sizing: border-box;
-  border: 3px dashed var(--color-ink);
-  border-radius: 14px;
-  opacity: 0.55;
-  pointer-events: none;
-}
 .ni-scomp__region {
   position: absolute;
   z-index: 1;
@@ -306,8 +311,38 @@
   color: var(--color-ink);
   font-family: var(--font-display);
   font-weight: 800;
-  font-size: 34px;
+  font-size: 40px;
+  line-height: 1;
 }
+
+/* ---------- the demo invite: one ring, inside the invited control ---------- */
+/* The kit ring (5 px at a 14 px offset, pulsing) would reach the next tile, the turn button or the
+   area's edge in these tight layouts; here it lies inside the control's own box and holds still
+   (the make-set pattern). The boards keep it inside their edge too. */
+.ni-scomp .ni-scomp__tile.ni-invite,
+.ni-scomp .ni-scomp__rotate.ni-invite,
+.ni-scomp .ni-scomp__undo.ni-invite,
+.ni-scomp .ni-scomp__item.ni-invite,
+.ni-scomp .ni-scomp__scene.ni-invite,
+.ni-scomp .ni-scomp__dots.ni-invite {
+  outline-offset: -5px;
+  animation: none;
+}
+.ni-scomp .ni-scomp__tile.ni-invite {
+  border-radius: 18px;
+}
+.ni-scomp .ni-scomp__rotate.ni-invite,
+.ni-scomp .ni-scomp__undo.ni-invite {
+  border-radius: 50%;
+}
+.ni-scomp .ni-scomp__item.ni-invite {
+  border-radius: 16px;
+}
+.ni-scomp .ni-scomp__scene.ni-invite,
+.ni-scomp .ni-scomp__dots.ni-invite {
+  border-radius: 22px;
+}
+
 @keyframes ni-scomp-draw {
   to {
     stroke-dashoffset: 0;

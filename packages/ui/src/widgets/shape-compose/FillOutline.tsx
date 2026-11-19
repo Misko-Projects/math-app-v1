@@ -28,6 +28,12 @@ const COLOR: Record<string, string> = {
   rectangle: 'purple',
 };
 
+/** Tray gaps (px): badge to tile, tile to its turn button (room for Pip's hand), kind to kind. */
+const BADGE_GAP = 6;
+const TURN_GAP = 28;
+/** A picked-up tile's ring (8 px out) stays 12 px clear of the next kind's tile. */
+const CELL_GAP = 24;
+
 const pts = (p: readonly Vec[], map: (v: Vec) => Vec) => p.map((v) => map(v).join(',')).join(' ');
 
 export function FillOutline({
@@ -58,12 +64,13 @@ export function FillOutline({
   const w = b.maxX - b.minX;
   const h = b.maxY - b.minY;
   const minT = MIN_TARGET_PX[ageMode];
-  // The tray: one tile and its turn button per piece kind, in two columns when a column of them
-  // would be taller than a short area (review CR-1.1: four kinds at 960 × 600).
+  // The tray: one column per piece kind, side by side: the count badge above the tile (never on
+  // the piece, whose corners a child counts, and clear of Pip's hand, which hangs below the
+  // tile), the tile, then its turn button. A column is 52 (badge) + BADGE_GAP + tile + TURN_GAP
+  // + minT tall (262 px in K), so even four kinds fit the smallest area (960 × 600: about 289 px
+  // of height inside the widget's padding; review CR-1.1, evidence review).
   const tile = Math.max(minT + 16, 96);
-  const rowsFit = Math.max(1, Math.floor(((avail?.height ?? 640) - 16 + 12) / (tile + 12)));
-  const trayCols = pieces.length > rowsFit ? 2 : 1;
-  const trayW = trayCols * (tile + 12 + minT) + (trayCols - 1) * 12;
+  const trayW = pieces.length * tile + Math.max(0, pieces.length - 1) * CELL_GAP;
   const checkW = ageMode === 'k' ? minT + 24 : CHECK_W;
   const boardW = Math.max(200, (avail?.width ?? 1100) - trayW - checkW - 80);
   const boardH = Math.max(200, (avail?.height ?? 600) - 40);
@@ -283,7 +290,7 @@ export function FillOutline({
       <fieldset
         className="ni-scomp__tray"
         aria-label={t('ui.scomp.pieces')}
-        style={{ gridTemplateColumns: `repeat(${trayCols}, auto)` }}
+        style={{ gap: CELL_GAP }}
       >
         {pieces.map((piece) => {
           const n = left(piece.id);
@@ -291,14 +298,26 @@ export function FillOutline({
           const shape = placeCorners({ kind: piece.kind, at: [0, 0], rot }) ?? [];
           const pb = bounds(shape);
           const k = trayK;
+          // The picture is the piece's own box at the one tray scale (plus the 3 px outline
+          // margin each side), centred in the tile: never stretched to the tile.
+          const picW = (pb.maxX - pb.minX) * k + 6;
+          const picH = (pb.maxY - pb.minY) * k + 6;
           const c = shapeColor(COLOR[piece.kind] ?? 'tan');
           const p = dnd.itemProps(piece.id, {
             label: t('ui.scomp.piece', { name: t(`shape.${piece.kind}.one`), n }),
             disabled: n <= 0,
           });
           return (
-            <div key={piece.id} className="ni-scomp__tray-row" data-piece={piece.id}>
-              <span className="ni-scomp__tile-slot">
+            <div
+              key={piece.id}
+              className="ni-scomp__tray-row"
+              data-piece={piece.id}
+              style={{ gap: TURN_GAP }}
+            >
+              <span className="ni-scomp__tile-slot" style={{ gap: BADGE_GAP }}>
+                <span className="ni-scomp__count" aria-hidden="true">
+                  {n}
+                </span>
                 <span
                   {...p}
                   className={[
@@ -331,9 +350,9 @@ export function FillOutline({
                   }}
                 >
                   <svg
-                    width={tile - 12}
-                    height={tile - 12}
-                    viewBox={`${pb.minX * k - 3} ${-pb.maxY * k - 3} ${(pb.maxX - pb.minX) * k + 6} ${(pb.maxY - pb.minY) * k + 6}`}
+                    width={picW}
+                    height={picH}
+                    viewBox={`${pb.minX * k - 3} ${-pb.maxY * k - 3} ${picW} ${picH}`}
                     aria-hidden="true"
                     focusable="false"
                     data-tray-rot={rot}
@@ -345,9 +364,6 @@ export function FillOutline({
                       stroke={c.line}
                     />
                   </svg>
-                  <span className="ni-scomp__count" aria-hidden="true">
-                    {n}
-                  </span>
                 </span>
               </span>
               <button

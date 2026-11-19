@@ -3,7 +3,21 @@ import type { ResponseValue, WidgetConfig } from '@number-island/shared';
 import type { Meta, StoryObj } from '@storybook/react-vite';
 import { expect, fn, userEvent, waitFor, within } from 'storybook/test';
 import geo05t3 from '../../../../engine/test/fixtures/geo05-t3-pictorial.json';
-import { areaBox, expectFitsArea, expectHandStays, inArea } from '../../test-support/areaStory';
+import {
+  areaBox,
+  expectFitsArea,
+  expectHandStays,
+  expectNumeralsAtLeast32,
+  inArea,
+} from '../../test-support/areaStory';
+import {
+  boxGap,
+  expectApart,
+  expectControls,
+  expectOneInviteRing,
+  expectRenderedNumerals,
+  outlineBox,
+} from '../../test-support/evidence';
 import {
   center,
   expectTargetGaps,
@@ -300,13 +314,52 @@ export const FillFourKindsLandscapeMinK: Story = {
     await expectFitsArea(areaBox(canvasElement), [
       root.querySelector('.ni-scomp__board') as HTMLElement,
       ...controls,
-      ...root.querySelectorAll('.ni-scomp__undo'),
+      ...root.querySelectorAll('.ni-scomp__undo, .ni-scomp__count'),
       within(root).getByRole('button', { name: 'Check' }),
     ]);
     for (const c of controls) await expectTargetSize(c, 'k');
     await expectTargetGaps(controls);
+    await expectTrayTruths(root);
+    await expectControls('shape-compose FillFourKindsLandscapeMinK', 'k', fillControls(root));
   },
 };
+
+const fillControls = (root: HTMLElement) => ({
+  tiles: [...root.querySelectorAll('.ni-scomp__tile')],
+  turn: [...root.querySelectorAll('.ni-scomp__rotate')],
+  undo: [...root.querySelectorAll('.ni-scomp__undo')],
+  check: [within(root).getByRole('button', { name: 'Check' })],
+});
+
+/**
+ * The tray (evidence review): each count badge sits off its tile (never on the piece, whose
+ * corners are counted) with a numeral of at least 32 px rendered; every piece is drawn at one
+ * pattern-block scale in equal tiles (a triangle half a trapezoid's width, a hexagon as wide as a
+ * trapezoid, a rhombus 1.5 sides).
+ */
+async function expectTrayTruths(root: HTMLElement) {
+  for (const row of root.querySelectorAll<HTMLElement>('.ni-scomp__tray-row')) {
+    const badge = row.querySelector('.ni-scomp__count') as HTMLElement;
+    const tileEl = row.querySelector('.ni-scomp__tile') as HTMLElement;
+    await expectApart(badge, tileEl, 0, 'count badge off the tile');
+  }
+  await expectRenderedNumerals(root, '.ni-scomp__count');
+  await expectNumeralsAtLeast32(root, '.ni-scomp__count');
+  const tiles = [...root.querySelectorAll('.ni-scomp__tile')].map((t) => t.getBoundingClientRect());
+  for (const t of tiles) {
+    await expect(t.width).toBeCloseTo(tiles[0]?.width ?? 0, 0);
+    await expect(t.height).toBeCloseTo(tiles[0]?.height ?? 0, 0);
+  }
+  const width = (kind: string) =>
+    (
+      root.querySelector(`[data-piece="p-${kind}"] polygon`) as SVGPolygonElement | null
+    )?.getBoundingClientRect().width;
+  const side = (width('trapezoid') ?? 0) / 2;
+  const unit = width('triangle') ?? side;
+  await expect(unit).toBeCloseTo(side, 0);
+  if (width('hexagon') !== undefined) await expect(width('hexagon')).toBeCloseTo(2 * side, 0);
+  if (width('rhombus') !== undefined) await expect(width('rhombus')).toBeCloseTo(1.5 * side, 0);
+}
 
 export const FillCornerLandscapeMinK: Story = {
   globals: { ageMode: 'k' },
@@ -383,6 +436,8 @@ export const FillTabletK: Story = {
       ...root.querySelectorAll('.ni-scomp__tile, .ni-scomp__rotate, .ni-scomp__undo'),
       within(root).getByRole('button', { name: 'Check' }),
     ]);
+    await expectTrayTruths(root);
+    await expectControls('shape-compose FillTabletK', 'k', fillControls(root));
   },
 };
 
@@ -457,6 +512,10 @@ export const AboveLandscapeMinK: Story = {
     });
     await waitFor(() => expect(item(root)).toHaveAttribute('data-layer', 'front'));
     await expectTargetSize(item(root), 'k');
+    await expectControls('shape-compose AboveLandscapeMinK', 'k', {
+      item: [item(root)],
+      check: [within(root).getByRole('button', { name: 'Check' })],
+    });
   },
 };
 
@@ -471,7 +530,19 @@ export const BehindConcrete: Story = {
     const root = await findWidget(canvasElement, ROOT);
     await pointerDrag(item(root), scenePoint(root, 46, 29), 'mouse');
     await waitFor(() => expect(item(root)).toHaveAttribute('data-layer', 'back'));
-    await expect(root.querySelector('.ni-scomp__xray')).not.toBeNull();
+    // Behind reads as behind (evidence review): no see-through overlay; the fish is drawn under
+    // the crate, within its width, its top peeking out over the crate's top edge.
+    await expect(root.querySelector('.ni-scomp__xray')).toBeNull();
+    const crate = root.querySelector('[data-anchor-id="a0"]') as HTMLElement;
+    const c = crate.getBoundingClientRect();
+    const f = item(root).getBoundingClientRect();
+    await expect(f.top).toBeLessThan(c.top);
+    await expect(f.bottom).toBeGreaterThan(c.top);
+    await expect(f.left).toBeGreaterThanOrEqual(c.left - 0.5);
+    await expect(f.right).toBeLessThanOrEqual(c.right + 0.5);
+    await expect(Number(getComputedStyle(item(root)).zIndex)).toBeLessThan(
+      Number(getComputedStyle(crate).zIndex),
+    );
     item(root).focus();
     await userEvent.keyboard('{Enter}');
     await expect(item(root)).toHaveAttribute('data-layer', 'front');
@@ -547,6 +618,18 @@ export const DrawTriangle: Story = {
         value,
       ),
     ).toBe(true);
+    // Undo and Check: target-size, 12 px apart even with Check's focus ring (evidence review).
+    const check = within(root).getByRole('button', { name: 'Check' });
+    const undo = within(root).getByRole('button', { name: 'Take one back' });
+    await expectApart(undo, check, 12, 'undo to Check');
+    await expect(boxGap(outlineBox(check), undo.getBoundingClientRect())).toBeGreaterThanOrEqual(
+      11.5,
+    );
+    await expectControls('shape-compose DrawTriangle', 'g1-up', {
+      dots: [dotsBoard(root)],
+      undo: [undo],
+      check: [check],
+    });
   },
 };
 
@@ -597,6 +680,12 @@ export const SticksLandscapeMinK: Story = {
       within(root).getByRole('button', { name: 'Check' }),
     ]);
     await expect(within(root).getByRole('img', { name: '8 sticks left' })).toBeInTheDocument();
+    await expectRenderedNumerals(root, '.ni-scomp__sticks-n');
+    await expectControls('shape-compose SticksLandscapeMinK', 'k', {
+      dots: [dotsBoard(root)],
+      undo: [within(root).getByRole('button', { name: 'Take one back' })],
+      check: [within(root).getByRole('button', { name: 'Check' })],
+    });
     for (const [x, y] of [
       [0, 0],
       [3, 0],
@@ -743,6 +832,10 @@ export const DemoInvite: Story = {
       root,
     );
     await expectHandStays(root, () => tile(root, 'p-triangle'));
+    // One ring, inside the tile, 12 px clear of the other tile and the turn buttons.
+    await expectOneInviteRing(root, {
+      clearOf: [...root.querySelectorAll('.ni-scomp__tile, .ni-scomp__rotate')],
+    });
   },
 };
 

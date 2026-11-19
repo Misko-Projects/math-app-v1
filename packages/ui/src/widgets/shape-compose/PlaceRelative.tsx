@@ -16,8 +16,8 @@ import { CHECK_W, type ModeProps, OPS } from './shared';
  * to, in front of, behind, left of, right of the anchor). The concrete tier is a little stage with
  * shadows; the pictorial tier (02 §5.9 K1) is a flat drawing of the same scene. Drag the item from
  * the tray into the scene (or tap it, then tap a spot). Dropped on the top half of a thing it
- * tucks behind it (drawn behind, its outline showing through); on the bottom half it sits in
- * front. A placed item can be dragged again, or moved with the arrow keys (Enter on a thing flips
+ * tucks behind it (drawn under the thing, its top peeking out over it); on the bottom half it sits
+ * in front. A placed item can be dragged again, or moved with the arrow keys (Enter on a thing flips
  * it between in front and behind).
  */
 
@@ -25,6 +25,8 @@ import { CHECK_W, type ModeProps, OPS } from './shared';
 export const ITEM_SIZE = 14;
 const itemUnits = (k: number, minPx: number) => Math.max(ITEM_SIZE, Math.ceil(minPx / k));
 const STEP = 2;
+/** How much of an item behind a thing shows above the thing's top edge. */
+const PEEK = 0.6;
 
 const clampX = (x: number) => Math.min(SCENE.w - 3, Math.max(3, x));
 const clampY = (y: number) => Math.min(SCENE.h - 3, Math.max(3, y));
@@ -217,6 +219,22 @@ export function PlaceRelative({
     width: size * k,
     height: size * k,
   });
+  /**
+   * Where the item is DRAWN. In front it is where it was dropped. Behind a thing it tucks down
+   * behind it so it reads as behind: within the thing's width (on its centre if wider), with the
+   * top PEEK of it showing over the thing's top edge and the rest hidden by it. Display only:
+   * the state keeps the dropped spot, which is what compose.relative checks.
+   */
+  const shownAt = (at: [number, number], layer?: 'front' | 'back'): [number, number] => {
+    if (layer !== 'back') return at;
+    const b = anchors
+      .map((a) => boxOf(a.sprite, a.at))
+      .find((x) => Math.abs(at[0] - x.x) <= x.w / 2 && Math.abs(at[1] - x.y) <= x.h / 2);
+    if (!b) return at;
+    const slack = (b.w - size) / 2;
+    const x = slack <= 0 ? b.x : Math.min(b.x + slack, Math.max(b.x - slack, at[0]));
+    return [x, b.y - b.h / 2 - PEEK * size + size / 2];
+  };
   const itemEl = (
     <button
       type="button"
@@ -229,7 +247,10 @@ export function PlaceRelative({
       data-layer={placed?.layer}
       style={
         placed
-          ? { ...itemBox(placed.at), zIndex: placed.layer === 'back' ? 1 : 4 }
+          ? {
+              ...itemBox(shownAt(placed.at, placed.layer)),
+              zIndex: placed.layer === 'back' ? 1 : 4,
+            }
           : { width: Math.max(minT, 72), height: Math.max(minT, 72) }
       }
       onPointerDown={onItemDown}
@@ -298,11 +319,6 @@ export function PlaceRelative({
           );
         })}
         {placed ? itemEl : null}
-        {placed?.layer === 'back' ? (
-          <span className="ni-scomp__xray" style={itemBox(placed.at)} aria-hidden="true">
-            <ObjectSprite sprite={item} />
-          </span>
-        ) : null}
       </div>
       <div className="ni-scomp__check">
         <CheckButton onPress={submit} disabled={!interactive || !response} />
