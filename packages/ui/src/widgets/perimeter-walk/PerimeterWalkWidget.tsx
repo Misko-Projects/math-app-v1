@@ -193,12 +193,14 @@ export function PerimeterWalkWidget({
   const DIM_TOP = 36 + DIM_CLEAR;
   const DIM_LEFT = 24 * String(gridRows).length + DIM_CLEAR;
   const BORDER = 6;
-  // The grip sits OUTSIDE the rectangle, right of its bottom-right corner (GRIP_GAP away, joined
-  // by a short connector), so it covers no built square (evidence review). The board keeps room
-  // for it on the right (the whole grip) and below (half of it).
+  // The grip sits OUTSIDE the grid, so it covers no square at all, built or not (evidence
+  // review), with its centre below-right of the rectangle's corner and a connector to it. Its
+  // visible disc is at least 64 px. Where the height allows (squares no smaller for it) it hangs
+  // under the grid's frame, right of the corner's column ('below'); otherwise it sits right of the
+  // grid's frame, just below the corner's row ('right'). The board keeps room for it.
+  const GRIP = Math.max(minT, 64);
   const GRIP_GAP = 8;
-  const GRIP_RIGHT = GRIP_GAP + minT - BORDER / 2 + 2;
-  const GRIP_BELOW = minT / 2 - BORDER / 2 + 2;
+  const GRIP_RIGHT = GRIP_GAP + GRIP + 2;
   // The ref's "6 × 2" caption under it, and the gap between the side column and the board.
   const CAPTION = 34;
   const GAP = 24;
@@ -208,32 +210,45 @@ export function PerimeterWalkWidget({
   const targets = (config.area !== undefined ? 1 : 0) + (config.perimeter !== undefined ? 1 : 0);
   const TARGET_H = 66 * targets + 8 * Math.max(0, targets - 1);
   const refH = refRect ? refRect.h : 0;
-  // Under the target: a 12 px gap, then the ref's frame (3 px border, 4 + 6 px padding), its picture
-  // (4 px margin each side), a 4 px gap and its caption row ("≠", size, "Not this one").
-  const REF_FRAME = 6 + 12;
-  const refExtra = refRect ? 12 + 6 + 10 + 8 + 4 + CAPTION : 0;
+  // Under the target: a 12 px gap, then the ref's frame (3 px border; 4 px padding on top, 13 px
+  // at the sides and bottom, so its caption is 12+ px from the dashed border), its picture (2 px
+  // margin each side), a 2 px gap and its caption row ("≠", size, "Not this one").
+  const REF_FRAME = 6 + 26;
+  const refExtra = refRect ? 12 + 6 + 17 + 4 + 2 + CAPTION : 0;
   // Capped: a stage that grows with its content must not grow the grid (the squares would change
   // size under a dragging finger).
-  const designW = Math.min((avail?.width ?? 1100) - 40, 1200);
-  const designH = Math.min((avail?.height ?? 640) - (minT + 40), 420);
+  const designW = Math.min((avail?.width ?? 1100) - 24, 1200);
+  // Under the picture: the answer row (one target tall) and the widget's 12 px gap and padding.
+  const designH = Math.min((avail?.height ?? 640) - (minT + 28), 420);
   const boardX = DIM_LEFT + BORDER + GRIP_RIGHT;
-  const boardY = DIM_TOP + BORDER + GRIP_BELOW;
-  // The side column beside the board, or above it: whichever gives the larger squares.
-  const besideCell = Math.min(
-    (designW - boardX - GAP - TARGET_W) / gridCols,
-    refRect
-      ? (designW - boardX - GAP - 8 - REF_FRAME) / (gridCols + refRect.w)
-      : Number.POSITIVE_INFINITY,
-    (designH - boardY) / gridRows,
-    refRect ? (designH - TARGET_H - refExtra) / refH : Number.POSITIVE_INFINITY,
-  );
-  const stackedCell = Math.min(
-    (designW - boardX) / gridCols,
-    refRect ? (designW - 8 - REF_FRAME) / refRect.w : Number.POSITIVE_INFINITY,
-    (designH - TARGET_H - refExtra - GAP - boardY) / (gridRows + refH),
-  );
-  const refAbove = stackedCell > besideCell;
-  const cell = Math.floor(Math.max(14, Math.min(72, Math.max(besideCell, stackedCell))));
+  const squares = (gripBelow: number) => {
+    const boardY = DIM_TOP + BORDER + gripBelow;
+    // The side column beside the board, or above it: whichever gives the larger squares.
+    const besideCell = Math.min(
+      (designW - boardX - GAP - TARGET_W) / gridCols,
+      refRect
+        ? (designW - boardX - GAP - 4 - REF_FRAME) / (gridCols + refRect.w)
+        : Number.POSITIVE_INFINITY,
+      (designH - boardY) / gridRows,
+      refRect ? (designH - TARGET_H - refExtra) / refH : Number.POSITIVE_INFINITY,
+    );
+    const stackedCell = Math.min(
+      (designW - boardX) / gridCols,
+      refRect ? (designW - 4 - REF_FRAME) / refRect.w : Number.POSITIVE_INFINITY,
+      (designH - TARGET_H - refExtra - GAP - boardY) / (gridRows + refH),
+    );
+    return {
+      refAbove: stackedCell > besideCell,
+      cell: Math.floor(Math.max(14, Math.min(72, Math.max(besideCell, stackedCell)))),
+    };
+  };
+  const belowRoom = GRIP_GAP + GRIP + 2;
+  const rightRoom = GRIP / 2 + 2;
+  const underGrid = squares(belowRoom);
+  const besideGrid = squares(rightRoom);
+  const gripPlace = underGrid.cell >= besideGrid.cell ? 'below' : 'right';
+  const GRIP_BELOW = gripPlace === 'below' ? belowRoom : rightRoom;
+  const { refAbove, cell } = gripPlace === 'below' ? underGrid : besideGrid;
   // A tap picks a square only when squares are full-size targets (06 §3); otherwise the steppers
   // are the tap path (and dragging the corner still works).
   const tapCells = cell >= minT;
@@ -264,6 +279,8 @@ export function PerimeterWalkWidget({
   };
   const onGridDown = (e: ReactPointerEvent) => {
     if (!interactive) return;
+    // A press on the grip (outside the grid) only drags; a tap on it changes nothing.
+    const onGrip = (e.target as Element).closest?.('.ni-pwalk__corner') !== null;
     const start = cellAt(e.clientX, e.clientY);
     if (!start) return;
     const id = e.pointerId;
@@ -293,7 +310,7 @@ export function PerimeterWalkWidget({
       window.removeEventListener('pointerup', up);
       if (moved && tapOnly) return;
       // A tap on squares smaller than a target does nothing: the steppers set the size.
-      if (!moved && !tapCells) return;
+      if (!moved && (!tapCells || onGrip)) return;
       const c = cellAt(ev.clientX, ev.clientY) ?? start;
       setSize(c[0], c[1], moved ? 'drag' : 'tap');
     };
@@ -564,10 +581,29 @@ export function PerimeterWalkWidget({
   } else if (design) {
     const w = size?.w ?? 0;
     const h = size?.h ?? 0;
-    // The grip: a round, target-size handle just outside the rectangle's bottom-right corner, on
-    // its bottom edge line, with a connector to the corner. It never covers a built square.
-    const gripX = w * cell + GRIP_GAP;
-    const gripY = Math.max(-3, h * cell - minT / 2);
+    // The grip: a round handle (visible disc ≥ 64 px) outside the grid, below-right of the
+    // rectangle's corner, with a connector to the corner. It covers no square.
+    const gripX =
+      gripPlace === 'below'
+        ? w * cell + BORDER / 2 + GRIP_GAP
+        : gridCols * cell + BORDER / 2 + GRIP_GAP;
+    const gripY =
+      gripPlace === 'below'
+        ? gridRows * cell + BORDER / 2 + GRIP_GAP
+        : Math.min(h * cell + GRIP_GAP, gridRows * cell + BORDER / 2 + GRIP_BELOW - 2 - GRIP);
+    // The connector runs along a grid line (the rectangle's right edge carried down, or its bottom
+    // edge carried right) to the frame, then to the disc's edge: it crosses no square.
+    const gripC: Pt = [gripX + GRIP / 2, gripY + GRIP / 2];
+    const bend: Pt =
+      gripPlace === 'below'
+        ? [w * cell, gridRows * cell + BORDER / 2]
+        : [gridCols * cell + BORDER / 2, h * cell];
+    const toDisc = Math.hypot(gripC[0] - bend[0], gripC[1] - bend[1]) || 1;
+    const linkEnd: Pt = [
+      gripC[0] - ((gripC[0] - bend[0]) / toDisc) * (GRIP / 2),
+      gripC[1] - ((gripC[1] - bend[1]) / toDisc) * (GRIP / 2),
+    ];
+    const linkPoints = [[w * cell, h * cell], bend, linkEnd].map((p) => p.join(',')).join(' ');
     picture = (
       <div className="ni-pwalk__design" data-ref-above={refAbove ? 'true' : undefined}>
         <div className="ni-pwalk__side-col" style={{ minWidth: TARGET_W }}>
@@ -575,26 +611,26 @@ export function PerimeterWalkWidget({
           {refRect ? (
             <div className="ni-pwalk__ref" aria-label={t('ui.pwalk.compare')} role="img">
               <svg
-                width={refRect.w * cell + 8}
-                height={refRect.h * cell + 8}
+                width={refRect.w * cell + 4}
+                height={refRect.h * cell + 4}
                 data-cell={cell}
                 aria-hidden="true"
                 focusable="false"
               >
                 <rect
                   className="ni-pwalk__ref-rect"
-                  x={4}
-                  y={4}
+                  x={2}
+                  y={2}
                   width={refRect.w * cell}
                   height={refRect.h * cell}
                 />
                 {/* Its squares, the same size as the board's, so they can be counted. */}
                 <g className="ni-pwalk__ref-squares">
-                  {Array.from({ length: refRect.w - 1 }, (_, i) => (i + 1) * cell + 4).map((x) => (
-                    <line key={`v${x}`} x1={x} x2={x} y1={4} y2={4 + refRect.h * cell} />
+                  {Array.from({ length: refRect.w - 1 }, (_, i) => (i + 1) * cell + 2).map((x) => (
+                    <line key={`v${x}`} x1={x} x2={x} y1={2} y2={2 + refRect.h * cell} />
                   ))}
-                  {Array.from({ length: refRect.h - 1 }, (_, i) => (i + 1) * cell + 4).map((y) => (
-                    <line key={`h${y}`} x1={4} x2={4 + refRect.w * cell} y1={y} y2={y} />
+                  {Array.from({ length: refRect.h - 1 }, (_, i) => (i + 1) * cell + 2).map((y) => (
+                    <line key={`h${y}`} x1={2} x2={2 + refRect.w * cell} y1={y} y2={y} />
                   ))}
                 </g>
               </svg>
@@ -635,15 +671,14 @@ export function PerimeterWalkWidget({
         >
           {size ? (
             <>
-              <span
-                className="ni-pwalk__grip-link"
-                aria-hidden="true"
-                style={{ left: w * cell, top: h * cell - 2, width: GRIP_GAP + 4 }}
-              />
+              <svg className="ni-pwalk__grip-link" aria-hidden="true" focusable="false">
+                <polyline points={linkPoints} />
+              </svg>
               <span
                 className="ni-pwalk__corner"
+                data-place={gripPlace}
                 aria-hidden="true"
-                style={{ left: gripX, top: gripY, width: minT, height: minT }}
+                style={{ left: gripX, top: gripY, width: GRIP, height: GRIP }}
               >
                 <GripIcon />
               </span>
@@ -768,8 +803,13 @@ export function PerimeterWalkWidget({
 /** A side-number bubble: border and padding (px), and one 38 px digit's width. */
 const LABEL_EDGE = 26;
 const LABEL_DIGIT = 24;
-/** Bubbles keep this far from each other and from every side line (px). */
+/** Bubbles keep this far from each other (px). */
 const LABEL_GAP = 12;
+/**
+ * A bubble's edge from a side line's centre (px): the 6 px line's half and 12 px clear of it
+ * (evidence review: bubbles sat 9 to 10 px from their sides).
+ */
+const LABEL_LINE = 3 + 12 + 1;
 
 type Box = { l: number; t: number; r: number; b: number };
 const boxAt = (c: Pt, s: Pt): Box => ({
@@ -808,10 +848,12 @@ function segmentToBox(a: Pt, b: Pt, box: Box): number {
 }
 
 /**
- * Where each side's number goes (centres, px): outside the polygon beside the middle of its own
- * side, along the side's outward normal; bubbles closer than 12 px slide along their own sides
- * (away from each other, never past the side's ends), and any bubble nearer than 8 px to a side
- * line is pushed further out.
+ * Where each side's number goes (centres, px): centred on the midpoint of its own side, out along
+ * the side's outward normal, 12 px clear of the line. Only bubbles that would come closer than
+ * 12 px move: apart along their own sides by the least needed, never further than a quarter of
+ * the side from its midpoint (evidence review: a "3" sat at the corner end of its side, next to
+ * another side); past that they move further out. Any bubble nearer than 12 px to a side line is
+ * pushed further out.
  */
 export function placeSideLabels(poly: readonly Pt[], sizes: readonly Pt[]): Pt[] {
   const n = poly.length;
@@ -827,7 +869,7 @@ export function placeSideLabels(poly: readonly Pt[], sizes: readonly Pt[]): Pt[]
   const along = sides.map(() => 0);
   const out = sides.map((s, i) => {
     const sz = sizes[i] as Pt;
-    return Math.abs(s.nrm[0]) * (sz[0] / 2) + Math.abs(s.nrm[1]) * (sz[1] / 2) + 8;
+    return Math.abs(s.nrm[0]) * (sz[0] / 2) + Math.abs(s.nrm[1]) * (sz[1] / 2) + LABEL_LINE;
   });
   const centre = (i: number): Pt => {
     const s = sides[i] as (typeof sides)[number];
@@ -837,14 +879,8 @@ export function placeSideLabels(poly: readonly Pt[], sizes: readonly Pt[]): Pt[]
     ];
   };
   const box = (i: number) => boxAt(centre(i), sizes[i] as Pt);
-  // How far a bubble may slide along its side: to the side's end, or a little past it for a side
-  // shorter than the bubble (it stays beside that side, never beside another).
-  const slide = (k: number) => {
-    const s = sides[k] as (typeof sides)[number];
-    const sz = sizes[k] as Pt;
-    const across = Math.abs(s.d[0]) * sz[0] + Math.abs(s.d[1]) * sz[1];
-    return Math.max(s.len / 2, across / 2);
-  };
+  // How far a bubble may slide along its side: a quarter of the side from its midpoint.
+  const slide = (k: number) => (sides[k] as (typeof sides)[number]).len / 4;
   for (let round = 0; round < 60; round += 1) {
     let moved = false;
     for (let i = 0; i < n; i += 1) {
@@ -852,7 +888,8 @@ export function placeSideLabels(poly: readonly Pt[], sizes: readonly Pt[]): Pt[]
         const g = gapOf(box(i), box(j));
         if (g >= LABEL_GAP) continue;
         moved = true;
-        const step = (LABEL_GAP - g) / 2 + 1;
+        const step = Math.min((LABEL_GAP - g) / 2 + 0.5, 4);
+        let resolved = false;
         for (const [k, other] of [
           [i, j],
           [j, i],
@@ -864,15 +901,47 @@ export function placeSideLabels(poly: readonly Pt[], sizes: readonly Pt[]): Pt[]
           const away = (ck[0] - co[0]) * s.nrm[0] + (ck[1] - co[1]) * s.nrm[1];
           const sign = Math.sign(along_) || 1;
           const next = (along[k] as number) + sign * step;
-          if (Math.abs(next) <= slide(k)) along[k] = next;
-          // At the end of its side: move out along the normal only if that takes it away from
+          if (Math.abs(next) <= slide(k)) {
+            along[k] = next;
+            resolved = true;
+          } else if (Math.abs(along[k] as number) < slide(k)) {
+            along[k] = sign * slide(k);
+            resolved = true;
+          }
+          // At the end of its band: move out along the normal only if that takes it away from
           // the other bubble (two bubbles facing the same way would only travel together).
-          else if (away > 0) out[k] = (out[k] as number) + step;
+          else if (away > 0) {
+            out[k] = (out[k] as number) + step;
+            resolved = true;
+          }
+        }
+        if (!resolved) {
+          // Both at the ends of their bands, facing into the same corner (an L's notch): the one
+          // with less to go steps out along its own normal, clear past the other.
+          const need = (k: number, o: number) => {
+            const s = sides[k] as (typeof sides)[number];
+            const bk = box(k);
+            const bo = box(o);
+            const [nx, ny] = s.nrm;
+            if (Math.abs(nx) >= Math.abs(ny)) {
+              const d = nx > 0 ? bo.r + LABEL_GAP - bk.l : bk.r - (bo.l - LABEL_GAP);
+              return d / Math.abs(nx);
+            }
+            const d = ny > 0 ? bo.b + LABEL_GAP - bk.t : bk.b - (bo.t - LABEL_GAP);
+            return d / Math.abs(ny);
+          };
+          const ni = need(i, j);
+          const nj = need(j, i);
+          const [k, d] = ni <= nj ? [i, ni] : [j, nj];
+          out[k] = (out[k] as number) + Math.max(1, d);
         }
       }
     }
     for (let i = 0; i < n; i += 1) {
-      while (sides.some((s) => segmentToBox(s.a, s.b, box(i)) < 8) && (out[i] as number) < 400) {
+      while (
+        sides.some((s) => segmentToBox(s.a, s.b, box(i)) < LABEL_LINE) &&
+        (out[i] as number) < 400
+      ) {
         out[i] = (out[i] as number) + 4;
         moved = true;
       }
@@ -973,10 +1042,12 @@ function NotEqualIcon() {
 function GripIcon() {
   return (
     <svg viewBox="0 0 64 64" width="100%" height="100%" aria-hidden="true" focusable="false">
+      {/* The disc fills its box (ring outer edge at the box): visible at the grip's full size. */}
       <circle
+        className="ni-pwalk__grip-disc"
         cx="32"
         cy="32"
-        r="28"
+        r="29.5"
         fill="rgb(255 255 255 / 0.35)"
         stroke="var(--color-ink)"
         strokeWidth="5"

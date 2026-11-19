@@ -17,6 +17,7 @@ import {
   expectOneInviteRing,
   keyRectsAfterEach,
   outlineBox,
+  recordEvidence,
   settleFocus,
 } from '../../test-support/evidence';
 import { expectTargetGaps, expectTargetSize, pointerDrag } from '../../test-support/storyHelpers';
@@ -242,6 +243,23 @@ async function expectReferenceLabelled(root: HTMLElement) {
   const target = getComputedStyle(root.querySelector('.ni-pwalk__target-line') as Element);
   await expect(frame.borderTopStyle).toBe('dashed');
   await expect(frame.borderTopColor).not.toBe(target.borderTopColor);
+  // The caption ("≠", size, "Not this one") is 12+ px inside the dashed border (evidence review:
+  // 8 to 9 px).
+  const r = refEl.getBoundingClientRect();
+  const bw = Number.parseFloat(frame.borderTopWidth) || 0;
+  let least = Number.POSITIVE_INFINITY;
+  for (const part of refEl.querySelectorAll('.ni-pwalk__ref-caption > *')) {
+    const c = part.getBoundingClientRect();
+    least = Math.min(
+      least,
+      c.left - (r.left + bw),
+      r.right - bw - c.right,
+      r.bottom - bw - c.bottom,
+    );
+  }
+  await expect(least, 'caption 12 px inside the dashed border').toBeGreaterThanOrEqual(12);
+  recordEvidence(root, { caption_to_border: Math.round(least) });
+  console.info(`[ref] caption to the dashed border: ${Math.round(least)} px`);
 }
 
 /** The widget's stage and answer row are centred across the area (evidence review). */
@@ -299,11 +317,20 @@ async function expectSideLabels(root: HTMLElement) {
     return best;
   };
   const labels = [...root.querySelectorAll<HTMLElement>('.ni-pwalk__label')];
+  // Side lines are 6 px wide: a bubble's distance to a line is from its centre less 3.
+  const strokeHalf =
+    Number.parseFloat(
+      getComputedStyle(root.querySelector('line.ni-pwalk__side') as Element).strokeWidth,
+    ) / 2;
+  let nearest = Number.POSITIVE_INFINITY;
+  let offMid = 0;
   for (const l of labels) {
     const r = l.getBoundingClientRect();
     const own = Number(l.dataset.labelSide);
     for (const s of segs) {
-      await expect(dist(s, r), `bubble ${own} clear of side ${s.i}`).toBeGreaterThanOrEqual(7.5);
+      const gap = dist(s, r) - strokeHalf;
+      nearest = Math.min(nearest, gap);
+      await expect(gap, `bubble ${own} 12 px clear of side ${s.i}`).toBeGreaterThanOrEqual(11.5);
     }
     // Beside its own side: its centre lies across from the side (within the side's span, give or
     // take half the bubble), and nothing else of the fence lies between it and that side.
@@ -315,6 +342,13 @@ async function expectSideLabels(root: HTMLElement) {
     const half = (Math.abs(d[0]) * r.width + Math.abs(d[1]) * r.height) / 2;
     await expect(t, `bubble ${own} across from its side`).toBeGreaterThanOrEqual(-half);
     await expect(t, `bubble ${own} across from its side`).toBeLessThanOrEqual(len + half);
+    // Centred on its own side's midpoint: moved along the side (only to keep 12 px from another
+    // bubble) by no more than a quarter of the side (evidence review).
+    const shift = Math.abs(t - len / 2) / len;
+    offMid = Math.max(offMid, shift);
+    await expect(shift, `bubble ${own} near its side's midpoint`).toBeLessThanOrEqual(
+      0.25 + 0.5 / len,
+    );
     const tc = Math.min(len, Math.max(0, t));
     const foot: [number, number] = [s.a[0] + d[0] * tc, s.a[1] + d[1] * tc];
     for (const other of segs) {
@@ -326,6 +360,13 @@ async function expectSideLabels(root: HTMLElement) {
     }
   }
   await expectTargetGaps(labels);
+  recordEvidence(root, {
+    bubble_to_side: Math.round(nearest),
+    bubble_off_mid_pct: Math.round(offMid * 100),
+  });
+  console.info(
+    `[bubbles] nearest side line ${Math.round(nearest)} px; furthest from a midpoint ${Math.round(offMid * 100)} % of its side`,
+  );
 }
 
 /**
@@ -346,13 +387,7 @@ async function expectDimsClear(root: HTMLElement, sizes: [number, number][]) {
     ].join('');
     if (keys) await userEvent.keyboard(keys);
     await expect(board(root)).toHaveAttribute('data-size', `${w}x${h}`);
-    // The grip covers no built square (evidence review): it lies right of the rectangle.
-    const grip = (root.querySelector('.ni-pwalk__corner svg') as Element).getBoundingClientRect();
-    const built = (root.querySelector('.ni-pwalk__rect') as Element).getBoundingClientRect();
-    await expect(
-      grip.left - built.right,
-      `${w}×${h}: grip off the built squares`,
-    ).toBeGreaterThanOrEqual(0);
+    await expectGripOutside(root, `${w}×${h}`);
     // The board has focus here: its outermost line (frame or focus ring) counts.
     const b = outlineBox(board(root));
     for (const dim of root.querySelectorAll('.ni-pwalk__dim')) {
@@ -362,6 +397,46 @@ async function expectDimsClear(root: HTMLElement, sizes: [number, number][]) {
       ).toBeGreaterThanOrEqual(11.5);
     }
   }
+}
+
+/**
+ * The grip (evidence review): its visible disc is at least 64 px, it lies wholly outside the
+ * grid (its frame included), so it covers no square, built or not, and it is below-right of the
+ * rectangle's corner.
+ */
+async function expectGripOutside(root: HTMLElement, what: string) {
+  const svg = root.querySelector('.ni-pwalk__corner svg') as SVGSVGElement;
+  const s = svg.getBoundingClientRect();
+  const disc = root.querySelector('.ni-pwalk__grip-disc') as SVGCircleElement;
+  const d = disc.getBoundingClientRect();
+  const scale = s.width / 64;
+  const stroke = (Number.parseFloat(getComputedStyle(disc).strokeWidth) || 0) * scale;
+  const visible = {
+    left: d.left - stroke / 2,
+    top: d.top - stroke / 2,
+    right: d.right + stroke / 2,
+    bottom: d.bottom + stroke / 2,
+  };
+  const size = visible.right - visible.left;
+  await expect(size, `${what}: the grip's disc`).toBeGreaterThanOrEqual(64);
+  const b = board(root).getBoundingClientRect();
+  const toGrid = boxGap(visible, b);
+  await expect(toGrid, `${what}: the grip outside the grid`).toBeGreaterThanOrEqual(0);
+  const built = (root.querySelector('.ni-pwalk__rect') as Element).getBoundingClientRect();
+  // Below-right of the rectangle's corner: wholly right of its column, its centre below its row.
+  await expect(visible.left, `${what}: right of the corner`).toBeGreaterThanOrEqual(built.right);
+  await expect((visible.top + visible.bottom) / 2, `${what}: below the corner`).toBeGreaterThan(
+    built.bottom,
+  );
+  const place = (root.querySelector('.ni-pwalk__corner') as HTMLElement).dataset.place;
+  recordEvidence(root, {
+    grip_disc: Math.round(size),
+    grip_to_grid: Math.round(toGrid),
+    grip_place: place,
+  });
+  console.info(
+    `[grip] ${what}: disc ${Math.round(size)} px, ${Math.round(toGrid)} px off the grid (${place})`,
+  );
 }
 
 /**
