@@ -266,6 +266,24 @@ The three models state and enforce the domain their widgets support. Every bound
 - **order** (time.sequence): one objects picture per daily event (sprite `event-<id>`: wake-up, breakfast, lunch, dinner, bedtime), no label; values are the event's place in the day (1–5), `direction: asc`. On the timeline template one event is pre-placed through `fixed` on its own slot. Solutions start with a line that places nothing, then `drag {id, slot}` for every slot that is not fixed.
 - **shape-sort** `sort` (time.sequence): `event` cards (no `isPm`, which would show the bin), target props `{ part: 'morning' | 'night' }`, bins `b0` (`word.morning`) and `b1` (`word.night`); `sort.byRule`. Solutions `drag-card {id, bin}`.
 
+### Sharing and grouping models (U04 #13: equal-share, equal-groups)
+
+Both models state and enforce the domain their widgets draw. Every bound is a fixed number, the same in every widget area and age mode; the widgets' layout tests fit every config of the domain in the smallest area (906 × 373) at Grade 1 sizes, and kindergarten content (small counts) at kindergarten sizes. A config outside the domain fails the schema, so content-check rejects it (property 3).
+
+| Format | Input | Bound |
+|---|---|---|
+| equal-share | `items` | 1 to 24 (`SHARE_ITEMS_MAX`) |
+| | `recipients` | 2 to 4 (`SHARE_RECIPIENTS_MAX`); `even-odd` shares between 2 |
+| | `predealt` | one count per recipient, each at most 15 (`SHARE_ZONE_MAX`), together at most `items` |
+| | what one recipient holds while dealing | `shareCapacity(config)`: a fair share rounded up to a whole five, at least 10 (or all the items), at least the largest pre-dealt count; never above 15. `deal` stops there; `deal-round` does nothing while one recipient is full |
+| equal-groups | `groups`, `maxGroups` | 1 to 6 (`GROUPS_MAX`); `groups` ≤ `maxGroups` |
+| | `perGroup`, and what one container holds | 1 to 10 (`GROUP_CAPACITY`). Groups of tens (MUL.11) are not supported yet: the schema refuses them |
+| | the pile of a `build` whose total is given (`unknown` `size` or `groups`) | `groups × perGroup` at most 40 (`GROUPS_PILE_MAX`); `fill-group` never puts more in the containers than `groupsSupply(config)`. A build from the bucket (`unknown: total`) and a picture to `read` go to 6 × 10 |
+| | the answer control's range | `groupsAnswerMax(config)`: 0 to 10 for a size or a number of groups; for a total 0 to 20 when it is at most 20, otherwise 0 to 60 |
+
+- **One source for the answer** (`FormatModel.answerIssues`, content-check property 3.answer). equal-share `each` and `leftover`: the answer is `share.fair` with a target of this config's `items`, `recipients` and `allowLeftover`, and `value` the fair share (items ÷ recipients, rounded down) or what is left over; `fair-or-not`: `yes` exactly when every pre-dealt count is the same; `even-odd`: the parity of `items`. equal-groups `read`: the number is `groupsUnknown(config)`; `build`: `groups.equal` with this config's `groups` and `perGroup`, and `value` the unknown.
+- **Every op a child can do has an undo.** equal-share: `deal {to, count: -1}` returns an item to the pile; `set-aside-leftover {back: true}` returns what the seagull holds. equal-groups: `fill-group {index, count}` with a smaller count; `add-group {remove: index}` takes an empty added container away again (only where the number of groups is asked; a filled container stays).
+
 ### Pattern and puzzle formats (K01: pattern.repeat, pattern.grow, puzzle.grid; pattern-extend's model is U05's, see "Patterns and data models"; puzzle-grid's is U04's, see below)
 
 - **pattern-extend** `extend` and `fill` answer state `pattern.tokens { expected }`: the response is `{ tokens }`, the tokens placed in the blanks (the `null` entries of `sequence`) in reading order, each the same unit as expected (`{ sprite, color? }`, `{ n }` or `{ tiles }`, every field equal). `fill` hides the tokens ending one before the last, after at least one whole core. `core` answers `select.exactSet { values }`: the indices of the first repeat of the core (the prompt asks to mark it from the start). `rule` answers `number`, the step. `palette` holds the units a repeating pattern uses (A, B, C order) and is empty for number patterns, which are typed. Solutions use `place-token {index, token}` per blank, or `highlight {index}` and `bracket-core {from, to}`, after a first line that places nothing. The property test's near misses take away the last token or swap one for its neighbour.

@@ -212,7 +212,7 @@ export function shareLayout(input: LayoutInput): Layout {
   const max = Math.max(MIN_ITEM_PX, Math.floor(input.maxItem));
   const shapes: Shape[] = [];
   for (const flow of ['row', 'stack'] as const) {
-    for (const upright of input.cap > 5 ? [false, true] : [false]) {
+    for (const upright of input.cap > 1 ? [false, true] : [false]) {
       for (const basket of ['side', 'under'] as const) {
         const perRows = flow === 'row' ? [input.recipients] : [input.recipients, 2];
         for (const perRow of new Set(perRows)) shapes.push({ flow, perRow, upright, basket });
