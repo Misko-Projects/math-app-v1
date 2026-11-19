@@ -173,3 +173,41 @@ ui.money.this-one:
 ui.money.same:
   text: "Same"
   level: "2"
+
+# Clock widgets (U05 #14: clock-set, clock-read). The hands are named by length, as the lessons do.
+ui.clock.long-hand:
+  text: "The long hand"
+  level: "1"
+ui.clock.short-hand:
+  text: "The short hand"
+  level: "1"
+ui.clock.face:
+  text: "The clock"
+  level: "1"
+ui.clock.time:
+  text: "It is {time|time}."
+  level: "1"
+ui.clock.target:
+  text: "Make this time"
+  level: "1"
+ui.clock.yours:
+  text: "Your clock"
+  level: "1"
+ui.clock.hours:
+  text: "Hours"
+  level: "1"
+ui.clock.minutes:
+  text: "Minutes"
+  level: "1"
+ui.clock.am:
+  text: "a.m."
+  level: "2"
+ui.clock.pm:
+  text: "p.m."
+  level: "2"
+ui.clock.start:
+  text: "It starts at"
+  level: "2"
+ui.clock.later:
+  text: "{minutes} minutes later"
+  level: "2"

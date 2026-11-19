@@ -2,6 +2,7 @@ import type { ExpressionSpec, ExpressionToken, StimulusSpec } from '@number-isla
 import type { CSSProperties, ReactNode } from 'react';
 import { useNarrationText } from '../../preferences/UiProvider';
 import { pictureProps } from './a11y';
+import { ClockView } from './ClockView';
 import { CoinsView } from './CoinsView';
 import { dotsLayout, groupIndexes, objectSetLayout } from './layout';
 import { NumberLineView } from './NumberLineView';
@@ -168,6 +169,19 @@ export function StimulusView({
             ones={spec.ones}
             thousands={spec.thousands ?? 0}
             label={name}
+          />
+        </div>
+      );
+    case 'clock':
+      return (
+        <div className={cls} data-kind="clock">
+          <ClockView
+            h={spec.h}
+            m={spec.m}
+            numerals={spec.numerals}
+            digital={spec.digital}
+            label={name}
+            maxHeight={maxHeight}
           />
         </div>
       );

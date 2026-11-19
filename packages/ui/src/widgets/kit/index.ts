@@ -1,5 +1,14 @@
 // The shared widget kit (U03): pictures, layouts and answer controls the math widgets compose.
 // See ./README.md. Widgets import from here; workshops never do (they render WidgetHost).
+export {
+  CLOCK,
+  ClockFace,
+  type ClockFaceProps,
+  ClockView,
+  DigitalClock,
+  faceTime,
+  polarPoint,
+} from './ClockView';
 
 export {
   BillArt,
