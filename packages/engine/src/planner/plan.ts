@@ -47,13 +47,14 @@
 // - Warmup: the first available of (a) the on-track skill with the highest P(ref) ≥ warmupMinP;
 //   (b) the highest-P(ref) on-track skill; (c) the highest-P(ref) frontier skill already attempted
 //   ('learning'), with an evidence template; (d) the highest-P(ref) 'ready' skill whose lesson mode
-//   is 'none'; (e) with nothing attempted, a focus skill's lesson as the warmup (mode 'lesson'),
-//   preferring one without an offered test-out, and requests on that skill omit their lesson (and
-//   its lessonItemCost) but keep their draw; (f) else an evidence template of the first focus skill.
-//   An item warmup is never the first attempt on a ready skill with a lesson, so it never starts or
-//   cancels a test-out before the child picks a request; the requests continue its run (≤ maxRun in
-//   a row). One test-out rule: a draw is planned only when the learner's own offer (inTestOut) holds
-//   even after a wrong warmup item, so plan, learner and targetDifficulty agree. Ties by id;
+//   is 'none'; (e) with nothing attempted and a draw planned, the draw's first item (test-out item
+//   1) and every request shares that focus and asks the rest of its draw; (f) with nothing
+//   attempted and no draw anywhere, a focus skill's lesson (requests on it skip the lesson and plan
+//   no test-out); (g) else an evidence template of the first focus skill. Apart from (e), an item
+//   warmup is never the first attempt on a ready skill with a lesson; the requests continue its run
+//   (≤ maxRun in a row). One test-out rule: a draw is planned only when the learner's own offer
+//   (inTestOut) holds even after a wrong warmup item, and an offered draw no themed workshop can
+//   host goes to the Practice Pier, so plan, learner and targetDifficulty agree. Ties by id;
 //   templates prefer a format an available themed workshop hosts, then pictorial/abstract, then
 //   constructed (`isConstructedTemplate`), then id.
 // - Challenge: round(challengeShare × the plan's item budgets) items, dealt round-robin from the
@@ -149,6 +150,8 @@ interface Focus {
   lesson: boolean;
   testOut: boolean;
   remediation: boolean;
+  /** The warmup is this draw's first item (test-out item 1), so requests plan the rest of it. */
+  warmupTestOut?: boolean;
 }
 
 /** A task before sequencing. */
@@ -462,6 +465,8 @@ function compose(
     }
     if (focus.testOut) {
       draw = testOutDraw(graph, skill, cap);
+      // The warmup already asked the draw's first item: the request asks the rest.
+      if (draw && focus.warmupTestOut) draw = draw.slice(1);
       if (draw && draw.length > budget) draw = null;
     }
   }
@@ -780,6 +785,12 @@ export function planSession(input: PlanSessionInput, opts: PlanOptions = {}): Se
         const pierComp = compose(ctx, i, focus, pier, budget, challenge[i] ?? 0);
         if (pierComp && pierComp.items > 0) best = { cap: pier, comp: pierComp };
       }
+      // An offered test-out no themed workshop can host as a passable draw goes to the Practice
+      // Pier, which hosts every format: a planned test-out is always a draw the learner can pass.
+      if (focus?.testOut && !(best?.comp.testOutHosted ?? false)) {
+        const pierComp = compose(ctx, i, focus, pier, budget, challenge[i] ?? 0);
+        if (pierComp?.testOutHosted) best = { cap: pier, comp: pierComp };
+      }
       if (!best || !fillable(best.comp)) {
         let pierComp = compose(ctx, i, focus, pier, budget, challenge[i] ?? 0);
         if (!pierComp && focus?.lesson) {
@@ -839,21 +850,32 @@ export function planSession(input: PlanSessionInput, opts: PlanOptions = {}): Se
   ctx.runStart = warmup?.skillId ?? null;
   let built = build(focuses);
   if (!warmup) {
-    // (e) Nothing is attempted yet: a focus skill's lesson is the warmup, preferring one whose
-    // test-out is not offered. Requests on that skill skip the lesson task (and its cost) and keep
-    // any planned test-out draw first. A lesson leaves the skill `ready` until its first rated
-    // attempt, so the learner still decides the test-out at that attempt (04 §7a), and
-    // targetDifficulty follows it; whichever request the child picks, plan and learner agree.
+    // Nothing is attempted yet. (e) When a request plans a test-out draw, the draw's first item is
+    // the warmup (test-out item 1, asked at d* = 0), and every request shares that focus and asks
+    // the rest of its draw: the test-out starts with nothing before it and continues whichever
+    // request the child picks. (f) Otherwise a focus skill's lesson is the warmup and requests on
+    // it skip that lesson; no request plans a draw, so nothing in the lesson can move a planned
+    // test-out.
+    const drawAt = built.comps.findIndex((c) => c.testOut.length > 0);
     const withLesson = focuses.filter((f): f is Focus => f?.lesson === true);
     const f0 = withLesson.find((f) => !f.testOut) ?? withLesson[0];
     const lessonId = f0 ? graph.skills[f0.skillId]?.lesson.templateId : undefined;
     const lessonTpl = lessonId ? graph.templates[lessonId] : undefined;
-    if (f0 && lessonTpl) {
+    if (drawAt >= 0) {
+      const fd = focuses[drawAt] as Focus;
+      const first = built.comps[drawAt]?.testOut[0] as string;
+      warmup = warmupTask(ctx, fd.skillId, first, 'warmup', 'item');
+      focuses = focuses.map(() => ({ ...fd, warmupTestOut: true }));
+      ctx.runStart = fd.skillId;
+      built = build(focuses);
+    } else if (f0 && lessonTpl) {
       warmup = warmupTask(ctx, f0.skillId, lessonTpl.id, 'lesson', 'lesson');
-      focuses = focuses.map((f) => (f && f.skillId === f0.skillId ? { ...f, lesson: false } : f));
+      focuses = focuses.map((f) =>
+        f && f.skillId === f0.skillId ? { ...f, lesson: false, testOut: false } : f,
+      );
       built = build(focuses);
     } else {
-      // (f) No lesson is planned at all: an evidence template of the first focus skill.
+      // (g) No lesson is planned at all: an evidence template of the first focus skill.
       const s = focuses[0]?.skillId ?? (ctx.skills[0] as SkillId);
       const tpl = warmupTemplate(evidenceTemplates(graph, s), themed);
       warmup = warmupTask(ctx, s, tpl.id, 'warmup', 'item');
