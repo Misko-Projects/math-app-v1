@@ -11,6 +11,7 @@ import {
 } from '../../test-support/areaStory';
 import {
   boxGap,
+  contrast,
   expectApart,
   expectControls,
   expectHandTouchesOnlyInvited,
@@ -343,6 +344,9 @@ async function expectSideLabels(root: HTMLElement) {
       nearest = Math.min(nearest, gap);
       await expect(gap, `bubble ${own} 12 px clear of side ${s.i}`).toBeGreaterThanOrEqual(11.5);
     }
+    // A number with a leader (a crowded notch, the smallest area) is checked by
+    // `expectCrowdedLeaders` instead.
+    if (led) continue;
     // Beside its own side: its centre lies across from the side (within the side's span, give or
     // take half the bubble), and nothing else of the fence lies between it and that side.
     const s = segs.find((x) => x.i === own) as (typeof segs)[number];
@@ -362,10 +366,8 @@ async function expectSideLabels(root: HTMLElement) {
       0.1 + 0.5 / len,
     );
     const ownGap = dist(s, r) - strokeHalf;
-    if (!led) {
-      farthest = Math.max(farthest, ownGap);
-      await expect(ownGap, `bubble ${own} 12 to 24 px from its side`).toBeLessThanOrEqual(24.5);
-    }
+    farthest = Math.max(farthest, ownGap);
+    await expect(ownGap, `bubble ${own} 12 to 24 px from its side`).toBeLessThanOrEqual(24.5);
     const tc = Math.min(len, Math.max(0, t));
     const foot: [number, number] = [s.a[0] + d[0] * tc, s.a[1] + d[1] * tc];
     for (const other of segs) {
@@ -377,15 +379,8 @@ async function expectSideLabels(root: HTMLElement) {
     }
   }
   await expectTargetGaps(labels);
-  await expectLeaders(root, crowded);
-  if (crowded) {
-    recordEvidence(root, {
-      exceptions: {
-        crowded_notch:
-          "the L's notch cannot hold both numbers beside their sides in this area (reported)",
-      },
-    });
-  }
+  if (crowded) await expectCrowdedLeaders(root, segs, strokeHalf);
+  else await expectLeaders(root);
   recordEvidence(root, {
     bubble_to_side: `${Math.round(nearest)}-${Math.round(farthest)}`,
     bubble_off_mid_pct: Math.round(offMid * 100),
@@ -396,12 +391,169 @@ async function expectSideLabels(root: HTMLElement) {
 }
 
 /**
+ * A crowded L notch at the smallest area (decision on the evidence review: a leader there, and
+ * only there): 1. exactly one straight leader per crowded side, out through the notch's opening
+ * (its number outside the shape's bounding box); 2. its dot on that side's midpoint; 3. the leader
+ * crosses no square, no other side and no other number, 12+ px clear of each; 4. its number 24+ px
+ * from every other side's midpoint and every other number; 5. the stroke 2+ px, 3:1+ against what
+ * is behind it. Records each value under `exceptions.crowded_notch`.
+ */
+async function expectCrowdedLeaders(
+  root: HTMLElement,
+  segs: { i: number; a: [number, number]; b: [number, number] }[],
+  strokeHalf: number,
+) {
+  const svg = root.querySelector('.ni-pwalk__fence svg') as SVGSVGElement;
+  const ctm = svg.getScreenCTM() as DOMMatrix;
+  const client = (x: number, y: number): [number, number] => {
+    const q = new DOMPoint(x, y).matrixTransform(ctm);
+    return [q.x, q.y];
+  };
+  const toSeg = (q: [number, number], a: [number, number], b: [number, number]) => {
+    const dx = b[0] - a[0];
+    const dy = b[1] - a[1];
+    const l2 = dx * dx + dy * dy || 1;
+    const t = Math.max(0, Math.min(1, ((q[0] - a[0]) * dx + (q[1] - a[1]) * dy) / l2));
+    return Math.hypot(q[0] - (a[0] + t * dx), q[1] - (a[1] + t * dy));
+  };
+  const toRect = (q: [number, number], r: DOMRect) =>
+    Math.hypot(
+      Math.max(r.left - q[0], 0, q[0] - r.right),
+      Math.max(r.top - q[1], 0, q[1] - r.bottom),
+    );
+  const rectGap = (a: DOMRect, b: DOMRect) =>
+    Math.max(b.left - a.right, a.left - b.right, b.top - a.bottom, a.top - b.bottom);
+  // The shape (corners in order) for "inside": its squares.
+  const corners = [...segs].sort((x, y) => x.i - y.i).map((x) => x.a);
+  const inside = (q: [number, number]) => {
+    let inn = false;
+    for (let i = 0, j = corners.length - 1; i < corners.length; j = i, i += 1) {
+      const a = corners[i] as [number, number];
+      const b = corners[j] as [number, number];
+      if (
+        a[1] > q[1] !== b[1] > q[1] &&
+        q[0] < ((b[0] - a[0]) * (q[1] - a[1])) / (b[1] - a[1]) + a[0]
+      )
+        inn = !inn;
+    }
+    return inn;
+  };
+  const xs = corners.map((c) => c[0]);
+  const ys = corners.map((c) => c[1]);
+  const shapeBox = {
+    l: Math.min(...xs),
+    t: Math.min(...ys),
+    r: Math.max(...xs),
+    b: Math.max(...ys),
+  };
+  const labels = [...root.querySelectorAll<HTMLElement>('.ni-pwalk__label')];
+  const groups = [...root.querySelectorAll<SVGGElement>('.ni-pwalk__leader')];
+  // 1. The crowded sides: numbers more than 24 px from their own side. One leader each.
+  const crowdedSides = labels
+    .map((l) => Number(l.dataset.labelSide))
+    .filter((i) => {
+      const sg = segs.find((x) => x.i === i) as (typeof segs)[number];
+      const r = (
+        labels.find((l) => Number(l.dataset.labelSide) === i) as HTMLElement
+      ).getBoundingClientRect();
+      let best = Number.POSITIVE_INFINITY;
+      for (let k = 0; k <= 60; k += 1) {
+        const q: [number, number] = [
+          sg.a[0] + ((sg.b[0] - sg.a[0]) * k) / 60,
+          sg.a[1] + ((sg.b[1] - sg.a[1]) * k) / 60,
+        ];
+        best = Math.min(best, toRect(q, r));
+      }
+      // Not beside its midpoint: more than 24 px out, or further along than a tenth of the side.
+      const len = Math.hypot(sg.b[0] - sg.a[0], sg.b[1] - sg.a[1]) || 1;
+      const cx = (r.left + r.right) / 2;
+      const cy = (r.top + r.bottom) / 2;
+      const t = ((cx - sg.a[0]) * (sg.b[0] - sg.a[0]) + (cy - sg.a[1]) * (sg.b[1] - sg.a[1])) / len;
+      return best - strokeHalf > 24.5 || Math.abs(t - len / 2) / len > 0.1 + 0.5 / len;
+    });
+  await expect(crowdedSides.length, 'a crowded side').toBeGreaterThan(0);
+  await expect(groups.map((g) => Number(g.dataset.leaderFor)).sort()).toEqual(
+    [...crowdedSides].sort(),
+  );
+  let dotOff = 0;
+  let clear = Number.POSITIVE_INFINITY;
+  let toMid = Number.POSITIVE_INFINITY;
+  let toBubble = Number.POSITIVE_INFINITY;
+  let strokePx = Number.POSITIVE_INFINITY;
+  let ratio = Number.POSITIVE_INFINITY;
+  let exits = true;
+  for (const g of groups) {
+    const i = Number(g.dataset.leaderFor);
+    const poly = g.querySelector('polyline') as SVGPolylineElement;
+    await expect(poly.points.numberOfItems, `leader ${i} straight`).toBe(2);
+    const own = labels.find((l) => Number(l.dataset.labelSide) === i) as HTMLElement;
+    const r = own.getBoundingClientRect();
+    const c: [number, number] = [(r.left + r.right) / 2, (r.top + r.bottom) / 2];
+    const out = c[0] < shapeBox.l || c[0] > shapeBox.r || c[1] < shapeBox.t || c[1] > shapeBox.b;
+    exits &&= out;
+    await expect(out, `leader ${i} runs out through the notch's opening`).toBe(true);
+    // 2. The dot on the side's midpoint.
+    const sg = segs.find((x) => x.i === i) as (typeof segs)[number];
+    const m: [number, number] = [(sg.a[0] + sg.b[0]) / 2, (sg.a[1] + sg.b[1]) / 2];
+    const dotEl = g.querySelector('.ni-pwalk__leader-dot') as SVGCircleElement;
+    const dot = client(dotEl.cx.baseVal.value, dotEl.cy.baseVal.value);
+    const off = Math.hypot(dot[0] - m[0], dot[1] - m[1]);
+    dotOff = Math.max(dotOff, off);
+    await expect(off, `leader ${i}: its dot on the midpoint`).toBeLessThanOrEqual(1);
+    // 3. Along the leader: no square, no other side, no other number, 12+ px clear of each.
+    const total = poly.getTotalLength();
+    for (let d = 3; d <= total; d += 2) {
+      const pt = poly.getPointAtLength(total - d);
+      const q = client(pt.x, pt.y);
+      await expect(inside(q), `leader ${i} crosses a square`).toBe(false);
+      for (const sgk of segs) {
+        if (sgk.i === i) continue;
+        clear = Math.min(clear, toSeg(q, sgk.a, sgk.b) - strokeHalf);
+      }
+      for (const o of labels)
+        if (o !== own) clear = Math.min(clear, toRect(q, o.getBoundingClientRect()));
+    }
+    // 4. Its number 24+ px from every other side's midpoint and every other number.
+    for (const sgk of segs) {
+      if (sgk.i === i) continue;
+      toMid = Math.min(toMid, toRect([(sgk.a[0] + sgk.b[0]) / 2, (sgk.a[1] + sgk.b[1]) / 2], r));
+    }
+    for (const o of labels)
+      if (o !== own) toBubble = Math.min(toBubble, rectGap(r, o.getBoundingClientRect()));
+    // 5. The stroke: 2+ px, 3:1+ against the area behind it.
+    const cs = getComputedStyle(poly);
+    strokePx = Math.min(strokePx, Number.parseFloat(cs.strokeWidth));
+    const behind = getComputedStyle(
+      (root.closest('.story-widget-area') ?? root.closest('.story-widget-stage')) as Element,
+    ).backgroundColor;
+    ratio = Math.min(ratio, contrast(cs.stroke, behind));
+  }
+  await expect(clear, 'leader clearance').toBeGreaterThanOrEqual(12);
+  await expect(toMid, "number clear of other sides' midpoints").toBeGreaterThanOrEqual(24);
+  await expect(toBubble, 'number clear of other numbers').toBeGreaterThanOrEqual(24);
+  await expect(strokePx, 'leader stroke').toBeGreaterThanOrEqual(2);
+  await expect(ratio, 'leader contrast').toBeGreaterThanOrEqual(3);
+  const value = {
+    leaders: groups.length,
+    exits_notch: exits,
+    dot_off_mid: Math.round(dotOff * 10) / 10,
+    leader_clear: Math.round(clear),
+    to_other_mid: Math.round(toMid),
+    to_other_bubble: Math.round(toBubble),
+    stroke: strokePx,
+    contrast: Math.round(ratio * 10) / 10,
+  };
+  recordEvidence(root, { exceptions: { crowded_notch: value } });
+  console.info(`[crowded] ${JSON.stringify(value)}`);
+}
+
+/**
  * Every side number either sits beside its own side (within 20 px of the middle half of it) or
  * has a leader (decision on the evidence review: a crowded L notch): an ink line, 2+ px, from the
  * bubble to a dot ON its own side within a quarter of the side from the midpoint, crossing no
  * other bubble. Records `leaders` (side index: the leader's length in px).
  */
-async function expectLeaders(root: HTMLElement, crowded = false) {
+async function expectLeaders(root: HTMLElement) {
   const svg = root.querySelector('.ni-pwalk__fence svg') as SVGSVGElement;
   const ctm = svg.getScreenCTM() as DOMMatrix;
   const client = (x: number, y: number): [number, number] => {
@@ -464,7 +616,7 @@ async function expectLeaders(root: HTMLElement, crowded = false) {
     await expect(cs.stroke, `leader ${i}: ink`).toBe('rgb(38, 70, 83)');
     const total = poly.getTotalLength();
     // Short, and crossing no side (a leader only where unavoidable; evidence review).
-    if (!crowded) await expect(total, `leader ${i}: 40 px or less`).toBeLessThanOrEqual(40);
+    await expect(total, `leader ${i}: 40 px or less`).toBeLessThanOrEqual(40);
     for (let d = 0; d <= total; d += 2) {
       const p = poly.getPointAtLength(d);
       const [x, y] = client(p.x, p.y);
