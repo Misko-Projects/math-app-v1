@@ -529,23 +529,30 @@ function compose(
   let r = Math.min(reviews.length, Math.max(0, budget - c));
   let s = focus ? budget - r - c : 0;
   const need = t + evidenceAfter;
+  // Room for the draw (and its evidence item) comes from challenge items, then ordinary reviews. A
+  // failed review is never cut: the next plan must review it (04 §6.4 rule 3), so it outranks a
+  // test-out draw. `reviews` lists the failed ones first.
+  const failedKept = Math.min(r, failedDue.length);
   if (focus && s < need) {
     const cut = Math.min(c, need - s);
     c -= cut;
     s += cut;
-    const cutR = Math.min(r, need - s);
+    const cutR = Math.min(r - failedKept, need - s);
     r -= cutR;
     s += cutR;
   }
-  if (focus && draw && s < need) {
-    // No room for the evidence item after a choice-only draw. When no hosted pool template takes a
-    // constructed answer, the request is planned without the draw: the skill's first evidence item is
-    // then out of the pool, which cancels any test-out the learner would start (04 §7b).
-    const pool = testOutPool(graph, skill as Skill).filter((x) => hosts(cap, x.format));
-    if (!pool.some(isConstructedTemplate)) {
-      return compose(ctx, i, { ...focus, testOut: false }, cap, budgetIn, challengeWanted);
-    }
-  }
+  /** A request without the draw, lesson first (the draw is never truncated). */
+  const withoutDraw = () =>
+    compose(ctx, i, { ...(focus as Focus), testOut: false }, cap, budgetIn, challengeWanted);
+  // When no hosted pool template takes a constructed answer, dropping a choice-only draw is safe:
+  // the skill's first evidence item is then out of the pool, which cancels any test-out the learner
+  // would start (04 §7b).
+  const choiceOnlyPool = () =>
+    !testOutPool(graph, skill as Skill)
+      .filter((x) => hosts(cap, x.format))
+      .some(isConstructedTemplate);
+  if (focus && draw && s < t) return withoutDraw();
+  if (focus && draw && s < need && choiceOnlyPool()) return withoutDraw();
 
   // Breakers for the focus skill's runs: one other new skill that needs no lesson first, then
   // practiced-track skills.
@@ -635,8 +642,16 @@ function compose(
     const at = ordered.findIndex((x) => x.mode === 'lesson');
     const before = ordered.slice(0, at < 0 ? ordered.length : at);
     const placed = before.filter((x) => x.skillId === S && x.mode === 'item').length;
-    if (placed < draw.length) {
-      return compose(ctx, i, { ...focus, testOut: false }, cap, budgetIn, challengeWanted);
+    if (placed < draw.length) return withoutDraw();
+    // The evidence item after a choice-only draw must survive sequencing: the run rule can drop it
+    // when nothing else breaks the skill's run (lesson tasks do not).
+    if (evidenceAfter > 0) {
+      const after = ordered.filter((x) => x.skillId === S && x.mode === 'item').slice(t);
+      const kept = after.some((x) => {
+        const tpl = graph.templates[x.templateId];
+        return tpl !== undefined && isConstructedTemplate(tpl);
+      });
+      if (!kept && choiceOnlyPool()) return withoutDraw();
     }
   }
   const tasks: PlannedTask[] = ordered.map((x, j) => ({
@@ -899,9 +914,12 @@ export function planSession(input: PlanSessionInput, opts: PlanOptions = {}): Se
       }
       // An offered test-out no themed workshop can host as a passable draw goes to the Practice
       // Pier, which hosts every format: a planned test-out is always a draw the learner can pass.
+      // It never trades away a failed review (04 §6.4 rule 3 outranks the test-out).
       if (focus?.testOut && !(best?.comp.testOutHosted ?? false)) {
         const pierComp = compose(ctx, i, focus, pier, budget, challenge[i] ?? 0);
-        if (pierComp?.testOutHosted) best = { cap: pier, comp: pierComp };
+        const keepsFailed = (c: Composition) =>
+          failedReviewed(c) >= (best ? failedReviewed(best.comp) : 0);
+        if (pierComp?.testOutHosted && keepsFailed(pierComp)) best = { cap: pier, comp: pierComp };
       }
       if (!best || !fillable(best.comp)) {
         let pierComp = compose(ctx, i, focus, pier, budget, challenge[i] ?? 0);

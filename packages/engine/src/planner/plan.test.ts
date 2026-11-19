@@ -577,12 +577,10 @@ describe('lessons and test-outs (04 §3, 03 §6.5)', () => {
         },
       },
     };
-    const gModel = createEloFireModel(g, { childId: CHILD, isK: true });
     const s = stateWith(
       { [C]: practiced(2, NOW + 3 * DAY_MS) },
       { thetaG: Math.log(0.745 / 0.255) },
     );
-    expect(gModel.inTestOut(s, A)).toBe(false);
     const all = cap(
       'all-works',
       ['tap-count', 'tenframe-fill', 'number-pad', 'number-bond', 'numeral-pick', 'compare'],
@@ -591,9 +589,19 @@ describe('lessons and test-outs (04 §3, 03 §6.5)', () => {
         produces: ['stone'],
       },
     );
-    for (const minutes of [1, 15]) {
+    // K at one minute: no room for the evidence item, so no draw. K at 15 minutes: room. Grade 2 at
+    // one minute (review round 5 on #66): four item slots, all A, so sequencing would drop the
+    // fourth A item in a row (the lesson does not break the run); the draw is then not planned.
+    const cases: [ChildContext['grade'], number][] = [
+      ['K', 1],
+      ['K', 15],
+      ['2', 1],
+    ];
+    for (const [grade, minutes] of cases) {
+      const gModel = createEloFireModel(g, { childId: CHILD, isK: grade === 'K' });
+      expect(gModel.inTestOut(s, A)).toBe(false);
       const p = plan(
-        input({ child: child('K'), graph: g, state: s, minutes, workshopsAvailable: [all] }),
+        input({ child: child(grade), graph: g, state: s, minutes, workshopsAvailable: [all] }),
       );
       expect(p.warmup.skillId).toBe(C);
       const warm = gModel.apply(
@@ -627,6 +635,31 @@ describe('lessons and test-outs (04 §3, 03 §6.5)', () => {
         expect(st.skills[A]?.recent.length ?? 0).toBeGreaterThan(0);
       }
       if (minutes === 15) expect(drawOf(p, A)).toHaveLength(3); // room for the evidence item
+    }
+  });
+
+  it('a failed review outranks a test-out draw: the Practice Pier fallback never drops it', () => {
+    // Review round 5 (#66): a one-minute K plan. A, the sole focus, has an offered three-item
+    // test-out (placement prior 0.7); C is the sole practiced skill and failed its review. The only
+    // themed workshop hosts tap-count alone: A's lesson and practice and C's review, but not A's
+    // abstract draw. Only the Practice Pier could host the draw, and with the lesson cost there is no
+    // room for both the draw and C's review. Every alternative must still review C (04 §6.4 rule 3).
+    const prior = { p: { [A]: 0.7 }, assumed: [] };
+    const before = stateWith(
+      { [C]: practiced(1, NOW + 1) },
+      { placement: { prior, strandsPlaced: [], inProgress: null } },
+    );
+    const kModel = createEloFireModel(graph, { childId: CHILD, isK: true });
+    const s = kModel.apply(
+      before,
+      synthAttempt(C, 1, { correct: false, context: 'review', seed: 777 }),
+      NOW,
+    );
+    expect(s.skills[C]?.memory?.consecutiveFails).toBe(1);
+    const taps = cap('tap-works', ['tap-count'], { residents: ['nib'], produces: ['stone'] });
+    const p = plan(input({ child: child('K'), state: s, minutes: 1, workshopsAvailable: [taps] }));
+    for (const r of p.requests) {
+      expect(r.tasks.some((t) => t.skillId === C && t.context === 'review')).toBe(true);
     }
   });
 
