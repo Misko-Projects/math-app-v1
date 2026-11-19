@@ -140,15 +140,18 @@ async function expectFits(canvasElement: HTMLElement, root: HTMLElement) {
   await expect(root.closest('.story-widget-stage')?.scrollWidth).toBeLessThanOrEqual(
     stage.clientWidth,
   );
+  // One synchronous pass over every drawn part (hundreds on a full mat), then one assertion.
   const box = root.getBoundingClientRect();
+  const outside: string[] = [];
   for (const el of shown(root, '*')) {
     const r = el.getBoundingClientRect();
     if (r.width === 0 && r.height === 0) continue;
-    await expect(r.left, `${el.className} left`).toBeGreaterThanOrEqual(box.left - 0.5);
-    await expect(r.right, `${el.className} right`).toBeLessThanOrEqual(box.right + 0.5);
-    await expect(r.top, `${el.className} top`).toBeGreaterThanOrEqual(box.top - 0.5);
-    await expect(r.bottom, `${el.className} bottom`).toBeLessThanOrEqual(box.bottom + 0.5);
+    if (r.left < box.left - 0.5) outside.push(`${el.className} left`);
+    if (r.right > box.right + 0.5) outside.push(`${el.className} right`);
+    if (r.top < box.top - 0.5) outside.push(`${el.className} top`);
+    if (r.bottom > box.bottom + 0.5) outside.push(`${el.className} bottom`);
   }
+  await expect(outside, 'parts outside the widget').toEqual([]);
   // The mat's columns fit the mat (they never spill under the side panel).
   const work = root.querySelector('.ni-btb__work') as HTMLElement;
   await expect(work.scrollWidth, 'mat columns spill').toBeLessThanOrEqual(work.clientWidth);
@@ -157,13 +160,13 @@ async function expectFits(canvasElement: HTMLElement, root: HTMLElement) {
   if (side) await expect(b.right, 'mat clear of the side panel').toBeLessThanOrEqual(side.left);
   // Stock tags: big counts, inside their piles, clear of the pictures.
   await expectTagsOnPiles(root);
-  for (const p of root.querySelectorAll<HTMLElement>('.ni-btb__piece')) {
+  const offBoard = [...root.querySelectorAll<HTMLElement>('.ni-btb__piece')].flatMap((p, i) => {
     const r = p.getBoundingClientRect();
-    await expect(r.left).toBeGreaterThanOrEqual(b.left);
-    await expect(r.right).toBeLessThanOrEqual(b.right);
-    await expect(r.top).toBeGreaterThanOrEqual(b.top);
-    await expect(r.bottom).toBeLessThanOrEqual(b.bottom);
-  }
+    return r.left < b.left || r.right > b.right || r.top < b.top || r.bottom > b.bottom
+      ? [`piece ${i} (${p.dataset.kind})`]
+      : [];
+  });
+  await expect(offBoard, 'pieces off the board').toEqual([]);
 }
 
 /** Numerals the child reads are ≥ 32 px (05 §11). */
@@ -183,6 +186,13 @@ function shown(root: HTMLElement, sel: string): HTMLElement[] {
   );
 }
 
+/**
+ * The Check button (the build panel's, or the read pad's): found directly, as a role query over a
+ * full mat's hundreds of pieces is slow.
+ */
+const checkButton = (root: HTMLElement) =>
+  root.querySelector('.ni-btb__checkslot .ni-btn, .ni-btb__side--pad > .ni-btn') as HTMLElement;
+
 const controls = (root: HTMLElement) =>
   shown(root, '.ni-btb__goal, .ni-btb__exact, .ni-btb__pile, .ni-btb .ni-btn');
 
@@ -200,21 +210,7 @@ async function expectUnit(root: HTMLElement, min: number) {
 
 /** Pieces never overlap: every pair of drawn pieces is apart. */
 async function expectNoOverlap(root: HTMLElement) {
-  const rects = [...root.querySelectorAll('.ni-btb__art')]
-    .filter((el) => el.closest('.ni-btb__col'))
-    .map((el) => el.getBoundingClientRect());
-  for (let i = 0; i < rects.length; i++) {
-    for (let j = i + 1; j < rects.length; j++) {
-      const a = rects[i] as DOMRect;
-      const b = rects[j] as DOMRect;
-      const apart =
-        a.right <= b.left + 0.5 ||
-        b.right <= a.left + 0.5 ||
-        a.bottom <= b.top + 0.5 ||
-        b.bottom <= a.top + 0.5;
-      await expect(apart, `pieces ${i} and ${j} overlap`).toBe(true);
-    }
-  }
+  await expectNoOverlapFast(root);
 }
 
 /** The same check for a crowded mat (hundreds of pieces): one synchronous pass, one assertion. */
@@ -255,34 +251,41 @@ const btbModel = () => {
  */
 async function expectTagsOnPiles(root: HTMLElement) {
   const piles = shown(root, '.ni-btb__pile');
+  const wrong: string[] = [];
   for (const p of piles) {
-    const tag = p.querySelector('.ni-btb__stock');
+    const tag = p.querySelector<HTMLElement>('.ni-btb__stock');
     if (!tag) continue;
+    const kind = p.dataset.kind;
     const t = tag.getBoundingClientRect();
     const b = p.getBoundingClientRect();
-    await expect(t.left, 'tag inside its pile (left)').toBeGreaterThanOrEqual(b.left);
-    await expect(t.right, 'tag inside its pile (right)').toBeLessThanOrEqual(b.right);
-    await expect(t.top, 'tag inside its pile (top)').toBeGreaterThanOrEqual(b.top);
-    await expect(t.bottom, 'tag inside its pile (bottom)').toBeLessThanOrEqual(b.bottom);
+    if (t.left < b.left) wrong.push(`${kind}: tag inside its pile (left)`);
+    if (t.right > b.right) wrong.push(`${kind}: tag inside its pile (right)`);
+    if (t.top < b.top) wrong.push(`${kind}: tag inside its pile (top)`);
+    if (t.bottom > b.bottom) wrong.push(`${kind}: tag inside its pile (bottom)`);
     // The count is a math numeral (05 §11: ≥ 32 px), drawn at full strength.
-    const num = tag.querySelector('.ni-btb__stocknum') as HTMLElement;
-    await expect(num, 'the tag shows its count').not.toBeNull();
-    await expect(Number.parseFloat(getComputedStyle(num).fontSize)).toBeGreaterThanOrEqual(32);
-    await expect(getComputedStyle(tag).opacity).toBe('1');
+    const num = tag.querySelector<HTMLElement>('.ni-btb__stocknum');
+    if (!num) wrong.push(`${kind}: the tag shows its count`);
+    else if (Number.parseFloat(getComputedStyle(num).fontSize) < 32) {
+      wrong.push(`${kind}: count ${getComputedStyle(num).fontSize} (< 32 px)`);
+    }
+    if (getComputedStyle(tag).opacity !== '1') wrong.push(`${kind}: tag dimmed`);
     // The tag never covers the pile's picture.
     const art = p.querySelector('.ni-btb__pileart')?.getBoundingClientRect();
-    if (art) {
-      const clear =
-        t.top >= art.bottom || t.bottom <= art.top || t.left >= art.right || t.right <= art.left;
-      await expect(clear, 'tag clear of the pile picture').toBe(true);
+    if (
+      art &&
+      !(t.top >= art.bottom || t.bottom <= art.top || t.left >= art.right || t.right <= art.left)
+    ) {
+      wrong.push(`${kind}: tag clear of the pile picture`);
     }
     for (const other of piles) {
       if (other === p) continue;
       const o = other.getBoundingClientRect();
-      const overlaps = t.left < o.right && t.right > o.left && t.top < o.bottom && t.bottom > o.top;
-      await expect(overlaps, 'tag clear of the other piles').toBe(false);
+      if (t.left < o.right && t.right > o.left && t.top < o.bottom && t.bottom > o.top) {
+        wrong.push(`${kind}: tag clear of the other piles`);
+      }
     }
   }
+  await expect(wrong, 'stock tags').toEqual([]);
 }
 
 async function expectHeaders(root: HTMLElement, words: string[]) {
@@ -1205,7 +1208,7 @@ async function expectInsideStage(canvasElement: HTMLElement, root: HTMLElement) 
   const stage = (
     canvasElement.querySelector('.story-widget-stage') as HTMLElement
   ).getBoundingClientRect();
-  const check = within(root).getByRole('button', { name: 'Check' }).getBoundingClientRect();
+  const check = checkButton(root).getBoundingClientRect();
   await expect(stage.height).toBeLessThanOrEqual(720);
   await expect(check.top).toBeGreaterThanOrEqual(stage.top);
   await expect(check.bottom, 'Check inside the stage').toBeLessThanOrEqual(stage.bottom);
@@ -1445,8 +1448,9 @@ export const AddNeedsCompactPanelK: Story = {
 
 /**
  * A plain build (the goal shows, four piles) filled to the largest mat the engine allows: with no
- * pieces prebuilt the child takes them all, here played instantly through the demo (reduced
- * motion). The panel keeps its piles two to a row and Check on screen; the mat shrinks to fit.
+ * pieces prebuilt the child builds them all (taking and splitting), here played instantly through
+ * the demo (reduced motion). The panel keeps its piles two to a row and Check on screen; the mat
+ * shrinks to fit.
  */
 const buildGoalWorst = (ageMode: 'k' | 'g1-up'): Story => {
   const controller = createDemoController({ strict: true });
@@ -1465,9 +1469,24 @@ const buildGoalWorst = (ageMode: 'k' | 'g1-up'): Story => {
       await expect(btbModel().configSchema.safeParse(config).success).toBe(true);
       const root = await findWidget(canvasElement, ROOT);
       const full = { thousands: 9, hundreds: 19, tens: 29, ones: 199 } as const;
-      for (const [kind, count] of Object.entries(full)) {
-        await controller.play({ op: 'add-piece', args: { kind, count } });
-      }
+      // Built the way a child saves taps: splitting a larger piece instead of taking ten (56 moves
+      // instead of 256, each one the guard must allow), never past the full mat on the way.
+      const add = (kind: string, count: number) =>
+        controller.play({ op: 'add-piece', args: { kind, count } });
+      const split = async (kind: string, times: number) => {
+        for (let i = 0; i < times; i++) await controller.play({ op: 'split', args: { kind } });
+      };
+      await add('thousands', 1);
+      await split('thousands', 1); // 10 hundreds
+      await split('hundreds', 2); // 8 hundreds, 20 tens
+      await split('tens', 19); // 1 ten, 190 ones
+      await add('ones', 9); // 199 ones
+      await split('hundreds', 2); // 6 hundreds, 21 tens
+      await add('tens', 8); // 29 tens
+      await add('thousands', 1);
+      await split('thousands', 1); // 16 hundreds
+      await add('hundreds', 3); // 19 hundreds
+      await add('thousands', 9);
       await expectMat(root, full);
       await expect(within(root).getByRole('button', { name: 'Make 9999' })).toBeInTheDocument();
       // The demo's highlight rings fade; the resting frame is the child's.
@@ -1671,8 +1690,8 @@ export const Disabled: Story = {
 const playController: WidgetDemo = createDemoController({ strict: true });
 
 /**
- * Demo: every op. A one flies in from the tray, ten ones fuse into a ten, a ten splits, Pip
- * counts the tens aloud (the only place a count is spoken), a ten goes back, and `answer` applies.
+ * Demo, the trades: a one flies in from the tray, ten ones fuse into a ten, and a ten splits.
+ * `DemoPlayCountAndAnswer` plays the other ops from where this ends.
  */
 export const DemoPlay: Story = {
   args: {
@@ -1693,34 +1712,65 @@ export const DemoPlay: Story = {
     await expectMat(root, { tens: 3, ones: 0 });
     await playController.play({ op: 'split', args: { kind: 'rod' } });
     await expectMat(root, { tens: 2, ones: 10 });
-    await playController.play({ op: 'count-by', args: { kind: 'tens' } });
-    await expect(audio.sayPhrases).toHaveBeenCalledTimes(2);
-    await expect(audio.sayPhrases).toHaveBeenNthCalledWith(1, [{ number: 10 }]);
-    await expect(audio.sayPhrases).toHaveBeenNthCalledWith(2, [{ number: 20 }]);
-    await playController.play({ op: 'add-piece', args: { kind: 'tens', count: -1 } });
-    await expectMat(root, { tens: 1, ones: 10 });
-    await playController.play({ op: 'add-piece', args: { kind: 'tens', count: 2 } });
-    await expectMat(root, { tens: 3, ones: 10 });
-    await playController.play({ op: 'answer', args: { value: 40 } });
-    await expectMat(root, { tens: 3, ones: 10 });
-    await expect(root.querySelector('[data-counted="true"]')).toBeNull();
   },
 };
 
-const readController: WidgetDemo = createDemoController({ strict: true });
+const countController: WidgetDemo = createDemoController({ strict: true });
 
-/** Demo in read mode: `count-by` lights the tens one by one, then `answer` types 47 on the pad. */
-export const DemoReadAnswer: Story = {
-  args: { disabled: true, demo: readController, config: read47, tier: 'pictorial' },
+/**
+ * Demo, the other ops from where `DemoPlay` ends (2 tens, 10 ones): Pip counts the tens aloud
+ * (the only place a count is spoken), a ten goes back, two come in, and `answer` applies.
+ */
+export const DemoPlayCountAndAnswer: Story = {
+  args: {
+    disabled: true,
+    demo: countController,
+    config: { ...build34, prebuilt: { hundreds: 0, tens: 2, ones: 10 } } satisfies Config,
+  },
   parameters: { ui: { audio: spyAudio() } },
   play: async ({ canvasElement, parameters }) => {
     const audio = parameters.ui.audio as SpyAudio;
     clearSpies(audio);
     const root = await findWidget(canvasElement, ROOT);
-    const counting = readController.play({ op: 'count-by', args: { kind: 'tens' } });
+    await expectMat(root, { tens: 2, ones: 10 });
+    await countController.play({ op: 'count-by', args: { kind: 'tens' } });
+    await expect(audio.sayPhrases).toHaveBeenCalledTimes(2);
+    await expect(audio.sayPhrases).toHaveBeenNthCalledWith(1, [{ number: 10 }]);
+    await expect(audio.sayPhrases).toHaveBeenNthCalledWith(2, [{ number: 20 }]);
+    await countController.play({ op: 'add-piece', args: { kind: 'tens', count: -1 } });
+    await expectMat(root, { tens: 1, ones: 10 });
+    await countController.play({ op: 'add-piece', args: { kind: 'tens', count: 2 } });
+    await expectMat(root, { tens: 3, ones: 10 });
+    await countController.play({ op: 'answer', args: { value: 40 } });
+    await expectMat(root, { tens: 3, ones: 10 });
+    await expect(root.querySelector('[data-counted="true"]')).toBeNull();
+  },
+};
+
+const readCountController: WidgetDemo = createDemoController({ strict: true });
+
+/** Demo in read mode: `count-by` lights the tens one by one, saying 10, 20, 30, 40. */
+export const DemoReadCountBy: Story = {
+  args: { disabled: true, demo: readCountController, config: read47, tier: 'pictorial' },
+  parameters: { ui: { audio: spyAudio() } },
+  play: async ({ canvasElement, parameters }) => {
+    const audio = parameters.ui.audio as SpyAudio;
+    clearSpies(audio);
+    const root = await findWidget(canvasElement, ROOT);
+    const counting = readCountController.play({ op: 'count-by', args: { kind: 'tens' } });
     await waitFor(() => expect(root.querySelector('[data-counted="true"]')).not.toBeNull());
     await counting;
     await expect(audio.sayPhrases).toHaveBeenLastCalledWith([{ number: 40 }]);
+  },
+};
+
+const readController: WidgetDemo = createDemoController({ strict: true });
+
+/** Demo in read mode: `answer` types 47 on the pad (after `count-by`, `DemoReadCountBy`). */
+export const DemoReadAnswer: Story = {
+  args: { disabled: true, demo: readController, config: read47, tier: 'pictorial' },
+  play: async ({ canvasElement }) => {
+    const root = await findWidget(canvasElement, ROOT);
     await readController.play({ op: 'answer', args: { value: 47 } });
     await expect(root.querySelector('.ni-btb__blank')).toHaveTextContent('47');
   },
@@ -1937,7 +1987,6 @@ async function mount(canvasElement: HTMLElement, config: Config): Promise<HTMLEl
     expect(now).not.toBe(before);
   });
   await settled();
-  await settled();
   return canvasElement.querySelector(ROOT) as HTMLElement;
 }
 
@@ -1954,7 +2003,7 @@ function domFits(canvasElement: HTMLElement, root: HTMLElement): boolean {
   const board = (root.querySelector('.ni-btb__board') as HTMLElement).getBoundingClientRect();
   const ask = root.querySelector<HTMLElement>('.ni-btb__ask');
   const piles = root.querySelector('.ni-btb__piles') as HTMLElement;
-  const check = within(root).getByRole('button', { name: 'Check' }).getBoundingClientRect();
+  const check = checkButton(root).getBoundingClientRect();
   const inSide = (r: DOMRect) => r.left >= side.left - 0.5 && r.right <= side.right + 0.5;
   return (
     stage.height <= 720 &&
@@ -2236,44 +2285,20 @@ const ALL_MOVES: Move[] = (['thousands', 'hundreds', 'tens', 'ones'] as const).f
  * picks (it tries the usual one and the crowded one). A refusal of a state that renders fine is a
  * failure, as is an allowed move that overflows.
  */
-const twoWayStory = (ageMode: 'k' | 'g1-up'): Story => ({
+const twoWayStory = (
+  ageMode: 'k' | 'g1-up',
+  probes: () => Config[],
+  least: { allowed: number; refused: number },
+): Story => ({
   globals: { ageMode },
   args: { config: build34 },
   render: renderSwitcher,
   play: async ({ canvasElement }) => {
     await findWidget(canvasElement, ROOT);
-    const edge = (thousands: number): Config => ({
-      ...matMax,
-      prebuilt: { thousands, hundreds: 19, tens: 29, ones: 199 },
-    });
-    const probes: Config[] = [
-      reviewR5,
-      reviewR4,
-      splitIntoRoom,
-      exactWorst,
-      decimalWorst,
-      wideChips,
-      matMax,
-      edge(10),
-      edge(11),
-      {
-        ...exactWorst,
-        prebuilt: { thousands: 9, hundreds: 14, tens: 29, ones: 199 },
-      },
-      {
-        format: 'base-ten-build',
-        target: 9999,
-        mode: 'build-exact',
-        pieces: ALL,
-        wholeIs: 'unit',
-        exact: { ones: 199 },
-        prebuilt: { thousands: 9, hundreds: 12, tens: 29, ones: 150 },
-      },
-    ];
     const wrong: string[] = [];
     let allowed = 0;
     let refused = 0;
-    for (const config of probes) {
+    for (const config of probes()) {
       const pre = { thousands: 0, hundreds: 0, tens: 0, ones: 0, ...config.prebuilt };
       let root = await mount(canvasElement, config);
       const decisions = ALL_MOVES.flatMap((m) => {
@@ -2297,11 +2322,58 @@ const twoWayStory = (ageMode: 'k' | 'g1-up'): Story => ({
       }
     }
     await expect(wrong, 'guard and render agree').toEqual([]);
-    await expect(allowed, 'moves allowed').toBeGreaterThan(10);
-    await expect(refused, 'moves refused').toBeGreaterThan(0);
+    await expect(`${allowed}/${refused}`).toBe(`${least.allowed}`);
+    await expect(refused, 'moves refused').toBeGreaterThanOrEqual(least.refused);
   },
 });
-/** Guard and render agree both ways in G1. */
-export const GuardAgreesWithRenderG1 = twoWayStory('g1-up');
-/** And in K. */
-export const GuardAgreesWithRenderK = twoWayStory('k');
+
+/** The probe states, one story each (so each stays short), every one checked in G1 and in K. */
+const probe = {
+  reviewR5: () => reviewR5,
+  reviewR4: () => reviewR4,
+  splitIntoRoom: () => splitIntoRoom,
+  exactWorst: () => exactWorst,
+  exact14: (): Config => ({
+    ...exactWorst,
+    prebuilt: { thousands: 9, hundreds: 14, tens: 29, ones: 199 },
+  }),
+  decimalWorst: () => decimalWorst,
+  wideChips: () => wideChips,
+  ones199: (): Config => ({
+    format: 'base-ten-build',
+    target: 9999,
+    mode: 'build-exact',
+    pieces: ALL,
+    wholeIs: 'unit',
+    exact: { ones: 199 },
+    prebuilt: { thousands: 9, hundreds: 12, tens: 29, ones: 150 },
+  }),
+  full: () => matMax,
+  past10: (): Config => ({ ...matMax, prebuilt: { thousands: 10, hundreds: 19, tens: 29, ones: 199 } }),
+  past11: (): Config => ({ ...matMax, prebuilt: { thousands: 11, hundreds: 19, tens: 29, ones: 199 } }),
+};
+const STATS = { allowed: 999, refused: 999 };
+const two = (age: 'k' | 'g1-up', p: () => Config) => twoWayStory(age, () => [p()], STATS);
+
+export const GuardAgreesReviewR5G1 = two('g1-up', probe.reviewR5);
+export const GuardAgreesReviewR4G1 = two('g1-up', probe.reviewR4);
+export const GuardAgreesSplitRoomG1 = two('g1-up', probe.splitIntoRoom);
+export const GuardAgreesExactG1 = two('g1-up', probe.exactWorst);
+export const GuardAgreesExact14G1 = two('g1-up', probe.exact14);
+export const GuardAgreesDecimalG1 = two('g1-up', probe.decimalWorst);
+export const GuardAgreesWideChipsG1 = two('g1-up', probe.wideChips);
+export const GuardAgreesOnesChipG1 = two('g1-up', probe.ones199);
+export const GuardAgreesFullG1 = two('g1-up', probe.full);
+export const GuardAgreesPast10G1 = two('g1-up', probe.past10);
+export const GuardAgreesPast11G1 = two('g1-up', probe.past11);
+export const GuardAgreesReviewR5K = two('k', probe.reviewR5);
+export const GuardAgreesReviewR4K = two('k', probe.reviewR4);
+export const GuardAgreesSplitRoomK = two('k', probe.splitIntoRoom);
+export const GuardAgreesExactK = two('k', probe.exactWorst);
+export const GuardAgreesExact14K = two('k', probe.exact14);
+export const GuardAgreesDecimalK = two('k', probe.decimalWorst);
+export const GuardAgreesWideChipsK = two('k', probe.wideChips);
+export const GuardAgreesOnesChipK = two('k', probe.ones199);
+export const GuardAgreesFullK = two('k', probe.full);
+export const GuardAgreesPast10K = two('k', probe.past10);
+export const GuardAgreesPast11K = two('k', probe.past11);
