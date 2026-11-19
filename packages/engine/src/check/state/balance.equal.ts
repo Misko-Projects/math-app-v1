@@ -14,13 +14,16 @@ const count = (v: unknown): number | undefined => {
   return n !== undefined && Number.isSafeInteger(n) && n >= 0 && n <= MAX_BLOCKS ? n : undefined;
 };
 
-/** The blocks a pan still needs so the two pans balance, or null when the target is malformed. */
+/**
+ * The blocks a pan still needs so the two pans balance, or null when the target is one the checker
+ * rejects (malformed, negative, fractional or past MAX_BLOCKS).
+ */
 export function blocksToBalance(target: Readonly<Record<string, unknown>>): {
   side: 'left' | 'right' | null;
   count: number;
 } | null {
-  const left = num(target.left);
-  const right = num(target.right);
+  const left = count(target.left);
+  const right = count(target.right);
   if (left === undefined || right === undefined) return null;
   if (left === right) return { side: null, count: 0 };
   return left < right
