@@ -2,13 +2,13 @@ import type { ObjectSet } from '@number-island/shared';
 import { describe, expect, it } from 'vitest';
 import {
   applyPadKey,
-  balancedRows,
   cardsPerRow,
   createSubmitGuard,
   layoutBox,
   padValue,
+  trayGrid,
 } from './controls';
-import { dicePattern, dotsLayout, groupIndexes, objectSetLayout } from './layout';
+import { dicePattern, dotsLayout, groupIndexes, minObjectStep, objectSetLayout } from './layout';
 import { stepsBetween } from './NumberLineView';
 
 const set = (over: Partial<ObjectSet>): ObjectSet => ({
@@ -100,6 +100,20 @@ describe('objectSetLayout', () => {
     expect(l.objects.map((o) => o.tone)).toEqual(['a', 'a', 'a', 'b', 'b']);
     const gap = (l.objects[3]?.x ?? 0) - (l.objects[2]?.x ?? 0);
     expect(gap).toBeGreaterThan(1.12);
+  });
+
+  it('minObjectStep: the closest pair of objects, in cells', () => {
+    expect(minObjectStep(objectSetLayout(set({ count: 7 })))).toBeCloseTo(1.12);
+    expect(minObjectStep(objectSetLayout(set({ count: 7, layout: 'ten-frame' })))).toBe(1);
+    expect(minObjectStep(objectSetLayout(set({ count: 6, layout: 'array', rows: 2 })))).toBeCloseTo(
+      1.15,
+    );
+    // Scatter jitter never brings two objects closer than one cell.
+    for (const seed of [1, 2, 3, 42, 99]) {
+      const l = objectSetLayout(set({ count: 12, layout: 'scatter', layoutSeed: seed }));
+      expect(minObjectStep(l)).toBeGreaterThanOrEqual(1 - 1e-9);
+    }
+    expect(minObjectStep(objectSetLayout(set({ count: 1 })))).toBe(Number.POSITIVE_INFINITY);
   });
 
   it('ten-frames fill top row first and draw one frame per ten', () => {
@@ -233,19 +247,27 @@ describe('review regressions (PR #63 round 3)', () => {
   });
 });
 
-describe('review regressions (PR #63 round 8)', () => {
-  it('balancedRows splits cards as evenly as possible, never a lonely last card', () => {
-    expect(balancedRows(21, 4)).toEqual([6, 5, 5, 5]);
-    expect(balancedRows(21, 5)).toEqual([5, 4, 4, 4, 4]);
-    expect(balancedRows(11, 2)).toEqual([6, 5]);
-    expect(balancedRows(11, 1)).toEqual([11]);
-    expect(balancedRows(3, 9)).toEqual([1, 1, 1]);
-    expect(balancedRows(0, 2)).toEqual([]);
+describe('trayGrid (PR #63 evidence ruling: even columns, no lone last card)', () => {
+  it('lays 0–20 out as 0–10 over 11–20, 7 × 3 or 3 × 7 by width', () => {
+    expect(trayGrid(21, 11)).toEqual({ cols: 11, rows: 2 });
+    expect(trayGrid(21, 12)).toEqual({ cols: 11, rows: 2 });
+    expect(trayGrid(21, 10)).toEqual({ cols: 7, rows: 3 });
+    expect(trayGrid(21, 7)).toEqual({ cols: 7, rows: 3 });
+    expect(trayGrid(21, 6)).toEqual({ cols: 6, rows: 4 });
+    expect(trayGrid(21, 5)).toEqual({ cols: 3, rows: 7 });
+    expect(trayGrid(11, 9)).toEqual({ cols: 6, rows: 2 });
+    expect(trayGrid(11, 11)).toEqual({ cols: 11, rows: 1 });
+    expect(trayGrid(10, 4)).toEqual({ cols: 4, rows: 3 });
+    expect(trayGrid(0, 5)).toEqual({ cols: 1, rows: 0 });
+  });
+  it('always fits the width, fills every row but the last, and keeps the last row half full', () => {
     for (let n = 1; n <= 30; n++) {
-      for (let r = 1; r <= n; r++) {
-        const s = balancedRows(n, r);
-        expect(s.reduce((a, b) => a + b, 0)).toBe(n);
-        expect(Math.max(...s) - Math.min(...s)).toBeLessThanOrEqual(1);
+      for (let cap = 1; cap <= n + 2; cap++) {
+        const { cols, rows } = trayGrid(n, cap);
+        const last = n - (rows - 1) * cols;
+        expect(cols).toBeLessThanOrEqual(Math.max(1, cap));
+        expect(last).toBeGreaterThanOrEqual(Math.ceil(cols / 2));
+        expect(last).toBeLessThanOrEqual(cols);
       }
     }
   });

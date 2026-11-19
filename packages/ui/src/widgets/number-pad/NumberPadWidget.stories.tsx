@@ -297,6 +297,51 @@ export const DemoMode: Story = {
   },
 };
 
+/** Blank IDs are any string (the shared schema): one is empty, one holds quotes and a backslash. */
+const quotedBlanks: ConfigFor<'number-pad'> = {
+  ...twoBlanks,
+  expression: {
+    tokens: [
+      { t: 'num', v: 85 },
+      { t: 'blank', id: '' },
+      { t: 'blank', id: 'b"]\\2' },
+      { t: 'num', v: 88 },
+    ],
+  },
+  blanks: [
+    { id: '', maxDigits: 2 },
+    { id: 'b"]\\2', maxDigits: 2 },
+  ],
+};
+
+const quotedController: WidgetDemo = createDemoController({ strict: true });
+
+/**
+ * Blanks whose IDs hold a quote or are empty (any string is a valid ID): inviting each rings that
+ * blank and Pip's hand points at it; the widget stays mounted.
+ */
+export const DemoInviteQuotedId: Story = {
+  args: { config: quotedBlanks, tier: 'pictorial', demo: quotedController },
+  play: async ({ canvasElement }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    quotedController.invite({ op: 'type', args: { blank: 'b"]\\2', value: 87 } });
+    await waitFor(() => expect(root.querySelector('.ni-npw__blank.ni-invite')).not.toBeNull());
+    const invited = root.querySelector('.ni-npw__blank.ni-invite') as HTMLElement;
+    await expect(invited.dataset.blank).toBe('b"]\\2');
+    await expect(root.isConnected).toBe(true);
+    await expectPointerOn(root.querySelector('.ni-hand') as HTMLElement, invited, root);
+    // The empty ID: ring and hand on the first blank.
+    quotedController.invite({ op: 'type', args: { blank: '', value: 86 } });
+    await waitFor(() =>
+      expect(root.querySelector('.ni-npw__blank.ni-invite')).toHaveAttribute('data-blank', ''),
+    );
+    const first = root.querySelector('.ni-npw__blank.ni-invite') as HTMLElement;
+    await expect(root.querySelectorAll('.ni-invite')).toHaveLength(1);
+    await waitFor(() => expect(root.querySelector('.ni-hand')).not.toBeNull());
+    await expectPointerOn(root.querySelector('.ni-hand') as HTMLElement, first, root);
+  },
+};
+
 const reducedController: WidgetDemo = createDemoController({ strict: true });
 
 /** Reduced motion: the generic `answer` op fills every blank at once. */
