@@ -14,6 +14,7 @@ import {
   precacheAndRoute,
 } from 'workbox-precaching';
 import { NavigationRoute, registerRoute } from 'workbox-routing';
+import { decideSkipWaiting } from './app/pwa/protocol';
 
 declare const self: ServiceWorkerGlobalScope & {
   __WB_MANIFEST: Array<{ url: string; revision: string | null } | string>;
@@ -30,20 +31,20 @@ registerRoute(
 // Update flow (06 §8): a new worker activates on the next app launch, never mid-session, so it
 // does not call skipWaiting() on install; it waits. At launch, before the app is in use, the page
 // asks a waiting worker to take over (SKIP_WAITING) and then reloads once. The worker agrees only
-// when the launching window is the app's only window, because activating also switches every other
-// open window (possibly mid-session) to the new worker. It answers on the message port, if any.
+// to a fresh request (a page that gave up waiting has rendered, so its request is stale by then)
+// from the app's only window, because activating also switches every other open window, possibly
+// mid-session. It answers on the message port. See src/app/pwa/protocol.ts.
 self.addEventListener('message', (event) => {
-  const data: unknown = event.data;
-  if (!data || typeof data !== 'object' || (data as { type?: unknown }).type !== 'SKIP_WAITING') {
-    return;
-  }
+  if (decideSkipWaiting(event.data, Date.now(), 0) === null) return;
   const reply = event.ports[0];
   event.waitUntil(
     (async () => {
       const windows = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
-      const activating = windows.length <= 1;
-      reply?.postMessage({ type: 'SKIP_WAITING_RESULT', activating });
-      if (activating) await self.skipWaiting();
+      // Judged after the window lookup, so slow client enumeration counts against the request.
+      const answer = decideSkipWaiting(event.data, Date.now(), windows.length);
+      if (!answer) return;
+      reply?.postMessage(answer);
+      if (answer.activating) await self.skipWaiting();
     })(),
   );
 });

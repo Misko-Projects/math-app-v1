@@ -175,6 +175,13 @@ test.describe('PWA', () => {
     expect(offline.cachedApi).toEqual([]);
     expect(offline.api).toBe('network error');
 
+    // An /api navigation (address bar) is never answered with the app shell: offline it fails.
+    const apiNav = await page.goto('/api/health').then(
+      (r) => `answered ${r?.status()} ${r?.fromServiceWorker() ? 'from the service worker' : ''}`,
+      () => 'network error',
+    );
+    expect(apiNav).toBe('network error');
+
     // A deep link starts offline too: the service worker answers with the app shell.
     const deep = await page.goto('/play');
     expect(deep?.fromServiceWorker()).toBe(true);
