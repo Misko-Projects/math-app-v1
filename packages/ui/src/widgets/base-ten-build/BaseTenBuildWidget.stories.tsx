@@ -1272,6 +1272,174 @@ export const StressDecimalWorstG1 = decimalWorstCase('g1-up');
 export const StressDecimalWorstK = decimalWorstCase('k');
 
 /**
+ * The widest chips beside the widest decimal mat: exactly 14 wholes, 29 tenths and 199 hundredths
+ * (two- and three-digit counts) for 98.89, every column full.
+ */
+const wideChips: Config = {
+  ...decimalWorst,
+  target: 9889,
+  exact: { hundreds: 14, tens: 29, ones: 199 },
+};
+/** In G1 (text headers: the tightest width). */
+export const StressWideChipsG1 = worstCase('g1-up', wideChips);
+/** In K. */
+export const StressWideChipsK = worstCase('k', wideChips);
+
+/**
+ * Review round 4: a move that only fits beside the crowded panel. build-exact 2189 with exactly 19
+ * hundreds: a thousand, 9 hundreds, 28 tens and 9 ones on the mat, the tray holding none (three
+ * limited piles, so tall stock tags). The usual panel stands the piles in one row (356 px); after
+ * splitting the thousand (the correct answer) the mat needs more room, which the crowded panel
+ * (goal and chip side by side, piles 2 + 1) leaves. The split must stay on, and the panel switch.
+ */
+const splitIntoRoom: Config = {
+  format: 'base-ten-build',
+  target: 2189,
+  mode: 'build-exact',
+  pieces: { thousands: false, hundreds: true, tens: true, ones: true },
+  limits: { hundreds: 0, tens: 0, ones: 0 },
+  exact: { hundreds: 19 },
+  wholeIs: 'unit',
+  prebuilt: { thousands: 1, hundreds: 9, tens: 28, ones: 9 },
+};
+const afterSplit = { thousands: 0, hundreds: 19, tens: 28, ones: 9 };
+
+async function expectUsualPanel(root: HTMLElement) {
+  await expect(root.querySelector('.ni-btb__ask')).not.toHaveAttribute('data-cols');
+  const tops = new Set(
+    [...root.querySelectorAll('.ni-btb__pile')].map((p) =>
+      Math.round(p.getBoundingClientRect().top),
+    ),
+  );
+  await expect(tops.size, 'the three piles stand in one row').toBe(1);
+}
+
+async function expectCrowdedPanel(canvasElement: HTMLElement, root: HTMLElement) {
+  await waitFor(() => expect(root.querySelector('.ni-btb__ask')).toHaveAttribute('data-cols', '2'));
+  const tops = new Set(
+    [...root.querySelectorAll('.ni-btb__pile')].map((p) =>
+      Math.round(p.getBoundingClientRect().top),
+    ),
+  );
+  await expect(tops.size, 'the piles go 2 + 1').toBe(2);
+  await expectNoOverlapFast(root);
+  await expectFits(canvasElement, root);
+  await expectInsideStage(canvasElement, root);
+  for (const c of controls(root)) await expectTargetSize(c, 'g1-up');
+  await expectTargetGaps(controls(root));
+}
+
+/** The child splits the thousand: the panel crowds to make room, and Check sends the answer. */
+export const SplitNeedsCrowdedPanel: Story = {
+  args: { config: splitIntoRoom },
+  render: renderTablet,
+  play: async ({ canvasElement, args }) => {
+    await expect(btbModel().configSchema.safeParse(splitIntoRoom).success).toBe(true);
+    const root = await findWidget(canvasElement, ROOT);
+    await expectMat(root, splitIntoRoom.prebuilt ?? {});
+    await expectUsualPanel(root);
+    await expectFits(canvasElement, root);
+    const split = trade(root, 'split-thousands');
+    await expect(split).toBeEnabled();
+    await userEvent.click(split);
+    await expectMat(root, afterSplit);
+    // The split animation ends before the frame is checked.
+    await waitFor(() =>
+      expect(
+        [...root.querySelectorAll('.ni-btb__piece')].every((p) => p.getAnimations().length === 0),
+      ).toBe(true),
+    );
+    await expectCrowdedPanel(canvasElement, root);
+    const check = within(root).getByRole('button', { name: 'Check' });
+    await waitFor(() => expect(check).toBeEnabled());
+    await userEvent.click(check);
+    await expect(args.onResponse).toHaveBeenCalledTimes(1);
+    await expect(args.onResponse).toHaveBeenCalledWith(state(afterSplit));
+    await expect(traceOf(args.onInteract).map((e) => `${e.t}:${e.target}`)).toEqual([
+      'tap:split-thousands',
+    ]);
+    (document.activeElement as HTMLElement | null)?.blur();
+  },
+};
+
+const splitRoomController: WidgetDemo = createDemoController({ strict: true });
+
+/** The same move played by the demo: it happens (not refused), and the panel crowds. */
+export const SplitNeedsCrowdedPanelDemo: Story = {
+  args: { config: splitIntoRoom, demo: splitRoomController },
+  render: renderTablet,
+  play: async ({ canvasElement, args }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    await expectUsualPanel(root);
+    await splitRoomController.play({ op: 'split', args: { kind: 'thousands' } });
+    await expectMat(root, afterSplit);
+    await expectCrowdedPanel(canvasElement, root);
+    await expect(args.onResponse).not.toHaveBeenCalled();
+    await expect(args.onInteract).not.toHaveBeenCalled();
+  },
+};
+
+/**
+ * The reviewer's round-4 case, in K: build-exact 9180 with exactly 18 tens and no ones, all four
+ * piles, the tray holding one hundred. Taking it gives the requested mat, but the tenth flat opens
+ * a second column: the mat then needs more room than the balanced panel (piles in one row) leaves,
+ * and the compact panel (goal and chips side by side, piles two to a row) makes it.
+ */
+const reviewR4: Config = {
+  format: 'base-ten-build',
+  target: 9180,
+  mode: 'build-exact',
+  pieces: ALL,
+  wholeIs: 'unit',
+  exact: { tens: 18, ones: 0 },
+  limits: { hundreds: 1, ones: 0 },
+  prebuilt: { thousands: 8, hundreds: 9, tens: 18, ones: 0 },
+};
+const reviewR4After = { thousands: 8, hundreds: 10, tens: 18, ones: 0 };
+
+export const AddNeedsCompactPanelK: Story = {
+  globals: { ageMode: 'k' },
+  args: { config: reviewR4 },
+  render: renderTablet,
+  play: async ({ canvasElement, args }) => {
+    const model = btbModel();
+    await expect(model.configSchema.safeParse(reviewR4).success).toBe(true);
+    const root = await findWidget(canvasElement, ROOT);
+    await expectMat(root, reviewR4.prebuilt ?? {});
+    await expect(root.querySelector('.ni-btb__ask')).not.toHaveAttribute('data-cols');
+    await expectFits(canvasElement, root);
+    const hundreds = pile(root, 'hundreds');
+    await expect(hundreds).not.toHaveAttribute('aria-disabled', 'true');
+    await tapPlace(root, 'hundreds', 1);
+    await expectMat(root, reviewR4After);
+    // The compact panel: goal and chips two to a row.
+    await waitFor(() =>
+      expect(root.querySelector('.ni-btb__ask')).toHaveAttribute('data-cols', '2'),
+    );
+    await expectNoOverlapFast(root);
+    await expectFits(canvasElement, root);
+    await expectInsideStage(canvasElement, root);
+    for (const c of controls(root)) await expectTargetSize(c, 'k');
+    await expectTargetGaps(controls(root));
+    const check = within(root).getByRole('button', { name: 'Check' });
+    await waitFor(() => expect(check).toBeEnabled());
+    await userEvent.click(check);
+    const solved = model.apply(model.initialState(reviewR4), {
+      op: 'add-piece',
+      args: { kind: 'hundreds' },
+    });
+    await expect(args.onResponse).toHaveBeenCalledTimes(1);
+    await expect(args.onResponse).toHaveBeenCalledWith({ kind: 'state', value: reviewR4After });
+    await expect(args.onResponse).toHaveBeenCalledWith(model.toResponse(solved));
+    await expect(traceOf(args.onInteract).map((e) => `${e.t}:${e.target}`)).toEqual([
+      'tap:tray-hundreds',
+      'tap:mat',
+    ]);
+    (document.activeElement as HTMLElement | null)?.blur();
+  },
+};
+
+/**
  * A plain build (the goal shows, four piles) filled to the largest mat the engine allows: with no
  * pieces prebuilt the child takes them all, here played instantly through the demo (reduced
  * motion). The panel keeps its piles two to a row and Check on screen; the mat shrinks to fit.

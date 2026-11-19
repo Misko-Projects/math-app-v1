@@ -300,7 +300,7 @@ export const SIDE_PX = {
   },
 } as const;
 /** A crowded panel's compact chips and goal (two to a row, trimmed side padding). */
-export const COMPACT_CHIP_W = { hundreds: 142, tens: 104, ones: 112 } as const;
+export const COMPACT_CHIP_W = { hundreds: 127, tens: 104, ones: 108 } as const;
 const TRAY_PAD = { top: 60, bottom: 14, x: 10 };
 const PILE_GAP = { x: 12, y: 16 };
 const SIDE_GAP = 14;
@@ -316,6 +316,8 @@ export interface SideSpec {
   goal: string | null;
   /** The exact chips, in order. */
   exact: readonly ('hundreds' | 'tens' | 'ones')[];
+  /** Each chip's count (its numeral is 40 px: a digit ~24 px wider); absent: one digit each. */
+  exactN?: readonly number[];
   /** The panel's height (px). */
   height: number;
 }
@@ -331,12 +333,13 @@ export interface SidePlan {
   height: number;
 }
 
-/** Goal width (px) for `text`: normal, large or compact (a digit ~31 px at 48 px, a point ~12). */
+/** Goal width (px) for `text`: normal, large or compact. */
 function goalWidth(text: string, min: number, size: 'normal' | 'lg' | 'compact'): number {
   if (size === 'lg') return 40 + 44 * text.length;
-  const ink = [...text].reduce((a, c) => a + (c === '.' ? 12 : 31), 0);
-  if (size === 'compact') return Math.max(min, 24 + ink);
-  return Math.max(min * 1.6, 34 + ink);
+  // Measured: "9111" is 154 px (142 compact), "99.99" 153 compact: a digit 30 px, a point 11.
+  const ink = [...text].reduce((a, c) => a + (c === '.' ? 11 : 30), 0);
+  if (size === 'compact') return Math.max(min, 25 + ink);
+  return Math.max(min * 1.6, 36 + ink);
 }
 
 /**
@@ -372,8 +375,10 @@ export function sidePlan(spec: SideSpec, width: number, crowded: boolean): SideP
             w: goalWidth(spec.goal, px.min, askCols === 2 ? 'compact' : lg ? 'lg' : 'normal'),
             h: lg ? px.goalLgH : px.goalH,
           };
-    const chips = spec.exact.map((k) => ({
-      w: askCols === 2 ? COMPACT_CHIP_W[k] : px.chipW[k],
+    const chips = spec.exact.map((k, i) => ({
+      w:
+        (askCols === 2 ? COMPACT_CHIP_W[k] : px.chipW[k]) +
+        24 * (String(spec.exactN?.[i] ?? 0).length - 1),
       h: px.chipH,
     }));
     const all = goal ? [goal, ...chips] : chips;
@@ -438,6 +443,66 @@ export function sideNeed(
   const last = options.at(-1);
   if (!last) return { width: Math.ceil(min), crowded: true };
   return options.find((o) => matFits(o.width)) ?? last;
+}
+
+// ---------- the whole widget: the mat beside its side panel ----------
+
+export interface PlanInput {
+  /** The mat's geometry, without the side panel's room. */
+  mat: Omit<MatLayoutInput, 'kinds' | 'counts' | 'sideMin' | 'sideMax'>;
+  /** The side panel: its contents (it claims what it needs, at least `min`), or a fixed width. */
+  side: { spec: SideSpec; min: number } | { fixed: number };
+}
+
+export interface WidgetPlan {
+  layout: MatLayout;
+  side: { width: number; crowded: boolean };
+}
+
+/** The room a side panel of `width` px gets: at least that, at most 260 px or that. */
+const sideRoom = (width: number) => ({ sideMin: width, sideMax: Math.max(260, width) });
+
+/**
+ * The mat and side panel for a mat of `counts`: the side panel the layout chooses (sideNeed: the
+ * usual panel if the mat fits beside it, else the crowded one) and the mat beside it. The widget
+ * renders this, and its move guard (roomForMove) asks this same question of the state after a move.
+ */
+export function planMat(
+  input: PlanInput,
+  kinds: readonly PieceKind[],
+  counts: Readonly<Record<PieceKind, number>>,
+): WidgetPlan {
+  const mat = (w: number) => matLayout({ ...input.mat, ...sideRoom(w), kinds, counts });
+  if ('fixed' in input.side) {
+    return {
+      layout: matLayout({
+        ...input.mat,
+        sideMin: input.side.fixed,
+        sideMax: input.side.fixed,
+        kinds,
+        counts,
+      }),
+      side: { width: input.side.fixed, crowded: false },
+    };
+  }
+  const side = sideNeed(input.side.spec, input.side.min, (w) => !mat(w).overflow);
+  return { layout: mat(side.width), side };
+}
+
+/**
+ * Whether a move from `before` to `after` keeps the mat in its room, with whichever side panel the
+ * layout would then choose (planMat). A mat that already overflows (a viewport narrower than the
+ * tablet) may still make moves that leave it no wider.
+ */
+export function roomForMove(
+  input: PlanInput,
+  before: { kinds: readonly PieceKind[]; counts: Readonly<Record<PieceKind, number>> },
+  after: { kinds: readonly PieceKind[]; counts: Readonly<Record<PieceKind, number>> },
+): boolean {
+  const next = planMat(input, after.kinds, after.counts).layout;
+  if (!next.overflow) return true;
+  const prev = planMat(input, before.kinds, before.counts).layout;
+  return prev.overflow && next.matWidth <= prev.matWidth;
 }
 
 /** Half the width and height of the bundle ten pieces of `kind` gather into (px). */

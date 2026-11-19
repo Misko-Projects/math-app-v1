@@ -12,7 +12,10 @@ import {
   type MatLayoutInput,
   matLayout,
   onesFrame,
+  type PlanInput,
   pieceBox,
+  planMat,
+  roomForMove,
   type SideSpec,
   sideNeed,
   sidePlan,
@@ -241,6 +244,15 @@ for (const wholeIs of ['unit', 'flat'] as const) {
         { piles: [false, true, true, true], goal: big, exact: ['hundreds', 'tens', 'ones'] },
       ],
       [
+        'exact, two- and three-digit chips',
+        {
+          piles: [false, true, true, true],
+          goal: big,
+          exact: ['hundreds', 'tens', 'ones'],
+          exactN: [flat ? 14 : 19, 29, 199],
+        },
+      ],
+      [
         'exact, three piles',
         { piles: [true, true, true], goal: exactGoal, exact: ['hundreds', 'tens', 'ones'] },
       ],
@@ -318,6 +330,152 @@ for (const wholeIs of ['unit', 'flat'] as const) {
     });
   });
 }
+
+describe('the move guard agrees with the layout (review round 4)', () => {
+  const g1Mat = (words: Record<string, string>) => ({
+    ...tablet(false),
+    width: 1145.5,
+    headerWidth: (kind: string) => 44 + 11 * (words[kind] ?? '').length,
+  });
+  type Counts = Record<(typeof KINDS)[number], number>;
+  const moves = (c: Counts): Counts[] => [
+    { ...c, thousands: c.thousands + 1 },
+    { ...c, hundreds: c.hundreds + 1 },
+    { ...c, tens: c.tens + 1 },
+    { ...c, ones: c.ones + 1 },
+    ...(c.thousands > 0 ? [{ ...c, thousands: c.thousands - 1, hundreds: c.hundreds + 10 }] : []),
+    ...(c.hundreds > 0 ? [{ ...c, hundreds: c.hundreds - 1, tens: c.tens + 10 }] : []),
+    ...(c.tens > 0 ? [{ ...c, tens: c.tens - 1, ones: c.ones + 10 }] : []),
+    ...(c.ones >= 10 ? [{ ...c, ones: c.ones - 10, tens: c.tens + 1 }] : []),
+  ];
+
+  it('lets the review move happen: splitting a thousand fits beside the crowded panel', () => {
+    const input: PlanInput = {
+      mat: g1Mat(WORDS),
+      side: {
+        spec: {
+          k: false,
+          piles: [true, true, true],
+          tall: [false, true, false],
+          goal: '2189',
+          exact: ['hundreds'],
+          exactN: [19],
+          height: SIDE_H,
+        },
+        min: 156,
+      },
+    };
+    const before = { thousands: 1, hundreds: 9, tens: 28, ones: 9 };
+    const after = { thousands: 0, hundreds: 19, tens: 28, ones: 9 };
+    const now = planMat(input, KINDS, before);
+    expect(now.side).toEqual({ width: 356, crowded: false });
+    expect(now.layout.overflow).toBe(false);
+    // The old guard asked about the current panel: the split overflows beside it.
+    const current = { sideMin: now.side.width, sideMax: Math.max(260, now.side.width) };
+    expect(matLayout({ ...input.mat, ...current, kinds: KINDS, counts: after }).overflow).toBe(
+      true,
+    );
+    // The guard asks what the layout will do: the crowded panel, and the mat fits.
+    expect(
+      roomForMove(input, { kinds: KINDS, counts: before }, { kinds: KINDS, counts: after }),
+    ).toBe(true);
+    const next = planMat(input, KINDS, after);
+    expect(next.side.crowded).toBe(true);
+    expect(next.layout.overflow).toBe(false);
+    expect(next.layout.matWidth + 12 + next.layout.sideWidth).toBeLessThanOrEqual(1145.5);
+  });
+
+  it("lets the reviewer's K move happen: the tenth flat fits beside the compact panel", () => {
+    // build-exact 9180 (exactly 18 tens, no ones), all four piles, one hundred in the tray.
+    const input: PlanInput = {
+      mat: { ...tablet(true), width: 1145.5 },
+      side: {
+        spec: {
+          k: true,
+          piles: [false, true, false, true],
+          tall: [false, false, true, false],
+          goal: '9180',
+          exact: ['tens', 'ones'],
+          exactN: [18, 0],
+          height: SIDE_H,
+        },
+        min: 150,
+      },
+    };
+    const before = { thousands: 8, hundreds: 9, tens: 18, ones: 0 };
+    const after = { thousands: 8, hundreds: 10, tens: 18, ones: 0 };
+    const now = planMat(input, KINDS, before);
+    expect(now.side.crowded).toBe(false);
+    expect(now.layout.overflow).toBe(false);
+    // Beside the current (balanced) panel the tenth flat's second column doesn't fit.
+    const current = { sideMin: now.side.width, sideMax: Math.max(260, now.side.width) };
+    expect(matLayout({ ...input.mat, ...current, kinds: KINDS, counts: after }).overflow).toBe(
+      true,
+    );
+    expect(
+      roomForMove(input, { kinds: KINDS, counts: before }, { kinds: KINDS, counts: after }),
+    ).toBe(true);
+    const next = planMat(input, KINDS, after);
+    expect(next.side.crowded).toBe(true);
+    expect(next.side.width).toBeLessThan(now.side.width);
+    expect(next.layout.overflow).toBe(false);
+    expect(next.layout.matWidth + 12 + next.layout.sideWidth).toBeLessThanOrEqual(1145.5);
+  });
+
+  it('never allows a move the layout cannot fit, from any fitting state (cap sweep)', () => {
+    const panels: Omit<SideSpec, 'k' | 'height'>[] = [
+      {
+        piles: [true, true, true],
+        tall: [false, true, false],
+        goal: '2189',
+        exact: ['hundreds'],
+        exactN: [19],
+      },
+      { piles: [false, true, true, true], goal: '9999', exact: [] },
+      { piles: [false, true, true, true], goal: '9111', exact: ['hundreds', 'tens', 'ones'] },
+      { piles: [false, false, false, false], goal: null, exact: [] },
+    ];
+    let checked = 0;
+    let allowed = 0;
+    for (const flat of [false, true]) {
+      const words = flat ? DECIMAL_WORDS : WORDS;
+      for (const k of [false, true]) {
+        const mat = k ? { ...tablet(true), width: 1145.5 } : g1Mat(words);
+        for (const p of panels) {
+          const input: PlanInput = {
+            mat,
+            side: { spec: { ...p, k, height: SIDE_H }, min: tablet(k).sideMin },
+          };
+          for (let th = 0; th <= 9; th += 3) {
+            for (let h = 0; h <= 19; h += 4) {
+              for (let t = 0; t <= 29; t += 7) {
+                for (const o of [0, 19, 99, 199]) {
+                  const before = { thousands: th, hundreds: h, tens: t, ones: o };
+                  if (planMat(input, KINDS, before).layout.overflow) continue;
+                  for (const after of moves(before)) {
+                    checked++;
+                    const ok = roomForMove(
+                      input,
+                      { kinds: KINDS, counts: before },
+                      { kinds: KINDS, counts: after },
+                    );
+                    if (!ok) continue;
+                    allowed++;
+                    const l = planMat(input, KINDS, after).layout;
+                    expect(l.overflow, JSON.stringify(after)).toBe(false);
+                    expect(l.matWidth + 12 + l.sideWidth).toBeLessThanOrEqual(1145.5);
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+    expect(checked).toBeGreaterThan(1000);
+    expect(allowed).toBeGreaterThan(checked / 2);
+  }, 120_000);
+});
 
 describe('side panel', () => {
   it('keeps the usual narrow panel for authored items (one column of piles, goal and chips)', () => {

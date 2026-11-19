@@ -38,13 +38,13 @@ import {
   cubeDepth,
   KINDS,
   larger,
-  type MatLayoutInput,
-  matLayout,
   onesGroupGap,
+  type PlanInput,
   pieceGap,
+  planMat,
   rodHit,
+  roomForMove,
   type SideSpec,
-  sideNeed,
   sidePlan,
   smaller,
   unitCandidates,
@@ -407,20 +407,21 @@ export function BaseTenBuildWidget({
     [],
   );
 
-  // The mat's geometry inputs (set during render, below), for the room check.
-  const layoutInput = useRef<Omit<MatLayoutInput, 'kinds' | 'counts'> | null>(null);
-  const layoutFor = (mat: State['mat']) =>
-    layoutInput.current
-      ? matLayout({ ...layoutInput.current, kinds: columnKinds(config, mat), counts: mat })
-      : null;
+  // The widget's layout inputs (set during render, below), for the room check.
+  const planInput = useRef<PlanInput | null>(null);
 
-  /** Whether `next` keeps the mat within its room (or at least no wider than `prev`'s). */
+  /**
+   * Whether `next` keeps the mat within its room, with whichever side panel the layout then picks
+   * (the crowded panel can make room the current one lacks): layout.ts roomForMove, the same
+   * planMat the render uses, so the guard and the layout can't disagree.
+   */
   const hasRoom = (prev: State, next: State) => {
-    if (next.mat === prev.mat) return true;
-    const after = layoutFor(next.mat);
-    if (!after?.overflow) return true;
-    const before = layoutFor(prev.mat);
-    return before !== null && after.matWidth <= before.matWidth;
+    if (next.mat === prev.mat || !planInput.current) return true;
+    return roomForMove(
+      planInput.current,
+      { kinds: columnKinds(config, prev.mat), counts: prev.mat },
+      { kinds: columnKinds(config, next.mat), counts: next.mat },
+    );
   };
 
   /** Whether `action` changes `s` through the model and leaves the mat room. */
@@ -488,6 +489,7 @@ export function BaseTenBuildWidget({
     tall: trayKinds.map((k) => k === 'tens'),
     goal: goalHidden ? null : String(goalValue),
     exact: exactKinds,
+    exactN: exactKinds.map((k) => config.exact?.[k] ?? 0),
     height: WIDGET_H - 2 * ROOT_PAD_Y,
   };
   const baseSideMin = kMode ? 150 : 156;
@@ -503,19 +505,11 @@ export function BaseTenBuildWidget({
     headerWidth: (kind: PieceKind) =>
       prefs.textLabels ? 44 + 11 * t(colKey(kind, decimal)).length : kMode ? 56 : 44,
   };
-  const sideRoom = (w: number) => ({ sideMin: w, sideMax: Math.max(260, w) });
-  const side = read
-    ? { width: padSide, crowded: false }
-    : sideNeed(
-        sideSpec,
-        baseSideMin,
-        (w) => !matLayout({ ...matInput, ...sideRoom(w), kinds, counts: state.mat }).overflow,
-      );
-  layoutInput.current = {
-    ...matInput,
-    ...(read ? { sideMin: padSide, sideMax: padSide } : sideRoom(side.width)),
+  planInput.current = {
+    mat: matInput,
+    side: read ? { fixed: padSide } : { spec: sideSpec, min: baseSideMin },
   };
-  const layout = matLayout({ ...layoutInput.current, kinds, counts: state.mat });
+  const { layout, side } = planMat(planInput.current, kinds, state.mat);
   const layoutRef = useRef(layout);
   layoutRef.current = layout;
   const u = layout.u;
@@ -1212,7 +1206,11 @@ export function BaseTenBuildWidget({
                     ×
                   </span>
                   <span className="ni-btb__exactart" data-kind={k}>
-                    <PieceArt kind={k} u={k === 'ones' ? 26 : 6.5} />
+                    {/* A crowded panel draws the chip's piece a little smaller. */}
+                    <PieceArt
+                      kind={k}
+                      u={plan.askCols === 2 ? (k === 'ones' ? 22 : 5) : k === 'ones' ? 26 : 6.5}
+                    />
                   </span>
                 </button>
               );
