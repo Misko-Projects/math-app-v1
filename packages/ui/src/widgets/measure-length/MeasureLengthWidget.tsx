@@ -64,6 +64,8 @@ import './measure-length.css';
  */
 
 const OPS = ['lay-unit', 'slide-ruler', 'align-zero', 'count-units', 'read-end', 'answer'] as const;
+/** Room under the stage while a pile is invited: the hand hangs about 57 px below the pile. */
+const PILE_HAND_ROOM = 44;
 /** A drop within this many unit lengths of another unit's end (or the start) snaps to it. */
 export const SNAP_UNITS = 0.25;
 
@@ -465,7 +467,12 @@ export function MeasureLengthWidget({
 
   const objectRow = (
     <div className="ni-mlen__object" style={{ width: objectPx }} data-object-px={objectPx}>
-      <LengthObject sprite={config.object.sprite} width={objectPx} height={44} />
+      <LengthObject
+        sprite={config.object.sprite}
+        width={objectPx}
+        height={44}
+        unitPx={unitPxOf(config.unit)}
+      />
     </div>
   );
 
@@ -473,7 +480,9 @@ export function MeasureLengthWidget({
     const p = dnd.itemProps(pileId(u), { label: t('ui.mlen.pile', { unit: unitName(u) }) });
     // Two units stacked inside the pile's box (border 3, padding 4 each side), to scale between
     // kinds where they fit: a 64 px cube stack was 130 px tall in an 80 px pile.
-    const inner = MIN_TARGET_PX[ageMode] - 14;
+    // Inside the pile with room under the stack for the hand's fingertip (the hand points under
+    // the cubes, inside the pile, when the pile is invited).
+    const inner = MIN_TARGET_PX[ageMode] - 22;
     let px = Math.min(unitPxOf(u), inner);
     while (px > 8 && 2 * unitHeight(u, px) + 2 > inner) px -= 1;
     return (
@@ -500,7 +509,9 @@ export function MeasureLengthWidget({
             p.onPointerDown(e);
           }}
         >
-          <span className="ni-mlen__pile-units" aria-hidden="true">
+          {/* The units are the pile's picture: a glyph Pip's hand keeps clear of (it points
+              under them, never on the lower cube; evidence review). */}
+          <span className="ni-mlen__pile-units ni-btn__label" aria-hidden="true">
             <UnitPiece unit={u} width={px} />
             <UnitPiece unit={u} width={px} />
           </span>
@@ -513,7 +524,12 @@ export function MeasureLengthWidget({
   let picture: React.ReactNode;
   if (laying) {
     picture = (
-      <fieldset className="ni-mlen__stage" aria-label={name}>
+      <fieldset
+        className="ni-mlen__stage"
+        aria-label={name}
+        // A pile invited: room under the stage for Pip's hand, clear of the keypad and boxes.
+        style={invite?.startsWith('pile-') ? { marginBottom: PILE_HAND_ROOM } : undefined}
+      >
         {!drawnUnits ? <div className="ni-mlen__piles">{units.map(pile)}</div> : null}
         <div
           className="ni-mlen__measure"
@@ -556,7 +572,12 @@ export function MeasureLengthWidget({
           style={{ width: rulerWidth(rulerMax, rulerUnit, unitLabel) }}
         >
           <div className="ni-mlen__object" style={{ marginLeft: objectLeft, width: objectPx }}>
-            <LengthObject sprite={config.object.sprite} width={objectPx} height={44} />
+            <LengthObject
+              sprite={config.object.sprite}
+              width={objectPx}
+              height={44}
+              unitPx={rulerUnit}
+            />
           </div>
           {/* Where the object starts, when that is not 0: a bold line from its end down onto the
               ruler and an arrow on the mark (evidence review). It stays with the object. */}

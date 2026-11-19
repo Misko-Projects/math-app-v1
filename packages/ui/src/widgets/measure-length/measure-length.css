@@ -47,7 +47,7 @@
   align-items: center;
   gap: 2px;
   max-width: calc(var(--target-min) - 14px);
-  max-height: calc(var(--target-min) - 14px);
+  max-height: calc(var(--target-min) - 22px);
   pointer-events: none;
 }
 /* The measure's drop zone (`__pad`) fills it exactly: nothing sticks out into the 12 px gaps

@@ -18,11 +18,34 @@ export interface LengthObjectProps {
   /** Exact drawn width in px. */
   width: number;
   height?: number;
+  /**
+   * The px length of one unit, where the object is measured: a periodic mark (a vine's leaves,
+   * a rope's twists) then repeats exactly once per unit, centred in it, so it never reads as a
+   * second, wrong scale (evidence review). Without it the marks follow the drawing's height.
+   */
+  unitPx?: number;
   className?: string;
 }
 
+/** Periodic mark positions: one per `unitPx`, centred in each unit; else `start` + k × `step`. */
+function marksAlong(
+  w: number,
+  unitPx: number | undefined,
+  start: number,
+  step: number,
+  end: number,
+) {
+  const xs: number[] = [];
+  if (unitPx && unitPx > 0) {
+    for (let x = unitPx / 2; x < w; x += unitPx) xs.push(x);
+    return xs;
+  }
+  for (let x = start; x < end; x += step) xs.push(x);
+  return xs;
+}
+
 /** A stretchable object exactly `width` px long (decorative; the caller names it). */
-export function LengthObject({ sprite, width, height = 40, className }: LengthObjectProps) {
+export function LengthObject({ sprite, width, height = 40, unitPx, className }: LengthObjectProps) {
   const w = Math.max(2, width);
   const h = height;
   let body: ReactElement;
@@ -31,10 +54,9 @@ export function LengthObject({ sprite, width, height = 40, className }: LengthOb
       const t = h * 0.42;
       const y = h / 2;
       // Twists: short diagonal strokes along the rope, inside its ends.
-      const twists: number[] = [];
-      for (let x = t; x < w - t / 2; x += t * 0.9) twists.push(x);
+      const twists = marksAlong(w, unitPx, t, t * 0.9, w - t / 2);
       body = (
-        <g data-art="rope">
+        <g data-art="rope" data-mark-period={unitPx ?? undefined}>
           {/* A dark edge under the rope (≥ 3:1 against a pale lane; evidence review). */}
           <line
             className="ni-len__rope-edge"
@@ -127,10 +149,9 @@ export function LengthObject({ sprite, width, height = 40, className }: LengthOb
     }
     case 'vine': {
       const y = h / 2;
-      const leaves: number[] = [];
-      for (let x = h * 0.55; x < w - h * 0.5; x += h * 0.7) leaves.push(x);
+      const leaves = marksAlong(w, unitPx, h * 0.55, h * 0.7, w - h * 0.5);
       body = (
-        <g data-art="vine">
+        <g data-art="vine" data-mark-period={unitPx ?? undefined}>
           <path className="ni-len__vine" d={`M2 ${y} L${r2(w - 2)} ${y}`} />
           {leaves.map((x, i) => {
             const up = i % 2 === 0 ? -1 : 1;
@@ -138,6 +159,7 @@ export function LengthObject({ sprite, width, height = 40, className }: LengthOb
               <path
                 key={x}
                 className="ni-len__leaf"
+                data-leaf-x={r2(x)}
                 d={`M${r2(x)} ${y} q${r2(-h * 0.32)} ${r2(up * h * 0.12)} ${r2(-h * 0.2)} ${r2(up * h * 0.4)} q${r2(h * 0.3)} ${r2(-up * h * 0.04)} ${r2(h * 0.2)} ${r2(-up * h * 0.4)} Z`}
               />
             );
@@ -302,7 +324,9 @@ export interface RulerProps {
  * A ruler at a fixed px per unit: 0 at x = 0 (the ruler's own left padding is `RULER_PAD`), long
  * ticks on whole units, shorter ones on halves, shortest on quarters, numerals ≥ 32 px.
  */
-export const RULER_PAD = 18;
+// 0 sits 30 px in: half a 50 px digit (about 16) plus at least 12 px of ruler left of the "0"
+// (evidence review: it was 2 to 4 px from the edge).
+export const RULER_PAD = 30;
 const UNIT_PX = 26;
 const UNIT_GAP = 12;
 /** Half the width of the widest numeral at the end of a ruler. */
@@ -327,7 +351,8 @@ export function Ruler({
   className,
 }: RulerProps) {
   const width = rulerWidth(max, unitPx, unitLabel);
-  const height = 92;
+  // The digits end 8+ px above the bottom edge (baseline 84, ink about 1 px below it).
+  const height = 96;
   const ticks = stepsBetween(0, max, precision);
   const labels = new Set(rulerLabels(max, unitPx));
   const tickLen = (v: number) => (Number.isInteger(v) ? 30 : Number.isInteger(v * 2) ? 20 : 12);

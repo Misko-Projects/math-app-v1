@@ -413,7 +413,7 @@ export function CompareLengthWidget({
               ...(ask === 'indirect' ? { alignSelf: 'flex-start', marginTop: 4 } : {}),
             }}
           >
-            <LengthObject sprite={o.sprite} width={objW} height={artH} />
+            <LengthObject sprite={o.sprite} width={objW} height={artH} unitPx={unit} />
             {picked ? <span className="ni-clen__ring" aria-hidden="true" /> : null}
           </span>
         </button>

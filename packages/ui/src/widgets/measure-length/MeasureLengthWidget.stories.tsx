@@ -13,6 +13,7 @@ import {
 import {
   boxGap,
   expectControls,
+  expectHandTouchesOnlyInvited,
   expectNumeralInk,
   expectOneInviteRing,
   expectRenderedNumerals,
@@ -367,6 +368,45 @@ async function expectLayingLayout(
   await expectContentCentred(canvasElement, root);
 }
 
+/**
+ * The object's periodic marks (a vine's leaves) repeat exactly once per unit (evidence review:
+ * a 62 px leaf period read as a second, wrong scale): consecutive leaves are one cube apart.
+ */
+async function expectLeavesPerUnit(root: HTMLElement) {
+  const xs = [...root.querySelectorAll<SVGPathElement>('.ni-mlen__object .ni-len__leaf')].map((l) =>
+    Number(l.dataset.leafX),
+  );
+  if (xs.length < 2) return;
+  const unit = unitPx(root, 'cube');
+  for (let i = 1; i < xs.length; i += 1) {
+    await expect((xs[i] as number) - (xs[i - 1] as number), 'leaf period').toBeCloseTo(unit, 0);
+  }
+}
+
+/**
+ * Every ruler has inner padding (evidence review): at least 12 px of ruler left of the "0" and
+ * 8 px below the digits' ink.
+ */
+async function expectRulerPadding(scope: Element) {
+  for (const ruler of scope.querySelectorAll<SVGSVGElement>('svg.ni-ruler')) {
+    const body = (ruler.querySelector('.ni-ruler__body') as SVGRectElement).getBoundingClientRect();
+    const zero = ruler.querySelector('.ni-ruler__numeral[data-label="0"]') as SVGTextElement;
+    await expect(
+      zero.getBoundingClientRect().left - body.left,
+      '"0" in from the left edge',
+    ).toBeGreaterThanOrEqual(12);
+    const svgTop = ruler.getBoundingClientRect().top;
+    for (const n of ruler.querySelectorAll<SVGTextElement>('.ni-ruler__numeral')) {
+      // Digits sit on their baseline (no descenders): the ink ends about 1 px below it.
+      const baseline = svgTop + n.y.baseVal.getItem(0).value;
+      await expect(
+        body.bottom - (baseline + 1),
+        'digits up from the bottom edge',
+      ).toBeGreaterThanOrEqual(8);
+    }
+  }
+}
+
 /** The widget's stage and answer row are centred across the area (evidence review). */
 async function expectContentCentred(canvasElement: HTMLElement, root: HTMLElement) {
   const parts = [...root.querySelectorAll('.ni-mlen__stage, .ni-mlen__answer')].map((e) =>
@@ -403,6 +443,7 @@ const iteratePlay =
     ]);
     for (const k of root.querySelectorAll('.ni-pad__key')) await expectTargetSize(k, 'k');
     await expectLayingLayout(story, canvasElement, root, 'k');
+    await expectLeavesPerUnit(root);
   };
 
 /** Tablet widget area, K: the 11-cube vine, the pile, the pad and Check fit with no scroll. */
@@ -460,6 +501,7 @@ const stressCubes =
     ]);
     await expect(objectPx(root)).toBeCloseTo(16 * unitPx(root, 'cube'), 0);
     await expectLayingLayout(story, canvasElement, root, 'k');
+    await expectLeavesPerUnit(root);
   };
 
 /** Stress, tablet area, K: 16 cubes laid along a 16-cube vine; everything fits, to scale. */
@@ -488,6 +530,7 @@ export const ReadRuler: Story = {
     await expectNumeralsAtLeast32(root, '.ni-ruler__numeral');
     await expect(root.querySelector('.ni-ruler__unit')).toHaveTextContent('in');
     await expectRulerUnitClear(root);
+    await expectRulerPadding(root);
     const tick = (v: number) =>
       (
         root.querySelector(`.ni-ruler__tick[data-tick="${v}"]`) as SVGElement
@@ -582,6 +625,7 @@ export const ReadRulerEveryUnit: Story = {
       [...canvasElement.querySelectorAll('.ni-ruler__unit')].map((u) => u.textContent),
     ).toEqual(['in', 'cm', 'ft', 'm']);
     await expectRulerUnitClear(canvasElement);
+    await expectRulerPadding(canvasElement);
     await expectNumeralsAtLeast32(canvasElement, '.ni-ruler__numeral');
     await expectNumeralInk(canvasElement, '.ni-ruler__numeral');
   },
@@ -616,6 +660,7 @@ const stressRuler =
     await expectNumeralInk(root, '.ni-ruler__numeral');
     await expectRenderedNumerals(root, '.ni-ruler__numeral');
     await expectRulerUnitClear(root);
+    await expectRulerPadding(root);
     // Numerals never touch: each one's box clear of the next.
     const nums = [...root.querySelectorAll('.ni-ruler__numeral')].map((n) =>
       n.getBoundingClientRect(),
@@ -686,6 +731,7 @@ export const ReadTapTick: Story = {
     await userEvent.click(within(root).getByRole('button', { name: 'Check' }));
     await expect(args.onResponse).toHaveBeenCalledWith({ kind: 'placement', value: 7 });
     await expectRulerUnitClear(root);
+    await expectRulerPadding(root);
     await expect(traceOf(args.onInteract).map((e) => `${e.t}:${e.target}`)).toEqual([
       'tap:mark-6',
       'move:mark-7',
@@ -712,6 +758,7 @@ export const SlideRuler: Story = {
     await expect(obj.left).toBeCloseTo(tick(0), 0);
     await expect(obj.right).toBeCloseTo(tick(5), 0);
     await expectRulerUnitClear(root);
+    await expectRulerPadding(root);
   },
 };
 
@@ -826,6 +873,12 @@ export const DemoInvite: Story = {
         ...root.querySelectorAll('.ni-mlen__pad, .ni-mlen__undo, .ni-pad__key, .ni-entry__box'),
       ],
     });
+    // The whole hand touches only the pile (and stays under its cubes): not the drop zone,
+    // undo, the keypad, the boxes or Check.
+    await expectHandTouchesOnlyInvited(root, [
+      ...root.querySelectorAll('.ni-mlen__pad, .ni-mlen__undo, .ni-pad__key, .ni-entry__box'),
+      within(root).getByRole('button', { name: 'Check' }),
+    ]);
   },
 };
 
