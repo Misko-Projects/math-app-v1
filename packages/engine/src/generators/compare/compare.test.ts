@@ -494,7 +494,7 @@ describe('compare.numbers', () => {
     expect(asc.widget.items.every((i) => i.label === String(i.value))).toBe(true);
   });
 
-  it('order on double ten-frames (CMP.07.t4): the frames are the cards, with no numeral', () => {
+  it('order on double ten-frames (CMP.07.t3): the frames are the cards, with no numeral', () => {
     const t = tpl('compare.numbers', 'order', { representation: 'double-ten-frame' });
     const item = make(t, { a: 17, b: 12, extra: 1, x1: 14, min: 11, max: 20, ask: 'fewer' });
     expect(item.answer).toEqual({ kind: 'numbers', values: [12, 14, 17], ordered: true });

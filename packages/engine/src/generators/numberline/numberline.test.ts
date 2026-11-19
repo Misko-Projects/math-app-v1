@@ -225,7 +225,7 @@ describe('numberline.place', () => {
     );
   });
 
-  it('number-pad on a bare line (CMP.09.t4): an estimate within 10% of the line is right', () => {
+  it('number-pad on a bare line (CMP.09.t3): an estimate within 10% of the line is right', () => {
     const t = tpl('numberline.place', 'number-pad', { representation: 'number-line' });
     const item = make(t, line({ max: 100, ticksEvery: 0, labelsEvery: 0, target: 37 }));
     expect(item.answer).toEqual({ kind: 'number', value: 37, tolerance: 10 });

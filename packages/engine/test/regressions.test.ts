@@ -470,7 +470,7 @@ describe('R5–R7: numerals in hint text follow a strict grammar', () => {
 describe('PR #77 review (d): CMP.02 hints follow the ask', () => {
   // CMP.02.t1/t2 ask "which is less?" a quarter of the time; the path and count-up hints used to
   // point at the greater number ("Which one comes after?", "Which number do you say last?").
-  it.each(['CMP.02.t1', 'CMP.02.t2'])('%s: less → first, greater → last', (id) => {
+  it.each(['CMP.02.t1', 'CMP.02.t3'])('%s: less → first, greater → last', (id) => {
     loadFixture();
     const t = fixtureTemplate(id);
     const hintText = (ask: string) => {

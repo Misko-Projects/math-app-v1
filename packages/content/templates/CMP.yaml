@@ -98,7 +98,7 @@ templates:
     narration: { prompt: tp.CMP.02.t1.prompt, hints: [h.compare.path, h.compare.count-up] }
 
   # Constructed practice (V27): order numbers to 10 on the path, then as numerals.
-  - id: CMP.02.t4
+  - id: CMP.02.t2
     skillId: CMP.02
     format: order
     tier: pictorial
@@ -114,9 +114,9 @@ templates:
         ask: fewer,
       }
     difficulty: { base: 0, features: { closeness: 0.5 } }
-    narration: { prompt: tp.CMP.02.t4.prompt, hints: [h.order.path, h.order.smallest] }
+    narration: { prompt: tp.CMP.02.t2.prompt, hints: [h.order.path, h.order.smallest] }
 
-  - id: CMP.02.t2
+  - id: CMP.02.t3
     skillId: CMP.02
     format: compare
     tier: abstract
@@ -130,9 +130,9 @@ templates:
       max: 10
       ask: { choice: [more, fewer], weights: [3, 1] }
     difficulty: { base: -0.6 }
-    narration: { prompt: tp.CMP.02.t2.prompt, hints: [h.compare.count-up, h.compare.path] }
+    narration: { prompt: tp.CMP.02.t3.prompt, hints: [h.compare.count-up, h.compare.path] }
 
-  - id: CMP.02.t3
+  - id: CMP.02.t4
     skillId: CMP.02
     format: numeral-pick
     tier: abstract
@@ -140,7 +140,7 @@ templates:
     generator: compare.numbers
     params: { a: { int: [1, 10] }, b: { int: [1, 10] }, extra: 1, min: 1, max: 10, ask: more }
     difficulty: { base: -0.85 }
-    narration: { prompt: tp.CMP.02.t3.prompt, hints: [h.compare.count-up, h.compare.path] }
+    narration: { prompt: tp.CMP.02.t4.prompt, hints: [h.compare.count-up, h.compare.path] }
 
   - id: CMP.02.t5
     skillId: CMP.02
@@ -415,7 +415,7 @@ templates:
     narration: { prompt: tp.CMP.07.t2.prompt, hints: [h.compare.line, h.compare.tens] }
 
   # Constructed practice (V27): three teen numbers as double ten-frames, no numerals.
-  - id: CMP.07.t4
+  - id: CMP.07.t3
     skillId: CMP.07
     format: order
     tier: pictorial
@@ -423,9 +423,9 @@ templates:
     generator: compare.numbers
     params: { a: { int: [11, 20] }, b: { int: [11, 20] }, extra: 1, min: 11, max: 20, ask: fewer }
     difficulty: { base: -0.8, features: { closeness: 0.5 } }
-    narration: { prompt: tp.CMP.07.t4.prompt, hints: [h.compare.full-frames, h.order.fewest-first] }
+    narration: { prompt: tp.CMP.07.t3.prompt, hints: [h.compare.full-frames, h.order.fewest-first] }
 
-  - id: CMP.07.t3
+  - id: CMP.07.t4
     skillId: CMP.07
     format: order
     tier: abstract
@@ -441,7 +441,7 @@ templates:
         ask: fewer,
       }
     difficulty: { base: -0.8, features: { closeness: 0.5 } }
-    narration: { prompt: tp.CMP.07.t3.prompt, hints: [h.order.smallest, h.compare.tens] }
+    narration: { prompt: tp.CMP.07.t4.prompt, hints: [h.order.smallest, h.compare.tens] }
 
   # ---------- CMP.09 estimate on a 0–100 line with only the ends marked ----------
   - id: CMP.09.t1
@@ -466,7 +466,7 @@ templates:
     narration: { prompt: tp.CMP.09.t2.prompt, hints: [h.numberline.middle, h.numberline.near-end] }
 
   # Constructed practice (V27): read the arrow on a bare line; an estimate within 10 is right.
-  - id: CMP.09.t4
+  - id: CMP.09.t3
     skillId: CMP.09
     format: number-pad
     tier: pictorial
@@ -474,9 +474,9 @@ templates:
     generator: numberline.place
     params: { min: 0, max: 100, target: { int: [1, 99] }, ticksEvery: 0, labelsEvery: 0 }
     difficulty: { base: -1.7 }
-    narration: { prompt: tp.CMP.09.t4.prompt, hints: [h.numberline.middle, h.numberline.near-end] }
+    narration: { prompt: tp.CMP.09.t3.prompt, hints: [h.numberline.middle, h.numberline.near-end] }
 
-  - id: CMP.09.t3
+  - id: CMP.09.t4
     skillId: CMP.09
     format: numeral-pick
     tier: abstract
@@ -484,7 +484,7 @@ templates:
     generator: numberline.place
     params: { min: 0, max: 100, target: { int: [1, 99] }, ticksEvery: 0, labelsEvery: 0 }
     difficulty: { base: -1.4 }
-    narration: { prompt: tp.CMP.09.t3.prompt, hints: [h.numberline.near-end, h.numberline.middle] }
+    narration: { prompt: tp.CMP.09.t4.prompt, hints: [h.numberline.near-end, h.numberline.middle] }
 
   # ---------- CMP.13 estimate how many in a big group ----------
   # dot-flash weighs each dot above 4 (n.over4); an estimate is not counted, so n.per50 sizes it.

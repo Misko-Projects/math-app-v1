@@ -31,11 +31,11 @@ tp.CMP.01.t5.prompt:
 tp.CMP.02.t1.prompt:
   text: "Which number is {ask|word}? They may be the same."
 tp.CMP.02.t2.prompt:
-  text: "Which number is {ask|word}? They may be the same."
-tp.CMP.02.t3.prompt:
-  text: "Tap the greatest number."
-tp.CMP.02.t4.prompt:
   text: "Put the numbers in order, smallest first."
+tp.CMP.02.t3.prompt:
+  text: "Which number is {ask|word}? They may be the same."
+tp.CMP.02.t4.prompt:
+  text: "Tap the greatest number."
 tp.CMP.02.t5.prompt:
   text: "Put the numbers in order, greatest first."
 tp.CMP.03.t1.prompt:
@@ -75,17 +75,17 @@ tp.CMP.07.t1.prompt:
 tp.CMP.07.t2.prompt:
   text: "Which number is {ask|word}? They may be the same."
 tp.CMP.07.t3.prompt:
-  text: "Put the numbers in order, smallest first."
-tp.CMP.07.t4.prompt:
   text: "Put the frames in order, fewest dots first."
+tp.CMP.07.t4.prompt:
+  text: "Put the numbers in order, smallest first."
 tp.CMP.09.t1.prompt:
   text: "The line shows the start and the end. Where does {target} go?"
 tp.CMP.09.t2.prompt:
   text: "What number is the arrow at?"
 tp.CMP.09.t3.prompt:
-  text: "Which arrow shows {target}?"
-tp.CMP.09.t4.prompt:
   text: "What number is the arrow at? Make a good guess."
+tp.CMP.09.t4.prompt:
+  text: "Which arrow shows {target}?"
 tp.CMP.13.t1.prompt:
   text: "Look fast! About how many do you see?"
 tp.CMP.13.t2.prompt:
