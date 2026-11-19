@@ -1,6 +1,13 @@
 import type { ObjectSet } from '@number-island/shared';
 import { describe, expect, it } from 'vitest';
-import { applyPadKey, balancedRows, createSubmitGuard, layoutBox, padValue } from './controls';
+import {
+  applyPadKey,
+  balancedRows,
+  cardsPerRow,
+  createSubmitGuard,
+  layoutBox,
+  padValue,
+} from './controls';
 import { dicePattern, dotsLayout, groupIndexes, objectSetLayout } from './layout';
 import { stepsBetween } from './NumberLineView';
 
@@ -360,5 +367,17 @@ describe('layoutBox (round 11: tray capacity from layout, not transformed, width
       layoutBox(style({ width: '547.75px', paddingLeft: '8px', borderRightWidth: '2px' })),
     ).toEqual({ content: 547.75, border: 557.75 });
     expect(layoutBox(style({ width: 'auto' }))).toEqual({ content: 0, border: 0 });
+  });
+});
+
+describe('cardsPerRow (round 12: computed-style rounding at a fit boundary)', () => {
+  it('fits at the exact boundary despite 4-decimal serialization, and wraps one layout unit past it', () => {
+    // 4 × 73.59375 + 3 × 12 = 330.375; getComputedStyle reports the card as 73.5938.
+    expect(cardsPerRow(330.375, 73.5938, 12)).toBe(4);
+    expect(cardsPerRow(330.375 - 1 / 64, 73.5938, 12)).toBe(3);
+    expect(cardsPerRow(330.375 - 1 / 64, 73.59375, 12)).toBe(3);
+    expect(cardsPerRow(547.75, 100, 12)).toBe(4);
+    expect(cardsPerRow(560, 100, 12)).toBe(5);
+    expect(cardsPerRow(50, 100, 12)).toBe(1);
   });
 });

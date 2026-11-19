@@ -144,6 +144,17 @@ export function layoutBox(style: CSSStyleDeclaration): { content: number; border
     : { content: width, border: width + edges };
 }
 
+/**
+ * How many cards of `card` px fit in `avail` px with `gap` px between them, as flex wrapping
+ * decides it. Layout runs in 1/64 px units, so a real overflow is at least 1/64 px; computed
+ * styles serialize to 4 decimals (73.59375 → "73.5938"), adding up to ~0.0001 px a value. Half
+ * a layout unit of tolerance absorbs that rounding and still wraps one unit past the boundary.
+ */
+export function cardsPerRow(avail: number, card: number, gap: number): number {
+  const HALF_LAYOUT_UNIT = 1 / 128;
+  return Math.max(1, Math.floor((avail + gap + HALF_LAYOUT_UNIT) / (card + gap)));
+}
+
 /** A row of numeral cards (0–10, 0–20, or pick options). Tapping speaks the number. */
 export function NumeralTray({
   values,
@@ -186,7 +197,7 @@ export function NumeralTray({
         layoutBox(cardStyle).border +
         (Number.parseFloat(cardStyle.marginLeft) || 0) +
         (Number.parseFloat(cardStyle.marginRight) || 0);
-      const perRow = Math.max(1, Math.floor((avail + gap + 1e-6) / (cardWidth + gap)));
+      const perRow = cardsPerRow(avail, cardWidth, gap);
       setRowCount(Math.ceil(values.length / perRow));
     };
     measure();

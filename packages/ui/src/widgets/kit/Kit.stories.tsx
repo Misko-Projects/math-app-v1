@@ -314,26 +314,35 @@ export const TrayTwentyK: Story = {
 /**
  * The same tray with a demo invite on 0. Its pulse scales the card (up to 1.05×) without changing
  * its layout width, so a resize at the pulse's peak must still plan rows from the 100 px layout
- * width: at 656 px (560 px of content) five cards fit, giving 5 + 4 + 4 + 4 + 4.
+ * width: at 656 px (560 px of content) five cards fit, giving 5 + 4 + 4 + 4 + 4. With reduced
+ * motion the invite is a static ring (no pulse) and the same rows hold.
  */
 export const TrayTwentyInviteK: Story = {
   globals: { ageMode: 'k' },
   render: () => <TrayTwenty highlighted={0} />,
-  play: async ({ canvasElement }) => {
+  play: async ({ canvasElement, globals }) => {
     const tray = within(canvasElement).getByRole('group', { name: 'Numbers' });
     await waitFor(() => expect(trayRows(tray)).toEqual([5, 4, 4, 4, 4]));
     const zero = within(tray).getByRole('button', { name: '0' });
-    // Hold the pulse at its 50% keyframe (scale 1.05).
+    await expect(zero).toHaveClass('ni-invite');
+    // The Motion toolbar ("reduced") or the system preference turns the pulse off.
+    const reduced =
+      globals.motion === 'reduced' || matchMedia('(prefers-reduced-motion: reduce)').matches;
     const pulses = zero.getAnimations();
-    await expect(pulses.length).toBeGreaterThan(0);
-    for (const a of pulses) {
-      const duration = Number(a.effect?.getComputedTiming().duration) || 0;
-      a.pause();
-      a.currentTime = duration / 2;
+    if (reduced) {
+      await expect(pulses).toHaveLength(0);
+    } else {
+      // Hold the pulse at its 50% keyframe (scale 1.05).
+      await expect(pulses.length).toBeGreaterThan(0);
+      for (const a of pulses) {
+        const duration = Number(a.effect?.getComputedTiming().duration) || 0;
+        a.pause();
+        a.currentTime = duration / 2;
+      }
+      await waitFor(() =>
+        expect(zero.getBoundingClientRect().width).toBeGreaterThan(zero.offsetWidth * 1.04),
+      );
     }
-    await waitFor(() =>
-      expect(zero.getBoundingClientRect().width).toBeGreaterThan(zero.offsetWidth * 1.04),
-    );
     (canvasElement.querySelector('[data-testid="box"]') as HTMLElement).style.width = '656px';
     // Let the resize observer run and React re-render, then check the rows it planned (a
     // transformed measurement would have planned 4 a row: 4 + 4 + 4 + 3 + 3 + 3).
@@ -341,6 +350,40 @@ export const TrayTwentyInviteK: Story = {
     await new Promise((r) => setTimeout(r, 100));
     await expect(trayRows(tray)).toEqual([5, 4, 4, 4, 4]);
     await expect(tray.getBoundingClientRect().width).toBeCloseTo(560, 1);
+  },
+};
+
+/** TrayTwentyInviteK with the Motion toolbar on Reduced motion: a static invite ring, same rows. */
+export const TrayTwentyInviteReducedK: Story = {
+  ...TrayTwentyInviteK,
+  globals: { ageMode: 'k', motion: 'reduced' },
+};
+
+/**
+ * A G1+ 0–9 tray exactly at a fractional fit boundary: four 73.59375 px cards and three 12 px
+ * gaps take 330.375 px, so a 330.375 px tray fits 4 a row (4 + 3 + 3), even though computed
+ * styles serialize the card as 73.5938 px. One layout unit (1/64 px) narrower, four no longer
+ * fit and the rows become 3 + 3 + 2 + 2.
+ */
+export const TrayTenBoundary: Story = {
+  render: () => (
+    <div data-testid="box" style={{ width: '330.375px' }}>
+      <NumeralTray
+        values={Array.from({ length: 10 }, (_, i) => i)}
+        selected={null}
+        onPick={() => {}}
+      />
+    </div>
+  ),
+  play: async ({ canvasElement }) => {
+    const tray = within(canvasElement).getByRole('group', { name: 'Numbers' });
+    const card = within(tray).getByRole('button', { name: '0' });
+    await expect(card.getBoundingClientRect().width).toBeCloseTo(73.59375, 4);
+    await expect(tray.getBoundingClientRect().width).toBeCloseTo(330.375, 4);
+    await waitFor(() => expect(trayRows(tray)).toEqual([4, 3, 3]));
+    (canvasElement.querySelector('[data-testid="box"]') as HTMLElement).style.width =
+      `${330.375 - 1 / 64}px`;
+    await waitFor(() => expect(trayRows(tray)).toEqual([3, 3, 2, 2]));
   },
 };
 
