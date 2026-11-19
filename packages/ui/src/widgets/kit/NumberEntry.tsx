@@ -25,6 +25,8 @@ export interface NumberEntryProps {
   allowDecimal?: boolean;
   disabled?: boolean;
   compact?: boolean;
+  /** With `compact`: `wide` puts the boxes beside a 6 × 2 pad, `tall` beside a 3 × 4 pad. */
+  shape?: 'wide' | 'tall';
   /** Demo: the key being pressed, and a box under Pip's hand. */
   highlightedKey?: PadKey | null;
   invitedBox?: number | null;
@@ -32,6 +34,8 @@ export interface NumberEntryProps {
   onEnter?: () => void;
   /** Typing records a `tap` on `key-<k>` (the trace). */
   onKeyTrace?: (key: PadKey) => void;
+  /** Shown under the boxes (e.g. a sign and the Check button, in a tall layout). */
+  aside?: ReactNode;
 }
 
 export function NumberEntry({
@@ -45,14 +49,20 @@ export function NumberEntry({
   allowDecimal = false,
   disabled = false,
   compact = false,
+  shape = 'wide',
   highlightedKey = null,
   invitedBox = null,
   onEnter,
   onKeyTrace,
+  aside,
 }: NumberEntryProps) {
   const t = useNarrationText();
   return (
-    <div className="ni-entry" data-compact={compact ? 'true' : undefined}>
+    <div
+      className="ni-entry"
+      data-compact={compact ? 'true' : undefined}
+      data-shape={compact ? shape : undefined}
+    >
       <div className="ni-entry__boxes">
         {texts.map((text, i) => (
           <button
@@ -78,6 +88,7 @@ export function NumberEntry({
             {adornments[i] ? <span className="ni-entry__unit">{adornments[i]}</span> : null}
           </button>
         ))}
+        {aside}
       </div>
       <NumberPadKeys
         allowDecimal={allowDecimal}

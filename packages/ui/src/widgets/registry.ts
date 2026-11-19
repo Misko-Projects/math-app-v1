@@ -18,6 +18,7 @@ export const widgetRegistry: WidgetRegistry = {
   'compare-length': () => import('./compare-length/CompareLengthWidget'),
   'measure-length': () => import('./measure-length/MeasureLengthWidget'),
   'shape-compose': () => import('./shape-compose/ShapeComposeWidget'),
+  'perimeter-walk': () => import('./perimeter-walk/PerimeterWalkWidget'),
 };
 
 /** Formats that have a registered widget. */

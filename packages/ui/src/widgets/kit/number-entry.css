@@ -66,3 +66,6 @@
   min-height: calc(var(--target-min) - 4px);
   font-size: 40px;
 }
+.ni-entry[data-compact="true"][data-shape="tall"] .ni-pad {
+  grid-template-columns: repeat(3, var(--target-min));
+}
