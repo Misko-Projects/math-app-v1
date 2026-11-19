@@ -21,7 +21,7 @@ afterEach(() => {
   restore();
 });
 
-async function renderParentArea(path: string) {
+async function renderParentArea(path: string, entries: string[] = [path]) {
   const device = testDevice();
   restore = device.enableLiveQueries();
   const app = await device.boot();
@@ -35,7 +35,7 @@ async function renderParentArea(path: string) {
       { path: '/parent', element: <ParentHome /> },
       { path: '/parent/children/add', element: <AddChildrenPage /> },
     ],
-    { initialEntries: [path] },
+    { initialEntries: entries, initialIndex: entries.lastIndexOf(path) },
   );
   render(
     <AppProviders services={app}>
@@ -147,6 +147,83 @@ describe('adding children from the parent area', () => {
     expect((await app.store.allProfiles()).map((p) => p.name)).toEqual(['Mia']);
     expect(router.state.location.pathname).toBe('/');
     expect(await screen.findByText('island')).toBeTruthy();
+  });
+
+  it('after a jump to another Add children entry, a save still returns to the parent home', async () => {
+    const device = testDevice();
+    restore = device.enableLiveQueries();
+    const app = await device.boot();
+    booted.push(app);
+    await app.sync.adopt({ familyId: SERVER_FAMILY, deviceId: SERVER_DEVICE, deviceToken: TOKEN });
+    const api = { logout: vi.fn(), pairStart: vi.fn() } as unknown as ParentApi;
+    const gate = createParentGate({ store: app.store, api });
+    const router = createMemoryRouter(
+      [
+        { path: '/', element: <p>island</p> },
+        { path: '/parent', element: <ParentHome /> },
+        { path: '/parent/children/add', element: <AddChildrenPage /> },
+      ],
+      {
+        initialEntries: ['/parent/children/add', '/parent', '/parent/children/add'],
+        initialIndex: 2,
+      },
+    );
+    render(
+      <AppProviders services={app}>
+        <ParentContextForTests api={api} gate={gate}>
+          <RouterProvider router={router} />
+        </ParentContextForTests>
+      </AppProviders>,
+    );
+    await screen.findByRole('heading', { name: 'Add your children' });
+    const before = router.state.location.key;
+    await act(async () => {
+      await router.navigate(-2); // the browser's history menu: the first Add children entry
+    });
+    expect(router.state.location.key).not.toBe(before);
+    expect(router.state.location.pathname).toBe('/parent/children/add');
+    await addMiaAndSave();
+    expect(await screen.findByText('Mia plays on this island.')).toBeTruthy();
+    expect((await app.store.allProfiles()).map((p) => p.name)).toEqual(['Mia']);
+  });
+
+  it('a jump to another Add children entry during the save: no redirect, and the form is free again', async () => {
+    const entries = ['/parent/children/add', '/parent', '/parent/children/add'];
+    const { app, router } = await renderParentArea('/parent/children/add', entries);
+    const release = holdWrites(app);
+    await addMiaAndSave();
+    const startedOn = router.state.location.key;
+    await act(async () => {
+      await router.navigate(-2); // the history menu, while the save runs
+    });
+    const jumpedTo = router.state.location.key;
+    expect(jumpedTo).not.toBe(startedOn);
+    await act(async () => {
+      release();
+    });
+    await waitFor(async () => expect((await app.store.allProfiles()).length).toBe(1));
+    // Stays on the entry the parent chose, with the form released (not stuck on Saving…).
+    expect(router.state.location.key).toBe(jumpedTo);
+    expect(
+      (await screen.findByRole('button', { name: 'Save children' })).matches(':disabled'),
+    ).toBe(false);
+  });
+
+  it('Forward during the save (to the parent home) stays there', async () => {
+    const entries = ['/parent/children/add', '/parent'];
+    const { app, router } = await renderParentArea('/parent/children/add', entries);
+    // renderParentArea opened the first entry; Forward leads to the parent home.
+    const release = holdWrites(app);
+    await addMiaAndSave();
+    await act(async () => {
+      await router.navigate(1);
+    });
+    await act(async () => {
+      release();
+    });
+    expect(await screen.findByText('Mia plays on this island.')).toBeTruthy();
+    expect(router.state.location.pathname).toBe('/parent');
+    expect(router.state.historyAction).toBe('POP'); // it is the Forward, not a redirect (REPLACE)
   });
 
   it('needs at least one child before saving', async () => {

@@ -4,8 +4,8 @@
 // wizard never saved its children. The page reuses the wizard's children step and writes only the
 // profiles (`addChildren`), never the family's settings. Editing children is P01's Settings.
 
-import { useEffect, useRef, useState } from 'react';
-import { useBlocker, useNavigate } from 'react-router';
+import { useContext, useEffect, useRef, useState } from 'react';
+import { UNSAFE_DataRouterContext, useLocation, useNavigate } from 'react-router';
 import { useAppServices } from '@/app/AppServices';
 import { recordDiagnostic } from '@/app/diagnostics';
 import { Notice } from './kit';
@@ -26,18 +26,20 @@ export function AddChildrenPage() {
       shown.current = false;
     };
   }, []);
-  /**
-   * True as soon as the router is asked to go elsewhere (a link, Back to the island, the
-   * browser's Back). The router renders the new route in a transition, so this page can still be
-   * mounted for a moment after the parent left; a blocker's check runs first, synchronously, for
-   * every navigation. It never blocks: it only notes that the parent is leaving.
-   */
-  const leaving = useRef(false);
-  useBlocker(() => {
-    leaving.current = true;
-    return false;
-  });
-
+  // Where the router is now. Its own state, not the rendered location: the router takes a new
+  // location at once and renders it in a transition, so `useLocation()` still names this page
+  // for a moment after the parent left. React Router 7 exposes its data router only through this
+  // context. The rendered key is the fallback outside a data router (none in this app).
+  const dataRouter = useContext(UNSAFE_DataRouterContext);
+  const location = useLocation();
+  const rendered = useRef(location.key);
+  rendered.current = location.key;
+  /** The history entry the router is on now; null while a navigation is still on its way. */
+  const whereNow = (): string | null => {
+    if (!dataRouter) return rendered.current;
+    const { state } = dataRouter.router;
+    return state.navigation.state === 'idle' ? state.location.key : null;
+  };
   /** Set at once (not on the next render): the draft being saved never changes under the save. */
   const saving = useRef(false);
   const changeKids = (next: NewChild[]) => {
@@ -47,21 +49,28 @@ export function AddChildrenPage() {
   const save = async () => {
     if (saving.current) return;
     saving.current = true;
+    const startedAt = whereNow();
     setBusy(true);
     setError(null);
+    let saved = true;
     try {
       await addChildren(services, kids);
     } catch (e) {
       recordDiagnostic('add-children', e);
-      saving.current = false;
-      if (!shown.current) return;
+      saved = false;
+    }
+    saving.current = false;
+    if (!shown.current) return; // the page is gone: nothing to update, nowhere to go
+    setBusy(false);
+    if (!saved) {
       setError('Those children didn’t save on this device. Please try again.');
-      setBusy(false);
       return;
     }
-    // Saved. Back to the parent home only if this page is still the one shown: a save that ends
-    // after the parent went elsewhere never pulls them back.
-    if (shown.current && !leaving.current) navigate('/parent', { replace: true });
+    // Saved. Back to the parent home only from the very entry the save started on, with no
+    // navigation on its way: a save that ends after the parent went anywhere else (Back, Forward,
+    // a jump of any length, a link, Lock) never pulls them back.
+    const now = whereNow();
+    if (now !== null && now === startedAt) navigate('/parent', { replace: true });
   };
 
   return (
