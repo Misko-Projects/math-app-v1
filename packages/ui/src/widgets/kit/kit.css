@@ -220,7 +220,7 @@
   flex-wrap: wrap;
   align-items: center;
   justify-content: center;
-  gap: 14px 18px;
+  gap: 14px 26px;
   color: var(--color-ink);
   font-family: var(--font-display);
   font-weight: 800;
@@ -482,6 +482,13 @@
   display: block;
   width: var(--icon-size);
   height: var(--icon-size);
+}
+
+/* Demo invites on small controls hug the control, so the ring never touches a neighbour. */
+.ni-pick.ni-invite,
+.ni-pad__key.ni-invite {
+  outline-offset: 5px;
+  border-radius: var(--radius-pebble);
 }
 
 [data-reduced-motion="true"] .ni-pick,

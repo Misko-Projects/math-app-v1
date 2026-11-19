@@ -57,9 +57,14 @@
 .ni-npw__blank:disabled {
   cursor: default;
 }
+/* Inside an expression the invite ring hugs the blank, clear of the neighbouring numerals. */
+.ni-npw__blank.ni-invite {
+  outline-offset: 5px;
+  border-radius: var(--radius-pebble);
+}
 .ni-npw__hand {
-  left: calc(50% - 8px);
-  bottom: -46px;
+  left: calc(50% + 4px);
+  bottom: -52px;
 }
 .ni-npw__controls {
   display: flex;

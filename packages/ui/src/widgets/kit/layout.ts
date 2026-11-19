@@ -198,8 +198,13 @@ export function objectSetLayout(set: ObjectSet): ObjectLayout {
     case 'groups': {
       // One cluster per group, side by side with a clear gap: position shows the groups too.
       // Dice sit on die tiles (die faces up to 6, dominoes up to 10); groups sit on round plates.
-      // Group sizes as actually drawn: `groupIndexes` clamps groups that don't sum to the count.
-      const sizes = Array.from(new Set(groupOf), (g) => groupOf.filter((x) => x === g).length);
+      // One cluster per explicit group (an empty group is an empty plate), sized as actually drawn:
+      // `groupIndexes` clamps groups that don't sum to the count.
+      const groupCount = set.groups && set.groups.length > 0 ? set.groups.length : 1;
+      const sizes = Array.from(
+        { length: groupCount },
+        (_, g) => groupOf.filter((x) => x === g).length,
+      );
       const dice = set.layout === 'dice';
       const step = dice ? 0.95 : 1.05;
       const inset = dice ? 0.3 : 0.35;

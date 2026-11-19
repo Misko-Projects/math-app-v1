@@ -1,5 +1,5 @@
 import type { NarrationKey } from '@number-island/shared';
-import { type ReactNode, useCallback, useEffect, useLayoutEffect, useRef } from 'react';
+import { type ReactNode, useCallback, useEffect, useLayoutEffect, useMemo, useRef } from 'react';
 import {
   useNarrationText,
   useReducedMotion,
@@ -305,24 +305,40 @@ export function padValue(text: string): number | null {
 // ---------- submit guard ----------
 
 /**
+ * The submit debounce (06 §4), as a pure function for tests. The window is claimed BEFORE
+ * `submit` runs, so a nested submit fired from inside `onResponse` is refused, and released again
+ * when `submit` reports that it sent nothing (an unfinished answer), so the real answer that
+ * follows still goes through.
+ */
+export function createSubmitGuard(ms: number, now: () => number) {
+  let last = Number.NEGATIVE_INFINITY;
+  return (submit: () => boolean): boolean => {
+    const t = now();
+    if (t - last < ms) return false;
+    const previous = last;
+    last = t;
+    const sent = submit();
+    if (!sent) last = previous;
+    return sent;
+  };
+}
+
+/**
  * Wraps a widget's submit so every route to it (the Check button, desktop Enter, a test click)
- * shares one ≥ 400 ms debounce (06 §4). `submit` returns true when it actually sent a response;
- * only then does the window start, so an Enter on an unfinished answer never swallows the real
- * one that follows. `now` is injectable for tests.
+ * shares one ≥ 400 ms debounce (06 §4). `submit` returns true when it actually sent a response.
+ * `now` is injectable for tests.
  */
 export function useSubmitGuard(
   submit: () => boolean,
   ms: number = CHECK_DEBOUNCE_MS,
   now: () => number = () => performance.now(),
 ): () => void {
-  const last = useRef(Number.NEGATIVE_INFINITY);
   const latest = useRef({ submit, now });
   latest.current = { submit, now };
+  const guard = useMemo(() => createSubmitGuard(ms, () => latest.current.now()), [ms]);
   return useCallback(() => {
-    const t = latest.current.now();
-    if (t - last.current < ms) return;
-    if (latest.current.submit()) last.current = t;
-  }, [ms]);
+    guard(() => latest.current.submit());
+  }, [guard]);
 }
 
 // ---------- demo helpers ----------

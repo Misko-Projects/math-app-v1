@@ -1,6 +1,6 @@
 import type { ObjectSet } from '@number-island/shared';
 import { describe, expect, it } from 'vitest';
-import { applyPadKey, padValue } from './controls';
+import { applyPadKey, createSubmitGuard, padValue } from './controls';
 import { dicePattern, dotsLayout, groupIndexes, objectSetLayout } from './layout';
 import { stepsBetween } from './NumberLineView';
 
@@ -182,6 +182,48 @@ describe('review regressions (PR #63 round 1)', () => {
       }
     },
   );
+});
+
+describe('review regressions (PR #63 round 3)', () => {
+  it('the submit guard refuses a nested submit fired from inside onResponse', () => {
+    let t = 1000;
+    const guard = createSubmitGuard(400, () => t);
+    const sent: string[] = [];
+    const outer = () => {
+      sent.push('outer');
+      // The host's onResponse synchronously triggers another Enter.
+      guard(() => {
+        sent.push('nested');
+        return true;
+      });
+      return true;
+    };
+    expect(guard(outer)).toBe(true);
+    expect(sent).toEqual(['outer']);
+    t += 399;
+    expect(guard(() => true)).toBe(false);
+    t += 2;
+    expect(guard(() => true)).toBe(true);
+  });
+
+  it('a submit that sends nothing releases the window', () => {
+    let t = 0;
+    const guard = createSubmitGuard(400, () => t);
+    expect(guard(() => false)).toBe(false);
+    t += 10;
+    expect(guard(() => true)).toBe(true);
+    t += 10;
+    expect(guard(() => true)).toBe(false);
+  });
+
+  it('explicit empty groups stay as empty plates', () => {
+    const l = objectSetLayout(set({ count: 0, layout: 'groups', groups: [0, 0, 0] }));
+    expect(l.objects).toHaveLength(0);
+    expect(l.frames.filter((f) => f.kind === 'plate')).toHaveLength(3);
+    const mixed = objectSetLayout(set({ count: 2, layout: 'groups', groups: [2, 0] }));
+    expect(mixed.frames).toHaveLength(2);
+    expect(mixed.objects).toHaveLength(2);
+  });
 });
 
 describe('review regressions (PR #63 round 2)', () => {

@@ -4,6 +4,7 @@ export {
   applyPadKey,
   CheckButton,
   type CheckButtonProps,
+  createSubmitGuard,
   NumberPadKeys,
   type NumberPadKeysProps,
   NumeralTray,
