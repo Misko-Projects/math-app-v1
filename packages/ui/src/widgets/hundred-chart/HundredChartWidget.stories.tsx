@@ -10,7 +10,9 @@ import {
 } from '../../test-support/storyHelpers';
 import {
   areaBox,
+  contentBox,
   expectFitsArea,
+  expectInside,
   expectPointerOn,
   expectRingClear,
   findWidget,
@@ -85,6 +87,10 @@ const meta = {
   },
   parameters: { ui: { stage: 'centered' } },
   render: renderWidget,
+  // No leftover focus ring (from a story's clicks) may read as an invite ring.
+  afterEach: async () => {
+    (document.activeElement as HTMLElement | null)?.blur();
+  },
 } satisfies Meta<WidgetHostProps>;
 
 export default meta;
@@ -126,6 +132,11 @@ async function expectTruthfulChart(root: HTMLElement, c: Config) {
     const top = tops.get(String(r));
     if (top === undefined) tops.set(String(r), b.top);
     else await expect(Math.abs(b.top - top)).toBeLessThan(0.5);
+  }
+  // Every cell lies fully inside the chart frame's visible (content) box: nothing clipped.
+  const frame = contentBox(root.querySelector('.ni-hc__chart') as HTMLElement);
+  for (const el of cells) {
+    await expectInside(el.getBoundingClientRect(), frame, 0, `cell ${el.dataset.n} in the frame`);
   }
   // Rows run down the screen in order, columns left to right.
   const rowTops = [...tops.entries()].sort((a, b) => Number(a[0]) - Number(b[0])).map((e) => e[1]);
@@ -439,6 +450,22 @@ export const InviteFillG1MinLandscape: Story = {
 
 // ---------- the workshop's widget area (06 §1, §2) ----------
 
+/**
+ * The widget uses the area (the #89 bar): the bounding box of its parts covers at least 60 % of
+ * the area card's inner box.
+ */
+async function expectFill(canvasElement: HTMLElement, parts: Element[], min = 0.6) {
+  const inner = contentBox(areaBox(canvasElement));
+  const rects = parts.map((p) => p.getBoundingClientRect());
+  const left = Math.min(...rects.map((r) => r.left));
+  const right = Math.max(...rects.map((r) => r.right));
+  const top = Math.min(...rects.map((r) => r.top));
+  const bottom = Math.max(...rects.map((r) => r.bottom));
+  const fill =
+    ((right - left) * (bottom - top)) / ((inner.right - inner.left) * (inner.bottom - inner.top));
+  await expect(fill, `widget fill ${(fill * 100).toFixed(1)} %`).toBeGreaterThanOrEqual(min);
+}
+
 async function expectHcFits(
   canvasElement: HTMLElement,
   root: HTMLElement,
@@ -452,6 +479,7 @@ async function expectHcFits(
     ...root.querySelectorAll('.ni-hc__checkslot, .ni-hc__padcell'),
   ];
   await expectFitsArea(areaBox(canvasElement), parts, targets(root), age);
+  await expectFill(canvasElement, parts);
 }
 
 /** K at the 960 × 600 minimum, CNT.01 next: ten K cells don't fit across, so 13 is typed. */

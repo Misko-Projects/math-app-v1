@@ -341,8 +341,10 @@
   place-items: center;
   box-sizing: border-box;
   min-width: calc(var(--target-min) + 72px);
-  min-height: calc(var(--target-min) + 84px);
-  padding: 12px 20px;
+  /* The flag stands centred with ≥ 16 px around it, and its invite ring (13 px out) stays ≥ 12 px
+     inside the dock's edge. */
+  min-height: calc(var(--target-min) + 104px);
+  padding: 16px 20px;
   border: 3px solid var(--color-sand-deep);
   border-radius: var(--radius-card);
   background: var(--color-horizon);

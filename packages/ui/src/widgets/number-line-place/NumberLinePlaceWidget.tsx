@@ -104,6 +104,11 @@ interface Plan {
   pad: { shape: '3x4' | '4x3'; key: number };
   /** Height of an upright line's stage. */
   tall: number;
+  /**
+   * Extra room above a place line, so the widget uses the area (≥ 60 % of it, 06 §2): the line's
+   * drop zone grows with it, so a taller stage is also a bigger target for the flag.
+   */
+  extraHead: number;
 }
 
 /** Rendered sizes of the kit controls per age mode (06 §4; primitives.css / kit.css). */
@@ -116,7 +121,7 @@ function sizes(age: AgeMode) {
     /** CheckButton (BigButton plus its 6 px ledge). */
     checkH: big + 6,
     /** The flag's dock: the flag (sign, post, pin) in a sand box. */
-    dockH: target + 84,
+    dockH: target + 104,
     /** A benchmark card (closer). */
     cardH: Math.round(target * 1.4),
     /** The answer display. */
@@ -156,10 +161,24 @@ function planLayout(c: Config, room: WidgetRoom | null, age: AgeMode): Plan {
   else stackH = stageH + GAP + s.readoutH + GAP + padSize('3x4', s.big).h;
   const vertical = c.vertical;
   const tall = Math.max(TALL_MIN, Math.min(TALL_MAX, Number.isFinite(H) ? H : TALL_MAX));
-  if (!vertical && stackH <= H) return { layout: 'stack', pad: pick(H), tall };
+  const grow = (natural: number) =>
+    c.mode === 'place' && !vertical && Number.isFinite(H)
+      ? Math.max(0, Math.round(FILL * H - natural))
+      : 0;
+  if (!vertical && stackH <= H) {
+    return { layout: 'stack', pad: pick(H), tall, extraHead: grow(stackH) };
+  }
   // Side by side: the pad has the room's full height (read), next to the line and its readout.
-  return { layout: 'side', pad: pick(H), tall };
+  return {
+    layout: 'side',
+    pad: pick(H),
+    tall,
+    extraHead: grow(Math.max(stageH, s.dockH, s.checkH)),
+  };
 }
+
+/** The share of the room's height a place line's widget grows to (06 §2: the area is used). */
+const FILL = 0.68;
 
 /**
  * Width of an element's content box, kept up to date (null until measured). Measured after every
@@ -340,8 +359,8 @@ function VerticalLine({
         <line
           key={`t${v}`}
           className="ni-numberline__tick"
-          x1={V_AXIS_X - 14}
-          x2={V_AXIS_X + 14}
+          x1={V_AXIS_X + 18}
+          x2={V_AXIS_X + 34}
           y1={geo.at(v).y}
           y2={geo.at(v).y}
         />
@@ -350,7 +369,7 @@ function VerticalLine({
         <text
           key={`l${v}`}
           className="ni-numberline__numeral"
-          x={V_AXIS_X + 28}
+          x={V_AXIS_X + 42}
           y={geo.at(v).y + 12}
           fontSize={32}
           textAnchor="start"
@@ -463,7 +482,7 @@ export function NumberLinePlaceWidget({
   const plan = planLayout(c, room, ageMode);
   const s = sizes(ageMode);
   const laneW = useWidth(laneRef);
-  const headroom = headroomFor(c, s.target);
+  const headroom = headroomFor(c, s.target) + plan.extraHead;
   const lineW = Math.max(LINE_MIN, Math.min(LINE_MAX, laneW ?? LINE_MAX));
   const geo: LineGeo = vertical
     ? verticalGeo(c, plan.tall)

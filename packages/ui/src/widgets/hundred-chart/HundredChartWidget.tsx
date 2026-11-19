@@ -162,7 +162,7 @@ function planLayout(c: Config, room: WidgetRoom | null, age: AgeMode, m: Measure
   const W = Math.min(room?.width ?? 1180, 1180) - 2 * EDGE;
   // An unbounded room (a growing page) still gets a chart a screen can hold.
   const H = Math.min(roomH, 760) - 2 * EDGE;
-  const movesH = c.mode === 'move' && c.moves?.length ? MOVE_TILE + 8 + G : 0;
+  const movesH = c.mode === 'move' && c.moves?.length ? MOVE_TILE + 32 + G : 0;
   const mapW = 10 * MAP_CELL + 8;
   const mapH = c.rows * MAP_CELL + 8;
   /**

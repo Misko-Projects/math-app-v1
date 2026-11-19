@@ -11,7 +11,9 @@ import {
 } from '../../test-support/storyHelpers';
 import {
   areaBox,
+  contentBox,
   expectFitsArea,
+  expectInside,
   expectPointerOn,
   expectRingClear,
   expectTraceOrdered,
@@ -112,6 +114,10 @@ const meta = {
   },
   parameters: { ui: { stage: 'centered' } },
   render: renderWidget,
+  // No leftover focus ring (from a story's clicks) may read as an invite ring.
+  afterEach: async () => {
+    (document.activeElement as HTMLElement | null)?.blur();
+  },
 } satisfies Meta<WidgetHostProps>;
 
 export default meta;
@@ -507,6 +513,31 @@ async function expectInviteOn(root: HTMLElement, el: HTMLElement, others: Elemen
   );
 }
 
+/** An invite ring stays ≥ 12 px inside the panel holding its control (the flag's dock). */
+async function expectRingInsidePanel(el: HTMLElement, panel: HTMLElement) {
+  const cs = getComputedStyle(el);
+  const reach = Math.max(
+    0,
+    Number.parseFloat(cs.outlineOffset) + Number.parseFloat(cs.outlineWidth),
+  );
+  const r = el.getBoundingClientRect();
+  const ring = {
+    left: r.left - reach,
+    top: r.top - reach,
+    right: r.right + reach,
+    bottom: r.bottom + reach,
+  };
+  const p = panel.getBoundingClientRect();
+  const border = Number.parseFloat(getComputedStyle(panel).borderTopWidth);
+  const inner = {
+    left: p.left + border,
+    top: p.top + border,
+    right: p.right - border,
+    bottom: p.bottom - border,
+  };
+  await expectInside(ring, inner, 12, 'invite ring in its panel');
+}
+
 const placeInvite: WidgetDemo = createDemoController({ strict: true });
 
 /**
@@ -520,14 +551,14 @@ export const InvitePlaceK: Story = {
     const root = await findWidget(canvasElement, ROOT);
     placeInvite.invite({ op: 'answer', args: { value: 13 } });
     await expectInviteOn(root, marker(root), [strip(root), checkBtn(root)]);
+    await expectRingInsidePanel(marker(root), root.querySelector('.ni-nlp__dock') as HTMLElement);
     tapAt(strip(root), linePoint(root, place, 6));
     await waitFor(() => expect(placedValue(root)).toBe(6));
     await expectInviteOn(root, marker(root), [checkBtn(root)]);
     await pointerDrag(marker(root), linePoint(root, place, 13), 'touch');
     await waitFor(() => expect(placedValue(root)).toBe(13));
+    // It ends on the invite: one ring, on Check, and Pip's hand.
     await expectInviteOn(root, checkBtn(root), [marker(root), strip(root)]);
-    placeInvite.invite(null);
-    await waitFor(() => expect(root.querySelector('.ni-invite')).toBeNull());
   },
 };
 
@@ -614,6 +645,22 @@ function targets(root: HTMLElement): HTMLElement[] {
   ].filter((el): el is HTMLElement => el !== null);
 }
 
+/**
+ * The widget uses the area (the #89 bar): the bounding box of its parts covers at least 60 % of
+ * the area card's inner box.
+ */
+async function expectFill(canvasElement: HTMLElement, parts: Element[], min = 0.6) {
+  const inner = contentBox(areaBox(canvasElement));
+  const rects = parts.map((p) => p.getBoundingClientRect());
+  const left = Math.min(...rects.map((r) => r.left));
+  const right = Math.max(...rects.map((r) => r.right));
+  const top = Math.min(...rects.map((r) => r.top));
+  const bottom = Math.max(...rects.map((r) => r.bottom));
+  const fill =
+    ((right - left) * (bottom - top)) / ((inner.right - inner.left) * (inner.bottom - inner.top));
+  await expect(fill, `widget fill ${(fill * 100).toFixed(1)} %`).toBeGreaterThanOrEqual(min);
+}
+
 /** The widget fits the area: no scroll, every part inside, every target full size and spaced. */
 async function expectPlaceFits(canvasElement: HTMLElement, root: HTMLElement, age: 'k' | 'g1-up') {
   await waitForSettled(root);
@@ -622,6 +669,7 @@ async function expectPlaceFits(canvasElement: HTMLElement, root: HTMLElement, ag
     ...root.querySelectorAll('.ni-nlp__readout, .ni-nlp__padcell, .ni-nlp__choices'),
   ];
   await expectFitsArea(areaBox(canvasElement), parts, targets(root), age);
+  await expectFill(canvasElement, parts);
 }
 
 /** The line uses the room: at least `min` px wide. */

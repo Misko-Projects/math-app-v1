@@ -10,6 +10,7 @@ import {
 } from '../../test-support/storyHelpers';
 import {
   areaBox,
+  contentBox,
   expectFitsArea,
   expectPointerOn,
   expectRingClear,
@@ -185,6 +186,10 @@ const meta = {
   },
   parameters: { ui: { stage: 'centered' } },
   render: renderWidget,
+  // No leftover focus ring (from a story's clicks) may read as an invite ring.
+  afterEach: async () => {
+    (document.activeElement as HTMLElement | null)?.blur();
+  },
 } satisfies Meta<WidgetHostProps>;
 
 export default meta;
@@ -558,15 +563,17 @@ export const InviteAnswerK: Story = {
     await userEvent.click(jump(root, 1));
     await expectInviteOn(root, key(root, '6'));
     await userEvent.click(key(root, '6'));
+    // It ends on the invite: one ring, on Check, and Pip's hand.
     await expectInviteOn(root, checkBtn(root));
-    stonesInvite.invite(null);
-    await waitFor(() => expect(root.querySelector('.ni-invite')).toBeNull());
   },
 };
 
 const bridgeInvite: WidgetDemo = createDemoController({ strict: true });
 
-/** Open line, `bridge-to {at: 41}` from 74 with −10 and −1: the −10 hop three times, then −1. */
+/**
+ * Open line, `bridge-to {at: 41}` from 74 with −10 and −1: the −10 hop three times, then −1; it
+ * ends on 42 with the ring and Pip's hand on the last −1.
+ */
 export const InviteBridgeOpen: Story = {
   args: { config: openBack, tier: 'pictorial', demo: bridgeInvite },
   play: async ({ canvasElement }) => {
@@ -576,12 +583,12 @@ export const InviteBridgeOpen: Story = {
       await expectInviteOn(root, jump(root, -10));
       await userEvent.click(jump(root, -10));
     }
-    for (let i = 0; i < 3; i++) {
+    for (let i = 0; i < 2; i++) {
       await expectInviteOn(root, jump(root, -1));
       await userEvent.click(jump(root, -1));
     }
-    await waitFor(() => expect(root.querySelector('.ni-invite')).toBeNull());
-    await expectTruthfulRoad(root, openBack, 41);
+    await expectTruthfulRoad(root, openBack, 42);
+    await expectInviteOn(root, jump(root, -1));
   },
 };
 
@@ -649,6 +656,22 @@ function targets(root: HTMLElement): HTMLElement[] {
 }
 
 /**
+ * The widget uses the area (the #89 bar): the bounding box of its parts covers at least 60 % of
+ * the area card's inner box.
+ */
+async function expectFill(canvasElement: HTMLElement, parts: Element[], min = 0.6) {
+  const inner = contentBox(areaBox(canvasElement));
+  const rects = parts.map((p) => p.getBoundingClientRect());
+  const left = Math.min(...rects.map((r) => r.left));
+  const right = Math.max(...rects.map((r) => r.right));
+  const top = Math.min(...rects.map((r) => r.top));
+  const bottom = Math.max(...rects.map((r) => r.bottom));
+  const fill =
+    ((right - left) * (bottom - top)) / ((inner.right - inner.left) * (inner.bottom - inner.top));
+  await expect(fill, `widget fill ${(fill * 100).toFixed(1)} %`).toBeGreaterThanOrEqual(min);
+}
+
+/**
  * `fits` 'true': the widget fits the area with room for Pip's hand under any pad key. 'at-rest':
  * a K pad (three rows of 84 px) leaves no room under its bottom row at 960 × 600, so an invite on
  * 9, 0 or take-back adds a little room below (the only known overflow; see the widget's notes).
@@ -666,6 +689,7 @@ async function expectJumpFits(
     ...root.querySelectorAll('.ni-nlj__readout, .ni-nlj__check, .ni-nlj__padcell'),
   ];
   await expectFitsArea(areaBox(canvasElement), parts, targets(root), age);
+  await expectFill(canvasElement, parts);
 }
 
 /** K stones 0–10 at the 960 × 600 minimum: the pad (4 × 3) beside the road; hop and answer. */

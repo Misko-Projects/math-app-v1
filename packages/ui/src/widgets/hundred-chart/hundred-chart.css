@@ -76,6 +76,8 @@
 }
 /* A picture chart is one grid: shared ink lines on cloud cells, like the chart on the wall. */
 .ni-hc__chart[data-cells="type"] {
+  /* The frame sits outside the ten columns (the global border-box would eat 6 px of them). */
+  box-sizing: content-box;
   border: 3px solid var(--color-ink);
   border-radius: 14px;
   overflow: hidden;
@@ -235,7 +237,7 @@ button.ni-hc__cell:disabled {
   flex-wrap: wrap;
   gap: 6px;
   margin: 0;
-  padding: 4px 8px;
+  padding: 16px;
   border: 3px solid var(--color-sand-deep);
   border-radius: 14px;
   background: var(--color-horizon);

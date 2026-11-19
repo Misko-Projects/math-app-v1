@@ -845,6 +845,14 @@ export function NumberLineJumpWidget({
       const pic = stonesFor({ ...c, min: 0, max: 10_000 }, roadW, T);
       fit.window = Math.min(c.max - c.min + 1, pic.window);
     }
+    if (!fit.tappable && fit.window === c.max - c.min + 1 && fit.window > 1) {
+      // Every stone shows: spread them along the lane (up to 48 px apart), so the road uses the
+      // room instead of huddling in the middle.
+      fit.gap = Math.max(
+        fit.gap,
+        Math.min(48, Math.floor((roadW - fit.window * fit.size) / (fit.window - 1))),
+      );
+    }
     const values: number[] = [];
     for (let v = c.min; v <= c.max; v++) values.push(v);
     // The window of stones shown: all of them, or a stretch that follows the hopper (one stone of
