@@ -31,6 +31,23 @@ export function ParentProvider({ children, api }: { children: ReactNode; api?: P
   return <ParentContext.Provider value={value}>{children}</ParentContext.Provider>;
 }
 
+/** Component tests: a parent context with a given API (and gate) and no booted app. */
+export function ParentContextForTests({
+  api,
+  gate,
+  children,
+}: {
+  api: ParentApi;
+  gate?: ParentGate;
+  children: ReactNode;
+}) {
+  const value = useMemo(
+    () => ({ api, gate: gate ?? (null as unknown as ParentGate) }),
+    [api, gate],
+  );
+  return <ParentContext.Provider value={value}>{children}</ParentContext.Provider>;
+}
+
 function useParentContext(): ParentContextValue {
   const value = useContext(ParentContext);
   if (!value) throw new Error('parent hooks must be used inside <ParentProvider>');

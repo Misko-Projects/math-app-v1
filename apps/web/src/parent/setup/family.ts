@@ -7,10 +7,10 @@
 
 import {
   type AvatarSpec,
+  type ChildId,
   type ChildProfile,
   type GameData,
   type Grade,
-  newId,
   withSettingDefaults,
 } from '@number-island/shared';
 import type { AppServices } from '@/app/boot/boot';
@@ -18,6 +18,8 @@ import type { ParentApi } from '../api';
 import type { ParentGate } from '../gate';
 
 export interface NewChild {
+  /** Chosen when the child is added: the profile id, and the wizard's key for the row. */
+  id: ChildId;
   name: string;
   birthYear: number;
   grade: Grade;
@@ -86,10 +88,14 @@ export interface CreateFamilyDeps {
   gate: ParentGate;
 }
 
-export async function createFamily(
+/**
+ * Step one of creating the family: `POST /setup` (once per server, 08 §2), which signs the parent
+ * in, then this device adopts the server's ids and starts syncing.
+ */
+export async function setupFamilyOnServer(
   { services, api, gate }: CreateFamilyDeps,
-  details: FamilyDetails & { deviceName: string; children: readonly NewChild[] },
-): Promise<ChildProfile[]> {
+  details: FamilyDetails & { deviceName: string },
+): Promise<void> {
   const ids = await api.setup({
     familyName: details.familyName.trim(),
     passphrase: details.passphrase,
@@ -98,15 +104,26 @@ export async function createFamily(
   });
   // `/setup` set the parent session cookie: the parent is signed in for the rest of the wizard.
   gate.unlock();
-  const device = await services.sync.adopt(ids);
+  await services.sync.adopt(ids);
+}
+
+/**
+ * Step two, local only and safe to repeat: writes each child's profile under its own id (an
+ * upsert, so a retry after a failed write saves each child exactly once) and the family settings.
+ */
+export async function saveChildren(
+  services: Pick<AppServices, 'store' | 'sync' | 'content'>,
+  children: readonly NewChild[],
+): Promise<ChildProfile[]> {
   const { store } = services;
-  const created: ChildProfile[] = [];
+  const device = await store.device();
   const avatar = startingAvatar(services.content.store.gameData);
-  for (const child of details.children) {
+  const saved: ChildProfile[] = [];
+  for (const child of children) {
     const now = store.now();
-    created.push(
+    saved.push(
       await store.putProfile({
-        id: newId(),
+        id: child.id,
         familyId: device.familyId,
         name: child.name.trim(),
         birthYear: child.birthYear,
@@ -124,7 +141,16 @@ export async function createFamily(
     value: withSettingDefaults({ kind: 'family', timezone: currentTimezone() }),
   });
   void services.sync.syncNow();
-  return created;
+  return saved;
+}
+
+/** Both steps (tests and callers that need no resume point). */
+export async function createFamily(
+  deps: CreateFamilyDeps,
+  details: FamilyDetails & { deviceName: string; children: readonly NewChild[] },
+): Promise<ChildProfile[]> {
+  await setupFamilyOnServer(deps, details);
+  return saveChildren(deps.services, details.children);
 }
 
 export interface AiChoices {
@@ -150,12 +176,49 @@ export async function saveAiChoices(
   void services.sync.syncNow();
 }
 
-/** Pairs this device with a code from a parent device, then pulls the family (08 §2, §4). */
+export class JoinRefusedError extends Error {
+  constructor() {
+    super('This code belongs to another family than the one this device holds.');
+    this.name = 'JoinRefusedError';
+  }
+}
+
+/**
+ * Pairs this device with a code from a parent device, then pulls the family (08 §2, §4).
+ *
+ * A device that was already part of a family (`pairedAt` set: signed out, or removed by a parent)
+ * may rejoin only that same family. Adopting another family's ids would re-home this device's
+ * profiles and unsynced events into it and upload them (D01 `adoptFamily`), so a code for another
+ * family is refused before anything moves; erase the device first (`eraseThisDevice`).
+ */
 export async function joinFamily(
   { services, api }: Omit<CreateFamilyDeps, 'gate'>,
   input: { code: string; deviceName: string },
 ): Promise<void> {
   const ids = await api.pairComplete({ code: input.code, deviceName: input.deviceName.trim() });
+  const device = await services.store.device();
+  if (device.pairedAt !== null && device.familyId.toLowerCase() !== ids.familyId.toLowerCase()) {
+    throw new JoinRefusedError();
+  }
   await services.sync.adopt(ids);
   await services.sync.syncNow();
+}
+
+/**
+ * Erases everything this device holds (the whole local database and the diagnostics log), then
+ * reloads into a brand-new first run. The family's data on the server and other devices stays.
+ */
+export async function eraseThisDevice(
+  services: Pick<AppServices, 'store' | 'dispose'>,
+  reload: () => void = () => window.location.reload(),
+): Promise<void> {
+  const { db } = services.store;
+  services.dispose();
+  await db.delete();
+  try {
+    globalThis.localStorage?.removeItem('number-island.diagnostics');
+  } catch {
+    // Storage blocked: nothing to clear.
+  }
+  reload();
 }

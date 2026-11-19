@@ -9,6 +9,7 @@ import { useAppServices } from '@/app/AppServices';
 import { useDeviceRecord, useSyncState } from '@/app/hooks';
 import { useProfiles } from '@/data/hooks';
 import { Button, Notice } from './kit';
+import { useParentApi, useParentGate } from './ParentContext';
 
 export function formatWhen(ts: number | null, now = Date.now()): string {
   if (ts === null) return 'never';
@@ -29,6 +30,8 @@ export function listNames(names: readonly string[]): string {
 
 export function ParentHome() {
   const { sync } = useAppServices();
+  const gate = useParentGate();
+  const api = useParentApi();
   const device = useDeviceRecord();
   const syncState = useSyncState();
   const profiles = useProfiles();
@@ -106,7 +109,11 @@ export function ParentHome() {
                     variant="danger"
                     onClick={async () => {
                       await sync.signOut();
-                      setConfirmSignOut(false);
+                      // A signed-out device has no parent area: close it and end the parent
+                      // session on the server too, then hand the device back.
+                      gate.lock();
+                      void api.logout().catch(() => {});
+                      navigate('/', { replace: true });
                     }}
                   >
                     Sign out

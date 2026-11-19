@@ -2,23 +2,25 @@
 // children, pair this device (`POST /setup`), show whether the server has AI keys, choose the AI
 // features (all off by default, 07 §8.6). Parent-facing: inline copy (02 §7).
 
-import type { ChildProfile, Grade, HealthResponse } from '@number-island/shared';
+import { type ChildProfile, type Grade, type HealthResponse, newId } from '@number-island/shared';
 import { useEffect, useRef, useState } from 'react';
 import { Link, Navigate, useNavigate } from 'react-router';
 import { useAppServices } from '@/app/AppServices';
+import { recordDiagnostic } from '@/app/diagnostics';
 import { useDeviceRecord } from '@/app/hooks';
-import { ApiError, describeApiError } from '../api';
+import { describeApiError } from '../api';
 import { Button, Field, Notice, OkIcon, TextInput, WarnIcon } from '../kit';
 import { useParentApi, useParentGate } from '../ParentContext';
 import { listNames } from '../ParentHome';
 import {
   type AiChoices,
   CHILD_NAME_MAX,
-  createFamily,
   type FamilyDetails,
   guessDeviceName,
   type NewChild,
   saveAiChoices,
+  saveChildren,
+  setupFamilyOnServer,
 } from './family';
 
 const STEPS = ['Family', 'Children', 'This device', 'AI helpers', 'Ready'] as const;
@@ -240,7 +242,8 @@ function ChildForm({
   thisYear,
 }: {
   initial: NewChild | null;
-  onSave: (c: NewChild) => void;
+  /** The child as entered; a new child gets its id from the caller. */
+  onSave: (c: Omit<NewChild, 'id'>) => void;
   onCancel?: () => void;
   thisYear: number;
 }) {
@@ -363,7 +366,7 @@ function ChildForm({
   );
 }
 
-function ChildrenStep({
+export function ChildrenStep({
   kids,
   setKids,
   onBack,
@@ -375,7 +378,8 @@ function ChildrenStep({
   onNext: () => void;
 }) {
   const thisYear = new Date().getFullYear();
-  const [editing, setEditing] = useState<number | 'new' | null>(kids.length === 0 ? 'new' : null);
+  // The row being edited, by the child's id (a removal never shifts it onto another child).
+  const [editing, setEditing] = useState<string | 'new' | null>(kids.length === 0 ? 'new' : null);
   const [error, setError] = useState<string | null>(null);
 
   return (
@@ -384,14 +388,14 @@ function ChildrenStep({
       <p className="text-lg">Add each child. You can change these later in the parent area.</p>
       {kids.length > 0 ? (
         <ul className="flex flex-col gap-3" aria-label="Children">
-          {kids.map((k, i) =>
-            editing === i ? (
-              <li key={`edit-${k.name}`}>
+          {kids.map((k) =>
+            editing === k.id ? (
+              <li key={k.id}>
                 <ChildForm
                   thisYear={thisYear}
                   initial={k}
                   onSave={(c) => {
-                    setKids(kids.map((x, j) => (j === i ? c : x)));
+                    setKids(kids.map((x) => (x.id === k.id ? { ...c, id: k.id } : x)));
                     setEditing(null);
                   }}
                   onCancel={() => setEditing(null)}
@@ -399,8 +403,7 @@ function ChildrenStep({
               </li>
             ) : (
               <li
-                // biome-ignore lint/suspicious/noArrayIndexKey: children have no id until created, and the rows hold no state
-                key={`${k.name}-${i}`}
+                key={k.id}
                 className="flex flex-wrap items-center gap-4 rounded-3xl bg-cloud px-5 py-4 ring-2 ring-sand-deep"
               >
                 <span
@@ -421,14 +424,14 @@ function ChildrenStep({
                 <span className="flex gap-2">
                   <Button
                     variant="secondary"
-                    onClick={() => setEditing(i)}
+                    onClick={() => setEditing(k.id)}
                     aria-label={`Edit ${k.name}`}
                   >
                     Edit
                   </Button>
                   <Button
                     variant="secondary"
-                    onClick={() => setKids(kids.filter((_, j) => j !== i))}
+                    onClick={() => setKids(kids.filter((x) => x.id !== k.id))}
                     aria-label={`Remove ${k.name}`}
                   >
                     Remove
@@ -444,7 +447,7 @@ function ChildrenStep({
           thisYear={thisYear}
           initial={null}
           onSave={(c) => {
-            setKids([...kids, c]);
+            setKids([...kids, { ...c, id: newId() }]);
             setEditing(null);
             setError(null);
           }}
@@ -487,9 +490,12 @@ function ChildrenStep({
 function DeviceStep({
   onBack,
   onCreate,
+  serverDone,
 }: {
   onBack: () => void;
   onCreate: (deviceName: string) => Promise<string | null>;
+  /** The family exists on the server already; only this device's part is left to retry. */
+  serverDone: boolean;
 }) {
   const [deviceName, setDeviceName] = useState(() => guessDeviceName());
   const [nameError, setNameError] = useState<string | null>(null);
@@ -516,6 +522,7 @@ function DeviceStep({
             aria-invalid={nameError ? true : undefined}
             maxLength={60}
             value={deviceName}
+            readOnly={serverDone}
             onChange={(e) => setDeviceName(e.target.value)}
           />
         )}
@@ -534,7 +541,7 @@ function DeviceStep({
         </Notice>
       ) : null}
       <div className="flex flex-wrap justify-between gap-3">
-        <Button variant="secondary" onClick={onBack} disabled={busy}>
+        <Button variant="secondary" onClick={onBack} disabled={busy || serverDone}>
           Back
         </Button>
         <Button
@@ -554,7 +561,7 @@ function DeviceStep({
             }
           }}
         >
-          {busy ? 'Creating your island…' : 'Create our island'}
+          {busy ? 'Creating your island…' : serverDone ? 'Try again' : 'Create our island'}
         </Button>
       </div>
     </div>
@@ -593,7 +600,7 @@ const AI_FEATURES: {
   },
 ];
 
-function AiStep({ onDone }: { onDone: (choices: AiChoices) => Promise<void> }) {
+export function AiStep({ onDone }: { onDone: (choices: AiChoices) => Promise<void> }) {
   const api = useParentApi();
   const [health, setHealth] = useState<HealthResponse | null | 'unknown'>(null);
   const [choices, setChoices] = useState<AiChoices>({
@@ -606,7 +613,15 @@ function AiStep({ onDone }: { onDone: (choices: AiChoices) => Promise<void> }) {
   useEffect(() => {
     const ctl = new AbortController();
     api.health(ctl.signal).then(
-      (h) => setHealth(h),
+      (h) => {
+        setHealth(h);
+        // A choice made while the keys were being checked does not survive a missing key.
+        setChoices((c) => ({
+          feedback: c.feedback && h.ai.feedback,
+          parentSummary: c.parentSummary && h.ai.summary,
+          avatarPhoto: c.avatarPhoto && h.ai.vision,
+        }));
+      },
       () => setHealth('unknown'),
     );
     return () => ctl.abort();
@@ -681,7 +696,16 @@ function AiStep({ onDone }: { onDone: (choices: AiChoices) => Promise<void> }) {
           disabled={busy}
           onClick={async () => {
             setBusy(true);
-            await onDone(choices);
+            // Save exactly what the wizard shows: a feature whose key is missing is Off.
+            const keyFor = (k: keyof AiChoices) =>
+              health && health !== 'unknown'
+                ? health.ai[AI_FEATURES.find((f) => f.key === k)?.provider ?? 'feedback']
+                : true;
+            await onDone({
+              feedback: choices.feedback && keyFor('feedback'),
+              parentSummary: choices.parentSummary && keyFor('parentSummary'),
+              avatarPhoto: choices.avatarPhoto && keyFor('avatarPhoto'),
+            });
           }}
         >
           {busy ? 'Saving…' : 'Save and finish'}
@@ -740,6 +764,7 @@ export function SetupWizard() {
   const [family, setFamily] = useState<FamilyDetails>({ familyName: '', passphrase: '', pin: '' });
   const [kids, setKids] = useState<NewChild[]>([]);
   const [created, setCreated] = useState<ChildProfile[]>([]);
+  const [serverDone, setServerDone] = useState(false);
   const headingRef = useRef<HTMLElement>(null);
 
   useEffect(() => {
@@ -783,20 +808,26 @@ export function SetupWizard() {
           ) : step === 2 ? (
             <DeviceStep
               onBack={() => go(1)}
+              serverDone={serverDone}
               onCreate={async (deviceName) => {
-                try {
-                  setCreated(
-                    await createFamily(
-                      { services, api, gate },
-                      { ...family, deviceName, children: kids },
-                    ),
-                  );
-                  go(3);
-                  return null;
-                } catch (e) {
-                  if (e instanceof ApiError || e instanceof Error) return describeApiError(e);
-                  return describeApiError(null);
+                // `POST /setup` succeeds once per server; a retry after a local failure only
+                // repeats this device's part (saveChildren is idempotent by child id).
+                if (!serverDone) {
+                  try {
+                    await setupFamilyOnServer({ services, api, gate }, { ...family, deviceName });
+                    setServerDone(true);
+                  } catch (e) {
+                    return describeApiError(e);
+                  }
                 }
+                try {
+                  setCreated(await saveChildren(services, kids));
+                } catch (e) {
+                  recordDiagnostic('setup', e);
+                  return 'Your island was created, but this device couldn’t save the children. Try again.';
+                }
+                go(3);
+                return null;
               }}
             />
           ) : step === 3 ? (

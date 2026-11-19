@@ -7,7 +7,7 @@
     "dev": "node scripts/db-migrate.mjs && wrangler dev --port 8787 --ip 127.0.0.1",
     "preview": "node scripts/db-migrate.mjs --env preview && wrangler dev --port 8787 --ip 127.0.0.1 --env preview",
     "preview:e2e": "node scripts/db-e2e.mjs && wrangler dev --port 8787 --ip 127.0.0.1 --env preview --persist-to .wrangler/e2e",
-    "db:migrate":"node scripts/db-migrate.mjs",
+    "db:migrate": "node scripts/db-migrate.mjs",
     "db:reset": "node scripts/db-reset.mjs",
     "db:seed": "node scripts/db-seed.ts",
     "db:generate": "drizzle-kit generate",

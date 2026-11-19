@@ -52,6 +52,9 @@ export default defineConfig({
     {
       name: 'golden-setup',
       testMatch: /journey-1-setup\.spec\.ts$/,
+      // `POST /setup` succeeds once per database, which is fresh only once per run: a retry
+      // would fail on setup_closed, so a failure here is reported as is.
+      retries: 0,
       use: androidTablet,
     },
     {

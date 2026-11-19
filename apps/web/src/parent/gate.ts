@@ -25,10 +25,13 @@ export type PinResult =
 
 export interface ParentGate {
   isUnlocked(): boolean;
-  /** Opens the gate (a verified PIN, or `/setup`, which signs the parent in). */
-  unlock(): void;
+  /**
+   * Opens the gate (a verified PIN, or `/setup`, which signs the parent in). `expiresAt` is the
+   * server parent session's end: the gate closes then at the latest.
+   */
+  unlock(expiresAt?: number): void;
   lock(): void;
-  /** Parent activity: restarts the 10-minute idle timer while unlocked. */
+  /** Parent activity: restarts the 10-minute idle timer, never past `expiresAt`. */
   touch(): void;
   verifyPin(pin: string): Promise<PinResult>;
   subscribe(listener: () => void): () => void;
@@ -40,26 +43,36 @@ export interface ParentGateOptions {
   api: ParentApi;
   setTimer?: (fn: () => void, ms: number) => unknown;
   clearTimer?: (handle: unknown) => void;
+  now?: () => number;
 }
 
 export function createParentGate(opts: ParentGateOptions): ParentGate {
+  const now = opts.now ?? (() => Date.now());
   const setTimer = opts.setTimer ?? ((fn, ms) => setTimeout(fn, ms));
   const clearTimer = opts.clearTimer ?? ((h) => clearTimeout(h as ReturnType<typeof setTimeout>));
   const listeners = new Set<() => void>();
   let unlocked = false;
   let timer: unknown = null;
 
+  /** The server parent session's end (ms epoch); activity never keeps the gate open past it. */
+  let deadline: number | null = null;
+
   const emit = () => {
     for (const l of listeners) l();
   };
   const arm = () => {
     if (timer !== null) clearTimer(timer);
-    timer = setTimer(() => {
-      timer = null;
-      lock();
-    }, PARENT_GATE_IDLE_MS);
+    const left = deadline === null ? PARENT_GATE_IDLE_MS : Math.max(0, deadline - now());
+    timer = setTimer(
+      () => {
+        timer = null;
+        lock();
+      },
+      Math.min(PARENT_GATE_IDLE_MS, left),
+    );
   };
-  function unlock() {
+  function unlock(expiresAt?: number) {
+    deadline = expiresAt ?? null;
     arm();
     if (!unlocked) {
       unlocked = true;
@@ -69,6 +82,7 @@ export function createParentGate(opts: ParentGateOptions): ParentGate {
   function lock() {
     if (timer !== null) clearTimer(timer);
     timer = null;
+    deadline = null;
     if (unlocked) {
       unlocked = false;
       emit();
@@ -85,8 +99,9 @@ export function createParentGate(opts: ParentGateOptions): ParentGate {
     async verifyPin(pin) {
       const device = await opts.store.device();
       if (!device.deviceToken) return { ok: false, reason: 'not_paired' };
+      let session: { expiresAt: number };
       try {
-        await opts.api.pin(device.deviceToken, pin);
+        session = await opts.api.pin(device.deviceToken, pin);
       } catch (e) {
         if (e instanceof ApiError) {
           if (e.code === 'invalid_pin') return { ok: false, reason: 'wrong' };
@@ -99,7 +114,7 @@ export function createParentGate(opts: ParentGateOptions): ParentGate {
         }
         return { ok: false, reason: 'unavailable' };
       }
-      unlock();
+      unlock(session.expiresAt);
       return { ok: true };
     },
     subscribe(listener) {

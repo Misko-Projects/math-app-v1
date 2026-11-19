@@ -4,9 +4,9 @@
 import type { PairStartResponse } from '@number-island/shared';
 import { Panel } from '@number-island/ui';
 import { useCallback, useEffect, useState } from 'react';
-import { describeApiError } from './api';
+import { ApiError, describeApiError } from './api';
 import { Button, Notice } from './kit';
-import { useParentApi } from './ParentContext';
+import { useParentApi, useParentGate } from './ParentContext';
 
 function useNow(intervalMs = 1000): number {
   const [now, setNow] = useState(() => Date.now());
@@ -19,6 +19,7 @@ function useNow(intervalMs = 1000): number {
 
 export function PairDevicePage() {
   const api = useParentApi();
+  const gate = useParentGate();
   const [code, setCode] = useState<PairStartResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -31,11 +32,20 @@ export function PairDevicePage() {
       setCode(await api.pairStart());
     } catch (e) {
       setCode(null);
+      // The server's parent session ended (it lasts 10 minutes from the PIN, 08 §2): close the
+      // area so the gate asks again; this page then makes its code.
+      if (
+        e instanceof ApiError &&
+        (e.code === 'unauthorized' || e.code === 'invalid_credentials')
+      ) {
+        gate.lock();
+        return;
+      }
       setError(describeApiError(e));
     } finally {
       setBusy(false);
     }
-  }, [api]);
+  }, [api, gate]);
 
   useEffect(() => {
     void make();

@@ -1,7 +1,7 @@
 // Diagnostics (08 §8): recent local errors, with a "copy" button. Nothing is sent anywhere.
 
 import { Panel } from '@number-island/ui';
-import { useState, useSyncExternalStore } from 'react';
+import { useRef, useState, useSyncExternalStore } from 'react';
 import { useAppServices } from '@/app/AppServices';
 import {
   clearDiagnostics,
@@ -34,6 +34,8 @@ export function DiagnosticsPage() {
   const online = useOnline();
   const entries = useSyncExternalStore(subscribeDiagnostics, snapshot, snapshot);
   const [copied, setCopied] = useState<string | null>(null);
+  const [showReport, setShowReport] = useState(false);
+  const reportRef = useRef<HTMLTextAreaElement>(null);
 
   const info: Record<string, string> = {
     'Content version': content.contentVersion,
@@ -44,13 +46,33 @@ export function DiagnosticsPage() {
     Browser: globalThis.navigator?.userAgent ?? 'unknown',
   };
 
+  const report = diagnosticsReport(entries, info);
   const copy = async () => {
+    const done = 'Copied. Paste it into a GitHub issue or a message.';
     try {
-      await navigator.clipboard.writeText(diagnosticsReport(entries, info));
-      setCopied('Copied. Paste it into a GitHub issue or a message.');
+      // Needs a secure context (HTTPS or localhost); `pnpm dev:lan` serves plain HTTP.
+      await navigator.clipboard.writeText(report);
+      setCopied(done);
+      return;
     } catch {
-      setCopied('Copying isn’t allowed here. Select the text below and copy it by hand.');
+      // Fall back to selecting the report text below.
     }
+    setShowReport(true);
+    await new Promise((r) => requestAnimationFrame(r));
+    const area = reportRef.current;
+    area?.focus();
+    area?.select();
+    let ok = false;
+    try {
+      ok = document.execCommand('copy');
+    } catch {
+      ok = false;
+    }
+    setCopied(
+      ok
+        ? done
+        : 'This browser didn’t allow copying. The report below is selected: copy it with your device’s Copy command.',
+    );
   };
 
   return (
@@ -82,6 +104,21 @@ export function DiagnosticsPage() {
             {copied}
           </p>
         ) : null}
+        <details
+          className="mt-3"
+          open={showReport}
+          onToggle={(e) => setShowReport(e.currentTarget.open)}
+        >
+          <summary className="cursor-pointer font-bold">Report text</summary>
+          <textarea
+            ref={reportRef}
+            readOnly
+            aria-label="Diagnostics report"
+            value={report}
+            rows={10}
+            className="mt-2 w-full rounded-2xl border-2 border-sand-deep bg-cloud p-3 font-mono text-sm text-ink"
+          />
+        </details>
         {entries.length === 0 ? (
           <p className="mt-4 text-lg">No errors recorded on this device. That’s good news.</p>
         ) : (

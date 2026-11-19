@@ -1,10 +1,30 @@
 import { childProfileSchema } from '@number-island/shared';
+import Dexie from 'dexie';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { AppServices } from '@/app/boot/boot';
 import { SERVER_DEVICE, SERVER_FAMILY, TOKEN, testDevice } from '@/app/boot/boot.test-support';
 import { ApiError, type ParentApi } from '../api';
 import { createParentGate } from '../gate';
-import { createFamily, guessDeviceName, joinFamily, saveAiChoices, startingAvatar } from './family';
+import {
+  createFamily,
+  eraseThisDevice,
+  guessDeviceName,
+  JoinRefusedError,
+  joinFamily,
+  saveAiChoices,
+  saveChildren,
+  setupFamilyOnServer,
+  startingAvatar,
+} from './family';
+
+const KID_A = '019a0000-0000-7000-8000-0000000ac0a1';
+const KID_B = '019a0000-0000-7000-8000-0000000ac0b2';
+const details = {
+  familyName: 'Us',
+  passphrase: 'correct horse battery',
+  pin: '2468',
+  deviceName: 'Tablet',
+};
 
 const open: AppServices[] = [];
 afterEach(() => {
@@ -50,8 +70,8 @@ describe('createFamily (Setup Wizard)', () => {
         pin: '2468',
         deviceName: ' Kitchen tablet ',
         children: [
-          { name: ' Mia ', birthYear: 2020, grade: 'K', advanced: false },
-          { name: 'Leo', birthYear: 2018, grade: '2', advanced: true },
+          { id: KID_A, name: ' Mia ', birthYear: 2020, grade: 'K', advanced: false },
+          { id: KID_B, name: 'Leo', birthYear: 2018, grade: '2', advanced: true },
         ],
       },
     );
@@ -110,7 +130,7 @@ describe('createFamily (Setup Wizard)', () => {
           passphrase: 'correct horse battery',
           pin: '2468',
           deviceName: 'Tablet',
-          children: [{ name: 'Mia', birthYear: 2020, grade: 'K', advanced: false }],
+          children: [{ id: KID_A, name: 'Mia', birthYear: 2020, grade: 'K', advanced: false }],
         },
       ),
     ).rejects.toMatchObject({ code: 'setup_closed' });
@@ -140,6 +160,92 @@ describe('joinFamily (pairing by code)', () => {
     expect((await app.store.device()).familyId).toBe(SERVER_FAMILY);
     expect(app.sync.isRunning()).toBe(true);
     expect(device.net.syncRequests.at(-1)?.authorization).toBe(`Bearer ${TOKEN}`);
+  });
+
+  it('lets a signed-out device rejoin its own family, keeping its data', async () => {
+    const { app } = await boot();
+    const api = fakeApi();
+    await createFamily(
+      { services: app, api, gate: createParentGate({ store: app.store, api }) },
+      {
+        ...details,
+        children: [{ id: KID_A, name: 'Mia', birthYear: 2020, grade: 'K', advanced: false }],
+      },
+    );
+    await app.sync.signOut();
+    await joinFamily({ services: app, api }, { code: '123456', deviceName: 'Tablet' });
+    expect((await app.store.device()).deviceToken).toBe(TOKEN);
+    expect((await app.store.allProfiles()).map((p) => p.id)).toEqual([KID_A]);
+  });
+
+  it('refuses a code for another family on a device that holds a family, moving nothing', async () => {
+    const { app, device } = await boot();
+    const api = fakeApi();
+    await createFamily(
+      { services: app, api, gate: createParentGate({ store: app.store, api }) },
+      {
+        ...details,
+        children: [{ id: KID_A, name: 'Mia', birthYear: 2020, grade: 'K', advanced: false }],
+      },
+    );
+    await app.sync.signOut();
+    const sentBefore = device.net.syncRequests.length;
+    const other = fakeApi({
+      pairComplete: vi.fn(async () => ({
+        familyId: '019a0000-0000-7000-8000-0000000bf002',
+        deviceId: '019a0000-0000-7000-8000-0000000bd002',
+        deviceToken: 'c'.repeat(43),
+      })),
+    });
+    await expect(
+      joinFamily({ services: app, api: other }, { code: '654321', deviceName: 'Tablet' }),
+    ).rejects.toBeInstanceOf(JoinRefusedError);
+    const record = await app.store.device();
+    expect(record.familyId).toBe(SERVER_FAMILY);
+    expect(record.deviceToken).toBeUndefined();
+    expect(app.sync.isRunning()).toBe(false);
+    expect((await app.store.allProfiles()).map((p) => p.familyId)).toEqual([SERVER_FAMILY]);
+    expect(device.net.syncRequests.length).toBe(sentBefore);
+  });
+});
+
+describe('setup, step by step', () => {
+  it('saves the children again after a failed local write, each exactly once, without a second /setup', async () => {
+    const { app } = await boot();
+    const api = fakeApi();
+    const gate = createParentGate({ store: app.store, api });
+    await setupFamilyOnServer({ services: app, api, gate }, { ...details });
+    const kids = [
+      { id: KID_A, name: 'Mia', birthYear: 2020, grade: 'K' as const, advanced: false },
+      { id: KID_B, name: 'Leo', birthYear: 2018, grade: '2' as const, advanced: true },
+    ];
+    const put = app.store.putProfile.bind(app.store);
+    let calls = 0;
+    app.store.putProfile = async (p) => {
+      calls += 1;
+      if (calls === 2) throw new Error('QuotaExceededError');
+      return put(p);
+    };
+    await expect(saveChildren(app, kids)).rejects.toThrow('QuotaExceededError');
+    expect((await app.store.allProfiles()).map((p) => p.id)).toEqual([KID_A]);
+    await saveChildren(app, kids);
+    expect((await app.store.allProfiles()).map((p) => p.id).sort()).toEqual([KID_A, KID_B].sort());
+    expect(api.setup).toHaveBeenCalledTimes(1);
+    gate.dispose();
+  });
+
+  it('erases this device: the local database is gone and the app reloads', async () => {
+    const { app, device } = await boot();
+    const restore = device.enableLiveQueries(); // points Dexie's statics at this fake IndexedDB
+    try {
+      expect(await Dexie.exists(app.store.db.name)).toBe(true);
+      const reload = vi.fn();
+      await eraseThisDevice(app, reload);
+      expect(reload).toHaveBeenCalledTimes(1);
+      expect(await Dexie.exists(app.store.db.name)).toBe(false);
+    } finally {
+      restore();
+    }
   });
 });
 

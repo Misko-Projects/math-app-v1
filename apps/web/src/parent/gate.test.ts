@@ -124,4 +124,25 @@ describe('parent gate', () => {
     expect(timers.pending()).toBeNull();
     gate.dispose();
   });
+
+  it('never stays open past the server’s parent session, however active the parent is', async () => {
+    const app = await setup();
+    const timers = manualTimers();
+    let t = 1_000_000;
+    const gate = createParentGate({
+      store: app.store,
+      // The server's PIN session lasts 10 minutes from the PIN (08 §2).
+      api: fakeApi(async () => ({ expiresAt: t + PARENT_GATE_IDLE_MS })),
+      setTimer: timers.setTimer,
+      clearTimer: timers.clearTimer,
+      now: () => t,
+    });
+    expect(await gate.verifyPin('2468')).toEqual({ ok: true });
+    t += 9 * 60_000; // nine busy minutes later
+    gate.touch();
+    expect(timers.pending()?.ms).toBe(60_000); // only the session's last minute is left
+    timers.fire();
+    expect(gate.isUnlocked()).toBe(false);
+    gate.dispose();
+  });
 });

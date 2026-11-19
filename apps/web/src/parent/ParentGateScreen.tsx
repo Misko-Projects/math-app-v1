@@ -53,6 +53,8 @@ export function ParentGateScreen() {
   const [pin, setPin] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  /** The server no longer knows this device: the way back is pairing again. */
+  const [removed, setRemoved] = useState(false);
   const padRef = useRef<HTMLFieldSetElement>(null);
 
   const submit = useCallback(
@@ -69,6 +71,7 @@ export function ParentGateScreen() {
       if (!result.ok) {
         setPin('');
         setError(failureText(result));
+        setRemoved(result.reason === 'not_paired');
       }
       // On success the gate unlocks and the parent layout renders the area instead of this screen.
     },
@@ -153,6 +156,7 @@ export function ParentGateScreen() {
               )}
             </div>
             {error ? <Notice tone="error">{error}</Notice> : null}
+            {removed ? <Button onClick={() => navigate('/join')}>Join with a code</Button> : null}
             <fieldset
               ref={padRef}
               className="m-0 grid grid-cols-3 gap-3 border-0 p-0"
