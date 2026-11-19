@@ -1787,7 +1787,7 @@ describe('V24 and contentVersion (03 §9.1)', () => {
       // among them), 41 templates and 5 misconceptions; fractions, sharing, time, data, patterns
       // and puzzles (K01) added 18 skills, 63 templates and six misconceptions.
       skills: 115,
-      templates: 431,
+      templates: 430,
       misconceptions: 25,
       narrationKeys: Object.keys(r.content?.narration ?? {}).length,
     });

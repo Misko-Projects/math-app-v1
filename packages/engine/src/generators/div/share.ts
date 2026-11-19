@@ -1,10 +1,10 @@
 // div.share (03 §5.6): share `items` fairly among `recipients` by dealing one at a time.
 // Derived: `each` = items ÷ recipients (rounded down) and `rest` = what is left over.
-// Formats (K01): equal-share, make-set, number-pad. `ask`:
+// Formats (K01): equal-share, number-pad. `ask`:
 // - `each` (MUL.12): deal everything out and say how many each one gets. On equal-share the answer
-//   is `share.fair` (with `leftover: true` the rest goes to the seagull); on make-set the child puts
-//   one fair share in the basket (`set.count` each); on number-pad a picture of the pile is shown
-//   and the child types each.
+//   is `share.fair` (with `leftover: true` the rest goes to the seagull); on number-pad a picture of
+//   the pile is shown and the child types each. No make-set: one basket checks only its count, so
+//   it never needs the dealing the skill teaches (PR #84 review).
 // - `fair-or-not` (FRA.07, equal-share): a pre-dealt share, fair when `fair`, otherwise `shift`
 //   items moved from one plate to another; the child answers `yes` | `no`.
 // - `fix` (FRA.07, equal-share): two plates pre-dealt unfairly (`shift` moved); the child moves
@@ -28,7 +28,7 @@ import type { BuildContext, GeneratorDef, GeneratorOutput } from '../types';
 
 const ASKS = ['each', 'fair-or-not', 'fix', 'moves'] as const;
 /** Things to share; each has noun clips (contexts.yaml). */
-export const SHARE_SPRITES = ['shell', 'fish', 'crab', 'apple'] as const;
+export const SHARE_SPRITES = ['shell', 'fish', 'crab', 'pebble'] as const;
 
 const say = (
   key: string,
@@ -61,7 +61,7 @@ export function predealtShares(p: ParamValues, big: number): number[] {
 
 export const divShare: GeneratorDef = {
   id: 'div.share',
-  formats: ['equal-share', 'make-set', 'number-pad'],
+  formats: ['equal-share', 'number-pad'],
   params: {
     items: { type: 'int', default: { kind: 'int', min: 4, max: 12 }, doc: 'things to share' },
     recipients: {
@@ -121,7 +121,6 @@ export const divShare: GeneratorDef = {
     'gen.div.share.take-back',
     'gen.div.share.give',
     'gen.div.share.in-turn',
-    'gen.div.share.one-share',
     'gen.div.share.make-same',
     'gen.div.share.moves',
   ],
@@ -146,8 +145,6 @@ export const divShare: GeneratorDef = {
     switch (t.format) {
       case 'equal-share':
         return ask === 'each' || ask === 'fair-or-not' || ask === 'fix';
-      case 'make-set':
-        return ask === 'each' && items <= 20;
       case 'number-pad':
         return (ask === 'each' && rest === 0) || ask === 'moves';
       default:
@@ -205,22 +202,6 @@ export const divShare: GeneratorDef = {
                 target: { items, recipients, allowLeftover: params.leftover === true, value: each },
               },
       };
-    } else if (t.format === 'make-set') {
-      p = {
-        params,
-        vars,
-        math,
-        widget: {
-          format: 'make-set',
-          target: each,
-          mode: 'make',
-          source: { sprite, supply: items },
-          container: 'basket',
-          capacity: Math.max(10, items),
-          showRunningCount: false,
-        },
-        answer: { kind: 'state', checker: 'set.count', target: { count: each } },
-      };
     } else if (t.format === 'number-pad') {
       const stimulus: StimulusSpec =
         ask === 'moves'
@@ -252,8 +233,6 @@ export const divShare: GeneratorDef = {
   exampleCorrect(out): ResponseValue {
     const a = out.answer;
     if (a.kind !== 'state') return correctFromAnswer(a);
-    if (a.checker === 'set.count')
-      return { kind: 'state', value: { count: a.target.count, removed: 0 } };
     const recipients = asNum(out.params.recipients, 2);
     const each = asNum(out.params.each);
     return {
@@ -306,11 +285,6 @@ export const divShare: GeneratorDef = {
         steps.push(say('gen.div.share.each', { each }, { op: 'answer', args: { value: each } }));
         return steps;
       }
-      case 'make-set':
-        return [
-          say('gen.div.share.in-turn', {}),
-          say('gen.div.share.one-share', { each }, { op: 'drag', args: { count: each } }),
-        ];
       case 'number-pad':
         return ask === 'moves'
           ? [

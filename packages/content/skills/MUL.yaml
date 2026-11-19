@@ -9,4 +9,5 @@ skills:
     standards: { ccss: [], supports: [2.G.A.3] }
     prerequisites: [CNT.06]
     gateway: false
-    representations: [objects, groups]
+    # No groups: the one-basket make-set template was dropped in the PR #84 review.
+    representations: [objects]

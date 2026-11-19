@@ -170,6 +170,8 @@ export const countSequence: GeneratorDef = {
     zero: { weight: 0.3, doc: 'a term after start is 0 (counting back to zero, CNT.13)' },
   },
   narration: [
+    // its descending order retry line (items/check.ts retryFeedback)
+    'fb.order.retry-desc',
     'gen.count.sequence.say-from',
     'gen.count.sequence.say-back',
     'gen.count.sequence.next-is',

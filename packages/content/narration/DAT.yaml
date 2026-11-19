@@ -33,7 +33,7 @@ tp.DAT.09.t3.prompt:
 tp.DAT.09.t4.prompt:
   text: "Make tally marks to show each number in the table."
 tp.DAT.10.t1.prompt:
-  text: "Put each one in its group. Then count each group."
+  text: "Put each one in its group. Make one group for each kind."
 tp.DAT.10.t2.prompt:
   text: "Look at the picture graph. How many {kind|noun:many} are there?"
 tp.DAT.10.t3.prompt:

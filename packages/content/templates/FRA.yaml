@@ -38,7 +38,8 @@ templates:
       hints: [h.frac.same-size, h.frac.cut-middle, h.frac.fill-one]
 
   # Halves, fourths and a whole cut into parts that are not the same size; each picture is the
-  # answer of some item (03 §5.5 fraction-pick, engine README).
+  # answer of some item (03 §5.5 fraction-pick, engine README). The unequal picture's part count
+  # is its own param, so the three pictures are the same whatever the key (PR #84 review).
   - id: FRA.01.t3
     skillId: FRA.01
     format: fraction-pick
@@ -50,7 +51,8 @@ templates:
       shape: { choice: [circle, rect] }
       den: { choice: [2, 4] }
       ask: { choice: [name, unequal], weights: [2, 1] }
-    difficulty: { base: -0.4 }
+      unequalParts: { choice: [2, 4] }
+    difficulty: { base: -0.6 }
     narration:
       prompt: tp.FRA.01.t3.prompt
       hints: [h.frac.look-each, h.frac.same-size]

@@ -75,6 +75,8 @@ export const timeSequence: GeneratorDef = {
     'gen.time.sequence.sort-look',
     'gen.time.sequence.sort-morning',
     'gen.time.sequence.sort-night',
+    // its order retry line (items/check.ts retryFeedback)
+    'fb.order.retry-day',
   ],
   sample: (spec, rng) => sampleAll(spec, rng),
   derive: () => ({}),
@@ -121,7 +123,8 @@ export const timeSequence: GeneratorDef = {
           format: 'shape-sort',
           cards: shown.map((c, i) => ({
             id: `c${i}`,
-            card: { kind: 'event', event: c.event, isPm: c.part === 'night' },
+            // No isPm: the card would carry its own bin (PR #84 review); the event names the picture.
+            card: { kind: 'event', event: c.event },
           })),
           bins,
           mode: 'sort',
