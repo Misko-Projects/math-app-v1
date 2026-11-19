@@ -45,7 +45,7 @@
   display: inline-flex;
   align-items: center;
   gap: 10px;
-  height: 40px;
+  height: 36px;
   margin: 0;
   color: var(--color-ink);
 }
@@ -90,7 +90,7 @@
   font-family: var(--font-body);
   font-size: 24px;
   font-weight: 700;
-  line-height: 40px;
+  line-height: 36px;
 }
 [data-age-mode="k"] .ni-egw__taskword,
 [data-age-mode="k"] .ni-egw__note {
@@ -160,15 +160,18 @@
   border-radius: 30%;
   -webkit-tap-highlight-color: transparent;
 }
-.ni-egw__sprite > .ni-sprite {
+.ni-egw__sprite > .ni-sprite,
+.ni-egw__grab-sprite > .ni-sprite {
   position: relative;
   display: block;
   pointer-events: none;
+  /* kit ITEM_DRAW_SCALE: the picture uses the margin its box leaves; neighbours never touch. */
+  transform: scale(1.15);
 }
 .ni-egw__picture .ni-egw__sprite {
   pointer-events: auto;
 }
-/* A container's last sprite is picked up by touching the container: the hit area is its box. */
+/* A container's last sprite is picked up through a full target centred on it (hitStyle). */
 .ni-egw__sprite.ni-draggable {
   pointer-events: auto;
   touch-action: none;
@@ -246,7 +249,7 @@
   flex: none;
   align-items: center;
   justify-content: center;
-  gap: 16px;
+  gap: 12px;
   padding: 12px;
   border-radius: var(--radius-card);
   background: var(--color-horizon);
@@ -338,8 +341,7 @@
 .ni-egw .ni-invite {
   outline-offset: -5px;
 }
-.ni-egw__hit.ni-invite {
-  position: absolute;
+.ni-egw__group.ni-invite {
   animation: none;
 }
 .ni-egw__handstrip {

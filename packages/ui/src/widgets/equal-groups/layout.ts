@@ -14,9 +14,9 @@ import { balancedRows, fivesGrid, type Grid, MIN_ITEM_PX, zoneGrid } from '../ki
 export { fivesCell, MIN_ITEM_PX, zoneCell } from '../kit/fives';
 
 /** Gap between containers (≥ the 12 px target gap). */
-export const GROUP_GAP = 16;
+export const GROUP_GAP = 12;
 /** Gap between the supply and the containers, and inside the supply. */
-export const ROW_GAP = 16;
+export const ROW_GAP = 12;
 /** Padding inside the supply panel. */
 export const CARD_PAD = 12;
 
@@ -26,11 +26,11 @@ export interface ChromeEdges {
   top: number;
   bottom: number;
 }
-/** The rim at full size (sprites of 36 px and up). */
+/** The rim at full size (sprites of 48 px and up). */
 export const CHROME: ChromeEdges = { x: 26, top: 30, bottom: 28 };
 /** The rim for sprites of size `s`: thinner round small sprites, never under 55 %. */
 export function chromeAt(s: number): ChromeEdges {
-  const k = Math.min(1, Math.max(0.55, s / 36));
+  const k = Math.min(1, Math.max(0.55, s / 48));
   return {
     x: Math.round(CHROME.x * k),
     top: Math.round(CHROME.top * k),
@@ -55,8 +55,8 @@ export interface Parts {
 
 export function partsFor(ageMode: 'k' | 'g1-up'): Parts {
   return ageMode === 'k'
-    ? { target: 80, spot: 96, add: 94, top: 44 }
-    : { target: 64, spot: 80, add: 78, top: 44 };
+    ? { target: 80, spot: 96, add: 94, top: 40 }
+    : { target: 64, spot: 80, add: 78, top: 40 };
 }
 
 export interface LayoutInput {

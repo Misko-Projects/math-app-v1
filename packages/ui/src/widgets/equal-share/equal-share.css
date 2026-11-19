@@ -154,7 +154,7 @@
 .ni-esw__picture .ni-esw__bird {
   pointer-events: auto;
 }
-/* A recipient's last item is picked up by touching its mat or plate: the hit area is the zone. */
+/* A recipient's last item is picked up through a full target centred on it (layout: hitStyle). */
 .ni-esw__item.ni-draggable {
   pointer-events: auto;
   touch-action: none;
@@ -163,10 +163,13 @@
   position: absolute;
   border-radius: var(--radius-pebble);
 }
-.ni-esw__item > .ni-sprite {
+.ni-esw__item > .ni-sprite,
+.ni-esw__take-sprite > .ni-sprite {
   position: relative;
   display: block;
   pointer-events: none;
+  /* kit ITEM_DRAW_SCALE: the picture uses the margin its box leaves; neighbours never touch. */
+  transform: scale(1.15);
 }
 [data-flash="true"].ni-esw__item,
 .ni-esw__rec[data-flash="true"] > .ni-esw__zone,
@@ -184,7 +187,7 @@
   box-sizing: border-box;
   display: flex;
   flex: none;
-  gap: 16px;
+  gap: 12px;
   padding: 12px;
   border-radius: var(--radius-card);
 }
@@ -213,7 +216,7 @@
   /* The take-one spot sits at the bottom: the demonstration hand hangs under it, in its strip. */
   flex-direction: column-reverse;
   align-items: center;
-  gap: 16px;
+  gap: 12px;
   pointer-events: none;
 }
 .ni-esw__controls > * {
@@ -368,8 +371,7 @@ button.ni-esw__gull-items {
 .ni-esw .ni-invite {
   outline-offset: -5px;
 }
-.ni-esw__hit.ni-invite {
-  position: absolute;
+.ni-esw__zone.ni-invite {
   animation: none;
 }
 .ni-esw__handstrip {

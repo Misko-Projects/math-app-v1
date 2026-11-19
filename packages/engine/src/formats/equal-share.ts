@@ -49,12 +49,17 @@ const sum = (xs: readonly number[]) => xs.reduce((a, b) => a + b, 0);
 
 /**
  * The supported domain (what the widget draws in the smallest widget area, 906 × 373): at most
- * `SHARE_ITEMS_MAX` things shared among 2 … `SHARE_RECIPIENTS_MAX`, and at most `SHARE_ZONE_MAX`
- * on one recipient.
+ * `SHARE_ITEMS_MAX` things shared among 2 … `SHARE_RECIPIENTS_MAX`, and at most `shareZoneMax`
+ * on one recipient (15 of two, 10 of three or four).
  */
 export const SHARE_ITEMS_MAX = 24;
 export const SHARE_RECIPIENTS_MAX = 4;
 export const SHARE_ZONE_MAX = 15;
+/** Beside three or four recipients one of them holds this many at most. */
+export const SHARE_ZONE_MAX_MANY = 10;
+/** The most one of `recipients` recipients can hold (pre-dealt, or while dealing). */
+export const shareZoneMax = (recipients: number): number =>
+  recipients <= 2 ? SHARE_ZONE_MAX : SHARE_ZONE_MAX_MANY;
 
 /**
  * How many things one recipient can hold: the next whole five above a fair share, never fewer
@@ -128,11 +133,11 @@ const configSchema = equalShareConfigSchema.superRefine((c, ctx) => {
     });
   }
   c.predealt?.forEach((n, i) => {
-    if (n > SHARE_ZONE_MAX) {
+    if (n > shareZoneMax(c.recipients)) {
       ctx.addIssue({
         code: 'custom',
         path: ['predealt', i],
-        message: `one recipient holds at most ${SHARE_ZONE_MAX}`,
+        message: `one of ${c.recipients} recipients holds at most ${shareZoneMax(c.recipients)}`,
       });
     }
   });

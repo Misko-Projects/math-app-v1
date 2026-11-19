@@ -14,9 +14,9 @@ import { balancedRows, fivesGrid, type Grid, itemGap, MIN_ITEM_PX, zoneGrid } fr
 export { fivesCell, MIN_ITEM_PX, zoneCell } from '../kit/fives';
 
 /** Gap between recipient cards (≥ the 12 px target gap). */
-export const CARD_GAP = 20;
+export const CARD_GAP = 16;
 /** Gap between the parts (basket, recipients, seagull), and inside the basket and the nest. */
-export const ROW_GAP = 16;
+export const ROW_GAP = 12;
 /** Padding inside the basket and seagull cards (their 3 px border is inside it). */
 export const CARD_PAD = 12;
 
@@ -94,7 +94,7 @@ export interface Layout {
 
 /** The padding round a zone's items (a plate's rim is wider than a pebbling's mat). */
 export const zonePad = (kind: LayoutInput['kind'], s: number) =>
-  kind === 'plate' ? Math.max(14, Math.round(s * 0.42)) : Math.max(10, Math.round(s * 0.28));
+  kind === 'plate' ? Math.max(10, Math.round(s * 0.36)) : Math.max(10, Math.round(s * 0.28));
 
 /** A pebbling's height above its mat. */
 export const figureSize = (zoneW: number) => Math.max(64, Math.min(150, Math.round(zoneW * 0.42)));

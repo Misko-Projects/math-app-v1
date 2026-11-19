@@ -3,6 +3,7 @@ import {
   SHARE_RECIPIENTS_MAX,
   SHARE_ZONE_MAX,
   shareCapacity,
+  shareZoneMax,
 } from '@number-island/engine';
 import { describe, expect, it } from 'vitest';
 import { buildRoom } from '../kit/twoStep';
@@ -45,6 +46,19 @@ describe('equal-share build layout in the smallest area (906 × 373)', () => {
           expect(l.fits, what).toBe(true);
           expect(l.s, what).toBeGreaterThanOrEqual(MIN_ITEM_PX);
         }
+      }
+    }
+  });
+
+  it('fits the fullest pre-dealt share for every number of recipients, at the most items', () => {
+    for (let recipients = 2; recipients <= SHARE_RECIPIENTS_MAX; recipients += 1) {
+      for (const kind of ['pebbling', 'plate'] as const) {
+        const most = shareZoneMax(recipients);
+        const rest = Array.from({ length: recipients - 1 }, () => 1);
+        const l = shareLayout(build(SHARE_ITEMS_MAX, recipients, kind, 'g1-up', [most, ...rest]));
+        const what = `${most} pre-dealt to one of ${recipients} ${kind}s`;
+        expect(l.fits, what).toBe(true);
+        expect(l.zone.cols * l.zone.rows, what).toBeGreaterThanOrEqual(most);
       }
     }
   });

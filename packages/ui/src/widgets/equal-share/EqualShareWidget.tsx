@@ -65,6 +65,7 @@ import {
   chromeFor,
   fivesCell,
   type Layout,
+  MIN_ITEM_PX,
   PICTURE_BIRD,
   ROW_GAP,
   shareLayout,
@@ -81,7 +82,7 @@ import './equal-share.css';
  * - **build** (`each`, `leftover`, `even-odd`): the basket, the recipients and the seagull in one
  *   row, and Next. The child moves one item at a time from the basket's take-one spot to a
  *   recipient by drag, tap-to-place or keyboard (`deal {to}`), or deals a round with "Give one to
- *   each" (`deal-round`). Touching a recipient's mat or plate picks its last item up again: put it
+ *   each" (`deal-round`). Touching a recipient's last item picks it up again: put it
  *   in the basket (`deal {to, count: -1}`) or on another recipient. Touching the seagull gives it
  *   what is left (`set-aside-leftover`), when the model would act; touching the items it holds
  *   takes them back (`set-aside-leftover {back: true}`).
@@ -121,7 +122,7 @@ const applyAction = (s: State, a: WidgetAction) => model.apply(s, a) as State;
 
 const ITEM_MAX = { k: 104, 'g1-up': 84 } as const;
 /** The ask step's picture is legible from this item size up. */
-const PICTURE_MIN_ITEM = 20;
+const PICTURE_MIN_ITEM = MIN_ITEM_PX;
 
 // Motion (03 §6.3): short, transform-only moves.
 const FLY_MS = 420;
@@ -161,10 +162,10 @@ const centerOf = (r: DOMRect) => ({ x: r.left + r.width / 2, y: r.top + r.height
 /** Why the seagull takes nothing, or null when the model would act (03 §5.5). */
 function seagullReason(s: State): Reason | null {
   const equal = sharesEqual(s.shares);
-  if (s.pile > 0 && s.pile < s.shares.length && equal) return null;
-  if (s.pile >= s.shares.length) return 'round';
+  // The seagull takes the rest only from equal shares: unequal ones are said first.
   if (!equal) return 'unequal';
-  return 'empty';
+  if (s.pile > 0 && s.pile < s.shares.length) return null;
+  return s.pile >= s.shares.length ? 'round' : 'empty';
 }
 
 /** The recipient that holds the most (the first of them). */
@@ -407,11 +408,18 @@ export function EqualShareWidget({
       limit(REASON_KEY.empty, emptyCue(next));
       return;
     }
+    // What to ring: an action that is open. Equal shares with enough to go round: the round
+    // button (no one is full then). Unequal shares: give to the ones with fewer while the basket
+    // has some and no one is full, else take one back from the one that holds the most (it
+    // surely holds more than a fair share).
+    const blocked = prev.pile === 0 || prev.shares.some((x) => x >= cap);
     const cue =
       reason === 'round'
         ? 'deal-round'
         : reason === 'unequal'
-          ? `take-${fullest(prev.shares)}`
+          ? blocked
+            ? `take-${fullest(prev.shares)}`
+            : 'spot'
           : emptyCue(prev);
     limit(REASON_KEY[reason], cue);
   };
@@ -745,6 +753,17 @@ export function EqualShareWidget({
     speak(id.startsWith('recipient-') ? kindKey : spriteKey);
   };
 
+  /** What a screen reader hears for a recipient: its kind, its place and how many it holds. */
+  const shareLabel = (i: number) =>
+    t('ui.widget.es.count.share', { name: t(kindKey), i: i + 1, n: state.shares[i] ?? 0 });
+  /** The picture in words: every count a sighted child can see. */
+  const pictureLabel = [
+    t('ui.widget.picture'),
+    ...state.shares.map((_, i) => shareLabel(i)),
+    ...(state.pile > 0 ? [t('ui.widget.es.count.basket', { n: state.pile })] : []),
+    ...(state.seagull > 0 ? [t('ui.widget.es.count.seagull', { n: state.seagull })] : []),
+  ].join('. ');
+
   const renderRecipient = (i: number, layout: Layout, live: boolean) => {
     const s = layout.s;
     const n = state.shares[i] ?? 0;
@@ -754,9 +773,21 @@ export function EqualShareWidget({
       const p = zoneCell(k, s, zone.upright);
       return { left: p.x, top: p.y, width: s, height: s };
     };
+    /**
+     * The handle's hit area: a full target centred on the last item, kept inside the mat. It is
+     * no wider than a target, so a drag that starts at its edge still carries the item to within
+     * the snap radius of where the finger lets go.
+     */
+    const hitStyle = (p: { x: number; y: number }): CSSProperties => {
+      const side = chrome.target;
+      const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v));
+      const left = clamp(p.x + s / 2 - side / 2, -zone.padX, zone.w - zone.padX - side);
+      const top = clamp(p.y + s / 2 - side / 2, -zone.padY, zone.h - zone.padY - side);
+      return { left: left - p.x, top: top - p.y, width: side, height: side };
+    };
     const items: ReactNode[] = [];
-    // The last item is the one that is picked up: its handle is the whole mat or plate (a full
-    // target). While another item is held the handle is out of the way: the card takes the tap.
+    // The last item is the one that is picked up, through a full target round it. While another
+    // item is held the handle is out of the way: the card takes the tap.
     const lastId = `item-${i}-${n - 1}`;
     const handleOn = live && n > 0 && (dnd.selected === null || dnd.selected === lastId);
     for (let j = 0; j < n; j += 1) {
@@ -775,15 +806,7 @@ export function EqualShareWidget({
             data-flash={flash.has(itemId) ? 'true' : undefined}
             style={itemStyle(j)}
           >
-            <span
-              className={cls('ni-esw__hit', ringed(`take-${i}`) && 'ni-invite')}
-              style={{
-                left: -(zone.padX + p.x),
-                top: -(zone.padY + p.y),
-                width: zone.w,
-                height: zone.h,
-              }}
-            />
+            <span className="ni-esw__hit" style={hitStyle(p)} />
             {sprite}
           </span>,
         );
@@ -809,7 +832,7 @@ export function EqualShareWidget({
     };
     const inner = (
       <div
-        className="ni-esw__zone"
+        className={cls('ni-esw__zone', live && ringed(`take-${i}`) && 'ni-invite')}
         data-kind={kind}
         data-full={n >= cap ? 'true' : undefined}
         style={zoneStyle}
@@ -827,7 +850,7 @@ export function EqualShareWidget({
       ) : null;
     let pad: ReactNode;
     if (live) {
-      const props = dnd.targetProps(id, { label: t(kindKey) });
+      const props = dnd.targetProps(id, { label: shareLabel(i) });
       const hadSelection = dnd.selected !== null;
       pad = (
         // biome-ignore lint/a11y/noStaticElementInteractions: targetProps gives role="button", tabIndex and the key handler
@@ -1069,7 +1092,7 @@ export function EqualShareWidget({
       className="ni-esw__main ni-esw__picture"
       data-flow={layout.flow}
       role="img"
-      aria-label={t('ui.widget.picture')}
+      aria-label={pictureLabel}
       onClick={onPictureTap}
       style={{ '--s': `${layout.s}px` } as CSSProperties}
     >

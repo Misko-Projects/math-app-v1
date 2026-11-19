@@ -8,6 +8,7 @@ import {
 import { FORMAT_SUPPORT, type NarrationKey, type WidgetAction } from '@number-island/shared';
 import {
   type CSSProperties,
+  type KeyboardEvent,
   type MouseEvent,
   type ReactNode,
   useLayoutEffect,
@@ -55,6 +56,7 @@ import {
   GROUP_GAP,
   groupsLayout,
   type Layout,
+  MIN_ITEM_PX,
   partsFor,
   ROW_GAP,
   zoneCell,
@@ -68,7 +70,7 @@ import './equal-groups.css';
  *
  * - **build** (`build`, concrete): the supply, the containers and Next. The child moves one sprite
  *   at a time from the supply's take-one spot into a container by drag, tap-to-place or keyboard
- *   (`fill-group {index, count: current + 1}`). Touching a filled container picks its last sprite
+ *   (`fill-group {index, count: current + 1}`). Touching a container's last sprite picks it
  *   up again: put it back in the supply (count − 1) or into another container. When the number of
  *   groups is the unknown the child adds containers ("Add a raft", at most `maxGroups`); touching
  *   an empty one takes it away again (`add-group {remove}`). When the total is given the supply is
@@ -109,7 +111,7 @@ const applyAction = (s: State, a: WidgetAction) => model.apply(s, a) as State;
 
 const SPRITE_MAX = { k: 96, 'g1-up': 80 } as const;
 /** The ask step's picture is legible from this sprite size up. */
-const PICTURE_MIN_ITEM = 20;
+const PICTURE_MIN_ITEM = MIN_ITEM_PX;
 
 // Motion (03 §6.3): short, transform-only moves.
 const FLY_MS = 420;
@@ -699,6 +701,12 @@ export function EqualGroupsWidget({
     speak(id.startsWith('sprite-') ? spriteKey : containerKey(kind));
   };
 
+  /** What a screen reader hears for a container: its kind, its place and how many it holds. */
+  const groupLabel = (i: number) =>
+    t('ui.widget.eg.count.group', { name: t(containerKey(kind)), i: i + 1, n: groups[i] ?? 0 });
+  /** The picture in words: every count a sighted child can see. */
+  const pictureLabel = [t('ui.widget.picture'), ...groups.map((_, i) => groupLabel(i))].join('. ');
+
   const renderGroup = (i: number, layout: Layout, live: boolean) => {
     const s = layout.s;
     const n = groups[i] ?? 0;
@@ -707,8 +715,20 @@ export function EqualGroupsWidget({
     const zoneX = (layout.box.w - zone.w) / 2;
     const zoneY = chrome.top + (layout.box.h - chrome.top - chrome.bottom - zone.h) / 2;
     const counted = skip !== null && i <= skip.upTo && n > 0;
-    // The last sprite is the one that is picked up: its handle is the whole container (a full
-    // target). While another sprite is held the handle is out of the way: the container takes it.
+    /**
+     * The handle's hit area: a full target centred on the last sprite, kept inside the container.
+     * It is no wider than a target, so a drag that starts at its edge still carries the sprite to
+     * within the snap radius of where the finger lets go.
+     */
+    const hitStyle = (p: { x: number; y: number }): CSSProperties => {
+      const side = parts.target;
+      const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v));
+      const left = clamp(p.x + s / 2 - side / 2, -zoneX, layout.box.w - zoneX - side);
+      const top = clamp(p.y + s / 2 - side / 2, -zoneY, layout.box.h - zoneY - side);
+      return { left: left - p.x, top: top - p.y, width: side, height: side };
+    };
+    // The last sprite is the one that is picked up, through a full target round it. While
+    // another sprite is held the handle is out of the way: the container takes the tap.
     const lastId = `sprite-${i}-${n - 1}`;
     const handleOn = live && n > 0 && (dnd.selected === null || dnd.selected === lastId);
     const sprites: ReactNode[] = [];
@@ -729,15 +749,7 @@ export function EqualGroupsWidget({
             data-flash={flash.has(spriteId) ? 'true' : undefined}
             style={style}
           >
-            <span
-              className={cls('ni-egw__hit', ringed(`take-${i}`) && 'ni-invite')}
-              style={{
-                left: -(zoneX + p.x),
-                top: -(zoneY + p.y),
-                width: layout.box.w,
-                height: layout.box.h,
-              }}
-            />
+            <span className="ni-egw__hit" style={hitStyle(p)} />
             {art}
           </span>,
         );
@@ -759,19 +771,33 @@ export function EqualGroupsWidget({
     const art = <ContainerArt kind={kind} w={layout.box.w} h={layout.box.h} chrome={chrome} />;
     let pad: ReactNode;
     if (live) {
-      const props = dnd.targetProps(id, { label: t(containerKey(kind)) });
+      const props = dnd.targetProps(id, { label: groupLabel(i) });
       const hadSelection = dnd.selected !== null;
+      // An empty added container is taken away by touching it, with Enter or Space too: with
+      // nothing held it is an enabled, focusable control.
+      const removable = addable && n === 0 && !hadSelection && interactive;
       pad = (
         // biome-ignore lint/a11y/noStaticElementInteractions: targetProps gives role="button", tabIndex and the key handler
-        // biome-ignore lint/a11y/useKeyWithClickEvents: targetProps' onKeyDown (Enter/Space, arrows) is spread above
         <div
           {...props}
+          {...(removable ? { tabIndex: 0, 'aria-disabled': undefined } : {})}
           className={cls(props.className, 'ni-egw__pad')}
           onClick={(e: MouseEvent) => {
             props.onClick(e);
             if (hadSelection || !interactive) return;
             childStep();
             onEmptyGroup(i);
+          }}
+          onKeyDown={(e: KeyboardEvent) => {
+            if (removable && (e.key === 'Enter' || e.key === ' ')) {
+              e.preventDefault();
+              // One container for each press: a held key does not clear the row.
+              if (e.repeat) return;
+              childStep();
+              onEmptyGroup(i);
+              return;
+            }
+            props.onKeyDown(e);
           }}
         >
           {art}
@@ -789,7 +815,7 @@ export function EqualGroupsWidget({
         key={id}
         className={cls(
           'ni-egw__group',
-          ringed(id) && 'ni-invite',
+          (ringed(id) || (live && ringed(`take-${i}`))) && 'ni-invite',
           flash.has(id) && 'ni-egw__group--flash',
         )}
         style={{ width: layout.box.w, height: layout.box.h }}
@@ -982,7 +1008,7 @@ export function EqualGroupsWidget({
     <div
       className="ni-egw__main ni-egw__picture"
       role="img"
-      aria-label={t('ui.widget.picture')}
+      aria-label={pictureLabel}
       onClick={onPictureTap}
     >
       {renderGroups(layout, false)}

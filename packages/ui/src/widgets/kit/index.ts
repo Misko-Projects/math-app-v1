@@ -81,6 +81,7 @@ export {
   fivesCell,
   fivesGrid,
   type Grid,
+  ITEM_DRAW_SCALE,
   itemGap,
   MIN_ITEM_PX,
   zoneCell,

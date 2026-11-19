@@ -9,8 +9,12 @@ import {
   GROUP_CAPACITY,
   GROUPS_MAX,
   GROUPS_PILE_MAX,
+  GROUPS_PILE_MAX_MANY,
+  GROUPS_PILE_WIDE,
   groupsAnswerIssues,
   groupsAnswerMax,
+  groupsPileMax,
+  groupsPlaces,
   groupsSupply,
 } from './equal-groups';
 import {
@@ -18,8 +22,10 @@ import {
   SHARE_ITEMS_MAX,
   SHARE_RECIPIENTS_MAX,
   SHARE_ZONE_MAX,
+  SHARE_ZONE_MAX_MANY,
   shareAnswerIssues,
   shareCapacity,
+  shareZoneMax,
 } from './equal-share';
 import type { FormatModel, FormatState } from './types';
 
@@ -77,6 +83,15 @@ const equalTarget = (c: Groups, value: number): AnswerSpec => ({
 });
 
 describe('equal-share: the supported domain', () => {
+  it('the typed answer always fits the answer control (0 … items)', () => {
+    for (let items = 1; items <= SHARE_ITEMS_MAX; items += 1) {
+      for (let recipients = 2; recipients <= SHARE_RECIPIENTS_MAX; recipients += 1) {
+        expect(Math.floor(items / recipients)).toBeLessThanOrEqual(items);
+        expect(items % recipients).toBeLessThanOrEqual(items);
+      }
+    }
+  });
+
   it('shares 1 to SHARE_ITEMS_MAX things', () => {
     expect(SHARE_ITEMS_MAX).toBe(24);
     expect(issues(equalShare, { ...share, items: 24 })).toEqual([]);
@@ -104,7 +119,20 @@ describe('equal-share: the supported domain', () => {
     const two: Share = { ...share, items: 24, recipients: 2, recipientsKind: 'plate' };
     expect(issues(equalShare, { ...two, predealt: [15, 9] })).toEqual([]);
     expect(issues(equalShare, { ...two, predealt: [16, 8] })).toEqual([
-      'predealt.0: one recipient holds at most 15',
+      'predealt.0: one of 2 recipients holds at most 15',
+    ]);
+  });
+
+  it('pre-deals at most SHARE_ZONE_MAX_MANY to one of three or four recipients', () => {
+    expect(SHARE_ZONE_MAX_MANY).toBe(10);
+    expect([shareZoneMax(2), shareZoneMax(3), shareZoneMax(4)]).toEqual([15, 10, 10]);
+    const four: Share = { ...share, items: 24, recipients: 4, recipientsKind: 'plate' };
+    expect(issues(equalShare, { ...four, predealt: [10, 4, 5, 5] })).toEqual([]);
+    expect(issues(equalShare, { ...four, predealt: [15, 3, 3, 3] })).toEqual([
+      'predealt.0: one of 4 recipients holds at most 10',
+    ]);
+    expect(issues(equalShare, { ...four, recipients: 3, predealt: [11, 6, 7] })).toEqual([
+      'predealt.0: one of 3 recipients holds at most 10',
     ]);
   });
 
@@ -114,7 +142,7 @@ describe('equal-share: the supported domain', () => {
         const cap = shareCapacity({ items, recipients });
         // More than a fair share (a full recipient is never the answer), within the bound.
         expect(cap).toBeGreaterThan(Math.floor(items / recipients));
-        expect(cap).toBeLessThanOrEqual(SHARE_ZONE_MAX);
+        expect(cap).toBeLessThanOrEqual(shareZoneMax(recipients));
         expect(cap).toBeLessThanOrEqual(items);
       }
     }
@@ -237,8 +265,8 @@ describe('equal-share: one source for the answer', () => {
 describe('equal-groups: the supported domain', () => {
   it('has 1 to GROUPS_MAX groups', () => {
     expect(GROUPS_MAX).toBe(6);
-    expect(issues(equalGroups, { ...groups, groups: 6, maxGroups: 6 })).toEqual([]);
-    expect(issues(equalGroups, { ...groups, groups: 7, maxGroups: 7 })).toEqual([
+    expect(issues(equalGroups, { ...groups, groups: 6, maxGroups: 6, perGroup: 3 })).toEqual([]);
+    expect(issues(equalGroups, { ...groups, groups: 7, maxGroups: 7, perGroup: 2 })).toEqual([
       'groups: there are 1 to 6 groups',
       'maxGroups: at most 6 containers',
     ]);
@@ -269,15 +297,27 @@ describe('equal-groups: the supported domain', () => {
     ]);
   });
 
-  it('builds from a pile of at most GROUPS_PILE_MAX; the bucket and a picture go to 60', () => {
-    expect(GROUPS_PILE_MAX).toBe(40);
+  it('builds from a pile of at most 40 beside up to 4 containers, 20 beside 5 or 6', () => {
+    expect([GROUPS_PILE_MAX, GROUPS_PILE_WIDE, GROUPS_PILE_MAX_MANY]).toEqual([40, 4, 20]);
+    expect(groupsPileMax(4)).toBe(40);
+    expect(groupsPileMax(5)).toBe(20);
     const six: Groups = { ...groups, groups: 6, maxGroups: 6 };
     expect(issues(equalGroups, { ...groups, groups: 4, maxGroups: 4, perGroup: 10 })).toEqual([]);
-    expect(issues(equalGroups, { ...six, perGroup: 7 })).toEqual([
-      'perGroup: a pile to build from holds at most 40',
+    expect(issues(equalGroups, { ...groups, groups: 5, maxGroups: 5, perGroup: 9 })).toEqual(
+      ['perGroup: a pile to build from holds at most 40 beside 4 containers'].map((m) =>
+        m.replace('40 beside 4', '20 beside 5'),
+      ),
+    );
+    expect(issues(equalGroups, { ...six, perGroup: 3 })).toEqual([]);
+    expect(issues(equalGroups, { ...six, perGroup: 4 })).toEqual([
+      'perGroup: a pile to build from holds at most 20 beside 6 containers',
     ]);
-    expect(issues(equalGroups, { ...six, perGroup: 7, unknown: 'groups' })).toEqual([
-      'perGroup: a pile to build from holds at most 40',
+    // Where containers are added, the places are the most it may add.
+    const asked: Groups = { ...groups, groups: 4, perGroup: 6, unknown: 'groups' };
+    expect(groupsPlaces({ ...asked, maxGroups: 6 })).toBe(6);
+    expect(issues(equalGroups, { ...asked, maxGroups: 4 })).toEqual([]);
+    expect(issues(equalGroups, { ...asked, maxGroups: 6 })).toEqual([
+      'perGroup: a pile to build from holds at most 20 beside 6 containers',
     ]);
     expect(issues(equalGroups, { ...six, perGroup: 10, unknown: 'total' })).toEqual([]);
     expect(issues(equalGroups, { ...six, perGroup: 10, unknown: 'size', mode: 'read' })).toEqual(

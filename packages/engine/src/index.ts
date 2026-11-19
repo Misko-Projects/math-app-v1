@@ -122,6 +122,10 @@ export {
   GROUP_CAPACITY,
   GROUPS_MAX,
   GROUPS_PILE_MAX,
+  GROUPS_PILE_MAX_MANY,
+  GROUPS_PILE_WIDE,
+  groupsPileMax,
+  groupsPlaces,
   groupsAnswerMax,
   groupsSupply,
   groupsUnknown,
@@ -131,9 +135,11 @@ export {
   SHARE_ITEMS_MAX,
   SHARE_RECIPIENTS_MAX,
   SHARE_ZONE_MAX,
+  SHARE_ZONE_MAX_MANY,
   shareCapacity,
   shareChoices,
   sharesEqual,
+  shareZoneMax,
 } from './formats/equal-share';
 export {
   blankIds,

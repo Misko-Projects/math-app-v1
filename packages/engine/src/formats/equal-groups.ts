@@ -11,7 +11,7 @@
 //
 // Supported domain (what the widget draws in the smallest widget area, 906 × 373): 1 …
 // `GROUPS_MAX` groups of 1 … `GROUP_CAPACITY`; a build from a given total has at most
-// `GROUPS_PILE_MAX` in its pile. Groups of tens (MUL.11, ten-rods) are not supported yet.
+// `groupsPileMax` in its pile (40 beside up to four containers, 20 beside five or six). Groups of tens (MUL.11, ten-rods) are not supported yet.
 
 import {
   type AnswerSpec,
@@ -28,10 +28,21 @@ export const GROUP_CAPACITY = 10;
 export const GROUPS_MAX = 6;
 /**
  * The largest pile a build starts from (a given total: the size or the number of groups is
- * asked). A build from the bucket (the total is asked) and a picture to read go up to
- * GROUPS_MAX × GROUP_CAPACITY.
+ * asked): 40 beside up to `GROUPS_PILE_WIDE` containers, 20 beside more (five or six containers
+ * leave the pile less room; every sprite stays at least 22 px as drawn). A build from the bucket
+ * (the total is asked) and a picture to read go up to GROUPS_MAX × GROUP_CAPACITY.
  */
 export const GROUPS_PILE_MAX = 40;
+export const GROUPS_PILE_WIDE = 4;
+export const GROUPS_PILE_MAX_MANY = 20;
+
+/** The largest pile a build with this many container places starts from. */
+export const groupsPileMax = (containers: number): number =>
+  containers <= GROUPS_PILE_WIDE ? GROUPS_PILE_MAX : GROUPS_PILE_MAX_MANY;
+
+/** The container places a build shows: the most it may add, or the groups it is given. */
+export const groupsPlaces = (c: Pick<Config, 'unknown' | 'groups' | 'maxGroups'>): number =>
+  c.unknown === 'groups' ? c.maxGroups : c.groups;
 
 export interface EqualGroupsState extends FormatState<'equal-groups'> {
   groups: number[];
@@ -119,11 +130,12 @@ const configSchema = equalGroupsConfigSchema.superRefine((c, ctx) => {
       message: `a container holds 1 to ${GROUP_CAPACITY}`,
     });
   }
-  if ((groupsSupply(c) ?? 0) > GROUPS_PILE_MAX) {
+  const pileMax = groupsPileMax(groupsPlaces(c));
+  if ((groupsSupply(c) ?? 0) > pileMax) {
     ctx.addIssue({
       code: 'custom',
       path: ['perGroup'],
-      message: `a pile to build from holds at most ${GROUPS_PILE_MAX}`,
+      message: `a pile to build from holds at most ${pileMax} beside ${groupsPlaces(c)} containers`,
     });
   }
 });

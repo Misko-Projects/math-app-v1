@@ -92,6 +92,21 @@ export async function expectAreaFit(canvasElement: HTMLElement, fit: AreaFit) {
   });
 }
 
+/**
+ * Every countable picture under `root` is drawn large enough to count: its sprite's box on
+ * screen (the cell times the kit's ITEM_DRAW_SCALE) is at least `min` px. The kit sprites fill
+ * about three quarters of that box, so 29 px of box is about 22 px of drawn object.
+ */
+export async function expectCountable(root: Element, min = 29) {
+  const sprites = [...root.querySelectorAll('svg.ni-sprite')].filter(
+    (el) => el.getBoundingClientRect().width > 0,
+  );
+  await expect(sprites.length, 'sprites').toBeGreaterThan(0);
+  const least = Math.min(...sprites.map((el) => el.getBoundingClientRect().width));
+  await expect(least, 'the smallest sprite box on screen').toBeGreaterThanOrEqual(min);
+  recordEvidence(root, { sprite_box: Math.round(least * 10) / 10 });
+}
+
 /** An element (a handle's enlarged hit area, a container) is at least the age mode's target. */
 export async function expectTarget(el: Element, ageMode: AgeMode, what: string) {
   const r = el.getBoundingClientRect();

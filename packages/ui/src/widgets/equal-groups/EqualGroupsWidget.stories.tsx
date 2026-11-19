@@ -12,6 +12,7 @@ import {
   clickAt,
   enterNumber,
   expectAreaFit,
+  expectCountable,
   expectNote,
   expectRing,
   expectTarget,
@@ -94,8 +95,8 @@ const bound: Config = {
   sprite: 'pebble',
   maxGroups: 4,
 };
-/** The most containers: 6 groups (GROUPS_MAX) of 6 from a pile of 36. */
-const sixGroups: Config = { ...bound, groups: 6, perGroup: 6, maxGroups: 6 };
+/** The most containers: 6 groups (GROUPS_MAX) of 3 from a pile of 18 (20 at most beside 6). */
+const sixGroups: Config = { ...bound, groups: 6, perGroup: 3, maxGroups: 6 };
 /** The largest picture: 6 plates of 10 (GROUPS_MAX × GROUP_CAPACITY). */
 const largest: Config = {
   ...bound,
@@ -173,7 +174,7 @@ async function expectSpritesApart(root: HTMLElement) {
   await expect(sizes.size, `sprite sizes ${[...sizes].join(', ')}`).toBeLessThanOrEqual(1);
   for (let i = 0; i < rects.length; i++) {
     const a = rects[i] as DOMRect;
-    await expect(Math.round(a.width), `sprite ${i} size`).toBeGreaterThanOrEqual(20);
+    await expect(Math.round(a.width), `sprite ${i} cell`).toBeGreaterThanOrEqual(26);
     for (let j = i + 1; j < rects.length; j++) {
       const b = rects[j] as DOMRect;
       const apart =
@@ -413,6 +414,18 @@ export const AddAndRemoveGroup: Story = {
     await userEvent.click(group(root, 1));
     await expectShown(root, { groups: [1] });
     await expect(steps(args).slice(-1)).toEqual(['tap:remove-group-1']);
+    // By keyboard too: Enter takes one empty basket away, Space another, one for each press.
+    await userEvent.click(addButton(root));
+    await userEvent.click(addButton(root));
+    await expectShown(root, { groups: [1, 0, 0] });
+    await expect(group(root, 2)).not.toHaveAttribute('aria-disabled', 'true');
+    group(root, 2).focus();
+    await userEvent.keyboard('{Enter}');
+    await expectShown(root, { groups: [1, 0] });
+    group(root, 1).focus();
+    await userEvent.keyboard(' ');
+    await expectShown(root, { groups: [1] });
+    await expect(steps(args).slice(-2)).toEqual(['tap:remove-group-2', 'tap:remove-group-1']);
     // The last basket: the add button is gone, the note says why, the ring shows what is next.
     for (let i = 0; i < 5; i += 1) await userEvent.click(addButton(root));
     await expectShown(root, { groups: [1, 0, 0, 0, 0, 0] });
@@ -441,7 +454,7 @@ export const FullContainerNote: Story = {
     await expectShown(root, { groups: [10, 0] });
     await expectNote(root, 'This one is full');
     await expect(said(audio)).toContain('ui.widget.eg.note.full');
-    await expectRing(root, hit(root, 0));
+    await expectRing(root, cards(root)[0] as HTMLElement);
     await expectAreaFit(canvasElement, buildFit(root, 'g1-up', 'equal-groups full container'));
     await expectSpritesApart(root);
   },
@@ -484,7 +497,7 @@ export const EmptySupplyRingsAWrongGroup: Story = {
     await expectShown(root, { groups: [3, 2, 1], pile: 0 });
     await expectNote(root, 'There are no more');
     // Basket 0 holds the right 3: the ring is on the one with the fewest, never on it.
-    await expectRing(root, hit(root, 2));
+    await expectRing(root, cards(root)[2] as HTMLElement);
   },
 };
 
@@ -514,12 +527,50 @@ export const EmptySupplyUnequal: Story = {
     await fill(root, 1, 2);
     await expectShown(root, { groups: [4, 2], pile: 0 });
     await expectNote(root, 'There are no more');
-    await expectRing(root, hit(root, 0));
+    await expectRing(root, cards(root)[0] as HTMLElement);
     // Touching the empty supply says it again.
     await userEvent.click(handle(root, 0));
     await userEvent.keyboard('{Escape}');
     await userEvent.click(supply(root));
     await expectNote(root, 'There are no more');
+  },
+};
+
+/**
+ * A drag that starts at the very edge of the take-back target still lands where the finger lets
+ * go: the target is no wider than a full target, so the crab stays within reach of the drop.
+ */
+export const DragFromTheEdgeOfTheHandle: Story = {
+  args: { config: total },
+  play: async ({ canvasElement }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    await fill(root, 0, 1);
+    const area = hit(root, 0).getBoundingClientRect();
+    await expect(Math.round(area.width)).toBe(64);
+    const from = { x: area.right - 4, y: area.top + area.height / 2 };
+    const to = center(group(root, 1));
+    const el = hit(root, 0);
+    const init = (x: number, y: number, buttons: number): PointerEventInit => ({
+      bubbles: true,
+      cancelable: true,
+      composed: true,
+      pointerId: 78,
+      pointerType: 'touch',
+      isPrimary: true,
+      clientX: x,
+      clientY: y,
+      button: 0,
+      buttons,
+    });
+    el.dispatchEvent(new PointerEvent('pointerdown', init(from.x, from.y, 1)));
+    for (let k = 1; k <= 10; k += 1) {
+      const x = from.x + ((to.x - from.x) * k) / 10;
+      const y = from.y + ((to.y - from.y) * k) / 10;
+      window.dispatchEvent(new PointerEvent('pointermove', init(x, y, 1)));
+      await new Promise((r) => requestAnimationFrame(() => r(null)));
+    }
+    window.dispatchEvent(new PointerEvent('pointerup', init(to.x, to.y, 0)));
+    await expectShown(root, { groups: [0, 1] });
   },
 };
 
@@ -567,6 +618,11 @@ export const ReadTotal: Story = {
     const root = await findWidget(canvasElement, ROOT);
     await expect(root).toHaveAttribute('data-step', 'ask');
     await expectShown(root, { groups: [5, 5, 5] });
+    // The picture says every count a sighted child can see (a screen reader's way to the answer).
+    await expect(q(root, '.ni-egw__picture')).toHaveAttribute(
+      'aria-label',
+      'Look at the picture. Nest 1 has 5. Nest 2 has 5. Nest 3 has 5',
+    );
     await expectAreaFit(canvasElement, {
       ...askFit(root, 'g1-up', 'equal-groups read'),
       minFill: 0.5,
@@ -615,6 +671,18 @@ export const KindergartenRead: Story = {
 
 // ---------- stress: the bound, in the smallest area ----------
 
+/** The pile at its largest: 40 in the supply (the model's bound), nothing placed yet. */
+export const StressPileAtMaximum: Story = {
+  args: { config: bound },
+  play: async ({ canvasElement }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    await expectShown(root, { groups: [0, 0, 0, 0], pile: 40 });
+    await expectAreaFit(canvasElement, buildFit(root, 'g1-up', 'equal-groups pile of 40'));
+    await expectSpritesApart(root);
+    await expectCountable(root);
+  },
+};
+
 const demoBound: WidgetDemo = createDemoController({ strict: true });
 /** 4 nests of 10 from a pile of 40 (the model's bound): everything fits, sprites apart. */
 export const StressAtBoundBuild: Story = {
@@ -630,19 +698,21 @@ export const StressAtBoundBuild: Story = {
     }
     await expectShown(root, { groups: [10, 10, 10, 10], pile: 0 });
     await expectSpritesApart(root);
+    await expectCountable(root);
     await expectContainersEqual(root);
     await expectTarget(hit(root, 3), 'g1-up', 'the take-back hit area');
   },
 };
 
-/** The most containers a build has: 6 nests and a pile of 36, in the smallest area. */
+/** The most containers a build has: 6 nests and a pile of 18, in the smallest area. */
 export const StressSixGroupsBuild: Story = {
   args: { config: sixGroups },
   play: async ({ canvasElement }) => {
     const root = await findWidget(canvasElement, ROOT);
-    await expectShown(root, { groups: [0, 0, 0, 0, 0, 0], pile: 36 });
-    await expectAreaFit(canvasElement, buildFit(root, 'g1-up', 'equal-groups 6 x 6 build'));
+    await expectShown(root, { groups: [0, 0, 0, 0, 0, 0], pile: 18 });
+    await expectAreaFit(canvasElement, buildFit(root, 'g1-up', 'equal-groups 6 x 3 build'));
     await expectSpritesApart(root);
+    await expectCountable(root);
     await expectContainersEqual(root);
   },
 };
@@ -667,6 +737,7 @@ export const StressAtBoundRead: Story = {
       minFill: 0.5,
     });
     await expectSpritesApart(root);
+    await expectCountable(root);
     await expectContainersEqual(root);
     await enterNumber(root, 60);
     await userEvent.click(stepButton(root, 'check'));
@@ -750,7 +821,7 @@ export const DemoInviteEachControl: Story = {
     await fill(root, 0, 2);
     // Taking one out is invited on the basket itself (its take-back handle).
     demoInvites.invite({ op: 'fill-group', args: { index: 0, count: 1 } });
-    await expectRing(root, hit(root, 0));
+    await expectRing(root, cards(root)[0] as HTMLElement);
     demoInvites.invite({ op: 'answer', args: { value: 4 } });
     await expectRing(root, stepButton(root, 'next'));
     await goNext(root);

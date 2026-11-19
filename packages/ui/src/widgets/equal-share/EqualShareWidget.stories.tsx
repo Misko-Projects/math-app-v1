@@ -13,6 +13,7 @@ import {
   clickAt,
   enterNumber,
   expectAreaFit,
+  expectCountable,
   expectNote,
   expectRing,
   expectTarget,
@@ -125,6 +126,8 @@ const recipient = (root: HTMLElement, i: number) => q(root, `[data-place-target=
 const cards = (root: HTMLElement) => all(root, '.ni-esw__rec');
 const handle = (root: HTMLElement, i: number) => q(root, `[data-cue="take-${i}"]`);
 const hit = (root: HTMLElement, i: number) => q(handle(root, i), '.ni-esw__hit');
+/** A recipient's mat or plate: where a limit's ring is drawn. */
+const zone = (root: HTMLElement, i: number) => q(root, `[data-recipient="${i}"] .ni-esw__zone`);
 const basket = (root: HTMLElement) => q(root, '[data-place-target="pile"]');
 const dealRound = (root: HTMLElement) => q(root, '[data-action="deal-round"]');
 const bird = (root: HTMLElement) => q(root, 'button.ni-esw__bird');
@@ -161,7 +164,7 @@ async function expectItemsApart(root: HTMLElement) {
   );
   for (let i = 0; i < rects.length; i++) {
     const a = rects[i] as DOMRect;
-    await expect(Math.round(a.width), `item ${i} size`).toBeGreaterThanOrEqual(20);
+    await expect(Math.round(a.width), `item ${i} cell`).toBeGreaterThanOrEqual(26);
     for (let j = i + 1; j < rects.length; j++) {
       const b = rects[j] as DOMRect;
       const apart =
@@ -452,7 +455,7 @@ export const FullRecipientNote: Story = {
     await expectShown(root, { shares: [10, 0], pile: 2 });
     await expectNote(root, 'This one is full');
     await expect(said(audio)).toContain('ui.widget.es.note.full');
-    await expectRing(root, hit(root, 0));
+    await expectRing(root, zone(root, 0));
     await expectAreaFit(canvasElement, buildFit(root, 'g1-up', 'equal-share full recipient'));
   },
 };
@@ -497,7 +500,7 @@ export const EmptyBasketUnfair: Story = {
     await userEvent.click(recipient(root, 1));
     await expectShown(root, { shares: [1, 2, 1], pile: 0 });
     await expectNote(root, 'The basket is empty');
-    await expectRing(root, hit(root, 1));
+    await expectRing(root, zone(root, 1));
     // Touching the empty basket says it again.
     await userEvent.click(handle(root, 1));
     await userEvent.keyboard('{Escape}');
@@ -526,8 +529,68 @@ export const SeagullNotYet: Story = {
     await expectShown(root, { shares: [3, 1, 2], pile: 1 });
     await userEvent.click(bird(root));
     await expectNote(root, 'They do not have the same');
-    await expectRing(root, hit(root, 0));
+    // The basket still has one and no one is full: the ring is on the take-one spot.
+    await expectRing(root, spot(root));
     await expectShown(root, { shares: [3, 1, 2], pile: 1 });
+  },
+};
+
+/**
+ * One pebbling is full with a round still in the basket: the round button is off, so the seagull
+ * says the shares are not the same and the ring is on the full mat (take one back), never on a
+ * disabled button.
+ */
+export const SeagullWhenOneIsFull: Story = {
+  args: { config: { ...fillable, items: 13, allowLeftover: true } },
+  play: async ({ canvasElement }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    for (let i = 0; i < 10; i += 1) {
+      await userEvent.click(take(root));
+      await userEvent.click(recipient(root, 0));
+    }
+    await expectShown(root, { shares: [10, 0], pile: 3 });
+    await expect(dealRound(root)).toBeDisabled();
+    await userEvent.click(bird(root));
+    await expectNote(root, 'They do not have the same');
+    await expectRing(root, zone(root, 0));
+    await expect(q(root, '.ni-invite').closest('button:disabled')).toBeNull();
+  },
+};
+
+/**
+ * A drag that starts at the very edge of the take-back target still lands where the finger lets
+ * go: the target is no wider than a full target, so the shell stays within reach of the drop.
+ */
+export const DragFromTheEdgeOfTheHandle: Story = {
+  args: { config: fix },
+  play: async ({ canvasElement }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    const area = hit(root, 0).getBoundingClientRect();
+    await expect(Math.round(area.width)).toBe(64);
+    const from = { x: area.right - 4, y: area.top + area.height / 2 };
+    const to = center(recipient(root, 1));
+    const el = hit(root, 0);
+    const init = (x: number, y: number, buttons: number): PointerEventInit => ({
+      bubbles: true,
+      cancelable: true,
+      composed: true,
+      pointerId: 77,
+      pointerType: 'touch',
+      isPrimary: true,
+      clientX: x,
+      clientY: y,
+      button: 0,
+      buttons,
+    });
+    el.dispatchEvent(new PointerEvent('pointerdown', init(from.x, from.y, 1)));
+    for (let k = 1; k <= 10; k += 1) {
+      const x = from.x + ((to.x - from.x) * k) / 10;
+      const y = from.y + ((to.y - from.y) * k) / 10;
+      window.dispatchEvent(new PointerEvent('pointermove', init(x, y, 1)));
+      await new Promise((r) => requestAnimationFrame(() => r(null)));
+    }
+    window.dispatchEvent(new PointerEvent('pointerup', init(to.x, to.y, 0)));
+    await expectShown(root, { shares: [4, 4], pile: 0 });
   },
 };
 
@@ -544,6 +607,9 @@ export const Leftover: Story = {
     await expectRing(root, stepButton(root, 'next'));
     await goNext(root);
     await expectShown(root, { shares: [2, 2, 2], pile: 0, seagull: 1 });
+    await expect(q(root, '.ni-esw__picture').getAttribute('aria-label')).toContain(
+      'Pebbling 3 has 2. The seagull has 1',
+    );
     await enterNumber(root, 1);
     await userEvent.click(stepButton(root, 'check'));
     await expect(args.onResponse).toHaveBeenCalledWith(
@@ -560,6 +626,11 @@ export const FairOrNot: Story = {
     const root = await findWidget(canvasElement, ROOT);
     await expect(root).toHaveAttribute('data-step', 'ask');
     await expectShown(root, { shares: [3, 3, 2, 3], pile: 0 });
+    // The picture says every count a sighted child can see (a screen reader's way to the answer).
+    await expect(q(root, '.ni-esw__picture')).toHaveAttribute(
+      'aria-label',
+      'Look at the picture. Plate 1 has 3. Plate 2 has 3. Plate 3 has 2. Plate 4 has 3',
+    );
     await expectAreaFit(canvasElement, {
       ...askFit(root, 'g1-up', 'equal-share fair-or-not'),
       minFill: 0.5,
@@ -645,7 +716,41 @@ export const KindergartenAsk: Story = {
 
 // ---------- stress: the bound, in the smallest area ----------
 
-/** 24 things among 4 (the model's bound): everything fits, 20 px items that never touch. */
+/** The pile at its largest: 24 in the basket (the model's bound), nothing dealt yet. */
+export const StressPileAtMaximum: Story = {
+  args: { config: bound },
+  play: async ({ canvasElement }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    await expectShown(root, { shares: [0, 0, 0, 0], pile: 24 });
+    await expectAreaFit(canvasElement, buildFit(root, 'g1-up', 'equal-share pile of 24'));
+    await expectItemsApart(root);
+    await expectOneScale(root);
+    await expectCountable(root);
+  },
+};
+
+/** An answer above ten: 24 between 2 plates is 12 each, typed on the pad in the smallest area. */
+export const AskAboveTen: Story = {
+  args: { config: { ...bound, recipients: 2, recipientsKind: 'plate' } },
+  play: async ({ canvasElement, args }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    await dealRounds(root, 12);
+    await goNext(root);
+    await expectShown(root, { shares: [12, 12], pile: 0 });
+    await expectAreaFit(canvasElement, {
+      ...askFit(root, 'g1-up', 'equal-share ask 12 of 24'),
+      minFill: 0.5,
+    });
+    await expectCountable(root);
+    await enterNumber(root, 12);
+    await userEvent.click(stepButton(root, 'check'));
+    await expect(args.onResponse).toHaveBeenCalledWith(
+      state({ shares: [12, 12], leftover: 0, value: 12 }),
+    );
+  },
+};
+
+/** 24 things among 4 (the model's bound): everything fits, and every item can be counted. */
 export const StressAtBoundBuild: Story = {
   args: { config: bound },
   play: async ({ canvasElement }) => {
@@ -657,6 +762,7 @@ export const StressAtBoundBuild: Story = {
     await expectShown(root, { shares: [6, 6, 6, 6], pile: 0 });
     await expectItemsApart(root);
     await expectOneScale(root);
+    await expectCountable(root);
     await expectTarget(hit(root, 3), 'g1-up', 'the take-back hit area');
   },
 };

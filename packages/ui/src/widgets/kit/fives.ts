@@ -4,8 +4,18 @@
  * touch: each sits in its own cell, `itemGap` apart, with a wider gap between two fives of a row.
  */
 
-/** Countable things are never drawn smaller than this (the 20 px floor of the quality bar). */
-export const MIN_ITEM_PX = 20;
+/**
+ * A countable thing's cell is never smaller than this. Its picture is drawn `ITEM_DRAW_SCALE`
+ * times the cell (the kit sprites leave a margin inside their box), so the smallest drawn object
+ * is about 22 px wide: below that a child cannot count them (evidence review, PR #103).
+ */
+export const MIN_ITEM_PX = 26;
+/**
+ * How much larger than its cell a sprite is drawn (the widgets' CSS scales it by this). It stays
+ * under 1 + the gap ratio of `itemGap` (0.16), so even a sprite that filled its whole box would
+ * not touch its neighbour.
+ */
+export const ITEM_DRAW_SCALE = 1.15;
 
 /** The gap between neighbouring items of size `s`. */
 export const itemGap = (s: number) => Math.max(4, Math.round(s * 0.16));

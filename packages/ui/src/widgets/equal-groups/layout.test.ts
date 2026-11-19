@@ -1,4 +1,4 @@
-import { GROUP_CAPACITY, GROUPS_MAX, GROUPS_PILE_MAX } from '@number-island/engine';
+import { GROUP_CAPACITY, GROUPS_MAX, GROUPS_PILE_MAX, groupsPileMax } from '@number-island/engine';
 import { describe, expect, it } from 'vitest';
 import { buildRoom } from '../kit/twoStep';
 import { CHROME, chromeAt, groupsLayout, type LayoutInput, MIN_ITEM_PX, partsFor } from './layout';
@@ -33,7 +33,7 @@ const build = (
 describe('equal-groups build layout in the smallest area (906 × 373)', () => {
   it('fits every pile of the supported domain with every number of containers', () => {
     for (let slots = 1; slots <= GROUPS_MAX; slots += 1) {
-      for (let pile = 1; pile <= GROUPS_PILE_MAX; pile += 1) {
+      for (let pile = 1; pile <= groupsPileMax(slots); pile += 1) {
         const l = groupsLayout(build(slots, 'pile', pile));
         const what = `${slots} containers, a pile of ${pile}`;
         expect(l.fits, what).toBe(true);
@@ -45,7 +45,7 @@ describe('equal-groups build layout in the smallest area (906 × 373)', () => {
   it('fits the bucket with up to GROUPS_MAX containers, and the add slot', () => {
     for (let slots = 1; slots <= GROUPS_MAX; slots += 1) {
       expect(groupsLayout(build(slots, 'bucket', 0)).fits, `${slots} from the bucket`).toBe(true);
-      const adding = groupsLayout(build(slots, 'pile', GROUPS_PILE_MAX, 'g1-up', true));
+      const adding = groupsLayout(build(slots, 'pile', groupsPileMax(slots), 'g1-up', true));
       expect(adding.fits, `${slots} with the add slot`).toBe(true);
       // The add button (78 px with its ledge) has room in its slot.
       expect(Math.min(adding.box.w, adding.box.h)).toBeGreaterThanOrEqual(78 + 16);
@@ -83,12 +83,13 @@ describe('equal-groups build layout in the smallest area (906 × 373)', () => {
     const input = build(3, 'pile', 12);
     const l = groupsLayout(input);
     expect(l.top).toBe(input.parts.top);
-    const groupsH = l.rows.length * l.box.h + (l.rows.length - 1) * 16;
-    expect(l.height).toBe(Math.max(l.supply.h, groupsH) + 2 * l.top);
+    const groupsH = l.rows.length * l.box.h + (l.rows.length - 1) * 12;
+    const row = l.flow === 'row' ? Math.max(l.supply.h, groupsH) : groupsH + 12 + l.supply.h;
+    expect(l.height).toBe(row + 2 * l.top);
   });
 
   it('says so when nothing fits (a room too small for anything)', () => {
-    const l = groupsLayout({ ...build(6, 'pile', 40), width: 300, height: 200 });
+    const l = groupsLayout({ ...build(6, 'pile', 20), width: 300, height: 200 });
     expect(l.fits).toBe(false);
     expect(l.s).toBe(MIN_ITEM_PX);
   });
@@ -111,10 +112,10 @@ describe('equal-groups picture layout (the ask step, and a picture to read)', ()
 });
 
 describe('container rim', () => {
-  it('is the full rim from 36 px sprites up and never under 55 % of it', () => {
-    expect(chromeAt(36)).toEqual(CHROME);
+  it('is the full rim from 48 px sprites up and never under 55 % of it', () => {
+    expect(chromeAt(48)).toEqual(CHROME);
     expect(chromeAt(80)).toEqual(CHROME);
-    expect(chromeAt(20)).toEqual({ x: 14, top: 17, bottom: 16 });
-    expect(chromeAt(10)).toEqual({ x: 14, top: 17, bottom: 15 });
+    expect(chromeAt(36)).toEqual({ x: 20, top: 23, bottom: 21 });
+    expect(chromeAt(26)).toEqual({ x: 14, top: 17, bottom: 15 });
   });
 });

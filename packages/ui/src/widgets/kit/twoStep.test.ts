@@ -61,6 +61,24 @@ describe('planAsk (the ask step: answer control, actions, the box left for the p
     }
   });
 
+  it('every answer of the sharing widgets can be entered in the smallest area', () => {
+    // equal-share offers 0 … items (1 to 24); equal-groups 0 … 10, 20 or 60.
+    const ranges = [...Array.from({ length: 24 }, (_, i) => i + 1), 60];
+    for (const max of ranges) {
+      const p = plan(max, 'g1-up');
+      expect(p.fits, `0 … ${max}`).toBe(true);
+      // A tray lists every number 0 … max; the pad types as many digits as max has.
+      expect(p.entry !== null || p.stepper, `0 … ${max} has an answer control`).toBe(true);
+      if (p.entry?.kind === 'tray') expect(max).toBeLessThanOrEqual(20);
+    }
+    // Kindergarten sizes: every range up to 20 (the stepper where cards leave no picture).
+    for (let max = 1; max <= 20; max += 1) {
+      const p = plan(max, 'k');
+      expect(p.fits, `K 0 … ${max}`).toBe(true);
+      expect(p.entry !== null || p.stepper).toBe(true);
+    }
+  });
+
   it('prefers the numeral tray, then the pad, and never drops a legible picture for either', () => {
     expect(plan(10, 'g1-up').entry?.kind).toBe('tray');
     // 0 … 20 as a tray leaves no room for the picture in the smallest area: the pad does.

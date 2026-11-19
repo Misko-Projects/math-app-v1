@@ -1085,6 +1085,9 @@ ui.widget.eg.rod:
 ui.widget.eg.region.supply:
   text: "Take from here"
   level: K
+ui.widget.eg.count.group:
+  text: "{name} {i} has {n}"
+  level: K
 ui.widget.eg.note.full:
   text: "This one is full"
   level: K
@@ -1162,6 +1165,15 @@ ui.widget.es.why.round:
   level: K
 ui.widget.es.why.empty:
   text: "The basket is empty"
+  level: K
+ui.widget.es.count.share:
+  text: "{name} {i} has {n}"
+  level: K
+ui.widget.es.count.basket:
+  text: "The basket has {n}"
+  level: K
+ui.widget.es.count.seagull:
+  text: "The seagull has {n}"
   level: K
 ui.widget.es.note.full:
   text: "This one is full"
