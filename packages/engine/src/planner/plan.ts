@@ -826,9 +826,18 @@ export function planSession(input: PlanSessionInput, opts: PlanOptions = {}): Se
       /** Due reviews a workshop hosts (ranks review-only requests). */
       const dueHosted = (c: WorkshopCapability) =>
         ctx.due.filter((r) => templatesOf(graph, r.skillId).some((t) => hosts(c, t.format))).length;
+      /** Failed reviews a composition schedules: the next plan must review them (04 §6.4 rule 3). */
+      const failedReviewed = (c: Composition) =>
+        c.tasks.filter(
+          (t) =>
+            t.mode === 'item' &&
+            (t.context === 'review' || t.context === 'transfer-probe') &&
+            failedReview(state, t.skillId),
+        ).length;
       const key = (o: { cap: WorkshopCapability; comp: Composition }): number[] =>
         skill
           ? [
+              failedReviewed(o.comp),
               hostsNeeded(o.cap) ? 1 : 0,
               fillable(o.comp) ? 1 : 0,
               focus?.testOut && o.comp.testOutHosted ? 1 : 0,
@@ -837,6 +846,7 @@ export function planSession(input: PlanSessionInput, opts: PlanOptions = {}): Se
               formatsHosted(o.cap),
             ]
           : [
+              failedReviewed(o.comp),
               dueHosted(o.cap),
               fillable(o.comp) ? 1 : 0,
               used.has(o.cap.workshopId) ? 0 : 1,
@@ -855,6 +865,12 @@ export function planSession(input: PlanSessionInput, opts: PlanOptions = {}): Se
       if (missesNeeded || missesDue) {
         const pierComp = compose(ctx, i, focus, pier, budget, challenge[i] ?? 0);
         if (pierComp && pierComp.items > 0) best = { cap: pier, comp: pierComp };
+      }
+      // A failed review is scheduled by the next plan (04 §6.4 rule 3): when no themed workshop
+      // can review one, the request goes to the Practice Pier, which hosts every format.
+      if (!best || failedReviewed(best.comp) === 0) {
+        const pierComp = compose(ctx, i, focus, pier, budget, challenge[i] ?? 0);
+        if (pierComp && failedReviewed(pierComp) > 0) best = { cap: pier, comp: pierComp };
       }
       // An offered test-out no themed workshop can host as a passable draw goes to the Practice
       // Pier, which hosts every format: a planned test-out is always a draw the learner can pass.
