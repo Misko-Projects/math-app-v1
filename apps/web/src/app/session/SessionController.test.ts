@@ -19,9 +19,8 @@ import {
 import {
   CHECKPOINT_PREFIX,
   type CheckpointStorage,
+  LIVE_CHECKPOINT_MS,
   type PageVisibility,
-  PLAY_LOCK,
-  type SessionBus,
   SessionController,
   type SessionLocks,
   type SessionStore,
@@ -105,42 +104,6 @@ function fakeLocks() {
   return { locks, held };
 }
 
-/**
- * BroadcastChannel stand-in: each controller gets its own end; a message reaches the others.
- * `held()` queues messages instead (a stalled receiver) until `deliver()`.
- */
-function fakeBusNet() {
-  const ends: Set<(until: number) => void>[] = [];
-  let holding = false;
-  const queue: (() => void)[] = [];
-  const make = (): SessionBus => {
-    const mine = new Set<(until: number) => void>();
-    ends.push(mine);
-    return {
-      askToYield: (until) => {
-        const send = () => {
-          for (const end of ends) if (end !== mine) for (const f of [...end]) f(until);
-        };
-        if (holding) queue.push(send);
-        else send();
-      },
-      subscribe(onYield) {
-        mine.add(onYield);
-        return () => mine.delete(onYield);
-      },
-    };
-  };
-  return Object.assign(make, {
-    held() {
-      holding = true;
-    },
-    deliver() {
-      holding = false;
-      for (const send of queue.splice(0)) send();
-    },
-  });
-}
-
 /** A gate a test opens later: `wait()` resolves at once while open. */
 function gate() {
   let open = true;
@@ -211,7 +174,6 @@ async function setup(
     timezone?: string;
     /** Shared by every controller of the test (tabs of one browser). Default: working locks; null: none. */
     locks?: SessionLocks | null;
-    bus?: () => SessionBus;
   } = {},
 ) {
   const locks = opts.locks === undefined ? fakeLocks().locks : opts.locks;
@@ -233,18 +195,13 @@ async function setup(
   const timers = fakeTimers();
   const vis = fakeVisibility();
   const storage = memoryStorage();
-  const make = (
-    o: { yields?: boolean; store?: SessionStore; locks?: SessionLocks | null } = {},
-  ) => {
+  const make = (o: { store?: SessionStore; locks?: SessionLocks | null } = {}) => {
     const c = new SessionController({
       store: o.store ?? store,
       timers: timers.timers,
       visibility: vis.visibility,
       storage,
       locks: o.locks === undefined ? locks : o.locks,
-      // A tab that never yields (frozen, or an old build) gets a dead bus end.
-      bus: opts.bus && o.yields !== false ? opts.bus() : null,
-      yieldWaitMs: 100,
     });
     controllers.push(c);
     return c;
@@ -560,6 +517,9 @@ describe('SessionController', () => {
   });
 
   describe('abandoned sessions', () => {
+    /** Past LIVE_CHECKPOINT_MS: a checkpoint this old means no tab is playing that session. */
+    const QUIET = LIVE_CHECKPOINT_MS + MIN;
+
     it('closes this device’s unended sessions with the last checkpoint, once', async () => {
       const { locks, held } = fakeLocks();
       const s = await setup({ locks });
@@ -573,6 +533,8 @@ describe('SessionController', () => {
       expect(key?.startsWith(CHECKPOINT_PREFIX)).toBe(true);
 
       const next = s.make(); // the next boot
+      expect(await next.closeAbandoned()).toBe(0); // its checkpoint is still fresh
+      s.env.clock.advance(QUIET);
       expect(await next.closeAbandoned()).toBe(1);
       const ended = (await s.sessionEvents()).find((e) => e.type === 'session.ended');
       expect(ended?.payload).toMatchObject({ reason: 'abandoned', activeMs: 16_000, items: 1 });
@@ -592,7 +554,7 @@ describe('SessionController', () => {
       const other = s.make();
       expect(await other.closeAbandoned()).toBe(0);
       held.clear(); // the playing tab dies
-      expect(await other.closeAbandoned()).toBe(1);
+      expect(await other.closeAbandoned()).toBe(1); // no checkpoint: nothing says it is alive
       const ended = (await s.sessionEvents()).find((e) => e.type === 'session.ended');
       expect(ended?.payload).toMatchObject({ reason: 'abandoned', activeMs: 0 });
 
@@ -602,6 +564,7 @@ describe('SessionController', () => {
       u.advance(5_000);
       u.vis.set(false); // pagehide / visibilitychange: checkpoint now
       t.held.clear(); // then the tab dies
+      u.env.clock.advance(QUIET);
       expect(await u.make().closeAbandoned()).toBe(1);
       const e2 = (await u.sessionEvents()).find((e) => e.type === 'session.ended');
       expect(e2?.payload).toMatchObject({ activeMs: 5_000 });
@@ -626,22 +589,13 @@ describe('SessionController', () => {
       expect(playedMsOnDay(await s.store.events(), CHILD_K, day, 'America/Chicago')).toBe(20_000);
     });
 
-    it('closes a session once the tab holding it is gone', async () => {
+    it('two sweeps racing over a crashed session write one end in total', async () => {
       const { locks, held } = fakeLocks();
       const s = await setup({ locks });
       await s.controller.start(CHILD_K);
       s.advance(16_000);
-      s.controller.dispose(); // the tab closed: the browser releases its lock
-      expect(held.size).toBe(0);
-      expect(await s.make().closeAbandoned()).toBe(1);
-    });
-
-    it('two sweeps racing over a crashed session write one end in total', async () => {
-      const { locks } = fakeLocks();
-      const s = await setup({ locks });
-      await s.controller.start(CHILD_K);
-      s.advance(16_000);
-      s.controller.dispose(); // crashed: the lock is gone, no end written
+      held.clear(); // crashed: the lock is gone, no end written
+      s.env.clock.advance(QUIET);
       const [b, c] = [s.make(), s.make()];
       const closed = await Promise.all([b.closeAbandoned(), c.closeAbandoned()]);
       expect(closed[0] + closed[1]).toBe(1);
@@ -651,139 +605,98 @@ describe('SessionController', () => {
       expect(ends).toHaveLength(1);
     });
 
-    it('a second tab starting the same child counts the first tab’s play: one player, one budget', async () => {
+    it('refuses a start in a second tab while another plays (elsewhere), and leaves it alone', async () => {
       const { locks, held } = fakeLocks();
-      const s = await setup({
-        child: { dailyCapMinutes: 10, sessionMinutes: 10 },
-        locks,
-        bus: fakeBusNet(),
-      });
-      const tabA = s.controller;
+      const s = await setup({ locks });
+      await s.controller.start(CHILD_K); // tab A
+      s.advance(30_000);
       const tabB = s.make();
-      await tabA.start(CHILD_K);
-      for (let t = 0; t < 5 * MIN; t += 15_000) s.advance(15_000); // five minutes in tab A
-      const started = await tabB.start(CHILD_K);
-      // Tab A yielded: its session ended (child-exit, with its five minutes) before B planned.
-      expect(tabA.getSnapshot()).toEqual({ status: 'idle' });
-      const ends = (await s.sessionEvents()).filter((e) => e.type === 'session.ended');
-      expect(ends).toHaveLength(1);
-      expect(ends[0]?.payload).toMatchObject({ reason: 'child-exit', activeMs: 5 * MIN });
-      expect(started).toMatchObject({ ok: true, session: { budgetMinutes: 5 } });
-      expect(held.has(PLAY_LOCK)).toBe(true);
-      await tabB.end('child-exit');
+      expect(await tabB.start(CHILD_K)).toEqual({ ok: false, reason: 'elsewhere' });
+      expect(await tabB.start(CHILD_G2)).toEqual({ ok: false, reason: 'elsewhere' });
+      expect(s.controller.getSnapshot().status).toBe('active');
+      const started = (await s.sessionEvents()).filter((e) => e.type === 'session.started');
+      expect(started).toHaveLength(1);
+      expect((await s.sessionEvents()).filter((e) => e.type === 'session.ended')).toEqual([]);
+      // Once A ends, B plays.
+      await s.controller.end('child-exit');
       expect(held.size).toBe(0);
+      expect(await tabB.start(CHILD_G2)).toMatchObject({ ok: true });
     });
 
     it('a start after the playing tab closed counts that tab’s checkpointed play', async () => {
-      const { locks } = fakeLocks();
-      const s = await setup({
-        child: { dailyCapMinutes: 10, sessionMinutes: 10 },
-        locks,
-        bus: fakeBusNet(),
-      });
+      const { locks, held } = fakeLocks();
+      const s = await setup({ child: { dailyCapMinutes: 10, sessionMinutes: 10 }, locks });
       const tabA = s.controller;
       const tabB = s.make();
       await tabA.start(CHILD_K);
-      expect(await tabB.closeAbandoned()).toBe(0); // B's picker sweep: A is playing
       for (let t = 0; t < 5 * MIN; t += 15_000) s.advance(15_000); // five checkpointed minutes
-      tabA.dispose(); // A closes without an end; its lock goes
-      const started = await tabB.start(CHILD_K);
-      const ends = (await s.sessionEvents()).filter((e) => e.type === 'session.ended');
-      expect(ends).toHaveLength(1);
-      expect(ends[0]?.payload).toMatchObject({ reason: 'abandoned', activeMs: 5 * MIN });
-      expect(started).toMatchObject({ ok: true, session: { budgetMinutes: 5 } });
+      held.clear(); // A closes without an end; its lock goes
+      // Its checkpoint is fresh, so it stays open, but its five minutes count.
+      expect(await tabB.start(CHILD_K)).toMatchObject({ ok: true, session: { budgetMinutes: 5 } });
+      expect((await s.sessionEvents()).filter((e) => e.type === 'session.ended')).toEqual([]);
+      await tabB.end('child-exit');
+      // Later, the quiet checkpoint is closed with its five minutes.
+      s.env.clock.advance(QUIET);
+      expect(await tabB.closeAbandoned()).toBe(1);
+      const ended = (await s.sessionEvents()).filter((e) => e.type === 'session.ended');
+      expect(ended.map((e) => e.payload)).toContainEqual(
+        expect.objectContaining({ reason: 'abandoned', activeMs: 5 * MIN }),
+      );
     });
 
-    it('a yield request that arrives after its sender gave up ends nothing', async () => {
+    it('a tab playing without its lock (the lock request failed) keeps its session', async () => {
       const { locks } = fakeLocks();
-      const net = fakeBusNet();
-      const s = await setup({ locks, bus: net });
-      const tabA = s.controller;
-      const tabB = s.make();
+      const failing: SessionLocks = {
+        acquire: () => Promise.reject(new Error('locks unavailable')),
+      };
+      const s = await setup({ locks });
+      const tabA = s.make({ locks: failing }); // plays in the fallback, holding no lock
       await tabA.start(CHILD_K);
-      net.held(); // tab A's event loop is stalled
-      expect(await tabB.start(CHILD_G2)).toEqual({ ok: false, reason: 'elsewhere' });
-      s.env.clock.advance(1_000); // later than the request's deadline
-      net.deliver();
-      await new Promise((r) => setTimeout(r, 10));
+      s.advance(16_000);
+      const tabB = s.controller; // takes the free lock: exclusive, as far as it knows
+      expect(await tabB.start(CHILD_G2)).toMatchObject({ ok: true });
       expect(tabA.getSnapshot().status).toBe('active');
       expect((await s.sessionEvents()).filter((e) => e.type === 'session.ended')).toEqual([]);
+      const checkpoints = [...s.storage.map.keys()].filter((k) => k.startsWith(CHECKPOINT_PREFIX));
+      expect(checkpoints).toHaveLength(2);
     });
 
-    it('a start cancelled while waiting for the lock writes nothing', async () => {
-      const { locks } = fakeLocks();
-      const s = await setup({ locks, bus: fakeBusNet() });
-      const tabA = s.make({ yields: false });
+    it('a plan reads an end written meanwhile, so the ended session still counts', async () => {
+      const s = await setup({ locks: null, child: { dailyCapMinutes: 10, sessionMinutes: 10 } });
+      const tabA = s.controller;
       await tabA.start(CHILD_K);
-      const tabB = s.make();
-      const cancel = new AbortController();
-      const pending = tabB.start(CHILD_G2, 'child', { signal: cancel.signal });
-      cancel.abort(); // the child closed the picture pad
-      await tabA.end('child-exit'); // the lock comes free within the wait
-      expect(await pending).toEqual({ ok: false, reason: 'cancelled' });
-      expect(tabB.getSnapshot()).toEqual({ status: 'idle' });
-      const started = (await s.sessionEvents()).filter((e) => e.type === 'session.started');
-      expect(started.map((e) => e.childId)).toEqual([CHILD_K]);
-      expect(await tabB.start(CHILD_G2, 'child', { signal: cancel.signal })).toEqual({
+      for (let t = 0; t < 6 * MIN; t += 15_000) s.advance(15_000); // six checkpointed minutes
+      let reads = 0;
+      const racy: SessionStore = {
+        now: () => s.store.now(),
+        device: () => s.store.device(),
+        familySettings: () => s.store.familySettings(),
+        childSettings: (id) => s.store.childSettings(id),
+        append: s.store.append.bind(s.store) as DataStore['append'],
+        events: async () => {
+          const log = await s.store.events();
+          reads += 1;
+          // Right after B's first read, A ends: its end is written and its checkpoint removed.
+          if (reads === 1) await tabA.end('child-exit');
+          return log;
+        },
+      };
+      const tabB = s.make({ store: racy });
+      expect(await tabB.canStart(CHILD_K)).toEqual({ ok: true, budgetMinutes: 4 });
+      expect(reads).toBe(2);
+    });
+
+    it('a start cancelled before it runs, or during its write, writes nothing that keeps playing', async () => {
+      const { locks, held } = fakeLocks();
+      const s = await setup({ locks });
+      const cancelled = new AbortController();
+      cancelled.abort();
+      expect(await s.controller.start(CHILD_K, 'child', { signal: cancelled.signal })).toEqual({
         ok: false,
         reason: 'cancelled',
       });
-    });
+      expect(await s.sessionEvents()).toEqual([]);
 
-    it('a start cancelled during its lock probe asks no one to yield', async () => {
-      const base = fakeLocks();
-      let probe: () => void = () => {};
-      const probing = new Promise<void>((r) => {
-        probe = r;
-      });
-      let held: () => void = () => {};
-      const slowLocks: SessionLocks = {
-        // The requester's first probe is slow: it answers only after the attempt was cancelled.
-        async acquire(name, waitMs) {
-          if (waitMs === 0) {
-            probe();
-            await new Promise<void>((r) => {
-              held = r;
-            });
-          }
-          return base.locks.acquire(name, waitMs);
-        },
-      };
-      const s = await setup({ locks: base.locks, bus: fakeBusNet() });
-      await s.controller.start(CHILD_K); // tab A plays
-      const tabB = s.make({ locks: slowLocks });
-      const cancel = new AbortController();
-      const pending = tabB.start(CHILD_G2, 'child', { signal: cancel.signal });
-      await probing;
-      cancel.abort();
-      held();
-      expect(await pending).toEqual({ ok: false, reason: 'cancelled' });
-      await new Promise((r) => setTimeout(r, 10));
-      expect(s.controller.getSnapshot().status).toBe('active');
-      expect((await s.sessionEvents()).filter((e) => e.type === 'session.ended')).toEqual([]);
-    });
-
-    it('a yield that expires while queued behind other work ends nothing', async () => {
-      const s = await setup({ bus: fakeBusNet() });
-      const slow = gatedStore(s.store);
-      const tabA = s.make({ store: slow });
-      await tabA.start(CHILD_K);
-      slow.reads.close(); // tab A's next log read waits on storage
-      const busy = tabA.canStart(CHILD_K);
-      const tabB = s.make();
-      // Delivered in time, but A's end queues behind the slow read; B gives up first.
-      expect(await tabB.start(CHILD_G2)).toEqual({ ok: false, reason: 'elsewhere' });
-      s.env.clock.advance(1_000);
-      slow.reads.open();
-      await busy;
-      await new Promise((r) => setTimeout(r, 10));
-      expect(tabA.getSnapshot().status).toBe('active');
-      expect((await s.sessionEvents()).filter((e) => e.type === 'session.ended')).toEqual([]);
-    });
-
-    it('a start cancelled during its write ends at once and lets the lock go', async () => {
-      const { locks, held } = fakeLocks();
-      const s = await setup({ locks });
       const slow = gatedStore(s.store);
       const tab = s.make({ store: slow });
       slow.writes.close();
@@ -808,13 +721,11 @@ describe('SessionController', () => {
       s.advance(16_000);
       const tabB = s.make();
       expect(await tabB.start(CHILD_G2)).toMatchObject({ ok: true });
-      const ends = (await s.sessionEvents()).filter((e) => e.type === 'session.ended');
-      expect(ends).toEqual([]);
-      expect([...s.storage.map.keys()].filter((k) => k.startsWith(CHECKPOINT_PREFIX))).toHaveLength(
-        2,
-      );
+      expect((await s.sessionEvents()).filter((e) => e.type === 'session.ended')).toEqual([]);
+      const keys = [...s.storage.map.keys()].filter((k) => k.startsWith(CHECKPOINT_PREFIX));
+      expect(keys).toHaveLength(2);
       // Once A's checkpoint has gone quiet (the tab is gone), a sweep closes it.
-      s.env.clock.advance(3 * MIN);
+      s.env.clock.advance(QUIET);
       await tabB.end('child-exit');
       expect(await tabB.closeAbandoned()).toBe(1);
     });
@@ -824,22 +735,9 @@ describe('SessionController', () => {
       await s.controller.start(CHILD_K); // tab A plays the same child
       for (let t = 0; t < 6 * MIN; t += 15_000) s.advance(15_000); // six checkpointed minutes
       const tabB = s.make();
-      // A's session is left open (it may still be playing), but its six minutes are counted.
       expect(await tabB.canStart(CHILD_K)).toEqual({ ok: true, budgetMinutes: 4 });
       expect(await tabB.start(CHILD_K)).toMatchObject({ ok: true, session: { budgetMinutes: 4 } });
       expect((await s.sessionEvents()).filter((e) => e.type === 'session.ended')).toEqual([]);
-    });
-
-    it('refuses a start while another tab plays and doesn’t yield (elsewhere)', async () => {
-      const { locks } = fakeLocks();
-      const s = await setup({ locks, bus: fakeBusNet() });
-      const frozen = s.make({ yields: false });
-      await frozen.start(CHILD_K);
-      const tabB = s.make();
-      expect(await tabB.start(CHILD_G2)).toEqual({ ok: false, reason: 'elsewhere' });
-      expect(tabB.getSnapshot()).toEqual({ status: 'idle' });
-      const started = (await s.sessionEvents()).filter((e) => e.type === 'session.started');
-      expect(started).toHaveLength(1);
     });
 
     it('charges a session recovered the next morning to the evening it was played', async () => {
@@ -889,6 +787,7 @@ describe('SessionController', () => {
     s.controller.dispose();
     expect(s.timers.handlers.size).toBe(0);
     expect(s.controller.getSnapshot()).toEqual({ status: 'idle' });
+    s.env.clock.advance(LIVE_CHECKPOINT_MS + MIN); // the next boot, once the checkpoint is quiet
     expect(await s.make().closeAbandoned()).toBe(1);
     const ended = (await s.sessionEvents()).find((e) => e.type === 'session.ended');
     expect(ended?.payload).toMatchObject({ reason: 'abandoned', activeMs: 3_000 });
