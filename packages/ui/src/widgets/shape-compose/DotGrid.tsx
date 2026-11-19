@@ -56,20 +56,26 @@ export function DotGrid({
       ((avail?.width ?? 1100) - 2 * pad - 2 * minT - 80) / (cols - 1),
     ),
   );
-  const W = 2 * pad + (cols - 1) * g;
   const H = 2 * pad + (rows - 1) * g;
+  // The board (the drawing surface) takes the width beside its controls column, the square
+  // lattice centred in it (evidence review: a square grid limited by the height used 40 % of a
+  // wide area). Squares stay squares: only the board grows.
+  const gridW = 2 * pad + (cols - 1) * g;
+  const controlsW = (ageMode === 'k' ? 120 : 190) + 24;
+  const W = Math.max(gridW, Math.min(1100, (avail?.width ?? 1100) - controlsW - 32));
+  const offX = (W - gridW) / 2;
   const [start, setStart] = useState<Pt | null>(null);
   const [cursor, setCursor] = useState<Pt>([0, 0]);
   const [drawing, setDrawing] = useState<string | null>(null);
   const [invite, setInvite] = useState<string | null>(null);
   const press = useRef<{ dot: Pt; x: number; y: number; id: number } | null>(null);
-  const px = (p: Pt) => [pad + p[0] * g, pad + p[1] * g] as const;
+  const px = (p: Pt) => [offX + pad + p[0] * g, pad + p[1] * g] as const;
   const sticksLeft = sticks ? stickCount(config) - state.edges.length : 0;
 
   const dotAt = (clientX: number, clientY: number): Pt | null => {
     const r = board.current?.getBoundingClientRect();
     if (!r) return null;
-    const x = Math.round((clientX - r.left - pad) / g);
+    const x = Math.round((clientX - r.left - offX - pad) / g);
     const y = Math.round((clientY - r.top - pad) / g);
     if (x < 0 || y < 0 || x >= cols || y >= rows) return null;
     return [x, y];

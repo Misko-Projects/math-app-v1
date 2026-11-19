@@ -226,6 +226,10 @@
   display: block;
   pointer-events: none;
 }
+/* A thing's front, drawn again over an item that is behind it (clipped below its rim). */
+.ni-scomp__anchor-front {
+  z-index: 4;
+}
 .ni-scomp__shadow {
   position: absolute;
   left: 8%;

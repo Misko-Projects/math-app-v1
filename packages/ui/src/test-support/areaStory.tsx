@@ -3,6 +3,7 @@
 // assertions that nothing scrolls and every control sits inside it.
 import { expect } from 'storybook/test';
 import { WidgetHost, type WidgetHostProps } from '../widgets/WidgetHost';
+import { recordEvidence } from './evidence';
 import { expectPointerOn } from './widgetStory';
 
 /** The widget area of a viewport: 60 % of the screen at full width, minus frame and border. */
@@ -83,6 +84,11 @@ function logCentring(box: HTMLElement, inner: { left: number; right: number }) {
     `[centre] host in area L/R ${n(h.left - inner.left)}/${n(inner.right - h.right)}; ` +
       `widget in host L/R ${n(left - h.left)}/${n(h.right - right)}`,
   );
+  recordEvidence(box, {
+    area: `${n(box.getBoundingClientRect().width)}x${n(box.getBoundingClientRect().height)}`,
+    host_lr: `${n(h.left - inner.left)}/${n(inner.right - h.right)}`,
+    widget_lr: `${n(left - h.left)}/${n(h.right - right)}`,
+  });
 }
 
 /**

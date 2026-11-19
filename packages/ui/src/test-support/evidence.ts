@@ -40,6 +40,47 @@ export function outlineBox(el: Element): Rect {
 const frame = () => new Promise<void>((r) => requestAnimationFrame(() => r()));
 
 /**
+ * Evidence capture: merges `entries` (live measurements, CSS px at the viewport the story runs
+ * in) into a compact JSON string in `data-evidence` on the story's area (or stage) element, so a
+ * capture script reads exactly what the drawing shows at its own viewport.
+ */
+export function recordEvidence(anchor: Element | null, entries: Record<string, unknown>) {
+  const host =
+    anchor?.closest('.story-widget-area') ??
+    anchor?.closest('.story-widget-stage') ??
+    document.querySelector('.story-widget-area, .story-widget-stage') ??
+    document.body;
+  let prev: Record<string, unknown> = {};
+  try {
+    prev = JSON.parse(host.getAttribute('data-evidence') ?? '{}');
+  } catch {
+    prev = {};
+  }
+  host.setAttribute('data-evidence', JSON.stringify({ ...prev, ...entries }));
+}
+
+/** A rect as "W×H" (rounded CSS px), for evidence. */
+export const sizeOf = (el: Element) => {
+  const r = el.getBoundingClientRect();
+  return `${Math.round(r.width)}x${Math.round(r.height)}`;
+};
+
+/**
+ * How much of an area its widget's content uses (%): the union of `parts` against the area's box.
+ * Records `fill_pct` and returns it.
+ */
+export function fillPercent(area: Element, parts: readonly Element[]): number {
+  const rs = parts.map((p) => p.getBoundingClientRect());
+  const w = Math.max(...rs.map((r) => r.right)) - Math.min(...rs.map((r) => r.left));
+  const h = Math.max(...rs.map((r) => r.bottom)) - Math.min(...rs.map((r) => r.top));
+  const a = area.getBoundingClientRect();
+  const pct = Math.round(((w * h) / (a.width * a.height)) * 100);
+  recordEvidence(area, { fill_pct: pct, content: `${Math.round(w)}x${Math.round(h)}` });
+  console.info(`[fill] ${pct}% of the area (content ${Math.round(w)}x${Math.round(h)})`);
+  return pct;
+}
+
+/**
  * Waits for the settled layout before measuring: fonts loaded, every finite animation and CSS
  * transition in the document finished (an outline colour fading, a card gliding), then two quiet
  * frames with no element resizing (ResizeObserver-driven layouts such as useAvailableSize).
@@ -141,6 +182,11 @@ export async function expectControls(
     parts.push(
       `${name} ${Math.round(w)}×${Math.round(h)}${Number.isFinite(gap) ? ` gap ${Math.round(gap)}` : ''}`,
     );
+    const key = name.replace(/\W+/g, '_');
+    recordEvidence(els[0] ?? null, {
+      [key]: `${Math.round(w)}x${Math.round(h)}`,
+      ...(Number.isFinite(gap) ? { [`${key}_gap`]: Math.round(gap) } : {}),
+    });
   }
   const line = `${story}: ${parts.join('; ')}`;
   console.info(`[controls] ${line}`);
@@ -265,6 +311,7 @@ export async function expectHandTouchesOnlyInvited(
       );
     }
     console.info(`[hand] clearance to the nearest other control: ${Math.round(least)} px`);
+    recordEvidence(hand, { hand_clear: Math.round(least) });
     return least;
   } finally {
     for (const a of loops) a.play();

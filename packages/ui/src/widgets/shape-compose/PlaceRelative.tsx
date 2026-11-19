@@ -25,8 +25,10 @@ import { CHECK_W, type ModeProps, OPS } from './shared';
 export const ITEM_SIZE = 14;
 const itemUnits = (k: number, minPx: number) => Math.max(ITEM_SIZE, Math.ceil(minPx / k));
 const STEP = 2;
-/** How much of an item behind a thing shows above the thing's top edge. */
-const PEEK = 0.6;
+/** How much of an item's box shows above the top edge of the thing it is behind. */
+const PEEK = 0.4;
+/** The thing's rim: its front is drawn over a behind item from this far down its height. */
+const FRONT_LIP = 0.18;
 
 const clampX = (x: number) => Math.min(SCENE.w - 3, Math.max(3, x));
 const clampY = (y: number) => Math.min(SCENE.h - 3, Math.max(3, y));
@@ -235,6 +237,13 @@ export function PlaceRelative({
     const x = slack <= 0 ? b.x : Math.min(b.x + slack, Math.max(b.x - slack, at[0]));
     return [x, b.y - b.h / 2 - PEEK * size + size / 2];
   };
+  const backAnchor =
+    placed?.layer === 'back'
+      ? (anchors.find((a) => {
+          const b = boxOf(a.sprite, a.at);
+          return Math.abs(placed.at[0] - b.x) <= b.w / 2 && Math.abs(placed.at[1] - b.y) <= b.h / 2;
+        }) ?? null)
+      : null;
   const itemEl = (
     <button
       type="button"
@@ -249,7 +258,8 @@ export function PlaceRelative({
         placed
           ? {
               ...itemBox(shownAt(placed.at, placed.layer)),
-              zIndex: placed.layer === 'back' ? 1 : 4,
+              // Behind: over the thing's back (z 2), under its front (z 4). In front: on top.
+              zIndex: placed.layer === 'back' ? 3 : 5,
             }
           : { width: Math.max(minT, 72), height: Math.max(minT, 72) }
       }
@@ -319,6 +329,30 @@ export function PlaceRelative({
           );
         })}
         {placed ? itemEl : null}
+        {/* Behind a thing: its FRONT is drawn again over the item, from just below its rim
+            (FRONT_LIP of its height) down, so the thing's front overlaps the item's body and
+            the item rises over the rim: it reads as behind, not sitting on top (evidence review). */}
+        {backAnchor
+          ? (() => {
+              const b = boxOf(backAnchor.sprite, backAnchor.at);
+              return (
+                <span
+                  className="ni-scomp__anchor ni-scomp__anchor-front"
+                  data-front-of={backAnchor.id}
+                  style={{
+                    left: (b.x - b.w / 2) * k,
+                    top: (b.y - b.h / 2) * k,
+                    width: b.w * k,
+                    height: b.h * k,
+                    clipPath: `inset(${FRONT_LIP * 100}% 0 0 0)`,
+                  }}
+                  aria-hidden="true"
+                >
+                  <AnchorArt sprite={backAnchor.sprite} />
+                </span>
+              );
+            })()
+          : null}
       </div>
       <div className="ni-scomp__check">
         <CheckButton onPress={submit} disabled={!interactive || !response} />

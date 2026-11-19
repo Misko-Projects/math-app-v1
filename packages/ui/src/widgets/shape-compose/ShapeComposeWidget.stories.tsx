@@ -18,7 +18,10 @@ import {
   expectNumeralInk,
   expectOneInviteRing,
   expectRenderedNumerals,
+  fillPercent,
   outlineBox,
+  recordEvidence,
+  sizeOf,
 } from '../../test-support/evidence';
 import {
   center,
@@ -340,11 +343,20 @@ const fillControls = (root: HTMLElement) => ({
  * trapezoid, a rhombus 1.5 sides).
  */
 async function expectTrayTruths(root: HTMLElement) {
+  let inset = Number.POSITIVE_INFINITY;
   for (const row of root.querySelectorAll<HTMLElement>('.ni-scomp__tray-row')) {
     const badge = row.querySelector('.ni-scomp__count') as HTMLElement;
     const tileEl = row.querySelector('.ni-scomp__tile') as HTMLElement;
     await expectApart(badge, tileEl, 0, 'count badge off the tile');
+    // Every piece 12+ px inside its tile's edges (evidence review).
+    const t = tileEl.getBoundingClientRect();
+    const p = (tileEl.querySelector('polygon') as SVGPolygonElement).getBoundingClientRect();
+    const i = Math.min(p.left - t.left, p.top - t.top, t.right - p.right, t.bottom - p.bottom);
+    inset = Math.min(inset, i);
+    await expect(i, 'piece inset in its tile').toBeGreaterThanOrEqual(12);
   }
+  recordEvidence(root, { tray_inset: Math.round(inset) });
+  console.info(`[tray] smallest piece inset in its tile ${Math.round(inset)} px`);
   await expectRenderedNumerals(root, '.ni-scomp__count');
   await expectNumeralInk(root, '.ni-scomp__count');
   await expectNumeralsAtLeast32(root, '.ni-scomp__count');
@@ -441,6 +453,14 @@ export const FillTabletK: Story = {
     ]);
     await expectTrayTruths(root);
     await expectControls('shape-compose FillTabletK', 'k', fillControls(root));
+    // The outline uses the area (evidence review: 39 %): content 60+ % of it.
+    await expect(
+      fillPercent(areaBox(canvasElement), [
+        root.querySelector('.ni-scomp__board') as HTMLElement,
+        root.querySelector('.ni-scomp__tray') as HTMLElement,
+        root.querySelector('.ni-scomp__check') as HTMLElement,
+      ]),
+    ).toBeGreaterThanOrEqual(60);
   },
 };
 
@@ -528,23 +548,48 @@ export const AboveLandscapeMinK: Story = {
  * the front and back again.
  */
 export const BehindConcrete: Story = {
+  // K, like the other place-relative stories: the icon-only K Check and K-size slots.
+  globals: { ageMode: 'k' },
   args: { config: behind },
   play: async ({ canvasElement, args }) => {
     const root = await findWidget(canvasElement, ROOT);
+    // Before: the item in its 80 px tray slot; after the drag, the empty slot keeps that size.
+    await expectTargetSize(item(root), 'k');
     await pointerDrag(item(root), scenePoint(root, 46, 29), 'mouse');
     await waitFor(() => expect(item(root)).toHaveAttribute('data-layer', 'back'));
-    // Behind reads as behind (evidence review): no see-through overlay; the fish is drawn under
-    // the crate, within its width, its top peeking out over the crate's top edge.
+    const slot = root.querySelector('.ni-scomp__item-home') as HTMLElement;
+    await expectTargetSize(slot, 'k');
+    const check = within(root).getByRole('button', { name: 'Check' });
+    await expect(check).not.toHaveTextContent('Check');
+    // Behind reads as behind (evidence review): no see-through overlay; the fish rises over the
+    // crate's rim (35 to 45 % of it above the top edge) and the crate's FRONT is drawn over its
+    // body from below the rim, so the cut is not the crate's edge.
     await expect(root.querySelector('.ni-scomp__xray')).toBeNull();
     const crate = root.querySelector('[data-anchor-id="a0"]') as HTMLElement;
+    const front = root.querySelector('[data-front-of="a0"]') as HTMLElement;
+    await expect(front).not.toBeNull();
     const c = crate.getBoundingClientRect();
+    const fish = (item(root).querySelector('svg') as SVGElement).getBoundingClientRect();
+    const above = (c.top - fish.top) / fish.height;
+    await expect(above, 'fish above the rim').toBeGreaterThanOrEqual(0.35);
+    await expect(above, 'fish above the rim').toBeLessThanOrEqual(0.45);
+    const cut = c.top + 0.18 * c.height;
+    await expect(cut - c.top, 'the front starts below the rim').toBeGreaterThanOrEqual(4);
+    await expect(fish.bottom, 'the front overlaps the fish body').toBeGreaterThan(cut);
     const f = item(root).getBoundingClientRect();
-    await expect(f.top).toBeLessThan(c.top);
-    await expect(f.bottom).toBeGreaterThan(c.top);
     await expect(f.left).toBeGreaterThanOrEqual(c.left - 0.5);
     await expect(f.right).toBeLessThanOrEqual(c.right + 0.5);
-    await expect(Number(getComputedStyle(item(root)).zIndex)).toBeLessThan(
-      Number(getComputedStyle(crate).zIndex),
+    const z = (el: Element) => Number(getComputedStyle(el).zIndex);
+    await expect(z(crate)).toBeLessThan(z(item(root)));
+    await expect(z(item(root))).toBeLessThan(z(front));
+    recordEvidence(root, {
+      check: sizeOf(check),
+      slot: sizeOf(slot),
+      fish_above_rim_pct: Math.round(above * 100),
+      front_cut_below_rim: Math.round(cut - c.top),
+    });
+    console.info(
+      `[behind] check ${sizeOf(check)}; slot ${sizeOf(slot)}; fish above rim ${Math.round(above * 100)} %; front cut ${Math.round(cut - c.top)} px below the rim`,
     );
     item(root).focus();
     await userEvent.keyboard('{Enter}');
@@ -684,6 +729,13 @@ export const SticksLandscapeMinK: Story = {
     ]);
     await expect(within(root).getByRole('img', { name: '8 sticks left' })).toBeInTheDocument();
     await expectRenderedNumerals(root, '.ni-scomp__sticks-n');
+    // The board uses the area (evidence review: 40 %): content 60+ % of it.
+    await expect(
+      fillPercent(areaBox(canvasElement), [
+        dotsBoard(root),
+        root.querySelector('.ni-scomp__check') as HTMLElement,
+      ]),
+    ).toBeGreaterThanOrEqual(60);
     await expectControls('shape-compose SticksLandscapeMinK', 'k', {
       dots: [dotsBoard(root)],
       undo: [within(root).getByRole('button', { name: 'Take one back' })],

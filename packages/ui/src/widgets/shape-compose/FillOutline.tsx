@@ -76,7 +76,8 @@ export function FillOutline({
   const boardW = Math.max(200, (avail?.width ?? 1100) - trayW - checkW - 80);
   const boardH = Math.max(200, (avail?.height ?? 600) - 40);
   // The board adds its 14 px padding on each side.
-  const u = Math.max(40, Math.min(160, (boardW - 28) / w, (boardH - 28) / h));
+  // As large as the area allows (evidence review: the composition used 39 % of the tablet area).
+  const u = Math.max(40, Math.min(240, (boardW - 28) / w, (boardH - 28) / h));
   const pad = 14;
   const toPx = ([x, y]: Vec): Vec => [pad + (x - b.minX) * u, pad + (b.maxY - y) * u];
   const toUnits = (px: number, py: number): Vec => [
@@ -233,7 +234,9 @@ export function FillOutline({
     const c = placeCorners({ kind, at: [0, 0], rot: 0 }) ?? [];
     return Math.max(...c.flatMap((p) => c.map((q) => Math.hypot(p[0] - q[0], p[1] - q[1]))));
   };
-  const trayK = Math.min(u, (tile - 18) / Math.max(1, ...pieces.map((p) => diameter(p.kind))));
+  // Every piece, in any turn, 12 px inside its tile (3 px border + 12 on each side; evidence
+  // review: the hexagon reached 7 px from the edge). One scale for all kinds.
+  const trayK = Math.min(u, (tile - 30) / Math.max(1, ...pieces.map((p) => diameter(p.kind))));
 
   return (
     <div className="ni-scomp__fill" ref={host} style={handStyle}>
