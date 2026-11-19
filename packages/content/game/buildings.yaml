@@ -152,7 +152,9 @@ buildings:
       - { level: 1, recipe: { stone: 6, light: 10 }, unlocks: [] }
       - { level: 2, recipe: { fruit: 10, light: 6 }, unlocks: [decor:garden-arch] }
       - { level: 3, recipe: { fruit: 10, stone: 10 }, unlocks: [decor:fountain] }
-  - id: puzzle-tower # W13: star shards build the tower; its levels give the puzzle decor
+  # W13: its rewards are decor only, the star shards (04 §6.3): the puzzle-source decor, which its
+  # requests give and its levels unlock. It produces no material (02 §5.6), so stone and light build it.
+  - id: puzzle-tower
     kind: workshop
     workshopId: puzzle-tower
     art: building/puzzle-tower
@@ -162,13 +164,9 @@ buildings:
         - { minGrade: "1" }
         - { masteredCount: 10 }
     levels:
-      - { level: 1, recipe: { stone: 10, light: 10 }, unlocks: [decor:star-statue] }
-      - {
-          level: 2,
-          recipe: { star-shard: 5, light: 10 },
-          unlocks: [decor:telescope, decor:moon-lamp],
-        }
-      - { level: 3, recipe: { star-shard: 10, stone: 10 }, unlocks: [decor:crystal-tower] }
+      - { level: 1, recipe: { stone: 8, light: 8 }, unlocks: [decor:star-statue] }
+      - { level: 2, recipe: { stone: 10, light: 8 }, unlocks: [decor:telescope, decor:moon-lamp] }
+      - { level: 3, recipe: { stone: 10, light: 10 }, unlocks: [decor:crystal-tower] }
   - id: practice-pier # fallback host (04 §6.3): makes whatever a request asks for
     kind: workshop
     workshopId: practice-pier

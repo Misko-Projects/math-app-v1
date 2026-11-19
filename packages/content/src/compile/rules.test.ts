@@ -469,45 +469,79 @@ describe('V04: game data references', () => {
       /unlock rule names unknown building castle/,
     );
   });
-  it('warns, not errors, on an unauthored skill listed in pendingGameSkills (03 §9.2)', () => {
-    const diags = gameVariant('buildings', (doc) => {
-      byId(doc.buildings, 'lighthouse').unlock.all[1].skill = 'MUL.02';
+  // Fixtures for pendingGameSkills: every test sets the map itself, and uses an id whose existence
+  // it controls. CNT.01 is a fixture root (always authored); PUZ.99 can never be authored without
+  // PUZ.01–PUZ.98 first (V03), so it stays unauthored whatever the curriculum PRs add.
+  const AUTHORED = 'CNT.01';
+  const UNAUTHORED = 'PUZ.99';
+  it('the pending-skill fixtures hold: one id is authored, the other is not', () => {
+    const ids = new Set(compileContent(FIXTURE).content?.skills.map((s) => s.id));
+    expect(ids.has(AUTHORED)).toBe(true);
+    expect(ids.has(UNAUTHORED)).toBe(false);
+  });
+  const pendingVariant = (
+    pending: Record<string, string[]>,
+    lighthouseSkill?: string,
+  ): Diagnostic[] =>
+    variant((f) => {
+      editYaml(f, 'graph.yaml', (doc) => {
+        doc.pendingGameSkills = { ...doc.pendingGameSkills, ...pending };
+      });
+      if (lighthouseSkill)
+        editYaml(f, 'game/buildings.yaml', (doc) => {
+          byId(doc.buildings, 'lighthouse').unlock.all[1].skill = lighthouseSkill;
+        });
     });
-    const hit = expectFinding(diags, 'V04', /skill MUL.02, which is not authored yet/, 'warn');
+  it('warns, not errors, on an unauthored skill pendingGameSkills lists for that place (03 §9.2)', () => {
+    const diags = pendingVariant({ [UNAUTHORED]: ['building:lighthouse'] }, UNAUTHORED);
+    const hit = expectFinding(diags, 'V04', /skill PUZ.99, which is not authored yet/, 'warn');
     expect(hit.file).toBe('game/buildings.yaml');
     expect(hit.path).toMatch(/^buildings\[\d+\]\.unlock\.all\[1\]$/);
     expect(diags.filter((d) => d.severity === 'error')).toEqual([]);
   });
-  it('rejects any other unauthored skill, such as a typo of an authored one', () => {
+  it('rejects an unauthored skill anywhere it is not listed for, such as a typo', () => {
     expectFinding(
-      gameVariant('buildings', (doc) => {
-        byId(doc.buildings, 'lighthouse').unlock.all[1].skill = 'CPS.30';
-      }),
+      pendingVariant({}, 'CPS.30'),
       'V04',
-      /unknown skill CPS.30; .* must be listed in graph.yaml: pendingGameSkills/,
+      /unknown skill CPS.30; .* must be listed for building:lighthouse in graph.yaml: pendingGameSkills/,
+    );
+    // Pending for another place does not cover this one: a CPS.03 → CPS.04 typo on the
+    // Lighthouse is an error even while CPS.04 is pending for the Brick Factory.
+    const typo = pendingVariant({ 'CPS.04': ['building:brick-factory'] }, 'CPS.04');
+    expectFinding(typo, 'V04', /unknown skill CPS.04; .* listed for building:lighthouse/);
+    expectFinding(
+      pendingVariant({ [UNAUTHORED]: ['building:brick-factory'] }, UNAUTHORED),
+      'V04',
+      /unknown skill PUZ.99/,
     );
   });
-  it('a stale pendingGameSkills entry warns, never errors', () => {
-    const pendingPlus = (id: string) =>
-      variant((f) => {
-        f['graph.yaml'] = (f['graph.yaml'] as string).replace(
-          'pendingGameSkills: [',
-          `pendingGameSkills: [${id}, `,
-        );
-      });
-    const authored = pendingPlus('CNT.01');
+  it('a stale pendingGameSkills entry or place warns, never errors', () => {
+    const authored = pendingVariant({ [AUTHORED]: ['building:lighthouse'] });
     expectFinding(authored, 'V03', /CNT.01 is authored; remove it from pendingGameSkills/, 'warn');
     expect(authored.filter((d) => d.severity === 'error')).toEqual([]);
-    const unused = pendingPlus('ADD.09');
-    const hit = expectFinding(
-      unused,
-      'V04',
-      /no game data unlock rule names ADD.09; remove it from pendingGameSkills/,
-      'warn',
-    );
-    expect(hit.file).toBe('graph.yaml');
+    const unused = pendingVariant({ [UNAUTHORED]: ['building:market', 'ring:3'] });
+    for (const place of ['building:market', 'ring:3']) {
+      const hit = expectFinding(
+        unused,
+        'V04',
+        new RegExp(`no unlock rule of ${place} names PUZ.99; remove it from pendingGameSkills`),
+        'warn',
+      );
+      expect(hit.file).toBe('graph.yaml');
+    }
     expect(unused.filter((d) => d.severity === 'error')).toEqual([]);
-    expectFinding(pendingPlus('CPS.4'), 'V02', /'CPS.4' is not a canonical SkillId/);
+  });
+  it('pendingGameSkills keys are canonical SkillIds and its places follow the grammar', () => {
+    expectFinding(
+      pendingVariant({ 'CPS.4': ['building:brick-factory'] }),
+      'V02',
+      /'CPS.4' is not a canonical SkillId/,
+    );
+    expectFinding(
+      pendingVariant({ [UNAUTHORED]: ['brick-factory'] }),
+      'V02',
+      /'brick-factory' is not building:<id>, resident:<id>, outfit:<option> or ring:<index>/,
+    );
   });
   it('rejects unlock skills of unknown or reserved strands, and retired skills', () => {
     const lighthouse = (skill: string) =>

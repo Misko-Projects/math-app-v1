@@ -244,16 +244,16 @@ export const graphFileSchema = z.strictObject({
   plannedIds: z.array(idString).optional(),
   /**
    * Catalog skills (03 §3) that game data unlock rules name before the curriculum authors them
-   * (03 §9.2). A rule may name an unauthored skill only when it is listed here; the rule stays
-   * unsatisfied until the skill exists.
+   * (03 §9.2): skill id → the places allowed to name it (`building:<id>`, `resident:<id>`,
+   * `outfit:<option>`, `ring:<index>`). Such a rule stays unsatisfied until the skill exists.
    */
-  pendingGameSkills: z.array(idString).optional(),
+  pendingGameSkills: z.record(idString, z.array(z.string().min(1))).optional(),
 });
 export type GraphFile = {
   roots: string[];
   coverageGrades: Grade[];
   plannedIds: string[];
-  pendingGameSkills: string[];
+  pendingGameSkills: Record<string, string[]>;
 };
 
 export const retiredFileSchema = z.strictObject({

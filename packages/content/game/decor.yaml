@@ -4,7 +4,7 @@
 # - project: building and project level upgrades (buildings.yaml `decor:<id>` unlocks);
 # - festival: festival and Storm Watch rewards (progression.yaml), and the Festival Stage;
 # - gift: a parent's wrapped gift (`gift.left`);
-# - puzzle: Puzzle Tower levels, built with star shards.
+# - puzzle: the Puzzle Tower's star shards (05 §4 W13, 04 §6.3): its request rewards and levels.
 
 decor:
   # ---------- starter ----------

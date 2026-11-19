@@ -9,7 +9,16 @@ coverageGrades: []
 # (grade 2: CNT.11, CNT.12, CNT.17). K01 clears the K–1 entries; K02 clears the rest.
 plannedIds: [ADD.02, CNT.11, CNT.12, CNT.17, SUB.04]
 # pendingGameSkills: catalog skills (03 §3) that game data unlock rules name before the curriculum
-# authors them (03 §9.2); such a rule warns and stays unsatisfied until the skill exists. Any other
-# unauthored skill in an unlock rule is an error. The PR that authors one removes it here (a stale
-# entry only warns).
-pendingGameSkills: [CPS.04, GEO.01, MUL.02, MUL.05, FRA.01, MON.01, TIM.01, ALG.01]
+# authors them (03 §9.2), each with the exact places allowed to name it (building:<id>,
+# resident:<id>, outfit:<option>, ring:<index>). Such a rule warns and stays unsatisfied until the
+# skill exists; an unauthored skill anywhere else is an error. The PR that authors a skill removes
+# its entry (a stale entry or place only warns).
+pendingGameSkills:
+  CPS.04: [building:brick-factory]
+  MUL.02: [building:garden-terraces]
+  FRA.01: [building:bakery]
+  MUL.05: [building:bakery]
+  MON.01: [building:market]
+  TIM.01: [building:clock-tower]
+  GEO.01: [building:builders-yard]
+  ALG.01: [building:weigh-station]

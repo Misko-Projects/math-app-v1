@@ -31,8 +31,6 @@ game.material.flag:
   text: "flags"
 game.material.fruit:
   text: "fruit"
-game.material.star-shard:
-  text: "star shards"
 
 # ---------- buildings (game.building.<id>): spoken names ----------
 game.building.storehouse:

@@ -54,7 +54,7 @@ export interface LoadedContent {
     roots: string[];
     coverageGrades: Grade[];
     plannedIds: string[];
-    pendingGameSkills: string[];
+    pendingGameSkills: Record<string, string[]>;
   } | null;
   retired: { skills: Set<string>; templates: Set<string> };
   wiExceptions: Map<string, string | null>;
@@ -285,7 +285,7 @@ export function loadContent(files: ContentFiles, diags: Diagnostics): LoadedCont
             roots: data.roots,
             coverageGrades: data.coverageGrades,
             plannedIds: data.plannedIds ?? [],
-            pendingGameSkills: data.pendingGameSkills ?? [],
+            pendingGameSkills: data.pendingGameSkills ?? {},
           };
         }
         break;

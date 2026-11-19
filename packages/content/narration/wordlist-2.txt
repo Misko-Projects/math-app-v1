@@ -677,7 +677,6 @@ seventy
 shall
 shape
 shapes
-shard
 share
 shared
 she
@@ -734,7 +733,6 @@ square
 squares
 squirrel
 stage
-star
 starfish
 start
 started

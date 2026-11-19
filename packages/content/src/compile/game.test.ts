@@ -63,7 +63,7 @@ const TABLE: { id: string; unlock: UnlockRule; produces: string[] }[] = [
   {
     id: 'puzzle-tower',
     unlock: { any: [{ minGrade: '1' }, { masteredCount: 10 }] },
-    produces: ['star-shard'],
+    produces: [], // its rewards are decor only, the star shards (02 §5.6, 04 §6.3)
   },
   // Practice Pier makes any requested material; it has no product of its own.
   { id: 'practice-pier', unlock: { start: true }, produces: [] },
@@ -484,19 +484,134 @@ describe('the island (05 §3)', () => {
     });
     expect(turns.length).toBeGreaterThan(2);
   });
-  it('leaves room for every building and some decor', () => {
+  it('every stage has room to place each building it unlocks, plus decor', () => {
     const roadPlots = new Set(road.map((s) => key(s.plot)));
-    const free = ringOf.size - roadPlots.size;
-    const area = (f: [number, number]) => f[0] * f[1];
-    const buildings = game.buildings.reduce((s, b) => s + area(b.footprint), 0);
-    expect(free - buildings).toBeGreaterThanOrEqual(10);
-    // The start buildings, a first home and the Ten-Boat Dock fit on the sandbar and first shore.
-    const early = rings.slice(0, 2).flatMap((r) => r.plots.map(key));
-    const earlyFree = early.filter((p) => !roadPlots.has(p)).length;
-    const startArea = game.buildings
-      .filter((b) => 'start' in b.unlock)
-      .reduce((s, b) => s + area(b.footprint), 0);
-    const dock = area(def('ten-boat-dock').footprint);
-    expect(startArea + dock).toBeLessThanOrEqual(earlyFree);
+    const second = ['east-bridge', 'festival-stage'] as const;
+    // Each stage: the island facts that open its rings, and the skills the family has reached by
+    // then. Its buildings are the ones built so far, every non-project building whose unlock holds,
+    // and the next shared project, which is placed before it opens the next ring.
+    const K_SKILLS = ['CPS.03', 'CPS.04', 'GEO.01', 'ALG.01'];
+    const ALL_SKILLS = Object.keys(CATALOG_GRADE);
+    type Stage = {
+      open: number;
+      road: number;
+      skills: string[];
+      kinds: string[];
+      grade: Grade;
+      mastered: number;
+      built: string[];
+      next: string[];
+    };
+    const stages = second.flatMap((first): Stage[] => {
+      const other = second.find((p) => p !== first) as string;
+      return [
+        { open: 2, road: 19, skills: [], kinds: [], grade: 'K', mastered: 0, built: [], next: [] },
+        {
+          open: 3,
+          road: 20,
+          skills: ['CPS.03', 'CPS.04'],
+          kinds: [],
+          grade: 'K',
+          mastered: 0,
+          built: [],
+          next: ['lighthouse'],
+        },
+        {
+          open: 4,
+          road: 99,
+          skills: [...K_SKILLS, 'MON.01'],
+          kinds: ['fact-fluency'],
+          grade: 'K',
+          mastered: 10,
+          built: ['lighthouse'],
+          next: [first],
+        },
+        {
+          open: 5,
+          road: 99,
+          skills: ALL_SKILLS,
+          kinds: ['fact-fluency'],
+          grade: '2',
+          mastered: 20,
+          built: ['lighthouse', first],
+          next: [other],
+        },
+        {
+          open: 6,
+          road: 1000,
+          skills: ALL_SKILLS,
+          kinds: ['fact-fluency'],
+          grade: '2',
+          mastered: 20,
+          built: [...PROJECTS],
+          next: [],
+        },
+      ];
+    });
+    for (const st of stages) {
+      const label = `${st.open} rings, projects ${[...st.built, ...st.next].join(', ')}`;
+      const built = new Set<string>(st.built);
+      const holds = (r: UnlockRule): boolean => {
+        if ('start' in r) return true;
+        if ('all' in r) return r.all.every(holds);
+        if ('any' in r) return r.any.some(holds);
+        if ('skill' in r) return st.skills.includes(r.skill);
+        if ('skillKind' in r) return st.kinds.includes(r.skillKind);
+        if ('minGrade' in r) return gradeAtLeast(st.grade, r.minGrade);
+        if ('masteredCount' in r) return st.mastered >= r.masteredCount;
+        if ('building' in r) return built.has(r.building) && (r.level ?? 1) === 1;
+        if ('roadLength' in r) return st.road >= r.roadLength;
+        return r.residentCount <= 1;
+      };
+      for (let grew = true; grew; ) {
+        grew = false;
+        for (const b of game.buildings) {
+          if (b.kind === 'project' || built.has(b.id) || !holds(b.unlock)) continue;
+          built.add(b.id);
+          grew = true;
+        }
+      }
+      expect(
+        // The island fold opens the leading rings whose rules hold (02 §4.3).
+        rings.reduce((n, r, i) => (n === i && holds(r.unlock) ? i + 1 : n), 0),
+        label,
+      ).toBe(st.open);
+      for (const p of st.next) {
+        expect(holds(def(p).unlock), `${label}: ${p} is unlocked`).toBe(true);
+        built.add(p);
+      }
+      if (st.open === rings.length) expect(built.size).toBe(game.buildings.length);
+      // Backtracking placement on the open land the road does not use, footprints as given.
+      const land = new Set(
+        rings
+          .slice(0, st.open)
+          .flatMap((r) => r.plots.map(key))
+          .filter((p) => !roadPlots.has(p)),
+      );
+      const items = [...built]
+        .map(def)
+        .sort((a, b) => b.footprint[0] * b.footprint[1] - a.footprint[0] * a.footprint[1]);
+      const used = new Set<string>();
+      const cells = [...land].map((c) => c.split(',').map(Number) as [number, number]);
+      const place = (i: number): boolean => {
+        const b = items[i];
+        if (!b) return true;
+        const [w, h] = b.footprint;
+        for (const [x, y] of cells) {
+          const covers: string[] = [];
+          for (let dy = 0; dy < h; dy++)
+            for (let dx = 0; dx < w; dx++) covers.push(`${x + dx},${y + dy}`);
+          if (!covers.every((c) => land.has(c) && !used.has(c))) continue;
+          for (const c of covers) used.add(c);
+          if (place(i + 1)) return true;
+          for (const c of covers) used.delete(c);
+        }
+        return false;
+      };
+      expect(place(0), `${label}: ${items.map((b) => b.id).join(', ')} fit`).toBe(true);
+      expect(land.size - used.size, `${label}: free plots left for decor`).toBeGreaterThanOrEqual(
+        4,
+      );
+    }
   });
 });

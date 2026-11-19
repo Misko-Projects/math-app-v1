@@ -18,4 +18,3 @@ materials:
   - { id: rope, name: game.material.rope, art: material/rope } # W11 Weigh Station & Lookout
   - { id: flag, name: game.material.flag, art: material/flag } # W11 Weigh Station & Lookout
   - { id: fruit, name: game.material.fruit, art: material/fruit } # W12 Rhythm Orchard
-  - { id: star-shard, name: game.material.star-shard, art: material/star-shard } # W13 Puzzle Tower

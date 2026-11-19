@@ -754,7 +754,7 @@ function check(c: LoadedContent, d: Diagnostics): CompiledContent | null {
   if (c.game) {
     const pending = {
       file: c.graph?.file ?? 'graph.yaml',
-      ids: c.graph?.pendingGameSkills ?? [],
+      places: c.graph?.pendingGameSkills ?? {},
     };
     checkGame(c.game, c.gameOrigin, skills, c.retired.skills, pending, c.narration, d);
   }
@@ -917,7 +917,7 @@ function checkExcusedIds(c: LoadedContent, d: Diagnostics): void {
       );
     }
   }
-  for (const id of c.graph?.pendingGameSkills ?? []) {
+  for (const id of Object.keys(c.graph?.pendingGameSkills ?? {})) {
     if (!canonicalSkill(id)) {
       d.error(
         'V02',
@@ -1479,7 +1479,7 @@ function checkGame(
   origin: GameOrigin,
   skills: Map<string, unknown>,
   retired: ReadonlySet<string>,
-  pending: { file: string; ids: readonly string[] },
+  pending: { file: string; places: Readonly<Record<string, readonly string[]>> },
   narration: LoadedContent['narration'],
   d: Diagnostics,
 ): void {
@@ -1520,19 +1520,20 @@ function checkGame(
     workshops.add(b.workshopId);
   });
 
-  const pendingIds = new Set(pending.ids);
-  const namedSkills = new Set<string>();
-  const rule = (loc: Loc, r: UnlockRule) => {
+  // `<skill>@<place>` pairs: where each rule that names a skill sits.
+  const namedAt = new Set<string>();
+  /** `place` names the rule's owner in the pendingGameSkills grammar, e.g. `building:bakery`. */
+  const rule = (loc: Loc, r: UnlockRule, place: string) => {
     for (const { where, rule: a } of atomicRules(loc.path, r)) {
       const here = { file: loc.file, path: where };
       if ('building' in a && !buildings.has(a.building))
         err('V04', here, `unlock rule names unknown building ${a.building}`);
       if (!('skill' in a)) continue;
-      namedSkills.add(a.skill);
+      namedAt.add(`${a.skill}@${place}`);
       if (skills.has(a.skill)) continue;
-      // 03 §9.2 reading: a skill listed in graph.yaml: pendingGameSkills that is not authored yet
-      // only warns, and the rule stays unsatisfied until the skill exists. Any other unauthored
-      // id is an error, so a typo never ships a building that can never unlock.
+      // 03 §9.2 reading: an unauthored skill that graph.yaml: pendingGameSkills lists for this
+      // very place only warns, and the rule stays unsatisfied until the skill exists. Anywhere
+      // else it is an error, so a typo never ships a building that can never unlock.
       const strand = a.skill.slice(0, a.skill.indexOf('.'));
       if (retired.has(a.skill))
         err('V04', here, `unlock rule names retired skill ${a.skill}; it can never be reached`);
@@ -1544,11 +1545,11 @@ function checkGame(
         );
       else if (!ACTIVE_STRAND_SET.has(strand))
         err('V04', here, `unlock rule names unknown skill ${a.skill} (no strand ${strand})`);
-      else if (!pendingIds.has(a.skill))
+      else if (!pending.places[a.skill]?.includes(place))
         err(
           'V04',
           here,
-          `unlock rule names unknown skill ${a.skill}; a catalog skill that is not authored yet must be listed in graph.yaml: pendingGameSkills`,
+          `unlock rule names unknown skill ${a.skill}; a catalog skill that is not authored yet must be listed for ${place} in graph.yaml: pendingGameSkills`,
         );
       else
         d.warn(
@@ -1577,7 +1578,7 @@ function checkGame(
   const grants: Record<string, Set<string>> = { decor, outfit: outfits, resident: residents };
   game.buildings.forEach((b, i) => {
     const loc = at('buildings', i);
-    rule(sub(loc, '.unlock'), b.unlock);
+    rule(sub(loc, '.unlock'), b.unlock, `building:${b.id}`);
     b.levels.forEach((lv, j) => {
       const lloc = sub(loc, `.levels[${j}]`);
       if (lv.level !== j + 1)
@@ -1600,7 +1601,7 @@ function checkGame(
   });
   game.residents.forEach((r, i) => {
     const loc = at('residents', i);
-    rule(sub(loc, '.arrival.unlock'), r.arrival.unlock);
+    rule(sub(loc, '.arrival.unlock'), r.arrival.unlock, `resident:${r.id}`);
     const home = r.arrival.home;
     const hloc = sub(loc, '.arrival.home');
     if (r.arrival.via === 'home' && home === undefined)
@@ -1620,7 +1621,7 @@ function checkGame(
   });
   game.outfits.forEach((o, i) => {
     const loc = sub(at('outfits', i), '.unlock');
-    rule(loc, o.unlock);
+    rule(loc, o.unlock, `outfit:${o.option}`);
     factsOnly(loc, o.unlock, NON_OUTFIT_RULE_KEYS, 'an outfit rule');
   });
   const inGrid = ([x, y]: [number, number]) =>
@@ -1634,7 +1635,7 @@ function checkGame(
   const ringOf = new Map<string, number>();
   game.island.rings.forEach((ring, i) => {
     const loc = islandAt(`island.rings[${i}]`);
-    rule(sub(loc, '.unlock'), ring.unlock);
+    rule(sub(loc, '.unlock'), ring.unlock, `ring:${i}`);
     factsOnly(sub(loc, '.unlock'), ring.unlock, LEARNER_RULE_KEYS, 'a ring rule');
     ring.plots.forEach((p, j) => {
       const ploc = sub(loc, `.plots[${j}]`);
@@ -1663,21 +1664,27 @@ function checkGame(
     });
   });
   // A stale pendingGameSkills entry warns, so a curriculum PR that authors one keeps passing.
-  for (const id of pendingIds) {
+  const PLACE = /^(building|resident|outfit):[^:\s]+$|^ring:(0|[1-9]\d*)$/;
+  for (const [id, places] of Object.entries(pending.places)) {
+    const path = `pendingGameSkills.${id}`;
     if (skills.has(id))
-      d.warn(
-        'V03',
-        pending.file,
-        'pendingGameSkills',
-        `${id} is authored; remove it from pendingGameSkills`,
-      );
-    else if (!namedSkills.has(id))
-      d.warn(
-        'V04',
-        pending.file,
-        'pendingGameSkills',
-        `no game data unlock rule names ${id}; remove it from pendingGameSkills`,
-      );
+      d.warn('V03', pending.file, path, `${id} is authored; remove it from pendingGameSkills`);
+    places.forEach((place, j) => {
+      if (!PLACE.test(place))
+        d.error(
+          'V02',
+          pending.file,
+          `${path}[${j}]`,
+          `'${place}' is not building:<id>, resident:<id>, outfit:<option> or ring:<index>`,
+        );
+      else if (!skills.has(id) && !namedAt.has(`${id}@${place}`))
+        d.warn(
+          'V04',
+          pending.file,
+          `${path}[${j}]`,
+          `no unlock rule of ${place} names ${id}; remove it from pendingGameSkills`,
+        );
+    });
   }
 }
 
