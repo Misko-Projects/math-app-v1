@@ -88,6 +88,9 @@ export function cyclicPolygon(sides: readonly number[]): Pt[] {
       : sum(sides.map((s, i) => (i === k ? -angle(r, s) : angle(r, s))));
   let lo = longest / 2;
   let hi = sum(sides) * 2;
+  // A narrow polygon's circle can be far larger than its perimeter ([999, 500, 500] has R ≈ 5592):
+  // widen the bracket until it holds the root (f changes sign between lo and hi).
+  for (let i = 0; i < 200 && f(hi) > 0 === inside; i += 1) hi *= 2;
   for (let i = 0; i < 200; i += 1) {
     const mid = (lo + hi) / 2;
     if (f(mid) > 0 === inside) lo = mid;

@@ -800,6 +800,13 @@ describe('perimeter-walk', () => {
       // A long side puts the circle's centre outside the polygon.
       { ...pwTotal, polygon: { sides: [8, 3, 3, 3], grid: false, shape: 'poly' } },
       { ...pwTotal, polygon: { sides: [7, 2, 6, 3, 4], grid: false, shape: 'poly' } },
+      // Extreme valid polygons (review CR-1.8): very narrow triangles (circumradius far above the
+      // perimeter), a near-degenerate quadrilateral, and a long side last.
+      { ...pwTotal, polygon: { sides: [999, 500, 500], grid: false, shape: 'poly' } },
+      { ...pwTotal, polygon: { sides: [500, 500, 999], grid: false, shape: 'poly' } },
+      { ...pwTotal, polygon: { sides: [1, 1, 1.99], grid: false, shape: 'poly' } },
+      { ...pwTotal, polygon: { sides: [10, 3, 3, 4.1], grid: false, shape: 'poly' } },
+      { ...pwTotal, polygon: { sides: [1, 50, 1, 50], grid: false, shape: 'poly' } },
     ];
     for (const c of cases) {
       const pts = polygonPoints(c);
