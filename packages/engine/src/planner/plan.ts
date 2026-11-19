@@ -13,7 +13,8 @@
 // - Request count: 3 when there are ≥ 3 distinct focus skills or ≥ 3 available themed workshops
 //   host a focus skill's (or, with no focus skill, a due review's) templates; else 2.
 // - New-skill pool: the frontier plus fact-fluency skills on the practiced track that are not
-//   fluent (04 §6.5); unlockValue divides by the maximum over that pool.
+//   fluent (04 §6.5) and whose last review did not fail (such a skill is reviewed first);
+//   unlockValue divides by the maximum over that pool.
 // - Breakers: a request never has more than maxRun consecutive items of one skill. When reviews
 //   and challenges cannot break the focus skill's runs, one other new skill that needs no lesson
 //   first (learning, lesson mode 'none', or fluency) adds items, then practiced-track skills
@@ -65,7 +66,9 @@
 // - Reviews: transfer probes need a hosted abstract template; otherwise the task stays 'review'.
 //   A failed review is due again at once: besides `dueReviews`, every practiced-track skill that is
 //   'needs-review' with `memory.consecutiveFails > 0` joins the due list as an ordinary review
-//   (dueTs = now, not at risk), in the same order (depth desc, dueTs, id).
+//   (dueTs = now, not at risk), in the same order (depth desc, dueTs, id). Failed reviews are
+//   scheduled ahead of compression, and the ordinary reviews they encompass (w ≥ 0.5) are dropped
+//   before the rest is compressed.
 // - Remediation: the lesson task is planned unless the skill's lesson mode is 'none', whatever the
 //   skill's status (ready, learning or on the practiced track).
 // - Puzzle Tower requests always carry decor (when `puzzleDecor` is non-empty), like requests
@@ -92,7 +95,7 @@ import type {
 import { FORMAT_DEFAULT_REPRESENTATION } from '@number-island/shared';
 import { isConstructedTemplate } from '../items/answer-kind';
 import { createEloFireModel, type EloFireModel } from '../learner/elo-fire';
-import { compressReviews, reviewContext } from '../learner/review';
+import { compressedBy, compressReviews, reviewContext } from '../learner/review';
 import { DAY_MS, type EngineParams, PARAMS } from '../params';
 import { createRng, fnv1a32, type Rng } from '../rng';
 import {
@@ -224,6 +227,10 @@ export function neededTemplates(
   return evidence.filter((t) => !formats.has(t.format) || !tiers.has(t.tier));
 }
 
+/** The skill's last explicit review failed (`memory.consecutiveFails > 0`). */
+const failedReview = (state: LearnerState, s: SkillId): boolean =>
+  (state.skills[s]?.memory?.consecutiveFails ?? 0) > 0;
+
 /** Fact-fluency skills on the practiced track that are not fluent yet (04 §6.5). */
 function needsFluency(graph: SkillGraph, state: LearnerState, s: SkillId): boolean {
   return (
@@ -256,7 +263,11 @@ function rankWith(
 ): RankedSkill[] {
   const plannable = (s: SkillId) => templatesOf(graph, s).length > 0;
   const pool = new Set(model.frontier(state).filter(plannable));
-  for (const s of graph.nodes) if (plannable(s) && needsFluency(graph, state, s)) pool.add(s);
+  // A fluency skill whose last review failed is `needs-review`: it is reviewed first (the failed
+  // review path of `dueNow`), not a focus, because a request never reviews its own focus skill.
+  for (const s of graph.nodes) {
+    if (plannable(s) && needsFluency(graph, state, s) && !failedReview(state, s)) pool.add(s);
+  }
   const ids = [...pool].sort(byId);
 
   // The strand's latest attempt: the max ts over its skills' evidence (SkillState.recent).
@@ -478,13 +489,14 @@ function compose(
   const reviewTarget = focus ? Math.round(P.planner[sliceKey(ctx)].reviewShare * budget) : budget;
   // A skill whose last review failed is reviewed itself: an encompassing skill's implicit credit
   // (04 §4) lengthens its interval but never clears the failure, so compression may not drop it.
-  const failedReview = (r: DueReview) =>
-    (ctx.state.skills[r.skillId]?.memory?.consecutiveFails ?? 0) > 0;
-  const failedDue = dueHere.filter(failedReview).slice(0, reviewTarget);
+  const failed = (r: DueReview) => failedReview(ctx.state, r.skillId);
+  const failedDue = dueHere.filter(failed).slice(0, reviewTarget);
+  // A scheduled failed review still compresses the ordinary reviews it encompasses.
+  const covered = new Set(failedDue.flatMap((r) => compressedBy(graph, r.skillId, P)));
   const reviews = [
     ...failedDue,
     ...compressReviews(
-      dueHere.filter((r) => !failedReview(r)),
+      dueHere.filter((r) => !failed(r) && !covered.has(r.skillId)),
       graph,
       reviewTarget - failedDue.length,
       P,
@@ -649,7 +661,7 @@ function dueNow(
   const listed = new Set(due.map((r) => r.skillId));
   for (const s of Object.keys(state.skills).sort(byId)) {
     if (listed.has(s) || !onTrack(state, s) || status.get(s) !== 'needs-review') continue;
-    if ((state.skills[s]?.memory?.consecutiveFails ?? 0) <= 0) continue;
+    if (!failedReview(state, s)) continue;
     due.push({
       skillId: s,
       dueTs: now,
@@ -724,11 +736,23 @@ export function planSession(input: PlanSessionInput, opts: PlanOptions = {}): Se
     ),
   );
 
-  // An item warmup (rules a–d) is the only attempt before a request's first items, so a test-out
-  // is planned only when the learner would still offer it after that warmup went wrong: the plan
-  // and the learner (which decides at the first evidence attempt, 04 §7a) then agree.
+  // One test-out rule. The learner decides a test-out at the skill's first evidence attempt
+  // (04 §7a), after the warmup, whose outcome the plan cannot know; the plan must agree whatever it
+  // is. A lesson with rated child steps touches the skill, so the learner never offers a test-out
+  // after it: its draw (which comes first) is planned only when the learner offers it even after
+  // the warmup went all wrong. A demonstration-only lesson leaves the skill untouched, so the
+  // learner may offer the test-out at the first evidence item whatever the plan did: its draw is
+  // planned whenever the learner may offer it, after the warmup went all right. Any test-out the
+  // learner starts is then a planned, passable draw (03 §6.5).
+  const plannedTestOut = (s: SkillId, before: Before | null): boolean => {
+    const skill = graph.skills[s] as Skill;
+    const sign = lessonChildSteps(skill) === 0 ? 1 : -1;
+    return model.inTestOut(afterAttempts(state, before, model, P, sign), s);
+  };
   const itemWarmup = warmupBeforeFocus(ctx, themed);
-  const offerState = itemWarmup ? afterWrongAttempt(state, itemWarmup.skillId, model, P) : state;
+  const itemBefore: Before | null = itemWarmup
+    ? { skillId: itemWarmup.skillId, w: 1, times: 1 }
+    : null;
 
   const focusOf = (i: number): Focus | null => {
     if (focusIds.length === 0) return null;
@@ -744,9 +768,12 @@ export function planSession(input: PlanSessionInput, opts: PlanOptions = {}): Se
     }
     const ready = status.get(s) === 'ready';
     const lesson = ready && skill.lesson.mode !== 'none';
-    // The learner's own offer rule (03 §6.5, 04 §7a), on the worst case of the warmup.
-    const offered = lesson && model.inTestOut(offerState, s);
-    return { skillId: s, lesson, testOut: offered, remediation: false };
+    return {
+      skillId: s,
+      lesson,
+      testOut: lesson && plannedTestOut(s, itemBefore),
+      remediation: false,
+    };
   };
   let focuses = Array.from({ length: nReq }, (_, i) => focusOf(i));
 
@@ -898,23 +925,27 @@ export function planSession(input: PlanSessionInput, opts: PlanOptions = {}): Se
     // whose test-out is not offered) is the warmup, and requests on that skill skip that lesson.
     // No request is rebuilt around another focus, so remediation and every request's own draw
     // stay as planned.
-    // A queued remediation keeps its own lesson in its request (04 §6.4), so it is not a candidate.
+    // A queued remediation request keeps its own lesson task whatever the warmup is (04 §6.4); a
+    // skill with a queued remediation is the warmup lesson only when no other skill can be.
+    const remediated = new Set(focuses.filter((f) => f?.remediation).map((f) => f?.skillId));
     const withLesson = focuses.filter((f): f is Focus => f?.lesson === true && !f.remediation);
-    const f0 = withLesson.find((f) => !f.testOut) ?? withLesson[0];
+    const free = withLesson.filter((f) => !remediated.has(f.skillId));
+    const f0 = free.find((f) => !f.testOut) ?? free[0] ?? withLesson[0];
     const lessonSkill = f0 ? graph.skills[f0.skillId] : undefined;
     const lessonTpl = lessonSkill ? graph.templates[lessonSkill.lesson.templateId] : undefined;
     if (f0 && lessonSkill && lessonTpl) {
       warmup = warmupTask(ctx, f0.skillId, lessonTpl.id, 'lesson', 'lesson');
-      // The lesson's child steps are rated `lesson` attempts (w × 0.5): with any, the skill is
-      // touched and gets no test-out; a demonstration-only lesson leaves it untouched and keeps its
-      // draw. Every other test-out is planned only if it holds after all those steps go wrong.
+      // The lesson's child steps are rated `lesson` attempts (w × 0.5), and they come before every
+      // request: the one test-out rule above, applied to them. With any, the lesson skill itself is
+      // touched and gets no test-out; a demonstration-only lesson leaves it untouched and its state
+      // unchanged, so its draw stays as planned. The remediation request is left as it is.
       const steps = lessonChildSteps(lessonSkill);
-      const worst = afterWrongAttempt(state, f0.skillId, model, P, P.rating.lessonWeight, steps);
+      const lessonBefore: Before = { skillId: f0.skillId, w: P.rating.lessonWeight, times: steps };
       focuses = focuses.map((f) => {
-        if (!f) return f;
+        if (!f || f.remediation) return f;
         if (f.skillId === f0.skillId)
           return { ...f, lesson: false, testOut: f.testOut && steps === 0 };
-        return { ...f, testOut: f.testOut && model.inTestOut(worst, f.skillId) };
+        return { ...f, testOut: f.lesson && plannedTestOut(f.skillId, lessonBefore) };
       });
       built = build(focuses);
     } else {
@@ -940,35 +971,45 @@ function lessonChildSteps(skill: Skill): number {
   return faded + skill.lesson.scaffolded.count;
 }
 
+/** The rated attempts that come before a request's first items: the warmup's. */
+interface Before {
+  skillId: SkillId;
+  /** Rating weight of each attempt (1 for an item, w × 0.5 for a lesson's child steps). */
+  w: number;
+  times: number;
+}
+
 /**
- * The state after the worst `times` first attempts on `skill` at weight `w`: each wrong answer
- * (e = −1) lowers θg by Kg(N)·w and the skill's offset by Ks(n)·w (04 §2.3). Used to plan only
- * test-outs the learner still offers whatever the warmup's outcome (a wrong answer lowers P(ref);
- * a right one raises it).
+ * The state after `before`'s attempts all go wrong (sign −1) or all go right (sign +1). The 04 §2.3
+ * update moves θg by Kg(N)·w·(o − P̂) and the skill's offset by Ks(n)·w·(o − P̂), with |o − P̂| < 1,
+ * so these bound every outcome: P(ref) of any skill, and so the learner's offer, lies between them.
  */
-function afterWrongAttempt(
+function afterAttempts(
   state: LearnerState,
-  skill: SkillId,
+  before: Before | null,
   model: EloFireModel,
   P: EngineParams,
-  w = 1,
-  times = 1,
+  sign: 1 | -1,
 ): LearnerState {
   let s = state;
-  for (let k = 0; k < times; k++) s = oneWrongAttempt(s, skill, model, P, w);
+  if (!before) return s;
+  for (let k = 0; k < before.times; k++)
+    s = oneAttempt(s, before.skillId, model, P, before.w, sign);
   return s;
 }
 
-function oneWrongAttempt(
+function oneAttempt(
   state: LearnerState,
   skill: SkillId,
   model: EloFireModel,
   P: EngineParams,
   w: number,
+  sign: 1 | -1,
 ): LearnerState {
   const st = state.skills[skill];
   const n = st?.n ?? 0;
-  const theta = model.skillOffset(state, skill) - (w * P.rating.ks) / (1 + P.rating.ksDecay * n);
+  const theta =
+    model.skillOffset(state, skill) + (sign * w * P.rating.ks) / (1 + P.rating.ksDecay * n);
   const base: SkillState = st ?? {
     theta,
     n: 0,
@@ -984,7 +1025,7 @@ function oneWrongAttempt(
   };
   return {
     ...state,
-    thetaG: state.thetaG - (w * P.rating.kg) / (1 + P.rating.kgDecay * state.nTotal),
+    thetaG: state.thetaG + (sign * w * P.rating.kg) / (1 + P.rating.kgDecay * state.nTotal),
     nTotal: state.nTotal + 1,
     skills: { ...state.skills, [skill]: { ...base, theta, n: n + 1 } },
   };

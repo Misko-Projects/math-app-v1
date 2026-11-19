@@ -391,6 +391,49 @@ describe('rule 4: frustration', () => {
     }
   });
 
+  it('no skill fits the run rule: the request ends (frustration), never a fourth item in a row', () => {
+    // A legal B, B, B request; frustration fires as the third B resolves. B is the only candidate
+    // (no practiced skill, no other request skill), and another B would be the fourth in a row.
+    const tasks = [task(B, 3), task(B, 3, { seed: 2 }), task(B, 3, { seed: 3 })];
+    const d = run(
+      scenario({
+        tasks,
+        results: [R, R, W],
+        last: { attemptNo: 3 },
+        input: { signals: { wrongInLast4: 3, rapidWrongTaps: 0, longIdles: 0 } },
+      }),
+    );
+    expect(d).toEqual({ action: 'end-request', reason: 'frustration' });
+  });
+
+  it('the confidence run check counts a possible warmup of the same skill', () => {
+    // Request B, B, A; frustration after the second B, with B the strongest candidate. AdaptInput
+    // does not say which skill the warmup was, and the run B, B reaches the request's start, so the
+    // warmup may be a third B: a B confidence item could be the fourth in a row. A takes it.
+    const strongB = Array.from({ length: 8 }, () => ({ skillId: B, n: 3, correct: true }));
+    const tasks = [task(B, 3), task(B, 3, { seed: 2 }), task(A, 3)];
+    const input = scenario({
+      before: strongB,
+      patch: (s) => ({
+        ...s,
+        skills: {
+          ...s.skills,
+          [B]: { ...(s.skills[B] as LearnerState['skills'][string]), practicedAt: T0 },
+        },
+      }),
+      tasks,
+      results: [R, W],
+      last: { attemptNo: 3 },
+      input: { signals: { wrongInLast4: 3, rapidWrongTaps: 0, longIdles: 0 } },
+    });
+    const model = createEloFireModel(input.graph, { childId: CHILD_ID, isK: false });
+    expect(model.pRef(input.state, B)).toBeGreaterThan(model.pRef(input.state, A));
+    expect(run(input)).toMatchObject({
+      action: 'confidence-then-offer-break',
+      insert: [{ skillId: A, seed: confidenceSeed(REQ), context: 'warmup' }],
+    });
+  });
+
   it.each([
     ['wrongInLast4', { wrongInLast4: 3, rapidWrongTaps: 0, longIdles: 0 }],
     ['rapidWrongTaps', { wrongInLast4: 0, rapidWrongTaps: 3, longIdles: 0 }],
@@ -435,10 +478,11 @@ describe('rule 4: frustration', () => {
   });
 
   it('an un-practiced strong skill outside the request is not a candidate', () => {
+    // A one-item request, so a B confidence item keeps the run rule even after a B warmup.
     const d = run(
       scenario({
         before: strongA,
-        tasks: bTasks,
+        tasks: [task(B, 3)],
         results: [R],
         input: { signals: { wrongInLast4: 3, rapidWrongTaps: 0, longIdles: 0 } },
       }),
@@ -462,19 +506,32 @@ describe('rule 4: frustration', () => {
     const graph = variant([], (g) => {
       g.skills[B] = { ...(g.skills[B] as SkillGraph['skills'][string]), templates: [] };
     });
+    const signals = { wrongInLast4: 3, rapidWrongTaps: 0, longIdles: 0 };
     const d = run(
       scenario({
         graph,
-        tasks: [task(B, 3), task(B, 2, { seed: 7 })],
-        results: [W, W],
+        tasks: [task(B, 3)],
+        results: [W],
         last: { attemptNo: 3 },
-        input: { signals: { wrongInLast4: 3, rapidWrongTaps: 0, longIdles: 0 } },
+        input: { signals },
       }),
     );
     expect(d).toMatchObject({
       action: 'confidence-then-offer-break',
       insert: [{ skillId: B, templateId: `${B}.t3`, seed: confidenceSeed(REQ), context: 'warmup' }],
     });
+    // The fallback keeps the run rule too: after B, B at the request's start (a B warmup may come
+    // before them), another B could be the fourth in a row, so the request ends.
+    const two = run(
+      scenario({
+        graph,
+        tasks: [task(B, 3), task(B, 2, { seed: 7 })],
+        results: [W, W],
+        last: { attemptNo: 3 },
+        input: { signals },
+      }),
+    );
+    expect(two).toEqual({ action: 'end-request', reason: 'frustration' });
   });
 
   const conf = task(A, 3, { seed: confidenceSeed(REQ), context: 'warmup' });
@@ -625,6 +682,49 @@ describe('rule 6: prerequisite probe', () => {
     expect(model.skillOffset(input.state, B)).toBeLessThan(model.skillOffset(input.state, A));
     expect(run(input)).toMatchObject({
       insert: [{ skillId: A, templateId: `${A}.t3`, seed: probeSeed(REQ, C, A) }],
+    });
+  });
+
+  it('the probe keeps the run rule: never a fourth item of one skill in a row', () => {
+    // C, A, C, A, C, B, B, B: the C items wrong, the A items right. The third C miss calls for a
+    // probe of B (C's only hosted prerequisite), with no frustration, but B spliced in after the
+    // current C would start a run of four Bs, so the rule does not fire.
+    const tasks = [
+      task(C, 3),
+      task(A, 3),
+      task(C, 3, { seed: 2 }),
+      task(A, 3, { seed: 2 }),
+      task(C, 3, { seed: 3 }),
+      task(B, 3),
+      task(B, 3, { seed: 2 }),
+      task(B, 3, { seed: 3 }),
+    ];
+    const results = [W, R, W, R, W];
+    const d = run(scenario({ tasks, results, last: { attemptNo: 3 } }));
+    expect(d.action).toBe('continue');
+    const insert = d.action === 'continue' ? (d.insert ?? []) : [];
+    const at = results.length;
+    const after = [...tasks.slice(0, at), ...insert, ...tasks.slice(at)];
+    let runLen = 0;
+    let lastSkill = '';
+    for (const t of after) {
+      runLen = t.skillId === lastSkill ? runLen + 1 : 1;
+      lastSkill = t.skillId;
+      expect(runLen).toBeLessThanOrEqual(3);
+    }
+    expect(insert).toEqual([]);
+
+    // With a second prerequisite A, the weakest prerequisite whose insertion fits is probed: B is
+    // weaker but does not fit, so A.
+    const graph = variant([], (g) => {
+      g.prereqs[C] = [B, A];
+    });
+    const input = scenario({ graph, tasks, results, last: { attemptNo: 3 } });
+    const model = createEloFireModel(graph, { childId: CHILD_ID, isK: false });
+    expect(model.skillOffset(input.state, B)).toBeLessThan(model.skillOffset(input.state, A));
+    expect(run(input)).toMatchObject({
+      action: 'continue',
+      insert: [{ skillId: A, seed: probeSeed(REQ, C, A) }],
     });
   });
 
