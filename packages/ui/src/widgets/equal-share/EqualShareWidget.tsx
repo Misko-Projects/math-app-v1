@@ -888,7 +888,8 @@ export function EqualShareWidget({
       items.push(
         <span
           key={k}
-          className="ni-esw__item"
+          // A countable picture: the demonstration hand never covers it (kit glyph rule).
+          className="ni-esw__item ni-invite-glyph"
           data-es-tap="pile"
           style={{ left: p.x, top: p.y, width: s, height: s }}
         >

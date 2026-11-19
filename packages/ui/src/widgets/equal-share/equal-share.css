@@ -210,7 +210,8 @@
   position: relative;
   display: flex;
   flex: none;
-  flex-direction: column;
+  /* The take-one spot sits at the bottom: the demonstration hand hangs under it, in its strip. */
+  flex-direction: column-reverse;
   align-items: center;
   gap: 16px;
   pointer-events: none;

@@ -874,7 +874,8 @@ export function EqualGroupsWidget({
       pileItems.push(
         <span
           key={k}
-          className="ni-egw__sprite"
+          // A countable picture: the demonstration hand never covers it (kit glyph rule).
+          className="ni-egw__sprite ni-invite-glyph"
           style={{ left: p.x, top: p.y, width: s, height: s }}
         >
           <ObjectSprite sprite={config.sprite} />

@@ -254,8 +254,9 @@
     inset 0 0 0 3px var(--color-wood-deep),
     var(--shadow-soft);
 }
+/* The take-one spot sits under its pile: the demonstration hand hangs under it, in its strip. */
 .ni-egw__supply[data-shape="under"] {
-  flex-direction: column;
+  flex-direction: column-reverse;
 }
 .ni-egw__supplypad {
   position: absolute;
