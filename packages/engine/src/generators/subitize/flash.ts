@@ -1,5 +1,9 @@
 // subitize.flash (03 §5.6): see a small quantity at a glance, or build it in a structured frame.
 // Formats: dot-flash, numeral-pick, number-pad, make-set, tenframe-fill, rekenrek, number-bond.
+// Teens (SUB.04, SUB.07): `double-ten-frame` shows ten and the rest on two frames, or with `part`
+// the first frame (top rekenrek row) holds part and the second the rest (8 and 7). The rekenrek
+// representation draws the bead rack, the dots representation draws dots in the double-frame
+// layout, and the rekenrek format reads the beads.
 
 import type {
   LessonStep,
@@ -49,15 +53,14 @@ export function arrangementGroups(
   part = 0,
 ): number[] {
   switch (arrangement) {
+    case 'double-ten-frame':
+      // A given part fills the first frame (or the top rekenrek row) and the rest the second.
+      if (part > 0 && part < n) return [part, n - part];
+      return frameGroups(n, 10);
     case 'fingers':
     case 'five-frame':
     case 'ten-frame':
-    case 'double-ten-frame': {
-      const unit = arrangement === 'double-ten-frame' ? 10 : 5;
-      const out: number[] = [];
-      for (let left = n; left > 0; left -= Math.min(unit, left)) out.push(Math.min(unit, left));
-      return out.length ? out : [0];
-    }
+      return frameGroups(n, 5);
     case 'dice': {
       const out: number[] = [];
       for (let left = n; left > 0; left -= Math.min(6, left)) out.push(Math.min(6, left));
@@ -72,6 +75,32 @@ export function arrangementGroups(
     default:
       return [n];
   }
+}
+
+/** Full frames (or hands) of `unit`, then the rest. */
+function frameGroups(n: number, unit: number): number[] {
+  const out: number[] = [];
+  for (let left = n; left > 0; left -= Math.min(unit, left)) out.push(Math.min(unit, left));
+  return out.length ? out : [0];
+}
+
+/**
+ * Two partly filled frames or rekenrek rows (8 and 7): a `double-ten-frame` with a first part
+ * below ten. Read by fives, not as ten and some more (SUB.07).
+ */
+function rowSplit(p: ParamValues): boolean {
+  const n = asNum(p.n);
+  const part = asNum(p.part);
+  return asStr(p.arrangement, 'dice') === 'double-ten-frame' && part > 0 && part < 10 && part < n;
+}
+
+/** Beads on the two rekenrek rows (or counters in the two frames): a given part first, else a full ten first. */
+function frameRows(p: ParamValues): [number, number] {
+  const n = asNum(p.n);
+  const part = asNum(p.part);
+  if (asStr(p.arrangement, 'dice') === 'double-ten-frame' && part > 0 && part < n)
+    return [part, n - part];
+  return [Math.min(10, n), Math.max(0, n - 10)];
 }
 
 /**
@@ -118,6 +147,10 @@ function stimulusParts(s: StimulusSpec): number[] {
       return s.groups.filter((g) => g > 0);
     case 'objects':
       return (s.set.groups ?? [s.set.count]).filter((g) => g > 0);
+    case 'ten-frame':
+      return s.filled.filter((g) => g > 0);
+    case 'rekenrek':
+      return s.rows.filter((g) => g > 0);
     default:
       return [];
   }
@@ -182,6 +215,10 @@ export const subitizeFlash: GeneratorDef = {
     teen: { weight: 0.5, doc: 'n ≥ 11' },
     placeValue: { weight: 0.4, doc: 'a full ten plus ones' },
     multiplicative: { weight: 0.5, doc: '≥ 3 equal groups' },
+    'split.rows': {
+      weight: 0.5,
+      doc: "two partly filled frames or rekenrek rows (a 'double-ten-frame' part below ten: 8 and 7), read by fives",
+    },
   },
   narration: [
     'gen.subitize.flash.look',
@@ -198,6 +235,12 @@ export const subitizeFlash: GeneratorDef = {
     const arrangement = asStr(p.arrangement, 'dice') as Arrangement;
     // A given part must leave something for the other group(s).
     if (arrangement === 'groups' && part > 0 && part >= n) return false;
+    // Two frames or two rekenrek rows hold ten each.
+    if (arrangement === 'double-ten-frame') {
+      if (n > 20) return false;
+      if (part > 0 && (part > 10 || part >= n || n - part > 10)) return false;
+    }
+    if (t.format === 'rekenrek' && n > 20) return false;
     // A number bond shows exactly two parts.
     if (t.format === 'number-bond')
       return itemGroups(p, t.format).filter((g) => g > 0).length === 2;
@@ -211,19 +254,26 @@ export const subitizeFlash: GeneratorDef = {
     const visible = groups.filter((g) => g > 0);
     const a = visible[0] ?? 0;
     const b = visible[1] ?? 0;
+    const split = rowSplit(params);
+    const rows = frameRows(params);
+    // Feature values depend on the params only (the learner rebuilds them from params and seed).
     const math: Record<string, number> = {
       'n.upTo4': Math.max(0, Math.min(n, 4) - 1),
       conceptual: visible.length >= 2 ? 1 : 0,
       'group.over3':
         arrangement === 'groups' && visible.length >= 2 ? Math.max(0, Math.max(...visible) - 3) : 0,
       teen: n >= 11 ? 1 : 0,
-      // A full ten plus ones: teen quantities shown in ten-frames (or with a group of ten).
+      // A full ten plus ones: teen quantities shown in ten-frames (or with a group of ten), unless
+      // the two frames or rows are both partly filled.
       placeValue:
         n > 10 &&
-        (arrangement === 'ten-frame' || arrangement === 'double-ten-frame' || groups[0] === 10)
+        (arrangement === 'ten-frame' ||
+          (arrangement === 'double-ten-frame' && !split) ||
+          groups[0] === 10)
           ? 1
           : 0,
       multiplicative: visible.length >= 3 && visible.every((g) => g === visible[0]) ? 1 : 0,
+      'split.rows': split ? 1 : 0,
     };
     // Formats with their own size feature measure size there; n.over5 covers the rest.
     if (!SIZED.has(t.format)) math['n.over5'] = Math.max(0, n - 5) / 5;
@@ -233,9 +283,20 @@ export const subitizeFlash: GeneratorDef = {
         ? { kind: 'objects', set: objectSet(n, arrangement, groups, layoutSeed(rng)) }
         : t.representation === 'symbols'
           ? { kind: 'none' } // abstract tier: the numbers are in the prompt only
-          : arrangement === 'ten-frame' || arrangement === 'double-ten-frame'
-            ? { kind: 'ten-frame', frames: n > 10 ? 2 : 1, filled: n > 10 ? [10, n - 10] : [n] }
-            : { kind: 'dots', arrangement, groups };
+          : t.representation === 'rekenrek'
+            ? { kind: 'rekenrek', rows }
+            : arrangement === 'double-ten-frame'
+              ? // Dots drawn in the double-frame layout (SUB.04), or the frames themselves.
+                t.representation === 'dots'
+                ? { kind: 'dots', arrangement, groups }
+                : { kind: 'ten-frame', frames: 2, filled: rows }
+              : arrangement === 'ten-frame'
+                ? {
+                    kind: 'ten-frame',
+                    frames: n > 10 ? 2 : 1,
+                    filled: n > 10 ? [10, n - 10] : [n],
+                  }
+                : { kind: 'dots', arrangement, groups };
     // The level-3 picture: a ten-frame, coloured by part when the item shows two groups.
     const overlay = visible.length === 2 ? tenFrameOverlay(n, [a, b]) : tenFrameOverlay(n);
     let p: PartialOutput;
@@ -326,15 +387,15 @@ export const subitizeFlash: GeneratorDef = {
         };
         break;
       case 'rekenrek': {
-        const preset: [number, number] = [Math.min(10, n), Math.max(0, n - 10)];
+        // Quick-read: a full top row then the rest, or a given part on top (7 and 6).
         p = {
           params,
           vars,
           math,
           widget: {
             format: 'rekenrek',
-            rows: n > 10 ? 2 : 1,
-            preset,
+            rows: rows[1] > 0 ? 2 : 1,
+            preset: rows,
             mode: 'read',
             rowRule: 'any',
             thenAsk: null,
@@ -430,15 +491,27 @@ export const subitizeFlash: GeneratorDef = {
           ),
           say('gen.subitize.flash.total', { n }, { op: 'count-total' }),
         ];
-      case 'rekenrek':
+      case 'rekenrek': {
+        const [top, bottom] = w.preset;
         return [
           say(
             'gen.subitize.flash.see-groups',
             { n },
-            { op: 'highlight', args: { row: 0, upTo: n } },
+            { op: 'highlight', args: { row: 0, upTo: top } },
           ),
+          // Two rows in use: name each row before the total (10 and 3, or 7 and 6).
+          ...(bottom > 0
+            ? [
+                say(
+                  'gen.subitize.flash.parts',
+                  { a: top, b: bottom },
+                  { op: 'highlight', args: { row: 1, upTo: bottom } },
+                ),
+              ]
+            : []),
           say('gen.subitize.flash.total', { n }, { op: 'answer', args: { value: n } }),
         ];
+      }
       case 'number-bond': {
         const a = w.parts[0] ?? 0;
         const b = w.parts[1] ?? 0;

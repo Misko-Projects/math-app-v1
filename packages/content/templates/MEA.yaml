@@ -52,6 +52,42 @@ templates:
       prompt: tp.MEA.01.t3.prompt
       hints: [h.length.ruler-start, h.length.ruler-ends]
 
+  # Constructed answers (04 §7a: t1–t3 answer with a choice): three objects side by side, ends
+  # lined up, put in order from the longest; then the same with ruler strips and no numerals.
+  - id: MEA.01.t4
+    skillId: MEA.01
+    format: compare-length
+    tier: pictorial
+    representation: objects
+    generator: mea.length
+    params:
+      mode: order
+      ask: longer
+      objects: 3
+      length: { int: [2, 10] }
+    constraints: ["gap >= 2"]
+    difficulty: { base: -1.1, features: { closeness: 1.2 } }
+    narration:
+      prompt: tp.MEA.01.t4.prompt
+      hints: [h.length.look-ends, h.length.order-longest, h.length.order-next-long]
+
+  - id: MEA.01.t5
+    skillId: MEA.01
+    format: order
+    tier: pictorial
+    representation: ruler
+    generator: mea.length
+    params:
+      mode: order
+      ask: longer
+      objects: 3
+      length: { int: [2, 10] }
+    constraints: ["gap >= 2"]
+    difficulty: { base: -1.15, features: { closeness: 1.2 } }
+    narration:
+      prompt: tp.MEA.01.t5.prompt
+      hints: [h.length.ruler-start, h.length.order-longest, h.length.order-next-long]
+
   # MEA.02: measure with copies of one unit
   - id: MEA.02.t1
     skillId: MEA.02
@@ -234,6 +270,26 @@ templates:
       prompt: tp.MEA.15.t3.prompt
       hints: [h.mea.both]
 
+  # Pictorial and constructed (04 §7a: t3 answers with a choice): t2's sort with pictures, and at
+  # times a thing that fits neither bin.
+  - id: MEA.15.t4
+    skillId: MEA.15
+    format: shape-sort
+    tier: pictorial
+    representation: objects
+    generator: geo.identify
+    params:
+      set: attributes
+      rule: { choice: [heavy, long] }
+      mode: sort
+      cards: { int: [4, 6] }
+      hits: { int: [2, 3] }
+      nearMiss: { bool: 0.3 }
+    difficulty: { base: -0.6, features: { categories: 0.1 } }
+    narration:
+      prompt: tp.MEA.15.t4.prompt
+      hints: [h.geo.bins, h.mea.both]
+
   # MEA.16: compare weights with a balance
   - id: MEA.16.t1
     skillId: MEA.16
@@ -270,6 +326,46 @@ templates:
       prompt: tp.MEA.16.t2.prompt
       hints: [h.weight.lift]
 
+  # Constructed answers (04 §7a: t1 and t2 answer with a choice). Only comparisons everyday
+  # knowledge settles (the generator's CLEARLY_LIGHTER table): put a light thing (feather or leaf),
+  # the apple and a heavy thing (melon, brick or pumpkin) in order from heavy to light; then sort
+  # things as heavier or lighter than a shell or an apple (weighable things with noun clips): for
+  # the shell the feather or the coconut to the pumpkin, for the apple the feather, the leaf or the
+  # melon to the pumpkin.
+  - id: MEA.16.t3
+    skillId: MEA.16
+    format: order
+    tier: pictorial
+    representation: objects
+    generator: mea.massvolume
+    params:
+      instrument: balance
+      unit: none
+      value: { choice: [1, 2] }
+      value2: 4
+      value3: { choice: [6, 7, 9] }
+    difficulty: { base: -1.15, features: { closeness: 1.5 } }
+    narration:
+      prompt: tp.MEA.16.t3.prompt
+      hints: [h.weight.lift, h.weight.order-heavy]
+
+  - id: MEA.16.t4
+    skillId: MEA.16
+    format: shape-sort
+    tier: pictorial
+    representation: objects
+    generator: mea.massvolume
+    params:
+      instrument: balance
+      unit: none
+      value: { choice: [3, 4] }
+      cards: { int: [4, 6] }
+      hits: { int: [1, 5] }
+    difficulty: { base: -0.2, features: { cards: 0.2 } }
+    narration:
+      prompt: tp.MEA.16.t4.prompt
+      hints: [h.weight.lift, h.geo.bins]
+
   # MEA.22: bigger units, fewer units
   - id: MEA.22.t1
     skillId: MEA.22
@@ -305,3 +401,22 @@ templates:
     narration:
       prompt: tp.MEA.22.t2.prompt
       hints: [h.measure.which-bigger, h.measure.bigger-fewer]
+
+  # Pictorial and constructed (04 §7a: t2 answers with a choice): t1's two measurements, with the
+  # units drawn rather than handled.
+  - id: MEA.22.t3
+    skillId: MEA.22
+    format: measure-length
+    tier: pictorial
+    representation: units
+    generator: mea.length
+    params:
+      mode: two-units
+      unit: { choice: [shell, cube, stick] }
+      altUnit: { choice: [shell, cube, stick] }
+      length: { int: [2, 12] }
+    constraints: ["altLength <= 12"]
+    difficulty: { base: -0.45 }
+    narration:
+      prompt: tp.MEA.22.t1.prompt
+      hints: [h.measure.count-each, h.measure.both-units, h.measure.bigger-fewer]

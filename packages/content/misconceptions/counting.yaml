@@ -1,6 +1,6 @@
 # Counting misconceptions (03 §7.2). Skills list the catalog skills authored so far: CNT.19 joins
-# MC.off-by-one-counting, CNT.17 joins MC.decade-transition, and the CPS and PV skills join
-# MC.teen-reversal (with remediation PV.11, CPS.04) when those skills land.
+# MC.off-by-one-counting, CNT.17 joins MC.decade-transition, and PV.11 and PV.13 join
+# MC.teen-reversal (with remediation PV.11) when those skills land.
 area: counting
 misconceptions:
   - id: MC.off-by-one-counting
@@ -98,9 +98,9 @@ misconceptions:
   - id: MC.teen-reversal
     name: Swaps the digits of a teen number (13 written as 31)
     detect: { kind: answer, rule: teenReversal }
-    appliesTo: { generators: [count.set, count.sequence] }
-    skills: [CNT.05, CNT.10]
-    remediation: [CNT.05]
+    appliesTo: { generators: [count.set, count.sequence, pv.number, bond.parts] }
+    skills: [CNT.05, CNT.10, CPS.04, CPS.07]
+    remediation: [CNT.05, CPS.04]
     feedback: fb.mc.teen-reversal
     priority: 50
     parentTip: >-
@@ -119,4 +119,53 @@ misconceptions:
         match: false
       - params: { n: 11, mode: how-many }
         response: { kind: number, value: 11 }
+        match: false
+      # Ten and four more, typed as 41 (CPS.04 rekenrek, then the ten-frame with its cells).
+      - generator: pv.number
+        params: { n: 14, mode: write }
+        response: { kind: number, value: 41 }
+        match: true
+      - generator: pv.number
+        params: { n: 14, mode: write }
+        response:
+          kind: state
+          value:
+            cells: [[1, 1, 1, 1, 1, 1, 1, 1, 1, 1], [1, 1, 1, 1, 0, 0, 0, 0, 0, 0]]
+            value: 41
+        match: true
+      - generator: pv.number
+        params: { n: 14, mode: write }
+        response: { kind: number, value: 15 }
+        match: false
+      # The number bond 10 and 4 (CPS.07), its whole written as 41.
+      - generator: bond.parts
+        params: { whole: 14, part: 10, unknown: whole }
+        response: { kind: number, value: 41 }
+        match: true
+
+  # The rule reads compare.sets conflict items (the fewer group drawn bigger and spread out), so it
+  # never fires on CMP.13's estimation items; CMP.13 is listed so the skill tracks it (03 §7.2).
+  - id: MC.perceptual-size
+    name: Thinks the bigger-looking group has more
+    detect: { kind: answer, rule: perceptualSize }
+    appliesTo: { generators: [compare.sets] }
+    skills: [CMP.01, CMP.05, CMP.13]
+    remediation: [CMP.05]
+    feedback: fb.mc.perceptual-size
+    priority: 50
+    parentTip: >-
+      Set out two rows with the same number of spoons, spread one row out, and when your child says
+      it has more, match the spoons one to one together to check.
+    examples:
+      - params: { a: 3, b: 6, ask: more, conflict: true }
+        response: { kind: choice, id: left }
+        match: true
+      - params: { a: 7, b: 4, ask: fewer, conflict: true }
+        response: { kind: choice, id: left }
+        match: true
+      - params: { a: 3, b: 6, ask: more, conflict: true }
+        response: { kind: choice, id: right }
+        match: false
+      - params: { a: 3, b: 6, ask: more, conflict: false }
+        response: { kind: choice, id: left }
         match: false

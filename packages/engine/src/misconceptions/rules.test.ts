@@ -188,6 +188,7 @@ describe('registry', () => {
       'countStartNumber',
       'decadeTransition',
       'offByOneCounting',
+      'perceptualSize',
       'recountFromOne',
       'teenReversal',
       'unitGaps',

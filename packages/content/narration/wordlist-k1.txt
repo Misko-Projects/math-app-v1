@@ -1,5 +1,6 @@
 # Dolch sight words (public domain, 1936/1948) plus our own math and island vocabulary
 a
+about
 above
 add
 added
@@ -17,6 +18,7 @@ any
 apple
 apples
 are
+arrow
 as
 ask
 asked
@@ -80,6 +82,8 @@ build
 builder
 building
 builds
+bundle
+bundles
 burrow
 but
 by
@@ -112,6 +116,7 @@ clock
 close
 closed
 closely
+closer
 coat
 coin
 coins
@@ -270,6 +275,7 @@ got
 grass
 great
 greater
+greatest
 ground
 group
 groups
@@ -623,6 +629,7 @@ tall
 taller
 tallest
 tap
+teen
 tell
 tells
 ten
@@ -649,8 +656,10 @@ thirteen
 thirty
 this
 three
+tick
 ticket
 tickets
+ticks
 time
 tip
 tips

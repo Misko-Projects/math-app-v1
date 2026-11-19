@@ -383,7 +383,11 @@ const BOND: Case[] = [
     name: 'number-bond new way 6',
     t: tpl('bond.parts', 'number-bond'),
     params: { whole: 6, unknown: 'new-way' },
-    answer: { kind: 'state', checker: 'bond.newWay', target: { whole: 6, found: [] } },
+    answer: {
+      kind: 'state',
+      checker: 'bond.newWay',
+      target: { whole: 6, found: [], nonZero: true },
+    },
     widget: { mode: 'new-way', found: [] },
   },
   {
@@ -1014,6 +1018,9 @@ describe('accepts rejects invalid params', () => {
     ['bond.parts', { whole: 2, unknown: 'new-way' }, true],
     ['count.sequence', { start: 3, step: 1, dir: -1, length: 3, last: 0 }, true],
     ['count.sequence', { start: 3, step: 1, dir: -1, length: 4, last: -1 }, false],
+    // CNT.15's abstract tier: the place after k, on the pad only, while place k + 1 has a clip.
+    ['count.ordinal', { ask: 'after', k: 9, n: 10, from: 'left' }, true],
+    ['count.ordinal', { ask: 'after', k: 10, n: 10, from: 'left' }, false],
   ])('%s.accepts(%j) → %s', (id, params, want) => {
     const g = registry.get(id);
     expect(g?.accepts?.(params, tpl(id, 'number-pad'))).toBe(want);
@@ -1077,15 +1084,20 @@ describe('registry', () => {
     expect(registry.ids()).toEqual([
       'addsub.facts',
       'bond.parts',
+      'compare.numbers',
+      'compare.sets',
       'count.ordinal',
       'count.sequence',
       'count.set',
+      'estimate.quantity',
       'geo.compose',
       'geo.draw',
       'geo.identify',
       'geo.position',
       'mea.length',
       'mea.massvolume',
+      'numberline.place',
+      'pv.number',
       'subitize.flash',
     ]);
     expect(

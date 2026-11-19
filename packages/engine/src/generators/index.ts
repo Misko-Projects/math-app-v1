@@ -4,15 +4,20 @@
 import type { GeneratorId } from '@number-island/shared';
 import { addsubFacts } from './addsub/facts';
 import { bondParts } from './bond/parts';
+import { compareNumbers } from './compare/numbers';
+import { compareSets } from './compare/sets';
 import { countOrdinal } from './count/ordinal';
 import { countSequence } from './count/sequence';
 import { countSet } from './count/set';
+import { estimateQuantity } from './estimate/quantity';
 import { geoCompose } from './geo/compose';
 import { geoDraw } from './geo/draw';
 import { geoIdentify } from './geo/identify';
 import { geoPosition } from './geo/position';
 import { meaLength } from './mea/length';
 import { meaMassVolume } from './mea/massvolume';
+import { numberlinePlace } from './numberline/place';
+import { pvNumber } from './pv/number';
 import { subitizeFlash } from './subitize/flash';
 import type { GeneratorDef } from './types';
 
@@ -29,6 +34,11 @@ const GENERATORS: GeneratorDef[] = [
   meaLength,
   meaMassVolume,
   countOrdinal,
+  pvNumber,
+  compareSets,
+  compareNumbers,
+  numberlinePlace,
+  estimateQuantity,
 ];
 
 const BY_ID = new Map<GeneratorId, GeneratorDef>(GENERATORS.map((g) => [g.id, g]));
