@@ -493,6 +493,8 @@ function compose(
   let lesson: Slot | null = null;
   let draw: ItemTemplate[] | null = null;
   let cancelMissing = false;
+  /** A choice-answer cancelling item, scheduled once as the focus skill's first item. */
+  let cancelOnce: ItemTemplate | null = null;
   if (focus && skill) {
     practice = hostedEvidence(focus.skillId);
     if (practice.length === 0) return null;
@@ -514,8 +516,12 @@ function compose(
       const pool = new Set(testOutPool(graph, skill).map((x) => x.id));
       const outside = hosted(focus.skillId).filter((x) => !pool.has(x.id));
       const cancel = outside.find(isConstructedTemplate) ?? outside[0];
-      if (cancel) practice = [cancel, ...practice.filter((x) => x.id !== cancel.id)];
-      else cancelMissing = true;
+      if (!cancel) cancelMissing = true;
+      // A constructed canceller leads the practice cycle (it is evidence itself). A choice one is
+      // scheduled once, and practice then cycles through the evidence templates only.
+      else if (isConstructedTemplate(cancel))
+        practice = [cancel, ...practice.filter((x) => x.id !== cancel.id)];
+      else cancelOnce = cancel;
     }
   }
   const t = draw?.length ?? 0;
@@ -599,7 +605,14 @@ function compose(
       newSlots.push({ skillId: S, templateId: tpl.id, context: 'practice' });
     }
     const rot = (ctx.state.skills[S]?.n ?? 0) % practice.length;
-    for (let k = 0; k < s - t; k++) {
+    const once = cancelOnce && s - t > 0 ? 1 : 0;
+    if (once)
+      newSlots.push({
+        skillId: S,
+        templateId: (cancelOnce as ItemTemplate).id,
+        context: 'practice',
+      });
+    for (let k = 0; k < s - t - once; k++) {
       const tpl = practice[(rot + k) % practice.length] as ItemTemplate;
       newSlots.push({ skillId: S, templateId: tpl.id, context: 'practice' });
     }

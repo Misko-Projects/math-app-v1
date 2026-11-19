@@ -893,8 +893,16 @@ describe('lessons and test-outs (04 §3, 03 §6.5)', () => {
       NOW,
     );
     expect(gModel.inTestOut(warm, A)).toBe(true);
-    for (const r of p.requests.filter((x) => x.tasks.some((t) => t.skillId === A))) {
+    const focusRequests = p.requests.filter((x) => x.tasks.some((t) => t.skillId === A));
+    expect(focusRequests.length).toBeGreaterThan(0);
+    for (const r of focusRequests) {
       const items = r.tasks.filter((t) => t.skillId === A && t.mode === 'item');
+      // Review round 2 (#71): the choice canceller is scheduled once; every later A item is
+      // constructed practice.
+      expect(items.length).toBeGreaterThan(1);
+      for (const t of items.slice(1)) {
+        expect(isConstructedTemplate(g.templates[t.templateId] as ItemTemplate)).toBe(true);
+      }
       const first = items[0] as PlannedRequest['tasks'][number];
       expect(first.templateId).toBe(t5.id);
       const st = gModel.apply(
