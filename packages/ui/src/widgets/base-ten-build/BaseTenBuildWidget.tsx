@@ -76,16 +76,19 @@ const OPS: readonly string[] = [...FORMAT_SUPPORT['base-ten-build'].ops, 'answer
 
 /*
  * The mat takes the widget's full height. In the 1280 × 800 widget area (about 1146 × 666 px):
- * 2 px root padding, a 5 px wooden frame, a 36 px header row, 4 px above and below the pieces,
- * and 606 px for the pieces: three flats of 20 px units (3 × 200 + 2 × 3).
+ * 2 px root padding, a 5 px wooden frame, the header row (40 px; 58 px in K for 40 px icons),
+ * 8 px above and below the pieces, and the rest for the pieces (596 px; 578 px in K).
  */
-const BODY_H = 606;
-const BODY_PAD = 4;
-const HEAD_H = 36;
+const WIDGET_H = 666;
+const ROOT_PAD_Y = 2;
+const BODY_PAD = 8;
+const HEAD_H = { k: 58, 'g1-up': 40 } as const;
 const FRAME = 5;
+/** Room between the wooden frame and the outer columns (px), so pieces stay off the frame. */
+const INSET = 4;
 const COL_PAD = 4;
 /** Each side of the trade buttons in a gutter between two columns (px). */
-const GUTTER_PAD = 4;
+const GUTTER_PAD = 3;
 /** Read mode: the columns sit side by side with this gap (no trades). */
 const COL_GAP = 12;
 /** Between the mat and the side panel (px). */
@@ -191,6 +194,48 @@ function ReturnIcon() {
         stroke="var(--color-ink)"
         strokeWidth="3.5"
         strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
+/** A small crate holding pieces: marks a pile's stock tag (how many the tray has left). */
+function StockIcon() {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      width="100%"
+      height="100%"
+      aria-hidden="true"
+      focusable="false"
+      fill="none"
+    >
+      <rect
+        x="6"
+        y="3"
+        width="4"
+        height="11"
+        rx="1"
+        fill="var(--color-shallows)"
+        stroke="var(--color-cloud)"
+        strokeWidth="1.4"
+      />
+      <rect
+        x="12"
+        y="5"
+        width="4"
+        height="9"
+        rx="1"
+        fill="var(--color-shallows)"
+        stroke="var(--color-cloud)"
+        strokeWidth="1.4"
+      />
+      <path
+        d="M3 11h18l-2 9H5z"
+        fill="var(--color-wood)"
+        stroke="var(--color-cloud)"
+        strokeWidth="1.6"
         strokeLinejoin="round"
       />
     </svg>
@@ -318,21 +363,23 @@ export function BaseTenBuildWidget({
   const gutter = read ? COL_GAP : targetMin + 2 * GUTTER_PAD;
   // The kit pad: three keys of --target-big with 12 px gaps.
   const padSide = 3 * TARGET_PX[prefs.ageMode].big + 2 * 12;
+  const headH = HEAD_H[prefs.ageMode];
+  const bodyH = WIDGET_H - 2 * ROOT_PAD_Y - 2 * FRAME - headH - 2 * BODY_PAD;
   const layout = matLayout({
     kinds,
     counts: state.mat,
     units: unitCandidates(kMode),
     // Half a px of slack: computed widths are fractional.
     width: avail - 0.5,
-    height: BODY_H,
+    height: bodyH,
     gutter,
     columnPad: COL_PAD,
-    frame: FRAME,
+    frame: FRAME + INSET,
     gap: SIDE_GAP,
-    sideMin: read ? padSide : kMode ? 150 : 160,
+    sideMin: read ? padSide : kMode ? 150 : 156,
     sideMax: read ? padSide : 260,
     headerWidth: (kind) =>
-      prefs.textLabels ? 40 + 11 * t(colKey(kind, decimal)).length : kMode ? 52 : 44,
+      prefs.textLabels ? 44 + 11 * t(colKey(kind, decimal)).length : kMode ? 56 : 44,
   });
   const layoutRef = useRef(layout);
   layoutRef.current = layout;
@@ -745,21 +792,44 @@ export function BaseTenBuildWidget({
     );
   };
 
+  /** Splits `items` into consecutive groups of `size` (positional: group g holds g·size…). */
+  const chunks = (items: ReactNode[], size: number) => {
+    const out: ReactNode[][] = [];
+    for (let i = 0; i < items.length; i += Math.max(1, size)) out.push(items.slice(i, i + size));
+    return out;
+  };
+
+  /** A column's pieces, laid out exactly as layout.ts planned them (no reflow surprises). */
   const renderColumn = (kind: PieceKind) => {
     const n = state.mat[kind];
+    const plan = layout.columns.find((c) => c.kind === kind)?.plan ?? { cols: 1, rows: 1 };
     const pieces = Array.from({ length: n }, (_, i) => renderPiece(kind, i));
-    if (kind !== 'ones') return pieces;
-    // Ones sit in frames of ten (two rows of five), so they can be counted by fives and tens.
-    const frames: ReactNode[] = [];
-    for (let f = 0; f * 10 < n; f++) {
-      // Frames are positional: frame f holds ones 10f to 10f + 9.
-      frames.push(
-        <span key={`frame-${f}`} className="ni-btb__frame" data-orient={layout.orient}>
-          {pieces.slice(f * 10, f * 10 + 10)}
-        </span>,
-      );
+    if (kind !== 'ones') {
+      // Rows of pieces: rods lie side by side like a bundle of sticks, flats in a grid.
+      return chunks(pieces, plan.cols).map((row, r) => (
+        // biome-ignore lint/suspicious/noArrayIndexKey: rows are positional
+        <span key={r} className="ni-btb__row">
+          {row}
+        </span>
+      ));
     }
-    return frames;
+    // Ones sit in frames of ten (rows or columns of five), stacked top to bottom in reading order.
+    const frames = chunks(pieces, 10).map((group, f) => (
+      // biome-ignore lint/suspicious/noArrayIndexKey: frame f holds ones 10f to 10f + 9
+      <span key={f} className="ni-btb__frame" data-orient={layout.orient}>
+        {group}
+      </span>
+    ));
+    return (
+      <span className="ni-btb__stacks">
+        {chunks(frames, plan.rows).map((stack, s) => (
+          // biome-ignore lint/suspicious/noArrayIndexKey: stacks are positional
+          <span key={s} className="ni-btb__stack">
+            {stack}
+          </span>
+        ))}
+      </span>
+    );
   };
 
   /** One trade in the gutter between `big`'s column and the next smaller one. */
@@ -789,7 +859,7 @@ export function BaseTenBuildWidget({
     .join(' ');
   const workStyle = {
     gridTemplateColumns: template,
-    gridTemplateRows: `${HEAD_H}px ${BODY_H + 2 * BODY_PAD}px`,
+    gridTemplateRows: `${headH}px ${bodyH + 2 * BODY_PAD}px`,
     '--u': `${u}px`,
     '--d': `${cubeDepth(u)}px`,
     '--rod-hit': `${rodHit(u)}px`,
@@ -798,6 +868,7 @@ export function BaseTenBuildWidget({
     '--gap-big': `${pieceGap('hundreds', u)}px`,
     '--gap-frames': `${onesGroupGap(u)}px`,
     '--frame': `${FRAME}px`,
+    '--inset': `${INSET}px`,
     '--body-pad': `${BODY_PAD}px`,
     '--col-pad': `${COL_PAD}px`,
   } as CSSProperties;
@@ -822,7 +893,7 @@ export function BaseTenBuildWidget({
           aria-hidden="true"
         >
           <span className="ni-btb__headicon" data-kind={kind}>
-            <PlaceIcon kind={kind} />
+            <PlaceIcon kind={kind} big={kMode} />
           </span>
           {prefs.textLabels ? (
             <span className="ni-btb__headword">{t(colKey(kind, decimal))}</span>
@@ -916,6 +987,13 @@ export function BaseTenBuildWidget({
       ? (['hundreds', 'tens', 'ones'] as const).filter((k) => config.exact?.[k] !== undefined)
       : [];
   const trayKinds = KINDS.filter((k) => config.pieces[k]);
+  const limitedAny = trayKinds.some((k) => Number.isFinite(traySupply(config, state.taken, k)));
+  // Balanced pile rows: all in one row if they fit, else 2 × 2 for four, else one column (never a
+  // lone pile on a row of its own).
+  const pileW = targetMin * 1.25;
+  const pileFits = (c: number) => c * pileW + (c - 1) * 12 <= layout.sideWidth - 20;
+  const pileCols =
+    [trayKinds.length, trayKinds.length === 4 ? 2 : 0, 1].find((c) => c > 0 && pileFits(c)) ?? 1;
   const ready = model.toResponse(state) !== null;
 
   return (
@@ -972,7 +1050,7 @@ export function BaseTenBuildWidget({
             );
           })}
         </div>
-        <div className="ni-btb__tray">
+        <div className="ni-btb__tray" data-limited={limitedAny ? 'true' : undefined}>
           {(() => {
             const props = dnd.targetProps('tray', { label: t('ui.widget.btb.tray') });
             return (
@@ -993,14 +1071,19 @@ export function BaseTenBuildWidget({
               </div>
             );
           })()}
-          <div className="ni-btb__piles" data-count={trayKinds.length}>
+          <div
+            className="ni-btb__piles"
+            data-limited={limitedAny ? 'true' : undefined}
+            style={{ gridTemplateColumns: `repeat(${pileCols}, var(--pile))` }}
+          >
             {trayKinds.map((k) => {
               const id = `tray-${k}`;
               const supply = traySupply(config, state.taken, k);
               const limited = Number.isFinite(supply);
               const empty = supply <= 0;
-              // The name includes the badge's numeral (axe label-content-name-mismatch).
-              const left = limited ? t('ui.widget.btb.left', { n: Math.max(0, supply) }) : null;
+              const n = Math.max(0, supply);
+              // The name includes the stock tag's text (axe label-content-name-mismatch).
+              const left = limited ? t('ui.widget.btb.left', { n }) : null;
               const label = left ? `${t(pieceKey(k, decimal))}, ${left}` : t(pieceKey(k, decimal));
               const props = dnd.itemProps(id, { label, disabled: empty });
               return (
@@ -1019,8 +1102,24 @@ export function BaseTenBuildWidget({
                   >
                     <PileArt kind={k} />
                     {limited ? (
-                      <span className="ni-btb__badge" aria-hidden="true">
-                        {supply}
+                      // The tray's stock of this piece: a crate icon and "2 left" (K: the pieces
+                      // left, drawn small; a numeral at 0 or above 5).
+                      <span className="ni-btb__stock" data-empty={empty ? 'true' : undefined}>
+                        <span className="ni-btb__stockicon" aria-hidden="true">
+                          <StockIcon />
+                        </span>
+                        {prefs.textLabels ? (
+                          <span className="ni-btb__stocktext">{left}</span>
+                        ) : n > 0 && n <= 5 ? (
+                          <span className="ni-btb__stockmini" aria-hidden="true">
+                            {Array.from({ length: n }, (_, i) => (
+                              // biome-ignore lint/suspicious/noArrayIndexKey: identical marks
+                              <span key={i} className="ni-btb__stockpiece" data-kind={k} />
+                            ))}
+                          </span>
+                        ) : (
+                          <span className="ni-btb__stocktext">{n}</span>
+                        )}
                       </span>
                     ) : null}
                   </span>

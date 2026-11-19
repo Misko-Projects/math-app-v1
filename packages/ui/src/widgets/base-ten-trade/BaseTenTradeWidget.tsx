@@ -305,33 +305,9 @@ const TWIGS: readonly [number, number, number, number][] = [
 function NestArt() {
   return (
     <>
-      <svg
-        className="ni-btt__nest-art"
-        viewBox="0 0 400 100"
-        preserveAspectRatio="none"
-        aria-hidden="true"
-        focusable="false"
-      >
-        {/* The opening, seen from a little above: a soft sandy hollow inside a twig ring. */}
-        <ellipse
-          cx="200"
-          cy="44"
-          rx="194"
-          ry="38"
-          fill="var(--color-sand-shadow)"
-          stroke="var(--color-wood-deep)"
-          strokeWidth="3"
-          vectorEffect="non-scaling-stroke"
-        />
-        <path
-          d="M40 30C120 16 280 16 360 30"
-          fill="none"
-          stroke="var(--color-wood)"
-          strokeWidth="4"
-          strokeLinecap="round"
-          vectorEffect="non-scaling-stroke"
-        />
-      </svg>
+      {/* The opening: a long sandy hollow with a straight twig rim and rounded ends (a stadium,
+          so even a tall flat stands inside it). */}
+      <span className="ni-btt__hollow" aria-hidden="true" />
       {/* The woven front wall: a band of fixed height at the nest's foot, below the pieces. */}
       <svg
         className="ni-btt__nest-wall"
@@ -533,7 +509,7 @@ function WorkCard({
         const note =
           op.op === '-' ? (d !== 0 ? config.start[c] + d : null) : carried > 0 ? carried : null;
         return (
-          <span key={`n-${c}`} className="ni-btt__note" style={{ gridColumn: i + 2 }}>
+          <span key={`n-${c}`} className="ni-btt__note" style={{ gridColumn: i + 1 }}>
             {note === null ? '' : note}
           </span>
         );
@@ -545,7 +521,7 @@ function WorkCard({
             key={`s-${c}`}
             className="ni-btt__digit"
             data-crossed={crossed ? 'true' : undefined}
-            style={{ gridColumn: i + 2, gridRow: 2 }}
+            style={{ gridColumn: i + 1, gridRow: 2 }}
           >
             {start[i]}
           </span>
@@ -555,7 +531,7 @@ function WorkCard({
         {op.op === '+' ? '+' : '−'}
       </span>
       {COLUMNS.map((c, i) => (
-        <span key={`o-${c}`} className="ni-btt__digit" style={{ gridColumn: i + 2, gridRow: 3 }}>
+        <span key={`o-${c}`} className="ni-btt__digit" style={{ gridColumn: i + 1, gridRow: 3 }}>
           {operand[i]}
         </span>
       ))}
@@ -569,7 +545,7 @@ function WorkCard({
         ]
           .filter(Boolean)
           .join(' ');
-        const style = { gridColumn: i + 2, gridRow: 5 };
+        const style = { gridColumn: i + 1, gridRow: 5 };
         if (answer) {
           const active = answer.active === c && !answer.disabled;
           return (
@@ -705,19 +681,24 @@ function TradeMat({
     return [planned, now];
   }, [baseCaps, state.mat, state.taken, state.pending, trayEmpty, isPlus, isMinus]);
   const bigTarget = age === 'k' ? 96 : 76;
+  // The side panel's pad keys and "check" are target-sized (base-ten-trade.css: .ni-btt__side).
+  const sideKey = sizes.target;
   const workH = WORK_H + (age === 'k' ? 16 : 0);
-  const padH = 4 * bigTarget + 3 * 12;
-  const checkH = bigTarget + 6;
+  const padH = 4 * sideKey + 3 * 12;
+  const checkH = sideKey + 6;
   // The side panel: the algorithm, the pad, then "check" right by the pad. If that is too tall
-  // (K, with its bigger keys), the algorithm moves up beside the problem.
+  // (K, with its bigger keys), the algorithm moves up to the problem row.
   const fullSide =
     (showWork ? workH + SIDE_GAP : 0) + (config.thenAsk ? padH + SIDE_GAP : 0) + checkH;
   const workInSide = showWork && fullSide <= BUDGET - 2 * ROOT_PAD_Y;
   const cardH =
     config.thenAsk && !answerInWork ? bigTarget + 26 : config.goal === 'regroup-to' ? 92 : 84;
-  const problemH = showWork && !workInSide ? Math.max(cardH, workH) : cardH;
+  // With the algorithm, the problem is written there (in columns), so no separate expression row:
+  // the mat gets that height.
+  const showProblemRow = !showWork || !workInSide;
+  const problemH = !showProblemRow ? 0 : showWork ? workH : cardH;
   const spaceW = mainW > 0 ? mainW : 900;
-  const spaceH = BUDGET - 2 * ROOT_PAD_Y - problemH - ROW_GAP;
+  const spaceH = BUDGET - 2 * ROOT_PAD_Y - (showProblemRow ? problemH + ROW_GAP : 0);
   // One scale for the whole item, chosen so every step on the expected path fits.
   const unit = useMemo(
     () =>
@@ -732,8 +713,7 @@ function TradeMat({
   // The side panel lines up with the mat when its contents fit beside it; otherwise it starts at
   // the top, level with the problem.
   const sideH = workInSide ? fullSide : fullSide - (showWork ? workH + SIDE_GAP : 0);
-  const besideMat = BUDGET - 2 * ROOT_PAD_Y - problemH - ROW_GAP;
-  const sideTop = sideH <= besideMat ? problemH + ROW_GAP : 0;
+  const sideTop = showProblemRow && sideH <= spaceH ? problemH + ROW_GAP : 0;
   const u = plan.u;
   const strip = stripWidth(age);
   const columns = caps.columns;
@@ -1482,8 +1462,9 @@ function TradeMat({
                             box={b}
                             u={u}
                             id={`pending-${c}-${k}`}
-                            dx={(w - ext.w) / 2}
-                            dy={(h - ext.h) / 2}
+                            // Centred in the box; absolute positions start inside its 3 px border.
+                            dx={(w - ext.w) / 2 - 3}
+                            dy={(h - ext.h) / 2 - 3}
                           />
                         ))}
                       </div>
@@ -1547,11 +1528,13 @@ function TradeMat({
     >
       <div ref={mainRef} className="ni-btt__main">
         {/* The problem centred over the mat (the algorithm beside it when the side is full). */}
-        <div className="ni-btt__problemrow" style={{ height: problemH }}>
-          <span />
-          {problem}
-          <span className="ni-btt__problemside">{workInSide ? null : work}</span>
-        </div>
+        {showProblemRow ? (
+          <div className="ni-btt__problemrow" style={{ height: problemH }}>
+            <span />
+            {problem}
+            <span className="ni-btt__problemside">{workInSide ? null : work}</span>
+          </div>
+        ) : null}
         <fieldset
           className="ni-btt__mat"
           aria-label={t('ui.widget.btt.mat')}

@@ -119,11 +119,8 @@ const boxes = (root: Element) =>
 
 /** The one piece scale every config draws at (ones are 20 px). */
 const U = 20;
-/**
- * The heaviest config (304 − 128 with the algorithm, the pad and the nest) can't fit at U: it
- * steps down, but never below this.
- */
-const U_HEAVY = 18;
+/** The heaviest config (304 − 128 with the algorithm, the pad and the nest) also draws at U. */
+const U_HEAVY = U;
 
 /** Waits until every trade or move animation has landed. */
 async function settled(root: Element) {
@@ -197,6 +194,23 @@ async function expectCountable(root: HTMLElement, minU = U) {
         await expect(overlapX > 0.5 && overlapY > 0.5, `pieces ${i} and ${j} overlap`).toBe(false);
       }
     }
+  }
+  // Room around every piece: ≥ 12 px to its column's edges (the gutters, the header's rule, the
+  // mat frame) and to the inside of a waiting group's border (3 px).
+  const clear = async (frame: DOMRect, inset: number, sel: Element) => {
+    for (const p of sel.querySelectorAll('[data-piece]')) {
+      const r = p.getBoundingClientRect();
+      await expect(r.left - frame.left, 'room on the left').toBeGreaterThanOrEqual(inset);
+      await expect(frame.right - r.right, 'room on the right').toBeGreaterThanOrEqual(inset);
+      await expect(r.top - frame.top, 'room above').toBeGreaterThanOrEqual(inset);
+      await expect(frame.bottom - r.bottom, 'room below').toBeGreaterThanOrEqual(inset);
+    }
+  };
+  for (const body of root.querySelectorAll('.ni-btt__body')) {
+    await clear(body.getBoundingClientRect(), 11.5, body);
+  }
+  for (const group of root.querySelectorAll('.ni-btt__pending')) {
+    await clear(group.getBoundingClientRect(), 14.5, group);
   }
   const unit = root.querySelector('.ni-btt__mat [data-piece^="ones-"]');
   if (unit) await expect(unit.getBoundingClientRect().width).toBeGreaterThanOrEqual(minU);
@@ -333,11 +347,22 @@ export const AddCombine: Story = {
 };
 
 /**
- * K, 27 + 15: everything is a picture with a spoken label (no words to read), K-sized and spaced.
- * Drag the ten and the ones onto their columns and group ten ones.
+ * K, 8 + 5 (a K-range sum): everything is a picture with a spoken label (no words to read),
+ * K-sized and spaced. Drag the five waiting ones onto the eight (thirteen ones), group ten of them
+ * into a ten, check: 1 ten, 3 ones.
  */
 export const AddK: Story = {
   globals: { ageMode: 'k' },
+  args: {
+    config: {
+      format: 'base-ten-trade',
+      start: { hundreds: 0, tens: 0, ones: 8 },
+      operation: { op: '+', operand: { hundreds: 0, tens: 0, ones: 5 } },
+      goal: 'compute',
+      showAlgorithm: false,
+      thenAsk: false,
+    } satisfies Config,
+  },
   parameters: { ui: { audio: spyAudio() } },
   play: async ({ canvasElement, args, parameters }) => {
     const audio = parameters.ui.audio as ReturnType<typeof spyAudio>;
@@ -350,21 +375,21 @@ export const AddK: Story = {
     await expect(root.querySelector('.ni-btt__headword')).toBeNull();
     for (const b of root.querySelectorAll('.ni-btn')) await expect(b.textContent?.trim()).toBe('');
     await expect(trade(root, 'ones', 'tens')).toHaveAccessibleName('Group ten ones into a ten');
-    await pointerDrag(pending(root, 'tens'), center(columnPad(root, 'tens')));
     await pointerDrag(pending(root, 'ones'), center(columnPad(root, 'ones')));
     await settled(root);
+    await expect(mat(root)).toEqual({ hundreds: 0, tens: 0, ones: 13 });
     await userEvent.click(trade(root, 'ones', 'tens'));
     // K: the trade button speaks its label.
     await expect(audio.say).toHaveBeenCalledWith('ui.widget.btt.group.ones', undefined);
     await settled(root);
-    await expect(mat(root)).toEqual({ hundreds: 0, tens: 4, ones: 2 });
-    // K: big, chunky pieces (ones at least 24 px; a rod up to 300 px) on a mat that fills the area.
+    await expect(mat(root)).toEqual({ hundreds: 0, tens: 1, ones: 3 });
     await expectFits(canvasElement, root, U);
     await userEvent.click(within(root).getByRole('button', { name: 'Check' }));
     await expect(args.onResponse).toHaveBeenCalledWith({
       kind: 'state',
-      value: { hundreds: 0, tens: 4, ones: 2 },
+      value: { hundreds: 0, tens: 1, ones: 3 },
     });
+    (document.activeElement as HTMLElement | null)?.blur();
   },
 };
 
@@ -649,6 +674,15 @@ export const SubtractAcrossZero: Story = {
     await expect(check).toBeEnabled();
     await userEvent.click(canvas.getByRole('button', { name: '1' }));
     await expect(boxes(root)).toEqual(['1', '7', '6']);
+    // A written digit sits in a solid box; only empty boxes are dashed.
+    for (const b of root.querySelectorAll<HTMLElement>('.ni-btt__box')) {
+      await expect(getComputedStyle(b).borderTopStyle).toBe('solid');
+    }
+    // The taken flat stands inside the nest's hollow, below its rim.
+    const hollow = q(root, '.ni-btt__hollow').getBoundingClientRect();
+    const flat = q(root, '[data-piece="taken-hundreds-0"]').getBoundingClientRect();
+    await expect(flat.top).toBeGreaterThanOrEqual(hollow.top + 12);
+    await expect(flat.left).toBeGreaterThanOrEqual(hollow.left + 12);
     await expect(canvas.getByRole('button', { name: 'Hundreds box: 1' })).toBeInTheDocument();
     await userEvent.click(check);
     await expect(args.onResponse).toHaveBeenCalledWith({
@@ -781,33 +815,42 @@ export const RegroupTo: Story = {
   },
 };
 
+const threeFlats: Config = {
+  format: 'base-ten-trade',
+  start: { hundreds: 3, tens: 1, ones: 5 },
+  goal: 'regroup-to',
+  regroupTarget: { hundreds: 2, tens: 11, ones: 5 },
+  showAlgorithm: false,
+  thenAsk: false,
+};
+
 /**
- * Evidence, stress with hundreds: three flats on the mat (regroup 3 hundreds, 1 ten, 5 ones into
- * 2 hundreds, 11 tens, 5 ones). At the one 20 px scale the flats sit 2 × 2, each countable. Split
- * a hundred (eleven tens in a row), group it back: every state fits 1280 × 800 with no overlap.
+ * Stress with hundreds, at the start: three flats on the mat (regroup 3 hundreds, 1 ten, 5 ones
+ * into 2 hundreds, 11 tens, 5 ones). At the one 20 px scale the flats sit 2 × 2, each countable.
  */
 export const StressThreeFlats: Story = {
-  args: {
-    config: {
-      format: 'base-ten-trade',
-      start: { hundreds: 3, tens: 1, ones: 5 },
-      goal: 'regroup-to',
-      regroupTarget: { hundreds: 2, tens: 11, ones: 5 },
-      showAlgorithm: false,
-      thenAsk: false,
-    } satisfies Config,
-  },
-  play: async ({ canvasElement }) => {
+  args: { config: threeFlats },
+  play: async ({ canvasElement, args }) => {
     const root = await findWidget(canvasElement, ROOT);
     await expect(mat(root)).toEqual({ hundreds: 3, tens: 1, ones: 5 });
     await expectFits(canvasElement, root);
+    for (const el of controls(root)) await expectTargetSize(el, 'g1-up');
+    await expectTargetGaps(controls(root));
+    await expect(args.onInteract).not.toHaveBeenCalled();
+  },
+};
+
+/**
+ * Evidence, stress after the split: a hundred split into ten tens, so 2 hundreds and 11 tens (in
+ * one row) and 5 ones, at 20 px, with room around every piece; fits 1280 × 800, nothing overlaps.
+ */
+export const StressThreeFlatsSplit: Story = {
+  args: { config: threeFlats },
+  play: async ({ canvasElement }) => {
+    const root = await findWidget(canvasElement, ROOT);
     await userEvent.click(trade(root, 'hundreds', 'tens'));
     await settled(root);
     await expect(mat(root)).toEqual({ hundreds: 2, tens: 11, ones: 5 });
-    await expectFits(canvasElement, root);
-    await userEvent.click(trade(root, 'tens', 'hundreds'));
-    await settled(root);
-    await expect(mat(root)).toEqual({ hundreds: 3, tens: 1, ones: 5 });
     await expectFits(canvasElement, root);
     for (const el of controls(root)) await expectTargetSize(el, 'g1-up');
     await expectTargetGaps(controls(root));

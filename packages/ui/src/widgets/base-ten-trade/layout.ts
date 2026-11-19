@@ -28,28 +28,31 @@ export const U_MIN = 8;
 
 /** Fixed sizes (px) that the stylesheet mirrors through the inline custom properties. */
 export const GAP = 12; // --target-gap: between hit targets (06 §4)
-export const MAT_BORDER = 5;
-export const COL_PAD = 6;
-export const TRAY_PAD = 12;
+export const MAT_BORDER = 4;
+export const COL_PAD = 12;
+export const TRAY_PAD = 10;
 /** Room around a waiting group inside its draggable box. */
-export const GROUP_PAD = 6;
+export const GROUP_PAD = 15;
 export const ROW_GAP = 16; // between the widget's rows (problem, mat, tray or nest)
 
 /** The gull's room at the nest's right end, px (the nest art spans the rest). */
 export const GULL_W = 52;
 /** The nest's front wall (a fixed-height band at its foot); the taken pieces rest just above it. */
 export const NEST_WALL = 30;
-const NEST_TOP = 8;
-/** The pieces keep to the middle of the hollow. */
-const NEST_SIDE = 0.08;
+const NEST_TOP = 14;
+/**
+ * The hollow is a long stadium (straight rim, rounded ends of this radius, see .ni-btt__hollow):
+ * the pieces keep clear of its rounded ends, and a rim-gap below its straight top edge.
+ */
+export const NEST_END = 80;
 
-/** The area the taken pieces sit in, inside a nest `w` × `h` px. */
+/** The area the taken pieces sit in, inside a nest `w` × `h` px: always inside the hollow. */
 export function nestInner(w: number, h: number): Box {
   const art = w - GULL_W;
   return {
-    x: Math.round(art * NEST_SIDE),
+    x: NEST_END,
     y: NEST_TOP,
-    w: Math.round(art * (1 - 2 * NEST_SIDE)),
+    w: Math.max(0, art - 2 * NEST_END),
     h: h - NEST_TOP - NEST_WALL,
   };
 }
@@ -83,7 +86,7 @@ export function ageSizes(age: AgeMode): AgeSizes {
     header: 48,
     // Icon plus a one-word caption.
     tradeH: 86,
-    headerMin: { hundreds: 150, tens: 104, ones: 110 },
+    headerMin: { hundreds: 150, tens: 100, ones: 110 },
   };
 }
 
@@ -113,7 +116,7 @@ export function spacing(u: number) {
     /** Between rows of rods. */
     rodRow: Math.max(6, Math.round(u * 0.8)),
     /** Between flats (side by side and row to row). */
-    flat: Math.max(6, Math.round(u * 0.8)),
+    flat: Math.max(6, Math.round(u * 0.6)),
   };
 }
 
@@ -465,7 +468,8 @@ export function measurePlan(
         Math.max(c === 'hundreds' && !caps.flatReachable ? 0 : 1, caps.mat[c]);
   for (const c of cols) {
     const per = perRowFor(c, rodsPerRow, flatsPerRow);
-    const across = c === 'ones' ? planned(c) : Math.min(planned(c), per);
+    // The ones column always has room for a full row of five (nine ones), never squeezed.
+    const across = c === 'ones' ? Math.max(ONES_PER_ROW, planned(c)) : Math.min(planned(c), per);
     const need = Math.max(
       contentW(c, across, u, per),
       tray ? contentW(c, tray[c], u, 10) + 2 * GROUP_PAD : 0,

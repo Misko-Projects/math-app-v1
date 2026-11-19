@@ -3,6 +3,7 @@ import {
   bundleHalf,
   bundleOffset,
   clampInto,
+  columnPlan,
   columnWidth,
   larger,
   type MatLayoutInput,
@@ -23,7 +24,7 @@ const counts = (thousands = 0, hundreds = 0, tens = 0, ones = 0) => ({
   ones,
 });
 
-// The widget's constants at 1280 × 800 (BaseTenBuildWidget): 1146 px wide, 606 px for pieces.
+// The widget's constants at 1280 × 800 (BaseTenBuildWidget): 1146 px wide, 596 px for pieces (578 in K).
 const WORDS: Record<string, string> = {
   thousands: 'Thousands',
   hundreds: 'Hundreds',
@@ -33,14 +34,14 @@ const WORDS: Record<string, string> = {
 const tablet = (k = false): Omit<MatLayoutInput, 'kinds' | 'counts'> => ({
   units: unitCandidates(k),
   width: 1146,
-  height: 606,
-  gutter: (k ? 80 : 64) + 8,
+  height: k ? 578 : 596,
+  gutter: (k ? 80 : 64) + 6,
   columnPad: 4,
-  frame: 5,
+  frame: 9,
   gap: 12,
-  sideMin: k ? 150 : 160,
+  sideMin: k ? 150 : 156,
   sideMax: 260,
-  headerWidth: (kind) => (k ? 52 : 40 + 11 * (WORDS[kind] ?? '').length),
+  headerWidth: (kind) => (k ? 56 : 44 + 11 * (WORDS[kind] ?? '').length),
 });
 
 describe('larger / smaller', () => {
@@ -54,8 +55,8 @@ describe('larger / smaller', () => {
 
 describe('pieceBox', () => {
   it('keeps true scale (a rod is ten units) with a grab-sized rod hit box', () => {
-    expect(pieceBox('tens', 20)).toEqual({ w: 28, h: 200 });
-    expect(pieceBox('tens', 28)).toEqual({ w: 36, h: 280 });
+    expect(pieceBox('tens', 20)).toEqual({ w: 24, h: 200 });
+    expect(pieceBox('tens', 28)).toEqual({ w: 32, h: 280 });
     expect(pieceBox('hundreds', 20)).toEqual({ w: 200, h: 200 });
     expect(pieceBox('ones', 20)).toEqual({ w: 20, h: 20 });
   });
@@ -67,13 +68,19 @@ describe('columnWidth', () => {
     expect(columnWidth('ones', 34, 20, 606)).toBe(f.w);
     expect(columnWidth('ones', 34, 20, 100)).toBe(2 * f.w + 12);
     // Upright frames (two columns of five) are narrow.
-    expect(columnWidth('ones', 9, 20, 606, 'v')).toBe(onesFrame(20, 'v').w);
+    expect(columnWidth('ones', 9, 20, 606, true)).toBe(onesFrame(20, 'v').w);
   });
   it('is null when one piece is taller than the mat', () => {
     expect(columnWidth('tens', 1, 70, 606)).toBeNull();
   });
   it('puts nine flats in a 3 × 3 grid at 20 px', () => {
     expect(columnWidth('hundreds', 9, 20, 606)).toBe(3 * 200 + 2 * 3);
+  });
+  it('lays rods side by side: one row, or at most two rows end to end', () => {
+    expect(columnPlan('tens', 9, 20, 596)).toMatchObject({ cols: 9, rows: 1 });
+    expect(columnPlan('tens', 9, 20, 596, true)).toMatchObject({ cols: 5, rows: 2 });
+    expect(columnPlan('tens', 4, 20, 596, true)).toMatchObject({ cols: 4, rows: 1 });
+    expect(columnPlan('tens', 14, 18, 596, true)).toMatchObject({ cols: 7, rows: 2 });
   });
 });
 
@@ -89,13 +96,15 @@ describe('matLayout', () => {
     expect(l.u).toBe(UNIT_K);
   });
 
-  it('fits 999 at 20 px beside the side panel', () => {
+  it('fits 999 at 19 px (the closest to 20 px): flats 3 × 3, rods in two rows of five', () => {
     const l = matLayout({
       kinds: ['hundreds', 'tens', 'ones'],
       counts: counts(0, 9, 9, 9),
       ...tablet(),
     });
-    expect(l.u).toBe(20);
+    expect(l.u).toBe(19);
+    expect(l.columns.find((c) => c.kind === 'hundreds')?.plan).toMatchObject({ cols: 3, rows: 3 });
+    expect(l.columns.find((c) => c.kind === 'tens')?.plan).toMatchObject({ cols: 5, rows: 2 });
     expect(l.matWidth + 12 + l.sideWidth).toBeLessThanOrEqual(1146);
     expect(l.sideWidth).toBeGreaterThanOrEqual(160);
   });

@@ -589,8 +589,9 @@ const limits: Config = {
 };
 
 /**
- * Tray limits: the tens pile holds 2 (a supply badge, not the answer). Once both are taken the
- * pile is off, with a dashed hatched look and "0 left" in its name, so the child must trade.
+ * Tray limits: the tens pile holds 2. A stock tag under it (a crate icon and "2 left") says so;
+ * it is supply, not the answer. Once both are taken the pile is off, dashed and hatched, its tag
+ * reads "0 left", and the child must trade.
  */
 export const Limits: Story = {
   args: { config: limits },
@@ -598,8 +599,10 @@ export const Limits: Story = {
     const root = await findWidget(canvasElement, ROOT);
     const tens = pile(root, 'tens');
     await expect(tens).toHaveAccessibleName('Ten, 2 left');
-    await expectBigNumerals([tens.querySelector('.ni-btb__badge') as Element]);
-    await expect(pile(root, 'ones').querySelector('.ni-btb__badge')).toBeNull();
+    const tag = tens.querySelector('.ni-btb__stock') as HTMLElement;
+    await expect(tag).toHaveTextContent('2 left');
+    await expect(tag.querySelector('.ni-btb__stockicon svg')).not.toBeNull();
+    await expect(pile(root, 'ones').querySelector('.ni-btb__stock')).toBeNull();
     await tapPlace(root, 'tens', 2);
     await expectMat(root, { tens: 2 });
     await expect(tens).toHaveAccessibleName('Ten, 0 left');
@@ -617,6 +620,23 @@ export const Limits: Story = {
     // Ends mid-build: both tens taken (the pile shows 0), some ones on the way to 54.
     await tapPlace(root, 'ones', 6);
     await expectMat(root, { tens: 2, ones: 6 });
+    (document.activeElement as HTMLElement | null)?.blur();
+  },
+};
+
+/** Limits in K: the stock tag draws the rods left instead of words. */
+export const LimitsK: Story = {
+  globals: { ageMode: 'k' },
+  args: { config: { ...limits, limits: { tens: 3 } } satisfies Config },
+  play: async ({ canvasElement }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    // K: the tag shows the crate and the rods left, drawn small (no reading needed).
+    const tag = pile(root, 'tens').querySelector('.ni-btb__stock') as HTMLElement;
+    await expect(tag.querySelectorAll('.ni-btb__stockpiece')).toHaveLength(3);
+    await tapPlace(root, 'tens', 1);
+    await waitFor(() => expect(tag.querySelectorAll('.ni-btb__stockpiece')).toHaveLength(2));
+    await expect(pile(root, 'tens')).toHaveAccessibleName('Ten, 2 left');
+    await tapPlace(root, 'ones', 3);
     (document.activeElement as HTMLElement | null)?.blur();
   },
 };
@@ -685,6 +705,11 @@ export const Decimal: Story = {
     await expectMat(root, { hundreds: 1, tens: 2, ones: 5 });
     await expect(pile(root, 'hundreds')).toHaveAccessibleName('One whole, 0 left');
     await expect(pile(root, 'tens')).toHaveAccessibleName('One tenth, 1 left');
+    // Three piles stand balanced (one column or one row): none alone on a row.
+    const piles = [...root.querySelectorAll('.ni-btb__pile')].map((p) => p.getBoundingClientRect());
+    const sameLeft = new Set(piles.map((r) => Math.round(r.left))).size === 1;
+    const sameTop = new Set(piles.map((r) => Math.round(r.top))).size === 1;
+    await expect(sameLeft || sameTop).toBe(true);
     await expectUnit(root, 20);
     await expectFits(canvasElement, root);
     await userEvent.click(canvas.getByRole('button', { name: 'Check' }));
@@ -799,14 +824,29 @@ export const Stress999: Story = {
   play: async ({ canvasElement, args }) => {
     const root = await findWidget(canvasElement, ROOT);
     await expectMat(root, { hundreds: 9, tens: 9, ones: 9 });
-    // The one 20 px unit, true scale, nothing overlapping; flats in a 3 × 3 grid.
-    await expectUnit(root, 20);
+    // 19 px units (the closest to 20 that fits padded), true scale, nothing overlapping.
+    await expectUnit(root, 19);
     await expectNoOverlap(root);
     await expectHeaders(root, ['Hundreds', 'Tens', 'Ones']);
-    const flats = [...root.querySelectorAll('.ni-btb__piece--hundreds')].map(
-      (p) => p.getBoundingClientRect().top,
-    );
-    await expect(new Set(flats.map(Math.round)).size).toBe(3);
+    // Flats in a 3 × 3 grid; the nine rods side by side in two rows (5 + 4), never end to end
+    // in a column of three.
+    const tops = (sel: string) =>
+      new Set(
+        [...root.querySelectorAll(sel)].map((p) => Math.round(p.getBoundingClientRect().top)),
+      );
+    await expect(tops('.ni-btb__piece--hundreds').size).toBe(3);
+    await expect(tops('.ni-btb__piece--tens').size).toBe(2);
+    await expect(
+      root.querySelectorAll('.ni-btb__col[data-col="tens"] .ni-btb__row')[0]?.children,
+    ).toHaveLength(5);
+    // Pieces and headers keep clear of the wooden frame.
+    const inner = board(root).getBoundingClientRect();
+    for (const el of root.querySelectorAll('.ni-btb__piece, .ni-btb__head')) {
+      const r = el.getBoundingClientRect();
+      await expect(r.left - inner.left).toBeGreaterThanOrEqual(5 + 6);
+      await expect(inner.right - r.right).toBeGreaterThanOrEqual(5 + 6);
+      await expect(inner.bottom - r.bottom).toBeGreaterThanOrEqual(5 + 6);
+    }
     await expectFits(canvasElement, root);
     for (const c of controls(root)) await expectTargetSize(c, 'g1-up');
     await expectTargetGaps(controls(root));

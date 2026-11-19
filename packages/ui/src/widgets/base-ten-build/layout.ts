@@ -33,8 +33,8 @@ export function pieceGap(kind: PieceKind, u: number): number {
       // Inside a group of ten: tight, so five units read as one row.
       return Math.max(3, Math.round(u * 0.18));
     case 'tens':
-      // Rods already have room on each side of their hit box; three rows of 20 px rods fit 606 px.
-      return 3;
+      // Rods lie side by side like a bundle of sticks (their hit boxes add the visible gap).
+      return 2;
     default:
       return Math.max(3, Math.round(u * 0.15));
   }
@@ -47,7 +47,7 @@ export const onesGroupGap = (u: number) => Math.max(10, Math.round(u * 0.6));
 export const cubeDepth = (u: number) => Math.round(u * 3);
 
 /** Rods are one unit wide; their hit box adds a little room on each side for a finger. */
-export const rodHit = (u: number) => Math.max(u + 8, 28);
+export const rodHit = (u: number) => Math.max(u + 4, 24);
 
 /** The hit box of one piece (px): the drawn piece, plus side room for a thin rod. */
 export function pieceBox(kind: PieceKind, u: number): { w: number; h: number } {
@@ -76,45 +76,90 @@ export function onesFrame(u: number, orient: Orient = 'h'): { w: number; h: numb
 }
 
 /**
- * The narrowest width a column of `n` pieces of `kind` needs to fit `height` px, or null if even
- * one row (or one group of ten ones) is taller than `height`.
+ * How a column lays out its cells (a cell is a piece, or a frame of ten ones): `cols` × `rows`.
+ * Pieces fill row by row; frames of ones fill stack by stack (top to bottom, then the next stack),
+ * so groups of ten stay in reading order.
  */
+export interface ColumnPlan {
+  cols: number;
+  rows: number;
+  /** The cells' total width and height (px). */
+  w: number;
+  h: number;
+}
+
+/**
+ * `compact` packs a crowded mat: rods in two rows of up to five, flats as tall as the mat allows,
+ * frames of ones upright. Otherwise rods lie in one row and flats in a near-square grid.
+ */
+export function columnPlan(
+  kind: PieceKind,
+  n: number,
+  u: number,
+  height: number,
+  compact = false,
+): ColumnPlan | null {
+  const grid = (
+    cellW: number,
+    cellH: number,
+    gapX: number,
+    gapY: number,
+    cols: number,
+    rows: number,
+  ) => ({
+    cols,
+    rows,
+    w: cols * cellW + (cols - 1) * gapX,
+    h: rows * cellH + (rows - 1) * gapY,
+  });
+  if (kind === 'ones') {
+    const f = onesFrame(u, compact ? 'v' : 'h');
+    const G = onesGroupGap(u);
+    if (f.h > height) return null;
+    const frames = Math.max(1, Math.ceil(n / 10));
+    const rows = Math.min(frames, Math.floor((height + G) / (f.h + G)));
+    return grid(f.w, f.h, G, G, Math.ceil(frames / rows), rows);
+  }
+  const box = pieceBox(kind, u);
+  const g = pieceGap(kind, u);
+  if (box.h > height) return null;
+  const fit = Math.floor((height + g) / (box.h + g));
+  const count = Math.max(1, n);
+  let rows: number;
+  if (kind === 'tens') {
+    // A bundle of sticks: never more than two rows of rods end to end.
+    rows = count <= 5 || !compact ? 1 : Math.min(2, fit);
+  } else {
+    rows = compact ? fit : Math.max(1, Math.round(Math.sqrt(count)));
+  }
+  rows = Math.max(1, Math.min(rows, fit, count));
+  return grid(box.w, box.h, g, g, Math.ceil(count / rows), rows);
+}
+
+/** The narrowest width a column of `n` pieces needs to fit `height` px (null: it can't). */
 export function columnWidth(
   kind: PieceKind,
   n: number,
   u: number,
   height: number,
-  orient: Orient = 'h',
+  compact = false,
 ): number | null {
-  if (kind === 'ones') {
-    const f = onesFrame(u, orient);
-    const G = onesGroupGap(u);
-    if (f.h > height) return null;
-    const frames = Math.max(1, Math.ceil(n / 10));
-    const rows = Math.floor((height + G) / (f.h + G));
-    const cols = Math.ceil(frames / rows);
-    return cols * f.w + (cols - 1) * G;
-  }
-  const box = pieceBox(kind, u);
-  const g = pieceGap(kind, u);
-  if (box.h > height) return null;
-  if (n === 0) return box.w;
-  const rows = Math.floor((height + g) / (box.h + g));
-  const cols = Math.ceil(n / rows);
-  return cols * box.w + (cols - 1) * g;
+  return columnPlan(kind, n, u, height, compact)?.w ?? null;
 }
 
 export interface MatColumn {
   kind: PieceKind;
   /** Minimum width of the column, its side padding included (px). */
   width: number;
+  plan: ColumnPlan;
 }
 
 export interface MatLayout {
   u: number;
+  /** Ones frames lie flat (`h`) or stand upright (`v`, a compact mat). */
   orient: Orient;
   columns: MatColumn[];
-  /** The mat's minimum width: columns, gutters and the frame (px). */
+  /** The mat's minimum width: columns, gutters, frame and inset (px). */
   matWidth: number;
   /** The side panel's width (px). */
   sideWidth: number;
@@ -136,7 +181,7 @@ export interface MatLayoutInput {
   gutter: number;
   /** Side padding inside each column (px, each side). */
   columnPad: number;
-  /** The board's frame (px, each side). */
+  /** The board's frame plus its inner inset (px, each side). */
   frame: number;
   /** Gap between the mat and the side panel (px). */
   gap: number;
@@ -147,17 +192,18 @@ export interface MatLayoutInput {
   headerWidth: (kind: PieceKind) => number;
 }
 
-/** The largest unit at which every column fits beside the side panel, and the widths that follow. */
+/** The largest unit at which every column fits beside the side panel, and the plans that follow. */
 export function matLayout(input: MatLayoutInput): MatLayout {
   const { kinds, counts, width, height, gutter, columnPad, frame, gap, sideMin, sideMax } = input;
-  const attempt = (u: number, orient: Orient) => {
+  const attempt = (u: number, compact: boolean) => {
     const columns: MatColumn[] = [];
     for (const kind of kinds) {
-      const w = columnWidth(kind, counts[kind], u, height, orient);
-      if (w === null) return null;
+      const plan = columnPlan(kind, counts[kind], u, height, compact);
+      if (plan === null) return null;
       columns.push({
         kind,
-        width: Math.ceil(Math.max(w, input.headerWidth(kind)) + 2 * columnPad),
+        plan,
+        width: Math.ceil(Math.max(plan.w, input.headerWidth(kind)) + 2 * columnPad),
       });
     }
     const matWidth =
@@ -166,9 +212,9 @@ export function matLayout(input: MatLayoutInput): MatLayout {
       2 * frame;
     return { columns, matWidth };
   };
-  const finish = (u: number, orient: Orient, columns: MatColumn[], matWidth: number) => ({
+  const finish = (u: number, compact: boolean, columns: MatColumn[], matWidth: number) => ({
     u,
-    orient,
+    orient: (compact ? 'v' : 'h') as Orient,
     columns,
     matWidth,
     sideWidth: Math.max(sideMin, Math.min(sideMax, width - matWidth - gap)),
@@ -176,17 +222,22 @@ export function matLayout(input: MatLayoutInput): MatLayout {
   });
   const units = input.units.length > 0 ? input.units : [U_MIN];
   for (const u of units) {
-    for (const orient of ['h', 'v'] as const) {
-      const a = attempt(u, orient);
-      if (a && a.matWidth + gap + sideMin <= width) return finish(u, orient, a.columns, a.matWidth);
+    for (const compact of [false, true]) {
+      const a = attempt(u, compact);
+      if (a && a.matWidth + gap + sideMin <= width)
+        return finish(u, compact, a.columns, a.matWidth);
     }
   }
   const u = units[units.length - 1] as number;
-  const a = attempt(u, 'v') ?? {
-    columns: kinds.map((kind) => ({ kind, width: input.headerWidth(kind) + 2 * columnPad })),
-    matWidth: 0,
-  };
-  return { ...finish(u, 'v', a.columns, a.matWidth), fits: false };
+  const a = attempt(u, true);
+  if (a) return { ...finish(u, true, a.columns, a.matWidth), fits: false };
+  const one: ColumnPlan = { cols: 1, rows: 1, w: 0, h: 0 };
+  const columns = kinds.map((kind) => ({
+    kind,
+    plan: one,
+    width: input.headerWidth(kind) + 2 * columnPad,
+  }));
+  return { ...finish(u, true, columns, 0), fits: false };
 }
 
 /** Half the width and height of the bundle ten pieces of `kind` gather into (px). */

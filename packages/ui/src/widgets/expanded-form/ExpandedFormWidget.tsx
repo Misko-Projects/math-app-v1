@@ -769,6 +769,15 @@ export function ExpandedFormWidget({
         aria-label={t('ui.widget.numbers')}
       >
         {tray.filter((c) => c.visible).map((c) => card(c.id, c.value, 'tray', String(c.value)))}
+        {tray.every((c) => !c.visible) ? (
+          // Empty tray (every card is in use): a soft dashed spot with an arrow down shows that
+          // cards can come back here.
+          <span className="ni-efw__ghost" data-for="tray" aria-hidden="true">
+            <span className="ni-efw__ghost-icon">
+              <ArrowIcon />
+            </span>
+          </span>
+        ) : null}
       </fieldset>
       {invited === 'tray' ? <Hand /> : null}
     </div>
@@ -831,7 +840,7 @@ export function ExpandedFormWidget({
             {state.placed.length === 0 ? (
               // Empty mat: a dashed card-shaped spot and an arrow up from the tray show where
               // cards go (and why "check" is still off).
-              <span className="ni-efw__ghost" aria-hidden="true">
+              <span className="ni-efw__ghost" data-for="mat" aria-hidden="true">
                 <span className="ni-efw__ghost-icon">
                   <ArrowIcon />
                 </span>

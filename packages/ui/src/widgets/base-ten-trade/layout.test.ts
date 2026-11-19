@@ -132,14 +132,14 @@ describe('planMat', () => {
 
   it('picks the biggest unit that fits, smaller when space is tight', () => {
     const wide = planMat({ caps: stress, age: 'g1-up', width: 1100, height: 560 });
-    const tight = planMat({ caps: stress, age: 'g1-up', width: 640, height: 380 });
+    const tight = planMat({ caps: stress, age: 'g1-up', width: 760, height: 470 });
     expect(wide.fits).toBe(true);
     expect(tight.fits).toBe(true);
     expect(wide.u).toBeLessThanOrEqual(U_MAX);
     expect(tight.u).toBeGreaterThanOrEqual(U_MIN);
     expect(tight.u).toBeLessThan(wide.u);
-    expect(tight.matW).toBeLessThanOrEqual(640);
-    expect(tight.totalH).toBeLessThanOrEqual(380);
+    expect(tight.matW).toBeLessThanOrEqual(760);
+    expect(tight.totalH).toBeLessThanOrEqual(470);
   });
 
   it('gives K bigger trade strips and still fits, with a unit no bigger than G1', () => {
@@ -206,7 +206,7 @@ describe('planMat', () => {
 
 describe('one scale per item', () => {
   // The 1280 × 800 widget area beside a side panel with the algorithm card (see the widget).
-  const space = { age: 'g1-up', width: 798, height: 548 } as const;
+  const space = { age: 'g1-up', width: 866, height: 548 } as const;
 
   it('walks the expected path: borrow across zero, then take column by column', () => {
     const c = cfg({
@@ -232,7 +232,7 @@ describe('one scale per item', () => {
     });
   });
 
-  it('draws 20 px pieces for ordinary items and keeps the heaviest at the floor (18 px)', () => {
+  it('draws 20 px pieces for ordinary items and the heaviest too, once its algorithm states the problem', () => {
     const add = cfg({});
     expect(itemUnit({ ...space, base: planCaps(add), path: pathStates(add) })).toBe(U_MAX);
     const heavy = cfg({
@@ -241,7 +241,10 @@ describe('one scale per item', () => {
       showAlgorithm: true,
       thenAsk: true,
     });
-    expect(itemUnit({ ...space, base: planCaps(heavy), path: pathStates(heavy) })).toBe(U_FLOOR);
+    // No expression row (the algorithm card states the problem): the mat gets the full height.
+    const tall = { ...space, height: 648 };
+    expect(itemUnit({ ...tall, base: planCaps(heavy), path: pathStates(heavy) })).toBe(U_MAX);
+    expect(U_FLOOR).toBeLessThan(U_MAX);
   });
 
   it('lays taken rods down in the nest (low and wide)', () => {

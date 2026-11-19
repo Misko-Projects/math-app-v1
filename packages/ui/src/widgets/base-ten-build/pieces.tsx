@@ -206,8 +206,11 @@ function Glyph({ kind, many, x }: { kind: PieceKind; many: boolean; x: number })
   return <g>{parts}</g>;
 }
 
-/** A column header's icon: the place's piece, drawn to fit a 40 × 40 box (not to scale). */
-export function PlaceIcon({ kind }: { kind: PieceKind }) {
+/**
+ * A column header's icon: the place's piece, drawn to fit a 40 × 40 box (not to scale). `big`
+ * (K, where the icon stands alone) draws the unit square larger.
+ */
+export function PlaceIcon({ kind, big = false }: { kind: PieceKind; big?: boolean }) {
   const grid = (from: number, to: number, steps: number, vertical: boolean, horizontal: boolean) =>
     Array.from({ length: steps - 1 }, (_, i) => {
       const p = from + ((to - from) * (i + 1)) / steps;
@@ -217,16 +220,26 @@ export function PlaceIcon({ kind }: { kind: PieceKind }) {
     }).join('');
   let body: ReactNode;
   if (kind === 'ones') {
+    const at = big ? 5 : 8;
     body = (
-      <rect x="8" y="8" width="24" height="24" rx="2.5" fill={SEA} stroke={LINE} strokeWidth="3" />
+      <rect
+        x={at}
+        y={at}
+        width={40 - 2 * at}
+        height={40 - 2 * at}
+        rx="2.5"
+        fill={SEA}
+        stroke={LINE}
+        strokeWidth="3"
+      />
     );
   } else if (kind === 'tens') {
     body = (
       <>
         <rect
-          x="14"
+          x="13"
           y="2"
-          width="12"
+          width="14"
           height="36"
           rx="1.5"
           fill={SEA}
@@ -234,7 +247,7 @@ export function PlaceIcon({ kind }: { kind: PieceKind }) {
           strokeWidth="2.5"
         />
         <path
-          d={Array.from({ length: 9 }, (_, i) => `M14 ${2 + (i + 1) * 3.6}H26`).join('')}
+          d={Array.from({ length: 9 }, (_, i) => `M13 ${2 + (i + 1) * 3.6}H27`).join('')}
           stroke={LINE}
           strokeWidth="1"
         />

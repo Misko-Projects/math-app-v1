@@ -46,6 +46,15 @@ const buildDuplicates: Config = {
   unusualOrder: false,
 };
 
+/** K range (CPS.07, a teen number as 10 plus ones): 14 = 10 + 4, distractors 40 and 1. */
+const buildTeenK: Config = {
+  format: 'expanded-form',
+  target: 14,
+  mode: 'build',
+  cards: [10, 4, 40, 1],
+  unusualOrder: false,
+};
+
 /** The largest build: 3,405 from eight cards, distractors included. */
 const buildStress: Config = {
   format: 'expanded-form',
@@ -355,9 +364,13 @@ export const BuildInProgress: Story = {
   },
 };
 
-/** Build in K mode: cards, the number and the mat are K-sized (≥ 80 px); "check" is icon-only. */
+/**
+ * Build in K mode, K content: 14 = 10 + 4 (distractors 40 and 1). Cards, the number and the mat
+ * are K-sized (≥ 80 px); "check" is icon-only.
+ */
 export const BuildK: Story = {
   globals: { ageMode: 'k' },
+  args: { config: buildTeenK },
   play: async ({ canvasElement, args }) => {
     const root = await findWidget(canvasElement, ROOT);
     const cards = trayCards(root);
@@ -367,13 +380,14 @@ export const BuildK: Story = {
     const check = checkButton(root);
     await expect(check).not.toHaveTextContent('Check');
     await expectTargetSize(check, 'k');
-    await tapPlace(root, 300);
-    await tapPlace(root, 40);
-    await tapPlace(root, 5);
+    await tapPlace(root, 10);
+    await tapPlace(root, 4);
     for (const c of matCards(root)) await expectTargetSize(c, 'k');
     await expectTargetGaps(matCards(root));
+    await expectLinesAligned(matCards(root));
+    await expectLinesAligned(trayCards(root));
     await userEvent.click(check);
-    await expect(args.onResponse).toHaveBeenCalledWith({ kind: 'numbers', values: [300, 40, 5] });
+    await expect(args.onResponse).toHaveBeenCalledWith({ kind: 'numbers', values: [10, 4] });
     await expectFits(canvasElement, root);
     endFrame();
   },
@@ -597,13 +611,26 @@ export const StackCards: Story = {
     await expect(visible(cells('300')[0] as HTMLElement, '300')).toBe(true);
     await expect(visible(tensOf40, '40')).toBe(true);
     await expect(visible(tensOf300, '300')).toBe(false);
-    // Every digit keeps clear inner padding from its card's left edge.
+    // Every digit keeps clear inner padding from its own card's left edge…
     for (const c of cards) {
       const first = c.querySelector('.ni-efw__cell') as HTMLElement;
       await expect(
         first.getBoundingClientRect().left - c.getBoundingClientRect().left,
-      ).toBeGreaterThanOrEqual(10);
+      ).toBeGreaterThanOrEqual(16);
     }
+    // …and a clear gap from the edge of the card lying over its column space. A stacked cell is
+    // the digit's advance then the column space (letter-spacing); the covering card's outer
+    // edge (2 px ring outside its frame) must stay ≥ 8 px right of the digit.
+    const gapBeforeEdge = (cell: HTMLElement, over: string) => {
+      const spacing = Number.parseFloat(getComputedStyle(cell).letterSpacing) || 0;
+      const digitRight = cell.getBoundingClientRect().right - spacing;
+      const edge = (
+        cards.find((c) => c.dataset.card === over) as HTMLElement
+      ).getBoundingClientRect().left;
+      return edge - 2 - digitRight;
+    };
+    await expect(gapBeforeEdge(cells('300')[0] as HTMLElement, '40')).toBeGreaterThanOrEqual(8);
+    await expect(gapBeforeEdge(tensOf40, '5')).toBeGreaterThanOrEqual(8);
     await expect(root.querySelectorAll('.ni-efw__plus')).toHaveLength(2);
     await expect(getComputedStyle(root.querySelector('.ni-efw__plus') as HTMLElement).display).toBe(
       'none',
@@ -851,8 +878,9 @@ export const DigitValue: Story = {
 // ---------- stress, disabled ----------
 
 /**
- * Stress: the largest build (3405 from eight cards, distractors included). It fits 1280 × 800
- * with nothing scrolled or clipped, empty and with every card on the mat.
+ * Stress: the largest build (3405 from eight cards, distractors included), part way: the child
+ * has made 3000 + 400 + 5 and left the distractors (300, 40, 50, 4000, 500) in the tray. It fits
+ * 1280 × 800 with nothing scrolled or clipped.
  */
 export const Stress: Story = {
   args: { config: buildStress },
@@ -863,8 +891,41 @@ export const Stress: Story = {
     await expect(cards).toHaveLength(8);
     for (const c of cards) await expectTargetSize(c, 'g1-up');
     await expectTargetGaps(cards);
+    await expectLinesAligned(cards);
+    for (const v of [3000, 400, 5]) await tapPlace(root, v);
+    await expect(matCards(root).map((c) => c.dataset.card)).toEqual(['3000', '400', '5']);
+    await expect(trayCards(root).map((c) => c.dataset.card)).toEqual([
+      '300',
+      '40',
+      '50',
+      '4000',
+      '500',
+    ]);
+    await expectFits(canvasElement, root);
+    await expectLinesAligned(matCards(root));
+    await expectLinesAligned(trayCards(root));
+    await userEvent.click(checkButton(root));
+    await expect(args.onResponse).toHaveBeenCalledWith({
+      kind: 'numbers',
+      values: [3000, 400, 5],
+    });
+    endFrame();
+  },
+};
+
+/**
+ * Every card of the largest build on the mat (the most it can hold): the mat wraps with each "+"
+ * leading its card (no line ends with "+"), and the empty tray shows a soft dashed spot with an
+ * arrow down, where cards can come back. Still fits 1280 × 800.
+ */
+export const StressAllCardsOnMat: Story = {
+  args: { config: buildStress },
+  play: async ({ canvasElement, args }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    await expect(root.querySelector('.ni-efw__ghost[data-for="tray"]')).toBeNull();
     for (const v of [3000, 400, 5, 300, 40, 50, 4000, 500]) await tapPlace(root, v);
     await expect(matCards(root)).toHaveLength(8);
+    await expect(root.querySelector('.ni-efw__ghost[data-for="tray"]')).not.toBeNull();
     await expectFits(canvasElement, root);
     await expectTargetGaps(matCards(root));
     await expectLinesAligned(matCards(root));

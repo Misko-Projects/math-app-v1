@@ -16,7 +16,7 @@
   box-sizing: border-box;
   width: 100%;
   max-width: 1180px;
-  padding: 2px 4px;
+  padding: 2px 0;
 }
 
 /* ---------- the mat ---------- */
@@ -26,7 +26,8 @@
   display: grid;
   box-sizing: border-box;
   min-width: 0;
-  padding: var(--frame);
+  /* The frame, plus an inset at the sides so pieces and headers stay off the wood. */
+  padding: var(--frame) calc(var(--frame) + var(--inset));
 }
 /*
  * The board is the drop target ("build here"), drawn behind headers, columns and gutters: pieces
@@ -37,7 +38,7 @@
   z-index: 0;
   grid-row: 1 / -1;
   grid-column: 1 / -1;
-  margin: calc(-1 * var(--frame));
+  margin: calc(-1 * var(--frame)) calc(-1 * (var(--frame) + var(--inset)));
   box-sizing: border-box;
   border: var(--frame) solid var(--color-wood);
   border-radius: var(--radius-card);
@@ -70,7 +71,11 @@
   align-items: center;
   justify-content: center;
   gap: 8px;
+  box-sizing: border-box;
   min-width: 0;
+  margin: 0 var(--col-pad);
+  /* Clear of the frame above; the header strip ends in a line over its column. */
+  padding: 4px 0 2px;
   border-bottom: 3px solid rgb(143 90 49 / 0.45);
   color: var(--color-ink);
   pointer-events: none;
@@ -82,8 +87,12 @@
   height: 30px;
 }
 [data-age-mode="k"] .ni-btb__headicon {
-  width: 34px;
-  height: 34px;
+  width: 40px;
+  height: 40px;
+}
+/* K: the bigger icon gets room below the frame. */
+[data-age-mode="k"] .ni-btb__head {
+  padding-top: 8px;
 }
 .ni-btb__headword {
   padding-top: 0.12em;
@@ -97,13 +106,13 @@
 .ni-btb__col {
   position: relative;
   grid-row: 2;
+  /* Rows of pieces (planned in layout.ts), in the middle of the mat. */
+  --gap: var(--gap-big);
   display: flex;
-  flex-wrap: wrap;
-  /* Pieces sit in the middle of the mat (a small build is not lost at the top). */
-  align-content: center;
-  align-items: flex-start;
+  flex-direction: column;
+  align-items: center;
   justify-content: center;
-  gap: var(--gap-big);
+  gap: var(--gap);
   box-sizing: border-box;
   min-width: 0;
   padding: var(--body-pad) var(--col-pad);
@@ -111,10 +120,24 @@
   pointer-events: none;
 }
 .ni-btb__col[data-col="tens"] {
-  gap: var(--gap-tens);
+  --gap: var(--gap-tens);
 }
-.ni-btb__col[data-col="ones"] {
+.ni-btb__row {
+  display: flex;
+  align-items: flex-end;
+  gap: var(--gap);
+  pointer-events: none;
+}
+/* Frames of ten ones, stacked top to bottom; a full stack continues in the next one. */
+.ni-btb__stacks,
+.ni-btb__stack {
+  display: flex;
+  align-items: flex-start;
   gap: var(--gap-frames);
+  pointer-events: none;
+}
+.ni-btb__stack {
+  flex-direction: column;
 }
 
 /* The gutter between two columns: a wooden divider holding that pair's two trades. */
@@ -407,7 +430,7 @@
   position: relative;
   z-index: 1;
   display: grid;
-  grid-template-columns: repeat(auto-fit, var(--pile));
+  /* Columns are set inline: balanced, so no pile sits alone on a row. */
   justify-content: center;
   gap: 16px 12px;
   pointer-events: none;
@@ -452,27 +475,68 @@
   box-shadow: none;
   cursor: default;
 }
-/* The supply badge (how many the tray still holds: supply, never the answer). */
-.ni-btb__badge {
+/*
+ * The stock tag under a limited pile: a crate icon and "2 left" (K: the pieces left, drawn
+ * small). It is the tray's supply, never the answer.
+ */
+.ni-btb__piles[data-limited="true"] {
+  row-gap: 44px;
+}
+.ni-btb__tray[data-limited="true"] {
+  padding-bottom: 46px;
+}
+.ni-btb__stock {
   position: absolute;
-  top: -14px;
-  right: -6px;
-  display: flex;
+  top: calc(100% + 9px);
+  left: 50%;
+  display: inline-flex;
   align-items: center;
-  justify-content: center;
+  gap: 5px;
   box-sizing: border-box;
-  min-width: 44px;
-  height: 44px;
-  padding: 0.14em 8px 0;
-  border: 3px solid var(--color-cloud);
+  height: 30px;
+  padding: 0 10px 0 6px;
   border-radius: var(--radius-pill);
   background: var(--color-ink);
   color: var(--color-cloud);
   font-family: var(--font-display);
-  font-size: 2rem;
+  font-size: 1.2rem;
   font-variant-numeric: tabular-nums;
   font-weight: 800;
   line-height: 1;
+  white-space: nowrap;
+  transform: translateX(-50%);
+  pointer-events: none;
+}
+.ni-btb__stockicon {
+  display: inline-flex;
+  flex: none;
+  width: 22px;
+  height: 22px;
+}
+.ni-btb__stocktext {
+  padding-top: 0.14em;
+}
+.ni-btb__stockmini {
+  display: inline-flex;
+  align-items: flex-end;
+  gap: 3px;
+}
+.ni-btb__stockpiece {
+  box-sizing: border-box;
+  width: 10px;
+  height: 10px;
+  border: 2px solid var(--color-cloud);
+  border-radius: 2px;
+  background: var(--color-shallows);
+}
+.ni-btb__stockpiece[data-kind="tens"] {
+  width: 6px;
+  height: 18px;
+}
+.ni-btb__stockpiece[data-kind="hundreds"],
+.ni-btb__stockpiece[data-kind="thousands"] {
+  width: 14px;
+  height: 14px;
 }
 
 .ni-btb__pileart {

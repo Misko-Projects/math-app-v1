@@ -10,11 +10,11 @@
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
   align-items: start;
-  gap: 24px;
+  gap: 12px;
   box-sizing: border-box;
   width: 100%;
   max-width: 1180px;
-  padding: 6px 16px;
+  padding: 6px 4px;
   color: var(--color-ink);
 }
 
@@ -271,7 +271,7 @@
 /* Inset by COL_PAD (layout.ts). */
 .ni-btt__pile {
   position: absolute;
-  inset: 6px;
+  inset: 12px;
   pointer-events: none;
 }
 /* A column's tap pad (speaks the piece's name) or drop target (adding), behind its pieces. */
@@ -420,8 +420,8 @@
 }
 .ni-btt__plus {
   position: absolute;
-  top: -22px;
-  left: -14px;
+  top: 8px;
+  left: 8px;
   z-index: 2;
   display: inline-flex;
   align-items: center;
@@ -474,12 +474,18 @@
   max-width: 100%;
 }
 /* The art spans the nest less the gull's room (GULL_W in layout.ts). */
-.ni-btt__nest-art {
+/* The ends' radius is NEST_END (layout.ts): the taken pieces keep inside the straight part. */
+.ni-btt__hollow {
   position: absolute;
   top: 0;
   left: 0;
+  box-sizing: border-box;
   width: calc(100% - 52px);
   height: calc(100% - 16px);
+  border: 3px solid var(--color-wood-deep);
+  border-radius: 80px / 50%;
+  background: var(--color-sand-shadow);
+  box-shadow: inset 0 6px 0 var(--color-wood);
   pointer-events: none;
 }
 /* The front wall keeps one height (NEST_WALL in layout.ts); the pieces rest just above it. */
@@ -527,6 +533,9 @@
   justify-content: flex-end;
   align-self: stretch;
   box-sizing: border-box;
+  /* The pad's keys and "check" at the target size (64 px G1, 80 px K): a narrower side panel
+     leaves the mat room for 20 px pieces. */
+  --target-big: var(--target-min);
 }
 
 /* The column algorithm, as a child writes it: start, operand with its sign, a line, the result. */
@@ -536,7 +545,7 @@
  */
 .ni-btt__work {
   display: grid;
-  grid-template-columns: 30px repeat(3, var(--target-min));
+  grid-template-columns: repeat(3, var(--target-min));
   grid-template-rows: 28px 38px 38px 8px var(--target-min);
   column-gap: var(--target-gap);
   justify-items: center;
@@ -546,7 +555,7 @@
   /* In the side panel: level with the top of the mat; the pad and "check" sit at its foot. */
   margin-bottom: auto;
   height: 200px;
-  padding: 9px 14px;
+  padding: 9px 8px 9px 30px;
   border: 3px solid var(--color-sand-deep);
   border-radius: var(--radius-card);
   background: var(--color-paper);
@@ -570,7 +579,10 @@
   font-size: 2.25rem;
   padding-top: 0.12em;
 }
+/* The sign sits in the card's left padding, beside the operand's first column. */
 .ni-btt__opsign {
+  justify-self: start;
+  margin-left: -26px;
   color: var(--color-ink-soft);
 }
 /* The old digit, crossed out after a trade (a line, not a colour change). */
@@ -607,7 +619,7 @@
   width: var(--target-min);
   height: var(--target-min);
   margin: 0;
-  border: 3px dashed var(--color-ink);
+  border: 3px solid var(--color-ink);
   border-radius: 12px;
   background: var(--color-cloud);
   color: var(--color-ink);
@@ -636,7 +648,9 @@ button.ni-btt__box:focus-visible {
   outline: 4px solid var(--color-ink);
   outline-offset: 4px;
 }
+/* Only an empty box is dashed: a written digit sits in a solid box. */
 .ni-btt__box[data-empty="true"] {
+  border-style: dashed;
   background: var(--color-sky-light);
 }
 .ni-btt__box.ni-btt__hi {

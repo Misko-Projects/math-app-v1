@@ -226,6 +226,15 @@
   height: var(--icon-size);
   rotate: -90deg;
 }
+/* The empty tray (every card in use): a softer spot, arrow down, where cards can come back. */
+.ni-efw__ghost[data-for="tray"] {
+  border-color: var(--color-wood);
+  background: transparent;
+  opacity: 0.85;
+}
+.ni-efw__ghost[data-for="tray"] .ni-efw__ghost-icon {
+  rotate: 90deg;
+}
 /* Stacked like arrow cards: every card in one grid cell, right-aligned, biggest value lowest. */
 .ni-efw__row--build[data-stacked="true"] {
   display: grid;
@@ -362,19 +371,20 @@
 }
 /*
  * Stacked like arrow cards: each card shrinks to its digits and the digits open up into place
- * columns (0.4 em after each digit, the last one included, so right edges together put equal
- * places in one column). A card on top then covers only the zeros beneath it, and its left edge
- * falls in the space between two digits: every digit keeps clear inner padding on both sides.
+ * columns (0.7 em ≈ 34 px after each digit, the last one included, so right edges together put
+ * equal places in one column). A card on top covers only the zeros beneath it: its left edge
+ * (16 px padding + 4 px frame + 2 px outer edge) lands inside that 34 px space, so every digit
+ * keeps a clear gap from the edge over it (≈ 12 px) and from its own card's edge (16 px).
  * Only the digits show, so the columns read as one number.
  */
 .ni-efw__row--build[data-stacked="true"] .ni-efw__card {
   align-items: flex-end;
   min-width: 0;
-  padding-left: 8px;
+  padding-left: 16px;
   padding-right: 0;
 }
 .ni-efw__row--build[data-stacked="true"] .ni-efw__digits {
-  letter-spacing: 0.4em;
+  letter-spacing: 0.7em;
 }
 .ni-efw__row--build[data-stacked="true"] .ni-efw__glyphs {
   display: none;
