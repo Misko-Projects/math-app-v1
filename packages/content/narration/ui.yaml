@@ -118,58 +118,58 @@ ui.sprite.counter:
 # amounts are composed from the money.* and num.* clips (03 §8.3).
 ui.money.penny:
   text: "A penny, {cents|cents}"
-  level: 2
+  level: "2"
 ui.money.nickel:
   text: "A nickel, {cents|cents}"
-  level: 2
+  level: "2"
 ui.money.dime:
   text: "A dime, {cents|cents}"
-  level: 2
+  level: "2"
 ui.money.quarter:
   text: "A quarter, {cents|cents}"
-  level: 2
+  level: "2"
 ui.money.bill:
   text: "Paper money, {cents|dollars}"
-  level: 2
+  level: "2"
 ui.money.total:
   text: "That makes {cents|cents}."
-  level: 2
+  level: "2"
 ui.money.total-dollars:
   text: "That makes {cents|dollars}."
-  level: 2
+  level: "2"
 ui.money.purse:
   text: "Coins you can use"
-  level: 2
+  level: "2"
 ui.money.tray:
   text: "Put the money here"
-  level: 2
+  level: "2"
 ui.money.change-tray:
   text: "Give the money back here"
-  level: 2
+  level: "2"
 ui.money.running:
   text: "In the tray"
-  level: 2
+  level: "2"
 ui.money.found:
   text: "Ways you found"
-  level: 2
+  level: "2"
 ui.money.price:
   text: "Buy it for"
-  level: 2
+  level: "2"
 ui.money.paid:
   text: "They gave"
-  level: 2
+  level: "2"
 ui.money.count-up:
   text: "Count up"
-  level: 2
+  level: "2"
 ui.money.dollars-box:
   text: "Dollars"
-  level: 2
+  level: "2"
 ui.money.cents-box:
   text: "Cents"
-  level: 2
+  level: "2"
 ui.money.this-one:
   text: "This one"
-  level: 2
+  level: "2"
 ui.money.same:
   text: "Same"
-  level: 2
+  level: "2"

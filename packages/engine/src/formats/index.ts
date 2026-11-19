@@ -6,6 +6,8 @@ import { areaTiles } from './area-tiles';
 import { arrayBuild } from './array-build';
 import { baseTenBuild } from './base-ten-build';
 import { baseTenTrade } from './base-ten-trade';
+import { clockRead } from './clock-read';
+import { clockSet } from './clock-set';
 import { coinCount } from './coin-count';
 import { coinPay } from './coin-pay';
 import { dotFlash } from './dot-flash';
@@ -53,6 +55,8 @@ const MODELS: Partial<Record<ItemFormat, AnyModel>> = {
   'coin-pay': coinPay,
   'coin-count': coinCount,
   'make-change': makeChange,
+  'clock-set': clockSet,
+  'clock-read': clockRead,
 };
 
 export function formatModel<F extends ItemFormat>(

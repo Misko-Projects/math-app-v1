@@ -26,6 +26,17 @@ export {
 export { type ArrayBuildState, alreadyFound, rectanglesOf } from './formats/array-build';
 export { type BaseTenBuildState, traySupply } from './formats/base-ten-build';
 export { type BaseTenTradeState, computeResult, htoValue } from './formats/base-ten-trade';
+export {
+  clockText,
+  hourAngle,
+  minuteAngle,
+  onFace,
+  snapTime,
+  timeOf,
+  turnMinuteHand,
+} from './formats/clock';
+export { type ClockReadState, isHourPick, readChoiceIds } from './formats/clock-read';
+export type { ClockHand, ClockSetState } from './formats/clock-set';
 // U05 (#14) money
 export {
   type CoinCountState,

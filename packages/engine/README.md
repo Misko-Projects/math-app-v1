@@ -279,6 +279,20 @@ Money helpers (purses, trays, multiset keys, fewest pieces) are in `src/formats/
 - **Config rules** (`configSchema`): the purse can pay the target (make-change: the change) exactly, within its counts; at most $10 to pay (`MAX_PAY_CENTS`); `found` only in `new-way`, and a way not found yet exists. coin-count draws every piece as its own tap target: at most 12 coin slots a purse (9 each with `compareWith`), a bill ($1, $2, $5, $10 or $20) taking 3.
 - **Features.** coin-pay `target` and make-change `change` are `(cents − 1) / 25`; coin-pay `kinds` counts coin kinds (bills are the `dollars` feature: target ≥ 100¢); coin-count `kinds` counts bills as one kind and both purses' coins; make-change `crossDollar` is a whole dollar strictly between price and paid.
 
+The clock models follow #84's "Time formats" conventions above. Face arithmetic is in `src/formats/clock.ts`: one face time `t` (minutes after 12:00, 0–719) drives both hands, the minute hand at 6° a minute and the hour hand at 30° an hour plus 0.5° a minute, so they never disagree (at 3:30 the hour hand is exactly halfway between 3 and 4).
+
+| Format | Response | Checker target |
+|---|---|---|
+| `clock-set` | `{ h, m }`: the time the hands show (h 1–12); null until a hand moves | `clock.time` `{ h, m }` (#84) |
+| `clock-read` `digital-pad` | `numbers` `[h, m]` (ordered, h 1–12) | — |
+| `clock-read` `pick` | `choice`: an option id (`opt-<h>` for #84's hour picks) | — |
+| `clock-read` `ampm` | `choice` `am` \| `pm` | — |
+
+- **clock-set ops.** `drag-minute {to, dir?}` turns the long hand to minute `to`, snapped to `precision`, the shorter way round (half an hour goes forward) unless `dir` is `cw` or `ccw`; passing 12 carries the short hand to the next hour or back. `drag-hour {to}` turns the short hand to hour `to` keeping the minutes (the long hand goes round with it), so `drag-minute {to: m}` then `drag-hour {to: h}` sets h:m from any start (#84's solutions). `count-fives {from, to}` and `highlight-hand {hand}` are visual; `answer {h, m}` / `{values}` sets the time.
+- **clock-read ops.** `point-hour`, `point-minute`, `count-fives {to}` (from 12) are visual; `answer {values}` or `{id}`.
+- **Config rules.** Times are whole h 0–23 and m 0–59; the target and start minutes are multiples of `precision` and differ on the face; `elapsed` goes with `prompt: elapsed` and its `from + minutes` is the target. A pick (not `ampm`) shows 3 or more distinct options; the digital pad has none; `ampm` is picked.
+- **Features** read the target time, not the snapping (as time.clock): `precisionFeatures` (the same table as the generator's), `afterHalf` m ≥ 30; an hour pick (every option an `opt-<h>` id) reads no minutes, so it has no precision feature.
+
 ## Tests
 
 - `pnpm exec vitest run --project engine`: unit tests under `src/` and the fixture property test under `test/`. Seeds come from `CONTENT_PROPERTY_N`: 50 locally, 100 on PR CI, 500 nightly.
