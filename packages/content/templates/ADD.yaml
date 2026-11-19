@@ -753,8 +753,9 @@ templates:
     narration: { prompt: tp.ADD.26.t2.prompt, hints: [h.add.ten-and-ones, h.add.ten-plus] }
 
   # ---------- ADD.27: add and subtract within 20 with jumps on a number line ----------
-  # Free jumps (1–10): a child may hop by ones, or jump to ten first. The facts need not pass
-  # ten (3 + 2, 13 + 4; the 03 §3 row is any jump route), so the ten hints ask first.
+  # Free jumps (1–10): a child may hop by ones or make bigger jumps. The facts need not pass ten
+  # (3 + 2, 13 + 4; the 03 §3 row is any jump route), so the hints never name a route through ten:
+  # bridging ten is ADD.08's and ADD.18's strategy.
   - id: ADD.27.t1
     skillId: ADD.27
     format: number-line-jump
@@ -771,7 +772,7 @@ templates:
         jumps: free,
       }
     difficulty: { base: -1.4 }
-    narration: { prompt: p.add.jump-on, hints: [h.numberline.hop-ones, h.numberline.over-ten] }
+    narration: { prompt: p.add.jump-on, hints: [h.numberline.hop-ones, h.numberline.big-jumps] }
 
   - id: ADD.27.t2
     skillId: ADD.27
@@ -789,7 +790,8 @@ templates:
         jumps: free,
       }
     difficulty: { base: -2.15 }
-    narration: { prompt: p.sub.jump-back, hints: [h.numberline.hop-back, h.numberline.under-ten] }
+    narration:
+      { prompt: p.sub.jump-back, hints: [h.numberline.hop-back, h.numberline.big-jumps-back] }
 
   - id: ADD.27.t3
     skillId: ADD.27
@@ -799,7 +801,7 @@ templates:
     generator: addsub.facts
     params: { a: { int: [3, 15] }, b: { int: [2, 9] }, op: "+", unknown: result, family: any }
     difficulty: { base: -1.0 }
-    narration: { prompt: p.add.what-is, hints: [h.numberline.picture, h.numberline.over-ten] }
+    narration: { prompt: p.add.what-is, hints: [h.numberline.picture, h.numberline.hop-ones] }
 
   - id: ADD.27.t4
     skillId: ADD.27
@@ -809,7 +811,7 @@ templates:
     generator: addsub.facts
     params: { a: { int: [5, 20] }, b: { int: [2, 9] }, op: "-", unknown: result, family: any }
     difficulty: { base: -1.35 }
-    narration: { prompt: p.sub.what-is, hints: [h.numberline.picture, h.numberline.under-ten] }
+    narration: { prompt: p.sub.what-is, hints: [h.numberline.picture, h.numberline.hop-back] }
 
   # ================= equality and story problems (K01 part 5) =================
   # equality.eq, story.addsub and addsub.three (03 §5.6). Constructed-answer templates are the

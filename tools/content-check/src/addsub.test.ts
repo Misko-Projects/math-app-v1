@@ -105,7 +105,7 @@ describe('addsub.facts hints give advice the fact allows', () => {
     }
   });
 
-  it('ADD.27 asks before it bridges ten: its facts need not pass ten (3 + 2, 13 + 4, 8 − 3)', () => {
+  it('ADD.27 never names a route through ten: its facts need not pass ten (3 + 2, 13 + 4, 8 − 3)', () => {
     const add27 = facts.filter((t) => t.skillId === 'ADD.27');
     expect(add27).toHaveLength(4);
     let notPassing = 0;
@@ -115,10 +115,13 @@ describe('addsub.facts hints give advice the fact allows', () => {
         hints.some((h) => h in TEN_ON_ROUTE),
         t.id,
       ).toBe(false);
+      // Review round 2: "over ten / under ten" still sent 13 + 4 back to ten. No hint of these
+      // templates may mention ten at all, by key or by its words.
+      for (const h of hints) {
+        expect(h, t.id).not.toMatch(/ten/);
+        expect(fixture.narration[h]?.text ?? '', `${t.id} ${h}`).not.toMatch(/\bten\b/i);
+      }
       for (const [, f] of items(t)) {
-        expect(hints, t.id).toContain(
-          f.op === '+' ? 'h.numberline.over-ten' : 'h.numberline.under-ten',
-        );
         if (!passesTen(f)) notPassing += 1;
       }
     }
