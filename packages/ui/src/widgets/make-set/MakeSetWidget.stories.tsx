@@ -509,6 +509,11 @@ function inArea(area: keyof typeof AREA) {
       style={{
         ...AREA[area],
         maxWidth: 'none',
+        // Centred in the stage even when wider than its padded content box (the 1226 px tablet
+        // area in a 1280 px viewport): a grid item that overflows its track starts at the track's
+        // left edge, so equal negative margins centre it on the viewport instead.
+        justifySelf: 'center',
+        marginInline: `min(0px, calc((100% - ${AREA[area].width}px) / 2))`,
         boxSizing: 'border-box',
         display: 'grid',
         overflow: 'auto',

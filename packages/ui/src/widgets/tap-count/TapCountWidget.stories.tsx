@@ -847,6 +847,11 @@ function renderInArea(
         width: area.w,
         height: area.h,
         maxWidth: 'none',
+        // Centred in the stage even when wider than its padded content box (the 1226 px tablet
+        // area in a 1280 px viewport): a grid item that overflows its track starts at the track's
+        // left edge, so equal negative margins centre it on the viewport instead.
+        justifySelf: 'center',
+        marginInline: `min(0px, calc((100% - ${area.w}px) / 2))`,
         // The workshop's warm widget card, exactly the area's size (no border or padding).
         borderRadius: 'var(--radius-card)',
         background: 'var(--color-sand)',
