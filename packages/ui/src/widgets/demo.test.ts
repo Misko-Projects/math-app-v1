@@ -1,7 +1,7 @@
 import type { WidgetAction } from '@number-island/shared';
 import { describe, expect, it, vi } from 'vitest';
 import { createDemoController, UnsupportedWidgetOpError, type WidgetDemoImpl } from './demo';
-import { registeredFormats } from './registry';
+import { registeredFormats, widgetRegistry } from './registry';
 
 function impl(ops: string[] = ['drag', 'remove']) {
   const played: WidgetAction[] = [];
@@ -127,8 +127,13 @@ describe('demo controller (03 §6.3)', () => {
 });
 
 describe('widget registry', () => {
-  it('starts empty: U03–U05 register the real widgets', () => {
-    expect(registeredFormats()).toEqual([]);
+  it('each registered format loads a widget component (U03–U05 add one line each)', async () => {
+    const formats = registeredFormats();
+    expect(formats).toEqual(expect.arrayContaining(['number-pad', 'numeral-pick']));
+    for (const format of formats) {
+      const mod = await widgetRegistry[format]?.();
+      expect(typeof mod?.default, format).toBe('function');
+    }
   });
 
   it('lists registered formats', () => {

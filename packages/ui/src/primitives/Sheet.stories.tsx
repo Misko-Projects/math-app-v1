@@ -58,6 +58,9 @@ export const Bottom: Story = {
     await waitFor(() => expect(dialog).toBeVisible());
     const close = within(dialog).getByRole('button', { name: 'Go back' });
     await expectTargetSize(close, 'g1-up');
+    // G1+ shows the close button's caption as visible text (06 §5); K shows only the icon.
+    const caption = within(dialog).getByText('Go back', { selector: '.ni-caption' });
+    await expect(caption).toBeVisible();
     await userEvent.keyboard('{Escape}');
     await waitFor(() => expect(doc.queryByRole('dialog')).toBeNull());
     // Reopen, then close with the close button.
@@ -78,5 +81,7 @@ export const Center: Story = {
     const doc = within(canvasElement.ownerDocument.body);
     const dialog = await doc.findByRole('dialog', { name: 'Your treasure chest' });
     await expectTargetSize(within(dialog).getByRole('button', { name: 'Go back' }), 'k');
+    // K mode: no required reading, so the close button has no visible caption (06 §5).
+    await expect(dialog.querySelector('.ni-caption')).toBeNull();
   },
 };
