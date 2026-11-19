@@ -15,6 +15,7 @@ export const widgetRegistry: WidgetRegistry = {
   'numeral-pick': () => import('./numeral-pick/NumeralPickWidget'),
   'fraction-pick': () => import('./fraction-pick/FractionPickWidget'), // U05 (#14)
   'fraction-cut': () => import('./fraction-cut/FractionCutWidget'), // U05 (#14)
+  'fraction-line': () => import('./fraction-line/FractionLineWidget'), // U05 (#14)
 };
 
 /** Formats that have a registered widget. */
