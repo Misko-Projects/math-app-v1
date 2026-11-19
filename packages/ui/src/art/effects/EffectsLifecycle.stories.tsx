@@ -72,10 +72,16 @@ interface FakeApp {
   destroyed: boolean;
   /** Whether the canvas slot was still taken when this app was destroyed. */
   slotTakenAtDestroy: boolean | null;
+  /** What init allocated (a stand-in for the renderer and its WebGL context), until destroyed. */
+  renderer: { disposed: boolean } | null;
 }
 
-/** A fake pixi.js module. With `deferInit`, every Application's init waits for `finishInit()`. */
-function fakePixi({ deferInit = false } = {}) {
+/**
+ * A fake pixi.js module. With `deferInit`, every Application's init waits for `finishInit()`. With
+ * `failInit`, init allocates a renderer and then rejects (like a failing plugin), and destroying
+ * that half-built Application throws after disposing of the renderer.
+ */
+function fakePixi({ deferInit = false, failInit = false } = {}) {
   const apps: FakeApp[] = [];
   let finishInit = () => {};
   const gate = deferInit
@@ -94,17 +100,22 @@ function fakePixi({ deferInit = false } = {}) {
     };
     destroyed = false;
     slotTakenAtDestroy: boolean | null = null;
+    renderer: { disposed: boolean } | null = null;
     constructor() {
       apps.push(this);
     }
-    init() {
-      return gate;
+    async init() {
+      this.renderer = { disposed: false };
+      await gate;
+      if (failInit) throw new Error('plugin setup failed');
     }
     destroy() {
       this.destroyed = true;
       this.slotTakenAtDestroy = canvasSlotTaken();
+      if (this.renderer) this.renderer.disposed = true;
       this.ticker.stop();
       this.canvas.remove();
+      if (failInit) throw new Error('half-built application');
     }
   }
   const module = { Application, Graphics: FakeGraphics } as unknown as PixiModule;
@@ -185,6 +196,47 @@ export const SlotHeldWhileInitialising: Story = {
       first.unmount();
       second.unmount();
       pixi.restore();
+    }
+  },
+};
+
+/**
+ * An init that rejects after allocating a renderer (a failing plugin) has its Application
+ * destroyed, even when that destroy throws, before the canvas slot is released: while the effect
+ * is mounted (it then draws the SVG fallback) and after it has unmounted.
+ */
+export const FailedInitIsDisposed: Story = {
+  play: async ({ canvasElement }) => {
+    const mounted = fakePixi({ failInit: true });
+    const lab = mountRoot(canvasElement);
+    try {
+      lab.render(<Confetti seed={1} count={4} />);
+      await waitFor(() => expect(mounted.apps.length).toBe(1));
+      await waitFor(() => expect(lab.renderer()).toBe('svg'));
+      const app = mounted.apps[0] as FakeApp;
+      await expect(app.renderer?.disposed, 'the renderer is disposed').toBe(true);
+      await expect(app.slotTakenAtDestroy, 'disposed before the slot is released').toBe(true);
+      await expect(canvasSlotTaken()).toBe(false);
+    } finally {
+      lab.unmount();
+      mounted.restore();
+    }
+
+    const unmounted = fakePixi({ deferInit: true, failInit: true });
+    const gone = mountRoot(canvasElement);
+    try {
+      gone.render(<Confetti seed={2} count={4} />);
+      await waitFor(() => expect(unmounted.apps.length).toBe(1));
+      gone.unmount();
+      await expect(canvasSlotTaken(), 'held while the init is pending').toBe(true);
+      unmounted.finishInit();
+      const app = unmounted.apps[0] as FakeApp;
+      await waitFor(() => expect(app.renderer?.disposed, 'the renderer is disposed').toBe(true));
+      await expect(app.slotTakenAtDestroy, 'disposed before the slot is released').toBe(true);
+      await waitFor(() => expect(canvasSlotTaken()).toBe(false));
+    } finally {
+      gone.unmount();
+      unmounted.restore();
     }
   },
 };
@@ -343,9 +395,37 @@ export const ConfettiDoneOnceAfterRun: Story = {
   },
 };
 
+/** How many particles in `el` are visible now (their own and their ancestors' opacity). */
+function visibleParticles(el: HTMLElement): number {
+  let n = 0;
+  for (const p of el.querySelectorAll<SVGElement>('[data-particle]')) {
+    let opacity = 1;
+    for (let node: Element | null = p; node && node !== el; node = node.parentElement) {
+      opacity *= Number.parseFloat(getComputedStyle(node).opacity || '1');
+    }
+    if (opacity > 0.01) n++;
+  }
+  return n;
+}
+
+/** The most particles each root shows at once, sampled every 50 ms for `ms`. */
+async function watchParticles<K extends string>(
+  roots: Record<K, { el: HTMLElement }>,
+  ms: number,
+): Promise<Record<K, number>> {
+  const keys = Object.keys(roots) as K[];
+  const most = Object.fromEntries(keys.map((k) => [k, 0])) as Record<K, number>;
+  for (let waited = 0; waited < ms; waited += 50) {
+    for (const k of keys) most[k] = Math.max(most[k], visibleParticles(roots[k].el));
+    await sleep(50);
+  }
+  return most;
+}
+
 /**
  * Sparkle, Splash and Fireflies call `onDone` once per run under StrictMode, and not again when
- * reduced motion is switched off after the run (the playback path must not finish it twice).
+ * reduced motion is switched off after the run: the finished run neither replays (no particle shows)
+ * nor finishes twice.
  */
 export const MotionEffectsDoneOnce: Story = {
   play: async ({ canvasElement }) => {
@@ -370,13 +450,55 @@ export const MotionEffectsDoneOnce: Story = {
       render(true);
       await waitFor(() => expect(calls()).toEqual(once), { timeout: 2000 });
       render(false);
-      await sleep(1400);
+      // The finished runs stay finished: nothing replays, nothing shows.
+      const shown = await watchParticles({ sparkle, splash, fireflies: flies }, 1400);
       await expect(calls(), 'after reduced motion is switched off').toEqual(once);
+      await expect(shown, 'particles shown after the run').toEqual({
+        sparkle: 0,
+        splash: 0,
+        fireflies: 0,
+      });
+      await expect(sparkle.renderer()).toBe('done');
+      await expect(splash.renderer()).toBe('done');
     } finally {
       sparkle.unmount();
       splash.unmount();
       flies.unmount();
       release();
+    }
+  },
+};
+
+/**
+ * A new seed in place (same key) is a new run for Sparkle and Splash: after a finished burst, the
+ * new layout plays a fresh burst and `onDone` fires exactly once more.
+ */
+export const MotionEffectsNewSeedReplays: Story = {
+  play: async ({ canvasElement }) => {
+    const sparkle = mountRoot(canvasElement);
+    const splash = mountRoot(canvasElement);
+    try {
+      const done = { sparkle: fn(), splash: fn() };
+      const calls = () => ({
+        sparkle: done.sparkle.mock.calls.length,
+        splash: done.splash.mock.calls.length,
+      });
+      const render = (seed: number) => {
+        sparkle.render(<Sparkle seed={seed} onDone={done.sparkle} />);
+        splash.render(<Splash seed={seed} onDone={done.splash} />);
+      };
+      render(1);
+      await waitFor(() => expect(calls()).toEqual({ sparkle: 1, splash: 1 }), { timeout: 2000 });
+      render(2);
+      const shown = await watchParticles({ sparkle, splash }, 600);
+      await expect(shown.sparkle, 'a fresh sparkle burst').toBeGreaterThan(0);
+      await expect(shown.splash, 'a fresh splash').toBeGreaterThan(0);
+      await waitFor(() => expect(calls()).toEqual({ sparkle: 2, splash: 2 }), { timeout: 2000 });
+      await sleep(400);
+      await expect(calls(), 'once more, no further').toEqual({ sparkle: 2, splash: 2 });
+    } finally {
+      sparkle.unmount();
+      splash.unmount();
     }
   },
 };

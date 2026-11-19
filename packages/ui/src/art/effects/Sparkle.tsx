@@ -79,15 +79,19 @@ export function Sparkle({
   const reduced = useReducedMotion();
   const still = progress !== undefined;
   const particles = useMemo(() => sparkleParticles(seed), [seed]);
-  // One `onDone` per run, from the playhead or the reduced-motion fade; a new seed is a new run.
-  const { finish } = useRunCompletion(particles, onDone);
+  // One `onDone` per run, from the playhead or the reduced-motion fade. A new seed is a new run,
+  // which plays (or fades) afresh; a finished run shows nothing and never replays, even when
+  // reduced motion is switched afterwards.
+  const { finished, finish } = useRunCompletion(particles, onDone);
+  const over = finished && !still;
   const t = usePlayhead(
     SPARKLE_MS,
     reduced ? (progress ?? SPARKLE_PEAK) : progress,
-    !still && !reduced,
+    !still && !reduced && !over,
     finish,
+    particles,
   );
-  const fade = useReducedFade(reduced && !still, finish);
+  const fade = useReducedFade(reduced && !still && !over, finish, particles);
   return (
     <ArtSvg
       width={SPARKLE_BOX.w}
@@ -98,15 +102,17 @@ export function Sparkle({
       style={style}
       rootProps={{
         'data-effect': 'sparkle',
-        'data-renderer': reduced ? 'fade' : still ? 'still' : 'motion',
+        'data-renderer': reduced ? 'fade' : still ? 'still' : over ? 'done' : 'motion',
       }}
     >
-      <motion.g style={{ opacity: fade }}>
-        <SparkleCore t={t} />
-        {particles.map((p) => (
-          <SparklePiece key={`${p.angle}`} p={p} t={t} />
-        ))}
-      </motion.g>
+      {over ? null : (
+        <motion.g style={{ opacity: fade }}>
+          <SparkleCore t={t} />
+          {particles.map((p) => (
+            <SparklePiece key={`${p.angle}`} p={p} t={t} />
+          ))}
+        </motion.g>
+      )}
     </ArtSvg>
   );
 }

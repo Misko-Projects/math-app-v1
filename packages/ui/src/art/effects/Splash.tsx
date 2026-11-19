@@ -115,15 +115,19 @@ export function Splash({
   const reduced = useReducedMotion();
   const still = progress !== undefined;
   const drops = useMemo(() => splashDrops(seed), [seed]);
-  // One `onDone` per run, from the playhead or the reduced-motion fade; a new seed is a new run.
-  const { finish } = useRunCompletion(drops, onDone);
+  // One `onDone` per run, from the playhead or the reduced-motion fade. A new seed is a new run,
+  // which plays (or fades) afresh; a finished run shows nothing and never replays, even when
+  // reduced motion is switched afterwards.
+  const { finished, finish } = useRunCompletion(drops, onDone);
+  const over = finished && !still;
   const t = usePlayhead(
     SPLASH_MS,
     reduced ? (progress ?? SPLASH_PEAK) : progress,
-    !still && !reduced,
+    !still && !reduced && !over,
     finish,
+    drops,
   );
-  const fade = useReducedFade(reduced && !still, finish);
+  const fade = useReducedFade(reduced && !still && !over, finish, drops);
   return (
     <ArtSvg
       width={SPLASH_BOX.w}
@@ -134,17 +138,19 @@ export function Splash({
       style={style}
       rootProps={{
         'data-effect': 'splash',
-        'data-renderer': reduced ? 'fade' : still ? 'still' : 'motion',
+        'data-renderer': reduced ? 'fade' : still ? 'still' : over ? 'done' : 'motion',
       }}
     >
-      <motion.g style={{ opacity: fade }}>
-        <Ripple t={t} i={1} />
-        <Ripple t={t} i={0} />
-        <Crown t={t} />
-        {drops.map((d) => (
-          <Drop key={`${d.x0}-${d.vx}`} d={d} t={t} />
-        ))}
-      </motion.g>
+      {over ? null : (
+        <motion.g style={{ opacity: fade }}>
+          <Ripple t={t} i={1} />
+          <Ripple t={t} i={0} />
+          <Crown t={t} />
+          {drops.map((d) => (
+            <Drop key={`${d.x0}-${d.vx}`} d={d} t={t} />
+          ))}
+        </motion.g>
+      )}
     </ArtSvg>
   );
 }

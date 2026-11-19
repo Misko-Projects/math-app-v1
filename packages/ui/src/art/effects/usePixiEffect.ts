@@ -27,7 +27,7 @@ export type PixiBuild = (
  * `build` is the run: memoise it on the particle layout. A new `build` (a new seed, count or
  * duration in place) tears the canvas down and plays the new scene from the start. The slot is
  * held until the effect's Application is destroyed, including one still initialising when the
- * effect is cancelled, so two WebGL contexts never overlap.
+ * effect is cancelled and one whose init rejected, so two WebGL contexts never overlap.
  */
 export function usePixiEffect(
   active: boolean,
@@ -85,6 +85,15 @@ export function usePixiEffect(
             resolution: Math.min(2, window.devicePixelRatio || 1),
             preference: 'webgl',
           });
+        } catch (error) {
+          // A rejected init may already have made a renderer (and its WebGL context): dispose of
+          // it while the slot is still held, mounted or not; the catch below then releases the slot.
+          try {
+            a.destroy({ removeView: true }, { children: true });
+          } catch {
+            // A half-built Application may fail to destroy; it has freed what it could.
+          }
+          throw error;
         } finally {
           initialising = false;
         }

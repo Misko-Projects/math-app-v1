@@ -59,16 +59,19 @@ export function useRunCompletion(
 
 /**
  * A 0–1 playhead driven by Motion. With `progress` it is a still frame; otherwise it plays once
- * over `durationMs` and then calls `onDone`.
+ * over `durationMs` and then calls `onDone`. A new `run` (see useRunCompletion) plays again from
+ * the start.
  */
 export function usePlayhead(
   durationMs: number,
   progress: number | undefined,
   playing: boolean,
   onDone?: () => void,
+  run?: unknown,
 ): MotionValue<number> {
   const t = useMotionValue(progress ?? 0);
   const done = useLatest(onDone);
+  // biome-ignore lint/correctness/useExhaustiveDependencies: `run` restarts the playhead.
   useEffect(() => {
     if (progress !== undefined) {
       t.set(progress);
@@ -82,17 +85,22 @@ export function usePlayhead(
       onComplete: () => done.current?.(),
     });
     return () => controls.stop();
-  }, [t, progress, playing, durationMs, done]);
+  }, [t, progress, playing, durationMs, done, run]);
   return t;
 }
 
 /**
  * Reduced motion (06 §7): nothing moves; the effect's peak frame fades in and out, each fade at
- * most 150 ms, then `onDone`. Returns the opacity (1 when inactive).
+ * most 150 ms, then `onDone`. Returns the opacity (1 when inactive). A new `run` fades again.
  */
-export function useReducedFade(active: boolean, onDone?: () => void): MotionValue<number> {
+export function useReducedFade(
+  active: boolean,
+  onDone?: () => void,
+  run?: unknown,
+): MotionValue<number> {
   const opacity = useMotionValue(active ? 0 : 1);
   const done = useLatest(onDone);
+  // biome-ignore lint/correctness/useExhaustiveDependencies: `run` restarts the fade.
   useEffect(() => {
     if (!active) {
       opacity.set(1);
@@ -106,6 +114,6 @@ export function useReducedFade(active: boolean, onDone?: () => void): MotionValu
       onComplete: () => done.current?.(),
     });
     return () => controls.stop();
-  }, [opacity, active, done]);
+  }, [opacity, active, done, run]);
   return opacity;
 }
