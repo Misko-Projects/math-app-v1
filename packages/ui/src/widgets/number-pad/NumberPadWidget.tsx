@@ -100,15 +100,17 @@ export function NumberPadWidget({
 
   // One debounce for every way to submit (Check button, desktop Enter): 06 §4.
   const submit = useSubmitGuard(() => {
-    if (!interactive || !complete) return;
+    if (!interactive || !complete) return false;
     const model = formatModel('number-pad');
-    if (!model) return;
+    if (!model) return false;
     const state = model.apply(model.initialState(config), {
       op: 'answer',
       args: { values: values as number[] },
     });
     const response = model.toResponse(state);
-    if (response) onResponse(response);
+    if (!response) return false;
+    onResponse(response);
+    return true;
   });
 
   // ---------- demo mode (03 §6.3) ----------
@@ -206,6 +208,8 @@ export function NumberPadWidget({
             .filter(Boolean)
             .join(' ')}
           data-size="lg"
+          // Same width empty or full, sized for the blank's digits (no jump as the child types).
+          style={{ minWidth: `${Math.max(1, blanks[i]?.maxDigits ?? 1) * 0.62 + 0.8}em` }}
           data-state={isActive ? 'active' : 'idle'}
           data-empty={text === '' ? 'true' : undefined}
           data-blank={id}

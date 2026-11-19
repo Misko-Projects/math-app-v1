@@ -306,10 +306,12 @@ export function padValue(text: string): number | null {
 
 /**
  * Wraps a widget's submit so every route to it (the Check button, desktop Enter, a test click)
- * shares one ≥ 400 ms debounce (06 §4). `now` is injectable for tests.
+ * shares one ≥ 400 ms debounce (06 §4). `submit` returns true when it actually sent a response;
+ * only then does the window start, so an Enter on an unfinished answer never swallows the real
+ * one that follows. `now` is injectable for tests.
  */
 export function useSubmitGuard(
-  submit: () => void,
+  submit: () => boolean,
   ms: number = CHECK_DEBOUNCE_MS,
   now: () => number = () => performance.now(),
 ): () => void {
@@ -319,8 +321,7 @@ export function useSubmitGuard(
   return useCallback(() => {
     const t = latest.current.now();
     if (t - last.current < ms) return;
-    last.current = t;
-    latest.current.submit();
+    if (latest.current.submit()) last.current = t;
   }, [ms]);
 }
 

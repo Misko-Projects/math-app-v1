@@ -137,11 +137,15 @@ export const Pictures: Story = {
     const named = within(canvasElement).getAllByRole('img', { name: 'Look at the picture' });
     // The expression is text a screen reader reads as is.
     await expect(named.length).toBe(PICTURES.length - 1);
-    // A thousands cube must not look like a hundreds flat: it is drawn with depth.
+    // A thousands cube must not look like a hundreds flat: it has bordered depth faces (borders,
+    // unlike shadows, survive forced-colors mode).
     const cube = canvasElement.querySelector('.ni-baseten__block--cube') as HTMLElement;
     const flat = canvasElement.querySelector('.ni-baseten__block--flat') as HTMLElement;
-    await expect(getComputedStyle(flat).boxShadow).toBe('none');
-    await expect(getComputedStyle(cube).boxShadow).not.toBe('none');
+    for (const face of ['::before', '::after']) {
+      await expect(getComputedStyle(flat, face).content).toBe('none');
+      await expect(getComputedStyle(cube, face).content).not.toBe('none');
+      await expect(getComputedStyle(cube, face).borderTopStyle).toBe('solid');
+    }
   },
 };
 

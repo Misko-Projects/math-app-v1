@@ -183,3 +183,37 @@ describe('review regressions (PR #63 round 1)', () => {
     },
   );
 });
+
+describe('review regressions (PR #63 round 2)', () => {
+  const check = (s: ObjectSet, counted: number, distractors: number) => {
+    const l = objectSetLayout(s);
+    expect(l.objects.filter((o) => o.kind === 'object')).toHaveLength(counted);
+    expect(l.objects.filter((o) => o.kind === 'distractor')).toHaveLength(distractors);
+    expect(overlaps(l.objects)).toBe(false);
+    for (const o of l.objects) {
+      expect(o.x + o.scale).toBeLessThanOrEqual(l.width + 1e-9);
+      expect(o.y + o.scale).toBeLessThanOrEqual(l.height + 1e-9);
+    }
+    return l;
+  };
+
+  it.each(['groups', 'dice'] as const)(
+    '%s: groups that overshoot the count never draw extra counted objects',
+    (layout) => {
+      check(
+        set({ count: 5, layout, groups: [4, 2], distractors: { sprite: 'crab', count: 1 } }),
+        5,
+        1,
+      );
+    },
+  );
+
+  it('a double ten-frame with more than 20 objects grows a frame; distractors go below', () => {
+    const l = check(
+      set({ count: 21, layout: 'double-ten-frame', distractors: { sprite: 'crab', count: 1 } }),
+      21,
+      1,
+    );
+    expect(l.frames).toHaveLength(3);
+  });
+});

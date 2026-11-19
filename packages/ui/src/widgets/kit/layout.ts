@@ -154,7 +154,9 @@ export function objectSetLayout(set: ObjectSet): ObjectLayout {
   switch (set.layout) {
     case 'ten-frame':
     case 'double-ten-frame': {
-      const frameCount = set.layout === 'double-ten-frame' ? 2 : Math.max(1, Math.ceil(count / 10));
+      // A frame per ten, never fewer than the layout names (a double frame shows two even when
+      // nearly empty), so every counted object has its own cell.
+      const frameCount = Math.max(set.layout === 'double-ten-frame' ? 2 : 1, Math.ceil(count / 10));
       for (let f = 0; f < frameCount; f++) frames.push({ x: 0, y: f * 2.5, cols: 5, rows: 2 });
       points = Array.from({ length: count }, (_, i) => {
         const f = Math.floor(i / 10);
@@ -196,7 +198,8 @@ export function objectSetLayout(set: ObjectSet): ObjectLayout {
     case 'groups': {
       // One cluster per group, side by side with a clear gap: position shows the groups too.
       // Dice sit on die tiles (die faces up to 6, dominoes up to 10); groups sit on round plates.
-      const sizes = set.groups && set.groups.length > 0 ? set.groups : [count];
+      // Group sizes as actually drawn: `groupIndexes` clamps groups that don't sum to the count.
+      const sizes = Array.from(new Set(groupOf), (g) => groupOf.filter((x) => x === g).length);
       const dice = set.layout === 'dice';
       const step = dice ? 0.95 : 1.05;
       const inset = dice ? 0.3 : 0.35;

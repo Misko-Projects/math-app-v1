@@ -115,7 +115,8 @@ export function NumberLineView({
   const lineY =
     headroom ??
     (jumps.length > 0 ? LINE_Y : marks.some((m) => m.arrow || m.label !== undefined) ? 74 : 30);
-  const height = lineY + 64;
+  // Room below the line only when numerals are drawn there.
+  const height = lineY + (labels.length > 0 ? 64 : 30);
   const svg = (
     // biome-ignore lint/a11y/noSvgWithoutTitle: decorative (aria-hidden) when static; a named group when a widget draws controls in it
     <svg

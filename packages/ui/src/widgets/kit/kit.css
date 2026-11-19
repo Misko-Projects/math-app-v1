@@ -274,14 +274,37 @@
     linear-gradient(to right, rgb(23 96 110 / 0.5) 1.5px, transparent 1.5px),
     linear-gradient(to bottom, rgb(23 96 110 / 0.5) 1.5px, transparent 1.5px);
 }
-/* A thousands cube: a flat with visible depth (a top and side face), so it never reads as 100. */
+/*
+ * A thousands cube: a flat with a top face and a side face, so it never reads as 100. The faces
+ * are bordered boxes (not shadows), so the shape survives forced-colors mode too.
+ */
 .ni-baseten__block--cube {
-  margin: 16px 16px 0 0;
-  box-shadow:
-    8px -8px 0 -3px var(--color-shallows),
-    8px -8px 0 0 var(--color-sea-dark),
-    16px -16px 0 -3px var(--color-shallows),
-    16px -16px 0 0 var(--color-sea-dark);
+  position: relative;
+  margin: 18px 18px 0 0;
+}
+.ni-baseten__block--cube::before,
+.ni-baseten__block--cube::after {
+  content: "";
+  position: absolute;
+  box-sizing: border-box;
+  border: 3px solid var(--color-sea-dark);
+  background: var(--color-shallows);
+}
+.ni-baseten__block--cube::before {
+  left: -3px;
+  top: -21px;
+  width: calc(100% + 6px);
+  height: 18px;
+  transform: skewX(-45deg);
+  transform-origin: bottom left;
+}
+.ni-baseten__block--cube::after {
+  top: -3px;
+  right: -21px;
+  width: 18px;
+  height: calc(100% + 6px);
+  transform: skewY(-45deg);
+  transform-origin: top left;
 }
 .ni-baseten__ones {
   display: flex;

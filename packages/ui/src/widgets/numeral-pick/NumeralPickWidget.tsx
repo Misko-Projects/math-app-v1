@@ -65,12 +65,14 @@ export function NumeralPickWidget({
   };
 
   const submit = useSubmitGuard(() => {
-    if (!interactive || selected === null) return;
+    if (!interactive || selected === null) return false;
     const model = formatModel('numeral-pick');
-    if (!model) return;
+    if (!model) return false;
     const state = model.apply(model.initialState(config), { op: 'tap', args: { id: selected } });
     const response = model.toResponse(state);
-    if (response) onResponse(response);
+    if (!response) return false;
+    onResponse(response);
+    return true;
   });
 
   const idOf = (action: WidgetAction | null) =>

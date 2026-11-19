@@ -199,6 +199,18 @@ export const TwoBlanks: Story = {
 export const Keyboard: Story = {
   play: async ({ canvasElement, args }) => {
     const root = await findWidget(canvasElement, ROOT);
+    // Enter on an empty answer does nothing and must not start the debounce window: the real
+    // answer right after it still goes through.
+    await userEvent.keyboard('{Enter}');
+    await userEvent.keyboard('9');
+    await userEvent.keyboard('{Enter}');
+    await expect(args.onResponse).toHaveBeenCalledTimes(1);
+    await expect(args.onResponse).toHaveBeenLastCalledWith({ kind: 'number', value: 9 });
+    await userEvent.keyboard('{Enter}');
+    await expect(args.onResponse).toHaveBeenCalledTimes(1);
+    (args.onResponse as ReturnType<typeof fn>).mockClear();
+    await userEvent.keyboard('{Backspace}');
+    await new Promise((r) => setTimeout(r, 450));
     await userEvent.keyboard('1');
     await userEvent.keyboard('2');
     await userEvent.keyboard('{Backspace}');
