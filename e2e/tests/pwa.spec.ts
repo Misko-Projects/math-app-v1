@@ -10,7 +10,8 @@ interface ManifestIcon {
   purpose?: string;
 }
 
-const heading = (page: Page) => page.getByRole('heading', { level: 1, name: 'Number Island' });
+// A fresh browser context is a brand-new device: the app opens on the welcome screen.
+const heading = (page: Page) => page.getByRole('heading', { level: 1, name: /Number Island/ });
 
 /** Opens the app and waits until the service worker is active (precache complete) and in control. */
 async function openControlled(page: Page): Promise<void> {
