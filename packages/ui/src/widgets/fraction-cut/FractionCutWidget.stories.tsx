@@ -535,6 +535,9 @@ export const DemoInvite: Story = {
       part(root, 1) as unknown as HTMLElement,
       root,
     );
+    // The story ends in the invited state: the part's ring and Pip's hand stay visible.
+    await expect(part(root, 1)).toHaveAttribute('data-invite', 'true');
+    await expect(root.querySelector('.ni-hand') as HTMLElement).toBeVisible();
   },
 };
 

@@ -427,6 +427,9 @@ export const DemoInvite: Story = {
     await expect(r.top).toBeGreaterThanOrEqual(strip.top - 1);
     await expect(r.bottom).toBeLessThanOrEqual(strip.bottom + 1);
     await expectPointerOn(root.querySelector('.ni-hand') as HTMLElement, spot, root);
+    // The story ends in the invited state: the ring and Pip's hand stay visible.
+    await expect(spot).toBeVisible();
+    await expect(root.querySelector('.ni-hand') as HTMLElement).toBeVisible();
   },
 };
 

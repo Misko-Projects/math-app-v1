@@ -476,8 +476,23 @@ export const DemoInvite: Story = {
     await expect(invited).toHaveAttribute('data-id', 'pic-2');
     await expect(invited).toHaveAttribute('aria-pressed', 'false');
     await expectPointerOn(root.querySelector('.ni-hand') as HTMLElement, invited, root);
-    inviteController.invite(null);
+    // The story ends in the invited state: the ring and Pip's hand stay visible.
+    await expect(root.querySelector('.ni-hand') as HTMLElement).toBeVisible();
+  },
+};
+
+const clearController: WidgetDemo = createDemoController({ strict: true });
+
+/** An invite cleared with `invite(null)` takes away the ring and Pip's hand. */
+export const DemoInviteCleared: Story = {
+  args: { demo: clearController },
+  play: async ({ canvasElement }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    clearController.invite({ op: 'answer', args: { id: 'pic-1' } });
+    await waitFor(() => expect(root.querySelector('.ni-hand')).not.toBeNull());
+    clearController.invite(null);
     await waitFor(() => expect(root.querySelector('.ni-hand')).toBeNull());
+    await expect(root.querySelector('.ni-pick.ni-invite')).toBeNull();
   },
 };
 
