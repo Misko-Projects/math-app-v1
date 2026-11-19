@@ -1,6 +1,7 @@
 /* shape-sort widget (U05): a tray of cards and bins (sort), or a set of cards to tap. */
 
 .ni-ssort {
+  position: relative;
   display: flex;
   flex-direction: column;
   gap: 16px;
@@ -118,10 +119,6 @@
   font-size: 34px;
   line-height: 1;
   pointer-events: none;
-}
-.ni-ssort__hand {
-  left: calc(50% - 23px);
-  top: calc(100% - 30px);
 }
 
 /* ---------- find-all / odd-one-out ---------- */

@@ -3,10 +3,10 @@ import type { WidgetAction } from '@number-island/shared';
 import { type KeyboardEvent, type MouseEvent, useRef, useState } from 'react';
 import { useDragToTarget } from '../../interaction/useDragToTarget';
 import { useNarrationText, useSpeech, useUiPreferences } from '../../preferences/UiProvider';
-import { HandPointerIcon } from '../../primitives/icons';
 import { MIN_TARGET_PX } from '../../tokens/tokens';
 import { useWidgetDemo } from '../demo';
 import { CheckButton, ObjectSprite, useAlive, useDemoPause } from '../kit';
+import { useInviteHand } from '../kit/inviteHand';
 import { AnchorArt } from '../kit/SceneAnchors';
 import { type Box, relationRegions, SCENE } from './regions';
 import { CHECK_W, type ModeProps, OPS } from './shared';
@@ -48,6 +48,7 @@ export function PlaceRelative({
   const alive = useAlive();
   const pause = useDemoPause();
   const scene = useRef<HTMLDivElement>(null);
+  const host = useRef<HTMLDivElement>(null);
   const [invite, setInvite] = useState<string | null>(null);
   const anchors = config.scene?.anchors ?? [];
   const relation = config.relation;
@@ -201,6 +202,12 @@ export function PlaceRelative({
     },
   });
 
+  // Pip's hand under the item to move (kit useInviteHand); an invited scene pulses instead.
+  const { hand, rootStyle: handStyle } = useInviteHand(
+    host,
+    (r) => (invite === 'item' ? r.querySelector<HTMLElement>('.ni-scomp__item') : null),
+    invite === 'item' ? 'item' : '',
+  );
   const sceneP = dnd.targetProps('scene', { label: t('ui.scomp.scene') });
   const regions = state.region && anchorBox ? relationRegions(state.region, anchorBox) : [];
   const size = itemUnits(k, minT);
@@ -233,15 +240,10 @@ export function PlaceRelative({
   );
 
   return (
-    <div className="ni-scomp__relative">
+    <div className="ni-scomp__relative" ref={host} style={handStyle}>
       <div className="ni-scomp__item-tray">
         <span className="ni-scomp__tile-slot">
           {placed ? <span className="ni-scomp__item-home" aria-hidden="true" /> : itemEl}
-          {invite === 'item' && !placed ? (
-            <span className="ni-hand ni-scomp__hand" aria-hidden="true">
-              <HandPointerIcon />
-            </span>
-          ) : null}
         </span>
       </div>
       <div
@@ -305,6 +307,7 @@ export function PlaceRelative({
       <div className="ni-scomp__check">
         <CheckButton onPress={submit} disabled={!interactive || !response} />
       </div>
+      {hand}
     </div>
   );
 }

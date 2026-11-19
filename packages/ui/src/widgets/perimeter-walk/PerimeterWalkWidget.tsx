@@ -21,10 +21,10 @@ import {
   useSpeech,
   useUiPreferences,
 } from '../../preferences/UiProvider';
-import { HandPointerIcon } from '../../primitives/icons';
 import { MIN_TARGET_PX } from '../../tokens/tokens';
 import { useWidgetDemo } from '../demo';
 import { CheckButton, type PadKey, useAlive, useDemoPause, useSubmitGuard } from '../kit';
+import { useInviteHand } from '../kit/inviteHand';
 import { enteredValues, NumberEntry } from '../kit/NumberEntry';
 import { useAvailableSize } from '../kit/useAvailableSize';
 import type { ConfigFor, WidgetProps } from '../types';
@@ -274,10 +274,17 @@ export function PerimeterWalkWidget({
     },
   });
 
-  const hand = (
-    <span className="ni-hand ni-pwalk__hand" aria-hidden="true">
-      <HandPointerIcon />
-    </span>
+  // Pip's hand under the invited side number, grid or answer box (kit useInviteHand).
+  const { hand, rootStyle: handStyle } = useInviteHand(
+    root,
+    (r) => {
+      if (!invite) return null;
+      if (invite.startsWith('side-'))
+        return r.querySelector<HTMLElement>(`[data-label-side="${invite.slice(5)}"]`);
+      if (invite === 'corner') return r.querySelector<HTMLElement>('.ni-pwalk__grid-board');
+      return r.querySelector<HTMLElement>('.ni-entry__box');
+    },
+    invite ?? '',
   );
 
   // ---------- drawing ----------
@@ -379,7 +386,6 @@ export function PerimeterWalkWidget({
               >
                 {label}
               </button>
-              {invite === `side-${i}` ? hand : null}
             </span>
           );
         })}
@@ -452,7 +458,6 @@ export function PerimeterWalkWidget({
               </span>
             </span>
           ) : null}
-          {invite === 'corner' ? hand : null}
         </div>
       </div>
     );
@@ -489,6 +494,7 @@ export function PerimeterWalkWidget({
       data-beside={beside ? 'true' : undefined}
       data-tier={tier}
       data-disabled={disabled ? 'true' : undefined}
+      style={handStyle}
     >
       <div className="ni-pwalk__stage">
         {picture}
@@ -530,6 +536,7 @@ export function PerimeterWalkWidget({
         )}
         {beside ? null : <CheckButton onPress={submit} disabled={!interactive || !response} />}
       </div>
+      {hand}
     </div>
   );
 }

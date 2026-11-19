@@ -19,10 +19,10 @@ import {
   useSpeech,
   useUiPreferences,
 } from '../../preferences/UiProvider';
-import { HandPointerIcon } from '../../primitives/icons';
 import { MIN_TARGET_PX } from '../../tokens/tokens';
 import { useWidgetDemo } from '../demo';
 import { CheckButton, spriteNameKey, useAlive, useDemoPause, useSubmitGuard } from '../kit';
+import { useInviteHand } from '../kit/inviteHand';
 import { LengthObject, StringPiece } from '../kit/LengthViews';
 import { enteredValues, NumberEntry } from '../kit/NumberEntry';
 import { useAvailableSize } from '../kit/useAvailableSize';
@@ -255,10 +255,18 @@ export function CompareLengthWidget({
   const longest = sorted[sorted.length - 1] as Obj;
   const endOf = (o: Obj) => startPx(o) + o.length * unit;
 
-  const hand = (
-    <span className="ni-hand ni-clen__hand" aria-hidden="true">
-      <HandPointerIcon />
-    </span>
+  // Pip's hand under the invited object, badge, string or answer box (kit useInviteHand).
+  const { hand, rootStyle: handStyle } = useInviteHand(
+    root,
+    (r) => {
+      if (!invite) return null;
+      if (invite === STRING) return r.querySelector<HTMLElement>('.ni-clen__spool');
+      if (invite === 'entry') return r.querySelector<HTMLElement>('.ni-entry__box');
+      if (invite.startsWith('slot-'))
+        return r.querySelector<HTMLElement>(`.ni-clen__badge[data-badge="${slotOf(invite)}"]`);
+      return r.querySelector<HTMLElement>(`.ni-clen__obj[data-id="${invite}"]`);
+    },
+    invite ?? '',
   );
 
   const badge = (slot: number) => {
@@ -275,7 +283,6 @@ export function CompareLengthWidget({
         >
           {slot + 1}
         </span>
-        {invite === id ? hand : null}
       </span>
     );
   };
@@ -359,11 +366,6 @@ export function CompareLengthWidget({
             <StringPiece width={objW} />
           </span>
         ) : null}
-        {invite === o.id ? (
-          <span className="ni-clen__hand-at" style={{ left: startPx(o) + objW / 2 }}>
-            {hand}
-          </span>
-        ) : null}
       </div>
     );
   };
@@ -422,7 +424,6 @@ export function CompareLengthWidget({
               </span>
             );
           })()}
-          {invite === STRING ? hand : null}
         </span>
       ) : null}
       <CheckButton
@@ -441,7 +442,7 @@ export function CompareLengthWidget({
       data-tier={tier}
       data-compact={compact ? 'true' : undefined}
       data-disabled={disabled ? 'true' : undefined}
-      style={{ '--unit': `${unit}px` } as CSSProperties}
+      style={{ '--unit': `${unit}px`, ...handStyle } as CSSProperties}
     >
       <div className="ni-clen__main">
         <fieldset
@@ -509,6 +510,7 @@ export function CompareLengthWidget({
         ) : null}
       </div>
       {side}
+      {hand}
     </div>
   );
 }

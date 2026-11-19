@@ -19,6 +19,9 @@ export const widgetRegistry: WidgetRegistry = {
   'measure-length': () => import('./measure-length/MeasureLengthWidget'),
   'shape-compose': () => import('./shape-compose/ShapeComposeWidget'),
   'perimeter-walk': () => import('./perimeter-walk/PerimeterWalkWidget'),
+  'tap-count': () => import('./tap-count/TapCountWidget'),
+  'make-set': () => import('./make-set/MakeSetWidget'),
+  'dot-flash': () => import('./dot-flash/DotFlashWidget'),
 };
 
 /** Formats that have a registered widget. */

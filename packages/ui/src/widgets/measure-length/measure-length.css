@@ -2,6 +2,7 @@
    below. Everything inside the measure is positioned in px from the object's start. */
 
 .ni-mlen {
+  position: relative;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -48,10 +49,6 @@
   max-width: calc(var(--target-min) - 12px);
   overflow: hidden;
   pointer-events: none;
-}
-.ni-mlen__hand {
-  left: calc(50% - 23px);
-  top: calc(100% - 30px);
 }
 .ni-mlen__measure {
   position: relative;

@@ -3,10 +3,10 @@ import type { WidgetAction } from '@number-island/shared';
 import { type MouseEvent, useId, useRef, useState } from 'react';
 import { useDragToTarget } from '../../interaction/useDragToTarget';
 import { useNarrationText, useSpeech, useUiPreferences } from '../../preferences/UiProvider';
-import { HandPointerIcon } from '../../primitives/icons';
 import { MIN_TARGET_PX } from '../../tokens/tokens';
 import { useWidgetDemo } from '../demo';
 import { CheckButton, shapeColor, useAlive, useDemoPause } from '../kit';
+import { useInviteHand } from '../kit/inviteHand';
 import { bounds, fits, nearestFit } from './fit';
 import { CHECK_W, type ModeProps, OPS, UndoButton } from './shared';
 
@@ -49,6 +49,7 @@ export function FillOutline({
   const alive = useAlive();
   const pause = useDemoPause();
   const board = useRef<HTMLDivElement>(null);
+  const host = useRef<HTMLDivElement>(null);
   const [invite, setInvite] = useState<string | null>(null);
   const [lit, setLit] = useState<string | null>(null);
   const outline = (config.outline?.points ?? []) as Vec[];
@@ -197,6 +198,17 @@ export function FillOutline({
     }
   }
 
+  // Pip's hand under the invited tray piece or turn button (kit useInviteHand).
+  const { hand, rootStyle: handStyle } = useInviteHand(
+    host,
+    (r) =>
+      invite?.startsWith('rotate-')
+        ? r.querySelector<HTMLElement>(`[data-piece="${invite.slice(7)}"] .ni-scomp__rotate`)
+        : invite
+          ? r.querySelector<HTMLElement>(`[data-piece="${invite}"] .ni-scomp__tile`)
+          : null,
+    invite ?? '',
+  );
   const boardP = dnd.targetProps('board', { label: t('ui.scomp.outline') });
   const svgW = w * u + 2 * pad;
   const svgH = h * u + 2 * pad;
@@ -210,7 +222,7 @@ export function FillOutline({
   const trayK = Math.min(u, (tile - 18) / Math.max(1, ...pieces.map((p) => diameter(p.kind))));
 
   return (
-    <div className="ni-scomp__fill">
+    <div className="ni-scomp__fill" ref={host} style={handStyle}>
       <div className="ni-scomp__board" ref={board} style={{ width: svgW, height: svgH }}>
         <button
           type="button"
@@ -327,11 +339,6 @@ export function FillOutline({
                     {n}
                   </span>
                 </span>
-                {invite === piece.id ? (
-                  <span className="ni-hand ni-scomp__hand" aria-hidden="true">
-                    <HandPointerIcon />
-                  </span>
-                ) : null}
               </span>
               <button
                 type="button"
@@ -356,6 +363,7 @@ export function FillOutline({
         />
         <CheckButton onPress={submit} disabled={!interactive || !response} />
       </div>
+      {hand}
     </div>
   );
 }

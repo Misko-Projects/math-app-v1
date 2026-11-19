@@ -18,7 +18,6 @@ import {
 import { useInteractionTrace } from '../../interaction/trace';
 import { useDragToTarget } from '../../interaction/useDragToTarget';
 import { useNarrationText, useSpeech, useUiPreferences } from '../../preferences/UiProvider';
-import { HandPointerIcon } from '../../primitives/icons';
 import { MIN_TARGET_PX } from '../../tokens/tokens';
 import { useWidgetDemo } from '../demo';
 import {
@@ -30,6 +29,7 @@ import {
   useDemoPause,
   useSubmitGuard,
 } from '../kit';
+import { useInviteHand } from '../kit/inviteHand';
 import { LengthObject, RULER_PAD, Ruler, UnitPiece, unitHeight } from '../kit/LengthViews';
 import { enteredValues, NumberEntry } from '../kit/NumberEntry';
 import { useAvailableSize } from '../kit/useAvailableSize';
@@ -376,10 +376,18 @@ export function MeasureLengthWidget({
     },
   });
 
-  const hand = (
-    <span className="ni-hand ni-mlen__hand" aria-hidden="true">
-      <HandPointerIcon />
-    </span>
+  // Pip's hand under the invited pile, ruler, options or answer box (kit useInviteHand).
+  const { hand, rootStyle: handStyle } = useInviteHand(
+    root,
+    (r) => {
+      if (!invite) return null;
+      if (invite.startsWith('pile-'))
+        return r.querySelector<HTMLElement>(`.ni-mlen__pile[data-pile="${invite.slice(5)}"]`);
+      if (invite === 'ruler') return r.querySelector<HTMLElement>('.ni-mlen__ruler');
+      if (invite === 'options') return r.querySelector<HTMLElement>('.ni-mlen__options .ni-pick');
+      return r.querySelector<HTMLElement>(`.ni-entry__box[data-box="${activeBox}"]`);
+    },
+    invite ?? '',
   );
 
   // ---------- drawing ----------
@@ -473,7 +481,6 @@ export function MeasureLengthWidget({
             <UnitPiece unit={u} width={px} />
           </span>
         </span>
-        {invite === pileId(u) ? hand : null}
       </span>
     );
   };
@@ -642,13 +649,19 @@ export function MeasureLengthWidget({
       data-tier={tier}
       data-compact={compact ? 'true' : undefined}
       data-disabled={disabled ? 'true' : undefined}
-      style={{ '--unit': `${laying ? unitPxOf(config.unit) : rulerUnit}px` } as CSSProperties}
+      style={
+        {
+          '--unit': `${laying ? unitPxOf(config.unit) : rulerUnit}px`,
+          ...handStyle,
+        } as CSSProperties
+      }
     >
       {picture}
       <div className="ni-mlen__answer">
         {entry}
         <CheckButton onPress={submit} disabled={!interactive || !response} />
       </div>
+      {hand}
     </div>
   );
 }

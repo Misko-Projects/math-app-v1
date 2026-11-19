@@ -3,7 +3,7 @@ import type { Meta, StoryObj } from '@storybook/react-vite';
 import { type CSSProperties, useState } from 'react';
 import { expect, userEvent, waitFor, within } from 'storybook/test';
 import { expectTargetGaps, expectTargetSize } from '../../test-support/storyHelpers';
-import { NumeralTray, PickCard } from './controls';
+import { layoutBox, NumeralTray, PickCard } from './controls';
 import { NumberBondView, StimulusView } from './StimulusView';
 import { ObjectSprite, SPRITE_IDS } from './sprites';
 
@@ -187,12 +187,13 @@ export const BondWithControls: Story = {
 
 /**
  * A hidden term on a numbered line: the "?" mark replaces the tick's numeral (the answer 3 is
- * never printed under it); a bare arrow mark keeps its numeral (a count.sequence start).
+ * never printed under it); a bare arrow mark keeps its numeral (a count.sequence start). Each
+ * row is captioned, so the start marker is not mistaken for a hidden term.
  */
 export const NumberLineHiddenTerm: Story = {
   render: () => (
-    <div style={{ display: 'grid', gap: 32 }}>
-      <div data-testid="hidden">
+    <div style={{ display: 'grid', gap: 4 }}>
+      <div data-testid="hidden" className="story-cell">
         <StimulusView
           spec={{
             kind: 'number-line',
@@ -204,8 +205,9 @@ export const NumberLineHiddenTerm: Story = {
           }}
           maxWidth={700}
         />
+        <span className="story-cell__name">hidden term: numeral hidden</span>
       </div>
-      <div data-testid="start">
+      <div data-testid="start" className="story-cell">
         <StimulusView
           spec={{
             kind: 'number-line',
@@ -217,8 +219,9 @@ export const NumberLineHiddenTerm: Story = {
           }}
           maxWidth={700}
         />
+        <span className="story-cell__name">start marker: numeral shown</span>
       </div>
-      <div data-testid="decimal">
+      <div data-testid="decimal" className="story-cell">
         <StimulusView
           spec={{
             kind: 'number-line',
@@ -231,6 +234,7 @@ export const NumberLineHiddenTerm: Story = {
           }}
           maxWidth={700}
         />
+        <span className="story-cell__name">hidden decimal term: numeral hidden</span>
       </div>
     </div>
   ),
@@ -252,7 +256,7 @@ export const NumberLineHiddenTerm: Story = {
 function TrayTwenty({ highlighted = null }: { highlighted?: number | null }) {
   const [picked, setPicked] = useState<number | null>(null);
   return (
-    <div data-testid="box" style={{ width: 680, padding: '0 48px', boxSizing: 'border-box' }}>
+    <div data-testid="box" style={{ width: 1000, maxWidth: '100%', marginInline: 'auto' }}>
       <NumeralTray
         values={Array.from({ length: 21 }, (_, i) => i)}
         selected={picked}
@@ -273,56 +277,92 @@ function trayRows(tray: HTMLElement): number[] {
   return [...rows.values()];
 }
 
+/** Sets the story box so the tray's content box is exactly `content` px wide. */
+function setTrayContentWidth(canvasElement: HTMLElement, tray: HTMLElement, content: number) {
+  const box = layoutBox(getComputedStyle(tray));
+  const edges = box.border - box.content;
+  (canvasElement.querySelector('[data-testid="box"]') as HTMLElement).style.width =
+    `${content + edges}px`;
+}
+
+/** Every card inside the tray, and every full row's columns lined up with the first row's. */
+async function expectEvenGrid(tray: HTMLElement) {
+  const t = tray.getBoundingClientRect();
+  const cards = within(tray).getAllByRole('button');
+  for (const c of cards) {
+    const r = c.getBoundingClientRect();
+    await expect(r.left).toBeGreaterThanOrEqual(t.left - 0.5);
+    await expect(r.right).toBeLessThanOrEqual(t.right + 0.5);
+  }
+  const rows = trayRows(tray);
+  const cols = rows[0] ?? 0;
+  const firstLefts = cards.slice(0, cols).map((c) => c.offsetLeft);
+  let i = 0;
+  for (const size of rows) {
+    if (size === cols) {
+      const lefts = cards.slice(i, i + size).map((c) => c.offsetLeft);
+      await expect(lefts).toEqual(firstLefts);
+    }
+    i += size;
+  }
+}
+
 /**
- * A 0–20 tray in a padded 680 px box (584 px of content): balanced rows (5 + 4 + 4 + 4 + 4),
- * every card inside the tray. At a fractional 643.75 px box (547.75 px of content, 4 cards a
- * row) the rows reflow to 4 + 4 + 4 + 3 + 3 + 3 without remounting any card, so keyboard focus
- * stays put and Enter still picks the focused card.
+ * A 0–20 tray in a 1000 px box: a visible tray panel with an even 7 × 3 grid, centred. Narrowed
+ * to a fractional 771.75 px of content (one hair short of seven 100 px cards and six 12 px gaps),
+ * it reflows to 6 + 6 + 6 + 3 (even columns, short last row centred) without remounting any card,
+ * so keyboard focus stays put and Enter still picks the focused card.
  */
 export const TrayTwentyK: Story = {
   globals: { ageMode: 'k' },
   render: () => <TrayTwenty />,
   play: async ({ canvasElement }) => {
     const tray = within(canvasElement).getByRole('group', { name: 'Numbers' });
-    const rowsOf = () => trayRows(tray);
-    const expectInsideTray = async () => {
-      const t = tray.getBoundingClientRect();
-      for (const c of within(tray).getAllByRole('button')) {
-        const r = c.getBoundingClientRect();
-        await expect(r.left).toBeGreaterThanOrEqual(t.left - 0.5);
-        await expect(r.right).toBeLessThanOrEqual(t.right + 0.5);
-      }
-    };
-    await waitFor(() => expect(rowsOf()).toEqual([5, 4, 4, 4, 4]));
-    await expectInsideTray();
+    await waitFor(() => expect(trayRows(tray)).toEqual([7, 7, 7]));
+    await expectEvenGrid(tray);
     await expectTargetGaps(within(tray).getAllByRole('button'));
-    // Focus survives a reflow to a fractional content width: focus 5, narrow the box, wait for
-    // the balanced rows, and the same button still has focus and picks on Enter.
+    // A visible tray: a filled panel with a border, not bare cards on the page.
+    const panel = getComputedStyle(tray);
+    await expect(panel.backgroundColor).not.toBe('rgba(0, 0, 0, 0)');
+    await expect(Number.parseFloat(panel.borderTopWidth)).toBeGreaterThan(0);
+    // Focus survives a reflow to a fractional content width: focus 5, narrow the tray, wait for
+    // the new grid, and the same button still has focus and picks on Enter.
     const five = within(tray).getByRole('button', { name: '5' });
     five.focus();
-    (canvasElement.querySelector('[data-testid="box"]') as HTMLElement).style.width = '643.75px';
-    await waitFor(() => expect(rowsOf()).toEqual([4, 4, 4, 3, 3, 3]));
-    await expectInsideTray();
+    setTrayContentWidth(canvasElement, tray, 771.75);
+    await waitFor(() => expect(trayRows(tray)).toEqual([6, 6, 6, 3]));
+    await expectEvenGrid(tray);
     await expect(within(tray).getByRole('button', { name: '5' })).toBe(five);
     await expect(five).toHaveFocus();
     await expect(five).toHaveAttribute('aria-pressed', 'false');
     await userEvent.keyboard('{Enter}');
     await waitFor(() => expect(five).toHaveAttribute('aria-pressed', 'true'));
+    // Back to the full width: 7 × 3 again, still the same focused card.
+    (canvasElement.querySelector('[data-testid="box"]') as HTMLElement).style.width = '1000px';
+    await waitFor(() => expect(trayRows(tray)).toEqual([7, 7, 7]));
+    await expectEvenGrid(tray);
+    await expect(five).toHaveFocus();
+    // The picked card's check badge stays clear of its right-hand neighbour.
+    const badge = five.querySelector('.ni-pick__badge') as HTMLElement;
+    const six = within(tray).getByRole('button', { name: '6' });
+    await expect(
+      six.getBoundingClientRect().left - badge.getBoundingClientRect().right,
+    ).toBeGreaterThanOrEqual(4);
   },
 };
 
 /**
  * The same tray with a demo invite on 0. Its pulse scales the card (up to 1.05×) without changing
- * its layout width, so a resize at the pulse's peak must still plan rows from the 100 px layout
- * width: at 656 px (560 px of content) five cards fit, giving 5 + 4 + 4 + 4 + 4. With reduced
- * motion the invite is a static ring (no pulse) and the same rows hold.
+ * its layout width, so a resize at the pulse's peak must still plan the grid from the 100 px
+ * layout width: at exactly 772 px of content seven cards fit (7 × 3). With reduced motion the
+ * invite is a static ring (no pulse) and the same grid holds.
  */
 export const TrayTwentyInviteK: Story = {
   globals: { ageMode: 'k' },
   render: () => <TrayTwenty highlighted={0} />,
   play: async ({ canvasElement, globals }) => {
     const tray = within(canvasElement).getByRole('group', { name: 'Numbers' });
-    await waitFor(() => expect(trayRows(tray)).toEqual([5, 4, 4, 4, 4]));
+    await waitFor(() => expect(trayRows(tray)).toEqual([7, 7, 7]));
     const zero = within(tray).getByRole('button', { name: '0' });
     await expect(zero).toHaveClass('ni-invite');
     // The Motion toolbar ("reduced") or the system preference turns the pulse off.
@@ -343,17 +383,27 @@ export const TrayTwentyInviteK: Story = {
         expect(zero.getBoundingClientRect().width).toBeGreaterThan(zero.offsetWidth * 1.04),
       );
     }
-    (canvasElement.querySelector('[data-testid="box"]') as HTMLElement).style.width = '656px';
-    // Let the resize observer run and React re-render, then check the rows it planned (a
-    // transformed measurement would have planned 4 a row: 4 + 4 + 4 + 3 + 3 + 3).
+    // At the pulse's peak (or static, with reduced motion) the invite ring stays clear of the
+    // next card: the outline's outer edge (offset + width, scaled with the card) is left of "1".
+    const ring = getComputedStyle(zero);
+    const zr = zero.getBoundingClientRect();
+    const scale = zr.width / zero.offsetWidth;
+    const ringEdge =
+      zr.right +
+      (Number.parseFloat(ring.outlineOffset) + Number.parseFloat(ring.outlineWidth)) * scale;
+    const one = within(tray).getByRole('button', { name: '1' });
+    await expect(one.getBoundingClientRect().left - ringEdge).toBeGreaterThanOrEqual(2);
+    setTrayContentWidth(canvasElement, tray, 772);
+    // Let the resize observer run and React re-render, then check the grid it planned (a
+    // transformed measurement would have planned 6 a row: 6 + 6 + 6 + 3).
     await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
     await new Promise((r) => setTimeout(r, 100));
-    await expect(trayRows(tray)).toEqual([5, 4, 4, 4, 4]);
-    await expect(tray.getBoundingClientRect().width).toBeCloseTo(560, 1);
+    await expect(trayRows(tray)).toEqual([7, 7, 7]);
+    await expect(layoutBox(getComputedStyle(tray)).content).toBeCloseTo(772, 1);
   },
 };
 
-/** TrayTwentyInviteK with the Motion toolbar on Reduced motion: a static invite ring, same rows. */
+/** TrayTwentyInviteK with the Motion toolbar on Reduced motion: a static invite ring, same grid. */
 export const TrayTwentyInviteReducedK: Story = {
   ...TrayTwentyInviteK,
   globals: { ageMode: 'k', motion: 'reduced' },
@@ -361,13 +411,15 @@ export const TrayTwentyInviteReducedK: Story = {
 
 /**
  * A G1+ 0–9 tray exactly at a fractional fit boundary: four 73.59375 px cards and three 12 px
- * gaps take 330.375 px, so a 330.375 px tray fits 4 a row (4 + 3 + 3), even though computed
- * styles serialize the card as 73.5938 px. One layout unit (1/64 px) narrower, four no longer
- * fit and the rows become 3 + 3 + 2 + 2.
+ * gaps take 330.375 px, so a tray with 330.375 px of content fits 4 a row (4 + 4 + 2), even
+ * though computed styles serialize the card as 73.5938 px. One layout unit (1/64 px) narrower,
+ * only 3 fit, and the even grid becomes 2 × 5 (3 + 3 + 3 + 1 would leave a lone card). Pinned to
+ * G1+, whose card geometry it asserts.
  */
 export const TrayTenBoundary: Story = {
+  globals: { ageMode: 'g1-up' },
   render: () => (
-    <div data-testid="box" style={{ width: '330.375px' }}>
+    <div data-testid="box" style={{ width: 400 }}>
       <NumeralTray
         values={Array.from({ length: 10 }, (_, i) => i)}
         selected={null}
@@ -379,11 +431,11 @@ export const TrayTenBoundary: Story = {
     const tray = within(canvasElement).getByRole('group', { name: 'Numbers' });
     const card = within(tray).getByRole('button', { name: '0' });
     await expect(card.getBoundingClientRect().width).toBeCloseTo(73.59375, 4);
-    await expect(tray.getBoundingClientRect().width).toBeCloseTo(330.375, 4);
-    await waitFor(() => expect(trayRows(tray)).toEqual([4, 3, 3]));
-    (canvasElement.querySelector('[data-testid="box"]') as HTMLElement).style.width =
-      `${330.375 - 1 / 64}px`;
-    await waitFor(() => expect(trayRows(tray)).toEqual([3, 3, 2, 2]));
+    setTrayContentWidth(canvasElement, tray, 330.375);
+    await waitFor(() => expect(layoutBox(getComputedStyle(tray)).content).toBeCloseTo(330.375, 3));
+    await waitFor(() => expect(trayRows(tray)).toEqual([4, 4, 2]));
+    setTrayContentWidth(canvasElement, tray, 330.375 - 1 / 64);
+    await waitFor(() => expect(trayRows(tray)).toEqual([2, 2, 2, 2, 2]));
   },
 };
 

@@ -185,7 +185,9 @@ describe('import-boundary lint (02 §2)', () => {
     ).toEqual([]);
   });
 
+  // Reads and parses every source file in the repository, so its cost grows with the codebase
+  // (8.7 s at full parallelism on main); nothing to share or skip, so the budget is raised.
   it('passes on the repository as committed', () => {
     expect(checkRepo(root)).toEqual([]);
-  });
+  }, 30_000);
 });

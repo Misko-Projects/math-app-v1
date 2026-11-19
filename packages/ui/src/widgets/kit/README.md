@@ -16,14 +16,3 @@ No widget defines its own palette.
 
 Each widget imports its own stylesheet next to its component (`./<format>.css`), so parallel
 widget PRs never edit one shared CSS file.
-
-U05 (#14) measurement and geometry additions:
-
-| Module | What it gives you |
-|---|---|
-| `ShapeView.tsx` | `ShapeView` draws a `ShapeCard` exactly (`shapeGeometry`: equal sides and square corners where the kind has them, regular polygons regular, open figures open, solids in oblique view with hidden edges dashed); `rotationDeg` and `scale` applied, with one `extent` per set so sizes compare truly; attribute marks (sides, corners, square corners, equal-side hash marks). `ShapeSetView` is the `shape` stimulus. |
-| `GaugeView.tsx` | The `gauge` stimulus: a kitchen-scale dial, a beaker or a thermometer that reads exactly `value`, ticks every `ticksEvery`, numerals (≥ 32 px) every `labelsEvery`, thinned by an even stride when crowded. |
-| `LengthViews.tsx` | `LengthObject` (rope, ribbon, plank, log, vine), `UnitPiece` (cube 1, shell 2, stick 4) and `StringPiece`, each exactly its px length; a `Ruler` at a fixed px per unit with ≥ 32 px numerals. |
-| `NumberEntry.tsx` | Answer boxes plus the number pad; `compact` puts the boxes beside a 6 × 2 (`wide`) or 3 × 4 (`tall`) pad for the smallest landscape area. |
-| `sprites-measure.tsx`, `SceneAnchors.tsx` | Object sprites for the measurement and geometry items (merged into `ObjectSprite`), and the position-word scene anchors drawn to their `ANCHOR_SIZE` boxes. |
-| `useAvailableSize.ts`, `useFlip.ts` | The widget area's size (to pick a compact layout), and a FLIP glide for items that move between containers. |

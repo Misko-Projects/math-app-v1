@@ -4,7 +4,6 @@ import { type CSSProperties, useMemo, useRef, useState } from 'react';
 import { useInteractionTrace } from '../../interaction/trace';
 import { useDragToTarget } from '../../interaction/useDragToTarget';
 import { useNarrationText, useSpeech, useUiPreferences } from '../../preferences/UiProvider';
-import { HandPointerIcon } from '../../primitives/icons';
 import { MIN_TARGET_PX } from '../../tokens/tokens';
 import { useWidgetDemo } from '../demo';
 import {
@@ -19,6 +18,7 @@ import {
   useDemoPause,
   useSubmitGuard,
 } from '../kit';
+import { useInviteHand } from '../kit/inviteHand';
 import { useAvailableSize } from '../kit/useAvailableSize';
 import { useFlip } from '../kit/useFlip';
 import type { ConfigFor, WidgetProps } from '../types';
@@ -261,10 +261,12 @@ export function ShapeSortWidget({
     );
   };
 
-  const hand = (
-    <span className="ni-hand ni-ssort__hand" aria-hidden="true">
-      <HandPointerIcon />
-    </span>
+  // Pip's hand under the invited card (kit useInviteHand); the bin it goes in pulses too.
+  const { hand, rootStyle: handStyle } = useInviteHand(
+    root,
+    (r) =>
+      invite?.id ? r.querySelector<HTMLElement>(`.ni-ssort__card[data-id="${invite.id}"]`) : null,
+    invite?.id ? `${invite.id}:${invite.bin ?? ''}` : '',
   );
 
   // ---------- find-all and odd-one-out: tap cards ----------
@@ -279,7 +281,9 @@ export function ShapeSortWidget({
         data-tier={tier}
         data-compact={compact ? 'true' : undefined}
         data-disabled={disabled ? 'true' : undefined}
-        style={{ '--n': config.cards.length, '--size': `${pickSize}px` } as CSSProperties}
+        style={
+          { '--n': config.cards.length, '--size': `${pickSize}px`, ...handStyle } as CSSProperties
+        }
       >
         <fieldset
           className="ni-ssort__cards"
@@ -311,13 +315,13 @@ export function ShapeSortWidget({
                 ) : null}
               </button>
               {countBadge(c)}
-              {invite?.id === c.id ? hand : null}
             </span>
           ))}
         </fieldset>
         <div className="ni-ssort__check">
           <CheckButton onPress={submit} disabled={!interactive || !response} />
         </div>
+        {hand}
       </div>
     );
   }
@@ -345,7 +349,6 @@ export function ShapeSortWidget({
           {face(c, size)}
         </span>
         {countBadge(c)}
-        {invite?.id === c.id ? hand : null}
       </span>
     );
   };
@@ -375,7 +378,7 @@ export function ShapeSortWidget({
       data-bins={bins.length}
       data-compact={compact ? 'true' : undefined}
       data-disabled={disabled ? 'true' : undefined}
-      style={{ '--n': config.cards.length, '--bins': bins.length } as CSSProperties}
+      style={{ '--n': config.cards.length, '--bins': bins.length, ...handStyle } as CSSProperties}
     >
       <div className="ni-ssort__top">
         <div className="ni-ssort__tray" data-bin={TRAY}>
@@ -404,6 +407,7 @@ export function ShapeSortWidget({
           </div>
         ))}
       </div>
+      {hand}
     </div>
   );
 }
