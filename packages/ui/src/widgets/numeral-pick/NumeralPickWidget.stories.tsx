@@ -38,6 +38,8 @@ const dice: ConfigFor<'numeral-pick'> = {
   layout: 'row',
 };
 
+// As count.sequence emits it (CNT.09.t3, "what comes after 33?", #75): ticks every 1, only the
+// marked start labelled, and the asked term shown as "?" (never its numeral).
 const numberLine: ConfigFor<'numeral-pick'> = {
   format: 'numeral-pick',
   stimulus: {
@@ -45,8 +47,11 @@ const numberLine: ConfigFor<'numeral-pick'> = {
     min: 31,
     max: 36,
     ticksEvery: 1,
-    labelsEvery: 1,
-    marks: [{ at: 33, arrow: true }],
+    labelsEvery: null,
+    marks: [
+      { at: 33, label: '33', arrow: true },
+      { at: 34, label: '?' },
+    ],
   },
   options: [
     { id: 'opt-35', label: '35' },
@@ -154,10 +159,11 @@ export const NumberLine: Story = {
     const root = await findWidget(canvasElement, ROOT);
     const canvas = within(root);
     // The renderer draws exactly the stimulus: the marked start keeps its numeral (the child reads
-    // it to count on); which numerals a question hides is the generator's choice.
+    // it to count on) and the asked term is "?"; the answer 34 is never printed on the line.
     const picture = root.querySelector('.ni-stimulus') as HTMLElement;
     const numerals = [...picture.querySelectorAll('text')].map((t) => t.textContent);
-    await expect(numerals).toEqual(expect.arrayContaining(['31', '33', '36']));
+    await expect(numerals).toEqual(expect.arrayContaining(['33', '?']));
+    await expect(numerals).not.toContain('34');
 
     for (const t of picture.querySelectorAll('text')) {
       await expect(Number.parseFloat(getComputedStyle(t).fontSize)).toBeGreaterThanOrEqual(32);
