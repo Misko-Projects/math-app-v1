@@ -35,6 +35,7 @@ be
 beach
 bead
 beads
+beam
 bear
 bears
 bed
@@ -70,8 +71,10 @@ brother
 brown
 buddy
 build
+builder
 building
 builds
+burrow
 but
 by
 cake
@@ -111,6 +114,7 @@ cones
 corn
 corner
 corners
+cottage
 could
 count
 counted
@@ -123,10 +127,12 @@ crab
 crabs
 crate
 crates
+crew
 cube
 cubes
 cylinder
 cylinders
+dance
 day
 days
 dice
@@ -145,9 +151,12 @@ double
 doubles
 down
 drag
+driftwood
+drum
 duck
 ducks
 each
+east
 eat
 eating
 eats
@@ -167,6 +176,7 @@ every
 eye
 eyes
 fact
+factory
 facts
 farm
 farmer
@@ -174,6 +184,7 @@ fast
 father
 feet
 ferry
+festival
 fewer
 fewest
 fifteen
@@ -229,6 +240,7 @@ girls
 give
 gives
 giving
+glass
 glim
 go
 goes
@@ -283,6 +295,7 @@ hours
 house
 how
 hundred
+hut
 i
 i'm
 in
@@ -343,6 +356,7 @@ longest
 look
 looked
 looking
+lookout
 looks
 loud
 love
@@ -409,6 +423,7 @@ over
 pair
 pairs
 paper
+parade
 part
 partner
 partners
@@ -437,12 +452,14 @@ playing
 plays
 please
 plus
+practice
 pretty
 puffin
 pup
 put
 puts
 putting
+puzzle
 quarter
 quarters
 rabbit
@@ -453,6 +470,8 @@ ready
 rectangle
 rectangles
 red
+reef
+rhythm
 ride
 rider
 riders
@@ -541,9 +560,11 @@ splits
 square
 squares
 squirrel
+stage
 starfish
 start
 starting
+station
 stick
 stone
 stones
@@ -551,6 +572,7 @@ stop
 stopped
 stops
 storehouse
+storm
 story
 street
 sun
@@ -568,6 +590,7 @@ tells
 ten
 tens
 tenth
+terrace
 than
 thank
 thanks
@@ -622,6 +645,7 @@ twenty
 two
 under
 up
+veggies
 walk
 walked
 walking
@@ -636,6 +660,7 @@ wave
 waves
 way
 we
+weigh
 welcome
 well
 went

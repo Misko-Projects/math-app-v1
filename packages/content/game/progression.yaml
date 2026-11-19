@@ -1,0 +1,28 @@
+# U02 game data: festivals and avatar outfits (02 §5.8; 05 §7 and §9 "Unlocks").
+#
+# Festivals come every ~7 days of play. Storm Watch is the mixed-review co-op event that reveals
+# the rainbow decor; it has no timer for K and cannot be failed (05 §7).
+#
+# Outfits are avatar options that start locked (CH1 defines the matching options). The collection
+# fold unlocks an outfit when its rule holds over buildings, road, residents and mastery badges
+# (02 §4.3), so outfit rules use only those facts. Project and festival outfits are also granted
+# by the building level that names them (`outfit:<option>` in buildings.yaml).
+
+festivals:
+  - {
+      id: lantern-night,
+      kind: festival,
+      everyDaysOfPlay: 7,
+      rewardDecor: [lantern-string, paper-lanterns],
+    }
+  - { id: shell-parade, kind: festival, everyDaysOfPlay: 7, rewardDecor: [shell-chime, bunting] }
+  - { id: drum-dance, kind: festival, everyDaysOfPlay: 7, rewardDecor: [festival-drum] }
+  - { id: storm-watch, kind: storm-watch, everyDaysOfPlay: 7, rewardDecor: [rainbow-arch] }
+
+outfits:
+  - { option: hat-captain, unlock: { masteredCount: 5 } } # mastery
+  - { option: hat-flower-crown, unlock: { building: east-bridge } } # project: Bridge to East Beach
+  - { option: hat-festival, unlock: { building: festival-stage } } # festival: the Festival Stage
+  - { option: accessory-shell-necklace, unlock: { building: lighthouse } } # project: Lighthouse
+  - { option: accessory-star-cape, unlock: { masteredCount: 15 } } # mastery
+  - { option: top-festival, unlock: { building: festival-stage, level: 2 } } # festival stage, level 2

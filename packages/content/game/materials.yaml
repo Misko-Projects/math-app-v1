@@ -1,0 +1,20 @@
+# U02 game data (02 §5.8 GameData; 05 §4 and §6): the materials workshops produce. Each material
+# has a spoken name (`game.material.<id>` in narration/game.yaml) and an art component
+# `material/<id>` (packages/ui/art). Game data is split across game/*.yaml by section: lists
+# concatenate, and `island` is defined once (island.yaml).
+
+materials:
+  - { id: stone, name: game.material.stone, art: material/stone } # W1 Road Crew
+  - { id: light, name: game.material.light, art: material/light } # W2 Lantern Grove
+  - { id: plank, name: game.material.plank, art: material/plank } # W3 Ten-Boat Dock
+  - { id: gem, name: game.material.gem, art: material/gem } # W4 Treasure Beach
+  - { id: brick, name: game.material.brick, art: material/brick } # W5 Brick Factory
+  - { id: produce, name: game.material.produce, art: material/produce } # W6 Garden Terraces
+  - { id: bread, name: game.material.bread, art: material/bread } # W7 Bakery
+  - { id: coin, name: game.material.coin, art: material/coin } # W8 Market
+  - { id: ticket, name: game.material.ticket, art: material/ticket } # W9 Clock Tower & Ferry
+  - { id: glass, name: game.material.glass, art: material/glass } # W10 Builder's Yard
+  - { id: beam, name: game.material.beam, art: material/beam } # W10 Builder's Yard
+  - { id: rope, name: game.material.rope, art: material/rope } # W11 Weigh Station & Lookout
+  - { id: flag, name: game.material.flag, art: material/flag } # W11 Weigh Station & Lookout
+  - { id: fruit, name: game.material.fruit, art: material/fruit } # W12 Rhythm Orchard
