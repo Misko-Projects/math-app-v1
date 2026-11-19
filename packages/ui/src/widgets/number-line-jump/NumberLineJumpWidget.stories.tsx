@@ -14,6 +14,7 @@ import {
   contentBox,
   expectFitsArea,
   expectHandClearOfOthers,
+  expectNoScroll,
   expectPointerOn,
   expectRingClear,
   expectTraceOrdered,
@@ -262,7 +263,10 @@ async function expectTruthfulRoad(root: HTMLElement, c: Config, at: number) {
   for (const d of steps) await expect(Math.abs(d - (steps[0] as number))).toBeLessThan(0.01);
   for (const text of root.querySelectorAll<SVGTextElement>('.ni-numberline__numeral')) {
     await expect(
-      Math.abs(Number(text.getAttribute('x')) - s.x(Number(text.textContent))),
+      Math.abs(
+        Number(text.getAttribute('x')) -
+          s.x(Number((text.textContent ?? '').replace('\u2212', '-'))),
+      ),
     ).toBeLessThan(0.01);
   }
   const lb = lineEl.getBoundingClientRect();
@@ -417,6 +421,8 @@ export const OpenLine: Story = {
 /** Timeline in minutes: arcs read "+10 min"; type the total jump. */
 export const Timeline: Story = {
   args: { config: timeline, tier: 'pictorial' },
+  // In the tablet's widget area: the whole widget is on one screen.
+  render: inArea('tablet'),
   play: async ({ canvasElement, args }) => {
     const root = await findWidget(canvasElement, ROOT);
     await userEvent.click(jump(root, 10));
@@ -429,6 +435,7 @@ export const Timeline: Story = {
       kind: 'state',
       value: { jumps: [10, 10, 10], value: 30 },
     });
+    await expectJumpFits(canvasElement, root, 'g1-up');
   },
 };
 
@@ -704,15 +711,47 @@ async function expectJumpFits(
   await expectFill(canvasElement, parts);
 }
 
+/**
+ * At the 906 × 373 minimum an invite on a bottom control (the bottom pad row, the hop row) fits:
+ * one ring, the fingertip on the control, the hand (bob included) inside the area card (it may hang
+ * into the card's padding, covering nothing), clear of every other glyph, and nothing scrolls.
+ */
+async function expectMinAreaInvite(canvasElement: HTMLElement, root: HTMLElement, el: HTMLElement) {
+  (document.activeElement as HTMLElement | null)?.blur();
+  await waitFor(() => expect(el).toHaveClass('ni-invite'));
+  await expect(root.querySelectorAll('.ni-invite')).toHaveLength(1);
+  await waitFor(() => expect(root.querySelectorAll('.ni-hand')).toHaveLength(1));
+  await waitForSettled(el);
+  await new Promise((r) => requestAnimationFrame(r));
+  const hand = root.querySelector('.ni-hand') as HTMLElement;
+  await expectPointerOn(hand, el, areaBox(canvasElement));
+  await expectHandClearOfOthers(
+    hand,
+    [...root.querySelectorAll('button')].filter((b) => b !== el),
+  );
+  await expectRingClear(
+    el,
+    targets(root).filter((t) => t !== el),
+  );
+  await expectNoScroll(areaBox(canvasElement));
+}
+
 /** K stones 0–10 at the 960 × 600 minimum: the pad (4 × 3) beside the road; hop and answer. */
 export const StonesKMinLandscape: Story = {
   globals: { ageMode: 'k' },
+  args: { demo: createDemoController({ strict: true }) },
   render: inArea('landscapeMin'),
   play: async ({ canvasElement, args }) => {
     const root = await findWidget(canvasElement, ROOT);
-    await expectJumpFits(canvasElement, root, 'k', 'at-rest');
+    await expectJumpFits(canvasElement, root, 'k');
+    // A lesson's answer invite: after a wrong digit it rings backspace on the pad's bottom row.
+    (args.demo as WidgetDemo).invite({ op: 'answer', args: { value: 6 } });
     await userEvent.click(jump(root, 1));
     await userEvent.click(jump(root, 1));
+    await userEvent.click(key(root, '5'));
+    await expectMinAreaInvite(canvasElement, root, key(root, 'back'));
+    await userEvent.click(key(root, 'back'));
+    (args.demo as WidgetDemo).invite(null);
     await expectTruthfulRoad(root, stones, 6);
     await userEvent.click(key(root, '6'));
     await userEvent.click(checkBtn(root));
@@ -720,7 +759,7 @@ export const StonesKMinLandscape: Story = {
       kind: 'state',
       value: { jumps: [1, 1], value: 6 },
     });
-    await expectJumpFits(canvasElement, root, 'k', 'at-rest');
+    await expectJumpFits(canvasElement, root, 'k');
   },
 };
 
@@ -732,11 +771,11 @@ export const LongRoadKMinLandscape: Story = {
   play: async ({ canvasElement }) => {
     const root = await findWidget(canvasElement, ROOT);
     await expect(root.querySelector('.ni-nlj__stones')).toHaveAttribute('data-tappable', 'false');
-    await expectJumpFits(canvasElement, root, 'k', 'at-rest');
+    await expectJumpFits(canvasElement, root, 'k');
     await expectTruthfulRoad(root, longRoad, 15);
     for (let i = 0; i < 6; i++) await userEvent.click(jump(root, -1));
     await expectTruthfulRoad(root, longRoad, 9);
-    await expectJumpFits(canvasElement, root, 'k', 'at-rest');
+    await expectJumpFits(canvasElement, root, 'k');
   },
 };
 
@@ -770,20 +809,26 @@ export const LineTenHopsG1MinLandscape: Story = {
 };
 
 /**
- * G1, ADD.08.t3 at the minimum: ten hop sizes on an open line and the pad. The open line's arc
- * labels need its full headroom, so it fits at rest only (an invite under the hop row adds a
- * little room below).
+ * G1, ADD.08.t3 at the minimum: ten hop sizes on an open line and the pad; an invite under the
+ * hop row fits (the hand may hang into the card's padding).
  */
+const openTenInvite: WidgetDemo = createDemoController({ strict: true });
+
 export const OpenTenHopsG1MinLandscape: Story = {
-  args: { config: openTen, tier: 'pictorial' },
+  args: { config: openTen, tier: 'pictorial', demo: openTenInvite },
   render: inArea('landscapeMin'),
   play: async ({ canvasElement }) => {
     const root = await findWidget(canvasElement, ROOT);
-    await expectJumpFits(canvasElement, root, 'g1-up', 'at-rest');
+    await expectJumpFits(canvasElement, root, 'g1-up');
     await hopBy(root, 3);
     await hopBy(root, 5);
     await expectTruthfulRoad(root, openTen, 15);
-    await expectJumpFits(canvasElement, root, 'g1-up', 'at-rest');
+    await expectJumpFits(canvasElement, root, 'g1-up');
+    // A lesson's hop invite rings a control in the hop row (the dial step toward 2): the hand
+    // under it fits the area too.
+    openTenInvite.invite({ op: 'hop', args: { by: 2 } });
+    const step = root.querySelector('.ni-nlj__dialstep[data-dir="smaller"]') as HTMLElement;
+    await expectMinAreaInvite(canvasElement, root, step);
   },
 };
 
@@ -805,7 +850,7 @@ export const LineLandOnKMinLandscape: Story = {
   render: inArea('landscapeMin'),
   play: async ({ canvasElement }) => {
     const root = await findWidget(canvasElement, ROOT);
-    await expectJumpFits(canvasElement, root, 'k', 'at-rest');
+    await expectJumpFits(canvasElement, root, 'k');
   },
 };
 
@@ -870,16 +915,25 @@ const signDemo: WidgetDemo = createDemoController({ strict: true });
 /** Review F8: a landing below zero keeps its sign: the demo labels −3 and the answer is −3. */
 export const NegativeLanding: Story = {
   args: { config: belowZero, tier: 'pictorial', demo: signDemo },
+  // In the tablet's widget area: the whole widget is on one screen.
+  render: inArea('tablet'),
   play: async ({ canvasElement, args }) => {
     const root = await findWidget(canvasElement, ROOT);
     await signDemo.play({ op: 'hop', args: { by: -2 } });
     await signDemo.play({ op: 'label-landing' });
     await expect(readout(root)).toHaveTextContent('−3');
+    // The line's numerals print a real minus sign (U+2212) too, never a hyphen.
+    const numerals = [...root.querySelectorAll('.ni-numberline__numeral')].map(
+      (t) => t.textContent,
+    );
+    await expect(numerals).toContain('\u22123');
+    await expect(numerals.some((t) => t?.includes('-'))).toBe(false);
     await userEvent.click(checkBtn(root));
     await expect(args.onResponse).toHaveBeenCalledWith({
       kind: 'state',
       value: { jumps: [-2], value: -3 },
     });
+    await expectJumpFits(canvasElement, root, 'g1-up');
   },
 };
 

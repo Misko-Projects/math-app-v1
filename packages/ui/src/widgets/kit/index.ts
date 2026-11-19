@@ -45,6 +45,7 @@ export {
   type NumberLineViewProps,
   numberLineScale,
   numberLineViewScale,
+  numeralText,
   stepsBetween,
 } from './NumberLineView';
 export { fitCell, ObjectSetView, type ObjectSetViewProps } from './ObjectSetView';

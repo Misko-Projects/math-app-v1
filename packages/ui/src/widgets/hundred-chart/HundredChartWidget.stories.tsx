@@ -370,8 +370,11 @@ const fillTapInvite: WidgetDemo = createDemoController({ strict: true });
 /** Review F3: with 46 filled, a tap invite on 47 rings 4, then 7 (filled and other blanks skipped). */
 export const InviteFillTapAfterFilled: Story = {
   args: { config: fill, demo: fillTapInvite },
+  // In the tablet's widget area: the whole widget is on one screen.
+  render: inArea('tablet'),
   play: async ({ canvasElement }) => {
     const root = await findWidget(canvasElement, ROOT);
+    await expectHcFits(canvasElement, root, 'g1-up');
     await typeKeys(root, '46');
     await expect(cell(root, 47)).toHaveAttribute('data-active', 'true');
     fillTapInvite.invite({ op: 'tap', args: { n: 47 } });

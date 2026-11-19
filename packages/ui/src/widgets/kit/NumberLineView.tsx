@@ -51,6 +51,11 @@ export function stepsBetween(min: number, max: number, every: number | null): nu
   return lineSteps(min, max, every);
 }
 
+/** A value as the line prints it: a real minus sign (U+2212) below zero, as the readouts do. */
+export function numeralText(v: number): string {
+  return v < 0 ? `\u2212${String(Math.abs(v))}` : String(v);
+}
+
 export interface NumberLineMark {
   at: number;
   label?: string;
@@ -93,7 +98,7 @@ export function numberLineViewScale({
   min,
   max,
   width = 880,
-  format = (v: number) => String(v),
+  format = numeralText,
   headroom,
 }: {
   min: number;
@@ -114,7 +119,7 @@ export function NumberLineView({
   marks = [],
   jumps = [],
   width = 880,
-  format = (v) => String(v),
+  format = numeralText,
   label,
   headroom,
   children,

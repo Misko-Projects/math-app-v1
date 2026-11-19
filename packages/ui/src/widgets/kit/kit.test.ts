@@ -10,7 +10,7 @@ import {
   trayGrid,
 } from './controls';
 import { dicePattern, dotsLayout, groupIndexes, minObjectStep, objectSetLayout } from './layout';
-import { numberLineViewScale, stepsBetween } from './NumberLineView';
+import { numberLineViewScale, numeralText, stepsBetween } from './NumberLineView';
 
 const set = (over: Partial<ObjectSet>): ObjectSet => ({
   count: 7,
@@ -150,6 +150,9 @@ describe('number line steps', () => {
     expect(stepsBetween(0, 1, 0.1)).toHaveLength(11);
     expect(stepsBetween(0, 1, 0.1).at(-1)).toBe(1);
     expect(stepsBetween(0, 10, null)).toEqual([]);
+    // Numerals below zero print a real minus sign (U+2212).
+    expect(numeralText(-3)).toBe('\u22123');
+    expect(numeralText(0.5)).toBe('0.5');
     // 0.07 / 0.01 is 7.000000000000001 in floating point: the line still starts at 0.07, and the
     // kit draws exactly the ticks the number-line model snaps to.
     expect(stepsBetween(0.07, 0.1, 0.01)).toEqual([0.07, 0.08, 0.09, 0.1]);

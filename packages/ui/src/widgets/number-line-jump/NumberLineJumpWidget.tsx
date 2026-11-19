@@ -90,6 +90,27 @@ const STACK_HAND_GAP = 32;
 
 type Config = ConfigFor<'number-line-jump'>;
 
+let measureCtx: CanvasRenderingContext2D | null | undefined;
+
+/**
+ * The drawn width of a 32 px arc label (Baloo 2, 800), measured with a canvas when there is one;
+ * otherwise a safe estimate (19 px a character).
+ */
+function arcLabelWidth(text: string): number {
+  if (measureCtx === undefined) {
+    measureCtx =
+      typeof document === 'undefined' ? null : document.createElement('canvas').getContext('2d');
+  }
+  if (!measureCtx) return text.length * 19;
+  const family =
+    typeof document === 'undefined'
+      ? 'sans-serif'
+      : getComputedStyle(document.documentElement).getPropertyValue('--font-display') ||
+        'sans-serif';
+  measureCtx.font = `800 32px ${family}`;
+  return Math.ceil(measureCtx.measureText(text).width);
+}
+
 const signed = (n: number) => (n < 0 ? `−${Math.abs(n)}` : `+${n}`);
 
 // ---------- art (original) ----------
@@ -258,6 +279,9 @@ interface Plan {
   gap: number;
   /** A short room: the answer display uses its regular (not large) numerals. */
   short: boolean;
+  /** Px between pad rows, and how far Pip's hand may hang below the widget (minimum area). */
+  padRowGap: number;
+  overhang: number;
   /** The stones are a picture even though buttons would fit across (they would not fit the height). */
   pictureStones: boolean;
   /** The road's width in px (what is left beside the pad). */
@@ -286,12 +310,12 @@ const PAD_ROW_GAP = 26;
 const padDigit = (key: number) =>
   key >= 96 ? undefined : key >= 84 ? '44px' : key >= 76 ? '40px' : '32px';
 
-function padBox(shape: PadShape, key: number) {
+function padBox(shape: PadShape, key: number, rowGap = PAD_ROW_GAP) {
   const cols = shape === '3x4' ? 3 : 4;
   const rows = shape === '3x4' ? 4 : 3;
   return {
     w: cols * key + (cols - 1) * TARGET_GAP_PX,
-    h: rows * key + (rows - 1) * PAD_ROW_GAP,
+    h: rows * key + (rows - 1) * rowGap,
   };
 }
 
@@ -300,6 +324,14 @@ function padBox(shape: PadShape, key: number) {
  * up the key, the 56 px hand, its 8 px bob and 10 px edge margin, less the key's 4 px ledge).
  */
 const HAND_REACH = 52;
+/**
+ * In a short room (the 960 × 600 minimum) Pip's hand may hang this far (less its 10 px edge margin,
+ * so at most 20 px) into the workshop card's
+ * 24 px padding below the widget, where it covers nothing (06 §2 minimum-area relief); K pad rows
+ * close up to 14 px so a K pad and the hand fit 319 px.
+ */
+const SHORT_OVERHANG = 30;
+const K_SHORT_ROW_GAP = 14;
 
 /** The stones' size and window for a road `w` px wide. */
 export function stonesFor(c: Config, w: number, target: number) {
@@ -355,6 +387,8 @@ function planLayout(c: Config, room: WidgetRoom | null, age: AgeMode, m: Measure
   const roomH = room?.height ?? Number.POSITIVE_INFINITY;
   const short = roomH < SHORT_ROOM;
   const G = short ? TARGET_GAP_PX : GAP;
+  const overhang = short ? SHORT_OVERHANG : 0;
+  const padRowGap = short && age === 'k' ? K_SHORT_ROW_GAP : PAD_ROW_GAP;
   const W = Math.min(room?.width ?? 1180, 1180) - 2 * EDGE;
   const H = roomH - 2 * EDGE;
   const sizes = new Set(c.allowedJumps).size;
@@ -401,7 +435,7 @@ function planLayout(c: Config, room: WidgetRoom | null, age: AgeMode, m: Measure
   ) => {
     // Pip's hand hangs below whichever control is lowest in each column (a hop button, a key,
     // Check): every column needs its reach below it.
-    const withHand = Math.max(h, padH) + HAND_REACH;
+    const withHand = Math.max(h, padH) + HAND_REACH - overhang;
     plans.push({
       layout,
       pad,
@@ -410,6 +444,8 @@ function planLayout(c: Config, room: WidgetRoom | null, age: AgeMode, m: Measure
       gap: G,
       short,
       pictureStones: picture,
+      padRowGap,
+      overhang,
       mainW,
       h: withHand,
       fits: ok && withHand <= H,
@@ -422,7 +458,7 @@ function planLayout(c: Config, room: WidgetRoom | null, age: AgeMode, m: Measure
     picture = pictureStones;
     for (const kind of kinds) {
       for (const pad of pads) {
-        const p = pad ? padBox(pad.shape, pad.key) : { w: 0, h: 0 };
+        const p = pad ? padBox(pad.shape, pad.key, padRowGap) : { w: 0, h: 0 };
         // stack: road; hop buttons (Check beside them without a pad); answer column beside the pad.
         {
           const mainW = W;
@@ -480,7 +516,12 @@ function planLayout(c: Config, room: WidgetRoom | null, age: AgeMode, m: Measure
   const rank = (p: Plan) =>
     (p.pictureStones ? 100 : 0) +
     (p.hops === 'dial' ? 10 : 0) +
-    ['stack', 'side-right', 'side-main', 'side-col'].indexOf(p.layout);
+    // A line whose arcs carry labels (open, timeline) wants the widest road: the pad alone beside
+    // it before the answer-above-the-pad column.
+    (c.path === 'open' || c.path === 'timeline'
+      ? ['stack', 'side-main', 'side-right', 'side-col']
+      : ['stack', 'side-right', 'side-main', 'side-col']
+    ).indexOf(p.layout);
   plans.sort((a, b) => rank(a) - rank(b));
   return (
     plans.find((p) => p.fits) ??
@@ -895,6 +936,7 @@ export function NumberLineJumpWidget({
     rootRef,
     (root) => (cue ? cueTarget(root, cue) : null),
     cue ? `${cueKeyOf(cue)}|${plan.layout}|${plan.hops}|${plan.hopCols}|${roadW}` : '',
+    plan.overhang,
   );
 
   // ---------- render ----------
@@ -1074,7 +1116,7 @@ export function NumberLineJumpWidget({
                     const text = `${signed(j.to - j.from)}${unit}`;
                     // Numerals stay 32 px: an arc too narrow for its label goes unlabelled
                     // rather than overprinting its neighbours.
-                    if (dx < text.length * 19 + 10) return null;
+                    if (dx < arcLabelWidth(text) + 10) return null;
                     return (
                       <text
                         // biome-ignore lint/suspicious/noArrayIndexKey: hops are positional
@@ -1241,9 +1283,14 @@ export function NumberLineJumpWidget({
       style={
         {
           '--pad-key': plan.pad ? `${plan.pad.key}px` : undefined,
-          '--pad-row-gap': `${PAD_ROW_GAP}px`,
+          '--pad-row-gap': `${plan.padRowGap}px`,
           // Digits sized so Pip's hand clears its own key's digit and the one below.
-          '--pad-digit': plan.pad ? padDigit(plan.pad.key) : undefined,
+          // Closer rows (K at the minimum) take the smallest digit, so the hand clears the row below.
+          '--pad-digit': plan.pad
+            ? plan.padRowGap < PAD_ROW_GAP
+              ? '32px'
+              : padDigit(plan.pad.key)
+            : undefined,
           '--nlj-gap': `${plan.gap}px`,
           ...handRootStyle,
         } as CSSProperties
