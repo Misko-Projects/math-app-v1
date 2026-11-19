@@ -181,14 +181,16 @@ beforeEach(() => {
 });
 
 describe('registry', () => {
-  it('registers the three fixture rules and the K01 counting rules by detect.rule id', () => {
+  it('registers the rules by detect.rule id', () => {
     expect(registeredRuleIds().sort()).toEqual([
+      'biggerUnitMore',
       'countAllInstead',
       'countStartNumber',
       'decadeTransition',
       'offByOneCounting',
       'recountFromOne',
       'teenReversal',
+      'unitGaps',
     ]);
     expect(misconceptionRule('countStartNumber')).toBe(countStartNumber);
     expect(misconceptionRule('nope')).toBeUndefined();

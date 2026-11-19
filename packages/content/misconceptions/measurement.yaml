@@ -1,0 +1,41 @@
+# Measurement misconceptions (03 §7.2). K01 (#11) adds the K–1 rows; K02 adds the ruler and area
+# rows and the grade 2 skills of these rows (MEA.09 for MC.bigger-unit-more).
+area: measurement
+misconceptions:
+  - id: MC.unit-gaps
+    name: Leaves gaps or overlaps between units when measuring
+    detect: { kind: state, rule: unitGaps }
+    appliesTo: { generators: [mea.length] }
+    skills: [MEA.02, MEA.22]
+    remediation: [MEA.02]
+    feedback: fb.mc.unit-gaps
+    priority: 50
+    parentTip: >-
+      When your child measures with blocks or paper clips, have them push each one right up against
+      the last, with no spaces and no piling up.
+    examples:
+      - params: { mode: iterate, unit: cube, length: 4 }
+        response: { kind: state, value: { units: [0, 1, 2.5, 3.5], value: 4 } }
+        match: true
+      - params: { mode: iterate, unit: cube, length: 4 }
+        response: { kind: state, value: { units: [0, 1, 2], value: 3 } }
+        match: false
+
+  - id: MC.bigger-unit-more
+    name: Thinks bigger units give a bigger count
+    detect: { kind: answer, rule: biggerUnitMore }
+    appliesTo: { generators: [mea.length] }
+    skills: [MEA.22]
+    remediation: [MEA.22]
+    feedback: fb.mc.bigger-unit-more
+    priority: 50
+    parentTip: >-
+      Measure the same table with spoons and then with your hands, and talk about why the bigger
+      hand takes fewer turns.
+    examples:
+      - params: { mode: two-units, unit: cube, altUnit: stick, length: 8 }
+        response: { kind: numbers, values: [2, 8] }
+        match: true
+      - params: { mode: two-units, unit: cube, altUnit: stick, length: 8 }
+        response: { kind: numbers, values: [8, 3] }
+        match: false

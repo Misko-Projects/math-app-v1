@@ -1,0 +1,479 @@
+# K01 (#11) GEO templates on geo.identify, geo.position, geo.draw and geo.compose (03 §5.6).
+strand: GEO
+templates:
+  # GEO.01: name flat shapes whatever their size or turn
+  - id: GEO.01.t1
+    skillId: GEO.01
+    format: shape-sort
+    tier: concrete
+    representation: pattern-blocks
+    generator: geo.identify
+    params:
+      set: 2d
+      rule: kind
+      mode: sort
+      kind: { choice: [triangle, square, rhombus, trapezoid, hexagon] }
+      other: { choice: [triangle, square, rhombus, trapezoid, hexagon] }
+      cards: { int: [4, 6] }
+      bins: { choice: [2, 3], weights: [3, 1] }
+      nonPrototypical: { bool: 0.4 }
+    constraints: ["kind != other"]
+    difficulty: { base: -0.6 }
+    narration:
+      prompt: tp.GEO.01.t1.prompt
+      hints: [h.geo.bins, h.geo.any-turn]
+
+  - id: GEO.01.t2
+    skillId: GEO.01
+    format: shape-sort
+    tier: concrete
+    representation: shapes
+    generator: geo.identify
+    params:
+      set: 2d
+      rule: kind
+      mode: find-all
+      kind: { choice: [circle, triangle, square, rectangle, hexagon] }
+      cards: { int: [5, 7] }
+      hits: { int: [2, 3] }
+      nonPrototypical: { bool: 0.5 }
+    difficulty: { base: -0.6 }
+    narration:
+      prompt: p.geo.find-every
+      hints: [h.geo.any-turn, h.geo.count-sides]
+
+  - id: GEO.01.t3
+    skillId: GEO.01
+    format: numeral-pick
+    tier: pictorial
+    representation: shapes
+    generator: geo.identify
+    params:
+      set: 2d
+      rule: kind
+      kind: { choice: [circle, triangle, square, rectangle, hexagon] }
+      cards: { int: [3, 4] }
+      nonPrototypical: { bool: 0.5 }
+    difficulty: { base: -0.6 }
+    narration:
+      prompt: p.geo.which-kind
+      hints: [h.geo.any-turn]
+
+  # GEO.02: sides and corners make the shape; color and size do not
+  - id: GEO.02.t1
+    skillId: GEO.02
+    format: shape-compose
+    tier: concrete
+    representation: dot-grid
+    generator: geo.draw
+    params:
+      sides: { int: [3, 6] }
+      tool: dots
+      grid: 5
+    difficulty: { base: -0.6 }
+    narration:
+      prompt: tp.GEO.02.t1.prompt
+      hints: [h.geo.closed, h.geo.dots]
+
+  - id: GEO.02.t2
+    skillId: GEO.02
+    format: shape-sort
+    tier: pictorial
+    representation: shapes
+    generator: geo.identify
+    params:
+      set: 2d
+      rule: kind
+      mode: find-all
+      kind: { choice: [triangle, square, rectangle, hexagon] }
+      cards: { int: [5, 7] }
+      hits: { int: [2, 3] }
+      nonPrototypical: true
+      nearMiss: { bool: 0.6 }
+    difficulty: { base: -1.4 }
+    narration:
+      prompt: p.geo.find-every
+      hints: [h.geo.closed, h.geo.any-turn]
+
+  # GEO.05: position words
+  - id: GEO.05.t1
+    skillId: GEO.05
+    format: shape-compose
+    tier: concrete
+    representation: objects
+    generator: geo.position
+    params:
+      relation: { choice: [above, below, beside, next-to, in-front-of, behind] }
+      anchor: { choice: [crate, sack, pallet, jug, lantern] }
+      item: { choice: [crab, fish, apple, shell, kite, firefly, pebble, bun] }
+      scene: { choice: [one, two], weights: [2, 1] }
+    difficulty: { base: -0.3 }
+    narration:
+      prompt: tp.GEO.05.t1.prompt
+      hints: [h.geo.where-word]
+
+  - id: GEO.05.t2
+    skillId: GEO.05
+    format: numeral-pick
+    tier: abstract
+    representation: words
+    generator: geo.position
+    params:
+      relation: { choice: [above, below, beside, next-to, in-front-of, behind] }
+      anchor: { choice: [crate, sack, pallet, jug, lantern] }
+      item: { choice: [crab, fish, apple, shell, kite, firefly, pebble, bun] }
+      options: { int: [3, 4] }
+    difficulty: { base: -0.4 }
+    narration:
+      prompt: tp.GEO.05.t2.prompt
+      hints: [h.geo.flip]
+
+  # GEO.06: flat or solid
+  - id: GEO.06.t1
+    skillId: GEO.06
+    format: shape-sort
+    tier: concrete
+    representation: shapes
+    generator: geo.identify
+    params:
+      set: 3d
+      rule: flat-solid
+      mode: sort
+      cards: { int: [4, 6] }
+      hits: { int: [2, 3] }
+      nonPrototypical: { bool: 0.3 }
+    difficulty: { base: -0.9 }
+    narration:
+      prompt: tp.GEO.06.t1.prompt
+      hints: [h.geo.flat-solid]
+
+  - id: GEO.06.t2
+    skillId: GEO.06
+    format: numeral-pick
+    tier: pictorial
+    representation: solids
+    generator: geo.identify
+    params:
+      set: 3d
+      rule: flat-solid
+      has: { bool: 0.5 }
+      cards: { int: [3, 4] }
+      nonPrototypical: { bool: 0.4 }
+    difficulty: { base: -0.8 }
+    narration:
+      prompt: tp.GEO.06.t2.prompt
+      hints: [h.geo.flat-solid]
+
+  # GEO.07: name solid shapes
+  - id: GEO.07.t1
+    skillId: GEO.07
+    format: shape-sort
+    tier: concrete
+    representation: objects
+    generator: geo.identify
+    params:
+      set: solids
+      rule: kind
+      mode: sort
+      kind: { choice: [cube, cone, cylinder, sphere] }
+      other: { choice: [cube, cone, cylinder, sphere] }
+      cards: { int: [4, 6] }
+      bins: { choice: [2, 3], weights: [2, 1] }
+    constraints: ["kind != other"]
+    difficulty: { base: -0.8 }
+    narration:
+      prompt: tp.GEO.07.t1.prompt
+      hints: [h.geo.like-what, h.geo.bins]
+
+  - id: GEO.07.t2
+    skillId: GEO.07
+    format: numeral-pick
+    tier: pictorial
+    representation: solids
+    generator: geo.identify
+    params:
+      set: solids
+      rule: kind
+      kind: { choice: [cube, cone, cylinder, sphere] }
+      cards: { int: [3, 4] }
+    difficulty: { base: -0.8 }
+    narration:
+      prompt: p.geo.which-kind
+      hints: [h.geo.like-what]
+
+  - id: GEO.07.t3
+    skillId: GEO.07
+    format: numeral-pick
+    tier: pictorial
+    representation: objects
+    generator: geo.identify
+    params:
+      set: solids
+      rule: kind
+      kind: { choice: [cube, cone, cylinder, sphere] }
+      cards: { int: [3, 4] }
+    difficulty: { base: -0.6 }
+    narration:
+      prompt: tp.GEO.07.t3.prompt
+      hints: [h.geo.like-what]
+
+  # GEO.08: compare shapes by sides, corners, equal sides and rolling
+  - id: GEO.08.t1
+    skillId: GEO.08
+    format: shape-sort
+    tier: concrete
+    representation: solids
+    generator: geo.identify
+    params:
+      set: solids
+      rule: curved
+      mode: sort
+      cards: { int: [4, 6] }
+      hits: { int: [2, 3] }
+    difficulty: { base: -0.8 }
+    narration:
+      prompt: tp.GEO.08.t1.prompt
+      hints: [h.geo.rolls, h.geo.bins]
+
+  - id: GEO.08.t2
+    skillId: GEO.08
+    format: shape-sort
+    tier: concrete
+    representation: shapes
+    generator: geo.identify
+    params:
+      set: 2d
+      rule: corners
+      mode: sort
+      kind: triangle
+      other: { choice: [square, rectangle, hexagon] }
+      cards: { int: [4, 6] }
+      nearMiss: { bool: 0.4 }
+      nonPrototypical: { bool: 0.3 }
+    difficulty: { base: -0.6 }
+    narration:
+      prompt: tp.GEO.08.t2.prompt
+      hints: [h.geo.count-corners, h.geo.bins]
+
+  - id: GEO.08.t3
+    skillId: GEO.08
+    format: compare
+    tier: pictorial
+    representation: shapes
+    generator: geo.identify
+    params:
+      set: 2d
+      rule: { choice: [sides, corners] }
+      kind: { choice: [circle, triangle, square, rectangle, hexagon] }
+      other: { choice: [circle, triangle, square, rectangle, hexagon] }
+      nonPrototypical: { bool: 0.3 }
+    constraints: ["kind != other"]
+    difficulty: { base: -0.6 }
+    narration:
+      prompt: tp.GEO.08.t3.prompt
+      hints: [h.geo.compare-count]
+
+  # Equal sides: every card has four sides, so only the side lengths tell them apart. The one
+  # shape whose sides are all the same (a square or a rhombus) sits among rectangles, kites,
+  # trapezoids and other four-sided shapes. Pictorial and choice-answered like t3, so it follows t3
+  # in the concrete → pictorial order (V10) and shares its test-out pool (V21).
+  - id: GEO.08.t4
+    skillId: GEO.08
+    format: shape-sort
+    tier: pictorial
+    representation: shapes
+    generator: geo.identify
+    params:
+      set: quads
+      rule: equal-sides
+      mode: odd-one-out
+      cards: { int: [3, 4] }
+      nonPrototypical: { bool: 0.3 }
+    difficulty: { base: -0.6 }
+    narration:
+      prompt: tp.GEO.08.t4.prompt
+      hints: [h.geo.side-lengths]
+
+  # GEO.09: build shapes from sticks and corners
+  - id: GEO.09.t1
+    skillId: GEO.09
+    format: shape-compose
+    tier: concrete
+    representation: shapes
+    generator: geo.draw
+    params:
+      kind: { choice: [triangle, square, rectangle] }
+      sides: 0
+      tool: sticks
+      grid: 5
+    difficulty: { base: -0.7 }
+    narration:
+      prompt: tp.GEO.09.t1.prompt
+      hints: [h.geo.sticks]
+
+  - id: GEO.09.t2
+    skillId: GEO.09
+    format: shape-compose
+    tier: concrete
+    representation: dot-grid
+    generator: geo.draw
+    params:
+      kind: { choice: [triangle, square, rectangle] }
+      sides: 0
+      tool: dots
+      grid: 5
+    difficulty: { base: -0.6 }
+    narration:
+      prompt: tp.GEO.09.t2.prompt
+      hints: [h.geo.dots, h.geo.closed]
+
+  - id: GEO.09.t3
+    skillId: GEO.09
+    format: shape-sort
+    tier: pictorial
+    representation: shapes
+    generator: geo.draw
+    params:
+      sides: { choice: [3, 4] }
+      cards: { int: [4, 6] }
+      hits: { int: [2, 3] }
+      nearMiss: { bool: 0.4 }
+    difficulty: { base: -0.5 }
+    narration:
+      prompt: tp.GEO.09.t3.prompt
+      hints: [h.geo.closed, h.geo.count-sides]
+
+  # GEO.10: two shapes make a new shape
+  - id: GEO.10.t1
+    skillId: GEO.10
+    format: shape-compose
+    tier: concrete
+    representation: pattern-blocks
+    generator: geo.compose
+    params:
+      outline:
+        {
+          choice:
+            [
+              rhombus-from-triangles,
+              hexagon-from-trapezoids,
+              trapezoid-from-triangle-rhombus,
+              triangle-from-trapezoid-triangle,
+              house,
+            ],
+        }
+      extra: { bool: 0.3 }
+    difficulty: { base: -0.7 }
+    narration:
+      prompt: p.geo.fill-outline
+      hints: [h.geo.outline-edges, h.geo.turn-piece]
+
+  - id: GEO.10.t2
+    skillId: GEO.10
+    format: shape-compose
+    tier: concrete
+    representation: shapes
+    generator: geo.compose
+    params:
+      outline:
+        { choice: [rectangle-from-squares, square-from-rectangles, long-rectangle, corner-shape] }
+      extra: { bool: 0.4 }
+      linesHidden: { bool: 0.3 }
+    difficulty: { base: -0.7 }
+    narration:
+      prompt: p.geo.fill-outline
+      hints: [h.geo.outline-edges, h.geo.turn-piece]
+
+  - id: GEO.10.t3
+    skillId: GEO.10
+    format: numeral-pick
+    tier: pictorial
+    representation: shapes
+    generator: geo.compose
+    params:
+      ask: which
+      outline:
+        {
+          choice:
+            [
+              rhombus-from-triangles,
+              hexagon-from-trapezoids,
+              trapezoid-from-triangle-rhombus,
+              triangle-from-trapezoid-triangle,
+              rectangle-from-squares,
+              square-from-rectangles,
+            ],
+        }
+    difficulty: { base: -0.3 }
+    narration:
+      prompt: tp.GEO.10.t3.prompt
+      hints: [h.geo.pieces-inside]
+
+  # GEO.11: bigger designs
+  - id: GEO.11.t1
+    skillId: GEO.11
+    format: shape-compose
+    tier: concrete
+    representation: pattern-blocks
+    generator: geo.compose
+    params:
+      outline:
+        {
+          choice:
+            [
+              trapezoid-from-triangles,
+              hexagon-from-rhombuses,
+              hexagon-from-triangles,
+              hexagon-from-three-kinds,
+              big-triangle-from-triangles,
+              boat,
+            ],
+        }
+      linesHidden: { bool: 0.4 }
+      extra: { bool: 0.3 }
+    difficulty: { base: -1.4 }
+    narration:
+      prompt: p.geo.fill-outline
+      hints: [h.geo.outline-edges, h.geo.turn-piece]
+
+  - id: GEO.11.t2
+    skillId: GEO.11
+    format: shape-compose
+    tier: concrete
+    representation: shapes
+    generator: geo.compose
+    params:
+      outline: { choice: [big-square-from-squares, wide-rectangle] }
+      linesHidden: { bool: 0.5 }
+      extra: { bool: 0.5 }
+    difficulty: { base: -0.9 }
+    narration:
+      prompt: p.geo.fill-outline
+      hints: [h.geo.outline-edges, h.geo.turn-piece]
+
+  - id: GEO.11.t3
+    skillId: GEO.11
+    format: numeral-pick
+    tier: pictorial
+    representation: shapes
+    generator: geo.compose
+    params:
+      ask: how-many
+      outline:
+        {
+          choice:
+            [
+              rhombus-from-triangles,
+              hexagon-from-trapezoids,
+              trapezoid-from-triangles,
+              hexagon-from-rhombuses,
+              hexagon-from-triangles,
+              big-triangle-from-triangles,
+              rectangle-from-squares,
+              big-square-from-squares,
+            ],
+        }
+    difficulty: { base: -0.7 }
+    narration:
+      prompt: tp.GEO.11.t3.prompt
+      hints: [h.geo.pieces-inside]

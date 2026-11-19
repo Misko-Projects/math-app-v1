@@ -117,6 +117,23 @@ Create `src/formats/<format>.ts` exporting a `FormatModel`: `configSchema` (the 
 - **number-bond** split and new-way respond with `{ parts }`. `rekenrek` responds with `{ rows, value? }`, and `number-line-jump` with `{ jumps, value? }`.
 - `bond.split` and `bond.newWay` read the two parts from any of these shapes.
 
+## Conventions the geo generators fix (K01)
+
+The shape-sort, shape-compose, compare and puzzle-grid format models belong to U03–U05; until they land, the property test checks these widgets against the shared schema and skips the solution replay. The response shapes the K01 checkers read:
+
+- **shape-sort** cards have ids `c0`, `c1`, … in display order. `sort` responds `{ bins: Record<binId, cardId[]> }` (a card in no bin is in the tray; `sort.byRule`). `find-all` responds `{ ids }` (`select.exactSet`, which also still takes numeric `{ values }`). `odd-one-out` answers `choice` with a card id. Demo ops: `drag-card {id, bin}` (no `bin` in find-all: select the card), `highlight-attribute {id, prop}`, generic `answer {id}`.
+- **compare** answers `left`, `right` or `same`; demo ops `highlight {side}`, then `answer {id}`.
+- **shape-compose fill-outline** (`compose.fill`): pieces and outlines use `src/check/state/pieces.ts` (x right, y up, one unit = one block side). A placed piece is `{ kind, at: [x, y], rot }`: its canonical corners, corner 0 at the origin, turned `rot` degrees counterclockwise, then moved so corner 0 is at `at`. Response `{ pieces: placed[] }`; widget piece ids are `p-<kind>`; demo op `drag-piece {id, to, rot}`. Outlines are `src/generators/geo/outlines.ts` (mirrored in `packages/content/outlines.yaml`). Coverage is the exact area of the union of the pieces inside the outline (`unionInside`: inclusion–exclusion over every subset of overlapping pieces, so three-way overlaps count correctly), not the sum of piece areas. Numeral-pick only draws outlines that its target card (the named kind at `resultScale`) is exactly (`drawsAsCard` in `generators/geo/compose.ts`).
+- **shape-compose place-relative** (`compose.relative`): scene units 100 × 60, x right, y down; anchor sizes are `ANCHOR_SIZE` in `src/generators/geo/position.ts`. Response `{ at: [x, y], layer?: 'front' | 'back' }`; demo ops `highlight-region {relation}`, `drag-piece {id: item, to, rot, layer}`.
+- **shape-compose draw-on-grid / build-sticks** (`grid.polygon`): response `{ points: [x, y][] }`, the corners in drawing order on integer dots (in build-sticks, where the sticks meet). Demo op `draw-edge {from, to}` (in build-sticks it lays a stick).
+- **puzzle-grid shape-fill** (`puzzle.satisfies`): response `{ fill: string[][] }`; demo op `fill {r, c, value}`.
+
+## Conventions K01 fixes for the formats without models yet (U03–U05 build the models)
+
+- **measure-length** `iterate` responds with `{ units, value }`: `units` lists where each laid unit starts, in unit lengths from the object's start (any order); `value` is the typed count. `units.iterate` accepts drift up to `gapTolerance` (0.1 unit) per unit, and the last unit must end within `gapTolerance` of the object's end. Solutions use `lay-unit {index}` (plus `unit` in `two-units`), `count-units`, `align-zero`, `read-end` and end with `answer`. Non-standard units are drawn to scale: cube 1, shell 2, stick 4 (`NONSTANDARD_UNIT_SIZE` in `generators/mea/length.ts`).
+- **compare-length** objects have ids `obj-<i>` in display order; `longer`, `shorter` and `indirect` answer with that id.
+- **compare** and **balance** `which-heavier` answer `left`, `right` or `same`. `mea.length` draws a length compare (the `ruler` representation) as two number-line strips from 0 on one scale, with the object's end marked.
+- Solution steps before the last never highlight the answer: the worked-step hint (level 4) plays them.
 ## Conventions the U04 formats fix (#13)
 
 Response shapes and state-checker targets of the place-value and operations formats. Generators that build these formats emit these targets.

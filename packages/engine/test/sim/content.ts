@@ -6,6 +6,7 @@
 
 import type { GeneratedItem, ItemTemplate, SkillGraph } from '@number-island/shared';
 import { generateItem } from '../../src/items/generate';
+import { choiceOptions } from '../../src/testing/properties';
 import { fixtureGraph, loadFixture } from '../fixture';
 
 export interface SimContent {
@@ -54,5 +55,9 @@ export function choiceCount(item: GeneratedItem): number | undefined {
   const n = w.options?.length ?? w.pickOptions?.length ?? w.set?.count;
   if (n !== undefined && n >= 2) return n;
   if (item.format === 'compare') return w.ask === 'symbol' ? 3 : 2;
+  // Every other choice format (balance, compare-length, shape-sort odd-one-out, equal-share,
+  // expanded-form words …): the option set the property test checks (03 §9.4 step 9).
+  const ids = choiceOptions(item);
+  if (ids.length >= 2) return ids.length;
   throw new Error(`sim: cannot count the choices of ${item.templateId} (${item.format})`);
 }

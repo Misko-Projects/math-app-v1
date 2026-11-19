@@ -1,0 +1,84 @@
+# K01 (#11): the K–1 rows of 03 §3.13. GEO.03, GEO.04 and GEO.12–16 are grade 2–3 (K02, graph.yaml
+# plannedIds).
+strand: GEO
+skills:
+  - id: GEO.01
+    name: Name flat shapes, whatever their size or turn
+    kind: concept
+    grade: K
+    standards: { ccss: [K.G.A.2] }
+    prerequisites: []
+    gateway: false
+    representations: [pattern-blocks, shapes]
+
+  - id: GEO.02
+    name: "Shape rules: sides and corners matter, color and size do not"
+    kind: concept
+    grade: 1
+    standards: { ccss: [1.G.A.1] }
+    prerequisites: [GEO.08]
+    gateway: false
+    representations: [shapes, dot-grid]
+
+  - id: GEO.05
+    name: "Position words: above, below, beside, in front of, behind, next to"
+    kind: concept
+    grade: K
+    standards: { ccss: [K.G.A.1] }
+    prerequisites: []
+    gateway: false
+    representations: [objects, words]
+
+  - id: GEO.06
+    name: Flat or solid? Flat shapes and solid shapes
+    kind: concept
+    grade: K
+    standards: { ccss: [K.G.A.3] }
+    prerequisites: [GEO.01]
+    gateway: false
+    representations: [shapes, solids]
+
+  - id: GEO.07
+    name: "Name solid shapes: cube, cone, cylinder, sphere"
+    kind: concept
+    grade: K
+    standards: { ccss: [K.G.A.2] }
+    prerequisites: [GEO.06]
+    gateway: false
+    representations: [objects, solids]
+
+  - id: GEO.08
+    name: Compare shapes by their sides, corners and equal sides
+    kind: concept
+    grade: K
+    standards: { ccss: [K.G.B.4] }
+    prerequisites: [GEO.01, CNT.02]
+    gateway: false
+    representations: [shapes, solids]
+
+  - id: GEO.09
+    name: Build shapes from sticks and corners
+    kind: procedure
+    grade: K
+    standards: { ccss: [K.G.B.5] }
+    prerequisites: [GEO.08]
+    gateway: false
+    representations: [shapes, dot-grid]
+
+  - id: GEO.10
+    name: Put two shapes together to make a new shape
+    kind: procedure
+    grade: K
+    standards: { ccss: [K.G.B.6] }
+    prerequisites: [GEO.01]
+    gateway: false
+    representations: [pattern-blocks, shapes]
+
+  - id: GEO.11
+    name: Put shapes together into bigger designs, then build with those
+    kind: problem-solving
+    grade: 1
+    standards: { ccss: [1.G.A.2] }
+    prerequisites: [GEO.10]
+    gateway: false
+    representations: [pattern-blocks, shapes]
