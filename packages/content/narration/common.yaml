@@ -276,10 +276,10 @@ h.numberline.jump-to-ten:
 h.numberline.back-to-ten:
   text: "Jump back to ten first. Then jump back again."
 # For facts that may or may not pass ten (ADD.27): the advice holds for every fact.
-h.numberline.over-ten:
-  text: "Do you go over ten? Then jump to ten first."
-h.numberline.under-ten:
-  text: "Do you go under ten? Then jump back to ten first."
+h.numberline.big-jumps:
+  text: "You can make big jumps too. Check where you land."
+h.numberline.big-jumps-back:
+  text: "You can make big jumps back too. Check where you land."
 h.numberline.hop-ones:
   text: "Make one hop for each one you add."
 h.numberline.hop-back:
