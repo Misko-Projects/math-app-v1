@@ -854,7 +854,7 @@ templates:
     params: { form: a+b=_, a: { int: [0, 9] }, b: { int: [1, 9] }, c: 1 }
     constraints: ["a + b <= 10"]
     difficulty: { base: -0.6 }
-    narration: { prompt: tp.ADD.05.t3.prompt, hints: [h.eq.turn-around, h.bond.count-on] }
+    narration: { prompt: tp.ADD.05.t3.prompt, hints: [h.eq.turn-around, h.bond.join-parts] }
 
   - id: ADD.05.t4
     skillId: ADD.05
@@ -1006,28 +1006,11 @@ templates:
     difficulty: { base: -1.25 }
     narration: { prompt: p.eq.box, hints: [h.eq.same-both, h.eq.think-parts, h.eq.work-out] }
 
-  - id: ADD.11.t5
-    skillId: ADD.11
-    format: numeral-pick
-    tier: abstract
-    representation: symbols
-    generator: equality.eq
-    params:
-      form: { choice: [a+b=c+_, a+b=_+c, _+b=c] }
-      op: { choice: ["+", "-"], weights: [3, 1] }
-      a: { int: [1, 12] }
-      b: { int: [1, 9] }
-      c: { int: [1, 9] }
-    difficulty: { base: -1.8 }
-    narration: { prompt: p.eq.pick, hints: [h.eq.same-both, h.eq.work-out] }
-    distractors:
-      - { rule: MC.equals-means-answer }
-      - { rule: MC.equals-add-all }
-
   # ---------- ADD.12: story problems of every type within 20 ----------
   # The story template mixes every add/subtract situation; start-unknown and comparing stories
-  # are weighted up so both story misconceptions discriminate (V25). The number-pad templates are
-  # the bar model and the number line of a story (addsub.facts, change or start unknown).
+  # are weighted up so both story misconceptions discriminate (V25). The number-pad stories fix
+  # one situation each (their prompt tells it): a start unknown beside its bar model, and a
+  # compare story whose words say "more" for a take-away beside a number line.
   - id: ADD.12.t1
     skillId: ADD.12
     format: story-problem
@@ -1064,32 +1047,29 @@ templates:
     format: number-pad
     tier: pictorial
     representation: bar-model
-    generator: addsub.facts
+    generator: story.addsub
     params:
-      a: { int: [2, 19] }
-      b: { int: [1, 9] }
-      op: { choice: ["+", "-"] }
-      unknown: { choice: [change, start] }
-      family: any
-    constraints: ["result >= 1"]
-    difficulty: { base: -1.5 }
-    narration: { prompt: tp.ADD.12.t2.prompt, hints: [h.bar.find-missing, h.eq.think-parts] }
+      situation: add-to/start
+      context: beach-shells
+      a: { int: [1, 9] }
+      b: { int: [2, 19] }
+    difficulty: { base: -0.5 }
+    narration: { prompt: tp.ADD.12.t2.prompt, hints: [h.story.which-part, h.bar.find-missing] }
 
   - id: ADD.12.t3
     skillId: ADD.12
     format: number-pad
     tier: pictorial
     representation: number-line
-    generator: addsub.facts
+    generator: story.addsub
     params:
+      situation: compare/smaller-more
+      context: beach-shells
       a: { int: [2, 19] }
       b: { int: [1, 9] }
-      op: { choice: ["+", "-"] }
-      unknown: { choice: [change, start] }
-      family: any
-    constraints: ["result >= 1"]
-    difficulty: { base: -1.5 }
-    narration: { prompt: tp.ADD.12.t3.prompt, hints: [h.numberline.from-mark, h.eq.think-parts] }
+    difficulty: { base: -0.55 }
+    narration:
+      { prompt: tp.ADD.12.t3.prompt, hints: [h.story.who-has-more, h.numberline.from-mark] }
 
   # ---------- ADD.13: three addends, making ten first ----------
   - id: ADD.13.t1
@@ -1280,6 +1260,8 @@ templates:
       ask: equation
       a: { int: [1, 5] }
       b: { int: [1, 5] }
+      maxTold: 5
+      corner: { int: [0, 3] }
     difficulty: { base: -0.3, features: { size: 1.5 } }
     narration: { prompt: tp.ADD.23.t3.prompt, hints: [h.story.count-groups] }
 

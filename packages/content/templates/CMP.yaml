@@ -470,7 +470,7 @@ templates:
       max: 20
       ask: symbol
     difficulty: { base: -0.8 }
-    narration: { prompt: tp.CMP.08.t2.prompt, hints: [h.compare.line, h.cmp.open-side] }
+    narration: { prompt: tp.CMP.08.t2.prompt, hints: [h.compare.line, h.cmp.mark-fits] }
 
   - id: CMP.08.t3
     skillId: CMP.08
@@ -486,7 +486,7 @@ templates:
       max: 20
       ask: symbol
     difficulty: { base: -0.85 }
-    narration: { prompt: tp.CMP.08.t2.prompt, hints: [h.cmp.greater-first, h.cmp.open-side] }
+    narration: { prompt: tp.CMP.08.t2.prompt, hints: [h.cmp.same-or-greater, h.cmp.mark-fits] }
 
   - id: CMP.08.t4
     skillId: CMP.08

@@ -118,7 +118,8 @@ templates:
     generator: compare.numbers
     params: { a: { int: [10, 99] }, b: { int: [10, 99] }, extra: 0, min: 10, max: 99, ask: symbol }
     difficulty: { base: -1.31 }
-    narration: { prompt: tp.PV.02.t4.prompt, hints: [h.compare.tens, h.compare.symbol-open] }
+    # 10–99 on both sides can draw the same number twice (42 _ 42), so the mark hint covers =.
+    narration: { prompt: tp.PV.02.t4.prompt, hints: [h.compare.tens, h.cmp.mark-fits] }
 
   - id: PV.02.t5
     skillId: PV.02
