@@ -2203,7 +2203,7 @@ Checked by V17 on the **displayed** text after interpolation, using the longest 
 
 ### 9.2 `pnpm content:validate`
 
-Runs the compiler checks in `packages/content` (V01–V12, V16–V21, V23, V24, V26), then the engine-dependent checks in `tools/content-check` (V13–V15, V22, V25), which imports both `packages/content/dist` and `packages/engine`. `tools/content-check` also writes `packages/content/dist/template-stats.json` (`Record<TemplateId, { min, p10, median, p90, max, distinct }>`), which the planner uses to pick templates that can reach `d*` (§5.4). It runs in `pnpm verify` and CI (09).
+Runs the compiler checks in `packages/content` (V01–V12, V16–V21, V23, V24, V26), then the engine-dependent checks in `tools/content-check` (V13–V15, V22, V25, V27), which imports both `packages/content/dist` and `packages/engine`. `tools/content-check` also writes `packages/content/dist/template-stats.json` (`Record<TemplateId, { min, p10, median, p90, max, distinct }>`), which the planner uses to pick templates that can reach `d*` (§5.4). It runs in `pnpm verify` and CI (09).
 
 **Ownership.** C01 implements the compiler checks in `packages/content`. E01 creates `tools/content-check` with V13–V15, V22 and V25. Until E01 lands, `content:validate` runs the compiler checks only and prints "engine checks skipped".
 
@@ -2241,6 +2241,7 @@ Runs the compiler checks in `packages/content` (V01–V12, V16–V21, V23, V24, 
 | V24 | Building twice from the same input gives byte-identical `dist/` (CI runs the build twice) | error |
 | V25 | For each template and each applicable misconception with `predict`, ≥ 20% of generated items discriminate (the buggy answer differs from the correct one) | warn |
 | V26 | Contexts: every noun has clips; every listed situation is a valid `SituationType` or `SituationType` family (§4.6) | error |
+| V27 | Practice can reach `practiced` (04 §3, §7a): only constructed-answer templates (by the answer kind their items generate) are evidence, so a standard skill's constructed templates span ≥ 2 formats or tiers with one pictorial or abstract, and a gateway skill's span ≥ 3 representations with one abstract. A skill whose templates are all choice, or all one format and tier, could only become practiced through its test-out | error |
 
 ### 9.3 Generator hook
 

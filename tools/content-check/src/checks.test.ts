@@ -103,6 +103,18 @@ describe('each check catches its defect', FULL_RUN, () => {
       'gen.addsub.facts.answer',
     );
   });
+
+  it('V27: a skill whose constructed-answer templates cannot meet its practiced variety rule', () => {
+    // ADD.01 with only t4 left: one format and one tier among its evidence templates.
+    const templates = fixture.templates.filter(
+      (t) => t.skillId !== 'ADD.01' || t.id === 'ADD.01.t4',
+    );
+    expect(errorsOf({ ...fixture, templates }, 'V27').map((d) => d.path)).toEqual(['ADD.01']);
+    // The same template as a choice answer leaves no evidence template at all.
+    const choice: ItemTemplate = { ...base, format: 'numeral-pick' };
+    const onlyChoice = templates.map((t) => (t.id === 'ADD.01.t4' ? choice : t));
+    expect(errorsOf({ ...fixture, templates: onlyChoice }, 'V27')[0]?.message).toContain('(none)');
+  });
 });
 
 describe('parameterSpace (V22)', () => {
