@@ -36,6 +36,8 @@ export interface BodyProps {
   delay: number;
   /** Body variant for the family species (Half-Crab's round shell, the Coin Clam open). */
   variant?: 'round' | 'open';
+  /** A Ten Turtle in a tens family: drawn with its ten-mark (only turtles use it). */
+  tenMark?: boolean;
 }
 
 interface LimbPose {
@@ -259,7 +261,27 @@ function Leg({ c, h = 30 }: { c: PaletteFills; h?: number }) {
   );
 }
 
-function Turtle({ c, pose, slot, delay }: BodyProps) {
+/**
+ * The Ten Turtle's mark (05 §5: the in-world ten): a golden star on a white badge at the top of the
+ * dome, readable on every shell colour.
+ */
+function TenStar() {
+  const cx = 104;
+  const cy = 61;
+  const pts = Array.from({ length: 10 }, (_, i) => {
+    const a = ((i * 36 - 90) * Math.PI) / 180;
+    const r = i % 2 === 0 ? 11 : 4.6;
+    return `${(cx + Math.cos(a) * r).toFixed(2)} ${(cy + 1 + Math.sin(a) * r).toFixed(2)}`;
+  });
+  return (
+    <g data-part="ten-star">
+      <circle cx={cx} cy={cy} r={15} {...fillOf('cloud', 2.5)} />
+      <path d={`M${pts.join('L')}Z`} {...fillOf('sunshine', 2)} />
+    </g>
+  );
+}
+
+function Turtle({ c, pose, slot, delay, tenMark }: BodyProps) {
   // A cheer (and a wave) lifts the front legs up and forward toward the head; the back legs stay
   // planted, so the turtle still stands on the ground.
   const front = limb(pose, 'r', -150, delay);
@@ -286,14 +308,21 @@ function Turtle({ c, pose, slot, delay }: BodyProps) {
       {/* Shell dome and rim. */}
       <path d="M26 146C26 82 62 44 104 44C146 44 182 82 182 146Z" {...fillOf(c.body)} />
       <Shine x={104} y={104} rx={74} ry={58} />
-      <path d="M20 146H188Q188 160 174 160H34Q20 160 20 146Z" {...fillOf(c.accent)} />
-      <path
-        d="M44 153H52M70 153H78M96 153H104M122 153H130M148 153H156"
-        stroke={paint(OUTLINE(c.accent))}
-        strokeWidth={2.5}
-        strokeLinecap="round"
-        opacity={0.55}
-      />
+      {/* A Ten Turtle wears a golden rim and a star: the mark plain turtles never get. */}
+      <g data-part={tenMark ? 'ten-mark' : undefined}>
+        <path
+          d="M20 146H188Q188 160 174 160H34Q20 160 20 146Z"
+          {...fillOf(tenMark ? 'sunshine' : c.accent)}
+        />
+        <path
+          d="M44 153H52M70 153H78M96 153H104M122 153H130M148 153H156"
+          stroke={paint(OUTLINE(tenMark ? 'sunshine' : c.accent))}
+          strokeWidth={2.5}
+          strokeLinecap="round"
+          opacity={0.55}
+        />
+        {tenMark ? <TenStar /> : null}
+      </g>
       <Slot x={104} y={106}>
         {slot}
       </Slot>
@@ -354,7 +383,7 @@ function Stalk({ c, len = 40, delay }: { c: PaletteFills; len?: number; delay: n
   return (
     <g>
       <Tube d={`M0 0L0 ${-len}`} w={6} fill={c.accent} />
-      <Blink eyes={[{ x: 0, y: -len - 6, r: 11 }]} delay={delay}>
+      <Blink eyes={[{ x: 0, y: -len - 6, r: 11, bulb: { edge: OUTLINE(c.accent) } }]} delay={delay}>
         <Eye x={0} y={-len - 6} r={11} edge={OUTLINE(c.accent)} look={[0.15, 0.2]} />
       </Blink>
     </g>

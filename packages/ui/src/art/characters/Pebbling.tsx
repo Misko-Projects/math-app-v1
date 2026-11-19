@@ -84,7 +84,14 @@ function Critter({
       />
       <Hop on={pose === 'cheer'} duration={0.9} delay={delay}>
         <Loop token={floats ? 'bob-slow' : 'bob'} on={pose !== 'cheer'} delay={delay * 2}>
-          <Body c={c} pose={pose} slot={slot} delay={delay} variant={variant} />
+          <Body
+            c={c}
+            pose={pose}
+            slot={slot}
+            delay={delay}
+            variant={variant}
+            tenMark={kind === 'ten'}
+          />
         </Loop>
       </Hop>
     </g>

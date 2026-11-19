@@ -383,6 +383,7 @@ export const FractionsClocksCoins: Story = {
             [1 / 3, '1/3'],
             [2 / 3, '2/3'],
             [1, 'whole'],
+            [0, 'none (0)'],
           ].map(([v, name]) => (
             <GalleryCell key={name} name={String(name)}>
               <Pebbling
@@ -493,7 +494,7 @@ export const FractionsClocksCoins: Story = {
     const fractions = [
       ...canvasElement.querySelectorAll<SVGGElement>('[data-part="fraction"]'),
     ].map((f) => `${f.dataset.filled}/${f.dataset.parts}`);
-    // A whole is one undivided shell (1/1); then the same shells at sunset.
+    // A whole is one undivided shell (1/1), and so is nothing (0/1); then shells at sunset.
     await expect(fractions).toEqual([
       '1/2',
       '1/4',
@@ -501,6 +502,7 @@ export const FractionsClocksCoins: Story = {
       '1/3',
       '2/3',
       '1/1',
+      '0/1',
       '1/2',
       '1/4',
       '3/4',

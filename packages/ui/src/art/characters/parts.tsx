@@ -203,16 +203,49 @@ export function Eye({ x, y, r = 10, edge = 'ink', look = [0, 0], sclera = true }
   );
 }
 
-/** A closed eye: one clean curved lid line (no squashed eye, so no slivers at small sizes). */
-function Lid({ x, y, r, color }: { x: number; y: number; r: number; color: PaletteColor }) {
+/** An eye's white bulb, kept when it closes so the eye never seems to vanish. */
+export interface EyeBulb {
+  edge: PaletteColor;
+}
+
+/**
+ * A closed eye: one clean curved lid line (no squashed eye, so no slivers at small sizes). An eye
+ * with a white keeps its bulb and closes with the lid line across it.
+ */
+function Lid({
+  x,
+  y,
+  r,
+  color,
+  bulb,
+}: {
+  x: number;
+  y: number;
+  r: number;
+  color: PaletteColor;
+  bulb?: EyeBulb;
+}) {
   return (
-    <path
-      d={`M${x - r * 0.8} ${y}Q${x} ${y + r * 0.6} ${x + r * 0.8} ${y}`}
-      fill="none"
-      stroke={paint(color)}
-      strokeWidth={Math.max(2.5, r * 0.3)}
-      strokeLinecap="round"
-    />
+    <g>
+      {bulb ? (
+        <circle
+          cx={x}
+          cy={y}
+          r={r}
+          fill={paint('cloud')}
+          stroke={paint(bulb.edge)}
+          strokeWidth={2.5}
+          data-part="closed-bulb"
+        />
+      ) : null}
+      <path
+        d={`M${x - r * 0.8} ${y}Q${x} ${y + r * 0.6} ${x + r * 0.8} ${y}`}
+        fill="none"
+        stroke={paint(color)}
+        strokeWidth={Math.max(2.5, r * 0.3)}
+        strokeLinecap="round"
+      />
+    </g>
   );
 }
 
@@ -227,7 +260,7 @@ export function Blink({
   lid = 'ink',
   children,
 }: {
-  eyes: readonly { x: number; y: number; r: number }[];
+  eyes: readonly { x: number; y: number; r: number; bulb?: EyeBulb }[];
   delay?: number;
   lid?: PaletteColor;
   children: ReactNode;
@@ -260,11 +293,13 @@ export function Eyes({
   delay?: number;
 }) {
   const r = eye.r ?? 10;
+  // Eyes with a white keep their bulb when they close.
+  const bulb = (eye.sclera ?? true) ? { edge: eye.edge ?? 'ink' } : undefined;
   return (
     <Blink
       eyes={[
-        { x: left[0], y: left[1], r },
-        { x: right[0], y: right[1], r },
+        { x: left[0], y: left[1], r, bulb },
+        { x: right[0], y: right[1], r, bulb },
       ]}
       delay={delay}
     >

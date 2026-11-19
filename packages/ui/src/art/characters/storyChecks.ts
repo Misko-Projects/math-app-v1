@@ -40,6 +40,21 @@ export async function expectLitMatchesNumber(root: HTMLElement) {
       await expect(litCount(ones)).toBe(n - 10);
     }
   }
+  await expectTenMarksOnlyOnTenTurtles(root);
+}
+
+/**
+ * The Ten Turtle is the in-world ten (05 §5), so it must never be mistaken for a plain turtle: every
+ * Ten Turtle in a tens family wears the ten-mark (golden rim and star), and no other critter does.
+ */
+export async function expectTenMarksOnlyOnTenTurtles(root: HTMLElement) {
+  for (const ten of root.querySelectorAll('[data-role="ten"]')) {
+    await expect(ten.querySelectorAll('[data-part="ten-mark"]').length, 'Ten Turtle mark').toBe(1);
+  }
+  for (const critter of root.querySelectorAll('[data-critter]:not([data-role="ten"])')) {
+    const where = `${critter.getAttribute('data-critter')} (not a Ten Turtle)`;
+    await expect(critter.querySelector('[data-part="ten-mark"]'), where).toBeNull();
+  }
 }
 
 /** A ten-frame fills its top row left → right before the bottom row. */
