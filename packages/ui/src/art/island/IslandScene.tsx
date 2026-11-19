@@ -97,17 +97,21 @@ export function IslandScene({
         />
         <g data-layer="island" transform={`translate(${isl.x} ${isl.y})`}>
           <IslandLand plots={plots} terrain={terrain} clearPlots={marked} />
-          <NumberedRoad
-            road={island.road}
-            roadLength={roadLength}
-            counting={counting}
-            onLand={(s) => land.has(plotKey(s.plot))}
-          />
-          {children}
-          {plotMarkers.map((m) => (
-            <PlotMarker key={plotKey(m.plot)} {...m} />
-          ))}
         </g>
+      </g>
+      {/* What stands on the island is not clipped: a tall building in the back row rises in front
+          of the horizon, as it would in the tilted view. */}
+      <g data-layer="on-island" transform={`translate(${isl.x} ${isl.y})`}>
+        <NumberedRoad
+          road={island.road}
+          roadLength={roadLength}
+          counting={counting}
+          onLand={(s) => land.has(plotKey(s.plot))}
+        />
+        {children}
+        {plotMarkers.map((m) => (
+          <PlotMarker key={plotKey(m.plot)} {...m} />
+        ))}
       </g>
     </ArtSvg>
   );

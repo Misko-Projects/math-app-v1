@@ -125,7 +125,11 @@ async function expectNoSidewaysScroll() {
   await expect(document.documentElement.scrollWidth).toBeLessThanOrEqual(window.innerWidth);
 }
 
-/** Nothing on the island reaches into the sky: island and waves are clipped at the horizon. */
+/**
+ * Sea, shallows halo, foam and land are clipped at the horizon, so none of them reaches into the
+ * sky. What stands on the island (road, buildings, markers) moves with the land but is not
+ * clipped: tall buildings in the back row rise in front of the horizon.
+ */
 async function expectHorizonClip(svg: SVGSVGElement) {
   const island = svg.querySelector('[data-layer="island"]') as SVGGElement;
   const clipped = island.parentElement as unknown as SVGGElement;
@@ -133,6 +137,10 @@ async function expectHorizonClip(svg: SVGSVGElement) {
   const rect = svg.querySelector('clipPath rect');
   await expect(Number(rect?.getAttribute('y'))).toBe(HORIZON_Y);
   await expect(clipped.contains(svg.querySelector('[data-layer="sea-far"]'))).toBe(true);
+  await expect(clipped.contains(svg.querySelector('[data-layer="land"]'))).toBe(true);
+  const on = svg.querySelector('[data-layer="on-island"]') as SVGGElement;
+  await expect(on.closest('[clip-path]')).toBeNull();
+  await expect(on.getAttribute('transform')).toBe(island.getAttribute('transform'));
   // The sky is the fixed backdrop: it is never moved by the camera.
   await expect(svg.querySelector('[data-layer="sky"]')?.closest('[transform]')).toBeNull();
 }
@@ -215,8 +223,9 @@ export const PlotMarkers: Story = {
     await expect(canvasElement.querySelectorAll('[data-plot-marker="available"]').length).toBe(2);
     await expect(canvasElement.querySelectorAll('[data-plot-marker="selected"]').length).toBe(1);
     // Markers draw on top, and no flower, tuft or rock is drawn on a marked plot.
-    const layer = canvasElement.querySelector('[data-layer="island"]') as SVGGElement;
+    const layer = canvasElement.querySelector('[data-layer="on-island"]') as SVGGElement;
     const last = [...layer.children].slice(-MARKERS.length);
+    await expect(layer === layer.ownerSVGElement?.lastElementChild).toBe(true);
     for (const el of last) await expect(el.hasAttribute('data-plot-marker')).toBe(true);
     for (const m of MARKERS) {
       const [w, h] = m.footprint ?? [1, 1];
