@@ -9,6 +9,7 @@ import { countAllInstead } from './rules/countAllInstead';
 import { countStartNumber } from './rules/countStartNumber';
 import { decadeTransition } from './rules/decadeTransition';
 import { offByOneCounting } from './rules/offByOneCounting';
+import { perceptualSize } from './rules/perceptualSize';
 import { recountFromOne } from './rules/recountFromOne';
 import { teenReversal } from './rules/teenReversal';
 import { unitGaps } from './rules/unitGaps';
@@ -22,6 +23,7 @@ const RULES: Record<string, MisconceptionRule> = {
   recountFromOne: recountFromOne,
   decadeTransition: decadeTransition,
   teenReversal: teenReversal,
+  perceptualSize: perceptualSize,
 };
 
 export function misconceptionRule(id: string): MisconceptionRule | undefined {

@@ -4,7 +4,8 @@
 // Modes (K01 builds the K–1 ones; K02 extends `read` for rulers and adds `estimate`):
 // - compare     two to four objects, pick the longer or shorter one (compare-length), or two ruler
 //               strips, pick the longer one or "same" (compare, ask longer)               MEA.01
-// - order       put the objects in order by length (compare-length ask order, or order) MEA.07
+// - order       put the objects in order by length (compare-length ask order, or order: numeral
+//               cards, or ruler strips with the `ruler` representation)          MEA.07, MEA.01
 // - indirect    two objects that cannot move side by side; compare them with a string   MEA.07
 // - difference  how much longer is one than the other (compare-length how-much-longer)  MEA.10
 // - iterate     lay copies of one unit end to end and count them (measure-length), or count the
@@ -241,6 +242,9 @@ export const meaLength: GeneratorDef = {
     'gen.mea.length.order-start-short',
     'gen.mea.length.order-start-long',
     'gen.mea.length.order-next',
+    'gen.mea.length.order-first-short',
+    'gen.mea.length.order-first-long',
+    'gen.mea.length.order-then',
     'gen.mea.length.sticks-out',
     'gen.mea.length.longer-by',
     'gen.mea.length.lay-first',
@@ -415,13 +419,22 @@ export const meaLength: GeneratorDef = {
       if (t.format === 'order') {
         const asc = ask === 'shorter';
         const sorted = [...lengths].sort((x, y) => (asc ? x - y : y - x));
+        // The ruler representation (MEA.01) shows each object as a ruler strip on one scale with no
+        // numeral, so the child orders what they see: the compare-length closeness applies, and no
+        // numeral magnitude. Otherwise each card is the measured length as a numeral (MEA.07).
+        const strips = t.representation === 'ruler';
+        const max = Math.max(...lengths) + 1;
         p = {
           params,
           vars,
-          math: {},
+          math: strips ? { closeness: math.closeness ?? 0, magnitude: 0 } : {},
           widget: {
             format: 'order',
-            items: shown.map((len, i) => ({ id: objId(i), value: len, label: String(len) })),
+            items: shown.map((len, i) =>
+              strips
+                ? { id: objId(i), value: len, stimulus: rulerStrip(len, max) }
+                : { id: objId(i), value: len, label: String(len) },
+            ),
             direction: asc ? 'asc' : 'desc',
           },
           answer: { kind: 'numbers', values: sorted, ordered: true },
@@ -682,10 +695,32 @@ export const meaLength: GeneratorDef = {
         if (a.kind !== 'numbers') return [];
         const asc = w.direction === 'asc';
         const used = new Set<string>();
-        return a.values.map((v, slot) => {
+        // Ruler strips carry no numeral: the steps name the strips by length, not by number, and
+        // the first only says where to look (the worked-step hint, level 4, plays it).
+        const pictures = w.items.every((x) => x.label === undefined);
+        const drags = a.values.map((v, slot) => {
           const item = w.items.find((x) => x.value === v && !used.has(x.id));
           const id = item?.id ?? objId(0);
           used.add(id);
+          return { id, slot, v };
+        });
+        if (pictures) {
+          return [
+            say('gen.mea.length.look-ends', {}),
+            ...drags.map(({ id, slot }) =>
+              say(
+                slot > 0
+                  ? 'gen.mea.length.order-then'
+                  : asc
+                    ? 'gen.mea.length.order-first-short'
+                    : 'gen.mea.length.order-first-long',
+                {},
+                { op: 'drag', args: { id, slot } },
+              ),
+            ),
+          ];
+        }
+        return drags.map(({ id, slot, v }) => {
           const key =
             slot === 0
               ? asc

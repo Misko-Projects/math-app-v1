@@ -66,7 +66,13 @@ const spec = (
 const SPECS = [
   spec('MC.recount-from-one', 'recountFromOne', 'process', ['count.set'], ['CNT.03']),
   spec('MC.decade-transition', 'decadeTransition', 'answer', ['count.sequence'], ['CNT.09']),
-  spec('MC.teen-reversal', 'teenReversal', 'answer', ['count.set', 'count.sequence'], ['CNT.10']),
+  spec(
+    'MC.teen-reversal',
+    'teenReversal',
+    'answer',
+    ['count.set', 'count.sequence', 'pv.number', 'bond.parts'],
+    ['CNT.10', 'CPS.04', 'CPS.07'],
+  ),
 ];
 
 const T = {
@@ -84,6 +90,24 @@ const T = {
     distractors: [{ rule: 'MC.teen-reversal' }],
   }),
   teenSeq: tpl('T.teenSeq', 'CNT.10', 'count.sequence', 'number-pad', { tier: 'abstract' }),
+  // K01: pv.number (CPS.04, CPS.07) and the CPS.07 number bond.
+  pvFrame: tpl('T.pvFrame', 'CPS.04', 'pv.number', 'tenframe-fill', {
+    tier: 'concrete',
+    representation: 'double-ten-frame',
+    params: {},
+  }),
+  pvRack: tpl('T.pvRack', 'CPS.04', 'pv.number', 'rekenrek', { tier: 'concrete', params: {} }),
+  pvBuild: tpl('T.pvBuild', 'CPS.04', 'pv.number', 'base-ten-build', {
+    tier: 'concrete',
+    representation: 'bundles',
+    params: {},
+  }),
+  pvCards: tpl('T.pvCards', 'CPS.07', 'pv.number', 'expanded-form', {
+    representation: 'expanded',
+    params: {},
+  }),
+  pvPad: tpl('T.pvPad', 'CPS.07', 'pv.number', 'number-pad', { tier: 'abstract', params: {} }),
+  bond: tpl('T.bond', 'CPS.07', 'bond.parts', 'number-bond', { params: {} }),
 };
 
 const make = (t: ItemTemplate, params: ParamValues): GeneratedItem =>
@@ -305,5 +329,65 @@ describe('teenReversal', () => {
     const v = item.answer.kind === 'number' ? item.answer.value : 0;
     const reversed = Number(String(v).split('').reverse().join(''));
     expect(teenReversal.match(item, { kind: 'number', value: reversed })).toBe(false);
+  });
+
+  // K01: CPS.04 and CPS.07 ask for the teen number itself in more shapes.
+  const tagged = (item: GeneratedItem) => {
+    const predicted = teenReversal.predict?.(item);
+    if (!predicted) throw new Error('expected a prediction');
+    const res = checkResponse(item, predicted);
+    expect(res.correct).toBe(false);
+    expect(res.misconceptionIds).toEqual(['MC.teen-reversal']);
+    return predicted;
+  };
+
+  it('ten-frames: built right, then 41 typed for ten and 4 more', () => {
+    const item = make(T.pvFrame, { n: 14, mode: 'write' });
+    const p = tagged(item);
+    expect(p).toMatchObject({ kind: 'state', value: { value: 41 } });
+    if (p.kind !== 'state') throw new Error('state');
+    expect((p.value.cells as number[][]).flat().filter((x) => x !== 0)).toHaveLength(14);
+  });
+
+  it('rekenrek: ten on top and 6 below, typed as 61', () => {
+    expect(tagged(make(T.pvRack, { n: 16, mode: 'write' }))).toEqual({
+      kind: 'state',
+      value: { rows: [10, 6], value: 61 },
+    });
+  });
+
+  it('bundles: fourteen built as 4 tens and 1 one', () => {
+    const item = make(T.pvBuild, { n: 14, mode: 'exact' });
+    const mat = (tens: number, ones: number) => ({ thousands: 0, hundreds: 0, tens, ones });
+    expect(tagged(item)).toEqual({ kind: 'state', value: mat(4, 1) });
+    expect(teenReversal.match(item, { kind: 'state', value: mat(4, 1) })).toBe(true);
+    expect(teenReversal.match(item, { kind: 'state', value: mat(0, 41) })).toBe(true);
+    expect(teenReversal.match(item, { kind: 'state', value: mat(1, 5) })).toBe(false);
+  });
+
+  it('place-value cards: 40 and 1 picked for 14', () => {
+    const item = make(T.pvCards, { n: 14, mode: 'build' });
+    expect(tagged(item)).toEqual({ kind: 'numbers', values: [40, 1] });
+    expect(teenReversal.match(item, { kind: 'numbers', values: [1, 40] })).toBe(true);
+  });
+
+  it('expanded form 10 + 7 = ? and the number bond 10 and 2', () => {
+    expect(tagged(make(T.pvPad, { n: 17, mode: 'expanded' }))).toEqual({
+      kind: 'number',
+      value: 71,
+    });
+    expect(tagged(make(T.bond, { whole: 12, part: 10, unknown: 'whole' }))).toEqual({
+      kind: 'number',
+      value: 21,
+    });
+  });
+
+  it.each<[string, ItemTemplate, ParamValues]>([
+    ['showing 14 with no number to type', T.pvFrame, { n: 14, mode: 'build' }],
+    ['11 built with bundles', T.pvBuild, { n: 11, mode: 'exact' }],
+    ['14 = 10 + ? asks for the ones only', T.pvPad, { n: 14, mode: 'expanded', place: 0 }],
+    ['the missing part of 14 = 10 + ?', T.bond, { whole: 14, part: 10, unknown: 'part' }],
+  ])('cannot discriminate (K01): %s', (_label, t, params) => {
+    expect(teenReversal.predict?.(make(t, params))).toBeNull();
   });
 });

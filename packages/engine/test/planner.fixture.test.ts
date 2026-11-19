@@ -78,14 +78,31 @@ describe('F3: evidence follows the template answer kind, not the format', () => 
     expect(isConstructedTemplate(unknown)).toBe(true);
   });
 
-  it('falls back to every CNT.15 template, none of which is ever needed', () => {
+  it('falls back to every template of a choice-only skill, none of which is ever needed', () => {
     const model = createEloFireModel(graph, { childId: CHILD_1, isK: false });
     const state = model.init(graph, null);
-    const all = ids(
-      (graph.skills['CNT.15'] as Skill).templates.map((id) => tpl(id)).filter(Boolean),
-    ).sort();
-    expect(ids(evidenceTemplates(graph, 'CNT.15')).sort()).toEqual(all);
-    expect(neededTemplates(graph, state, 'CNT.15')).toEqual([]);
+    // K01 (#11) gives CNT.15 two constructed templates (CNT.15.t4, t5), its only evidence.
+    // Without them, the ordinal tap-count and numeral-pick templates (all choice) are the fallback.
+    const skill = graph.skills['CNT.15'] as Skill;
+    const constructed = skill.templates.filter((id) => isConstructedTemplate(tpl(id)));
+    expect(constructed).toEqual(['CNT.15.t4', 'CNT.15.t5']);
+    expect(ids(evidenceTemplates(graph, 'CNT.15'))).toEqual(constructed);
+    const choiceOnly: SkillGraph = {
+      ...graph,
+      skills: {
+        ...graph.skills,
+        'CNT.15': {
+          ...skill,
+          templates: skill.templates.filter((id) => !constructed.includes(id)),
+        },
+      },
+    };
+    expect(ids(evidenceTemplates(choiceOnly, 'CNT.15')).sort()).toEqual([
+      'CNT.15.t1',
+      'CNT.15.t2',
+      'CNT.15.t3',
+    ]);
+    expect(neededTemplates(choiceOnly, state, 'CNT.15')).toEqual([]);
   });
 
   it('practises only the constructed template of a skill mixing it with an ordinal tap-count one', () => {
