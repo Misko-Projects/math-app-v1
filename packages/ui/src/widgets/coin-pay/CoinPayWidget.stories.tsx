@@ -116,7 +116,7 @@ function trayDrawn(root: HTMLElement) {
   return out;
 }
 const drawnCents = (root: HTMLElement) =>
-  Object.entries(trayDrawn(root)).reduce((a, [k, n]) => a + CENTS[k] * n, 0);
+  Object.entries(trayDrawn(root)).reduce((a, [k, n]) => a + (CENTS[k] ?? 0) * n, 0);
 
 /** Maths truth: the running total (when shown) is the sum of the pieces drawn in the tray. */
 async function expectTotalTrue(root: HTMLElement) {

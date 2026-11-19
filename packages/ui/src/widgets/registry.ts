@@ -16,6 +16,7 @@ export const widgetRegistry: WidgetRegistry = {
   // U05 (#14)
   'coin-count': () => import('./coin-count/CoinCountWidget'),
   'coin-pay': () => import('./coin-pay/CoinPayWidget'),
+  'make-change': () => import('./make-change/MakeChangeWidget'),
 };
 
 /** Formats that have a registered widget. */
