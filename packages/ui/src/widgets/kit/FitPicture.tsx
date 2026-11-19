@@ -1,5 +1,5 @@
 import type { StimulusSpec } from '@number-island/shared';
-import { type ReactNode, useLayoutEffect, useRef, useState } from 'react';
+import { type ReactNode, useCallback, useLayoutEffect, useRef, useState } from 'react';
 import { useNarrationText } from '../../preferences/UiProvider';
 import { dotsLayout, type ObjectLayout, objectSetLayout, type PlacedObject } from './layout';
 import { NumberLineView } from './NumberLineView';
@@ -168,11 +168,17 @@ export function Scaled({
   maxWidth,
   maxHeight,
   maxScale = 1,
+  scale,
+  onFit,
   children,
 }: {
   maxWidth: number;
   maxHeight: number;
   maxScale?: number;
+  /** Draw at this scale (never more than fits): pictures compared share one (`useSharedScale`). */
+  scale?: number;
+  /** Receives the scale that would fit this picture alone. */
+  onFit?: (fit: number) => void;
   children: ReactNode;
 }) {
   const inner = useRef<HTMLDivElement | null>(null);
@@ -193,9 +199,15 @@ export function Scaled({
     ro.observe(el);
     return () => ro.disconnect();
   }, []);
-  const s = natural
+  const fit = natural
     ? Math.min(maxScale, maxWidth / Math.max(1, natural.w), maxHeight / Math.max(1, natural.h))
     : 1;
+  const s = scale === undefined ? fit : Math.min(scale, fit);
+  const report = useRef(onFit);
+  report.current = onFit;
+  useLayoutEffect(() => {
+    if (natural) report.current?.(fit);
+  }, [natural, fit]);
   return (
     <div
       className="ni-scaled"
@@ -220,6 +232,28 @@ export interface FitPictureProps {
   maxScale?: number;
   /** Accessible name (defaults to the generic picture name). */
   label?: string;
+  /** A drawn-to-size picture's scale, shared with the pictures it is compared with. */
+  scale?: number;
+  /** Receives the scale that would fit this picture alone (`useSharedScale().report`). */
+  onFit?: (fit: number) => void;
+}
+
+/**
+ * One scale for several drawn-to-size pictures (base-ten blocks, number lines, expressions) shown
+ * side by side, so a picture's size is never a cue its number doesn't give: each reports the scale
+ * that fits it alone, and all draw at the smallest.
+ */
+export function useSharedScale(): {
+  scale: number | undefined;
+  report: (id: string) => (fit: number) => void;
+} {
+  const [fits, setFits] = useState<Record<string, number>>({});
+  const report = useCallback(
+    (id: string) => (fit: number) => setFits((f) => (f[id] === fit ? f : { ...f, [id]: fit })),
+    [],
+  );
+  const values = Object.values(fits);
+  return { scale: values.length > 0 ? Math.min(...values) : undefined, report };
 }
 
 /** A stimulus picture fitted to a box (no frame of its own: the card or side frames it). */
@@ -231,6 +265,8 @@ export function FitPicture({
   stackFrames = false,
   maxScale = 1,
   label,
+  scale,
+  onFit,
 }: FitPictureProps) {
   const t = useNarrationText();
   const pictureName = t('ui.widget.picture');
@@ -250,7 +286,7 @@ export function FitPicture({
     const s = Math.min(1, h / numberLineHeight(spec));
     return (
       <div className="ni-fitpic" data-kind={spec.kind}>
-        <Scaled maxWidth={w} maxHeight={h}>
+        <Scaled maxWidth={w} maxHeight={h} scale={scale} onFit={onFit}>
           <NumberLineView
             min={spec.min}
             max={spec.max}
@@ -268,7 +304,7 @@ export function FitPicture({
   }
   return (
     <div className="ni-fitpic" data-kind={spec.kind}>
-      <Scaled maxWidth={w} maxHeight={h} maxScale={maxScale}>
+      <Scaled maxWidth={w} maxHeight={h} maxScale={maxScale} scale={scale} onFit={onFit}>
         <StimulusView spec={spec} label={label} className="ni-fitpic__bare" />
       </Scaled>
     </div>

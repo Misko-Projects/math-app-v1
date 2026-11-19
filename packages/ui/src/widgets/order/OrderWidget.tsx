@@ -21,6 +21,7 @@ import {
   useAlive,
   useDemoPause,
   useInviteHand,
+  useSharedScale,
   useSubmitGuard,
   useWidgetRoom,
   type WidgetRoom,
@@ -267,6 +268,8 @@ export function OrderWidget({
   const rootRef = useRef<HTMLDivElement | null>(null);
   const checkRef = useRef<HTMLSpanElement | null>(null);
   const room = useWidgetRoom(rootRef);
+  // Drawn-to-size card pictures (blocks, lines) share one scale: size is never a false cue.
+  const shared = useSharedScale();
 
   const interactive = !disabled && !demoBusy;
   const fixed = config.fixed ?? {};
@@ -582,6 +585,8 @@ export function OrderWidget({
             maxHeight={picH}
             cell={Number.isFinite(sharedCell) ? sharedCell : undefined}
             stackFrames
+            scale={shared.scale}
+            onFit={shared.report(it.id)}
           />
         </span>
       );

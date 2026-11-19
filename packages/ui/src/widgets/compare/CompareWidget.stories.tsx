@@ -1025,7 +1025,10 @@ export const StatementKMin: Story = {
   },
 };
 
-/** K at the minimum: base-ten blocks on both sides. */
+/**
+ * K at the minimum: base-ten blocks on both sides, drawn at one scale (a ten is as tall on both
+ * sides, so 76 never looks bigger than 98).
+ */
 export const BaseTenKMin: Story = {
   globals: { ageMode: 'k' },
   args: { config: baseTen, tier: 'pictorial' },
@@ -1034,6 +1037,11 @@ export const BaseTenKMin: Story = {
     const root = await findWidget(canvasElement, ROOT);
     await expectCompareFits(canvasElement, root, 'k');
     await expectPicturesInside(root);
+    const rods = [...root.querySelectorAll('.ni-baseten__block--rod')].map((r) =>
+      Math.round(r.getBoundingClientRect().height),
+    );
+    await expect(rods).toHaveLength(16);
+    await expect(new Set(rods).size).toBe(1);
   },
 };
 

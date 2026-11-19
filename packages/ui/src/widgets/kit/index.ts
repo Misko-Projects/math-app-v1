@@ -29,6 +29,7 @@ export {
   numberLineHeight,
   Scaled,
   tenFrameLayout,
+  useSharedScale,
 } from './FitPicture';
 export {
   INVITE_GLYPH_SELECTOR,

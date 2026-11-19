@@ -35,6 +35,7 @@ import {
   useAlive,
   useDemoPause,
   useInviteHand,
+  useSharedScale,
   useSubmitGuard,
   useWidgetRoom,
   type WidgetRoom,
@@ -377,6 +378,8 @@ export function CompareWidget({
   const rowsRef = useRef<HTMLDivElement | null>(null);
   const answerRef = useRef<HTMLDivElement | null>(null);
   const room = useWidgetRoom(rootRef);
+  // Drawn-to-size pictures (blocks, lines, numbers) share one scale: size is never a false cue.
+  const shared = useSharedScale();
 
   const interactive = !disabled && !demoBusy;
   const ask = config.ask;
@@ -751,6 +754,8 @@ export function CompareWidget({
         cell={sharedCell ?? undefined}
         stackFrames={stackFrames}
         maxScale={spec.kind === 'base-ten' ? 1.5 : 1}
+        scale={shared.scale}
+        onFit={shared.report(side)}
         label={name}
       />
     );
