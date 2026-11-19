@@ -76,7 +76,9 @@ const CARD_PAD = 8;
 /** Around a picture: the border plus a margin, so a picture never touches the card's edge. */
 const PIC_PAD = 11;
 /** The numeral above a picture (40 px numeral: well above the 32 px floor, 05 §11). */
-const TAG_H = 42;
+const TAG_H = 40;
+/** Above and below a tagged picture (number-path cards): only the card border and padding. */
+const TAG_PAD_Y = 8;
 const ROOT_PAD = { x: 8, y: 4 };
 const BORDER = 3;
 const CHROME = {
@@ -125,6 +127,11 @@ interface Shape {
   /** Take the compact cue only when it buys at least this much card height (pictures). */
   compactGain: number;
   check: { w: number; h: number };
+  /**
+   * When set, the plan that fits (room for Pip's hand first) with the best score wins over the
+   * tallest card (number-path cards: the widest tick pitch).
+   */
+  score?: (p: Plan) => number;
 }
 
 function sizeOf(s: Shape, p: Plan) {
@@ -173,6 +180,34 @@ function planLayout(s: Shape, room: WidgetRoom | null): Plan {
     }
     return null;
   };
+  if (s.score) {
+    const score = s.score;
+    for (const withHand of [true, false]) {
+      let top: Plan | null = null;
+      let topScore = Number.NEGATIVE_INFINITY;
+      for (const chrome of ['normal', 'compact'] as const) {
+        for (let h = s.maxH; h >= s.target; h -= 2) {
+          const { min, max } = s.width(h);
+          for (const check of ['beside', 'below'] as const) {
+            for (let w = max; w >= min; w = w > min && w - 4 < min ? min : w - 4) {
+              const p = { w, h, chrome, check };
+              const size = sizeOf(s, p);
+              if (size.w <= W + 0.5 && size.h + (withHand ? size.hand : 0) <= H + 0.5) {
+                const v = score(p);
+                if (v > topScore + 0.01) {
+                  top = { ...p, handPad: withHand ? size.hand : 0 };
+                  topScore = v;
+                }
+                break;
+              }
+              if (w === min) break;
+            }
+          }
+        }
+      }
+      if (top) return top;
+    }
+  }
   for (const withHand of [true, false]) {
     const normal = best('normal', withHand);
     const compact = best('compact', withHand);
@@ -518,7 +553,7 @@ export function OrderWidget({
     it.stimulus && it.stimulus.kind !== 'none' ? cardPicture(it.stimulus) : null,
   );
   /** The picture box of an h-tall card (its width is the card's less PIC_PAD each side). */
-  const picHeight = (h: number) => h - 2 * PIC_PAD - (tagRow ? TAG_H : 0);
+  const picHeight = (h: number) => h - (tagRow ? 2 * TAG_PAD_Y + TAG_H : 2 * PIC_PAD);
   // Picture cards are all one size: as wide as the widest picture wants for the card's height (at
   // most 2.4 × the height); a number line takes what width there is (its height is fixed).
   const aspect = Math.min(
@@ -565,6 +600,18 @@ export function OrderWidget({
     const max = Math.max(pic, Math.min(3 * h, lineWidth(h)));
     return { min: Math.min(max, Math.max(pic, Math.round(1.4 * h))), max };
   };
+  /** The drawn pitch between a card's path ticks under a plan (the tightest of the cards). */
+  const linePitch = (p: Plan) => {
+    const w = p.w - 2 * PIC_PAD;
+    const h = picHeight(p.h);
+    return Math.min(
+      ...lines.map((spec) => {
+        const scale = Math.min(1, h / numberLineHeight(spec));
+        const span = spec.max - spec.min;
+        return (w - 2 * LINE_BARE_PAD * scale) / Math.max(1, span / (spec.ticksEvery ?? span));
+      }),
+    );
+  };
   const planFor = (pictures: boolean) =>
     planLayout(
       {
@@ -576,35 +623,16 @@ export function OrderWidget({
         // a number line read at that size); numeral cards stay within 1.5 ×.
         maxH: pictures ? Math.round(Math.max(target * 2.2, 150)) : Math.round(target * 1.5),
         compactGain: pictures ? 12 : Number.POSITIVE_INFINITY,
+        // Number-path cards: the plan whose path ticks stand furthest apart (all ticks kept).
+        score: pictures && lines.length > 0 ? linePitch : undefined,
         check: checkSize ?? { w: TARGET_PX[ageMode].big + 8, h: TARGET_PX[ageMode].big + 6 },
       },
       room,
     );
-  /**
-   * A card's mini number line must read: every unit tick (never thinned: one step per number)
-   * ≥ 6 px apart, and drawn at ≥ 0.6 of its size (pointer and ticks big enough to see).
-   */
-  const linesLegible = (p: Plan) => {
-    const w = p.w - 2 * PIC_PAD;
-    const h = picHeight(p.h);
-    return lines.every((spec) => {
-      const s = Math.min(1, h / numberLineHeight(spec));
-      const span = spec.max - spec.min;
-      const ticks = span / (spec.ticksEvery ?? span);
-      return s >= 0.6 && (w - 2 * LINE_BARE_PAD * s) / Math.max(1, ticks) >= 6;
-    });
-  };
-  const picturePlan = hasPictures ? planFor(true) : null;
-  // Number cards that also show where they sit on a path (each has its numeral): where the room
-  // is too small for a legible path with every tick (the 960 × 600 minimum), the cards show the
-  // numeral alone rather than an illegible or tick-thinned line.
-  const numeralsOnly =
-    picturePlan !== null &&
-    lines.length === config.items.length &&
-    config.items.every((it) => it.label !== undefined && isNumeral(it.label)) &&
-    !linesLegible(picturePlan);
-  const pictures = hasPictures && !numeralsOnly;
-  const plan = pictures && picturePlan ? picturePlan : planFor(false);
+  // Every card keeps its picture at every size: a number-path card is the path (CMP.06's hint
+  // points at it), drawn with every unit tick and its numeral, as wide as the row allows.
+  const pictures = hasPictures;
+  const plan = planFor(pictures);
   const picW = plan.w - 2 * PIC_PAD;
   const picH = picHeight(plan.h);
   // A plain line of more than five objects may wrap into two rows of reading order (as tap-count

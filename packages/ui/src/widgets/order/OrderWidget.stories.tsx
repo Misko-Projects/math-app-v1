@@ -191,6 +191,37 @@ const card = (root: HTMLElement, name: string) =>
   within(root.querySelector('.ni-ord__tray') as HTMLElement).getByRole('button', { name });
 const slot = (root: HTMLElement, n: number) =>
   within(root).getByRole('button', { name: `Box ${n}` });
+/** A CSS colour token as the browser computes it (rgb()). */
+function rgbOf(root: HTMLElement, cssVar: string) {
+  const probe = document.createElement('span');
+  probe.style.color = `var(${cssVar})`;
+  root.append(probe);
+  const c = getComputedStyle(probe).color;
+  probe.remove();
+  return c;
+}
+
+/**
+ * The keyboard focus ring on a box (06 §7): an ink ring outside it (box-shadow, ≥ 3 px of ink past
+ * a paper gap), visible whatever the box's outline shows (Pip's teal invite ring, or none).
+ */
+async function expectInkFocusRing(el: HTMLElement) {
+  await waitForSettled(el);
+  const shadow = getComputedStyle(el).boxShadow;
+  const ink = rgbOf(el.closest('.ni-ord') as HTMLElement, '--color-ink');
+  const rings = shadow.split(/,(?![^(]*\))/).map((r) => r.trim());
+  const inkRing = rings.find((r) => r.startsWith(ink));
+  await expect(inkRing, `an ink focus ring in "${shadow}"`).toBeDefined();
+  const spreads = (inkRing ?? '').match(/(-?[\d.]+)px/g)?.map((v) => Number.parseFloat(v)) ?? [];
+  const paperSpread = Math.max(
+    0,
+    ...rings
+      .filter((r) => r !== inkRing)
+      .map((r) => Number.parseFloat(r.match(/(-?[\d.]+)px\s*$/)?.[1] ?? '0')),
+  );
+  await expect((spreads.at(-1) ?? 0) - paperSpread).toBeGreaterThanOrEqual(3);
+}
+
 /** Box n's pad: a drop target, or (holding a card) only its backdrop. */
 const padOf = (root: HTMLElement, n: number) =>
   root.querySelector(`[data-slot-pad="${n - 1}"]`) as HTMLElement;
@@ -348,15 +379,7 @@ export const KeyboardSkipsFullBoxes: Story = {
     await userEvent.keyboard('{Enter}');
     await expect(slot(root, 1)).toHaveFocus();
     // The focused box shows a visible focus ring even while armed for the picked-up card (06 §7).
-    const expectFocusRing = async (el: HTMLElement) => {
-      // The kit fades a drop target's outline colour in: read it once the fade has run.
-      await waitForSettled(el);
-      const cs = getComputedStyle(el);
-      await expect(cs.outlineStyle).toBe('solid');
-      await expect(Number.parseFloat(cs.outlineWidth)).toBeGreaterThanOrEqual(3);
-      await expect(cs.outlineColor).not.toBe('rgba(0, 0, 0, 0)');
-      await expect(cs.outlineColor).not.toBe('transparent');
-    };
+    const expectFocusRing = expectInkFocusRing;
     await expect(slot(root, 1)).toHaveAttribute('data-armed', 'true');
     await expectFocusRing(slot(root, 1));
     await userEvent.keyboard('{ArrowRight}');
@@ -366,6 +389,34 @@ export const KeyboardSkipsFullBoxes: Story = {
     await expect(slot(root, 1)).toHaveFocus();
     await userEvent.keyboard('{ArrowLeft}{Enter}');
     await expect(placed(root)).toEqual(['', '29', '30', '31']);
+  },
+};
+
+const keyInvite: WidgetDemo = createDemoController({ strict: true });
+
+/**
+ * Keyboard and invite on one box: the card picked up with Enter moves focus to the invited first
+ * box; it shows BOTH Pip's teal invite ring (on its edge) and the ink keyboard focus ring outside.
+ */
+export const KeyboardOnInvitedBox: Story = {
+  args: { demo: keyInvite },
+  play: async ({ canvasElement }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    keyInvite.invite({ op: 'drag', args: { id: 'item-1', slot: 0 } });
+    await waitFor(() => expect(card(root, '6')).toHaveClass('ni-invite'));
+    card(root, '6').focus();
+    await userEvent.keyboard('{Enter}');
+    const box = slot(root, 1);
+    await expect(box).toHaveFocus();
+    await waitFor(() => expect(box).toHaveClass('ni-invite'));
+    await expect(box).toHaveAttribute('data-armed', 'true');
+    await waitForSettled(box);
+    const cs = getComputedStyle(box);
+    await expect(cs.outlineStyle).toBe('solid');
+    await expect(cs.outlineWidth).toBe('5px');
+    await expect(cs.outlineColor).toBe(rgbOf(root, '--color-sea-deep'));
+    await expectInkFocusRing(box);
+    await expect(root.querySelectorAll('.ni-invite')).toHaveLength(1);
   },
 };
 
@@ -721,7 +772,8 @@ export const WeightCardsK: Story = {
  * them, never thinned), evenly spaced, 5s and 10s longer, and the mark sits exactly on its value.
  * Legible: ticks ≥ 6 px apart as drawn.
  */
-async function expectFullPaths(root: HTMLElement) {
+async function expectFullPaths(root: HTMLElement, minPitch = 6): Promise<number> {
+  let pitch = Number.POSITIVE_INFINITY;
   const tray = [...root.querySelectorAll<HTMLElement>('.ni-ord__tray .ni-ord__card')];
   await expect(tray.length).toBeGreaterThan(0);
   for (const c of tray) {
@@ -736,7 +788,8 @@ async function expectFullPaths(root: HTMLElement) {
       await expect((xs[i] ?? 0) - (xs[i - 1] ?? 0)).toBeCloseTo(step, 3);
     }
     const drawn = ticks.map((t) => t.getBoundingClientRect().left);
-    await expect((drawn[1] ?? 0) - (drawn[0] ?? 0)).toBeGreaterThanOrEqual(6);
+    pitch = Math.min(pitch, (drawn[1] ?? 0) - (drawn[0] ?? 0));
+    await expect(pitch, 'drawn tick pitch').toBeGreaterThanOrEqual(minPitch);
     for (const t of ticks) {
       const at = Number(t.dataset.at);
       const rank = at % 10 === 0 ? 'ten' : at % 5 === 0 ? 'five' : 'one';
@@ -747,6 +800,7 @@ async function expectFullPaths(root: HTMLElement) {
     const tickAt = ticks.find((t) => Number(t.dataset.at) === mark) as SVGLineElement;
     await expect(Number(dot.getAttribute('cx'))).toBeCloseTo(Number(tickAt.getAttribute('x1')), 3);
   }
+  return pitch;
 }
 
 /** The widget fits the area: no scroll, every part inside, every target full size and spaced. */
@@ -820,21 +874,31 @@ export const PathCardsKMinLandscape: Story = {
   render: inArea('landscapeMin'),
   play: async ({ canvasElement }) => {
     const root = await findWidget(canvasElement, ROOT);
-    // At 906 × 373 a path with all 21 ticks cannot be drawn legibly on a card: the cards show
-    // their numerals alone (big), never an illegible or tick-thinned line.
-    await expect(root).toHaveAttribute('data-cards', 'numeral');
-    await expect(root.querySelector('.ni-numberline')).toBeNull();
-    for (const c of root.querySelectorAll<HTMLElement>('.ni-ord__tray .ni-ord__card')) {
-      await expectTargetSize(c, 'k');
-      const numeral = c.querySelector('.ni-ord__numeral') as HTMLElement;
-      await expect(Number.parseFloat(getComputedStyle(numeral).fontSize)).toBeGreaterThanOrEqual(
-        32,
-      );
-      await expect(numeral.scrollWidth).toBeLessThanOrEqual(c.clientWidth);
-    }
+    // The path stays at the minimum (CMP.06's hint points at it): every one of the 21 ticks,
+    // 5s and 10s longer, the mark on its tick, under a 40 px numeral. Measured: the ticks are
+    // about 5.3 px apart here (148 × 80 cards: as wide as the row allows beside Check).
+    await expect(root).toHaveAttribute('data-cards', 'picture');
+    await expectPathCards(root);
     await expectOrderFits(canvasElement, root, 'k');
+    await expectFullPaths(root, 5);
   },
 };
+
+/** Path cards: numeral tags ≥ 32 px inside the card, above the path. */
+async function expectPathCards(root: HTMLElement) {
+  for (const c of root.querySelectorAll<HTMLElement>('.ni-ord__tray .ni-ord__card')) {
+    await expectTargetSize(c, 'k');
+    const tag = c.querySelector('.ni-ord__tag') as HTMLElement;
+    await expect(Number.parseFloat(getComputedStyle(tag).fontSize)).toBeGreaterThanOrEqual(32);
+    const t = tag.getBoundingClientRect();
+    const line = (c.querySelector('.ni-numberline') as SVGElement).getBoundingClientRect();
+    const r = c.getBoundingClientRect();
+    await expect(t.bottom).toBeLessThanOrEqual(line.top + 0.5);
+    await expect(line.left).toBeGreaterThanOrEqual(r.left);
+    await expect(line.right).toBeLessThanOrEqual(r.right + 0.5);
+    await expect(line.bottom).toBeLessThanOrEqual(r.bottom + 0.5);
+  }
+}
 
 /**
  * The biggest numbers at the minimum: five three-digit cards (the top of CNT.09's range) in K at
@@ -872,14 +936,18 @@ export const PathCardsKMinLandscapeInvite: Story = {
   render: inArea('landscapeMin'),
   play: async ({ canvasElement }) => {
     const root = await findWidget(canvasElement, ROOT);
-    const before = card(root, '8').getBoundingClientRect();
+    // Layout boxes (offset*), not drawn ones: the invite ring's pulse scales the card a little.
+    const box = (el: HTMLElement) => [el.offsetTop, el.offsetLeft, el.offsetWidth, el.offsetHeight];
+    const before = box(card(root, '8'));
     pathInvite.invite({ op: 'drag', args: { id: 'item-0', slot: 0 } });
     await expectInviteOn(root, card(root, '8'));
+    await expect(root).toHaveAttribute('data-cards', 'picture');
+    await expectPathCards(root);
+    await expectFullPaths(root, 5);
     await expectOrderFits(canvasElement, root, 'k');
     // The cards did not move or resize when Pip came in.
-    const after = card(root, '8').getBoundingClientRect();
-    const px = (r: DOMRect) => [r.top, r.width, r.height].map(Math.round);
-    await expect(px(after)).toEqual(px(before));
+    const after = box(card(root, '8'));
+    await expect(after).toEqual(before);
     await userEvent.click(card(root, '8'));
     await expectInviteOn(root, root.querySelector('[data-slot-pad="0"]') as HTMLElement);
     await expectOrderFits(canvasElement, root, 'k');
@@ -949,9 +1017,11 @@ export const PathCardsKPortrait: Story = {
   play: async ({ canvasElement }) => {
     const root = await findWidget(canvasElement, ROOT);
     await expectOrderFits(canvasElement, root, 'k');
-    // Four cards across 746 px leave too little width for 21 legible ticks: numerals alone.
-    await expect(root).toHaveAttribute('data-cards', 'numeral');
-    await expect(root.querySelector('.ni-numberline')).toBeNull();
+    // Four cards across 746 px: the full path on each (measured ≈ 5.2 px between ticks on
+    // 144 × 80 cards).
+    await expect(root).toHaveAttribute('data-cards', 'picture');
+    await expectPathCards(root);
+    await expectFullPaths(root, 5);
   },
 };
 
