@@ -169,6 +169,18 @@ const meta = {
   },
   parameters: { ui: { stage: 'centered' } },
   render: renderWidget,
+  // Every order story: each numeral a card shows (numeral cards and picture-card tags) is ≥ 32 px.
+  afterEach: async ({ canvasElement }) => {
+    for (const el of canvasElement.querySelectorAll<HTMLElement>(
+      '.ni-ord .ni-ord__numeral, .ni-ord .ni-ord__tag',
+    )) {
+      if (!el.textContent?.trim()) continue;
+      await expect(
+        Number.parseFloat(getComputedStyle(el).fontSize),
+        `numeral ${el.textContent} size`,
+      ).toBeGreaterThanOrEqual(32);
+    }
+  },
 } satisfies Meta<WidgetHostProps>;
 
 export default meta;
@@ -335,8 +347,21 @@ export const KeyboardSkipsFullBoxes: Story = {
     card(root, '31').focus();
     await userEvent.keyboard('{Enter}');
     await expect(slot(root, 1)).toHaveFocus();
+    // The focused box shows a visible focus ring even while armed for the picked-up card (06 §7).
+    const expectFocusRing = async (el: HTMLElement) => {
+      // The kit fades a drop target's outline colour in: read it once the fade has run.
+      await waitForSettled(el);
+      const cs = getComputedStyle(el);
+      await expect(cs.outlineStyle).toBe('solid');
+      await expect(Number.parseFloat(cs.outlineWidth)).toBeGreaterThanOrEqual(3);
+      await expect(cs.outlineColor).not.toBe('rgba(0, 0, 0, 0)');
+      await expect(cs.outlineColor).not.toBe('transparent');
+    };
+    await expect(slot(root, 1)).toHaveAttribute('data-armed', 'true');
+    await expectFocusRing(slot(root, 1));
     await userEvent.keyboard('{ArrowRight}');
     await expect(slot(root, 4)).toHaveFocus();
+    await expectFocusRing(slot(root, 4));
     await userEvent.keyboard('{ArrowRight}');
     await expect(slot(root, 1)).toHaveFocus();
     await userEvent.keyboard('{ArrowLeft}{Enter}');
@@ -691,6 +716,39 @@ export const WeightCardsK: Story = {
 
 // ---------- the workshop's widget area (06 §1, §2) ----------
 
+/**
+ * Maths truth on number-path cards: every unit tick is drawn ((max − min) / ticksEvery + 1 of
+ * them, never thinned), evenly spaced, 5s and 10s longer, and the mark sits exactly on its value.
+ * Legible: ticks ≥ 6 px apart as drawn.
+ */
+async function expectFullPaths(root: HTMLElement) {
+  const tray = [...root.querySelectorAll<HTMLElement>('.ni-ord__tray .ni-ord__card')];
+  await expect(tray.length).toBeGreaterThan(0);
+  for (const c of tray) {
+    const item = pathCards.items.find((it) => it.label === c.getAttribute('aria-label'));
+    const spec = item?.stimulus;
+    if (spec?.kind !== 'number-line' || !spec.ticksEvery) throw new Error('not a path card');
+    const ticks = [...c.querySelectorAll<SVGLineElement>('.ni-numberline__tick')];
+    await expect(ticks).toHaveLength((spec.max - spec.min) / spec.ticksEvery + 1);
+    const xs = ticks.map((t) => Number(t.getAttribute('x1')));
+    const step = (xs[1] ?? 0) - (xs[0] ?? 0);
+    for (let i = 1; i < xs.length; i++) {
+      await expect((xs[i] ?? 0) - (xs[i - 1] ?? 0)).toBeCloseTo(step, 3);
+    }
+    const drawn = ticks.map((t) => t.getBoundingClientRect().left);
+    await expect((drawn[1] ?? 0) - (drawn[0] ?? 0)).toBeGreaterThanOrEqual(6);
+    for (const t of ticks) {
+      const at = Number(t.dataset.at);
+      const rank = at % 10 === 0 ? 'ten' : at % 5 === 0 ? 'five' : 'one';
+      await expect(t.dataset.rank).toBe(rank);
+    }
+    const mark = spec.marks?.[0]?.at ?? Number.NaN;
+    const dot = c.querySelector('.ni-numberline__mark circle') as SVGCircleElement;
+    const tickAt = ticks.find((t) => Number(t.dataset.at) === mark) as SVGLineElement;
+    await expect(Number(dot.getAttribute('cx'))).toBeCloseTo(Number(tickAt.getAttribute('x1')), 3);
+  }
+}
+
 /** The widget fits the area: no scroll, every part inside, every target full size and spaced. */
 async function expectOrderFits(canvasElement: HTMLElement, root: HTMLElement, age: 'k' | 'g1-up') {
   await waitForSettled(root);
@@ -762,8 +820,43 @@ export const PathCardsKMinLandscape: Story = {
   render: inArea('landscapeMin'),
   play: async ({ canvasElement }) => {
     const root = await findWidget(canvasElement, ROOT);
-    await expectPictureCards(root, 4, 'k');
+    // At 906 × 373 a path with all 21 ticks cannot be drawn legibly on a card: the cards show
+    // their numerals alone (big), never an illegible or tick-thinned line.
+    await expect(root).toHaveAttribute('data-cards', 'numeral');
+    await expect(root.querySelector('.ni-numberline')).toBeNull();
+    for (const c of root.querySelectorAll<HTMLElement>('.ni-ord__tray .ni-ord__card')) {
+      await expectTargetSize(c, 'k');
+      const numeral = c.querySelector('.ni-ord__numeral') as HTMLElement;
+      await expect(Number.parseFloat(getComputedStyle(numeral).fontSize)).toBeGreaterThanOrEqual(
+        32,
+      );
+      await expect(numeral.scrollWidth).toBeLessThanOrEqual(c.clientWidth);
+    }
     await expectOrderFits(canvasElement, root, 'k');
+  },
+};
+
+/**
+ * The biggest numbers at the minimum: five three-digit cards (the top of CNT.09's range) in K at
+ * 906 × 373, every numeral ≥ 32 px and inside its card, nothing clipped, no scroll.
+ */
+export const ThreeDigitFiveKMinLandscape: Story = {
+  globals: { ageMode: 'k' },
+  args: { config: { format: 'order', items: cards([997, 999, 995, 998, 996]), direction: 'asc' } },
+  render: inArea('landscapeMin'),
+  play: async ({ canvasElement }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    await expectOrderFits(canvasElement, root, 'k');
+    for (const c of root.querySelectorAll<HTMLElement>('.ni-ord__tray .ni-ord__card')) {
+      const numeral = c.querySelector('.ni-ord__numeral') as HTMLElement;
+      await expect(Number.parseFloat(getComputedStyle(numeral).fontSize)).toBeGreaterThanOrEqual(
+        32,
+      );
+      const n = numeral.getBoundingClientRect();
+      const r = c.getBoundingClientRect();
+      await expect(n.left).toBeGreaterThanOrEqual(r.left);
+      await expect(n.right).toBeLessThanOrEqual(r.right);
+    }
   },
 };
 
@@ -823,7 +916,9 @@ export const PathCardsKMinLandscapeInvite: Story = {
       a.currentTime = 0;
     }
     const hand = (root.querySelector('.ni-hand svg') as SVGElement).getBoundingClientRect();
-    const tag = (picked.querySelector('.ni-ord__tag') as HTMLElement).getBoundingClientRect();
+    const tag = (
+      picked.querySelector('.ni-ord__tag, .ni-ord__numeral') as HTMLElement
+    ).getBoundingClientRect();
     const apart =
       hand.right <= tag.left ||
       tag.right <= hand.left ||
@@ -854,6 +949,9 @@ export const PathCardsKPortrait: Story = {
   play: async ({ canvasElement }) => {
     const root = await findWidget(canvasElement, ROOT);
     await expectOrderFits(canvasElement, root, 'k');
+    // Four cards across 746 px leave too little width for 21 legible ticks: numerals alone.
+    await expect(root).toHaveAttribute('data-cards', 'numeral');
+    await expect(root.querySelector('.ni-numberline')).toBeNull();
   },
 };
 
@@ -877,11 +975,7 @@ export const PathCardsKTablet: Story = {
   play: async ({ canvasElement }) => {
     const root = await findWidget(canvasElement, ROOT);
     await expectOrderFits(canvasElement, root, 'k');
-    // The card's number path is drawn big enough to read (not a barcode): ≥ 10 px between ticks.
-    const ticks = [...card(root, '8').querySelectorAll('.ni-numberline__tick')].map(
-      (t) => t.getBoundingClientRect().left,
-    );
-    await expect((ticks[1] ?? 0) - (ticks[0] ?? 0)).toBeGreaterThanOrEqual(10);
+    await expectFullPaths(root);
   },
 };
 

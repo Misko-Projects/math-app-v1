@@ -77,6 +77,11 @@ export interface NumberLineViewProps {
    * numerals may go down to 30, the end caps' reach.
    */
   pad?: number;
+  /**
+   * Every tick stays, but every 5th is longer and every 10th longest (by value: 5, 10, 15, 20…),
+   * so a small line keeps one tick per step and still reads at a glance. Default: all alike.
+   */
+  tickRhythm?: boolean;
   /** Space above the line, in px (default: room for whatever marks and jumps it shows). */
   headroom?: number;
   /** Overlay drawn in the line's SVG coordinate space. */
@@ -103,6 +108,7 @@ export function NumberLineView({
   label,
   headroom,
   pad: padProp,
+  tickRhythm = false,
   children,
   className,
 }: NumberLineViewProps) {
@@ -183,16 +189,29 @@ export function NumberLineView({
         className="ni-numberline__cap"
         d={`M${pad - 30} ${lineY}l12 -9v18z M${width - pad + 30} ${lineY}l-12 -9v18z`}
       />
-      {ticks.map((v) => (
-        <line
-          key={`t${v}`}
-          className="ni-numberline__tick"
-          x1={s.x(v)}
-          x2={s.x(v)}
-          y1={lineY - 14}
-          y2={lineY + 14}
-        />
-      ))}
+      {ticks.map((v) => {
+        const step = Math.round(v / (ticksEvery ?? 1));
+        const rank = !tickRhythm
+          ? 'all'
+          : step % 10 === 0
+            ? 'ten'
+            : step % 5 === 0
+              ? 'five'
+              : 'one';
+        const half = rank === 'ten' ? 18 : rank === 'five' ? 14 : rank === 'one' ? 8 : 14;
+        return (
+          <line
+            key={`t${v}`}
+            className="ni-numberline__tick"
+            data-rank={tickRhythm ? rank : undefined}
+            data-at={v}
+            x1={s.x(v)}
+            x2={s.x(v)}
+            y1={lineY - half}
+            y2={lineY + half}
+          />
+        );
+      })}
       {labels.map((v) => (
         <text
           key={`l${v}`}

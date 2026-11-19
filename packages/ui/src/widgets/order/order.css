@@ -207,6 +207,17 @@ button.ni-ord__card:focus-visible,
   outline-offset: -5px;
   border-radius: var(--radius-pebble);
 }
+/*
+ * Keyboard focus on a box is always visible (06 §7), armed or invited: a thick INK ring outside
+ * the box, unlike Pip's teal ring drawn on its edge. An armed box only takes focus from the keys
+ * (a tap on it places the card at once), so any focus there shows the ring.
+ */
+.ni-ord__pad.ni-drop-target:focus-visible,
+.ni-ord__pad.ni-drop-target[data-armed="true"]:focus,
+.ni-ord__pad.ni-drop-target.ni-invite[data-armed="true"]:focus {
+  outline: 4px solid var(--color-ink);
+  outline-offset: 4px;
+}
 .ni-ord__card[data-fixed="true"] {
   background: var(--color-pebble);
   box-shadow: none;
@@ -239,11 +250,11 @@ button.ni-ord__card:focus-visible,
   pointer-events: none;
 }
 .ni-ord__tag {
-  height: 30px;
+  height: 42px;
   font-family: var(--font-display);
-  font-size: 2rem;
+  font-size: 2.5rem;
   font-weight: 800;
-  line-height: 30px;
+  line-height: 42px;
   padding-top: 0.1em;
   font-variant-numeric: tabular-nums;
 }

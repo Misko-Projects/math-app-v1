@@ -75,8 +75,8 @@ const CARD_GAP = 20;
 const CARD_PAD = 8;
 /** Around a picture: the border plus a margin, so a picture never touches the card's edge. */
 const PIC_PAD = 11;
-/** The numeral above a picture (32 px numeral, 05 §11). */
-const TAG_H = 30;
+/** The numeral above a picture (40 px numeral: well above the 32 px floor, 05 §11). */
+const TAG_H = 42;
 const ROOT_PAD = { x: 8, y: 4 };
 const BORDER = 3;
 const CHROME = {
@@ -509,11 +509,11 @@ export function OrderWidget({
     return () => ro.disconnect();
   }, []);
 
-  const pictures = config.items.some((it) => it.stimulus && it.stimulus.kind !== 'none');
+  const hasPictures = config.items.some((it) => it.stimulus && it.stimulus.kind !== 'none');
   const tagRow =
-    pictures && config.items.some((it) => it.label && !markShows(it.stimulus, it.label));
+    hasPictures && config.items.some((it) => it.label && !markShows(it.stimulus, it.label));
   const longest = Math.max(...config.items.map((it) => (it.label ?? String(it.value)).length));
-  const words = !pictures && config.items.some((it) => it.label && !isNumeral(it.label));
+  const words = !hasPictures && config.items.some((it) => it.label && !isNumeral(it.label));
   const cardPics = config.items.map((it) =>
     it.stimulus && it.stimulus.kind !== 'none' ? cardPicture(it.stimulus) : null,
   );
@@ -546,12 +546,17 @@ export function OrderWidget({
         return Math.round(scale * (2 * LINE_BARE_PAD + ticks * 22)) + 2 * PIC_PAD;
       }),
     );
-  const cardWidth = (h: number) => {
+  /** A numeral card fits its longest label at ≥ 32 px (0.62 em a digit). */
+  const numeralW = (h: number) => Math.max(h, Math.ceil(longest * 0.62 * 32) + 2 * CARD_PAD + 4);
+  const cardWidth = (pictures: boolean) => (h: number) => {
     if (words) {
       const w = Math.max(h, longest * 14 + 2 * CARD_PAD + 8);
       return { min: w, max: w };
     }
-    if (!pictures) return { min: h, max: h };
+    if (!pictures) {
+      const w = numeralW(h);
+      return { min: w, max: w };
+    }
     const pic = Math.min(
       Math.round(2.4 * h),
       Math.max(h, Math.round(picHeight(h) * aspect) + 2 * PIC_PAD),
@@ -560,40 +565,48 @@ export function OrderWidget({
     const max = Math.max(pic, Math.min(3 * h, lineWidth(h)));
     return { min: Math.min(max, Math.max(pic, Math.round(1.4 * h))), max };
   };
-  const plan = planLayout(
-    {
-      n,
-      tray: n - fixedIds.size,
-      width: cardWidth,
-      target,
-      // Picture cards grow to 2.2 × the target where the room allows (a ten-frame, blocks or a
-      // number line read at that size); numeral cards stay within 1.5 ×.
-      maxH: pictures ? Math.round(Math.max(target * 2.2, 150)) : Math.round(target * 1.5),
-      compactGain: pictures ? 12 : Number.POSITIVE_INFINITY,
-      check: checkSize ?? { w: TARGET_PX[ageMode].big + 8, h: TARGET_PX[ageMode].big + 6 },
-    },
-    room,
-  );
+  const planFor = (pictures: boolean) =>
+    planLayout(
+      {
+        n,
+        tray: n - fixedIds.size,
+        width: cardWidth(pictures),
+        target,
+        // Picture cards grow to 2.2 × the target where the room allows (a ten-frame, blocks or
+        // a number line read at that size); numeral cards stay within 1.5 ×.
+        maxH: pictures ? Math.round(Math.max(target * 2.2, 150)) : Math.round(target * 1.5),
+        compactGain: pictures ? 12 : Number.POSITIVE_INFINITY,
+        check: checkSize ?? { w: TARGET_PX[ageMode].big + 8, h: TARGET_PX[ageMode].big + 6 },
+      },
+      room,
+    );
+  /**
+   * A card's mini number line must read: every unit tick (never thinned: one step per number)
+   * ≥ 6 px apart, and drawn at ≥ 0.6 of its size (pointer and ticks big enough to see).
+   */
+  const linesLegible = (p: Plan) => {
+    const w = p.w - 2 * PIC_PAD;
+    const h = picHeight(p.h);
+    return lines.every((spec) => {
+      const s = Math.min(1, h / numberLineHeight(spec));
+      const span = spec.max - spec.min;
+      const ticks = span / (spec.ticksEvery ?? span);
+      return s >= 0.6 && (w - 2 * LINE_BARE_PAD * s) / Math.max(1, ticks) >= 6;
+    });
+  };
+  const picturePlan = hasPictures ? planFor(true) : null;
+  // Number cards that also show where they sit on a path (each has its numeral): where the room
+  // is too small for a legible path with every tick (the 960 × 600 minimum), the cards show the
+  // numeral alone rather than an illegible or tick-thinned line.
+  const numeralsOnly =
+    picturePlan !== null &&
+    lines.length === config.items.length &&
+    config.items.every((it) => it.label !== undefined && isNumeral(it.label)) &&
+    !linesLegible(picturePlan);
+  const pictures = hasPictures && !numeralsOnly;
+  const plan = pictures && picturePlan ? picturePlan : planFor(false);
   const picW = plan.w - 2 * PIC_PAD;
   const picH = picHeight(plan.h);
-  /**
-   * A card's number line keeps its ticks evenly spaced but, when the card is too small to show
-   * every tick apart (a barcode), draws every 2nd, 5th or 10th tick: the mark keeps its exact
-   * place; the stride only thins the ticks, like NumberLineView's label stride.
-   */
-  const cardLine = (spec: StimulusSpec): StimulusSpec => {
-    if (spec.kind !== 'number-line' || !spec.ticksEvery) return spec;
-    const every = spec.ticksEvery;
-    const span = spec.max - spec.min;
-    const s = Math.min(1, picH / numberLineHeight(spec));
-    const inner = picW - 2 * LINE_BARE_PAD * s;
-    const step = (inner * every) / span;
-    if (step >= 10) return spec;
-    const stride = [2, 5, 10].find(
-      (k) => step * k >= 10 && Math.abs((span / (every * k)) % 1) < 1e-9,
-    );
-    return stride ? { ...spec, ticksEvery: every * stride } : spec;
-  };
   // A plain line of more than five objects may wrap into two rows of reading order (as tap-count
   // wraps lines) when that draws every card bigger, unless the set's look is the point (spread
   // versus bunched, drawn big: compare.sets conflict items keep their pictures as given).
@@ -608,7 +621,7 @@ export function OrderWidget({
         spec?.kind === 'objects' &&
         layout.height === 1 &&
         layout.objects.length > 5
-        ? wrapLine(layout, 2)
+        ? wrapLine(layout, 5)
         : layout;
     });
   const cellOf = (layouts: (ObjectLayout | null)[]) =>
@@ -627,7 +640,7 @@ export function OrderWidget({
 
   const face = (it: Item) => {
     const spec = it.stimulus;
-    if (spec && spec.kind !== 'none') {
+    if (pictures && spec && spec.kind !== 'none') {
       const tag = it.label !== undefined && !markShows(spec, it.label);
       return (
         <span className="ni-ord__face">
@@ -637,7 +650,10 @@ export function OrderWidget({
             </span>
           ) : null}
           <FitPicture
-            spec={cardLine(cardPicture(spec))}
+            spec={cardPicture(spec)}
+            // Every unit tick stays (one step per number); 5s and 10s are longer to read at a
+            // glance on a small card.
+            tickRhythm
             maxWidth={picW}
             maxHeight={picH}
             cell={Number.isFinite(sharedCell) ? sharedCell : undefined}

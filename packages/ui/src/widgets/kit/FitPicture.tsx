@@ -161,13 +161,14 @@ export function naturalPictureSize(
 }
 
 /**
- * A one-row line layout wrapped into `rows` rows in reading order (each row continues left to
- * right under the one above; spacing inside a row kept), as tap-count wraps long lines. Object
- * order is unchanged, so object i is still obj-<i>.
+ * A one-row line layout wrapped into rows of `perRow` in reading order (each row filled before
+ * the next, continuing left to right under the one above; spacing inside a row kept): with rows
+ * of five, 7 reads 5 + 2 and 10 reads 5 + 5, like a ten-frame. Object order is unchanged, so
+ * object i is still obj-<i>.
  */
-export function wrapLine(layout: ObjectLayout, rows: number): ObjectLayout {
+export function wrapLine(layout: ObjectLayout, perRow = 5): ObjectLayout {
   const slots = [...layout.objects].sort((a, b) => a.x - b.x);
-  const perRow = Math.ceil(slots.length / rows);
+  const rows = Math.ceil(slots.length / Math.max(1, perRow));
   const base = (o: PlacedObject) => o.x - (1 - o.scale) / 2;
   const chunks = Array.from({ length: rows }, (_, r) =>
     slots.slice(r * perRow, (r + 1) * perRow),
@@ -260,6 +261,8 @@ export interface FitPictureProps {
   maxHeight: number;
   /** Cell size for a countable picture (two pictures compared share one); default: fit the box. */
   cell?: number;
+  /** A number line marks every 5th and 10th tick longer (all ticks kept). */
+  tickRhythm?: boolean;
   /** The countable picture's layout, when the widget re-arranged it (`wrapLine`). */
   layout?: ObjectLayout;
   /** Draw a double ten-frame as two rows. */
@@ -299,6 +302,7 @@ export function FitPicture({
   maxHeight,
   cell,
   layout: given,
+  tickRhythm = false,
   stackFrames = false,
   maxScale = 1,
   label,
@@ -334,6 +338,7 @@ export function FitPicture({
             width={Math.min(LINE_MAX_W, Math.floor(w / s))}
             headroom={lineHeadroom(spec)}
             pad={numerals(spec) ? undefined : LINE_BARE_PAD}
+            tickRhythm={tickRhythm}
             label={label ?? pictureName}
           />
         </Scaled>
