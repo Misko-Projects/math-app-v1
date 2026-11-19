@@ -573,6 +573,127 @@ export const ColourVision: Story = {
   },
 };
 
+/** Every critter whose number is drawn as ten-frames: each species and pose, 0–20, and the whale. */
+const SLOT_CASES: {
+  species: PebblingSpecies;
+  pose: PebblingPose;
+  number: number;
+  family?: PebblingFamily;
+}[] = [
+  ...PEBBLING_SPECIES.filter((s) => s !== 'whale').flatMap((species) =>
+    PEBBLING_POSES.flatMap((pose) =>
+      Array.from({ length: 21 }, (_, n) => ({
+        species,
+        pose,
+        number: n,
+        family: n > 10 ? ('tens' as const) : undefined,
+      })),
+    ),
+  ),
+  ...PEBBLING_POSES.flatMap((pose) =>
+    [46, 100].map((number) => ({
+      species: 'whale' as const,
+      pose,
+      number,
+      family: 'hundreds' as const,
+    })),
+  ),
+];
+
+/**
+ * Pebble slots whose drawing is covered: at the centre and four inner points of every slot, the
+ * topmost element must belong to that slot's own ten-frame (its pebble or its bed). A limb, claw,
+ * head or effect drawn over a slot, or the art box clipping it, fails.
+ */
+function coveredSlots(svg: SVGSVGElement): string[] {
+  const bad: string[] = [];
+  svg.querySelectorAll<SVGGElement>('[data-part="ten-frame"]').forEach((frame, f) => {
+    frame.querySelectorAll('[data-pebble]').forEach((slot, i) => {
+      const r = slot.getBoundingClientRect();
+      const cx = r.left + r.width / 2;
+      const cy = r.top + r.height / 2;
+      const dx = r.width * 0.42;
+      const dy = r.height * 0.42;
+      for (const [x, y] of [
+        [cx, cy],
+        [cx - dx, cy],
+        [cx + dx, cy],
+        [cx, cy - dy],
+        [cx, cy + dy],
+      ] as const) {
+        const top = document.elementFromPoint(x, y);
+        if (!top || !frame.contains(top)) {
+          bad.push(`frame ${f + 1} slot ${i + 1}`);
+          break;
+        }
+      }
+    });
+  });
+  return bad;
+}
+
+/**
+ * Countability (05 §5): every pebble slot of every critter stays fully visible — no limb, claw,
+ * head or effect ever covers one, in any species, pose or number, at any point of its idle loop.
+ * Each critter is shown alone and its loops are stepped through eight phases. (A test story: the
+ * gallery pages show the same critters.)
+ */
+export const PebbleSlotsVisible: Story = {
+  parameters: { controls: { disable: true }, ui: { stage: 'flush' } },
+  render: () => (
+    <div style={{ position: 'relative', width: 400, height: 340 }}>
+      {SLOT_CASES.map((c) => (
+        <div
+          key={`${c.species}-${c.pose}-${c.number}`}
+          data-slot-case={`${c.species} ${c.pose} ${c.number}`}
+          style={{ position: 'absolute', inset: 0, display: 'none' }}
+        >
+          <Pebbling
+            species={c.species}
+            palette="sea"
+            number={c.number}
+            family={c.family}
+            pose={c.pose}
+            size={c.family ? 400 : 260}
+            title={`${c.species} ${c.number}`}
+          />
+        </div>
+      ))}
+    </div>
+  ),
+  play: async ({ canvasElement }) => {
+    const cases = [...canvasElement.querySelectorAll<HTMLElement>('[data-slot-case]')];
+    await expect(cases.length).toBe(SLOT_CASES.length);
+    const bad: string[] = [];
+    let slots = 0;
+    for (const box of cases) {
+      box.style.display = 'block';
+      const svg = box.querySelector('svg') as SVGSVGElement;
+      const anims = svg.getAnimations({ subtree: true });
+      for (const a of anims) a.pause();
+      // Limbs move the same whatever the number, so one single (7) and one teen (17) per species
+      // and pose step through eight phases of every loop; the other numbers are checked paused.
+      const n = Number(svg.dataset.number);
+      const phases = n === 7 || n === 17 || n === 46 ? 8 : 2;
+      for (let k = 0; k < 8; k += 8 / phases) {
+        for (const a of anims) {
+          const d = Number(a.effect?.getComputedTiming().duration) || 0;
+          a.currentTime = (d * k) / 8;
+        }
+        slots += svg.querySelectorAll('[data-pebble]').length;
+        const covered = coveredSlots(svg);
+        if (covered.length > 0) bad.push(`${box.dataset.slotCase} (phase ${k}/8): ${covered[0]}`);
+        if (anims.length === 0) break;
+      }
+      for (const a of anims) a.play();
+      box.style.display = 'none';
+    }
+    // Not vacuous: thousands of slots were checked.
+    await expect(slots).toBeGreaterThan(SLOT_CASES.length * 10);
+    await expect(bad.slice(0, 20)).toEqual([]);
+  },
+};
+
 /** 06 §7: with reduced motion every character holds still: no bob, blink, sway, glow or hop. */
 export const ReducedMotion: Story = {
   parameters: { controls: { disable: true }, ui: { stage: 'centered' } },

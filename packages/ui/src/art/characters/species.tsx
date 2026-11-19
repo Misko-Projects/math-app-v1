@@ -193,7 +193,8 @@ function Crab({ c, pose, slot, delay, variant }: BodyProps) {
 
 function HermitCrab({ c, pose, slot, delay }: BodyProps) {
   const L = limb(pose, 'l', 120, delay);
-  const R = limb(pose, 'r', 150, delay, 10);
+  // The near claw lifts up and outward (away from the shell), never across the pebble frame.
+  const R = limb(pose, 'r', -150, delay, 10);
   return (
     <g>
       {/* The borrowed spiral shell, spire up and to the right. */}
@@ -300,11 +301,12 @@ function Turtle({ c, pose, slot, delay }: BodyProps) {
       <Pivot x={60} y={154} angle={back.angle} loop={back.loop}>
         <Leg c={c} />
       </Pivot>
-      {/* Raised, the near front leg lifts from higher on the rim, up beside the head. */}
+      {/* Raised, the near front leg lifts from the front of the rim, under the neck, out in front
+          of the shell: never across the pebble frame. */}
       <Pivot
-        x={pose === 'idle' ? 146 : 152}
-        y={pose === 'idle' ? 154 : 144}
-        angle={pose === 'idle' ? front.angle : front.angle - 15}
+        x={pose === 'idle' ? 146 : 170}
+        y={pose === 'idle' ? 154 : 142}
+        angle={pose === 'idle' ? front.angle : front.angle + 30}
         loop={front.loop}
       >
         <Leg c={c} />
