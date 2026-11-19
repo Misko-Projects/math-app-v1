@@ -584,15 +584,16 @@ export const ReducedMotion: Story = {
         flexWrap: 'wrap',
         justifyContent: 'center',
         alignItems: 'flex-end',
-        gap: '24px 48px',
+        gap: '24px 56px',
         width: 'min(1200px, 100%)',
       }}
     >
+      {/* The same sizes as the Idle cast story, so every character is at the shared scale. */}
       <GalleryCell name="Pip cheering">
-        <Pip pose="cheer" size={250} title="Pip cheering" />
+        <Pip pose="cheer" size={300} title="Pip cheering" />
       </GalleryCell>
       <GalleryCell name="Glim talking">
-        <Glim state="talk" size={190} title="Glim talking" />
+        <Glim state="talk" size={230} title="Glim talking" />
       </GalleryCell>
       <GalleryCell name="Seahorse waving">
         <Pebbling
@@ -600,20 +601,19 @@ export const ReducedMotion: Story = {
           palette="sky"
           number={4}
           pose="wave"
-          size={220}
+          size={240}
           title="seahorse 4"
         />
       </GalleryCell>
-      {/* Two Ten Turtles at the shared character scale: each about as big as the seahorse. */}
       <GalleryCell name="Ten Turtles cheering">
         <Pebbling
           species="turtle"
           palette="leaf"
-          number={20}
+          number={30}
           family="tens"
           pose="cheer"
-          size={440}
-          title="tens 20 cheering"
+          size={420}
+          title="tens 30 cheering"
         />
       </GalleryCell>
     </div>

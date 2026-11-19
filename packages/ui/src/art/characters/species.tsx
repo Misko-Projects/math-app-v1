@@ -259,8 +259,10 @@ function Leg({ c, h = 30 }: { c: PaletteFills; h?: number }) {
 }
 
 function Turtle({ c, pose, slot, delay }: BodyProps) {
-  const front = limb(pose, 'r', -118, delay);
-  const back = pose === 'cheer' ? limb(pose, 'l', -40, delay) : { angle: 0 };
+  // A cheer (and a wave) lifts the front legs up and forward toward the head; the back legs stay
+  // planted, so the turtle still stands on the ground.
+  const front = limb(pose, 'r', -150, delay);
+  const back: LimbPose = { angle: 0 };
   return (
     <g>
       {/* Far legs and tail. */}
@@ -271,7 +273,7 @@ function Turtle({ c, pose, slot, delay }: BodyProps) {
         <Pivot
           x={162}
           y={150}
-          angle={pose === 'cheer' ? front.angle * 0.7 : 0}
+          angle={pose === 'cheer' ? front.angle * 0.85 : 0}
           loop={pose === 'cheer' ? front.loop : undefined}
         >
           <Leg c={c} h={34} />
@@ -298,7 +300,13 @@ function Turtle({ c, pose, slot, delay }: BodyProps) {
       <Pivot x={60} y={154} angle={back.angle} loop={back.loop}>
         <Leg c={c} />
       </Pivot>
-      <Pivot x={146} y={154} angle={front.angle} loop={front.loop}>
+      {/* Raised, the near front leg lifts from higher on the rim, up beside the head. */}
+      <Pivot
+        x={pose === 'idle' ? 146 : 152}
+        y={pose === 'idle' ? 154 : 144}
+        angle={pose === 'idle' ? front.angle : front.angle - 15}
+        loop={front.loop}
+      >
         <Leg c={c} />
       </Pivot>
       {/* Head. */}
