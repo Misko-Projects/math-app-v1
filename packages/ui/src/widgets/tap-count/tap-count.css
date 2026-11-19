@@ -1,6 +1,8 @@
 /* tap-count widget (U03): the objects on a paper board, the answer beside or below it. */
 
 .ni-tapc {
+  /* Pip's demo hand (TapCountWidget) is placed relative to the widget. */
+  position: relative;
   display: grid;
   align-items: center;
   justify-content: center;
@@ -164,12 +166,6 @@ button.ni-tapc__obj:focus-visible {
   /* Close around the object, so the ring stays clear of the neighbours' count badges. */
   outline-offset: 2px;
 }
-/* The demo hand's fingertip (≈ 42 % across, 8 px down its 56 px box) rests on the object's
-   lower middle: on the target, the top of the drawing still visible. */
-.ni-tapc__hand {
-  left: calc(50% - 23px);
-  top: calc(58% - 8px);
-}
 
 /* Nothing to count (CNT.13): an empty sand dish, a white rim around a shallow well. */
 .ni-tapc__empty {
@@ -227,10 +223,6 @@ button.ni-tapc__obj:focus-visible {
 .ni-tapc__check {
   position: relative;
   display: inline-flex;
-}
-.ni-tapc__check-hand {
-  left: calc(50% - 8px);
-  top: calc(100% - 4px);
 }
 
 [data-reduced-motion="true"] .ni-tapc__obj {

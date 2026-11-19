@@ -1,5 +1,6 @@
 import type { WidgetConfig } from '@number-island/shared';
 import type { Meta, StoryObj } from '@storybook/react-vite';
+import { useState } from 'react';
 import { expect, fn, userEvent, waitFor, within } from 'storybook/test';
 import {
   clearSpies,
@@ -16,7 +17,7 @@ import {
 } from '../../test-support/widgetStory';
 import { createDemoController, UnsupportedWidgetOpError, type WidgetDemo } from '../demo';
 import type { ConfigFor } from '../types';
-import type { WidgetHostProps } from '../WidgetHost';
+import { WidgetHost, type WidgetHostProps } from '../WidgetHost';
 
 /**
  * `tap-count` (03 §5.5): count a set. Concrete: tap each object; a numbered pebble marks it and
@@ -574,5 +575,333 @@ export const DemoReducedMotion: Story = {
     await expect(within(root).getByRole('button', { name: 'Your answer: 4' })).toBeVisible();
     await reducedController.play({ op: 'say-total' });
     await expect(within(root).getByRole('button', { name: 'Your answer: 6' })).toBeVisible();
+  },
+};
+
+// ---------- invites follow the next ENABLED control (03 §6.3) ----------
+
+/** The invite is ON `el` alone: the one teal ring, and one hand pointing at it. */
+async function expectCueOn(root: HTMLElement, el: HTMLElement) {
+  await waitFor(() => expect(el).toHaveClass('ni-invite'));
+  await expect([...root.querySelectorAll('.ni-invite')]).toEqual([el]);
+  await expect(root.querySelectorAll('.ni-hand')).toHaveLength(1);
+  await expect(el).toBeEnabled();
+  await waitFor(() => expectPointerOn(hand(root), el, root));
+}
+
+/** No cue at all: no ring, no hand. */
+async function expectNoCue(root: HTMLElement) {
+  // Let any pending invite render first.
+  await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+  await expect(root.querySelector('.ni-invite')).toBeNull();
+  await expect(root.querySelector('.ni-hand')).toBeNull();
+}
+
+const card = (root: HTMLElement, v: number) =>
+  root.querySelector(`.ni-pick[data-id="opt-${v}"]`) as HTMLElement;
+const checkButton = (root: HTMLElement) => within(root).getByRole('button', { name: 'Check' });
+
+const padInvite: WidgetDemo = createDemoController({ strict: true });
+
+/**
+ * Invite `answer {value: 6}` on the pictorial pad item (K), before any digit: the ring and Pip's
+ * hand go on the 6 key (Check cannot be pressed yet). A wrong digit moves them to backspace, then
+ * back to 6; once 6 is in, they move to the now-enabled Check.
+ */
+export const InviteAnswerPad: Story = {
+  globals: { ageMode: 'k' },
+  args: { config: fishPicture, tier: 'pictorial', demo: padInvite },
+  play: async ({ canvasElement, args }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    padInvite.invite({ op: 'answer', args: { value: 6 } });
+    await expectCueOn(root, key(root, '6'));
+    await expect(checkButton(root)).toBeDisabled();
+    await expect(checkButton(root)).not.toHaveClass('ni-invite');
+    await userEvent.click(key(root, '5'));
+    await expectCueOn(root, key(root, 'back'));
+    await userEvent.click(key(root, 'back'));
+    await expectCueOn(root, key(root, '6'));
+    await userEvent.click(key(root, '6'));
+    await expectCueOn(root, checkButton(root));
+    await userEvent.click(checkButton(root));
+    await expect(args.onResponse).toHaveBeenCalledWith({ kind: 'number', value: 6 });
+  },
+};
+
+const pickInvite: WidgetDemo = createDemoController({ strict: true });
+
+/**
+ * Pick input: an `answer {value: 5}` invite points at the 5 card, stays there through a wrong pick
+ * (and a tap on the picture), then moves to Check once 5 is picked.
+ */
+export const InviteAnswerPick: Story = {
+  args: { config: withDistractors, demo: pickInvite },
+  play: async ({ canvasElement }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    pickInvite.invite({ op: 'answer', args: { value: 5 } });
+    await expectCueOn(root, card(root, 5));
+    await userEvent.click(card(root, 8));
+    await expectCueOn(root, card(root, 5));
+    await expect(checkButton(root)).toBeEnabled();
+    await userEvent.click(obj(root, 0));
+    await expectCueOn(root, card(root, 5));
+    await userEvent.click(card(root, 5));
+    await expectCueOn(root, checkButton(root));
+  },
+};
+
+const countFirstInvite: WidgetDemo = createDemoController({ strict: true });
+
+/**
+ * Concrete, `input: 'auto'` (K): the numeral tray only appears once every leaf is counted, so an
+ * `answer {value: 7}` invite first points at the next leaf to count, following each tap, then at
+ * the 7 card, then at Check.
+ */
+export const InviteAnswerCountFirst: Story = {
+  globals: { ageMode: 'k' },
+  args: { demo: countFirstInvite },
+  play: async ({ canvasElement, args }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    countFirstInvite.invite({ op: 'answer', args: { value: 7 } });
+    for (let i = 0; i < 7; i++) {
+      await expectCueOn(root, obj(root, i));
+      await userEvent.click(obj(root, i));
+    }
+    await waitFor(() => expect(tray(root)).toHaveAttribute('data-shown', 'true'));
+    await expectCueOn(root, card(root, 7));
+    await userEvent.click(card(root, 7));
+    await expectCueOn(root, checkButton(root));
+    await userEvent.click(checkButton(root));
+    await expect(args.onResponse).toHaveBeenCalledWith({ kind: 'number', value: 7 });
+  },
+};
+
+/** A story harness: the widget starts `disabled` (the runner busy); a button gives input back. */
+function EnableLater(args: WidgetHostProps) {
+  const [disabled, setDisabled] = useState(true);
+  return (
+    <div className="story-widget-stage">
+      <WidgetHost {...args} disabled={disabled} />
+      <button type="button" onClick={() => setDisabled(false)}>
+        Enable input (story harness)
+      </button>
+    </div>
+  );
+}
+
+const heldInvite: WidgetDemo = createDemoController({ strict: true });
+
+/**
+ * Ordinal example while the widget is disabled (K): Pip counts to six, then invites `ring
+ * {index: 6}`. The seventh shell is a disabled button, so no ring and no hand show. The invite is
+ * kept: once input is back it rings the seventh shell; ringing it moves the cue to Check, and
+ * ringing the wrong shell moves it back.
+ */
+export const InviteHeldWhileDisabled: Story = {
+  globals: { ageMode: 'k' },
+  args: { config: ordinalShells, demo: heldInvite },
+  render: (args) => <EnableLater {...args} />,
+  play: async ({ canvasElement, args }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    await heldInvite.play({ op: 'count-aloud', args: { upTo: 6 } });
+    heldInvite.invite({ op: 'ring', args: { index: 6 } });
+    await expect(obj(root, 6)).toBeDisabled();
+    await expectNoCue(root);
+    await userEvent.click(within(canvasElement).getByRole('button', { name: /Enable input/ }));
+    await expectCueOn(root, obj(root, 6));
+    await userEvent.click(obj(root, 6));
+    await expectCueOn(root, checkButton(root));
+    await userEvent.click(obj(root, 5));
+    await expectCueOn(root, obj(root, 6));
+    await userEvent.click(obj(root, 6));
+    await userEvent.click(checkButton(root));
+    await expect(args.onResponse).toHaveBeenCalledWith({ kind: 'choice', id: 'obj-6' });
+  },
+};
+
+// ---------- container-relative ordinal rows (06 §1: 960 × 600 minimum, 800 × 1280) ----------
+
+/**
+ * The workshop's widget area at a viewport (WorkshopFrame): the width less the frame's 2 × 24 px
+ * padding and the stage's 2 × 3 px border; the height is the 06 §2 minimum, 60 % of the screen
+ * over that width, less the border. 1280 × 800 → 1226 × 493, 960 × 600 → 906 × 373,
+ * 800 × 1280 → 746 × 812.
+ */
+function widgetArea(vw: number, vh: number) {
+  const outer = vw - 2 * 24;
+  return { w: outer - 2 * 3, h: Math.ceil((0.6 * vw * vh) / outer) - 2 * 3 };
+}
+
+/** Renders the widget in a fixed host box the size of `parameters.area`. */
+function renderInArea(
+  args: WidgetHostProps,
+  { parameters }: { parameters: Record<string, unknown> },
+) {
+  const area = parameters.area as { w: number; h: number };
+  return (
+    <div
+      className="story-host-box"
+      style={{
+        boxSizing: 'border-box',
+        display: 'grid',
+        placeItems: 'center',
+        width: area.w,
+        height: area.h,
+        maxWidth: 'none',
+        outline: '2px dashed var(--color-sand-deep)',
+        background: 'rgb(255 250 240 / 0.55)',
+      }}
+    >
+      <WidgetHost {...args} />
+    </div>
+  );
+}
+
+/** Object ids per drawn row (top to bottom), each row left to right. */
+function rowsOf(root: HTMLElement): string[][] {
+  const rows = new Map<number, { x: number; id: string }[]>();
+  for (const o of objects(root)) {
+    const r = o.getBoundingClientRect();
+    const top = Math.round(r.top);
+    const at = [...rows.keys()].find((k) => Math.abs(k - top) < 4) ?? top;
+    rows.set(at, [...(rows.get(at) ?? []), { x: r.left, id: o.dataset.obj ?? '' }]);
+  }
+  return [...rows.entries()]
+    .sort(([a], [b]) => a - b)
+    .map(([, row]) => row.sort((a, b) => a.x - b.x).map((o) => o.id));
+}
+const ids = (from: number, to: number) =>
+  Array.from({ length: to - from + 1 }, (_, i) => `obj-${from + i}`);
+
+/**
+ * The start marker, the board, every target and Check sit inside the host box (and the widget);
+ * every target keeps the age mode's size and the 12 px gaps.
+ */
+async function expectOrdinalInArea(root: HTMLElement, ageMode: 'k' | 'g1-up') {
+  await settle(root);
+  const box = (root.closest('.story-host-box') as HTMLElement).getBoundingClientRect();
+  const widget = root.getBoundingClientRect();
+  const inside = async (el: Element, what: string) => {
+    const r = el.getBoundingClientRect();
+    for (const b of [box, widget]) {
+      await expect(r.left, `${what} left`).toBeGreaterThanOrEqual(b.left - 0.5);
+      await expect(r.right, `${what} right`).toBeLessThanOrEqual(b.right + 0.5);
+      await expect(r.top, `${what} top`).toBeGreaterThanOrEqual(b.top - 0.5);
+      await expect(r.bottom, `${what} bottom`).toBeLessThanOrEqual(b.bottom + 0.5);
+    }
+  };
+  const picture = root.querySelector('.ni-tapc__picture') as HTMLElement;
+  await inside(picture, 'board');
+  await inside(within(root).getByRole('img', { name: 'Start here' }), 'start marker');
+  for (const o of objects(root)) await inside(o, o.dataset.obj ?? 'object');
+  await inside(checkButton(root), 'Check');
+  // The objects sit on the board, inside its border.
+  const set = (root.querySelector('.ni-tapc__set') as HTMLElement).getBoundingClientRect();
+  const board = picture.getBoundingClientRect();
+  await expect(set.left).toBeGreaterThanOrEqual(board.left + 3);
+  await expect(set.right).toBeLessThanOrEqual(board.right - 3);
+  await expect(objects(root)).toHaveLength(10);
+  for (const o of objects(root)) await expectTargetSize(o, ageMode);
+  await expectTargetGaps(objects(root));
+}
+
+/** The start marker comes before the first row, level with it, on the counting side. */
+async function expectCueBeforeFirstRow(
+  root: HTMLElement,
+  first: HTMLElement,
+  from: 'left' | 'right',
+) {
+  const cue = within(root).getByRole('img', { name: 'Start here' }).getBoundingClientRect();
+  const o = first.getBoundingClientRect();
+  if (from === 'left') await expect(cue.right).toBeLessThanOrEqual(o.left);
+  else await expect(cue.left).toBeGreaterThanOrEqual(o.right);
+  const mid = (cue.top + cue.bottom) / 2;
+  await expect(mid).toBeGreaterThanOrEqual(o.top);
+  await expect(mid).toBeLessThanOrEqual(o.bottom);
+}
+
+/**
+ * CNT.15.t1 (K) at the 1280 × 800 baseline (widget area 1226 × 493): unchanged, one row of ten
+ * 80 px shells with Check under it.
+ */
+export const OrdinalKTablet: Story = {
+  globals: { ageMode: 'k' },
+  args: { config: ordinalShells },
+  parameters: { area: widgetArea(1280, 800), ui: { stage: 'flush' } },
+  render: renderInArea,
+  play: async ({ canvasElement }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    await waitFor(() => expect(rowsOf(root)).toEqual([ids(0, 9)]));
+    await expect(root).toHaveAttribute('data-arrange', 'stack');
+    for (const o of objects(root)) {
+      await expect(Math.round(o.getBoundingClientRect().width)).toBe(80);
+    }
+    await expectOrdinalInArea(root, 'k');
+    await expectCueBeforeFirstRow(root, obj(root, 0), 'left');
+  },
+};
+
+/**
+ * CNT.15.t1 (K) at the 960 × 600 minimum (widget area 906 × 373): ten 80 px targets cannot share
+ * a row, so the row wraps 5 + 5 in reading order, the start marker before the first row, Check
+ * beside. Counting along still answers `choice obj-6`.
+ */
+export const OrdinalKMinLandscape: Story = {
+  globals: { ageMode: 'k' },
+  args: { config: ordinalShells },
+  parameters: { area: widgetArea(960, 600) },
+  render: renderInArea,
+  play: async ({ canvasElement, args }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    await waitFor(() => expect(rowsOf(root)).toEqual([ids(0, 4), ids(5, 9)]));
+    // Both rows start at the left, one under the other.
+    const left = (i: number) => obj(root, i).getBoundingClientRect().left;
+    await expect(Math.abs(left(5) - left(0))).toBeLessThan(1);
+    await expectOrdinalInArea(root, 'k');
+    await expectCueBeforeFirstRow(root, obj(root, 0), 'left');
+    for (let i = 0; i < 7; i++) await userEvent.click(obj(root, i));
+    await expect(marks(root)).toEqual([1, 2, 3, 4, 5, 6, 7]);
+    await expectBadgesOffObjects(root);
+    await expectOrdinalInArea(root, 'k');
+    await userEvent.click(checkButton(root));
+    await expect(args.onResponse).toHaveBeenCalledWith({ kind: 'choice', id: 'obj-6' });
+  },
+};
+
+/** CNT.15.t1 (K) in 800 × 1280 portrait (widget area 746 × 812): 5 + 5, Check under the rows. */
+export const OrdinalKPortrait: Story = {
+  globals: { ageMode: 'k' },
+  args: { config: ordinalShells },
+  parameters: { area: widgetArea(800, 1280) },
+  render: renderInArea,
+  play: async ({ canvasElement }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    await waitFor(() => expect(rowsOf(root)).toEqual([ids(0, 4), ids(5, 9)]));
+    await expectOrdinalInArea(root, 'k');
+    await expectCueBeforeFirstRow(root, obj(root, 0), 'left');
+    const set = (root.querySelector('.ni-tapc__set') as HTMLElement).getBoundingClientRect();
+    await expect(checkButton(root).getBoundingClientRect().top).toBeGreaterThan(set.bottom);
+  },
+};
+
+/**
+ * Counted from the right, in portrait (K): the first row holds the five shells counted first,
+ * right-aligned next to the start marker (obj-9 first), the next five under them.
+ */
+export const OrdinalKFromRightPortrait: Story = {
+  globals: { ageMode: 'k' },
+  args: { config: { ...ordinalShells, ordinal: { k: 3, from: 'right' } } },
+  parameters: { area: widgetArea(800, 1280) },
+  render: renderInArea,
+  play: async ({ canvasElement, args }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    await waitFor(() => expect(rowsOf(root)).toEqual([ids(5, 9), ids(0, 4)]));
+    const right = (i: number) => obj(root, i).getBoundingClientRect().right;
+    await expect(Math.abs(right(4) - right(9))).toBeLessThan(1);
+    await expectOrdinalInArea(root, 'k');
+    await expectCueBeforeFirstRow(root, obj(root, 9), 'right');
+    await userEvent.click(obj(root, 7));
+    await userEvent.click(checkButton(root));
+    await expect(args.onResponse).toHaveBeenCalledWith({ kind: 'choice', id: 'obj-7' });
   },
 };

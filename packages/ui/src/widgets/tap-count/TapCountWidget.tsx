@@ -1,6 +1,6 @@
 import { formatModel } from '@number-island/engine';
 import type { WidgetAction } from '@number-island/shared';
-import { type CSSProperties, useMemo, useRef, useState } from 'react';
+import { type CSSProperties, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useInteractionTrace } from '../../interaction/trace';
 import { useNarrationText, useSpeech, useUiPreferences } from '../../preferences/UiProvider';
 import { ArrowIcon, CheckIcon, HandPointerIcon } from '../../primitives/icons';
@@ -49,18 +49,124 @@ import './tap-count.css';
  *
  * Demo ops (03 §5.5): `tap {index}`, `count-aloud {upTo}`, `ring {index}`, `say-total`, plus
  * `answer {value | id}`.
+ *
+ * Invites (03 §6.3) ring and point at the ONE control the child should press next, and only while
+ * that control is enabled (nothing shows while the widget is disabled; the invite is kept and
+ * shows once input is back): `tap` / `count-aloud` → the object (the next uncounted one);
+ * `ring` / `answer {id}` → that object, then Check once it is ringed; `answer {value}` and
+ * `say-total` → the next object to count while the tray is still hidden, then the next pad key
+ * (backspace after a wrong digit) or the right card, then Check. Answer and ring cues follow the
+ * child's taps.
+ *
+ * Layout is container-relative (06 §1): the widget measures its own width. A row of objects that
+ * cannot keep full-size targets in one row at that width wraps into rows in reading order (ten
+ * K shells at the 960 × 600 minimum: 5 + 5), the "start here" arrow before the first row.
  */
 
 const OPS = ['tap', 'count-aloud', 'ring', 'say-total', 'answer'] as const;
 const COUNT_MS = 650;
 
-// Ordinal layout budget, in px (tap-count.css). The whole widget must fit the workshop's widget
-// area (a 1200 px stage with 24 px padding, so ~1146 px inside) with room to spare on both sides.
+// Ordinal layout budget, in px (tap-count.css): at most this wide even when the widget area is
+// wider (the 1280 × 800 tablet's area is ~1146–1226 px), with room to spare on both sides.
 const ORDINAL_AREA_W = 1080;
 /** `.ni-tapc[data-mode="ordinal"]` side padding, the row card's padding + border, the cue gap. */
 const ORDINAL_CHROME_W = 2 * 16 + 2 * (20 + 3) + 16;
 /** The Check pill beside the row (G1+ shows its word; K is icon-only and narrower) + column gap. */
 const ORDINAL_CHECK_W = 200 + 56;
+/**
+ * The how-many budgets below (a ~1100 px widget area) assume the widget is at least this wide:
+ * the stacked picture's 1000 px set plus its card (2 × (28 + 3)) and the widget's 2 × 24 padding.
+ * A narrower widget takes the shortfall off every budget.
+ */
+const HOW_MANY_AREA_W = 1000 + 2 * (28 + 3) + 2 * 24;
+
+/** Where an invite points: one pressable control. */
+type Cue =
+  | { at: 'obj'; index: number }
+  | { at: 'key'; key: PadKey }
+  | { at: 'card'; value: number }
+  | { at: 'check' };
+
+/** The hand's fingertip (≈ 42 % across, 8 px down the 56 px hand) rests inside its target. */
+const HAND_TIP_X = 23.5;
+const HAND_TIP_Y = 8;
+const HAND_SIZE = 56;
+const HAND_EDGE = 10;
+
+/** `el`'s untransformed layout box relative to `root` (the invite pulse scales; offsets don't). */
+function offsetBox(el: HTMLElement, root: HTMLElement) {
+  let left = 0;
+  let top = 0;
+  let node: HTMLElement | null = el;
+  while (node && node !== root) {
+    left += node.offsetLeft;
+    top += node.offsetTop;
+    const parent = node.offsetParent as HTMLElement | null;
+    if (parent && parent !== root) {
+      left += parent.clientLeft;
+      top += parent.clientTop;
+    }
+    node = parent;
+  }
+  if (node !== root) {
+    const r = el.getBoundingClientRect();
+    const b = root.getBoundingClientRect();
+    return { left: r.left - b.left, top: r.top - b.top, width: r.width, height: r.height };
+  }
+  return { left, top, width: el.offsetWidth, height: el.offsetHeight };
+}
+
+/** The pressable element a cue points at. */
+function cueTarget(root: HTMLElement, cue: Cue): HTMLElement | null {
+  switch (cue.at) {
+    case 'obj':
+      return root.querySelector(`[data-obj="obj-${cue.index}"]`);
+    case 'key':
+      return root.querySelector(`.ni-pad__key[data-key="${cue.key}"]`);
+    case 'card':
+      return root.querySelector(`.ni-pick[data-id="opt-${cue.value}"]`);
+    case 'check':
+      return root.querySelector('.ni-tapc__check .ni-btn');
+  }
+}
+
+/** Invites that follow the child's input (the rest are done once the child acts). */
+const followsInput = (inv: WidgetAction | null) =>
+  inv?.op === 'answer' || inv?.op === 'say-total' || inv?.op === 'ring';
+
+/**
+ * A one-row line layout wrapped into `rows` rows in reading order. From the left, each row
+ * continues left to right under the one above; from the right, the first row holds the objects
+ * counted first (the rightmost) and every row is right-aligned, under the "start here" arrow's
+ * side. Spacing inside a row is kept.
+ */
+function wrapRow(layout: ObjectLayout, rows: number, from: 'left' | 'right'): ObjectLayout {
+  const slots = [...layout.objects].sort((a, b) => a.x - b.x);
+  if (from === 'right') slots.reverse();
+  const perRow = Math.ceil(slots.length / rows);
+  const base = (o: PlacedObject) => o.x - (1 - o.scale) / 2;
+  const chunks = Array.from({ length: rows }, (_, r) =>
+    slots.slice(r * perRow, (r + 1) * perRow),
+  ).filter((c) => c.length > 0);
+  const span = (c: PlacedObject[]) => {
+    const lo = Math.min(...c.map(base));
+    return { lo, hi: Math.max(...c.map((o) => base(o) + 1)) };
+  };
+  const width = Math.max(...chunks.map((c) => span(c).hi - span(c).lo));
+  const moved = new Map<PlacedObject, PlacedObject>();
+  chunks.forEach((c, r) => {
+    const { lo, hi } = span(c);
+    const shift = from === 'right' ? width - hi : -lo;
+    for (const o of c) moved.set(o, { ...o, x: o.x + shift, y: o.y + r * 1.2 });
+  });
+  return {
+    ...layout,
+    // Same order as before (obj-0 first), so focus order and keys are unchanged.
+    objects: layout.objects.map((o) => moved.get(o) ?? o),
+    width,
+    height: (chunks.length - 1) * 1.2 + layout.height,
+  };
+}
 
 /**
  * A count badge's footprint around its object's box, in px (tap-count.css `.ni-tapc__mark`): it
@@ -199,27 +305,87 @@ export function TapCountWidget({
   // "Start here" pebble: not a target, so it stays compact enough for a row of ten K targets.
   const cueSize = Math.min(64, Math.round(target * 0.9));
   const empty = baseLayout.objects.length === 0;
+  // The widget's own width (container-relative, 06 §1), measured before the first paint. Every
+  // budget below is capped by it; until it is known, the 1280 × 800 budgets apply.
+  const rootRef = useRef<HTMLDivElement | null>(null);
+  const [widgetW, setWidgetW] = useState<number | null>(null);
+  useLayoutEffect(() => {
+    const el = rootRef.current;
+    if (!el) return;
+    const measure = () => {
+      const w = Math.floor(el.getBoundingClientRect().width);
+      if (w > 0) setWidgetW(w);
+    };
+    measure();
+    if (typeof ResizeObserver === 'undefined') return;
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+  const ordinalAreaW = Math.min(ORDINAL_AREA_W, widgetW ?? ORDINAL_AREA_W);
+  const ordinalRowW = ordinalAreaW - ORDINAL_CHROME_W - cueSize;
+  const shortfall = Math.max(0, HOW_MANY_AREA_W - (widgetW ?? HOW_MANY_AREA_W));
+  const stackW = 1000 - shortfall;
+  const from = config.ordinal?.from ?? 'left';
+  // A single line of objects that cannot keep full-size targets in one row at this width wraps
+  // into as few rows as fit (ten K targets in a 906 px widget: 5 + 5), in reading order.
+  const rowLimit = ordinal ? ordinalRowW : stackW;
+  const wrapRows = (() => {
+    if (config.set.layout !== 'line' || baseLayout.height > 1 || baseLayout.frames.length > 0) {
+      return 1;
+    }
+    for (let rows = 1; rows < baseLayout.objects.length; rows++) {
+      const perRow = Math.ceil(baseLayout.objects.length / rows);
+      const w = rows === 1 ? baseLayout.width : (perRow - 1) * 1.12 + 1;
+      if (w * minCell <= rowLimit) return rows;
+    }
+    return baseLayout.objects.length;
+  })();
+  const fitLayout = useMemo(
+    () => (wrapRows > 1 ? wrapRow(baseLayout, wrapRows, ordinal ? from : 'left') : baseLayout),
+    [baseLayout, wrapRows, ordinal, from],
+  );
+  // Wrapped rows keep the size the one-row layout gets at 1280 × 800, so a narrower screen never
+  // draws bigger objects than a wide one.
+  const wrappedCap =
+    wrapRows > 1
+      ? Math.max(
+          minCell,
+          fitCell(
+            baseLayout,
+            ordinal ? ORDINAL_AREA_W - ORDINAL_CHROME_W - cueSize : 1000,
+            ordinal ? 360 : Math.max(120, 520 - answerH),
+            32,
+          ),
+        )
+      : Number.POSITIVE_INFINITY;
   const sizeFor = (set: ObjectLayout): { arrange: 'side' | 'stack'; cell: number } => {
     // Nothing to count: an empty dish centred above the answer.
     if (empty) return { arrange: 'stack', cell: 32 };
     if (ordinal) {
       // The row card (cue + objects) and Check side by side when the row still gets full-size
       // targets; otherwise Check sits centred under the row, which then takes the full width.
-      const rowW = ORDINAL_AREA_W - ORDINAL_CHROME_W - cueSize;
-      const sideFit = fitCell(set, rowW - ORDINAL_CHECK_W, 360, 32);
-      if (sideFit >= minCell && set.width * sideFit <= rowW - ORDINAL_CHECK_W) {
+      const sideW = ordinalRowW - ORDINAL_CHECK_W;
+      const sideFit = Math.min(wrappedCap, fitCell(set, sideW, 360, 32));
+      if (sideFit >= minCell && set.width * sideFit <= sideW) {
         return { arrange: 'side', cell: sideFit };
       }
-      return { arrange: 'stack', cell: Math.max(minCell, fitCell(set, rowW, 360, 32)) };
+      return {
+        arrange: 'stack',
+        cell: Math.max(minCell, Math.min(wrappedCap, fitCell(set, ordinalRowW, 360, 32))),
+      };
     }
     // Side by side (picture left, answer right) when both fit the ~1100 px widget area; otherwise
     // the picture spans the width above the answer. Either way the objects grow into the room left.
-    const sideW = 1100 - answerW - 240;
-    const sideCell = Math.max(minCell, fitCell(set, sideW, 340, 32));
+    const sideW = 1100 - answerW - 240 - shortfall;
+    const sideCell = Math.max(minCell, Math.min(wrappedCap, fitCell(set, sideW, 340, 32)));
     if (set.width * sideCell <= sideW) return { arrange: 'side', cell: sideCell };
     return {
       arrange: 'stack',
-      cell: Math.max(minCell, fitCell(set, 1000, Math.max(120, 520 - answerH), 32)),
+      cell: Math.max(
+        minCell,
+        Math.min(wrappedCap, fitCell(set, stackW, Math.max(120, 520 - answerH), 32)),
+      ),
     };
   };
   // A picture (P) keeps full-size objects; tap targets leave the 12 px gap between them.
@@ -227,10 +393,10 @@ export function TapCountWidget({
     objectsTappable ? Math.min(c, Math.floor(step * c - TARGET_GAP_PX)) : c;
   // Rows get a band for the count badges (any tier: Pip's demo marks pictures too). Spreading the
   // rows can shrink the cell, which needs a little more spread: settle in a few passes.
-  let layout = baseLayout;
+  let layout = fitLayout;
   let { arrange, cell } = sizeFor(layout);
   for (let pass = 0; pass < 4; pass++) {
-    const next = stretchRows(baseLayout, badgeRowStretch(baseLayout, cell, boxFor(cell)));
+    const next = stretchRows(fitLayout, badgeRowStretch(fitLayout, cell, boxFor(cell)));
     const sized = sizeFor(next);
     const settled = next === layout || sized.cell === cell;
     layout = next;
@@ -252,7 +418,7 @@ export function TapCountWidget({
     }
     const i = o.index;
     trace('tap', `obj-${i}`);
-    setInvite(null);
+    setInvite((inv) => (followsInput(inv) ? inv : null));
     if (ordinal) setRinged(i);
     if (!concrete) {
       if (speakOnTap) say(spriteNameKey(o.sprite));
@@ -272,7 +438,7 @@ export function TapCountWidget({
   const pick = (v: number) => {
     if (!interactive) return;
     trace('tap', `opt-${v}`);
-    setInvite(null);
+    setInvite((inv) => (followsInput(inv) ? inv : null));
     setPicked(v);
   };
 
@@ -280,7 +446,7 @@ export function TapCountWidget({
   const onKey = (key: PadKey) => {
     if (!interactive || key === '.') return;
     trace('tap', `key-${key}`);
-    setInvite(null);
+    setInvite((inv) => (followsInput(inv) ? inv : null));
     setPadText((s) => applyPadKey(s, key, maxDigits));
   };
 
@@ -392,19 +558,94 @@ export function TapCountWidget({
     invite: (action) => setInvite(action),
   });
 
-  const invitedObject = (() => {
-    if (!invite) return null;
-    if (invite.op === 'tap' || invite.op === 'ring') return indexArg(invite);
-    if (invite.op === 'count-aloud') {
+  // The invite's ONE target, shown only while it can be pressed: a disabled widget shows no cue
+  // (the invite is kept and appears once input is back). Answer and ring cues follow the input.
+  const canCheck = interactive && ready;
+  const cue: Cue | null = (() => {
+    if (!invite || !interactive) return null;
+    const check: Cue | null = canCheck ? { at: 'check' } : null;
+    const objectCue = (i: number | null): Cue | null =>
+      objectsTappable && i !== null && i >= 0 && i < n ? { at: 'obj', index: i } : null;
+    const nextUncounted = () => {
       for (let i = 0; i < n; i++) if (!taps.includes(i)) return i;
+      return null;
+    };
+    // Ring the k-th object, then Check once it is ringed.
+    const ringCue = (i: number | null) => (i !== null && ringed === i ? check : objectCue(i));
+    // Enter `target`: count first while the tray is hidden, then the next key or the card.
+    const valueCue = (target: number | null): Cue | null => {
+      if (ordinal) return null;
+      if (config.input === 'pad') {
+        const want = target === null ? null : String(target);
+        if (want === null || padText === want) return check;
+        if (want.startsWith(padText)) return { at: 'key', key: want[padText.length] as PadKey };
+        return { at: 'key', key: 'back' };
+      }
+      if (!trayShown) return objectCue(nextUncounted());
+      if (target === null || !trayValues.includes(target)) return check;
+      return picked === target ? check : { at: 'card', value: target };
+    };
+    switch (invite.op) {
+      case 'tap':
+        return objectCue(indexArg(invite));
+      case 'count-aloud':
+        return objectCue(nextUncounted());
+      case 'ring':
+        return ringCue(indexArg(invite));
+      case 'say-total':
+        return valueCue(n);
+      case 'answer': {
+        const id = typeof invite.args?.id === 'string' ? invite.args.id : null;
+        if (id !== null) {
+          const m = id.match(/^obj-(\d+)$/);
+          return ordinal && m ? ringCue(Number(m[1])) : null;
+        }
+        const v = invite.args?.value;
+        return valueCue(typeof v === 'number' && Number.isFinite(v) ? v : null);
+      }
+      default:
+        return null;
     }
-    if (invite.op === 'answer' && typeof invite.args?.id === 'string') {
-      const m = invite.args.id.match(/^obj-(\d+)$/);
-      return m ? Number(m[1]) : null;
-    }
-    return null;
   })();
-  const invitedAnswer = invite !== null && invitedObject === null;
+  const cueObject = cue?.at === 'obj' ? cue.index : null;
+  const cueKey = cue?.at === 'key' ? cue.key : null;
+  const cueCard = cue?.at === 'card' ? cue.value : null;
+  const cueId = cue ? `${cue.at}:${cueObject ?? cueKey ?? cueCard ?? ''}` : '';
+
+  // Pip's hand sits on the invited control, measured from the laid-out widget.
+  const [handAt, setHandAt] = useState<{ left: number; top: number } | null>(null);
+  // biome-ignore lint/correctness/useExhaustiveDependencies: cueId stands for the cue; the layout keys move it
+  useLayoutEffect(() => {
+    const root = rootRef.current;
+    const el = root && cue ? cueTarget(root, cue) : null;
+    if (!root || !el) {
+      setHandAt(null);
+      return;
+    }
+    const onObject = cue?.at === 'obj';
+    const place = () => {
+      const b = offsetBox(el, root);
+      // On an object: its lower middle (the top of the drawing stays visible). On a control: just
+      // right of centre, low on it (its label stays clear).
+      const tipX = b.left + b.width / 2 + (onObject ? 0 : 6);
+      const tipY = onObject
+        ? b.top + b.height * 0.58
+        : b.top + b.height - Math.min(18, b.height * 0.25);
+      // The whole hand stays inside the widget, with room for its tap bob (6 px left, 8 px down):
+      // near an edge it slides up or across, the fingertip still on the control.
+      const clamp = (v: number, max: number) => Math.max(HAND_EDGE, Math.min(v, max));
+      setHandAt({
+        left: clamp(tipX - HAND_TIP_X, root.clientWidth - HAND_SIZE - HAND_EDGE),
+        top: clamp(tipY - HAND_TIP_Y, root.clientHeight - HAND_SIZE - HAND_EDGE),
+      });
+    };
+    place();
+    if (typeof ResizeObserver === 'undefined') return;
+    const ro = new ResizeObserver(place);
+    ro.observe(root);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [cueId, cell, arrange, wrapRows]);
 
   // ---------- render ----------
 
@@ -427,7 +668,7 @@ export function TapCountWidget({
         </span>
       ) : null;
     const isRinged = isObject && ringed === o.index;
-    const invited = isObject && invitedObject === o.index;
+    const invited = isObject && cueObject === o.index;
     const tappable = objectsTappable && (isObject || concrete);
     if (!tappable) {
       return (
@@ -471,20 +712,15 @@ export function TapCountWidget({
             <CheckIcon tone="light" />
           </span>
         ) : null}
-        {invited ? (
-          <span className="ni-hand ni-tapc__hand">
-            <HandPointerIcon />
-          </span>
-        ) : null}
       </button>
     );
   };
 
-  const from = config.ordinal?.from ?? 'left';
   const firstRowTop = Math.min(...layout.objects.map((o) => o.y), 0);
 
   return (
     <div
+      ref={rootRef}
       className="ni-tapc"
       data-tier={tier}
       data-mode={ordinal ? 'ordinal' : 'how-many'}
@@ -525,7 +761,7 @@ export function TapCountWidget({
       <div className="ni-tapc__answer">
         {config.input === 'pad' && !ordinal ? (
           <div className="ni-tapc__pad">
-            <span className={invitedAnswer ? 'ni-tapc__slot ni-invite' : 'ni-tapc__slot'}>
+            <span className="ni-tapc__slot">
               <NumberDisplay
                 value={padText === '' ? null : padText}
                 digits={maxDigits}
@@ -538,21 +774,20 @@ export function TapCountWidget({
               onKey={onKey}
               onEnter={submit}
               disabled={!interactive}
-              highlighted={pressedKey}
+              highlighted={pressedKey ?? cueKey}
             />
           </div>
         ) : null}
         {config.input !== 'pad' && !ordinal ? (
           <div
-            className={['ni-tapc__tray', invitedAnswer ? 'ni-invite' : '']
-              .filter(Boolean)
-              .join(' ')}
+            className="ni-tapc__tray"
             data-shown={trayShown ? 'true' : 'false'}
             inert={!trayShown}
           >
             <NumeralTray
               values={trayValues}
               selected={picked}
+              highlighted={cueCard}
               onPick={pick}
               disabled={!interactive || !trayShown}
               columns={trayCols}
@@ -560,14 +795,18 @@ export function TapCountWidget({
           </div>
         ) : null}
         <span className="ni-tapc__check">
-          <CheckButton onPress={submit} disabled={!interactive || !ready} />
-          {invitedAnswer ? (
-            <span className="ni-hand ni-tapc__check-hand">
-              <HandPointerIcon />
-            </span>
-          ) : null}
+          <CheckButton onPress={submit} disabled={!canCheck} invited={cue?.at === 'check'} />
         </span>
       </div>
+      {handAt ? (
+        <span
+          className="ni-hand ni-tapc__hand"
+          aria-hidden="true"
+          style={{ left: handAt.left, top: handAt.top }}
+        >
+          <HandPointerIcon />
+        </span>
+      ) : null}
     </div>
   );
 }
