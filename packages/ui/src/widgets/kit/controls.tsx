@@ -145,7 +145,7 @@ export function NumeralTray({
   // not a bigger target than "9".
   const digits = Math.max(1, ...values.map((v) => String(v).length));
   const cardWidth = `max(calc(var(--target-min) * 1.15), ${digits * 30 + 40}px)`;
-  // Balanced rows: the fewest rows that fit the tray's own content width, with the cards split as
+  // Balanced rows: the fewest rows that fit the tray's own (fractional) content width, with the cards split as
   // evenly as possible (0–10 → 6 + 5, 0–20 at 680 px → 6 + 5 + 5 + 5). The cards stay ONE flat,
   // stably keyed list (a reflow never remounts a card, so keyboard focus survives); zero-size
   // line breaks between them end each row.
@@ -157,13 +157,18 @@ export function NumeralTray({
     const measure = () => {
       const card = el.querySelector<HTMLElement>('.ni-pick');
       const style = getComputedStyle(el);
+      // Fractional widths (getBoundingClientRect), as flex wrapping itself uses: clientWidth and
+      // offsetWidth round, and a rounded-up width would plan one card too many per row.
       const avail =
-        el.clientWidth -
+        el.getBoundingClientRect().width -
         (Number.parseFloat(style.paddingLeft) || 0) -
-        (Number.parseFloat(style.paddingRight) || 0);
+        (Number.parseFloat(style.paddingRight) || 0) -
+        (Number.parseFloat(style.borderLeftWidth) || 0) -
+        (Number.parseFloat(style.borderRightWidth) || 0);
       if (!card || avail <= 0) return;
       const gap = Number.parseFloat(style.columnGap) || 12;
-      const perRow = Math.max(1, Math.floor((avail + gap) / (card.offsetWidth + gap)));
+      const cardWidth = card.getBoundingClientRect().width;
+      const perRow = Math.max(1, Math.floor((avail + gap + 1e-6) / (cardWidth + gap)));
       setRowCount(Math.ceil(values.length / perRow));
     };
     measure();

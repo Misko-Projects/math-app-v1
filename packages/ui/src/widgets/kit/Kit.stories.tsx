@@ -249,22 +249,28 @@ export const NumberLineHiddenTerm: Story = {
   },
 };
 
-/**
- * A 0–20 tray in a padded 680 px box (584 px of content): balanced rows (5 + 4 + 4 + 4 + 4),
- * every card inside the tray. Narrowing the box reflows the rows without remounting any card,
- * so keyboard focus stays put.
- */
-export const TrayTwentyK: Story = {
-  globals: { ageMode: 'k' },
-  render: () => (
+function TrayTwenty() {
+  const [picked, setPicked] = useState<number | null>(null);
+  return (
     <div data-testid="box" style={{ width: 680, padding: '0 48px', boxSizing: 'border-box' }}>
       <NumeralTray
         values={Array.from({ length: 21 }, (_, i) => i)}
-        selected={null}
-        onPick={() => {}}
+        selected={picked}
+        onPick={setPicked}
       />
     </div>
-  ),
+  );
+}
+
+/**
+ * A 0–20 tray in a padded 680 px box (584 px of content): balanced rows (5 + 4 + 4 + 4 + 4),
+ * every card inside the tray. At a fractional 643.75 px box (547.75 px of content, 4 cards a
+ * row) the rows reflow to 4 + 4 + 4 + 3 + 3 + 3 without remounting any card, so keyboard focus
+ * stays put and Enter still picks the focused card.
+ */
+export const TrayTwentyK: Story = {
+  globals: { ageMode: 'k' },
+  render: () => <TrayTwenty />,
   play: async ({ canvasElement }) => {
     const tray = within(canvasElement).getByRole('group', { name: 'Numbers' });
     const rowsOf = () => {
@@ -275,23 +281,29 @@ export const TrayTwentyK: Story = {
       }
       return [...rows.values()];
     };
+    const expectInsideTray = async () => {
+      const t = tray.getBoundingClientRect();
+      for (const c of within(tray).getAllByRole('button')) {
+        const r = c.getBoundingClientRect();
+        await expect(r.left).toBeGreaterThanOrEqual(t.left - 0.5);
+        await expect(r.right).toBeLessThanOrEqual(t.right + 0.5);
+      }
+    };
     await waitFor(() => expect(rowsOf()).toEqual([5, 4, 4, 4, 4]));
-    const t = tray.getBoundingClientRect();
-    for (const c of within(tray).getAllByRole('button')) {
-      const r = c.getBoundingClientRect();
-      await expect(r.left).toBeGreaterThanOrEqual(t.left - 0.5);
-      await expect(r.right).toBeLessThanOrEqual(t.right + 0.5);
-    }
+    await expectInsideTray();
     await expectTargetGaps(within(tray).getAllByRole('button'));
-    // Focus survives a reflow: focus 5, narrow the box, the same button still has focus.
+    // Focus survives a reflow to a fractional content width: focus 5, narrow the box, wait for
+    // the balanced rows, and the same button still has focus and picks on Enter.
     const five = within(tray).getByRole('button', { name: '5' });
     five.focus();
-    (canvasElement.querySelector('[data-testid="box"]') as HTMLElement).style.width = '560px';
-    await waitFor(() => expect(rowsOf().length).toBe(6));
+    (canvasElement.querySelector('[data-testid="box"]') as HTMLElement).style.width = '643.75px';
+    await waitFor(() => expect(rowsOf()).toEqual([4, 4, 4, 3, 3, 3]));
+    await expectInsideTray();
     await expect(within(tray).getByRole('button', { name: '5' })).toBe(five);
     await expect(five).toHaveFocus();
-    await userEvent.keyboard('{Enter}');
     await expect(five).toHaveAttribute('aria-pressed', 'false');
+    await userEvent.keyboard('{Enter}');
+    await waitFor(() => expect(five).toHaveAttribute('aria-pressed', 'true'));
   },
 };
 
