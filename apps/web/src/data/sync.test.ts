@@ -115,6 +115,32 @@ describe('sync client: one sync', () => {
     expect(state.lastSyncAt).not.toBeNull();
   });
 
+  it('keeps the picture password on this device: never pushed, and not replaced by a pull', async () => {
+    const { store, env } = await pairedStore();
+    stores.push(store);
+    const id = '019a0000-0000-7000-8000-0000000ac0fe';
+    const mine = await store.putProfile({
+      ...profile(id, 'K', 'Mia'),
+      familyId: FAMILY,
+      picturePasswordHash: 'pbkdf2-sha256$1$c2FsdA$aGFzaA',
+    });
+    // Another device renamed the child (and, on an older build, sent its own hash).
+    const theirs = {
+      ...mine,
+      name: 'Mia R',
+      picturePasswordHash: 'pbkdf2-sha256$1$b3RoZXI$b3RoZXI',
+      updatedAt: env.clock.now() + 1,
+    };
+    const server = fakeServer(() => ({ profiles: [theirs] }));
+    await createSyncClient({ store, fetch: server.fetch }).syncNow();
+    const pushed = server.requests[0]?.body.profiles.find((p) => p.id === id);
+    expect(pushed?.name).toBe('Mia');
+    expect(pushed?.picturePasswordHash).toBeNull();
+    const local = (await store.allProfiles()).find((p) => p.id === id);
+    expect(local?.name).toBe('Mia R');
+    expect(local?.picturePasswordHash).toBe(mine.picturePasswordHash);
+  });
+
   it('loops until the push queue and the pull are drained, carrying the cursor', async () => {
     const { store } = await pairedStore();
     stores.push(store);

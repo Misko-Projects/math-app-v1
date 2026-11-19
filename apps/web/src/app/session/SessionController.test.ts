@@ -21,6 +21,7 @@ import {
   type CheckpointStorage,
   type PageVisibility,
   SessionController,
+  type SessionLocks,
   type SessionTimers,
   type WindDownReason,
 } from './SessionController';
@@ -68,6 +69,21 @@ function fakeVisibility() {
   };
 }
 
+/** Web Locks shared by the controllers of one test, like tabs of one browser profile. */
+function fakeLocks() {
+  const held = new Set<string>();
+  const locks: SessionLocks = {
+    async hold(name) {
+      held.add(name);
+      return () => void held.delete(name);
+    },
+    async isHeld(name) {
+      return held.has(name);
+    },
+  };
+  return { locks, held };
+}
+
 function memoryStorage(): CheckpointStorage & { map: Map<string, string> } {
   const map = new Map<string, string>();
   return {
@@ -85,7 +101,9 @@ afterEach(() => {
   for (const s of stores.splice(0)) s.close();
 });
 
-async function setup(opts: { child?: Partial<ChildSettings>; timezone?: string } = {}) {
+async function setup(
+  opts: { child?: Partial<ChildSettings>; timezone?: string; locks?: SessionLocks } = {},
+) {
   const env = testEnv();
   const store = await env.open();
   stores.push(store);
@@ -110,6 +128,7 @@ async function setup(opts: { child?: Partial<ChildSettings>; timezone?: string }
       timers: timers.timers,
       visibility: vis.visibility,
       storage,
+      locks: opts.locks ?? null,
     });
     controllers.push(c);
     return c;
@@ -170,22 +189,44 @@ describe('local time and quiet hours', () => {
     expect(inQuietHours(at(9), null, tz)).toBe(false);
   });
 
+  const ended = (ts: number, childId: string, activeMs: number, sessionId: string) =>
+    ({
+      type: 'session.ended',
+      ts,
+      childId,
+      payload: { sessionId, reason: 'wind-down', activeMs, mathMs: 0, items: 0 },
+    }) as unknown as AnyEventEnvelope;
+  const started = (ts: number, childId: string, sessionId: string) =>
+    ({
+      type: 'session.started',
+      ts,
+      childId,
+      payload: { sessionId, budgetMinutes: 10, trigger: 'child' },
+    }) as unknown as AnyEventEnvelope;
+
   it('counts the played time of the local day only, per child', () => {
-    const ev = (ts: number, childId: string, activeMs: number) =>
-      ({
-        type: 'session.ended',
-        ts,
-        childId,
-        payload: { sessionId: 's', reason: 'wind-down', activeMs, mathMs: 0, items: 0 },
-      }) as unknown as AnyEventEnvelope;
     const events = [
-      ev(T0, CHILD_K, 5 * MIN),
-      ev(Date.UTC(2026, 10, 18, 3), CHILD_K, 7 * MIN), // 21:00 on the 17th in Chicago
-      ev(T0, CHILD_G2, 9 * MIN),
-      ev(T0, CHILD_K.toUpperCase(), MIN),
+      ended(T0, CHILD_K, 5 * MIN, 's1'),
+      ended(Date.UTC(2026, 10, 18, 3), CHILD_K, 7 * MIN, 's2'), // 21:00 on the 17th in Chicago
+      ended(T0, CHILD_G2, 9 * MIN, 's3'),
+      ended(T0, CHILD_K.toUpperCase(), MIN, 's4'),
     ];
     expect(playedMsOnDay(events, CHILD_K, '2026-11-18', 'America/Chicago')).toBe(6 * MIN);
     expect(playedMsOnDay(events, CHILD_K, '2026-11-18', 'UTC')).toBe(13 * MIN);
+  });
+
+  it('counts a session on the day it started, once, with its largest time', () => {
+    const evening = Date.UTC(2026, 10, 18, 3); // 21:00 on the 17th in Chicago
+    const events = [
+      started(evening, CHILD_K, 'night'),
+      ended(T0, CHILD_K, 9 * MIN, 'night'), // closed as abandoned the next morning
+      started(T0, CHILD_K, 'TWO-TABS'),
+      ended(T0 + 2 * MIN, CHILD_K, 2 * MIN, 'two-tabs'), // another tab's abandoned close
+      ended(T0 + 5 * MIN, CHILD_K, 5 * MIN, 'two-tabs'), // the playing tab's own end
+    ];
+    const tz = 'America/Chicago';
+    expect(playedMsOnDay(events, CHILD_K, '2026-11-18', tz)).toBe(5 * MIN);
+    expect(playedMsOnDay(events, CHILD_K, '2026-11-17', tz)).toBe(9 * MIN);
   });
 });
 
@@ -429,6 +470,52 @@ describe('SessionController', () => {
       expect(await t.make().closeAbandoned()).toBe(1);
       const e2 = (await t.sessionEvents()).find((e) => e.type === 'session.ended');
       expect(e2?.payload).toMatchObject({ activeMs: 5_000 });
+    });
+
+    it('leaves a session another tab is playing alone, and it ends once', async () => {
+      const { locks, held } = fakeLocks();
+      const s = await setup({ child: { dailyCapMinutes: 30 }, locks });
+      await s.controller.start(CHILD_K); // tab A
+      s.advance(16_000); // a checkpoint is saved
+      expect(held.size).toBe(1);
+      const tabB = s.make();
+      expect(await tabB.closeAbandoned()).toBe(0);
+      s.advance(4_000);
+      await s.controller.end('child-exit'); // back in tab A: Home
+      expect(held.size).toBe(0);
+      const ends = (await s.sessionEvents()).filter((e) => e.type === 'session.ended');
+      expect(ends).toHaveLength(1);
+      expect(ends[0]?.payload).toMatchObject({ reason: 'child-exit', activeMs: 20_000 });
+      expect(await tabB.closeAbandoned()).toBe(0);
+      const day = localTime(s.env.clock.now(), 'America/Chicago').day;
+      expect(playedMsOnDay(await s.store.events(), CHILD_K, day, 'America/Chicago')).toBe(20_000);
+    });
+
+    it('closes a session once the tab holding it is gone', async () => {
+      const { locks, held } = fakeLocks();
+      const s = await setup({ locks });
+      await s.controller.start(CHILD_K);
+      s.advance(16_000);
+      s.controller.dispose(); // the tab closed: the browser releases its lock
+      expect(held.size).toBe(0);
+      expect(await s.make().closeAbandoned()).toBe(1);
+    });
+
+    it('charges a session recovered the next morning to the evening it was played', async () => {
+      const s = await setup({ child: { dailyCapMinutes: 10 } });
+      s.env.clock.set(Date.UTC(2026, 10, 18, 3)); // 21:00 on the 17th in Chicago
+      await s.controller.start(CHILD_K);
+      for (let t = 0; t < 570_000; t += 15_000) s.advance(15_000); // 9 min 30 s, checkpointed
+      s.controller.dispose(); // closed without pressing Home
+      s.env.clock.set(T0); // 09:00 the next morning
+      const next = s.make();
+      expect(await next.closeAbandoned()).toBe(1);
+      const ended = (await s.sessionEvents()).find((e) => e.type === 'session.ended');
+      expect(ended?.payload).toMatchObject({ reason: 'abandoned', activeMs: 570_000 });
+      expect(await next.canStart(CHILD_K)).toEqual({
+        ok: true,
+        budgetMinutes: Math.min(defaultChildSettings('K').sessionMinutes, 10),
+      });
     });
 
     it('leaves other devices’ sessions alone', async () => {

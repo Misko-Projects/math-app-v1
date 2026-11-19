@@ -114,6 +114,24 @@ describe('<ProfilePicker>', () => {
     expect(say).toHaveBeenCalledWith('ui.profile.who-is-playing', undefined);
   });
 
+  it('keeps the cards under Tap to start inert: a key press there starts nothing', async () => {
+    const { app, sayText, unlock } = await renderPicker();
+    const card = screen.getByRole('button', { name: 'Mia', hidden: true });
+    expect(card.closest('main')?.hasAttribute('inert')).toBe(true);
+    // jsdom doesn't enforce inert, so this also checks the picker's own guard.
+    await act(async () => {
+      fireEvent.click(card); // what Enter on a focused button dispatches
+    });
+    expect(sayText).not.toHaveBeenCalled();
+    expect(unlock).not.toHaveBeenCalled();
+    expect(await sessionEvents(app)).toEqual([]);
+    expect(screen.getByTestId('tap-to-start')).toBeTruthy();
+    await tapToStart();
+    expect(screen.getByRole('button', { name: 'Mia' }).closest('main')?.hasAttribute('inert')).toBe(
+      false,
+    );
+  });
+
   it('asks who is playing on entry when audio already runs (no overlay)', async () => {
     const device = testDevice();
     restore = device.enableLiveQueries();
@@ -240,6 +258,27 @@ describe('picture password pad', () => {
     await new Promise((r) => setTimeout(r, 420));
     await tapPictures('Crab', 'Kite', 'Sun');
     expect(await screen.findByTestId('child-home')).toBeTruthy();
+  });
+
+  it('a failed session start after the right pictures returns to the picker', async () => {
+    const { app } = await renderPicker({ leoPictures: ['crab', 'kite', 'sun'] });
+    await tapToStart();
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Leo' }));
+    });
+    await screen.findByTestId('picture-pad');
+    const covered = screen.getByRole('button', { name: 'Leo', hidden: true }).closest('main');
+    expect(covered?.hasAttribute('inert')).toBe(true);
+    const start = vi.spyOn(app.session, 'start').mockRejectedValueOnce(new Error('disk full'));
+    await tapPictures('Crab', 'Kite', 'Sun');
+    await waitFor(() => expect(start).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(screen.queryByTestId('picture-pad')).toBeNull());
+    expect(screen.queryByTestId('child-home')).toBeNull();
+    // The picker works again: Leo can try once more.
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Leo' }));
+    });
+    expect(await screen.findByTestId('picture-pad')).toBeTruthy();
   });
 
   it('the back button returns to the picker', async () => {

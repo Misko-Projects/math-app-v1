@@ -770,8 +770,13 @@ export async function createDataStore(opts: DataStoreOptions): Promise<DataStore
         let changed = 0;
         for (const p of valid) {
           if (deleted.has(childKey(p.id))) continue;
-          if (lwwWins(p, await db.profiles.get(p.id), source)) {
-            await db.profiles.put(p);
+          const local = await db.profiles.get(p.id);
+          if (lwwWins(p, local, source)) {
+            // The picture password is device-local (08 §3): a merged profile keeps this device's.
+            await db.profiles.put({
+              ...p,
+              picturePasswordHash: local?.picturePasswordHash ?? null,
+            });
             changed += 1;
           }
         }

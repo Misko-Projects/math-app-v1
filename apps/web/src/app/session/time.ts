@@ -84,8 +84,14 @@ export function isEventOf<T extends EventType>(
 }
 
 /**
- * Milliseconds the child played today (local `timeZone`): the `activeMs` of their `session.ended`
- * events whose time falls on today's local date. A session is counted on the day it ended.
+ * Milliseconds the child played on local `day` (in `timeZone`): the `activeMs` of their ended
+ * sessions that started on that date.
+ *
+ * - A session counts on the day it started, not the day its end was written: a session closed as
+ *   `abandoned` the next morning still belongs to the evening it was played.
+ * - Each session counts once, with the largest `activeMs` among its `session.ended` events (two
+ *   tabs could each have closed it; an `abandoned` end carries an older, smaller checkpoint).
+ * - An end whose `session.started` isn't in the log counts on the day of the end.
  */
 export function playedMsOnDay(
   events: readonly AnyEventEnvelope[],
@@ -93,11 +99,28 @@ export function playedMsOnDay(
   day: string,
   timeZone: string,
 ): number {
-  let total = 0;
+  const startedAt = new Map<string, number>();
+  const ends = new Map<string, { ts: number; activeMs: number }>();
+  // ts: the end's own time, used only when the session's start is missing.
   for (const e of events) {
-    if (!isEventOf(e, 'session.ended') || !sameId(e.childId, childId)) continue;
-    if (localTime(e.ts, timeZone).day !== day) continue;
-    total += e.payload.activeMs;
+    if (!sameId(e.childId, childId)) continue;
+    if (isEventOf(e, 'session.started')) {
+      const key = e.payload.sessionId.toLowerCase();
+      const seen = startedAt.get(key);
+      if (seen === undefined || e.ts < seen) startedAt.set(key, e.ts);
+    } else if (isEventOf(e, 'session.ended')) {
+      const key = e.payload.sessionId.toLowerCase();
+      const seen = ends.get(key);
+      if (!seen || e.payload.activeMs > seen.activeMs) {
+        ends.set(key, { ts: seen ? Math.min(seen.ts, e.ts) : e.ts, activeMs: e.payload.activeMs });
+      } else if (e.ts < seen.ts) {
+        seen.ts = e.ts;
+      }
+    }
+  }
+  let total = 0;
+  for (const [key, end] of ends) {
+    if (localTime(startedAt.get(key) ?? end.ts, timeZone).day === day) total += end.activeMs;
   }
   return total;
 }

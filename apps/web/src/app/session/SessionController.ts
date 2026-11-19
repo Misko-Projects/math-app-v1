@@ -5,7 +5,9 @@
 // - `start()` appends `session.started` with `budgetMinutes = min(sessionMinutes, cap left)`.
 // - Active time counts only while the page is visible. A checkpoint of it is saved to
 //   localStorage every 15 s (and whenever the page hides), so a session that never ended (the tab
-//   was closed, the tablet died) is closed at the next boot as `abandoned` with that time.
+//   was closed, the tablet died) is closed at the next boot as `abandoned` with that time. A
+//   running session holds a Web Lock, so another tab of the same browser never closes it.
+// - The daily cap counts each session once, on the local day it started (./time.ts).
 // - The wind-down signal fires once when the budget is used (`wind-down`), the daily cap is
 //   reached (`daily-cap`) or quiet hours begin (`quiet-hours`). The screen in charge (later the
 //   TaskRunner, I01/R01) lets the child finish the current item and then calls `end(reason)`
@@ -59,6 +61,44 @@ export interface PageVisibility {
 
 export type CheckpointStorage = Pick<Storage, 'getItem' | 'setItem' | 'removeItem'>;
 
+/**
+ * Cross-tab ownership of a running session. Tabs of one browser profile share the device id and
+ * the checkpoints, so without it a second tab would close the first tab's live session as
+ * abandoned. The browser releases a held lock when its tab closes or crashes.
+ */
+export interface SessionLocks {
+  /** Takes the lock `name` and resolves once it is held, with the function that releases it. */
+  hold(name: string): Promise<() => void>;
+  /** True while some tab of this browser profile holds `name`. */
+  isHeld(name: string): Promise<boolean>;
+}
+
+/** `navigator.locks` (Web Locks API) as SessionLocks; null where the browser lacks it. */
+export function webLocks(): SessionLocks | null {
+  const locks = typeof navigator === 'undefined' ? undefined : navigator.locks;
+  if (!locks) return null;
+  return {
+    hold(name) {
+      return new Promise<() => void>((resolveHeld, rejectHeld) => {
+        let release: () => void = () => {};
+        const released = new Promise<void>((r) => {
+          release = r;
+        });
+        locks
+          .request(name, () => {
+            resolveHeld(release);
+            return released;
+          })
+          .catch(rejectHeld);
+      });
+    },
+    async isHeld(name) {
+      const snapshot = await locks.query();
+      return (snapshot.held ?? []).some((lock) => lock.name === name);
+    },
+  };
+}
+
 export interface SessionCheckpoint {
   activeMs: number;
   mathMs: number;
@@ -74,6 +114,8 @@ export interface SessionControllerOptions {
   visibility?: PageVisibility;
   /** Where activity checkpoints go. Default `localStorage` (null: none). */
   storage?: CheckpointStorage | null;
+  /** Cross-tab session ownership. Default `webLocks()` (null: none, as in browsers without it). */
+  locks?: SessionLocks | null;
   newId?: () => string;
   /** How often the clock is checked against the budget, cap and quiet hours. */
   tickMs?: number;
@@ -89,6 +131,8 @@ export const CHECKPOINT_MS = 15_000;
 /** Less than a minute of the daily cap left counts as reached: no 20-second sessions. */
 export const MIN_SESSION_MINUTES = 1;
 export const CHECKPOINT_PREFIX = 'ni.session.';
+/** Web Lock name prefix: `ni.session.<sessionId>` is held while that session runs in some tab. */
+export const SESSION_LOCK_PREFIX = 'ni.session.';
 
 export function documentVisibility(): PageVisibility {
   return {
@@ -132,6 +176,8 @@ interface Running {
   playedBefore: { day: string; ms: number };
   tick: unknown;
   unsubscribeVisibility: () => void;
+  /** Releases this session's cross-tab lock (a no-op without locks). */
+  releaseLock: () => void;
 }
 
 export class SessionController {
@@ -140,6 +186,7 @@ export class SessionController {
   readonly #timers: SessionTimers;
   readonly #visibility: PageVisibility;
   readonly #storage: CheckpointStorage | null;
+  readonly #locks: SessionLocks | null;
   readonly #newId: () => string;
   readonly #tickMs: number;
   readonly #checkpointMs: number;
@@ -157,6 +204,7 @@ export class SessionController {
     this.#timers = opts.timers ?? (globalThis as unknown as SessionTimers);
     this.#visibility = opts.visibility ?? documentVisibility();
     this.#storage = opts.storage === undefined ? defaultStorage() : opts.storage;
+    this.#locks = opts.locks === undefined ? webLocks() : opts.locks;
     this.#newId = opts.newId ?? defaultNewId;
     this.#tickMs = opts.tickMs ?? SESSION_TICK_MS;
     this.#checkpointMs = opts.checkpointMs ?? CHECKPOINT_MS;
@@ -224,12 +272,22 @@ export class SessionController {
         trigger,
         startedAt: now,
       };
-      await this.#store.append(
-        'session.started',
-        { sessionId: session.sessionId, budgetMinutes: session.budgetMinutes, trigger },
-        { childId },
-      );
-      if (this.#disposed) return { ok: true as const, session };
+      // Held before the start is written, so no other tab ever sees this session unowned.
+      const releaseLock = await this.#holdLock(session.sessionId);
+      try {
+        await this.#store.append(
+          'session.started',
+          { sessionId: session.sessionId, budgetMinutes: session.budgetMinutes, trigger },
+          { childId },
+        );
+      } catch (e) {
+        releaseLock();
+        throw e;
+      }
+      if (this.#disposed) {
+        releaseLock();
+        return { ok: true as const, session };
+      }
       const visible = this.#visibility.visible();
       const running: Running = {
         session,
@@ -246,6 +304,7 @@ export class SessionController {
         playedBefore: plan.playedToday,
         tick: null,
         unsubscribeVisibility: () => {},
+        releaseLock,
       };
       this.#running = running;
       running.unsubscribeVisibility = this.#visibility.subscribe(() => this.#onVisibility());
@@ -335,11 +394,16 @@ export class SessionController {
     this.#saveCheckpoint(r);
     this.#publish();
     const payload = this.#payload(r, reason);
-    const event = await this.#store.append('session.ended', payload, {
-      childId: r.session.childId,
-    });
-    this.#removeCheckpoint(r.session.sessionId);
-    return event;
+    try {
+      const event = await this.#store.append('session.ended', payload, {
+        childId: r.session.childId,
+      });
+      this.#removeCheckpoint(r.session.sessionId);
+      return event;
+    } finally {
+      // Released only once the end is written (or failed, leaving the checkpoint for recovery).
+      r.releaseLock();
+    }
   }
 
   #payload(r: Running, reason: SessionEndReason): EventPayloads['session.ended'] {
@@ -368,6 +432,8 @@ export class SessionController {
         if (!isEventOf(e, 'session.started') || !sameId(e.deviceId, device.deviceId)) continue;
         const { sessionId } = e.payload;
         if (ended.has(sessionId) || this.#running?.session.sessionId === sessionId) continue;
+        // Another tab of this browser is still playing it: not abandoned.
+        if (await this.#lockHeldElsewhere(sessionId)) continue;
         ended.add(sessionId);
         const cp = this.#readCheckpoint(sessionId);
         const activeMs = Math.round(cp?.activeMs ?? 0);
@@ -402,6 +468,7 @@ export class SessionController {
       this.#bank(r);
       this.#saveCheckpoint(r);
       this.#stopTracking(r);
+      r.releaseLock();
     }
     this.#running = null;
     this.#snapshot = { status: 'idle' };
@@ -410,6 +477,34 @@ export class SessionController {
   }
 
   // ---------- internals ----------
+
+  /** Takes the session's cross-tab lock; without locks (or if taking it fails) a no-op release. */
+  async #holdLock(sessionId: string): Promise<() => void> {
+    if (!this.#locks) return () => {};
+    try {
+      const release = await this.#locks.hold(SESSION_LOCK_PREFIX + sessionId);
+      let done = false;
+      return () => {
+        if (done) return;
+        done = true;
+        release();
+      };
+    } catch (e) {
+      this.#onError('session.lock', e);
+      return () => {};
+    }
+  }
+
+  /** Whether another tab holds `sessionId`'s lock. If the check fails, assume it does (retry later). */
+  async #lockHeldElsewhere(sessionId: string): Promise<boolean> {
+    if (!this.#locks) return false;
+    try {
+      return await this.#locks.isHeld(SESSION_LOCK_PREFIX + sessionId);
+    } catch (e) {
+      this.#onError('session.lock', e);
+      return true;
+    }
+  }
 
   #serial<T>(fn: () => Promise<T>): Promise<T> {
     const run = this.#chain.then(fn, fn);

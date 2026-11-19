@@ -455,6 +455,12 @@ describe('profiles and settings (LWW per document)', () => {
     expect(await store.mergeProfiles([older, { junk: true }], { source: 'server' })).toBe(0);
     expect(await store.mergeProfiles([newer], { source: 'server' })).toBe(1);
     expect((await store.allProfiles()).find((p) => p.id === CHILD_K)).toEqual(newer);
+    // The picture password is device-local (08 §3): a merge keeps this device's (here, none).
+    const withHash = { ...newer, picturePasswordHash: 'pbkdf2-sha256$1$eA$eA', updatedAt: t + 2 };
+    expect(await store.mergeProfiles([withHash], { source: 'backup' })).toBe(1);
+    expect((await store.allProfiles()).find((p) => p.id === CHILD_K)?.picturePasswordHash).toBe(
+      null,
+    );
     // The grade moved from K to G1: the child's skills row and the goals row are rebuilt.
     const row = await store.db.projections.get(`skills:${CHILD_K}`);
     expect(row?.version).toMatch(/\|isK=0$/);

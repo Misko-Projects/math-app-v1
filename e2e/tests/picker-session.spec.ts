@@ -213,6 +213,27 @@ test('the picker, picture passwords and the session lifecycle', async ({ page })
     await expect.poll(async () => (await started(page)).length).toBe(2);
   });
 
+  await test.step('a second tab leaves the live session alone; it ends once', async () => {
+    // Leo is playing in this tab. Opening the app in another tab of the same browser closes only
+    // sessions no tab holds (Web Locks), so his stays open.
+    const ended = async () => (await sessionEvents(page)).filter((e) => e.type === 'session.ended');
+    expect(await ended()).toHaveLength(1);
+    const second = await page.context().newPage();
+    await second.goto('/');
+    await expect(second.getByTestId('tap-to-start')).toBeVisible();
+    await second.waitForTimeout(1000); // the picker's abandoned-session sweep has run
+    expect(await ended()).toHaveLength(1);
+    await second.close();
+
+    await page.getByRole('button', { name: 'Go home' }).click();
+    await expect(card(page, 'Leo')).toBeVisible();
+    await expect.poll(async () => (await ended()).length).toBe(2);
+    const leo = (await started(page))[1]?.payload.sessionId;
+    const ends = (await ended()).filter((e) => e.payload.sessionId === leo);
+    expect(ends).toHaveLength(1);
+    expect(ends[0]?.payload).toMatchObject({ reason: 'child-exit' });
+  });
+
   await test.step('during quiet hours the island rests and no session starts', async () => {
     // Keep this device's settings change local: syncing it would quiet Mia for every other spec.
     await page.route('**/api/sync', (route) => route.abort());

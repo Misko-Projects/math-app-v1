@@ -99,22 +99,33 @@ function PickerScreen() {
     void unlocking.then(() => say('ui.profile.who-is-playing'));
   };
 
+  // Never rejects: a failed session write (storage full, a child deleted by sync while the pad
+  // was open) returns to the picker, so the child can tap again rather than face a stuck pad.
   const begin = useCallback(
     async (child: ChildProfile) => {
-      const result = await session.start(child.id, 'child');
-      if (!mounted.current) return;
-      if (result.ok) {
-        navigate(`/play/${child.id}`);
-      } else {
+      try {
+        const result = await session.start(child.id, 'child');
+        if (!mounted.current) return;
+        if (result.ok) {
+          navigate(`/play/${child.id}`);
+        } else {
+          setSelected(null);
+          setPhase({ kind: 'resting', reason: result.reason });
+        }
+      } catch (e) {
+        recordDiagnostic('picker.start', e);
+        if (!mounted.current) return;
         setSelected(null);
-        setPhase({ kind: 'resting', reason: result.reason });
+        setPhase({ kind: 'pick' });
       }
     },
     [navigate, session],
   );
 
   const choose = async (child: ChildProfile) => {
-    if (busy.current) return;
+    // Only from the open picker: never under Tap to start (audio unlocks first, 06 §5) or an
+    // overlay. The covered cards are also inert, so they can't take focus or a key press.
+    if (busy.current || locked || phase.kind !== 'pick') return;
     busy.current = true;
     setSelected(child.id);
     try {
@@ -156,7 +167,7 @@ function PickerScreen() {
       <div className="absolute inset-0 bg-[linear-gradient(to_bottom,rgb(255_250_240/0.72),rgb(255_250_240/0.35)_55%,rgb(255_250_240/0.1))]" />
       <main
         className="relative flex h-full flex-col items-center gap-[clamp(1rem,4vh,2.5rem)] overflow-y-auto px-6 pt-[clamp(1.25rem,5vh,3rem)] pb-28"
-        aria-hidden={phase.kind !== 'pick' || locked ? true : undefined}
+        inert={phase.kind !== 'pick' || locked}
       >
         <div className="flex items-center gap-5">
           <h1 className="font-display text-[clamp(2.75rem,5.5vw,4.25rem)] leading-none font-extrabold tracking-tight text-ink [text-shadow:0_3px_0_#fff]">
