@@ -505,19 +505,20 @@ describe('mea.massvolume', () => {
   });
 
   it('feature values at the extremes', () => {
+    // The balance format model (U04, #13) adds its own format features; these are the math ones.
     expect(
       features('balance', { instrument: 'balance', unit: 'none', value: 1, value2: 9 }),
-    ).toEqual({
+    ).toMatchObject({
       closeness: 0.11,
       conflict: 0,
       equal: 0,
     });
     expect(
       features('balance', { instrument: 'balance', unit: 'none', value: 2, value2: 5, objects: 2 }),
-    ).toEqual({ closeness: 0.8, conflict: 1, equal: 0 });
+    ).toMatchObject({ closeness: 0.8, conflict: 1, equal: 0 });
     expect(
       features('balance', { instrument: 'balance', unit: 'none', value: 6, value2: 6 }),
-    ).toEqual({
+    ).toMatchObject({
       closeness: 1,
       conflict: 0,
       equal: 1,
