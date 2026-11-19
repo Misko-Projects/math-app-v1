@@ -1,0 +1,128 @@
+/*
+ * Art kit idle loops (05 §11: CSS/Motion idle animations such as smoke, flags, waves and
+ * blinking). Import after theme.css:
+ *
+ *   @import "@number-island/ui/art.css";
+ *
+ * Every loop here is also marked .motion-loop in the markup and is switched off under reduced
+ * motion (06 §7), both for the OS setting and for UiProvider's data-reduced-motion="true". The
+ * theme's own loops (--animate-bob, --animate-cloud, --animate-sway, --animate-smoke,
+ * --animate-flutter, --animate-blink, --animate-shimmer) stop through their tokens.
+ */
+
+.art-loop {
+  transform-box: fill-box;
+  transform-origin: center;
+}
+
+@keyframes art-drift {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-36px);
+  }
+}
+@keyframes art-drift-back {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(28px);
+  }
+}
+@keyframes art-foam {
+  0%,
+  100% {
+    opacity: 0.95;
+  }
+  50% {
+    opacity: 0.55;
+  }
+}
+@keyframes art-glint {
+  0%,
+  70%,
+  100% {
+    opacity: 0;
+    transform: scale(0.4);
+  }
+  80% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+/* The next-stone ring pulses by size only: it stays fully opaque so it keeps ≥ 3:1 (06 §7), and
+   1.05 is the peak scale the road reserves room for (RoadStone NEXT_RING.pulse). */
+@keyframes art-ring {
+  0%,
+  100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.05);
+  }
+}
+@keyframes art-hop {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-5px);
+  }
+}
+
+/* A slow turn (windmills, pinwheels, a turning star): rotate around the element's own centre. */
+@keyframes art-spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+.art-spin {
+  animation: art-spin 9s linear infinite;
+}
+
+.art-drift {
+  animation: art-drift 11s ease-in-out infinite alternate;
+}
+.art-drift-back {
+  animation: art-drift-back 15s ease-in-out infinite alternate;
+}
+.art-foam {
+  animation: art-foam 4.2s ease-in-out infinite;
+}
+.art-glint {
+  animation: art-glint 5.5s ease-out infinite;
+}
+.art-ring {
+  animation: art-ring 1.8s ease-in-out infinite;
+}
+.art-hop {
+  animation: art-hop 1.8s ease-in-out infinite;
+}
+
+/* 06 §7 reduced motion: no idle loops (these rules come after the loops above, so they win). */
+@media (prefers-reduced-motion: reduce) {
+  .art-drift,
+  .art-drift-back,
+  .art-foam,
+  .art-glint,
+  .art-ring,
+  .art-hop,
+  .art-spin {
+    animation: none;
+  }
+}
+[data-reduced-motion="true"] .art-drift,
+[data-reduced-motion="true"] .art-drift-back,
+[data-reduced-motion="true"] .art-foam,
+[data-reduced-motion="true"] .art-glint,
+[data-reduced-motion="true"] .art-ring,
+[data-reduced-motion="true"] .art-hop,
+[data-reduced-motion="true"] .art-spin {
+  animation: none;
+}

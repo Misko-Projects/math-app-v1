@@ -223,9 +223,14 @@ export const bondParts: GeneratorDef = {
       parts: unknown === 'whole' ? [part, other] : [part, '?'],
     };
     const overlay = tenFrameOverlay(whole, [part, other]);
+    // Every split widget asks for two nonzero parts (`nonZero: true`); both checkers do too.
     const splitAnswer =
       unknown === 'new-way'
-        ? { kind: 'state' as const, checker: 'bond.newWay' as const, target: { whole, found } }
+        ? {
+            kind: 'state' as const,
+            checker: 'bond.newWay' as const,
+            target: { whole, found, nonZero: true },
+          }
         : {
             kind: 'state' as const,
             checker: 'bond.split' as const,

@@ -18,7 +18,7 @@ import { generateItem, generateItemFromParams, itemFeatures } from '../../items/
 import { itemExampleCorrect, itemSolution, replaySteps } from '../../items/solution';
 import { createRng } from '../../rng';
 import { registry } from '..';
-import { estimateOptions } from '../estimate/quantity';
+import { estimateOptions, estimateRanks } from '../estimate/quantity';
 import { GenerationError } from '../types';
 import { lineFeatures, niceTick, placementAnswer } from './line';
 import { benchmarkPair, readingDistractors } from './place';
@@ -225,6 +225,24 @@ describe('numberline.place', () => {
     );
   });
 
+  it('number-pad on a bare line (CMP.09.t3): an estimate within 10% of the line is right', () => {
+    const t = tpl('numberline.place', 'number-pad', { representation: 'number-line' });
+    const item = make(t, line({ max: 100, ticksEvery: 0, labelsEvery: 0, target: 37 }));
+    expect(item.answer).toEqual({ kind: 'number', value: 37, tolerance: 10 });
+    expect(item.widget).toMatchObject({
+      stimulus: { kind: 'number-line', ticksEvery: null, marks: [{ at: 37, arrow: true }] },
+    });
+    expect(checkResponse(item, { kind: 'number', value: 45 }).correct).toBe(true);
+    expect(checkResponse(item, { kind: 'number', value: 50 }).correct).toBe(false);
+    expect(itemSolution(item, t).map((x) => x.say)).toEqual([
+      'gen.numberline.place.ends',
+      'gen.numberline.place.middle',
+      'gen.numberline.place.reads-about',
+    ]);
+    checkItem(t, item);
+    featuresStable(t, item);
+  });
+
   it('number-line-jump: hop by labels, then ticks', () => {
     const t = tpl('numberline.place', 'number-line-jump');
     const item = make(t, line({ max: 100, ticksEvery: 1, labelsEvery: 10, target: 23 }));
@@ -269,10 +287,42 @@ describe('numberline.place', () => {
 // ---------- estimate.quantity ----------
 
 describe('estimate.quantity', () => {
-  it('options: n to the nearest ten, about half and about double', () => {
+  it('options: n to the nearest ten, with halves and doubles of n around it', () => {
     expect(estimateOptions(20)).toEqual({ answer: 20, others: [10, 40] });
     expect(estimateOptions(47)).toEqual({ answer: 50, others: [20, 90] });
     expect(estimateOptions(200)).toEqual({ answer: 200, others: [100, 400] });
+    expect(estimateOptions(47, 'lowest')).toEqual({ answer: 50, others: [90, 190] });
+    expect(estimateOptions(80, 'highest')).toEqual({ answer: 80, others: [20, 40] });
+    // 20 has no two halves ≥ 10 that are 1.5× apart; 150 has no 0–500 line for 4n.
+    expect(estimateRanks(20)).toEqual(['lowest', 'middle']);
+    expect(estimateRanks(150)).toEqual(['middle', 'highest']);
+  });
+
+  it('numeral-pick: the answer is the lowest, middle or highest option (review: always middle)', () => {
+    const t = tpl('estimate.quantity', 'numeral-pick', { representation: 'dots' });
+    const ranks = new Set<number>();
+    for (let n = 20; n <= 100; n += 1) {
+      const perN = new Set<number>();
+      for (let seed = 0; seed < 24; seed += 1) {
+        const item = generateItemFromParams(t, { n, benchmarks: 0 }, { seed });
+        if (item.widget.format !== 'numeral-pick' || item.answer.kind !== 'choice') {
+          throw new Error('pick');
+        }
+        const values = item.widget.options.map((o) => Number(o.id.slice(4))).sort((a, b) => a - b);
+        const answer = Number(item.answer.id.slice(4));
+        // Unambiguous: three distinct options, neighbours ≥ 1.5× apart, so none is within the
+        // 25% estimate tolerance of another; the answer is n to the nearest ten.
+        expect(new Set(values).size).toBe(3);
+        expect(answer).toBe(estimateOptions(n).answer);
+        expect((values[1] as number) / (values[0] as number)).toBeGreaterThanOrEqual(1.5);
+        expect((values[2] as number) / (values[1] as number)).toBeGreaterThanOrEqual(1.5);
+        perN.add(values.indexOf(answer));
+      }
+      // Every n has at least two places the answer can take, and the seeds use them.
+      expect(perN.size, `n = ${n}`).toBeGreaterThanOrEqual(2);
+      for (const r of perN) ranks.add(r);
+    }
+    expect([...ranks].sort()).toEqual([0, 1, 2]);
   });
 
   it('dot-flash: a flashed group, correct within 25%', () => {
@@ -307,17 +357,51 @@ describe('estimate.quantity', () => {
     const item = make(t, { n: 33, benchmarks: 0 });
     expect(item.answer).toEqual({ kind: 'choice', id: 'opt-30' });
     if (item.widget.format !== 'numeral-pick') throw new Error('pick');
-    expect(item.widget.options.map((o) => o.id).sort()).toEqual(['opt-20', 'opt-30', 'opt-70']);
+    expect([
+      ['opt-10', 'opt-20', 'opt-30'],
+      ['opt-130', 'opt-30', 'opt-70'],
+      ['opt-20', 'opt-30', 'opt-70'],
+    ]).toContainEqual(item.widget.options.map((o) => o.id).sort());
     checkItem(t, item);
     const lt = tpl('estimate.quantity', 'numeral-pick', { representation: 'number-line' });
-    const lines = make(lt, { n: 80, benchmarks: 0 });
-    if (lines.widget.format !== 'numeral-pick') throw new Error('pick');
-    expect(
-      lines.widget.options.every(
-        (o) => o.stimulus?.kind === 'number-line' && o.stimulus.max === 200 && !o.label,
-      ),
-    ).toBe(true);
-    checkItem(lt, lines);
+    for (let seed = 0; seed < 8; seed += 1) {
+      const lines = generateItemFromParams(lt, { n: 80, benchmarks: 0 }, { seed });
+      if (lines.widget.format !== 'numeral-pick') throw new Error('pick');
+      // One line for all options: the shortest of 0–100, 0–200 and 0–500 that shows the largest.
+      const top = Math.max(...lines.widget.options.map((o) => Number(o.id.slice(4))));
+      const end = top <= 100 ? 100 : top <= 200 ? 200 : 500;
+      expect(
+        lines.widget.options.every(
+          (o) => o.stimulus?.kind === 'number-line' && o.stimulus.max === end && !o.label,
+        ),
+      ).toBe(true);
+      checkItem(lt, lines);
+    }
+  });
+
+  it('number-pad: the picture stays up; type about how many, within 25%', () => {
+    const t = tpl('estimate.quantity', 'number-pad', { representation: 'dots' });
+    const item = make(t, { n: 64, benchmarks: 10 });
+    expect(item.widget).toMatchObject({
+      format: 'number-pad',
+      stimulus: { kind: 'objects', set: { count: 64, sprite: 'dot', groups: [10, 54] } },
+      blanks: [{ id: 'n', maxDigits: 3 }],
+    });
+    expect(item.answer).toEqual({ kind: 'number', value: 64, tolerance: 16 });
+    expect(checkResponse(item, { kind: 'number', value: 50 }).correct).toBe(true);
+    expect(checkResponse(item, { kind: 'number', value: 80 }).correct).toBe(true);
+    expect(checkResponse(item, { kind: 'number', value: 40 }).correct).toBe(false);
+    expect(itemSolution(item, t).map((s) => s.say)).toEqual([
+      'gen.estimate.quantity.look',
+      'gen.estimate.quantity.reference',
+      'gen.estimate.quantity.about',
+    ]);
+    checkItem(t, item);
+    featuresStable(t, item);
+    // The pad is three digits wide for every n, so its size never hints at the answer.
+    const small = make(t, { n: 20, benchmarks: 0 });
+    expect(small.widget).toMatchObject({ blanks: [{ id: 'n', maxDigits: 3 }] });
+    checkItem(t, small);
   });
 
   it('number-line-place: where n goes on a bare 0–100 or 0–200 line', () => {

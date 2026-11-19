@@ -383,7 +383,11 @@ const BOND: Case[] = [
     name: 'number-bond new way 6',
     t: tpl('bond.parts', 'number-bond'),
     params: { whole: 6, unknown: 'new-way' },
-    answer: { kind: 'state', checker: 'bond.newWay', target: { whole: 6, found: [] } },
+    answer: {
+      kind: 'state',
+      checker: 'bond.newWay',
+      target: { whole: 6, found: [], nonZero: true },
+    },
     widget: { mode: 'new-way', found: [] },
   },
   {

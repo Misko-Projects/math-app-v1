@@ -77,19 +77,30 @@ describe('new ways (CPS.08)', () => {
     expect(item.answer).toEqual({
       kind: 'state',
       checker: 'bond.newWay',
-      target: { whole: 13, found: [[10, 3]] },
+      target: { whole: 13, found: [[10, 3]], nonZero: true },
     });
-    // The already-found way is not accepted again.
-    const again =
+    const state = (a: number, b: number) =>
       t.format === 'tenframe-fill'
-        ? {
-            cells: [10, 3].map((p) => Array.from({ length: 10 }, (_, i) => (i < p ? 1 : 0))),
-          }
+        ? { cells: [a, b].map((p) => Array.from({ length: 10 }, (_, i) => (i < p ? 1 : 0))) }
         : t.format === 'rekenrek'
-          ? { rows: [3, 10] }
-          : { parts: [3, 10] };
-    expect(checkResponse(item, { kind: 'state', value: again }).correct).toBe(false);
+          ? { rows: [b, a] }
+          : { parts: [b, a] };
+    // The already-found way is not accepted again.
+    expect(checkResponse(item, { kind: 'state', value: state(10, 3) }).correct).toBe(false);
     expect(steps.length).toBe(2);
+  });
+
+  it('a new way has two nonzero parts, as the widget says (review: [13, 0] was accepted)', () => {
+    const t = tpl('number-bond');
+    const { item } = build(t, { whole: 13, unknown: 'new-way', found: 1 });
+    expect(item.widget).toMatchObject({ mode: 'new-way', nonZero: true });
+    for (const parts of [
+      [13, 0],
+      [0, 13],
+    ]) {
+      expect(checkResponse(item, { kind: 'state', value: { parts } }).correct).toBe(false);
+    }
+    expect(checkResponse(item, { kind: 'state', value: { parts: [12, 1] } }).correct).toBe(true);
   });
 
   it('the number bond shows the found ways (mode.newWay grows with them)', () => {

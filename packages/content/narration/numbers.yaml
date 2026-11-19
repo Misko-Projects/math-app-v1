@@ -451,6 +451,11 @@ word.greater:
   text: "greater"
 word.less:
   text: "less"
+# where a number comes when you count (K01: CMP.02 hints)
+word.first:
+  text: "first"
+word.last:
+  text: "last"
 word.same:
   text: "same"
 word.left:

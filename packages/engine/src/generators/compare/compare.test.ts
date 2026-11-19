@@ -238,7 +238,72 @@ describe('compare.sets', () => {
   });
 });
 
+describe('compare.sets order (V27: constructed practice for CMP.01 and CMP.05)', () => {
+  const t = tpl('compare.sets', 'order', { representation: 'dots' });
+
+  it('three groups, fewest first or most first; cards have no numerals; the solution replays', () => {
+    const asc = make(t, { a: 7, b: 2, c: 5, ask: 'fewer' });
+    expect(asc.answer).toEqual({ kind: 'numbers', values: [2, 5, 7], ordered: true });
+    if (asc.widget.format !== 'order') throw new Error('order');
+    expect(asc.widget.direction).toBe('asc');
+    expect(asc.widget.items).toHaveLength(3);
+    for (const i of asc.widget.items) {
+      expect(i.label).toBeUndefined();
+      expect(i.stimulus).toMatchObject({ kind: 'objects', set: { count: i.value, sprite: 'dot' } });
+    }
+    const desc = make(t, { a: 7, b: 2, c: 5, ask: 'more' });
+    expect(desc.answer).toEqual({ kind: 'numbers', values: [7, 5, 2], ordered: true });
+    for (const item of [asc, desc]) {
+      checkItem(t, item);
+      featuresStable(t, item);
+    }
+    const frames = tpl('compare.sets', 'order', { representation: 'ten-frame' });
+    const f = make(frames, { a: 4, b: 9, c: 6, ask: 'fewer' });
+    if (f.widget.format !== 'order') throw new Error('order');
+    expect(f.widget.items.every((i) => i.stimulus?.kind === 'ten-frame')).toBe(true);
+    checkItem(frames, f);
+  });
+
+  it('with conflict the looks run against the counts', () => {
+    const objects = tpl('compare.sets', 'order', { representation: 'objects' });
+    const item = make(objects, { a: 8, b: 3, c: 5, ask: 'fewer', conflict: true });
+    if (item.widget.format !== 'order') throw new Error('order');
+    const look = (v: number) =>
+      item.widget.format === 'order'
+        ? item.widget.items.find((i) => i.value === v)?.stimulus
+        : undefined;
+    expect(look(3)).toMatchObject({ set: { layout: 'line', sizeVaries: true } });
+    expect(look(5)).toMatchObject({ set: { layout: 'line' } });
+    expect(look(5)).not.toMatchObject({ set: { sizeVaries: true } });
+    expect(look(8)).toMatchObject({ set: { layout: 'array', rows: 2 } });
+    expect(itemFeatures(item, objects).conflict).toBe(1);
+    checkItem(objects, item);
+  });
+
+  it('rejects two groups alike, a missing third group, and the cue on frames', () => {
+    expect(() => make(t, { a: 4, b: 4, c: 6, ask: 'fewer' })).toThrow(GenerationError);
+    expect(() => make(t, { a: 4, b: 6, c: 0, ask: 'fewer' })).toThrow(GenerationError);
+    expect(() => make(t, { a: 4, b: 6, c: 2, ask: 'same' })).toThrow(GenerationError);
+    const frames = tpl('compare.sets', 'order', { representation: 'ten-frame' });
+    expect(() => make(frames, { a: 4, b: 6, c: 2, ask: 'fewer', conflict: true })).toThrow(
+      GenerationError,
+    );
+  });
+});
+
 describe('MC.perceptual-size (perceptualSize)', () => {
+  it('order with the cue: orders the groups by their looks (the reverse order)', () => {
+    const o = tpl('compare.sets', 'order', { representation: 'objects' });
+    const asc = make(o, { a: 8, b: 3, c: 5, ask: 'fewer', conflict: true });
+    expect(perceptualSize.predict?.(asc)).toEqual({ kind: 'numbers', values: [8, 5, 3] });
+    expect(perceptualSize.match(asc, { kind: 'numbers', values: [8, 5, 3] })).toBe(true);
+    expect(checkResponse(asc, { kind: 'numbers', values: [8, 5, 3] }).correct).toBe(false);
+    const desc = make(o, { a: 8, b: 3, c: 5, ask: 'more', conflict: true });
+    expect(perceptualSize.predict?.(desc)).toEqual({ kind: 'numbers', values: [3, 5, 8] });
+    // Without the cue there is nothing to predict.
+    expect(perceptualSize.predict?.(make(o, { a: 8, b: 3, c: 5, ask: 'fewer' }))).toBeNull();
+  });
+
   const t = tpl('compare.sets', 'compare', { representation: 'objects' });
 
   it('predicts the bigger-looking side when asked for more', () => {
@@ -425,6 +490,21 @@ describe('compare.numbers', () => {
     expect(() => make(t, { a: 5, b: 5, extra: 1, x1: 2, min: 0, max: 20 })).toThrow(
       GenerationError,
     );
+    // A path card marks a place and keeps its numeral.
+    expect(asc.widget.items.every((i) => i.label === String(i.value))).toBe(true);
+  });
+
+  it('order on double ten-frames (CMP.07.t3): the frames are the cards, with no numeral', () => {
+    const t = tpl('compare.numbers', 'order', { representation: 'double-ten-frame' });
+    const item = make(t, { a: 17, b: 12, extra: 1, x1: 14, min: 11, max: 20, ask: 'fewer' });
+    expect(item.answer).toEqual({ kind: 'numbers', values: [12, 14, 17], ordered: true });
+    if (item.widget.format !== 'order') throw new Error('order');
+    for (const i of item.widget.items) {
+      expect(i.label).toBeUndefined();
+      expect(i.stimulus).toEqual({ kind: 'ten-frame', frames: 2, filled: [10, i.value - 10] });
+    }
+    checkItem(t, item);
+    featuresStable(t, item);
   });
 
   it('numeral-pick: the greatest or the least of three to five', () => {

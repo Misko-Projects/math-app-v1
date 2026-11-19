@@ -9,7 +9,8 @@
 //   way round: the numeral is given and each option is a line with an arrow ("which arrow shows 37?").
 //   Options are near misses one and two ticks away when the target sits on a tick, else a quarter
 //   and a half of the line away, so an estimate can tell them apart.
-// - number-pad: type the number at the arrow (the target is on a tick).
+// - number-pad: type the number at the arrow: exactly when the target is on a tick; on a line with
+//   no ticks (only the ends marked) an estimate within 10% of the line (READ_ESTIMATE_PCT).
 // - number-line-jump: hop from `min` to `target` by ticks and, when labels are sparser, by labels.
 // - order: put `target` and the two numbers around it in order (`benchmarks` apart, or the two ends
 //   when `benchmarks` is 0).
@@ -40,6 +41,9 @@ import {
 } from './line';
 
 const MODES = ['place', 'read', 'closer'] as const;
+
+/** A number read off a line with no ticks is an estimate: correct within this % of the line. */
+export const READ_ESTIMATE_PCT = 10;
 
 /** The line a param set describes. */
 export function lineOf(p: Record<string, unknown>): LineSpec {
@@ -158,6 +162,7 @@ export const numberlinePlace: GeneratorDef = {
     'gen.numberline.place.middle',
     'gen.numberline.place.drop',
     'gen.numberline.place.reads',
+    'gen.numberline.place.reads-about',
     'gen.numberline.place.benchmarks',
     'gen.numberline.place.closer',
     'gen.numberline.place.think',
@@ -197,7 +202,7 @@ export const numberlinePlace: GeneratorDef = {
       case 'numeral-pick':
         return readingDistractors(line, target) !== null;
       case 'number-pad':
-        return onTick(line, target);
+        return onTick(line, target) || line.ticksEvery === null;
       case 'number-line-jump':
         return (target - line.min) % jumpSizes(line).small === 0;
       case 'order':
@@ -290,7 +295,13 @@ export const numberlinePlace: GeneratorDef = {
             blanks: [{ id: 'n', maxDigits: String(Math.max(Math.abs(min), Math.abs(max))).length }],
             unit: null,
           },
-          answer: { kind: 'number', value: target },
+          answer: onTick(line, target)
+            ? { kind: 'number', value: target }
+            : {
+                kind: 'number',
+                value: target,
+                tolerance: Math.max(1, Math.round(((max - min) * READ_ESTIMATE_PCT) / 100)),
+              },
         };
         break;
       case 'number-line-jump': {
@@ -419,7 +430,22 @@ export const numberlinePlace: GeneratorDef = {
             ]
           : [ends, say('gen.numberline.place.reads', { n }, { op: 'tap', args: { id } })];
       }
-      case 'number-pad':
+      case 'number-pad': {
+        if (!onTick(line, target)) {
+          // No ticks: estimate from the ends and the middle (spoken over the picture).
+          const mid = (line.min + line.max) / 2;
+          return [
+            { ...ends, action: { op: 'show-stimulus' } },
+            ...(Number.isInteger(mid) && mid !== target
+              ? [say('gen.numberline.place.middle', { mid })]
+              : []),
+            say(
+              'gen.numberline.place.reads-about',
+              { n: target },
+              { op: 'type', args: { blank: 'n', value: target } },
+            ),
+          ];
+        }
         // The pad has no tick op: the counting line is spoken over the picture.
         return [
           { ...ends, action: { op: 'show-stimulus' } },
@@ -430,6 +456,7 @@ export const numberlinePlace: GeneratorDef = {
             { op: 'type', args: { blank: 'n', value: target } },
           ),
         ];
+      }
       case 'number-line-jump': {
         const [small, big] = w.allowedJumps as [number, number | undefined];
         const hops = hopsTo(w.start, target, small, big ?? null);

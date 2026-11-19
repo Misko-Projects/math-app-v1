@@ -245,6 +245,30 @@
 }
 
 /*
+ * Lighting (05 §3, §11): the island's day/sunset variant. Art components read the palette through
+ * var(--color-*), so a scene marked data-lighting="sunset" warms the sky, sea, sand and grass by
+ * remapping only those environment colours. Ink, pebble, paper and cloud keep their values, so
+ * numerals and controls keep their 06 §7 contrast at sunset. Mirrored as SUNSET_PALETTE in
+ * tokens.ts.
+ */
+[data-lighting="sunset"] {
+  --color-sky: #f3b98f;
+  --color-sky-light: #fbdcbc;
+  --color-horizon: #f8cd9c;
+  --color-sea: #2b8789;
+  --color-sea-deep: #236779;
+  --color-sea-dark: #1b5163;
+  --color-shallows: #9fcbbd;
+  --color-foam: #fdeee0;
+  --color-sand: #f1d5b2;
+  --color-sand-deep: #cfa173;
+  --color-sand-shadow: #e3bc93;
+  --color-leaf: #5b8e4c;
+  --color-leaf-light: #79a65f;
+  --color-leaf-deep: #3e6b36;
+}
+
+/*
  * 06 §7 reduced motion: idle loops stop, parallax and confetti are off, and every transition becomes
  * a ≤ 150 ms fade. It follows the OS preference; UiProvider's `reducedMotion` prop can also force it
  * on (data-reduced-motion="true"), for example in stories and tests.

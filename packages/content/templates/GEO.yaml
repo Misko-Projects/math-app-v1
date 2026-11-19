@@ -150,6 +150,24 @@ templates:
       prompt: tp.GEO.05.t2.prompt
       hints: [h.geo.flip]
 
+  # GEO.05.t3: the same task on a drawn scene (pictorial tier, 02 §5.9 K1); appended after the
+  # shipped t2, so V10 warns about its tier order.
+  - id: GEO.05.t3
+    skillId: GEO.05
+    format: shape-compose
+    tier: pictorial
+    representation: objects
+    generator: geo.position
+    params:
+      relation: { choice: [above, below, beside, next-to, in-front-of, behind] }
+      anchor: { choice: [crate, sack, pallet, jug, lantern] }
+      item: { choice: [crab, fish, apple, shell, kite, firefly, pebble, bun] }
+      scene: { choice: [one, two] }
+    difficulty: { base: -0.3 }
+    narration:
+      prompt: tp.GEO.05.t1.prompt
+      hints: [h.geo.where-word]
+
   # GEO.06: flat or solid
   - id: GEO.06.t1
     skillId: GEO.06

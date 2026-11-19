@@ -61,6 +61,25 @@ templates:
     difficulty: { base: -1 }
     narration: { prompt: tp.CMP.01.t4.prompt, hints: [h.compare.count-each, h.compare.not-size] }
 
+  # Constructed practice (V27): three groups to put in order; some carry the conflict cue.
+  - id: CMP.01.t5
+    skillId: CMP.01
+    format: order
+    tier: pictorial
+    representation: dots
+    generator: compare.sets
+    params:
+      a: { int: [1, 10] }
+      b: { int: [1, 10] }
+      c: { int: [1, 10] }
+      ask: fewer
+      conflict: { bool: 0.3 }
+    # The order model keeps its closeness weight (compare.sets declares closeness for compare).
+    difficulty: { base: -0.6, features: { closeness: 0.5 } }
+    narration:
+      prompt: tp.CMP.01.t5.prompt
+      hints: [h.order.count-groups, h.compare.not-size, h.order.fewest-first]
+
   # ---------- CMP.02 compare two numerals 1–10 ----------
   - id: CMP.02.t1
     skillId: CMP.02
@@ -78,7 +97,26 @@ templates:
     difficulty: { base: -0.6 }
     narration: { prompt: tp.CMP.02.t1.prompt, hints: [h.compare.path, h.compare.count-up] }
 
+  # Constructed practice (V27): order numbers to 10 on the path, then as numerals.
   - id: CMP.02.t2
+    skillId: CMP.02
+    format: order
+    tier: pictorial
+    representation: number-path
+    generator: compare.numbers
+    params:
+      {
+        a: { int: [1, 10] },
+        b: { int: [1, 10] },
+        extra: { int: [1, 2] },
+        min: 1,
+        max: 10,
+        ask: fewer,
+      }
+    difficulty: { base: 0, features: { closeness: 0.5 } }
+    narration: { prompt: tp.CMP.02.t2.prompt, hints: [h.order.path, h.order.smallest] }
+
+  - id: CMP.02.t3
     skillId: CMP.02
     format: compare
     tier: abstract
@@ -92,9 +130,9 @@ templates:
       max: 10
       ask: { choice: [more, fewer], weights: [3, 1] }
     difficulty: { base: -0.6 }
-    narration: { prompt: tp.CMP.02.t2.prompt, hints: [h.compare.count-up, h.compare.path] }
+    narration: { prompt: tp.CMP.02.t3.prompt, hints: [h.compare.count-up, h.compare.path] }
 
-  - id: CMP.02.t3
+  - id: CMP.02.t4
     skillId: CMP.02
     format: numeral-pick
     tier: abstract
@@ -102,7 +140,25 @@ templates:
     generator: compare.numbers
     params: { a: { int: [1, 10] }, b: { int: [1, 10] }, extra: 1, min: 1, max: 10, ask: more }
     difficulty: { base: -0.85 }
-    narration: { prompt: tp.CMP.02.t3.prompt, hints: [h.compare.count-up, h.compare.path] }
+    narration: { prompt: tp.CMP.02.t4.prompt, hints: [h.compare.count-up, h.compare.path] }
+
+  - id: CMP.02.t5
+    skillId: CMP.02
+    format: order
+    tier: abstract
+    representation: symbols
+    generator: compare.numbers
+    params:
+      {
+        a: { int: [1, 10] },
+        b: { int: [1, 10] },
+        extra: { int: [1, 2] },
+        min: 1,
+        max: 10,
+        ask: more,
+      }
+    difficulty: { base: -0.3, features: { closeness: 0.5 } }
+    narration: { prompt: tp.CMP.02.t5.prompt, hints: [h.order.greatest, h.compare.count-up] }
 
   # ---------- CMP.03 one more and one less to 20 ----------
   - id: CMP.03.t1
@@ -257,6 +313,24 @@ templates:
     difficulty: { base: -1.7 }
     narration: { prompt: tp.CMP.05.t3.prompt, hints: [h.compare.not-size, h.compare.count-each] }
 
+  # Constructed practice (V27): the fewest group looks biggest, the most is bunched up.
+  - id: CMP.05.t4
+    skillId: CMP.05
+    format: order
+    tier: pictorial
+    representation: objects
+    generator: compare.sets
+    params:
+      a: { int: [2, 10] }
+      b: { int: [2, 10] }
+      c: { int: [2, 10] }
+      ask: fewer
+      conflict: true
+    difficulty: { base: -1.05, features: { closeness: 0.5 } }
+    narration:
+      prompt: tp.CMP.05.t4.prompt
+      hints: [h.compare.not-size, h.order.count-groups, h.order.fewest-first]
+
   # ---------- CMP.06 order three or more numbers to 20 ----------
   - id: CMP.06.t1
     skillId: CMP.06
@@ -340,7 +414,18 @@ templates:
     difficulty: { base: -1.6 }
     narration: { prompt: tp.CMP.07.t2.prompt, hints: [h.compare.line, h.compare.tens] }
 
+  # Constructed practice (V27): three teen numbers as double ten-frames, no numerals.
   - id: CMP.07.t3
+    skillId: CMP.07
+    format: order
+    tier: pictorial
+    representation: double-ten-frame
+    generator: compare.numbers
+    params: { a: { int: [11, 20] }, b: { int: [11, 20] }, extra: 1, min: 11, max: 20, ask: fewer }
+    difficulty: { base: -0.8, features: { closeness: 0.5 } }
+    narration: { prompt: tp.CMP.07.t3.prompt, hints: [h.compare.full-frames, h.order.fewest-first] }
+
+  - id: CMP.07.t4
     skillId: CMP.07
     format: order
     tier: abstract
@@ -356,7 +441,7 @@ templates:
         ask: fewer,
       }
     difficulty: { base: -0.8, features: { closeness: 0.5 } }
-    narration: { prompt: tp.CMP.07.t3.prompt, hints: [h.order.smallest, h.compare.tens] }
+    narration: { prompt: tp.CMP.07.t4.prompt, hints: [h.order.smallest, h.compare.tens] }
 
   # ---------- CMP.09 estimate on a 0–100 line with only the ends marked ----------
   - id: CMP.09.t1
@@ -380,7 +465,18 @@ templates:
     difficulty: { base: -1.4 }
     narration: { prompt: tp.CMP.09.t2.prompt, hints: [h.numberline.middle, h.numberline.near-end] }
 
+  # Constructed practice (V27): read the arrow on a bare line; an estimate within 10 is right.
   - id: CMP.09.t3
+    skillId: CMP.09
+    format: number-pad
+    tier: pictorial
+    representation: number-line
+    generator: numberline.place
+    params: { min: 0, max: 100, target: { int: [1, 99] }, ticksEvery: 0, labelsEvery: 0 }
+    difficulty: { base: -1.7 }
+    narration: { prompt: tp.CMP.09.t3.prompt, hints: [h.numberline.middle, h.numberline.near-end] }
+
+  - id: CMP.09.t4
     skillId: CMP.09
     format: numeral-pick
     tier: abstract
@@ -388,7 +484,7 @@ templates:
     generator: numberline.place
     params: { min: 0, max: 100, target: { int: [1, 99] }, ticksEvery: 0, labelsEvery: 0 }
     difficulty: { base: -1.4 }
-    narration: { prompt: tp.CMP.09.t3.prompt, hints: [h.numberline.near-end, h.numberline.middle] }
+    narration: { prompt: tp.CMP.09.t4.prompt, hints: [h.numberline.near-end, h.numberline.middle] }
 
   # ---------- CMP.13 estimate how many in a big group ----------
   # dot-flash weighs each dot above 4 (n.over4); an estimate is not counted, so n.per50 sizes it.
@@ -431,3 +527,14 @@ templates:
     params: { n: { int: [20, 100] }, benchmarks: 0 }
     difficulty: { base: -0.25 }
     narration: { prompt: tp.CMP.13.t4.prompt, hints: [h.estimate.ten, h.estimate.line] }
+
+  # Constructed practice (V27): a group of ten is marked; type about how many (within 25%).
+  - id: CMP.13.t5
+    skillId: CMP.13
+    format: number-pad
+    tier: pictorial
+    representation: dots
+    generator: estimate.quantity
+    params: { n: { int: [20, 100] }, benchmarks: 10 }
+    difficulty: { base: -0.55 }
+    narration: { prompt: tp.CMP.13.t5.prompt, hints: [h.estimate.no-count, h.estimate.ten] }

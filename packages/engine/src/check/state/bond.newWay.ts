@@ -1,5 +1,6 @@
-// bond.newWay `{ whole, found }`: a valid split not already found. Turn-around pairs (3 + 2 and
-// 2 + 3) count as one way (03 §5.5 judgment call).
+// bond.newWay `{ whole, found, nonZero? }`: a valid split not already found, with both parts > 0
+// when `nonZero` (as the widget's `nonZero` asks). Turn-around pairs (3 + 2 and 2 + 3) count as
+// one way (03 §5.5 judgment call).
 import { isMoveOnly, num, nums, partsOf, type StateChecker } from './types';
 
 const key = (a: number, b: number): string => `${Math.min(a, b)}+${Math.max(a, b)}`;
@@ -14,6 +15,7 @@ export const bondNewWay: StateChecker = {
     if (!Number.isInteger(a) || !Number.isInteger(b) || a < 0 || b < 0 || a + b !== whole) {
       return false;
     }
+    if (target.nonZero === true && (a === 0 || b === 0)) return false;
     const found = Array.isArray(target.found) ? target.found : [];
     const seen = new Set(
       found.flatMap((p) => {

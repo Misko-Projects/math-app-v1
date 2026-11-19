@@ -3,7 +3,9 @@
 //
 // Modes and the formats that build them (any other pair throws, so a template error is loud):
 //   build        base-ten-build `build` (baseten.value `{ value }`: any pieces of the right value;
-//                with nonCanonical the tray `limits` hold one piece too few, which forces a trade),
+//                with nonCanonical the tray `limits` hold one piece too few at the lowest non-zero
+//                place and none below it, so no tray-only mat is worth n and the child splits a
+//                piece of the next place: forcedTrade),
 //                tenframe-fill and rekenrek (show n, a full ten first), expanded-form `build` (pick
 //                the place-value cards)
 //   exact        base-ten-build `build-exact` (baseten.exact `{ value, exact }`: the canonical
@@ -191,6 +193,29 @@ const say = (
   action?: LessonStep['action'],
 ): LessonStep =>
   action ? { actor: 'demo', say: key, vars, action } : { actor: 'demo', say: key, vars };
+
+/**
+ * The trade a `nonCanonical` base-ten-build `build` forces (03 §5.6). The tray holds one piece too
+ * few at the lowest non-zero place of n (34: 3 ones) and none below it, so no set of tray pieces
+ * is worth n: a tray mat's pieces at that place fall short of n's digit there, and every other
+ * piece is a whole number of the next place. The child splits one piece of the next place up
+ * (fusing and splitting never use the tray, and keep the value) and puts back what is not needed.
+ * Null when the lowest non-zero place is above the tens, or nothing above it can be split (40).
+ */
+export function forcedTrade(n: number): {
+  place: 'ones' | 'tens';
+  up: 'tens' | 'hundreds';
+  digit: number;
+  limits: Partial<Record<'hundreds' | 'tens' | 'ones', number>>;
+} | null {
+  const d = digitsOf(n);
+  const z = d.findIndex((x) => x > 0);
+  if (z < 0 || z > 1 || !d.some((x, i) => i > z && x > 0)) return null;
+  const digit = d[z] as number;
+  return z === 0
+    ? { place: 'ones', up: 'tens', digit, limits: { ones: digit - 1 } }
+    : { place: 'tens', up: 'hundreds', digit, limits: { tens: digit - 1, ones: 0 } };
+}
 
 /** The math features of an item: a function of its params and the template's format only. */
 export function pvFeatures(p: ParamValues, format: string): Record<string, number> {
@@ -395,6 +420,10 @@ export const pvNumber: GeneratorDef = {
     'gen.pv.number.tens',
     'gen.pv.number.hundreds',
     'gen.pv.number.thousands',
+    'gen.pv.number.split-tens',
+    'gen.pv.number.split-hundreds',
+    'gen.pv.number.back-ones',
+    'gen.pv.number.back-tens',
     'gen.pv.number.ten-first',
     'gen.pv.number.look',
     'gen.pv.number.join',
@@ -467,10 +496,9 @@ export const pvNumber: GeneratorDef = {
     if (flat && !basePicture) return false;
     if (basePicture && (n > 9999 || piecesFrom(counts).thousands > 9)) return false;
     if (t.format === 'base-ten-build' && mode === 'exact' && (counts[3] ?? 0) > 0) return false;
-    // A forced trade needs a place the limits can name (tens or hundreds).
-    if (t.format === 'base-ten-build' && mode === 'build' && nonCanonical) {
-      const k = digitsOf(n).findIndex((x, i) => i > 0 && x > 0);
-      if (k < 1 || k > 2) return false;
+    // A forced trade splits a ten or a hundred (forcedTrade).
+    if (t.format === 'base-ten-build' && mode === 'build' && nonCanonical && !forcedTrade(n)) {
+      return false;
     }
     const twenty =
       t.format === 'tenframe-fill' ||
@@ -543,12 +571,10 @@ export const pvNumber: GeneratorDef = {
           ones: true,
         };
         if (mode === 'build') {
-          // nonCanonical: the tray holds one piece too few at the lowest non-zero place above the
-          // ones, so the child must trade (34 with only 2 tens). The limits are the widget's: the
+          // nonCanonical: the tray limits leave no tray-only mat worth n, so the child must split
+          // a piece (forcedTrade: 34 with 3 ones on offer). The limits are the widget's: the
           // checker takes any mat worth n.
-          const k = digits.findIndex((x, i) => i > 0 && x > 0);
-          const kind = BASE_TEN_KINDS[k] as Kind | undefined;
-          const limits = nonCanonical && kind ? { [kind]: (digits[k] as number) - 1 } : undefined;
+          const limits = nonCanonical ? forcedTrade(n)?.limits : undefined;
           p = {
             params,
             vars,
@@ -808,10 +834,11 @@ export const pvNumber: GeneratorDef = {
     const value = typeof target.value === 'number' && w.format !== 'base-ten-build' ? n : null;
     switch (w.format) {
       case 'base-ten-build': {
+        // build: the canonical mat, which the solution's trade ends on.
         const counts =
           w.mode === 'build-exact'
             ? [w.exact?.ones ?? 0, w.exact?.tens ?? 0, w.exact?.hundreds ?? 0]
-            : placeCounts(n, out.params.nonCanonical === true);
+            : digitsOf(n);
         // The mat, every kind (U04's base-ten-build response).
         const pc = piecesFrom(counts);
         return {
@@ -870,6 +897,35 @@ export const pvNumber: GeneratorDef = {
           ),
         );
     };
+    /**
+     * A forced trade (nonCanonical build): take the canonical pieces above the short place with
+     * one more of the next place up, split that piece, and put back the pieces not needed. 34 with
+     * 3 ones on offer: 4 tens, split a ten (3 tens 10 ones), put 6 ones back.
+     */
+    const tradeSteps = (trade: NonNullable<ReturnType<typeof forcedTrade>>): LessonStep[] => {
+      const pc = piecesFrom(digitsOf(n));
+      // The kinds above the short place (every kind but the ones is, unless it is the place).
+      const above = (['thousands', 'hundreds', 'tens'] as const).filter(
+        (k) => k === trade.up || (k !== trade.place && pc[k] > 0),
+      );
+      const back = 10 - trade.digit;
+      return [
+        ...above.map((k) => {
+          const count = pc[k] + (k === trade.up ? 1 : 0);
+          return say(
+            `gen.pv.number.${k}`,
+            { count },
+            { op: 'add-piece', args: { kind: k, count } },
+          );
+        }),
+        say(`gen.pv.number.split-${trade.up}`, {}, { op: 'split', args: { kind: trade.up } }),
+        say(
+          `gen.pv.number.back-${trade.place}`,
+          { count: back },
+          { op: 'add-piece', args: { kind: trade.place, count: -back } },
+        ),
+      ];
+    };
     const tenThenOnes = (
       placeOp: (frame: number, count: number) => LessonStep['action'],
     ): LessonStep[] =>
@@ -883,6 +939,11 @@ export const pvNumber: GeneratorDef = {
       case 'base-ten-build':
         if (w.mode === 'read') {
           return [...pieceSteps('count-by'), final({ op: 'answer', args: { value: n } })];
+        }
+        if (w.mode === 'build' && nonCanonical) {
+          const trade = forcedTrade(n);
+          if (trade)
+            return [...tradeSteps(trade), final({ op: 'count-by', args: { kind: 'ones' } })];
         }
         return [...pieceSteps('add-piece'), final({ op: 'count-by', args: { kind: 'ones' } })];
       case 'expanded-form':
