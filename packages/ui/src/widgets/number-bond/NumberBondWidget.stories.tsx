@@ -93,6 +93,9 @@ const splitCounters6: Config = {
 /** CPS.07.t1 (K): 17 is 10 and what? */
 const teen17: Config = { ...missing5, whole: 17, parts: [10, null] };
 
+/** CPS.07.t1 (K): 10 and 9, how many in all? */
+const teenWhole: Config = { ...missing5, whole: null, parts: [10, 9], mode: 'missing-whole' };
+
 /** CPS.09.t3 (G1): 100 is 40 and what? (the pad answers above 20) */
 const hundred: Config = { ...missing5, whole: 100, parts: [40, null] };
 
@@ -288,9 +291,7 @@ export const SplitCounters: Story = {
     await waitFor(() => expect(inPool(root, 'part-1')).toBe(1));
     await pointerDrag(counter(root, 2), center(poolPad(root, 'part-1')), 'touch');
     await waitFor(() => expect(inPool(root, 'part-1')).toBe(2));
-    await expect(root.querySelector('[data-pool="part-1"] .ni-bondw__badge')?.textContent).toBe(
-      '2',
-    );
+    await expect(root.querySelector('.ni-bondw__badge[data-slot="part-1"]')?.textContent).toBe('2');
     // Maths truth: whole = part + part, always (the counters never leave the bond).
     await expect(inPool(root, 'whole') + inPool(root, 'part-0') + inPool(root, 'part-1')).toBe(6);
     await userEvent.click(button(root, 'Check'));
@@ -419,7 +420,7 @@ export const DemoReducedMotion: Story = {
     if (root.dataset.step === 'ask') {
       await expect(button(root, '4')).toHaveAttribute('aria-pressed', 'true');
     } else {
-      await expect(root.querySelector('[data-pool="whole"] .ni-bondw__badge')?.textContent).toBe(
+      await expect(root.querySelector('.ni-bondw__badge[data-slot="whole"]')?.textContent).toBe(
         '4',
       );
     }
@@ -444,7 +445,11 @@ async function expectFits(canvasElement: HTMLElement, ageMode: AgeMode) {
 
 async function throughSteps(root: HTMLElement, ageMode: AgeMode, canvasElement: HTMLElement) {
   if (root.dataset.step !== 'bond') return;
-  button(root, 'Next').focus();
+  // Next, or (the concrete bond) the asked number's blank badge, opens the answer step.
+  const opener =
+    root.querySelector<HTMLElement>('[data-cue="next"] button') ??
+    (root.querySelector('button.ni-bondw__badge') as HTMLElement);
+  opener.focus();
   await userEvent.keyboard('{Enter}');
   await waitFor(() => expect(root.dataset.step).toBe('ask'));
   await waitFor(() => expect(document.activeElement).toBe(button(root, 'Go back')));
@@ -542,3 +547,84 @@ export const AreaTabletK: Story = {
     await throughSteps(root, 'k', canvasElement);
   },
 };
+
+/** CPS.07.t1 (missing part, 0–17) in K at 960 × 600: both steps fit; a shown bond is legible. */
+export const AreaLandscapeMinTeenK: Story = {
+  globals: { ageMode: 'k' },
+  args: { config: teen17 },
+  render: inArea('landscapeMin'),
+  play: async ({ canvasElement, args }) => {
+    const root = await expectFits(canvasElement, 'k');
+    if (root.dataset.step === 'bond') {
+      await userEvent.click(button(root, 'Part 2:'));
+      await waitFor(() => expect(root.dataset.step).toBe('ask'));
+      await expectFits(canvasElement, 'k');
+    }
+    await expectLegibleBond(root);
+    await userEvent.click(button(root, '7'));
+    await userEvent.click(button(root, 'Check'));
+    await expect(args.onResponse).toHaveBeenCalledWith({ kind: 'number', value: 7 });
+  },
+};
+
+/** CPS.07.t1 (missing whole 10 + 9, 0–20) in K at 960 × 600. */
+export const AreaLandscapeMinTeenWholeK: Story = {
+  globals: { ageMode: 'k' },
+  args: { config: teenWhole },
+  render: inArea('landscapeMin'),
+  play: async ({ canvasElement }) => {
+    const root = await expectFits(canvasElement, 'k');
+    await throughSteps(root, 'k', canvasElement);
+    if (root.dataset.step === 'bond') {
+      await userEvent.click(button(root, 'Whole:'));
+      await waitFor(() => expect(root.dataset.step).toBe('ask'));
+      await expectFits(canvasElement, 'k');
+    }
+    await expectLegibleBond(root);
+  },
+};
+
+/** CPS.03.t3 (0–10) in K at 960 × 600, the answer step: the bond (the question) is shown, legible. */
+export const AreaLandscapeMinAskTenK: Story = {
+  globals: { ageMode: 'k' },
+  args: { config: missing10 },
+  render: inArea('landscapeMin'),
+  play: async ({ canvasElement }) => {
+    const root = await expectFits(canvasElement, 'k');
+    if (root.dataset.step === 'bond') {
+      await userEvent.click(button(root, 'Part 2:'));
+      await waitFor(() => expect(root.dataset.step).toBe('ask'));
+    }
+    await expect(root.querySelector('.ni-bondw__bond')).not.toBeNull();
+    await expectLegibleBond(root);
+    await expectFits(canvasElement, 'k');
+  },
+};
+
+/** SUB.06.t1 at its largest (5 + 5) in G1 at 960 × 600: the pools and their blank fit, both steps. */
+export const AreaLandscapeMinConcrete55G1: Story = {
+  args: { config: wholeFromParts55, tier: 'concrete' },
+  render: inArea('landscapeMin'),
+  play: async ({ canvasElement }) => {
+    const root = await expectFits(canvasElement, 'g1-up');
+    const counters = [...root.querySelectorAll<HTMLElement>('.ni-bondw__counter')];
+    await expect(counters).toHaveLength(10);
+    await pointerDrag(counter(root, 0), center(poolPad(root, 'whole')), 'touch');
+    await waitFor(() => expect(inPool(root, 'whole')).toBe(1));
+    await expectFits(canvasElement, 'g1-up');
+    if (root.dataset.step === 'bond') {
+      button(root, 'Whole:').focus();
+      await userEvent.keyboard('{Enter}');
+      await waitFor(() => expect(root.dataset.step).toBe('ask'));
+      await expectFits(canvasElement, 'g1-up');
+      await expectLegibleBond(root);
+    }
+  },
+};
+
+/** A shown bond keeps its numerals ≥ 32 px. */
+async function expectLegibleBond(root: HTMLElement) {
+  for (const n of root.querySelectorAll<HTMLElement>('.ni-bondw__num, .ni-bondw__badge')) {
+    await expect(Number.parseFloat(getComputedStyle(n).fontSize)).toBeGreaterThanOrEqual(32);
+  }
+}

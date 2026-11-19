@@ -477,3 +477,36 @@ export const AreaTabletG1: Story = {
     await throughSteps(root, 'g1-up', canvasElement);
   },
 };
+
+/** CPS.04.t2 in K at 960 × 600: show 14, then the 0–20 answer; neither step scrolls. */
+export const AreaLandscapeMinTeenK: Story = {
+  globals: { ageMode: 'k' },
+  args: { config: teen14 },
+  render: inArea('landscapeMin'),
+  play: async ({ canvasElement, args }) => {
+    const root = await expectFits(canvasElement, 'k');
+    row(root, 0).focus();
+    await userEvent.keyboard('{End}');
+    row(root, 1).focus();
+    await userEvent.keyboard('{ArrowLeft}{ArrowLeft}{ArrowLeft}{ArrowLeft}');
+    await throughSteps(root, 'k', canvasElement);
+    if (root.dataset.step === 'rack') {
+      await userEvent.click(button(root, 'Next'));
+      await waitFor(() => expect(root.dataset.step).toBe('ask'));
+    }
+    // A picture of the rack in the answer step only where its beads stay ≥ 32 px.
+    for (const b of root.querySelectorAll<HTMLElement>('.ni-rk__bead')) {
+      await expect(b.getBoundingClientRect().width).toBeGreaterThanOrEqual(32);
+    }
+    const cards = [...root.querySelectorAll<HTMLElement>('.ni-pick')];
+    await expect(cards).toHaveLength(21);
+    for (const c of cards) await expectTargetSize(c, 'k');
+    await expectFits(canvasElement, 'k');
+    await userEvent.click(button(root, '14'));
+    await userEvent.click(button(root, 'Check'));
+    await expect(args.onResponse).toHaveBeenCalledWith({
+      kind: 'state',
+      value: { rows: [10, 4], value: 14 },
+    });
+  },
+};

@@ -56,7 +56,10 @@ export interface EntryLayout {
   kind: EntryKind;
   /** Tray: the cards a row (NumeralTray `columns`). */
   columns: number;
-  /** Pad: --target-min keys. */
+  /**
+   * Short areas. Tray: every card exactly the minimum target (--target-min) wide and tall, in a
+   * panel with less padding (the 12 px gaps and the numerals' 48 px stay). Pad: --target-min keys.
+   */
   compact: boolean;
   /** Pad: the entered number above the keys or beside them. */
   padLayout: 'above' | 'beside';
@@ -71,6 +74,8 @@ export function entrySize(max: number, layout: EntryLayout, ageMode: AgeMode): S
       layout.columns,
       MIN_TARGET_PX[ageMode],
       TARGET_GAP_PX,
+      TARGET_GAP_PX,
+      layout.compact,
     );
   }
   const d = displaySize(max, ageMode);
@@ -91,20 +96,31 @@ export function entryChoices(max: number): EntryLayout[] {
   const pads = [pad(false, 'above'), pad(false, 'beside'), pad(true, 'above'), pad(true, 'beside')];
   if (entryKind(max) === 'pad') return pads;
   const n = entryValues(max).length;
-  const trays = trayColumnChoices(n)
-    .filter((c) => c >= Math.min(3, n))
-    .map((columns): EntryLayout => ({ kind: 'tray', columns, compact: false, padLayout: 'above' }));
-  // Short areas: the pad with minimum-size keys beside the entered number.
-  return [...trays, pad(true, 'beside'), pad(true, 'above')];
+  const widths = trayColumnChoices(n).filter((c) => c >= Math.min(3, n));
+  const tray = (columns: number, compact: boolean): EntryLayout => ({
+    kind: 'tray',
+    columns,
+    compact,
+    padLayout: 'above',
+  });
+  // Short areas: the compact tray (minimum-size cards), then the pad with minimum-size keys.
+  return [
+    ...widths.map((c) => tray(c, false)),
+    ...widths.map((c) => tray(c, true)),
+    pad(true, 'beside'),
+    pad(true, 'above'),
+  ];
 }
 
 /** The answer's layouts in two groups: the numeral tray first, then the pad. */
 export function entryGroups(max: number | null): (EntryLayout | null)[][] {
   if (max === null) return [[null]];
   const all = entryChoices(max);
-  return [all.filter((e) => e.kind === 'tray'), all.filter((e) => e.kind === 'pad')].filter(
-    (g) => g.length > 0,
-  );
+  return [
+    all.filter((e) => e.kind === 'tray' && !e.compact),
+    all.filter((e) => e.kind === 'tray' && e.compact),
+    all.filter((e) => e.kind === 'pad'),
+  ].filter((g) => g.length > 0);
 }
 
 /** The pad key a demo presses next to enter `value`, given what is typed (null: nothing to do). */
@@ -150,7 +166,7 @@ export function NumberEntry({
   const cls = ['ni-entry', className].filter(Boolean).join(' ');
   if (kind === 'tray') {
     return (
-      <div className={cls} data-kind="tray">
+      <div className={cls} data-kind="tray" data-compact={compact ? 'true' : undefined}>
         <NumeralTray
           values={entryValues(max)}
           selected={value}

@@ -679,3 +679,55 @@ export const AreaInviteStepsK: Story = {
     await expectFits(canvasElement, 'k');
   },
 };
+
+/** Every counter the answer step's picture draws is ≥ 32 px (or there is no picture). */
+async function expectLegiblePicture(root: HTMLElement) {
+  for (const el of root.querySelectorAll<HTMLElement>('.ni-tf__vcell, .ni-tf__mini-cell')) {
+    await expect(el.getBoundingClientRect().width).toBeGreaterThanOrEqual(32);
+  }
+}
+
+/** CPS.04.t1 in K at 960 × 600: two frames, 14 to show, then the 0–20 answer; no step scrolls. */
+export const AreaLandscapeMinTeenK: Story = {
+  globals: { ageMode: 'k' },
+  args: { config: teen14 },
+  render: inArea('landscapeMin'),
+  play: async ({ canvasElement, args }) => {
+    const root = await expectFits(canvasElement, 'k');
+    await expectLegiblePicture(root);
+    await throughSteps(root, 'k', canvasElement);
+    if (root.dataset.step === 'build') {
+      await userEvent.click(button(root, 'Next'));
+      await waitFor(() => expect(root.dataset.step).toBe('ask'));
+    }
+    await expectLegiblePicture(root);
+    // 21 numeral cards, each a full K target, in an even 7 × 3 grid.
+    const cards = [...root.querySelectorAll<HTMLElement>('.ni-pick')];
+    await expect(cards).toHaveLength(21);
+    for (const c of cards) await expectTargetSize(c, 'k');
+    await expectTargetGaps(cards);
+    await expect(new Set(cards.map((c) => Math.round(c.getBoundingClientRect().top))).size).toBe(3);
+    await expectFits(canvasElement, 'k');
+    await userEvent.click(button(root, '14'));
+    await userEvent.click(button(root, 'Check'));
+    await expect(args.onResponse).toHaveBeenCalledWith({
+      kind: 'state',
+      value: { cells: [new Array(10).fill(0), new Array(10).fill(0)], value: 14 },
+    });
+  },
+};
+
+/** ADD.01.t3 in K at 960 × 600, the answer step: the picture is legible or not shown. */
+export const AreaLandscapeMinAskK: Story = {
+  globals: { ageMode: 'k' },
+  render: inArea('landscapeMin'),
+  play: async ({ canvasElement }) => {
+    const root = await expectFits(canvasElement, 'k');
+    if (root.dataset.step === 'build') {
+      await userEvent.click(button(root, 'Next'));
+      await waitFor(() => expect(root.dataset.step).toBe('ask'));
+    }
+    await expectLegiblePicture(root);
+    await expectFits(canvasElement, 'k');
+  },
+};

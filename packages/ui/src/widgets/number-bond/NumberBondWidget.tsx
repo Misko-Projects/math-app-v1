@@ -40,17 +40,7 @@ import {
   type Slot,
   splitResponse,
 } from './bond';
-import {
-  BADGE,
-  BOND_PAD,
-  bondSize,
-  circleFont,
-  FOUND_C,
-  miniC,
-  POOL_LEGS,
-  planBond,
-  poolsBox,
-} from './plan';
+import { BOND_PAD, bondSize, circleFont, FOUND_C, miniC, planBond, poolsBox } from './plan';
 import './number-bond.css';
 
 /**
@@ -162,6 +152,7 @@ export function NumberBondWidget({
     () => ({
       ageMode,
       concrete,
+      blank: concrete && asks ? askSlot : null,
       caps: [
         capacityOf(config, 'whole'),
         capacityOf(config, 'part-0'),
@@ -172,7 +163,18 @@ export function NumberBondWidget({
       askMax: entrySlots.length > 0 ? max : null,
       button,
     }),
-    [ageMode, concrete, config, found.length, biggest, entrySlots.length, max, button],
+    [
+      ageMode,
+      concrete,
+      asks,
+      askSlot,
+      config,
+      found.length,
+      biggest,
+      entrySlots.length,
+      max,
+      button,
+    ],
   );
   const plan = useMemo(
     () =>
@@ -417,7 +419,7 @@ export function NumberBondWidget({
         return complete ? { at: 'cue', cue: 'check' } : null;
       }
       if (shownStep === 'bond' && (steps || entrySlot !== slot)) {
-        return concrete ? { at: 'cue', cue: 'next' } : { at: 'cue', cue: `slot:${slot}` };
+        return { at: 'cue', cue: `slot:${slot}` };
       }
       if (entrySlot !== slot) return null;
       if (entryLayout?.kind === 'pad') {
@@ -585,19 +587,17 @@ export function NumberBondWidget({
 
   const renderPools = () => {
     const box = poolsBox(input);
-    const pos = {
-      whole: { left: (box.size.w - box.whole.w) / 2, top: BADGE / 2 },
-      'part-0': {
-        left: (box.size.w - (2 * box.part.w + POOL_LEGS)) / 2,
-        top: BADGE / 2 + box.whole.h + POOL_LEGS,
-      },
-      'part-1': {
-        left: (box.size.w + POOL_LEGS) / 2,
-        top: BADGE / 2 + box.whole.h + POOL_LEGS,
-      },
-    } as const;
-    const sizeOf = (slot: Slot) => (slot === 'whole' ? box.whole : box.part);
-    const centreX = (slot: Slot) => pos[slot].left + sizeOf(slot).w / 2;
+    const centre = (slot: Slot) => box.pools[slot].x + box.pools[slot].w / 2;
+    const badgeOf = (slot: Slot) => {
+      const known = given(config, slot);
+      return asks
+        ? slot === askSlot
+          ? (values[slot] ?? null)
+          : known
+        : slot === 'whole'
+          ? known
+          : countIn(slot);
+    };
     return (
       <fieldset
         className="ni-bondw__cbond"
@@ -613,25 +613,18 @@ export function NumberBondWidget({
           {(['part-0', 'part-1'] as const).map((p) => (
             <line
               key={p}
-              x1={centreX('whole')}
-              y1={pos.whole.top + box.whole.h}
-              x2={centreX(p)}
-              y2={pos[p].top}
+              x1={centre('whole')}
+              y1={box.pools.whole.h}
+              x2={centre(p)}
+              y2={box.pools[p].y}
             />
           ))}
         </svg>
         {SLOTS.map((slot) => {
           const ids = where.flatMap((s, i) => (s === slot ? [i] : []));
-          const known = given(config, slot);
-          const badge = asks
-            ? slot === askSlot
-              ? (values[slot] ?? null)
-              : known
-            : slot === 'whole'
-              ? known
-              : countIn(slot);
           const targetProps = dnd.targetProps(slot, { label: slotName(slot) });
           const cap = slot === 'whole' ? input.caps[0] : Math.max(input.caps[1], input.caps[2]);
+          const pool = box.pools[slot];
           return (
             <div
               key={slot}
@@ -641,10 +634,10 @@ export function NumberBondWidget({
               data-pool={slot}
               style={
                 {
-                  left: pos[slot].left,
-                  top: pos[slot].top,
-                  width: sizeOf(slot).w,
-                  height: sizeOf(slot).h,
+                  left: pool.x,
+                  top: pool.y,
+                  width: pool.w,
+                  height: pool.h,
                   '--pool-cols': poolColumns(cap),
                 } as CSSProperties
               }
@@ -692,16 +685,46 @@ export function NumberBondWidget({
                   );
                 })}
               </div>
-              <span
-                className="ni-bondw__badge"
-                data-at={slot === 'whole' ? 'top' : 'bottom'}
-                data-blank={asks && slot === askSlot ? 'true' : undefined}
-                data-empty={badge === null ? 'true' : undefined}
-                aria-hidden="true"
-              >
-                {badge === null ? '' : String(badge)}
-              </span>
             </div>
+          );
+        })}
+        {SLOTS.map((slot) => {
+          const v = badgeOf(slot);
+          const b = box.badges[slot];
+          const style = { left: b.x, top: b.y, width: b.w, height: b.h };
+          if (asks && slot === askSlot) {
+            // The asked number's blank: tapping it opens the answer (as a pictorial blank does).
+            const isActive = entrySlot === slot && !disabled;
+            return (
+              <button
+                key={slot}
+                type="button"
+                className={['ni-bondw__badge', cueOf(`slot:${slot}`)].filter(Boolean).join(' ')}
+                data-slot={slot}
+                data-blank="true"
+                data-empty={v === null ? 'true' : undefined}
+                data-state={isActive ? 'active' : undefined}
+                data-cue={`slot:${slot}`}
+                aria-label={`${slotName(slot)}: ${v ?? ''}`.trim()}
+                disabled={!interactive}
+                onClick={() => tapSlot(slot)}
+                style={style}
+              >
+                {v === null ? '' : String(v)}
+              </button>
+            );
+          }
+          return (
+            <span
+              key={slot}
+              className="ni-bondw__badge"
+              data-slot={slot}
+              data-empty={v === null ? 'true' : undefined}
+              aria-hidden="true"
+              style={style}
+            >
+              {v === null ? '' : String(v)}
+            </span>
           );
         })}
       </fieldset>
@@ -750,7 +773,7 @@ export function NumberBondWidget({
       ref={actRef}
       data-dir={shownStep === 'ask' && plan.ask ? plan.ask.act : 'row'}
     >
-      {steps && shownStep === 'bond' ? (
+      {steps && shownStep === 'bond' && !(concrete && asks) ? (
         <span className="ni-bondw__btn" data-cue="next">
           <BigButton
             label="ui.btn.next"

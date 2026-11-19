@@ -3,6 +3,7 @@ import { MIN_TARGET_PX, TARGET_GAP_PX } from '../../tokens/tokens';
 import {
   ARRANGEMENTS,
   type Arrangement,
+  ASK_ARRANGEMENTS,
   arrangedSize,
   type EntryLayout,
   entryGroups,
@@ -35,18 +36,16 @@ export const FRAME_GAP = { normal: 18, tight: 6 } as const;
 /** The counter tray's padding (12) + border (3) on each side. */
 export const SUPPLY_EDGE = 12 + 3;
 /** The small frame button (paged): pieces, their gap, its padding + border on each side. */
-export const MINI_PIECE: Record<AgeMode, number> = { k: 30, 'g1-up': 24 };
+export const MINI_PIECE: Record<AgeMode, number> = { k: 32, 'g1-up': 32 };
 export const MINI_GAP = 4;
 export const MINI_EDGE = 6 + 3;
 /** The answer step's picture: cell sizes to try, the cells' gap, padding + border a side. */
-export const VIEW_CELLS = [48, 40, 32, 26, 22, 18] as const;
+export const VIEW_CELLS = [48, 40, 32] as const;
 export const VIEW_GAP = 4;
 export const VIEW_EDGE = 4 + 3;
 /** Between the buttons of the actions: in a row, and stacked (their 6 px ledge margin adds). */
 export const ACT_GAP = 24;
 export const ACT_GAP_Y = 16;
-/** In the `split` answer step, between the picture and the actions below it. */
-export const SPLIT_GAP = 16;
 
 export type Chrome = keyof typeof FRAME_EDGE;
 
@@ -63,7 +62,7 @@ export interface AskPlan {
    * The kit arrangements, or `split`: the answer on the left and, beside it, the picture with the
    * actions under it (short K areas, where the numeral tray takes the width).
    */
-  arrangement: Arrangement | 'split';
+  arrangement: Arrangement;
   view: number;
   entry: EntryLayout;
   /** The actions (Back, Check) side by side or stacked. */
@@ -159,15 +158,9 @@ export function buildSize(input: PlanInput, paged: boolean, b: BuildPlan): Size 
 }
 
 export function askSize(input: PlanInput, a: AskPlan): Size {
-  const main = viewSize(input.frames, input.size, a.view);
+  const main = a.view > 0 ? viewSize(input.frames, input.size, a.view) : null;
   const entry = entrySize(input.askMax ?? 0, a.entry, input.ageMode);
   const act = actSize(input.button, 2, a.act);
-  if (a.arrangement === 'split') {
-    return {
-      w: entry.w + LAYOUT_GAP + Math.max(main.w, act.w),
-      h: Math.max(entry.h, main.h + SPLIT_GAP + act.h),
-    };
-  }
   return arrangedSize(a.arrangement, main, [entry, act], LAYOUT_GAP);
 }
 
@@ -207,10 +200,11 @@ function bestOf<T>(
 function bestAsk(input: PlanInput, room: Size): { item: AskPlan; over: number } {
   const max = input.askMax ?? 0;
   function* all(): Generator<AskPlan> {
+    // The picture only where its counters stay ≥ 32 px; else none (Back returns to it).
     for (const group of entryGroups(max))
-      for (const view of VIEW_CELLS)
+      for (const view of [...VIEW_CELLS, 0])
         for (const entry of group)
-          for (const arrangement of [...ARRANGEMENTS, 'split'] as const)
+          for (const arrangement of ASK_ARRANGEMENTS)
             for (const act of ['row', 'column'] as const)
               if (entry) yield { arrangement, view, entry, act };
   }

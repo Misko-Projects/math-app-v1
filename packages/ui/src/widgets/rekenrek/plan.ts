@@ -26,7 +26,8 @@ export const LAYOUT_GAP = 24;
 /** Bead widths to try (px): the K design width (0.78 × 80) down to compact. */
 export const BEAD_WIDTHS = [62, 56, 50, 44, 38, 32] as const;
 /** The answer step's small rack. */
-export const VIEW_BEADS = [30, 26, 22, 18, 15] as const;
+/** (Beads stay ≥ 32 px drawn, a slot less 3 px; where none fits, no picture: Back returns.) */
+export const VIEW_BEADS = [44, 40, 35] as const;
 /** The frame (16 / 26 px padding, 4 px border) and the wires' panel (10 / 14 px, 3 px border). */
 export const RACK_EDGE = { x: 26 + 4 + 14 + 3, y: 16 + 4 + 10 + 3 } as const;
 export const ROW_GAP = 16;
@@ -117,14 +118,14 @@ export function planRack(input: RackInput, room: Size): RackPlan {
   }
   let ask: { a: NonNullable<RackPlan['ask']>; over: number } | null = null;
   outer: for (const group of entryGroups(input.askMax)) {
-    for (const bead of VIEW_BEADS) {
+    for (const bead of [...VIEW_BEADS, 0]) {
       for (const entry of group) {
         if (!entry) continue;
         for (const arrangement of ASK_ARRANGEMENTS) {
           for (const dir of ['row', 'column'] as const) {
             const size = arrangedSize(
               arrangement,
-              rackSize(bead, input.rows, Math.round(bead * 1.3), true),
+              bead > 0 ? rackSize(bead, input.rows, Math.round(bead * 1.3), true) : null,
               [entrySize(input.askMax, entry, input.ageMode), act(input.button, 2, dir)],
               LAYOUT_GAP,
             );

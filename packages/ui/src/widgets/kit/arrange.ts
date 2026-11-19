@@ -85,6 +85,13 @@ export function firstFit<T>(candidates: Iterable<T>, size: (c: T) => Size, room:
 export const numeralCardH = (targetMin: number) => Math.max(targetMin * 1.15, 48 * 1.12 + 20 + 6);
 /** One tray row: a card plus its bottom margin (--target-gap + the 6 px ledge). */
 const trayRowPx = (targetMin: number, gap: number) => numeralCardH(targetMin) + gap + 6;
+/**
+ * A compact numeral card (NumberEntry `compact` tray, short areas): exactly the minimum target wide
+ * and tall, or its content when taller (the 48 px numeral, 2 × 4 px padding, 2 × 3 px border).
+ */
+export const compactCardH = (targetMin: number) => Math.max(targetMin, 48 * 1.12 + 8 + 6);
+/** The compact tray panel: 12 px top padding, none below (the cards' own margin), 3 px borders. */
+const COMPACT_PANEL_EDGES_Y = 12 + 0 + 2 * 3;
 /** The tray panel's top and bottom padding (18 + 6) plus its 3 px borders. */
 const TRAY_PANEL_EDGES_Y = 18 + 6 + 2 * 3;
 
@@ -100,12 +107,14 @@ export function numeralTraySize(
   targetMin: number,
   gap: number,
   columnGap: number = gap,
+  compact = false,
 ): Size {
-  const card = numeralCardPx(digits, targetMin);
+  const card = compact ? targetMin : numeralCardPx(digits, targetMin);
   const { rows } = trayGrid(n, columns);
+  const row = compact ? compactCardH(targetMin) + gap + 6 : trayRowPx(targetMin, gap);
   return {
     w: columns * card + (columns - 1) * columnGap + TRAY_PANEL_EDGES_PX + 1,
-    h: rows * trayRowPx(targetMin, gap) + TRAY_PANEL_EDGES_Y,
+    h: rows * row + (compact ? COMPACT_PANEL_EDGES_Y : TRAY_PANEL_EDGES_Y),
   };
 }
 

@@ -880,7 +880,13 @@ export function TenframeFillWidget({
       data-disabled={disabled ? 'true' : undefined}
       style={{ '--tf-cell': `${target}px`, ...handRootStyle } as CSSProperties}
     >
-      <div className="ni-tf__main">{shownStep === 'ask' ? viewBlock : framesBlock}</div>
+      {shownStep === 'ask' ? (
+        plan.ask && plan.ask.view > 0 ? (
+          <div className="ni-tf__main">{viewBlock}</div>
+        ) : null
+      ) : (
+        <div className="ni-tf__main">{framesBlock}</div>
+      )}
       <div className="ni-tf__items">
         {supplyBlock}
         {entryBlock}

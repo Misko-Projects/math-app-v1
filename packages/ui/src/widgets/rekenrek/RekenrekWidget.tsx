@@ -538,7 +538,9 @@ export function RekenrekWidget({
 
   const main =
     shownStep === 'ask' && plan.ask
-      ? rack(plan.ask.bead, Math.round(plan.ask.bead * 1.3), true, true)
+      ? plan.ask.bead > 0
+        ? rack(plan.ask.bead, Math.round(plan.ask.bead * 1.3), true, true)
+        : null
       : rack(plan.bead, rowHeight(plan.bead, ageMode, reading), reading, false);
 
   const entryBlock =
@@ -618,7 +620,7 @@ export function RekenrekWidget({
       data-disabled={disabled ? 'true' : undefined}
       style={handRootStyle}
     >
-      <div className="ni-rk__main">{main}</div>
+      {main ? <div className="ni-rk__main">{main}</div> : null}
       <div className="ni-rk__items">
         {shownStep === 'ask' || !steps ? entryBlock : null}
         {actions}

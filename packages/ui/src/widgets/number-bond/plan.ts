@@ -31,10 +31,12 @@ export const BOND_H = 2.5;
 /** The ways already found (new-way): small bonds of this circle, in a panel. */
 export const FOUND_C = 56;
 export const FOUND_PANEL = 12 + 3;
-/** A pool of counters (concrete): padding + border a side; the numeral badge's size. */
-export const POOL_EDGE = 12 + 3;
+/** A pool of counters (concrete): padding (8) + border (3) a side; a shown number's badge. */
+export const POOL_EDGE = 8 + 3;
 export const BADGE = 52;
+/** The legs' band between the whole's pool and the parts' pools, and between the two parts. */
 export const POOL_LEGS = 40;
+export const PART_GAP = 24;
 export const ACT_GAP = 24;
 export const ACT_GAP_Y = 16;
 
@@ -53,6 +55,8 @@ export interface BondPlan {
 export interface BondInput {
   ageMode: AgeMode;
   concrete: boolean;
+  /** Concrete: the slot whose number is asked (its badge is a full-size blank button). */
+  blank: 'whole' | 'part-0' | 'part-1' | null;
   /** Pools' capacities (concrete): whole, part 0, part 1. */
   caps: [number, number, number];
   /** The ways already found (new-way). */
@@ -69,13 +73,13 @@ export const bondSize = (c: number): Size => ({
   h: BOND_H * c + 2 * BOND_PAD,
 });
 
-/** The smallest circle whose numeral stays ≥ 32 px (number-bond.css: 0.45 c, 0.32 c for 3 digits). */
+/** The smallest circle whose numeral stays ≥ 32 px (0.5 c, 0.32 c for 3 digits). */
 export const minCircle = (biggest: number, ageMode: AgeMode) =>
-  Math.max(MIN_TARGET_PX[ageMode], String(biggest).length >= 3 ? 100 : 72);
+  Math.max(MIN_TARGET_PX[ageMode], String(biggest).length >= 3 ? 100 : 64);
 
 /** The numeral's font size in a circle of `c` px. */
 export const circleFont = (c: number, biggest: number) =>
-  Math.min(72, Math.round(c * (String(biggest).length >= 3 ? 0.32 : 0.45)));
+  Math.min(72, Math.round(c * (String(biggest).length >= 3 ? 0.32 : 0.5)));
 
 export function poolSize(t: number, cap: number): Size {
   const cols = poolColumns(cap);
@@ -87,17 +91,54 @@ export function poolSize(t: number, cap: number): Size {
   };
 }
 
-/** The concrete bond: the whole's pool on top, the parts' pools below, badges half outside. */
-export function poolsBox(input: BondInput): { size: Size; whole: Size; part: Size } {
+export interface Box {
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+}
+export interface PoolsLayout {
+  size: Size;
+  pools: Record<'whole' | 'part-0' | 'part-1', Box>;
+  badges: Record<'whole' | 'part-0' | 'part-1', Box>;
+}
+
+/**
+ * The concrete bond, compact enough for a short area: the whole's pool on top, centred, with its
+ * badge beside it (right); the parts' pools below at the two ends, their badges on their outer
+ * top corners (a blank part's badge, a full-size button, stands clear above its pool). A blank
+ * badge is a full target (--target-min) at least 12 px from every pool.
+ */
+export function poolsBox(input: BondInput): PoolsLayout {
   const t = MIN_TARGET_PX[input.ageMode];
   const whole = poolSize(t, input.caps[0]);
   const part = poolSize(t, Math.max(input.caps[1], input.caps[2]));
+  const size = (slot: 'whole' | 'part-0' | 'part-1') => (input.blank === slot ? t : BADGE);
+  const gap = TARGET_GAP_PX;
+  const partBlank = input.blank === 'part-0' || input.blank === 'part-1';
+  const legs = partBlank ? t + 2 * gap : POOL_LEGS;
+  const w = Math.max(whole.w + 2 * (gap + size('whole')), 2 * part.w + PART_GAP);
+  const h = whole.h + legs + part.h;
+  const wholeX = (w - whole.w) / 2;
+  const partY = whole.h + legs;
+  const pools = {
+    whole: { x: wholeX, y: 0, ...{ w: whole.w, h: whole.h } },
+    'part-0': { x: 0, y: partY, w: part.w, h: part.h },
+    'part-1': { x: w - part.w, y: partY, w: part.w, h: part.h },
+  };
+  const bw = size('whole');
+  const partBadge = (slot: 'part-0' | 'part-1', x: number): Box => {
+    const s = size(slot);
+    const y = input.blank === slot ? partY - gap - s : partY - s / 2;
+    return { x, y, w: s, h: s };
+  };
   return {
-    whole,
-    part,
-    size: {
-      w: Math.max(whole.w, 2 * part.w + POOL_LEGS),
-      h: whole.h + POOL_LEGS + part.h + BADGE,
+    size: { w, h },
+    pools,
+    badges: {
+      whole: { x: wholeX + whole.w + gap, y: (whole.h - bw) / 2, w: bw, h: bw },
+      'part-0': partBadge('part-0', 0),
+      'part-1': partBadge('part-1', w - size('part-1')),
     },
   };
 }
@@ -159,15 +200,12 @@ export function planBond(input: BondInput, room: Size): BondPlan {
   if (input.askMax === null) return (best as unknown as { plan: BondPlan }).plan;
   // 2. Steps: the bond, then the answer.
   let build: { c: number; arrangement: Arrangement; over: number } | null = null;
+  // The concrete bond's blank badge opens the answer step itself: no Next beside it.
+  const next = input.concrete && input.blank ? null : act(input.button, 1, 'row');
   for (const c of circles(input)) {
     for (const arrangement of ARRANGEMENTS) {
       const over = overflow(
-        arrangedSize(
-          arrangement,
-          mainSize(input, c),
-          [found, act(input.button, 1, 'row')],
-          LAYOUT_GAP,
-        ),
+        arrangedSize(arrangement, mainSize(input, c), [found, next], LAYOUT_GAP),
         room,
       );
       if (!build || over < build.over) build = { c, arrangement, over };

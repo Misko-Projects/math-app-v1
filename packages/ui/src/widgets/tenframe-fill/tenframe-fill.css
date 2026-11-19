@@ -64,7 +64,7 @@
   align-content: center;
   justify-content: center;
   justify-items: center;
-  gap: 16px 24px;
+  gap: 24px;
 }
 .ni-tf[data-layout="split"] .ni-tf__items {
   display: contents;

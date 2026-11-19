@@ -597,6 +597,34 @@
   outline-offset: -9px;
   animation: none;
 }
+/*
+ * A compact tray (short areas): every card exactly the minimum target (--target-min) wide and
+ * tall, with less inner padding (the 48 px numeral and the 12 px gaps stay), in a panel with 12 px
+ * above the cards and none below them (their own bottom margin holds the ledge). The cards' width
+ * is the grid's --card-w (NumeralTray measures the cards), and the panel is `columns` cards wide.
+ */
+.ni-entry[data-compact="true"] .ni-tray-numerals {
+  padding-top: 12px;
+  padding-bottom: 0;
+}
+.ni-entry[data-compact="true"] .ni-tray-numerals__grid {
+  --card-w: var(--target-min);
+}
+.ni-entry[data-compact="true"] .ni-tray-numerals[data-columns="fixed"] {
+  width: calc(
+    var(--max-cols) *
+    var(--target-min) +
+    (var(--max-cols) - 1) *
+    var(--tray-gap, var(--target-gap)) +
+    46px +
+    1px
+  );
+}
+.ni-entry[data-compact="true"] .ni-tray-numerals .ni-pick {
+  min-width: var(--target-min);
+  min-height: var(--target-min);
+  padding: 4px;
+}
 /* Compact keys (short areas): the age mode's minimum target instead of --target-big. */
 .ni-entry[data-compact="true"] .ni-pad {
   grid-template-columns: repeat(3, var(--target-min));
