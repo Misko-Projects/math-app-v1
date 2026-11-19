@@ -13,6 +13,10 @@ No widget defines its own palette.
 | `StimulusView.tsx` | One renderer per `StimulusSpec` kind: objects, dots (incl. fingers), ten-frame, rekenrek, number line, number bond, expression (with `renderBlank`), groups, array, base ten, scene. Kinds owned by U04/U05 (clock, coins, fraction, gauge, chart, shape, bar model) draw a neutral card until those issues add their `case`. A picture's accessible name is "Look at the picture", never the quantity asked for. |
 | `NumberLineView.tsx` | Fixed-pixel number line (numerals stay 32 px): ticks, an even label stride when crowded, marks, jump arcs; `children(scale)` draws widget overlays with `scale.x(value)`, `scale.value(x)` and `scale.lineY`. |
 | `controls.tsx` | `CheckButton` (debounced 400 ms, icon-only in K), `PickCard` and `NumeralTray` (picked = ink ring + check badge; demo highlight = `.ni-invite`), `NumberPadKeys` (3 × 4, decimal only when allowed, desktop digits/Backspace/Enter), `applyPadKey`/`padValue`, and demo helpers `useAlive`, `useDemoPause`. |
+| `CoinArt.tsx`, `CoinsView.tsx` (U05) | Original US coins drawn to one scale (`CoinArt`, `quarterPx`: dime < penny < nickel < quarter; copper penny; reeded dime and quarter; shell, wave, star and sun faces) and dollar bills (`BillArt`); `useMoneySpeech` (a piece's name and value, totals, counting up), `moneyText` (`40¢`, `$1.35`); `CoinsView` is the `coins` stimulus. Styles in `money.css`. |
+| `MoneyBoard.tsx` (U05) | The concrete purse-and-tray board of coin-pay and make-change: purse stacks showing exactly what is left, tray piles drawing every piece, drag / tap-to-place / keyboard through `useDragToTarget`; `MoneyTag` (a labelled amount). |
+| `ClockView.tsx` (U05) | `ClockFace`: 60 ticks, numbers 1–12 and two geared hands from one time `t`; `DigitalClock`; `ClockView` is the `clock` stimulus. Styles in `clock.css`. |
+| `PadEntry.tsx` (U05) | Typed boxes for the number pad (`usePadEntry`, `PadBoxView`): `exactDigits` boxes (cents, minutes) keep leading zeros and fill only when full. |
 
 Each widget imports its own stylesheet next to its component (`./<format>.css`), so parallel
 widget PRs never edit one shared CSS file.
