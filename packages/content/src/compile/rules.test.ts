@@ -71,18 +71,28 @@ describe('the C01 fixture set (03 §9.5)', () => {
       'ADD.02',
       'ADD.03',
       'ADD.04',
+      'ADD.05',
       'ADD.06',
       'ADD.07',
       'ADD.08',
       'ADD.09',
+      'ADD.10',
+      'ADD.11',
+      'ADD.12',
+      'ADD.13',
       'ADD.15',
       'ADD.16',
       'ADD.17',
       'ADD.18',
       'ADD.19',
+      'ADD.20',
+      'ADD.21',
+      'ADD.23',
       'ADD.24',
+      'ADD.25',
       'ADD.26',
       'ADD.27',
+      'ALG.05',
       'CMP.01',
       'CMP.02',
       'CMP.03',
@@ -90,6 +100,7 @@ describe('the C01 fixture set (03 §9.5)', () => {
       'CMP.05',
       'CMP.06',
       'CMP.07',
+      'CMP.08',
       'CMP.09',
       'CMP.13',
       'CNT.01',
@@ -159,12 +170,17 @@ describe('the C01 fixture set (03 §9.5)', () => {
       'MC.count-all-instead',
       'MC.count-start-number',
       'MC.decade-transition',
+      'MC.equals-add-all',
+      'MC.equals-means-answer',
       'MC.face-value',
       'MC.forgot-the-ten',
+      'MC.keyword-more-means-add',
       'MC.off-by-one-counting',
       'MC.perceptual-size',
       'MC.place-swap',
       'MC.recount-from-one',
+      'MC.start-unknown-reversed',
+      'MC.symbol-reversed',
       'MC.teen-reversal',
       'MC.unit-gaps',
       'MC.write-as-spoken',
@@ -206,6 +222,10 @@ describe('the C01 fixture set (03 §9.5)', () => {
         'pv.regroup',
         'pv.tenmore',
         'mda.addsub',
+        // K01 (#11): equality and story problems
+        'equality.eq',
+        'story.addsub',
+        'addsub.three',
       ]),
     );
     expect(new Set(c?.templates.map((t) => t.format))).toEqual(
@@ -236,6 +256,8 @@ describe('the C01 fixture set (03 §9.5)', () => {
         'expanded-form',
         // K01 (#11): PV and MDA
         'base-ten-trade',
+        // K01 (#11): equality and story problems
+        'story-problem',
       ]),
     );
   });
@@ -439,7 +461,7 @@ describe('V03: sequential ids', () => {
     expectFinding(
       variant((f) => editYaml(f, 'graph.yaml', (doc) => (doc.plannedIds = []))),
       'V03',
-      /missing ADD.05/,
+      /missing ADD.14/,
     );
     expectFinding(
       variant((f) =>
@@ -451,13 +473,13 @@ describe('V03: sequential ids', () => {
   });
   it('accepts a retired gap', () => {
     const diags = variant((f) => {
-      // ADD.05 moves from planned to retired; the other planned gaps stay planned.
+      // ADD.14 moves from planned to retired; the other planned gaps stay planned.
       editYaml(
         f,
         'graph.yaml',
-        (doc) => (doc.plannedIds = (doc.plannedIds as string[]).filter((id) => id !== 'ADD.05')),
+        (doc) => (doc.plannedIds = (doc.plannedIds as string[]).filter((id) => id !== 'ADD.14')),
       );
-      f['retired.yaml'] = 'skills: [ADD.05]\n';
+      f['retired.yaml'] = 'skills: [ADD.14]\n';
     });
     expect(diags.filter((d) => d.check === 'V03')).toEqual([]);
   });
@@ -503,20 +525,20 @@ describe('V04: references resolve', () => {
     expectFinding(
       variant((f) =>
         editYaml(f, 'misconceptions/addsub.yaml', (doc) =>
-          doc.misconceptions[0].skills.push('ADD.25'),
+          doc.misconceptions[0].skills.push('ADD.28'),
         ),
       ),
       'V04',
-      /unknown skill ADD.25/,
+      /unknown skill ADD.28/,
     );
     expectFinding(
       variant((f) =>
         editYaml(f, 'misconceptions/addsub.yaml', (doc) =>
-          doc.misconceptions[0].remediation.push('ADD.25'),
+          doc.misconceptions[0].remediation.push('ADD.28'),
         ),
       ),
       'V04',
-      /unknown remediation skill ADD.25/,
+      /unknown remediation skill ADD.28/,
     );
     expectFinding(
       variant((f) =>
@@ -844,6 +866,28 @@ describe('V01/V02: game data shape', () => {
     });
     const hit = expectFinding(swapped, 'V02', /increasing order \(1 after 2\)/);
     expect(hit.file).toBe('game/island.yaml');
+  });
+  it('a plot holds at most 64 road stones, the most the road planner is tested to fit', () => {
+    const crowd = (k: number) =>
+      gameVariant('island', (doc) => {
+        const plot = doc.island.road[0].plot;
+        const last = doc.island.road.at(-1).n as number;
+        for (let i = 1; i <= k; i++) doc.island.road.push({ n: last + i, plot: [...plot] });
+      });
+    const stonesOn = (k: number) => {
+      const doc = parse(FIXTURE['game/island.yaml'] as string) as Yaml;
+      const key = doc.island.road[0].plot.join(',');
+      return doc.island.road.filter((s: Yaml) => s.plot.join(',') === key).length + k;
+    };
+    const atCap = 64 - stonesOn(0);
+    expect(atCap).toBeGreaterThan(0);
+    expect(stonesOn(atCap)).toBe(64);
+    expect(unexpected(crowd(atCap)).filter((d) => d.severity === 'error')).toEqual([]);
+    const hits = unexpected(crowd(atCap + 1)).filter((d) =>
+      /more than 64 road stones/.test(d.message),
+    );
+    expect(hits).toHaveLength(1);
+    expect(hits[0]).toMatchObject({ check: 'V02', file: 'game/island.yaml', severity: 'error' });
   });
 });
 
@@ -1478,10 +1522,12 @@ describe('V21: test-out choice rule and gateway item count', () => {
 });
 
 describe('V02/V03: excused ids must be canonical', () => {
-  it('does not let ADD.5 excuse the missing ADD.05', () => {
-    const diags = variant((f) => editYaml(f, 'graph.yaml', (doc) => (doc.plannedIds = ['ADD.5'])));
-    expectFinding(diags, 'V02', /'ADD.5' is not a canonical SkillId or TemplateId/);
-    expectFinding(diags, 'V03', /missing ADD.05/);
+  it('does not let ADD.014 excuse the missing ADD.14', () => {
+    const diags = variant((f) =>
+      editYaml(f, 'graph.yaml', (doc) => (doc.plannedIds = ['ADD.014'])),
+    );
+    expectFinding(diags, 'V02', /'ADD.014' is not a canonical SkillId or TemplateId/);
+    expectFinding(diags, 'V03', /missing ADD.14/);
   });
   it('rejects excused template ids that could never be authored', () => {
     expectFinding(
@@ -1672,10 +1718,11 @@ describe('V24 and contentVersion (03 §9.1)', () => {
       // for CNT, SUB, GEO and MEA skills; ADD facts and strategies (K01) added 14 skills, 58
       // templates, MC.forgot-the-ten and MC.wrong-operation; place value and two-digit addition and
       // subtraction (K01) added 15 skills, 56 templates, MC.place-swap, MC.face-value and
-      // MC.write-as-spoken.
-      skills: 86,
-      templates: 327,
-      misconceptions: 14,
+      // MC.write-as-spoken; equality and story problems (K01) added 11 skills (ALG.05 and CMP.08
+      // among them), 42 templates and 5 misconceptions.
+      skills: 97,
+      templates: 369,
+      misconceptions: 19,
       narrationKeys: Object.keys(r.content?.narration ?? {}).length,
     });
     expect(Object.keys(manifest.files).sort()).toEqual([
@@ -1701,6 +1748,8 @@ describe('graph.json (03 §9.1)', () => {
     expect(g?.roots).toEqual(['CNT.01', 'GEO.01', 'GEO.05', 'MEA.15', 'SUB.01']);
     expect(g?.gateways).toEqual([
       'ADD.08',
+      'ADD.10',
+      'ADD.11',
       'CNT.03',
       'CNT.14',
       'CPS.02',

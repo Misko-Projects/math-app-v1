@@ -1,6 +1,6 @@
-# CMP: Comparing, ordering and the number line, catalog rows from 03 §3.5 (K01). CMP.08 (it needs
-# equality.eq from the ADD PR) and the grade-2+ rows CMP.10–CMP.12 and CMP.14 come later
-# (graph.yaml plannedIds).
+# CMP: Comparing, ordering and the number line, catalog rows from 03 §3.5 (K01; CMP.08 is authored
+# with equality.eq). The grade-2+ rows CMP.10–CMP.12 and CMP.14 come later (graph.yaml
+# plannedIds).
 strand: CMP
 skills:
   - id: CMP.01
@@ -65,6 +65,15 @@ skills:
     prerequisites: [CMP.02, CPS.04]
     gateway: false
     representations: [double-ten-frame, number-line, symbols]
+
+  - id: CMP.08
+    name: Use <, > and = to compare numbers to 20
+    kind: procedure
+    grade: 1
+    standards: { ccss: [1.NBT.B.3] }
+    prerequisites: [CMP.07]
+    gateway: false
+    representations: [balance, number-line, symbols]
 
   - id: CMP.09
     name: Estimate where a number goes on a 0–100 line with only the ends marked

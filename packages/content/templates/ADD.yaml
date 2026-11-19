@@ -631,7 +631,7 @@ templates:
     generator: addsub.facts
     params: { a: { int: [11, 18] }, b: { int: [4, 9] }, op: "-", unknown: result, family: count-up }
     difficulty: { base: -3.15 }
-    narration: { prompt: tp.ADD.19.t1.prompt, hints: [h.sub.count-up-ten, h.sub.count-hops] }
+    narration: { prompt: tp.ADD.19.t1.prompt, hints: [h.sub.count-up-ten, h.sub.jump-total] }
 
   - id: ADD.19.t2
     skillId: ADD.19
@@ -753,7 +753,9 @@ templates:
     narration: { prompt: tp.ADD.26.t2.prompt, hints: [h.add.ten-and-ones, h.add.ten-plus] }
 
   # ---------- ADD.27: add and subtract within 20 with jumps on a number line ----------
-  # Free jumps (1–10): a child may hop by ones, or jump to ten first.
+  # Free jumps (1–10): a child may hop by ones or make bigger jumps. The facts need not pass ten
+  # (3 + 2, 13 + 4; the 03 §3 row is any jump route), so the hints never name a route through ten:
+  # bridging ten is ADD.08's and ADD.18's strategy.
   - id: ADD.27.t1
     skillId: ADD.27
     format: number-line-jump
@@ -770,7 +772,7 @@ templates:
         jumps: free,
       }
     difficulty: { base: -1.4 }
-    narration: { prompt: p.add.jump-on, hints: [h.numberline.hop-ones, h.numberline.jump-to-ten] }
+    narration: { prompt: p.add.jump-on, hints: [h.numberline.hop-ones, h.numberline.big-jumps] }
 
   - id: ADD.27.t2
     skillId: ADD.27
@@ -788,7 +790,8 @@ templates:
         jumps: free,
       }
     difficulty: { base: -2.15 }
-    narration: { prompt: p.sub.jump-back, hints: [h.numberline.hop-back, h.numberline.back-to-ten] }
+    narration:
+      { prompt: p.sub.jump-back, hints: [h.numberline.hop-back, h.numberline.big-jumps-back] }
 
   - id: ADD.27.t3
     skillId: ADD.27
@@ -798,7 +801,7 @@ templates:
     generator: addsub.facts
     params: { a: { int: [3, 15] }, b: { int: [2, 9] }, op: "+", unknown: result, family: any }
     difficulty: { base: -1.0 }
-    narration: { prompt: p.add.what-is, hints: [h.numberline.picture, h.numberline.jump-to-ten] }
+    narration: { prompt: p.add.what-is, hints: [h.numberline.picture, h.numberline.hop-ones] }
 
   - id: ADD.27.t4
     skillId: ADD.27
@@ -808,4 +811,540 @@ templates:
     generator: addsub.facts
     params: { a: { int: [5, 20] }, b: { int: [2, 9] }, op: "-", unknown: result, family: any }
     difficulty: { base: -1.35 }
-    narration: { prompt: p.sub.what-is, hints: [h.numberline.picture, h.numberline.back-to-ten] }
+    narration: { prompt: p.sub.what-is, hints: [h.numberline.picture, h.numberline.hop-back] }
+
+  # ================= equality and story problems (K01 part 5) =================
+  # equality.eq, story.addsub and addsub.three (03 §5.6). Constructed-answer templates are the
+  # practice evidence (V27); compare, balance judge and numeral-pick templates are choice extras.
+
+  # ---------- ADD.05: turn-around facts and adding zero ----------
+  - id: ADD.05.t1
+    skillId: ADD.05
+    format: tenframe-fill
+    tier: concrete
+    representation: ten-frame
+    generator: addsub.facts
+    params: { a: { int: [1, 8] }, b: { int: [2, 9] }, op: "+", unknown: result, family: any }
+    constraints: ["a < b", "a + b <= 10"]
+    difficulty: { base: -0.3 }
+    narration: { prompt: tp.ADD.05.t1.prompt, hints: [h.eq.turn-around, h.count.show-frame] }
+
+  - id: ADD.05.t2
+    skillId: ADD.05
+    format: balance
+    tier: concrete
+    representation: balance
+    generator: equality.eq
+    params:
+      form: { choice: [a+b=c+_, a+b=_+c] }
+      fact: turn-around
+      a: { int: [1, 9] }
+      b: { int: [1, 9] }
+      c: { int: [1, 9] }
+    constraints: ["a + b <= 10"]
+    difficulty: { base: -1.5 }
+    narration: { prompt: tp.ADD.05.t2.prompt, hints: [h.eq.turn-around, h.eq.same-both] }
+
+  - id: ADD.05.t3
+    skillId: ADD.05
+    format: number-bond
+    tier: pictorial
+    representation: number-bond
+    generator: equality.eq
+    params: { form: a+b=_, a: { int: [0, 9] }, b: { int: [1, 9] }, c: 1 }
+    constraints: ["a + b <= 10"]
+    difficulty: { base: -0.6 }
+    narration: { prompt: tp.ADD.05.t3.prompt, hints: [h.eq.turn-around, h.bond.count-on] }
+
+  - id: ADD.05.t4
+    skillId: ADD.05
+    format: number-pad
+    tier: abstract
+    representation: symbols
+    generator: equality.eq
+    params:
+      form: { choice: [a+b=c+_, a+b=_+c, a+b=_, _=a+b], weights: [2, 2, 2, 1] }
+      fact: { choice: [turn-around, zero] }
+      a: { int: [0, 10] }
+      b: { int: [0, 10] }
+      c: { int: [1, 10] }
+    difficulty: { base: -0.9 }
+    narration: { prompt: p.eq.box, hints: [h.eq.turn-around, h.eq.same-both] }
+
+  # ---------- ADD.10: the equal sign means "the same as" (gateway) ----------
+  - id: ADD.10.t1
+    skillId: ADD.10
+    format: balance
+    tier: concrete
+    representation: balance
+    generator: equality.eq
+    params:
+      form: a+b=c+_
+      mode: make-equal
+      a: { int: [1, 6] }
+      b: { int: [1, 6] }
+      c: { int: [1, 9] }
+    difficulty: { base: -1.1 }
+    narration: { prompt: tp.ADD.10.t1.prompt, hints: [h.eq.same-both, h.weight.level] }
+
+  - id: ADD.10.t2
+    skillId: ADD.10
+    format: number-pad
+    tier: pictorial
+    representation: objects
+    generator: equality.eq
+    params:
+      form: { choice: [_=a+b, a+b=c+_] }
+      a: { int: [1, 9] }
+      b: { int: [1, 9] }
+      c: { int: [1, 9] }
+    difficulty: { base: -1.1 }
+    narration: { prompt: p.eq.box, hints: [h.eq.same-both, h.eq.count-picture] }
+
+  - id: ADD.10.t3
+    skillId: ADD.10
+    format: balance
+    tier: pictorial
+    representation: balance
+    generator: equality.eq
+    params:
+      form: { choice: [_=a+b, a+b=_, a+b=c+_], weights: [2, 1, 2] }
+      mode: judge
+      truth: { bool: 0.6 }
+      a: { int: [1, 9] }
+      b: { int: [1, 9] }
+      c: { int: [1, 9] }
+    difficulty: { base: -1.35 }
+    narration: { prompt: tp.ADD.10.t3.prompt, hints: [h.eq.same-both, h.eq.work-out] }
+
+  - id: ADD.10.t4
+    skillId: ADD.10
+    format: compare
+    tier: abstract
+    representation: symbols
+    generator: equality.eq
+    params:
+      form: { choice: [_=a+b, a+b=_, a+b=c+_], weights: [2, 1, 2] }
+      mode: judge
+      truth: { bool: 0.6 }
+      a: { int: [1, 9] }
+      b: { int: [1, 9] }
+      c: { int: [1, 9] }
+    difficulty: { base: -0.95 }
+    narration: { prompt: tp.ADD.10.t4.prompt, hints: [h.eq.same-both, h.eq.work-out] }
+
+  - id: ADD.10.t5
+    skillId: ADD.10
+    format: number-pad
+    tier: abstract
+    representation: symbols
+    generator: equality.eq
+    params:
+      form: { choice: [_=a+b, a+b=c+_, a+b=_+c] }
+      a: { int: [1, 9] }
+      b: { int: [1, 9] }
+      c: { int: [1, 9] }
+    difficulty: { base: -1.2 }
+    narration: { prompt: p.eq.box, hints: [h.eq.same-both, h.eq.work-out] }
+
+  # ---------- ADD.11: the unknown anywhere (gateway) ----------
+  - id: ADD.11.t1
+    skillId: ADD.11
+    format: balance
+    tier: pictorial
+    representation: balance
+    generator: equality.eq
+    params:
+      form: { choice: [a+_=c, _+b=c, a+b=c+_, a+b=_+c], weights: [1, 2, 1, 1] }
+      op: { choice: ["+", "-"], weights: [3, 1] }
+      a: { int: [1, 12] }
+      b: { int: [1, 9] }
+      c: { int: [1, 9] }
+    difficulty: { base: -1.95 }
+    narration:
+      { prompt: tp.ADD.11.t1.prompt, hints: [h.eq.same-both, h.eq.think-parts, h.eq.work-out] }
+
+  - id: ADD.11.t2
+    skillId: ADD.11
+    format: number-bond
+    tier: pictorial
+    representation: number-bond
+    generator: bond.parts
+    params: { whole: { int: [6, 18] }, part: { int: [2, 9] }, unknown: part }
+    constraints: ["part < whole", "whole - part <= 9"]
+    difficulty: { base: -2.15 }
+    narration: { prompt: p.bond.missing-part, hints: [h.eq.think-parts, h.bond.count-on] }
+
+  - id: ADD.11.t3
+    skillId: ADD.11
+    format: number-pad
+    tier: pictorial
+    representation: bar-model
+    generator: addsub.facts
+    params:
+      a: { int: [2, 12] }
+      b: { int: [1, 9] }
+      op: { choice: ["+", "-"], weights: [3, 1] }
+      unknown: { choice: [change, start] }
+      family: any
+    constraints: ["result >= 1"]
+    difficulty: { base: -1.25 }
+    narration: { prompt: tp.ADD.11.t3.prompt, hints: [h.bar.find-missing, h.eq.think-parts] }
+
+  - id: ADD.11.t4
+    skillId: ADD.11
+    format: number-pad
+    tier: abstract
+    representation: symbols
+    generator: equality.eq
+    params:
+      form: { choice: [a+_=c, _+b=c, a+b=c+_, a+b=_+c], weights: [1, 2, 1, 1] }
+      op: { choice: ["+", "-"], weights: [3, 1] }
+      a: { int: [1, 12] }
+      b: { int: [1, 9] }
+      c: { int: [1, 9] }
+    difficulty: { base: -1.25 }
+    narration: { prompt: p.eq.box, hints: [h.eq.same-both, h.eq.think-parts, h.eq.work-out] }
+
+  - id: ADD.11.t5
+    skillId: ADD.11
+    format: numeral-pick
+    tier: abstract
+    representation: symbols
+    generator: equality.eq
+    params:
+      form: { choice: [a+b=c+_, a+b=_+c, _+b=c] }
+      op: { choice: ["+", "-"], weights: [3, 1] }
+      a: { int: [1, 12] }
+      b: { int: [1, 9] }
+      c: { int: [1, 9] }
+    difficulty: { base: -1.8 }
+    narration: { prompt: p.eq.pick, hints: [h.eq.same-both, h.eq.work-out] }
+    distractors:
+      - { rule: MC.equals-means-answer }
+      - { rule: MC.equals-add-all }
+
+  # ---------- ADD.12: story problems of every type within 20 ----------
+  # The story template mixes every add/subtract situation; start-unknown and comparing stories
+  # are weighted up so both story misconceptions discriminate (V25). The number-pad templates are
+  # the bar model and the number line of a story (addsub.facts, change or start unknown).
+  - id: ADD.12.t1
+    skillId: ADD.12
+    format: story-problem
+    tier: pictorial
+    representation: story
+    generator: story.addsub
+    params:
+      situation:
+        choice:
+          - add-to/result
+          - add-to/change
+          - add-to/start
+          - take-from/result
+          - take-from/change
+          - take-from/start
+          - put-together/total
+          - put-together/addend
+          - put-together/both
+          - compare/difference-more
+          - compare/difference-fewer
+          - compare/bigger-more
+          - compare/bigger-fewer
+          - compare/smaller-fewer
+          - compare/smaller-more
+        weights: [1, 1, 3, 1, 1, 3, 1, 1, 1, 2, 2, 1, 1, 1, 2]
+      a: { int: [1, 19] }
+      b: { int: [1, 19] }
+    difficulty: { base: -1.2 }
+    narration:
+      { prompt: p.story.listen, hints: [h.story.act-out, h.story.which-part, h.story.check] }
+
+  - id: ADD.12.t2
+    skillId: ADD.12
+    format: number-pad
+    tier: pictorial
+    representation: bar-model
+    generator: addsub.facts
+    params:
+      a: { int: [2, 19] }
+      b: { int: [1, 9] }
+      op: { choice: ["+", "-"] }
+      unknown: { choice: [change, start] }
+      family: any
+    constraints: ["result >= 1"]
+    difficulty: { base: -1.5 }
+    narration: { prompt: tp.ADD.12.t2.prompt, hints: [h.bar.find-missing, h.eq.think-parts] }
+
+  - id: ADD.12.t3
+    skillId: ADD.12
+    format: number-pad
+    tier: pictorial
+    representation: number-line
+    generator: addsub.facts
+    params:
+      a: { int: [2, 19] }
+      b: { int: [1, 9] }
+      op: { choice: ["+", "-"] }
+      unknown: { choice: [change, start] }
+      family: any
+    constraints: ["result >= 1"]
+    difficulty: { base: -1.5 }
+    narration: { prompt: tp.ADD.12.t3.prompt, hints: [h.numberline.from-mark, h.eq.think-parts] }
+
+  # ---------- ADD.13: three addends, making ten first ----------
+  - id: ADD.13.t1
+    skillId: ADD.13
+    format: tenframe-fill
+    tier: concrete
+    representation: ten-frame
+    generator: addsub.three
+    params: { a: { int: [1, 9] }, b: { int: [1, 9] }, c: { int: [1, 9] } }
+    constraints: ["hasTenPair == 1", "result <= 20"]
+    difficulty: { base: -1.5 }
+    narration: { prompt: tp.ADD.13.t1.prompt, hints: [h.add3.find-ten, h.add3.ten-and] }
+
+  - id: ADD.13.t2
+    skillId: ADD.13
+    format: number-pad
+    tier: pictorial
+    representation: number-bond
+    generator: addsub.three
+    params: { a: { int: [1, 9] }, b: { int: [1, 9] }, c: { int: [1, 9] } }
+    constraints: ["hasTenPair == 1", "result <= 20"]
+    difficulty: { base: -0.6 }
+    narration: { prompt: tp.ADD.13.t2.prompt, hints: [h.add3.find-ten, h.add3.ten-and] }
+
+  - id: ADD.13.t3
+    skillId: ADD.13
+    format: number-pad
+    tier: abstract
+    representation: symbols
+    generator: addsub.three
+    params: { a: { int: [1, 9] }, b: { int: [1, 9] }, c: { int: [1, 9] } }
+    constraints: ["result <= 20"]
+    difficulty: { base: -0.85 }
+    narration: { prompt: tp.ADD.13.t3.prompt, hints: [h.add3.can-ten, h.add3.two-then-one] }
+
+  # ---------- ADD.20: K story problems within 10 ----------
+  - id: ADD.20.t1
+    skillId: ADD.20
+    format: make-set
+    tier: concrete
+    representation: objects
+    generator: story.addsub
+    params:
+      situation: add-to/result
+      context: beach-shells
+      a: { int: [1, 6] }
+      b: { int: [1, 4] }
+    constraints: ["result <= 10"]
+    difficulty: { base: -0.8 }
+    narration: { prompt: tp.ADD.20.t1.prompt, hints: [h.story.act-out, h.count.touch-each] }
+
+  - id: ADD.20.t2
+    skillId: ADD.20
+    format: make-set
+    tier: concrete
+    representation: objects
+    generator: story.addsub
+    params:
+      situation: take-from/result
+      context: beach-shells
+      a: { int: [3, 10] }
+      b: { int: [1, 5] }
+    constraints: ["result >= 1"]
+    difficulty: { base: -0.75 }
+    narration: { prompt: tp.ADD.20.t2.prompt, hints: [h.story.act-out, h.count.touch-each] }
+
+  - id: ADD.20.t3
+    skillId: ADD.20
+    format: story-problem
+    tier: pictorial
+    representation: story
+    generator: story.addsub
+    params:
+      situation:
+        { choice: [add-to/result, take-from/result, put-together/total, put-together/both] }
+      a: { int: [1, 9] }
+      b: { int: [1, 9] }
+      maxN: 10
+    difficulty: { base: -0.45, features: { size: 1.5 } }
+    narration: { prompt: p.story.listen, hints: [h.story.act-out, h.story.check] }
+
+  - id: ADD.20.t4
+    skillId: ADD.20
+    format: number-pad
+    tier: abstract
+    representation: symbols
+    generator: story.addsub
+    params:
+      situation: put-together/total
+      context: beach-shells
+      a: { int: [1, 9] }
+      b: { int: [1, 9] }
+    constraints: ["result <= 10"]
+    difficulty: { base: 0.0 }
+    narration: { prompt: tp.ADD.20.t4.prompt, hints: [h.story.act-out, h.add.fingers] }
+
+  # ---------- ADD.21: compare stories to 20 ----------
+  - id: ADD.21.t1
+    skillId: ADD.21
+    format: number-pad
+    tier: pictorial
+    representation: objects
+    generator: story.addsub
+    params:
+      situation: compare/difference-more
+      context: beach-shells
+      a: { int: [2, 12] }
+      b: { int: [1, 10] }
+    difficulty: { base: -0.1 }
+    narration: { prompt: tp.ADD.21.t1.prompt, hints: [h.compare.match, h.story.extra-ones] }
+
+  - id: ADD.21.t2
+    skillId: ADD.21
+    format: story-problem
+    tier: pictorial
+    representation: story
+    generator: story.addsub
+    params:
+      situation:
+        choice:
+          [
+            compare/difference-more,
+            compare/difference-fewer,
+            compare/bigger-more,
+            compare/smaller-fewer,
+          ]
+      a: { int: [1, 19] }
+      b: { int: [1, 19] }
+      workspace: bar-model
+    difficulty: { base: -1.1 }
+    narration: { prompt: p.story.listen, hints: [h.story.act-out, h.story.check] }
+
+  - id: ADD.21.t3
+    skillId: ADD.21
+    format: number-pad
+    tier: pictorial
+    representation: bar-model
+    generator: story.addsub
+    params:
+      situation: compare/difference-fewer
+      context: beach-shells
+      a: { int: [2, 19] }
+      b: { int: [1, 18] }
+    difficulty: { base: -0.65 }
+    narration: { prompt: tp.ADD.21.t3.prompt, hints: [h.story.extra-ones, h.bar.find-missing] }
+
+  # ---------- ADD.23: match an equation to a picture or story (K) ----------
+  - id: ADD.23.t1
+    skillId: ADD.23
+    format: number-pad
+    tier: pictorial
+    representation: objects
+    generator: story.addsub
+    params:
+      situation: add-to/result
+      context: beach-shells
+      ask: equation
+      a: { int: [1, 5] }
+      b: { int: [1, 5] }
+    difficulty: { base: -0.45, features: { size: 1.5 } }
+    narration: { prompt: tp.ADD.23.t1.prompt, hints: [h.story.count-groups, h.story.plus-or-take] }
+
+  - id: ADD.23.t2
+    skillId: ADD.23
+    format: number-pad
+    tier: pictorial
+    representation: story
+    generator: story.addsub
+    params:
+      situation: take-from/result
+      context: beach-shells
+      ask: equation
+      a: { int: [2, 10] }
+      b: { int: [1, 5] }
+    constraints: ["result >= 1"]
+    difficulty: { base: -0.45, features: { size: 1.5 } }
+    narration: { prompt: tp.ADD.23.t2.prompt, hints: [h.story.act-out, h.story.plus-or-take] }
+
+  - id: ADD.23.t3
+    skillId: ADD.23
+    format: numeral-pick
+    tier: pictorial
+    representation: objects
+    generator: story.addsub
+    params:
+      situation: add-to/result
+      context: beach-shells
+      ask: equation
+      a: { int: [1, 5] }
+      b: { int: [1, 5] }
+    difficulty: { base: -0.3, features: { size: 1.5 } }
+    narration: { prompt: tp.ADD.23.t3.prompt, hints: [h.story.count-groups] }
+
+  - id: ADD.23.t4
+    skillId: ADD.23
+    format: number-pad
+    tier: abstract
+    representation: symbols
+    generator: story.addsub
+    params:
+      situation: add-to/result
+      context: beach-shells
+      ask: equation
+      a: { int: [1, 6] }
+      b: { int: [1, 4] }
+    constraints: ["result <= 10"]
+    difficulty: { base: -0.45, features: { size: 1.5 } }
+    narration: { prompt: tp.ADD.23.t4.prompt, hints: [h.story.act-out, h.story.plus-or-take] }
+
+  # ---------- ADD.25: three-addend stories (sum to 20) ----------
+  - id: ADD.25.t1
+    skillId: ADD.25
+    format: number-pad
+    tier: pictorial
+    representation: ten-frame
+    generator: story.addsub
+    params:
+      situation: add-to/result
+      context: beach-shells
+      a: { int: [1, 9] }
+      b: { int: [1, 9] }
+      c: { int: [1, 9] }
+    constraints: ["result <= 20"]
+    difficulty: { base: -0.95 }
+    narration: { prompt: tp.ADD.25.t1.prompt, hints: [h.add3.can-ten, h.add3.two-then-one] }
+
+  - id: ADD.25.t2
+    skillId: ADD.25
+    format: story-problem
+    tier: pictorial
+    representation: story
+    generator: story.addsub
+    params:
+      situation: { choice: [add-to/result, put-together/total] }
+      a: { int: [1, 9] }
+      b: { int: [1, 9] }
+      c: { int: [1, 9] }
+      workspace: ten-frame
+    constraints: ["result <= 20"]
+    difficulty: { base: -0.65 }
+    narration:
+      { prompt: p.story.listen, hints: [h.story.act-out, h.add3.can-ten, h.add3.two-then-one] }
+
+  - id: ADD.25.t3
+    skillId: ADD.25
+    format: number-pad
+    tier: abstract
+    representation: symbols
+    generator: story.addsub
+    params:
+      situation: put-together/total
+      context: beach-shells
+      a: { int: [1, 9] }
+      b: { int: [1, 9] }
+      c: { int: [1, 9] }
+    constraints: ["result <= 20"]
+    difficulty: { base: -0.95 }
+    narration: { prompt: tp.ADD.25.t3.prompt, hints: [h.add3.can-ten, h.add3.two-then-one] }

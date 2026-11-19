@@ -15,7 +15,7 @@ import { formatModel } from '../../formats';
 import { checkResponse } from '../../items/check';
 import { generateItemFromParams, itemFeatures } from '../../items/generate';
 import { itemExampleCorrect, itemSolution, replaySteps } from '../../items/solution';
-import { factParts, factStrategy, inFamily } from './facts';
+import { addsubFacts, FAMILIES, factParts, factStrategy, inFamily } from './facts';
 
 let nextId = 0;
 function tpl(format: ItemFormat, over: Partial<ItemTemplate> = {}): ItemTemplate {
@@ -378,11 +378,32 @@ describe('the other strategy families', () => {
     });
     expect(ops).toEqual(['highlight', 'hop', 'hop', 'hop', 'label-landing']);
   });
+
+  // Regression (PR #80 review): the hop-by-one demo said "Now 11" on the last hop of 8 + 3, before
+  // the final step. Each landing but the last is named; the last hop is silent.
+  it.each<[string, ParamValues, number[], number]>([
+    ['8 + 3', { a: 8, b: 3, op: '+' }, [9, 10], 11],
+    ['9 − 3', { a: 9, b: 3, op: '-' }, [8, 7], 6],
+    ['5 + 1, a single hop', { a: 5, b: 1, op: '+' }, [], 6],
+  ])('hops of one name the landings before the last: %s', (_label, params, named, answer) => {
+    const t = tpl('number-line-jump', { tier: 'concrete', representation: 'number-path' });
+    const { steps, ops, says } = solve(t, params);
+    const b = params.b as number;
+    expect(ops).toEqual(['highlight', ...new Array<string>(b).fill('hop'), 'label-landing']);
+    expect(
+      steps.filter((s) => s.say === 'gen.addsub.facts.count-on').map((s) => s.vars?.n),
+    ).toEqual(named);
+    expect(says.at(-2)).toBe('gen.addsub.facts.last-hop');
+    expect(steps.at(-1)).toMatchObject({ say: 'gen.addsub.facts.answer', vars: { n: answer } });
+    earlyStepsHide(steps, answer);
+  });
 });
 
 describe('validity per format', () => {
   it.each<[string, ItemFormat, ParamValues]>([
     ['rekenrek subtraction', 'rekenrek', { a: 9, b: 3, op: '-' }],
+    // Regression (PR #80 review): plus9 puts the other addend on a row of its own: 11 beads.
+    ['plus9 rekenrek 9 + 11', 'rekenrek', { a: 9, b: 11, op: '+', family: 'plus9' }],
     ['dot-flash subtraction', 'dot-flash', { a: 9, b: 3, op: '-' }],
     ['dot-flash change unknown', 'dot-flash', { a: 4, b: 4, unknown: 'change' }],
     ['tenframe change unknown', 'tenframe-fill', { a: 4, b: 3, unknown: 'change' }],
@@ -393,6 +414,34 @@ describe('validity per format', () => {
     ],
   ])('%s is rejected', (_label, format, params) => {
     expect(() => generateItemFromParams(tpl(format), params)).toThrow();
+  });
+
+  it('9 + 11 (plus9) is still a fact for the number pad', () => {
+    const item = generateItemFromParams(tpl('number-pad', { tier: 'abstract' }), {
+      a: 9,
+      b: 11,
+      family: 'plus9',
+    });
+    expect(item.answer).toEqual({ kind: 'number', value: 20 });
+  });
+
+  it('every rekenrek fact the generator accepts builds a rack the rekenrek model accepts', () => {
+    const t = tpl('rekenrek', { tier: 'concrete' });
+    const model = formatModel('rekenrek');
+    let accepted = 0;
+    for (const family of FAMILIES) {
+      for (let a = 0; a <= 20; a += 1) {
+        for (let b = 0; b <= 20; b += 1) {
+          const p: ParamValues = { a, b, op: '+', unknown: 'result', family, maxSum: 20 };
+          if (!addsubFacts.accepts?.(p, t)) continue;
+          accepted += 1;
+          const item = generateItemFromParams(t, p);
+          const parsed = model?.configSchema.safeParse(item.widget);
+          expect(parsed?.success, `${family} ${a} + ${b}`).toBe(true);
+        }
+      }
+    }
+    expect(accepted).toBeGreaterThan(100);
   });
 });
 

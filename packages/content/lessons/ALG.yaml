@@ -1,0 +1,19 @@
+# Authored lessons (03 §4.5, §6). Skills without an entry get an auto lesson (03 §6.4).
+# ALG.05: the lesson plays what an auto lesson would (the concrete make-equal template, steps from
+# the generator's solution) and pins the test-out pool to the pictorial make-equal template. The
+# compiler reads answer kinds from formats, and balance answers either way (judge is a choice), so
+# the auto pool would mix the judge template with the constructed one (03 §6.5).
+strand: ALG
+lessons:
+  - skillId: ALG.05
+    mode: authored
+    templateId: ALG.05.t1
+    worked:
+      - params: { a: 3, b: 5, ask: make, sprite: shell }
+    faded:
+      - params: { a: 6, b: 4, ask: make, sprite: shell }
+        childSteps: 1
+      - params: { a: 2, b: 7, ask: make, sprite: shell }
+        childSteps: 2
+    scaffolded: { count: 2, hintStart: 2 }
+    testOut: { items: 3, minCorrect: 3, templateIds: [ALG.05.t4] }

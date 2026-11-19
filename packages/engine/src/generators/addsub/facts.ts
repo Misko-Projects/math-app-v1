@@ -18,6 +18,7 @@ import type {
   StimulusSpec,
 } from '@number-island/shared';
 import { numberOptionId } from '../../formats/numeral-pick';
+import { BEADS_PER_ROW } from '../../formats/rekenrek';
 import type { Rng } from '../../rng';
 import {
   asNum,
@@ -264,9 +265,38 @@ function splitFrames(a: number, b: number): StimulusSpec {
  * model, base-ten pieces, or ten-frames. Strategy facts show one addend per frame; the others keep
  * the E01 frames (the total in colours a and b, or the minuend).
  */
-function factPicture(t: ItemTemplate, f: FactParts): StimulusSpec {
+function factPicture(t: ItemTemplate, f: FactParts, unknown = 'result'): StimulusSpec {
   const plus = f.op === '+';
+  if (
+    unknown !== 'result' &&
+    (t.representation === 'number-bond' || t.representation === 'bar-model')
+  ) {
+    // K01 (ADD.11, ADD.12): a change or start unknown leaves its own slot empty, so the picture
+    // never shows the asked number. a + b = r: whole r, parts a and b; a − b = r: whole a, parts b
+    // and r.
+    const q = (show: boolean, v: number): number | '?' => (show ? v : '?');
+    const whole = plus ? f.result : q(unknown !== 'start', f.a);
+    const parts = plus
+      ? [q(unknown !== 'start', f.a), q(unknown !== 'change', f.b)]
+      : [q(unknown !== 'change', f.b), f.result];
+    return t.representation === 'bar-model'
+      ? { kind: 'bar-model', parts, whole }
+      : { kind: 'number-bond', whole, parts };
+  }
   switch (t.representation) {
+    case 'number-line': {
+      // K01 (ADD.12): a 0–20 line with the numbers the fact shows marked (never the asked one).
+      const shown =
+        unknown === 'change' ? [f.a, f.result] : unknown === 'start' ? [f.result] : [f.a];
+      return {
+        kind: 'number-line',
+        min: 0,
+        max: 20,
+        ticksEvery: 1,
+        labelsEvery: 5,
+        marks: shown.map((at) => ({ at, label: String(at) })),
+      };
+    }
     case 'dots':
       return { kind: 'dots', arrangement: 'groups', groups: plus ? [f.a, f.b] : [f.a] };
     case 'number-bond':
@@ -302,6 +332,21 @@ const isDifference = (f: FactParts): boolean => f.op === '-' && f.strategy === '
 
 /** Counting up from b to a passes ten (8 → 10 → 13). */
 const upThroughTen = (f: FactParts): boolean => f.b < 10 && f.a > 10;
+
+/**
+ * The beads already pushed over on a rekenrek fact. make-ten: a on the top row, b below; slide
+ * beads up to fill the top row. plus9: the other addend below; add a full ten on top, then take
+ * one away. Otherwise a sits on the top row and the child slides b more.
+ */
+function rekenrekPreset(f: FactParts): [number, number] {
+  if (f.strategy === 'make-ten') return [f.a, f.b];
+  if (f.strategy === 'nine') return [0, f.other];
+  return [f.a, 0];
+}
+
+/** The preset fits two rows of ten, and so does the total. */
+const rekenrekFits = (f: FactParts): boolean =>
+  rekenrekPreset(f).every((n) => n <= BEADS_PER_ROW) && f.result <= 2 * BEADS_PER_ROW;
 
 interface Line {
   key: string;
@@ -468,6 +513,7 @@ export const addsubFacts: GeneratorDef = {
     'gen.addsub.facts.jump-back-ten',
     'gen.addsub.facts.jump-back-rest',
     'gen.addsub.facts.hops',
+    'gen.addsub.facts.last-hop',
     'gen.addsub.facts.think-add',
     'gen.addsub.facts.see-groups',
   ],
@@ -490,8 +536,9 @@ export const addsubFacts: GeneratorDef = {
       case 'tenframe-fill':
         return unknown === 'result';
       case 'rekenrek':
-        // Two rows of ten: addition with the first addend on one row, the total asked.
-        return op === '+' && unknown === 'result' && a <= 10;
+        // Two rows of ten: addition with the total asked, and a preset that fits the rows (plus9
+        // puts the other addend on a row of its own, so 9 + 11 cannot be laid out).
+        return op === '+' && unknown === 'result' && rekenrekFits(factParts(p));
       case 'dot-flash':
         return op === '+' && unknown === 'result';
       default:
@@ -527,7 +574,7 @@ export const addsubFacts: GeneratorDef = {
       plusTen: plus && (a === 10 || b === 10) ? 1 : 0,
     };
     const vars = pickVars(t, varPool(f));
-    const overlay = factPicture(t, f);
+    const overlay = factPicture(t, f, unknown);
     let p: PartialOutput;
     switch (t.format) {
       case 'number-pad': {
@@ -636,15 +683,12 @@ export const addsubFacts: GeneratorDef = {
         break;
       }
       case 'rekenrek': {
-        if (!plus || unknown !== 'result' || a > 10) {
-          throw new RangeError('addsub.facts: rekenrek adds, with the total asked');
+        if (!plus || unknown !== 'result' || !rekenrekFits(f)) {
+          throw new RangeError('addsub.facts: rekenrek adds on two rows of ten, total asked');
         }
-        // make-ten: a on the top row, b below; slide beads up to fill the top row. plus9: the
-        // other addend below; add a full ten on top, then take one away. Otherwise a sits on the
-        // top row and the child slides b more.
         const makeTen = strategy === 'make-ten';
         const nine = strategy === 'nine';
-        const preset: [number, number] = makeTen ? [a, b] : nine ? [0, f.other] : [a, 0];
+        const preset = rekenrekPreset(f);
         const rowRule = makeTen ? 'fill-top-first' : 'any';
         p = {
           params,
@@ -1076,13 +1120,14 @@ function jumpSolution(f: FactParts, open: boolean, start: number): LessonStep[] 
     }
     return [say(startKey(op), { a, b }, { op: 'hop', args: { by: op === '-' ? -b : b } }), label];
   }
+  // Hops of one: say each landing but the last, so the answer is first said in the final step.
   const jump = op === '-' ? -1 : 1;
   const steps: LessonStep[] = [say(startKey(op), { a, b }, { op: 'highlight', args: { at: a } })];
-  for (let i = 1; i <= b; i += 1) {
+  for (let i = 1; i < b; i += 1) {
     steps.push(
       say('gen.addsub.facts.count-on', { n: a + jump * i }, { op: 'hop', args: { by: jump } }),
     );
   }
-  steps.push(label);
+  steps.push(say('gen.addsub.facts.last-hop', {}, { op: 'hop', args: { by: jump } }), label);
   return steps;
 }

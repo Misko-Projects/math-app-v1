@@ -1,0 +1,11 @@
+# ALG narration (03 §8): skill intros and template prompts owned by the strand (K01: ALG.05).
+sk.ALG.05.intro:
+  text: "When both sides are the same, the balance is level."
+tp.ALG.05.t1.prompt:
+  text: "Add some to the light side. Make it balance!"
+tp.ALG.05.t2.prompt:
+  text: "Do both groups have the same number?"
+tp.ALG.05.t3.prompt:
+  text: "Does it balance? Do both sides have the same?"
+tp.ALG.05.t4.prompt:
+  text: "Count each side. Add some to make it balance!"

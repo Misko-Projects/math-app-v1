@@ -82,6 +82,89 @@ p.geo.find-every:
   text: "Find every {kind|shape:one}."
 p.geo.fill-outline:
   text: "Fill the outline with the pieces."
+# K01 equality (equality.eq) and story problems (story.addsub).
+p.eq.box:
+  text: "What number goes in the box?"
+p.eq.pick:
+  text: "Which number goes in the box?"
+p.story.listen:
+  text: "Listen to the story."
+# Story lines (story.addsub `lines`, 03 §4.6): {who} is the resident the TaskRunner names, {item}
+# and {other} are contexts.yaml nouns, and {many} is 2, so a noun slot that counts "many" is
+# plural. Each context speaks its own verbs (p.story.<context>.*).
+p.story.has:
+  text: "{who|name} has {a} {item|noun:a}."
+p.story.has-some:
+  text: "{who|name} has some {item|noun:many}."
+p.story.now-has:
+  text: "Now {who|name} has {n} {item|noun:n}."
+p.story.q.now:
+  text: "How many {item|noun:many} does {who|name} have now?"
+p.story.q.left:
+  text: "How many {item|noun:many} are left?"
+p.story.q.start:
+  text: "How many {item|noun:many} did {who|name} have at the start?"
+p.story.q.all:
+  text: "How many {item|noun:many} does {who|name} have in all?"
+p.story.q.white:
+  text: "How many white ones does {who|name} have?"
+p.story.q.both:
+  text: "How many could be red, and how many white?"
+p.story.pt.two:
+  text: "{who|name} has {a} red {item|noun:a} and {b} white {item|noun:b}."
+p.story.pt.three:
+  text: "{who|name} has {a} red, {b} white and {c} blue {item|noun:many}."
+p.story.pt.total:
+  text: "{who|name} has {a} {item|noun:a}. Some are red and some are white."
+p.story.pt.red:
+  text: "{who|name} has {b} red ones."
+p.story.cmp.two:
+  text: "{who|name} has {a} {item|noun:a} and {b} {other|noun:b}."
+p.story.cmp.has-other:
+  text: "{who|name} has {a} {other|noun:a}."
+p.story.cmp.more:
+  text: "{who|name} has {b} more {item|noun:many} than {other|noun:many}."
+p.story.cmp.fewer:
+  text: "{who|name} has {b} fewer {other|noun:many} than {item|noun:many}."
+p.story.cmp.q-more:
+  text: "How many more {item|noun:many} than {other|noun:many} does {who|name} have?"
+p.story.cmp.q-fewer:
+  text: "How many fewer {other|noun:many} than {item|noun:many} does {who|name} have?"
+p.story.cmp.q-item:
+  text: "How many {item|noun:many} does {who|name} have?"
+p.story.cmp.q-other:
+  text: "How many {other|noun:many} does {who|name} have?"
+p.story.beach-shells.add:
+  text: "{who|name} finds {b} more {item|noun:b}."
+p.story.beach-shells.add-some:
+  text: "{who|name} finds some more."
+p.story.beach-shells.take:
+  text: "{who|name} gives away {b} {item|noun:b}."
+p.story.beach-shells.take-some:
+  text: "{who|name} gives some away."
+p.story.beach-shells.q-add:
+  text: "How many {item|noun:many} did {who|name} find?"
+p.story.beach-shells.q-take:
+  text: "How many {item|noun:many} did {who|name} give away?"
+p.story.lighthouse-lanterns.add:
+  text: "{who|name} lights {b} more {item|noun:b}."
+p.story.lighthouse-lanterns.add-some:
+  text: "{who|name} lights some more."
+p.story.lighthouse-lanterns.take:
+  text: "{who|name} lets {b} {item|noun:b} go."
+p.story.lighthouse-lanterns.take-some:
+  text: "{who|name} lets some go."
+p.story.lighthouse-lanterns.q-add:
+  text: "How many {item|noun:many} did {who|name} light?"
+p.story.lighthouse-lanterns.q-take:
+  text: "How many {item|noun:many} did {who|name} let go?"
+# Equation options (ADD.23 numeral-pick) and the equation a number pad story finishes.
+p.story.eq-plus:
+  text: "{x} + {y} = {z}"
+  say: "{x} plus {y} equals {z}"
+p.story.eq-minus:
+  text: "{x} − {y} = {z}"
+  say: "{x} take away {y} equals {z}"
 
 # ---------- hints (levels 2–4; replay and show-me are automatic) ----------
 h.replay:
@@ -363,8 +446,12 @@ h.sub.count-up:
   text: "Start at the smaller number. Count up to the bigger one."
 h.sub.count-up-ten:
   text: "Jump up to ten first. Then jump to the bigger number."
+# count-hops only where every hop is one (ones jumps); on the open line a jump can be longer, so
+# jump-total asks for the whole distance (8 → 10 → 13 is 5, not 2 jumps).
 h.sub.count-hops:
   text: "Count your hops. That is the answer."
+h.sub.jump-total:
+  text: "Put your jumps together. How much did you jump in all?"
 h.sub.back-or-up:
   text: "Count back to take away a small number. Count up when numbers are close."
 h.sub.think-add:
@@ -381,6 +468,11 @@ h.numberline.jump-to-ten:
   text: "Jump to ten first. Then jump what is left."
 h.numberline.back-to-ten:
   text: "Jump back to ten first. Then jump back again."
+# For facts that may or may not pass ten (ADD.27): the advice holds for every fact.
+h.numberline.big-jumps:
+  text: "You can make big jumps too. Check where you land."
+h.numberline.big-jumps-back:
+  text: "You can make big jumps back too. Check where you land."
 h.numberline.hop-ones:
   text: "Make one hop for each one you add."
 h.numberline.hop-back:
@@ -544,6 +636,49 @@ h.estimate.ten:
   text: "Picture a group of ten. How many groups could fit?"
 h.estimate.line:
   text: "Small groups are near the start. Big ones are near the end."
+# K01 equality, three addends and story problems. No hint names a number from the item.
+h.eq.turn-around:
+  text: "Add the numbers in any order. The total is the same."
+h.eq.same-both:
+  text: "Both sides must make the same number."
+h.eq.count-picture:
+  text: "Count the two groups in the picture."
+h.eq.work-out:
+  text: "Work out one side. Then make both sides match."
+h.eq.think-parts:
+  text: "Think about the parts and the whole."
+h.add3.find-ten:
+  text: "Look for two numbers that make ten."
+h.add3.ten-and:
+  text: "Make the ten first. Then add the last number."
+h.add3.can-ten:
+  text: "Can two of the numbers make ten? Add them first."
+h.add3.two-then-one:
+  text: "Add two of the numbers. Then add the last one."
+h.bar.find-missing:
+  text: "Find the box. Is it a part, is it the whole?"
+h.numberline.from-mark:
+  text: "Start at a number on the line. Then count the jumps."
+h.cmp.greater-first:
+  text: "Find the greater number first."
+h.balance.add-one:
+  text: "Add one at a time. Watch the balance."
+h.cmp.open-side:
+  text: "The open side of the mark is next to the greater number."
+h.cmp.between:
+  text: "Count on from the smaller number. Which number comes next?"
+h.story.act-out:
+  text: "Show the story with counters."
+h.story.which-part:
+  text: "Do you know the whole? Do you know the parts?"
+h.story.check:
+  text: "Say the story again with your answer. Does it fit?"
+h.story.plus-or-take:
+  text: "Do they get more? Do some go away?"
+h.story.extra-ones:
+  text: "Match them up. Count the ones left over."
+h.story.count-groups:
+  text: "Count each group. Then count them all."
 
 # ---------- generator solution steps (E01: gen.<generatorId>.<step>, 03 §6.4) ----------
 # Spoken by the worked solution (hint level 5, auto lessons). Every key a generator declares in
@@ -866,6 +1001,8 @@ gen.addsub.facts.jump-back-rest:
   text: "Then jump back {rest} more."
 gen.addsub.facts.hops:
   text: "That is {n} in all."
+gen.addsub.facts.last-hop:
+  text: "Make the last hop."
 gen.addsub.facts.think-add:
   text: "Think: {b} and what make {a}?"
 gen.addsub.facts.see-groups:
@@ -1075,6 +1212,80 @@ gen.compare.sets.balances:
   text: "Both sides have the same. It balances."
 gen.compare.sets.not-balanced:
   text: "One side has more. It does not balance."
+gen.compare.sets.not-same:
+  text: "They do not have the same number."
+gen.compare.sets.add-to-balance:
+  text: "Put {n} more on the light side. Now it balances."
+gen.equality.eq.same:
+  text: "Both sides must make the same number."
+gen.equality.eq.side:
+  text: "This side makes {n}."
+gen.equality.eq.other-side:
+  text: "That side makes {n}."
+gen.equality.eq.and-what:
+  text: "{x} and what make {n}?"
+gen.equality.eq.what-and:
+  text: "What and {x} make {n}?"
+gen.equality.eq.take-what:
+  text: "{x} take away what number is {n}?"
+gen.equality.eq.what-take:
+  text: "What number take away {x} is {n}?"
+gen.equality.eq.answer:
+  text: "{n} makes both sides the same."
+gen.equality.eq.true:
+  text: "Both sides make {n}. It is true."
+gen.equality.eq.false:
+  text: "The two sides are not the same. It is false."
+gen.equality.eq.balances:
+  text: "Both sides make {n}. It balances."
+gen.equality.eq.not-balanced:
+  text: "The two sides are not the same. It does not balance."
+gen.equality.eq.heavier:
+  text: "This side is heavier. It has {n}."
+gen.equality.eq.add-blocks:
+  text: "Put {n} more on the light side. Now it balances."
+gen.equality.eq.between:
+  text: "Count on from {lo} to {hi}."
+gen.equality.eq.is-between:
+  text: "{n} comes between them."
+gen.addsub.three.find-ten:
+  text: "{x} and {y} make ten."
+gen.addsub.three.first-two:
+  text: "{x} and {y} make {n}."
+gen.addsub.three.put:
+  text: "Put in {n} more."
+gen.addsub.three.ten-and:
+  text: "Ten and {k} make {n}."
+gen.addsub.three.answer:
+  text: "That makes {n} in all."
+gen.story.addsub.listen:
+  text: "Listen to the story again."
+gen.story.addsub.join:
+  text: "Put {x} and {y} together."
+gen.story.addsub.join-three:
+  text: "Put {x}, {y} and {z} together."
+gen.story.addsub.take:
+  text: "Start with {x}. Take away {y}."
+gen.story.addsub.count-up:
+  text: "Count up from {x} to {y}."
+gen.story.addsub.match:
+  text: "Match them up. Count the ones left over."
+gen.story.addsub.split:
+  text: "Split {x} into red ones and white ones."
+gen.story.addsub.answer:
+  text: "The answer is {n}."
+gen.story.addsub.both:
+  text: "{x} red and {y} white is one way."
+gen.story.addsub.start:
+  text: "Start with {x}."
+gen.story.addsub.put-in:
+  text: "Put in {y} more. Now there are {n}."
+gen.story.addsub.take-out:
+  text: "Take {y} out. Now there are {n}."
+gen.story.addsub.look:
+  text: "Look at the groups and the numbers."
+gen.story.addsub.this-one:
+  text: "This one matches."
 gen.compare.numbers.count:
   text: "Count up. Which number do you say last?"
 gen.compare.numbers.tens:
@@ -1235,6 +1446,8 @@ fb.puzzle-grid.retry:
   text: "Let's check each piece again."
 fb.number-line-place.retry:
   text: "Look at the numbers on the line. Then try again."
+fb.story-problem.retry:
+  text: "Let's listen to the story again. Show it with counters."
 fb.mc.off-by-one-counting:
   text: "Touch each one once. Count again with me."
 fb.mc.count-start-number:
@@ -1264,3 +1477,13 @@ fb.mc.write-as-spoken:
   text: "A number with tens and ones has two places. The ones go where the zero was."
 fb.mc.perceptual-size:
   text: "Size can trick our eyes. Match them up, one and one."
+fb.mc.equals-means-answer:
+  text: "Look at both sides. They must make the same number."
+fb.mc.equals-add-all:
+  text: "Work out one side first. Then make both sides match."
+fb.mc.symbol-reversed:
+  text: "The open side of the mark goes next to the greater number."
+fb.mc.keyword-more-means-add:
+  text: "Match them up. How many are left over?"
+fb.mc.start-unknown-reversed:
+  text: "Put your number in the box. Is it true?"

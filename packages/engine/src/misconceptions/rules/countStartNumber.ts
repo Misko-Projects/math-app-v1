@@ -2,7 +2,7 @@
 // → 7. Answer: `+` and r = v − 1, or `-` and r = v + 1, on count-on/back items (family plus1,
 // plus2, count-up, any with a ≥ 3, or a number-line-jump item). State: landing = target − 1 (or
 // target + 1 when counting back). Counting up to subtract (a jump with goal `difference`, K01):
-// the typed hop count is v + 1.
+// the path lands on the target and the typed hop count is v + 1.
 
 import type { GeneratedItem, ResponseValue } from '@number-island/shared';
 import { numberOptionId, responseNumber } from '../../formats/numeral-pick';
@@ -105,11 +105,15 @@ export const countStartNumber: MisconceptionRule = {
         );
       }
       if (item.widget.format !== 'number-line-jump') return false;
-      // Counting up (goal difference): the typed number of hops is one too many.
-      if (item.widget.goal === 'difference') return r.value.value === buggy;
       const jumps = r.value.jumps;
       if (!Array.isArray(jumps) || !jumps.every((j) => typeof j === 'number')) return false;
       const landing = item.widget.start + (jumps as number[]).reduce((a, b) => a + b, 0);
+      // Counting up (goal difference): the path lands on the target and the typed number of hops
+      // is one too many (9 − 6 as 6 → 9, typed 4). A path that misses the target is another error,
+      // even when the typed number is v + 1 (6 → 10 counted right, typed 4).
+      if (item.widget.goal === 'difference') {
+        return landing === item.widget.target && r.value.value === buggy;
+      }
       return landing === buggy;
     }
     return responseNumber(r) === buggy;

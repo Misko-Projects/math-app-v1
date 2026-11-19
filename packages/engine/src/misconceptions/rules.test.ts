@@ -187,12 +187,17 @@ describe('registry', () => {
       'countAllInstead',
       'countStartNumber',
       'decadeTransition',
+      'equalsAddAll',
+      'equalsMeansAnswer',
       'faceValue',
       'forgotTheTen',
+      'keywordMoreMeansAdd',
       'offByOneCounting',
       'perceptualSize',
       'placeSwap',
       'recountFromOne',
+      'startUnknownReversed',
+      'symbolReversed',
       'teenReversal',
       'unitGaps',
       'writeAsSpoken',
@@ -321,6 +326,26 @@ describe('countStartNumber.predict', () => {
       value: { jumps: [-1, -1], value: 7 },
     });
     expect(countStartNumber.match(item, { kind: 'state', value: { jumps: [-1, -1] } })).toBe(true);
+  });
+
+  // Regression (PR #80 review): the difference branch checked only the typed value, so a path that
+  // overshot the target and was counted right (6 → 10, typed 4) was tagged too.
+  it('number-line-jump counting up (9 − 6): only a path that lands on 9 with 4 typed matches', () => {
+    const item = make(T.jump, { a: 9, b: 6, op: '-', family: 'count-up' });
+    expect(item.widget).toMatchObject({ goal: 'difference', start: 6, target: 9 });
+    const landed = { kind: 'state', value: { jumps: [1, 1, 1], value: 4 } } as const;
+    const overshot = { kind: 'state', value: { jumps: [1, 1, 1, 1], value: 4 } } as const;
+    expect(countStartNumber.predict?.(item)).toEqual(landed);
+    expect(countStartNumber.match(item, landed)).toBe(true);
+    expect(countStartNumber.match(item, overshot)).toBe(false);
+    expect(
+      countStartNumber.match(item, { kind: 'state', value: { jumps: [1, 1], value: 4 } }),
+    ).toBe(false);
+    expect(countStartNumber.match(item, { kind: 'state', value: { jumps: 'bad', value: 4 } })).toBe(
+      false,
+    );
+    expect(checkResponse(item, landed).misconceptionIds).toEqual(['MC.count-start-number']);
+    expect(checkResponse(item, overshot).misconceptionIds).toEqual([]);
   });
 
   it('number-line-jump: null when the buggy landing needs no hop (b = 1)', () => {

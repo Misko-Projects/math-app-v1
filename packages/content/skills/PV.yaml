@@ -16,9 +16,7 @@ skills:
     kind: procedure
     grade: 1
     standards: { ccss: [1.NBT.B.3] }
-    # 03 §3.8 also lists CMP.08 (<, > and = to 20). It is still a planned id, and V04 accepts no
-    # unauthored prerequisite, so the PR that authors CMP.08 adds it here.
-    prerequisites: [PV.01]
+    prerequisites: [PV.01, CMP.08]
     gateway: false
     representations: [base-ten, number-line, symbols]
 
