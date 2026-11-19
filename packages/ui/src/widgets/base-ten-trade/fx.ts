@@ -13,7 +13,21 @@ export interface Ghost {
   keyframes: Keyframe[];
   delay: number;
   duration: number;
+  /** CSS transform-origin (default top left). */
+  origin?: string;
 }
+
+/**
+ * A rod standing on the mat that comes to lie down in the nest (or back): drawn at its final
+ * place and turned a quarter as it slides, about its centre.
+ */
+export function turnFrom(from: Box, at: Box): string {
+  const dx = Math.round((from.x + from.w / 2 - (at.x + at.w / 2)) * 10) / 10;
+  const dy = Math.round((from.y + from.h / 2 - (at.y + at.h / 2)) * 10) / 10;
+  return `translate(${dx}px, ${dy}px) rotate(-90deg)`;
+}
+
+const crosswise = (a: Box, b: Box) => a.w > a.h !== b.w > b.h;
 
 /** A trade (break or bundle), ms. 03 §5.5 asks for about 600–900 ms. */
 export const TRADE_MS = 840;
@@ -173,15 +187,17 @@ export function moveGhosts(
   return Array.from({ length: n }, (_, i) => {
     const src = sources[i] as Box;
     const dest = dests[i] as Box;
+    const turn = crosswise(src, dest);
     return {
       kind,
       rect: dest,
       keyframes: [
-        { transform: transformFrom(src, dest), opacity: 1, offset: 0 },
-        { transform: IDENTITY, opacity: 1, offset: 1 },
+        { transform: turn ? turnFrom(src, dest) : transformFrom(src, dest), opacity: 1, offset: 0 },
+        { transform: turn ? 'translate(0px, 0px) rotate(0deg)' : IDENTITY, opacity: 1, offset: 1 },
       ],
       delay: stagger * i,
       duration: ms,
+      ...(turn ? { origin: '50% 50%' } : {}),
     };
   });
 }

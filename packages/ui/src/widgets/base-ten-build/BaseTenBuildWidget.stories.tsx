@@ -165,9 +165,50 @@ async function expectBigNumerals(els: Element[]) {
 
 const controls = (root: HTMLElement) => [
   ...root.querySelectorAll<HTMLElement>(
-    '.ni-btb__goal, .ni-btb__exact, .ni-btb__pile, .ni-btb .ni-iconbtn, .ni-btb .ni-btn:not(.ni-iconbtn)',
+    '.ni-btb__goal, .ni-btb__exact, .ni-btb__pile, .ni-btb .ni-btn',
   ),
 ];
+
+/** Every piece is drawn at the one unit: a unit is `u` px and a rod exactly ten of them. */
+async function expectUnit(root: HTMLElement, min: number) {
+  const unit = root.querySelector('.ni-btb__col .ni-btb__art--ones')?.getBoundingClientRect();
+  const rod = root.querySelector('.ni-btb__col .ni-btb__art--tens')?.getBoundingClientRect();
+  if (unit) await expect(unit.width).toBeGreaterThanOrEqual(min);
+  if (rod) {
+    await expect(rod.width).toBeGreaterThanOrEqual(min);
+    await expect(rod.height).toBeCloseTo(rod.width * 10, 0);
+  }
+  if (unit && rod) await expect(unit.width).toBeCloseTo(rod.width, 1);
+}
+
+/** Pieces never overlap: every pair of drawn pieces is apart. */
+async function expectNoOverlap(root: HTMLElement) {
+  const rects = [...root.querySelectorAll('.ni-btb__art')]
+    .filter((el) => el.closest('.ni-btb__col'))
+    .map((el) => el.getBoundingClientRect());
+  for (let i = 0; i < rects.length; i++) {
+    for (let j = i + 1; j < rects.length; j++) {
+      const a = rects[i] as DOMRect;
+      const b = rects[j] as DOMRect;
+      const apart =
+        a.right <= b.left + 0.5 ||
+        b.right <= a.left + 0.5 ||
+        a.bottom <= b.top + 0.5 ||
+        b.bottom <= a.top + 0.5;
+      await expect(apart, `pieces ${i} and ${j} overlap`).toBe(true);
+    }
+  }
+}
+
+/** Column headers: the place's name in text mode (G1+), the icon alone in K. */
+async function expectHeaders(root: HTMLElement, words: string[]) {
+  const heads = [...root.querySelectorAll('.ni-btb__head')];
+  await expect(heads).toHaveLength(words.length);
+  for (const [i, h] of heads.entries()) {
+    await expect(h.querySelector('.ni-btb__headicon svg')).not.toBeNull();
+    await expect(h.textContent?.trim()).toBe(words[i]);
+  }
+}
 
 // ---------- build ----------
 
@@ -193,9 +234,16 @@ export const Build: Story = {
     for (const c of controls(root)) await expectTargetSize(c, 'g1-up');
     await expectTargetGaps(controls(root));
 
+    await expectHeaders(root, ['Tens', 'Ones']);
+    // The trades sit in the gutter between the two columns.
+    const gutter = root.querySelector('.ni-btb__gutter') as HTMLElement;
+    await expect(gutter.querySelectorAll('[data-trade]')).toHaveLength(2);
+
     await tapPlace(root, 'tens', 3);
     await tapPlace(root, 'ones', 4);
     await expectMat(root, { tens: 3, ones: 4 });
+    await expectUnit(root, 20);
+    await expectNoOverlap(root);
     await expectNoValueShown(root, ['3', '4', '7']);
     await userEvent.click(check);
     await expect(args.onResponse).toHaveBeenCalledTimes(1);
@@ -232,10 +280,14 @@ export const BuildK: Story = {
     for (const b of [make, split, canvas.getByRole('button', { name: 'Check' })]) {
       await expect(b.textContent?.trim()).toBe('');
     }
-    await expect(root.querySelector('.ni-caption')).toBeNull();
+    await expect(root.querySelector('.ni-btb__tradecap')).toBeNull();
+    // K headers: the place's icon alone.
+    await expectHeaders(root, ['', '']);
     await tapPlace(root, 'tens', 1);
     await tapPlace(root, 'ones', 3);
     await expectMat(root, { tens: 1, ones: 3 });
+    // K pieces are drawn bigger than G1's 20 px.
+    await expectUnit(root, 24);
     // A trade with nothing to trade is off (hatched), and stays silent.
     await expect(make).toBeDisabled();
     await userEvent.click(split);
@@ -244,8 +296,28 @@ export const BuildK: Story = {
     );
     await expectMat(root, { tens: 0, ones: 13 });
     await waitFor(() => expect(make).toBeEnabled());
+    await userEvent.click(make);
+    await expectMat(root, { tens: 1, ones: 3 });
+    await waitFor(() => expect(split).toBeEnabled());
     await userEvent.click(canvas.getByRole('button', { name: 'Check' }));
-    await expect(args.onResponse).toHaveBeenCalledWith(state({ ones: 13 }));
+    await expect(args.onResponse).toHaveBeenCalledWith(state({ tens: 1, ones: 3 }));
+  },
+};
+
+/**
+ * Evidence: a G1 build of 34 in progress: two tens and three ones on the mat, both trades in the
+ * gutter, check ready.
+ */
+export const BuildInProgress: Story = {
+  play: async ({ canvasElement }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    await tapPlace(root, 'tens', 2);
+    await tapPlace(root, 'ones', 3);
+    await expectMat(root, { tens: 2, ones: 3 });
+    await expect(within(root).getByRole('button', { name: 'Check' })).toBeEnabled();
+    await expectFits(canvasElement, root);
+    // A finger tap leaves no focus ring; the scripted taps' focus is dropped for the final frame.
+    (document.activeElement as HTMLElement | null)?.blur();
   },
 };
 
@@ -537,9 +609,15 @@ export const Limits: Story = {
     // A tap on the empty pile does nothing.
     await userEvent.click(tens);
     await expect(tens).toHaveAttribute('aria-pressed', 'false');
-    // Putting a ten back refills the pile.
+    // Putting a ten back refills the pile; taking it again empties it.
     await pointerDrag(matPiece(root, 'tens', 1), center(trayPad(root)), 'mouse');
     await waitFor(() => expect(tens).toHaveAccessibleName('Ten, 1 left'));
+    await tapPlace(root, 'tens', 1);
+    await expect(tens).toHaveAccessibleName('Ten, 0 left');
+    // Ends mid-build: both tens taken (the pile shows 0), some ones on the way to 54.
+    await tapPlace(root, 'ones', 6);
+    await expectMat(root, { tens: 2, ones: 6 });
+    (document.activeElement as HTMLElement | null)?.blur();
   },
 };
 
@@ -575,11 +653,13 @@ const decimal: Config = {
 };
 
 /**
- * Decimals (`wholeIs: 'flat'`): the goal reads 1.25; the flat is "one whole", the rod "one tenth"
- * and the unit "one hundredth", and the trades are named for them.
+ * Decimals (`wholeIs: 'flat'`) with tray limits: the goal reads 1.25; the columns are Ones,
+ * Tenths and Hundredths; the flat is "one whole", the rod "one tenth", the unit "one hundredth",
+ * and the trades are named for them. The tray holds 1 whole and 3 tenths: the whole is taken
+ * (its pile shows 0) and one tenth is left.
  */
 export const Decimal: Story = {
-  args: { config: decimal },
+  args: { config: { ...decimal, limits: { hundreds: 1, tens: 3 } } satisfies Config },
   parameters: { ui: { audio: spyAudio() } },
   play: async ({ canvasElement, args, parameters }) => {
     const audio = parameters.ui.audio as SpyAudio;
@@ -589,8 +669,9 @@ export const Decimal: Story = {
     const goal = canvas.getByRole('button', { name: 'Make 1.25' });
     await userEvent.click(goal);
     await expect(audio.sayPhrases).toHaveBeenCalledWith([{ number: 1.25 }]);
-    await expect(pile(root, 'hundreds')).toHaveAccessibleName('One whole');
-    await expect(pile(root, 'tens')).toHaveAccessibleName('One tenth');
+    await expectHeaders(root, ['Ones', 'Tenths', 'Hundredths']);
+    await expect(pile(root, 'hundreds')).toHaveAccessibleName('One whole, 1 left');
+    await expect(pile(root, 'tens')).toHaveAccessibleName('One tenth, 3 left');
     await expect(pile(root, 'ones')).toHaveAccessibleName('One hundredth');
     await expect(trade(root, 'fuse-tens')).toHaveAccessibleName('Make a whole');
     await expect(trade(root, 'split-hundreds')).toHaveAccessibleName('Split a whole');
@@ -602,6 +683,9 @@ export const Decimal: Story = {
     await tapPlace(root, 'tens', 1);
     await tapPlace(root, 'ones', 5);
     await expectMat(root, { hundreds: 1, tens: 2, ones: 5 });
+    await expect(pile(root, 'hundreds')).toHaveAccessibleName('One whole, 0 left');
+    await expect(pile(root, 'tens')).toHaveAccessibleName('One tenth, 1 left');
+    await expectUnit(root, 20);
     await expectFits(canvasElement, root);
     await userEvent.click(canvas.getByRole('button', { name: 'Check' }));
     await expect(args.onResponse).toHaveBeenCalledWith(state({ hundreds: 1, tens: 2, ones: 5 }));
@@ -715,6 +799,14 @@ export const Stress999: Story = {
   play: async ({ canvasElement, args }) => {
     const root = await findWidget(canvasElement, ROOT);
     await expectMat(root, { hundreds: 9, tens: 9, ones: 9 });
+    // The one 20 px unit, true scale, nothing overlapping; flats in a 3 × 3 grid.
+    await expectUnit(root, 20);
+    await expectNoOverlap(root);
+    await expectHeaders(root, ['Hundreds', 'Tens', 'Ones']);
+    const flats = [...root.querySelectorAll('.ni-btb__piece--hundreds')].map(
+      (p) => p.getBoundingClientRect().top,
+    );
+    await expect(new Set(flats.map(Math.round)).size).toBe(3);
     await expectFits(canvasElement, root);
     for (const c of controls(root)) await expectTargetSize(c, 'g1-up');
     await expectTargetGaps(controls(root));
@@ -735,6 +827,8 @@ export const StressOnes: Story = {
     const root = await findWidget(canvasElement, ROOT);
     await tapPlace(root, 'tens', 2);
     await expectMat(root, { tens: 2, ones: 34 });
+    await expectUnit(root, 20);
+    await expectNoOverlap(root);
     await expect(root.querySelectorAll('.ni-btb__frame')).toHaveLength(4);
     await expect(pile(root, 'tens')).toHaveAttribute('aria-disabled', 'true');
     await expectFits(canvasElement, root);
@@ -794,6 +888,14 @@ export const Thousands: Story = {
   play: async ({ canvasElement, args }) => {
     const root = await findWidget(canvasElement, ROOT);
     await expectMat(root, { thousands: 1, hundreds: 2, tens: 3, ones: 4 });
+    await expectUnit(root, 20);
+    await expectNoOverlap(root);
+    await expectHeaders(root, ['Thousands', 'Hundreds', 'Tens', 'Ones']);
+    // Three gutters, two trades each, all the same size.
+    await expect(root.querySelectorAll('.ni-btb__gutter')).toHaveLength(3);
+    for (const g of root.querySelectorAll('.ni-btb__gutter')) {
+      await expect(g.querySelectorAll('[data-trade]')).toHaveLength(2);
+    }
     await expect(root.querySelectorAll('.ni-btb__col')).toHaveLength(4);
     await expect(trade(root, 'split-thousands')).toHaveAccessibleName('Split a thousand');
     await expect(trade(root, 'fuse-hundreds')).toHaveAccessibleName('Make a thousand');

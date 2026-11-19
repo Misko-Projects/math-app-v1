@@ -189,6 +189,8 @@ const pad = (root: HTMLElement, id: string) =>
 const key = (root: HTMLElement, k: string) =>
   root.querySelector(`.ni-pad__key[data-key="${k}"]`) as HTMLElement;
 const checkButton = (root: HTMLElement) => within(root).getByRole('button', { name: 'Check' });
+/** Evidence stories end on a calm frame: no focus ring left on the last control tapped. */
+const endFrame = () => (document.activeElement as HTMLElement | null)?.blur();
 const steps = (onInteract: unknown) => traceOf(onInteract).map((e) => `${e.t}:${e.target}`);
 
 /** Tap a tray card, then the mat (tap-to-place). */
@@ -234,6 +236,26 @@ async function expectNoLeak(root: HTMLElement, answer: string) {
   }
 }
 
+/**
+ * Cards on one line share one height, and their numerals share one top (and so one baseline):
+ * a 1-digit card is no shorter and sits no higher than a 3-digit card beside it.
+ */
+async function expectLinesAligned(cards: HTMLElement[]) {
+  const lines = new Map<number, HTMLElement[]>();
+  for (const c of cards) {
+    const top = Math.round(c.getBoundingClientRect().top);
+    lines.set(top, [...(lines.get(top) ?? []), c]);
+  }
+  for (const line of lines.values()) {
+    const heights = line.map((c) => c.getBoundingClientRect().height);
+    await expect(Math.max(...heights) - Math.min(...heights)).toBeLessThanOrEqual(1);
+    const numeralTops = line.map(
+      (c) => (c.querySelector('.ni-efw__digits') as HTMLElement).getBoundingClientRect().top,
+    );
+    await expect(Math.max(...numeralTops) - Math.min(...numeralTops)).toBeLessThanOrEqual(1);
+  }
+}
+
 /** A numeral reads as one number: each digit starts where the previous one ends (± 2 px). */
 async function expectTightDigits(numeral: HTMLElement, digitSelector: string) {
   const digits = [...numeral.querySelectorAll<HTMLElement>(digitSelector)].map((d) =>
@@ -271,6 +293,7 @@ export const Build: Story = {
     await expect(cards).toHaveLength(6);
     for (const c of cards) await expectTargetSize(c, 'g1-up');
     await expectTargetGaps(cards);
+    await expectLinesAligned(cards);
     await expectNumeralsAtLeast32(root, '.ni-efw__digits, .ni-efw__number');
     // Pictorial tier: each card carries its base-ten picture (3 flats on 300).
     await expect(
@@ -308,6 +331,30 @@ export const Build: Story = {
   },
 };
 
+/**
+ * Build in progress (G1 pictorial): 300 and 40 are on the mat, the 5 is still to come. Cards on
+ * a line share one height and their numerals one baseline; "check" is on (something is placed).
+ */
+export const BuildInProgress: Story = {
+  play: async ({ canvasElement, args }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    // Empty mat: a dashed spot with an arrow shows where cards go; "check" waits for one.
+    await expect(root.querySelector('.ni-efw__ghost')).not.toBeNull();
+    await expect(checkButton(root)).toBeDisabled();
+    await expectLinesAligned(trayCards(root));
+    await tapPlace(root, 300);
+    await tapPlace(root, 40);
+    await expect(root.querySelector('.ni-efw__ghost')).toBeNull();
+    await expect(matCards(root).map((c) => c.dataset.card)).toEqual(['300', '40']);
+    await expectLinesAligned(matCards(root));
+    await expectLinesAligned(trayCards(root));
+    await expect(checkButton(root)).toBeEnabled();
+    await expect(args.onResponse).not.toHaveBeenCalled();
+    await expectFits(canvasElement, root);
+    endFrame();
+  },
+};
+
 /** Build in K mode: cards, the number and the mat are K-sized (≥ 80 px); "check" is icon-only. */
 export const BuildK: Story = {
   globals: { ageMode: 'k' },
@@ -328,6 +375,7 @@ export const BuildK: Story = {
     await userEvent.click(check);
     await expect(args.onResponse).toHaveBeenCalledWith({ kind: 'numbers', values: [300, 40, 5] });
     await expectFits(canvasElement, root);
+    endFrame();
   },
 };
 
@@ -508,9 +556,12 @@ export const RemoveCard: Story = {
 
 const stackController: WidgetDemo = createDemoController({ strict: true });
 
-/** `stack-cards`: the placed cards slide together like arrow cards, right-aligned, and read 345. */
+/**
+ * `stack-cards`: Pip places 5, 300 and 40, then slides them together like arrow cards,
+ * right-aligned, reading 345. When the demo ends the widget is interactive again.
+ */
 export const StackCards: Story = {
-  args: { disabled: true, demo: stackController },
+  args: { demo: stackController },
   play: async ({ canvasElement }) => {
     const root = await findWidget(canvasElement, ROOT);
     for (const v of [5, 300, 40])
@@ -538,20 +589,29 @@ export const StackCards: Story = {
     const visible = (cell: HTMLElement, owner: string) => {
       const r = cell.getBoundingClientRect();
       const card = cards.find((c) => c.dataset.card === owner) as HTMLElement;
-      // Sample across the digit, its right side included (where a covering card's edge lands).
-      return [0.25, 0.5, 0.8].every((f) =>
+      // A stacked cell is its digit (≈ 0.6 of it) then the column space: sample across the digit.
+      return [0.1, 0.3, 0.55].every((f) =>
         card.contains(document.elementFromPoint(r.left + r.width * f, r.top + r.height / 2)),
       );
     };
     await expect(visible(cells('300')[0] as HTMLElement, '300')).toBe(true);
     await expect(visible(tensOf40, '40')).toBe(true);
     await expect(visible(tensOf300, '300')).toBe(false);
-    // Each card's digits stay tight.
-    for (const c of cards) await expectTightDigits(c, '.ni-efw__cell');
+    // Every digit keeps clear inner padding from its card's left edge.
+    for (const c of cards) {
+      const first = c.querySelector('.ni-efw__cell') as HTMLElement;
+      await expect(
+        first.getBoundingClientRect().left - c.getBoundingClientRect().left,
+      ).toBeGreaterThanOrEqual(10);
+    }
     await expect(root.querySelectorAll('.ni-efw__plus')).toHaveLength(2);
     await expect(getComputedStyle(root.querySelector('.ni-efw__plus') as HTMLElement).display).toBe(
       'none',
     );
+    // The demo is over: the widget is back to normal (solid cards, Check on: cards are placed).
+    for (const c of cards) await expect(c).not.toHaveAttribute('aria-disabled');
+    await expect(getComputedStyle(cards[0] as HTMLElement).borderStyle).toBe('solid');
+    await expect(checkButton(root)).toBeEnabled();
   },
 };
 
@@ -628,6 +688,31 @@ export const FillWithCards: Story = {
   },
 };
 
+/**
+ * Fill, waiting for the child (□ + □ + □ = 345): every blank is empty and dashed, the first one
+ * has the caret, the pad is ready. "Check" is off until every blank has a number.
+ */
+export const FillEmptyBlanks: Story = {
+  args: { config: fillThree, tier: 'abstract' },
+  play: async ({ canvasElement, args }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    const canvas = within(root);
+    for (const n of [1, 2, 3]) {
+      const blank = canvas.getByRole('button', { name: `Box ${n}:` });
+      await expect(blank).toHaveAttribute('data-empty', 'true');
+      await expect(blank).toBeEnabled();
+    }
+    await expect(canvas.getByRole('button', { name: 'Box 1:' })).toHaveAttribute(
+      'aria-current',
+      'true',
+    );
+    for (const k of root.querySelectorAll('.ni-pad__key')) await expect(k).toBeEnabled();
+    await expect(checkButton(root)).toBeDisabled();
+    await expect(args.onResponse).not.toHaveBeenCalled();
+    await expectFits(canvasElement, root);
+  },
+};
+
 // ---------- to-standard ----------
 
 /** To standard: 300 + 40 + 5 → type the number. The answer appears nowhere until typed. */
@@ -640,6 +725,7 @@ export const ToStandard: Story = {
     await expect(within(root).getByRole('button', { name: 'Your answer: 345' })).toBeVisible();
     await userEvent.click(checkButton(root));
     await expect(args.onResponse).toHaveBeenCalledWith({ kind: 'number', value: 345 });
+    endFrame();
   },
 };
 
@@ -671,6 +757,13 @@ export const WordsChoice: Story = {
     const root = await findWidget(canvasElement, ROOT);
     const canvas = within(root);
     await expectFits(canvasElement, root);
+    // The question is the number: it shows large above the word cards.
+    const number = canvas.getByRole('button', { name: '3405' });
+    await expect(number).toBeVisible();
+    await expect(number.getBoundingClientRect().bottom).toBeLessThanOrEqual(
+      (root.querySelector('.ni-efw__options') as HTMLElement).getBoundingClientRect().top,
+    );
+    await expectNumeralsAtLeast32(root, '.ni-efw__number');
     const options = [...root.querySelectorAll<HTMLElement>('.ni-pick')];
     await expect(options).toHaveLength(4);
     for (const o of options) await expectTargetSize(o, 'g1-up');
@@ -683,6 +776,7 @@ export const WordsChoice: Story = {
     await userEvent.click(checkButton(root));
     await expect(args.onResponse).toHaveBeenCalledWith({ kind: 'choice', id: 'b' });
     await expect(steps(args.onInteract)).toEqual(['tap:opt-b']);
+    endFrame();
   },
 };
 
@@ -773,11 +867,25 @@ export const Stress: Story = {
     await expect(matCards(root)).toHaveLength(8);
     await expectFits(canvasElement, root);
     await expectTargetGaps(matCards(root));
+    await expectLinesAligned(matCards(root));
+    // The mat wraps, but no line ends with "+": each "+" sits on its card's line.
+    const lines = new Set(matCards(root).map((c) => Math.round(c.getBoundingClientRect().top)));
+    await expect(lines.size).toBeGreaterThan(1);
+    for (const plus of root.querySelectorAll<HTMLElement>('.ni-efw__plus')) {
+      const card = plus.nextElementSibling as HTMLElement;
+      await expect(card).toHaveClass('ni-efw__cardslot');
+      const p = plus.getBoundingClientRect();
+      const c = card.getBoundingClientRect();
+      await expect(p.top).toBeGreaterThanOrEqual(c.top);
+      await expect(p.bottom).toBeLessThanOrEqual(c.bottom);
+      await expect(p.right).toBeLessThan(c.left);
+    }
     await userEvent.click(checkButton(root));
     await expect(args.onResponse).toHaveBeenCalledWith({
       kind: 'numbers',
       values: [3000, 400, 5, 300, 40, 50, 4000, 500],
     });
+    endFrame();
   },
 };
 

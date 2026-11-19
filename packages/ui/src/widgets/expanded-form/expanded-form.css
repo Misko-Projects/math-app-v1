@@ -173,7 +173,8 @@
   position: relative;
   display: flex;
   flex-wrap: wrap;
-  align-items: center;
+  /* One card height per line: every card stretches to the line's tallest (numerals share a top). */
+  align-items: stretch;
   justify-content: center;
   gap: calc(var(--target-gap) + 8px) var(--target-gap);
   max-width: 100%;
@@ -191,24 +192,50 @@
   display: flex;
   pointer-events: auto;
 }
+/* A placed card with the "+" before it: they wrap together, so no line ever ends with "+". */
+.ni-efw__term {
+  display: flex;
+  align-items: stretch;
+  gap: var(--target-gap);
+}
+/* On the card digits' line: the card's border (4 px) and top padding (8 px), same font. */
 .ni-efw__plus {
+  align-self: flex-start;
+  margin-top: 12px;
   color: var(--color-ink-soft);
   font-family: var(--font-display);
   font-size: var(--text-numeral);
   font-weight: 800;
   line-height: 1;
-  padding-top: 0.1em;
+  padding-top: 0.12em;
+}
+/* The empty mat: a dashed card-shaped spot with an arrow up from the tray. */
+.ni-efw__ghost {
+  display: grid;
+  place-items: center;
+  box-sizing: border-box;
+  width: calc(var(--target-min) * 1.6);
+  height: var(--ef-card-h);
+  border: 3px dashed var(--color-ink-soft);
+  border-radius: 14px;
+  background: var(--color-sky-light);
+}
+.ni-efw__ghost-icon {
+  display: block;
+  width: var(--icon-size);
+  height: var(--icon-size);
+  rotate: -90deg;
 }
 /* Stacked like arrow cards: every card in one grid cell, right-aligned, biggest value lowest. */
 .ni-efw__row--build[data-stacked="true"] {
   display: grid;
   justify-content: center;
 }
-.ni-efw__row--build[data-stacked="true"] > .ni-efw__cardslot {
+.ni-efw__row--build[data-stacked="true"] > .ni-efw__term {
   grid-area: 1 / 1;
   justify-self: end;
 }
-.ni-efw__row--build[data-stacked="true"] > .ni-efw__plus {
+.ni-efw__row--build[data-stacked="true"] .ni-efw__plus {
   display: none;
 }
 
@@ -232,7 +259,8 @@
   display: inline-flex;
   flex-direction: column;
   align-items: center;
-  justify-content: center;
+  /* Numerals at the top, at the same height on every card of a line; pictures at the bottom. */
+  justify-content: flex-start;
   gap: 6px;
   box-sizing: border-box;
   min-width: calc(var(--target-min) + 8px);
@@ -255,8 +283,11 @@
   outline: 4px solid var(--color-sea-deep);
   outline-offset: 5px;
 }
-/* Off (no input): a dashed frame and no ledge, so it reads as "not now" without colour. */
-.ni-efw__card[aria-disabled="true"] {
+/*
+ * Off (the `disabled` prop: no input at all): a dashed frame and no ledge, so it reads as "not
+ * now" without colour. While a demo plays, cards ignore input but keep their normal look.
+ */
+.ni-efw[data-disabled="true"] .ni-efw__card {
   border-style: dashed;
   box-shadow: 0 0 0 2px var(--color-wood-deep);
   cursor: default;
@@ -270,6 +301,7 @@
 }
 .ni-efw__face {
   display: flex;
+  flex: 1 1 auto;
   flex-direction: column;
   align-items: center;
   gap: 6px;
@@ -295,6 +327,7 @@
   justify-content: center;
   gap: 3px;
   max-width: 100%;
+  margin-top: auto;
 }
 .ni-efw__glyph {
   box-sizing: border-box;
@@ -328,16 +361,20 @@
     4px -4px 0 var(--color-sea-dark);
 }
 /*
- * Stacked like arrow cards: each card shrinks to its digits, keeps the shared right padding (so
- * right edges together put equal places in one column) and has almost no left frame, so a card on
- * top covers only the zeros beneath it. Only the digits show, so the columns read as one number.
+ * Stacked like arrow cards: each card shrinks to its digits and the digits open up into place
+ * columns (0.4 em after each digit, the last one included, so right edges together put equal
+ * places in one column). A card on top then covers only the zeros beneath it, and its left edge
+ * falls in the space between two digits: every digit keeps clear inner padding on both sides.
+ * Only the digits show, so the columns read as one number.
  */
 .ni-efw__row--build[data-stacked="true"] .ni-efw__card {
   align-items: flex-end;
   min-width: 0;
-  padding-left: 0;
-  border-left-width: 2px;
-  box-shadow: 0 7px 0 var(--color-wood-deep);
+  padding-left: 8px;
+  padding-right: 0;
+}
+.ni-efw__row--build[data-stacked="true"] .ni-efw__digits {
+  letter-spacing: 0.4em;
 }
 .ni-efw__row--build[data-stacked="true"] .ni-efw__glyphs {
   display: none;

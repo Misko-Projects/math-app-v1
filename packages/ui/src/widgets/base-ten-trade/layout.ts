@@ -15,14 +15,21 @@ export interface Box {
   h: number;
 }
 
-/** The largest and smallest unit edge, px. One unit is one ones piece and one rod segment. */
-export const U_MAX = 30;
+/**
+ * The unit edge, px: one ones piece and one rod segment. Every config draws at the same scale,
+ * U_MAX, so pieces look the same from screen to screen; the layout wraps (flats 2 × 2, rods in
+ * rows, ones in fives) to make room. Only a config that cannot fit at U_MAX steps down, and
+ * U_FLOOR is the smallest it should need (U_MIN is the last resort that keeps the widget on
+ * screen).
+ */
+export const U_MAX = 20;
+export const U_FLOOR = 18;
 export const U_MIN = 8;
 
 /** Fixed sizes (px) that the stylesheet mirrors through the inline custom properties. */
 export const GAP = 12; // --target-gap: between hit targets (06 §4)
 export const MAT_BORDER = 5;
-export const COL_PAD = 10;
+export const COL_PAD = 6;
 export const TRAY_PAD = 12;
 /** Room around a waiting group inside its draggable box. */
 export const GROUP_PAD = 6;
@@ -30,11 +37,11 @@ export const ROW_GAP = 16; // between the widget's rows (problem, mat, tray or n
 
 /** The gull's room at the nest's right end, px (the nest art spans the rest). */
 export const GULL_W = 52;
-/** Where the taken pieces rest: on the hollow's floor, just above the front wall's lowest edge. */
-const NEST_FLOOR = 0.72;
+/** The nest's front wall (a fixed-height band at its foot); the taken pieces rest just above it. */
+export const NEST_WALL = 30;
 const NEST_TOP = 8;
-/** The pieces keep to the middle of the hollow, where its front wall is lowest. */
-const NEST_SIDE = 0.17;
+/** The pieces keep to the middle of the hollow. */
+const NEST_SIDE = 0.08;
 
 /** The area the taken pieces sit in, inside a nest `w` × `h` px. */
 export function nestInner(w: number, h: number): Box {
@@ -43,16 +50,12 @@ export function nestInner(w: number, h: number): Box {
     x: Math.round(art * NEST_SIDE),
     y: NEST_TOP,
     w: Math.round(art * (1 - 2 * NEST_SIDE)),
-    h: Math.round(h * NEST_FLOOR) - NEST_TOP,
+    h: h - NEST_TOP - NEST_WALL,
   };
 }
 
 /** A nest tall enough for pieces `tall` px high. */
-export const nestHeightFor = (tall: number) => Math.ceil((tall + NEST_TOP) / NEST_FLOOR);
-
-/** Pieces waiting in the tray and taken into the nest are drawn smaller than on the mat. */
-export const trayUnit = (u: number) => Math.max(6, Math.round(u * 0.65));
-export const nestUnit = (u: number) => Math.max(6, Math.round(u * 0.6));
+export const nestHeightFor = (tall: number) => Math.ceil(tall + NEST_TOP + NEST_WALL);
 
 export interface AgeSizes {
   /** --target-min. */
@@ -209,8 +212,22 @@ export function placePieces(
 }
 
 /**
- * Pieces taken away, in the nest (`box`, its inner area): hundreds, then tens, then ones, side by
- * side at edge `ub`, centred across and resting on the floor (the box's bottom).
+ * Taken tens lie down in the nest (a rod tossed into a nest rests on its side), stacked: wide but
+ * low, so the nest stays shallow. Each is a rod drawn 10 units long and 1 high.
+ */
+export function lyingRods(n: number, u: number): Box[] {
+  const s = spacing(u);
+  return Array.from({ length: n }, (_, i) => ({
+    x: 0,
+    y: i * (u + s.unit) + Math.floor(i / 5) * s.ten,
+    w: u * 10,
+    h: u,
+  }));
+}
+
+/**
+ * Pieces taken away, in the nest (`box`, its inner area): hundreds, then tens (lying down), then
+ * ones, side by side at edge `ub`, centred across and resting on the floor (the box's bottom).
  */
 export function placeTaken(
   taken: Hto,
@@ -219,7 +236,7 @@ export function placeTaken(
 ): Record<Column, Box[]> {
   const groups: Record<Column, Box[]> = {
     hundreds: naturalLayout('hundreds', taken.hundreds, ub, 10),
-    tens: naturalLayout('tens', taken.tens, ub, 10),
+    tens: lyingRods(taken.tens, ub),
     ones: naturalLayout('ones', taken.ones, ub),
   };
   const gap = Math.max(10, ub * 2);
@@ -249,6 +266,25 @@ export function placeTaken(
   return out;
 }
 
+// ---------- the algorithm's result row ----------
+
+/**
+ * The number the result boxes form, or null while it isn't one yet: the ones box is filled and
+ * there is no empty box between filled ones (an empty hundreds box is just a two-digit answer).
+ */
+export function digitsValue(d: Record<Column, number | null>): number | null {
+  const cols = ['hundreds', 'tens', 'ones'] as const;
+  const first = cols.findIndex((c) => d[c] !== null);
+  if (first < 0) return null;
+  let v = 0;
+  for (const c of cols.slice(first)) {
+    const x = d[c];
+    if (x === null) return null;
+    v = v * 10 + x;
+  }
+  return v;
+}
+
 // ---------- what the mat plans room for ----------
 
 export interface MatCaps {
@@ -262,6 +298,11 @@ export interface MatCaps {
   tray: Hto | null;
   /** `-`: the pieces the child takes away. */
   taken: Hto | null;
+  /**
+   * Room for exactly these pieces (the mat as it is now), not a stable plan for the whole item:
+   * a column with none of its pieces gets only its header's width.
+   */
+  exact?: boolean;
 }
 
 export function planCaps(c: Config): MatCaps {
@@ -313,7 +354,7 @@ const maxHto = (a: Hto, b: Hto): Hto => ({
 
 /**
  * The plan grown to hold what the child has actually made (trades off the expected path, more
- * taken than asked): the mat re-plans with a smaller unit rather than overlap pieces.
+ * taken than asked), so pieces never overlap.
  */
 export function growCaps(caps: MatCaps, mat: Hto, taken: Hto): MatCaps {
   const grown = maxHto(caps.mat, mat);
@@ -336,19 +377,27 @@ export function growCaps(caps: MatCaps, mat: Hto, taken: Hto): MatCaps {
   };
 }
 
-// ---------- choosing the unit size ----------
+/** Room for exactly what is on the mat, in the tray and in the nest now. */
+export function stateCaps(
+  base: MatCaps,
+  mat: Hto,
+  pending: Hto | null,
+  taken: Hto | null,
+): MatCaps {
+  return { ...base, mat: { ...mat }, tray: pending, taken, exact: true };
+}
+
+// ---------- choosing the layout ----------
 
 export interface MatPlan {
   u: number;
-  /** Unit edge of the pieces waiting in the tray. */
-  ut: number;
-  /** Unit edge of the pieces in the nest. */
-  ub: number;
   /** Rods a row in the tens column. */
   rodsPerRow: number;
   /** Flats a row in the hundreds column. */
   flatsPerRow: number;
   colW: Record<Column, number>;
+  /** Height the planned pieces take (the tallest column), before the board stretches. */
+  piecesH: number;
   /** Height of the columns' piece area (below the headers), padding included. */
   bodyH: number;
   /** Height of the adding tray (0 without one). */
@@ -358,17 +407,24 @@ export interface MatPlan {
   matW: number;
   /** Mat, tray and nest, with the gaps between them. */
   totalH: number;
+  /** The plan (the caps) this layout holds. */
+  caps: MatCaps;
   /** False when even the smallest unit overflows; the layout then squeezes. */
   fits: boolean;
 }
 
 export interface PlanInput {
-  caps: MatCaps;
+  /** What to make room for, most stable first (the whole item's plan, then the mat as it is). */
+  caps: MatCaps | readonly MatCaps[];
   age: AgeMode;
   /** Width available to the mat, px. The mat fills it. */
   width: number;
   /** Height available to the mat, tray and nest together, px. */
   height: number;
+}
+
+interface OnePlanInput extends Omit<PlanInput, 'caps'> {
+  caps: MatCaps;
 }
 
 function contentH(kind: Column, n: number, u: number, perRow: number): number {
@@ -382,9 +438,17 @@ function contentW(kind: Column, n: number, u: number, perRow: number): number {
 const perRowFor = (kind: Column, rodsPerRow: number, flatsPerRow: number) =>
   kind === 'tens' ? rodsPerRow : kind === 'hundreds' ? flatsPerRow : ONES_PER_ROW;
 
-/** One candidate layout at unit `u`, before it is stretched to the available width. */
+/** The width the taken pieces need side by side in the nest. */
+function takenWidth(t: Hto, u: number): number {
+  const groups = (['hundreds', 'tens', 'ones'] as const)
+    .map((c) => (c === 'tens' ? extent(lyingRods(t.tens, u)).w : contentW(c, t[c], u, 10)))
+    .filter((w) => w > 0);
+  return groups.reduce((a, w) => a + w, 0) + Math.max(10, u * 2) * Math.max(0, groups.length - 1);
+}
+
+/** One candidate layout at unit `u`, before it is stretched to fill the space. */
 export function measurePlan(
-  input: PlanInput,
+  input: OnePlanInput,
   u: number,
   rodsPerRow: number,
   flatsPerRow = 10,
@@ -393,17 +457,18 @@ export function measurePlan(
   const sz = ageSizes(age);
   const cols = caps.columns;
   const tray = caps.tray;
-  const ut = trayUnit(u);
   const colW = { hundreds: 0, tens: 0, ones: 0 } as Record<Column, number>;
   const planned = (c: Column) =>
-    // A column always has room for one piece of its kind (a flat only if one can exist).
-    Math.max(c === 'hundreds' && !caps.flatReachable ? 0 : 1, caps.mat[c]);
+    caps.exact
+      ? caps.mat[c]
+      : // A column always has room for one piece of its kind (a flat only if one can exist).
+        Math.max(c === 'hundreds' && !caps.flatReachable ? 0 : 1, caps.mat[c]);
   for (const c of cols) {
     const per = perRowFor(c, rodsPerRow, flatsPerRow);
     const across = c === 'ones' ? planned(c) : Math.min(planned(c), per);
     const need = Math.max(
       contentW(c, across, u, per),
-      tray ? contentW(c, tray[c], ut, 10) + 2 * GROUP_PAD : 0,
+      tray ? contentW(c, tray[c], u, 10) + 2 * GROUP_PAD : 0,
     );
     colW[c] = Math.ceil(Math.max(sz.headerMin[c], need + 2 * COL_PAD));
   }
@@ -418,75 +483,168 @@ export function measurePlan(
   const bodyH = Math.ceil(Math.max(stripNeed, piecesH + 2 * COL_PAD));
   const trayH = tray
     ? Math.ceil(
-        Math.max(sz.target, ...cols.map((c) => contentH(c, tray[c], ut, 10) + 2 * GROUP_PAD)) +
+        Math.max(sz.target, ...cols.map((c) => contentH(c, tray[c], u, 10) + 2 * GROUP_PAD)) +
           2 * TRAY_PAD,
       )
     : 0;
-  const ub = nestUnit(u);
   let nestH = 0;
+  let nestFits = true;
   if (caps.taken) {
     const t = caps.taken;
     const piecesTall = Math.max(
-      t.hundreds > 0 || t.tens > 0 ? ub * 10 : 0,
-      contentH('ones', t.ones, ub, ONES_PER_ROW),
+      t.hundreds > 0 ? u * 10 : 0,
+      extent(lyingRods(t.tens, u)).h,
+      contentH('ones', t.ones, u, ONES_PER_ROW),
     );
     // At least a target tall (the nest is where pieces are dropped).
     nestH = Math.max(sz.target + 2 * GAP, nestHeightFor(piecesTall));
+    // The nest is as wide as the mat, which stretches to the full width.
+    nestFits = takenWidth(t, u) <= nestInner(input.width, nestH).w;
   }
   const matH = 2 * MAT_BORDER + sz.header + bodyH;
   const totalH = matH + (trayH > 0 ? ROW_GAP + trayH : 0) + (nestH > 0 ? ROW_GAP + nestH : 0);
   return {
     u,
-    ut,
-    ub,
     rodsPerRow,
     flatsPerRow,
     colW,
     bodyH,
+    piecesH,
     trayH,
     nestH,
     matW,
     totalH,
-    fits: matW <= input.width && totalH <= input.height,
+    caps,
+    fits: matW <= input.width && totalH <= input.height && nestFits,
   };
 }
 
-/** Rows-of candidates for `n` pieces: one row, two rows, three rows. */
+/** Rows-of candidates for `n` pieces: one row, two rows, three rows (flats also 2 × 2). */
 function rowOptions(n: number, preferred: readonly number[]): number[] {
   const opts = new Set<number>();
   for (const p of preferred) opts.add(Math.max(1, Math.min(p, Math.max(1, n))));
-  for (const rows of [1, 2, 3]) opts.add(Math.max(1, Math.ceil(n / rows)));
+  for (const rows of [1, 2, 3, 4]) opts.add(Math.max(1, Math.ceil(n / rows)));
   return [...opts].sort((a, b) => b - a);
 }
 
-/**
- * The biggest unit (U_MAX down to U_MIN) at which the mat, its tray and the nest fit the space,
- * trying fewer, longer rows of rods and flats first. The chosen layout is then stretched so the
- * mat fills the width: every column shares the spare room.
- */
-export function planMat(input: PlanInput): MatPlan {
-  const rods = rowOptions(input.caps.mat.tens, [20, 10, 5]);
-  const flats = rowOptions(input.caps.mat.hundreds, []);
-  let best: MatPlan | null = null;
-  for (let u = U_MAX; u >= U_MIN && !best; u--) {
-    for (const r of rods) {
-      for (const f of flats) {
-        const p = measurePlan(input, u, r, f);
-        if (p.fits) {
-          best = p;
-          break;
-        }
-      }
-      if (best) break;
+function firstFit(input: OnePlanInput, u: number): MatPlan | null {
+  for (const r of rowOptions(input.caps.mat.tens, [20, 10, 5])) {
+    for (const f of rowOptions(input.caps.mat.hundreds, [2])) {
+      const p = measurePlan(input, u, r, f);
+      if (p.fits) return p;
     }
   }
-  const plan = best ?? measurePlan(input, U_MIN, 5, 1);
-  return stretch(plan, input.width, input.height);
+  return null;
+}
+
+/** The mat, tray and nest at one moment of an item. */
+export interface MatState {
+  mat: Hto;
+  pending: Hto | null;
+  taken: Hto | null;
 }
 
 /**
- * Makes the mat fill the space: the spare width is shared between the columns, and the spare
- * height goes to the columns' piece area (the board grows; the pieces keep their size).
+ * The states a child passes through on the expected path: every trade, add and take (takes a
+ * column at a time). The item's scale is chosen so that all of them fit.
+ */
+export function pathStates(c: Config): MatState[] {
+  const op = c.goal === 'compute' ? c.operation : undefined;
+  const mat = { ...c.start };
+  const pending = op?.op === '+' ? { ...op.operand } : null;
+  const taken = op?.op === '-' ? { hundreds: 0, tens: 0, ones: 0 } : null;
+  const out: MatState[] = [];
+  const snap = () =>
+    out.push({
+      mat: { ...mat },
+      pending:
+        pending && (pending.hundreds || pending.tens || pending.ones) ? { ...pending } : null,
+      taken: taken ? { ...taken } : null,
+    });
+  const brk = (from: Column, to: Column) => {
+    mat[from] -= 1;
+    mat[to] += 10;
+    snap();
+  };
+  const bundle = (from: Column, to: Column) => {
+    mat[from] -= 10;
+    mat[to] += 1;
+    snap();
+  };
+  snap();
+  if (c.goal === 'regroup-to') {
+    const t = c.regroupTarget ?? c.start;
+    for (let i = 0; i < 20 && mat.hundreds > t.hundreds; i++) brk('hundreds', 'tens');
+    for (let i = 0; i < 20 && mat.hundreds < t.hundreds && mat.tens >= 10; i++)
+      bundle('tens', 'hundreds');
+    for (let i = 0; i < 20 && mat.ones < t.ones && mat.tens > 0; i++) brk('tens', 'ones');
+    for (let i = 0; i < 20 && mat.ones > t.ones && mat.ones >= 10; i++) bundle('ones', 'tens');
+  } else if (op && pending) {
+    for (const k of ['ones', 'tens', 'hundreds'] as const) {
+      if (pending[k] === 0) continue;
+      mat[k] += pending[k];
+      pending[k] = 0;
+      snap();
+    }
+    if (mat.ones >= 10) bundle('ones', 'tens');
+    if (mat.tens >= 10) bundle('tens', 'hundreds');
+  } else if (op && taken) {
+    const o = op.operand;
+    if (mat.ones < o.ones) {
+      if (mat.tens === 0 && mat.hundreds > 0) brk('hundreds', 'tens');
+      if (mat.tens > 0) brk('tens', 'ones');
+    }
+    if (mat.tens < o.tens && mat.hundreds > 0) brk('hundreds', 'tens');
+    for (const k of ['ones', 'tens', 'hundreds'] as const) {
+      const n = Math.min(o[k], mat[k]);
+      if (n === 0) continue;
+      mat[k] -= n;
+      taken[k] += n;
+      snap();
+    }
+  }
+  return out;
+}
+
+/**
+ * The item's one scale: U_MAX when the whole item's plan fits (nothing moves as the child works),
+ * or when every state on the expected path fits in its own arrangement (the layout re-wraps, the
+ * pieces keep their size); otherwise the biggest unit below that does.
+ */
+export function itemUnit(
+  input: Omit<PlanInput, 'caps'> & { base: MatCaps; path: readonly MatState[] },
+): number {
+  const { base, path, ...rest } = input;
+  for (let u = U_MAX; u >= U_MIN; u--) {
+    if (firstFit({ ...rest, caps: base }, u)) return u;
+    const all = path.every((s) =>
+      firstFit({ ...rest, caps: stateCaps(base, s.mat, s.pending, s.taken) }, u),
+    );
+    if (all) return u;
+  }
+  return U_MIN;
+}
+
+/**
+ * The layout at the item's scale `unit` (default U_MAX): the whole item's plan first, so nothing
+ * moves as the child works, else the mat as it is now. Only a state off the expected path that
+ * can't fit steps the unit down. The chosen layout is then stretched so the mat fills the space.
+ */
+export function planMat(input: PlanInput & { unit?: number }): MatPlan {
+  const options = Array.isArray(input.caps) ? input.caps : [input.caps as MatCaps];
+  for (let u = input.unit ?? U_MAX; u >= U_MIN; u--) {
+    for (const caps of options) {
+      const p = firstFit({ ...input, caps }, u);
+      if (p) return stretch(p, input.width, input.height);
+    }
+  }
+  const last = options[options.length - 1] as MatCaps;
+  return stretch(measurePlan({ ...input, caps: last }, U_MIN, 5, 1), input.width, input.height);
+}
+
+/**
+ * Makes the mat fill the space: the spare height goes to the columns' piece area (the board
+ * grows; the pieces keep their size), and the spare width evens out the columns.
  */
 export function stretch(plan: MatPlan, width: number, height = plan.totalH): MatPlan {
   const tallH = Math.floor(height - plan.totalH);
@@ -495,14 +653,34 @@ export function stretch(plan: MatPlan, width: number, height = plan.totalH): Mat
   return stretchWidth(tall, width);
 }
 
+/**
+ * Shares the spare width so the columns come out as even as possible: the narrowest grow first
+ * (water filling), so a column with few pieces is never left squeezed beside a wide one.
+ */
 function stretchWidth(plan: MatPlan, width: number): MatPlan {
   const cols = (['hundreds', 'tens', 'ones'] as const).filter((c) => plan.colW[c] > 0);
   const spare = Math.floor(width - plan.matW);
   if (spare <= 0 || cols.length === 0) return plan;
-  const each = Math.floor(spare / cols.length);
   const colW = { ...plan.colW };
-  for (const c of cols) colW[c] += each;
-  // The odd pixels go to the tens, the column with the most pieces in a row.
-  colW.tens += spare - each * cols.length;
+  const total = cols.reduce((a, c) => a + colW[c], 0) + spare;
+  // The level L where Σ max(w, L) = total.
+  const sorted = cols.map((c) => colW[c]).sort((a, b) => a - b);
+  let level = total / cols.length;
+  for (let k = sorted.length; k > 0; k--) {
+    const fixed = sorted.slice(k).reduce((a, w) => a + w, 0);
+    const l = (total - fixed) / k;
+    if (l >= (sorted[k - 1] ?? 0)) {
+      level = l;
+      break;
+    }
+  }
+  let used = 0;
+  for (const c of cols) {
+    const w = Math.max(colW[c], Math.floor(level));
+    used += w - colW[c];
+    colW[c] = w;
+  }
+  // Rounding leftovers go to the tens.
+  colW.tens += spare - used;
   return { ...plan, colW, matW: plan.matW + spare };
 }

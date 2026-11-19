@@ -84,7 +84,11 @@ const meta = {
     onInteract: fn(),
   },
   parameters: { ui: { stage: 'centered' } },
-  render: renderWidget,
+  // The 1280 × 800 tablet's widget area (the stage is 1200 px wide there), whatever the test
+  // browser's own width, so the fit and size checks measure the screen the widget is built for.
+  render: (args) => (
+    <div style={{ width: 1200, maxWidth: 'none', flex: 'none' }}>{renderWidget(args)}</div>
+  ),
 } satisfies Meta<WidgetHostProps>;
 
 export default meta;
@@ -109,6 +113,17 @@ const pieces = (root: Element, c: string) =>
   root.querySelectorAll(`[data-col="${c}"] [data-piece]`).length;
 const takenPieces = (root: Element, c: string) =>
   root.querySelectorAll(`[data-piece^="taken-${c}-"]`).length;
+/** The algorithm's result row, hundreds to ones. */
+const boxes = (root: Element) =>
+  [...root.querySelectorAll('.ni-btt__box')].map((b) => b.textContent ?? '');
+
+/** The one piece scale every config draws at (ones are 20 px). */
+const U = 20;
+/**
+ * The heaviest config (304 − 128 with the algorithm, the pad and the nest) can't fit at U: it
+ * steps down, but never below this.
+ */
+const U_HEAVY = 18;
 
 /** Waits until every trade or move animation has landed. */
 async function settled(root: Element) {
@@ -134,7 +149,7 @@ async function tapPlace(item: HTMLElement, target: HTMLElement) {
  * Fits the 1280 × 800 tablet's widget area: nothing scrolls or spills out of the widget, and the
  * stage stays within 800 px minus the 2 × 40 px story padding.
  */
-async function expectFits(canvasElement: HTMLElement, root: HTMLElement, minU = 14) {
+async function expectFits(canvasElement: HTMLElement, root: HTMLElement, minU = U) {
   await expectCountable(root, minU);
   await expect(root.scrollHeight).toBeLessThanOrEqual(root.clientHeight + 1);
   await expect(root.scrollWidth).toBeLessThanOrEqual(root.clientWidth + 1);
@@ -167,7 +182,7 @@ async function expectFits(canvasElement: HTMLElement, root: HTMLElement, minU = 
  * Every piece is separately visible and countable: no two pieces in a column, the tray or the
  * nest overlap. The mat fills the widget's width, and the unit (a ones piece) is at least `minU`.
  */
-async function expectCountable(root: HTMLElement, minU = 14) {
+async function expectCountable(root: HTMLElement, minU = U) {
   const groups = [
     ...root.querySelectorAll<HTMLElement>('.ni-btt__col, .ni-btt__pending, .ni-btt__taken'),
   ];
@@ -214,12 +229,57 @@ async function expectNoReveal(root: HTMLElement, result: number) {
 function controls(root: HTMLElement) {
   return [
     ...root.querySelectorAll<HTMLElement>(
-      '[data-place-item], [data-place-target], .ni-btt__speak, .ni-btt__trade, .ni-btn',
+      '[data-place-item], [data-place-target], .ni-btt__speak, .ni-btt__trade, .ni-btn, button.ni-btt__box',
     ),
   ].filter((el, i, all) => all.indexOf(el) === i);
 }
 
 // ---------- adding ----------
+
+/**
+ * Evidence: 27 + 15 at the START. The mat holds 27 (two tens, seven ones); the 15 waits in the
+ * adding tray, its ten under the tens and its five ones under the ones. Nothing is added yet.
+ */
+export const AddStart: Story = {
+  play: async ({ canvasElement, args }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    await expect(mat(root)).toEqual({ hundreds: 0, tens: 2, ones: 7 });
+    const tray = q(root, '.ni-btt__tray');
+    await expect(tray.querySelectorAll('[data-piece^="pending-tens-"]')).toHaveLength(1);
+    await expect(tray.querySelectorAll('[data-piece^="pending-ones-"]')).toHaveLength(5);
+    // Each waiting group sits under its own column.
+    for (const c of ['tens', 'ones']) {
+      const col = q(root, `[data-col="${c}"]`).getBoundingClientRect();
+      const group = center(pending(root, c));
+      await expect(group.x).toBeGreaterThan(col.left);
+      await expect(group.x).toBeLessThan(col.right);
+    }
+    await expect(within(root).getByRole('button', { name: 'Check' })).toBeDisabled();
+    await expectFits(canvasElement, root);
+    await expectNoReveal(root, 42);
+    await expect(args.onInteract).not.toHaveBeenCalled();
+  },
+};
+
+/**
+ * Evidence: 27 + 15 in progress. The waiting ones are added (twelve ones on the mat, ten of them
+ * ready to group), the waiting ten is still in the tray.
+ */
+export const AddInProgress: Story = {
+  play: async ({ canvasElement }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    await tapPlace(pending(root, 'ones'), columnPad(root, 'ones'));
+    await settled(root);
+    await expect(mat(root)).toEqual({ hundreds: 0, tens: 2, ones: 12 });
+    await expect(pending(root, 'tens')).toBeInTheDocument();
+    await expect(root.querySelector('[data-place-item="pending-ones"]')).toBeNull();
+    await expect(trade(root, 'ones', 'tens')).toBeEnabled();
+    // Nothing is picked up: the frame shows the state, not a selection.
+    await expect(root.querySelector('[data-selected="true"]')).toBeNull();
+    (document.activeElement as HTMLElement | null)?.blur();
+    await expectFits(canvasElement, root);
+  },
+};
 
 /**
  * G1, 27 + 15: tap the waiting ten onto the tens, the waiting ones onto the ones (twelve ones now),
@@ -253,7 +313,7 @@ export const AddCombine: Story = {
     await expect(mat(root)).toEqual({ hundreds: 0, tens: 4, ones: 2 });
     await expectNoReveal(root, 42);
     // Few pieces: big, chunky ones (a rod up to 300 px), and the mat fills the widget.
-    await expectFits(canvasElement, root, 20);
+    await expectFits(canvasElement, root, U);
     await userEvent.click(check);
     await expect(args.onResponse).toHaveBeenCalledTimes(1);
     await expect(args.onResponse).toHaveBeenCalledWith({
@@ -299,7 +359,7 @@ export const AddK: Story = {
     await settled(root);
     await expect(mat(root)).toEqual({ hundreds: 0, tens: 4, ones: 2 });
     // K: big, chunky pieces (ones at least 24 px; a rod up to 300 px) on a mat that fills the area.
-    await expectFits(canvasElement, root, 24);
+    await expectFits(canvasElement, root, U);
     await userEvent.click(within(root).getByRole('button', { name: 'Check' }));
     await expect(args.onResponse).toHaveBeenCalledWith({
       kind: 'state',
@@ -578,18 +638,58 @@ export const SubtractAcrossZero: Story = {
     await settled(root);
     await expect(mat(root)).toEqual({ hundreds: 1, tens: 7, ones: 6 });
     await expectNoReveal(root, 176);
-    await expectFits(canvasElement, root);
+    await expectFits(canvasElement, root, U_HEAVY);
     await expect(check).toBeDisabled();
-    for (const k of ['1', '7', '6']) await userEvent.click(canvas.getByRole('button', { name: k }));
-    await expect(canvas.getByRole('status', { name: 'Your answer: 176' })).toBeInTheDocument();
+    // One answer place: the algorithm's result row. No `=` blank to disagree with it.
+    await expect(canvas.queryByRole('status')).toBeNull();
+    // Tap the ones box and write the answer as a child does, ones first.
+    await userEvent.click(canvas.getByRole('button', { name: 'Ones box' }));
+    for (const k of ['6', '7']) await userEvent.click(canvas.getByRole('button', { name: k }));
+    // 76 is already a number, so Check is on; the child writes the hundreds digit too.
+    await expect(check).toBeEnabled();
+    await userEvent.click(canvas.getByRole('button', { name: '1' }));
+    await expect(boxes(root)).toEqual(['1', '7', '6']);
+    await expect(canvas.getByRole('button', { name: 'Hundreds box: 1' })).toBeInTheDocument();
     await userEvent.click(check);
     await expect(args.onResponse).toHaveBeenCalledWith({
       kind: 'state',
       value: { hundreds: 1, tens: 7, ones: 6, value: 176 },
     });
     const trace = traceOf(args.onInteract).map((e) => `${e.t}:${e.target}`);
-    await expect(trace.slice(-3)).toEqual(['tap:key-1', 'tap:key-7', 'tap:key-6']);
+    await expect(trace.slice(-4)).toEqual([
+      'tap:digit-ones',
+      'tap:key-6',
+      'tap:key-7',
+      'tap:key-1',
+    ]);
     await expectTraceOrdered(traceOf(args.onInteract));
+    await expectFits(canvasElement, root, U_HEAVY);
+  },
+};
+
+/**
+ * Evidence: 304 − 128 with the algorithm, at the START. The problem is written in columns with an
+ * empty result row (the answer place, ones box ready) and no regrouping notes yet.
+ */
+export const SubtractAcrossZeroStart: Story = {
+  args: { config: acrossZero },
+  play: async ({ canvasElement, args }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    await expect([...root.querySelectorAll('.ni-btt__note')].map((n) => n.textContent)).toEqual([
+      '',
+      '',
+      '',
+    ]);
+    await expect(root.querySelectorAll('[data-crossed="true"]')).toHaveLength(0);
+    await expect(boxes(root)).toEqual(['', '', '']);
+    await expect(q(root, '[data-digit="ones"]')).toHaveAttribute('data-state', 'active');
+    await expect(mat(root)).toEqual({ hundreds: 3, tens: 0, ones: 4 });
+    await expect(within(root).getByRole('button', { name: 'Check' })).toBeDisabled();
+    for (const el of controls(root)) await expectTargetSize(el, 'g1-up');
+    await expectTargetGaps(controls(root));
+    await expectNoReveal(root, 176);
+    await expectFits(canvasElement, root, U_HEAVY);
+    await expect(args.onInteract).not.toHaveBeenCalled();
   },
 };
 
@@ -602,11 +702,11 @@ export const Stress: Story = {
   args: { config: acrossZero },
   play: async ({ canvasElement }) => {
     const root = await findWidget(canvasElement, ROOT);
-    await expectFits(canvasElement, root);
+    await expectFits(canvasElement, root, U_HEAVY);
     await userEvent.click(trade(root, 'hundreds', 'tens'));
     await settled(root);
     await expect(mat(root)).toEqual({ hundreds: 2, tens: 10, ones: 4 });
-    await expectFits(canvasElement, root);
+    await expectFits(canvasElement, root, U_HEAVY);
     await userEvent.click(trade(root, 'tens', 'ones'));
     await tapPlace(grabItem(root, 'hundreds'), nest(root));
     await tapPlace(grabItem(root, 'tens'), nest(root));
@@ -614,27 +714,32 @@ export const Stress: Story = {
     await tapPlace(grabItem(root, 'ones'), nest(root));
     await settled(root);
     await expect(mat(root)).toEqual({ hundreds: 1, tens: 7, ones: 13 });
-    await expectFits(canvasElement, root);
+    await expectFits(canvasElement, root, U_HEAVY);
     for (const el of controls(root)) await expectTargetSize(el, 'g1-up');
     await expectTargetGaps(controls(root));
   },
 };
 
 /**
- * K, the same stress config (a grade 2–3 item, the worst case for room): bigger targets and a
- * bigger pad leave the smallest pieces of any story (12 px ones), still countable, no scrolling.
+ * K stress: the fullest K screen, a take-away with the nest and the (bigger) K number pad, 42 − 15
+ * typed into the `=` blank. Split a ten, take 15. K-sized targets, the one 20 px scale, no scroll.
  */
 export const StressK: Story = {
   globals: { ageMode: 'k' },
-  args: { config: acrossZero },
+  args: { config: { ...take42minus15, thenAsk: true } },
   play: async ({ canvasElement }) => {
     const root = await findWidget(canvasElement, ROOT);
-    await userEvent.click(trade(root, 'hundreds', 'tens'));
     await userEvent.click(trade(root, 'tens', 'ones'));
     await settled(root);
-    await expectFits(canvasElement, root, 12);
+    await expectFits(canvasElement, root);
+    for (let i = 0; i < 5; i++) await tapPlace(grabItem(root, 'ones'), nest(root));
+    await tapPlace(grabItem(root, 'tens'), nest(root));
+    await settled(root);
+    await expect(mat(root)).toEqual({ hundreds: 0, tens: 2, ones: 7 });
+    await expectFits(canvasElement, root);
     for (const el of controls(root)) await expectTargetSize(el, 'k');
     await expectTargetGaps(controls(root));
+    (document.activeElement as HTMLElement | null)?.blur();
   },
 };
 
@@ -673,6 +778,40 @@ export const RegroupTo: Story = {
       'tap:col-tens',
       'tap:trade-hundreds-tens',
     ]);
+  },
+};
+
+/**
+ * Evidence, stress with hundreds: three flats on the mat (regroup 3 hundreds, 1 ten, 5 ones into
+ * 2 hundreds, 11 tens, 5 ones). At the one 20 px scale the flats sit 2 × 2, each countable. Split
+ * a hundred (eleven tens in a row), group it back: every state fits 1280 × 800 with no overlap.
+ */
+export const StressThreeFlats: Story = {
+  args: {
+    config: {
+      format: 'base-ten-trade',
+      start: { hundreds: 3, tens: 1, ones: 5 },
+      goal: 'regroup-to',
+      regroupTarget: { hundreds: 2, tens: 11, ones: 5 },
+      showAlgorithm: false,
+      thenAsk: false,
+    } satisfies Config,
+  },
+  play: async ({ canvasElement }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    await expect(mat(root)).toEqual({ hundreds: 3, tens: 1, ones: 5 });
+    await expectFits(canvasElement, root);
+    await userEvent.click(trade(root, 'hundreds', 'tens'));
+    await settled(root);
+    await expect(mat(root)).toEqual({ hundreds: 2, tens: 11, ones: 5 });
+    await expectFits(canvasElement, root);
+    await userEvent.click(trade(root, 'tens', 'hundreds'));
+    await settled(root);
+    await expect(mat(root)).toEqual({ hundreds: 3, tens: 1, ones: 5 });
+    await expectFits(canvasElement, root);
+    for (const el of controls(root)) await expectTargetSize(el, 'g1-up');
+    await expectTargetGaps(controls(root));
+    (document.activeElement as HTMLElement | null)?.blur();
   },
 };
 
@@ -773,13 +912,13 @@ export const DemoPlay: Story = {
     await expect(takenPieces(root, 'ones')).toBe(5);
     await demoController.play({ op: 'write-digit', args: { column: 'ones', value: 7 } });
     await demoController.play({ op: 'write-digit', args: { column: 'tens', value: 2 } });
-    await expect([...root.querySelectorAll('.ni-btt__box')].map((b) => b.textContent)).toEqual([
-      '',
-      '2',
-      '7',
-    ]);
+    await expect(boxes(root)).toEqual(['', '2', '7']);
+    // `answer` types into the same result row (the one answer place), ones first.
+    await demoController.play({ op: 'answer', args: { value: 18 } });
+    await expect(boxes(root)).toEqual(['', '1', '8']);
     await demoController.play({ op: 'answer', args: { value: 27 } });
-    await expect(within(root).getByRole('status', { name: 'Your answer: 27' })).toBeInTheDocument();
+    await expect(boxes(root)).toEqual(['', '2', '7']);
+    await expect(within(root).queryByRole('status')).toBeNull();
     // `combine` is supported (nothing waits to be added in a take-away, so nothing changes).
     await demoController.play({ op: 'combine', args: { column: 'ones' } });
     await expect(args.onResponse).not.toHaveBeenCalled();

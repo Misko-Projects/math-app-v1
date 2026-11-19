@@ -3,14 +3,20 @@ import { describe, expect, it } from 'vitest';
 import { breakGhosts, bundleGhosts, gatherBox, moveGhosts, slices, transformFrom } from './fx';
 import {
   type Box,
+  COL_PAD,
+  digitsValue,
   extent,
   growCaps,
+  itemUnit,
+  lyingRods,
   naturalLayout,
+  pathStates,
   placePieces,
   placeTaken,
   planCaps,
   planMat,
   stripWidth,
+  U_FLOOR,
   U_MAX,
   U_MIN,
 } from './layout';
@@ -144,7 +150,7 @@ describe('planMat', () => {
     expect(k.u).toBeLessThanOrEqual(g.u);
   });
 
-  it('fills the width and uses a big unit when there are few pieces', () => {
+  it('fills the width at the one scale (U_MAX) when there are few pieces', () => {
     const few = planCaps(
       cfg({
         goal: 'regroup-to',
@@ -154,7 +160,7 @@ describe('planMat', () => {
     );
     const p = planMat({ caps: few, age: 'k', width: 900, height: 520 });
     expect(p.matW).toBe(900);
-    expect(p.u).toBeGreaterThanOrEqual(26);
+    expect(p.u).toBe(U_MAX);
     expect(p.u).toBeLessThanOrEqual(U_MAX);
   });
 
@@ -166,7 +172,7 @@ describe('planMat', () => {
       }),
     );
     const p = planMat({ caps: two, age: 'g1-up', width: 920, height: 520 });
-    const box = { w: p.colW.hundreds - 20, h: p.bodyH - 20 };
+    const box = { w: p.colW.hundreds - 2 * COL_PAD, h: p.bodyH - 2 * COL_PAD };
     const flats = placePieces('hundreds', 2, p.u, box, 2, p.flatsPerRow);
     expect(overlaps(flats)).toBe(false);
     for (const b of flats) expect(inside(b, box)).toBe(true);
@@ -180,7 +186,7 @@ describe('planMat', () => {
     );
     expect(grown.mat.tens).toBe(30);
     const p = planMat({ caps: grown, age: 'g1-up', width: 840, height: 400 });
-    const box = { w: p.colW.tens - 20, h: p.bodyH - 20 };
+    const box = { w: p.colW.tens - 2 * COL_PAD, h: p.bodyH - 2 * COL_PAD };
     expect(overlaps(placePieces('tens', 30, p.u, box, 30, p.rodsPerRow))).toBe(false);
     expect(growCaps(stress, stress.mat, { hundreds: 1, tens: 2, ones: 8 })).toBe(stress);
   });
@@ -188,13 +194,68 @@ describe('planMat', () => {
   it('has room for every planned piece in each column', () => {
     const p = planMat({ caps: stress, age: 'g1-up', width: 840, height: 400 });
     for (const c of stress.columns) {
-      const box = { w: p.colW[c] - 20, h: p.bodyH - 20 };
+      const box = { w: p.colW[c] - 2 * COL_PAD, h: p.bodyH - 2 * COL_PAD };
       const per = c === 'hundreds' ? p.flatsPerRow : p.rodsPerRow;
       const natural = extent(naturalLayout(c, stress.mat[c], p.u, per));
       expect(natural.w).toBeLessThanOrEqual(box.w);
       expect(natural.h).toBeLessThanOrEqual(box.h);
       expect(overlaps(placePieces(c, stress.mat[c], p.u, box, stress.mat[c], per))).toBe(false);
     }
+  });
+});
+
+describe('one scale per item', () => {
+  // The 1280 × 800 widget area beside a side panel with the algorithm card (see the widget).
+  const space = { age: 'g1-up', width: 798, height: 548 } as const;
+
+  it('walks the expected path: borrow across zero, then take column by column', () => {
+    const c = cfg({
+      start: { hundreds: 3, tens: 0, ones: 4 },
+      operation: { op: '-', operand: { hundreds: 1, tens: 2, ones: 8 } },
+    });
+    const path = pathStates(c);
+    expect(path.map((s) => s.mat)).toEqual([
+      { hundreds: 3, tens: 0, ones: 4 },
+      { hundreds: 2, tens: 10, ones: 4 },
+      { hundreds: 2, tens: 9, ones: 14 },
+      { hundreds: 2, tens: 9, ones: 6 },
+      { hundreds: 2, tens: 7, ones: 6 },
+      { hundreds: 1, tens: 7, ones: 6 },
+    ]);
+    expect(path.at(-1)?.taken).toEqual({ hundreds: 1, tens: 2, ones: 8 });
+    const add = pathStates(cfg({}));
+    expect(add[0]?.pending).toEqual({ hundreds: 0, tens: 1, ones: 5 });
+    expect(add.at(-1)).toEqual({
+      mat: { hundreds: 0, tens: 4, ones: 2 },
+      pending: null,
+      taken: null,
+    });
+  });
+
+  it('draws 20 px pieces for ordinary items and keeps the heaviest at the floor (18 px)', () => {
+    const add = cfg({});
+    expect(itemUnit({ ...space, base: planCaps(add), path: pathStates(add) })).toBe(U_MAX);
+    const heavy = cfg({
+      start: { hundreds: 3, tens: 0, ones: 4 },
+      operation: { op: '-', operand: { hundreds: 1, tens: 2, ones: 8 } },
+      showAlgorithm: true,
+      thenAsk: true,
+    });
+    expect(itemUnit({ ...space, base: planCaps(heavy), path: pathStates(heavy) })).toBe(U_FLOOR);
+  });
+
+  it('lays taken rods down in the nest (low and wide)', () => {
+    const rods = lyingRods(2, 20);
+    expect(rods[0]).toEqual({ x: 0, y: 0, w: 200, h: 20 });
+    expect(overlaps(rods)).toBe(false);
+  });
+
+  it('reads the result row as one number, ones box first', () => {
+    expect(digitsValue({ hundreds: null, tens: null, ones: null })).toBeNull();
+    expect(digitsValue({ hundreds: null, tens: 7, ones: 6 })).toBe(76);
+    expect(digitsValue({ hundreds: 1, tens: 7, ones: 6 })).toBe(176);
+    expect(digitsValue({ hundreds: 1, tens: null, ones: 6 })).toBeNull();
+    expect(digitsValue({ hundreds: null, tens: 7, ones: null })).toBeNull();
   });
 });
 

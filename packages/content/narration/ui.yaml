@@ -224,6 +224,37 @@ ui.widget.btb.dec.exact.ones:
 ui.widget.btb.dec.exact.ones-one:
   text: "Take 1 hundredth"
   level: "2"
+# Column headers (the place each column holds) and the short trade-button captions.
+ui.widget.btb.col.thousands:
+  text: "Thousands"
+  level: "2"
+ui.widget.btb.col.hundreds:
+  text: "Hundreds"
+  level: K
+ui.widget.btb.col.tens:
+  text: "Tens"
+  level: K
+ui.widget.btb.col.ones:
+  text: "Ones"
+  level: K
+ui.widget.btb.dec.col.thousands:
+  text: "Tens"
+  level: "2"
+ui.widget.btb.dec.col.hundreds:
+  text: "Ones"
+  level: "2"
+ui.widget.btb.dec.col.tens:
+  text: "Tenths"
+  level: "2"
+ui.widget.btb.dec.col.ones:
+  text: "Hundredths"
+  level: "2"
+ui.widget.btb.cap.make:
+  text: "Make"
+  level: K
+ui.widget.btb.cap.split:
+  text: "Split"
+  level: K
 # end base-ten-build
 
 # U04 base-ten-trade widget (packages/ui/src/widgets/base-ten-trade): keys under ui.widget.btt.*
@@ -286,6 +317,15 @@ ui.widget.btt.work:
   level: K
 ui.widget.btt.goal:
   text: "Make it look like this"
+  level: K
+ui.widget.btt.box.hundreds:
+  text: "Hundreds box"
+  level: K
+ui.widget.btt.box.tens:
+  text: "Tens box"
+  level: K
+ui.widget.btt.box.ones:
+  text: "Ones box"
   level: K
 # end base-ten-trade
 

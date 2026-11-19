@@ -5,12 +5,15 @@ import {
   clampInto,
   columnWidth,
   larger,
+  type MatLayoutInput,
   matLayout,
   onesFrame,
   pieceBox,
   smaller,
-  U_MAX,
-  U_MIN,
+  U_FLOOR,
+  UNIT_G1,
+  UNIT_K,
+  unitCandidates,
 } from './layout';
 
 const counts = (thousands = 0, hundreds = 0, tens = 0, ones = 0) => ({
@@ -20,9 +23,25 @@ const counts = (thousands = 0, hundreds = 0, tens = 0, ones = 0) => ({
   ones,
 });
 
-// The 1280 × 800 widget area: the mat's columns get about 800 px, the pieces 420 px of height.
-const tablet = { width: 800, height: 420, columnGap: 16 };
-const twoButtons = (k: string) => (k === 'tens' || k === 'hundreds' ? 236 : 112);
+// The widget's constants at 1280 × 800 (BaseTenBuildWidget): 1146 px wide, 606 px for pieces.
+const WORDS: Record<string, string> = {
+  thousands: 'Thousands',
+  hundreds: 'Hundreds',
+  tens: 'Tens',
+  ones: 'Ones',
+};
+const tablet = (k = false): Omit<MatLayoutInput, 'kinds' | 'counts'> => ({
+  units: unitCandidates(k),
+  width: 1146,
+  height: 606,
+  gutter: (k ? 80 : 64) + 8,
+  columnPad: 4,
+  frame: 5,
+  gap: 12,
+  sideMin: k ? 150 : 160,
+  sideMax: 260,
+  headerWidth: (kind) => (k ? 52 : 40 + 11 * (WORDS[kind] ?? '').length),
+});
 
 describe('larger / smaller', () => {
   it('steps through the kinds', () => {
@@ -34,10 +53,10 @@ describe('larger / smaller', () => {
 });
 
 describe('pieceBox', () => {
-  it('keeps a rod ten units tall and at least 32 px wide to grab', () => {
-    expect(pieceBox('tens', 10)).toEqual({ w: 32, h: 100 });
-    expect(pieceBox('tens', 34)).toEqual({ w: 34, h: 340 });
-    expect(pieceBox('hundreds', 12)).toEqual({ w: 120, h: 120 });
+  it('keeps true scale (a rod is ten units) with a grab-sized rod hit box', () => {
+    expect(pieceBox('tens', 20)).toEqual({ w: 28, h: 200 });
+    expect(pieceBox('tens', 28)).toEqual({ w: 36, h: 280 });
+    expect(pieceBox('hundreds', 20)).toEqual({ w: 200, h: 200 });
     expect(pieceBox('ones', 20)).toEqual({ w: 20, h: 20 });
   });
 });
@@ -45,91 +64,65 @@ describe('pieceBox', () => {
 describe('columnWidth', () => {
   it('wraps ones into frames of ten that stack while they fit', () => {
     const f = onesFrame(20);
-    // 34 ones: four frames; 420 px holds them all in one stack.
-    expect(columnWidth('ones', 34, 20, 420)).toBe(f.w);
-    // Only two frames per stack in 100 px: two stacks side by side.
+    expect(columnWidth('ones', 34, 20, 606)).toBe(f.w);
     expect(columnWidth('ones', 34, 20, 100)).toBe(2 * f.w + 12);
+    // Upright frames (two columns of five) are narrow.
+    expect(columnWidth('ones', 9, 20, 606, 'v')).toBe(onesFrame(20, 'v').w);
   });
-  it('is null when one piece is taller than the board', () => {
-    expect(columnWidth('tens', 1, 50, 420)).toBeNull();
+  it('is null when one piece is taller than the mat', () => {
+    expect(columnWidth('tens', 1, 70, 606)).toBeNull();
   });
-  it('wraps flats into rows', () => {
-    // 9 flats of 130 px in 420 px: three rows of three.
-    expect(columnWidth('hundreds', 9, 13, 420)).toBe(3 * 130 + 2 * 8);
+  it('puts nine flats in a 3 × 3 grid at 20 px', () => {
+    expect(columnWidth('hundreds', 9, 20, 606)).toBe(3 * 200 + 2 * 3);
   });
 });
 
 describe('matLayout', () => {
-  it('draws a small build at the largest unit', () => {
-    const l = matLayout({
-      kinds: ['tens', 'ones'],
-      counts: counts(0, 0, 3, 4),
-      controlsWidth: () => 112,
-      ...tablet,
-    });
-    expect(l.u).toBe(U_MAX);
+  it('draws every G1 item at the one 20 px unit', () => {
+    const l = matLayout({ kinds: ['tens', 'ones'], counts: counts(0, 0, 3, 4), ...tablet() });
+    expect(l.u).toBe(UNIT_G1);
     expect(l.fits).toBe(true);
   });
 
-  it('shrinks the pieces for 999 and still fits the width', () => {
+  it('draws K bigger when it fits', () => {
+    const l = matLayout({ kinds: ['tens', 'ones'], counts: counts(0, 0, 1, 3), ...tablet(true) });
+    expect(l.u).toBe(UNIT_K);
+  });
+
+  it('fits 999 at 20 px beside the side panel', () => {
     const l = matLayout({
       kinds: ['hundreds', 'tens', 'ones'],
       counts: counts(0, 9, 9, 9),
-      controlsWidth: twoButtons,
-      ...tablet,
+      ...tablet(),
     });
-    expect(l.fits).toBe(true);
-    expect(l.u).toBeLessThan(U_MAX);
-    expect(l.u).toBeGreaterThanOrEqual(12);
-    const total = l.columns.reduce((a, c) => a + c.width, 0) + 2 * tablet.columnGap;
-    expect(total).toBeLessThanOrEqual(tablet.width);
+    expect(l.u).toBe(20);
+    expect(l.matWidth + 12 + l.sideWidth).toBeLessThanOrEqual(1146);
+    expect(l.sideWidth).toBeGreaterThanOrEqual(160);
   });
 
-  it('fits a cube, flats, rods and units (1234)', () => {
+  it('fits 1234 at 20 px', () => {
     const l = matLayout({
       kinds: ['thousands', 'hundreds', 'tens', 'ones'],
       counts: counts(1, 2, 3, 4),
-      controlsWidth: twoButtons,
-      ...tablet,
+      ...tablet(),
     });
-    expect(l.fits).toBe(true);
+    expect(l.u).toBe(20);
     expect(l.columns.map((c) => c.kind)).toEqual(['thousands', 'hundreds', 'tens', 'ones']);
   });
 
-  it('never makes a column narrower than its trade buttons', () => {
-    const l = matLayout({
-      kinds: ['tens', 'ones'],
-      counts: counts(0, 0, 0, 0),
-      controlsWidth: () => 236,
-      ...tablet,
-    });
-    for (const c of l.columns) expect(c.width).toBeGreaterThanOrEqual(236);
+  it('never makes a column narrower than its header', () => {
+    const l = matLayout({ kinds: ['hundreds', 'tens'], counts: counts(), ...tablet() });
+    for (const c of l.columns) expect(c.width).toBeGreaterThanOrEqual(40 + 11 * 4 + 8);
   });
 
-  it('only gets smaller as pieces are added', () => {
-    let last = U_MAX;
-    for (let ones = 0; ones <= 60; ones += 5) {
-      const { u } = matLayout({
-        kinds: ['tens', 'ones'],
-        counts: counts(0, 0, 9, ones),
-        controlsWidth: () => 112,
-        ...tablet,
-      });
-      expect(u).toBeLessThanOrEqual(last);
-      expect(u).toBeGreaterThanOrEqual(U_MIN);
-      last = u;
-    }
-  });
-
-  it('reports a config beyond any authored item as not fitting', () => {
+  it('reports content beyond any authored item as not fitting', () => {
     const l = matLayout({
       kinds: ['hundreds', 'tens', 'ones'],
       counts: counts(0, 400, 0, 0),
-      controlsWidth: () => 0,
-      ...tablet,
+      ...tablet(),
     });
     expect(l.fits).toBe(false);
-    expect(l.u).toBe(U_MIN);
+    expect(l.u).toBeLessThan(U_FLOOR);
   });
 });
 
@@ -149,7 +142,6 @@ describe('bundles', () => {
     const half = bundleHalf('ones', 30);
     expect(clampInto({ x: 200, y: 20 }, half, box)).toEqual({ x: 200, y: 150 });
     expect(clampInto({ x: 200, y: 200 }, half, box)).toEqual({ x: 200, y: 200 });
-    // Larger than the box: centred.
     expect(clampInto({ x: 0, y: 0 }, { x: 300, y: 300 }, box)).toEqual({ x: 200, y: 200 });
   });
 });

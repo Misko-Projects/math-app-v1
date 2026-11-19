@@ -206,11 +206,97 @@ function Glyph({ kind, many, x }: { kind: PieceKind; many: boolean; x: number })
   return <g>{parts}</g>;
 }
 
+/** A column header's icon: the place's piece, drawn to fit a 40 × 40 box (not to scale). */
+export function PlaceIcon({ kind }: { kind: PieceKind }) {
+  const grid = (from: number, to: number, steps: number, vertical: boolean, horizontal: boolean) =>
+    Array.from({ length: steps - 1 }, (_, i) => {
+      const p = from + ((to - from) * (i + 1)) / steps;
+      return [vertical ? `M${p} ${from}V${to}` : '', horizontal ? `M${from} ${p}H${to}` : ''].join(
+        '',
+      );
+    }).join('');
+  let body: ReactNode;
+  if (kind === 'ones') {
+    body = (
+      <rect x="8" y="8" width="24" height="24" rx="2.5" fill={SEA} stroke={LINE} strokeWidth="3" />
+    );
+  } else if (kind === 'tens') {
+    body = (
+      <>
+        <rect
+          x="14"
+          y="2"
+          width="12"
+          height="36"
+          rx="1.5"
+          fill={SEA}
+          stroke={LINE}
+          strokeWidth="2.5"
+        />
+        <path
+          d={Array.from({ length: 9 }, (_, i) => `M14 ${2 + (i + 1) * 3.6}H26`).join('')}
+          stroke={LINE}
+          strokeWidth="1"
+        />
+      </>
+    );
+  } else if (kind === 'hundreds') {
+    body = (
+      <>
+        <rect x="4" y="4" width="32" height="32" rx="2" fill={SEA} />
+        <path d={grid(4, 36, 10, true, true)} stroke={LINE} strokeWidth="0.8" />
+        <rect x="4" y="4" width="32" height="32" rx="2" stroke={LINE} strokeWidth="2.5" />
+      </>
+    );
+  } else {
+    body = (
+      <>
+        <path
+          d="M3 13l9-9h25l-9 9z"
+          fill={SEA}
+          stroke={LINE}
+          strokeWidth="2.2"
+          strokeLinejoin="round"
+        />
+        <path
+          d="M28 13l9-9v24l-9 9z"
+          fill="var(--color-sea)"
+          stroke={LINE}
+          strokeWidth="2.2"
+          strokeLinejoin="round"
+        />
+        <rect x="3" y="13" width="25" height="24" fill={SEA} stroke={LINE} strokeWidth="2.2" />
+      </>
+    );
+  }
+  return (
+    <svg
+      viewBox="0 0 40 40"
+      width="100%"
+      height="100%"
+      aria-hidden="true"
+      focusable="false"
+      fill="none"
+    >
+      {body}
+    </svg>
+  );
+}
+
 /**
- * The trade icons: ten pieces → one larger piece ("make a ten"), and one piece → ten smaller
- * pieces ("split a ten"), with a bold arrow between.
+ * The trade icons, in the mat's own order: one larger piece on the left, ten smaller pieces on the
+ * right, and a bold arrow showing the way. "Make a ten" points left (ten ones become a ten),
+ * "split a ten" points right (a ten becomes ten ones).
  */
-export function TradeIcon({ from, to, fuse }: { from: PieceKind; to: PieceKind; fuse: boolean }) {
+export function TradeIcon({
+  big,
+  small,
+  fuse,
+}: {
+  big: PieceKind;
+  small: PieceKind;
+  fuse: boolean;
+}) {
   return (
     <svg
       viewBox="0 0 48 48"
@@ -220,15 +306,15 @@ export function TradeIcon({ from, to, fuse }: { from: PieceKind; to: PieceKind; 
       focusable="false"
       fill="none"
     >
-      <Glyph kind={from} many={fuse} x={1} />
+      <Glyph kind={big} many={false} x={1} />
       <path
-        d="M21 24h7m-3-4 4 4-4 4"
+        d={fuse ? 'M28 24h-7m3-4-4 4 4 4' : 'M20 24h7m-3-4 4 4-4 4'}
         stroke={INK}
         strokeWidth="2.6"
         strokeLinecap="round"
         strokeLinejoin="round"
       />
-      <Glyph kind={to} many={!fuse} x={31} />
+      <Glyph kind={small} many x={31} />
     </svg>
   );
 }

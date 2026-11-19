@@ -14,7 +14,7 @@
   box-sizing: border-box;
   width: 100%;
   max-width: 1180px;
-  padding: 12px 16px;
+  padding: 6px 16px;
   color: var(--color-ink);
 }
 
@@ -43,7 +43,7 @@
   gap: 16px;
   width: 100%;
 }
-.ni-btt__problemcheck {
+.ni-btt__problemside {
   display: flex;
   justify-content: flex-start;
 }
@@ -188,6 +188,14 @@
     linear-gradient(to right, rgb(38 70 83 / 0.4) 1.5px, transparent 1.5px),
     linear-gradient(to bottom, rgb(38 70 83 / 0.4) 1.5px, transparent 1.5px);
 }
+/* A rod lying down in the nest: its unit lines run across. */
+.ni-btt__piece--tens[data-lying="true"] {
+  background-image: linear-gradient(to right, rgb(23 96 110 / 0.55) 1.5px, transparent 1.5px);
+  background-size: var(--u) 100%;
+}
+[data-tier="pictorial"] .ni-btt__piece--tens[data-lying="true"] {
+  background-image: linear-gradient(to right, rgb(38 70 83 / 0.5) 1.5px, transparent 1.5px);
+}
 /* Still on its way (an animation ghost draws it meanwhile). */
 .ni-btt__piece[data-arriving="true"] {
   opacity: 0;
@@ -260,9 +268,10 @@
   border-radius: 14px;
   animation: none;
 }
+/* Inset by COL_PAD (layout.ts). */
 .ni-btt__pile {
   position: absolute;
-  inset: 10px;
+  inset: 6px;
   pointer-events: none;
 }
 /* A column's tap pad (speaks the piece's name) or drop target (adding), behind its pieces. */
@@ -470,15 +479,24 @@
   top: 0;
   left: 0;
   width: calc(100% - 52px);
-  height: 100%;
+  height: calc(100% - 16px);
+  pointer-events: none;
+}
+/* The front wall keeps one height (NEST_WALL in layout.ts); the pieces rest just above it. */
+.ni-btt__nest-wall {
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  width: calc(100% - 52px);
+  height: 40px;
   pointer-events: none;
 }
 .ni-btt__nest-twigs {
   position: absolute;
   left: 4%;
-  bottom: 4px;
+  bottom: 6px;
   width: calc(92% - 52px);
-  height: 18%;
+  height: 18px;
   pointer-events: none;
 }
 .ni-btt__gull {
@@ -512,10 +530,15 @@
 }
 
 /* The column algorithm, as a child writes it: start, operand with its sign, a line, the result. */
+/*
+ * One column per place, each as wide as a result box (a tap target: --target-min, 12 px apart).
+ * Height: WORK_H in the widget (200 px; 216 in K, whose boxes are bigger).
+ */
 .ni-btt__work {
   display: grid;
-  grid-template-columns: 32px repeat(3, 44px);
-  grid-template-rows: 30px 42px 42px 8px 54px;
+  grid-template-columns: 30px repeat(3, var(--target-min));
+  grid-template-rows: 28px 38px 38px 8px var(--target-min);
+  column-gap: var(--target-gap);
   justify-items: center;
   align-items: center;
   box-sizing: border-box;
@@ -533,6 +556,9 @@
   line-height: 1;
   font-variant-numeric: tabular-nums;
 }
+[data-age-mode="k"] .ni-btt__work {
+  height: 216px;
+}
 .ni-btt__note {
   grid-row: 1;
   color: var(--color-coral-deep);
@@ -541,7 +567,7 @@
 }
 .ni-btt__digit {
   position: relative;
-  font-size: 2.5rem;
+  font-size: 2.25rem;
   padding-top: 0.12em;
 }
 .ni-btt__opsign {
@@ -568,19 +594,47 @@
   border-radius: 2px;
   background: var(--color-ink);
 }
+.ni-btt__boxwrap {
+  position: relative;
+  display: inline-flex;
+}
 .ni-btt__box {
   position: relative;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   box-sizing: border-box;
-  width: 40px;
-  height: 52px;
+  width: var(--target-min);
+  height: var(--target-min);
+  margin: 0;
   border: 3px dashed var(--color-ink);
-  border-radius: 10px;
+  border-radius: 12px;
   background: var(--color-cloud);
+  color: var(--color-ink);
+  font-family: var(--font-display);
   font-size: 2.5rem;
-  padding-top: 0.12em;
+  font-weight: 800;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+  padding: 0.12em 0 0;
+}
+button.ni-btt__box {
+  appearance: none;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+button.ni-btt__box:disabled {
+  cursor: default;
+}
+/* The box being typed into: a solid teal border and ring plus the caret (not colour alone). */
+.ni-btt__box[data-state="active"] {
+  border-style: solid;
+  border-color: var(--color-sea-deep);
+  box-shadow: 0 0 0 5px rgb(42 157 143 / 0.35);
+}
+button.ni-btt__box:focus-visible {
+  outline: 4px solid var(--color-ink);
+  outline-offset: 4px;
 }
 .ni-btt__box[data-empty="true"] {
   background: var(--color-sky-light);

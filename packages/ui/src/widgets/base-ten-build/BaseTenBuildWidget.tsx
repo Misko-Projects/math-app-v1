@@ -15,8 +15,8 @@ import {
   useSpeech,
   useUiPreferences,
 } from '../../preferences/UiProvider';
-import { IconButton } from '../../primitives/IconButton';
 import { HandPointerIcon } from '../../primitives/icons';
+import { usePress } from '../../primitives/usePress';
 import { TARGET_PX } from '../../tokens/tokens';
 import { useWidgetDemo } from '../demo';
 import {
@@ -40,9 +40,11 @@ import {
   matLayout,
   onesGroupGap,
   pieceGap,
+  rodHit,
   smaller,
+  unitCandidates,
 } from './layout';
-import { PieceArt, PileArt, TradeIcon } from './pieces';
+import { PieceArt, PileArt, PlaceIcon, TradeIcon } from './pieces';
 import './base-ten-build.css';
 
 /**
@@ -72,13 +74,22 @@ type Target = 'mat' | 'tray';
 
 const OPS: readonly string[] = [...FORMAT_SUPPORT['base-ten-build'].ops, 'answer'];
 
-/** Height the pieces may use on the mat (px): the 1280 × 800 widget area minus goal and trades. */
-const BOARD_H = 420;
-const READ_H = 380;
-/** The board's wooden frame plus its inner margin (px), around the columns. */
-const BOARD_PAD = 18;
-const COL_GAP = 16;
-const BTN_GAP = 12;
+/*
+ * The mat takes the widget's full height. In the 1280 × 800 widget area (about 1146 × 666 px):
+ * 2 px root padding, a 5 px wooden frame, a 36 px header row, 4 px above and below the pieces,
+ * and 606 px for the pieces: three flats of 20 px units (3 × 200 + 2 × 3).
+ */
+const BODY_H = 606;
+const BODY_PAD = 4;
+const HEAD_H = 36;
+const FRAME = 5;
+const COL_PAD = 4;
+/** Each side of the trade buttons in a gutter between two columns (px). */
+const GUTTER_PAD = 4;
+/** Read mode: the columns sit side by side with this gap (no trades). */
+const COL_GAP = 12;
+/** Between the mat and the side panel (px). */
+const SIDE_GAP = 12;
 
 // Motion (03 §6.3, the fuse/split acceptance criterion): large, simple, transform-only moves.
 const GATHER_MS = 380;
@@ -123,6 +134,9 @@ const fuseKey = (k: PieceKind, decimal: boolean): NarrationKey =>
   `ui.widget.btb.${dec(decimal)}fuse.${k}`;
 const splitKey = (k: PieceKind, decimal: boolean): NarrationKey =>
   `ui.widget.btb.${dec(decimal)}split.${k}`;
+/** A column header's word: the place's name (Hundreds…; with decimals Ones, Tenths…). */
+const colKey = (k: PieceKind, decimal: boolean): NarrationKey =>
+  `ui.widget.btb.${dec(decimal)}col.${k}`;
 const exactKey = (k: PieceKind, n: number, decimal: boolean): NarrationKey =>
   `ui.widget.btb.${dec(decimal)}exact.${k}${n === 1 ? '-one' : ''}`;
 
@@ -183,6 +197,48 @@ function ReturnIcon() {
   );
 }
 
+/**
+ * A trade button in a gutter: icon (the larger piece on the left, ten smaller on the right, an
+ * arrow showing which way), a short caption in text mode ("Make" / "Split"), and the full spoken
+ * label as its name ("Make a ten"). In K mode it is icon-only and speaks its label (06 §5).
+ */
+function TradeButton({
+  id,
+  label,
+  caption,
+  icon,
+  disabled,
+  invited,
+  onPress,
+}: {
+  id: string;
+  label: NarrationKey;
+  caption: NarrationKey;
+  icon: ReactNode;
+  disabled: boolean;
+  invited: boolean;
+  onPress: () => void;
+}) {
+  const t = useNarrationText();
+  const { textLabels } = useUiPreferences();
+  const press = usePress({ label, onPress });
+  return (
+    <button
+      type="button"
+      className={['ni-btn', 'ni-tone-cloud', 'ni-btb__trade', invited ? 'ni-invite' : '']
+        .filter(Boolean)
+        .join(' ')}
+      data-trade={id}
+      aria-label={t(label)}
+      disabled={disabled}
+      onClick={press}
+    >
+      <span className="ni-btb__tradeicon">{icon}</span>
+      {textLabels ? <span className="ni-btb__tradecap">{t(caption)}</span> : null}
+    </button>
+  );
+}
+
 export function BaseTenBuildWidget({
   config,
   tier,
@@ -213,8 +269,7 @@ export function BaseTenBuildWidget({
   textRef.current = text;
   const [pressedKey, setPressedKey] = useState<PadKey | null>(null);
   const rootRef = useRef<HTMLDivElement | null>(null);
-  const leftRef = useRef<HTMLDivElement | null>(null);
-  const [avail, setAvail] = useState(820);
+  const [avail, setAvail] = useState(1140);
   const interactive = !disabled && !busy;
 
   // ---------- state through the model, with a hook for "after the DOM shows it" ----------
@@ -242,10 +297,13 @@ export function BaseTenBuildWidget({
   // ---------- layout: the unit size that fits every column ----------
 
   useLayoutEffect(() => {
-    const el = leftRef.current;
+    const el = rootRef.current;
     if (!el || typeof ResizeObserver === 'undefined') return;
     const measure = () => {
-      const w = el.clientWidth;
+      // The content width, fractional and untransformed (clientWidth rounds).
+      const s = getComputedStyle(el);
+      const px = (v: string) => Number.parseFloat(v) || 0;
+      const w = px(s.width) - px(s.paddingLeft) - px(s.paddingRight);
       if (w > 0) setAvail(w);
     };
     measure();
@@ -255,30 +313,26 @@ export function BaseTenBuildWidget({
   }, []);
 
   const kinds = columnKinds(config, state.mat);
-  const iconPx = TARGET_PX[prefs.ageMode].icon;
-  // A trade button with its caption (G1+ text mode) is as wide as `.ni-caption` allows.
-  const buttonPx = prefs.textLabels ? iconPx + 40 : iconPx;
-  const tradesOf = (k: PieceKind): ('fuse' | 'split')[] => {
-    if (read) return [];
-    const up = larger(k);
-    const down = smaller(k);
-    return [
-      ...(up && kinds.includes(up) ? (['fuse'] as const) : []),
-      ...(down && kinds.includes(down) ? (['split'] as const) : []),
-    ];
-  };
-  const boardH = read ? READ_H : BOARD_H;
+  const kMode = prefs.ageMode === 'k';
+  const targetMin = TARGET_PX[prefs.ageMode].min;
+  const gutter = read ? COL_GAP : targetMin + 2 * GUTTER_PAD;
+  // The kit pad: three keys of --target-big with 12 px gaps.
+  const padSide = 3 * TARGET_PX[prefs.ageMode].big + 2 * 12;
   const layout = matLayout({
     kinds,
     counts: state.mat,
-    // clientWidth rounds; one px of slack keeps the minimum widths inside the board.
-    width: avail - 2 * BOARD_PAD - 1,
-    height: boardH,
-    columnGap: COL_GAP,
-    controlsWidth: (k) => {
-      const n = tradesOf(k).length;
-      return n === 0 ? 0 : n * buttonPx + (n - 1) * BTN_GAP;
-    },
+    units: unitCandidates(kMode),
+    // Half a px of slack: computed widths are fractional.
+    width: avail - 0.5,
+    height: BODY_H,
+    gutter,
+    columnPad: COL_PAD,
+    frame: FRAME,
+    gap: SIDE_GAP,
+    sideMin: read ? padSide : kMode ? 150 : 160,
+    sideMax: read ? padSide : 260,
+    headerWidth: (kind) =>
+      prefs.textLabels ? 40 + 11 * t(colKey(kind, decimal)).length : kMode ? 52 : 44,
   });
   const layoutRef = useRef(layout);
   layoutRef.current = layout;
@@ -700,7 +754,7 @@ export function BaseTenBuildWidget({
     for (let f = 0; f * 10 < n; f++) {
       // Frames are positional: frame f holds ones 10f to 10f + 9.
       frames.push(
-        <span key={`frame-${f}`} className="ni-btb__frame">
+        <span key={`frame-${f}`} className="ni-btb__frame" data-orient={layout.orient}>
           {pieces.slice(f * 10, f * 10 + 10)}
         </span>,
       );
@@ -708,38 +762,44 @@ export function BaseTenBuildWidget({
     return frames;
   };
 
-  const tradeButton = (op: 'fuse' | 'split', kind: PieceKind) => {
+  /** One trade in the gutter between `big`'s column and the next smaller one. */
+  const tradeButton = (op: 'fuse' | 'split', big: PieceKind, small: PieceKind) => {
+    const kind = op === 'fuse' ? small : big;
     const id = `${op}-${kind}`;
-    const to = (op === 'fuse' ? larger(kind) : smaller(kind)) as PieceKind;
-    const can = op === 'fuse' ? state.mat[kind] >= 10 : state.mat[kind] >= 1;
+    const can = op === 'fuse' ? state.mat[small] >= 10 : state.mat[big] >= 1;
     return (
       <span key={id} className="ni-btb__slot">
-        <IconButton
-          label={op === 'fuse' ? fuseKey(kind, decimal) : splitKey(kind, decimal)}
-          icon={<TradeIcon from={kind} to={to} fuse={op === 'fuse'} />}
+        <TradeButton
+          id={id}
+          label={op === 'fuse' ? fuseKey(small, decimal) : splitKey(big, decimal)}
+          caption={op === 'fuse' ? 'ui.widget.btb.cap.make' : 'ui.widget.btb.cap.split'}
+          icon={<TradeIcon big={big} small={small} fuse={op === 'fuse'} />}
           disabled={!interactive || !can}
+          invited={inviteTarget === id}
           onPress={() => void onTrade(op, kind)}
-          className={['ni-btb__trade', inviteTarget === id ? 'ni-invite' : '']
-            .filter(Boolean)
-            .join(' ')}
-          data={{ 'data-trade': id }}
         />
         {inviteTarget === id ? hand : null}
       </span>
     );
   };
 
+  // Columns and gutters alternate: column, gutter (its trades), column, …
+  const template = layout.columns
+    .map((c, i) => `${i > 0 ? `${gutter}px ` : ''}minmax(${c.width}px, 1fr)`)
+    .join(' ');
   const workStyle = {
-    gridTemplateColumns: layout.columns.map((c) => `minmax(${c.width}px, 1fr)`).join(' '),
+    gridTemplateColumns: template,
+    gridTemplateRows: `${HEAD_H}px ${BODY_H + 2 * BODY_PAD}px`,
     '--u': `${u}px`,
     '--d': `${cubeDepth(u)}px`,
+    '--rod-hit': `${rodHit(u)}px`,
     '--gap-ones': `${pieceGap('ones', u)}px`,
     '--gap-tens': `${pieceGap('tens', u)}px`,
     '--gap-big': `${pieceGap('hundreds', u)}px`,
     '--gap-frames': `${onesGroupGap(u)}px`,
-    '--board-h': `${boardH}px`,
-    '--board-pad': `${BOARD_PAD}px`,
-    '--col-gap': `${COL_GAP}px`,
+    '--frame': `${FRAME}px`,
+    '--body-pad': `${BODY_PAD}px`,
+    '--col-pad': `${COL_PAD}px`,
   } as CSSProperties;
 
   const board = read ? (
@@ -754,20 +814,51 @@ export function BaseTenBuildWidget({
   const work = (
     <div className="ni-btb__work" style={workStyle} data-fits={layout.fits ? undefined : 'false'}>
       {board}
-      {kinds.map((k, i) => (
-        <div key={k} className="ni-btb__col" data-col={k} style={{ gridColumn: i + 1 }}>
-          {renderColumn(k)}
+      {kinds.map((kind, i) => (
+        <div
+          key={`head-${kind}`}
+          className="ni-btb__head"
+          style={{ gridColumn: 2 * i + 1 }}
+          aria-hidden="true"
+        >
+          <span className="ni-btb__headicon" data-kind={kind}>
+            <PlaceIcon kind={kind} />
+          </span>
+          {prefs.textLabels ? (
+            <span className="ni-btb__headword">{t(colKey(kind, decimal))}</span>
+          ) : null}
         </div>
       ))}
-      {read
-        ? null
-        : kinds.map((k, i) => (
-            <div key={`trades-${k}`} className="ni-btb__trades" style={{ gridColumn: i + 1 }}>
-              {tradesOf(k).map((op) => tradeButton(op, k))}
-            </div>
-          ))}
+      {kinds.map((kind, i) => (
+        <div key={kind} className="ni-btb__col" data-col={kind} style={{ gridColumn: 2 * i + 1 }}>
+          {renderColumn(kind)}
+        </div>
+      ))}
+      {kinds.slice(1).map((small, i) => {
+        const big = kinds[i] as PieceKind;
+        return (
+          <div
+            key={`gutter-${big}`}
+            className="ni-btb__gutter"
+            data-read={read ? 'true' : undefined}
+            style={{ gridColumn: 2 * i + 2 }}
+          >
+            {read ? null : (
+              <>
+                {tradeButton('fuse', big, small)}
+                {tradeButton('split', big, small)}
+              </>
+            )}
+          </div>
+        );
+      })}
     </div>
   );
+
+  const rootStyle = {
+    gridTemplateColumns: `minmax(0, 1fr) ${layout.sideWidth}px`,
+    columnGap: `${SIDE_GAP}px`,
+  } as CSSProperties;
 
   if (read) {
     const name = t('ui.widget.answer');
@@ -778,11 +869,12 @@ export function BaseTenBuildWidget({
         data-mode="read"
         data-tier={tier}
         data-disabled={disabled ? 'true' : undefined}
+        style={rootStyle}
       >
-        <div className="ni-btb__left" ref={leftRef}>
-          <div className="ni-btb__picture" role="img" aria-label={t('ui.widget.picture')}>
-            {work}
-          </div>
+        <div className="ni-btb__picture" role="img" aria-label={t('ui.widget.picture')}>
+          {work}
+        </div>
+        <div className="ni-btb__side ni-btb__side--pad">
           <span className="ni-btb__slot">
             <button
               type="button"
@@ -793,7 +885,6 @@ export function BaseTenBuildWidget({
               ]
                 .filter(Boolean)
                 .join(' ')}
-              data-size="lg"
               style={{ minWidth: `${maxDigits * 0.62 + 0.8}em` }}
               data-state={disabled ? 'idle' : 'active'}
               data-empty={text === '' ? 'true' : undefined}
@@ -806,8 +897,6 @@ export function BaseTenBuildWidget({
             </button>
             {inviteTarget === 'answer' ? hand : null}
           </span>
-        </div>
-        <div className="ni-btb__side ni-btb__side--pad">
           <NumberPadKeys
             onKey={onKey}
             onEnter={submit}
@@ -836,16 +925,16 @@ export function BaseTenBuildWidget({
       data-mode={config.mode}
       data-tier={tier}
       data-disabled={disabled ? 'true' : undefined}
+      style={rootStyle}
     >
-      <div className="ni-btb__left" ref={leftRef}>
-        {work}
-      </div>
+      {work}
       <div className="ni-btb__side">
         <div className="ni-btb__ask">
           <button
             type="button"
             className="ni-number ni-btb__goal"
-            data-size="lg"
+            // 72 px when the side panel has room for it, else 48 px (both ≥ 48 px).
+            data-size={String(goalValue).length * 44 + 70 <= layout.sideWidth ? 'lg' : undefined}
             aria-label={t('ui.widget.btb.goal', { n: goalValue })}
             disabled={!interactive}
             onClick={() => {

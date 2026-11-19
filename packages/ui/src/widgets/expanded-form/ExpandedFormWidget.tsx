@@ -5,14 +5,7 @@ import {
   formatModel,
 } from '@number-island/engine';
 import { FORMAT_SUPPORT, type ResponseValue, type WidgetAction } from '@number-island/shared';
-import {
-  type CSSProperties,
-  type ReactNode,
-  useCallback,
-  useLayoutEffect,
-  useRef,
-  useState,
-} from 'react';
+import { type ReactNode, useCallback, useLayoutEffect, useRef, useState } from 'react';
 import { type TraceRecorder, useInteractionTrace } from '../../interaction/trace';
 import { useDragToTarget } from '../../interaction/useDragToTarget';
 import {
@@ -22,7 +15,7 @@ import {
   useUiPreferences,
 } from '../../preferences/UiProvider';
 import { IconButton } from '../../primitives/IconButton';
-import { HandPointerIcon, SpeakerIcon } from '../../primitives/icons';
+import { ArrowIcon, HandPointerIcon, SpeakerIcon } from '../../primitives/icons';
 import { useWidgetDemo } from '../demo';
 import {
   applyPadKey,
@@ -625,8 +618,9 @@ export function ExpandedFormWidget({
           data-blank={id}
           aria-label={`${blankName(i, padSlots.length)}: ${text}`.trim()}
           aria-current={isActive ? 'true' : undefined}
-          disabled={!interactive}
+          disabled={disabled}
           onClick={() => {
+            if (!interactive) return;
             trace('tap', key);
             setInvite(null);
             setActive(i);
@@ -680,7 +674,7 @@ export function ExpandedFormWidget({
           data-blank={id}
           data-filled="true"
           aria-label={`${name}: ${v}`}
-          disabled={!interactive}
+          disabled={disabled}
           onClick={() => clearBlank(i)}
         >
           <span>{v}</span>
@@ -707,7 +701,7 @@ export function ExpandedFormWidget({
             ? String(config.target)
             : t('ui.widget.ef.number-ring', { n: config.target, d: ringed })
         }
-        disabled={!interactive}
+        disabled={disabled}
         onClick={tapNumber}
       >
         <span className="ni-efw__numeral" aria-hidden="true">
@@ -732,16 +726,10 @@ export function ExpandedFormWidget({
     );
   };
 
-  const card = (
-    id: string,
-    v: number,
-    where: 'tray' | 'mat',
-    label: string,
-    style?: CSSProperties,
-  ) => {
+  const card = (id: string, v: number, where: 'tray' | 'mat', label: string) => {
     const props = dnd.itemProps(id, { label });
     return (
-      <span className="ni-efw__cardslot" key={id} style={style}>
+      <span className="ni-efw__cardslot" key={id}>
         <div
           {...props}
           className={[props.className, 'ni-efw__card', marked(id) ? 'ni-invite' : '']
@@ -786,7 +774,9 @@ export function ExpandedFormWidget({
     </div>
   ) : null;
 
-  const check = <CheckButton onPress={submit} disabled={!interactive || !canCheck} />;
+  // While a demo plays, controls ignore input (every handler checks `interactive`) but keep their
+  // normal look; only the `disabled` prop (no input at all) draws them off.
+  const check = <CheckButton onPress={submit} disabled={disabled || !canCheck} />;
 
   let body: ReactNode;
   let layout: 'column' | 'pad' = 'column';
@@ -821,20 +811,32 @@ export function ExpandedFormWidget({
             aria-label={t('ui.widget.ef.built')}
             data-stacked={state.stacked ? 'true' : undefined}
           >
-            {state.placed.flatMap((v, i) => {
+            {state.placed.map((v, i) => {
               const id = `placed-${i}`;
               // Stacked like arrow cards: the biggest value at the bottom, all right-aligned.
               const style = state.stacked ? { zIndex: order.indexOf(i) + 1 } : undefined;
-              const node = card(id, v, 'mat', t('ui.widget.ef.placed', { n: v }), style);
-              return i === 0
-                ? [node]
-                : [
-                    <span key={`plus-${id}`} className="ni-efw__plus" aria-hidden="true">
+              // A "+" travels with the card after it, so a wrapped line starts with "+" and
+              // never ends with one.
+              return (
+                <span key={id} className="ni-efw__term" style={style}>
+                  {i > 0 ? (
+                    <span className="ni-efw__plus" aria-hidden="true">
                       +
-                    </span>,
-                    node,
-                  ];
+                    </span>
+                  ) : null}
+                  {card(id, v, 'mat', t('ui.widget.ef.placed', { n: v }))}
+                </span>
+              );
             })}
+            {state.placed.length === 0 ? (
+              // Empty mat: a dashed card-shaped spot and an arrow up from the tray show where
+              // cards go (and why "check" is still off).
+              <span className="ni-efw__ghost" aria-hidden="true">
+                <span className="ni-efw__ghost-icon">
+                  <ArrowIcon />
+                </span>
+              </span>
+            ) : null}
           </fieldset>
           {invited === 'build' ? <Hand /> : null}
         </div>
@@ -864,12 +866,14 @@ export function ExpandedFormWidget({
       </>
     );
   } else if (mode === 'words' && wordOptions) {
+    // "Which words say this number?": the number is the question, so it shows large on top.
     body = (
       <>
+        {targetNumeral('lg')}
         <fieldset
           className="ni-efw__options"
           aria-label={t('ui.widget.choices')}
-          disabled={!interactive}
+          disabled={disabled}
         >
           {wordOptions.map((o) => {
             const key = `opt-${o.id}`;
@@ -915,8 +919,10 @@ export function ExpandedFormWidget({
             tone="sea"
             speak="always"
             className="ni-efw__hear ni-replay"
-            disabled={!interactive}
-            onPress={() => trace('tap', 'hear')}
+            disabled={disabled}
+            onPress={() => {
+              if (interactive) trace('tap', 'hear');
+            }}
           />
           <div className="ni-efw__answers">{padBlank(0, 'lg')}</div>
         </>
@@ -948,7 +954,7 @@ export function ExpandedFormWidget({
           <NumberPadKeys
             onKey={onKey}
             onEnter={submit}
-            disabled={!interactive}
+            disabled={disabled}
             highlighted={pressedKey}
           />
           {check}

@@ -46,17 +46,21 @@ import {
   ageSizes,
   type Box,
   COL_PAD,
+  digitsValue,
   extent,
   GROUP_PAD,
   growCaps,
+  itemUnit,
   MAT_BORDER,
   naturalLayout,
   nestInner,
+  pathStates,
   placePieces,
   placeTaken,
   planCaps,
   planMat,
   ROW_GAP,
+  stateCaps,
   stripWidth,
 } from './layout';
 import './base-ten-trade.css';
@@ -84,7 +88,7 @@ const FLASH_MS = 900;
 const POP_MS = 320;
 /** The widget's design height at 1280 × 800 (06 §2 widget area), padding included. */
 const BUDGET = 660;
-const ROOT_PAD_Y = 12;
+const ROOT_PAD_Y = 6;
 /** The algorithm card's height (see .ni-btt__work in the stylesheet). */
 const WORK_H = 200;
 const SIDE_GAP = 12;
@@ -109,6 +113,12 @@ const PENDING_KEY: Record<Column, NarrationKey> = {
   hundreds: 'ui.widget.btt.pending.hundreds',
   tens: 'ui.widget.btt.pending.tens',
   ones: 'ui.widget.btt.pending.ones',
+};
+/** The algorithm's result boxes (the answer place with `thenAsk`). */
+const BOX_KEY: Record<Column, NarrationKey> = {
+  hundreds: 'ui.widget.btt.box.hundreds',
+  tens: 'ui.widget.btt.box.tens',
+  ones: 'ui.widget.btt.box.ones',
 };
 /** Split one piece of the larger column (keyed by it). */
 const SPLIT_KEY: Partial<Record<Column, NarrationKey>> = {
@@ -175,6 +185,7 @@ function Piece({
       className={`ni-btt__piece ni-btt__piece--${kind}`}
       data-piece={id}
       data-arriving={hidden ? 'true' : undefined}
+      data-lying={kind === 'tens' && box.w > box.h ? 'true' : undefined}
       style={
         {
           left: box.x + dx,
@@ -320,9 +331,17 @@ function NestArt() {
           strokeLinecap="round"
           vectorEffect="non-scaling-stroke"
         />
-        {/* The woven front wall. */}
+      </svg>
+      {/* The woven front wall: a band of fixed height at the nest's foot, below the pieces. */}
+      <svg
+        className="ni-btt__nest-wall"
+        viewBox="0 0 400 40"
+        preserveAspectRatio="none"
+        aria-hidden="true"
+        focusable="false"
+      >
         <path
-          d="M6 46C6 84 96 98 200 98S394 84 394 46C360 66 290 76 200 76S40 66 6 46Z"
+          d="M3 4C70 16 330 16 397 4C394 26 330 38 200 38S6 26 3 4Z"
           fill="var(--color-wood)"
           stroke="var(--color-wood-deep)"
           strokeWidth="3"
@@ -473,13 +492,26 @@ function TradeButton({
 function WorkCard({
   config,
   state,
+  digits,
   highlighted,
   invited,
+  answer,
 }: {
   config: Config;
   state: State;
+  /** The result row's digits (written by the child or a demo), one per column. */
+  digits: Record<Column, number | null>;
   highlighted: Column | null;
   invited: Column | null;
+  /**
+   * With `thenAsk`, the result row is where the child answers: each box is a button (tap it, type
+   * on the pad); `active` is the box being typed into.
+   */
+  answer: {
+    active: Column | null;
+    disabled: boolean;
+    onTap: (c: Column) => void;
+  } | null;
 }) {
   const t = useNarrationText();
   const op = config.operation;
@@ -529,20 +561,44 @@ function WorkCard({
       ))}
       <span className="ni-btt__rule" />
       {COLUMNS.map((c, i) => {
-        const v = state.written[c];
+        const v = digits[c];
+        const cls = [
+          'ni-btt__box',
+          highlighted === c ? 'ni-btt__hi' : '',
+          invited === c ? 'ni-invite' : '',
+        ]
+          .filter(Boolean)
+          .join(' ');
+        const style = { gridColumn: i + 2, gridRow: 5 };
+        if (answer) {
+          const active = answer.active === c && !answer.disabled;
+          return (
+            <span key={`r-${c}`} className="ni-btt__boxwrap" style={style}>
+              <button
+                type="button"
+                className={cls}
+                data-digit={c}
+                data-empty={v === null ? 'true' : undefined}
+                data-state={active ? 'active' : 'idle'}
+                aria-label={v === null ? t(BOX_KEY[c]) : `${t(BOX_KEY[c])}: ${v}`}
+                aria-current={active ? 'true' : undefined}
+                disabled={answer.disabled}
+                onClick={() => answer.onTap(c)}
+              >
+                {v === null ? '' : v}
+                {active ? <span className="ni-number__caret" /> : null}
+              </button>
+              {invited === c ? <Hand /> : null}
+            </span>
+          );
+        }
         return (
           <span
             key={`r-${c}`}
-            className={[
-              'ni-btt__box',
-              highlighted === c ? 'ni-btt__hi' : '',
-              invited === c ? 'ni-invite' : '',
-            ]
-              .filter(Boolean)
-              .join(' ')}
+            className={cls}
             data-digit={c}
             data-empty={v === null ? 'true' : undefined}
-            style={{ gridColumn: i + 2, gridRow: 5 }}
+            style={style}
           >
             {v === null ? '' : v}
             {invited === c ? <Hand /> : null}
@@ -602,8 +658,13 @@ function TradeMat({
   const isPlus = op?.op === '+';
   const isMinus = op?.op === '-';
   const showWork = config.showAlgorithm && Boolean(op);
-  // The algorithm and the pad together fill the side panel: "check" then sits after the problem.
-  const checkInProblem = showWork && config.thenAsk;
+  // With the algorithm, its result row is the answer place (one box a column, typed on the pad);
+  // without it, the `=` blank after the expression is.
+  const answerInWork = showWork && config.thenAsk;
+  const [digits, setDigits] = useState<Record<Column, number | null>>(() => ({
+    ...state.written,
+  }));
+  const [activeBox, setActiveBox] = useState<Column>('ones');
   const age = ageMode === 'k' ? 'k' : 'g1-up';
   const sizes = ageSizes(age);
   const pictorial = tier !== 'concrete';
@@ -627,34 +688,50 @@ function TradeMat({
   }, []);
 
   const baseCaps = useMemo(() => planCaps(config), [config]);
-  // Room for what the child has made, too: off the expected path the unit shrinks rather than
-  // letting pieces overlap.
   // Once everything is added the tray goes, and the mat grows into its room.
   const trayEmpty = !COLUMNS.some((c) => state.pending[c] > 0);
-  const caps = useMemo(() => {
+  // What the layout makes room for, most stable first: the whole item's plan (grown for anything
+  // the child made off the expected path), else exactly what is on the mat now. Either way the
+  // unit stays at its one size whenever it can; pieces never overlap.
+  const capsOptions = useMemo(() => {
     const grown = growCaps(baseCaps, state.mat, state.taken);
-    return trayEmpty && grown.tray ? { ...grown, tray: null } : grown;
-  }, [baseCaps, state.mat, state.taken, trayEmpty]);
+    const planned = trayEmpty && grown.tray ? { ...grown, tray: null } : grown;
+    const now = stateCaps(
+      baseCaps,
+      state.mat,
+      trayEmpty || !isPlus ? null : state.pending,
+      isMinus ? state.taken : null,
+    );
+    return [planned, now];
+  }, [baseCaps, state.mat, state.taken, state.pending, trayEmpty, isPlus, isMinus]);
   const bigTarget = age === 'k' ? 96 : 76;
-  const problemH = config.thenAsk ? bigTarget + 26 : config.goal === 'regroup-to' ? 92 : 84;
-  const plan = useMemo(
+  const workH = WORK_H + (age === 'k' ? 16 : 0);
+  const padH = 4 * bigTarget + 3 * 12;
+  const checkH = bigTarget + 6;
+  // The side panel: the algorithm, the pad, then "check" right by the pad. If that is too tall
+  // (K, with its bigger keys), the algorithm moves up beside the problem.
+  const fullSide =
+    (showWork ? workH + SIDE_GAP : 0) + (config.thenAsk ? padH + SIDE_GAP : 0) + checkH;
+  const workInSide = showWork && fullSide <= BUDGET - 2 * ROOT_PAD_Y;
+  const cardH =
+    config.thenAsk && !answerInWork ? bigTarget + 26 : config.goal === 'regroup-to' ? 92 : 84;
+  const problemH = showWork && !workInSide ? Math.max(cardH, workH) : cardH;
+  const spaceW = mainW > 0 ? mainW : 900;
+  const spaceH = BUDGET - 2 * ROOT_PAD_Y - problemH - ROW_GAP;
+  // One scale for the whole item, chosen so every step on the expected path fits.
+  const unit = useMemo(
     () =>
-      planMat({
-        caps,
-        age,
-        width: mainW > 0 ? mainW : 900,
-        height: BUDGET - 2 * ROOT_PAD_Y - problemH - ROW_GAP,
-      }),
-    [caps, age, mainW, problemH],
+      itemUnit({ age, width: spaceW, height: spaceH, base: baseCaps, path: pathStates(config) }),
+    [baseCaps, config, age, spaceW, spaceH],
   );
+  const plan = useMemo(
+    () => planMat({ age, width: spaceW, height: spaceH, caps: capsOptions, unit }),
+    [capsOptions, unit, age, spaceW, spaceH],
+  );
+  const caps = plan.caps;
   // The side panel lines up with the mat when its contents fit beside it; otherwise it starts at
   // the top, level with the problem.
-  const sideParts = [
-    showWork ? WORK_H : 0,
-    config.thenAsk ? 4 * bigTarget + 3 * 12 : 0,
-    checkInProblem ? 0 : bigTarget + 6,
-  ].filter((h) => h > 0);
-  const sideH = sideParts.reduce((a, h) => a + h, 0) + SIDE_GAP * (sideParts.length - 1);
+  const sideH = workInSide ? fullSide : fullSide - (showWork ? workH + SIDE_GAP : 0);
   const besideMat = BUDGET - 2 * ROOT_PAD_Y - problemH - ROW_GAP;
   const sideTop = sideH <= besideMat ? problemH + ROW_GAP : 0;
   const u = plan.u;
@@ -665,15 +742,19 @@ function TradeMat({
     .join(' ');
   const matBoxes = useMemo(() => {
     const out = {} as Record<Column, Box[]>;
+    // On a board taller than its pieces, the planned block sits in the middle (the same offset in
+    // every column, so their rows line up), not at the top above an empty half.
+    const room = plan.bodyH - 2 * COL_PAD;
+    const oy = Math.max(0, Math.round((room - plan.piecesH) / 2));
     for (const c of columns) {
       out[c] = placePieces(
         c,
         state.mat[c],
         u,
-        { w: plan.colW[c] - 2 * COL_PAD, h: plan.bodyH - 2 * COL_PAD },
+        { w: plan.colW[c] - 2 * COL_PAD, h: room - oy },
         caps.mat[c],
         c === 'hundreds' ? plan.flatsPerRow : plan.rodsPerRow,
-      );
+      ).map((b) => ({ ...b, y: b.y + oy }));
     }
     return out;
   }, [columns, state.mat, u, plan, caps]);
@@ -735,7 +816,11 @@ function TradeMat({
       el.style.top = `${g.rect.y}px`;
       el.style.width = `${g.rect.w}px`;
       el.style.height = `${g.rect.h}px`;
-      el.style.setProperty('--u', `${g.kind === 'hundreds' ? g.rect.w / 10 : g.rect.w}px`);
+      const lying = g.kind === 'tens' && g.rect.w > g.rect.h;
+      const unitPx = g.kind === 'hundreds' ? g.rect.w / 10 : lying ? g.rect.h : g.rect.w;
+      el.style.setProperty('--u', `${unitPx}px`);
+      if (lying) el.dataset.lying = 'true';
+      if (g.origin) el.style.transformOrigin = g.origin;
       layer.append(el);
       return el.animate(
         g.keyframes.map((k) => ({ easing: EASE, ...k })),
@@ -941,14 +1026,53 @@ function TradeMat({
     setGrab((g) => (g[c] === best ? g : { ...g, [c]: best }));
   };
 
+  const digitsRef = useRef(digits);
+  digitsRef.current = digits;
+
+  /** Writes one digit into a result box (the child's typing and the demo's `write-digit`). */
+  const writeDigit = (c: Column, value: number | null) => {
+    const next = { ...digitsRef.current, [c]: value };
+    digitsRef.current = next;
+    setDigits(next);
+    if (value !== null) {
+      commit(model.apply(stateRef.current, { op: 'write-digit', args: { column: c, value } }));
+    }
+  };
+
   const onKey = (key: PadKey) => {
     if (!interactive || key === '.') return;
     trace('tap', `key-${key}`);
     setInvite(null);
-    setText((prev) => applyPadKey(prev, key, 3));
+    if (!answerInWork) {
+      setText((prev) => applyPadKey(prev, key, 3));
+      return;
+    }
+    // The result row, as children write it: ones first, then leftwards.
+    const i = COLUMNS.indexOf(activeBox);
+    if (key === 'back') {
+      if (digitsRef.current[activeBox] !== null) writeDigit(activeBox, null);
+      else {
+        const right = COLUMNS[i + 1];
+        if (right) {
+          writeDigit(right, null);
+          setActiveBox(right);
+        }
+      }
+      return;
+    }
+    writeDigit(activeBox, Number(key));
+    const left = COLUMNS[i - 1];
+    if (left) setActiveBox(left);
   };
 
-  const typed = padValue(text);
+  const onBoxTap = (c: Column) => {
+    if (!interactive) return;
+    trace('tap', `digit-${c}`);
+    setInvite(null);
+    setActiveBox(c);
+  };
+
+  const typed = answerInWork ? digitsValue(digits) : padValue(text);
   const canSubmit = config.thenAsk ? typed !== null : touched;
 
   // One debounce for every way to submit (Check, desktop Enter): 06 §4.
@@ -956,7 +1080,7 @@ function TradeMat({
     if (!interactive) return false;
     let s = stateRef.current;
     if (config.thenAsk) {
-      const v = padValue(textRef.current);
+      const v = answerInWork ? digitsValue(digitsRef.current) : padValue(textRef.current);
       if (v === null) return false;
       s = model.apply(s, { op: 'answer', args: { value: v } });
     } else if (!touched) {
@@ -1011,9 +1135,9 @@ function TradeMat({
           }
         } else if (action.op === 'write-digit') {
           const c = columnArg(action.args?.column);
-          const next = model.apply(stateRef.current, action);
-          if (next === stateRef.current || !c) return;
-          commit(next);
+          const v = Number(action.args?.value);
+          if (!c || !Number.isFinite(v)) return;
+          writeDigit(c, Math.trunc(v));
           setDemoHi(`digit-${c}`);
           await pause(700);
           if (alive.current) setDemoHi(null);
@@ -1023,6 +1147,25 @@ function TradeMat({
           if (!config.thenAsk) {
             commit(model.apply(stateRef.current, action));
             setTouched(true);
+            return;
+          }
+          if (answerInWork) {
+            // Type it into the result row, ones first, as a child writes it.
+            for (const c of COLUMNS) writeDigit(c, null);
+            const chars = String(Math.max(0, Math.trunc(v)))
+              .split('')
+              .reverse();
+            for (let i = 0; i < chars.length && i < COLUMNS.length; i++) {
+              const c = COLUMNS[COLUMNS.length - 1 - i] as Column;
+              const ch = chars[i] as PadKey;
+              setActiveBox(c);
+              setPressedKey(ch);
+              await pause(KEY_MS);
+              if (!alive.current) return;
+              writeDigit(c, Number(ch));
+            }
+            setPressedKey(null);
+            await pause(KEY_MS);
             return;
           }
           setText('');
@@ -1068,7 +1211,8 @@ function TradeMat({
         return c ? `digit-${c}` : null;
       }
       case 'answer':
-        return 'answer';
+        // The answer place: the result box being typed into, or the `=` blank.
+        return answerInWork ? `digit-${activeBox}` : 'answer';
       default:
         return null;
     }
@@ -1083,7 +1227,7 @@ function TradeMat({
         <fieldset
           className="ni-btt__problem ni-btt__goal"
           aria-label={t('ui.widget.btt.goal')}
-          style={{ height: problemH }}
+          style={{ height: cardH }}
         >
           {columns.map((c) => (
             <span key={c} className="ni-btt__chip">
@@ -1102,7 +1246,8 @@ function TradeMat({
         { t: 'num', v: htoValue(config.start) },
         { t: 'op', v: op.op },
         { t: 'num', v: htoValue(op.operand) },
-        ...(config.thenAsk
+        // The `=` blank is the answer place only without the algorithm (whose result row is).
+        ...(config.thenAsk && !answerInWork
           ? ([
               { t: 'rel', v: '=' },
               { t: 'blank', id: 'answer' },
@@ -1111,7 +1256,7 @@ function TradeMat({
       ],
     };
     return (
-      <div className="ni-btt__problem" style={{ height: problemH }}>
+      <div className="ni-btt__problem" style={{ height: cardH }}>
         <ExpressionView
           expr={expr}
           renderBlank={() => (
@@ -1137,8 +1282,10 @@ function TradeMat({
     <WorkCard
       config={config}
       state={state}
+      digits={digits}
       highlighted={demoHi?.startsWith('digit-') ? (columnArg(demoHi.slice(6)) ?? null) : null}
       invited={invited?.startsWith('digit-') ? (columnArg(invited.slice(6)) ?? null) : null}
+      answer={answerInWork ? { active: activeBox, disabled: !interactive, onTap: onBoxTap } : null}
     />
   ) : null;
 
@@ -1302,7 +1449,7 @@ function TradeMat({
         </span>
         {columns.map((c, i) => {
           const n = state.pending[c];
-          const boxes = naturalLayout(c, n, plan.ut, 10);
+          const boxes = naturalLayout(c, n, u, 10);
           const ext = extent(boxes);
           const w = Math.max(sizes.target, ext.w + 2 * GROUP_PAD);
           const h = Math.max(sizes.target, ext.h + 2 * GROUP_PAD);
@@ -1333,7 +1480,7 @@ function TradeMat({
                             key={k}
                             kind={c}
                             box={b}
-                            u={plan.ut}
+                            u={u}
                             id={`pending-${c}-${k}`}
                             dx={(w - ext.w) / 2}
                             dy={(h - ext.h) / 2}
@@ -1354,7 +1501,7 @@ function TradeMat({
     ? (() => {
         const p = dnd.targetProps('take', { label: t('ui.widget.btt.nest') });
         const inner = nestInner(plan.matW, plan.nestH);
-        const taken = placeTaken(state.taken, plan.ub, inner);
+        const taken = placeTaken(state.taken, u, inner);
         return (
           <div
             className="ni-btt__nest"
@@ -1377,7 +1524,7 @@ function TradeMat({
                     }`}
                     kind={c}
                     box={b}
-                    u={plan.ub}
+                    u={u}
                     id={`taken-${c}-${k}`}
                     hidden={arriving.has(`taken-${c}-${k}`)}
                   />
@@ -1399,15 +1546,11 @@ function TradeMat({
       data-op={op?.op}
     >
       <div ref={mainRef} className="ni-btt__main">
-        {/* The problem centred over the mat; "check" after it when the side panel is full. */}
+        {/* The problem centred over the mat (the algorithm beside it when the side is full). */}
         <div className="ni-btt__problemrow" style={{ height: problemH }}>
           <span />
           {problem}
-          <span className="ni-btt__problemcheck">
-            {checkInProblem ? (
-              <CheckButton onPress={submit} disabled={!interactive || !canSubmit} />
-            ) : null}
-          </span>
+          <span className="ni-btt__problemside">{workInSide ? null : work}</span>
         </div>
         <fieldset
           className="ni-btt__mat"
@@ -1431,7 +1574,7 @@ function TradeMat({
         {nest}
       </div>
       <div className="ni-btt__side" style={{ paddingTop: sideTop, gap: SIDE_GAP }}>
-        {work}
+        {workInSide ? work : null}
         {config.thenAsk ? (
           <NumberPadKeys
             onKey={onKey}
@@ -1440,9 +1583,8 @@ function TradeMat({
             highlighted={pressedKey}
           />
         ) : null}
-        {checkInProblem ? null : (
-          <CheckButton onPress={submit} disabled={!interactive || !canSubmit} />
-        )}
+        {/* "check" right by the pad (06 §4), or at the mat's foot without one. */}
+        <CheckButton onPress={submit} disabled={!interactive || !canSubmit} />
       </div>
       <div ref={fxRef} className="ni-btt__fx" aria-hidden="true" />
     </div>
