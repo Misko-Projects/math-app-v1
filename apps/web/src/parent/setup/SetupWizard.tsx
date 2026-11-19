@@ -4,7 +4,7 @@
 
 import { type ChildProfile, type Grade, type HealthResponse, newId } from '@number-island/shared';
 import { useEffect, useRef, useState } from 'react';
-import { Link, Navigate, useNavigate } from 'react-router';
+import { Navigate, useNavigate } from 'react-router';
 import { useAppServices } from '@/app/AppServices';
 import { recordDiagnostic } from '@/app/diagnostics';
 import { useDeviceRecord } from '@/app/hooks';
@@ -34,7 +34,6 @@ export const GRADE_LABELS: Partial<Record<Grade, string>> = {
   '3': '3rd grade',
 };
 const GRADES = Object.keys(GRADE_LABELS) as Grade[];
-export const MAX_CHILDREN = 8;
 
 function StepTrack({ step }: { step: Step }) {
   return (
@@ -422,7 +421,7 @@ export function ChildrenStep({
                     {k.advanced ? ' · working above grade' : ''}
                   </span>
                 </span>
-                <span className="flex gap-2">
+                <span className="flex items-center gap-4">
                   <Button
                     variant="secondary"
                     onClick={() => setEditing(k.id)}
@@ -430,8 +429,10 @@ export function ChildrenStep({
                   >
                     Edit
                   </Button>
+                  {/* Secondary to Edit: a text action, still a full-size target (06 §4). */}
                   <Button
-                    variant="secondary"
+                    variant="quiet"
+                    className="px-3"
                     onClick={() => setKids(kids.filter((x) => x.id !== k.id))}
                     aria-label={`Remove ${k.name}`}
                   >
@@ -454,13 +455,13 @@ export function ChildrenStep({
           }}
           {...(kids.length > 0 ? { onCancel: () => setEditing(null) } : {})}
         />
-      ) : kids.length < MAX_CHILDREN ? (
+      ) : (
         <div>
           <Button variant="secondary" onClick={() => setEditing('new')}>
             + Add another child
           </Button>
         </div>
-      ) : null}
+      )}
       {error ? <Notice tone="error">{error}</Notice> : null}
       <div className="flex flex-wrap justify-between gap-3">
         <Button variant="secondary" onClick={onBack}>
@@ -488,7 +489,7 @@ export function ChildrenStep({
 
 // ---------- step 3: this device ----------
 
-function DeviceStep({
+export function DeviceStep({
   onBack,
   onCreate,
   serverDone,
@@ -503,6 +504,7 @@ function DeviceStep({
   const [error, setError] = useState<string | null>(null);
   const [closed, setClosed] = useState(false);
   const [busy, setBusy] = useState(false);
+  const navigate = useNavigate();
 
   return (
     <div className="flex flex-col gap-5">
@@ -528,43 +530,43 @@ function DeviceStep({
           />
         )}
       </Field>
-      {error ? (
-        <Notice tone="error">
-          {error}
-          {closed ? (
-            <>
-              {' '}
-              <Link to="/join" className="font-bold underline decoration-2 underline-offset-4">
-                Join with a code
-              </Link>
-            </>
-          ) : null}
-        </Notice>
-      ) : null}
-      <div className="flex flex-wrap justify-between gap-3">
+      {error ? <Notice tone="error">{error}</Notice> : null}
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <Button variant="secondary" onClick={onBack} disabled={busy || serverDone}>
           Back
         </Button>
-        <Button
-          disabled={busy}
-          onClick={async () => {
-            // The name only matters for `/setup`; a retry after it reuses the server's answer.
-            if (!serverDone && !deviceName.trim()) {
-              setNameError('Give this device a name.');
-              return;
-            }
-            setNameError(null);
-            setBusy(true);
-            const failure = await onCreate(deviceName.trim());
-            if (failure) {
-              setError(failure);
-              setClosed(failure.startsWith('This server already has a family'));
-              setBusy(false);
-            }
-          }}
-        >
-          {busy ? 'Creating your island…' : serverDone ? 'Try again' : 'Create our island'}
-        </Button>
+        {closed ? (
+          // The server has a family already: creating can't succeed, joining is the way on.
+          <span className="flex flex-wrap items-center justify-end gap-3">
+            <Button variant="secondary" disabled>
+              Create our island
+            </Button>
+            <Button className="whitespace-nowrap" onClick={() => navigate('/join')}>
+              Join with a code
+            </Button>
+          </span>
+        ) : (
+          <Button
+            disabled={busy}
+            onClick={async () => {
+              // The name only matters for `/setup`; a retry after it reuses the server's answer.
+              if (!serverDone && !deviceName.trim()) {
+                setNameError('Give this device a name.');
+                return;
+              }
+              setNameError(null);
+              setBusy(true);
+              const failure = await onCreate(deviceName.trim());
+              if (failure) {
+                setError(failure);
+                setClosed(failure.startsWith('This server already has a family'));
+                setBusy(false);
+              }
+            }}
+          >
+            {busy ? 'Creating your island…' : serverDone ? 'Try again' : 'Create our island'}
+          </Button>
+        )}
       </div>
     </div>
   );

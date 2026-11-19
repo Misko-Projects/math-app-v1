@@ -9,7 +9,7 @@
 import { Panel } from '@number-island/ui';
 import { type FormEvent, useState } from 'react';
 import { Link, useNavigate } from 'react-router';
-import { describeApiError } from '@/parent/api';
+import { ApiError, describeApiError } from '@/parent/api';
 import { Button, Field, Notice, TextInput } from '@/parent/kit';
 import { useParentApi } from '@/parent/ParentContext';
 import { guessDeviceName, JoinRefusedError, joinFamily } from '@/parent/setup/family';
@@ -51,6 +51,12 @@ export function JoinPage() {
         setError(
           'That code is for a different family’s island. This device still holds its own family’s island, so it can only rejoin that one.',
         );
+      } else if (
+        err instanceof ApiError &&
+        (err.code === 'pair_code_invalid' || err.code === 'pair_code_expired')
+      ) {
+        // About the code itself: shown on the code field, which is marked invalid.
+        setCodeError(describeApiError(err));
       } else {
         setError(describeApiError(err));
       }
@@ -71,7 +77,7 @@ export function JoinPage() {
             <Notice tone="info">
               {paired
                 ? 'This device is paired with a family. Joining with a new code from that family replaces its pairing.'
-                : 'This device was part of a family. Join again with a code from that same family; everything on this device stays.'}
+                : 'This device is signed out, so it doesn’t sync. Its island stays on it, and children can keep playing. To sync again, join with a code from the same family.'}
             </Notice>
           ) : null}
           <Field

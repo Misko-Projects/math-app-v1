@@ -68,9 +68,15 @@ test.describe('parent gate', () => {
     await page.getByRole('button', { name: 'Unlock' }).click();
     await expect(page.getByRole('heading', { name: 'Parent area' })).toBeVisible();
 
-    // Signing this device out closes the parent area and ends the parent session.
+    // Signing this device out closes the parent area and ends the parent session. The device no
+    // longer syncs: it lands on the join page, which says so; Back returns to the child home.
     await page.getByRole('button', { name: 'Sign this device out' }).click();
     await page.getByRole('button', { name: 'Sign out', exact: true }).click();
+    await expect(page).toHaveURL(/\/join$/);
+    await expect(
+      page.getByText('This device is signed out, so it doesn’t sync.', { exact: false }),
+    ).toBeVisible();
+    await page.getByRole('link', { name: 'Back' }).click();
     await expect(page).toHaveURL(/\/$/);
     await page.goto('/parent');
     await expect(page.getByRole('button', { name: 'Join with a code' })).toBeVisible();

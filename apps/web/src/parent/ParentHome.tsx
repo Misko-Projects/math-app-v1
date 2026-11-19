@@ -119,8 +119,10 @@ export function ParentHome() {
                     disabled={signingOut}
                     onClick={async () => {
                       // First end the parent session on the server (its cookie would otherwise
-                      // stay valid); only then forget the device token, close the area and hand
-                      // the device back. Without the server, nothing changes.
+                      // stay valid); only then forget the device token and close the area.
+                      // Without the server, nothing changes. Signed out, the device no longer
+                      // syncs, so it lands on the join page, which says so and offers rejoining
+                      // (its island stays on it; Back returns to the child home).
                       setSigningOut(true);
                       setSignOutError(null);
                       try {
@@ -148,7 +150,7 @@ export function ParentHome() {
                         return;
                       }
                       gate.lock();
-                      navigate('/', { replace: true });
+                      navigate('/join', { replace: true });
                     }}
                   >
                     {signingOut ? 'Signing out…' : 'Sign out'}
