@@ -41,8 +41,12 @@
 .ni-len__bark {
   stroke: var(--color-ink);
 }
+.ni-len__rope-edge {
+  stroke: var(--color-wood-deep);
+  stroke-linecap: round;
+}
 .ni-len__rope {
-  stroke: var(--color-sand-deep);
+  stroke: var(--color-wood);
   stroke-linecap: round;
 }
 .ni-len__rope-twist {
@@ -121,13 +125,14 @@
   stroke-width: 2px;
 }
 
+/* A laid string: a 6 px cord with clear end beads (evidence review). */
 .ni-string__cord {
   stroke: var(--color-ink-soft);
-  stroke-width: 4px;
+  stroke-width: 6px;
   stroke-linecap: round;
 }
 .ni-string__end {
   fill: var(--color-coral);
-  stroke: var(--color-coral-deep);
-  stroke-width: 1.5px;
+  stroke: var(--color-ink);
+  stroke-width: 2.5px;
 }

@@ -10,7 +10,9 @@ import {
 } from '../../test-support/areaStory';
 import {
   boxGap,
+  contrast,
   expectControls,
+  expectHandTouchesOnlyInvited,
   expectOneInviteRing,
   outlineBox,
   settleFocus,
@@ -197,6 +199,20 @@ export const LongerSlideToLineK: Story = {
       objects: [obj(root, 'obj-0'), obj(root, 'obj-1')],
       check: [within(root).getByRole('button', { name: 'Check' })],
     });
+    // Chunky ribbons (evidence review): the band is at least about 55 % of its lane's height.
+    for (const id of ['obj-0', 'obj-1']) {
+      const band = (
+        root.querySelector(`[data-lane="${id}"] .ni-len__ribbon`) as SVGPathElement
+      ).getBoundingClientRect().height;
+      const laneH = (
+        root.querySelector(`[data-lane="${id}"]`) as HTMLElement
+      ).getBoundingClientRect().height;
+      await expect(band / laneH, `${id} ribbon thickness`).toBeGreaterThanOrEqual(0.55);
+    }
+    // The pick ring on the longer ribbon stays right of the dashed start line.
+    const ring = (root.querySelector('.ni-clen__ring') as HTMLElement).getBoundingClientRect();
+    const startLine = (root.querySelector('.ni-clen__line') as HTMLElement).getBoundingClientRect();
+    await expect(ring.left, 'ring clear of the start line').toBeGreaterThan(startLine.right);
   },
 };
 
@@ -273,6 +289,14 @@ export const OrderBadgesK: Story = {
     for (const b of badges) await expectTargetSize(b, 'k');
     await expectTargetGaps(badges);
     await expectNumeralsAtLeast32(root, '.ni-clen__badge');
+    // Each lane shows where its badge goes (evidence review), and the ropes stand out from the
+    // lane: their dark edge is at least 3:1 against it.
+    await expect(root.querySelectorAll('.ni-clen__slot')).toHaveLength(3);
+    const edge = getComputedStyle(root.querySelector('.ni-len__rope-edge') as Element).stroke;
+    const laneBg = getComputedStyle(
+      root.querySelector('.ni-clen__lane') as Element,
+    ).backgroundColor;
+    await expect(contrast(edge, laneBg), 'rope edge against the lane').toBeGreaterThanOrEqual(3);
     await expect(within(root).getByRole('button', { name: 'Check' })).toBeDisabled();
     await pointerDrag(badge(root, 0), center(lanePad(root, 'obj-1')), 'touch');
     await waitFor(() =>
@@ -416,6 +440,16 @@ export const IndirectStrings: Story = {
       'spool clear of Check and its ring',
     ).toBeGreaterThanOrEqual(11.5);
     await userEvent.click(obj(root, 'obj-1'));
+    // The laid string sits clear under the picked log's ring (evidence review: it lay on the
+    // ring's bottom edge); strings are 6 px cords with end beads.
+    const ring = (root.querySelector('.ni-clen__ring') as HTMLElement).getBoundingClientRect();
+    const laid = (
+      root.querySelector('[data-string="obj-1"] svg') as SVGElement
+    ).getBoundingClientRect();
+    await expect(laid.top - ring.bottom, 'string clear of the ring').toBeGreaterThanOrEqual(6);
+    const cord = root.querySelector('[data-string="obj-1"] .ni-string__cord') as SVGLineElement;
+    await expect(Number.parseFloat(getComputedStyle(cord).strokeWidth)).toBeGreaterThanOrEqual(6);
+    await expect(root.querySelectorAll('[data-string="obj-1"] .ni-string__end')).toHaveLength(2);
     await userEvent.click(within(root).getByRole('button', { name: 'Check' }));
     await expect(args.onResponse).toHaveBeenCalledWith({ kind: 'choice', id: 'obj-1' });
     await expect(traceOf(args.onInteract).map((e) => `${e.t}:${e.target}`)).toEqual(
@@ -590,6 +624,12 @@ export const DemoInvite: Story = {
     await expectOneInviteRing(root, {
       clearOf: [obj(root, 'obj-1'), within(root).getByRole('button', { name: 'Check' })],
     });
+    // The whole hand touches only the invited ribbon: not the other ribbon or its lane.
+    await expectHandTouchesOnlyInvited(root, [
+      obj(root, 'obj-1'),
+      root.querySelector('[data-lane="obj-1"]') as Element,
+      within(root).getByRole('button', { name: 'Check' }),
+    ]);
   },
 };
 
@@ -609,6 +649,13 @@ export const DemoInviteBadgeK: Story = {
     await expectPointerOn(root.querySelector('.ni-hand') as HTMLElement, badge(root, 0), root);
     await expectHandStays(root, () => badge(root, 0));
     await expectOneInviteRing(root, { clearOf: [badge(root, 1), badge(root, 2)] });
+    // The whole hand touches only badge 1: not the other badges, a rope, a lane or Check.
+    await expectHandTouchesOnlyInvited(root, [
+      badge(root, 1),
+      badge(root, 2),
+      ...root.querySelectorAll('.ni-clen__obj, .ni-clen__lane'),
+      within(root).getByRole('button', { name: 'Check' }),
+    ]);
   },
 };
 

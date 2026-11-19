@@ -256,6 +256,20 @@ export async function settleFocus() {
   await new Promise((r) => setTimeout(r, 300));
 }
 
+/** The WCAG contrast ratio of two computed colours ("rgb(…)" / "rgba(…)"). */
+export function contrast(a: string, b: string): number {
+  const lum = (c: string) => {
+    const [r = 0, g = 0, bl = 0] = (c.match(/[\d.]+/g) ?? []).slice(0, 3).map(Number);
+    const ch = (v: number) => {
+      const s = v / 255;
+      return s <= 0.03928 ? s / 12.92 : ((s + 0.055) / 1.055) ** 2.4;
+    };
+    return 0.2126 * ch(r) + 0.7152 * ch(g) + 0.0722 * ch(bl);
+  };
+  const [hi, lo] = [lum(a), lum(b)].sort((x, y) => y - x) as [number, number];
+  return (hi + 0.05) / (lo + 0.05);
+}
+
 /** `a` and `b` do not touch: at least `gap` CSS px apart, edge to edge. */
 export async function expectApart(a: Element, b: Element, gap: number, what: string) {
   await expect(boxGap(rectOf(a), rectOf(b)), what).toBeGreaterThanOrEqual(gap - 0.5);

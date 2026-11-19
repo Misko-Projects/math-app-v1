@@ -35,6 +35,15 @@ export function LengthObject({ sprite, width, height = 40, className }: LengthOb
       for (let x = t; x < w - t / 2; x += t * 0.9) twists.push(x);
       body = (
         <g data-art="rope">
+          {/* A dark edge under the rope (≥ 3:1 against a pale lane; evidence review). */}
+          <line
+            className="ni-len__rope-edge"
+            x1={t / 2}
+            x2={w - t / 2}
+            y1={y}
+            y2={y}
+            strokeWidth={t + 5}
+          />
           <line className="ni-len__rope" x1={t / 2} x2={w - t / 2} y1={y} y2={y} strokeWidth={t} />
           {twists.map((x) => (
             <path
@@ -48,15 +57,20 @@ export function LengthObject({ sprite, width, height = 40, className }: LengthOb
       break;
     }
     case 'ribbon': {
-      const top = h * 0.24;
-      const bot = h * 0.76;
-      const notch = Math.min(10, w / 6);
+      // A chunky band (70 % of the drawing's height; evidence review: it was a thin strip), its
+      // top edge scalloped in a whole number of even waves between the two notched ends, so the
+      // last wave ends exactly where the forked tail starts (no leftover nub).
+      const top = h * 0.15;
+      const bot = h * 0.85;
+      const notch = Math.min(Math.max(10, h * 0.25), w / 6);
+      const span = w - 2 * notch;
+      const n = Math.max(1, Math.round(span / Math.max(12, h * 0.6)));
+      const step = span / n;
+      const lift = Math.min(6, h * 0.08);
       const waves: string[] = [];
-      const step = Math.max(12, h * 0.6);
-      for (let x = notch; x < w - notch; x += step) {
-        waves.push(
-          `Q${r2(Math.min(x + step / 2, w - notch))} ${r2(top - 4)} ${r2(Math.min(x + step, w - notch))} ${r2(top)}`,
-        );
+      for (let k = 0; k < n; k += 1) {
+        const x = notch + k * step;
+        waves.push(`Q${r2(x + step / 2)} ${r2(top - lift)} ${r2(x + step)} ${r2(top)}`);
       }
       body = (
         <g data-art="ribbon">
@@ -382,22 +396,26 @@ export function Ruler({
   );
 }
 
-/** A laid string (compare-length indirect): a thin cord exactly `width` px long. */
+/** A laid string's drawn height (px): a 6 px cord between two beads. */
+export const STRING_H = 18;
+
+/** A laid string (compare-length indirect): a cord exactly `width` px long. */
 export function StringPiece({ width, className }: { width: number; className?: string }) {
   const w = Math.max(2, width);
   return (
     <svg
       className={['ni-string', className].filter(Boolean).join(' ')}
       width={w}
-      height={14}
-      viewBox={`0 0 ${w} 14`}
+      height={STRING_H}
+      viewBox={`0 0 ${w} ${STRING_H}`}
       aria-hidden="true"
       focusable="false"
       data-length-px={w}
     >
-      <line className="ni-string__cord" x1={2.5} x2={w - 2.5} y1={7} y2={7} />
-      <circle className="ni-string__end" cx={4} cy={7} r={3.5} />
-      <circle className="ni-string__end" cx={w - 4} cy={7} r={3.5} />
+      {/* Exactly `w` long: the beads sit inside the ends. */}
+      <line className="ni-string__cord" x1={3} x2={w - 3} y1={9} y2={9} />
+      <circle className="ni-string__end" cx={7} cy={9} r={5.5} />
+      <circle className="ni-string__end" cx={w - 7} cy={9} r={5.5} />
     </svg>
   );
 }

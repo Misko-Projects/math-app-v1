@@ -96,11 +96,23 @@
   pointer-events: none;
 }
 /* Picked: a thick ink ring around the object, never colour alone. */
+/* Inside the lane (4 px over and under the drawing), and starting 6 px right of the object's left
+   end, so it never crosses the dashed start line (evidence review). */
 .ni-clen__ring {
   position: absolute;
-  inset: -10px -8px;
+  inset: -4px -6px -4px 6px;
   border: 4px solid var(--color-ink);
   border-radius: 14px;
+}
+/* Order: where a lane's badge goes, until one is placed: an empty numbered-badge outline. */
+.ni-clen__slot {
+  display: block;
+  box-sizing: border-box;
+  width: calc(var(--target-min) - 4px);
+  height: calc(var(--target-min) - 4px);
+  border: 4px dashed var(--color-ink-soft);
+  border-radius: 50%;
+  background: rgb(255 255 255 / 0.5);
 }
 .ni-clen__laid {
   position: absolute;

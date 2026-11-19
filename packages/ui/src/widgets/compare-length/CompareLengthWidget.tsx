@@ -54,6 +54,8 @@ const STRING = 'string';
 type Config = ConfigFor<'compare-length'>;
 type Obj = Config['objects'][number];
 
+/** Room under an invited lane for Pip's hand (it hangs about 46 px below the object). */
+const HAND_ROOM = 40;
 /** The largest unit (px): a short object still reads as an object, not a bar across the screen. */
 const UNIT_MAX = 120;
 /** Indirect: each object's tag (its colour and mark), on its lane and on its string. */
@@ -103,7 +105,20 @@ export function CompareLengthWidget({
   const compact = avail !== null && avail.height < 400;
   const minTarget = MIN_TARGET_PX[ageMode];
   const typed = ask === 'how-much-longer';
-  const rowH = typed && compact ? 56 : compact ? minTarget : minTarget + 8;
+  // Lanes take the height they have (evidence review: thin ribbons in a mostly empty card), from
+  // the target size up to 140 px; indirect keeps room for the strings box under them.
+  const nObj = config.objects.length;
+  const lanesBudget =
+    (avail?.height ?? 560) - 48 - (ask === 'indirect' ? nObj * TAG_PX + (nObj - 1) * 12 + 34 : 0);
+  const rowFloor = compact ? minTarget : minTarget + 8;
+  const rowH = typed
+    ? compact
+      ? 56
+      : minTarget + 8
+    : Math.max(rowFloor, Math.min(140, Math.floor((lanesBudget - (nObj - 1) * 12) / nObj)));
+  // The object's drawing: most of the lane (ribbons ≈ 60 % of it). Indirect draws it at the top
+  // of the lane and lays the string under it, clear of the pick ring.
+  const artH = ask === 'indirect' ? rowH - 34 : typed && compact ? 44 : rowH - 12;
   // The side column's real width (Check is 114 px in K, 180 px with its word; the badge tray is
   // two badges, a 12 px gap and 10 px padding): an estimate off by a few px feeds back through
   // the measured area into the scale.
@@ -321,7 +336,14 @@ export function CompareLengthWidget({
     const targetP = isTarget ? dnd.targetProps(o.id, { label: nameOf(o, i) }) : null;
     const pickable = ask === 'longer' || ask === 'shorter' || ask === 'indirect';
     return (
-      <div key={o.id} className="ni-clen__lane" data-lane={o.id} style={{ height: rowH }}>
+      <div
+        key={o.id}
+        className="ni-clen__lane"
+        data-lane={o.id}
+        // Invited: room under the lane for Pip's hand, which hangs below the object, so it never
+        // reaches the next lane (evidence review).
+        style={{ height: rowH, marginBottom: invite === o.id ? HAND_ROOM : undefined }}
+      >
         {ask === 'indirect' ? <ObjectTag i={i} id={o.id} /> : null}
         {targetP ? (
           <button
@@ -333,6 +355,12 @@ export function CompareLengthWidget({
         {ask === 'order' && slot >= 0 ? (
           <span className="ni-clen__placed" style={{ width: lineX - 8 }}>
             {badge(slot)}
+          </span>
+        ) : null}
+        {/* Where this lane's badge goes, until one is there (evidence review). */}
+        {ask === 'order' && slot < 0 ? (
+          <span className="ni-clen__placed" style={{ width: lineX - 8 }} aria-hidden="true">
+            <span className="ni-clen__slot" data-slot-for={o.id} />
           </span>
         ) : null}
         <button
@@ -378,15 +406,22 @@ export function CompareLengthWidget({
             }
           }}
         >
-          <span className="ni-clen__art" style={{ width: objW }}>
-            <LengthObject sprite={o.sprite} width={objW} height={Math.min(44, rowH - 16)} />
+          <span
+            className="ni-clen__art"
+            style={{
+              width: objW,
+              ...(ask === 'indirect' ? { alignSelf: 'flex-start', marginTop: 4 } : {}),
+            }}
+          >
+            <LengthObject sprite={o.sprite} width={objW} height={artH} />
             {picked ? <span className="ni-clen__ring" aria-hidden="true" /> : null}
           </span>
         </button>
         {state.strings.includes(o.id) ? (
           <span
             className="ni-clen__laid"
-            style={{ left: startPx(o), top: rowH - 16 }}
+            // Under the log, 10 px below its pick ring's edge.
+            style={{ left: startPx(o), top: 4 + artH + 10 }}
             data-string={o.id}
           >
             <StringPiece width={objW} />
@@ -421,7 +456,11 @@ export function CompareLengthWidget({
               <button type="button" {...p} className={[p.className, 'ni-clen__tray'].join(' ')} />
             );
           })()}
-          <div className="ni-clen__badge-grid">
+          <div
+            className="ni-clen__badge-grid"
+            // A badge invited: room under its row for Pip's hand, clear of the badge below.
+            style={invite?.startsWith('slot-') ? { rowGap: 12 + HAND_ROOM } : undefined}
+          >
             {config.objects.map((_, slot) =>
               state.slots[slot] ? (
                 // biome-ignore lint/suspicious/noArrayIndexKey: one spot per badge
