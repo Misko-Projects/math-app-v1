@@ -326,7 +326,7 @@ function Ferry({ x, y, lv, lit }: { x: number; y: number; lv: number; lit: boole
         {...filled('sea-deep')}
       />
       <path d={`M${x - 23} ${y - 10}H${x + 23}`} {...stroke('cloud', 2.5)} />
-      {lv === 3 ? <Bunting x1={x - 24} y1={y - 18} x2={x + 6} y2={y - 42} sag={2} n={3} /> : null}
+      {lv === 3 ? <Flag x={x + 20} y={y - 16} h={22} w={10} fill="coral" delay={0.7} /> : null}
     </g>
   );
 }
@@ -384,10 +384,12 @@ export function ClockTower({ stage, lit }: DrawProps) {
           <path d={`M24 ${shaftTop + 2}v30l-5 -6l-5 6v-30`} {...filled('sea', 2.2)} />
         </g>
       ) : null}
-      <Water x={-48} y={-32} w={96} h={28} />
-      {lv >= 2 ? <Post x={-38} y={-8} h={26} w={5} /> : null}
-      <Ferry x={14} y={-10} lv={lv} lit={lit} />
-      {lv >= 2 ? <Smoke x={10} y={-56} /> : null}
+      <Water x={-44} y={-32} w={98} h={28} />
+      {lv >= 2 ? <Post x={-36} y={-8} h={26} w={5} /> : null}
+      {/* The ferry rides in front of the tower and to its right, below the door, so its funnel,
+          smoke and pennant stay clear of the tower; the smoke drifts away to the right. */}
+      <Ferry x={26} y={-6} lv={lv} lit={lit} />
+      {lv >= 2 ? <Smoke x={34} y={-52} /> : null}
     </g>
   );
 }
