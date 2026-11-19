@@ -36,6 +36,14 @@ export {
   type Split,
 } from './formats/area-tiles';
 export { type ArrayBuildState, alreadyFound, rectanglesOf } from './formats/array-build';
+export {
+  type BalanceState,
+  type BalanceTerm,
+  balanceBlanks,
+  balanceChoices,
+  heavier,
+  sideValue,
+} from './formats/balance';
 export { type BaseTenBuildState, traySupply } from './formats/base-ten-build';
 export { type BaseTenTradeState, computeResult, htoValue } from './formats/base-ten-trade';
 export { type CompareLengthState, closeness, startOf } from './formats/compare-length';
@@ -71,6 +79,11 @@ export {
   piecesValue,
 } from './formats/place-value';
 export {
+  type PuzzleGridState,
+  type PuzzleValue,
+  puzzleBlanks,
+} from './formats/puzzle-grid';
+export {
   drawingPoints,
   type PlacedPiece,
   pieceCentre,
@@ -80,6 +93,11 @@ export {
   turnAboutCentre,
 } from './formats/shape-compose';
 export { isShapeCard, type ShapeSortState, sortCardProps, TRAY } from './formats/shape-sort';
+export {
+  answersSplit,
+  SITUATION_PRIOR,
+  type StoryProblemState,
+} from './formats/story-problem';
 export {
   type BuildContext,
   GenerationError,
