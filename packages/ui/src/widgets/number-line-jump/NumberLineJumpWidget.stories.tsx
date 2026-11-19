@@ -1068,3 +1068,70 @@ export const InviteDeadEnd: Story = {
     });
   },
 };
+
+/** Start 0 is the target; from 5 the hops (±2, 5 more leaves the road) reach only odd stones. */
+const backToStart: Config = {
+  ...deadEnd,
+  max: 5,
+  start: 0,
+  goal: 'land-on',
+  target: 0,
+  allowedJumps: [-2, 2, 5],
+};
+const backToStartInvite: WidgetDemo = createDemoController({ strict: true });
+
+/**
+ * Review r3 F4: the target is the start (reached by the empty path). After a hop to 5 (a dead end)
+ * the answer cue is on take-back, not Check; then 2 there and back, and Check submits [2, −2].
+ */
+export const InviteDeadEndAtStart: Story = {
+  args: { config: backToStart, tier: 'pictorial', demo: backToStartInvite },
+  play: async ({ canvasElement, args }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    await hopBy(root, 5);
+    backToStartInvite.invite({ op: 'answer', args: { value: 0 } });
+    await expectInviteOn(root, undoBtn(root));
+    await userEvent.click(undoBtn(root));
+    await hopBy(root, 2);
+    await expectInviteOn(root, jump(root, -2));
+    await hopBy(root, -2);
+    await expectInviteOn(root, checkBtn(root));
+    await userEvent.click(checkBtn(root));
+    await expect(args.onResponse).toHaveBeenCalledWith({
+      kind: 'state',
+      value: { jumps: [2, -2] },
+    });
+  },
+};
+
+/** A wide road whose way back takes 50 hops, more than the cue's search looks through. */
+const longWayBack: Config = {
+  ...deadEnd,
+  max: 500_000,
+  ticksEvery: 100_000,
+  labelsEvery: 100_000,
+  start: 490_000,
+  goal: 'land-on',
+  target: 500_000,
+  allowedJumps: [1, 100, 10_000, -490_000],
+};
+const longWayBackInvite: WidgetDemo = createDemoController({ strict: true });
+
+/**
+ * Review r3 F5: after the backward hop to 0 the way to 500000 is still open (50 hops of 10000),
+ * past the search budget. Running out of budget is not a dead end: the cue heads toward the
+ * target with the hop that gets closest (10000), never take-back.
+ */
+export const InviteBeyondSearchBudget: Story = {
+  args: { config: longWayBack, tier: 'pictorial', demo: longWayBackInvite },
+  play: async ({ canvasElement }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    await hopBy(root, -490_000);
+    longWayBackInvite.invite({ op: 'answer', args: { value: 500_000 } });
+    await expectInviteOn(root, jump(root, 10_000));
+    await expect(undoBtn(root)).not.toHaveClass('ni-invite');
+    await userEvent.click(jump(root, 10_000));
+    await expectInviteOn(root, jump(root, 10_000));
+    await expect(undoBtn(root)).not.toHaveClass('ni-invite');
+  },
+};

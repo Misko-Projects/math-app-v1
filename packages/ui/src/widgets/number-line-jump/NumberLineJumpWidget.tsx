@@ -582,48 +582,105 @@ function useBoxSize(ref: RefObject<HTMLElement | null>, fallback: { w: number; h
 }
 
 /**
- * The first hop of a shortest path from `from` to `at` over the allowed hops, staying on the road
- * (breadth-first search), or null when `at` is unreachable or already there. A greedy "biggest hop
- * that fits" can walk into a dead end (0 → 4 with hops 3 and 4 never reaches 6; 3 then 3 does).
- * Ties keep the biggest first hop, so a tens-and-ones bridge still leads with the tens.
+ * What a search for a way from one position to another found: the first hop of a shortest path,
+ * already there (the empty path), a PROVEN dead end, or not known (the search ran out of budget
+ * first, which proves nothing).
+ */
+export type HopSearch =
+  | { kind: 'hop'; by: number }
+  | { kind: 'here' }
+  | { kind: 'unreachable' }
+  | { kind: 'unknown' };
+
+/** Most positions one hop search visits before it answers 'unknown'. */
+export const HOP_SEARCH_LIMIT = 20_000;
+
+const at6 = (v: number) => Number(v.toFixed(6));
+const gcd = (a: number, b: number): number => (b === 0 ? a : gcd(b, a % b));
+
+/**
+ * The way from `from` to `at` over the allowed hops, staying on the road. A greedy "biggest hop
+ * that fits" can walk into a dead end (0 → 4 with hops 3 and 4 never reaches 6; 3 then 3 does), so
+ * this is a breadth-first search; ties keep the biggest first hop, so a tens-and-ones bridge
+ * still leads with the tens.
+ *
+ * 'unreachable' is only ever a proof: hops that all go one way can't reach a target the other
+ * way; whole-number hops can't cover a gap that isn't a multiple of their common divisor; and
+ * otherwise the search ran to exhaustion over every position a path could use (between the two
+ * for one-way hops; the whole road for mixed hops, which can need it: +7 and −10 on 0–20 go
+ * 1 → 8 → 15 → 5 → … → 0). When the search stops at `limit` positions first the answer is
+ * 'unknown'.
  */
 export function firstHopToward(
   from: number,
   at: number,
   allowed: readonly number[],
   road: { min: number; max: number },
-): number | null {
-  if (from === at) return null;
+  limit = HOP_SEARCH_LIMIT,
+): HopSearch {
+  const start = at6(from);
+  const goal = at6(at);
+  if (start === goal) return { kind: 'here' };
+  const unreachable: HopSearch = { kind: 'unreachable' };
   const hops = [...new Set(allowed)]
-    .filter((b) => b !== 0)
+    .filter((b) => b !== 0 && Number.isFinite(b))
     .sort((a, b) => Math.abs(b) - Math.abs(a));
-  if (hops.length === 0) return null;
-  // Bounded work: the hops of any path from `from` to `at` can be reordered so the hopper never
-  // strays more than one longest hop beyond the stretch between them (hop toward `at` while short
-  // of it, back while past it), so the search covers just that window of the road, and stops
-  // after a fixed number of positions whatever the road's length.
-  const reach = Math.max(...hops.map(Math.abs));
-  const lo = Math.max(road.min, Math.min(from, at) - reach);
-  const hi = Math.min(road.max, Math.max(from, at) + reach);
-  const LIMIT = 20_000;
+  if (hops.length === 0 || goal < road.min || goal > road.max) return unreachable;
+  const up = hops.some((b) => b > 0);
+  const down = hops.some((b) => b < 0);
+  if ((goal > start && !up) || (goal < start && !down)) return unreachable;
+  const gap = goal - start;
+  if ([...hops, gap].every(Number.isInteger)) {
+    const divisor = hops.reduce((g, b) => gcd(g, Math.abs(b)), 0);
+    if (gap % divisor !== 0) return unreachable;
+  }
+  const lo = up && down ? road.min : Math.max(road.min, Math.min(start, goal));
+  const hi = up && down ? road.max : Math.min(road.max, Math.max(start, goal));
   const first = new Map<number, number>();
-  let frontier = [from];
-  const seen = new Set([from]);
-  while (frontier.length > 0 && seen.size < LIMIT) {
+  let frontier = [start];
+  const seen = new Set([start]);
+  while (frontier.length > 0) {
     const next: number[] = [];
     for (const p of frontier) {
       for (const by of hops) {
-        const q = p + by;
+        const q = at6(p + by);
         if (q < lo || q > hi || seen.has(q)) continue;
+        const firstBy = p === start ? by : (first.get(p) as number);
+        if (q === goal) return { kind: 'hop', by: firstBy };
+        if (seen.size >= limit) return { kind: 'unknown' };
         seen.add(q);
-        first.set(q, p === from ? by : (first.get(p) as number));
-        if (q === at) return first.get(q) as number;
+        first.set(q, firstBy);
         next.push(q);
       }
     }
     frontier = next;
   }
-  return null;
+  return unreachable;
+}
+
+/**
+ * Without a known path: the allowed hop that lands closest to `at`, staying on the road, if any
+ * hop gets closer at all (null otherwise).
+ */
+export function hopCloserTo(
+  from: number,
+  at: number,
+  allowed: readonly number[],
+  road: { min: number; max: number },
+): number | null {
+  let best: number | null = null;
+  let bestGap = Math.abs(at - from);
+  for (const by of allowed) {
+    const q = from + by;
+    if (by === 0 || q < road.min || q > road.max) continue;
+    const gap = Math.abs(at - q);
+    // Strictly closer than here; a tie between two such hops keeps the bigger.
+    if (gap < bestGap || (best !== null && gap === bestGap && Math.abs(by) > Math.abs(best))) {
+      best = by;
+      bestGap = gap;
+    }
+  }
+  return best;
 }
 
 /** Where an invite points: one pressable control. */
@@ -929,8 +986,16 @@ export function NumberLineJumpWidget({
 
   // ---------- the invite: ONE enabled control, only while the child can act ----------
 
-  /** The hop that heads from here toward `at`: the biggest allowed one that does not overshoot. */
-  const hopToward = (at: number): number | null => firstHopToward(position, at, allowed, c);
+  /**
+   * The hop that heads from here toward `at`: the first hop of a path; when the search can't tell
+   * (budget), the hop that gets closest without leaving the line; null when there is no way (or
+   * no hop gets closer).
+   */
+  const hopToward = (at: number, found = firstHopToward(position, at, allowed, c)) => {
+    if (found.kind === 'hop') return found.by;
+    if (found.kind === 'unknown') return hopCloserTo(position, at, allowed, c);
+    return null;
+  };
   /** The control that hops by `by`: its button, or (dial) the step toward that size first. */
   const hopCue = (by: number): Cue => {
     if (plan.hops !== 'dial' || by === dialBy) return { at: 'hop', by };
@@ -964,13 +1029,17 @@ export function NumberLineJumpWidget({
       case 'answer': {
         // First the hops toward the target, then the value.
         if (c.target !== undefined && position !== c.target) {
-          const by = hopToward(c.target);
+          const found = firstHopToward(position, c.target, allowed, c);
+          const by = hopToward(c.target, found);
           if (by !== null) return hopCue(by);
-          // A dead end (no allowed path from here) on a road that does reach the target from the
-          // start: take the last hop back, then follow the path again.
-          if (hops.length > 0 && firstHopToward(c.start, c.target, allowed, c) !== null) {
+          // Only a PROVEN dead end, on a road that does reach the target from the start (the
+          // empty path counts: start = target), cues taking the last hop back, then the path.
+          if (found.kind !== 'unreachable') return null;
+          const fromStart = firstHopToward(c.start, c.target, allowed, c).kind;
+          if (hops.length > 0 && (fromStart === 'hop' || fromStart === 'here')) {
             return { at: 'undo' };
           }
+          return null;
         }
         if (hops.length === 0) return null;
         return valueCue(num(invite, 'value'));
