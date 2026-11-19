@@ -329,11 +329,16 @@
 /* ---------- pick cards and numeral tray ---------- */
 
 .ni-tray-numerals {
-  /* NumeralTray renders balanced rows (balancedRows); each row is centred. */
+  /*
+   * NumeralTray: one flat list of cards that wraps centred; zero-size breaks end each balanced
+   * row (balancedRows). The tray fills its container and measures its own content width.
+   */
   display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: var(--target-gap);
+  flex-wrap: wrap;
+  justify-content: center;
+  column-gap: var(--target-gap);
+  row-gap: 0;
+  width: 100%;
   max-width: 100%;
   box-sizing: border-box;
   margin: 0;
@@ -341,10 +346,10 @@
   border: 0;
   min-width: 0;
 }
-.ni-tray-numerals__row {
-  display: flex;
-  justify-content: center;
-  gap: var(--target-gap);
+/* A full-width, zero-height line break that ends a balanced row (no row gap: cards space rows). */
+.ni-tray-numerals__break {
+  flex-basis: 100%;
+  height: 0;
 }
 
 .ni-pick {
@@ -442,6 +447,8 @@
 
 .ni-tray-numerals .ni-pick {
   width: var(--card-w);
+  /* Rows are spaced by the cards themselves (the tray has no row gap), clear of the 6 px ledge. */
+  margin-bottom: calc(var(--target-gap) + 6px);
 }
 
 /* ---------- number pad (06 §4: 3 × 4 large keys) ---------- */

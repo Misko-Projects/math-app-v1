@@ -1,7 +1,7 @@
 import type { StimulusSpec } from '@number-island/shared';
 import type { Meta, StoryObj } from '@storybook/react-vite';
 import { type CSSProperties, useState } from 'react';
-import { expect, userEvent, within } from 'storybook/test';
+import { expect, userEvent, waitFor, within } from 'storybook/test';
 import { expectTargetGaps, expectTargetSize } from '../../test-support/storyHelpers';
 import { NumeralTray, PickCard } from './controls';
 import { NumberBondView, StimulusView } from './StimulusView';
@@ -249,11 +249,15 @@ export const NumberLineHiddenTerm: Story = {
   },
 };
 
-/** A 0–20 tray in a 680 px space: balanced rows (6 + 5 + 5 + 5), each centred. */
+/**
+ * A 0–20 tray in a padded 680 px box (584 px of content): balanced rows (5 + 4 + 4 + 4 + 4),
+ * every card inside the tray. Narrowing the box reflows the rows without remounting any card,
+ * so keyboard focus stays put.
+ */
 export const TrayTwentyK: Story = {
   globals: { ageMode: 'k' },
   render: () => (
-    <div style={{ width: 680 }}>
+    <div data-testid="box" style={{ width: 680, padding: '0 48px', boxSizing: 'border-box' }}>
       <NumeralTray
         values={Array.from({ length: 21 }, (_, i) => i)}
         selected={null}
@@ -262,16 +266,32 @@ export const TrayTwentyK: Story = {
     </div>
   ),
   play: async ({ canvasElement }) => {
-    const cards = within(canvasElement).getAllByRole('button');
-    await expect(cards).toHaveLength(21);
-    const rows = new Map<number, number>();
-    for (const c of cards) {
-      const top = Math.round(c.getBoundingClientRect().top);
-      rows.set(top, (rows.get(top) ?? 0) + 1);
+    const tray = within(canvasElement).getByRole('group', { name: 'Numbers' });
+    const rowsOf = () => {
+      const rows = new Map<number, number>();
+      for (const c of within(tray).getAllByRole('button')) {
+        const top = Math.round(c.getBoundingClientRect().top);
+        rows.set(top, (rows.get(top) ?? 0) + 1);
+      }
+      return [...rows.values()];
+    };
+    await waitFor(() => expect(rowsOf()).toEqual([5, 4, 4, 4, 4]));
+    const t = tray.getBoundingClientRect();
+    for (const c of within(tray).getAllByRole('button')) {
+      const r = c.getBoundingClientRect();
+      await expect(r.left).toBeGreaterThanOrEqual(t.left - 0.5);
+      await expect(r.right).toBeLessThanOrEqual(t.right + 0.5);
     }
-    const counts = [...rows.values()];
-    await expect(Math.max(...counts) - Math.min(...counts)).toBeLessThanOrEqual(1);
-    await expectTargetGaps(cards);
+    await expectTargetGaps(within(tray).getAllByRole('button'));
+    // Focus survives a reflow: focus 5, narrow the box, the same button still has focus.
+    const five = within(tray).getByRole('button', { name: '5' });
+    five.focus();
+    (canvasElement.querySelector('[data-testid="box"]') as HTMLElement).style.width = '560px';
+    await waitFor(() => expect(rowsOf().length).toBe(6));
+    await expect(within(tray).getByRole('button', { name: '5' })).toBe(five);
+    await expect(five).toHaveFocus();
+    await userEvent.keyboard('{Enter}');
+    await expect(five).toHaveAttribute('aria-pressed', 'false');
   },
 };
 

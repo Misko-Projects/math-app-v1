@@ -145,8 +145,10 @@ export function NumeralTray({
   // not a bigger target than "9".
   const digits = Math.max(1, ...values.map((v) => String(v).length));
   const cardWidth = `max(calc(var(--target-min) * 1.15), ${digits * 30 + 40}px)`;
-  // Balanced rows: the fewest rows that fit, with the cards split as evenly as possible
-  // (0–10 → 6 + 5, 0–20 at 680 px → 6 + 5 + 5 + 5), never a lonely last card.
+  // Balanced rows: the fewest rows that fit the tray's own content width, with the cards split as
+  // evenly as possible (0–10 → 6 + 5, 0–20 at 680 px → 6 + 5 + 5 + 5). The cards stay ONE flat,
+  // stably keyed list (a reflow never remounts a card, so keyboard focus survives); zero-size
+  // line breaks between them end each row.
   const ref = useRef<HTMLFieldSetElement | null>(null);
   const [rowCount, setRowCount] = useState(1);
   useLayoutEffect(() => {
@@ -154,23 +156,27 @@ export function NumeralTray({
     if (!el || typeof ResizeObserver === 'undefined') return;
     const measure = () => {
       const card = el.querySelector<HTMLElement>('.ni-pick');
-      const avail = el.parentElement?.clientWidth ?? el.clientWidth;
+      const style = getComputedStyle(el);
+      const avail =
+        el.clientWidth -
+        (Number.parseFloat(style.paddingLeft) || 0) -
+        (Number.parseFloat(style.paddingRight) || 0);
       if (!card || avail <= 0) return;
-      const gap = Number.parseFloat(getComputedStyle(el).columnGap) || 12;
+      const gap = Number.parseFloat(style.columnGap) || 12;
       const perRow = Math.max(1, Math.floor((avail + gap) / (card.offsetWidth + gap)));
       setRowCount(Math.ceil(values.length / perRow));
     };
     measure();
     const ro = new ResizeObserver(measure);
-    if (el.parentElement) ro.observe(el.parentElement);
+    ro.observe(el);
     return () => ro.disconnect();
   }, [values.length]);
-  const sizes = balancedRows(values.length, rowCount);
-  const rows: number[][] = [];
-  let start = 0;
-  for (const size of sizes) {
-    rows.push(values.slice(start, start + size));
-    start += size;
+  // Indexes after which a row ends (no break after the last row).
+  const breaksAfter = new Set<number>();
+  let end = -1;
+  for (const size of balancedRows(values.length, rowCount).slice(0, -1)) {
+    end += size;
+    breaksAfter.add(end);
   }
   return (
     <fieldset
@@ -180,25 +186,29 @@ export function NumeralTray({
       disabled={disabled}
       style={{ '--card-w': cardWidth } as CSSProperties}
     >
-      {rows.map((row) => (
-        <div key={row[0]} className="ni-tray-numerals__row">
-          {row.map((v) => (
-            <PickCard
-              key={v}
-              label={String(v)}
-              selected={selected === v}
-              highlighted={highlighted === v}
-              data-id={`opt-${v}`}
-              onPress={() => {
-                if (speaks) sayNumber(v);
-                onPick(v);
-              }}
-            >
-              <span className="ni-pick__numeral">{v}</span>
-            </PickCard>
-          ))}
-        </div>
-      ))}
+      {values.flatMap((v, i) => {
+        const card = (
+          <PickCard
+            key={v}
+            label={String(v)}
+            selected={selected === v}
+            highlighted={highlighted === v}
+            data-id={`opt-${v}`}
+            onPress={() => {
+              if (speaks) sayNumber(v);
+              onPick(v);
+            }}
+          >
+            <span className="ni-pick__numeral">{v}</span>
+          </PickCard>
+        );
+        return breaksAfter.has(i)
+          ? [
+              card,
+              <span key={`break-${v}`} className="ni-tray-numerals__break" aria-hidden="true" />,
+            ]
+          : [card];
+      })}
     </fieldset>
   );
 }
