@@ -4,6 +4,7 @@ import {
   type CSSProperties,
   type KeyboardEvent,
   type RefObject,
+  useEffect,
   useLayoutEffect,
   useRef,
   useState,
@@ -783,6 +784,8 @@ export function HundredChartWidget({
 
   // ---------- the invite: ONE enabled control, only while the child can act ----------
 
+  /** The blank an invite needs worked on next (fill): it becomes the blank being filled. */
+  let invitedBlank: number | null = null;
   const cue: Cue | null = (() => {
     if (!invite || !interactive) return null;
     const checkCue: Cue | null = ready ? { at: 'check' } : null;
@@ -804,11 +807,11 @@ export function HundredChartWidget({
       if (keys) return keys;
       return pattern ? { at: 'mark' } : checkCue;
     };
-    /** Fill the blanks with `values` (hidden order): the next key of the first wrong blank. */
     /**
      * Fill the blanks `wanted` names (blank → value): the next key of the first one, in reading
-     * order, that does not hold its value yet. Blanks it does not name, and blanks already right,
-     * are skipped; nothing is cued while another blank is being filled.
+     * order, that does not hold its value yet (backspace while it holds a wrong entry). Blanks it
+     * does not name, and blanks already right, are skipped. That blank becomes the one being
+     * filled (an effect below moves the caret there), since picture cells cannot be tapped.
      */
     const fillCue = (wanted: Map<number, number>, done: Cue | null): Cue | null => {
       for (const h of readingOrder) {
@@ -816,6 +819,7 @@ export function HundredChartWidget({
         if (want === undefined) continue;
         const have = typed[h] ?? '';
         if (have === String(want)) continue;
+        invitedBlank = h;
         if (active !== h) return null;
         return keysFor(String(want), have);
       }
@@ -842,6 +846,14 @@ export function HundredChartWidget({
     if (v === null) return checkCue;
     return fill ? fillCue(inReadingOrder([v]), checkCue) : chooseCue(v);
   })();
+  // An invite on a blank makes it the blank being filled (and shows it), so its cue can be
+  // followed: the child cannot tap a picture cell to choose it.
+  useEffect(() => {
+    if (invitedBlank !== null && invitedBlank !== active) {
+      setActive(invitedBlank);
+      reveal(invitedBlank);
+    }
+  });
   const { hand: inviteHand, rootStyle: handRootStyle } = useInviteHand(
     rootRef,
     (root) => (cue ? cueTarget(root, cue) : null),

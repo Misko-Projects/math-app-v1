@@ -384,6 +384,53 @@ export const InviteFillTapAfterFilled: Story = {
   },
 };
 
+const inactiveInvite: WidgetDemo = createDemoController({ strict: true });
+
+/**
+ * Review r2 F1: a tap invite on 47 while 46 is the empty blank being filled: 47 becomes the blank
+ * being filled, and the ring goes to 4, then 7.
+ */
+export const InviteFillInactiveBlank: Story = {
+  args: { config: fill, demo: inactiveInvite },
+  play: async ({ canvasElement }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    await expect(cell(root, 46)).toHaveAttribute('data-active', 'true');
+    inactiveInvite.invite({ op: 'tap', args: { n: 47 } });
+    await waitFor(() => expect(cell(root, 47)).toHaveAttribute('data-active', 'true'));
+    await expectInviteOn(root, key(root, '4'));
+    await userEvent.click(key(root, '4'));
+    await expectInviteOn(root, key(root, '7'));
+  },
+};
+
+const wrongEntryInvite: WidgetDemo = createDemoController({ strict: true });
+
+/**
+ * Review r2 F1: 45 typed into blank 46 (the caret moved on to 47), then the answer invite: 46
+ * becomes the blank being filled again, the ring is on backspace, then 6, and on through 48 to Check.
+ */
+export const InviteFillAfterWrongEntry: Story = {
+  args: { config: fill, demo: wrongEntryInvite },
+  play: async ({ canvasElement, args }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    await typeKeys(root, '45');
+    await expect(cell(root, 47)).toHaveAttribute('data-active', 'true');
+    wrongEntryInvite.invite({ op: 'answer', args: { values: [46, 47, 48] } });
+    await waitFor(() => expect(cell(root, 46)).toHaveAttribute('data-active', 'true'));
+    await expectInviteOn(root, key(root, 'back'));
+    await userEvent.click(key(root, 'back'));
+    await expectInviteOn(root, key(root, '6'));
+    await userEvent.click(key(root, '6'));
+    for (const k of ['4', '7', '4', '8']) {
+      await expectInviteOn(root, key(root, k));
+      await userEvent.click(key(root, k));
+    }
+    await expectInviteOn(root, checkBtn(root));
+    await userEvent.click(checkBtn(root));
+    await expect(args.onResponse).toHaveBeenCalledWith({ kind: 'numbers', values: [46, 47, 48] });
+  },
+};
+
 /** `disabled`: no input at all. */
 export const Disabled: Story = {
   args: { disabled: true },
