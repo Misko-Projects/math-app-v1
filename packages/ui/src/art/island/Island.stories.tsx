@@ -3,16 +3,17 @@ import { expect } from 'storybook/test';
 import type { Lighting } from '../../tokens/tokens';
 import { CvdCompare, GalleryCell, GalleryGrid, GallerySection } from '../gallery/Gallery';
 import { SAMPLE_ISLAND, SAMPLE_RING_COUNT } from '../gallery/sampleIsland';
-import { plotKey, SCENE_H, SCENE_W } from './geometry';
+import { HORIZON_Y, landCrop, plotKey, SCENE_H, SCENE_W } from './geometry';
 import { IslandScene } from './IslandScene';
+import type { PlotMarkerProps } from './PlotMarker';
 import { ROAD_STONE_STATES, RoadStone } from './RoadStone';
 import { TerrainTile, TILE_KINDS } from './TerrainTile';
 
 /**
  * Art Gallery: the island (05 §3, §11). The map is a gently tilted top-down 12 × 8 plot grid on a
  * layered sea with parallax, by day or at sunset. It grows from a 3-plot sandbar in rings, and the
- * Numbered Road winds through it. Use the controls to change lighting, rings, road length and the
- * camera pan.
+ * Numbered Road winds through it. Use the controls to change lighting, rings, road length, the
+ * counted stone and the camera pan.
  */
 
 interface SceneArgs {
@@ -27,6 +28,14 @@ interface SceneArgs {
 
 const FIT = { width: `min(100vw, calc(100vh * ${SCENE_W / SCENE_H}))`, margin: '0 auto' };
 
+// Free plots off the road of the sample island (the sample's road runs through every ring, so
+// these are chosen beyond the stones the marker stories lay).
+const MARKERS: PlotMarkerProps[] = [
+  { plot: [6, 1], state: 'available' },
+  { plot: [8, 5], state: 'available' },
+  { plot: [4, 5], footprint: [2, 1], state: 'selected' },
+];
+
 function SceneView(a: SceneArgs) {
   return (
     <div style={{ display: 'grid', placeItems: 'center', minHeight: '100vh' }}>
@@ -38,15 +47,7 @@ function SceneView(a: SceneArgs) {
           counting={a.counting > 0 ? a.counting : null}
           lighting={a.lighting}
           camera={{ x: a.cameraX, y: a.cameraY }}
-          plotMarkers={
-            a.markers
-              ? [
-                  { plot: [6, 1], state: 'available' },
-                  { plot: [8, 5], state: 'available' },
-                  { plot: [4, 5], footprint: [2, 1], state: 'selected' },
-                ]
-              : []
-          }
+          plotMarkers={a.markers ? MARKERS : []}
           title="The island map"
         />
       </div>
@@ -92,31 +93,30 @@ async function expectStoneNumerals(root: HTMLElement, minPx: number) {
   await expect(stones.length).toBeGreaterThan(0);
   for (const stone of stones) {
     const text = stone.querySelector('text') as SVGTextElement;
-    const svg = stone.ownerSVGElement as SVGSVGElement;
     const ctm = text.getCTM();
     const px = Number(text.getAttribute('font-size')) * (ctm ? Math.hypot(ctm.a, ctm.b) : 1);
-    await expect(px * (svg.getBoundingClientRect().width > 0 ? 1 : 0)).toBeGreaterThanOrEqual(
-      minPx,
-    );
+    await expect(px, `numeral ${stone.dataset.stone}`).toBeGreaterThanOrEqual(minPx);
     await expect(text.textContent).toBe(stone.dataset.stone);
   }
 }
 
-/** No two numbered stones overlap (05 §3 road stress state). */
-async function expectNoStoneOverlap(root: HTMLElement) {
-  const boxes = [
-    ...root.querySelectorAll<SVGGElement>('[data-stone]:not([data-compact]) text'),
-  ].map((t) => t.getBoundingClientRect());
-  for (let i = 0; i < boxes.length; i++) {
-    for (let j = i + 1; j < boxes.length; j++) {
-      const a = boxes[i] as DOMRect;
-      const b = boxes[j] as DOMRect;
-      const overlap =
-        a.left < b.right - 1 &&
-        b.left < a.right - 1 &&
-        a.top < b.bottom - 1 &&
-        b.top < a.bottom - 1;
-      await expect(overlap, `numerals ${i} and ${j} overlap`).toBe(false);
+/**
+ * 05 §3: no two road stones touch, whole stones included (rings, flags, lift and sparkle), and no
+ * pebble sits under a numbered stone. Measured on the rendered page.
+ */
+async function expectStonesApart(root: HTMLElement) {
+  for (const svg of root.querySelectorAll<SVGSVGElement>('svg[data-scene="island"]')) {
+    const stones = [...svg.querySelectorAll<SVGGElement>('[data-stone]')].map((g) => ({
+      n: g.dataset.stone,
+      box: g.getBoundingClientRect(),
+    }));
+    for (let i = 0; i < stones.length; i++) {
+      for (let j = i + 1; j < stones.length; j++) {
+        const a = stones[i]?.box as DOMRect;
+        const b = stones[j]?.box as DOMRect;
+        const touch = a.left < b.right && b.left < a.right && a.top < b.bottom && b.top < a.bottom;
+        await expect(touch, `stones ${stones[i]?.n} and ${stones[j]?.n} touch`).toBe(false);
+      }
     }
   }
 }
@@ -125,19 +125,33 @@ async function expectNoSidewaysScroll() {
   await expect(document.documentElement.scrollWidth).toBeLessThanOrEqual(window.innerWidth);
 }
 
+/** Nothing on the island reaches into the sky: island and waves are clipped at the horizon. */
+async function expectHorizonClip(svg: SVGSVGElement) {
+  const island = svg.querySelector('[data-layer="island"]') as SVGGElement;
+  const clipped = island.parentElement as unknown as SVGGElement;
+  await expect(clipped.getAttribute('clip-path') ?? '').toMatch(/^url\(#/);
+  const rect = svg.querySelector('clipPath rect');
+  await expect(Number(rect?.getAttribute('y'))).toBe(HORIZON_Y);
+  await expect(clipped.contains(svg.querySelector('[data-layer="sea-far"]'))).toBe(true);
+  // The sky is the fixed backdrop: it is never moved by the camera.
+  await expect(svg.querySelector('[data-layer="sky"]')?.closest('[transform]')).toBeNull();
+}
+
 /** The island part-grown, by day: sandbar, two rings, the road to 20. */
 export const Scene: Story = {
   play: async ({ canvasElement }) => {
     const svg = canvasElement.querySelector('svg[data-scene="island"]') as SVGSVGElement;
-    await expect(svg).toBeTruthy();
     await expect(scaleOf(svg)).toBeGreaterThan(0.5);
-    // Laid stones 1–20 plus the next stone (21).
-    await expect(canvasElement.querySelectorAll('[data-stone][data-state="laid"]').length).toBe(20);
+    // Laid stones 1–20, every one numbered, plus the next stone (21).
+    await expect(
+      canvasElement.querySelectorAll('[data-stone][data-state="laid"]:not([data-compact])').length,
+    ).toBe(20);
     await expect(canvasElement.querySelector('[data-stone="21"]')?.getAttribute('data-state')).toBe(
       'next',
     );
-    await expectStoneNumerals(canvasElement, 20);
-    await expectNoStoneOverlap(canvasElement);
+    await expectStoneNumerals(canvasElement, 18);
+    await expectStonesApart(canvasElement);
+    await expectHorizonClip(svg);
     await expectNoSidewaysScroll();
   },
 };
@@ -153,7 +167,7 @@ export const Sunset: Story = {
     await expect(canvasElement.querySelector('[data-stone="34"]')?.getAttribute('data-state')).toBe(
       'counting',
     );
-    await expectNoStoneOverlap(canvasElement);
+    await expectStonesApart(canvasElement);
   },
 };
 
@@ -169,7 +183,7 @@ export const Sandbar: Story = {
   },
 };
 
-/** The whole island and a road of 100 (stress state): a crowded road numbers only its tens. */
+/** The whole island and a road of 100 (stress state): a crowded road numbers its landmarks. */
 export const LongRoad: Story = {
   args: { ringsUnlocked: SAMPLE_RING_COUNT, roadLength: 100 },
   play: async ({ canvasElement }) => {
@@ -177,10 +191,20 @@ export const LongRoad: Story = {
       ...canvasElement.querySelectorAll<SVGGElement>('[data-stone]:not([data-compact])'),
     ].map((s) => Number(s.dataset.stone));
     for (const n of [1, 10, 20, 50, 90, 100]) await expect(numbered).toContain(n);
-    await expect(canvasElement.querySelectorAll('[data-stone]').length).toBe(100);
-    await expectNoStoneOverlap(canvasElement);
+    await expectStonesApart(canvasElement);
     await expectStoneNumerals(canvasElement, 16);
     await expectNoSidewaysScroll();
+  },
+};
+
+/** Counting the last stones of a crowded road: 99 is counted beside 100, and neither covers the other. */
+export const LongRoadCounting: Story = {
+  args: { ringsUnlocked: SAMPLE_RING_COUNT, roadLength: 100, counting: 99 },
+  play: async ({ canvasElement }) => {
+    await expect(canvasElement.querySelector('[data-stone="99"]')?.getAttribute('data-state')).toBe(
+      'counting',
+    );
+    await expectStonesApart(canvasElement);
   },
 };
 
@@ -190,10 +214,26 @@ export const PlotMarkers: Story = {
   play: async ({ canvasElement }) => {
     await expect(canvasElement.querySelectorAll('[data-plot-marker="available"]').length).toBe(2);
     await expect(canvasElement.querySelectorAll('[data-plot-marker="selected"]').length).toBe(1);
+    // Markers draw on top, and no flower, tuft or rock is drawn on a marked plot.
+    const layer = canvasElement.querySelector('[data-layer="island"]') as SVGGElement;
+    const last = [...layer.children].slice(-MARKERS.length);
+    for (const el of last) await expect(el.hasAttribute('data-plot-marker')).toBe(true);
+    for (const m of MARKERS) {
+      const [w, h] = m.footprint ?? [1, 1];
+      for (let dx = 0; dx < w; dx++) {
+        for (let dy = 0; dy < h; dy++) {
+          const key = `${m.plot[0] + dx},${m.plot[1] + dy}`;
+          await expect(
+            canvasElement.querySelector(`[data-terrain][data-plot="${key}"]`),
+          ).toBeNull();
+        }
+      }
+    }
+    await expectStonesApart(canvasElement);
   },
 };
 
-/** The camera panned right and down: the sky and far sea lag behind the island (parallax). */
+/** The camera panned right and down: the far sea lags behind the island (parallax). */
 export const Parallax: Story = {
   args: { ringsUnlocked: 4, roadLength: 30, cameraX: 140, cameraY: 40 },
   play: async ({ canvasElement }) => {
@@ -202,10 +242,12 @@ export const Parallax: Story = {
     const far = svg.querySelector('[data-layer="sea-far"]')?.getAttribute('transform');
     const island = svg.querySelector('[data-layer="island"]')?.getAttribute('transform');
     await expect(far).not.toBe(island);
+    await expectHorizonClip(svg);
+    await expectStonesApart(canvasElement);
   },
 };
 
-/** 06 §7: with reduced motion, parallax is off (every layer moves together) and no loop runs. */
+/** 06 §7: with reduced motion, parallax is off (sea and island move together) and no loop runs. */
 export const ReducedMotion: Story = {
   args: { ringsUnlocked: 4, roadLength: 30, cameraX: 140, cameraY: 40, counting: 12 },
   globals: { motion: 'reduced' },
@@ -216,35 +258,47 @@ export const ReducedMotion: Story = {
       svg.querySelector(`[data-layer="${layer}"]`)?.getAttribute('transform');
     await expect(t('sea-far')).toBe(t('island'));
     await expect(t('sea-near')).toBe(t('island'));
+    await expectHorizonClip(svg);
     const running = document
       .getAnimations()
       .filter((a) => a.effect?.getComputedTiming().iterations === Number.POSITIVE_INFINITY);
     await expect(running.length).toBe(0);
+    await expectStonesApart(canvasElement);
   },
 };
 
-/** Island growth: the sandbar and each ring, side by side. */
+const GROWTH_ROAD = [0, 12, 20, 45, 70];
+
+/** Island growth: the sandbar and each ring, each framed on its land so numerals stay readable. */
 export const Growth: Story = {
   parameters: { ui: { stage: 'padded' }, controls: { disable: true } },
   render: () => (
     <GallerySection title="Island growth (rings)">
-      <GalleryGrid col={360}>
+      <div style={{ display: 'grid', gap: 28, width: 'min(1100px, 100%)' }}>
         {SAMPLE_ISLAND.rings.map((ring, i) => (
           <GalleryCell
             key={plotKey(ring.plots[0] ?? [0, 0])}
-            name={i === 0 ? 'Sandbar (start)' : `Ring ${i + 1}`}
+            name={`${i === 0 ? 'Sandbar (start)' : `Ring ${i + 1}`} · road ${GROWTH_ROAD[i] ?? 0}`}
           >
             <IslandScene
               island={SAMPLE_ISLAND}
               ringsUnlocked={i + 1}
-              roadLength={[0, 12, 20, 45, 70][i] ?? 0}
-              size={360}
+              roadLength={GROWTH_ROAD[i] ?? 0}
+              crop={landCrop(SAMPLE_ISLAND, i + 1, 2.2)}
+              size="100%"
+              title={`Island with ${i + 1} ring${i === 0 ? '' : 's'}`}
             />
           </GalleryCell>
         ))}
-      </GalleryGrid>
+      </div>
     </GallerySection>
   ),
+  play: async ({ canvasElement }) => {
+    await expectStonesApart(canvasElement);
+    // ≥ 18 px at the 1440 px desktop capture; the test browser's narrower viewport gives ~15 px.
+    await expectStoneNumerals(canvasElement, 14);
+    await expectNoSidewaysScroll();
+  },
 };
 
 /** Terrain tiles and the two water tiles, by day and at sunset. */
@@ -325,9 +379,35 @@ export const RoadStones: Story = {
         if (b.left > a.left) await expect(Math.abs(a.bottom - b.bottom)).toBeLessThanOrEqual(1);
       }
     }
+    // `size` is the rendered width (ArtProps): a four-digit stone fits a 112 px slot.
     await expectNoSidewaysScroll();
   },
 };
+
+/** Sizing contract: `size` is the rendered width for every number of digits. */
+export const StoneSizing: Story = {
+  parameters: { ui: { stage: 'padded' }, controls: { disable: true } },
+  render: () => (
+    <GallerySection title="Stones at size 112 (a recipe-card slot)">
+      <GalleryGrid col={150}>
+        {[7, 42, 100, 1000].map((n) => (
+          <GalleryCell key={n} name={String(n)}>
+            <div data-slot style={{ width: 112 }}>
+              <RoadStone n={n} size={112} title={`Stone ${n}`} />
+            </div>
+          </GalleryCell>
+        ))}
+      </GalleryGrid>
+    </GallerySection>
+  ),
+  play: async ({ canvasElement }) => {
+    for (const svg of canvasElement.querySelectorAll('[data-slot] svg')) {
+      await expect(Math.round(svg.getBoundingClientRect().width)).toBe(112);
+    }
+  },
+};
+
+const CVD_CROP = landCrop(SAMPLE_ISLAND, 2, 1.7, 40);
 
 /**
  * 06 §7 colour-vision check: the stone states and plot markers under simulated CVD. States differ
@@ -336,24 +416,45 @@ export const RoadStones: Story = {
 export const ColourVision: Story = {
   parameters: { ui: { stage: 'padded' }, controls: { disable: true } },
   render: () => (
-    <CvdCompare col={300}>
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, justifyContent: 'center' }}>
-        {ROAD_STONE_STATES.map((s) => (
-          <RoadStone key={s} n={8} state={s} size={84} title={s} />
-        ))}
-      </div>
-      <IslandScene
-        island={SAMPLE_ISLAND}
-        ringsUnlocked={2}
-        roadLength={6}
-        counting={6}
-        plotMarkers={[
-          { plot: [4, 2], state: 'available' },
-          { plot: [8, 4], state: 'selected' },
-        ]}
-        size="100%"
-        style={{ marginTop: 8 }}
-      />
-    </CvdCompare>
+    <GallerySection title="Colour vision: road stones and plot markers">
+      <CvdCompare col={540}>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, justifyContent: 'center' }}>
+          {ROAD_STONE_STATES.map((s) => (
+            <RoadStone key={s} n={8} state={s} title={s} />
+          ))}
+        </div>
+        <IslandScene
+          island={SAMPLE_ISLAND}
+          ringsUnlocked={2}
+          roadLength={6}
+          counting={6}
+          plotMarkers={[
+            { plot: [5, 2], state: 'available' },
+            { plot: [6, 2], footprint: [2, 1], state: 'selected' },
+          ]}
+          crop={CVD_CROP}
+          size="100%"
+          style={{ marginTop: 8 }}
+          title="Road stones and plot markers"
+        />
+      </CvdCompare>
+    </GallerySection>
   ),
+  play: async ({ canvasElement }) => {
+    await expectStonesApart(canvasElement);
+    // ≥ 22 px in the 1440 px desktop capture; the test browser's narrower viewport gives ~20 px.
+    await expectStoneNumerals(canvasElement, 18);
+    // Cards wrap centred: the last row's cards sit symmetrically about the page centre.
+    const grid = canvasElement.querySelector('[data-cvd-grid]') as HTMLElement;
+    const cards = [...grid.querySelectorAll(':scope > figure')].map((c) =>
+      c.getBoundingClientRect(),
+    );
+    const lastTop = Math.max(...cards.map((c) => Math.round(c.top)));
+    const row = cards.filter((c) => Math.round(c.top) === lastTop);
+    const box = grid.getBoundingClientRect();
+    const left = Math.min(...row.map((c) => c.left)) - box.left;
+    const right = box.right - Math.max(...row.map((c) => c.right));
+    await expect(Math.abs(left - right)).toBeLessThanOrEqual(2);
+    await expectNoSidewaysScroll();
+  },
 };

@@ -42,5 +42,8 @@ All Number Island art is SVG React components, parameterised by state (05 §11).
 | `effects/` | sparkle, confetti, firefly, splash |
 | `gallery/` | story-only helpers and sample data (not exported) |
 
-GameData `art` ids (02 §5.8) resolve with `buildingArtFor`, `decorArtFor` and `materialArtFor`.
+GameData `art` ids (02 §5.8) are `<group>/<id>` and resolve with `buildingArtFor`, `decorArtFor`
+and `materialArtFor`; each group's map is keyed by the bare `<id>` (`buildingArt['road-crew']`).
+Road stones on the map are laid out by `planRoad`, which keeps every numbered stone's full extent
+(`stoneExtent`: rings, lift, flag, shadow) clear of every other.
 Anything that stands on the island is positioned with `plotBox(plot, footprint)` in scene units.

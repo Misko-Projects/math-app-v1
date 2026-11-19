@@ -40,16 +40,20 @@ export function GallerySection({ title, children }: { title: string; children: R
 
 /**
  * The same art under each simulated colour-vision deficiency (06 §7: verify with a CVD simulation
- * in Storybook). States must stay distinct in every column by shape, outline and position.
+ * in Storybook). States must stay distinct in every column by shape, outline and position. Cards
+ * wrap centred, so an odd last card sits in the middle, not alone at the left.
  */
 export function CvdCompare({ children, col = 260 }: { children: ReactNode; col?: number }) {
   return (
     <div
+      data-cvd-grid
       style={{
-        display: 'grid',
-        gridTemplateColumns: `repeat(auto-fill, minmax(${col}px, 1fr))`,
+        display: 'flex',
+        flexWrap: 'wrap',
+        justifyContent: 'center',
         gap: 20,
         width: 'min(1200px, 100%)',
+        margin: '0 auto',
       }}
     >
       <svg width="0" height="0" style={{ position: 'absolute' }} aria-hidden="true">
@@ -64,6 +68,9 @@ export function CvdCompare({ children, col = 260 }: { children: ReactNode; col?:
           key={f.id}
           className="story-cell"
           style={{
+            boxSizing: 'border-box',
+            flex: `0 1 ${col}px`,
+            minWidth: 0,
             margin: 0,
             padding: 16,
             borderRadius: 28,

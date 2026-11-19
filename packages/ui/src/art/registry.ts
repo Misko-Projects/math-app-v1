@@ -5,33 +5,44 @@ import { materialArt } from './materials';
 
 /**
  * Art lookup by GameData `art` id (02 §5.8: `materials[].art`, `buildings[].art`, `decor[].art`).
- * Ids are `<group>/<id>`: `building/road-crew`, `decor/shell-bench`, `material/plank`. Residents
- * have no art id: the Pebbling generator draws them from species, palette and number.
+ * GameData ids are `<group>/<id>` (`building/road-crew`, `decor/shell-bench`, `material/plank`);
+ * each group's map is keyed by the bare `<id>` (`buildingArt['road-crew']`). Residents have no art
+ * id: the Pebbling generator draws them from species, palette and number.
  */
 export type ArtGroup = 'building' | 'decor' | 'material';
 
 export function buildingArtFor(art: string): BuildingArt | undefined {
-  return lookup(buildingArt, 'building', art);
+  return lookupArt(buildingArt, 'building', art);
 }
 
 export function decorArtFor(art: string): ItemArt | undefined {
-  return lookup(decorArt, 'decor', art);
+  return lookupArt(decorArt, 'decor', art);
 }
 
 export function materialArtFor(art: string): ItemArt | undefined {
-  return lookup(materialArt, 'material', art);
+  return lookupArt(materialArt, 'material', art);
 }
 
-/** Every registered art id, by group (for coverage tests against the compiled game data). */
+/** Every registered GameData art id, by group (for coverage tests against the compiled data). */
 export function registeredArt(): Record<ArtGroup, string[]> {
   return {
-    building: Object.keys(buildingArt).map((k) => `building/${k}`),
-    decor: Object.keys(decorArt).map((k) => `decor/${k}`),
-    material: Object.keys(materialArt).map((k) => `material/${k}`),
+    building: artIds(buildingArt, 'building'),
+    decor: artIds(decorArt, 'decor'),
+    material: artIds(materialArt, 'material'),
   };
 }
 
-function lookup<T>(map: Readonly<Record<string, T>>, group: ArtGroup, art: string): T | undefined {
+/** The GameData art ids of one group's map (keys are bare ids). */
+export function artIds(map: Readonly<Record<string, unknown>>, group: ArtGroup): string[] {
+  return Object.keys(map).map((k) => `${group}/${k}`);
+}
+
+/** Resolve a GameData art id (`<group>/<id>`) in one group's map; undefined for other groups. */
+export function lookupArt<T>(
+  map: Readonly<Record<string, T>>,
+  group: ArtGroup,
+  art: string,
+): T | undefined {
   const prefix = `${group}/`;
   if (!art.startsWith(prefix)) return undefined;
   const id = art.slice(prefix.length);

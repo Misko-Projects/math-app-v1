@@ -26,8 +26,11 @@ export {
   gridToScene,
   HORIZON_Y,
   ISLAND_LAYOUT,
+  landCrop,
   landLoops,
   landPlots,
+  type OrganicOptions,
+  organicPath,
   type Point as ScenePoint,
   plotBox,
   plotCenter,
@@ -45,17 +48,32 @@ export {
 } from './island/geometry';
 export { IslandLand, type IslandLandProps } from './island/IslandLand';
 export { IslandScene, type IslandSceneProps, PARALLAX } from './island/IslandScene';
-export { COMPACT_GAP, NumberedRoad, type NumberedRoadProps } from './island/NumberedRoad';
+export { NumberedRoad, type NumberedRoadProps } from './island/NumberedRoad';
 export { PlotMarker, type PlotMarkerProps, type PlotMarkerState } from './island/PlotMarker';
 export {
+  ROAD_STONE_SCALE,
   ROAD_STONE_STATES,
   RoadStone,
   RoadStoneMark,
   type RoadStoneMarkProps,
   type RoadStoneProps,
   type RoadStoneState,
+  roadStoneBox,
+  type StoneExtent,
+  stoneExtent,
   stoneMetrics,
 } from './island/RoadStone';
+export {
+  boxesTouch,
+  fitScale,
+  MAP_STONE_SCALE,
+  MIN_STONE_SCALE,
+  type PlannedStone,
+  planRoad,
+  type RoadPlan,
+  type RoadPlanInput,
+  STONE_CLEARANCE,
+} from './island/roadPlan';
 export { Sea, type SeaProps } from './island/Sea';
 export { Cloud, Sky, type SkyProps } from './island/Sky';
 export {
@@ -67,8 +85,10 @@ export {
 export * from './materials';
 export {
   type ArtGroup,
+  artIds,
   buildingArtFor,
   decorArtFor,
+  lookupArt,
   materialArtFor,
   registeredArt,
 } from './registry';

@@ -379,17 +379,52 @@ export function roadLayout(road: IslandDef['road']): StonePlacement[] {
     run.ns.forEach((n, j) => {
       // Spread the run across the middle 60% of its plot, from the side the road enters.
       const t = m === 1 ? i : i - 0.3 + (0.6 * j) / (m - 1);
-      const p = t < 0 ? extrapolate(centres, t) : at(t);
+      // Before the first or past the last plot centre, continue along the end segment, so every
+      // stone of a shared end plot still gets its own position.
+      const last = centres.length - 1;
+      const p =
+        t < 0 ? extrapolate(centres, 0, t) : t > last ? extrapolate(centres, last, t) : at(t);
       out.push({ n, plot: run.plot, x: p.x, y: p.y });
     });
   });
   return out;
 }
 
-function extrapolate(centres: Point[], t: number): Point {
-  const a = centres[0] as Point;
-  const b = centres[1] ?? { x: a.x + 1, y: a.y };
-  return { x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t };
+/** A point on the line through centre `i` and its neighbour (inwards), at parameter t. */
+function extrapolate(centres: Point[], i: number, t: number): Point {
+  const a = centres[i] as Point;
+  const inward = i === 0 ? centres[1] : centres[i - 1];
+  const step = inward
+    ? { x: (i === 0 ? 1 : -1) * (inward.x - a.x), y: (i === 0 ? 1 : -1) * (inward.y - a.y) }
+    : { x: ISLAND_LAYOUT.cellW, y: 0 };
+  return { x: a.x + step.x * (t - i), y: a.y + step.y * (t - i) };
+}
+
+/**
+ * A scene box framing the land of the first `ringsUnlocked` rings with `pad` scene units of sea
+ * around it (and room for the halo), at the given aspect ratio (width / height), kept below the
+ * horizon. For zoomed views of the island (galleries, the hub's close-up).
+ */
+export function landCrop(
+  island: Pick<IslandDef, 'rings'>,
+  ringsUnlocked: number,
+  aspect = SCENE_W / SCENE_H,
+  pad = 70,
+): Box {
+  const plots = landPlots(island, ringsUnlocked);
+  if (plots.length === 0) return { x: 0, y: 0, w: SCENE_W, h: SCENE_H };
+  const xs = plots.map((p) => p[0]);
+  const ys = plots.map((p) => p[1]);
+  const a = gridToScene(Math.min(...xs), Math.min(...ys));
+  const b = gridToScene(Math.max(...xs) + 1, Math.max(...ys) + 1);
+  let w = b.x - a.x + 2 * pad;
+  let h = b.y - a.y + ISLAND_LAYOUT.lip + 2 * pad;
+  if (w / h < aspect) w = h * aspect;
+  else h = w / aspect;
+  const cx = (a.x + b.x) / 2;
+  const cy = (a.y + b.y + ISLAND_LAYOUT.lip) / 2;
+  const y = Math.max(HORIZON_Y, cy - h / 2);
+  return { x: cx - w / 2, y, w, h };
 }
 
 /** A smooth path through points (Catmull–Rom as cubic Béziers), for the road's trail. */

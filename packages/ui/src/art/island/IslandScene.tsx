@@ -1,17 +1,20 @@
 import type { IslandDef } from '@number-island/shared';
-import { type ReactNode, useMemo } from 'react';
+import { type ReactNode, useId, useMemo } from 'react';
 import { useReducedMotion } from '../../preferences/UiProvider';
 import type { ArtProps } from '../core/ArtSvg';
 import { ArtSvg } from '../core/ArtSvg';
-import { HORIZON_Y, landPlots, plotKey, SCENE_H, SCENE_W, terrainOf } from './geometry';
+import { type Box, HORIZON_Y, landPlots, plotKey, SCENE_H, SCENE_W, terrainOf } from './geometry';
 import { IslandLand } from './IslandLand';
 import { NumberedRoad } from './NumberedRoad';
 import { PlotMarker, type PlotMarkerProps } from './PlotMarker';
 import { Sea } from './Sea';
 import { Sky } from './Sky';
 
-/** How far each layer moves when the camera pans (1 = with the island). */
-export const PARALLAX = { sky: 0.12, seaFar: 0.35, seaNear: 0.65, island: 1 } as const;
+/**
+ * How far each moving layer travels when the camera pans (1 = with the island). The sky is the
+ * fixed backdrop and never moves, so it is always framed whole.
+ */
+export const PARALLAX = { seaFar: 0.35, seaNear: 0.65, island: 1 } as const;
 
 export interface IslandSceneProps extends Omit<ArtProps, 'lighting'> {
   /** GameData `island` (rings and road). */
@@ -25,17 +28,20 @@ export interface IslandSceneProps extends Omit<ArtProps, 'lighting'> {
   lighting?: 'day' | 'sunset';
   /** Camera pan in scene units (positive x looks further right). */
   camera?: { x: number; y: number };
-  /** Highlighted plots (building placement, 05 §6). */
+  /** Highlighted plots (building placement, 05 §6). Drawn on top of everything on the island. */
   plotMarkers?: readonly PlotMarkerProps[];
+  /** Show only this part of the scene (scene units), for example the land, zoomed in. */
+  crop?: Box;
   /** Things on the island (buildings, decor, residents), positioned with plotBox/plotCenter. */
   children?: ReactNode;
 }
 
 /**
  * The island map (05 §3): a gently tilted top-down 12 × 8 plot grid on a layered sea, with the sky
- * at the horizon, day or sunset lighting, the Numbered Road and whatever stands on the island. Sky
- * and sea layers move at different rates when the camera pans (parallax); under reduced motion
- * (06 §7) every layer moves together and the idle loops stop.
+ * at the horizon, day or sunset lighting, the Numbered Road and whatever stands on the island.
+ * When the camera pans, the far and near sea move at different rates (parallax) and the sky stays
+ * put. Everything below the horizon is clipped to the sea, so nothing ever crosses into the sky.
+ * Under reduced motion (06 §7) the sea moves together with the island and the idle loops stop.
  */
 export function IslandScene({
   island,
@@ -45,6 +51,7 @@ export function IslandScene({
   lighting = 'day',
   camera = { x: 0, y: 0 },
   plotMarkers = [],
+  crop,
   children,
   size,
   title,
@@ -52,17 +59,21 @@ export function IslandScene({
   style,
 }: IslandSceneProps) {
   const reduced = useReducedMotion();
+  const clip = `sea-clip-${useId()}`;
   const plots = useMemo(() => landPlots(island, ringsUnlocked), [island, ringsUnlocked]);
   const terrain = useMemo(() => terrainOf(island, ringsUnlocked), [island, ringsUnlocked]);
   const land = useMemo(() => new Set(plots.map(plotKey)), [plots]);
+  const marked = useMemo(() => plotMarkers.flatMap((m) => markerPlots(m)), [plotMarkers]);
   const f = (k: keyof typeof PARALLAX) => (reduced ? 1 : PARALLAX[k]);
   const shift = (k: keyof typeof PARALLAX) => ({ x: -camera.x * f(k), y: -camera.y * f(k) });
-  const sky = shift('sky');
   const isl = shift('island');
+  const view = crop ?? { x: 0, y: 0, w: SCENE_W, h: SCENE_H };
   return (
     <ArtSvg
-      width={SCENE_W}
-      height={SCENE_H}
+      width={view.w}
+      height={view.h}
+      originX={view.x}
+      originY={view.y}
       size={size}
       title={title}
       lighting={lighting}
@@ -70,29 +81,43 @@ export function IslandScene({
       style={{ overflow: 'hidden', ...style }}
       rootProps={{ 'data-scene': 'island', 'data-parallax': reduced ? 'off' : 'on' }}
     >
-      <g transform={`translate(${sky.x} ${sky.y})`}>
-        <Sky width={SCENE_W} horizon={HORIZON_Y} lighting={lighting} />
-      </g>
-      <Sea
-        width={SCENE_W}
-        top={HORIZON_Y + sky.y}
-        height={SCENE_H - HORIZON_Y}
-        far={shift('seaFar')}
-        near={shift('seaNear')}
-      />
-      <g data-layer="island" transform={`translate(${isl.x} ${isl.y})`}>
-        <IslandLand plots={plots} terrain={terrain} />
-        {plotMarkers.map((m) => (
-          <PlotMarker key={plotKey(m.plot)} {...m} />
-        ))}
-        <NumberedRoad
-          road={island.road}
-          roadLength={roadLength}
-          counting={counting}
-          onLand={(s) => land.has(plotKey(s.plot))}
+      <defs>
+        <clipPath id={clip}>
+          <rect x={-600} y={HORIZON_Y} width={SCENE_W + 1200} height={SCENE_H} />
+        </clipPath>
+      </defs>
+      <Sky width={SCENE_W} horizon={HORIZON_Y} lighting={lighting} />
+      <g clipPath={`url(#${clip})`}>
+        <Sea
+          width={SCENE_W}
+          top={HORIZON_Y}
+          height={SCENE_H - HORIZON_Y}
+          far={shift('seaFar')}
+          near={shift('seaNear')}
         />
-        {children}
+        <g data-layer="island" transform={`translate(${isl.x} ${isl.y})`}>
+          <IslandLand plots={plots} terrain={terrain} clearPlots={marked} />
+          <NumberedRoad
+            road={island.road}
+            roadLength={roadLength}
+            counting={counting}
+            onLand={(s) => land.has(plotKey(s.plot))}
+          />
+          {children}
+          {plotMarkers.map((m) => (
+            <PlotMarker key={plotKey(m.plot)} {...m} />
+          ))}
+        </g>
       </g>
     </ArtSvg>
   );
+}
+
+/** Every plot a marker covers (its footprint). */
+function markerPlots(m: PlotMarkerProps): string[] {
+  const [w, h] = m.footprint ?? [1, 1];
+  const out: string[] = [];
+  for (let dx = 0; dx < w; dx++)
+    for (let dy = 0; dy < h; dy++) out.push(`${m.plot[0] + dx},${m.plot[1] + dy}`);
+  return out;
 }

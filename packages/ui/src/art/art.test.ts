@@ -7,11 +7,14 @@ import { ART_CONTRAST_PAIRS, pairRatio } from './core/contrast';
 import { OUTLINE_OF } from './core/paint';
 import { SAMPLE_ISLAND, SAMPLE_PATH } from './gallery/sampleIsland';
 import {
+  HORIZON_Y,
   ISLAND_LAYOUT,
+  landCrop,
   landLoops,
   landPlots,
   plotBox,
   plotCenter,
+  plotKey,
   roadLayout,
   roundedPath,
   SCENE_H,
@@ -19,8 +22,189 @@ import {
   terrainOf,
   traceOutline,
 } from './island/geometry';
-import { stoneMetrics } from './island/RoadStone';
-import { buildingArtFor, decorArtFor, materialArtFor, registeredArt } from './registry';
+import { ROAD_STONE_SCALE, roadStoneBox, stoneExtent, stoneMetrics } from './island/RoadStone';
+import { boxesTouch, planRoad, STONE_CLEARANCE } from './island/roadPlan';
+import {
+  artIds,
+  buildingArtFor,
+  decorArtFor,
+  lookupArt,
+  materialArtFor,
+  registeredArt,
+} from './registry';
+
+describe('road plan: stones never touch (05 §3)', () => {
+  const ringSets = [2, 3, 4, SAMPLE_ISLAND.rings.length];
+  for (const rings of ringSets) {
+    it(`numbered stones stay clear for every road length 0–100 (${rings} rings)`, () => {
+      const land = new Set(landPlots(SAMPLE_ISLAND, rings).map(plotKey));
+      const onLand = (s: { plot: Plot }) => land.has(plotKey(s.plot));
+      for (let roadLength = 0; roadLength <= 100; roadLength++) {
+        const countings = [null, roadLength, roadLength - 1, roadLength - (roadLength % 10), 1];
+        for (const c of countings) {
+          const counting = c !== null && c >= 1 && c <= roadLength ? c : null;
+          const plan = planRoad({ road: SAMPLE_ISLAND.road, roadLength, counting, onLand });
+          const where = `roadLength ${roadLength}, counting ${counting}, rings ${rings}`;
+          for (let i = 0; i < plan.numbered.length; i++) {
+            for (let j = i + 1; j < plan.numbered.length; j++) {
+              const a = plan.numbered[i];
+              const b = plan.numbered[j];
+              if (!a || !b) continue;
+              expect(
+                boxesTouch(a.box, b.box, STONE_CLEARANCE - 0.01),
+                `${where}: stones ${a.n} and ${b.n} touch`,
+              ).toBe(false);
+            }
+          }
+          const numbered = new Set(plan.numbered.map((s) => s.n));
+          const shown = roadLayout(SAMPLE_ISLAND.road).filter(
+            (s) => onLand(s) && s.n <= roadLength + 1,
+          );
+          const isShown = (n: number) => shown.some((s) => s.n === n);
+          // The next stone always shows its numeral, except that it may yield to the counted
+          // stone right beside it while counting runs.
+          if (isShown(roadLength + 1) && counting === null) {
+            expect(numbered.has(roadLength + 1), `${where}: next missing`).toBe(true);
+          }
+          if (counting !== null && isShown(counting)) {
+            expect(numbered.has(counting), `${where}: counting missing`).toBe(true);
+          }
+          // Stone 1 and the tens always keep their numerals on the sample road.
+          for (const n of [1, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100]) {
+            if (!isShown(n) || n === roadLength + 1 || n === counting) continue;
+            const near = plan.numbered.some(
+              (k) => (k.n === counting || k.n === roadLength + 1) && Math.abs(k.n - n) <= 1,
+            );
+            if (!near) expect(numbered.has(n), `${where}: landmark ${n} missing`).toBe(true);
+          }
+          for (const p of plan.pebbles) expect(numbered.has(p.n)).toBe(false);
+          for (let i = 0; i < plan.pebbles.length; i++) {
+            for (let j = i + 1; j < plan.pebbles.length; j++) {
+              const a = plan.pebbles[i];
+              const b = plan.pebbles[j];
+              if (!a || !b) continue;
+              // Pebble boxes are 18 × 15 with 2 units between them.
+              const apart = Math.abs(a.x - b.x) >= 20 || Math.abs(a.y - b.y) >= 17;
+              expect(apart, `${where}: pebbles ${a.n} and ${b.n} pile up`).toBe(true);
+            }
+          }
+        }
+      }
+    });
+  }
+
+  it('numbers every stone on a roomy road (one stone per plot)', () => {
+    const land = new Set(landPlots(SAMPLE_ISLAND, 3).map(plotKey));
+    const plan = planRoad({
+      road: SAMPLE_ISLAND.road,
+      roadLength: 20,
+      counting: 12,
+      onLand: (s) => land.has(plotKey(s.plot)),
+    });
+    expect(plan.compact).toBe(false);
+    expect(plan.numbered.map((s) => s.n).sort((a, b) => a - b)).toEqual(
+      Array.from({ length: 21 }, (_, i) => i + 1),
+    );
+  });
+
+  it('keeps every numeral on the roomy stretch when only the far end is crowded', () => {
+    const land = new Set(landPlots(SAMPLE_ISLAND, 4).map(plotKey));
+    const plan = planRoad({
+      road: SAMPLE_ISLAND.road,
+      roadLength: 45,
+      onLand: (s) => land.has(plotKey(s.plot)),
+    });
+    expect(plan.compact).toBe(true);
+    const numbered = new Set(plan.numbered.map((s) => s.n));
+    // Sample stones 1–40 have a plot each; 41 onwards share plots three to a plot.
+    for (let n = 1; n <= 39; n++) expect(numbered.has(n), `stone ${n}`).toBe(true);
+    // 40 is a landmark and 46 the next stone; 45 sits right beside 46, so it may yield to it.
+    for (const n of [40, 46]) expect(numbered.has(n), `stone ${n}`).toBe(true);
+  });
+
+  it('gives every stone, including a shared last plot, its own position', () => {
+    const stones = roadLayout(SAMPLE_ISLAND.road);
+    const keys = new Set(stones.map((s) => `${s.x.toFixed(2)},${s.y.toFixed(2)}`));
+    expect(keys.size).toBe(stones.length);
+    const single = roadLayout([
+      { n: 1, plot: [3, 3] },
+      { n: 2, plot: [3, 3] },
+    ]);
+    expect(single[0]?.x).not.toBe(single[1]?.x);
+  });
+
+  it('counts the next ring at its pulse peak and the ten-flag in a stone extent', () => {
+    const laid = stoneExtent(12, 'laid');
+    const next = stoneExtent(12, 'next');
+    const ten = stoneExtent(20, 'laid');
+    expect(next.right).toBeGreaterThan(laid.right);
+    expect(next.top).toBeLessThan(laid.top);
+    expect(ten.top).toBeLessThan(stoneExtent(21, 'laid').top);
+  });
+});
+
+describe('standalone road stone sizing', () => {
+  it('renders every numeral ≥ 32 px at the default scale (05 §11)', () => {
+    for (const n of [1, 7, 10, 85, 100, 999, 1000]) {
+      expect(stoneMetrics(n).font * ROAD_STONE_SCALE, String(n)).toBeGreaterThanOrEqual(32);
+    }
+  });
+
+  it('frames every state in one viewBox, so a state change never moves the stone', () => {
+    for (const n of [7, 10, 1000]) {
+      const box = roadStoneBox(n);
+      for (const s of ['laid', 'next', 'counting', 'planned'] as const) {
+        const e = stoneExtent(n, s);
+        const eps = 1e-9;
+        expect(e.left).toBeGreaterThanOrEqual(box.x - eps);
+        expect(e.top).toBeGreaterThanOrEqual(box.y - eps);
+        expect(e.right).toBeLessThanOrEqual(box.x + box.w + eps);
+        expect(e.bottom).toBeLessThanOrEqual(box.y + box.h + eps);
+      }
+    }
+  });
+});
+
+describe('reduced motion stops every art loop (06 §7)', () => {
+  it('lists every animated art-* class under both the OS setting and data-reduced-motion', () => {
+    const css = readFileSync(fileURLToPath(new URL('./art.css', import.meta.url)), 'utf8');
+    const animated = [...css.matchAll(/\.(art-[\w-]+)\s*\{\s*animation:\s*art-/g)].map((m) => m[1]);
+    expect(animated.length).toBeGreaterThanOrEqual(7);
+    const media =
+      /@media \(prefers-reduced-motion: reduce\)\s*\{([\s\S]*?)\n\}/.exec(css)?.[1] ?? '';
+    for (const cls of animated) {
+      expect(media, `${cls} under prefers-reduced-motion`).toContain(`.${cls}`);
+      expect(css, `${cls} under data-reduced-motion`).toContain(
+        `[data-reduced-motion="true"] .${cls}`,
+      );
+    }
+  });
+});
+
+describe('motion keeps meaningful marks at full contrast (06 §7)', () => {
+  it('the next-stone ring pulses by size only, never by opacity', () => {
+    const css = readFileSync(fileURLToPath(new URL('./art.css', import.meta.url)), 'utf8');
+    const ring = /@keyframes art-ring\s*\{([\s\S]*?)\n\}/.exec(css)?.[1] ?? '';
+    // The peak matches the room the road plan reserves (RoadStone NEXT_RING.pulse).
+    expect(ring).toContain('scale(1.05)');
+    expect(ring).not.toContain('opacity');
+  });
+});
+
+describe('land crop', () => {
+  it('frames the land below the horizon at the requested aspect', () => {
+    for (let rings = 1; rings <= SAMPLE_ISLAND.rings.length; rings++) {
+      const c = landCrop(SAMPLE_ISLAND, rings, 16 / 9);
+      expect(c.y).toBeGreaterThanOrEqual(HORIZON_Y);
+      expect(c.w / c.h).toBeCloseTo(16 / 9, 5);
+      for (const p of landPlots(SAMPLE_ISLAND, rings)) {
+        const b = plotBox(p);
+        expect(b.x).toBeGreaterThanOrEqual(c.x);
+        expect(b.x + b.w).toBeLessThanOrEqual(c.x + c.w);
+      }
+    }
+  });
+});
 
 describe('art palette (05 §11)', () => {
   it('outlines every fill with a palette colour, never the fill itself (except ink)', () => {
@@ -177,5 +361,13 @@ describe('art registry', () => {
     expect(materialArtFor('plank')).toBeUndefined();
     const all = registeredArt();
     expect(Object.keys(all).sort()).toEqual(['building', 'decor', 'material']);
+  });
+
+  it('round-trips a GameData art id through a map keyed by bare id', () => {
+    const map = { 'road-crew': 'art' };
+    expect(lookupArt(map, 'building', 'building/road-crew')).toBe('art');
+    expect(lookupArt(map, 'decor', 'building/road-crew')).toBeUndefined();
+    expect(artIds(map, 'building')).toEqual(['building/road-crew']);
+    for (const id of artIds(map, 'building')) expect(lookupArt(map, 'building', id)).toBe('art');
   });
 });

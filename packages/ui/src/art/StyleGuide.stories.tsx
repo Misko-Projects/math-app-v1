@@ -77,7 +77,10 @@ const ART_FILLS: PaletteColor[] = [
 function FillSwatch({ fill }: { fill: PaletteColor }) {
   const edge = OUTLINE_OF[fill];
   return (
-    <figure style={{ margin: 0, display: 'grid', gap: 6, justifyItems: 'center', width: 112 }}>
+    <figure
+      data-swatch={fill}
+      style={{ margin: 0, display: 'grid', gap: 6, justifyItems: 'center', width: 138 }}
+    >
       <ArtSvg width={96} height={72} size={96}>
         <ContactShadow cx={48} cy={64} rx={34} ry={6} />
         <rect
@@ -92,10 +95,11 @@ function FillSwatch({ fill }: { fill: PaletteColor }) {
         />
         <Highlight d="M20 26q2 -10 14 -10h10q-14 2 -16 12z" />
       </ArtSvg>
-      <figcaption style={{ fontSize: 14, textAlign: 'center' }}>
+      {/* One token per line, never broken (nowrap): the fill, then its outline. */}
+      <figcaption style={{ fontSize: 14, textAlign: 'center', whiteSpace: 'nowrap' }}>
         <strong>{fill}</strong>
         <br />
-        outline {edge}
+        <span style={{ color: 'var(--color-ink-soft)' }}>↳ {edge}</span>
       </figcaption>
     </figure>
   );
@@ -168,9 +172,18 @@ function ContrastTable() {
 function LightingStrip({ lighting }: { lighting: Lighting }) {
   const names = Object.keys(SUNSET_PALETTE) as (keyof typeof SUNSET_PALETTE)[];
   return (
-    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }} data-lighting={lighting}>
+    // A balanced grid: 14 swatches as two full rows of 7, never a lone orphan.
+    <div
+      style={{
+        display: 'grid',
+        gridTemplateColumns: `repeat(${Math.ceil(names.length / 2)}, minmax(0, 1fr))`,
+        gap: 8,
+      }}
+      data-lighting={lighting}
+      data-strip={lighting}
+    >
       {names.map((n) => (
-        <div key={n} style={{ display: 'grid', gap: 4, width: 76, fontSize: 12 }}>
+        <div key={n} style={{ display: 'grid', gap: 4, fontSize: 13, whiteSpace: 'nowrap' }}>
           <div
             style={{
               height: 44,
@@ -188,16 +201,17 @@ function LightingStrip({ lighting }: { lighting: Lighting }) {
 
 const MOTION_ROWS: [string, string][] = [
   ['Sea', 'Wave rows drift slowly in opposite directions; glints sparkle; the foam line breathes.'],
-  ['Sky', 'Clouds drift.'],
+  ['Sky', 'Clouds drift. The sky is the fixed backdrop: it never moves when the camera pans.'],
+  ['Parallax', 'When the camera pans, the far sea lags behind the near sea and the island.'],
   [
     'Road',
-    'The next stone hops inside a pulsing dashed ring; the counted stone lifts and sparkles.',
+    'The next stone hops inside a dashed ring that pulses in size (never fading); the counted stone lifts and sparkles.',
   ],
   ['Flags and smoke', 'Flags flutter (--animate-flutter); chimneys puff (--animate-smoke).'],
   ['Characters', 'Idle bob, blink and sway (--animate-bob, --animate-blink, --animate-sway).'],
   [
     'Reduced motion (06 §7)',
-    'Every loop stops, parallax is off (all layers move together) and transitions become ≤ 150 ms fades.',
+    'Every loop stops, parallax is off (the sea moves together with the island) and transitions become ≤ 150 ms fades.',
   ],
 ];
 
@@ -338,6 +352,21 @@ export const StyleGuide: Story = {
       }
     }
     await expect(canvasElement.querySelectorAll('[data-pair]').length).toBe(ART_PAIRS.length);
+    // Swatch captions are exactly two unbroken lines (fill, outline), never cut mid-token.
+    for (const cap of canvasElement.querySelectorAll<HTMLElement>('[data-swatch] figcaption')) {
+      const line = Number.parseFloat(getComputedStyle(cap).lineHeight) || 21;
+      await expect(Math.round(cap.getBoundingClientRect().height / line)).toBe(2);
+      await expect(cap.scrollWidth).toBeLessThanOrEqual(cap.closest('figure')?.clientWidth ?? 0);
+    }
+    // Lighting strips are balanced: equal full rows, no orphan swatch.
+    for (const strip of canvasElement.querySelectorAll<HTMLElement>('[data-strip]')) {
+      const rows = new Map<number, number>();
+      for (const c of strip.children) {
+        const top = Math.round(c.getBoundingClientRect().top);
+        rows.set(top, (rows.get(top) ?? 0) + 1);
+      }
+      await expect(new Set(rows.values()).size).toBe(1);
+    }
     await expect(document.documentElement.scrollWidth).toBeLessThanOrEqual(window.innerWidth);
   },
 };

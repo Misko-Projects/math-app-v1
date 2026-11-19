@@ -26,6 +26,59 @@ export function stoneMetrics(n: number) {
   return { w, h, font, ten, hundred: n > 0 && n % 100 === 0 };
 }
 
+/** Next-stone ring: its radii beyond the stone, and how far its pulse scales it. */
+const NEXT_RING = { dx: 10, dy: 9, pulse: 1.05 } as const;
+/** Counting ring radii beyond the stone, and the counted stone's lift. */
+const COUNT_RING = { dx: 9, dy: 8, lift: 5 } as const;
+/** Ten-flag pole height above the stone's top. */
+const FLAG_POLE = 14;
+/** The counting sparkle's centre, relative to the stone's left edge and top. */
+const SPARKLE_DX = -6;
+const SPARKLE_DY = 3;
+
+export interface StoneExtent {
+  left: number;
+  right: number;
+  top: number;
+  bottom: number;
+}
+
+/**
+ * Everything a stone draws, relative to its centre at design size: the stone, its contact shadow,
+ * the next-stone ring at the peak of its pulse, the counting ring, lift and sparkle, and the
+ * ten-flag. The road uses it so that no two numbered stones ever touch (05 §3).
+ */
+export function stoneExtent(n: number, state: RoadStoneState): StoneExtent {
+  const m = stoneMetrics(n);
+  const rx = m.w / 2;
+  const ry = m.h / 2;
+  let left = -rx - 2;
+  let right = rx + 2;
+  let top = -ry - 2;
+  let bottom = ry + 12; // contact shadow
+  if (state === 'next') {
+    const ex = (rx + NEXT_RING.dx) * NEXT_RING.pulse + 2;
+    const ey = (ry + NEXT_RING.dy) * NEXT_RING.pulse + 2;
+    left = Math.min(left, -ex);
+    right = Math.max(right, ex);
+    top = Math.min(top, 2 - ey - 5); // the stone hops 5 inside its ring
+    bottom = Math.max(bottom, 2 + ey);
+  }
+  const lift = state === 'counting' ? COUNT_RING.lift : 0;
+  if (state === 'counting') {
+    // The ring, and the sparkle on the left side (within the ring's height).
+    left = Math.min(left, -rx - COUNT_RING.dx - 2, -rx + SPARKLE_DX - 12);
+    right = Math.max(right, rx + COUNT_RING.dx + 2);
+    top = Math.min(top, -lift - ry - COUNT_RING.dy - 2);
+    bottom = Math.max(bottom, -lift + ry + COUNT_RING.dy + 3);
+  }
+  if (m.ten) {
+    right = Math.max(right, rx - 6 + 21);
+    top = Math.min(top, -lift - ry + 2 - FLAG_POLE - 2);
+  }
+  return { left, right, top, bottom };
+}
+
 export interface RoadStoneMarkProps {
   n: number;
   state?: RoadStoneState;
@@ -40,7 +93,7 @@ export function RoadStoneMark({ n, state = 'laid', x = 0, y = 0 }: RoadStoneMark
   const rx = m.w / 2;
   const ry = m.h / 2;
   const planned = state === 'planned';
-  const lifted = state === 'counting' ? -7 : 0;
+  const lifted = state === 'counting' ? -COUNT_RING.lift : 0;
   // A slightly irregular pebble: a rounded blob around an ellipse (no two stones look stamped).
   const wobble = ((n * 37) % 7) - 3;
   const top = `M${-rx} ${0}C${-rx} ${-ry - 2 + wobble * 0.3} ${-rx * 0.35} ${-ry - 1} ${0} ${-ry}C${rx * 0.45} ${-ry + 1} ${rx} ${-ry * 0.8 - wobble * 0.3} ${rx} ${0}C${rx} ${ry * 0.85} ${rx * 0.4} ${ry + 1} ${0} ${ry}C${-rx * 0.45} ${ry} ${-rx} ${ry * 0.8} ${-rx} ${0}Z`;
@@ -57,8 +110,8 @@ export function RoadStoneMark({ n, state = 'laid', x = 0, y = 0 }: RoadStoneMark
           className="motion-loop art-loop art-ring"
           cx={0}
           cy={2}
-          rx={rx + 10}
-          ry={ry + 9}
+          rx={rx + NEXT_RING.dx}
+          ry={ry + NEXT_RING.dy}
           fill="none"
           stroke={paint('ink')}
           strokeWidth={4}
@@ -72,8 +125,8 @@ export function RoadStoneMark({ n, state = 'laid', x = 0, y = 0 }: RoadStoneMark
             <ellipse
               cx={0}
               cy={1}
-              rx={rx + 9}
-              ry={ry + 8}
+              rx={rx + COUNT_RING.dx}
+              ry={ry + COUNT_RING.dy}
               fill={paint('sunshine-light')}
               stroke={paint('ink')}
               strokeWidth={4}
@@ -120,8 +173,9 @@ export function RoadStoneMark({ n, state = 'laid', x = 0, y = 0 }: RoadStoneMark
             {n}
           </text>
           {m.ten ? <TenFlag x={rx - 6} y={-ry + 2} hundred={m.hundred} /> : null}
-          {/* Top-left, so it never meets the ten flag on the top-right. */}
-          {state === 'counting' ? <Sparkle x={-rx - 2} y={-ry - 6} /> : null}
+          {/* On the left side, inside the ring's height: clear of the ten flag (top-right) and of
+              the stone in the row above. */}
+          {state === 'counting' ? <Sparkle x={-rx + SPARKLE_DX} y={-ry + SPARKLE_DY} /> : null}
         </g>
       </g>
     </g>
@@ -133,11 +187,11 @@ function TenFlag({ x, y, hundred }: { x: number; y: number; hundred: boolean }) 
   return (
     <g transform={`translate(${x} ${y})`} data-part="ten-flag">
       {/* Ink pole and dark outlines keep the flag ≥ 3:1 on sand and grass (06 §7). */}
-      <path d="M0 4V-30" stroke={paint('ink')} strokeWidth={3} strokeLinecap="round" />
+      <path d={`M0 4V-${FLAG_POLE}`} stroke={paint('ink')} strokeWidth={3} strokeLinecap="round" />
       <path
         className="motion-loop art-loop"
         style={{ animation: 'var(--animate-flutter)', transformOrigin: '0 0' }}
-        d={hundred ? 'M1 -30l22 6l-22 7z' : 'M1 -30l18 5l-18 6z'}
+        d={hundred ? `M1 -${FLAG_POLE}l20 6l-20 7z` : `M1 -${FLAG_POLE}l17 5l-17 6z`}
         fill={paint(hundred ? 'coral' : 'leaf')}
         stroke={paint('ink')}
         strokeWidth={2.5}
@@ -145,8 +199,8 @@ function TenFlag({ x, y, hundred }: { x: number; y: number; hundred: boolean }) 
       />
       {hundred ? (
         <circle
-          cx={9}
-          cy={-23.5}
+          cx={8.5}
+          cy={-FLAG_POLE + 6.5}
           r={2.8}
           fill={paint('cloud')}
           stroke={paint('ink')}
@@ -176,31 +230,34 @@ export interface RoadStoneProps extends ArtProps {
   state?: RoadStoneState;
 }
 
+/** Standalone stones render at this many CSS px per design unit unless `size` is given. */
+export const ROAD_STONE_SCALE = 1.4;
+
+/** The standalone stone's viewBox: everything any state draws, so a state change never jumps. */
+export function roadStoneBox(n: number) {
+  const all = ROAD_STONE_STATES.map((s) => stoneExtent(n, s));
+  const left = Math.min(...all.map((e) => e.left));
+  const right = Math.max(...all.map((e) => e.right));
+  const top = Math.min(...all.map((e) => e.top));
+  const bottom = Math.max(...all.map((e) => e.bottom));
+  return { x: left, y: top, w: right - left, h: bottom - top };
+}
+
 /**
  * One numbered stepping stone as a standalone piece, for the Road Crew workshop, recipe cards and
- * the gallery. At its default 112 px width the numeral is ≥ 32 px (05 §11).
+ * the gallery. `size` is the rendered width (ArtProps). Without it the stone renders at
+ * ROAD_STONE_SCALE, where every numeral, 1 to 1000, is ≥ 32 px (05 §11), and wider numbers make a
+ * wider stone.
  */
-export function RoadStone({
-  n,
-  state = 'laid',
-  size = 112,
-  title,
-  lighting,
-  ...rest
-}: RoadStoneProps) {
-  const m = stoneMetrics(n);
-  const padX = 14;
-  const padTop = m.ten ? 44 : 22;
-  const w = m.w + 2 * padX + (m.ten ? 14 : 0);
-  const h = m.h + padTop + 22;
-  const scaledSize = typeof size === 'number' ? (size * w) / (52 + 2 * padX) : size;
+export function RoadStone({ n, state = 'laid', size, title, lighting, ...rest }: RoadStoneProps) {
+  const box = roadStoneBox(n);
   return (
     <ArtSvg
-      width={w}
-      height={h}
-      originX={-w / 2}
-      originY={-m.h / 2 - padTop}
-      size={scaledSize}
+      width={box.w}
+      height={box.h}
+      originX={box.x}
+      originY={box.y}
+      size={size ?? Math.round(box.w * ROAD_STONE_SCALE)}
       title={title}
       lighting={lighting}
       {...rest}
