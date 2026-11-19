@@ -10,6 +10,7 @@ import {
   entrySize,
   overflow,
   type Size,
+  withInviteRoom,
 } from '../kit';
 
 /**
@@ -200,13 +201,15 @@ function bestOf<T>(
 function bestAsk(input: PlanInput, room: Size): { item: AskPlan; over: number } {
   const max = input.askMax ?? 0;
   function* all(): Generator<AskPlan> {
-    // The picture only where its counters stay ≥ 32 px; else none (Back returns to it).
-    for (const group of entryGroups(max))
-      for (const view of [...VIEW_CELLS, 0])
-        for (const entry of group)
-          for (const arrangement of ASK_ARRANGEMENTS)
-            for (const act of ['row', 'column'] as const)
-              if (entry) yield { arrangement, view, entry, act };
+    // A legible picture (counters ≥ 32 px) with any answer control first; only then none
+    // (Back returns to the frames).
+    for (const views of [VIEW_CELLS, [0]])
+      for (const group of entryGroups(max))
+        for (const view of views)
+          for (const entry of group)
+            for (const arrangement of ASK_ARRANGEMENTS)
+              for (const act of ['row', 'column'] as const)
+                if (entry) yield { arrangement, view, entry, act };
   }
   return bestOf(all(), (a) => askSize(input, a), room);
 }
@@ -218,7 +221,9 @@ export function planFor(input: PlanInput, room: Size): Plan {
   let best: { plan: Plan; over: number } | null = null;
   for (const paged of pagings) {
     for (const steps of stepping) {
-      const ask = steps ? bestAsk(input, room) : null;
+      // The answer step: room for the invite hand below its bottom row where a layout allows.
+      const roomy = steps ? bestAsk(input, withInviteRoom(room)) : null;
+      const ask = steps ? (roomy?.over === 0 ? roomy : bestAsk(input, room)) : null;
       const build = bestOf(buildCandidates(input, steps), (b) => buildSize(input, paged, b), room);
       const over = build.over + (ask?.over ?? 0);
       const plan: Plan = { paged, steps, build: build.item, ask: ask?.item ?? null };

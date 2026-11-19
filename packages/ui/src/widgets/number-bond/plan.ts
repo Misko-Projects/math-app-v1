@@ -10,6 +10,7 @@ import {
   entrySize,
   overflow,
   type Size,
+  withInviteRoom,
 } from '../kit';
 import { poolColumns } from './bond';
 
@@ -213,29 +214,35 @@ export function planBond(input: BondInput, room: Size): BondPlan {
     }
     if (build?.over === 0) break;
   }
-  let ask: { a: NonNullable<BondPlan['ask']>; over: number } | null = null;
-  const mini = bondSize(miniC(input.biggest));
-  outer: for (const group of entryGroups(input.askMax)) {
-    for (const withMini of [true, false]) {
-      for (const entry of group) {
-        if (!entry) continue;
-        for (const arrangement of ASK_ARRANGEMENTS) {
-          for (const dir of ['row', 'column'] as const) {
-            const size = arrangedSize(
-              arrangement,
-              withMini ? mini : null,
-              [entrySize(input.askMax, entry, input.ageMode), act(input.button, 2, dir)],
-              LAYOUT_GAP,
-            );
-            const over = overflow(size, room);
-            if (!ask || over < ask.over)
-              ask = { a: { arrangement, mini: withMini, entry, act: dir }, over };
-            if (over === 0) break outer;
+  const findAsk = (r: Size) => {
+    let ask: { a: NonNullable<BondPlan['ask']>; over: number } | null = null;
+    const mini = bondSize(miniC(input.biggest));
+    // The bond (it is the question, numerals ≥ 32 px) with any answer control first; only then none.
+    outer: for (const withMini of [true, false])
+      for (const group of entryGroups(input.askMax)) {
+        for (const entry of group) {
+          if (!entry) continue;
+          for (const arrangement of ASK_ARRANGEMENTS) {
+            for (const dir of ['row', 'column'] as const) {
+              const size = arrangedSize(
+                arrangement,
+                withMini ? mini : null,
+                [entrySize(input.askMax ?? 0, entry, input.ageMode), act(input.button, 2, dir)],
+                LAYOUT_GAP,
+              );
+              const over = overflow(size, r);
+              if (!ask || over < ask.over)
+                ask = { a: { arrangement, mini: withMini, entry, act: dir }, over };
+              if (over === 0) break outer;
+            }
           }
         }
       }
-    }
-  }
+    return ask;
+  };
+  // Room for the invite hand below the answer's bottom row where a layout allows.
+  const roomy = findAsk(withInviteRoom(room));
+  const ask = roomy?.over === 0 ? roomy : findAsk(room);
   if (!build || !ask) return (best as unknown as { plan: BondPlan }).plan;
   const plan: BondPlan = {
     steps: true,

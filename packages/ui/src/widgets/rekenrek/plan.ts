@@ -10,6 +10,7 @@ import {
   entrySize,
   overflow,
   type Size,
+  withInviteRoom,
 } from '../kit';
 import { ROW_SLOTS } from './beads';
 
@@ -116,27 +117,36 @@ export function planRack(input: RackInput, room: Size): RackPlan {
     }
     if (build?.over === 0) break;
   }
-  let ask: { a: NonNullable<RackPlan['ask']>; over: number } | null = null;
-  outer: for (const group of entryGroups(input.askMax)) {
-    for (const bead of [...VIEW_BEADS, 0]) {
-      for (const entry of group) {
-        if (!entry) continue;
-        for (const arrangement of ASK_ARRANGEMENTS) {
-          for (const dir of ['row', 'column'] as const) {
-            const size = arrangedSize(
-              arrangement,
-              bead > 0 ? rackSize(bead, input.rows, Math.round(bead * 1.3), true) : null,
-              [entrySize(input.askMax, entry, input.ageMode), act(input.button, 2, dir)],
-              LAYOUT_GAP,
-            );
-            const over = overflow(size, room);
-            if (!ask || over < ask.over) ask = { a: { arrangement, bead, entry, act: dir }, over };
-            if (over === 0) break outer;
+  const findAsk = (r: Size) => {
+    let ask: { a: NonNullable<RackPlan['ask']>; over: number } | null = null;
+    // A legible picture (beads ≥ 32 px) with any answer control first; only then none.
+    outer: for (const beads of [VIEW_BEADS, [0]])
+      for (const group of entryGroups(input.askMax)) {
+        for (const bead of beads) {
+          for (const entry of group) {
+            if (!entry) continue;
+            for (const arrangement of ASK_ARRANGEMENTS) {
+              for (const dir of ['row', 'column'] as const) {
+                const size = arrangedSize(
+                  arrangement,
+                  bead > 0 ? rackSize(bead, input.rows, Math.round(bead * 1.3), true) : null,
+                  [entrySize(input.askMax ?? 0, entry, input.ageMode), act(input.button, 2, dir)],
+                  LAYOUT_GAP,
+                );
+                const over = overflow(size, r);
+                if (!ask || over < ask.over)
+                  ask = { a: { arrangement, bead, entry, act: dir }, over };
+                if (over === 0) break outer;
+              }
+            }
           }
         }
       }
-    }
-  }
+    return ask;
+  };
+  // Room for the invite hand below the answer's bottom row where a layout allows.
+  const roomy = findAsk(withInviteRoom(room));
+  const ask = roomy?.over === 0 ? roomy : findAsk(room);
   if (!build || !ask) return b.plan;
   const plan: RackPlan = {
     steps: true,

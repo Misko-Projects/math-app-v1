@@ -53,6 +53,17 @@ export function arrangedSize(
   return arrangement === 'row' || arrangement === 'side' ? inRow(parts, gap) : inColumn(parts, gap);
 }
 
+/**
+ * Room a demo invite needs below its control at the bottom of the widget: Pip's hand hangs below
+ * the control (kit `useInviteHand`), its tip just inside it: about 47 px of hand plus its 8 px bob
+ * and 10 px edge, less the ~21 px a tray already has under its last row. Answer steps first look
+ * for a layout that leaves this, so an invited card in the bottom row does not make it scroll.
+ */
+export const INVITE_ROOM_PX = 45;
+
+/** `room` less the invite hand's room below the widget's content. */
+export const withInviteRoom = (room: Size): Size => ({ w: room.w, h: room.h - INVITE_ROOM_PX });
+
 /** How far `size` overflows `room` (0 when it fits; sub-pixel slack for rounding). */
 export function overflow(size: Size, room: Size): number {
   return Math.max(0, size.w - room.w - 0.5) + Math.max(0, size.h - room.h - 0.5);
@@ -90,8 +101,11 @@ const trayRowPx = (targetMin: number, gap: number) => numeralCardH(targetMin) + 
  * and tall, or its content when taller (the 48 px numeral, 2 × 4 px padding, 2 × 3 px border).
  */
 export const compactCardH = (targetMin: number) => Math.max(targetMin, 48 * 1.12 + 8 + 6);
-/** The compact tray panel: 12 px top padding, none below (the cards' own margin), 3 px borders. */
-const COMPACT_PANEL_EDGES_Y = 12 + 0 + 2 * 3;
+/**
+ * The compact tray panel: 3 px top padding (a picked card's check badge may stand over the panel's top
+ * edge, like a sticker), none below (the cards' own margin holds the ledge), 3 px borders.
+ */
+const COMPACT_PANEL_EDGES_Y = 3 + 0 + 2 * 3;
 /** The tray panel's top and bottom padding (18 + 6) plus its 3 px borders. */
 const TRAY_PANEL_EDGES_Y = 18 + 6 + 2 * 3;
 

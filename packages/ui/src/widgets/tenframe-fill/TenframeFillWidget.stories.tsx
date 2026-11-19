@@ -731,3 +731,30 @@ export const AreaLandscapeMinAskK: Story = {
     await expectFits(canvasElement, 'k');
   },
 };
+
+const teenInvite: WidgetDemo = createDemoController({ strict: true });
+
+/**
+ * CPS.04.t1 in K at 960 × 600: an answer invite on a bottom-row card (17) in the answer step. The
+ * ring, Pip's hand and the whole widget stay inside the area (no scroll).
+ */
+export const AreaInviteTeenK: Story = {
+  globals: { ageMode: 'k' },
+  args: { config: teen14, demo: teenInvite },
+  render: inArea('landscapeMin'),
+  play: async ({ canvasElement }) => {
+    const root = await expectFits(canvasElement, 'k');
+    if (root.dataset.step === 'build') {
+      await userEvent.click(button(root, 'Next'));
+      await waitFor(() => expect(root.dataset.step).toBe('ask'));
+    }
+    teenInvite.invite({ op: 'answer', args: { value: 17 } });
+    const card = await waitFor(() => {
+      const el = root.querySelector<HTMLElement>('.ni-pick.ni-invite');
+      expect(el).not.toBeNull();
+      return el as HTMLElement;
+    });
+    await expectOneInvite(root, card);
+    await expectFits(canvasElement, 'k');
+  },
+};
