@@ -548,6 +548,36 @@ describe('make-set', () => {
       [act('drag', { count: 12 })],
       state({ count: 12, removed: 0, bundles: 0 }),
     ],
+    [
+      'answer {value} drags up to the value',
+      makeSetBase,
+      [act('drag', { count: 1 }), act('answer', { value: 4 })],
+      state({ count: 4, removed: 0 }),
+    ],
+    [
+      'answer {value} removes down to the value (take-away)',
+      takeAway,
+      [act('answer', { value: 3 })],
+      state({ count: 3, removed: 4, parts: [3, 4] }),
+    ],
+    [
+      'answer {value} on hands fills the left hand first',
+      hands,
+      [act('answer', { value: 7 })],
+      state({ count: 7, removed: 0, parts: [5, 2] }),
+    ],
+    [
+      'answer {value} with groupsOf 10 bundles every full ten',
+      bundles,
+      [act('answer', { value: 12 })],
+      state({ count: 12, removed: 0, bundles: 1 }),
+    ],
+    [
+      'answer {value} is limited by the supply; a bad value changes nothing',
+      makeSetBase,
+      [act('answer', { value: 20 }), act('answer', { value: -1 }), act('answer')],
+      state({ count: 6, removed: 0 }),
+    ],
   ] as const)('%s', (_name, config, ops, expected) => {
     expect(respond(makeSet, config, [...ops])).toEqual(expected);
   });

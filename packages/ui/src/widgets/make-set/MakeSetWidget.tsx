@@ -69,8 +69,9 @@ import { besideFrame, pageAfter, shownPage, type TenPage } from './tens';
  * response on "check": `{ count, removed, parts?, bundles? }` (packages/engine/README.md).
  *
  * Demo ops (03 §5.5): `drag {count, hand?}`, `remove {count, hand?}`, `count-aloud`, `bundle`,
- * `close-container`, plus `answer {value}`, which drags or removes until the container holds
- * `value` (the model has no answer op for make-set; check is the answer control).
+ * `close-container`, plus the generic `answer {value}`: the model's answer op gives the end state
+ * (the container holds `value`, every full ten bundled with groupsOf 10), and the widget drags or
+ * removes one object at a time until it gets there.
  */
 
 const OPS = ['drag', 'remove', 'count-aloud', 'bundle', 'close-container', 'answer'] as const;
@@ -499,13 +500,24 @@ export function MakeSetWidget({
             await pause(COUNT_MS);
             break;
           case 'answer': {
-            const want = Number(action.args?.value);
-            if (!Number.isFinite(want)) break;
+            // The model decides the answer's end state (03 §6.3); the widget animates towards it
+            // one object at a time, then bundles the tens the model bundled.
+            if (!model || !stateRef.current) break;
+            const end = model.apply(stateRef.current, action);
+            const want = view(end).count;
             for (let guard = 0; guard < MAX_OBJECTS; guard++) {
               const count = view(stateRef.current).count;
               if (count === want) break;
               const ok = count < want ? await demoDragOne(null) : await demoRemoveOne(null);
               if (!ok || !alive.current) break;
+            }
+            if (
+              alive.current &&
+              (view(end).bundles ?? 0) > (view(stateRef.current).bundles ?? 0)
+            ) {
+              apply({ op: 'bundle' });
+              sfx('fuse');
+              await pause(COUNT_MS);
             }
             break;
           }

@@ -1385,3 +1385,20 @@ export const DemoReducedMotion: Story = {
     await expect(root.querySelector('.ni-mset__flight')).toBeNull();
   },
 };
+
+const answerBundles: WidgetDemo = createDemoController({ strict: true });
+
+/**
+ * The generic `answer {value}` takes its end state from the engine model: with groupsOf 10 the
+ * model bundles every full ten, so the demo fills 13 and ties the ten.
+ */
+export const DemoAnswerBundles: Story = {
+  globals: { motion: 'reduced' },
+  args: { config: bundleTen, disabled: true, demo: answerBundles },
+  play: async ({ canvasElement }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    await answerBundles.play({ op: 'answer', args: { value: 13 } });
+    await expect(inside(root)).toHaveLength(13);
+    await expect(root.querySelector('.ni-mset__frame[data-bundled="true"]')).not.toBeNull();
+  },
+};
