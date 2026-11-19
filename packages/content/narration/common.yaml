@@ -1407,10 +1407,12 @@ h.data.compare-groups:
   text: "Count each group. Then compare them."
 h.data.row-lengths:
   text: "The longest row has the most. The shortest row has the fewest."
+# The number-pad picture graph is a scene whose groups StimulusView wraps, so two groups can share
+# a line: these hints name groups, never rows (PR #84 review round 2).
 h.data.count-all:
-  text: "Count every picture on the graph, row by row."
-h.data.count-on-rows:
-  text: "Count one row. Then count on with the next row."
+  text: "Count every picture, one group at a time."
+h.data.count-on-groups:
+  text: "Count one group. Then count on with the next group."
 h.data.tally-each:
   text: "Make one mark for each thing you count."
 h.data.tally-five:
@@ -1521,6 +1523,11 @@ gen.frac.partition.cut-middle:
   text: "Cut it down the middle."
 gen.frac.partition.cut-again:
   text: "Now cut each half down the middle."
+# A strip into fourths: each half has its own cut line.
+gen.frac.partition.cut-half:
+  text: "Now cut one half down the middle."
+gen.frac.partition.cut-other:
+  text: "Then cut the last half down the middle too."
 gen.frac.partition.cut-same:
   text: "Cut it so the parts are all the same size."
 gen.frac.partition.shade:
@@ -1565,7 +1572,7 @@ fb.fraction-line.retry:
 fb.mc.fraction-unequal-parts:
   text: "Fair parts are all the same size. Look at each part again."
 fb.mc.fraction-bigger-denominator:
-  text: "More parts make smaller pieces. Look at the size of one piece."
+  text: "More parts make smaller pieces. Think about the size of one piece."
 fb.mc.unequal-share:
   text: "Give one to each in turn, so each one gets the same."
 
@@ -1627,6 +1634,10 @@ fb.order.retry-pattern:
   text: "Say the pattern. What comes next?"
 fb.order.retry-day:
   text: "Think about your day. What comes first?"
+# Fraction pieces: on FRA.08's part-count cards the biggest number is the smallest piece, so "the
+# biggest one" would point the wrong way (PR #84 review round 2).
+fb.order.retry-pieces:
+  text: "Find the biggest pieces first. Fewer parts make bigger pieces."
 fb.tenframe-fill.retry:
   text: "Let's count the frame again. Start at the top."
 fb.number-bond.retry:

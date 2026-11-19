@@ -143,7 +143,7 @@ templates:
     difficulty: { base: -0.74, features: { count.over5: 0.2 } }
     narration:
       prompt: tp.DAT.02.t5.prompt
-      hints: [h.data.count-all, h.data.count-on-rows]
+      hints: [h.data.count-all, h.data.count-on-groups]
 
   # ---------- DAT.09: tally marks and tables ----------
   - id: DAT.09.t1
@@ -224,25 +224,10 @@ templates:
       hints: [h.data.table-read, h.data.tally-five]
 
   # ---------- DAT.10: count each group and order the groups ----------
+  # Every constructed template counts a group (t1) or orders the groups by count (t3). There is no
+  # sort-only template: sorting is DAT.01, and a sort.byRule answer would be DAT.10 evidence
+  # without any counting or ordering (PR #84 review round 2).
   - id: DAT.10.t1
-    skillId: DAT.10
-    format: shape-sort
-    tier: concrete
-    representation: objects
-    generator: data.sort
-    params:
-      cardSet: objects
-      attribute: kind
-      bins: { choice: [2, 3], weights: [1, 2] }
-      a: { int: [1, 4] }
-      b: { int: [1, 4] }
-      c: { int: [1, 4] }
-    difficulty: { base: -0.4 }
-    narration:
-      prompt: tp.DAT.10.t1.prompt
-      hints: [h.data.same-kind, h.data.one-group]
-
-  - id: DAT.10.t2
     skillId: DAT.10
     format: bar-graph-read
     tier: pictorial
@@ -257,10 +242,10 @@ templates:
       c: { int: [1, 9] }
     difficulty: { base: -0.2 }
     narration:
-      prompt: tp.DAT.10.t2.prompt
+      prompt: tp.DAT.10.t1.prompt
       hints: [h.data.find-row, h.data.count-once]
 
-  - id: DAT.10.t3
+  - id: DAT.10.t2
     skillId: DAT.10
     format: bar-graph-read
     tier: pictorial
@@ -275,10 +260,10 @@ templates:
       c: { int: [1, 8] }
     difficulty: { base: -0.2 }
     narration:
-      prompt: tp.DAT.10.t3.prompt
+      prompt: tp.DAT.10.t2.prompt
       hints: [h.data.compare-groups, h.data.row-lengths]
 
-  - id: DAT.10.t4
+  - id: DAT.10.t3
     skillId: DAT.10
     format: order
     tier: pictorial
@@ -290,7 +275,7 @@ templates:
       a: { int: [1, 8] }
       b: { int: [1, 8] }
       c: { int: [1, 8] }
-    difficulty: { base: -0.24 }
+    difficulty: { base: -0.3 }
     narration:
-      prompt: tp.DAT.10.t4.prompt
+      prompt: tp.DAT.10.t3.prompt
       hints: [h.data.count-each-group, h.data.fewest-first]

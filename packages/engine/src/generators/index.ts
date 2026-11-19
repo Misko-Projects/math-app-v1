@@ -56,7 +56,7 @@ const GENERATORS: GeneratorDef[] = [
   numberlinePlace,
   estimateQuantity,
   divShare, // K01 sharing and fractions (MUL.12, FRA.07)
-  fracPartition, // K01 fractions (FRA.01, FRA.07, FRA.08)
+  fracPartition, // K01 fractions (FRA.01, FRA.07)
   fracCompare, // K01 fractions (FRA.08)
   timeClock, // K01 time
   timeSequence, // K01 time

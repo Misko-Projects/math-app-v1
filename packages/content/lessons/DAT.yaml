@@ -27,15 +27,16 @@ lessons:
     scaffolded: { count: 2, hintStart: 2 }
     testOut: { items: 3, minCorrect: 3, templateIds: [DAT.09.t2, DAT.09.t4] }
 
-  # DAT.10 teaches counting each group, so its lesson plays the picture-graph count (t2); the
-  # sort-only t1 is practice for the first step (PR #84 review).
+  # DAT.10 has no sort-only template (sorting is DAT.01, PR #84 review): its lesson plays the
+  # picture-graph count (t1), the template the auto lesson would pick, and the test-out counts (t1)
+  # and orders (t3) the groups.
   - skillId: DAT.10
     mode: authored
-    templateId: DAT.10.t2
+    templateId: DAT.10.t1
     worked:
       - { seed: 4203254561, target: easy }
     faded:
       - { seed: 4203254562, target: typical, childSteps: 1 }
       - { seed: 4203254563, target: typical, childSteps: 2 }
     scaffolded: { count: 2, hintStart: 2 }
-    testOut: { items: 3, minCorrect: 3, templateIds: [DAT.10.t2, DAT.10.t4] }
+    testOut: { items: 3, minCorrect: 3, templateIds: [DAT.10.t1, DAT.10.t3] }

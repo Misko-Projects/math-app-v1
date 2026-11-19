@@ -3,8 +3,11 @@
 // - compare: two wholes of the same size, cut into `den` and `den2` equal parts with one part
 //   shaded; which shaded piece is bigger (`left`, `right` or `same` when den = den2)?
 // - order: two or three strips (`den3` = 0: two) cut into `den`, `den2` (and `den3`) equal
-//   parts, one part shaded each, all cut differently; put them in order, biggest piece first. Each item's value is the piece size in 24ths of the whole
-//   (24 / den, so 2 → 12, 3 → 8, 4 → 6, 6 → 4, 8 → 3), and the answer lists them largest first.
+//   parts, one part shaded each, all cut differently; put them in order, biggest piece first.
+//   Each item's value is the piece size in 24ths of the whole (24 / den, so 2 → 12, 3 → 8,
+//   4 → 6, 6 → 4, 8 → 3), and the answer lists them largest first. With the `symbols`
+//   representation (FRA.08's abstract tier) a card has no picture: its label is the part count
+//   (`"<den>"`), so the order rests on "more parts, smaller pieces" alone.
 // Pictures carry no numeral or name: the child compares by looking at the parts.
 
 import type { LessonStep, ParamValues, ResponseValue, StimulusSpec } from '@number-island/shared';
@@ -95,8 +98,8 @@ export const fracCompare: GeneratorDef = {
     },
   },
   narration: [
-    // its descending order retry line (items/check.ts retryFeedback)
-    'fb.order.retry-desc',
+    // its order retry line (items/check.ts retryFeedback)
+    'fb.order.retry-pieces',
     'gen.frac.compare.look',
     'gen.frac.compare.bigger',
     'gen.frac.compare.same',
@@ -145,6 +148,7 @@ export const fracCompare: GeneratorDef = {
       };
     } else {
       const shown = rng.fork('layout').shuffle(dens);
+      const counts = t.representation === 'symbols';
       p = {
         params,
         vars,
@@ -153,7 +157,11 @@ export const fracCompare: GeneratorDef = {
         math: { ...math, magnitude: 0 },
         widget: {
           format: 'order',
-          items: shown.map((d, i) => ({ id: `obj-${i}`, value: pieceSize(d), stimulus: pic(d) })),
+          items: shown.map((d, i) => ({
+            id: `obj-${i}`,
+            value: pieceSize(d),
+            ...(counts ? { label: String(d) } : { stimulus: pic(d) }),
+          })),
           direction: 'desc',
         },
         answer: {

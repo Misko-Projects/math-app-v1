@@ -57,25 +57,28 @@ export function matches(answer: AnswerSpec, r: ResponseValue): boolean {
 }
 
 /**
- * Orders that are not by size, by generator: a pattern's cards go in pattern order and daily
- * events in the order of the day, so "find the smallest one first" would not fit (PR #84 review).
- * The generators declare these keys, so V16 checks they exist.
+ * Orders whose cards a size line would not fit, by generator: a pattern's cards go in pattern
+ * order and daily events in the order of the day, so "find the smallest one first" would not fit
+ * (PR #84 review), and fraction pieces go biggest piece first, which on a part-count card is the
+ * smallest number (PR #84 review round 2). The generators declare these keys, so V16 checks they
+ * exist.
  */
-const SEQUENCE_ORDER_RETRY: Readonly<Record<string, NarrationKey>> = {
+const GENERATOR_ORDER_RETRY: Readonly<Record<string, NarrationKey>> = {
   'pattern.repeat': 'fb.order.retry-pattern',
   'time.sequence': 'fb.order.retry-day',
+  'frac.compare': 'fb.order.retry-pieces',
 };
 
 /**
  * The retry line of a wrong answer that no misconception explains: `fb.<format>.retry`, except
  * that an order item's line fits its order (PR #84 review). A descending order finds the biggest
- * first (`fb.order.retry-desc`), and a sequence order has its generator's line.
+ * first (`fb.order.retry-desc`), and some generators have their own line.
  */
 export function retryFeedback(item: GeneratedItem): NarrationKey {
   const w = item.widget;
   if (w.format === 'order') {
     const generator = boundTemplate(item.templateId)?.generator;
-    const own = generator ? SEQUENCE_ORDER_RETRY[generator] : undefined;
+    const own = generator ? GENERATOR_ORDER_RETRY[generator] : undefined;
     if (own) return own;
     if (w.direction === 'desc') return 'fb.order.retry-desc';
   }

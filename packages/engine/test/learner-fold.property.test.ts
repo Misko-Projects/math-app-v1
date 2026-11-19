@@ -65,7 +65,10 @@ describe('foldSkillStates properties (fixture graph)', () => {
       }),
       { numRuns: 150 },
     );
-  });
+    // 150 runs, each folding every event one at a time and in full over the whole K–1 graph:
+    // about 1.7 s alone, over 5 s on a loaded runner. The run count is the coverage, so the
+    // budget is raised instead of cut.
+  }, 20_000);
 
   it('a prefix fold continued with the rest equals the full fold', () => {
     fc.assert(

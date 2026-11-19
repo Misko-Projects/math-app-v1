@@ -26,9 +26,9 @@ tp.FRA.07.t5.prompt:
   text: "The two sides have {a} and {b}. How many must move to make it fair?"
 tp.FRA.08.t1.prompt:
   text: "Which piece is bigger? They may be the same size."
-tp.FRA.08.t3.prompt:
-  text: "Which piece of pie is bigger? They may be the same size."
 tp.FRA.08.t2.prompt:
-  text: "Cut it into {den} equal parts. More parts make smaller pieces!"
-tp.FRA.08.t4.prompt:
+  text: "Which piece of pie is bigger? They may be the same size."
+tp.FRA.08.t3.prompt:
   text: "Put them in order. Start with the biggest piece."
+tp.FRA.08.t4.prompt:
+  text: "Each number is how many parts a strip is cut into. Put the biggest pieces first."

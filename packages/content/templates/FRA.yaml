@@ -159,7 +159,10 @@ templates:
       hints: [h.share.move-one, h.share.same-for-all]
 
   # ---------- FRA.08: more equal parts, smaller parts ----------
-  # The wholes are the same size, so one piece of each can be compared by looking.
+  # The wholes are the same size, so one piece of each can be compared by looking. The compares
+  # (t1, t2) are choices; the constructed practice (04 §7a, V27) is the two orders, pictures (t3)
+  # and part counts (t4). There is no fraction-cut: cutting one shape compares nothing (PR #84
+  # review round 2).
   - id: FRA.08.t1
     skillId: FRA.08
     format: compare
@@ -177,23 +180,6 @@ templates:
 
   - id: FRA.08.t2
     skillId: FRA.08
-    format: fraction-cut
-    tier: concrete
-    representation: fraction-shape
-    generator: frac.partition
-    params:
-      mode: cut
-      shape: { choice: [circle, rect] }
-      den: { choice: [3, 4, 6, 8] }
-      num: 0
-    difficulty: { base: -0.9 }
-    expectedLatencyMs: 15000
-    narration:
-      prompt: tp.FRA.08.t2.prompt
-      hints: [h.frac.same-size, h.frac.more-parts]
-
-  - id: FRA.08.t3
-    skillId: FRA.08
     format: compare
     tier: pictorial
     representation: fraction-shape
@@ -204,15 +190,34 @@ templates:
       den2: { choice: [2, 3, 4, 6, 8] }
     difficulty: { base: -0.9 }
     narration:
-      prompt: tp.FRA.08.t3.prompt
+      prompt: tp.FRA.08.t2.prompt
       hints: [h.frac.look-one-piece, h.frac.more-parts]
 
   # Two or three strips, one piece of each filled; the closest pair sets the difficulty.
-  - id: FRA.08.t4
+  - id: FRA.08.t3
     skillId: FRA.08
     format: order
     tier: pictorial
     representation: fraction-strip
+    generator: frac.compare
+    params:
+      shape: bar
+      den: { choice: [2, 3, 4, 6, 8] }
+      den2: { choice: [2, 3, 4, 6, 8] }
+      den3: { choice: [0, 2, 3, 4, 6, 8] }
+    difficulty: { base: -2.0, features: { ratio: 1.6 } }
+    narration:
+      prompt: tp.FRA.08.t3.prompt
+      hints: [h.frac.more-parts, h.frac.order-biggest]
+
+  # The same order with no pictures: each card is the number of equal parts a strip is cut into,
+  # so the child orders by "more parts, smaller pieces" alone (MC.fraction-bigger-denominator
+  # orders by the bigger number).
+  - id: FRA.08.t4
+    skillId: FRA.08
+    format: order
+    tier: abstract
+    representation: symbols
     generator: frac.compare
     params:
       shape: bar

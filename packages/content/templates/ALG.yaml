@@ -164,7 +164,7 @@ templates:
       core: { choice: [AB, ABC] }
       shown: { choice: [4, 6] }
       ask: { choice: [2, 3] }
-    difficulty: { base: -0.8 }
+    difficulty: { base: -0.2 }
     narration:
       prompt: tp.ALG.04.t3.prompt
       hints: [h.pattern.find-core, h.pattern.core-same]
