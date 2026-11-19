@@ -262,3 +262,15 @@ ui.clen.string:
 ui.clen.strings:
   text: "The strings"
   level: K
+ui.mlen.pile:
+  text: "{unit} to put down"
+  level: K
+ui.mlen.track:
+  text: "Put it here"
+  level: K
+ui.mlen.undo:
+  text: "Take one back"
+  level: K
+ui.mlen.ruler:
+  text: "Ruler"
+  level: K

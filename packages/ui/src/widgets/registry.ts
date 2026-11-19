@@ -16,6 +16,7 @@ export const widgetRegistry: WidgetRegistry = {
   // U05 (#14) measurement and geometry
   'shape-sort': () => import('./shape-sort/ShapeSortWidget'),
   'compare-length': () => import('./compare-length/CompareLengthWidget'),
+  'measure-length': () => import('./measure-length/MeasureLengthWidget'),
 };
 
 /** Formats that have a registered widget. */

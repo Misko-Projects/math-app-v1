@@ -174,12 +174,19 @@ export interface UnitPieceProps {
 }
 
 /** A measuring unit exactly `width` px long: a cube block, a long shell, a stick. */
+/** How tall a unit is drawn at width `w`: a cube is square, a shell half as tall as long. */
+export function unitHeight(unit: string, w: number): number {
+  if (unit === 'shell') return Math.max(16, w * 0.5);
+  if (unit === 'stick') return Math.max(12, Math.min(22, w * 0.12));
+  return w;
+}
+
 export function UnitPiece({ unit, width, className }: UnitPieceProps) {
   const w = Math.max(2, width);
   let h: number;
   let body: ReactElement;
   if (unit === 'shell') {
-    h = Math.max(16, w * 0.5);
+    h = unitHeight(unit, w);
     body = (
       <g data-art="shell">
         <path
@@ -196,7 +203,7 @@ export function UnitPiece({ unit, width, className }: UnitPieceProps) {
       </g>
     );
   } else if (unit === 'stick') {
-    h = Math.max(12, Math.min(22, w * 0.12));
+    h = unitHeight(unit, w);
     body = (
       <g data-art="stick">
         <rect
@@ -211,7 +218,7 @@ export function UnitPiece({ unit, width, className }: UnitPieceProps) {
       </g>
     );
   } else {
-    h = w;
+    h = unitHeight(unit, w);
     body = (
       <g data-art="cube">
         <rect
