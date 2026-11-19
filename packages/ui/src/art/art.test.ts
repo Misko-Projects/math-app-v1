@@ -534,6 +534,34 @@ describe('road plan: a linear board (05 §3)', () => {
     expect(problems(plan, road, [1, 2, 3], 2, 2)).toEqual([]);
   });
 
+  it('floors plannedAhead to a whole count: a fraction never hides the next stone', () => {
+    const road = [
+      { n: 1, plot: [0, 0] as Plot },
+      { n: 2, plot: [1, 0] as Plot },
+      { n: 3, plot: [2, 0] as Plot },
+    ];
+    // Review s_8104b85da5fd R8.1: stones 1–3, road 1, plannedAhead 0.5 → 2 is next, 3 is absent.
+    for (const [plannedAhead, want] of [
+      [0.5, [1, 2]],
+      [-1, [1, 2]],
+      [Number.NaN, [1, 2]],
+      [1.9, [1, 2, 3]],
+    ] as const) {
+      const plan = planRoad({ road, roadLength: 1, plannedAhead, onLand: () => true });
+      const drawn = [...plan.numbered, ...plan.beads];
+      const where = `plannedAhead ${plannedAhead}`;
+      expect(
+        drawn.map((s) => s.n).sort((a, b) => a - b),
+        where,
+      ).toEqual(want);
+      expect(drawn.find((s) => s.n === 2)?.state, where).toBe('next');
+      expect(
+        drawn.some((s) => s.n === 3),
+        where,
+      ).toBe(want.length === 3);
+    }
+  });
+
   it('shows the next stone where the road counts by tens: 110 after 100 (review s_9c678ec61690 #1)', () => {
     // As on the authored island: 1–100 ten to a plot, then 110–1000 counted by tens.
     const road = [

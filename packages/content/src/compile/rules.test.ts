@@ -821,6 +821,28 @@ describe('V01/V02: game data shape', () => {
     const hit = expectFinding(swapped, 'V02', /increasing order \(1 after 2\)/);
     expect(hit.file).toBe('game/island.yaml');
   });
+  it('a plot holds at most 64 road stones, the most the road planner is tested to fit', () => {
+    const crowd = (k: number) =>
+      gameVariant('island', (doc) => {
+        const plot = doc.island.road[0].plot;
+        const last = doc.island.road.at(-1).n as number;
+        for (let i = 1; i <= k; i++) doc.island.road.push({ n: last + i, plot: [...plot] });
+      });
+    const stonesOn = (k: number) => {
+      const doc = parse(FIXTURE['game/island.yaml'] as string) as Yaml;
+      const key = doc.island.road[0].plot.join(',');
+      return doc.island.road.filter((s: Yaml) => s.plot.join(',') === key).length + k;
+    };
+    const atCap = 64 - stonesOn(0);
+    expect(atCap).toBeGreaterThan(0);
+    expect(stonesOn(atCap)).toBe(64);
+    expect(unexpected(crowd(atCap)).filter((d) => d.severity === 'error')).toEqual([]);
+    const hits = unexpected(crowd(atCap + 1)).filter((d) =>
+      /more than 64 road stones/.test(d.message),
+    );
+    expect(hits).toHaveLength(1);
+    expect(hits[0]).toMatchObject({ check: 'V02', file: 'game/island.yaml', severity: 'error' });
+  });
 });
 
 describe('V05: roots allowlist', () => {

@@ -185,7 +185,7 @@ export interface RoadPlanInput {
   counting?: number | null;
   /** Show the next stone: the first road stone past `roadLength` (110 after 100 on a tens road). */
   showNext?: boolean;
-  /** How many road stones after the next one to show as planned. */
+  /** How many road stones after the next one to show as planned (floored to a whole count ≥ 0). */
   plannedAhead?: number;
   onLand?: (s: StonePlacement) => boolean;
   /** Land plot keys (`x,y`). Unused by the plan itself; kept so callers can pass one input. */
@@ -349,8 +349,10 @@ export function planRoad({
   // the first one past the last laid, and the planned ones are the stones after it.
   const ahead = placed.filter((s) => s.n > roadLength).sort((a, b) => a.n - b.n);
   const nextN = showNext ? (ahead[0]?.n ?? null) : null;
+  // A whole count of stones: a fractional, negative or NaN value must never hide the next stone.
+  const plannedCount = Math.floor(Math.max(0, plannedAhead)) || 0;
   const lastShown = showNext
-    ? (ahead[Math.min(plannedAhead, ahead.length - 1)]?.n ?? roadLength)
+    ? (ahead[Math.min(plannedCount, ahead.length - 1)]?.n ?? roadLength)
     : roadLength;
   const shown = placed.filter((s) => s.n <= lastShown && (!onLand || onLand(s)));
   const laid = shown.filter((s) => s.n <= roadLength);
