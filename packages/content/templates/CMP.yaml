@@ -1,0 +1,433 @@
+# CMP templates (03 §4.3) on compare.sets, compare.numbers, numberline.place, estimate.quantity and
+# addsub.facts (03 §5.6). One template per catalog format at least, every catalog representation
+# used, ordered concrete → pictorial → abstract within each skill. Difficulty bases are tuned from
+# template-stats.json (03 §5.4) so the median item of each template sits near d = 0.
+strand: CMP
+templates:
+  # ---------- CMP.01 compare two groups up to 10 ----------
+  # Some items carry the conflict cue (the fewer group looks bigger), so MC.perceptual-size can show up
+  # before CMP.05 teaches matching.
+  - id: CMP.01.t1
+    skillId: CMP.01
+    format: compare
+    tier: concrete
+    representation: objects
+    generator: compare.sets
+    params:
+      a: { int: [1, 10] }
+      b: { int: [1, 10] }
+      ask: { choice: [more, fewer], weights: [3, 1] }
+      conflict: { bool: 0.3 }
+    difficulty: { base: -1 }
+    expectedLatencyMs: 12000
+    narration:
+      prompt: tp.CMP.01.t1.prompt
+      hints: [h.compare.match, h.compare.left-over, h.compare.count-each]
+
+  - id: CMP.01.t2
+    skillId: CMP.01
+    format: make-set
+    tier: concrete
+    representation: ten-frame
+    generator: compare.sets
+    params: { a: { int: [0, 10] }, b: { int: [1, 10] } }
+    difficulty: { base: -0.85 }
+    narration: { prompt: tp.CMP.01.t2.prompt, hints: [h.compare.count-yours, h.compare.make-same] }
+
+  - id: CMP.01.t3
+    skillId: CMP.01
+    format: compare
+    tier: pictorial
+    representation: ten-frame
+    generator: compare.sets
+    params:
+      a: { int: [1, 10] }
+      b: { int: [1, 10] }
+      ask: { choice: [more, fewer], weights: [3, 1] }
+    difficulty: { base: -0.8 }
+    narration: { prompt: tp.CMP.01.t3.prompt, hints: [h.compare.frames, h.compare.count-each] }
+
+  - id: CMP.01.t4
+    skillId: CMP.01
+    format: compare
+    tier: pictorial
+    representation: dots
+    generator: compare.sets
+    params:
+      a: { int: [1, 10] }
+      b: { int: [1, 10] }
+      ask: { choice: [more, fewer], weights: [3, 1] }
+      conflict: { bool: 0.3 }
+    difficulty: { base: -1 }
+    narration: { prompt: tp.CMP.01.t4.prompt, hints: [h.compare.count-each, h.compare.not-size] }
+
+  # ---------- CMP.02 compare two numerals 1–10 ----------
+  - id: CMP.02.t1
+    skillId: CMP.02
+    format: compare
+    tier: pictorial
+    representation: number-path
+    generator: compare.numbers
+    params:
+      a: { int: [1, 10] }
+      b: { int: [1, 10] }
+      extra: 0
+      min: 1
+      max: 10
+      ask: { choice: [more, fewer], weights: [3, 1] }
+    difficulty: { base: -0.6 }
+    narration: { prompt: tp.CMP.02.t1.prompt, hints: [h.compare.path, h.compare.count-up] }
+
+  - id: CMP.02.t2
+    skillId: CMP.02
+    format: compare
+    tier: abstract
+    representation: symbols
+    generator: compare.numbers
+    params:
+      a: { int: [1, 10] }
+      b: { int: [1, 10] }
+      extra: 0
+      min: 1
+      max: 10
+      ask: { choice: [more, fewer], weights: [3, 1] }
+    difficulty: { base: -0.6 }
+    narration: { prompt: tp.CMP.02.t2.prompt, hints: [h.compare.count-up, h.compare.path] }
+
+  - id: CMP.02.t3
+    skillId: CMP.02
+    format: numeral-pick
+    tier: abstract
+    representation: symbols
+    generator: compare.numbers
+    params: { a: { int: [1, 10] }, b: { int: [1, 10] }, extra: 1, min: 1, max: 10, ask: more }
+    difficulty: { base: -0.85 }
+    narration: { prompt: tp.CMP.02.t3.prompt, hints: [h.compare.count-up, h.compare.path] }
+
+  # ---------- CMP.03 one more and one less to 20 ----------
+  - id: CMP.03.t1
+    skillId: CMP.03
+    format: tenframe-fill
+    tier: concrete
+    representation: ten-frame
+    generator: addsub.facts
+    params: { a: { int: [1, 9] }, b: 1, op: "+", unknown: result, family: plus1 }
+    difficulty: { base: 0.3 }
+    expectedLatencyMs: 12000
+    narration: { prompt: tp.CMP.03.t1.prompt, hints: [h.count.one-more, h.count.one-more-next] }
+
+  - id: CMP.03.t2
+    skillId: CMP.03
+    format: tenframe-fill
+    tier: concrete
+    representation: ten-frame
+    generator: addsub.facts
+    params: { a: { int: [2, 10] }, b: 1, op: "-", unknown: result, family: any }
+    difficulty: { base: -0.4 }
+    expectedLatencyMs: 12000
+    narration:
+      { prompt: tp.CMP.03.t2.prompt, hints: [h.compare.one-less, h.compare.one-less-before] }
+
+  - id: CMP.03.t3
+    skillId: CMP.03
+    format: number-line-jump
+    tier: concrete
+    representation: number-path
+    generator: addsub.facts
+    params: { a: { int: [1, 19] }, b: 1, op: "+", unknown: result, family: plus1 }
+    difficulty: { base: 0.1 }
+    expectedLatencyMs: 12000
+    narration: { prompt: tp.CMP.03.t3.prompt, hints: [h.sequence.look-path, h.count.one-more-next] }
+
+  - id: CMP.03.t4
+    skillId: CMP.03
+    format: number-line-jump
+    tier: concrete
+    representation: number-path
+    generator: addsub.facts
+    params: { a: { int: [2, 20] }, b: 1, op: "-", unknown: result, family: any }
+    difficulty: { base: -0.9 }
+    expectedLatencyMs: 12000
+    narration:
+      prompt: tp.CMP.03.t4.prompt
+      hints: [h.sequence.look-path-back, h.compare.one-less-before]
+
+  - id: CMP.03.t5
+    skillId: CMP.03
+    format: number-pad
+    tier: abstract
+    representation: symbols
+    generator: addsub.facts
+    params: { a: { int: [1, 19] }, b: 1, op: "+", unknown: result, family: plus1 }
+    difficulty: { base: 0.1 }
+    narration: { prompt: tp.CMP.03.t5.prompt, hints: [h.count.one-more-next, h.sequence.say-it] }
+
+  - id: CMP.03.t6
+    skillId: CMP.03
+    format: number-pad
+    tier: abstract
+    representation: symbols
+    generator: addsub.facts
+    params: { a: { int: [2, 20] }, b: 1, op: "-", unknown: result, family: any }
+    difficulty: { base: -0.4 }
+    narration:
+      prompt: tp.CMP.03.t6.prompt
+      hints: [h.compare.one-less-before, h.sequence.count-back]
+
+  # ---------- CMP.04 place numbers on 0–20 and 0–100 lines ----------
+  - id: CMP.04.t1
+    skillId: CMP.04
+    format: number-line-place
+    tier: pictorial
+    representation: number-path
+    generator: numberline.place
+    params:
+      { min: 0, max: 20, target: { int: [1, 19] }, ticksEvery: 1, labelsEvery: 5, mode: place }
+    difficulty: { base: -0.5 }
+    narration: { prompt: tp.CMP.04.t1.prompt, hints: [h.numberline.ends, h.numberline.count-ticks] }
+
+  - id: CMP.04.t2
+    skillId: CMP.04
+    format: number-line-place
+    tier: pictorial
+    representation: number-line
+    generator: numberline.place
+    params:
+      { min: 0, max: 100, target: { int: [1, 99] }, ticksEvery: 10, labelsEvery: 10, mode: place }
+    difficulty: { base: -0.8 }
+    narration: { prompt: tp.CMP.04.t2.prompt, hints: [h.numberline.tens, h.numberline.ends] }
+
+  - id: CMP.04.t3
+    skillId: CMP.04
+    format: order
+    tier: pictorial
+    representation: number-line
+    generator: numberline.place
+    params:
+      {
+        min: 0,
+        max: 100,
+        target: { int: [1, 99] },
+        ticksEvery: 10,
+        labelsEvery: 10,
+        benchmarks: 10,
+      }
+    difficulty: { base: -0.3 }
+    narration: { prompt: tp.CMP.04.t3.prompt, hints: [h.order.smallest, h.order.tens] }
+
+  # ---------- CMP.05 compare by matching when looks mislead ----------
+  - id: CMP.05.t1
+    skillId: CMP.05
+    format: compare
+    tier: concrete
+    representation: objects
+    generator: compare.sets
+    params:
+      a: { int: [2, 10] }
+      b: { int: [2, 10] }
+      ask: { choice: [more, fewer], weights: [3, 1] }
+      conflict: true
+    difficulty: { base: -1.7 }
+    expectedLatencyMs: 12000
+    narration:
+      prompt: tp.CMP.05.t1.prompt
+      hints: [h.compare.not-size, h.compare.match, h.compare.left-over]
+
+  - id: CMP.05.t2
+    skillId: CMP.05
+    format: make-set
+    tier: concrete
+    representation: objects
+    generator: compare.sets
+    params: { a: { int: [0, 10] }, b: { int: [1, 10] } }
+    difficulty: { base: -0.85 }
+    narration: { prompt: tp.CMP.05.t2.prompt, hints: [h.compare.count-yours, h.compare.make-same] }
+
+  - id: CMP.05.t3
+    skillId: CMP.05
+    format: compare
+    tier: pictorial
+    representation: dots
+    generator: compare.sets
+    params:
+      a: { int: [2, 10] }
+      b: { int: [2, 10] }
+      ask: { choice: [more, fewer], weights: [3, 1] }
+      conflict: true
+    difficulty: { base: -1.7 }
+    narration: { prompt: tp.CMP.05.t3.prompt, hints: [h.compare.not-size, h.compare.count-each] }
+
+  # ---------- CMP.06 order three or more numbers to 20 ----------
+  - id: CMP.06.t1
+    skillId: CMP.06
+    format: order
+    tier: pictorial
+    representation: number-path
+    generator: compare.numbers
+    params:
+      {
+        a: { int: [0, 20] },
+        b: { int: [0, 20] },
+        extra: { int: [1, 2] },
+        min: 0,
+        max: 20,
+        ask: fewer,
+      }
+    # The order model's own `closeness` (smallest gap < 10% of the range) keeps its 03 §5.5 weight;
+    # compare.numbers declares `closeness` for the compare format.
+    difficulty: { base: -0.2, features: { closeness: 0.5 } }
+    narration: { prompt: tp.CMP.06.t1.prompt, hints: [h.order.smallest, h.order.path] }
+
+  - id: CMP.06.t2
+    skillId: CMP.06
+    format: number-line-place
+    tier: pictorial
+    representation: number-path
+    generator: compare.numbers
+    params: { a: { int: [1, 19] }, b: { int: [0, 20] }, extra: 1, min: 0, max: 20, ask: fewer }
+    difficulty: { base: -0.1 }
+    narration:
+      { prompt: tp.CMP.06.t2.prompt, hints: [h.numberline.marked, h.numberline.count-ticks] }
+
+  - id: CMP.06.t3
+    skillId: CMP.06
+    format: order
+    tier: abstract
+    representation: symbols
+    generator: compare.numbers
+    params:
+      {
+        a: { int: [0, 20] },
+        b: { int: [0, 20] },
+        extra: { int: [1, 3] },
+        min: 0,
+        max: 20,
+        ask: fewer,
+      }
+    difficulty: { base: -0.3, features: { closeness: 0.5 } }
+    narration: { prompt: tp.CMP.06.t3.prompt, hints: [h.order.smallest, h.order.count-up] }
+
+  # ---------- CMP.07 compare numbers 11–20 ----------
+  - id: CMP.07.t1
+    skillId: CMP.07
+    format: compare
+    tier: concrete
+    representation: double-ten-frame
+    generator: compare.numbers
+    params:
+      a: { int: [11, 20] }
+      b: { int: [11, 20] }
+      extra: 0
+      min: 10
+      max: 20
+      ask: { choice: [more, fewer], weights: [3, 1] }
+    difficulty: { base: -1.7 }
+    narration: { prompt: tp.CMP.07.t1.prompt, hints: [h.compare.full-frames, h.compare.tens] }
+
+  - id: CMP.07.t2
+    skillId: CMP.07
+    format: compare
+    tier: pictorial
+    representation: number-line
+    generator: compare.numbers
+    params:
+      a: { int: [11, 20] }
+      b: { int: [11, 20] }
+      extra: 0
+      min: 0
+      max: 20
+      ask: { choice: [more, fewer], weights: [3, 1] }
+    difficulty: { base: -1.6 }
+    narration: { prompt: tp.CMP.07.t2.prompt, hints: [h.compare.line, h.compare.tens] }
+
+  - id: CMP.07.t3
+    skillId: CMP.07
+    format: order
+    tier: abstract
+    representation: symbols
+    generator: compare.numbers
+    params:
+      {
+        a: { int: [11, 20] },
+        b: { int: [11, 20] },
+        extra: { int: [1, 2] },
+        min: 11,
+        max: 20,
+        ask: fewer,
+      }
+    difficulty: { base: -0.8, features: { closeness: 0.5 } }
+    narration: { prompt: tp.CMP.07.t3.prompt, hints: [h.order.smallest, h.compare.tens] }
+
+  # ---------- CMP.09 estimate on a 0–100 line with only the ends marked ----------
+  - id: CMP.09.t1
+    skillId: CMP.09
+    format: number-line-place
+    tier: pictorial
+    representation: number-line
+    generator: numberline.place
+    params:
+      { min: 0, max: 100, target: { int: [1, 99] }, ticksEvery: 0, labelsEvery: 0, mode: place }
+    difficulty: { base: -1.4 }
+    narration: { prompt: tp.CMP.09.t1.prompt, hints: [h.numberline.middle, h.numberline.near-end] }
+
+  - id: CMP.09.t2
+    skillId: CMP.09
+    format: numeral-pick
+    tier: pictorial
+    representation: number-line
+    generator: numberline.place
+    params: { min: 0, max: 100, target: { int: [1, 99] }, ticksEvery: 0, labelsEvery: 0 }
+    difficulty: { base: -1.4 }
+    narration: { prompt: tp.CMP.09.t2.prompt, hints: [h.numberline.middle, h.numberline.near-end] }
+
+  - id: CMP.09.t3
+    skillId: CMP.09
+    format: numeral-pick
+    tier: abstract
+    representation: symbols
+    generator: numberline.place
+    params: { min: 0, max: 100, target: { int: [1, 99] }, ticksEvery: 0, labelsEvery: 0 }
+    difficulty: { base: -1.4 }
+    narration: { prompt: tp.CMP.09.t3.prompt, hints: [h.numberline.near-end, h.numberline.middle] }
+
+  # ---------- CMP.13 estimate how many in a big group ----------
+  # dot-flash weighs each dot above 4 (n.over4); an estimate is not counted, so n.per50 sizes it.
+  - id: CMP.13.t1
+    skillId: CMP.13
+    format: dot-flash
+    tier: pictorial
+    representation: objects
+    generator: estimate.quantity
+    params: { n: { int: [20, 100] }, benchmarks: { choice: [0, 10] } }
+    difficulty: { base: -0.9, features: { n.over4: 0 } }
+    narration: { prompt: tp.CMP.13.t1.prompt, hints: [h.estimate.no-count, h.estimate.ten] }
+
+  - id: CMP.13.t2
+    skillId: CMP.13
+    format: dot-flash
+    tier: pictorial
+    representation: dots
+    generator: estimate.quantity
+    params: { n: { int: [20, 100] }, benchmarks: 0 }
+    difficulty: { base: -0.85, features: { n.over4: 0 } }
+    narration: { prompt: tp.CMP.13.t2.prompt, hints: [h.estimate.no-count, h.estimate.ten] }
+
+  - id: CMP.13.t3
+    skillId: CMP.13
+    format: numeral-pick
+    tier: pictorial
+    representation: dots
+    generator: estimate.quantity
+    params: { n: { int: [20, 100] }, benchmarks: 0 }
+    difficulty: { base: -0.25 }
+    narration: { prompt: tp.CMP.13.t3.prompt, hints: [h.estimate.no-count, h.estimate.ten] }
+
+  - id: CMP.13.t4
+    skillId: CMP.13
+    format: numeral-pick
+    tier: pictorial
+    representation: number-line
+    generator: estimate.quantity
+    params: { n: { int: [20, 100] }, benchmarks: 0 }
+    difficulty: { base: -0.25 }
+    narration: { prompt: tp.CMP.13.t4.prompt, hints: [h.estimate.ten, h.estimate.line] }

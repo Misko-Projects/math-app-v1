@@ -2,6 +2,8 @@
 // formats use; U03–U05 and K01/K02 add the rest of `StateCheckerId`.
 
 import type { StateCheckerId } from '@number-island/shared';
+import { basetenExact } from './baseten.exact';
+import { basetenValue } from './baseten.value';
 import { bondNewWay } from './bond.newWay';
 import { bondSplit } from './bond.split';
 import { composeFill } from './compose.fill';
@@ -25,6 +27,8 @@ const CHECKERS: Partial<Record<StateCheckerId, StateChecker>> = {
   'bond.split': bondSplit,
   'bond.newWay': bondNewWay,
   'rekenrek.total': rekenrekTotal,
+  'baseten.value': basetenValue,
+  'baseten.exact': basetenExact,
   'jumps.reach': jumpsReach,
   'select.exactSet': selectExactSet,
   'sort.byRule': sortByRule,

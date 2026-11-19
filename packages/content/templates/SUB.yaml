@@ -121,6 +121,49 @@ templates:
     difficulty: { base: -1.95 }
     narration: { prompt: p.subitize.how-many, hints: [h.subitize.look-again, h.subitize.five-and] }
 
+  # ---------- SUB.04: 11–20 on double ten-frames as ten and some more (grade 1) ----------
+  # On two frames the full ten is seen at once, so each counter past four weighs less than the
+  # dot-flash default (0.25 each); the ones past ten carry the size.
+
+  - id: SUB.04.t1
+    skillId: SUB.04
+    format: rekenrek
+    tier: concrete
+    generator: subitize.flash
+    params: { n: { int: [11, 20] }, arrangement: double-ten-frame }
+    difficulty: { base: -2.7 }
+    narration: { prompt: tp.SUB.04.t1.prompt, hints: [h.subitize.ten-and] }
+
+  - id: SUB.04.t2
+    skillId: SUB.04
+    format: dot-flash
+    tier: pictorial
+    representation: double-ten-frame
+    generator: subitize.flash
+    params: { n: { int: [11, 20] }, arrangement: double-ten-frame, flashMs: 1000 }
+    difficulty: { base: -2.95, features: { n.over4: 0.1 } }
+    narration: { prompt: p.subitize.how-many, hints: [h.subitize.look-again, h.subitize.full-ten] }
+
+  - id: SUB.04.t3
+    skillId: SUB.04
+    format: dot-flash
+    tier: pictorial
+    representation: dots
+    generator: subitize.flash
+    params: { n: { int: [11, 20] }, arrangement: double-ten-frame, flashMs: 1000 }
+    difficulty: { base: -2.95, features: { n.over4: 0.1 } }
+    narration: { prompt: p.subitize.how-many, hints: [h.subitize.look-again, h.subitize.full-ten] }
+
+  - id: SUB.04.t4
+    skillId: SUB.04
+    format: number-pad
+    tier: pictorial
+    representation: double-ten-frame
+    generator: subitize.flash
+    params: { n: { int: [11, 20] }, arrangement: double-ten-frame }
+    difficulty: { base: -2.6 }
+    narration: { prompt: tp.SUB.04.t4.prompt, hints: [h.subitize.full-ten] }
+
   # ---------- SUB.05: show and read finger patterns to 10 ----------
 
   - id: SUB.05.t1
@@ -201,3 +244,48 @@ templates:
     difficulty: { base: -1.85 }
     narration:
       { prompt: p.subitize.how-many, hints: [h.subitize.look-groups, h.subitize.parts-together] }
+
+  # ---------- SUB.07: quick-read beads on a rekenrek to 20 (grade 1) ----------
+  # part: beads on the top row (or counters in the first frame). 10 is ten and some more; a part
+  # below ten splits the rows (8 and 7), read by fives (split.rows).
+
+  - id: SUB.07.t1
+    skillId: SUB.07
+    format: rekenrek
+    tier: concrete
+    generator: subitize.flash
+    params: { n: { int: [6, 20] }, arrangement: double-ten-frame, part: { int: [1, 10] } }
+    constraints: ["n - part >= 1", "n - part <= 10"]
+    difficulty: { base: -2.5 }
+    narration: { prompt: tp.SUB.07.t1.prompt, hints: [h.subitize.fives, h.subitize.rows-together] }
+
+  - id: SUB.07.t2
+    skillId: SUB.07
+    format: dot-flash
+    tier: pictorial
+    representation: rekenrek
+    generator: subitize.flash
+    params:
+      n: { int: [6, 20] }
+      arrangement: double-ten-frame
+      part: { int: [1, 10] }
+      flashMs: 1000
+    constraints: ["n - part >= 1", "n - part <= 10"]
+    difficulty: { base: -2.65, features: { n.over4: 0.1 } }
+    narration: { prompt: p.subitize.how-many, hints: [h.subitize.look-again, h.subitize.fives] }
+
+  - id: SUB.07.t3
+    skillId: SUB.07
+    format: dot-flash
+    tier: pictorial
+    representation: double-ten-frame
+    generator: subitize.flash
+    params:
+      n: { int: [6, 20] }
+      arrangement: double-ten-frame
+      part: { int: [1, 10] }
+      flashMs: 1000
+    constraints: ["n - part >= 1", "n - part <= 10"]
+    difficulty: { base: -2.65, features: { n.over4: 0.1 } }
+    narration:
+      { prompt: p.subitize.how-many, hints: [h.subitize.look-again, h.subitize.frame-fives] }

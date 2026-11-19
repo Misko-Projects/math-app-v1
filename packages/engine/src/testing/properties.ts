@@ -106,6 +106,8 @@ export function answerNumbers(item: GeneratedItem): number[] {
         'jumps.reach': ['target'],
         'select.exactSet': [],
         'units.iterate': ['length'],
+        'baseten.value': ['value'],
+        'baseten.exact': ['value'],
       };
       // When the item asks for a typed value, that value is the answer and the frame or jump target
       // is a given (the whole in a missing-part item).
@@ -190,6 +192,8 @@ function nearMissNumbers(v: number): number[] {
 
 type StateValue = Record<string, unknown>;
 
+const BASE_TEN_KINDS = ['thousands', 'hundreds', 'tens', 'ones'] as const;
+
 /** One-step mutations of an example state: a counter or piece added or removed, or moved. */
 function stateMutation(original: StateValue): fc.Arbitrary<StateValue> {
   const options: fc.Arbitrary<StateValue>[] = [];
@@ -259,6 +263,29 @@ function stateMutation(original: StateValue): fc.Arbitrary<StateValue> {
       fc.constantFrom('add', 'drop').map((op) => {
         const s = clone();
         s.values = op === 'add' ? [...values, Math.max(0, ...values) + 1] : values.slice(1);
+        return s;
+      }),
+    );
+  }
+  // Base-ten pieces (base-ten-build): one piece added or removed, or a trade between two adjacent
+  // kinds (one ten for ten ones, or back; baseten.value exempts it as an alternative).
+  const kinds = BASE_TEN_KINDS.filter((k) => typeof original[k] === 'number');
+  if (kinds.length > 0) {
+    options.push(
+      fc.tuple(fc.constantFrom(...kinds), fc.constantFrom(1, -1)).map(([k, d]) => {
+        const s = clone();
+        s[k] = (original[k] as number) + d;
+        return s;
+      }),
+    );
+    const pairs = BASE_TEN_KINDS.slice(0, -1).map(
+      (hi, i) => [hi, BASE_TEN_KINDS[i + 1] as (typeof BASE_TEN_KINDS)[number]] as const,
+    );
+    options.push(
+      fc.tuple(fc.constantFrom(...pairs), fc.constantFrom(1, -1)).map(([[hi, lo], d]) => {
+        const s = clone();
+        s[hi] = ((original[hi] as number | undefined) ?? 0) - d;
+        s[lo] = ((original[lo] as number | undefined) ?? 0) + 10 * d;
         return s;
       }),
     );

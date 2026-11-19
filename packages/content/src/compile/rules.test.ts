@@ -59,6 +59,15 @@ describe('the C01 fixture set (03 §9.5)', () => {
     expect(result.content?.skills.map((s) => s.id)).toEqual([
       'ADD.01',
       'ADD.03',
+      'CMP.01',
+      'CMP.02',
+      'CMP.03',
+      'CMP.04',
+      'CMP.05',
+      'CMP.06',
+      'CMP.07',
+      'CMP.09',
+      'CMP.13',
       'CNT.01',
       'CNT.02',
       'CNT.03',
@@ -77,6 +86,11 @@ describe('the C01 fixture set (03 §9.5)', () => {
       'CPS.01',
       'CPS.02',
       'CPS.03',
+      'CPS.04',
+      'CPS.05',
+      'CPS.07',
+      'CPS.08',
+      'CPS.11',
       'GEO.01',
       'GEO.02',
       'GEO.05',
@@ -96,8 +110,10 @@ describe('the C01 fixture set (03 §9.5)', () => {
       'SUB.01',
       'SUB.02',
       'SUB.03',
+      'SUB.04',
       'SUB.05',
       'SUB.06',
+      'SUB.07',
     ]);
     expect(result.content?.misconceptions.map((m) => m.id)).toEqual([
       'MC.bigger-unit-more',
@@ -105,6 +121,7 @@ describe('the C01 fixture set (03 §9.5)', () => {
       'MC.count-start-number',
       'MC.decade-transition',
       'MC.off-by-one-counting',
+      'MC.perceptual-size',
       'MC.recount-from-one',
       'MC.teen-reversal',
       'MC.unit-gaps',
@@ -134,6 +151,13 @@ describe('the C01 fixture set (03 §9.5)', () => {
         'subitize.flash',
         'bond.parts',
         'addsub.facts',
+        // K01 (#11): comparing, ordering, number lines, estimating
+        'compare.sets',
+        'compare.numbers',
+        'numberline.place',
+        // K01 (#11): composing and decomposing (CPS.04, CPS.07)
+        'pv.number',
+        'estimate.quantity',
       ]),
     );
     expect(new Set(c?.templates.map((t) => t.format))).toEqual(
@@ -157,6 +181,11 @@ describe('the C01 fixture set (03 §9.5)', () => {
         'puzzle-grid',
         'shape-compose',
         'shape-sort',
+        // K01 (#11): CMP
+        'number-line-place',
+        // K01 (#11): CPS (pv.number; no format models yet, U03–U05)
+        'base-ten-build',
+        'expanded-form',
       ]),
     );
   });
@@ -921,7 +950,8 @@ describe('V20: coverage', () => {
         (doc) => (skill(doc, 'CNT.14').standards.ccss = ['K.CC.B.4b']),
       );
     });
-    expectFinding(diags, 'V20', /uncovered standard K.CC.C.6/);
+    // K.MD.B.3 (DAT.01, DAT.10) has no skill yet; CMP.01 and CMP.05 cover K.CC.C.6 since K01 CMP.
+    expectFinding(diags, 'V20', /uncovered standard K.MD.B.3/);
     expectFinding(diags, 'V20', /uncovered standard K.CC.B.4 \(untagged parts: K.CC.B.4c\)/);
     // Supports never count: K.OA.A.3 is addressed by CPS.01/CPS.02, K.CC.B.5 by CNT.04/CNT.06.
     expect(diags.some((d) => /standard K.OA.A.3\b/.test(d.message))).toBe(false);
@@ -1013,7 +1043,7 @@ describe('V21: the test-out pool (03 §6.5) is resolved into testOut.templateIds
     compileContent(files).content?.skills.find((s) => s.id === id)?.lesson.testOut.templateIds;
   it('uses abstract templates, else pictorial, and never choice-only ones when others remain', () => {
     expect(pool(FIXTURE, 'ADD.03')).toEqual(['ADD.03.t4']);
-    expect(pool(FIXTURE, 'CPS.01')).toEqual(['CPS.01.t4']);
+    expect(pool(FIXTURE, 'CPS.01')).toEqual(['CPS.01.t4', 'CPS.01.t5']);
     expect(pool(FIXTURE, 'SUB.01')).toEqual(['SUB.01.t1', 'SUB.01.t2']); // SUB.01.t3 is numeral-pick
   });
   it('adds pictorial templates for a gateway skill whose abstract ones span one representation', () => {
@@ -1316,9 +1346,11 @@ describe('V24 and contentVersion (03 §9.1)', () => {
     expect(manifest.schemaVersion).toBe(1);
     // Pinned to the current content; K01 (#11) updates these numbers as each strand group lands.
     expect(manifest.counts).toEqual({
-      skills: 41,
-      templates: 128,
-      misconceptions: 8,
+      // CMP (K01) added 9 skills, 31 templates and MC.perceptual-size; CPS and SUB.04/SUB.07 (K01)
+      // added 7 skills and 27 templates.
+      skills: 57,
+      templates: 187,
+      misconceptions: 9,
       narrationKeys: Object.keys(r.content?.narration ?? {}).length,
     });
     expect(Object.keys(manifest.files).sort()).toEqual([
@@ -1342,17 +1374,27 @@ describe('graph.json (03 §9.1)', () => {
     for (const [from, to] of g?.edges ?? [])
       expect(pos.get(from) as number).toBeLessThan(pos.get(to) as number);
     expect(g?.roots).toEqual(['CNT.01', 'GEO.01', 'GEO.05', 'MEA.15', 'SUB.01']);
-    expect(g?.gateways).toEqual(['CNT.03', 'CNT.14', 'CPS.02', 'SUB.03']);
+    expect(g?.gateways).toEqual(['CNT.03', 'CNT.14', 'CPS.02', 'CPS.04', 'SUB.03']);
     expect(g?.depth['CNT.01']).toBe(0);
     expect(g?.depth['ADD.03']).toBe(6); // CNT.01 → 02 → 03 → 04 → 06 → 07 → ADD.03
-    expect(g?.descendants2['CPS.03']).toBe(0);
-    // CNT.07, CNT.15, MEA.02; then ADD.03, CNT.08, CNT.09, CNT.14 and MEA.22
-    expect(g?.descendants2['CNT.06']).toBe(8);
+    // CPS.04, CPS.11; then CMP.07, CPS.07 and SUB.04
+    expect(g?.descendants2['CPS.03']).toBe(5);
+    // CNT.07, CNT.15, CPS.04, MEA.02; then ADD.03, CMP.03, CMP.07, CNT.08, CNT.09, CNT.14, CPS.07,
+    // MEA.22 and SUB.04
+    expect(g?.descendants2['CNT.06']).toBe(13);
     expect(g?.encompasses).toEqual([
       ['CNT.06', 'CNT.04', 1],
       ['CNT.06', 'CNT.05', 0.5],
       ['CNT.10', 'CNT.09', 1],
     ]);
-    expect(g?.strands.SUB).toEqual(['SUB.01', 'SUB.02', 'SUB.03', 'SUB.05', 'SUB.06']);
+    expect(g?.strands.SUB).toEqual([
+      'SUB.01',
+      'SUB.02',
+      'SUB.03',
+      'SUB.04',
+      'SUB.05',
+      'SUB.06',
+      'SUB.07',
+    ]);
   });
 });

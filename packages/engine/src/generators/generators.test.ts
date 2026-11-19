@@ -1067,15 +1067,20 @@ describe('registry', () => {
     expect(registry.ids()).toEqual([
       'addsub.facts',
       'bond.parts',
+      'compare.numbers',
+      'compare.sets',
       'count.ordinal',
       'count.sequence',
       'count.set',
+      'estimate.quantity',
       'geo.compose',
       'geo.draw',
       'geo.identify',
       'geo.position',
       'mea.length',
       'mea.massvolume',
+      'numberline.place',
+      'pv.number',
       'subitize.flash',
     ]);
     expect(
