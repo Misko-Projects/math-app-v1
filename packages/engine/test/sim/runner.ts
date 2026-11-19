@@ -553,7 +553,6 @@ function runRequest(sim: SimChild, clock: Clock, request: PlannedRequest): Reque
             : d.action;
     sim.decisions[kind] = (sim.decisions[kind] ?? 0) + 1;
     if (d.queueRemediation && sim.remediation === null) sim.remediation = d.queueRemediation;
-    if (d.action === 'end-request') return d.reason;
     if (d.action === 'continue') {
       if (d.tierOverrides) run.tierOverrides = { ...d.tierOverrides };
       if (d.insert) run.req.tasks.splice(i + 1, 0, ...d.insert);
@@ -561,9 +560,28 @@ function runRequest(sim: SimChild, clock: Clock, request: PlannedRequest): Reque
       run.req.tasks.splice(i + 1, 0, ...d.insert);
       confidenceAt = i + 1;
     }
-    if (i === confidenceAt && sim.rng.bool(sim.learner.profile.learning.takeBreak)) return 'break';
+    const end = endAfter(d, i === confidenceAt, () =>
+      sim.rng.bool(sim.learner.profile.learning.takeBreak),
+    );
+    if (end !== null) return end;
   }
   return 'exhausted';
+}
+
+/**
+ * How a request ends after a decision, or null when it goes on. The break is offered once the
+ * confidence item resolves (`breakOffered`), also when that item was the last task and its
+ * resolution completes the request; `takesBreak` draws the child's answer only when it is offered.
+ */
+export function endAfter(
+  d: AdaptDecision,
+  breakOffered: boolean,
+  takesBreak: () => boolean,
+): RequestEnd | null {
+  if (d.action === 'end-request') {
+    return breakOffered && d.reason === 'complete' && takesBreak() ? 'break' : d.reason;
+  }
+  return breakOffered && takesBreak() ? 'break' : null;
 }
 
 // ---------- sessions ----------

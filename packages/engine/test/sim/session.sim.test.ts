@@ -38,7 +38,9 @@ import { createLearner, type LearnerProfile, learnerProfile, PROFILES } from './
 import {
   createSimChild,
   EVIDENCE_CONTEXTS,
+  endAfter,
   type RequestEnd,
+  type Retrieval,
   runPlacement,
   runSession,
   type SimChild,
@@ -50,6 +52,8 @@ const SESSIONS = 60;
 const T0 = Date.UTC(2026, 10, 2, 16);
 const BAND: [number, number] = [0.78, 0.92];
 const RECALL_FLOOR = 0.6;
+/** The contexts of a scheduled, explicit review: the learner model's review contexts (04 §4). */
+const SCHEDULED_REVIEW: ReadonlySet<string> = new Set(['review', 'transfer-probe']);
 /** P(the next session is not on the next day), and then the gap in days. */
 const GAP_P = 0.15;
 const GAP_DAYS: [number, number] = [2, 4];
@@ -89,6 +93,12 @@ interface SessionRow {
 const REACH = 0.5;
 /** A session enters the reachable-items metric with at least this many reached items. */
 const MIN_REACHED = 8;
+/**
+ * The least a reading must measure to mean anything: sessions with MIN_REACHED reached items (of
+ * 360–1,200 sessions per run), and mastered cases for the review metric (20 children × 60 sessions).
+ */
+const MIN_REACHED_SESSIONS = 100;
+const MIN_MASTERED_CASES = 10;
 
 /** The model's view at a session start. */
 interface Flags {
@@ -170,6 +180,8 @@ interface MemoryMetric {
   reviewed: number;
   /** Segments left out because the model stopped rating the skill `flag` (demoted). */
   demoted: number;
+  /** Segments left out because a non-review retrieval (warmup, practice, …) came first. */
+  incidental: number;
   /** Mean hidden recall at the re-review and days to it, over the reviewed cases. */
   recallAtReview: number;
   daysToReview: number;
@@ -188,6 +200,7 @@ function memoryMetric(runs: readonly ChildRun[], flag: 'mastered' | 'onTrack'): 
     cases: 0,
     reviewed: 0,
     demoted: 0,
+    incidental: 0,
     recallAtReview: 0,
     daysToReview: 0,
     missed: { noSession: 0, notDue: 0, dueNotPlanned: 0 },
@@ -208,16 +221,26 @@ function memoryMetric(runs: readonly ChildRun[], flag: 'mastered' | 'onTrack'): 
         if (next && next.session === start.session) continue; // not the session's last retrieval
         if (!start[flag]) continue;
         const crossing = start.ts + start.trace.halfLifeDays * crossFactor;
-        if (crossing > run.simEnd) continue; // censored
-        const decision = next && next.ts < crossing ? next.ts : crossing;
+        const observed = next !== undefined && next.ts < crossing;
+        // Censored: the crossing falls after the run with nothing observed before it. A retrieval
+        // observed before the crossing settles the segment even when the crossing lies beyond.
+        if (!observed && crossing > run.simEnd) continue;
+        const decision = observed ? next.ts : crossing;
         const ahead = run.flags.filter((f) => f.ts > start.ts && f.ts <= decision);
         const lastAhead = ahead[ahead.length - 1];
         if (lastAhead && !lastAhead[flag].has(skill)) {
           out.demoted += 1;
           continue;
         }
+        // Only an explicit review is a re-review (the learner's review contexts, 04 §4). A warmup,
+        // practice or challenge item before the crossing refreshes the hidden memory without the
+        // planner scheduling a review: such a segment tests no review and is left out (counted).
+        if (observed && !SCHEDULED_REVIEW.has(next.context)) {
+          out.incidental += 1;
+          continue;
+        }
         out.cases += 1;
-        if (next && next.context !== 'placement' && next.ts < crossing) {
+        if (observed) {
           out.reviewed += 1;
           out.recallAtReview += next.recall;
           out.daysToReview += (next.ts - start.ts) / DAY_MS;
@@ -230,6 +253,27 @@ function memoryMetric(runs: readonly ChildRun[], flag: 'mastered' | 'onTrack'): 
   out.recallAtReview = out.reviewed > 0 ? out.recallAtReview / out.reviewed : Number.NaN;
   out.daysToReview = out.reviewed > 0 ? out.daysToReview / out.reviewed : Number.NaN;
   return out;
+}
+
+/** The skill of the metric's synthetic segments. */
+const S = 'CNT.01';
+
+/** A synthetic retrieval of S, on the model's mastered track, at `day` (half-life 10 days). */
+function retrieval(day: number, context: Retrieval['context'], session = 0): Retrieval {
+  const ts = day * DAY_MS;
+  return {
+    session,
+    ts,
+    skillId: S,
+    context,
+    success: true,
+    recall: 0.9,
+    trace: { halfLifeDays: 10, lastTs: ts },
+    onTrack: true,
+    mastered: true,
+    dueTs: ts + 3 * DAY_MS,
+    intervalDays: 3,
+  };
 }
 
 const pct = (x: number) => (Number.isFinite(x) ? `${(100 * x).toFixed(1)}%` : 'n/a');
@@ -405,7 +449,7 @@ function simulateProfile(
 
 function printReport(graph: SkillGraph, r: ProfileReport) {
   const mem = (m: MemoryMetric) =>
-    `${m.reviewed}/${m.cases} = ${pct(m.cases > 0 ? m.reviewed / m.cases : Number.NaN)} over ${m.skills} child-skills (re-reviewed at recall ${fix(m.recallAtReview)}, ${fix(m.daysToReview, 1)} d after; missed: child did not play ${m.missed.noSession}, not due yet ${m.missed.notDue}, due but not planned ${m.missed.dueNotPlanned}; demoted, left out ${m.demoted})`;
+    `${m.reviewed}/${m.cases} = ${pct(m.cases > 0 ? m.reviewed / m.cases : Number.NaN)} over ${m.skills} child-skills (re-reviewed at recall ${fix(m.recallAtReview)}, ${fix(m.daysToReview, 1)} d after; missed: child did not play ${m.missed.noSession}, not due yet ${m.missed.notDue}, due but not planned ${m.missed.dueNotPlanned}; left out: demoted ${m.demoted}, refreshed first by a non-review retrieval ${m.incidental})`;
   const list = (f: (c: ProfileReport['perChild'][number]) => number) =>
     r.perChild.map((c) => fix(f(c))).join(' ');
   console.log(
@@ -436,9 +480,19 @@ const stationary = (p: LearnerProfile): LearnerProfile =>
     learning: { ...p.learning, overlearn: 0, minSlipShare: 1 },
   });
 
+/**
+ * The data the band readings measure. Asserted outside every expected failure, so that losing it
+ * fails the suite instead of satisfying an `it.fails`.
+ */
+function assertMeasured(r: ProfileReport) {
+  expect(r.sessions).toBeGreaterThan(0);
+  expect(Number.isFinite(r.inBand)).toBe(true);
+  expect(r.reachedSessions).toBeGreaterThanOrEqual(MIN_REACHED_SESSIONS);
+  expect(Number.isFinite(r.reachedInBand)).toBe(true);
+}
+
 /** The asserted 04 §8 band reading: expected accuracy on reachable items (see below). */
 function assertReachableBand(r: ProfileReport) {
-  expect(r.reachedSessions).toBeGreaterThan(0);
   expect(r.reachedInBand).toBeGreaterThanOrEqual(0.8);
 }
 
@@ -461,6 +515,12 @@ describe('session simulation (04 §8)', () => {
             .runs.slice(0, FOLD_CHECKED)
             .map((x) => x.foldChecks),
         ).toEqual(Array(FOLD_CHECKED).fill(3));
+      });
+
+      it('measures enough sessions for the band readings and mastered cases for the review metric', () => {
+        const r = report();
+        assertMeasured(r);
+        expect(r.mastered.cases).toBeGreaterThanOrEqual(MIN_MASTERED_CASES);
       });
 
       // Reading (E03, 04 §7b; decided by the campaign orchestrator): the band is asserted on each
@@ -495,11 +555,10 @@ describe('session simulation (04 §8)', () => {
       });
 
       it('re-reviews mastered skills before recall < 0.6 in ≥ 90% of cases', () => {
-        // With no mastered case on the graph, the practiced-track skills stand in (labelled in
-        // the printed report).
-        const r = report();
-        const m = r.mastered.cases > 0 ? r.mastered : r.onTrack;
-        expect(m.cases).toBeGreaterThan(0);
+        // A case is a mastered skill's memory segment that no other retrieval refreshed first; it
+        // counts as re-reviewed when an explicit review came before the hidden recall fell below
+        // 0.6. The practiced-track reading is printed beside it.
+        const m = report().mastered;
         expect(m.reviewed / m.cases).toBeGreaterThanOrEqual(0.9);
       });
     });
@@ -521,8 +580,47 @@ describe('session simulation (04 §8)', () => {
       printReport(graph, r);
       expect(r.sessions).toBeGreaterThan(0);
     }
-    for (const r of stationaryRuns) assertReachableBand(r);
+    for (const r of stationaryRuns) {
+      assertMeasured(r);
+      assertReachableBand(r);
+    }
   }, 60_000);
+
+  it('offers the break after the confidence item, also when it completes the request', () => {
+    const complete = { action: 'end-request', reason: 'complete' } as const;
+    expect(endAfter(complete, true, () => true)).toBe('break');
+    expect(endAfter(complete, true, () => false)).toBe('complete');
+    expect(endAfter(complete, false, () => true)).toBe('complete');
+    expect(endAfter({ action: 'end-request', reason: 'wind-down' }, true, () => true)).toBe(
+      'wind-down',
+    );
+    expect(endAfter({ action: 'continue' }, true, () => true)).toBe('break');
+    expect(endAfter({ action: 'continue' }, false, () => true)).toBeNull();
+  });
+
+  it('review metric: only an explicit review re-reviews; a retrieval seen before the end counts', () => {
+    // A mastered skill retrieved at day 0 whose hidden recall would cross 0.6 at ≈ day 7.4
+    // (half-life 10 days); the run ends on day 5, so the crossing is past the end.
+    const start = retrieval(0, 'review');
+    const runWith = (next: Retrieval[]): ChildRun => ({
+      seed: 0,
+      sim: { retrievals: [start, ...next] } as unknown as SimChild,
+      sessions: [],
+      flags: [
+        { ts: 4 * DAY_MS, end: 4 * DAY_MS + 1, onTrack: new Set([S]), mastered: new Set([S]) },
+      ],
+      simEnd: 5 * DAY_MS,
+      foldChecks: 0,
+    });
+    // A timely explicit review on day 4 is observed before the end: one reviewed case.
+    const reviewed = memoryMetric([runWith([retrieval(4, 'review', 1)])], 'mastered');
+    expect(reviewed).toMatchObject({ cases: 1, reviewed: 1, incidental: 0 });
+    // A warmup on day 4 refreshes the memory without a scheduled review: no case at all.
+    const warm = memoryMetric([runWith([retrieval(4, 'warmup', 1)])], 'mastered');
+    expect(warm).toMatchObject({ cases: 0, reviewed: 0, incidental: 1 });
+    // No follow-up and the crossing past the end: censored, the segment is left out.
+    expect(memoryMetric([runWith([])], 'mastered')).toMatchObject({ cases: 0, reviewed: 0 });
+  });
 
   it('is deterministic: the same child twice gives identical events and metrics', () => {
     const a = simulateChild(graph, PROFILES.K, 7, false);
