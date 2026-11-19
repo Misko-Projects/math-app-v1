@@ -1,4 +1,10 @@
-import { type FormatModel, formatModel, type ShapeSortState } from '@number-island/engine';
+import {
+  type FormatModel,
+  formatModel,
+  ruleMatches,
+  type ShapeSortState,
+  sortCardProps,
+} from '@number-island/engine';
 import type { ShapeCard, WidgetAction } from '@number-island/shared';
 import { type CSSProperties, useMemo, useRef, useState } from 'react';
 import { useInteractionTrace } from '../../interaction/trace';
@@ -12,6 +18,7 @@ import {
   ObjectSprite,
   type ShapeMark,
   ShapeView,
+  shapeBox,
   shapeExtent,
   spriteNameKey,
   useAlive,
@@ -329,6 +336,10 @@ export function ShapeSortWidget({
   const trayCards = config.cards.filter((c) => binOf(c.id) === TRAY);
   // One card size (outer px) for the tray and the bins: as large as the area allows for where the
   // cards are now, never under the target size plus 4 (cards in bins are tapped and dragged too).
+  // A tray card invited: room under the tray's cards for Pip's hand (it hangs about 46 px below
+  // the card), 8+ px clear of the tray's border; only while invited.
+  const trayInvited = invite?.id ? binOf(invite.id) === TRAY : false;
+  const L = sortLayout(compact);
   const outer = sortCardSize({
     width: avail?.width ?? 1100,
     height: avail?.height ?? 640,
@@ -337,7 +348,20 @@ export function ShapeSortWidget({
     minT,
     tray: trayCards.length,
     bins: bins.map((b) => (state.bins[b.id] ?? []).length),
+    handRoom: trayInvited ? TRAY_HAND_ROOM : 0,
   });
+  /** A bin's picture (05: K content must not rely on reading): the first card it takes. */
+  const binIcon = (b: (typeof bins)[number]) => {
+    const c = config.cards.find((x) => ruleMatches(b.rule, sortCardProps(x.card)));
+    if (!c) return null;
+    if (isShape(c.card)) {
+      // Its own tight box (not the cards' shared scale), upright, about 40 px across.
+      const card = { ...c.card, rotationDeg: 0, scale: 1 };
+      const box = shapeBox(card);
+      return <ShapeView card={card} unitPx={BIN_ICON_PX / Math.max(box.width, box.height)} />;
+    }
+    return face(c, BIN_ICON_PX);
+  };
   const traySize = outer - 16;
   const binSize = outer - 16;
   const cardButton = (c: Card, size: number) => {
@@ -394,11 +418,14 @@ export function ShapeSortWidget({
         <div
           className="ni-ssort__tray"
           data-bin={TRAY}
-          // An empty tray keeps one row of room (the cards' padding is 12 or 14 px).
-          style={{ minHeight: outer + (compact ? 12 + 36 : 14 + 38) }}
+          // An empty tray keeps one row of room; its cards sit centred in it.
+          style={{ minHeight: outer + 2 * L.cardsPad }}
         >
           {pad(TRAY, t('ui.ssort.tray'))}
-          <div className="ni-ssort__tray-cards">
+          <div
+            className="ni-ssort__tray-cards"
+            style={trayInvited ? { paddingBottom: L.cardsPad + TRAY_HAND_ROOM } : undefined}
+          >
             {trayCards.map((c) => cardButton(c, traySize))}
           </div>
         </div>
@@ -413,15 +440,23 @@ export function ShapeSortWidget({
             className="ni-ssort__bin"
             data-bin={b.id}
             // Bins widen with their cards, so a full bin keeps one row where it can.
-            style={{
-              flexGrow: binWeight((state.bins[b.id] ?? []).length),
-              // An empty bin keeps a row of room: label, padding, one card, the room for its lip.
-              minHeight: (compact ? 42 + 12 + 20 : 45 + 14 + 24) + outer,
-            }}
+            style={
+              {
+                flexGrow: binWeight((state.bins[b.id] ?? []).length),
+                // An empty bin keeps a row of room: its header, padding, one card, its lip.
+                minHeight: L.head + L.cardsPad + outer + L.binBottom,
+                '--bin-head': `${L.head}px`,
+              } as CSSProperties
+            }
           >
             {pad(b.id, t(b.label))}
-            <span className="ni-ssort__label" aria-hidden="true">
-              {t(b.label)}
+            {/* The bin's picture and its name, ABOVE its frame: rings inside the frame never
+                touch the name (evidence review). */}
+            <span className="ni-ssort__bin-head" aria-hidden="true">
+              <span className="ni-ssort__bin-icon" data-bin-icon={b.id}>
+                {binIcon(b)}
+              </span>
+              <span className="ni-ssort__label">{t(b.label)}</span>
             </span>
             <div className="ni-ssort__bin-cards">
               {(state.bins[b.id] ?? []).map((id) => {
@@ -437,11 +472,48 @@ export function ShapeSortWidget({
   );
 }
 
+/** Room under an invited tray card for Pip's hand, 8+ px clear of the tray's border. */
+const TRAY_HAND_ROOM = 46;
+/** A bin's picture: the face of a card it takes, at least 40 px. */
+const BIN_ICON_PX = 52;
+
+/**
+ * The sort layout's measures (px), mirrored by shape-sort.css: root padding, gaps (the Check
+ * column 20/24 px from the tray, room for its 8 px focus ring), the cards' padding, the bin's
+ * header above its frame (picture and name), and under a bin's cards: 12 px of free space above
+ * its lip, the lip (6/10), the border (4) and a card's 6 px base.
+ */
+export function sortLayout(compact: boolean) {
+  return compact
+    ? {
+        padX: 8,
+        padY: 8,
+        gapY: 12,
+        topGap: 20,
+        binsGap: 12,
+        cardsPad: 12,
+        head: 58,
+        lip: 6,
+        binBottom: 28,
+      }
+    : {
+        padX: 24,
+        padY: 16,
+        gapY: 16,
+        topGap: 24,
+        binsGap: 20,
+        cardsPad: 14,
+        head: 64,
+        lip: 10,
+        binBottom: 32,
+      };
+}
+
 /**
  * The sort layout's card size (outer CSS px): the largest from 120 down to `minT + 4` at which the
  * tray's cards and each bin's cards, wrapped into rows, fit the area's height. Bins share the
- * width in proportion to their cards (`binWeight`). The numbers mirror shape-sort.css (paddings,
- * gaps, the bin label, the concrete ledge) and the Check column.
+ * width in proportion to their cards (`binWeight`). `handRoom` is extra room under the tray's cards
+ * while one of them is invited.
  */
 export function sortCardSize(a: {
   width: number;
@@ -451,14 +523,13 @@ export function sortCardSize(a: {
   minT: number;
   tray: number;
   bins: readonly number[];
+  handRoom?: number;
 }): number {
   const gap = 12;
-  const css = a.compact
-    ? { padX: 8, padY: 8, gapY: 12, topGap: 12, binsGap: 12, cardsPad: 12, label: 42 }
-    : { padX: 24, padY: 16, gapY: 16, topGap: 20, binsGap: 20, cardsPad: 14, label: 45 };
-  // Under the cards (shape-sort.css): the tray leaves room for Pip's hand, a bin its lip.
-  const trayBottom = a.compact ? 36 : 38;
-  const binBottom = a.compact ? 20 : 24;
+  const L = sortLayout(a.compact);
+  const css = { ...L, label: L.head };
+  const trayBottom = L.cardsPad + (a.handRoom ?? 0);
+  const binBottom = L.binBottom;
   const checkW = a.kMode ? 120 : 210;
   const trayW = a.width - css.padX - css.topGap - checkW;
   const binsW = a.width - css.padX - Math.max(0, a.bins.length - 1) * css.binsGap;

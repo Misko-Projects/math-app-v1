@@ -15,6 +15,7 @@ export {
   placeCorners,
   type Vec,
 } from './check/state/pieces';
+export { ruleMatches } from './check/state/sort.byRule';
 export {
   type ContentBinding,
   initContent,

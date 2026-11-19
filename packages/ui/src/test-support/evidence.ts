@@ -223,6 +223,15 @@ export async function expectNumeralInk(root: Element, selector: string, min = 32
 export async function expectHandTouchesOnlyInvited(
   root: Element,
   others: readonly Element[],
+  {
+    min = 0,
+    inside = [],
+  }: {
+    /** The least clearance (px) to every other control. */
+    min?: number;
+    /** Frames the hand lies in (the invited control's tray): it stays `min` px inside them. */
+    inside?: readonly Element[];
+  } = {},
 ): Promise<number> {
   const hand = root.querySelector('.ni-hand') as HTMLElement | null;
   await expect(hand, 'the hand is shown').not.toBeNull();
@@ -238,7 +247,22 @@ export async function expectHandTouchesOnlyInvited(
     for (const o of others) {
       const g = boxGap(box, visibleBox(o));
       least = Math.min(least, g);
-      await expect(g, `hand clear of ${o.className || o.tagName}`).toBeGreaterThanOrEqual(0);
+      await expect(g, `hand clear of ${o.className || o.tagName}`).toBeGreaterThanOrEqual(min);
+    }
+    for (const frame of inside) {
+      const f = frame.getBoundingClientRect();
+      const cs = getComputedStyle(frame);
+      const bw = Number.parseFloat(cs.borderTopWidth) || 0;
+      const g = Math.min(
+        box.left - (f.left + bw),
+        box.top - (f.top + bw),
+        f.right - bw - box.right,
+        f.bottom - bw - box.bottom,
+      );
+      least = Math.min(least, g);
+      await expect(g, `hand inside ${frame.className}, clear of its border`).toBeGreaterThanOrEqual(
+        min,
+      );
     }
     console.info(`[hand] clearance to the nearest other control: ${Math.round(least)} px`);
     return least;

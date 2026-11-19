@@ -10,6 +10,7 @@ import {
   inArea,
 } from '../../test-support/areaStory';
 import {
+  boxGap,
   expectApart,
   expectControls,
   expectHandTouchesOnlyInvited,
@@ -477,6 +478,9 @@ export const SolidsTabletK: Story = {
     await userEvent.click(within(root).getByRole('button', { name: 'Check' }));
     const r = lastResponse(args.onResponse) as { value: Record<string, unknown> };
     await expect(stateChecker('sort.byRule')?.check(solidsTarget, r.value)).toBe(true);
+    // Ends settled, like every area story: no focus ring left on Check (evidence review).
+    await expectTrayLayout(root);
+    await settleFocus();
   },
 };
 
@@ -522,6 +526,9 @@ export const SolidsLandscapeMinK: Story = {
     await userEvent.click(within(root).getByRole('button', { name: 'Check' }));
     const r = lastResponse(args.onResponse) as { value: Record<string, unknown> };
     await expect(stateChecker('sort.byRule')?.check(solidsTarget, r.value)).toBe(true);
+    // Ends settled, like every area story: no focus ring left on Check (evidence review).
+    await expectTrayLayout(root);
+    await settleFocus();
   },
 };
 
@@ -574,7 +581,7 @@ const present = (groups: Record<string, Element[]>) =>
  */
 export const StressSixteenTabletK: Story = {
   globals: { ageMode: 'k' },
-  args: { config: manyBlocks(8), tier: 'pictorial' },
+  args: { config: manyBlocks(8), tier: 'concrete' },
   render: inArea('tablet'),
   play: async ({ canvasElement }) => {
     const root = await findWidget(canvasElement, ROOT);
@@ -612,7 +619,7 @@ export const StressSevenLandscapeMinK: Story = {
       ...manyBlocks(4),
       cards: manyBlocks(4).cards.slice(0, 7),
     },
-    tier: 'pictorial',
+    tier: 'concrete',
   },
   render: inArea('landscapeMin'),
   play: async ({ canvasElement }) => {
@@ -650,35 +657,39 @@ export const StressSevenLandscapeMinK: Story = {
  * Logs the measured paddings.
  */
 async function expectBinLips(root: HTMLElement) {
-  const compact = root.dataset.compact === 'true';
-  const side = compact ? 12 : 14;
   let least = Number.POSITIVE_INFINITY;
-  let labelRoom = Number.POSITIVE_INFINITY;
   for (const bin of root.querySelectorAll<HTMLElement>('.ni-ssort__bin')) {
     const p = bin.querySelector('.ni-ssort__pad') as HTMLElement;
     const r = p.getBoundingClientRect();
     const cs = getComputedStyle(p);
     const innerBottom = r.bottom - (Number.parseFloat(cs.borderBottomWidth) || 0);
+    // The visible lip band: the frame's inset bottom shadow.
     const lip = Number(/inset\s+0(?:px)?\s+-(\d+)px/.exec(cs.boxShadow)?.[1] ?? 0);
-    for (const card of bin.querySelectorAll('.ni-ssort__card')) {
-      const gap = innerBottom - card.getBoundingClientRect().bottom;
-      least = Math.min(least, gap);
-      await expect(gap, 'card above the bin floor by a side padding').toBeGreaterThanOrEqual(
-        side - 0.5,
+    const lipTop = innerBottom - lip;
+    for (const card of bin.querySelectorAll<HTMLElement>('.ni-ssort__card')) {
+      // The card's bottom including its base (its offset shadow).
+      const base = Number(
+        /\s0(?:px)?\s+(\d+)px\s+0(?:px)?/.exec(getComputedStyle(card).boxShadow)?.[1] ?? 0,
       );
-      await expect(gap - 6, 'card ledge clears the lip').toBeGreaterThanOrEqual(lip - 0.5);
+      const gap = lipTop - (card.getBoundingClientRect().bottom + base);
+      least = Math.min(least, gap);
+      await expect(gap, 'free space between the card base and the lip band').toBeGreaterThanOrEqual(
+        11.5,
+      );
     }
-    // The label's text starts at its content edge (its line box), below its top padding.
+    // The bin's name is above its frame, and its picture is at least 40 px.
     const label = bin.querySelector('.ni-ssort__label') as HTMLElement;
-    const textTop =
-      label.getBoundingClientRect().top +
-      (Number.parseFloat(getComputedStyle(label).paddingTop) || 0);
-    const room = textTop - (r.top + (Number.parseFloat(cs.borderTopWidth) || 0));
-    labelRoom = Math.min(labelRoom, room);
-    await expect(room, 'label room under the top border').toBeGreaterThanOrEqual(6);
+    await expect(label.getBoundingClientRect().bottom).toBeLessThanOrEqual(r.top + 0.5);
+    const icon = bin.querySelector('[data-bin-icon]') as HTMLElement;
+    const art = icon.firstElementChild as Element | null;
+    await expect(art, 'bin picture').not.toBeNull();
+    const a = (art as Element).getBoundingClientRect();
+    await expect(Math.max(a.width, a.height), 'bin picture size').toBeGreaterThanOrEqual(40);
   }
   console.info(
-    `[bins] card bottom to bin floor ≥ ${Math.round(least)} px (side ${side}); label under top border ≥ ${Math.round(labelRoom)} px`,
+    Number.isFinite(least)
+      ? `[bins] card base to the lip band ≥ ${Math.round(least)} px`
+      : '[bins] no cards in the bins; pictures and names checked',
   );
 }
 
@@ -701,6 +712,37 @@ async function expectBinRingsInside(root: HTMLElement) {
   }
 }
 
+/**
+ * The tray's cards sit centred in it top to bottom (equal space above and below, within 4 px),
+ * and Check, with its 8 px focus ring, stays 12+ px from the tray's border (evidence review).
+ * Logs the measured values.
+ */
+async function expectTrayLayout(root: HTMLElement) {
+  const tray = pad(root, 'tray');
+  const t = tray.getBoundingClientRect();
+  const bw = Number.parseFloat(getComputedStyle(tray).borderTopWidth) || 0;
+  const cards = [...root.querySelectorAll('[data-bin="tray"] .ni-ssort__card')].map((c) =>
+    c.getBoundingClientRect(),
+  );
+  let line = '';
+  if (cards.length > 0) {
+    const above = Math.min(...cards.map((c) => c.top)) - (t.top + bw);
+    const below = t.bottom - bw - Math.max(...cards.map((c) => c.bottom));
+    await expect(Math.abs(above - below), 'tray cards centred').toBeLessThanOrEqual(4);
+    line = `tray top/bottom ${Math.round(above)}/${Math.round(below)} px; `;
+  }
+  const check = within(root).getByRole('button', { name: 'Check' }).getBoundingClientRect();
+  const ring = {
+    left: check.left - 8,
+    top: check.top - 8,
+    right: check.right + 8,
+    bottom: check.bottom + 8,
+  };
+  const gap = boxGap(ring, t);
+  await expect(gap, 'Check (with its focus ring) clear of the tray').toBeGreaterThanOrEqual(12);
+  console.info(`[tray] ${line}Check ring to tray border ${Math.round(gap)} px`);
+}
+
 const trayPlay =
   (story: string) =>
   async ({ canvasElement }: { canvasElement: HTMLElement }) => {
@@ -712,6 +754,8 @@ const trayPlay =
       await expectFitsArea(box, [c]);
     }
     await expectControls(story, 'k', present(sortControls(root)));
+    await expectTrayLayout(root);
+    await expectBinLips(root);
     await settleFocus();
   };
 
@@ -721,7 +765,7 @@ const trayPlay =
  */
 export const StressTraySixteenTabletK: Story = {
   globals: { ageMode: 'k' },
-  args: { config: manyBlocks(8), tier: 'pictorial' },
+  args: { config: manyBlocks(8), tier: 'concrete' },
   render: inArea('tablet'),
   play: trayPlay('shape-sort StressTraySixteenTabletK'),
 };
@@ -735,7 +779,7 @@ export const StressTraySevenLandscapeMinK: Story = {
   globals: { ageMode: 'k' },
   args: {
     config: { ...manyBlocks(4), cards: manyBlocks(4).cards.slice(0, 7) },
-    tier: 'pictorial',
+    tier: 'concrete',
   },
   render: inArea('landscapeMin'),
   play: trayPlay('shape-sort StressTraySevenLandscapeMinK'),
@@ -777,6 +821,21 @@ export const StressSevenSelectedLandscapeMinK: Story = {
         -outer - (Number.parseFloat(cs.borderTopWidth) || 0),
         `${id} ring clear of its border`,
       ).toBeGreaterThanOrEqual(6);
+      // ... and 6+ px from the bin's name (its glyphs), which sits above the frame.
+      const r = pad(root, id).getBoundingClientRect();
+      const ringBox = {
+        left: r.left - outer,
+        top: r.top - outer,
+        right: r.right + outer,
+        bottom: r.bottom + outer,
+      };
+      const range = document.createRange();
+      range.selectNodeContents(
+        root.querySelector(`[data-bin="${id}"] .ni-ssort__label`) as HTMLElement,
+      );
+      const toLabel = boxGap(ringBox, range.getBoundingClientRect());
+      console.info(`[ring] ${id} armed ring to its name ${Math.round(toLabel)} px`);
+      await expect(toLabel, `${id} ring clear of its name`).toBeGreaterThanOrEqual(6);
     }
     await expectControls(
       'shape-sort StressSevenSelectedLandscapeMinK',
@@ -1007,12 +1066,17 @@ export const DemoInvite: Story = {
       inside: [pad(root, 'tray')],
     });
     // The whole hand (and its bob) touches only the invited card: not a bin, not another card.
-    await expectHandTouchesOnlyInvited(root, [
-      ...others,
-      pad(root, 'b0'),
-      pad(root, 'b1'),
-      within(root).getByRole('button', { name: 'Check' }),
-    ]);
+    // ... 8+ px from every other control, and 8+ px inside the tray's border (evidence review).
+    await expectHandTouchesOnlyInvited(
+      root,
+      [
+        ...others,
+        pad(root, 'b0'),
+        pad(root, 'b1'),
+        within(root).getByRole('button', { name: 'Check' }),
+      ],
+      { min: 8, inside: [pad(root, 'tray')] },
+    );
     await expectControls('shape-sort DemoInvite', 'k', {
       cards: [...root.querySelectorAll('.ni-ssort__card')],
     });
