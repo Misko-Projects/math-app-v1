@@ -6,7 +6,8 @@
   "exports": {
     ".": "./src/index.ts",
     "./theme.css": "./src/tokens/theme.css",
-    "./primitives.css": "./src/styles/primitives.css"
+    "./primitives.css": "./src/styles/primitives.css",
+    "./art.css": "./src/art/art.css"
   },
   "scripts": {
     "storybook": "storybook dev -p 6006",
@@ -15,7 +16,9 @@
   "dependencies": {
     "@number-island/content": "workspace:*",
     "@number-island/engine": "workspace:*",
-    "@number-island/shared": "workspace:*"
+    "@number-island/shared": "workspace:*",
+    "motion": "^14.14.0",
+    "pixi.js": "^8.23.0"
   },
   "peerDependencies": {
     "react": "^19.0.0",

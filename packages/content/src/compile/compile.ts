@@ -1463,6 +1463,11 @@ const NON_OUTFIT_RULE_KEYS = ['skill', 'skillKind', 'minGrade'] as const;
 const ACTIVE_STRAND_SET = new Set<string>(ACTIVE_STRANDS);
 const RESERVED_STRAND_SET = new Set<string>(RESERVED_STRANDS);
 const ISLAND_GRID = { w: 12, h: 8 } as const;
+/**
+ * The most road stones one plot may hold. The UI road planner (packages/ui art/island/roadPlan)
+ * is tested to fit stones and their marks up to 64 per plot; above that they cannot all fit.
+ */
+const MAX_ROAD_STONES_PER_PLOT = 64;
 
 /** The atomic rules inside a rule (through `all` and `any`), with their paths. */
 function atomicRules(where: string, r: UnlockRule): { where: string; rule: UnlockRule }[] {
@@ -1661,6 +1666,7 @@ function checkGame(
     });
   });
   let last = 0;
+  const stonesOnPlot = new Map<string, number>();
   game.island.road.forEach((stone, i) => {
     const loc = islandAt(`island.road[${i}]`);
     if (!inGrid(stone.plot)) err('V01', sub(loc, '.plot'), outside(stone.plot));
@@ -1671,6 +1677,15 @@ function checkGame(
         `road stones are listed once each, in increasing order (${stone.n} after ${last})`,
       );
     last = Math.max(last, stone.n);
+    const key = stone.plot.join(',');
+    const onPlot = (stonesOnPlot.get(key) ?? 0) + 1;
+    stonesOnPlot.set(key, onPlot);
+    if (onPlot === MAX_ROAD_STONES_PER_PLOT + 1)
+      err(
+        'V02',
+        sub(loc, '.plot'),
+        `plot [${stone.plot.join(', ')}] holds more than ${MAX_ROAD_STONES_PER_PLOT} road stones (stone ${stone.n})`,
+      );
   });
   game.festivals.forEach((f, i) => {
     f.rewardDecor.forEach((x, j) => {

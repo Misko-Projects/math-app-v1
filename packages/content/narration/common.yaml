@@ -50,6 +50,8 @@ p.bond.missing-part:
   text: "{whole} is {part} and how many more?"
 p.bond.make-ten:
   text: "{part} and what number make ten?"
+p.bond.new-way:
+  text: "Find a new way to split {whole}."
 p.add.add-more:
   text: "You have {start}. Add more to make {n}."
 p.add.how-many-in-all:
@@ -57,6 +59,22 @@ p.add.how-many-in-all:
 p.add.what-is:
   text: "{a} + {b} = ?"
   say: "What is {a} plus {b}?"
+# ADD (K01): take away, hops and jumps, the second frame.
+p.sub.what-is:
+  text: "{a} − {b} = ?"
+  say: "What is {a} take away {b}?"
+p.sub.take-from:
+  text: "Take {b} away from {a}. How many are left?"
+p.add.next-frame:
+  text: "Put {b} in the next frame. How many in all?"
+p.add.hop-on:
+  text: "Start on {a} and hop {b} more. Where do you land?"
+p.sub.hop-back:
+  text: "Start on {a} and hop back {b}. Where do you land?"
+p.add.jump-on:
+  text: "Start at {a} and jump {b} more. Where do you land?"
+p.sub.jump-back:
+  text: "Start at {a} and jump back {b}. Where do you land?"
 
 p.geo.which-kind:
   text: "Which one is a {kind|shape:one}?"
@@ -64,6 +82,87 @@ p.geo.find-every:
   text: "Find every {kind|shape:one}."
 p.geo.fill-outline:
   text: "Fill the outline with the pieces."
+# K01 equality (equality.eq) and story problems (story.addsub).
+p.eq.box:
+  text: "What number goes in the box?"
+p.story.listen:
+  text: "Listen to the story."
+# Story lines (story.addsub `lines`, 03 §4.6): {who} is the resident the TaskRunner names, {item}
+# and {other} are contexts.yaml nouns, and {many} is 2, so a noun slot that counts "many" is
+# plural. Each context speaks its own verbs (p.story.<context>.*).
+p.story.has:
+  text: "{who|name} has {a} {item|noun:a}."
+p.story.has-some:
+  text: "{who|name} has some {item|noun:many}."
+p.story.now-has:
+  text: "Now {who|name} has {n} {item|noun:n}."
+p.story.q.now:
+  text: "How many {item|noun:many} does {who|name} have now?"
+p.story.q.left:
+  text: "How many {item|noun:many} are left?"
+p.story.q.start:
+  text: "How many {item|noun:many} did {who|name} have at the start?"
+p.story.q.all:
+  text: "How many {item|noun:many} does {who|name} have in all?"
+p.story.q.white:
+  text: "How many white ones does {who|name} have?"
+p.story.q.both:
+  text: "How many could be red, and how many white?"
+p.story.pt.two:
+  text: "{who|name} has {a} red {item|noun:a} and {b} white {item|noun:b}."
+p.story.pt.three:
+  text: "{who|name} has {a} red, {b} white and {c} blue {item|noun:many}."
+p.story.pt.total:
+  text: "{who|name} has {a} {item|noun:a}. Some are red and some are white."
+p.story.pt.red:
+  text: "{who|name} has {b} red ones."
+p.story.cmp.two:
+  text: "{who|name} has {a} {item|noun:a} and {b} {other|noun:b}."
+p.story.cmp.has-other:
+  text: "{who|name} has {a} {other|noun:a}."
+p.story.cmp.more:
+  text: "{who|name} has {b} more {item|noun:many} than {other|noun:many}."
+p.story.cmp.fewer:
+  text: "{who|name} has {b} fewer {other|noun:many} than {item|noun:many}."
+p.story.cmp.q-more:
+  text: "How many more {item|noun:many} than {other|noun:many} does {who|name} have?"
+p.story.cmp.q-fewer:
+  text: "How many fewer {other|noun:many} than {item|noun:many} does {who|name} have?"
+p.story.cmp.q-item:
+  text: "How many {item|noun:many} does {who|name} have?"
+p.story.cmp.q-other:
+  text: "How many {other|noun:many} does {who|name} have?"
+p.story.beach-shells.add:
+  text: "{who|name} finds {b} more {item|noun:b}."
+p.story.beach-shells.add-some:
+  text: "{who|name} finds some more."
+p.story.beach-shells.take:
+  text: "{who|name} gives away {b} {item|noun:b}."
+p.story.beach-shells.take-some:
+  text: "{who|name} gives some away."
+p.story.beach-shells.q-add:
+  text: "How many {item|noun:many} did {who|name} find?"
+p.story.beach-shells.q-take:
+  text: "How many {item|noun:many} did {who|name} give away?"
+p.story.lighthouse-lanterns.add:
+  text: "{who|name} lights {b} more {item|noun:b}."
+p.story.lighthouse-lanterns.add-some:
+  text: "{who|name} lights some more."
+p.story.lighthouse-lanterns.take:
+  text: "{who|name} lets {b} {item|noun:b} go."
+p.story.lighthouse-lanterns.take-some:
+  text: "{who|name} lets some go."
+p.story.lighthouse-lanterns.q-add:
+  text: "How many {item|noun:many} did {who|name} light?"
+p.story.lighthouse-lanterns.q-take:
+  text: "How many {item|noun:many} did {who|name} let go?"
+# Equation options (ADD.23 numeral-pick) and the equation a number pad story finishes.
+p.story.eq-plus:
+  text: "{x} + {y} = {z}"
+  say: "{x} plus {y} equals {z}"
+p.story.eq-minus:
+  text: "{x} − {y} = {z}"
+  say: "{x} take away {y} equals {z}"
 
 # ---------- hints (levels 2–4; replay and show-me are automatic) ----------
 h.replay:
@@ -113,6 +212,8 @@ h.ordinal.say-places:
   text: "Say first, second, third as you touch each one."
 h.ordinal.stones:
   text: "Start at the first stone. Say first, second, third."
+h.ordinal.say-on:
+  text: "Say the places in order. Which one comes next?"
 h.subitize.look-again:
   text: "Look again. Do you see a shape you know?"
 h.subitize.look-groups:
@@ -141,6 +242,158 @@ h.bond.slide-beads:
   text: "Slide some beads over. Count both parts."
 h.bond.partners:
   text: "Count the empty spaces. They make ten."
+# CPS (K01) hints. Free splits name no number that could be a part (03 §9.4 step 7).
+h.bond.split-any:
+  text: "Put some in each part. Both parts make the whole."
+h.bond.count-on:
+  text: "Start at the part you know. Count up to the whole."
+h.bond.fingers:
+  text: "Show the whole on your fingers. Put down the part you know."
+h.bond.new-way:
+  text: "Make one part bigger by one. Is that a new way?"
+h.bond.through-ten:
+  text: "Count up to ten first. Then count on to the whole."
+h.bond.fill-ten:
+  text: "Move counters over to fill the first frame."
+h.bond.count-left:
+  text: "Now count the ones left in the second frame."
+h.bond.beads-ten:
+  text: "Slide beads up to fill the top row."
+h.pv.full-frame:
+  text: "Fill one whole frame first. That is ten."
+h.pv.ten-and-more:
+  text: "Start at ten. Then count on the more."
+h.pv.ten-on-top:
+  text: "Ten beads fill the top row. The more go below."
+h.pv.bundle-first:
+  text: "Take one bundle of ten first."
+h.pv.count-ones:
+  text: "Then add ones. Count on from ten."
+h.pv.ten-card:
+  text: "Find the ten card first. Then find the ones."
+h.pv.teen-order:
+  text: "We say the ones first, but the ten comes first."
+h.pv.tens-first:
+  text: "Start with the tens. Each bundle is ten."
+h.pv.ones-last:
+  text: "Then the ones. They come last."
+h.pv.rod-is-ten:
+  text: "Each long rod is ten. Each small block is one."
+h.pv.count-tens-ones:
+  text: "Count by tens first. Then count on the ones."
+h.pv.ten-ones-bundle:
+  text: "Ten ones make one ten. Put them together."
+h.pv.ones-under-ten:
+  text: "Stop when there are fewer than ten ones."
+h.pv.tens-card:
+  text: "Find the card for the tens first."
+h.pv.ones-card:
+  text: "Then find the card for the ones."
+h.pv.tens-first-digit:
+  text: "The tens come first in the number."
+h.pv.one-rod:
+  text: "Ten more is one more rod. Ten less is one rod less."
+h.pv.ones-stay:
+  text: "The ones are the same. Just the tens move."
+h.pv.chart-row:
+  text: "Ten more is one row down. Ten less is one row up."
+h.pv.tens-change:
+  text: "Think of the tens. One ten more goes up, one ten less goes down."
+h.pv.bundle-ten:
+  text: "Count out ten. Make them one bundle."
+h.pv.rest-ones:
+  text: "When fewer than ten are left, they are ones."
+h.pv.split-rod:
+  text: "Split one rod. It is ten small blocks."
+h.pv.same-number:
+  text: "Split a ten. How many in all is the same."
+h.pv.ten-of-the-ones:
+  text: "Ten of the ones make one more ten."
+h.pv.bundles-by-ten:
+  text: "Each bundle is ten. Count by tens."
+h.pv.no-ones:
+  text: "There are no ones left over."
+h.pv.big-part-tens:
+  text: "The big part is the tens. The small part is the ones."
+h.pv.join-parts:
+  text: "Put the tens first. The ones go after them."
+h.pv.listen-tens:
+  text: "Listen for the tens. Then listen for the ones."
+h.pv.bundle-is-ten:
+  text: "Each bundle is ten sticks. Count by tens first."
+h.compare.same-tens:
+  text: "When the tens are the same, look at the ones."
+h.mda.tens-with-tens:
+  text: "Put tens with the tens."
+h.mda.ones-with-ones:
+  text: "Put ones with the ones."
+h.mda.chart-down:
+  text: "Each ten more is one row down."
+h.mda.chart-right:
+  text: "Each one more is one box to the right."
+h.mda.jump-tens:
+  text: "Jump by tens for the tens."
+h.mda.jump-ones:
+  text: "Then jump the ones."
+h.mda.take-tens:
+  text: "Take away rods. Each rod is ten."
+h.mda.ones-stay:
+  text: "The ones are the same."
+h.mda.count-back-tens:
+  text: "Count back by tens from the first number."
+h.mda.then-add-rest:
+  text: "Then add the ones that are left."
+h.mda.chart-up:
+  text: "Each ten less is one row up."
+h.mda.jump-back-tens:
+  text: "Jump back by tens."
+h.mda.ten-ones-bundle:
+  text: "Ten ones make a ten. Bundle them."
+h.mda.count-tens-ones:
+  text: "Count the tens, then the ones."
+h.mda.to-next-ten:
+  text: "How many make the next ten? Add them first."
+# Any start (37 + 5 stops at 40, not at ten).
+h.mda.jump-to-next-ten:
+  text: "Jump to the next ten first. Then jump what is left."
+h.mda.add-the-tens:
+  text: "Add the tens first."
+h.mda.add-the-ones:
+  text: "Then add the ones."
+h.count.bundle-each-ten:
+  text: "Count out ten and make a bundle. Do it again."
+h.count.tens-then-ones:
+  text: "Count the tens first. Then count on the ones."
+h.count.groups-of-ten:
+  text: "Each group has ten. Count by tens."
+h.count.then-boxes:
+  text: "Then move one box to the right for each one."
+h.count.back-tens-first:
+  text: "Jump back by tens first."
+h.count.then-back-ones:
+  text: "Then jump back by ones."
+h.count.tens-row:
+  text: "Ten more each time. Then one more each time."
+h.count.then-ones-on:
+  text: "After the tens, count on by ones."
+h.bond.tens-up:
+  text: "Count on by tens. Stop at ten tens."
+h.bond.ten-tens:
+  text: "Ten tens make one hundred."
+h.bond.chart-tens:
+  text: "Go down the tens. Count the rows to the bottom."
+h.bond.tens-like-ones:
+  text: "Tens make partners like ones do. Think of partners of ten."
+h.subitize.ten-and:
+  text: "One full row is ten. How many more?"
+h.subitize.full-ten:
+  text: "A full frame is ten. Then look for the more."
+h.subitize.fives:
+  text: "Each row has five red beads and five white beads."
+h.subitize.rows-together:
+  text: "See each row. Then put the rows together."
+h.subitize.frame-fives:
+  text: "Each frame has two rows of five. Look for full rows."
 h.add.join:
   text: "Put the two groups together. Then count them all."
 h.add.fingers:
@@ -149,6 +402,82 @@ h.add.count-on:
   text: "Say the first number. Then count on."
 h.add.start-big:
   text: "Start with the bigger number."
+# ADD (K01) hints. No line names a number from the item; counting words are in letters.
+h.add.say-hops:
+  text: "Say each number as you hop."
+h.add.double-same:
+  text: "Both parts are the same. That is a double."
+h.add.double-think:
+  text: "Think of a double you know."
+h.add.near-double:
+  text: "Find the double first. Then add one more."
+h.add.near-double-smaller:
+  text: "Double the smaller number. Then add one more."
+h.add.nine-ten:
+  text: "Nine is one less than ten."
+h.add.nine-take-one:
+  text: "Add ten. Then take one away."
+h.add.ten-plus:
+  text: "A full ten and some ones make a teen number."
+h.add.ten-and-ones:
+  text: "A teen number is ten and some ones. Look at the ones."
+h.addsub.know-it:
+  text: "Do you just know this one? Think of a fact you know."
+h.addsub.picture:
+  text: "Look at the counters. They show the numbers."
+h.addsub.check-sign:
+  text: "Look again at the fact. Is it plus, is it take away?"
+h.addsub.make-ten.nudge:
+  text: "Can you make a ten first?"
+h.addsub.make-ten.split:
+  text: "Split the smaller number. Give some to make ten."
+h.addsub.make-ten.ten-and:
+  text: "You have a ten and some more. Say the teen number."
+h.sub.take-out:
+  text: "Take them out one at a time. Count as you go."
+h.sub.fingers-down:
+  text: "Put down one finger at a time."
+h.sub.take-away:
+  text: "Take that many away. Count the ones left."
+h.sub.count-back:
+  text: "Start at the first number. Count back."
+h.sub.count-up:
+  text: "Start at the smaller number. Count up to the bigger one."
+h.sub.count-up-ten:
+  text: "Jump up to ten first. Then jump to the bigger number."
+# count-hops only where every hop is one (ones jumps); on the open line a jump can be longer, so
+# jump-total asks for the whole distance (8 → 10 → 13 is 5, not 2 jumps).
+h.sub.count-hops:
+  text: "Count your hops. That is the answer."
+h.sub.jump-total:
+  text: "Put your jumps together. How much did you jump in all?"
+h.sub.back-or-up:
+  text: "Count back to take away a small number. Count up when numbers are close."
+h.sub.think-add:
+  text: "Think: what do you add to the part to make the whole?"
+h.sub.bar-whole:
+  text: "The long part is the whole. Find the missing part."
+h.sub.fact-family:
+  text: "The same three numbers make a plus fact and a take away fact."
+h.sub.back-to-ten:
+  text: "Take away the ones first. That gets you to ten."
+h.sub.then-more:
+  text: "From ten, take away the ones that are left to take."
+h.numberline.jump-to-ten:
+  text: "Jump to ten first. Then jump what is left."
+h.numberline.back-to-ten:
+  text: "Jump back to ten first. Then jump back again."
+# For facts that may or may not pass ten (ADD.27): the advice holds for every fact.
+h.numberline.big-jumps:
+  text: "You can make big jumps too. Check where you land."
+h.numberline.big-jumps-back:
+  text: "You can make big jumps back too. Check where you land."
+h.numberline.hop-ones:
+  text: "Make one hop for each one you add."
+h.numberline.hop-back:
+  text: "Make one hop back for each one you take away."
+h.numberline.picture:
+  text: "Think of a number line. Jump from the first number."
 
 # geometry (K01: GEO, PUZ.03) and measurable attributes (MEA.15)
 h.geo.count-sides:
@@ -213,6 +542,10 @@ h.length.order-shortest:
   text: "Find the shortest one. It goes first."
 h.length.order-next:
   text: "Then find the shortest one that is left."
+h.length.order-longest:
+  text: "Find the longest one. It goes first."
+h.length.order-next-long:
+  text: "Then find the longest one that is left."
 h.length.order-numbers:
   text: "The smallest number is the shortest. It goes first."
 h.measure.start-at-end:
@@ -237,6 +570,122 @@ h.weight.more-things:
   text: "More things can be lighter. Watch the balance."
 h.weight.lift:
   text: "Think of how heavy each one is. Which one is heavier?"
+h.weight.order-heavy:
+  text: "The one that is most heavy goes first."
+
+# comparing, ordering, number lines and estimating (K01: CMP)
+h.compare.match:
+  text: "Match one from each side. Is any left over?"
+h.compare.left-over:
+  text: "The side with some left over has more."
+h.compare.count-each:
+  text: "Count each group. Then compare the two numbers."
+h.compare.not-size:
+  text: "Big ones may not be more. Count them to see."
+h.compare.frames:
+  text: "Look at the empty boxes in each frame."
+h.compare.count-yours:
+  text: "Count what you have first."
+h.compare.make-same:
+  text: "Make them match. Count again after each one."
+# {end} follows the ask (compare.numbers): last for greater, first for less.
+h.compare.path:
+  text: "Find both numbers on the path. Which one comes {end|word}?"
+h.compare.count-up:
+  text: "Count up from one. Which number do you say {end|word}?"
+h.compare.full-frames:
+  text: "A full frame is ten. Then count the dots left."
+h.compare.tens:
+  text: "Look at the tens first. Then look at the ones."
+h.compare.line:
+  text: "Numbers to the right on the line are greater."
+h.compare.one-less:
+  text: "Take just one away. Then count them all."
+h.compare.one-less-before:
+  text: "One less is the number just before it when you count."
+h.order.smallest:
+  text: "Find the smallest number first."
+h.order.path:
+  text: "Look where each number is on the path."
+h.order.count-up:
+  text: "Count up. Which number do you say first?"
+h.order.tens:
+  text: "Look at the tens first. Which ten comes first?"
+h.order.greatest:
+  text: "Find the greatest number first."
+h.order.count-groups:
+  text: "Count each group. Which one has the fewest?"
+h.order.fewest-first:
+  text: "Put the one with the fewest first. Then the next."
+h.numberline.ends:
+  text: "Look at the numbers at the two ends."
+h.numberline.count-ticks:
+  text: "Start at a number you know. Count the ticks."
+h.numberline.tens:
+  text: "Find the ten just before it. Then think of the ones."
+h.numberline.marked:
+  text: "Look at the two numbers you see. Compare it to each one."
+h.numberline.middle:
+  text: "Find the middle of the line first."
+h.numberline.near-end:
+  text: "Small numbers are near the start. Big ones are near the end."
+h.estimate.no-count:
+  text: "No need to count each one. Make a good guess."
+h.estimate.ten:
+  text: "Picture a group of ten. How many groups could fit?"
+h.estimate.line:
+  text: "Small groups are near the start. Big ones are near the end."
+# K01 equality, three addends and story problems. No hint names a number from the item.
+h.eq.turn-around:
+  text: "Add the numbers in any order. The total is the same."
+h.eq.same-both:
+  text: "Both sides must make the same number."
+h.eq.count-picture:
+  text: "Count the two groups in the picture."
+h.eq.work-out:
+  text: "Work out one side. Then make both sides match."
+h.eq.think-parts:
+  text: "Think about the parts and the whole."
+h.add3.find-ten:
+  text: "Look for two numbers that make ten."
+h.add3.ten-and:
+  text: "Make the ten first. Then add the last number."
+h.add3.can-ten:
+  text: "Can two of the numbers make ten? Add them first."
+h.add3.two-then-one:
+  text: "Add two of the numbers. Then add the last one."
+h.bar.find-missing:
+  text: "Find the box. Is it a part, is it the whole?"
+h.bond.join-parts:
+  text: "Put both parts together. That makes the whole."
+h.numberline.from-mark:
+  text: "Start at a number on the line. Then count the jumps."
+# CMP.08 symbol picks can show the same number twice (7 _ 7), so their hints cover =.
+h.cmp.same-or-greater:
+  text: "Are the two numbers the same? Is one greater?"
+h.cmp.mark-fits:
+  text: "Same numbers get =. For < and >, the open side is next to the greater number."
+  say: "Same numbers get equals. For less than and greater than, the open side is next to the greater number."
+h.balance.add-one:
+  text: "Add one at a time. Watch the balance."
+h.cmp.open-side:
+  text: "The open side of the mark is next to the greater number."
+h.cmp.between:
+  text: "Count on from the smaller number. Which number comes next?"
+h.story.act-out:
+  text: "Show the story with counters."
+h.story.which-part:
+  text: "Do you know the whole? Do you know the parts?"
+h.story.who-has-more:
+  text: "Who has more? Who has fewer?"
+h.story.check:
+  text: "Say the story again with your answer. Does it fit?"
+h.story.plus-or-take:
+  text: "Do they get more? Do some go away?"
+h.story.extra-ones:
+  text: "Match them up. Count the ones left over."
+h.story.count-groups:
+  text: "Count each group. Then count them all."
 
 # ---------- generator solution steps (E01: gen.<generatorId>.<step>, 03 §6.4) ----------
 # Spoken by the worked solution (hint level 5, auto lessons). Every key a generator declares in
@@ -281,6 +730,10 @@ gen.count.ordinal.start-right:
   text: "Start at the right. Count each one."
 gen.count.ordinal.this-one:
   text: "This one is {k|ord}."
+gen.count.ordinal.say-to:
+  text: "Say the places, first, second, up to {k|ord}."
+gen.count.ordinal.after:
+  text: "After {k|ord} comes {n|ord}. So we tap {n}."
 gen.subitize.flash.look:
   text: "Look at the dots again."
 gen.subitize.flash.see-groups:
@@ -301,6 +754,209 @@ gen.bond.parts.split:
   text: "{a} and {b} make the whole."
 gen.bond.parts.together:
   text: "Put {a} and {b} together."
+gen.bond.parts.make-ten:
+  text: "Move {part} over to make ten."
+gen.bond.parts.left-over:
+  text: "{n} are left over."
+gen.bond.parts.ten-and:
+  text: "That is ten and {n} more."
+gen.bond.parts.put-in:
+  text: "Put in {n} more."
+gen.pv.number.ones:
+  text: "The ones: {count}."
+gen.pv.number.tens:
+  text: "The tens: {count}."
+gen.pv.number.hundreds:
+  text: "The hundreds: {count}."
+gen.pv.number.thousands:
+  text: "The thousands: {count}."
+  level: "2"
+gen.pv.number.split-tens:
+  text: "Split one ten into ten ones."
+gen.pv.number.split-hundreds:
+  text: "Split one hundred into ten tens."
+gen.pv.number.back-ones:
+  text: "Put {count} ones back."
+gen.pv.number.back-tens:
+  text: "Put {count} tens back."
+gen.pv.number.ten-first:
+  text: "Make a ten first."
+gen.pv.number.look:
+  text: "Look at the tens and the ones."
+gen.pv.number.join:
+  text: "Put the parts together."
+gen.pv.number.listen:
+  text: "Listen to the number."
+gen.pv.number.is:
+  text: "That is {v}."
+gen.pv.number.worth:
+  text: "The {d} has a value of {v}."
+  level: "2"
+gen.pv.number.place-ones:
+  text: "It is in the ones place."
+gen.pv.number.place-tens:
+  text: "It is in the tens place."
+gen.pv.number.place-hundreds:
+  text: "It is in the hundreds place."
+gen.pv.number.place-thousands:
+  text: "It is in the thousands place."
+  level: "2"
+gen.pv.number.place-ten-thousands:
+  text: "It is in the ten thousands place."
+  level: "2"
+gen.pv.number.place-hundred-thousands:
+  text: "It is in the hundred thousands place."
+  level: "2"
+gen.pv.tenmore.start:
+  text: "Start at {n}."
+gen.pv.tenmore.row-down:
+  text: "Ten more is one row down."
+gen.pv.tenmore.row-up:
+  text: "Ten less is one row up."
+gen.pv.tenmore.box-right:
+  text: "One more is one box to the right."
+gen.pv.tenmore.box-left:
+  text: "One less is one box to the left."
+gen.pv.tenmore.add-tens:
+  text: "Put in more tens: {count}."
+gen.pv.tenmore.take-tens:
+  text: "Take away tens: {count}."
+gen.pv.tenmore.add-hundreds:
+  text: "Put in more hundreds: {count}."
+gen.pv.tenmore.take-hundreds:
+  text: "Take away hundreds: {count}."
+gen.pv.tenmore.add-ones:
+  text: "Put in more ones: {count}."
+gen.pv.tenmore.take-ones:
+  text: "Take away ones: {count}."
+gen.pv.tenmore.jump-ten:
+  text: "Jump ten."
+gen.pv.tenmore.jump-back-ten:
+  text: "Jump back ten."
+gen.pv.tenmore.jump-hundred:
+  text: "Jump one hundred."
+gen.pv.tenmore.jump-back-hundred:
+  text: "Jump back one hundred."
+gen.pv.tenmore.jump-one:
+  text: "Jump one."
+gen.pv.tenmore.jump-back-one:
+  text: "Jump back one."
+gen.pv.tenmore.think-more:
+  text: "Count on by tens. The ones are the same."
+gen.pv.tenmore.think-less:
+  text: "Count back by tens. The ones are the same."
+gen.pv.tenmore.think-hundred-more:
+  text: "Count on by hundreds. The tens and ones are the same."
+gen.pv.tenmore.think-hundred-less:
+  text: "Count back by hundreds. The tens and ones are the same."
+gen.pv.tenmore.think-mixed:
+  text: "Count by tens first. Then count by ones."
+gen.pv.tenmore.is:
+  text: "That is {v}."
+gen.pv.regroup.look:
+  text: "Look at the tens and the ones."
+gen.pv.regroup.split-ten:
+  text: "Split one ten into ten ones."
+gen.pv.regroup.split-hundred:
+  text: "Split one hundred into ten tens."
+gen.pv.regroup.make-ten:
+  text: "Put ten ones together to make one ten."
+gen.pv.regroup.make-hundred:
+  text: "Put ten tens together to make one hundred."
+gen.pv.regroup.count-ones:
+  text: "Count out ten ones."
+gen.pv.regroup.tens-first:
+  text: "Count the tens first. Then count on the ones."
+gen.pv.regroup.now:
+  text: "Now the tens: {tens}. The ones: {ones}."
+gen.pv.regroup.now-hundreds:
+  text: "Now the hundreds: {hundreds}, the tens: {tens}, the ones: {ones}."
+gen.pv.regroup.is:
+  text: "That is {v}."
+gen.mda.addsub.start:
+  text: "Start at {a}."
+gen.mda.addsub.add-tens:
+  text: "Put in {count} tens."
+gen.mda.addsub.add-ones:
+  text: "Put in {count} ones."
+gen.mda.addsub.take-tens:
+  text: "Take away {count} tens."
+gen.mda.addsub.take-ones:
+  text: "Take away {count} ones."
+gen.mda.addsub.add-hundreds:
+  text: "Put in {count} hundreds."
+  level: "2"
+gen.mda.addsub.take-hundreds:
+  text: "Take away {count} hundreds."
+  level: "2"
+gen.mda.addsub.join-ones:
+  text: "Put the ones together."
+gen.mda.addsub.join-tens:
+  text: "Put the tens together."
+gen.mda.addsub.join-hundreds:
+  text: "Put the hundreds together."
+  level: "2"
+gen.mda.addsub.trade-ones:
+  text: "Ten ones make one ten. Bundle them."
+gen.mda.addsub.trade-tens:
+  text: "Ten tens make one hundred. Bundle them."
+gen.mda.addsub.split-ten:
+  text: "We need more ones. Split one ten into ten ones."
+gen.mda.addsub.split-hundred:
+  text: "Split one hundred into ten tens."
+  level: "2"
+gen.mda.addsub.jump-ten:
+  text: "Jump ten."
+gen.mda.addsub.jump-back-ten:
+  text: "Jump back ten."
+gen.mda.addsub.jump:
+  text: "Jump {count}."
+gen.mda.addsub.jump-back:
+  text: "Jump back {count}."
+gen.mda.addsub.to-ten:
+  text: "Jump {count} to the next ten."
+gen.mda.addsub.back-to-ten:
+  text: "Jump back {count} to the ten."
+gen.mda.addsub.row-down:
+  text: "Slide down one row. That is ten more."
+gen.mda.addsub.row-up:
+  text: "Slide up one row. That is ten less."
+gen.mda.addsub.box-right:
+  text: "One more is one box to the right."
+gen.mda.addsub.box-left:
+  text: "One less is one box to the left."
+gen.mda.addsub.tens-then-ones:
+  text: "Add the tens. Then add the ones."
+gen.mda.addsub.take-tens-then-ones:
+  text: "Take away the tens. Then take away the ones."
+gen.mda.addsub.sum-tens:
+  text: "Add the tens."
+gen.mda.addsub.sum-ones:
+  text: "Now add the ones."
+gen.mda.addsub.diff-tens:
+  text: "Take away the tens."
+gen.mda.addsub.diff-ones:
+  text: "Now take away the ones."
+gen.mda.addsub.count-on:
+  text: "Count on from {a} to {result}."
+gen.mda.addsub.count-back:
+  text: "Count back from {a} to {result}."
+# The next-ten strategy on the number pad (37 + 5: 37 and 3 make 40, then 2 more). An exact
+# landing (37 + 3) never names the ten, which is the answer.
+gen.mda.addsub.make-next-ten:
+  text: "{a} and {gap} make {ten}. That is the next ten."
+gen.mda.addsub.then-add-rest:
+  text: "Then add the {rest} that are left to {ten}."
+gen.mda.addsub.fills-next-ten:
+  text: "{a} and {b} make the next ten."
+gen.mda.addsub.take-to-ten:
+  text: "{a} take away {gap} is {ten}. That is a ten."
+gen.mda.addsub.then-take-rest:
+  text: "Then take away the {rest} that are left from {ten}."
+gen.mda.addsub.back-to-the-ten:
+  text: "Take away {b} from {a}. That gets you back to a ten."
+gen.mda.addsub.is:
+  text: "That is {v}."
 gen.addsub.facts.start-at:
   text: "Start at {a}. Then count on {b}."
 gen.addsub.facts.start-back:
@@ -313,6 +969,65 @@ gen.addsub.facts.answer:
   text: "The answer is {n}."
 gen.addsub.facts.join:
   text: "Put {a} and {b} together."
+# addsub.facts strategy steps (K01): lines before the last never say the answer.
+gen.addsub.facts.up-to:
+  text: "Start at {a}. Count up to {n}."
+gen.addsub.facts.back-to:
+  text: "Start at {a}. Count back to {n}."
+gen.addsub.facts.double:
+  text: "{a} and {a} is a double."
+gen.addsub.facts.near-double:
+  text: "{small} and {small} make {double}. Then one more."
+gen.addsub.facts.put-more:
+  text: "Put in {b} more."
+gen.addsub.facts.make-ten.need:
+  text: "{a} needs {give} more to make ten."
+gen.addsub.facts.make-ten.split:
+  text: "{b} is {give} and {keep}."
+gen.addsub.facts.make-ten.move:
+  text: "Move {give} over. Now the first frame is ten."
+gen.addsub.facts.make-ten.full:
+  text: "Slide them up. Now the top row is ten."
+gen.addsub.facts.ten-and:
+  text: "Ten and {keep} make {n}."
+gen.addsub.facts.nine.ten:
+  text: "{other} and ten make {ten}."
+gen.addsub.facts.nine.take-one:
+  text: "Nine is one less than ten. Take one away."
+gen.addsub.facts.ten-plus:
+  text: "Ten and {n} more."
+gen.addsub.facts.full-ten:
+  text: "Here is a full ten."
+gen.addsub.facts.take-ten:
+  text: "Take the ten away from {a}."
+gen.addsub.facts.back-to-ten:
+  text: "Take away {ones} to get back to ten."
+gen.addsub.facts.back-rest:
+  text: "Then take away {rest} more."
+gen.addsub.facts.up-to-ten:
+  text: "Start at {b}. Count up to ten."
+gen.addsub.facts.up-rest:
+  text: "Then count up to {a}."
+gen.addsub.facts.up-from:
+  text: "Start at {b}. Count up to {a}."
+gen.addsub.facts.jump-to-ten:
+  text: "Jump {give} to get to ten."
+gen.addsub.facts.jump-double:
+  text: "Jump {a} again to make the double."
+gen.addsub.facts.jump-rest:
+  text: "Then jump {rest} more."
+gen.addsub.facts.jump-back-ten:
+  text: "Jump back {ones} to ten."
+gen.addsub.facts.jump-back-rest:
+  text: "Then jump back {rest} more."
+gen.addsub.facts.hops:
+  text: "That is {n} in all."
+gen.addsub.facts.last-hop:
+  text: "Make the last hop."
+gen.addsub.facts.think-add:
+  text: "Think: {b} and what make {a}?"
+gen.addsub.facts.see-groups:
+  text: "I see {a} and {b}."
 
 gen.geo.identify.look:
   text: "Let's look at each one."
@@ -419,6 +1134,12 @@ gen.mea.length.order-start-long:
   text: "The longest is {n}. It goes first."
 gen.mea.length.order-next:
   text: "Next comes {n}."
+gen.mea.length.order-first-short:
+  text: "The shortest one goes first."
+gen.mea.length.order-first-long:
+  text: "The longest one goes first."
+gen.mea.length.order-then:
+  text: "Then this one."
 gen.mea.length.sticks-out:
   text: "Look at the part that sticks out."
 gen.mea.length.longer-by:
@@ -465,6 +1186,203 @@ gen.mea.massvolume.find-mark:
   text: "Find the mark it is at."
 gen.mea.massvolume.reads:
   text: "It shows {n}."
+gen.mea.massvolume.order-first:
+  text: "This one is the most heavy. It goes first."
+gen.mea.massvolume.order-then:
+  text: "Then this one."
+gen.mea.massvolume.sort-look:
+  text: "Think of the {thing|noun:one}. Is each one heavier, is it lighter?"
+gen.mea.massvolume.sort-heavier:
+  text: "This one is heavier than the {thing|noun:one}."
+gen.mea.massvolume.sort-lighter:
+  text: "This one is lighter than the {thing|noun:one}."
+
+gen.compare.sets.match:
+  text: "Let's match them, one from each side."
+gen.compare.sets.left-over:
+  text: "Look for any left over."
+gen.compare.sets.count-each:
+  text: "Let's count each group."
+gen.compare.sets.not-size:
+  text: "Big ones may not be more. Count them."
+gen.compare.sets.has-more:
+  text: "This group has more."
+gen.compare.sets.has-fewer:
+  text: "This group has fewer."
+gen.compare.sets.same:
+  text: "They have the same number."
+gen.compare.sets.boat-has:
+  text: "This one has {n}."
+gen.compare.sets.add-some:
+  text: "Add some more."
+gen.compare.sets.take-some:
+  text: "Take some away."
+gen.compare.sets.now-same:
+  text: "Now both have {n}. They are the same."
+gen.compare.sets.order-fewest:
+  text: "This group has the fewest. It goes first."
+gen.compare.sets.order-most:
+  text: "This group has the most. It goes first."
+gen.compare.sets.order-next:
+  text: "Then this group."
+gen.compare.sets.pan:
+  text: "Count the things on this side."
+gen.compare.sets.goes-down:
+  text: "This side has more, so it goes down."
+gen.compare.sets.balances:
+  text: "Both sides have the same. It balances."
+gen.compare.sets.not-balanced:
+  text: "One side has more. It does not balance."
+gen.compare.sets.not-same:
+  text: "They do not have the same number."
+gen.compare.sets.add-to-balance:
+  text: "Put {n} more on the light side. Now it balances."
+gen.equality.eq.same:
+  text: "Both sides must make the same number."
+gen.equality.eq.side:
+  text: "This side makes {n}."
+gen.equality.eq.other-side:
+  text: "That side makes {n}."
+gen.equality.eq.and-what:
+  text: "{x} and what make {n}?"
+gen.equality.eq.what-and:
+  text: "What and {x} make {n}?"
+gen.equality.eq.take-what:
+  text: "{x} take away what number is {n}?"
+gen.equality.eq.what-take:
+  text: "What number take away {x} is {n}?"
+gen.equality.eq.answer:
+  text: "{n} makes both sides the same."
+gen.equality.eq.true:
+  text: "Both sides make {n}. It is true."
+gen.equality.eq.false:
+  text: "The two sides are not the same. It is false."
+gen.equality.eq.balances:
+  text: "Both sides make {n}. It balances."
+gen.equality.eq.not-balanced:
+  text: "The two sides are not the same. It does not balance."
+gen.equality.eq.heavier:
+  text: "This side is heavier. It has {n}."
+gen.equality.eq.add-blocks:
+  text: "Put {n} more on the light side. Now it balances."
+gen.equality.eq.between:
+  text: "Count on from {lo} to {hi}."
+gen.equality.eq.is-between:
+  text: "{n} comes between them."
+gen.addsub.three.find-ten:
+  text: "{x} and {y} make ten."
+gen.addsub.three.first-two:
+  text: "{x} and {y} make {n}."
+gen.addsub.three.put:
+  text: "Put in {n} more."
+gen.addsub.three.ten-and:
+  text: "Ten and {k} make {n}."
+gen.addsub.three.answer:
+  text: "That makes {n} in all."
+gen.story.addsub.listen:
+  text: "Listen to the story again."
+gen.story.addsub.join:
+  text: "Put {x} and {y} together."
+gen.story.addsub.join-three:
+  text: "Put {x}, {y} and {z} together."
+gen.story.addsub.take:
+  text: "Start with {x}. Take away {y}."
+gen.story.addsub.count-up:
+  text: "Count up from {x} to {y}."
+gen.story.addsub.match:
+  text: "Match them up. Count the ones left over."
+gen.story.addsub.split:
+  text: "Split {x} into red ones and white ones."
+gen.story.addsub.answer:
+  text: "The answer is {n}."
+gen.story.addsub.both:
+  text: "{x} red and {y} white is one way."
+gen.story.addsub.start:
+  text: "Start with {x}."
+gen.story.addsub.put-in:
+  text: "Put in {y} more. Now there are {n}."
+gen.story.addsub.take-out:
+  text: "Take {y} out. Now there are {n}."
+gen.story.addsub.look:
+  text: "Look at the groups and the numbers."
+gen.story.addsub.this-one:
+  text: "This one matches."
+gen.compare.numbers.count:
+  text: "Count up. Which number do you say last?"
+gen.compare.numbers.tens:
+  text: "Look at the tens first."
+gen.compare.numbers.ones:
+  text: "The tens are the same. Look at the ones."
+gen.compare.numbers.greater:
+  text: "{n} is greater than {m}."
+gen.compare.numbers.less:
+  text: "{n} is less than {m}."
+gen.compare.numbers.same:
+  text: "Both numbers are {n}. They are the same."
+gen.compare.numbers.look-all:
+  text: "Look at each number."
+gen.compare.numbers.greatest:
+  text: "{n} is the greatest."
+gen.compare.numbers.least:
+  text: "{n} is the least."
+gen.compare.numbers.order-first:
+  text: "{n} goes first."
+gen.compare.numbers.order-next:
+  text: "Then {n}."
+gen.compare.numbers.balance:
+  text: "The greater number goes down."
+gen.compare.numbers.goes-down:
+  text: "This side is greater. It goes down."
+gen.compare.numbers.balances:
+  text: "They are the same. It balances."
+gen.compare.numbers.between:
+  text: "It goes between {lo} and {hi}."
+gen.compare.numbers.before:
+  text: "It comes before {n}."
+gen.compare.numbers.after:
+  text: "It comes after {n}."
+gen.compare.numbers.drop:
+  text: "{n} goes here."
+gen.numberline.place.ends:
+  text: "This line goes from {min} to {max}."
+gen.numberline.place.from:
+  text: "Start at {at}. Count the ticks."
+gen.numberline.place.middle:
+  text: "The middle is {mid}."
+gen.numberline.place.drop:
+  text: "{n} goes here."
+gen.numberline.place.reads:
+  text: "The arrow is at {n}."
+gen.numberline.place.reads-about:
+  text: "The arrow is at about {n}."
+gen.numberline.place.benchmarks:
+  text: "Look at {b0} and {b1}."
+gen.numberline.place.closer:
+  text: "{n} is closer to {m}."
+gen.numberline.place.think:
+  text: "Small numbers are near {min}. Big ones are near {max}."
+gen.numberline.place.this-line:
+  text: "This arrow shows {n}."
+gen.numberline.place.start:
+  text: "Start at {n}."
+gen.numberline.place.hop:
+  text: "Hop to {n}."
+gen.numberline.place.order-first:
+  text: "{n} is the smallest. It goes first."
+gen.numberline.place.order-next:
+  text: "Then {n}."
+gen.estimate.quantity.look:
+  text: "Look at the whole group. Do not count each one."
+gen.estimate.quantity.reference:
+  text: "This group is {b}. How many like it fit?"
+gen.estimate.quantity.about:
+  text: "There are about {n}."
+gen.estimate.quantity.this-line:
+  text: "About {n}. This line shows it."
+gen.estimate.quantity.ends:
+  text: "This line goes from 0 to {max}."
+gen.estimate.quantity.drop:
+  text: "{n} goes about here."
 
 # ---------- feedback ----------
 fb.correct.1:
@@ -484,6 +1402,16 @@ fb.correct.5:
   style: excited
 fb.correct.6:
   text: "Hooray! That's right."
+  style: excited
+# Strategy praise (03 §5.7): fb.praise.<name> for each strategy.<name> detectStrategies reports.
+fb.praise.counted-on:
+  text: "You counted on! That is a great way to add."
+  style: excited
+fb.praise.made-ten:
+  text: "You got to ten first! That helped you add."
+  style: excited
+fb.praise.used-doubles:
+  text: "A double helped you add! Great thinking."
   style: excited
 fb.retry:
   text: "Let's look at it one more time."
@@ -513,6 +1441,12 @@ fb.number-bond.retry:
   text: "Look at the two parts and the whole."
 fb.rekenrek.retry:
   text: "Let's count the beads on the left."
+fb.base-ten-build.retry:
+  text: "Let's count the tens and the ones again."
+fb.base-ten-trade.retry:
+  text: "Let's look at each place again: the tens, then the ones."
+fb.expanded-form.retry:
+  text: "Look at the tens and the ones on each card."
 fb.number-line-jump.retry:
   text: "Let's hop again. Count each hop."
 fb.hundred-chart.retry:
@@ -531,12 +1465,21 @@ fb.shape-compose.retry:
   text: "Look at the outline again. Try turning a piece."
 fb.puzzle-grid.retry:
   text: "Let's check each piece again."
+fb.number-line-place.retry:
+  text: "Look at the numbers on the line. Then try again."
+fb.story-problem.retry:
+  text: "Let's listen to the story again. Show it with counters."
 fb.mc.off-by-one-counting:
   text: "Touch each one once. Count again with me."
 fb.mc.count-start-number:
   text: "Start with the first number. Count the hops after it."
 fb.mc.count-all-instead:
   text: "Start at the bigger number. Then count on."
+fb.mc.forgot-the-ten:
+  text: "There is a full ten. Count the ten too!"
+  level: K
+fb.mc.wrong-operation:
+  text: "Look again. Is it plus, is it take away?"
 fb.mc.unit-gaps:
   text: "Put each one right at the end of the last one."
 fb.mc.bigger-unit-more:
@@ -547,3 +1490,21 @@ fb.mc.decade-transition:
   text: "Look at the tens. After nine ones, a new ten starts."
 fb.mc.teen-reversal:
   text: "Look at the tens. The ten comes first, then the ones."
+fb.mc.place-swap:
+  text: "Look at the tens. The tens come first, then the ones."
+fb.mc.face-value:
+  text: "Each bundle is ten, not one. Count the tens by tens."
+fb.mc.write-as-spoken:
+  text: "A number with tens and ones has two places. The ones go where the zero was."
+fb.mc.perceptual-size:
+  text: "Size can trick our eyes. Match them up, one and one."
+fb.mc.equals-means-answer:
+  text: "Look at both sides. They must make the same number."
+fb.mc.equals-add-all:
+  text: "Work out one side first. Then make both sides match."
+fb.mc.symbol-reversed:
+  text: "The open side of the mark goes next to the greater number."
+fb.mc.keyword-more-means-add:
+  text: "Match them up. How many are left over?"
+fb.mc.start-unknown-reversed:
+  text: "Put your number in the box. Is it true?"

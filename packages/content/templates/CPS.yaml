@@ -1,14 +1,19 @@
-# C01 fixture templates (03 §9.5) on the E01 reference generator bond.parts.
+# CPS templates (K01). CPS.01–CPS.03 keep the ids, formats, tiers and representations they shipped
+# with in C01 (03 §4.3); K01 tunes their params, difficulty and narration and adds templates with
+# the next free number. Bases are set from template-stats so each template's median sits near 0.
+# Size inside a small whole comes from whole.upTo5, a big missing part from missing.over4, and on
+# frames and racks from the format's size feature (03 §5.5, §5.6).
 strand: CPS
 templates:
+  # ---------- CPS.01: numbers to 5, two parts, every way ----------
   - id: CPS.01.t1
     skillId: CPS.01
     format: make-set
     tier: concrete
     generator: bond.parts
     params: { whole: { int: [2, 5] }, unknown: split }
-    difficulty: { base: -0.6 }
-    narration: { prompt: p.bond.split, hints: [h.bond.use-counters] }
+    difficulty: { base: -1.0 }
+    narration: { prompt: p.bond.split, hints: [h.bond.use-counters, h.bond.split-any] }
 
   - id: CPS.01.t2
     skillId: CPS.01
@@ -17,7 +22,7 @@ templates:
     representation: fingers
     generator: bond.parts
     params: { whole: { int: [2, 5] }, unknown: split }
-    difficulty: { base: -0.6 }
+    difficulty: { base: -0.75 }
     narration: { prompt: p.bond.split-fingers, hints: [h.bond.two-hands] }
 
   - id: CPS.01.t3
@@ -27,8 +32,8 @@ templates:
     generator: bond.parts
     params: { whole: { int: [2, 5] }, part: { int: [0, 5] }, unknown: part }
     constraints: ["part <= whole"]
-    difficulty: { base: -0.6 }
-    narration: { prompt: p.bond.missing-part, hints: [h.bond.use-counters, h.count.show-frame] }
+    difficulty: { base: -0.35 }
+    narration: { prompt: p.bond.missing-part, hints: [h.bond.use-counters, h.bond.count-on] }
 
   - id: CPS.01.t4
     skillId: CPS.01
@@ -37,17 +42,29 @@ templates:
     generator: bond.parts
     params: { whole: { int: [2, 5] }, part: { int: [0, 5] }, unknown: part }
     constraints: ["part <= whole"]
-    difficulty: { base: -0.3 }
-    narration: { prompt: p.bond.missing-part, hints: [h.bond.use-counters] }
+    difficulty: { base: -0.85 }
+    narration: { prompt: p.bond.missing-part, hints: [h.bond.count-on, h.bond.fingers] }
 
+  - id: CPS.01.t5
+    skillId: CPS.01
+    format: number-bond
+    tier: pictorial
+    generator: bond.parts
+    params: { whole: { int: [2, 5] }, unknown: split }
+    difficulty: { base: -0.45 }
+    narration: { prompt: p.bond.split, hints: [h.bond.split-any] }
+
+  # ---------- CPS.02: numbers to 10, two parts (gateway) ----------
   - id: CPS.02.t1
     skillId: CPS.02
     format: tenframe-fill
     tier: concrete
     generator: bond.parts
     params: { whole: { int: [6, 10] }, unknown: split }
-    difficulty: { base: -0.6 }
-    narration: { prompt: p.bond.split, hints: [h.bond.use-counters, h.count.show-frame] }
+    # Every counter of a split is placed and checked, so size weighs more than the tenframe-fill
+    # default (0.3 per 5).
+    difficulty: { base: -1.15, features: { n.over5: 0.5 } }
+    narration: { prompt: p.bond.split, hints: [h.bond.use-counters, h.bond.split-any] }
 
   - id: CPS.02.t2
     skillId: CPS.02
@@ -55,7 +72,7 @@ templates:
     tier: concrete
     generator: bond.parts
     params: { whole: { int: [6, 10] }, unknown: split }
-    difficulty: { base: -0.6 }
+    difficulty: { base: -0.7 }
     narration: { prompt: p.bond.split, hints: [h.bond.slide-beads] }
 
   - id: CPS.02.t3
@@ -65,8 +82,8 @@ templates:
     generator: bond.parts
     params: { whole: { int: [6, 10] }, part: { int: [1, 9] }, unknown: part }
     constraints: ["part < whole"]
-    difficulty: { base: -0.3 }
-    narration: { prompt: p.bond.missing-part, hints: [h.bond.use-counters] }
+    difficulty: { base: -1.45 }
+    narration: { prompt: p.bond.missing-part, hints: [h.bond.count-on, h.bond.fingers] }
 
   - id: CPS.02.t4
     skillId: CPS.02
@@ -75,16 +92,17 @@ templates:
     generator: bond.parts
     params: { whole: { int: [6, 10] }, part: { int: [1, 9] }, unknown: part }
     constraints: ["part < whole"]
-    difficulty: { base: 0.0 }
-    narration: { prompt: p.bond.missing-part, hints: [h.bond.use-counters] }
+    difficulty: { base: -0.75 }
+    narration: { prompt: p.bond.missing-part, hints: [h.bond.count-on, h.bond.fingers] }
 
+  # ---------- CPS.03: partners of 10 ----------
   - id: CPS.03.t1
     skillId: CPS.03
     format: tenframe-fill
     tier: concrete
     generator: bond.parts
     params: { whole: 10, part: { int: [1, 9] }, unknown: part }
-    difficulty: { base: -0.6 }
+    difficulty: { base: -1.35 }
     narration: { prompt: p.bond.make-ten, hints: [h.bond.partners, h.count.show-frame] }
 
   - id: CPS.03.t2
@@ -93,8 +111,8 @@ templates:
     tier: concrete
     generator: bond.parts
     params: { whole: 10, part: { int: [1, 9] }, unknown: part }
-    difficulty: { base: -0.6 }
-    narration: { prompt: p.bond.make-ten, hints: [h.bond.slide-beads, h.bond.partners] }
+    difficulty: { base: -1.35 }
+    narration: { prompt: p.bond.make-ten, hints: [h.bond.slide-beads, h.bond.beads-ten] }
 
   - id: CPS.03.t3
     skillId: CPS.03
@@ -102,8 +120,8 @@ templates:
     tier: pictorial
     generator: bond.parts
     params: { whole: 10, part: { int: [0, 10] }, unknown: part }
-    difficulty: { base: -0.3 }
-    narration: { prompt: p.bond.make-ten, hints: [h.bond.partners] }
+    difficulty: { base: -1.7 }
+    narration: { prompt: p.bond.make-ten, hints: [h.bond.partners, h.bond.fingers] }
 
   - id: CPS.03.t4
     skillId: CPS.03
@@ -111,5 +129,243 @@ templates:
     tier: abstract
     generator: bond.parts
     params: { whole: 10, part: { int: [0, 10] }, unknown: part }
-    difficulty: { base: 0.0 }
-    narration: { prompt: tp.CPS.03.t4.prompt, hints: [h.bond.partners] }
+    difficulty: { base: -1.0 }
+    narration: { prompt: tp.CPS.03.t4.prompt, hints: [h.bond.partners, h.bond.fingers] }
+
+  # ---------- CPS.04: teen numbers are ten ones and some more (gateway) ----------
+  # pv.number with n 11–19. Each template asks for the teen number itself (the typed total after
+  # building, the built value, or the number read), so MC.teen-reversal can tell 14 from 41.
+  - id: CPS.04.t1
+    skillId: CPS.04
+    format: tenframe-fill
+    tier: concrete
+    representation: double-ten-frame
+    generator: pv.number
+    params: { n: { int: [11, 19] }, mode: write }
+    difficulty: { base: -2.2 }
+    narration: { prompt: tp.CPS.04.t1.prompt, hints: [h.pv.full-frame, h.pv.ten-and-more] }
+
+  - id: CPS.04.t2
+    skillId: CPS.04
+    format: rekenrek
+    tier: concrete
+    generator: pv.number
+    params: { n: { int: [11, 19] }, mode: write }
+    difficulty: { base: -1.4 }
+    narration: { prompt: tp.CPS.04.t2.prompt, hints: [h.pv.ten-on-top, h.pv.ten-and-more] }
+
+  - id: CPS.04.t3
+    skillId: CPS.04
+    format: base-ten-build
+    tier: concrete
+    representation: bundles
+    generator: pv.number
+    params: { n: { int: [11, 19] }, mode: exact }
+    difficulty: { base: -1.5 }
+    narration: { prompt: tp.CPS.04.t3.prompt, hints: [h.pv.bundle-first, h.pv.count-ones] }
+
+  - id: CPS.04.t4
+    skillId: CPS.04
+    format: number-pad
+    tier: pictorial
+    representation: double-ten-frame
+    generator: pv.number
+    params: { n: { int: [11, 19] }, mode: read }
+    difficulty: { base: -1.1 }
+    narration: { prompt: tp.CPS.04.t4.prompt, hints: [h.subitize.full-ten, h.pv.ten-and-more] }
+
+  - id: CPS.04.t5
+    skillId: CPS.04
+    format: number-pad
+    tier: abstract
+    representation: symbols
+    generator: pv.number
+    params: { n: { int: [11, 19] }, mode: write }
+    difficulty: { base: -1.1 }
+    narration: { prompt: tp.CPS.04.t5.prompt, hints: [h.pv.ten-and-more, h.pv.teen-order] }
+
+  # ---------- CPS.05: the missing part, whole up to 10 ----------
+  - id: CPS.05.t1
+    skillId: CPS.05
+    format: tenframe-fill
+    tier: concrete
+    generator: bond.parts
+    params: { whole: { int: [4, 10] }, part: { int: [1, 9] }, unknown: part }
+    constraints: ["part < whole"]
+    difficulty: { base: -0.85 }
+    narration: { prompt: p.bond.missing-part, hints: [h.bond.count-on, h.count.show-frame] }
+
+  - id: CPS.05.t2
+    skillId: CPS.05
+    format: number-bond
+    tier: pictorial
+    generator: bond.parts
+    params: { whole: { int: [4, 10] }, part: { int: [0, 10] }, unknown: part }
+    constraints: ["part <= whole"]
+    difficulty: { base: -1.3 }
+    narration: { prompt: p.bond.missing-part, hints: [h.bond.count-on, h.bond.fingers] }
+
+  - id: CPS.05.t3
+    skillId: CPS.05
+    format: number-pad
+    tier: abstract
+    generator: bond.parts
+    params: { whole: { int: [4, 10] }, part: { int: [1, 9] }, unknown: part }
+    constraints: ["part < whole"]
+    difficulty: { base: -0.75 }
+    narration: { prompt: tp.CPS.05.t3.prompt, hints: [h.bond.count-on, h.bond.fingers] }
+
+  # ---------- CPS.07: a teen number as 10 plus ones ----------
+  - id: CPS.07.t1
+    skillId: CPS.07
+    format: number-bond
+    tier: pictorial
+    generator: bond.parts
+    params: { whole: { int: [11, 19] }, part: 10, unknown: { choice: [part, whole] } }
+    difficulty: { base: -2.3 }
+    narration: { prompt: tp.CPS.07.t1.prompt, hints: [h.pv.ten-and-more] }
+
+  - id: CPS.07.t2
+    skillId: CPS.07
+    format: number-pad
+    tier: pictorial
+    representation: double-ten-frame
+    generator: pv.number
+    params: { n: { int: [11, 19] }, mode: expanded }
+    # The ones past five are read off the second frame, so they weigh more than the default.
+    difficulty: { base: -1.1, features: { ones.over5: 0.5 } }
+    narration: { prompt: tp.CPS.07.t2.prompt, hints: [h.subitize.full-ten, h.pv.ten-and-more] }
+
+  - id: CPS.07.t3
+    skillId: CPS.07
+    format: expanded-form
+    tier: pictorial
+    representation: expanded
+    generator: pv.number
+    params: { n: { int: [11, 19] }, mode: build }
+    difficulty: { base: -0.8 }
+    narration: { prompt: tp.CPS.07.t3.prompt, hints: [h.pv.ten-card, h.pv.teen-order] }
+
+  - id: CPS.07.t4
+    skillId: CPS.07
+    format: number-pad
+    tier: abstract
+    representation: symbols
+    generator: pv.number
+    params: { n: { int: [11, 19] }, mode: expanded }
+    difficulty: { base: -1.1 }
+    narration: { prompt: tp.CPS.07.t4.prompt, hints: [h.pv.ten-and-more, h.pv.teen-order] }
+
+  # ---------- CPS.08: numbers to 20, several ways (grade 1) ----------
+  # A new way: the prompt names one way already found (ten and the rest), the child shows another.
+  - id: CPS.08.t1
+    skillId: CPS.08
+    format: tenframe-fill
+    tier: concrete
+    representation: double-ten-frame
+    generator: bond.parts
+    params: { whole: { int: [11, 19] }, unknown: new-way, found: 1 }
+    difficulty: { base: -1.45 }
+    narration: { prompt: tp.CPS.08.t1.prompt, hints: [h.bond.new-way] }
+
+  - id: CPS.08.t2
+    skillId: CPS.08
+    format: rekenrek
+    tier: concrete
+    generator: bond.parts
+    params: { whole: { int: [11, 19] }, unknown: new-way, found: 1 }
+    difficulty: { base: -1.55 }
+    narration: { prompt: tp.CPS.08.t2.prompt, hints: [h.bond.new-way] }
+
+  - id: CPS.08.t3
+    skillId: CPS.08
+    format: number-bond
+    tier: pictorial
+    generator: bond.parts
+    params: { whole: { int: [11, 20] }, unknown: new-way, found: { int: [1, 2] } }
+    difficulty: { base: -2.75 }
+    narration: { prompt: p.bond.new-way, hints: [h.bond.new-way] }
+
+  - id: CPS.08.t4
+    skillId: CPS.08
+    format: number-bond
+    tier: pictorial
+    generator: bond.parts
+    params: { whole: { int: [11, 18] }, part: { int: [5, 9] }, unknown: part }
+    constraints: ["whole - part >= 2", "whole - part <= 9"]
+    difficulty: { base: -2.55 }
+    narration: { prompt: p.bond.missing-part, hints: [h.bond.through-ten, h.bond.count-on] }
+
+  # ---------- CPS.09: tens partners of 100 (grade 1) ----------
+  # tensOnly: whole and part are in tens, so whole 10 is 100 and part 3 is 30.
+  - id: CPS.09.t1
+    skillId: CPS.09
+    format: base-ten-build
+    tier: concrete
+    representation: base-ten
+    generator: bond.parts
+    params: { whole: 10, part: { int: [1, 9] }, unknown: part, tensOnly: true }
+    difficulty: { base: -13.23 }
+    narration: { prompt: tp.CPS.09.t1.prompt, hints: [h.bond.tens-up, h.bond.ten-tens] }
+
+  - id: CPS.09.t2
+    skillId: CPS.09
+    format: hundred-chart
+    tier: pictorial
+    generator: bond.parts
+    params: { whole: 10, part: { int: [1, 9] }, unknown: part, tensOnly: true }
+    difficulty: { base: -11.63 }
+    narration: { prompt: tp.CPS.09.t2.prompt, hints: [h.bond.chart-tens, h.bond.ten-tens] }
+
+  - id: CPS.09.t3
+    skillId: CPS.09
+    format: number-bond
+    tier: pictorial
+    generator: bond.parts
+    params: { whole: 10, part: { int: [1, 9] }, unknown: part, tensOnly: true }
+    difficulty: { base: -12.83 }
+    narration: { prompt: tp.CPS.09.t3.prompt, hints: [h.bond.count-on, h.bond.tens-like-ones] }
+
+  # ---------- CPS.11: split a number to finish a ten (grade 1) ----------
+  # addend 6–9 needs part = 10 − addend; the whole (the other addend) keeps the rest.
+  - id: CPS.11.t1
+    skillId: CPS.11
+    format: tenframe-fill
+    tier: concrete
+    generator: bond.parts
+    params:
+      addend: { int: [6, 9] }
+      whole: { int: [2, 9] }
+      part: { int: [1, 4] }
+      unknown: part
+    constraints: ["addend + part == 10", "whole > part"]
+    difficulty: { base: -1.65 }
+    narration: { prompt: tp.CPS.11.t1.prompt, hints: [h.bond.fill-ten, h.bond.count-left] }
+
+  - id: CPS.11.t2
+    skillId: CPS.11
+    format: rekenrek
+    tier: concrete
+    generator: bond.parts
+    params:
+      addend: { int: [6, 9] }
+      whole: { int: [2, 9] }
+      part: { int: [1, 4] }
+      unknown: part
+    constraints: ["addend + part == 10", "whole > part"]
+    difficulty: { base: -1.4 }
+    narration: { prompt: tp.CPS.11.t2.prompt, hints: [h.bond.beads-ten] }
+
+  - id: CPS.11.t3
+    skillId: CPS.11
+    format: number-bond
+    tier: pictorial
+    generator: bond.parts
+    params:
+      addend: { int: [6, 9] }
+      whole: { int: [2, 9] }
+      part: { int: [1, 4] }
+      unknown: part
+    constraints: ["addend + part == 10", "whole > part"]
+    difficulty: { base: -1.3 }
+    narration: { prompt: tp.CPS.11.t3.prompt, hints: [h.bond.count-on] }

@@ -1,0 +1,29 @@
+# Authored lessons (03 §4.5, §6). Skills without an entry get an auto lesson (03 §6.4).
+strand: MEA
+lessons:
+  # These lessons only pin the test-out pool (03 §6.5) to each skill's pictorial constructed-answer
+  # template (04 §7a). The compiler reads answer kinds from formats, and shape-sort and
+  # measure-length can also answer with a choice, so the auto pool would mix them with the compare
+  # (choice) template. The examples are exactly what the auto lesson plays: the same seeds and
+  # targets on the concrete template.
+  - skillId: MEA.15
+    mode: authored
+    templateId: MEA.15.t1
+    worked:
+      - { seed: 1899677662, target: easy }
+    faded:
+      - { seed: 1899677663, target: typical, childSteps: 1 }
+      - { seed: 1899677664, target: typical, childSteps: 2 }
+    scaffolded: { count: 2, hintStart: 2 }
+    testOut: { items: 3, minCorrect: 3, templateIds: [MEA.15.t4] }
+
+  - skillId: MEA.22
+    mode: authored
+    templateId: MEA.22.t1
+    worked:
+      - { seed: 1513939520, target: easy }
+    faded:
+      - { seed: 1513939521, target: typical, childSteps: 1 }
+      - { seed: 1513939522, target: typical, childSteps: 2 }
+    scaffolded: { count: 2, hintStart: 2 }
+    testOut: { items: 3, minCorrect: 3, templateIds: [MEA.22.t3] }

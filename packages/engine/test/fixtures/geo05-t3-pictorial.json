@@ -1,0 +1,109 @@
+{
+  "templateId": "GEO.05.t3",
+  "tier": "pictorial",
+  "params": {
+    "relation": "above",
+    "anchor": "crate",
+    "item": "crab",
+    "scene": "two"
+  },
+  "widget": {
+    "format": "shape-compose",
+    "mode": "place-relative",
+    "showOutlineLines": false,
+    "scene": {
+      "anchors": [
+        {
+          "id": "a0",
+          "sprite": "crate",
+          "at": [46, 34]
+        },
+        {
+          "id": "a1",
+          "sprite": "jug",
+          "at": [82, 34]
+        }
+      ]
+    },
+    "relation": {
+      "word": "above",
+      "anchor": "a0",
+      "item": "crab"
+    },
+    "rotationStep": 90
+  },
+  "answer": {
+    "kind": "state",
+    "checker": "compose.relative",
+    "target": {
+      "word": "above",
+      "box": {
+        "x": 46,
+        "y": 34,
+        "w": 20,
+        "h": 20
+      },
+      "scene": {
+        "w": 100,
+        "h": 60
+      }
+    }
+  },
+  "solution": [
+    {
+      "actor": "demo",
+      "say": "gen.geo.position.picture",
+      "vars": {
+        "item": "crab",
+        "anchor": "crate",
+        "one": 1,
+        "rel": "above",
+        "ans": "below"
+      }
+    },
+    {
+      "actor": "demo",
+      "say": "gen.geo.position.region",
+      "vars": {
+        "item": "crab",
+        "anchor": "crate",
+        "one": 1,
+        "rel": "above",
+        "ans": "below"
+      },
+      "action": {
+        "op": "highlight-region",
+        "args": {
+          "relation": "above"
+        }
+      }
+    },
+    {
+      "actor": "demo",
+      "say": "gen.geo.position.place",
+      "vars": {
+        "item": "crab",
+        "anchor": "crate",
+        "one": 1,
+        "rel": "above",
+        "ans": "below"
+      },
+      "action": {
+        "op": "drag-piece",
+        "args": {
+          "id": "crab",
+          "to": [46, 18],
+          "rot": 0,
+          "layer": "front"
+        }
+      }
+    }
+  ],
+  "exampleCorrect": {
+    "kind": "state",
+    "value": {
+      "at": [46, 18],
+      "layer": "front"
+    }
+  }
+}

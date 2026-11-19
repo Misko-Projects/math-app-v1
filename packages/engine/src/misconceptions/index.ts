@@ -8,10 +8,21 @@ import { biggerUnitMore } from './rules/biggerUnitMore';
 import { countAllInstead } from './rules/countAllInstead';
 import { countStartNumber } from './rules/countStartNumber';
 import { decadeTransition } from './rules/decadeTransition';
+import { equalsAddAll } from './rules/equalsAddAll';
+import { equalsMeansAnswer } from './rules/equalsMeansAnswer';
+import { faceValue } from './rules/faceValue';
+import { forgotTheTen } from './rules/forgotTheTen';
+import { keywordMoreMeansAdd } from './rules/keywordMoreMeansAdd';
 import { offByOneCounting } from './rules/offByOneCounting';
+import { perceptualSize } from './rules/perceptualSize';
+import { placeSwap } from './rules/placeSwap';
 import { recountFromOne } from './rules/recountFromOne';
+import { startUnknownReversed } from './rules/startUnknownReversed';
+import { symbolReversed } from './rules/symbolReversed';
 import { teenReversal } from './rules/teenReversal';
 import { unitGaps } from './rules/unitGaps';
+import { writeAsSpoken } from './rules/writeAsSpoken';
+import { wrongOperation } from './rules/wrongOperation';
 
 const RULES: Record<string, MisconceptionRule> = {
   countStartNumber: countStartNumber,
@@ -22,6 +33,18 @@ const RULES: Record<string, MisconceptionRule> = {
   recountFromOne: recountFromOne,
   decadeTransition: decadeTransition,
   teenReversal: teenReversal,
+  perceptualSize: perceptualSize,
+  forgotTheTen: forgotTheTen,
+  wrongOperation: wrongOperation,
+  placeSwap: placeSwap,
+  faceValue: faceValue,
+  writeAsSpoken: writeAsSpoken,
+  // K01 (#11): equality and story problems
+  equalsMeansAnswer: equalsMeansAnswer,
+  equalsAddAll: equalsAddAll,
+  startUnknownReversed: startUnknownReversed,
+  keywordMoreMeansAdd: keywordMoreMeansAdd,
+  symbolReversed: symbolReversed,
 };
 
 export function misconceptionRule(id: string): MisconceptionRule | undefined {
@@ -63,7 +86,7 @@ export function applicableMisconceptions(
     if (!spec.appliesTo.generators.includes(generator)) continue;
     if (!spec.skills.includes(item.skillId)) continue;
     const rule = RULES[spec.detect.rule];
-    if (rule) out.push({ spec, rule });
+    if (rule && (!rule.applies || rule.applies(item))) out.push({ spec, rule });
   }
   return out.sort((x, y) =>
     x.spec.priority !== y.spec.priority

@@ -192,3 +192,76 @@ describe('features', () => {
     expect(build(tpl('number-bond'), p).features['whole.over5']).toBe(1);
   });
 });
+
+// ---------- teens on two frames and the rekenrek (SUB.04, SUB.07) ----------
+
+describe('double-ten-frame and the rekenrek', () => {
+  const rek = tpl('rekenrek', { tier: 'concrete' });
+
+  it('a given part fills the first frame or top row, the rest the second', () => {
+    expect(arrangementGroups(13, 'double-ten-frame', 0, 0)).toEqual([10, 3]);
+    expect(arrangementGroups(13, 'double-ten-frame', 0, 7)).toEqual([7, 6]);
+    const { item, steps } = build(rek, { n: 13, arrangement: 'double-ten-frame', part: 7 });
+    expect(item.widget).toMatchObject({
+      format: 'rekenrek',
+      mode: 'read',
+      rows: 2,
+      preset: [7, 6],
+    });
+    expect(item.answer).toEqual({ kind: 'number', value: 13 });
+    // Each row is named before the total; nothing before the last step enters the answer.
+    expect(steps.map((s) => s.say)).toEqual([
+      'gen.subitize.flash.see-groups',
+      'gen.subitize.flash.parts',
+      'gen.subitize.flash.total',
+    ]);
+    expect(steps.slice(0, -1).every((s) => s.action?.op === 'highlight')).toBe(true);
+  });
+
+  it('a rekenrek read of ten and some more uses one or two rows', () => {
+    expect(build(rek, { n: 16, arrangement: 'double-ten-frame' }).item.widget).toMatchObject({
+      rows: 2,
+      preset: [10, 6],
+    });
+    expect(build(rek, { n: 8, arrangement: 'double-ten-frame' }).item.widget).toMatchObject({
+      rows: 1,
+      preset: [8, 0],
+    });
+  });
+
+  it('draws the bead rack, the double frame, or dots in the double-frame layout', () => {
+    const p = { n: 14, arrangement: 'double-ten-frame', part: 8 };
+    const flash = (representation: ItemTemplate['representation']) =>
+      build(tpl('dot-flash', { representation }), p).item.widget;
+    expect(flash('rekenrek')).toMatchObject({ stimulus: { kind: 'rekenrek', rows: [8, 6] } });
+    expect(flash('double-ten-frame')).toMatchObject({
+      stimulus: { kind: 'ten-frame', frames: 2, filled: [8, 6] },
+    });
+    expect(flash('dots')).toMatchObject({
+      stimulus: { kind: 'dots', arrangement: 'double-ten-frame', groups: [8, 6] },
+    });
+  });
+
+  it('split.rows marks two partly filled rows; placeValue a full ten and some more', () => {
+    const f = (part: number) =>
+      build(rek, { n: 15, arrangement: 'double-ten-frame', part }).features;
+    expect(f(8)).toMatchObject({ 'split.rows': 1, placeValue: 0, teen: 1, conceptual: 1 });
+    expect(f(10)).toMatchObject({ 'split.rows': 0, placeValue: 1 });
+    expect(f(0)).toMatchObject({ 'split.rows': 0, placeValue: 1 });
+    // The rekenrek's own size feature only marks the second row, so n.over5 counts size too.
+    expect(f(0)['n.over5']).toBe(2);
+  });
+
+  it('rejects rows that do not fit ten beads each', () => {
+    const t = tpl('rekenrek', { tier: 'concrete' });
+    expect(subitizeFlash.accepts?.({ n: 15, arrangement: 'double-ten-frame', part: 4 }, t)).toBe(
+      false,
+    );
+    expect(subitizeFlash.accepts?.({ n: 21, arrangement: 'double-ten-frame', part: 0 }, t)).toBe(
+      false,
+    );
+    expect(subitizeFlash.accepts?.({ n: 15, arrangement: 'double-ten-frame', part: 5 }, t)).toBe(
+      true,
+    );
+  });
+});

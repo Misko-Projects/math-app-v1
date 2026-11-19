@@ -1,6 +1,9 @@
 // @number-island/ui: design tokens, primitives, math widgets, avatar renderer, art kit, sfx (02 §2).
-// Styles: import "@number-island/ui/theme.css" and "@number-island/ui/primitives.css" after Tailwind.
+// Styles: import "@number-island/ui/theme.css", "@number-island/ui/primitives.css" and
+// "@number-island/ui/art.css" after Tailwind.
 
+// Art kit (05 §11, U02): island, road, buildings, characters, decor and effects as SVG components.
+export * from './art';
 // Audio (02 §5.5, A01): AudioManager, narration stitching, Web Speech fallback, SFX and music.
 export * from './audio';
 

@@ -173,6 +173,21 @@ describe('count.sequence: hide', () => {
     expect(named).toEqual(want);
   });
 
+  it.each<[string, ParamValues, string]>([
+    ['by ones: the start row', { start: 23, length: 3, hide: 'between' }, 'highlight-row'],
+    [
+      'by tens: the start column',
+      { start: 24, step: 10, length: 3, hide: 'between' },
+      'highlight-col',
+    ],
+  ])('the hundred-chart nudge and first solution step cue %s', (_l, p, op) => {
+    const t = tpl('count.sequence', 'hundred-chart');
+    const item = expectSound(t, p);
+    const nudge = item.hints.find((h) => h.level === 2);
+    expect(nudge?.actions?.map((a) => a.op)).toEqual([op]);
+    expect(itemSolution(item, t)[0]?.action?.op).toBe(op);
+  });
+
   it('between needs a term between start and last', () => {
     const t = tpl('count.sequence', 'number-pad');
     expect(() => generateItemFromParams(t, { start: 4, length: 1, hide: 'between' })).toThrow(

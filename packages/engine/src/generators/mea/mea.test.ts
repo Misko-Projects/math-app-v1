@@ -22,7 +22,7 @@ import { unitGaps } from '../../misconceptions/rules/unitGaps';
 import { registry } from '..';
 import { GenerationError } from '../types';
 import { lengthCloseness, NONSTANDARD_UNIT_SIZE, objectLengths } from './length';
-import { gaugeFor, WEIGHABLES } from './massvolume';
+import { clearlyLighter, gaugeFor, WEIGHABLES } from './massvolume';
 
 let nextId = 0;
 function tpl(
@@ -136,6 +136,29 @@ const LENGTH: Case[] = [
     lastOp: 'drag',
   },
   {
+    name: 'order: three ruler strips on one scale, longest first, no numerals (MEA.01)',
+    t: tpl('mea.length', 'order', { representation: 'ruler' }),
+    params: { mode: 'order', ask: 'longer', objects: 3, length: 6, length2: 2, length3: 9 },
+    answer: { kind: 'numbers', values: [9, 6, 2], ordered: true },
+    widget: {
+      direction: 'desc',
+      items: [
+        { stimulus: { kind: 'number-line', min: 0, max: 10, labelsEvery: null } },
+        { stimulus: { kind: 'number-line', min: 0, max: 10, labelsEvery: null } },
+        { stimulus: { kind: 'number-line', min: 0, max: 10, labelsEvery: null } },
+      ],
+    },
+    lastOp: 'drag',
+  },
+  {
+    name: 'measure-length: two units, pictorial (MEA.22)',
+    t: tpl('mea.length', 'measure-length', { representation: 'units' }),
+    params: { mode: 'two-units', unit: 'shell', altUnit: 'cube', length: 3 },
+    answer: { kind: 'numbers', values: [3, 6], ordered: true },
+    widget: { tool: 'units', mode: 'two-units' },
+    lastOp: 'answer',
+  },
+  {
     name: 'measure-length: iterate 6 shells',
     t: tpl('mea.length', 'measure-length', { tier: 'concrete' }),
     params: { mode: 'iterate', unit: 'shell', length: 6 },
@@ -217,6 +240,38 @@ const MASS: Case[] = [
     },
     widget: { ask: 'heavier' },
     lastOp: 'answer',
+  },
+  {
+    name: 'order: a feather, a pumpkin and an apple, heavy to light (MEA.16)',
+    t: tpl('mea.massvolume', 'order', { representation: 'objects' }),
+    params: { instrument: 'balance', unit: 'none', value: 1, value2: 9, value3: 4 },
+    answer: { kind: 'numbers', values: [9, 4, 1], ordered: true },
+    widget: { direction: 'desc' },
+    lastOp: 'drag',
+  },
+  {
+    name: 'shape-sort: heavier or lighter than an apple (MEA.16)',
+    t: tpl('mea.massvolume', 'shape-sort', { representation: 'objects' }),
+    params: { instrument: 'balance', unit: 'none', value: 4, cards: 4, hits: 2 },
+    answer: (item) => {
+      if (item.widget.format !== 'shape-sort') throw new Error('shape-sort');
+      return {
+        kind: 'state',
+        checker: 'sort.byRule',
+        target: {
+          cards: item.widget.cards.map(({ id, card }) => ({
+            id,
+            props: 'props' in card ? card.props : {},
+          })),
+          bins: [
+            { id: 'b0', rule: { prop: 'weight', op: '>=', value: 5 } },
+            { id: 'b1', rule: { prop: 'weight', op: '<=', value: 3 } },
+          ],
+        },
+      };
+    },
+    widget: { mode: 'sort', bins: [{ label: 'word.heavier' }, { label: 'word.lighter' }] },
+    lastOp: 'drag-card',
   },
   {
     name: 'number-pad: read 30 g on a scale (K02 path)',
@@ -482,6 +537,108 @@ describe('mea.massvolume', () => {
         value2: 4,
       }),
     ).toThrow(GenerationError);
+  });
+
+  it('order: pictures with no numeral, the balance closeness of the nearest pair', () => {
+    const t = tpl('mea.massvolume', 'order');
+    const item = generateItemFromParams(t, {
+      instrument: 'balance',
+      unit: 'none',
+      value: 2,
+      value2: 9,
+      value3: 4,
+    });
+    if (item.widget.format !== 'order') throw new Error('order');
+    expect(item.widget.items.map((x) => x.label)).toEqual([undefined, undefined, undefined]);
+    expect(
+      item.widget.items.map((x) => (x.stimulus?.kind === 'objects' ? x.stimulus.set.sprite : '')),
+    ).toEqual(expect.arrayContaining(['leaf', 'pumpkin', 'apple']));
+    // The closest pair is the leaf and the apple: 2 / 4.
+    expect(itemFeatures(item, t)).toMatchObject({ closeness: 0.5, magnitude: 0 });
+    // The first step only says what to think of: the worked-step hint never places an object.
+    const steps = itemSolution(item, t);
+    expect(steps[0]?.action).toBeUndefined();
+    // Two objects when value3 is 0; the same weight twice cannot be ordered.
+    const two = generateItemFromParams(t, {
+      instrument: 'balance',
+      unit: 'none',
+      value: 3,
+      value2: 7,
+    });
+    expect(two.answer).toEqual({ kind: 'numbers', values: [7, 3], ordered: true });
+    expect(() =>
+      generateItemFromParams(t, {
+        instrument: 'balance',
+        unit: 'none',
+        value: 3,
+        value2: 7,
+        value3: 3,
+      }),
+    ).toThrow(GenerationError);
+    // A row everyday knowledge cannot settle (a melon and a rock, a feather and a leaf) is never
+    // asked (review, PR #77: only CLEARLY_LIGHTER pairs).
+    for (const [value, value2, value3] of [
+      [2, 6, 8],
+      [1, 2, 9],
+      [1, 4, 5],
+    ] as const)
+      expect(() =>
+        generateItemFromParams(t, { instrument: 'balance', unit: 'none', value, value2, value3 }),
+      ).toThrow(GenerationError);
+  });
+
+  it('shape-sort: every card is a clear comparison with the object it is sorted against', () => {
+    const t = tpl('mea.massvolume', 'shape-sort');
+    for (const [value, cards, hits] of [
+      [3, 4, 3],
+      [4, 4, 2],
+      [4, 6, 4],
+    ] as const) {
+      for (let seed = 0; seed < 20; seed += 1) {
+        const item = generateItemFromParams(
+          t,
+          { instrument: 'balance', unit: 'none', value, cards, hits },
+          { seed },
+        );
+        if (item.widget.format !== 'shape-sort') throw new Error('shape-sort');
+        const ws = item.widget.cards.map(({ card }) =>
+          'kind' in card && card.kind === 'object' ? Number(card.props.weight) : 0,
+        );
+        expect(ws).toHaveLength(cards);
+        expect(new Set(ws).size).toBe(cards);
+        expect(ws.filter((w) => clearlyLighter(value, w))).toHaveLength(hits);
+        expect(ws.filter((w) => clearlyLighter(w, value))).toHaveLength(cards - hits);
+        expect(itemSolution(item, t)[0]?.vars).toEqual({ thing: WEIGHABLES[value - 1], one: 1 });
+        // Putting every card in the heavier bin is wrong.
+        const all = {
+          kind: 'state' as const,
+          value: { bins: { b0: item.widget.cards.map((c) => c.id), b1: [] } },
+        };
+        expect(checkResponse(item, all).correct).toBe(false);
+      }
+    }
+    expect(
+      itemFeatures(
+        generateItemFromParams(t, {
+          instrument: 'balance',
+          unit: 'none',
+          value: 4,
+          cards: 6,
+          hits: 4,
+        }),
+        t,
+      ),
+    ).toMatchObject({ cards: 2 });
+    // A shell has one thing clearly lighter (a feather); nothing is clearly heavier than a brick
+    // or lighter than a feather.
+    for (const params of [
+      { value: 3, cards: 4, hits: 2 },
+      { value: 7, cards: 4, hits: 2 },
+      { value: 1, cards: 3, hits: 2 },
+    ])
+      expect(() =>
+        generateItemFromParams(t, { instrument: 'balance', unit: 'none', ...params }),
+      ).toThrow(GenerationError);
   });
 
   it('draws a gauge with labels every second tick and room above the reading', () => {

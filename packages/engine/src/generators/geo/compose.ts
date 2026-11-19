@@ -1,7 +1,8 @@
 // geo.compose (03 §5.6): put shapes together to fill an outline (GEO.10, GEO.11, PUZ.03).
-// Formats: shape-compose (fill-outline, compose.fill), numeral-pick (which two pieces make this
-// shape, or how many of a piece) and puzzle-grid (shape-fill: cover a grid outline with the listed
-// squares and rectangles, puzzle.satisfies).
+// Formats: shape-compose (fill-outline, compose.fill; concrete, or pictorial for the GEO.10–11
+// constructed practice, 02 §5.9 K1), numeral-pick (which two pieces make this shape, or how many of
+// a piece) and puzzle-grid (shape-fill: cover a grid outline with the listed squares and
+// rectangles, puzzle.satisfies).
 //
 // The outline comes from ./outlines.ts (mirrored in packages/content/outlines.yaml). Until the
 // shape-compose and puzzle-grid format models land, the generator emits their features itself.
