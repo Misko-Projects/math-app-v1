@@ -3,6 +3,7 @@ import type { WidgetAction } from '@number-island/shared';
 import {
   type KeyboardEvent,
   type PointerEvent as ReactPointerEvent,
+  useEffect,
   useRef,
   useState,
 } from 'react';
@@ -16,9 +17,12 @@ import { type ModeProps, OPS, UndoButton } from './shared';
  * draw-on-grid (GEO.02, GEO.09) and build-sticks (GEO.09): draw a closed shape on a dot grid, or
  * build it with sticks that meet at corners. Tap a dot to start, then tap the next dot: a line (a
  * stick) joins them and the new dot is where the next line starts; tap the last dot again to stop.
- * A press dragged from one dot to another draws that line. The keyboard moves a cursor over the
- * dots (arrows) and Enter taps. Drawing a line again takes it away; "take one back" removes the
- * last line. The grid is one large target (dots snap to the nearest), so it fits every screen.
+ * A press dragged from one dot to another draws that line. The keyboard moves between the dots
+ * (arrows) and Enter taps. Drawing a line again takes it away; "take one back" removes the last
+ * line. Every dot is its own target (evidence review): a target-size square round it (80 px in K,
+ * 64 in G1), the dots one target and a 12 px gap apart (92 / 76 px) or more, the grid filling its
+ * board; a press between targets does nothing. A grid with more dots than fit at that spacing
+ * (a K 5 × 5 in a short area) is drawn at the spacing anyway: targets never shrink.
  */
 
 type Pt = [number, number];
@@ -42,28 +46,28 @@ export function DotGrid({
   const reduced = useReducedMotion();
   const alive = useAlive();
   const pause = useDemoPause();
-  const board = useRef<HTMLDivElement>(null);
+  const board = useRef<HTMLFieldSetElement>(null);
   const cols = config.grid?.cols ?? 5;
   const rows = config.grid?.rows ?? 5;
   const sticks = config.mode === 'build-sticks';
   const minT = MIN_TARGET_PX[ageMode];
-  const pad = 30;
+  // Each dot's target: a target-size square centred on it, 6 px inside the board's edge.
+  const pad = minT / 2 + 6;
+  const gMin = minT + 12;
+  const controlsW = (ageMode === 'k' ? 120 : 190) + 24;
+  // The grid fills the board: the spacing is as large as the area allows (to 140 px), never under
+  // a target and a gap; squares stay squares.
   const g = Math.max(
-    44,
+    gMin,
     Math.min(
-      110,
-      ((avail?.height ?? 640) - 2 * pad - 16) / (rows - 1),
-      ((avail?.width ?? 1100) - 2 * pad - 2 * minT - 80) / (cols - 1),
+      140,
+      ((avail?.height ?? 640) - 2 * pad - 16) / Math.max(1, rows - 1),
+      ((avail?.width ?? 1100) - controlsW - 32 - 2 * pad) / Math.max(1, cols - 1),
     ),
   );
   const H = 2 * pad + (rows - 1) * g;
-  // The board (the drawing surface) takes the width beside its controls column, the square
-  // lattice centred in it (evidence review: a square grid limited by the height used 40 % of a
-  // wide area). Squares stay squares: only the board grows.
-  const gridW = 2 * pad + (cols - 1) * g;
-  const controlsW = (ageMode === 'k' ? 120 : 190) + 24;
-  const W = Math.max(gridW, Math.min(1100, (avail?.width ?? 1100) - controlsW - 32));
-  const offX = (W - gridW) / 2;
+  const W = 2 * pad + (cols - 1) * g;
+  const offX = 0;
   const [start, setStart] = useState<Pt | null>(null);
   const [cursor, setCursor] = useState<Pt>([0, 0]);
   const [drawing, setDrawing] = useState<string | null>(null);
@@ -72,14 +76,26 @@ export function DotGrid({
   const px = (p: Pt) => [offX + pad + p[0] * g, pad + p[1] * g] as const;
   const sticksLeft = sticks ? stickCount(config) - state.edges.length : 0;
 
+  /** The dot whose target square is under the pointer (none between targets). */
   const dotAt = (clientX: number, clientY: number): Pt | null => {
     const r = board.current?.getBoundingClientRect();
     if (!r) return null;
-    const x = Math.round((clientX - r.left - offX - pad) / g);
-    const y = Math.round((clientY - r.top - pad) / g);
+    const fx = (clientX - r.left - offX - pad) / g;
+    const fy = (clientY - r.top - pad) / g;
+    const x = Math.round(fx);
+    const y = Math.round(fy);
     if (x < 0 || y < 0 || x >= cols || y >= rows) return null;
+    if (Math.abs(fx - x) * g > minT / 2 || Math.abs(fy - y) * g > minT / 2) return null;
     return [x, y];
   };
+  // The keyboard's dot has focus while the board does (arrow keys move it).
+  const focusCursor = useRef(false);
+  useEffect(() => {
+    if (!focusCursor.current) return;
+    board.current
+      ?.querySelector<HTMLElement>(`[data-dot-target="${cursor[0]},${cursor[1]}"]`)
+      ?.focus();
+  }, [cursor]);
 
   const draw = (from: Pt, to: Pt) => {
     apply({ op: 'draw-edge', args: { from, to } });
@@ -137,6 +153,7 @@ export function DotGrid({
         Math.min(cols - 1, Math.max(0, cursor[0] + d[0])),
         Math.min(rows - 1, Math.max(0, cursor[1] + d[1])),
       ];
+      focusCursor.current = true;
       setCursor(next);
       trace('move', `dot-${next[0]}-${next[1]}`);
     } else if (e.key === 'Enter' || e.key === ' ') {
@@ -181,7 +198,7 @@ export function DotGrid({
       if (action.op === 'draw-edge' && Array.isArray(action.args?.from)) {
         const [x, y] = action.args.from as Pt;
         setCursor([x, y]);
-        return setInvite('board');
+        return setInvite('dot');
       }
       setInvite(null);
     },
@@ -190,19 +207,27 @@ export function DotGrid({
   const used = new Set(state.edges.flatMap(([a, b]) => [`${a[0]},${a[1]}`, `${b[0]},${b[1]}`]));
   const dots: Pt[] = [];
   for (let y = 0; y < rows; y += 1) for (let x = 0; x < cols; x += 1) dots.push([x, y]);
-  const [cx, cy] = px(cursor);
 
   return (
     <div className="ni-scomp__grid-mode" data-tool={sticks ? 'sticks' : 'dots'}>
-      <div
+      <fieldset
         ref={board}
-        role="application"
-        tabIndex={interactive ? 0 : -1}
+        // Focusing the board focuses its keyboard dot (one tab stop for the whole grid).
+        tabIndex={-1}
         aria-label={t(sticks ? 'ui.scomp.sticks-board' : 'ui.scomp.dots-board')}
         aria-disabled={!interactive || undefined}
-        className={['ni-scomp__dots', invite === 'board' ? 'ni-invite' : '']
-          .filter(Boolean)
-          .join(' ')}
+        className="ni-scomp__dots"
+        onFocus={(e) => {
+          if (e.target !== e.currentTarget) return;
+          focusCursor.current = true;
+          board.current
+            ?.querySelector<HTMLElement>(`[data-dot-target="${cursor[0]},${cursor[1]}"]`)
+            ?.focus();
+        }}
+        onBlur={(e) => {
+          if (!e.currentTarget.contains(e.relatedTarget as Node | null))
+            focusCursor.current = false;
+        }}
         data-tier={tier}
         data-start={start ? start.join(',') : undefined}
         data-cursor={cursor.join(',')}
@@ -256,16 +281,34 @@ export function DotGrid({
           {start ? (
             <circle className="ni-scomp__start" cx={px(start)[0]} cy={px(start)[1]} r={17} />
           ) : null}
-          <rect
-            className="ni-scomp__cursor"
-            x={cx - 22}
-            y={cy - 22}
-            width={44}
-            height={44}
-            rx={12}
-          />
         </svg>
-      </div>
+        {/* One target per dot: a target-size square on it (pointer presses are read by the
+            board; the keyboard moves focus between them). */}
+        {dots.map(([x, y]) => {
+          const [dx, dy] = px([x, y]);
+          const here = x === cursor[0] && y === cursor[1];
+          return (
+            <button
+              key={`t${x},${y}`}
+              type="button"
+              className={['ni-scomp__dot-target', here && invite === 'dot' ? 'ni-invite' : '']
+                .filter(Boolean)
+                .join(' ')}
+              data-dot-target={`${x},${y}`}
+              aria-label={t('ui.scomp.dot', { n: y * cols + x + 1 })}
+              aria-pressed={same(start, [x, y])}
+              tabIndex={interactive && here ? 0 : -1}
+              disabled={!interactive}
+              style={{ left: dx - minT / 2, top: dy - minT / 2, width: minT, height: minT }}
+              onClick={(e) => e.preventDefault()}
+              onFocus={() => {
+                focusCursor.current = true;
+                if (!here) setCursor([x, y]);
+              }}
+            />
+          );
+        })}
+      </fieldset>
       <div className="ni-scomp__check">
         {sticks ? (
           <span

@@ -74,7 +74,7 @@ export function FillOutline({
   const trayW = pieces.length * tile + Math.max(0, pieces.length - 1) * CELL_GAP;
   const checkW = ageMode === 'k' ? minT + 24 : CHECK_W;
   const boardW = Math.max(200, (avail?.width ?? 1100) - trayW - checkW - 80);
-  const boardH = Math.max(200, (avail?.height ?? 600) - 40);
+  const boardH = Math.max(200, (avail?.height ?? 600) - 24);
   // The board adds its 14 px padding on each side.
   // As large as the area allows (evidence review: the composition used 39 % of the tablet area).
   const u = Math.max(40, Math.min(240, (boardW - 28) / w, (boardH - 28) / h));
@@ -240,7 +240,13 @@ export function FillOutline({
 
   return (
     <div className="ni-scomp__fill" ref={host} style={handStyle}>
-      <div className="ni-scomp__board" ref={board} style={{ width: svgW, height: svgH }}>
+      <div
+        className="ni-scomp__board"
+        ref={board}
+        // The board's left padding is empty paper: pulled back by it, what is drawn (the outline,
+        // the tray, Check) sits centred in the widget (evidence review: margins 149/135).
+        style={{ width: svgW, height: svgH, marginLeft: -pad }}
+      >
         <button
           type="button"
           {...boardP}

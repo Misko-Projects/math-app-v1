@@ -134,6 +134,25 @@ const draw3: Config = {
   rotationStep: 90,
 };
 
+/**
+ * GEO.09.t1 (K) at the smallest landscape area: the generator's 5 × 5 grid does not fit there with
+ * K dot targets (80 px, 92 px apart: 5 rows need about 448 px; the area has about 290), so this
+ * story uses the 7 × 3 grid that does (hand-made; the templates' grid size is the coordinator's
+ * decision). Make a triangle with sticks.
+ */
+const sticksWide: Config = {
+  format: 'shape-compose',
+  mode: 'build-sticks',
+  pieces: [
+    { id: 'stick', kind: 'stick', count: 8 },
+    { id: 'corner', kind: 'corner', count: 5 },
+  ],
+  showOutlineLines: false,
+  grid: { cols: 7, rows: 3 },
+  require: { kind: 'triangle' },
+  rotationStep: 90,
+};
+
 /** GEO.09.t1 seed 1: make a triangle with sticks. */
 const sticks: Config = {
   format: 'shape-compose',
@@ -456,16 +475,37 @@ export const FillTabletK: Story = {
     ]);
     await expectTrayTruths(root);
     await expectControls('shape-compose FillTabletK', 'k', fillControls(root));
-    // The outline uses the area (evidence review: 39 %): content 60+ % of it.
-    await expect(
-      fillPercent(areaBox(canvasElement), [
-        root.querySelector('.ni-scomp__board') as HTMLElement,
-        root.querySelector('.ni-scomp__tray') as HTMLElement,
-        root.querySelector('.ni-scomp__check') as HTMLElement,
-      ]),
-    ).toBeGreaterThanOrEqual(60);
+    // The composition uses the area (evidence review: 58 % as measured): what is drawn (the
+    // outline, the tray's tiles, badges and turn buttons, undo, Check) covers 60+ % of the area
+    // card, centred across it.
+    await expectComposition(canvasElement, [
+      ...root.querySelectorAll(
+        '.ni-scomp__outline, .ni-scomp__tile, .ni-scomp__count, .ni-scomp__rotate, .ni-scomp__undo',
+      ),
+      within(root).getByRole('button', { name: 'Check' }),
+    ]);
   },
 };
+
+/**
+ * What a story draws (`parts`: the visible drawing and controls, not their layout boxes) covers
+ * 60+ % of the area card (its outer box, as the evidence review measures) and is centred across it
+ * (left and right margins within 4 px). Records the margins.
+ */
+async function expectComposition(canvasElement: HTMLElement, parts: readonly Element[]) {
+  const area = areaBox(canvasElement);
+  const pct = fillPercent(area, parts);
+  await expect(pct, 'the composition covers 60 % of the area card').toBeGreaterThanOrEqual(60);
+  const a = area.getBoundingClientRect();
+  const rs = parts.map((p) => p.getBoundingClientRect());
+  const left = Math.min(...rs.map((r) => r.left)) - a.left;
+  const right = a.right - Math.max(...rs.map((r) => r.right));
+  await expect(Math.abs(left - right), 'the composition centred').toBeLessThanOrEqual(4);
+  recordEvidence(area, { composition_lr: `${Math.round(left)}/${Math.round(right)}` });
+  console.info(
+    `[composition] ${pct} % of the area; margins L/R ${Math.round(left)}/${Math.round(right)}`,
+  );
+}
 
 const scene = (root: HTMLElement) => root.querySelector('.ni-scomp__scene') as HTMLElement;
 const item = (root: HTMLElement) => root.querySelector('.ni-scomp__item') as HTMLElement;
@@ -564,35 +604,57 @@ export const BehindConcrete: Story = {
     await expectTargetSize(slot, 'k');
     const check = within(root).getByRole('button', { name: 'Check' });
     await expect(check).not.toHaveTextContent('Check');
-    // Behind reads as behind (evidence review): no see-through overlay; the fish rises over the
-    // crate's rim (35 to 45 % of it above the top edge) and the crate's FRONT is drawn over its
-    // body from below the rim, so the cut is not the crate's edge.
+    // Behind reads as behind (evidence review): no see-through overlay; the WHOLE crate (front,
+    // rim and frame) is drawn again over the fish, unclipped, so no fish pixel lies over the
+    // crate; only the fish above the crate's rim shows (35 to 45 % of the fish).
     await expect(root.querySelector('.ni-scomp__xray')).toBeNull();
     const crate = root.querySelector('[data-anchor-id="a0"]') as HTMLElement;
     const front = root.querySelector('[data-front-of="a0"]') as HTMLElement;
     await expect(front).not.toBeNull();
+    await expect(getComputedStyle(front).clipPath, 'the crate drawn whole over the fish').toBe(
+      'none',
+    );
     const c = crate.getBoundingClientRect();
-    const fish = (item(root).querySelector('svg') as SVGElement).getBoundingClientRect();
-    const above = (c.top - fish.top) / fish.height;
-    await expect(above, 'fish above the rim').toBeGreaterThanOrEqual(0.35);
-    await expect(above, 'fish above the rim').toBeLessThanOrEqual(0.45);
-    const cut = c.top + 0.18 * c.height;
-    await expect(cut - c.top, 'the front starts below the rim').toBeGreaterThanOrEqual(4);
-    await expect(fish.bottom, 'the front overlaps the fish body').toBeGreaterThan(cut);
-    const f = item(root).getBoundingClientRect();
-    await expect(f.left).toBeGreaterThanOrEqual(c.left - 0.5);
-    await expect(f.right).toBeLessThanOrEqual(c.right + 0.5);
+    const fr = front.getBoundingClientRect();
+    for (const k of ['left', 'top', 'right', 'bottom'] as const) {
+      await expect(fr[k], `front ${k} = the crate's`).toBeCloseTo(c[k], 0);
+    }
     const z = (el: Element) => Number(getComputedStyle(el).zIndex);
     await expect(z(crate)).toBeLessThan(z(item(root)));
     await expect(z(item(root))).toBeLessThan(z(front));
+    // The rim: the top of the crate's drawing (its painted parts), and the fish's drawing.
+    const inkTop = (el: Element) =>
+      Math.min(
+        ...[...el.querySelectorAll('svg path, svg rect, svg circle, svg ellipse, svg polygon')].map(
+          (s) => s.getBoundingClientRect().top,
+        ),
+      );
+    const inkBottom = (el: Element) =>
+      Math.max(
+        ...[...el.querySelectorAll('svg path, svg rect, svg circle, svg ellipse, svg polygon')].map(
+          (s) => s.getBoundingClientRect().bottom,
+        ),
+      );
+    const rim = inkTop(front);
+    const fishTop = inkTop(item(root));
+    const fishBottom = inkBottom(item(root));
+    const above = (rim - fishTop) / (fishBottom - fishTop);
+    await expect(fishTop, 'the fish shows above the rim').toBeLessThan(rim);
+    await expect(above, 'fish above the rim').toBeGreaterThanOrEqual(0.35);
+    await expect(above, 'fish above the rim').toBeLessThanOrEqual(0.45);
+    // Below the rim the fish lies within the crate's box: all of it hidden by the crate.
+    const f = (item(root).querySelector('svg') as SVGElement).getBoundingClientRect();
+    await expect(f.left).toBeGreaterThanOrEqual(fr.left - 0.5);
+    await expect(f.right).toBeLessThanOrEqual(fr.right + 0.5);
+    await expect(fishBottom).toBeLessThanOrEqual(fr.bottom + 0.5);
     recordEvidence(root, {
       check: sizeOf(check),
       slot: sizeOf(slot),
       fish_above_rim_pct: Math.round(above * 100),
-      front_cut_below_rim: Math.round(cut - c.top),
+      crate_over_fish: 'whole crate, unclipped',
     });
     console.info(
-      `[behind] check ${sizeOf(check)}; slot ${sizeOf(slot)}; fish above rim ${Math.round(above * 100)} %; front cut ${Math.round(cut - c.top)} px below the rim`,
+      `[behind] check ${sizeOf(check)}; slot ${sizeOf(slot)}; fish above rim ${Math.round(above * 100)} % (the rest hidden by the whole crate)`,
     );
     item(root).focus();
     await userEvent.keyboard('{Enter}');
@@ -618,6 +680,48 @@ export const BehindConcrete: Story = {
 };
 
 const dotsBoard = (root: HTMLElement) => root.querySelector('.ni-scomp__dots') as HTMLElement;
+const dotTargets = (root: HTMLElement) => [
+  ...root.querySelectorAll<HTMLElement>('.ni-scomp__dot-target'),
+];
+
+/**
+ * Every dot is its own target (evidence review: one big board target, dots 61 px apart): each
+ * target-size, all 12+ px apart, each centred on its dot. Records the target, gap and spacing.
+ */
+async function expectDotTargets(root: HTMLElement, ageMode: 'k' | 'g1-up') {
+  const targets = dotTargets(root);
+  await expect(targets.length).toBeGreaterThan(0);
+  for (const t of targets) await expectTargetSize(t, ageMode);
+  let gap = Number.POSITIVE_INFINITY;
+  for (let i = 0; i < targets.length; i += 1) {
+    for (let j = i + 1; j < targets.length; j += 1) {
+      gap = Math.min(
+        gap,
+        boxGap(
+          (targets[i] as HTMLElement).getBoundingClientRect(),
+          (targets[j] as HTMLElement).getBoundingClientRect(),
+        ),
+      );
+    }
+  }
+  await expect(gap, 'dot targets 12 px apart').toBeGreaterThanOrEqual(11.5);
+  for (const t of targets) {
+    const dot = center(root.querySelector(`circle[data-dot="${t.dataset.dotTarget}"]`) as Element);
+    const c = center(t);
+    await expect(Math.hypot(dot.x - c.x, dot.y - c.y), 'target on its dot').toBeLessThan(1);
+  }
+  const a = center(root.querySelector('circle[data-dot="0,0"]') as Element);
+  const b = center(root.querySelector('circle[data-dot="1,0"]') as Element);
+  const r = (targets[0] as HTMLElement).getBoundingClientRect();
+  recordEvidence(root, {
+    dot_target: `${Math.round(r.width)}x${Math.round(r.height)}`,
+    dot_gap: Math.round(gap),
+    dot_spacing: Math.round(b.x - a.x),
+  });
+  console.info(
+    `[dots] targets ${Math.round(r.width)}×${Math.round(r.height)}, ${Math.round(gap)} px apart, dots ${Math.round(b.x - a.x)} px apart`,
+  );
+}
 function dotPoint(root: HTMLElement, x: number, y: number) {
   const dot = root.querySelector(`[data-dot="${x},${y}"]`) as SVGCircleElement;
   return center(dot);
@@ -639,7 +743,7 @@ export const DrawTriangle: Story = {
   args: { config: draw3 },
   play: async ({ canvasElement, args }) => {
     const root = await findWidget(canvasElement, ROOT);
-    await expectTargetSize(dotsBoard(root), 'k');
+    await expectDotTargets(root, 'g1-up');
     await tapDot(root, 0, 0);
     await tapDot(root, 4, 0);
     await tapDot(root, 2, 3);
@@ -677,7 +781,7 @@ export const DrawTriangle: Story = {
       11.5,
     );
     await expectControls('shape-compose DrawTriangle', 'g1-up', {
-      dots: [dotsBoard(root)],
+      dots: dotTargets(root),
       undo: [undo],
       check: [check],
     });
@@ -718,10 +822,13 @@ export const DrawDragAndKeyboard: Story = {
   },
 };
 
-/** GEO.09.t1 at the smallest landscape area (K): sticks meet at corners; sticks left counts down. */
+/**
+ * GEO.09.t1 at the smallest landscape area (K), on the 7 × 3 grid that fits K dot targets there
+ * (see `sticksWide`): sticks meet at corners; sticks left counts down.
+ */
 export const SticksLandscapeMinK: Story = {
   globals: { ageMode: 'k' },
-  args: { config: sticks },
+  args: { config: sticksWide },
   render: inArea('landscapeMin'),
   play: async ({ canvasElement, args }) => {
     const root = await findWidget(canvasElement, ROOT);
@@ -732,18 +839,50 @@ export const SticksLandscapeMinK: Story = {
     ]);
     await expect(within(root).getByRole('img', { name: '8 sticks left' })).toBeInTheDocument();
     await expectRenderedNumerals(root, '.ni-scomp__sticks-n');
-    // The board uses the area (evidence review: 40 %): content 60+ % of it.
-    await expect(
-      fillPercent(areaBox(canvasElement), [
-        dotsBoard(root),
-        root.querySelector('.ni-scomp__check') as HTMLElement,
-      ]),
-    ).toBeGreaterThanOrEqual(60);
+    // Each dot its own K target; the grid fills its board, and the board and controls use the
+    // area (evidence review: a 5 × 5 grid used 243 × 243 of a 672 × 300 board).
+    await expectDotTargets(root, 'k');
+    await expectComposition(canvasElement, [
+      dotsBoard(root),
+      ...root.querySelectorAll('.ni-scomp__sticks-left, .ni-scomp__undo'),
+      within(root).getByRole('button', { name: 'Check' }),
+    ]);
     await expectControls('shape-compose SticksLandscapeMinK', 'k', {
-      dots: [dotsBoard(root)],
+      dots: dotTargets(root),
       undo: [within(root).getByRole('button', { name: 'Take one back' })],
       check: [within(root).getByRole('button', { name: 'Check' })],
     });
+    for (const [x, y] of [
+      [0, 0],
+      [3, 0],
+      [0, 2],
+      [0, 0],
+    ]) {
+      await tapDot(root, x as number, y as number);
+    }
+    await expect(root.querySelectorAll('.ni-scomp__stick')).toHaveLength(3);
+    await expect(root.querySelectorAll('.ni-scomp__corner')).toHaveLength(3);
+    await expect(within(root).getByRole('img', { name: '5 sticks left' })).toBeInTheDocument();
+    await userEvent.click(within(root).getByRole('button', { name: 'Check' }));
+    await expect(
+      stateChecker('grid.polygon')?.check(
+        { require: { kind: 'triangle' }, grid: { cols: 7, rows: 3 } },
+        lastState(args.onResponse),
+      ),
+    ).toBe(true);
+  },
+};
+
+/**
+ * GEO.09.t1 seed 1 as generated (K, 5 × 5) on the story stage, where its height fits: every dot
+ * its own 80 px target, 92+ px apart; three sticks make the triangle.
+ */
+export const SticksK: Story = {
+  globals: { ageMode: 'k' },
+  args: { config: sticks },
+  play: async ({ canvasElement, args }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    await expectDotTargets(root, 'k');
     for (const [x, y] of [
       [0, 0],
       [3, 0],
@@ -753,8 +892,6 @@ export const SticksLandscapeMinK: Story = {
       await tapDot(root, x as number, y as number);
     }
     await expect(root.querySelectorAll('.ni-scomp__stick')).toHaveLength(3);
-    await expect(root.querySelectorAll('.ni-scomp__corner')).toHaveLength(3);
-    await expect(within(root).getByRole('img', { name: '5 sticks left' })).toBeInTheDocument();
     await userEvent.click(within(root).getByRole('button', { name: 'Check' }));
     await expect(
       stateChecker('grid.polygon')?.check(

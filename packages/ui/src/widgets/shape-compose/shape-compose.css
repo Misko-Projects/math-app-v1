@@ -226,7 +226,7 @@
   display: block;
   pointer-events: none;
 }
-/* A thing's front, drawn again over an item that is behind it (clipped below its rim). */
+/* A thing drawn again, whole, over an item that is behind it (only the item above it shows). */
 .ni-scomp__anchor-front {
   z-index: 4;
 }
@@ -259,17 +259,17 @@
 /* ---------- dots and sticks ---------- */
 
 .ni-scomp__dots {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  min-width: 0;
   position: relative;
   flex: none;
   border-radius: 22px;
   background: var(--color-paper);
   box-shadow: inset 0 0 0 3px var(--color-sand-deep);
   touch-action: none;
-  cursor: pointer;
-}
-.ni-scomp__dots:focus-visible {
-  outline: 4px solid var(--color-ink);
-  outline-offset: 4px;
+  cursor: default;
 }
 .ni-scomp__dots svg {
   display: block;
@@ -299,14 +299,25 @@
   stroke: var(--color-ink);
   stroke-width: 4px;
 }
-.ni-scomp__cursor {
-  fill: none;
-  stroke: transparent;
-  stroke-width: 3px;
-  stroke-dasharray: 6 4;
+/* Each dot's own target: a target-size square on the dot, see-through (the dot is the picture);
+   its focus ring and the demo invite ring lie inside it, so dots' rings stay 12 px apart. */
+.ni-scomp__dot-target {
+  position: absolute;
+  box-sizing: border-box;
+  padding: 0;
+  border: 0;
+  border-radius: 18px;
+  background: transparent;
+  cursor: pointer;
 }
-.ni-scomp__dots:focus-visible .ni-scomp__cursor {
-  stroke: var(--color-sea-deep);
+.ni-scomp__dot-target:focus-visible {
+  outline: 4px solid var(--color-sea-deep);
+  outline-offset: -4px;
+}
+.ni-scomp .ni-scomp__dot-target.ni-invite {
+  outline-offset: -5px;
+  border-radius: 18px;
+  animation: none;
 }
 .ni-scomp__sticks-left {
   display: inline-flex;

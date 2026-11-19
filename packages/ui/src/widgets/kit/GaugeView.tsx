@@ -7,7 +7,8 @@ import './gauge.css';
  * scale with a dial, a beaker, or a thermometer. Every one reads exactly its `value`: ticks every
  * `ticksEvery` from `min` to `max`, a numeral every `labelsEvery` (every second, fifth … one when
  * they would crowd, so the pattern stays even), and the needle, water level or column at `value`.
- * Numerals are 34 px and the drawing never shrinks below 32 px numerals (05 §11).
+ * Numerals are drawn at 34 user units and the whole drawing at `GAUGE_DRAW_K` × (52 px numerals),
+ * so every digit's ink is at least 32 px tall as seen (05 §11; evidence review: 28 to 29 px).
  */
 
 export type GaugeSpec = Extract<StimulusSpec, { kind: 'gauge' }>;
@@ -23,6 +24,11 @@ export const GAUGE_UNIT: Record<GaugeSpec['unit'], string> = {
 
 export const GAUGE_NUMERAL_PX = 34;
 const NUMERAL_PX = GAUGE_NUMERAL_PX;
+/**
+ * The drawing's least scale: numerals 52 px on screen (a Baloo 2 digit's ink is about 0.65 em,
+ * so 34 px of ink). The drawing may grow a little where there is room, never shrink below this.
+ */
+export const GAUGE_DRAW_K = 52 / NUMERAL_PX;
 const numeralWidth = (s: string) => s.length * 20 + 6;
 const clamp01 = (x: number) => Math.min(1, Math.max(0, x));
 
@@ -299,7 +305,7 @@ export const GAUGE_SIZE: Record<GaugeSpec['instrument'], { w: number; h: number 
 
 export interface GaugeViewProps {
   spec: GaugeSpec;
-  /** Box the picture fits in (CSS px): it scales down to fit, never below 32 px numerals. */
+  /** Box the picture grows into (CSS px), up to 1.25 ×; never below 32 px digit ink. */
   maxWidth?: number;
   maxHeight?: number;
   label?: string;
@@ -307,7 +313,10 @@ export interface GaugeViewProps {
 
 export function GaugeView({ spec, maxWidth = 400, maxHeight = 400, label }: GaugeViewProps) {
   const natural = GAUGE_SIZE[spec.instrument];
-  const k = Math.max(32 / NUMERAL_PX, Math.min(1, maxWidth / natural.w, maxHeight / natural.h));
+  const k = Math.max(
+    GAUGE_DRAW_K,
+    Math.min(GAUGE_DRAW_K * 1.25, maxWidth / natural.w, maxHeight / natural.h),
+  );
   return (
     <div
       className="ni-gauge"

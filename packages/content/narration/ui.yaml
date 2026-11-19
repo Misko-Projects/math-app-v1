@@ -301,6 +301,9 @@ ui.scomp.sticks-board:
 ui.scomp.sticks-left:
   text: "{n} sticks left"
   level: K
+ui.scomp.dot:
+  text: "Dot {n}"
+  level: K
 ui.pwalk.side:
   text: "Side {n}: {len}"
   level: "2"

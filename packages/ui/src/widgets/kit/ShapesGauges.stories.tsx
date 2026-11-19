@@ -2,8 +2,9 @@ import type { ShapeCard, ShapeKind, StimulusSpec, WidgetConfig } from '@number-i
 import type { Meta, StoryObj } from '@storybook/react-vite';
 import { expect, fn } from 'storybook/test';
 import { expectNumeralsAtLeast32 } from '../../test-support/areaStory';
-import { findWidget, renderWidget } from '../../test-support/widgetStory';
-import type { WidgetHostProps } from '../WidgetHost';
+import { expectNumeralInk } from '../../test-support/evidence';
+import { findWidget } from '../../test-support/widgetStory';
+import { WidgetHost, type WidgetHostProps } from '../WidgetHost';
 import { dialAngle, type GaugeSpec } from './GaugeView';
 import { PIECE_SIDE } from './ShapeView';
 import { StimulusView } from './StimulusView';
@@ -133,6 +134,8 @@ export const ScaleDial: Story = {
       Math.PI;
     await expect((angle + 360) % 360).toBeCloseTo(dialAngle(scale, 7) % 360, 3);
     await expectNumeralsAtLeast32(canvasElement, '.ni-gauge__numeral');
+    // Digits at least 32 px tall as seen (their ink), not only the font size (evidence review).
+    await expectNumeralInk(canvasElement, '.ni-gauge__numeral');
   },
 };
 
@@ -144,6 +147,8 @@ export const Beaker: Story = {
     const tick = canvasElement.querySelector('[data-tick="3"]') as SVGLineElement;
     await expect(water.y.baseVal.value).toBeCloseTo(tick.y1.baseVal.value, 6);
     await expectNumeralsAtLeast32(canvasElement, '.ni-gauge__numeral');
+    // Digits at least 32 px tall as seen (their ink), not only the font size (evidence review).
+    await expectNumeralInk(canvasElement, '.ni-gauge__numeral');
   },
 };
 
@@ -166,6 +171,8 @@ export const Thermometer: Story = {
     const tick = canvasElement.querySelector('[data-tick="25"]') as SVGLineElement;
     await expect(column.y.baseVal.value).toBeCloseTo(tick.y1.baseVal.value, 6);
     await expectNumeralsAtLeast32(canvasElement, '.ni-gauge__numeral');
+    // Digits at least 32 px tall as seen (their ink), not only the font size (evidence review).
+    await expectNumeralInk(canvasElement, '.ni-gauge__numeral');
   },
 };
 
@@ -221,7 +228,9 @@ export const CompositionOneScale: StoryObj<WidgetHostProps> = {
     onResponse: fn(),
     onInteract: fn(),
   },
-  render: renderWidget,
+  // Like the sibling kit stories: on the padded story canvas, full width (evidence review: the
+  // 1200 px widget stage left 202 px empty at 1440).
+  render: (args) => <WidgetHost {...args} />,
   play: async ({ canvasElement }) => {
     const root = await findWidget(canvasElement, '.ni-npick');
     const box = (el: Element) =>

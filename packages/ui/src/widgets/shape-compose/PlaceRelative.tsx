@@ -26,9 +26,7 @@ export const ITEM_SIZE = 14;
 const itemUnits = (k: number, minPx: number) => Math.max(ITEM_SIZE, Math.ceil(minPx / k));
 const STEP = 2;
 /** How much of an item's box shows above the top edge of the thing it is behind. */
-const PEEK = 0.4;
-/** The thing's rim: its front is drawn over a behind item from this far down its height. */
-const FRONT_LIP = 0.18;
+const PEEK = 0.52;
 
 const clampX = (x: number) => Math.min(SCENE.w - 3, Math.max(3, x));
 const clampY = (y: number) => Math.min(SCENE.h - 3, Math.max(3, y));
@@ -329,9 +327,9 @@ export function PlaceRelative({
           );
         })}
         {placed ? itemEl : null}
-        {/* Behind a thing: its FRONT is drawn again over the item, from just below its rim
-            (FRONT_LIP of its height) down, so the thing's front overlaps the item's body and
-            the item rises over the rim: it reads as behind, not sitting on top (evidence review). */}
+        {/* Behind a thing: the whole thing (its front, rim and frame) is drawn again over the
+            item, so only the part of the item above the rim shows, peeking out from behind it
+            (evidence review: the item's body drawn over the rim read as sitting in or on it). */}
         {backAnchor
           ? (() => {
               const b = boxOf(backAnchor.sprite, backAnchor.at);
@@ -344,7 +342,6 @@ export function PlaceRelative({
                     top: (b.y - b.h / 2) * k,
                     width: b.w * k,
                     height: b.h * k,
-                    clipPath: `inset(${FRONT_LIP * 100}% 0 0 0)`,
                   }}
                   aria-hidden="true"
                 >
