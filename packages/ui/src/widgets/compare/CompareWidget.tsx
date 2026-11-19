@@ -25,6 +25,7 @@ import {
   countLayout,
   FitPicture,
   minObjectStep,
+  NumberLineView,
   naturalPictureSize,
   type ObjectLayout,
   ObjectSetView,
@@ -321,6 +322,7 @@ function planLayout(opts: {
   answer: AnswerSize;
   match: MatchGeometry | null;
   sidePick: boolean;
+  stackOnly?: boolean;
 }): Plan {
   const { room, specs, mid, answer, match } = opts;
   const W = (room?.width ?? 1180) - 2 * ROOT_PAD.x;
@@ -370,8 +372,12 @@ function planLayout(opts: {
   // Side by side with the answers below, unless another arrangement draws the pictures clearly
   // bigger (short rooms: answers beside; narrow ones: the sides stacked). A relation between
   // the sides (a symbol's gap, a statement's =) reads left to right, so those never stack.
-  let best: Exclude<Arrange, 'match'> = 'row';
-  const others = mid.w > 0 ? (['beside'] as const) : (['beside', 'stack', 'stack-beside'] as const);
+  let best: Exclude<Arrange, 'match'> = opts.stackOnly ? 'stack' : 'row';
+  const others = opts.stackOnly
+    ? (['stack-beside'] as const)
+    : mid.w > 0
+      ? (['beside'] as const)
+      : (['beside', 'stack', 'stack-beside'] as const);
   for (const a of others) {
     if (score(a) > score(best) * 1.15) best = a;
   }
@@ -381,6 +387,102 @@ function planLayout(opts: {
     answers: best === 'beside' || best === 'stack-beside' ? 'column' : 'row',
     match: null,
   };
+}
+
+/** Spreads a layout's objects apart by `k` (their size unchanged). */
+function spread(layout: ObjectLayout, k: number): ObjectLayout {
+  return {
+    ...layout,
+    objects: layout.objects.map((o) => ({ ...o, x: o.x * k, y: o.y * k })),
+    width: (layout.width - 1) * k + 1,
+    height: (layout.height - 1) * k + 1,
+  };
+}
+
+/** Shrinks every object to `k` of its cell, centred where it was. */
+function shrink(layout: ObjectLayout, k: number): ObjectLayout {
+  return {
+    ...layout,
+    objects: layout.objects.map((o) => ({
+      ...o,
+      scale: o.scale * k,
+      x: o.x + (o.scale * (1 - k)) / 2,
+      y: o.y + (o.scale * (1 - k)) / 2,
+    })),
+  };
+}
+
+/**
+ * The two sides' countable layouts. A compare.sets conflict item (CMP.05: one set drawn big and
+ * spread out, `sizeVaries`, against a bunched set) makes its cue deliberate rather than random:
+ * every object of the big-looking side is drawn larger than every object of the other side, and
+ * further apart. Counts and reading order are unchanged; both sides still share one cell.
+ */
+function sideLayouts(specs: StimulusSpec[], stack: boolean): (ObjectLayout | null)[] {
+  const plain = specs.map((sp) => countLayout(sp, stack));
+  const [a, b] = specs;
+  if (specs.length !== 2 || a?.kind !== 'objects' || b?.kind !== 'objects') return plain;
+  const big = [a.set.sizeVaries === true, b.set.sizeVaries === true];
+  if (big[0] === big[1]) return plain;
+  return specs.map((sp, i) => {
+    if (sp.kind !== 'objects') return plain[i] ?? null;
+    return big[i]
+      ? spread(objectSetLayout({ ...sp.set, sizeVaries: false }), 1.35)
+      : shrink(objectSetLayout(sp.set), 0.68);
+  });
+}
+
+/**
+ * A "which is longer?" side (mea.length `rulerStrip`): a ruler from 0 with one unlabelled mark at
+ * the object's length. It is drawn as a ribbon of that length on the ruler, starting at 0, so the
+ * two sides (one scale, one start) compare like two real strips laid side by side.
+ */
+const isLengthStrip = (spec: StimulusSpec, ask: Config['ask']) =>
+  ask === 'longer' &&
+  spec.kind === 'number-line' &&
+  spec.min === 0 &&
+  (spec.marks ?? []).length === 1 &&
+  spec.marks?.[0]?.label === undefined;
+
+function LengthStrip({
+  spec,
+  width,
+  label,
+}: {
+  spec: Extract<StimulusSpec, { kind: 'number-line' }>;
+  width: number;
+  label: string;
+}) {
+  const at = spec.marks?.[0]?.at ?? spec.min;
+  return (
+    <div className="ni-cmp__strip" role="img" aria-label={label} data-length={at}>
+      <NumberLineView
+        min={spec.min}
+        max={spec.max}
+        ticksEvery={spec.ticksEvery}
+        labelsEvery={spec.labelsEvery}
+        width={Math.max(200, Math.min(880, Math.floor(width)))}
+        pad={30}
+        headroom={50}
+        tickRhythm
+      >
+        {(scale) => (
+          <g className="ni-cmp__ribbon">
+            <rect
+              x={scale.x(spec.min)}
+              y={scale.lineY - 44}
+              width={Math.max(0, scale.x(at) - scale.x(spec.min))}
+              height={22}
+              rx={11}
+            />
+            <path
+              d={`M${scale.x(spec.min) + 12} ${scale.lineY - 37}h${Math.max(0, (scale.x(at) - scale.x(spec.min)) * 0.35)}`}
+            />
+          </g>
+        )}
+      </NumberLineView>
+    </div>
+  );
 }
 
 interface Line {
@@ -438,8 +540,8 @@ export function CompareWidget({
   const target = MIN_TARGET_PX[ageMode];
   const leftSet = config.left.kind === 'objects' ? config.left.set : null;
   const rightSet = config.right.kind === 'objects' ? config.right.set : null;
-  const leftLayout = leftSet ? objectSetLayout(leftSet) : null;
-  const rightLayout = rightSet ? objectSetLayout(rightSet) : null;
+  const specs = config.right.kind === 'none' ? [config.left] : [config.left, config.right];
+  const [leftLayout, rightLayout] = leftSet && rightSet ? sideLayouts(specs, false) : [null, null];
   const matchable =
     tier === 'concrete' && config.allowMatchLines && leftLayout !== null && rightLayout !== null;
   const choices = choicesFor(ask);
@@ -483,7 +585,6 @@ export function CompareWidget({
     })),
     check: { w: TARGET_PX[ageMode].big + 8, h: TARGET_PX[ageMode].big + 6 },
   };
-  const specs = config.right.kind === 'none' ? [config.left] : [config.left, config.right];
   const symbolGap = ask === 'symbol';
   const relation =
     ask === 'true-false' && config.right.kind !== 'none' && !hasRelation(config.left);
@@ -502,6 +603,8 @@ export function CompareWidget({
         ? matchGeometry([leftLayout, rightLayout], target, sidePick)
         : null,
     sidePick,
+    // Two lengths compare one above the other from a common start.
+    stackOnly: specs.length === 2 && specs.every((sp) => isLengthStrip(sp, ask)),
   });
   /**
    * Match mode (concrete tier with match lines): the sets as rows of object targets. When the rows
@@ -782,14 +885,16 @@ export function CompareWidget({
   // (a line of 6 must not look smaller than a scatter of 6). A double ten-frame stacks when that
   // draws it bigger.
   const sharedCount = (stack: boolean) => {
-    const ls = specs.map((s) => countLayout(s, stack));
+    const ls = sideLayouts(specs, stack);
     if (specs.length < 2 || ls.some((l) => l === null)) return null;
     return Math.min(...ls.map((l) => cellToFit(l as ObjectLayout, plan.side.w, plan.side.h)));
   };
   const flatCell = sharedCount(false);
   /**
    * What tapping a side says (06 §5): its number when it shows one (a numeral, a number line's
-   * labelled mark), or the name of its objects; never a count the child is asked for.
+   * labelled mark), or the name of its objects; never a count the child is asked for. A number
+   * line whose mark has no label says nothing: its value is exactly what the child is asked to
+   * read off the line, so speaking it would give the answer away (the side still picks).
    */
   const sideSpeech = (spec: StimulusSpec): { name: string; speak: () => void } | null => {
     const n = sideNumeral(spec);
@@ -815,27 +920,31 @@ export function CompareWidget({
   const stacked = plan.arrange === 'stack' || plan.arrange === 'stack-beside';
   const columnW =
     stacked && sharedCell !== null
-      ? Math.max(...specs.map((sp) => (countLayout(sp, stackFrames)?.width ?? 0) * sharedCell))
+      ? Math.max(...sideLayouts(specs, stackFrames).map((l) => (l?.width ?? 0) * sharedCell))
       : null;
 
   const renderSide = (side: Side) => {
     const spec = config[side];
     if (spec.kind === 'none') return null;
     const name = sidePick ? undefined : sideLabel(side);
-    const picture = (
-      <FitPicture
-        spec={spec}
-        maxWidth={plan.side.w}
-        maxHeight={plan.side.h}
-        cell={sharedCell ?? undefined}
-        stackFrames={stackFrames}
-        maxScale={spec.kind === 'base-ten' ? 1.5 : 1}
-        scale={shared.scale}
-        onFit={shared.report(side)}
-        label={name}
-      />
-    );
-    const n = sideNumeral(spec);
+    const layout = sideLayouts(specs, stackFrames)[side === 'left' ? 0 : 1] ?? undefined;
+    const picture =
+      isLengthStrip(spec, ask) && spec.kind === 'number-line' ? (
+        <LengthStrip spec={spec} width={plan.side.w} label={name ?? t('ui.widget.picture')} />
+      ) : (
+        <FitPicture
+          spec={spec}
+          layout={layout}
+          maxWidth={plan.side.w}
+          maxHeight={plan.side.h}
+          cell={sharedCell ?? undefined}
+          stackFrames={stackFrames}
+          maxScale={spec.kind === 'base-ten' ? 1.5 : 1}
+          scale={shared.scale}
+          onFit={shared.report(side)}
+          label={name}
+        />
+      );
     const speech = sideSpeech(spec);
     const face =
       columnW !== null ? (
@@ -855,7 +964,12 @@ export function CompareWidget({
           <PickCard
             className="ni-cmp__tray"
             variant="picture"
-            label={n === null ? sideLabel(side) : `${sideLabel(side)}: ${n}`}
+            // Named with the number it shows (a numeral, a labelled mark); objects keep the side name.
+            label={
+              speech && spec.kind !== 'objects'
+                ? `${sideLabel(side)}: ${speech.name}`
+                : sideLabel(side)
+            }
             selected={selected === side}
             highlighted={lit(side)}
             data-id={side}

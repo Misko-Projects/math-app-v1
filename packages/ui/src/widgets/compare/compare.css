@@ -164,6 +164,25 @@
   height: var(--cmp-mid);
 }
 
+/* ---------- "which is longer?": a ribbon of each length on one ruler scale, from 0 ---------- */
+
+.ni-cmp__strip {
+  display: flex;
+  justify-content: center;
+}
+.ni-cmp__ribbon rect {
+  fill: var(--color-coral);
+  stroke: var(--color-coral-deep);
+  stroke-width: 3;
+}
+.ni-cmp__ribbon path {
+  stroke: var(--color-cloud);
+  stroke-width: 3;
+  stroke-linecap: round;
+  opacity: 0.7;
+  fill: none;
+}
+
 /* ---------- choices and check ---------- */
 
 .ni-cmp__answer {

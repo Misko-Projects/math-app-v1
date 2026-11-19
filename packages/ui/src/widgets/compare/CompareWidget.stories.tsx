@@ -65,10 +65,11 @@ const fewerPictures: Config = {
 /** CMP.05: spread out versus bunched, the same or not? */
 const sameOrNot: Config = {
   format: 'compare',
-  left: { kind: 'objects', set: { count: 6, sprite: 'shell', layout: 'scatter', layoutSeed: 7 } },
+  // ALG.05.t2 (compare.sets `ask: same`, K, concrete): two lines of the same sprite, match lines.
+  left: { kind: 'objects', set: { count: 6, sprite: 'shell', layout: 'line', layoutSeed: 7 } },
   right: { kind: 'objects', set: { count: 6, sprite: 'shell', layout: 'line', layoutSeed: 3 } },
   ask: 'same-or-not',
-  allowMatchLines: false,
+  allowMatchLines: true,
 };
 
 /** CMP.08 / PV.02: place <, = or > between two numbers. */
@@ -421,13 +422,14 @@ export const SameAnswer: Story = {
 export const SameOrNotK: Story = {
   globals: { ageMode: 'k' },
   parameters: { ui: { audio: spyAudio() } },
-  args: { config: sameOrNot },
+  args: { config: sameOrNot, tier: 'concrete' },
   play: async ({ canvasElement, args, parameters }) => {
     const audio = parameters.ui.audio as ReturnType<typeof spyAudio>;
     clearSpies(audio);
     const root = await findWidget(canvasElement, ROOT);
     const canvas = within(root);
-    // The sides are pictures, not buttons, for this question.
+    // The sets are rows to match (the real ALG.05.t2 item): tidy lines, one cell, no side picks.
+    await expect(root).toHaveAttribute('data-mode', 'match');
     await expect(canvas.queryByRole('button', { name: 'Left side' })).toBeNull();
     const same = canvas.getByRole('button', { name: 'The same' });
     const notSame = canvas.getByRole('button', { name: 'Not the same' });
@@ -616,7 +618,9 @@ export const OperandSpeechK: Story = {
 export const OperandObjectsK: Story = {
   globals: { ageMode: 'k' },
   parameters: { ui: { audio: spyAudio() } },
-  args: { config: sameOrNot },
+  // At the 960 × 600 minimum the rows don't fit: the sides are pictures that only speak.
+  args: { config: sameOrNot, tier: 'concrete' },
+  render: inArea('landscapeMin'),
   play: async ({ canvasElement, args, parameters }) => {
     const audio = parameters.ui.audio as ReturnType<typeof spyAudio>;
     clearSpies(audio);
@@ -626,6 +630,41 @@ export const OperandObjectsK: Story = {
     await expect(audio.say).toHaveBeenCalledWith('ui.sprite.shell', undefined);
     await expect(canvas.getByRole('button', { name: 'Check' })).toBeDisabled();
     await expect(traceOf(args.onInteract).map((e) => e.target)).toEqual(['side-left']);
+  },
+};
+
+/**
+ * A number-line side speaks only a labelled mark: an unlabelled mark's value is what the child is
+ * asked to read, so tapping that side picks it and says nothing; a labelled mark speaks its number.
+ */
+export const LineSidesSpeechK: Story = {
+  globals: { ageMode: 'k' },
+  parameters: { ui: { audio: spyAudio() } },
+  args: { config: numberLines, tier: 'pictorial' },
+  play: async ({ canvasElement, parameters }) => {
+    const audio = parameters.ui.audio as ReturnType<typeof spyAudio>;
+    clearSpies(audio);
+    const root = await findWidget(canvasElement, ROOT);
+    const left = within(root).getByRole('button', { name: 'Left side' });
+    await userEvent.click(left);
+    await expect(left).toHaveAttribute('aria-pressed', 'true');
+    await expect(audio.say).not.toHaveBeenCalled();
+    await expect(audio.sayPhrases).not.toHaveBeenCalled();
+    await expect(audio.sayText).not.toHaveBeenCalled();
+  },
+};
+
+/** A labelled mark (0–100 lines) speaks its number when its side is tapped. */
+export const LabelledLineSpeechK: Story = {
+  globals: { ageMode: 'k' },
+  parameters: { ui: { audio: spyAudio() } },
+  args: { config: hundredLines, tier: 'pictorial' },
+  play: async ({ canvasElement, parameters }) => {
+    const audio = parameters.ui.audio as ReturnType<typeof spyAudio>;
+    clearSpies(audio);
+    const root = await findWidget(canvasElement, ROOT);
+    await userEvent.click(within(root).getByRole('button', { name: 'Left side: 58' }));
+    await expect(audio.sayPhrases).toHaveBeenCalledWith([{ number: 58 }]);
   },
 };
 
@@ -809,6 +848,12 @@ export const InviteSides: Story = {
     // A match invite has no object targets here (pictures): no cue.
     sideInvite.invite({ op: 'match', args: { left: 0, right: 0 } });
     await noInvite(root);
+    // Following an invite ends it: the side picked, no ring left.
+    sideInvite.invite({ op: 'answer', args: { id: 'right' } });
+    await expectInviteOn(root, within(root).getByRole('button', { name: 'Right side' }));
+    await userEvent.click(within(root).getByRole('button', { name: 'Right side' }));
+    await noInvite(root);
+    (document.activeElement as HTMLElement | null)?.blur();
   },
 };
 
@@ -838,8 +883,16 @@ export const InviteSymbol: Story = {
     await expectInviteOn(root, within(root).getByRole('button', { name: 'Equal to' }));
     symbolInvite.invite({ op: 'answer', args: { id: '<' } });
     await expectInviteOn(root, within(root).getByRole('button', { name: 'Less than' }));
-    await userEvent.click(within(root).getByRole('button', { name: 'Less than' }));
-    await noInvite(root);
+    // The invite is the child's turn: one ring and Pip's hand, nothing chosen, the gap empty.
+    for (const name of ['Less than', 'Equal to', 'Greater than']) {
+      await expect(within(root).getByRole('button', { name })).toHaveAttribute(
+        'aria-pressed',
+        'false',
+      );
+    }
+    await expect(root.querySelector('.ni-pick__badge')).toBeNull();
+    await expect(root.querySelector('.ni-cmp__placed')).toBeNull();
+    await expect(root.querySelector('.ni-cmp__gap')).not.toHaveAttribute('data-filled');
   },
 };
 
@@ -865,7 +918,9 @@ export const DemoReducedMotion: Story = {
 async function expectPicturesInside(root: HTMLElement) {
   for (const side of root.querySelectorAll<HTMLElement>('.ni-cmp__side')) {
     const frame = (side.querySelector('.ni-cmp__tray') as HTMLElement).getBoundingClientRect();
-    const pic = (side.querySelector('.ni-fitpic') as HTMLElement).getBoundingClientRect();
+    const pic = (
+      side.querySelector('.ni-fitpic, .ni-cmp__strip') as HTMLElement
+    ).getBoundingClientRect();
     await expect(pic.left).toBeGreaterThanOrEqual(frame.left);
     await expect(pic.right).toBeLessThanOrEqual(frame.right + 0.5);
     await expect(pic.top).toBeGreaterThanOrEqual(frame.top);
@@ -917,6 +972,21 @@ export const DotsConflictK: Story = {
       getComputedStyle(o).getPropertyValue('--cell'),
     );
     await expect(new Set(cells).size).toBe(1);
+    // The conflict cue is deliberate: every dot of the big-looking side (9, left) is larger than
+    // every dot of the bunched side (10, right), and the big side's dots are spread wider.
+    const dots = (side: 'left' | 'right') =>
+      [...root.querySelectorAll(`.ni-cmp__side[data-side="${side}"] .ni-objects__item`)].map((d) =>
+        d.getBoundingClientRect(),
+      );
+    const big = dots('left');
+    const small = dots('right');
+    await expect(big).toHaveLength(9);
+    await expect(small).toHaveLength(10);
+    await expect(Math.min(...big.map((d) => d.width))).toBeGreaterThan(
+      Math.max(...small.map((d) => d.width)),
+    );
+    const gap = (ds: DOMRect[]) => (ds[1]?.left ?? 0) - (ds[0]?.right ?? 0);
+    await expect(gap(big)).toBeGreaterThan(gap(small));
   },
 };
 
@@ -940,6 +1010,20 @@ export const LongerK: Story = {
   play: async ({ canvasElement }) => {
     const root = await findWidget(canvasElement, ROOT);
     await expectPicturesInside(root);
+    // Two strips one above the other, from one start, on one scale: lengths in proportion.
+    await expect(root.getAttribute('data-arrange')).toMatch(/^stack/);
+    const ribbon = (side: 'left' | 'right') =>
+      (
+        root.querySelector(`.ni-cmp__side[data-side="${side}"] .ni-cmp__ribbon rect`) as Element
+      ).getBoundingClientRect();
+    const a = ribbon('left');
+    const b = ribbon('right');
+    await expect(Math.abs(a.left - b.left)).toBeLessThan(1);
+    await expect(a.width / b.width).toBeCloseTo(7 / 10, 2);
+    // Every unit tick of the ruler under each strip (0–11: 12 ticks).
+    for (const side of root.querySelectorAll('.ni-cmp__side')) {
+      await expect(side.querySelectorAll('.ni-numberline__tick')).toHaveLength(12);
+    }
   },
 };
 
