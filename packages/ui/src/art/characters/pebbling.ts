@@ -137,15 +137,38 @@ export function tensLayout(n: number): { tens: number; ones: number; rows: numbe
 
 const FRACTION_DENOMINATORS = [2, 3, 4, 5, 6, 8, 10, 12];
 
-/** The Half-Crab's shell (05 §5): equal parts, `filled` of them filled. 0.75 → 3 of 4. */
-export function fractionParts(value: number): { parts: number; filled: number } {
-  const v = Number.isFinite(value) ? Math.min(1, Math.max(0, value)) : 0;
-  // A whole (or nothing) is one undivided shell, never 2/2 (or 0/2).
-  if (v === 0 || v === 1) return { parts: 1, filled: v };
+/**
+ * How far a value may sit from k/d and still read as k/d: a rounded decimal such as 0.333 is 1/3,
+ * but 0.9995 is not a whole and 0.0005 is not nothing.
+ */
+const FRACTION_TOLERANCE = 1e-3;
+
+/**
+ * The one fraction resolver behind both `drawableNumber` and the Half-Crab's shell (05 §5): exactly 0
+ * or 1 is one undivided shell (never 0/2 or 2/2); otherwise the smallest shell denominator d with a
+ * proper k/d (0 < k < d) within FRACTION_TOLERANCE of the value. Null when no shell shows the value.
+ */
+export function resolveFraction(value: number): { parts: number; filled: number } | null {
+  if (!Number.isFinite(value) || value < 0 || value > 1) return null;
+  if (value === 0 || value === 1) return { parts: 1, filled: value };
   for (const d of FRACTION_DENOMINATORS) {
-    const f = v * d;
-    if (Math.abs(f - Math.round(f)) < 0.02) return { parts: d, filled: Math.round(f) };
+    const k = Math.round(value * d);
+    if (k > 0 && k < d && Math.abs(value - k / d) < FRACTION_TOLERANCE) {
+      return { parts: d, filled: k };
+    }
   }
+  return null;
+}
+
+/**
+ * The Half-Crab's shell (05 §5): equal parts, `filled` of them filled. 0.75 → 3 of 4. A Pebbling
+ * never draws a value `resolveFraction` rejects (it shows a plain shell); this total form only keeps
+ * direct callers safe, falling back to the nearest twelfth.
+ */
+export function fractionParts(value: number): { parts: number; filled: number } {
+  const resolved = resolveFraction(value);
+  if (resolved) return resolved;
+  const v = Number.isFinite(value) ? Math.min(1, Math.max(0, value)) : 0;
   return { parts: 12, filled: Math.round(v * 12) };
 }
 
@@ -278,11 +301,7 @@ export function drawableNumber(spec: Pick<PebblingSpec, 'number' | 'family'>): b
   const whole = Number.isInteger(n);
   switch (effectiveFamily(spec)) {
     case 'fraction':
-      return (
-        n >= 0 &&
-        n <= 1 &&
-        FRACTION_DENOMINATORS.some((d) => Math.abs(n - Math.round(n * d) / d) < 1e-3)
-      );
+      return resolveFraction(n) !== null;
     case 'coin':
       return (COIN_VALUES as readonly number[]).includes(n);
     case 'clock':

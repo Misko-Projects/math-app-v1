@@ -357,9 +357,10 @@ export const HundredWhale: Story = {
   },
 };
 
-/** One centred row of special Pebblings. */
+/** One centred row of special Pebblings; it wraps in a narrower pane (review s_9507c6228fb4 #2). */
 const SPECIALS_ROW = {
   display: 'flex',
+  flexWrap: 'wrap',
   justifyContent: 'center',
   alignItems: 'flex-end',
   gap: 28,
@@ -372,7 +373,44 @@ const SPECIALS_ROW = {
  */
 export const FractionsClocksCoins: Story = {
   parameters: { controls: { disable: true } },
+  render: () => <FractionsClocksCoinsSheet />,
+  play: async ({ canvasElement }) => {
+    await expectFractionsClocksCoins(canvasElement);
+    await expectCellsApart(canvasElement);
+    await expectNoSidewaysScroll();
+  },
+};
+
+/**
+ * Test only: the same sheet in a 944 px pane (a 1024 px canvas less the stage's padding). Every
+ * tile stays inside the pane and clear of its neighbours: the rows wrap rather than spill.
+ */
+export const FractionsClocksCoinsNarrowPane: Story = {
+  tags: ['!dev', '!autodocs', '!visual'],
+  parameters: { controls: { disable: true } },
   render: () => (
+    <div data-testid="narrow-pane" style={{ width: 944 }}>
+      <FractionsClocksCoinsSheet />
+    </div>
+  ),
+  play: async ({ canvasElement }) => {
+    await expectFractionsClocksCoins(canvasElement);
+    await expectCellsApart(canvasElement);
+    const pane = (
+      canvasElement.querySelector('[data-testid="narrow-pane"]') as HTMLElement
+    ).getBoundingClientRect();
+    const tiles = [...canvasElement.querySelectorAll('figure.story-cell')];
+    await expect(tiles.length).toBe(20);
+    for (const t of tiles) {
+      const r = t.getBoundingClientRect();
+      await expect(r.left, t.textContent ?? '').toBeGreaterThanOrEqual(pane.left - 0.5);
+      await expect(r.right, t.textContent ?? '').toBeLessThanOrEqual(pane.right + 0.5);
+    }
+  },
+};
+
+function FractionsClocksCoinsSheet() {
+  return (
     <div style={{ display: 'grid', gap: 18 }}>
       <GallerySection title="Half-Crabs (fractions)">
         <div style={SPECIALS_ROW}>
@@ -443,7 +481,8 @@ export const FractionsClocksCoins: Story = {
         <div
           style={{
             display: 'grid',
-            gridTemplateColumns: 'repeat(8, minmax(0, 128px))',
+            // Eight 128 px columns on a tablet; fewer, wrapping, in a narrower pane.
+            gridTemplateColumns: 'repeat(auto-fit, 128px)',
             gap: 12,
             alignItems: 'end',
             justifyContent: 'center',
@@ -488,60 +527,57 @@ export const FractionsClocksCoins: Story = {
         </div>
       </GallerySection>
     </div>
-  ),
-  play: async ({ canvasElement }) => {
-    await expectLitMatchesNumber(canvasElement);
-    const fractions = [
-      ...canvasElement.querySelectorAll<SVGGElement>('[data-part="fraction"]'),
-    ].map((f) => `${f.dataset.filled}/${f.dataset.parts}`);
-    // A whole is one undivided shell (1/1), and so is nothing (0/1); then shells at sunset.
-    await expect(fractions).toEqual([
-      '1/2',
-      '1/4',
-      '3/4',
-      '1/3',
-      '2/3',
-      '1/1',
-      '0/1',
-      '1/2',
-      '1/4',
-      '3/4',
-    ]);
-    const whole = canvasElement.querySelector('[data-part="fraction"][data-parts="1"]') as Element;
-    await expect(whole.querySelectorAll('[data-part="spoke"]').length).toBe(0);
-    for (const s of canvasElement.querySelectorAll(
-      'svg[data-lighting="sunset"] [data-part="fraction"]',
-    ))
-      await expect(s.querySelectorAll('[data-part="spoke"]').length).toBeGreaterThan(1);
-    // Numbers a shell can't show exactly draw a plain shell: no wedges, no coin.
-    const plain = [
-      ...canvasElement.querySelectorAll<SVGSVGElement>('svg[data-unsupported-number]'),
-    ];
-    await expect(plain.map((s) => s.dataset.pebbling)).toEqual(['crab', 'clam']);
-    for (const s of plain) {
-      await expect(s.querySelector('[data-part="fraction"], [data-part="coin"]')).toBeNull();
-      await expect(s.dataset.number).toBeUndefined();
-    }
-    const hours = [...canvasElement.querySelectorAll<SVGGElement>('[data-part="clock"]')].map(
-      (c) => c.dataset.hour,
-    );
-    await expect(hours).toEqual(['3', '7', '12']);
-    const coins = [...canvasElement.querySelectorAll<SVGGElement>('[data-part="coin"]')];
-    await expect(coins.map((c) => c.dataset.value)).toEqual(['1', '5', '10', '25', '25']);
-    // Size tells the coins apart: dime < penny < nickel < quarter.
-    const w = (v: string) =>
-      (
-        canvasElement.querySelector(
-          `[data-part="coin"][data-value="${v}"] circle:nth-of-type(1)`,
-        ) as SVGCircleElement
-      ).r.baseVal.value;
-    await expect(w('10')).toBeLessThan(w('1'));
-    await expect(w('1')).toBeLessThan(w('5'));
-    await expect(w('5')).toBeLessThan(w('25'));
-    await expectCellsApart(canvasElement);
-    await expectNoSidewaysScroll();
-  },
-};
+  );
+}
+
+async function expectFractionsClocksCoins(canvasElement: HTMLElement) {
+  await expectLitMatchesNumber(canvasElement);
+  const fractions = [...canvasElement.querySelectorAll<SVGGElement>('[data-part="fraction"]')].map(
+    (f) => `${f.dataset.filled}/${f.dataset.parts}`,
+  );
+  // A whole is one undivided shell (1/1), and so is nothing (0/1); then shells at sunset.
+  await expect(fractions).toEqual([
+    '1/2',
+    '1/4',
+    '3/4',
+    '1/3',
+    '2/3',
+    '1/1',
+    '0/1',
+    '1/2',
+    '1/4',
+    '3/4',
+  ]);
+  const whole = canvasElement.querySelector('[data-part="fraction"][data-parts="1"]') as Element;
+  await expect(whole.querySelectorAll('[data-part="spoke"]').length).toBe(0);
+  for (const s of canvasElement.querySelectorAll(
+    'svg[data-lighting="sunset"] [data-part="fraction"]',
+  ))
+    await expect(s.querySelectorAll('[data-part="spoke"]').length).toBeGreaterThan(1);
+  // Numbers a shell can't show exactly draw a plain shell: no wedges, no coin.
+  const plain = [...canvasElement.querySelectorAll<SVGSVGElement>('svg[data-unsupported-number]')];
+  await expect(plain.map((s) => s.dataset.pebbling)).toEqual(['crab', 'clam']);
+  for (const s of plain) {
+    await expect(s.querySelector('[data-part="fraction"], [data-part="coin"]')).toBeNull();
+    await expect(s.dataset.number).toBeUndefined();
+  }
+  const hours = [...canvasElement.querySelectorAll<SVGGElement>('[data-part="clock"]')].map(
+    (c) => c.dataset.hour,
+  );
+  await expect(hours).toEqual(['3', '7', '12']);
+  const coins = [...canvasElement.querySelectorAll<SVGGElement>('[data-part="coin"]')];
+  await expect(coins.map((c) => c.dataset.value)).toEqual(['1', '5', '10', '25', '25']);
+  // Size tells the coins apart: dime < penny < nickel < quarter.
+  const w = (v: string) =>
+    (
+      canvasElement.querySelector(
+        `[data-part="coin"][data-value="${v}"] circle:nth-of-type(1)`,
+      ) as SVGCircleElement
+    ).r.baseVal.value;
+  await expect(w('10')).toBeLessThan(w('1'));
+  await expect(w('1')).toBeLessThan(w('5'));
+  await expect(w('5')).toBeLessThan(w('25'));
+}
 
 /**
  * The cast at rest, each in its idle loop: Pip bobs and blinks, Glim hovers and glows, a crab and

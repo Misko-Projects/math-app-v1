@@ -2,11 +2,14 @@ import { readdirSync, readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { compileContent } from '@number-island/content';
 import { readContentFiles } from '@number-island/content/node';
+import { createElement } from 'react';
+import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
 import { PALETTE } from '../../tokens/tokens';
 import { pairRatio } from '../core/contrast';
 import { OUTLINE_OF } from '../core/paint';
 import { CHARACTER_CONTRAST_PAIRS } from './contrast';
+import { Pebbling } from './Pebbling';
 import {
   COIN_LOOK,
   CRITTER_W,
@@ -23,6 +26,7 @@ import {
   PEBBLING_SPECIES,
   paletteOf,
   pebblingFromResident,
+  resolveFraction,
   speciesOf,
   TEN_FRAME,
   tenFrameSlots,
@@ -153,6 +157,53 @@ describe('only numbers a family can show exactly are drawn (review s_eab7ff900e7
     expect(ok(12, 'clock') && !ok(0, 'clock') && !ok(3.5, 'clock') && !ok(13, 'clock')).toBe(true);
     expect(ok(100, 'hundreds') && ok(46, 'hundreds') && !ok(101, 'hundreds')).toBe(true);
     expect(ok(null) && ok(null, 'coin')).toBe(true);
+  });
+
+  it('rejects fractions near a whole or nothing that a shell would round (review s_9507c6228fb4 #1)', () => {
+    for (const v of [0.9995, 0.0005, 0.999, 0.001, 1 - 1e-9, 1e-9]) {
+      expect(drawableNumber({ number: v, family: 'fraction' }), String(v)).toBe(false);
+      expect(resolveFraction(v), String(v)).toBeNull();
+    }
+    // The intentional decimal alias still reads as a third.
+    expect(resolveFraction(0.333)).toEqual({ parts: 3, filled: 1 });
+  });
+
+  it('draws exactly the fractions it accepts, as the value it was given', () => {
+    for (let i = 0; i <= 20000; i++) {
+      const v = i / 20000;
+      const shell = resolveFraction(v);
+      expect(drawableNumber({ number: v, family: 'fraction' }), String(v)).toBe(shell !== null);
+      if (!shell) continue;
+      // A proper part is never a whole or nothing, and the shell shows the value within tolerance.
+      if (shell.parts > 1) expect(shell.filled > 0 && shell.filled < shell.parts).toBe(true);
+      expect(Math.abs(shell.filled / shell.parts - v), String(v)).toBeLessThan(1e-3);
+      expect(fractionParts(v)).toEqual(shell);
+    }
+  });
+
+  it('renders an undrawable fraction as a plain shell, never a nearby one', () => {
+    for (const v of [0.9995, 0.0005]) {
+      const html = renderToStaticMarkup(
+        createElement(Pebbling, {
+          species: 'crab',
+          palette: 'coral',
+          number: v,
+          family: 'fraction',
+        }),
+      );
+      expect(html, String(v)).toContain(`data-unsupported-number="${v}"`);
+      expect(html, String(v)).not.toContain('data-number=');
+    }
+    const half = renderToStaticMarkup(
+      createElement(Pebbling, {
+        species: 'crab',
+        palette: 'coral',
+        number: 0.5,
+        family: 'fraction',
+      }),
+    );
+    expect(half).toContain('data-number="0.5"');
+    expect(half).not.toContain('data-unsupported-number');
   });
 
   it('every resident in the game data is drawn exactly', () => {
