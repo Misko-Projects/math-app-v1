@@ -344,6 +344,39 @@ export const IndirectStrings: Story = {
   },
 };
 
+/**
+ * MEA.07.t2 (review CR-1.5): the child lays a string along each log first (03 §5.5). Before both
+ * strings are laid, tapping a log picks nothing and Check stays off; afterwards the pick submits,
+ * and both string placements are in the trace before the pick.
+ */
+export const IndirectNeedsBothStrings: Story = {
+  args: { config: indirect },
+  play: async ({ canvasElement, args }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    const check = within(root).getByRole('button', { name: 'Check' });
+    await userEvent.click(obj(root, 'obj-1'));
+    await expect(obj(root, 'obj-1')).toHaveAttribute('aria-pressed', 'false');
+    await expect(check).toBeDisabled();
+    const spool = within(root).getByRole('button', { name: 'String' });
+    await userEvent.click(spool);
+    await userEvent.click(obj(root, 'obj-1'));
+    await userEvent.click(obj(root, 'obj-0'));
+    await expect(obj(root, 'obj-0')).toHaveAttribute('aria-pressed', 'false');
+    await expect(check).toBeDisabled();
+    await userEvent.click(spool);
+    await userEvent.click(obj(root, 'obj-0'));
+    await waitFor(() => expect(root.querySelectorAll('[data-string-row]')).toHaveLength(2));
+    await userEvent.click(obj(root, 'obj-1'));
+    await expect(obj(root, 'obj-1')).toHaveAttribute('aria-pressed', 'true');
+    await userEvent.click(check);
+    await expect(args.onResponse).toHaveBeenCalledWith({ kind: 'choice', id: 'obj-1' });
+    const trace = traceOf(args.onInteract).map((e) => `${e.t}:${e.target}`);
+    const lastLay = Math.max(trace.lastIndexOf('tap:obj-0'), trace.indexOf('tap:obj-1'));
+    await expect(trace.filter((e) => e === 'tap:string')).toHaveLength(2);
+    await expect(trace.lastIndexOf('tap:obj-1')).toBeGreaterThan(lastLay - 1);
+  },
+};
+
 /** How much longer: type the difference on the pad (smallest landscape area, compact pad). */
 export const HowMuchLongerLandscapeMinK: Story = {
   globals: { ageMode: 'k' },

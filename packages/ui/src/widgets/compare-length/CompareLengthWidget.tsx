@@ -105,11 +105,14 @@ export function CompareLengthWidget({
   const startPx = (o: Obj) => lineX + startOf(state, o.id) * unit;
 
   // ---------- picking and sliding ----------
+  const allStrings = config.objects.every((o) => state.strings.includes(o.id));
   const pick = (o: Obj) => {
     if (!interactive) return;
     trace('tap', o.id);
     if (speakOnTap) say(spriteNameKey(o.sprite));
     setInvite(null);
+    // Indirect (03 §5.5): the strings are laid along every object before the child chooses.
+    if (ask === 'indirect' && !allStrings) return;
     if (ask === 'longer' || ask === 'shorter' || ask === 'indirect') {
       apply({ op: 'answer', args: { id: o.id } });
     }
@@ -206,7 +209,9 @@ export function CompareLengthWidget({
     ? values
       ? model.toResponse(model.apply(state, { op: 'answer', args: { value: values[0] } }))
       : null
-    : model.toResponse(state);
+    : ask === 'indirect' && !allStrings
+      ? null
+      : model.toResponse(state);
   const submit = useSubmitGuard(() => {
     if (!interactive || !response) return false;
     onResponse(response);
