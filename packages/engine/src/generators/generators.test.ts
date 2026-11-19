@@ -162,7 +162,17 @@ const COUNT_SEQUENCE: Case[] = [
     t: tpl('count.sequence', 'numeral-pick', { representation: 'number-path' }),
     params: { start: 7 },
     answer: { kind: 'choice', id: 'opt-8' },
-    widget: { stimulus: { kind: 'number-line', marks: [{ at: 7, arrow: true }] } },
+    // Only the start is labelled; the asked term is '?' (never its numeral).
+    widget: {
+      stimulus: {
+        kind: 'number-line',
+        labelsEvery: null,
+        marks: [
+          { at: 7, label: '7', arrow: true },
+          { at: 8, label: '?' },
+        ],
+      },
+    },
   },
   {
     name: 'numeral-pick length 3 asks for the last term',
