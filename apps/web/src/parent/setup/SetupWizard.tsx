@@ -372,18 +372,11 @@ export function ChildrenStep({
   setKids,
   onBack,
   onNext,
-  nextLabel = 'Next: this device',
-  intro = 'Add each child. You can change these later in the parent area.',
-  busy = false,
 }: {
   kids: NewChild[];
   setKids: (k: NewChild[]) => void;
   onBack: () => void;
   onNext: () => void;
-  /** The parent area's Add children page reuses this step with its own last button. */
-  nextLabel?: string;
-  intro?: string;
-  busy?: boolean;
 }) {
   const thisYear = new Date().getFullYear();
   // The row being edited, by the child's id (a removal never shifts it onto another child).
@@ -391,11 +384,9 @@ export function ChildrenStep({
   const [error, setError] = useState<string | null>(null);
 
   return (
-    // While saving (`busy`), every control here is disabled: Edit, Remove, Add another child and the
-    // child form too, so the draft being saved can't change under the save.
-    <fieldset disabled={busy} className="m-0 flex min-w-0 flex-col gap-5 border-0 p-0">
+    <div className="flex flex-col gap-5">
       <h2 className="font-display text-3xl font-extrabold">Who will play?</h2>
-      <p className="text-lg">{intro}</p>
+      <p className="text-lg">Add each child. You can change these later in the parent area.</p>
       {kids.length > 0 ? (
         <ul className="flex flex-col gap-3" aria-label="Children">
           {kids.map((k) =>
@@ -474,11 +465,10 @@ export function ChildrenStep({
       )}
       {error ? <Notice tone="error">{error}</Notice> : null}
       <div className="flex flex-wrap justify-between gap-3">
-        <Button variant="secondary" onClick={onBack} disabled={busy}>
+        <Button variant="secondary" onClick={onBack}>
           Back
         </Button>
         <Button
-          disabled={busy}
           onClick={() => {
             if (kids.length === 0) {
               setError('Add at least one child to continue.');
@@ -491,10 +481,10 @@ export function ChildrenStep({
             onNext();
           }}
         >
-          {nextLabel}
+          Next: this device
         </Button>
       </div>
-    </fieldset>
+    </div>
   );
 }
 
@@ -879,7 +869,7 @@ export function SetupWizard() {
                     // after a possibly lost answer is told so.
                     return {
                       text: setupMaybeApplied.current
-                        ? 'Your island may have been made a moment ago, but its answer didn’t reach this device. Join it with the parent passphrase you just chose, then choose Add your children in the parent area.'
+                        ? 'Your island may have been made a moment ago, but its answer didn’t reach this device. Join it with the parent passphrase you just chose.'
                         : describeApiError(e),
                       closed: true,
                     };

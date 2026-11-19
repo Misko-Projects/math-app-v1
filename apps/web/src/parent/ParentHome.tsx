@@ -67,15 +67,24 @@ export function ParentHome() {
           {profiles === undefined
             ? 'Loading…'
             : profiles.length === 0
-              ? 'No children yet. Add them so they can start playing.'
+              ? 'No children on this island yet.'
               : `${listNames(
                   [...profiles].sort((a, b) => a.createdAt - b.createdAt).map((p) => p.name),
                 )} ${profiles.length === 1 ? 'plays' : 'play'} on this island.`}
         </p>
         {profiles !== undefined && profiles.length === 0 ? (
-          // A family without children: setup's answer was lost after the server made the family.
+          // A family without children: setup was interrupted after the server made the family and
+          // before the wizard saved its children (its answer was lost), and the parent joined.
+          // Children are added only in the Setup Wizard (06 §3), so this explains how to run it
+          // again; adding children from the parent area is a later issue.
           <div className="mt-4">
-            <Button onClick={() => navigate('/parent/children/add')}>Add your children</Button>
+            <Notice tone="info">
+              Setup was interrupted after your island was made, before its children were saved.
+              Children are added during setup, so set it up again: on the computer running the
+              island server, stop it, run <code>pnpm db:reset</code> (this erases the island) and
+              start it again. Then, on this device, clear this site’s data in the browser’s settings
+              and choose <strong>Set up our island</strong>.
+            </Notice>
           </div>
         ) : null}
       </Panel>

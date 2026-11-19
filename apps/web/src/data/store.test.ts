@@ -430,15 +430,6 @@ describe('putProfiles: several profiles, all or none', () => {
     expect(await store.allProfiles()).toEqual([]);
   });
 
-  it('intoEmptyFamily refuses when children are stored, and writes nothing', async () => {
-    const store = await track(testEnv().open('batch-first-roster'));
-    await store.putProfiles([profile(CHILD_K, 'K', 'Ada')], { intoEmptyFamily: true });
-    await expect(
-      store.putProfiles([profile(CHILD_G2, '2', 'Ben')], { intoEmptyFamily: true }),
-    ).rejects.toMatchObject({ code: 'family_has_children' });
-    expect((await store.allProfiles()).map((p) => p.name)).toEqual(['Ada']);
-  });
-
   it('a deleted child in the list writes none of them', async () => {
     const env = testEnv();
     const store = await track(env.open('batch-deleted'));

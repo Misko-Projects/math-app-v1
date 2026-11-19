@@ -1,6 +1,5 @@
 import { createBrowserRouter, Navigate, type RouteObject } from 'react-router';
 import { HelloIslandPage } from '@/island/HelloIslandPage';
-import { AddChildrenPage } from '@/parent/AddChildrenPage';
 import { DiagnosticsPage } from '@/parent/DiagnosticsPage';
 import { PairDevicePage } from '@/parent/PairDevicePage';
 import { ParentHome } from '@/parent/ParentHome';
@@ -36,7 +35,6 @@ export const routes: RouteObject[] = [
         Component: ParentLayout,
         children: [
           { index: true, Component: ParentHome },
-          { path: 'children/add', Component: AddChildrenPage },
           { path: 'devices/pair', Component: PairDevicePage },
           { path: 'diagnostics', Component: DiagnosticsPage },
         ],
