@@ -46,13 +46,15 @@ export function askedNumbers(item: GeneratedItem): number[] | null {
 
 /**
  * State answers that carry the asked number as `target.value`: the typed landing of a jump, the
- * typed total after filling frames or sliding beads (thenAsk), and a base-ten build's value.
+ * typed total after filling frames or sliding beads (thenAsk), a base-ten build's value, and the
+ * result typed after computing on the place-value mat (base-ten-trade `compute` with thenAsk).
  */
 const VALUE_STATE_FORMATS = new Set<string>([
   'number-line-jump',
   'tenframe-fill',
   'rekenrek',
   'base-ten-build',
+  'base-ten-trade',
 ]);
 
 /** The non-zero place values of n, largest first (41 → 40, 1). */
@@ -126,6 +128,15 @@ export function responseWith(item: GeneratedItem, values: number[]): ResponseVal
         return {
           kind: 'state',
           value: { rows: [Math.min(10, shown), Math.max(0, shown - 10)], value: v },
+        };
+      }
+      // Computed right on the mat (any trades), then the rewritten number typed.
+      const result = Number(a.target.result);
+      if (w.format === 'base-ten-trade' && Number.isInteger(result)) {
+        const c = canonicalPieces(result);
+        return {
+          kind: 'state',
+          value: { hundreds: c.hundreds + 10 * c.thousands, tens: c.tens, ones: c.ones, value: v },
         };
       }
       if (item.widget.format !== 'number-line-jump') return null;

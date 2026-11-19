@@ -2,12 +2,16 @@
 // The sequence is start, then `length` more terms; `last` = start + dir · step · length.
 // `hide` picks the terms a number-pad or hundred-chart item asks for (every term after start, only
 // the last, or the terms between start and last: missing numbers, CNT.18), and `cross: decade`
-// redraws until the counted terms cross a multiple of 10 (CNT.09, CNT.10, CNT.16).
+// redraws until the counted terms cross a multiple of 10 (CNT.09, CNT.10, CNT.16). With `tens` > 0
+// (CNT.20, count on and back by tens and ones) the first `tens` steps are tens and the rest are
+// ones (34, 44, 54, 55, 56); K01 builds that on number-pad, and the base-ten representation shows
+// the start as base-ten pieces.
 // Formats: numeral-pick, number-pad, hundred-chart, order, number-line-jump.
 
 import type {
   ExpressionToken,
   LessonStep,
+  ParamValues,
   ResponseValue,
   StimulusSpec,
   WidgetAction,
@@ -25,9 +29,26 @@ import {
 } from '../common';
 import type { BuildContext, GeneratorDef, GeneratorOutput } from '../types';
 
-export function sequenceTerms(start: number, step: number, dir: number, length: number): number[] {
-  return Array.from({ length: length + 1 }, (_, i) => start + dir * step * i);
+/**
+ * start, then `length` more terms. The first `tens` steps are tens and the rest `step` (34, 44, 54,
+ * 55, 56 for tens 2, step 1, length 4).
+ */
+export function sequenceTerms(
+  start: number,
+  step: number,
+  dir: number,
+  length: number,
+  tens = 0,
+): number[] {
+  const out = [start];
+  for (let i = 1; i <= length; i += 1) {
+    out.push((out[i - 1] as number) + dir * (i <= tens ? 10 : step));
+  }
+  return out;
 }
+
+/** The `tens` param, clamped to 0 … length. */
+const tensOf = (p: ParamValues): number => Math.max(0, Math.min(asNum(p.length, 1), asNum(p.tens)));
 
 /**
  * The one hundred chart (03 §5.5: first 0, 1, 101, 201, …; 10 rows, or 12 for 1–120) that shows
@@ -132,11 +153,17 @@ export const countSequence: GeneratorDef = {
       default: { kind: 'const', value: 'any' },
       doc: 'decade: the terms from start to last must cross a multiple of 10 (redrawn otherwise)',
     },
+    tens: {
+      type: 'int',
+      default: { kind: 'const', value: 0 },
+      doc: 'CNT.20: the first `tens` steps are tens, the rest are `step` (34, 44, 54, 55); number-pad only, with step 1',
+    },
   },
   derived: ['last'],
   features: {
     digits: { weight: 0.5, doc: 'digits of the largest term − 1' },
     'step.notOne': { weight: 0.4, doc: 'step ≠ 1' },
+    mixedSteps: { weight: 0.3, doc: 'tens steps and then ones steps in one sequence (tens)' },
     backward: { weight: 0.6, doc: 'counting back' },
     crossDecade: { weight: 0.5, doc: 'the sequence crosses a multiple of 10' },
     crossCentury: { weight: 0.7, doc: 'the sequence crosses a multiple of 100' },
@@ -154,12 +181,18 @@ export const countSequence: GeneratorDef = {
     const start = asNum(p.start);
     const step = asNum(p.step, 1);
     const dir = asNum(p.dir, 1) < 0 ? -1 : 1;
-    return { last: start + dir * step * asNum(p.length, 1) };
+    const length = asNum(p.length, 1);
+    const tens = tensOf(p);
+    return { last: start + dir * (10 * tens + step * (length - tens)) };
   },
   accepts(p, t) {
     const start = asNum(p.start);
     const last = asNum(p.last);
     if (start < 0 || last < 0 || asNum(p.step, 1) <= 0) return false;
+    // Tens then ones (CNT.20): a number pad, counting by ones after the tens.
+    const tens = asNum(p.tens);
+    if (tens < 0 || tens > asNum(p.length, 1)) return false;
+    if (tens > 0 && (t.format !== 'number-pad' || asNum(p.step, 1) !== 1)) return false;
     const lo = Math.min(start, last);
     const hi = Math.max(start, last);
     if (p.cross === 'decade' && !crosses(lo, hi, 10)) return false;
@@ -175,7 +208,8 @@ export const countSequence: GeneratorDef = {
     const step = asNum(params.step, 1);
     const dir = asNum(params.dir, 1) < 0 ? -1 : 1;
     const length = Math.max(1, asNum(params.length, 1));
-    const terms = sequenceTerms(start, step, dir, length);
+    const tens = tensOf(params);
+    const terms = sequenceTerms(start, step, dir, length, tens);
     const last = terms[terms.length - 1] as number;
     const next = terms[1] as number;
     const lo = Math.min(start, last);
@@ -183,7 +217,8 @@ export const countSequence: GeneratorDef = {
     if (lo < 0) throw new RangeError('count.sequence: the sequence goes below 0');
     const math = {
       digits: Math.max(0, digitCount(hi) - 1),
-      'step.notOne': step !== 1 ? 1 : 0,
+      'step.notOne': step !== 1 || tens === length ? 1 : 0,
+      mixedSteps: tens > 0 && tens < length ? 1 : 0,
       backward: dir < 0 ? 1 : 0,
       crossDecade: crosses(lo, hi, 10) ? 1 : 0,
       crossCentury: crosses(lo, hi, 100) ? 1 : 0,
@@ -228,13 +263,26 @@ export const countSequence: GeneratorDef = {
           tk.t === 'blank' ? [{ id: tk.id, maxDigits: Math.max(2, digitCount(hi) + 1) }] : [],
         );
         const hidden = terms.filter((v, i) => i > 0 && hiddenAfter.includes(v));
+        // The base-ten representation shows the start as pieces (CNT.20: count on from 3 tens 4 ones).
+        const pieces: StimulusSpec = {
+          kind: 'base-ten',
+          ...(start >= 1000 ? { thousands: Math.floor(start / 1000) } : {}),
+          hundreds: Math.floor(start / 100) % 10,
+          tens: Math.floor(start / 10) % 10,
+          ones: start % 10,
+        };
+        const baseTen = t.representation === 'base-ten' || t.representation === 'bundles';
         p = {
           params,
           vars,
           math,
           widget: {
             format: 'number-pad',
-            stimulus: onPath ? partialPath(terms, hidden, step) : { kind: 'none' },
+            stimulus: onPath
+              ? partialPath(terms, hidden, step)
+              : baseTen
+                ? pieces
+                : { kind: 'none' },
             expression: { tokens },
             blanks,
             unit: null,
@@ -353,7 +401,13 @@ export const countSequence: GeneratorDef = {
     const last = asNum(out.params.last);
     const step = asNum(out.params.step, 1);
     const dir = asNum(out.params.dir, 1) < 0 ? -1 : 1;
-    const terms = sequenceTerms(start, step, dir, Math.max(1, asNum(out.params.length, 1)));
+    const terms = sequenceTerms(
+      start,
+      step,
+      dir,
+      Math.max(1, asNum(out.params.length, 1)),
+      tensOf(out.params),
+    );
     const next = terms[1] as number;
     const from = dir < 0 ? 'gen.count.sequence.say-back' : 'gen.count.sequence.say-from';
     switch (w.format) {

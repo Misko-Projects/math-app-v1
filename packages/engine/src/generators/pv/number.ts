@@ -232,6 +232,7 @@ export function pvFeatures(p: ParamValues, format: string): Record<string, numbe
     // expanded-form has its own words feature (mode.words), so words counts once.
     words: mode === 'words' && format !== 'expanded-form' ? 1 : 0,
     'ones.over5': n < 100 ? Math.max(0, o - 5) / 4 : 0,
+    'tens.over5': n < 100 ? Math.max(0, (Math.floor(n / 10) % 10) - 5) / 4 : 0,
     unusualOrder: p.unusualOrder === true && mode === 'expanded' ? 1 : 0,
     decimal: asStr(p.wholeIs, 'unit') === 'flat' ? 1 : 0,
   };
@@ -406,6 +407,10 @@ export const pvNumber: GeneratorDef = {
     'ones.over5': {
       weight: 0.4,
       doc: 'n < 100: max(0, ones − 5) / 4 (ones past five are counted, not seen at a glance)',
+    },
+    'tens.over5': {
+      weight: 0.4,
+      doc: 'n < 100: max(0, tens − 5) / 4 (tens past five are counted, not seen at a glance)',
     },
     unusualOrder: { weight: 0.5, doc: 'expanded terms smallest place first' },
     decimal: { weight: 0.5, doc: 'wholeIs flat: decimals on base-ten pieces' },
