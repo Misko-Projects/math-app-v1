@@ -1,7 +1,9 @@
-// compare.sets (03 §5.6): compare two groups of objects (CMP.01, CMP.05; ALG.05 later).
+// compare.sets (03 §5.6): compare two groups of objects (CMP.01, CMP.05, ALG.05).
 // Formats: compare, make-set, balance, order. The left group has `a` objects, the right group `b`.
 //
-// - compare: "which group has more / fewer?" (`ask`), answered `left`, `right` or `same`. With
+// - compare: "which group has more / fewer?" (`ask`), answered `left`, `right` or `same`; or
+//   `ask: same` (ALG.05): "do both groups have the same?" (`same-or-not`, answered `same` or
+//   `not-same`, no conflict cue). With
 //   `conflict`, the perceptual cue contradicts the number (CMP.05): one group is drawn with bigger
 //   objects spread along its whole side (`layout: line`, `sizeVaries: true`), the other bunched
 //   (`layout: array`, two rows). The bigger-looking group is the one with fewer objects, or either
@@ -18,6 +20,8 @@
 //   middle one plain, the most bunched in two rows (no conflict cue on frames).
 // - balance: `a` and `b` identical objects on the two pans, tilt hidden. `ask: more` asks which side
 //   goes down (`which-heavier`: the side with more), `ask: same` whether it balances (`judge`).
+//   `ask: make` (ALG.05, a ≠ b) is make-equal: the child adds objects (one unit each) until the pans
+//   balance, checked by balance.equal `{ left: a, right: b }`; the tilt shows at the concrete tier.
 
 import type { LessonStep, ResponseValue, StimulusSpec } from '@number-island/shared';
 import type { Rng } from '../../rng';
@@ -44,7 +48,7 @@ import {
   sideAnswer,
 } from './shared';
 
-const ASKS = ['more', 'fewer', 'same'] as const;
+const ASKS = ['more', 'fewer', 'same', 'make'] as const;
 const FRAMES = new Set(['ten-frame', 'double-ten-frame', 'five-frame']);
 
 /** How one side of a compare item is drawn. */
@@ -98,7 +102,7 @@ export const compareSets: GeneratorDef = {
       type: 'string',
       values: [...ASKS],
       default: { kind: 'const', value: 'more' },
-      doc: 'compare: more or fewer; order: more (most first) or fewer (fewest first); balance: more (which side goes down) or same (does it balance); make-set ignores it',
+      doc: 'compare: more, fewer or same (same-or-not); order: more (most first) or fewer (fewest first); balance: more (which side goes down), same (does it balance) or make (make-equal); make-set ignores it',
     },
     sprite: {
       type: 'string',
@@ -108,6 +112,7 @@ export const compareSets: GeneratorDef = {
   },
   features: {
     'bigger.over5': { weight: 0.3, doc: 'max(0, largest group − 5) / 5' },
+    gap: { weight: 0.4, doc: 'balance make-equal: (objects to add − 1) / 5' },
     ...featureSubset(COMPARE_FEATURES, [
       'closeness',
       'conflict',
@@ -115,7 +120,7 @@ export const compareSets: GeneratorDef = {
       'equal',
       'magnitude',
     ]),
-    ...featureSubset(BALANCE_FEATURES, ['judge.false']),
+    ...featureSubset(BALANCE_FEATURES, ['judge.false', 'showTilt.off']),
   },
   narration: [
     'gen.compare.sets.match',
@@ -136,6 +141,8 @@ export const compareSets: GeneratorDef = {
     'gen.compare.sets.goes-down',
     'gen.compare.sets.balances',
     'gen.compare.sets.not-balanced',
+    'gen.compare.sets.not-same',
+    'gen.compare.sets.add-to-balance',
   ],
   sample: (spec, rng) => sampleAll(spec, rng),
   derive: () => ({}),
@@ -148,6 +155,7 @@ export const compareSets: GeneratorDef = {
     if (a < 0 || b < 0 || a + b === 0 || Math.max(a, b) > 20) return false;
     switch (t.format) {
       case 'compare':
+        if (ask === 'same') return !conflict && (rep !== 'five-frame' || Math.max(a, b) <= 5);
         if (ask !== 'more' && ask !== 'fewer') return false;
         // The cue needs objects to draw (frames have no size), a bunched side of two rows, and a
         // group on each side.
@@ -156,6 +164,7 @@ export const compareSets: GeneratorDef = {
       case 'make-set':
         return a !== b && !conflict;
       case 'balance':
+        if (ask === 'make') return a !== b && !conflict;
         return (ask === 'more' || ask === 'same') && !conflict;
       case 'order': {
         // Three different non-empty groups: with a third group the order is more than a guess.
@@ -196,6 +205,7 @@ export const compareSets: GeneratorDef = {
         const look = (side: 'left' | 'right'): Look =>
           big === null ? 'plain' : big === side ? 'big' : 'bunched';
         const concrete = t.tier === 'concrete';
+        const sameOrNot = ask === 'same';
         p = {
           params,
           vars,
@@ -211,10 +221,17 @@ export const compareSets: GeneratorDef = {
             format: 'compare',
             left: sideStimulus(a, rep, sprite, look('left'), rng.fork('left')),
             right: sideStimulus(b, rep, sprite, look('right'), rng.fork('right')),
-            ask: ask === 'fewer' ? 'fewer' : 'more',
+            ask: sameOrNot ? 'same-or-not' : ask === 'fewer' ? 'fewer' : 'more',
             allowMatchLines: concrete,
           },
-          answer: { kind: 'choice', id: sideAnswer(a, b, ask === 'fewer' ? 'fewer' : 'more') },
+          answer: {
+            kind: 'choice',
+            id: sameOrNot
+              ? a === b
+                ? 'same'
+                : 'not-same'
+              : sideAnswer(a, b, ask === 'fewer' ? 'fewer' : 'more'),
+          },
           ...(concrete
             ? {
                 nudge: [{ op: 'match', args: { left: 0, right: 0 } }],
@@ -281,6 +298,30 @@ export const compareSets: GeneratorDef = {
         break;
       }
       case 'balance': {
+        if (ask === 'make') {
+          // Make-equal (ALG.05): add objects to the lighter pan until it balances. Closer pans
+          // need fewer objects, so the difficulty grows with the gap, not with closeness.
+          const showTilt = t.tier === 'concrete';
+          p = {
+            params,
+            vars,
+            math: {
+              ...math,
+              gap: Math.max(0, Math.abs(a - b) - 1) / 5,
+              'showTilt.off': showTilt ? 0 : 1,
+            },
+            widget: {
+              format: 'balance',
+              left: { terms: [{ object: sprite, count: a }] },
+              right: { terms: [{ object: sprite, count: b }] },
+              mode: 'make-equal',
+              objectWeights: { [sprite]: 1 },
+              showTilt,
+            },
+            answer: { kind: 'state', checker: 'balance.equal', target: { left: a, right: b } },
+          };
+          break;
+        }
         const judge = ask === 'same';
         p = {
           params,
@@ -289,6 +330,7 @@ export const compareSets: GeneratorDef = {
             ...math,
             closeness: closeness(a, b),
             equal: a === b ? 1 : 0,
+            'showTilt.off': 1,
             ...(judge ? { 'judge.false': a !== b ? 1 : 0 } : {}),
           },
           widget: {
@@ -313,6 +355,13 @@ export const compareSets: GeneratorDef = {
   },
   exampleCorrect(out): ResponseValue {
     if (out.answer.kind !== 'state') return correctFromAnswer(out.answer);
+    if (out.widget.format === 'balance') {
+      const { left, right } = out.answer.target as { left: number; right: number };
+      return {
+        kind: 'state',
+        value: { left: Math.max(0, right - left), right: Math.max(0, left - right) },
+      };
+    }
     if (out.widget.format !== 'make-set') throw new Error('compare.sets: no example state');
     const w = out.widget;
     const start = w.start ?? 0;
@@ -340,9 +389,11 @@ export const compareSets: GeneratorDef = {
         const last =
           (id as Side) === 'same'
             ? 'gen.compare.sets.same'
-            : w.ask === 'fewer'
-              ? 'gen.compare.sets.has-fewer'
-              : 'gen.compare.sets.has-more';
+            : id === 'not-same'
+              ? 'gen.compare.sets.not-same'
+              : w.ask === 'fewer'
+                ? 'gen.compare.sets.has-fewer'
+                : 'gen.compare.sets.has-more';
         steps.push(say(last, {}, { op: 'answer', args: { id } }));
         return steps;
       }
@@ -384,6 +435,23 @@ export const compareSets: GeneratorDef = {
         ];
       }
       case 'balance': {
+        if (w.mode === 'make-equal' && out.answer.kind === 'state') {
+          const { left, right } = out.answer.target as { left: number; right: number };
+          const side = left < right ? 'left' : 'right';
+          const sprite = asStr(out.params.sprite, 'shell');
+          return [
+            say('gen.compare.sets.pan', {}, { op: 'highlight-side', args: { side: 'left' } }),
+            say('gen.compare.sets.pan', {}, { op: 'highlight-side', args: { side: 'right' } }),
+            say(
+              'gen.compare.sets.add-to-balance',
+              { n: Math.abs(left - right) },
+              {
+                op: 'place',
+                args: { side, term: { object: sprite, count: 1 }, count: Math.abs(left - right) },
+              },
+            ),
+          ];
+        }
         const last =
           w.mode === 'judge'
             ? id === 'true'

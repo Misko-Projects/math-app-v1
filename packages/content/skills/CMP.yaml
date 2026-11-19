@@ -66,6 +66,15 @@ skills:
     gateway: false
     representations: [double-ten-frame, number-line, symbols]
 
+  - id: CMP.08
+    name: Use <, > and = to compare numbers to 20
+    kind: procedure
+    grade: 1
+    standards: { ccss: [1.NBT.B.3] }
+    prerequisites: [CMP.07]
+    gateway: false
+    representations: [balance, number-line, symbols]
+
   - id: CMP.09
     name: Estimate where a number goes on a 0–100 line with only the ends marked
     kind: concept

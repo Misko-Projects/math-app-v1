@@ -1,7 +1,7 @@
-# ADD: Addition and subtraction within 20, catalog rows from 03 §3.7 (K01). This PR has the core
-# facts and strategies. ADD.05, ADD.10–ADD.13, ADD.20, ADD.21, ADD.23 and ADD.25 come with
-# equality.eq, story.addsub and addsub.three in a later K01 PR; ADD.14 and ADD.22 (grade 2) with
-# K02 (graph.yaml plannedIds).
+# ADD: Addition and subtraction within 20, catalog rows from 03 §3.7 (K01): the core facts and
+# strategies, then equality and story problems (ADD.05, ADD.10–ADD.13, ADD.20, ADD.21, ADD.23,
+# ADD.25 on equality.eq, story.addsub and addsub.three). ADD.14 and ADD.22 (grade 2) come with K02
+# (graph.yaml plannedIds).
 strand: ADD
 skills:
   - id: ADD.01
@@ -43,6 +43,15 @@ skills:
     gateway: false
     representations: [number-path, number-line, symbols]
 
+  - id: ADD.05
+    name: Turn-around facts and adding zero
+    kind: concept
+    grade: 1
+    standards: { ccss: [1.OA.B.3] }
+    prerequisites: [ADD.01]
+    gateway: false
+    representations: [ten-frame, balance, number-bond, symbols]
+
   - id: ADD.06
     name: "Fluency: add and subtract within 10"
     kind: fact-fluency
@@ -83,6 +92,43 @@ skills:
     prerequisites: [ADD.04, ADD.06, CPS.05]
     gateway: false
     representations: [number-bond, bar-model, symbols]
+
+  - id: ADD.10
+    name: 'The equal sign means "the same as": true or false equations'
+    kind: concept
+    grade: 1
+    standards: { ccss: [1.OA.D.7] }
+    prerequisites: [ADD.05, ALG.05]
+    gateway: true
+    representations: [objects, balance, symbols]
+
+  - id: ADD.11
+    name: "Find the unknown anywhere in an equation (8 + ? = 11; ? − 3 = 5)"
+    kind: concept
+    grade: 1
+    standards: { ccss: [1.OA.D.8] }
+    prerequisites: [ADD.09, ADD.10]
+    gateway: true
+    representations: [balance, number-bond, bar-model, symbols]
+
+  - id: ADD.12
+    name: Story problems within 20 of every type (start unknown, compare)
+    kind: problem-solving
+    grade: 1
+    standards: { ccss: [1.OA.A.1] }
+    prerequisites: [ADD.11, ADD.21]
+    gateway: false
+    representations: [story, bar-model, number-line]
+
+  - id: ADD.13
+    name: Add three numbers, making ten first when you can
+    kind: strategy
+    grade: 1
+    standards: { ccss: [1.OA.B.3] }
+    prerequisites: [ADD.05, ADD.08]
+    related: [ADD.25]
+    gateway: false
+    representations: [ten-frame, number-bond, symbols]
 
   - id: ADD.15
     name: Plus one, plus two, minus one, minus two
@@ -129,6 +175,33 @@ skills:
     gateway: false
     representations: [double-ten-frame, open-number-line, symbols]
 
+  - id: ADD.20
+    name: "Story problems within 10: join, separate, put together"
+    kind: problem-solving
+    grade: K
+    standards: { ccss: [K.OA.A.2] }
+    prerequisites: [ADD.01, ADD.24]
+    gateway: false
+    representations: [objects, story, symbols]
+
+  - id: ADD.21
+    name: "Compare stories: how many more, how many fewer (to 20)"
+    kind: problem-solving
+    grade: 1
+    standards: { ccss: [1.OA.A.1] }
+    prerequisites: [ADD.20, ADD.09, CMP.07]
+    gateway: false
+    representations: [objects, story, bar-model]
+
+  - id: ADD.23
+    name: Match an equation to a picture or story (3 + 2 = 5)
+    kind: concept
+    grade: K
+    standards: { ccss: [K.OA.A.1] }
+    prerequisites: [ADD.20, CNT.05]
+    gateway: false
+    representations: [objects, story, symbols]
+
   - id: ADD.24
     name: "Separate: take-from and take-apart within 10 with objects"
     kind: concept
@@ -137,6 +210,15 @@ skills:
     prerequisites: [CNT.04, CPS.01]
     gateway: false
     representations: [objects, fingers, ten-frame, symbols]
+
+  - id: ADD.25
+    name: Story problems with three addends (sum to 20)
+    kind: problem-solving
+    grade: 1
+    standards: { ccss: [1.OA.A.2] }
+    prerequisites: [ADD.13, ADD.20]
+    gateway: false
+    representations: [ten-frame, story, symbols]
 
   - id: ADD.26
     name: Ten plus ones, and teen minus ten (10 + 7; 17 − 10)

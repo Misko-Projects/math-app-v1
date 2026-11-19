@@ -15,6 +15,12 @@ export interface MisconceptionRule {
    * correct one (the item cannot discriminate). Also builds diagnostic distractors.
    */
   predict?(item: GeneratedItem): ResponseValue | null;
+  /**
+   * Whether the item is one the rule is about at all (its situation or form), when that is
+   * narrower than the library entry's generators and skills. An item it does not apply to is
+   * outside the rule: it is never matched, and V25 does not count it. Absent: every item.
+   */
+  applies?(item: GeneratedItem): boolean;
   match(item: GeneratedItem, r: ResponseValue, meta?: ProcessMeta): boolean;
 }
 

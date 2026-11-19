@@ -265,9 +265,38 @@ function splitFrames(a: number, b: number): StimulusSpec {
  * model, base-ten pieces, or ten-frames. Strategy facts show one addend per frame; the others keep
  * the E01 frames (the total in colours a and b, or the minuend).
  */
-function factPicture(t: ItemTemplate, f: FactParts): StimulusSpec {
+function factPicture(t: ItemTemplate, f: FactParts, unknown = 'result'): StimulusSpec {
   const plus = f.op === '+';
+  if (
+    unknown !== 'result' &&
+    (t.representation === 'number-bond' || t.representation === 'bar-model')
+  ) {
+    // K01 (ADD.11, ADD.12): a change or start unknown leaves its own slot empty, so the picture
+    // never shows the asked number. a + b = r: whole r, parts a and b; a − b = r: whole a, parts b
+    // and r.
+    const q = (show: boolean, v: number): number | '?' => (show ? v : '?');
+    const whole = plus ? f.result : q(unknown !== 'start', f.a);
+    const parts = plus
+      ? [q(unknown !== 'start', f.a), q(unknown !== 'change', f.b)]
+      : [q(unknown !== 'change', f.b), f.result];
+    return t.representation === 'bar-model'
+      ? { kind: 'bar-model', parts, whole }
+      : { kind: 'number-bond', whole, parts };
+  }
   switch (t.representation) {
+    case 'number-line': {
+      // K01 (ADD.12): a 0–20 line with the numbers the fact shows marked (never the asked one).
+      const shown =
+        unknown === 'change' ? [f.a, f.result] : unknown === 'start' ? [f.result] : [f.a];
+      return {
+        kind: 'number-line',
+        min: 0,
+        max: 20,
+        ticksEvery: 1,
+        labelsEvery: 5,
+        marks: shown.map((at) => ({ at, label: String(at) })),
+      };
+    }
     case 'dots':
       return { kind: 'dots', arrangement: 'groups', groups: plus ? [f.a, f.b] : [f.a] };
     case 'number-bond':
@@ -545,7 +574,7 @@ export const addsubFacts: GeneratorDef = {
       plusTen: plus && (a === 10 || b === 10) ? 1 : 0,
     };
     const vars = pickVars(t, varPool(f));
-    const overlay = factPicture(t, f);
+    const overlay = factPicture(t, f, unknown);
     let p: PartialOutput;
     switch (t.format) {
       case 'number-pad': {

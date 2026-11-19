@@ -91,3 +91,114 @@ ls.ADD.08.w1.s4:
 ls.ADD.08.outro:
   text: "You got to ten first. That helps you add!"
   voice: pip
+
+# ---------- equality and story problems (K01 part 5) ----------
+# Lines owned by the relational-equality skills (ADD.10, ADD.11) say "is the same as" for = (03 §8.4).
+sk.ADD.05.intro:
+  text: "Add the numbers in any order. The total is the same!"
+sk.ADD.10.intro:
+  text: "Equal is when both sides are the same."
+sk.ADD.11.intro:
+  text: "The box can be on any side. Find the number that makes it true!"
+sk.ADD.12.intro:
+  text: "Let's find the missing number in each story."
+sk.ADD.13.intro:
+  text: "Add three numbers. Look for two that make ten!"
+sk.ADD.20.intro:
+  text: "Listen to the story. Show it to find how many."
+sk.ADD.21.intro:
+  text: "Who has more, and how many more? Let's compare!"
+sk.ADD.23.intro:
+  text: "Let's find the numbers that tell the story."
+sk.ADD.25.intro:
+  text: "This story has three numbers. Find a ten to help!"
+
+tp.ADD.05.t1.prompt:
+  text: "Put in {b} more. How many is {b} + {a}?"
+  say: "Put in {b} more. How many is {b} plus {a}?"
+tp.ADD.05.t2.prompt:
+  text: "Both sides must be the same. How many go in the box?"
+tp.ADD.05.t3.prompt:
+  text: "The parts are {a} and {b}. What is {b} + {a}?"
+  say: "The parts are {a} and {b}. What is {b} plus {a}?"
+tp.ADD.10.t1.prompt:
+  text: "Add shells to make both sides the same."
+tp.ADD.10.t3.prompt:
+  text: "Does it balance? Are both sides the same?"
+tp.ADD.10.t4.prompt:
+  text: "Is it true? Are both sides the same?"
+tp.ADD.11.t1.prompt:
+  text: "What number in the box makes it balance?"
+tp.ADD.11.t3.prompt:
+  text: "Look at the parts and the whole. What number goes in the box?"
+tp.ADD.12.t2.prompt:
+  text: "{who|name} finds {a} more {item|noun:a} and now has {b}. How many were there at the start?"
+tp.ADD.12.t3.prompt:
+  text: "{who|name} has {a} {item|noun:a}, {b} more than the {other|noun:many}. How many {other|noun:many} does {who|name} have?"
+tp.ADD.13.t1.prompt:
+  text: "Put in {b} and {c}, making a ten first. How many in all?"
+tp.ADD.13.t2.prompt:
+  text: "{a} + {b} + {c} = ? The bond shows a ten."
+  say: "What is {a} plus {b} plus {c}? The bond shows a ten."
+tp.ADD.13.t3.prompt:
+  text: "{a} + {b} + {c} = ? Can two make ten?"
+  say: "What is {a} plus {b} plus {c}? Can two of them make ten?"
+tp.ADD.20.t1.prompt:
+  text: "{who|name} has {a} {item|noun:a} and finds {b} more. Show them all."
+tp.ADD.20.t2.prompt:
+  text: "{who|name} has {a} {item|noun:a} and gives {b} away. Show what is left."
+tp.ADD.20.t4.prompt:
+  text: "{who|name} has {a} red and {b} white {item|noun:many}. How many in all?"
+tp.ADD.21.t1.prompt:
+  text: "{who|name} has {a} red {item|noun:a} and {b} white ones. How many more red ones?"
+tp.ADD.21.t3.prompt:
+  text: "{who|name} has {a} {item|noun:a} and {b} {other|noun:b}. How many fewer {other|noun:many} are there?"
+tp.ADD.23.t1.prompt:
+  text: "Look at the two groups. Fill in the boxes to match."
+tp.ADD.23.t2.prompt:
+  text: "{who|name} has {a} {item|noun:a} and gives {b} away. Fill in the boxes."
+tp.ADD.23.t3.prompt:
+  text: "Which one matches the picture?"
+tp.ADD.23.t4.prompt:
+  text: "{who|name} has {a} {item|noun:a} and finds {b} more. Fill in the boxes."
+tp.ADD.25.t1.prompt:
+  text: "{who|name} finds {a} {item|noun:a}, then {b}, then {c} more. How many in all?"
+tp.ADD.25.t3.prompt:
+  text: "{who|name} has {a} red, {b} white and {c} blue {item|noun:many}. How many in all?"
+
+# ADD.10 authored lesson: 3 + 4 shells against 5 on the balance.
+ls.ADD.10.w1.s1:
+  text: "This side has {a} and {b}."
+  voice: pip
+ls.ADD.10.w1.s2:
+  text: "This side has {c}. It is up, so it has less."
+  voice: pip
+ls.ADD.10.w1.s3:
+  text: "Count on from {c} to {m}. How many more does it need?"
+  voice: pip
+ls.ADD.10.w1.s4:
+  text: "{n} more makes it level. {a} + {b} = {c} + {n}!"
+  say: "{n} more makes it level. {a} plus {b} is the same as {c} plus {n}!"
+  voice: pip
+  style: excited
+ls.ADD.10.outro:
+  text: "Both sides are the same. That is what equal is!"
+  voice: pip
+
+# ADD.11 authored lesson: 8 + □ = 11 on the balance.
+ls.ADD.11.w1.s1:
+  text: "This side is {n}."
+  voice: pip
+ls.ADD.11.w1.s2:
+  text: "This side has {a} and a box."
+  voice: pip
+ls.ADD.11.w1.s3:
+  text: "{a} and what make {n}? Count on from {a}."
+  voice: pip
+ls.ADD.11.w1.s4:
+  text: "{b} makes both sides {n}!"
+  voice: pip
+  style: excited
+ls.ADD.11.outro:
+  text: "The box can be on any side. Make both sides the same!"
+  voice: pip
