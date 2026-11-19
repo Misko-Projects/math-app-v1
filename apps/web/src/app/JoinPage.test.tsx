@@ -30,7 +30,11 @@ function api(overrides: Partial<ParentApi>): ParentApi {
   } as ParentApi;
 }
 
-async function renderJoin(parentApi: ParentApi) {
+async function renderJoin(
+  parentApi: ParentApi,
+  entries: string[] = ['/welcome', '/join'],
+  index = entries.length - 1,
+) {
   const device = testDevice();
   restore = device.enableLiveQueries();
   const app = await device.boot();
@@ -41,8 +45,8 @@ async function renderJoin(parentApi: ParentApi) {
       { path: '/', element: <p>island</p> },
       { path: '/welcome', element: <p>welcome</p> },
     ],
-    // Came from the welcome page: the browser's Back goes there.
-    { initialEntries: ['/welcome', '/join'], initialIndex: 1 },
+    // By default came from the welcome page: the browser's Back goes there.
+    { initialEntries: entries, initialIndex: index },
   );
   render(
     <AppProviders services={app}>
@@ -209,6 +213,47 @@ describe('<JoinPage> with the parent passphrase', () => {
     });
     expect(await screen.findByText('welcome')).toBeTruthy();
     expect(logout).toHaveBeenCalledTimes(2); // the join's, and the one close
+  });
+
+  it('a held navigation that lands on another /join entry leaves no reason behind', async () => {
+    const ids = { familyId: SERVER_FAMILY, deviceId: SERVER_DEVICE, deviceToken: TOKEN };
+    const pairComplete = vi
+      .fn()
+      .mockRejectedValueOnce(new ApiError('network', 0, 'offline')) // first join: pairing fails
+      .mockResolvedValue(ids); // second join: pairs
+    const logout = vi
+      .fn()
+      .mockRejectedValueOnce(new ApiError('network', 0, 'offline')) // first join's close fails
+      .mockResolvedValueOnce(undefined) // the held navigation's close
+      .mockRejectedValueOnce(new ApiError('network', 0, 'offline')) // second join's close fails
+      .mockResolvedValue(undefined); // Close the sign-in
+    const { router } = await renderJoin(api({ pairComplete, logout }), [
+      '/join',
+      '/welcome',
+      '/join',
+    ]);
+    const join = async () => {
+      await act(async () => {
+        fireEvent.click(screen.getByRole('button', { name: /^Join$/ }));
+      });
+      await screen.findByText(/The grown-up sign-in couldn’t be closed/);
+    };
+    await join();
+    await act(async () => {
+      void router.navigate(-2); // to the earlier /join entry: held, closed, then goes on
+    });
+    await waitFor(() => expect(router.state.historyAction).toBe('POP'));
+    await waitFor(() => expect(logout).toHaveBeenCalledTimes(2));
+    expect(router.state.location.pathname).toBe('/join');
+    await waitFor(() =>
+      expect(screen.queryByText(/The grown-up sign-in couldn’t be closed/)).toBeNull(),
+    );
+    await join(); // pairs this time, but its close fails
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Close the sign-in' }));
+    });
+    expect(await screen.findByText('island')).toBeTruthy(); // on to the island, as it should
+    expect(logout).toHaveBeenCalledTimes(4);
   });
 
   it('Back during Close the sign-in waits for that one close, without a second logout', async () => {

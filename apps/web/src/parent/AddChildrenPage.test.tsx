@@ -133,6 +133,22 @@ describe('adding children from the parent area', () => {
     expect(router.state.location.pathname).toBe('/');
   });
 
+  it('a save ending while the page is still on screen, but the router has left, stays put', async () => {
+    const { app, router } = await renderParentArea('/parent/children/add');
+    const release = holdWrites(app);
+    await addMiaAndSave();
+    await act(async () => {
+      void router.navigate('/'); // the router takes the new location at once…
+      expect(router.state.location.pathname).toBe('/');
+      expect(screen.getByRole('heading', { name: 'Add your children' })).toBeTruthy(); // …the page is still shown
+      release(); // and the save ends in that same moment
+      await new Promise((r) => setTimeout(r, 50));
+    });
+    expect((await app.store.allProfiles()).map((p) => p.name)).toEqual(['Mia']);
+    expect(router.state.location.pathname).toBe('/');
+    expect(await screen.findByText('island')).toBeTruthy();
+  });
+
   it('needs at least one child before saving', async () => {
     const { app } = await renderParentArea('/parent/children/add');
     await screen.findByRole('heading', { name: 'Add your children' });

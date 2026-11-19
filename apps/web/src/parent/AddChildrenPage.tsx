@@ -5,7 +5,7 @@
 // profiles (`addChildren`), never the family's settings. Editing children is P01's Settings.
 
 import { useEffect, useRef, useState } from 'react';
-import { useNavigate } from 'react-router';
+import { useBlocker, useNavigate } from 'react-router';
 import { useAppServices } from '@/app/AppServices';
 import { recordDiagnostic } from '@/app/diagnostics';
 import { Notice } from './kit';
@@ -26,6 +26,17 @@ export function AddChildrenPage() {
       shown.current = false;
     };
   }, []);
+  /**
+   * True as soon as the router is asked to go elsewhere (a link, Back to the island, the
+   * browser's Back). The router renders the new route in a transition, so this page can still be
+   * mounted for a moment after the parent left; a blocker's check runs first, synchronously, for
+   * every navigation. It never blocks: it only notes that the parent is leaving.
+   */
+  const leaving = useRef(false);
+  useBlocker(() => {
+    leaving.current = true;
+    return false;
+  });
 
   /** Set at once (not on the next render): the draft being saved never changes under the save. */
   const saving = useRef(false);
@@ -50,7 +61,7 @@ export function AddChildrenPage() {
     }
     // Saved. Back to the parent home only if this page is still the one shown: a save that ends
     // after the parent went elsewhere never pulls them back.
-    if (shown.current) navigate('/parent', { replace: true });
+    if (shown.current && !leaving.current) navigate('/parent', { replace: true });
   };
 
   return (

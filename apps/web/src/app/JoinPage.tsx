@@ -13,7 +13,7 @@
 
 import { Panel } from '@number-island/ui';
 import { type FormEvent, useEffect, useRef, useState } from 'react';
-import { Link, useBlocker, useNavigate } from 'react-router';
+import { Link, useBlocker, useLocation, useNavigate } from 'react-router';
 import { ApiError, describeApiError } from '@/parent/api';
 import { Button, Field, Notice, TextInput } from '@/parent/kit';
 import { useParentApi } from '@/parent/ParentContext';
@@ -81,6 +81,13 @@ export function JoinPage() {
   });
   const blockerRef = useRef(blocker);
   blockerRef.current = blocker;
+  // A navigation that went on (`proceed`) is replayed without asking the blocker again; when it
+  // lands on this same page (another /join entry), the page stays mounted. Its reason ends with it.
+  const location = useLocation();
+  // biome-ignore lint/correctness/useExhaustiveDependencies: runs once per new location
+  useEffect(() => {
+    heldFor.current = null;
+  }, [location.key]);
 
   /** One close at a time: the Close button and a held navigation share the same request. */
   const closing = useRef<Promise<boolean> | null>(null);
