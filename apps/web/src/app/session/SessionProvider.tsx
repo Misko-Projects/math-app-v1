@@ -63,7 +63,7 @@ export function useSession(): UseSession {
       session: snap.status === 'active' ? snap.session : null,
       windDown: snap.status === 'active' ? snap.windDown : null,
       controller: c,
-      start: (childId: ChildId, trigger) => c.start(childId, trigger),
+      start: (childId: ChildId, trigger, opts) => c.start(childId, trigger, opts),
       end: (reason) => c.end(reason),
       canStart: (childId: ChildId) => c.canStart(childId),
       recordMath: (ms: number) => c.recordMath(ms),

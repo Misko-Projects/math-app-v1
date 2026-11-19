@@ -104,15 +104,24 @@ function fakeLocks() {
   return { locks, held };
 }
 
-/** BroadcastChannel stand-in: each controller gets its own end; a message reaches the others. */
+/**
+ * BroadcastChannel stand-in: each controller gets its own end; a message reaches the others.
+ * `held()` queues messages instead (a stalled receiver) until `deliver()`.
+ */
 function fakeBusNet() {
-  const ends: Set<() => void>[] = [];
-  return (): SessionBus => {
-    const mine = new Set<() => void>();
+  const ends: Set<(until: number) => void>[] = [];
+  let holding = false;
+  const queue: (() => void)[] = [];
+  const make = (): SessionBus => {
+    const mine = new Set<(until: number) => void>();
     ends.push(mine);
     return {
-      askToYield: () => {
-        for (const end of ends) if (end !== mine) for (const f of [...end]) f();
+      askToYield: (until) => {
+        const send = () => {
+          for (const end of ends) if (end !== mine) for (const f of [...end]) f(until);
+        };
+        if (holding) queue.push(send);
+        else send();
       },
       subscribe(onYield) {
         mine.add(onYield);
@@ -120,6 +129,15 @@ function fakeBusNet() {
       },
     };
   };
+  return Object.assign(make, {
+    held() {
+      holding = true;
+    },
+    deliver() {
+      holding = false;
+      for (const send of queue.splice(0)) send();
+    },
+  });
 }
 
 function memoryStorage(): CheckpointStorage & { map: Map<string, string> } {
@@ -583,6 +601,62 @@ describe('SessionController', () => {
       expect(held.has(PLAY_LOCK)).toBe(true);
       await tabB.end('child-exit');
       expect(held.size).toBe(0);
+    });
+
+    it('a start after the playing tab closed counts that tab’s checkpointed play', async () => {
+      const { locks } = fakeLocks();
+      const s = await setup({
+        child: { dailyCapMinutes: 10, sessionMinutes: 10 },
+        locks,
+        bus: fakeBusNet(),
+      });
+      const tabA = s.controller;
+      const tabB = s.make();
+      await tabA.start(CHILD_K);
+      expect(await tabB.closeAbandoned()).toBe(0); // B's picker sweep: A is playing
+      for (let t = 0; t < 5 * MIN; t += 15_000) s.advance(15_000); // five checkpointed minutes
+      tabA.dispose(); // A closes without an end; its lock goes
+      const started = await tabB.start(CHILD_K);
+      const ends = (await s.sessionEvents()).filter((e) => e.type === 'session.ended');
+      expect(ends).toHaveLength(1);
+      expect(ends[0]?.payload).toMatchObject({ reason: 'abandoned', activeMs: 5 * MIN });
+      expect(started).toMatchObject({ ok: true, session: { budgetMinutes: 5 } });
+    });
+
+    it('a yield request that arrives after its sender gave up ends nothing', async () => {
+      const { locks } = fakeLocks();
+      const net = fakeBusNet();
+      const s = await setup({ locks, bus: net });
+      const tabA = s.controller;
+      const tabB = s.make();
+      await tabA.start(CHILD_K);
+      net.held(); // tab A's event loop is stalled
+      expect(await tabB.start(CHILD_G2)).toEqual({ ok: false, reason: 'elsewhere' });
+      s.env.clock.advance(1_000); // later than the request's deadline
+      net.deliver();
+      await new Promise((r) => setTimeout(r, 10));
+      expect(tabA.getSnapshot().status).toBe('active');
+      expect((await s.sessionEvents()).filter((e) => e.type === 'session.ended')).toEqual([]);
+    });
+
+    it('a start cancelled while waiting for the lock writes nothing', async () => {
+      const { locks } = fakeLocks();
+      const s = await setup({ locks, bus: fakeBusNet() });
+      const tabA = s.make({ yields: false });
+      await tabA.start(CHILD_K);
+      const tabB = s.make();
+      const cancel = new AbortController();
+      const pending = tabB.start(CHILD_G2, 'child', { signal: cancel.signal });
+      cancel.abort(); // the child closed the picture pad
+      await tabA.end('child-exit'); // the lock comes free within the wait
+      expect(await pending).toEqual({ ok: false, reason: 'cancelled' });
+      expect(tabB.getSnapshot()).toEqual({ status: 'idle' });
+      const started = (await s.sessionEvents()).filter((e) => e.type === 'session.started');
+      expect(started.map((e) => e.childId)).toEqual([CHILD_K]);
+      expect(await tabB.start(CHILD_G2, 'child', { signal: cancel.signal })).toEqual({
+        ok: false,
+        reason: 'cancelled',
+      });
     });
 
     it('refuses a start while another tab plays and doesn’t yield (elsewhere)', async () => {

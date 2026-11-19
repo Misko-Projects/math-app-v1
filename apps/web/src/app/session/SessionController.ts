@@ -34,8 +34,11 @@ export type SessionTrigger = EventPayloads['session.started']['trigger'];
 export type CanStartResult =
   | { ok: true; budgetMinutes: number }
   | { ok: false; reason: BlockedReason };
-/** Why `start()` refused: a blocked time, or another tab kept playing (it didn't yield in time). */
-export type StartRefusal = BlockedReason | 'elsewhere';
+/**
+ * Why `start()` refused: a blocked time, another tab kept playing (it didn't yield in time), or
+ * the caller cancelled (its signal aborted).
+ */
+export type StartRefusal = BlockedReason | 'elsewhere' | 'cancelled';
 
 export interface ActiveSession {
   sessionId: string;
@@ -116,20 +119,24 @@ export function webLocks(): SessionLocks | null {
 
 /** Asks the tab that is playing to end its session (`BroadcastChannel`), injectable for tests. */
 export interface SessionBus {
-  /** Tells the other tabs that this one wants to play. */
-  askToYield(): void;
-  /** Calls `onYield` when another tab wants to play. Returns the unsubscribe. */
-  subscribe(onYield: () => void): () => void;
+  /**
+   * Tells the other tabs that this one wants to play, waiting until `until` (ms epoch). A request
+   * that arrives later is stale: its sender has given up, and it must not end anyone's play.
+   */
+  askToYield(until: number): void;
+  /** Calls `onYield` with the request's deadline when another tab wants to play. Returns the unsubscribe. */
+  subscribe(onYield: (until: number) => void): () => void;
 }
 
 export function broadcastBus(): SessionBus | null {
   if (typeof BroadcastChannel === 'undefined') return null;
   const channel = new BroadcastChannel('ni.session');
   return {
-    askToYield: () => channel.postMessage({ type: 'yield' }),
+    askToYield: (until) => channel.postMessage({ type: 'yield', until }),
     subscribe(onYield) {
       const listener = (e: MessageEvent) => {
-        if ((e.data as { type?: unknown } | null)?.type === 'yield') onYield();
+        const data = e.data as { type?: unknown; until?: unknown } | null;
+        if (data?.type === 'yield' && typeof data.until === 'number') onYield(data.until);
       };
       channel.addEventListener('message', listener);
       return () => channel.removeEventListener('message', listener);
@@ -320,12 +327,16 @@ export class SessionController {
    * first). Resolves with the session, or with the reason it may not start. Starting the child
    * whose session is already running returns that session. A session running in another tab is
    * asked to end first; if it doesn't within `yieldWaitMs`, the start is refused (`elsewhere`).
+   * An aborted `signal` (the child closed the picture pad meanwhile) refuses it (`cancelled`)
+   * before anything is written.
    */
   start(
     childId: ChildId,
     trigger: SessionTrigger = 'child',
+    opts: { signal?: AbortSignal } = {},
   ): Promise<{ ok: true; session: ActiveSession } | { ok: false; reason: StartRefusal }> {
     return this.#serial(async () => {
+      if (opts.signal?.aborted) return { ok: false as const, reason: 'cancelled' as const };
       const current = this.#running;
       if (current && sameId(current.session.childId, childId) && current.windDown === null) {
         return { ok: true as const, session: current.session };
@@ -336,6 +347,13 @@ export class SessionController {
       if (!releaseLock) return { ok: false as const, reason: 'elsewhere' as const };
       let plan: Plan;
       try {
+        // A tab that closed mid-session (its lock just came free) left only a checkpoint: close
+        // it now, so its play counts toward this plan's daily cap.
+        try {
+          await this.#closeAbandoned();
+        } catch (e) {
+          this.#onError('session.abandoned', e);
+        }
         plan = await this.#plan(childId);
       } catch (e) {
         releaseLock();
@@ -344,6 +362,10 @@ export class SessionController {
       if (!plan.result.ok) {
         releaseLock();
         return plan.result;
+      }
+      if (opts.signal?.aborted) {
+        releaseLock();
+        return { ok: false as const, reason: 'cancelled' as const };
       }
       const now = this.#now();
       const session: ActiveSession = {
@@ -390,8 +412,10 @@ export class SessionController {
       running.unsubscribeVisibility = this.#visibility.subscribe(() => this.#onVisibility());
       // Another tab wants to play: end this session (its end is written before the lock goes).
       running.unsubscribeBus =
-        this.#bus?.subscribe(() => {
+        this.#bus?.subscribe((until) => {
           if (this.#running !== running) return;
+          // A stale request: its sender stopped waiting (and refused its own start).
+          if (this.#now() > until) return;
           void this.end('child-exit').catch((e) => this.#onError('session.yield', e));
         }) ?? (() => {});
       running.tick = this.#timers.setInterval(() => this.#tick(), this.#tickMs);
@@ -584,7 +608,7 @@ export class SessionController {
     try {
       let release = await this.#locks.acquire(PLAY_LOCK, 0);
       if (!release) {
-        this.#bus?.askToYield();
+        this.#bus?.askToYield(this.#now() + this.#yieldWaitMs);
         release = await this.#locks.acquire(PLAY_LOCK, this.#yieldWaitMs);
       }
       return release ? once(release) : null;

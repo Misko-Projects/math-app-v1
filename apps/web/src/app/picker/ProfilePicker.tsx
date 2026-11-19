@@ -99,15 +99,37 @@ function PickerScreen() {
     void unlocking.then(() => say('ui.profile.who-is-playing'));
   };
 
+  // The start in progress, if any: closing the pad (or leaving the picker) cancels it, so a start
+  // that was still waiting for another window's play never opens play for a closed selection.
+  const pending = useRef<AbortController | null>(null);
+  const cancelPending = () => {
+    pending.current?.abort();
+    pending.current = null;
+  };
+  useEffect(() => () => pending.current?.abort(), []);
+
   // Never rejects: a failed session write (storage full, a child deleted by sync while the pad
   // was open) returns to the picker, so the child can tap again rather than face a stuck pad.
   const begin = useCallback(
     async (child: ChildProfile) => {
+      pending.current?.abort();
+      const attempt = new AbortController();
+      pending.current = attempt;
       try {
-        const result = await session.start(child.id, 'child');
+        const result = await session.start(child.id, 'child', { signal: attempt.signal });
         if (!mounted.current) return;
+        if (attempt.signal.aborted) {
+          // Closed during the last moment of the start (its write): end what started at once.
+          if (result.ok) {
+            void session.end('child-exit').catch((e) => recordDiagnostic('session.end', e));
+          }
+          return;
+        }
+        pending.current = null;
         if (result.ok) {
           navigate(`/play/${child.id}`);
+        } else if (result.reason === 'cancelled') {
+          // Closed meanwhile: the picker is already showing; nothing started.
         } else if (result.reason === 'elsewhere') {
           // Another window kept playing (it didn't yield in time): back to the picker, nothing
           // started. A tap tries again.
@@ -120,7 +142,8 @@ function PickerScreen() {
         }
       } catch (e) {
         recordDiagnostic('picker.start', e);
-        if (!mounted.current) return;
+        if (!mounted.current || attempt.signal.aborted) return;
+        pending.current = null;
         setSelected(null);
         setPhase({ kind: 'pick' });
       }
@@ -157,6 +180,7 @@ function PickerScreen() {
   };
 
   const backToPicker = () => {
+    cancelPending();
     setSelected(null);
     setPhase({ kind: 'pick' });
   };

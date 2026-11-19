@@ -281,6 +281,39 @@ describe('picture password pad', () => {
     expect(await screen.findByTestId('picture-pad')).toBeTruthy();
   });
 
+  it('closing the pad while the start waits (another window playing) starts nothing', async () => {
+    const { app, router } = await renderPicker({ leoPictures: ['crab', 'kite', 'sun'] });
+    await tapToStart();
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Leo' }));
+    });
+    await screen.findByTestId('picture-pad');
+    // The start waits, as it does while another window still holds the play lock.
+    const real = app.session.start.bind(app.session);
+    let release: () => void = () => {};
+    const waiting = new Promise<void>((r) => {
+      release = r;
+    });
+    const start = vi
+      .spyOn(app.session, 'start')
+      .mockImplementationOnce(async (childId, trigger, opts) => {
+        await waiting;
+        return real(childId, trigger, opts);
+      });
+    await tapPictures('Crab', 'Kite', 'Sun');
+    await waitFor(() => expect(start).toHaveBeenCalledTimes(1));
+    fireEvent.click(screen.getByRole('button', { name: 'Go back' }));
+    await waitFor(() => expect(screen.queryByTestId('picture-pad')).toBeNull());
+    await act(async () => {
+      release();
+      await waiting;
+    });
+    await new Promise((r) => setTimeout(r, 20));
+    expect(router.state.location.pathname).toBe('/');
+    expect(screen.queryByTestId('child-home')).toBeNull();
+    expect(await sessionEvents(app)).toEqual([]);
+  });
+
   it('the back button returns to the picker', async () => {
     await renderPicker({ leoPictures: ['crab', 'kite', 'sun'] });
     await tapToStart();
