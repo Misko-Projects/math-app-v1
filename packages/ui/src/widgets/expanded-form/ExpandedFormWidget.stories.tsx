@@ -1305,6 +1305,67 @@ export const DemoFillRemove: Story = {
   },
 };
 
+/** Blank ids are any string: these hold a double quote, a backslash and a bracket. */
+const QUOTED_B0 = 'b"0\\';
+const QUOTED_B1 = 'b\'1"]';
+const fillQuotedIds: Config = {
+  ...fillCards,
+  expression: {
+    tokens: [
+      { t: 'num', v: 300 },
+      { t: 'op', v: '+' },
+      { t: 'blank', id: QUOTED_B0 },
+      { t: 'op', v: '+' },
+      { t: 'blank', id: QUOTED_B1 },
+      { t: 'rel', v: '=' },
+      { t: 'num', v: 345 },
+    ],
+  },
+};
+
+/** An element by exact attribute value (the story itself builds no selector from the ids). */
+const byAttr = (root: HTMLElement, attr: string, value: string) =>
+  [...root.querySelectorAll<HTMLElement>(`[${attr}]`)].find((e) => e.getAttribute(attr) === value);
+
+const quotedRemoveController: WidgetDemo = createDemoController({ strict: true });
+
+/**
+ * The fill removal with blank ids holding quotes and a backslash (the schema allows any string):
+ * the child fills box 1 with 40; the invite points at it; playing `{remove, blank}` resolves,
+ * empties the box and returns the 40 to the tray; a demo placement then fills that box again.
+ * Nothing is submitted.
+ */
+export const DemoFillRemoveQuotedId: Story = {
+  args: { config: fillQuotedIds, demo: quotedRemoveController },
+  play: async ({ canvasElement, args }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    const canvas = within(root);
+    await userEvent.click(trayCard(root, 40));
+    await userEvent.click(byAttr(root, 'data-place-target', `blank-${QUOTED_B0}`) as HTMLElement);
+    const filled = canvas.getByRole('button', { name: 'Box 1: 40' });
+    await expect(filled.getAttribute('data-blank')).toBe(QUOTED_B0);
+    const remove = { op: 'place-card', args: { remove: true, blank: QUOTED_B0 } } as const;
+    quotedRemoveController.invite(remove);
+    await expectHandOn(root, filled);
+    await expect(quotedRemoveController.play(remove)).resolves.toBeUndefined();
+    const box1 = byAttr(root, 'data-blank', QUOTED_B0) as HTMLElement;
+    await expect(box1).toHaveAttribute('data-empty', 'true');
+    await expect(canvas.queryByRole('button', { name: 'Box 1: 40' })).toBeNull();
+    await expect(trayCards(root).map((c) => c.dataset.card)).toEqual(['40', '5', '4', '50']);
+    await expect(root.querySelector('.ni-hand')).toBeNull();
+    // A demo placement looks the blank up by the same id: it resolves and fills box 1.
+    await expect(
+      quotedRemoveController.play({ op: 'place-card', args: { value: 5 } }),
+    ).resolves.toBeUndefined();
+    await expect(canvas.getByRole('button', { name: 'Box 1: 5' })).toHaveAttribute(
+      'data-blank',
+      QUOTED_B0,
+    );
+    await expect(byAttr(root, 'data-blank', QUOTED_B1)).toHaveAttribute('data-empty', 'true');
+    await expect(args.onResponse).not.toHaveBeenCalled();
+  },
+};
+
 const padRemoveController: WidgetDemo = createDemoController({ strict: true });
 
 /**

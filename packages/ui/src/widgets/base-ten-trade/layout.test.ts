@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { breakGhosts, bundleGhosts, gatherBox, moveGhosts, slices, transformFrom } from './fx';
 import {
   answerPlaces,
+  arrangeTaken,
   type Box,
   COL_PAD,
   digitsValue,
@@ -11,12 +12,15 @@ import {
   itemUnit,
   lyingRods,
   naturalLayout,
+  nestInner,
   pathStates,
   placeDigits,
   placePieces,
   placeTaken,
   planCaps,
   planMat,
+  rodStacks,
+  stateCaps,
   stripWidth,
   U_FLOOR,
   U_MAX,
@@ -47,6 +51,13 @@ const overlaps = (boxes: readonly Box[]) =>
 
 const inside = (b: Box, box: { w: number; h: number }) =>
   b.x >= -0.01 && b.y >= -0.01 && b.x + b.w <= box.w + 0.01 && b.y + b.h <= box.h + 0.01;
+
+/** Every piece of a per-column layout (placeTaken's result). */
+const all = (t: Record<string, Box[]>) => [
+  ...(t.hundreds ?? []),
+  ...(t.tens ?? []),
+  ...(t.ones ?? []),
+];
 
 describe('planCaps', () => {
   it('plans the most pieces each column holds on the way to a sum', () => {
@@ -122,6 +133,94 @@ describe('layout', () => {
     expect(taken.tens[0]?.x).toBeGreaterThan(taken.hundreds[0]?.x ?? 0);
     expect(taken.ones[0]?.x).toBeGreaterThan(taken.tens[1]?.x ?? 0);
   });
+
+  it('wraps taken flats into rows (and rods into stacks) rather than squeezing them', () => {
+    // PR #74 round 2: nine flats at 8 px need 768 px in one row; the nest has 634.
+    const box = { w: 634, h: 400 };
+    const taken = placeTaken({ hundreds: 9, tens: 0, ones: 0 }, 8, box);
+    expect(taken.hundreds).toHaveLength(9);
+    expect(overlaps(taken.hundreds)).toBe(false);
+    for (const b of taken.hundreds) {
+      expect(b.w).toBe(80);
+      expect(inside(b, box)).toBe(true);
+    }
+    expect(new Set(taken.hundreds.map((b) => b.y)).size).toBe(2);
+    // Rods: a second stack when one is too tall is not needed, but a too-wide nest still never
+    // squeezes: stacks sit side by side, a flat's width plus a gap apart.
+    const stacks = rodStacks(12, 10, 5);
+    expect(overlaps(stacks)).toBe(false);
+    expect(new Set(stacks.map((b) => b.x)).size).toBe(3);
+    // Nothing fits across: the narrowest arrangement, still no overlap.
+    const narrow = placeTaken({ hundreds: 3, tens: 4, ones: 9 }, 20, { w: 100, h: 100 });
+    expect(overlaps(all(narrow))).toBe(false);
+    expect(arrangeTaken({ hundreds: 3, tens: 4, ones: 9 }, 20, 100)).toBeNull();
+  });
+
+  it('never overlaps taken pieces, whatever is taken and however wide the nest', () => {
+    for (const hundreds of [0, 1, 4, 9, 12, 19]) {
+      for (const tens of [0, 3, 9, 19]) {
+        for (const ones of [0, 5, 9, 19]) {
+          for (const w of [300, 634, 900]) {
+            for (const u of [8, 12, 20]) {
+              const taken = placeTaken({ hundreds, tens, ones }, u, { w, h: 600 });
+              expect(overlaps(all(taken))).toBe(false);
+              const a = arrangeTaken({ hundreds, tens, ones }, u, w);
+              if (a) for (const b of all(taken)) expect(b.x + b.w).toBeLessThanOrEqual(w + 0.5);
+            }
+          }
+        }
+      }
+    }
+  });
+});
+
+describe('the nest holds everything a take-away can take (1280 × 800)', () => {
+  // The widget's width beside the 3-place algorithm card and pad (a 634 px nest inside), and a
+  // wider one; the height budget less the root padding.
+  const sizes = [
+    { width: 870, height: 648 },
+    { width: 1180, height: 648 },
+  ];
+  const worst = [
+    [9, 0, 0, 9, 0, 0], // 900 − 900 (the review's case)
+    [9, 9, 9, 9, 9, 9], // 999 − 999
+    [3, 0, 4, 1, 2, 8], // 304 − 128
+    [12, 0, 0, 12, 0, 0], // 1200 − 1200 (a 4-digit start)
+    [10, 0, 0, 9, 9, 9], // 1000 − 999 (borrows across two zeros)
+  ] as const;
+  for (const [sh, st, so, oh, ot, oo] of worst) {
+    it(`${sh * 100 + st * 10 + so} − ${oh * 100 + ot * 10 + oo}`, () => {
+      const config = cfg({
+        start: { hundreds: sh, tens: st, ones: so },
+        operation: { op: '-', operand: { hundreds: oh, tens: ot, ones: oo } },
+        showAlgorithm: true,
+        thenAsk: true,
+      });
+      const base = planCaps(config);
+      const path = pathStates(config);
+      for (const { width, height } of sizes) {
+        const unit = itemUnit({ age: 'g1-up', width, height, base, path });
+        for (const s of path) {
+          const taken = s.taken ?? { hundreds: 0, tens: 0, ones: 0 };
+          const plan = planMat({
+            age: 'g1-up',
+            width,
+            height,
+            caps: [growCaps(base, s.mat, taken), stateCaps(base, s.mat, null, taken)],
+            unit,
+          });
+          expect(plan.fits).toBe(true);
+          expect(plan.totalH).toBeLessThanOrEqual(height);
+          const inner = nestInner(plan.matW, plan.nestH);
+          const placed = placeTaken(taken, plan.u, inner);
+          expect(overlaps(all(placed))).toBe(false);
+          for (const b of all(placed)) expect(inside(b, inner)).toBe(true);
+          // One scale: the nest's pieces are drawn at the mat's unit.
+          if (placed.hundreds[0]) expect(placed.hundreds[0].w).toBe(plan.u * 10);
+        }
+      }
+    });
+  }
 });
 
 describe('planMat', () => {

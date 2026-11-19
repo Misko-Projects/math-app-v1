@@ -43,6 +43,9 @@ import {
   onesGroupGap,
   pieceGap,
   rodHit,
+  type SideSpec,
+  sideNeed,
+  sidePlan,
   smaller,
   unitCandidates,
 } from './layout';
@@ -465,6 +468,30 @@ export function BaseTenBuildWidget({
   const padSide = 3 * TARGET_PX[prefs.ageMode].big + 2 * 12;
   const headH = HEAD_H[prefs.ageMode];
   const bodyH = WIDGET_H - 2 * ROOT_PAD_Y - 2 * FRAME - headH - 2 * BODY_PAD;
+
+  // A build that starts with pieces is arithmetic (mda.addsub, pv.tenmore; bond.parts, whose
+  // prompt states the whole): the target is the result the child finds, so no goal card is drawn,
+  // named or spoken (03 §5.5: no stimulus reveals the answer). Plain builds and build-exact show it.
+  const goalHidden = config.mode === 'build' && KINDS.some((k) => (config.prebuilt?.[k] ?? 0) > 0);
+  const goalValue = shown(config.target, decimal);
+  const exactKinds =
+    config.mode === 'build-exact'
+      ? (['hundreds', 'tens', 'ones'] as const).filter((k) => config.exact?.[k] !== undefined)
+      : [];
+  const trayKinds = KINDS.filter((k) => config.pieces[k]);
+  const limitedAny = trayKinds.some((k) => Number.isFinite(traySupply(config, state.taken, k)));
+  // The side panel never grows past the mat's height: the narrowest panel whose goal, chips,
+  // tray and check fit it (crowded: goal and chips two to a row), and the mat leaves it that room.
+  const sideSpec: SideSpec = {
+    k: kMode,
+    piles: trayKinds.map((k) => Number.isFinite(traySupply(config, state.taken, k))),
+    goal: goalHidden ? null : String(goalValue),
+    exact: exactKinds,
+    height: WIDGET_H - 2 * ROOT_PAD_Y,
+  };
+  const baseSideMin = kMode ? 150 : 156;
+  const side = read ? { width: padSide, crowded: false } : sideNeed(sideSpec, baseSideMin);
+
   layoutInput.current = {
     units: unitCandidates(kMode),
     // Half a px of slack: computed widths are fractional.
@@ -474,8 +501,8 @@ export function BaseTenBuildWidget({
     columnPad: COL_PAD,
     frame: FRAME + INSET,
     gap: SIDE_GAP,
-    sideMin: read ? padSide : kMode ? 150 : 156,
-    sideMax: read ? padSide : 260,
+    sideMin: read ? padSide : side.width,
+    sideMax: read ? padSide : Math.max(260, side.width),
     headerWidth: (kind) =>
       prefs.textLabels ? 44 + 11 * t(colKey(kind, decimal)).length : kMode ? 56 : 44,
   };
@@ -871,7 +898,9 @@ export function BaseTenBuildWidget({
     },
   });
 
-  const maxDigits = decimal ? 4 : Math.max(4, String(config.target).length);
+  // The pad's room (and the blank's width) comes from the picture's kinds, never the answer's length:
+  // five digits when cubes are shown (up to 11 389 within MAT_MAX), else four (up to 2389).
+  const maxDigits = (config.prebuilt?.thousands ?? 0) > 0 ? 5 : 4;
   const onKey = (key: PadKey) => {
     if (!interactive) return;
     if (key === '.' && !decimal) return;
@@ -1119,24 +1148,10 @@ export function BaseTenBuildWidget({
     );
   }
 
-  // A build that starts with pieces is arithmetic (mda.addsub, pv.tenmore; bond.parts, whose
-  // prompt states the whole): the target is the result the child finds, so no goal card is drawn,
-  // named or spoken (03 §5.5: no stimulus reveals the answer). Plain builds and build-exact show it.
-  const goalHidden = config.mode === 'build' && KINDS.some((k) => (config.prebuilt?.[k] ?? 0) > 0);
-  const goalValue = shown(config.target, decimal);
-  const exactKinds =
-    config.mode === 'build-exact'
-      ? (['hundreds', 'tens', 'ones'] as const).filter((k) => config.exact?.[k] !== undefined)
-      : [];
-  const trayKinds = KINDS.filter((k) => config.pieces[k]);
-  const limitedAny = trayKinds.some((k) => Number.isFinite(traySupply(config, state.taken, k)));
-  // Balanced pile rows: all in one row if they fit, else 2 × 2 for four, else one column (never a
-  // lone pile on a row of its own).
-  // Piles in a tray with limits are wider (their stock tag sits inside them).
-  const pileW = limitedAny ? Math.max(targetMin * 1.25, 104) : targetMin * 1.25;
-  const pileFits = (c: number) => c * pileW + (c - 1) * 12 <= layout.sideWidth - 20;
-  const pileCols =
-    [trayKinds.length, trayKinds.length === 4 ? 2 : 0, 1].find((c) => c > 0 && pileFits(c)) ?? 1;
+  // The panel as it lays out at its width: balanced pile rows, the goal and chips (two to a row
+  // when crowded), the goal large only when there is room (layout.ts sidePlan).
+  const plan = sidePlan(sideSpec, layout.sideWidth, side.crowded);
+  const pileCols = plan.pileCols;
   const ready = model.toResponse(state) !== null;
 
   return (
@@ -1151,12 +1166,12 @@ export function BaseTenBuildWidget({
       {work}
       <div className="ni-btb__side">
         {goalHidden ? null : (
-          <div className="ni-btb__ask">
+          <div className="ni-btb__ask" data-cols={plan.askCols === 2 ? '2' : undefined}>
             <button
               type="button"
               className="ni-number ni-btb__goal"
-              // 72 px when the side panel has room for it, else 48 px (both ≥ 48 px).
-              data-size={String(goalValue).length * 44 + 70 <= layout.sideWidth ? 'lg' : undefined}
+              // 72 px when the panel has room for it across and in height, else 48 px (both ≥ 48 px).
+              data-size={plan.lg ? 'lg' : undefined}
               aria-label={t('ui.widget.btb.goal', { n: goalValue })}
               disabled={!interactive}
               onClick={() => {

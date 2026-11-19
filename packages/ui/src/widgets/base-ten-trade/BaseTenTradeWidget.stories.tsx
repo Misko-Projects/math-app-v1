@@ -1126,6 +1126,54 @@ export const Stress: Story = {
 };
 
 /**
+ * Regression (PR #74 review round 2): 900 − 900 with the algorithm and a typed answer (a zero
+ * result). All nine flats go into the nest: they wrap into rows there, every one inside the
+ * hollow and none overlapping, and the answer 0 is typed and checked.
+ */
+export const StressNineFlatsTaken: Story = {
+  args: {
+    config: {
+      format: 'base-ten-trade',
+      start: { hundreds: 9, tens: 0, ones: 0 },
+      operation: { op: '-', operand: { hundreds: 9, tens: 0, ones: 0 } },
+      goal: 'compute',
+      showAlgorithm: true,
+      thenAsk: true,
+    },
+  },
+  play: async ({ canvasElement, args }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    await expectFits(canvasElement, root);
+    // Nine flats on the mat step the item's one unit down (≥ 10 px: a flat ≥ 100 px).
+    const flatW = (sel: string) => q(root, sel).getBoundingClientRect().width;
+    const onMat = flatW('[data-col="hundreds"] [data-piece]');
+    await expect(onMat).toBeGreaterThanOrEqual(100);
+    for (let i = 0; i < 9; i++) await tapPlace(grabItem(root, 'hundreds'), nest(root));
+    await settled(root);
+    await expect(mat(root)).toEqual({ hundreds: 0, tens: 0, ones: 0 });
+    await expect(takenPieces(root, 'hundreds')).toBe(9);
+    // The same size in the nest as on the mat (one scale), in more than one row.
+    await expect(flatW('[data-piece="taken-hundreds-0"]')).toBe(onMat);
+    const tops = [...root.querySelectorAll('[data-piece^="taken-hundreds-"]')].map((p) =>
+      Math.round(p.getBoundingClientRect().top),
+    );
+    await expect(new Set(tops).size).toBeGreaterThan(1);
+    // Nest containment (the hollow's rim, ends and front wall) and pairwise no-overlap.
+    await expectFits(canvasElement, root);
+    for (const el of controls(root)) await expectTargetSize(el, 'g1-up');
+    await expectTargetGaps(controls(root));
+    await userEvent.click(within(root).getByRole('button', { name: '0' }));
+    await expect(boxes(root)).toEqual(['', '', '0']);
+    await userEvent.click(within(root).getByRole('button', { name: 'Check' }));
+    await expect(args.onResponse).toHaveBeenCalledWith({
+      kind: 'state',
+      value: { hundreds: 0, tens: 0, ones: 0, value: 0 },
+    });
+    (document.activeElement as HTMLElement | null)?.blur();
+  },
+};
+
+/**
  * K stress: the fullest K screen, a take-away with the nest and the (bigger) K number pad, 42 − 15
  * typed into the `=` blank. Split a ten, take 15. K-sized targets, the one 20 px scale, no scroll.
  */

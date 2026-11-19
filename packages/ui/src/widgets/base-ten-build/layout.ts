@@ -11,12 +11,13 @@ export const smaller = (k: PieceKind): PieceKind | undefined => KINDS[KINDS.inde
 /**
  * The unit edge (px) every item is drawn at: one size, so a ten looks the same in every item.
  * K draws bigger when it fits. Never below U_FLOOR unless the content could not fit otherwise
- * (no authored item comes near that).
+ * (no authored item comes near that). U_MIN (6) is reached only by mats near the engine's MAT_MAX
+ * beside the fullest side panel (build-exact: goal, three chips, four piles).
  */
 export const UNIT_G1 = 20;
 export const UNIT_K = 28;
 export const U_FLOOR = 18;
-export const U_MIN = 8;
+export const U_MIN = 6;
 
 /** Unit sizes to try, largest first. */
 export function unitCandidates(k: boolean): number[] {
@@ -135,7 +136,7 @@ export function columnPlan(
   let rows: number;
   if (kind === 'tens') {
     // A bundle of sticks: never more than two rows of rods end to end (unless `dense`).
-    rows = count <= 5 || !compact ? 1 : pack === 'dense' ? fit : Math.min(2, fit);
+    rows = !compact ? 1 : pack === 'dense' ? fit : count <= 5 ? 1 : Math.min(2, fit);
   } else {
     rows = compact ? fit : Math.max(1, Math.round(Math.sqrt(count)));
   }
@@ -259,6 +260,168 @@ export function matLayout(input: MatLayoutInput): MatLayout {
     width: input.headerWidth(kind) + 2 * columnPad,
   }));
   return { ...finish(u, 'dense', columns, 0), fits: false, overflow: true };
+}
+
+// ---------- the side panel: goal, exact chips, tray, check ----------
+
+/**
+ * The side panel's sizes (px) as base-ten-build.css and the kit draw them at 1280 × 800, per age
+ * mode (measured; the tablet stories check the panel fits). A pile with a stock tag stands taller.
+ */
+export const SIDE_PX = {
+  k: {
+    pile: 100,
+    pileLimited: 104,
+    pileH: 100,
+    stockH: 116,
+    goalH: 96,
+    goalLgH: 96,
+    chipH: 80,
+    chipW: { hundreds: 166, tens: 130, ones: 130 },
+    checkW: 96,
+    checkH: 102,
+    min: 80,
+  },
+  g1: {
+    pile: 80,
+    pileLimited: 104,
+    pileH: 80,
+    stockH: 116,
+    goalH: 76,
+    goalLgH: 91,
+    chipH: 80,
+    chipW: { hundreds: 166, tens: 106, ones: 126 },
+    checkW: 150,
+    checkH: 82,
+    min: 64,
+  },
+} as const;
+/** A crowded panel's compact chips and goal (two to a row, trimmed side padding). */
+export const COMPACT_CHIP_W = { hundreds: 142, tens: 104, ones: 112 } as const;
+const TRAY_PAD = { top: 60, bottom: 14, x: 10 };
+const PILE_GAP = { x: 12, y: 16 };
+const SIDE_GAP = 14;
+const ASK_GAP = 12;
+
+export interface SideSpec {
+  k: boolean;
+  /** The tray's piles in order, true for one with a stock tag (a limited kind). */
+  piles: readonly boolean[];
+  /** The goal numeral as shown ("1.25"), or null without a goal card. */
+  goal: string | null;
+  /** The exact chips, in order. */
+  exact: readonly ('hundreds' | 'tens' | 'ones')[];
+  /** The panel's height (px). */
+  height: number;
+}
+
+export interface SidePlan {
+  pileCols: number;
+  /** Goal and chips one per row (1) or two to a row, compact (2: a crowded panel). */
+  askCols: 1 | 2;
+  /** The goal numeral drawn large. */
+  lg: boolean;
+  /** The narrowest panel this arrangement needs, and its height (px). */
+  width: number;
+  height: number;
+}
+
+/** Goal width (px) for `text`: normal, large or compact (a digit ~31 px at 48 px, a point ~12). */
+function goalWidth(text: string, min: number, size: 'normal' | 'lg' | 'compact'): number {
+  if (size === 'lg') return 40 + 44 * text.length;
+  const ink = [...text].reduce((a, c) => a + (c === '.' ? 12 : 31), 0);
+  if (size === 'compact') return Math.max(min, 24 + ink);
+  return Math.max(min * 1.6, 34 + ink);
+}
+
+/**
+ * How the panel lays out at `width`: piles in balanced rows (all in one row, else two to a row,
+ * else one column; a crowded panel may leave the third of three piles alone on its row), the goal
+ * and chips one per row (or two to a row when `crowded`), the goal large only when it has room
+ * across and the panel still fits its height.
+ */
+export function sidePlan(spec: SideSpec, width: number, crowded: boolean): SidePlan {
+  const px = spec.k ? SIDE_PX.k : SIDE_PX.g1;
+  const n = spec.piles.length;
+  const limited = spec.piles.some(Boolean);
+  const pileW = limited ? px.pileLimited : px.pile;
+  const trayW = (c: number) => 2 * TRAY_PAD.x + c * pileW + (c - 1) * PILE_GAP.x;
+  const options = [n, n === 4 || (crowded && n === 3) ? 2 : 0, 1];
+  const pileCols = n === 0 ? 1 : (options.find((c) => c > 0 && trayW(c) <= width) ?? 1);
+  let trayH = TRAY_PAD.top + TRAY_PAD.bottom;
+  for (let r = 0; r * pileCols < n; r++) {
+    const row = spec.piles.slice(r * pileCols, (r + 1) * pileCols);
+    trayH += (r > 0 ? PILE_GAP.y : 0) + (row.some(Boolean) ? px.stockH : px.pileH);
+  }
+  const cells = (spec.goal !== null ? 1 : 0) + spec.exact.length;
+  const askCols: 1 | 2 = crowded && cells >= 2 ? 2 : 1;
+  const ask = (lg: boolean) => {
+    if (cells === 0) return { w: 0, h: 0 };
+    const goal =
+      spec.goal === null
+        ? null
+        : {
+            w: goalWidth(spec.goal, px.min, askCols === 2 ? 'compact' : lg ? 'lg' : 'normal'),
+            h: lg ? px.goalLgH : px.goalH,
+          };
+    const chips = spec.exact.map((k) => ({
+      w: askCols === 2 ? COMPACT_CHIP_W[k] : px.chipW[k],
+      h: px.chipH,
+    }));
+    const all = goal ? [goal, ...chips] : chips;
+    if (askCols === 1) {
+      return {
+        w: Math.max(...all.map((c) => c.w)),
+        h: all.reduce((a, c) => a + c.h, 0) + (all.length - 1) * ASK_GAP,
+      };
+    }
+    let h = 0;
+    const colW = [0, 0];
+    all.forEach((c, i) => {
+      colW[i % 2] = Math.max(colW[i % 2] ?? 0, c.w);
+      if (i % 2 === 0) h += (i > 0 ? ASK_GAP : 0) + Math.max(c.h, all[i + 1]?.h ?? 0);
+    });
+    return { w: (colW[0] ?? 0) + ASK_GAP + (colW[1] ?? 0), h };
+  };
+  const plan = (lg: boolean): SidePlan => {
+    const a = ask(lg);
+    const blocks = [a.h, trayH, px.checkH].filter((h) => h > 0);
+    return {
+      pileCols,
+      askCols,
+      lg,
+      width: Math.max(a.w, trayW(pileCols), px.checkW),
+      height: blocks.reduce((s, h) => s + h, 0) + (blocks.length - 1) * SIDE_GAP,
+    };
+  };
+  const canLg = askCols === 1 && spec.goal !== null && spec.goal.length * 44 + 70 <= width;
+  if (canLg) {
+    const big = plan(true);
+    if (big.height <= spec.height) return big;
+  }
+  return plan(false);
+}
+
+/**
+ * The narrowest side panel (px, at least `min`) whose contents fit its height, and whether it must
+ * be crowded (goal and chips two to a row). The mat shrinks its unit to leave it that much room.
+ */
+export function sideNeed(spec: SideSpec, min: number): { width: number; crowded: boolean } {
+  const narrowest = (crowded: boolean) => {
+    for (let w = Math.ceil(min); w <= 600; w++) {
+      const p = sidePlan(spec, w, crowded);
+      if (p.width <= w && p.height <= spec.height) return w;
+    }
+    return Number.POSITIVE_INFINITY;
+  };
+  const loose = narrowest(false);
+  // The usual panel unless only crowding it saves room.
+  if (loose <= Math.ceil(min)) return { width: loose, crowded: false };
+  const crowded = narrowest(true);
+  if (!Number.isFinite(loose) && !Number.isFinite(crowded)) {
+    return { width: Math.ceil(min), crowded: true };
+  }
+  return crowded < loose ? { width: crowded, crowded: true } : { width: loose, crowded: false };
 }
 
 /** Half the width and height of the bundle ten pieces of `kind` gather into (px). */

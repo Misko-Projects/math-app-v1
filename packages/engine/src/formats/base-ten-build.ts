@@ -128,8 +128,12 @@ export function overfullKinds(c: Config): { kind: PieceKind; path: string[]; nee
     const limited = c.mode !== 'read' && Number.isFinite(supply) ? supply : 0;
     over(k, (pre[k] ?? 0) + limited, limited > 0 ? ['limits', k] : ['prebuilt', k]);
   }
-  const target = canonicalPieces(c.target);
-  for (const k of PIECE_KINDS) over(k, target[k], ['target']);
+  // A read draws its prebuilt pieces (already checked worth the target): only builds need the
+  // target's own pieces to fit.
+  if (c.mode !== 'read') {
+    const target = canonicalPieces(c.target);
+    for (const k of PIECE_KINDS) over(k, target[k], ['target']);
+  }
   if (c.mode === 'build-exact') {
     const exact = c.exact ?? {};
     const named = (['hundreds', 'tens', 'ones'] as const).filter((k) => exact[k] !== undefined);

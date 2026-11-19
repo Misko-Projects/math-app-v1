@@ -173,13 +173,40 @@ function useBalancedRow(key: string, enabled: boolean) {
  * digit is its own glyph, so the hand points up at it from below instead of covering it.
  */
 function inviteElement(root: HTMLElement, key: string): HTMLElement | null {
-  const q = (selector: string) => root.querySelector<HTMLElement>(selector);
-  if (key.startsWith('blank-')) return q(`[data-blank="${CSS.escape(key.slice(6))}"]`);
-  if (key.startsWith('digit-'))
-    return q(`.ni-efw__nd[data-digit="${CSS.escape(key.slice(6))}"] > .ni-efw__nd-tip`);
-  if (key.startsWith('opt-')) return q(`.ni-pick[data-id="${CSS.escape(key)}"]`);
-  const k = CSS.escape(key);
-  return q(`[data-place-item="${k}"], [data-place-target="${k}"]`);
+  if (key.startsWith('blank-')) return byData(root, 'data-blank', key.slice(6));
+  if (key.startsWith('digit-')) {
+    const digit = byData(root, 'data-digit', key.slice(6), '.ni-efw__nd[data-digit]');
+    return digit?.querySelector<HTMLElement>(':scope > .ni-efw__nd-tip') ?? null;
+  }
+  if (key.startsWith('opt-')) return byData(root, 'data-id', key, '.ni-pick[data-id]');
+  return byData(root, 'data-place-item', key) ?? byData(root, 'data-place-target', key);
+}
+
+/**
+ * Every element under `root` (matching the fixed selector `among`) whose `attr` is exactly
+ * `value`. Values come from config strings (blank ids, card values, option ids), which may hold
+ * any character, so they are compared as attributes and never built into a selector.
+ */
+function allByData(
+  root: ParentNode | null | undefined,
+  attr: string,
+  value: string,
+  among = `[${attr}]`,
+): HTMLElement[] {
+  if (!root) return [];
+  return [...root.querySelectorAll<HTMLElement>(among)].filter(
+    (e) => e.getAttribute(attr) === value,
+  );
+}
+
+/** The first element `allByData` finds, or null. */
+function byData(
+  root: ParentNode | null | undefined,
+  attr: string,
+  value: string,
+  among?: string,
+): HTMLElement | null {
+  return allByData(root, attr, value, among)[0] ?? null;
 }
 
 export function ExpandedFormWidget({
@@ -410,13 +437,13 @@ export function ExpandedFormWidget({
 
   // ---------- demo mode (03 §6.3) ----------
 
-  const el = (selector: string) => rootRef.current?.querySelector<HTMLElement>(selector) ?? null;
+  /** A placed or tray card by its item id (`placed-1`, `card-40~1`). */
+  const itemEl = (id: string) => byData(rootRef.current, 'data-place-item', id);
+  /** A blank (card or pad) by its expression blank id, whatever characters the id holds. */
+  const blankEl = (id: string) => byData(rootRef.current, 'data-blank', id);
   const trayCardEl = (v: number, which: 'first' | 'last') => {
-    const all = rootRef.current?.querySelectorAll<HTMLElement>(
-      `.ni-efw__card[data-in="tray"][data-card="${v}"]`,
-    );
-    if (!all || all.length === 0) return null;
-    return which === 'first' ? (all[0] ?? null) : (all[all.length - 1] ?? null);
+    const all = allByData(rootRef.current, 'data-card', String(v), '.ni-efw__card[data-in="tray"]');
+    return (which === 'first' ? all[0] : all[all.length - 1]) ?? null;
   };
 
   /** Slides `target` from where `from` was drawn to its own place (FLIP), or highlights it. */
@@ -450,7 +477,7 @@ export function ExpandedFormWidget({
       const v = numArg(action, 'value');
       const i = v === undefined ? -1 : before.placed.lastIndexOf(v);
       if (v === undefined || i < 0) return;
-      const from = el(`[data-place-item="placed-${i}"]`)?.getBoundingClientRect();
+      const from = itemEl(`placed-${i}`)?.getBoundingClientRect();
       act({ op: 'place-card', args: { value: v, remove: true } });
       await afterCommit();
       if (!alive.current) return;
@@ -459,16 +486,17 @@ export function ExpandedFormWidget({
       return;
     }
     if (mode !== 'fill') return;
-    const blank = action.args?.blank;
-    const i = typeof blank === 'string' ? ids.indexOf(blank) : -1;
-    if (i < 0) return;
+    const arg = action.args?.blank;
+    const i = typeof arg === 'string' ? ids.indexOf(arg) : -1;
+    const blank = ids[i];
+    if (blank === undefined) return;
     if (!hasCards) {
       await eraseValue(i);
       return;
     }
     const v = before.entries[i];
     if (v === null || v === undefined) return;
-    const from = el(`[data-blank="${blank}"]`)?.getBoundingClientRect();
+    const from = blankEl(blank)?.getBoundingClientRect();
     // The child's clearBlank payload: the model empties the blank by id, no value needed.
     act({ op: 'place-card', args: { remove: true, blank } });
     await afterCommit();
@@ -489,11 +517,11 @@ export function ExpandedFormWidget({
       if (!alive.current) return;
       if (mode === 'build') {
         const key = `placed-${after.placed.length - 1}`;
-        await fly(el(`[data-place-item="${key}"]`), from, key);
+        await fly(itemEl(key), from, key);
       } else {
         const i = after.entries.findIndex((e, j) => e !== before.entries[j]);
         const id = ids[i];
-        if (id !== undefined) await fly(el(`[data-blank="${id}"]`), from, `blank-${id}`);
+        if (id !== undefined) await fly(blankEl(id), from, `blank-${id}`);
       }
       return;
     }
@@ -633,9 +661,7 @@ export function ExpandedFormWidget({
           if (reduced || before.size === 0) {
             setFlash('build');
           } else {
-            await Promise.all(
-              [...before].map(([key, from]) => fly(el(`[data-place-item="${key}"]`), from, key)),
-            );
+            await Promise.all([...before].map(([key, from]) => fly(itemEl(key), from, key)));
             await pause(300);
           }
         } else if (action.op === 'highlight-digit') {

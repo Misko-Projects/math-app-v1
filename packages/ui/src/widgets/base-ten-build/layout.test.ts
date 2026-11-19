@@ -13,6 +13,9 @@ import {
   matLayout,
   onesFrame,
   pieceBox,
+  type SideSpec,
+  sideNeed,
+  sidePlan,
   smaller,
   U_FLOOR,
   UNIT_G1,
@@ -46,6 +49,8 @@ const tablet = (k = false): Omit<MatLayoutInput, 'kinds' | 'counts'> => ({
   sideMax: 260,
   headerWidth: (kind) => (k ? 56 : 44 + 11 * (WORDS[kind] ?? '').length),
 });
+/** The side panel's height: the widget's 666 px less its 2 px top and bottom padding. */
+const SIDE_H = 662;
 /** Read mode: no trades (12 px between columns), the pad's fixed width beside the picture. */
 const tabletRead = (k = false): Omit<MatLayoutInput, 'kinds' | 'counts'> => {
   const pad = k ? 3 * 96 + 24 : 3 * 76 + 24;
@@ -207,20 +212,46 @@ describe('the largest mat the engine allows', () => {
     expect(cap).toEqual(counts(9, 19, 29, 199));
   });
 
-  // Every age mode and mode, all four columns full at once: the worst case.
-  const envs = [
-    ['G1 build', tablet(false)],
-    ['K build', tablet(true)],
-    ['G1 read', tabletRead(false)],
-    ['K read', tabletRead(true)],
-  ] as const;
-  for (const [name, env] of envs) {
+  // Every age mode and mode, all four columns full at once, beside the fullest side panels: four
+  // piles (plain, or with stock tags), the goal (or none: arithmetic), and build-exact's goal with
+  // three chips. The panel claims the room it needs to fit its height (sideNeed); the mat shrinks.
+  const panels: [string, Omit<SideSpec, 'k' | 'height'>][] = [
+    ['no goal', { piles: [false, false, false, false], goal: null, exact: [] }],
+    ['goal', { piles: [false, false, false, false], goal: '9999', exact: [] }],
+    ['goal, limits', { piles: [false, true, true, true], goal: '9999', exact: [] }],
+    [
+      'exact',
+      { piles: [false, true, true, true], goal: '9111', exact: ['hundreds', 'tens', 'ones'] },
+    ],
+  ];
+  const envs: [string, Omit<MatLayoutInput, 'kinds' | 'counts'>, SideSpec | null][] = [];
+  for (const k of [false, true]) {
+    const age = k ? 'K' : 'G1';
+    for (const [name, p] of panels) {
+      const spec: SideSpec = { ...p, k, height: SIDE_H };
+      const need = sideNeed(spec, tablet(k).sideMin);
+      envs.push([
+        `${age} build, ${name}`,
+        { ...tablet(k), sideMin: need.width, sideMax: Math.max(260, need.width) },
+        spec,
+      ]);
+    }
+    envs.push([`${age} read`, tabletRead(k), null]);
+  }
+  for (const [name, env, spec] of envs) {
     it(`fits 1280 × 800 without overlap (${name})`, () => {
       // The widget measures fractional widths and keeps half a px of slack.
       const l = matLayout({ kinds: KINDS, counts: cap, ...env, width: 1146 - 0.5 });
       expect(l.overflow).toBe(false);
       expect(l.sideWidth).toBeGreaterThanOrEqual(env.sideMin);
       expect(l.matWidth + env.gap + l.sideWidth).toBeLessThanOrEqual(1146 - 0.5);
+      if (spec) {
+        // The side panel, laid out at its width, fits the widget's height.
+        const crowded = sideNeed(spec, tablet(spec.k).sideMin).crowded;
+        const p = sidePlan(spec, l.sideWidth, crowded);
+        expect(p.width).toBeLessThanOrEqual(l.sideWidth);
+        expect(p.height).toBeLessThanOrEqual(SIDE_H);
+      }
       for (const c of l.columns) {
         const n = cap[c.kind];
         const box = c.kind === 'ones' ? onesFrame(l.u, l.orient) : pieceBox(c.kind, l.u);
@@ -245,6 +276,46 @@ describe('the largest mat the engine allows', () => {
         }
       }
     }
+  });
+});
+
+describe('side panel', () => {
+  it('keeps the usual narrow panel for authored items (one column of piles, goal and chips)', () => {
+    const items: SideSpec[] = [
+      { k: false, piles: [true, false], goal: '34', exact: ['tens'], height: SIDE_H },
+      { k: true, piles: [false, false], goal: '13', exact: [], height: SIDE_H },
+      { k: false, piles: [true, true, false], goal: '1.25', exact: [], height: SIDE_H },
+      { k: false, piles: [false, false, false], goal: '999', exact: [], height: SIDE_H },
+    ];
+    for (const s of items) {
+      expect(sideNeed(s, tablet(s.k).sideMin)).toEqual({
+        width: tablet(s.k).sideMin,
+        crowded: false,
+      });
+    }
+  });
+
+  it('review case: four piles, the goal and three chips need a crowded, wider panel in K', () => {
+    const s: SideSpec = {
+      k: true,
+      piles: [false, true, false, false],
+      goal: '9111',
+      exact: ['hundreds', 'tens', 'ones'],
+      height: SIDE_H,
+    };
+    // At the old narrow width the piles stack in one column and the panel passes 800 px.
+    expect(sidePlan(s, 164, false).height).toBeGreaterThan(SIDE_H + 300);
+    const need = sideNeed(s, 150);
+    expect(need.crowded).toBe(true);
+    const p = sidePlan(s, need.width, true);
+    expect(p).toMatchObject({ pileCols: 2, askCols: 2, lg: false });
+    expect(p.height).toBeLessThanOrEqual(SIDE_H);
+  });
+
+  it('draws the goal large only when the panel still fits its height', () => {
+    const s: SideSpec = { k: false, piles: [false, false], goal: '34', exact: [], height: SIDE_H };
+    expect(sidePlan(s, 260, false).lg).toBe(true);
+    expect(sidePlan({ ...s, height: 300 }, 260, false).lg).toBe(false);
   });
 });
 

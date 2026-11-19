@@ -148,7 +148,12 @@ async function expectFits(canvasElement: HTMLElement, root: HTMLElement) {
     await expect(r.top, `${el.className} top`).toBeGreaterThanOrEqual(box.top - 0.5);
     await expect(r.bottom, `${el.className} bottom`).toBeLessThanOrEqual(box.bottom + 0.5);
   }
+  // The mat's columns fit the mat (they never spill under the side panel).
+  const work = root.querySelector('.ni-btb__work') as HTMLElement;
+  await expect(work.scrollWidth, 'mat columns spill').toBeLessThanOrEqual(work.clientWidth);
   const b = board(root).getBoundingClientRect();
+  const side = root.querySelector('.ni-btb__side')?.getBoundingClientRect();
+  if (side) await expect(b.right, 'mat clear of the side panel').toBeLessThanOrEqual(side.left);
   for (const p of root.querySelectorAll<HTMLElement>('.ni-btb__piece')) {
     const r = p.getBoundingClientRect();
     await expect(r.left).toBeGreaterThanOrEqual(b.left);
@@ -1150,6 +1155,131 @@ const matMax: Config = {
 };
 
 /**
+ * The fullest side panel beside the largest mat (review round 2): build-exact with all four
+ * piles (one of them limited, so the piles carry stock tags), three exact chips and the goal.
+ */
+const exactWorst: Config = {
+  format: 'base-ten-build',
+  target: 9111,
+  mode: 'build-exact',
+  pieces: ALL,
+  wholeIs: 'unit',
+  exact: { hundreds: 1, tens: 1, ones: 1 },
+  limits: { hundreds: 0 },
+  prebuilt: { thousands: 9, hundreds: 19, tens: 29, ones: 199 },
+};
+
+/** The widget and every control (Check above all) lie inside the 1200 × 720 tablet stage. */
+async function expectInsideStage(canvasElement: HTMLElement, root: HTMLElement) {
+  const stage = (
+    canvasElement.querySelector('.story-widget-stage') as HTMLElement
+  ).getBoundingClientRect();
+  const check = within(root).getByRole('button', { name: 'Check' }).getBoundingClientRect();
+  await expect(stage.height).toBeLessThanOrEqual(720);
+  await expect(check.top).toBeGreaterThanOrEqual(stage.top);
+  await expect(check.bottom, 'Check inside the stage').toBeLessThanOrEqual(stage.bottom);
+  await expect(check.left).toBeGreaterThanOrEqual(stage.left);
+  await expect(check.right).toBeLessThanOrEqual(stage.right);
+}
+
+const worstCase = (ageMode: 'k' | 'g1-up', config: Config): Story => ({
+  globals: { ageMode },
+  args: { config },
+  render: renderTablet,
+  play: async ({ canvasElement }) => {
+    await expect(btbModel().configSchema.safeParse(config).success).toBe(true);
+    const root = await findWidget(canvasElement, ROOT);
+    await expectMat(root, { ...config.prebuilt });
+    await expect(root.querySelector('.ni-btb__goal')).not.toBeNull();
+    await expectNoOverlapFast(root);
+    await expectFits(canvasElement, root);
+    await expectInsideStage(canvasElement, root);
+    for (const c of controls(root)) await expectTargetSize(c, ageMode);
+    await expectTargetGaps(controls(root));
+  },
+});
+
+/** The review case in K: Check stays on screen, all controls K-sized. */
+export const StressExactWorstK = worstCase('k', exactWorst);
+/** The same item in G1. */
+export const StressExactWorstG1 = worstCase('g1-up', exactWorst);
+
+/**
+ * A plain build (the goal shows, four piles) filled to the largest mat the engine allows: with no
+ * pieces prebuilt the child takes them all, here played instantly through the demo (reduced
+ * motion). The panel keeps its piles two to a row and Check on screen; the mat shrinks to fit.
+ */
+const buildGoalWorst = (ageMode: 'k' | 'g1-up'): Story => {
+  const controller = createDemoController({ strict: true });
+  const config: Config = {
+    format: 'base-ten-build',
+    target: 9999,
+    mode: 'build',
+    pieces: ALL,
+    wholeIs: 'unit',
+  };
+  return {
+    globals: { ageMode, motion: 'reduced' },
+    args: { config, demo: controller },
+    render: renderTablet,
+    play: async ({ canvasElement }) => {
+      await expect(btbModel().configSchema.safeParse(config).success).toBe(true);
+      const root = await findWidget(canvasElement, ROOT);
+      const full = { thousands: 9, hundreds: 19, tens: 29, ones: 199 } as const;
+      for (const [kind, count] of Object.entries(full)) {
+        await controller.play({ op: 'add-piece', args: { kind, count } });
+      }
+      await expectMat(root, full);
+      await expect(within(root).getByRole('button', { name: 'Make 9999' })).toBeInTheDocument();
+      // The demo's highlight rings fade; the resting frame is the child's.
+      await waitFor(() => expect(root.querySelector('[data-flash="true"]')).toBeNull());
+      await expectNoOverlapFast(root);
+      await expectFits(canvasElement, root);
+      await expectInsideStage(canvasElement, root);
+      for (const c of controls(root)) await expectTargetSize(c, ageMode);
+      await expectTargetGaps(controls(root));
+    },
+  };
+};
+export const StressBuildGoalWorstK = buildGoalWorst('k');
+export const StressBuildGoalWorstG1 = buildGoalWorst('g1-up');
+
+const read10000: Config = {
+  format: 'base-ten-build',
+  target: 10_000,
+  mode: 'read',
+  pieces: ALL,
+  wholeIs: 'unit',
+  prebuilt: { thousands: 9, hundreds: 10, tens: 0, ones: 0 },
+};
+
+/**
+ * A noncanonical read of 10 000 (review round 2): 9 cubes and 10 flats, every count within the
+ * cap. The picture fits the tablet, the pad takes five digits (as for every picture with cubes),
+ * and the child can answer 10000.
+ */
+export const ReadTenThousand: Story = {
+  args: { config: read10000, tier: 'pictorial' },
+  render: renderTablet,
+  play: async ({ canvasElement, args }) => {
+    await expect(btbModel().configSchema.safeParse(read10000).success).toBe(true);
+    const root = await findWidget(canvasElement, ROOT);
+    const canvas = within(root);
+    await expectMat(root, { thousands: 9, hundreds: 10 });
+    await expectNoValueShown(canvas.getByRole('img', { name: 'Look at the picture' }), ['10000']);
+    await expectNoOverlapFast(root);
+    await expectFits(canvasElement, root);
+    for (const k of ['1', '0', '0', '0', '0']) {
+      await userEvent.click(canvas.getByRole('button', { name: k }));
+    }
+    await expect(canvas.getByRole('button', { name: 'Your answer: 10000' })).toBeInTheDocument();
+    await expectInsideStage(canvasElement, root);
+    await userEvent.click(canvas.getByRole('button', { name: 'Check' }));
+    await expect(args.onResponse).toHaveBeenCalledWith({ kind: 'number', value: 10_000 });
+  },
+};
+
+/**
  * The largest mat the engine allows, in K (the tightest: big controls, wide gutters): 9 cubes,
  * 19 flats, 29 rods and 199 units fit the tablet with nothing overlapping or clipped. One more
  * of a kind is past the cap.
@@ -1173,20 +1303,37 @@ export const StressMaxMatK: Story = {
 };
 
 /**
- * The mat never overfills: from the largest allowed start (G1), the child may take another cube
- * only while the mat still fits; then the pile turns off (dashed) and taps do nothing. A split
- * that would overfill the mat (a thousand into ten more flats) is off too.
+ * The mat never overfills: from the largest allowed start (G1), a split that would overfill the
+ * mat (a thousand into ten more flats) turns off once the flats run out of room, and the child may
+ * take another cube only while the mat still fits; then the pile turns off (dashed) and taps do
+ * nothing. (Reduced motion keeps the many trades quick.)
  */
 export const MatNeverOverfills: Story = {
+  globals: { motion: 'reduced' },
   args: { config: matMax },
   render: renderTablet,
   play: async ({ canvasElement, args }) => {
     const root = await findWidget(canvasElement, ROOT);
     await expectMat(root, { thousands: 9, hundreds: 19, tens: 29, ones: 199 });
-    await expect(trade(root, 'split-thousands')).toBeDisabled();
+    const split = trade(root, 'split-thousands');
+    let splits = 0;
+    while (!split.disabled && splits < 9) {
+      await userEvent.click(split);
+      splits++;
+      await expectMat(root, {
+        thousands: 9 - splits,
+        hundreds: 19 + 10 * splits,
+        tens: 29,
+        ones: 199,
+      });
+    }
+    await expect(split).toBeDisabled();
+    await expect(splits).toBeLessThan(9);
+    await expectFits(canvasElement, root);
+    const flats = 19 + 10 * splits;
     const cubes = pile(root, 'thousands');
     let taken = 0;
-    while (cubes.getAttribute('aria-disabled') !== 'true' && taken < 5) {
+    while (cubes.getAttribute('aria-disabled') !== 'true' && taken < 40) {
       await tapPlace(root, 'thousands', 1);
       taken++;
     }
@@ -1195,12 +1342,12 @@ export const MatNeverOverfills: Story = {
     const n = pieces(root, 'thousands');
     await userEvent.click(cubes);
     await userEvent.click(board(root));
-    await expectMat(root, { thousands: n, hundreds: 19, tens: 29, ones: 199 });
+    await expectMat(root, { thousands: n, hundreds: flats, tens: 29, ones: 199 });
     await expectNoOverlapFast(root);
     await expectFits(canvasElement, root);
     // Putting a piece back always works.
     await pointerDrag(matPiece(root, 'thousands', n - 1), center(trayPad(root)), 'mouse');
-    await expectMat(root, { thousands: n - 1, hundreds: 19, tens: 29, ones: 199 });
+    await expectMat(root, { thousands: n - 1, hundreds: flats, tens: 29, ones: 199 });
     await waitFor(() => expect(cubes).not.toHaveAttribute('aria-disabled', 'true'));
     await expect(args.onResponse).not.toHaveBeenCalled();
   },

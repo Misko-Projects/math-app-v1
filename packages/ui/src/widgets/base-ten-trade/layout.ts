@@ -248,43 +248,93 @@ export function lyingRods(n: number, u: number): Box[] {
   }));
 }
 
+/** Lying rods in stacks of `perStack`, side by side (a full stack wraps into the next one). */
+export function rodStacks(n: number, u: number, perStack: number): Box[] {
+  const per = Math.max(1, perStack);
+  const one = lyingRods(Math.min(n, per), u);
+  const gap = spacing(u).flat;
+  return Array.from({ length: n }, (_, i) => ({
+    ...(one[i % per] as Box),
+    x: Math.floor(i / per) * (u * 10 + gap),
+  }));
+}
+
+/** `n` pieces wrapped into 1, 2, 3 … rows (or stacks): how many go in each, most first. */
+function wrapOptions(n: number): number[] {
+  const opts = new Set<number>();
+  for (let rows = 1; rows <= Math.max(1, n); rows++) opts.add(Math.max(1, Math.ceil(n / rows)));
+  return [...opts];
+}
+
+const KINDS = ['hundreds', 'tens', 'ones'] as const;
+
+/** The taken pieces' arrangement in the nest: each kind's boxes from its origin, and its size. */
+export interface NestArrangement {
+  groups: Record<Column, Box[]>;
+  w: number;
+  h: number;
+}
+
+/** Hundreds (`flatsPerRow` a row), tens (lying, `rodsPerStack` a stack), ones, side by side. */
+function nestGroups(t: Hto, u: number, flatsPerRow: number, rodsPerStack: number) {
+  const gap = Math.max(10, u * 2);
+  const raw: Record<Column, Box[]> = {
+    hundreds: naturalLayout('hundreds', t.hundreds, u, flatsPerRow),
+    tens: rodStacks(t.tens, u, rodsPerStack),
+    ones: naturalLayout('ones', t.ones, u),
+  };
+  const groups: Record<Column, Box[]> = { hundreds: [], tens: [], ones: [] };
+  let x = 0;
+  let h = 0;
+  for (const c of KINDS) {
+    const g = raw[c];
+    if (g.length === 0) continue;
+    const ext = extent(g);
+    groups[c] = g.map((b) => ({ ...b, x: b.x + x }));
+    x += ext.w + gap;
+    h = Math.max(h, ext.h);
+  }
+  return { groups, w: Math.max(0, x - gap), h };
+}
+
 /**
- * Pieces taken away, in the nest (`box`, its inner area): hundreds, then tens (lying down), then
- * ones, side by side at edge `ub`, centred across and resting on the floor (the box's bottom).
+ * How the taken pieces sit in a nest whose inner area is `innerW` px wide: hundreds, then tens
+ * (lying down), then ones, side by side, resting on the floor. When one row is too wide, flats
+ * wrap into rows and rods into more stacks: of the arrangements that fit across, the shallowest
+ * wins (then the narrowest). Pieces never overlap and are never squeezed; null when even the
+ * narrowest arrangement (one flat a row, rods in stacks of one) is wider than the nest.
+ */
+export function arrangeTaken(t: Hto, u: number, innerW: number): NestArrangement | null {
+  let best: NestArrangement | null = null;
+  for (const f of wrapOptions(t.hundreds)) {
+    for (const r of wrapOptions(t.tens)) {
+      const a = nestGroups(t, u, f, r);
+      if (a.w > innerW) continue;
+      if (!best || a.h < best.h || (a.h === best.h && a.w < best.w)) best = a;
+    }
+  }
+  return best;
+}
+
+/**
+ * Pieces taken away, in the nest (`box`, its inner area), at edge `ub`: arranged by arrangeTaken,
+ * centred across, each kind resting on the floor (the box's bottom). A planned nest always holds
+ * them (measurePlan sizes it for this arrangement); should nothing fit across, the narrowest
+ * arrangement is used as is: never squeezed, never overlapping.
  */
 export function placeTaken(
   taken: Hto,
   ub: number,
   box: { w: number; h: number },
 ): Record<Column, Box[]> {
-  const groups: Record<Column, Box[]> = {
-    hundreds: naturalLayout('hundreds', taken.hundreds, ub, 10),
-    tens: lyingRods(taken.tens, ub),
-    ones: naturalLayout('ones', taken.ones, ub),
-  };
-  const gap = Math.max(10, ub * 2);
-  let x = 0;
+  const a = arrangeTaken(taken, ub, box.w) ?? nestGroups(taken, ub, 1, 1);
+  const ox = Math.max(0, (box.w - a.w) / 2);
   const out: Record<Column, Box[]> = { hundreds: [], tens: [], ones: [] };
-  const total = (['hundreds', 'tens', 'ones'] as const)
-    .map((c) => extent(groups[c]).w)
-    .filter((w) => w > 0);
-  const width = total.reduce((a, w) => a + w, 0) + gap * Math.max(0, total.length - 1);
-  // Too wide (far more taken than the item asks for): squeeze the positions as a last resort.
-  const fx = width > box.w && width > ub ? Math.max(0, (box.w - ub) / (width - ub)) : 1;
-  const ox = Math.max(0, (box.w - width * fx) / 2);
-  for (const c of ['hundreds', 'tens', 'ones'] as const) {
-    const g = groups[c];
+  for (const c of KINDS) {
+    const g = a.groups[c];
     if (g.length === 0) continue;
-    const ext = extent(g);
-    const tall = Math.min(ext.h, box.h);
-    const fy = ext.h > box.h && ext.h > ub ? Math.max(0, (box.h - ub) / (ext.h - ub)) : 1;
-    const floor = box.h - tall;
-    out[c] = g.map((b) => ({
-      ...b,
-      x: Math.round(ox + (x + b.x) * fx),
-      y: Math.round(floor + b.y * fy),
-    }));
-    x += ext.w + gap;
+    const floor = box.h - extent(g.map((b) => ({ ...b, x: 0 }))).h;
+    out[c] = g.map((b) => ({ ...b, x: Math.round(ox + b.x), y: Math.round(floor + b.y) }));
   }
   return out;
 }
@@ -485,14 +535,6 @@ function contentW(kind: Column, n: number, u: number, perRow: number): number {
 const perRowFor = (kind: Column, rodsPerRow: number, flatsPerRow: number) =>
   kind === 'tens' ? rodsPerRow : kind === 'hundreds' ? flatsPerRow : ONES_PER_ROW;
 
-/** The width the taken pieces need side by side in the nest. */
-function takenWidth(t: Hto, u: number): number {
-  const groups = (['hundreds', 'tens', 'ones'] as const)
-    .map((c) => (c === 'tens' ? extent(lyingRods(t.tens, u)).w : contentW(c, t[c], u, 10)))
-    .filter((w) => w > 0);
-  return groups.reduce((a, w) => a + w, 0) + Math.max(10, u * 2) * Math.max(0, groups.length - 1);
-}
-
 /** One candidate layout at unit `u`, before it is stretched to fill the space. */
 export function measurePlan(
   input: OnePlanInput,
@@ -538,16 +580,12 @@ export function measurePlan(
   let nestH = 0;
   let nestFits = true;
   if (caps.taken) {
-    const t = caps.taken;
-    const piecesTall = Math.max(
-      t.hundreds > 0 ? u * 10 : 0,
-      extent(lyingRods(t.tens, u)).h,
-      contentH('ones', t.ones, u, ONES_PER_ROW),
-    );
+    // The nest is as wide as the mat, which stretches to the full width; its inner width doesn't
+    // depend on its height. The pieces wrap into rows (placeTaken's arrangement) to fit across.
+    const arranged = arrangeTaken(caps.taken, u, nestInner(input.width, 0).w);
+    nestFits = arranged !== null;
     // At least a target tall (the nest is where pieces are dropped).
-    nestH = Math.max(sz.target + 2 * GAP, nestHeightFor(piecesTall));
-    // The nest is as wide as the mat, which stretches to the full width.
-    nestFits = takenWidth(t, u) <= nestInner(input.width, nestH).w;
+    nestH = Math.max(sz.target + 2 * GAP, nestHeightFor(arranged?.h ?? 0));
   }
   const matH = 2 * MAT_BORDER + sz.header + bodyH;
   const totalH = matH + (trayH > 0 ? ROW_GAP + trayH : 0) + (nestH > 0 ? ROW_GAP + nestH : 0);

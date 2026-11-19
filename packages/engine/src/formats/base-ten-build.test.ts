@@ -84,7 +84,7 @@ describe('base-ten-build: MAT_MAX', () => {
     expect(valid({ ...c, exact: { tens: 29 }, target: 290 })).toBe(true);
   });
 
-  it('caps the target at 9 thousands (ten thousands is a place the mat lacks)', () => {
+  it('caps a build target at 9 thousands (ten thousands is a place the mat lacks)', () => {
     const c: Config = {
       format: 'base-ten-build',
       target: 9999,
@@ -94,5 +94,15 @@ describe('base-ten-build: MAT_MAX', () => {
     };
     expect(valid(c)).toBe(true);
     expect(valid({ ...c, target: 10_000 })).toBe(false);
+    expect(valid({ ...c, mode: 'build-exact', exact: { ones: 0 }, target: 10_000 })).toBe(false);
+  });
+
+  it('lets a read show a target past 9 thousands with pieces within the cap (review round 2)', () => {
+    // 10 000 as 9 thousands and 10 hundreds: the widget draws the prebuilt pieces, all in range.
+    const c = read({ thousands: 9, hundreds: 10, tens: 0, ones: 0 }, 10_000);
+    expect(overfullKinds(c)).toEqual([]);
+    expect(baseTenBuild.configSchema.safeParse(c).success).toBe(true);
+    // Its pieces are still capped.
+    expect(valid(read({ thousands: 10, hundreds: 0, tens: 0, ones: 0 }, 10_000))).toBe(false);
   });
 });

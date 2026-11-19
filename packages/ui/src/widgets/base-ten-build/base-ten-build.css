@@ -339,7 +339,8 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 10px;
+  /* --target-gap between the goal and the chips (06 §4). */
+  gap: var(--target-gap);
 }
 .ni-btb__goal {
   min-width: calc(var(--target-min) * 1.6);
@@ -390,6 +391,26 @@
 .ni-btb__exactart {
   display: flex;
   align-items: center;
+}
+/*
+ * A crowded panel (the largest mats, layout.ts sidePlan): the goal and the exact chips sit two to a
+ * row with trimmed side padding, still at least --target-min each way.
+ */
+.ni-btb__ask[data-cols="2"] {
+  display: grid;
+  grid-template-columns: repeat(2, auto);
+  justify-content: center;
+  align-items: center;
+  justify-items: center;
+}
+.ni-btb__ask[data-cols="2"] .ni-btb__goal.ni-number {
+  min-width: var(--target-min);
+  padding-inline: 10px;
+}
+.ni-btb__ask[data-cols="2"] .ni-btb__exact {
+  min-width: var(--target-min);
+  gap: 4px;
+  padding-inline: 6px;
 }
 
 /* The tray: a paper crate. Its pad is the "put it back" target; the piles sit on top of it. */
