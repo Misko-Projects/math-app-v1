@@ -9,7 +9,7 @@ sk.ALG.04.intro:
 tp.ALG.01.t1.prompt:
   text: "Make the pattern go on. Put on what comes next."
 tp.ALG.01.t2.prompt:
-  text: "Fill the empty boxes so the pattern goes on."
+  text: "Fill each empty box so the pattern goes on."
 tp.ALG.01.t3.prompt:
   text: "Put the last cards in order so the pattern goes on."
 tp.ALG.02.t1.prompt:
@@ -17,7 +17,7 @@ tp.ALG.02.t1.prompt:
 tp.ALG.02.t2.prompt:
   text: "Jump to the next number in the pattern {a}, {b}, {c}. Where do you land?"
 tp.ALG.02.t3.prompt:
-  text: "What comes after {a}, {b}, {c}? Fill in the empty boxes."
+  text: "What comes after {a}, {b}, {c}? Fill in each empty box."
 tp.ALG.02.t4.prompt:
   text: "{a}, {b}, {c}. How much does it grow each time?"
 tp.ALG.04.t3.prompt:

@@ -59,9 +59,18 @@ function predictRestart(item: GeneratedItem): ResponseValue | null {
   return null;
 }
 
+/**
+ * "Make the next repeat" orders (`mode: core`, ALG.04.t3) free exactly one core after whole cores,
+ * so starting again from the first card is the answer: the rule does not apply to them (03 §7.1
+ * `applies`; PR #84 review).
+ */
+const nextRepeat = (item: GeneratedItem): boolean =>
+  item.widget.format === 'order' && item.params.mode === 'core';
+
 export const patternRestart: MisconceptionRule = {
   id: 'patternRestart',
   kind: 'state',
+  applies: (item) => !nextRepeat(item),
   predict: predictRestart,
   match(item, r) {
     const p = predictRestart(item);

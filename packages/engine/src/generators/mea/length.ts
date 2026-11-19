@@ -230,6 +230,8 @@ export const meaLength: GeneratorDef = {
     },
   },
   narration: [
+    // its descending order retry line (items/check.ts retryFeedback)
+    'fb.order.retry-desc',
     'gen.mea.length.line-up',
     'gen.mea.length.look-ends',
     'gen.mea.length.pick-longer',

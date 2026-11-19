@@ -6,10 +6,11 @@ import type {
   CheckResult,
   GeneratedItem,
   MisconceptionId,
+  NarrationKey,
   ResponseValue,
 } from '@number-island/shared';
 import { stateChecker } from '../check/state';
-import { boundMisconceptions } from '../content/binding';
+import { boundMisconceptions, boundTemplate } from '../content/binding';
 import { applicableMisconceptions, type ProcessMeta, sameResponse } from '../misconceptions';
 import { devLog } from './devlog';
 
@@ -55,6 +56,32 @@ export function matches(answer: AnswerSpec, r: ResponseValue): boolean {
   }
 }
 
+/**
+ * Orders that are not by size, by generator: a pattern's cards go in pattern order and daily
+ * events in the order of the day, so "find the smallest one first" would not fit (PR #84 review).
+ * The generators declare these keys, so V16 checks they exist.
+ */
+const SEQUENCE_ORDER_RETRY: Readonly<Record<string, NarrationKey>> = {
+  'pattern.repeat': 'fb.order.retry-pattern',
+  'time.sequence': 'fb.order.retry-day',
+};
+
+/**
+ * The retry line of a wrong answer that no misconception explains: `fb.<format>.retry`, except
+ * that an order item's line fits its order (PR #84 review). A descending order finds the biggest
+ * first (`fb.order.retry-desc`), and a sequence order has its generator's line.
+ */
+export function retryFeedback(item: GeneratedItem): NarrationKey {
+  const w = item.widget;
+  if (w.format === 'order') {
+    const generator = boundTemplate(item.templateId)?.generator;
+    const own = generator ? SEQUENCE_ORDER_RETRY[generator] : undefined;
+    if (own) return own;
+    if (w.direction === 'desc') return 'fb.order.retry-desc';
+  }
+  return `fb.${item.format}.retry`;
+}
+
 export function checkResponse(item: GeneratedItem, r: ResponseValue): CheckResult {
   if (r.kind === 'skip') {
     return { correct: false, partialCredit: 0, misconceptionIds: [], feedback: 'fb.skip' };
@@ -82,8 +109,8 @@ export function checkResponse(item: GeneratedItem, r: ResponseValue): CheckResul
   const feedback = correct
     ? `fb.correct.${1 + (((item.seed % 6) + 6) % 6)}`
     : misconceptionIds.length > 0
-      ? (library.find((m) => m.id === misconceptionIds[0])?.feedback ?? `fb.${item.format}.retry`)
-      : `fb.${item.format}.retry`;
+      ? (library.find((m) => m.id === misconceptionIds[0])?.feedback ?? retryFeedback(item))
+      : retryFeedback(item);
   return {
     correct,
     partialCredit: correct ? 1 : 0,

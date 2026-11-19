@@ -69,7 +69,7 @@ templates:
     difficulty: { base: -0.8 }
     narration:
       prompt: p.time.set
-      hints: [h.time.short-hand-set, h.time.half-past, h.time.turn-hands]
+      hints: [h.time.top-or-bottom, h.time.hour-or-half, h.time.turn-hands]
 
   - id: TIM.04.t2
     skillId: TIM.04
@@ -86,7 +86,7 @@ templates:
     difficulty: { base: -0.8 }
     narration:
       prompt: p.time.match-digital
-      hints: [h.time.short-hand-set, h.time.half-past, h.time.turn-hands]
+      hints: [h.time.top-or-bottom, h.time.hour-or-half, h.time.turn-hands]
 
   - id: TIM.04.t3
     skillId: TIM.04
@@ -102,7 +102,7 @@ templates:
     difficulty: { base: -0.8 }
     narration:
       prompt: p.time.read
-      hints: [h.time.short-hand, h.time.half-past, h.time.between]
+      hints: [h.time.short-hand, h.time.top-or-bottom, h.time.hour-or-half]
 
   # ---------- TIM.08: daily events in order ----------
   - id: TIM.08.t1
@@ -182,7 +182,8 @@ templates:
       hints: [h.time.between, h.time.half-past]
 
   # The hour only: the short hand is part way to the next number. A pick, so it is not evidence
-  # (04 §7a); the options are hours, with the next hour and the number the long hand points at.
+  # (04 §7a); the options are the run of hours the hour is in (hourClass), the same for every hour
+  # of the run, so they never give the hour away.
   - id: TIM.09.t3
     skillId: TIM.09
     format: clock-read

@@ -1,6 +1,7 @@
 # K01 (#11): MUL.12 on div.share (03 §5.6). Deal one at a time until the pile is gone (t1), with
-# the rest going to the seagull (t2); make one fair share in a basket (t3); a picture of the pile,
-# then type how many each friend gets (t4).
+# the rest going to the seagull (t2); a picture of the pile, then type how many each friend gets
+# (t3). There is no one-basket make-set template: its count check never needs the dealing the skill
+# teaches (PR #84 review), and t1 and t2 already assess the deal.
 strand: MUL
 templates:
   - id: MUL.12.t1
@@ -38,21 +39,6 @@ templates:
 
   - id: MUL.12.t3
     skillId: MUL.12
-    format: make-set
-    tier: concrete
-    representation: groups
-    generator: div.share
-    params:
-      ask: each
-      items: { int: [4, 12] }
-      recipients: { choice: [2, 3], weights: [2, 1] }
-    difficulty: { base: -0.85 }
-    narration:
-      prompt: tp.MUL.12.t3.prompt
-      hints: [h.share.one-each, h.share.count-one]
-
-  - id: MUL.12.t4
-    skillId: MUL.12
     format: number-pad
     tier: pictorial
     representation: objects
@@ -63,5 +49,5 @@ templates:
       recipients: { choice: [2, 3], weights: [2, 1] }
     difficulty: { base: -0.25 }
     narration:
-      prompt: tp.MUL.12.t4.prompt
+      prompt: tp.MUL.12.t3.prompt
       hints: [h.share.one-each, h.share.count-one]

@@ -7,7 +7,10 @@
 // - pattern-extend `core`: `shown` tokens (at least two repeats); the child brackets the first
 //   repeat of the core (select.exactSet `{ values }`: its indices).
 // - order: the whole pattern as cards, the first `shown` fixed in their slots; the child puts the
-//   next `ask` cards (all different units) in order. Card value = position (1, 2, …).
+//   next `ask` cards (all different units) in order. Card value = position (1, 2, …). With
+//   `mode: core` (ALG.04, "make the next repeat") the fixed cards end on a core boundary and the
+//   free cards are exactly one whole core: `shown % coreLen == 0`, `ask == coreLen` (PR #84 review),
+//   so the core has no repeated unit (AB, ABC).
 // Formats: pattern-extend, order.
 
 import type { LessonStep, PatternToken, ResponseValue, StimulusSpec } from '@number-island/shared';
@@ -107,7 +110,7 @@ export const patternRepeat: GeneratorDef = {
       type: 'string',
       values: [...MODES],
       default: { kind: 'const', value: 'extend' },
-      doc: 'pattern-extend: extend, fill or core (order ignores it)',
+      doc: 'pattern-extend: extend, fill or core; order: core places the next whole repeat (ask = core length after whole cores), otherwise any next cards',
     },
   },
   derived: ['coreLen'],
@@ -126,6 +129,8 @@ export const patternRepeat: GeneratorDef = {
     'gen.pattern.repeat.next',
     'gen.pattern.repeat.core',
     'gen.pattern.repeat.bracket',
+    // its order retry line (items/check.ts retryFeedback)
+    'fb.order.retry-pattern',
   ],
   sample: (spec, rng) => sampleAll(spec, rng),
   derive: (p) => ({ coreLen: asStr(p.core, 'AB').length }),
@@ -137,8 +142,11 @@ export const patternRepeat: GeneratorDef = {
     const ask = asNum(p.ask);
     if (ask < 1 || ask > 3) return false;
     if (t.format === 'order') {
-      // The cards to place are all different units, after at least one whole core.
-      if (shown < L) return false;
+      // The cards to place are all different units, after more than one whole core.
+      // The core has started again among the fixed cards, so h.pattern.keep-going ("find where the
+      // pattern starts again") holds, as it does for extend (shown ≥ L + 1).
+      if (shown <= L) return false;
+      if (asStr(p.mode) === 'core' && (ask !== L || shown % L !== 0)) return false;
       const next = Array.from({ length: ask }, (_, k) => core[(shown + k) % L]);
       return ask >= 2 && new Set(next).size === next.length;
     }

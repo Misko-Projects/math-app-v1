@@ -218,6 +218,8 @@ export const compareNumbers: GeneratorDef = {
     ...NUMBER_LINE_PLACE_FEATURES,
   },
   narration: [
+    // its descending order retry line (items/check.ts retryFeedback)
+    'fb.order.retry-desc',
     'gen.compare.numbers.count',
     'gen.compare.numbers.tens',
     'gen.compare.numbers.ones',

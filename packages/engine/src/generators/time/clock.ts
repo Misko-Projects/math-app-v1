@@ -6,9 +6,9 @@
 //   Answer state `clock.time {h, m}`; the response is the time the hands show, `{h, m}`.
 // - clock-read (`mode: read`), `input: digital-pad`: type the time shown, numbers [h, m] (h 1–12).
 // - clock-read `input: pick` with `ask: hour` (TIM.09): which hour is it after? The options are
-//   hours (`opt-<h>`): the hour, the template's diagnostic distractors (MC.hour-hand-next: the next
-//   hour when m ≥ 30; MC.hour-minute-swap: the number the long hand points at), then the hours
-//   around it. K01 builds no full-time pick (TIM.11, K02).
+//   hours (`opt-<h>`), the hour's run of consecutive hours in a fixed partition of the face
+//   (`hourClass`: four with diagnostic distractors, otherwise three), so the set never depends on
+//   which hour is the key. K01 builds no full-time pick (TIM.11, K02).
 //
 // The clock formats have no engine model (U05), so this generator emits their 03 §5.5 format
 // features itself, reading the precision features from the target time (the finest step the time
@@ -26,7 +26,7 @@ import {
   sampleAll,
 } from '../common';
 import type { BuildContext, GeneratorDef, GeneratorOutput } from '../types';
-import { minuteHandNumber, nextHour, prevHour, timeText } from './face';
+import { timeText } from './face';
 
 export { minuteHandNumber, nextHour, prevHour, timeText } from './face';
 
@@ -51,6 +51,22 @@ export function precisionFeatures(m: number): Record<string, number> {
   else f['precision.one'] = 1;
   return f;
 }
+
+/**
+ * The hour pick's option set (TIM.09, PR #84 review): a fixed partition of 1–12 into runs of
+ * `size` consecutive hours (3 or 4, so the runs tile the face). Every hour of a run gets the same
+ * options and each option is the key of some item, so the options never point at the hour. The
+ * next hour (MC.hour-hand-next) is offered unless h ends its run, and the number the long hand
+ * points at (MC.hour-minute-swap) when it falls in the run.
+ */
+export function hourClass(h: number, size: number): number[] {
+  const start = Math.floor((h - 1) / size) * size;
+  return Array.from({ length: size }, (_, k) => start + k + 1);
+}
+
+/** Four options with diagnostic distractors, otherwise three. */
+const hourClassSize = (t: { distractors?: unknown[] }): number =>
+  (t.distractors?.length ?? 0) > 0 ? 4 : 3;
 
 /** How far the hands turn from `startH:00` to `h:m`, the shorter way round, in half-days (0–1). */
 export function turnDistance(startH: number, h: number, m: number): number {
@@ -201,17 +217,7 @@ export const timeClock: GeneratorDef = {
       'input.pick': pick ? 1 : 0,
     };
     if (pick) {
-      const want = (t.distractors?.length ?? 0) > 0 ? 4 : 3;
-      const rules = new Set((t.distractors ?? []).map((d) => d.rule));
-      const hours: number[] = [h];
-      const add = (n: number | null) => {
-        if (n !== null && hours.length < want && !hours.includes(n)) hours.push(n);
-      };
-      if (rules.has('MC.hour-hand-next') && m >= 30) add(nextHour(h));
-      if (rules.has('MC.hour-minute-swap')) add(minuteHandNumber(m));
-      for (const n of [nextHour(h), prevHour(h), nextHour(nextHour(h)), prevHour(prevHour(h))])
-        add(n);
-      const shown = rng.fork('layout').shuffle(hours);
+      const shown = rng.fork('layout').shuffle(hourClass(h, hourClassSize(t)));
       p = {
         params,
         vars: pickVars(t, {}),
