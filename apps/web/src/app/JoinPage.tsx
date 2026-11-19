@@ -3,7 +3,8 @@
 //
 // Without a paired device at hand (the only device was signed out, or the first setup's answer
 // was lost after the server created the family), the parent passphrase does the same: it signs in
-// (`POST /auth/login`), makes a code and joins with it (`joinWithPassphrase`).
+// (`POST /auth/login`), makes a code and joins with it (`joinWithPassphrase`), then signs out. If
+// that sign-out fails, the page keeps the device (no way out) until the sign-in is closed.
 //
 // A device that already belonged to a family (signed out, or removed by a parent) rejoins that
 // same family the same way. A code for another family is refused before anything moves
@@ -11,8 +12,8 @@
 // site's data in the browser's settings.
 
 import { Panel } from '@number-island/ui';
-import { type FormEvent, useState } from 'react';
-import { Link, useNavigate } from 'react-router';
+import { type FormEvent, useEffect, useRef, useState } from 'react';
+import { Link, useBlocker, useNavigate } from 'react-router';
 import { ApiError, describeApiError } from '@/parent/api';
 import { Button, Field, Notice, TextInput } from '@/parent/kit';
 import { useParentApi } from '@/parent/ParentContext';
@@ -44,22 +45,61 @@ export function JoinPage() {
   const [error, setError] = useState<string | null>(null);
   const [otherFamily, setOtherFamily] = useState(false);
   const [busy, setBusy] = useState(false);
-  /** The passphrase sign-in couldn't be closed: the page stays until it is. */
-  const [sessionOpen, setSessionOpen] = useState(false);
+  /**
+   * The passphrase sign-in couldn't be closed: the page keeps the device until it is. Every way
+   * out is held (Back, the browser's Back, any route change), and a held one first tries to close
+   * it; reloading or closing the tab asks first. The ref is read by the blocker, so a successful
+   * close lets the navigation that follows it through at once.
+   */
+  const [sessionOpen, setSessionOpenState] = useState(false);
+  const sessionOpenRef = useRef(false);
+  const setSessionOpen = (open: boolean) => {
+    sessionOpenRef.current = open;
+    setSessionOpenState(open);
+  };
   const hadFamily = device !== undefined && device.pairedAt !== null;
+  const blocker = useBlocker(() => sessionOpenRef.current);
 
-  const closeSession = async () => {
+  const closeSession = async (): Promise<boolean> => {
     setBusy(true);
     try {
       await closeParentSession(api);
-      setSessionOpen(false);
-      setBusy(false);
-      // Joined (the device holds a token now): on to the island. Otherwise the form stays.
-      if ((await services.store.device()).deviceToken) navigate('/', { replace: true });
     } catch {
       setBusy(false);
+      return false;
+    }
+    setSessionOpen(false);
+    setBusy(false);
+    return true;
+  };
+  const closeAndContinue = async () => {
+    // Joined (the device holds a token now): on to the island. Otherwise the form stays.
+    if ((await closeSession()) && (await services.store.device()).deviceToken) {
+      navigate('/', { replace: true });
     }
   };
+
+  // A navigation held while the sign-in is open: close it, then let the navigation go on (or stay,
+  // with the notice, when closing failed).
+  const blockerRef = useRef(blocker);
+  blockerRef.current = blocker;
+  // biome-ignore lint/correctness/useExhaustiveDependencies: runs once per held navigation
+  useEffect(() => {
+    if (blocker.state !== 'blocked') return;
+    void closeSession().then((closed) => {
+      const held = blockerRef.current;
+      if (held.state !== 'blocked') return;
+      if (closed) held.proceed();
+      else held.reset();
+    });
+  }, [blocker.state]);
+
+  useEffect(() => {
+    if (!sessionOpen) return;
+    const ask = (e: BeforeUnloadEvent) => e.preventDefault();
+    window.addEventListener('beforeunload', ask);
+    return () => window.removeEventListener('beforeunload', ask);
+  }, [sessionOpen]);
   const paired = Boolean(device?.deviceToken);
 
   const switchMode = (next: Mode) => {
@@ -208,7 +248,7 @@ export function JoinPage() {
                 The grown-up sign-in couldn’t be closed, so the island server still lets this device
                 into the parent area. Check the connection to the server, then close it.
               </Notice>
-              <Button onClick={() => void closeSession()} disabled={busy}>
+              <Button onClick={() => void closeAndContinue()} disabled={busy}>
                 {busy ? 'Closing…' : 'Close the sign-in'}
               </Button>
             </div>
@@ -225,17 +265,19 @@ export function JoinPage() {
             <Button type="submit" disabled={busy || sessionOpen}>
               {busy ? 'Joining…' : 'Join'}
             </Button>
-            <Link
-              to={hadFamily ? '/' : '/welcome'}
-              className="text-lg font-bold underline decoration-2 underline-offset-4"
-            >
-              Back
-            </Link>
+            {sessionOpen ? null : (
+              <Link
+                to={hadFamily ? '/' : '/welcome'}
+                className="text-lg font-bold underline decoration-2 underline-offset-4"
+              >
+                Back
+              </Link>
+            )}
           </div>
           <Button
             variant="quiet"
-            className="self-start px-0"
-            disabled={busy}
+            className="self-start px-0!"
+            disabled={busy || sessionOpen}
             onClick={() => switchMode(mode === 'code' ? 'passphrase' : 'code')}
           >
             {mode === 'code' ? 'Use the parent passphrase instead' : 'Use a pairing code instead'}

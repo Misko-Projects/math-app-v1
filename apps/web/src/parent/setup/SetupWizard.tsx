@@ -19,10 +19,10 @@ import {
   type FamilyIds,
   guessDeviceName,
   type NewChild,
-  recoverLostSetup,
   saveAiChoices,
   saveFamilyLocally,
   setupFamilyOnServer,
+  setupMayHaveApplied,
 } from './family';
 
 const STEPS = ['Family', 'Children', 'This device', 'AI helpers', 'Ready'] as const;
@@ -490,13 +490,19 @@ export function ChildrenStep({
 
 // ---------- step 3: this device ----------
 
+/** Why creating didn't finish. `closed`: the server has a family already, so joining is the way on. */
+export interface CreateFailure {
+  text: string;
+  closed: boolean;
+}
+
 export function DeviceStep({
   onBack,
   onCreate,
   serverDone,
 }: {
   onBack: () => void;
-  onCreate: (deviceName: string) => Promise<string | null>;
+  onCreate: (deviceName: string) => Promise<CreateFailure | null>;
   /** The family exists on the server already; only this device's part is left to retry. */
   serverDone: boolean;
 }) {
@@ -543,7 +549,7 @@ export function DeviceStep({
               Create our island
             </Button>
             <Button className="whitespace-nowrap" onClick={() => navigate('/join')}>
-              Join with a code
+              Join your family
             </Button>
           </span>
         ) : (
@@ -559,8 +565,8 @@ export function DeviceStep({
               setBusy(true);
               const failure = await onCreate(deviceName.trim());
               if (failure) {
-                setError(failure);
-                setClosed(failure.startsWith('This server already has a family'));
+                setError(failure.text);
+                setClosed(failure.closed);
                 setBusy(false);
               }
             }}
@@ -797,6 +803,8 @@ export function SetupWizard() {
   const [kids, setKids] = useState<NewChild[]>([]);
   const [created, setCreated] = useState<ChildProfile[]>([]);
   const [serverIds, setServerIds] = useState<FamilyIds | null>(null);
+  /** An earlier `/setup` from this wizard failed in a way that may still have created the family. */
+  const setupMaybeApplied = useRef(false);
   const headingRef = useRef<HTMLElement>(null);
 
   useEffect(() => {
@@ -850,22 +858,21 @@ export function SetupWizard() {
                   try {
                     ids = await setupFamilyOnServer({ api, gate }, { ...family, deviceName });
                   } catch (e) {
-                    // Refused because the family exists: if it is this setup's own (its answer was
-                    // lost), the passphrase just chosen signs in, and setup carries on with these
-                    // children. Otherwise it is another family's server.
                     if (!(e instanceof ApiError && e.code === 'setup_closed')) {
-                      return describeApiError(e);
+                      if (setupMayHaveApplied(e)) setupMaybeApplied.current = true;
+                      return { text: describeApiError(e), closed: false };
                     }
-                    try {
-                      ids = await recoverLostSetup(
-                        { services, api, gate },
-                        { passphrase: family.passphrase, deviceName },
-                      );
-                    } catch (recovery) {
-                      recordDiagnostic('setup.recover', recovery);
-                      return describeApiError(recovery);
-                    }
-                    if (!ids) return describeApiError(e);
+                    // The server has a family. Nothing here can tell whether it is this setup's
+                    // own (an earlier answer lost on the way) or one made before: even the
+                    // passphrase just chosen may be one the parent used before. So this device
+                    // never writes into it from the wizard; the parent joins it instead, and
+                    // after a possibly lost answer is told so.
+                    return {
+                      text: setupMaybeApplied.current
+                        ? 'Your island may have been made a moment ago, but its answer didn’t reach this device. Join it with the parent passphrase you just chose, then add your children in the parent area.'
+                        : describeApiError(e),
+                      closed: true,
+                    };
                   }
                   setServerIds(ids);
                 }
@@ -873,7 +880,10 @@ export function SetupWizard() {
                   setCreated(await saveFamilyLocally(services, ids, kids));
                 } catch (e) {
                   recordDiagnostic('setup', e);
-                  return 'Your island was created, but this device couldn’t finish saving it. Try again.';
+                  return {
+                    text: 'Your island was created, but this device couldn’t finish saving it. Try again.',
+                    closed: false,
+                  };
                 }
                 go(3);
                 return null;

@@ -35,6 +35,13 @@ export interface ParentGate {
    * server parent session's end: the gate closes then at the latest.
    */
   unlock(expiresAt?: number): void;
+  /**
+   * The gate's lock count now. Take it before an await, then open with `unlockIf`: a lock in
+   * between (the parent area was left) wins, and nothing opens.
+   */
+  ticket(): number;
+  /** `unlock`, unless the gate was locked since `ticket` was taken. True when it opened. */
+  unlockIf(ticket: number, expiresAt?: number): boolean;
   lock(): void;
   /** Parent activity: restarts the 10-minute idle timer, never past `expiresAt`. */
   touch(): void;
@@ -86,6 +93,11 @@ export function createParentGate(opts: ParentGateOptions): ParentGate {
       emit();
     }
   }
+  function unlockIf(ticket: number, expiresAt?: number): boolean {
+    if (ticket !== generation) return false;
+    unlock(expiresAt);
+    return true;
+  }
   function lock() {
     generation += 1;
     if (timer !== null) clearTimer(timer);
@@ -100,6 +112,8 @@ export function createParentGate(opts: ParentGateOptions): ParentGate {
   return {
     isUnlocked: () => unlocked,
     unlock,
+    ticket: () => generation,
+    unlockIf,
     lock,
     touch() {
       if (unlocked) arm();
@@ -124,17 +138,17 @@ export function createParentGate(opts: ParentGateOptions): ParentGate {
         }
         return { ok: false, reason: 'unavailable' };
       }
-      if (asked !== generation) {
-        // Locked while the check ran (the parent left the area): the right PIN arrived too late.
-        // Nothing opens, and the server session it started is ended.
-        void opts.api.logout().catch(() => {});
-        return { ok: false, reason: 'cancelled' };
-      }
       // The server's PIN session lasts 10 minutes from when it answered (08 §2). Its `expiresAt` is
       // on the server's clock, which a tablet's may not match, so the deadline is measured on this
       // device's clock from when the request was sent: never later than the server's.
-      unlock(askedAt + PARENT_PIN_SESSION_MS - CLOCK_MARGIN_MS);
-      return { ok: true };
+      //
+      // Locked while the check ran (the parent left the area): the right PIN arrived too late and
+      // nothing opens. Its server session is left to its 10-minute expiry, as after any visit to
+      // the parent area: a logout sent now could land after a newer PIN check had set the same
+      // cookie, and end that session instead (both share one `ni_parent` cookie).
+      return unlockIf(asked, askedAt + PARENT_PIN_SESSION_MS - CLOCK_MARGIN_MS)
+        ? { ok: true }
+        : { ok: false, reason: 'cancelled' };
     },
     subscribe(listener) {
       listeners.add(listener);

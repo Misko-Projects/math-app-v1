@@ -1,4 +1,4 @@
-import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { createMemoryRouter, RouterProvider } from 'react-router';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { ApiError, type ParentApi } from '@/parent/api';
@@ -95,5 +95,35 @@ describe('<JoinPage> with the parent passphrase', () => {
     });
     expect(await screen.findByText('island')).toBeTruthy();
     expect(logout).toHaveBeenCalledTimes(2);
+  });
+
+  it('no way out leaves the sign-in open: Back is gone, and leaving waits for the close', async () => {
+    const logout = vi
+      .fn()
+      .mockRejectedValueOnce(new ApiError('network', 0, 'offline')) // after joining
+      .mockRejectedValueOnce(new ApiError('network', 0, 'offline')) // first try to leave
+      .mockResolvedValue(undefined);
+    const { router } = await renderJoin(api({ logout }));
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: /^Join$/ }));
+    });
+    expect(await screen.findByText(/The grown-up sign-in couldn’t be closed/)).toBeTruthy();
+    expect(screen.queryByRole('link', { name: 'Back' })).toBeNull();
+
+    // Leaving (the browser's Back, any route change) is held; closing fails, so the page stays.
+    await act(async () => {
+      void router.navigate('/');
+    });
+    await waitFor(() => expect(logout).toHaveBeenCalledTimes(2));
+    await act(async () => {});
+    expect(router.state.location.pathname).toBe('/join');
+    expect(screen.getByText(/The grown-up sign-in couldn’t be closed/)).toBeTruthy();
+
+    // Once closing works, the held navigation goes on.
+    await act(async () => {
+      void router.navigate('/');
+    });
+    expect(await screen.findByText('island')).toBeTruthy();
+    expect(logout).toHaveBeenCalledTimes(3);
   });
 });

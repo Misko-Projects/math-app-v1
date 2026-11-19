@@ -11,11 +11,11 @@ import {
   JoinRefusedError,
   joinFamily,
   joinWithPassphrase,
-  recoverLostSetup,
   SessionStillOpenError,
   saveAiChoices,
   saveFamilyLocally,
   setupFamilyOnServer,
+  setupMayHaveApplied,
   startingAvatar,
 } from './family';
 
@@ -295,41 +295,36 @@ describe('joinWithPassphrase (no paired device at hand)', () => {
   });
 });
 
-describe('recoverLostSetup (the first /setup answer was lost)', () => {
-  it('with this setup’s passphrase: pairs this device and keeps the parent signed in', async () => {
-    const { app } = await boot();
-    const api = fakeApi();
-    const gate = createParentGate({ store: app.store, api });
-    const ids = await recoverLostSetup(
-      { services: app, api, gate },
-      { passphrase: details.passphrase, deviceName: 'Tablet' },
-    );
-    expect(ids).toEqual({ familyId: SERVER_FAMILY, deviceId: SERVER_DEVICE, deviceToken: TOKEN });
-    expect(api.login).toHaveBeenCalledWith(details.passphrase);
-    expect(api.logout).not.toHaveBeenCalled();
-    expect(gate.isUnlocked()).toBe(true);
-    // The wizard then saves its children as usual.
-    if (!ids) throw new Error('no ids');
-    await saveFamilyLocally(app, ids, [
-      { id: KID_A, name: 'Mia', birthYear: 2020, grade: 'K', advanced: false },
-    ]);
-    expect((await app.store.allProfiles()).map((p) => p.name)).toEqual(['Mia']);
+describe('a /setup whose answer may be lost', () => {
+  it('only a missing, unreadable or failed answer may have created the family', () => {
+    expect(setupMayHaveApplied(new ApiError('network', 0, 'offline'))).toBe(true);
+    expect(setupMayHaveApplied(new ApiError('bad_response', 201, 'unreadable'))).toBe(true);
+    expect(setupMayHaveApplied(new ApiError('internal', 500, 'boom'))).toBe(true);
+    expect(setupMayHaveApplied(new TypeError('x'))).toBe(true);
+    expect(setupMayHaveApplied(new ApiError('validation_failed', 400, 'bad'))).toBe(false);
+    expect(setupMayHaveApplied(new ApiError('rate_limited', 429, 'slow down'))).toBe(false);
+    expect(setupMayHaveApplied(new ApiError('setup_closed', 409, 'closed'))).toBe(false);
   });
 
-  it('with another family’s server (passphrase refused): null, nothing changed', async () => {
+  it('opens no gate when the wizard was left while /setup ran', async () => {
     const { app } = await boot();
+    let answer: () => void = () => {};
+    const ids = { familyId: SERVER_FAMILY, deviceId: SERVER_DEVICE, deviceToken: TOKEN };
     const api = fakeApi({
-      login: vi.fn(async () => {
-        throw new ApiError('invalid_credentials', 401, 'Wrong passphrase');
-      }),
+      setup: vi.fn(
+        () =>
+          new Promise<typeof ids>((resolve) => {
+            answer = () => resolve(ids);
+          }),
+      ),
     });
     const gate = createParentGate({ store: app.store, api });
-    expect(
-      await recoverLostSetup({ services: app, api, gate }, { passphrase: 'x', deviceName: 'T' }),
-    ).toBeNull();
-    expect(api.pairStart).not.toHaveBeenCalled();
+    const pending = setupFamilyOnServer({ api, gate }, details);
+    gate.lock(); // the parent left the wizard
+    answer();
+    await expect(pending).resolves.toEqual(ids);
     expect(gate.isUnlocked()).toBe(false);
-    expect((await app.store.device()).deviceToken).toBeUndefined();
+    gate.dispose();
   });
 });
 

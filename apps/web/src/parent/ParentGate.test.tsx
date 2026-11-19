@@ -166,10 +166,38 @@ describe('parent gate UI', () => {
     });
     expect(await screen.findByRole('heading', { name: 'Grown-ups only' })).toBeTruthy();
     expect(screen.queryByText('secret parent page')).toBeNull();
-    // The session that answer started was ended.
-    await waitFor(() =>
-      expect(device.net.urls.some((u) => u.endsWith('/api/auth/logout'))).toBe(true),
-    );
+  });
+
+  it('a late answer to a left PIN check never ends a newer session', async () => {
+    const { router, device } = await renderParentArea();
+    let first: (() => void) | null = null;
+    device.net.api['/api/auth/pin'] = () =>
+      first
+        ? json(200, { expiresAt: Date.now() + 600_000 }) // the newer check answers at once
+        : new Promise((resolve) => {
+            first = () => resolve(json(200, { expiresAt: Date.now() + 600_000 }));
+          });
+    await openPad();
+    const key = (name: string) => screen.getByRole('button', { name });
+    for (const d of ['2', '4', '6', '8']) fireEvent.click(key(d));
+    fireEvent.click(key('Unlock')); // the first check is on its way…
+    await waitFor(() => expect(first).not.toBeNull());
+    await act(async () => {
+      await router.navigate('/'); // …the parent leaves…
+    });
+    await act(async () => {
+      await router.navigate(-1); // …comes back and unlocks again
+    });
+    await openPad();
+    for (const d of ['2', '4', '6', '8']) fireEvent.click(key(d));
+    fireEvent.click(key('Unlock'));
+    expect(await screen.findByText('secret parent page')).toBeTruthy();
+    await act(async () => {
+      first?.(); // only now does the first check answer
+    });
+    // The newer unlock stands, and nothing signed it out.
+    expect(screen.getByText('secret parent page')).toBeTruthy();
+    expect(device.net.urls.some((u) => u.endsWith('/api/auth/logout'))).toBe(false);
   });
 
   it('leaving the parent area locks it: browser Back shows the gate, not the page', async () => {

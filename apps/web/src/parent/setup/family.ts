@@ -99,14 +99,16 @@ export async function setupFamilyOnServer(
   { api, gate }: Pick<CreateFamilyDeps, 'api' | 'gate'>,
   details: FamilyDetails & { deviceName: string },
 ): Promise<FamilyIds> {
+  const ticket = gate.ticket();
   const ids = await api.setup({
     familyName: details.familyName.trim(),
     passphrase: details.passphrase,
     pin: details.pin,
     deviceName: details.deviceName.trim(),
   });
-  // `/setup` set the parent session cookie: the parent is signed in for the rest of the wizard.
-  gate.unlock();
+  // `/setup` set the parent session cookie: the parent is signed in for the rest of the wizard,
+  // unless the wizard was left while it ran (that locked the gate, and a lock wins).
+  gate.unlockIf(ticket);
   return ids;
 }
 
@@ -267,32 +269,11 @@ export async function joinWithPassphrase(
 }
 
 /**
- * The first setup's answer was lost: the server created the family and refuses a second
- * `/setup` (`setup_closed`). The wizard still holds the passphrase the parent just chose, and a
- * server holds one family, so signing in with it proves this setup made that family: this device
- * then pairs (as `joinWithPassphrase` does) and the wizard carries on with its children. The
- * parent session stays open, as after `/setup`, for the rest of the wizard. Null when the
- * passphrase doesn't match (another family's server): nothing changed.
+ * True when a failed `/setup` may still have reached the server and created the family: no
+ * answer arrived (network), the answer couldn't be read, or the server failed while answering. A
+ * later `setup_closed` may then be this setup's own family, whose answer was lost.
  */
-export async function recoverLostSetup(
-  { services, api, gate }: CreateFamilyDeps,
-  input: { passphrase: string; deviceName: string },
-): Promise<FamilyIds | null> {
-  try {
-    await api.login(input.passphrase);
-  } catch (e) {
-    if (e instanceof ApiError && e.code === 'invalid_credentials') return null;
-    throw e;
-  }
-  try {
-    const { code } = await api.pairStart();
-    const ids = await joinFamily({ services, api }, { code, deviceName: input.deviceName });
-    gate.unlock();
-    return ids;
-  } catch (e) {
-    await closeParentSession(api).catch(() => {
-      // Reported through the original error; the parent can retry the whole step.
-    });
-    throw e;
-  }
+export function setupMayHaveApplied(e: unknown): boolean {
+  if (!(e instanceof ApiError)) return true;
+  return e.code === 'network' || e.code === 'bad_response' || e.status >= 500;
 }
