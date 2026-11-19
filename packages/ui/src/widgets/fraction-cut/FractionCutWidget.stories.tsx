@@ -6,6 +6,7 @@ import {
   areaBox,
   expectEqualShares,
   expectFitsArea,
+  expectNumeralInk,
   expectSingleInvite,
   inArea,
   measuredShares,
@@ -665,5 +666,134 @@ export const BarFourthsTapSizesK: Story = {
       check(root),
       back(root),
     ]);
+  },
+};
+
+// ---------- thenName at the smallest landscape area: two steps ----------
+
+const nameIt = (root: HTMLElement) => within(root).getByRole('button', { name: 'Name it' });
+const keysOf = (root: HTMLElement) => [...root.querySelectorAll<HTMLElement>('.ni-fentry__key')];
+
+/**
+ * thenName at the 960 × 600 area (G1: naming fractions with numerals is grade 3), authored loaf in
+ * thirds, fill two. Step 1 has the whole room: knives, then K-or-G1-sized parts to fill, Fill, Take
+ * back and Name it. Step 2 ("Name it") shows the finished picture beside the stacked boxes and the
+ * pad, with Back and an icon-only Check under the boxes. Nothing scrolls in either step.
+ */
+export const ThenNameLandscapeMin: Story = {
+  args: { config: loafThirds },
+  render: inArea('landscapeMin'),
+  play: async ({ canvasElement, args }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    const area = areaBox(canvasElement);
+    await expect(root.querySelector('.ni-fentry')).toBeNull();
+    await expectFitsArea(root, area, 'g1-up', [
+      ...knives(root),
+      fill(root),
+      back(root),
+      nameIt(root),
+    ]);
+    await expect(nameIt(root)).toBeDisabled();
+    await userEvent.click(knife(root, 0));
+    await userEvent.click(knife(root, 1));
+    await settle(root);
+    await expectEqualShares(measuredShares(stage(root)), 3);
+    // Every part the child fills is G1-sized and 12 px from the others and the tools.
+    await expectFitsArea(root, area, 'g1-up', [
+      ...partEls(root),
+      fill(root),
+      back(root),
+      nameIt(root),
+    ]);
+    await userEvent.click(part(root, 0));
+    await userEvent.click(part(root, 2));
+    await expectFilled(root, 2);
+    await userEvent.click(nameIt(root));
+    // Step 2: the picture stays (filled parts and all), no longer tappable; the pad beside it.
+    await expectFilled(root, 2);
+    await expect(root.querySelectorAll('path.ni-fcut__part[role="button"]')).toHaveLength(0);
+    const top = within(root).getByRole('button', { name: 'Top number' });
+    const bottom = within(root).getByRole('button', { name: 'Bottom number' });
+    const toCut = within(root).getByRole('button', { name: 'Back' });
+    await expectFitsArea(root, area, 'g1-up', [top, bottom, ...keysOf(root), check(root), toCut]);
+    await expectNumeralInk(root.querySelectorAll('.ni-fentry__digit'));
+    await userEvent.click(top);
+    await userEvent.click(within(root).getByRole('button', { name: '2' }));
+    await userEvent.click(bottom);
+    await userEvent.click(within(root).getByRole('button', { name: '3' }));
+    await userEvent.click(check(root));
+    await expect(lastResponse(args.onResponse)).toMatchObject({
+      kind: 'state',
+      value: { shaded: [0, 2], name: [2, 3] },
+    });
+    await expectCorrect(lastResponse(args.onResponse), 3, 2, { thenName: true });
+    // Back returns to cutting and filling, with everything as it was.
+    await userEvent.click(toCut);
+    await expect(root.querySelector('.ni-fentry')).toBeNull();
+    await expectFilled(root, 2);
+    await expect(traceOf(args.onInteract).map((e) => e.target)).toEqual(
+      expect.arrayContaining(['name-it', 'back-to-cut', 'top', 'key-2', 'bottom', 'key-3']),
+    );
+  },
+};
+
+const nameInvite: WidgetDemo = createDemoController({ strict: true });
+
+/**
+ * Pip invites the naming at the 960 × 600 area: in the naming step, one ring on the top box,
+ * 12 px clear of everything else, and Pip's hand under it (the story ends invited).
+ */
+export const ThenNameInviteLandscapeMin: Story = {
+  args: { config: loafThirds, demo: nameInvite },
+  render: inArea('landscapeMin'),
+  play: async ({ canvasElement }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    await userEvent.click(knife(root, 0));
+    await userEvent.click(knife(root, 1));
+    await userEvent.click(part(root, 0));
+    // Still cutting: the answer starts with "Name it", so that is what Pip points at.
+    nameInvite.invite({ op: 'answer', args: { values: [1, 3] } });
+    await waitFor(() => expect(nameIt(root)).toHaveClass('ni-invite'));
+    await expectSingleInvite(root);
+    await expectPointerOn(root.querySelector('.ni-hand') as HTMLElement, nameIt(root), root);
+    await userEvent.click(nameIt(root));
+    nameInvite.invite({ op: 'answer', args: { values: [1, 3] } });
+    await waitFor(() => expect(root.querySelector('.ni-fentry__box.ni-invite')).not.toBeNull());
+    const box = root.querySelector('.ni-fentry__box.ni-invite') as HTMLElement;
+    await expect(box).toHaveAttribute('data-slot', '0');
+    await expectSingleInvite(root);
+    await expectPointerOn(root.querySelector('.ni-hand') as HTMLElement, box, root);
+    await expect(root.querySelector('.ni-hand') as HTMLElement).toBeVisible();
+  },
+};
+
+/** Stress: thenName with a rect in sixths at the 960 × 600 area: six G1-sized parts to fill. */
+export const ThenNameSixthsLandscapeMin: Story = {
+  args: { config: { ...base, shape: 'rect', parts: 6, shade: 5, thenName: true } },
+  render: inArea('landscapeMin'),
+  play: async ({ canvasElement, args }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    const area = areaBox(canvasElement);
+    for (let i = 0; i < 5 && knives(root).length > 0; i += 1) {
+      await userEvent.click(knives(root)[0] as HTMLElement);
+    }
+    await settle(root);
+    await expectEqualShares(measuredShares(stage(root)), 6);
+    await expectFitsArea(root, area, 'g1-up', [
+      ...partEls(root),
+      fill(root),
+      back(root),
+      nameIt(root),
+    ]);
+    for (let i = 0; i < 5; i += 1) await userEvent.click(part(root, i));
+    await userEvent.click(nameIt(root));
+    await userEvent.click(within(root).getByRole('button', { name: 'Top number' }));
+    await userEvent.keyboard('5');
+    await userEvent.click(within(root).getByRole('button', { name: 'Bottom number' }));
+    await userEvent.keyboard('6');
+    const toCut = within(root).getByRole('button', { name: 'Back' });
+    await expectFitsArea(root, area, 'g1-up', [...keysOf(root), check(root), toCut]);
+    await userEvent.click(check(root));
+    await expectCorrect(lastResponse(args.onResponse), 6, 5, { thenName: true });
   },
 };

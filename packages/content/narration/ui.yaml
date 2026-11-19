@@ -102,6 +102,9 @@ ui.frac.fill:
 ui.frac.take-back:
   text: "Take back"
   level: K
+ui.frac.name-it:
+  text: "Name it"
+  level: K
 ui.frac.top:
   text: "Top number"
   level: K

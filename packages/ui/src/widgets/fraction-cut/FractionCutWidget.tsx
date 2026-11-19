@@ -26,7 +26,8 @@ import {
   useUiPreferences,
 } from '../../preferences/UiProvider';
 import { BigButton } from '../../primitives/BigButton';
-import { BackIcon } from '../../primitives/icons';
+import { ArrowIcon, BackIcon, CheckIcon } from '../../primitives/icons';
+import { CHECK_DEBOUNCE_MS } from '../../tokens/tokens';
 import { useWidgetDemo } from '../demo';
 import {
   applyPadKey,
@@ -228,6 +229,14 @@ export function FractionCutWidget({
   const circle = config.shape === 'circle';
   const guided = config.cutMode === 'guided';
   const shading = (config.shade ?? 0) > 0;
+  // thenName in a narrow room (the 960 × 600 area): two steps, so every part stays tap-sized.
+  // First cut and fill with the whole room; "Name it" then puts the typing pad beside the finished
+  // picture (no longer tappable), and Back returns to cutting.
+  const twoStep = config.thenName && size.w < 1100;
+  const [naming, setNaming] = useState(false);
+  const showEntry = config.thenName && (!twoStep || naming);
+  /** Cutting and filling are on (always, except the naming step). */
+  const editing = !(twoStep && naming);
   const guides = useMemo(() => cutGuides(config), [config]);
   const frame = useMemo(
     () => shapeFrame(config.shape, config.gridSize, config.parts > 4 ? 2.6 : 1.5),
@@ -236,7 +245,7 @@ export function FractionCutWidget({
 
   // ---------- layout: the stage gets what the tools leave ----------
 
-  const entryW = config.thenName ? Math.round(knifePx * 1.25) + 20 + 4 * knifePx + 36 + 24 : 0;
+  const entryW = showEntry ? Math.round(knifePx * 1.25) + 20 + 4 * knifePx + 36 + 24 : 0;
   const toolsGuess = 2 * bigPx + 12 + entryW;
   // The tools column as drawn (labels show from G1, so measure it); the stage gets the rest.
   const toolsRef = useRef<HTMLDivElement | null>(null);
@@ -250,17 +259,25 @@ export function FractionCutWidget({
     ro.observe(el);
     return () => ro.disconnect();
   }, []);
+  // A step change swaps the tools in the same commit: re-measure before paint, so the stage never
+  // draws a frame too wide for the room.
+  useLayoutEffect(() => {
+    const w = toolsRef.current?.getBoundingClientRect().width ?? 0;
+    if (w > 0 && Math.abs(w - toolsMeasured) > 0.5) setToolsMeasured(w);
+  });
   const toolsW = toolsMeasured > 0 ? toolsMeasured : toolsGuess;
   const lay = useMemo(
     () =>
       cutLayout(
         frame,
-        guided ? guides : [],
+        guided && editing ? guides : [],
         config.parts,
         { w: Math.max(160, size.w - toolsW - 48), h: Math.max(140, size.h - 24) },
         knifePx,
+        2.2,
+        shading,
       ),
-    [frame, guided, guides, config.parts, size.w, size.h, toolsW, knifePx],
+    [frame, guided, editing, guides, config.parts, size.w, size.h, toolsW, knifePx, shading],
   );
   const scale = lay.scale;
 
@@ -502,7 +519,7 @@ export function FractionCutWidget({
   };
 
   const onStagePointerDown = (e: ReactPointerEvent) => {
-    if (!interactive || swipe.current) return;
+    if (!interactive || !editing || swipe.current) return;
     if (e.pointerType === 'mouse' && e.button !== 0) return;
     const knifeEl = (e.target as Element).closest('[data-knife]');
     const knife = knifeEl ? Number(knifeEl.getAttribute('data-knife')) : null;
@@ -592,6 +609,8 @@ export function FractionCutWidget({
       setDemoBusy(true);
       setInvite(null);
       try {
+        // Cutting and filling happen in the cutting step; typing in the naming step.
+        if (twoStep) setNaming(action.op === 'answer');
         if (action.op === 'cut') {
           const line = typeof action.args?.line === 'number' ? action.args.line : null;
           if (line !== null && guides[line] && !reduced) {
@@ -691,7 +710,9 @@ export function FractionCutWidget({
     invitedLine !== null && !state.linesCut.includes(invitedLine) ? invitedLine : nextLine;
   const invitedPart =
     invite?.op === 'shade' && typeof invite.args?.part === 'number' ? invite.args.part : null;
-  const invitedSlot: 0 | 1 | null = invite?.op === 'answer' ? active : null;
+  const invitedSlot: 0 | 1 | null = invite?.op === 'answer' && showEntry ? active : null;
+  // Two steps, still cutting: the answer starts with "Name it".
+  const invitedNext = invite?.op === 'answer' && twoStep && !naming;
   // Pip's up-pointing hand under the invited knife, part or box to type into (kit `useInviteHand`).
   const { hand: inviteHand, rootStyle: handRootStyle } = useInviteHand(
     ref,
@@ -708,6 +729,7 @@ export function FractionCutWidget({
       if (invitedSlot !== null) {
         return root.querySelector<HTMLElement>(`.ni-fentry__box[data-slot="${invitedSlot}"]`);
       }
+      if (invitedNext) return root.querySelector<HTMLElement>('.ni-fcut__next');
       return null;
     },
     invitedLine !== null && guided
@@ -716,7 +738,9 @@ export function FractionCutWidget({
         ? `part:${invitedPart}:${partCount(state)}`
         : invitedSlot !== null
           ? `slot:${invitedSlot}`
-          : '',
+          : invitedNext
+            ? 'next'
+            : '',
   );
 
   const freePreview = (() => {
@@ -771,7 +795,7 @@ export function FractionCutWidget({
               const lit = parts[i]?.shaded ?? false;
               const id: PartId = `part-${i}`;
               const target =
-                shading && isCut
+                shading && isCut && editing
                   ? drag.targetProps(id, { label: t('ui.frac.part', { n: i + 1 }) })
                   : null;
               const invited = invitedPart === i || demoPart === i;
@@ -846,7 +870,7 @@ export function FractionCutWidget({
           {freePreview ? <path className="ni-fcut__preview" d={freePreview} /> : null}
           {isCut ? null : <WholeOutline frame={frame} />}
         </svg>
-        {guided
+        {guided && editing
           ? lay.knives.map((spot) => {
               const g = guides[spot.line] as GuidedLine;
               if (state.linesCut.includes(spot.line)) return null;
@@ -882,7 +906,7 @@ export function FractionCutWidget({
         data-labels={textLabels ? 'true' : undefined}
       >
         <div className="ni-fcut__toolgrid">
-          {shading ? (
+          {shading && editing ? (
             <span className="ni-fcut__slot">
               <button
                 type="button"
@@ -894,7 +918,7 @@ export function FractionCutWidget({
               </button>
             </span>
           ) : null}
-          {guided
+          {guided || !editing
             ? null
             : (circle ? (['r'] as const) : (['v', 'h'] as const)).map((kind) => (
                 <button
@@ -911,21 +935,56 @@ export function FractionCutWidget({
                   <KnifeIcon angle={kind === 'h' ? 90 : 180} />
                 </button>
               ))}
-          <BigButton
-            label="ui.frac.take-back"
-            icon={<BackIcon />}
-            tone="cloud"
-            onPress={takeBack}
-            disabled={!interactive || history.length === 0}
-            className="ni-fcut__back"
-            // Beside the typing pad there is no room for words: the icon, with its spoken name.
-            showLabel={config.thenName ? false : undefined}
-          />
+          {editing ? (
+            <BigButton
+              label="ui.frac.take-back"
+              icon={<BackIcon />}
+              tone="cloud"
+              onPress={takeBack}
+              disabled={!interactive || history.length === 0}
+              className="ni-fcut__back"
+              // Beside the typing pad there is no room for words: the icon, with its spoken name.
+              showLabel={showEntry || twoStep ? false : undefined}
+            />
+          ) : (
+            // The naming step: back to cutting and filling.
+            <BigButton
+              label="ui.button.back"
+              icon={<BackIcon />}
+              tone="cloud"
+              onPress={() => {
+                if (!interactive) return;
+                trace('tap', 'back-to-cut');
+                setNaming(false);
+              }}
+              disabled={!interactive}
+              className="ni-fcut__back"
+              showLabel={false}
+            />
+          )}
+          {twoStep && editing ? (
+            // The cutting step: on to naming once the whole is cut.
+            <BigButton
+              label="ui.frac.name-it"
+              icon={<ArrowIcon />}
+              tone="sun"
+              onPress={() => {
+                if (!interactive || !isCut) return;
+                trace('tap', 'name-it');
+                setInvite(null);
+                setNaming(true);
+              }}
+              disabled={!interactive || !isCut}
+              className={invitedNext ? 'ni-fcut__next ni-invite' : 'ni-fcut__next'}
+              // Icon-only in the narrow room (its spoken name stays "Name it"): the parts keep their room.
+              showLabel={false}
+            />
+          ) : null}
           {config.thenName ? null : (
             <CheckButton onPress={submit} disabled={!interactive || response === null} />
           )}
         </div>
-        {config.thenName ? (
+        {showEntry ? (
           <FractionEntry
             texts={texts}
             active={active}
@@ -939,7 +998,22 @@ export function FractionCutWidget({
             disabled={!interactive}
             pressedKey={pressedKey}
             invitedSlot={invitedSlot}
-            below={<CheckButton onPress={submit} disabled={!interactive || response === null} />}
+            below={
+              twoStep ? (
+                // Icon-only (its spoken name stays "Check"): the pad and the shape keep their room.
+                <BigButton
+                  label="ui.btn.check"
+                  icon={<CheckIcon />}
+                  tone="sun"
+                  debounceMs={CHECK_DEBOUNCE_MS}
+                  disabled={!interactive || response === null}
+                  onPress={submit}
+                  showLabel={false}
+                />
+              ) : (
+                <CheckButton onPress={submit} disabled={!interactive || response === null} />
+              )
+            }
           />
         ) : null}
       </div>

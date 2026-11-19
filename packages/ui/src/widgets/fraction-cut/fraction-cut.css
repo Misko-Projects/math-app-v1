@@ -216,3 +216,11 @@
 .ni-fcut[data-shape="loaf"] .ni-fraction__ghost {
   stroke: var(--color-wood-deep);
 }
+
+/* thenName: room for the "Name it" invite ring (9 px out) to stay 12 px clear of its neighbours. */
+.ni-fcut__tools[data-then-name="true"] .ni-fcut__toolgrid {
+  gap: 24px;
+}
+.ni-fcut__next.ni-invite {
+  outline-offset: 4px;
+}

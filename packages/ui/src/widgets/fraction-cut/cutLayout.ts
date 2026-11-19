@@ -200,10 +200,13 @@ export function cutLayout(
   avail: { w: number; h: number },
   knife: number,
   maxScale = 2.2,
+  /** The parts will be tapped (filled): prefer the bigger drawing, one knife at a time if need be. */
+  preferBig = false,
 ): CutLayout {
   const each = fit(frame, guides, parts, avail, knife, maxScale, false);
-  if (knivesClear(each.knives, knife)) return each;
-  return fit(frame, guides, parts, avail, knife, maxScale, true);
+  const single = fit(frame, guides, parts, avail, knife, maxScale, true);
+  if (!knivesClear(each.knives, knife)) return single;
+  return preferBig && single.scale > each.scale * 1.1 ? single : each;
 }
 
 /**
