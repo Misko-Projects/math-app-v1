@@ -1,6 +1,6 @@
 import { formatModel } from '@number-island/engine';
-import type { WidgetAction } from '@number-island/shared';
-import { type CSSProperties, useRef, useState } from 'react';
+import type { StimulusSpec, WidgetAction } from '@number-island/shared';
+import { type CSSProperties, useLayoutEffect, useRef, useState } from 'react';
 import { useInteractionTrace } from '../../interaction/trace';
 import { useDragToTarget } from '../../interaction/useDragToTarget';
 import {
@@ -9,9 +9,19 @@ import {
   useSpeech,
   useUiPreferences,
 } from '../../preferences/UiProvider';
-import { HandPointerIcon } from '../../primitives/icons';
+import { MIN_TARGET_PX, TARGET_PX } from '../../tokens/tokens';
 import { useWidgetDemo, wait } from '../demo';
-import { CheckButton, StimulusView, useAlive, useDemoPause, useSubmitGuard } from '../kit';
+import {
+  CheckButton,
+  FitPicture,
+  naturalPictureSize,
+  useAlive,
+  useDemoPause,
+  useInviteHand,
+  useSubmitGuard,
+  useWidgetRoom,
+  type WidgetRoom,
+} from '../kit';
 import type { ConfigFor, WidgetProps } from '../types';
 import './order.css';
 
@@ -24,7 +34,15 @@ import './order.css';
  * "Check" waits until every slot is full, then answers `{ kind: 'numbers', values }` (values in
  * slot order) through the format model.
  *
- * Demo ops (03 §5.5): `drag {id, slot}`, `highlight {id}`, plus `answer {values}`.
+ * Layout (06 §1, container-relative): the widget measures its room (`useWidgetRoom`) and picks the
+ * biggest card (age target to 1.5 × target tall; picture cards may be wider than tall so a number
+ * line, ten-frame or blocks stay readable) that fits with the direction cue, slots, tray and
+ * Check, Check beside the tray when that fits; a short room gets a compact cue and tighter board.
+ *
+ * Demo ops (03 §5.5): `drag {id, slot}`, `highlight {id}`, plus `answer {values}`. An invite rings
+ * ONE control and Pip's hand points at it (kit `useInviteHand`): `drag` the card, then (once the
+ * child has picked it up) its slot; `highlight` the card; `answer` the next card the model's
+ * solution puts in the first slot that is not yet right (then that slot).
  */
 
 const OPS = ['drag', 'highlight', 'answer'] as const;
@@ -37,6 +55,121 @@ type SlotId = `slot-${number}`;
 const slotId = (k: number): SlotId => `slot-${k}`;
 const slotIndex = (id: SlotId) => Number(id.slice(5));
 const isNumeral = (label: string | undefined) => label !== undefined && /^-?\d+$/.test(label);
+
+// ---------- layout ----------
+
+/**
+ * Between cards: the 12 px target gap plus the invite ring's reach (4 px wide, 3 px out: 7 px),
+ * so a ringed card stays ≥ 12 px clear of its neighbours (one ring at a time, 06 §4).
+ */
+const CARD_GAP = 20;
+/** A card's border (3) and padding (5): the picture box is the card less this on each side. */
+const CARD_PAD = 8;
+/** The numeral above a picture (32 px numeral, 05 §11) and its spacing. */
+const TAG_H = 38;
+const ROOT_PAD = { x: 8, y: 4 };
+const BORDER = 3;
+const CHROME = {
+  normal: {
+    board: { top: 14, x: 24, bottom: 18 },
+    cue: 74,
+    cueGap: 10,
+    tray: { y: 14, x: 18 },
+    gap: 24,
+  },
+  compact: {
+    board: { top: 8, x: 16, bottom: 8 },
+    cue: 44,
+    cueGap: 6,
+    tray: { y: 10, x: 14 },
+    gap: 10,
+  },
+} as const;
+type Chrome = keyof typeof CHROME;
+const CHECK_GAP = 28;
+/**
+ * How far Pip's hand reaches below a card's bottom edge (kit useInviteHand: the 56 px hand, its
+ * fingertip ~18 px up the card, its 8 px bob and 10 px edge margin), so a tray card's invite
+ * needs no more room than the layout has.
+ */
+const HAND_REACH = 57;
+
+interface Plan {
+  w: number;
+  h: number;
+  chrome: Chrome;
+  check: 'beside' | 'below';
+}
+
+interface Shape {
+  n: number;
+  /** Cards in the tray (the unpinned ones). */
+  tray: number;
+  /** Card width for a card height. */
+  width: (h: number) => number;
+  target: number;
+  check: { w: number; h: number };
+}
+
+function sizeOf(s: Shape, p: Plan) {
+  const c = CHROME[p.chrome];
+  const row = (k: number) => k * p.w + Math.max(0, k - 1) * CARD_GAP;
+  const boardW = row(s.n) + 2 * (c.board.x + BORDER);
+  const boardH = 2 * BORDER + c.board.top + c.cue + c.cueGap + p.h + c.board.bottom;
+  const trayW = s.tray > 0 ? row(s.tray) + 2 * (c.tray.x + BORDER) : 0;
+  const trayH = 2 * (c.tray.y + BORDER) + p.h;
+  const bottomW =
+    p.check === 'beside' ? trayW + CHECK_GAP + s.check.w : Math.max(trayW, s.check.w);
+  const bottomH =
+    p.check === 'beside' ? Math.max(trayH, s.check.h) : trayH + c.gap + s.check.h;
+  // Below the tray's cards: its padding and border, then Check (when below) and the widget's edge.
+  const underTray =
+    c.tray.y + BORDER + ROOT_PAD.y + (p.check === 'below' ? c.gap + s.check.h : 0);
+  return {
+    w: Math.max(boardW, bottomW) + 2 * ROOT_PAD.x,
+    h: boardH + c.gap + bottomH + 2 * ROOT_PAD.y,
+    hand: s.tray > 0 ? Math.max(0, HAND_REACH - underTray) : 0,
+  };
+}
+
+/**
+ * The biggest card that fits the room: the full cue first (the compact one only when the height
+ * is short), Check beside the tray when it fits, room for Pip's hand when there is some. Nothing
+ * fits: the smallest layout (the area then scrolls; targets never shrink below the minimum).
+ */
+function planLayout(s: Shape, room: WidgetRoom | null): Plan {
+  const W = room?.width ?? 1180;
+  const H = room?.height ?? Number.POSITIVE_INFINITY;
+  const hi = Math.round(s.target * 1.5);
+  for (const withHand of [true, false]) {
+    for (const chrome of ['normal', 'compact'] as const) {
+      for (let h = hi; h >= s.target; h -= 2) {
+        for (const check of ['beside', 'below'] as const) {
+          const p = { w: s.width(h), h, chrome, check };
+          const size = sizeOf(s, p);
+          if (size.w <= W + 0.5 && size.h + (withHand ? size.hand : 0) <= H + 0.5) return p;
+        }
+      }
+    }
+  }
+  const smallest = { w: s.width(s.target), h: s.target, chrome: 'compact' as const };
+  const beside = { ...smallest, check: 'beside' as const };
+  return sizeOf(s, beside).w <= W + 0.5 ? beside : { ...smallest, check: 'below' };
+}
+
+/**
+ * A number line on a card keeps its ticks and mark (the place is the picture) but not its tick
+ * numerals: drawn card-small they would be unreadable, and the card's own numeral (or the mark's
+ * label) names it. Text a card shows is then exactly its name (axe label-content-name-mismatch).
+ */
+const cardPicture = (spec: StimulusSpec): StimulusSpec =>
+  spec.kind === 'number-line' ? { ...spec, labelsEvery: null } : spec;
+
+/** The number a number-line picture already prints at its mark (so the card needn't repeat it). */
+const markShows = (spec: StimulusSpec | undefined, label: string | undefined) =>
+  spec?.kind === 'number-line' && (spec.marks ?? []).some((m) => m.label === label);
+
+// ---------- art ----------
 
 /** A pebble for the direction cue (decorative; the cue row carries the name). */
 function CuePebble({ size }: { size: number }) {
@@ -90,6 +223,9 @@ interface Flight {
   moving: boolean;
 }
 
+/** Where a demo invite points: a card (in the tray or placed) or an empty slot. */
+type Cue = { kind: 'card'; id: string } | { kind: 'slot'; slot: number };
+
 function initialSlots(config: Config): (string | null)[] {
   const slots: (string | null)[] = config.items.map(() => null);
   for (const [slot, id] of Object.entries(config.fixed ?? {})) slots[Number(slot)] = id;
@@ -106,7 +242,7 @@ export function OrderWidget({
 }: WidgetProps<Config>) {
   const t = useNarrationText();
   const { sayNumber } = useSpeech();
-  const { speakOnTap } = useUiPreferences();
+  const { speakOnTap, ageMode } = useUiPreferences();
   const reduced = useReducedMotion();
   const trace = useInteractionTrace(onInteract);
   const alive = useAlive();
@@ -120,6 +256,8 @@ export function OrderWidget({
   const [flight, setFlight] = useState<Flight | null>(null);
   const [demoBusy, setDemoBusy] = useState(false);
   const rootRef = useRef<HTMLDivElement | null>(null);
+  const checkRef = useRef<HTMLSpanElement | null>(null);
+  const room = useWidgetRoom(rootRef);
 
   const interactive = !disabled && !demoBusy;
   const fixed = config.fixed ?? {};
@@ -157,7 +295,8 @@ export function OrderWidget({
       if (it) speakItem(it);
     },
     onPlace: ({ item, target }) => {
-      setInvite(null);
+      // A drag or answer invite follows the row (its cue moves on by itself); a highlight ends.
+      setInvite((cur) => (cur?.op === 'highlight' ? null : cur));
       placeIn(item, slotIndex(target));
     },
   });
@@ -184,14 +323,30 @@ export function OrderWidget({
     });
     const response = model.toResponse(state);
     if (!response) return false;
+    setInvite(null);
     onResponse(response);
     return true;
   });
 
+  /** The slots the model's solution fills for an `answer {values}` action, or null. */
+  const solutionSlots = (action: WidgetAction): (string | null)[] | null => {
+    const model = formatModel('order');
+    if (!model) return null;
+    const state = model.apply(model.initialState(config), action);
+    if (model.toResponse(state) === null || !('slots' in state)) return null;
+    return state.slots as (string | null)[];
+  };
+
   // ---------- demo mode (03 §6.3) ----------
 
-  const rectOf = (selector: string) =>
-    rootRef.current?.querySelector<HTMLElement>(selector)?.getBoundingClientRect() ?? null;
+  const rectOf = (pick: (root: HTMLElement) => HTMLElement | undefined) => {
+    const root = rootRef.current;
+    return root ? (pick(root)?.getBoundingClientRect() ?? null) : null;
+  };
+  const byData = (root: HTMLElement, key: string, value: string) =>
+    [...root.querySelectorAll<HTMLElement>(`[data-${key}]`)].find(
+      (el) => el.dataset[key.replace(/-(\w)/g, (_, c: string) => c.toUpperCase())] === value,
+    );
 
   /** Flies an item's card to slot k (instant with reduced motion), then places it. */
   const demoDrag = async (id: string, k: number) => {
@@ -201,8 +356,8 @@ export function OrderWidget({
     speakItem(it);
     await pause(350);
     if (!alive.current) return;
-    const from = rectOf(`[data-card="${CSS.escape(id)}"]`);
-    const to = rectOf(`[data-slot-pad="${k}"]`);
+    const from = rectOf((r) => byData(r, 'card', id) ?? byData(r, 'placed', id));
+    const to = rectOf((r) => byData(r, 'slot-pad', String(k)));
     if (!reduced && from && to) {
       setFlight({ item: it, from, to, moving: false });
       await wait(20);
@@ -237,11 +392,8 @@ export function OrderWidget({
           if (alive.current) setHighlight(null);
         } else if (action.op === 'answer') {
           // The model decides which item goes where (equal values may swap, fixed slots stay).
-          const model = formatModel('order');
-          if (!model) return;
-          const state = model.apply(model.initialState(config), action);
-          if (model.toResponse(state) === null || !('slots' in state)) return;
-          const target = state.slots as (string | null)[];
+          const target = solutionSlots(action);
+          if (!target) return;
           for (let k = 0; k < target.length; k++) {
             const id = target[k];
             if (id === null || id === undefined || fixedSlots.has(k)) continue;
@@ -258,30 +410,146 @@ export function OrderWidget({
     invite: (action) => setInvite(action),
   });
 
-  const invitedCard =
-    invite && (invite.op === 'drag' || invite.op === 'highlight')
-      ? typeof invite.args?.id === 'string'
-        ? invite.args.id
-        : null
-      : null;
-  const invitedSlot = invite?.op === 'drag' ? Number(invite.args?.slot) : null;
-  const trayInvited = invite?.op === 'answer';
+  /** The one control the invite rings, only while the child can act (03 §6.3). */
+  const cue: Cue | null = (() => {
+    if (!invite || !interactive) return null;
+    const args = invite.args ?? {};
+    /** Card `id` for slot k: the card until the child picks it up, then the slot. */
+    const cardThenSlot = (id: string, k: number): Cue | null => {
+      if (!itemById.has(id) || fixedIds.has(id) || fixedSlots.has(k) || k < 0 || k >= n) {
+        return null;
+      }
+      if (slots[k] === id) return null;
+      if (dnd.selected !== id) return { kind: 'card', id };
+      // Picked up: the slot, or (taken by another card) that card, to tap back to the tray.
+      const occupant = slots[k];
+      return occupant === null || occupant === undefined
+        ? { kind: 'slot', slot: k }
+        : { kind: 'card', id: occupant };
+    };
+    switch (invite.op) {
+      case 'highlight':
+        return typeof args.id === 'string' && itemById.has(args.id)
+          ? { kind: 'card', id: args.id }
+          : null;
+      case 'drag': {
+        const k = Number(args.slot);
+        return typeof args.id === 'string' && Number.isInteger(k) ? cardThenSlot(args.id, k) : null;
+      }
+      case 'answer': {
+        const target = solutionSlots(invite);
+        if (!target) return null;
+        const k = target.findIndex((id, i) => !fixedSlots.has(i) && slots[i] !== id);
+        const id = target[k];
+        return k < 0 || id === null || id === undefined ? null : cardThenSlot(id, k);
+      }
+      default:
+        return null;
+    }
+  })();
+  const cueKey = cue === null ? '' : cue.kind === 'card' ? `card:${cue.id}` : `slot:${cue.slot}`;
+  const { hand: inviteHand, rootStyle: handRootStyle } = useInviteHand(
+    rootRef,
+    (root) =>
+      cue === null
+        ? null
+        : cue.kind === 'card'
+          ? (byData(root, 'card', cue.id) ?? byData(root, 'placed', cue.id) ?? null)
+          : (byData(root, 'slot-pad', String(cue.slot)) ?? null),
+    cueKey,
+  );
+  const cardLit = (id: string) => highlight === id || (cue?.kind === 'card' && cue.id === id);
+
+  // ---------- layout ----------
+
+  const target = MIN_TARGET_PX[ageMode];
+  const [checkSize, setCheckSize] = useState<{ w: number; h: number } | null>(null);
+  useLayoutEffect(() => {
+    const el = checkRef.current;
+    if (!el) return;
+    const measure = () => {
+      const r = el.getBoundingClientRect();
+      // The button's ledge sits below its box (margin).
+      const next = { w: Math.ceil(r.width), h: Math.ceil(r.height) + 6 };
+      setCheckSize((c) => (c && c.w === next.w && c.h === next.h ? c : next));
+    };
+    measure();
+    if (typeof ResizeObserver === 'undefined') return;
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+
+  const pictures = config.items.some((it) => it.stimulus && it.stimulus.kind !== 'none');
+  const tagRow = pictures && config.items.some((it) => it.label && !markShows(it.stimulus, it.label));
+  // Picture cards: as wide as the widest picture wants (at most 2.4 × the height), all one size.
+  const pictureAspect = Math.min(
+    2.4,
+    Math.max(
+      0.8,
+      ...config.items.map((it) => {
+        if (!it.stimulus) return 1;
+        const s = naturalPictureSize(cardPicture(it.stimulus), true);
+        return s.flexWidth ? 2.4 : s.w / Math.max(1, s.h);
+      }),
+    ),
+  );
+  const longest = Math.max(...config.items.map((it) => (it.label ?? String(it.value)).length));
+  const words = !pictures && config.items.some((it) => it.label && !isNumeral(it.label));
+  const cardWidth = (h: number) =>
+    pictures
+      ? Math.min(
+          Math.round(2.4 * h),
+          Math.max(h, Math.round((h - 2 * CARD_PAD - (tagRow ? TAG_H : 0)) * pictureAspect) + 2 * CARD_PAD),
+        )
+      : words
+        ? Math.max(h, longest * 14 + 2 * CARD_PAD + 8)
+        : h;
+  const plan = planLayout(
+    {
+      n,
+      tray: n - fixedIds.size,
+      width: cardWidth,
+      target,
+      check: checkSize ?? { w: TARGET_PX[ageMode].big + 8, h: TARGET_PX[ageMode].big + 6 },
+    },
+    room,
+  );
+  const picW = plan.w - 2 * CARD_PAD;
+  const picH = plan.h - 2 * CARD_PAD - (tagRow ? TAG_H : 0);
+  // One numeral size for every card, as big as the longest label lets it be (≥ 32 px, 05 §11).
+  const numeralPx = Math.max(32, Math.min(48, Math.floor((plan.w - 18) / (0.62 * longest))));
 
   // ---------- render ----------
 
-  const face = (it: Item) =>
-    it.label !== undefined ? (
-      <span className={isNumeral(it.label) ? 'ni-ord__numeral' : 'ni-ord__word'}>{it.label}</span>
-    ) : it.stimulus ? (
-      <StimulusView spec={it.stimulus} maxWidth={104} maxHeight={84} />
+  const face = (it: Item) => {
+    const spec = it.stimulus;
+    if (spec && spec.kind !== 'none') {
+      const tag = it.label !== undefined && !markShows(spec, it.label);
+      return (
+        <span className="ni-ord__face">
+          {tagRow ? (
+            <span className="ni-ord__tag" aria-hidden="true">
+              {tag ? it.label : ''}
+            </span>
+          ) : null}
+          <FitPicture spec={cardPicture(spec)} maxWidth={picW} maxHeight={picH} stackFrames />
+        </span>
+      );
+    }
+    return it.label !== undefined && !isNumeral(it.label) ? (
+      <span className="ni-ord__word">{it.label}</span>
     ) : (
-      <span className="ni-ord__numeral">{it.value}</span>
+      <span className="ni-ord__numeral">{it.label ?? it.value}</span>
     );
+  };
 
   const asc = config.direction === 'asc';
+  const compact = plan.chrome === 'compact';
+  const [cueMin, cueMax] = compact ? [12, 28] : [20, 50];
   const cueSizes = Array.from({ length: n }, (_, k) => {
     const f = n === 1 ? 1 : k / (n - 1);
-    return Math.round(26 + 34 * (asc ? f : 1 - f));
+    return Math.round(cueMin + (cueMax - cueMin) * (asc ? f : 1 - f));
   });
 
   const flightStyle: CSSProperties | undefined = flight
@@ -294,7 +562,21 @@ export function OrderWidget({
       }
     : undefined;
 
-  const gridStyle = { '--n': n } as CSSProperties;
+  const vars = {
+    '--n': n,
+    '--ord-w': `${plan.w}px`,
+    '--ord-h': `${plan.h}px`,
+    '--ord-gap': `${CARD_GAP}px`,
+    '--ord-numeral': `${numeralPx}px`,
+    '--ord-cue-cell': `${cueMax + 4}px`,
+    '--ord-pad-x': `${ROOT_PAD.x}px`,
+    '--ord-pad-y': `${ROOT_PAD.y}px`,
+    '--ord-gap-main': `${CHROME[plan.chrome].gap}px`,
+    '--ord-board-pad': `${CHROME[plan.chrome].board.top}px ${CHROME[plan.chrome].board.x}px ${CHROME[plan.chrome].board.bottom}px`,
+    '--ord-cue-gap': `${CHROME[plan.chrome].cueGap}px`,
+    '--ord-tray-pad': `${CHROME[plan.chrome].tray.y}px ${CHROME[plan.chrome].tray.x}px`,
+    '--ord-check-gap': `${CHECK_GAP}px`,
+  } as CSSProperties;
 
   return (
     <div
@@ -302,12 +584,15 @@ export function OrderWidget({
       className="ni-ord"
       data-tier={tier}
       data-direction={config.direction}
+      data-chrome={plan.chrome}
+      data-check={plan.check}
+      data-cards={pictures ? 'picture' : 'numeral'}
       data-disabled={disabled ? 'true' : undefined}
+      style={{ ...vars, ...handRootStyle }}
     >
       <div className="ni-ord__board">
         <div
           className="ni-ord__cue"
-          style={gridStyle}
           role="img"
           aria-label={t(asc ? 'ui.order.small-to-big' : 'ui.order.big-to-small')}
         >
@@ -336,7 +621,7 @@ export function OrderWidget({
           </svg>
         </div>
 
-        <div className="ni-ord__slots" style={gridStyle}>
+        <div className="ni-ord__slots">
           {slots.map((id, k) => {
             const isFixed = fixedSlots.has(k);
             const it = id === null ? undefined : itemById.get(id);
@@ -344,12 +629,13 @@ export function OrderWidget({
               label: t('ui.widget.blank', { n: k + 1 }),
               disabled: isFixed,
             });
+            const padLit = cue?.kind === 'slot' && cue.slot === k;
             return (
               // biome-ignore lint/suspicious/noArrayIndexKey: slots are positional
               <div key={k} className="ni-ord__slot">
                 <div
                   {...pad}
-                  className={[pad.className, 'ni-ord__pad', invitedSlot === k ? 'ni-invite' : '']
+                  className={[pad.className, 'ni-ord__pad', padLit ? 'ni-invite' : '']
                     .filter(Boolean)
                     .join(' ')}
                   data-slot-pad={k}
@@ -369,7 +655,7 @@ export function OrderWidget({
                 ) : it ? (
                   <button
                     type="button"
-                    className={['ni-ord__card', highlight === it.id ? 'ni-invite' : '']
+                    className={['ni-ord__card', cardLit(it.id) ? 'ni-invite' : '']
                       .filter(Boolean)
                       .join(' ')}
                     data-placed={it.id}
@@ -387,27 +673,20 @@ export function OrderWidget({
       </div>
 
       <div className="ni-ord__bottom">
-        <fieldset
-          className={['ni-ord__tray', trayInvited ? 'ni-invite' : ''].filter(Boolean).join(' ')}
-          aria-label={t('ui.widget.numbers')}
-        >
-          {config.items
-            .filter((it) => !fixedIds.has(it.id))
-            .map((it) => {
-              const placed = slots.includes(it.id);
-              if (placed) {
-                return <span key={it.id} className="ni-ord__ghost" aria-hidden="true" />;
-              }
-              const props = dnd.itemProps(it.id, { label: itemName(it) });
-              return (
-                <span key={it.id} className="ni-ord__home">
+        {fixedIds.size < n ? (
+          <fieldset className="ni-ord__tray" aria-label={t('ui.widget.numbers')}>
+            {config.items
+              .filter((it) => !fixedIds.has(it.id))
+              .map((it) => {
+                if (slots.includes(it.id)) {
+                  return <span key={it.id} className="ni-ord__ghost" aria-hidden="true" />;
+                }
+                const props = dnd.itemProps(it.id, { label: itemName(it) });
+                return (
                   <div
+                    key={it.id}
                     {...props}
-                    className={[
-                      props.className,
-                      'ni-ord__card',
-                      highlight === it.id || invitedCard === it.id ? 'ni-invite' : '',
-                    ]
+                    className={[props.className, 'ni-ord__card', cardLit(it.id) ? 'ni-invite' : '']
                       .filter(Boolean)
                       .join(' ')}
                     data-card={it.id}
@@ -415,16 +694,13 @@ export function OrderWidget({
                   >
                     {face(it)}
                   </div>
-                  {invitedCard === it.id ? (
-                    <span className="ni-hand ni-ord__hand">
-                      <HandPointerIcon />
-                    </span>
-                  ) : null}
-                </span>
-              );
-            })}
-        </fieldset>
-        <CheckButton onPress={submit} disabled={!interactive || !complete} />
+                );
+              })}
+          </fieldset>
+        ) : null}
+        <span ref={checkRef} className="ni-ord__check">
+          <CheckButton onPress={submit} disabled={!interactive || !complete} />
+        </span>
       </div>
 
       {flight ? (
@@ -432,6 +708,7 @@ export function OrderWidget({
           {face(flight.item)}
         </div>
       ) : null}
+      {inviteHand}
     </div>
   );
 }

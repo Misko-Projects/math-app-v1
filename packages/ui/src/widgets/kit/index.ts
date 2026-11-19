@@ -21,6 +21,16 @@ export {
   useSubmitGuard,
 } from './controls';
 export {
+  cellToFit,
+  countLayout,
+  FitPicture,
+  type FitPictureProps,
+  naturalPictureSize,
+  numberLineHeight,
+  Scaled,
+  tenFrameLayout,
+} from './FitPicture';
+export {
   INVITE_GLYPH_SELECTOR,
   INVITE_HAND_PX,
   type InviteHandPlacement,

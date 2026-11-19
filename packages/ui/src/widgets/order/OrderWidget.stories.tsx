@@ -8,10 +8,16 @@ import {
   expectTargetSize,
   pointerDrag,
   spyAudio,
+  waitForSettled,
 } from '../../test-support/storyHelpers';
 import {
+  areaBox,
+  expectFitsArea,
+  expectPointerOn,
+  expectRingClear,
   expectTraceOrdered,
   findWidget,
+  inArea,
   renderWidget,
   traceOf,
 } from '../../test-support/widgetStory';
@@ -54,6 +60,102 @@ const pictures: Config = {
     { id: 'c', value: 4, stimulus: { kind: 'dots', arrangement: 'dice', groups: [4] } },
   ],
   direction: 'asc',
+};
+
+// Real content shapes (what the K01 generators build: compare.numbers, compare.sets, mea.length,
+// mea.massvolume, count.sequence).
+
+/** CNT.01.t3: five two-digit cards, small to big (the most a K order item has). */
+const fiveUp: Config = { format: 'order', items: cards([14, 11, 15, 12, 13]), direction: 'asc' };
+
+/** CNT.09.t4: across a hundred, three-digit labels. */
+const hundred: Config = { format: 'order', items: cards([99, 101, 100, 98]), direction: 'asc' };
+
+/** A number-path card (compare.numbers `number-path`): the numeral, and where it sits on 0–20. */
+const pathCard = (v: number, i: number): Config['items'][number] => ({
+  id: `item-${i}`,
+  value: v,
+  label: String(v),
+  stimulus: {
+    kind: 'number-line',
+    min: 0,
+    max: 20,
+    ticksEvery: 1,
+    labelsEvery: 1,
+    marks: [{ at: v, arrow: true }],
+  },
+});
+
+/** CMP.06.t1 (K): four number-path cards, 0–20. */
+const pathCards: Config = {
+  format: 'order',
+  items: [8, 20, 17, 15].map(pathCard),
+  direction: 'asc',
+};
+
+/** CMP.01.t5 (K): dot pictures, fewest first; one is a line of ten. */
+const dotCards: Config = {
+  format: 'order',
+  items: [1, 10, 7].map((count, i) => ({
+    id: `item-${i}`,
+    value: count,
+    stimulus: {
+      kind: 'objects',
+      set: { count, sprite: 'dot', layout: 'line', layoutSeed: 3 + i },
+    },
+  })),
+  direction: 'asc',
+};
+
+/** CMP.07.t3 (K): double ten-frames (teen numbers). */
+const frameCards: Config = {
+  format: 'order',
+  items: [18, 13, 20].map((v, i) => ({
+    id: `item-${i}`,
+    value: v,
+    stimulus: { kind: 'ten-frame', frames: 2, filled: [10, v - 10] },
+  })),
+  direction: 'asc',
+};
+
+/** PV.02.t2 (G1): base-ten blocks. */
+const blockCards: Config = {
+  format: 'order',
+  items: [99, 22, 91].map((v, i) => ({
+    id: `item-${i}`,
+    value: v,
+    stimulus: { kind: 'base-ten', hundreds: 0, tens: Math.floor(v / 10), ones: v % 10 },
+  })),
+  direction: 'asc',
+};
+
+/** MEA.01.t5 (K): ruler strips, longest first. */
+const rulerCards: Config = {
+  format: 'order',
+  items: [10, 4, 7].map((v, i) => ({
+    id: `item-${i}`,
+    value: v,
+    stimulus: {
+      kind: 'number-line',
+      min: 0,
+      max: 11,
+      ticksEvery: 1,
+      labelsEvery: null,
+      marks: [{ at: v, arrow: true }],
+    },
+  })),
+  direction: 'desc',
+};
+
+/** MEA.16.t3 (K): heaviest first, one object a card. */
+const weightCards: Config = {
+  format: 'order',
+  items: ['apple', 'feather', 'pumpkin'].map((sprite, i) => ({
+    id: `item-${i}`,
+    value: [3, 1, 9][i] as number,
+    stimulus: { kind: 'objects', set: { count: 1, sprite, layout: 'line', layoutSeed: 1 } },
+  })),
+  direction: 'desc',
 };
 
 const meta = {
@@ -290,7 +392,10 @@ export const Disabled: Story = {
 
 const demoController: WidgetDemo = createDemoController({ strict: true });
 
-/** Demo mode (03 §6.3): Pip points at 6 and slides it into the first box; the next is invited. */
+/**
+ * Demo mode (03 §6.3): Pip points at 6 and slides it into the first box. While the host keeps
+ * input off, an invite shows nothing (the child can't act yet).
+ */
 export const DemoMode: Story = {
   args: { disabled: true, demo: demoController },
   play: async ({ canvasElement }) => {
@@ -303,11 +408,323 @@ export const DemoMode: Story = {
       UnsupportedWidgetOpError,
     );
     demoController.invite({ op: 'drag', args: { id: 'item-3', slot: 1 } });
-    await waitFor(() =>
-      expect(root.querySelector('[data-card="item-3"].ni-invite')).not.toBeNull(),
-    );
-    await expect(root.querySelector('[data-slot-pad="1"].ni-invite')).not.toBeNull();
-    await expect(root.querySelector('.ni-hand')).not.toBeNull();
+    await new Promise((r) => setTimeout(r, 100));
+    await expect(root.querySelector('.ni-invite')).toBeNull();
+    await expect(root.querySelector('.ni-hand')).toBeNull();
+  },
+};
+
+/** Every target a child can use: tray cards, placed cards, empty slots (a full slot's card covers its pad), check. */
+const targets = (root: HTMLElement) => [
+  ...root.querySelectorAll<HTMLElement>(
+    '.ni-ord__tray .ni-ord__card, button.ni-ord__card, .ni-ord__slot:not(:has(.ni-ord__card)) .ni-ord__pad',
+  ),
+  within(root).getByRole('button', { name: 'Check' }),
+];
+
+/** ONE ring, on `el`; Pip's fingertip on it at rest; the ring ≥ 12 px clear of every other target. */
+async function expectInviteOn(root: HTMLElement, el: HTMLElement) {
+  await waitFor(() => expect(el).toHaveClass('ni-invite'));
+  await expect(root.querySelectorAll('.ni-invite')).toHaveLength(1);
+  await waitFor(() => expect(root.querySelectorAll('.ni-hand')).toHaveLength(1));
+  await waitForSettled(el);
+  await new Promise((r) => requestAnimationFrame(r));
+  await expectPointerOn(root.querySelector('.ni-hand') as HTMLElement, el, root);
+  await expectRingClear(
+    el,
+    targets(root).filter((t) => t !== el),
+  );
+}
+
+const noInvite = async (root: HTMLElement) => {
+  await waitFor(() => expect(root.querySelector('.ni-invite')).toBeNull());
+  await expect(root.querySelector('.ni-hand')).toBeNull();
+};
+
+const dragInvite: WidgetDemo = createDemoController({ strict: true });
+
+/**
+ * The child's turn (03 §6.3), `drag {id, slot}`: the ring and Pip's hand on the card; once the
+ * child has picked it up, on its box; once it is in, nothing.
+ */
+export const InviteDragK: Story = {
+  globals: { ageMode: 'k' },
+  args: { demo: dragInvite },
+  play: async ({ canvasElement }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    dragInvite.invite({ op: 'drag', args: { id: 'item-3', slot: 1 } });
+    await expectInviteOn(root, card(root, '7'));
+    await userEvent.click(card(root, '7'));
+    await expectInviteOn(root, root.querySelector('[data-slot-pad="1"]') as HTMLElement);
+    await userEvent.click(slot(root, 2));
+    await expect(placed(root)).toEqual(['', '7', '', '']);
+    await noInvite(root);
+  },
+};
+
+const answerInvite: WidgetDemo = createDemoController({ strict: true });
+
+/**
+ * `answer {values}`: the next card the model's solution puts in the first box that is not yet
+ * right; the cue moves on as the child fills the row. A highlight rings the card only.
+ */
+export const InviteAnswer: Story = {
+  args: { demo: answerInvite },
+  play: async ({ canvasElement }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    answerInvite.invite({ op: 'answer', args: { values: [6, 7, 8, 9] } });
+    await expectInviteOn(root, card(root, '6'));
+    await userEvent.click(card(root, '6'));
+    await userEvent.click(slot(root, 1));
+    await expectInviteOn(root, card(root, '7'));
+    answerInvite.invite({ op: 'highlight', args: { id: 'item-2' } });
+    await expectInviteOn(root, card(root, '9'));
+    answerInvite.invite(null);
+    await noInvite(root);
+  },
+};
+
+// ---------- real content shapes ----------
+
+/** Three-digit labels (CNT.09.t4) stay one size on K cards, numerals ≥ 32 px. */
+export const ThreeDigitK: Story = {
+  globals: { ageMode: 'k' },
+  args: { config: hundred },
+  play: async ({ canvasElement }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    const trayCards = [...root.querySelectorAll<HTMLElement>('.ni-ord__tray .ni-ord__card')];
+    for (const c of trayCards) {
+      await expectTargetSize(c, 'k');
+      const numeral = c.querySelector('.ni-ord__numeral') as HTMLElement;
+      await expect(Number.parseFloat(getComputedStyle(numeral).fontSize)).toBeGreaterThanOrEqual(32);
+      // The numeral fits inside its card.
+      await expect(numeral.scrollWidth).toBeLessThanOrEqual(c.clientWidth);
+    }
+    await expectTargetGaps(trayCards);
+  },
+};
+
+/** Picture cards keep the size of their neighbours; each shows its picture. */
+async function expectPictureCards(root: HTMLElement, n: number, ageMode: 'k' | 'g1-up') {
+  const trayCards = [...root.querySelectorAll<HTMLElement>('.ni-ord__tray .ni-ord__card')];
+  await expect(trayCards).toHaveLength(n);
+  const sizes = trayCards.map((c) => c.getBoundingClientRect());
+  for (const r of sizes) {
+    await expect(Math.round(r.width)).toBe(Math.round((sizes[0] as DOMRect).width));
+    await expect(Math.round(r.height)).toBe(Math.round((sizes[0] as DOMRect).height));
+  }
+  for (const c of trayCards) {
+    await expectTargetSize(c, ageMode);
+    const pic = c.querySelector('.ni-fitpic') as HTMLElement;
+    await expect(pic).not.toBeNull();
+    // The picture sits inside its card.
+    const p = pic.getBoundingClientRect();
+    const r = c.getBoundingClientRect();
+    await expect(p.left).toBeGreaterThanOrEqual(r.left);
+    await expect(p.right).toBeLessThanOrEqual(r.right + 0.5);
+    await expect(p.top).toBeGreaterThanOrEqual(r.top);
+    await expect(p.bottom).toBeLessThanOrEqual(r.bottom + 0.5);
+  }
+  await expectTargetGaps(trayCards);
+}
+
+/** CMP.06.t1 (K): number-path cards; the numeral above where it sits on the path. */
+export const PathCardsK: Story = {
+  globals: { ageMode: 'k' },
+  args: { config: pathCards, tier: 'pictorial' },
+  play: async ({ canvasElement, args }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    await expectPictureCards(root, 4, 'k');
+    await expect(card(root, '8').querySelector('.ni-ord__tag')).toHaveTextContent('8');
+    for (const [value, box] of [
+      ['8', 1],
+      ['15', 2],
+      ['17', 3],
+      ['20', 4],
+    ] as const) {
+      await userEvent.click(card(root, value));
+      await userEvent.click(slot(root, box));
+    }
+    await userEvent.click(within(root).getByRole('button', { name: 'Check' }));
+    await expect(args.onResponse).toHaveBeenCalledWith({
+      kind: 'numbers',
+      values: [8, 15, 17, 20],
+    });
+  },
+};
+
+/** CMP.01.t5 (K): dot pictures, one a line of ten; no numeral gives the order away. */
+export const DotCardsK: Story = {
+  globals: { ageMode: 'k' },
+  args: { config: dotCards, tier: 'pictorial' },
+  play: async ({ canvasElement }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    await expectPictureCards(root, 3, 'k');
+    await expect(root.querySelector('.ni-ord__tag')).toBeNull();
+    await expect(root.querySelector('.ni-ord__numeral')).toBeNull();
+  },
+};
+
+/** CMP.07.t3 (K): double ten-frames, stacked on each card so the counters stay big. */
+export const FrameCardsK: Story = {
+  globals: { ageMode: 'k' },
+  args: { config: frameCards, tier: 'pictorial' },
+  play: async ({ canvasElement }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    await expectPictureCards(root, 3, 'k');
+    // Two frames a card, the counters 10 + 8 on the first.
+    const first = card(root, 'Picture 1');
+    await expect(first.querySelectorAll('.ni-objects__frame')).toHaveLength(2);
+    await expect(first.querySelectorAll('.ni-objects__item')).toHaveLength(18);
+  },
+};
+
+/** PV.02.t2 (G1): base-ten blocks, scaled as a whole to the card. */
+export const BlockCards: Story = {
+  args: { config: blockCards, tier: 'pictorial' },
+  play: async ({ canvasElement }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    await expectPictureCards(root, 3, 'g1-up');
+    await expect(card(root, 'Picture 1').querySelectorAll('.ni-baseten__block')).toHaveLength(9);
+  },
+};
+
+/** MEA.01.t5 (K): ruler strips, longest first. */
+export const RulerCardsK: Story = {
+  globals: { ageMode: 'k' },
+  args: { config: rulerCards, tier: 'pictorial' },
+  play: async ({ canvasElement }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    await expectPictureCards(root, 3, 'k');
+    await expect(within(root).getByRole('img', { name: 'Big to small' })).toBeVisible();
+  },
+};
+
+/** MEA.16.t3 (K): one object a card, heaviest first. */
+export const WeightCardsK: Story = {
+  globals: { ageMode: 'k' },
+  args: { config: weightCards, tier: 'pictorial' },
+  play: async ({ canvasElement }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    await expectPictureCards(root, 3, 'k');
+  },
+};
+
+// ---------- the workshop's widget area (06 §1, §2) ----------
+
+/** The widget fits the area: no scroll, every part inside, every target full size and spaced. */
+async function expectOrderFits(canvasElement: HTMLElement, root: HTMLElement, age: 'k' | 'g1-up') {
+  await waitForSettled(root);
+  const parts = [
+    root.querySelector('.ni-ord__board'),
+    root.querySelector('.ni-ord__tray'),
+    root.querySelector('.ni-ord__check'),
+  ].filter((p): p is HTMLElement => p !== null);
+  await expectFitsArea(areaBox(canvasElement), parts, targets(root), age);
+}
+
+/**
+ * K at the 960 × 600 minimum (852 × 319 inside the area): five cards, the compact cue, Check
+ * beside the tray, no scroll. Then the row is filled by tap and still fits.
+ */
+export const FiveCardsKMinLandscape: Story = {
+  globals: { ageMode: 'k' },
+  args: { config: fiveUp },
+  render: inArea('landscapeMin'),
+  play: async ({ canvasElement, args }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    await expect(root).toHaveAttribute('data-chrome', 'compact');
+    await expect(root).toHaveAttribute('data-check', 'beside');
+    await expectOrderFits(canvasElement, root, 'k');
+    for (const [value, box] of [
+      ['11', 1],
+      ['12', 2],
+      ['13', 3],
+      ['14', 4],
+      ['15', 5],
+    ] as const) {
+      await userEvent.click(card(root, value));
+      await userEvent.click(slot(root, box));
+    }
+    await expectOrderFits(canvasElement, root, 'k');
+    await userEvent.click(within(root).getByRole('button', { name: 'Check' }));
+    await expect(args.onResponse).toHaveBeenCalledWith({
+      kind: 'numbers',
+      values: [11, 12, 13, 14, 15],
+    });
+  },
+};
+
+const minInvite: WidgetDemo = createDemoController({ strict: true });
+
+/** The same area with a drag invite: Pip's hand under the tray card still fits; no scroll. */
+export const FiveCardsKMinLandscapeInvite: Story = {
+  globals: { ageMode: 'k' },
+  args: { config: fiveUp, demo: minInvite },
+  render: inArea('landscapeMin'),
+  play: async ({ canvasElement }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    minInvite.invite({ op: 'drag', args: { id: 'item-1', slot: 0 } });
+    await expectInviteOn(root, card(root, '11'));
+    await expectOrderFits(canvasElement, root, 'k');
+  },
+};
+
+/** K at the minimum: four number-path cards (wider than tall), every part in the area. */
+export const PathCardsKMinLandscape: Story = {
+  globals: { ageMode: 'k' },
+  args: { config: pathCards, tier: 'pictorial' },
+  render: inArea('landscapeMin'),
+  play: async ({ canvasElement }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    await expectPictureCards(root, 4, 'k');
+    await expectOrderFits(canvasElement, root, 'k');
+  },
+};
+
+/** Portrait tablet (746 × 812): five K cards, the full cue, bigger cards. */
+export const FiveCardsKPortrait: Story = {
+  globals: { ageMode: 'k' },
+  args: { config: fiveUp },
+  render: inArea('portrait'),
+  play: async ({ canvasElement }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    await expect(root).toHaveAttribute('data-chrome', 'normal');
+    await expectOrderFits(canvasElement, root, 'k');
+  },
+};
+
+/** Portrait: four number-path cards. */
+export const PathCardsKPortrait: Story = {
+  globals: { ageMode: 'k' },
+  args: { config: pathCards, tier: 'pictorial' },
+  render: inArea('portrait'),
+  play: async ({ canvasElement }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    await expectOrderFits(canvasElement, root, 'k');
+  },
+};
+
+/** Tablet landscape (1226 × 493): five K cards, the full cue. */
+export const FiveCardsKTablet: Story = {
+  globals: { ageMode: 'k' },
+  args: { config: fiveUp },
+  render: inArea('tablet'),
+  play: async ({ canvasElement }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    await expect(root).toHaveAttribute('data-chrome', 'normal');
+    await expectOrderFits(canvasElement, root, 'k');
+  },
+};
+
+/** Tablet landscape: four number-path cards. */
+export const PathCardsKTablet: Story = {
+  globals: { ageMode: 'k' },
+  args: { config: pathCards, tier: 'pictorial' },
+  render: inArea('tablet'),
+  play: async ({ canvasElement }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    await expectOrderFits(canvasElement, root, 'k');
   },
 };
 

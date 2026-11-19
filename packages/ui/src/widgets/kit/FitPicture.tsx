@@ -1,0 +1,260 @@
+import type { StimulusSpec } from '@number-island/shared';
+import { type ReactNode, useLayoutEffect, useRef, useState } from 'react';
+import { dotsLayout, type ObjectLayout, objectSetLayout, type PlacedObject } from './layout';
+import { ObjectSetView } from './ObjectSetView';
+import { StimulusView } from './StimulusView';
+import './kit.css';
+
+/**
+ * A `StimulusSpec` drawn to fit a box the widget measured (06 §1: container-relative layout), for
+ * pictures on cards and compare sides. Countable pictures (objects, dots, ten-frames, groups,
+ * arrays) re-flow their cell size; fixed-pixel pictures (number lines, base-ten blocks,
+ * expressions, kinds a later issue draws) are drawn at their own size and scaled down as a whole
+ * to fit, never stretched (a number line gets the width it can use first, so its ticks stay even).
+ */
+
+/** The cell a countable picture is designed around, for its natural (unscaled) size. */
+const NATURAL_CELL = 56;
+/** Largest cell a picture grows to (the ObjectSetView clamp). */
+const MAX_CELL = 112;
+/** NumberLineView's own geometry: the line's y and the band below it (numerals or none). */
+const LINE_Y_MARKS = 88;
+const LINE_Y_JUMPS = 104;
+const LINE_Y_BARE = 30;
+const LINE_BELOW_NUMERALS = 64;
+const LINE_BELOW_BARE = 30;
+/** Widest a number line is drawn (NumberLineView default). */
+const LINE_MAX_W = 880;
+
+/** A ten-frame stimulus as an object layout: frames side by side, or stacked (one above the other). */
+export function tenFrameLayout(
+  frames: 1 | 2,
+  filled: readonly number[],
+  colors: readonly ('a' | 'b')[][] | undefined,
+  stacked: boolean,
+): ObjectLayout {
+  const objects: PlacedObject[] = [];
+  const outlines = [];
+  for (let f = 0; f < frames; f++) {
+    const fx = stacked ? 0 : f * 5.5;
+    const fy = stacked ? f * 2.5 : 0;
+    outlines.push({ x: fx, y: fy, cols: 5, rows: 2 });
+    const n = Math.max(0, Math.min(10, filled[f] ?? 0));
+    for (let k = 0; k < n; k++) {
+      const c = colors?.[f]?.[k] ?? 'a';
+      objects.push({
+        index: f * 10 + k,
+        kind: 'object',
+        sprite: 'counter',
+        // A margin inside each cell, so counters never touch the frame lines (as TenFrameView).
+        x: fx + (k % 5) + 0.09,
+        y: fy + Math.floor(k / 5) + 0.09,
+        scale: 0.82,
+        group: c === 'b' ? 1 : 0,
+        tone: c,
+      });
+    }
+  }
+  return {
+    objects,
+    frames: outlines,
+    width: stacked || frames === 1 ? 5 : frames * 5.5 - 0.5,
+    height: stacked ? frames * 2.5 - 0.5 : 2,
+  };
+}
+
+/**
+ * The cell layout of a countable picture, or null for a fixed-pixel one. `stackFrames` draws a
+ * double ten-frame as two rows (narrow boxes: cards).
+ */
+export function countLayout(spec: StimulusSpec, stackFrames = false): ObjectLayout | null {
+  switch (spec.kind) {
+    case 'objects':
+      return objectSetLayout(spec.set);
+    case 'dots':
+      return spec.arrangement === 'fingers' ? null : dotsLayout(spec);
+    case 'ten-frame':
+      return tenFrameLayout(spec.frames, spec.filled, spec.colors, stackFrames);
+    case 'groups':
+      return objectSetLayout({
+        count: spec.groups * spec.perGroup,
+        sprite: spec.sprite,
+        layout: 'groups',
+        groups: Array.from({ length: spec.groups }, () => spec.perGroup),
+        layoutSeed: 1,
+      });
+    case 'array':
+      return objectSetLayout({
+        count: spec.rows * spec.cols,
+        sprite: spec.sprite ?? 'counter',
+        layout: 'array',
+        rows: spec.rows,
+        layoutSeed: 1,
+      });
+    default:
+      return null;
+  }
+}
+
+/** A number line's drawn height in px (NumberLineView), which its width does not change. */
+export function numberLineHeight(spec: Extract<StimulusSpec, { kind: 'number-line' }>): number {
+  const marks = spec.marks ?? [];
+  const lineY =
+    (spec.jumps?.length ?? 0) > 0
+      ? LINE_Y_JUMPS
+      : marks.some((m) => m.arrow || m.label !== undefined)
+        ? LINE_Y_MARKS
+        : LINE_Y_BARE;
+  return lineY + (spec.labelsEvery !== null ? LINE_BELOW_NUMERALS : LINE_BELOW_BARE);
+}
+
+/**
+ * The picture's natural size in px (its aspect is what a layout plans with). `flexWidth`: a number
+ * line takes any width (its height is fixed).
+ */
+export function naturalPictureSize(
+  spec: StimulusSpec,
+  stackFrames = false,
+): { w: number; h: number; flexWidth?: boolean } {
+  const layout = countLayout(spec, stackFrames);
+  if (layout) return { w: layout.width * NATURAL_CELL, h: layout.height * NATURAL_CELL };
+  switch (spec.kind) {
+    case 'number-line':
+      return { w: 560, h: numberLineHeight(spec), flexWidth: true };
+    case 'base-ten': {
+      // BaseTenView: 14 px units, 10 px gaps; cubes, flats (140 × 140), rods (14 × 140), ones.
+      const blocks = (spec.thousands ?? 0) + spec.hundreds + spec.tens;
+      const w =
+        (spec.thousands ?? 0) * 158 + spec.hundreds * 140 + spec.tens * 14 + blocks * 10 + 32;
+      const onesRows = Math.ceil(spec.ones / 2);
+      const h = Math.max(blocks > 0 ? 140 : 0, onesRows * 18, 14) + ((spec.thousands ?? 0) ? 18 : 0);
+      return { w, h };
+    }
+    case 'expression': {
+      // Roughly 0.6 em a digit at the 96 px side numeral, 26 px between tokens.
+      const chars = spec.expr.tokens.reduce(
+        (n, tok) => n + ('v' in tok ? String(tok.v).length : 1),
+        0,
+      );
+      return { w: chars * 58 + (spec.expr.tokens.length - 1) * 26 + 24, h: 112 };
+    }
+    case 'none':
+      return { w: 1, h: 1 };
+    default:
+      return { w: 160, h: 160 };
+  }
+}
+
+/** The largest cell `layout` gets in a w × h box (no floor: small cards may draw small dots). */
+export function cellToFit(layout: ObjectLayout, w: number, h: number): number {
+  return Math.max(4, Math.floor(Math.min(w / layout.width, h / layout.height, MAX_CELL)));
+}
+
+/**
+ * Draws `children` at their own size, scaled (uniformly, about the top-left corner) to fit
+ * `maxWidth` × `maxHeight`, at most `maxScale`. The box takes the scaled size, so it lays out like
+ * an image of that size.
+ */
+export function Scaled({
+  maxWidth,
+  maxHeight,
+  maxScale = 1,
+  children,
+}: {
+  maxWidth: number;
+  maxHeight: number;
+  maxScale?: number;
+  children: ReactNode;
+}) {
+  const inner = useRef<HTMLDivElement | null>(null);
+  const [natural, setNatural] = useState<{ w: number; h: number } | null>(null);
+  useLayoutEffect(() => {
+    const el = inner.current;
+    if (!el) return;
+    // offsetWidth/Height ignore the transform: the natural size.
+    const measure = () =>
+      setNatural((n) =>
+        n && n.w === el.offsetWidth && n.h === el.offsetHeight
+          ? n
+          : { w: el.offsetWidth, h: el.offsetHeight },
+      );
+    measure();
+    if (typeof ResizeObserver === 'undefined') return;
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+  const s = natural
+    ? Math.min(maxScale, maxWidth / Math.max(1, natural.w), maxHeight / Math.max(1, natural.h))
+    : 1;
+  return (
+    <div
+      className="ni-scaled"
+      style={natural ? { width: natural.w * s, height: natural.h * s } : undefined}
+    >
+      <div ref={inner} className="ni-scaled__inner" style={{ transform: `scale(${s})` }}>
+        {children}
+      </div>
+    </div>
+  );
+}
+
+export interface FitPictureProps {
+  spec: StimulusSpec;
+  maxWidth: number;
+  maxHeight: number;
+  /** Cell size for a countable picture (two pictures compared share one); default: fit the box. */
+  cell?: number;
+  /** Draw a double ten-frame as two rows. */
+  stackFrames?: boolean;
+  /** How far a fixed-pixel picture (base-ten blocks) may grow, default 1. */
+  maxScale?: number;
+  /** Accessible name (defaults to the generic picture name). */
+  label?: string;
+}
+
+/** A stimulus picture fitted to a box (no frame of its own: the card or side frames it). */
+export function FitPicture({
+  spec,
+  maxWidth,
+  maxHeight,
+  cell,
+  stackFrames = false,
+  maxScale = 1,
+  label,
+}: FitPictureProps) {
+  const w = Math.max(1, maxWidth);
+  const h = Math.max(1, maxHeight);
+  const layout = countLayout(spec, stackFrames);
+  if (layout) {
+    return (
+      <div className="ni-fitpic" data-kind={spec.kind}>
+        <ObjectSetView layout={layout} cell={cell ?? cellToFit(layout, w, h)} label={label} />
+      </div>
+    );
+  }
+  if (spec.kind === 'number-line') {
+    // The line takes the box's width at the scale its fixed height allows, so it is scaled no
+    // more than it must be and its numerals stay as big as the box lets them.
+    const s = Math.min(1, h / numberLineHeight(spec));
+    return (
+      <div className="ni-fitpic" data-kind={spec.kind}>
+        <Scaled maxWidth={w} maxHeight={h}>
+          <StimulusView
+            spec={spec}
+            maxWidth={Math.min(LINE_MAX_W, Math.floor(w / s))}
+            label={label}
+            className="ni-fitpic__bare"
+          />
+        </Scaled>
+      </div>
+    );
+  }
+  return (
+    <div className="ni-fitpic" data-kind={spec.kind}>
+      <Scaled maxWidth={w} maxHeight={h} maxScale={maxScale}>
+        <StimulusView spec={spec} label={label} className="ni-fitpic__bare" />
+      </Scaled>
+    </div>
+  );
+}
