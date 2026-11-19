@@ -532,9 +532,10 @@ describe('session simulation (04 §8)', () => {
       // not the targeting. The raw metric is printed and kept as an expected failure below.
       //
       // K is an expected failure on this reading too (orchestrator decision; the sim learner is
-      // not recalibrated to pass). Measured on the fixture graph: 37.4% of reachable-item
-      // sessions in the band (39.8% before the adaptNext round-2 fixes); raw sessions 42.8% above
-      // the band and 14.9% below; practice items mean P 0.892, mean d − d* +0.06 (+0.07 before).
+      // not recalibrated to pass). Measured on the fixture graph: 35.0% of reachable-item
+      // sessions in the band (39.8% when the orchestrator decided; it has moved with the adaptNext
+      // review fixes); raw sessions 42.6% above the band and 14.8% below; practice items mean P
+      // 0.892, mean d − d* +0.07.
       // Follow-up (folded into #17): re-check the K band on the full K–3 graph and, if it still
       // fails, tune young-learner adaptation (Ks / the rolling controller, a 04 §2.3–2.4
       // change). When it starts passing, the expected failure flips and the suite says so.
