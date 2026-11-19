@@ -1115,7 +1115,12 @@ describe('registry', () => {
       'count.ordinal',
       'count.sequence',
       'count.set',
+      'data.chart',
+      'data.sort',
+      'div.share',
       'estimate.quantity',
+      'frac.compare',
+      'frac.partition',
       'geo.compose',
       'geo.draw',
       'geo.identify',
@@ -1123,8 +1128,13 @@ describe('registry', () => {
       'mea.length',
       'mea.massvolume',
       'numberline.place',
+      'pattern.grow',
+      'pattern.repeat',
+      'puzzle.grid',
       'pv.number',
       'subitize.flash',
+      'time.clock',
+      'time.sequence',
     ]);
     expect(
       registry

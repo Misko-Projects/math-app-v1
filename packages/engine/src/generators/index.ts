@@ -9,7 +9,12 @@ import { compareSets } from './compare/sets';
 import { countOrdinal } from './count/ordinal';
 import { countSequence } from './count/sequence';
 import { countSet } from './count/set';
+import { dataChart } from './data/chart';
+import { dataSort } from './data/sort';
+import { divShare } from './div/share';
 import { estimateQuantity } from './estimate/quantity';
+import { fracCompare } from './frac/compare';
+import { fracPartition } from './frac/partition';
 import { geoCompose } from './geo/compose';
 import { geoDraw } from './geo/draw';
 import { geoIdentify } from './geo/identify';
@@ -17,8 +22,13 @@ import { geoPosition } from './geo/position';
 import { meaLength } from './mea/length';
 import { meaMassVolume } from './mea/massvolume';
 import { numberlinePlace } from './numberline/place';
+import { patternGrow } from './pattern/grow';
+import { patternRepeat } from './pattern/repeat';
+import { puzzleGrid } from './puzzle/grid';
 import { pvNumber } from './pv/number';
 import { subitizeFlash } from './subitize/flash';
+import { timeClock } from './time/clock';
+import { timeSequence } from './time/sequence';
 import type { GeneratorDef } from './types';
 
 const GENERATORS: GeneratorDef[] = [
@@ -39,6 +49,16 @@ const GENERATORS: GeneratorDef[] = [
   compareNumbers,
   numberlinePlace,
   estimateQuantity,
+  divShare, // K01 sharing and fractions (MUL.12, FRA.07)
+  fracPartition, // K01 fractions (FRA.01, FRA.07, FRA.08)
+  fracCompare, // K01 fractions (FRA.08)
+  timeClock, // K01 time
+  timeSequence, // K01 time
+  dataSort, // K01 data (DAT.01, DAT.10)
+  dataChart, // K01 data (DAT.02, DAT.09)
+  patternRepeat, // K01 patterns (ALG.01, ALG.04)
+  patternGrow, // K01 patterns (ALG.02)
+  puzzleGrid, // K01 puzzles (PUZ.01, PUZ.02, CPS.06)
 ];
 
 const BY_ID = new Map<GeneratorId, GeneratorDef>(GENERATORS.map((g) => [g.id, g]));

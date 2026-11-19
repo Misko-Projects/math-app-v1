@@ -9,10 +9,16 @@ import { countAllInstead } from './rules/countAllInstead';
 import { countStartNumber } from './rules/countStartNumber';
 import { decadeTransition } from './rules/decadeTransition';
 import { forgotTheTen } from './rules/forgotTheTen';
+import { fractionBiggerDenominator } from './rules/fractionBiggerDenominator';
+import { fractionUnequalParts } from './rules/fractionUnequalParts';
+import { hourHandNext } from './rules/hourHandNext';
+import { hourMinuteSwap } from './rules/hourMinuteSwap';
 import { offByOneCounting } from './rules/offByOneCounting';
+import { patternRestart } from './rules/patternRestart';
 import { perceptualSize } from './rules/perceptualSize';
 import { recountFromOne } from './rules/recountFromOne';
 import { teenReversal } from './rules/teenReversal';
+import { unequalShare } from './rules/unequalShare';
 import { unitGaps } from './rules/unitGaps';
 import { wrongOperation } from './rules/wrongOperation';
 
@@ -28,6 +34,12 @@ const RULES: Record<string, MisconceptionRule> = {
   perceptualSize: perceptualSize,
   forgotTheTen: forgotTheTen,
   wrongOperation: wrongOperation,
+  hourMinuteSwap: hourMinuteSwap, // K01 time
+  hourHandNext: hourHandNext, // K01 time
+  fractionUnequalParts: fractionUnequalParts, // K01 fractions
+  fractionBiggerDenominator: fractionBiggerDenominator, // K01 fractions
+  unequalShare: unequalShare, // K01 sharing
+  patternRestart: patternRestart, // K01 patterns
 };
 
 export function misconceptionRule(id: string): MisconceptionRule | undefined {

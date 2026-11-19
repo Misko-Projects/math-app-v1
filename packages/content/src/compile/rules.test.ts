@@ -83,6 +83,9 @@ describe('the C01 fixture set (03 §9.5)', () => {
       'ADD.24',
       'ADD.26',
       'ADD.27',
+      'ALG.01',
+      'ALG.02',
+      'ALG.04',
       'CMP.01',
       'CMP.02',
       'CMP.03',
@@ -112,9 +115,17 @@ describe('the C01 fixture set (03 §9.5)', () => {
       'CPS.03',
       'CPS.04',
       'CPS.05',
+      'CPS.06',
       'CPS.07',
       'CPS.08',
       'CPS.11',
+      'DAT.01',
+      'DAT.02',
+      'DAT.09',
+      'DAT.10',
+      'FRA.01',
+      'FRA.07',
+      'FRA.08',
       'GEO.01',
       'GEO.02',
       'GEO.05',
@@ -130,6 +141,9 @@ describe('the C01 fixture set (03 §9.5)', () => {
       'MEA.15',
       'MEA.16',
       'MEA.22',
+      'MUL.12',
+      'PUZ.01',
+      'PUZ.02',
       'PUZ.03',
       'SUB.01',
       'SUB.02',
@@ -138,6 +152,10 @@ describe('the C01 fixture set (03 §9.5)', () => {
       'SUB.05',
       'SUB.06',
       'SUB.07',
+      'TIM.01',
+      'TIM.04',
+      'TIM.08',
+      'TIM.09',
     ]);
     expect(result.content?.misconceptions.map((m) => m.id)).toEqual([
       'MC.bigger-unit-more',
@@ -145,10 +163,16 @@ describe('the C01 fixture set (03 §9.5)', () => {
       'MC.count-start-number',
       'MC.decade-transition',
       'MC.forgot-the-ten',
+      'MC.fraction-bigger-denominator',
+      'MC.fraction-unequal-parts',
+      'MC.hour-hand-next',
+      'MC.hour-minute-swap',
       'MC.off-by-one-counting',
+      'MC.pattern-restart',
       'MC.perceptual-size',
       'MC.recount-from-one',
       'MC.teen-reversal',
+      'MC.unequal-share',
       'MC.unit-gaps',
       'MC.wrong-operation',
     ]);
@@ -184,6 +208,17 @@ describe('the C01 fixture set (03 §9.5)', () => {
         // K01 (#11): composing and decomposing (CPS.04, CPS.07)
         'pv.number',
         'estimate.quantity',
+        // K01 (#11): fractions, sharing, time, data, patterns and puzzles
+        'div.share',
+        'frac.partition',
+        'frac.compare',
+        'time.clock',
+        'time.sequence',
+        'data.sort',
+        'data.chart',
+        'pattern.repeat',
+        'pattern.grow',
+        'puzzle.grid',
       ]),
     );
     expect(new Set(c?.templates.map((t) => t.format))).toEqual(
@@ -212,6 +247,18 @@ describe('the C01 fixture set (03 §9.5)', () => {
         // K01 (#11): CPS (pv.number on the U04 models)
         'base-ten-build',
         'expanded-form',
+        // K01 (#11): fractions, sharing, time, data and patterns (no engine model yet for
+        // fraction-cut, fraction-pick, fraction-line, clock-set, clock-read, bar-graph-read,
+        // bar-graph-build and pattern-extend; equal-share on the U04 model)
+        'equal-share',
+        'fraction-cut',
+        'fraction-pick',
+        'fraction-line',
+        'clock-set',
+        'clock-read',
+        'bar-graph-read',
+        'bar-graph-build',
+        'pattern-extend',
       ]),
     );
   });
@@ -1246,8 +1293,9 @@ describe('V20: coverage', () => {
         (doc) => (skill(doc, 'CNT.14').standards.ccss = ['K.CC.B.4b']),
       );
     });
-    // K.MD.B.3 (DAT.01, DAT.10) has no skill yet; CMP.01 and CMP.05 cover K.CC.C.6 since K01 CMP.
-    expectFinding(diags, 'V20', /uncovered standard K.MD.B.3/);
+    // K.OA.A.2 (ADD.20, a later K01 strand) has no skill yet; CMP.01 and CMP.05 cover K.CC.C.6 since K01
+    // CMP, and DAT.01 and DAT.10 cover K.MD.B.3 since K01 data.
+    expectFinding(diags, 'V20', /uncovered standard K.OA.A.2/);
     expectFinding(diags, 'V20', /uncovered standard K.CC.B.4 \(untagged parts: K.CC.B.4c\)/);
     // Supports never count: K.OA.A.3 is addressed by CPS.01/CPS.02, K.CC.B.5 by CNT.04/CNT.06.
     expect(diags.some((d) => /standard K.OA.A.3\b/.test(d.message))).toBe(false);
@@ -1646,10 +1694,11 @@ describe('V24 and contentVersion (03 §9.1)', () => {
       // CMP (K01) added 9 skills, 31 templates and MC.perceptual-size; CPS and SUB.04/SUB.07 (K01)
       // added 7 skills and 27 templates; V27 (constructed practice) added 7 CMP templates and 18
       // for CNT, SUB, GEO and MEA skills; ADD facts and strategies (K01) added 14 skills, 58
-      // templates, MC.forgot-the-ten and MC.wrong-operation.
-      skills: 71,
-      templates: 271,
-      misconceptions: 11,
+      // templates, MC.forgot-the-ten and MC.wrong-operation; fractions, sharing, time, data, patterns
+      // and puzzles (K01) added 18 skills, 63 templates and six misconceptions.
+      skills: 89,
+      templates: 334,
+      misconceptions: 17,
       narrationKeys: Object.keys(r.content?.narration ?? {}).length,
     });
     expect(Object.keys(manifest.files).sort()).toEqual([
@@ -1668,19 +1717,27 @@ describe('V24 and contentVersion (03 §9.1)', () => {
 describe('graph.json (03 §9.1)', () => {
   it('orders nodes topologically with ties by id, and computes depth and descendants2', () => {
     const g = compileContent(FIXTURE).content?.graph;
-    expect(g?.nodes[0]).toBe('CNT.01');
+    expect(g?.nodes[0]).toBe('ALG.01');
     const pos = new Map(g?.nodes.map((id, i) => [id, i]));
     for (const [from, to] of g?.edges ?? [])
       expect(pos.get(from) as number).toBeLessThan(pos.get(to) as number);
-    expect(g?.roots).toEqual(['CNT.01', 'GEO.01', 'GEO.05', 'MEA.15', 'SUB.01']);
+    expect(g?.roots).toEqual([
+      'ALG.01',
+      'CNT.01',
+      'GEO.01',
+      'GEO.05',
+      'MEA.15',
+      'SUB.01',
+      'TIM.08',
+    ]);
     expect(g?.gateways).toEqual(['ADD.08', 'CNT.03', 'CNT.14', 'CPS.02', 'CPS.04', 'SUB.03']);
     expect(g?.depth['CNT.01']).toBe(0);
     expect(g?.depth['ADD.03']).toBe(6); // CNT.01 → 02 → 03 → 04 → 06 → 07 → ADD.03
     // CPS.04, CPS.11; then ADD.08, ADD.19, CMP.07, CPS.07 and SUB.04
     expect(g?.descendants2['CPS.03']).toBe(7);
-    // CNT.07, CNT.15, CPS.04, MEA.02; then ADD.03, ADD.08, CMP.03, CMP.07, CNT.08, CNT.09, CNT.14,
-    // CPS.07, MEA.22 and SUB.04
-    expect(g?.descendants2['CNT.06']).toBe(14);
+    // CNT.07, CNT.15, CPS.04, DAT.09, MEA.02, MUL.12; then ADD.03, ADD.08, CMP.03, CMP.07, CNT.08,
+    // CNT.09, CNT.14, CPS.07, FRA.07, MEA.22 and SUB.04
+    expect(g?.descendants2['CNT.06']).toBe(17);
     expect(g?.encompasses).toEqual([
       ['ADD.06', 'ADD.02', 1],
       ['ADD.08', 'CPS.03', 1],

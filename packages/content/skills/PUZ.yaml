@@ -1,7 +1,25 @@
-# K01 (#11): the grade-1 PUZ rows of 03 §3.18. PUZ.01 and PUZ.02 land in a later K01 PR (graph.yaml
-# plannedIds); PUZ.04–10 are grade 2–3 (K02). Enrichment puzzles carry supporting tags only.
+# K01 (#11): the grade-1 PUZ rows of 03 §3.18; PUZ.04–10 are grade 2–3 (K02). Enrichment puzzles
+# carry supporting tags only.
 strand: PUZ
 skills:
+  - id: PUZ.01
+    name: Number path puzzles
+    kind: problem-solving
+    grade: 1
+    standards: { ccss: [], supports: [1.NBT.A.1] }
+    prerequisites: [CNT.18]
+    gateway: false
+    representations: [number-path, hundred-chart]
+
+  - id: PUZ.02
+    name: "Sum triangles: make every side add to the same number"
+    kind: problem-solving
+    grade: 1
+    standards: { ccss: [], supports: [1.OA.C.6] }
+    prerequisites: [CPS.05, ADD.06]
+    gateway: false
+    representations: [number-bond, symbols]
+
   - id: PUZ.03
     name: "Shape puzzles: fill the outline"
     kind: problem-solving

@@ -215,6 +215,42 @@ templates:
     difficulty: { base: -0.75 }
     narration: { prompt: tp.CPS.05.t3.prompt, hints: [h.bond.count-on, h.bond.fingers] }
 
+  # ---------- CPS.06: all the ways to make a number up to 10 ----------
+  # bond.parts `gap`: every way but one is shown found, in order; puzzle.grid all-ways: put every
+  # way in order (pictures of two groups), or fill a row for each way.
+  - id: CPS.06.t1
+    skillId: CPS.06
+    format: number-bond
+    tier: concrete
+    generator: bond.parts
+    params: { whole: { int: [4, 10] }, unknown: new-way, gap: { int: [1, 5] } }
+    difficulty: { base: -1.5 }
+    narration: { prompt: tp.CPS.06.t1.prompt, hints: [h.bond.ways-in-order, h.bond.split-any] }
+
+  - id: CPS.06.t2
+    skillId: CPS.06
+    format: order
+    tier: pictorial
+    representation: objects
+    generator: puzzle.grid
+    params: { variant: all-ways, whole: { int: [4, 7] } }
+    difficulty: { base: -0.3 }
+    narration:
+      prompt: tp.CPS.06.t2.prompt
+      hints: [h.puzzle.ways-fewest, h.puzzle.ways-one-more]
+
+  - id: CPS.06.t3
+    skillId: CPS.06
+    format: puzzle-grid
+    tier: pictorial
+    representation: number-bond
+    generator: puzzle.grid
+    params: { variant: all-ways, whole: { int: [4, 10] } }
+    difficulty: { base: -0.75, features: { blanks: 0.1 } }
+    narration:
+      prompt: tp.CPS.06.t3.prompt
+      hints: [h.puzzle.ways-start, h.puzzle.ways-turn]
+
   # ---------- CPS.07: a teen number as 10 plus ones ----------
   - id: CPS.07.t1
     skillId: CPS.07

@@ -1,0 +1,40 @@
+# K01 (#11): the K–1 DAT rows of 03 §3.17. DAT.03–08 are grade 2–3 (K02, graph.yaml plannedIds).
+strand: DAT
+skills:
+  - id: DAT.01
+    name: Sort things into groups by one attribute
+    kind: concept
+    grade: K
+    standards: { ccss: [K.MD.B.3] }
+    prerequisites: [CNT.04]
+    gateway: false
+    representations: [objects, shapes]
+
+  - id: DAT.02
+    name: Read picture and bar graphs with up to 3 categories
+    kind: concept
+    grade: 1
+    standards: { ccss: [1.MD.C.4] }
+    # 03 §3.17 also lists ADD.20 (the equality and stories strand). V04 rejects an unauthored
+    # prerequisite, so it is added when that strand lands.
+    prerequisites: [DAT.10]
+    gateway: false
+    representations: [picture-graph, bar-graph]
+
+  - id: DAT.09
+    name: Tally marks and simple tables
+    kind: procedure
+    grade: 1
+    standards: { ccss: [], supports: [1.MD.C.4] }
+    prerequisites: [DAT.10, CNT.06]
+    gateway: false
+    representations: [tally, table]
+
+  - id: DAT.10
+    name: Count each group and order the groups by how many
+    kind: procedure
+    grade: K
+    standards: { ccss: [K.MD.B.3] }
+    prerequisites: [DAT.01, CMP.02]
+    gateway: false
+    representations: [objects, picture-graph]

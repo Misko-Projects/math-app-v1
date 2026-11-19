@@ -1,0 +1,25 @@
+# Multiplication and division misconceptions (03 §7.2). K01 (#11) adds MC.unequal-share for its
+# grade-1 sharing skill; K02 adds the grade 2–3 rows and skills (MUL.01, MUL.05).
+area: multdiv
+misconceptions:
+  - id: MC.unequal-share
+    name: Deals shares unequally, or keeps a leftover big enough for another round
+    detect: { kind: state, rule: unequalShare }
+    appliesTo: { generators: [div.share] }
+    skills: [MUL.12]
+    remediation: [MUL.12]
+    feedback: fb.mc.unequal-share
+    priority: 50
+    parentTip: >-
+      When sharing snacks, deal them out one at a time, "one for you, one for me", and stop only
+      when there are too few left to go round again.
+    examples:
+      - params: { ask: each, items: 6, recipients: 2 }
+        response: { kind: state, value: { shares: [4, 2], leftover: 0, value: 4 } }
+        match: true
+      - params: { ask: each, items: 6, recipients: 2 }
+        response: { kind: state, value: { shares: [2, 2], leftover: 2, value: 2 } }
+        match: true
+      - params: { ask: each, items: 6, recipients: 2 }
+        response: { kind: state, value: { shares: [3, 3], leftover: 0, value: 4 } }
+        match: false

@@ -1,0 +1,164 @@
+# ALG templates (K01, #11): repeating patterns on pattern.repeat (ALG.01, ALG.04) and growing number
+# patterns on pattern.grow (ALG.02). Shown lengths often end inside a core, so MC.pattern-restart
+# (starting again from the first token) gives a wrong answer that the check can name.
+strand: ALG
+templates:
+  # ---------- ALG.01: copy and extend a repeating pattern ----------
+  - id: ALG.01.t1
+    skillId: ALG.01
+    format: pattern-extend
+    tier: concrete
+    representation: objects
+    generator: pattern.repeat
+    params:
+      mode: extend
+      core: { choice: [AB, AAB, ABB, ABC] }
+      shown: { int: [4, 7] }
+      ask: { int: [1, 2] }
+    difficulty: { base: -0.7 }
+    narration:
+      prompt: tp.ALG.01.t1.prompt
+      hints: [h.pattern.say-it, h.pattern.keep-going]
+
+  - id: ALG.01.t2
+    skillId: ALG.01
+    format: pattern-extend
+    tier: pictorial
+    representation: shapes
+    generator: pattern.repeat
+    params:
+      mode: { choice: [extend, fill] }
+      core: { choice: [AB, AAB, ABB, ABC, AABB] }
+      shown: { int: [5, 8] }
+      ask: { int: [1, 2] }
+    difficulty: { base: -0.9 }
+    narration:
+      prompt: tp.ALG.01.t2.prompt
+      hints: [h.pattern.say-it, h.pattern.keep-going]
+
+  # The whole pattern as cards, the first ones fixed: put the next ones (all different) in order.
+  - id: ALG.01.t3
+    skillId: ALG.01
+    format: order
+    tier: pictorial
+    representation: objects
+    generator: pattern.repeat
+    params:
+      core: { choice: [AB, AAB, ABB, ABC] }
+      shown: { int: [3, 7] }
+      ask: { int: [2, 3] }
+    difficulty: { base: -0.8 }
+    narration:
+      prompt: tp.ALG.01.t3.prompt
+      hints: [h.pattern.say-it, h.pattern.keep-going]
+
+  # ---------- ALG.02: growing number patterns ----------
+  - id: ALG.02.t1
+    skillId: ALG.02
+    format: hundred-chart
+    tier: pictorial
+    representation: hundred-chart
+    generator: pattern.grow
+    params:
+      start: { int: [1, 40] }
+      step: { choice: [1, 2, 10] }
+      ask: { int: [2, 3] }
+    # The chart's own pattern.step weight is for skip counts; +1 is the easy rule here.
+    difficulty: { base: -0.8, features: { pattern.step: 0 } }
+    narration:
+      prompt: tp.ALG.02.t1.prompt
+      hints: [h.pattern.grow-look, h.pattern.grow-rule, h.pattern.grow-same]
+
+  - id: ALG.02.t2
+    skillId: ALG.02
+    format: number-line-jump
+    tier: pictorial
+    representation: number-line
+    generator: pattern.grow
+    params:
+      start: { int: [1, 40] }
+      step: { choice: [1, 2, 10] }
+      ask: 1
+    difficulty: { base: -0.9 }
+    narration:
+      prompt: tp.ALG.02.t2.prompt
+      hints: [h.pattern.grow-look, h.pattern.grow-rule, h.pattern.grow-same]
+
+  - id: ALG.02.t3
+    skillId: ALG.02
+    format: pattern-extend
+    tier: abstract
+    representation: symbols
+    generator: pattern.grow
+    params:
+      mode: extend
+      start: { int: [1, 60] }
+      step: { choice: [1, 2, 10] }
+      ask: { int: [1, 2] }
+    difficulty: { base: -0.5 }
+    narration:
+      prompt: tp.ALG.02.t3.prompt
+      hints: [h.pattern.grow-look, h.pattern.grow-rule, h.pattern.grow-same]
+
+  - id: ALG.02.t4
+    skillId: ALG.02
+    format: pattern-extend
+    tier: abstract
+    representation: symbols
+    generator: pattern.grow
+    params:
+      mode: rule
+      start: { int: [1, 80] }
+      step: { choice: [1, 2, 10] }
+    difficulty: { base: -0.3 }
+    narration:
+      prompt: tp.ALG.02.t4.prompt
+      hints: [h.pattern.grow-look, h.pattern.grow-rule]
+
+  # ---------- ALG.04: find the core ----------
+  # AAB and AABB weigh more: on them, stopping where the first unit comes back is a wrong core.
+  - id: ALG.04.t1
+    skillId: ALG.04
+    format: pattern-extend
+    tier: concrete
+    representation: objects
+    generator: pattern.repeat
+    params:
+      mode: core
+      core: { choice: [AB, AAB, ABB, ABC, AABB], weights: [1, 2, 1, 1, 2] }
+      shown: { int: [6, 9] }
+    difficulty: { base: -0.7 }
+    narration:
+      prompt: p.pattern.find-core
+      hints: [h.pattern.find-core, h.pattern.core-same]
+
+  - id: ALG.04.t2
+    skillId: ALG.04
+    format: pattern-extend
+    tier: pictorial
+    representation: shapes
+    generator: pattern.repeat
+    params:
+      mode: core
+      core: { choice: [AB, AAB, ABB, ABC, AABB], weights: [1, 2, 1, 1, 2] }
+      shown: { int: [6, 10] }
+    difficulty: { base: -0.7 }
+    narration:
+      prompt: p.pattern.find-core
+      hints: [h.pattern.find-core, h.pattern.core-same]
+
+  # Finish the next repeat of the core: the cards to place are all different units.
+  - id: ALG.04.t3
+    skillId: ALG.04
+    format: order
+    tier: pictorial
+    representation: objects
+    generator: pattern.repeat
+    params:
+      core: { choice: [AB, AAB, ABB, ABC, AABB] }
+      shown: { int: [4, 7] }
+      ask: { int: [2, 3] }
+    difficulty: { base: -0.8 }
+    narration:
+      prompt: tp.ALG.04.t3.prompt
+      hints: [h.pattern.find-core, h.pattern.keep-going]
