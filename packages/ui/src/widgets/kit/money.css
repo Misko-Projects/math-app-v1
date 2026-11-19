@@ -100,10 +100,6 @@
   border: 3px dashed var(--color-pebble-deep);
   border-radius: 50%;
 }
-.ni-money__hand {
-  left: calc(50% - 23px);
-  top: calc(100% - 26px);
-}
 .ni-money .ni-invite {
   outline-offset: 6px;
 }

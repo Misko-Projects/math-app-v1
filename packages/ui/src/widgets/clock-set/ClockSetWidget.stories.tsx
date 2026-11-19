@@ -315,7 +315,7 @@ export const DemoMode: Story = {
     await waitFor(() => expect(root.querySelector('.ni-cset__handbtn.ni-invite')).not.toBeNull());
     await expect(hand(root, 'minute')).toHaveAttribute('data-lit', 'true');
     await expectPointerOn(
-      root.querySelector('.ni-cset__hand') as HTMLElement,
+      root.querySelector('.ni-invite-hand') as HTMLElement,
       handBtn(root, 'minute'),
       root,
     );

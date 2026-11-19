@@ -3,7 +3,6 @@ import { type ReactNode, useLayoutEffect, useRef } from 'react';
 import { useDragToTarget } from '../../interaction/useDragToTarget';
 import type { PlaceVia } from '../../interaction/useTapToPlace';
 import { useNarrationText, useReducedMotion, useUiPreferences } from '../../preferences/UiProvider';
-import { HandPointerIcon } from '../../primitives/icons';
 import { MIN_TARGET_PX } from '../../tokens/tokens';
 import { BillArt, COIN_CENTS, CoinArt, coinRadius, type MoneyPiece, moneyText } from './CoinArt';
 import './money.css';
@@ -80,8 +79,11 @@ export interface MoneyBoardProps {
   quarterPx: number;
   /** Accessible name of the tray ("Put the money here"). */
   trayLabel: string;
-  /** A piece or zone the demo highlights (`.ni-invite`), with Pip's hand when `hand`. */
-  highlight?: { item?: BoardItem; zone?: BoardTarget; hand?: boolean } | null;
+  /**
+   * A piece or zone the demo highlights (`.ni-invite`). Pip's hand is the widget's, placed with the
+   * kit's `useInviteHand` on `[data-id="<item>"]` or the zone's pad.
+   */
+  highlight?: { item?: BoardItem; zone?: BoardTarget } | null;
   /** The piece that just landed in the tray (a short pop; none with reduced motion). */
   landed?: { piece: MoneyPiece; n: number } | null;
   /** Beside the purse (a price tag, ways found) and beside the tray (running total, check). */
@@ -171,12 +173,6 @@ export function MoneyBoard({
     );
   }, [landed, reduced]);
 
-  const hand = (on: boolean) =>
-    on ? (
-      <span className="ni-hand ni-money__hand">
-        <HandPointerIcon />
-      </span>
-    ) : null;
   const isHi = (item: BoardItem) => highlight?.item === item;
   const cls = (...c: (string | false | undefined)[]) => c.filter(Boolean).join(' ');
 
@@ -234,7 +230,6 @@ export function MoneyBoard({
             style={{ width: b.w, height: b.h, left: lift, top: 0 }}
           />
         )}
-        {hand(Boolean(highlight?.hand && isHi(id)))}
       </div>
     );
   };
@@ -279,7 +274,6 @@ export function MoneyBoard({
         >
           <PieceArt piece={k} quarterPx={quarterPx} />
         </span>
-        {hand(Boolean(highlight?.hand && isHi(id)))}
       </div>
     );
   };
@@ -316,7 +310,6 @@ export function MoneyBoard({
             data-count={tray.length}
           />
           <div className="ni-money__piles">{trayKinds.map(trayPile)}</div>
-          {hand(Boolean(highlight?.hand && highlight.zone === 'tray'))}
         </div>
         {trayAside}
       </div>

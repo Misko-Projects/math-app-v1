@@ -277,7 +277,7 @@ export const DemoPickReducedMotion: Story = {
     pickDemo.invite({ op: 'answer', args: { id: 'opt-8' } });
     await waitFor(() => expect(root.querySelector('.ni-pick.ni-invite')).not.toBeNull());
     await expectPointerOn(
-      root.querySelector('.ni-cread__optionhand') as HTMLElement,
+      root.querySelector('.ni-invite-hand') as HTMLElement,
       root.querySelector('.ni-pick.ni-invite') as HTMLElement,
       root,
     );

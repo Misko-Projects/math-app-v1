@@ -16,9 +16,6 @@
   position: relative;
   flex: none;
 }
-.ni-cread__hand {
-  pointer-events: none;
-}
 .ni-cread__answer {
   display: flex;
   flex-direction: column;
@@ -50,8 +47,4 @@
 }
 .ni-cread__options .ni-pick[data-variant="word"] .ni-pick__face {
   font-size: 1.75rem;
-}
-.ni-cread__optionhand {
-  left: calc(50% - 23px);
-  top: calc(100% - 26px);
 }

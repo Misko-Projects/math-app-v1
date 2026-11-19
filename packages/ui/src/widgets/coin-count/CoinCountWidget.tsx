@@ -9,7 +9,7 @@ import type { ResponseValue, WidgetAction } from '@number-island/shared';
 import { type CSSProperties, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useInteractionTrace } from '../../interaction/trace';
 import { useNarrationText, useReducedMotion, useUiPreferences } from '../../preferences/UiProvider';
-import { CheckIcon, HandPointerIcon } from '../../primitives/icons';
+import { CheckIcon } from '../../primitives/icons';
 import { useWidgetDemo } from '../demo';
 import {
   BillArt,
@@ -23,6 +23,7 @@ import {
   PickCard,
   useAlive,
   useDemoPause,
+  useInviteHand,
   useMoneySpeech,
   usePadEntry,
   useSubmitGuard,
@@ -107,11 +108,11 @@ export function CoinCountWidget({
   );
 
   // ---------- FLIP: pieces glide to their sorted places (instant with reduced motion) ----------
-  const boardRef = useRef<HTMLDivElement | null>(null);
+  const rootRef = useRef<HTMLDivElement | null>(null);
   const before = useRef<Map<string, DOMRect> | null>(null);
   const snapshot = () => {
     const map = new Map<string, DOMRect>();
-    for (const el of boardRef.current?.querySelectorAll<HTMLElement>('[data-piece]') ?? []) {
+    for (const el of rootRef.current?.querySelectorAll<HTMLElement>('[data-piece]') ?? []) {
       map.set(el.dataset.piece as string, el.getBoundingClientRect());
     }
     before.current = map;
@@ -121,7 +122,7 @@ export function CoinCountWidget({
     const prev = before.current;
     before.current = null;
     if (!prev || reduced) return;
-    for (const el of boardRef.current?.querySelectorAll<HTMLElement>('[data-piece]') ?? []) {
+    for (const el of rootRef.current?.querySelectorAll<HTMLElement>('[data-piece]') ?? []) {
       const was = prev.get(el.dataset.piece as string);
       if (!was) continue;
       const now = el.getBoundingClientRect();
@@ -298,6 +299,25 @@ export function CoinCountWidget({
     invite?.op === 'answer' && compare && typeof invite.args?.id === 'string'
       ? invite.args.id
       : null;
+  // Pip's hand (kit `useInviteHand`) hangs below the invited coin, choice or box.
+  const invitedTarget =
+    invitedPiece !== null
+      ? { sel: '.ni-ccount__piece', id: invitedPiece, attr: 'id' }
+      : invitedChoice !== null
+        ? { sel: '.ni-pick', id: invitedChoice, attr: 'id' }
+        : invitedBox >= 0
+          ? { sel: '.ni-padbox', id: boxes[invitedBox]?.id ?? '', attr: 'box' }
+          : null;
+  const { hand: inviteHand, rootStyle: handRootStyle } = useInviteHand(
+    rootRef,
+    (root) =>
+      invitedTarget === null
+        ? null
+        : ([...root.querySelectorAll<HTMLElement>(invitedTarget.sel)].find(
+            (el) => el.dataset[invitedTarget.attr] === invitedTarget.id,
+          ) ?? null),
+    invitedTarget === null ? '' : `${invitedTarget.sel}:${invitedTarget.id}`,
+  );
 
   const purse = (side: Side) => {
     const pieces = shown[side];
@@ -353,11 +373,6 @@ export function CoinCountWidget({
                   </span>
                 ) : null}
               </button>
-              {invitedPiece === p.id ? (
-                <span className="ni-hand ni-ccount__hand">
-                  <HandPointerIcon />
-                </span>
-              ) : null}
             </span>
           );
         })}
@@ -379,11 +394,6 @@ export function CoinCountWidget({
         >
           <span>{t(labelKey)}</span>
         </PickCard>
-        {invitedChoice === id ? (
-          <span className="ni-hand ni-ccount__hand">
-            <HandPointerIcon />
-          </span>
-        ) : null}
       </span>
     );
     return (
@@ -392,7 +402,8 @@ export function CoinCountWidget({
         data-mode="compare"
         data-tier={tier}
         data-disabled={disabled ? 'true' : undefined}
-        ref={boardRef}
+        ref={rootRef}
+        style={handRootStyle}
       >
         {sides.map((side) => (
           <div key={side} className="ni-ccount__side" style={{ gridArea: side }}>
@@ -405,6 +416,7 @@ export function CoinCountWidget({
         <span className="ni-ccount__check" style={{ gridArea: 'check' }}>
           <CheckButton onPress={submit} disabled={!interactive || choice === null} />
         </span>
+        {inviteHand}
       </div>
     );
   }
@@ -434,10 +446,10 @@ export function CoinCountWidget({
       data-mode={config.answerUnit}
       data-tier={tier}
       data-disabled={disabled ? 'true' : undefined}
+      ref={rootRef}
+      style={handRootStyle}
     >
-      <div className="ni-ccount__board" ref={boardRef}>
-        {purse('left')}
-      </div>
+      <div className="ni-ccount__board">{purse('left')}</div>
       <div className="ni-ccount__answer">
         {dollarsCents ? (
           <>
@@ -470,6 +482,7 @@ export function CoinCountWidget({
           highlighted={pressedKey}
         />
       </div>
+      {inviteHand}
     </div>
   );
 }

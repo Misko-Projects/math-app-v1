@@ -131,7 +131,3 @@
   font-weight: 700;
   white-space: nowrap;
 }
-.ni-cset__hand {
-  left: calc(50% - 23px);
-  top: calc(100% - 26px);
-}

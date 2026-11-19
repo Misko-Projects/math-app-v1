@@ -23,6 +23,7 @@ import {
   purseLimits,
   useAlive,
   useDemoPause,
+  useInviteHand,
   useMoneySpeech,
   useSubmitGuard,
 } from '../kit';
@@ -246,9 +247,44 @@ export function CoinPayWidget({
     </div>
   );
 
+  // Pip's hand (kit `useInviteHand`): under the invited coin or the tray, or under "check".
+  const rootRef = useRef<HTMLDivElement | null>(null);
+  const handTarget = highlight?.hand
+    ? highlight.item
+      ? `item:${highlight.item}`
+      : highlight.zone
+        ? `zone:${highlight.zone}`
+        : ''
+    : checkInvited
+      ? 'check'
+      : '';
+  const { hand: inviteHand, rootStyle: handRootStyle } = useInviteHand(
+    rootRef,
+    (root) => {
+      if (handTarget === 'check') return root.querySelector<HTMLElement>('.ni-cpay__check .ni-btn');
+      if (handTarget.startsWith('item:')) {
+        const id = handTarget.slice(5);
+        return (
+          [...root.querySelectorAll<HTMLElement>('.ni-money__top')].find(
+            (el) => el.dataset.id === id,
+          ) ?? null
+        );
+      }
+      if (handTarget.startsWith('zone:')) {
+        return root.querySelector<HTMLElement>(
+          `[data-zone="${handTarget.slice(5)}"] > .ni-money__pad`,
+        );
+      }
+      return null;
+    },
+    handTarget,
+  );
+
   return (
     <div
       className="ni-cpay"
+      ref={rootRef}
+      style={handRootStyle}
       data-tier={tier}
       data-mode={config.mode}
       data-disabled={disabled ? 'true' : undefined}
@@ -270,6 +306,7 @@ export function CoinPayWidget({
         purseAside={purseAside}
         trayAside={trayAside}
       />
+      {inviteHand}
     </div>
   );
 }

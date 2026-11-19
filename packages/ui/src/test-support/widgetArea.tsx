@@ -18,23 +18,11 @@ export const AREA = {
 } as const;
 
 /**
- * WidgetHost's host is at least 360 px tall on main, taller than the 319 px inside the smallest
- * landscape area; #76 (U03) caps it at the area (`min(360px, 100%)`). Until that lands, the area
- * stage applies the same cap, so these stories measure the widget, not the host's floor.
- */
-const HOST_CAP = '.story-widget-area > .ni-widget { min-height: min(360px, 100%); }';
-
-/**
  * Renders the widget in the warm widget card (3 px tan border, 24 px padding, sand), the card
  * exactly the area's size. The card is a scroll box, so a play function can prove nothing scrolls.
  */
 export function inArea(area: keyof typeof AREA) {
-  return (args: WidgetHostProps) => (
-    <>
-      <style>{HOST_CAP}</style>
-      <AreaCard area={area} args={args} />
-    </>
-  );
+  return (args: WidgetHostProps) => <AreaCard area={area} args={args} />;
 }
 
 function AreaCard({ area, args }: { area: keyof typeof AREA; args: WidgetHostProps }) {

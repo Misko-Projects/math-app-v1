@@ -357,9 +357,9 @@ export const DemoMode: Story = {
     await waitFor(() => expect(root.querySelector('.ni-ccount__piece.ni-invite')).not.toBeNull());
     const invited = root.querySelector('.ni-ccount__piece.ni-invite') as HTMLElement;
     await expect(invited.dataset.cents).toBe('10');
-    await expectPointerOn(root.querySelector('.ni-hand') as HTMLElement, invited, root);
+    await expectPointerOn(root.querySelector('.ni-invite-hand') as HTMLElement, invited, root);
     demoController.invite(null);
-    await waitFor(() => expect(root.querySelector('.ni-hand')).toBeNull());
+    await waitFor(() => expect(root.querySelector('.ni-invite-hand')).toBeNull());
   },
 };
 

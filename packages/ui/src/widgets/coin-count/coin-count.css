@@ -112,10 +112,6 @@
     0 0 0 3px var(--color-ink),
     0 0 0 8px var(--color-sea-deep);
 }
-.ni-ccount__hand {
-  left: calc(50% - 23px);
-  top: calc(100% - 26px);
-}
 /* The running total of a demo count: the exact sum of the pieces ringed so far. */
 .ni-ccount__running {
   position: absolute;

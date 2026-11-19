@@ -16,7 +16,6 @@ import {
   useSpeech,
   useUiPreferences,
 } from '../../preferences/UiProvider';
-import { HandPointerIcon } from '../../primitives/icons';
 import { useWidgetDemo } from '../demo';
 import {
   CheckButton,
@@ -26,6 +25,7 @@ import {
   faceTime,
   useAlive,
   useDemoPause,
+  useInviteHand,
   useSubmitGuard,
 } from '../kit';
 import type { ConfigFor, WidgetProps } from '../types';
@@ -370,6 +370,17 @@ export function ClockSetWidget({
           ? (invite.args.hand as Hand)
           : null;
   const glow = lit ?? selectedHand ?? invitedHand;
+  // Pip's hand (kit `useInviteHand`) under the button of the hand the child should turn.
+  const rootRef = useRef<HTMLDivElement | null>(null);
+  const handKey = invitedHand !== null && invite?.op !== 'highlight-hand' ? invitedHand : '';
+  const { hand: inviteHand, rootStyle: handRootStyle } = useInviteHand(
+    rootRef,
+    (root) =>
+      handKey === ''
+        ? null
+        : root.querySelector<HTMLElement>(`.ni-cset__handbtn[data-hand="${handKey}"]`),
+    handKey,
+  );
   const now = timeOf(snapTime(shown, 1));
 
   const handButton = (hand: Hand) => {
@@ -402,13 +413,9 @@ export function ClockSetWidget({
               className="ni-cset__icon-pin"
             />
           </svg>
-          <span className="ni-cset__handlabel">{handName(hand)}</span>
+          {/* `ni-pick__face`: the kit's invite hand keeps clear of the name (INVITE_GLYPH_SELECTOR). */}
+          <span className="ni-pick__face ni-cset__handlabel">{handName(hand)}</span>
         </span>
-        {invitedHand === hand && invite?.op !== 'highlight-hand' ? (
-          <span className="ni-hand ni-cset__hand">
-            <HandPointerIcon />
-          </span>
-        ) : null}
       </span>
     );
   };
@@ -418,6 +425,8 @@ export function ClockSetWidget({
   return (
     <div
       className="ni-cset"
+      ref={rootRef}
+      style={handRootStyle}
       data-tier={tier}
       data-disabled={disabled ? 'true' : undefined}
       data-time={`${now.h}:${String(now.m).padStart(2, '0')}`}
@@ -477,6 +486,7 @@ export function ClockSetWidget({
         {handButton('hour')}
         <CheckButton onPress={submit} disabled={!interactive || !state.moved} />
       </div>
+      {inviteHand}
     </div>
   );
 }

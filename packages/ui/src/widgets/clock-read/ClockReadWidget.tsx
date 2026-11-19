@@ -24,6 +24,7 @@ import {
   polarPoint,
   useAlive,
   useDemoPause,
+  useInviteHand,
   usePadEntry,
   useSubmitGuard,
 } from '../kit';
@@ -220,6 +221,22 @@ export function ClockReadWidget({
   const invitedId =
     invite?.op === 'answer' && typeof invite.args?.id === 'string' ? invite.args.id : null;
   const invitedBox = invite?.op === 'answer' && !isPick ? pad.active : -1;
+  // Pip's hand for a child step (kit `useInviteHand`): under the invited choice or typed box. The
+  // demo's point-hour / point-minute hand above is different: it rests ON a hand of the clock.
+  const rootRef = useRef<HTMLDivElement | null>(null);
+  const invitedBoxId = invitedBox >= 0 ? (BOXES[invitedBox]?.id ?? '') : '';
+  const { hand: inviteHand, rootStyle: handRootStyle } = useInviteHand(
+    rootRef,
+    (root) =>
+      invitedId !== null
+        ? ([...root.querySelectorAll<HTMLElement>('.ni-cread__options .ni-pick')].find(
+            (el) => el.dataset.id === invitedId,
+          ) ?? null)
+        : invitedBoxId !== ''
+          ? root.querySelector<HTMLElement>(`.ni-padbox[data-box="${invitedBoxId}"]`)
+          : null,
+    invitedId !== null ? `option:${invitedId}` : invitedBoxId !== '' ? `box:${invitedBoxId}` : '',
+  );
   const label = t('ui.widget.picture');
   const fives = state.fives !== null && state.fives > 0 ? { from: 0, to: state.fives } : null;
 
@@ -253,6 +270,8 @@ export function ClockReadWidget({
         data-input="pick"
         data-tier={tier}
         data-disabled={disabled ? 'true' : undefined}
+        ref={rootRef}
+        style={handRootStyle}
       >
         {face}
         <div className="ni-cread__answer">
@@ -280,16 +299,12 @@ export function ClockReadWidget({
                       <span>{o.label}</span>
                     )}
                   </PickCard>
-                  {invitedId === o.id ? (
-                    <span className="ni-hand ni-cread__optionhand">
-                      <HandPointerIcon />
-                    </span>
-                  ) : null}
                 </span>
               ))}
           </fieldset>
           <CheckButton onPress={submit} disabled={!interactive || choice === null} />
         </div>
+        {inviteHand}
       </div>
     );
   }
@@ -318,6 +333,8 @@ export function ClockReadWidget({
       data-input="digital-pad"
       data-tier={tier}
       data-disabled={disabled ? 'true' : undefined}
+      ref={rootRef}
+      style={handRootStyle}
     >
       {face}
       <div className="ni-cread__answer">
@@ -338,6 +355,7 @@ export function ClockReadWidget({
           highlighted={pressedKey}
         />
       </div>
+      {inviteHand}
     </div>
   );
 }

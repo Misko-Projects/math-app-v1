@@ -1,5 +1,4 @@
 import { useCallback, useRef, useState } from 'react';
-import { HandPointerIcon } from '../../primitives/icons';
 import { applyPadKey, type PadKey } from './controls';
 import './pad-entry.css';
 
@@ -79,7 +78,10 @@ export interface PadBoxViewProps {
   onPress: () => void;
 }
 
-/** One typed box: big numerals (≥ 32 px), an empty slot per missing digit, the caret when active. */
+/**
+ * One typed box: big numerals (≥ 32 px), an empty slot per missing digit, the caret when active.
+ * `invited` rings it; the widget places Pip's hand with the kit's `useInviteHand`.
+ */
 export function PadBoxView({
   box,
   text,
@@ -111,11 +113,6 @@ export function PadBoxView({
         ))}
         {active && !disabled ? <span className="ni-number__caret" /> : null}
       </button>
-      {invited ? (
-        <span className="ni-hand ni-padbox__hand">
-          <HandPointerIcon />
-        </span>
-      ) : null}
     </span>
   );
 }

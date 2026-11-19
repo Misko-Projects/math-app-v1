@@ -19,10 +19,6 @@
   outline-offset: 5px;
   border-radius: var(--radius-pebble);
 }
-.ni-padbox__hand {
-  left: calc(50% - 23px);
-  top: calc(100% - 26px);
-}
 /* A unit or separator printed beside the boxes ($, ¢, the decimal point, the clock's colon). */
 .ni-padbox__sep {
   color: var(--color-ink);
