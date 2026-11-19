@@ -8,7 +8,7 @@ import type {
   SkillGraph,
   SkillId,
 } from '@number-island/shared';
-import { createEloFireModel } from '../learner/elo-fire';
+import { createEloFireModel, type EngineSkillState } from '../learner/elo-fire';
 import { logit } from '../learner/math';
 import { type EngineParams, PARAMS } from '../params';
 
@@ -54,11 +54,23 @@ function offsetWithoutGraph(state: LearnerState, skill: SkillId, params: EngineP
   return st?.theta ?? 0;
 }
 
+/** Contexts whose first attempts can be test-out items (04 §7a evidence contexts). */
+const EVIDENCE: ReadonlySet<AttemptPayload['context']> = new Set([
+  'practice',
+  'review',
+  'warmup',
+  'challenge',
+  'transfer-probe',
+]);
+
 /**
  * d* for one item of `skill` in `context` (04 §2.4), including the rolling success offset.
- * `placement` returns 0, the reference difficulty (04 §5). With `graph`, θs is the model's
- * `skillOffset` (own offset, placement prior or transfer, 04 §2.1); without one, see
- * `offsetWithoutGraph`. The two optional arguments extend the 02 §5.4 signature.
+ * `placement` returns 0, the reference difficulty (04 §5), and so does an evidence item of a skill
+ * whose test-out is offered or in progress (03 §6.5: test-out items at d* = 0). With `graph`,
+ * θs is the model's `skillOffset` (own offset, placement prior or transfer, 04 §2.1) and the
+ * test-out state is the model's `inTestOut`; without one, see `offsetWithoutGraph`, and only a
+ * test-out already in progress (the model's private `_testOut`) is known. The two optional
+ * arguments extend the 02 §5.4 signature.
  */
 export function targetDifficulty(
   state: LearnerState,
@@ -69,11 +81,15 @@ export function targetDifficulty(
   params: EngineParams = PARAMS,
 ): number {
   if (context === 'placement') return 0;
-  const thetaS = graph
-    ? createEloFireModel(graph, { childId: child.childId, isK: child.isK, params }).skillOffset(
-        state,
-        skill,
-      )
-    : offsetWithoutGraph(state, skill, params);
+  const model = graph
+    ? createEloFireModel(graph, { childId: child.childId, isK: child.isK, params })
+    : null;
+  if (EVIDENCE.has(context)) {
+    const testOut = model
+      ? model.inTestOut(state, skill)
+      : (state.skills[skill] as EngineSkillState | undefined)?._testOut != null;
+    if (testOut) return 0;
+  }
+  const thetaS = model ? model.skillOffset(state, skill) : offsetWithoutGraph(state, skill, params);
   return state.thetaG + thetaS - logit(targetSuccess(context, child, params)) + state.successOffset;
 }

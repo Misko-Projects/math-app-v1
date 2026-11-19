@@ -284,7 +284,7 @@ describe('warmup (04 §6.1)', () => {
     expect(lessonA).toBe(true);
   });
 
-  it('(f) plays the focus skill lesson as the warmup when no test-out is planned', () => {
+  it('(e) plays a focus skill lesson as the warmup when nothing is attempted yet', () => {
     // Nothing on track, A ready with a lesson and no test-out offered.
     const p = plan(input({ workshopsAvailable: [ROAD] }));
     expect(p.warmup).toMatchObject({
@@ -293,15 +293,36 @@ describe('warmup (04 §6.1)', () => {
       context: 'lesson',
       templateId: graph.skills[A]?.lesson.templateId,
     });
-    // The requests then omit A's lesson, so its lesson cost is not charged: the requests are as
-    // large as those of a skill without a lesson.
+    // The requests then omit A's lesson, so its lesson cost is not charged: they are at least as
+    // large as those of a skill without a lesson (an item warmup of A would shorten A's first run).
     for (const r of p.requests) expect(r.tasks.every((t) => t.mode === 'item')).toBe(true);
     const learningA = plan(
       input({ state: stateWith({ [A]: learning(0) }), workshopsAvailable: [ROAD] }),
     );
-    expect(p.requests.map((r) => itemsOf(r).length)).toEqual(
-      learningA.requests.map((r) => itemsOf(r).length),
-    );
+    p.requests.forEach((r, i) => {
+      expect(itemsOf(r).length).toBeGreaterThanOrEqual(
+        itemsOf(learningA.requests[i] as PlannedRequest).length,
+      );
+    });
+  });
+
+  it('never an item warmup on a ready skill with a lesson, whichever request the child picks', () => {
+    // Two untouched lesson skills offered as alternatives (A, and B once A's lesson is done would
+    // need A on track: use a graph where B is a second root). A test-out is offered for both.
+    const g: SkillGraph = { ...graph, prereqs: { ...graph.prereqs, [B]: [] } };
+    const prior = { p: { [A]: 0.7, [B]: 0.7 }, assumed: [] };
+    const s = stateWith({}, { placement: { prior, strandsPlaced: [], inProgress: null } });
+    const p = plan(input({ graph: g, state: s, workshopsAvailable: [HALL] }));
+    // The warmup is a lesson (it never starts a test-out the child may not pick).
+    expect(p.warmup.mode).toBe('lesson');
+    const lessoned = p.warmup.skillId;
+    // The other skill keeps its own test-out and lesson in its request.
+    const other = p.requests.find((r) => r.tasks.some((t) => t.skillId !== lessoned));
+    expect(other).toBeDefined();
+    const otherSkill = (other as PlannedRequest).tasks.find((t) => t.skillId !== lessoned)?.skillId;
+    expect(
+      (other as PlannedRequest).tasks.some((t) => t.mode === 'lesson' && t.skillId === otherSkill),
+    ).toBe(true);
   });
 });
 
@@ -322,8 +343,9 @@ describe('lessons and test-outs (04 §3, 03 §6.5)', () => {
   });
 
   it('offers a test-out from the pool before the lesson at a high placement prior', () => {
+    // C is on the practiced track, so the warmup is an item of C and A's test-out stays whole.
     const s = stateWith(
-      {},
+      { [C]: practiced(2, NOW + DAY_MS) },
       {
         placement: { prior: { p: { [A]: 0.7 }, assumed: [] }, strandsPlaced: [], inProgress: null },
       },
@@ -339,25 +361,47 @@ describe('lessons and test-outs (04 §3, 03 §6.5)', () => {
     }
     expect(new Set(before.map((t) => t.templateId)).size).toBe(2);
 
-    // (e) The warmup must not use up the test-out: it is a test-out template in the warmup
-    // context, which the learner counts as test-out item 1. Folding the warmup and then three
-    // clean first attempts on the planned test-out items reaches the practiced track before the
-    // lesson.
-    expect(p.warmup).toMatchObject({ skillId: A, context: 'warmup', mode: 'item' });
-    expect([`${A}.t3`, `${A}.t4`]).toContain(p.warmup.templateId);
+    // The warmup does not touch A: folding it and then three clean first attempts on the planned
+    // test-out items reaches the practiced track before the lesson.
+    expect(p.warmup).toMatchObject({ skillId: C, context: 'warmup', mode: 'item' });
     const n = (templateId: string) => Number(templateId.split('.t')[1]);
-    let st = model.apply(s, synthAttempt(A, n(p.warmup.templateId), { context: 'warmup' }), NOW);
+    let st = model.apply(s, synthAttempt(C, n(p.warmup.templateId), { context: 'warmup' }), NOW);
     before.forEach((t, k) => {
       const a = synthAttempt(A, n(t.templateId), { context: t.context });
       st = model.apply(st, a, NOW + 1_000 * (k + 1));
     });
     expect(st.skills[A]?.practicedAt).not.toBeNull();
 
-    // Without a workshop that hosts the pool next to the lesson, the lesson plays alone, as the
-    // warmup (f), and no request repeats it.
-    const q = plan(input({ state: s, workshopsAvailable: [ROAD] }));
+    // With nothing attempted at all, A's lesson is the warmup instead (its test-out is forgone,
+    // never half-started), and no request repeats the lesson.
+    const fresh = stateWith(
+      {},
+      {
+        placement: { prior: { p: { [A]: 0.7 }, assumed: [] }, strandsPlaced: [], inProgress: null },
+      },
+    );
+    const q = plan(input({ state: fresh, workshopsAvailable: [HALL] }));
     expect(q.warmup).toMatchObject({ skillId: A, mode: 'lesson', context: 'lesson' });
-    for (const x of q.requests) expect(x.tasks.some((t) => t.mode === 'lesson')).toBe(false);
+    for (const x of q.requests)
+      expect(x.tasks.some((t) => t.mode === 'lesson' && t.skillId === A)).toBe(false);
+  });
+
+  it('the warmup item starts the run: warmup plus a request never holds 4 of one skill in a row', () => {
+    // A learning focus skill is also the warmup (rule c): its request continues the warmup's run.
+    const s = stateWith({ [A]: learning(0) });
+    for (const ws of [[HALL], [ROAD], [DOCK]]) {
+      const p = plan(input({ state: s, workshopsAvailable: ws }));
+      expect(p.warmup).toMatchObject({ skillId: A, mode: 'item' });
+      for (const r of p.requests) {
+        let run = 1;
+        let last: string = p.warmup.skillId;
+        for (const t of itemsOf(r)) {
+          run = t.skillId === last ? run + 1 : 1;
+          last = t.skillId;
+          expect(run).toBeLessThanOrEqual(3);
+        }
+      }
+    }
   });
 
   it('never truncates a test-out: the whole draw before the lesson, or the lesson first', () => {

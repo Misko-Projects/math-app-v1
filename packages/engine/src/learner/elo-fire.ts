@@ -97,6 +97,11 @@ export interface EloFireModel extends LearnerModel {
   retrievability(state: LearnerState, skill: SkillId, now: number): number | null;
   /** expectedLatency(template, child) in ms (04 §2.3). */
   expectedLatency(attempt: Pick<AttemptPayload, 'templateId' | 'tier'>): number;
+  /**
+   * Whether the skill's next evidence item is a test-out item (03 §6.5): a test-out is offered on
+   * an untouched skill, or one is in progress. Test-out items are asked at d* = 0 (E03 reading).
+   */
+  inTestOut(state: LearnerState, skill: SkillId): boolean;
 }
 
 export function createEloFireModel(graph: SkillGraph, opts: LearnerOptions): EloFireModel {
@@ -265,6 +270,27 @@ export function createEloFireModel(graph: SkillGraph, opts: LearnerOptions): Elo
     if (!def(s)?.gateway) return true;
     const poolReps = new Set(pool.map(representationOf).filter((r) => r !== undefined));
     return t.reps.length >= Math.min(2, poolReps.size);
+  };
+
+  /**
+   * 03 §6.5 / 04 §7a: a test-out is offered on a skill with a lesson (`testOut.items` ≥ 1) whose
+   * prerequisites are met, when its placement posterior is ≥ testOutMinPrior or its P(ref)
+   * (`pRefNow`, with the transferred offset for a never-rated skill) is ≥ testOutMinPRef.
+   */
+  const testOutOffered = (state: LearnerState, s: SkillId, pRefNow: number): boolean => {
+    const skill = def(s);
+    if (!skill || skill.lesson.mode === 'none' || skill.lesson.testOut.items < 1) return false;
+    if (!prereqsMet(state, s)) return false;
+    return (
+      (state.placement.prior?.p[s] ?? 0) >= P.mastery.testOutMinPrior ||
+      pRefNow >= P.mastery.testOutMinPRef
+    );
+  };
+
+  const inTestOut = (state: LearnerState, s: SkillId): boolean => {
+    const st = state.skills[s] as EngineSkillState | undefined;
+    if (st && (st.n > 0 || st.recent.length > 0)) return st._testOut != null;
+    return testOutOffered(state, s, sigmoid(state.thetaG + skillOffset(state, s)));
   };
 
   const demote = (st: EngineSkillState): void => {
@@ -492,16 +518,8 @@ export function createEloFireModel(graph: SkillGraph, opts: LearnerOptions): Elo
     const skill = def(s);
     const inPool = EVIDENCE_CONTEXTS.has(a.context) && testOutPool(s).has(a.templateId);
     if (wasUntouched) {
-      const offered =
-        (state.placement.prior?.p[s] ?? 0) >= P.mastery.testOutMinPrior ||
-        pRefBefore >= P.mastery.testOutMinPRef;
       st._testOut =
-        inPool &&
-        offered &&
-        skill &&
-        skill.lesson.mode !== 'none' &&
-        skill.lesson.testOut.items >= 1 &&
-        prereqsMet(state, s)
+        inPool && testOutOffered(state, s, pRefBefore)
           ? { seen: 0, clean: 0, templates: [], reps: [] }
           : null;
     }
@@ -705,6 +723,7 @@ export function createEloFireModel(graph: SkillGraph, opts: LearnerOptions): Elo
     pRef: (state, s) => predict(state, s, 0),
     retrievability: (state, s, now) => retrievabilityOf(state.skills[s], now),
     expectedLatency,
+    inTestOut,
   };
 }
 

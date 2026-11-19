@@ -268,9 +268,11 @@ describe('planSession properties (fixture graph)', () => {
             expect(size).toBeGreaterThanOrEqual(min);
           }
 
-          // (c) no more than maxRun consecutive items of one skill.
-          let run = 0;
-          let last: string | null = null;
+          // (c) no more than maxRun consecutive items of one skill, counting an item warmup, which
+          // comes right before the request.
+          const warmupItem = plan.warmup.mode === 'item';
+          let run = warmupItem ? 1 : 0;
+          let last: string | null = warmupItem ? plan.warmup.skillId : null;
           for (const t of items) {
             run = t.skillId === last ? run + 1 : 1;
             last = t.skillId;
@@ -283,6 +285,13 @@ describe('planSession properties (fixture graph)', () => {
           else expect(sum).toBe(0);
           expect(r.vars.count).toBe(items.length);
           expect(r.vars.who).toBe(r.residentId);
+        }
+        // (h) an item warmup never is the first attempt on a ready skill with a lesson: it would
+        // start or cancel that skill's test-out before the child picks a request.
+        if (plan.warmup.mode === 'item') {
+          const ws = plan.warmup.skillId;
+          const ready = model.status(input.state, ws, input.now) === 'ready';
+          expect(ready && graph.skills[ws]?.lesson.mode !== 'none').toBe(false);
         }
         // (g) no empty request while the input has something to plan.
         expect(emptyRequests(input, plan)).toEqual([]);
