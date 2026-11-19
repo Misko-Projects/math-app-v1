@@ -164,7 +164,8 @@ export function equationGrid(p: ParamValues): { options: GridEquation[]; key: nu
   if (s.op === '+' && x0 === y0) return null;
   const ok = (x: number, y: number) => {
     const r = s.op === '-' ? x - y : x + y;
-    return x >= 1 && y >= 1 && Math.max(x, y) <= maxTold && r >= 1 && r <= maxN;
+    // Every cell must be a story the template could key: its numbers within maxTold and maxN.
+    return x >= 1 && y >= 1 && Math.max(x, y) <= Math.min(maxTold, maxN) && r >= 1 && r <= maxN;
   };
   const options: GridEquation[] = [
     { x: x0, y: y0, op: s.op },
@@ -552,6 +553,22 @@ export const storyAddsub: GeneratorDef = {
       size: Math.max(0, Math.max(...told, s.result) - 5) / 10,
       bridge10: lo < 10 && hi > 10 ? 1 : 0,
     };
+    // numeral-pick: the features describe the whole option grid, never which cell is the key, so
+    // every key of one option set has the same difficulty and adaptive targeting (which picks the
+    // draw nearest d*) cannot favour, say, the largest total (PR #82 review round 2).
+    const grid = t.format === 'numeral-pick' ? equationGrid(params) : null;
+    if (grid) {
+      const res = (e: GridEquation) => (e.op === '-' ? e.x - e.y : e.x + e.y);
+      math.size =
+        Math.max(0, Math.max(...grid.options.map((e) => Math.max(e.x, e.y, res(e)))) - 5) / 10;
+      math.bridge10 = grid.options.some((e) => {
+        const l = e.op === '+' ? Math.max(e.x, e.y) : res(e);
+        const h = e.op === '+' ? res(e) : Math.max(e.x, e.y);
+        return l < 10 && h > 10;
+      })
+        ? 1
+        : 0;
+    }
     const vars = pickVars(t, {
       who: '@resident',
       item,

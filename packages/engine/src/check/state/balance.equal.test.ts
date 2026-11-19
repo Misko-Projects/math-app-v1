@@ -24,12 +24,12 @@ const CASES: [string, Rec, Rec, boolean][] = [
   ['fractional blocks', { left: 7, right: 5 }, { left: 0, right: 2.5 }, false],
   ['missing pan', { left: 7, right: 5 }, { right: 2 }, false],
   ['malformed target', { left: 'seven', right: 5 }, { left: 0, right: 2 }, false],
-  // Past 2^53 the sums round: 7 + MAX_SAFE_INTEGER and 5 + (MAX_SAFE_INTEGER + 1) are the same
-  // float, although the pans differ by one block. Counts are bounded, so neither is accepted.
+  // Past 2^53 the sums round: 7 + (MAX_SAFE_INTEGER − 1) and 5 + MAX_SAFE_INTEGER are the same
+  // float, although the pans differ by one block. Counts are bounded, so this is not accepted.
   [
     'a huge count that would round level',
     { left: 7, right: 5 },
-    { left: Number.MAX_SAFE_INTEGER, right: Number.MAX_SAFE_INTEGER + 1 },
+    { left: Number.MAX_SAFE_INTEGER - 1, right: Number.MAX_SAFE_INTEGER },
     false,
   ],
   [
@@ -57,5 +57,16 @@ describe('balance.equal', () => {
     expect(blocksToBalance({ left: 2, right: 9 })).toEqual({ side: 'left', count: 7 });
     expect(blocksToBalance({ left: 4, right: 4 })).toEqual({ side: null, count: 0 });
     expect(blocksToBalance({ left: 4 })).toBeNull();
+  });
+
+  it('blocksToBalance gives no answer for targets the checker rejects', () => {
+    for (const target of [
+      { left: 1001, right: 1000 },
+      { left: -1, right: 3 },
+      { left: 2.5, right: 3 },
+      { left: Number.MAX_SAFE_INTEGER, right: 5 },
+    ]) {
+      expect(blocksToBalance(target), JSON.stringify(target)).toBeNull();
+    }
   });
 });

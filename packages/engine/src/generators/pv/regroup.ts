@@ -6,8 +6,12 @@
 // Formats:
 //   base-ten-trade  `regroup-to`: the mat starts at `from` and must show exactly `to`
 //                   (trade.result `{ regroupTarget }`)
-//   base-ten-build  `build-exact`: `from` is prebuilt; fuse and split until the mat holds exactly
-//                   the `to` counts (baseten.exact `{ value, exact }`)
+//   base-ten-build  `build-exact`, bundling only (every trade a fuse; unbundling is
+//                   base-ten-trade): `from` is prebuilt; fuse until the mat holds exactly
+//                   the `to` counts (baseten.exact `{ value, exact }`). The tray `limits`
+//                   (tradeLimits) hold none of the kinds the trades make, so no piece can be
+//                   swapped through the tray instead of fused or split, and any number of the
+//                   kind they use up, so putting pieces back never strands the item
 //   number-pad      how many is the `from` decomposition (a picture of its pieces on base-ten or
 //                   bundles, ten-frames for a canonical teen or 20, or words in the prompt)?
 //                   `to` is not used
@@ -78,6 +82,28 @@ export function tradesBetween(
   for (let i = 0; i < k; i += 1) out.push({ kind: 'tens', dir: 'down' });
   for (let i = 0; i < -k; i += 1) out.push({ kind: 'ones', dir: 'up' });
   for (let i = 0; i < dh; i += 1) out.push({ kind: 'tens', dir: 'up' });
+  return out;
+}
+
+/**
+ * The tray limits of a build-exact regroup item (PR #83 review, rounds 1–3). The mat starts at
+ * `from`, already worth n, and must end with the `to` counts:
+ * - a kind the trades use up (fewer in `to` than in `from`) holds any number, so a learner who
+ *   puts pieces back can always take them again and finish (the model does not return prebuilt
+ *   pieces to the tray), and any other kind can be rebuilt by trading it;
+ * - every other shown kind holds none, so the tray never stands in for any one of the trades
+ *   (no putting ten ones back for a rod).
+ */
+export function tradeLimits(
+  from: Hto,
+  to: Hto,
+  withHundreds: boolean,
+): Partial<Record<'hundreds' | 'tens' | 'ones', number>> {
+  const kinds = withHundreds
+    ? (['hundreds', 'tens', 'ones'] as const)
+    : (['tens', 'ones'] as const);
+  const out: Partial<Record<'hundreds' | 'tens' | 'ones', number>> = {};
+  for (const k of kinds) if (to[k] >= from[k]) out[k] = 0;
   return out;
 }
 
@@ -178,8 +204,12 @@ export const pvRegroup: GeneratorDef = {
     if (!from || !to) return false;
     switch (t.format) {
       case 'base-ten-trade':
-      case 'base-ten-build':
         return !sameHto(from, to);
+      case 'base-ten-build':
+        // Bundling only (PR #83 review round 3): every trade fuses ten into one. The kind the
+        // trades use up (always the lowest traded kind) is then the one the tray leaves open,
+        // and limits.tight still sees the trade. Unbundling is taught on base-ten-trade.
+        return !sameHto(from, to) && tradesBetween(from, to).every((x) => x.dir === 'up');
       case 'make-set':
         return asStr(p.from) === 'ones' && n >= 10 && n <= 39;
       case 'number-pad':
@@ -229,6 +259,7 @@ export const pvRegroup: GeneratorDef = {
           tens: to.tens,
           ones: to.ones,
         };
+        const limits = tradeLimits(from, to, withHundreds);
         p = {
           params,
           vars,
@@ -238,6 +269,7 @@ export const pvRegroup: GeneratorDef = {
             target: n,
             mode: 'build-exact',
             pieces: { thousands: false, hundreds: withHundreds, tens: true, ones: true },
+            limits,
             exact,
             wholeIs: 'unit',
             prebuilt: { ...from },

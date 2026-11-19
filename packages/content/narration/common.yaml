@@ -353,6 +353,9 @@ h.mda.count-tens-ones:
   text: "Count the tens, then the ones."
 h.mda.to-next-ten:
   text: "How many make the next ten? Add them first."
+# Any start (37 + 5 stops at 40, not at ten).
+h.mda.jump-to-next-ten:
+  text: "Jump to the next ten first. Then jump what is left."
 h.mda.add-the-tens:
   text: "Add the tens first."
 h.mda.add-the-ones:
@@ -918,10 +921,10 @@ gen.mda.addsub.row-down:
   text: "Slide down one row. That is ten more."
 gen.mda.addsub.row-up:
   text: "Slide up one row. That is ten less."
-gen.mda.addsub.slide-ones:
-  text: "Now move {count} to the right."
-gen.mda.addsub.slide-back:
-  text: "Now move {count} to the left."
+gen.mda.addsub.box-right:
+  text: "One more is one box to the right."
+gen.mda.addsub.box-left:
+  text: "One less is one box to the left."
 gen.mda.addsub.tens-then-ones:
   text: "Add the tens. Then add the ones."
 gen.mda.addsub.take-tens-then-ones:
@@ -938,6 +941,20 @@ gen.mda.addsub.count-on:
   text: "Count on from {a} to {result}."
 gen.mda.addsub.count-back:
   text: "Count back from {a} to {result}."
+# The next-ten strategy on the number pad (37 + 5: 37 and 3 make 40, then 2 more). An exact
+# landing (37 + 3) never names the ten, which is the answer.
+gen.mda.addsub.make-next-ten:
+  text: "{a} and {gap} make {ten}. That is the next ten."
+gen.mda.addsub.then-add-rest:
+  text: "Then add the {rest} that are left to {ten}."
+gen.mda.addsub.fills-next-ten:
+  text: "{a} and {b} make the next ten."
+gen.mda.addsub.take-to-ten:
+  text: "{a} take away {gap} is {ten}. That is a ten."
+gen.mda.addsub.then-take-rest:
+  text: "Then take away the {rest} that are left from {ten}."
+gen.mda.addsub.back-to-the-ten:
+  text: "Take away {b} from {a}. That gets you back to a ten."
 gen.mda.addsub.is:
   text: "That is {v}."
 gen.addsub.facts.start-at:

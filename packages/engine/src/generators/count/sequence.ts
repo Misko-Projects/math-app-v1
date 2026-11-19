@@ -224,7 +224,9 @@ export const countSequence: GeneratorDef = {
       crossCentury: crosses(lo, hi, 100) ? 1 : 0,
       zero: terms.slice(1).includes(0) ? 1 : 0,
     };
-    const vars = pickVars(t, { start, last, step, length });
+    // `tens` lets a mixed count's prompt say how many tens steps come first (CNT.20.t3: from 34,
+    // "count on 2 tens" separates 44, 54, 55, 56 from 44, 45, 46, 47).
+    const vars = pickVars(t, { start, last, step, length, tens });
     const hiddenAfter = hiddenTerms(terms, asStrHide(params.hide));
     const onPath = t.representation === 'number-path' || t.representation === 'number-line';
     let p: PartialOutput;

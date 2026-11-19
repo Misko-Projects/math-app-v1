@@ -187,7 +187,8 @@ templates:
     representation: bundles
     generator: pv.regroup
     params: { n: { int: [11, 39] }, from: ones, to: canonical }
-    difficulty: { base: -2.4 }
+    # No rods in the tray (tens limit 0) adds limits.tight (0.5): only fusing makes the tens.
+    difficulty: { base: -2.9 }
     narration: { prompt: tp.PV.09.t2.prompt, hints: [h.pv.bundle-ten, h.pv.rest-ones] }
 
   # Unbundle: one ten becomes ten ones.
@@ -316,16 +317,15 @@ templates:
     difficulty: { base: -1.0 }
     narration: { prompt: tp.PV.13.t3.prompt, hints: [h.pv.listen-tens, h.pv.tens-first-digit] }
 
-  # See the numeral, pick its spoken name. The swapped number and the reversed teen are offered.
+  # See the numeral, pick its spoken name. The options are n's name class: two reversal pairs of
+  # the digits 1–5 (12, 21, 13, 31), the same set whichever member is the key, so every option can
+  # be asked, and the swapped number and the reversed teen are always offered (PR #83 review).
   - id: PV.13.t4
     skillId: PV.13
     format: numeral-pick
     tier: abstract
     representation: symbols
     generator: pv.number
-    params: { n: { int: [11, 59] }, mode: words }
-    difficulty: { base: -1.5 }
+    params: { n: { int: [12, 54] }, mode: words, digitMax: 5 }
+    difficulty: { base: -1.25 }
     narration: { prompt: tp.PV.13.t4.prompt, hints: [h.pv.listen-tens, h.pv.tens-first-digit] }
-    distractors:
-      - { rule: MC.place-swap }
-      - { rule: MC.teen-reversal }

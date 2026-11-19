@@ -108,9 +108,9 @@ const CASES: Case[] = [
     },
   },
   {
-    name: 'base-ten-build: unbundle 52 into 4 tens 12 ones',
+    name: 'base-ten-build: bundle 52 ones into 4 tens 12 ones',
     t: tpl('base-ten-build', 'concrete', 'base-ten'),
-    params: { n: 52, from: 'canonical', to: 'regrouped' },
+    params: { n: 52, from: 'ones', to: 'regrouped' },
     answer: {
       kind: 'state',
       checker: 'baseten.exact',
@@ -234,6 +234,25 @@ describe('pv.regroup validity', () => {
       'base-ten-build',
       undefined,
       { n: 34, from: 'ones', to: 'ones' },
+    ],
+    // PR #83 review round 3: builds bundle only (the tray leaves the used-up kind open).
+    [
+      'a build does not unbundle a ten',
+      'base-ten-build',
+      undefined,
+      { n: 26, from: 'regrouped', to: 'ones' },
+    ],
+    [
+      'a build does not unbundle 52',
+      'base-ten-build',
+      undefined,
+      { n: 52, from: 'canonical', to: 'regrouped' },
+    ],
+    [
+      'a build does not split a hundred',
+      'base-ten-build',
+      undefined,
+      { n: 305, from: 'canonical', to: 'regrouped', places: 3 },
     ],
     ['n is at least 10', 'number-pad', undefined, { n: 9, from: 'canonical' }],
     ['all ones stop at 99', 'number-pad', undefined, { n: 120, from: 'ones', places: 3 }],
