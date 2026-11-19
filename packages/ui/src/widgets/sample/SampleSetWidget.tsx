@@ -129,9 +129,16 @@ export function SampleSetWidget({
     () => Array.from({ length: supply }, (_, i) => `p${i}` as PebbleId),
     [supply],
   );
-  const [inBasket, setInBasket] = useState<PebbleId[]>(() =>
-    allIds.slice(0, Math.min(config.start ?? 0, supply)),
-  );
+  /**
+   * The pebbles in the basket, with the number of the latest demo basket update they include
+   * (`seq`, see `requestedSeq`). The child's own changes are updaters that keep the number of the
+   * state they build on, so a child change React replays on top of a demo update keeps its number.
+   */
+  const [basket, setBasket] = useState<{ ids: PebbleId[]; seq: number }>(() => ({
+    ids: allIds.slice(0, Math.min(config.start ?? 0, supply)),
+    seq: 0,
+  }));
+  const inBasket = basket.ids;
   const [invite, setInvite] = useState<WidgetAction | null>(null);
   const [flight, setFlight] = useState<Flight | null>(null);
   const [counting, setCounting] = useState<number | null>(null);
@@ -152,8 +159,16 @@ export function SampleSetWidget({
       for (const w of waiters) w.resolve();
     };
   }, []);
+  /**
+   * Demo basket updates are numbered: `requestedSeq` is the latest one asked for, and
+   * `committedSeq` the latest one React has committed (the committed basket's `seq`). A commit
+   * that skipped a pending update (a higher-priority render) leaves `committedSeq` where it was.
+   */
+  const requestedSeq = useRef(0);
+  const committedSeq = useRef(0);
   // After each commit, release the waits whose condition the committed DOM now meets.
   useLayoutEffect(() => {
+    committedSeq.current = Math.max(committedSeq.current, basket.seq);
     if (commitWaiters.current.length === 0) return;
     commitWaiters.current = commitWaiters.current.filter((w) => {
       if (!w.ready()) return true;
@@ -168,6 +183,12 @@ export function SampleSetWidget({
     });
   const inBasketRef = useRef(inBasket);
   inBasketRef.current = inBasket;
+  /** A demo op's basket update: numbered (see `requestedSeq`), then set. */
+  const setDemoBasket = (next: PebbleId[]) => {
+    requestedSeq.current += 1;
+    inBasketRef.current = next;
+    setBasket({ ids: next, seq: requestedSeq.current });
+  };
 
   const pile = allIds.filter((id) => !inBasket.includes(id));
   const full = inBasket.length >= capacity;
@@ -176,11 +197,11 @@ export function SampleSetWidget({
 
   const addToBasket = useCallback(
     (id: PebbleId) => {
-      setInBasket((prev) => {
-        if (prev.includes(id) || prev.length >= capacity) return prev;
-        const next = [...prev, id];
+      setBasket((prev) => {
+        if (prev.ids.includes(id) || prev.ids.length >= capacity) return prev;
+        const next = [...prev.ids, id];
         if (speakOnTap) sayNumber(next.length);
-        return next;
+        return { ids: next, seq: prev.seq };
       });
     },
     [capacity, sayNumber, speakOnTap],
@@ -199,7 +220,7 @@ export function SampleSetWidget({
   const takeOut = (id: PebbleId) => {
     if (!interactive) return;
     trace('undo', id);
-    setInBasket((prev) => prev.filter((p) => p !== id));
+    setBasket((prev) => ({ ids: prev.ids.filter((p) => p !== id), seq: prev.seq }));
   };
 
   // ---------- demo mode (03 §6.3) ----------
@@ -238,8 +259,7 @@ export function SampleSetWidget({
             if (!next || inBasketRef.current.length >= capacity) break;
             const count = inBasketRef.current.length + 1;
             const land = () => {
-              inBasketRef.current = [...inBasketRef.current, next];
-              setInBasket(inBasketRef.current);
+              setDemoBasket([...inBasketRef.current, next]);
             };
             // Pile pebble → the next empty ten-frame slot.
             const from = rect(`.ni-sample__pile [data-pebble="${next}"]`);
@@ -262,14 +282,14 @@ export function SampleSetWidget({
             // pile copy once React has committed. No flushSync: play may run inside a React
             // effect. With reduced motion it is an instant state change (03 §6.3).
             const from = reduced ? null : rect(`.ni-sample__in[data-pebble="${last}"]`);
-            inBasketRef.current = inBasketRef.current.slice(0, -1);
+            const rest = inBasketRef.current.slice(0, -1);
             if (!from) {
-              setInBasket(inBasketRef.current);
+              setDemoBasket(rest);
               continue;
             }
             const pileSelector = `.ni-sample__pile [data-pebble="${last}"]`;
             const committed = afterCommitWhere(() => rect(pileSelector) !== null);
-            setInBasket(inBasketRef.current);
+            setDemoBasket(rest);
             setFlight({ id: last, from, to: from, moving: false });
             await committed;
             if (!alive.current) return;
@@ -286,6 +306,15 @@ export function SampleSetWidget({
             if (!alive.current) return;
           }
           setCounting(null);
+        }
+        // Resolve only once React has committed this op's last basket update (or a later one). A
+        // reduced-motion op is a plain state change, so without this, play could resolve before
+        // the screen shows it. Overlapping ops batched into one commit all resolve on it; a commit
+        // that skipped the update (a higher-priority render) doesn't count.
+        if ((action.op === 'drag' || action.op === 'remove') && alive.current) {
+          const seq = requestedSeq.current;
+          const committed = () => committedSeq.current >= seq;
+          if (!committed()) await afterCommitWhere(committed);
         }
       } finally {
         setDemoBusy(false);

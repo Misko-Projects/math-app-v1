@@ -1326,6 +1326,7 @@ interface MakeSetConfig extends WidgetBase { format: 'make-set'; target: number;
 - **Answer:** `state` / `set.count` `{count, groupsOf?}`: the container holds exactly `target` (after removing for `take-away`, after adding for `add-more`). With `groupsOf: 10` (`CNT.19`) every full ten must be bundled. `hands` shows raised fingers (`SUB.05`).
 - **Features:** `target.over5` (0.4 per 5), `runningCount.off` (0.4), `mode.takeAway` (0.3), `mode.addMore` (0.3), `supply.excess` (supply ≥ 2 × target; 0.2).
 - **Tiers:** C. **Ops:** `drag {count}`, `remove {count}`, `count-aloud`, `bundle`, `close-container`.
+- **Layout (capacity > 10):** both ten-frames are shown whenever they fit the widget area at full target size (06 §4). When the measured area is too small for two frames (for example K at the 960 × 600 minimum), the widget shows one ten-frame at a time: once the first ten fills, it becomes a tappable bundle of ten (the `bundle` art, ≥ 80 px, spoken "ten") beside the frame, which goes on filling with the ones. Tapping the bundle unbundles it back into the frame. This is presentation only: the response and the interaction trace are identical to the two-frame layout.
 
 #### `dot-flash`
 ```ts

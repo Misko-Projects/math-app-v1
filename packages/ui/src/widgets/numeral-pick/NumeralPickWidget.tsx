@@ -1,9 +1,8 @@
 import { formatModel } from '@number-island/engine';
 import type { WidgetAction } from '@number-island/shared';
-import { type CSSProperties, useState } from 'react';
+import { type CSSProperties, useRef, useState } from 'react';
 import { useInteractionTrace } from '../../interaction/trace';
 import { useNarrationText, useSpeech, useUiPreferences } from '../../preferences/UiProvider';
-import { HandPointerIcon } from '../../primitives/icons';
 import { useWidgetDemo } from '../demo';
 import {
   CheckButton,
@@ -11,6 +10,7 @@ import {
   StimulusView,
   useAlive,
   useDemoPause,
+  useInviteHand,
   useSubmitGuard,
 } from '../kit';
 import type { ConfigFor, WidgetProps } from '../types';
@@ -48,6 +48,21 @@ export function NumeralPickWidget({
   const [selected, setSelected] = useState<string | null>(null);
   const [highlighted, setHighlighted] = useState<string | null>(null);
   const [invite, setInvite] = useState<string | null>(null);
+  const rootRef = useRef<HTMLDivElement | null>(null);
+  // Pip's up-pointing hand hangs below the invited card (kit `useInviteHand`), its fingertip inside
+  // the card's bottom edge and clear of its numeral, word or picture.
+  const { hand: inviteHand, rootStyle: handRootStyle } = useInviteHand(
+    rootRef,
+    // Matched by value, not a selector: an option ID may hold any character (a quote included).
+    (root) =>
+      invite === null
+        ? null
+        : ([...root.querySelectorAll<HTMLElement>('.ni-pick[data-id]')].find(
+            (el) => el.dataset.id === invite,
+          ) ?? null),
+    // Prefixed: an empty ID is valid, and an empty key would hide the hand.
+    invite === null ? '' : `opt:${invite}`,
+  );
   const [demoBusy, setDemoBusy] = useState(false);
   const interactive = !disabled && !demoBusy;
 
@@ -115,7 +130,13 @@ export function NumeralPickWidget({
   const cardWidth =
     longestWord > 0 ? `${longestWord * 18 + 56}px` : `${longestNumeral * 30 + 44}px`;
   return (
-    <div className="ni-npick" data-tier={tier} data-disabled={disabled ? 'true' : undefined}>
+    <div
+      ref={rootRef}
+      className="ni-npick"
+      data-tier={tier}
+      data-disabled={disabled ? 'true' : undefined}
+      style={handRootStyle}
+    >
       {stimulus.kind !== 'none' ? (
         <StimulusView spec={stimulus} maxWidth={760} maxHeight={280} />
       ) : null}
@@ -158,17 +179,13 @@ export function NumeralPickWidget({
                     <span>{name}</span>
                   )}
                 </PickCard>
-                {invite === o.id ? (
-                  <span className="ni-hand ni-npick__hand">
-                    <HandPointerIcon />
-                  </span>
-                ) : null}
               </span>
             );
           })}
         </fieldset>
         <CheckButton onPress={submit} disabled={!interactive || selected === null} />
       </div>
+      {inviteHand}
     </div>
   );
 }

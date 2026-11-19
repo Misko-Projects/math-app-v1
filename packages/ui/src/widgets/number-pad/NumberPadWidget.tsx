@@ -3,7 +3,6 @@ import type { WidgetAction } from '@number-island/shared';
 import { useRef, useState } from 'react';
 import { useInteractionTrace } from '../../interaction/trace';
 import { useNarrationText } from '../../preferences/UiProvider';
-import { HandPointerIcon } from '../../primitives/icons';
 import { useWidgetDemo } from '../demo';
 import {
   applyPadKey,
@@ -15,6 +14,7 @@ import {
   StimulusView,
   useAlive,
   useDemoPause,
+  useInviteHand,
   useSubmitGuard,
 } from '../kit';
 import type { ConfigFor, WidgetProps } from '../types';
@@ -68,6 +68,7 @@ export function NumberPadWidget({
   const [highlight, setHighlight] = useState<string | null>(null);
   const [invite, setInvite] = useState<WidgetAction | null>(null);
   const textsRef = useRef(texts);
+  const rootRef = useRef<HTMLDivElement | null>(null);
   textsRef.current = texts;
 
   const interactive = !disabled && !demoBusy;
@@ -186,6 +187,21 @@ export function NumberPadWidget({
   // ---------- render ----------
 
   const invitedBlank = invite?.op === 'type' ? blankIndex(invite) : invite ? active : -1;
+  // Pip's up-pointing hand hangs below the invited blank (kit `useInviteHand`), its fingertip
+  // inside the blank's bottom edge and clear of its digits.
+  const invitedId = invitedBlank >= 0 ? (blanks[invitedBlank]?.id ?? null) : null;
+  const { hand: inviteHand, rootStyle: handRootStyle } = useInviteHand(
+    rootRef,
+    // Matched by value, not a selector: a config ID may hold any character (a quote included).
+    (root) =>
+      invitedId === null
+        ? null
+        : ([...root.querySelectorAll<HTMLElement>('[data-blank]')].find(
+            (el) => el.dataset.blank === invitedId,
+          ) ?? null),
+    // Prefixed: an empty ID is valid, and an empty key would hide the hand.
+    invitedId === null ? '' : `blank:${invitedId}`,
+  );
 
   const renderBlank = (id: string) => {
     const i = blanks.findIndex((b) => b.id === id);
@@ -225,11 +241,6 @@ export function NumberPadWidget({
           {isActive ? <span className="ni-number__caret" /> : null}
         </button>
         {suffix ? <span className="ni-npw__unit">{suffix}</span> : null}
-        {invitedBlank === i ? (
-          <span className="ni-hand ni-npw__hand">
-            <HandPointerIcon />
-          </span>
-        ) : null}
       </span>
     );
   };
@@ -246,7 +257,13 @@ export function NumberPadWidget({
   const looseBlanks = blanks.filter((b) => !blankIdsInText.has(b.id));
 
   return (
-    <div className="ni-npw" data-tier={tier} data-disabled={disabled ? 'true' : undefined}>
+    <div
+      ref={rootRef}
+      className="ni-npw"
+      data-tier={tier}
+      data-disabled={disabled ? 'true' : undefined}
+      style={handRootStyle}
+    >
       <div className="ni-npw__ask">
         {stimulus.kind !== 'none' ? (
           <div
@@ -279,6 +296,7 @@ export function NumberPadWidget({
         />
         <CheckButton onPress={submit} disabled={!interactive || !complete} />
       </div>
+      {inviteHand}
     </div>
   );
 }

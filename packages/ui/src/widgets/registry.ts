@@ -13,6 +13,9 @@ import type { WidgetRegistry } from './types';
 export const widgetRegistry: WidgetRegistry = {
   'number-pad': () => import('./number-pad/NumberPadWidget'),
   'numeral-pick': () => import('./numeral-pick/NumeralPickWidget'),
+  'tap-count': () => import('./tap-count/TapCountWidget'),
+  'make-set': () => import('./make-set/MakeSetWidget'),
+  'dot-flash': () => import('./dot-flash/DotFlashWidget'),
   // U05 (#14) patterns and data
   'bar-graph-read': () => import('./bar-graph-read/BarGraphReadWidget'),
   'bar-graph-build': () => import('./bar-graph-build/BarGraphBuildWidget'),

@@ -18,8 +18,15 @@ import { fixtureTemplate, loadFixture } from './fixture';
 const fixture = loadFixture();
 const templatesOf = (skill: string) => fixture.templates.filter((t) => t.skillId === skill);
 const SEEDS = 300;
-const items = (t: ItemTemplate, n = SEEDS): GeneratedItem[] =>
-  Array.from({ length: n }, (_, k) => generateItem(t, k + 1));
+// Items of seeds 1 … n, generated once per template and shared: several tests read the same
+// template's items (ADD.23.t3: 3000, 2000, 1500 and 50 seeds), and generation is the cost here.
+const generated = new Map<string, GeneratedItem[]>();
+const items = (t: ItemTemplate, n = SEEDS): GeneratedItem[] => {
+  const have = generated.get(t.id) ?? [];
+  for (let k = have.length; k < n; k += 1) have.push(generateItem(t, k + 1));
+  generated.set(t.id, have);
+  return have.slice(0, n);
+};
 
 /** The skills this PR authors (K01 part 5). */
 const PR_SKILLS = [
@@ -152,7 +159,9 @@ describe('PR #82 review (1): ADD.23.t3 equation options never give the key away'
         return op === 'minus' ? Number(x) - Number(y) : Number(x) + Number(y);
       };
       let hits = 0;
-      const N = 1000;
+      // Seeds are fixed, so the count is deterministic. At 400 seeds the 0.35 bound is still
+      // more than 4 standard deviations above chance (0.25), at under half the cost of 1000.
+      const N = 400;
       for (let seed = 1; seed <= N; seed += 1) {
         const item = generateItem(t, seed, { difficulty });
         if (item.widget.format !== 'numeral-pick' || item.answer.kind !== 'choice') continue;
@@ -209,7 +218,11 @@ describe('PR #82 review (2): ADD.11 has no numeral-pick; the equality misconcept
     '%s discriminates on at least 20 percent of the items of every template it tracks',
     (id) => {
       let tracked = 0;
-      for (const t of fixture.templates) {
+      // Only the templates of skills the misconception tracks: applicableMisconceptions never
+      // returns it for any other skill, so generating their items could only count zero.
+      const spec = fixture.misconceptions.find((m) => m.id === id);
+      expect(spec).toBeDefined();
+      for (const t of fixture.templates.filter((x) => spec?.skills.includes(x.skillId))) {
         let hits = 0;
         let total = 0;
         for (const item of items(t, 100)) {
