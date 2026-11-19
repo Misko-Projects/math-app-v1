@@ -8,6 +8,7 @@ import {
   CheckButton,
   PickCard,
   StimulusView,
+  shapeSetUnit,
   useAlive,
   useDemoPause,
   useInviteHand,
@@ -25,6 +26,10 @@ import './numeral-pick.css';
  */
 
 const OPS = ['highlight', 'tap', 'answer'] as const;
+
+/** The boxes (CSS px) the question picture and a picture choice fit in. */
+const STIMULUS_BOX = { width: 760, height: 280 };
+const CHOICE_BOX = { width: 260, height: 110 };
 
 type Config = ConfigFor<'numeral-pick'>;
 type Option = Config['options'][number];
@@ -117,6 +122,19 @@ export function NumeralPickWidget({
   });
 
   const stimulus = config.stimulus;
+  // Shape pictures share one scale: a composition's target and the pieces in its choices compare
+  // truly (GEO.10, GEO.11), so the smallest fit of any of them draws them all.
+  const shapeUnits = [
+    ...(stimulus.kind === 'shape'
+      ? [shapeSetUnit(stimulus.shapes, STIMULUS_BOX.width, STIMULUS_BOX.height)]
+      : []),
+    ...config.options.flatMap((o) =>
+      o.stimulus?.kind === 'shape'
+        ? [shapeSetUnit(o.stimulus.shapes, CHOICE_BOX.width, CHOICE_BOX.height)]
+        : [],
+    ),
+  ];
+  const shapeUnitPx = shapeUnits.length > 0 ? Math.min(...shapeUnits) : undefined;
   // Numeral and word cards share one width, sized for the longest label (Baloo 2 numerals ≈ 30 px
   // a digit at 48 px; Andika words ≈ 18 px a letter at 32 px). Picture cards keep their own size.
   const longestNumeral = Math.max(
@@ -138,7 +156,12 @@ export function NumeralPickWidget({
       style={handRootStyle}
     >
       {stimulus.kind !== 'none' ? (
-        <StimulusView spec={stimulus} maxWidth={760} maxHeight={280} />
+        <StimulusView
+          spec={stimulus}
+          maxWidth={STIMULUS_BOX.width}
+          maxHeight={STIMULUS_BOX.height}
+          shapeUnitPx={shapeUnitPx}
+        />
       ) : null}
       <div className="ni-npick__answer" data-layout={config.layout}>
         <fieldset
@@ -168,9 +191,10 @@ export function NumeralPickWidget({
                   {o.stimulus ? (
                     <StimulusView
                       spec={o.stimulus}
-                      maxWidth={260}
-                      maxHeight={110}
+                      maxWidth={CHOICE_BOX.width}
+                      maxHeight={CHOICE_BOX.height}
                       minCell={22}
+                      shapeUnitPx={shapeUnitPx}
                       label={name}
                     />
                   ) : variant === 'numeral' ? (

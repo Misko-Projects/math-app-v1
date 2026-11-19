@@ -13,6 +13,12 @@ import type { WidgetRegistry } from './types';
 export const widgetRegistry: WidgetRegistry = {
   'number-pad': () => import('./number-pad/NumberPadWidget'),
   'numeral-pick': () => import('./numeral-pick/NumeralPickWidget'),
+  // U05 (#14) measurement and geometry
+  'shape-sort': () => import('./shape-sort/ShapeSortWidget'),
+  'compare-length': () => import('./compare-length/CompareLengthWidget'),
+  'measure-length': () => import('./measure-length/MeasureLengthWidget'),
+  'shape-compose': () => import('./shape-compose/ShapeComposeWidget'),
+  'perimeter-walk': () => import('./perimeter-walk/PerimeterWalkWidget'),
   'tap-count': () => import('./tap-count/TapCountWidget'),
   'make-set': () => import('./make-set/MakeSetWidget'),
   'dot-flash': () => import('./dot-flash/DotFlashWidget'),

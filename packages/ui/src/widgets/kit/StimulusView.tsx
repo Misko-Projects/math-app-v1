@@ -2,16 +2,18 @@ import type { ExpressionSpec, ExpressionToken, StimulusSpec } from '@number-isla
 import type { CSSProperties, ReactNode } from 'react';
 import { useNarrationText } from '../../preferences/UiProvider';
 import { pictureProps } from './a11y';
+import { GaugeView } from './GaugeView';
 import { dotsLayout, groupIndexes, objectSetLayout } from './layout';
 import { NumberLineView } from './NumberLineView';
 import { ObjectSetView } from './ObjectSetView';
+import { ShapeSetView } from './ShapeView';
 import { ObjectSprite } from './sprites';
 import './kit.css';
 
 /**
  * Static pictures for `StimulusSpec` (03 §5.1): what many formats show above their answer control
  * (numeral-pick, number-pad, dot-flash, compare, …). Each kind has one renderer below. Kinds that
- * belong to later widget issues (clock, coins, fractions, gauges, charts, shapes, bar models) are
+ * belong to later widget issues (clock, coins, fractions, charts, bar models) are
  * added here by those issues, one `case` each; until then they draw a neutral card (and a dev tag),
  * so an item never breaks.
  *
@@ -26,6 +28,8 @@ export interface StimulusViewProps {
   maxHeight?: number;
   /** Smallest object cell in px (default 28); small pictures (choice cards) may go lower. */
   minCell?: number;
+  /** CSS px per design unit for a `shape` picture, shared by separate pictures of one item. */
+  shapeUnitPx?: number;
   /** Renders a blank token of an expression stimulus (number-pad draws its entry slots here). */
   renderBlank?: (id: string) => ReactNode;
   /** Accessible name; defaults to the generic "picture" label. */
@@ -38,6 +42,7 @@ export function StimulusView({
   maxWidth = 720,
   maxHeight = 300,
   minCell,
+  shapeUnitPx,
   renderBlank,
   label,
   className,
@@ -186,6 +191,24 @@ export function StimulusView({
               maxHeight={maxHeight / Math.max(1, spec.sprites.length)}
             />
           ))}
+        </div>
+      );
+    case 'shape':
+      return (
+        <div className={cls} data-kind="shape">
+          <ShapeSetView
+            shapes={spec.shapes}
+            maxWidth={maxWidth}
+            maxHeight={maxHeight}
+            unitPx={shapeUnitPx}
+            label={name}
+          />
+        </div>
+      );
+    case 'gauge':
+      return (
+        <div className={cls} data-kind="gauge">
+          <GaugeView spec={spec} maxWidth={maxWidth} maxHeight={maxHeight} label={name} />
         </div>
       );
     default:

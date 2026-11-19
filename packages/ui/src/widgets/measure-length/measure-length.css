@@ -1,0 +1,268 @@
+/* measure-length widget (U05): the object with units laid along it, or on a ruler; the answer
+   below. Everything inside the measure is positioned in px from the object's start. */
+
+.ni-mlen {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 20px;
+  box-sizing: border-box;
+  width: 100%;
+  padding: 6px 8px 20px;
+}
+.ni-mlen__stage {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  max-width: 100%;
+}
+.ni-mlen__piles {
+  display: flex;
+  gap: var(--target-gap);
+}
+.ni-mlen__pile-slot {
+  position: relative;
+  display: flex;
+}
+/* The units sit at the top of the pile (their glyph and invite ring), room under them for Pip's
+   finger when the pile is invited. */
+.ni-mlen__pile {
+  display: grid;
+  place-items: start center;
+  box-sizing: border-box;
+  width: var(--target-min);
+  height: var(--target-min);
+  border: 3px solid var(--color-sand-deep);
+  border-radius: 18px;
+  background: var(--color-horizon);
+  box-shadow: 0 4px 0 var(--color-sand-shadow);
+}
+.ni-mlen__pile-units {
+  display: flex;
+  pointer-events: none;
+}
+.ni-mlen__pile-stack {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  border-radius: 12px;
+}
+/* The measure's drop zone (`__pad`) fills it exactly: nothing sticks out into the 12 px gaps
+   around it (evidence review: it reached 7 px from the keypad). */
+.ni-mlen__measure {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.ni-mlen__row {
+  z-index: 1;
+  pointer-events: none;
+  position: relative;
+}
+.ni-mlen__pad {
+  position: absolute;
+  inset: 0;
+  box-sizing: border-box;
+  width: 100%;
+  padding: 0;
+  border: 2px dashed var(--color-sand-deep);
+  border-radius: 12px;
+  background: var(--color-paper);
+}
+.ni-mlen__laid {
+  position: absolute;
+  z-index: 1;
+  display: block;
+  pointer-events: none;
+}
+.ni-mlen__laid .ni-unit {
+  position: relative;
+}
+/* Counting: a dot on each counted unit and the running count (numeral ≥ 32 px) after the last. */
+.ni-mlen__count-dot {
+  position: absolute;
+  left: 50%;
+  top: -10px;
+  width: 12px;
+  height: 12px;
+  margin-left: -6px;
+  border: 2px solid var(--color-paper);
+  border-radius: 50%;
+  background: var(--color-ink);
+}
+.ni-mlen__count {
+  position: absolute;
+  top: 50%;
+  z-index: 2;
+  display: grid;
+  place-items: center;
+  min-width: 46px;
+  height: 46px;
+  margin-top: -23px;
+  padding: 0 6px;
+  box-sizing: border-box;
+  border: 3px solid var(--color-ink);
+  border-radius: 23px;
+  background: var(--color-paper);
+  color: var(--color-ink);
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: 34px;
+  line-height: 1;
+}
+.ni-mlen__object-line {
+  z-index: 1;
+  pointer-events: none;
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+/* The start line: across every row, 14 px from the zone's top and bottom (12 px inside its 2 px
+   border; evidence review), and 14 px inside its left border (left set inline). */
+.ni-mlen__start {
+  position: absolute;
+  z-index: 1;
+  top: 14px;
+  bottom: 14px;
+  border-left: 4px dashed var(--color-ink-soft);
+  pointer-events: none;
+}
+.ni-mlen__undo {
+  display: grid;
+  place-items: center;
+  width: var(--target-min);
+  height: var(--target-min);
+  border: 3px solid var(--color-ink);
+  border-radius: 50%;
+  background: var(--color-cloud);
+  cursor: pointer;
+}
+.ni-mlen__undo:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+.ni-mlen__undo:focus-visible {
+  outline: 4px solid var(--color-sea-deep);
+  outline-offset: 3px;
+}
+
+/* Ruler */
+.ni-mlen__on-ruler {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  overflow: hidden;
+}
+.ni-mlen__ruler {
+  display: block;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  touch-action: none;
+  transition: transform 500ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+.ni-mlen__ruler:focus-visible {
+  outline: 4px solid var(--color-ink);
+  outline-offset: -4px;
+}
+/* Where the object starts on the ruler (startOffset > 0): a bold ink line from the object down to
+   the ruler's marks, ending in an arrow on the start mark. */
+.ni-mlen__start-mark {
+  position: absolute;
+  top: -4px;
+  z-index: 2;
+  height: 78px;
+  margin-left: -3px;
+  border-left: 6px solid var(--color-ink);
+  border-radius: 3px;
+  pointer-events: none;
+}
+.ni-mlen__start-mark::after {
+  content: "";
+  position: absolute;
+  bottom: -4px;
+  left: -13px;
+  border-top: 16px solid var(--color-ink);
+  border-left: 10px solid transparent;
+  border-right: 10px solid transparent;
+}
+
+/* The drop zone's rings (keyboard focus; armed or hovered while a unit is carried) lie inside
+   its own frame, so the visible frame is the outermost line and the 16 to 20 px gaps to the
+   keypad, the piles and undo stay clear (evidence review: the focus ring ended 6 px from the
+   keys). No lift either: it would push the frame into the gap. */
+/* In EVERY state, not only while armed: the kit's drop-target ring fades its colour out over a
+   transition, and an offset that snapped back outside while it faded showed a ring 8 px out
+   for that moment (a flaky 8 px gap under load). */
+.ni-mlen .ni-mlen__pad,
+.ni-mlen .ni-mlen__pad.ni-drop-target,
+.ni-mlen .ni-mlen__pad:focus-visible,
+.ni-mlen .ni-mlen__pad.ni-drop-target[data-armed="true"],
+.ni-mlen .ni-mlen__pad.ni-drop-target[data-over="true"] {
+  outline-offset: -8px;
+}
+.ni-mlen .ni-mlen__pad.ni-drop-target[data-over="true"] {
+  transform: none;
+  box-shadow: inset 0 0 0 12px rgb(42 157 143 / 0.18);
+}
+/* The same for the piles (focused, picked up, both) and undo: rings inside their own boxes. */
+.ni-mlen .ni-mlen__pile:focus-visible,
+.ni-mlen .ni-mlen__undo:focus-visible {
+  outline-offset: -8px;
+}
+.ni-mlen .ni-mlen__pile[data-selected="true"] {
+  outline-offset: -8px;
+}
+.ni-mlen .ni-mlen__pile[data-selected="true"]:focus-visible {
+  outline-width: 10px;
+  outline-offset: -14px;
+}
+
+/* The demo invite: one ring, inside the invited control (12 px gaps kept), no pulse. */
+.ni-mlen .ni-mlen__pile-stack.ni-invite,
+.ni-mlen .ni-mlen__ruler.ni-invite,
+.ni-mlen .ni-mlen__options.ni-invite {
+  outline-offset: -5px;
+  animation: none;
+}
+.ni-mlen .ni-mlen__pile-stack.ni-invite {
+  border-radius: 12px;
+}
+[data-reduced-motion="true"] .ni-mlen__ruler {
+  transition: none;
+}
+
+.ni-mlen__answer {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 20px;
+}
+.ni-mlen__options {
+  display: flex;
+  gap: calc(var(--target-gap) * 2);
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+.ni-mlen[data-compact="true"] {
+  gap: 16px;
+  padding: 2px 4px 4px;
+}
+/* A unit's picture beside its answer box's number: whole, centred in a 40 px square. */
+.ni-mlen__unit-icon {
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  align-self: center;
+}
