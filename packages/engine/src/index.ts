@@ -24,6 +24,14 @@ export {
   type Split,
 } from './formats/area-tiles';
 export { type ArrayBuildState, alreadyFound, rectanglesOf } from './formats/array-build';
+export {
+  type BalanceState,
+  type BalanceTerm,
+  balanceBlanks,
+  balanceChoices,
+  heavier,
+  sideValue,
+} from './formats/balance';
 export { type BaseTenBuildState, traySupply } from './formats/base-ten-build';
 export { type BaseTenTradeState, computeResult, htoValue } from './formats/base-ten-trade';
 export { type EqualGroupsState, GROUP_CAPACITY, groupsUnknown } from './formats/equal-groups';
@@ -40,6 +48,16 @@ export {
   type Pieces,
   piecesValue,
 } from './formats/place-value';
+export {
+  type PuzzleGridState,
+  type PuzzleValue,
+  puzzleBlanks,
+} from './formats/puzzle-grid';
+export {
+  answersSplit,
+  SITUATION_PRIOR,
+  type StoryProblemState,
+} from './formats/story-problem';
 export {
   type BuildContext,
   GenerationError,
