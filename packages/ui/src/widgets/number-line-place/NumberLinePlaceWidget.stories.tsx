@@ -13,6 +13,7 @@ import {
   areaBox,
   contentBox,
   expectFitsArea,
+  expectHandClearOfOthers,
   expectInside,
   expectPointerOn,
   expectRingClear,
@@ -507,6 +508,10 @@ async function expectInviteOn(root: HTMLElement, el: HTMLElement, others: Elemen
   await waitForSettled(el);
   await new Promise((r) => requestAnimationFrame(r));
   await expectPointerOn(root.querySelector('.ni-hand') as HTMLElement, el, root);
+  await expectHandClearOfOthers(
+    root.querySelector('.ni-hand') as HTMLElement,
+    [...root.querySelectorAll('button, .ni-nlp__marker')].filter((t) => t !== el),
+  );
   await expectRingClear(
     el,
     others.filter((o) => o !== el),

@@ -15,7 +15,7 @@
   max-width: 1180px;
   /* Safe centring in the host: centred while it fits, top-aligned when it does not. */
   margin: auto;
-  padding: 8px;
+  padding: 4px;
   /* The widget takes the width its host gives it; the road is drawn to the lane's measured width. */
   contain: inline-size;
 }
@@ -345,4 +345,9 @@ button.ni-nlj__stone:disabled {
 .ni-nlj__check .ni-btn.ni-invite {
   outline-width: 4px;
   outline-offset: -9px;
+}
+
+/* Stacked: Pip's hand under a hop button hangs clear of the pad below (STACK_HAND_GAP). */
+.ni-nlj[data-layout="stack"] .ni-nlj__entry {
+  margin-top: 32px;
 }

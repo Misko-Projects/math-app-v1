@@ -492,6 +492,8 @@
   grid-template-columns: repeat(3, var(--pad-key, var(--target-big)));
   grid-auto-rows: var(--pad-key, var(--target-big));
   gap: var(--target-gap);
+  /* A widget may open the rows up (`--pad-row-gap`), so Pip's hand under a key clears the digit below. */
+  row-gap: var(--pad-row-gap, var(--target-gap));
   margin: 0;
   padding: 0;
   border: 0;

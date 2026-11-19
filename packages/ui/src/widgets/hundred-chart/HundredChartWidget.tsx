@@ -134,12 +134,24 @@ interface Measured {
   readout: { w: number; h: number };
 }
 
+/**
+ * Rows of pad keys are 26 px apart (not 12): Pip's hand under a key then hangs clear of the digit
+ * on the key below it.
+ */
+const PAD_ROW_GAP = 26;
+/**
+ * The pad's digit size for its key: small enough that Pip's hand, lowered to clear the invited
+ * key's own digit, still hangs clear of the digit on the key below (never under 32 px).
+ */
+const padDigit = (key: number) =>
+  key >= 96 ? undefined : key >= 84 ? '44px' : key >= 76 ? '40px' : '32px';
+
 function padBox(shape: PadShape, key: number) {
   const cols = shape === '3x4' ? 3 : 4;
   const rows = shape === '3x4' ? 4 : 3;
   return {
     w: cols * key + (cols - 1) * TARGET_GAP_PX,
-    h: rows * key + (rows - 1) * TARGET_GAP_PX,
+    h: rows * key + (rows - 1) * PAD_ROW_GAP,
   };
 }
 
@@ -987,8 +999,9 @@ export function HundredChartWidget({
       style={
         {
           '--pad-key': plan.pad ? `${plan.pad.key}px` : undefined,
-          // A 64 px key (G1 minimum): a 36 px digit, so Pip's fingertip fits under it.
-          '--pad-digit': plan.pad && plan.pad.key < 76 ? '36px' : undefined,
+          '--pad-row-gap': `${PAD_ROW_GAP}px`,
+          // Digits sized so Pip's hand clears its own key's digit and the one below.
+          '--pad-digit': plan.pad ? padDigit(plan.pad.key) : undefined,
           '--hc-gap': `${plan.short ? TARGET_GAP_PX : 20}px`,
           ...handRootStyle,
         } as CSSProperties

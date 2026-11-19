@@ -77,7 +77,7 @@ const HOP_MS = 460;
 const KEY_MS = 320;
 const LINE_MAX = 1100;
 const GAP = 20;
-const EDGE = 8;
+const EDGE = 4;
 /** Room above the stones for the hopper. */
 const HOPPER_ROOM = 72;
 /** A picture stone (not a button): big enough for a 32 px numeral. */
@@ -85,6 +85,8 @@ const PICTURE_STONE = 56;
 const PICTURE_STONE_GAP = 8;
 /** Width of a "the road goes on" mark at a cut end of the stones window. */
 const MORE_W = 28;
+/** Extra space between the hop row and the pad when stacked: Pip's hand under a hop clears the keys. */
+const STACK_HAND_GAP = 32;
 
 type Config = ConfigFor<'number-line-jump'>;
 
@@ -272,12 +274,24 @@ interface Measured {
   readout: { w: number; h: number };
 }
 
+/**
+ * Rows of pad keys are 26 px apart (not 12): Pip's hand under a key then hangs clear of the digit
+ * on the key below it.
+ */
+const PAD_ROW_GAP = 26;
+/**
+ * The pad's digit size for its key: small enough that Pip's hand, lowered to clear the invited
+ * key's own digit, still hangs clear of the digit on the key below (never under 32 px).
+ */
+const padDigit = (key: number) =>
+  key >= 96 ? undefined : key >= 84 ? '44px' : key >= 76 ? '40px' : '32px';
+
 function padBox(shape: PadShape, key: number) {
   const cols = shape === '3x4' ? 3 : 4;
   const rows = shape === '3x4' ? 4 : 3;
   return {
     w: cols * key + (cols - 1) * TARGET_GAP_PX,
-    h: rows * key + (rows - 1) * TARGET_GAP_PX,
+    h: rows * key + (rows - 1) * PAD_ROW_GAP,
   };
 }
 
@@ -414,7 +428,8 @@ function planLayout(c: Config, room: WidgetRoom | null, age: AgeMode, m: Measure
           const mainW = W;
           const hops = hopsBox(pad ? mainW : mainW - G - answerRow.w, kind);
           const roadH = pathH(mainW);
-          const top = roadH + G + hops.h + G;
+          // Under the hop row, room for Pip's hand before the pad (it must not cover a key).
+          const top = roadH + G + hops.h + G + STACK_HAND_GAP;
           const h = pad
             ? top + Math.max(answerCol.h, p.h)
             : roadH + G + Math.max(hops.h, answerRow.h);
@@ -1177,8 +1192,9 @@ export function NumberLineJumpWidget({
       style={
         {
           '--pad-key': plan.pad ? `${plan.pad.key}px` : undefined,
-          // A 64 px key (G1 minimum): a 36 px digit, so Pip's fingertip fits under it.
-          '--pad-digit': plan.pad && plan.pad.key < 76 ? '36px' : undefined,
+          '--pad-row-gap': `${PAD_ROW_GAP}px`,
+          // Digits sized so Pip's hand clears its own key's digit and the one below.
+          '--pad-digit': plan.pad ? padDigit(plan.pad.key) : undefined,
           '--nlj-gap': `${plan.gap}px`,
           ...handRootStyle,
         } as CSSProperties

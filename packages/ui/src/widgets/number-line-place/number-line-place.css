@@ -16,7 +16,7 @@
   /* Safe centring in the host: centred while it fits, top-aligned (never above the scroll origin)
      when it does not. */
   margin: auto;
-  padding: 8px;
+  padding: 4px;
   /* The widget takes the width its host gives it; the line is drawn to the lane's measured width. */
   contain: inline-size;
 }
