@@ -14,6 +14,7 @@ import {
   boxGap,
   expectApart,
   expectControls,
+  expectNumeralInk,
   expectOneInviteRing,
   expectRenderedNumerals,
   outlineBox,
@@ -344,6 +345,7 @@ async function expectTrayTruths(root: HTMLElement) {
     await expectApart(badge, tileEl, 0, 'count badge off the tile');
   }
   await expectRenderedNumerals(root, '.ni-scomp__count');
+  await expectNumeralInk(root, '.ni-scomp__count');
   await expectNumeralsAtLeast32(root, '.ni-scomp__count');
   const tiles = [...root.querySelectorAll('.ni-scomp__tile')].map((t) => t.getBoundingClientRect());
   for (const t of tiles) {

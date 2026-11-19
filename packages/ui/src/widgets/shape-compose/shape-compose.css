@@ -136,22 +136,22 @@
   pointer-events: none;
 }
 /* How many are left: above the tile, off the piece (its corners are what a child counts). A Baloo
-   digit is about 0.7 em tall, so 40 px draws a numeral of about 28 px ink in a 52 px badge. */
+   digit is about 0.65 em tall, so 50 px draws digits at least 32 px tall as seen (64 px badge). */
 .ni-scomp__count {
   display: grid;
   place-items: center;
   flex: none;
-  min-width: 52px;
-  height: 52px;
+  min-width: 64px;
+  height: 64px;
   padding: 0 8px;
   box-sizing: border-box;
   border: 3px solid var(--color-ink);
-  border-radius: 26px;
+  border-radius: 32px;
   background: var(--color-paper);
   color: var(--color-ink);
   font-family: var(--font-display);
   font-weight: 800;
-  font-size: 40px;
+  font-size: 50px;
   line-height: 1;
   pointer-events: none;
 }

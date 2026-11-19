@@ -12,6 +12,7 @@ import {
 import {
   expectApart,
   expectControls,
+  expectNumeralInk,
   expectOneInviteRing,
   expectRenderedNumerals,
 } from '../../test-support/evidence';
@@ -813,6 +814,7 @@ export const DemoCountSides: Story = {
     const badge = root.querySelector('.ni-ssort__count') as HTMLElement;
     await expectApart(badge, cardEl(root, 'c2').querySelector('polygon') as Element, 0, 'badge');
     await expectRenderedNumerals(root, '.ni-ssort__count');
+    await expectNumeralInk(root, '.ni-ssort__count');
     await done;
     await expect((audio.sayPhrases.mock.calls as unknown[][]).map((c) => c[0])).toEqual([
       [{ number: 1 }],

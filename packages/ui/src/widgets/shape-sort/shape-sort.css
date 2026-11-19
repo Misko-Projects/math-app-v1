@@ -116,22 +116,22 @@
  */
 .ni-ssort__count {
   position: absolute;
-  top: -22px;
-  left: -40px;
+  top: -30px;
+  left: -56px;
   z-index: 2;
   display: grid;
   place-items: center;
-  min-width: 48px;
-  height: 48px;
+  min-width: 64px;
+  height: 64px;
   padding: 0 6px;
   box-sizing: border-box;
   border: 3px solid var(--color-ink);
-  border-radius: 24px;
+  border-radius: 32px;
   background: var(--color-paper);
   color: var(--color-ink);
   font-family: var(--font-display);
   font-weight: 800;
-  font-size: 34px;
+  font-size: 50px;
   line-height: 1;
   pointer-events: none;
 }
