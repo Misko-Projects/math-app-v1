@@ -2,7 +2,7 @@
 
 The pure TypeScript engine (02 §2): no DOM, React, Dexie or Node built-ins, no `Math.random` and no `Date.now`. Randomness comes from the seeded RNG, and time is passed in as a parameter. `pnpm lint` (`scripts/check-boundaries.mjs`) enforces this. It runs in the web app, the API and tests.
 
-E01 (#7) delivers the item core: the RNG, the generator registry, item generation and difficulty targeting, response checking, misconception matching, hint ladders, the state models and widget schemas of the 11 fixture formats, and the hooks `tools/content-check` uses. E02 (#10) adds the learner model and its fold in `src/learner`, the projections in `src/folds` and the dashboard signals in `src/signals`; the session planner (E03) lands in `src/planner`.
+E01 (#7) delivers the item core: the RNG, the generator registry, item generation and difficulty targeting, response checking, misconception matching, hint ladders, the state models and widget schemas of the 11 fixture formats, and the hooks `tools/content-check` uses. E02 (#10) adds the learner model and its fold in `src/learner`, the projections in `src/folds` and the dashboard signals in `src/signals`; E03 (#16) adds the session planner and `targetDifficulty` in `src/planner`.
 
 Source of truth: `docs/spec/02-architecture.md` §5.2 and §7, and `docs/spec/03-curriculum.md` §5–§7 and §9.
 
@@ -52,6 +52,9 @@ formatModel(item.widget.format);      // { configSchema, initialState, apply, to
 | `buildSkillGraph(input)` | The 02 §5.8 `SkillGraph` from `skills.json`, `templates.json`, `graph.json` and `template-stats.json`. |
 | `compressReviews`, `reviewContext` | 04 §4 review compression and transfer probes, for the planner. |
 | `startPlacement`, `nextProbe`, `recordProbe`, `beginPlacementSession`, `completePlacement`, `resumePlacement`, `placementBudget` | The 04 §5 placement runner over a plain, serialisable `PlacementRun`: grade priors, probe selection, BKT update and graph propagation, stop rules, item budgets per mini-session, per-strand mini-placements, the `placement.probe` / `placement.completed` payloads, and resume from the child's event log (its probes and session starts, in fold order). Readings are in 04 §7b. |
+| `planSession(input, opts?)` | The 02 §5.4 session planner (04 §6.1–§6.3, §6.5): a warmup, then 2–3 alternative requests. Each request is bound to a workshop that hosts every task's format (Practice Pier fallback), voiced by a resident, and rewarded with materials, plus decor for challenge items. Its tasks hold the focus skill's lesson or test-out, interleaved new items, compressed reviews and challenge items, never more than 3 items of one skill in a row. `opts`: `puzzleDecor` (GameData decor with `source: 'puzzle'`) and `remediation` (from `adaptNext`). Pure and seeded; readings in 04 §7b. |
+| `targetDifficulty(state, skill, context, child, graph?)`, `targetSuccess` | 04 §2.4 d\* = θg + θs − logit(p\*) + the rolling success offset, at presentation time. |
+| `rankNewSkills`, `neededTemplates`, `PRACTICE_PIER`, `RHYTHM_ORCHARD`, `PUZZLE_TOWER` | §6.2 new-skill ranking, the evidence templates a skill still needs, and the workshop ids the planner treats specially. |
 | `PARAMS`, `DAY_MS` | Every 04 parameter, in `src/params.ts`. |
 | `sortEvents`, `compareEvents`, `isEvent`, `sameId` | Event ordering (each id once) and case-insensitive ids, shared by every fold. |
 | `foldIsland`, `foldInventory`, `foldCollection`, `foldGoals` (+ `initX`, `applyXEvent`) | The 02 §4.3 projections, with the readings recorded there (tombstones purge, buildings never un-built, inventory clamped at 0). |
@@ -76,6 +79,7 @@ src/learner/                     elo-fire-v1 model, the learner fold, SkillGraph
 src/folds/                       island, inventory, collection, goals folds; event ordering; unlock rules
 src/signals/                     04 §7 dashboard signals
 src/placement/                   04 §5 placement runner
+src/planner/                     04 §2.4, §6 session planner and difficulty targets
 src/testing/                     the property test and statistics (the /testing entry)
 test/                            Node tests over the fixture content, compiled in memory (no dist needed)
 test/golden/                     the recorded 2,000+ event replay log and its snapshot (UPDATE_GOLDEN=1 re-records)
