@@ -355,6 +355,42 @@ describe('rule 4: frustration', () => {
     task(B, 3, { seed: 4 }),
   ];
 
+  it('the confidence item never makes a fourth item of one skill in a row', () => {
+    // Tasks B, B, B, A; B is the strongest hosted skill, A is practiced but weaker. Frustration
+    // fires as the third B resolves: another B would be the fourth in a row, so A takes it (A then
+    // A is a run of two).
+    const strongB = Array.from({ length: 8 }, () => ({ skillId: B, n: 3, correct: true }));
+    const weakA = (s: LearnerState): LearnerState => ({
+      ...s,
+      skills: {
+        ...s.skills,
+        [A]: { ...(s.skills[A] as LearnerState['skills'][string]), practicedAt: T0, theta: -1 },
+      },
+    });
+    const tasks = [task(B, 3), task(B, 3, { seed: 2 }), task(B, 3, { seed: 3 }), task(A, 3)];
+    const input = scenario({
+      before: [{ skillId: A, n: 3, correct: true }, ...strongB],
+      patch: weakA,
+      tasks,
+      results: [R, R, W],
+      last: { attemptNo: 3 },
+      input: { signals: { wrongInLast4: 3, rapidWrongTaps: 0, longIdles: 0 } },
+    });
+    const model = createEloFireModel(input.graph, { childId: CHILD_ID, isK: false });
+    expect(model.pRef(input.state, B)).toBeGreaterThan(model.pRef(input.state, A));
+    const d = run(input);
+    expect(d.action).toBe('confidence-then-offer-break');
+    const inserted = (d as { insert: PlannedTask[] }).insert;
+    const after = [...tasks.slice(0, 3), ...inserted, ...tasks.slice(3)];
+    let runLen = 0;
+    let lastSkill = '';
+    for (const t of after) {
+      runLen = t.skillId === lastSkill ? runLen + 1 : 1;
+      lastSkill = t.skillId;
+      expect(runLen).toBeLessThanOrEqual(3);
+    }
+  });
+
   it.each([
     ['wrongInLast4', { wrongInLast4: 3, rapidWrongTaps: 0, longIdles: 0 }],
     ['rapidWrongTaps', { wrongInLast4: 0, rapidWrongTaps: 3, longIdles: 0 }],

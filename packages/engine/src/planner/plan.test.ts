@@ -307,43 +307,68 @@ describe('warmup (04 §6.1)', () => {
     });
   });
 
-  it('a test-out warmup is shared by every request, whichever the child picks', () => {
-    // Two untouched lesson roots, both offered a test-out, nothing attempted. The warmup is test-out
-    // item 1 of one of them, and every request focuses that skill and asks the rest of its draw.
-    const g: SkillGraph = { ...graph, prereqs: { ...graph.prereqs, [B]: [] } };
+  it('with nothing attempted, the warmup is a lesson; alternatives keep their own draws', () => {
+    // Both roots offered (prior 0.7). The warmup is A's lesson (demonstration only); B's request
+    // keeps its own whole draw before its lesson, and A's request keeps A's draw (A stays untouched
+    // after a demonstration, so the learner offers that test-out at its first draw item).
     const prior = { p: { [A]: 0.7, [B]: 0.7 }, assumed: [] };
     const s = stateWith({}, { placement: { prior, strandsPlaced: [], inProgress: null } });
-    const p = plan(input({ graph: g, state: s, workshopsAvailable: [HALL] }));
-    expect(p.warmup).toMatchObject({ mode: 'item', context: 'warmup' });
-    const f = p.warmup.skillId;
-    expect(model.inTestOut(s, f)).toBe(true);
-    for (const r of p.requests) {
-      expect(r.tasks[0]?.skillId).toBe(f);
-      // No request plans another skill's draw before its lesson.
-      const other = r.tasks.find((t) => t.skillId !== f && t.skillId !== undefined);
-      if (other) expect(model.status(s, other.skillId, NOW)).not.toBe('ready');
-    }
+    const p = plan(input({ graph: twoRoots(0), state: s, workshopsAvailable: [HALL] }));
+    expect(p.warmup).toMatchObject({ skillId: A, mode: 'lesson' });
+    expect(drawOf(p, A)).toHaveLength(3);
+    expect(drawOf(p, B)).toHaveLength(3);
+    // A lesson with rated child steps touches A: A then gets no draw (ordinary practice).
+    const q = plan(input({ graph: twoRoots(2), state: s, workshopsAvailable: [HALL] }));
+    expect(q.warmup).toMatchObject({ skillId: A, mode: 'lesson' });
+    const r = q.requests.find((x) => x.tasks[0]?.skillId === A) as PlannedRequest;
+    expect(r.tasks.some((t) => t.mode === 'lesson')).toBe(false);
   });
 
-  it('a rated lesson warmup never precedes another skill’s planned draw', () => {
-    // Two untouched roots offered only through P(ref) = 0.751 (no priors). A lesson warmup with
-    // rated child steps could lower θg below the offer; so the plan uses a draw item as the
-    // warmup instead, and no request plans a draw for a different skill.
-    const g: SkillGraph = { ...graph, prereqs: { ...graph.prereqs, [B]: [] } };
+  it('a rated lesson warmup: other test-outs are planned only if they survive its steps', () => {
+    // No priors; both roots offered only through P(ref) = 0.751. A's lesson has two rated items,
+    // whose worst case lowers θg below the offer, so B is planned lesson first (no draw). With a
+    // demonstration-only lesson nothing can move the offer, and B keeps its draw.
     const s = stateWith({}, { thetaG: Math.log(0.751 / 0.249) });
-    const p = plan(input({ graph: g, state: s, workshopsAvailable: [HALL] }));
-    if (p.warmup.mode === 'lesson') {
-      // A lesson warmup: no request may plan a draw at all.
-      for (const r of p.requests) {
-        const at = r.tasks.findIndex((t) => t.mode === 'lesson');
-        expect(at === -1 || at === 0 || r.tasks[0]?.skillId !== r.tasks[at]?.skillId).toBe(true);
-      }
-    } else {
-      expect(p.warmup.context).toBe('warmup');
-      for (const r of p.requests) expect(r.tasks[0]?.skillId).toBe(p.warmup.skillId);
-    }
+    const rated = plan(input({ graph: twoRoots(2), state: s, workshopsAvailable: [HALL] }));
+    expect(rated.warmup).toMatchObject({ skillId: A, mode: 'lesson' });
+    expect(drawOf(rated, B)).toHaveLength(0);
+    const demo = plan(input({ graph: twoRoots(0), state: s, workshopsAvailable: [HALL] }));
+    expect(drawOf(demo, B)).toHaveLength(3);
+  });
+
+  it('keeps a queued remediation in the first request when another root is offered a test-out', () => {
+    // Remediation for A (lesson, req.idea); B qualifies for a test-out. Nothing is attempted.
+    const prior = { p: { [B]: 0.7 }, assumed: [] };
+    const s = stateWith({}, { placement: { prior, strandsPlaced: [], inProgress: null } });
+    const p = plan(input({ graph: twoRoots(0), state: s, workshopsAvailable: [HALL] }), {
+      remediation: { skillId: A, misconceptionId: 'MC.test' },
+    });
+    const r0 = p.requests[0] as PlannedRequest;
+    expect(r0.narration).toBe('req.idea');
+    expect(r0.tasks[0]).toMatchObject({ skillId: A, mode: 'lesson' });
   });
 });
+
+/** Two untouched roots A and B; A's lesson gets `rated` scaffolded (rated) items. */
+function twoRoots(rated: number): SkillGraph {
+  const a = graph.skills[A] as Skill;
+  return {
+    ...graph,
+    prereqs: { ...graph.prereqs, [B]: [] },
+    skills: {
+      ...graph.skills,
+      [A]: { ...a, lesson: { ...a.lesson, scaffolded: { count: rated, hintStart: 1 } } },
+    },
+  };
+}
+
+/** The tasks of skill s before its lesson task in the request it focuses (its planned draw). */
+function drawOf(p: SessionPlan, s: string): PlannedRequest['tasks'] {
+  const r = p.requests.find((x) => x.tasks[0]?.skillId === s);
+  if (!r) return [];
+  const at = r.tasks.findIndex((t) => t.mode === 'lesson' && t.skillId === s);
+  return r.tasks.slice(0, at < 0 ? r.tasks.length : at).filter((t) => t.skillId === s);
+}
 
 describe('lessons and test-outs (04 §3, 03 §6.5)', () => {
   it('starts a ready skill with its lesson when no test-out is offered', () => {
@@ -391,7 +416,7 @@ describe('lessons and test-outs (04 §3, 03 §6.5)', () => {
     });
     expect(st.skills[A]?.practicedAt).not.toBeNull();
 
-    // With nothing attempted at all, the draw's first item is the warmup (test-out item 1).
+    // With nothing attempted at all, A's (demonstration-only) lesson is the warmup.
     const fresh = stateWith(
       {},
       {
@@ -399,8 +424,7 @@ describe('lessons and test-outs (04 §3, 03 §6.5)', () => {
       },
     );
     const q = plan(input({ state: fresh, workshopsAvailable: [HALL] }));
-    expect(q.warmup).toMatchObject({ skillId: A, mode: 'item', context: 'warmup' });
-    expect([`${A}.t3`, `${A}.t4`]).toContain(q.warmup.templateId);
+    expect(q.warmup).toMatchObject({ skillId: A, mode: 'lesson', context: 'lesson' });
   });
 
   it('plans a test-out only when it stays offered after a wrong warmup (plan and learner agree)', () => {
@@ -448,29 +472,24 @@ describe('lessons and test-outs (04 §3, 03 §6.5)', () => {
     expect(st.skills[A]?.practicedAt).not.toBeNull();
   });
 
-  it('with nothing attempted, the warmup is test-out item 1 and each request asks the rest', () => {
-    // Nothing attempted; A's test-out is offered. The warmup is the draw's first item; each request
-    // starts with the remaining draw items, then the lesson (skipped by the runner on a pass). The
-    // warmup plus the draw stay within 3 in a row, every draw item is asked at d* = 0, and clean
-    // answers put A on the practiced track; afterwards A is adaptive again.
+  it('after a demonstration-only lesson warmup, the kept draw is a real, passable test-out', () => {
+    // Nothing attempted; A's test-out is offered; A's lesson (demo only) is the warmup and records
+    // no attempt. A's request keeps its whole draw: each item is asked at d* = 0, three clean
+    // answers put A on the practiced track, and A is adaptive afterwards.
     const prior = { p: { [A]: 0.7 }, assumed: [] };
     const fresh = stateWith({}, { placement: { prior, strandsPlaced: [], inProgress: null } });
     const p = plan(input({ state: fresh, workshopsAvailable: [HALL] }));
-    expect(p.warmup).toMatchObject({ skillId: A, mode: 'item', context: 'warmup' });
+    expect(p.warmup).toMatchObject({ skillId: A, mode: 'lesson' });
     const n = (templateId: string) => Number(templateId.split('.t')[1]);
-    for (const r of p.requests) {
-      const at = r.tasks.findIndex((t) => t.mode === 'lesson');
-      const draw = r.tasks.slice(0, at).filter((t) => t.skillId === A);
-      expect(draw).toHaveLength(2); // items − the warmup
-      expect(r.tasks[at]).toMatchObject({ skillId: A, mode: 'lesson' });
-      let st = fresh;
-      for (const t of [p.warmup, ...draw]) {
-        expect(targetDifficulty(st, A, t.context, child('1'), graph)).toBe(0);
-        st = model.apply(st, synthAttempt(A, n(t.templateId), { context: t.context }), NOW);
-      }
-      expect(st.skills[A]?.practicedAt).not.toBeNull();
-      expect(targetDifficulty(st, A, 'practice', child('1'), graph)).not.toBe(0);
+    const draw = drawOf(p, A);
+    expect(draw).toHaveLength(3);
+    let st = fresh;
+    for (const t of draw) {
+      expect(targetDifficulty(st, A, t.context, child('1'), graph)).toBe(0);
+      st = model.apply(st, synthAttempt(A, n(t.templateId), { context: t.context }), NOW);
     }
+    expect(st.skills[A]?.practicedAt).not.toBeNull();
+    expect(targetDifficulty(st, A, 'practice', child('1'), graph)).not.toBe(0);
   });
 
   it('a test-out no themed workshop can host as a passable draw goes to the Practice Pier', () => {
@@ -594,6 +613,27 @@ describe('reviews (04 §4)', () => {
     // Without the failure, B is not reviewed.
     const q = plan(input({ state: before, workshopsAvailable: [HALL] }));
     expect(q.requests.some((r) => r.tasks.some((t) => t.context === 'review'))).toBe(false);
+  });
+
+  it('review compression never drops a failed review behind an encompassing skill', () => {
+    // C (deeper, encompasses B at 0.8) is due; B failed its review. Compression alone would keep
+    // C and drop B, but C's implicit credit never clears B's failure, so B is reviewed too.
+    const before = stateWith({
+      [A]: practiced(2, NOW + 3 * DAY_MS),
+      [B]: practiced(2, NOW + 1),
+      [C]: practiced(2, NOW - 1),
+    });
+    const s = model.apply(
+      before,
+      synthAttempt(B, 3, { correct: false, context: 'review', seed: 12345 }),
+      NOW,
+    );
+    expect(graph.encompasses[C]?.[B]).toBeGreaterThanOrEqual(0.5);
+    const p = plan(input({ state: s, workshopsAvailable: [HALL] }));
+    const reviewed = (x: string) =>
+      p.requests.some((r) => r.tasks.some((t) => t.skillId === x && t.context === 'review'));
+    expect(reviewed(B)).toBe(true);
+    expect(reviewed(C)).toBe(true);
   });
 });
 

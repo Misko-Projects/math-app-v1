@@ -47,14 +47,15 @@
 // - Warmup: the first available of (a) the on-track skill with the highest P(ref) ≥ warmupMinP;
 //   (b) the highest-P(ref) on-track skill; (c) the highest-P(ref) frontier skill already attempted
 //   ('learning'), with an evidence template; (d) the highest-P(ref) 'ready' skill whose lesson mode
-//   is 'none'; (e) with nothing attempted and a draw planned, the draw's first item (test-out item
-//   1) and every request shares that focus and asks the rest of its draw; (f) with nothing
-//   attempted and no draw anywhere, a focus skill's lesson (requests on it skip the lesson and plan
-//   no test-out); (g) else an evidence template of the first focus skill. Apart from (e), an item
-//   warmup is never the first attempt on a ready skill with a lesson; the requests continue its run
-//   (≤ maxRun in a row). One test-out rule: a draw is planned only when the learner's own offer
-//   (inTestOut) holds even after a wrong warmup item, and an offered draw no themed workshop can
-//   host goes to the Practice Pier, so plan, learner and targetDifficulty agree. Ties by id;
+//   is 'none'; (e) with nothing attempted, the lesson of a (non-remediation) focus skill, preferring
+//   one without an offered test-out: requests on it skip that lesson, and it keeps its draw only
+//   when the lesson is demonstration-only (no rated child steps, so it stays untouched); (f) else
+//   an evidence template of the first focus skill. An item warmup is never the first attempt on a
+//   ready skill with a lesson; the requests continue its run (≤ maxRun in a row). One test-out
+//   rule: a draw is planned only when the learner's own offer (inTestOut) holds after the worst
+//   case of the warmup (a wrong item, or every rated step of the warmup lesson wrong), and an
+//   offered draw no themed workshop can host goes to the Practice Pier, so plan, learner and
+//   targetDifficulty agree. Ties by id;
 //   templates prefer a format an available themed workshop hosts, then pictorial/abstract, then
 //   constructed (`isConstructedTemplate`), then id.
 // - Challenge: round(challengeShare × the plan's item budgets) items, dealt round-robin from the
@@ -154,8 +155,6 @@ interface Focus {
   lesson: boolean;
   testOut: boolean;
   remediation: boolean;
-  /** The warmup is this draw's first item (test-out item 1), so requests plan the rest of it. */
-  warmupTestOut?: boolean;
 }
 
 /** A task before sequencing. */
@@ -469,8 +468,6 @@ function compose(
     }
     if (focus.testOut) {
       draw = testOutDraw(graph, skill, cap);
-      // The warmup already asked the draw's first item: the request asks the rest.
-      if (draw && focus.warmupTestOut) draw = draw.slice(1);
       if (draw && draw.length > budget) draw = null;
     }
   }
@@ -479,7 +476,20 @@ function compose(
   // Reviews: due skills this workshop can host, compressed (04 §4), deepest first.
   const dueHere = ctx.due.filter((r) => r.skillId !== S && hosted(r.skillId).length > 0);
   const reviewTarget = focus ? Math.round(P.planner[sliceKey(ctx)].reviewShare * budget) : budget;
-  const reviews = compressReviews(dueHere, graph, reviewTarget, P);
+  // A skill whose last review failed is reviewed itself: an encompassing skill's implicit credit
+  // (04 §4) lengthens its interval but never clears the failure, so compression may not drop it.
+  const failedReview = (r: DueReview) =>
+    (ctx.state.skills[r.skillId]?.memory?.consecutiveFails ?? 0) > 0;
+  const failedDue = dueHere.filter(failedReview).slice(0, reviewTarget);
+  const reviews = [
+    ...failedDue,
+    ...compressReviews(
+      dueHere.filter((r) => !failedReview(r)),
+      graph,
+      reviewTarget - failedDue.length,
+      P,
+    ),
+  ];
   const reviewIds = new Set(reviews.map((r) => r.skillId));
 
   // Challenge: practiced-track skills by highest P(ref), others before review skills.
@@ -884,29 +894,28 @@ export function planSession(input: PlanSessionInput, opts: PlanOptions = {}): Se
   ctx.runStart = warmup?.skillId ?? null;
   let built = build(focuses);
   if (!warmup) {
-    // Nothing is attempted yet. (e) When a request plans a test-out draw, the draw's first item is
-    // the warmup (test-out item 1, asked at d* = 0), and every request shares that focus and asks
-    // the rest of its draw: the test-out starts with nothing before it and continues whichever
-    // request the child picks. (f) Otherwise a focus skill's lesson is the warmup and requests on
-    // it skip that lesson; no request plans a draw, so nothing in the lesson can move a planned
-    // test-out.
-    const drawAt = built.comps.findIndex((c) => c.testOut.length > 0);
-    const withLesson = focuses.filter((f): f is Focus => f?.lesson === true);
+    // Nothing is attempted yet. (e) The lesson of the first request's focus skill (preferring one
+    // whose test-out is not offered) is the warmup, and requests on that skill skip that lesson.
+    // No request is rebuilt around another focus, so remediation and every request's own draw
+    // stay as planned.
+    // A queued remediation keeps its own lesson in its request (04 §6.4), so it is not a candidate.
+    const withLesson = focuses.filter((f): f is Focus => f?.lesson === true && !f.remediation);
     const f0 = withLesson.find((f) => !f.testOut) ?? withLesson[0];
-    const lessonId = f0 ? graph.skills[f0.skillId]?.lesson.templateId : undefined;
-    const lessonTpl = lessonId ? graph.templates[lessonId] : undefined;
-    if (drawAt >= 0) {
-      const fd = focuses[drawAt] as Focus;
-      const first = built.comps[drawAt]?.testOut[0] as string;
-      warmup = warmupTask(ctx, fd.skillId, first, 'warmup', 'item');
-      focuses = focuses.map(() => ({ ...fd, warmupTestOut: true }));
-      ctx.runStart = fd.skillId;
-      built = build(focuses);
-    } else if (f0 && lessonTpl) {
+    const lessonSkill = f0 ? graph.skills[f0.skillId] : undefined;
+    const lessonTpl = lessonSkill ? graph.templates[lessonSkill.lesson.templateId] : undefined;
+    if (f0 && lessonSkill && lessonTpl) {
       warmup = warmupTask(ctx, f0.skillId, lessonTpl.id, 'lesson', 'lesson');
-      focuses = focuses.map((f) =>
-        f && f.skillId === f0.skillId ? { ...f, lesson: false, testOut: false } : f,
-      );
+      // The lesson's child steps are rated `lesson` attempts (w × 0.5): with any, the skill is
+      // touched and gets no test-out; a demonstration-only lesson leaves it untouched and keeps its
+      // draw. Every other test-out is planned only if it holds after all those steps go wrong.
+      const steps = lessonChildSteps(lessonSkill);
+      const worst = afterWrongAttempt(state, f0.skillId, model, P, P.rating.lessonWeight, steps);
+      focuses = focuses.map((f) => {
+        if (!f) return f;
+        if (f.skillId === f0.skillId)
+          return { ...f, lesson: false, testOut: f.testOut && steps === 0 };
+        return { ...f, testOut: f.testOut && model.inTestOut(worst, f.skillId) };
+      });
       built = build(focuses);
     } else {
       // (g) No lesson is planned at all: an evidence template of the first focus skill.
@@ -925,20 +934,41 @@ export function planSession(input: PlanSessionInput, opts: PlanOptions = {}): Se
   };
 }
 
+/** The most rated `lesson` attempts a lesson can record: its faded child steps and scaffolded items. */
+function lessonChildSteps(skill: Skill): number {
+  const faded = skill.lesson.faded.reduce((a, e) => a + Math.max(1, e.childSteps ?? 1), 0);
+  return faded + skill.lesson.scaffolded.count;
+}
+
 /**
- * The state after the worst first attempt on `skill`: a wrong, full-weight answer (e = −1) lowers
- * θg by Kg(N) and the skill's offset by Ks(n) (04 §2.3). Used to plan only test-outs the learner
- * still offers whatever the warmup's outcome (a wrong answer lowers P(ref); a right one raises it).
+ * The state after the worst `times` first attempts on `skill` at weight `w`: each wrong answer
+ * (e = −1) lowers θg by Kg(N)·w and the skill's offset by Ks(n)·w (04 §2.3). Used to plan only
+ * test-outs the learner still offers whatever the warmup's outcome (a wrong answer lowers P(ref);
+ * a right one raises it).
  */
 function afterWrongAttempt(
   state: LearnerState,
   skill: SkillId,
   model: EloFireModel,
   P: EngineParams,
+  w = 1,
+  times = 1,
+): LearnerState {
+  let s = state;
+  for (let k = 0; k < times; k++) s = oneWrongAttempt(s, skill, model, P, w);
+  return s;
+}
+
+function oneWrongAttempt(
+  state: LearnerState,
+  skill: SkillId,
+  model: EloFireModel,
+  P: EngineParams,
+  w: number,
 ): LearnerState {
   const st = state.skills[skill];
   const n = st?.n ?? 0;
-  const theta = model.skillOffset(state, skill) - P.rating.ks / (1 + P.rating.ksDecay * n);
+  const theta = model.skillOffset(state, skill) - (w * P.rating.ks) / (1 + P.rating.ksDecay * n);
   const base: SkillState = st ?? {
     theta,
     n: 0,
@@ -954,7 +984,7 @@ function afterWrongAttempt(
   };
   return {
     ...state,
-    thetaG: state.thetaG - P.rating.kg / (1 + P.rating.kgDecay * state.nTotal),
+    thetaG: state.thetaG - (w * P.rating.kg) / (1 + P.rating.kgDecay * state.nTotal),
     nTotal: state.nTotal + 1,
     skills: { ...state.skills, [skill]: { ...base, theta, n: n + 1 } },
   };

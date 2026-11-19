@@ -173,14 +173,31 @@ function remediation(
 function confidenceTask(
   input: AdaptInput,
   model: ReturnType<typeof createEloFireModel>,
+  P: EngineParams,
 ): PlannedTask {
   const { state, graph, request } = input;
   const formats = requestFormats(input);
+  // The item is spliced in right after the current task. A skill may take it only if the run of
+  // that skill through the insertion point (items before it, the item, items after it) stays
+  // within maxRun (04 §4: never more than 3 in a row outside a lesson; lessons do not break runs).
+  const at = Math.max(-1, ...input.doneTaskIds);
+  const runOf = (s: SkillId, from: number, step: 1 | -1): number => {
+    let n = 0;
+    for (let i = from; i >= 0 && i < request.tasks.length; i += step) {
+      const t = request.tasks[i] as PlannedTask;
+      if (t.mode === 'lesson') continue;
+      if (t.skillId !== s) break;
+      n += 1;
+    }
+    return n;
+  };
+  const fits = (s: SkillId) => runOf(s, at, -1) + 1 + runOf(s, at + 1, 1) <= P.planner.maxRun;
   const candidates = new Set<SkillId>();
   for (const s of Object.keys(state.skills)) {
     if (graph.skills[s] && onTrack(state, s)) candidates.add(s);
   }
   for (const t of request.tasks) if (graph.skills[t.skillId]) candidates.add(t.skillId);
+  for (const s of [...candidates]) if (!fits(s)) candidates.delete(s);
   // Highest P(ref) first, so a skill at P ≥ warmupMinP wins whenever one has a hostable template.
   const ranked = [...candidates]
     .map((s) => ({ s, p: model.pRef(state, s) }))
@@ -194,13 +211,16 @@ function confidenceTask(
     }
   }
   if (!pick) {
-    // Fallback: the easiest task presented so far (highest P(ref), then lowest template base).
-    const presented = [...new Set(input.doneTaskIds)]
+    // Fallback: the easiest task presented so far, again keeping the run rule when it can (a
+    // request of one skill has no other choice).
+    const all = [...new Set(input.doneTaskIds)]
       .sort((a, b) => a - b)
       .map((i) => request.tasks[i])
       .filter(
         (t): t is PlannedTask => t !== undefined && graph.templates[t.templateId] !== undefined,
       );
+    const apart = all.filter((t) => fits(t.skillId));
+    const presented = apart.length > 0 ? apart : all;
     const easiest = presented
       .map((t, i) => ({
         t,
@@ -336,7 +356,7 @@ export function adaptNext(input: AdaptInput, params: EngineParams = PARAMS): Ada
     }
     return decide({
       action: 'confidence-then-offer-break',
-      insert: [confidenceTask(input, model)],
+      insert: [confidenceTask(input, model, P)],
     });
   }
 
