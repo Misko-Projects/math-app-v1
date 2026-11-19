@@ -809,6 +809,9 @@ templates:
     generator: addsub.facts
     params: { a: { int: [5, 20] }, b: { int: [2, 9] }, op: "-", unknown: result, family: any }
     difficulty: { base: -1.35 }
+    narration: { prompt: p.sub.what-is, hints: [h.numberline.picture, h.numberline.under-ten] }
+
+  # ================= equality and story problems (K01 part 5) =================
   # equality.eq, story.addsub and addsub.three (03 §5.6). Constructed-answer templates are the
   # practice evidence (V27); compare, balance judge and numeral-pick templates are choice extras.
 
@@ -1343,7 +1346,3 @@ templates:
     constraints: ["result <= 20"]
     difficulty: { base: -0.95 }
     narration: { prompt: tp.ADD.25.t3.prompt, hints: [h.add3.can-ten, h.add3.two-then-one] }
-=======
-    narration: { prompt: p.sub.what-is, hints: [h.numberline.picture, h.numberline.under-ten] }
-
-  # ================= equality and story problems (K01 part 5) ==========
