@@ -5,6 +5,7 @@ import { describe, expect, it } from 'vitest';
 import { formatFeatures, formatModel, formatModels, UnsupportedOpError } from './index';
 import {
   lineLabels,
+  lineSteps,
   lineTicks,
   type NumberLinePlaceState,
   numberLinePlace,
@@ -115,6 +116,14 @@ describe('number-line-place model', () => {
     expect(snapPlacement(odd, 12.9)).toBe(12);
     const tenths: Config = { ...base, max: 1, ticksEvery: 0.1, labelsEvery: 0.5, target: 0.3 };
     expect(lineTicks(tenths)).toHaveLength(11);
+    // Review r2 F2: the steps stay inside [min, max] (no tick at 20 on a 0–19.999999 line by
+    // tens), and the floating-point first step 0.07 is kept.
+    expect(lineSteps(0, 19.999999, 10)).toEqual([0, 10]);
+    expect(lineSteps(0.07, 0.1, 0.01)).toEqual([0.07, 0.08, 0.09, 0.1]);
+    expect(lineSteps(0, 1, 0.1)).toHaveLength(11);
+    const nearEnd = { ...odd, min: 0, max: 19.999999, ticksEvery: 10, snap: 'tick' as const };
+    expect(snapPlacement(nearEnd, 19.999999)).toBe(10);
+    expect(snapPlacement(nearEnd, 25)).toBe(10);
     expect(snapPlacement(tenths, 0.33)).toBe(0.3);
   });
 

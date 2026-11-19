@@ -43,14 +43,22 @@ const round6 = (v: number) => Number(v.toFixed(6));
  * label positions of a number line. The model and the kit's `NumberLineView` (through
  * `stepsBetween`) both use this one function, so a drawn tick is always a tick the model snaps
  * to. The first multiple is found from the quotient rounded to 6 decimals, so 0.07 / 0.01
- * (7.000000000000001 in floating point) still starts the line at 0.07.
+ * (7.000000000000001 in floating point) still starts the line at 0.07, and no step lies past either
+ * end of the line.
  */
 export function lineSteps(min: number, max: number, every: number | null): number[] {
   if (every === null || !(every > 0)) return [];
-  const first = round6(Math.ceil(round6(min / every)) * every);
-  const n = Math.floor(round6((max - first) / every) + 1e-9);
+  // Floating-point slack, in units of the step: a quotient within a billionth of a step of a whole
+  // number counts as that number at either end, and nothing past an end is ever produced (a
+  // 0–19.999999 line by tens stops at 10; rounding the quotient 1.9999999 to 2 would add 20).
+  const EPS = 1e-9;
+  const k0 = Math.ceil(min / every - EPS);
+  const k1 = Math.floor(max / every + EPS);
   const out: number[] = [];
-  for (let i = 0; i <= n && i < 2000; i++) out.push(round6(first + i * every));
+  for (let k = k0; k <= k1 && out.length < 2000; k++) {
+    const v = round6(k * every);
+    if (v >= min - EPS * every && v <= max + EPS * every) out.push(v);
+  }
   return out;
 }
 

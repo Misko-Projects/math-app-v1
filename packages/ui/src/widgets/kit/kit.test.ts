@@ -156,6 +156,8 @@ describe('number line steps', () => {
     // 0.07 / 0.01 is 7.000000000000001 in floating point: the line still starts at 0.07, and the
     // kit draws exactly the ticks the number-line model snaps to.
     expect(stepsBetween(0.07, 0.1, 0.01)).toEqual([0.07, 0.08, 0.09, 0.1]);
+    // Never past the end of the line (review r2 F2).
+    expect(stepsBetween(0, 19.999999, 10)).toEqual([0, 10]);
     expect(stepsBetween(0.07, 0.1, 0.01)).toEqual(
       lineTicks({ min: 0.07, max: 0.1, ticksEvery: 0.01 } as Parameters<typeof lineTicks>[0]),
     );
