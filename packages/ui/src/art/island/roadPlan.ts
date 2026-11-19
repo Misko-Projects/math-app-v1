@@ -18,8 +18,8 @@ export const MAP_STONE_SCALE = 0.85;
 export const STONE_CLEARANCE = 4;
 /** Numeral size on road signposts, in scene units: exactly a map stone's. */
 export const SIGN_NUMERAL = STONE_NUMERAL * MAP_STONE_SCALE;
-/** The next stone's tap target radius in scene units: ≥ 80 CSS px across at the default zoom. */
-export const NEXT_HIT_RADIUS = 44;
+/** The next stone's tap target radius in scene units: about 84 CSS px across at the default zoom (≥ 80). */
+export const NEXT_HIT_RADIUS = 46;
 /** Clear ground kept around the next stone, beyond its own extent (05 §11). */
 const NEXT_CLEAR = 14;
 /** Pairs further apart than this (scene units) can never touch at MAP_STONE_SCALE. */
