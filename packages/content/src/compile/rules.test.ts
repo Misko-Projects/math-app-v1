@@ -606,7 +606,8 @@ describe('V08–V12: templates per skill', () => {
         editYaml(f, 'templates/CNT.yaml', (doc) => (template(doc, 'CNT.01.t1').tier = 'abstract')),
       ),
       'V10',
-      /comes after a more abstract template/,
+      // The mutated skill's own template, not the expected SUB.03.t5 warning in the baseline.
+      /^CNT\.01\.t\d+ \(\w+\) comes after a more abstract template/,
       'warn',
     );
   });

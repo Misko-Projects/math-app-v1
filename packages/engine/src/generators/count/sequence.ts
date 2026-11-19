@@ -10,6 +10,7 @@ import type {
   LessonStep,
   ResponseValue,
   StimulusSpec,
+  WidgetAction,
 } from '@number-island/shared';
 import { numberOptionId } from '../../formats/numeral-pick';
 import { digitCount } from '../../formats/types';
@@ -244,7 +245,7 @@ export const countSequence: GeneratorDef = {
           answer: fill
             ? { kind: 'numbers', values: readingOrder, ordered: true }
             : { kind: 'number', value: next },
-          nudge: [{ op: 'highlight-row', args: { n: start } }],
+          nudge: [chartCue(step, start)],
         };
         break;
       }
@@ -361,7 +362,7 @@ export const countSequence: GeneratorDef = {
           // them all (the chart answers with every hidden cell at once, in reading order).
           const hiddenInOrder = terms.filter((v) => w.hidden.includes(v));
           return [
-            say(from, { start }, { op: 'highlight-row', args: { n: start } }),
+            say(from, { start }, chartCue(step, start)),
             ...hiddenInOrder.map((v, i) =>
               say(
                 'gen.count.sequence.next-is',
@@ -374,7 +375,7 @@ export const countSequence: GeneratorDef = {
           ];
         }
         return [
-          say(from, { start }, { op: 'highlight-row', args: { n: start } }),
+          say(from, { start }, chartCue(step, start)),
           say('gen.count.sequence.next-is', { n: next }, { op: 'tap', args: { n: next } }),
         ];
       case 'order': {
@@ -411,6 +412,16 @@ export const countSequence: GeneratorDef = {
     }
   },
 };
+
+/**
+ * The hundred-chart cue for a sequence: its row when counting by ones, its column when counting by
+ * tens (each next term is one row down, in the same column). Never reveals a hidden term.
+ */
+function chartCue(step: number, start: number): WidgetAction {
+  return step % 10 === 0
+    ? { op: 'highlight-col', args: { n: start } }
+    : { op: 'highlight-row', args: { n: start } };
+}
 
 function asStrHide(v: unknown): Hide {
   return v === 'last' || v === 'between' ? v : 'all-after';
