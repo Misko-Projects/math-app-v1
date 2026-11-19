@@ -694,3 +694,53 @@
   transition-timing-function: var(--ease-soft);
   filter: drop-shadow(0 14px 10px rgb(38 70 83 / 0.3));
 }
+
+/* ---------- two steps: build, then ask (twoStep.tsx) ---------- */
+
+.ni-steps {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 24px;
+}
+.ni-steps[data-dir="column"] {
+  flex-direction: column;
+  gap: 16px;
+}
+.ni-steps__btn {
+  display: inline-flex;
+}
+/* A ring on a button sits close (offset 4), clear of the next control. */
+.ni-steps .ni-invite {
+  outline-offset: 4px;
+  border-radius: 999px;
+}
+/* Back and Check under the entered number, beside the keys (NumberEntry `aside`). */
+.ni-entry__aside {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+}
+.ni-ask {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 24px;
+  width: 100%;
+}
+.ni-ask[data-arrangement="stack"] {
+  flex-direction: column;
+}
+.ni-ask__picture {
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+}
+.ni-ask__answer {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 24px;
+}

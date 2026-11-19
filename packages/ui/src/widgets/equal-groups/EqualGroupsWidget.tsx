@@ -1,11 +1,17 @@
-import { type EqualGroupsState, formatModel, GROUP_CAPACITY } from '@number-island/engine';
+import {
+  type EqualGroupsState,
+  formatModel,
+  GROUP_CAPACITY,
+  groupsAnswerMax,
+  groupsSupply,
+} from '@number-island/engine';
 import { FORMAT_SUPPORT, type NarrationKey, type WidgetAction } from '@number-island/shared';
 import {
   type CSSProperties,
   type MouseEvent,
   type ReactNode,
-  type RefObject,
   useLayoutEffect,
+  useMemo,
   useRef,
   useState,
 } from 'react';
@@ -18,75 +24,72 @@ import {
   useUiPreferences,
 } from '../../preferences/UiProvider';
 import { IconButton } from '../../primitives/IconButton';
-import { HandPointerIcon } from '../../primitives/icons';
-import { TARGET_PX } from '../../tokens/tokens';
 import { useWidgetDemo } from '../demo';
 import {
-  applyPadKey,
-  CheckButton,
-  NumberPadKeys,
+  AskEntry,
+  AskStep,
+  buildRoom,
+  COMPACT_ROOM_H,
+  nextPadKey,
   ObjectSprite,
   type PadKey,
-  padValue,
+  planAsk,
+  roomBox,
+  type Size,
+  type Step,
+  StepActions,
+  type StepCue,
   spriteNameKey,
+  useActionSize,
   useAlive,
   useDemoPause,
+  useInviteHand,
   useSubmitGuard,
+  useTwoStep,
+  useWidgetRoom,
 } from '../kit';
 import type { ConfigFor, WidgetProps } from '../types';
+import { AddIcon, BucketArt, ContainerArt, type ContainerKind, LassoArt, TaskIcon } from './art';
 import {
-  AddIcon,
-  AnswerIcon,
-  BucketArt,
-  ContainerArt,
-  type ContainerKind,
-  LassoArt,
-  RodArt,
-  TaskIcon,
-} from './art';
-import {
-  CHROME,
-  type Contents,
-  contentSize,
-  gridLayout,
-  looseGrid,
-  MIN_THING_PX,
-  maxContents,
-  pileFiveGap,
-  pileGap,
-  pileLayout,
-  rodCell,
-  rodSize,
-  STRIP_COL_GAP,
-  STRIP_ROW_GAP,
-  splitCount,
-  spriteGap,
+  fivesCell,
+  GROUP_GAP,
+  groupsLayout,
+  type Layout,
+  partsFor,
+  ROW_GAP,
+  zoneCell,
 } from './layout';
 import './equal-groups.css';
 
 /**
  * `equal-groups` (03 §5.5): containers (rafts, baskets, plates, nests) of sprites.
  *
- * - `build` (concrete): the child fills the containers from the supply by drag, tap-to-place or
- *   keyboard (`fill-group {index, count: current + 1}`), and can take a sprite back (count − 1) or
- *   move it to another container. When the number of groups is the unknown the child adds
- *   containers ("Add a raft", at most `maxGroups`). When the total is known the supply is a pile of
- *   exactly groups × perGroup sprites; when the total is the unknown it is a bottomless bucket (a
- *   finite pile would give the answer away). With `perGroup > 10` (MUL.11) the supply also hands
- *   out ten-rods (+10), and a container shows its tens as rods. The child types the unknown on the
- *   pad; Check sends `{ groups, value }` from the model. No count or total is shown anywhere.
- * - `read` (pictorial): the filled containers are one static picture ("Look at the picture"); the
- *   child types the unknown and Check sends a `number`.
+ * Two steps (kit `twoStep`), each fitted to the widget's room (06 §1):
  *
- * Tapping a sprite speaks its name; tapping a container speaks the container's name.
+ * - **build** (`build`, concrete): the supply, the containers and Next. The child moves one sprite
+ *   at a time from the supply's take-one spot into a container by drag, tap-to-place or keyboard
+ *   (`fill-group {index, count: current + 1}`). Touching a filled container picks its last sprite
+ *   up again: put it back in the supply (count − 1) or into another container. When the number of
+ *   groups is the unknown the child adds containers ("Add a raft", at most `maxGroups`); touching
+ *   an empty one takes it away again (`add-group {remove}`). When the total is given the supply is
+ *   a pile of exactly that many sprites; when the total is the unknown it is a bottomless bucket
+ *   (a finite pile would give the answer away). A line above shows what the task gives.
+ * - **ask**: a static picture of the containers with the kit `NumberEntry`, Back and Check
+ *   (`read`: this step only, with Check). Check sends the model's response.
  *
- * Trace targets: `supply` (the pile or bucket, and the drop target for taking back), `supply-ten`
- * (the rod source), `group-<i>`, `sprite-<i>-<j>` (loose sprite j in container i), `rod-<i>-<j>`,
- * `add-group`, `answer` (the blank) and `key-<k>`.
+ * Every sprite is drawn at one size, in fives, never overlapping; every container is drawn for a
+ * full ten, so its size never shows the answer. No count or total is shown anywhere.
  *
- * Demo ops (03 §5.5): `add-group`, `fill-group {index, count}` (sprites fly in one by one, rods by
- * tens), `skip-count` (each group lights up in turn while the running multiple is spoken),
- * `circle-group {index}` (a hand-drawn lasso), plus `answer {value}` (typed on the pad).
+ * Limits are said and shown (a status line, with one ring on what the child can do next): a full
+ * container, an empty supply, and the last container added.
+ *
+ * Trace targets: `supply` (the take-one spot, and the supply as the drop target for taking back),
+ * `group-<i>`, `sprite-<i>-<j>` (container i's last sprite j, picked up), `add-group`,
+ * `remove-group-<i>`, `next`, `back`, `opt-<n>` (a numeral card) and `key-<k>`.
+ *
+ * Demo ops (03 §5.5): `add-group`, `fill-group {index, count}` (sprites fly in one by one),
+ * `skip-count` (each group lights up in turn while the running multiple is spoken),
+ * `circle-group {index}` (a hand-drawn lasso), plus `answer {value}`.
  */
 
 type Config = ConfigFor<'equal-groups'>;
@@ -103,11 +106,9 @@ const model = stateModel();
 const initial = (c: Config) => model.initialState(c) as State;
 const applyAction = (s: State, a: WidgetAction) => model.apply(s, a) as State;
 
-/** Digits the answer blank takes: always three, so its width never hints at the answer. */
-const MAX_DIGITS = 3;
-const GROUP_GAP = 16;
 const SPRITE_MAX = { k: 96, 'g1-up': 80 } as const;
-const SPRITE_MIN = MIN_THING_PX;
+/** The ask step's picture is legible from this sprite size up. */
+const PICTURE_MIN_ITEM = 20;
 
 // Motion (03 §6.3): short, transform-only moves.
 const FLY_MS = 420;
@@ -116,58 +117,44 @@ const POP_MS = 360;
 const COUNT_MS = 850;
 const LASSO_MS = 700;
 const KEY_MS = 340;
+const PICK_MS = 500;
 const FLASH_MS = 900;
 const EASE = 'cubic-bezier(0.3, 0.7, 0.2, 1)';
 
 const containerKey = (c: ContainerKind): NarrationKey => `ui.widget.eg.container.${c}`;
 const addKey = (c: ContainerKind): NarrationKey => `ui.widget.eg.add.${c}`;
+const NOTE = {
+  full: 'ui.widget.eg.note.full',
+  empty: 'ui.widget.eg.note.empty',
+  most: 'ui.widget.eg.note.most',
+} as const satisfies Record<string, NarrationKey>;
 
 const centerOf = (r: DOMRect) => ({ x: r.left + r.width / 2, y: r.top + r.height / 2 });
+const sum = (xs: readonly number[]) => xs.reduce((a, b) => a + b, 0);
 
-type Item = { where: 'supply'; amount: 1 | 10 } | { where: 'group'; group: number; amount: 1 | 10 };
-
+type Item = { where: 'supply' } | { where: 'group'; group: number };
 function parseItem(id: string): Item | null {
-  if (id === 'supply') return { where: 'supply', amount: 1 };
-  if (id === 'supply-ten') return { where: 'supply', amount: 10 };
-  const m = /^(sprite|rod)-(\d+)-(\d+)$/.exec(id);
-  if (!m) return null;
-  return { where: 'group', group: Number(m[2]), amount: m[1] === 'rod' ? 10 : 1 };
+  if (id === 'supply') return { where: 'supply' };
+  const m = /^sprite-(\d+)-(\d+)$/.exec(id);
+  return m ? { where: 'group', group: Number(m[1]) } : null;
 }
-
 const groupOf = (target: string): number | null => {
   const m = /^group-(\d+)$/.exec(target);
   return m ? Number(m[1]) : null;
 };
 
-/** The element's content box, kept in step with layout (ResizeObserver). */
-function useBox(ref: RefObject<HTMLElement | null>, fallback: { w: number; h: number }) {
-  const [box, setBox] = useState(fallback);
-  useLayoutEffect(() => {
-    const el = ref.current;
-    if (!el || typeof ResizeObserver === 'undefined') return;
-    const measure = () => {
-      const w = el.clientWidth;
-      const h = el.clientHeight;
-      if (w > 0 && h > 0) setBox((b) => (b.w === w && b.h === h ? b : { w, h }));
-    };
-    measure();
-    const ro = new ResizeObserver(measure);
-    ro.observe(el);
-    return () => ro.disconnect();
-  }, [ref]);
-  return box;
+/** The container that holds the most (the first of them). */
+const fullest = (groups: readonly number[]) => groups.indexOf(Math.max(...groups));
+/** Whether the filled containers all hold the same. */
+function filledEqual(groups: readonly number[]) {
+  const filled = groups.filter((n) => n > 0);
+  return filled.every((n) => n === filled[0]);
 }
 
-/** What one container has to be able to show, before the child's own counts. */
-function baseCapacity(config: Config, rodsOffered: boolean): Contents {
-  if (config.mode === 'read' || config.unknown !== 'size') {
-    const c = splitCount(config.perGroup, rodsOffered);
-    return c.rods === 0 && c.loose === 0 ? { rods: 0, loose: 1 } : c;
-  }
-  // The size is the unknown: the containers' shape must not give it away, so it comes from the
-  // total (which the item states), never from perGroup.
-  const total = config.groups * config.perGroup;
-  return rodsOffered ? { rods: 5, loose: 9 } : { rods: 0, loose: Math.min(10, total) };
+interface Note {
+  key: NarrationKey;
+  /** The one thing ringed: what the child can do next. */
+  cue: string | null;
 }
 
 export function EqualGroupsWidget({
@@ -188,27 +175,30 @@ export function EqualGroupsWidget({
 
   const read = config.mode === 'read';
   const kind = config.container as ContainerKind;
-  const rodsOffered = config.perGroup > 10;
-  const bucket = !read && config.unknown === 'total';
+  const supplyTotal = groupsSupply(config);
+  const bucket = !read && supplyTotal === null;
   const addable = !read && config.unknown === 'groups';
-  const total = config.groups * config.perGroup;
+  const answerMax = groupsAnswerMax(config);
 
   const [state, setState] = useState<State>(() => initial(config));
   const stateRef = useRef(state);
+  const [value, setValue] = useState<number | null>(null);
+  const valueRef = useRef(value);
+  valueRef.current = value;
   const [busy, setBusy] = useState(false);
+  const [entryHighlight, setEntryHighlight] = useState<number | PadKey | null>(null);
   const [invite, setInvite] = useState<WidgetAction | null>(null);
+  const [note, setNote] = useState<Note | null>(null);
   const [flash, setFlash] = useState<ReadonlySet<string>>(() => new Set());
   const [skip, setSkip] = useState<{ upTo: number; sums: number[] } | null>(null);
-  const [text, setText] = useState('');
-  const textRef = useRef(text);
-  textRef.current = text;
-  const [pressedKey, setPressedKey] = useState<PadKey | null>(null);
   const rootRef = useRef<HTMLDivElement | null>(null);
-  const areaRef = useRef<HTMLDivElement | null>(null);
-  const pileRef = useRef<HTMLSpanElement | null>(null);
   const interactive = !disabled && !busy;
 
-  // ---------- state through the model; resolve once the DOM shows it ----------
+  const steps = useTwoStep(rootRef, { interactive, trace });
+  // A picture to read has nothing to build: the ask step alone.
+  const step: Step = read ? 'ask' : steps.step;
+
+  // ---------- state through the model; resolves once the DOM shows it ----------
 
   const commitWaiters = useRef<(() => void)[]>([]);
   useLayoutEffect(() => {
@@ -217,83 +207,116 @@ export function EqualGroupsWidget({
     commitWaiters.current = [];
     for (const w of waiters) w();
   });
-
+  const commit = (next: State) => {
+    stateRef.current = next;
+    setState(next);
+  };
   const applyOp = (action: WidgetAction): Promise<boolean> => {
     const prev = stateRef.current;
     const next = applyAction(prev, action);
     if (next === prev) return Promise.resolve(false);
     return new Promise((resolve) => {
       commitWaiters.current.push(() => resolve(true));
-      stateRef.current = next;
-      setState(next);
+      commit(next);
     });
   };
-
-  /** Resolves once a render has committed (after a plain setState in a demo step). */
   const [, setTick] = useState(0);
   const committed = () =>
     new Promise<void>((resolve) => {
       commitWaiters.current.push(resolve);
       setTick((n) => n + 1);
     });
-
   const flashOn = (keys: string[]) => {
     setFlash(new Set(keys));
     setTimeout(() => {
       if (alive.current) setFlash(new Set());
     }, FLASH_MS);
   };
+  /** A child step clears the demo's invite and marks, and the last limit note. */
+  const childStep = () => {
+    setInvite(null);
+    setNote(null);
+  };
+  /** A limit: said aloud and shown, with one ring on what the child can do next. */
+  const limit = (key: NarrationKey, cue: string | null) => {
+    setNote({ key, cue });
+    say(key);
+  };
+  const left = (s: State) =>
+    supplyTotal === null ? Number.POSITIVE_INFINITY : Math.max(0, supplyTotal - sum(s.groups));
+  const emptyCue = (s: State) => (filledEqual(s.groups) ? 'next' : `take-${fullest(s.groups)}`);
 
-  // ---------- layout ----------
+  // ---------- layout: the measured room, the action button, the two plans ----------
 
+  const room = useWidgetRoom(rootRef);
+  const box = roomBox(room);
+  const actRef = useRef<HTMLDivElement | null>(null);
+  const zoomRef = useRef(1);
   const ageMode = prefs.ageMode;
-  const px = TARGET_PX[ageMode];
-  const area = useBox(areaRef, { w: 780, h: 440 });
-  const pileBox = useBox(pileRef, { w: 300, h: 80 });
-
+  const button = useActionSize(actRef, zoomRef, ageMode);
+  const parts = partsFor(ageMode);
   const groups = state.groups;
-  const slots = addable ? config.maxGroups : read ? config.groups : groups.length;
-  const cap = groups.reduce(
-    (c, n) => maxContents(c, splitCount(n, rodsOffered)),
-    baseCapacity(config, rodsOffered),
-  );
-  const minBox = addable
-    ? { w: px.icon + 48, h: px.icon + (prefs.textLabels ? 44 : 0) + 32 }
-    : undefined;
-  const grid = gridLayout({
-    slots,
-    cap,
-    width: area.w,
-    height: area.h,
-    gap: GROUP_GAP,
-    maxSprite: SPRITE_MAX[ageMode],
-    minSprite: SPRITE_MIN,
-    minBox,
+  const addSlot = addable && groups.length < config.maxGroups;
+  // Every container a build can ever show has its place from the start (a dashed outline until
+  // it is added), so adding one moves and resizes nothing.
+  const buildSlots = addable ? config.maxGroups : groups.length;
+
+  const buildLayout = useMemo(() => {
+    const r = buildRoom({ w: box.w, h: box.h }, button);
+    return groupsLayout({
+      slots: buildSlots,
+      addSlot: addable,
+      cap: GROUP_CAPACITY,
+      mode: 'build',
+      source: bucket ? 'bucket' : 'pile',
+      pileMax: supplyTotal ?? 0,
+      width: r.w,
+      height: r.h,
+      maxItem: SPRITE_MAX[ageMode],
+      parts,
+    });
+  }, [box.w, box.h, button, buildSlots, addable, bucket, supplyTotal, ageMode, parts]);
+
+  const pictureInput = (size: Size) => ({
+    slots: Math.max(1, groups.length),
+    addSlot: false,
+    cap: GROUP_CAPACITY,
+    mode: 'picture' as const,
+    source: null,
+    pileMax: 0,
+    width: size.w,
+    height: size.h,
+    maxItem: SPRITE_MAX[ageMode],
+    parts,
   });
-  const s = grid.s;
-  const g = spriteGap(s);
-  const m = rodCell(s);
-  const rod = rodSize(m);
-  const looseCols = looseGrid(cap.loose).cols;
-  const capSize = contentSize(cap, s);
-  const rodsW = cap.rods > 0 ? cap.rods * rod.w + (cap.rods - 1) * g : 0;
-
-  const remaining = bucket ? Number.POSITIVE_INFINITY : Math.max(0, total - sum(groups));
-  const spot = Math.round(px.min * 1.25);
-  // The rod source lies down: ten countable cells (≥ 20 px) in a frame, with a margin.
-  const rodSourceCell = Math.max(MIN_THING_PX, Math.floor((spot * 1.8 - 16 - rodSize(0).h) / 10));
-  const rodSourceW = rodSize(rodSourceCell).h + 16;
-
-  // The supply pile, at the containers' scale when it has room (never under 20 px).
-  const pileFit = read || bucket ? null : pileLayout(remaining, pileBox.w, spot, s);
-  const bottomH = Math.max(spot, pileFit?.h ?? 0) + 28;
+  // biome-ignore lint/correctness/useExhaustiveDependencies: pictureInput reads these
+  const askPlan = useMemo(
+    () =>
+      planAsk({
+        ageMode,
+        max: answerMax,
+        button,
+        actions: read ? 1 : 2,
+        room: { w: box.w, h: box.h },
+        pictureScore: (size) => {
+          const l = groupsLayout(pictureInput(size));
+          return l.fits && l.s >= PICTURE_MIN_ITEM ? l.s : 0;
+        },
+      }),
+    [box.w, box.h, button, ageMode, answerMax, read, groups.length],
+  );
+  const pictureLayout = askPlan.picture ? groupsLayout(pictureInput(askPlan.picture)) : null;
 
   // What the child is told (03 §5.5), unless it is the answer: the total when the size is
-  // asked; the size when the groups or the total are asked. Read pictures show it all.
+  // asked; the size when the groups or the total are asked. A picture to read shows it all.
   const task: { key: NarrationKey; word: NarrationKey; n: number } | null = read
     ? null
     : config.unknown === 'size'
-      ? { key: 'ui.widget.eg.task.total', word: 'ui.widget.eg.word.total', n: total }
+      ? {
+          key: 'ui.widget.eg.task.total',
+          word: 'ui.widget.eg.word.total',
+          n: config.groups * config.perGroup,
+        }
       : {
           key: `ui.widget.eg.task.each.${kind}`,
           word: `ui.widget.eg.word.each.${kind}`,
@@ -302,78 +325,94 @@ export function EqualGroupsWidget({
 
   // ---------- child input ----------
 
-  const spriteName = t(spriteNameKey(config.sprite));
-  const rodName = t('ui.widget.eg.rod');
-
-  const fits = (group: number, amount: number) =>
-    (stateRef.current.groups[group] ?? GROUP_CAPACITY) + amount <= GROUP_CAPACITY;
+  const spriteKey = spriteNameKey(config.sprite);
+  const spriteName = t(spriteKey);
+  const speak = (key: NarrationKey) => {
+    if (prefs.speakOnTap) say(key);
+  };
 
   const dnd = useDragToTarget<string, string>({
-    disabled: !interactive || read,
+    disabled: !interactive || read || step !== 'build',
     trace,
     canPlace: (itemId, target) => {
       const item = parseItem(itemId);
       if (!item) return false;
       const to = groupOf(target);
-      if (item.where === 'supply') return to !== null && fits(to, item.amount);
+      if (item.where === 'supply') return to !== null;
       if (target === 'supply') return true;
-      return to !== null && to !== item.group && fits(to, item.amount);
+      return to !== null && to !== item.group;
     },
     onSelect: (itemId) => {
-      const item = itemId ? parseItem(itemId) : null;
-      if (!item || !prefs.speakOnTap) return;
-      say(item.amount === 10 ? 'ui.widget.eg.rod' : spriteNameKey(config.sprite));
+      if (!itemId) return;
+      // Picking something up is the child's step: the invite and the last note are done.
+      childStep();
+      speak(spriteKey);
     },
     onPlace: ({ item: itemId, target }) => {
       const item = parseItem(itemId);
       if (!item) return;
-      setInvite(null);
-      const now = stateRef.current.groups;
+      childStep();
+      const prev = stateRef.current;
       const to = groupOf(target);
-      if (item.where === 'supply' && to !== null) {
-        void applyOp({
-          op: 'fill-group',
-          args: { index: to, count: (now[to] ?? 0) + item.amount },
-        });
-      } else if (item.where === 'group') {
-        const from = item.group;
-        const left = Math.max(0, (now[from] ?? 0) - item.amount);
-        const next = applyAction(stateRef.current, {
-          op: 'fill-group',
-          args: { index: from, count: left },
-        });
-        if (to === null) {
-          stateRef.current = next;
-          setState(next);
-        } else {
-          const moved = applyAction(next, {
-            op: 'fill-group',
-            args: { index: to, count: (next.groups[to] ?? 0) + item.amount },
-          });
-          stateRef.current = moved;
-          setState(moved);
-        }
+      // A full container takes no more: nothing moves, and the note says why.
+      if (to !== null && (prev.groups[to] ?? 0) >= GROUP_CAPACITY) {
+        limit(NOTE.full, `take-${to}`);
+        return;
       }
+      let next = prev;
+      if (item.where === 'group') {
+        const from = item.group;
+        next = applyAction(next, {
+          op: 'fill-group',
+          args: { index: from, count: Math.max(0, (next.groups[from] ?? 0) - 1) },
+        });
+      }
+      if (to !== null) {
+        next = applyAction(next, {
+          op: 'fill-group',
+          args: { index: to, count: (next.groups[to] ?? 0) + 1 },
+        });
+      }
+      commit(next);
+      if (left(prev) > 0 && left(next) === 0) limit(NOTE.empty, emptyCue(next));
     },
   });
 
   const onAdd = () => {
     if (!interactive) return;
+    childStep();
     trace('tap', 'add-group');
-    setInvite(null);
-    void applyOp({ op: 'add-group' });
+    const next = applyAction(stateRef.current, { op: 'add-group' });
+    commit(next);
+    // The last container: the add button is gone, and the note says why.
+    if (next.groups.length >= config.maxGroups) {
+      limit(NOTE.most, left(next) > 0 ? 'spot' : emptyCue(next));
+    }
   };
 
-  const onKey = (key: PadKey) => {
-    if (!interactive || key === '.') return;
-    trace('tap', `key-${key}`);
-    setInvite(null);
-    setText((prev) => applyPadKey(prev, key, MAX_DIGITS));
+  /** Touching an empty container: where containers are added, it is taken away again. */
+  const onEmptyGroup = (i: number) => {
+    if (!addable || (stateRef.current.groups[i] ?? 0) > 0) {
+      trace('tap', `group-${i}`);
+      speak(containerKey(kind));
+      return;
+    }
+    trace('tap', `remove-group-${i}`);
+    speak(containerKey(kind));
+    commit(applyAction(stateRef.current, { op: 'add-group', args: { remove: i } }));
+  };
+
+  /** Touching the supply names what is in it; an empty one says so. */
+  const onSupplyTap = () => {
+    trace('tap', 'supply');
+    const s = stateRef.current;
+    if (left(s) === 0) limit(NOTE.empty, emptyCue(s));
+    else speak(spriteKey);
   };
 
   const submit = useSubmitGuard(() => {
-    if (!interactive) return false;
-    const v = padValue(textRef.current);
+    if (!interactive || step !== 'ask') return false;
+    const v = valueRef.current;
     if (v === null) return false;
     const response = model.toResponse(
       applyAction(stateRef.current, { op: 'answer', args: { value: v } }),
@@ -383,28 +422,11 @@ export function EqualGroupsWidget({
     return true;
   });
 
-  // Desktop Enter submits, except while a sprite or container has focus (Enter moves it there).
-  const onEnter = () => {
-    const el = document.activeElement;
-    if (el?.closest('[data-place-item], [data-place-target]')) return;
-    submit();
-  };
-
   // ---------- demo ----------
 
   const q = (sel: string) => rootRef.current?.querySelector<HTMLElement>(sel) ?? null;
-  const sourceEl = (amount: number) =>
-    q(`[data-place-item="${amount === 10 ? 'supply-ten' : 'supply'}"]`) ??
-    q('[data-place-item="supply"]') ??
-    q('.ni-egw__supply');
-
-  /** The element that shows container i's last unit (its last loose sprite, else its last rod). */
-  const lastEl = (i: number, n: number) => {
-    const c = splitCount(n, rodsOffered);
-    if (c.loose > 0) return q(`[data-place-item="sprite-${i}-${c.loose - 1}"]`);
-    if (c.rods > 0) return q(`[data-place-item="rod-${i}-${c.rods - 1}"]`);
-    return null;
-  };
+  const spotEl = () => q('.ni-egw__spot');
+  const spriteEl = (i: number, j: number) => q(`[data-eg-sprite="sprite-${i}-${j}"]`);
 
   const animate = (el: HTMLElement, frames: Keyframe[], ms: number) => {
     el.style.zIndex = '3';
@@ -416,20 +438,26 @@ export function EqualGroupsWidget({
       });
   };
 
+  /** Shows a step and waits until it is drawn. */
+  const showStep = async (s: Step) => {
+    if (read || steps.step === s) return;
+    steps.show(s);
+    await committed();
+  };
+
   const runFill = async (index: number, target: number) => {
     const goal = Math.max(0, Math.min(GROUP_CAPACITY, Math.trunc(target)));
-    const steps = Math.abs(goal - (stateRef.current.groups[index] ?? goal));
-    const ms = steps > 6 ? FLY_FAST_MS : FLY_MS;
-    for (let guard = 0; guard < 200; guard++) {
+    const count = Math.abs(goal - (stateRef.current.groups[index] ?? goal));
+    const ms = count > 6 ? FLY_FAST_MS : FLY_MS;
+    for (let guard = 0; guard < 2 * GROUP_CAPACITY; guard++) {
       if (!alive.current) return;
       const cur = stateRef.current.groups[index];
       if (cur === undefined || cur === goal) return;
-      const amount = rodsOffered && Math.abs(goal - cur) >= 10 ? 10 : 1;
-      const next = goal > cur ? cur + amount : cur - amount;
-      const from = sourceEl(amount);
+      const next = goal > cur ? cur + 1 : cur - 1;
+      const from = spotEl();
       const at = from ? centerOf(from.getBoundingClientRect()) : null;
       if (next < cur) {
-        const el = lastEl(index, cur);
+        const el = spriteEl(index, cur - 1);
         if (!reduced && el && at) {
           const p = centerOf(el.getBoundingClientRect());
           await animate(
@@ -445,12 +473,10 @@ export function EqualGroupsWidget({
         continue;
       }
       if (!(await applyOp({ op: 'fill-group', args: { index, count: next } }))) return;
-      const el = lastEl(index, next);
+      const el = spriteEl(index, next - 1);
       if (reduced || !el || !at) {
-        if (el?.dataset.placeItem) {
-          flashOn([el.dataset.placeItem]);
-          await committed();
-        }
+        flashOn([`sprite-${index}-${next - 1}`]);
+        await committed();
         continue;
       }
       const p = centerOf(el.getBoundingClientRect());
@@ -465,10 +491,11 @@ export function EqualGroupsWidget({
     }
   };
 
-  const runAddGroup = async () => {
+  const runAddGroup = async (action: WidgetAction) => {
     const before = stateRef.current.groups.length;
-    if (!(await applyOp({ op: 'add-group' }))) return;
-    const el = q(`[data-place-target="group-${before}"]`)?.parentElement;
+    if (!(await applyOp(action))) return;
+    if (stateRef.current.groups.length < before) return;
+    const el = q(`[data-group="${before}"]`);
     if (reduced || !el) {
       flashOn([`group-${before}`]);
       await committed();
@@ -515,18 +542,30 @@ export function EqualGroupsWidget({
     if (alive.current) setSkip(null);
   };
 
-  const typeAnswer = async (value: number) => {
-    const chars = String(value).split('') as PadKey[];
-    let typed = '';
-    setText('');
-    for (const ch of chars) {
-      setPressedKey(ch);
+  /** Enters `v` the way the answer control does: the numeral card, or the pad keys one by one. */
+  const enterAnswer = async (v: number) => {
+    const want = Math.max(0, Math.trunc(v));
+    if (askPlan.stepper || askPlan.entry?.kind === 'tray') {
+      setEntryHighlight(want);
+      await pause(PICK_MS);
+      if (!alive.current) return;
+      valueRef.current = want;
+      setValue(want);
+      return;
+    }
+    valueRef.current = null;
+    setValue(null);
+    for (let guard = 0; guard < 8; guard += 1) {
+      const key = nextPadKey(want, valueRef.current);
+      if (key === null || key === 'back' || key === '.') break;
+      setEntryHighlight(key);
       await pause(KEY_MS);
       if (!alive.current) return;
-      typed += ch;
-      setText(typed);
+      const typedSoFar: number = Number(`${valueRef.current ?? ''}${key}`);
+      valueRef.current = typedSoFar;
+      setValue(typedSoFar);
     }
-    setPressedKey(null);
+    setEntryHighlight(null);
     await pause(KEY_MS);
   };
 
@@ -535,14 +574,17 @@ export function EqualGroupsWidget({
     play: async (action) => {
       setBusy(true);
       setInvite(null);
+      setNote(null);
       try {
         switch (action.op) {
           case 'add-group':
-            await runAddGroup();
+            await showStep('build');
+            await runAddGroup(action);
             break;
           case 'fill-group': {
             const index = Number(action.args?.index);
             const count = Number(action.args?.count);
+            await showStep('build');
             if (Number.isInteger(index) && Number.isFinite(count)) await runFill(index, count);
             break;
           }
@@ -555,144 +597,149 @@ export function EqualGroupsWidget({
             break;
           case 'answer': {
             const v = Number(action.args?.value);
-            if (Number.isFinite(v)) await typeAnswer(v);
-            await applyOp(action);
+            await showStep('ask');
+            if (Number.isFinite(v)) await enterAnswer(v);
+            if (alive.current) await applyOp(action);
             break;
           }
         }
       } finally {
-        setPressedKey(null);
-        if (alive.current) setBusy(false);
+        setEntryHighlight(null);
+        if (alive.current) {
+          setBusy(false);
+          await committed();
+        }
       }
     },
-    invite: (action) => setInvite(action),
+    invite: (action) => {
+      setNote(null);
+      setInvite(action);
+    },
   });
 
-  const inviteTarget = ((): string | null => {
+  // The one ring: a demo invite's control, else the control a limit note points at. A control on
+  // the other step is reached through Next or Back.
+  const inviteCue = ((): { cue: string; value?: number } | null => {
     if (!invite) return null;
+    const onBuild = (cue: string) => (step === 'build' ? { cue } : { cue: 'back' });
     const i = Number(invite.args?.index);
-    const group = Number.isInteger(i) && i >= 0 && i < groups.length ? `group-${i}` : null;
+    const valid = Number.isInteger(i) && i >= 0 && i < groups.length;
     switch (invite.op) {
       case 'add-group':
-        return addable ? 'add-group' : null;
-      case 'fill-group':
+        return addSlot ? onBuild('add-group') : null;
+      case 'fill-group': {
+        if (read || !valid) return null;
+        const count = Number(invite.args?.count);
+        return onBuild(count < (groups[i] ?? 0) ? `take-${i}` : 'spot');
+      }
       case 'circle-group':
-        return group;
+        return valid ? { cue: `group-${i}` } : null;
       case 'skip-count':
-        return groups.length > 0 ? 'group-0' : null;
-      case 'answer':
-        return 'answer';
+        return groups.length > 0 ? { cue: 'group-0' } : null;
+      case 'answer': {
+        if (step === 'build') return { cue: 'next' };
+        const v = Number(invite.args?.value);
+        return Number.isFinite(v) ? { cue: 'entry-value', value: v } : { cue: 'entry' };
+      }
       default:
         return null;
     }
   })();
+  const ring = inviteCue?.cue ?? (step === 'build' ? (note?.cue ?? null) : null);
+  const ringed = (id: string) => ring === id;
+  const stepCue = (['next', 'back', 'check'] as const).find((c) => ring === c) ?? null;
+  const invitedEntry: number | PadKey | null =
+    inviteCue?.cue === 'entry-value' && inviteCue.value !== undefined
+      ? askPlan.entry?.kind === 'tray'
+        ? inviteCue.value
+        : nextPadKey(inviteCue.value, value)
+      : null;
+  // Pip's hand hangs on the invited control (kit `useInviteHand`); a limit note has no hand.
+  const handKey = inviteCue ? `${step}:${inviteCue.cue}:${invitedEntry ?? ''}` : '';
+  const { hand: inviteHand, rootStyle: handRootStyle } = useInviteHand(
+    rootRef,
+    (root) => {
+      if (!inviteCue) return null;
+      if (inviteCue.cue === 'entry-value') {
+        return root.querySelector<HTMLElement>('.ni-entry .ni-invite');
+      }
+      return root.querySelector<HTMLElement>(`[data-cue="${inviteCue.cue}"]`);
+    },
+    handKey,
+  );
+  const cls = (...names: (string | false | null | undefined)[]) => names.filter(Boolean).join(' ');
 
   // ---------- render ----------
 
-  const hand = (cls = '') => (
-    <span className={`ni-hand ni-egw__hand ${cls}`.trim()}>
-      <HandPointerIcon />
-    </span>
-  );
-
-  /** Read mode: a tap on the picture speaks the sprite or container under the finger. */
+  /** The picture: a tap speaks the sprite or the container under the finger. */
   const onPictureTap = (e: MouseEvent) => {
     if (!interactive) return;
-    const el = (e.target as Element).closest<HTMLElement>('[data-eg-tap]');
-    const id = el?.dataset.egTap;
+    const id = (e.target as Element).closest<HTMLElement>('[data-eg-tap]')?.dataset.egTap;
     if (!id) return;
     trace('tap', id);
-    if (!prefs.speakOnTap) return;
-    if (id.startsWith('rod-')) say('ui.widget.eg.rod');
-    else if (id.startsWith('sprite-')) say(spriteNameKey(config.sprite));
-    else say(containerKey(kind));
+    speak(id.startsWith('sprite-') ? spriteKey : containerKey(kind));
   };
 
-  const renderContents = (i: number, n: number) => {
-    const c = splitCount(n, rodsOffered);
-    const rods: ReactNode[] = [];
-    for (let j = 0; j < c.rods; j++) {
-      const id = `rod-${i}-${j}`;
-      const art = <RodArt sprite={config.sprite} m={m} />;
-      if (read) {
-        rods.push(
-          <span key={id} className="ni-egw__rod" data-eg-tap={id}>
-            {art}
-          </span>,
-        );
-      } else {
-        const props = dnd.itemProps(id, { label: rodName });
-        rods.push(
-          <span
-            key={id}
-            {...props}
-            className={`${props.className} ni-egw__rod`}
-            data-flash={flash.has(id) ? 'true' : undefined}
-          >
-            {art}
-          </span>,
-        );
-      }
-    }
-    const loose: ReactNode[] = [];
-    for (let j = 0; j < c.loose; j++) {
-      const id = `sprite-${i}-${j}`;
-      const sprite = <ObjectSprite sprite={config.sprite} />;
-      if (read) {
-        loose.push(
-          <span key={id} className="ni-egw__sprite" data-eg-tap={id}>
-            {sprite}
-          </span>,
-        );
-      } else {
-        const props = dnd.itemProps(id, { label: spriteName });
-        loose.push(
-          <span
-            key={id}
-            {...props}
-            className={`${props.className} ni-egw__sprite`}
-            data-flash={flash.has(id) ? 'true' : undefined}
-          >
-            {sprite}
-          </span>,
-        );
-      }
-    }
-    return (
-      <div className="ni-egw__contents">
-        <div className="ni-egw__packed" style={{ width: capSize.w, height: capSize.h }}>
-          {cap.rods > 0 ? (
-            <span className="ni-egw__rods" style={{ width: rodsW }}>
-              {rods}
-            </span>
-          ) : null}
-          {cap.loose > 0 ? (
-            <span
-              className="ni-egw__loose"
-              style={{ gridTemplateColumns: `repeat(${looseCols}, ${s}px)` }}
-            >
-              {loose}
-            </span>
-          ) : null}
-        </div>
-      </div>
-    );
-  };
-
-  const renderGroup = (i: number) => {
+  const renderGroup = (i: number, layout: Layout, live: boolean) => {
+    const s = layout.s;
     const n = groups[i] ?? 0;
     const id = `group-${i}`;
-    const invited = inviteTarget === id;
-    const counted = skip !== null && i <= skip.upTo && (groups[i] ?? 0) > 0;
-    const art = <ContainerArt kind={kind} w={grid.box.w} h={grid.box.h} />;
-    let pad: ReactNode;
-    if (read) {
-      pad = (
-        <div className="ni-egw__pad" data-eg-tap={id}>
+    const { zone, chrome } = layout;
+    const zoneX = (layout.box.w - zone.w) / 2;
+    const zoneY = chrome.top + (layout.box.h - chrome.top - chrome.bottom - zone.h) / 2;
+    const counted = skip !== null && i <= skip.upTo && n > 0;
+    // The last sprite is the one that is picked up: its handle is the whole container (a full
+    // target). While another sprite is held the handle is out of the way: the container takes it.
+    const lastId = `sprite-${i}-${n - 1}`;
+    const handleOn = live && n > 0 && (dnd.selected === null || dnd.selected === lastId);
+    const sprites: ReactNode[] = [];
+    for (let j = 0; j < n; j += 1) {
+      const spriteId = `sprite-${i}-${j}`;
+      const p = zoneCell(j, s, zone.upright);
+      const style: CSSProperties = { left: p.x, top: p.y, width: s, height: s };
+      const art = <ObjectSprite sprite={config.sprite} />;
+      if (j === n - 1 && handleOn) {
+        const props = dnd.itemProps(spriteId, { label: spriteName });
+        sprites.push(
+          <span
+            key={spriteId}
+            {...props}
+            className={cls(props.className, 'ni-egw__sprite')}
+            data-eg-sprite={spriteId}
+            data-cue={`take-${i}`}
+            data-flash={flash.has(spriteId) ? 'true' : undefined}
+            style={style}
+          >
+            <span
+              className={cls('ni-egw__hit', ringed(`take-${i}`) && 'ni-invite')}
+              style={{
+                left: -(zoneX + p.x),
+                top: -(zoneY + p.y),
+                width: layout.box.w,
+                height: layout.box.h,
+              }}
+            />
+            {art}
+          </span>,
+        );
+        continue;
+      }
+      sprites.push(
+        <span
+          key={spriteId}
+          className="ni-egw__sprite"
+          data-eg-sprite={spriteId}
+          data-eg-tap={live ? undefined : spriteId}
+          data-flash={flash.has(spriteId) ? 'true' : undefined}
+          style={style}
+        >
           {art}
-        </div>
+        </span>,
       );
-    } else {
+    }
+    const art = <ContainerArt kind={kind} w={layout.box.w} h={layout.box.h} chrome={chrome} />;
+    let pad: ReactNode;
+    if (live) {
       const props = dnd.targetProps(id, { label: t(containerKey(kind)) });
       const hadSelection = dnd.selected !== null;
       pad = (
@@ -700,14 +747,20 @@ export function EqualGroupsWidget({
         // biome-ignore lint/a11y/useKeyWithClickEvents: targetProps' onKeyDown (Enter/Space, arrows) is spread above
         <div
           {...props}
-          className={`${props.className} ni-egw__pad`}
-          onClick={(e) => {
+          className={cls(props.className, 'ni-egw__pad')}
+          onClick={(e: MouseEvent) => {
             props.onClick(e);
             if (hadSelection || !interactive) return;
-            trace('tap', id);
-            if (prefs.speakOnTap) say(containerKey(kind));
+            childStep();
+            onEmptyGroup(i);
           }}
         >
+          {art}
+        </div>
+      );
+    } else {
+      pad = (
+        <div className="ni-egw__pad" data-eg-tap={id}>
           {art}
         </div>
       );
@@ -715,304 +768,272 @@ export function EqualGroupsWidget({
     return (
       <div
         key={id}
-        className={[
+        className={cls(
           'ni-egw__group',
-          invited ? 'ni-invite' : '',
-          flash.has(id) ? 'ni-egw__group--flash' : '',
-        ]
-          .filter(Boolean)
-          .join(' ')}
-        style={{ width: grid.box.w, height: grid.box.h }}
+          ringed(id) && 'ni-invite',
+          flash.has(id) && 'ni-egw__group--flash',
+        )}
+        style={{ width: layout.box.w, height: layout.box.h }}
+        data-group={i}
+        data-cue={id}
         data-counted={counted ? 'true' : undefined}
       >
         {pad}
-        {renderContents(i, n)}
-        {state.circled === i ? <LassoArt w={grid.box.w} h={grid.box.h} /> : null}
+        <div
+          className="ni-egw__contents"
+          style={{ left: zoneX, top: zoneY, width: zone.w, height: zone.h }}
+        >
+          {sprites}
+        </div>
+        {state.circled === i ? <LassoArt w={layout.box.w} h={layout.box.h} /> : null}
         {counted && skip ? (
           <span className="ni-number ni-egw__skip" aria-hidden="true">
             {skip.sums[i]}
           </span>
         ) : null}
-        {invited ? hand() : null}
       </div>
     );
   };
 
-  const renderSlot = (slot: number) => {
-    if (slot < groups.length) return renderGroup(slot);
-    const style = { width: grid.box.w, height: grid.box.h };
-    if (addable && slot === groups.length) {
-      const invited = inviteTarget === 'add-group';
+  const renderSlot = (slot: number, layout: Layout, live: boolean) => {
+    if (slot < groups.length) return renderGroup(slot, layout, live);
+    const style = { width: layout.box.w, height: layout.box.h };
+    if (live && addSlot && slot === groups.length) {
       return (
         <div key={`slot-${slot}`} className="ni-egw__group ni-egw__ghost" style={style}>
-          <ContainerArt kind={kind} w={grid.box.w} h={grid.box.h} ghost />
-          <span className="ni-egw__addslot">
+          <ContainerArt kind={kind} w={layout.box.w} h={layout.box.h} ghost />
+          <span className="ni-egw__addslot" data-cue="add-group">
             <IconButton
               label={addKey(kind)}
               icon={<AddIcon kind={kind} />}
               tone="cloud"
+              caption={false}
               onPress={onAdd}
               disabled={!interactive}
-              className={['ni-egw__add', invited ? 'ni-invite' : ''].filter(Boolean).join(' ')}
+              className={cls('ni-egw__add', ringed('add-group') && 'ni-invite')}
               data={{ 'data-add': 'true' }}
             />
-            {invited ? hand('ni-egw__hand--add') : null}
           </span>
         </div>
       );
     }
-    return <div key={`slot-${slot}`} className="ni-egw__group ni-egw__empty" style={style} />;
-  };
-
-  let slot = 0;
-  const rows = grid.rows.map((count, r) => {
-    const cells: ReactNode[] = [];
-    for (let k = 0; k < count; k++) cells.push(renderSlot(slot++));
+    // A place a container can still be added to: a dashed outline, so the row shows its room.
     return (
-      // biome-ignore lint/suspicious/noArrayIndexKey: rows are positional
-      <div key={r} className="ni-egw__row">
-        {cells}
+      <div key={`slot-${slot}`} className="ni-egw__group ni-egw__ghost" style={style}>
+        <ContainerArt kind={kind} w={layout.box.w} h={layout.box.h} ghost />
       </div>
     );
-  });
+  };
 
-  const blank = (
-    <span className="ni-egw__slot ni-egw__blankslot">
-      <button
-        type="button"
-        className={['ni-number', 'ni-egw__blank', inviteTarget === 'answer' ? 'ni-invite' : '']
-          .filter(Boolean)
-          .join(' ')}
-        data-size="lg"
-        data-state={disabled ? 'idle' : 'active'}
-        data-empty={text === '' ? 'true' : undefined}
-        aria-label={`${t('ui.widget.answer')}: ${text}`.trim()}
-        disabled={!interactive}
-        onClick={() => trace('tap', 'answer')}
-      >
-        {text === '' ? <span className="ni-number__slot" /> : <span>{text}</span>}
-        {!disabled ? <span className="ni-number__caret" /> : null}
-      </button>
-      {inviteTarget === 'answer' ? hand() : null}
-    </span>
-  );
-
-  /** A region's label: a picture icon, plus the word in G1+ (the region carries the name). */
-  const legend = (icon: ReactNode, label: NarrationKey) => (
-    <span className="ni-egw__legend" aria-hidden="true">
-      <span className="ni-egw__legendicon">{icon}</span>
-      {prefs.textLabels ? <span className="ni-egw__legendtext">{t(label)}</span> : null}
-    </span>
-  );
-
-  const answer = (
-    // biome-ignore lint/a11y/useSemanticElements: a labelled region round one control; a fieldset would bring its own box model
-    <div className="ni-egw__answer" role="group" aria-label={t('ui.widget.answer')}>
-      {legend(<AnswerIcon />, 'ui.widget.answer')}
-      {blank}
-    </div>
-  );
-
-  const taskChip = task ? (
-    <div className="ni-egw__taskrow">
-      <button
-        type="button"
-        className="ni-egw__task"
-        aria-label={t(task.key, { n: task.n })}
-        disabled={!interactive}
-        onClick={() => {
-          trace('tap', 'task');
-          if (prefs.speakOnTap) say(task.key, { n: task.n });
-        }}
-      >
-        <span className="ni-egw__tasknum">{task.n}</span>
-        <span className="ni-egw__taskicon" aria-hidden="true">
-          {config.unknown === 'size' ? (
-            <ObjectSprite sprite={config.sprite} />
-          ) : (
-            <TaskIcon kind={kind} sprite={config.sprite} />
-          )}
-        </span>
-        {prefs.textLabels ? (
-          <>
-            {/* The visible text reads as the name does ("12 in all"). */}{' '}
-            <span className="ni-egw__taskword">{t(task.word)}</span>
-          </>
-        ) : null}
-      </button>
-    </div>
-  ) : null;
-
-  const pile = (() => {
-    if (!pileFit) return null;
-    const p = pileFit;
-    const columns: number[][] = [];
-    p.strips.forEach((n, k) => {
-      const col = Math.floor(k / p.perColumn);
-      if (!columns[col]) columns[col] = [];
-      columns[col].push(n);
-    });
+  const renderGroups = (layout: Layout, live: boolean) => {
+    let slot = 0;
     return (
-      <span className="ni-egw__pile" ref={pileRef} aria-hidden="true">
-        <span className="ni-egw__pilecols" style={{ gap: STRIP_COL_GAP }}>
-          {columns.map((col, ci) => (
-            // biome-ignore lint/suspicious/noArrayIndexKey: columns are positional
-            <span key={ci} className="ni-egw__pilecol" style={{ gap: STRIP_ROW_GAP }}>
-              {col.map((n, si) => (
-                <span
-                  // biome-ignore lint/suspicious/noArrayIndexKey: strips are positional
-                  key={si}
-                  className="ni-egw__strip"
-                  data-rod={rodsOffered && n === 10 ? 'true' : undefined}
-                  style={
-                    {
-                      gap: pileGap(p.s),
-                      '--five-gap': `${pileFiveGap(p.s) - pileGap(p.s)}px`,
-                    } as CSSProperties
-                  }
-                >
-                  {Array.from({ length: n }, (_, j) => (
-                    // biome-ignore lint/suspicious/noArrayIndexKey: pile sprites are positional
-                    <span key={j} className="ni-egw__pilecell" style={{ width: p.s, height: p.s }}>
-                      <ObjectSprite sprite={config.sprite} />
-                    </span>
-                  ))}
-                </span>
-              ))}
-            </span>
-          ))}
-        </span>
-      </span>
+      <div className="ni-egw__rows" style={{ gap: GROUP_GAP }}>
+        {layout.rows.map((count, r) => {
+          const cells: ReactNode[] = [];
+          for (let k = 0; k < count; k += 1) cells.push(renderSlot(slot++, layout, live));
+          return (
+            // biome-ignore lint/suspicious/noArrayIndexKey: rows are positional
+            <div key={r} className="ni-egw__row" style={{ gap: GROUP_GAP }}>
+              {cells}
+            </div>
+          );
+        })}
+      </div>
     );
-  })();
+  };
 
-  const source = (id: 'supply' | 'supply-ten') => {
-    const ten = id === 'supply-ten';
-    const empty = remaining < (ten ? 10 : 1);
-    const props = dnd.itemProps(id, { label: ten ? rodName : spriteName, disabled: empty });
-    const invited = inviteTarget === id;
-    return (
-      <span
-        key={id}
-        className="ni-egw__source"
-        data-kind={ten ? 'rod' : bucket ? 'bucket' : 'pile'}
-        style={{ width: ten ? rodSourceW : bucket ? Math.round(spot * 1.2) : spot, height: spot }}
-      >
-        <span className="ni-egw__spot" data-empty={empty ? 'true' : undefined}>
-          {bucket && !ten ? <BucketArt /> : null}
-        </span>
+  /** The build step: the task line, the supply and the containers, every control live. */
+  const renderBuild = (layout: Layout) => {
+    const s = layout.s;
+    const remaining = left(state);
+    const spotProps = remaining > 0 ? dnd.itemProps('supply', { label: spriteName }) : null;
+    const pileCount = bucket ? 0 : Math.max(0, remaining - 1);
+    const pileItems: ReactNode[] = [];
+    for (let k = 0; k < pileCount; k += 1) {
+      const p = fivesCell(k, Math.max(1, layout.pile.cols), s);
+      pileItems.push(
         <span
-          {...props}
-          className={[props.className, 'ni-egw__grab', invited ? 'ni-invite' : '']
-            .filter(Boolean)
-            .join(' ')}
-          data-empty={empty ? 'true' : undefined}
+          key={k}
+          className="ni-egw__sprite"
+          style={{ left: p.x, top: p.y, width: s, height: s }}
         >
-          {ten ? (
-            <RodArt sprite={config.sprite} m={rodSourceCell} horizontal />
-          ) : (
-            <ObjectSprite sprite={config.sprite} />
-          )}
+          <ObjectSprite sprite={config.sprite} />
+        </span>,
+      );
+    }
+    const supplyProps = dnd.targetProps('supply', { label: t('ui.widget.eg.supply') });
+    const hadSelection = dnd.selected !== null;
+    const supply = (
+      // biome-ignore lint/a11y/useSemanticElements: the region lays out its drop target behind its items; a fieldset brings its own box model
+      <div
+        className="ni-egw__supply"
+        data-kind={bucket ? 'bucket' : 'pile'}
+        data-shape={layout.supply.shape}
+        role="group"
+        aria-label={t('ui.widget.eg.region.supply')}
+        style={{ width: layout.supply.w, height: layout.supply.h }}
+      >
+        {/* biome-ignore lint/a11y/noStaticElementInteractions: targetProps gives role="button", tabIndex and the key handler */}
+        {/* biome-ignore lint/a11y/useKeyWithClickEvents: targetProps' onKeyDown is spread above */}
+        <div
+          {...supplyProps}
+          className={cls(supplyProps.className, 'ni-egw__supplypad')}
+          onClick={(e: MouseEvent) => {
+            supplyProps.onClick(e);
+            if (hadSelection || !interactive) return;
+            childStep();
+            onSupplyTap();
+          }}
+        />
+        <span
+          className={cls('ni-egw__spot', ringed('spot') && 'ni-invite')}
+          data-cue="spot"
+          data-kind={bucket ? 'bucket' : 'pile'}
+          data-empty={remaining === 0 ? 'true' : undefined}
+          style={{ width: layout.spot.w, height: layout.spot.h }}
+        >
+          {bucket ? <BucketArt /> : null}
+          {spotProps ? (
+            <span
+              {...spotProps}
+              className={cls(spotProps.className, 'ni-egw__grab')}
+              style={{ '--s': `${s}px` } as CSSProperties}
+            >
+              <span className="ni-egw__grab-sprite">
+                <ObjectSprite sprite={config.sprite} />
+              </span>
+            </span>
+          ) : null}
         </span>
-        {invited ? hand() : null}
-      </span>
+        {layout.pile.w > 0 ? (
+          <span
+            className="ni-egw__pile"
+            aria-hidden="true"
+            style={{ width: layout.pile.w, height: layout.pile.h }}
+          >
+            {pileItems}
+          </span>
+        ) : null}
+      </div>
+    );
+    return (
+      <div className="ni-egw__main" data-flow={layout.flow}>
+        <div className="ni-egw__top" style={{ height: layout.top }}>
+          {task ? (
+            <p className="ni-egw__task">
+              {/* The line reads as one sentence; its picture parts are hidden from it. */}
+              <span className="ni-visually-hidden">{t(task.key, { n: task.n })}</span>
+              <span className="ni-egw__tasknum" aria-hidden="true">
+                {task.n}
+              </span>
+              <span className="ni-egw__taskicon" aria-hidden="true">
+                {config.unknown === 'size' ? (
+                  <ObjectSprite sprite={config.sprite} />
+                ) : (
+                  <TaskIcon kind={kind} sprite={config.sprite} />
+                )}
+              </span>
+              {prefs.textLabels ? (
+                <span className="ni-egw__taskword" aria-hidden="true">
+                  {t(task.word)}
+                </span>
+              ) : null}
+            </p>
+          ) : null}
+          <p className="ni-egw__note" role="status">
+            {note ? t(note.key) : ''}
+          </p>
+        </div>
+        <div className="ni-egw__parts" style={{ gap: ROW_GAP }}>
+          {layout.flow === 'row' ? supply : null}
+          {renderGroups(layout, true)}
+          {layout.flow === 'stack' ? supply : null}
+        </div>
+        {/* The demonstration hand's room: as tall as the top line, so the row stays centred. */}
+        <div className="ni-egw__handstrip" aria-hidden="true" style={{ height: layout.top }} />
+      </div>
     );
   };
 
-  const rootStyle = {
-    '--s': `${s}px`,
-    '--g': `${g}px`,
-    '--m': `${m}px`,
-    '--spot': `${spot}px`,
-    '--bottom-h': `${bottomH}px`,
-    '--chrome-x': `${CHROME.x}px`,
-    '--chrome-top': `${CHROME.top}px`,
-    '--chrome-bottom': `${CHROME.bottom}px`,
-    '--group-gap': `${GROUP_GAP}px`,
-  } as CSSProperties;
-
-  const side = (
-    <div className="ni-egw__side">
-      <NumberPadKeys
-        onKey={onKey}
-        onEnter={onEnter}
-        disabled={!interactive}
-        highlighted={pressedKey}
-      />
-      <CheckButton onPress={submit} disabled={!interactive || padValue(text) === null} />
+  /** The ask step's picture: the containers as they are. Nothing to operate. */
+  const renderPicture = (layout: Layout) => (
+    // biome-ignore lint/a11y/useKeyWithClickEvents: tap-to-hear is a pointer extra; the picture is one image to assistive tech
+    <div
+      className="ni-egw__main ni-egw__picture"
+      role="img"
+      aria-label={t('ui.widget.picture')}
+      onClick={onPictureTap}
+    >
+      {renderGroups(layout, false)}
     </div>
   );
 
-  if (read) {
-    return (
-      <div
-        ref={rootRef}
-        className="ni-egw"
-        data-mode="read"
-        data-tier={tier}
-        data-disabled={disabled ? 'true' : undefined}
-        style={rootStyle}
-      >
-        <div className="ni-egw__scene">
-          {/* biome-ignore lint/a11y/useKeyWithClickEvents: tap-to-hear is a pointer extra; the picture is one image to assistive tech */}
-          <div
-            ref={areaRef}
-            className="ni-egw__area ni-egw__picture"
-            role="img"
-            aria-label={t('ui.widget.picture')}
-            data-fits={grid.fits ? undefined : 'false'}
-            onClick={onPictureTap}
-          >
-            {rows}
-          </div>
-          <div className="ni-egw__answerrow">{answer}</div>
-        </div>
-        {side}
-      </div>
-    );
-  }
+  const actions = (
+    <StepActions
+      actRef={actRef}
+      step={step}
+      back={!read}
+      dir={step === 'ask' && askPlan.act === 'row' ? 'row' : 'column'}
+      interactive={interactive}
+      ready={value !== null}
+      onStep={(s) => {
+        childStep();
+        steps.goTo(s);
+      }}
+      onCheck={submit}
+      invited={stepCue as StepCue | null}
+      compact={box.h < COMPACT_ROOM_H}
+    />
+  );
+
+  const answer =
+    askPlan.entry || askPlan.stepper ? (
+      <span data-cue="entry" className={cls('ni-egw__entry', ringed('entry') && 'ni-invite')}>
+        <AskEntry
+          plan={askPlan}
+          max={answerMax}
+          value={value}
+          onChange={(v) => {
+            childStep();
+            setValue(v);
+          }}
+          disabled={!interactive}
+          highlighted={entryHighlight ?? invitedEntry}
+          trace={trace}
+          onEnter={submit}
+          actions={actions}
+        />
+      </span>
+    ) : null;
 
   return (
     <div
       ref={rootRef}
       className="ni-egw"
-      data-mode="build"
+      data-mode={config.mode}
       data-tier={tier}
+      data-step={step}
       data-disabled={disabled ? 'true' : undefined}
-      style={rootStyle}
+      data-fits={(step === 'build' ? buildLayout.fits : askPlan.fits) ? undefined : 'false'}
+      style={handRootStyle}
     >
-      <div className="ni-egw__scene">
-        {taskChip}
-        <div ref={areaRef} className="ni-egw__area" data-fits={grid.fits ? undefined : 'false'}>
-          {rows}
+      {step === 'build' ? (
+        <div className="ni-egw__build">
+          {renderBuild(buildLayout)}
+          {actions}
         </div>
-        <div className="ni-egw__bottom">
-          {/* biome-ignore lint/a11y/useSemanticElements: the region lays out its drop target behind its items; a fieldset brings its own box model */}
-          <div
-            className="ni-egw__supply"
-            data-kind={bucket ? 'bucket' : 'pile'}
-            role="group"
-            aria-label={t('ui.widget.eg.region.supply')}
-          >
-            {(() => {
-              const props = dnd.targetProps('supply', { label: t('ui.widget.eg.supply') });
-              return <div {...props} className={`${props.className} ni-egw__supplypad`} />;
-            })()}
-            {legend(<ObjectSprite sprite={config.sprite} />, 'ui.widget.eg.region.supply')}
-            {source('supply')}
-            {rodsOffered ? source('supply-ten') : null}
-            {pile}
-          </div>
-          {answer}
-        </div>
-      </div>
-      {side}
+      ) : (
+        <AskStep
+          plan={askPlan}
+          picture={pictureLayout ? renderPicture(pictureLayout) : null}
+          entry={answer}
+          actions={actions}
+        />
+      )}
+      {inviteHand}
     </div>
   );
-}
-
-function sum(xs: readonly number[]): number {
-  return xs.reduce((a, b) => a + b, 0);
 }
 
 export default EqualGroupsWidget;

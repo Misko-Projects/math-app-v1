@@ -1,22 +1,31 @@
 import type { WidgetConfig } from '@number-island/shared';
 import type { Meta, StoryObj } from '@storybook/react-vite';
-import { expect, fn, userEvent, waitFor, within } from 'storybook/test';
+import { expect, fn, userEvent, waitFor } from 'storybook/test';
+import { holdEnter } from '../../test-support/inviteStory';
 import {
   center,
   clearSpies,
-  expectTargetGaps,
-  expectTargetSize,
   pointerDrag,
   type SpyAudio,
   spyAudio,
-  touchDragAndHold,
-  waitForSettled,
 } from '../../test-support/storyHelpers';
+import {
+  clickAt,
+  enterNumber,
+  expectAreaFit,
+  expectNote,
+  expectRing,
+  expectTarget,
+  extremes,
+  goNext,
+  inArea,
+  namedStory,
+  stepButton,
+} from '../../test-support/twoStepStory';
 import {
   expectPointerOn,
   expectTraceOrdered,
   findWidget,
-  renderWidget,
   traceOf,
 } from '../../test-support/widgetStory';
 import { createDemoController, UnsupportedWidgetOpError, type WidgetDemo } from '../demo';
@@ -25,74 +34,66 @@ import type { WidgetHostProps } from '../WidgetHost';
 
 /**
  * `equal-share` (03 §5.5): share a basket of items fairly between pebblings or plates, one at a
- * time or a round at a time; what is left goes to the seagull. The child types each share or the
- * leftover, judges a pre-dealt share fair or not, or says whether a number is even or odd. Nothing
- * on screen counts the items.
+ * time or a round at a time; what is left goes to the seagull. Two steps: build (deal), then ask
+ * (a picture of the shares and the answer control). Every story runs in a workshop's widget area:
+ * `landscapeMin` (906 × 373, the smallest) unless its name says tablet (1226 × 493).
  */
 
 type Config = ConfigFor<'equal-share'>;
 
-/** G1 `each`: 12 shells between 3 pebblings (4 each). */
-const each: Config = {
+const base = {
   format: 'equal-share',
-  items: 12,
-  recipients: 3,
   sprite: 'shell',
   recipientsKind: 'pebbling',
   allowLeftover: false,
   ask: 'each',
-};
+} as const;
+
+/** `each`: 12 shells between 3 pebblings (4 each). */
+const each: Config = { ...base, items: 12, recipients: 3 };
 /** `leftover`: 7 fish among 3 pebblings: 2 each, 1 for the seagull. */
 const leftover: Config = {
-  format: 'equal-share',
+  ...base,
   items: 7,
   recipients: 3,
   sprite: 'fish',
-  recipientsKind: 'pebbling',
   allowLeftover: true,
   ask: 'leftover',
 };
 /** `fair-or-not`: 11 starfish pre-dealt on 4 plates, 3 + 3 + 2 + 3 (not fair). */
 const fair: Config = {
-  format: 'equal-share',
+  ...base,
   items: 11,
   recipients: 4,
   sprite: 'starfish',
   recipientsKind: 'plate',
-  allowLeftover: false,
   ask: 'fair-or-not',
   predealt: [3, 3, 2, 3],
 };
 /** `even-odd` (MUL.01): 7 leaves between 2 pebblings. */
 const evenOdd: Config = {
-  format: 'equal-share',
+  ...base,
   items: 7,
   recipients: 2,
   sprite: 'leaf',
-  recipientsKind: 'pebbling',
   allowLeftover: true,
   ask: 'even-odd',
 };
-/** K: 6 crabs between 2 pebblings, big and chunky. */
-const buildK: Config = {
-  format: 'equal-share',
-  items: 6,
+/** FRA.07.t2: 8 crabs pre-dealt 5 + 3 on two plates; make it fair and say how many each has. */
+const fix: Config = {
+  ...base,
+  items: 8,
   recipients: 2,
   sprite: 'crab',
-  recipientsKind: 'pebbling',
-  allowLeftover: false,
-  ask: 'each',
-};
-/** Stress: 24 counters among 6 plates. */
-const stress24: Config = {
-  format: 'equal-share',
-  items: 24,
-  recipients: 6,
-  sprite: 'counter',
   recipientsKind: 'plate',
-  allowLeftover: false,
-  ask: 'each',
+  predealt: [5, 3],
 };
+/** Kindergarten: 6 crabs between 2 pebblings. */
+const kinder: Config = { ...base, items: 6, recipients: 2, sprite: 'crab' };
+/** The bound: 24 things among 4 (SHARE_ITEMS_MAX, SHARE_RECIPIENTS_MAX). */
+const bound: Config = { ...base, items: 24, recipients: 4, sprite: 'pebble' };
+/** A recipient that can fill up: 12 between 2, room for 10 on each. */
+const fillable: Config = { ...base, items: 12, recipients: 2, sprite: 'fish' };
 
 const meta = {
   title: 'Widgets/Equal share',
@@ -103,8 +104,9 @@ const meta = {
     onResponse: fn(),
     onInteract: fn(),
   },
-  parameters: { ui: { stage: 'centered' } },
-  render: renderWidget,
+  parameters: { ui: { audio: spyAudio() } },
+  decorators: [namedStory],
+  render: inArea('landscapeMin'),
 } satisfies Meta<WidgetHostProps>;
 
 export default meta;
@@ -114,31 +116,26 @@ const ROOT = '.ni-esw';
 
 // ---------- helpers ----------
 
-const recipient = (root: HTMLElement, i: number) =>
-  root.querySelector(`[data-place-target="recipient-${i}"]`) as HTMLElement;
-const basket = (root: HTMLElement) =>
-  root.querySelector('[data-place-target="pile"]') as HTMLElement;
-const pileItem = (root: HTMLElement, j = 0) =>
-  root.querySelector(`[data-place-item="pile-${j}"]`) as HTMLElement;
-const item = (root: HTMLElement, i: number, j: number) =>
-  root.querySelector(`[data-place-item="item-${i}-${j}"]`) as HTMLElement;
-const dealRound = (root: HTMLElement) =>
-  root.querySelector('[data-action="deal-round"]') as HTMLButtonElement;
-const give = (root: HTMLElement) =>
-  root.querySelector('[data-action="seagull"]') as HTMLButtonElement;
-const bird = (root: HTMLElement) => root.querySelector('.ni-esw__bird') as HTMLButtonElement;
-const reason = (root: HTMLElement) => root.querySelector('.ni-esw__reason') as HTMLElement;
-const padKey = (root: HTMLElement, k: string) =>
-  root.querySelector(`.ni-pad__key[data-key="${k}"]`) as HTMLElement;
-const checkButton = (root: HTMLElement) => within(root).getByRole('button', { name: 'Check' });
-const option = (root: HTMLElement, id: string) =>
-  root.querySelector(`[data-id="opt-${id}"]`) as HTMLElement;
+const q = (root: HTMLElement, sel: string) => root.querySelector(sel) as HTMLElement;
+const all = (root: HTMLElement, sel: string) => [...root.querySelectorAll<HTMLElement>(sel)];
+const spot = (root: HTMLElement) => q(root, '.ni-esw__spot');
+const take = (root: HTMLElement) => q(root, '[data-place-item="pile-0"]');
+const recipient = (root: HTMLElement, i: number) => q(root, `[data-place-target="recipient-${i}"]`);
+/** The recipient cards: each is one target (its drop pad, and its mat as the handle). */
+const cards = (root: HTMLElement) => all(root, '.ni-esw__rec');
+const handle = (root: HTMLElement, i: number) => q(root, `[data-cue="take-${i}"]`);
+const hit = (root: HTMLElement, i: number) => q(handle(root, i), '.ni-esw__hit');
+const basket = (root: HTMLElement) => q(root, '[data-place-target="pile"]');
+const dealRound = (root: HTMLElement) => q(root, '[data-action="deal-round"]');
+const bird = (root: HTMLElement) => q(root, 'button.ni-esw__bird');
+const gullItems = (root: HTMLElement) => q(root, 'button.ni-esw__gull-items');
+const option = (root: HTMLElement, id: string) => q(root, `[data-id="opt-${id}"]`);
+const audioOf = (parameters: { ui?: { audio?: unknown } }) => parameters.ui?.audio as SpyAudio;
 
 /** What the picture shows: the items at each recipient, in the basket and by the seagull. */
 function shown(root: HTMLElement) {
-  const recs = [...root.querySelectorAll<HTMLElement>('.ni-esw__rec')];
   return {
-    shares: recs.map((r) => r.querySelectorAll('.ni-esw__item').length),
+    shares: all(root, '.ni-esw__rec').map((r) => r.querySelectorAll('[data-item]').length),
     pile:
       root.querySelectorAll('.ni-esw__pile .ni-esw__item').length +
       root.querySelectorAll('.ni-esw__take').length,
@@ -157,39 +154,15 @@ const said = (audio: SpyAudio) => (audio.say.mock.calls as unknown[][]).map((c) 
 const steps = (args: { onInteract?: unknown }) =>
   traceOf(args.onInteract).map((e) => `${e.t}:${e.target}`);
 
-async function typeOnPad(root: HTMLElement, digits: string) {
-  for (const d of digits) await userEvent.click(padKey(root, d));
-}
-
-/** Nothing in the widget (pad aside) states these numbers: no text, name, title or data value. */
-async function expectNothingStates(root: HTMLElement, forbidden: number[]) {
-  const pad = root.querySelector('.ni-pad');
-  const scope = [...root.querySelectorAll('*')].filter((el) => !pad?.contains(el));
-  const words = [
-    ...scope.filter((el) => el.children.length === 0).map((el) => el.textContent ?? ''),
-    ...scope.map((el) => el.getAttribute('aria-label') ?? ''),
-    ...scope.map((el) => el.getAttribute('title') ?? ''),
-  ].join(' ');
-  const numbers = new Set((words.match(/\d+/g) ?? []).map(Number));
-  for (const f of forbidden) await expect(numbers.has(f), `${f} shown`).toBe(false);
-  for (const el of scope) {
-    for (const a of el.getAttributeNames()) {
-      if (!a.startsWith('data-')) continue;
-      await expect(forbidden.map(String), `${a}="${el.getAttribute(a)}"`).not.toContain(
-        el.getAttribute(a),
-      );
-    }
-  }
-}
-
-/** Every item is its own cell: no two items overlap anywhere in the widget. */
+/** Every item is its own cell: no two items overlap, and none is under 20 px. */
 async function expectItemsApart(root: HTMLElement) {
-  const rects = [...root.querySelectorAll<HTMLElement>('.ni-esw__item, .ni-esw__take-sprite')].map(
-    (el) => el.getBoundingClientRect(),
+  const rects = all(root, '.ni-esw__item, .ni-esw__take-sprite').map((el) =>
+    el.getBoundingClientRect(),
   );
   for (let i = 0; i < rects.length; i++) {
+    const a = rects[i] as DOMRect;
+    await expect(Math.round(a.width), `item ${i} size`).toBeGreaterThanOrEqual(20);
     for (let j = i + 1; j < rects.length; j++) {
-      const a = rects[i] as DOMRect;
       const b = rects[j] as DOMRect;
       const apart =
         a.right <= b.left + 0.5 ||
@@ -201,622 +174,570 @@ async function expectItemsApart(root: HTMLElement) {
   }
 }
 
-/** Every countable item is drawn at one size, at least `min` px. */
-async function expectItemSize(root: HTMLElement, min: number) {
-  const els = [...root.querySelectorAll<HTMLElement>('.ni-esw__item, .ni-esw__take-sprite')];
-  for (const el of els) await waitForSettled(el);
-  const sizes = new Set(els.map((el) => Math.round(el.getBoundingClientRect().width)));
-  await expect(sizes.size, 'one item size').toBe(1);
-  await expect([...sizes][0]).toBeGreaterThanOrEqual(min);
+/** Every item in the widget is drawn at one size (one scale within a screen). */
+async function expectOneScale(root: HTMLElement) {
+  const sizes = new Set(
+    all(root, '.ni-esw__item, .ni-esw__take-sprite').map((el) =>
+      Math.round(el.getBoundingClientRect().width),
+    ),
+  );
+  await expect(sizes.size, `item sizes ${[...sizes].join(', ')}`).toBeLessThanOrEqual(1);
 }
 
-/**
- * The widget fits its stage with no scrolling: the stage stays within the tablet's 720 px, the
- * widget's scroll size equals its client size, and every drawn part lies inside the widget.
- */
-async function expectFits(canvasElement: HTMLElement, root: HTMLElement) {
-  const stage = canvasElement.querySelector('.story-widget-stage') as HTMLElement;
-  await expect(stage.getBoundingClientRect().height).toBeLessThanOrEqual(720);
-  await expect(stage.scrollWidth).toBeLessThanOrEqual(stage.clientWidth);
-  await expect(root.scrollWidth).toBeLessThanOrEqual(root.clientWidth);
-  await expect(root.scrollHeight).toBeLessThanOrEqual(root.clientHeight);
-  await expect(root.dataset.fits).toBeUndefined();
-  const box = root.getBoundingClientRect();
-  for (const el of root.querySelectorAll<HTMLElement>('*')) {
-    const r = el.getBoundingClientRect();
-    if (r.width === 0 && r.height === 0) continue;
-    const name = `${el.getAttribute('class') ?? el.tagName}`;
-    await expect(r.left, `${name} left`).toBeGreaterThanOrEqual(box.left - 0.5);
-    await expect(r.right, `${name} right`).toBeLessThanOrEqual(box.right + 0.5);
-    await expect(r.top, `${name} top`).toBeGreaterThanOrEqual(box.top - 0.5);
-    await expect(r.bottom, `${name} bottom`).toBeLessThanOrEqual(box.bottom + 0.5);
-  }
+/** The build step's controls and parts, for `expectAreaFit`. */
+const buildFit = (root: HTMLElement, ageMode: 'k' | 'g1-up', story: string) => ({
+  ageMode,
+  story,
+  controls: {
+    'take-one spot': [spot(root)],
+    'give one to each': [dealRound(root)],
+    recipients: cards(root),
+    seagull: [bird(root)],
+    next: [stepButton(root, 'next')],
+  },
+  parts: [q(root, '.ni-esw__basket'), q(root, '.ni-esw__nest')],
+});
+
+/** The ask step's controls and parts, for `expectAreaFit`. */
+const askFit = (root: HTMLElement, ageMode: 'k' | 'g1-up', story: string) => {
+  const back = stepButton(root, 'back');
+  return {
+    ageMode,
+    story,
+    controls: {
+      answer: all(root, '.ni-entry button, .ni-stepper button, .ni-esw__options button'),
+      ...(back ? { back: [back] } : {}),
+      check: [stepButton(root, 'check')],
+    },
+    parts: all(root, '.ni-esw__picture, .ni-entry, .ni-stepper, .ni-esw__options'),
+  };
+};
+
+async function dealRounds(root: HTMLElement, n: number) {
+  for (let i = 0; i < n; i += 1) await userEvent.click(dealRound(root));
 }
 
-async function expectBigNumerals(els: Element[]) {
-  for (const el of els) {
-    await expect(Number.parseFloat(getComputedStyle(el).fontSize)).toBeGreaterThanOrEqual(32);
-  }
-}
+// ---------- the two steps in the two areas ----------
 
-// ---------- each ----------
-
-/**
- * Evidence, START (G1 `each`): 12 shells wait in the basket, one on the take-one spot; three
- * pebblings sit behind empty mats. The seagull's button is off and says why ("Each one can have
- * more"). The answer blank is empty and Check is off. No count anywhere.
- */
-export const EachStart: Story = {
-  play: async ({ canvasElement, args }) => {
+/** Tablet (1226 × 493): the basket, three pebblings, the seagull and Next, all in view. */
+export const TabletBuild: Story = {
+  render: inArea('tablet'),
+  play: async ({ canvasElement }) => {
     const root = await findWidget(canvasElement, ROOT);
     await expectShown(root, { shares: [0, 0, 0], pile: 12 });
-    await expect(give(root)).toBeDisabled();
-    await expect(reason(root)).toHaveAttribute('aria-label', 'Each one can have more');
-    await expect(within(root).getAllByText('Each one can have more')[0]).toBeVisible();
-    await expect(dealRound(root)).toBeEnabled();
-    await expect(checkButton(root)).toBeDisabled();
-    await expect(within(root).getByRole('group', { name: 'How many for each?' })).toBeVisible();
-    await expectNothingStates(root, [12, 4, 3]);
-    // The take-one spot is a full-size target, though its shell is drawn at the items' size.
-    await expectTargetSize(pileItem(root), 'g1-up');
-    await expectItemsApart(root);
-    await expectItemSize(root, 34);
-    await expectFits(canvasElement, root);
-    await expect(args.onResponse).not.toHaveBeenCalled();
+    await expectAreaFit(canvasElement, buildFit(root, 'g1-up', 'equal-share tablet build'));
+    await expectOneScale(root);
   },
 };
 
-/**
- * Evidence, IN PROGRESS: one round dealt with "Give one to each", then one more shell tapped onto
- * the first pebbling. Still no counts; the shares are not equal, and the seagull's reason says
- * each one can have more.
- */
-export const EachInProgress: Story = {
+/** The smallest area (906 × 373): the same parts, every control at full size, nothing scrolls. */
+export const LandscapeMinBuild: Story = {
+  play: async ({ canvasElement }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    await expectAreaFit(canvasElement, buildFit(root, 'g1-up', 'equal-share 906x373 build'));
+    await expectItemsApart(root);
+    await expectOneScale(root);
+    // Nothing on screen counts the items.
+    await expect(root.textContent ?? '').not.toMatch(/\d/);
+  },
+};
+
+/** The ask step in the smallest area: the shares as a picture, the answer control, Back, Check. */
+export const LandscapeMinAsk: Story = {
+  play: async ({ canvasElement, args }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    await dealRounds(root, 4);
+    await goNext(root);
+    await expectShown(root, { shares: [4, 4, 4], pile: 0 });
+    await expectAreaFit(canvasElement, {
+      ...askFit(root, 'g1-up', 'equal-share 906x373 ask'),
+      minFill: 0.5,
+    });
+    await expect(stepButton(root, 'check')).toBeDisabled();
+    await enterNumber(root, 4);
+    await userEvent.click(stepButton(root, 'check'));
+    await expect(args.onResponse).toHaveBeenCalledWith(
+      state({ shares: [4, 4, 4], leftover: 0, value: 4 }),
+    );
+  },
+};
+
+/** The ask step on the tablet. */
+export const TabletAsk: Story = {
+  render: inArea('tablet'),
+  play: async ({ canvasElement }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    await dealRounds(root, 4);
+    await goNext(root);
+    await expectAreaFit(canvasElement, {
+      ...askFit(root, 'g1-up', 'equal-share tablet ask'),
+      minFill: 0.5,
+    });
+  },
+};
+
+// ---------- the three ways to deal ----------
+
+/** Mouse drag: the take-one spot's shell onto the second pebbling. */
+export const DragToRecipient: Story = {
+  play: async ({ canvasElement, args }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    await pointerDrag(take(root), center(recipient(root, 1)), 'mouse', 10);
+    await expectShown(root, { shares: [0, 1, 0], pile: 11 });
+    await expect(steps(args)).toEqual(['drag:pile', 'drop:recipient-1']);
+    await expectTraceOrdered(traceOf(args.onInteract));
+  },
+};
+
+/** Touch drag (a finger on a tablet). */
+export const TouchDrag: Story = {
+  play: async ({ canvasElement, args }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    await pointerDrag(take(root), center(recipient(root, 2)), 'touch', 10);
+    await expectShown(root, { shares: [0, 0, 1], pile: 11 });
+    await expect(steps(args)).toEqual(['drag:pile', 'drop:recipient-2']);
+  },
+};
+
+/** Tap to place: tap the spot (its name is spoken), then a pebbling. */
+export const TapToPlace: Story = {
+  play: async ({ canvasElement, args, parameters }) => {
+    const audio = audioOf(parameters);
+    const root = await findWidget(canvasElement, ROOT);
+    clearSpies(audio);
+    await userEvent.click(take(root));
+    await expect(said(audio)).toEqual(['ui.sprite.shell']);
+    await userEvent.click(recipient(root, 0));
+    await expectShown(root, { shares: [1, 0, 0], pile: 11 });
+    // An empty pebbling, touched with nothing held, says what it is.
+    clearSpies(audio);
+    await userEvent.click(recipient(root, 2));
+    await expect(said(audio)).toEqual(['ui.widget.es.kind.pebbling']);
+    await expect(steps(args)).toEqual(['tap:pile', 'tap:recipient-0', 'tap:recipient-2']);
+  },
+};
+
+/** Keyboard: Enter picks the shell up, the arrows choose a pebbling, Enter puts it down. */
+export const Keyboard: Story = {
+  play: async ({ canvasElement, args }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    take(root).focus();
+    await userEvent.keyboard('{Enter}');
+    await expect(recipient(root, 0)).toHaveFocus();
+    await userEvent.keyboard('{ArrowRight}');
+    await userEvent.keyboard('{Enter}');
+    await expectShown(root, { shares: [0, 1, 0], pile: 11 });
+    // Escape puts a picked-up shell down again.
+    take(root).focus();
+    await userEvent.keyboard('{Enter}');
+    await userEvent.keyboard('{Escape}');
+    await expect(take(root)).toHaveAttribute('aria-pressed', 'false');
+    await expectShown(root, { shares: [0, 1, 0], pile: 11 });
+    await expect(steps(args)).toEqual(['tap:pile', 'tap:recipient-1', 'tap:pile']);
+  },
+};
+
+/** "Give one to each" deals a round; the whole task ends in the checked response. */
+export const DealRoundsAndCheck: Story = {
   play: async ({ canvasElement, args }) => {
     const root = await findWidget(canvasElement, ROOT);
     await userEvent.click(dealRound(root));
     await expectShown(root, { shares: [1, 1, 1], pile: 9 });
-    await userEvent.click(pileItem(root));
-    await userEvent.click(recipient(root, 0));
-    await expectShown(root, { shares: [2, 1, 1], pile: 8 });
-    await expect(give(root)).toBeDisabled();
-    await expectNothingStates(root, [12, 4, 3]);
-    await expectItemsApart(root);
-    await expect(steps(args)).toEqual(['tap:deal-round', 'tap:pile', 'tap:recipient-0']);
-    await expectFits(canvasElement, root);
-  },
-};
-
-/**
- * Evidence, FINISHED (G1 `each`): four rounds dealt, the basket empty (the seagull's reason: "The
- * basket is empty"), 4 typed. Check sends the shares, the leftover and the typed value.
- */
-export const EachFinished: Story = {
-  play: async ({ canvasElement, args }) => {
-    const root = await findWidget(canvasElement, ROOT);
-    for (let k = 0; k < 4; k++) await userEvent.click(dealRound(root));
+    await dealRounds(root, 3);
     await expectShown(root, { shares: [4, 4, 4], pile: 0 });
     await expect(dealRound(root)).toBeDisabled();
-    await expect(reason(root)).toHaveAttribute('aria-label', 'The basket is empty');
-    await typeOnPad(root, '4');
-    await expect(root.querySelector('.ni-esw__blank')).toHaveAttribute(
-      'aria-label',
-      'Your answer: 4',
-    );
-    await userEvent.click(checkButton(root));
-    await expect(args.onResponse).toHaveBeenCalledTimes(1);
+    await goNext(root);
+    await enterNumber(root, 4);
+    await userEvent.click(stepButton(root, 'check'));
     await expect(args.onResponse).toHaveBeenCalledWith(
       state({ shares: [4, 4, 4], leftover: 0, value: 4 }),
     );
-    // G1 sizes: the controls are ≥ 64 px and ≥ 12 px apart; the blank's numeral is ≥ 32 px.
-    const targets = [dealRound(root), give(root), bird(root), checkButton(root)];
-    for (const el of targets) await expectTargetSize(el, 'g1-up');
-    await expectTargetGaps(targets);
-    for (const i of [0, 1, 2]) await expectTargetSize(recipient(root, i), 'g1-up');
-    await expectTargetGaps([0, 1, 2].map((i) => recipient(root, i)));
-    const keys = [...root.querySelectorAll<HTMLElement>('.ni-pad__key')];
-    for (const key of keys) await expectTargetSize(key, 'g1-up');
-    await expectTargetGaps([...keys, checkButton(root)]);
-    await expectBigNumerals([root.querySelector('.ni-esw__blank') as Element]);
-    // From G1 the controls show their words beside the icons.
-    await expect(within(root).getByText('Give one to each')).toBeVisible();
-    await expectItemsApart(root);
-    await expectFits(canvasElement, root);
+    await expectTraceOrdered(traceOf(args.onInteract));
+  },
+};
+
+// ---------- undo: touch the thing where it sits ----------
+
+/**
+ * A pebbling's mat is the handle of its last shell (a full target): drag it back to the basket,
+ * or tap it and tap the basket.
+ */
+export const TakeBack: Story = {
+  play: async ({ canvasElement, args }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    await dealRounds(root, 2);
+    await expectShown(root, { shares: [2, 2, 2], pile: 6 });
+    await expectTarget(hit(root, 0), 'g1-up', 'the take-back hit area');
+    (args.onInteract as ReturnType<typeof fn>).mockClear();
+    await pointerDrag(handle(root, 0), center(basket(root)), 'mouse', 10);
+    await expectShown(root, { shares: [1, 2, 2], pile: 7 });
+    await userEvent.click(handle(root, 1));
+    await userEvent.click(basket(root));
+    await expectShown(root, { shares: [1, 1, 2], pile: 8 });
+    await expect(steps(args)).toEqual(['drag:item-0-1', 'drop:pile', 'tap:item-1-1', 'tap:pile']);
+  },
+};
+
+/** A shell moves straight from one pebbling to another, by keyboard too. */
+export const MoveBetweenRecipients: Story = {
+  play: async ({ canvasElement }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    await dealRounds(root, 2);
+    await userEvent.click(handle(root, 2));
+    await userEvent.click(recipient(root, 0));
+    await expectShown(root, { shares: [3, 2, 1], pile: 6 });
+    // By keyboard: Enter picks the last shell up and moves the focus to a place for it.
+    handle(root, 0).focus();
+    await userEvent.keyboard('{Enter}');
+    await expect(document.activeElement?.getAttribute('data-place-target')).not.toBeNull();
+    await userEvent.keyboard('{Enter}');
+    await waitFor(() => expect(shown(root).shares[0]).toBe(2));
+    await expect(shown(root).pile + shown(root).shares.reduce((a, b) => a + b, 0)).toBe(12);
   },
 };
 
 /**
- * `leftover` (7 among 3): two rounds leave one fish. The seagull's button comes on; giving it hops
- * the fish to the seagull. Type 1; Check sends `{ shares: [2, 2, 2], leftover: 1, value: 1 }`.
+ * A held shell goes to the pebbling that is tapped, wherever on its card the tap lands: the
+ * take-back handle never takes a tap meant for giving (every corner and the middle of a card
+ * that already holds shells).
  */
+export const HeldItemLandsAnywhereOnTheCard: Story = {
+  play: async ({ canvasElement }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    await dealRounds(root, 1);
+    let want = 1;
+    for (const at of extremes(recipient(root, 1), 12)) {
+      await userEvent.click(take(root));
+      await clickAt(at.x, at.y);
+      want += 1;
+      await expectShown(root, { shares: [1, want, 1], pile: 12 - 2 - want });
+    }
+  },
+};
+
+/** The seagull takes only the true leftover, and gives it back when its shells are touched. */
+export const SeagullGivesBack: Story = {
+  args: { config: leftover },
+  play: async ({ canvasElement, args }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    await dealRounds(root, 2);
+    await expectShown(root, { shares: [2, 2, 2], pile: 1 });
+    await userEvent.click(bird(root));
+    await expectShown(root, { shares: [2, 2, 2], pile: 0, seagull: 1 });
+    await expectTarget(gullItems(root), 'g1-up', "the seagull's items");
+    await userEvent.click(gullItems(root));
+    await expectShown(root, { shares: [2, 2, 2], pile: 1 });
+    await expect(steps(args).slice(-2)).toEqual(['tap:seagull', 'tap:seagull-items']);
+  },
+};
+
+// ---------- limits: said, shown, and one ring on what to do next ----------
+
+/** A full pebbling takes no more: the note says so and its mat (take one back) is ringed. */
+export const FullRecipientNote: Story = {
+  args: { config: fillable },
+  play: async ({ canvasElement, parameters }) => {
+    const audio = audioOf(parameters);
+    const root = await findWidget(canvasElement, ROOT);
+    for (let i = 0; i < 10; i += 1) {
+      await userEvent.click(take(root));
+      await userEvent.click(recipient(root, 0));
+    }
+    await expectShown(root, { shares: [10, 0], pile: 2 });
+    await expectNote(root, null);
+    await expect(dealRound(root)).toBeDisabled();
+    clearSpies(audio);
+    await userEvent.click(take(root));
+    await userEvent.click(recipient(root, 0));
+    await expectShown(root, { shares: [10, 0], pile: 2 });
+    await expectNote(root, 'This one is full');
+    await expect(said(audio)).toContain('ui.widget.es.note.full');
+    await expectRing(root, hit(root, 0));
+    await expectAreaFit(canvasElement, buildFit(root, 'g1-up', 'equal-share full recipient'));
+    // The next step clears the note.
+    await userEvent.click(handle(root, 0));
+    await expectNote(root, null);
+  },
+};
+
+/** The last shell leaves the basket: the note says it is empty; fair shares ring Next. */
+export const EmptyBasketNote: Story = {
+  play: async ({ canvasElement, parameters }) => {
+    const audio = audioOf(parameters);
+    const root = await findWidget(canvasElement, ROOT);
+    await dealRounds(root, 3);
+    clearSpies(audio);
+    await userEvent.click(dealRound(root));
+    await expectNote(root, 'The basket is empty');
+    await expect(said(audio)).toEqual(['ui.widget.es.why.empty']);
+    await expectRing(root, stepButton(root, 'next'));
+  },
+};
+
+/** An empty basket with unfair shares rings the mat that holds the most, never Next. */
+export const EmptyBasketUnfair: Story = {
+  args: { config: { ...each, items: 4, allowLeftover: true } },
+  play: async ({ canvasElement }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    await userEvent.click(dealRound(root));
+    await userEvent.click(take(root));
+    await userEvent.click(recipient(root, 1));
+    await expectShown(root, { shares: [1, 2, 1], pile: 0 });
+    await expectNote(root, 'The basket is empty');
+    await expectRing(root, hit(root, 1));
+    // Touching the empty basket says it again.
+    await userEvent.click(handle(root, 1));
+    await userEvent.keyboard('{Escape}');
+    await userEvent.click(basket(root));
+    await expectNote(root, 'The basket is empty');
+  },
+};
+
+/** The seagull says why it takes nothing yet, and the ring shows what to do instead. */
+export const SeagullNotYet: Story = {
+  args: { config: leftover },
+  play: async ({ canvasElement, parameters }) => {
+    const audio = audioOf(parameters);
+    const root = await findWidget(canvasElement, ROOT);
+    clearSpies(audio);
+    await userEvent.click(bird(root));
+    await expectNote(root, 'Each one can have more');
+    await expect(said(audio)).toEqual(['ui.widget.es.why.round']);
+    await expectRing(root, dealRound(root));
+    await expectShown(root, { shares: [0, 0, 0], pile: 7 });
+    await dealRounds(root, 2);
+    await userEvent.click(take(root));
+    await userEvent.click(recipient(root, 0));
+    await userEvent.click(handle(root, 1));
+    await userEvent.click(basket(root));
+    await expectShown(root, { shares: [3, 1, 2], pile: 1 });
+    await userEvent.click(bird(root));
+    await expectNote(root, 'They do not have the same');
+    await expectRing(root, hit(root, 0));
+    await expectShown(root, { shares: [3, 1, 2], pile: 1 });
+  },
+};
+
+// ---------- the other asks ----------
+
+/** `leftover`: deal, give the seagull the rest, then type how many were left. */
 export const Leftover: Story = {
   args: { config: leftover },
   play: async ({ canvasElement, args }) => {
     const root = await findWidget(canvasElement, ROOT);
-    await expect(
-      within(root).getByRole('group', { name: 'How many are left over?' }),
-    ).toBeVisible();
-    await userEvent.click(dealRound(root));
-    await userEvent.click(dealRound(root));
-    await expectShown(root, { shares: [2, 2, 2], pile: 1 });
-    await waitFor(() => expect(give(root)).toBeEnabled());
-    await expect(reason(root)).toBeNull();
-    await expectNothingStates(root, [1]);
-    await userEvent.click(give(root));
+    await dealRounds(root, 2);
+    await userEvent.click(bird(root));
+    await expectNote(root, 'The basket is empty');
+    await expectRing(root, stepButton(root, 'next'));
+    await goNext(root);
     await expectShown(root, { shares: [2, 2, 2], pile: 0, seagull: 1 });
-    await expect(give(root)).toBeDisabled();
-    await typeOnPad(root, '1');
-    await userEvent.click(checkButton(root));
+    await enterNumber(root, 1);
+    await userEvent.click(stepButton(root, 'check'));
     await expect(args.onResponse).toHaveBeenCalledWith(
       state({ shares: [2, 2, 2], leftover: 1, value: 1 }),
     );
-    await expect(steps(args)).toEqual([
-      'tap:deal-round',
-      'tap:deal-round',
-      'tap:seagull',
-      'tap:key-1',
-    ]);
-    await expectItemsApart(root);
-    await expectItemSize(root, 32);
-    await expectFits(canvasElement, root);
   },
 };
 
-/**
- * Stress: 7 among 3 pebblings with the leftover still in the basket (the in-between moment the
- * seagull is waiting for): everything fits, items ≥ 40 px.
- */
-export const LeftoverWaiting: Story = {
-  args: { config: leftover },
-  play: async ({ canvasElement }) => {
-    const root = await findWidget(canvasElement, ROOT);
-    await userEvent.click(dealRound(root));
-    await userEvent.click(dealRound(root));
-    await expectShown(root, { shares: [2, 2, 2], pile: 1 });
-    await waitFor(() => expect(give(root)).toBeEnabled());
-    await expectItemsApart(root);
-    await expectFits(canvasElement, root);
-  },
-};
-
-// ---------- fair-or-not and even-odd ----------
-
-/**
- * `fair-or-not` (stress: 4 plates): the pre-dealt shares are a picture; "Fair" and "Not fair" are
- * big cards with a picture and a word. Picked → ink ring and check badge. Check sends the choice.
- */
+/** `fair-or-not`: a pre-dealt share is a picture; pick "Not fair" and check. */
 export const FairOrNot: Story = {
   args: { config: fair },
-  parameters: { ui: { audio: spyAudio() } },
   play: async ({ canvasElement, args, parameters }) => {
-    const audio = parameters.ui.audio as SpyAudio;
-    clearSpies(audio);
+    const audio = audioOf(parameters);
     const root = await findWidget(canvasElement, ROOT);
+    await expect(root).toHaveAttribute('data-step', 'ask');
     await expectShown(root, { shares: [3, 3, 2, 3], pile: 0 });
-    await expect(within(root).getByRole('img', { name: 'Look at the picture' })).toBeVisible();
-    await expect(root.querySelector('[data-place-item]')).toBeNull();
-    await expect(checkButton(root)).toBeDisabled();
-    // Tapping the picture names what is under the finger: a starfish, then a plate.
-    await userEvent.click(root.querySelector('[data-es-tap="item-2-1"]') as HTMLElement);
-    await userEvent.click(root.querySelector('[data-es-tap="recipient-3"]') as HTMLElement);
-    await expect(said(audio)).toEqual(['ui.sprite.starfish', 'ui.widget.es.kind.plate']);
-    await userEvent.click(option(root, 'no'));
-    await expect(said(audio)).toContain('ui.widget.es.opt.no');
-    await expect(option(root, 'no')).toHaveAttribute('aria-pressed', 'true');
-    await expect(option(root, 'no').querySelector('.ni-pick__badge')).not.toBeNull();
-    await expect(option(root, 'yes')).toHaveAttribute('aria-pressed', 'false');
-    await userEvent.click(checkButton(root));
-    await expect(args.onResponse).toHaveBeenCalledWith({ kind: 'choice', id: 'no' });
-    await expect(steps(args)).toEqual(['tap:item-2-1', 'tap:recipient-3', 'tap:opt-no']);
-    await expectTraceOrdered(traceOf(args.onInteract));
-    const targets = [option(root, 'yes'), option(root, 'no'), checkButton(root)];
-    for (const el of targets) await expectTargetSize(el, 'g1-up');
-    await expectTargetGaps(targets);
-    await expect(within(root).getByText('Not fair')).toBeVisible();
-    await expectItemsApart(root);
-    await expectItemSize(root, 60);
-    await expectFits(canvasElement, root);
-  },
-};
-
-/** `fair-or-not` in K: the two choices are pictures only, with spoken labels. */
-export const FairOrNotK: Story = {
-  globals: { ageMode: 'k' },
-  args: { config: { ...fair, predealt: [3, 3, 3, 2], recipientsKind: 'pebbling' } },
-  parameters: { ui: { audio: spyAudio() } },
-  play: async ({ canvasElement, args, parameters }) => {
-    const audio = parameters.ui.audio as SpyAudio;
+    await expectAreaFit(canvasElement, {
+      ...askFit(root, 'g1-up', 'equal-share fair-or-not'),
+      minFill: 0.5,
+    });
+    await expectOneScale(root);
     clearSpies(audio);
-    const root = await findWidget(canvasElement, ROOT);
-    await expect(root.querySelectorAll('.ni-esw__option-word')).toHaveLength(0);
-    await expect(root.querySelectorAll('.ni-esw__legend-text')).toHaveLength(0);
-    await userEvent.click(option(root, 'yes'));
-    await expect(said(audio)).toContain('ui.widget.es.opt.yes');
-    const targets = [option(root, 'yes'), option(root, 'no'), checkButton(root)];
-    for (const el of targets) await expectTargetSize(el, 'k');
-    await expectTargetGaps(targets);
-    await userEvent.click(checkButton(root));
-    await expect(args.onResponse).toHaveBeenCalledWith({ kind: 'choice', id: 'yes' });
-    await expectFits(canvasElement, root);
+    await userEvent.click(option(root, 'no'));
+    await expect(said(audio)).toEqual(['ui.widget.es.opt.no']);
+    await userEvent.click(stepButton(root, 'check'));
+    await expect(args.onResponse).toHaveBeenCalledWith({ kind: 'choice', id: 'no' });
+    await expect(steps(args)).toEqual(['tap:opt-no']);
   },
 };
 
-/**
- * `even-odd` (MUL.01): deal 7 leaves between two (one is left in the basket), then pick "Odd"
- * (pairs plus one left over). Check sends `{ kind: 'choice', id: 'odd' }`.
- */
+/** `even-odd`: share between two, then say whether the number is even or odd. */
 export const EvenOdd: Story = {
   args: { config: evenOdd },
   play: async ({ canvasElement, args }) => {
     const root = await findWidget(canvasElement, ROOT);
-    await expect(within(root).getByRole('group', { name: 'Even or odd?' })).toBeVisible();
-    for (let k = 0; k < 3; k++) await userEvent.click(dealRound(root));
+    await dealRounds(root, 3);
     await expectShown(root, { shares: [3, 3], pile: 1 });
-    await expect(checkButton(root)).toBeDisabled();
+    await goNext(root);
     await userEvent.click(option(root, 'odd'));
-    await userEvent.click(checkButton(root));
+    await userEvent.click(stepButton(root, 'check'));
     await expect(args.onResponse).toHaveBeenCalledWith({ kind: 'choice', id: 'odd' });
-    await expect(steps(args)).toEqual([
-      'tap:deal-round',
-      'tap:deal-round',
-      'tap:deal-round',
-      'tap:opt-odd',
-    ]);
-    await expectItemsApart(root);
-    await expectFits(canvasElement, root);
   },
 };
 
-/**
- * Evidence, K START (6 between 2): six chunky crabs in the basket, two big pebblings behind empty
- * mats, icon-only controls. The seagull's reason is an icon (spoken when the seagull is tapped).
- */
-export const BuildKStart: Story = {
+/** FRA.07.t2: an unfair pre-dealt pair; move one from the plate with more, then type each. */
+export const FixUnfairShare: Story = {
+  args: { config: fix },
+  play: async ({ canvasElement, args }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    await expectShown(root, { shares: [5, 3], pile: 0 });
+    // Nothing is said or ringed before the child has done anything.
+    await expectNote(root, null);
+    await expectRing(root, null);
+    await pointerDrag(handle(root, 0), center(recipient(root, 1)), 'touch', 10);
+    await expectShown(root, { shares: [4, 4], pile: 0 });
+    await goNext(root);
+    await enterNumber(root, 4);
+    await userEvent.click(stepButton(root, 'check'));
+    await expect(args.onResponse).toHaveBeenCalledWith(
+      state({ shares: [4, 4], leftover: 0, value: 4 }),
+    );
+  },
+};
+
+// ---------- kindergarten mode ----------
+
+/** Kindergarten: 6 crabs between 2 pebblings; 80 px targets in the smallest area. */
+export const KindergartenBuild: Story = {
   globals: { ageMode: 'k' },
-  args: { config: buildK },
+  args: { config: kinder },
   play: async ({ canvasElement }) => {
     const root = await findWidget(canvasElement, ROOT);
-    await expectShown(root, { shares: [0, 0], pile: 6 });
-    await expect(root.querySelectorAll('.ni-esw__caption')).toHaveLength(0);
-    await expect(reason(root)).toHaveAttribute('aria-label', 'Each one can have more');
-    await expectTargetSize(pileItem(root), 'k');
-    await expectItemSize(root, 52);
-    await expectItemsApart(root);
-    await expectFits(canvasElement, root);
+    await expectAreaFit(canvasElement, buildFit(root, 'k', 'equal-share K 906x373 build'));
+    await userEvent.click(take(root));
+    await userEvent.click(recipient(root, 0));
+    await expectTarget(hit(root, 0), 'k', 'the take-back hit area');
   },
 };
 
-/**
- * K `each` (6 between 2): chunky items, every control an icon with a spoken label. Tapping an
- * item names it; tapping a pebbling names it too.
- */
-export const BuildK: Story = {
+/** Kindergarten ask step: the picture and the numeral cards (or the stepper), 80 px targets. */
+export const KindergartenAsk: Story = {
   globals: { ageMode: 'k' },
-  args: { config: buildK },
-  parameters: { ui: { audio: spyAudio() } },
-  play: async ({ canvasElement, args, parameters }) => {
-    const audio = parameters.ui.audio as SpyAudio;
-    clearSpies(audio);
+  args: { config: kinder },
+  play: async ({ canvasElement, args }) => {
     const root = await findWidget(canvasElement, ROOT);
-    // Icon-only controls (06 §5): nothing to read.
-    await expect(root.querySelectorAll('.ni-esw__caption')).toHaveLength(0);
-    await expect(root.querySelectorAll('.ni-esw__legend-text')).toHaveLength(0);
-    await expect(root.querySelectorAll('.ni-btn__label')).toHaveLength(0);
-    await userEvent.click(recipient(root, 1));
-    await expect(said(audio)).toContain('ui.widget.es.kind.pebbling');
-    await userEvent.click(dealRound(root));
-    await expect(said(audio)).toContain('ui.widget.es.deal-round');
-    await userEvent.click(pileItem(root));
-    await expect(said(audio)).toContain('ui.sprite.crab');
-    await userEvent.click(recipient(root, 0));
-    await userEvent.click(pileItem(root));
-    await userEvent.click(recipient(root, 1));
-    await userEvent.click(dealRound(root));
-    await expectShown(root, { shares: [3, 3], pile: 0 });
-    const targets = [dealRound(root), give(root), bird(root), checkButton(root)];
-    for (const el of targets) await expectTargetSize(el, 'k');
-    await expectTargetGaps(targets);
-    await expectTargetSize(pileItem(root, 0) ?? root.querySelector('.ni-esw__spot'), 'k');
-    for (const i of [0, 1]) await expectTargetSize(recipient(root, i), 'k');
-    const keys = [...root.querySelectorAll<HTMLElement>('.ni-pad__key')];
-    for (const key of keys) await expectTargetSize(key, 'k');
-    await expectItemSize(root, 52);
-    await typeOnPad(root, '3');
-    await userEvent.click(checkButton(root));
+    await dealRounds(root, 3);
+    await goNext(root);
+    await expectAreaFit(canvasElement, {
+      ...askFit(root, 'k', 'equal-share K 906x373 ask'),
+      minFill: 0.5,
+    });
+    await enterNumber(root, 3);
+    await userEvent.click(stepButton(root, 'check'));
     await expect(args.onResponse).toHaveBeenCalledWith(
       state({ shares: [3, 3], leftover: 0, value: 3 }),
     );
+  },
+};
+
+// ---------- stress: the bound, in the smallest area ----------
+
+/** 24 things among 4 (the model's bound): everything fits, 20 px items that never touch. */
+export const StressAtBoundBuild: Story = {
+  args: { config: bound },
+  play: async ({ canvasElement }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    await expectShown(root, { shares: [0, 0, 0, 0], pile: 24 });
+    await expectAreaFit(canvasElement, buildFit(root, 'g1-up', 'equal-share 24 among 4 build'));
     await expectItemsApart(root);
-    await expectFits(canvasElement, root);
+    await dealRounds(root, 6);
+    await expectShown(root, { shares: [6, 6, 6, 6], pile: 0 });
+    await expectItemsApart(root);
+    await expectOneScale(root);
+    await expectTarget(hit(root, 3), 'g1-up', 'the take-back hit area');
   },
 };
 
-// ---------- the drag, tap and keyboard paths ----------
-
-/** Mouse: drag the shell on the take-one spot to the second pebbling. */
-export const DragItem: Story = {
+/** The bound's ask step: the four shares as a legible picture beside the answer control. */
+export const StressAtBoundAsk: Story = {
+  args: { config: bound },
   play: async ({ canvasElement, args }) => {
     const root = await findWidget(canvasElement, ROOT);
-    await pointerDrag(pileItem(root), center(recipient(root, 1)), 'mouse', 10);
-    await expectShown(root, { shares: [0, 1, 0], pile: 11 });
-    // A loose shell in the basket drags too.
-    await pointerDrag(pileItem(root, 5), center(recipient(root, 2)), 'mouse', 10);
-    await expectShown(root, { shares: [0, 1, 1], pile: 10 });
-    // A mis-drop glides home: nothing changes.
-    const from = center(pileItem(root));
-    await pointerDrag(pileItem(root), { x: from.x, y: from.y + 400 }, 'mouse');
-    await expectShown(root, { shares: [0, 1, 1], pile: 10 });
-    await typeOnPad(root, '4');
-    await userEvent.click(checkButton(root));
+    await dealRounds(root, 6);
+    await goNext(root);
+    await expectShown(root, { shares: [6, 6, 6, 6], pile: 0 });
+    await expectAreaFit(canvasElement, {
+      ...askFit(root, 'g1-up', 'equal-share 24 among 4 ask'),
+      minFill: 0.5,
+    });
+    await expectItemsApart(root);
+    await enterNumber(root, 6);
+    await userEvent.click(stepButton(root, 'check'));
     await expect(args.onResponse).toHaveBeenCalledWith(
-      state({ shares: [0, 1, 1], leftover: 10, value: 4 }),
+      state({ shares: [6, 6, 6, 6], leftover: 0, value: 6 }),
     );
-    const trace = traceOf(args.onInteract);
-    await expect(steps(args)).toEqual([
-      'drag:pile',
-      'drop:recipient-1',
-      'drag:pile',
-      'drop:recipient-2',
-      'drag:pile',
-      'drop:none',
-      'tap:key-4',
-    ]);
-    await expectTraceOrdered(trace);
   },
 };
 
-/** Touch: hold a shell over the first pebbling (its mat lights up), then let go. */
-export const TouchDrag: Story = {
-  play: async ({ canvasElement, args }) => {
+/** The fullest a recipient gets: 24 between 2 plates, 15 on one of them (SHARE_ZONE_MAX). */
+export const StressFullestZone: Story = {
+  args: { config: { ...bound, recipients: 2, recipientsKind: 'plate' } },
+  play: async ({ canvasElement }) => {
     const root = await findWidget(canvasElement, ROOT);
-    const lift = await touchDragAndHold(pileItem(root), center(recipient(root, 0)));
-    await expect(recipient(root, 0)).toHaveAttribute('data-over', 'true');
-    await expect(pileItem(root)).toHaveAttribute('data-dragging', 'true');
-    await lift();
-    await expectShown(root, { shares: [1, 0, 0], pile: 11 });
-    await pointerDrag(pileItem(root), center(recipient(root, 2)), 'touch');
-    await expectShown(root, { shares: [1, 0, 1], pile: 10 });
-    await typeOnPad(root, '4');
-    await userEvent.click(checkButton(root));
-    await expect(args.onResponse).toHaveBeenCalledWith(
-      state({ shares: [1, 0, 1], leftover: 10, value: 4 }),
-    );
-    const trace = traceOf(args.onInteract);
-    await expect(steps(args)).toEqual([
-      'drag:pile',
-      'drop:recipient-0',
-      'drag:pile',
-      'drop:recipient-2',
-      'tap:key-4',
-    ]);
-    await expectTraceOrdered(trace);
-  },
-};
-
-/**
- * Tap-to-place: tap a shell (it lifts and says "Shell"), then tap a pebbling. Tapping a pebbling
- * with nothing picked up says "Pebbling".
- */
-export const TapToPlace: Story = {
-  parameters: { ui: { audio: spyAudio() } },
-  play: async ({ canvasElement, args, parameters }) => {
-    const audio = parameters.ui.audio as SpyAudio;
-    clearSpies(audio);
-    const root = await findWidget(canvasElement, ROOT);
-    await userEvent.click(recipient(root, 2));
-    await expect(said(audio)).toEqual(['ui.widget.es.kind.pebbling']);
-    await userEvent.click(pileItem(root));
-    await expect(pileItem(root)).toHaveAttribute('aria-pressed', 'true');
-    await expect(said(audio)).toContain('ui.sprite.shell');
-    await expect(recipient(root, 0)).toHaveAttribute('data-armed', 'true');
-    await userEvent.click(recipient(root, 0));
-    await expectShown(root, { shares: [1, 0, 0], pile: 11 });
-    // Tapping an item at a pebbling names it too.
-    await userEvent.click(item(root, 0, 0));
-    await expect(said(audio).filter((k) => k === 'ui.sprite.shell')).toHaveLength(2);
-    await userEvent.click(recipient(root, 1));
-    await expectShown(root, { shares: [0, 1, 0], pile: 11 });
-    await expect(steps(args)).toEqual([
-      'tap:recipient-2',
-      'tap:pile',
-      'tap:recipient-0',
-      'tap:item-0-0',
-      'tap:recipient-1',
-    ]);
-    await expectTraceOrdered(traceOf(args.onInteract));
-  },
-};
-
-/** Keyboard (06 §7): Enter picks up the shell and jumps to the first pebbling; arrows; Enter. */
-export const Keyboard: Story = {
-  play: async ({ canvasElement, args }) => {
-    const root = await findWidget(canvasElement, ROOT);
-    pileItem(root).focus();
-    await userEvent.keyboard('{Enter}');
-    await expect(recipient(root, 0)).toHaveFocus();
-    await userEvent.keyboard('{ArrowRight}');
-    await expect(recipient(root, 1)).toHaveFocus();
-    await userEvent.keyboard('{Enter}');
-    await expectShown(root, { shares: [0, 1, 0], pile: 11 });
-    // Escape puts a picked-up shell down again.
-    pileItem(root).focus();
-    await userEvent.keyboard('{Enter}');
-    await userEvent.keyboard('{Escape}');
-    await expect(pileItem(root)).toHaveAttribute('aria-pressed', 'false');
-    await userEvent.keyboard('4');
-    await userEvent.click(checkButton(root));
-    await expect(args.onResponse).toHaveBeenCalledWith(
-      state({ shares: [0, 1, 0], leftover: 11, value: 4 }),
-    );
-    await expect(steps(args)).toEqual(['tap:pile', 'tap:recipient-1', 'tap:pile', 'tap:key-4']);
-    await expectTraceOrdered(traceOf(args.onInteract));
-  },
-};
-
-/**
- * Give back: an item at a pebbling goes back to the basket (drag it there, or tap it and tap the
- * basket), or on to another pebbling.
- */
-export const GiveBack: Story = {
-  play: async ({ canvasElement, args }) => {
-    const root = await findWidget(canvasElement, ROOT);
-    await userEvent.click(dealRound(root));
-    await userEvent.click(dealRound(root));
-    await expectShown(root, { shares: [2, 2, 2], pile: 6 });
-    await pointerDrag(item(root, 0, 1), center(basket(root)), 'mouse', 10);
-    await expectShown(root, { shares: [1, 2, 2], pile: 7 });
-    await userEvent.click(item(root, 1, 0));
-    await userEvent.click(basket(root));
-    await expectShown(root, { shares: [1, 1, 2], pile: 8 });
-    // On to another pebbling.
-    await userEvent.click(item(root, 2, 1));
-    await userEvent.click(recipient(root, 0));
-    await expectShown(root, { shares: [2, 1, 1], pile: 8 });
-    await typeOnPad(root, '4');
-    await userEvent.click(checkButton(root));
-    await expect(args.onResponse).toHaveBeenCalledWith(
-      state({ shares: [2, 1, 1], leftover: 8, value: 4 }),
-    );
-    await expect(steps(args)).toEqual([
-      'tap:deal-round',
-      'tap:deal-round',
-      'drag:item-0-1',
-      'drop:pile',
-      'tap:item-1-0',
-      'tap:pile',
-      'tap:item-2-1',
-      'tap:recipient-0',
-      'tap:key-4',
-    ]);
-    await expectTraceOrdered(traceOf(args.onInteract));
-  },
-};
-
-/**
- * The seagull's button stays off until the shares are equal and too few are left to go round:
- * first "Each one can have more", then (3, 2, 1 with one left) "They do not have the same". Moving
- * one shell to make 2, 2, 2 turns it on. Tapping the seagull says the reason.
- */
-export const SeagullOnlyWhenFair: Story = {
-  args: { config: leftover },
-  parameters: { ui: { audio: spyAudio() } },
-  play: async ({ canvasElement, args, parameters }) => {
-    const audio = parameters.ui.audio as SpyAudio;
-    clearSpies(audio);
-    const root = await findWidget(canvasElement, ROOT);
-    await expect(give(root)).toBeDisabled();
-    await expect(reason(root)).toHaveAttribute('aria-label', 'Each one can have more');
-    await userEvent.click(bird(root));
-    await expect(said(audio)).toContain('ui.widget.es.why.round');
-    for (const to of [0, 0, 0, 1, 1, 2]) {
-      await userEvent.click(pileItem(root));
-      await userEvent.click(recipient(root, to));
+    for (let i = 0; i < 15; i += 1) {
+      await userEvent.click(take(root));
+      await userEvent.click(recipient(root, 0));
     }
-    await expectShown(root, { shares: [3, 2, 1], pile: 1 });
-    await expect(give(root)).toBeDisabled();
-    await expect(reason(root)).toHaveAttribute('aria-label', 'They do not have the same');
-    await expect(within(root).getByText('They do not have the same')).toBeVisible();
-    await userEvent.click(bird(root));
-    await expect(said(audio)).toContain('ui.widget.es.why.unequal');
-    await userEvent.click(item(root, 0, 2));
-    await userEvent.click(recipient(root, 2));
-    await expectShown(root, { shares: [2, 2, 2], pile: 1 });
-    await expect(give(root)).toBeEnabled();
-    await expect(within(root).getByText('Give the seagull what is left')).toBeVisible();
-    await expect(args.onResponse).not.toHaveBeenCalled();
-    await expectFits(canvasElement, root);
+    await expectShown(root, { shares: [15, 0], pile: 9 });
+    await expectAreaFit(canvasElement, buildFit(root, 'g1-up', 'equal-share 15 on one plate'));
+    await expectItemsApart(root);
   },
 };
 
-// ---------- stress ----------
+// ---------- steps, disabled, demo ----------
 
-/**
- * Stress: 24 counters among 6 plates. Everything fits 1280 × 800 at one item size ≥ 20 px, in
- * fives, never overlapping, before and after dealing.
- */
-export const Stress24: Story = {
-  args: { config: stress24 },
+/** Next and Back hand the focus to each other; a held Enter steps once. */
+export const HeldEnterStepsOnce: Story = {
   play: async ({ canvasElement, args }) => {
     const root = await findWidget(canvasElement, ROOT);
-    await expectShown(root, { shares: [0, 0, 0, 0, 0, 0], pile: 24 });
-    await expectItemSize(root, 30);
-    await expectItemsApart(root);
-    await expectFits(canvasElement, root);
-    for (let k = 0; k < 3; k++) await userEvent.click(dealRound(root));
-    await userEvent.click(pileItem(root));
-    await userEvent.click(recipient(root, 5));
-    await expectShown(root, { shares: [3, 3, 3, 3, 3, 4], pile: 5 });
-    await expectNothingStates(root, [24, 4]);
-    await expectItemsApart(root);
-    await expectItemSize(root, 30);
-    await expectFits(canvasElement, root);
-    await expect(args.onResponse).not.toHaveBeenCalled();
+    stepButton(root, 'next').focus();
+    await holdEnter(stepButton(root, 'next'), 4, async () => {
+      await new Promise((r) => requestAnimationFrame(() => r(null)));
+    });
+    await expect(root).toHaveAttribute('data-step', 'ask');
+    await expect(stepButton(root, 'back')).toHaveFocus();
+    await expect(steps(args)).toEqual(['tap:next']);
+    await userEvent.click(stepButton(root, 'back'));
+    await expect(root).toHaveAttribute('data-step', 'build');
   },
 };
 
-// ---------- disabled ----------
-
-/** `disabled`: no input at all (feedback showing, or the runner waiting). */
+/** Disabled: nothing moves and nothing is traced. */
 export const Disabled: Story = {
   args: { disabled: true },
   play: async ({ canvasElement, args }) => {
     const root = await findWidget(canvasElement, ROOT);
     await expect(dealRound(root)).toBeDisabled();
-    await expect(give(root)).toBeDisabled();
     await expect(bird(root)).toBeDisabled();
-    await expect(checkButton(root)).toBeDisabled();
-    await expect(pileItem(root)).toHaveAttribute('aria-disabled', 'true');
-    await userEvent.click(pileItem(root));
+    await expect(stepButton(root, 'next')).toBeDisabled();
+    await userEvent.click(take(root));
     await userEvent.click(recipient(root, 0));
-    await pointerDrag(pileItem(root), center(recipient(root, 1)), 'mouse');
-    await userEvent.click(padKey(root, '4'));
+    await pointerDrag(take(root), center(recipient(root, 1)), 'mouse');
     await expectShown(root, { shares: [0, 0, 0], pile: 12 });
     await expect(args.onInteract).not.toHaveBeenCalled();
-    await expect(args.onResponse).not.toHaveBeenCalled();
   },
 };
 
-// ---------- demo mode ----------
-
 const demoPlay: WidgetDemo = createDemoController({ strict: true });
-/**
- * Demo (03 §6.3), every op: a fish flies to the first pebbling, two to the second and one back,
- * a round flies to each in turn, one more to the third, the last fish hops to the seagull, and
- * Pip types 1. Input is off while a step plays; afterwards the widget is back to normal.
- */
+/** Demo play: the guide deals, gives the seagull the rest and enters the answer. */
 export const DemoPlay: Story = {
   args: { config: leftover, demo: demoPlay },
   play: async ({ canvasElement, args }) => {
     const root = await findWidget(canvasElement, ROOT);
-    const first = demoPlay.play({ op: 'deal', args: { to: 0 } });
-    await waitFor(() => expect(dealRound(root)).toBeDisabled());
-    await first;
-    await expectShown(root, { shares: [1, 0, 0], pile: 6 });
     await demoPlay.play({ op: 'deal', args: { to: 1, count: 2 } });
-    await expectShown(root, { shares: [1, 2, 0], pile: 4 });
-    await demoPlay.play({ op: 'deal', args: { to: 1, count: -1 } });
-    await expectShown(root, { shares: [1, 1, 0], pile: 5 });
-    const round = demoPlay.play({ op: 'deal-round' });
-    await waitFor(() => expect(shown(root).shares).toEqual([2, 1, 0]));
-    await round;
-    await expectShown(root, { shares: [2, 2, 1], pile: 2 });
-    // Not yet: the model does nothing (the shares are not equal).
-    await demoPlay.play({ op: 'set-aside-leftover' });
-    await expectShown(root, { shares: [2, 2, 1], pile: 2 });
-    await demoPlay.play({ op: 'deal', args: { to: 2 } });
+    await expectShown(root, { shares: [0, 2, 0], pile: 5 });
+    await demoPlay.play({ op: 'deal', args: { to: 1, count: -2 } });
+    await demoPlay.play({ op: 'deal-round' });
+    await demoPlay.play({ op: 'deal-round' });
+    await expectShown(root, { shares: [2, 2, 2], pile: 1 });
     await demoPlay.play({ op: 'set-aside-leftover' });
     await expectShown(root, { shares: [2, 2, 2], pile: 0, seagull: 1 });
+    // The answer is entered on the ask step, which the demo opens.
     await demoPlay.play({ op: 'answer', args: { value: 1 } });
-    await expect(root.querySelector('.ni-esw__blank')).toHaveAttribute(
-      'aria-label',
-      'Your answer: 1',
-    );
-    // Back to normal, and the demo's answer is the child's to check.
-    await expect(root.querySelectorAll('[data-flash="true"]')).toHaveLength(0);
-    await waitFor(() => expect(checkButton(root)).toBeEnabled());
-    await expect(bird(root)).toBeEnabled();
+    await expect(root).toHaveAttribute('data-step', 'ask');
     await expect(args.onInteract).not.toHaveBeenCalled();
-    await userEvent.click(checkButton(root));
+    await waitFor(() => expect(stepButton(root, 'check')).toBeEnabled());
+    await userEvent.click(stepButton(root, 'check'));
     await expect(args.onResponse).toHaveBeenCalledWith(
       state({ shares: [2, 2, 2], leftover: 1, value: 1 }),
     );
@@ -824,46 +745,58 @@ export const DemoPlay: Story = {
 };
 
 const demoChoice: WidgetDemo = createDemoController({ strict: true });
-/** Demo `answer {id}`: Pip picks "Not fair" on the pre-dealt plates. */
+/** Demo `answer {id}`: the guide picks "Not fair" on the pre-dealt plates. */
 export const DemoPlayChoice: Story = {
   args: { config: fair, demo: demoChoice },
   play: async ({ canvasElement, args }) => {
     const root = await findWidget(canvasElement, ROOT);
     await demoChoice.play({ op: 'answer', args: { id: 'no' } });
-    await expect(option(root, 'no')).toHaveAttribute('aria-pressed', 'true');
-    await waitFor(() => expect(checkButton(root)).toBeEnabled());
-    await userEvent.click(checkButton(root));
+    await waitFor(() => expect(stepButton(root, 'check')).toBeEnabled());
+    await userEvent.click(stepButton(root, 'check'));
     await expect(args.onResponse).toHaveBeenCalledWith({ kind: 'choice', id: 'no' });
   },
 };
 
 const demoInvite: WidgetDemo = createDemoController({ strict: true });
 /**
- * Demo invite: Pip's hand points at the take-one spot (deal to the second pebbling, which is
- * ringed too), then at "Give one to each", the seagull's button and the answer blank.
+ * Demo invite in the smallest area: one ring, on the take-one spot, with the demonstration hand
+ * on it; the whole task stays in view.
  */
-export const DemoInvite: Story = {
+export const DemoInviteLandscapeMin: Story = {
   args: { config: leftover, demo: demoInvite },
   play: async ({ canvasElement }) => {
     const root = await findWidget(canvasElement, ROOT);
     const hand = () => root.querySelector('.ni-hand') as HTMLElement;
-    const spot = () => root.querySelector('.ni-esw__spot') as HTMLElement;
     demoInvite.invite({ op: 'deal', args: { to: 1 } });
-    await waitFor(() => expect(spot()).toHaveClass('ni-invite'));
-    await expect(root.querySelector('.ni-esw__rec.ni-invite')).not.toBeNull();
-    await expectPointerOn(hand(), pileItem(root), root);
-    demoInvite.invite({ op: 'deal-round' });
-    await waitFor(() => expect(dealRound(root)).toHaveClass('ni-invite'));
-    await expectPointerOn(hand(), dealRound(root), root);
-    demoInvite.invite({ op: 'set-aside-leftover' });
-    await waitFor(() => expect(give(root)).toHaveClass('ni-invite'));
-    await expectPointerOn(hand(), give(root), root);
-    demoInvite.invite({ op: 'answer', args: { value: 1 } });
-    const blank = root.querySelector('.ni-esw__blank') as HTMLElement;
-    await waitFor(() => expect(blank).toHaveClass('ni-invite'));
-    await expectPointerOn(hand(), blank, root);
+    await expectRing(root, spot(root));
+    await waitFor(() => expect(hand()).not.toBeNull());
+    await expectPointerOn(hand(), spot(root), root);
+    await expectAreaFit(canvasElement, buildFit(root, 'g1-up', 'equal-share invite'));
+  },
+};
+
+const demoInvites: WidgetDemo = createDemoController({ strict: true });
+/** Each invite rings exactly one control: the round button, the seagull, Next, then the answer. */
+export const DemoInviteEachControl: Story = {
+  args: { config: leftover, demo: demoInvites },
+  play: async ({ canvasElement }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    const hand = () => root.querySelector('.ni-hand') as HTMLElement;
+    demoInvites.invite({ op: 'deal-round' });
+    await expectRing(root, dealRound(root));
+    await waitFor(() => expectPointerOn(hand(), dealRound(root), root));
+    demoInvites.invite({ op: 'set-aside-leftover' });
+    await expectRing(root, bird(root));
+    // The answer is on the next step: the invite points at Next, then at the numeral.
+    demoInvites.invite({ op: 'answer', args: { value: 1 } });
+    await expectRing(root, stepButton(root, 'next'));
+    await goNext(root);
+    demoInvites.invite({ op: 'answer', args: { value: 1 } });
+    await waitFor(() => expect(root.querySelectorAll('.ni-invite')).toHaveLength(1));
+    await expect(root.querySelector('.ni-entry .ni-invite, .ni-stepper .ni-invite')).not.toBeNull();
     // The child's own step clears the invite.
-    await userEvent.click(dealRound(root));
+    await enterNumber(root, 1);
+    await expectRing(root, null);
     await expect(root.querySelector('.ni-hand')).toBeNull();
   },
 };
@@ -881,31 +814,17 @@ export const DemoUnsupportedOp: Story = {
 };
 
 const demoReduced: WidgetDemo = createDemoController({ strict: true });
-/**
- * Reduced motion: ops are instant (nothing flies or hops); the changed items are highlighted
- * briefly, then the widget is back to normal.
- */
+/** Reduced motion: ops are instant; the changed items are highlighted, then back to normal. */
 export const ReducedMotion: Story = {
   globals: { motion: 'reduced' },
   args: { config: leftover, demo: demoReduced },
   play: async ({ canvasElement }) => {
     const root = await findWidget(canvasElement, ROOT);
-    const started = performance.now();
     const round = demoReduced.play({ op: 'deal-round' });
-    await waitFor(() =>
-      expect(root.querySelectorAll('.ni-esw__item[data-flash="true"]')).toHaveLength(3),
-    );
+    await waitFor(() => expect(all(root, '.ni-esw__item[data-flash="true"]')).toHaveLength(3));
     await round;
     await expectShown(root, { shares: [1, 1, 1], pile: 4 });
-    await demoReduced.play({ op: 'deal-round' });
-    const hop = demoReduced.play({ op: 'set-aside-leftover' });
-    await waitFor(() => expect(shown(root).seagull).toBe(1));
-    await expect(root.querySelector('[data-gull-item][data-flash="true"]')).not.toBeNull();
-    await hop;
-    await expect(performance.now() - started).toBeLessThan(2500);
-    await expect(root.querySelectorAll('[data-flash="true"]')).toHaveLength(0);
-    await expect(
-      getComputedStyle(root.querySelector('.ni-esw__figure') as Element).animationName,
-    ).toBe('none');
+    await expect(all(root, '[data-flash="true"]')).toHaveLength(0);
+    await expect(getComputedStyle(q(root, '.ni-esw__figure')).animationName).toBe('none');
   },
 };

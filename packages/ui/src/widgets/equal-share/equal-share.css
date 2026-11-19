@@ -1,64 +1,74 @@
 /*
- * equal-share widget (U04, 03 §5.5). Left: the recipients (pebblings on their mats, or plates) in
- * rows, and under them the basket (take-one spot, "give one to each", the pile in fives) and the
- * seagull on its post (its button, the reason it is off, and the items it was given). Right: the
- * answer blank, Check and the number pad, or the two choices and Check. Every item is drawn at
- * one size (--s, layout.ts) in its own cell, so items never overlap.
+ * equal-share widget (U04, 03 §5.5), in two steps (kit twoStep). Build: a status line for limit
+ * notes, then one row of the basket (take-one spot, "give one to each", the pile in fives), the
+ * recipients (pebblings on their mats, or plates) and the seagull with what it holds; Next beside
+ * it. Ask: the same parts as a static picture, the answer control (kit NumberEntry or two choice
+ * cards) and the actions. Every item is drawn at one size (--s, layout.ts) in its own cell, so
+ * items never overlap. Sizes come from layout.ts; nothing here sets a part's size.
  */
 
 .ni-esw {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
+  position: relative;
+  display: flex;
   align-items: center;
-  gap: 28px;
+  justify-content: center;
   box-sizing: border-box;
   width: 100%;
-  max-width: 1180px;
-  /* Room below for Pip's pointer on the bottom controls. */
-  padding: 4px 8px 28px;
+  /* Safe centring in the host; the root's width is the room, never its content's (kit room.ts). */
+  margin: auto;
+  contain: inline-size;
 }
-
+.ni-esw__build {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  /* kit STEP_GAP */
+  gap: 24px;
+}
 .ni-esw__main {
   display: flex;
   flex-direction: column;
   align-items: center;
-  min-width: 0;
+  flex: none;
 }
 
-/* ---------- region labels ---------- */
-
-.ni-esw__legend {
+/* A limit note (role="status"): one line, always kept, so a note never moves the row. */
+.ni-esw__note {
   display: flex;
-  align-items: center;
-  gap: 10px;
+  align-items: flex-start;
+  justify-content: center;
   box-sizing: border-box;
-  height: var(--legend-h);
-  padding-bottom: 4px;
+  margin: 0;
   color: var(--color-ink);
   font-family: var(--font-body);
-  font-size: var(--text-label);
+  font-size: 24px;
   font-weight: 700;
-  letter-spacing: 0.02em;
+  line-height: 1.15;
   white-space: nowrap;
 }
-.ni-esw__legend-icon {
-  flex: none;
-  width: 32px;
-  height: 32px;
+[data-age-mode="k"] .ni-esw__note {
+  font-size: 28px;
+}
+
+.ni-esw__parts {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.ni-esw__main[data-flow="stack"] > .ni-esw__parts {
+  flex-direction: column;
+}
+.ni-esw__bottom {
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 /* ---------- recipients ---------- */
 
-.ni-esw__bottom {
+.ni-esw__recipients {
   display: flex;
-  align-items: flex-start;
-  justify-content: center;
-}
-.ni-esw__recipients,
-.ni-esw__region {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
+  flex: none;
 }
 .ni-esw__rows {
   display: flex;
@@ -69,7 +79,6 @@
   display: flex;
   justify-content: center;
 }
-
 .ni-esw__rec {
   position: relative;
   flex: none;
@@ -78,12 +87,15 @@
   align-items: center;
   justify-content: flex-end;
 }
-/* The drop target: a pad behind the figure and the zone (items stay separate buttons). */
+/* The drop target: a pad behind the figure and the zone. */
 .ni-esw__pad {
   position: absolute;
   inset: 0;
   border-radius: var(--radius-card);
   cursor: pointer;
+}
+.ni-esw__picture .ni-esw__pad {
+  cursor: default;
 }
 .ni-esw__rec > .ni-esw__pad.ni-drop-target {
   outline-offset: 2px;
@@ -103,20 +115,20 @@
 }
 /* A pebbling's mat: a soft sand blanket in front of it. */
 .ni-esw__zone[data-kind="pebbling"] {
-  border: 3px solid var(--color-sand-deep);
   border-radius: var(--radius-pebble);
   background: var(--color-sand);
   box-shadow:
-    inset 0 -5px 0 var(--color-sand-shadow),
+    inset 0 0 0 3px var(--color-sand-deep),
+    inset 0 -8px 0 var(--color-sand-shadow),
     var(--shadow-soft);
 }
 /* A warm ceramic plate: cream with a sand well and a sunshine band round the rim. */
 .ni-esw__zone[data-kind="plate"] {
-  border: 3px solid var(--color-sun-deep);
   background: var(--color-paper);
   box-shadow:
-    inset 0 0 0 7px var(--color-horizon),
-    inset 0 0 0 10px var(--color-sun),
+    inset 0 0 0 3px var(--color-sun-deep),
+    inset 0 0 0 8px var(--color-horizon),
+    inset 0 0 0 11px var(--color-sun),
     0 6px 0 var(--color-sand-deep),
     var(--shadow-soft);
 }
@@ -125,35 +137,43 @@
 }
 .ni-esw__zone-items,
 .ni-esw__pile,
-.ni-esw__gull-items {
+.ni-esw__gull-grid {
   pointer-events: none;
 }
 
-/* ---------- items (one size, one cell each) ---------- */
+/* ---------- items (one size, one cell each; pictures) ---------- */
 
 .ni-esw__item {
   position: absolute;
   box-sizing: border-box;
   display: block;
   border-radius: 30%;
-  pointer-events: auto;
-  touch-action: manipulation;
   -webkit-tap-highlight-color: transparent;
 }
+.ni-esw__picture .ni-esw__item,
+.ni-esw__picture .ni-esw__bird {
+  pointer-events: auto;
+}
+/* A recipient's last item is picked up by touching its mat or plate: the hit area is the zone. */
 .ni-esw__item.ni-draggable {
+  pointer-events: auto;
   touch-action: none;
 }
+.ni-esw__hit {
+  position: absolute;
+  border-radius: var(--radius-pebble);
+}
 .ni-esw__item > .ni-sprite {
+  position: relative;
   display: block;
+  pointer-events: none;
 }
 [data-flash="true"].ni-esw__item,
 .ni-esw__rec[data-flash="true"] > .ni-esw__zone,
 .ni-esw__basket[data-flash="true"],
-.ni-esw__nest[data-flash="true"],
-.ni-esw__reason[data-flash="true"] {
+.ni-esw__nest[data-flash="true"] {
   outline: 4px solid var(--color-ink);
   outline-offset: 3px;
-  box-shadow: 0 0 0 10px rgb(233 196 106 / 0.55);
 }
 
 /* ---------- the basket ---------- */
@@ -163,24 +183,24 @@
   position: relative;
   box-sizing: border-box;
   display: flex;
-  gap: var(--row-gap);
+  flex: none;
+  gap: 16px;
   padding: 12px;
   border-radius: var(--radius-card);
 }
 .ni-esw__basket {
   align-items: flex-start;
-  border: 3px solid var(--color-wood-deep);
   /* A soft weave: faint wood stripes both ways on a warm cream. */
   background:
     repeating-linear-gradient(0deg, rgb(143 90 49 / 0.08) 0 6px, transparent 6px 14px),
     repeating-linear-gradient(90deg, rgb(143 90 49 / 0.08) 0 6px, transparent 6px 14px),
     var(--color-horizon);
   box-shadow:
-    inset 0 -6px 0 rgb(201 138 85 / 0.35),
+    inset 0 0 0 3px var(--color-wood-deep),
     var(--shadow-soft);
 }
 .ni-esw__basket[data-shape="under"] {
-  flex-direction: column;
+  flex-direction: column-reverse;
   align-items: center;
 }
 .ni-esw__basket > .ni-esw__pad {
@@ -189,13 +209,17 @@
 .ni-esw__controls {
   position: relative;
   display: flex;
+  flex: none;
   flex-direction: column;
-  align-items: flex-start;
-  gap: var(--row-gap);
+  align-items: center;
+  gap: 16px;
+  pointer-events: none;
+}
+.ni-esw__controls > * {
+  pointer-events: auto;
 }
 .ni-esw__controls[data-shape="under"] {
   flex-direction: row;
-  align-items: center;
 }
 .ni-esw__pile {
   position: relative;
@@ -214,11 +238,11 @@
   background: var(--color-cloud);
 }
 .ni-esw__spot.ni-invite {
-  outline-offset: 6px;
   border-radius: 50%;
 }
 .ni-esw__spot[data-empty="true"] {
   background: transparent;
+  pointer-events: none;
 }
 .ni-esw__take {
   position: absolute;
@@ -233,177 +257,132 @@
   height: var(--s);
   pointer-events: none;
 }
-
-/* ---------- buttons with a caption beside them ---------- */
-
-.ni-esw__action {
-  position: relative;
-  display: flex;
-  align-items: center;
-  /* layout.ts BESIDE_GAP */
-  gap: 12px;
-  flex: none;
-}
 .ni-esw__slot {
   position: relative;
   display: inline-flex;
   flex: none;
-}
-.ni-esw__caption {
-  flex: 1 1 0;
-  min-width: 0;
-  color: var(--color-ink);
-  font-family: var(--font-body);
-  font-size: 1.0625rem;
-  font-weight: 700;
-  line-height: 1.15;
-}
-.ni-esw__reason {
-  flex: none;
-  display: block;
 }
 
 /* ---------- the seagull ---------- */
 
 .ni-esw__nest {
   flex-direction: column;
-  align-items: flex-start;
-  border: 3px solid var(--color-sea-deep);
-  /* Sky behind the bird; the sand the items it is given sit on. */
-  background: linear-gradient(
-    0deg,
-    var(--color-sand) 0 var(--sand-h),
-    var(--color-sky-light) var(--sand-h)
-  );
-  box-shadow: var(--shadow-soft);
-}
-.ni-esw__nest-top {
-  display: flex;
-  align-items: flex-end;
-  gap: var(--row-gap);
-}
-.ni-esw__nest-top[data-shape="tall"] {
-  flex-direction: column;
-  align-items: flex-start;
+  align-items: center;
+  background: var(--color-sky-light);
+  box-shadow:
+    inset 0 0 0 3px var(--color-sea-deep),
+    var(--shadow-soft);
 }
 .ni-esw__bird {
+  display: block;
   flex: none;
+  box-sizing: border-box;
   margin: 0;
   padding: 0;
   appearance: none;
   border: 0;
   border-radius: var(--radius-pebble);
   background: transparent;
-  cursor: pointer;
   touch-action: manipulation;
   -webkit-tap-highlight-color: transparent;
 }
-.ni-esw__bird:disabled {
+button.ni-esw__bird {
+  cursor: pointer;
+}
+button.ni-esw__bird:disabled {
   cursor: default;
 }
 .ni-esw__bird > svg {
   display: block;
-  animation: var(--animate-sway);
-  transform-origin: 50% 100%;
+  width: 100%;
+  height: 100%;
 }
+/* What the seagull holds: on the sand under it. Touching it (a full target) takes it back. */
 .ni-esw__gull-items {
-  position: relative;
-  flex: none;
-}
-
-/* ---------- the answer ---------- */
-
-.ni-esw__side {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 20px;
-  min-width: 232px;
-}
-/* G1: the blank, the pad and Check in one column; K: the blank and the Check icon side by side. */
-.ni-esw__answer {
   display: grid;
-  grid-template-areas:
-    "legend"
-    "blank"
-    "pad"
-    "check";
-  justify-items: center;
-  gap: 18px;
-}
-.ni-esw__answer[data-k="true"] {
-  grid-template-areas:
-    "legend legend"
-    "blank check"
-    "pad pad";
-  align-items: center;
-  column-gap: var(--target-gap);
-}
-.ni-esw__answer > .ni-esw__legend {
-  grid-area: legend;
-}
-.ni-esw__answer .ni-esw__blankslot {
-  grid-area: blank;
-}
-.ni-esw__answer > .ni-esw__check {
-  grid-area: check;
-}
-.ni-esw__answer > .ni-pad {
-  grid-area: pad;
-}
-.ni-esw__blank {
-  min-height: var(--target-big);
-  font-variant-numeric: tabular-nums;
-}
-.ni-esw__blank[data-empty="true"] {
-  background: var(--color-sky-light);
-}
-.ni-esw__blank.ni-invite {
-  outline-offset: 5px;
+  place-items: center;
+  flex: none;
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+  appearance: none;
+  border: 0;
   border-radius: var(--radius-pebble);
+  background: var(--color-sand);
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+button.ni-esw__gull-items {
+  cursor: pointer;
+}
+.ni-esw__gull-grid {
+  position: relative;
+  display: block;
+}
+
+/* ---------- the ask step ---------- */
+
+.ni-esw__entry {
+  display: inline-flex;
+  border-radius: var(--radius-card);
 }
 .ni-esw__options {
   display: flex;
+  flex: none;
   gap: 24px;
   /* Room for a picked card's check badge (it sits 16 px out from the corner). */
   padding: 16px 16px 0;
 }
 .ni-esw__option.ni-pick {
   flex-direction: column;
-  width: calc(var(--target-icon) * 1.9);
-  min-height: calc(var(--target-icon) * 1.9);
+  box-sizing: border-box;
+  width: calc(var(--target-icon) * 1.75);
+  min-height: calc(var(--target-icon) * 1.75);
+  padding: 6px;
 }
 .ni-esw__option .ni-pick__face {
   flex-direction: column;
-  gap: 8px;
+  gap: 2px;
 }
 .ni-esw__option-icon {
   display: block;
-  width: var(--target-icon);
-  height: var(--target-icon);
+  width: calc(var(--target-icon) * 0.85);
+  height: calc(var(--target-icon) * 0.85);
 }
 .ni-esw__option-word {
   font-family: var(--font-body);
-  font-size: 1.5rem;
+  font-size: 24px;
   font-weight: 700;
-  letter-spacing: 0.02em;
+  line-height: 1.1;
+  white-space: nowrap;
+}
+[data-age-mode="k"] .ni-esw__option-word {
+  font-size: 28px;
 }
 
-/* Pip's fingertip (≈ 42 % across, 8 px down the 56 px hand) rests inside the target's bottom. */
-.ni-esw__hand {
-  left: calc(50% - 23px);
-  top: calc(100% - 26px);
+/*
+ * The one ring (a demo invite, or a limit note's cue) is drawn inside its control's own box, so
+ * the full 12 px gap to the next control stays clear (as the kit's numeral cards and pad keys).
+ */
+.ni-esw .ni-invite {
+  outline-offset: -5px;
+}
+.ni-esw__hit.ni-invite {
+  position: absolute;
+  animation: none;
+}
+.ni-esw__handstrip {
+  flex: none;
+  width: 1px;
 }
 
 /* ---------- motion ---------- */
 
-[data-reduced-motion="true"] .ni-esw__figure,
-[data-reduced-motion="true"] .ni-esw__bird > svg {
+[data-reduced-motion="true"] .ni-esw__figure {
   animation: none;
 }
 @media (prefers-reduced-motion: reduce) {
-  .ni-esw__figure,
-  .ni-esw__bird > svg {
+  .ni-esw__figure {
     animation: none;
   }
 }

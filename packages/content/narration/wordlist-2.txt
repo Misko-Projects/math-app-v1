@@ -135,7 +135,6 @@ cleans
 clock
 closely
 closest
-cm
 coat
 coin
 coins
@@ -303,7 +302,6 @@ friend
 friends
 from
 fruit
-ft
 full
 fun
 funny
@@ -473,7 +471,6 @@ lookout
 looks
 loud
 love
-m
 made
 make
 makes
@@ -734,7 +731,6 @@ sphere
 spheres
 split
 splits
-sq
 square
 squares
 squirrel

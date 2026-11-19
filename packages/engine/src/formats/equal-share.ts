@@ -1,16 +1,23 @@
 // 03 §5.5 equal-share. `items` sprites wait in a pile; the child deals them to `recipients`
 // Pebblings or plates. What cannot be shared fairly goes to the seagull (05 §4, W7).
 // - `deal {to, count?}` gives `count` (default 1) from the pile to recipient `to`; a negative count
-//   takes items back. `deal-round` gives one to each recipient in turn while the pile lasts.
+//   takes items back. A recipient holds `shareCapacity` at most: dealing stops there.
+//   `deal-round` gives one to each recipient in turn while the pile lasts (nothing while one of
+//   them is full).
 //   `set-aside-leftover` gives what is left in the pile to the seagull once the shares are equal and
 //   the pile is too small to go round again (fewer than the recipients); before that it does
-//   nothing, so the seagull only ever gets the true leftover.
+//   nothing, so the seagull only ever gets the true leftover. `set-aside-leftover {back: true}`
+//   returns what the seagull holds to the pile.
 // - `each`, `leftover`: answer state `{ shares, leftover, value }` (`share.fair`), where `leftover`
 //   is everything not dealt (the pile plus the seagull's) and `value` the typed answer.
 // - `fair-or-not` (a pre-dealt share): answer `choice` `yes` | `no`.
 // - `even-odd` (MUL.01): share between two, then answer `choice` `even` | `odd`.
 
-import { equalShareConfigSchema, type WidgetConfigOf } from '@number-island/shared';
+import {
+  type AnswerSpec,
+  equalShareConfigSchema,
+  type WidgetConfigOf,
+} from '@number-island/shared';
 import {
   argNumber,
   argString,
@@ -40,13 +47,93 @@ export function shareChoices(c: Config): string[] {
 
 const sum = (xs: readonly number[]) => xs.reduce((a, b) => a + b, 0);
 
+/**
+ * The supported domain (what the widget draws in the smallest widget area, 906 × 373): at most
+ * `SHARE_ITEMS_MAX` things shared among 2 … `SHARE_RECIPIENTS_MAX`, and at most `SHARE_ZONE_MAX`
+ * on one recipient.
+ */
+export const SHARE_ITEMS_MAX = 24;
+export const SHARE_RECIPIENTS_MAX = 4;
+export const SHARE_ZONE_MAX = 15;
+
+/**
+ * How many things one recipient can hold: a fair share rounded up to a whole five, never fewer
+ * than ten (so the room never shows the share) or than a pre-dealt count, never more than there
+ * are. Dealing stops there (`deal`, `deal-round`); the widget draws exactly this many places.
+ */
+export function shareCapacity(c: Pick<Config, 'items' | 'recipients' | 'predealt'>): number {
+  const share = Math.ceil(Math.ceil(c.items / Math.max(1, c.recipients)) / 5) * 5;
+  const room = Math.min(c.items, Math.max(10, share));
+  return Math.max(1, room, ...(c.predealt ?? []));
+}
+
+/** Whether every recipient holds the same. */
+export const sharesEqual = (shares: readonly number[]) => shares.every((x) => x === shares[0]);
+
+/**
+ * Why an item's answer is not the one this config asks for (FormatModel.answerIssues). The typed
+ * asks are checked by `share.fair`, whose target must describe this share; the choices must be
+ * what the picture shows.
+ */
+export function shareAnswerIssues(c: Config, answer: AnswerSpec): string[] {
+  const out: string[] = [];
+  if (c.ask === 'fair-or-not' || c.ask === 'even-odd') {
+    if (answer.kind !== 'choice') return [`${c.ask} answers a choice`];
+    const want =
+      c.ask === 'fair-or-not'
+        ? sharesEqual(c.predealt ?? [])
+          ? 'yes'
+          : 'no'
+        : c.items % 2 === 0
+          ? 'even'
+          : 'odd';
+    if (answer.id !== want) out.push(`the picture shows "${want}", the answer says "${answer.id}"`);
+    return out;
+  }
+  if (answer.kind !== 'state' || answer.checker !== 'share.fair') {
+    return [`${c.ask} answers share.fair`];
+  }
+  const t = answer.target as Record<string, unknown>;
+  if (t.items !== c.items) out.push(`the target shares ${String(t.items)}, the widget ${c.items}`);
+  if (t.recipients !== c.recipients) {
+    out.push(`the target shares among ${String(t.recipients)}, the widget ${c.recipients}`);
+  }
+  if ((t.allowLeftover === true) !== c.allowLeftover) {
+    out.push('the target and the widget disagree on whether a leftover is allowed');
+  }
+  const rest = c.items % c.recipients;
+  if (rest > 0 && !c.allowLeftover) out.push('the items do not share evenly');
+  const typed = c.ask === 'each' ? Math.floor(c.items / c.recipients) : rest;
+  if (t.value !== typed) {
+    out.push(`a fair share types ${typed}, the target expects ${String(t.value)}`);
+  }
+  return out;
+}
+
 const configSchema = equalShareConfigSchema.superRefine((c, ctx) => {
-  if (c.items < 1) {
-    ctx.addIssue({ code: 'custom', path: ['items'], message: 'there is something to share' });
+  if (c.items < 1 || c.items > SHARE_ITEMS_MAX) {
+    ctx.addIssue({
+      code: 'custom',
+      path: ['items'],
+      message: `1 to ${SHARE_ITEMS_MAX} things are shared`,
+    });
   }
-  if (c.recipients < 2) {
-    ctx.addIssue({ code: 'custom', path: ['recipients'], message: 'sharing needs two or more' });
+  if (c.recipients < 2 || c.recipients > SHARE_RECIPIENTS_MAX) {
+    ctx.addIssue({
+      code: 'custom',
+      path: ['recipients'],
+      message: `sharing is among 2 to ${SHARE_RECIPIENTS_MAX}`,
+    });
   }
+  c.predealt?.forEach((n, i) => {
+    if (n > SHARE_ZONE_MAX) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['predealt', i],
+        message: `one recipient holds at most ${SHARE_ZONE_MAX}`,
+      });
+    }
+  });
   if (c.ask === 'even-odd' && c.recipients !== 2) {
     ctx.addIssue({ code: 'custom', path: ['recipients'], message: 'even-odd shares between two' });
   }
@@ -79,6 +166,7 @@ const configSchema = equalShareConfigSchema.superRefine((c, ctx) => {
 export const equalShare: FormatModel<'equal-share', EqualShareState> = {
   format: 'equal-share',
   configSchema,
+  answerIssues: shareAnswerIssues,
   features: {
     items: { weight: 0.3, doc: '(items − recipients) / 10: items beyond one each' },
     'recipients.over2': { weight: 0.2, doc: 'recipients − 2' },
@@ -114,12 +202,16 @@ export const equalShare: FormatModel<'equal-share', EqualShareState> = {
         if (to < 0 || to >= s.shares.length) return s;
         const shares = [...s.shares];
         const have = shares[to] as number;
-        const n = want >= 0 ? Math.min(want, s.pile) : -Math.min(-want, have);
+        // A recipient holds `shareCapacity` at most; dealing stops there.
+        const room = Math.max(0, shareCapacity(s.config) - have);
+        const n = want >= 0 ? Math.min(want, s.pile, room) : -Math.min(-want, have);
         if (n === 0) return s;
         shares[to] = have + n;
         return { ...s, shares, pile: s.pile - n };
       }
       case 'deal-round': {
+        // One to each, or nothing: a full recipient cannot take part in the round.
+        if (s.shares.some((x) => x >= shareCapacity(s.config))) return s;
         const shares = [...s.shares];
         let pile = s.pile;
         for (let i = 0; i < shares.length && pile > 0; i += 1) {
@@ -129,10 +221,14 @@ export const equalShare: FormatModel<'equal-share', EqualShareState> = {
         return { ...s, shares, pile };
       }
       case 'set-aside-leftover':
+        // `{ back: true }` undoes it: what the seagull holds returns to the pile.
+        if (a.args?.back === true) {
+          return s.seagull === 0 ? s : { ...s, pile: s.pile + s.seagull, seagull: 0 };
+        }
         // Only the true leftover goes to the seagull: the shares are equal and the pile cannot go
         // round again. Otherwise nothing happens.
         if (s.pile === 0 || s.pile >= s.shares.length) return s;
-        if (!s.shares.every((x) => x === s.shares[0])) return s;
+        if (!sharesEqual(s.shares)) return s;
         return { ...s, pile: 0, seagull: s.seagull + s.pile };
       case 'answer': {
         const id = argString(a, 'id');

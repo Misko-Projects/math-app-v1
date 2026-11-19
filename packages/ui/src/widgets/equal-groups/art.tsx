@@ -1,7 +1,7 @@
 import type { SpriteId } from '@number-island/shared';
 import type { ReactElement } from 'react';
 import { ObjectSprite } from '../kit';
-import { CHROME, ROD_BORDER, ROD_FIVE_GAP, ROD_INNER_GAP, ROD_PAD } from './layout';
+import { CHROME, type ChromeEdges } from './layout';
 
 /**
  * Equal-groups art (05 §11): cozy flat vector islands in the token palette, 3 px outlines in the
@@ -15,24 +15,26 @@ export type ContainerKind = 'raft' | 'basket' | 'plate' | 'nest';
 interface Box {
   w: number;
   h: number;
+  /** The rim round the contents (layout.ts `chromeAt`): thinner for small sprites. */
+  chrome?: ChromeEdges;
 }
 
 const SHADOW = 'rgb(38 70 83 / 0.16)';
 const HIGHLIGHT = 'rgb(255 255 255 / 0.55)';
 
 /** The light floor the contents sit on: inside the rim, CHROME minus an 8 px margin. */
-function floor({ w, h }: Box) {
-  const m = 10;
+function floor({ w, h, chrome = CHROME }: Box) {
+  const m = Math.min(10, Math.round(chrome.x * 0.4));
   return {
-    x: CHROME.x - m,
-    y: CHROME.top - m,
-    w: w - 2 * (CHROME.x - m),
-    h: h - CHROME.top - CHROME.bottom + 2 * m,
+    x: chrome.x - m,
+    y: chrome.top - m,
+    w: w - 2 * (chrome.x - m),
+    h: h - chrome.top - chrome.bottom + 2 * m,
   };
 }
 
-function Raft({ w, h }: Box) {
-  const f = floor({ w, h });
+function Raft({ w, h, chrome }: Box) {
+  const f = floor({ w, h, chrome });
   // Logs run top to bottom; two rope lashings cross them.
   const logW = 30;
   const logs = Math.max(3, Math.round((w - 8) / logW));
@@ -103,8 +105,8 @@ function Raft({ w, h }: Box) {
   );
 }
 
-function Basket({ w, h }: Box) {
-  const f = floor({ w, h });
+function Basket({ w, h, chrome }: Box) {
+  const f = floor({ w, h, chrome });
   const bodyTop = f.y - 4;
   const bottom = h - 8;
   const inset = Math.min(18, w * 0.06);
@@ -179,8 +181,8 @@ function Basket({ w, h }: Box) {
   );
 }
 
-function Plate({ w, h }: Box) {
-  const f = floor({ w, h });
+function Plate({ w, h, chrome }: Box) {
+  const f = floor({ w, h, chrome });
   const r = Math.min(h, w) / 2.4;
   return (
     <>
@@ -228,8 +230,8 @@ function Plate({ w, h }: Box) {
   );
 }
 
-function Nest({ w, h }: Box) {
-  const f = floor({ w, h });
+function Nest({ w, h, chrome }: Box) {
+  const f = floor({ w, h, chrome });
   const rx = w / 2 - 4;
   const ry = h / 2 - 6;
   const cx = w / 2;
@@ -297,11 +299,13 @@ export function ContainerArt({
   kind,
   w,
   h,
+  chrome,
   ghost = false,
 }: {
   kind: ContainerKind;
   w: number;
   h: number;
+  chrome?: ChromeEdges;
   ghost?: boolean;
 }) {
   const Draw = CONTAINERS[kind];
@@ -329,7 +333,7 @@ export function ContainerArt({
           strokeLinecap="round"
         />
       ) : (
-        <Draw w={w} h={h} />
+        <Draw w={w} h={h} chrome={chrome} />
       )}
     </svg>
   );
@@ -402,39 +406,6 @@ export function AnswerIcon() {
       />
       <path d="M24 30l3-9 6 6Z" fill="var(--color-ink)" />
     </svg>
-  );
-}
-
-/** A ten-rod: ten mini sprites in a framed column, with a wider gap after five (countable). */
-export function RodArt({
-  sprite,
-  m,
-  horizontal = false,
-}: {
-  sprite: SpriteId;
-  m: number;
-  /** Lying down (the supply's rod source); standing up inside a container, like a base-ten rod. */
-  horizontal?: boolean;
-}) {
-  return (
-    <span
-      className="ni-egw__rodart"
-      data-dir={horizontal ? 'row' : 'column'}
-      style={{
-        padding: ROD_PAD,
-        borderWidth: ROD_BORDER,
-        gap: ROD_INNER_GAP,
-        ['--five-gap' as string]: `${ROD_FIVE_GAP - ROD_INNER_GAP}px`,
-      }}
-      aria-hidden="true"
-    >
-      {Array.from({ length: 10 }, (_, i) => (
-        // biome-ignore lint/suspicious/noArrayIndexKey: the ten cells are positional
-        <span key={i} className="ni-egw__rodcell" style={{ width: m, height: m }}>
-          <ObjectSprite sprite={sprite} />
-        </span>
-      ))}
-    </span>
   );
 }
 
