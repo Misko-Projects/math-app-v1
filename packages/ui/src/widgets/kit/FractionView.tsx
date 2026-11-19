@@ -101,8 +101,18 @@ export function FracNumeral({
   );
 }
 
-/** The whole's rim (or crust) and its parts area, under the parts. */
+/**
+ * The whole's rim (or crust) and its parts area, under the parts. `ghost`: once the whole is cut
+ * apart, only a faint dashed outline of where it was (nothing shows between the parts).
+ */
 export function WholeBase({ frame, ghost = false }: { frame: ShapeFrame; ghost?: boolean }) {
+  if (ghost) {
+    return frame.kind === 'circle' ? (
+      <circle className="ni-fraction__ghost" cx={frame.cx} cy={frame.cy} r={frame.rim} />
+    ) : (
+      <path className="ni-fraction__ghost" d={frame.outline} />
+    );
+  }
   if (frame.kind === 'circle') {
     return (
       <g className="ni-fraction__base" data-ghost={ghost ? 'true' : undefined}>

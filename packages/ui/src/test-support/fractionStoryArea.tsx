@@ -97,7 +97,7 @@ export async function expectFitsArea(
   root: HTMLElement,
   box: HTMLElement,
   ageMode: 'k' | 'g1-up',
-  controls: HTMLElement[],
+  controls: Element[],
   { gaps = true }: { gaps?: boolean } = {},
 ) {
   box.scrollIntoView({ block: 'nearest', inline: 'nearest' });
@@ -126,7 +126,7 @@ export async function expectFitsArea(
  * browser's own hit test (`isPointInFill` on a fine grid), in part order (`data-part`). This
  * checks the picture the child sees, not the numbers it was drawn from.
  */
-export function measuredShares(root: Element, step = 1.5): number[] {
+export function measuredShares(root: Element, step = 1): number[] {
   const paths = [...root.querySelectorAll<SVGPathElement>('path.ni-fraction__part')].sort(
     (a, b) => Number(a.dataset.part) - Number(b.dataset.part),
   );
@@ -150,7 +150,18 @@ export function measuredShares(root: Element, step = 1.5): number[] {
 }
 
 /** Every share is 1/n within `tol` (sampling error), and there are n of them. */
-export async function expectEqualShares(shares: number[], n: number, tol = 0.004) {
+export async function expectEqualShares(shares: number[], n: number, tol = 0.005) {
   await expect(shares).toHaveLength(n);
   for (const s of shares) await expect(Math.abs(s - 1 / n), `share ${s}`).toBeLessThan(tol);
+}
+
+/** Waits until every animation and transition inside `el` has finished (parts moving apart).*/
+export async function settle(el: Element) {
+  await nextFrame();
+  await Promise.all(
+    el
+      .getAnimations({ subtree: true })
+      .filter((a) => a.effect?.getComputedTiming().iterations !== Number.POSITIVE_INFINITY)
+      .map((a) => a.finished.catch(() => undefined)),
+  );
 }

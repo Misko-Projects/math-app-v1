@@ -1,0 +1,224 @@
+/* fraction-cut widget (U05, #14): the whole and its knives on the left, the tools on the right. */
+
+.ni-fcut {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 24px;
+  box-sizing: border-box;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  padding: 8px;
+}
+.ni-fcut__stage {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  min-width: 0;
+  position: relative;
+  flex: none;
+  touch-action: none;
+  user-select: none;
+}
+.ni-fcut__svg {
+  position: absolute;
+  display: block;
+  overflow: visible;
+}
+.ni-fcut__part-group {
+  transition: transform var(--duration-gentle) ease-out;
+}
+.ni-fcut__part {
+  cursor: default;
+}
+.ni-fcut__part[role="button"] {
+  cursor: pointer;
+}
+.ni-fcut__part:focus {
+  outline: none;
+}
+.ni-fcut__part:focus-visible,
+.ni-fcut__part[data-armed="true"] {
+  stroke: var(--color-ink);
+  stroke-width: 6;
+  stroke-dasharray: none;
+}
+.ni-fcut__part[data-over="true"],
+.ni-fcut__part[data-invite="true"] {
+  stroke: var(--color-sun-deep);
+  stroke-width: 8;
+  stroke-dasharray: none;
+}
+.ni-fcut__stage[data-view="stacked"] .ni-fcut__part {
+  fill-opacity: 0.55;
+}
+
+/* Guided lines: dotted "cut here" lines across the whole. */
+.ni-fcut__guide {
+  fill: none;
+  stroke: var(--color-sea-deep);
+  stroke-width: 4;
+  stroke-dasharray: 1 10;
+  stroke-linecap: round;
+  pointer-events: none;
+}
+.ni-fcut__guide[data-invite="true"] {
+  stroke: var(--color-sun-deep);
+  stroke-width: 6;
+}
+/* Pip's knife sliding along a line (demo). */
+.ni-fcut__blade {
+  fill: none;
+  stroke: var(--color-ink);
+  stroke-width: 5;
+  stroke-linecap: round;
+  stroke-dasharray: 600;
+  stroke-dashoffset: 600;
+  animation: ni-fcut-blade 600ms ease-in-out forwards;
+  pointer-events: none;
+}
+@keyframes ni-fcut-blade {
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+.ni-fcut__preview {
+  fill: none;
+  stroke: var(--color-coral-deep);
+  stroke-width: 4;
+  stroke-dasharray: 8 6;
+  stroke-linecap: round;
+  pointer-events: none;
+}
+
+/* Knives: round pebble buttons beside the whole (and free knives in the tools). */
+.ni-fcut__knife {
+  position: absolute;
+  display: grid;
+  place-items: center;
+  box-sizing: border-box;
+  width: var(--target-min);
+  height: var(--target-min);
+  margin: 0;
+  padding: 0;
+  appearance: none;
+  border: 3px solid var(--color-ink);
+  border-radius: 50%;
+  background: var(--color-cloud);
+  box-shadow:
+    0 4px 0 var(--color-pebble-deep),
+    var(--shadow-highlight);
+  cursor: pointer;
+  touch-action: none;
+  -webkit-tap-highlight-color: transparent;
+}
+.ni-fcut__knife--free {
+  position: relative;
+  width: var(--target-big);
+  height: var(--target-big);
+}
+.ni-fcut__knife[aria-pressed="true"] {
+  outline: 4px solid var(--color-ink);
+  outline-offset: 4px;
+  background: var(--color-sunshine-light);
+}
+.ni-fcut__knife:focus-visible {
+  outline: 4px solid var(--color-sea-deep);
+  outline-offset: 3px;
+}
+.ni-fcut__knife:disabled {
+  cursor: default;
+}
+.ni-fcut__knife.ni-invite {
+  outline-offset: 6px;
+  border-radius: 50%;
+}
+.ni-fcut__knife-icon {
+  width: 70%;
+  height: 70%;
+}
+
+/* Tools: fill, free knives, take back, check. */
+.ni-fcut__tools {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  flex: none;
+}
+.ni-fcut__toolgrid {
+  display: grid;
+  grid-template-columns: repeat(2, auto);
+  justify-items: center;
+  align-items: center;
+  gap: var(--target-gap);
+}
+.ni-fcut__toolgrid:has(> .ni-fcut__knife--free) {
+  grid-template-columns: repeat(3, auto);
+}
+/* From G1 the buttons carry words: one column (two with free knives), so the stage keeps room. */
+.ni-fcut__tools[data-labels="true"] .ni-fcut__toolgrid {
+  grid-template-columns: auto;
+}
+.ni-fcut__tools[data-labels="true"] .ni-fcut__toolgrid:has(> .ni-fcut__knife--free) {
+  grid-template-columns: repeat(2, auto);
+}
+.ni-fcut__tools[data-then-name="true"] .ni-fcut__toolgrid {
+  grid-template-columns: auto;
+}
+.ni-fcut__slot {
+  position: relative;
+  display: flex;
+}
+.ni-fcut__fill {
+  display: grid;
+  place-items: center;
+  box-sizing: border-box;
+  width: var(--target-big);
+  height: var(--target-big);
+  margin: 0 0 6px;
+  padding: 0;
+  appearance: none;
+  border: 3px solid var(--color-sea-dark);
+  border-radius: var(--radius-pill);
+  background: var(--color-cloud);
+  box-shadow:
+    0 6px 0 var(--color-sea-dark),
+    var(--shadow-highlight);
+}
+.ni-fcut__fill:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+.ni-fcut__fill-icon {
+  width: 72%;
+  height: 72%;
+}
+.ni-fcut__hand {
+  pointer-events: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ni-fcut__part-group {
+    transition-duration: 0ms;
+  }
+  .ni-fcut__blade {
+    animation: none;
+    stroke-dashoffset: 0;
+  }
+}
+[data-reduced-motion="true"] .ni-fcut__part-group {
+  transition-duration: 0ms;
+}
+[data-reduced-motion="true"] .ni-fcut__blade {
+  animation: none;
+  stroke-dashoffset: 0;
+}
+
+/* A cut loaf keeps its bread colour (the crust is outside the whole). */
+.ni-fcut[data-shape="loaf"] .ni-fraction__part[data-fraction="empty"] {
+  fill: var(--color-horizon);
+}
+.ni-fcut[data-shape="loaf"] .ni-fraction__ghost {
+  stroke: var(--color-wood-deep);
+}

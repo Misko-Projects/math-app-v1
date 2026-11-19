@@ -54,24 +54,31 @@ function roundedRect(x: number, y: number, w: number, h: number, r: number): str
 /**
  * The frame of a whole. Rects are 3:2, squares 1:1, bars (strips) 5:1 (wide enough for 8 parts),
  * a loaf is a crumb box under a domed crust (the crust is outside the whole, so slices of equal
- * width are equal shares), and a grid is `cols × rows` square cells.
+ * width are equal shares), and a grid is `cols × rows` square cells. `rectAspect` (width ÷
+ * height) widens a rect, e.g. for a rect cut into many strips.
  */
-export function shapeFrame(shape: CutShape, gridSize?: readonly [number, number]): ShapeFrame {
+export function shapeFrame(
+  shape: CutShape,
+  gridSize?: readonly [number, number],
+  rectAspect = 1.5,
+): ShapeFrame {
   switch (shape) {
     case 'circle':
       return { kind: 'circle', shape, width: 240, height: 240, cx: 120, cy: 120, rim: 116, r: 108 };
-    case 'rect':
+    case 'rect': {
+      const height = Math.round(300 / rectAspect);
       return {
         kind: 'box',
         shape,
         width: 300,
-        height: 200,
+        height,
         x: 10,
         y: 10,
         w: 280,
-        h: 180,
-        outline: roundedRect(3, 3, 294, 194, 16),
+        h: height - 20,
+        outline: roundedRect(3, 3, 294, height - 6, 16),
       };
+    }
     case 'square':
       return {
         kind: 'box',
