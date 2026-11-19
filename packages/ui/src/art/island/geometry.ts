@@ -200,6 +200,21 @@ export function landLoops(cells: readonly Plot[], offset = 0): Point[][] {
   });
 }
 
+/** Whether a point is inside a set of closed loops (even-odd, so a hole's loop counts as out). */
+export function insideLoops(loops: readonly Point[][], x: number, y: number): boolean {
+  let inside = false;
+  for (const loop of loops) {
+    for (let i = 0, j = loop.length - 1; i < loop.length; j = i++) {
+      const a = loop[i] as Point;
+      const b = loop[j] as Point;
+      if (a.y > y !== b.y > y && x < ((b.x - a.x) * (y - a.y)) / (b.y - a.y) + a.x) {
+        inside = !inside;
+      }
+    }
+  }
+  return inside;
+}
+
 function unit(d: Point): Point {
   const len = Math.hypot(d.x, d.y) || 1;
   return { x: d.x / len, y: d.y / len };

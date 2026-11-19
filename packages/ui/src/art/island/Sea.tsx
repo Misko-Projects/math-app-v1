@@ -15,8 +15,22 @@ export interface SeaProps {
   /** Translation of the far and near wave layers (parallax, set by the scene). */
   far?: SeaLayerOffset;
   near?: SeaLayerOffset;
-  /** Calm water the wave glyphs and glints keep out of (the island's shallows), at an offset. */
-  calm?: { path: string; x: number; y: number };
+  /** Calm water the wave glyphs and glints keep out of (the island's shallows). */
+  calm?: SeaCalm;
+}
+
+export interface SeaCalm {
+  /** The calm water's outline, in its own units: it masks the waves as they drift and pan. */
+  path: string;
+  /**
+   * Whether a point (in the same units) is in the calm water or within CALM_MARGIN of it. A wave
+   * that could reach it at rest or while drifting is not drawn, so the mask never has to cut one
+   * in a still frame.
+   */
+  near: (x: number, y: number) => boolean;
+  /** Where the calm water sits in the scene (the island's offset). */
+  x: number;
+  y: number;
 }
 
 interface Glyph {
@@ -24,6 +38,34 @@ interface Glyph {
   y: number;
   s: number;
 }
+
+/**
+ * Whether a glyph stays clear of the calm water wherever its idle drift takes it (`drift` is the
+ * range of its sideways travel). `layer` is its parallax layer's offset.
+ */
+function clearOfCalm(
+  g: Glyph,
+  layer: SeaLayerOffset | undefined,
+  drift: readonly [number, number],
+  calm: SeaCalm | undefined,
+): boolean {
+  if (!calm) return true;
+  const ox = (layer?.x ?? 0) - calm.x;
+  const oy = (layer?.y ?? 0) - calm.y;
+  const half = 16 * g.s + 2; // the wave's half-width plus its round cap
+  const from = g.x - half + drift[0];
+  const to = g.x + half + drift[1];
+  for (let x = from; x <= to + 4; x += 4) {
+    const px = Math.min(x, to) + ox;
+    for (const dy of [-5 * g.s, 0]) if (calm.near(px, g.y + dy + oy)) return false;
+  }
+  return true;
+}
+
+/** The drift keyframes' sideways travel (art.css art-drift, art-drift-back). */
+const FAR_DRIFT = [-36, 0] as const;
+const NEAR_DRIFT = [0, 28] as const;
+const STILL = [0, 0] as const;
 
 /** Wave glyph rows, scattered deterministically over the sea plus a margin for panning. */
 function glyphs(seed: number, width: number, top: number, height: number, density: number) {
@@ -46,6 +88,8 @@ function glyphs(seed: number, width: number, top: number, height: number, densit
 }
 
 const WAVE = 'M-16 0q8 -7 16 0q8 -7 16 0';
+/** Open water (scene units) kept free of waves beyond the calm area's edge. */
+export const CALM_MARGIN = 14;
 
 /**
  * The layered sea (05 §3): a deep-to-near wash, then a far and a near layer of wave glyphs that
@@ -62,9 +106,15 @@ export function Sea({ width, top, height, far, near, calm }: SeaProps) {
     width: width + 2 * SCENE_BLEED,
     height: height + 2 * SCENE_BLEED,
   };
-  const farGlyphs = glyphs(11, width, top, height * 0.55, 1);
-  const nearGlyphs = glyphs(29, width, top + height * 0.4, height * 0.6, 0.8);
-  const glints = glyphs(53, width, top + 10, height, 0.35).slice(0, 9);
+  const farGlyphs = glyphs(11, width, top, height * 0.55, 1).filter((g) =>
+    clearOfCalm(g, far, FAR_DRIFT, calm),
+  );
+  const nearGlyphs = glyphs(29, width, top + height * 0.4, height * 0.6, 0.8).filter((g) =>
+    clearOfCalm(g, near, NEAR_DRIFT, calm),
+  );
+  const glints = glyphs(53, width, top + 10, height, 0.35)
+    .slice(0, 9)
+    .filter((g) => clearOfCalm({ ...g, s: 0.5 }, near, STILL, calm));
   return (
     <g data-layer="sea">
       <defs>
@@ -83,7 +133,16 @@ export function Sea({ width, top, height, far, near, calm }: SeaProps) {
         {calm && (
           <mask id={calmMask} maskUnits="userSpaceOnUse" {...region}>
             <rect {...region} fill="white" />
-            <path d={calm.path} transform={`translate(${calm.x} ${calm.y})`} fill="black" />
+            {/* A band of open water around the calm area too, so a wave the mask cuts ends in
+                the sea, not as a stray tick against the shallows. */}
+            <path
+              d={calm.path}
+              transform={`translate(${calm.x} ${calm.y})`}
+              fill="black"
+              stroke="black"
+              strokeWidth={CALM_MARGIN * 2}
+              strokeLinejoin="round"
+            />
           </mask>
         )}
       </defs>

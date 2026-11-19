@@ -16,6 +16,8 @@ import {
   HALO_REACH,
   HORIZON_Y,
   ISLAND_LAYOUT,
+  insideLoops,
+  landLoops,
   landPlots,
   plotKey,
   SCENE_BLEED,
@@ -28,7 +30,7 @@ import { IslandLand, shallowsPath } from './IslandLand';
 import { NextStoneHit, NumberedRoad } from './NumberedRoad';
 import { PlotMarker, type PlotMarkerProps } from './PlotMarker';
 import { nextHitRadius, planRoad, roadFootprint } from './roadPlan';
-import { Sea } from './Sea';
+import { CALM_MARGIN, Sea } from './Sea';
 import { Sky } from './Sky';
 
 /**
@@ -127,7 +129,14 @@ export function IslandScene({
   const f = (k: keyof typeof PARALLAX) => (reduced ? 1 : PARALLAX[k]);
   const shift = (k: keyof typeof PARALLAX) => ({ x: -cam.x * f(k), y: -cam.y * f(k) });
   const isl = shift('island');
-  const shallows = useMemo(() => shallowsPath(plots), [plots]);
+  const shallows = useMemo(() => {
+    // The halo stays within HALO_REACH of the plots, so this outline holds it and the margin.
+    const reach = landLoops(plots, HALO_REACH + CALM_MARGIN);
+    return {
+      path: shallowsPath(plots),
+      near: (x: number, y: number) => insideLoops(reach, x, y),
+    };
+  }, [plots]);
   const view = crop ?? { x: 0, y: 0, w: SCENE_W, h: SCENE_H };
   // CSS px per scene unit as drawn, so the next stone's tap target stays ≥ 80 px however small
   // the map is (portrait, small screens, a wider crop; 06 §1, §4). Measured after every render
@@ -185,7 +194,7 @@ export function IslandScene({
           height={SCENE_H - HORIZON_Y}
           far={shift('seaFar')}
           near={shift('seaNear')}
-          calm={{ path: shallows, ...isl }}
+          calm={{ ...shallows, ...isl }}
         />
       </g>
       <g data-layer="island" transform={`translate(${isl.x} ${isl.y})`}>

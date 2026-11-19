@@ -254,6 +254,7 @@ async function expectHorizonClip(svg: SVGSVGElement) {
   await expect(on.getAttribute('transform')).toBe(island.getAttribute('transform'));
   // The sky is the fixed backdrop: it is never moved by the camera.
   await expect(svg.querySelector('[data-layer="sky"]')?.closest('[transform]')).toBeNull();
+  await expectWavesClearOfIsland(svg);
 }
 
 /**
@@ -269,8 +270,30 @@ async function expectWavesClearOfIsland(svg: SVGSVGElement) {
   await expect(calm?.getAttribute('d')).toBe(halo.getAttribute('d'));
   const island = svg.querySelector('[data-layer="island"]') as SVGGElement;
   await expect(calm?.getAttribute('transform')).toBe(island.getAttribute('transform'));
+  // At rest no wave touches the halo: sample along each glyph, in the halo's own units.
+  const offset = (el: Element | null) => {
+    const m = el?.getAttribute('transform')?.match(/translate\(([-\d.]+) ([-\d.]+)\)/);
+    return { x: Number(m?.[1] ?? 0), y: Number(m?.[2] ?? 0) };
+  };
+  const isl = offset(island);
   for (const layer of ['sea-far', 'sea-near']) {
-    await expect(svg.querySelector(`[data-layer="${layer}"]`)?.closest('[mask]')).toBe(waves);
+    const g = svg.querySelector(`[data-layer="${layer}"]`) as SVGGElement;
+    await expect(g.closest('[mask]')).toBe(waves);
+    const at = offset(g);
+    for (const wave of g.querySelectorAll('path')) {
+      const m = wave.getAttribute('transform')?.match(/translate\(([-\d.]+) ([-\d.]+)\) scale/);
+      if (!m) continue;
+      const s = Number(wave.getAttribute('transform')?.match(/scale\(([-\d.]+)\)/)?.[1]);
+      for (let dx = -16; dx <= 16; dx += 4) {
+        for (const dy of [-4, 0]) {
+          const p = new DOMPoint(
+            Number(m[1]) + dx * s + at.x - isl.x,
+            Number(m[2]) + dy * s + at.y - isl.y,
+          );
+          await expect(halo.isPointInFill(p), `wave at ${m[1]},${m[2]}`).toBe(false);
+        }
+      }
+    }
   }
 }
 
