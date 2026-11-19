@@ -370,6 +370,40 @@ export const DoubleTenFrameKeyboard: Story = {
 };
 
 /**
+ * A counted AND selected object's count badge clears its selection ring by ≥ 4 px: the ring is
+ * the object's box grown by `outline-offset + outline-width`, and the badge box must not meet it.
+ * With `required`, at least one ringed object must carry a badge.
+ */
+async function expectBadgeClearOfRing(root: HTMLElement, required = true) {
+  await settle(root);
+  const ringed = [...root.querySelectorAll<HTMLElement>('.ni-tapc__obj[data-ringed="true"]')];
+  let checked = 0;
+  for (const o of ringed) {
+    const badge = o.querySelector('.ni-tapc__mark');
+    if (!badge) continue;
+    const style = getComputedStyle(o);
+    const out = Number.parseFloat(style.outlineOffset) + Number.parseFloat(style.outlineWidth);
+    const b = o.getBoundingClientRect();
+    const ring = {
+      left: b.left - out,
+      top: b.top - out,
+      right: b.right + out,
+      bottom: b.bottom + out,
+    };
+    const m = badge.getBoundingClientRect();
+    const gap = Math.max(
+      ring.left - m.right,
+      m.left - ring.right,
+      ring.top - m.bottom,
+      m.top - ring.bottom,
+    );
+    await expect(gap, `badge ${badge.textContent} clear of its ring`).toBeGreaterThanOrEqual(4);
+    checked++;
+  }
+  if (required) await expect(checked, 'a counted, ringed object').toBeGreaterThan(0);
+}
+
+/**
  * Ordinal, concrete (CNT.15.t1): "start here" arrow on the left. Count along to the seventh shell;
  * the last one tapped is ringed. Check answers `choice obj-6`. Keyboard: the shells are buttons.
  */
@@ -392,6 +426,7 @@ export const OrdinalK: Story = {
     await expect(root.querySelectorAll('[data-ringed="true"]')).toHaveLength(1);
     await expect(marks(root)).toEqual([1, 2, 3, 4, 5, 6, 7]);
     await expectBadgesOffObjects(root);
+    await expectBadgeClearOfRing(root);
     await expectOrdinalFits(root);
     await userEvent.click(canvas.getByRole('button', { name: 'Check' }));
     await expect(args.onResponse).toHaveBeenCalledWith({ kind: 'choice', id: 'obj-6' });
@@ -566,6 +601,8 @@ export const DemoOrdinalRing: Story = {
     await expect(obj(root, 6)).toHaveAttribute('data-ringed', 'true');
     await expect(root.querySelectorAll('[data-ringed="true"]')).toHaveLength(1);
     await expect(root.querySelector('.ni-invite')).toBeNull();
+    await expectBadgeClearOfRing(root);
+    await expectBadgesOffObjects(root);
     await expectOrdinalFits(root);
   },
 };
@@ -758,6 +795,7 @@ export const InviteHeldWhileDisabled: Story = {
     await userEvent.click(obj(root, 5));
     await expectCueOn(root, obj(root, 6));
     await userEvent.click(obj(root, 6));
+    await expectBadgeClearOfRing(root);
     await userEvent.click(checkButton(root));
     await expect(args.onResponse).toHaveBeenCalledWith({ kind: 'choice', id: 'obj-6' });
   },
@@ -891,6 +929,8 @@ async function expectKeyboardCountingOrder(
   }
   await expect(visited).toEqual(order);
   await expect(document.activeElement).toBe(checkButton(root));
+  // The last object rung (counted too, in C) keeps its badge clear of the ring.
+  await expectBadgeClearOfRing(root, root.dataset.tier === 'concrete');
   // Screen readers read the DOM: the same order.
   await expect(objects(root).map((o) => o.dataset.obj)).toEqual(order);
   const taps = traceOf(onInteract).filter((e) => e.t === 'tap');
@@ -941,6 +981,7 @@ export const OrdinalKMinLandscape: Story = {
     for (let i = 0; i < 7; i++) await userEvent.click(obj(root, i));
     await expect(marks(root)).toEqual([1, 2, 3, 4, 5, 6, 7]);
     await expectBadgesOffObjects(root);
+    await expectBadgeClearOfRing(root);
     await expectOrdinalInArea(root, 'k');
     await userEvent.click(checkButton(root));
     await expect(args.onResponse).toHaveBeenCalledWith({ kind: 'choice', id: 'obj-6' });

@@ -43,6 +43,8 @@
 }
 .ni-tapc__picture[data-from] {
   gap: 16px;
+  /* Ordinal badges sit higher (above the selection ring): more room on top. */
+  padding-top: 70px;
   padding-inline: 20px;
 }
 .ni-tapc__picture[data-from="right"] {
@@ -134,6 +136,14 @@ button.ni-tapc__obj:focus-visible {
   pointer-events: none;
   box-shadow: 0 3px 0 rgb(38 70 83 / 0.25);
   animation: var(--animate-pop-in);
+}
+
+/*
+ * Ordinal: the badge sits above the selection ring below (2 px offset + 6 px), centred 40 px above
+ * the box: 66 px to 14 px above it, 6 px clear of the ring (TapCountWidget `BADGE_ORDINAL`).
+ */
+.ni-tapc[data-mode="ordinal"] .ni-tapc__mark {
+  top: -40px;
 }
 
 /* Ordinal pick: a thick ink ring around the object and a check badge. */

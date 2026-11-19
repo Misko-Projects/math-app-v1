@@ -189,6 +189,16 @@ function flattenLine(layout: ObjectLayout): ObjectLayout {
  * `w` allows for two-digit pebbles (≈ 66 px) and a margin.
  */
 const BADGE = { w: 76, above: 48, below: 4, clear: 4 } as const;
+/** The ordinal selection ring around an object's box (tap-count.css: 2 px offset + 6 px ink). */
+const RING_OUT = 2 + 6;
+/**
+ * Ordinal badges sit higher, above the selection ring (`.ni-tapc[data-mode="ordinal"]
+ * .ni-tapc__mark`): from 66 px above the box to 14 px above it, so a counted object's badge
+ * clears its own ring by 6 px. They also clear the ring of a ringed object in the row above
+ * (`clear` includes the ring).
+ */
+const BADGE_ORDINAL = { w: 76, above: 66, below: -14, clear: 4 + RING_OUT } as const;
+type BadgeFootprint = typeof BADGE | typeof BADGE_ORDINAL;
 
 /**
  * How much to stretch a layout's rows (its y axis) so that every count badge clears every other
@@ -197,7 +207,12 @@ const BADGE = { w: 76, above: 48, below: 4, clear: 4 } as const;
  * only objects above (or just below) within the badge's columns need room. Frame layouts
  * (ten-frames, dice, plates) keep their kit geometry: 1.
  */
-function badgeRowStretch(layout: ObjectLayout, cell: number, box: number): number {
+function badgeRowStretch(
+  layout: ObjectLayout,
+  cell: number,
+  box: number,
+  badge: BadgeFootprint,
+): number {
   if (layout.frames.length > 0) return 1;
   let stretch = 1;
   for (const a of layout.objects) {
@@ -207,15 +222,15 @@ function badgeRowStretch(layout: ObjectLayout, cell: number, box: number): numbe
       if (b === a) continue;
       const bx = (b.x + b.scale / 2) * cell;
       const apart =
-        bx + box / 2 <= right - BADGE.w - BADGE.clear || bx - box / 2 >= right + BADGE.clear;
+        bx + box / 2 <= right - badge.w - badge.clear || bx - box / 2 >= right + badge.clear;
       const dy = (a.y - b.y) * cell;
       if (apart || dy === 0) continue;
       // Centre-to-centre offset beyond the rows' own spacing (objects of different sizes).
       const ds = ((a.scale - b.scale) * cell) / 2;
       const need =
         dy > 0
-          ? (box + BADGE.above + BADGE.clear - ds) / dy // b above a: a's badge under b's box
-          : (BADGE.below + BADGE.clear + ds) / -dy; // b below a: b's box under a's badge
+          ? (box + badge.above + badge.clear - ds) / dy // b above a: a's badge under b's box
+          : (badge.below + badge.clear + ds) / -dy; // b below a: b's box under a's badge
       stretch = Math.max(stretch, need);
     }
   }
@@ -423,7 +438,10 @@ export function TapCountWidget({
   let layout = fitLayout;
   let { arrange, cell } = sizeFor(layout);
   for (let pass = 0; pass < 4; pass++) {
-    const next = stretchRows(fitLayout, badgeRowStretch(fitLayout, cell, boxFor(cell)));
+    const next = stretchRows(
+      fitLayout,
+      badgeRowStretch(fitLayout, cell, boxFor(cell), ordinal ? BADGE_ORDINAL : BADGE),
+    );
     const sized = sizeFor(next);
     const settled = next === layout || sized.cell === cell;
     layout = next;
