@@ -480,6 +480,9 @@ export function PerimeterWalkWidget({
     // Every side's number outside the fence beside its own side, never over a side line, 12 px
     // from the others (evidence review: the "?" covered its side in the L's notch).
     const centres = fence.centres;
+    // A number that cannot sit beside its own side (a crowded notch) points to it (decision on the
+    // evidence review): a leader from its edge to a dot on the side's midpoint.
+    const leaders = sideLeaders(points.map(toPx), centres, sizes);
     picture = (
       <div className="ni-pwalk__fence" style={{ width: fence.w, height: fence.h }}>
         <div
@@ -533,6 +536,15 @@ export function PerimeterWalkWidget({
               // biome-ignore lint/suspicious/noArrayIndexKey: one post per corner
               return <circle key={i} className="ni-pwalk__post" cx={x} cy={y} r={6} />;
             })}
+            {leaders.map((l, i) =>
+              l ? (
+                // biome-ignore lint/suspicious/noArrayIndexKey: one leader per side
+                <g key={`ld${i}`} className="ni-pwalk__leader" data-leader-for={i}>
+                  <polyline points={l.points.map((p) => p.join(',')).join(' ')} />
+                  <circle className="ni-pwalk__leader-dot" cx={l.dot[0]} cy={l.dot[1]} r={5} />
+                </g>
+              ) : null,
+            )}
           </svg>
           {points.map((_, i) => {
             const label = labelText(i);
@@ -949,6 +961,146 @@ export function placeSideLabels(poly: readonly Pt[], sizes: readonly Pt[]): Pt[]
     if (!moved) break;
   }
   return sides.map((_, i) => centre(i));
+}
+
+/** A bubble further than this (px) from the middle half of its own side gets a leader. */
+export const LEADER_NEAR = 20;
+/** Leaders keep this far (px) from other bubbles. */
+const LEADER_CLEAR = 6;
+
+/** Distance from point p to segment ab. */
+function pointToSegment(p: Pt, a: Pt, b: Pt): number {
+  const dx = b[0] - a[0];
+  const dy = b[1] - a[1];
+  const l2 = dx * dx + dy * dy || 1;
+  const t = Math.max(0, Math.min(1, ((p[0] - a[0]) * dx + (p[1] - a[1]) * dy) / l2));
+  return Math.hypot(p[0] - (a[0] + t * dx), p[1] - (a[1] + t * dy));
+}
+
+/** Whether segment pq passes through box (Liang–Barsky). */
+function segmentHitsBox(p: Pt, q: Pt, b: Box): boolean {
+  let t0 = 0;
+  let t1 = 1;
+  const d: Pt = [q[0] - p[0], q[1] - p[1]];
+  for (const [num, den] of [
+    [p[0] - b.l, -d[0]],
+    [b.r - p[0], d[0]],
+    [p[1] - b.t, -d[1]],
+    [b.b - p[1], d[1]],
+  ] as const) {
+    if (den === 0) {
+      if (num < 0) return false;
+    } else {
+      const t = num / den;
+      if (den < 0) t0 = Math.max(t0, t);
+      else t1 = Math.min(t1, t);
+      if (t0 > t1) return false;
+    }
+  }
+  return true;
+}
+
+/** Whether segments pq and ab properly cross. */
+function segmentsCross(p: Pt, q: Pt, a: Pt, b: Pt): boolean {
+  const o = (u: Pt, v: Pt, w: Pt) => {
+    const c = (v[0] - u[0]) * (w[1] - u[1]) - (v[1] - u[1]) * (w[0] - u[0]);
+    return Math.abs(c) < 1e-6 ? 0 : Math.sign(c);
+  };
+  return o(p, q, a) * o(p, q, b) < 0 && o(a, b, p) * o(a, b, q) < 0;
+}
+
+export interface SideLeader {
+  /** The leader's path, from the bubble's edge to the dot. */
+  points: Pt[];
+  /** The dot on the side (its midpoint). */
+  dot: Pt;
+}
+
+/**
+ * Leaders for side numbers that cannot sit beside their own side (a crowded L notch): a bubble
+ * further than `LEADER_NEAR` px from the middle half of its side, or with another bubble between
+ * it and its side, gets a short line from its edge to a dot on its side's midpoint. The line goes
+ * the shortest way around other bubbles (6 px clear) and crosses no side line. Others get none.
+ */
+export function sideLeaders(
+  poly: readonly Pt[],
+  centres: readonly Pt[],
+  sizes: readonly Pt[],
+): (SideLeader | null)[] {
+  const n = poly.length;
+  const seg = (i: number) => [poly[i] as Pt, poly[(i + 1) % n] as Pt] as const;
+  const boxes = centres.map((c, i) => boxAt(c, sizes[i] as Pt));
+  const grow = (b: Box, m: number): Box => ({ l: b.l - m, t: b.t - m, r: b.r + m, b: b.b + m });
+  return centres.map((c, i) => {
+    const [a, b] = seg(i);
+    const mid: Pt = [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2];
+    const q1: Pt = [a[0] + (b[0] - a[0]) / 4, a[1] + (b[1] - a[1]) / 4];
+    const q3: Pt = [a[0] + ((b[0] - a[0]) * 3) / 4, a[1] + ((b[1] - a[1]) * 3) / 4];
+    const near = segmentToBox(q1, q3, boxes[i] as Box) <= LEADER_NEAR;
+    const len = Math.hypot(b[0] - a[0], b[1] - a[1]) || 1;
+    const d: Pt = [(b[0] - a[0]) / len, (b[1] - a[1]) / len];
+    const t = Math.max(0, Math.min(len, (c[0] - a[0]) * d[0] + (c[1] - a[1]) * d[1]));
+    const foot: Pt = [a[0] + d[0] * t, a[1] + d[1] * t];
+    const blocked = boxes.some((o, j) => j !== i && segmentHitsBox(c, foot, o));
+    if (near && !blocked) return null;
+    // Shortest path from the bubble's centre to the midpoint, around the other bubbles.
+    const others = boxes.filter((_, j) => j !== i).map((o) => grow(o, LEADER_CLEAR - 0.5));
+    const nodes: Pt[] = [c, mid];
+    for (const o of boxes.filter((_, j) => j !== i).map((x) => grow(x, LEADER_CLEAR + 2))) {
+      nodes.push([o.l, o.t], [o.r, o.t], [o.l, o.b], [o.r, o.b]);
+    }
+    const ok = (p: Pt, q: Pt, endsAtMid: boolean) => {
+      if (others.some((o) => segmentHitsBox(p, q, o))) return false;
+      for (let k = 0; k < n; k += 1) {
+        const [sa, sb] = seg(k);
+        if (endsAtMid && k === i) continue;
+        if (segmentsCross(p, q, sa, sb)) return false;
+        // Never along or onto another side line (a waypoint on a line).
+        if (pointToSegment(q, sa, sb) < 4 && !(endsAtMid && k === i)) return false;
+      }
+      return true;
+    };
+    const dist = nodes.map(() => Number.POSITIVE_INFINITY);
+    const prev = nodes.map(() => -1);
+    const done = nodes.map(() => false);
+    dist[0] = 0;
+    for (;;) {
+      let u = -1;
+      for (let k = 0; k < nodes.length; k += 1) {
+        if (!done[k] && (u < 0 || (dist[k] as number) < (dist[u] as number))) u = k;
+      }
+      if (u < 0 || !Number.isFinite(dist[u] as number) || u === 1) break;
+      done[u] = true;
+      for (let v = 0; v < nodes.length; v += 1) {
+        if (done[v] || v === u) continue;
+        const p = nodes[u] as Pt;
+        const q = nodes[v] as Pt;
+        if (!ok(p, q, v === 1)) continue;
+        const nd = (dist[u] as number) + Math.hypot(q[0] - p[0], q[1] - p[1]);
+        if (nd < (dist[v] as number)) {
+          dist[v] = nd;
+          prev[v] = u;
+        }
+      }
+    }
+    const path: Pt[] = [];
+    if (prev[1] === -1) path.push(c, mid);
+    else for (let k = 1; k !== -1; k = prev[k] as number) path.unshift(nodes[k] as Pt);
+    // Start at the bubble's edge (a circle when it is round, else its box).
+    const first = path[1] as Pt;
+    const dir: Pt = [first[0] - c[0], first[1] - c[1]];
+    const dl = Math.hypot(dir[0], dir[1]) || 1;
+    const sz = sizes[i] as Pt;
+    const r =
+      Math.abs(sz[0] - sz[1]) < 1
+        ? sz[1] / 2
+        : Math.min(
+            Math.abs(dir[0]) > 1e-6 ? sz[0] / 2 / Math.abs(dir[0] / dl) : Number.POSITIVE_INFINITY,
+            Math.abs(dir[1]) > 1e-6 ? sz[1] / 2 / Math.abs(dir[1] / dl) : Number.POSITIVE_INFINITY,
+          );
+    path[0] = [c[0] + (dir[0] / dl) * r, c[1] + (dir[1] / dl) * r];
+    return { points: path, dot: mid };
+  });
 }
 
 /** One fewer / one more column (or row): two target-size buttons either side of an arrow. */

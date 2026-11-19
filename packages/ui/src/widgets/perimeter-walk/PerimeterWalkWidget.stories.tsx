@@ -360,6 +360,7 @@ async function expectSideLabels(root: HTMLElement) {
     }
   }
   await expectTargetGaps(labels);
+  await expectLeaders(root);
   recordEvidence(root, {
     bubble_to_side: Math.round(nearest),
     bubble_off_mid_pct: Math.round(offMid * 100),
@@ -367,6 +368,90 @@ async function expectSideLabels(root: HTMLElement) {
   console.info(
     `[bubbles] nearest side line ${Math.round(nearest)} px; furthest from a midpoint ${Math.round(offMid * 100)} % of its side`,
   );
+}
+
+/**
+ * Every side number either sits beside its own side (within 20 px of the middle half of it) or
+ * has a leader (decision on the evidence review: a crowded L notch): an ink line, 2+ px, from the
+ * bubble to a dot ON its own side within a quarter of the side from the midpoint, crossing no
+ * other bubble. Records `leaders` (side index: the leader's length in px).
+ */
+async function expectLeaders(root: HTMLElement) {
+  const svg = root.querySelector('.ni-pwalk__fence svg') as SVGSVGElement;
+  const ctm = svg.getScreenCTM() as DOMMatrix;
+  const client = (x: number, y: number): [number, number] => {
+    const p = new DOMPoint(x, y).matrixTransform(ctm);
+    return [p.x, p.y];
+  };
+  const toSeg = (p: [number, number], a: [number, number], b: [number, number]) => {
+    const dx = b[0] - a[0];
+    const dy = b[1] - a[1];
+    const len = Math.hypot(dx, dy) || 1;
+    const t = ((p[0] - a[0]) * dx + (p[1] - a[1]) * dy) / len;
+    const tc = Math.max(0, Math.min(len, t));
+    return {
+      t,
+      len,
+      dist: Math.hypot(p[0] - (a[0] + (dx / len) * tc), p[1] - (a[1] + (dy / len) * tc)),
+    };
+  };
+  const rectToSeg = (r: DOMRect, a: [number, number], b: [number, number]) => {
+    let best = Number.POSITIVE_INFINITY;
+    for (let k = 0; k <= 60; k += 1) {
+      const x = a[0] + ((b[0] - a[0]) * k) / 60;
+      const y = a[1] + ((b[1] - a[1]) * k) / 60;
+      best = Math.min(
+        best,
+        Math.hypot(Math.max(r.left - x, 0, x - r.right), Math.max(r.top - y, 0, y - r.bottom)),
+      );
+    }
+    return best;
+  };
+  const labels = [...root.querySelectorAll<HTMLElement>('.ni-pwalk__label')];
+  const leaders: Record<string, number> = {};
+  for (const l of labels) {
+    const i = Number(l.dataset.labelSide);
+    const line = root.querySelector(`line.ni-pwalk__side[data-side="${i}"]`) as SVGLineElement;
+    const a = client(line.x1.baseVal.value, line.y1.baseVal.value);
+    const b = client(line.x2.baseVal.value, line.y2.baseVal.value);
+    const q1: [number, number] = [a[0] + (b[0] - a[0]) / 4, a[1] + (b[1] - a[1]) / 4];
+    const q3: [number, number] = [a[0] + (3 * (b[0] - a[0])) / 4, a[1] + (3 * (b[1] - a[1])) / 4];
+    const r = l.getBoundingClientRect();
+    const g = root.querySelector(`.ni-pwalk__leader[data-leader-for="${i}"]`);
+    if (!g) {
+      await expect(
+        rectToSeg(r, q1, q3),
+        `bubble ${i} beside its side's middle (or it would have a leader)`,
+      ).toBeLessThanOrEqual(20.5);
+      continue;
+    }
+    const dotEl = g.querySelector('.ni-pwalk__leader-dot') as SVGCircleElement;
+    const dot = client(dotEl.cx.baseVal.value, dotEl.cy.baseVal.value);
+    const on = toSeg(dot, a, b);
+    await expect(on.dist, `leader ${i}: its dot on its side`).toBeLessThanOrEqual(1.5);
+    await expect(
+      Math.abs(on.t - on.len / 2),
+      `leader ${i}: its dot near the side's midpoint`,
+    ).toBeLessThanOrEqual(on.len / 4 + 0.5);
+    const poly = g.querySelector('polyline') as SVGPolylineElement;
+    const cs = getComputedStyle(poly);
+    await expect(Number.parseFloat(cs.strokeWidth), `leader ${i}: 2+ px`).toBeGreaterThanOrEqual(2);
+    await expect(cs.stroke, `leader ${i}: ink`).toBe('rgb(38, 70, 83)');
+    const total = poly.getTotalLength();
+    for (let d = 0; d <= total; d += 2) {
+      const p = poly.getPointAtLength(d);
+      const [x, y] = client(p.x, p.y);
+      for (const o of labels) {
+        if (o === l) continue;
+        const or = o.getBoundingClientRect();
+        const inside = x > or.left && x < or.right && y > or.top && y < or.bottom;
+        await expect(inside, `leader ${i} crosses bubble ${o.dataset.labelSide}`).toBe(false);
+      }
+    }
+    leaders[String(i)] = Math.round(total);
+  }
+  recordEvidence(root, { leaders });
+  console.info(`[leaders] ${JSON.stringify(leaders)}`);
 }
 
 /**

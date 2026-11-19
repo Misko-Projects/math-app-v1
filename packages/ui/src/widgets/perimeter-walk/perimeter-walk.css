@@ -362,3 +362,17 @@
   justify-content: center;
   gap: 20px;
 }
+/* A leader (a side number that cannot sit beside its side, in a crowded notch): an ink line from
+   the bubble's edge to an ink dot on its side's midpoint. */
+.ni-pwalk__leader polyline {
+  fill: none;
+  stroke: var(--color-ink);
+  stroke-width: 3px;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.ni-pwalk__leader-dot {
+  fill: var(--color-ink);
+  stroke: var(--color-paper);
+  stroke-width: 2px;
+}
