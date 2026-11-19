@@ -173,8 +173,6 @@ async function expectBadgesOffObjects(root: HTMLElement) {
   }
 }
 
-const overlaps = (a: DOMRect, o: DOMRect) =>
-  !(a.right <= o.left || o.right <= a.left || a.bottom <= o.top || o.bottom <= a.top);
 type Edges = { left: number; top: number; right: number; bottom: number };
 /** `inner` lies inside `outer` with at least `margin` px on every side. */
 async function expectWithin(inner: Edges, outer: Edges, margin: number, what: string) {
@@ -196,6 +194,25 @@ function placeOf(root: HTMLElement, i: number): DOMRect {
 }
 const objIndex = (el: Element) =>
   Number((el.closest('.ni-tapc__obj') as HTMLElement).dataset.obj?.replace('obj-', ''));
+/**
+ * The box an object's DRAWING covers on screen (its sprite's geometry with a 2-unit margin for
+ * outlines), not the sprite's square box.
+ */
+function drawnRect(sprite: Element): Edges {
+  const svg = sprite.querySelector('svg') as SVGSVGElement;
+  const r = svg.getBoundingClientRect();
+  const bb = svg.getBBox();
+  const k = r.width / svg.viewBox.baseVal.width;
+  return {
+    left: r.left + (bb.x - 2) * k,
+    top: r.top + (bb.y - 2) * k,
+    right: r.left + (bb.x + bb.width + 2) * k,
+    bottom: r.top + (bb.y + bb.height + 2) * k,
+  };
+}
+const overlapsEdges = (a: Edges, o: Edges) =>
+  !(a.right <= o.left || o.right <= a.left || a.bottom <= o.top || o.bottom <= a.top);
+
 /** The gap between two boxes (negative when they overlap). */
 const gapBetween = (a: Edges, b: Edges) =>
   Math.max(a.left - b.right, b.left - a.right, a.top - b.bottom, b.top - a.bottom);
@@ -226,14 +243,13 @@ async function expectFrameMarks(root: HTMLElement, n: number) {
     await expectWithin(d, place, 3, `dot ${i + 1} inside its place`);
     await expect(d.width, `dot ${i + 1} size`).toBeLessThanOrEqual(0.3 * place.width);
     const mine = dot.closest('.ni-tapc__obj')?.querySelector('.ni-tapc__sprite') as Element;
-    const own = mine.getBoundingClientRect();
     await expect(
-      gapBetween(d, own),
+      gapBetween(d, drawnRect(mine)),
       `dot ${i + 1} clear of its own drawing`,
     ).toBeGreaterThanOrEqual(3 - 0.5);
     for (const s of sprites) {
       if (s === mine) continue;
-      await expect(overlaps(d, s.getBoundingClientRect()), `dot ${i + 1} on another`).toBe(false);
+      await expect(overlapsEdges(d, drawnRect(s)), `dot ${i + 1} on another`).toBe(false);
     }
   }
   const counts = [...root.querySelectorAll<HTMLElement>('.ni-tapc__count')];
@@ -251,7 +267,7 @@ async function expectFrameMarks(root: HTMLElement, n: number) {
     ).toBeGreaterThanOrEqual(12 - 0.5);
   }
   for (const s of sprites) {
-    await expect(overlaps(c, s.getBoundingClientRect()), 'count off every drawing').toBe(false);
+    await expect(overlapsEdges(c, drawnRect(s)), 'count off every drawing').toBe(false);
   }
   // The count belongs to the object counted last (here the n-th): exactly one dot is marked as
   // the latest, it is that object's, and the count sits above its place's column.
@@ -821,8 +837,17 @@ export const DemoCountAloudTenFrame: Story = {
     await expectFrameMarks(root, 7);
     await frameCount.play({ op: 'count-aloud', args: { upTo: 15 } });
     await expectFrameMarks(root, 15);
+    await expectDrawnAtLeast(root, 32);
   },
 };
+
+/** Every object's drawing is at least `px` wide and tall enough to count (its drawn box). */
+async function expectDrawnAtLeast(root: HTMLElement, px: number) {
+  for (const s of root.querySelectorAll('[data-kind="object"] .ni-tapc__sprite')) {
+    const d = drawnRect(s);
+    await expect(d.right - d.left, 'drawn width').toBeGreaterThanOrEqual(px);
+  }
+}
 
 /**
  * The how-many widget fits its host box (the widget area) exactly: the box scrolls neither way,
@@ -903,6 +928,7 @@ export const DemoCountAloudTenFrameMin: Story = {
     await expectFrameMarks(root, 7);
     await frameCountMin.play({ op: 'count-aloud', args: { upTo: 15 } });
     await expectFrameMarks(root, 15);
+    await expectDrawnAtLeast(root, 32);
     await expectHowManyFits(root);
   },
 };
@@ -926,14 +952,34 @@ export const TenFrameConcreteK: Story = {
     tier: 'concrete',
     demo: tenFrameInvite,
   },
+  parameters: { area: widgetArea(1280, 800) },
+  render: renderInArea,
   play: async ({ canvasElement }) => {
     const root = await findWidget(canvasElement, ROOT);
     await expect(objects(root)).toHaveLength(7);
     for (const o of objects(root)) await expectTargetSize(o, 'k');
     await expectTargetGaps(objects(root));
-    // The frame uses the room: at least half the widget's width.
-    const frame = (root.querySelector('.ni-objects__frame') as Element).getBoundingClientRect();
-    await expect(frame.width).toBeGreaterThanOrEqual(0.5 * root.getBoundingClientRect().width);
+    // Each cell is its own target: adjacent cells are ≥ 12 px apart, each holds its object's box.
+    const cells = [...root.querySelectorAll('.ni-objects__cell')].map((c) =>
+      c.getBoundingClientRect(),
+    );
+    for (let i = 0; i < cells.length; i++) {
+      const a = cells[i] as DOMRect;
+      if (i % 5 < 4) {
+        await expect(gapBetween(a, cells[i + 1] as DOMRect), 'cell gap').toBeGreaterThanOrEqual(
+          11.5,
+        );
+      }
+      if (i < 5) {
+        await expect(gapBetween(a, cells[i + 5] as DOMRect), 'row gap').toBeGreaterThanOrEqual(
+          11.5,
+        );
+      }
+    }
+    // Frame and Check as one centred group (Check beside while counting), filling the area.
+    await expect(root).toHaveAttribute('data-arrange', 'side');
+    await expect(tray(root)).toBeNull();
+    await expectFill(root);
     for (let i = 0; i < 4; i++) await userEvent.click(obj(root, i));
     await expectFrameMarks(root, 4);
     await expect(obj(root, 3)).toHaveAccessibleName(/, number 4$/);
@@ -955,6 +1001,15 @@ export const TenFrameConcreteK: Story = {
       if (o === invited) continue;
       await expect(gapBetween(ring, o.getBoundingClientRect())).toBeGreaterThanOrEqual(12 - 0.5);
     }
+    // ≥ 12 px inside the frame's border.
+    const fr = (root.querySelector('.ni-objects__frame') as HTMLElement).getBoundingClientRect();
+    const inner = {
+      left: fr.left + 4,
+      top: fr.top + 4,
+      right: fr.right - 4,
+      bottom: fr.bottom - 4,
+    };
+    await expectWithin(ring, inner, 12, 'ring 12 px inside the frame border');
   },
 };
 

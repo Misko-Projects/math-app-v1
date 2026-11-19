@@ -487,23 +487,21 @@ export function BundleBand({
   );
 }
 
-/** Where the ten objects of a `TenBundle` sit (left, top in px): a sheaf of two packed columns. */
+/** Where the ten objects of a `TenBundle` sit (left, top in px): two columns of five. */
 const BUNDLE_SPOTS: readonly [number, number][] = Array.from({ length: 10 }, (_, i) => {
   const col = i % 2;
   const row = Math.floor(i / 2);
-  // Odd rows lean in a little, like a tied sheaf.
-  const lean = row % 2 === 1 ? (col === 0 ? 3 : -3) : 0;
-  return [8 + col * 44 + lean, row * 24] as [number, number];
+  return [4 + col * 48, row * 34] as [number, number];
 });
 
 /**
- * A tied ten as ONE bundle (one ten-frame at a time, make-set): ten objects packed in a sheaf of
- * two columns (36 px each, overlapping), a rope band round the middle, and a bow tied on the
- * front (the same rope and bow as a bundled ten-frame). 96 × 132; it never reads as a frame:
- * no cells, no outline. `tied={false}`: the same sheaf with no rope (a ten still to be bundled).
+ * A tied ten as ONE bundle (one ten-frame at a time, make-set): ten objects of 40 px (the same
+ * drawings as the loose ones) in two columns of five, the rope running down the 8 px gap between
+ * the columns and tied in a small bow at the middle, so every object stays in view (the rope and
+ * bow cover < 20 % of any object's box). 96 × 176; no cells, no outline: it never reads as a
+ * frame. `tied={false}`: the same ten with no rope (a ten still to be bundled).
  */
 export function TenBundle({ sprite, tied = true }: { sprite: ReactNode; tied?: boolean }) {
-  const mid = 66;
   return (
     <span className="ni-mset__bundle" data-tied={tied ? 'true' : undefined} aria-hidden="true">
       <span className="ni-mset__bundle-ground" />
@@ -513,52 +511,55 @@ export function TenBundle({ sprite, tied = true }: { sprite: ReactNode; tied?: b
           {sprite}
         </span>
       ))}
-      {tied ? <BundleTie mid={mid} /> : null}
+      {tied ? <BundleTie /> : null}
     </span>
   );
 }
 
-function BundleTie({ mid }: { mid: number }) {
+/** The bundle's rope (down the gap between its columns) and its bow, at the middle. */
+function BundleTie() {
+  const mid = 88;
   return (
     <svg
       className="ni-mset__bundle-tie"
-      viewBox="0 0 96 132"
+      viewBox="0 0 96 176"
       width="96"
-      height="132"
+      height="176"
       aria-hidden="true"
       focusable="false"
     >
       <rect
-        x="2"
-        y={mid - 7}
-        width="92"
-        height="14"
-        rx="7"
+        className="ni-mset__rope"
+        x="45"
+        y="-2"
+        width="6"
+        height="180"
+        rx="3"
         fill="var(--color-sunshine)"
         stroke={INK}
-        strokeWidth="3"
+        strokeWidth="2"
       />
       {[-1, 1].map((side) => (
         <ellipse
           key={side}
           className="ni-mset__bow"
-          cx={48 + side * 15}
+          cx={48 + side * 10}
           cy={mid}
-          rx="12"
-          ry="8"
+          rx="6"
+          ry="5"
           fill="var(--color-sunshine)"
           stroke={INK}
-          strokeWidth="3"
+          strokeWidth="2.5"
         />
       ))}
       <circle
         className="ni-mset__bow"
         cx="48"
         cy={mid}
-        r="8"
+        r="5"
         fill="var(--color-sunshine-deep)"
         stroke={INK}
-        strokeWidth="3"
+        strokeWidth="2.5"
       />
     </svg>
   );

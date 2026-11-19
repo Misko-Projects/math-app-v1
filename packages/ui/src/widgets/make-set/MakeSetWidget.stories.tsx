@@ -714,8 +714,31 @@ async function expectTenFirst(root: HTMLElement) {
   await expect(bundle.height).toBeGreaterThanOrEqual(0.6 * frame.height);
   const objs = [...ten.querySelectorAll('.ni-mset__bundle-obj')];
   await expect(objs).toHaveLength(10);
+  await expect(ten.querySelectorAll('.ni-mset__bundle-obj [data-sprite]')).toHaveLength(10);
+  // Every one of the ten in view: ≥ 40 px, ≥ 80 % of its box clear of the rope and the bow (their
+  // shapes' boxes with the outline; overlaps summed, so counted twice where they meet).
+  const tie = [
+    ...ten.querySelectorAll(
+      '.ni-mset__bundle-tie rect, .ni-mset__bundle-tie ellipse, .ni-mset__bundle-tie circle',
+    ),
+  ].map((el) => {
+    const r = el.getBoundingClientRect();
+    const w = Number.parseFloat(getComputedStyle(el).strokeWidth) / 2 || 0;
+    return { left: r.left - w, top: r.top - w, right: r.right + w, bottom: r.bottom + w };
+  });
   for (const o of objs) {
-    await expect(o.getBoundingClientRect().width).toBeGreaterThanOrEqual(32);
+    const r = o.getBoundingClientRect();
+    await expect(r.width).toBeGreaterThanOrEqual(40);
+    const covered = tie.reduce(
+      (sum, t) =>
+        sum +
+        Math.max(0, Math.min(r.right, t.right) - Math.max(r.left, t.left)) *
+          Math.max(0, Math.min(r.bottom, t.bottom) - Math.max(r.top, t.top)),
+      0,
+    );
+    await expect(covered / (r.width * r.height), 'object covered by the tie').toBeLessThanOrEqual(
+      0.2,
+    );
   }
   const tag = ten.querySelector('.ni-mset__tens-tag') as HTMLElement;
   await expect(tag).toHaveTextContent('10');
@@ -936,9 +959,10 @@ async function expectOnesCountStep(root: HTMLElement, n: number) {
   const ones = tens(root) as HTMLElement;
   await expect(ones).toHaveAttribute('data-tens', 'ones');
   await expect(ones).not.toHaveAttribute('data-counting');
+  // The ones counted so far are marked (the marks equal the count), the rest are not.
   const cells = [...ones.querySelectorAll('.ni-mset__tens-cell')];
   await expect(cells.map((c) => c.hasAttribute('data-counting'))).toEqual(
-    cells.map((_, k) => k === n - 11),
+    cells.map((_, k) => k <= n - 11),
   );
   const b = badge.getBoundingClientRect();
   await expect(Number.parseFloat(getComputedStyle(badge).fontSize)).toBeGreaterThanOrEqual(32);
@@ -1056,8 +1080,19 @@ export const RegroupKShortBeforeBundle: Story = {
     for (const n of [11, 12, 13]) await expectOnesCountStep(root, n);
     await counted;
     await expect(spokenNumbers(audio)).toEqual(Array.from({ length: 13 }, (_, i) => i + 1));
-    await waitFor(() => expect(tens(root)).toHaveAttribute('data-tens', 'bundle'));
-    await expect(root.querySelectorAll('.ni-mset__mark')).toHaveLength(0);
+    // Counted one by one, and left that way before any bundle exists: all 13 loose (the ten in
+    // its frame, the ones on their small frame), marked 1–10 and the ones 11–13 with the 13 under
+    // them.
+    await expect(tens(root)).toHaveAttribute('data-tens', 'ones');
+    await expect(root.querySelector('.ni-mset__frame[data-bundled="true"]')).toBeNull();
+    await expect(root.querySelector('.ni-mset__bundle')).toBeNull();
+    const frameMarks = [...root.querySelectorAll('.ni-mset__frame .ni-mset__mark')].map((m) =>
+      Number(m.textContent),
+    );
+    await expect(frameMarks).toEqual(Array.from({ length: 10 }, (_, i) => i + 1));
+    const onesCells = [...(tens(root) as HTMLElement).querySelectorAll('.ni-mset__tens-cell')];
+    await expect(onesCells.filter((c) => c.hasAttribute('data-counting'))).toHaveLength(3);
+    await expect(tens(root)?.querySelector('.ni-mset__tens-count')).toHaveTextContent('13');
 
     // Next: make a ten.
     regroupBefore.invite({ op: 'bundle' });
@@ -1134,6 +1169,11 @@ export const RegroupKShortAfterBundle: Story = {
     clearSpies(audio);
     await regroupAfter.play({ op: 'count-aloud' });
     await expect(spokenNumbers(audio)).toEqual([10, 11, 12, 13]);
+    // The ten counted as one ten, the three ones marked 11, 12, 13 (they stay marked).
+    const onesMarks = [...root.querySelectorAll('.ni-mset__frame .ni-mset__mark')].map((m) =>
+      Number(m.textContent),
+    );
+    await expect(onesMarks).toEqual([11, 12, 13]);
     regroupAfter.invite({ op: 'count-aloud' });
     await expectInviteOn(root, tens(root) as HTMLElement);
     await expectHandCue(root, 'count');

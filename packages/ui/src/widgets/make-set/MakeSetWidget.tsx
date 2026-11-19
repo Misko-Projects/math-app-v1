@@ -128,10 +128,10 @@ const TENS_H = 5 * TENS_PIECE + 4 * 2 + 2 * (6 + 4);
 const TENS_TAG = 2 + 34 + 2;
 const TENS_TAG_GAP = 2;
 /**
- * The tied ten drawn as ONE bundle (containers.tsx `TenBundle`): ten 36 px objects packed in a
- * sheaf, tied round the middle with the rope band and a bow. 96 × 132.
+ * The tied ten drawn as ONE bundle (containers.tsx `TenBundle`): ten 40 px objects in two columns
+ * of five, the rope down the gap between them and a bow at the middle. 96 × 176.
  */
-const BUNDLE_ART_H = 132;
+const BUNDLE_ART_H = 176;
 /** The tied ten: the bundle, its "10" tag, and a 10 px strip under the tag for Pip's fingertip. */
 const BUNDLE_H = BUNDLE_ART_H + TENS_TAG_GAP + TENS_TAG + 10;
 /**
@@ -325,6 +325,13 @@ export function MakeSetWidget({
   const [flight, setFlight] = useState<Flight | null>(null);
   const [flyingId, setFlyingId] = useState<ItemId | null>(null);
   const [counting, setCounting] = useState<number | null>(null);
+  /**
+   * After Pip counts aloud, the count marks stay up to the last object counted, and so does the
+   * view counting used (a ten counted one by one stays in its frame, every object loose and
+   * marked), until anything changes.
+   */
+  const [countedTo, setCountedTo] = useState<number | null>(null);
+  const markTo = counting ?? countedTo;
   const [closed, setClosed] = useState(false);
   const rootRef = useRef<HTMLDivElement | null>(null);
   const interactive = tier === 'concrete' && !disabled && !demoBusy;
@@ -345,6 +352,7 @@ export function MakeSetWidget({
 
   /** Moves one object into the container (from the pile or supply). False when it can't. */
   const moveIn = (id: ItemId): boolean => {
+    setCountedTo(null);
     const l = listsRef.current;
     if (l.inside.includes(id) || l.inside.length >= capacity) return false;
     const before = view(stateRef.current).count;
@@ -364,6 +372,7 @@ export function MakeSetWidget({
 
   /** Takes one object out of the container onto the pile. */
   const moveOut = (id: ItemId): boolean => {
+    setCountedTo(null);
     const l = listsRef.current;
     if (!l.inside.includes(id)) return false;
     apply({ op: 'remove', args: { count: 1 } });
@@ -431,6 +440,7 @@ export function MakeSetWidget({
     if (!interactive || !canBundle) return;
     trace('tap', 'bundle');
     setInvite(null);
+    setCountedTo(null);
     apply({ op: 'bundle' });
     sfx('fuse');
   };
@@ -530,6 +540,7 @@ export function MakeSetWidget({
     play: async (action) => {
       setDemoBusy(true);
       setInvite(null);
+      setCountedTo(null);
       try {
         switch (action.op) {
           case 'drag':
@@ -550,9 +561,8 @@ export function MakeSetWidget({
             // the model (groupsOf 10, bundled), or an item with no bundling, where the tie is just
             // how one frame shows a full ten. A ten still to be bundled (CNT.19 / PV.09: "count
             // out ten ones") is counted one by one: its frame is shown for 1–10, then the ones
-            // beside it, and the page comes back afterwards.
+            // beside it, and that view stays, every object loose and marked (`countedTo`).
             let from = 0;
-            let restore = false;
             if (!hands && oneFrame && beside === 'bundle' && n >= 10) {
               if (!config.groupsOf || (now.bundles ?? 0) >= 1) {
                 setCounting(9);
@@ -562,7 +572,6 @@ export function MakeSetWidget({
                 from = 10;
               } else {
                 setTenPage(0);
-                restore = true;
                 await pause(SLIDE_MS);
                 if (!alive.current) return;
               }
@@ -573,11 +582,7 @@ export function MakeSetWidget({
               await pause(COUNT_MS);
               if (!alive.current) return;
             }
-            if (restore) {
-              setCounting(null);
-              setTenPage(1);
-              await pause(SLIDE_MS);
-            }
+            if (n > 0) setCountedTo(n - 1);
             break;
           }
           case 'bundle':
@@ -866,6 +871,7 @@ export function MakeSetWidget({
   /** Untie the ten (it shows in the frame again, so objects can come out) or tie it again. */
   const toggleTen = () => {
     if (!interactive || beside === null) return;
+    setCountedTo(null);
     // Keyboard (or a focused tap): the replacement button takes the focus.
     refocusTens.current = tensRef.current !== null && document.activeElement === tensRef.current;
     if (beside === 'bundle') {
@@ -1015,7 +1021,7 @@ export function MakeSetWidget({
         data-counting={place === 'inside' && counting === index ? 'true' : undefined}
       >
         <ObjectSprite sprite={sprite} />
-        {place === 'inside' && counting !== null && index <= counting ? (
+        {place === 'inside' && markTo !== null && index <= markTo ? (
           <span className="ni-mset__mark" aria-hidden="true">
             {index + 1}
           </span>
@@ -1097,7 +1103,8 @@ export function MakeSetWidget({
    * its own cell of the small frame (steps 10 and up), the running number under that frame.
    */
   const tensCounting = counting !== null && beside === 'bundle' && counting === 9;
-  const onesCounting = beside === 'ones' && counting !== null && counting >= 10 ? counting : null;
+  /** Counting on the small frame of ones: the last one counted so far (marks stay after). */
+  const onesCounting = beside === 'ones' && markTo !== null && markTo >= 10 ? markTo : null;
   /**
    * The ten beside the ones is drawn tied (the rope band and bow) only when it is one: bundled in
    * the model (groupsOf 10), or in an item with no bundling. A ten the child still has to bundle is
@@ -1134,7 +1141,9 @@ export function MakeSetWidget({
                   // biome-ignore lint/suspicious/noArrayIndexKey: the small frame's cells are positional
                   key={k}
                   className="ni-mset__tens-cell"
-                  data-counting={onesCounting === 10 + k ? 'true' : undefined}
+                  data-counting={
+                    onesCounting !== null && 10 + k <= onesCounting ? 'true' : undefined
+                  }
                 >
                   {k < onesShown ? <ObjectSprite sprite={sprite} /> : null}
                 </span>

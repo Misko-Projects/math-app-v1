@@ -176,6 +176,29 @@ button.ni-tapc__obj:focus-visible {
   position: relative;
   padding-top: 68px;
 }
+/*
+ * Tappable ten-frame cells (C, `data-cells="targets"`): every cell is its own target, the size of
+ * its object's box (6 px in from the grid track on each side, so 12 px between cells), on a sand
+ * frame that stands 12 px out from the cells' grid (8 px padding and its 4 px border, outside the
+ * kit's box). The card gives the frame that room: 80 px on top (the count 12 px clear of it),
+ * 32 px below.
+ */
+.ni-tapc[data-cells="targets"] .ni-tapc__picture {
+  padding-top: 80px;
+  padding-bottom: 32px;
+}
+.ni-tapc[data-cells="targets"] .ni-objects__frame {
+  box-sizing: content-box;
+  margin: -12px;
+  padding: 8px;
+  background: var(--color-sand);
+}
+.ni-tapc[data-cells="targets"] .ni-objects__cell {
+  margin: 6px;
+  border-radius: 16px;
+  background: var(--color-cloud);
+  box-shadow: inset 0 0 0 3px var(--color-ink-soft);
+}
 /* The object counted last: an ink dot in a sunshine ring, under the running count's column. */
 .ni-tapc__dot[data-latest="true"] {
   background: var(--color-ink);
@@ -344,6 +367,8 @@ button.ni-tapc__obj:focus-visible {
  */
 .ni-tapc[data-pad="compact"] {
   column-gap: 32px;
+  /* 12 px at the sides (not 24): the picture beside the compact pad gets the room. */
+  padding-inline: 12px;
 }
 /* Beside the compact pad the picture card keeps 16 px at its sides (CARD_PAD_X_COMPACT). */
 .ni-tapc[data-pad="compact"] .ni-tapc__picture {

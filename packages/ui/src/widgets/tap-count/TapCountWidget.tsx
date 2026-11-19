@@ -293,26 +293,38 @@ const CARD_PAD_X_COMPACT = 16;
  */
 const COUNT_HALF = 30 + 9;
 
+/** The part of a sprite's 64-unit box its drawing covers (with its outline), as fractions. */
+export interface DrawnBox {
+  top: number;
+  bottom: number;
+}
+/** Until a sprite's drawing is measured: assume it fills its box. */
+const FULL_BOX: DrawnBox = { top: 0, bottom: 1 };
+
 /**
  * Where an object's drawing and its count dot go inside its box (px, box-relative), for a picture
  * in places. `band` is the part of the box inside the object's place (a ten-frame cell inside its
  * lines; a plate's object: the whole box). Every object gets the same drawing size, so counted and
- * uncounted ones match: the drawing sits `SPRITE_INSET` below the band's top, and the dot is
- * centred in the free space under it (≥ `DOT_ROOM` from the drawing and from the band's bottom),
- * on the place's centre line.
+ * uncounted ones match. The DRAWING (`drawn`, measured from the sprite, not its box) starts
+ * `SPRITE_INSET` below the band's top, and the dot is centred in the free space under it (≥
+ * `DOT_ROOM` from the drawing and from the band's bottom), on the place's centre line. Small
+ * places (a box under 64 px) get an 8 px dot, so the drawing keeps its size.
  */
 function dotPlacement(
   box: number,
   sprite: number,
   band: { top: number; bottom: number; centreX: number },
+  drawn: DrawnBox,
 ) {
-  const dot = dotSize(box);
+  const dot = box < 64 ? 8 : dotSize(box);
+  const span = Math.max(0.1, drawn.bottom - drawn.top);
   const size = Math.max(
     0,
-    Math.min(sprite, band.bottom - band.top - SPRITE_INSET - dot - 3 * DOT_ROOM),
+    Math.min(sprite, (band.bottom - band.top - SPRITE_INSET - dot - 2 * DOT_ROOM) / span),
   );
-  const spriteTop = band.top + SPRITE_INSET;
-  const dotTop = (spriteTop + size + band.bottom - dot) / 2;
+  const spriteTop = band.top + SPRITE_INSET - drawn.top * size;
+  const drawnBottom = spriteTop + drawn.bottom * size;
+  const dotTop = (drawnBottom + band.bottom - dot) / 2;
   return { dot, size, spriteTop, dotTop, dotLeft: band.centreX - dot / 2 };
 }
 
@@ -435,8 +447,37 @@ export function TapCountWidget({
    * room, so Check sits beside the plates while the child counts (a big tray, 0–30, would leave
    * an empty half under them); the tray comes in under the picture once every object is counted.
    */
-  const collapseTray =
-    config.set.layout === 'groups' && config.input === 'auto' && concrete && !ordinal;
+  const collapseTray = onDots && config.input === 'auto' && concrete && !ordinal;
+  /**
+   * Tappable ten-frame cells (C): each cell is drawn as its own target, the size of the object's
+   * box with 12 px between cells, inside a frame that stands 12 px out from the cells' grid
+   * (tap-count.css `data-cells="targets"`), so a ring in a cell stays ≥ 12 px from the frame.
+   */
+  const targetCells = onGrid && concrete;
+  /** Each sprite's measured drawing (its top and bottom in its box), for the dot placement. */
+  const [drawnBoxes, setDrawnBoxes] = useState<Record<string, DrawnBox>>({});
+  useLayoutEffect(() => {
+    const root = rootRef.current;
+    if (!root || !onDots) return;
+    let next: Record<string, DrawnBox> | null = null;
+    for (const svg of root.querySelectorAll<SVGSVGElement>('.ni-tapc__sprite svg[data-sprite]')) {
+      const id = svg.dataset.sprite;
+      if (!id || drawnBoxes[id] || next?.[id] || typeof svg.getBBox !== 'function') continue;
+      const vb = svg.viewBox.baseVal;
+      const bb = svg.getBBox();
+      if (!vb || vb.height === 0 || bb.height === 0) continue;
+      // Outlines are up to 3.5 units wide: half of one beyond the geometry.
+      const pad = 2;
+      next = {
+        ...(next ?? drawnBoxes),
+        [id]: {
+          top: Math.max(0, (bb.y - pad) / vb.height),
+          bottom: Math.min(1, (bb.y + bb.height + pad) / vb.height),
+        },
+      };
+    }
+    if (next) setDrawnBoxes(next);
+  });
 
   // ---------- sizes (06 §4: K ≥ 80 px, G1 ≥ 64 px, ≥ 12 px apart) ----------
 
@@ -520,7 +561,7 @@ export function TapCountWidget({
         ? CHECK_W
         : Math.ceil(trayValues.length / trayCols) * (target + TARGET_GAP_PX + 6) + 30;
   /** The picture card's padding and border top to bottom (tap-count.css), and the column gap. */
-  const cardY = (onDots ? 68 : 52) + 20 + 2 * 3;
+  const cardY = (onDots ? 68 : 52) + 20 + 2 * 3 + (targetCells ? 24 : 0);
   const gapX = compactPad ? 32 : 56;
   const cardPadX = compactPad ? CARD_PAD_X_COMPACT : CARD_PAD_X;
   /** The largest cell a picture in places may take (frames and plates grow into the room). */
@@ -640,7 +681,7 @@ export function TapCountWidget({
     // sets a height, the picture also keeps inside it.
     const sideW =
       (onDots || compactPad) && widgetW !== null
-        ? widgetW - answerW - 2 * 24 - gapX - 2 * (cardPadX + 3) - 8
+        ? widgetW - answerW - 2 * (compactPad ? 12 : 24) - gapX - 2 * (cardPadX + 3) - 8
         : 1100 - answerW - 240 - shortfall;
     const roomH = Number.isFinite(hostH) ? hostH - 2 * PAD_Y - cardY : Number.POSITIVE_INFINITY;
     const sideH = Math.min(340, roomH);
@@ -894,6 +935,8 @@ export function TapCountWidget({
    */
   const placeBand = (o: PlacedObject, left: number, top: number) => {
     if (!onGrid) return { top: 0, bottom: hitSize, centreX: hitSize / 2 };
+    // A target cell is the object's box, drawn with a 3 px line.
+    if (targetCells) return { top: 3, bottom: hitSize - 3, centreX: hitSize / 2 };
     const inset = (1 - o.scale) / 2;
     const col = Math.round(o.x - inset);
     const y = o.y - inset;
@@ -947,7 +990,14 @@ export function TapCountWidget({
     // A picture in places while marks can show: every object's drawing at the top of its place,
     // the room under it for its count dot (dotPlacement).
     const placed =
-      dotRoom && isObject ? dotPlacement(hitSize, spriteSize, placeBand(o, left, top)) : null;
+      dotRoom && isObject
+        ? dotPlacement(
+            hitSize,
+            spriteSize,
+            placeBand(o, left, top),
+            drawnBoxes[o.sprite] ?? FULL_BOX,
+          )
+        : null;
     const sprite = (
       <span
         className="ni-tapc__sprite"
@@ -1043,6 +1093,7 @@ export function TapCountWidget({
       data-mode={ordinal ? 'ordinal' : 'how-many'}
       data-arrange={arrange}
       data-dots={onDots ? 'true' : undefined}
+      data-cells={targetCells ? 'targets' : undefined}
       data-pad={compactPad ? 'compact' : undefined}
       data-disabled={disabled ? 'true' : undefined}
       style={handRootStyle}

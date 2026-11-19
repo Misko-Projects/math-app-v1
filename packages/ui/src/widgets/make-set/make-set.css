@@ -427,15 +427,15 @@
   background: var(--color-sunshine-light);
 }
 /*
- * The first ten as ONE bundle (containers.tsx TenBundle): ten 36 px objects packed in a sheaf on a
- * soft ground shadow and a pale backdrop (no outline: it is not a frame), so the objects read on
- * any container; tied, a rope band round the middle with a bow on the front. 96 × 132.
+ * The first ten as ONE bundle (containers.tsx TenBundle): ten 40 px objects in two columns of
+ * five on a soft ground shadow and a pale backdrop (no outline: it is not a frame); tied, the rope
+ * runs down the gap between the columns with a small bow at the middle. 96 × 176.
  */
 .ni-mset__bundle {
   position: relative;
   display: block;
   width: 96px;
-  height: 132px;
+  height: 176px;
   border-radius: 30px 30px 24px 24px;
   background: rgb(255 255 255 / 0.45);
   pointer-events: none;
@@ -451,8 +451,8 @@
 }
 .ni-mset__bundle-obj {
   position: absolute;
-  width: 36px;
-  height: 36px;
+  width: 40px;
+  height: 40px;
 }
 .ni-mset__bundle-tie {
   position: absolute;
