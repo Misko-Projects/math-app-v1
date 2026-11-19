@@ -199,7 +199,8 @@ export function NumberPadWidget({
         : ([...root.querySelectorAll<HTMLElement>('[data-blank]')].find(
             (el) => el.dataset.blank === invitedId,
           ) ?? null),
-    invitedId ?? '',
+    // Prefixed: an empty ID is valid, and an empty key would hide the hand.
+    invitedId === null ? '' : `blank:${invitedId}`,
   );
 
   const renderBlank = (id: string) => {

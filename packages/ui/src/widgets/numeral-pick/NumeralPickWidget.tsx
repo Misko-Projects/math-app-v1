@@ -60,7 +60,8 @@ export function NumeralPickWidget({
         : ([...root.querySelectorAll<HTMLElement>('.ni-pick[data-id]')].find(
             (el) => el.dataset.id === invite,
           ) ?? null),
-    invite ?? '',
+    // Prefixed: an empty ID is valid, and an empty key would hide the hand.
+    invite === null ? '' : `opt:${invite}`,
   );
   const [demoBusy, setDemoBusy] = useState(false);
   const interactive = !disabled && !demoBusy;

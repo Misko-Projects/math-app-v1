@@ -423,11 +423,11 @@ export const DemoInvite: Story = {
   },
 };
 
-/** Option IDs are any string (the shared schema): these hold quotes and a bracket. */
+/** Option IDs are any string (the shared schema): one is empty, two hold quotes and a bracket. */
 const quotedOptions: ConfigFor<'numeral-pick'> = {
   ...heardOnly,
   options: [
-    { id: 'o"18', label: '18' },
+    { id: '', label: '18' },
     { id: 'o"]19', label: '19' },
     { id: "o'17", label: '17' },
   ],
@@ -436,8 +436,8 @@ const quotedOptions: ConfigFor<'numeral-pick'> = {
 const quotedController: WidgetDemo = createDemoController({ strict: true });
 
 /**
- * An option whose ID holds a quote (any string is a valid ID): inviting it rings that card and
- * Pip's hand points at it; the widget stays mounted.
+ * Options whose IDs hold a quote or are empty (any string is a valid ID): inviting each rings that
+ * card and Pip's hand points at it; the widget stays mounted.
  */
 export const DemoInviteQuotedId: Story = {
   globals: { ageMode: 'k' },
@@ -450,6 +450,15 @@ export const DemoInviteQuotedId: Story = {
     await expect(invited.dataset.id).toBe('o"]19');
     await expect(root.isConnected).toBe(true);
     await expectPointerOn(root.querySelector('.ni-hand') as HTMLElement, invited, root);
+    // The empty ID: ring and hand on the 18 card.
+    quotedController.invite({ op: 'tap', args: { id: '' } });
+    await waitFor(() =>
+      expect(root.querySelector('.ni-pick.ni-invite')).toHaveAttribute('data-id', ''),
+    );
+    const empty = root.querySelector('.ni-pick.ni-invite') as HTMLElement;
+    await expect(root.querySelectorAll('.ni-invite')).toHaveLength(1);
+    await waitFor(() => expect(root.querySelector('.ni-hand')).not.toBeNull());
+    await expectPointerOn(root.querySelector('.ni-hand') as HTMLElement, empty, root);
   },
 };
 
