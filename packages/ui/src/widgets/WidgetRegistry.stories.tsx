@@ -1,6 +1,7 @@
 import type { InteractionEvent, WidgetConfig } from '@number-island/shared';
 import type { Meta, StoryObj } from '@storybook/react-vite';
-import { useEffect, useState } from 'react';
+import { startTransition, useEffect, useState } from 'react';
+import { flushSync } from 'react-dom';
 import { expect, fn, userEvent, waitFor, within } from 'storybook/test';
 import { BigButton } from '../primitives/BigButton';
 import { ArrowIcon } from '../primitives/icons';
@@ -275,6 +276,31 @@ export const DemoAfterBasketShrinks: Story = {
       new Promise((r) => setTimeout(() => r('timed out'), 2000)),
     ]);
     await expect(outcome).toBe('resolved');
+  },
+};
+
+const urgentController: WidgetDemo = createDemoController({ strict: true });
+
+/**
+ * A higher-priority render while a demo op's basket update is pending (the op started in a
+ * transition, then an invite flushed synchronously) commits the old basket. `play` still resolves
+ * only once the basket update itself has committed: the pebble is gone when it resolves.
+ */
+export const DemoWaitsPastUrgentRender: Story = {
+  globals: { motion: 'reduced' },
+  args: { disabled: true, demo: urgentController },
+  play: async ({ canvasElement }) => {
+    await within(canvasElement).findByRole('group', { name: 'Pebbles' }, { timeout: 10_000 });
+    await urgentController.play({ op: 'drag', args: { count: 3 } });
+    await expect(pebblesIn(canvasElement)).toBe(3);
+    let removed: Promise<number> | undefined;
+    startTransition(() => {
+      removed = urgentController
+        .play({ op: 'remove', args: { count: 1 } })
+        .then(() => pebblesIn(canvasElement));
+    });
+    flushSync(() => urgentController.invite({ op: 'drag', args: { count: 1 } }));
+    await expect(await removed).toBe(2);
   },
 };
 

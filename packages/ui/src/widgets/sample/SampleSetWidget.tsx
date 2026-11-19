@@ -152,11 +152,18 @@ export function SampleSetWidget({
       for (const w of waiters) w.resolve();
     };
   }, []);
-  /** The basket state of the latest commit. */
-  const committedBasket = useRef(inBasket);
+  /**
+   * Demo basket updates are numbered: `requestedSeq` is the latest one asked for, and
+   * `committedSeq` the latest one React has committed. An array a demo op sets is recorded with its
+   * number, so a commit counts only when it carries that update (or a later one): a commit that
+   * skipped a pending update (a higher-priority render) leaves `committedSeq` where it was.
+   */
+  const requestedSeq = useRef(0);
+  const committedSeq = useRef(0);
+  const seqOf = useRef(new WeakMap<PebbleId[], number>());
   // After each commit, release the waits whose condition the committed DOM now meets.
   useLayoutEffect(() => {
-    committedBasket.current = inBasket;
+    committedSeq.current = Math.max(committedSeq.current, seqOf.current.get(inBasket) ?? 0);
     if (commitWaiters.current.length === 0) return;
     commitWaiters.current = commitWaiters.current.filter((w) => {
       if (!w.ready()) return true;
@@ -171,6 +178,13 @@ export function SampleSetWidget({
     });
   const inBasketRef = useRef(inBasket);
   inBasketRef.current = inBasket;
+  /** A demo op's basket update: numbered (see `requestedSeq`), then set. */
+  const setDemoBasket = (next: PebbleId[]) => {
+    requestedSeq.current += 1;
+    seqOf.current.set(next, requestedSeq.current);
+    inBasketRef.current = next;
+    setInBasket(next);
+  };
 
   const pile = allIds.filter((id) => !inBasket.includes(id));
   const full = inBasket.length >= capacity;
@@ -241,8 +255,7 @@ export function SampleSetWidget({
             if (!next || inBasketRef.current.length >= capacity) break;
             const count = inBasketRef.current.length + 1;
             const land = () => {
-              inBasketRef.current = [...inBasketRef.current, next];
-              setInBasket(inBasketRef.current);
+              setDemoBasket([...inBasketRef.current, next]);
             };
             // Pile pebble → the next empty ten-frame slot.
             const from = rect(`.ni-sample__pile [data-pebble="${next}"]`);
@@ -265,14 +278,14 @@ export function SampleSetWidget({
             // pile copy once React has committed. No flushSync: play may run inside a React
             // effect. With reduced motion it is an instant state change (03 §6.3).
             const from = reduced ? null : rect(`.ni-sample__in[data-pebble="${last}"]`);
-            inBasketRef.current = inBasketRef.current.slice(0, -1);
+            const rest = inBasketRef.current.slice(0, -1);
             if (!from) {
-              setInBasket(inBasketRef.current);
+              setDemoBasket(rest);
               continue;
             }
             const pileSelector = `.ni-sample__pile [data-pebble="${last}"]`;
             const committed = afterCommitWhere(() => rect(pileSelector) !== null);
-            setInBasket(inBasketRef.current);
+            setDemoBasket(rest);
             setFlight({ id: last, from, to: from, moving: false });
             await committed;
             if (!alive.current) return;
@@ -290,12 +303,13 @@ export function SampleSetWidget({
           }
           setCounting(null);
         }
-        // Resolve only once React has committed the basket as it now stands, this op's updates
-        // included. A reduced-motion op is a plain state change, so without this, play could
-        // resolve before the screen shows it. The latest state is read at each check: overlapping
-        // ops are batched into one commit, which releases them all.
+        // Resolve only once React has committed this op's last basket update (or a later one). A
+        // reduced-motion op is a plain state change, so without this, play could resolve before
+        // the screen shows it. Overlapping ops batched into one commit all resolve on it; a commit
+        // that skipped the update (a higher-priority render) doesn't count.
         if ((action.op === 'drag' || action.op === 'remove') && alive.current) {
-          const committed = () => committedBasket.current === inBasketRef.current;
+          const seq = requestedSeq.current;
+          const committed = () => committedSeq.current >= seq;
           if (!committed()) await afterCommitWhere(committed);
         }
       } finally {
