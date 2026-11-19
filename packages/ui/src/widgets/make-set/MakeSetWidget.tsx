@@ -403,6 +403,9 @@ export function MakeSetWidget({
 
   // Demo invite (03 §6.3): the ring and Pip's hand sit on the ONE thing the child acts on next.
   // `answer` invites a drag or a remove, whichever moves the count towards the value.
+  // The cue shows only while the child can act on it: never on a disabled control, and not while
+  // the widget is disabled or Pip is playing (the invite is kept and shows once input is back).
+  const cue = interactive;
   const answerWant = invite?.op === 'answer' ? Number(invite.args?.value) : Number.NaN;
   const inviteStep: 'drag' | 'remove' | null =
     invite?.op === 'drag' || (Number.isFinite(answerWant) && answerWant > v.count)
@@ -414,26 +417,29 @@ export function MakeSetWidget({
   const shownOutside = outside.slice(0, SUPPLY_VISIBLE);
   const dragFrom = takeAway ? (lists.away.length > 0 ? lists.away : shownOutside) : shownOutside;
   // The last object of its heap: it sits in the bottom row, so the hand below it covers nothing.
-  const invitedItem: ItemId | null = hands
-    ? null
-    : inviteStep === 'drag'
-      ? lists.inside.length < capacity
-        ? (dragFrom.at(-1) ?? null)
-        : null
-      : inviteStep === 'remove'
-        ? (lists.inside.at(-1) ?? null)
-        : null;
+  const invitedItem: ItemId | null =
+    hands || !cue
+      ? null
+      : inviteStep === 'drag'
+        ? lists.inside.length < capacity
+          ? (dragFrom.at(-1) ?? null)
+          : null
+        : inviteStep === 'remove'
+          ? (lists.inside.at(-1) ?? null)
+          : null;
   /** Hands: the finger button the child presses next (drag → "finger up", remove → "down"). */
   const invitedHand: 0 | 1 | null =
-    !hands || !invite || !inviteStep
+    !hands || !invite || !inviteStep || !cue
       ? null
       : (handArg(invite) ??
         (inviteStep === 'drag' ? (handParts[0] < 5 ? 0 : 1) : handParts[1] > 0 ? 1 : 0));
-  const invitedCount = invite?.op === 'count-aloud';
+  const invitedCount = cue && invite?.op === 'count-aloud';
   const invitedCheck =
-    invite?.op === 'close-container' ||
-    (Number.isFinite(answerWant) && answerWant === v.count && inviteStep === null);
-  const invitedBundle = invite?.op === 'bundle';
+    cue &&
+    moves > 0 &&
+    (invite?.op === 'close-container' ||
+      (Number.isFinite(answerWant) && answerWant === v.count && inviteStep === null));
+  const invitedBundle = cue && canBundle && invite?.op === 'bundle';
 
   // ---------- the heap's layout ----------
 
@@ -573,8 +579,9 @@ export function MakeSetWidget({
   const handBox = (h: 0 | 1) => {
     const up = handParts[h];
     const name = t(h === 0 ? 'ui.set.hand-left' : 'ui.set.hand-right');
-    const invitedUp = invitedHand === h && inviteStep === 'drag';
-    const invitedDown = invitedHand === h && inviteStep === 'remove';
+    // Only an enabled button is invited (the same conditions as its `disabled` below).
+    const invitedUp = invitedHand === h && inviteStep === 'drag' && canRaise(h);
+    const invitedDown = invitedHand === h && inviteStep === 'remove' && up > 0;
     // count-aloud: counting starts on the left hand.
     const invitedCard = invitedCount && h === 0;
     const onKeyDown = (e: KeyboardEvent) => {

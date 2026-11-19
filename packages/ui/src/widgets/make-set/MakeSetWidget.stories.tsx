@@ -525,11 +525,19 @@ export const Disabled: Story = {
   },
 };
 
+/** No invite cue anywhere: no ring and no pointer. */
+async function expectNoCue(root: HTMLElement) {
+  await expect(root.querySelector('.ni-invite')).toBeNull();
+  await expect(root.querySelector('.ni-hand')).toBeNull();
+}
+
 const demoController: WidgetDemo = createDemoController({ strict: true });
 
 /**
- * Demo mode (03 §6.3), the CNT.02.t2 solution: Pip drags fish onto the raft, counts them aloud,
- * takes one off, and closes (a sail goes up). Then the check button is invited.
+ * Demo mode (03 §6.3), the CNT.02.t2 solution as a worked example (Pip acts, input is off): Pip
+ * drags fish onto the raft, counts them aloud, takes one off, and closes (a sail goes up). While
+ * the widget is disabled an invite shows no cue: Pip never points at something the child can't
+ * use. `DemoInvite` is the child's turn.
  */
 export const DemoMode: Story = {
   args: { disabled: true, demo: demoController },
@@ -546,47 +554,80 @@ export const DemoMode: Story = {
     await expect(demoController.play({ op: 'flash' })).rejects.toBeInstanceOf(
       UnsupportedWidgetOpError,
     );
+    for (const op of ['drag', 'remove', 'count-aloud', 'close-container'] as const) {
+      demoController.invite({ op, args: { count: 1 } });
+      await new Promise((r) => setTimeout(r, 50));
+      await expectNoCue(root);
+    }
+  },
+};
 
-    // Invite a drag: the ring AND Pip's hand are on ONE fish, the last in the heap (bottom row,
-    // so the hand below it covers nothing), never on the whole raft.
-    demoController.invite({ op: 'drag', args: { count: 1 } });
+const inviteController: WidgetDemo = createDemoController({ strict: true });
+
+/**
+ * Demo, the child's turn (03 §6.3): Pip has put two fish on the raft and input is back on. Each
+ * invite puts the ring AND Pip's hand on the one enabled thing to act on, clear of its neighbours.
+ * The story ends inviting a drag: one fish in the heap (the last, in the bottom row, so the hand
+ * below it covers nothing), never the whole raft.
+ */
+export const DemoInvite: Story = {
+  args: { disabled: false, demo: inviteController },
+  play: async ({ canvasElement }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    await inviteController.play({ op: 'drag', args: { count: 2 } });
+    await expect(inside(root)).toHaveLength(2);
+
+    // Remove: the last fish on the raft.
+    inviteController.invite({ op: 'remove', args: { count: 1 } });
+    await waitFor(() => expect(inside(root).at(-1)?.classList.contains('ni-invite')).toBe(true));
+    const last = inside(root).at(-1) as HTMLElement;
+    await expect(root.querySelectorAll('.ni-invite')).toHaveLength(1);
+    await expect(last).not.toHaveAttribute('aria-disabled');
+    await expectPointerOn(pointerIn(last), last, root);
+    await expectRingClear(last, allItems(root));
+
+    // Counting: the ring hugs the ten-frame, clear of the heap; the hand points at it.
+    inviteController.invite({ op: 'count-aloud' });
+    await waitFor(() => expect(root.querySelector('.ni-mset__frames.ni-invite')).not.toBeNull());
+    const frames = root.querySelector('.ni-mset__frames') as HTMLElement;
+    await expectPointerOn(pointerIn(frames), frames, root);
+    await expectRingClear(frames, [...heap(root), check(root)]);
+
+    // Check: enabled (Pip's moves count), ring and hand on it.
+    inviteController.invite({ op: 'close-container' });
+    await waitFor(() => expect(check(root).classList.contains('ni-invite')).toBe(true));
+    await expect(check(root)).toBeEnabled();
+    await expectPointerOn(pointerIn(check(root).parentElement as HTMLElement), check(root), root);
+
+    // Last, and left on screen: drag one fish.
+    inviteController.invite({ op: 'drag', args: { count: 1 } });
     await waitFor(() => expect(root.querySelector('.ni-mset__item.ni-invite')).not.toBeNull());
     const fish = root.querySelector('.ni-mset__item.ni-invite') as HTMLElement;
     await expect(fish).toBe(heap(root).at(-1));
+    // An enabled, interactive draggable.
+    await expect(fish).toHaveAttribute('role', 'button');
+    await expect(fish).not.toHaveAttribute('aria-disabled');
+    await expect(fish.tabIndex).toBe(0);
+    await expect(fish.classList.contains('ni-draggable')).toBe(true);
     await expect(root.querySelector('.ni-mset__container.ni-invite')).toBeNull();
     await expect(root.querySelectorAll('.ni-invite')).toHaveLength(1);
     await expect(root.querySelectorAll('.ni-hand')).toHaveLength(1);
     await expectPointerOn(pointerIn(fish), fish, root);
     await expectRingClear(fish, allItems(root));
     await expectEvenHeap(pileArea(root));
-
-    // Invite a remove: the last fish on the raft.
-    demoController.invite({ op: 'remove', args: { count: 1 } });
-    await waitFor(() => expect(inside(root).at(-1)?.classList.contains('ni-invite')).toBe(true));
-    const last = inside(root).at(-1) as HTMLElement;
-    await expect(root.querySelectorAll('.ni-invite')).toHaveLength(1);
-    await expectPointerOn(pointerIn(last), last, root);
-    await expectRingClear(last, allItems(root));
-
-    // Invite counting: the ring hugs the ten-frame, clear of the heap; the hand points at it.
-    demoController.invite({ op: 'count-aloud' });
-    await waitFor(() => expect(root.querySelector('.ni-mset__frames.ni-invite')).not.toBeNull());
-    const frames = root.querySelector('.ni-mset__frames') as HTMLElement;
-    await expectPointerOn(pointerIn(frames), frames, root);
-    await expectRingClear(frames, [...heap(root), check(root)]);
-
-    // Invite the check: ring and hand on the button.
-    demoController.invite({ op: 'close-container' });
-    await waitFor(() => expect(check(root).classList.contains('ni-invite')).toBe(true));
-    await expectPointerOn(pointerIn(check(root).parentElement as HTMLElement), check(root), root);
-    demoController.invite(null);
-    await waitFor(() => expect(root.querySelector('.ni-invite')).toBeNull());
+    // It stays: nothing clears the invite until the child acts.
+    await new Promise((r) => setTimeout(r, 600));
+    await expect(fish.classList.contains('ni-invite')).toBe(true);
+    await expect(pointerIn(fish)).not.toBeNull();
   },
 };
 
 const handsDemo: WidgetDemo = createDemoController({ strict: true });
 
-/** Demo, hands (CPS.01.t2 solution): one finger on each hand. */
+/**
+ * Demo, hands (CPS.01.t2 solution) as a worked example: Pip raises one finger on each hand.
+ * Input is off, so an invite shows no cue (every finger button is disabled).
+ */
 export const DemoHands: Story = {
   args: { config: { ...hands, target: 2 }, disabled: true, demo: handsDemo },
   play: async ({ canvasElement }) => {
@@ -595,16 +636,9 @@ export const DemoHands: Story = {
     await handsDemo.play({ op: 'drag', args: { count: 1, hand: 1 } });
     await expect(within(root).getByRole('button', { name: 'Right hand: 1' })).toBeVisible();
     await handsDemo.play({ op: 'count-aloud' });
-    // Invite a finger up on the right hand: ring and hand on that hand's "Finger up" button (the
-    // control the child presses), clear of "Finger down" and the hand card.
     handsDemo.invite({ op: 'drag', args: { count: 1, hand: 1 } });
-    await waitFor(() => expect(root.querySelector('.ni-mset__ctl.ni-invite')).not.toBeNull());
-    const ringed = root.querySelector('.ni-mset__ctl.ni-invite') as HTMLElement;
-    const ups = within(root).getAllByRole('button', { name: 'Finger up' });
-    await expect(ringed.contains(ups[1] as HTMLElement)).toBe(true);
-    await expect(root.querySelectorAll('.ni-invite')).toHaveLength(1);
-    await expectPointerOn(pointerIn(ringed), ups[1] as HTMLElement, root);
-    await expectRingClear(ringed, [...root.querySelectorAll('button')]);
+    await new Promise((r) => setTimeout(r, 50));
+    await expectNoCue(root);
     // The panel is centred, and the check has room around it.
     const box = root.getBoundingClientRect();
     const handsBox = (root.querySelector('.ni-mset__hands') as HTMLElement).getBoundingClientRect();
@@ -617,6 +651,40 @@ export const DemoHands: Story = {
     // The fingers Pip raised stay raised.
     await new Promise((r) => setTimeout(r, 300));
     await expect(root.querySelectorAll('[data-raised="true"]')).toHaveLength(2);
+  },
+};
+
+const handsInvite: WidgetDemo = createDemoController({ strict: true });
+
+/**
+ * Demo, hands, the child's turn: Pip opens the left hand (5) and raises one on the right; input
+ * is back on. Inviting the full left hand's "finger up" (disabled) shows no cue; the story ends
+ * inviting the right hand's ENABLED "Finger up", ring and hand on it, clear of "Finger down" and
+ * the hand card.
+ */
+export const DemoInviteHands: Story = {
+  args: { config: { ...hands, target: 7 }, disabled: false, demo: handsInvite },
+  play: async ({ canvasElement }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    await handsInvite.play({ op: 'drag', args: { count: 5, hand: 0 } });
+    await handsInvite.play({ op: 'drag', args: { count: 1, hand: 1 } });
+    const ups = within(root).getAllByRole('button', { name: 'Finger up' });
+    await expect(ups[0]).toBeDisabled();
+    handsInvite.invite({ op: 'drag', args: { count: 1, hand: 0 } });
+    await new Promise((r) => setTimeout(r, 50));
+    await expectNoCue(root);
+
+    handsInvite.invite({ op: 'drag', args: { count: 1, hand: 1 } });
+    await waitFor(() => expect(root.querySelector('.ni-mset__ctl.ni-invite')).not.toBeNull());
+    const ringed = root.querySelector('.ni-mset__ctl.ni-invite') as HTMLElement;
+    await expect(ringed.contains(ups[1] as HTMLElement)).toBe(true);
+    await expect(ups[1]).toBeEnabled();
+    await expect(root.querySelectorAll('.ni-invite')).toHaveLength(1);
+    await expect(root.querySelectorAll('.ni-hand')).toHaveLength(1);
+    await expectPointerOn(pointerIn(ringed), ups[1] as HTMLElement, root);
+    await expectRingClear(ringed, [...root.querySelectorAll('button')]);
+    await new Promise((r) => setTimeout(r, 600));
+    await expect(ringed.classList.contains('ni-invite')).toBe(true);
   },
 };
 
