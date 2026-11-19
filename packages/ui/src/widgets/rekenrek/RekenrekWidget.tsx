@@ -144,6 +144,7 @@ export function RekenrekWidget({
   // ---------- layout (plan.ts) ----------
 
   const actRef = useRef<HTMLDivElement | null>(null);
+  const zoomRef = useRef(1);
   const [button, setButton] = useState<Size>(() => ({
     w: TARGET_PX[ageMode].big * 1.5,
     h: TARGET_PX[ageMode].big,
@@ -152,7 +153,9 @@ export function RekenrekWidget({
     const btn = actRef.current?.querySelector<HTMLElement>('.ni-btn');
     if (!btn) return;
     const r = btn.getBoundingClientRect();
-    const next = { w: Math.ceil(r.width), h: Math.ceil(r.height) + 6 };
+    // Measured as drawn: undo the zoom the parts are drawn at (the plan works in design px).
+    const z = zoomRef.current;
+    const next = { w: Math.ceil(r.width / z), h: Math.ceil(r.height / z) + 6 };
     setButton((b) => (b.w === next.w && b.h === next.h ? b : next));
   });
   const input = useMemo(
@@ -170,6 +173,9 @@ export function RekenrekWidget({
   const steps = plan.steps;
   const shownStep: Step = steps ? step : 'rack';
   const layout = shownStep === 'ask' && plan.ask ? plan.ask.arrangement : plan.arrangement;
+  /** Every part drawn this much larger where the area has room (targets only ever grow). */
+  const zoom = shownStep === 'ask' ? plan.askZoom : plan.zoom;
+  zoomRef.current = zoom;
   const entryLayout = shownStep === 'ask' ? (plan.ask?.entry ?? null) : plan.entry;
 
   const speakAfter = (next: Rows) => {
@@ -630,7 +636,7 @@ export function RekenrekWidget({
       data-animate={animate ? 'true' : undefined}
       data-step={steps ? shownStep : undefined}
       data-disabled={disabled ? 'true' : undefined}
-      style={handRootStyle}
+      style={{ '--rk-zoom': zoom, ...handRootStyle } as CSSProperties}
     >
       {main ? <div className="ni-rk__main">{main}</div> : null}
       <div className="ni-rk__items">

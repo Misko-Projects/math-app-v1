@@ -6,15 +6,20 @@ export {
   type Arrangement,
   ASK_ARRANGEMENTS,
   arrangedSize,
+  type Candidate,
   compactCardW,
   firstFit,
   INVITE_ROOM_PX,
+  MAX_ZOOM,
   numeralCardH,
   numeralTraySize,
   overflow,
+  pickByFill,
   type Size,
   trayColumnChoices,
   withInviteRoom,
+  zoomed,
+  zoomFor,
 } from './arrange';
 export { useCommitBarrier } from './commit';
 export {

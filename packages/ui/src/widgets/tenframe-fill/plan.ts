@@ -5,12 +5,14 @@ import {
   type Arrangement,
   ASK_ARRANGEMENTS,
   arrangedSize,
+  type Candidate,
   type EntryLayout,
   entryGroups,
   entrySize,
-  overflow,
+  pickByFill,
   type Size,
   withInviteRoom,
+  zoomed,
 } from '../kit';
 
 /**
@@ -75,6 +77,9 @@ export interface Plan {
   steps: boolean;
   build: BuildPlan;
   ask: AskPlan | null;
+  /** Every part drawn this much larger to use a big area (1: as designed). */
+  buildZoom: number;
+  askZoom: number;
 }
 
 export interface PlanInput {
@@ -148,34 +153,55 @@ function shapesFor(want: number): [number, number][] {
   return out.sort((a, b) => Math.abs(a[0] - a[1]) - Math.abs(b[0] - b[1]) || b[0] - a[0]);
 }
 
-export function buildSize(input: PlanInput, paged: boolean, b: BuildPlan): Size {
+export function buildSize(input: PlanInput, paged: boolean, b: BuildPlan, zoom = 1): Size {
   const t = MIN_TARGET_PX[input.ageMode];
   const main = framesSize(input, b.chrome, paged);
   const supply = b.supply ? supplySize(t, b.supply) : null;
   const entry =
     b.entry && input.askMax !== null ? entrySize(input.askMax, b.entry, input.ageMode) : null;
   const act = actSize(input.button, 1);
-  return arrangedSize(b.arrangement, main, [supply, entry, act], LAYOUT_GAP);
+  return arrangedSize(
+    b.arrangement,
+    zoomed(main, zoom),
+    [zoomed(supply, zoom), zoomed(entry, zoom), zoomed(act, zoom)],
+    LAYOUT_GAP,
+  );
 }
 
-export function askSize(input: PlanInput, a: AskPlan): Size {
+export function askSize(input: PlanInput, a: AskPlan, zoom = 1): Size {
   const main = a.view > 0 ? viewSize(input.frames, input.size, a.view) : null;
   const entry = entrySize(input.askMax ?? 0, a.entry, input.ageMode);
   const act = actSize(input.button, 2, a.act);
-  return arrangedSize(a.arrangement, main, [entry, act], LAYOUT_GAP);
+  return arrangedSize(
+    a.arrangement,
+    zoomed(main, zoom),
+    [zoomed(entry, zoom), zoomed(act, zoom)],
+    LAYOUT_GAP,
+  );
 }
 
-function* buildCandidates(input: PlanInput, steps: boolean): Generator<BuildPlan> {
+function* buildCandidates(
+  input: PlanInput,
+  steps: boolean,
+  paged: boolean,
+): Generator<Candidate<BuildPlan>> {
   const need = Math.min(input.supply, 10);
   const tiers = need > 0 ? [...new Set([need, Math.min(need, 6), Math.min(need, 3), 1])] : [0];
   const groups = steps ? [[null]] : entryGroups(input.askMax);
-  for (const entries of groups) {
-    for (const want of tiers) {
+  for (const [g, entries] of groups.entries()) {
+    for (const [k, want] of tiers.entries()) {
       for (const chrome of ['normal', 'tight'] as const) {
         const shapes = want > 0 ? shapesFor(want) : [null];
         for (const supply of shapes) {
           for (const arrangement of ARRANGEMENTS) {
-            for (const entry of entries) yield { arrangement, chrome, supply, entry };
+            for (const entry of entries) {
+              const item = { arrangement, chrome, supply, entry };
+              yield {
+                item,
+                rank: g * 10 + k,
+                sizeAt: (zoom) => buildSize(input, paged, item, zoom),
+              };
+            }
           }
         }
       }
@@ -183,35 +209,23 @@ function* buildCandidates(input: PlanInput, steps: boolean): Generator<BuildPlan
   }
 }
 
-function bestOf<T>(
-  items: Iterable<T>,
-  size: (x: T) => Size,
-  room: Size,
-): { item: T; over: number } {
-  let best: { item: T; over: number } | null = null;
-  for (const item of items) {
-    const over = overflow(size(item), room);
-    if (over === 0) return { item, over };
-    if (!best || over < best.over) best = { item, over };
-  }
-  if (!best) throw new Error('no layout candidates');
-  return best;
-}
-
-function bestAsk(input: PlanInput, room: Size): { item: AskPlan; over: number } {
+function bestAsk(input: PlanInput, room: Size, zoomRoom: Size) {
   const max = input.askMax ?? 0;
-  function* all(): Generator<AskPlan> {
+  function* all(): Generator<Candidate<AskPlan>> {
     // A legible picture (counters ≥ 32 px) with any answer control first; only then none
     // (Back returns to the frames).
-    for (const views of [VIEW_CELLS, [0]])
-      for (const group of entryGroups(max))
+    for (const [p, views] of [VIEW_CELLS, [0]].entries())
+      for (const [g, group] of entryGroups(max).entries())
         for (const view of views)
           for (const entry of group)
             for (const arrangement of ASK_ARRANGEMENTS)
               for (const act of ['row', 'column'] as const)
-                if (entry) yield { arrangement, view, entry, act };
+                if (entry) {
+                  const item = { arrangement, view, entry, act };
+                  yield { item, rank: p * 10 + g, sizeAt: (z) => askSize(input, item, z) };
+                }
   }
-  return bestOf(all(), (a) => askSize(input, a), room);
+  return pickByFill(all(), room, zoomRoom);
 }
 
 /** The layout for `room` (Infinity height: the host grows with the widget). */
@@ -222,11 +236,20 @@ export function planFor(input: PlanInput, room: Size): Plan {
   for (const paged of pagings) {
     for (const steps of stepping) {
       // The answer step: room for the invite hand below its bottom row where a layout allows.
-      const roomy = steps ? bestAsk(input, withInviteRoom(room)) : null;
-      const ask = steps ? (roomy?.over === 0 ? roomy : bestAsk(input, room)) : null;
-      const build = bestOf(buildCandidates(input, steps), (b) => buildSize(input, paged, b), room);
+      const handRoom = withInviteRoom(room);
+      const roomy = steps ? bestAsk(input, handRoom, handRoom) : null;
+      const ask = steps ? (roomy?.over === 0 ? roomy : bestAsk(input, room, handRoom)) : null;
+      // Growing to use the area keeps the hand's room below the content too.
+      const build = pickByFill(buildCandidates(input, steps, paged), room, handRoom);
       const over = build.over + (ask?.over ?? 0);
-      const plan: Plan = { paged, steps, build: build.item, ask: ask?.item ?? null };
+      const plan: Plan = {
+        paged,
+        steps,
+        build: build.item,
+        ask: ask?.item ?? null,
+        buildZoom: build.zoom,
+        askZoom: ask?.zoom ?? 1,
+      };
       if (over === 0) return plan;
       if (!best || over < best.over) best = { plan, over };
     }

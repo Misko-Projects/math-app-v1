@@ -2,6 +2,7 @@ import type { WidgetConfig } from '@number-island/shared';
 import type { Meta, StoryObj } from '@storybook/react-vite';
 import { expect, fn, userEvent, waitFor, within } from 'storybook/test';
 import {
+  expectFill,
   expectNumeralsInside,
   expectOneInvite,
   lookOf,
@@ -116,6 +117,11 @@ const meta = {
   },
   parameters: { ui: { stage: 'centered' } },
   render: renderWidget,
+  // Every story ends with nothing focused: a leftover keyboard focus ring must not read as an
+  // invite in the evidence (invite stories keep their one ring and hand: those are not focus).
+  afterEach: async () => {
+    (document.activeElement as HTMLElement | null)?.blur();
+  },
 } satisfies Meta<WidgetHostProps>;
 
 export default meta;
@@ -452,6 +458,7 @@ async function expectFits(canvasElement: HTMLElement, ageMode: AgeMode) {
   const targets = targetsOf(root).filter((el) => !el.classList.contains('ni-bondw__pad'));
   await expectFitsArea(areaBox(canvasElement), parts, targets, ageMode);
   await expectNumeralsInside(root);
+  await expectFill(areaBox(canvasElement), parts);
   return root;
 }
 

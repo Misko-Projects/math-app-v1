@@ -5,12 +5,14 @@ import {
   type Arrangement,
   ASK_ARRANGEMENTS,
   arrangedSize,
+  type Candidate,
   type EntryLayout,
   entryGroups,
   entrySize,
-  overflow,
+  pickByFill,
   type Size,
   withInviteRoom,
+  zoomed,
 } from '../kit';
 import { poolColumns } from './bond';
 
@@ -28,6 +30,8 @@ export const LAYOUT_GAP = 24;
 export const BOND_PAD = 8;
 /** The bond's shape in circle diameters: parts 0.9 c apart, legs 0.5 c tall. */
 export const BOND_W = 2.9;
+/** Wider bonds (longer legs) to try where the area is wide: the parts further apart. */
+export const BOND_SPREADS = [2.9, 3.6, 4.4] as const;
 export const BOND_H = 2.5;
 /** The ways already found (new-way): small bonds of this circle, in a panel. */
 export const FOUND_C = 56;
@@ -45,12 +49,16 @@ export type ActDir = 'row' | 'column';
 
 export interface BondPlan {
   steps: boolean;
-  /** The bond's circle diameter (pictorial). */
+  /** The bond's circle diameter (pictorial) and its width in diameters. */
   c: number;
+  spread: number;
   arrangement: Arrangement;
   /** The answer beside the bond (null: none, or it waits for the answer step). */
   entry: EntryLayout | null;
   ask: { arrangement: Arrangement; mini: boolean; entry: EntryLayout; act: ActDir } | null;
+  /** Every part drawn this much larger to use a big area: the bond step, the answer step. */
+  zoom: number;
+  askZoom: number;
 }
 
 export interface BondInput {
@@ -69,8 +77,8 @@ export interface BondInput {
   button: Size;
 }
 
-export const bondSize = (c: number): Size => ({
-  w: BOND_W * c + 2 * BOND_PAD,
+export const bondSize = (c: number, spread: number = BOND_W): Size => ({
+  w: spread * c + 2 * BOND_PAD,
   h: BOND_H * c + 2 * BOND_PAD,
 });
 
@@ -162,96 +170,120 @@ function circles(input: BondInput): number[] {
   return [...new Set([1.9 * t, 1.6 * t, 1.35 * t, min].map((c) => Math.max(min, Math.round(c))))];
 }
 
-const mainSize = (input: BondInput, c: number) =>
-  input.concrete ? poolsBox(input).size : bondSize(c);
+const mainSize = (input: BondInput, c: number, spread: number) =>
+  input.concrete ? poolsBox(input).size : bondSize(c, spread);
 
 export const miniC = (biggest: number) => (String(biggest).length >= 3 ? 100 : 64);
 
 /** The layout for `room` (Infinity height: the host grows with the widget). */
 export function planBond(input: BondInput, room: Size): BondPlan {
   const found = foundSize(input.found);
-  let best: { plan: BondPlan; over: number } | null = null;
-  const consider = (plan: BondPlan, size: Size) => {
-    const over = overflow(size, room);
-    if (!best || over < best.over) best = { plan, over };
-    return over === 0;
-  };
+  const handRoom = withInviteRoom(room);
+  const spreads: readonly number[] = input.concrete ? [BOND_W] : BOND_SPREADS;
+  const sc = (x: Size | null, z: number) => zoomed(x, z);
   // 1. Everything at once.
-  for (const group of entryGroups(input.askMax)) {
-    for (const c of circles(input)) {
-      for (const entry of group) {
-        for (const arrangement of ARRANGEMENTS) {
-          const size = arrangedSize(
-            arrangement,
-            mainSize(input, c),
-            [
-              found,
-              entry && input.askMax !== null ? entrySize(input.askMax, entry, input.ageMode) : null,
-              act(input.button, 1, 'row'),
-            ],
-            LAYOUT_GAP,
-          );
-          if (consider({ steps: false, c, arrangement, entry, ask: null }, size)) {
-            return (best as unknown as { plan: BondPlan }).plan;
-          }
-        }
-      }
-    }
-  }
-  if (input.askMax === null) return (best as unknown as { plan: BondPlan }).plan;
-  // 2. Steps: the bond, then the answer.
-  let build: { c: number; arrangement: Arrangement; over: number } | null = null;
-  // The concrete bond's blank badge opens the answer step itself: no Next beside it.
-  const next = input.concrete && input.blank ? null : act(input.button, 1, 'row');
-  for (const c of circles(input)) {
-    for (const arrangement of ARRANGEMENTS) {
-      const over = overflow(
-        arrangedSize(arrangement, mainSize(input, c), [found, next], LAYOUT_GAP),
-        room,
-      );
-      if (!build || over < build.over) build = { c, arrangement, over };
-      if (over === 0) break;
-    }
-    if (build?.over === 0) break;
-  }
-  const findAsk = (r: Size) => {
-    let ask: { a: NonNullable<BondPlan['ask']>; over: number } | null = null;
-    const mini = bondSize(miniC(input.biggest));
-    // The bond (it is the question, numerals ≥ 32 px) with any answer control first; only then none.
-    outer: for (const withMini of [true, false])
-      for (const group of entryGroups(input.askMax)) {
-        for (const entry of group) {
-          if (!entry) continue;
-          for (const arrangement of ASK_ARRANGEMENTS) {
-            for (const dir of ['row', 'column'] as const) {
-              const size = arrangedSize(
+  function* together(): Generator<Candidate<BondPlan>> {
+    for (const [g, group] of entryGroups(input.askMax).entries()) {
+      for (const c of circles(input)) {
+        for (const spread of spreads) {
+          for (const entry of group) {
+            for (const arrangement of ARRANGEMENTS) {
+              const e =
+                entry && input.askMax !== null
+                  ? entrySize(input.askMax, entry, input.ageMode)
+                  : null;
+              const item: BondPlan = {
+                steps: false,
+                c,
+                spread,
                 arrangement,
-                withMini ? mini : null,
-                [entrySize(input.askMax ?? 0, entry, input.ageMode), act(input.button, 2, dir)],
-                LAYOUT_GAP,
-              );
-              const over = overflow(size, r);
-              if (!ask || over < ask.over)
-                ask = { a: { arrangement, mini: withMini, entry, act: dir }, over };
-              if (over === 0) break outer;
+                entry,
+                ask: null,
+                zoom: 1,
+                askZoom: 1,
+              };
+              yield {
+                item,
+                rank: g,
+                sizeAt: (z) =>
+                  arrangedSize(
+                    arrangement,
+                    sc(mainSize(input, c, spread), z),
+                    [sc(found, z), sc(e, z), sc(act(input.button, 1, 'row'), z)],
+                    LAYOUT_GAP,
+                  ),
+              };
             }
           }
         }
       }
-    return ask;
-  };
+    }
+  }
+  const all = pickByFill(together(), room, handRoom);
+  if (all.over === 0 || input.askMax === null) return { ...all.item, zoom: all.zoom };
+  // 2. Steps: the bond, then the answer. The concrete bond's blank badge opens the answer step
+  // itself: no Next beside it.
+  const next = input.concrete && input.blank ? null : act(input.button, 1, 'row');
+  function* bondStep(): Generator<
+    Candidate<{ c: number; spread: number; arrangement: Arrangement }>
+  > {
+    for (const c of circles(input)) {
+      for (const spread of spreads)
+        for (const arrangement of ARRANGEMENTS) {
+          yield {
+            item: { c, spread, arrangement },
+            rank: 0,
+            sizeAt: (z) =>
+              arrangedSize(
+                arrangement,
+                sc(mainSize(input, c, spread), z),
+                [sc(found, z), sc(next, z)],
+                LAYOUT_GAP,
+              ),
+          };
+        }
+    }
+  }
+  const build = pickByFill(bondStep(), room, handRoom);
+  const mini = bondSize(miniC(input.biggest));
+  // The bond (it is the question, numerals ≥ 32 px) with any answer control first; only then none.
+  function* askStep(): Generator<Candidate<NonNullable<BondPlan['ask']>>> {
+    for (const [m, withMini] of [true, false].entries()) {
+      for (const [g, group] of entryGroups(input.askMax).entries()) {
+        for (const entry of group) {
+          if (!entry) continue;
+          for (const arrangement of ASK_ARRANGEMENTS) {
+            for (const dir of ['row', 'column'] as const) {
+              const e = entrySize(input.askMax ?? 0, entry, input.ageMode);
+              yield {
+                item: { arrangement, mini: withMini, entry, act: dir },
+                rank: m * 10 + g,
+                sizeAt: (z) =>
+                  arrangedSize(
+                    arrangement,
+                    withMini ? sc(mini, z) : null,
+                    [sc(e, z), sc(act(input.button, 2, dir), z)],
+                    LAYOUT_GAP,
+                  ),
+              };
+            }
+          }
+        }
+      }
+    }
+  }
   // Room for the invite hand below the answer's bottom row where a layout allows.
-  const roomy = findAsk(withInviteRoom(room));
-  const ask = roomy?.over === 0 ? roomy : findAsk(room);
-  if (!build || !ask) return (best as unknown as { plan: BondPlan }).plan;
+  const roomy = pickByFill(askStep(), handRoom, handRoom);
+  const ask = roomy.over === 0 ? roomy : pickByFill(askStep(), room, handRoom);
   const plan: BondPlan = {
     steps: true,
-    c: build.c,
-    arrangement: build.arrangement,
+    c: build.item.c,
+    spread: build.item.spread,
+    arrangement: build.item.arrangement,
     entry: null,
-    ask: ask.a,
+    ask: ask.item,
+    zoom: build.zoom,
+    askZoom: ask.zoom,
   };
-  const over = build.over + ask.over;
-  const b = best as unknown as { plan: BondPlan; over: number };
-  return over <= b.over ? plan : b.plan;
+  return build.over + ask.over <= all.over ? plan : { ...all.item, zoom: all.zoom };
 }

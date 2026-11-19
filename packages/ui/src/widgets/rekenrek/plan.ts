@@ -5,12 +5,14 @@ import {
   type Arrangement,
   ASK_ARRANGEMENTS,
   arrangedSize,
+  type Candidate,
   type EntryLayout,
   entryGroups,
   entrySize,
-  overflow,
+  pickByFill,
   type Size,
   withInviteRoom,
+  zoomed,
 } from '../kit';
 import { ROW_SLOTS } from './beads';
 
@@ -46,6 +48,9 @@ export interface RackPlan {
   arrangement: Arrangement;
   entry: EntryLayout | null;
   ask: { arrangement: Arrangement; bead: number; entry: EntryLayout; act: ActDir } | null;
+  /** Every part drawn this much larger to use a big area: the rack step, the answer step. */
+  zoom: number;
+  askZoom: number;
 }
 
 export interface RackInput {
@@ -79,81 +84,101 @@ const act = (button: Size, n: number, dir: ActDir): Size =>
 export function planRack(input: RackInput, room: Size): RackPlan {
   const main = (bead: number) =>
     rackSize(bead, input.rows, rowHeight(bead, input.ageMode, input.still));
-  let best: { plan: RackPlan; over: number } | null = null;
-  const consider = (plan: RackPlan, size: Size) => {
-    const over = overflow(size, room);
-    if (!best || over < best.over) best = { plan, over };
-    return over === 0;
-  };
-  for (const group of entryGroups(input.askMax)) {
-    for (const bead of BEAD_WIDTHS) {
-      for (const entry of group) {
-        for (const arrangement of ARRANGEMENTS) {
-          const e =
-            entry && input.askMax !== null ? entrySize(input.askMax, entry, input.ageMode) : null;
-          const size = arrangedSize(
-            arrangement,
-            main(bead),
-            [e, act(input.button, 1, 'row')],
-            LAYOUT_GAP,
-          );
-          if (consider({ steps: false, bead, arrangement, entry, ask: null }, size)) {
-            return (best as unknown as { plan: RackPlan }).plan;
+  const handRoom = withInviteRoom(room);
+  const sc = (x: Size | null, z: number) => zoomed(x, z);
+  function* together(): Generator<Candidate<RackPlan>> {
+    for (const [g, group] of entryGroups(input.askMax).entries()) {
+      for (const bead of BEAD_WIDTHS) {
+        for (const entry of group) {
+          for (const arrangement of ARRANGEMENTS) {
+            const e =
+              entry && input.askMax !== null ? entrySize(input.askMax, entry, input.ageMode) : null;
+            const item: RackPlan = {
+              steps: false,
+              bead,
+              arrangement,
+              entry,
+              ask: null,
+              zoom: 1,
+              askZoom: 1,
+            };
+            yield {
+              item,
+              rank: g,
+              sizeAt: (z) =>
+                arrangedSize(
+                  arrangement,
+                  sc(main(bead), z),
+                  [sc(e, z), sc(act(input.button, 1, 'row'), z)],
+                  LAYOUT_GAP,
+                ),
+            };
           }
         }
       }
     }
   }
-  const b = best as unknown as { plan: RackPlan; over: number };
-  if (input.askMax === null) return b.plan;
-  let build: { bead: number; arrangement: Arrangement; over: number } | null = null;
-  for (const bead of BEAD_WIDTHS) {
-    for (const arrangement of ARRANGEMENTS) {
-      const over = overflow(
-        arrangedSize(arrangement, main(bead), [act(input.button, 1, 'row')], LAYOUT_GAP),
-        room,
-      );
-      if (!build || over < build.over) build = { bead, arrangement, over };
+  const all = pickByFill(together(), room, handRoom);
+  if (all.over === 0 || input.askMax === null) return { ...all.item, zoom: all.zoom };
+  function* rackStep(): Generator<Candidate<{ bead: number; arrangement: Arrangement }>> {
+    for (const bead of BEAD_WIDTHS) {
+      for (const arrangement of ARRANGEMENTS) {
+        yield {
+          item: { bead, arrangement },
+          rank: 0,
+          sizeAt: (z) =>
+            arrangedSize(
+              arrangement,
+              sc(main(bead), z),
+              [sc(act(input.button, 1, 'row'), z)],
+              LAYOUT_GAP,
+            ),
+        };
+      }
     }
-    if (build?.over === 0) break;
   }
-  const findAsk = (r: Size) => {
-    let ask: { a: NonNullable<RackPlan['ask']>; over: number } | null = null;
-    // A legible picture (beads ≥ 32 px) with any answer control first; only then none.
-    outer: for (const beads of [VIEW_BEADS, [0]])
-      for (const group of entryGroups(input.askMax)) {
+  const build = pickByFill(rackStep(), room, handRoom);
+  // A legible picture (beads ≥ 32 px) with any answer control first; only then none.
+  function* askStep(): Generator<Candidate<NonNullable<RackPlan['ask']>>> {
+    for (const [p, beads] of [VIEW_BEADS, [0]].entries()) {
+      for (const [g, group] of entryGroups(input.askMax).entries()) {
         for (const bead of beads) {
           for (const entry of group) {
             if (!entry) continue;
             for (const arrangement of ASK_ARRANGEMENTS) {
               for (const dir of ['row', 'column'] as const) {
-                const size = arrangedSize(
-                  arrangement,
-                  bead > 0 ? rackSize(bead, input.rows, Math.round(bead * 1.3), true) : null,
-                  [entrySize(input.askMax ?? 0, entry, input.ageMode), act(input.button, 2, dir)],
-                  LAYOUT_GAP,
-                );
-                const over = overflow(size, r);
-                if (!ask || over < ask.over)
-                  ask = { a: { arrangement, bead, entry, act: dir }, over };
-                if (over === 0) break outer;
+                const e = entrySize(input.askMax ?? 0, entry, input.ageMode);
+                const pic =
+                  bead > 0 ? rackSize(bead, input.rows, Math.round(bead * 1.3), true) : null;
+                yield {
+                  item: { arrangement, bead, entry, act: dir },
+                  rank: p * 10 + g,
+                  sizeAt: (z) =>
+                    arrangedSize(
+                      arrangement,
+                      sc(pic, z),
+                      [sc(e, z), sc(act(input.button, 2, dir), z)],
+                      LAYOUT_GAP,
+                    ),
+                };
               }
             }
           }
         }
       }
-    return ask;
-  };
+    }
+  }
   // Room for the invite hand below the answer's bottom row where a layout allows.
-  const roomy = findAsk(withInviteRoom(room));
-  const ask = roomy?.over === 0 ? roomy : findAsk(room);
-  if (!build || !ask) return b.plan;
+  const roomy = pickByFill(askStep(), handRoom, handRoom);
+  const ask = roomy.over === 0 ? roomy : pickByFill(askStep(), room, handRoom);
   const plan: RackPlan = {
     steps: true,
-    bead: build.bead,
-    arrangement: build.arrangement,
+    bead: build.item.bead,
+    arrangement: build.item.arrangement,
     entry: null,
-    ask: ask.a,
+    ask: ask.item,
+    zoom: build.zoom,
+    askZoom: ask.zoom,
   };
-  return build.over + ask.over <= b.over ? plan : b.plan;
+  return build.over + ask.over <= all.over ? plan : { ...all.item, zoom: all.zoom };
 }

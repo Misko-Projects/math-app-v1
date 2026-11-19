@@ -2,7 +2,7 @@
 // exported from the package).
 import { expect, waitFor } from 'storybook/test';
 import { waitForSettled } from './storyHelpers';
-import { expectPointerOn, expectRingClear } from './widgetStory';
+import { contentBox, expectPointerOn, expectRingClear } from './widgetStory';
 
 /** Waits until every finite animation and transition in `root` (its subtree too) has ended. */
 export async function settledAll(root: HTMLElement) {
@@ -61,6 +61,32 @@ export function lookOf(el: Element): string {
     cs.boxShadow,
     cs.transform,
   ].join(' | ');
+}
+
+/**
+ * How much of the area card's inner area the widget's content covers: the bounding box of its
+ * drawn parts over the inner area (06 §2: use the room). Returns the fraction.
+ */
+export function fillOf(box: HTMLElement, parts: Element[]): number {
+  const inner = contentBox(box);
+  const rects = parts.map((p) => p.getBoundingClientRect()).filter((r) => r.width > 0);
+  if (rects.length === 0) return 0;
+  const left = Math.min(...rects.map((r) => r.left));
+  const right = Math.max(...rects.map((r) => r.right));
+  const top = Math.min(...rects.map((r) => r.top));
+  const bottom = Math.max(...rects.map((r) => r.bottom));
+  return (
+    ((right - left) * (bottom - top)) / ((inner.right - inner.left) * (inner.bottom - inner.top))
+  );
+}
+
+/** The widget's content covers at least `min` of the area's inner area. */
+export async function expectFill(box: HTMLElement, parts: Element[], min = 0.6) {
+  const fill = fillOf(box, parts);
+  await expect(
+    fill,
+    `content covers ${(fill * 100).toFixed(1)} % of the area`,
+  ).toBeGreaterThanOrEqual(min);
 }
 
 /** Every control the child can use now: enabled (also through a fieldset) and drawn. */

@@ -26,6 +26,11 @@
   display: flex;
   justify-content: center;
 }
+/* Every part drawn larger where the area has room (plan.ts `zoom`); the gaps between them stay. */
+.ni-bondw__main,
+.ni-bondw__items > * {
+  zoom: var(--bond-zoom, 1);
+}
 .ni-bondw__items {
   display: flex;
   align-items: center;

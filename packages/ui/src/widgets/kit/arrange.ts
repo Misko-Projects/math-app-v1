@@ -64,6 +64,72 @@ export const INVITE_ROOM_PX = 45;
 /** `room` less the invite hand's room below the widget's content. */
 export const withInviteRoom = (room: Size): Size => ({ w: room.w, h: room.h - INVITE_ROOM_PX });
 
+/** The most a widget grows to use a big area (06 §2), and the scale every part is drawn at. */
+export const MAX_ZOOM = 1.6;
+
+/**
+ * The largest zoom (1 … max) at which `sizeAt(zoom)` still fits `room`; 1 where the room is
+ * unbounded (a story stage) or nothing larger fits.
+ */
+export function zoomFor(sizeAt: (zoom: number) => Size, room: Size, max = MAX_ZOOM): number {
+  if (!Number.isFinite(room.w) || !Number.isFinite(room.h)) return 1;
+  if (overflow(sizeAt(1), room) > 0) return 1;
+  if (overflow(sizeAt(max), room) === 0) return max;
+  let lo = 1;
+  let hi = max;
+  for (let i = 0; i < 16; i++) {
+    const mid = (lo + hi) / 2;
+    if (overflow(sizeAt(mid), room) === 0) lo = mid;
+    else hi = mid;
+  }
+  return Math.floor(lo * 100) / 100;
+}
+
+export interface Candidate<T> {
+  item: T;
+  /** Preference tier: a lower rank always wins when it fits. */
+  rank: number;
+  /** The candidate's box with every part drawn at `zoom` (gaps stay). */
+  sizeAt: (zoom: number) => Size;
+}
+
+/**
+ * Picks a layout: among the candidates that fit `room` at zoom 1, those of the best (lowest) rank
+ * (candidates come in non-decreasing rank), and of those the one that, grown to fit `zoomRoom`,
+ * covers the most of the room (06 §2: use the room; targets only ever grow). When none fits, the
+ * one that overflows least, at zoom 1.
+ */
+export function pickByFill<T>(
+  candidates: Iterable<Candidate<T>>,
+  room: Size,
+  zoomRoom: Size = room,
+): { item: T; over: number; zoom: number } {
+  let rank0: number | null = null;
+  let best: { item: T; zoom: number; fill: number } | null = null;
+  let least: { item: T; over: number } | null = null;
+  const area = room.w * room.h;
+  for (const c of candidates) {
+    if (rank0 !== null && c.rank !== rank0) break;
+    const over = overflow(c.sizeAt(1), room);
+    if (over > 0) {
+      if (!least || over < least.over) least = { item: c.item, over };
+      continue;
+    }
+    rank0 = c.rank;
+    const zoom = zoomFor(c.sizeAt, zoomRoom);
+    const s = c.sizeAt(zoom);
+    const fill = Number.isFinite(area) && area > 0 ? (s.w * s.h) / area : 0;
+    if (!best || fill > best.fill + 1e-6) best = { item: c.item, zoom, fill };
+  }
+  if (best) return { item: best.item, over: 0, zoom: best.zoom };
+  if (!least) throw new Error('no layout candidates');
+  return { item: least.item, over: least.over, zoom: 1 };
+}
+
+/** A part's box drawn at `zoom`. */
+export const zoomed = (s: Size | null, zoom: number): Size | null =>
+  s ? { w: s.w * zoom, h: s.h * zoom } : null;
+
 /** How far `size` overflows `room` (0 when it fits; sub-pixel slack for rounding). */
 export function overflow(size: Size, room: Size): number {
   return Math.max(0, size.w - room.w - 0.5) + Math.max(0, size.h - room.h - 0.5);

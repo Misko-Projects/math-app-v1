@@ -178,6 +178,7 @@ export function TenframeFillWidget({
   // ---------- layout (plan.ts): measured room and the actions' button size ----------
 
   const actRef = useRef<HTMLDivElement | null>(null);
+  const zoomRef = useRef(1);
   const [button, setButton] = useState<Size>(() => ({
     w: TARGET_PX[ageMode].big * 1.5,
     h: TARGET_PX[ageMode].big,
@@ -187,7 +188,9 @@ export function TenframeFillWidget({
     if (!btn) return;
     const r = btn.getBoundingClientRect();
     // The ledge (6 px) hangs below the button's box; the actions row keeps room for it.
-    const next = { w: Math.ceil(r.width), h: Math.ceil(r.height) + 6 };
+    // Measured as drawn: undo the zoom the parts are drawn at (the plan works in design px).
+    const z = zoomRef.current;
+    const next = { w: Math.ceil(r.width / z), h: Math.ceil(r.height / z) + 6 };
     setButton((b) => (b.w === next.w && b.h === next.h ? b : next));
   });
   const trayCount = supply > 0 ? supply : locked ? 0 : pre;
@@ -213,6 +216,9 @@ export function TenframeFillWidget({
   const shownStep: Step = steps ? step : 'build';
   const paged = plan.paged;
   const layout = shownStep === 'ask' && plan.ask ? plan.ask.arrangement : plan.build.arrangement;
+  /** Every part drawn this much larger where the area has room (targets only ever grow). */
+  const zoom = shownStep === 'ask' ? plan.askZoom : plan.buildZoom;
+  zoomRef.current = zoom;
   const entryLayout: EntryLayout | null =
     shownStep === 'ask' ? (plan.ask?.entry ?? null) : plan.build.entry;
 
@@ -908,7 +914,7 @@ export function TenframeFillWidget({
       data-paged={paged ? 'true' : undefined}
       data-asks={asks ? 'true' : undefined}
       data-disabled={disabled ? 'true' : undefined}
-      style={{ '--tf-cell': `${target}px`, ...handRootStyle } as CSSProperties}
+      style={{ '--tf-cell': `${target}px`, '--tf-zoom': zoom, ...handRootStyle } as CSSProperties}
     >
       {shownStep === 'ask' ? (
         plan.ask && plan.ask.view > 0 ? (

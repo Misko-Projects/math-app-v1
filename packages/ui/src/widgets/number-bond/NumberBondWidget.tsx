@@ -40,7 +40,7 @@ import {
   type Slot,
   splitResponse,
 } from './bond';
-import { BOND_PAD, bondSize, circleFont, FOUND_C, miniC, planBond, poolsBox } from './plan';
+import { BOND_PAD, BOND_W, bondSize, circleFont, FOUND_C, miniC, planBond, poolsBox } from './plan';
 import './number-bond.css';
 
 /**
@@ -134,6 +134,7 @@ export function NumberBondWidget({
   // ---------- layout (plan.ts) ----------
 
   const actRef = useRef<HTMLDivElement | null>(null);
+  const zoomRef = useRef(1);
   const [button, setButton] = useState<Size>(() => ({
     w: TARGET_PX[ageMode].big * 1.5,
     h: TARGET_PX[ageMode].big,
@@ -142,7 +143,9 @@ export function NumberBondWidget({
     const btn = actRef.current?.querySelector<HTMLElement>('.ni-btn');
     if (!btn) return;
     const r = btn.getBoundingClientRect();
-    const next = { w: Math.ceil(r.width), h: Math.ceil(r.height) + 6 };
+    // Measured as drawn: undo the zoom the parts are drawn at (the plan works in design px).
+    const z = zoomRef.current;
+    const next = { w: Math.ceil(r.width / z), h: Math.ceil(r.height / z) + 6 };
     setButton((b) => (b.w === next.w && b.h === next.h ? b : next));
   });
   const found = config.mode === 'new-way' ? (config.found ?? []) : [];
@@ -187,6 +190,9 @@ export function NumberBondWidget({
   const steps = plan.steps;
   const shownStep: Step = steps ? step : 'bond';
   const layout = shownStep === 'ask' && plan.ask ? plan.ask.arrangement : plan.arrangement;
+  /** Every part drawn this much larger where the area has room (targets only ever grow). */
+  const zoom = shownStep === 'ask' ? plan.askZoom : plan.zoom;
+  zoomRef.current = zoom;
   const entryLayout = shownStep === 'ask' ? (plan.ask?.entry ?? null) : plan.entry;
 
   // ---------- input ----------
@@ -492,8 +498,8 @@ export function NumberBondWidget({
   // ---------- render: the pictorial bond ----------
 
   const c = plan.c;
-  const renderBond = (cpx: number, interactiveBond: boolean, mini = false) => {
-    const box = bondSize(cpx);
+  const renderBond = (cpx: number, interactiveBond: boolean, mini = false, spread = BOND_W) => {
+    const box = bondSize(cpx, spread);
     const font = circleFont(cpx, biggest);
     const centre = {
       whole: { x: box.w / 2, y: BOND_PAD + cpx / 2 },
@@ -819,7 +825,7 @@ export function NumberBondWidget({
         : null
       : concrete
         ? renderPools()
-        : renderBond(c, true);
+        : renderBond(c, true, false, plan.spread);
 
   return (
     <div
@@ -830,7 +836,9 @@ export function NumberBondWidget({
       data-layout={layout}
       data-step={steps ? shownStep : undefined}
       data-disabled={disabled ? 'true' : undefined}
-      style={{ '--bond-cell': `${target}px`, ...handRootStyle } as CSSProperties}
+      style={
+        { '--bond-cell': `${target}px`, '--bond-zoom': zoom, ...handRootStyle } as CSSProperties
+      }
     >
       {main ? <div className="ni-bondw__main">{main}</div> : null}
       <div className="ni-bondw__items">
