@@ -1,5 +1,7 @@
-import type { WidgetConfig } from '@number-island/shared';
+import { formatModel } from '@number-island/engine';
+import type { WidgetAction, WidgetConfig } from '@number-island/shared';
 import type { Meta, StoryObj } from '@storybook/react-vite';
+import { useState } from 'react';
 import { expect, fn, userEvent, waitFor, within } from 'storybook/test';
 import {
   center,
@@ -18,8 +20,8 @@ import {
 } from '../../test-support/widgetStory';
 import { createDemoController, UnsupportedWidgetOpError, type WidgetDemo } from '../demo';
 import type { ConfigFor } from '../types';
-import type { WidgetHostProps } from '../WidgetHost';
-import { CARD_PAD, GUTTER, NEST_CURVE, NEST_RIM } from './layout';
+import { WidgetHost, type WidgetHostProps } from '../WidgetHost';
+import { CARD_PAD, GUTTER, NEST_CURVE, NEST_RIM, U_MIN } from './layout';
 
 /**
  * `base-ten-trade` (03 §5.5): a hundreds | tens | ones mat. Split a piece into ten of the next
@@ -581,7 +583,8 @@ export const AddPictorial: Story = {
 /**
  * 199 + 1 with the column algorithm: adding the one makes ten ones, grouping them makes ten tens,
  * grouping those makes a second hundred. The carries appear above the tens and hundreds as the
- * child trades; the result boxes stay empty.
+ * child trades; the result boxes stay empty. A 3-digit addend means a thousands place too (sized
+ * from the operands, so it never tells whether the sum reaches 1000).
  */
 export const ShowAlgorithm: Story = {
   args: { config: cascade199 },
@@ -589,19 +592,19 @@ export const ShowAlgorithm: Story = {
     const root = await findWidget(canvasElement, ROOT);
     const notes = () => [...root.querySelectorAll('.ni-btt__note')].map((n) => n.textContent ?? '');
     const boxes = () => [...root.querySelectorAll('.ni-btt__box')].map((b) => b.textContent);
-    await expect(notes()).toEqual(['', '', '']);
+    await expect(notes()).toEqual(['', '', '', '']);
     await tapPlace(pending(root, 'ones'), columnPad(root, 'ones'));
     await settled(root);
     await expect(mat(root)).toEqual({ hundreds: 1, tens: 9, ones: 10 });
     await expectFits(canvasElement, root);
     await userEvent.click(trade(root, 'ones', 'tens'));
     await settled(root);
-    await expect(notes()).toEqual(['', '1', '']);
+    await expect(notes()).toEqual(['', '', '1', '']);
     await userEvent.click(trade(root, 'tens', 'hundreds'));
     await settled(root);
     await expect(mat(root)).toEqual({ hundreds: 2, tens: 0, ones: 0 });
-    await expect(notes()).toEqual(['1', '1', '']);
-    await expect(boxes()).toEqual(['', '', '']);
+    await expect(notes()).toEqual(['', '1', '1', '']);
+    await expect(boxes()).toEqual(['', '', '', '']);
     await expectNoReveal(root, 200);
     // Two hundreds side by side, never piled: a child counts them.
     await expectFits(canvasElement, root);
@@ -610,6 +613,205 @@ export const ShowAlgorithm: Story = {
       kind: 'state',
       value: { hundreds: 2, tens: 0, ones: 0 },
     });
+  },
+};
+
+// ---------- results of 1,000 or more (MDA.23 stretch) ----------
+
+const hto = (v: number) => ({
+  hundreds: Math.floor(v / 100),
+  tens: Math.floor(v / 10) % 10,
+  ones: v % 10,
+});
+const addItem = (a: number, b: number, showAlgorithm: boolean): Config => ({
+  format: 'base-ten-trade',
+  start: hto(a),
+  operation: { op: '+', operand: hto(b) },
+  goal: 'compute',
+  showAlgorithm,
+  thenAsk: true,
+});
+/** What the model sends for a mat and a typed value (base-ten-trade toResponse). */
+const expectedResponse = (config: Config, actions: WidgetAction[], value: number) => {
+  const model = formatModel('base-ten-trade');
+  if (!model) throw new Error('no base-ten-trade model');
+  let s = model.initialState(config);
+  for (const a of [...actions, { op: 'answer', args: { value } }]) s = model.apply(s, a);
+  return model.toResponse(s);
+};
+const typeKeys = async (root: HTMLElement, keys: string) => {
+  for (const k of keys) await userEvent.click(within(root).getByRole('button', { name: k }));
+};
+
+/**
+ * 500 + 500 with a typed answer on the pad: the five waiting hundreds join the mat (ten hundreds;
+ * the mat has no thousands column, so they stay hundreds), and the child types 1000.
+ */
+export const ThousandPad: Story = {
+  args: { config: addItem(500, 500, false) },
+  play: async ({ canvasElement, args }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    await expectNoReveal(root, 1000);
+    await tapPlace(pending(root, 'hundreds'), columnPad(root, 'hundreds'));
+    await settled(root);
+    await expect(mat(root)).toEqual({ hundreds: 10, tens: 0, ones: 0 });
+    await expectFits(canvasElement, root);
+    // Four digits fit the pad's entry (one more than the longer addend), not five.
+    await typeKeys(root, '10000');
+    await expect(q(root, '.ni-btt__answer').textContent).toBe('1000');
+    await userEvent.click(within(root).getByRole('button', { name: 'Check' }));
+    const response = {
+      kind: 'state',
+      value: { hundreds: 10, tens: 0, ones: 0, value: 1000 },
+    };
+    await expect(args.onResponse).toHaveBeenCalledWith(response);
+    await expect(response).toEqual(
+      expectedResponse(
+        args.config as Config,
+        [{ op: 'combine', args: { column: 'hundreds' } }],
+        1000,
+      ),
+    );
+  },
+};
+
+/**
+ * 500 + 500 with the algorithm: a thousands column because an addend has three digits, the
+ * operands written 5 | 0 | 0 under it, and the child writes 1 | 0 | 0 | 0 in the result row.
+ */
+export const ThousandAlgorithm: Story = {
+  args: { config: addItem(500, 500, true) },
+  play: async ({ canvasElement, args }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    const digits = (row: number) =>
+      [...root.querySelectorAll<HTMLElement>('.ni-btt__digit:not(.ni-btt__opsign)')]
+        .filter((d) => d.style.gridRow === String(row))
+        .map((d) => d.textContent);
+    await expect(digits(2)).toEqual(['', '5', '0', '0']);
+    await expect(digits(3)).toEqual(['', '5', '0', '0']);
+    await expect(boxes(root)).toEqual(['', '', '', '']);
+    await expect(within(root).getByRole('button', { name: 'Thousands' })).toHaveAttribute(
+      'data-digit',
+      'thousands',
+    );
+    await expectNoReveal(root, 1000);
+    for (const el of controls(root)) await expectTargetSize(el, 'g1-up');
+    await expectTargetGaps(controls(root));
+    await expectFits(canvasElement, root);
+    await tapPlace(pending(root, 'hundreds'), columnPad(root, 'hundreds'));
+    await settled(root);
+    await typeKeys(root, '0001');
+    await expect(boxes(root)).toEqual(['1', '0', '0', '0']);
+    await expectFits(canvasElement, root);
+    await userEvent.click(within(root).getByRole('button', { name: 'Check' }));
+    const response = {
+      kind: 'state',
+      value: { hundreds: 10, tens: 0, ones: 0, value: 1000 },
+    };
+    await expect(args.onResponse).toHaveBeenCalledWith(response);
+    await expect(response).toEqual(
+      expectedResponse(
+        args.config as Config,
+        [{ op: 'combine', args: { column: 'hundreds' } }],
+        1000,
+      ),
+    );
+    await expect(
+      traceOf(args.onInteract)
+        .map((e) => `${e.t}:${e.target}`)
+        .slice(-4),
+    ).toEqual(['tap:key-0', 'tap:key-0', 'tap:key-0', 'tap:key-1']);
+  },
+};
+
+/** 500 + 500 with the algorithm in K: the four-place card and the K pad still fit, K-sized. */
+export const ThousandAlgorithmK: Story = {
+  globals: { ageMode: 'k' },
+  args: { config: addItem(500, 500, true) },
+  play: async ({ canvasElement }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    await expect(boxes(root)).toEqual(['', '', '', '']);
+    await expectFits(canvasElement, root);
+    for (const el of controls(root)) await expectTargetSize(el, 'k');
+    await expectTargetGaps(controls(root));
+    await tapPlace(pending(root, 'hundreds'), columnPad(root, 'hundreds'));
+    await settled(root);
+    await expectFits(canvasElement, root);
+    (document.activeElement as HTMLElement | null)?.blur();
+  },
+};
+
+/**
+ * 1200 + 300 (twelve hundreds) on the algorithm, typed straight in: the start is
+ * written across the places (1 | 2 | 0 | 0, not "12" in the hundreds box) and 1500 goes in. Five
+ * places put the algorithm above the mat. Fifteen flats cannot be drawn at the one 20 px scale, so
+ * this item steps the unit down (fit only is checked here).
+ */
+export const ThousandsWritten: Story = {
+  args: {
+    config: {
+      ...addItem(0, 300, true),
+      start: { hundreds: 12, tens: 0, ones: 0 },
+    },
+  },
+  play: async ({ canvasElement, args }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    const digits = (row: number) =>
+      [...root.querySelectorAll<HTMLElement>('.ni-btt__digit:not(.ni-btt__opsign)')]
+        .filter((d) => d.style.gridRow === String(row))
+        .map((d) => d.textContent);
+    // 4-digit + 3-digit: five places.
+    await expect(digits(2)).toEqual(['', '1', '2', '0', '0']);
+    await expect(digits(3)).toEqual(['', '', '3', '0', '0']);
+    await expect(boxes(root)).toEqual(['', '', '', '', '']);
+    await expectNoReveal(root, 1500);
+    await expectFits(canvasElement, root, U_MIN);
+    await tapPlace(pending(root, 'hundreds'), columnPad(root, 'hundreds'));
+    await settled(root);
+    await expectFits(canvasElement, root, U_MIN);
+    await typeKeys(root, '0051');
+    await expect(boxes(root)).toEqual(['', '1', '5', '0', '0']);
+    await userEvent.click(within(root).getByRole('button', { name: 'Check' }));
+    await expect(args.onResponse).toHaveBeenCalledWith({
+      kind: 'state',
+      value: { hundreds: 15, tens: 0, ones: 0, value: 1500 },
+    });
+  },
+};
+
+/** 990 + 10 on the pad: 1000 goes in. */
+export const ThousandPadCarry: Story = {
+  args: { config: addItem(990, 10, false) },
+  play: async ({ canvasElement, args }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    await typeKeys(root, '1000');
+    await userEvent.click(within(root).getByRole('button', { name: 'Check' }));
+    await expect(args.onResponse).toHaveBeenCalledWith(
+      expectedResponse(args.config as Config, [], 1000),
+    );
+  },
+};
+
+/**
+ * No reveal from the layout: a 3-digit + 2-digit sum under 1000 (123 + 45) shows exactly as many
+ * result boxes as one that reaches 1000 (990 + 10).
+ */
+export const BoxCountHidesCarry: Story = {
+  args: { config: addItem(123, 45, true) },
+  render: (args) => (
+    <div style={{ width: 1200, maxWidth: 'none', flex: 'none' }}>
+      <div data-item="below">{renderWidget(args)}</div>
+      <div data-item="reaches">
+        {renderWidget({ ...args, config: addItem(990, 10, true) as WidgetConfig })}
+      </div>
+    </div>
+  ),
+  play: async ({ canvasElement }) => {
+    await waitFor(() => expect(canvasElement.querySelectorAll(ROOT)).toHaveLength(2));
+    const count = (which: string) =>
+      canvasElement.querySelectorAll(`[data-item="${which}"] .ni-btt__box`).length;
+    await expect(count('below')).toBe(4);
+    await expect(count('reaches')).toBe(count('below'));
   },
 };
 
@@ -681,6 +883,76 @@ export const TouchTake: Story = {
       'drag:mat-ones-0',
       'drop:take',
     ]);
+    await expectTraceOrdered(traceOf(args.onInteract));
+  },
+};
+
+/** The drawn piece of a column nearest the top of its pile (the one farthest from the nest). */
+function topPiece(root: Element, c: string) {
+  const all = [...root.querySelectorAll<HTMLElement>(`[data-col="${c}"] [data-piece^="${c}-"]`)];
+  const top = all.sort((a, b) => a.getBoundingClientRect().top - b.getBoundingClientRect().top)[0];
+  if (!top) throw new Error(`no ${c} piece`);
+  return top;
+}
+
+let touchSeq = 900;
+/**
+ * A finger pressing at a screen point (on whatever is drawn there, as a real touch lands) and
+ * sliding to another, then lifting.
+ */
+async function touchDragFrom(from: { x: number; y: number }, to: { x: number; y: number }) {
+  const pointerId = ++touchSeq;
+  const init = (x: number, y: number, buttons: number): PointerEventInit => ({
+    bubbles: true,
+    cancelable: true,
+    composed: true,
+    pointerId,
+    pointerType: 'touch',
+    isPrimary: true,
+    clientX: x,
+    clientY: y,
+    button: 0,
+    buttons,
+  });
+  const at = (x: number, y: number) => document.elementFromPoint(x, y) ?? document.body;
+  at(from.x, from.y).dispatchEvent(new PointerEvent('pointerdown', init(from.x, from.y, 1)));
+  const steps = 8;
+  for (let i = 1; i <= steps; i++) {
+    const x = from.x + ((to.x - from.x) * i) / steps;
+    const y = from.y + ((to.y - from.y) * i) / steps;
+    at(x, y).dispatchEvent(new PointerEvent('pointermove', init(x, y, 1)));
+    await new Promise<void>((r) => requestAnimationFrame(() => r()));
+  }
+  at(to.x, to.y).dispatchEvent(new PointerEvent('pointerup', init(to.x, to.y, 0)));
+  await new Promise<void>((r) => requestAnimationFrame(() => r()));
+}
+
+/**
+ * Regression (PR #74 review): a piece drawn high in its column, dragged by its own picture and let
+ * go just inside the nest's foot, lands in the nest. The drop test follows the piece the child
+ * moves, not the middle of the whole column.
+ */
+export const TouchTakeFromTop: Story = {
+  args: { config: take42minus15 },
+  play: async ({ canvasElement, args }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    // Twelve ones fill several rows, so the top one sits far above the column's middle.
+    await userEvent.click(trade(root, 'tens', 'ones'));
+    await settled(root);
+    const piece = topPiece(root, 'ones');
+    const from = center(piece);
+    // The press lands on the column's grab item (the drawn pieces let presses through).
+    await expect(document.elementFromPoint(from.x, from.y)).toBe(grabItem(root, 'ones'));
+    // Far above the column's middle, so the old drop test (the column's centre) missed the nest.
+    const body = q(root, '[data-col="ones"] .ni-btt__body').getBoundingClientRect();
+    await expect(body.top + body.height / 2 - from.y).toBeGreaterThan(48);
+    const target = nest(root).getBoundingClientRect();
+    await touchDragFrom(from, { x: center(nest(root)).x, y: target.bottom - 12 });
+    await settled(root);
+    await expect(takenPieces(root, 'ones')).toBe(1);
+    await expect(mat(root)).toEqual({ hundreds: 0, tens: 3, ones: 11 });
+    const trace = traceOf(args.onInteract).map((e) => `${e.t}:${e.target}`);
+    await expect(trace).toEqual(['tap:trade-tens-ones', 'drag:mat-ones-11', 'drop:take']);
     await expectTraceOrdered(traceOf(args.onInteract));
   },
 };
@@ -1151,6 +1423,60 @@ export const DemoInviteTake: Story = {
       q(root, '[data-digit="ones"]'),
       root,
     );
+  },
+};
+
+const swapController: WidgetDemo = createDemoController({ strict: true });
+let nextItem: () => void = () => {};
+
+/** The lesson host: moving on to the next item unmounts this widget and mounts a fresh one. */
+function ItemSwapHarness(args: WidgetHostProps) {
+  const [item, setItem] = useState(1);
+  nextItem = () => setItem((n) => n + 1);
+  return (
+    <div style={{ width: 1200, maxWidth: 'none', flex: 'none' }}>
+      <div className="story-widget-stage">
+        <WidgetHost {...args} itemKey={item} demo={swapController} />
+      </div>
+    </div>
+  );
+}
+
+/** Races a demo op against a timeout. */
+const outcomeOf = (playing: Promise<void>, ms: number) =>
+  Promise.race([
+    playing.then(() => 'settled'),
+    new Promise<string>((r) => setTimeout(() => r('hung'), ms)),
+  ]);
+
+/**
+ * The host moves on while Pip is mid-op: the widget unmounts and the op's promise settles at once,
+ * both before a take commits (same tick) and in the middle of a trade's animation.
+ */
+export const DemoSettlesOnUnmount: Story = {
+  args: { disabled: true, config: take42minus15 },
+  render: (args) => <ItemSwapHarness {...args} />,
+  play: async ({ canvasElement }) => {
+    await findWidget(canvasElement, ROOT);
+    let started = performance.now();
+    const take = swapController.play({ op: 'take', args: { column: 'ones', count: 2 } });
+    nextItem(); // same tick: the widget unmounts before the take commits
+    await expect(await outcomeOf(take, 2500)).toBe('settled');
+    await expect(performance.now() - started).toBeLessThan(150);
+    // Mid-animation: the rod is cracking into ones when the host moves on.
+    let root = await findWidget(canvasElement, ROOT);
+    await expect(mat(root)).toEqual({ hundreds: 0, tens: 4, ones: 2 });
+    const split = swapController.play({ op: 'trade', args: { from: 'tens', to: 'ones' } });
+    await waitFor(() => expect(root.querySelector('.ni-btt__ghost')).not.toBeNull());
+    started = performance.now();
+    nextItem();
+    await expect(await outcomeOf(split, 2500)).toBe('settled');
+    await expect(performance.now() - started).toBeLessThan(150);
+    // The next item starts fresh, bound to the same controller.
+    root = await findWidget(canvasElement, ROOT);
+    await expect(mat(root)).toEqual({ hundreds: 0, tens: 4, ones: 2 });
+    await swapController.play({ op: 'take', args: { column: 'ones', count: 1 } });
+    await expect(mat(root)).toEqual({ hundreds: 0, tens: 4, ones: 1 });
   },
 };
 

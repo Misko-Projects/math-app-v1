@@ -53,7 +53,8 @@ import './expanded-form.css';
  * - `fill`: an expression with blanks. With `cards`, a card fills the next empty blank and tapping
  *   a filled blank clears it; otherwise the number pad types into the chosen blank.
  * - `to-standard`: the expanded expression and one big answer blank on the pad.
- * - `words`: word cards to pick (`choice`), or a "hear it" button and the pad (`number`).
+ * - `words`: word cards to pick (`choice`), or a "hear it" button that says the target and the
+ *   pad (`number`).
  * - `digit-value`: the target numeral with one digit ringed and underlined; the pad (`number`).
  *
  * The target numeral is ONE number with tight tabular digits; tapping it speaks the whole number.
@@ -63,8 +64,9 @@ import './expanded-form.css';
  * id), `placed-<i>`, `build`, `tray`, `blank-<id>` (`blank-answer` for a lone answer slot),
  * `opt-<id>`, `key-<k>` and `hear`.
  *
- * Demo ops (03 §5.5): `place-card {value, remove?}`, `stack-cards`, `highlight-digit {index}`,
- * plus `answer {value | values | id}`.
+ * Demo ops (03 §5.5): `place-card {value}`, its removals `{value, remove}` (build) and
+ * `{remove, blank}` (fill, cards or pad), `stack-cards`, `highlight-digit {index}`, plus
+ * `answer {value | values | id}`.
  */
 
 type Config = ConfigFor<'expanded-form'>;
@@ -242,18 +244,26 @@ export function ExpandedFormWidget({
 
   // Resolves after this widget's next commit (demo flights measure the committed DOM).
   const commitWaiters = useRef<(() => void)[]>([]);
-  useLayoutEffect(() => {
-    if (commitWaiters.current.length === 0) return;
+  const settleWaiters = () => {
     const ready = commitWaiters.current;
     commitWaiters.current = [];
     for (const resolve of ready) resolve();
+  };
+  useLayoutEffect(() => {
+    if (commitWaiters.current.length > 0) settleWaiters();
   });
+  // An unmounted widget never commits again: settle its waiters now, so a demo op in flight
+  // resolves at once instead of holding the host's `demo.play` until a timeout.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: unmount-only cleanup over a ref
+  useLayoutEffect(() => settleWaiters, []);
   const afterCommit = () =>
-    new Promise<void>((resolve) => {
-      commitWaiters.current.push(resolve);
-      // A state update that changed nothing never commits.
-      setTimeout(resolve, 250);
-    });
+    alive.current
+      ? new Promise<void>((resolve) => {
+          commitWaiters.current.push(resolve);
+          // A state update that changed nothing never commits.
+          setTimeout(resolve, 250);
+        })
+      : Promise.resolve();
 
   // ---------- the card tray ----------
 
@@ -360,6 +370,17 @@ export function ExpandedFormWidget({
     if (speakOnTap) sayNumber(config.target);
   };
 
+  /**
+   * Words heard ("Listen to the number. Then tap it in."): the speaker says the number. It is the
+   * stimulus, so it plays whatever the speak-on-tap setting, and the screen never shows it.
+   */
+  const hearNumber = () => {
+    if (!interactive) return;
+    trace('tap', 'hear');
+    setInvite(null);
+    sayNumber(config.target);
+  };
+
   const clearBlank = (i: number) => {
     if (!interactive) return;
     const id = ids[i];
@@ -408,12 +429,18 @@ export function ExpandedFormWidget({
     target.removeAttribute('data-flying');
   };
 
-  /** Moves one card from the tray to the mat or the next blank (or back), as the child would. */
-  const playPlaceCard = async (v: number, remove: boolean) => {
+  /**
+   * Takes a card (or a typed number) back out, with the same payloads as the child's own remove
+   * handlers and the model: `{value, remove}` takes the last placed copy off the build mat;
+   * `{remove, blank}` empties one fill blank (its card flies back to the tray, or the pad erases
+   * the typed number key by key). Any other remove changes nothing, as in the model.
+   */
+  const playRemove = async (action: WidgetAction) => {
     const before = stateRef.current;
-    if (mode === 'build' && remove) {
-      const i = before.placed.lastIndexOf(v);
-      if (i < 0) return;
+    if (mode === 'build') {
+      const v = numArg(action, 'value');
+      const i = v === undefined ? -1 : before.placed.lastIndexOf(v);
+      if (v === undefined || i < 0) return;
       const from = el(`[data-place-item="placed-${i}"]`)?.getBoundingClientRect();
       act({ op: 'place-card', args: { value: v, remove: true } });
       await afterCommit();
@@ -422,6 +449,28 @@ export function ExpandedFormWidget({
       await fly(back, from, back?.getAttribute('data-place-item') ?? 'tray');
       return;
     }
+    if (mode !== 'fill') return;
+    const blank = action.args?.blank;
+    const i = typeof blank === 'string' ? ids.indexOf(blank) : -1;
+    if (i < 0) return;
+    if (!hasCards) {
+      await eraseValue(i);
+      return;
+    }
+    const v = before.entries[i];
+    if (v === null || v === undefined) return;
+    const from = el(`[data-blank="${blank}"]`)?.getBoundingClientRect();
+    // The child's clearBlank payload: the model empties the blank by id, no value needed.
+    act({ op: 'place-card', args: { remove: true, blank } });
+    await afterCommit();
+    if (!alive.current) return;
+    const back = trayCardEl(v, 'last');
+    await fly(back, from, back?.getAttribute('data-place-item') ?? 'tray');
+  };
+
+  /** Moves one card from the tray to the mat or the next blank, as the child would. */
+  const playPlaceCard = async (v: number) => {
+    const before = stateRef.current;
     if (hasCards) {
       const from = trayCardEl(v, 'last')?.getBoundingClientRect();
       act({ op: 'place-card', args: { value: v } });
@@ -468,6 +517,24 @@ export function ExpandedFormWidget({
     await pause(KEY_MS);
   };
 
+  /** Empties a pad blank with the backspace key, as the child would. */
+  const eraseValue = async (i: number) => {
+    const id = padSlots[i];
+    if (id === undefined || (textsRef.current[i] ?? '') === '') return;
+    setActive(i);
+    while ((textsRef.current[i] ?? '') !== '') {
+      setPressedKey('back');
+      await pause(KEY_MS);
+      if (!alive.current) return;
+      const next = [...textsRef.current];
+      next[i] = applyPadKey(next[i] ?? '', 'back', maxDigits);
+      setTextsNow(next);
+    }
+    setPressedKey(null);
+    if (reduced) setFlash(`blank-${id}`);
+    await pause(KEY_MS);
+  };
+
   const playAnswer = async (action: WidgetAction) => {
     const s = stateRef.current;
     const final = model.apply(s, action);
@@ -498,7 +565,7 @@ export function ExpandedFormWidget({
       await afterCommit();
       for (const v of values) {
         if (!alive.current) return;
-        await playPlaceCard(v, false);
+        await playPlaceCard(v);
         await pause(200);
       }
       if (alive.current) commit(final);
@@ -535,9 +602,13 @@ export function ExpandedFormWidget({
       if (stateRef.current.highlightedDigit !== null) act({ op: 'highlight-digit' });
       try {
         if (action.op === 'place-card') {
-          const v = numArg(action, 'value');
-          if (v === undefined) return;
-          await playPlaceCard(v, action.args?.remove === true);
+          if (action.args?.remove === true) {
+            await playRemove(action);
+          } else {
+            const v = numArg(action, 'value');
+            if (v !== undefined) await playPlaceCard(v);
+          }
+          if (!alive.current) return;
           await pause(250);
           if (alive.current && !reduced) setFlash(null);
         } else if (action.op === 'stack-cards') {
@@ -588,7 +659,8 @@ export function ExpandedFormWidget({
     placed: state.placed,
     tray,
     ids,
-    entries: state.entries,
+    // Fill on the pad keeps its numbers as typed text until "check".
+    entries: mode === 'fill' && !hasCards ? texts.map(padValue) : state.entries,
     padSlots,
     active,
   });
@@ -930,12 +1002,12 @@ export function ExpandedFormWidget({
             label="ui.widget.ef.hear"
             icon={<SpeakerIcon tone="light" />}
             tone="sea"
-            speak="always"
+            // The press says the number itself, in every age mode (K included); the label stays
+            // the accessible name. Speaking it first would only clip or delay the number.
+            speak="never"
             className="ni-efw__hear ni-replay"
             disabled={disabled}
-            onPress={() => {
-              if (interactive) trace('tap', 'hear');
-            }}
+            onPress={hearNumber}
           />
           <div className="ni-efw__answers">{padBlank(0, 'lg')}</div>
         </>

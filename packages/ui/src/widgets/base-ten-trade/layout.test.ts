@@ -2,6 +2,7 @@ import type { WidgetConfigOf } from '@number-island/shared';
 import { describe, expect, it } from 'vitest';
 import { breakGhosts, bundleGhosts, gatherBox, moveGhosts, slices, transformFrom } from './fx';
 import {
+  answerPlaces,
   type Box,
   COL_PAD,
   digitsValue,
@@ -11,6 +12,7 @@ import {
   lyingRods,
   naturalLayout,
   pathStates,
+  placeDigits,
   placePieces,
   placeTaken,
   planCaps,
@@ -254,11 +256,71 @@ describe('one scale per item', () => {
   });
 
   it('reads the result row as one number, ones box first', () => {
-    expect(digitsValue({ hundreds: null, tens: null, ones: null })).toBeNull();
-    expect(digitsValue({ hundreds: null, tens: 7, ones: 6 })).toBe(76);
-    expect(digitsValue({ hundreds: 1, tens: 7, ones: 6 })).toBe(176);
-    expect(digitsValue({ hundreds: 1, tens: null, ones: 6 })).toBeNull();
-    expect(digitsValue({ hundreds: null, tens: 7, ones: null })).toBeNull();
+    expect(digitsValue([null, null, null])).toBeNull();
+    expect(digitsValue([null, 7, 6])).toBe(76);
+    expect(digitsValue([1, 7, 6])).toBe(176);
+    expect(digitsValue([1, null, 6])).toBeNull();
+    expect(digitsValue([null, 7, null])).toBeNull();
+    // Internal and trailing zeros, and zero itself.
+    expect(digitsValue([3, 0, 4])).toBe(304);
+    expect(digitsValue([1, 0, 0])).toBe(100);
+    expect(digitsValue([null, null, 0])).toBe(0);
+    expect(digitsValue([1, 0, 0, 0])).toBe(1000);
+    expect(digitsValue([null, 1, 5, 0, 0])).toBe(1500);
+  });
+
+  it('every result from 0 to 999 can be written in the result row', () => {
+    for (let v = 0; v <= 999; v++) {
+      const row = placeDigits(v, 3).map((d) => (d === '' ? null : Number(d)));
+      expect(digitsValue(row)).toBe(v);
+    }
+  });
+
+  it('sizes the answer entry from the operands, never the result', () => {
+    const plus = (s: number, o: number) =>
+      answerPlaces(
+        cfg({
+          start: { hundreds: Math.floor(s / 100), tens: Math.floor(s / 10) % 10, ones: s % 10 },
+          operation: {
+            op: '+',
+            operand: { hundreds: Math.floor(o / 100), tens: Math.floor(o / 10) % 10, ones: o % 10 },
+          },
+        }),
+      );
+    // 3-digit + 2-digit: 4 places whether the sum stays under 1000 or reaches it.
+    expect(plus(123, 45)).toBe(4);
+    expect(plus(990, 10)).toBe(4);
+    expect(plus(500, 500)).toBe(4);
+    // Two 2-digit addends: 3 places (the mat's three), with or without a carry into the hundreds.
+    expect(plus(27, 15)).toBe(3);
+    expect(plus(95, 5)).toBe(3);
+    // 1200 + 300 (twelve hundreds on the mat): 5 places.
+    expect(
+      answerPlaces(
+        cfg({
+          start: { hundreds: 12, tens: 0, ones: 0 },
+          operation: { op: '+', operand: { hundreds: 3, tens: 0, ones: 0 } },
+        }),
+      ),
+    ).toBe(5);
+    // `−`: as long as the start, at least 3.
+    const minus = (h: number, t: number, o: number) =>
+      answerPlaces(
+        cfg({
+          start: { hundreds: h, tens: t, ones: o },
+          operation: { op: '-', operand: { hundreds: 0, tens: 1, ones: 5 } },
+        }),
+      );
+    expect(minus(0, 4, 2)).toBe(3);
+    expect(minus(3, 0, 4)).toBe(3);
+    expect(minus(12, 0, 0)).toBe(4);
+  });
+
+  it('writes a number in place columns, highest first', () => {
+    expect(placeDigits(1200, 4)).toEqual(['1', '2', '0', '0']);
+    expect(placeDigits(27, 4)).toEqual(['', '', '2', '7']);
+    expect(placeDigits(0, 3)).toEqual(['', '', '0']);
+    expect(placeDigits(304, 3)).toEqual(['3', '0', '4']);
   });
 });
 

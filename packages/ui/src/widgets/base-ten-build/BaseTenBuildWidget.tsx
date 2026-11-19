@@ -1,5 +1,6 @@
 import {
   type BaseTenBuildState,
+  canonicalPieces,
   formatModel,
   PIECE_VALUE,
   type PieceKind,
@@ -37,6 +38,7 @@ import {
   cubeDepth,
   KINDS,
   larger,
+  type MatLayoutInput,
   matLayout,
   onesGroupGap,
   pieceGap,
@@ -52,16 +54,23 @@ import './base-ten-build.css';
  * a tray of piles to take pieces from, and "make a ten" / "split a ten" trades under the columns.
  *
  * - `build` / `build-exact` (concrete): the goal numeral sits at the top of the side panel (with
- *   the required piece counts for `build-exact`). Drag, tap-to-place or the keyboard moves a pile's
+ *   the required piece counts for `build-exact`). A `build` that starts with pieces on the mat is
+ *   arithmetic ("Here is 24. Put in 5 more"): its target is the unknown, so no goal is shown,
+ *   named or spoken (the prompt carries the task). Drag, tap-to-place or the keyboard moves a pile's
  *   piece onto the mat (`add-piece {kind}`) or a mat piece back to the tray (`count: -1`). Check
  *   sends the mat, `{ thousands, hundreds, tens, ones }`, through the state model; any pieces worth
  *   the target count (state equivalence). Nothing shows a value, a total or a column count.
  * - `read` (pictorial): the prebuilt pieces are a static picture ("Look at the picture"); the
- *   child types the number on the pad. With `wholeIs: 'flat'` the typed decimal is sent in
- *   hundredths, as every base-ten-build value is.
+ *   child types the number on the pad. With `wholeIs: 'flat'` the pad takes at most two digits
+ *   after the point and the typed decimal is sent, exactly, in hundredths (as every base-ten-build
+ *   value is); a typed value is never rounded.
+ * - The mat never overfills: a move (the child's or the demo's) that would make the mat wider than
+ *   its room is refused, and the pile or trade that would make it is off. The engine's schema caps
+ *   what an item may start with or need (MAT_MAX), so this only stops runaway taking.
  *
  * Trace targets: `tray-<kind>`, `mat-<kind>-<i>`, the drop targets `mat` and `tray`,
- * `fuse-<kind>`, `split-<kind>`, `goal`, `exact-<kind>`, `answer` and `key-<k>` (read).
+ * `fuse-<kind>`, `split-<kind>`, `goal` (when shown), `exact-<kind>`, `answer` and `key-<k>`
+ * (read).
  *
  * Demo ops (03 §5.5): `add-piece {kind, count}` (the piece flies from the tray), `fuse {kind}` and
  * `split {kind}` (the bundle animation), `count-by {kind}` (pieces light up one by one with the
@@ -146,15 +155,60 @@ const exactKey = (k: PieceKind, n: number, decimal: boolean): NarrationKey =>
 /** A value as the child sees and hears it: hundredths become a decimal when the flat is 1. */
 const shown = (v: number, decimal: boolean) => (decimal ? Number((v / 100).toFixed(2)) : v);
 
-/** The mat's columns: every kind from the largest to the smallest the item uses. */
+/**
+ * The kinds a solution may need on the mat: the target's places (its highest place, so a fuse can
+ * reach it, down to its lowest, so a split can), and for `build-exact` the named kinds and the
+ * free kinds the rest needs (the fewest pieces, largest first). Values are in hundredths when the
+ * flat is the whole, so the same pieces are then the decimal places (flat = ones, rod = tenths…).
+ */
+function neededKinds(config: Config): PieceKind[] {
+  const target = canonicalPieces(config.target);
+  const out = KINDS.filter((k) => target[k] > 0);
+  if (config.mode === 'build-exact') {
+    const exact = config.exact ?? {};
+    let rest = config.target;
+    for (const k of ['hundreds', 'tens', 'ones'] as const) {
+      const n = exact[k];
+      if (n === undefined) continue;
+      out.push(k);
+      rest -= n * PIECE_VALUE[k];
+    }
+    for (const k of KINDS) {
+      if (k !== 'thousands' && exact[k] !== undefined) continue;
+      const n = Math.floor(Math.max(0, rest) / PIECE_VALUE[k]);
+      if (n > 0) out.push(k);
+      rest -= n * PIECE_VALUE[k];
+    }
+  }
+  return out;
+}
+
+/**
+ * The mat's columns: one contiguous run, largest first, over every kind the tray offers, the mat
+ * holds, or a solution needs (neededKinds), so each fuse and split a solution uses has its gutter
+ * (ten ones made into a ten when only ones are offered). `read` keeps to the picture's and the
+ * tray's kinds: it has no trades, and an empty column for the answer's top place would hint at it.
+ */
 function columnKinds(config: Config, mat: Record<PieceKind, number>): PieceKind[] {
-  const used = KINDS.filter(
-    (k) => config.pieces[k] || (config.prebuilt?.[k] ?? 0) > 0 || mat[k] > 0,
+  const used = new Set(
+    KINDS.filter((k) => config.pieces[k] || (config.prebuilt?.[k] ?? 0) > 0 || mat[k] > 0),
   );
-  const first = used[0];
-  const last = used[used.length - 1];
-  if (!first || !last) return ['ones'];
-  return KINDS.slice(KINDS.indexOf(first), KINDS.indexOf(last) + 1);
+  if (config.mode !== 'read') for (const k of neededKinds(config)) used.add(k);
+  const at = KINDS.flatMap((k, i) => (used.has(k) ? [i] : []));
+  if (at.length === 0) return ['ones'];
+  return KINDS.slice(Math.min(...at), Math.max(...at) + 1);
+}
+
+/**
+ * The typed number in hundredths, read from its digits (never through floating point, never
+ * rounded), or null when it is unfinished or has more than two digits after the point.
+ */
+function typedHundredths(text: string): number | null {
+  const m = /^(\d*)(?:\.(\d{0,2}))?$/.exec(text);
+  if (!m || padValue(text) === null) return null;
+  const whole = m[1] === '' || m[1] === undefined ? 0 : Number(m[1]);
+  const frac = (m[2] ?? '').padEnd(2, '0');
+  return whole * 100 + Number(frac);
 }
 
 function parseItem(id: string): { where: 'tray' | 'mat'; kind: PieceKind } | null {
@@ -319,21 +373,67 @@ export function BaseTenBuildWidget({
 
   // ---------- state through the model, with a hook for "after the DOM shows it" ----------
 
-  const commitWaiters = useRef<(() => void)[]>([]);
+  const commitWaiters = useRef<((changed: boolean) => void)[]>([]);
   useLayoutEffect(() => {
     if (commitWaiters.current.length === 0) return;
     const waiters = commitWaiters.current;
     commitWaiters.current = [];
-    for (const w of waiters) w();
+    for (const w of waiters) w(true);
   });
+
+  // Moves in flight, so an unmount can stop them.
+  const running = useRef(new Set<Animation>());
+  const animate = (el: HTMLElement, frames: Keyframe[], ms: number): Animation => {
+    const a = move(el, frames, ms);
+    running.current.add(a);
+    const done = () => running.current.delete(a);
+    void a.finished.then(done, done);
+    return a;
+  };
+
+  // An unmounted widget never commits again: settle every waiting op (as "nothing changed") and
+  // stop every move, so an awaited demo `play` resolves without submitting or changing anything.
+  useLayoutEffect(
+    () => () => {
+      const waiters = commitWaiters.current;
+      commitWaiters.current = [];
+      for (const w of waiters) w(false);
+      for (const a of running.current) a.cancel();
+      running.current.clear();
+    },
+    [],
+  );
+
+  // The mat's geometry inputs (set during render, below), for the room check.
+  const layoutInput = useRef<Omit<MatLayoutInput, 'kinds' | 'counts'> | null>(null);
+  const layoutFor = (mat: State['mat']) =>
+    layoutInput.current
+      ? matLayout({ ...layoutInput.current, kinds: columnKinds(config, mat), counts: mat })
+      : null;
+
+  /** Whether `next` keeps the mat within its room (or at least no wider than `prev`'s). */
+  const hasRoom = (prev: State, next: State) => {
+    if (next.mat === prev.mat) return true;
+    const after = layoutFor(next.mat);
+    if (!after?.overflow) return true;
+    const before = layoutFor(prev.mat);
+    return before !== null && after.matWidth <= before.matWidth;
+  };
+
+  /** Whether `action` changes `s` through the model and leaves the mat room. */
+  const canApply = (s: State, action: WidgetAction) => {
+    const next = applyAction(s, action);
+    return next !== s && hasRoom(s, next);
+  };
 
   /** Applies an op; resolves (true) once the new state is in the DOM, or false if nothing changed. */
   const applyOp = (action: WidgetAction): Promise<boolean> => {
+    if (!alive.current) return Promise.resolve(false);
     const prev = stateRef.current;
     const next = applyAction(prev, action);
-    if (next === prev) return Promise.resolve(false);
+    if (next === prev || !hasRoom(prev, next)) return Promise.resolve(false);
     return new Promise((resolve) => {
-      commitWaiters.current.push(() => resolve(true));
+      commitWaiters.current.push(resolve);
       stateRef.current = next;
       setState(next);
     });
@@ -365,9 +465,7 @@ export function BaseTenBuildWidget({
   const padSide = 3 * TARGET_PX[prefs.ageMode].big + 2 * 12;
   const headH = HEAD_H[prefs.ageMode];
   const bodyH = WIDGET_H - 2 * ROOT_PAD_Y - 2 * FRAME - headH - 2 * BODY_PAD;
-  const layout = matLayout({
-    kinds,
-    counts: state.mat,
+  layoutInput.current = {
     units: unitCandidates(kMode),
     // Half a px of slack: computed widths are fractional.
     width: avail - 0.5,
@@ -380,7 +478,8 @@ export function BaseTenBuildWidget({
     sideMax: read ? padSide : 260,
     headerWidth: (kind) =>
       prefs.textLabels ? 44 + 11 * t(colKey(kind, decimal)).length : kMode ? 56 : 44,
-  });
+  };
+  const layout = matLayout({ ...layoutInput.current, kinds, counts: state.mat });
   const layoutRef = useRef(layout);
   layoutRef.current = layout;
   const u = layout.u;
@@ -407,7 +506,7 @@ export function BaseTenBuildWidget({
   const runFuse = async (kind: PieceKind) => {
     const up = larger(kind);
     const s = stateRef.current;
-    if (!up || s.mat[kind] < 10) return;
+    if (!up || !canApply(s, { op: 'fuse', args: { kind } })) return;
     const newKey = `${up}-${s.mat[up]}`;
     if (reduced) {
       if (await applyOp({ op: 'fuse', args: { kind } })) flashPieces([newKey]);
@@ -437,7 +536,7 @@ export function BaseTenBuildWidget({
       const from = centers[j] as { x: number; y: number };
       const off = bundleOffset(kind, j, unit);
       el.style.zIndex = '3';
-      return move(
+      return animate(
         el,
         [
           { transform: 'translate(0px, 0px)' },
@@ -465,7 +564,7 @@ export function BaseTenBuildWidget({
       const dy = old.top - r.top;
       if (Math.abs(dx) < 0.5 && Math.abs(dy) < 0.5) return;
       moves.push(
-        move(
+        animate(
           el,
           [{ transform: `translate(${dx}px, ${dy}px)` }, { transform: 'translate(0px, 0px)' }],
           LAND_MS,
@@ -480,7 +579,7 @@ export function BaseTenBuildWidget({
       const dy = c.y - p.y;
       el.style.zIndex = '3';
       moves.push(
-        move(
+        animate(
           el,
           [
             { transform: `translate(${dx}px, ${dy}px) scale(1)` },
@@ -500,7 +599,7 @@ export function BaseTenBuildWidget({
   const runSplit = async (kind: PieceKind) => {
     const down = smaller(kind);
     const s = stateRef.current;
-    if (!down || s.mat[kind] < 1) return;
+    if (!down || !canApply(s, { op: 'split', args: { kind } })) return;
     const first = s.mat[down];
     const newKeys = Array.from({ length: 10 }, (_, j) => `${down}-${first + j}`);
     if (reduced) {
@@ -515,7 +614,7 @@ export function BaseTenBuildWidget({
       const from = centerOf(el.getBoundingClientRect());
       dest = centerOf(col.getBoundingClientRect());
       el.style.zIndex = '3';
-      carry = move(
+      carry = animate(
         el,
         [
           { transform: 'translate(0px, 0px)' },
@@ -542,7 +641,7 @@ export function BaseTenBuildWidget({
       const p = centerOf(n.getBoundingClientRect());
       const off = bundleOffset(down, j, unit);
       n.style.zIndex = '3';
-      return move(
+      return animate(
         n,
         [
           { transform: `translate(${at.x + off.x - p.x}px, ${at.y + off.y - p.y}px)` },
@@ -588,7 +687,7 @@ export function BaseTenBuildWidget({
         if (!el || !pileAt) continue;
         const p = centerOf(el.getBoundingClientRect());
         el.style.zIndex = '3';
-        const fly = move(
+        const fly = animate(
           el,
           [
             { transform: `translate(${pileAt.x - p.x}px, ${pileAt.y - p.y}px) scale(0.7)` },
@@ -605,7 +704,7 @@ export function BaseTenBuildWidget({
           const p = centerOf(el.getBoundingClientRect());
           el.style.zIndex = '3';
           await settle([
-            move(
+            animate(
               el,
               [
                 { transform: 'translate(0px, 0px) scale(1)', opacity: 1 },
@@ -744,16 +843,22 @@ export function BaseTenBuildWidget({
     if (key === '.' && !decimal) return;
     trace('tap', `key-${key}`);
     setInvite(null);
-    setText((prev) => applyPadKey(prev, key, maxDigits));
+    setText((prev) => {
+      const next = applyPadKey(prev, key, maxDigits);
+      // Decimals stop at hundredths (the smallest piece): a third digit after the point is refused.
+      return decimal && typedHundredths(next) === null && padValue(next) !== null ? prev : next;
+    });
   };
+  /** The typed answer as the model takes it (hundredths for decimals), or null while unfinished. */
+  const typedValue = (s: string) => (decimal ? typedHundredths(s) : padValue(s));
 
   const submit = useSubmitGuard(() => {
     if (!interactive) return false;
     let s = stateRef.current;
     if (read) {
-      const v = padValue(textRef.current);
+      const v = typedValue(textRef.current);
       if (v === null) return false;
-      s = applyAction(s, { op: 'answer', args: { value: decimal ? Math.round(v * 100) : v } });
+      s = applyAction(s, { op: 'answer', args: { value: v } });
     }
     const response = model.toResponse(s);
     if (!response) return false;
@@ -836,7 +941,7 @@ export function BaseTenBuildWidget({
   const tradeButton = (op: 'fuse' | 'split', big: PieceKind, small: PieceKind) => {
     const kind = op === 'fuse' ? small : big;
     const id = `${op}-${kind}`;
-    const can = op === 'fuse' ? state.mat[small] >= 10 : state.mat[big] >= 1;
+    const can = canApply(state, { op, args: { kind } });
     return (
       <span key={id} className="ni-btb__slot">
         <TradeButton
@@ -975,12 +1080,16 @@ export function BaseTenBuildWidget({
             disabled={!interactive}
             highlighted={pressedKey}
           />
-          <CheckButton onPress={submit} disabled={!interactive || padValue(text) === null} />
+          <CheckButton onPress={submit} disabled={!interactive || typedValue(text) === null} />
         </div>
       </div>
     );
   }
 
+  // A build that starts with pieces is arithmetic (mda.addsub, pv.tenmore; bond.parts, whose
+  // prompt states the whole): the target is the result the child finds, so no goal card is drawn,
+  // named or spoken (03 §5.5: no stimulus reveals the answer). Plain builds and build-exact show it.
+  const goalHidden = config.mode === 'build' && KINDS.some((k) => (config.prebuilt?.[k] ?? 0) > 0);
   const goalValue = shown(config.target, decimal);
   const exactKinds =
     config.mode === 'build-exact'
@@ -1008,49 +1117,51 @@ export function BaseTenBuildWidget({
     >
       {work}
       <div className="ni-btb__side">
-        <div className="ni-btb__ask">
-          <button
-            type="button"
-            className="ni-number ni-btb__goal"
-            // 72 px when the side panel has room for it, else 48 px (both ≥ 48 px).
-            data-size={String(goalValue).length * 44 + 70 <= layout.sideWidth ? 'lg' : undefined}
-            aria-label={t('ui.widget.btb.goal', { n: goalValue })}
-            disabled={!interactive}
-            onClick={() => {
-              trace('tap', 'goal');
-              if (prefs.speakOnTap) sayNumber(goalValue);
-            }}
-          >
-            {goalValue}
-          </button>
-          {exactKinds.map((k) => {
-            const n = config.exact?.[k] ?? 0;
-            const line = exactKey(k, n, decimal);
-            return (
-              <button
-                key={k}
-                type="button"
-                className="ni-btb__exact"
-                aria-label={t(line, { n })}
-                disabled={!interactive}
-                onClick={() => {
-                  trace('tap', `exact-${k}`);
-                  if (prefs.speakOnTap) say(line, { n });
-                }}
-              >
-                <span className="ni-btb__exactnum" aria-hidden="true">
-                  {n}
-                </span>
-                <span className="ni-btb__times" aria-hidden="true">
-                  ×
-                </span>
-                <span className="ni-btb__exactart" data-kind={k}>
-                  <PieceArt kind={k} u={k === 'ones' ? 26 : 6.5} />
-                </span>
-              </button>
-            );
-          })}
-        </div>
+        {goalHidden ? null : (
+          <div className="ni-btb__ask">
+            <button
+              type="button"
+              className="ni-number ni-btb__goal"
+              // 72 px when the side panel has room for it, else 48 px (both ≥ 48 px).
+              data-size={String(goalValue).length * 44 + 70 <= layout.sideWidth ? 'lg' : undefined}
+              aria-label={t('ui.widget.btb.goal', { n: goalValue })}
+              disabled={!interactive}
+              onClick={() => {
+                trace('tap', 'goal');
+                if (prefs.speakOnTap) sayNumber(goalValue);
+              }}
+            >
+              {goalValue}
+            </button>
+            {exactKinds.map((k) => {
+              const n = config.exact?.[k] ?? 0;
+              const line = exactKey(k, n, decimal);
+              return (
+                <button
+                  key={k}
+                  type="button"
+                  className="ni-btb__exact"
+                  aria-label={t(line, { n })}
+                  disabled={!interactive}
+                  onClick={() => {
+                    trace('tap', `exact-${k}`);
+                    if (prefs.speakOnTap) say(line, { n });
+                  }}
+                >
+                  <span className="ni-btb__exactnum" aria-hidden="true">
+                    {n}
+                  </span>
+                  <span className="ni-btb__times" aria-hidden="true">
+                    ×
+                  </span>
+                  <span className="ni-btb__exactart" data-kind={k}>
+                    <PieceArt kind={k} u={k === 'ones' ? 26 : 6.5} />
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        )}
         <div className="ni-btb__tray">
           {(() => {
             const props = dnd.targetProps('tray', { label: t('ui.widget.btb.tray') });
@@ -1084,11 +1195,13 @@ export function BaseTenBuildWidget({
               const supply = traySupply(config, state.taken, k);
               const limited = Number.isFinite(supply);
               const empty = supply <= 0;
+              // Off when the tray has none left, or one more would overfill the mat.
+              const off = !canApply(state, { op: 'add-piece', args: { kind: k } });
               const n = Math.max(0, supply);
               // The name includes the stock tag's text (axe label-content-name-mismatch).
               const left = limited ? t('ui.widget.btb.left', { n }) : null;
               const label = left ? `${t(pieceKey(k, decimal))}, ${left}` : t(pieceKey(k, decimal));
-              const props = dnd.itemProps(id, { label, disabled: empty });
+              const props = dnd.itemProps(id, { label, disabled: off });
               return (
                 <span key={id} className="ni-btb__slot ni-btb__pileslot">
                   <span
@@ -1101,7 +1214,7 @@ export function BaseTenBuildWidget({
                       .filter(Boolean)
                       .join(' ')}
                     data-kind={k}
-                    data-empty={empty ? 'true' : undefined}
+                    data-empty={off ? 'true' : undefined}
                   >
                     <PileArt kind={k} />
                     {limited ? (

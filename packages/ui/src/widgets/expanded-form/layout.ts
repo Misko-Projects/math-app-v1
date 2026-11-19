@@ -129,7 +129,14 @@ export function inviteTarget(action: WidgetAction | null, c: InviteContext): str
     case 'place-card': {
       const v = num(action.args?.value);
       if (action.args?.remove === true) {
-        const i = v === undefined ? -1 : c.placed.lastIndexOf(v);
+        // As the model: fill empties a blank by id (`{remove, blank}`), build takes back a value.
+        if (c.mode === 'fill') {
+          const blank = action.args?.blank;
+          const i = typeof blank === 'string' ? c.ids.indexOf(blank) : -1;
+          const filled = i >= 0 && c.entries[i] !== null && c.entries[i] !== undefined;
+          return filled ? `blank-${blank}` : null;
+        }
+        const i = v === undefined || c.mode !== 'build' ? -1 : c.placed.lastIndexOf(v);
         return i >= 0 ? `placed-${i}` : null;
       }
       if (c.hasCards) return firstCard(v) ?? (c.mode === 'build' ? 'build' : null);

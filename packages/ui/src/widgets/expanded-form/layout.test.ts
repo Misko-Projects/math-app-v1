@@ -123,4 +123,35 @@ describe('inviteTarget', () => {
       'opt-b',
     );
   });
+
+  it('points a fill removal at the filled blank it empties, as the model reads it', () => {
+    const fill: InviteContext = {
+      ...base,
+      mode: 'fill',
+      placed: [],
+      tray: cardLayout([40, 5], [40]),
+      ids: ['b0', 'b1'],
+      entries: [40, null],
+    };
+    const remove = (args: Record<string, unknown>) =>
+      inviteTarget({ op: 'place-card', args: { remove: true, ...args } }, fill);
+    // The child's own payload: no value, just the blank.
+    expect(remove({ blank: 'b0' })).toBe('blank-b0');
+    // An empty blank, an unknown blank, or a value without a blank removes nothing.
+    expect(remove({ blank: 'b1' })).toBeNull();
+    expect(remove({ blank: 'zz' })).toBeNull();
+    expect(remove({ value: 40 })).toBeNull();
+    // Fill on the pad: the same, over the typed numbers.
+    const padFill: InviteContext = {
+      ...fill,
+      hasCards: false,
+      tray: [],
+      padSlots: ['b0', 'b1'],
+      entries: [null, 300],
+    };
+    const padRemove = { op: 'place-card', args: { remove: true, blank: 'b1' } } as const;
+    expect(inviteTarget(padRemove, padFill)).toBe('blank-b1');
+    // Placing on the pad points at the first empty blank.
+    expect(inviteTarget({ op: 'place-card', args: { value: 40 } }, padFill)).toBe('blank-b0');
+  });
 });

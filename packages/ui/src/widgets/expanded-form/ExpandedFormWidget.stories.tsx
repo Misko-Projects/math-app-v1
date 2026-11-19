@@ -1,5 +1,6 @@
 import type { WidgetConfig } from '@number-island/shared';
 import type { Meta, StoryObj } from '@storybook/react-vite';
+import { useState } from 'react';
 import { expect, fn, userEvent, waitFor, within } from 'storybook/test';
 import {
   center,
@@ -19,7 +20,7 @@ import {
 } from '../../test-support/widgetStory';
 import { createDemoController, UnsupportedWidgetOpError, type WidgetDemo } from '../demo';
 import type { ConfigFor } from '../types';
-import type { WidgetHostProps } from '../WidgetHost';
+import { WidgetHost, type WidgetHostProps } from '../WidgetHost';
 
 /**
  * `expanded-form` (03 §5.5): place-value cards and expanded expressions. `build` answers the
@@ -839,7 +840,23 @@ export const WordsChoice: Story = {
   },
 };
 
-/** Words heard (no word cards): a big speaker button, then type the number on the pad. */
+/**
+ * The words-heard question never shows its number: not in text, accessible names (every button,
+ * pad keys aside) or attributes. The number lives in the speech only.
+ */
+async function expectHeardNumberHidden(root: HTMLElement, answer: string) {
+  await expectNoLeak(root, answer);
+  // Computed accessible names (pad keys are single digits, so they never match a whole number).
+  const named = new RegExp(answer);
+  for (const role of ['button', 'group', 'img', 'status']) {
+    await expect(within(root).queryAllByRole(role, { name: named }), role).toHaveLength(0);
+  }
+}
+
+/**
+ * Words heard (no word cards, PV.13.t3 "Listen to the number. Then tap it in."): pressing the big
+ * speaker says the number (only the number, so nothing clips it); the child types it on the pad.
+ */
 export const WordsHear: Story = {
   args: { config: wordsHear, tier: 'abstract' },
   parameters: { ui: { audio: spyAudio() } },
@@ -847,11 +864,15 @@ export const WordsHear: Story = {
     const audio = parameters.ui.audio as ReturnType<typeof spyAudio>;
     clearSpies(audio);
     const root = await findWidget(canvasElement, ROOT);
-    await expectNoLeak(root, '345');
+    await expectHeardNumberHidden(root, '345');
     const speaker = within(root).getByRole('button', { name: 'Hear the number' });
     await expectTargetSize(speaker, 'g1-up');
     await userEvent.click(speaker);
-    await expect(audio.say).toHaveBeenCalledWith('ui.widget.ef.hear', undefined);
+    await expect(audio.sayPhrases).toHaveBeenCalledTimes(1);
+    await expect(audio.sayPhrases).toHaveBeenCalledWith([{ number: 345 }]);
+    await expect(audio.say).not.toHaveBeenCalled();
+    // Hearing it changes nothing on screen: the number is still nowhere to read.
+    await expectHeardNumberHidden(root, '345');
     for (const k of ['3', '4', '5']) await userEvent.click(key(root, k));
     await userEvent.click(checkButton(root));
     await expect(args.onResponse).toHaveBeenCalledWith({ kind: 'number', value: 345 });
@@ -861,6 +882,36 @@ export const WordsHear: Story = {
       'tap:key-4',
       'tap:key-5',
     ]);
+  },
+};
+
+/**
+ * Words heard in K mode (a K child, 11 to 59): the speaker is icon-only and K-sized; pressing it
+ * says just the number, never its label first (K buttons otherwise speak their label).
+ */
+export const WordsHearK: Story = {
+  globals: { ageMode: 'k' },
+  args: {
+    config: { ...wordsHear, target: 34 } satisfies Config,
+    tier: 'abstract',
+  },
+  parameters: { ui: { audio: spyAudio() } },
+  play: async ({ canvasElement, args, parameters }) => {
+    const audio = parameters.ui.audio as ReturnType<typeof spyAudio>;
+    clearSpies(audio);
+    const root = await findWidget(canvasElement, ROOT);
+    await expectHeardNumberHidden(root, '34');
+    const speaker = within(root).getByRole('button', { name: 'Hear the number' });
+    await expectTargetSize(speaker, 'k');
+    await expect(speaker).not.toHaveTextContent('Hear');
+    await userEvent.click(speaker);
+    await expect(audio.sayPhrases).toHaveBeenCalledTimes(1);
+    await expect(audio.sayPhrases).toHaveBeenCalledWith([{ number: 34 }]);
+    await expect(audio.say).not.toHaveBeenCalled();
+    await expectHeardNumberHidden(root, '34');
+    for (const k of ['3', '4']) await userEvent.click(key(root, k));
+    await userEvent.click(checkButton(root));
+    await expect(args.onResponse).toHaveBeenCalledWith({ kind: 'number', value: 34 });
   },
 };
 
@@ -1095,6 +1146,120 @@ export const DemoInvite: Story = {
     // The child acts: the invite clears.
     await tapPlace(root, 300);
     await expect(root.querySelector('.ni-hand')).toBeNull();
+  },
+};
+
+const fillRemoveController: WidgetDemo = createDemoController({ strict: true });
+
+/**
+ * A faded lesson clears a filled blank (fill with cards): the child fills box 1 with 40; Pip's
+ * hand points at that box for `place-card {remove, blank: 'b0'}` (the child's own clear payload,
+ * no value); playing it empties the box and flies the 40 back to the tray, submitting nothing.
+ * A removal without a blank changes nothing, as in the model.
+ */
+export const DemoFillRemove: Story = {
+  args: { config: fillCards, demo: fillRemoveController },
+  play: async ({ canvasElement, args }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    const canvas = within(root);
+    await userEvent.click(trayCard(root, 40));
+    await userEvent.click(pad(root, 'blank-b0'));
+    const filled = canvas.getByRole('button', { name: 'Box 1: 40' });
+    await expect(trayCard(root, 40)).toBeNull();
+    const remove = { op: 'place-card', args: { remove: true, blank: 'b0' } } as const;
+    fillRemoveController.invite(remove);
+    await waitFor(() => expect(filled).toHaveClass('ni-invite'));
+    await expect(root.querySelectorAll('.ni-hand')).toHaveLength(1);
+    await expectPointerOn(root.querySelector('.ni-hand') as HTMLElement, filled, root);
+    // A removal by value alone is not a fill removal: nothing moves, box 1 keeps its 40.
+    await fillRemoveController.play({ op: 'place-card', args: { value: 40, remove: true } });
+    await expect(canvas.getByRole('button', { name: 'Box 1: 40' })).toBeVisible();
+    await expect(pad(root, 'blank-b1')).toHaveAttribute('data-empty', 'true');
+    await fillRemoveController.play(remove);
+    await expect(pad(root, 'blank-b0')).toHaveAttribute('data-empty', 'true');
+    await expect(canvas.queryByRole('button', { name: 'Box 1: 40' })).toBeNull();
+    await expect(trayCard(root, 40)).not.toBeNull();
+    await expect(trayCards(root).map((c) => c.dataset.card)).toEqual(['40', '5', '4', '50']);
+    await expect(root.querySelector('.ni-hand')).toBeNull();
+    await expect(checkButton(root)).toBeDisabled();
+    await expect(args.onResponse).not.toHaveBeenCalled();
+    // Nothing is left to remove: the same invite points at nothing.
+    fillRemoveController.invite(remove);
+    await expect(root.querySelector('.ni-hand')).toBeNull();
+  },
+};
+
+const padRemoveController: WidgetDemo = createDemoController({ strict: true });
+
+/**
+ * The same removal on the pad (□ + □ + □ = 345): the child typed 300 and 40; the invite points at
+ * box 2 and Pip erases it with the backspace key, so box 2 is empty and nothing is submitted.
+ */
+export const DemoFillRemovePad: Story = {
+  args: { config: fillThree, tier: 'abstract', demo: padRemoveController },
+  play: async ({ canvasElement, args }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    const canvas = within(root);
+    for (const k of ['3', '0', '0', '4', '0']) await userEvent.click(key(root, k));
+    const box2 = canvas.getByRole('button', { name: 'Box 2: 40' });
+    const remove = { op: 'place-card', args: { remove: true, blank: 't' } } as const;
+    padRemoveController.invite(remove);
+    await waitFor(() => expect(box2).toHaveClass('ni-invite'));
+    await expectPointerOn(root.querySelector('.ni-hand') as HTMLElement, box2, root);
+    await padRemoveController.play(remove);
+    await expect(canvas.getByRole('button', { name: 'Box 2:' })).toHaveAttribute(
+      'data-empty',
+      'true',
+    );
+    await expect(canvas.getByRole('button', { name: 'Box 1: 300' })).toBeVisible();
+    await expect(root.querySelector('.ni-pad__key.ni-invite')).toBeNull();
+    await expect(args.onResponse).not.toHaveBeenCalled();
+    // The child carries on in the emptied box.
+    await expect(canvas.getByRole('button', { name: 'Box 2:' })).toHaveAttribute(
+      'aria-current',
+      'true',
+    );
+  },
+};
+
+const swapController: WidgetDemo = createDemoController({ strict: true });
+let nextItem: () => void = () => {};
+
+/** The lesson host: moving on to the next item unmounts this widget and mounts a fresh one. */
+function ItemSwapHarness(args: WidgetHostProps) {
+  const [item, setItem] = useState(1);
+  nextItem = () => setItem((n) => n + 1);
+  return (
+    <div className="story-widget-stage">
+      <WidgetHost {...args} itemKey={item} demo={swapController} />
+    </div>
+  );
+}
+
+/**
+ * The host moves on while Pip is still placing a card: the widget unmounts before the move
+ * commits, and the op's promise settles at once instead of waiting out its timers.
+ */
+export const DemoSettlesOnUnmount: Story = {
+  args: { disabled: true },
+  render: (args) => <ItemSwapHarness {...args} />,
+  play: async ({ canvasElement }) => {
+    await findWidget(canvasElement, ROOT);
+    const started = performance.now();
+    const playing = swapController.play({ op: 'place-card', args: { value: 300 } });
+    nextItem(); // same tick: the widget unmounts before the placement commits
+    const outcome = await Promise.race([
+      playing.then(() => 'settled'),
+      new Promise((r) => setTimeout(() => r('hung'), 2500)),
+    ]);
+    await expect(outcome).toBe('settled');
+    // Settled on unmount, not by the 250 ms commit fallback (plus its 250 ms pause).
+    await expect(performance.now() - started).toBeLessThan(200);
+    // The next item starts fresh: the old item's card never landed on its mat.
+    const root = await findWidget(canvasElement, ROOT);
+    await expect(canvasElement.querySelectorAll(ROOT)).toHaveLength(1);
+    await expect(matCards(root)).toHaveLength(0);
+    await expect(trayCards(root)).toHaveLength(6);
   },
 };
 

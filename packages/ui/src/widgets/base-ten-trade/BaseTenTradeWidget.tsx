@@ -4,7 +4,6 @@ import {
   type Column,
   type FormatModel,
   formatModel,
-  type Hto,
   htoValue,
 } from '@number-island/engine';
 import type { ExpressionSpec, NarrationKey, WidgetAction } from '@number-island/shared';
@@ -44,6 +43,7 @@ import type { ConfigFor, WidgetProps } from '../types';
 import { breakGhosts, bundleGhosts, EASE, type Ghost, moveGhosts } from './fx';
 import {
   ageSizes,
+  answerPlaces,
   type Box,
   COL_PAD,
   digitsValue,
@@ -56,6 +56,7 @@ import {
   naturalLayout,
   nestInner,
   pathStates,
+  placeDigits,
   placePieces,
   placeTaken,
   planCaps,
@@ -152,13 +153,21 @@ const range = (from: number, to: number) =>
   Array.from({ length: Math.max(0, to - from) }, (_, i) => from + i);
 const EMPTY: ReadonlySet<string> = new Set();
 
-const digitsOf = (h: Hto) => {
-  const v = htoValue(h);
-  const s = String(v);
-  return COLUMNS.map((_, i) => {
-    const d = s[s.length - 3 + i];
-    return d === undefined ? '' : d;
-  });
+/**
+ * The algorithm's places, 0 = ones. The first three are the mat's columns; a thousands place (or
+ * more) shows only when the operands need it (layout.ts answerPlaces).
+ */
+const PLACE_COLUMNS: readonly Column[] = ['ones', 'tens', 'hundreds'];
+const placeColumn = (p: number): Column | undefined => PLACE_COLUMNS[p];
+/** A place's id in `data-digit`, trace targets (`digit-<id>`) and `write-digit {column}`. */
+const placeId = (p: number) => placeColumn(p) ?? (p === 3 ? 'thousands' : `place-${p}`);
+/** The place a `write-digit` column argument names (a column alias, or `thousands`). */
+const placeArg = (v: unknown): number | undefined => {
+  const c = columnArg(v);
+  if (c) return PLACE_COLUMNS.indexOf(c);
+  if (v === 'thousands' || v === 'thousand') return 3;
+  const m = typeof v === 'string' ? /^place-(\d+)$/.exec(v) : null;
+  return m ? Number(m[1]) : undefined;
 };
 
 // ---------- pictures ----------
@@ -172,6 +181,7 @@ function Piece({
   hidden,
   dx = 0,
   dy = 0,
+  placedByCss = false,
 }: {
   kind: Column;
   box: Box;
@@ -180,6 +190,8 @@ function Piece({
   hidden?: boolean;
   dx?: number;
   dy?: number;
+  /** Its position comes from the stylesheet (the take-away grab item), not from `box`. */
+  placedByCss?: boolean;
 }) {
   return (
     <span
@@ -189,8 +201,8 @@ function Piece({
       data-lying={kind === 'tens' && box.w > box.h ? 'true' : undefined}
       style={
         {
-          left: box.x + dx,
-          top: box.y + dy,
+          left: placedByCss ? undefined : box.x + dx,
+          top: placedByCss ? undefined : box.y + dy,
           width: box.w,
           height: box.h,
           '--u': `${u}px`,
@@ -469,57 +481,84 @@ function TradeButton({
 function WorkCard({
   config,
   state,
-  digits,
+  row,
   highlighted,
   invited,
   answer,
 }: {
   config: Config;
   state: State;
-  /** The result row's digits (written by the child or a demo), one per column. */
-  digits: Record<Column, number | null>;
-  highlighted: Column | null;
-  invited: Column | null;
+  /**
+   * The result row's digits (written by the child or a demo), highest place first. Its length is
+   * the card's number of places (answerPlaces: from the operands, never the result).
+   */
+  row: readonly (number | null)[];
+  /** Places (0 = ones) of the highlighted and invited result boxes. */
+  highlighted: number | null;
+  invited: number | null;
   /**
    * With `thenAsk`, the result row is where the child answers: each box is a button (tap it, type
-   * on the pad); `active` is the box being typed into.
+   * on the pad); `active` is the place being typed into.
    */
   answer: {
-    active: Column | null;
+    active: number | null;
     disabled: boolean;
-    onTap: (c: Column) => void;
+    onTap: (place: number) => void;
   } | null;
 }) {
   const t = useNarrationText();
   const op = config.operation;
   if (!op) return null;
-  const start = digitsOf(config.start);
-  const operand = digitsOf(op.operand);
+  const places = row.length;
+  const start = placeDigits(htoValue(config.start), places);
+  const operand = placeDigits(htoValue(op.operand), places);
   // Net change from trades only (not from adding or taking): what a child writes as regrouping.
   const delta = (c: Column) => {
     const combined = op.op === '+' ? op.operand[c] - state.pending[c] : 0;
     return state.mat[c] - config.start[c] - combined + state.taken[c];
   };
+  // Left to right: place `places − 1` down to 0 (ones), each in grid column i + 2.
+  const cells = range(0, places).map((i) => ({
+    i,
+    p: places - 1 - i,
+    c: placeColumn(places - 1 - i),
+  }));
+  const boxName = (p: number) =>
+    p < 3
+      ? t(BOX_KEY[placeColumn(p) as Column])
+      : p === 3
+        ? t('ui.widget.btb.col.thousands')
+        : t('ui.widget.blank', { n: places - p });
   return (
-    <fieldset className="ni-btt__work" aria-label={t('ui.widget.btt.work')}>
-      {COLUMNS.map((c, i) => {
-        const d = delta(c);
-        // `-`: the new count above, the old digit crossed out. `+`: the number carried in above
-        // (a column that took one carry and passed one on is 1 − 10 = −9: still a carried 1).
-        const carried = ((d % 10) + 10) % 10;
-        const note =
-          op.op === '-' ? (d !== 0 ? config.start[c] + d : null) : carried > 0 ? carried : null;
+    <fieldset
+      className="ni-btt__work"
+      aria-label={t('ui.widget.btt.work')}
+      style={{ gridTemplateColumns: `24px repeat(${places}, var(--target-min))` }}
+    >
+      {cells.map(({ i, p, c }) => {
+        let note: number | null = null;
+        if (c) {
+          const d = delta(c);
+          // `-`: the new count above, the old digit crossed out. `+`: the number carried in above
+          // (a column that took one carry and passed one on is 1 − 10 = −9: still a carried 1).
+          const carried = ((d % 10) + 10) % 10;
+          note =
+            op.op === '-' ? (d !== 0 ? config.start[c] + d : null) : carried > 0 ? carried : null;
+        }
         return (
-          <span key={`n-${c}`} className="ni-btt__note" style={{ gridColumn: i + 2 }}>
+          <span key={`n-${p}`} className="ni-btt__note" style={{ gridColumn: i + 2 }}>
             {note === null ? '' : note}
           </span>
         );
       })}
-      {COLUMNS.map((c, i) => {
-        const crossed = op.op === '-' && delta(c) !== 0 && start[i] !== '';
+      {cells.map(({ i, p, c }) => {
+        // The mat has no thousands: its hundreds stand for the hundreds digit and every place
+        // above it (twelve hundreds is 1 | 2), so a hundred split crosses them all out.
+        const changed = op.op === '-' && delta(c ?? 'hundreds') !== 0;
+        const crossed = changed && start[i] !== '';
         return (
           <span
-            key={`s-${c}`}
+            key={`s-${p}`}
             className="ni-btt__digit"
             data-crossed={crossed ? 'true' : undefined}
             style={{ gridColumn: i + 2, gridRow: 2 }}
@@ -531,54 +570,55 @@ function WorkCard({
       <span className="ni-btt__digit ni-btt__opsign" style={{ gridColumn: 1, gridRow: 3 }}>
         {op.op === '+' ? '+' : '−'}
       </span>
-      {COLUMNS.map((c, i) => (
-        <span key={`o-${c}`} className="ni-btt__digit" style={{ gridColumn: i + 2, gridRow: 3 }}>
+      {cells.map(({ i, p }) => (
+        <span key={`o-${p}`} className="ni-btt__digit" style={{ gridColumn: i + 2, gridRow: 3 }}>
           {operand[i]}
         </span>
       ))}
       <span className="ni-btt__rule" />
-      {COLUMNS.map((c, i) => {
-        const v = digits[c];
+      {cells.map(({ i, p }) => {
+        const v = row[i] ?? null;
+        const id = placeId(p);
         const cls = [
           'ni-btt__box',
-          highlighted === c ? 'ni-btt__hi' : '',
-          invited === c ? 'ni-invite' : '',
+          highlighted === p ? 'ni-btt__hi' : '',
+          invited === p ? 'ni-invite' : '',
         ]
           .filter(Boolean)
           .join(' ');
         const style = { gridColumn: i + 2, gridRow: 5 };
         if (answer) {
-          const active = answer.active === c && !answer.disabled;
+          const active = answer.active === p && !answer.disabled;
           return (
-            <span key={`r-${c}`} className="ni-btt__boxwrap" style={style}>
+            <span key={`r-${p}`} className="ni-btt__boxwrap" style={style}>
               <button
                 type="button"
                 className={cls}
-                data-digit={c}
+                data-digit={id}
                 data-empty={v === null ? 'true' : undefined}
                 data-state={active ? 'active' : 'idle'}
-                aria-label={v === null ? t(BOX_KEY[c]) : `${t(BOX_KEY[c])}: ${v}`}
+                aria-label={v === null ? boxName(p) : `${boxName(p)}: ${v}`}
                 aria-current={active ? 'true' : undefined}
                 disabled={answer.disabled}
-                onClick={() => answer.onTap(c)}
+                onClick={() => answer.onTap(p)}
               >
                 {v === null ? '' : v}
                 {active ? <span className="ni-number__caret" /> : null}
               </button>
-              {invited === c ? <Hand /> : null}
+              {invited === p ? <Hand /> : null}
             </span>
           );
         }
         return (
           <span
-            key={`r-${c}`}
+            key={`r-${p}`}
             className={cls}
-            data-digit={c}
+            data-digit={id}
             data-empty={v === null ? 'true' : undefined}
             style={style}
           >
             {v === null ? '' : v}
-            {invited === c ? <Hand /> : null}
+            {invited === p ? <Hand /> : null}
           </span>
         );
       })}
@@ -638,10 +678,18 @@ function TradeMat({
   // With the algorithm, its result row is the answer place (one box a column, typed on the pad);
   // without it, the `=` blank after the expression is.
   const answerInWork = showWork && config.thenAsk;
-  const [digits, setDigits] = useState<Record<Column, number | null>>(() => ({
-    ...state.written,
-  }));
-  const [activeBox, setActiveBox] = useState<Column>('ones');
+  // How many places the answer has (the algorithm's columns, the pad's length): from the
+  // operands, never from the result, so the entry's size doesn't give the answer away.
+  const places = useMemo(() => answerPlaces(config), [config]);
+  // The result row, highest place first (index i is place `places − 1 − i`).
+  const [digits, setDigits] = useState<(number | null)[]>(() =>
+    range(0, places).map((i) => {
+      const c = placeColumn(places - 1 - i);
+      return c ? state.written[c] : null;
+    }),
+  );
+  /** The place being typed into (0 = ones). */
+  const [activeBox, setActiveBox] = useState(0);
   const age = ageMode === 'k' ? 'k' : 'g1-up';
   const sizes = ageSizes(age);
   const pictorial = tier !== 'concrete';
@@ -688,10 +736,12 @@ function TradeMat({
   const padH = 4 * sideKey + 3 * 12;
   const checkH = sideKey + 6;
   // The side panel: the algorithm, the pad, then "check" right by the pad. If that is too tall
-  // (K, with its bigger keys), the algorithm moves up to the problem row.
+  // (K, with its bigger keys), the algorithm moves up to the problem row. So does an algorithm of
+  // five places or more (a 4-digit addend): beside the mat it would leave the mat no room.
   const fullSide =
     (showWork ? workH + SIDE_GAP : 0) + (config.thenAsk ? padH + SIDE_GAP : 0) + checkH;
-  const workInSide = showWork && fullSide <= BUDGET - 2 * ROOT_PAD_Y;
+  const wideWork = showWork && places > 4;
+  const workInSide = showWork && !wideWork && fullSide <= BUDGET - 2 * ROOT_PAD_Y;
   const cardH =
     config.thenAsk && !answerInWork ? bigTarget + 26 : config.goal === 'regroup-to' ? 92 : 76;
   // With the algorithm, the problem is written there (in columns), so no separate expression row:
@@ -751,11 +801,17 @@ function TradeMat({
     commitWaiters.current = [];
     for (const r of ready) r();
   });
+  // Unmounting mid-op (the host moved on during a demo): settle everything an op may be waiting on,
+  // so `demo.play` resolves at once rather than hanging on a commit or a detached animation.
   useLayoutEffect(
     () => () => {
       const ready = commitWaiters.current;
       commitWaiters.current = [];
       for (const r of ready) r();
+      fxRun.current++;
+      const anims = running.current;
+      running.current = [];
+      for (const a of anims) a.finish();
     },
     [],
   );
@@ -1010,47 +1066,51 @@ function TradeMat({
   const digitsRef = useRef(digits);
   digitsRef.current = digits;
 
-  /** Writes one digit into a result box (the child's typing and the demo's `write-digit`). */
-  const writeDigit = (c: Column, value: number | null) => {
-    const next = { ...digitsRef.current, [c]: value };
+  /**
+   * Writes one digit into a result box, by place (the child's typing and the demo's
+   * `write-digit`). The model keeps the mat's three columns' digits; a thousands digit lives only
+   * in the row (the typed answer, sent as `answer {value}`, carries it).
+   */
+  const writeDigit = (p: number, value: number | null) => {
+    const i = places - 1 - p;
+    if (i < 0 || i >= places) return;
+    const next = digitsRef.current.slice();
+    next[i] = value;
     digitsRef.current = next;
     setDigits(next);
-    if (value !== null) {
+    const c = placeColumn(p);
+    if (c && value !== null) {
       commit(model.apply(stateRef.current, { op: 'write-digit', args: { column: c, value } }));
     }
   };
+  const digitAt = (p: number) => digitsRef.current[places - 1 - p] ?? null;
 
   const onKey = (key: PadKey) => {
     if (!interactive || key === '.') return;
     trace('tap', `key-${key}`);
     setInvite(null);
     if (!answerInWork) {
-      setText((prev) => applyPadKey(prev, key, 3));
+      setText((prev) => applyPadKey(prev, key, places));
       return;
     }
     // The result row, as children write it: ones first, then leftwards.
-    const i = COLUMNS.indexOf(activeBox);
     if (key === 'back') {
-      if (digitsRef.current[activeBox] !== null) writeDigit(activeBox, null);
-      else {
-        const right = COLUMNS[i + 1];
-        if (right) {
-          writeDigit(right, null);
-          setActiveBox(right);
-        }
+      if (digitAt(activeBox) !== null) writeDigit(activeBox, null);
+      else if (activeBox > 0) {
+        writeDigit(activeBox - 1, null);
+        setActiveBox(activeBox - 1);
       }
       return;
     }
     writeDigit(activeBox, Number(key));
-    const left = COLUMNS[i - 1];
-    if (left) setActiveBox(left);
+    if (activeBox < places - 1) setActiveBox(activeBox + 1);
   };
 
-  const onBoxTap = (c: Column) => {
+  const onBoxTap = (p: number) => {
     if (!interactive) return;
-    trace('tap', `digit-${c}`);
+    trace('tap', `digit-${placeId(p)}`);
     setInvite(null);
-    setActiveBox(c);
+    setActiveBox(p);
   };
 
   const typed = answerInWork ? digitsValue(digits) : padValue(text);
@@ -1115,11 +1175,11 @@ function TradeMat({
             await pause(200);
           }
         } else if (action.op === 'write-digit') {
-          const c = columnArg(action.args?.column);
+          const p = placeArg(action.args?.column);
           const v = Number(action.args?.value);
-          if (!c || !Number.isFinite(v)) return;
-          writeDigit(c, Math.trunc(v));
-          setDemoHi(`digit-${c}`);
+          if (p === undefined || p >= places || !Number.isFinite(v)) return;
+          writeDigit(p, Math.trunc(v));
+          setDemoHi(`digit-${placeId(p)}`);
           await pause(700);
           if (alive.current) setDemoHi(null);
         } else if (action.op === 'answer') {
@@ -1132,18 +1192,17 @@ function TradeMat({
           }
           if (answerInWork) {
             // Type it into the result row, ones first, as a child writes it.
-            for (const c of COLUMNS) writeDigit(c, null);
+            for (let p = 0; p < places; p++) writeDigit(p, null);
             const chars = String(Math.max(0, Math.trunc(v)))
               .split('')
               .reverse();
-            for (let i = 0; i < chars.length && i < COLUMNS.length; i++) {
-              const c = COLUMNS[COLUMNS.length - 1 - i] as Column;
-              const ch = chars[i] as PadKey;
-              setActiveBox(c);
+            for (let p = 0; p < chars.length && p < places; p++) {
+              const ch = chars[p] as PadKey;
+              setActiveBox(p);
               setPressedKey(ch);
               await pause(KEY_MS);
               if (!alive.current) return;
-              writeDigit(c, Number(ch));
+              writeDigit(p, Number(ch));
             }
             setPressedKey(null);
             await pause(KEY_MS);
@@ -1155,7 +1214,7 @@ function TradeMat({
             setPressedKey(ch);
             await pause(KEY_MS);
             if (!alive.current) return;
-            typedText = applyPadKey(typedText, ch, 3);
+            typedText = applyPadKey(typedText, ch, places);
             setText(typedText);
           }
           setPressedKey(null);
@@ -1188,12 +1247,12 @@ function TradeMat({
         return c ? `mat-${c}` : null;
       }
       case 'write-digit': {
-        const c = columnArg(a.column);
-        return c ? `digit-${c}` : null;
+        const p = placeArg(a.column);
+        return p !== undefined && p < places ? `digit-${placeId(p)}` : null;
       }
       case 'answer':
         // The answer place: the result box being typed into, or the `=` blank.
-        return answerInWork ? `digit-${activeBox}` : 'answer';
+        return answerInWork ? `digit-${placeId(activeBox)}` : 'answer';
       default:
         return null;
     }
@@ -1263,9 +1322,9 @@ function TradeMat({
     <WorkCard
       config={config}
       state={state}
-      digits={digits}
-      highlighted={demoHi?.startsWith('digit-') ? (columnArg(demoHi.slice(6)) ?? null) : null}
-      invited={invited?.startsWith('digit-') ? (columnArg(invited.slice(6)) ?? null) : null}
+      row={digits}
+      highlighted={demoHi?.startsWith('digit-') ? (placeArg(demoHi.slice(6)) ?? null) : null}
+      invited={invited?.startsWith('digit-') ? (placeArg(invited.slice(6)) ?? null) : null}
       answer={answerInWork ? { active: activeBox, disabled: !interactive, onTap: onBoxTap } : null}
     />
   ) : null;
@@ -1318,11 +1377,23 @@ function TradeMat({
         ? (() => {
             const p = dnd.itemProps(itemId, { label: t(PIECE_KEY[c]) });
             const b = boxes[slot] as Box;
+            // The grabbed piece's box in the column body. At rest the item is the whole column (its
+            // hit pad, inset by GAP from the column sides) with the piece inside it; while dragged
+            // (`data-dragging`, set by useDragToTarget) the item shrinks to the piece's own box, so
+            // the drop test measures where the piece is drawn (base-ten-trade.css: .ni-btt__grab).
+            const at = {
+              '--btt-px': `${b.x + COL_PAD}px`,
+              '--btt-py': `${b.y + COL_PAD}px`,
+              '--btt-pw': `${b.w}px`,
+              '--btt-ph': `${b.h}px`,
+              '--btt-inset': `${GAP}px`,
+            } as CSSProperties;
             return (
               <div
                 {...p}
                 className={`${p.className} ni-btt__grab`}
                 data-item={itemId}
+                style={at}
                 onPointerDown={(e) => {
                   if (interactive) grabNearest(c, e);
                   p.onPointerDown(e);
@@ -1334,9 +1405,7 @@ function TradeMat({
                   u={u}
                   id={`${c}-${slot}`}
                   hidden={arriving.has(`${c}-${slot}`)}
-                  // The item is inset by GAP from the column sides (its hit pad), the pieces by COL_PAD.
-                  dx={COL_PAD - GAP}
-                  dy={COL_PAD}
+                  placedByCss
                 />
               </div>
             );
@@ -1536,7 +1605,12 @@ function TradeMat({
     >
       <div ref={mainRef} className="ni-btt__main">
         {/* The problem centred over the mat (the algorithm beside it when the side is full). */}
-        {showProblemRow ? (
+        {/* A wide algorithm is the problem row on its own: it writes the problem in columns. */}
+        {showProblemRow && wideWork ? (
+          <div className="ni-btt__problemrow ni-btt__problemrow--work" style={{ height: problemH }}>
+            {work}
+          </div>
+        ) : showProblemRow ? (
           <div className="ni-btt__problemrow" style={{ height: problemH }}>
             <span />
             {problem}

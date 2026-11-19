@@ -88,6 +88,59 @@ export function limitsForceTrade(c: Config): boolean {
   });
 }
 
+/**
+ * The most pieces of a kind an item may need on the mat: what the widget's mat fits at 1280 × 800
+ * with all four columns full at once (the base-ten-build widget's layout test proves it). Well
+ * above every generator: they show at most 9 thousands (n ≤ 9999), 10 hundreds, 19 tens and 99
+ * ones (pv.number, pv.regroup, pv.tenmore, mda.addsub, bond.parts). Ten thousands cubes would be a
+ * place the mat does not have.
+ */
+export const MAT_MAX: Readonly<Pieces> = { thousands: 9, hundreds: 19, tens: 29, ones: 199 };
+
+/**
+ * The pieces of `value` taking as many of each `kinds` piece as fit, largest first (what a mat
+ * needs at least when only those kinds may hold it).
+ */
+function greedyPieces(value: number, kinds: readonly PieceKind[]): Pieces {
+  const out = emptyPieces();
+  let rest = value;
+  for (const k of kinds) {
+    out[k] = Math.floor(rest / PIECE_VALUE[k]);
+    rest -= out[k] * PIECE_VALUE[k];
+  }
+  return out;
+}
+
+/**
+ * Where an item needs more pieces of a kind on the mat than MAT_MAX: the prebuilt pieces plus what
+ * a limited tray can add, the `exact` counts and the fewest pieces the rest needs, and the target's
+ * own pieces. (An unlimited tray is bounded by the widget, which never lets a move overfill the
+ * mat.)
+ */
+export function overfullKinds(c: Config): { kind: PieceKind; path: string[]; need: number }[] {
+  const out: { kind: PieceKind; path: string[]; need: number }[] = [];
+  const over = (kind: PieceKind, need: number, path: string[]) => {
+    if (need > MAT_MAX[kind]) out.push({ kind, path, need });
+  };
+  const pre: Partial<Pieces> = c.prebuilt ?? {};
+  for (const k of PIECE_KINDS) {
+    const supply = traySupply(c, emptyPieces(), k);
+    const limited = c.mode !== 'read' && Number.isFinite(supply) ? supply : 0;
+    over(k, (pre[k] ?? 0) + limited, limited > 0 ? ['limits', k] : ['prebuilt', k]);
+  }
+  const target = canonicalPieces(c.target);
+  for (const k of PIECE_KINDS) over(k, target[k], ['target']);
+  if (c.mode === 'build-exact') {
+    const exact = c.exact ?? {};
+    const named = (['hundreds', 'tens', 'ones'] as const).filter((k) => exact[k] !== undefined);
+    for (const k of named) over(k, exact[k] ?? 0, ['exact', k]);
+    const free = PIECE_KINDS.filter((k) => k === 'thousands' || exact[k] === undefined);
+    const rest = greedyPieces(Math.max(0, c.target - piecesValue(exact)), free);
+    for (const k of free) over(k, rest[k], ['exact']);
+  }
+  return out;
+}
+
 const configSchema = baseTenBuildConfigSchema.superRefine((c, ctx) => {
   if (!Number.isInteger(c.target) || c.target < 1) {
     ctx.addIssue({
@@ -96,6 +149,13 @@ const configSchema = baseTenBuildConfigSchema.superRefine((c, ctx) => {
       message: 'target is a positive count of ones',
     });
     return;
+  }
+  for (const o of overfullKinds(c)) {
+    ctx.addIssue({
+      code: 'custom',
+      path: o.path,
+      message: `the mat would need ${o.need} ${o.kind}; it fits at most ${MAT_MAX[o.kind]}`,
+    });
   }
   if (c.mode === 'read') {
     if (!c.prebuilt || piecesValue(c.prebuilt) !== c.target) {

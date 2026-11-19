@@ -44,6 +44,10 @@
   gap: 16px;
   width: 100%;
 }
+.ni-btt__problemrow--work {
+  display: flex;
+  justify-content: center;
+}
 .ni-btt__problemside {
   display: flex;
   justify-content: flex-start;
@@ -320,9 +324,30 @@
 /* Take away: the column's pieces are one draggable item; the piece under the finger comes along. */
 .ni-btt__grab {
   position: absolute;
-  inset: 0 var(--target-gap);
+  inset: 0 var(--btt-inset);
   border-radius: 14px;
   -webkit-tap-highlight-color: transparent;
+}
+/* The grabbed piece, placed in the column body (--btt-px/py, in body coordinates). */
+.ni-btt__grab > .ni-btt__piece {
+  left: calc(var(--btt-px) - var(--btt-inset));
+  top: var(--btt-py);
+}
+/*
+ * While dragged the item is just the piece's box (same place on screen), so useDragToTarget's drop
+ * test uses the centre of the piece the child moves, not the middle of the whole column.
+ */
+.ni-btt__grab[data-dragging="true"] {
+  inset: auto;
+  left: var(--btt-px);
+  top: var(--btt-py);
+  width: var(--btt-pw);
+  height: var(--btt-ph);
+  border-radius: 3px;
+}
+.ni-btt__grab[data-dragging="true"] > .ni-btt__piece {
+  left: 0;
+  top: 0;
 }
 .ni-btt__grab[aria-disabled="true"] {
   cursor: default;

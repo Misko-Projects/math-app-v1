@@ -89,16 +89,23 @@ export interface ColumnPlan {
 }
 
 /**
- * `compact` packs a crowded mat: rods in two rows of up to five, flats as tall as the mat allows,
- * frames of ones upright. Otherwise rods lie in one row and flats in a near-square grid.
+ * How tightly a column packs its pieces:
+ * - `loose`: rods lie in one row, flats in a near-square grid, frames of ones flat;
+ * - `compact` (a crowded mat): rods in two rows of up to five, flats as tall as the mat allows,
+ *   frames of ones upright;
+ * - `dense` (a last resort for counts far beyond any authored item, tried only when nothing else
+ *   fits at any unit): as `compact`, but rods also stack in as many rows as the mat's height holds.
  */
+export type Pack = 'loose' | 'compact' | 'dense';
+
 export function columnPlan(
   kind: PieceKind,
   n: number,
   u: number,
   height: number,
-  compact = false,
+  pack: Pack = 'loose',
 ): ColumnPlan | null {
+  const compact = pack !== 'loose';
   const grid = (
     cellW: number,
     cellH: number,
@@ -127,8 +134,8 @@ export function columnPlan(
   const count = Math.max(1, n);
   let rows: number;
   if (kind === 'tens') {
-    // A bundle of sticks: never more than two rows of rods end to end.
-    rows = count <= 5 || !compact ? 1 : Math.min(2, fit);
+    // A bundle of sticks: never more than two rows of rods end to end (unless `dense`).
+    rows = count <= 5 || !compact ? 1 : pack === 'dense' ? fit : Math.min(2, fit);
   } else {
     rows = compact ? fit : Math.max(1, Math.round(Math.sqrt(count)));
   }
@@ -142,9 +149,9 @@ export function columnWidth(
   n: number,
   u: number,
   height: number,
-  compact = false,
+  pack: Pack = 'loose',
 ): number | null {
-  return columnPlan(kind, n, u, height, compact)?.w ?? null;
+  return columnPlan(kind, n, u, height, pack)?.w ?? null;
 }
 
 export interface MatColumn {
@@ -165,6 +172,11 @@ export interface MatLayout {
   sideWidth: number;
   /** False only if the pieces needed a unit below U_FLOOR. */
   fits: boolean;
+  /**
+   * True when the mat is wider than the room beside the side panel even at the smallest unit,
+   * packed densely. The widget never lets a move make this happen.
+   */
+  overflow: boolean;
 }
 
 export interface MatLayoutInput {
@@ -195,10 +207,10 @@ export interface MatLayoutInput {
 /** The largest unit at which every column fits beside the side panel, and the plans that follow. */
 export function matLayout(input: MatLayoutInput): MatLayout {
   const { kinds, counts, width, height, gutter, columnPad, frame, gap, sideMin, sideMax } = input;
-  const attempt = (u: number, compact: boolean) => {
+  const attempt = (u: number, pack: Pack) => {
     const columns: MatColumn[] = [];
     for (const kind of kinds) {
-      const plan = columnPlan(kind, counts[kind], u, height, compact);
+      const plan = columnPlan(kind, counts[kind], u, height, pack);
       if (plan === null) return null;
       columns.push({
         kind,
@@ -212,32 +224,41 @@ export function matLayout(input: MatLayoutInput): MatLayout {
       2 * frame;
     return { columns, matWidth };
   };
-  const finish = (u: number, compact: boolean, columns: MatColumn[], matWidth: number) => ({
+  const finish = (u: number, pack: Pack, columns: MatColumn[], matWidth: number): MatLayout => ({
     u,
-    orient: (compact ? 'v' : 'h') as Orient,
+    orient: pack === 'loose' ? 'h' : 'v',
     columns,
     matWidth,
     sideWidth: Math.max(sideMin, Math.min(sideMax, width - matWidth - gap)),
     fits: u >= U_FLOOR,
+    overflow: false,
   });
   const units = input.units.length > 0 ? input.units : [U_MIN];
+  const fitting = (u: number, pack: Pack) => {
+    const a = attempt(u, pack);
+    return a && a.matWidth + gap + sideMin <= width ? finish(u, pack, a.columns, a.matWidth) : null;
+  };
+  // Every authored item fits loose or compact; `dense` only when nothing else fits at any unit.
   for (const u of units) {
-    for (const compact of [false, true]) {
-      const a = attempt(u, compact);
-      if (a && a.matWidth + gap + sideMin <= width)
-        return finish(u, compact, a.columns, a.matWidth);
+    for (const pack of ['loose', 'compact'] as const) {
+      const l = fitting(u, pack);
+      if (l) return l;
     }
   }
+  for (const u of units) {
+    const l = fitting(u, 'dense');
+    if (l) return l;
+  }
   const u = units[units.length - 1] as number;
-  const a = attempt(u, true);
-  if (a) return { ...finish(u, true, a.columns, a.matWidth), fits: false };
+  const a = attempt(u, 'dense');
+  if (a) return { ...finish(u, 'dense', a.columns, a.matWidth), fits: false, overflow: true };
   const one: ColumnPlan = { cols: 1, rows: 1, w: 0, h: 0 };
   const columns = kinds.map((kind) => ({
     kind,
     plan: one,
     width: input.headerWidth(kind) + 2 * columnPad,
   }));
-  return { ...finish(u, true, columns, 0), fits: false };
+  return { ...finish(u, 'dense', columns, 0), fits: false, overflow: true };
 }
 
 /** Half the width and height of the bundle ten pieces of `kind` gather into (px). */

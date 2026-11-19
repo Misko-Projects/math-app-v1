@@ -291,17 +291,41 @@ export function placeTaken(
 
 // ---------- the algorithm's result row ----------
 
+const digitCount = (v: number) => String(Math.max(0, Math.trunc(v))).length;
+
 /**
- * The number the result boxes form, or null while it isn't one yet: the ones box is filled and
- * there is no empty box between filled ones (an empty hundreds box is just a two-digit answer).
+ * How many places the answer entry has (the algorithm's columns, the pad's length). It comes from
+ * the operands, never from the result, so the entry's size can't give the answer (or a carry into
+ * a new place) away: `+` one more than the longer addend, `−` as long as the start (the result is
+ * never longer). At least 3 (hundreds, tens, ones, the mat's own columns).
  */
-export function digitsValue(d: Record<Column, number | null>): number | null {
-  const cols = ['hundreds', 'tens', 'ones'] as const;
-  const first = cols.findIndex((c) => d[c] !== null);
+export function answerPlaces(config: Config): number {
+  const op = config.operation;
+  const start = digitCount(htoValue(config.start));
+  if (!op) return Math.max(3, start);
+  const bound = op.op === '+' ? Math.max(start, digitCount(htoValue(op.operand))) + 1 : start;
+  return Math.max(3, bound);
+}
+
+/**
+ * A number's digits in `places` columns, highest place first, blank (`''`) left of its first
+ * digit: 1200 in 4 places is 1 | 2 | 0 | 0, and 27 is '' | '' | 2 | 7.
+ */
+export function placeDigits(v: number, places: number): string[] {
+  const s = String(Math.max(0, Math.trunc(v)));
+  return Array.from({ length: places }, (_, i) => s[s.length - places + i] ?? '');
+}
+
+/**
+ * The number the result boxes form (highest place first), or null while it isn't one yet: the
+ * ones box is filled and there is no empty box between filled ones (empty boxes on the left just
+ * make a shorter number).
+ */
+export function digitsValue(d: readonly (number | null)[]): number | null {
+  const first = d.findIndex((x) => x !== null);
   if (first < 0) return null;
   let v = 0;
-  for (const c of cols.slice(first)) {
-    const x = d[c];
+  for (const x of d.slice(first)) {
     if (x === null) return null;
     v = v * 10 + x;
   }

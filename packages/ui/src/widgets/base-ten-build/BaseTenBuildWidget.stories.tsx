@@ -1,5 +1,7 @@
+import { formatModel } from '@number-island/engine';
 import type { WidgetConfig } from '@number-island/shared';
 import type { Meta, StoryObj } from '@storybook/react-vite';
+import { type ReactNode, useState } from 'react';
 import { expect, fn, userEvent, waitFor, within } from 'storybook/test';
 import {
   center,
@@ -199,6 +201,37 @@ async function expectNoOverlap(root: HTMLElement) {
     }
   }
 }
+
+/** The same check for a crowded mat (hundreds of pieces): one synchronous pass, one assertion. */
+async function expectNoOverlapFast(root: HTMLElement) {
+  const rects = [...root.querySelectorAll('.ni-btb__col .ni-btb__art')].map((el) =>
+    el.getBoundingClientRect(),
+  );
+  const clashes: string[] = [];
+  for (let i = 0; i < rects.length; i++) {
+    for (let j = i + 1; j < rects.length; j++) {
+      const a = rects[i] as DOMRect;
+      const b = rects[j] as DOMRect;
+      const apart =
+        a.right <= b.left + 0.5 ||
+        b.right <= a.left + 0.5 ||
+        a.bottom <= b.top + 0.5 ||
+        b.bottom <= a.top + 0.5;
+      if (!apart) clashes.push(`${i}/${j}`);
+    }
+  }
+  await expect(clashes, 'overlapping pieces').toEqual([]);
+}
+
+/** Every spoken call (say, sayPhrases, sayText) as text, to search for a number. */
+const spoken = (audio: SpyAudio) =>
+  JSON.stringify([audio.say.mock.calls, audio.sayPhrases.mock.calls, audio.sayText.mock.calls]);
+
+const btbModel = () => {
+  const m = formatModel('base-ten-build');
+  if (!m) throw new Error('no base-ten-build model');
+  return m;
+};
 
 /** Column headers: the place's name in text mode (G1+), the icon alone in K. */
 /**
@@ -512,6 +545,54 @@ export const PutBack: Story = {
   },
 };
 
+/**
+ * Arithmetic (mda.addsub, pv.tenmore: "Here is 24. Put in 5 more and build the new number"): the
+ * start number is prebuilt and the target (29) is the result, so no goal card is drawn and 29 is
+ * nowhere: not in the text, an accessible name, a data attribute or anything spoken. The side
+ * panel (tray and check) stays centred, and the item still completes.
+ */
+export const ArithmeticHidesResult: Story = {
+  args: {
+    config: {
+      ...build34,
+      target: 29,
+      prebuilt: { hundreds: 0, tens: 2, ones: 4 },
+    } satisfies Config,
+  },
+  parameters: { ui: { audio: spyAudio() } },
+  play: async ({ canvasElement, args, parameters }) => {
+    const audio = parameters.ui.audio as SpyAudio;
+    clearSpies(audio);
+    const root = await findWidget(canvasElement, ROOT);
+    await expectMat(root, { tens: 2, ones: 4 });
+    await expect(root.querySelector('.ni-btb__goal')).toBeNull();
+    await expect(root.querySelector('.ni-btb__ask')).toBeNull();
+    await expectNoValueShown(root, ['29']);
+    // The side panel stays balanced: its contents are centred top to bottom.
+    const side = (root.querySelector('.ni-btb__side') as HTMLElement).getBoundingClientRect();
+    const tray = (root.querySelector('.ni-btb__tray') as HTMLElement).getBoundingClientRect();
+    const check = within(root).getByRole('button', { name: 'Check' });
+    const bottom = (root.querySelector('.ni-btb__checkslot') as HTMLElement).getBoundingClientRect()
+      .bottom;
+    await expect(Math.abs(tray.top - side.top - (side.bottom - bottom))).toBeLessThanOrEqual(2);
+    // Tapping pieces says their names, never a number.
+    await userEvent.click(matPiece(root, 'tens', 0));
+    await userEvent.click(matPiece(root, 'tens', 0));
+    await tapPlace(root, 'ones', 5);
+    await expectMat(root, { tens: 2, ones: 9 });
+    await expectNoValueShown(root, ['29']);
+    await expect(audio.say).toHaveBeenCalledWith('ui.widget.btb.piece.ones', undefined);
+    await expect(/(^|[^0-9])29([^0-9]|$)/.test(spoken(audio)), spoken(audio)).toBe(false);
+    await expectFits(canvasElement, root);
+    await userEvent.click(check);
+    await expect(args.onResponse).toHaveBeenCalledTimes(1);
+    await expect(args.onResponse).toHaveBeenCalledWith(state({ tens: 2, ones: 9 }));
+    const trace = traceOf(args.onInteract);
+    await expect(trace.some((e) => e.target === 'goal')).toBe(false);
+    await expectTraceOrdered(trace);
+  },
+};
+
 // ---------- trades ----------
 
 const fuseConfig: Config = { ...build34, prebuilt: { hundreds: 0, tens: 2, ones: 14 } };
@@ -600,6 +681,86 @@ export const SplitTenReducedMotion: Story = {
     await userEvent.click(trade(root, 'split-tens'));
     await expectMat(root, { tens: 2, ones: 14 });
     await expect(root.querySelectorAll('.ni-btb__piece[data-flash="true"]')).toHaveLength(10);
+  },
+};
+
+const onesToTen: Config = {
+  format: 'base-ten-build',
+  target: 10,
+  mode: 'build-exact',
+  pieces: { thousands: false, hundreds: false, tens: false, ones: true },
+  exact: { tens: 1, ones: 0 },
+  wholeIs: 'unit',
+  prebuilt: { hundreds: 0, tens: 0, ones: 10 },
+};
+
+/**
+ * A trade into a kind the tray doesn't offer: build-exact 10 as 1 ten and 0 ones, with ten ones
+ * on the mat and only ones on offer. The mat still has a tens column (the target's place, named
+ * in `exact`), so "Make a ten" sits in its gutter; the child's fuse answers what the engine does.
+ */
+export const FuseIntoMissingColumn: Story = {
+  args: { config: onesToTen },
+  play: async ({ canvasElement, args }) => {
+    const model = btbModel();
+    await expect(model.configSchema.safeParse(onesToTen).success).toBe(true);
+    const root = await findWidget(canvasElement, ROOT);
+    await expectHeaders(root, ['Tens', 'Ones']);
+    await expect(pile(root, 'tens')).toBeNull();
+    const make = trade(root, 'fuse-ones');
+    await expect(make).toHaveAccessibleName('Make a ten');
+    await expect(make).toBeEnabled();
+    await userEvent.click(make);
+    await expectMat(root, { tens: 1 });
+    const check = within(root).getByRole('button', { name: 'Check' });
+    await waitFor(() => expect(check).toBeEnabled());
+    await userEvent.click(check);
+    // The engine's own solution: fuse the ones.
+    const solved = model.apply(model.initialState(onesToTen), {
+      op: 'fuse',
+      args: { kind: 'ones' },
+    });
+    await expect(args.onResponse).toHaveBeenCalledTimes(1);
+    await expect(args.onResponse).toHaveBeenCalledWith(model.toResponse(solved));
+    await expect(args.onResponse).toHaveBeenCalledWith(state({ tens: 1 }));
+    await expect(traceOf(args.onInteract).map((e) => `${e.t}:${e.target}`)).toEqual([
+      'tap:fuse-ones',
+    ]);
+  },
+};
+
+const tensToOnes: Config = {
+  format: 'base-ten-build',
+  target: 20,
+  mode: 'build-exact',
+  pieces: { thousands: false, hundreds: false, tens: true, ones: false },
+  exact: { tens: 1 },
+  wholeIs: 'unit',
+};
+
+/**
+ * A split into a kind absent from the tray and the starting mat: build-exact 20 with exactly one
+ * ten, only tens on offer. The rest must be ten ones, so the mat has a ones column and "Split a
+ * ten" works.
+ */
+export const SplitIntoMissingColumn: Story = {
+  args: { config: tensToOnes },
+  play: async ({ canvasElement, args }) => {
+    const model = btbModel();
+    await expect(model.configSchema.safeParse(tensToOnes).success).toBe(true);
+    const root = await findWidget(canvasElement, ROOT);
+    await expectHeaders(root, ['Tens', 'Ones']);
+    await tapPlace(root, 'tens', 2);
+    await expectMat(root, { tens: 2 });
+    await userEvent.click(trade(root, 'split-tens'));
+    await expectMat(root, { tens: 1, ones: 10 });
+    const check = within(root).getByRole('button', { name: 'Check' });
+    await waitFor(() => expect(check).toBeEnabled());
+    await userEvent.click(check);
+    await expect(args.onResponse).toHaveBeenCalledWith(state({ tens: 1, ones: 10 }));
+    const trace = traceOf(args.onInteract);
+    await expect(trace.map((e) => `${e.t}:${e.target}`).at(-1)).toBe('tap:split-tens');
+    await expectTraceOrdered(trace);
   },
 };
 
@@ -829,7 +990,11 @@ export const ReadK: Story = {
   },
 };
 
-/** Read with decimals: the typed 1.06 is sent in hundredths (106), like every base-ten value. */
+/**
+ * Read with decimals: the typed 1.06 is sent in hundredths (106), like every base-ten value. The
+ * pad stops at two digits after the point and never rounds: 1.059 (which would round to 1.06)
+ * can't be typed, and neither can 1.061.
+ */
 export const ReadDecimal: Story = {
   args: {
     config: {
@@ -844,17 +1009,29 @@ export const ReadDecimal: Story = {
   play: async ({ canvasElement, args }) => {
     const root = await findWidget(canvasElement, ROOT);
     const canvas = within(root);
-    for (const k of ['1', 'Dot', '0', '6']) {
-      await userEvent.click(canvas.getByRole('button', { name: k }));
-    }
+    const blank = root.querySelector('.ni-btb__blank') as HTMLElement;
+    const press = async (keys: string[]) => {
+      for (const k of keys) await userEvent.click(canvas.getByRole('button', { name: k }));
+    };
+    // A third digit after the point is refused: 1.059 stays 1.05.
+    await press(['1', 'Dot', '0', '5', '9']);
+    await expect(blank).toHaveTextContent('1.05');
+    await expect(blank).toHaveAccessibleName('Your answer: 1.05');
+    await press(['Go back one', '6', '1']);
+    await expect(blank).toHaveTextContent('1.06');
+    await expect(blank).not.toHaveTextContent('1.061');
     await userEvent.click(canvas.getByRole('button', { name: 'Check' }));
+    await expect(args.onResponse).toHaveBeenCalledTimes(1);
     await expect(args.onResponse).toHaveBeenCalledWith({ kind: 'number', value: 106 });
   },
 };
 
 // ---------- stress: the largest configs fit 1280 × 800 ----------
 
-/** 999: nine flats, nine rods and nine units on the mat (the most a canonical build holds). */
+/**
+ * 999: nine flats, nine rods and nine units built on the mat (the most a canonical build holds),
+ * with the goal card showing 999 (a plain build: the pieces are the child's, not prebuilt).
+ */
 export const Stress999: Story = {
   args: {
     config: {
@@ -863,13 +1040,18 @@ export const Stress999: Story = {
       mode: 'build',
       pieces: HTO,
       wholeIs: 'unit',
-      prebuilt: { hundreds: 9, tens: 9, ones: 9 },
     } satisfies Config,
   },
   render: renderTablet,
   play: async ({ canvasElement, args }) => {
     const root = await findWidget(canvasElement, ROOT);
+    await tapPlace(root, 'hundreds', 9);
+    await tapPlace(root, 'tens', 9);
+    await tapPlace(root, 'ones', 9);
     await expectMat(root, { hundreds: 9, tens: 9, ones: 9 });
+    await expect(within(root).getByRole('button', { name: 'Make 999' })).toHaveTextContent('999');
+    // A finger tap leaves no focus ring; the scripted taps' focus is dropped for the final frame.
+    (document.activeElement as HTMLElement | null)?.blur();
     // 19 px units (the closest to 20 that fits padded), true scale, nothing overlapping.
     await expectUnit(root, 19);
     await expectNoOverlap(root);
@@ -943,18 +1125,84 @@ export const StressExact: Story = {
 
 /** Decimal flat case on the tablet: 2.47 built as 2 wholes, 4 tenths and 7 hundredths. */
 export const StressDecimal: Story = {
-  args: {
-    config: {
-      ...decimal,
-      target: 247,
-      prebuilt: { hundreds: 2, tens: 4, ones: 7 },
-    } satisfies Config,
-  },
+  args: { config: { ...decimal, target: 247 } satisfies Config },
   render: renderTablet,
   play: async ({ canvasElement }) => {
     const root = await findWidget(canvasElement, ROOT);
+    await tapPlace(root, 'hundreds', 2);
+    await tapPlace(root, 'tens', 4);
+    await tapPlace(root, 'ones', 7);
+    await expectMat(root, { hundreds: 2, tens: 4, ones: 7 });
     await expect(within(root).getByRole('button', { name: 'Make 2.47' })).toBeInTheDocument();
     await expectFits(canvasElement, root);
+    (document.activeElement as HTMLElement | null)?.blur();
+  },
+};
+
+/** The most pieces the engine lets an item start with (MAT_MAX), every column full at once. */
+const matMax: Config = {
+  format: 'base-ten-build',
+  target: 9999,
+  mode: 'build',
+  pieces: ALL,
+  wholeIs: 'unit',
+  prebuilt: { thousands: 9, hundreds: 19, tens: 29, ones: 199 },
+};
+
+/**
+ * The largest mat the engine allows, in K (the tightest: big controls, wide gutters): 9 cubes,
+ * 19 flats, 29 rods and 199 units fit the tablet with nothing overlapping or clipped. One more
+ * of a kind is past the cap.
+ */
+export const StressMaxMatK: Story = {
+  globals: { ageMode: 'k' },
+  args: { config: matMax },
+  render: renderTablet,
+  play: async ({ canvasElement }) => {
+    const schema = btbModel().configSchema;
+    await expect(schema.safeParse(matMax).success).toBe(true);
+    const over = { ...matMax, prebuilt: { thousands: 9, hundreds: 19, tens: 30, ones: 199 } };
+    await expect(schema.safeParse(over).success).toBe(false);
+    const root = await findWidget(canvasElement, ROOT);
+    await expectMat(root, { thousands: 9, hundreds: 19, tens: 29, ones: 199 });
+    await expectNoOverlapFast(root);
+    await expectFits(canvasElement, root);
+    for (const c of controls(root)) await expectTargetSize(c, 'k');
+    await expectTargetGaps(controls(root));
+  },
+};
+
+/**
+ * The mat never overfills: from the largest allowed start (G1), the child may take another cube
+ * only while the mat still fits; then the pile turns off (dashed) and taps do nothing. A split
+ * that would overfill the mat (a thousand into ten more flats) is off too.
+ */
+export const MatNeverOverfills: Story = {
+  args: { config: matMax },
+  render: renderTablet,
+  play: async ({ canvasElement, args }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    await expectMat(root, { thousands: 9, hundreds: 19, tens: 29, ones: 199 });
+    await expect(trade(root, 'split-thousands')).toBeDisabled();
+    const cubes = pile(root, 'thousands');
+    let taken = 0;
+    while (cubes.getAttribute('aria-disabled') !== 'true' && taken < 5) {
+      await tapPlace(root, 'thousands', 1);
+      taken++;
+    }
+    await expect(cubes).toHaveAttribute('aria-disabled', 'true');
+    await expect(cubes).toHaveAttribute('data-empty', 'true');
+    const n = pieces(root, 'thousands');
+    await userEvent.click(cubes);
+    await userEvent.click(board(root));
+    await expectMat(root, { thousands: n, hundreds: 19, tens: 29, ones: 199 });
+    await expectNoOverlapFast(root);
+    await expectFits(canvasElement, root);
+    // Putting a piece back always works.
+    await pointerDrag(matPiece(root, 'thousands', n - 1), center(trayPad(root)), 'mouse');
+    await expectMat(root, { thousands: n - 1, hundreds: 19, tens: 29, ones: 199 });
+    await waitFor(() => expect(cubes).not.toHaveAttribute('aria-disabled', 'true'));
+    await expect(args.onResponse).not.toHaveBeenCalled();
   },
 };
 
@@ -1008,9 +1256,15 @@ export const StressK: Story = {
 
 // ---------- disabled ----------
 
-/** `disabled`: piles, mat pieces, trades, goal and check are all off; nothing is traced. */
+/**
+ * `disabled`: piles, mat pieces, trades, goal and check are all off; nothing is traced. (A
+ * build-exact item, so the goal card shows: a plain `build` that starts with pieces hides it.)
+ */
 export const Disabled: Story = {
-  args: { disabled: true, config: fuseConfig },
+  args: {
+    disabled: true,
+    config: { ...fuseConfig, mode: 'build-exact', exact: { tens: 3 } } satisfies Config,
+  },
   play: async ({ canvasElement, args }) => {
     const root = await findWidget(canvasElement, ROOT);
     await expect(pile(root, 'tens')).toHaveAttribute('aria-disabled', 'true');
@@ -1083,6 +1337,40 @@ export const DemoReadAnswer: Story = {
     await expect(audio.sayPhrases).toHaveBeenLastCalledWith([{ number: 40 }]);
     await readController.play({ op: 'answer', args: { value: 47 } });
     await expect(root.querySelector('.ni-btb__blank')).toHaveTextContent('47');
+  },
+};
+
+const unmountController: WidgetDemo = createDemoController({ strict: true });
+
+/** Lets a story unmount the widget mid-play (WidgetHost remounts per item). */
+let unmountWidget: (() => void) | null = null;
+function Unmountable({ children }: { children: ReactNode }) {
+  const [shown, setShown] = useState(true);
+  unmountWidget = () => setShown(false);
+  return shown ? children : null;
+}
+
+/**
+ * Unmounting during a read demo: the host's awaited `play` of `answer` settles (it doesn't hang
+ * on a commit that never comes), and nothing is submitted.
+ */
+export const DemoReadUnmount: Story = {
+  args: { disabled: true, demo: unmountController, config: read47, tier: 'pictorial' },
+  render: (args) => <Unmountable>{renderWidget(args)}</Unmountable>,
+  play: async ({ canvasElement, args }) => {
+    await findWidget(canvasElement, ROOT);
+    let settled = false;
+    const playing = unmountController.play({ op: 'answer', args: { value: 47 } });
+    void playing.then(() => {
+      settled = true;
+    });
+    // Pip is still pressing the first key (340 ms) when the widget goes.
+    await new Promise((r) => setTimeout(r, 120));
+    await expect(settled).toBe(false);
+    unmountWidget?.();
+    await waitFor(() => expect(canvasElement.querySelector(ROOT)).toBeNull());
+    await waitFor(() => expect(settled).toBe(true), { timeout: 2000 });
+    await expect(args.onResponse).not.toHaveBeenCalled();
   },
 };
 
