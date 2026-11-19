@@ -113,6 +113,69 @@ ui.sprite.firefly:
 ui.sprite.counter:
   text: "Counter"
   level: K
+ui.sprite.anchor:
+  text: "Anchor"
+  level: K
+ui.sprite.apple:
+  text: "Apple"
+  level: K
+ui.sprite.balloon:
+  text: "Balloon"
+  level: K
+ui.sprite.brick:
+  text: "Brick"
+  level: K
+ui.sprite.button:
+  text: "Button"
+  level: K
+ui.sprite.coconut:
+  text: "Coconut"
+  level: K
+ui.sprite.crate:
+  text: "Crate"
+  level: K
+ui.sprite.cube:
+  text: "Cube"
+  level: K
+ui.sprite.cup:
+  text: "Cup"
+  level: K
+ui.sprite.dot:
+  text: "Dot"
+  level: K
+ui.sprite.feather:
+  text: "Feather"
+  level: K
+ui.sprite.fishing-rod:
+  text: "Fishing rod"
+  level: K
+ui.sprite.kite:
+  text: "Kite"
+  level: K
+ui.sprite.log:
+  text: "Log"
+  level: K
+ui.sprite.melon:
+  text: "Melon"
+  level: K
+ui.sprite.pumpkin:
+  text: "Pumpkin"
+  level: K
+ui.sprite.ribbon:
+  text: "Ribbon"
+  level: K
+ui.sprite.rock:
+  text: "Rock"
+  level: K
+ui.sprite.rope:
+  text: "Rope"
+  level: K
+ui.sprite.spoon:
+  text: "Spoon"
+  level: K
+ui.sprite.thimble:
+  text: "Thimble"
+  level: K
 
 # tap-count, make-set, dot-flash (U03, packages/ui/src/widgets/tap-count, make-set, dot-flash)
 ui.count.marked:
