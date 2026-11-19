@@ -1,64 +1,28 @@
-// baseten.value `{ value, limits? }` (03 §5.5 base-ten-build `build`): ANY combination of pieces
-// whose value is the target, so 34 built as 3 tens 4 ones or as 2 tens 14 ones are both right.
-// `limits` (when set) caps how many of each piece the mat offers, which forces a trade.
-// Response (K01, until the base-ten-build model lands): `{ thousands?, hundreds?, tens?, ones? }`,
-// a missing kind is 0. Values are in units, or in hundredths when the widget's wholeIs is 'flat'
-// (flat = 100, rod = 10, unit = 1 hundredth), so the arithmetic is the same.
+// baseten.value `{ value }` (03 §5.5 base-ten-build): ANY pieces on the mat whose value is the
+// target, so 34 may be 3 tens and 4 ones or 2 tens and 14 ones. Values are in ones (hundredths
+// when the flat is the whole).
+import { PIECE_KINDS, type Pieces, piecesValue } from '../../formats/place-value';
 import { num, type StateChecker } from './types';
 
-export const PIECE_KINDS = ['thousands', 'hundreds', 'tens', 'ones'] as const;
-export type PieceKind = (typeof PIECE_KINDS)[number];
-export const PIECE_VALUE: Record<PieceKind, number> = {
-  thousands: 1000,
-  hundreds: 100,
-  tens: 10,
-  ones: 1,
-};
-
-/** The piece counts of a state (missing kinds are 0); undefined when any count is not a count. */
-export function piecesOf(
-  value: Readonly<Record<string, unknown>>,
-): Record<PieceKind, number> | undefined {
-  const out = { thousands: 0, hundreds: 0, tens: 0, ones: 0 };
+/**
+ * The mat's piece counts, or undefined when a count is missing or not a whole number ≥ 0.
+ * `thousands` may be omitted (0).
+ */
+export function matPieces(value: Readonly<Record<string, unknown>>): Pieces | undefined {
+  const out: Pieces = { thousands: 0, hundreds: 0, tens: 0, ones: 0 };
   for (const k of PIECE_KINDS) {
-    if (value[k] === undefined) continue;
-    const n = num(value[k]);
-    if (n === undefined || !Number.isInteger(n) || n < 0) return undefined;
-    out[k] = n;
+    const v = value[k] === undefined && k === 'thousands' ? 0 : num(value[k]);
+    if (v === undefined || !Number.isInteger(v) || v < 0) return undefined;
+    out[k] = v;
   }
   return out;
-}
-
-export function piecesValue(p: Readonly<Record<PieceKind, number>>): number {
-  return PIECE_KINDS.reduce((s, k) => s + p[k] * PIECE_VALUE[k], 0);
-}
-
-function withinLimits(p: Readonly<Record<PieceKind, number>>, limits: unknown): boolean {
-  if (limits === null || typeof limits !== 'object') return true;
-  const l = limits as Record<string, unknown>;
-  return PIECE_KINDS.every((k) => {
-    const cap = num(l[k]);
-    return cap === undefined || p[k] <= cap;
-  });
 }
 
 export const basetenValue: StateChecker = {
   id: 'baseten.value',
   check(target, value) {
     const want = num(target.value);
-    const pieces = piecesOf(value);
-    if (want === undefined || !pieces) return false;
-    return piecesValue(pieces) === want && withinLimits(pieces, target.limits);
-  },
-  // A trade (one ten for ten ones, or back) keeps the value: an alternative, within the limits.
-  exempt: (target, original, mutated) => {
-    const a = piecesOf(original);
-    const b = piecesOf(mutated);
-    return (
-      a !== undefined &&
-      b !== undefined &&
-      piecesValue(a) === piecesValue(b) &&
-      basetenValue.check(target, mutated)
-    );
+    const mat = matPieces(value);
+    return want !== undefined && mat !== undefined && piecesValue(mat) === want;
   },
 };

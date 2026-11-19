@@ -259,6 +259,28 @@ function drawEntries(rng: Rng, candidates: (() => Entry)[], n: number): Entry[] 
   return out;
 }
 
+/**
+ * `n` kinds from `pool`, none repeated until every kind is used, `first` (when in the pool) first.
+ * So an item shows min(n, |pool|) distinct kinds whatever the draw: the `categories` feature is a
+ * function of the params alone (03 §5.4; the learner rebuilds it from them, 04 §2.2). Drawing with
+ * replacement would make it depend on the build stream.
+ */
+function drawKinds(
+  rng: Rng,
+  pool: readonly ShapeKind[],
+  n: number,
+  first?: ShapeKind,
+): ShapeKind[] {
+  const out: ShapeKind[] = [];
+  let bag: ShapeKind[] =
+    first && pool.includes(first) ? [...rng.shuffle(pool.filter((k) => k !== first)), first] : [];
+  for (let i = 0; i < n && pool.length > 0; i += 1) {
+    if (bag.length === 0) bag = rng.shuffle(pool);
+    out.push(bag.pop() as ShapeKind);
+  }
+  return out;
+}
+
 /** Non-examples of `kind` from the pool (never a family member), the near miss first. */
 function nonExamples(
   c: Ctx,
@@ -271,9 +293,10 @@ function nonExamples(
   const miss = NEAR_MISS[kind];
   if (nearMiss && miss && n > 0) out.push(shapeEntry(c, miss, true));
   const others = kindPool(c.set, c.rep).filter((k) => distinctKinds(kind, k) && k !== miss);
-  const kinds = distinct ? c.rng.shuffle(others).slice(0, n - out.length) : [];
-  if (distinct) for (const k of kinds) out.push(shapeEntry(c, k));
-  else for (let i = out.length; i < n; i += 1) out.push(shapeEntry(c, c.rng.pick(others)));
+  const kinds = distinct
+    ? c.rng.shuffle(others).slice(0, n - out.length)
+    : drawKinds(c.rng, others, n - out.length);
+  for (const k of kinds) out.push(shapeEntry(c, k));
   return out;
 }
 
@@ -430,14 +453,28 @@ interface Built {
   overlay?: StimulusSpec;
 }
 
+/** Whether the card universe has solids (so an item drawing from it can show them). */
+const universeHasSolids = (c: Ctx): boolean =>
+  c.objects || kindPool(c.set, c.rep).some((k) => SHAPE_PROPS[k].solid);
+
+/**
+ * The item features. Each is a function of the params alone (03 §5.4: the learner rebuilds d_item
+ * from the logged params with another rng, 04 §2.2): the kinds an item draws are random, but how
+ * many distinct ones it shows is not (drawKinds, drawEntries). `drawsFrom` is the context of an
+ * item that draws its cards from the card universe: `solids` then says whether that universe has
+ * solids, since which kinds a mixed universe yields is random. Without it (compare, number-pad:
+ * shapes the params name) `solids` reads the cards.
+ */
 function features(
   entries: Entry[],
   extra: Record<string, number>,
   nonPrototypical: boolean,
+  drawsFrom?: Ctx,
 ): Record<string, number> {
   const cats = new Set(entries.map((e) => e.category));
+  const solids = drawsFrom ? universeHasSolids(drawsFrom) : entries.some((e) => e.solid);
   return {
-    solids: entries.some((e) => e.solid) ? 1 : 0,
+    solids: solids ? 1 : 0,
     categories: Math.max(0, cats.size - 2),
     nonPrototypical: nonPrototypical ? 1 : 0,
     nearMiss: entries.some((e) => e.nearMiss) ? 1 : 0,
@@ -486,6 +523,7 @@ function buildSort(c: Ctx, p: ParamValues, rule: Rule, mode: string): Built {
         entries.map((x) => x.e),
         { cards: Math.max(0, cards - 4) },
         p.nonPrototypical === true,
+        c,
       ),
     };
   }
@@ -502,12 +540,15 @@ function buildSort(c: Ctx, p: ParamValues, rule: Rule, mode: string): Built {
       const pool = kindPool(c.set, c.rep);
       const yes = pool.filter((k) => countOf(k, rule as 'sides') === n);
       const no = pool.filter((k) => countOf(k, rule as 'sides') !== n);
-      matches = Array.from({ length: hits }, () => shapeEntry(c, c.rng.pick(yes)));
-      rest = nonExamples(c, kind, 0, false, false);
+      matches = drawKinds(c.rng, yes, hits).map((k) => shapeEntry(c, k));
+      rest = [];
       const miss = NEAR_MISS[kind];
       if (nearMiss && miss && countOf(miss, rule as 'sides') !== n)
         rest.push(shapeEntry(c, miss, true));
-      while (rest.length < cards - hits) rest.push(shapeEntry(c, c.rng.pick(no)));
+      // The near miss is already a category of its own: the fill never draws it again.
+      const fillPool = rest.length > 0 ? no.filter((k) => k !== miss) : no;
+      for (const k of drawKinds(c.rng, fillPool, cards - hits - rest.length))
+        rest.push(shapeEntry(c, k));
     } else {
       matches = drawEntries(c.rng, classCandidates(c, rule, has), hits);
       rest = drawEntries(c.rng, classCandidates(c, rule, !has), cards - hits);
@@ -528,6 +569,7 @@ function buildSort(c: Ctx, p: ParamValues, rule: Rule, mode: string): Built {
         entries.map((x) => x.e),
         { cards: Math.max(0, cards - 4) },
         p.nonPrototypical === true,
+        c,
       ),
       highlight: ids[0]
         ? [
@@ -585,11 +627,20 @@ function buildSort(c: Ctx, p: ParamValues, rule: Rule, mode: string): Built {
       });
       binEntries.push([]);
     });
+    // Cards alternate between the bins; each bin leads with its own shape, then the other shapes
+    // with that count, none repeated until all are used.
     const fill = cards - (nearMiss ? 1 : 0);
+    const draws = values.map((v, j) =>
+      drawKinds(
+        c.rng,
+        pool.filter((k) => countOf(k, r) === v),
+        Math.ceil((fill - j) / 2),
+        j === 0 ? kind : other,
+      ),
+    );
     for (let i = 0; i < fill; i += 1) {
-      const v = values[i % 2] as number;
-      const kinds = i < 2 ? [i === 0 ? kind : other] : pool.filter((k) => countOf(k, r) === v);
-      binEntries[i % 2]?.push(shapeEntry(c, c.rng.pick(kinds)));
+      const k = draws[i % 2]?.[Math.floor(i / 2)];
+      if (k) binEntries[i % 2]?.push(shapeEntry(c, k));
     }
     if (nearMiss) {
       const spare = pool.filter((k) => !values.includes(countOf(k, r)));
@@ -654,6 +705,7 @@ function buildSort(c: Ctx, p: ParamValues, rule: Rule, mode: string): Built {
       entries.map((x) => x.e),
       { cards: Math.max(0, cards - 4), 'bins.over2': Math.max(0, bins.length - 2) },
       p.nonPrototypical === true,
+      c,
     ),
   };
 }
@@ -695,6 +747,7 @@ function buildPick(c: Ctx, p: ParamValues, rule: Rule): Built {
       entries.map((x) => x.e),
       {},
       p.nonPrototypical === true,
+      c,
     ),
   };
 }
@@ -866,8 +919,14 @@ export const geoIdentify: GeneratorDef = {
     },
   },
   features: {
-    solids: { weight: 0.2, doc: 'the cards include solids' },
-    categories: { weight: 0.2, doc: 'distinct kinds or objects shown − 2' },
+    solids: {
+      weight: 0.2,
+      doc: 'the cards can include solids: the card set has solids (compare, number-pad: a named shape is solid)',
+    },
+    categories: {
+      weight: 0.2,
+      doc: 'distinct kinds or objects shown − 2 (draws repeat no kind until all are used, so the count follows from the params)',
+    },
     cards: { weight: 0.1, doc: 'shape-sort format feature (03 §5.5): card count − 4' },
     nonPrototypical: { weight: 0.6, doc: 'shape-sort format feature: turned or resized shapes' },
     nearMiss: { weight: 0.6, doc: 'shape-sort format feature: a near-miss non-example is shown' },

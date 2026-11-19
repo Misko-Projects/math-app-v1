@@ -83,6 +83,99 @@ export interface EngineParams {
     /** Share of review tasks for mastered skills that are transfer probes. */
     transferProbeRate: number;
   };
+  /** §5 placement (E03). */
+  placement: {
+    /** Priors by grade label relative to the child's grade g (advanced: g + 1). */
+    priorBelow: number; // ≤ g − 1
+    priorAt: number; // = g
+    priorAbove: number; // = g + 1
+    priorFar: number; // ≥ g + 2
+    /** Probe candidates have p in this range. */
+    candidateRange: [number, number];
+    /** Converged when no skill on or near the frontier has p in this range. */
+    uncertainRange: [number, number];
+    /** U(v) counts uncertain ancestors and descendants within this many hops, at this weight each. */
+    uncertaintyHops: number;
+    uncertaintyWeight: number;
+    gatewayBoost: number;
+    /** Direct prerequisites of a wrongly answered probe get this added to their score. */
+    downwardBoost: number;
+    /** BKT guess (numeric entry) and slip. A k-choice item uses 1/k as its guess. */
+    guess: number;
+    slip: number;
+    /** A slow-correct posterior is blended with the prior at this weight; a skip is an incorrect answer at this weight. */
+    slowBlend: number;
+    skipWeight: number;
+    /** Propagation factors per hop (index 0 = 1 hop). */
+    lambdaUp: number[];
+    lambdaDown: number[];
+    /** A skill is probed at most this many times in one placement. */
+    maxProbesPerSkill: number;
+    /** Item budgets: the K column and the G2 (G1+) column. */
+    budgetK: { perSession: number; sessions: number };
+    budgetG2: { perSession: number; sessions: number };
+    /** Incremental (per strand) mini-placement: 4–6 items. */
+    miniMin: number;
+    miniMax: number;
+    /** This many consecutive wrongs or skips plus a frustration signal end the mini-session. */
+    frustrationMisses: number;
+    /** p ≥ assumedAt → assumed; p ≤ unknownAt → not known. */
+    assumedAt: number;
+    unknownAt: number;
+    /** p of a skill already on the practiced track (practiced or assumed); it is never probed (E03 reading). */
+    onTrackP: number;
+  };
+  /** §6.1–§6.3 session planner (E03). */
+  planner: {
+    /** Slices by item count (§6.1): new, review, challenge (the warmup is separate). */
+    sliceK: { newShare: number; reviewShare: number; challengeShare: number };
+    sliceG2: { newShare: number; reviewShare: number; challengeShare: number };
+    /** Items per request (§6.3): the K column (also G1) and the G2 column. */
+    requestItemsK: [number, number];
+    requestItemsG2: [number, number];
+    /** Requests offered at once. */
+    requestsMin: number;
+    requestsMax: number;
+    /** Planning estimate of seconds per item (K column, G1+ column), used to size requests to the minutes left. */
+    secondsPerItemK: number;
+    secondsPerItemG2: number;
+    /** Concurrent learning skills: K ≤ 2, G2 ≤ 3. */
+    concurrentK: number;
+    concurrentG2: number;
+    /** §6.2 new-skill score weights. */
+    scoreStrandBalance: number;
+    scoreUnlockValue: number;
+    scoreGateway: number;
+    scoreInProgress: number;
+    /** strandBalance = min(1, days since the strand was last practiced / this); never practiced = 1 (E03 reading). */
+    strandBalanceDays: number;
+    /** Warmup skill: P(ref) at least this (§6.1). */
+    warmupMinP: number;
+    /** Never more than this many consecutive items of one skill outside a lesson (§4). */
+    maxRun: number;
+    /** A lesson task uses this many items of its request's item budget, though it is not an item (E03 reading). */
+    lessonItemCost: number;
+  };
+  /** §2.4 difficulty targets p* per context: [G1+, K]. */
+  targets: {
+    practice: [number, number];
+    review: [number, number];
+    warmup: [number, number];
+    challenge: [number, number];
+  };
+  /** §6.4 in-session adaptation (E03). */
+  adapt: {
+    /** Frustration: ≥ this many wrong of the last 4, rapid wrong taps, or long idles. */
+    frustrationWrongInLast4: number;
+    frustrationRapidTaps: number;
+    frustrationIdles: number;
+    /** This many first-try wrongs in a row on a skill step its tier down. */
+    tierStepWrongs: number;
+    /** This many first-try wrongs on a skill in one request insert a prerequisite probe. */
+    probeWrongs: number;
+    /** Misconception trigger: the same misconception at least this often in the last 10 attempts on the skill. */
+    misconceptionHits: number;
+  };
 }
 
 export const PARAMS: EngineParams = {
@@ -139,5 +232,66 @@ export const PARAMS: EngineParams = {
     atRiskDays: 1,
     compressionMinWeight: 0.5,
     transferProbeRate: 0.1,
+  },
+  placement: {
+    priorBelow: 0.85,
+    priorAt: 0.5,
+    priorAbove: 0.25,
+    priorFar: 0.1,
+    candidateRange: [0.2, 0.85],
+    uncertainRange: [0.25, 0.8],
+    uncertaintyHops: 3,
+    uncertaintyWeight: 0.15,
+    gatewayBoost: 1.3,
+    downwardBoost: 0.5,
+    guess: 0.05,
+    slip: 0.1,
+    slowBlend: 0.5,
+    skipWeight: 0.5,
+    lambdaUp: [0.8, 0.6, 0.4],
+    lambdaDown: [0.5, 0.35, 0.2],
+    maxProbesPerSkill: 2,
+    budgetK: { perSession: 12, sessions: 4 },
+    budgetG2: { perSession: 20, sessions: 3 },
+    miniMin: 4,
+    miniMax: 6,
+    frustrationMisses: 2,
+    assumedAt: 0.85,
+    unknownAt: 0.3,
+    onTrackP: 0.95,
+  },
+  planner: {
+    sliceK: { newShare: 0.55, reviewShare: 0.35, challengeShare: 0.1 },
+    sliceG2: { newShare: 0.5, reviewShare: 0.35, challengeShare: 0.15 },
+    requestItemsK: [5, 8],
+    requestItemsG2: [6, 10],
+    requestsMin: 2,
+    requestsMax: 3,
+    secondsPerItemK: 25,
+    secondsPerItemG2: 20,
+    concurrentK: 2,
+    concurrentG2: 3,
+    scoreStrandBalance: 1,
+    scoreUnlockValue: 1.5,
+    scoreGateway: 1,
+    scoreInProgress: 2,
+    strandBalanceDays: 7,
+    warmupMinP: 0.95,
+    maxRun: 3,
+    lessonItemCost: 2,
+  },
+  targets: {
+    practice: [0.85, 0.88],
+    review: [0.9, 0.92],
+    warmup: [0.95, 0.96],
+    challenge: [0.65, 0.75],
+  },
+  adapt: {
+    frustrationWrongInLast4: 3,
+    frustrationRapidTaps: 3,
+    frustrationIdles: 2,
+    tierStepWrongs: 2,
+    probeWrongs: 3,
+    misconceptionHits: 2,
   },
 };

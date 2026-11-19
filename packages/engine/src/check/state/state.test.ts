@@ -513,9 +513,7 @@ describe('state checkers (03 §5.7)', () => {
       'select.exactSet',
     ];
     for (const id of ids) expect(stateChecker(id)?.id).toBe(id);
-    // K01 adds the base-ten-build checkers (baseten.test.ts); later issues add the rest.
-    expect(stateChecker('baseten.value')?.id).toBe('baseten.value');
-    expect(stateChecker('trade.result')).toBeUndefined();
+    expect(stateChecker('not.a.checker' as StateCheckerId)).toBeUndefined();
   });
 });
 
@@ -676,7 +674,6 @@ describe('exempt predicates', () => {
       'bond.split',
       'bond.newWay',
       'rekenrek.total',
-      'baseten.value',
     ];
     for (const id of withExempt) expect(typeof checker(id).exempt, id).toBe('function');
     for (const id of [
@@ -684,7 +681,6 @@ describe('exempt predicates', () => {
       'tenframe.makeTen',
       'jumps.reach',
       'select.exactSet',
-      'baseten.exact',
     ] as const) {
       expect(checker(id).exempt, id).toBeUndefined();
     }

@@ -127,11 +127,9 @@ export const FILL_TOLERANCE = 0.02;
  * of the piece outside), no overlap (all pairwise overlaps together at most 2% of the outline, and
  * each at most 2% of the smaller piece), and at most 2% of the outline uncovered.
  *
- * Coverage is the area of the union of the pieces inside the outline, not the sum of the pieces'
- * areas: pieces that each poke a little outside or overlap a little can add up to the outline's
- * area while leaving part of it bare. The union is bounded below by inclusion–exclusion,
- * Σ |piece ∩ outline| − Σ |piece ∩ piece|, which is exact when no three pieces share a point
- * and otherwise only errs towards "not covered" (so a layout it accepts is truly covered).
+ * Coverage is the exact area of the union of the pieces inside the outline (`unionInside`), not the
+ * sum of the pieces' areas: pieces that each poke a little outside or overlap a little can add up
+ * to the outline's area while leaving part of it bare. The overlap limits read the whole overlap.
  */
 export function coversOutline(outline: Vec[], placed: Placement[]): boolean {
   const polys: Vec[][] = [];
@@ -142,12 +140,11 @@ export function coversOutline(outline: Vec[], placed: Placement[]): boolean {
   }
   const whole = area(outline);
   if (whole <= 0) return false;
-  let inside = 0;
   for (const poly of polys) {
+    // piece ∩ outline. The outline may be concave, so it is the subject clipped by the convex
+    // piece; the result can have zero-width seams but its area is the intersection's.
     const a = area(poly);
-    const within = overlapArea(outline, poly);
-    if (a - within > FILL_TOLERANCE * a) return false;
-    inside += within;
+    if (a - area(clipConvex(outline, poly)) > FILL_TOLERANCE * a) return false;
   }
   let overlap = 0;
   for (let i = 0; i < polys.length; i += 1) {
@@ -160,5 +157,28 @@ export function coversOutline(outline: Vec[], placed: Placement[]): boolean {
     }
   }
   if (overlap > FILL_TOLERANCE * whole) return false;
-  return inside - overlap >= (1 - FILL_TOLERANCE) * whole;
+  return unionInside(outline, polys) >= (1 - FILL_TOLERANCE) * whole;
+}
+
+/**
+ * The exact area of (p1 ∪ … ∪ pn) ∩ outline for convex pieces, by inclusion–exclusion over every
+ * non-empty subset S: Σ (−1)^(|S|+1) |outline ∩ ⋂S|. Clipping the outline by each convex piece of S
+ * in turn gives outline ∩ ⋂S (Sutherland–Hodgman keeps the area right for a concave subject). A
+ * subset whose intersection is already empty is skipped together with all its supersets, so the
+ * work follows the pieces that really overlap: a tiling (neighbours share only edges) visits each
+ * piece once, whatever the piece count. `coversOutline` rejects heavy overlap before calling this.
+ */
+export function unionInside(outline: Vec[], pieces: readonly Vec[][]): number {
+  let total = 0;
+  const visit = (from: number, clipped: Vec[], size: number): void => {
+    for (let k = from; k < pieces.length; k += 1) {
+      const next = clipConvex(clipped, pieces[k] as Vec[]);
+      const a = area(next);
+      if (a <= 1e-12) continue;
+      total += size % 2 === 0 ? a : -a;
+      visit(k + 1, next, size + 1);
+    }
+  };
+  visit(0, outline, 0);
+  return total;
 }

@@ -2,13 +2,13 @@
 // built, read, written from its tens and ones, named, expanded, or asked what one digit is worth.
 //
 // Modes and the formats that build them (any other pair throws, so a template error is loud):
-//   build        base-ten-build `build` (baseten.value: any pieces of the right value; with
-//                nonCanonical the mat runs one piece short, which forces a trade), tenframe-fill and
-//                rekenrek (show n, a full ten first), expanded-form `build` (pick the place-value
-//                cards)
-//   exact        base-ten-build `build-exact` (baseten.exact: exactly the canonical pieces, or with
-//                nonCanonical one unit of the lowest place above the ones broken into ten: 34 as
-//                2 tens 14 ones)
+//   build        base-ten-build `build` (baseten.value `{ value }`: any pieces of the right value;
+//                with nonCanonical the tray `limits` hold one piece too few, which forces a trade),
+//                tenframe-fill and rekenrek (show n, a full ten first), expanded-form `build` (pick
+//                the place-value cards)
+//   exact        base-ten-build `build-exact` (baseten.exact `{ value, exact }`: the canonical
+//                counts, or with nonCanonical one unit of the lowest place above the ones broken
+//                into ten: 34 as 2 tens 14 ones)
 //   read         a picture of n (by representation: base-ten or bundles, ten-frames, rekenrek, dots)
 //                → number-pad, numeral-pick, dot-flash, rekenrek `read`, base-ten-build `read`
 //   write        n given as its tens and ones in the prompt ({tens} tens and {ones} ones, or
@@ -25,6 +25,9 @@
 // `wholeIs: flat` (decimals) reads every count in hundredths (flat 100, rod 10, unit 1); it is
 // drawn only as base-ten pieces. Feature values depend on the params (and the template's format)
 // only: the learner rebuilds difficulty from params and seed with another RNG stream.
+// Responses and targets follow U04's base-ten-build and expanded-form models (engine README,
+// "Conventions the U04 formats fix"): the mat is `{ thousands, hundreds, tens, ones }`, and
+// `digitIndex` / `highlight-digit {index}` count digits from the left (`place` counts from the ones).
 
 import {
   type ExpressionToken,
@@ -207,8 +210,8 @@ export function pvFeatures(p: ParamValues, format: string): Record<string, numbe
     unusualOrder: p.unusualOrder === true && mode === 'expanded' ? 1 : 0,
     decimal: asStr(p.wholeIs, 'unit') === 'flat' ? 1 : 0,
   };
-  // The 03 §5.5 base-ten-build and expanded-form features, under their names and weights, until
-  // those formats have models (U03–U05).
+  // The 03 §5.5 base-ten-build and expanded-form features (the format models' names and weights),
+  // computed from the params so the learner's replay rebuilds them without the widget.
   if (format === 'base-ten-build') {
     f.exact = mode === 'exact' ? 1 : 0;
     f['mode.read'] = mode === 'read' ? 1 : 0;
@@ -381,7 +384,7 @@ export const pvNumber: GeneratorDef = {
     },
     unusualOrder: { weight: 0.5, doc: 'expanded terms smallest place first' },
     decimal: { weight: 0.5, doc: 'wholeIs flat: decimals on base-ten pieces' },
-    // 03 §5.5 base-ten-build and expanded-form features, until those formats have models.
+    // 03 §5.5 base-ten-build and expanded-form features (the same names and weights as the models).
     exact: { weight: 0.7, doc: 'base-ten-build: exactly the asked pieces (build-exact)' },
     'mode.read': { weight: -0.2, doc: 'base-ten-build: read a built number' },
     'limits.tight': { weight: 0.5, doc: 'base-ten-build: the pieces on offer force a trade' },
@@ -540,8 +543,9 @@ export const pvNumber: GeneratorDef = {
           ones: true,
         };
         if (mode === 'build') {
-          // nonCanonical: the mat offers one piece too few at the lowest non-zero place above the
-          // ones, so the child must trade (34 with only 2 tens).
+          // nonCanonical: the tray holds one piece too few at the lowest non-zero place above the
+          // ones, so the child must trade (34 with only 2 tens). The limits are the widget's: the
+          // checker takes any mat worth n.
           const k = digits.findIndex((x, i) => i > 0 && x > 0);
           const kind = BASE_TEN_KINDS[k] as Kind | undefined;
           const limits = nonCanonical && kind ? { [kind]: (digits[k] as number) - 1 } : undefined;
@@ -557,11 +561,7 @@ export const pvNumber: GeneratorDef = {
               ...(limits ? { limits } : {}),
               wholeIs,
             },
-            answer: {
-              kind: 'state',
-              checker: 'baseten.value',
-              target: { value: n, ...(limits ? { limits } : {}) },
-            },
+            answer: { kind: 'state', checker: 'baseten.value', target: { value: n } },
           };
         } else if (mode === 'exact') {
           const exact = {
@@ -581,7 +581,7 @@ export const pvNumber: GeneratorDef = {
               exact,
               wholeIs,
             },
-            answer: { kind: 'state', checker: 'baseten.exact', target: { exact, value: n } },
+            answer: { kind: 'state', checker: 'baseten.exact', target: { value: n, exact } },
           };
         } else if (mode === 'read') {
           p = withOverlay({
@@ -626,7 +626,8 @@ export const pvNumber: GeneratorDef = {
           widget = { ...base, mode: 'words' };
           answer = { kind: 'number', value: n };
         } else if (mode === 'digit-value') {
-          widget = { ...base, mode: 'digit-value', digitIndex: place };
+          // digitIndex counts from the left; `place` counts from the ones.
+          widget = { ...base, mode: 'digit-value', digitIndex: digits.length - 1 - place };
           answer = { kind: 'number', value: asked };
         } else return unsupported();
         p = withOverlay({ params, vars, math, widget, answer });
@@ -811,15 +812,11 @@ export const pvNumber: GeneratorDef = {
           w.mode === 'build-exact'
             ? [w.exact?.ones ?? 0, w.exact?.tens ?? 0, w.exact?.hundreds ?? 0]
             : placeCounts(n, out.params.nonCanonical === true);
+        // The mat, every kind (U04's base-ten-build response).
         const pc = piecesFrom(counts);
         return {
           kind: 'state',
-          value: {
-            ...(pc.thousands > 0 ? { thousands: pc.thousands } : {}),
-            ...(pc.hundreds > 0 || n >= 100 ? { hundreds: pc.hundreds } : {}),
-            tens: pc.tens,
-            ones: pc.ones,
-          },
+          value: { thousands: pc.thousands, hundreds: pc.hundreds, tens: pc.tens, ones: pc.ones },
         };
       }
       case 'tenframe-fill': {
@@ -908,7 +905,7 @@ export const pvNumber: GeneratorDef = {
                 {},
                 {
                   op: 'highlight-digit',
-                  args: { index: place },
+                  args: { index: digitsOf(n).length - 1 - place },
                 },
               ),
               final({ op: 'answer', args: { value: answer } }),

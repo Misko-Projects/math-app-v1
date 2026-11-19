@@ -27,6 +27,7 @@ import {
   requireGenerator,
 } from '../items/generate';
 import { itemExampleCorrect, itemSolution, replaySteps } from '../items/solution';
+import { attemptDifficulty } from '../learner/item-difficulty';
 import { applicableMisconceptions, sameResponse } from '../misconceptions';
 
 export interface PropertyFailure {
@@ -106,8 +107,6 @@ export function answerNumbers(item: GeneratedItem): number[] {
         'jumps.reach': ['target'],
         'select.exactSet': [],
         'units.iterate': ['length'],
-        'baseten.value': ['value'],
-        'baseten.exact': ['value'],
       };
       // When the item asks for a typed value, that value is the answer and the frame or jump target
       // is a given (the whole in a missing-part item).
@@ -192,8 +191,6 @@ function nearMissNumbers(v: number): number[] {
 
 type StateValue = Record<string, unknown>;
 
-const BASE_TEN_KINDS = ['thousands', 'hundreds', 'tens', 'ones'] as const;
-
 /** One-step mutations of an example state: a counter or piece added or removed, or moved. */
 function stateMutation(original: StateValue): fc.Arbitrary<StateValue> {
   const options: fc.Arbitrary<StateValue>[] = [];
@@ -267,28 +264,62 @@ function stateMutation(original: StateValue): fc.Arbitrary<StateValue> {
       }),
     );
   }
-  // Base-ten pieces (base-ten-build): one piece added or removed, or a trade between two adjacent
-  // kinds (one ten for ten ones, or back; baseten.value exempts it as an alternative).
-  const kinds = BASE_TEN_KINDS.filter((k) => typeof original[k] === 'number');
-  if (kinds.length > 0) {
+  // U04 (#13) state shapes: base-ten pieces and mat columns, array dimensions and split line,
+  // container and share counts, and the leftover. One piece, row, column or item more or less.
+  for (const key of ['thousands', 'hundreds', 'tens', 'ones', 'cols', 'split', 'leftover']) {
+    if (typeof original[key] === 'number') {
+      options.push(
+        fc.constantFrom(1, -1).map((d) => {
+          const s = clone();
+          s[key] = (original[key] as number) + d;
+          return s;
+        }),
+      );
+    }
+  }
+  if (typeof original.rows === 'number') {
     options.push(
-      fc.tuple(fc.constantFrom(...kinds), fc.constantFrom(1, -1)).map(([k, d]) => {
+      fc.constantFrom(1, -1).map((d) => {
         const s = clone();
-        s[k] = (original[k] as number) + d;
+        s.rows = (original.rows as number) + d;
         return s;
       }),
     );
-    const pairs = BASE_TEN_KINDS.slice(0, -1).map(
-      (hi, i) => [hi, BASE_TEN_KINDS[i + 1] as (typeof BASE_TEN_KINDS)[number]] as const,
-    );
+  }
+  if (typeof original.tiles === 'string' && original.tiles.length > 0) {
+    // One tile added or taken away (area-tiles `tile`).
+    const tiles = original.tiles;
     options.push(
-      fc.tuple(fc.constantFrom(...pairs), fc.constantFrom(1, -1)).map(([[hi, lo], d]) => {
+      fc.nat({ max: tiles.length - 1 }).map((i) => {
         const s = clone();
-        s[hi] = ((original[hi] as number | undefined) ?? 0) - d;
-        s[lo] = ((original[lo] as number | undefined) ?? 0) + 10 * d;
+        s.tiles = `${tiles.slice(0, i)}${tiles[i] === '1' ? '0' : '1'}${tiles.slice(i + 1)}`;
         return s;
       }),
     );
+  }
+  if (Array.isArray(original.splits) && original.splits.length > 0) {
+    // One split line taken away (area-tiles `decompose`; tiles.cover exempts what stays valid).
+    const n = original.splits.length;
+    options.push(
+      fc.nat({ max: n - 1 }).map((i) => {
+        const s = clone();
+        s.splits = (original.splits as unknown[]).filter((_, j) => j !== i);
+        return s;
+      }),
+    );
+  }
+  for (const key of ['groups', 'shares'] as const) {
+    const arr = original[key];
+    if (Array.isArray(arr) && arr.length > 0) {
+      options.push(
+        fc.tuple(fc.nat({ max: arr.length - 1 }), fc.constantFrom(1, -1)).map(([i, d]) => {
+          const s = clone();
+          const a = s[key] as number[];
+          a[i] = (a[i] as number) + d;
+          return s;
+        }),
+      );
+    }
   }
   if (typeof original.value === 'number') {
     options.push(
@@ -313,9 +344,14 @@ function noNegatives(v: unknown): boolean {
   return true;
 }
 
-function choiceOptions(item: GeneratedItem): string[] {
+export function choiceOptions(item: GeneratedItem): string[] {
   const w = item.widget;
   if (w.format === 'numeral-pick') return w.options.map((o) => o.id);
+  if (w.format === 'expanded-form' && w.wordOptions) return w.wordOptions.map((o) => o.id);
+  if (w.format === 'equal-share') {
+    if (w.ask === 'fair-or-not') return ['yes', 'no'];
+    if (w.ask === 'even-odd') return ['even', 'odd'];
+  }
   if (w.format === 'tap-count' && w.mode === 'ordinal') {
     return Array.from({ length: w.set.count }, (_, i) => `obj-${i}`);
   }
@@ -572,6 +608,15 @@ export function runTemplateProperties(
       if (!declared.has(f))
         fail(seed, '8.features', `feature ${f} is not declared by ${g.id} or ${t.format}`);
     }
+    // 8a. the learner rebuilds d_item from the logged params and seed (04 §2.2) with its own rng,
+    // so the difficulty must be a function of the params alone (03 §5.4).
+    const replayed = attemptDifficulty(t, item.params, item.seed);
+    if (!(Math.abs(replayed - item.difficulty) <= 1e-9))
+      fail(
+        seed,
+        '8.replay-difficulty',
+        `difficulty ${item.difficulty} rebuilds from the params as ${replayed}`,
+      );
     // 9. multiple choice: min–5 distinct options (see minChoiceOptions), exactly one correct.
     // A tap-count ordinal item (CNT.15, "tap the eighth one") answers with an object id, but its
     // objects are a line to count, not options to choose from, so the upper bound is lifted for it.
@@ -580,8 +625,10 @@ export function runTemplateProperties(
       const min = minChoiceOptions(item);
       const correct = ids.filter((id) => checkResponse(item, { kind: 'choice', id }).correct);
       const objects = item.widget.format === 'tap-count';
+      // equal-share's choices are fixed pairs (yes/no, even/odd, 03 §5.5), so two is enough.
+      const pair = item.widget.format === 'equal-share';
       if (
-        ids.length < min ||
+        ids.length < (pair ? 2 : min) ||
         (ids.length > 5 && !objects) ||
         new Set(ids).size !== ids.length ||
         correct.length !== 1

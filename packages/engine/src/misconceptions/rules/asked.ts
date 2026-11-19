@@ -3,8 +3,9 @@
 // turn rewritten numbers back into a response of the item's answer kind.
 
 import type { GeneratedItem, ResponseValue } from '@number-island/shared';
-import { piecesOf, piecesValue } from '../../check/state/baseten.value';
+import { matPieces } from '../../check/state/baseten.value';
 import { numberOptionId, responseNumber } from '../../formats/numeral-pick';
+import { canonicalPieces, piecesValue } from '../../formats/place-value';
 
 /**
  * The numbers an item asks the child to give: a number answer, an `opt-<n>` pick, a typed list
@@ -74,7 +75,7 @@ export function givenNumbers(item: GeneratedItem, r: ResponseValue): number[] | 
   }
   if (r.kind === 'state') {
     if (item.widget.format === 'base-ten-build') {
-      const pieces = piecesOf(r.value);
+      const pieces = matPieces(r.value);
       return pieces ? [piecesValue(pieces)] : null;
     }
     return VALUE_STATE_FORMATS.has(item.widget.format) && typeof r.value.value === 'number'
@@ -110,17 +111,8 @@ export function responseWith(item: GeneratedItem, values: number[]): ResponseVal
       const w = item.widget;
       const v = values[0] as number;
       if (w.format === 'base-ten-build') {
-        // The pieces of the rewritten number (14 built as 4 tens 1 one).
-        const d = (k: number) => Math.floor(v / 10 ** k) % 10;
-        return {
-          kind: 'state',
-          value: {
-            ...(v >= 1000 ? { thousands: Math.floor(v / 1000) } : {}),
-            ...(v >= 100 ? { hundreds: d(2) } : {}),
-            tens: d(1),
-            ones: d(0),
-          },
-        };
+        // The mat of the rewritten number (14 built as 4 tens 1 one).
+        return { kind: 'state', value: { ...canonicalPieces(v) } };
       }
       // Built right, then the rewritten number typed (thenAsk).
       const shown = Number(a.target.n ?? a.target.total);

@@ -358,10 +358,11 @@ describe('teenReversal', () => {
 
   it('bundles: fourteen built as 4 tens and 1 one', () => {
     const item = make(T.pvBuild, { n: 14, mode: 'exact' });
-    expect(tagged(item)).toEqual({ kind: 'state', value: { tens: 4, ones: 1 } });
-    expect(teenReversal.match(item, { kind: 'state', value: { tens: 4, ones: 1 } })).toBe(true);
-    expect(teenReversal.match(item, { kind: 'state', value: { ones: 41 } })).toBe(true);
-    expect(teenReversal.match(item, { kind: 'state', value: { tens: 1, ones: 5 } })).toBe(false);
+    const mat = (tens: number, ones: number) => ({ thousands: 0, hundreds: 0, tens, ones });
+    expect(tagged(item)).toEqual({ kind: 'state', value: mat(4, 1) });
+    expect(teenReversal.match(item, { kind: 'state', value: mat(4, 1) })).toBe(true);
+    expect(teenReversal.match(item, { kind: 'state', value: mat(0, 41) })).toBe(true);
+    expect(teenReversal.match(item, { kind: 'state', value: mat(1, 5) })).toBe(false);
   });
 
   it('place-value cards: 40 and 1 picked for 14', () => {

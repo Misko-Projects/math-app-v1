@@ -242,8 +242,19 @@ export const graphFileSchema = z.strictObject({
    * (unlike a retired id, it may be authored later). The C01 fixture plans ADD.02; K01 clears it.
    */
   plannedIds: z.array(idString).optional(),
+  /**
+   * Catalog skills (03 §3) that game data unlock rules name before the curriculum authors them
+   * (03 §9.2): skill id → the places allowed to name it (`building:<id>`, `resident:<id>`,
+   * `outfit:<option>`, `ring:<index>`). Such a rule stays unsatisfied until the skill exists.
+   */
+  pendingGameSkills: z.record(idString, z.array(z.string().min(1))).optional(),
 });
-export type GraphFile = { roots: string[]; coverageGrades: Grade[]; plannedIds: string[] };
+export type GraphFile = {
+  roots: string[];
+  coverageGrades: Grade[];
+  plannedIds: string[];
+  pendingGameSkills: Record<string, string[]>;
+};
 
 export const retiredFileSchema = z.strictObject({
   skills: z.array(idString).optional(),

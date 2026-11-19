@@ -78,11 +78,8 @@ const CASES: Case[] = [
     name: 'base-ten-build build 34 nonCanonical: two tens on offer force a trade',
     t: tpl('base-ten-build', 'concrete', 'base-ten'),
     params: { n: 34, mode: 'build', nonCanonical: true },
-    answer: {
-      kind: 'state',
-      checker: 'baseten.value',
-      target: { value: 34, limits: { tens: 2 } },
-    },
+    // The limits are the tray's (the widget); the checker takes any mat worth 34.
+    answer: { kind: 'state', checker: 'baseten.value', target: { value: 34 } },
     widget: { limits: { tens: 2 } },
   },
   {
@@ -190,6 +187,13 @@ const CASES: Case[] = [
     params: { n: 345, mode: 'digit-value', place: 1 },
     answer: { kind: 'number', value: 40 },
     widget: { mode: 'digit-value', digitIndex: 1 },
+  },
+  {
+    name: 'expanded-form digit-value: the 5 in 345 (digitIndex counts from the left)',
+    t: tpl('expanded-form', 'abstract', 'expanded'),
+    params: { n: 345, mode: 'digit-value', place: 0 },
+    answer: { kind: 'number', value: 5 },
+    widget: { mode: 'digit-value', digitIndex: 2 },
   },
   // numeral-pick
   {

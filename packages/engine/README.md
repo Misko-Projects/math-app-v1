@@ -2,7 +2,7 @@
 
 The pure TypeScript engine (02 §2): no DOM, React, Dexie or Node built-ins, no `Math.random` and no `Date.now`. Randomness comes from the seeded RNG, and time is passed in as a parameter. `pnpm lint` (`scripts/check-boundaries.mjs`) enforces this. It runs in the web app, the API and tests.
 
-E01 (#7) delivers the item core: the RNG, the generator registry, item generation and difficulty targeting, response checking, misconception matching, hint ladders, the state models and widget schemas of the 11 fixture formats, and the hooks `tools/content-check` uses. E02 (#10) adds the learner model and its fold in `src/learner`, the projections in `src/folds` and the dashboard signals in `src/signals`; the session planner (E03) lands in `src/planner`.
+E01 (#7) delivers the item core: the RNG, the generator registry, item generation and difficulty targeting, response checking, misconception matching, hint ladders, the state models and widget schemas of the 11 fixture formats, and the hooks `tools/content-check` uses. E02 (#10) adds the learner model and its fold in `src/learner`, the projections in `src/folds` and the dashboard signals in `src/signals`; E03 (#16) adds the session planner and `targetDifficulty` in `src/planner`.
 
 Source of truth: `docs/spec/02-architecture.md` §5.2 and §7, and `docs/spec/03-curriculum.md` §5–§7 and §9.
 
@@ -51,6 +51,11 @@ formatModel(item.widget.format);      // { configSchema, initialState, apply, to
 | `foldSkillStates`, `foldLearnerState`, `applyLearnerEvent` | The learner projection (02 §4.3): order-independent (sorted by `ts`, then `id`, duplicate ids once), and incremental. |
 | `buildSkillGraph(input)` | The 02 §5.8 `SkillGraph` from `skills.json`, `templates.json`, `graph.json` and `template-stats.json`. |
 | `compressReviews`, `reviewContext` | 04 §4 review compression and transfer probes, for the planner. |
+| `startPlacement`, `nextProbe`, `recordProbe`, `beginPlacementSession`, `completePlacement`, `resumePlacement`, `placementBudget` | The 04 §5 placement runner over a plain, serialisable `PlacementRun`: grade priors, probe selection, BKT update and graph propagation, stop rules, item budgets per mini-session, per-strand mini-placements, the `placement.probe` / `placement.completed` payloads, and resume from the child's event log (its probes and session starts, in fold order). Readings are in 04 §7b. |
+| `planSession(input, opts?)` | The 02 §5.4 session planner (04 §6.1–§6.3, §6.5): a warmup, then 2–3 alternative requests. Each request is bound to a workshop that hosts every task's format (Practice Pier fallback), voiced by a resident, and rewarded with materials, plus decor for challenge items. Its tasks hold the focus skill's lesson or test-out, interleaved new items, compressed reviews and challenge items, never more than 3 items of one skill in a row. `opts`: `puzzleDecor` (GameData decor with `source: 'puzzle'`) and `remediation` (from `adaptNext`). Pure and seeded; readings in 04 §7b. |
+| `targetDifficulty(state, skill, context, child, graph?)`, `targetSuccess` | 04 §2.4 d\* = θg + θs − logit(p\*) + the rolling success offset, at presentation time. |
+| `adaptNext(input)`, `probeSeed`, `confidenceSeed`, `stepDownTier` | The 02 §5.4 / §5.8 in-session adaptation (04 §6.4): retry with the hint ladder, show-solution, wind-down, frustration (a confidence item, then a break offer or a gentle end), prerequisite probe, tier step-down and the misconception remediation side effect. The `TaskRunner` calling protocol is in 04 §7b. |
+| `rankNewSkills`, `neededTemplates`, `PRACTICE_PIER`, `RHYTHM_ORCHARD`, `PUZZLE_TOWER` | §6.2 new-skill ranking, the evidence templates a skill still needs, and the workshop ids the planner treats specially. |
 | `PARAMS`, `DAY_MS` | Every 04 parameter, in `src/params.ts`. |
 | `sortEvents`, `compareEvents`, `isEvent`, `sameId` | Event ordering (each id once) and case-insensitive ids, shared by every fold. |
 | `foldIsland`, `foldInventory`, `foldCollection`, `foldGoals` (+ `initX`, `applyXEvent`) | The 02 §4.3 projections, with the readings recorded there (tombstones purge, buildings never un-built, inventory clamped at 0). |
@@ -74,6 +79,8 @@ src/params.ts                    every 04 parameter
 src/learner/                     elo-fire-v1 model, the learner fold, SkillGraph builder, review helpers
 src/folds/                       island, inventory, collection, goals folds; event ordering; unlock rules
 src/signals/                     04 §7 dashboard signals
+src/placement/                   04 §5 placement runner
+src/planner/                     04 §2.4, §6 session planner and difficulty targets
 src/testing/                     the property test and statistics (the /testing entry)
 test/                            Node tests over the fixture content, compiled in memory (no dist needed)
 test/golden/                     the recorded 2,000+ event replay log and its snapshot (UPDATE_GOLDEN=1 re-records)
@@ -116,7 +123,7 @@ The shape-sort, shape-compose, compare and puzzle-grid format models belong to U
 
 - **shape-sort** cards have ids `c0`, `c1`, … in display order. `sort` responds `{ bins: Record<binId, cardId[]> }` (a card in no bin is in the tray; `sort.byRule`). `find-all` responds `{ ids }` (`select.exactSet`, which also still takes numeric `{ values }`). `odd-one-out` answers `choice` with a card id. Demo ops: `drag-card {id, bin}` (no `bin` in find-all: select the card), `highlight-attribute {id, prop}`, generic `answer {id}`.
 - **compare** answers `left`, `right` or `same`; demo ops `highlight {side}`, then `answer {id}`.
-- **shape-compose fill-outline** (`compose.fill`): pieces and outlines use `src/check/state/pieces.ts` (x right, y up, one unit = one block side). A placed piece is `{ kind, at: [x, y], rot }`: its canonical corners, corner 0 at the origin, turned `rot` degrees counterclockwise, then moved so corner 0 is at `at`. Response `{ pieces: placed[] }`; widget piece ids are `p-<kind>`; demo op `drag-piece {id, to, rot}`. Outlines are `src/generators/geo/outlines.ts` (mirrored in `packages/content/outlines.yaml`). Coverage is the union of the pieces inside the outline (inclusion–exclusion lower bound), not the sum of piece areas. Numeral-pick only draws outlines that its target card (the named kind at `resultScale`) is exactly (`drawsAsCard` in `generators/geo/compose.ts`).
+- **shape-compose fill-outline** (`compose.fill`): pieces and outlines use `src/check/state/pieces.ts` (x right, y up, one unit = one block side). A placed piece is `{ kind, at: [x, y], rot }`: its canonical corners, corner 0 at the origin, turned `rot` degrees counterclockwise, then moved so corner 0 is at `at`. Response `{ pieces: placed[] }`; widget piece ids are `p-<kind>`; demo op `drag-piece {id, to, rot}`. Outlines are `src/generators/geo/outlines.ts` (mirrored in `packages/content/outlines.yaml`). Coverage is the exact area of the union of the pieces inside the outline (`unionInside`: inclusion–exclusion over every subset of overlapping pieces, so three-way overlaps count correctly), not the sum of piece areas. Numeral-pick only draws outlines that its target card (the named kind at `resultScale`) is exactly (`drawsAsCard` in `generators/geo/compose.ts`).
 - **shape-compose place-relative** (`compose.relative`): scene units 100 × 60, x right, y down; anchor sizes are `ANCHOR_SIZE` in `src/generators/geo/position.ts`. Response `{ at: [x, y], layer?: 'front' | 'back' }`; demo ops `highlight-region {relation}`, `drag-piece {id: item, to, rot, layer}`.
 - **shape-compose draw-on-grid / build-sticks** (`grid.polygon`): response `{ points: [x, y][] }`, the corners in drawing order on integer dots (in build-sticks, where the sticks meet). Demo op `draw-edge {from, to}` (in build-sticks it lays a stick).
 - **puzzle-grid shape-fill** (`puzzle.satisfies`): response `{ fill: string[][] }`; demo op `fill {r, c, value}`.
@@ -131,12 +138,38 @@ The shape-sort, shape-compose, compare and puzzle-grid format models belong to U
 - **number-line-place**: `labelsEvery: null` labels only the two ends; `ticksEvery: null` draws no ticks. `read` shows the target as a marked tick. In `place` mode `benchmarks` (compare.numbers) are labelled reference marks to place the target among; in `closer` mode they are the two choices `b0`, `b1`. Solutions use `zoom {from, to}`, `show-tick {at}` and end with `drop {at}` (or `answer`).
 - **numeral-pick** options may carry a `number-line` stimulus with an arrow and no label (numberline.place with the `symbols` representation, estimate.quantity with `number-line`): the child picks the line, and the id is still `opt-<value>`.
 - **make-set** (`compare.sets`) makes two groups the same: the boat starts with `a` (`add-more` or `take-away`) and the target `b` is named in the prompt, because MakeSetConfig has no second group to show.
-- **base-ten-build** (`pv.number`) `build` and `build-exact` respond with `{ thousands?, hundreds?, tens?, ones? }`, the piece counts on the mat (a missing kind is 0; with `wholeIs: 'flat'` the same counts are flats, rods and units, valued in hundredths). `baseten.value` accepts any pieces of the target's value within the mat's `limits` and exempts trades from the near-miss test; `baseten.exact` needs exactly the named counts and 0 of every other kind. The property test mutates one piece up or down, or trades between two adjacent kinds. Solutions use `add-piece {kind, count}` per kind (largest first) and end with `count-by {kind}`; `read` counts by each kind and ends with `answer {value}`.
-- **expanded-form** (`pv.number`): `build` answers the chosen cards (unordered numbers, the non-zero place values; `cards` adds the digits in the wrong places, 1 and 40 for 14), `to-standard`, `fill`, `words` (the widget speaks the target's name; the child types the numeral) and `digit-value` answer a number. Solutions use `place-card {value}`, `stack-cards`, `highlight-digit {index}` and end with `stack-cards` or `answer {value}`.
+- **base-ten-build** (`pv.number`) follows the U04 model and conventions below: `build` answers `baseten.value { value }` and `build-exact` `baseten.exact { value, exact }` (the canonical counts, or the regrouped ones with `nonCanonical`), with the mat `{ thousands, hundreds, tens, ones }` as the response. A `nonCanonical` `build` sets the tray `limits` one piece short at the lowest non-zero place above the ones, so the model forces a trade; the checker takes any mat worth the value. Solutions use `add-piece {kind, count}` per kind (largest first) and end with `count-by {kind}`; `read` counts by each kind and ends with `answer {value}`.
+- **expanded-form** (`pv.number`): `build` answers the chosen cards (unordered numbers, the non-zero place values; `cards` adds the digits in the wrong places, 1 and 40 for 14), `to-standard`, `fill`, `words` (the widget speaks the target's name; the child types the numeral) and `digit-value` answer a number. `digitIndex` and `highlight-digit {index}` count from the left (U04), while pv.number's `place` counts from the ones. Solutions use `place-card {value}`, `stack-cards`, `highlight-digit {index}` and end with `stack-cards` or `answer {value}`.
 - **numeral-pick** words options (`pv.number`) carry `speak: num.<n>` and no label: the widget shows and speaks the number name, and the id is still `opt-<n>`.
 - **MC.teen-reversal** reads these as asking for the number itself: the typed total after filling frames or sliding beads (`thenAsk`, `target.value`), the value of a base-ten build, and the number place-value cards make. Its prediction is the right build with the reversed total typed, the pieces of the reversed number, or its cards.
+## Conventions the U04 formats fix (#13)
+
+Response shapes and state-checker targets of the place-value and operations formats. Generators that build these formats emit these targets.
+
+| Format | Response | Checker target |
+|---|---|---|
+| `base-ten-build` `build` | `{ thousands, hundreds, tens, ones }`: the mat | `baseten.value` `{ value }`: any pieces worth the value |
+| `base-ten-build` `build-exact` | same | `baseten.exact` `{ value, exact }`: worth the value, with exactly the named counts |
+| `base-ten-trade` | `{ hundreds, tens, ones, value? }`: the mat, plus the typed result | `trade.result` `{ regroupTarget }` (exact columns) or `{ result, value? }` (any mat worth the result) |
+| `expanded-form` `build` | `numbers`: the cards placed (unordered answer) | — |
+| `array-build` `build-dims` | `{ rows, cols }` | `array.dims` `{ rows, cols, orientationMatters }` |
+| `array-build` `build-total`, `new-way` | `{ rows, cols }` | `array.area` `{ total, found? }`; a turned rectangle counts as found |
+| `array-build` `split` | `{ rows, cols, split, value }`: the line after column `split` | `array.dims` `{ rows, cols, requireSplit: true }` |
+| `equal-groups` `build` | `{ groups: number[], value }`: one count per container | `groups.equal` `{ groups, perGroup, value }`; empty containers are not groups |
+| `equal-share` `each`, `leftover` | `{ shares: number[], leftover, value }`: `leftover` is the pile plus the seagull's | `share.fair` `{ items, recipients, allowLeftover, value }` |
+| `area-tiles` `tile` | `{ tiles, value }`: row-major `'1'`/`'0'`, like the mask | `tiles.cover` `{ mask, value }` |
+| `area-tiles` `decompose` | `{ splits: { dir: 'v' \| 'h', at }[], value }`: full-length lines after column/row `at` | `tiles.cover` `{ mask, w, h, decompose: true, value }`: two or more pieces, all rectangles |
+| `area-tiles` `partition` | `{ rows, cols }`: the strips the lines make | `array.dims` `{ rows: h, cols: w, orientationMatters: true }` |
+
+- **Piece kinds** in op args are `thousands`, `hundreds`, `tens`, `ones` (also `cube`, `flat`, `rod`, `unit` and the singulars). With `wholeIs: 'flat'` every value is in hundredths.
+- **Tray limits** (`base-ten-build` `limits`) cap the pieces of a kind taken from the tray; fusing and splitting never use the tray.
+- **Choices:** `equal-share` `fair-or-not` answers `yes` | `no` and `even-odd` answers `even` | `odd`; `expanded-form` `words` answers a `wordOptions` id.
+- `expanded-form` `digitIndex` and `highlight-digit {index}` count digits from the left.
+- `area-tiles` features scale by `(area − 1) / 10`; `array-build` and `equal-groups` `product` by `(product − 1) / 10`; `equal-share` `items` by `(items − recipients) / 10`, so the easiest item scores 0 (03 §5.4).
+- The property test's near-miss mutations (03 §9.4 step 5) also add or remove one piece, row, column, item, leftover or tile in these shapes; A decompose split line may also be taken away. `array.dims` exempts moving the split line, and `tiles.cover` exempts taking away a line when the rest is still a valid decomposition.
 
 ## Tests
 
 - `pnpm exec vitest run --project engine`: unit tests under `src/` and the fixture property test under `test/`. Seeds come from `CONTENT_PROPERTY_N`: 50 locally, 100 on PR CI, 500 nightly.
 - `pnpm content:validate` also runs the property test on every template, through `tools/content-check`.
+- `pnpm test:sim`: the 04 §8 simulated-learner harness in `test/sim/` (`vitest.sim.config.ts`; CI runs it in `verify`, and nightly). Synthetic children with a hidden, downward-closed mastery set answer real generated items. The harness compiles the current content sources, so it moves from the fixture graph to the full graph as the curriculum lands. It prints a metrics table and asserts only the 04 §8 thresholds, never exact numbers.

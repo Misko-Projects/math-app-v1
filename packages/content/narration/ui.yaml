@@ -1,9 +1,115 @@
 # Child-facing app chrome lines (03 §4.1): ui.* keys for the profile picker, buttons, the
 # parent-gate prompt and similar. Skeleton: each UI issue (U01, W00, CH1, P01 …) authors its own
 # keys here, within the 03 §8.5 reading level.
-ui.button.next:
-  text: "Next"
 ui.button.back:
   text: "Back"
 ui.profile.who-is-playing:
   text: "Who is playing?"
+
+# Design-system primitives (U01, packages/ui/src/primitives).
+ui.btn.home:
+  text: "Go home"
+  level: K
+ui.btn.hint:
+  text: "Help me"
+  level: K
+ui.btn.replay:
+  text: "Hear it again"
+  level: K
+ui.btn.check:
+  text: "Check"
+  level: K
+ui.btn.close:
+  text: "Go back"
+  level: K
+ui.btn.done:
+  text: "All done"
+  level: K
+ui.btn.next:
+  text: "Next"
+  level: K
+ui.tray.label:
+  text: "Your things"
+  level: K
+ui.tray.empty:
+  text: "Make things to fill your tray!"
+  level: K
+
+# Widget registry (U01, packages/ui/src/widgets).
+ui.widget.coming-soon:
+  text: "Pip is building this game. Let's try the next one!"
+  voice: pip
+  level: K
+ui.widget.pebble:
+  text: "Pebble"
+  level: K
+ui.widget.basket:
+  text: "Basket"
+  level: K
+ui.widget.supply:
+  text: "Pebbles"
+  level: K
+
+# Number-sense widgets (U03, packages/ui/src/widgets). Accessible names and spoken labels.
+ui.widget.picture:
+  text: "Look at the picture"
+  level: K
+ui.widget.answer:
+  text: "Your answer"
+  level: K
+ui.widget.blank:
+  text: "Box {n}"
+  level: K
+ui.widget.choices:
+  text: "Pick one"
+  level: K
+ui.widget.choice:
+  text: "Pick {n}"
+  level: K
+ui.widget.numbers:
+  text: "Numbers"
+  level: K
+ui.widget.pad:
+  text: "Numbers to tap"
+  level: K
+ui.widget.key.back:
+  text: "Go back one"
+  level: K
+ui.widget.key.point:
+  text: "Dot"
+  level: K
+
+# Object names (U03 widget sprites): spoken when a child taps an object.
+ui.sprite.shell:
+  text: "Shell"
+  level: K
+ui.sprite.fish:
+  text: "Fish"
+  level: K
+ui.sprite.starfish:
+  text: "Starfish"
+  level: K
+ui.sprite.crab:
+  text: "Crab"
+  level: K
+ui.sprite.leaf:
+  text: "Leaf"
+  level: K
+ui.sprite.stone:
+  text: "Stone"
+  level: K
+ui.sprite.pebble:
+  text: "Pebble"
+  level: K
+ui.sprite.stick:
+  text: "Stick"
+  level: K
+ui.sprite.plank:
+  text: "Plank"
+  level: K
+ui.sprite.firefly:
+  text: "Firefly"
+  level: K
+ui.sprite.counter:
+  text: "Counter"
+  level: K
