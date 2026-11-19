@@ -30,7 +30,8 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 16px;
+  /* ROW_GAP (layout.ts). */
+  gap: 12px;
   min-width: 0;
 }
 
@@ -277,7 +278,8 @@
 /* A column's tap pad (speaks the piece's name) or drop target (adding), behind its pieces. */
 .ni-btt__pad {
   position: absolute;
-  inset: 0;
+  /* Inset by the target gap from the column sides: the trade strips between are target-wide. */
+  inset: 0 var(--target-gap);
   z-index: 0;
   box-sizing: border-box;
   margin: 0;
@@ -318,7 +320,7 @@
 /* Take away: the column's pieces are one draggable item; the piece under the finger comes along. */
 .ni-btt__grab {
   position: absolute;
-  inset: 0;
+  inset: 0 var(--target-gap);
   border-radius: 14px;
   -webkit-tap-highlight-color: transparent;
 }
@@ -545,8 +547,9 @@
  */
 .ni-btt__work {
   display: grid;
-  grid-template-columns: repeat(3, var(--target-min));
-  grid-template-rows: 28px 38px 38px 8px var(--target-min);
+  grid-template-columns: 24px repeat(3, var(--target-min));
+  /* Each row as tall as its numerals (≥ 32 px) with their top padding. */
+  grid-template-rows: 36px 40px 40px 8px var(--target-min);
   column-gap: var(--target-gap);
   justify-items: center;
   align-items: center;
@@ -554,8 +557,9 @@
   flex: none;
   /* In the side panel: level with the top of the mat; the pad and "check" sit at its foot. */
   margin-bottom: auto;
-  height: 200px;
-  padding: 9px 8px 9px 30px;
+  height: 226px;
+  /* CARD_PAD (layout.ts). */
+  padding: 16px;
   border: 3px solid var(--color-sand-deep);
   border-radius: var(--radius-card);
   background: var(--color-paper);
@@ -566,7 +570,7 @@
   font-variant-numeric: tabular-nums;
 }
 [data-age-mode="k"] .ni-btt__work {
-  height: 216px;
+  height: 242px;
 }
 .ni-btt__note {
   grid-row: 1;
@@ -579,10 +583,8 @@
   font-size: 2.25rem;
   padding-top: 0.12em;
 }
-/* The sign sits in the card's left padding, beside the operand's first column. */
+/* The sign has its own narrow column, left of the operand. */
 .ni-btt__opsign {
-  justify-self: start;
-  margin-left: -26px;
   color: var(--color-ink-soft);
 }
 /* The old digit, crossed out after a trade (a line, not a colour change). */

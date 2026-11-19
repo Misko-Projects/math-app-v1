@@ -990,7 +990,8 @@ export function BaseTenBuildWidget({
   const limitedAny = trayKinds.some((k) => Number.isFinite(traySupply(config, state.taken, k)));
   // Balanced pile rows: all in one row if they fit, else 2 × 2 for four, else one column (never a
   // lone pile on a row of its own).
-  const pileW = targetMin * 1.25;
+  // Piles in a tray with limits are wider (their stock tag sits inside them).
+  const pileW = limitedAny ? Math.max(targetMin * 1.25, 104) : targetMin * 1.25;
   const pileFits = (c: number) => c * pileW + (c - 1) * 12 <= layout.sideWidth - 20;
   const pileCols =
     [trayKinds.length, trayKinds.length === 4 ? 2 : 0, 1].find((c) => c > 0 && pileFits(c)) ?? 1;
@@ -1050,7 +1051,7 @@ export function BaseTenBuildWidget({
             );
           })}
         </div>
-        <div className="ni-btb__tray" data-limited={limitedAny ? 'true' : undefined}>
+        <div className="ni-btb__tray">
           {(() => {
             const props = dnd.targetProps('tray', { label: t('ui.widget.btb.tray') });
             return (
@@ -1074,7 +1075,9 @@ export function BaseTenBuildWidget({
           <div
             className="ni-btb__piles"
             data-limited={limitedAny ? 'true' : undefined}
-            style={{ gridTemplateColumns: `repeat(${pileCols}, var(--pile))` }}
+            style={{
+              gridTemplateColumns: `repeat(${pileCols}, ${limitedAny ? 'var(--pile-w)' : 'var(--pile)'})`,
+            }}
           >
             {trayKinds.map((k) => {
               const id = `tray-${k}`;

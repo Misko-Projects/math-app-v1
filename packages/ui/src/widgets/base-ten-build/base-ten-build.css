@@ -476,42 +476,44 @@
   cursor: default;
 }
 /*
- * The stock tag under a limited pile: a crate icon and "2 left" (K: the pieces left, drawn
- * small). It is the tray's supply, never the answer.
+ * A limited pile carries its stock tag inside its own tile, under the picture: a crate icon and
+ * "2 left" (K: the pieces left, drawn small). It is the tray's supply, never the answer.
  */
-.ni-btb__piles[data-limited="true"] {
-  row-gap: 44px;
+.ni-btb__piles {
+  --pile-w: max(var(--pile), 104px);
 }
-.ni-btb__tray[data-limited="true"] {
-  padding-bottom: 46px;
+.ni-btb__piles[data-limited="true"] .ni-btb__pile {
+  flex-direction: column;
+  gap: 6px;
+  width: var(--pile-w);
+  height: auto;
+  min-height: var(--pile);
+  padding: 8px 4px;
 }
 .ni-btb__stock {
-  position: absolute;
-  top: calc(100% + 9px);
-  left: 50%;
   display: inline-flex;
+  flex: none;
   align-items: center;
-  gap: 5px;
+  gap: 4px;
   box-sizing: border-box;
-  height: 30px;
-  padding: 0 10px 0 6px;
+  height: 28px;
+  padding: 0 9px 0 5px;
   border-radius: var(--radius-pill);
   background: var(--color-ink);
   color: var(--color-cloud);
   font-family: var(--font-display);
-  font-size: 1.2rem;
+  font-size: 1.1rem;
   font-variant-numeric: tabular-nums;
   font-weight: 800;
   line-height: 1;
   white-space: nowrap;
-  transform: translateX(-50%);
   pointer-events: none;
 }
 .ni-btb__stockicon {
   display: inline-flex;
   flex: none;
-  width: 22px;
-  height: 22px;
+  width: 20px;
+  height: 20px;
 }
 .ni-btb__stocktext {
   padding-top: 0.14em;

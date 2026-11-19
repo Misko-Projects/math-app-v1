@@ -19,6 +19,7 @@ import {
 import { createDemoController, UnsupportedWidgetOpError, type WidgetDemo } from '../demo';
 import type { ConfigFor } from '../types';
 import type { WidgetHostProps } from '../WidgetHost';
+import { CARD_PAD, GUTTER, NEST_CURVE, NEST_RIM } from './layout';
 
 /**
  * `base-ten-trade` (03 §5.5): a hundreds | tens | ones mat. Split a piece into ten of the next
@@ -195,29 +196,81 @@ async function expectCountable(root: HTMLElement, minU = U) {
       }
     }
   }
-  // Room around every piece: ≥ 12 px to its column's edges (the gutters, the header's rule, the
-  // mat frame) and to the inside of a waiting group's border (3 px).
-  const clear = async (frame: DOMRect, inset: number, sel: Element) => {
-    for (const p of sel.querySelectorAll('[data-piece]')) {
-      const r = p.getBoundingClientRect();
-      await expect(r.left - frame.left, 'room on the left').toBeGreaterThanOrEqual(inset);
-      await expect(frame.right - r.right, 'room on the right').toBeGreaterThanOrEqual(inset);
-      await expect(r.top - frame.top, 'room above').toBeGreaterThanOrEqual(inset);
-      await expect(frame.bottom - r.bottom, 'room below').toBeGreaterThanOrEqual(inset);
-    }
-  };
-  for (const body of root.querySelectorAll('.ni-btt__body')) {
-    await clear(body.getBoundingClientRect(), 11.5, body);
-  }
-  for (const group of root.querySelectorAll('.ni-btt__pending')) {
-    await clear(group.getBoundingClientRect(), 14.5, group);
-  }
+  await expectGutters(root);
   const unit = root.querySelector('.ni-btt__mat [data-piece^="ones-"]');
   if (unit) await expect(unit.getBoundingClientRect().width).toBeGreaterThanOrEqual(minU);
   const main = q(root, '.ni-btt__main').getBoundingClientRect();
   await expect(q(root, '.ni-btt__mat').getBoundingClientRect().width).toBeGreaterThanOrEqual(
     main.width - 2,
   );
+}
+
+/**
+ * The minimum gutters (layout.ts GUTTER, CARD_PAD), so cramped edges can't come back unnoticed:
+ * - every piece ≥ GUTTER from its column's edges (gutters, the header's rule, the mat frame);
+ * - every piece ≥ GUTTER inside a waiting group's holder border, and every holder ≥ GUTTER inside
+ *   the tray's border;
+ * - every taken piece ≥ GUTTER below the nest's top rim, above its front wall, and clear of where
+ *   its ends curve;
+ * - everything in the algorithm card ≥ CARD_PAD inside its border.
+ */
+async function expectGutters(root: HTMLElement) {
+  const B = 3; // the holder, tray, hollow and card borders
+  const inside = async (
+    what: string,
+    el: Element,
+    frame: { left: number; right: number; top: number; bottom: number },
+    min: number,
+  ) => {
+    const r = el.getBoundingClientRect();
+    await expect(r.left - frame.left, `${what}: room on the left`).toBeGreaterThanOrEqual(
+      min - 0.5,
+    );
+    await expect(frame.right - r.right, `${what}: room on the right`).toBeGreaterThanOrEqual(
+      min - 0.5,
+    );
+    await expect(r.top - frame.top, `${what}: room above`).toBeGreaterThanOrEqual(min - 0.5);
+    await expect(frame.bottom - r.bottom, `${what}: room below`).toBeGreaterThanOrEqual(min - 0.5);
+  };
+  for (const body of root.querySelectorAll('.ni-btt__body')) {
+    const frame = body.getBoundingClientRect();
+    for (const p of body.querySelectorAll('[data-piece]')) await inside('piece', p, frame, GUTTER);
+  }
+  for (const group of root.querySelectorAll('.ni-btt__pending')) {
+    const frame = group.getBoundingClientRect();
+    for (const p of group.querySelectorAll('[data-piece]')) {
+      await inside('waiting piece', p, frame, GUTTER + B);
+    }
+  }
+  const tray = root.querySelector('.ni-btt__tray');
+  if (tray) {
+    const frame = tray.getBoundingClientRect();
+    for (const g of tray.querySelectorAll('.ni-btt__pending')) {
+      await inside('waiting group', g, frame, GUTTER + B);
+    }
+  }
+  const hollow = root.querySelector('.ni-btt__hollow');
+  if (hollow) {
+    const h = hollow.getBoundingClientRect();
+    const wallTop = q(root, '.ni-btt__nest-wall').getBoundingClientRect().top;
+    const frame = {
+      left: h.left + NEST_CURVE,
+      right: h.right - NEST_CURVE,
+      top: h.top + NEST_RIM,
+      bottom: wallTop,
+    };
+    for (const p of root.querySelectorAll('.ni-btt__taken [data-piece]')) {
+      await inside('taken piece', p, frame, GUTTER);
+    }
+  }
+  for (const card of root.querySelectorAll('.ni-btt__work')) {
+    const c = card.getBoundingClientRect();
+    const frame = { left: c.left + B, right: c.right - B, top: c.top + B, bottom: c.bottom - B };
+    for (const el of card.querySelectorAll('.ni-btt__note, .ni-btt__digit, .ni-btt__box')) {
+      if ((el.textContent ?? '') === '' && !el.classList.contains('ni-btt__box')) continue;
+      await inside('algorithm card', el, frame, CARD_PAD);
+    }
+  }
 }
 
 /** No count, total or result anywhere: the only numerals are the problem's (03 §5.5, U03 rule). */

@@ -28,23 +28,40 @@ export const U_MIN = 8;
 
 /** Fixed sizes (px) that the stylesheet mirrors through the inline custom properties. */
 export const GAP = 12; // --target-gap: between hit targets (06 §4)
+/**
+ * The clear room between any piece and any frame, gutter, border or rim (a column's edges, a
+ * waiting group's holder, the tray, the nest's rims). Every clearance below is built from it, and
+ * the stories assert it.
+ */
+export const GUTTER = 12;
+/** Inner padding of a card (the column algorithm). */
+export const CARD_PAD = 16;
+/** Border widths of the holders drawn around pieces (stylesheet). */
+const HOLDER_BORDER = 3;
+const TRAY_BORDER = 3;
 export const MAT_BORDER = 4;
-export const COL_PAD = 12;
-export const TRAY_PAD = 10;
-/** Room around a waiting group inside its draggable box. */
-export const GROUP_PAD = 15;
-export const ROW_GAP = 16; // between the widget's rows (problem, mat, tray or nest)
+export const COL_PAD = GUTTER;
+/** The tray's padding: a waiting group's holder is GUTTER clear of the tray's border. */
+export const TRAY_PAD = GUTTER + TRAY_BORDER;
+/** Room around a waiting group inside its holder: GUTTER clear of the holder's border. */
+export const GROUP_PAD = GUTTER + HOLDER_BORDER;
+export const ROW_GAP = 12; // between the widget's rows (problem, mat, tray or nest)
 
 /** The gull's room at the nest's right end, px (the nest art spans the rest). */
 export const GULL_W = 52;
-/** The nest's front wall (a fixed-height band at its foot); the taken pieces rest just above it. */
-export const NEST_WALL = 30;
-const NEST_TOP = 14;
+/** The hollow's top rim: its 3 px border plus a 6 px twig band (.ni-btt__hollow). */
+export const NEST_RIM = 9;
+/** The front wall band at the nest's foot (.ni-btt__nest-wall), its top edge straight. */
+export const NEST_WALL_H = 40;
+/** The taken pieces keep GUTTER clear of the top rim and of the front wall. */
+export const NEST_WALL = NEST_WALL_H + GUTTER;
+const NEST_TOP = NEST_RIM + GUTTER;
 /**
- * The hollow is a long stadium (straight rim, rounded ends of this radius, see .ni-btt__hollow):
- * the pieces keep clear of its rounded ends, and a rim-gap below its straight top edge.
+ * The hollow is a long stadium (straight rim, rounded ends of radius NEST_CURVE, see
+ * .ni-btt__hollow): the pieces keep GUTTER clear of where its ends start to curve.
  */
-export const NEST_END = 80;
+export const NEST_CURVE = 80;
+export const NEST_END = NEST_CURVE + GUTTER;
 
 /** The area the taken pieces sit in, inside a nest `w` × `h` px: always inside the hollow. */
 export function nestInner(w: number, h: number): Box {
@@ -83,15 +100,18 @@ export function ageSizes(age: AgeMode): AgeSizes {
   }
   return {
     target: 64,
-    header: 48,
+    header: 44,
     // Icon plus a one-word caption.
     tradeH: 86,
     headerMin: { hundreds: 150, tens: 100, ones: 110 },
   };
 }
 
-/** The strip between two columns: a pair of trade buttons with a target gap either side. */
-export const stripWidth = (age: AgeMode) => ageSizes(age).target + 2 * GAP;
+/**
+ * The strip between two columns: a pair of trade buttons exactly as wide as a target. The target
+ * gap to the columns is kept inside them: their hit pads are inset by GAP (.ni-btt__pad).
+ */
+export const stripWidth = (age: AgeMode) => ageSizes(age).target;
 
 // ---------- pieces ----------
 
@@ -629,18 +649,34 @@ export function itemUnit(
   return U_MIN;
 }
 
+/** How uneven the columns are once stretched: the widest minus the narrowest, px. */
+export function spread(plan: MatPlan): number {
+  const ws = (['hundreds', 'tens', 'ones'] as const).map((c) => plan.colW[c]).filter((w) => w > 0);
+  return ws.length === 0 ? 0 : Math.max(...ws) - Math.min(...ws);
+}
+
 /**
- * The layout at the item's scale `unit` (default U_MAX): the whole item's plan first, so nothing
- * moves as the child works, else the mat as it is now. Only a state off the expected path that
- * can't fit steps the unit down. The chosen layout is then stretched so the mat fills the space.
+ * The layout at the item's scale `unit` (default U_MAX). Of every arrangement that fits (the whole
+ * item's plan, so nothing moves as the child works, or the mat as it is now; rods and flats in
+ * one row or wrapped), the one whose stretched columns are the most even wins; a tie keeps the
+ * more stable one. Only a state off the expected path that can't fit steps the unit down. The
+ * chosen layout is stretched so the mat fills the space.
  */
 export function planMat(input: PlanInput & { unit?: number }): MatPlan {
   const options = Array.isArray(input.caps) ? input.caps : [input.caps as MatCaps];
   for (let u = input.unit ?? U_MAX; u >= U_MIN; u--) {
+    let best: MatPlan | null = null;
     for (const caps of options) {
-      const p = firstFit({ ...input, caps }, u);
-      if (p) return stretch(p, input.width, input.height);
+      for (const r of rowOptions(caps.mat.tens, [20, 10, 5])) {
+        for (const f of rowOptions(caps.mat.hundreds, [2])) {
+          const p = measurePlan({ ...input, caps }, u, r, f);
+          if (!p.fits) continue;
+          const s = stretch(p, input.width, input.height);
+          if (!best || spread(s) < spread(best)) best = s;
+        }
+      }
     }
+    if (best) return best;
   }
   const last = options[options.length - 1] as MatCaps;
   return stretch(measurePlan({ ...input, caps: last }, U_MIN, 5, 1), input.width, input.height);

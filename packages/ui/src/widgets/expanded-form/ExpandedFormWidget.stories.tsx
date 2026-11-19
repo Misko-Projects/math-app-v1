@@ -950,6 +950,46 @@ export const StressAllCardsOnMat: Story = {
   },
 };
 
+/**
+ * Bank empty: 345 from exactly the cards 300, 40 and 5, all placed. The tray (the bank) is empty
+ * and says so with an empty card spot and an arrow down (cards can come back here); nothing is
+ * off: the cards on the mat are solid and "check" is ready.
+ */
+export const BankEmpty: Story = {
+  args: {
+    config: {
+      format: 'expanded-form',
+      target: 345,
+      mode: 'build',
+      cards: [300, 40, 5],
+      unusualOrder: false,
+    } satisfies Config,
+  },
+  play: async ({ canvasElement, args }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    await expect(root.querySelector('.ni-efw__ghost[data-for="tray"]')).toBeNull();
+    for (const v of [300, 40, 5]) await tapPlace(root, v);
+    await expect(trayCards(root)).toHaveLength(0);
+    await expect(matCards(root).map((c) => c.dataset.card)).toEqual(['300', '40', '5']);
+    // The cue is visible, full strength, inside the tray.
+    const cue = root.querySelector('.ni-efw__ghost[data-for="tray"]') as HTMLElement;
+    await expect(cue).toBeVisible();
+    await expect(getComputedStyle(cue).opacity).toBe('1');
+    const tray = pad(root, 'tray').getBoundingClientRect();
+    const spot = cue.getBoundingClientRect();
+    await expect(spot.top).toBeGreaterThanOrEqual(tray.top);
+    await expect(spot.bottom).toBeLessThanOrEqual(tray.bottom);
+    // Nothing reads as off: solid cards, an enabled check.
+    for (const c of matCards(root)) {
+      await expect(getComputedStyle(c).borderStyle).toBe('solid');
+    }
+    await expect(checkButton(root)).toBeEnabled();
+    await expect(args.onResponse).not.toHaveBeenCalled();
+    await expectFits(canvasElement, root);
+    endFrame();
+  },
+};
+
 /** `disabled`: cards, digits and check take no input, and nothing is traced. */
 export const Disabled: Story = {
   args: { disabled: true },

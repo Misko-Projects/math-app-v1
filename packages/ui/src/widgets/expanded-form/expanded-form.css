@@ -226,11 +226,13 @@
   height: var(--icon-size);
   rotate: -90deg;
 }
-/* The empty tray (every card in use): a softer spot, arrow down, where cards can come back. */
+/*
+ * The empty tray (every card in use): an empty card spot in the shelf's own wood, with an arrow
+ * down, where cards can come back. Full strength (no fading), so it reads as "empty", not "off".
+ */
 .ni-efw__ghost[data-for="tray"] {
-  border-color: var(--color-wood);
-  background: transparent;
-  opacity: 0.85;
+  border-color: var(--color-wood-deep);
+  background: var(--color-paper);
 }
 .ni-efw__ghost[data-for="tray"] .ni-efw__ghost-icon {
   rotate: 90deg;

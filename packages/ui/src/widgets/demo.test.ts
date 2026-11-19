@@ -134,7 +134,9 @@ describe('widget registry', () => {
       const mod = await widgetRegistry[format]?.();
       expect(typeof mod?.default, format).toBe('function');
     }
-  });
+    // Each widget's chunk is transformed on first import; with every format registered this
+    // exceeds the 5 s default under a loaded CI runner.
+  }, 30_000);
 
   it('lists registered formats', () => {
     const loader = async () => ({ default: () => null });

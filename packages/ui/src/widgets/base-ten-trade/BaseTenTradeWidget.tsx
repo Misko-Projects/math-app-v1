@@ -48,6 +48,7 @@ import {
   COL_PAD,
   digitsValue,
   extent,
+  GAP,
   GROUP_PAD,
   growCaps,
   itemUnit,
@@ -90,7 +91,7 @@ const POP_MS = 320;
 const BUDGET = 660;
 const ROOT_PAD_Y = 6;
 /** The algorithm card's height (see .ni-btt__work in the stylesheet). */
-const WORK_H = 200;
+const WORK_H = 226;
 const SIDE_GAP = 12;
 
 type Config = ConfigFor<'base-ten-trade'>;
@@ -317,7 +318,7 @@ function NestArt() {
         focusable="false"
       >
         <path
-          d="M3 4C70 16 330 16 397 4C394 26 330 38 200 38S6 26 3 4Z"
+          d="M3 3H397C394 26 330 38 200 38S6 26 3 3Z"
           fill="var(--color-wood)"
           stroke="var(--color-wood-deep)"
           strokeWidth="3"
@@ -509,7 +510,7 @@ function WorkCard({
         const note =
           op.op === '-' ? (d !== 0 ? config.start[c] + d : null) : carried > 0 ? carried : null;
         return (
-          <span key={`n-${c}`} className="ni-btt__note" style={{ gridColumn: i + 1 }}>
+          <span key={`n-${c}`} className="ni-btt__note" style={{ gridColumn: i + 2 }}>
             {note === null ? '' : note}
           </span>
         );
@@ -521,7 +522,7 @@ function WorkCard({
             key={`s-${c}`}
             className="ni-btt__digit"
             data-crossed={crossed ? 'true' : undefined}
-            style={{ gridColumn: i + 1, gridRow: 2 }}
+            style={{ gridColumn: i + 2, gridRow: 2 }}
           >
             {start[i]}
           </span>
@@ -531,7 +532,7 @@ function WorkCard({
         {op.op === '+' ? '+' : '−'}
       </span>
       {COLUMNS.map((c, i) => (
-        <span key={`o-${c}`} className="ni-btt__digit" style={{ gridColumn: i + 1, gridRow: 3 }}>
+        <span key={`o-${c}`} className="ni-btt__digit" style={{ gridColumn: i + 2, gridRow: 3 }}>
           {operand[i]}
         </span>
       ))}
@@ -545,7 +546,7 @@ function WorkCard({
         ]
           .filter(Boolean)
           .join(' ');
-        const style = { gridColumn: i + 1, gridRow: 5 };
+        const style = { gridColumn: i + 2, gridRow: 5 };
         if (answer) {
           const active = answer.active === c && !answer.disabled;
           return (
@@ -692,7 +693,7 @@ function TradeMat({
     (showWork ? workH + SIDE_GAP : 0) + (config.thenAsk ? padH + SIDE_GAP : 0) + checkH;
   const workInSide = showWork && fullSide <= BUDGET - 2 * ROOT_PAD_Y;
   const cardH =
-    config.thenAsk && !answerInWork ? bigTarget + 26 : config.goal === 'regroup-to' ? 92 : 84;
+    config.thenAsk && !answerInWork ? bigTarget + 26 : config.goal === 'regroup-to' ? 92 : 76;
   // With the algorithm, the problem is written there (in columns), so no separate expression row:
   // the mat gets that height.
   const showProblemRow = !showWork || !workInSide;
@@ -1333,7 +1334,8 @@ function TradeMat({
                   u={u}
                   id={`${c}-${slot}`}
                   hidden={arriving.has(`${c}-${slot}`)}
-                  dx={COL_PAD}
+                  // The item is inset by GAP from the column sides (its hit pad), the pieces by COL_PAD.
+                  dx={COL_PAD - GAP}
                   dy={COL_PAD}
                 />
               </div>
@@ -1436,7 +1438,13 @@ function TradeMat({
           const id = `pending-${c}`;
           const isInvited = invited === id;
           return (
-            <div key={c} className="ni-btt__traycell" style={{ gridColumn: i * 2 + 1 }}>
+            // The tray is a fieldset (its content box has no definite height), so each cell is as
+            // tall as the inside of the tray: the waiting group centres TRAY_PAD clear of its border.
+            <div
+              key={c}
+              className="ni-btt__traycell"
+              style={{ gridColumn: i * 2 + 1, height: plan.trayH - 2 * 3 }}
+            >
               {n > 0
                 ? (() => {
                     const p = dnd.itemProps(id, { label: t(PENDING_KEY[c]) });

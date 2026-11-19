@@ -201,6 +201,32 @@ async function expectNoOverlap(root: HTMLElement) {
 }
 
 /** Column headers: the place's name in text mode (G1+), the icon alone in K. */
+/**
+ * Every stock tag ("2 left") belongs visibly to its own pile: its box lies inside the pile's
+ * box (or directly under it), never nearer another pile.
+ */
+async function expectTagsOnPiles(root: HTMLElement) {
+  const piles = [...root.querySelectorAll<HTMLElement>('.ni-btb__pile')];
+  for (const p of piles) {
+    const tag = p.querySelector('.ni-btb__stock');
+    if (!tag) continue;
+    const t = tag.getBoundingClientRect();
+    const b = p.getBoundingClientRect();
+    await expect(t.left, 'tag inside its pile (left)').toBeGreaterThanOrEqual(b.left);
+    await expect(t.right, 'tag inside its pile (right)').toBeLessThanOrEqual(b.right);
+    await expect(t.top, 'tag inside its pile (top)').toBeGreaterThanOrEqual(b.top);
+    await expect(t.bottom, 'tag inside or directly under its pile').toBeLessThanOrEqual(
+      b.bottom + 4,
+    );
+    for (const other of piles) {
+      if (other === p) continue;
+      const o = other.getBoundingClientRect();
+      const overlaps = t.left < o.right && t.right > o.left && t.top < o.bottom && t.bottom > o.top;
+      await expect(overlaps, 'tag clear of the other piles').toBe(false);
+    }
+  }
+}
+
 async function expectHeaders(root: HTMLElement, words: string[]) {
   const heads = [...root.querySelectorAll('.ni-btb__head')];
   await expect(heads).toHaveLength(words.length);
@@ -603,6 +629,7 @@ export const Limits: Story = {
     await expect(tag).toHaveTextContent('2 left');
     await expect(tag.querySelector('.ni-btb__stockicon svg')).not.toBeNull();
     await expect(pile(root, 'ones').querySelector('.ni-btb__stock')).toBeNull();
+    await expectTagsOnPiles(root);
     await tapPlace(root, 'tens', 2);
     await expectMat(root, { tens: 2 });
     await expect(tens).toHaveAccessibleName('Ten, 0 left');
@@ -636,15 +663,24 @@ export const LimitsK: Story = {
     await tapPlace(root, 'tens', 1);
     await waitFor(() => expect(tag.querySelectorAll('.ni-btb__stockpiece')).toHaveLength(2));
     await expect(pile(root, 'tens')).toHaveAccessibleName('Ten, 2 left');
+    await expectTagsOnPiles(root);
     await tapPlace(root, 'ones', 3);
     (document.activeElement as HTMLElement | null)?.blur();
   },
 };
 
-/** build-exact: the chip beside the goal asks for exactly 2 tens (2 × a rod picture). */
+/**
+ * build-exact: the chip beside the goal asks for exactly 2 tens (2 × a rod picture), and the tray
+ * holds just 2 tens: the tens tile's stock tag counts down to "0 left" and the tile goes dim.
+ */
 export const BuildExact: Story = {
   args: {
-    config: { ...build34, mode: 'build-exact', exact: { tens: 2 } } satisfies Config,
+    config: {
+      ...build34,
+      mode: 'build-exact',
+      exact: { tens: 2 },
+      limits: { tens: 2 },
+    } satisfies Config,
   },
   parameters: { ui: { audio: spyAudio() } },
   play: async ({ canvasElement, args, parameters }) => {
@@ -657,8 +693,17 @@ export const BuildExact: Story = {
     await expect(chip.querySelector('.ni-btb__art--tens')).not.toBeNull();
     await userEvent.click(chip);
     await expect(audio.say).toHaveBeenCalledWith('ui.widget.btb.exact.tens', { n: 2 });
+    const tens = pile(root, 'tens');
+    await expect(tens.querySelector('.ni-btb__stock')).toHaveTextContent('2 left');
+    await expectTagsOnPiles(root);
     await tapPlace(root, 'tens', 2);
+    // The limit is reached: "0 left" on a dimmed, dashed, disabled tile.
+    await expect(tens.querySelector('.ni-btb__stock')).toHaveTextContent('0 left');
+    await expect(tens).toHaveAttribute('aria-disabled', 'true');
+    await expect(tens).toHaveAttribute('data-empty', 'true');
+    await expect(getComputedStyle(tens).borderStyle).toBe('dashed');
     await tapPlace(root, 'ones', 14);
+    await expectTagsOnPiles(root);
     await userEvent.click(within(root).getByRole('button', { name: 'Check' }));
     await expect(args.onResponse).toHaveBeenCalledWith(state({ tens: 2, ones: 14 }));
   },
@@ -710,6 +755,7 @@ export const Decimal: Story = {
     const sameLeft = new Set(piles.map((r) => Math.round(r.left))).size === 1;
     const sameTop = new Set(piles.map((r) => Math.round(r.top))).size === 1;
     await expect(sameLeft || sameTop).toBe(true);
+    await expectTagsOnPiles(root);
     await expectUnit(root, 20);
     await expectFits(canvasElement, root);
     await userEvent.click(canvas.getByRole('button', { name: 'Check' }));
