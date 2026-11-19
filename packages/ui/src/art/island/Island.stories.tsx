@@ -662,10 +662,13 @@ export const StoneNumerals: Story = {
 };
 
 const CVD_CROP = landCrop(SAMPLE_ISLAND, 2, 1.7, 40);
+/** A crowded stretch of the long road: laid, counted (47) and next (51) beads, with signposts. */
+const CVD_BEADS_CROP = { x: 800, y: 500, w: 500, h: 265 };
 
 /**
- * 06 §7 colour-vision check: the stone states and plot markers under simulated CVD. States differ
- * by outline style (solid, dashed), rings, lift and icons, so they stay distinct in every column.
+ * 06 §7 colour-vision check: the stone states, bead and signpost states and plot markers under
+ * simulated CVD. States differ by outline style (solid, dashed), rings, lift and icons, so they
+ * stay distinct in every column.
  */
 export const ColourVision: Story = {
   parameters: { ui: { stage: 'padded' }, controls: { disable: true } },
@@ -691,6 +694,16 @@ export const ColourVision: Story = {
           style={{ marginTop: 8 }}
           title="Road stones and plot markers"
         />
+        <IslandScene
+          island={SAMPLE_ISLAND}
+          ringsUnlocked={SAMPLE_RING_COUNT}
+          roadLength={50}
+          counting={47}
+          crop={CVD_BEADS_CROP}
+          size="100%"
+          style={{ marginTop: 8 }}
+          title="Road beads and signposts"
+        />
       </CvdCompare>
     </GallerySection>
   ),
@@ -699,6 +712,19 @@ export const ColourVision: Story = {
     await expectDetailOffRoad(canvasElement);
     // ≥ 20 px in the 1280 and 1440 px captures; the test browser's narrow viewport gives less.
     await expectStoneNumerals(canvasElement, window.innerWidth >= 1280 ? 20 : 12);
+    // The crowded stretch shows each bead state with its signpost, in every column.
+    for (const [n, state] of [
+      [47, 'counting'],
+      [50, 'laid'],
+      [51, 'next'],
+    ] as const) {
+      const signs = canvasElement.querySelectorAll(`[data-sign="${n}"][data-state="${state}"]`);
+      const beads = canvasElement.querySelectorAll(
+        `[data-bead][data-stone="${n}"][data-state="${state}"]`,
+      );
+      await expect(signs.length, `sign ${n}`).toBe(5);
+      await expect(beads.length, `bead ${n}`).toBe(5);
+    }
     // Cards wrap centred: the last row's cards sit symmetrically about the page centre.
     const grid = canvasElement.querySelector('[data-cvd-grid]') as HTMLElement;
     const cards = [...grid.querySelectorAll(':scope > figure')].map((c) =>
