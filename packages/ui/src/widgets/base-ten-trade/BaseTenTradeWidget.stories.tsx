@@ -777,8 +777,54 @@ export const SubtractAcrossZeroStart: Story = {
     await expectNoReveal(root, 176);
     await expectFits(canvasElement, root, U_HEAVY);
     await expect(args.onInteract).not.toHaveBeenCalled();
+    await expectAcceptedStartLayout(root);
   },
 };
+
+/**
+ * Pins the 3-flat subtraction start, an accepted exception (orchestrator decision
+ * workflow_75b3aae9b27242c5b668ce48e7b0952b): with three 20 px flats and the inline pad, the
+ * geometric minimum is a wide hundreds column (2 × 2 flats) beside narrower tens and ones, about
+ * 436 / 124 / 140 px at 1280 × 800. The columns balance once a hundred is split. This keeps that
+ * layout from drifting unnoticed.
+ */
+async function expectAcceptedStartLayout(root: HTMLElement) {
+  // The three flats sit 2 × 2: two columns of flats, two rows.
+  const flats = [...root.querySelectorAll('[data-col="hundreds"] [data-piece]')].map((p) =>
+    p.getBoundingClientRect(),
+  );
+  await expect(flats).toHaveLength(3);
+  await expect(new Set(flats.map((r) => Math.round(r.left))).size).toBe(2);
+  await expect(new Set(flats.map((r) => Math.round(r.top))).size).toBe(2);
+  // The unit is 20 px: a ones piece is 20 px, a flat 200.
+  const one = q(root, '[data-col="ones"] [data-piece]').getBoundingClientRect();
+  await expect(Math.round(one.width)).toBe(U);
+  for (const r of flats) await expect(Math.round(r.width)).toBe(U * 10);
+  const width = (c: string) => q(root, `[data-col="${c}"]`).getBoundingClientRect().width;
+  const [h, t, o] = [width('hundreds'), width('tens'), width('ones')];
+  // The hundreds column is the widest.
+  await expect(h).toBeGreaterThan(t);
+  await expect(h).toBeGreaterThan(o);
+  // Tens and ones each hold their content (pieces, or the header's icon and word) with GUTTER
+  // clear on both sides.
+  for (const c of ['tens', 'ones']) {
+    const col = q(root, `[data-col="${c}"]`);
+    const parts = [
+      ...col.querySelectorAll('[data-piece], .ni-btt__head .ni-btt__icon, .ni-btt__headword'),
+    ].map((e) => e.getBoundingClientRect());
+    const content = Math.max(...parts.map((r) => r.right)) - Math.min(...parts.map((r) => r.left));
+    await expect(width(c), `${c} holds its content`).toBeGreaterThanOrEqual(content + 2 * GUTTER);
+  }
+  // Within ±10 % of the accepted 436 / 124 / 140.
+  for (const [w, accepted] of [
+    [h, 436],
+    [t, 124],
+    [o, 140],
+  ] as const) {
+    await expect(w).toBeGreaterThanOrEqual(accepted * 0.9);
+    await expect(w).toBeLessThanOrEqual(accepted * 1.1);
+  }
+}
 
 /**
  * Stress, the largest config: 304 − 128 with the algorithm, the nest and the number pad, after
