@@ -68,8 +68,83 @@ interface StoryArgs {
   lighting: Lighting;
 }
 
-/** CSS px per scene unit on the sheets (every building at the same scale). */
-const SHEET_SCALE = 0.8;
+/**
+ * The sheets: every building × every stage, split into pages that each fit one tablet screen
+ * (1280 × 800, less the story stage's 40 px padding) with no scrolling. A page draws all its
+ * buildings at one scale, so relative sizes on a page are true; the island story shows them all
+ * together at the map's scale.
+ */
+interface SheetPage {
+  /** Story-name suffix. */
+  key: string;
+  /** Building cards across. */
+  cols: 1 | 2;
+  ids: readonly BuildingArtId[];
+}
+
+const SHEET_PAGES: readonly SheetPage[] = [
+  {
+    key: 'workshops-a',
+    cols: 2,
+    ids: [
+      'road-crew',
+      'lantern-grove',
+      'treasure-beach',
+      'brick-factory',
+      'garden-terraces',
+      'bakery',
+    ],
+  },
+  {
+    key: 'workshops-b',
+    cols: 2,
+    ids: [
+      'market',
+      'builders-yard',
+      'weigh-station',
+      'rhythm-orchard',
+      'clock-tower',
+      'puzzle-tower',
+    ],
+  },
+  { key: 'on-the-water', cols: 1, ids: ['ten-boat-dock', 'practice-pier', 'east-bridge'] },
+  { key: 'storehouse-and-projects', cols: 2, ids: ['storehouse', 'lighthouse', 'festival-stage'] },
+  { key: 'homes', cols: 2, ids: ['shell-cottage', 'driftwood-hut', 'burrow-house', 'reef-house'] },
+];
+
+/** The room a page lays out in: the tablet screen less the story stage's padding. */
+const PAGE_ROOM = { w: 1200, h: 720 } as const;
+/** A card's fixed height besides its art: border, padding, title and stage captions. */
+const CARD_CHROME_H = 88;
+const CARD_PAD = 12;
+const CARD_BORDER = 3;
+const CARD_GAP = { col: 20, row: 14 } as const;
+const TILE_GAP = 8;
+
+function rowsOf<T>(items: readonly T[], n: number): T[][] {
+  const out: T[][] = [];
+  for (let i = 0; i < items.length; i += n) out.push(items.slice(i, i + n));
+  return out;
+}
+
+/** The largest scale (≤ 1, in 0.01 steps) at which a page fits PAGE_ROOM. */
+function pageScale(page: SheetPage, stages: number): number {
+  const cardInner =
+    (PAGE_ROOM.w - CARD_GAP.col * (page.cols - 1)) / page.cols - 2 * (CARD_PAD + CARD_BORDER);
+  const byWidth = Math.min(
+    ...page.ids.map(
+      (id) => (cardInner - TILE_GAP * (stages - 1)) / (stages * BUILDING_DESIGN[id].viewBox.w),
+    ),
+  );
+  const rows = rowsOf(page.ids, page.cols);
+  const artH = rows.reduce(
+    (sum, row) => sum + Math.max(...row.map((id) => BUILDING_DESIGN[id].viewBox.h)),
+    0,
+  );
+  const byHeight =
+    (PAGE_ROOM.h - CARD_GAP.row * (rows.length - 1) - rows.length * CARD_CHROME_H) / artH;
+  return Math.floor(Math.min(1, byWidth, byHeight) * 100) / 100;
+}
 
 function BuildingTile({
   id,
@@ -93,7 +168,7 @@ function BuildingTile({
   );
 }
 
-/** One building at a large scale on its footprint (dashed plot outline), for the controls. */
+/** One building at a large scale on its footprint (a grassy plot), for the controls. */
 function BuildingView({ id, stage, lighting }: BuildingArgs) {
   const d = BUILDING_DESIGN[id];
   const vb = d.viewBox;
@@ -121,56 +196,67 @@ function BuildingView({ id, stage, lighting }: BuildingArgs) {
             fill={paint('leaf-light')}
             stroke={paint('leaf-deep')}
             strokeWidth={2}
-            strokeDasharray="8 6"
+            opacity={0.7}
             data-part="footprint"
           />
         </ArtSvg>
         <BuildingTile id={id} stage={stage} lighting={lighting} scale={scale} />
       </div>
       <figcaption className="story-cell__name">
-        {NAMES[id]} · {stageName(stage)} · footprint {d.footprint[0]} × {d.footprint[1]}
+        {NAMES[id]} · {stageName(stage)}
       </figcaption>
     </figure>
   );
 }
 
 /**
- * Every building × every stage: one row per building, its title on the left edge, and the stages
- * in four equal columns whose art is centred and bottom-aligned (captions share a baseline). All
- * art is drawn at SHEET_SCALE, so relative sizes are true.
+ * One sheet page: a card per building, its name on top and its stages in equal columns whose art
+ * is centred and bottom-aligned (captions share a baseline). Every tile is drawn at the page scale.
  */
 function Sheet({
+  page,
   lighting,
   stages = BUILDING_STAGES,
 }: {
+  page: SheetPage;
   lighting: Lighting;
   stages?: readonly BuildingStage[];
 }) {
+  const scale = pageScale(page, stages.length);
   return (
     <div
       data-sheet={lighting}
+      data-page={page.key}
+      data-scale={scale}
       data-lighting={lighting === 'sunset' ? 'sunset' : undefined}
       style={{
         display: 'grid',
-        gap: 26,
-        width: 'min(1200px, 100%)',
+        gridTemplateColumns: `repeat(${page.cols}, minmax(0, 1fr))`,
+        gap: `${CARD_GAP.row}px ${CARD_GAP.col}px`,
+        width: `min(${PAGE_ROOM.w}px, 100%)`,
         margin: '0 auto',
-        padding: 16,
-        borderRadius: 28,
-        background: lighting === 'sunset' ? 'var(--color-sky-light)' : undefined,
         boxSizing: 'border-box',
       }}
     >
-      {BUILDING_IDS.map((id) => (
+      {page.ids.map((id) => (
         <section
           key={id}
           aria-label={NAMES[id]}
           data-group={id}
-          style={{ display: 'grid', gap: 8 }}
+          style={{
+            display: 'grid',
+            gridTemplateRows: 'auto 1fr',
+            gap: 6,
+            padding: CARD_PAD,
+            borderRadius: 24,
+            border: `${CARD_BORDER}px solid var(--color-sand-deep)`,
+            background: 'var(--color-paper)',
+            boxSizing: 'border-box',
+          }}
         >
           <h2
             className="story-heading"
-            style={{ margin: 0, fontSize: '1.15rem', textAlign: 'left' }}
+            style={{ margin: 0, fontSize: '1.05rem', lineHeight: 1.2, textAlign: 'left' }}
             data-title={id}
           >
             {NAMES[id]}
@@ -180,7 +266,7 @@ function Sheet({
             style={{
               display: 'grid',
               gridTemplateColumns: `repeat(${stages.length}, minmax(0, 1fr))`,
-              gap: 16,
+              gap: TILE_GAP,
               alignItems: 'end',
             }}
           >
@@ -188,10 +274,10 @@ function Sheet({
               <figure
                 key={String(s)}
                 className="story-cell"
-                style={{ margin: 0, gap: 6, justifyContent: 'flex-end' }}
+                style={{ margin: 0, gap: 4, justifyContent: 'flex-end' }}
               >
-                <BuildingTile id={id} stage={s} lighting={lighting} scale={SHEET_SCALE} />
-                <figcaption className="story-cell__name" style={{ fontSize: '0.85rem' }}>
+                <BuildingTile id={id} stage={s} lighting={lighting} scale={scale} />
+                <figcaption className="story-cell__name" style={{ fontSize: '0.8rem' }}>
                   {stageName(s)}
                 </figcaption>
               </figure>
@@ -203,33 +289,82 @@ function Sheet({
   );
 }
 
-/** One consistent sheet layout: titles share a left edge, and each row's captions a baseline. */
+/**
+ * Every building at level 3 in one screen (no captions: each drawing is a titled image), all at
+ * one scale: the reduced-motion check and a side-by-side view of the finished town.
+ */
+const LINEUP_COLS = 6;
+const LINEUP_GAP = 12;
+function lineupScale(): number {
+  const colW = (PAGE_ROOM.w - LINEUP_GAP * (LINEUP_COLS - 1)) / LINEUP_COLS;
+  const byWidth = Math.min(...BUILDING_IDS.map((id) => colW / BUILDING_DESIGN[id].viewBox.w));
+  const rows = rowsOf(BUILDING_IDS, LINEUP_COLS);
+  const artH = rows.reduce(
+    (sum, row) => sum + Math.max(...row.map((id) => BUILDING_DESIGN[id].viewBox.h)),
+    0,
+  );
+  const byHeight = (PAGE_ROOM.h - LINEUP_GAP * (rows.length - 1)) / artH;
+  return Math.floor(Math.min(1, byWidth, byHeight) * 100) / 100;
+}
+
+function Lineup({ lighting, stage }: { lighting: Lighting; stage: BuildingStage }) {
+  const scale = lineupScale();
+  return (
+    <div
+      data-lineup={lighting}
+      data-lighting={lighting === 'sunset' ? 'sunset' : undefined}
+      style={{
+        display: 'grid',
+        gridTemplateColumns: `repeat(${LINEUP_COLS}, minmax(0, 1fr))`,
+        gap: LINEUP_GAP,
+        alignItems: 'end',
+        justifyItems: 'center',
+        width: `min(${PAGE_ROOM.w}px, 100%)`,
+        margin: '0 auto',
+      }}
+    >
+      {BUILDING_IDS.map((id) => (
+        <BuildingTile key={id} id={id} stage={stage} lighting={lighting} scale={scale} />
+      ))}
+    </div>
+  );
+}
+
+/** One consistent card layout: each card's title is at its left edge and its captions share a baseline. */
 async function expectSheetLayout(root: HTMLElement) {
   const problems: string[] = [];
-  const titles = [...root.querySelectorAll<HTMLElement>('[data-title]')];
-  await expect(titles.length).toBe(BUILDING_IDS.length);
-  const left = (titles[0] as HTMLElement).getBoundingClientRect().left;
-  for (const t of titles) {
-    if (Math.abs(t.getBoundingClientRect().left - left) > 0.5) {
-      problems.push(`${t.dataset.title} title is not on the shared left edge`);
+  for (const card of root.querySelectorAll<HTMLElement>('[data-group]')) {
+    const id = card.dataset.group;
+    const title = card.querySelector('[data-title]') as HTMLElement;
+    const row = card.querySelector('[data-row]') as HTMLElement;
+    if (Math.abs(title.getBoundingClientRect().left - row.getBoundingClientRect().left) > 0.5) {
+      problems.push(`${id} title is not at the card's left edge`);
     }
-  }
-  for (const row of root.querySelectorAll<HTMLElement>('[data-row]')) {
     const caps = [...row.querySelectorAll('figcaption')].map((c) => c.getBoundingClientRect());
     const base = (caps[0] as DOMRect).bottom;
     if (caps.some((c) => Math.abs(c.bottom - base) > 0.5)) {
-      problems.push(`${row.dataset.row} captions do not share a baseline`);
+      problems.push(`${id} captions do not share a baseline`);
     }
-    // Art is centred in its column.
+    // Art is centred in its column, and stays inside its card.
+    const c = card.getBoundingClientRect();
     for (const fig of row.querySelectorAll('figure')) {
       const f = fig.getBoundingClientRect();
       const a = (fig.querySelector('svg') as SVGSVGElement).getBoundingClientRect();
       if (Math.abs(a.left + a.width / 2 - (f.left + f.width / 2)) > 1) {
-        problems.push(`${row.dataset.row} art is off-centre`);
+        problems.push(`${id} art is off-centre`);
+      }
+      if (a.left < c.left || a.right > c.right || a.top < c.top || a.bottom > c.bottom) {
+        problems.push(`${id} art spills out of its card`);
       }
     }
   }
   await expect(problems).toEqual([]);
+}
+
+/** The pages list every building exactly once. */
+async function expectPagesCoverEveryBuilding() {
+  const listed = SHEET_PAGES.flatMap((p) => p.ids);
+  await expect([...listed].sort()).toEqual([...BUILDING_IDS].sort());
 }
 
 const meta = {
@@ -310,10 +445,13 @@ async function expectNoOverlap(root: HTMLElement) {
   await expect(problems).toEqual([]);
 }
 
-/** Every registered building renders every stage at the shared scale. */
-async function expectEveryBuilding(root: HTMLElement, lighting: Lighting) {
+/** Every building on a page renders every stage at the page scale. */
+async function expectEveryBuilding(root: HTMLElement, page: SheetPage, lighting: Lighting) {
   const problems: string[] = [];
-  for (const id of BUILDING_IDS) {
+  const sheet = root.querySelector<HTMLElement>('[data-sheet]');
+  const scale = Number(sheet?.dataset.scale);
+  if (!(scale > 0)) problems.push('the sheet has no scale');
+  for (const id of page.ids) {
     for (const s of BUILDING_STAGES) {
       const label = `${id} ${String(s)}`;
       const svg = root.querySelector<SVGSVGElement>(
@@ -328,8 +466,8 @@ async function expectEveryBuilding(root: HTMLElement, lighting: Lighting) {
         problems.push(`${label} is not lit for sunset`);
       }
       const vbw = BUILDING_DESIGN[id].viewBox.w;
-      if (Math.abs(svg.getBoundingClientRect().width - vbw * SHEET_SCALE) > 0.5) {
-        problems.push(`${label} is not at the sheet scale`);
+      if (Math.abs(svg.getBoundingClientRect().width - vbw * scale) > 0.5) {
+        problems.push(`${label} is not at the page scale`);
       }
       if (!svg.querySelector('[data-part="art"] *')) problems.push(`${label} draws nothing`);
     }
@@ -348,48 +486,68 @@ export const Building: Story = {
   },
 };
 
-/** The sheet by day: every building under construction and at levels 1–3. */
-export const AllByDay: Story = {
-  parameters: { controls: { disable: true } },
-  render: () => <Sheet lighting="day" />,
-  play: async ({ canvasElement }) => {
-    await expectEveryBuilding(canvasElement, 'day');
-    // Construction sites carry a scaffold and a sign; built levels never do.
-    const unfinished = BUILDING_IDS.filter((id) => {
-      const site = canvasElement.querySelector(
-        `svg[data-building="${id}"][data-stage="construction"]`,
-      );
-      const l1 = canvasElement.querySelector(`svg[data-building="${id}"][data-stage="1"]`);
-      return (
-        !site?.querySelector('[data-part="scaffold"]') ||
-        !site.querySelector('[data-part="sign"]') ||
-        l1?.querySelector('[data-part="scaffold"]')
-      );
-    });
-    await expect(unfinished).toEqual([]);
-    await expectArtInsideBoxes(canvasElement);
-    await expectNoOverlap(canvasElement);
-    await expectSheetLayout(canvasElement);
-    await expectNoSidewaysScroll();
-  },
-};
+/** A sheet page by day: its buildings under construction and at levels 1–3. */
+function dayPage(page: SheetPage): Story {
+  return {
+    parameters: { controls: { disable: true }, ui: { stage: 'centered' } },
+    render: () => <Sheet page={page} lighting="day" />,
+    play: async ({ canvasElement }) => {
+      await expectPagesCoverEveryBuilding();
+      await expectEveryBuilding(canvasElement, page, 'day');
+      // Construction sites carry a scaffold and a sign; built levels never do.
+      const unfinished = page.ids.filter((id) => {
+        const site = canvasElement.querySelector(
+          `svg[data-building="${id}"][data-stage="construction"]`,
+        );
+        const l1 = canvasElement.querySelector(`svg[data-building="${id}"][data-stage="1"]`);
+        return (
+          !site?.querySelector('[data-part="scaffold"]') ||
+          !site.querySelector('[data-part="sign"]') ||
+          l1?.querySelector('[data-part="scaffold"]')
+        );
+      });
+      await expect(unfinished).toEqual([]);
+      await expectArtInsideBoxes(canvasElement);
+      await expectNoOverlap(canvasElement);
+      await expectSheetLayout(canvasElement);
+      await expectNoSidewaysScroll();
+    },
+  };
+}
 
-/** The sheet at sunset: the theme warms the land and sea, and windows and lanterns glow. */
-export const AllAtSunset: Story = {
-  parameters: { controls: { disable: true } },
-  render: () => <Sheet lighting="sunset" />,
-  play: async ({ canvasElement }) => {
-    await expectEveryBuilding(canvasElement, 'sunset');
-    // Glow is a shape (a halo), not only a colour (06 §7).
-    await expect(canvasElement.querySelectorAll('[data-part="glow"]').length).toBeGreaterThan(20);
-    await expect(canvasElement.querySelectorAll('[data-part="window"]').length).toBe(0);
-    await expect(canvasElement.querySelectorAll('[data-part="lantern"]').length).toBe(0);
-    await expectArtInsideBoxes(canvasElement);
-    await expectNoOverlap(canvasElement);
-    await expectSheetLayout(canvasElement);
-    await expectNoSidewaysScroll();
-  },
-};
+/** A sheet page at sunset: the theme warms the land and sea, and windows and lanterns glow. */
+function sunsetPage(page: SheetPage): Story {
+  return {
+    parameters: { controls: { disable: true }, ui: { stage: 'centered' } },
+    render: () => <Sheet page={page} lighting="sunset" />,
+    play: async ({ canvasElement }) => {
+      await expectPagesCoverEveryBuilding();
+      await expectEveryBuilding(canvasElement, page, 'sunset');
+      // Glow is a shape (a halo), not only a colour (06 §7): every window and lantern turns into
+      // a glowing halo, so none is left unlit.
+      await expect(canvasElement.querySelectorAll('[data-part="glow"]').length).toBeGreaterThan(0);
+      await expect(canvasElement.querySelectorAll('[data-part="window"]').length).toBe(0);
+      await expect(canvasElement.querySelectorAll('[data-part="lantern"]').length).toBe(0);
+      await expectArtInsideBoxes(canvasElement);
+      await expectNoOverlap(canvasElement);
+      await expectSheetLayout(canvasElement);
+      await expectNoSidewaysScroll();
+    },
+  };
+}
+
+const page = (key: string) => SHEET_PAGES.find((p) => p.key === key) as SheetPage;
+
+export const ByDayWorkshopsA: Story = dayPage(page('workshops-a'));
+export const ByDayWorkshopsB: Story = dayPage(page('workshops-b'));
+export const ByDayOnTheWater: Story = dayPage(page('on-the-water'));
+export const ByDayStorehouseAndProjects: Story = dayPage(page('storehouse-and-projects'));
+export const ByDayHomes: Story = dayPage(page('homes'));
+export const AtSunsetWorkshopsA: Story = sunsetPage(page('workshops-a'));
+export const AtSunsetWorkshopsB: Story = sunsetPage(page('workshops-b'));
+export const AtSunsetOnTheWater: Story = sunsetPage(page('on-the-water'));
+export const AtSunsetStorehouseAndProjects: Story = sunsetPage(page('storehouse-and-projects'));
+export const AtSunsetHomes: Story = sunsetPage(page('homes'));
 
 /** Where each building sits, front rows drawn last, so nearer buildings overlap farther ones. */
 const TOWN: readonly { id: BuildingArtId; plot: Plot; stage: BuildingStage }[] = [
@@ -570,18 +728,18 @@ export const ColourVision: Story = {
               id="shell-cottage"
               stage={s}
               lighting="day"
-              scale={0.62}
+              scale={0.45}
             />
           ))}
         </div>
         <div style={{ display: 'flex', gap: 6, alignItems: 'flex-end' }}>
           {([1, 3] as const).map((s) => (
-            <BuildingTile key={s} id="bakery" stage={s} lighting="day" scale={0.62} />
+            <BuildingTile key={s} id="bakery" stage={s} lighting="day" scale={0.45} />
           ))}
         </div>
         <div style={{ display: 'flex', gap: 6, alignItems: 'flex-end' }}>
-          <BuildingTile id="lantern-grove" stage={2} lighting="day" scale={0.62} />
-          <BuildingTile id="lantern-grove" stage={2} lighting="sunset" scale={0.62} />
+          <BuildingTile id="lantern-grove" stage={2} lighting="day" scale={0.45} />
+          <BuildingTile id="lantern-grove" stage={2} lighting="sunset" scale={0.45} />
         </div>
       </div>
     </CvdCompare>
@@ -590,9 +748,9 @@ export const ColourVision: Story = {
 
 /** 06 §7: with reduced motion no idle loop runs (smoke, flags, boats, lanterns, stars). */
 export const ReducedMotion: Story = {
-  parameters: { controls: { disable: true } },
+  parameters: { controls: { disable: true }, ui: { stage: 'centered' } },
   globals: { motion: 'reduced' },
-  render: () => <Sheet lighting="sunset" stages={[3]} />,
+  render: () => <Lineup lighting="sunset" stage={3} />,
   play: async ({ canvasElement }) => {
     await expect(canvasElement.querySelectorAll('.motion-loop').length).toBeGreaterThan(50);
     const running = document

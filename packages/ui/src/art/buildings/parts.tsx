@@ -1222,6 +1222,8 @@ export function Site({
     [px0, py1],
     [px1, py1],
   ];
+  /** The stake each rope runs to, going round the plot: 0 → 1 → 3 → 2 → 0. */
+  const RING = [1, 3, 0, 2];
   return (
     <g data-part="site">
       {noPlot ? null : (
@@ -1235,10 +1237,17 @@ export function Site({
             fill={paint('sand-shadow')}
             opacity={0.55}
           />
+          {/* A rope strung between the four stakes, sagging a little between each pair. */}
           <path
-            d={`M${px0} ${py0}H${px1}V${py1}H${px0}Z`}
-            {...line('wood-deep', 1.6)}
-            strokeDasharray="5 5"
+            data-part="rope"
+            d={stakes
+              .map((a, i) => [a, stakes[RING[i] as number] as [number, number]] as const)
+              .map(
+                ([[ax, ay], [bx, by]]) =>
+                  `M${ax} ${ay - 6}Q${(ax + bx) / 2} ${(ay + by) / 2 - 2} ${bx} ${by - 6}`,
+              )
+              .join('')}
+            {...line('wood-deep', 1.8)}
           />
           {stakes.map(([sx, sy]) => (
             <rect
