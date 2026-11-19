@@ -113,6 +113,15 @@ const configSchema = puzzleGridConfigSchema.superRefine((c, ctx) => {
         message: `${k.kind} constraints are not checked for ${c.variant}`,
       });
     }
+    // A number path holds whole numbers, so only a whole-number step can be met (the checker's
+    // `stepHolds`, PR #84 review round 6).
+    if (stepPath && !Number.isInteger(k.step)) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['constraints', i],
+        message: 'a number path steps by a whole number',
+      });
+    }
     if (c.variant !== 'shape-fill' && k.kind === 'use-each' && !numericUseEachFits(c, k.values)) {
       ctx.addIssue({
         code: 'custom',
@@ -126,6 +135,28 @@ const configSchema = puzzleGridConfigSchema.superRefine((c, ctx) => {
         code: 'custom',
         path: ['constraints', i],
         message: 'the use-each pieces come from the palette and can tile the outline',
+      });
+    }
+  }
+  if (c.variant === 'number-path') {
+    // The checker takes only whole numbers of 0 or more on a number path (03 §5.5,
+    // `stepHolds`), so a given or palette value outside them could never be part of a correct
+    // fill (PR #84 review round 6).
+    const whole = (v: unknown) => typeof v === 'number' && Number.isInteger(v) && v >= 0;
+    for (const [i, cell] of c.cells.entries()) {
+      if (cell.given !== undefined && !whole(cell.given)) {
+        ctx.addIssue({
+          code: 'custom',
+          path: ['cells', i],
+          message: 'a number path holds whole numbers',
+        });
+      }
+    }
+    if (!c.palette.every(whole)) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['palette'],
+        message: 'a number path holds whole numbers',
       });
     }
   }
