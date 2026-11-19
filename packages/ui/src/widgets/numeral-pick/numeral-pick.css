@@ -1,6 +1,8 @@
 /* numeral-pick widget (U03): picture on top, choices and "check" below. */
 
 .ni-npick {
+  /* Positioned: Pip's invite hand is placed in widget coordinates. */
+  position: relative;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -87,10 +89,4 @@
     justify-self: center;
     min-width: calc((100% - var(--target-gap) * 2) / 2);
   }
-}
-/* The demo hand's fingertip (≈ 42 % across, 8 px down its 56 px box) rests inside the card's
-   bottom edge, centred: on the target without covering its numeral. */
-.ni-npick__hand {
-  left: calc(50% - 23px);
-  top: calc(100% - 26px);
 }
