@@ -9,6 +9,8 @@
   box-sizing: border-box;
   width: 100%;
   max-width: 1180px;
+  /* Layout decisions follow the space the widget actually has, not the viewport. */
+  container: npick / inline-size;
   padding: 16px 24px;
 }
 .ni-npick__answer {
@@ -18,27 +20,39 @@
   justify-content: center;
   gap: 28px 48px;
 }
+/* A grid layout puts "check" under the choices, so the 2 × 2 block itself is centred. */
+.ni-npick__answer[data-layout="grid"] {
+  flex-direction: column;
+}
+/*
+ * Choices: one equal column per card, as wide as the widest card (the container is max-content
+ * sized, so 1fr tracks resolve to the largest card). Tracks never shrink below their content,
+ * so a picture can never spill over its neighbours.
+ */
 .ni-npick__options {
-  display: flex;
-  flex-wrap: wrap;
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(min-content, 1fr);
   justify-content: center;
   gap: calc(var(--target-gap) * 2);
+  width: max-content;
+  max-width: 100%;
   margin: 0;
   padding: 8px;
   border: 0;
   min-width: 0;
 }
-/* Grid: equal cells, cards fill them, so the choices line up and the block stays centred. */
 .ni-npick__options[data-layout="grid"] {
-  display: grid;
-  grid-template-columns: repeat(var(--cols, 2), minmax(0, 1fr));
+  grid-auto-flow: row;
+  grid-template-columns: repeat(var(--cols, 2), minmax(min-content, 1fr));
   grid-auto-rows: 1fr;
 }
 .ni-npick__slot {
   position: relative;
-  display: inline-flex;
+  display: flex;
 }
 .ni-npick__options .ni-pick {
+  width: 100%;
   min-width: calc(var(--target-min) * 1.4);
   min-height: calc(var(--target-min) * 1.4);
 }
@@ -53,10 +67,24 @@
   background: transparent;
 }
 .ni-npick__options[data-layout="grid"] > .ni-npick__slot > .ni-pick {
-  width: 100%;
   height: 100%;
 }
+/*
+ * Narrow screens (portrait tablets, 06 §1): two columns. An odd last card spans both columns and
+ * sits centred at one column's width, so the block stays centred and the cards stay equal.
+ */
+@container npick (max-width: 1000px) {
+  .ni-npick__options[data-layout="grid"] {
+    grid-template-columns: repeat(2, minmax(min-content, 1fr));
+  }
+  .ni-npick__options[data-layout="grid"] > .ni-npick__slot:last-child:nth-child(odd) {
+    grid-column: 1 / -1;
+    justify-self: center;
+    width: calc((100% - var(--target-gap) * 2) / 2);
+  }
+}
+/* The demo hand's fingertip (≈ 42 % across its 56 px box) touches the card's bottom edge. */
 .ni-npick__hand {
-  left: calc(50% - 10px);
-  bottom: -50px;
+  left: calc(50% - 23px);
+  top: calc(100% - 4px);
 }

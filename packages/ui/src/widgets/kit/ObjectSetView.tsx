@@ -96,6 +96,7 @@ export function ObjectSetView({
             className="ni-objects__item"
             style={objectStyle}
             data-group={o.group}
+            data-marked={o.marked ? 'true' : undefined}
           >
             <ObjectSprite sprite={o.sprite} tone={o.tone} />
           </span>

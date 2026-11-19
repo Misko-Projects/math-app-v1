@@ -79,11 +79,12 @@ export interface NumberLineViewProps {
   className?: string;
 }
 
-const LINE_Y = 96;
-const NUMERAL_PX = 32;
+const LINE_Y = 104;
+/** Numeral size on the line: well above the 32 px floor (05 §11), so it reads as big as the cards. */
+const NUMERAL_PX = 40;
 
 /** Rough width of a numeral string at 32 px Baloo 2 (for thinning crowded labels). */
-const numeralWidth = (s: string) => s.length * 19 + 6;
+const numeralWidth = (s: string) => s.length * 24 + 8;
 
 export function NumberLineView({
   min,
@@ -110,11 +111,17 @@ export function NumberLineView({
   const spacing = labelsEvery ? Math.abs(s.x(min + labelsEvery) - s.x(min)) : 0;
   const stride = [1, 2, 5, 10, 20, 50, 100].find((k) => spacing * k >= widest + 10) ?? 100;
   const unit = (labelsEvery ?? 1) * stride;
-  const labels = candidates.filter((v) => Math.abs(v / unit - Math.round(v / unit)) < 1e-6);
+  // A marked point never shows its own numeral: the mark is what the child is asked to read.
+  const marked = new Set(marks.map((m) => m.at));
+  // Where a jump lands, its own arrowhead points at the mark; no second pointer on top of it.
+  const jumpEnds = new Set(jumps.map((j) => j.to));
+  const labels = candidates.filter(
+    (v) => Math.abs(v / unit - Math.round(v / unit)) < 1e-6 && !marked.has(v),
+  );
   // Jump arcs and arrow pointers need room above the line; a bare line doesn't.
   const lineY =
     headroom ??
-    (jumps.length > 0 ? LINE_Y : marks.some((m) => m.arrow || m.label !== undefined) ? 74 : 30);
+    (jumps.length > 0 ? LINE_Y : marks.some((m) => m.arrow || m.label !== undefined) ? 88 : 30);
   // Room below the line only when numerals are drawn there.
   const height = lineY + (labels.length > 0 ? 64 : 30);
   const svg = (
@@ -136,7 +143,8 @@ export function NumberLineView({
           <path
             key={`${j.from}>${j.to}`}
             className="ni-numberline__jump"
-            d={`M${x1} ${lineY - 6} Q${(x1 + x2) / 2} ${lineY - 6 - 2 * h} ${x2} ${lineY - 6}`}
+            // Arcs start and end above the tick tops, so the arrowhead stays clear of any marker.
+            d={`M${x1} ${lineY - 22} Q${(x1 + x2) / 2} ${lineY - 22 - 2 * h} ${x2} ${lineY - 22}`}
             markerEnd={`url(#${arrowId})`}
           />
         );
@@ -190,7 +198,7 @@ export function NumberLineView({
       {marks.map((m) => (
         <g key={`m${m.at}`} className="ni-numberline__mark" data-at={m.at}>
           <circle cx={s.x(m.at)} cy={lineY} r={9} />
-          {m.arrow ? (
+          {m.arrow && !jumpEnds.has(m.at) ? (
             <path
               className="ni-numberline__pointer"
               d={`M${s.x(m.at)} ${lineY - 16}l-14 -22h28z`}
@@ -200,7 +208,7 @@ export function NumberLineView({
             <text
               className="ni-numberline__marklabel"
               x={s.x(m.at)}
-              y={lineY - (m.arrow ? 46 : 22)}
+              y={lineY - (m.arrow && !jumpEnds.has(m.at) ? 44 : 20)}
               fontSize={NUMERAL_PX}
               textAnchor="middle"
             >

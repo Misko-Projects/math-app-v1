@@ -149,9 +149,23 @@ export const NumberLine: Story = {
   play: async ({ canvasElement, args }) => {
     const root = await findWidget(canvasElement, ROOT);
     const canvas = within(root);
+    // The picture never shows the answer: the marked point has no numeral under it (and no other
+    // numeral equals it), while its neighbours keep theirs.
+    const picture = root.querySelector('.ni-stimulus') as HTMLElement;
+    const numerals = [...picture.querySelectorAll('text')].map((t) => t.textContent);
+    await expect(numerals).not.toContain('33');
+    await expect(numerals).toEqual(expect.arrayContaining(['32', '34']));
+    for (const t of picture.querySelectorAll('text')) {
+      await expect(Number.parseFloat(getComputedStyle(t).fontSize)).toBeGreaterThanOrEqual(32);
+    }
     for (const o of canvas.getAllByRole('button', { pressed: false })) {
       await expectTargetSize(o, 'g1-up');
     }
+    // Choice cards share one width, whatever their digits.
+    const widths = canvas
+      .getAllByRole('button', { pressed: false })
+      .map((b) => Math.round(b.getBoundingClientRect().width));
+    await expect(new Set(widths).size).toBe(1);
     await userEvent.click(canvas.getByRole('button', { name: '33' }));
     await userEvent.click(canvas.getByRole('button', { name: 'Check' }));
     await expect(args.onResponse).toHaveBeenCalledWith({ kind: 'choice', id: 'opt-33' });
@@ -184,6 +198,91 @@ export const PictureChoices: Story = {
     await userEvent.click(canvas.getByRole('button', { name: 'Check' }));
     await expect(args.onResponse).toHaveBeenCalledWith({ kind: 'choice', id: 'a' });
     await expectTargetGaps(canvas.getAllByRole('button', { name: /^Pick/ }));
+  },
+};
+
+/**
+ * Stress: the most choices a numeral-pick shows (5, 03 §5.5), with 3-digit near misses
+ * (±1, ±10, digit reversal). Cards stay equal-width, K-sized and spaced.
+ */
+export const FiveChoicesK: Story = {
+  globals: { ageMode: 'k' },
+  args: {
+    config: {
+      format: 'numeral-pick',
+      stimulus: {
+        kind: 'base-ten',
+        hundreds: 1,
+        tens: 2,
+        ones: 8,
+      },
+      options: [
+        { id: 'opt-128', label: '128' },
+        { id: 'opt-118', label: '118' },
+        { id: 'opt-821', label: '821' },
+        { id: 'opt-138', label: '138' },
+        { id: 'opt-127', label: '127' },
+      ],
+      layout: 'row',
+    } satisfies ConfigFor<'numeral-pick'>,
+  },
+  play: async ({ canvasElement, args }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    const canvas = within(root);
+    const options = canvas.getAllByRole('button', { pressed: false });
+    await expect(options).toHaveLength(5);
+    for (const o of options) await expectTargetSize(o, 'k');
+    await expectTargetGaps(options);
+    await expect(
+      new Set(options.map((o) => Math.round(o.getBoundingClientRect().width))).size,
+    ).toBe(1);
+    await userEvent.click(canvas.getByRole('button', { name: '128' }));
+    await userEvent.click(canvas.getByRole('button', { name: 'Check' }));
+    await expect(args.onResponse).toHaveBeenCalledWith({ kind: 'choice', id: 'opt-128' });
+  },
+};
+
+/**
+ * Portrait (800 px wide, 06 §1): five picture choices in a grid, one a ten-object line. Every
+ * picture stays inside its own card and nothing overflows sideways.
+ */
+export const PortraitPictureGridK: Story = {
+  globals: { ageMode: 'k' },
+  args: {
+    config: {
+      format: 'numeral-pick',
+      stimulus: { kind: 'expression', expr: { tokens: [{ t: 'num', v: 10 }] } },
+      options: [
+        { id: 'a', stimulus: { kind: 'ten-frame', frames: 1, filled: [9] } },
+        {
+          id: 'b',
+          stimulus: {
+            kind: 'objects',
+            set: { count: 10, sprite: 'shell', layout: 'line', layoutSeed: 3 },
+          },
+        },
+        { id: 'c', stimulus: { kind: 'dots', arrangement: 'dice', groups: [5, 4] } },
+        { id: 'd', stimulus: { kind: 'dots', arrangement: 'fingers', groups: [5, 4] } },
+        { id: 'e', stimulus: { kind: 'ten-frame', frames: 1, filled: [8] } },
+      ],
+      layout: 'grid',
+    } satisfies ConfigFor<'numeral-pick'>,
+  },
+  render: (args) => <div style={{ width: 800, maxWidth: '100%' }}>{renderWidget(args)}</div>,
+  play: async ({ canvasElement }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    const cards = [...root.querySelectorAll<HTMLElement>('.ni-pick')];
+    await expect(cards).toHaveLength(5);
+    for (const card of cards) {
+      const box = card.getBoundingClientRect();
+      const picture = (card.querySelector('.ni-stimulus') as HTMLElement).getBoundingClientRect();
+      await expect(picture.left).toBeGreaterThanOrEqual(box.left - 0.5);
+      await expect(picture.right).toBeLessThanOrEqual(box.right + 0.5);
+      await expect(picture.bottom).toBeLessThanOrEqual(box.bottom + 0.5);
+    }
+    await expectTargetGaps(cards);
+    const stage = canvasElement.querySelector('.story-widget-stage') as HTMLElement;
+    await expect(stage.scrollWidth).toBeLessThanOrEqual(stage.clientWidth + 1);
   },
 };
 
@@ -220,7 +319,7 @@ export const Disabled: Story = {
 
 const demoController: WidgetDemo = createDemoController({ strict: true });
 
-/** Demo mode (03 §6.3): Pip highlights, then taps the answer; the child's step is invited. */
+/** Demo mode (03 §6.3): Pip shows the answer, then taps it (input stays off while Pip plays). */
 export const DemoMode: Story = {
   args: { disabled: true, demo: demoController },
   play: async ({ canvasElement }) => {
@@ -234,9 +333,31 @@ export const DemoMode: Story = {
     await expect(demoController.play({ op: 'drag' })).rejects.toBeInstanceOf(
       UnsupportedWidgetOpError,
     );
-    demoController.invite({ op: 'tap', args: { id: 'opt-9' } });
+  },
+};
+
+const inviteController: WidgetDemo = createDemoController({ strict: true });
+
+/**
+ * The child's turn in a faded example (03 §6.3): nothing is picked yet, input is on, and Pip's
+ * hand points at the choice to tap.
+ */
+export const DemoInvite: Story = {
+  args: { demo: inviteController },
+  play: async ({ canvasElement }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    inviteController.invite({ op: 'tap', args: { id: 'opt-8' } });
     await waitFor(() => expect(root.querySelector('.ni-pick.ni-invite')).not.toBeNull());
-    await expect(root.querySelector('.ni-hand')).not.toBeNull();
+    const invited = root.querySelector('.ni-pick.ni-invite') as HTMLElement;
+    await expect(invited).toHaveAttribute('data-id', 'opt-8');
+    await expect(invited).toHaveAttribute('aria-pressed', 'false');
+    // The hand's fingertip sits on the invited card's bottom edge, centred under it.
+    const hand = (root.querySelector('.ni-hand') as HTMLElement).getBoundingClientRect();
+    const card = invited.getBoundingClientRect();
+    await expect(
+      Math.abs(hand.left + hand.width * 0.42 - (card.left + card.width / 2)),
+    ).toBeLessThan(12); // the tap animation moves it ≤ 8 px
+    await expect(Math.abs(hand.top - card.bottom)).toBeLessThan(14);
   },
 };
 

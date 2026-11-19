@@ -107,7 +107,7 @@ export function NumeralPickWidget({
       {stimulus.kind !== 'none' ? (
         <StimulusView spec={stimulus} maxWidth={760} maxHeight={280} />
       ) : null}
-      <div className="ni-npick__answer">
+      <div className="ni-npick__answer" data-layout={config.layout}>
         <fieldset
           className="ni-npick__options"
           data-layout={config.layout}
@@ -131,7 +131,13 @@ export function NumeralPickWidget({
                   onPress={() => pick(o)}
                 >
                   {o.stimulus ? (
-                    <StimulusView spec={o.stimulus} maxWidth={220} maxHeight={140} label={name} />
+                    <StimulusView
+                      spec={o.stimulus}
+                      maxWidth={260}
+                      maxHeight={140}
+                      minCell={22}
+                      label={name}
+                    />
                   ) : variant === 'numeral' ? (
                     <span className="ni-pick__numeral">{o.label}</span>
                   ) : (

@@ -22,6 +22,8 @@ export interface PlacedObject {
   /** Sub-group (`ObjectSet.groups`), 0-based. */
   group: number;
   tone: SpriteTone;
+  /** A single object singled out by its own sub-group (an ordinal's "this one"): drawn with a ring. */
+  marked?: boolean;
 }
 
 /** A frame drawn behind objects (ten-frame layouts): `cols × rows` cells at (x, y). */
@@ -136,6 +138,10 @@ export function objectSetLayout(set: ObjectSet): ObjectLayout {
   const extra = Math.max(0, Math.floor(set.distractors?.count ?? 0));
   const total = count + extra;
   const groupOf = groupIndexes(count, set.groups);
+  const groupSizes = Array.from(
+    { length: set.groups && set.groups.length > 0 ? set.groups.length : 1 },
+    (_, g) => groupOf.filter((x) => x === g).length,
+  );
   const rng = createRng((set.layoutSeed ^ 0x5bd1e995) >>> 0);
   // Which slots hold distractors. Structured layouts (frames, dice, groups) keep every structured
   // place for the counted objects; their distractors sit in a loose row underneath.
@@ -158,10 +164,12 @@ export function objectSetLayout(set: ObjectSet): ObjectLayout {
       // nearly empty), so every counted object has its own cell.
       const frameCount = Math.max(set.layout === 'double-ten-frame' ? 2 : 1, Math.ceil(count / 10));
       for (let f = 0; f < frameCount; f++) frames.push({ x: 0, y: f * 2.5, cols: 5, rows: 2 });
+      fixedScale = 0.82;
       points = Array.from({ length: count }, (_, i) => {
         const f = Math.floor(i / 10);
         const k = i % 10;
-        return { x: k % 5, y: f * 2.5 + Math.floor(k / 5) };
+        // Objects sit inside their cell with a margin, so they never touch the frame lines.
+        return { x: (k % 5) + 0.09, y: f * 2.5 + Math.floor(k / 5) + 0.09 };
       });
       width = 5;
       height = frameCount * 2.5 - 0.5;
@@ -235,6 +243,9 @@ export function objectSetLayout(set: ObjectSet): ObjectLayout {
       // 'line': rows of up to 10; sub-groups are split by a half-cell gap.
       // The row limit counts objects, not the gap offsets, so ten objects always share one row.
       const perRow = 10;
+      // Gaps show addend groups ([4, 3]); a single marked object ([3, 1, 1], ordinals) keeps even
+      // spacing and is shown by its ring instead.
+      const splitGroups = groupSizes.length > 1 && groupSizes.every((n) => n >= 2);
       let x = 0;
       let inRow = 0;
       let row = 0;
@@ -247,7 +258,7 @@ export function objectSetLayout(set: ObjectSet): ObjectLayout {
           x = 0;
           inRow = 0;
           row += 1;
-        } else if (g !== lastGroup && inRow > 0) {
+        } else if (splitGroups && g !== lastGroup && inRow > 0) {
           x += 0.56;
         }
         lastGroup = g;
@@ -286,6 +297,12 @@ export function objectSetLayout(set: ObjectSet): ObjectLayout {
       scale,
       group,
       tone: isDistractor ? 'a' : toneOf(group),
+      marked:
+        set.layout === 'line' &&
+        !isDistractor &&
+        groupSizes.length > 1 &&
+        group % 2 === 1 &&
+        groupSizes[group] === 1,
     });
   });
   return { objects, width, height, frames };
@@ -319,9 +336,9 @@ export function dotsLayout(spec: Extract<StimulusSpec, { kind: 'dots' }>, seed =
           index: i,
           kind: 'object',
           sprite,
-          x: k % 5,
-          y: f * (rows + 0.5) + Math.floor(k / 5),
-          scale: 1,
+          x: (k % 5) + 0.09,
+          y: f * (rows + 0.5) + Math.floor(k / 5) + 0.09,
+          scale: 0.82,
           group,
           tone: toneOf(group),
         };

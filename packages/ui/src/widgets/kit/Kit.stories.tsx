@@ -252,6 +252,10 @@ export const ChoicesK: Story = {
     await expect(cards).toHaveLength(11);
     for (const c of cards) await expectTargetSize(c, 'k');
     await expectTargetGaps(cards);
+    // Equal cards: "10" is not a bigger target than "9".
+    await expect(new Set(cards.map((c) => Math.round(c.getBoundingClientRect().width))).size).toBe(
+      1,
+    );
     await userEvent.click(within(tray).getByRole('button', { name: '9' }));
     await expect(within(tray).getByRole('button', { name: '9' })).toHaveAttribute(
       'aria-pressed',

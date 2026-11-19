@@ -1,5 +1,13 @@
 import type { NarrationKey } from '@number-island/shared';
-import { type ReactNode, useCallback, useEffect, useLayoutEffect, useMemo, useRef } from 'react';
+import {
+  type CSSProperties,
+  type ReactNode,
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+} from 'react';
 import {
   useNarrationText,
   useReducedMotion,
@@ -121,8 +129,17 @@ export function NumeralTray({
   const prefs = useUiPreferences();
   const { sayNumber } = useSpeech();
   const speaks = speak ?? prefs.speakOnTap;
+  // Every card as wide as the widest numeral (Baloo 2 at 48 px ≈ 30 px a digit), so "10" is
+  // not a bigger target than "9".
+  const digits = Math.max(1, ...values.map((v) => String(v).length));
+  const cardWidth = `max(calc(var(--target-min) * 1.15), ${digits * 30 + 40}px)`;
   return (
-    <fieldset className="ni-tray-numerals" aria-label={t(label)} disabled={disabled}>
+    <fieldset
+      className="ni-tray-numerals"
+      aria-label={t(label)}
+      disabled={disabled}
+      style={{ '--card-w': cardWidth } as CSSProperties}
+    >
       {values.map((v) => (
         <PickCard
           key={v}
@@ -321,13 +338,15 @@ export function createSubmitGuard(ms: number, now: () => number) {
     const previous = last;
     last = t;
     inFlight = true;
-    let sent = false;
+    let sent: boolean;
     try {
       sent = submit();
     } finally {
+      // A throwing submit (e.g. a host's onResponse) keeps the window: the response may already
+      // have been delivered, so a quick retry must not send it again.
       inFlight = false;
-      if (!sent) last = previous;
     }
+    if (!sent) last = previous;
     return sent;
   };
 }

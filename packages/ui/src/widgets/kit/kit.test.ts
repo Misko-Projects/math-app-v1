@@ -98,8 +98,8 @@ describe('objectSetLayout', () => {
   it('ten-frames fill top row first and draw one frame per ten', () => {
     const l = objectSetLayout(set({ count: 7, layout: 'ten-frame' }));
     expect(l.frames).toHaveLength(1);
-    expect(l.objects.slice(0, 5).every((o) => o.y === 0)).toBe(true);
-    expect(l.objects[5]?.y).toBe(1);
+    expect(l.objects.slice(0, 5).every((o) => Math.floor(o.y) === 0)).toBe(true);
+    expect(Math.floor(l.objects[5]?.y ?? 0)).toBe(1);
     expect(objectSetLayout(set({ count: 3, layout: 'double-ten-frame' })).frames).toHaveLength(2);
   });
 });
@@ -247,13 +247,17 @@ describe('review regressions (PR #63 round 4)', () => {
       return true;
     });
     expect(nestedSent).toBe(false);
-    // A throwing submit releases the in-flight lock.
+    // A throwing submit (the host's onResponse threw after recording the response) releases the
+    // in-flight lock but keeps the window: a retry 1 ms later is refused, 400 ms later allowed.
+    t += 500;
     expect(() =>
       guard(() => {
         throw new Error('boom');
       }),
     ).toThrow('boom');
-    t += 500;
+    t += 1;
+    expect(guard(() => true)).toBe(false);
+    t += 399;
     expect(guard(() => true)).toBe(true);
   });
 });

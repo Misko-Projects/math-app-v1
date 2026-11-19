@@ -24,6 +24,8 @@ export interface StimulusViewProps {
   /** Box the picture fits in, in CSS px. */
   maxWidth?: number;
   maxHeight?: number;
+  /** Smallest object cell in px (default 28); small pictures (choice cards) may go lower. */
+  minCell?: number;
   /** Renders a blank token of an expression stimulus (number-pad draws its entry slots here). */
   renderBlank?: (id: string) => ReactNode;
   /** Accessible name; defaults to the generic "picture" label. */
@@ -35,6 +37,7 @@ export function StimulusView({
   spec,
   maxWidth = 720,
   maxHeight = 300,
+  minCell,
   renderBlank,
   label,
   className,
@@ -52,6 +55,7 @@ export function StimulusView({
             layout={objectSetLayout(spec.set)}
             maxWidth={maxWidth}
             maxHeight={maxHeight}
+            minCell={minCell}
             label={name}
           />
         </div>
@@ -66,6 +70,7 @@ export function StimulusView({
               layout={dotsLayout(spec)}
               maxWidth={maxWidth}
               maxHeight={maxHeight}
+              minCell={minCell}
               label={name}
             />
           )}
@@ -130,6 +135,7 @@ export function StimulusView({
             })}
             maxWidth={maxWidth}
             maxHeight={maxHeight}
+            minCell={minCell}
             label={name}
           />
         </div>
@@ -147,6 +153,7 @@ export function StimulusView({
             })}
             maxWidth={maxWidth}
             maxHeight={maxHeight}
+            minCell={minCell}
             label={name}
           />
         </div>
@@ -240,7 +247,7 @@ export function FingersView({
 }
 
 /**
- * Finger order: thumb first, as children count on their fingers. x is the finger's centre, `top`
+ * Fingers left to right: thumb, index, middle, ring, pinky. x is the finger's centre, `top`
  * the tip of a raised finger, in a 100 × 120 box; the palm spans x 20–80 from y 52 down.
  */
 const FINGERS = [
@@ -250,6 +257,12 @@ const FINGERS = [
   { x: 61, top: 6, w: 15, tilt: 4 },
   { x: 75, top: 18, w: 14, tilt: 9 },
 ];
+
+/**
+ * The order fingers go up: index, middle, ring, pinky, then the thumb. 1–4 never use the thumb
+ * (a sideways thumb reads as up or down), so every count is unambiguous; 5 is the open hand.
+ */
+const RAISE_ORDER: readonly number[] = [4, 0, 1, 2, 3];
 
 function Hand({
   up,
@@ -267,11 +280,26 @@ function Hand({
   const PALM_TOP = 52;
   const finger = (i: number) => {
     const f = FINGERS[i] as (typeof FINGERS)[number];
-    const raised = i < up;
+    const raised = (RAISE_ORDER[i] ?? 9) < up;
+    if (!raised && i === 0) {
+      // A folded thumb lies across the palm: a short sideways stub, clearly not pointing up.
+      return (
+        <rect
+          key={i}
+          x={22}
+          y={66}
+          width={30}
+          height={13}
+          rx={6.5}
+          fill={skin}
+          stroke={line}
+          strokeWidth="3"
+        />
+      );
+    }
     // A raised finger reaches up from inside the palm; a folded one is a knuckle on top of it.
-    // A folded thumb tucks across the palm.
-    const cx = !raised && i === 0 ? 30 : f.x;
-    const top = raised ? f.top : i === 0 ? 64 : PALM_TOP - 6;
+    const cx = f.x;
+    const top = raised ? f.top : PALM_TOP - 6;
     const bottom = raised ? PALM_TOP + 18 : top + 16;
     return (
       <rect
@@ -289,8 +317,8 @@ function Hand({
       />
     );
   };
-  const raisedIdx = FINGERS.map((_, i) => i).filter((i) => i < up);
-  const foldedIdx = FINGERS.map((_, i) => i).filter((i) => i >= up);
+  const raisedIdx = FINGERS.map((_, i) => i).filter((i) => (RAISE_ORDER[i] ?? 9) < up);
+  const foldedIdx = FINGERS.map((_, i) => i).filter((i) => (RAISE_ORDER[i] ?? 9) >= up);
   return (
     <svg
       className="ni-hand-art"
@@ -351,9 +379,10 @@ export function TenFrameView({
         index: f * 10 + k,
         kind: 'object' as const,
         sprite: 'counter',
-        x: f * 5.5 + (k % 5),
-        y: Math.floor(k / 5),
-        scale: 1,
+        // A margin inside each cell, so counters never touch the frame lines.
+        x: f * 5.5 + (k % 5) + 0.09,
+        y: Math.floor(k / 5) + 0.09,
+        scale: 0.82,
         group: c === 'b' ? 1 : 0,
         tone: c,
       });
