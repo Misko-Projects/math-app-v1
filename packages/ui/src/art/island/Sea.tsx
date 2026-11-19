@@ -15,6 +15,8 @@ export interface SeaProps {
   /** Translation of the far and near wave layers (parallax, set by the scene). */
   far?: SeaLayerOffset;
   near?: SeaLayerOffset;
+  /** Calm water the wave glyphs and glints keep out of (the island's shallows), at an offset. */
+  calm?: { path: string; x: number; y: number };
 }
 
 interface Glyph {
@@ -50,9 +52,16 @@ const WAVE = 'M-16 0q8 -7 16 0q8 -7 16 0';
  * drift slowly and move at different rates when the camera pans (parallax). A few glints sparkle.
  * Idle loops and parallax stop under reduced motion (the scene passes zero offsets then).
  */
-export function Sea({ width, top, height, far, near }: SeaProps) {
+export function Sea({ width, top, height, far, near, calm }: SeaProps) {
   const id = useId();
   const wash = `sea-wash-${id}`;
+  const calmMask = `sea-calm-${id}`;
+  const region = {
+    x: -SCENE_BLEED,
+    y: top - SCENE_BLEED,
+    width: width + 2 * SCENE_BLEED,
+    height: height + 2 * SCENE_BLEED,
+  };
   const farGlyphs = glyphs(11, width, top, height * 0.55, 1);
   const nearGlyphs = glyphs(29, width, top + height * 0.4, height * 0.6, 0.8);
   const glints = glyphs(53, width, top + 10, height, 0.35).slice(0, 9);
@@ -71,6 +80,12 @@ export function Sea({ width, top, height, far, near }: SeaProps) {
           <stop offset="0.55" stopColor={paint('sea')} />
           <stop offset="1" stopColor={paint('sea')} />
         </linearGradient>
+        {calm && (
+          <mask id={calmMask} maskUnits="userSpaceOnUse" {...region}>
+            <rect {...region} fill="white" />
+            <path d={calm.path} transform={`translate(${calm.x} ${calm.y})`} fill="black" />
+          </mask>
+        )}
       </defs>
       {/* Bleeds far past the scene; the wash is in scene units, so it looks the same inside it. */}
       <rect
@@ -86,47 +101,49 @@ export function Sea({ width, top, height, far, near }: SeaProps) {
         strokeWidth={3}
         opacity={0.6}
       />
-      <g data-layer="sea-far" transform={`translate(${far?.x ?? 0} ${far?.y ?? 0})`}>
-        <g className="motion-loop art-drift">
-          {farGlyphs.map((g) => (
+      <g data-part="waves" mask={calm ? `url(#${calmMask})` : undefined}>
+        <g data-layer="sea-far" transform={`translate(${far?.x ?? 0} ${far?.y ?? 0})`}>
+          <g className="motion-loop art-drift">
+            {farGlyphs.map((g) => (
+              <path
+                key={`f${g.x.toFixed(1)}-${g.y.toFixed(1)}`}
+                d={WAVE}
+                transform={`translate(${g.x.toFixed(1)} ${g.y.toFixed(1)}) scale(${g.s.toFixed(2)})`}
+                fill="none"
+                stroke={paint('shallows')}
+                strokeWidth={3}
+                strokeLinecap="round"
+                opacity={0.55}
+              />
+            ))}
+          </g>
+        </g>
+        <g data-layer="sea-near" transform={`translate(${near?.x ?? 0} ${near?.y ?? 0})`}>
+          <g className="motion-loop art-drift-back">
+            {nearGlyphs.map((g) => (
+              <path
+                key={`n${g.x.toFixed(1)}-${g.y.toFixed(1)}`}
+                d={WAVE}
+                transform={`translate(${g.x.toFixed(1)} ${g.y.toFixed(1)}) scale(${g.s.toFixed(2)})`}
+                fill="none"
+                stroke={paint('foam')}
+                strokeWidth={3.5}
+                strokeLinecap="round"
+                opacity={0.7}
+              />
+            ))}
+          </g>
+          {glints.map((g, i) => (
             <path
-              key={`f${g.x.toFixed(1)}-${g.y.toFixed(1)}`}
-              d={WAVE}
-              transform={`translate(${g.x.toFixed(1)} ${g.y.toFixed(1)}) scale(${g.s.toFixed(2)})`}
-              fill="none"
-              stroke={paint('shallows')}
-              strokeWidth={3}
-              strokeLinecap="round"
-              opacity={0.55}
+              key={`g${g.x.toFixed(1)}-${g.y.toFixed(1)}`}
+              className="motion-loop art-loop art-glint"
+              style={{ animationDelay: `${(i * 0.61) % 5.5}s` }}
+              d={`M${g.x} ${g.y - 7}l2.5 4.5l4.5 2.5l-4.5 2.5l-2.5 4.5l-2.5 -4.5l-4.5 -2.5l4.5 -2.5z`}
+              fill={paint('cloud')}
+              opacity={0}
             />
           ))}
         </g>
-      </g>
-      <g data-layer="sea-near" transform={`translate(${near?.x ?? 0} ${near?.y ?? 0})`}>
-        <g className="motion-loop art-drift-back">
-          {nearGlyphs.map((g) => (
-            <path
-              key={`n${g.x.toFixed(1)}-${g.y.toFixed(1)}`}
-              d={WAVE}
-              transform={`translate(${g.x.toFixed(1)} ${g.y.toFixed(1)}) scale(${g.s.toFixed(2)})`}
-              fill="none"
-              stroke={paint('foam')}
-              strokeWidth={3.5}
-              strokeLinecap="round"
-              opacity={0.7}
-            />
-          ))}
-        </g>
-        {glints.map((g, i) => (
-          <path
-            key={`g${g.x.toFixed(1)}-${g.y.toFixed(1)}`}
-            className="motion-loop art-loop art-glint"
-            style={{ animationDelay: `${(i * 0.61) % 5.5}s` }}
-            d={`M${g.x} ${g.y - 7}l2.5 4.5l4.5 2.5l-4.5 2.5l-2.5 4.5l-2.5 -4.5l-4.5 -2.5l4.5 -2.5z`}
-            fill={paint('cloud')}
-            opacity={0}
-          />
-        ))}
       </g>
     </g>
   );

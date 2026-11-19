@@ -256,6 +256,40 @@ async function expectHorizonClip(svg: SVGSVGElement) {
   await expect(svg.querySelector('[data-layer="sky"]')?.closest('[transform]')).toBeNull();
 }
 
+/**
+ * No wave glyph draws over the island's edge: the waves are masked out of the shallows halo, which
+ * moves with the island (the mask is the halo's own outline at the island's offset).
+ */
+async function expectWavesClearOfIsland(svg: SVGSVGElement) {
+  const waves = svg.querySelector('[data-part="waves"]') as SVGGElement;
+  const id = waves.getAttribute('mask')?.match(/^url\(#(.+)\)$/)?.[1];
+  await expect(id, 'waves masked').toBeTruthy();
+  const calm = [...svg.querySelectorAll('mask')].find((m) => m.id === id)?.querySelector('path');
+  const halo = svg.querySelector('[data-part="halo"]') as SVGPathElement;
+  await expect(calm?.getAttribute('d')).toBe(halo.getAttribute('d'));
+  const island = svg.querySelector('[data-layer="island"]') as SVGGElement;
+  await expect(calm?.getAttribute('transform')).toBe(island.getAttribute('transform'));
+  for (const layer of ['sea-far', 'sea-near']) {
+    await expect(svg.querySelector(`[data-layer="${layer}"]`)?.closest('[mask]')).toBe(waves);
+  }
+}
+
+/** Every callout (a counted or next stone beside the road) fits inside the map that shows it. */
+async function expectCalloutsInFrame(root: HTMLElement) {
+  const scenes = root.querySelectorAll<SVGSVGElement>('svg[data-scene="island"]');
+  for (const svg of scenes) {
+    const frame = svg.getBoundingClientRect();
+    for (const c of svg.querySelectorAll<SVGGElement>('[data-callout]')) {
+      const box = c.getBoundingClientRect();
+      const where = `callout ${c.dataset.callout}`;
+      await expect(box.top, where).toBeGreaterThanOrEqual(frame.top);
+      await expect(box.bottom, where).toBeLessThanOrEqual(frame.bottom);
+      await expect(box.left, where).toBeGreaterThanOrEqual(frame.left);
+      await expect(box.right, where).toBeLessThanOrEqual(frame.right);
+    }
+  }
+}
+
 /** 05 §11: no ground detail (tuft, flower, rock, ripple) touches a road stone or signpost. */
 async function expectDetailOffRoad(root: HTMLElement) {
   for (const svg of root.querySelectorAll<SVGSVGElement>('svg[data-scene="island"]')) {
@@ -379,6 +413,7 @@ export const Sandbar: Story = {
     );
     await expectNextTappable(canvasElement, 1);
     await expectStoneNumerals(canvasElement, window.innerWidth >= 1280 ? 28 : 12);
+    await expectWavesClearOfIsland(svg);
     await expectCoversViewport(svg);
     await expectNoSidewaysScroll();
   },
@@ -771,7 +806,7 @@ export const StoneNumerals: Story = {
 
 const CVD_CROP = landCrop(SAMPLE_ISLAND, 2, 1.7, 40);
 /** A crowded stretch of the long road: laid, counted (47) and next (51) beads, with signposts. */
-const CVD_BEADS_CROP = { x: 690, y: 500, w: 610, h: 300 };
+const CVD_BEADS_CROP = { x: 690, y: 500, w: 610, h: 350 };
 
 /**
  * 06 §7 colour-vision check: the stone states, bead and signpost states and plot markers under
@@ -834,6 +869,7 @@ export const ColourVision: Story = {
     }
     await expect(canvasElement.querySelectorAll('[data-sign="50"]').length, 'sign 50').toBe(5);
     await expect(canvasElement.querySelectorAll('[data-bead][data-stone="50"]').length).toBe(5);
+    await expectCalloutsInFrame(canvasElement);
     // Cards wrap centred: the last row's cards sit symmetrically about the page centre.
     const grid = canvasElement.querySelector('[data-cvd-grid]') as HTMLElement;
     const cards = [...grid.querySelectorAll(':scope > figure')].map((c) =>

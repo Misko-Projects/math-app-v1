@@ -26,6 +26,14 @@ export interface IslandLandProps {
 const ROUND = 44;
 
 /**
+ * The shallows halo around the land, in island units: the light water the land sits in. The sea
+ * keeps its wave glyphs out of it, so no wave reads as drawn on the island's edge.
+ */
+export function shallowsPath(plots: readonly Plot[]): string {
+  return organicPath(landLoops(plots, 46), { radius: 80, wobble: 16, step: 60, seed: 3 });
+}
+
+/**
  * The island's land (05 §3, §11): a shallows halo and a breathing foam line in the sea, the land's
  * side face (the tilt), the sandy top with its outline, the grass inland, and per-plot detail
  * (grass tufts, meadow flowers, beach ripples and shore rocks) kept off the road. The outline is
@@ -41,7 +49,7 @@ export function IslandLand({ plots, terrain, clearPlots = [], blocked }: IslandL
     });
     // Each layer is the same traced outline, pushed out (or in) and given its own soft wobble.
     return {
-      halo: organicPath(landLoops(plots, 46), { radius: 80, wobble: 16, step: 60, seed: 3 }),
+      halo: shallowsPath(plots),
       foam: organicPath(landLoops(plots, 21), { radius: 64, wobble: 10, step: 56, seed: 5 }),
       land: organicPath(landLoops(plots, 10), { radius: ROUND, wobble: 8, step: 52, seed: 7 }),
       grass:

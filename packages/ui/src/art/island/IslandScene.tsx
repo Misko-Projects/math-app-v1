@@ -24,7 +24,7 @@ import {
   type StonePlacement,
   terrainOf,
 } from './geometry';
-import { IslandLand } from './IslandLand';
+import { IslandLand, shallowsPath } from './IslandLand';
 import { NextStoneHit, NumberedRoad } from './NumberedRoad';
 import { PlotMarker, type PlotMarkerProps } from './PlotMarker';
 import { nextHitRadius, planRoad, roadFootprint } from './roadPlan';
@@ -127,6 +127,7 @@ export function IslandScene({
   const f = (k: keyof typeof PARALLAX) => (reduced ? 1 : PARALLAX[k]);
   const shift = (k: keyof typeof PARALLAX) => ({ x: -cam.x * f(k), y: -cam.y * f(k) });
   const isl = shift('island');
+  const shallows = useMemo(() => shallowsPath(plots), [plots]);
   const view = crop ?? { x: 0, y: 0, w: SCENE_W, h: SCENE_H };
   // CSS px per scene unit as drawn, so the next stone's tap target stays ≥ 80 px however small
   // the map is (portrait, small screens, a wider crop; 06 §1, §4). Measured after every render
@@ -184,6 +185,7 @@ export function IslandScene({
           height={SCENE_H - HORIZON_Y}
           far={shift('seaFar')}
           near={shift('seaNear')}
+          calm={{ path: shallows, ...isl }}
         />
       </g>
       <g data-layer="island" transform={`translate(${isl.x} ${isl.y})`}>
