@@ -828,7 +828,7 @@ export function EqualShareWidget({
     const zoneStyle: CSSProperties = {
       width: zone.w,
       height: zone.h,
-      borderRadius: kind === 'plate' ? Math.round(Math.min(zone.w, zone.h) * 0.35) : undefined,
+      borderRadius: kind === 'plate' ? Math.round(Math.min(zone.w, zone.h) * 0.2) : undefined,
     };
     const inner = (
       <div

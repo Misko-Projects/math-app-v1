@@ -92,9 +92,12 @@ export interface Layout {
   fits: boolean;
 }
 
-/** The padding round a zone's items (a plate's rim is wider than a pebbling's mat). */
+/**
+ * The padding round a zone's items: the plate's 6 px rim, or the mat's border, plus the part of
+ * a drawing that reaches out of its cell (kit ITEM_DRAW_SCALE).
+ */
 export const zonePad = (kind: LayoutInput['kind'], s: number) =>
-  kind === 'plate' ? Math.max(10, Math.round(s * 0.36)) : Math.max(10, Math.round(s * 0.28));
+  kind === 'plate' ? Math.max(10, Math.round(6 + s * 0.16)) : Math.max(10, Math.round(s * 0.28));
 
 /** A pebbling's height above its mat. */
 export const figureSize = (zoneW: number) => Math.max(64, Math.min(150, Math.round(zoneW * 0.42)));
