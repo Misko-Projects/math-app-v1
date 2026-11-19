@@ -16,6 +16,7 @@ import {
 } from '../primitives/icons';
 import { NumberDisplay } from '../primitives/NumberDisplay';
 import { HintButton, HomeButton, ReplayButton } from '../primitives/presets';
+import { CVD_FILTERS } from './cvd';
 import {
   CATEGORY_MARKS,
   CONTRAST_PAIRS,
@@ -211,30 +212,6 @@ export const SizesMotionLayers: Story = {
     </div>
   ),
 };
-
-const CVD_FILTERS: { id: string; name: string; matrix: string | null }[] = [
-  { id: 'none', name: 'Typical vision', matrix: null },
-  {
-    id: 'protanopia',
-    name: 'Protanopia',
-    matrix: '0.567 0.433 0 0 0  0.558 0.442 0 0 0  0 0.242 0.758 0 0  0 0 0 1 0',
-  },
-  {
-    id: 'deuteranopia',
-    name: 'Deuteranopia',
-    matrix: '0.625 0.375 0 0 0  0.7 0.3 0 0 0  0 0.3 0.7 0 0  0 0 0 1 0',
-  },
-  {
-    id: 'tritanopia',
-    name: 'Tritanopia',
-    matrix: '0.95 0.05 0 0 0  0 0.433 0.567 0 0  0 0.475 0.525 0 0  0 0 0 1 0',
-  },
-  {
-    id: 'achromatopsia',
-    name: 'Achromatopsia',
-    matrix: '0.299 0.587 0.114 0 0  0.299 0.587 0.114 0 0  0.299 0.587 0.114 0 0  0 0 0 1 0',
-  },
-];
 
 function Specimen() {
   return (
