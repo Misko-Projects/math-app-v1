@@ -404,29 +404,34 @@ export function ContainerArt({
 
 /**
  * A tied bundle of ten (groupsOf 10): a rope band across a full ten-frame, in the gap between its
- * two rows (no thicker than the gap), with the bow on the frame's right edge, over its padding and
- * border, so it never covers a slot. `vertical`: the same band down the gap between two columns,
- * the bow under the bottom edge (the tied ten beside a frame of ones, one ten-frame at a time).
+ * two rows (no thicker than the gap), tied off in a bow just OUTSIDE the frame's right edge: the
+ * band crosses the frame's padding and border (`edge`, the frame's padding + border on that side)
+ * and the knot and its loops sit fully beyond it, so the bow never covers a slot or the border.
+ * `vertical`: the same band down the gap between two columns, the bow under the bottom edge.
  * `bow={false}`: no bow; the band ends inside the frame, 2 px in from both ends (inside the
- * padding, clear of the border), so it reads the same at the top and the bottom.
+ * padding, clear of the border), so it reads the same at the top and the bottom (the tied ten
+ * beside a frame of ones, one ten-frame at a time).
  */
 export function BundleBand({
   width,
   height,
   vertical = false,
   bow = true,
+  edge = 20,
 }: {
   width: number;
   height: number;
   vertical?: boolean;
   bow?: boolean;
+  edge?: number;
 }) {
   const along = vertical ? height : width;
   const across = (vertical ? width : height) / 2;
-  const knot = along + 8;
+  /** The knot's centre: its loops (7.5 px along it with their outline) start 2.5 px past the edge. */
+  const knot = along + edge + 10;
   /** Where the band starts and how long it is, along it: to the bow, or symmetric in the frame. */
-  const start = bow ? -8 : -2;
-  const length = bow ? knot + 8 : along + 4;
+  const start = bow ? -Math.min(8, edge - 2) : -2;
+  const length = bow ? knot - start : along + 4;
   /** (a, c): `a` along the band, `c` across it. */
   const at = (a: number, c: number) => (vertical ? { x: c, y: a } : { x: a, y: c });
   const band = at(start, across - 6);

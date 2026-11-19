@@ -121,8 +121,14 @@ const TENS_TAG = 2 + 34 + 2;
 const TENS_TAG_GAP = 2;
 /** The tied ten with its tag. */
 const BUNDLE_H = TENS_H + TENS_TAG_GAP + TENS_TAG;
-/** Between the shown frame and the small frame beside it. */
-const TENS_GAP = 12;
+/**
+ * Between the shown frame and the small frame beside it: wide enough that an invite ring on either
+ * stays ≥ 12 px clear of the other (the frames' count-aloud ring reaches 6 + 5 px out, the small
+ * frame's 2 + 5 px; neither pulses).
+ */
+const TENS_GAP = 24;
+/** The frame's slide when the ten is tied or untied (make-set.css `.ni-mset__frames`). */
+const SLIDE_MS = 320;
 
 type Layout = 'row' | 'stack' | 'column' | 'side';
 type Chrome = 'normal' | 'tight';
@@ -480,22 +486,40 @@ export function MakeSetWidget({
             }
             break;
           case 'count-aloud': {
-            const n = view(stateRef.current).count;
-            // One ten-frame at a time with the ten tied beside the ones: count it as one ten
-            // ("ten", on the bundle), then on through the ones in view (the K teen-number idea).
+            const now = view(stateRef.current);
+            const n = now.count;
+            // One ten-frame at a time with the first ten beside the ones. Pip counts it as one
+            // ten ("ten", on it; the K teen-number idea) only where it really is a ten: tied in
+            // the model (groupsOf 10, bundled), or an item with no bundling, where the tie is just
+            // how one frame shows a full ten. A ten still to be bundled (CNT.19 / PV.09: "count
+            // out ten ones") is counted one by one: its frame is shown for 1–10, then the ones
+            // beside it, and the page comes back afterwards.
             let from = 0;
+            let restore = false;
             if (!hands && oneFrame && beside === 'bundle' && n >= 10) {
-              setCounting(9);
-              sayNumber(10);
-              await pause(COUNT_MS);
-              if (!alive.current) return;
-              from = 10;
+              if (!config.groupsOf || (now.bundles ?? 0) >= 1) {
+                setCounting(9);
+                sayNumber(10);
+                await pause(COUNT_MS);
+                if (!alive.current) return;
+                from = 10;
+              } else {
+                setTenPage(0);
+                restore = true;
+                await pause(SLIDE_MS);
+                if (!alive.current) return;
+              }
             }
             for (let i = from; i < n; i++) {
               setCounting(i);
               sayNumber(i + 1);
               await pause(COUNT_MS);
               if (!alive.current) return;
+            }
+            if (restore) {
+              setCounting(null);
+              setTenPage(1);
+              await pause(SLIDE_MS);
             }
             break;
           }
@@ -939,7 +963,16 @@ export function MakeSetWidget({
           <span className="ni-mset__away-icon" aria-hidden="true">
             <ArrowIcon />
           </span>
-        ) : null}
+        ) : (
+          // The supply crate's tag: an arrow towards the container ("from here, into there").
+          <span className="ni-mset__supply-icon" aria-hidden="true">
+            <ArrowIcon
+              className={
+                layout === 'stack' || layout === 'column' ? 'ni-mset__arrow-down' : undefined
+              }
+            />
+          </span>
+        )}
         <div className="ni-mset__heapbox" style={heapBox(Math.min(most, total))}>
           <fieldset
             className="ni-mset__heap"
@@ -975,12 +1008,18 @@ export function MakeSetWidget({
   const framesLeft = box.pad.left + (bundleFirst ? TENS_W + TENS_GAP : 0);
   /**
    * count-aloud with one ten-frame at a time: the objects not in the shown frame are counted on the
-   * thing beside it. The tied ten is counted as one ten ("ten", step 9), then the ones in view; with
-   * the first ten shown, the ones after it are counted on their small frame (steps 10 and up).
+   * thing beside it. A tied ten is counted as one ten ("ten", step 9: the whole small frame is
+   * highlighted), then the ones in view; with the first ten shown, each one after it is counted on
+   * its own cell of the small frame (steps 10 and up), the running number under that frame.
    */
-  const tensCounting =
-    counting !== null &&
-    ((beside === 'bundle' && counting === 9) || (beside === 'ones' && counting >= 10));
+  const tensCounting = counting !== null && beside === 'bundle' && counting === 9;
+  const onesCounting = beside === 'ones' && counting !== null && counting >= 10 ? counting : null;
+  /**
+   * The ten beside the ones is drawn tied (the rope band) only when it is one: bundled in the model
+   * (groupsOf 10), or in an item with no bundling. A ten the child still has to bundle is a plain
+   * full frame.
+   */
+  const tenTied = bundleFirst && (!config.groupsOf || bundles >= 1);
   const tensBeside =
     beside === null ? null : (
       <button
@@ -1004,13 +1043,17 @@ export function MakeSetWidget({
         <span className="ni-mset__tens-frame">
           <span className="ni-mset__tens-grid">
             {Array.from({ length: 10 }, (_, k) => (
-              // biome-ignore lint/suspicious/noArrayIndexKey: the small frame's cells are positional
-              <span key={k} className="ni-mset__tens-cell">
+              <span
+                // biome-ignore lint/suspicious/noArrayIndexKey: the small frame's cells are positional
+                key={k}
+                className="ni-mset__tens-cell"
+                data-counting={onesCounting === 10 + k ? 'true' : undefined}
+              >
                 {bundleFirst || k < onesShown ? <ObjectSprite sprite={sprite} /> : null}
               </span>
             ))}
           </span>
-          {bundleFirst ? (
+          {tenTied ? (
             <BundleBand
               width={TENS_W - 2 * (6 + 4)}
               height={TENS_H - 2 * (6 + 4)}
@@ -1024,9 +1067,9 @@ export function MakeSetWidget({
             10
           </span>
         ) : null}
-        {beside === 'ones' && counting !== null && counting >= 10 ? (
-          <span className="ni-mset__mark" aria-hidden="true">
-            {counting + 1}
+        {onesCounting !== null ? (
+          <span key={onesCounting} className="ni-mset__mark ni-mset__tens-count" aria-hidden="true">
+            {onesCounting + 1}
           </span>
         ) : null}
       </button>
@@ -1074,7 +1117,14 @@ export function MakeSetWidget({
                 </div>
               );
             })}
-            {f < bundles ? <BundleBand width={frameW} height={frameH} /> : null}
+            {f < bundles ? (
+              // The bow just outside the frame's right edge (its padding and border, make-set.css).
+              <BundleBand
+                width={frameW}
+                height={frameH}
+                edge={chrome === 'tight' ? 6 + 2 : 14 + 6}
+              />
+            ) : null}
           </div>
         ))}
       </div>
@@ -1177,6 +1227,7 @@ export function MakeSetWidget({
       data-mode={config.mode}
       data-container={config.container}
       data-disabled={disabled ? 'true' : undefined}
+      data-idle={interactive ? undefined : 'true'}
       data-layout={hands ? undefined : layout}
       data-chrome={chrome === 'tight' ? 'tight' : undefined}
       data-one-frame={oneFrame ? 'true' : undefined}

@@ -69,6 +69,36 @@
     inset 0 -10px 0 var(--color-sand-shadow),
     0 8px 0 rgb(217 187 135 / 0.6);
 }
+/*
+ * The supply: an open wooden crate (wood rim inside the 3 px border, a light floor, a wood ledge),
+ * so the things to put in never read as part of the set being made. Its tag on the top edge, an
+ * arrow towards the container, says "from here, into there" without words. While the child cannot
+ * act (Pip showing, input off), its objects are dimmed: the container is what to look at.
+ */
+.ni-mset__pile[data-kind="supply"] {
+  border-color: var(--color-wood-deep);
+  border-radius: 20px;
+  background: var(--color-horizon);
+  box-shadow:
+    inset 0 0 0 7px var(--color-wood),
+    0 6px 0 var(--color-wood-deep);
+}
+/* The tag: on the rim, inside the crate's 3 px border and above its 26 px top padding's objects. */
+.ni-mset__supply-icon {
+  position: absolute;
+  top: -1px;
+  left: 50%;
+  z-index: 2;
+  translate: -50% 0;
+  box-sizing: border-box;
+  width: 26px;
+  height: 26px;
+  padding: 3px;
+  border: 2px solid var(--color-wood-deep);
+  border-radius: 50%;
+  background: var(--color-paper);
+  pointer-events: none;
+}
 .ni-mset__pile[data-kind="away"] {
   border-style: dashed;
   border-color: var(--color-ink-soft);
@@ -132,6 +162,10 @@
 }
 .ni-mset__item[data-flying="true"] {
   visibility: hidden;
+}
+/* The supply crate's objects while the child cannot act (see the crate above). */
+.ni-mset[data-idle="true"] .ni-mset__pile[data-kind="supply"] .ni-mset__item {
+  opacity: 0.45;
 }
 .ni-mset__item .ni-sprite {
   pointer-events: none;
@@ -306,11 +340,16 @@
 .ni-mset__tens[data-tens="bundle"] {
   padding-bottom: 10px;
 }
-/* Invited (a remove whose object is in the frame not shown): the ring stays within TENS_GAP. */
+/*
+ * Invited (a remove whose object is in the frame not shown, or count-aloud on the tied ten): the
+ * ring stays ≥ 12 px clear of the shown frame across TENS_GAP. No pulse (it would reach into the
+ * gap); Pip's hand carries the motion.
+ */
 .ni-mset__tens.ni-invite {
   position: absolute;
   outline-offset: 2px;
   border-radius: 18px;
+  animation: none;
 }
 .ni-mset__tens:disabled {
   cursor: default;
@@ -350,6 +389,24 @@
   display: block;
   border-radius: 50%;
   background: rgb(38 70 83 / 0.08);
+}
+/*
+ * count-aloud on the small frame of ones: the ONE cell being counted gets a teal ring inside its
+ * own 32 px (its object shrinks inside it), and the running number sits under the small frame,
+ * outside every cell (`.ni-mset__tens-count`), over no object.
+ */
+.ni-mset__tens-cell[data-counting="true"] {
+  background: var(--color-sunshine-light);
+  box-shadow: inset 0 0 0 3px var(--color-sea-deep);
+}
+.ni-mset__tens-cell[data-counting="true"] > .ni-sprite {
+  transform: scale(0.72);
+}
+.ni-mset__tens > .ni-mset__tens-count {
+  top: calc(100% + 4px);
+  right: auto;
+  left: 50%;
+  translate: -50% 0;
 }
 /* The tied ten's tag: the numeral 10 (K pre-readers), under its frame (the band ends inside it). */
 .ni-mset__tens-tag {
@@ -502,4 +559,17 @@
 .ni-mset[data-tray="compact"] > .ni-mset__pile {
   padding: 6px;
   border-radius: 32px 24px 36px 28px;
+}
+/*
+ * The compact crate: a thinner rim, so it stays outside its objects' 6 px padding, and no tag (no
+ * room above the objects; the crate look carries it).
+ */
+.ni-mset[data-tray="compact"] > .ni-mset__pile[data-kind="supply"] {
+  border-radius: 16px;
+  box-shadow:
+    inset 0 0 0 4px var(--color-wood),
+    0 5px 0 var(--color-wood-deep);
+}
+.ni-mset[data-tray="compact"] .ni-mset__supply-icon {
+  display: none;
 }
