@@ -6,18 +6,23 @@ import { areaTiles } from './area-tiles';
 import { arrayBuild } from './array-build';
 import { baseTenBuild } from './base-ten-build';
 import { baseTenTrade } from './base-ten-trade';
+import { compareLength } from './compare-length';
 import { dotFlash } from './dot-flash';
 import { equalGroups } from './equal-groups';
 import { equalShare } from './equal-share';
 import { expandedForm } from './expanded-form';
 import { hundredChart } from './hundred-chart';
 import { makeSet } from './make-set';
+import { measureLength } from './measure-length';
 import { numberBond } from './number-bond';
 import { numberLineJump } from './number-line-jump';
 import { numberPad } from './number-pad';
 import { numeralPick } from './numeral-pick';
 import { order } from './order';
+import { perimeterWalk } from './perimeter-walk';
 import { rekenrek } from './rekenrek';
+import { shapeCompose } from './shape-compose';
+import { shapeSort } from './shape-sort';
 import { tapCount } from './tap-count';
 import { tenframeFill } from './tenframe-fill';
 import type { FormatModel, FormatState } from './types';
@@ -46,6 +51,12 @@ const MODELS: Partial<Record<ItemFormat, AnyModel>> = {
   'equal-groups': equalGroups,
   'equal-share': equalShare,
   'area-tiles': areaTiles,
+  // U05 (#14) measurement and geometry
+  'measure-length': measureLength,
+  'compare-length': compareLength,
+  'perimeter-walk': perimeterWalk,
+  'shape-compose': shapeCompose,
+  'shape-sort': shapeSort,
 };
 
 export function formatModel<F extends ItemFormat>(

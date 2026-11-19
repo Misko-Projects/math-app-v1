@@ -216,6 +216,37 @@ Response shapes and state-checker targets of the place-value and operations form
 - `area-tiles` features scale by `(area − 1) / 10`; `array-build` and `equal-groups` `product` by `(product − 1) / 10`; `equal-share` `items` by `(items − recipients) / 10`, so the easiest item scores 0 (03 §5.4).
 - The property test's near-miss mutations (03 §9.4 step 5) also add or remove one piece, row, column, item, leftover or tile in these shapes; A decompose split line may also be taken away. `array.dims` exempts moving the split line, and `tiles.cover` exempts taking away a line when the rest is still a valid decomposition.
 
+## Conventions the U05 formats fix (#14)
+
+### Measurement and geometry
+
+The models follow the K01 shapes above (geo and mea generators), so every K01 template of these formats replays its solution through them.
+
+| Format | Response | Checker target |
+|---|---|---|
+| `shape-sort` `sort` | `{ bins: Record<binId, cardId[]> }`: every bin listed (empty ones too); a card in no bin is in the tray | `sort.byRule` `{ cards: { id, props }[], bins: { id, rule }[] }` |
+| `shape-sort` `find-all` | `{ ids }`, in the order picked | `select.exactSet` `{ ids }` |
+| `shape-sort` `odd-one-out` | `choice`: the card id | — |
+| `compare-length` `longer`, `shorter`, `indirect` | `choice`: the object id `obj-<i>` | — |
+| `compare-length` `order` | `numbers`: the lengths in slot order (slot 0 first) | — |
+| `compare-length` `how-much-longer` | `number` | — |
+| `measure-length` `iterate` | `{ units, value }`: every laid unit's start (unit lengths from the object's start, smallest first) and the typed count | `units.iterate` `{ length, gapTolerance }` |
+| `measure-length` `two-units` | `numbers` `[in unit, in altUnit]` | — |
+| `measure-length` `read` | `pad`: `number`; `tap-tick`: `placement`, the tapped ruler mark (the object's end mark, `startOffset` + length); `pick`: `choice` `opt-<n>` | — |
+| `measure-length` `estimate` | `choice` `opt-<n>` | — |
+| `perimeter-walk` `total`, `missing-side` | `number` | — |
+| `perimeter-walk` `design` | `{ w, h }`: the rectangle built, in grid units | `rect.perimeterArea` `{ perimeter?, area?, differentFrom?: { w, h } }`: any whole rectangle meeting them, not the same rectangle as `differentFrom` (turned counts as the same) |
+| `shape-compose` `fill-outline` | `{ pieces: { kind, at, rot }[] }` | `compose.fill` `{ outline, pieces }` |
+| `shape-compose` `place-relative` | `{ at, layer }`: the item's centre in the 100 × 60 scene (y down), `front` or `back` | `compose.relative` `{ word, box, scene }` |
+| `shape-compose` `draw-on-grid`, `build-sticks` | `{ points }`: the corners in drawing order when the lines make one closed loop, otherwise the walk along every line and back (which repeats a dot, so it never passes) | `grid.polygon` `{ require, grid }` |
+
+- **Ops beyond the 03 §5.5 list** (child input, not demo ops): `compare-length` `place {id, slot}` (`slot: -1` takes it out); `drag-card` and `drag-piece` take `remove: true`; `lay-unit` takes `at` (the start, default `index`) and `remove: true`. The answer controls use the generic `answer` op: `perimeter-walk` design enters `{ values: [w, h] }`, `measure-length` two-units `{ values }`, picks `{ id }`.
+- **shape-sort** `drag-card {id, bin}` sorts (`bin: 'tray'` puts it back); in find-all `drag-card {id}` picks the card and in odd-one-out it chooses it. `sortCardProps` gives a card's flat rule props (`shape` plus ShapeProps; an object's props; a number's `value` and `even`).
+- **compare-length** objects start `offset` units right of the start line (all 0 when `aligned`); `align {id}` slides one to the line (no id: all), never in `indirect`. `misaligned` is not counted for `indirect` (the objects cannot move; `indirect` is its own feature).
+- **measure-length** units are drawn to scale with `UNIT_SIZE` (cube 1, shell 2, stick 4, the generator's `NONSTANDARD_UNIT_SIZE`); a laid unit's id is `<unit>-<index>`. `slide-ruler {to}` puts ruler mark `to` under the object's start; `align-zero`, `read-end` and `count-units {unit?}` only mark.
+- **perimeter-walk** sides go clockwise from the top left: a `rect` is `[top, right, bottom, left]`, an `L` is `[W, h1, w2, h2, W − w2, h1 + h2]`, and a `poly` is drawn convex with its corners on one circle (`polygonPoints`; every side exactly its length). `resolvedSides` works out the missing side.
+- **shape-compose** fill-outline copies are `p-<kind>:<n>`; `rotate {id}` turns a tray piece by `rotationStep` (a placed copy about its centre). Place-relative `drag-piece` takes the item's sprite id (`relation.item`). The `rotations` feature comes from the generator's tiling (the model reports 0); `pieces` and `outline.linesHidden` count only in fill-outline, `require.count` only when drawing.
+
 ## Tests
 
 - `pnpm exec vitest run --project engine`: unit tests under `src/` and the fixture property test under `test/`. Seeds come from `CONTENT_PROPERTY_N`: 50 locally, 100 on PR CI, 500 nightly.
