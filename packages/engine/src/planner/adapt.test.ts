@@ -1,6 +1,7 @@
 // 04 §6.4 `adaptNext`: every rule and their priority order, on the synthetic graph
 // (A = CNT.01 ── B = CNT.02 ── C = CNT.03; templates t1 tap-count concrete, t2 tenframe-fill
-// pictorial, t3 number-pad abstract, t4 number-bond abstract).
+// pictorial, t3 number-pad abstract, t4 number-bond abstract). Every template here lists three
+// hint keys, so the whole hint ladder (levels 2–4) exists unless a test says otherwise.
 
 import {
   type AdaptDecision,
@@ -23,7 +24,20 @@ import { PARAMS } from '../params';
 import { adaptNext, confidenceSeed, probeSeed, stepDownTier } from './adapt';
 
 const CHILD_ID = '019a0000-0000-7000-8000-000000000001';
-const baseGraph = syntheticGraph();
+const HINTS = ['h.test.nudge', 'h.test.picture', 'h.test.step'];
+
+/** The synthetic graph, with every template listing `hints` (the full ladder by default). */
+function withHints(g: SkillGraph, hints: string[] = HINTS): SkillGraph {
+  const templates = Object.fromEntries(
+    Object.entries(g.templates).map(([id, t]) => [
+      id,
+      { ...t, narration: { ...t.narration, hints: [...hints] } },
+    ]),
+  );
+  return { ...g, templates };
+}
+
+const baseGraph = withHints(syntheticGraph());
 const REQ = 'req-1';
 
 const child: ChildContext = {
@@ -224,6 +238,32 @@ describe('rule 2: the unresolved item (hint ladder, worked solution)', () => {
   ])('first wrong with %i hints used → retry at hint level %i', (hintsUsed, level) => {
     const d = run(scenario({ tasks: five, results: [W], last: { hintsUsed } }));
     expect(d).toEqual({ action: 'retry', hintLevel: level });
+  });
+
+  it('retry climbs only the rungs the template generates (03 §5.8)', () => {
+    // One hint key: the ladder is replay, nudge (2), show me; there is no rung 3 or 4.
+    const one = withHints(syntheticGraph(), ['h.test.nudge']);
+    for (const hintsUsed of [0, 1, 2]) {
+      expect(run(scenario({ graph: one, tasks: five, results: [W], last: { hintsUsed } }))).toEqual(
+        { action: 'retry', hintLevel: 2 },
+      );
+    }
+    // Two keys: levels 2 and 3, then 3 again.
+    const two = withHints(syntheticGraph(), ['h.test.nudge', 'h.test.picture']);
+    const levels = [0, 1, 2].map((hintsUsed) =>
+      run(scenario({ graph: two, tasks: five, results: [W], last: { hintsUsed } })),
+    );
+    expect(levels).toEqual([
+      { action: 'retry', hintLevel: 2 },
+      { action: 'retry', hintLevel: 3 },
+      { action: 'retry', hintLevel: 3 },
+    ]);
+    // No hint key: replay (level 1).
+    const none = withHints(syntheticGraph(), []);
+    expect(run(scenario({ graph: none, tasks: five, results: [W] }))).toEqual({
+      action: 'retry',
+      hintLevel: 1,
+    });
   });
 
   it('second wrong → show-solution', () => {
@@ -518,6 +558,40 @@ describe('rule 6: prerequisite probe', () => {
     expect(reviewed).toMatchObject({ insert: [{ skillId: A, context: 'review' }] });
   });
 
+  it('the probe uses only a format the request already uses; none → no probe', () => {
+    // B has only tap-count and make-set templates; the request is number-pad only (a workshop
+    // that hosts number-pad need not host tap-count).
+    const bOnly = (g: SkillGraph) => {
+      g.skills[B] = { ...(g.skills[B] as SkillGraph['skills'][string]), templates: [`${B}.t1`] };
+    };
+    const graph = variant([], bOnly);
+    const padOnly = cTasks.map((t) => ({ ...t, templateId: `${C}.t3` }));
+    const d = run(scenario({ graph, tasks: padOnly, results: [W, W, W], last: { attemptNo: 3 } }));
+    expect(d).toEqual({ action: 'continue', tierOverrides: { [C]: 'pictorial' } });
+    // With a second prerequisite A that has a number-pad template, A is probed even though B is
+    // the weaker one.
+    const twoPrereqs = variant([], (g) => {
+      bOnly(g);
+      g.prereqs[C] = [B, A];
+    });
+    const before = [
+      ...Array.from({ length: 6 }, () => ({ skillId: A, n: 3, correct: true })),
+      ...Array.from({ length: 3 }, () => ({ skillId: B, n: 3, correct: false })),
+    ];
+    const model = createEloFireModel(twoPrereqs, { childId: CHILD_ID, isK: false });
+    const input = scenario({
+      graph: twoPrereqs,
+      before,
+      tasks: padOnly,
+      results: [W, W, W],
+      last: { attemptNo: 3 },
+    });
+    expect(model.skillOffset(input.state, B)).toBeLessThan(model.skillOffset(input.state, A));
+    expect(run(input)).toMatchObject({
+      insert: [{ skillId: A, templateId: `${A}.t3`, seed: probeSeed(REQ, C, A) }],
+    });
+  });
+
   it('a skill without prerequisites gets no probe', () => {
     const aTasks = cTasks.map((t) => ({
       ...t,
@@ -544,6 +618,20 @@ describe('rule 6: prerequisite probe', () => {
       }),
     );
     expect(retry).toEqual({ action: 'end-request', reason: 'complete' });
+  });
+
+  it('a failed probe ends the request even when frustration fires on it', () => {
+    // Original tasks remain and wrongInLast4 is 3 at the probe's resolution: the probe's outcome
+    // decides (complete), not a confidence item.
+    const d = run(
+      scenario({
+        tasks: withProbe,
+        results: [W, W, W, W],
+        last: { attemptNo: 3 },
+        input: { signals: { wrongInLast4: 3, rapidWrongTaps: 0, longIdles: 0 } },
+      }),
+    );
+    expect(d).toEqual({ action: 'end-request', reason: 'complete' });
   });
 
   it('a failed probe still retries first; a passed probe continues', () => {
@@ -722,17 +810,42 @@ describe('rule 1: misconception side effect', () => {
   const bind = (...specs: MisconceptionSpec[]) =>
     initContent({ templates: [], narration: {}, misconceptions: specs });
   const tasks = [task(B, 3), task(B, 3, { seed: 2 }), task(B, 3, { seed: 3 })];
-  // One earlier hit of MC; the current attempt matches OTHER (1 hit) and MC (2nd hit).
+  /** Put skills on the practiced track (a remediation skill must be at least practiced). */
+  const practiced =
+    (...ids: string[]) =>
+    (s: LearnerState): LearnerState => {
+      const skills = { ...s.skills };
+      for (const id of ids) {
+        const prev: LearnerState['skills'][string] = skills[id] ?? {
+          theta: 0,
+          n: 0,
+          recent: [],
+          assumed: false,
+          override: null,
+          practicedAt: null,
+          fluentAt: null,
+          masteredAt: null,
+          memory: null,
+          atRiskDueTs: null,
+          misconceptionHits: [],
+        };
+        skills[id] = { ...prev, practicedAt: T0 };
+      }
+      return { ...s, skills };
+    };
+  // One earlier hit of MC; the current attempt matches OTHER (1 hit) and MC (2nd hit). A and C are
+  // practiced.
   const twoHits = (over: Partial<Scenario> = {}): AdaptInput =>
     scenario({
       before: [{ skillId: B, n: 3, correct: false, misconceptionIds: [MC] }],
       tasks,
       results: [W],
       misconceptions: { 0: [OTHER, MC] },
+      patch: practiced(A, C),
       ...over,
     });
 
-  it('rides along a retry, with the first existing remediation skill', () => {
+  it('rides along a retry, with the first existing practiced remediation skill', () => {
     bind(spec(MC, ['ZZZ.99', A, C]));
     expect(run(twoHits())).toEqual({
       action: 'retry',
@@ -745,6 +858,23 @@ describe('rule 1: misconception side effect', () => {
     expect(run(twoHits())).toMatchObject({ queueRemediation: { skillId: B, misconceptionId: MC } });
     bind(spec(MC, ['ZZZ.99']));
     expect(run(twoHits())).toMatchObject({ queueRemediation: { skillId: B, misconceptionId: MC } });
+  });
+
+  it('skips a remediation skill not yet practised, and the skill being practised (03 §7.1)', () => {
+    // C was never practised; A is practised: A is queued.
+    bind(spec(MC, [C, A]));
+    expect(run(twoHits({ patch: practiced(A) }))).toMatchObject({
+      queueRemediation: { skillId: A, misconceptionId: MC },
+    });
+    // Neither is practised: the skill's own lesson.
+    expect(run(twoHits({ patch: (s) => s }))).toMatchObject({
+      queueRemediation: { skillId: B, misconceptionId: MC },
+    });
+    // The skill being practised is never its own "other" remediation, even when practised.
+    bind(spec(MC, [B, C]));
+    expect(run(twoHits({ patch: practiced(B, C) }))).toMatchObject({
+      queueRemediation: { skillId: C, misconceptionId: MC },
+    });
   });
 
   it('accompanies show-solution, continue and end-request too', () => {
@@ -770,6 +900,7 @@ describe('rule 1: misconception side effect', () => {
         tasks,
         results: [W],
         misconceptions: { 0: [OTHER, MC] },
+        patch: practiced(A, C),
       }),
     );
     expect(d).toMatchObject({ queueRemediation: { skillId: C, misconceptionId: OTHER } });

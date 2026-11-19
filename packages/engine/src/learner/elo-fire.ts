@@ -20,6 +20,7 @@ import type {
   Tier,
 } from '@number-island/shared';
 import { FORMAT_DEFAULT_REPRESENTATION } from '@number-island/shared';
+import { isConstructedTemplate } from '../items/answer-kind';
 import { DAY_MS, type EngineParams, PARAMS } from '../params';
 import { allDescendants } from './graph';
 import { attemptDifficulty } from './item-difficulty';
@@ -489,7 +490,12 @@ export function createEloFireModel(graph: SkillGraph, opts: LearnerOptions): Elo
       }
     }
 
-    const evidence = EVIDENCE_CONTEXTS.has(a.context) && !isChoice;
+    // Evidence: not a choice response, and not a skip on a template whose items answer with a
+    // choice (the skip replaces a choice, so it is not evidence either, E03 reading). Other
+    // responses keep E02's response-kind rule; the rating weight above also keys on it.
+    const tpl = graph.templates[a.templateId];
+    const skippedChoice = isSkip && tpl !== undefined && !isConstructedTemplate(tpl);
+    const evidence = EVIDENCE_CONTEXTS.has(a.context) && !isChoice && !skippedChoice;
     if (evidence) {
       st.recent = [
         ...st.recent,

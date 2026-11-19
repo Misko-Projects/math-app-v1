@@ -16,25 +16,31 @@
 //
 // First-try results inside the request for a skill s are read from the state: the last m entries of
 // `state.skills[s].recent`, where m counts the presented tasks of s that enter `recent` (mode
-// 'item', an evidence context, and a template whose format does not answer only with 'choice'),
-// capped at `recent.length`.
+// 'item', an evidence context, and a template whose own answer kind is constructed), capped at
+// `recent.length`. The learner applies the same template rule, so a skip on a choice item is not
+// evidence either.
 //
 // Rules, in order (the first that applies decides; the misconception side effect rides along):
-//  1. misconception trigger (rule 5) → `queueRemediation`;
-//  2. an unresolved item: first wrong → `retry` (nudge → representation → worked step), second wrong
-//     → `show-solution`, attempt ≥ 3 → resolved (lesson tasks have their own scaffolding and never
-//     retry here);
+//  1. misconception trigger (rule 5) → `queueRemediation`: the first `remediation` skill that is in
+//     the graph, is not the current skill and is on the practiced track, else the current skill
+//     (03 §7.1);
+//  2. an unresolved item: first wrong → `retry` at the next hint rung the template generates
+//     (levels 2–4: nudge → representation → worked step; level 1, replay, when it has none),
+//     second wrong → `show-solution`, attempt ≥ 3 → resolved (lesson tasks have their own
+//     scaffolding and never retry here);
 //  3. wind-down at the budget (rule 6);
-//  4. frustration (rule 4): a confidence item, then a break offer; if the child is still struggling
+//  4. a failed prerequisite probe → end the request (the next plan schedules the prerequisite);
+//     ahead of frustration, so a confidence item never replaces its outcome;
+//  5. frustration (rule 4): a confidence item, then a break offer; if the child is still struggling
 //     after it, finish the request early with full celebration. The confidence item's own
 //     resolution never re-triggers (the signals still hold the wrongs before it, and the runner
 //     offers the break right after it); a frustration on any later item ends the request;
-//  5. every task presented → complete;
-//  6. three first-try wrongs on a skill → probe its weakest prerequisite (rule 3); a failed probe ends
-//     the request (the next plan schedules the prerequisite);
-//  7. two first-try wrongs in a row on a skill → one CPA tier down for the rest of the request
+//  6. every task presented → complete;
+//  7. three first-try wrongs on a skill → probe its weakest prerequisite that has a template in a
+//     format the request already uses (rule 3; none → no probe);
+//  8. two first-try wrongs in a row on a skill → one CPA tier down for the rest of the request
 //     (rule 2);
-//  8. otherwise continue.
+//  9. otherwise continue.
 
 import type {
   AdaptDecision,
@@ -140,7 +146,12 @@ function rankedTemplates(graph: SkillGraph, s: SkillId, formats: Set<ItemFormat>
     .map((x) => x.t);
 }
 
-/** Rule 1 (04 §6.4 rule 5): the remediation to queue, if the current attempt triggers one. */
+/**
+ * Rule 1 (04 §6.4 rule 5): the remediation to queue, if the current attempt triggers one. Per
+ * 03 §7.1 it is the first of the misconception's `remediation` skills that is in the graph, is not
+ * the skill being practised and is on the practiced track; otherwise the skill itself (its own
+ * lesson).
+ */
 function remediation(
   input: AdaptInput,
   P: EngineParams,
@@ -150,7 +161,9 @@ function remediation(
   for (const m of input.last.result.misconceptionIds) {
     if (hits.filter((h) => h.id === m).length < P.adapt.misconceptionHits) continue;
     const spec = boundMisconceptions().find((x) => x.id === m);
-    const r = spec?.remediation.find((id) => input.graph.skills[id] !== undefined);
+    const r = spec?.remediation.find(
+      (id) => id !== s && input.graph.skills[id] !== undefined && onTrack(input.state, id),
+    );
     return { skillId: r ?? s, misconceptionId: m };
   }
   return undefined;
@@ -219,7 +232,12 @@ function probeParent(input: AdaptInput): SkillId | undefined {
   );
 }
 
-/** Rule 6 (04 §6.4 rule 3): a probe for the weakest prerequisite of `s`, if one is due. */
+/**
+ * Rule 6 (04 §6.4 rule 3): a probe for the weakest prerequisite of `s`, if one is due. AdaptInput
+ * carries no workshop capability, so the probe uses only a template whose format the request
+ * already uses (its workshop hosts every one of them); a prerequisite without one is skipped, and
+ * with none at all there is no probe.
+ */
 function prerequisiteProbe(
   input: AdaptInput,
   s: SkillId,
@@ -236,19 +254,34 @@ function prerequisiteProbe(
   );
   if (already) return undefined;
   const formats = requestFormats(input);
+  const hosted = (p: SkillId): ItemTemplate | undefined =>
+    rankedTemplates(graph, p, formats).find((t) => formats.has(t.format));
   const weakest = prereqs
-    .map((p) => ({ p, o: model.skillOffset(state, p) }))
+    .map((p) => ({ p, o: model.skillOffset(state, p), t: hosted(p) }))
     .sort((a, b) => a.o - b.o || cmp(a.p, b.p))
-    .find(({ p }) => rankedTemplates(graph, p, formats).length > 0)?.p;
+    .find((x) => x.t !== undefined);
   if (weakest === undefined) return undefined;
-  const t = rankedTemplates(graph, weakest, formats)[0] as ItemTemplate;
+  const t = weakest.t as ItemTemplate;
   return {
-    skillId: weakest,
+    skillId: weakest.p,
     templateId: t.id,
-    seed: probeSeed(request.id, s, weakest),
-    context: onTrack(state, weakest) ? 'review' : 'practice',
+    seed: probeSeed(request.id, s, weakest.p),
+    context: onTrack(state, weakest.p) ? 'review' : 'practice',
     mode: 'item',
   };
+}
+
+/**
+ * Rule 2's hint rung (03 §5.8): the next rung among levels 2–4 that the current template generates
+ * (level 2 iff it lists a first hint key, 3 iff a second, 4 iff a third), past the `hintsUsed`
+ * rungs already climbed and capped at the last one; level 1 (replay) when it has none.
+ */
+function retryHintLevel(input: AdaptInput): 1 | 2 | 3 | 4 {
+  const keys = input.graph.templates[input.last.task.templateId]?.narration.hints ?? [];
+  const available = ([2, 3, 4] as const).filter((_, i) => Boolean(keys[i]));
+  if (available.length === 0) return 1;
+  const k = Math.min(Math.max(0, input.last.hintsUsed), available.length - 1);
+  return available[k] as 2 | 3 | 4;
 }
 
 /** 04 §6.4: the next step inside a request. Pure and deterministic. */
@@ -262,8 +295,7 @@ export function adaptNext(input: AdaptInput, params: EngineParams = PARAMS): Ada
   // 2. The item is not resolved yet: the hint ladder, then the worked solution.
   if (last.task.mode === 'item' && !last.result.correct) {
     if (last.attemptNo <= 1) {
-      const level = Math.min(4, Math.max(2, 2 + last.hintsUsed)) as 2 | 3 | 4;
-      return decide({ action: 'retry', hintLevel: level });
+      return decide({ action: 'retry', hintLevel: retryHintLevel(input) });
     }
     if (last.attemptNo === 2) return decide({ action: 'show-solution' });
   }
@@ -272,13 +304,22 @@ export function adaptNext(input: AdaptInput, params: EngineParams = PARAMS): Ada
   if (input.elapsedMs >= input.budgetMs)
     return decide({ action: 'end-request', reason: 'wind-down' });
 
+  // 4. A failed prerequisite probe ends the skill's slot, ahead of frustration so its outcome is
+  // never replaced by a confidence item. AdaptDecision cannot drop tasks, so the request ends
+  // gently; the next plan schedules the prerequisite (the failed first try lowers its rating, a
+  // failed review makes it due again at once).
+  const isProbe = probeParent(input) !== undefined;
+  if (isProbe && !(last.result.correct && last.attemptNo === 1)) {
+    return decide({ action: 'end-request', reason: 'complete' });
+  }
+
   const model = createEloFireModel(graph, {
     childId: input.child.childId,
     isK: input.child.isK,
     params: P,
   });
 
-  // 4. Frustration.
+  // 5. Frustration.
   const frustrated =
     signals.wrongInLast4 >= P.adapt.frustrationWrongInLast4 ||
     signals.rapidWrongTaps >= P.adapt.frustrationRapidTaps ||
@@ -299,31 +340,23 @@ export function adaptNext(input: AdaptInput, params: EngineParams = PARAMS): Ada
     });
   }
 
-  // 5. Every task presented.
+  // 6. Every task presented.
   const done = new Set(input.doneTaskIds);
   if (request.tasks.every((_, i) => done.has(i))) {
     return decide({ action: 'end-request', reason: 'complete' });
   }
 
-  // 6. A failed prerequisite probe ends the skill's slot. AdaptDecision cannot drop tasks, so the
-  // request ends gently; the next plan schedules the prerequisite (the failed first try lowers its
-  // rating, and a failed review marks it due).
-  const isProbe = probeParent(input) !== undefined;
-  if (isProbe && !(last.result.correct && last.attemptNo === 1)) {
-    return decide({ action: 'end-request', reason: 'complete' });
-  }
-
-  // 6–7 read the current task's first try, so they run only when it entered `recent` (otherwise
+  // 7–8 read the current task's first try, so they run only when it entered `recent` (otherwise
   // the window is the one already judged at the previous item, and the tier would step twice).
   const s = last.task.skillId;
   if (!entersRecent(last.task, graph)) return decide({ action: 'continue' });
   const tries = requestFirstTries(input, s);
 
-  // 6. Three first-try wrongs: probe the weakest prerequisite (once per skill and request).
+  // 7. Three first-try wrongs: probe the weakest prerequisite (once per skill and request).
   const probe = isProbe ? undefined : prerequisiteProbe(input, s, tries, model, P);
   const insert = probe ? [probe] : undefined;
 
-  // 7. Tier step-down: the last two first tries on s are wrong at the same tier, so one step below
+  // 8. Tier step-down: the last two first tries on s are wrong at the same tier, so one step below
   // it. After a step, two more wrongs at the new tier are needed for the next one.
   let tierOverrides: Partial<Record<SkillId, Tier>> | undefined;
   const n = P.adapt.tierStepWrongs;
@@ -341,7 +374,7 @@ export function adaptNext(input: AdaptInput, params: EngineParams = PARAMS): Ada
     if (next !== tier && lower) tierOverrides = { ...input.tierOverrides, [s]: next };
   }
 
-  // 8. Continue.
+  // 9. Continue.
   return decide({
     action: 'continue',
     ...(tierOverrides ? { tierOverrides } : {}),

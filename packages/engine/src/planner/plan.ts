@@ -59,7 +59,11 @@
 //   skills by highest P(ref), placed late. A request without such a skill turns them into new
 //   items.
 // - Reviews: transfer probes need a hosted abstract template; otherwise the task stays 'review'.
-// - Remediation: the lesson task is planned unless the skill's lesson mode is 'none'.
+//   A failed review is due again at once: besides `dueReviews`, every practiced-track skill that is
+//   'needs-review' with `memory.consecutiveFails > 0` joins the due list as an ordinary review
+//   (dueTs = now, not at risk), in the same order (depth desc, dueTs, id).
+// - Remediation: the lesson task is planned unless the skill's lesson mode is 'none', whatever the
+//   skill's status (ready, learning or on the practiced track).
 // - Puzzle Tower requests always carry decor (when `puzzleDecor` is non-empty), like requests
 //   with challenge items.
 
@@ -609,6 +613,36 @@ function compareDesc(a: readonly number[], b: readonly number[]): number {
   return 0;
 }
 
+/**
+ * The planner's due list: `dueReviews` plus every practiced-track skill that is `needs-review`
+ * because of a failed review (`memory.consecutiveFails > 0`), which is due again at once (a failed
+ * review moves `dueTs` ≥ 1 day ahead, so `dueReviews` alone would not schedule it; a failed
+ * prerequisite probe relies on this). Such a skill is an ordinary review with `dueTs = now`. Same
+ * order as `dueReviews`: depth desc, then dueTs, then id.
+ */
+function dueNow(
+  model: EloFireModel,
+  state: LearnerState,
+  graph: SkillGraph,
+  now: number,
+  status: ReadonlyMap<SkillId, SkillStatus>,
+): DueReview[] {
+  const due = model.dueReviews(state, now);
+  const listed = new Set(due.map((r) => r.skillId));
+  for (const s of Object.keys(state.skills).sort(byId)) {
+    if (listed.has(s) || !onTrack(state, s) || status.get(s) !== 'needs-review') continue;
+    if ((state.skills[s]?.memory?.consecutiveFails ?? 0) <= 0) continue;
+    due.push({
+      skillId: s,
+      dueTs: now,
+      retrievability: model.retrievability(state, s, now) ?? 1,
+      depth: graph.depth[s] ?? 0,
+      atRisk: false,
+    });
+  }
+  return due.sort((a, b) => b.depth - a.depth || a.dueTs - b.dueTs || byId(a.skillId, b.skillId));
+}
+
 export function planSession(input: PlanSessionInput, opts: PlanOptions = {}): SessionPlan {
   const P = opts.params ?? PARAMS;
   const { child, state, graph, now, minutes } = input;
@@ -640,7 +674,7 @@ export function planSession(input: PlanSessionInput, opts: PlanOptions = {}): Se
     status,
     pRef,
     skills,
-    due: model.dueReviews(state, now).filter((r) => plannable.has(r.skillId)),
+    due: dueNow(model, state, graph, now, status).filter((r) => plannable.has(r.skillId)),
     onTrackRanked,
     ranked: rankWith(graph, state, now, model, P),
     maxRun: P.planner.maxRun,

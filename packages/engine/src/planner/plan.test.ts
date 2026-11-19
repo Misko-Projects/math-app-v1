@@ -467,6 +467,27 @@ describe('reviews (04 §4)', () => {
     for (const r of p.requests)
       expect(r.tasks.some((t) => t.skillId === C && t.context === 'review')).toBe(true);
   });
+
+  it('a failed review is due again at once (a failed prerequisite probe gets scheduled)', () => {
+    // B is practiced and not due yet; adaptNext probes it in the 'review' context and the child
+    // fails it, so its dueTs moves a day ahead, but the next plan (same `now`) still reviews it.
+    const before = stateWith({ [A]: practiced(2, NOW + 3 * DAY_MS), [B]: practiced(2, NOW + 1) });
+    const s = model.apply(
+      before,
+      synthAttempt(B, 3, { correct: false, context: 'review', seed: 12345 }),
+      NOW,
+    );
+    expect(s.skills[B]?.memory?.consecutiveFails).toBe(1);
+    expect(model.status(s, B, NOW)).toBe('needs-review');
+    expect(model.dueReviews(s, NOW).map((r) => r.skillId)).not.toContain(B);
+    const p = plan(input({ state: s, workshopsAvailable: [HALL] }));
+    expect(
+      p.requests.some((r) => r.tasks.some((t) => t.skillId === B && t.context === 'review')),
+    ).toBe(true);
+    // Without the failure, B is not reviewed.
+    const q = plan(input({ state: before, workshopsAvailable: [HALL] }));
+    expect(q.requests.some((r) => r.tasks.some((t) => t.context === 'review'))).toBe(false);
+  });
 });
 
 describe('hosting and the Practice Pier (04 §6.3)', () => {
@@ -624,6 +645,14 @@ describe('remediation (04 §6.4 rule 5)', () => {
       remediation: { skillId: 'CNT.99', misconceptionId: 'MC.off-by-one-counting' },
     });
     expect(q.requests.every((x) => x.narration === 'req.help')).toBe(true);
+  });
+
+  it('plans the lesson of a remediation skill that is still learning', () => {
+    const s = stateWith({ [A]: practiced(2, NOW + DAY_MS), [B]: learning(0) });
+    const p = plan(input({ state: s, workshopsAvailable: [HALL] }), {
+      remediation: { skillId: B, misconceptionId: 'MC.off-by-one-counting' },
+    });
+    expect(p.requests[0]?.tasks[0]).toMatchObject({ skillId: B, mode: 'lesson' });
   });
 });
 
