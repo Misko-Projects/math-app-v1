@@ -4,6 +4,7 @@ import { paint } from '../core/paint';
 import { type StonePlacement, smoothPath } from './geometry';
 import { RoadStoneMark } from './RoadStone';
 import {
+  beadLine,
   beadRing,
   NEXT_HIT_RADIUS,
   planRoad,
@@ -107,7 +108,7 @@ function Bead({ bead }: { bead: RoadBead }) {
   const next = state === 'next';
   const counting = state === 'counting';
   const lift = counting && ringed ? -1.5 : 0;
-  const line = r < 2 ? 1 : r < 5 ? 1.5 : 2;
+  const line = beadLine(r);
   return (
     <g
       transform={`translate(${x} ${y})`}
@@ -156,7 +157,7 @@ function Bead({ bead }: { bead: RoadBead }) {
           planned ? 'sand' : next ? 'pebble' : counting && !ringed ? 'sunshine' : 'pebble-deep',
         )}
         stroke={paint(planned ? 'ink-soft' : 'ink')}
-        strokeWidth={counting && !ringed ? Math.min(2, line + 0.5) : line}
+        strokeWidth={line}
         strokeDasharray={
           planned || next ? `${Math.max(1, r * 0.6)} ${Math.max(0.8, r * 0.5)}` : undefined
         }
@@ -181,17 +182,19 @@ function Bead({ bead }: { bead: RoadBead }) {
  * next stone's border is dashed (shape, not colour alone, 06 §7).
  */
 function Signpost({ sign }: { sign: RoadSign }) {
-  const { n, x, y, w, h, anchor, state, points } = sign;
+  const { n, x, y, w, h, anchor, state, points, postWidth } = sign;
   const counting = state === 'counting';
   const next = state === 'next';
+  // The post runs from its bead's edge to the plaque, as wide as the road's density allows.
+  const start = points[0] ?? anchor;
   const end = points[points.length - 1] ?? { x, y };
   return (
     <g data-sign={n} data-state={state}>
       <path
-        d={`M${anchor.x} ${anchor.y}L${end.x} ${end.y}`}
+        d={`M${start.x} ${start.y}L${end.x} ${end.y}`}
         stroke={paint('ink')}
-        strokeWidth={3}
-        strokeLinecap="round"
+        strokeWidth={postWidth}
+        strokeLinecap="butt"
       />
       <rect
         x={x - w / 2}

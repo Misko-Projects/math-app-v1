@@ -1,9 +1,10 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
-import { expect } from 'storybook/test';
+import { useState } from 'react';
+import { expect, userEvent, waitFor } from 'storybook/test';
 import type { Lighting } from '../../tokens/tokens';
 import { CvdCompare, GalleryCell, GalleryGrid, GallerySection } from '../gallery/Gallery';
 import { SAMPLE_ISLAND, SAMPLE_RING_COUNT } from '../gallery/sampleIsland';
-import { HORIZON_Y, landCrop, plotKey, SCENE_H, SCENE_W } from './geometry';
+import { HORIZON_Y, landCrop, plotKey, roadLayout, SCENE_H, SCENE_W } from './geometry';
 import { CAMERA_MAX_Y, HORIZON_GAP, IslandScene } from './IslandScene';
 import { PLOT_MARKER_INSET, PLOT_MARKER_STROKE, type PlotMarkerProps } from './PlotMarker';
 import { ROAD_STONE_STATES, RoadStone, STONE_NUMERAL } from './RoadStone';
@@ -822,5 +823,64 @@ export const ColourVision: Story = {
     const right = box.right - Math.max(...row.map((c) => c.right));
     await expect(Math.abs(left - right)).toBeLessThanOrEqual(2);
     await expectNoSidewaysScroll();
+  },
+};
+
+/** A close-up around the next stone (21) and the whole map, for the crop-change check. */
+const NEXT_21 = roadLayout(SAMPLE_ISLAND.road).find((s) => s.n === 21) as { x: number; y: number };
+const CLOSE_UP = {
+  x: NEXT_21.x - 400,
+  y: Math.max(HORIZON_Y - 40, NEXT_21.y - 400 / (SCENE_W / SCENE_H)),
+  w: 800,
+  h: 800 / (SCENE_W / SCENE_H),
+};
+
+function CropToggle() {
+  const [whole, setWhole] = useState(false);
+  return (
+    <div style={{ position: 'relative', width: '100%', height: '100vh', overflow: 'hidden' }}>
+      <button
+        type="button"
+        data-crop-toggle
+        onClick={() => setWhole((v) => !v)}
+        style={{ position: 'absolute', top: 8, left: 8, zIndex: 1 }}
+      >
+        Toggle view
+      </button>
+      <IslandScene
+        island={SAMPLE_ISLAND}
+        ringsUnlocked={3}
+        roadLength={20}
+        crop={whole ? undefined : CLOSE_UP}
+        fit="fill"
+        title="The island map"
+      />
+    </div>
+  );
+}
+
+/**
+ * Test only (not a gallery view): switching the same mounted scene from a close-up to the whole
+ * map, which shrinks it without resizing the element, keeps the next stone's tap target
+ * ≥ 80 CSS px (06 §4).
+ */
+export const CropChange: Story = {
+  tags: ['!visual'],
+  parameters: { controls: { disable: true } },
+  render: () => <CropToggle />,
+  play: async ({ canvasElement }) => {
+    const svg = canvasElement.querySelector('svg[data-scene="island"]') as SVGSVGElement;
+    const diameter = () => {
+      const b = (
+        svg.querySelector('[data-hit="next"]') as SVGCircleElement
+      ).getBoundingClientRect();
+      return Math.min(b.width, b.height);
+    };
+    await expect(svg.viewBox.baseVal.width).toBe(800);
+    await waitFor(() => expect(diameter()).toBeGreaterThanOrEqual(80));
+    await userEvent.click(canvasElement.querySelector('[data-crop-toggle]') as HTMLButtonElement);
+    await waitFor(() => expect(svg.viewBox.baseVal.width).toBe(SCENE_W));
+    await waitFor(() => expect(diameter()).toBeGreaterThanOrEqual(80));
+    await expectNextTappable(canvasElement, 21);
   },
 };

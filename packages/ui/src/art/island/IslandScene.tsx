@@ -1,5 +1,13 @@
 import type { IslandDef } from '@number-island/shared';
-import { type ReactNode, useId, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import {
+  type ReactNode,
+  useCallback,
+  useId,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import { useReducedMotion } from '../../preferences/UiProvider';
 import type { ArtProps } from '../core/ArtSvg';
 import { ArtSvg } from '../core/ArtSvg';
@@ -121,22 +129,27 @@ export function IslandScene({
   const isl = shift('island');
   const view = crop ?? { x: 0, y: 0, w: SCENE_W, h: SCENE_H };
   // CSS px per scene unit as drawn, so the next stone's tap target stays ≥ 80 px however small
-  // the map is (portrait, small screens; 06 §1, §4).
+  // the map is (portrait, small screens, a wider crop; 06 §1, §4). Measured after every render
+  // (a new crop or fit changes the scale without resizing the element) and on every resize; the
+  // state only changes when the scale does.
   const svgRef = useRef<SVGSVGElement>(null);
   const [pxPerUnit, setPxPerUnit] = useState(0);
+  const measure = useCallback(() => {
+    const m = svgRef.current?.getScreenCTM();
+    if (!m) return;
+    const next = Math.hypot(m.a, m.b);
+    setPxPerUnit((prev) => (Math.abs(prev - next) > 1e-4 ? next : prev));
+  }, []);
+  useLayoutEffect(() => {
+    measure();
+  });
   useLayoutEffect(() => {
     const svg = svgRef.current;
-    if (!svg) return;
-    const measure = () => {
-      const m = svg.getScreenCTM();
-      if (m) setPxPerUnit(Math.hypot(m.a, m.b));
-    };
-    measure();
-    if (typeof ResizeObserver === 'undefined') return;
+    if (!svg || typeof ResizeObserver === 'undefined') return;
     const observer = new ResizeObserver(measure);
     observer.observe(svg);
     return () => observer.disconnect();
-  }, []);
+  }, [measure]);
   return (
     <ArtSvg
       svgRef={svgRef}

@@ -51,9 +51,28 @@ export function beadRing(r: number): { radius: number; reach: number } {
 /** The smallest bead radius that still carries a ring when highlighted. */
 const RINGED_MIN_R = 3;
 
+/** A bead's outline width: 2 on a roomy road, thinner on a tiny bead so it stays a bead. */
+export function beadLine(r: number): number {
+  return Math.max(0.3, Math.min(2, r * 0.5));
+}
+
 /** How far a plain bead (no ring) draws from its centre: the bead with its shadow and outline. */
 function plainReach(r: number): number {
-  return r * 1.15 + 1;
+  return r * 1.15 + beadLine(r) / 2;
+}
+
+/** The largest plain bead radius (≤ 8) whose two neighbours, `gap` apart, stay 0.5 apart. */
+function plainFit(gap: number): number {
+  const fits = (r: number) => 2 * plainReach(r) + 0.5 <= gap;
+  if (fits(8)) return 8;
+  let lo = 0;
+  let hi = 8;
+  for (let k = 0; k < 40; k++) {
+    const mid = (lo + hi) / 2;
+    if (fits(mid)) lo = mid;
+    else hi = mid;
+  }
+  return lo;
 }
 
 /**
@@ -62,14 +81,22 @@ function plainReach(r: number): number {
  * - `ringed`: where there is room, a highlighted bead wears a ring (at its pulse peak, with its
  *   outline), and the radius is as large as that allows, up to 8;
  * - otherwise (a very dense stretch, many stones to a plot) beads wear no rings: the state shows
- *   in the bead's own fill and outline and on its signpost, and the radius is as large as plain
- *   beads allow.
+ *   in the bead's own fill and outline and on its signpost, and the radius (with an outline that
+ *   thins with it) is as large as two plain neighbours allow, however close the stones are (any
+ *   gap over 0.8 scene units; GameData puts no cap on stones per plot).
  */
 export function beadRadius(gap: number): { r: number; ringed: boolean } {
   const ringedFit = (gap - 0.5 - RING_STROKE) / (2 * BEAD_RING_K * RING_PULSE);
   if (ringedFit >= RINGED_MIN_R) return { r: Math.min(8, ringedFit), ringed: true };
-  // 2 × plainReach(r) + 0.5 ≤ gap
-  return { r: Math.max(0.8, Math.min(8, (gap - 2.5) / 2.3)), ringed: false };
+  return { r: plainFit(gap), ringed: false };
+}
+
+/**
+ * A signpost's post width for a bead whose nearer neighbour is `gap` away: 3 on a roomy road,
+ * thinner on a dense one, so the post always passes between its bead's neighbours.
+ */
+export function postWidth(gap: number): number {
+  return Math.max(0.6, Math.min(3, gap * 0.8));
 }
 
 /** A bead's disc as drawn in its state: its ring when highlighted and ringed, else the bead. */
@@ -102,6 +129,8 @@ export interface RoadBead {
   state: RoadStoneState;
   /** Whether a highlighted bead wears a ring (false on very dense stretches; see beadRadius). */
   ringed: boolean;
+  /** The gap to its nearer neighbour on the road (its size and its signpost's post follow it). */
+  gap: number;
   /** Scene-unit box of everything the bead may draw in any state (its ring included). */
   box: StoneExtent;
 }
@@ -120,8 +149,10 @@ export interface RoadSign {
   /** The plaque's box, and the post's bounding box. */
   box: StoneExtent;
   post: StoneExtent;
-  /** Points along the post (3 units apart), from the bead's edge to the plaque. */
+  /** Points along the post (1 unit apart), from the bead's edge to the plaque. */
   points: Point[];
+  /** The post's line width (thinner on a dense road; see postWidth). */
+  postWidth: number;
 }
 
 export interface RoadPlan {
@@ -181,6 +212,8 @@ function beadBox(s: { x: number; y: number }, size: BeadSize): StoneExtent {
 interface BeadSize {
   r: number;
   ringed: boolean;
+  /** The gap to the nearer neighbour on the road, which the size was fitted to. */
+  gap: number;
 }
 
 interface RoadShape {
@@ -213,7 +246,9 @@ export function roadShape(road: IslandDef['road']): RoadShape {
   const bead = new Map<number, BeadSize>();
   const sizes = placed.map((s, i) => {
     const gap = Math.min(dist(i - 1, i), dist(i, i + 1));
-    const size = Number.isFinite(gap) ? beadRadius(gap) : { r: 8, ringed: true };
+    const size = Number.isFinite(gap)
+      ? { ...beadRadius(gap), gap }
+      : { r: 8, ringed: true, gap: 100 };
     bead.set(s.n, size);
     return size;
   });
@@ -299,13 +334,14 @@ export function planRoad({
         box: scaled(s, stoneExtent(s.n, state), scale),
       });
     } else {
-      const size = shape.bead.get(s.n) ?? { r: 8, ringed: true };
+      const size = shape.bead.get(s.n) ?? { r: 8, ringed: true, gap: 100 };
       beads.push({
         n: s.n,
         x: s.x,
         y: s.y,
         r: size.r,
         ringed: size.ringed,
+        gap: size.gap,
         state,
         box: beadBox(s, size),
       });
@@ -379,6 +415,9 @@ function placeSign(
 ): RoadSign | null {
   const w = SIGN_DIGIT_W * String(bead.n).length + SIGN_PAD;
   const h = SIGN_H;
+  const pw = postWidth(bead.gap);
+  // A post keeps half its width, plus a hair, clear of every other bead as drawn.
+  const postClear = pw / 2 + 0.2;
   for (const len of SIGN_POSTS) {
     for (const side of ['up', 'down', 'left', 'right'] as const) {
       for (const lean of SIGN_LEANS) {
@@ -401,7 +440,9 @@ function placeSign(
         const blocked =
           obstacles.some(
             (o) =>
-              o.n !== bead.n && (boxesTouch(o.box, box, 2) || post.some((p) => postHits(o, p, 2))),
+              o.n !== bead.n &&
+              (boxesTouch(o.box, box, 2) ||
+                post.some((p) => postHits(o, p, o.disc ? postClear : 2))),
           ) ||
           signs.some(
             (s) =>
@@ -421,6 +462,7 @@ function placeSign(
           box,
           post: postBox,
           points: post,
+          postWidth: pw,
         };
       }
     }
@@ -428,9 +470,9 @@ function placeSign(
   return null;
 }
 
-/** Points along a signpost's post, every 3 units, for testing what it crosses. */
+/** Points along a signpost's post, every unit, for testing what it crosses. */
 function postPoints(from: Point, to: Point): Point[] {
-  const steps = Math.max(1, Math.ceil(Math.hypot(to.x - from.x, to.y - from.y) / 3));
+  const steps = Math.max(1, Math.ceil(Math.hypot(to.x - from.x, to.y - from.y)));
   return Array.from({ length: steps + 1 }, (_, k) => ({
     x: from.x + ((to.x - from.x) * k) / steps,
     y: from.y + ((to.y - from.y) * k) / steps,

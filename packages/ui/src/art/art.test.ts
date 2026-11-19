@@ -83,7 +83,9 @@ describe('road plan: a linear board (05 §3)', () => {
   const drawn = (b: RoadBead) =>
     (b.state === 'next' || b.state === 'counting') && b.ringed
       ? b.r * BEAD_RING_K * 1.05 + 1.25
-      : b.r * 1.15 + 1;
+      : b.r * 1.15 + Math.max(0.3, Math.min(2, b.r * 0.5)) / 2;
+  /** How far a signpost's post line reaches either side of its centre line. */
+  const half = (s: RoadSign) => s.postWidth / 2;
 
   it('draws every stone in the range exactly once, at its own spot, in order', () => {
     for (const { plan, roadLength, onLand, where } of plans()) {
@@ -320,7 +322,7 @@ describe('road plan: a linear board (05 §3)', () => {
         expect(boxesTouch(s.box, beadExtent(b), 0), `sign ${s.n} on bead ${b.n}`).toBe(false);
         for (const p of s.points) {
           expect(Math.hypot(p.x - b.x, p.y - b.y), `post ${s.n} by bead ${b.n}`).toBeGreaterThan(
-            drawn(b),
+            drawn(b) + half(s),
           );
         }
       }
@@ -334,6 +336,59 @@ describe('road plan: a linear board (05 §3)', () => {
         );
       }
     }
+  });
+
+  it('keeps highlights apart and labelled however many stones share a plot (to 64)', () => {
+    // Review s_8b4e1e17e009 #1–2: GameData puts no cap on stones per plot. Two neighbouring
+    // plots, down the map and across it, with k stones each; the middle stone is counted and the
+    // next one beside it, with one planned ahead.
+    const bad: string[] = [];
+    for (const k of [12, 16, 24, 32, 48, 64]) {
+      for (const [a, b] of [
+        [
+          [4, 3],
+          [4, 4],
+        ],
+        [
+          [4, 3],
+          [5, 3],
+        ],
+      ] as const) {
+        const road = [
+          ...Array.from({ length: k }, (_, i) => ({ n: i + 1, plot: a as unknown as Plot })),
+          ...Array.from({ length: k }, (_, i) => ({ n: k + i + 1, plot: b as unknown as Plot })),
+        ];
+        const plan = planRoad({
+          road,
+          roadLength: k,
+          counting: k,
+          plannedAhead: 1,
+          onLand: () => true,
+        });
+        const where = `k ${k}, ${a} → ${b}`;
+        for (let i = 0; i < plan.beads.length; i++) {
+          for (let j = i + 1; j < plan.beads.length; j++) {
+            const x = plan.beads[i] as RoadBead;
+            const y = plan.beads[j] as RoadBead;
+            if (Math.hypot(x.x - y.x, x.y - y.y) <= drawn(x) + drawn(y)) {
+              bad.push(`${where}: beads ${x.n}, ${y.n}`);
+            }
+          }
+        }
+        const signed = new Set(plan.signs.map((s) => s.n));
+        for (const n of [1, k, k + 1]) if (!signed.has(n)) bad.push(`${where}: no sign for ${n}`);
+        for (const s of plan.signs) {
+          for (const b2 of plan.beads) {
+            if (b2.n === s.n) continue;
+            if (boxesTouch(s.box, beadExtent(b2), 0)) bad.push(`${where}: sign ${s.n} on ${b2.n}`);
+            if (s.points.some((p) => Math.hypot(p.x - b2.x, p.y - b2.y) <= drawn(b2) + half(s))) {
+              bad.push(`${where}: post ${s.n} through ${b2.n}`);
+            }
+          }
+        }
+      }
+    }
+    expect(bad.slice(0, 12)).toEqual([]);
   });
 
   it('keeps neighbouring highlights apart and labelled on a dense vertical stretch', () => {
@@ -371,7 +426,7 @@ describe('road plan: a linear board (05 §3)', () => {
         expect(boxesTouch(s.box, beadExtent(b), 0), `sign ${s.n} on bead ${b.n}`).toBe(false);
         for (const p of s.points) {
           expect(Math.hypot(p.x - b.x, p.y - b.y), `post ${s.n} by bead ${b.n}`).toBeGreaterThan(
-            drawn(b),
+            drawn(b) + half(s),
           );
         }
       }
@@ -453,7 +508,7 @@ describe('road plan: a linear board (05 §3)', () => {
                 if (b.n === s.n) continue;
                 if (boxesTouch(s.box, beadExtent(b), 0))
                   bad.push(`${where}: sign ${s.n} on ${b.n}`);
-                if (s.points.some((p) => Math.hypot(p.x - b.x, p.y - b.y) <= drawn(b))) {
+                if (s.points.some((p) => Math.hypot(p.x - b.x, p.y - b.y) <= drawn(b) + half(s))) {
                   bad.push(`${where}: post ${s.n} through ${b.n}`);
                 }
               }
