@@ -127,7 +127,19 @@ const configSchema = puzzleGridConfigSchema.superRefine((c, ctx) => {
   if (c.constraints.filter((k) => k.kind === 'use-each').length > 1) {
     ctx.addIssue({ code: 'custom', path: ['constraints'], message: 'one use-each list at most' });
   }
-  if (c.variant !== 'shape-fill') {
+  if (c.variant === 'shape-fill') {
+    // 03 §5.5: the cells are the outline's blank cells (K01 geo.compose emits no givens), so the
+    // use-each feasibility check below can treat every cell as free.
+    for (const [i, cell] of c.cells.entries()) {
+      if (!cell.blank) {
+        ctx.addIssue({
+          code: 'custom',
+          path: ['cells', i],
+          message: 'shape-fill outline cells are blank',
+        });
+      }
+    }
+  } else {
     for (const [i, cell] of c.cells.entries()) {
       if (cell.given !== undefined && typeof cell.given !== 'number') {
         ctx.addIssue({
@@ -144,6 +156,13 @@ const configSchema = puzzleGridConfigSchema.superRefine((c, ctx) => {
     const digit = (v: unknown) => Number.isInteger(v) && (v as number) >= 1 && (v as number) <= n;
     if (c.cols !== n) {
       ctx.addIssue({ code: 'custom', path: ['cols'], message: 'a KenKen grid is square' });
+    } else if (c.cells.length !== n * n) {
+      // Every row and column holds each digit once, so every position is a puzzle cell.
+      ctx.addIssue({
+        code: 'custom',
+        path: ['cells'],
+        message: 'a KenKen grid has a cell at every position',
+      });
     }
     if (!c.palette.every(digit)) {
       ctx.addIssue({ code: 'custom', path: ['palette'], message: 'KenKen digits are 1 to n' });

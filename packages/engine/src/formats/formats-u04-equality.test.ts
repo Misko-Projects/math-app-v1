@@ -829,3 +829,44 @@ describe('PR #86 review round 2', () => {
     expect(sideValue(three.left, {})).toBe(4);
   });
 });
+
+describe('PR #86 review round 3', () => {
+  it('a KenKen grid has a cell at every position', () => {
+    // A 3 × 3 bounding box with only the top row: square, digits 1–3, but not a Latin square.
+    const c = grid('cage-sum', [[null, null, null]], {
+      rows: 3,
+      cols: 3,
+      constraints: [{ kind: 'row-unique' }, { kind: 'col-unique' }],
+      palette: [1, 2, 3],
+      uniqueSolution: false,
+    });
+    expect(issuePaths(puzzleGrid, c)).toEqual(['cells']);
+    const fill = [
+      [1, 2, 3],
+      ['', '', ''],
+      ['', '', ''],
+    ];
+    expect(satisfies(target(c), { kind: 'state', value: { fill } })).toBe(false);
+  });
+
+  it('shape-fill outline cells are all blank', () => {
+    // A given cell would be fixed, so the free-cell tiling check could not vouch for the outline.
+    const c: WidgetConfigOf<'puzzle-grid'> = {
+      format: 'puzzle-grid',
+      variant: 'shape-fill',
+      rows: 1,
+      cols: 3,
+      cells: [
+        { r: 0, c: 0, given: 'square' },
+        { r: 0, c: 1, blank: true },
+        { r: 0, c: 2, blank: true },
+      ],
+      constraints: [{ kind: 'use-each', values: ['square', 'rectangle'] }],
+      palette: ['square', 'rectangle'],
+      uniqueSolution: true,
+    };
+    expect(issuePaths(puzzleGrid, c)).toEqual(['cells.0']);
+    const blank = { ...c, cells: c.cells.map(({ r, c: col }) => ({ r, c: col, blank: true })) };
+    expect(issuePaths(puzzleGrid, blank)).toEqual([]);
+  });
+});

@@ -183,8 +183,9 @@ const sameMultiset = (a: readonly (number | string)[], b: readonly (number | str
  * constraints, palette }` with the config's own `cells` (`{ r, c, given?, blank?, cage? }`) and
  * `palette`; the response is `{ fill }` as for shape-fill. Correct when every given cell keeps its
  * value, every blank holds a palette number, nothing sits outside the puzzle, and every
- * constraint holds. A `cage-sum` grid (mini-KenKen) must be square (n × n), and every cell, given
- * or filled, must hold one of the digits 1–n. The constraints are:
+ * constraint holds. A `cage-sum` grid (mini-KenKen) must be square (n × n) with a puzzle cell at
+ * every position, and every cell, given or filled, must hold one of the digits 1–n. The
+ * constraints are:
  * - `cage-sum`: the cage's cells add up to `sum`;
  * - `row-unique` / `col-unique`: no value repeats in a row / column of the puzzle;
  * - `line-sum`: the listed cells add up to `sum`;
@@ -210,6 +211,8 @@ function checkNumeric(
   if (!fill.every((row) => Array.isArray(row) && row.length === cols)) return false;
   const grid = fill as unknown[][];
   const inside = new Map(cells.map((x) => [key(x.r, x.c), x]));
+  // Mini-KenKen fills every position of its n × n grid.
+  if (target.variant === 'cage-sum' && inside.size !== rows * cols) return false;
   // Nothing outside the puzzle.
   for (let r = 0; r < rows; r += 1) {
     for (let c = 0; c < cols; c += 1) {
