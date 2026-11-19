@@ -11,9 +11,11 @@ import {
 } from '../../test-support/areaStory';
 import {
   boxGap,
+  expectApart,
   expectControls,
   expectOneInviteRing,
   outlineBox,
+  settleFocus,
 } from '../../test-support/evidence';
 import { expectTargetGaps, expectTargetSize, pointerDrag } from '../../test-support/storyHelpers';
 import {
@@ -186,9 +188,9 @@ const designControls = (root: HTMLElement) => [
  * 12 (columns for the longest side, rows for the longest short side), squares ≥ 40 px, the 6 × 2
  * drawn at the board's own square size, and the steppers and Check target-size, 12 px apart.
  */
-async function expectDesignLayout(canvasElement: HTMLElement, root: HTMLElement) {
+async function expectDesignLayout(canvasElement: HTMLElement, root: HTMLElement, minCell = 40) {
   const cell = Number(board(root).dataset.cell);
-  await expect(cell, 'square size').toBeGreaterThanOrEqual(40);
+  await expect(cell, 'square size').toBeGreaterThanOrEqual(minCell);
   const b = board(root).getBoundingClientRect();
   await expect(b.width - 6).toBeCloseTo(12 * cell, 0);
   await expect(b.height - 6).toBeCloseTo(3 * cell, 0);
@@ -213,6 +215,29 @@ async function expectDesignLayout(canvasElement: HTMLElement, root: HTMLElement)
   );
   await expectNumeralsAtLeast32(root, '.ni-pwalk__target-n, .ni-pwalk__yours-n');
   await expectContentCentred(canvasElement, root);
+  await expectReferenceLabelled(root);
+}
+
+/**
+ * The rectangle to compare with says what it is for (evidence review: it read as the target):
+ * "Not this one" with a "≠" badge, in its own frame 12 px from the target's, its caption under
+ * the picture (never on its squares).
+ */
+async function expectReferenceLabelled(root: HTMLElement) {
+  const refEl = root.querySelector('.ni-pwalk__ref') as HTMLElement;
+  await expect(refEl).toHaveTextContent('Not this one');
+  await expect(refEl.querySelector('.ni-pwalk__ref-caption svg')).not.toBeNull();
+  await expectApart(root.querySelector('.ni-pwalk__target') as Element, refEl, 12, 'target to ref');
+  await expectApart(
+    refEl.querySelector('.ni-pwalk__ref-caption') as Element,
+    refEl.querySelector('.ni-pwalk__ref-rect') as Element,
+    0,
+    'caption off the squares',
+  );
+  const frame = getComputedStyle(refEl);
+  const target = getComputedStyle(root.querySelector('.ni-pwalk__target-line') as Element);
+  await expect(frame.borderTopStyle).toBe('dashed');
+  await expect(frame.borderTopColor).not.toBe(target.borderTopColor);
 }
 
 /** The widget's stage and answer row are centred across the area (evidence review). */
@@ -392,6 +417,7 @@ export const DesignSameArea: Story = {
     board(root).focus();
     await userEvent.keyboard('{ArrowDown}{ArrowDown}{ArrowDown}');
     await expect(board(root)).toHaveAttribute('data-size', '12x3');
+    await settleFocus();
   },
 };
 
@@ -444,6 +470,7 @@ export const DesignWideGridTablet: Story = {
       [4, 3],
       [1, 3],
     ]);
+    await settleFocus();
     await expectDesignControls('perimeter-walk DesignWideGridTablet', root);
     await expectFitsArea(areaBox(canvasElement), [
       ...root.querySelectorAll('.ni-pwalk__dim, .ni-pwalk__corner'),
@@ -530,14 +557,16 @@ export const StressBigLLandscapeMin: Story = {
 
 /**
  * Smallest landscape area, design: the same wide grid (a turned rectangle is the same one, so
- * every answer is built lying down) fits with squares ≥ 40 px.
+ * every answer is built lying down) fits with squares ≥ 36 px (40+ at the tablet area).
  */
 export const DesignWideGridLandscapeMin: Story = {
   args: { config: design },
   render: inArea('landscapeMin'),
   play: async ({ canvasElement }) => {
     const root = await findWidget(canvasElement, ROOT);
-    await expectDesignLayout(canvasElement, root);
+    // The smallest area: the side column (target, the labelled 6 × 2) leaves squares of at least
+    // 36 px; 40+ at the tablet area.
+    await expectDesignLayout(canvasElement, root, 36);
     // Squares under a target's size: a tap on one does nothing (the steppers are the tap path),
     // dragging the corner still works.
     await expect(Number(board(root).dataset.cell)).toBeLessThan(64);
@@ -560,7 +589,45 @@ export const DesignWideGridLandscapeMin: Story = {
     await expectFitsArea(areaBox(canvasElement), [
       ...root.querySelectorAll('.ni-pwalk__dim, .ni-pwalk__corner'),
     ]);
+    await settleFocus();
     await expectDesignControls('perimeter-walk DesignWideGridLandscapeMin', root);
+  },
+};
+
+/**
+ * MEA.14 with nothing to differ from (no `differentFrom`: the item gives no rectangle): the
+ * target alone ("Make it 20 all the way around"), no reference drawn. Any rectangle with a fence
+ * of 20 passes, e.g. 6 × 4.
+ */
+export const DesignNoReferenceTablet: Story = {
+  args: {
+    config: {
+      format: 'perimeter-walk',
+      polygon: { sides: [], grid: true, shape: 'rect' },
+      mode: 'design',
+      perimeter: 20,
+    },
+  },
+  render: inArea('tablet'),
+  play: async ({ canvasElement, args }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    await expect(root.querySelector('.ni-pwalk__ref')).toBeNull();
+    await expect(
+      within(root).getByRole('img', { name: 'Make it 20 all the way around' }),
+    ).toBeInTheDocument();
+    for (let i = 0; i < 6; i += 1) await userEvent.click(stepper(root, 'w-more'));
+    for (let i = 0; i < 3; i += 1) await userEvent.click(stepper(root, 'h-more'));
+    await expect(board(root)).toHaveAttribute('data-size', '6x4');
+    await userEvent.click(within(root).getByRole('button', { name: 'Check' }));
+    const r = (args.onResponse as ReturnType<typeof fn>).mock.calls.at(-1)?.[0] as {
+      value: Record<string, unknown>;
+    };
+    await expect(stateChecker('rect.perimeterArea')?.check({ perimeter: 20 }, r.value)).toBe(true);
+    await expectFitsArea(areaBox(canvasElement), [
+      board(root),
+      ...root.querySelectorAll('.ni-pwalk__target, .ni-pwalk__step, .ni-pwalk__corner'),
+    ]);
+    await settleFocus();
   },
 };
 
@@ -582,6 +649,7 @@ export const TapOnlyDesign: Story = {
     board(root).focus();
     await userEvent.keyboard('{ArrowRight}');
     await expect(board(root)).toHaveAttribute('data-size', '3x2');
+    await settleFocus();
   },
 };
 

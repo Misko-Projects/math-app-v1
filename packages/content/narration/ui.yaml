@@ -316,6 +316,9 @@ ui.pwalk.compare:
 ui.pwalk.build:
   text: "Your rectangle"
   level: "2"
+ui.pwalk.not-this:
+  text: "Not this one"
+  level: "2"
 ui.pwalk.make:
   text: "Make"
   level: "2"

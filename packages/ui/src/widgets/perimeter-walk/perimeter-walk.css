@@ -161,11 +161,33 @@
   outline: 4px solid var(--color-sea-deep);
   outline-offset: 3px;
 }
+/* The rectangle to make a DIFFERENT one from: its own coral, dashed frame (the target's frame is
+   solid wood), its picture, then a caption row: "≠", its size, "Not this one". */
 .ni-pwalk__ref {
   display: flex;
   flex-direction: column;
   align-items: center;
+  gap: 4px;
+  padding: 4px 6px 6px;
+  border: 3px dashed var(--color-coral-deep);
+  border-radius: 14px;
+  background: var(--color-paper);
+}
+.ni-pwalk__ref-caption {
+  display: flex;
+  align-items: center;
   gap: 6px;
+}
+.ni-pwalk__ref-caption svg {
+  flex: none;
+}
+.ni-pwalk__not {
+  color: var(--color-coral-deep);
+  font-family: var(--font-body);
+  font-weight: 700;
+  font-size: 19px;
+  line-height: 1.1;
+  white-space: nowrap;
 }
 .ni-pwalk__ref-rect {
   fill: var(--color-pebble);

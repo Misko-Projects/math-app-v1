@@ -204,8 +204,10 @@ export function PerimeterWalkWidget({
   const targets = (config.area !== undefined ? 1 : 0) + (config.perimeter !== undefined ? 1 : 0);
   const TARGET_H = 66 * targets + 8 * Math.max(0, targets - 1);
   const refH = refRect ? refRect.h : 0;
-  // Under the target: a 12 px gap, the ref (4 px margin each side), a 6 px gap and its caption.
-  const refExtra = refRect ? 12 + 8 + 6 + CAPTION : 0;
+  // Under the target: a 12 px gap, then the ref's frame (3 px border, 4 + 6 px padding), its picture
+  // (4 px margin each side), a 4 px gap and its caption row ("≠", size, "Not this one").
+  const REF_FRAME = 6 + 12;
+  const refExtra = refRect ? 12 + 6 + 10 + 8 + 4 + CAPTION : 0;
   // Capped: a stage that grows with its content must not grow the grid (the squares would change
   // size under a dragging finger).
   const designW = Math.min((avail?.width ?? 1100) - 40, 1200);
@@ -215,13 +217,15 @@ export function PerimeterWalkWidget({
   // The side column beside the board, or above it: whichever gives the larger squares.
   const besideCell = Math.min(
     (designW - boardX - GAP - TARGET_W) / gridCols,
-    refRect ? (designW - boardX - GAP - 8) / (gridCols + refRect.w) : Number.POSITIVE_INFINITY,
+    refRect
+      ? (designW - boardX - GAP - 8 - REF_FRAME) / (gridCols + refRect.w)
+      : Number.POSITIVE_INFINITY,
     (designH - boardY) / gridRows,
     refRect ? (designH - TARGET_H - refExtra) / refH : Number.POSITIVE_INFINITY,
   );
   const stackedCell = Math.min(
     (designW - boardX) / gridCols,
-    refRect ? (designW - 8) / refRect.w : Number.POSITIVE_INFINITY,
+    refRect ? (designW - 8 - REF_FRAME) / refRect.w : Number.POSITIVE_INFINITY,
     (designH - TARGET_H - refExtra - GAP - boardY) / (gridRows + refH),
   );
   const refAbove = stackedCell > besideCell;
@@ -588,8 +592,14 @@ export function PerimeterWalkWidget({
                   ))}
                 </g>
               </svg>
-              <span className="ni-pwalk__dims" aria-hidden="true">
-                {refRect.w} × {refRect.h}
+              {/* What this one is for (evidence review: it read as the target): a "≠" badge, its
+                  size and "Not this one", under the picture, never on its squares. */}
+              <span className="ni-pwalk__ref-caption" aria-hidden="true">
+                <NotEqualIcon />
+                <span className="ni-pwalk__dims">
+                  {refRect.w} × {refRect.h}
+                </span>
+                <span className="ni-pwalk__not">{t('ui.pwalk.not-this')}</span>
               </span>
             </div>
           ) : null}
@@ -919,6 +929,28 @@ function Stepper({
         +
       </button>
     </div>
+  );
+}
+
+/** "Not this one": a coral disc with a "≠". */
+function NotEqualIcon() {
+  return (
+    <svg viewBox="0 0 32 32" width="32" height="32" aria-hidden="true" focusable="false">
+      <circle
+        cx="16"
+        cy="16"
+        r="14"
+        fill="var(--color-coral)"
+        stroke="var(--color-ink)"
+        strokeWidth="2.5"
+      />
+      <path
+        d="M9 13h14M9 19h14M20 8 12 24"
+        stroke="var(--color-paper)"
+        strokeWidth="3"
+        strokeLinecap="round"
+      />
+    </svg>
   );
 }
 
