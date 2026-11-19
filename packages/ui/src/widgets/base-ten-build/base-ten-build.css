@@ -11,6 +11,7 @@
   --pile: calc(var(--target-min) * 1.25);
   --line: rgb(23 96 110 / 0.55);
 
+  position: relative;
   display: grid;
   align-items: center;
   box-sizing: border-box;
@@ -300,17 +301,18 @@
   min-width: 0;
   height: auto;
   min-height: var(--target-min);
-  padding: 6px 2px 5px;
+  /* A little more room under the caption: an invite hand hangs there, clear of it. */
+  padding: 4px 2px 7px;
   border-radius: var(--radius-pebble);
   font-size: 1.05rem;
   pointer-events: auto;
 }
-.ni-btb__tradeicon {
+.ni-btb__trade .ni-btb__tradeicon {
   display: inline-flex;
   width: 48px;
   height: 40px;
 }
-[data-age-mode="k"] .ni-btb__tradeicon {
+[data-age-mode="k"] .ni-btb__trade .ni-btb__tradeicon {
   width: 60px;
   height: 50px;
 }
@@ -574,14 +576,6 @@
 .ni-btb__slot {
   position: relative;
   display: inline-flex;
-}
-/* The demo hand's fingertip (≈ 42 % across, 8 px down) rests inside the target's lower edge. */
-.ni-btb__hand {
-  left: calc(50% - 23px);
-  top: calc(100% - 26px);
-}
-.ni-btb__return .ni-btb__hand {
-  top: 20px;
 }
 
 /* ---------- read: the picture, the answer blank and the pad ---------- */

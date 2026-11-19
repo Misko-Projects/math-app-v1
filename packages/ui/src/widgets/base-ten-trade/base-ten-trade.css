@@ -403,12 +403,15 @@
   border-radius: var(--radius-pebble);
   font-size: 1.05rem;
 }
-.ni-btt__tradeicon {
+/* Also `.ni-btn__icon` (the kit's glyph marker, so Pip's hand keeps clear of it): this rule wins
+   over its size and flex. */
+.ni-btt__trade .ni-btt__tradeicon {
   display: inline-flex;
+  flex: 0 1 auto;
   width: 52px;
   height: 36px;
 }
-[data-age-mode="k"] .ni-btt__tradeicon {
+[data-age-mode="k"] .ni-btt__trade .ni-btt__tradeicon {
   width: 62px;
   height: 43px;
 }
@@ -690,13 +693,8 @@ button.ni-btt__box:focus-visible {
   border-radius: 10px;
 }
 
-/* ---------- Pip's hand and the animation layer ---------- */
+/* ---------- the animation layer (Pip's hand is the kit's useInviteHand) ---------- */
 
-/* The fingertip (≈ 42 % across, 8 px down its 56 px box) rests on the target's centre. */
-.ni-btt__hand {
-  left: calc(50% - 23px);
-  top: calc(50% - 8px);
-}
 .ni-btt__fx {
   position: absolute;
   inset: 0;

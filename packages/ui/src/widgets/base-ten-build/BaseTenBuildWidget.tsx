@@ -16,7 +16,6 @@ import {
   useSpeech,
   useUiPreferences,
 } from '../../preferences/UiProvider';
-import { HandPointerIcon } from '../../primitives/icons';
 import { usePress } from '../../primitives/usePress';
 import { TARGET_PX } from '../../tokens/tokens';
 import { useWidgetDemo } from '../demo';
@@ -28,6 +27,7 @@ import {
   padValue,
   useAlive,
   useDemoPause,
+  useInviteHand,
   useSubmitGuard,
 } from '../kit';
 import type { ConfigFor, WidgetProps } from '../types';
@@ -332,8 +332,8 @@ function TradeButton({
       disabled={disabled}
       onClick={press}
     >
-      <span className="ni-btb__tradeicon">{icon}</span>
-      {textLabels ? <span className="ni-btb__tradecap">{t(caption)}</span> : null}
+      <span className="ni-btn__icon ni-btb__tradeicon">{icon}</span>
+      {textLabels ? <span className="ni-btn__label ni-btb__tradecap">{t(caption)}</span> : null}
     </button>
   );
 }
@@ -808,12 +808,46 @@ export function BaseTenBuildWidget({
       case 'fuse':
       case 'split':
         return k ? `${invite.op}-${k}` : null;
-      case 'answer':
-        return read ? 'answer' : 'check';
+      case 'answer': {
+        if (!read) return 'check';
+        // Read: the next key to type (Go back one after a wrong key), then check.
+        const v = Number(invite.args?.value);
+        if (!Number.isFinite(v)) return text === '' ? 'answer' : 'check';
+        const want = String(shown(v, decimal));
+        if (text === want) return 'check';
+        return `key-${want.startsWith(text) ? want[text.length] : 'back'}`;
+      }
       default:
         return null;
     }
   })();
+  const invitedKey = inviteTarget?.startsWith('key-') ? (inviteTarget.slice(4) as PadKey) : null;
+
+  // Pip's up-pointing hand hangs below the ONE invited control (kit `useInviteHand`): a pile, a
+  // trade, the tray, the answer blank, a pad key or check. Its fingertip rests inside the control's
+  // bottom edge, clear of the control's icon or numeral; the `.ni-invite` ring stays on the control.
+  const handTarget = ((): string | null => {
+    const id = inviteTarget;
+    if (!id) return null;
+    if (id.startsWith('tray-')) return `[data-place-item="${id}"]`;
+    if (id.startsWith('fuse-') || id.startsWith('split-')) return `[data-trade="${id}"]`;
+    if (id.startsWith('key-')) return `.ni-pad__key[data-key="${id.slice(4)}"]`;
+    switch (id) {
+      case 'tray':
+        return '.ni-btb__traypad';
+      case 'answer':
+        return '.ni-btb__blank';
+      case 'check':
+        return read ? '.ni-btb__side--pad > .ni-btn' : '.ni-btb__checkslot .ni-btn';
+      default:
+        return null;
+    }
+  })();
+  const { hand: inviteHand, rootStyle: handRootStyle } = useInviteHand(
+    rootRef,
+    (root) => (handTarget ? root.querySelector<HTMLElement>(handTarget) : null),
+    handTarget ?? '',
+  );
 
   // ---------- child input ----------
 
@@ -842,7 +876,8 @@ export function BaseTenBuildWidget({
     if (!interactive) return;
     if (key === '.' && !decimal) return;
     trace('tap', `key-${key}`);
-    setInvite(null);
+    // An `answer` invite walks along as the child types (next key, then check); others end here.
+    if (invite?.op !== 'answer') setInvite(null);
     setText((prev) => {
       const next = applyPadKey(prev, key, maxDigits);
       // Decimals stop at hundredths (the smallest piece): a third digit after the point is refused.
@@ -867,12 +902,6 @@ export function BaseTenBuildWidget({
   });
 
   // ---------- render ----------
-
-  const hand = (
-    <span className="ni-hand ni-btb__hand">
-      <HandPointerIcon />
-    </span>
-  );
 
   const renderPiece = (kind: PieceKind, i: number): ReactNode => {
     const key = `${kind}-${i}`;
@@ -953,7 +982,6 @@ export function BaseTenBuildWidget({
           invited={inviteTarget === id}
           onPress={() => void onTrade(op, kind)}
         />
-        {inviteTarget === id ? hand : null}
       </span>
     );
   };
@@ -1034,6 +1062,7 @@ export function BaseTenBuildWidget({
   const rootStyle = {
     gridTemplateColumns: `minmax(0, 1fr) ${layout.sideWidth}px`,
     columnGap: `${SIDE_GAP}px`,
+    ...handRootStyle,
   } as CSSProperties;
 
   if (read) {
@@ -1071,17 +1100,21 @@ export function BaseTenBuildWidget({
               {text === '' ? <span className="ni-number__slot" /> : <span>{text}</span>}
               {!disabled ? <span className="ni-number__caret" /> : null}
             </button>
-            {inviteTarget === 'answer' ? hand : null}
           </span>
           <NumberPadKeys
             onKey={onKey}
             onEnter={submit}
             allowDecimal={decimal}
             disabled={!interactive}
-            highlighted={pressedKey}
+            highlighted={pressedKey ?? invitedKey}
           />
-          <CheckButton onPress={submit} disabled={!interactive || typedValue(text) === null} />
+          <CheckButton
+            onPress={submit}
+            disabled={!interactive || typedValue(text) === null}
+            invited={inviteTarget === 'check'}
+          />
         </div>
+        {inviteHand}
       </div>
     );
   }
@@ -1178,7 +1211,6 @@ export function BaseTenBuildWidget({
               >
                 <span className="ni-btb__return">
                   <ReturnIcon />
-                  {inviteTarget === 'tray' ? hand : null}
                 </span>
               </div>
             );
@@ -1239,7 +1271,6 @@ export function BaseTenBuildWidget({
                       </span>
                     ) : null}
                   </span>
-                  {inviteTarget === id ? hand : null}
                 </span>
               );
             })}
@@ -1251,9 +1282,9 @@ export function BaseTenBuildWidget({
             disabled={!interactive || !ready}
             invited={inviteTarget === 'check'}
           />
-          {inviteTarget === 'check' ? hand : null}
         </span>
       </div>
+      {inviteHand}
     </div>
   );
 }

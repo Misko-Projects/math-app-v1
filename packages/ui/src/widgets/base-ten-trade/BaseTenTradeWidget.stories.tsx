@@ -1398,6 +1398,8 @@ export const DemoInvite: Story = {
     inviteController.invite({ op: 'trade', args: { from: 'ones', to: 'tens' } });
     await waitFor(() => expect(trade(root, 'ones', 'tens')).toHaveClass('ni-invite'));
     await expectPointerOn(hand(), trade(root, 'ones', 'tens'), root);
+    await expectHandClearOf(hand(), q(trade(root, 'ones', 'tens'), '.ni-btt__tradeicon svg'));
+    await expectTradeIconSize(trade(root, 'ones', 'tens'), 62, 43);
     await expect(root.querySelectorAll('.ni-hand')).toHaveLength(1);
   },
 };
@@ -1423,6 +1425,61 @@ export const DemoInviteTake: Story = {
       q(root, '[data-digit="ones"]'),
       root,
     );
+  },
+};
+
+/** The hand's box leaves a control's picture (a trade button's icon) fully visible. */
+async function expectHandClearOf(hand: HTMLElement, picture: Element) {
+  const h = (hand.querySelector('svg') ?? hand).getBoundingClientRect();
+  const g = picture.getBoundingClientRect();
+  const apart = h.right <= g.left || g.right <= h.left || h.bottom <= g.top || g.bottom <= h.top;
+  await expect(apart, 'hand clear of the picture').toBe(true);
+}
+
+/** A trade button's icon keeps its own size (52 × 36 px, K 62 × 43) under the kit's glyph class. */
+async function expectTradeIconSize(button: HTMLElement, w: number, h: number) {
+  const r = q(button, '.ni-btt__tradeicon').getBoundingClientRect();
+  await expect([Math.round(r.width), Math.round(r.height)]).toEqual([w, h]);
+}
+
+const algoInviteController: WidgetDemo = createDemoController({ strict: true });
+
+/**
+ * The child's turn with the algorithm and a typed answer (G1, captioned trade buttons): Pip's
+ * up-pointing hand hangs below the split button (clear of its icon and word), the answer's box
+ * being typed into, a named result box and the column to take from. One hand at a time.
+ */
+export const DemoInviteAlgorithm: Story = {
+  args: {
+    demo: algoInviteController,
+    config: { ...take42minus15, showAlgorithm: true, thenAsk: true },
+  },
+  play: async ({ canvasElement }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    const hand = () => q(root, '.ni-hand');
+    algoInviteController.invite({ op: 'trade', args: { from: 'tens', to: 'ones' } });
+    await waitFor(() => expect(trade(root, 'tens', 'ones')).toHaveClass('ni-invite'));
+    await expect(trade(root, 'tens', 'ones').querySelector('.ni-btn__label')).not.toBeNull();
+    await expectTradeIconSize(trade(root, 'tens', 'ones'), 52, 36);
+    await expectPointerOn(hand(), trade(root, 'tens', 'ones'), root);
+    await expectHandClearOf(hand(), q(trade(root, 'tens', 'ones'), '.ni-btt__tradeicon svg'));
+    algoInviteController.invite({ op: 'answer', args: { value: 27 } });
+    await waitFor(() => expect(q(root, '[data-digit="ones"]')).toHaveClass('ni-invite'));
+    await expectPointerOn(hand(), q(root, '[data-digit="ones"]'), root);
+    algoInviteController.invite({ op: 'write-digit', args: { column: 'tens', value: 2 } });
+    await waitFor(() => expect(q(root, '[data-digit="tens"]')).toHaveClass('ni-invite'));
+    await expectPointerOn(hand(), q(root, '[data-digit="tens"]'), root);
+    algoInviteController.invite({ op: 'take', args: { column: 'ones', count: 1 } });
+    await waitFor(() =>
+      expect(q(root, '[data-col="ones"] .ni-btt__body')).toHaveClass('ni-invite'),
+    );
+    await expectPointerOn(hand(), grabItem(root, 'ones'), root);
+    await expect(root.querySelectorAll('.ni-hand')).toHaveLength(1);
+    // The invite ends: no hand, no ring, and the widget is back to its resting size.
+    algoInviteController.invite(null);
+    await waitFor(() => expect(root.querySelector('.ni-hand')).toBeNull());
+    await expect(root.querySelector('.ni-invite')).toBeNull();
+    await expectFits(canvasElement, root);
   },
 };
 

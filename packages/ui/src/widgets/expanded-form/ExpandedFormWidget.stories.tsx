@@ -2,6 +2,7 @@ import type { WidgetConfig } from '@number-island/shared';
 import type { Meta, StoryObj } from '@storybook/react-vite';
 import { useState } from 'react';
 import { expect, fn, userEvent, waitFor, within } from 'storybook/test';
+import { HAND_POINTER_TIP } from '../../primitives/icons';
 import {
   center,
   clearSpies,
@@ -1141,11 +1142,126 @@ export const DemoInvite: Story = {
     await expectPointerOn(root.querySelector('.ni-hand') as HTMLElement, pad(root, 'build'), root);
     inviteController.invite({ op: 'highlight-digit', args: { index: 0 } });
     const digit = root.querySelector('.ni-efw__nd[data-digit="0"]') as HTMLElement;
-    await waitFor(() => expect(digit).toHaveClass('ni-invite'));
-    await expectPointerOn(root.querySelector('.ni-hand') as HTMLElement, digit, root);
+    await expectHandOnDigit(root, digit);
     // The child acts: the invite clears.
     await tapPlace(root, 300);
     await expect(root.querySelector('.ni-hand')).toBeNull();
+  },
+};
+
+/** Waits for Pip's one hand to settle on `target` (kit placement, checked by `expectPointerOn`). */
+async function expectHandOn(root: HTMLElement, target: HTMLElement) {
+  await waitFor(() => expect(target).toHaveClass('ni-invite'));
+  await waitFor(() => expect(root.querySelectorAll('.ni-hand')).toHaveLength(1));
+  await waitFor(() => expectPointerOn(root.querySelector('.ni-hand') as HTMLElement, target, root));
+}
+
+/**
+ * An invited digit is its own glyph, so the hand points up at it from just below: the ring is on
+ * the digit, the kit places the hand on the strip under the numeral (`expectPointerOn`), the
+ * fingertip is in the digit's column, and the hand leaves the digit's text box fully visible.
+ */
+async function expectHandOnDigit(root: HTMLElement, digit: HTMLElement) {
+  await waitFor(() => expect(digit).toHaveClass('ni-invite'));
+  await waitFor(() => expect(root.querySelectorAll('.ni-hand')).toHaveLength(1));
+  const strip = digit.querySelector('.ni-efw__nd-tip') as HTMLElement;
+  await waitFor(() => expectPointerOn(root.querySelector('.ni-hand') as HTMLElement, strip, root));
+  const svg = root.querySelector('.ni-hand svg') as SVGElement;
+  const h = svg.getBoundingClientRect();
+  const d = digit.getBoundingClientRect();
+  const tipX = h.left + h.width * HAND_POINTER_TIP.up.x;
+  await expect(tipX).toBeGreaterThanOrEqual(d.left);
+  await expect(tipX).toBeLessThanOrEqual(d.right);
+  const ink = digitInk(digit);
+  const apart =
+    h.right <= ink.left || ink.right <= h.left || h.bottom <= ink.top || ink.bottom <= h.top;
+  await expect(apart, `hand ${h.top}–${h.bottom} clear of digit ink ${ink.top}–${ink.bottom}`).toBe(
+    true,
+  );
+}
+
+/**
+ * The drawn digit's ink box on screen: its text box's baseline (top + the font's ascent) plus the
+ * glyph's own ascent and descent, measured with the digit's computed font.
+ */
+function digitInk(digit: HTMLElement) {
+  const range = document.createRange();
+  range.selectNodeContents(digit.firstChild as Node);
+  const box = range.getBoundingClientRect();
+  const ctx = document.createElement('canvas').getContext('2d') as CanvasRenderingContext2D;
+  const cs = getComputedStyle(digit);
+  ctx.font = `${cs.fontStyle} ${cs.fontWeight} ${cs.fontSize} ${cs.fontFamily}`;
+  const m = ctx.measureText(digit.firstChild?.textContent ?? '');
+  const baseline = box.top + m.fontBoundingBoxAscent;
+  return {
+    left: box.left,
+    right: box.right,
+    top: baseline - m.actualBoundingBoxAscent,
+    bottom: baseline + m.actualBoundingBoxDescent,
+  };
+}
+
+const everyTargetController: WidgetDemo = createDemoController({ strict: true });
+
+/**
+ * Demo invite on every build target (G1 pictorial): a tray card, a placed card to take back, the
+ * mat and a digit of the number. Each time the ring sits on the target and Pip's ONE hand hangs
+ * below it, fingertip inside, glyphs clear, all inside the widget.
+ */
+export const DemoInviteEveryTarget: Story = {
+  args: { demo: everyTargetController },
+  play: async ({ canvasElement }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    everyTargetController.invite({ op: 'answer', args: { values: [5, 40, 300] } });
+    await expectHandOn(root, trayCard(root, 5));
+    await tapPlace(root, 300);
+    everyTargetController.invite({ op: 'place-card', args: { value: 300, remove: true } });
+    await expectHandOn(root, matCards(root)[0] as HTMLElement);
+    everyTargetController.invite({ op: 'place-card', args: { value: 50 } });
+    await expectHandOn(root, trayCard(root, 50));
+    everyTargetController.invite({ op: 'stack-cards' });
+    await expectHandOn(root, pad(root, 'build'));
+    everyTargetController.invite({ op: 'highlight-digit', args: { index: 2 } });
+    const digit = root.querySelector('.ni-efw__nd[data-digit="2"]') as HTMLElement;
+    await expectHandOnDigit(root, digit);
+    everyTargetController.invite(null);
+    await waitFor(() => expect(root.querySelector('.ni-hand')).toBeNull());
+    await expectFits(canvasElement, root);
+  },
+};
+
+const inviteWordsController: WidgetDemo = createDemoController({ strict: true });
+
+/** Demo invite on a word card (words with options): the hand hangs below it, words clear. */
+export const DemoInviteWords: Story = {
+  args: { config: wordsChoice, tier: 'abstract', demo: inviteWordsController },
+  play: async ({ canvasElement }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    for (const id of ['d', 'b']) {
+      inviteWordsController.invite({ op: 'answer', args: { id } });
+      await expectHandOn(root, root.querySelector(`.ni-pick[data-id="opt-${id}"]`) as HTMLElement);
+    }
+    await expectFits(canvasElement, root);
+  },
+};
+
+const invitePadController: WidgetDemo = createDemoController({ strict: true });
+
+/** Demo invite on the pad's lone answer box (digit value): the hand hangs below the box. */
+export const DemoInvitePadBox: Story = {
+  args: { config: digitValue, tier: 'abstract', demo: invitePadController },
+  play: async ({ canvasElement }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    invitePadController.invite({ op: 'answer', args: { value: 400 } });
+    await expectHandOn(root, within(root).getByRole('button', { name: 'Your answer:' }));
+    // Typed digits are the box's glyph: the hand moves clear of them.
+    await userEvent.click(key(root, '4'));
+    invitePadController.invite({ op: 'answer', args: { value: 400 } });
+    await expectHandOn(root, within(root).getByRole('button', { name: 'Your answer: 4' }));
+    invitePadController.invite({ op: 'highlight-digit', args: { index: 1 } });
+    const digit = root.querySelector('.ni-efw__nd[data-digit="1"]') as HTMLElement;
+    await expectHandOnDigit(root, digit);
+    await expectFits(canvasElement, root);
   },
 };
 

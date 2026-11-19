@@ -25,7 +25,6 @@ import {
   useSpeech,
   useUiPreferences,
 } from '../../preferences/UiProvider';
-import { HandPointerIcon } from '../../primitives/icons';
 import { usePress } from '../../primitives/usePress';
 import { useWidgetDemo } from '../demo';
 import {
@@ -37,6 +36,7 @@ import {
   padValue,
   useAlive,
   useDemoPause,
+  useInviteHand,
   useSubmitGuard,
 } from '../kit';
 import type { ConfigFor, WidgetProps } from '../types';
@@ -406,14 +406,6 @@ function NestArt() {
   );
 }
 
-function Hand() {
-  return (
-    <span className="ni-hand ni-btt__hand">
-      <HandPointerIcon />
-    </span>
-  );
-}
-
 // ---------- trade button ----------
 
 function TradeButton({
@@ -462,16 +454,15 @@ function TradeButton({
         disabled={!interactive || !enabled}
         onClick={press}
       >
-        <span className="ni-btt__tradeicon">
+        <span className="ni-btn__icon ni-btt__tradeicon">
           <TradeIcon larger={larger} dir={dir} />
         </span>
         {textLabels ? (
-          <span className="ni-btt__tradecap" aria-hidden="true">
+          <span className="ni-btn__label ni-btt__tradecap" aria-hidden="true">
             {t(dir === 'split' ? 'ui.widget.btt.split' : 'ui.widget.btt.group')}
           </span>
         ) : null}
       </button>
-      {invited ? <Hand /> : null}
     </span>
   );
 }
@@ -605,7 +596,6 @@ function WorkCard({
                 {v === null ? '' : v}
                 {active ? <span className="ni-number__caret" /> : null}
               </button>
-              {invited === p ? <Hand /> : null}
             </span>
           );
         }
@@ -618,7 +608,6 @@ function WorkCard({
             style={style}
           >
             {v === null ? '' : v}
-            {invited === p ? <Hand /> : null}
           </span>
         );
       })}
@@ -1258,6 +1247,29 @@ function TradeMat({
     }
   })();
 
+  // Pip's up-pointing hand hangs below the ONE invited control (kit `useInviteHand`), its
+  // fingertip inside the control's bottom edge and clear of its glyph (a trade button's word).
+  // Taking away points at the column's grab item (the control the child drags from).
+  const handTarget = (() => {
+    if (!invited) return null;
+    if (invited === 'answer') return '.ni-btt__answer';
+    if (invited.startsWith('digit-')) return `[data-digit="${invited.slice(6)}"]`;
+    if (invited.startsWith('trade-')) return `[data-trade="${invited}"]`;
+    if (invited.startsWith('pending-')) return `[data-item="${invited}"]`;
+    if (invited.startsWith('mat-')) return `[data-col="${invited.slice(4)}"] .ni-btt__body`;
+    return null;
+  })();
+  const grabTarget = invited?.startsWith('mat-')
+    ? `[data-col="${invited.slice(4)}"] [data-place-item]`
+    : null;
+  const { hand: inviteHand, rootStyle: handRootStyle } = useInviteHand(
+    rootRef,
+    (root) =>
+      (grabTarget ? root.querySelector<HTMLElement>(grabTarget) : null) ??
+      (handTarget ? root.querySelector<HTMLElement>(handTarget) : null),
+    handTarget ?? '',
+  );
+
   // ---------- render ----------
 
   const problem = (() => {
@@ -1310,7 +1322,6 @@ function TradeMat({
               >
                 {text === '' ? <span className="ni-number__slot" /> : text}
               </output>
-              {invited === 'answer' ? <Hand /> : null}
             </span>
           )}
         />
@@ -1444,7 +1455,6 @@ function TradeMat({
             )}
           </div>
           {item}
-          {bodyInvited ? <Hand /> : null}
         </div>
       </div>
     );
@@ -1548,7 +1558,6 @@ function TradeMat({
                     );
                   })()
                 : null}
-              {isInvited ? <Hand /> : null}
             </div>
           );
         })}
@@ -1602,6 +1611,7 @@ function TradeMat({
       data-disabled={disabled ? 'true' : undefined}
       data-goal={config.goal}
       data-op={op?.op}
+      style={handRootStyle}
     >
       <div ref={mainRef} className="ni-btt__main">
         {/* The problem centred over the mat (the algorithm beside it when the side is full). */}
@@ -1652,6 +1662,7 @@ function TradeMat({
         <CheckButton onPress={submit} disabled={!interactive || !canSubmit} />
       </div>
       <div ref={fxRef} className="ni-btt__fx" aria-hidden="true" />
+      {inviteHand}
     </div>
   );
 }

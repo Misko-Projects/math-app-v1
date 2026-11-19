@@ -16,6 +16,8 @@
   --ef-unit-gap: 4px;
   --ef-units-row: calc(5 * var(--ef-unit) + 4 * var(--ef-unit-gap));
 
+  /* Pip's invite hand (kit useInviteHand) is placed relative to the widget root. */
+  position: relative;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -131,6 +133,18 @@
 .ni-efw__nd.ni-invite {
   border-radius: 14px;
   outline-offset: 4px;
+}
+/*
+ * What Pip's hand points at for an invited digit: a strip just under the numeral (out of the
+ * layout). The kit hangs the up-pointing hand below it, so the digit itself stays uncovered.
+ */
+.ni-efw__nd-tip {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: calc(100% - 2px);
+  height: 20px;
+  pointer-events: none;
 }
 
 /* ---------- zones: the build mat and the card tray ---------- */
@@ -481,14 +495,6 @@
 .ni-efw .ni-efw__hear .ni-btn__icon {
   width: calc(var(--icon-size) * 1.7);
   height: calc(var(--icon-size) * 1.7);
-}
-
-/* ---------- Pip's pointer ---------- */
-
-/* The fingertip (≈ 42 % across, 8 px down the 56 px hand) rests inside the target's bottom edge. */
-.ni-efw__hand {
-  left: calc(50% - 23px);
-  top: calc(100% - 26px);
 }
 
 /* Portrait or narrow: stack the pad under the question. */

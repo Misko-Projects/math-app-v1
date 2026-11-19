@@ -15,7 +15,7 @@ import {
   useUiPreferences,
 } from '../../preferences/UiProvider';
 import { IconButton } from '../../primitives/IconButton';
-import { ArrowIcon, HandPointerIcon, SpeakerIcon } from '../../primitives/icons';
+import { ArrowIcon, SpeakerIcon } from '../../primitives/icons';
 import { useWidgetDemo } from '../demo';
 import {
   applyPadKey,
@@ -27,6 +27,7 @@ import {
   padValue,
   useAlive,
   useDemoPause,
+  useInviteHand,
   useSubmitGuard,
 } from '../kit';
 import type { ConfigFor, WidgetProps } from '../types';
@@ -165,12 +166,20 @@ function useBalancedRow(key: string, enabled: boolean) {
   return ref;
 }
 
-function Hand() {
-  return (
-    <span className="ni-hand ni-efw__hand">
-      <HandPointerIcon />
-    </span>
-  );
+/**
+ * The element an invite key (`inviteTarget`) names, for Pip's hand: a card (`card-40`,
+ * `placed-1`), the mat or tray (`build`, `tray`), a blank (`blank-<id>`, cards or pad), a word card
+ * (`opt-<id>`), or for a digit of the target (`digit-<i>`) the strip just under its numeral: a
+ * digit is its own glyph, so the hand points up at it from below instead of covering it.
+ */
+function inviteElement(root: HTMLElement, key: string): HTMLElement | null {
+  const q = (selector: string) => root.querySelector<HTMLElement>(selector);
+  if (key.startsWith('blank-')) return q(`[data-blank="${CSS.escape(key.slice(6))}"]`);
+  if (key.startsWith('digit-'))
+    return q(`.ni-efw__nd[data-digit="${CSS.escape(key.slice(6))}"] > .ni-efw__nd-tip`);
+  if (key.startsWith('opt-')) return q(`.ni-pick[data-id="${CSS.escape(key)}"]`);
+  const k = CSS.escape(key);
+  return q(`[data-place-item="${k}"], [data-place-target="${k}"]`);
 }
 
 export function ExpandedFormWidget({
@@ -665,6 +674,13 @@ export function ExpandedFormWidget({
     active,
   });
   const marked = (key: string) => invited === key || flash === key;
+  // Pip's up-pointing hand hangs below the ONE invited thing (kit `useInviteHand`), its fingertip
+  // inside the bottom edge and clear of the thing's glyph; the ring stays on the thing itself.
+  const { hand: inviteHand, rootStyle: handRootStyle } = useInviteHand(
+    rootRef,
+    (root) => (invited ? inviteElement(root, invited) : null),
+    invited ?? '',
+  );
 
   const blankName = (i: number, count: number) =>
     count === 1 ? t('ui.widget.answer') : t('ui.widget.blank', { n: i + 1 });
@@ -701,7 +717,6 @@ export function ExpandedFormWidget({
           {text === '' ? <span className="ni-number__slot" /> : <span>{text}</span>}
           {isActive ? <span className="ni-number__caret" /> : null}
         </button>
-        {invited === key ? <Hand /> : null}
       </span>
     );
   };
@@ -732,7 +747,6 @@ export function ExpandedFormWidget({
           >
             <span className="ni-number__slot" />
           </div>
-          {invited === key ? <Hand /> : null}
         </span>
       );
     }
@@ -751,7 +765,6 @@ export function ExpandedFormWidget({
         >
           <span>{v}</span>
         </button>
-        {invited === key ? <Hand /> : null}
       </span>
     );
   };
@@ -789,7 +802,11 @@ export function ExpandedFormWidget({
                 data-ringed={ringAt === i ? 'true' : undefined}
               >
                 {d}
-                {invited === key ? <Hand /> : null}
+                {invited === key ? (
+                  // Where Pip's hand points at an invited digit: a strip just under the numeral,
+                  // so the up-pointing hand hangs below the digit and never covers it.
+                  <span className="ni-efw__nd-tip" aria-hidden="true" />
+                ) : null}
               </span>
             );
           })}
@@ -816,7 +833,6 @@ export function ExpandedFormWidget({
         >
           <CardFace value={v} pictorial={pictorial} />
         </div>
-        {invited === id ? <Hand /> : null}
       </span>
     );
   };
@@ -855,7 +871,6 @@ export function ExpandedFormWidget({
           </span>
         ) : null}
       </fieldset>
-      {invited === 'tray' ? <Hand /> : null}
     </div>
   ) : null;
 
@@ -923,7 +938,6 @@ export function ExpandedFormWidget({
               </span>
             ) : null}
           </fieldset>
-          {invited === 'build' ? <Hand /> : null}
         </div>
         <div className="ni-efw__bottom">
           {trayZone}
@@ -975,7 +989,6 @@ export function ExpandedFormWidget({
                 >
                   <span>{words}</span>
                 </PickCard>
-                {invited === key ? <Hand /> : null}
               </span>
             );
           })}
@@ -1056,8 +1069,10 @@ export function ExpandedFormWidget({
       data-layout={layout}
       data-tier={tier}
       data-disabled={disabled ? 'true' : undefined}
+      style={handRootStyle}
     >
       {body}
+      {inviteHand}
     </div>
   );
 }

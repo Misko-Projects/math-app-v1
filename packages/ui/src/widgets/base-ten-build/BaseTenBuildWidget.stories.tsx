@@ -1396,11 +1396,98 @@ export const DemoInvite: Story = {
       trade(root, 'fuse-ones'),
       root,
     );
+    inviteController.invite({ op: 'split', args: { kind: 'tens' } });
+    await waitFor(() => expect(trade(root, 'split-tens')).toHaveClass('ni-invite'));
+    await expectPointerOn(
+      root.querySelector('.ni-hand') as HTMLElement,
+      trade(root, 'split-tens'),
+      root,
+    );
+    inviteController.invite({ op: 'add-piece', args: { kind: 'ones', count: -1 } });
+    await waitFor(() => expect(trayPad(root)).toHaveClass('ni-invite'));
+    await expectPointerOn(root.querySelector('.ni-hand') as HTMLElement, trayPad(root), root);
     inviteController.invite({ op: 'answer', args: {} });
     const check = within(root).getByRole('button', { name: 'Check' });
     await waitFor(() => expect(check).toHaveClass('ni-invite'));
     await expectPointerOn(root.querySelector('.ni-hand') as HTMLElement, check, root);
+    // One hand at a time, and the K sizes and fit hold while it shows.
+    await expect(root.querySelectorAll('.ni-hand')).toHaveLength(1);
+    for (const c of controls(root)) await expectTargetSize(c, 'k');
+    await expectFits(canvasElement, root);
     inviteController.invite(null);
+    await waitFor(() => expect(root.querySelector('.ni-hand')).toBeNull());
+  },
+};
+
+const inviteGoalController: WidgetDemo = createDemoController({ strict: true });
+
+/**
+ * G1 invites on a plain build (the goal card shows): the hand points at a pile, a trade and
+ * check, and never covers the goal numeral.
+ */
+export const DemoInviteG1: Story = {
+  args: { demo: inviteGoalController, config: build34 },
+  play: async ({ canvasElement }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    const hand = () => root.querySelector('.ni-hand') as HTMLElement;
+    const goal = root.querySelector('.ni-btb__goal') as HTMLElement;
+    const clearOfGoal = async () => {
+      const g = goal.getBoundingClientRect();
+      const h = hand().getBoundingClientRect();
+      const apart =
+        h.bottom <= g.top || h.top >= g.bottom || h.right <= g.left || h.left >= g.right;
+      await expect(apart, 'hand clear of the goal').toBe(true);
+    };
+    inviteGoalController.invite({ op: 'add-piece', args: { kind: 'ones' } });
+    await waitFor(() => expect(pile(root, 'ones')).toHaveClass('ni-invite'));
+    await expectPointerOn(hand(), pile(root, 'ones'), root);
+    await clearOfGoal();
+    await tapPlace(root, 'tens', 1);
+    inviteGoalController.invite({ op: 'split', args: { kind: 'tens' } });
+    await waitFor(() => expect(trade(root, 'split-tens')).toHaveClass('ni-invite'));
+    await expectPointerOn(hand(), trade(root, 'split-tens'), root);
+    inviteGoalController.invite({ op: 'answer', args: {} });
+    const check = within(root).getByRole('button', { name: 'Check' });
+    await waitFor(() => expect(check).toHaveClass('ni-invite'));
+    await expectPointerOn(hand(), check, root);
+    await clearOfGoal();
+    for (const c of controls(root)) await expectTargetSize(c, 'g1-up');
+    await expectFits(canvasElement, root);
+    inviteGoalController.invite(null);
+    await waitFor(() => expect(root.querySelector('.ni-hand')).toBeNull());
+  },
+};
+
+const inviteReadController: WidgetDemo = createDemoController({ strict: true });
+
+/**
+ * Read invite (`answer 47`): the ring and hand go to the next key to type (4, then 7; Go back
+ * one after a wrong key), then to check. The hand never hides the key's digit.
+ */
+export const DemoInviteRead: Story = {
+  args: { demo: inviteReadController, config: read47, tier: 'pictorial' },
+  play: async ({ canvasElement }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    const canvas = within(root);
+    const hand = () => root.querySelector('.ni-hand') as HTMLElement;
+    const key = (k: string) => root.querySelector(`.ni-pad__key[data-key="${k}"]`) as HTMLElement;
+    inviteReadController.invite({ op: 'answer', args: { value: 47 } });
+    await waitFor(() => expect(key('4')).toHaveClass('ni-invite'));
+    await expectPointerOn(hand(), key('4'), root);
+    await userEvent.click(canvas.getByRole('button', { name: '4' }));
+    await waitFor(() => expect(key('7')).toHaveClass('ni-invite'));
+    await expectPointerOn(hand(), key('7'), root);
+    await userEvent.click(canvas.getByRole('button', { name: '1' }));
+    await waitFor(() => expect(key('back')).toHaveClass('ni-invite'));
+    await expectPointerOn(hand(), key('back'), root);
+    await userEvent.click(canvas.getByRole('button', { name: 'Go back one' }));
+    await userEvent.click(canvas.getByRole('button', { name: '7' }));
+    const check = canvas.getByRole('button', { name: 'Check' });
+    await waitFor(() => expect(check).toHaveClass('ni-invite'));
+    await expectPointerOn(hand(), check, root);
+    await expect(root.querySelectorAll('.ni-invite')).toHaveLength(1);
+    await expectFits(canvasElement, root);
+    inviteReadController.invite(null);
     await waitFor(() => expect(root.querySelector('.ni-hand')).toBeNull());
   },
 };
