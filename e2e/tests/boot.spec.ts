@@ -15,7 +15,9 @@ test.describe('app boot', () => {
     });
 
     await page.goto('/');
-    await expect(page.getByRole('heading', { level: 1, name: 'Number Island' })).toBeVisible();
+    await expect(
+      page.getByRole('heading', { level: 1, name: 'Welcome to Number Island' }),
+    ).toBeVisible();
 
     expect(contentUrls[0]).toBe('/content/index.json');
     // Production builds serve content-hashed files.
