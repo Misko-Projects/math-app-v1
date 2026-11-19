@@ -68,6 +68,22 @@ export function buildable(c: Config, target: number): boolean {
   return supply >= need;
 }
 
+/**
+ * Whether some mat with exactly the `exact` counts is worth the target: what the named counts
+ * leave over must be a whole number of the smallest enabled kind `exact` leaves free.
+ */
+export function exactReachable(c: Config): boolean {
+  const exact = c.exact ?? {};
+  const rest = c.target - piecesValue(exact);
+  if (rest < 0) return false;
+  if (rest === 0) return true;
+  const free = PIECE_KINDS.filter(
+    (k) => c.pieces[k] && (k === 'thousands' || exact[k] === undefined),
+  );
+  const smallest = free[free.length - 1];
+  return smallest !== undefined && rest % PIECE_VALUE[smallest] === 0;
+}
+
 /** Whether the limits make the canonical pieces of the target impossible (a trade is needed). */
 export function limitsForceTrade(c: Config): boolean {
   if (!c.limits || c.mode === 'read') return false;
@@ -80,8 +96,12 @@ export function limitsForceTrade(c: Config): boolean {
 }
 
 const configSchema = baseTenBuildConfigSchema.superRefine((c, ctx) => {
-  if (!Number.isInteger(c.target) || c.target < 0) {
-    ctx.addIssue({ code: 'custom', path: ['target'], message: 'target is a whole count of ones' });
+  if (!Number.isInteger(c.target) || c.target < 1) {
+    ctx.addIssue({
+      code: 'custom',
+      path: ['target'],
+      message: 'target is a positive count of ones',
+    });
     return;
   }
   if (!PIECE_KINDS.some((k) => c.pieces[k]) && c.mode !== 'read') {
@@ -110,8 +130,12 @@ const configSchema = baseTenBuildConfigSchema.superRefine((c, ctx) => {
     if (fixed.length === 0) {
       ctx.addIssue({ code: 'custom', path: ['exact'], message: 'build-exact names a piece count' });
     }
-    if (piecesValue(exact) > c.target) {
-      ctx.addIssue({ code: 'custom', path: ['exact'], message: 'exact pieces exceed the target' });
+    if (!exactReachable(c)) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['exact'],
+        message: 'no mat with these exact counts is worth the target',
+      });
     }
     if (fixed.some((k) => !c.pieces[k])) {
       ctx.addIssue({

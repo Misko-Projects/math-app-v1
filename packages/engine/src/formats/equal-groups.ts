@@ -12,8 +12,11 @@ import { argNumber, type FormatModel, type FormatState, UnsupportedOpError } fro
 
 type Config = WidgetConfigOf<'equal-groups'>;
 
-/** A container holds at most this many sprites (two rows of five). */
-export const GROUP_CAPACITY = 10;
+/**
+ * A container holds at most this many: MUL.11 (`mul.tens`, 03 §5.6) builds groups of up to 90,
+ * which the widget shows as tens and ones.
+ */
+export const GROUP_CAPACITY = 100;
 
 export interface EqualGroupsState extends FormatState<'equal-groups'> {
   groups: number[];

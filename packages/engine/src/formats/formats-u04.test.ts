@@ -850,9 +850,9 @@ describe('equal-groups', () => {
       act('add-group'),
       act('add-group'),
       act('add-group'),
-      act('fill-group', { index: 0, count: 50 }),
+      act('fill-group', { index: 0, count: 500 }),
     ]);
-    expect(s.groups).toEqual([10, 0]);
+    expect(s.groups).toEqual([100, 0]);
   });
 
   it('read shows the groups and answers the typed number', () => {

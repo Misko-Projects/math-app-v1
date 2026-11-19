@@ -1,7 +1,7 @@
 // 03 §5.5 expanded-form. Place-value cards (300, 40, 5) and expanded expressions.
 // - `build`: the child picks cards from `cards` (a multiset); answers `numbers`, unordered.
 // - `fill`: an expression with blanks (`300 + _ + 5 = 345`); `place-card` drops a card in the next
-//   empty blank, `answer` types them; one blank answers `number`, several `numbers` in order.
+//   empty blank (`{ remove: true, blank }` empties one), `answer` types them; one blank answers `number`, several `numbers` in order.
 // - `to-standard`, `digit-value`: answer `number`. `digitIndex` counts digits from the left.
 // - `words`: answer `choice` (a `wordOptions` id), or `number` when there are no word options.
 // `stack-cards` slides the placed cards together (visual); `highlight-digit {index}` highlights a
@@ -40,14 +40,21 @@ export interface ExpandedFormState extends FormatState<'expanded-form'> {
 export const blankIds = (c: Config): string[] =>
   (c.expression?.tokens ?? []).flatMap((t) => (t.t === 'blank' ? [t.id] : []));
 
-/** Whether some sub-multiset of `cards` sums to `target` (cards are few, so plain recursion). */
+/**
+ * Whether some sub-multiset of `cards` sums to `target`: subset sum over the reachable sums up to
+ * the target, so it stays fast however many cards there are.
+ */
 export function cardsReach(cards: readonly number[], target: number): boolean {
-  const go = (i: number, left: number): boolean => {
-    if (left === 0) return true;
-    if (i >= cards.length || left < 0) return false;
-    return go(i + 1, left - (cards[i] as number)) || go(i + 1, left);
-  };
-  return target > 0 && go(0, target);
+  if (!(target > 0)) return false;
+  let sums = new Set<number>([0]);
+  for (const card of cards) {
+    if (!(card > 0)) continue;
+    const next = new Set(sums);
+    for (const s of sums) if (s + card <= target) next.add(s + card);
+    sums = next;
+    if (sums.has(target)) return true;
+  }
+  return false;
 }
 
 /** Copies of `v` left among the cards after `placed`. */
@@ -149,6 +156,14 @@ export const expandedForm: FormatModel<'expanded-form', ExpandedFormState> = {
     switch (a.op) {
       case 'place-card': {
         const v = argNumber(a, 'value');
+        if (c.mode === 'fill' && a.args?.remove === true) {
+          // Take the card out of one blank: `{ remove: true, blank }`.
+          const i = blankIds(c).indexOf(argString(a, 'blank') ?? '');
+          if (i < 0 || s.entries[i] === null) return s;
+          const entries = [...s.entries];
+          entries[i] = null;
+          return { ...s, entries };
+        }
         if (v === undefined) return s;
         if (c.mode === 'fill') {
           const i = s.entries.indexOf(null);

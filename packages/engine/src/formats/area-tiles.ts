@@ -105,7 +105,7 @@ const configSchema = areaTilesConfigSchema.superRefine((c, ctx) => {
       message: `${c.mode} needs a rectangle`,
     });
   }
-  if (c.mode === 'decompose' && c.region.w < 2 && c.region.h < 2) {
+  if ((c.mode === 'decompose' || c.mode === 'partition') && c.region.w < 2 && c.region.h < 2) {
     ctx.addIssue({ code: 'custom', path: ['region'], message: 'a 1 × 1 region cannot be split' });
   }
   if (c.decimalGrid && (c.region.w !== 10 || c.region.h !== 10)) {
