@@ -671,6 +671,34 @@ describe('sync client: stop() cancels the run in flight', () => {
     expect((await store.syncState()).cursor).toBe(before.cursor);
     expect(server.requests).toHaveLength(1); // no second round despite `more`
   });
+
+  it('ends a manual request queued behind the run in flight, so no run starts after stop()', async () => {
+    const { store } = await pairedStore();
+    stores.push(store);
+    let release: () => void = () => undefined;
+    const held = new Promise<void>((r) => {
+      release = r;
+    });
+    const server = fakeServer();
+    let sent = 0;
+    const fetch: SyncClientOptions['fetch'] = async (u, i) => {
+      sent += 1;
+      await held;
+      return server.fetch?.(u, i) as Promise<Response>;
+    };
+    const client = createSyncClient({ store, fetch, ...manualTimers() });
+    const first = client.syncNow();
+    await settle();
+    expect(sent).toBe(1);
+    const queued = client.syncNow('manual'); // waits for the run in flight
+    const stopped = client.stop();
+    expect(await queued).toEqual({ kind: 'stopped' });
+    release();
+    await stopped;
+    expect(await first).toEqual({ kind: 'stopped' });
+    await settle();
+    expect(sent).toBe(1);
+  });
 });
 
 /** Lets queued promise chains (and IndexedDB work) run. */

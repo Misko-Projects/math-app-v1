@@ -134,7 +134,7 @@ export function createSyncClient(opts: SyncClientOptions): SyncClient {
 
   let inFlight: Promise<SyncOutcome> | null = null;
   /** Callers waiting for the next run (see `pump`). */
-  let waiters: {
+  const waiters: {
     resolve: (o: SyncOutcome) => void;
     reason: SyncReason;
     forced: boolean;
@@ -418,9 +418,9 @@ export function createSyncClient(opts: SyncClientOptions): SyncClient {
       live.clear();
       clearTimerIfArmed();
       for (const c of cleanups.splice(0)) c();
-      // Queued automatic requests end now, so a quick restart cannot send them.
-      for (const w of waiters) if (w.automatic) w.resolve({ kind: 'stopped' });
-      waiters = waiters.filter((w) => !w.automatic);
+      // Every queued request ends now, manual ones too: none may start a run with the old
+      // credentials once the run in flight ends (and a quick restart cannot send them either).
+      for (const w of waiters.splice(0)) w.resolve({ kind: 'stopped' });
       // The run in flight (if any) now ends at its next step; settle once it has.
       return inFlight ? inFlight.then(() => undefined) : Promise.resolve();
     },

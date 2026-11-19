@@ -61,10 +61,14 @@ export function createSyncLifecycle(
   };
   /** Set by `stop()` (app teardown): nothing starts the client again. */
   let closed = false;
-  const start = () => {
-    if (running || closed) return;
-    client.start();
-    setRunning(true);
+  /** Starts the client unless torn down; returns whether it is running. */
+  const start = (): boolean => {
+    if (closed) return false;
+    if (!running) {
+      client.start();
+      setRunning(true);
+    }
+    return true;
   };
   /**
    * Stops the client and waits until its run in flight has ended. Always told to the client: a
@@ -93,8 +97,7 @@ export function createSyncLifecycle(
       serial(async () => {
         const device = await store.device();
         if (!device.deviceToken) return false;
-        start();
-        return true;
+        return start();
       }),
     adopt: (ids) =>
       serial(async () => {
@@ -121,7 +124,9 @@ export function createSyncLifecycle(
           await store.db.device.put(rest);
         });
       }),
-    syncNow: (reason) => client.syncNow(reason),
+    // Waits for a credential change in progress (it never runs between a sign-out's stop and its
+    // token removal), without holding up the changes queued after it.
+    syncNow: (reason) => queue.then(() => client.syncNow(reason)),
     stop() {
       closed = true;
       void pause();

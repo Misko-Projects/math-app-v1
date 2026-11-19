@@ -268,6 +268,41 @@ describe('sync lifecycle: sign-out and re-pairing', () => {
     expect(device.net.syncRequests.length).toBe(before + 1);
   });
 
+  it('ends a manual sync queued behind the run in flight when signing out', async () => {
+    const { device, app } = await pairedApp();
+    let release = () => {};
+    device.net.holdSync = new Promise<void>((r) => {
+      release = r;
+    });
+    const before = device.net.syncRequests.length;
+    const active = app.sync.syncNow();
+    await vi.waitFor(() => expect(device.net.syncRequests.length).toBe(before + 1));
+    const queued = app.sync.syncNow(); // waits behind the active run
+    const signingOut = app.sync.signOut();
+    release();
+    await signingOut;
+    expect(await active).toEqual({ kind: 'stopped' });
+    expect(await queued).toEqual({ kind: 'stopped' });
+    // A sync asked for after the sign-out started runs only once it finished: no token, no send.
+    expect(await app.sync.syncNow()).toEqual({ kind: 'unpaired' });
+    await new Promise((r) => setTimeout(r, 20));
+    expect(device.net.syncRequests.length).toBe(before + 1);
+  });
+
+  it('reports that resume did not start when the app was torn down meanwhile', async () => {
+    const device = testDevice();
+    const first = await device.boot();
+    await first.sync.adopt(ids);
+    first.dispose();
+    const app = await track(
+      device.boot({ sync: { online: () => true, setTimer: () => 0, clearTimer: () => {} } }),
+    );
+    // Boot resumed it; tear down and ask again: the lookup resolves after the teardown.
+    app.sync.stop();
+    expect(await app.sync.resume()).toBe(false);
+    expect(app.sync.isRunning()).toBe(false);
+  });
+
   it('lets the last request win when adoption and sign-out overlap', async () => {
     const device = testDevice();
     const app = await track(device.boot());
