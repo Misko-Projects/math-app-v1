@@ -44,6 +44,7 @@ import {
   useActionSize,
   useAlive,
   useDemoPause,
+  useGrabUnderFinger,
   useInviteHand,
   useSubmitGuard,
   useTwoStep,
@@ -193,6 +194,7 @@ export function EqualGroupsWidget({
   const interactive = !disabled && !busy;
 
   const steps = useTwoStep(rootRef, { interactive, trace });
+  const grab = useGrabUnderFinger();
   // A picture to read has nothing to build: the ask step alone.
   const step: Step = read ? 'ask' : steps.step;
 
@@ -720,12 +722,16 @@ export function EqualGroupsWidget({
      * It is no wider than a target, so a drag that starts at its edge still carries the sprite to
      * within the snap radius of where the finger lets go.
      */
-    const hitStyle = (p: { x: number; y: number }): CSSProperties => {
+    const hitStyle = (
+      p: { x: number; y: number },
+      held: { dx: number; dy: number },
+    ): CSSProperties => {
       const side = parts.target;
       const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v));
       const left = clamp(p.x + s / 2 - side / 2, -zoneX, layout.box.w - zoneX - side);
       const top = clamp(p.y + s / 2 - side / 2, -zoneY, layout.box.h - zoneY - side);
-      return { left: left - p.x, top: top - p.y, width: side, height: side };
+      // The area stays where it is while the pressed sprite is drawn under the finger.
+      return { left: left - p.x - held.dx, top: top - p.y - held.dy, width: side, height: side };
     };
     // The last sprite is the one that is picked up, through a full target round it. While
     // another sprite is held the handle is out of the way: the container takes the tap.
@@ -739,6 +745,8 @@ export function EqualGroupsWidget({
       const art = <ObjectSprite sprite={config.sprite} />;
       if (j === n - 1 && handleOn) {
         const props = dnd.itemProps(spriteId, { label: spriteName });
+        // While it is pressed the sprite is drawn under the finger (kit useGrabUnderFinger).
+        const held = grab.offsetOf(spriteId);
         sprites.push(
           <span
             key={spriteId}
@@ -747,9 +755,13 @@ export function EqualGroupsWidget({
             data-eg-sprite={spriteId}
             data-cue={`take-${i}`}
             data-flash={flash.has(spriteId) ? 'true' : undefined}
-            style={style}
+            style={{ ...style, left: p.x + held.dx, top: p.y + held.dy }}
+            onPointerDown={(e) => {
+              if (interactive && !prefs.tapOnly) grab.start(spriteId, e);
+              props.onPointerDown(e);
+            }}
           >
-            <span className="ni-egw__hit" style={hitStyle(p)} />
+            <span className="ni-egw__hit" style={hitStyle(p, held)} />
             {art}
           </span>,
         );

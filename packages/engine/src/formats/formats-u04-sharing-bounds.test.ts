@@ -114,6 +114,15 @@ describe('equal-share: the supported domain', () => {
     ]);
   });
 
+  it('a share to judge leaves fewer than one round in the basket', () => {
+    const judge: Share = { ...share, recipientsKind: 'plate', ask: 'fair-or-not' };
+    expect(issues(equalShare, { ...judge, predealt: [4, 4, 4] })).toEqual([]);
+    expect(issues(equalShare, { ...judge, items: 14, predealt: [4, 4, 4] })).toEqual([]);
+    expect(issues(equalShare, { ...judge, items: 15, predealt: [4, 4, 4] })).toEqual([
+      'predealt: a share to judge leaves fewer than one round in the basket',
+    ]);
+  });
+
   it('pre-deals at most SHARE_ZONE_MAX to one recipient', () => {
     expect(SHARE_ZONE_MAX).toBe(15);
     const two: Share = { ...share, items: 24, recipients: 2, recipientsKind: 'plate' };

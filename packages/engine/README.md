@@ -274,7 +274,7 @@ Both models state and enforce the domain their widgets draw. Every bound is a fi
 |---|---|---|
 | equal-share | `items` | 1 to 24 (`SHARE_ITEMS_MAX`) |
 | | `recipients` | 2 to 4 (`SHARE_RECIPIENTS_MAX`); `even-odd` shares between 2 |
-| | `predealt` | one count per recipient, each at most `shareZoneMax(recipients)` (15 of two recipients, 10 of three or four), together at most `items` |
+| | `predealt` | one count per recipient, each at most `shareZoneMax(recipients)` (15 of two recipients, 10 of three or four), together at most `items`; a share to judge (`fair-or-not`) leaves fewer than one round (`items − sum < recipients`) in the basket |
 | | what one recipient holds while dealing | `shareCapacity(config)`: the next whole five above a fair share, at least 10 (or all the items), at least the largest pre-dealt count; never above `shareZoneMax(recipients)`, and always more than a fair share, so a full recipient is never part of the answer. `deal` stops there; `deal-round` does nothing while one recipient is full |
 | equal-groups | `groups`, `maxGroups` | 1 to 6 (`GROUPS_MAX`); `groups` ≤ `maxGroups` |
 | | `perGroup`, and what one container holds | 1 to 10 (`GROUP_CAPACITY`). Groups of tens (MUL.11) are not supported yet: the schema refuses them |

@@ -21,6 +21,7 @@ import {
   inArea,
   namedStory,
   stepButton,
+  touchDragBetween,
 } from '../../test-support/twoStepStory';
 import {
   expectPointerOn,
@@ -537,40 +538,20 @@ export const EmptySupplyUnequal: Story = {
 };
 
 /**
- * A drag that starts at the very edge of the take-back target still lands where the finger lets
- * go: the target is no wider than a full target, so the crab stays within reach of the drop.
+ * A drag from the very edge of the take-back target carries the sprite under the finger: released
+ * just inside the third container, it lands there and not in the second (six containers, the
+ * smallest cells).
  */
 export const DragFromTheEdgeOfTheHandle: Story = {
-  args: { config: total },
+  args: { config: sixGroups },
   play: async ({ canvasElement }) => {
     const root = await findWidget(canvasElement, ROOT);
     await fill(root, 0, 1);
     const area = hit(root, 0).getBoundingClientRect();
-    await expect(Math.round(area.width)).toBe(64);
-    const from = { x: area.right - 4, y: area.top + area.height / 2 };
-    const to = center(group(root, 1));
-    const el = hit(root, 0);
-    const init = (x: number, y: number, buttons: number): PointerEventInit => ({
-      bubbles: true,
-      cancelable: true,
-      composed: true,
-      pointerId: 78,
-      pointerType: 'touch',
-      isPrimary: true,
-      clientX: x,
-      clientY: y,
-      button: 0,
-      buttons,
-    });
-    el.dispatchEvent(new PointerEvent('pointerdown', init(from.x, from.y, 1)));
-    for (let k = 1; k <= 10; k += 1) {
-      const x = from.x + ((to.x - from.x) * k) / 10;
-      const y = from.y + ((to.y - from.y) * k) / 10;
-      window.dispatchEvent(new PointerEvent('pointermove', init(x, y, 1)));
-      await new Promise((r) => requestAnimationFrame(() => r(null)));
-    }
-    window.dispatchEvent(new PointerEvent('pointerup', init(to.x, to.y, 0)));
-    await expectShown(root, { groups: [0, 1] });
+    const third = group(root, 2).getBoundingClientRect();
+    const y = area.top + area.height / 2;
+    await touchDragBetween(hit(root, 0), { x: area.right - 4, y }, { x: third.left + 6, y });
+    await expectShown(root, { groups: [0, 0, 1, 0, 0, 0] });
   },
 };
 

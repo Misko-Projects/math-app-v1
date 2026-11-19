@@ -6,8 +6,8 @@ import {
   shareZoneMax,
 } from '@number-island/engine';
 import { describe, expect, it } from 'vitest';
-import { buildRoom } from '../kit/twoStep';
-import { chromeFor, type LayoutInput, MIN_ITEM_PX, shareLayout } from './layout';
+import { buildRoom, planAsk } from '../kit/twoStep';
+import { chromeFor, type LayoutInput, MIN_ITEM_PX, pictureInput, shareLayout } from './layout';
 
 /** The smallest widget area (906 × 373) inside its card: 3 px border and 24 px padding a side. */
 const ROOM = { w: 852, h: 319 };
@@ -112,6 +112,59 @@ describe('equal-share build layout in the smallest area (906 × 373)', () => {
     const l = shareLayout({ ...build(24, 4, 'pebbling', 'g1-up'), width: 300, height: 200 });
     expect(l.fits).toBe(false);
     expect(l.s).toBe(MIN_ITEM_PX);
+  });
+});
+
+describe('equal-share ask step in the smallest area (906 × 373)', () => {
+  /** The widget's own plan: the answer 0 … items, Back and Check, and the picture that is left. */
+  const ask = (
+    items: number,
+    recipients: number,
+    kind: LayoutInput['kind'],
+    left: { pile: number; seagull: number },
+    ageMode: 'k' | 'g1-up' = 'g1-up',
+  ) =>
+    planAsk({
+      ageMode,
+      max: items,
+      button: ageMode === 'k' ? BUTTON.k : BUTTON.g1,
+      actions: 2,
+      room: ROOM,
+      pictureScore: (box) => {
+        const cap = shareCapacity({ items, recipients });
+        const l = shareLayout(pictureInput({ recipients, kind, cap }, left, box, ageMode));
+        return l.fits && l.s >= MIN_ITEM_PX ? l.s : 0;
+      },
+    });
+
+  it('keeps a countable picture for every share and everything that can be left over', () => {
+    // Next opens the ask step only when fewer than a round is left in the basket.
+    for (let items = 1; items <= SHARE_ITEMS_MAX; items += 1) {
+      for (let recipients = 2; recipients <= SHARE_RECIPIENTS_MAX; recipients += 1) {
+        for (const kind of ['pebbling', 'plate'] as const) {
+          for (const left of [
+            { pile: 0, seagull: 0 },
+            { pile: 0, seagull: recipients - 1 },
+            { pile: recipients - 1, seagull: 0 },
+            { pile: recipients - 1, seagull: recipients - 1 },
+          ]) {
+            const p = ask(items, recipients, kind, left);
+            const what = `${items} among ${recipients} ${kind}s, ${left.pile} + ${left.seagull} left`;
+            expect(p.fits, what).toBe(true);
+            expect(p.picture, what).not.toBeNull();
+          }
+        }
+      }
+    }
+  });
+
+  it('keeps the picture for kindergarten content at kindergarten sizes', () => {
+    for (let items = 2; items <= 10; items += 1) {
+      for (const recipients of [2, 3]) {
+        const p = ask(items, recipients, 'pebbling', { pile: 0, seagull: 0 }, 'k');
+        expect(p.picture, `${items} among ${recipients}`).not.toBeNull();
+      }
+    }
   });
 });
 

@@ -45,6 +45,7 @@ import {
   useActionSize,
   useAlive,
   useDemoPause,
+  useGrabUnderFinger,
   useInviteHand,
   useSubmitGuard,
   useTwoStep,
@@ -69,6 +70,7 @@ import {
   PICTURE_BIRD,
   ROW_GAP,
   shareLayout,
+  pictureInput as sharePictureInput,
   zoneCell,
 } from './layout';
 import './equal-share.css';
@@ -232,6 +234,7 @@ export function EqualShareWidget({
   const interactive = !disabled && !busy;
 
   const steps = useTwoStep(rootRef, { interactive, trace });
+  const grab = useGrabUnderFinger();
   // A pre-dealt share to judge has nothing to build: the ask step alone.
   const step: Step = dealing ? steps.step : 'ask';
 
@@ -303,18 +306,13 @@ export function EqualShareWidget({
     });
   }, [box.w, box.h, button, R, kind, cap, config.items, ageMode, chrome]);
 
-  const pictureInput = (size: Size) => ({
-    recipients: R,
-    kind,
-    cap,
-    pileMax: state.pile,
-    mode: 'picture' as const,
-    seagullMax: state.seagull,
-    width: size.w,
-    height: size.h,
-    maxItem: ITEM_MAX[ageMode],
-    chrome,
-  });
+  const pictureInput = (size: Size) =>
+    sharePictureInput(
+      { recipients: R, kind, cap },
+      { pile: state.pile, seagull: state.seagull },
+      size,
+      ageMode,
+    );
   // biome-ignore lint/correctness/useExhaustiveDependencies: pictureInput reads these
   const askPlan = useMemo(
     () =>
@@ -778,12 +776,16 @@ export function EqualShareWidget({
      * no wider than a target, so a drag that starts at its edge still carries the item to within
      * the snap radius of where the finger lets go.
      */
-    const hitStyle = (p: { x: number; y: number }): CSSProperties => {
+    const hitStyle = (
+      p: { x: number; y: number },
+      held: { dx: number; dy: number },
+    ): CSSProperties => {
       const side = chrome.target;
       const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v));
       const left = clamp(p.x + s / 2 - side / 2, -zone.padX, zone.w - zone.padX - side);
       const top = clamp(p.y + s / 2 - side / 2, -zone.padY, zone.h - zone.padY - side);
-      return { left: left - p.x, top: top - p.y, width: side, height: side };
+      // The area stays where it is while the pressed item is drawn under the finger.
+      return { left: left - p.x - held.dx, top: top - p.y - held.dy, width: side, height: side };
     };
     const items: ReactNode[] = [];
     // The last item is the one that is picked up, through a full target round it. While another
@@ -796,6 +798,8 @@ export function EqualShareWidget({
       if (j === n - 1 && handleOn) {
         const props = dnd.itemProps(itemId, { label: spriteName });
         const p = zoneCell(j, s, zone.upright);
+        // While it is pressed the item is drawn under the finger (kit useGrabUnderFinger).
+        const held = grab.offsetOf(itemId);
         items.push(
           <span
             key={itemId}
@@ -804,9 +808,13 @@ export function EqualShareWidget({
             data-item={itemId}
             data-cue={`take-${i}`}
             data-flash={flash.has(itemId) ? 'true' : undefined}
-            style={itemStyle(j)}
+            style={{ left: p.x + held.dx, top: p.y + held.dy, width: s, height: s }}
+            onPointerDown={(e) => {
+              if (interactive && !prefs.tapOnly) grab.start(itemId, e);
+              props.onPointerDown(e);
+            }}
           >
-            <span className="ni-esw__hit" style={hitStyle(p)} />
+            <span className="ni-esw__hit" style={hitStyle(p, held)} />
             {sprite}
           </span>,
         );
@@ -1142,6 +1150,17 @@ export function EqualShareWidget({
       ready={ready}
       onStep={(s) => {
         childStep();
+        // The answer comes after the sharing: while the basket could still go round, Next says
+        // so and rings what to do (the ask step's picture shows fewer than a round left over).
+        const now = stateRef.current;
+        if (s === 'ask' && now.pile >= R) {
+          const full = now.shares.some((x) => x >= cap);
+          limit(
+            REASON_KEY.round,
+            full ? `take-${fullest(now.shares)}` : sharesEqual(now.shares) ? 'deal-round' : 'spot',
+          );
+          return;
+        }
         steps.goTo(s);
       }}
       onCheck={submit}

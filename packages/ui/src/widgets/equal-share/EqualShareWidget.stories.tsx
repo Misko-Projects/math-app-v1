@@ -22,6 +22,7 @@ import {
   inArea,
   namedStory,
   stepButton,
+  touchDragBetween,
 } from '../../test-support/twoStepStory';
 import {
   expectPointerOn,
@@ -557,44 +558,94 @@ export const SeagullWhenOneIsFull: Story = {
   },
 };
 
+// ---------- the other asks ----------
+
 /**
- * A drag that starts at the very edge of the take-back target still lands where the finger lets
- * go: the target is no wider than a full target, so the shell stays within reach of the drop.
+ * A drag from the very edge of the take-back target carries the item under the finger: released
+ * just inside the third plate, it lands there and not on the second (24 among 4 plates, the
+ * smallest cells).
  */
 export const DragFromTheEdgeOfTheHandle: Story = {
+  args: { config: { ...bound, recipientsKind: 'plate' } },
+  play: async ({ canvasElement }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    await userEvent.click(take(root));
+    await userEvent.click(recipient(root, 0));
+    await expectShown(root, { shares: [1, 0, 0, 0], pile: 23 });
+    const area = hit(root, 0).getBoundingClientRect();
+    const third = recipient(root, 2).getBoundingClientRect();
+    const y = area.top + area.height / 2;
+    await touchDragBetween(hit(root, 0), { x: area.right - 4, y }, { x: third.left + 4, y });
+    await expectShown(root, { shares: [0, 0, 1, 0], pile: 23 });
+  },
+};
+
+/** A press that does not move leaves the item where it was (it only followed the finger). */
+export const PressOnTheHandleEdgePicksUp: Story = {
   args: { config: fix },
   play: async ({ canvasElement }) => {
     const root = await findWidget(canvasElement, ROOT);
     const area = hit(root, 0).getBoundingClientRect();
-    await expect(Math.round(area.width)).toBe(64);
-    const from = { x: area.right - 4, y: area.top + area.height / 2 };
-    const to = center(recipient(root, 1));
-    const el = hit(root, 0);
-    const init = (x: number, y: number, buttons: number): PointerEventInit => ({
-      bubbles: true,
-      cancelable: true,
-      composed: true,
-      pointerId: 77,
-      pointerType: 'touch',
-      isPrimary: true,
-      clientX: x,
-      clientY: y,
-      button: 0,
-      buttons,
-    });
-    el.dispatchEvent(new PointerEvent('pointerdown', init(from.x, from.y, 1)));
-    for (let k = 1; k <= 10; k += 1) {
-      const x = from.x + ((to.x - from.x) * k) / 10;
-      const y = from.y + ((to.y - from.y) * k) / 10;
-      window.dispatchEvent(new PointerEvent('pointermove', init(x, y, 1)));
-      await new Promise((r) => requestAnimationFrame(() => r(null)));
-    }
-    window.dispatchEvent(new PointerEvent('pointerup', init(to.x, to.y, 0)));
-    await expectShown(root, { shares: [4, 4], pile: 0 });
+    await clickAt(area.right - 4, area.top + area.height / 2);
+    await expect(handle(root, 0)).toHaveAttribute('aria-pressed', 'true');
+    await expectShown(root, { shares: [5, 3], pile: 0 });
+    const at = handle(root, 0).getBoundingClientRect();
+    const cell = q(root, '[data-item="item-0-3"]').getBoundingClientRect();
+    // Back in its own cell: one cell beside the fourth item.
+    await expect(Math.abs(at.top - cell.top) < 1 || Math.abs(at.left - cell.left) < 1).toBe(true);
   },
 };
 
-// ---------- the other asks ----------
+/**
+ * Next waits for the sharing: while the basket could still go round, it says so, rings the round
+ * button and stays on the build step.
+ */
+export const NextWaitsForTheSharing: Story = {
+  play: async ({ canvasElement, parameters }) => {
+    const audio = audioOf(parameters);
+    const root = await findWidget(canvasElement, ROOT);
+    clearSpies(audio);
+    await userEvent.click(stepButton(root, 'next'));
+    await expect(root).toHaveAttribute('data-step', 'build');
+    await expectNote(root, 'Each one can have more');
+    await expect(said(audio)).toEqual(['ui.widget.es.why.round']);
+    await expectRing(root, dealRound(root));
+    // Unequal shares with some left: the ring is on the take-one spot.
+    await userEvent.click(take(root));
+    await userEvent.click(recipient(root, 0));
+    await userEvent.click(stepButton(root, 'next'));
+    await expectRing(root, spot(root));
+    await expect(root).toHaveAttribute('data-step', 'build');
+  },
+};
+
+/**
+ * The ask step keeps its picture at the bound: 23 among 4 pebblings, 5 each and 3 for the
+ * seagull, all drawn beside the number pad in the smallest area.
+ */
+export const AskKeepsThePictureAtTheBound: Story = {
+  args: { config: { ...bound, items: 23, allowLeftover: true, ask: 'leftover' } },
+  play: async ({ canvasElement, args }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    await dealRounds(root, 5);
+    await userEvent.click(bird(root));
+    await goNext(root);
+    await expectShown(root, { shares: [5, 5, 5, 5], pile: 0, seagull: 3 });
+    await expect(q(root, '.ni-esw__picture').getAttribute('aria-label')).toContain(
+      'Pebbling 4 has 5. The seagull has 3',
+    );
+    await expectAreaFit(canvasElement, {
+      ...askFit(root, 'g1-up', 'equal-share ask 23 among 4'),
+      minFill: 0.5,
+    });
+    await expectCountable(root);
+    await enterNumber(root, 3);
+    await userEvent.click(stepButton(root, 'check'));
+    await expect(args.onResponse).toHaveBeenCalledWith(
+      state({ shares: [5, 5, 5, 5], leftover: 3, value: 3 }),
+    );
+  },
+};
 
 /** `leftover`: deal, give the seagull the rest, then type how many were left. */
 export const Leftover: Story = {
@@ -822,6 +873,8 @@ export const StressFullestZone: Story = {
 export const HeldEnterStepsOnce: Story = {
   play: async ({ canvasElement, args }) => {
     const root = await findWidget(canvasElement, ROOT);
+    await dealRounds(root, 4);
+    (args.onInteract as ReturnType<typeof fn>).mockClear();
     stepButton(root, 'next').focus();
     await holdEnter(stepButton(root, 'next'), 4, async () => {
       await new Promise((r) => requestAnimationFrame(() => r(null)));
@@ -920,6 +973,8 @@ export const DemoInviteEachControl: Story = {
     demoInvites.invite({ op: 'set-aside-leftover' });
     await expectRing(root, bird(root));
     // The answer is on the next step: the invite points at Next, then at the numeral.
+    await dealRounds(root, 2);
+    await userEvent.click(bird(root));
     demoInvites.invite({ op: 'answer', args: { value: 1 } });
     await expectRing(root, stepButton(root, 'next'));
     await goNext(root);

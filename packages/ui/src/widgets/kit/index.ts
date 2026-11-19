@@ -113,6 +113,7 @@ export {
   gaugeTicks,
   levelY,
 } from './GaugeView';
+export { useGrabUnderFinger } from './grab';
 export {
   INVITE_GLYPH_SELECTOR,
   INVITE_HAND_PX,

@@ -161,6 +161,13 @@ const configSchema = equalShareConfigSchema.superRefine((c, ctx) => {
       message: 'fair-or-not shows a dealt share',
     });
   }
+  if (c.ask === 'fair-or-not' && c.predealt && c.items - sum(c.predealt) >= c.recipients) {
+    ctx.addIssue({
+      code: 'custom',
+      path: ['predealt'],
+      message: 'a share to judge leaves fewer than one round in the basket',
+    });
+  }
   if (c.predealt && (c.predealt.length !== c.recipients || sum(c.predealt) > c.items)) {
     ctx.addIssue({
       code: 'custom',

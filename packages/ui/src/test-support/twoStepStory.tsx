@@ -206,3 +206,39 @@ export async function enterNumber(root: HTMLElement, n: number) {
   const more = root.querySelector('.ni-stepper__key[data-key="more"]') as HTMLElement;
   for (let i = 0; i < n; i += 1) await userEvent.click(more);
 }
+
+/**
+ * A touch drag between two points of the page, as a finger makes it: down on `el` at `from`,
+ * moves in steps, up at `to`.
+ */
+export async function touchDragBetween(
+  el: Element,
+  from: { x: number; y: number },
+  to: { x: number; y: number },
+  steps = 10,
+) {
+  const pointerId = 70 + (Math.floor(from.x) % 20);
+  const init = (x: number, y: number, buttons: number): PointerEventInit => ({
+    bubbles: true,
+    cancelable: true,
+    composed: true,
+    pointerId,
+    pointerType: 'touch',
+    isPrimary: true,
+    clientX: x,
+    clientY: y,
+    button: 0,
+    buttons,
+  });
+  const frame = () => new Promise<void>((r) => requestAnimationFrame(() => r()));
+  el.dispatchEvent(new PointerEvent('pointerdown', init(from.x, from.y, 1)));
+  await frame();
+  for (let k = 1; k <= steps; k += 1) {
+    const x = from.x + ((to.x - from.x) * k) / steps;
+    const y = from.y + ((to.y - from.y) * k) / steps;
+    window.dispatchEvent(new PointerEvent('pointermove', init(x, y, 1)));
+    await frame();
+  }
+  window.dispatchEvent(new PointerEvent('pointerup', init(to.x, to.y, 0)));
+  await frame();
+}

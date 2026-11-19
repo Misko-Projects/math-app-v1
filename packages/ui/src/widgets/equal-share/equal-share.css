@@ -276,6 +276,9 @@
     inset 0 0 0 3px var(--color-sea-deep),
     var(--shadow-soft);
 }
+.ni-esw__picture .ni-esw__nest {
+  flex-direction: row;
+}
 .ni-esw__bird {
   display: block;
   flex: none;

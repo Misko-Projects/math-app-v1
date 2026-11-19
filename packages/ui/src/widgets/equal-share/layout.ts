@@ -101,6 +101,9 @@ export const zonePad = (kind: LayoutInput['kind'], s: number) =>
 
 /** A pebbling's height above its mat. */
 export const figureSize = (zoneW: number) => Math.max(64, Math.min(150, Math.round(zoneW * 0.42)));
+/** A pebbling in the ask step's picture: smaller, so the whole share fits beside the answer. */
+export const pictureFigureSize = (zoneW: number) =>
+  Math.max(40, Math.min(150, Math.round(zoneW * 0.42)));
 /** How much of a pebbling sits behind its mat (its feet). */
 export const FIGURE_TUCK = 0.14;
 
@@ -128,7 +131,8 @@ function layoutAt(input: LayoutInput, s: number, shape: Shape): Layout {
     padY: (zoneH - zg.h) / 2,
     upright: shape.upright,
   };
-  const figure = input.kind === 'pebbling' ? figureSize(zone.w) : 0;
+  const figure =
+    input.kind === 'pebbling' ? (deal ? figureSize(zone.w) : pictureFigureSize(zone.w)) : 0;
   const card = {
     w: Math.max(zone.w, figure),
     h: zone.h + Math.round(figure * (1 - FIGURE_TUCK)),
@@ -149,12 +153,18 @@ function layoutAt(input: LayoutInput, s: number, shape: Shape): Layout {
     boxW: hasNest ? Math.max(gullGrid.w, deal ? chrome.target : 0) : 0,
     boxH: hasNest ? Math.max(gullGrid.h, deal ? chrome.target : 0) : 0,
   };
-  const nest = hasNest
-    ? {
-        w: 2 * CARD_PAD + Math.max(bird.w, gull.boxW),
-        h: 2 * CARD_PAD + bird.h + ROW_GAP + gull.boxH,
-      }
-    : { w: 0, h: 0 };
+  // Dealing: the items under the bird. The picture: beside it (a short strip).
+  const nest = !hasNest
+    ? { w: 0, h: 0 }
+    : deal
+      ? {
+          w: 2 * CARD_PAD + Math.max(bird.w, gull.boxW),
+          h: 2 * CARD_PAD + bird.h + ROW_GAP + gull.boxH,
+        }
+      : {
+          w: 2 * CARD_PAD + bird.w + ROW_GAP + gull.boxW,
+          h: 2 * CARD_PAD + Math.max(bird.h, gull.boxH),
+        };
 
   // The basket: the take-one spot and the "one to each" button, beside the rest of the pile (one
   // above the other) or under it (side by side), and the pile in rows of five.
@@ -202,6 +212,32 @@ function layoutAt(input: LayoutInput, s: number, shape: Shape): Layout {
     width,
     height,
     fits: width <= input.width && height <= input.height,
+  };
+}
+
+/**
+ * The ask step's picture of a share: the recipients with what they hold, what is still in the
+ * basket and what the seagull has. The widget lets the child go on only when the basket could
+ * not go round again (fewer than the recipients are left), so the picture never has more than
+ * `recipients - 1` in the basket and as many by the seagull.
+ */
+export function pictureInput(
+  share: { recipients: number; kind: LayoutInput['kind']; cap: number },
+  left: { pile: number; seagull: number },
+  box: { w: number; h: number },
+  ageMode: 'k' | 'g1-up',
+): LayoutInput {
+  return {
+    recipients: share.recipients,
+    kind: share.kind,
+    cap: share.cap,
+    pileMax: left.pile,
+    mode: 'picture',
+    seagullMax: left.seagull,
+    width: box.w,
+    height: box.h,
+    maxItem: ageMode === 'k' ? 104 : 84,
+    chrome: chromeFor(ageMode),
   };
 }
 
