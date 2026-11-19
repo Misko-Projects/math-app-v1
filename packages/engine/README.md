@@ -134,6 +134,31 @@ The shape-sort, shape-compose, compare and puzzle-grid format models belong to U
 - **compare-length** objects have ids `obj-<i>` in display order; `longer`, `shorter` and `indirect` answer with that id.
 - **compare** and **balance** `which-heavier` answer `left`, `right` or `same`. `mea.length` draws a length compare (the `ruler` representation) as two number-line strips from 0 on one scale, with the object's end marked.
 - Solution steps before the last never highlight the answer: the worked-step hint (level 4) plays them.
+## Conventions the U04 formats fix (#13)
+
+Response shapes and state-checker targets of the place-value and operations formats. Generators that build these formats emit these targets.
+
+| Format | Response | Checker target |
+|---|---|---|
+| `base-ten-build` `build` | `{ thousands, hundreds, tens, ones }`: the mat | `baseten.value` `{ value }`: any pieces worth the value |
+| `base-ten-build` `build-exact` | same | `baseten.exact` `{ value, exact }`: worth the value, with exactly the named counts |
+| `base-ten-trade` | `{ hundreds, tens, ones, value? }`: the mat, plus the typed result | `trade.result` `{ regroupTarget }` (exact columns) or `{ result, value? }` (any mat worth the result) |
+| `expanded-form` `build` | `numbers`: the cards placed (unordered answer) | — |
+| `array-build` `build-dims` | `{ rows, cols }` | `array.dims` `{ rows, cols, orientationMatters }` |
+| `array-build` `build-total`, `new-way` | `{ rows, cols }` | `array.area` `{ total, found? }`; a turned rectangle counts as found |
+| `array-build` `split` | `{ rows, cols, split, value }`: the line after column `split` | `array.dims` `{ rows, cols, requireSplit: true }` |
+| `equal-groups` `build` | `{ groups: number[], value }`: one count per container | `groups.equal` `{ groups, perGroup, value }`; empty containers are not groups |
+| `equal-share` `each`, `leftover` | `{ shares: number[], leftover, value }`: `leftover` is the pile plus the seagull's | `share.fair` `{ items, recipients, allowLeftover, value }` |
+| `area-tiles` `tile` | `{ tiles, value }`: row-major `'1'`/`'0'`, like the mask | `tiles.cover` `{ mask, value }` |
+| `area-tiles` `decompose` | `{ splits: { dir: 'v' \| 'h', at }[], value }`: full-length lines after column/row `at` | `tiles.cover` `{ mask, w, h, decompose: true, value }`: two or more pieces, all rectangles |
+| `area-tiles` `partition` | `{ rows, cols }`: the strips the lines make | `array.dims` `{ rows: h, cols: w, orientationMatters: true }` |
+
+- **Piece kinds** in op args are `thousands`, `hundreds`, `tens`, `ones` (also `cube`, `flat`, `rod`, `unit` and the singulars). With `wholeIs: 'flat'` every value is in hundredths.
+- **Tray limits** (`base-ten-build` `limits`) cap the pieces of a kind taken from the tray; fusing and splitting never use the tray.
+- **Choices:** `equal-share` `fair-or-not` answers `yes` | `no` and `even-odd` answers `even` | `odd`; `expanded-form` `words` answers a `wordOptions` id.
+- `expanded-form` `digitIndex` and `highlight-digit {index}` count digits from the left.
+- `area-tiles` features scale by `(area − 1) / 10`; `array-build` and `equal-groups` `product` by `(product − 1) / 10`; `equal-share` `items` by `(items − recipients) / 10`, so the easiest item scores 0 (03 §5.4).
+- The property test's near-miss mutations (03 §9.4 step 5) also add or remove one piece, row, column, item, leftover or tile in these shapes; A decompose split line may also be taken away. `array.dims` exempts moving the split line, and `tiles.cover` exempts taking away a line when the rest is still a valid decomposition.
 
 ## Tests
 

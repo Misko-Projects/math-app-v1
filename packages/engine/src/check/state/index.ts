@@ -2,19 +2,27 @@
 // formats use; U03–U05 and K01/K02 add the rest of `StateCheckerId`.
 
 import type { StateCheckerId } from '@number-island/shared';
+import { arrayArea } from './array.area';
+import { arrayDims } from './array.dims';
+import { basetenExact } from './baseten.exact';
+import { basetenValue } from './baseten.value';
 import { bondNewWay } from './bond.newWay';
 import { bondSplit } from './bond.split';
 import { composeFill } from './compose.fill';
 import { composeRelative } from './compose.relative';
 import { gridPolygon } from './grid.polygon';
+import { groupsEqual } from './groups.equal';
 import { jumpsReach } from './jumps.reach';
 import { puzzleSatisfies } from './puzzle.satisfies';
 import { rekenrekTotal } from './rekenrek.total';
 import { selectExactSet } from './select.exactSet';
 import { setCount } from './set.count';
+import { shareFair } from './share.fair';
 import { sortByRule } from './sort.byRule';
 import { tenframeMakeTen } from './tenframe.makeTen';
 import { tenframeTotal } from './tenframe.total';
+import { tilesCover } from './tiles.cover';
+import { tradeResult } from './trade.result';
 import type { StateChecker } from './types';
 import { unitsIterate } from './units.iterate';
 
@@ -33,6 +41,15 @@ const CHECKERS: Partial<Record<StateCheckerId, StateChecker>> = {
   'grid.polygon': gridPolygon,
   'puzzle.satisfies': puzzleSatisfies,
   'units.iterate': unitsIterate,
+  // U04 (#13)
+  'baseten.value': basetenValue,
+  'baseten.exact': basetenExact,
+  'trade.result': tradeResult,
+  'array.dims': arrayDims,
+  'array.area': arrayArea,
+  'groups.equal': groupsEqual,
+  'share.fair': shareFair,
+  'tiles.cover': tilesCover,
 };
 
 export function stateChecker(id: StateCheckerId): StateChecker | undefined {
