@@ -124,36 +124,20 @@ const behindTarget = {
   scene: { w: 100, h: 60 },
 };
 
-/** GEO.02.t1 seed 1: draw a closed shape with 3 sides. */
+/** GEO.02.t1 seed 1 (G1; a wide grid, 3 rows × 6): draw a closed shape with 3 sides. */
 const draw3: Config = {
   format: 'shape-compose',
   mode: 'draw-on-grid',
   showOutlineLines: false,
-  grid: { cols: 5, rows: 5 },
+  grid: { cols: 6, rows: 3 },
   require: { sides: 3 },
   rotationStep: 90,
 };
 
 /**
- * GEO.09.t1 (K) at the smallest landscape area: the generator's 5 × 5 grid does not fit there with
- * K dot targets (80 px, 92 px apart: 5 rows need about 448 px; the area has about 290), so this
- * story uses the 7 × 3 grid that does (hand-made; the templates' grid size is the coordinator's
- * decision). Make a triangle with sticks.
+ * GEO.09.t1 seed 1 (K; a wide grid, 3 rows × 6: K dot targets, 80 px and 92 px apart, fit every
+ * area's height with 3 rows): make a triangle with sticks.
  */
-const sticksWide: Config = {
-  format: 'shape-compose',
-  mode: 'build-sticks',
-  pieces: [
-    { id: 'stick', kind: 'stick', count: 8 },
-    { id: 'corner', kind: 'corner', count: 5 },
-  ],
-  showOutlineLines: false,
-  grid: { cols: 7, rows: 3 },
-  require: { kind: 'triangle' },
-  rotationStep: 90,
-};
-
-/** GEO.09.t1 seed 1: make a triangle with sticks. */
 const sticks: Config = {
   format: 'shape-compose',
   mode: 'build-sticks',
@@ -162,7 +146,7 @@ const sticks: Config = {
     { id: 'corner', kind: 'corner', count: 5 },
   ],
   showOutlineLines: false,
-  grid: { cols: 5, rows: 5 },
+  grid: { cols: 6, rows: 3 },
   require: { kind: 'triangle' },
   rotationStep: 90,
 };
@@ -713,7 +697,9 @@ async function expectDotTargets(root: HTMLElement, ageMode: 'k' | 'g1-up') {
   const a = center(root.querySelector('circle[data-dot="0,0"]') as Element);
   const b = center(root.querySelector('circle[data-dot="1,0"]') as Element);
   const r = (targets[0] as HTMLElement).getBoundingClientRect();
+  const xy = targets.map((t) => (t.dataset.dotTarget ?? '0,0').split(',').map(Number));
   recordEvidence(root, {
+    grid: `${Math.max(...xy.map((p) => p[0] as number)) + 1}x${Math.max(...xy.map((p) => p[1] as number)) + 1}`,
     dot_target: `${Math.round(r.width)}x${Math.round(r.height)}`,
     dot_gap: Math.round(gap),
     dot_spacing: Math.round(b.x - a.x),
@@ -741,17 +727,18 @@ async function tapDot(root: HTMLElement, x: number, y: number) {
  */
 export const DrawTriangle: Story = {
   args: { config: draw3 },
+  render: inArea('tablet'),
   play: async ({ canvasElement, args }) => {
     const root = await findWidget(canvasElement, ROOT);
     await expectDotTargets(root, 'g1-up');
     await tapDot(root, 0, 0);
     await tapDot(root, 4, 0);
-    await tapDot(root, 2, 3);
+    await tapDot(root, 2, 2);
     // Open so far: Check sends the walk, which grid.polygon rejects.
     await userEvent.click(within(root).getByRole('button', { name: 'Check' }));
     await expect(
       stateChecker('grid.polygon')?.check(
-        { require: { sides: 3 }, grid: { cols: 5, rows: 5 } },
+        { require: { sides: 3 }, grid: { cols: 6, rows: 3 } },
         lastState(args.onResponse),
       ),
     ).toBe(false);
@@ -764,12 +751,12 @@ export const DrawTriangle: Story = {
       points: [
         [0, 0],
         [4, 0],
-        [2, 3],
+        [2, 2],
       ],
     });
     await expect(
       stateChecker('grid.polygon')?.check(
-        { require: { sides: 3 }, grid: { cols: 5, rows: 5 } },
+        { require: { sides: 3 }, grid: { cols: 6, rows: 3 } },
         value,
       ),
     ).toBe(true);
@@ -803,14 +790,12 @@ export const DrawDragAndKeyboard: Story = {
     await expect(root.querySelectorAll('.ni-scomp__line')).toHaveLength(1);
     // Keyboard: the cursor is on (3, 1) where the drag ended and the next line starts there.
     dotsBoard(root).focus();
-    await userEvent.keyboard(
-      '{ArrowDown}{ArrowDown}{Enter}{ArrowLeft}{ArrowLeft}{Enter}{ArrowUp}{ArrowUp}{Enter}',
-    );
+    await userEvent.keyboard('{ArrowDown}{Enter}{ArrowLeft}{ArrowLeft}{Enter}{ArrowUp}{Enter}');
     await expect(root.querySelectorAll('.ni-scomp__line')).toHaveLength(4);
     await userEvent.click(within(root).getByRole('button', { name: 'Check' }));
     await expect(
       stateChecker('grid.polygon')?.check(
-        { require: { sides: 4 }, grid: { cols: 5, rows: 5 } },
+        { require: { sides: 4 }, grid: { cols: 6, rows: 3 } },
         lastState(args.onResponse),
       ),
     ).toBe(true);
@@ -823,12 +808,12 @@ export const DrawDragAndKeyboard: Story = {
 };
 
 /**
- * GEO.09.t1 at the smallest landscape area (K), on the 7 × 3 grid that fits K dot targets there
- * (see `sticksWide`): sticks meet at corners; sticks left counts down.
+ * GEO.09.t1 at the smallest landscape area (K), the item as generated (3 rows × 6): every dot its
+ * own 80 px target; sticks meet at corners; sticks left counts down.
  */
 export const SticksLandscapeMinK: Story = {
   globals: { ageMode: 'k' },
-  args: { config: sticksWide },
+  args: { config: sticks },
   render: inArea('landscapeMin'),
   play: async ({ canvasElement, args }) => {
     const root = await findWidget(canvasElement, ROOT);
@@ -866,7 +851,7 @@ export const SticksLandscapeMinK: Story = {
     await userEvent.click(within(root).getByRole('button', { name: 'Check' }));
     await expect(
       stateChecker('grid.polygon')?.check(
-        { require: { kind: 'triangle' }, grid: { cols: 7, rows: 3 } },
+        { require: { kind: 'triangle' }, grid: { cols: 6, rows: 3 } },
         lastState(args.onResponse),
       ),
     ).toBe(true);
@@ -874,28 +859,52 @@ export const SticksLandscapeMinK: Story = {
 };
 
 /**
- * GEO.09.t1 seed 1 as generated (K, 5 × 5) on the story stage, where its height fits: every dot
- * its own 80 px target, 92+ px apart; three sticks make the triangle.
+ * GEO.02.t1 seed 1 (G1, 3 rows × 6) at the smallest landscape area: every dot its own 64 px
+ * target, 12+ px apart, the grid filling its board; nothing scrolls.
  */
-export const SticksK: Story = {
+export const DrawLandscapeMin: Story = {
+  args: { config: draw3 },
+  render: inArea('landscapeMin'),
+  play: async ({ canvasElement }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    await expectFitsArea(areaBox(canvasElement), [
+      dotsBoard(root),
+      ...dotTargets(root),
+      within(root).getByRole('button', { name: 'Take one back' }),
+      within(root).getByRole('button', { name: 'Check' }),
+    ]);
+    await expectDotTargets(root, 'g1-up');
+  },
+};
+
+/**
+ * GEO.09.t1 seed 1 as generated (K, 3 rows × 6) at the tablet area: every dot its own 80 px
+ * target, 92+ px apart, the grid filling its board; three sticks make the triangle.
+ */
+export const SticksTabletK: Story = {
   globals: { ageMode: 'k' },
   args: { config: sticks },
+  render: inArea('tablet'),
   play: async ({ canvasElement, args }) => {
     const root = await findWidget(canvasElement, ROOT);
     await expectDotTargets(root, 'k');
     for (const [x, y] of [
       [0, 0],
       [3, 0],
-      [0, 3],
+      [0, 2],
       [0, 0],
     ]) {
       await tapDot(root, x as number, y as number);
     }
     await expect(root.querySelectorAll('.ni-scomp__stick')).toHaveLength(3);
+    await expectFitsArea(areaBox(canvasElement), [
+      dotsBoard(root),
+      within(root).getByRole('button', { name: 'Check' }),
+    ]);
     await userEvent.click(within(root).getByRole('button', { name: 'Check' }));
     await expect(
       stateChecker('grid.polygon')?.check(
-        { require: { kind: 'triangle' }, grid: { cols: 5, rows: 5 } },
+        { require: { kind: 'triangle' }, grid: { cols: 6, rows: 3 } },
         lastState(args.onResponse),
       ),
     ).toBe(true);
@@ -998,10 +1007,10 @@ export const DemoDraw: Story = {
       ],
       [
         [4, 0],
-        [2, 3],
+        [2, 2],
       ],
       [
-        [2, 3],
+        [2, 2],
         [0, 0],
       ],
     ]) {
