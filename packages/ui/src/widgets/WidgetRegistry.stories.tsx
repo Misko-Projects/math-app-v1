@@ -207,11 +207,20 @@ export const DemoReducedMotion: Story = {
       restore();
     }
     // Remove is instant too, and doesn't depend on animation frames (suspended in hidden tabs).
+    // Two removes started in the same tick are batched into one commit, and both still resolve.
     const raf = window.requestAnimationFrame;
     window.requestAnimationFrame = () => 0;
     restore = zeroTimersAsMicrotasks();
     try {
-      await reducedController.play({ op: 'remove', args: { count: 2 } });
+      const both = Promise.all([
+        reducedController.play({ op: 'remove', args: { count: 1 } }),
+        reducedController.play({ op: 'remove', args: { count: 1 } }),
+      ]).then(() => 'resolved');
+      const outcome = await Promise.race([
+        both,
+        new Promise((r) => setTimeout(() => r('timed out'), 2000)),
+      ]);
+      await expect(outcome).toBe('resolved');
       await expect(pebblesIn(canvasElement)).toBe(1);
     } finally {
       window.requestAnimationFrame = raf;

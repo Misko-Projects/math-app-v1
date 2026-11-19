@@ -290,11 +290,12 @@ export function SampleSetWidget({
           }
           setCounting(null);
         }
-        // Resolve only once React has committed the op's last basket update. A reduced-motion op
-        // is a plain state change, so without this, play could resolve before the screen shows it.
+        // Resolve only once React has committed the basket as it now stands, this op's updates
+        // included. A reduced-motion op is a plain state change, so without this, play could
+        // resolve before the screen shows it. The latest state is read at each check: overlapping
+        // ops are batched into one commit, which releases them all.
         if ((action.op === 'drag' || action.op === 'remove') && alive.current) {
-          const latest = inBasketRef.current;
-          const committed = () => committedBasket.current === latest;
+          const committed = () => committedBasket.current === inBasketRef.current;
           if (!committed()) await afterCommitWhere(committed);
         }
       } finally {
