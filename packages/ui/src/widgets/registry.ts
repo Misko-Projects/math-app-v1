@@ -16,6 +16,7 @@ export const widgetRegistry: WidgetRegistry = {
   // U05 (#14) patterns and data
   'bar-graph-read': () => import('./bar-graph-read/BarGraphReadWidget'),
   'bar-graph-build': () => import('./bar-graph-build/BarGraphBuildWidget'),
+  'pattern-extend': () => import('./pattern-extend/PatternExtendWidget'),
 };
 
 /** Formats that have a registered widget. */

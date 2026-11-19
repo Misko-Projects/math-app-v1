@@ -1,0 +1,294 @@
+/* pattern-extend widget (U05 #14): the pattern on a paper strip, the pieces (or the pad) and
+   "check". Cells share one size (--cell, from the widget's width, never below the target). */
+
+.ni-pattern {
+  box-sizing: border-box;
+  width: 100%;
+  height: 100%;
+  max-width: 1180px;
+  container: pattern / inline-size;
+}
+.ni-pattern__layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr) auto;
+  align-items: center;
+  justify-items: center;
+  gap: 16px;
+  width: 100%;
+  height: 100%;
+}
+/* Typed patterns (numbers, rules, tables): the pad sits beside the pattern. */
+.ni-pattern[data-typed="true"] .ni-pattern__layout {
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-rows: minmax(0, 1fr);
+}
+.ni-pattern__main {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  justify-self: stretch;
+  gap: 16px;
+  min-width: 0;
+  min-height: 0;
+}
+.ni-pattern__rows {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin: 0;
+  min-width: 0;
+  gap: var(--target-gap);
+  max-width: 100%;
+  padding: 12px 16px;
+  border: 3px solid var(--color-sand-deep);
+  border-radius: var(--radius-card);
+  background: var(--color-paper);
+  box-shadow: var(--shadow-soft);
+}
+.ni-pattern__rows[data-row="new"] {
+  background: var(--color-cloud);
+  border-style: dashed;
+}
+.ni-pattern__row {
+  display: flex;
+  gap: var(--target-gap);
+}
+.ni-pattern__slot {
+  position: relative;
+  display: flex;
+}
+.ni-pattern__cell {
+  position: relative;
+  display: grid;
+  place-items: center;
+  box-sizing: border-box;
+  width: var(--cell);
+  height: var(--cell);
+  min-width: var(--cell);
+  min-height: var(--cell);
+  margin: 0;
+  padding: 8px;
+  appearance: none;
+  border: 3px solid transparent;
+  border-radius: var(--radius-pebble);
+  background: transparent;
+  color: var(--color-ink);
+  font: inherit;
+  touch-action: manipulation;
+  cursor: pointer;
+}
+.ni-pattern__cell:disabled {
+  cursor: default;
+}
+.ni-pattern__cell:focus-visible {
+  outline: 4px solid var(--color-sea-deep);
+  outline-offset: 3px;
+}
+.ni-pattern__cell > svg,
+.ni-pattern__cell > .ni-sprite {
+  /* An explicit box: a percentage height in a grid cell would follow the drawing's aspect. */
+  width: calc(var(--cell) - 22px);
+  height: calc(var(--cell) - 22px);
+  pointer-events: none;
+}
+/* Number tokens: a white tile with an ink outline, numerals ≥ 32 px. */
+.ni-pattern__cell[data-family="n"] {
+  border-color: var(--color-ink);
+  background: var(--color-cloud);
+}
+.ni-pattern__numeral {
+  font-family: var(--font-display);
+  font-size: 40px;
+  font-weight: 800;
+  line-height: 1;
+  padding-top: 0.12em;
+  font-variant-numeric: tabular-nums;
+}
+/* A blank: a dashed outline (not colour) says "something goes here". */
+.ni-pattern__blank {
+  border: 3px dashed var(--color-ink-soft);
+  background: var(--color-sky-light);
+}
+.ni-pattern__blank:not([data-empty]) {
+  border-style: solid;
+  border-color: var(--color-ink);
+  background: var(--color-cloud);
+}
+.ni-pattern__blank.ni-number {
+  min-width: var(--cell);
+  min-height: var(--cell);
+  padding: 0;
+  font-size: var(--text-numeral);
+}
+.ni-pattern__blank[data-state="active"] {
+  border-color: var(--color-sea-deep);
+  border-style: solid;
+  box-shadow: 0 0 0 5px rgb(42 157 143 / 0.35);
+}
+.ni-pattern__cell[data-flash="true"] {
+  box-shadow:
+    0 0 0 4px var(--color-cloud),
+    0 0 0 8px var(--color-sea-deep);
+}
+.ni-pattern__cell.ni-invite {
+  outline-offset: 6px;
+  border-radius: var(--radius-pebble);
+}
+
+/* Core: a band under the marked part (start and end rounded), and a ring on the first tap. */
+.ni-pattern__cell[data-core] {
+  background: var(--color-sunshine-light);
+  border-color: var(--color-ink);
+  border-style: solid;
+}
+.ni-pattern__cell[data-core]::after {
+  content: "";
+  position: absolute;
+  left: -3px;
+  right: -3px;
+  bottom: -14px;
+  height: 8px;
+  background: var(--color-ink);
+}
+.ni-pattern__cell[data-core="start"]::after,
+.ni-pattern__cell[data-core="mid"]::after {
+  right: calc(-3px - var(--target-gap));
+}
+.ni-pattern__cell[data-core="start"]::after,
+.ni-pattern__cell[data-core="only"]::after {
+  border-bottom-left-radius: 6px;
+  border-top-left-radius: 6px;
+}
+.ni-pattern__cell[data-core="end"]::after,
+.ni-pattern__cell[data-core="only"]::after {
+  border-bottom-right-radius: 6px;
+  border-top-right-radius: 6px;
+}
+.ni-pattern__cell[data-pending="true"] {
+  outline: 4px dashed var(--color-ink);
+  outline-offset: 4px;
+}
+.ni-pattern[data-mode="core"] .ni-pattern__rows {
+  padding-bottom: 24px;
+}
+
+.ni-pattern__next {
+  align-items: center;
+  color: var(--color-ink-soft);
+  font-family: var(--font-display);
+  font-size: 40px;
+  font-weight: 800;
+}
+.ni-pattern__rule {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.ni-pattern__answer {
+  min-width: calc(var(--target-min) * 1.4);
+  min-height: var(--target-min);
+}
+.ni-pattern__answer[data-empty="true"] {
+  background: var(--color-sky-light);
+}
+
+/* Tables: In | Out, numerals ≥ 32 px; the missing outputs are typed blanks. */
+.ni-pattern__table {
+  border-collapse: separate;
+  border-spacing: 0;
+  border: 3px solid var(--color-sand-deep);
+  border-radius: var(--radius-card);
+  background: var(--color-paper);
+  box-shadow: var(--shadow-soft);
+  overflow: hidden;
+}
+.ni-pattern__table th {
+  padding: 8px 24px;
+  border-bottom: 3px solid var(--color-sand-deep);
+  color: var(--color-ink);
+  font-family: var(--font-body);
+  font-size: 24px;
+  font-weight: 700;
+}
+.ni-pattern__table td {
+  /* Every row one height, shown or blank. */
+  height: calc(var(--cell) + 4px);
+  padding: 2px 24px;
+  text-align: center;
+  color: var(--color-ink);
+}
+.ni-pattern__table td + td,
+.ni-pattern__table th + th {
+  border-left: 3px solid var(--color-sand-deep);
+}
+.ni-pattern__table td > .ni-pattern__slot {
+  display: inline-flex;
+}
+.ni-pattern__table tr[data-flash="true"] td {
+  background: var(--color-sky-light);
+}
+
+/* Controls: the pieces in a tray with "check" (picture patterns), or the pad and "check". */
+.ni-pattern__controls {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 24px;
+}
+.ni-pattern__palette {
+  display: flex;
+  gap: var(--target-gap);
+  margin: 0;
+  padding: 10px 14px;
+  border: 3px solid var(--color-wood);
+  border-radius: var(--radius-card);
+  background: var(--color-sand);
+}
+.ni-pattern__unit {
+  border-color: var(--color-ink);
+  background: var(--color-cloud);
+  box-shadow:
+    0 5px 0 var(--color-pebble-deep),
+    var(--shadow-highlight);
+}
+.ni-pattern[data-tier="concrete"] .ni-pattern__unit {
+  background: var(--color-horizon);
+}
+.ni-pattern[data-typed="true"] .ni-pattern__controls {
+  flex-direction: row-reverse;
+}
+.ni-pattern[data-typed="true"] .ni-pad {
+  grid-template-columns: repeat(3, var(--target-min));
+  grid-auto-rows: calc(var(--target-min) + 4px);
+}
+
+/* Coloured shapes: a 3.5 px outline in the fill's darker shade (≥ 3:1), rounded joins. */
+.ni-pattern__shape [stroke] {
+  stroke-width: 3.5;
+  stroke-linejoin: round;
+}
+.ni-pattern__tiles {
+  overflow: visible;
+}
+.ni-pattern__tile {
+  fill: var(--color-sun);
+  stroke: var(--color-sun-deep);
+  stroke-width: 1;
+}
+
+/* Fingertip (≈ 42 % across, 8 px down the 56 px hand) inside the target's bottom edge. */
+.ni-pattern__hand {
+  left: calc(50% - 23px);
+  top: calc(100% - 26px);
+}
+
+/* Narrow (portrait): the pad goes under the pattern. */
+@container pattern (max-width: 760px) {
+  .ni-pattern[data-typed="true"] .ni-pattern__layout {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: minmax(0, 1fr) auto;
+  }
+}
