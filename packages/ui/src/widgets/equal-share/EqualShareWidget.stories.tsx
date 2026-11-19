@@ -454,9 +454,22 @@ export const FullRecipientNote: Story = {
     await expect(said(audio)).toContain('ui.widget.es.note.full');
     await expectRing(root, hit(root, 0));
     await expectAreaFit(canvasElement, buildFit(root, 'g1-up', 'equal-share full recipient'));
-    // The next step clears the note.
+  },
+};
+
+/** The child's next step (picking the ringed shell up) clears the note and the ring. */
+export const NoteClearsOnTheNextStep: Story = {
+  args: { config: fillable },
+  play: async ({ canvasElement }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    for (let i = 0; i < 11; i += 1) {
+      await userEvent.click(take(root));
+      await userEvent.click(recipient(root, 0));
+    }
+    await expectNote(root, 'This one is full');
     await userEvent.click(handle(root, 0));
     await expectNote(root, null);
+    await expectRing(root, null);
   },
 };
 

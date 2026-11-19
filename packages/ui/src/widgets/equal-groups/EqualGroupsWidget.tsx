@@ -81,7 +81,8 @@ import './equal-groups.css';
  * full ten, so its size never shows the answer. No count or total is shown anywhere.
  *
  * Limits are said and shown (a status line, with one ring on what the child can do next): a full
- * container, an empty supply, and the last container added.
+ * container, an empty supply, and the last container added. A ring never points away from a
+ * state that may be the answer (a container of ten where ten may be asked has the note alone).
  *
  * Trace targets: `supply` (the take-one spot, and the supply as the drop target for taking back),
  * `group-<i>`, `sprite-<i>-<j>` (container i's last sprite j, picked up), `add-group`,
@@ -145,11 +146,6 @@ const groupOf = (target: string): number | null => {
 
 /** The container that holds the most (the first of them). */
 const fullest = (groups: readonly number[]) => groups.indexOf(Math.max(...groups));
-/** Whether the filled containers all hold the same. */
-function filledEqual(groups: readonly number[]) {
-  const filled = groups.filter((n) => n > 0);
-  return filled.every((n) => n === filled[0]);
-}
 
 interface Note {
   key: NarrationKey;
@@ -244,7 +240,30 @@ export function EqualGroupsWidget({
   };
   const left = (s: State) =>
     supplyTotal === null ? Number.POSITIVE_INFINITY : Math.max(0, supplyTotal - sum(s.groups));
-  const emptyCue = (s: State) => (filledEqual(s.groups) ? 'next' : `take-${fullest(s.groups)}`);
+  /**
+   * What to ring when the supply has run out: Next when the groups are as the task asks, else a
+   * container that surely holds a wrong count (take one back). The size asked: every container
+   * given must hold the same, and the fullest holds too many. The size given: a filled container
+   * with more than that, else the one with the fewest.
+   */
+  const emptyCue = (s: State) => {
+    const g = s.groups;
+    if (config.unknown === 'size') {
+      return g.every((n) => n === g[0]) ? 'next' : `take-${fullest(g)}`;
+    }
+    const filled = g.map((n, i) => ({ n, i })).filter((x) => x.n > 0);
+    const over = filled.filter((x) => x.n > config.perGroup).sort((a, b) => b.n - a.n)[0];
+    if (over) return `take-${over.i}`;
+    const under = filled.filter((x) => x.n < config.perGroup).sort((a, b) => a.n - b.n)[0];
+    return under ? `take-${under.i}` : 'next';
+  };
+  /**
+   * What to ring at a full container: its take-back handle where ten is surely too many (the
+   * size is given and smaller). Where ten may be the answer the note stands alone: a ring would
+   * steer away from it, or give it away.
+   */
+  const fullCue = (i: number) =>
+    config.unknown !== 'size' && config.perGroup < GROUP_CAPACITY ? `take-${i}` : null;
 
   // ---------- layout: the measured room, the action button, the two plans ----------
 
@@ -356,7 +375,7 @@ export function EqualGroupsWidget({
       const to = groupOf(target);
       // A full container takes no more: nothing moves, and the note says why.
       if (to !== null && (prev.groups[to] ?? 0) >= GROUP_CAPACITY) {
-        limit(NOTE.full, `take-${to}`);
+        limit(NOTE.full, fullCue(to));
         return;
       }
       let next = prev;
@@ -654,7 +673,7 @@ export function EqualGroupsWidget({
         ? inviteCue.value
         : nextPadKey(inviteCue.value, value)
       : null;
-  // Pip's hand hangs on the invited control (kit `useInviteHand`); a limit note has no hand.
+  // The demonstration hand hangs on the invited control (kit `useInviteHand`); a limit note has no hand.
   const handKey = inviteCue ? `${step}:${inviteCue.cue}:${invitedEntry ?? ''}` : '';
   const { hand: inviteHand, rootStyle: handRootStyle } = useInviteHand(
     rootRef,

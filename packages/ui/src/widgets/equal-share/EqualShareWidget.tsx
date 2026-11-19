@@ -719,7 +719,7 @@ export function EqualShareWidget({
         ? inviteCue.value
         : nextPadKey(inviteCue.value, value)
       : null;
-  // Pip's hand hangs on the invited control (kit `useInviteHand`); a limit note has no hand.
+  // The demonstration hand hangs on the invited control (kit `useInviteHand`); a limit note has no hand.
   const handKey = inviteCue ? `${step}:${inviteCue.cue}:${invitedEntry ?? ''}` : '';
   const { hand: inviteHand, rootStyle: handRootStyle } = useInviteHand(
     rootRef,

@@ -444,9 +444,47 @@ export const FullContainerNote: Story = {
     await expectRing(root, hit(root, 0));
     await expectAreaFit(canvasElement, buildFit(root, 'g1-up', 'equal-groups full container'));
     await expectSpritesApart(root);
-    // Picking a sprite up again clears the note.
+  },
+};
+
+/** The child's next step (picking the ringed plate's crab up) clears the note and the ring. */
+export const NoteClearsOnTheNextStep: Story = {
+  args: { config: total },
+  play: async ({ canvasElement }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    await fill(root, 0, 11);
+    await expectNote(root, 'This one is full');
     await userEvent.click(handle(root, 0));
     await expectNote(root, null);
+    await expectRing(root, null);
+  },
+};
+
+/** Ten in a raft may be the answer (20 in all on 2 rafts): the note stands alone, no ring. */
+export const FullAtAPossibleAnswerHasNoRing: Story = {
+  args: { config: { ...size, groups: 2, perGroup: 10, maxGroups: 2 } },
+  play: async ({ canvasElement }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    await fill(root, 0, 11);
+    await expectShown(root, { groups: [10, 0], pile: 10 });
+    await expectNote(root, 'This one is full');
+    await expectRing(root, null);
+  },
+};
+
+/** The size is given (3 in each basket): the ring goes to a basket with a wrong count. */
+export const EmptySupplyRingsAWrongGroup: Story = {
+  args: { config: { ...groupsAsked, groups: 2, perGroup: 3, maxGroups: 4 } },
+  play: async ({ canvasElement }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    for (let i = 0; i < 3; i += 1) await userEvent.click(addButton(root));
+    await fill(root, 0, 3);
+    await fill(root, 1, 2);
+    await fill(root, 2, 1);
+    await expectShown(root, { groups: [3, 2, 1], pile: 0 });
+    await expectNote(root, 'There are no more');
+    // Basket 0 holds the right 3: the ring is on the one with the fewest, never on it.
+    await expectRing(root, hit(root, 2));
   },
 };
 

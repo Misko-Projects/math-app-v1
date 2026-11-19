@@ -57,13 +57,15 @@ export const SHARE_RECIPIENTS_MAX = 4;
 export const SHARE_ZONE_MAX = 15;
 
 /**
- * How many things one recipient can hold: a fair share rounded up to a whole five, never fewer
+ * How many things one recipient can hold: the next whole five above a fair share, never fewer
  * than ten (so the room never shows the share) or than a pre-dealt count, never more than there
- * are. Dealing stops there (`deal`, `deal-round`); the widget draws exactly this many places.
+ * are. It is always more than a fair share, so a full recipient is never part of the answer.
+ * Dealing stops there (`deal`, `deal-round`); the widget draws exactly this many places.
  */
 export function shareCapacity(c: Pick<Config, 'items' | 'recipients' | 'predealt'>): number {
-  const share = Math.ceil(Math.ceil(c.items / Math.max(1, c.recipients)) / 5) * 5;
-  const room = Math.min(c.items, Math.max(10, share));
+  const fair = Math.floor(c.items / Math.max(1, c.recipients));
+  const above = (Math.floor(fair / 5) + 1) * 5;
+  const room = Math.min(c.items, Math.max(10, above));
   return Math.max(1, room, ...(c.predealt ?? []));
 }
 

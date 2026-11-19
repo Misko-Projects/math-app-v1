@@ -112,12 +112,15 @@ describe('equal-share: the supported domain', () => {
     for (let items = 1; items <= SHARE_ITEMS_MAX; items += 1) {
       for (let recipients = 2; recipients <= SHARE_RECIPIENTS_MAX; recipients += 1) {
         const cap = shareCapacity({ items, recipients });
-        // Room for a fair share (rounded up), never more than the bound.
-        expect(cap).toBeGreaterThanOrEqual(Math.min(items, Math.ceil(items / recipients)));
+        // More than a fair share (a full recipient is never the answer), within the bound.
+        expect(cap).toBeGreaterThan(Math.floor(items / recipients));
         expect(cap).toBeLessThanOrEqual(SHARE_ZONE_MAX);
+        expect(cap).toBeLessThanOrEqual(items);
       }
     }
     expect(shareCapacity({ items: 12, recipients: 2 })).toBe(10);
+    // A fair share of exactly ten still leaves room above it.
+    expect(shareCapacity({ items: 20, recipients: 2 })).toBe(15);
     expect(shareCapacity({ items: 24, recipients: 2 })).toBe(15);
     expect(shareCapacity({ items: 6, recipients: 2 })).toBe(6);
     expect(shareCapacity({ items: 8, recipients: 2, predealt: [7, 1] })).toBe(8);

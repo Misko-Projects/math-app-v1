@@ -275,7 +275,7 @@ Both models state and enforce the domain their widgets draw. Every bound is a fi
 | equal-share | `items` | 1 to 24 (`SHARE_ITEMS_MAX`) |
 | | `recipients` | 2 to 4 (`SHARE_RECIPIENTS_MAX`); `even-odd` shares between 2 |
 | | `predealt` | one count per recipient, each at most 15 (`SHARE_ZONE_MAX`), together at most `items` |
-| | what one recipient holds while dealing | `shareCapacity(config)`: a fair share rounded up to a whole five, at least 10 (or all the items), at least the largest pre-dealt count; never above 15. `deal` stops there; `deal-round` does nothing while one recipient is full |
+| | what one recipient holds while dealing | `shareCapacity(config)`: the next whole five above a fair share, at least 10 (or all the items), at least the largest pre-dealt count; never above 15, and always more than a fair share, so a full recipient is never part of the answer. `deal` stops there; `deal-round` does nothing while one recipient is full |
 | equal-groups | `groups`, `maxGroups` | 1 to 6 (`GROUPS_MAX`); `groups` ≤ `maxGroups` |
 | | `perGroup`, and what one container holds | 1 to 10 (`GROUP_CAPACITY`). Groups of tens (MUL.11) are not supported yet: the schema refuses them |
 | | the pile of a `build` whose total is given (`unknown` `size` or `groups`) | `groups × perGroup` at most 40 (`GROUPS_PILE_MAX`); `fill-group` never puts more in the containers than `groupsSupply(config)`. A build from the bucket (`unknown: total`) and a picture to `read` go to 6 × 10 |
