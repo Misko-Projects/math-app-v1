@@ -466,3 +466,25 @@ describe('R5–R7: numerals in hint text follow a strict grammar', () => {
     ).toBe(true);
   });
 });
+
+describe('PR #77 review (d): CMP.02 hints follow the ask', () => {
+  // CMP.02.t1/t2 ask "which is less?" a quarter of the time; the path and count-up hints used to
+  // point at the greater number ("Which one comes after?", "Which number do you say last?").
+  it.each(['CMP.02.t1', 'CMP.02.t2'])('%s: less → first, greater → last', (id) => {
+    loadFixture();
+    const t = fixtureTemplate(id);
+    const hintText = (ask: string) => {
+      const item = generateItemFromParams(t, { a: 3, b: 8, extra: 0, min: 1, max: 10, ask });
+      return item.hints
+        .filter((h) => h.level === 2 || h.level === 3)
+        .map((h) => render(h.say, h.vars ?? {}));
+    };
+    const less = hintText('fewer');
+    expect(less).toContain('Find both numbers on the path. Which one comes first?');
+    expect(less).toContain('Count up from one. Which number do you say first?');
+    expect(less.join(' ')).not.toMatch(/last|after/);
+    const greater = hintText('more');
+    expect(greater).toContain('Find both numbers on the path. Which one comes last?');
+    expect(greater).toContain('Count up from one. Which number do you say last?');
+  });
+});

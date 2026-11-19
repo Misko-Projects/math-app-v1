@@ -296,10 +296,11 @@ h.compare.count-yours:
   text: "Count what you have first."
 h.compare.make-same:
   text: "Make them match. Count again after each one."
+# {end} follows the ask (compare.numbers): last for greater, first for less.
 h.compare.path:
-  text: "Find both numbers on the path. Which one comes after?"
+  text: "Find both numbers on the path. Which one comes {end|word}?"
 h.compare.count-up:
-  text: "Count up from one. Which number do you say last?"
+  text: "Count up from one. Which number do you say {end|word}?"
 h.compare.full-frames:
   text: "A full frame is ten. Then count the dots left."
 h.compare.tens:
@@ -318,6 +319,12 @@ h.order.count-up:
   text: "Count up. Which number do you say first?"
 h.order.tens:
   text: "Look at the tens first. Which ten comes first?"
+h.order.greatest:
+  text: "Find the greatest number first."
+h.order.count-groups:
+  text: "Count each group. Which one has the fewest?"
+h.order.fewest-first:
+  text: "Put the one with the fewest first. Then the next."
 h.numberline.ends:
   text: "Look at the numbers at the two ends."
 h.numberline.count-ticks:
@@ -415,6 +422,14 @@ gen.pv.number.hundreds:
 gen.pv.number.thousands:
   text: "The thousands: {count}."
   level: "2"
+gen.pv.number.split-tens:
+  text: "Split one ten into ten ones."
+gen.pv.number.split-hundreds:
+  text: "Split one hundred into ten tens."
+gen.pv.number.back-ones:
+  text: "Put {count} ones back."
+gen.pv.number.back-tens:
+  text: "Put {count} tens back."
 gen.pv.number.ten-first:
   text: "Make a ten first."
 gen.pv.number.look:
@@ -630,6 +645,12 @@ gen.compare.sets.take-some:
   text: "Take some away."
 gen.compare.sets.now-same:
   text: "Now both have {n}. They are the same."
+gen.compare.sets.order-fewest:
+  text: "This group has the fewest. It goes first."
+gen.compare.sets.order-most:
+  text: "This group has the most. It goes first."
+gen.compare.sets.order-next:
+  text: "Then this group."
 gen.compare.sets.pan:
   text: "Count the things on this side."
 gen.compare.sets.goes-down:
@@ -684,6 +705,8 @@ gen.numberline.place.drop:
   text: "{n} goes here."
 gen.numberline.place.reads:
   text: "The arrow is at {n}."
+gen.numberline.place.reads-about:
+  text: "The arrow is at about {n}."
 gen.numberline.place.benchmarks:
   text: "Look at {b0} and {b1}."
 gen.numberline.place.closer:

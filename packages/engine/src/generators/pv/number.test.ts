@@ -75,12 +75,12 @@ const CASES: Case[] = [
     widget: { target: 34, mode: 'build', pieces: { hundreds: false, tens: true, ones: true } },
   },
   {
-    name: 'base-ten-build build 34 nonCanonical: two tens on offer force a trade',
+    name: 'base-ten-build build 34 nonCanonical: three ones on offer force a trade',
     t: tpl('base-ten-build', 'concrete', 'base-ten'),
     params: { n: 34, mode: 'build', nonCanonical: true },
     // The limits are the tray's (the widget); the checker takes any mat worth 34.
     answer: { kind: 'state', checker: 'baseten.value', target: { value: 34 } },
-    widget: { limits: { tens: 2 } },
+    widget: { limits: { ones: 3 } },
   },
   {
     name: 'base-ten-build exact 14 with bundles: one ten and 4 ones',
@@ -408,6 +408,48 @@ describe('pv.number formats and modes', () => {
     }
   });
 
+  // Review (PR #77): 34 with only two tens on offer was built from 2 tens and 14 ones, no trade.
+  it.each([34, 305, 340, 1034, 11])(
+    'a nonCanonical build of %i cannot be made from the tray alone; the solution splits a piece',
+    (n) => {
+      const t = tpl('base-ten-build', 'concrete', 'base-ten');
+      const item = generateItemFromParams(t, { n, mode: 'build', nonCanonical: true });
+      const model = formatModel('base-ten-build');
+      if (!model || item.widget.format !== 'base-ten-build') throw new Error('model');
+      const w = item.widget;
+      // Every tray-only mat (any count of each kind up to its limit, no fuse or split) misses n.
+      const cap = (k: 'thousands' | 'hundreds' | 'tens' | 'ones') =>
+        !w.pieces[k] ? 0 : k === 'thousands' ? 9 : (w.limits?.[k] ?? 99);
+      let reachable = false;
+      for (let th = 0; th <= cap('thousands'); th += 1)
+        for (let h = 0; h <= Math.min(cap('hundreds'), 20); h += 1)
+          for (let te = 0; te <= Math.min(cap('tens'), 120); te += 1) {
+            const rest = n - 1000 * th - 100 * h - 10 * te;
+            if (rest >= 0 && rest <= cap('ones')) reachable = true;
+          }
+      expect(reachable).toBe(false);
+      // Replaying the same tray-only build through the model: taking the canonical pieces stops
+      // at the limit, so the mat falls short.
+      let s = model.initialState(w);
+      for (const [kind, count] of Object.entries({
+        thousands: Math.floor(n / 1000),
+        hundreds: Math.floor(n / 100) % 10,
+        tens: Math.floor(n / 10) % 10,
+        ones: n % 10,
+      })) {
+        if (count > 0) s = model.apply(s, { op: 'add-piece', args: { kind, count } });
+      }
+      expect(checkResponse(item, model.toResponse(s) as never).correct).toBe(false);
+      // The worked solution trades: it splits a piece and replays to a correct mat.
+      const steps = itemSolution(item, t);
+      expect(steps.map((x) => x.action?.op)).toContain('split');
+      const replayed = replaySteps(item, steps);
+      expect(replayed).not.toBeNull();
+      expect(checkResponse(item, replayed as NonNullable<typeof replayed>).correct).toBe(true);
+      expect(itemFeatures(item, t)['limits.tight']).toBe(1);
+    },
+  );
+
   it('numeral-pick words options speak the num.* names, the answer among them', () => {
     const t = tpl('numeral-pick', 'abstract', 'words');
     const item = generateItemFromParams(t, { n: 95, mode: 'words' });
@@ -502,6 +544,16 @@ describe('pv.number formats and modes', () => {
       'a trade at the thousands',
       tpl('base-ten-build', 'concrete'),
       { n: 3000, mode: 'build', nonCanonical: true },
+    ],
+    [
+      'a forced trade with nothing to split (40)',
+      tpl('base-ten-build', 'concrete'),
+      { n: 40, mode: 'build', nonCanonical: true },
+    ],
+    [
+      'a forced trade at the hundreds (1,200)',
+      tpl('base-ten-build', 'concrete'),
+      { n: 1200, mode: 'build', nonCanonical: true },
     ],
     ['zeros none on 305', tpl('number-pad', 'abstract'), { n: 305, mode: 'write', zeros: 'none' }],
     ['digits 3 on 45', tpl('number-pad', 'abstract'), { n: 45, mode: 'write', digits: 3 }],

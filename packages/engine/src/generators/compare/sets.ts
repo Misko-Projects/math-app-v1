@@ -1,5 +1,5 @@
 // compare.sets (03 §5.6): compare two groups of objects (CMP.01, CMP.05; ALG.05 later).
-// Formats: compare, make-set, balance. The left group has `a` objects, the right group `b`.
+// Formats: compare, make-set, balance, order. The left group has `a` objects, the right group `b`.
 //
 // - compare: "which group has more / fewer?" (`ask`), answered `left`, `right` or `same`. With
 //   `conflict`, the perceptual cue contradicts the number (CMP.05): one group is drawn with bigger
@@ -12,6 +12,10 @@
 //   with `a`; the other group has `b`, which the prompt names (MakeSetConfig shows no second group).
 //   The child adds (`add-more`) or takes away (`take-away`) until the boat holds `b`. `ask` and
 //   `conflict` do not apply.
+// - order: put three groups (`a`, `b` and `c`, all different) in order, fewest first (`ask: fewer`)
+//   or most first (`ask: more`). Each card is a picture of its group with no numeral. With
+//   `conflict` the looks run against the counts: the fewest group is drawn big and spread out, the
+//   middle one plain, the most bunched in two rows (no conflict cue on frames).
 // - balance: `a` and `b` identical objects on the two pans, tilt hidden. `ask: more` asks which side
 //   goes down (`which-heavier`: the side with more), `ask: same` whether it balances (`judge`).
 
@@ -72,7 +76,7 @@ const isConflict = (v: unknown): boolean => v === true || v === 1;
 
 export const compareSets: GeneratorDef = {
   id: 'compare.sets',
-  formats: ['compare', 'make-set', 'balance'],
+  formats: ['compare', 'make-set', 'balance', 'order'],
   params: {
     a: { type: 'int', default: { kind: 'int', min: 1, max: 10 }, doc: 'objects in the left group' },
     b: {
@@ -80,16 +84,21 @@ export const compareSets: GeneratorDef = {
       default: { kind: 'int', min: 1, max: 10 },
       doc: 'objects in the right group (make-set: the group to match)',
     },
+    c: {
+      type: 'int',
+      default: { kind: 'int', min: 1, max: 10 },
+      doc: 'order: the third group (1–20, unlike a and b); the other formats ignore it',
+    },
     conflict: {
       type: 'bool',
       default: { kind: 'const', value: false },
-      doc: 'compare: the group with fewer objects looks bigger (bigger objects, spread out)',
+      doc: 'compare and order: the group with fewer objects looks bigger (bigger objects, spread out)',
     },
     ask: {
       type: 'string',
       values: [...ASKS],
       default: { kind: 'const', value: 'more' },
-      doc: 'compare: more or fewer; balance: more (which side goes down) or same (does it balance); make-set ignores it',
+      doc: 'compare: more or fewer; order: more (most first) or fewer (fewest first); balance: more (which side goes down) or same (does it balance); make-set ignores it',
     },
     sprite: {
       type: 'string',
@@ -98,7 +107,7 @@ export const compareSets: GeneratorDef = {
     },
   },
   features: {
-    'bigger.over5': { weight: 0.3, doc: 'max(0, max(a, b) − 5) / 5' },
+    'bigger.over5': { weight: 0.3, doc: 'max(0, largest group − 5) / 5' },
     ...featureSubset(COMPARE_FEATURES, [
       'closeness',
       'conflict',
@@ -120,6 +129,9 @@ export const compareSets: GeneratorDef = {
     'gen.compare.sets.add-some',
     'gen.compare.sets.take-some',
     'gen.compare.sets.now-same',
+    'gen.compare.sets.order-fewest',
+    'gen.compare.sets.order-most',
+    'gen.compare.sets.order-next',
     'gen.compare.sets.pan',
     'gen.compare.sets.goes-down',
     'gen.compare.sets.balances',
@@ -145,6 +157,14 @@ export const compareSets: GeneratorDef = {
         return a !== b && !conflict;
       case 'balance':
         return (ask === 'more' || ask === 'same') && !conflict;
+      case 'order': {
+        // Three different non-empty groups: with a third group the order is more than a guess.
+        const c = asNum(p.c);
+        if (Math.min(a, b) < 1 || c < 1 || c > 20 || new Set([a, b, c]).size !== 3) return false;
+        if (ask !== 'more' && ask !== 'fewer') return false;
+        if (conflict && FRAMES.has(rep)) return false;
+        return rep !== 'five-frame' || Math.max(a, b, c) <= 5;
+      }
       default:
         return false;
     }
@@ -223,6 +243,40 @@ export const compareSets: GeneratorDef = {
           answer: { kind: 'state', checker: 'set.count', target: { count: b } },
           nudge: [{ op: 'count-aloud' }],
           highlight: [{ op: 'count-aloud' }],
+        };
+        break;
+      }
+      case 'order': {
+        const values = [a, b, asNum(params.c)];
+        const [fewest, , most] = [...values].sort((x, y) => x - y);
+        // The looks run against the counts: the fewest looks biggest, the most smallest.
+        const lookOf = (v: number): Look =>
+          !conflict ? 'plain' : v === fewest ? 'big' : v === most ? 'bunched' : 'plain';
+        const desc = ask === 'more';
+        p = {
+          params,
+          vars,
+          math: {
+            'bigger.over5': Math.max(0, Math.max(...values) - 5) / 5,
+            conflict: conflict ? 1 : 0,
+          },
+          widget: {
+            format: 'order',
+            items: rng
+              .fork('layout')
+              .shuffle(values)
+              .map((v, i) => ({
+                id: `item-${i}`,
+                value: v,
+                stimulus: sideStimulus(v, rep, sprite, lookOf(v), rng.fork(`item-${i}`)),
+              })),
+            direction: desc ? 'desc' : 'asc',
+          },
+          answer: {
+            kind: 'numbers',
+            values: [...values].sort((x, y) => (desc ? y - x : x - y)),
+            ordered: true,
+          },
         };
         break;
       }
@@ -308,6 +362,25 @@ export const compareSets: GeneratorDef = {
                 { op: 'drag', args: { count: w.target - start } },
               ),
           say('gen.compare.sets.now-same', { n: w.target }, { op: 'close-container' }),
+        ];
+      }
+      case 'order': {
+        const desc = w.direction === 'desc';
+        const sorted = [...w.items].sort((x, y) => (desc ? y.value - x.value : x.value - y.value));
+        return [
+          ...(isConflict(out.params.conflict) ? [say('gen.compare.sets.not-size', {})] : []),
+          say('gen.compare.sets.count-each', {}),
+          ...sorted.map((item, slot) =>
+            say(
+              slot > 0
+                ? 'gen.compare.sets.order-next'
+                : desc
+                  ? 'gen.compare.sets.order-most'
+                  : 'gen.compare.sets.order-fewest',
+              {},
+              { op: 'drag', args: { id: item.id, slot } },
+            ),
+          ),
         ];
       }
       case 'balance': {

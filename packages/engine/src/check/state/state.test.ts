@@ -136,6 +136,20 @@ const CORRECT_AND_ALTERNATIVES: Case[] = [
     true,
   ],
   ['bond.newWay', 'alternative: 0 + 5', { whole: 5, found: [[1, 4]] }, { parts: [0, 5] }, true],
+  [
+    'bond.newWay',
+    'nonZero: 13 + 0 is not a way',
+    { whole: 13, found: [[10, 3]], nonZero: true },
+    { parts: [13, 0] },
+    false,
+  ],
+  [
+    'bond.newWay',
+    'nonZero: a new way with two nonzero parts',
+    { whole: 13, found: [[10, 3]], nonZero: true },
+    { parts: [12, 1] },
+    true,
+  ],
   ['bond.newWay', 'no found list: any split', { whole: 5 }, { parts: [1, 4] }, true],
   [
     'bond.newWay',

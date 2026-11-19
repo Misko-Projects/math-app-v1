@@ -1,13 +1,17 @@
 // estimate.quantity (03 §5.6): estimate how many are in a big group (CMP.13).
-// Formats: dot-flash, numeral-pick, number-line-place.
+// Formats: dot-flash, numeral-pick, number-pad, number-line-place.
 //
 // `n` objects (20–200) are scattered. `benchmarks` (0 = none) is a reference size: on a picture,
 // that many objects form a coloured group to compare with ("here are 10"); on a number line, every
 // multiple of it is labelled (otherwise only the ends are).
 // - dot-flash: the group flashes; type about how many. Correct within 25% (03 §5.5 `estimate`).
-// - numeral-pick: about how many? The options are n rounded to ten, and about half and about double
-//   n (rounded to ten), so an estimate can tell them apart. With the `number-line` representation
-//   each option is a line with an arrow at its value instead of a numeral.
+// - numeral-pick: about how many? The options are n rounded to ten and two distractors rounded to
+//   ten: about half and double n, both doubles (2n, 4n) or both halves (n/2, n/4), so the answer
+//   is the middle, lowest or highest option (drawn from the ranks whose neighbouring options are
+//   ≥ 1.5× apart, so an estimate can tell them apart, and fit a 0–500 line). With the
+//   `number-line` representation each option is a line with an arrow at its value.
+// - number-pad: the picture stays up; type about how many (correct within 25%, as dot-flash). The
+//   pad always takes three digits, so its size never hints at n.
 // - number-line-place: show where n goes on a 0–100 (n ≤ 100) or 0–200 line with no ticks.
 
 import type { LessonStep, ResponseValue, StimulusSpec } from '@number-island/shared';
@@ -39,9 +43,51 @@ export const ESTIMATE_FLASH_MS = 2000;
 
 const round10 = (x: number): number => Math.max(10, Math.round(x / 10) * 10);
 
-/** The pick options: n rounded to ten (the answer), about half and about double n. */
-export function estimateOptions(n: number): { answer: number; others: [number, number] } {
-  return { answer: round10(n), others: [round10(n / 2), round10(n * 2)] };
+/** Where the answer sits among the three pick options, smallest first. */
+export type EstimateRank = 'lowest' | 'middle' | 'highest';
+export const ESTIMATE_RANKS: readonly EstimateRank[] = ['lowest', 'middle', 'highest'];
+/**
+ * Neighbouring pick options differ by at least this factor, so none is within the 25% estimate
+ * tolerance of another (1.5 > 1.25 and 1 / 1.5 < 0.75): a good estimate tells them apart.
+ */
+export const ESTIMATE_OPTION_RATIO = 1.5;
+/** The longest line an option can be drawn on (lineEnd). */
+const MAX_OPTION = 500;
+
+/** The three options for a rank, smallest first: n rounded to ten with halves or doubles of n. */
+function optionsAt(n: number, rank: EstimateRank): [number, number, number] {
+  switch (rank) {
+    case 'lowest':
+      return [round10(n), round10(n * 2), round10(n * 4)];
+    case 'middle':
+      return [round10(n / 2), round10(n), round10(n * 2)];
+    case 'highest':
+      return [round10(n / 4), round10(n / 2), round10(n)];
+  }
+}
+
+const distinguishable = (v: readonly number[]): boolean =>
+  (v[2] as number) <= MAX_OPTION &&
+  (v[1] as number) / (v[0] as number) >= ESTIMATE_OPTION_RATIO &&
+  (v[2] as number) / (v[1] as number) >= ESTIMATE_OPTION_RATIO;
+
+/** The ranks whose options n can use (middle always can for 20–200). */
+export function estimateRanks(n: number): EstimateRank[] {
+  return ESTIMATE_RANKS.filter((r) => distinguishable(optionsAt(n, r)));
+}
+
+/**
+ * The pick options: n rounded to ten (the answer) and two distractors, about half and double n,
+ * or both doubles (answer lowest), or both halves (answer highest), so the answer's place among
+ * the options never gives it away.
+ */
+export function estimateOptions(
+  n: number,
+  rank: EstimateRank = 'middle',
+): { answer: number; others: [number, number] } {
+  const v = optionsAt(n, rank);
+  const i = ESTIMATE_RANKS.indexOf(rank);
+  return { answer: v[i] as number, others: v.filter((_, k) => k !== i) as [number, number] };
 }
 
 /** The shortest of the 0–100, 0–200 and 0–500 lines that shows `v`. */
@@ -58,7 +104,7 @@ function lineFor(end: number, benchmarks: number): LineSpec {
 
 export const estimateQuantity: GeneratorDef = {
   id: 'estimate.quantity',
-  formats: ['dot-flash', 'numeral-pick', 'number-line-place'],
+  formats: ['dot-flash', 'numeral-pick', 'number-pad', 'number-line-place'],
   params: {
     n: { type: 'int', default: { kind: 'int', min: 20, max: 100 }, doc: 'how many (20–200)' },
     benchmarks: {
@@ -133,7 +179,9 @@ export const estimateQuantity: GeneratorDef = {
         };
         break;
       case 'numeral-pick': {
-        const { answer, others } = estimateOptions(n);
+        // Where the answer sits among the options is a layout choice (no feature depends on it).
+        const rank = rng.fork('rank').pick(estimateRanks(n));
+        const { answer, others } = estimateOptions(n, rank);
         const values = rng.fork('layout').shuffle([answer, ...others]);
         const onLine = rep === 'number-line';
         const line = lineFor(lineEnd(Math.max(...values)), b);
@@ -155,6 +203,26 @@ export const estimateQuantity: GeneratorDef = {
         };
         break;
       }
+      case 'number-pad':
+        // The picture stays up; the estimate is accepted within the same 25% as dot-flash's.
+        p = {
+          params,
+          vars,
+          math,
+          widget: {
+            format: 'number-pad',
+            stimulus: picture,
+            // Three digits for every n (20–200), so the pad never hints at the size.
+            blanks: [{ id: 'n', maxDigits: 3 }],
+            unit: null,
+          },
+          answer: {
+            kind: 'number',
+            value: n,
+            tolerance: Math.round((n * ESTIMATE_TOLERANCE_PCT) / 100),
+          },
+        };
+        break;
       case 'number-line-place': {
         const line = lineFor(lineEnd(n), b);
         const widget = {
@@ -220,6 +288,16 @@ export const estimateQuantity: GeneratorDef = {
           ),
         ];
       }
+      case 'number-pad':
+        return [
+          say('gen.estimate.quantity.look', {}, { op: 'show-stimulus' }),
+          ...reference,
+          say(
+            'gen.estimate.quantity.about',
+            { n: about },
+            { op: 'type', args: { blank: 'n', value: about } },
+          ),
+        ];
       case 'number-line-place':
         return [
           say(

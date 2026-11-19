@@ -14,11 +14,14 @@ type Files = Record<string, string>;
 type Yaml = { [k: string]: any };
 
 /**
- * Diagnostics other than the expected ones. SUB.03.t5 was added after SUB.03.t4 shipped, and template
- * ids are stable (03 §4.3), so its V10 tier-order warning is expected.
+ * Diagnostics other than the expected ones. SUB.03.t5 was added after SUB.03.t4 shipped, and the
+ * pictorial CMP.02.t4, CMP.07.t4 and CMP.09.t4 after their skills' abstract templates (V27
+ * constructed practice); template ids are stable (03 §4.3), so their V10 tier-order warnings are
+ * expected.
  */
+const LATE_PICTORIAL = ['SUB.03.t5', 'CMP.02.t4', 'CMP.07.t4', 'CMP.09.t4'];
 const EXPECTED = (d: Diagnostic) =>
-  d.check === 'V10' && d.message.startsWith('SUB.03.t5 (pictorial)');
+  d.check === 'V10' && LATE_PICTORIAL.some((id) => d.message.startsWith(`${id} (pictorial)`));
 /**
  * Game data unlock rules may name catalog skills that are not authored yet (03 §9.2): they warn
  * until the curriculum issues author them.
@@ -62,7 +65,7 @@ describe('the C01 fixture set (03 §9.5)', () => {
   it('compiles with no errors and no warnings', () => {
     const result = compileContent(FIXTURE);
     expect(unexpected(result.diagnostics)).toEqual([]);
-    expect(result.diagnostics.filter(EXPECTED)).toHaveLength(1);
+    expect(result.diagnostics.filter(EXPECTED)).toHaveLength(LATE_PICTORIAL.length);
     expect(result.content?.skills.map((s) => s.id)).toEqual([
       'ADD.01',
       'ADD.03',
@@ -1624,9 +1627,9 @@ describe('V24 and contentVersion (03 §9.1)', () => {
     // Pinned to the current content; K01 (#11) updates these numbers as each strand group lands.
     expect(manifest.counts).toEqual({
       // CMP (K01) added 9 skills, 31 templates and MC.perceptual-size; CPS and SUB.04/SUB.07 (K01)
-      // added 7 skills and 27 templates.
+      // added 7 skills and 27 templates; V27 (constructed practice) added 7 CMP templates.
       skills: 57,
-      templates: 188,
+      templates: 195,
       misconceptions: 9,
       narrationKeys: Object.keys(r.content?.narration ?? {}).length,
     });

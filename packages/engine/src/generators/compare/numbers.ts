@@ -8,7 +8,9 @@
 //   same; or symbol (<, > or = between a and b). Each side is drawn in the template's representation:
 //   numerals (symbols), a number path or line with the number marked, ten-frames, base-ten blocks or
 //   a line of objects.
-// - order: a, b and the extras, smallest first (`ask: more`: greatest first).
+// - order: a, b and the extras, smallest first (`ask: more`: greatest first). Each card shows the
+//   number in the representation; a picture of the quantity (frames, blocks, objects) has no
+//   numeral on it.
 // - numeral-pick: the greatest (`ask: more`) or the least (`ask: fewer`) of a, b and the extras.
 // - balance: a and b on the two pans, tilt hidden: which side goes down? (`ask: more`)
 // - number-line-place: put `a` on the min–max line; b and x1 are marked as labelled benchmarks.
@@ -158,6 +160,9 @@ function numberStimulus(
   }
 }
 
+/** Representations whose picture shows the quantity itself (numberStimulus). */
+const QUANTITY_PICTURES = new Set(['ten-frame', 'double-ten-frame', 'base-ten', 'objects', 'dots']);
+
 const numeral = (v: number): StimulusSpec => ({
   kind: 'expression',
   expr: { tokens: [{ t: 'num', v }] },
@@ -293,6 +298,8 @@ export const compareNumbers: GeneratorDef = {
       min,
       max,
       ask: ask === 'fewer' ? 'less' : 'greater',
+      // Where the asked number comes when you count (hints: the less one comes first).
+      end: ask === 'fewer' ? 'first' : 'last',
     });
     const seed = layoutSeed(rng);
     let p: PartialOutput;
@@ -336,12 +343,14 @@ export const compareNumbers: GeneratorDef = {
           math: { sameTens: sameTens(values), digitsDiffer: digitsDiffer(values) },
           widget: {
             format: 'order',
+            // A picture of the quantity (frames, blocks, objects) is the card: a numeral on it
+            // would give the order away. Paths and lines mark a place, so they keep the numeral.
             items: shuffled.map((v, i) => {
               const stimulus = numberStimulus(v, rep, params, seed);
               return {
                 id: `item-${i}`,
                 value: v,
-                label: String(v),
+                ...(QUANTITY_PICTURES.has(rep) ? {} : { label: String(v) }),
                 ...(stimulus ? { stimulus } : {}),
               };
             }),
