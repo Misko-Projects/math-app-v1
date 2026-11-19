@@ -191,16 +191,36 @@ describe('boot: damaged skill graph', () => {
     expect((err as BootError).code).toBe('content_invalid');
   });
 
-  it('reports malformed template statistics as damaged content', async () => {
+  it.each([
+    ['a bad entry', '{"CNT.01.t1": {"min": "low"}}'],
+    ['null', 'null'],
+    ['false', 'false'],
+    ['an array', '[]'],
+  ])('reports template statistics holding %s as damaged content', async (_name, body) => {
     const device = testDevice();
     const index = JSON.parse(device.net.assets['/content/index.json'] as string) as {
       files: Record<string, string>;
     };
     index.files['template-stats.json'] = '/content/template-stats.json';
     device.net.assets['/content/index.json'] = JSON.stringify(index);
-    device.net.assets['/content/template-stats.json'] = '{"CNT.01.t1": {"min": "low"}}';
+    device.net.assets['/content/template-stats.json'] = body;
     const err = await device.boot().catch((e: unknown) => e);
     expect((err as BootError).code).toBe('content_invalid');
+  });
+
+  it('boots with valid template statistics, and without the file', async () => {
+    const device = testDevice();
+    const index = JSON.parse(device.net.assets['/content/index.json'] as string) as {
+      files: Record<string, string>;
+    };
+    index.files['template-stats.json'] = '/content/template-stats.json';
+    device.net.assets['/content/index.json'] = JSON.stringify(index);
+    device.net.assets['/content/template-stats.json'] = JSON.stringify({
+      'CNT.01.t1': { min: 1, p10: 2, median: 3, p90: 4, max: 5, distinct: 6 },
+    });
+    const app = await track(device.boot());
+    expect(app.content.store.graph.templateStats['CNT.01.t1']?.median).toBe(3);
+    // (Every other test boots from an index that omits the file.)
   });
 });
 
@@ -237,13 +257,50 @@ describe('sync lifecycle: sign-out and re-pairing', () => {
     const pending = app.sync.syncNow();
     await vi.waitFor(() => expect(device.net.syncRequests.length).toBe(before + 1));
 
-    await app.sync.signOut();
+    // Sign-out waits for the run in flight to end; the held answer then arrives too late.
+    const signingOut = app.sync.signOut();
     release();
+    await signingOut;
     expect(await pending).toEqual({ kind: 'stopped' });
     expect((await app.store.allProfiles()).map((p) => p.name)).not.toContain('Late');
     expect((await app.store.syncState()).cursor).toBe(cursorBefore);
     // No follow-up round with the removed token.
     expect(device.net.syncRequests.length).toBe(before + 1);
+  });
+
+  it('ends a manual sync queued behind the run in flight when signing out', async () => {
+    const { device, app } = await pairedApp();
+    let release = () => {};
+    device.net.holdSync = new Promise<void>((r) => {
+      release = r;
+    });
+    const before = device.net.syncRequests.length;
+    const active = app.sync.syncNow();
+    await vi.waitFor(() => expect(device.net.syncRequests.length).toBe(before + 1));
+    const queued = app.sync.syncNow(); // waits behind the active run
+    const signingOut = app.sync.signOut();
+    release();
+    await signingOut;
+    expect(await active).toEqual({ kind: 'stopped' });
+    expect(await queued).toEqual({ kind: 'stopped' });
+    // A sync asked for after the sign-out started runs only once it finished: no token, no send.
+    expect(await app.sync.syncNow()).toEqual({ kind: 'unpaired' });
+    await new Promise((r) => setTimeout(r, 20));
+    expect(device.net.syncRequests.length).toBe(before + 1);
+  });
+
+  it('reports that resume did not start when the app was torn down meanwhile', async () => {
+    const device = testDevice();
+    const first = await device.boot();
+    await first.sync.adopt(ids);
+    first.dispose();
+    const app = await track(
+      device.boot({ sync: { online: () => true, setTimer: () => 0, clearTimer: () => {} } }),
+    );
+    // Boot resumed it; tear down and ask again: the lookup resolves after the teardown.
+    app.sync.stop();
+    expect(await app.sync.resume()).toBe(false);
+    expect(app.sync.isRunning()).toBe(false);
   });
 
   it('lets the last request win when adoption and sign-out overlap', async () => {
@@ -261,6 +318,28 @@ describe('sync lifecycle: sign-out and re-pairing', () => {
     await Promise.all([out, back]);
     expect((await app.store.device()).deviceToken).toBe(TOKEN);
     expect(app.sync.isRunning()).toBe(true);
+  });
+
+  it('does not restart after app teardown, even for an adoption still in progress', async () => {
+    const device = testDevice();
+    const app = await track(device.boot());
+    let release: () => void = () => undefined;
+    const held = new Promise<void>((r) => {
+      release = r;
+    });
+    const adoptFamily = app.store.adoptFamily.bind(app.store);
+    app.store.adoptFamily = async (x) => {
+      const record = await adoptFamily(x);
+      await held; // committed, not yet returned
+      return record;
+    };
+    const adopting = app.sync.adopt(ids);
+    app.sync.stop(); // app teardown
+    release();
+    await adopting;
+    expect(app.sync.isRunning()).toBe(false);
+    await new Promise((r) => setTimeout(r, 20));
+    expect(device.net.syncRequests).toHaveLength(0);
   });
 
   it('keeps the existing pairing syncing when a re-pair is refused', async () => {

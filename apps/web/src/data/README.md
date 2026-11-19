@@ -98,7 +98,7 @@ The client repeats this while the server reports `more` or a full batch was push
 - `revoked`: a 401, for example after the parent removed the device. The queue is kept.
 - `failed`: a network error, an HTTP error, a malformed answer, or a timeout. Each exchange, request and response body, has a 30 s deadline (`requestTimeoutMs`). The queue is kept.
 - `deferred`: an automatic trigger inside the backoff window. The retry timer syncs instead.
-- `stopped`: an automatic trigger after `stop()`, including a follow-up queued before it. Nothing is sent. Also a run that `stop()` interrupted: every `start()` and `stop()` begins a new generation, `stop()` aborts the open request, and a run from an earlier generation applies nothing more and sends no further round, so nothing reaches the store after `stop()` returns. Such a run is not a failure and opens no backoff window.
+- `stopped`: an automatic trigger after `stop()`, including a follow-up queued before it. Nothing is sent. Also a run that `stop()` interrupted: every `start()` and `stop()` begins a new generation, and `stop()` aborts the open request. A run from an earlier generation checks before it sends and before every store write, so it ends at its next step without sending or writing anything more (the cursor moves last, so a page cut short is pulled again later). `stop()` returns a promise that settles once that run has ended; sign-out and re-pairing await it, so nothing from the old credentials lands afterwards. Such a run is not a failure and opens no backoff window.
 
 `syncNow` never rejects. A trigger that arrives during a sync joins one follow-up run.
 

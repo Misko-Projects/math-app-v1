@@ -31,7 +31,10 @@ export interface SyncLifecycle {
   signOut(): Promise<void>;
   /** One sync now (`manual` by default). Never rejects. */
   syncNow(reason?: SyncReason): Promise<SyncOutcome>;
-  /** Stops the client (app teardown); the token stays. */
+  /**
+   * App teardown: stops the client for good (a pending `adopt` or `resume` cannot restart it).
+   * The token stays, so the next launch resumes.
+   */
   stop(): void;
   /** Called when `isRunning()` changes. Returns the unsubscribe. */
   subscribe(listener: () => void): () => void;
@@ -56,16 +59,26 @@ export function createSyncLifecycle(
     running = next;
     for (const l of listeners) l();
   };
-  const start = () => {
-    if (running) return;
-    client.start();
-    setRunning(true);
+  /** Set by `stop()` (app teardown): nothing starts the client again. */
+  let closed = false;
+  /** Starts the client unless torn down; returns whether it is running. */
+  const start = (): boolean => {
+    if (closed) return false;
+    if (!running) {
+      client.start();
+      setRunning(true);
+    }
+    return true;
   };
-  const stop = () => {
-    // Always tell the client: a manual sync may be in flight even while automatic sync is off.
-    // After this returns, nothing the client receives is applied (sync.ts, `generation`).
-    client.stop();
+  /**
+   * Stops the client and waits until its run in flight has ended. Always told to the client: a
+   * manual sync may be in flight even while automatic sync is off. Once this resolves, nothing
+   * the old credentials fetch can still be sent or written (sync.ts, `generation`).
+   */
+  const pause = async () => {
+    const settled = client.stop();
     setRunning(false);
+    await settled;
   };
 
   // resume, adopt and signOut change the device's credentials, so they run one at a time in the
@@ -84,14 +97,13 @@ export function createSyncLifecycle(
       serial(async () => {
         const device = await store.device();
         if (!device.deviceToken) return false;
-        start();
-        return true;
+        return start();
       }),
     adopt: (ids) =>
       serial(async () => {
         // A re-pair must not sync with the old token while the ids move.
         const wasRunning = running;
-        stop();
+        await pause();
         try {
           const record = await store.adoptFamily(ids);
           start();
@@ -104,7 +116,7 @@ export function createSyncLifecycle(
       }),
     signOut: () =>
       serial(async () => {
-        stop();
+        await pause();
         await store.db.transaction('rw', store.db.device, async () => {
           const device = await store.db.device.get('device');
           if (device?.deviceToken === undefined) return;
@@ -112,8 +124,13 @@ export function createSyncLifecycle(
           await store.db.device.put(rest);
         });
       }),
-    syncNow: (reason) => client.syncNow(reason),
-    stop,
+    // Waits for a credential change in progress (it never runs between a sign-out's stop and its
+    // token removal), without holding up the changes queued after it.
+    syncNow: (reason) => queue.then(() => client.syncNow(reason)),
+    stop() {
+      closed = true;
+      void pause();
+    },
     subscribe(listener) {
       listeners.add(listener);
       return () => listeners.delete(listener);
