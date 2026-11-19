@@ -185,6 +185,54 @@ export const BondWithControls: Story = {
   },
 };
 
+/**
+ * A hidden term on a numbered line: the "?" mark replaces the tick's numeral (the answer 3 is
+ * never printed under it); a bare arrow mark keeps its numeral (a count.sequence start).
+ */
+export const NumberLineHiddenTerm: Story = {
+  render: () => (
+    <div style={{ display: 'grid', gap: 32 }}>
+      <div data-testid="hidden">
+        <StimulusView
+          spec={{
+            kind: 'number-line',
+            min: 0,
+            max: 5,
+            ticksEvery: 1,
+            labelsEvery: 1,
+            marks: [{ at: 3, label: '?' }],
+          }}
+          maxWidth={700}
+        />
+      </div>
+      <div data-testid="start">
+        <StimulusView
+          spec={{
+            kind: 'number-line',
+            min: 31,
+            max: 36,
+            ticksEvery: 1,
+            labelsEvery: 1,
+            marks: [{ at: 33, arrow: true }],
+          }}
+          maxWidth={700}
+        />
+      </div>
+    </div>
+  ),
+  play: async ({ canvasElement }) => {
+    const texts = (id: string) =>
+      [
+        ...(canvasElement.querySelector(`[data-testid="${id}"]`) as HTMLElement).querySelectorAll(
+          'text',
+        ),
+      ].map((t) => t.textContent);
+    await expect(texts('hidden')).toEqual(expect.arrayContaining(['?', '2', '4']));
+    await expect(texts('hidden')).not.toContain('3');
+    await expect(texts('start')).toContain('33');
+  },
+};
+
 /** Countable sprites in both group tones (tone b differs in lightness, not only hue). */
 export const Sprites: Story = {
   render: () => (
