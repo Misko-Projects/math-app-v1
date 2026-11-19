@@ -1091,6 +1091,7 @@ export const InviteAnswerPad: Story = {
     await expectCueOn(root, checkButton(root));
     await expectFitsTabletPage(root);
     await userEvent.click(checkButton(root));
+    checkButton(root).blur();
     await expect(args.onResponse).toHaveBeenCalledWith({ kind: 'number', value: 6 });
   },
 };
@@ -1156,6 +1157,7 @@ export const InviteAnswerCountFirst: Story = {
     await userEvent.click(card(root, 7));
     await expectCueOn(root, checkButton(root));
     await userEvent.click(checkButton(root));
+    checkButton(root).blur();
     await expect(args.onResponse).toHaveBeenCalledWith({ kind: 'number', value: 7 });
   },
 };
@@ -1200,6 +1202,7 @@ export const InviteHeldWhileDisabled: Story = {
     await userEvent.click(obj(root, 6));
     await expectBadgeClearOfRing(root);
     await userEvent.click(checkButton(root));
+    checkButton(root).blur();
     await expect(args.onResponse).toHaveBeenCalledWith({ kind: 'choice', id: 'obj-6' });
   },
 };
@@ -1345,6 +1348,8 @@ async function expectKeyboardCountingOrder(
   await expect(objects(root).map((o) => o.dataset.obj)).toEqual(order);
   const taps = traceOf(onInteract).filter((e) => e.t === 'tap');
   await expect(taps.slice(-order.length).map((e) => e.target)).toEqual(order);
+  // The story ends here or goes on with taps: no keyboard focus ring left behind.
+  (document.activeElement as HTMLElement | null)?.blur();
 }
 
 /**
@@ -1394,6 +1399,7 @@ export const OrdinalKMinLandscape: Story = {
     await expectBadgeClearOfRing(root);
     await expectOrdinalInArea(root, 'k');
     await userEvent.click(checkButton(root));
+    checkButton(root).blur();
     await expect(args.onResponse).toHaveBeenCalledWith({ kind: 'choice', id: 'obj-6' });
   },
 };
@@ -1437,6 +1443,7 @@ export const OrdinalKFromRightPortrait: Story = {
     await expectKeyboardCountingOrder(root, args.onInteract, ids(0, 9).reverse());
     await userEvent.click(obj(root, 7));
     await userEvent.click(checkButton(root));
+    checkButton(root).blur();
     await expect(args.onResponse).toHaveBeenCalledWith({ kind: 'choice', id: 'obj-7' });
   },
 };
@@ -1492,6 +1499,7 @@ export const OrdinalElevenFromRight: Story = {
     await expectKeyboardCountingOrder(root, args.onInteract, ids(0, 10).reverse());
     await userEvent.click(obj(root, 10));
     await userEvent.click(checkButton(root));
+    checkButton(root).blur();
     await expect(args.onResponse).toHaveBeenCalledWith({ kind: 'choice', id: 'obj-10' });
   },
 };
