@@ -147,16 +147,15 @@ button.ni-tapc__obj:focus-visible {
 }
 
 /*
- * Ten-frame pictures (TapCountWidget FRAME_LAYOUTS): the cell above holds the next row's object, so
- * no number goes on an object. Every counted cell gets a teal dot at its bottom centre (size and
- * offset set inline: 20 % of the box, 5 px up, inside the frame cell), its drawing moved up and
- * shrunk ≥ 3 px clear of it; the running count shows once, in the card's top-right corner, inside
- * its top padding (52 px, above every object): a 44 px pebble with a 32 px numeral (05 §11).
+ * Pictures in places (TapCountWidget DOT_LAYOUTS: ten-frames, equal-groups plates): no number goes
+ * on an object. While marks can show, every object's drawing sits at the top of its place (one
+ * size for all) and a counted one gets a teal dot centred in the free space under it (set inline:
+ * 20 % of the box, ≥ 3 px from the drawing and from the cell's lines). The running count shows
+ * once, in the card's top-right corner: a 44 px pebble with a 32 px numeral (05 §11), 12 px in
+ * from the card's outer edges, in a 68 px top padding that keeps it ≥ 12 px above every frame.
  */
 .ni-tapc__dot {
   position: absolute;
-  left: 50%;
-  translate: -50% 0;
   box-sizing: border-box;
   border-radius: 50%;
   background: var(--color-sea-deep);
@@ -164,13 +163,23 @@ button.ni-tapc__obj:focus-visible {
   pointer-events: none;
   animation: var(--animate-pop-in);
 }
-.ni-tapc[data-frames="true"] .ni-tapc__picture {
+.ni-tapc[data-dots="true"] .ni-tapc__picture {
   position: relative;
+  padding-top: 68px;
 }
+/* The object counted last: an ink dot in a sunshine ring, under the running count's column. */
+.ni-tapc__dot[data-latest="true"] {
+  background: var(--color-ink);
+  box-shadow:
+    0 0 0 2px var(--color-sunshine),
+    0 0 0 3.5px var(--color-ink);
+}
+/* Centred over the last counted object's column (left set inline, clamped inside the card). */
 .ni-tapc__count {
   position: absolute;
-  top: 4px;
-  right: 12px;
+  top: 9px;
+  left: calc(100% - 39px);
+  translate: -50% 0;
   display: grid;
   place-items: center;
   box-sizing: border-box;
@@ -219,15 +228,15 @@ button.ni-tapc__obj:focus-visible {
   transform: scale(1.08);
 }
 /*
- * Pip counting on a ten-frame picture: no lift or outside ring (it would cross into the next cell);
- * a teal ring 5 px inside the object's box (inside its frame cell), behind the drawing and the dot.
+ * Pip counting on a picture in places: no lift or outside ring (it would cross into the next
+ * place); a teal ring 5 px inside the object's box (inside its frame cell), behind the drawing.
  */
-.ni-tapc[data-frames="true"] .ni-tapc__obj[data-counting="true"] {
+.ni-tapc[data-dots="true"] .ni-tapc__obj[data-counting="true"] {
   isolation: isolate;
   outline: none;
   transform: none;
 }
-.ni-tapc[data-frames="true"] .ni-tapc__obj[data-counting="true"]::before {
+.ni-tapc[data-dots="true"] .ni-tapc__obj[data-counting="true"]::before {
   content: "";
   position: absolute;
   inset: 5px;
@@ -241,6 +250,19 @@ button.ni-tapc__obj:focus-visible {
   border-radius: 50%;
   /* Close around the object, so the ring stays clear of the neighbours' count badges. */
   outline-offset: 2px;
+}
+/*
+ * In places, the invite and focus rings stay inside the object's own box (so inside its frame
+ * cell, never across the frame's edge): ≥ 12 px clear of every other target. No pulse.
+ */
+.ni-tapc[data-dots="true"] .ni-tapc__obj.ni-invite {
+  border-radius: 28%;
+  outline-offset: -5px;
+  animation: none;
+}
+.ni-tapc[data-dots="true"] button.ni-tapc__obj:focus-visible {
+  border-radius: 28%;
+  outline-offset: -4px;
 }
 
 /* Nothing to count (CNT.13): an empty sand dish, a white rim around a shallow well. */
@@ -303,6 +325,49 @@ button.ni-tapc__obj:focus-visible {
 .ni-tapc__check {
   position: relative;
   display: inline-flex;
+}
+
+/*
+ * The compact pad (TapCountWidget `compactPad`: a host too short for the 560 px pad column, e.g.
+ * the 960 × 600 minimum's 373 px): the keys at the age's minimum target (K 80 px) in a 4 × 3
+ * block (1–4, 5–8, 9 0 ⌫), the answer slot over Check in a column beside them, a 32 px gap to the
+ * picture. 3 × 84 + 2 × 12 = 276 px tall.
+ */
+.ni-tapc[data-pad="compact"] {
+  column-gap: 32px;
+}
+/* Beside the compact pad the picture card keeps 16 px at its sides (CARD_PAD_X_COMPACT). */
+.ni-tapc[data-pad="compact"] .ni-tapc__picture {
+  padding-inline: 16px;
+}
+.ni-tapc__answer[data-pad="compact"] {
+  display: grid;
+  grid-template-areas:
+    "slot keys"
+    "check keys";
+  gap: 16px;
+  align-items: center;
+  justify-items: center;
+}
+.ni-tapc__answer[data-pad="compact"] .ni-tapc__pad {
+  display: contents;
+}
+.ni-tapc__answer[data-pad="compact"] .ni-tapc__slot {
+  grid-area: slot;
+  align-self: end;
+}
+.ni-tapc__answer[data-pad="compact"] .ni-tapc__check {
+  grid-area: check;
+  align-self: start;
+}
+.ni-tapc__answer[data-pad="compact"] .ni-pad {
+  grid-area: keys;
+  grid-template-columns: repeat(4, var(--target-min));
+  /* The keys' 4 px ledge margin comes on top of the full target. */
+  grid-auto-rows: calc(var(--target-min) + 4px);
+}
+.ni-tapc__answer[data-pad="compact"] .ni-pad__gap {
+  display: none;
 }
 
 [data-reduced-motion="true"] .ni-tapc__obj {
