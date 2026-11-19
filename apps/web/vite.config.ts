@@ -4,8 +4,9 @@ import basicSsl from '@vitejs/plugin-basic-ssl';
 import react from '@vitejs/plugin-react';
 import { defineConfig, type PluginOption } from 'vite';
 import { VitePWA } from 'vite-plugin-pwa';
+import { contentAssets } from './content-assets';
 
-// Palette (05 §11); mirrored by the @theme tokens in src/styles.css.
+// Palette (05 §11); mirrors the design tokens in packages/ui/src/tokens/theme.css.
 const THEME_COLOR = '#1f7a8c';
 const BACKGROUND_COLOR = '#f4e3c3';
 
@@ -27,6 +28,8 @@ export default defineConfig(({ mode }) => {
   const plugins: PluginOption[] = [
     react(),
     tailwindcss(),
+    // Content JSON as static assets under /content/ (02 §6).
+    contentAssets(),
     VitePWA({
       strategies: 'injectManifest',
       srcDir: 'src',

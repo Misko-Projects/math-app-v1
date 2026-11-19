@@ -12,6 +12,9 @@
   "references": [
     { "path": "./tsconfig.sw.json" },
     { "path": "./tsconfig.node.json" },
-    { "path": "../../packages/shared" }
+    { "path": "./tsconfig.sync.json" },
+    { "path": "../../packages/shared" },
+    { "path": "../../packages/content" },
+    { "path": "../../packages/engine" }
   ]
 }

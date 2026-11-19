@@ -19,7 +19,14 @@ type Yaml = { [k: string]: any };
  */
 const EXPECTED = (d: Diagnostic) =>
   d.check === 'V10' && d.message.startsWith('SUB.03.t5 (pictorial)');
-const unexpected = (ds: readonly Diagnostic[]) => ds.filter((d) => !EXPECTED(d));
+/**
+ * Game data unlock rules may name catalog skills that are not authored yet (03 §9.2): they warn
+ * until the curriculum issues author them.
+ */
+const NOT_AUTHORED = (d: Diagnostic) =>
+  d.check === 'V04' && d.severity === 'warn' && /which is not authored yet/.test(d.message);
+const unexpected = (ds: readonly Diagnostic[]) =>
+  ds.filter((d) => !EXPECTED(d) && !NOT_AUTHORED(d));
 
 function variant(edit: (files: Files) => void): Diagnostic[] {
   const files: Files = { ...FIXTURE };
@@ -199,7 +206,7 @@ describe('the C01 fixture set (03 §9.5)', () => {
         'shape-sort',
         // K01 (#11): CMP
         'number-line-place',
-        // K01 (#11): CPS (pv.number; no format models yet, U03–U05)
+        // K01 (#11): CPS (pv.number on the U04 models)
         'base-ten-build',
         'expanded-form',
       ]),
@@ -307,7 +314,7 @@ describe('V01: YAML parses and matches its strict schema', () => {
   it('checks game data against the shared GameData schema, deep-strict', () => {
     expectFinding(
       variant((f) =>
-        editYaml(f, 'game/fixture.yaml', (doc) => {
+        editYaml(f, 'game/residents.yaml', (doc) => {
           doc.residents[0].favouriteColour = 'blue';
         }),
       ),
@@ -316,7 +323,7 @@ describe('V01: YAML parses and matches its strict schema', () => {
     );
     expectFinding(
       variant((f) =>
-        editYaml(f, 'game/fixture.yaml', (doc) => {
+        editYaml(f, 'game/island.yaml', (doc) => {
           doc.island.grid = [10, 8];
         }),
       ),
@@ -510,36 +517,306 @@ describe('V04: references resolve', () => {
       /unknown skill CNT.42/,
     );
   });
-  it('reports game data that names unknown skills, buildings or materials', () => {
-    expectFinding(
-      variant((f) =>
-        editYaml(
-          f,
-          'game/fixture.yaml',
-          (doc) => (doc.buildings[5].unlock.all[1].skill = 'MUL.02'),
-        ),
-      ),
-      'V04',
-      /unknown skill MUL.02/,
-    );
-    expectFinding(
-      variant((f) =>
-        editYaml(f, 'game/fixture.yaml', (doc) => (doc.residents[1].arrival.home = 'castle')),
-      ),
+});
+
+// Game data (02 §5.8): the compiler checks of checkGame, one defect at a time.
+const byId = (list: Yaml[], id: string) => list.find((x) => x.id === id) as Yaml;
+const gameVariant = (file: string, fn: (doc: Yaml) => void) =>
+  variant((f) => editYaml(f, `game/${file}.yaml`, fn));
+
+describe('V04: game data references', () => {
+  it('reports unknown buildings and materials, at the file and index they were authored at', () => {
+    const home = expectFinding(
+      gameVariant('residents', (doc) => (byId(doc.residents, 'hobb').arrival.home = 'castle')),
       'V04',
       /unknown building castle/,
     );
+    expect(home.file).toBe('game/residents.yaml');
+    expect(home.path).toMatch(/^residents\[\d+\]\.arrival\.home$/);
     expectFinding(
-      variant((f) =>
-        editYaml(
-          f,
-          'game/fixture.yaml',
-          (doc) => (doc.buildings[3].levels[0].recipe = { gold: 1 }),
-        ),
+      gameVariant(
+        'buildings',
+        (doc) => (byId(doc.buildings, 'shell-cottage').levels[0].recipe = { gold: 1 }),
       ),
       'V04',
       /unknown material gold/,
     );
+    expectFinding(
+      gameVariant(
+        'buildings',
+        (doc) => (byId(doc.buildings, 'driftwood-hut').unlock = { building: 'castle' }),
+      ),
+      'V04',
+      /unlock rule names unknown building castle/,
+    );
+  });
+  // Fixtures for pendingGameSkills: every test sets the map itself, and uses an id whose existence
+  // it controls. CNT.01 is a fixture root (always authored); PUZ.99 can never be authored without
+  // PUZ.01–PUZ.98 first (V03), so it stays unauthored whatever the curriculum PRs add.
+  const AUTHORED = 'CNT.01';
+  const UNAUTHORED = 'PUZ.99';
+  it('the pending-skill fixtures hold: one id is authored, the other is not', () => {
+    const ids = new Set(compileContent(FIXTURE).content?.skills.map((s) => s.id));
+    expect(ids.has(AUTHORED)).toBe(true);
+    expect(ids.has(UNAUTHORED)).toBe(false);
+  });
+  const pendingVariant = (
+    pending: Record<string, string[]>,
+    lighthouseSkill?: string,
+  ): Diagnostic[] =>
+    variant((f) => {
+      editYaml(f, 'graph.yaml', (doc) => {
+        doc.pendingGameSkills = { ...doc.pendingGameSkills, ...pending };
+      });
+      if (lighthouseSkill)
+        editYaml(f, 'game/buildings.yaml', (doc) => {
+          byId(doc.buildings, 'lighthouse').unlock.all[1].skill = lighthouseSkill;
+        });
+    });
+  it('warns, not errors, on an unauthored skill pendingGameSkills lists for that place (03 §9.2)', () => {
+    const diags = pendingVariant({ [UNAUTHORED]: ['building:lighthouse'] }, UNAUTHORED);
+    const hit = expectFinding(diags, 'V04', /skill PUZ.99, which is not authored yet/, 'warn');
+    expect(hit.file).toBe('game/buildings.yaml');
+    expect(hit.path).toMatch(/^buildings\[\d+\]\.unlock\.all\[1\]$/);
+    expect(diags.filter((d) => d.severity === 'error')).toEqual([]);
+  });
+  it('rejects an unauthored skill anywhere it is not listed for, such as a typo', () => {
+    expectFinding(
+      pendingVariant({}, 'CPS.30'),
+      'V04',
+      /unknown skill CPS.30; .* must be listed for building:lighthouse in graph.yaml: pendingGameSkills/,
+    );
+    // Pending for another place does not cover this one: the Lighthouse naming PUZ.99 is an
+    // error while PUZ.99 is pending only for the Brick Factory.
+    expectFinding(
+      pendingVariant({ [UNAUTHORED]: ['building:brick-factory'] }, UNAUTHORED),
+      'V04',
+      /unknown skill PUZ.99; .* listed for building:lighthouse/,
+    );
+  });
+  it('a pending entry covers one clause: naming the skill twice in one rule is an error', () => {
+    // The Bakery shape, any[authored, pending]: editing the authored clause into the pending
+    // skill must not let the one entry silently cover both clauses (and drop a route).
+    const bakery = (clauses: string[]) =>
+      variant((f) => {
+        editYaml(f, 'graph.yaml', (doc) => {
+          doc.pendingGameSkills = {
+            ...doc.pendingGameSkills,
+            [UNAUTHORED]: ['building:bakery'],
+          };
+        });
+        editYaml(f, 'game/buildings.yaml', (doc) => {
+          byId(doc.buildings, 'bakery').unlock = {
+            any: clauses.map((skill) => ({ skill, atLeast: 'ready' })),
+          };
+        });
+      });
+    const ok = bakery([AUTHORED, UNAUTHORED]);
+    expectFinding(ok, 'V04', /skill PUZ.99, which is not authored yet/, 'warn');
+    expect(ok.filter((d) => d.severity === 'error')).toEqual([]);
+    const hit = expectFinding(
+      bakery([UNAUTHORED, UNAUTHORED]),
+      'V04',
+      /unlock rule of building:bakery names pending skill PUZ.99 2 times/,
+    );
+    expect(hit.file).toBe('game/buildings.yaml');
+    expect(hit.path).toMatch(/^buildings\[\d+\]\.unlock$/);
+  });
+  it('a stale pendingGameSkills entry or place warns, never errors', () => {
+    const authored = pendingVariant({ [AUTHORED]: ['building:lighthouse'] });
+    expectFinding(authored, 'V03', /CNT.01 is authored; remove it from pendingGameSkills/, 'warn');
+    expect(authored.filter((d) => d.severity === 'error')).toEqual([]);
+    const unused = pendingVariant({ [UNAUTHORED]: ['building:market', 'ring:3'] });
+    for (const place of ['building:market', 'ring:3']) {
+      const hit = expectFinding(
+        unused,
+        'V04',
+        new RegExp(`no unlock rule of ${place} names PUZ.99; remove it from pendingGameSkills`),
+        'warn',
+      );
+      expect(hit.file).toBe('graph.yaml');
+    }
+    expect(unused.filter((d) => d.severity === 'error')).toEqual([]);
+  });
+  it('pendingGameSkills keys are canonical SkillIds and its places follow the grammar', () => {
+    expectFinding(
+      pendingVariant({ 'CPS.4': ['building:brick-factory'] }),
+      'V02',
+      /'CPS.4' is not a canonical SkillId/,
+    );
+    expectFinding(
+      pendingVariant({ [UNAUTHORED]: ['brick-factory'] }),
+      'V02',
+      /'brick-factory' is not building:<id>, resident:<id>, outfit:<option> or ring:<index>/,
+    );
+  });
+  it('rejects unlock skills of unknown or reserved strands, and retired skills', () => {
+    const lighthouse = (skill: string) =>
+      gameVariant('buildings', (doc) => {
+        byId(doc.buildings, 'lighthouse').unlock.all[1].skill = skill;
+      });
+    expectFinding(lighthouse('XYZ.01'), 'V04', /unknown skill XYZ.01 \(no strand XYZ\)/);
+    expectFinding(lighthouse('DIV.01'), 'V04', /DIV.01 in reserved strand DIV/);
+    expectFinding(
+      variant((f) => {
+        f['retired.yaml'] = 'skills: [MUL.13]\ntemplates: []\n';
+        editYaml(f, 'game/buildings.yaml', (doc) => {
+          byId(doc.buildings, 'lighthouse').unlock.all[1].skill = 'MUL.13';
+        });
+      }),
+      'V04',
+      /retired skill MUL.13/,
+    );
+    // A malformed id fails the shared SkillId schema.
+    expectFinding(lighthouse('MUL.2'), 'V01', /SkillId/);
+  });
+  it('level unlocks are decor:<id>, outfit:<option> or resident:<id> naming defined ones', () => {
+    const unlocks = (u: string) =>
+      gameVariant('buildings', (doc) => {
+        byId(doc.buildings, 'road-crew').levels[1].unlocks = [u];
+      });
+    expectFinding(unlocks('badge:CNT.01'), 'V04', /'badge:CNT.01' is not decor:<id>/);
+    expectFinding(unlocks('shell-bench'), 'V04', /'shell-bench' is not decor:<id>/);
+    expectFinding(unlocks('skill:CNT.01'), 'V04', /is not decor:<id>, outfit:<option>/);
+    expectFinding(unlocks('decor:castle'), 'V04', /unknown decor castle/);
+    expectFinding(unlocks('outfit:hat-crown'), 'V04', /unknown outfit hat-crown/);
+    expectFinding(unlocks('resident:nobody'), 'V04', /unknown resident nobody/);
+    expectFinding(unlocks('decor:'), 'V04', /'decor:' is not decor:<id>/);
+    expectFinding(unlocks(':shell-bench'), 'V04', /':shell-bench' is not decor:<id>/);
+    // A bare prefix is not a grant, even when a decor happens to be called 'decor'.
+    const bare = variant((f) => {
+      editYaml(f, 'game/decor.yaml', (doc) =>
+        doc.decor.push({ id: 'decor', art: 'decor/decor', footprint: [1, 1], source: 'starter' }),
+      );
+      editYaml(f, 'game/buildings.yaml', (doc) => {
+        byId(doc.buildings, 'road-crew').levels[1].unlocks = ['decor'];
+      });
+    });
+    expectFinding(bare, 'V04', /'decor' is not decor:<id>/);
+    for (const ok of ['decor:fountain', 'outfit:hat-captain', 'resident:marlo']) {
+      expect(unlocks(ok).filter((d) => d.severity === 'error')).toEqual([]);
+    }
+  });
+  it("a resident's home is a building of kind home, named only when it arrives via home", () => {
+    expectFinding(
+      gameVariant('residents', (doc) => (byId(doc.residents, 'hobb').arrival.home = 'market')),
+      'V04',
+      /market is a workshop, not a home/,
+    );
+    expectFinding(
+      gameVariant('residents', (doc) => delete byId(doc.residents, 'hobb').arrival.home),
+      'V01',
+      /hobb arrives via home but names no home/,
+    );
+    expectFinding(
+      gameVariant(
+        'residents',
+        (doc) => (byId(doc.residents, 'marlo').arrival.home = 'shell-cottage'),
+      ),
+      'V01',
+      /only a resident that arrives via home names a home/,
+    );
+  });
+  it('affinity names workshops', () => {
+    expectFinding(
+      gameVariant('residents', (doc) => (byId(doc.residents, 'nib').affinity = ['storehouse'])),
+      'V04',
+      /unknown workshop storehouse/,
+    );
+  });
+  it('ring rules use island facts and outfit rules no learner facts but mastery (02 §4.3)', () => {
+    expectFinding(
+      gameVariant('island', (doc) => {
+        doc.island.rings[2].unlock = { skill: 'CNT.01', atLeast: 'practiced' };
+      }),
+      'V04',
+      /a ring rule cannot use 'skill'/,
+    );
+    expectFinding(
+      gameVariant('island', (doc) => {
+        doc.island.rings[2].unlock = { any: [{ roadLength: 20 }, { masteredCount: 3 }] };
+      }),
+      'V04',
+      /a ring rule cannot use 'masteredCount'/,
+    );
+    expectFinding(
+      gameVariant('progression', (doc) => {
+        doc.outfits[0].unlock = { minGrade: '1' };
+      }),
+      'V04',
+      /an outfit rule cannot use 'minGrade'/,
+    );
+  });
+});
+
+describe('V01/V02: game data shape', () => {
+  it('a workshop has a workshopId, unique; other buildings have none', () => {
+    expectFinding(
+      gameVariant('buildings', (doc) => delete byId(doc.buildings, 'bakery').workshopId),
+      'V01',
+      /workshop bakery needs a workshopId/,
+    );
+    expectFinding(
+      gameVariant(
+        'buildings',
+        (doc) => (byId(doc.buildings, 'shell-cottage').workshopId = 'shell-cottage'),
+      ),
+      'V01',
+      /only a workshop has a workshopId/,
+    );
+    expectFinding(
+      gameVariant('buildings', (doc) => (byId(doc.buildings, 'bakery').workshopId = 'market')),
+      'V02',
+      /duplicate workshopId market/,
+    );
+  });
+  it('levels are numbered 1, 2, 3 in order', () => {
+    expectFinding(
+      gameVariant('buildings', (doc) => byId(doc.buildings, 'market').levels.reverse()),
+      'V01',
+      /levels are numbered 1, 2, 3 in order; expected 1/,
+    );
+  });
+  it('rejects duplicate ids, outfit options and festival ids', () => {
+    expectFinding(
+      gameVariant('progression', (doc) => doc.outfits.push(structuredClone(doc.outfits[0]))),
+      'V02',
+      /duplicate outfit option hat-captain/,
+    );
+    expectFinding(
+      gameVariant('progression', (doc) => doc.festivals.push(structuredClone(doc.festivals[0]))),
+      'V02',
+      /duplicate festival id lantern-night/,
+    );
+    expectFinding(
+      gameVariant('decor', (doc) => doc.decor.push(structuredClone(doc.decor[0]))),
+      'V02',
+      /duplicate decor id shell-bench/,
+    );
+  });
+  it('ring and road plots lie inside the 12 × 8 grid; a plot is in one ring; stones ascend', () => {
+    expectFinding(
+      gameVariant('island', (doc) => (doc.island.road[0].plot = [12, 0])),
+      'V01',
+      /plot \[12, 0\] is outside the 12 × 8 grid/,
+    );
+    expectFinding(
+      gameVariant('island', (doc) => doc.island.rings[1].plots.push([0, 8])),
+      'V01',
+      /plot \[0, 8\] is outside/,
+    );
+    expectFinding(
+      gameVariant('island', (doc) => doc.island.rings[2].plots.push([4, 4])),
+      'V02',
+      /plot \[4, 4\] is already in ring 0/,
+    );
+    const swapped = gameVariant('island', (doc) => {
+      const [a, b] = doc.island.road;
+      doc.island.road[0] = b;
+      doc.island.road[1] = a;
+    });
+    const hit = expectFinding(swapped, 'V02', /increasing order \(1 after 2\)/);
+    expect(hit.file).toBe('game/island.yaml');
   });
 });
 
@@ -1352,7 +1629,7 @@ describe('V24 and contentVersion (03 §9.1)', () => {
     editYaml(files, 'skills/CNT.yaml', (doc) => (skill(doc, 'CNT.01').name = 'Count to 20'));
     expect(compileContent(files).contentVersion).not.toBe(base);
     const game: Files = { ...FIXTURE };
-    editYaml(game, 'game/fixture.yaml', (doc) => (doc.residents[0].palette = 'gold'));
+    editYaml(game, 'game/residents.yaml', (doc) => (doc.residents[0].palette = 'gold'));
     expect(compileContent(game).contentVersion).toBe(base);
   });
   it('the manifest lists every output with its sha256 and the counts', () => {

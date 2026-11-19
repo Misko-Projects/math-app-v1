@@ -1,0 +1,128 @@
+import { readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
+import { describe, expect, it } from 'vitest';
+import {
+  ageModeForGrade,
+  CONTRAST_PAIRS,
+  contrastRatio,
+  DURATION_MS,
+  MIN_TARGET_PX,
+  PALETTE,
+  REDUCED_MOTION_MAX_MS,
+  TARGET_GAP_PX,
+  TARGET_PX,
+  Z_LAYER,
+} from './tokens';
+
+const css = readFileSync(fileURLToPath(new URL('./theme.css', import.meta.url)), 'utf8').replace(
+  /\/\*[\s\S]*?\*\//g,
+  '',
+);
+
+/** The value of `--name` inside the first block whose selector matches `selector`. */
+function cssVar(name: string, selector = ':root'): string | undefined {
+  const blocks = [...css.matchAll(/([^{}]+)\{([^{}]*)\}/g)];
+  for (const [, sel, body] of blocks) {
+    if (sel?.trim() !== selector) continue;
+    const m = new RegExp(`--${name}:\\s*([^;]+);`).exec(body ?? '');
+    if (m) return m[1]?.trim();
+  }
+  return undefined;
+}
+
+function themeVar(name: string): string | undefined {
+  return new RegExp(`--${name}:\\s*([^;]+);`).exec(css)?.[1]?.trim();
+}
+
+describe('design tokens', () => {
+  it('mirrors every palette colour of theme.css', () => {
+    for (const [name, hex] of Object.entries(PALETTE)) {
+      expect(themeVar(`color-${name}`), name).toBe(hex);
+    }
+  });
+
+  it('includes the 05 §11 palette', () => {
+    for (const hex of [
+      '#1f7a8c',
+      '#2a9d8f',
+      '#f4e3c3',
+      '#e76f51',
+      '#f4a261',
+      '#e9c46a',
+      '#5c9e4f',
+      '#264653',
+    ]) {
+      expect(Object.values(PALETTE)).toContain(hex);
+    }
+  });
+
+  it('meets the 06 §4 target sizes per age mode', () => {
+    expect(MIN_TARGET_PX).toEqual({ k: 80, 'g1-up': 64 });
+    for (const mode of ['k', 'g1-up'] as const) {
+      const { min, icon, big } = TARGET_PX[mode];
+      expect(min).toBeGreaterThanOrEqual(MIN_TARGET_PX[mode]);
+      expect(icon).toBeGreaterThanOrEqual(MIN_TARGET_PX[mode]);
+      expect(big).toBeGreaterThanOrEqual(MIN_TARGET_PX[mode]);
+    }
+    expect(TARGET_GAP_PX).toBeGreaterThanOrEqual(12);
+  });
+
+  it('keeps the CSS target sizes in step with TARGET_PX', () => {
+    const map = {
+      min: 'target-min',
+      icon: 'target-icon',
+      big: 'target-big',
+      glyph: 'icon-size',
+    } as const;
+    for (const [key, name] of Object.entries(map)) {
+      const k = TARGET_PX.k[key as keyof typeof map];
+      const g = TARGET_PX['g1-up'][key as keyof typeof map];
+      expect(cssVar(name, '[data-age-mode="k"]'), `k ${name}`).toBe(`${k}px`);
+      expect(cssVar(name), `g1-up ${name}`).toBe(`${g}px`);
+    }
+    expect(cssVar('target-gap')).toBe(`${TARGET_GAP_PX}px`);
+  });
+
+  it('keeps durations and z-layers in step', () => {
+    for (const [k, v] of Object.entries(DURATION_MS))
+      expect(cssVar(`duration-${k}`)).toBe(`${v}ms`);
+    for (const [k, v] of Object.entries(Z_LAYER)) expect(cssVar(`z-${k}`)).toBe(String(v));
+  });
+
+  it('caps every duration at 150 ms under reduced motion (06 §7)', () => {
+    for (const k of ['base', 'gentle', 'slow']) {
+      expect(cssVar(`duration-${k}`, '[data-reduced-motion="true"]')).toBe(
+        `${REDUCED_MOTION_MAX_MS}ms`,
+      );
+    }
+  });
+
+  it('stops every looping animation token and fades every entrance under reduced motion', () => {
+    const tokens = [...css.matchAll(/--(animate-[\w-]+):\s*([^;]+);/g)];
+    const loops = new Set(tokens.filter(([, , v]) => v?.includes('infinite')).map(([, n]) => n));
+    expect(loops.size).toBeGreaterThan(5);
+    for (const name of loops) {
+      expect(cssVar(name as string, '[data-reduced-motion="true"]'), name).toBe('none');
+    }
+    for (const name of ['animate-rise', 'animate-pop-in']) {
+      expect(cssVar(name, '[data-reduced-motion="true"]')).toBe('ni-fade-in 150ms ease-out both');
+    }
+  });
+
+  it('gives every text/icon pair the primitives use ≥ 4.5:1 contrast (06 §7)', () => {
+    for (const p of CONTRAST_PAIRS) {
+      expect(contrastRatio(PALETTE[p.fg], PALETTE[p.bg]), p.use).toBeGreaterThanOrEqual(4.5);
+    }
+  });
+
+  it('computes WCAG contrast', () => {
+    expect(contrastRatio('#000000', '#ffffff')).toBeCloseTo(21, 5);
+    expect(contrastRatio('#777777', '#777777')).toBeCloseTo(1, 5);
+  });
+
+  it('maps grades to age modes', () => {
+    expect(ageModeForGrade('K')).toBe('k');
+    expect(ageModeForGrade('1')).toBe('g1-up');
+    expect(ageModeForGrade('3')).toBe('g1-up');
+  });
+});

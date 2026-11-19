@@ -399,6 +399,28 @@ describe('§3 practiced rule', () => {
     expect(s.skills[A]?.n).toBe(2);
   });
 
+  it('a skip on a choice template is not evidence, like the choice it replaces', () => {
+    const g = syntheticGraph();
+    const t3 = g.templates[`${A}.t3`] as (typeof g.templates)[string];
+    g.templates[`${A}.t5`] = { ...t3, id: `${A}.t5`, format: 'numeral-pick' };
+    const sk = g.skills[A] as (typeof g.skills)[string];
+    sk.templates = [...sk.templates, `${A}.t5`];
+    const m = createEloFireModel(g, { childId: 'c', isK: false });
+    const skip = { response: { kind: 'skip' as const }, correct: false };
+    const s = run(m, m.init(g, null), [
+      [attempt(A, 3, { ...skip, templateId: `${A}.t5`, format: 'numeral-pick' }), T0],
+    ]);
+    expect(s.skills[A]?.recent).toHaveLength(0);
+    // It is still rated (skip weight, response-kind rule unchanged).
+    expect(s.skills[A]?.n).toBe(1);
+    // A skip on a constructed template, or on an unknown one, stays evidence.
+    const t = run(m, m.init(g, null), [
+      [attempt(A, 3, skip), T0],
+      [attempt(A, 3, { ...skip, templateId: `${A}.t99` }), T0 + 1],
+    ]);
+    expect(t.skills[A]?.recent).toHaveLength(2);
+  });
+
   it('recent keeps the last 10 evidence attempts', () => {
     const s = run(
       model,

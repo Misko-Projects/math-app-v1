@@ -6,6 +6,7 @@ import { OUTLINES } from '../../generators/geo/outlines';
 import { composeFill } from './compose.fill';
 import { composeRelative } from './compose.relative';
 import { gridPolygon, polygonInfo } from './grid.polygon';
+import { unionInside } from './pieces';
 import { puzzleSatisfies, shapeFills } from './puzzle.satisfies';
 
 type Rec = Record<string, unknown>;
@@ -140,9 +141,72 @@ describe('compose.fill', () => {
     ['alternative: a thin gap within the tolerance', squares([-0.01, 0], [1.01, 0]), true],
     // Union inside the outline 1.981 × 0.981 = 1.943 of 2 (2.8% uncovered), overlap 0.019.
     ['overlapping and short of the outline', squares([0, 0.019], [0.981, 0.019]), false],
+    // Each square 1.5% above the outline, overlapping by 0.0101 (0.0099485 of it inside the
+    // outline). Union inside = 2 × 0.985 − 0.0099485 = 1.9600515 ≥ 1.96: covered. Subtracting
+    // the full overlap (0.0101, part of it outside the outline) would wrongly give 1.9599.
+    ['alternative: overlap partly outside the outline', squares([0, 0.015], [0.9899, 0.015]), true],
   ];
   it.each(COVER)('2 × 1 rectangle: %s', (_name, value, expected) => {
     expect(composeFill.check(rect2, value)).toBe(expected);
+  });
+
+  // Review round 3 (#57): a 2 × 2 square from four unit squares whose overlaps share a corner.
+  // Covered area 3.920106 ≥ 3.92, but pairwise inclusion–exclusion counts the 0.000225 three-way
+  // overlap once too often (3.919881) and would wrongly reject it.
+  it('2 × 2 square: three-way overlap counted exactly (accepted)', () => {
+    const big = {
+      outline: [
+        [0, 0],
+        [2, 0],
+        [2, 2],
+        [0, 2],
+      ],
+      pieces: [{ kind: 'square', count: 4 }],
+    };
+    const at = (x: number, y: number) => ({ kind: 'square', at: [x, y], rot: 0 });
+    expect(
+      composeFill.check(big, {
+        pieces: [at(0, 0), at(0.985, -0.0152), at(-0.0152, 0.985), at(1, 1.01995)],
+      }),
+    ).toBe(true);
+    expect(OUTLINES.some((o) => o.id === 'big-square-from-squares')).toBe(true);
+  });
+
+  // Review round 4 (#57): no cap on the piece count. 13 unit squares edge to edge on a 13 × 1
+  // outline is an exact tiling, and a 50-piece tiling stays fast (neighbours share only edges).
+  it.each([13, 50])('a %i × 1 strip tiled by unit squares is accepted', (n) => {
+    const strip = {
+      outline: [
+        [0, 0],
+        [n, 0],
+        [n, 1],
+        [0, 1],
+      ],
+      pieces: [{ kind: 'square', count: n }],
+    };
+    const pieces = Array.from({ length: n }, (_, i) => ({ kind: 'square', at: [i, 0], rot: 0 }));
+    expect(composeFill.check(strip, { pieces })).toBe(true);
+    // Leaving more than 2% of the strip bare is not a fill.
+    expect(composeFill.check(strip, { pieces: pieces.slice(Math.ceil(0.03 * n)) })).toBe(false);
+  });
+
+  it('unionInside is the exact union area inside the outline', () => {
+    const sq = (x: number, y: number, s = 1): [number, number][] => [
+      [x, y],
+      [x + s, y],
+      [x + s, y + s],
+      [x, y + s],
+    ];
+    const outline = sq(0, 0, 3);
+    // Three unit squares on a diagonal, all three overlapping in [0.75, 1]²: union by
+    // inclusion–exclusion = 3 − (0.25 + 0.0625 + 0.5625) + 0.0625 = 2.1875.
+    const pieces = [sq(0, 0), sq(0.5, 0.5), sq(0.75, 0.75)];
+    const pairwise = 0.25 + 0.0625 + 0.5625; // |A∩B| + |A∩C| + |B∩C|
+    const triple = 0.0625; // |A∩B∩C| = A∩C
+    expect(unionInside(outline, pieces)).toBeCloseTo(3 - pairwise + triple, 12);
+    // Pieces partly outside the outline only count inside it.
+    expect(unionInside(sq(0, 0, 1), [sq(0.5, 0)])).toBeCloseTo(0.5, 12);
+    expect(unionInside(outline, [])).toBe(0);
   });
 
   it('rejects malformed values and targets without throwing', () => {

@@ -1,0 +1,318 @@
+/*
+ * Number Island design tokens (05 §11, 06 §4, 06 §7). The single source for colour, type, spacing,
+ * radii, shadows, motion and z-layers. Import after Tailwind:
+ *
+ *   @import "tailwindcss";
+ *   @import "@number-island/ui/theme.css";
+ *   @import "@number-island/ui/primitives.css";
+ *
+ * `@theme static` makes Tailwind emit every token as a CSS variable on :root (so plain CSS such as
+ * primitives.css can use them) and as utilities (bg-sea, text-ink, rounded-card, shadow-ledge,
+ * font-display, ease-bounce, animate-bob…). Values that Tailwind has no theme namespace for
+ * (durations, z-layers, touch-target sizes) are plain custom properties below.
+ *
+ * The TypeScript mirror is src/tokens/tokens.ts; tokens.test.ts keeps the two in step.
+ */
+@theme static {
+  /* Palette (05 §11). "-deep" is the 2–3 px outline / ledge shade of a fill. */
+  --color-sea: #2a9d8f;
+  --color-sea-deep: #1f7a8c;
+  --color-sea-dark: #17606e;
+  --color-shallows: #8fd3c7;
+  --color-foam: #f3fbf8;
+  --color-sky: #bfe4ee;
+  --color-sky-light: #e6f5f6;
+  --color-horizon: #fbeed3;
+  --color-sand: #f4e3c3;
+  --color-sand-deep: #d9bb87;
+  --color-sand-shadow: #e7cfa2;
+  --color-paper: #fffaf0;
+  --color-coral: #e76f51;
+  --color-coral-deep: #b9503a;
+  --color-sun: #f4a261;
+  --color-sun-deep: #d9833f;
+  --color-sunshine: #e9c46a;
+  --color-sunshine-light: #f6d58a;
+  --color-sunshine-deep: #c9a245;
+  --color-leaf: #5c9e4f;
+  --color-leaf-deep: #3f7537;
+  --color-leaf-dark: #2f5a29;
+  --color-leaf-light: #7dbb6a;
+  --color-wood: #c98a55;
+  --color-wood-deep: #8f5a31;
+  --color-cloud: #ffffff;
+  --color-pebble: #ece6da;
+  --color-pebble-deep: #a99f8c;
+  --color-ink: #264653;
+  --color-ink-soft: #3d6170;
+  --color-scrim: rgb(38 70 83 / 0.45);
+
+  /* Type (05 §11): Baloo 2 for titles and numbers, Andika for child-facing text. */
+  --font-display: "Baloo 2", ui-rounded, system-ui, sans-serif;
+  --font-body: "Andika", ui-sans-serif, system-ui, sans-serif;
+  --text-numeral: 3rem; /* 48 px: math numerals are ≥ 32 px everywhere (05 §11) */
+  --text-numeral--line-height: 1;
+  --text-numeral-lg: 4.5rem;
+  --text-numeral-lg--line-height: 1;
+  --text-numeral-xl: 6rem;
+  --text-numeral-xl--line-height: 1;
+  --text-label: 1.375rem;
+  --text-label--line-height: 1.2;
+  --text-bubble: 1.5rem;
+  --text-bubble--line-height: 1.3;
+
+  /* Spacing: the 06 §4 minimum gap between touch targets. */
+  --spacing-gap: 12px;
+  --spacing-gap-lg: 20px;
+
+  /* Radii: everything is soft and rounded (05 §11). */
+  --radius-pebble: 18px;
+  --radius-card: 28px;
+  --radius-bubble: 32px;
+  --radius-pill: 9999px;
+
+  /* Shadows: a solid "ledge" under raised controls, a soft contact shadow, a lift for dragged items. */
+  --shadow-ledge: 0 6px 0 var(--ledge-color, var(--color-sea-dark));
+  --shadow-ledge-pressed: 0 2px 0 var(--ledge-color, var(--color-sea-dark));
+  --shadow-soft: 0 10px 24px -12px rgb(38 70 83 / 0.45);
+  --shadow-lift: 0 18px 30px -10px rgb(38 70 83 / 0.5);
+  --shadow-highlight: inset 0 3px 0 rgb(255 255 255 / 0.35);
+
+  /* Easing. */
+  --ease-bounce: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --ease-soft: cubic-bezier(0.2, 0.8, 0.2, 1);
+
+  /* Idle and entrance animations (art and chrome). Reduced motion stops them (see below). */
+  --animate-bob: bob 5s ease-in-out infinite;
+  --animate-bob-slow: bob 7s ease-in-out infinite;
+  --animate-cloud: cloud 26s ease-in-out infinite alternate;
+  --animate-sway: sway 6s ease-in-out infinite;
+  --animate-wave-claw: wave-claw 1.6s ease-in-out infinite;
+  --animate-smoke: smoke 4.5s ease-out infinite;
+  --animate-flutter: flutter 2.4s ease-in-out infinite;
+  --animate-blink: blink 5s step-end infinite;
+  --animate-shimmer: shimmer 3.5s ease-in-out infinite;
+  --animate-rise: rise 700ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+  --animate-pulse-soft: pulse-soft 1.6s ease-in-out infinite;
+  --animate-pop-in: pop-in 420ms cubic-bezier(0.34, 1.56, 0.64, 1) both;
+  /* Primitive loops (keyframes in primitives.css): replay waves, typing caret, demo hand. */
+  --animate-wave: ni-wave 1.1s ease-in-out infinite;
+  --animate-caret: ni-caret 1.1s step-end infinite;
+  --animate-hand: ni-hand-tap 1.2s cubic-bezier(0.2, 0.8, 0.2, 1) infinite;
+
+  @keyframes bob {
+    0%,
+    100% {
+      transform: translateY(0);
+    }
+    50% {
+      transform: translateY(6px);
+    }
+  }
+  @keyframes cloud {
+    from {
+      transform: translateX(0);
+    }
+    to {
+      transform: translateX(56px);
+    }
+  }
+  @keyframes wave-claw {
+    0%,
+    100% {
+      transform: rotate(-14deg);
+    }
+    50% {
+      transform: rotate(16deg);
+    }
+  }
+  @keyframes sway {
+    0%,
+    100% {
+      transform: rotate(-1.5deg);
+    }
+    50% {
+      transform: rotate(1.5deg);
+    }
+  }
+  @keyframes smoke {
+    0% {
+      transform: translate(0, 0) scale(0.6);
+      opacity: 0;
+    }
+    20% {
+      opacity: 0.9;
+    }
+    100% {
+      transform: translate(14px, -70px) scale(1.4);
+      opacity: 0;
+    }
+  }
+  @keyframes flutter {
+    0%,
+    100% {
+      transform: skewY(0deg) scaleX(1);
+    }
+    50% {
+      transform: skewY(-6deg) scaleX(0.92);
+    }
+  }
+  @keyframes blink {
+    0%,
+    92%,
+    100% {
+      transform: scaleY(1);
+    }
+    95% {
+      transform: scaleY(0.1);
+    }
+  }
+  @keyframes shimmer {
+    0%,
+    100% {
+      opacity: 0.35;
+    }
+    50% {
+      opacity: 0.85;
+    }
+  }
+  @keyframes rise {
+    from {
+      transform: translateY(18px);
+      opacity: 0;
+    }
+    to {
+      transform: translateY(0);
+      opacity: 1;
+    }
+  }
+  @keyframes pulse-soft {
+    0%,
+    100% {
+      transform: scale(1);
+    }
+    50% {
+      transform: scale(1.05);
+    }
+  }
+  @keyframes pop-in {
+    from {
+      transform: scale(0.4);
+      opacity: 0;
+    }
+    to {
+      transform: scale(1);
+      opacity: 1;
+    }
+  }
+}
+
+/*
+ * Plain custom properties: motion durations, z-layers and per-age-mode touch targets (06 §4).
+ * UiProvider sets data-age-mode / data-reduced-motion on its root element; :root carries the
+ * G1+ defaults so a bare page is still usable.
+ */
+:root {
+  --duration-tap: 90ms;
+  --duration-quick: 150ms;
+  --duration-base: 220ms;
+  --duration-gentle: 320ms;
+  --duration-slow: 520ms;
+
+  /* z-layers, lowest first. Use as z-(--z-sheet) in Tailwind or z-index: var(--z-sheet). */
+  --z-scene: 0;
+  --z-widget: 10;
+  --z-chrome: 20;
+  --z-bubble: 30;
+  --z-drag: 40;
+  --z-sheet: 50;
+  --z-toast: 60;
+  --z-gate: 70;
+
+  /* Touch targets: G1+ ≥ 64 px, K ≥ 80 px (≈ 2 cm), ≥ 12 px apart (06 §4). */
+  --target-min: 64px;
+  --target-icon: 72px;
+  --target-big: 76px;
+  --target-gap: 12px;
+  --icon-size: 36px;
+}
+
+[data-age-mode="k"] {
+  --target-min: 80px;
+  --target-icon: 88px;
+  --target-big: 96px;
+  --icon-size: 44px;
+}
+
+/*
+ * 06 §7 reduced motion: idle loops stop, parallax and confetti are off, and every transition becomes
+ * a ≤ 150 ms fade. It follows the OS preference; UiProvider's `reducedMotion` prop can also force it
+ * on (data-reduced-motion="true"), for example in stories and tests.
+ *
+ * Opt-in classes: .motion-loop marks an idle loop and .motion-entrance an entrance animation. These
+ * rules are unlayered, so they win over Tailwind's layered animate-* utilities.
+ */
+@keyframes ni-fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --duration-base: 150ms;
+    --duration-gentle: 150ms;
+    --duration-slow: 150ms;
+    --animate-bob: none;
+    --animate-bob-slow: none;
+    --animate-cloud: none;
+    --animate-sway: none;
+    --animate-wave-claw: none;
+    --animate-smoke: none;
+    --animate-flutter: none;
+    --animate-blink: none;
+    --animate-shimmer: none;
+    --animate-pulse-soft: none;
+    --animate-wave: none;
+    --animate-caret: none;
+    --animate-hand: none;
+    --animate-rise: ni-fade-in 150ms ease-out both;
+    --animate-pop-in: ni-fade-in 150ms ease-out both;
+  }
+  .motion-loop {
+    animation: none;
+  }
+  .motion-entrance {
+    animation: ni-fade-in 150ms ease-out both;
+  }
+}
+
+[data-reduced-motion="true"] {
+  --duration-base: 150ms;
+  --duration-gentle: 150ms;
+  --duration-slow: 150ms;
+  --animate-bob: none;
+  --animate-bob-slow: none;
+  --animate-cloud: none;
+  --animate-sway: none;
+  --animate-wave-claw: none;
+  --animate-smoke: none;
+  --animate-flutter: none;
+  --animate-blink: none;
+  --animate-shimmer: none;
+  --animate-pulse-soft: none;
+  --animate-wave: none;
+  --animate-caret: none;
+  --animate-hand: none;
+  --animate-rise: ni-fade-in 150ms ease-out both;
+  --animate-pop-in: ni-fade-in 150ms ease-out both;
+}
+[data-reduced-motion="true"] .motion-loop {
+  animation: none;
+}
+[data-reduced-motion="true"] .motion-entrance {
+  animation: ni-fade-in 150ms ease-out both;
+}

@@ -85,7 +85,9 @@ function partialPath(
  * A number line with ticks every step and only its two ends labelled: a counting aid that names no
  * term of the sequence (the level-3 picture for an order item, whose answer is every term).
  */
-function endsOnlyLine(lo: number, hi: number, step: number): StimulusSpec {
+function endsOnlyLine(terms: number[], step: number): StimulusSpec {
+  const lo = Math.min(...terms);
+  const hi = Math.max(...terms);
   const min = Math.max(0, lo - step);
   const max = hi + step;
   return {
@@ -94,10 +96,8 @@ function endsOnlyLine(lo: number, hi: number, step: number): StimulusSpec {
     max,
     ticksEvery: step,
     labelsEvery: null,
-    marks: [
-      { at: min, label: String(min) },
-      { at: max, label: String(max) },
-    ],
+    // An end that is itself a term (0 when the sequence reaches 0) stays unlabelled.
+    marks: [min, max].filter((v) => !terms.includes(v)).map((v) => ({ at: v, label: String(v) })),
   };
 }
 
@@ -198,7 +198,10 @@ export const countSequence: GeneratorDef = {
         const opts = numberOptions(t, params, length === 1 ? next : last, rng);
         // Label the start (with its arrow) and the shown terms only; the asked term is '?', so
         // neither the picture nor the level-3 overlay names the answer (#12 evidence, CNT.09.t3).
-        const path = partialPath(terms, hiddenAfter, step, start);
+        // The asked term is always hidden too: with hide: between, the pick asks for the last
+        // term, which the sequence itself would otherwise show.
+        const asked = length === 1 ? next : last;
+        const path = partialPath(terms, [...new Set([...hiddenAfter, asked])], step, start);
         p = {
           params,
           vars,
@@ -286,7 +289,7 @@ export const countSequence: GeneratorDef = {
             direction: dir > 0 ? 'asc' : 'desc',
           },
           answer: { kind: 'numbers', values: sorted, ordered: true },
-          overlay: endsOnlyLine(lo, hi, step),
+          overlay: endsOnlyLine(terms, step),
         };
         break;
       }
