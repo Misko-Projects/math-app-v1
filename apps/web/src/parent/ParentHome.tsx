@@ -67,11 +67,17 @@ export function ParentHome() {
           {profiles === undefined
             ? 'Loading…'
             : profiles.length === 0
-              ? 'No children yet.'
+              ? 'No children yet. Add them so they can start playing.'
               : `${listNames(
                   [...profiles].sort((a, b) => a.createdAt - b.createdAt).map((p) => p.name),
                 )} ${profiles.length === 1 ? 'plays' : 'play'} on this island.`}
         </p>
+        {profiles !== undefined && profiles.length === 0 ? (
+          // A family without children: setup's answer was lost after the server made the family.
+          <div className="mt-4">
+            <Button onClick={() => navigate('/parent/children/add')}>Add your children</Button>
+          </div>
+        ) : null}
       </Panel>
 
       <Panel as="section" title="This device">

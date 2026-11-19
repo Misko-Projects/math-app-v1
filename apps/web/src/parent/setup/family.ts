@@ -127,8 +127,9 @@ export async function saveFamilyLocally(
   return saveChildren(services, children);
 }
 
-export async function saveChildren(
-  services: Pick<AppServices, 'store' | 'sync' | 'content'>,
+/** Writes each child's profile under its own id (an upsert: a retry saves each exactly once). */
+async function putChildren(
+  services: Pick<AppServices, 'store' | 'content'>,
   children: readonly NewChild[],
 ): Promise<ChildProfile[]> {
   const { store } = services;
@@ -152,10 +153,34 @@ export async function saveChildren(
       }),
     );
   }
-  await store.putSettings({
+  return saved;
+}
+
+/** The wizard's children, then the new family's settings (its defaults and this timezone). */
+export async function saveChildren(
+  services: Pick<AppServices, 'store' | 'sync' | 'content'>,
+  children: readonly NewChild[],
+): Promise<ChildProfile[]> {
+  const saved = await putChildren(services, children);
+  await services.store.putSettings({
     key: 'family',
     value: withSettingDefaults({ kind: 'family', timezone: currentTimezone() }),
   });
+  void services.sync.syncNow();
+  return saved;
+}
+
+/**
+ * Children added from the parent area to a family that has none: a setup whose answer was lost
+ * made the family but never saved its children, and the parent joined it instead (06 §3). Only
+ * the profiles are written. The family's settings are left as they are: a family that exists
+ * may have its own, and a fresh default document would replace them (newer wins on sync).
+ */
+export async function addChildren(
+  services: Pick<AppServices, 'store' | 'sync' | 'content'>,
+  children: readonly NewChild[],
+): Promise<ChildProfile[]> {
+  const saved = await putChildren(services, children);
   void services.sync.syncNow();
   return saved;
 }

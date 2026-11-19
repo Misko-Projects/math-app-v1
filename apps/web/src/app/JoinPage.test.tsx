@@ -41,7 +41,8 @@ async function renderJoin(parentApi: ParentApi) {
       { path: '/', element: <p>island</p> },
       { path: '/welcome', element: <p>welcome</p> },
     ],
-    { initialEntries: ['/join'] },
+    // Came from the welcome page: the browser's Back goes there.
+    { initialEntries: ['/welcome', '/join'], initialIndex: 1 },
   );
   render(
     <AppProviders services={app}>
@@ -125,5 +126,67 @@ describe('<JoinPage> with the parent passphrase', () => {
     });
     expect(await screen.findByText('island')).toBeTruthy();
     expect(logout).toHaveBeenCalledTimes(3);
+  });
+
+  it('Back while the join is still closing its sign-in stays, and shows the open sign-in', async () => {
+    let fail: () => void = () => {};
+    const logout = vi
+      .fn()
+      .mockImplementationOnce(
+        () =>
+          new Promise<void>((_, reject) => {
+            fail = () => reject(new ApiError('network', 0, 'offline'));
+          }),
+      )
+      .mockResolvedValue(undefined);
+    const { router } = await renderJoin(api({ logout }));
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: /^Join$/ }));
+    });
+    await waitFor(() => expect(logout).toHaveBeenCalledTimes(1)); // signed in, now closing
+    expect(screen.queryByRole('link', { name: 'Back' })).toBeNull();
+    await act(async () => {
+      void router.navigate(-1); // the browser's Back
+    });
+    expect(router.state.location.pathname).toBe('/join');
+    await act(async () => {
+      fail(); // the join's logout fails
+    });
+    expect(await screen.findByText(/The grown-up sign-in couldn’t be closed/)).toBeTruthy();
+    expect(router.state.location.pathname).toBe('/join');
+    expect(screen.getByRole('button', { name: 'Close the sign-in' })).toBeTruthy();
+    expect(logout).toHaveBeenCalledTimes(1); // the held Back started no logout of its own
+  });
+
+  it('Back during Close the sign-in waits for that one close, without a second logout', async () => {
+    let done: () => void = () => {};
+    const logout = vi
+      .fn()
+      .mockRejectedValueOnce(new ApiError('network', 0, 'offline')) // after joining
+      .mockImplementationOnce(
+        () =>
+          new Promise<void>((resolve) => {
+            done = resolve;
+          }),
+      )
+      .mockResolvedValue(undefined);
+    const { router } = await renderJoin(api({ logout }));
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: /^Join$/ }));
+    });
+    await screen.findByText(/The grown-up sign-in couldn’t be closed/);
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Close the sign-in' }));
+    });
+    await act(async () => {
+      void router.navigate(-1); // Back while that close is on its way
+    });
+    expect(logout).toHaveBeenCalledTimes(2); // one close in flight, shared
+    expect(router.state.location.pathname).toBe('/join');
+    await act(async () => {
+      done();
+    });
+    expect(await screen.findByText('welcome')).toBeTruthy(); // the held Back went on
+    expect(logout).toHaveBeenCalledTimes(2);
   });
 });

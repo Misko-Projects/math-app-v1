@@ -46,10 +46,12 @@ export function JoinPage() {
   const [otherFamily, setOtherFamily] = useState(false);
   const [busy, setBusy] = useState(false);
   /**
-   * The passphrase sign-in couldn't be closed: the page keeps the device until it is. Every way
-   * out is held (Back, the browser's Back, any route change), and a held one first tries to close
-   * it; reloading or closing the tab asks first. The ref is read by the blocker, so a successful
-   * close lets the navigation that follows it through at once.
+   * A passphrase sign-in may be open on the server: from the moment a passphrase join starts until
+   * it reports the sign-in closed, and after that while closing it failed. The page keeps the
+   * device all that time. Every way out is held (the browser's Back, any route change; the Back
+   * link is hidden), and reloading or closing the tab asks first. A navigation held while the
+   * join still runs stays; one held while the sign-in is known to be open first closes it.
+   * The refs are what the blocker reads, so they change before any navigation of the page's own.
    */
   const [sessionOpen, setSessionOpenState] = useState(false);
   const sessionOpenRef = useRef(false);
@@ -57,35 +59,53 @@ export function JoinPage() {
     sessionOpenRef.current = open;
     setSessionOpenState(open);
   };
+  const [passphraseJoining, setPassphraseJoiningState] = useState(false);
+  const passphraseJoiningRef = useRef(false);
+  const setPassphraseJoining = (on: boolean) => {
+    passphraseJoiningRef.current = on;
+    setPassphraseJoiningState(on);
+  };
   const hadFamily = device !== undefined && device.pairedAt !== null;
-  const blocker = useBlocker(() => sessionOpenRef.current);
-
-  const closeSession = async (): Promise<boolean> => {
-    setBusy(true);
-    try {
-      await closeParentSession(api);
-    } catch {
-      setBusy(false);
-      return false;
-    }
-    setSessionOpen(false);
-    setBusy(false);
-    return true;
-  };
-  const closeAndContinue = async () => {
-    // Joined (the device holds a token now): on to the island. Otherwise the form stays.
-    if ((await closeSession()) && (await services.store.device()).deviceToken) {
-      navigate('/', { replace: true });
-    }
-  };
-
-  // A navigation held while the sign-in is open: close it, then let the navigation go on (or stay,
-  // with the notice, when closing failed).
+  const blocker = useBlocker(() => sessionOpenRef.current || passphraseJoiningRef.current);
   const blockerRef = useRef(blocker);
   blockerRef.current = blocker;
+
+  /** One close at a time: the Close button and a held navigation share the same request. */
+  const closing = useRef<Promise<boolean> | null>(null);
+  const closeSession = (): Promise<boolean> => {
+    if (!closing.current) {
+      setBusy(true);
+      closing.current = closeParentSession(api)
+        .then(
+          () => {
+            setSessionOpen(false);
+            return true;
+          },
+          () => false,
+        )
+        .finally(() => {
+          closing.current = null;
+          setBusy(false);
+        });
+    }
+    return closing.current;
+  };
+  const closeAndContinue = async () => {
+    const closed = await closeSession();
+    // A navigation held meanwhile goes on by itself (below). Otherwise, joined (the device holds a
+    // token now): on to the island; not joined, the form stays.
+    if (!closed || blockerRef.current.state === 'blocked') return;
+    if ((await services.store.device()).deviceToken) navigate('/', { replace: true });
+  };
+
   // biome-ignore lint/correctness/useExhaustiveDependencies: runs once per held navigation
   useEffect(() => {
     if (blocker.state !== 'blocked') return;
+    if (!sessionOpenRef.current) {
+      // The join is still running: stay. It ends on the island, or here with the sign-in open.
+      blocker.reset();
+      return;
+    }
     void closeSession().then((closed) => {
       const held = blockerRef.current;
       if (held.state !== 'blocked') return;
@@ -95,11 +115,11 @@ export function JoinPage() {
   }, [blocker.state]);
 
   useEffect(() => {
-    if (!sessionOpen) return;
+    if (!sessionOpen && !passphraseJoining) return;
     const ask = (e: BeforeUnloadEvent) => e.preventDefault();
     window.addEventListener('beforeunload', ask);
     return () => window.removeEventListener('beforeunload', ask);
-  }, [sessionOpen]);
+  }, [sessionOpen, passphraseJoining]);
   const paired = Boolean(device?.deviceToken);
 
   const switchMode = (next: Mode) => {
@@ -124,14 +144,17 @@ export function JoinPage() {
     setBusy(true);
     setError(null);
     setOtherFamily(false);
+    if (mode === 'passphrase') setPassphraseJoining(true);
     try {
       if (mode === 'code') await joinFamily({ services, api }, { code: c, deviceName });
       else await joinWithPassphrase({ services, api }, { passphrase, deviceName });
+      setPassphraseJoining(false); // the sign-in is closed: nothing holds the way out now
       navigate('/', { replace: true });
     } catch (err) {
       if (err instanceof SessionStillOpenError) {
         // The parent sign-in the passphrase opened is still valid on the server: don't hand the
-        // device back until it is closed.
+        // device back until it is closed. (Marked open before the join is marked done below, so
+        // the way out is never unheld in between.)
         setSessionOpen(true);
       } else if (err instanceof JoinRefusedError) {
         setOtherFamily(true);
@@ -153,6 +176,7 @@ export function JoinPage() {
       } else {
         setError(describeApiError(err));
       }
+      setPassphraseJoining(false);
       setBusy(false);
     }
   };
@@ -265,7 +289,7 @@ export function JoinPage() {
             <Button type="submit" disabled={busy || sessionOpen}>
               {busy ? 'Joining…' : 'Join'}
             </Button>
-            {sessionOpen ? null : (
+            {sessionOpen || passphraseJoining ? null : (
               <Link
                 to={hadFamily ? '/' : '/welcome'}
                 className="text-lg font-bold underline decoration-2 underline-offset-4"

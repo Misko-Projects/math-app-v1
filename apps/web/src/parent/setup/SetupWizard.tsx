@@ -372,11 +372,18 @@ export function ChildrenStep({
   setKids,
   onBack,
   onNext,
+  nextLabel = 'Next: this device',
+  intro = 'Add each child. You can change these later in the parent area.',
+  busy = false,
 }: {
   kids: NewChild[];
   setKids: (k: NewChild[]) => void;
   onBack: () => void;
   onNext: () => void;
+  /** The parent area's Add children page reuses this step with its own last button. */
+  nextLabel?: string;
+  intro?: string;
+  busy?: boolean;
 }) {
   const thisYear = new Date().getFullYear();
   // The row being edited, by the child's id (a removal never shifts it onto another child).
@@ -386,7 +393,7 @@ export function ChildrenStep({
   return (
     <div className="flex flex-col gap-5">
       <h2 className="font-display text-3xl font-extrabold">Who will play?</h2>
-      <p className="text-lg">Add each child. You can change these later in the parent area.</p>
+      <p className="text-lg">{intro}</p>
       {kids.length > 0 ? (
         <ul className="flex flex-col gap-3" aria-label="Children">
           {kids.map((k) =>
@@ -465,10 +472,11 @@ export function ChildrenStep({
       )}
       {error ? <Notice tone="error">{error}</Notice> : null}
       <div className="flex flex-wrap justify-between gap-3">
-        <Button variant="secondary" onClick={onBack}>
+        <Button variant="secondary" onClick={onBack} disabled={busy}>
           Back
         </Button>
         <Button
+          disabled={busy}
           onClick={() => {
             if (kids.length === 0) {
               setError('Add at least one child to continue.');
@@ -481,7 +489,7 @@ export function ChildrenStep({
             onNext();
           }}
         >
-          Next: this device
+          {nextLabel}
         </Button>
       </div>
     </div>
@@ -869,7 +877,7 @@ export function SetupWizard() {
                     // after a possibly lost answer is told so.
                     return {
                       text: setupMaybeApplied.current
-                        ? 'Your island may have been made a moment ago, but its answer didn’t reach this device. Join it with the parent passphrase you just chose, then add your children in the parent area.'
+                        ? 'Your island may have been made a moment ago, but its answer didn’t reach this device. Join it with the parent passphrase you just chose, then choose Add your children in the parent area.'
                         : describeApiError(e),
                       closed: true,
                     };
