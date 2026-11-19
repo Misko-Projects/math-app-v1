@@ -295,6 +295,17 @@ function stateMutation(original: StateValue): fc.Arbitrary<StateValue> {
       }),
     );
   }
+  if (Array.isArray(original.splits) && original.splits.length > 0) {
+    // One split line taken away (area-tiles `decompose`; tiles.cover exempts what stays valid).
+    const n = original.splits.length;
+    options.push(
+      fc.nat({ max: n - 1 }).map((i) => {
+        const s = clone();
+        s.splits = (original.splits as unknown[]).filter((_, j) => j !== i);
+        return s;
+      }),
+    );
+  }
   for (const key of ['groups', 'shares'] as const) {
     const arr = original[key];
     if (Array.isArray(arr) && arr.length > 0) {
