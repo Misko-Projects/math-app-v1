@@ -67,6 +67,15 @@ function placeTerms(n: number): number[] {
   return out;
 }
 
+/** Whether a base-ten-trade mat `{ hundreds, tens, ones }` is worth the item's computed result. */
+function matShowsResult(item: GeneratedItem, mat: Readonly<Record<string, unknown>>): boolean {
+  const result = item.answer.kind === 'state' ? Number(item.answer.target.result) : Number.NaN;
+  const [h, t, o] = [mat.hundreds, mat.tens, mat.ones].map((x) => (typeof x === 'number' ? x : 0));
+  return (
+    Number.isInteger(result) && (h as number) * 100 + (t as number) * 10 + (o as number) === result
+  );
+}
+
 /** The numbers a response gives, in the shape `askedNumbers` reads. */
 export function givenNumbers(item: GeneratedItem, r: ResponseValue): number[] | null {
   if (r.kind === 'numbers') {
@@ -80,6 +89,11 @@ export function givenNumbers(item: GeneratedItem, r: ResponseValue): number[] | 
       const pieces = matPieces(r.value);
       return pieces ? [piecesValue(pieces)] : null;
     }
+    // A number typed after computing on the place-value mat is read only when the mat is worth
+    // the result (PR #83 review): the pieces were combined (or taken), so a wrong typed number is
+    // a slip in reading the mat. An untouched mat (3 tens 7 ones for 37 + 5) with 32 typed shows
+    // nothing about a ten that was made and dropped.
+    if (item.widget.format === 'base-ten-trade' && !matShowsResult(item, r.value)) return null;
     return VALUE_STATE_FORMATS.has(item.widget.format) && typeof r.value.value === 'number'
       ? [r.value.value]
       : null;

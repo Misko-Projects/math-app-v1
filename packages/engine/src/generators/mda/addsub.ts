@@ -6,7 +6,8 @@
 //   base-ten-build    a is prebuilt; put in (or take away) b's pieces: baseten.value { result }.
 //                     Only items with no carry or borrow (they build by adding or removing pieces)
 //   base-ten-trade    `compute` on the place-value mat, trading when a column overflows or runs
-//                     out, then type the result: trade.result { result, value }
+//                     out, then type the result: trade.result { result, value, regroupTarget },
+//                     the result's canonical columns, so the carry or borrow must be made
 //   number-line-jump  the open line from a: hops of 1–10 in the item's direction land on result,
 //                     then the landing is typed: jumps.reach { start, target, allowedJumps, value }
 //   expanded-form     `to-standard`: the tens and the ones grouped, (40 + 30) + (7 + 2) = ?
@@ -116,6 +117,22 @@ export function jumpPath(a: number, b: number, plus: boolean, strategy: Strategy
   for (let t = Math.floor(rest / 10); t > 0; t -= 1) hops.push(dir * 10);
   if (rest % 10 > 0) hops.push(dir * (rest % 10));
   return hops;
+}
+
+/**
+ * The next-ten split of a ± b (37 + 5: gap 3 to 40, rest 2; 42 − 5: gap 2 to 40, rest 3), or null
+ * when a is a ten already or b does not reach the ten. rest 0 is an exact landing (37 + 3).
+ */
+export function nextTenSplit(
+  a: number,
+  b: number,
+  plus: boolean,
+): { gap: number; ten: number; rest: number } | null {
+  const a0 = a % 10;
+  if (a0 === 0) return null;
+  const gap = plus ? 10 - a0 : a0;
+  if (gap > b) return null;
+  return { gap, ten: plus ? a + gap : a - gap, rest: b - gap };
 }
 
 /** The row of a cell on a hundred chart that starts at `first`. */
@@ -294,8 +311,8 @@ export const mdaAddSub: GeneratorDef = {
     'gen.mda.addsub.back-to-ten',
     'gen.mda.addsub.row-down',
     'gen.mda.addsub.row-up',
-    'gen.mda.addsub.slide-ones',
-    'gen.mda.addsub.slide-back',
+    'gen.mda.addsub.box-right',
+    'gen.mda.addsub.box-left',
     'gen.mda.addsub.tens-then-ones',
     'gen.mda.addsub.take-tens-then-ones',
     'gen.mda.addsub.sum-tens',
@@ -304,6 +321,12 @@ export const mdaAddSub: GeneratorDef = {
     'gen.mda.addsub.diff-ones',
     'gen.mda.addsub.count-on',
     'gen.mda.addsub.count-back',
+    'gen.mda.addsub.make-next-ten',
+    'gen.mda.addsub.then-add-rest',
+    'gen.mda.addsub.fills-next-ten',
+    'gen.mda.addsub.take-to-ten',
+    'gen.mda.addsub.then-take-rest',
+    'gen.mda.addsub.back-to-the-ten',
     'gen.mda.addsub.is',
   ],
   sample: (spec, rng) => sampleAll(spec, rng),
@@ -443,7 +466,13 @@ export const mdaAddSub: GeneratorDef = {
             showAlgorithm: false,
             thenAsk: true,
           },
-          answer: { kind: 'state', checker: 'trade.result', target: { result, value: result } },
+          // The mat must end canonical (PR #83 review): a carry or borrow shows in the checked
+          // state, so 3 tens 12 ones with 42 typed is not 37 + 5 until ten ones are bundled.
+          answer: {
+            kind: 'state',
+            checker: 'trade.result',
+            target: { result, value: result, regroupTarget: hto(result) },
+          },
         };
         break;
       case 'number-line-jump': {
@@ -563,6 +592,34 @@ export const mdaAddSub: GeneratorDef = {
     const bo = b % 10;
     switch (w.format) {
       case 'number-pad': {
+        const strategy = asStr(p.strategy, 'none') as Strategy;
+        const split = strategy === 'next-ten' && !change ? nextTenSplit(a, b, plus) : null;
+        if (split) {
+          // Make the next ten, then the rest (37 + 5: 37 and 3 make 40, then 2 more). Only the
+          // last step names the answer: an exact landing (37 + 3) never names the ten it reaches.
+          const mark = { op: 'highlight', args: { token: 'x' } } as const;
+          const steps: LessonStep[] =
+            split.rest > 0
+              ? [
+                  say(
+                    plus ? 'gen.mda.addsub.make-next-ten' : 'gen.mda.addsub.take-to-ten',
+                    { a, gap: split.gap, ten: split.ten },
+                    mark,
+                  ),
+                  say(plus ? 'gen.mda.addsub.then-add-rest' : 'gen.mda.addsub.then-take-rest', {
+                    ten: split.ten,
+                    rest: split.rest,
+                  }),
+                ]
+              : [
+                  say(
+                    plus ? 'gen.mda.addsub.fills-next-ten' : 'gen.mda.addsub.back-to-the-ten',
+                    { a, b },
+                    mark,
+                  ),
+                ];
+          return [...steps, final({ op: 'type', args: { blank: 'x', value: answer } })];
+        }
         const first = change
           ? say(plus ? 'gen.mda.addsub.count-on' : 'gen.mda.addsub.count-back', { a, result })
           : say(plus ? 'gen.mda.addsub.tens-then-ones' : 'gen.mda.addsub.take-tens-then-ones', {});
@@ -656,30 +713,16 @@ export const mdaAddSub: GeneratorDef = {
         const steps: LessonStep[] = [
           say('gen.mda.addsub.start', { a }, { op: 'highlight-row', args: { n: a } }),
         ];
-        for (let i = 0; i < Math.floor(b / 10); i += 1) {
-          steps.push(
-            say(
-              plus ? 'gen.mda.addsub.row-down' : 'gen.mda.addsub.row-up',
-              {},
-              {
-                op: 'slide',
-                args: { dir: plus ? 'down' : 'up' },
-              },
-            ),
-          );
-        }
-        if (bo > 0) {
-          steps.push(
-            say(
-              plus ? 'gen.mda.addsub.slide-ones' : 'gen.mda.addsub.slide-back',
-              { count: bo },
-              {
-                op: 'slide',
-                args: { dir: plus ? 'right' : 'left' },
-              },
-            ),
-          );
-        }
+        // One slide per configured move (PR #83 review), as pv.tenmore: 34 + 3 slides right
+        // three times, never one slide for all the ones.
+        const line = {
+          down: 'gen.mda.addsub.row-down',
+          up: 'gen.mda.addsub.row-up',
+          right: 'gen.mda.addsub.box-right',
+          left: 'gen.mda.addsub.box-left',
+        } as const;
+        for (const dir of w.moves ?? [])
+          steps.push(say(line[dir], {}, { op: 'slide', args: { dir } }));
         return [...steps, final({ op: 'tap', args: { n: result } })];
       }
       default:

@@ -22,6 +22,7 @@ import { GenerationError } from '../types';
 import {
   digitsOf,
   expandedTerms,
+  nameClass,
   placeCounts,
   pvFeatures,
   pvMode,
@@ -454,11 +455,31 @@ describe('pv.number formats and modes', () => {
     const t = tpl('numeral-pick', 'abstract', 'words');
     const item = generateItemFromParams(t, { n: 95, mode: 'words' });
     if (item.widget.format !== 'numeral-pick') throw new Error('format');
+    const values = item.widget.options.map((o) => Number(o.id.replace('opt-', '')));
     for (const o of item.widget.options) {
       expect(o.speak).toBe(`num.${o.id.replace('opt-', '')}`);
-      expect(Number(o.id.replace('opt-', ''))).toBeLessThanOrEqual(99);
     }
-    expect(item.widget.options).toHaveLength(3);
+    // n's name class: two reversal pairs, the same for every member (PR #83 review).
+    expect([...values].sort((x, y) => x - y)).toEqual(nameClass(95, 9));
+    expect(values).toHaveLength(4);
+    for (const v of values) expect(values).toContain((v % 10) * 10 + Math.floor(v / 10));
+  });
+
+  it('nameClass splits the domain: each member of a class has that class', () => {
+    expect(nameClass(12, 5)).toEqual([12, 13, 21, 31]);
+    expect(nameClass(43, 5)).toEqual([25, 34, 43, 52]);
+    for (const max of [3, 4, 5, 6, 9]) {
+      for (let n = 10; n <= 99; n += 1) {
+        const c = nameClass(n, max);
+        if (!c) continue;
+        expect(c).toContain(n);
+        for (const m of c) expect(nameClass(m, max)).toEqual(c);
+      }
+    }
+    expect(nameClass(33, 9)).toBeNull();
+    expect(nameClass(40, 9)).toBeNull();
+    expect(nameClass(16, 5)).toBeNull();
+    expect(nameClass(12, 2)).toBeNull();
   });
 
   it('numeral-pick digit-value offers the value, the bare digit and the digit one place up', () => {

@@ -112,7 +112,7 @@ templates:
     params: { a: { int: [11, 88] }, b: { int: [2, 9] }, op: "+", strategy: next-ten }
     constraints: ["carries == 1", "result <= 99"]
     difficulty: { base: -2.44 }
-    narration: { prompt: tp.MDA.08.t2.prompt, hints: [h.numberline.jump-to-ten, h.mda.to-next-ten] }
+    narration: { prompt: tp.MDA.08.t2.prompt, hints: [h.mda.jump-to-next-ten, h.mda.to-next-ten] }
 
   - id: MDA.08.t3
     skillId: MDA.08
@@ -120,7 +120,7 @@ templates:
     tier: abstract
     representation: symbols
     generator: mda.addsub
-    params: { a: { int: [11, 88] }, b: { int: [2, 9] }, op: "+" }
+    params: { a: { int: [11, 88] }, b: { int: [2, 9] }, op: "+", strategy: next-ten }
     constraints: ["carries == 1", "result <= 99"]
     difficulty: { base: -1.64 }
     narration: { prompt: tp.MDA.08.t3.prompt, hints: [h.mda.to-next-ten, h.mda.then-add-rest] }

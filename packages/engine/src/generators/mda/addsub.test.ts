@@ -146,7 +146,11 @@ const CASES: Case[] = [
     name: 'base-ten-trade 37 + 5: trade ten ones',
     t: tpl('base-ten-trade', 'concrete', 'base-ten'),
     params: { a: 37, b: 5, op: '+' },
-    answer: { kind: 'state', checker: 'trade.result', target: { result: 42, value: 42 } },
+    answer: {
+      kind: 'state',
+      checker: 'trade.result',
+      target: { result: 42, value: 42, regroupTarget: { hundreds: 0, tens: 4, ones: 2 } },
+    },
     widget: {
       goal: 'compute',
       start: { hundreds: 0, tens: 3, ones: 7 },
@@ -159,19 +163,31 @@ const CASES: Case[] = [
     name: 'base-ten-trade 95 + 7: two trades (into the hundreds)',
     t: tpl('base-ten-trade', 'concrete', 'base-ten'),
     params: { a: 95, b: 7, op: '+' },
-    answer: { kind: 'state', checker: 'trade.result', target: { result: 102, value: 102 } },
+    answer: {
+      kind: 'state',
+      checker: 'trade.result',
+      target: { result: 102, value: 102, regroupTarget: { hundreds: 1, tens: 0, ones: 2 } },
+    },
   },
   {
     name: 'base-ten-trade 52 − 27: split a ten',
     t: tpl('base-ten-trade', 'pictorial', 'base-ten'),
     params: { a: 52, b: 27, op: '-' },
-    answer: { kind: 'state', checker: 'trade.result', target: { result: 25, value: 25 } },
+    answer: {
+      kind: 'state',
+      checker: 'trade.result',
+      target: { result: 25, value: 25, regroupTarget: { hundreds: 0, tens: 2, ones: 5 } },
+    },
   },
   {
     name: 'base-ten-trade 304 − 128: split a hundred, then a ten',
     t: tpl('base-ten-trade', 'pictorial', 'base-ten'),
     params: { a: 304, b: 128, op: '-' },
-    answer: { kind: 'state', checker: 'trade.result', target: { result: 176, value: 176 } },
+    answer: {
+      kind: 'state',
+      checker: 'trade.result',
+      target: { result: 176, value: 176, regroupTarget: { hundreds: 1, tens: 7, ones: 6 } },
+    },
   },
   {
     name: 'number-line-jump 37 + 5 on the open line (next ten)',

@@ -7,7 +7,9 @@
 //   base-ten-trade  `regroup-to`: the mat starts at `from` and must show exactly `to`
 //                   (trade.result `{ regroupTarget }`)
 //   base-ten-build  `build-exact`: `from` is prebuilt; fuse and split until the mat holds exactly
-//                   the `to` counts (baseten.exact `{ value, exact }`)
+//                   the `to` counts (baseten.exact `{ value, exact }`). The tray `limits` are 0
+//                   for every kind, so no piece can be swapped through the tray
+//                   instead of fused or split
 //   number-pad      how many is the `from` decomposition (a picture of its pieces on base-ten or
 //                   bundles, ten-frames for a canonical teen or 20, or words in the prompt)?
 //                   `to` is not used
@@ -229,6 +231,10 @@ export const pvRegroup: GeneratorDef = {
           tens: to.tens,
           ones: to.ones,
         };
+        // The tray holds nothing (PR #83 review): the prebuilt mat is already worth n, so the
+        // only way to reach the `to` counts is to fuse and split on the mat. Putting ten ones
+        // back and taking a rod (or a rod back for ten ones) is no longer possible.
+        const limits = { ...(withHundreds ? { hundreds: 0 } : {}), tens: 0, ones: 0 };
         p = {
           params,
           vars,
@@ -238,6 +244,7 @@ export const pvRegroup: GeneratorDef = {
             target: n,
             mode: 'build-exact',
             pieces: { thousands: false, hundreds: withHundreds, tens: true, ones: true },
+            limits,
             exact,
             wholeIs: 'unit',
             prebuilt: { ...from },
