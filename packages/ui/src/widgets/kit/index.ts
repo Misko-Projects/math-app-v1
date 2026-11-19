@@ -2,7 +2,6 @@
 // See ./README.md. Widgets import from here; workshops never do (they render WidgetHost).
 export {
   applyPadKey,
-  balancedRows,
   CheckButton,
   type CheckButtonProps,
   createSubmitGuard,
@@ -10,19 +9,30 @@ export {
   type NumberPadKeysProps,
   NumeralTray,
   type NumeralTrayProps,
+  numeralCardPx,
   type PadKey,
   PickCard,
   type PickCardProps,
   padValue,
+  TRAY_PANEL_EDGES_PX,
+  trayGrid,
   useAlive,
   useDemoPause,
   useSubmitGuard,
 } from './controls';
 export {
+  INVITE_GLYPH_SELECTOR,
+  INVITE_HAND_PX,
+  type InviteHandPlacement,
+  placeInviteHand,
+  useInviteHand,
+} from './inviteHand';
+export {
   dicePattern,
   dotsLayout,
   type FrameOutline,
   groupIndexes,
+  minObjectStep,
   type ObjectLayout,
   objectSetLayout,
   type PlacedObject,
@@ -40,6 +50,7 @@ export {
   BaseTenView,
   ExpressionView,
   FingersView,
+  HandArt,
   NumberBondView,
   RekenrekView,
   StimulusView,

@@ -38,6 +38,8 @@ const dice: ConfigFor<'numeral-pick'> = {
   layout: 'row',
 };
 
+// As count.sequence emits it (CNT.09.t3, "what comes after 33?", #75): ticks every 1, only the
+// marked start labelled, and the asked term shown as "?" (never its numeral).
 const numberLine: ConfigFor<'numeral-pick'> = {
   format: 'numeral-pick',
   stimulus: {
@@ -45,8 +47,11 @@ const numberLine: ConfigFor<'numeral-pick'> = {
     min: 31,
     max: 36,
     ticksEvery: 1,
-    labelsEvery: 1,
-    marks: [{ at: 33, arrow: true }],
+    labelsEvery: null,
+    marks: [
+      { at: 33, label: '33', arrow: true },
+      { at: 34, label: '?' },
+    ],
   },
   options: [
     { id: 'opt-35', label: '35' },
@@ -154,10 +159,11 @@ export const NumberLine: Story = {
     const root = await findWidget(canvasElement, ROOT);
     const canvas = within(root);
     // The renderer draws exactly the stimulus: the marked start keeps its numeral (the child reads
-    // it to count on); which numerals a question hides is the generator's choice.
+    // it to count on) and the asked term is "?"; the answer 34 is never printed on the line.
     const picture = root.querySelector('.ni-stimulus') as HTMLElement;
     const numerals = [...picture.querySelectorAll('text')].map((t) => t.textContent);
-    await expect(numerals).toEqual(expect.arrayContaining(['31', '33', '36']));
+    await expect(numerals).toEqual(expect.arrayContaining(['33', '?']));
+    await expect(numerals).not.toContain('34');
 
     for (const t of picture.querySelectorAll('text')) {
       await expect(Number.parseFloat(getComputedStyle(t).fontSize)).toBeGreaterThanOrEqual(32);
@@ -414,6 +420,45 @@ export const DemoInvite: Story = {
     await expect(within(root).getByRole('button', { name: 'Check' })).not.toHaveTextContent(
       'Check',
     );
+  },
+};
+
+/** Option IDs are any string (the shared schema): one is empty, two hold quotes and a bracket. */
+const quotedOptions: ConfigFor<'numeral-pick'> = {
+  ...heardOnly,
+  options: [
+    { id: '', label: '18' },
+    { id: 'o"]19', label: '19' },
+    { id: "o'17", label: '17' },
+  ],
+};
+
+const quotedController: WidgetDemo = createDemoController({ strict: true });
+
+/**
+ * Options whose IDs hold a quote or are empty (any string is a valid ID): inviting each rings that
+ * card and Pip's hand points at it; the widget stays mounted.
+ */
+export const DemoInviteQuotedId: Story = {
+  globals: { ageMode: 'k' },
+  args: { config: quotedOptions as WidgetConfig, demo: quotedController },
+  play: async ({ canvasElement }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    quotedController.invite({ op: 'tap', args: { id: 'o"]19' } });
+    await waitFor(() => expect(root.querySelector('.ni-pick.ni-invite')).not.toBeNull());
+    const invited = root.querySelector('.ni-pick.ni-invite') as HTMLElement;
+    await expect(invited.dataset.id).toBe('o"]19');
+    await expect(root.isConnected).toBe(true);
+    await expectPointerOn(root.querySelector('.ni-hand') as HTMLElement, invited, root);
+    // The empty ID: ring and hand on the 18 card.
+    quotedController.invite({ op: 'tap', args: { id: '' } });
+    await waitFor(() =>
+      expect(root.querySelector('.ni-pick.ni-invite')).toHaveAttribute('data-id', ''),
+    );
+    const empty = root.querySelector('.ni-pick.ni-invite') as HTMLElement;
+    await expect(root.querySelectorAll('.ni-invite')).toHaveLength(1);
+    await waitFor(() => expect(root.querySelector('.ni-hand')).not.toBeNull());
+    await expectPointerOn(root.querySelector('.ni-hand') as HTMLElement, empty, root);
   },
 };
 

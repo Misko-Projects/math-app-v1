@@ -13,6 +13,9 @@ import type { WidgetRegistry } from './types';
 export const widgetRegistry: WidgetRegistry = {
   'number-pad': () => import('./number-pad/NumberPadWidget'),
   'numeral-pick': () => import('./numeral-pick/NumeralPickWidget'),
+  'tap-count': () => import('./tap-count/TapCountWidget'),
+  'make-set': () => import('./make-set/MakeSetWidget'),
+  'dot-flash': () => import('./dot-flash/DotFlashWidget'),
   // U04 (#13): place value
   'base-ten-build': () => import('./base-ten-build/BaseTenBuildWidget'),
   'base-ten-trade': () => import('./base-ten-trade/BaseTenTradeWidget'),
