@@ -8,10 +8,26 @@ import { SPRITE_IDS } from './sprites';
 // Sprite coverage (U03): every sprite id the compare and order generators put into an item has its
 // own drawing, so no picture silently falls back to the pebble (a feather and a pumpkin would look
 // the same in a "which is heavier?" item).
+//
+// How the catalog is sampled. An item made for a target difficulty is the pick among 24 candidate
+// draws (`CANDIDATES_WITH_TARGET`), so reading one widget costs 24 builds. The test used to read
+// 900 such picks a template (21 600 builds each: 168 s on CI for 53 templates). It now reads
+// every draw it builds:
+//
+// - `DRAWS` items with no target: one candidate each, straight from the generator's own sampler
+//   (the same sampler every targeted candidate comes from). Three times as many widgets read as
+//   before, at an eighth of the builds.
+// - `TARGETED_SEEDS` picks at each difficulty in `DIFFICULTIES`, so the targeted path
+//   (`sampleToward`, the pick at both ends of the scale) is still walked.
+//
+// 3 564 builds a template instead of 21 600, and no sprite the old sampling found is lost (checked
+// on the catalog merged with the time strand when this changed: the new sampling names every sprite
+// the old one did, and one it missed).
 
-const SEEDS = 300;
+const DRAWS = 2700;
+const TARGETED_SEEDS = 12;
 const DIFFICULTIES = [-2, 0, 2];
-/** The whole catalog (templates × seeds × difficulties) runs on the shared CI runner. */
+/** The whole catalog runs on the shared CI runner (about 30 s there; this leaves room). */
 const TIMEOUT_MS = 120_000;
 
 function stimulusSprites(s: StimulusSpec | undefined, into: Set<string>): void {
@@ -53,16 +69,29 @@ describe('every compare/order sprite has its own drawing', () => {
       );
       expect(templates.length).toBeGreaterThan(0);
 
-      const used = new Set<string>();
+      /** Sprite id → the templates that name it (so a failure says where the sprite is used). */
+      const usedBy = new Map<string, Set<string>>();
       for (const t of templates) {
+        const used = new Set<string>();
+        for (let seed = 0; seed < DRAWS; seed += 1) {
+          widgetSprites(generateItem(t, seed).widget, used);
+        }
         for (const difficulty of DIFFICULTIES) {
-          for (let seed = 0; seed < SEEDS; seed += 1) {
+          for (let seed = 0; seed < TARGETED_SEEDS; seed += 1) {
             widgetSprites(generateItem(t, seed, { difficulty }).widget, used);
           }
         }
+        for (const id of used) {
+          const by = usedBy.get(id) ?? new Set<string>();
+          by.add(t.id);
+          usedBy.set(id, by);
+        }
       }
-      expect(used.size).toBeGreaterThan(0);
-      const undrawn = [...used].filter((id) => !SPRITE_IDS.includes(id)).sort();
+      expect(usedBy.size).toBeGreaterThan(0);
+      const undrawn = [...usedBy.keys()]
+        .filter((id) => !SPRITE_IDS.includes(id))
+        .sort()
+        .map((id) => `${id} (${[...(usedBy.get(id) ?? [])].sort().join(', ')})`);
       expect(undrawn).toEqual([]);
     },
     TIMEOUT_MS,
