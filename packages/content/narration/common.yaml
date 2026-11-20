@@ -1401,8 +1401,11 @@ h.data.bar-top:
   text: "Look at the top of each bar. Find the number beside it."
 h.data.bar-tops:
   text: "Look at the tops of the bars. Compare how tall they are."
+# A graph can show a third bar that is taller or shorter than both, so the line first sends the
+# child to the two bars of the question (PR #84 review, s_d74b2eb5991e). No noun slot: its `many`
+# var is 2, which V17 reads as the answer of a difference of 2.
 h.data.count-up:
-  text: "Count up from the top of the short bar to the top of the tall bar."
+  text: "Find the two bars it asks about. Count up from the shorter to the taller."
 h.data.compare-groups:
   text: "Count each group. Then compare them."
 h.data.row-lengths:
@@ -1862,8 +1865,10 @@ gen.puzzle.grid.piece-fill:
   text: "Here are the numbers for the piece."
 fb.pattern-extend.retry:
   text: "Say the pattern again. Then try once more."
+# One line for every pattern.repeat task the rule reads: going on, filling in, ordering the cards and
+# marking the part that repeats, so it never says to go on (PR #84 review, s_d74b2eb5991e).
 fb.mc.pattern-restart:
-  text: "Go on from the end. What comes after the last one?"
+  text: "Say the pattern out loud. Find the whole part that repeats."
 fb.mc.equals-means-answer:
   text: "Look at both sides. They must make the same number."
 fb.mc.equals-add-all:
