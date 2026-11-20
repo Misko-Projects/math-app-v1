@@ -1612,15 +1612,48 @@ export const PinnedNumeralSpeaks: Story = {
     const pinned = within(root).getByRole('button', { name: "30 can't move" });
     await userEvent.click(pinned);
     await expect(audio.sayPhrases).toHaveBeenCalledWith([{ number: 30 }]);
+    // Tab reaches it (sequential focus, not a scripted focus()): from the box before it.
+    slot(root, 2).focus();
+    await userEvent.tab();
+    await expect(pinned).toHaveFocus();
     for (const key of ['{Enter}', ' ']) {
       clearSpies(audio);
-      pinned.focus();
-      await expect(pinned).toHaveFocus();
       await userEvent.keyboard(key);
+      await expect(pinned).toHaveFocus();
       await expect(audio.sayPhrases).toHaveBeenCalledWith([{ number: 30 }]);
     }
     await expect(placed(root)).toEqual(['', '', '30', '']);
     await expect(args.onInteract).not.toHaveBeenCalled();
     pinned.blur();
+  },
+};
+
+/**
+ * While the widget is off (a demo, feedback) the pinned card is disabled like the other cards:
+ * Tab skips it, a tap says nothing, and it looks the same (its own background, no shadow).
+ */
+export const PinnedNumeralDisabled: Story = {
+  globals: { ageMode: 'k' },
+  parameters: { ui: { audio: spyAudio() } },
+  args: { config: decade, disabled: true },
+  play: async ({ canvasElement, parameters }) => {
+    const audio = parameters.ui.audio as ReturnType<typeof spyAudio>;
+    clearSpies(audio);
+    const root = await findWidget(canvasElement, ROOT);
+    const pinned = within(root).getByRole('button', { name: "30 can't move" });
+    await expect(pinned).toBeDisabled();
+    const look = getComputedStyle(pinned);
+    await expect(look.backgroundColor).toBe(rgbOf(root, '--color-pebble'));
+    await expect(look.boxShadow).toBe('none');
+    await expect(look.opacity).toBe('1');
+    // Tab through the whole story: focus never lands on the pinned card.
+    (document.activeElement as HTMLElement | null)?.blur();
+    for (let i = 0; i < 12; i++) {
+      await userEvent.tab();
+      await expect(pinned).not.toHaveFocus();
+    }
+    await userEvent.click(pinned, { pointerEventsCheck: 0 });
+    await expect(audio.sayPhrases).not.toHaveBeenCalled();
+    (document.activeElement as HTMLElement | null)?.blur();
   },
 };

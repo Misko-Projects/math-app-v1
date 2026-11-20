@@ -1024,17 +1024,15 @@ export function OrderWidget({
                 )}
                 {it && isFixed ? (
                   // A pinned card can't move, but it still speaks its name (06 §5): a button, so
-                  // a tap, Enter and Space all reach it. It stays enabled-looking while the
-                  // widget is off (it never dims: the card is part of the question).
+                  // a tap, Enter and Space all reach it. While the widget is off it is disabled
+                  // like the other cards (out of the Tab order; it looks the same).
                   <button
                     type="button"
                     className="ni-ord__card"
                     data-fixed="true"
                     aria-label={t('ui.order.fixed', { n: itemName(it) })}
-                    aria-disabled={interactive ? undefined : 'true'}
-                    onClick={() => {
-                      if (interactive) speakItem(it);
-                    }}
+                    disabled={!interactive}
+                    onClick={() => speakItem(it)}
                   >
                     {face(it)}
                     <span className="ni-ord__pin">
