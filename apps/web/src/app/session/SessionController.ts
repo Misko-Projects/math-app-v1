@@ -136,10 +136,15 @@ export interface SessionCheckpoint {
   n?: number;
 }
 
-/** What one sweep did: sessions it closed, and checkpointed ones it left open to keep watching. */
+/**
+ * What one sweep did: sessions it closed, and checkpointed ones it left open to keep watching.
+ * `skipped` means it looked at nothing, because another tab holds the play lock: that is not the
+ * same as finding nothing to do.
+ */
 export interface SweepResult {
   closed: number;
   watching: number;
+  skipped: boolean;
 }
 
 export interface SessionControllerOptions {
@@ -601,14 +606,15 @@ export class SessionController {
 
   /**
    * `closeAbandoned`, also telling how many checkpointed sessions it left open to keep watching
-   * (a checkpoint still fresh, or not yet seen unchanged for long enough). While that is above
-   * zero, a later sweep has something to decide: the provider sweeps again.
+   * (a checkpoint still fresh, or not yet seen unchanged for long enough), and whether it was
+   * skipped altogether because another tab holds the play lock. In both cases a later sweep has
+   * something to decide (that other tab may die without an end): the provider sweeps again.
    */
   sweep(): Promise<SweepResult> {
     return this.#serial(async () => {
       // A running session here means this controller already holds the play lock (if it could).
       const release = this.#running ? NO_LOCK : await this.#tryPlayLock();
-      if (!release) return { closed: 0, watching: 0 };
+      if (!release) return { closed: 0, watching: 0, skipped: true };
       try {
         return await this.#closeAbandoned();
       } finally {
@@ -684,7 +690,7 @@ export class SessionController {
         this.#onError('session.abandoned', err);
       }
     }
-    return { closed, watching };
+    return { closed, watching, skipped: false };
   }
 
   /** Stops the clock without ending the session (app teardown); the checkpoint stays. */

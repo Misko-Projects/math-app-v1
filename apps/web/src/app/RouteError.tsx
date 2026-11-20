@@ -10,14 +10,19 @@
 // the screen offers Try again alone.
 
 import { Panel } from '@number-island/ui';
-import { useLocation, useNavigate, useRouteError } from 'react-router';
+import { useMatches, useNavigate, useRouteError } from 'react-router';
+
+/**
+ * The `handle` of the route home sends a first-run device to (the welcome screen). The error
+ * screen asks the router whether the failed page is that route, so the two can't disagree about
+ * which addresses reach it (letter case, encoding, trailing slashes).
+ */
+export const FIRST_RUN_HOME = { firstRunHome: true } as const;
 
 export function RouteError() {
   const error = useRouteError();
   const navigate = useNavigate();
-  const { pathname } = useLocation();
-  // The router matches paths whatever their case, so this does too.
-  const canGoHome = !/^\/welcome\/?$/i.test(pathname);
+  const canGoHome = !useMatches().some((match) => match.handle === FIRST_RUN_HOME);
   const detail = error instanceof Error ? error.message : String(error ?? '');
   return (
     <main

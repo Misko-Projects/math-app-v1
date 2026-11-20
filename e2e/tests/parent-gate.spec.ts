@@ -88,6 +88,15 @@ test.describe('parent gate', () => {
     await expect(screen.getByRole('button', { name: 'Try again' })).toBeVisible();
     await expect(screen.getByRole('button')).toHaveCount(1);
     await expect(screen.getByRole('button', { name: 'Back to the island' })).toHaveCount(0);
+    // The same however the address is written: the router decides which page was asked for.
+    for (const address of ['/WELCOME', '/%77elcome', '/welcome//']) {
+      await page.goto(address);
+      await expect(screen).toBeVisible();
+      await expect(screen.getByRole('button')).toHaveCount(1);
+      await expect(screen.getByRole('button', { name: 'Try again' })).toBeVisible();
+    }
+    await page.goto('/');
+    await expect(screen).toBeVisible();
     // The connection comes back: Try again opens the welcome screen.
     await page.unroute(chunk);
     await screen.getByRole('button', { name: 'Try again' }).click();

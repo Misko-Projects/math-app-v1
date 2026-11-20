@@ -37,14 +37,21 @@ export function SessionProvider({
     // A session that died just before this boot still has a fresh checkpoint, so the first sweep
     // leaves it open to watch. While a sweep leaves any such session, another follows, timed
     // from the moment that sweep finished (however long its read took), with no visit needed.
+    // The same goes for a sweep that was skipped because another tab is playing: that tab may
+    // die without an end, and this one may stay on the picker.
     let again: number | undefined;
     let unmounted = false;
     const sweep = () => {
       controller.sweep().then(
-        ({ watching }) => {
-          if (!unmounted && watching > 0) again = window.setTimeout(sweep, FOLLOW_UP_SWEEP_MS);
+        ({ watching, skipped }) => {
+          if (unmounted || (watching === 0 && !skipped)) return;
+          again = window.setTimeout(sweep, FOLLOW_UP_SWEEP_MS);
         },
-        (e) => recordDiagnostic('session.abandoned', e),
+        (e) => {
+          recordDiagnostic('session.abandoned', e);
+          // A sweep that failed (the log couldn't be read) decided nothing either.
+          if (!unmounted) again = window.setTimeout(sweep, FOLLOW_UP_SWEEP_MS);
+        },
       );
     };
     sweep();

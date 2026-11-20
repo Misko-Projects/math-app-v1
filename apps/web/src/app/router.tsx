@@ -3,7 +3,7 @@ import { ChildHomePage } from '@/island/ChildHomePage';
 import { lazyRoute } from './lazyRoutes';
 import { ProfilePicker } from './picker/ProfilePicker';
 import { RootLayout } from './RootLayout';
-import { RouteError } from './RouteError';
+import { FIRST_RUN_HOME, RouteError } from './RouteError';
 import { StartGate } from './StartGate';
 
 // React Router 7 in library (data) mode (02 §1). Child area: `/` (first-run detection, then the
@@ -33,7 +33,7 @@ export const routes: RouteObject[] = [
         ),
       },
       { path: 'play/:childId', Component: ChildHomePage },
-      { path: 'welcome', lazy: lazyRoute.welcome },
+      { path: 'welcome', lazy: lazyRoute.welcome, handle: FIRST_RUN_HOME },
       { path: 'setup', lazy: lazyRoute.setup },
       { path: 'join', lazy: lazyRoute.join },
       {
