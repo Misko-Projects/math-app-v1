@@ -122,7 +122,9 @@ templates:
       categories: 2
       a: { int: [1, 10] }
       b: { int: [1, 10] }
-    difficulty: { base: 0 }
+    # The compare format model (#89) weights "which has fewer" at 0.3: half the items ask it, so
+    # the base sits 0.3 lower and the median stays at 0 (rule 8).
+    difficulty: { base: -0.3 }
     narration:
       prompt: tp.DAT.02.t4.prompt
       hints: [h.data.bar-tops]
