@@ -1,5 +1,6 @@
 # CI (docs/spec/09-quality.md §2).
-# Required checks (stable names): verify, e2e, bundle-size. Non-required: visual.
+# Required checks (stable names): verify, e2e, bundle-size. Non-required: visual, and sim, which
+# e2e needs.
 # The scheduled nightly job lives in nightly.yml so it never reports a check on pull requests.
 # No secrets are used anywhere in CI; every AI provider is mocked.
 name: ci
@@ -45,11 +46,27 @@ jobs:
       # Story play functions and axe checks run in Vitest browser mode inside `pnpm test`.
       - run: pnpm exec playwright install --with-deps chromium
       - run: pnpm verify
-      # 04 §8 simulated-learner harness (fixture graph until the full curriculum lands).
+
+  # 04 §8 simulated-learner harness on the content as it is. A job of its own, next to `verify`:
+  # with the full K–1 catalog the two no longer fit one 15-minute job on a slow runner (#84).
+  # It is not a required check by name; `e2e` needs it, so a failed or cancelled simulator still
+  # blocks the required `e2e` check.
+  sim:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v5
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm i --frozen-lockfile
+      - run: pnpm content:build
       - run: pnpm test:sim
 
   e2e:
-    needs: verify
+    needs: [verify, sim]
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
