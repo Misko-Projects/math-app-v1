@@ -44,6 +44,7 @@ packages/
     src/compile/  skills/<strand>.yaml  templates/<strand>.yaml  misconceptions/*.yaml  narration/*.yaml  game/*.yaml
   engine/               pure TS, no DOM, no React: rng, generators, checking, learner model,
                         scheduler, placement, session planner, island economy rules
+                        (two entries: /shell for the app's initial JS, the full entry lazily; §6a)
   ui/                   design tokens, primitives, math widgets, avatar renderer, art kit (SVG), sfx
 tools/
   narration/            extract narration lines → render (07 §3) → apps/web/public/audio/ + manifest.json
@@ -690,6 +691,21 @@ Contract adjustment made by K01 (#11, strategy praise, 2026-11-18):
 - Time to interactive on a mid-range Android tablet (emulated 4× CPU slowdown) ≤ 3 s from warm cache. CI **reports** this number but does not fail on it (too noisy); Q01 verifies it.
 - 60 fps target and 30 fps floor for island pan and widget drags. At most one WebGL canvas alive at a time.
 - Precache size (shell + content + K–3 narration audio, Opus) ≤ 60 MB.
+
+### 6a. The engine's loading boundary (#95, 2026-11-20)
+
+The engine has two entries, so the initial JS budget does not grow with the curriculum:
+
+| Entry | Holds | Who imports it |
+|---|---|---|
+| `@number-island/engine/shell` | The skill graph builder, the event folds, the learner model, the signals, the seeded RNG and the engine parameters. No generator, state checker, misconception rule or format model. | The app shell, statically: `apps/web` code that runs at startup, and any `packages/ui` module the shell imports statically. |
+| `@number-island/engine` (the full entry) | Everything, including the **item core**: the generator registry, item generation and checking, the state checkers, the misconception rules, the format models, the planner and the placement runner. | Node code (tools, tests, the simulator), lazily loaded widget and workshop modules, and the shell through a dynamic import only. |
+
+- **The port.** The learner model needs two things from the item core: an attempt's item difficulty, rebuilt through its template's generator (04 §2.2), and whether a template's items take a constructed answer (04 §7a). It reads them through `ItemCore` (`packages/engine/src/item-core.ts`). Loading the full entry installs it. There is no fallback: `createEloFireModel`, `learnerModelFor` and `foldLearnerState` throw `ItemCoreNotLoadedError` until the full entry is loaded, because a fold without the item core would store a different learner state.
+- **When it loads.** `apps/web` loads the full entry during boot (`boot/itemCore.ts`), next to the content fetch and before it opens the data store. So the first task of a session never waits for it, and no screen has a loading state of its own for it. A chunk that cannot be fetched is reported like content that cannot (`content_unreachable`).
+- **Offline.** The item core is an ordinary build asset (`dist/assets/*.js`), so the service worker's precache of the build output (W00) covers it like every other chunk. Because boot fetches it on every launch, it is also on the device after the first load.
+- **Enforcement.** `pnpm bundle-size` fails when one of the three registry markers (`ITEM_CORE_MARKS`) is in an initial JS file, and reports the size of the chunk that holds them. `packages/engine/test/shell-boundary.test.ts` checks that the shell entry reaches no item-core module through static imports. The item core has no budget of its own; the 350 KB and 120 KB budgets above are unchanged.
+- **Open for the first workshop (W01).** `pnpm bundle-size` charges a workshop chunk for every static import beyond the initial JS. A workshop that imports the full entry statically would be charged the whole item core, although boot has already loaded it. How the item core counts against the workshop budget is decided with the first workshop chunk.
 
 ## 7. Conventions
 

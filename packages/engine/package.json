@@ -5,6 +5,7 @@
   "type": "module",
   "exports": {
     ".": "./src/index.ts",
+    "./shell": "./src/shell.ts",
     "./testing": "./src/testing/index.ts"
   },
   "scripts": {

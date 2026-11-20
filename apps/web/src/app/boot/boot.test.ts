@@ -1,7 +1,10 @@
+import { itemCoreLoaded } from '@number-island/engine/shell';
+import { createAudioManager } from '@number-island/ui';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { profile } from '@/data/store.test-support';
 import { type AppServices, BootError } from './boot';
 import { SERVER_DEVICE, SERVER_FAMILY, TOKEN, testDevice } from './boot.test-support';
+import { loadItemCore } from './itemCore';
 
 // The three boot paths of the app shell (W00): a fresh device that is set up, a returning family,
 // and a paired device starting offline. The sync client runs exactly while the device holds a
@@ -163,6 +166,43 @@ describe('boot: offline start', () => {
     device.net.assets['/content/game.json'] = '{"buildings": 3}';
     const err = await device.boot().catch((e: unknown) => e);
     expect((err as BootError).code).toBe('content_invalid');
+  });
+});
+
+// 02 §6a: the engine's item core is a chunk of its own, loaded during boot. The learner fold needs
+// it, so boot waits for it before it opens the data store.
+describe('boot: engine item core', () => {
+  it('loads the item core before the data store folds anything', async () => {
+    const order: string[] = [];
+    const device = testDevice();
+    const app = await track(
+      device.boot({
+        loadItemCore: async () => {
+          await loadItemCore();
+          order.push(`item core loaded: ${itemCoreLoaded()}`);
+        },
+        createAudio: (content) => {
+          // The audio manager is created right after the store is open.
+          order.push('store open');
+          return createAudioManager({ narration: content.narration, manifest: null });
+        },
+      }),
+    );
+    expect(order).toEqual(['item core loaded: true', 'store open']);
+    // A learner fold works: the profile's skill states come from the fold.
+    const child = profile('019a0000-0000-7000-8000-0000000ac0f1', 'K');
+    await app.store.putProfile({ ...child, familyId: (await app.store.device()).familyId });
+    expect(await app.store.skillStates(child.id)).not.toBeNull();
+  });
+
+  it('explains when the item core chunk cannot be fetched, like content that cannot', async () => {
+    const device = testDevice();
+    const err = await device
+      .boot({ loadItemCore: () => Promise.reject(new TypeError('Failed to fetch chunk')) })
+      .catch((e: unknown) => e);
+    expect(err).toBeInstanceOf(BootError);
+    expect((err as BootError).code).toBe('content_unreachable');
+    expect((err as BootError).message).toContain('item core');
   });
 });
 
