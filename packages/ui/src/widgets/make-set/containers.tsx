@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import type { ConfigFor } from '../types';
 
 /**
@@ -404,29 +405,34 @@ export function ContainerArt({
 
 /**
  * A tied bundle of ten (groupsOf 10): a rope band across a full ten-frame, in the gap between its
- * two rows (no thicker than the gap), with the bow on the frame's right edge, over its padding and
- * border, so it never covers a slot. `vertical`: the same band down the gap between two columns,
- * the bow under the bottom edge (the tied ten beside a frame of ones, one ten-frame at a time).
+ * two rows (no thicker than the gap), tied off in a bow just OUTSIDE the frame's right edge: the
+ * band crosses the frame's padding and border (`edge`, the frame's padding + border on that side)
+ * and the knot and its loops sit fully beyond it, so the bow never covers a slot or the border.
+ * `vertical`: the same band down the gap between two columns, the bow under the bottom edge.
  * `bow={false}`: no bow; the band ends inside the frame, 2 px in from both ends (inside the
- * padding, clear of the border), so it reads the same at the top and the bottom.
+ * padding, clear of the border), so it reads the same at the top and the bottom (the tied ten
+ * beside a frame of ones, one ten-frame at a time).
  */
 export function BundleBand({
   width,
   height,
   vertical = false,
   bow = true,
+  edge = 20,
 }: {
   width: number;
   height: number;
   vertical?: boolean;
   bow?: boolean;
+  edge?: number;
 }) {
   const along = vertical ? height : width;
   const across = (vertical ? width : height) / 2;
-  const knot = along + 8;
+  /** The knot's centre: the knot (8.5 px along it with its outline) starts 12 px past the edge. */
+  const knot = along + edge + 12 + 8.5;
   /** Where the band starts and how long it is, along it: to the bow, or symmetric in the frame. */
-  const start = bow ? -8 : -2;
-  const length = bow ? knot + 8 : along + 4;
+  const start = bow ? -Math.min(8, edge - 2) : -2;
+  const length = bow ? knot - start : along + 4;
   /** (a, c): `a` along the band, `c` across it. */
   const at = (a: number, c: number) => (vertical ? { x: c, y: a } : { x: a, y: c });
   const band = at(start, across - 6);
@@ -477,6 +483,101 @@ export function BundleBand({
           strokeWidth="3"
         />
       ) : null}
+    </svg>
+  );
+}
+
+/**
+ * A bundle object's box. A sprite's drawing fills about three quarters of its box, so a 57 px box
+ * draws the object 43 px wide and 40 px tall: the token's ≥ 40 px (one-frame mode, 06 §2).
+ */
+const BUNDLE_OBJ = 57;
+/**
+ * Where the ten objects of a `TenBundle` sit (left, top of their boxes in px): two columns of
+ * five. The boxes' empty margins overlap, not the drawings: the drawn columns lie 5–48 and 48–91
+ * px across (meeting under the rope), 5 px in from the bundle's edges where an invite ring is
+ * drawn, and each row starts 30.5 px under the last (the first 5 px down), so a
+ * row hides only the feet (a quarter) of the row above and every one of the ten shows its
+ * eyes, claws and body. Later rows are drawn over earlier ones.
+ */
+const BUNDLE_SPOTS: readonly [number, number][] = Array.from({ length: 10 }, (_, i) => {
+  const col = i % 2;
+  const row = Math.floor(i / 2);
+  return [col === 0 ? -2 : 41, row * 30.5 - 9] as [number, number];
+});
+
+/**
+ * A tied ten as ONE bundle (one ten-frame at a time, make-set): ten objects drawn ≥ 40 px (the
+ * same drawings as the loose ones, in `BUNDLE_OBJ` boxes) in two columns of five, the rope
+ * running down the gap between the columns and tied in a small bow at the middle, so every object
+ * stays in view (the rope and bow cover < 20 % of any object's drawing). 96 × 168; no cells, no
+ * outline: it never reads as a frame. `tied={false}`: the same ten with no rope (a ten still to
+ * be bundled).
+ */
+export function TenBundle({ sprite, tied = true }: { sprite: ReactNode; tied?: boolean }) {
+  return (
+    <span className="ni-mset__bundle" data-tied={tied ? 'true' : undefined} aria-hidden="true">
+      <span className="ni-mset__bundle-ground" />
+      {BUNDLE_SPOTS.map(([left, top], i) => (
+        <span
+          // biome-ignore lint/suspicious/noArrayIndexKey: the bundle's spots are positional
+          key={i}
+          className="ni-mset__bundle-obj"
+          style={{ left, top, width: BUNDLE_OBJ, height: BUNDLE_OBJ }}
+        >
+          {sprite}
+        </span>
+      ))}
+      {tied ? <BundleTie /> : null}
+    </span>
+  );
+}
+
+/** The bundle's rope (down the gap between its columns) and its bow, at the middle. */
+function BundleTie() {
+  const mid = 84;
+  return (
+    <svg
+      className="ni-mset__bundle-tie"
+      viewBox="0 0 96 168"
+      width="96"
+      height="168"
+      aria-hidden="true"
+      focusable="false"
+    >
+      <rect
+        className="ni-mset__rope"
+        x="46"
+        y="-2"
+        width="4"
+        height="172"
+        rx="2"
+        fill="var(--color-sunshine)"
+        stroke={INK}
+        strokeWidth="2"
+      />
+      {[-1, 1].map((side) => (
+        <ellipse
+          key={side}
+          className="ni-mset__bow"
+          cx={48 + side * 9}
+          cy={mid}
+          rx="5"
+          ry="4"
+          fill="var(--color-sunshine)"
+          stroke={INK}
+          strokeWidth="2.5"
+        />
+      ))}
+      <circle
+        className="ni-mset__bow"
+        cx="48"
+        cy={mid}
+        r="4"
+        fill="var(--color-sunshine-deep)"
+        stroke={INK}
+        strokeWidth="2.5"
+      />
     </svg>
   );
 }
