@@ -16,7 +16,8 @@ export function RouteError() {
   const error = useRouteError();
   const navigate = useNavigate();
   const { pathname } = useLocation();
-  const canGoHome = !/^\/welcome\/?$/.test(pathname);
+  // The router matches paths whatever their case, so this does too.
+  const canGoHome = !/^\/welcome\/?$/i.test(pathname);
   const detail = error instanceof Error ? error.message : String(error ?? '');
   return (
     <main

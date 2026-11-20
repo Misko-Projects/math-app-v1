@@ -749,6 +749,59 @@ describe('SessionController', () => {
       ]);
     });
 
+    it('without Web Locks, a new checkpoint saved at a clock time seen before is not taken for the old one', async () => {
+      const s = await setup({ locks: null });
+      const tabA = s.controller;
+      await tabA.start(CHILD_K);
+      s.advance(16_000); // a checkpoint is saved at time T
+      const T = s.env.clock.now();
+      const [key] = [...s.storage.map.keys()];
+      const raw = () => s.storage.map.get(key ?? '') ?? '';
+      const first = raw();
+      expect(JSON.parse(first)).toMatchObject({ at: T, activeMs: 16_000 });
+      const tabB = s.make();
+      expect(await tabB.closeAbandoned()).toBe(0); // tab B sees that checkpoint
+      for (let t = 0; t < LIVE_CHECKPOINT_MS + MIN; t += 15_000) s.advance(15_000); // A plays on
+      // The clock is set back so that tab A's next checkpoint is stamped T again...
+      s.correctClock(T - 1_000 - s.env.clock.now());
+      s.advance(1_000);
+      expect(JSON.parse(raw())).toMatchObject({ at: T });
+      expect(raw()).not.toBe(first);
+      // ...and back three more minutes before its next tick. Tab B saw "a checkpoint at T" over
+      // two minutes ago, but this is not that one.
+      s.correctClock(-3 * MIN);
+      expect(await tabB.closeAbandoned()).toBe(0);
+      s.advance(1_000);
+      expect(await tabB.closeAbandoned()).toBe(0);
+      expect(await tabA.end('child-exit')).not.toBeNull();
+      const ends = (await s.sessionEvents()).filter((e) => e.type === 'session.ended');
+      expect(ends.map((e) => e.payload)).toEqual([
+        expect.objectContaining({ reason: 'child-exit' }),
+      ]);
+    });
+
+    it('numbers each save, so two saves at one clock time with no new play still differ', async () => {
+      const s = await setup({ locks: null });
+      await s.controller.start(CHILD_K);
+      s.vis.set(false); // hidden: a checkpoint is saved, and no more play time accrues
+      const [key] = [...s.storage.map.keys()];
+      const first = s.storage.map.get(key ?? '');
+      /** Twenty seconds pass, then the clock is set back by as much: a save at the same time. */
+      const saveAtTheSameTime = () => {
+        s.advance(20_000);
+        s.correctClock(-20_000);
+        s.advance(0);
+        return s.storage.map.get(key ?? '');
+      };
+      const second = saveAtTheSameTime();
+      const third = saveAtTheSameTime();
+      expect(JSON.parse(second ?? '{}')).toMatchObject({ activeMs: 0 });
+      expect(JSON.parse(third ?? '{}')).toMatchObject(
+        (({ at, activeMs }) => ({ at, activeMs }))(JSON.parse(second ?? '{}')),
+      );
+      expect(new Set([first, second, third]).size).toBe(3);
+    });
+
     it('without Web Locks, a clock set forward closes nothing in a tab that has seen the session live', async () => {
       const s = await setup({ locks: null });
       const tabA = s.controller;

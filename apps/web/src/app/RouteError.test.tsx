@@ -44,31 +44,34 @@ describe('<RouteError>', () => {
     expect(screen.queryByTestId('route-error')).toBeNull();
   });
 
-  it('offers Try again alone when the welcome screen’s own file fails: home would only lead back here', async () => {
-    // A device with no family: home redirects to the welcome screen, whose file can't load.
-    const lazy = vi.fn(() =>
-      Promise.reject(new TypeError('Failed to fetch dynamically imported module')),
-    );
-    const router = createMemoryRouter(
-      [
-        {
-          path: '/',
-          errorElement: <RouteError />,
-          children: [
-            { index: true, element: <Navigate to="/welcome" replace /> },
-            { path: 'welcome', lazy },
-          ],
-        },
-      ],
-      { initialEntries: ['/'] },
-    );
-    render(<RouterProvider router={router} />);
-    expect(await screen.findByTestId('route-error')).toBeTruthy();
-    expect(router.state.location.pathname).toBe('/welcome');
-    expect(screen.getByRole('button', { name: 'Try again' })).toBeTruthy();
-    expect(screen.queryByRole('button', { name: 'Back to the island' })).toBeNull();
-    expect(screen.getAllByRole('button')).toHaveLength(1);
-  });
+  it.each(['/', '/WELCOME', '/welcome/'])(
+    'offers Try again alone when the welcome screen’s own file fails (opened at %s): home would only lead back here',
+    async (entry) => {
+      // A device with no family: home redirects to the welcome screen, whose file can't load.
+      const lazy = vi.fn(() =>
+        Promise.reject(new TypeError('Failed to fetch dynamically imported module')),
+      );
+      const router = createMemoryRouter(
+        [
+          {
+            path: '/',
+            errorElement: <RouteError />,
+            children: [
+              { index: true, element: <Navigate to="/welcome" replace /> },
+              { path: 'welcome', lazy },
+            ],
+          },
+        ],
+        { initialEntries: [entry] },
+      );
+      render(<RouterProvider router={router} />);
+      expect(await screen.findByTestId('route-error')).toBeTruthy();
+      expect(router.state.location.pathname.toLowerCase()).toMatch(/^\/welcome\/?$/);
+      expect(screen.getByRole('button', { name: 'Try again' })).toBeTruthy();
+      expect(screen.queryByRole('button', { name: 'Back to the island' })).toBeNull();
+      expect(screen.getAllByRole('button')).toHaveLength(1);
+    },
+  );
 });
 
 describe('warmLazyRoutes', () => {

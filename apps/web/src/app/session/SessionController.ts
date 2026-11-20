@@ -132,6 +132,14 @@ export interface SessionCheckpoint {
   mathMs: number;
   items: number;
   at: number;
+  /** Which save of its session this is (1, 2, …); absent on the one written before the start. */
+  n?: number;
+}
+
+/** What one sweep did: sessions it closed, and checkpointed ones it left open to keep watching. */
+export interface SweepResult {
+  closed: number;
+  watching: number;
 }
 
 export interface SessionControllerOptions {
@@ -232,6 +240,8 @@ interface Running {
   mathMs: number;
   items: number;
   lastCheckpointAt: number;
+  /** How many checkpoints this session has saved: each one is stored with its number. */
+  checkpoints: number;
   /** Settings and play-before-this-session, as read at start. */
   quietHours: { start: string; end: string } | null;
   timeZone: string;
@@ -263,7 +273,7 @@ export class SessionController {
   readonly #now: () => number;
   readonly #monotonic: () => number;
   /** Open sessions' checkpoints as this controller's sweeps last saw them: which, since when. */
-  readonly #seen = new Map<string, { at: number; since: number }>();
+  readonly #seen = new Map<string, { raw: string; since: number }>();
   readonly #timers: SessionTimers;
   readonly #visibility: PageVisibility;
   readonly #storage: CheckpointStorage | null;
@@ -410,6 +420,7 @@ export class SessionController {
         mathMs: 0,
         items: 0,
         lastCheckpointAt: now,
+        checkpoints: 0,
         quietHours: plan.quietHours,
         timeZone: plan.timeZone,
         capMs: plan.capMs,
@@ -585,11 +596,19 @@ export class SessionController {
    * race: the store keeps one end per session, and only the sweep that wrote it counts it.
    */
   closeAbandoned(): Promise<number> {
+    return this.sweep().then((result) => result.closed);
+  }
+
+  /**
+   * `closeAbandoned`, also telling how many checkpointed sessions it left open to keep watching
+   * (a checkpoint still fresh, or not yet seen unchanged for long enough). While that is above
+   * zero, a later sweep has something to decide: the provider sweeps again.
+   */
+  sweep(): Promise<SweepResult> {
     return this.#serial(async () => {
       // A running session here means this controller already holds the play lock (if it could).
-      // A running session here means this controller already holds the play lock (if it could).
       const release = this.#running ? NO_LOCK : await this.#tryPlayLock();
-      if (!release) return 0;
+      if (!release) return { closed: 0, watching: 0 };
       try {
         return await this.#closeAbandoned();
       } finally {
@@ -598,10 +617,11 @@ export class SessionController {
     });
   }
 
-  async #closeAbandoned(): Promise<number> {
+  async #closeAbandoned(): Promise<SweepResult> {
     const [events, device] = await Promise.all([this.#store.events(), this.#store.device()]);
     const ended = endedSessions(events);
     let closed = 0;
+    let watching = 0;
     for (const e of events) {
       if (!isEventOf(e, 'session.started') || !sameId(e.deviceId, device.deviceId)) continue;
       const { sessionId } = e.payload;
@@ -615,19 +635,26 @@ export class SessionController {
       const now = this.#now();
       if (cp) {
         // This controller also notes (in memory; a sweep writes nothing) since when it has seen
-        // this exact checkpoint, on a clock no correction moves. A tab still playing saves a new
-        // one at its next tick, so one seen unchanged for LIVE_CHECKPOINT_MS of real time is dead.
+        // this exact checkpoint, on a clock no correction moves. Exact means the stored text:
+        // every save is numbered, so a new one never passes for the one seen before, even at
+        // the same clock time. A tab still playing saves a new one at its next tick, so one
+        // seen unchanged for LIVE_CHECKPOINT_MS of real time is dead.
         const seen = this.#seen.get(key);
         const elapsed = this.#monotonic();
-        const watchedFor = seen && seen.at === cp.at ? elapsed - seen.since : null;
-        if (watchedFor === null) this.#seen.set(key, { at: cp.at, since: elapsed });
+        const watchedFor = seen && seen.raw === cp.raw ? elapsed - seen.since : null;
+        if (watchedFor === null) this.#seen.set(key, { raw: cp.raw, since: elapsed });
         const age = now - cp.at;
-        if (Math.abs(age) < LIVE_CHECKPOINT_MS) continue;
-        // Not fresh by the wall clock, which may have been corrected since the checkpoint was
+        // Not fresh by the wall clock? It may have been corrected since the checkpoint was
         // saved. Watched before: only real time counts, so a clock set forward or back (once or
         // twice) closes nothing. First sight (a boot): an old one is closed; one from the future
         // (the clock was set back) is left to be watched.
-        if (watchedFor === null ? age < 0 : watchedFor < LIVE_CHECKPOINT_MS) continue;
+        if (
+          Math.abs(age) < LIVE_CHECKPOINT_MS ||
+          (watchedFor === null ? age < 0 : watchedFor < LIVE_CHECKPOINT_MS)
+        ) {
+          watching += 1;
+          continue;
+        }
       } else if (now - (e.clientTs ?? e.ts) < NO_CHECKPOINT_MS) {
         continue;
       }
@@ -657,7 +684,7 @@ export class SessionController {
         this.#onError('session.abandoned', err);
       }
     }
-    return closed;
+    return { closed, watching };
   }
 
   /** Stops the clock without ending the session (app teardown); the checkpoint stays. */
@@ -779,11 +806,15 @@ export class SessionController {
 
   #saveCheckpoint(r: Running): void {
     r.lastCheckpointAt = this.#now();
+    r.checkpoints += 1;
     this.#writeCheckpoint(r.session.sessionId, {
       activeMs: Math.round(r.bankedMs),
       mathMs: Math.round(r.mathMs),
       items: r.items,
       at: r.lastCheckpointAt,
+      // No two saves of a session are stored alike, even at one clock time with no new play:
+      // a sweep in another tab tells a newly saved checkpoint from the one it saw before.
+      n: r.checkpoints,
     });
   }
 
@@ -796,7 +827,8 @@ export class SessionController {
     }
   }
 
-  #readCheckpoint(sessionId: string): SessionCheckpoint | null {
+  /** The stored checkpoint, with the exact text it was stored as (`raw`). */
+  #readCheckpoint(sessionId: string): (SessionCheckpoint & { raw: string }) | null {
     try {
       const raw = this.#storage?.getItem(CHECKPOINT_PREFIX + sessionId);
       if (!raw) return null;
@@ -807,6 +839,7 @@ export class SessionController {
         mathMs: num(cp.mathMs),
         items: Math.floor(num(cp.items)),
         at: num(cp.at),
+        raw,
       };
     } catch {
       return null;

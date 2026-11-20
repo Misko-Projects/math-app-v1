@@ -1,7 +1,7 @@
 // React bindings for the SessionController. The controller itself is one of the booted services
 // (`AppServices.session`, disposed with them), so StrictMode's double effects can't make two.
 // On mount the provider closes sessions this device left open (a closed tab, a flat battery),
-// and once more two minutes later for one whose checkpoint was still fresh.
+// and again every two minutes while one is left whose checkpoint may still be live.
 
 import type { ChildId } from '@number-island/shared';
 import {
@@ -21,7 +21,7 @@ import {
   type WindDownReason,
 } from './SessionController';
 
-/** When the boot sweep runs again: just after a checkpoint that was fresh at boot has gone quiet. */
+/** How long after a sweep the next one runs: just past the time a checkpoint takes to go quiet. */
 export const FOLLOW_UP_SWEEP_MS = LIVE_CHECKPOINT_MS + 1_000;
 
 const SessionContext = createContext<SessionController | null>(null);
@@ -34,13 +34,24 @@ export function SessionProvider({
   children: ReactNode;
 }) {
   useEffect(() => {
-    const sweep = () =>
-      void controller.closeAbandoned().catch((e) => recordDiagnostic('session.abandoned', e));
-    sweep();
     // A session that died just before this boot still has a fresh checkpoint, so the first sweep
-    // leaves it open. Sweep once more when that checkpoint has gone quiet, with no visit needed.
-    const again = window.setTimeout(sweep, FOLLOW_UP_SWEEP_MS);
-    return () => window.clearTimeout(again);
+    // leaves it open to watch. While a sweep leaves any such session, another follows, timed
+    // from the moment that sweep finished (however long its read took), with no visit needed.
+    let again: number | undefined;
+    let unmounted = false;
+    const sweep = () => {
+      controller.sweep().then(
+        ({ watching }) => {
+          if (!unmounted && watching > 0) again = window.setTimeout(sweep, FOLLOW_UP_SWEEP_MS);
+        },
+        (e) => recordDiagnostic('session.abandoned', e),
+      );
+    };
+    sweep();
+    return () => {
+      unmounted = true;
+      window.clearTimeout(again);
+    };
   }, [controller]);
   return <SessionContext.Provider value={controller}>{children}</SessionContext.Provider>;
 }
