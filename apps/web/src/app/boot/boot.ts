@@ -10,6 +10,8 @@
 import { createAudioManager, loadAudioManifest, type WebAudioManager } from '@number-island/ui';
 import { createDb, type NumberIslandDb } from '@/data/db';
 import { createDataStore, type DataStore } from '@/data/store';
+import { recordDiagnostic } from '../diagnostics';
+import { SessionController, type SessionControllerOptions } from '../session/SessionController';
 import { type AppContent, ContentLoadError, loadContent } from './content';
 import { loadItemCore } from './itemCore';
 import {
@@ -23,9 +25,11 @@ export interface AppServices {
   store: DataStore;
   audio: WebAudioManager;
   sync: SyncLifecycle;
+  /** The play-session lifecycle (start/end events, budget, daily cap, quiet hours). */
+  session: SessionController;
   /** The fetch every client of the app uses (tests inject a fake network). */
   fetch: FetchLike;
-  /** Stops syncing and audio and closes the database. */
+  /** Stops syncing, audio and the session clock, and closes the database. */
   dispose(): void;
 }
 
@@ -56,6 +60,8 @@ export interface BootOptions {
   sync?: Omit<SyncLifecycleOptions, 'fetch'>;
   /** Tests replace the Web Audio manager. */
   createAudio?: (content: AppContent, fetchImpl: FetchLike) => WebAudioManager;
+  /** Session-controller options for tests (timers, visibility, checkpoint storage). */
+  session?: Omit<SessionControllerOptions, 'store'>;
   /** Tests replace the item-core loader (02 §6a). Defaults to the dynamic import. */
   loadItemCore?: () => Promise<void>;
 }
@@ -121,16 +127,24 @@ export async function bootApp(opts: BootOptions = {}): Promise<AppServices> {
   const sync = createSyncLifecycle(store, { ...opts.sync, fetch: fetchImpl });
   await sync.resume();
 
+  const session = new SessionController({
+    store,
+    onError: (scope, error) => recordDiagnostic(scope, error),
+    ...opts.session,
+  });
+
   let disposed = false;
   return {
     content,
     store,
     audio,
     sync,
+    session,
     fetch: fetchImpl,
     dispose() {
       if (disposed) return;
       disposed = true;
+      session.dispose();
       sync.stop();
       audio.stop();
       store.close();

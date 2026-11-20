@@ -7,6 +7,7 @@ added
 adding
 adds
 after
+afternoon
 again
 all
 along
@@ -14,6 +15,7 @@ am
 an
 anchor
 and
+another
 answer
 any
 apple
@@ -202,6 +204,7 @@ end
 equal
 equals
 equation
+evening
 every
 eye
 eyes
@@ -296,6 +299,7 @@ group
 groups
 grove
 grow
+grown
 grows
 guess
 had
@@ -539,6 +543,7 @@ red
 reef
 repeat
 repeats
+resting
 rhythm
 ribbon
 ride
@@ -621,6 +626,7 @@ snow
 so
 solid
 some
+someone
 song
 soon
 sort

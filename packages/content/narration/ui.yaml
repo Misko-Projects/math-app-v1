@@ -5,6 +5,80 @@ ui.button.back:
   text: "Back"
 ui.profile.who-is-playing:
   text: "Who is playing?"
+  level: K
+
+# Profile Picker, picture passwords and the play session (W00, apps/web/src/app/picker, session).
+ui.start.tap:
+  text: "Tap to start!"
+  level: K
+ui.picture.prompt:
+  text: "Tap your three pictures."
+  level: K
+ui.picture.try-again:
+  text: "Let's try again!"
+  level: K
+ui.picture.ask-help:
+  text: "Ask a grown-up to help you."
+  level: K
+ui.picture.undo:
+  text: "Take one back"
+  level: K
+ui.picture.shell:
+  text: "Shell"
+  level: K
+ui.picture.fish:
+  text: "Fish"
+  level: K
+ui.picture.boat:
+  text: "Boat"
+  level: K
+ui.picture.sun:
+  text: "Sun"
+  level: K
+ui.picture.tree:
+  text: "Tree"
+  level: K
+ui.picture.crab:
+  text: "Crab"
+  level: K
+ui.picture.flower:
+  text: "Flower"
+  level: K
+ui.picture.kite:
+  text: "Kite"
+  level: K
+ui.picture.turtle:
+  text: "Turtle"
+  level: K
+ui.rest.quiet-hours:
+  text: "Play time is over for now. Come back soon!"
+  level: K
+ui.rest.quiet-hours.morning:
+  text: "The island is resting. It opens again at {at|time} in the morning!"
+  level: K
+ui.rest.quiet-hours.afternoon:
+  text: "The island is resting. It opens again at {at|time} in the afternoon!"
+  level: K
+ui.rest.quiet-hours.evening:
+  text: "The island is resting. It opens again at {at|time} in the evening!"
+  level: K
+ui.rest.daily-cap:
+  text: "You did so much playing! Come back next time."
+  level: K
+ui.rest.elsewhere:
+  text: "Someone is playing in another window. Let's take turns!"
+  level: K
+ui.btn.okay:
+  text: "Okay!"
+  level: K
+ui.home.hello:
+  text: "Hello! Pip is getting the island ready for you."
+  voice: pip
+  level: K
+ui.winddown.done:
+  text: "Great playing! See you next time!"
+  voice: pip
+  level: K
 
 # Design-system primitives (U01, packages/ui/src/primitives).
 ui.btn.home:
