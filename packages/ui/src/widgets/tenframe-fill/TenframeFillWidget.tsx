@@ -57,7 +57,7 @@ import {
   total,
   trayColor,
 } from './board';
-import { FRAME_GAP, MINI_PIECE, type Plan, planFor, SUPPLY_EDGE } from './plan';
+import { FRAME_GAP, MINI_GAP_Y, MINI_PIECE, type Plan, planFor, SUPPLY_EDGE } from './plan';
 import './tenframe-fill.css';
 
 /**
@@ -163,10 +163,16 @@ export function TenframeFillWidget({
     setValueState(v);
   };
   const [step, setStep] = useState<Step>('build');
-  const [page, setPage] = useState(() => {
+  const [page, setPageState] = useState(() => {
     const at = firstEmpty(start.cells);
     return at ? at.frame : 0;
   });
+  /** The page as last set (a placement reads it before the next render). */
+  const pageRef = useRef(page);
+  const setPage = (p: number) => {
+    pageRef.current = p;
+    setPageState(p);
+  };
   const [demoBusy, setDemoBusy] = useState(false);
   const [invite, setInvite] = useState<WidgetAction | null>(null);
   const [highlight, setHighlight] = useState<string | null>(null);
@@ -296,6 +302,14 @@ export function TenframeFillWidget({
       // Put on the small frame: the frame in front stays (the next counter is picked up there).
       const at = cellOf(next, id);
       if (at && mini === null) showFrame(at.frame);
+      // The frame in front is the one being worked on: once it is full and the other still has
+      // room, the other comes forward and the full one becomes the token.
+      if (paged && config.frames === 2) {
+        const front = at && mini === null ? at.frame : pageRef.current;
+        const other = front === 0 ? 1 : 0;
+        const full = (f: number) => !(next.cells[f] ?? []).includes(EMPTY);
+        if (full(front) && !full(other)) setPage(other);
+      }
       speakAfter(next.cells);
     },
   });
@@ -786,6 +800,8 @@ export function TenframeFillWidget({
     const cells = board.cells[frame] ?? [];
     const n = cells.filter((c) => c !== EMPTY).length;
     const label = `${t(frameKey, { n: frame + 1 })}: ${n}`;
+    /** A full ten-frame is a ten: its token carries the "10" tag. */
+    const ten = config.size === 10 && n === 10;
     const drop = concrete ? dnd.targetProps(miniTarget(frame), { label }) : null;
     const takes = drop?.['data-armed'] === 'true';
     return (
@@ -796,6 +812,7 @@ export function TenframeFillWidget({
         className={['ni-tf__mini', drop?.className, cueOf('mini')].filter(Boolean).join(' ')}
         data-cue="mini"
         data-frame={frame}
+        data-ten={ten ? 'true' : undefined}
         data-place-target={drop?.['data-place-target']}
         data-armed={drop?.['data-armed']}
         aria-label={label}
@@ -849,12 +866,21 @@ export function TenframeFillWidget({
             </span>
           );
         })}
+        {ten ? (
+          <span className="ni-tf__mini-tag" aria-hidden="true" data-invite-glyph="">
+            10
+          </span>
+        ) : null}
       </button>
     );
   };
 
   const framesBlock = (
-    <div className="ni-tf__frames" data-chrome={chrome} style={{ gap: FRAME_GAP[chrome] * zoom }}>
+    <div
+      className="ni-tf__frames"
+      data-chrome={chrome}
+      style={{ gap: (paged ? MINI_GAP_Y : FRAME_GAP[chrome]) * zoom }}
+    >
       {paged
         ? Array.from({ length: config.frames }, (_, f) =>
             f === page ? renderFrame(f) : renderMini(f),

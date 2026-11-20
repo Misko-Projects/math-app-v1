@@ -205,6 +205,7 @@
   align-content: center;
   gap: calc(4px * var(--tf-s));
   box-sizing: border-box;
+  position: relative;
   min-height: calc(var(--target-min) * var(--tf-s));
   margin: 0;
   padding: calc(6px * var(--tf-s));
@@ -220,9 +221,38 @@
   cursor: default;
 }
 .ni-tf__mini-cell {
-  display: grid;
+  position: relative;
   border-radius: 50%;
   background: rgb(38 70 83 / 0.1);
+}
+/*
+ * A counter in the small frame fills its cell: the sprite's disc is 42 of its 64 units (its 3-unit
+ * outline goes round that), so the sprite is drawn 64/42 of the cell and centred on it: a 40 px
+ * cell shows a counter 40 px across, its outline in the gap.
+ */
+.ni-tf__mini-cell > .ni-sprite {
+  position: absolute;
+  inset: calc(var(--tf-mini) * -11 / 42);
+  width: calc(var(--tf-mini) * 64 / 42);
+  height: calc(var(--tf-mini) * 64 / 42);
+}
+/* A full ten-frame as a token is a ten: its "10" tag beside the cells (numeral ≥ 32 px). */
+.ni-tf__mini[data-ten="true"] {
+  padding-right: calc((6px + 8px + 44px) * var(--tf-s));
+}
+.ni-tf__mini-tag {
+  position: absolute;
+  top: 50%;
+  right: calc(6px * var(--tf-s));
+  display: grid;
+  width: calc(44px * var(--tf-s));
+  transform: translateY(-50%);
+  place-items: center;
+  color: var(--color-ink);
+  font-family: var(--font-display);
+  font-size: calc(32px * var(--tf-s));
+  font-weight: 800;
+  line-height: 1;
 }
 /* The empty-cells hint in the small frame: a teal well with a sea-deep ring (fits the 4 px gap). */
 .ni-tf__mini-cell[data-lit="true"] {

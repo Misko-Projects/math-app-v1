@@ -644,6 +644,75 @@ export const AreaLandscapeMinPagedK: Story = {
     );
     await waitFor(() => expect(document.activeElement).toBe(root.querySelector('.ni-tf__mini')));
     await expectFits(canvasElement, 'k');
+    // Back to the frame being filled (the one with room) in front, the full ten as the token.
+    await userEvent.keyboard('{Enter}');
+    await waitFor(() => expect(frontFrame(root)).toBe('1'));
+    await expectTenToken(root);
+    await expectFits(canvasElement, 'k');
+  },
+};
+
+/**
+ * The token of a full ten (06 §2, one frame at a time): all ten counters, each drawn at least
+ * 40 px and inside the token, a "10" tag (numeral ≥ 32 px) that covers none of them, and the token
+ * at least 16 px from the frame in front.
+ */
+async function expectTenToken(root: HTMLElement) {
+  const token = miniOf(root);
+  await expect(token).toHaveAttribute('data-ten', 'true');
+  const box = token.getBoundingClientRect();
+  const discs = [...token.querySelectorAll<SVGCircleElement>('.ni-tf__mini-cell svg')].map((svg) =>
+    (svg.querySelector('circle') as SVGCircleElement).getBoundingClientRect(),
+  );
+  await expect(discs).toHaveLength(10);
+  const tag = token.querySelector('.ni-tf__mini-tag') as HTMLElement;
+  await expect(tag).toHaveTextContent('10');
+  await expect(Number.parseFloat(getComputedStyle(tag).fontSize)).toBeGreaterThanOrEqual(32);
+  const t = tag.getBoundingClientRect();
+  for (const d of discs) {
+    // The disc itself (its outline adds 1.9 px a side), to a tenth of a pixel.
+    await expect(d.width, 'counter drawn width').toBeGreaterThanOrEqual(39.9);
+    await expect(d.height, 'counter drawn height').toBeGreaterThanOrEqual(39.9);
+    await expect(d.left).toBeGreaterThanOrEqual(box.left);
+    await expect(d.right).toBeLessThanOrEqual(box.right);
+    await expect(d.top).toBeGreaterThanOrEqual(box.top);
+    await expect(d.bottom).toBeLessThanOrEqual(box.bottom);
+    await expect(d.right, 'the tag covers no counter').toBeLessThanOrEqual(t.left + 0.5);
+  }
+  await expect(t.right).toBeLessThanOrEqual(box.right);
+  const frame = (root.querySelector('.ni-tf__frame') as HTMLElement).getBoundingClientRect();
+  // The token keeps its frame's place: above the frame in front (frame 1) or below it (frame 2).
+  const gap = Math.max(box.top - frame.bottom, frame.top - box.bottom);
+  await expect(gap, 'token to the frame in front').toBeGreaterThanOrEqual(16);
+}
+
+/**
+ * The frame in front is the one being worked on (CPS.04.t1 in K at 960 × 600, show 14): when the
+ * tenth counter fills frame 1, frame 2 comes forward by itself and the full ten becomes the token,
+ * so the next counter has a full-size empty cell to go to.
+ */
+export const PagedFullFrameBecomesTokenK: Story = {
+  globals: { ageMode: 'k' },
+  args: { config: teen14 },
+  render: inArea('landscapeMin'),
+  play: async ({ canvasElement }) => {
+    const root = await expectFits(canvasElement, 'k');
+    await expect(root.dataset.paged).toBe('true');
+    await expect(frontFrame(root)).toBe('0');
+    for (let n = 1; n <= 10; n++) {
+      await expect(frontFrame(root)).toBe('0');
+      const next = supplyCounters(root)[0] as HTMLElement;
+      next.focus();
+      await userEvent.keyboard('{Enter}');
+      await userEvent.keyboard('{Enter}');
+      await waitFor(() =>
+        expect(root.querySelectorAll('.ni-tf__placed, .ni-tf__mini-cell svg')).toHaveLength(n),
+      );
+    }
+    await waitFor(() => expect(frontFrame(root)).toBe('1'));
+    await expect(cellsOf(root, 1).filter(Boolean)).toHaveLength(0);
+    await expectTenToken(root);
+    await expectFits(canvasElement, 'k');
   },
 };
 

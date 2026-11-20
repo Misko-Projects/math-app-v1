@@ -38,10 +38,17 @@ export const FRAME_EDGE = { normal: 14 + 4, tight: 6 + 2 } as const;
 export const FRAME_GAP = { normal: 18, tight: 6 } as const;
 /** The counter tray's padding (12) + border (3) on each side. */
 export const SUPPLY_EDGE = 12 + 3;
-/** The small frame button (paged): pieces, their gap, its padding + border on each side. */
-export const MINI_PIECE: Record<AgeMode, number> = { k: 32, 'g1-up': 32 };
+/**
+ * The small frame button (paged), a token of the frame that is not in front (06 §2, one frame at
+ * a time): its cells (each counter is drawn that wide, 40 px: a full ten shows all ten at ≥ 40 px),
+ * their gap, its padding + border on each side, the room a full ten's "10" tag takes beside the
+ * cells, and its distance from the frame in front (≥ 16 px).
+ */
+export const MINI_PIECE: Record<AgeMode, number> = { k: 40, 'g1-up': 40 };
 export const MINI_GAP = 4;
 export const MINI_EDGE = 6 + 3;
+export const MINI_TAG = 8 + 44;
+export const MINI_GAP_Y = 16;
 /** The answer step's picture: cell sizes to try, the cells' gap, padding + border a side. */
 export const VIEW_CELLS = [48, 40, 32] as const;
 export const VIEW_GAP = 4;
@@ -106,7 +113,8 @@ export function frameSize(t: number, rows: number, chrome: Chrome): Size {
 export function miniSize(ageMode: AgeMode, rows: number): Size {
   const m = MINI_PIECE[ageMode];
   return {
-    w: 5 * m + 4 * MINI_GAP + 2 * MINI_EDGE,
+    // With the tag: the token of a full ten is the widest.
+    w: 5 * m + 4 * MINI_GAP + 2 * MINI_EDGE + MINI_TAG,
     h: Math.max(MIN_TARGET_PX[ageMode], rows * m + (rows - 1) * MINI_GAP + 2 * MINI_EDGE),
   };
 }
@@ -117,7 +125,7 @@ export function framesSize(input: PlanInput, chrome: Chrome, paged: boolean): Si
   const f = frameSize(t, rows, chrome);
   if (paged) {
     const m = miniSize(input.ageMode, rows);
-    return { w: Math.max(f.w, m.w), h: f.h + TARGET_GAP_PX + m.h };
+    return { w: Math.max(f.w, m.w), h: f.h + MINI_GAP_Y + m.h };
   }
   const n = input.frames;
   return { w: f.w, h: n * f.h + (n - 1) * FRAME_GAP[chrome] };

@@ -560,6 +560,52 @@ export const AreaLandscapeMinNewWayG1: Story = {
   },
 };
 
+/**
+ * new-way with three ways already found (the generator's order for 16: 10 and 6, 15 and 1, 8 and
+ * 8), the most the panel holds at 960 × 600: all three small bonds are whole and inside the panel
+ * and the area, none is drawn smaller than the others, and their numerals stay 32 px.
+ */
+export const AreaLandscapeMinNewWayThreeFoundG1: Story = {
+  args: {
+    config: {
+      ...newWay16,
+      found: [
+        [10, 6],
+        [15, 1],
+        [8, 8],
+      ],
+    },
+  },
+  render: inArea('landscapeMin'),
+  play: async ({ canvasElement }) => {
+    const root = await expectFits(canvasElement, 'g1-up');
+    const panel = root.querySelector('.ni-bondw__found') as HTMLElement;
+    const p = panel.getBoundingClientRect();
+    const bonds = [...panel.querySelectorAll<HTMLElement>('.ni-bondw__mini-bond')];
+    await expect(bonds).toHaveLength(3);
+    const widths = bonds.map((b) => Math.round(b.getBoundingClientRect().width));
+    await expect(new Set(widths).size, 'small bonds all the same size').toBe(1);
+    for (const b of bonds) {
+      const r = b.getBoundingClientRect();
+      await expect(r.left).toBeGreaterThanOrEqual(p.left);
+      await expect(r.right).toBeLessThanOrEqual(p.right);
+      await expect(r.top).toBeGreaterThanOrEqual(p.top);
+      await expect(r.bottom).toBeLessThanOrEqual(p.bottom);
+      for (const num of b.querySelectorAll<HTMLElement>('.ni-bondw__num')) {
+        const size = Number.parseFloat(getComputedStyle(num).fontSize);
+        const drawn = num.getBoundingClientRect().height / num.offsetHeight || 1;
+        await expect(size * drawn, 'found numeral').toBeGreaterThanOrEqual(32);
+        const circle = (num.closest('.ni-bondw__circle') as HTMLElement).getBoundingClientRect();
+        const n = num.getBoundingClientRect();
+        await expect(n.left).toBeGreaterThanOrEqual(circle.left);
+        await expect(n.right).toBeLessThanOrEqual(circle.right);
+      }
+    }
+    await expect(panel.scrollWidth).toBeLessThanOrEqual(panel.clientWidth);
+    await throughSteps(root, 'g1-up', canvasElement);
+  },
+};
+
 /** SUB.06.t1 (concrete, 3 and 1) in G1 at 960 × 600. */
 export const AreaLandscapeMinConcreteG1: Story = {
   args: { config: wholeFromParts, tier: 'concrete' },
