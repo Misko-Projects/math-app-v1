@@ -871,6 +871,18 @@ export function MakeSetWidget({
   /** The frame shown: the first ten, or the ones with the ten tied beside them (tens.ts). */
   const page = shownPage(tenPage, insideCount);
   const beside = oneFrame ? besideFrame(tenPage, insideCount) : null;
+  /**
+   * A ten still to be bundled (groupsOf 10, nothing bundled) is counted one by one, each crab in
+   * its own slot (see `count-aloud`). Counting that started with both frames in view can land in
+   * one-frame mode on the ones page (the host shrinks while Pip counts): the ten's frame comes back
+   * before the next paint, so no number is spoken over the loose sheaf as a whole, and the view
+   * stays as when counting starts in one frame.
+   */
+  const looseTenCounted =
+    counting !== null && beside === 'bundle' && Boolean(config.groupsOf) && bundles < 1;
+  useLayoutEffect(() => {
+    if (looseTenCounted) setTenPage(0);
+  }, [looseTenCounted]);
   /** Untie the ten (it shows in the frame again, so objects can come out) or tie it again. */
   const toggleTen = () => {
     if (!interactive || beside === null) return;
@@ -1105,23 +1117,24 @@ export function MakeSetWidget({
   const bundleFirst = beside === 'bundle';
   const framesLeft = box.pad.left + (bundleFirst ? TENS_W + tensGap : 0);
   /**
+   * The ten beside the ones is drawn tied (the rope band and bow) only when it is one: bundled in
+   * the model (groupsOf 10), or in an item with no bundling. A ten the child still has to bundle is
+   * the same sheaf of ten, untied.
+   */
+  const tenTied = bundleFirst && (!config.groupsOf || bundles >= 1);
+  /**
    * count-aloud with one ten-frame at a time: the objects not in the shown frame are counted on the
    * thing beside it. A tied ten is counted as one ten ("ten", step 9: the whole small frame is
    * highlighted), then the ones in view; with the first ten shown, each one after it is counted on
    * its own cell of the small frame (steps 10 and up), the running number under that frame.
    * Any step on an object the tied ten holds lights the ten, not only step 9: the layout can
    * change while Pip counts (the host shrinks to one frame after "one"), and a spoken number must
-   * never be left without its highlight.
+   * never be left without its highlight. Only a tied ten is lit as a whole: a ten still to be
+   * bundled is counted crab by crab in its own frame (`looseTenCounted` above brings it back).
    */
-  const tensCounting = counting !== null && beside === 'bundle' && counting <= 9;
+  const tensCounting = counting !== null && tenTied && counting <= 9;
   /** Counting on the small frame of ones: the last one counted so far (marks stay after). */
   const onesCounting = beside === 'ones' && markTo !== null && markTo >= 10 ? markTo : null;
-  /**
-   * The ten beside the ones is drawn tied (the rope band and bow) only when it is one: bundled in
-   * the model (groupsOf 10), or in an item with no bundling. A ten the child still has to bundle is
-   * the same sheaf of ten, untied.
-   */
-  const tenTied = bundleFirst && (!config.groupsOf || bundles >= 1);
   const tensBeside =
     beside === null ? null : (
       <button

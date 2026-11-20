@@ -1203,6 +1203,66 @@ export const CountAloudSurvivesResize: Story = {
   },
 };
 
+const resizeLoose: WidgetDemo = createDemoController({ strict: true });
+
+/**
+ * The same shrink on the regrouping item (13 loose crabs, groupsOf 10, nothing bundled), where the
+ * ten is counted crab by crab: after "one" the area shrinks to one frame at a time. The ten's own
+ * frame is the one shown, so each of 2–10 lights its own crab's slot (never the loose sheaf as a
+ * whole), then 11–13 are counted on the small frame of ones, and the view stays that way, as when
+ * counting starts in one frame (RegroupKShortBeforeBundle).
+ */
+export const CountAloudSurvivesResizeLooseTen: Story = {
+  globals: { ageMode: 'k' },
+  args: { config: regroup, demo: resizeLoose },
+  parameters: { ui: { audio: spyAudio() } },
+  render: inArea('tablet'),
+  play: async ({ canvasElement, parameters }) => {
+    const audio = parameters.ui.audio as ReturnType<typeof spyAudio>;
+    const root = await findWidget(canvasElement, ROOT);
+    await waitFor(() => expect(inside(root)).toHaveLength(13));
+    await expect(root).not.toHaveAttribute('data-one-frame');
+    clearSpies(audio);
+    const counted = resizeLoose.play({ op: 'count-aloud' });
+    await waitFor(() => expect(spokenNumbers(audio)).toEqual([1]));
+    const box = areaBox(canvasElement);
+    box.style.width = `${AREA.shortLandscape.width}px`;
+    box.style.height = `${AREA.shortLandscape.height}px`;
+    await waitFor(() => expect(root).toHaveAttribute('data-one-frame', 'true'));
+    // In one frame from here on: the ten's frame, the ones beside it, no sheaf lit as a whole.
+    await waitFor(() => expect(tens(root)).toHaveAttribute('data-tens', 'ones'));
+    let heard = spokenNumbers(audio).length;
+    await expect(heard, 'shrunk while the ten is still being counted').toBeLessThan(10);
+    while (heard < 10) {
+      await waitFor(() => expect(spokenNumbers(audio).length).toBeGreaterThan(heard), {
+        timeout: 3000,
+        interval: 20,
+      });
+      heard = spokenNumbers(audio).length;
+      const n = heard;
+      const lit = await waitFor(
+        () => {
+          const el = root.querySelector<HTMLElement>(
+            `[data-slot="${n - 1}"] [data-counting="true"]`,
+          );
+          if (!el) throw new Error(`no highlight in slot ${n - 1} for ${n}`);
+          return el;
+        },
+        { timeout: 300, interval: 10 },
+      );
+      await expect(lit).toBeVisible();
+      await expect(tens(root)).toHaveAttribute('data-tens', 'ones');
+      await expect(tens(root)).not.toHaveAttribute('data-counting');
+    }
+    for (const n of [11, 12, 13]) await expectOnesCountStep(root, n);
+    await counted;
+    await expect(spokenNumbers(audio)).toEqual(Array.from({ length: 13 }, (_, i) => i + 1));
+    await expect(tens(root)).toHaveAttribute('data-tens', 'ones');
+    await expect(root.querySelector('.ni-mset__bundle')).toBeNull();
+    await expectFitsArea(root, areaBox(canvasElement), 'k');
+  },
+};
+
 const regroupAnswer: WidgetDemo = createDemoController({ strict: true });
 
 /**
