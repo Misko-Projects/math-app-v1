@@ -362,7 +362,7 @@
  * shown frame, a button. On the ones page it is the first ten as ONE bundle (`.ni-mset__bundle`,
  * tied with the rope and bow when it is a ten) tagged "10" underneath, and it comes FIRST (left of
  * the frame of ones: "10, then the ones"); with the ten untied it is a small frame holding the
- * ones (2 × 5 pieces of 32 px, 96 × 188), after the ten's frame. Either way a button
+ * ones (2 × 5 cells of 42 × 38 px, 96 × 208), after the ten's frame. Either way a button
  * (≥ 80 px): tapping the tied ten unties it (and says "ten"), tapping the ones ties it again. It
  * pops in, and the frame slides over, when it changes (at once under reduced motion: both are
  * switched off inline).
@@ -419,9 +419,9 @@
   display: block;
   box-sizing: border-box;
   width: 96px;
-  height: 188px;
-  padding: 6px;
-  border: 4px solid var(--color-ink);
+  height: 208px;
+  padding: 2px;
+  border: 3px solid var(--color-ink);
   border-radius: 18px;
   background: var(--color-paper);
 }
@@ -429,7 +429,7 @@
   background: var(--color-sunshine-light);
 }
 /*
- * The first ten as ONE bundle (containers.tsx TenBundle): ten 40 px objects in two columns of
+ * The first ten as ONE bundle (containers.tsx TenBundle): ten objects drawn ≥ 40 px in two columns of
  * five on a soft ground shadow and a pale backdrop (no outline: it is not a frame); tied, the rope
  * runs down the gap between the columns with a small bow at the middle. 96 × 168.
  */
@@ -453,8 +453,6 @@
 }
 .ni-mset__bundle-obj {
   position: absolute;
-  width: 40px;
-  height: 40px;
 }
 .ni-mset__bundle-tie {
   position: absolute;
@@ -467,30 +465,39 @@
   outline: 5px solid var(--color-sea-deep);
   outline-offset: 3px;
 }
+/*
+ * The small frame's cells: 42 × 38 px, 2 px apart. An object's box is 46 px square, centred on
+ * its cell's width and raised 7 px (a drawing sits low in its box, over its shadow), drawn 35 px
+ * wide and 33 px tall: the token's ≥ 32 px (one-frame mode, 06 §2), inside its own cell.
+ */
 .ni-mset__tens-grid {
   display: grid;
-  grid-template-columns: repeat(2, 32px);
-  grid-auto-rows: 32px;
-  gap: 2px 12px;
+  grid-template-columns: repeat(2, 42px);
+  grid-auto-rows: 38px;
+  gap: 2px;
   pointer-events: none;
 }
 .ni-mset__tens-cell {
   position: relative;
   display: block;
-  border-radius: 50%;
+  border-radius: 10px;
   background: rgb(38 70 83 / 0.08);
 }
+.ni-mset__tens-cell > .ni-sprite {
+  position: absolute;
+  top: -7px;
+  left: -2px;
+  width: 46px;
+  height: 46px;
+}
 /*
- * count-aloud on the small frame of ones: the ONE cell being counted gets a teal ring inside its
- * own 32 px (its object shrinks inside it), and the running number sits under the small frame,
- * outside every cell (`.ni-mset__tens-count`), over no object.
+ * count-aloud on the small frame of ones: each cell counted so far is tinted with a thin teal
+ * ring just inside its edge (its object keeps its size, inside the ring), and the running number
+ * sits under the small frame, outside every cell (`.ni-mset__tens-count`), over no object.
  */
 .ni-mset__tens-cell[data-counting="true"] {
   background: var(--color-sunshine-light);
-  box-shadow: inset 0 0 0 3px var(--color-sea-deep);
-}
-.ni-mset__tens-cell[data-counting="true"] > .ni-sprite {
-  transform: scale(0.72);
+  box-shadow: inset 0 0 0 2px var(--color-sea-deep);
 }
 .ni-mset__tens > .ni-mset__tens-count {
   top: calc(100% + 4px);

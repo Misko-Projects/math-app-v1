@@ -696,6 +696,21 @@ async function framesSettled(root: HTMLElement) {
   await nextFrame();
 }
 
+/** What a sprite draws, in screen px: its SVG content's box (not its layout box, which is bigger). */
+function drawnSize(host: Element) {
+  const svg = (host.matches('svg') ? host : host.querySelector('svg')) as SVGSVGElement;
+  const bb = svg.getBBox();
+  const r = svg.getBoundingClientRect();
+  const vb = svg.viewBox.baseVal;
+  const sx = r.width / vb.width;
+  const sy = r.height / vb.height;
+  const left = r.left + (bb.x - vb.x) * sx;
+  const top = r.top + (bb.y - vb.y) * sy;
+  const width = bb.width * sx;
+  const height = bb.height * sy;
+  return { left, top, right: left + width, bottom: top + height, width, height };
+}
+
 /**
  * The tied ten reads "10, then the ones": it comes first (its box left of the frame of ones, or
  * above it), it is about as tall as that frame (its small frame ≥ 85 % of the frame's height,
@@ -715,8 +730,8 @@ async function expectTenFirst(root: HTMLElement) {
   const objs = [...ten.querySelectorAll('.ni-mset__bundle-obj')];
   await expect(objs).toHaveLength(10);
   await expect(ten.querySelectorAll('.ni-mset__bundle-obj [data-sprite]')).toHaveLength(10);
-  // Every one of the ten in view: ≥ 40 px, ≥ 80 % of its box clear of the rope and the bow (their
-  // shapes' boxes with the outline; overlaps summed, so counted twice where they meet).
+  // Every one of the ten in view: drawn ≥ 40 px, ≥ 80 % of its drawing clear of the rope and the
+  // bow (their shapes' boxes with the outline; overlaps summed, so counted twice where they meet).
   const tie = [
     ...ten.querySelectorAll(
       '.ni-mset__bundle-tie rect, .ni-mset__bundle-tie ellipse, .ni-mset__bundle-tie circle',
@@ -726,9 +741,30 @@ async function expectTenFirst(root: HTMLElement) {
     const w = Number.parseFloat(getComputedStyle(el).strokeWidth) / 2 || 0;
     return { left: r.left - w, top: r.top - w, right: r.right + w, bottom: r.bottom + w };
   });
-  for (const o of objs) {
-    const r = o.getBoundingClientRect();
-    await expect(r.width).toBeGreaterThanOrEqual(40);
+  for (const [i, o] of objs.entries()) {
+    // Drawn (not just boxed) at ≥ 40 px, the token's size in one-frame mode (06 §2).
+    const ink = drawnSize(o);
+    const r = ink;
+    await expect(ink.width, 'bundle object drawn width').toBeGreaterThanOrEqual(40);
+    await expect(ink.height, 'bundle object drawn height').toBeGreaterThanOrEqual(40);
+    // The row below (drawn over it) hides the feet only: under 30 % of the drawing's height.
+    const below = objs[i + 2];
+    if (below) {
+      const hidden = ink.bottom - drawnSize(below).top;
+      await expect(hidden / ink.height, 'hidden by the row below').toBeLessThanOrEqual(0.3);
+    }
+    // An invite ring is drawn in the outer 5 px of the token's box: the drawing stays inside it
+    // (sides and top; the tag and the fingertip strip are below).
+    await expect(ink.left - bundle.left, 'drawing inside the ring, left').toBeGreaterThanOrEqual(
+      4.5,
+    );
+    await expect(bundle.right - ink.right, 'drawing inside the ring, right').toBeGreaterThanOrEqual(
+      4.5,
+    );
+    await expect(ink.top - bundle.top, 'drawing inside the ring, top').toBeGreaterThanOrEqual(4.5);
+    await expect(bundle.bottom - ink.bottom, 'drawing inside the bundle').toBeGreaterThanOrEqual(
+      -0.5,
+    );
     const covered = tie.reduce(
       (sum, t) =>
         sum +
@@ -1092,6 +1128,16 @@ export const RegroupKShortBeforeBundle: Story = {
     await expect(frameMarks).toEqual(Array.from({ length: 10 }, (_, i) => i + 1));
     const onesCells = [...(tens(root) as HTMLElement).querySelectorAll('.ni-mset__tens-cell')];
     await expect(onesCells.filter((c) => c.hasAttribute('data-counting'))).toHaveLength(3);
+    // The waiting ones are tokens drawn ≥ 32 px (06 §2, one-frame mode), counted or not, each
+    // inside its own cell.
+    for (const cell of onesCells.filter((c) => c.querySelector('svg'))) {
+      const ink = drawnSize(cell);
+      await expect(ink.width, 'waiting one drawn width').toBeGreaterThanOrEqual(32);
+      await expect(ink.height, 'waiting one drawn height').toBeGreaterThanOrEqual(32);
+      const c = cell.getBoundingClientRect();
+      await expect(ink.top).toBeGreaterThanOrEqual(c.top - 0.5);
+      await expect(ink.bottom).toBeLessThanOrEqual(c.bottom + 0.5);
+    }
     await expect(tens(root)?.querySelector('.ni-mset__tens-count')).toHaveTextContent('13');
 
     // Next: make a ten.

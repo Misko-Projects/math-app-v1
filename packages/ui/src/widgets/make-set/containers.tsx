@@ -487,27 +487,44 @@ export function BundleBand({
   );
 }
 
-/** Where the ten objects of a `TenBundle` sit (left, top in px): two columns of five. */
+/**
+ * A bundle object's box. A sprite's drawing fills about three quarters of its box, so a 57 px box
+ * draws the object 43 px wide and 40 px tall: the token's ≥ 40 px (one-frame mode, 06 §2).
+ */
+const BUNDLE_OBJ = 57;
+/**
+ * Where the ten objects of a `TenBundle` sit (left, top of their boxes in px): two columns of
+ * five. The boxes' empty margins overlap, not the drawings: the drawn columns lie 5–48 and 48–91
+ * px across (meeting under the rope), 5 px in from the bundle's edges where an invite ring is
+ * drawn, and each row starts 30.5 px under the last (the first 5 px down), so a
+ * row hides only the feet (a quarter) of the row above and every one of the ten shows its
+ * eyes, claws and body. Later rows are drawn over earlier ones.
+ */
 const BUNDLE_SPOTS: readonly [number, number][] = Array.from({ length: 10 }, (_, i) => {
   const col = i % 2;
   const row = Math.floor(i / 2);
-  return [4 + col * 48, row * 32] as [number, number];
+  return [col === 0 ? -2 : 41, row * 30.5 - 9] as [number, number];
 });
 
 /**
- * A tied ten as ONE bundle (one ten-frame at a time, make-set): ten objects of 40 px (the same
- * drawings as the loose ones) in two columns of five, the rope running down the 8 px gap between
- * the columns and tied in a small bow at the middle, so every object stays in view (the rope and
- * bow cover < 20 % of any object's box). 96 × 168; no cells, no outline: it never reads as a
- * frame. `tied={false}`: the same ten with no rope (a ten still to be bundled).
+ * A tied ten as ONE bundle (one ten-frame at a time, make-set): ten objects drawn ≥ 40 px (the
+ * same drawings as the loose ones, in `BUNDLE_OBJ` boxes) in two columns of five, the rope
+ * running down the gap between the columns and tied in a small bow at the middle, so every object
+ * stays in view (the rope and bow cover < 20 % of any object's drawing). 96 × 168; no cells, no
+ * outline: it never reads as a frame. `tied={false}`: the same ten with no rope (a ten still to
+ * be bundled).
  */
 export function TenBundle({ sprite, tied = true }: { sprite: ReactNode; tied?: boolean }) {
   return (
     <span className="ni-mset__bundle" data-tied={tied ? 'true' : undefined} aria-hidden="true">
       <span className="ni-mset__bundle-ground" />
       {BUNDLE_SPOTS.map(([left, top], i) => (
-        // biome-ignore lint/suspicious/noArrayIndexKey: the bundle's spots are positional
-        <span key={i} className="ni-mset__bundle-obj" style={{ left, top }}>
+        <span
+          // biome-ignore lint/suspicious/noArrayIndexKey: the bundle's spots are positional
+          key={i}
+          className="ni-mset__bundle-obj"
+          style={{ left, top, width: BUNDLE_OBJ, height: BUNDLE_OBJ }}
+        >
           {sprite}
         </span>
       ))}
@@ -530,11 +547,11 @@ function BundleTie() {
     >
       <rect
         className="ni-mset__rope"
-        x="45"
+        x="46"
         y="-2"
-        width="6"
+        width="4"
         height="172"
-        rx="3"
+        rx="2"
         fill="var(--color-sunshine)"
         stroke={INK}
         strokeWidth="2"
@@ -543,10 +560,10 @@ function BundleTie() {
         <ellipse
           key={side}
           className="ni-mset__bow"
-          cx={48 + side * 10}
+          cx={48 + side * 9}
           cy={mid}
-          rx="6"
-          ry="5"
+          rx="5"
+          ry="4"
           fill="var(--color-sunshine)"
           stroke={INK}
           strokeWidth="2.5"
@@ -556,7 +573,7 @@ function BundleTie() {
         className="ni-mset__bow"
         cx="48"
         cy={mid}
-        r="5"
+        r="4"
         fill="var(--color-sunshine-deep)"
         stroke={INK}
         strokeWidth="2.5"

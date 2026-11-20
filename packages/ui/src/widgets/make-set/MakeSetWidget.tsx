@@ -117,26 +117,29 @@ const SIDE_GAP = 24;
 const PROBE_PX = 100_000;
 /**
  * One ten-frame at a time: the small frame beside the shown one (the tied ten, or the ones), as in
- * make-set.css `.ni-mset__tens-frame`: 2 × 5 pieces of 32 px, 12 px between the columns (the
- * band's gap, as in a bundled ten-frame) and 2 px between rows, 6 px padding and a 4 px border:
- * 96 × 188, 90 % of a K ten-frame's height (208).
+ * make-set.css `.ni-mset__tens-frame`: 2 × 5 cells of 42 × 38 px (an object drawn 35 × 33 px in
+ * each), 2 px between them, 2 px padding and a 3 px border: 96 × 208, as tall as a K ten-frame
+ * (208). These are tokens at a smaller scale than the working frame (06 §2, one-frame mode): the
+ * waiting ones are drawn ≥ 32 px, the tied ten's objects ≥ 40 px.
  */
-const TENS_PIECE = 32;
-const TENS_W = 2 * TENS_PIECE + 12 + 2 * (6 + 4);
-const TENS_H = 5 * TENS_PIECE + 4 * 2 + 2 * (6 + 4);
+const TENS_CELL = { w: 42, h: 38 };
+const TENS_W = 2 * TENS_CELL.w + 2 + 2 * (2 + 3);
+const TENS_H = 5 * TENS_CELL.h + 4 * 2 + 2 * (2 + 3);
 /** The tied ten's "10" tag under it (`.ni-mset__tens-tag`: 34 px numeral, 2 px border) and gap. */
 const TENS_TAG = 2 + 34 + 2;
 const TENS_TAG_GAP = 2;
 /**
- * The tied ten drawn as ONE bundle (containers.tsx `TenBundle`): ten 40 px objects in two columns
- * of five (32 px apart), the rope down the gap between them and a bow at the middle. 96 × 168.
+ * The tied ten drawn as ONE bundle (containers.tsx `TenBundle`): ten objects drawn ≥ 40 px in two
+ * columns of five (rows 32 px apart), the rope down the gap between them and a bow at the middle.
+ * 96 × 168 (TENS_W wide).
  */
 const BUNDLE_ART_H = 168;
 /** The tied ten: the bundle, its "10" tag, and a 10 px strip under the tag for Pip's fingertip. */
 const BUNDLE_H = BUNDLE_ART_H + TENS_TAG_GAP + TENS_TAG + 10;
 /**
- * Between the shown frame and the thing beside it: the invite rings on both sit inside their own
- * boxes (make-set.css), so they stay ≥ 12 px clear of each other.
+ * Between the shown frame and the token beside it (a token keeps ≥ 16 px from the working
+ * frame). The invite rings on both sit inside their own boxes (make-set.css), so they stay
+ * ≥ 12 px clear of each other.
  */
 const TENS_GAP = 24;
 /**
