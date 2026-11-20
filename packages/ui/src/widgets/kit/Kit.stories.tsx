@@ -1,9 +1,11 @@
 import type { StimulusSpec } from '@number-island/shared';
 import type { Meta, StoryObj } from '@storybook/react-vite';
-import { type CSSProperties, useState } from 'react';
+import { type CSSProperties, useRef, useState } from 'react';
 import { expect, userEvent, waitFor, within } from 'storybook/test';
 import { expectTargetGaps, expectTargetSize } from '../../test-support/storyHelpers';
+import { expectHandClearOfOthers, expectPointerOn } from '../../test-support/widgetStory';
 import { layoutBox, NumeralTray, PickCard } from './controls';
+import { useInviteHand } from './inviteHand';
 import { NumberBondView, StimulusView } from './StimulusView';
 import { ObjectSprite, SPRITE_IDS } from './sprites';
 
@@ -523,5 +525,143 @@ export const ChoicesK: Story = {
       'aria-pressed',
       'true',
     );
+  },
+};
+
+// ---------- Pip's invite hand: never over another control ----------
+
+/**
+ * A 3 × 3 grid of K buttons with Pip's invite on one of them (kit `useInviteHand`, no fixed side).
+ * `colGap` / `rowGap` set the room between the buttons.
+ */
+function InviteGrid({
+  invite,
+  colGap,
+  rowGap,
+  padTop = 24,
+}: {
+  invite: number;
+  colGap: number;
+  rowGap: number;
+  padTop?: number;
+}) {
+  const ref = useRef<HTMLDivElement | null>(null);
+  const { hand, rootStyle } = useInviteHand(
+    ref,
+    (root) =>
+      [...root.querySelectorAll<HTMLElement>('[data-cell]')].find(
+        (el) => el.dataset.cell === String(invite),
+      ) ?? null,
+    `cell:${invite}`,
+  );
+  return (
+    <div
+      ref={ref}
+      data-testid="grid"
+      style={{
+        position: 'relative',
+        display: 'inline-grid',
+        gridTemplateColumns: 'repeat(3, 80px)',
+        gridAutoRows: '80px',
+        gap: `${rowGap}px ${colGap}px`,
+        padding: 24,
+        paddingTop: padTop,
+        ...rootStyle,
+      }}
+    >
+      {Array.from({ length: 9 }, (_, i) => (
+        <button
+          // biome-ignore lint/suspicious/noArrayIndexKey: fixed cells
+          key={i}
+          type="button"
+          data-cell={i}
+          className={i === invite ? 'ni-invite' : undefined}
+          style={{
+            width: 80,
+            height: 80,
+            border: '3px solid var(--color-ink)',
+            borderRadius: 16,
+            background: 'var(--color-cloud)',
+            font: '800 32px var(--font-display)',
+          }}
+        >
+          <span className="ni-invite-glyph">{i + 1}</span>
+        </button>
+      ))}
+      {hand}
+    </div>
+  );
+}
+
+/** The hand at rest: which way it points and its fingertip on the invited button. */
+async function inviteHandOn(canvasElement: HTMLElement, invite: number) {
+  const grid = within(canvasElement).getByTestId('grid');
+  await waitFor(() => expect(grid.querySelector('.ni-hand svg')).not.toBeNull());
+  // Placed again once the fonts are in (a numeral's box sets the room around it).
+  await document.fonts?.ready;
+  await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+  const target = grid.querySelector(`[data-cell="${invite}"]`) as HTMLElement;
+  await expectPointerOn(grid.querySelector('.ni-hand') as HTMLElement, target, grid);
+  return {
+    grid,
+    target,
+    direction: (grid.querySelector('.ni-hand svg') as SVGElement).dataset.direction,
+  };
+}
+
+/**
+ * The middle button of a 3 × 3 grid whose rows are only 16 px apart: Pip's hand below it would
+ * cover the button under it (and above it, the one over it), so the kit points from beside it,
+ * where the columns leave room; the hand stays ≥ 12 px from all eight other buttons and their
+ * numerals.
+ */
+export const InviteHandBesideK: Story = {
+  globals: { ageMode: 'k' },
+  render: () => <InviteGrid invite={4} colGap={80} rowGap={16} />,
+  play: async ({ canvasElement }) => {
+    const { grid, target, direction } = await inviteHandOn(canvasElement, 4);
+    await expect(direction).toBe('left');
+    await expectHandClearOfOthers(grid, target);
+  },
+};
+
+/** With room between the rows, the hand keeps its usual place: below the button, pointing up. */
+export const InviteHandBelowK: Story = {
+  globals: { ageMode: 'k' },
+  render: () => <InviteGrid invite={4} colGap={16} rowGap={80} />,
+  play: async ({ canvasElement }) => {
+    const { grid, target, direction } = await inviteHandOn(canvasElement, 4);
+    await expect(direction).toBe('up');
+    await expectHandClearOfOthers(grid, target);
+  },
+};
+
+/**
+ * The bottom-middle button of a grid tight both ways (16 px): below it there is nothing to cover,
+ * so the hand points up from below as usual, clear of its neighbours.
+ */
+export const InviteHandBottomRowK: Story = {
+  globals: { ageMode: 'k' },
+  render: () => <InviteGrid invite={7} colGap={16} rowGap={16} />,
+  play: async ({ canvasElement }) => {
+    const { grid, target, direction } = await inviteHandOn(canvasElement, 7);
+    await expect(direction).toBe('up');
+    await expectHandClearOfOthers(grid, target);
+  },
+};
+
+/**
+ * The top-middle button, tight columns and roomy rows above it only: the kit points down from
+ * above (below would cover the button under it, beside the ones next to it).
+ */
+export const InviteHandAboveK: Story = {
+  globals: { ageMode: 'k' },
+  // Room above the top row for the hand, inside the grid's own box.
+  render: () => <InviteGrid invite={1} colGap={16} rowGap={16} padTop={80} />,
+  play: async ({ canvasElement }) => {
+    const grid = within(canvasElement).getByTestId('grid');
+    const { target, direction } = await inviteHandOn(canvasElement, 1);
+    await expect(direction).toBe('down');
+    await expectHandClearOfOthers(grid, target);
   },
 };

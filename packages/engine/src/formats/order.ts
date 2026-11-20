@@ -1,9 +1,11 @@
 // 03 §5.5 order. The child drags items into slots; the response lists the dropped items' values in
-// slot order. `fixed` pre-places items (slot → id) that cannot move.
+// slot order. `fixed` pre-places items (slot → id) that cannot move. Ops: `drag {id, slot}`,
+// `highlight {id}` and the generic `answer {values}`.
 
 import { orderConfigSchema, type WidgetConfigOf } from '@number-island/shared';
 import {
   argNumber,
+  argNumbers,
   argString,
   digitCount,
   type FormatModel,
@@ -89,6 +91,31 @@ export const order: FormatModel<'order', OrderState> = {
       }
       case 'highlight':
         return { ...s, highlighted: argString(a, 'id') ?? null };
+      case 'answer': {
+        // The generic answer op (03 §6.3): `{ values }` in slot order fills every open slot with
+        // an item of that value. Fixed slots keep their item (their value must match); any other
+        // shape leaves the state unchanged.
+        const values = argNumbers(a, 'values');
+        if (values === undefined || values.length !== s.slots.length) return s;
+        const fixed = s.config.fixed ?? {};
+        const fixedIds = new Set(Object.values(fixed));
+        const free = s.config.items.filter((i) => !fixedIds.has(i.id));
+        const slots: string[] = [];
+        for (let k = 0; k < values.length; k++) {
+          const pinned = fixed[k];
+          const want = values[k] as number;
+          if (pinned !== undefined) {
+            if (s.config.items.find((i) => i.id === pinned)?.value !== want) return s;
+            slots.push(pinned);
+            continue;
+          }
+          const at = free.findIndex((i) => i.value === want);
+          if (at < 0) return s;
+          slots.push((free[at] as { id: string }).id);
+          free.splice(at, 1);
+        }
+        return { ...s, slots };
+      }
       default:
         throw new UnsupportedOpError('order', a.op);
     }

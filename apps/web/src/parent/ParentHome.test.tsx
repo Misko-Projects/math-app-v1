@@ -43,13 +43,15 @@ describe('<ParentHome> for a family with no children', () => {
       </AppProviders>,
     );
     expect(await screen.findByText('No children on this island yet.')).toBeTruthy();
+    // The hint and Sync now follow the device's paired state, a live query that can arrive just
+    // after the empty roster does.
     expect(
-      screen.getByText(
+      await screen.findByText(
         (_, el) =>
           el?.textContent === 'Just paired this device? Tap Sync now to fetch your family.',
       ),
     ).toBeTruthy();
-    expect(screen.getByRole('button', { name: 'Sync now' })).toBeTruthy();
+    expect(await screen.findByRole('button', { name: 'Sync now' })).toBeTruthy();
     expect(document.body.textContent).not.toMatch(/db:reset|erase|interrupted/i);
     expect(screen.queryByRole('button', { name: /add/i })).toBeNull();
     expect(await app.store.allProfiles()).toEqual([]);

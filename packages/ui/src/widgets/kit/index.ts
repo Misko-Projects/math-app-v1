@@ -21,9 +21,26 @@ export {
   useSubmitGuard,
 } from './controls';
 export {
+  cellToFit,
+  countLayout,
+  FitPicture,
+  type FitPictureProps,
+  fittedLineNumeralPx,
+  LINE_BARE_PAD,
+  naturalPictureSize,
+  numberLineHeight,
+  Scaled,
+  tenFrameLayout,
+  useSharedScale,
+  wrapLine,
+} from './FitPicture';
+export {
   INVITE_GLYPH_SELECTOR,
   INVITE_HAND_PX,
+  INVITE_TARGET_SELECTOR,
+  type InviteHandDirection,
   type InviteHandPlacement,
+  type InviteHandSide,
   placeInviteHand,
   useInviteHand,
 } from './inviteHand';
@@ -46,6 +63,7 @@ export {
   stepsBetween,
 } from './NumberLineView';
 export { fitCell, ObjectSetView, type ObjectSetViewProps } from './ObjectSetView';
+export { useWidgetRoom, type WidgetRoom } from './room';
 export {
   BaseTenView,
   ExpressionView,

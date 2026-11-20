@@ -1,13 +1,14 @@
 // 03 §6.3 format state models and 03 §5.5 format configs, features and answer semantics, for the
 // 11 E01 fixture formats.
 
-import type {
-  AnswerSpec,
-  ItemFormat,
-  StimulusSpec,
-  WidgetAction,
-  WidgetConfig,
-  WidgetConfigOf,
+import {
+  type AnswerSpec,
+  ITEM_FORMATS,
+  type ItemFormat,
+  type StimulusSpec,
+  type WidgetAction,
+  type WidgetConfig,
+  type WidgetConfigOf,
 } from '@number-island/shared';
 import { describe, expect, it } from 'vitest';
 import { dotFlash, stimulusGroups, stimulusQuantity } from './dot-flash';
@@ -548,6 +549,36 @@ describe('make-set', () => {
       [act('drag', { count: 12 })],
       state({ count: 12, removed: 0, bundles: 0 }),
     ],
+    [
+      'answer {value} drags up to the value',
+      makeSetBase,
+      [act('drag', { count: 1 }), act('answer', { value: 4 })],
+      state({ count: 4, removed: 0 }),
+    ],
+    [
+      'answer {value} removes down to the value (take-away)',
+      takeAway,
+      [act('answer', { value: 3 })],
+      state({ count: 3, removed: 4, parts: [3, 4] }),
+    ],
+    [
+      'answer {value} on hands fills the left hand first',
+      hands,
+      [act('answer', { value: 7 })],
+      state({ count: 7, removed: 0, parts: [5, 2] }),
+    ],
+    [
+      'answer {value} with groupsOf 10 bundles every full ten',
+      bundles,
+      [act('answer', { value: 12 })],
+      state({ count: 12, removed: 0, bundles: 1 }),
+    ],
+    [
+      'answer {value} is limited by the supply; a bad value changes nothing',
+      makeSetBase,
+      [act('answer', { value: 20 }), act('answer', { value: -1 }), act('answer')],
+      state({ count: 6, removed: 0 }),
+    ],
   ] as const)('%s', (_name, config, ops, expected) => {
     expect(respond(makeSet, config, [...ops])).toEqual(expected);
   });
@@ -931,6 +962,42 @@ describe('order', () => {
 
   it('records the highlight', () => {
     expect(play(order, orderBase, [act('highlight', { id: 'a' })]).highlighted).toBe('a');
+  });
+
+  it.each([
+    [
+      'fills every slot in value order',
+      orderBase,
+      [1, 2, 3],
+      { kind: 'numbers', values: [1, 2, 3] },
+    ],
+    [
+      'keeps a fixed slot whose value matches',
+      fixed,
+      [1, 2, 3],
+      { kind: 'numbers', values: [1, 2, 3] },
+    ],
+    ['ignores a fixed slot whose value differs', fixed, [2, 1, 3], null],
+    ['ignores the wrong number of values', orderBase, [1, 2], null],
+    ['ignores a value no item has', orderBase, [1, 2, 9], null],
+  ] as const)('answer {values}: %s', (_name, config, values, expected) => {
+    expect(respond(order, config, [act('answer', { values: [...values] })])).toEqual(expected);
+  });
+
+  it('answer {values} places equal values on distinct items', () => {
+    const twins: WidgetConfigOf<'order'> = {
+      ...orderBase,
+      items: [
+        { id: 'a', value: 2 },
+        { id: 'b', value: 2 },
+        { id: 'c', value: 1 },
+      ],
+    };
+    expect(play(order, twins, [act('answer', { values: [1, 2, 2] })]).slots).toEqual([
+      'c',
+      'a',
+      'b',
+    ]);
   });
 
   it.each([
@@ -1616,15 +1683,11 @@ describe('hundred-chart', () => {
 
 describe('format registry', () => {
   const formats = MODEL_ROWS.map((r) => r.model.format as ItemFormat);
-  const compare: WidgetConfig = {
-    format: 'compare',
-    left: { kind: 'none' },
-    right: { kind: 'none' },
-    ask: 'more',
-    allowMatchLines: false,
-  };
+  // Formats U03–U05 have not modelled yet (the list shrinks as their models land).
+  const unmodelled = ITEM_FORMATS.filter((f) => !formatModels().includes(f));
 
   it('registers the 11 fixture formats (U03–U05 add theirs; formats-u04.test.ts covers U04)', () => {
+    expect(formats).toHaveLength(11);
     expect(formatModels()).toEqual(expect.arrayContaining(formats));
   });
 
@@ -1644,9 +1707,14 @@ describe('format registry', () => {
   });
 
   it('has nothing for formats without a model yet', () => {
-    expect(formatModel('compare')).toBeUndefined();
-    expect(formatFeatures('compare')).toEqual({});
-    expect(formatFeatureValues(compare, { kind: 'choice', id: 'left' })).toEqual({});
+    expect(unmodelled.length).toBeGreaterThan(0);
+    for (const f of unmodelled) {
+      expect(formatModel(f)).toBeUndefined();
+      expect(formatFeatures(f)).toEqual({});
+      // Only `format` is read before the lookup misses.
+      const widget = { format: f } as unknown as WidgetConfig;
+      expect(formatFeatureValues(widget, { kind: 'choice', id: 'left' })).toEqual({});
+    }
   });
 
   it('every feature has a non-zero weight and a doc', () => {

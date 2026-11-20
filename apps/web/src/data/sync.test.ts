@@ -115,6 +115,58 @@ describe('sync client: one sync', () => {
     expect(state.lastSyncAt).not.toBeNull();
   });
 
+  it('keeps the picture password on this device: never pushed, and not replaced by a pull', async () => {
+    const { store, env } = await pairedStore();
+    stores.push(store);
+    const id = '019a0000-0000-7000-8000-0000000ac0fe';
+    const mine = await store.putProfile({
+      ...profile(id, 'K', 'Mia'),
+      familyId: FAMILY,
+      picturePasswordHash: 'pbkdf2-sha256$1$c2FsdA$aGFzaA',
+    });
+    // Another device renamed the child (and, on an older build, sent its own hash).
+    const theirs = {
+      ...mine,
+      name: 'Mia R',
+      picturePasswordHash: 'pbkdf2-sha256$1$b3RoZXI$b3RoZXI',
+      updatedAt: env.clock.now() + 1,
+    };
+    const server = fakeServer(() => ({ profiles: [theirs] }));
+    await createSyncClient({ store, fetch: server.fetch }).syncNow();
+    const pushed = server.requests[0]?.body.profiles.find((p) => p.id === id);
+    expect(pushed?.name).toBe('Mia');
+    expect(pushed?.picturePasswordHash).toBeNull();
+    const local = (await store.allProfiles()).find((p) => p.id === id);
+    expect(local?.name).toBe('Mia R');
+    expect(local?.picturePasswordHash).toBe(mine.picturePasswordHash);
+  });
+
+  it('setting a picture password never makes a stale local profile win the merge', async () => {
+    const { store, env } = await pairedStore();
+    stores.push(store);
+    const id = '019a0000-0000-7000-8000-0000000ac0ff';
+    const stale = await store.putProfile({ ...profile(id, 'K', 'Mia'), familyId: FAMILY });
+    // Another device moved Mia up a grade; this device has not pulled that yet.
+    env.clock.advance(60_000);
+    const newer = { ...stale, grade: '1' as const, updatedAt: env.clock.now() };
+    env.clock.advance(60_000);
+    const hash = 'pbkdf2-sha256$1$c2FsdA$aGFzaA';
+    const saved = await store.setPicturePassword(id, hash);
+    expect(saved.updatedAt).toBe(stale.updatedAt);
+    expect(saved.picturePasswordHash).toBe(hash);
+
+    const server = fakeServer(() => ({ profiles: [newer] }));
+    await createSyncClient({ store, fetch: server.fetch }).syncNow();
+    // The push still carries the old stamp, so the server's LWW keeps the newer grade.
+    const pushed = server.requests[0]?.body.profiles.find((p) => p.id === id);
+    expect(pushed?.updatedAt).toBe(stale.updatedAt);
+    expect(pushed?.updatedAt).toBeLessThan(newer.updatedAt);
+    // And the pull's newer grade lands here, with this device's password kept.
+    const local = (await store.allProfiles()).find((p) => p.id === id);
+    expect(local?.grade).toBe('1');
+    expect(local?.picturePasswordHash).toBe(hash);
+  });
+
   it('loops until the push queue and the pull are drained, carrying the cursor', async () => {
     const { store } = await pairedStore();
     stores.push(store);
