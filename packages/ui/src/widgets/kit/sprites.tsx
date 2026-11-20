@@ -959,6 +959,259 @@ const ribbon: Draw = (tone) => {
   );
 };
 
+// ---------- daily events (TIM.08: put the day in order) ----------
+//
+// Five pictures a child reads as one day without words: waking up (the sun rising behind a bed),
+// breakfast (a bowl and spoon), lunch (a sandwich), dinner (a plate with a knife and fork) and
+// bedtime (the same bed under a moon and stars). No letters and no clock faces (clocks belong to
+// the time-telling skills). The two bed pictures differ by what is in the sky and by the blanket
+// (warm by day, dark blue by night), so they stay apart even when small.
+
+const METAL = { fill: 'var(--color-pebble)', line: 'var(--color-ink-soft)' };
+const WOOD = { fill: 'var(--color-wood)', line: 'var(--color-wood-deep)' };
+
+/** The bed of the two bed pictures: head and foot boards, mattress, pillow and a blanket. */
+const bed = (blanket: { fill: string; line: string }) => (
+  <>
+    <rect x="5" y="27" width="8" height="28" rx="3" {...WOOD} stroke={WOOD.line} strokeWidth="3" />
+    <rect x="51" y="38" width="8" height="17" rx="3" {...WOOD} stroke={WOOD.line} strokeWidth="3" />
+    <rect
+      x="11"
+      y="45"
+      width="42"
+      height="8"
+      rx="2"
+      fill="var(--color-cloud)"
+      stroke="var(--color-pebble-deep)"
+      strokeWidth="3"
+    />
+    <rect
+      x="14"
+      y="37"
+      width="13"
+      height="9"
+      rx="4"
+      fill="var(--color-cloud)"
+      stroke="var(--color-pebble-deep)"
+      strokeWidth="3"
+    />
+    <path
+      d="M27 41h25v12H27c-2.5-3-2.5-9 0-12Z"
+      fill={blanket.fill}
+      stroke={blanket.line}
+      strokeWidth="3"
+      strokeLinejoin="round"
+    />
+    <path
+      d="M33 41v12"
+      stroke={blanket.line}
+      strokeWidth="2.5"
+      strokeLinecap="round"
+      opacity="0.5"
+    />
+  </>
+);
+
+const eventWakeUp: Draw = (tone) => {
+  const c = toneFill({ fill: 'var(--color-coral)', line: 'var(--color-coral-deep)' }, tone);
+  return (
+    <>
+      {shadow(24)}
+      <path
+        d="M40 20v-6.5M52 25l4.3-4.3M28 25l-4.3-4.3M56.4 32.6l4.9-1.3M23.6 32.6l-4.9-1.3"
+        stroke="var(--color-sun-deep)"
+        strokeWidth="3.5"
+        strokeLinecap="round"
+      />
+      <circle
+        cx="40"
+        cy="37"
+        r="12"
+        fill="var(--color-sunshine)"
+        stroke="var(--color-sun-deep)"
+        strokeWidth="3"
+      />
+      {HIGHLIGHT('M33 31c1.5-2 3.5-3.3 6-3.8')}
+      {bed(c)}
+    </>
+  );
+};
+
+const eventBreakfast: Draw = (tone) => {
+  const c = toneFill({ fill: 'var(--color-sky)', line: 'var(--color-sea-deep)' }, tone);
+  return (
+    <>
+      {shadow(20)}
+      {band('M39 29 54 10', 3, METAL)}
+      <path
+        d="M7 30h50c0 14-10 24-25 24S7 44 7 30Z"
+        fill={c.fill}
+        stroke={c.line}
+        strokeWidth="3"
+        strokeLinejoin="round"
+      />
+      <ellipse
+        cx="32"
+        cy="30"
+        rx="25"
+        ry="6.5"
+        fill="var(--color-cloud)"
+        stroke={c.line}
+        strokeWidth="3"
+      />
+      {[
+        [21, 30],
+        [29, 28.5],
+        [36.5, 31.5],
+        [27.5, 32.8],
+        [44, 29.5],
+      ].map(([cx, cy]) => (
+        <circle
+          key={`${cx}-${cy}`}
+          cx={cx}
+          cy={cy}
+          r="2.8"
+          fill="var(--color-sunshine)"
+          stroke="var(--color-sun-deep)"
+          strokeWidth="1.5"
+        />
+      ))}
+      <path d="M12 40h40" stroke={c.line} strokeWidth="2.5" opacity="0.45" />
+      {HIGHLIGHT('M14.5 43c1.5 3.5 4 6 7.5 7.5')}
+    </>
+  );
+};
+
+const eventLunch: Draw = (tone) => {
+  const bread = toneFill({ fill: 'var(--color-sand)', line: 'var(--color-wood-deep)' }, tone);
+  const layer = { strokeWidth: 3, strokeLinejoin: 'round' as const };
+  return (
+    <>
+      {shadow(24)}
+      {/* The lower slice, then ham, cheese (a corner hanging over), lettuce, and the top slice
+          seen a little from above, so it reads as sliced bread, not a bun. */}
+      <rect
+        x="8"
+        y="46"
+        width="48"
+        height="8"
+        rx="3"
+        fill={bread.fill}
+        stroke={bread.line}
+        {...layer}
+      />
+      <rect
+        x="7"
+        y="41"
+        width="50"
+        height="6"
+        rx="3"
+        fill="var(--color-coral)"
+        stroke="var(--color-coral-deep)"
+        {...layer}
+      />
+      <path
+        d="M9 37h46v4.5H37l-5 5.5-5-5.5H9Z"
+        fill="var(--color-sunshine)"
+        stroke="var(--color-sun-deep)"
+        {...layer}
+      />
+      <path
+        d="M6 36c3-4.5 6 1.5 9.5-2s6 1.5 9.5-2 6 1.5 9.5-2 6 1.5 9.5-2 6 2 8 0c2 2.5 0 6-2 6H8c-2 0-3-2-2-4Z"
+        fill="var(--color-leaf)"
+        stroke="var(--color-leaf-deep)"
+        {...layer}
+      />
+      <path d="M8 31v-2l8-11h32l8 11v2Z" fill={bread.fill} stroke={bread.line} {...layer} />
+      <path
+        d="M9.5 29h45"
+        stroke={bread.line}
+        strokeWidth="2.5"
+        strokeLinecap="round"
+        opacity="0.5"
+      />
+      {HIGHLIGHT('M20 22.5h13')}
+    </>
+  );
+};
+
+const eventDinner: Draw = (tone) => {
+  const c = toneFill({ fill: 'var(--color-cloud)', line: 'var(--color-pebble-deep)' }, tone);
+  return (
+    <>
+      {shadow(24)}
+      <circle cx="32" cy="35" r="16" fill={c.fill} stroke={c.line} strokeWidth="3" />
+      <circle cx="32" cy="35" r="10.5" fill="none" stroke={c.line} strokeWidth="2" opacity="0.5" />
+      <path
+        d="M27 37.5c0-5 4-8 9-6.5 4 1.2 5 6 1.5 8.5s-10.5 2.5-10.5-2Z"
+        fill="var(--color-coral)"
+        stroke="var(--color-coral-deep)"
+        strokeWidth="2.5"
+        strokeLinejoin="round"
+      />
+      {[
+        [26, 31],
+        [24.5, 36.5],
+        [29, 41.5],
+      ].map(([cx, cy]) => (
+        <circle
+          key={`${cx}-${cy}`}
+          cx={cx}
+          cy={cy}
+          r="2.6"
+          fill="var(--color-leaf)"
+          stroke="var(--color-leaf-deep)"
+          strokeWidth="1.5"
+        />
+      ))}
+      {/* Fork (left) and knife (right), handles down. */}
+      <path
+        d="M4.5 15v8c0 3 1.5 4.5 3.5 4.5s3.5-1.5 3.5-4.5v-8M8 15v38"
+        fill="none"
+        stroke={METAL.line}
+        strokeWidth="3"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <path
+        d="M57.5 14c-4.5 4-5.5 12-4.5 19h4.5Z"
+        fill={METAL.fill}
+        stroke={METAL.line}
+        strokeWidth="3"
+        strokeLinejoin="round"
+      />
+      <path d="M56 35v18" stroke={METAL.line} strokeWidth="4" strokeLinecap="round" />
+      {HIGHLIGHT('M21.5 28c2-3 5-5 8.5-5.5')}
+    </>
+  );
+};
+
+const eventBedtime: Draw = (tone) => {
+  const c = toneFill({ fill: 'var(--color-sea-deep)', line: 'var(--color-sea-dark)' }, tone);
+  const glow = {
+    fill: 'var(--color-sunshine)',
+    stroke: 'var(--color-sun-deep)',
+    strokeLinejoin: 'round' as const,
+  };
+  return (
+    <>
+      {shadow(24)}
+      <path d="M43 6a12 12 0 1 0 13 17 10 10 0 0 1-13-17Z" {...glow} strokeWidth="3" />
+      <path
+        d="M22 9l1.8 3.7 3.7 1.8-3.7 1.8L22 20l-1.8-3.7-3.7-1.8 3.7-1.8Z"
+        {...glow}
+        strokeWidth="2"
+      />
+      <path
+        d="M31 24l1.3 2.7 2.7 1.3-2.7 1.3L31 32l-1.3-2.7-2.7-1.3 2.7-1.3Z"
+        {...glow}
+        strokeWidth="2"
+      />
+      {bed(c)}
+    </>
+  );
+};
+
 const DRAWINGS: Readonly<Record<string, Draw>> = {
   shell,
   fish,
@@ -992,6 +1245,11 @@ const DRAWINGS: Readonly<Record<string, Draw>> = {
   'fishing-rod': fishingRod,
   rope,
   ribbon,
+  'event-wake-up': eventWakeUp,
+  'event-breakfast': eventBreakfast,
+  'event-lunch': eventLunch,
+  'event-dinner': eventDinner,
+  'event-bedtime': eventBedtime,
 };
 
 /** Sprite ids with their own drawing (others render as a pebble). */
