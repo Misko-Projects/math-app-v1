@@ -648,12 +648,13 @@ export function OrderWidget({
           id === null || id === undefined ? undefined : itemById.get(id)?.value;
         const k = target.findIndex((id, i) => !fixedSlots.has(i) && val(slots[i]) !== val(id));
         if (k < 0) return null;
-        // The card to move: one of that value not already lying where its value belongs.
+        // The card to move: one of that value not already lying where its value belongs; the one
+        // the child has picked up, when it is such a card.
         const settled = new Set(slots.filter((id, i) => val(id) === val(target[i])));
-        const id =
-          config.items.find(
-            (it) => it.value === val(target[k]) && !settled.has(it.id) && !fixedIds.has(it.id),
-          )?.id ?? target[k];
+        const fits = (it: Item) =>
+          it.value === val(target[k]) && !settled.has(it.id) && !fixedIds.has(it.id);
+        const held = dnd.selected === null ? undefined : itemById.get(dnd.selected);
+        const id = (held && fits(held) ? held : config.items.find(fits))?.id ?? target[k];
         return id === null || id === undefined ? null : cardThenSlot(id, k);
       }
       default:
@@ -1022,11 +1023,17 @@ export function OrderWidget({
                   <div className="ni-ord__pad" data-slot-pad={k} aria-hidden="true" />
                 )}
                 {it && isFixed ? (
+                  // biome-ignore lint/a11y/useKeyWithClickEvents: a pinned card is no control; the tap only speaks its number, which a keyboard or screen-reader user gets from the label
                   <div
                     className="ni-ord__card"
                     data-fixed="true"
                     role="img"
                     aria-label={t('ui.order.fixed', { n: itemName(it) })}
+                    // A pinned card is no control (it can't move), but a tapped number still
+                    // speaks its name (06 §5); a screen reader reads it from the label.
+                    onClick={() => {
+                      if (interactive) speakItem(it);
+                    }}
                   >
                     {face(it)}
                     <span className="ni-ord__pin">

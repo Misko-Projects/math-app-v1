@@ -1577,19 +1577,38 @@ export const AnswerInviteEqualValues: Story = {
     const root = await findWidget(canvasElement, ROOT);
     const trayCard = (id: string) =>
       root.querySelector(`.ni-ord__tray [data-card="${id}"]`) as HTMLElement;
-    for (const [id, box] of [
-      ['item-1', 1],
-      ['item-2', 2],
-      ['item-0', 3],
-    ] as const) {
-      await userEvent.click(trayCard(id));
-      await userEvent.click(slot(root, box));
-    }
-    await waitFor(() => expect(placed(root)).toEqual(['1', '2', '2']));
+    await userEvent.click(trayCard('item-1'));
+    await userEvent.click(slot(root, 1));
+    // Partial row, the second "2" (item-2) picked up: the invite goes on with that card (its box
+    // is ringed), never back to the other 2.
+    await userEvent.click(trayCard('item-2'));
     twinsInvite.invite({ op: 'answer', args: { values: [1, 2, 2] } });
-    await new Promise((r) => setTimeout(r, 150));
-    await expect(root.querySelectorAll('.ni-invite')).toHaveLength(0);
+    await waitFor(() => expect(slot(root, 2)).toHaveClass('ni-invite'));
+    await expect(trayCard('item-0')).not.toHaveClass('ni-invite');
+    await expect(root.querySelectorAll('.ni-invite')).toHaveLength(1);
+    await userEvent.click(slot(root, 2));
+    await userEvent.click(trayCard('item-0'));
+    await userEvent.click(slot(root, 3));
+    await waitFor(() => expect(placed(root)).toEqual(['1', '2', '2']));
+    // The row is right with the 2s this way round: no ring, no hand.
+    await waitFor(() => expect(root.querySelectorAll('.ni-invite')).toHaveLength(0));
     await expect(root.querySelector('.ni-invite-hand')).toBeNull();
     twinsInvite.invite(null);
+  },
+};
+
+/** A pinned numeral speaks when tapped (06 §5); it stays pinned and nothing is undone. */
+export const PinnedNumeralSpeaks: Story = {
+  globals: { ageMode: 'k' },
+  parameters: { ui: { audio: spyAudio() } },
+  args: { config: decade },
+  play: async ({ canvasElement, args, parameters }) => {
+    const audio = parameters.ui.audio as ReturnType<typeof spyAudio>;
+    clearSpies(audio);
+    const root = await findWidget(canvasElement, ROOT);
+    await userEvent.click(within(root).getByRole('img', { name: "30 can't move" }));
+    await expect(audio.sayPhrases).toHaveBeenCalledWith([{ number: 30 }]);
+    await expect(placed(root)).toEqual(['', '', '30', '']);
+    await expect(args.onInteract).not.toHaveBeenCalled();
   },
 };
