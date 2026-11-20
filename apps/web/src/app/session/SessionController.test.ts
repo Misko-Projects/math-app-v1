@@ -882,6 +882,59 @@ describe('SessionController', () => {
       expect(tabA.getSnapshot().status).toBe('active');
     });
 
+    it('a sweep reads the checkpoint again after its last look at the play lock: a final save made meanwhile is kept', async () => {
+      const { locks, held } = fakeLocks();
+      const s = await setup({ locks });
+      // Tab B's second look at the play lock (the one before it closes anything) can be held.
+      const lastLook = gate();
+      let looks = 0;
+      const watched: SessionLocks = {
+        acquire: (name, waitMs) => locks.acquire(name, waitMs),
+        held: async (name) => {
+          looks += 1;
+          if (looks === 2) await lastLook.wait();
+          return locks.held(name);
+        },
+      };
+      const slow = gatedStore(s.store);
+      const tabB = s.make({ store: slow, locks: watched });
+      slow.reads.close();
+      lastLook.close();
+      const sweep = tabB.sweep();
+      await vi.waitFor(() => expect([...held]).toEqual([SWEEP_LOCK]));
+      // Tab A starts and plays while tab B reads; then the clock jumps ahead, so its checkpoint
+      // looks old to a tab that has never seen it.
+      const tabA = s.make();
+      expect(await tabA.start(CHILD_K)).toMatchObject({ ok: true });
+      s.advance(16_000);
+      const [key] = [...s.storage.map.keys()];
+      const saved = () => s.storage.map.get(key ?? '') ?? '';
+      const judged = saved();
+      s.correctClock(3 * MIN);
+      slow.reads.open();
+      await vi.waitFor(() => expect(looks).toBe(2));
+      // While that look is pending, tab A is torn down: it saves its last checkpoint (one more
+      // item played) and gives the play lock back, with no end written.
+      tabA.recordItem();
+      tabA.dispose();
+      expect(saved()).not.toBe(judged);
+      const last = JSON.parse(saved()) as { activeMs: number; items: number };
+      expect(last.items).toBe(1);
+      lastLook.open();
+      // The lock is free now, but the checkpoint isn't the one the sweep judged: nothing is
+      // closed on the old one, and the new one is left to be watched.
+      expect(await sweep).toEqual({ closed: 0, watching: 1, skipped: false });
+      expect(saved()).toBe(JSON.stringify(last));
+      expect((await s.sessionEvents()).map((e) => e.type)).toEqual(['session.started']);
+      // Once it has gone quiet, the session is closed with those last totals.
+      s.env.clock.advance(QUIET);
+      expect(await tabB.closeAbandoned()).toBe(1);
+      const ends = (await s.sessionEvents()).filter((e) => e.type === 'session.ended');
+      expect(ends.map((e) => e.payload)).toEqual([
+        expect.objectContaining({ reason: 'abandoned', activeMs: last.activeMs, items: 1 }),
+      ]);
+    });
+
     it('a session that starts while another tab’s sweep is reading is never closed by it, whatever the clock does', async () => {
       const { locks, held } = fakeLocks();
       const s = await setup({ locks });

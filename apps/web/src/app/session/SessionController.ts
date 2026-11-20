@@ -710,6 +710,16 @@ export class SessionController {
       // A session that started in another tab while this sweep read the log is in that log, and
       // its tab holds the play lock: the last look, before anything is written.
       if (!(await mayClose())) return { closed, watching, skipped: true };
+      // That look took a moment, and the session's tab may have saved its last checkpoint and
+      // given the play lock back meanwhile (a tab saves before it releases). So the checkpoint
+      // is read once more: if it isn't the one judged above, it is a new one, to be watched,
+      // and nothing is closed on the old one.
+      const latest = this.#readCheckpoint(sessionId);
+      if ((latest?.raw ?? null) !== (cp?.raw ?? null)) {
+        if (latest) this.#seen.set(key, { raw: latest.raw, since: this.#monotonic() });
+        watching += 1;
+        continue;
+      }
       ended.add(key);
       const activeMs = Math.round(cp?.activeMs ?? 0);
       try {
