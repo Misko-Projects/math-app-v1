@@ -505,7 +505,7 @@ export const FixedSlot: Story = {
   args: { config: decade },
   play: async ({ canvasElement, args }) => {
     const root = await findWidget(canvasElement, ROOT);
-    const pinned = within(root).getByRole('img', { name: "30 can't move" });
+    const pinned = within(root).getByRole('button', { name: "30 can't move" });
     await expect(pinned.querySelector('.ni-ord__pin')).not.toBeNull();
     await expect(root.querySelectorAll('.ni-ord__tray .ni-ord__card')).toHaveLength(3);
     // Box 3 holds the pin: a drag onto it glides home.
@@ -1597,7 +1597,10 @@ export const AnswerInviteEqualValues: Story = {
   },
 };
 
-/** A pinned numeral speaks when tapped (06 §5); it stays pinned and nothing is undone. */
+/**
+ * A pinned numeral speaks when tapped (06 §5) and from the keyboard (it is a button: Tab reaches
+ * it, Enter and Space activate it); it stays pinned and nothing is undone.
+ */
 export const PinnedNumeralSpeaks: Story = {
   globals: { ageMode: 'k' },
   parameters: { ui: { audio: spyAudio() } },
@@ -1606,9 +1609,18 @@ export const PinnedNumeralSpeaks: Story = {
     const audio = parameters.ui.audio as ReturnType<typeof spyAudio>;
     clearSpies(audio);
     const root = await findWidget(canvasElement, ROOT);
-    await userEvent.click(within(root).getByRole('img', { name: "30 can't move" }));
+    const pinned = within(root).getByRole('button', { name: "30 can't move" });
+    await userEvent.click(pinned);
     await expect(audio.sayPhrases).toHaveBeenCalledWith([{ number: 30 }]);
+    for (const key of ['{Enter}', ' ']) {
+      clearSpies(audio);
+      pinned.focus();
+      await expect(pinned).toHaveFocus();
+      await userEvent.keyboard(key);
+      await expect(audio.sayPhrases).toHaveBeenCalledWith([{ number: 30 }]);
+    }
     await expect(placed(root)).toEqual(['', '', '30', '']);
     await expect(args.onInteract).not.toHaveBeenCalled();
+    pinned.blur();
   },
 };

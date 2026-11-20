@@ -1023,14 +1023,15 @@ export function OrderWidget({
                   <div className="ni-ord__pad" data-slot-pad={k} aria-hidden="true" />
                 )}
                 {it && isFixed ? (
-                  // biome-ignore lint/a11y/useKeyWithClickEvents: a pinned card is no control; the tap only speaks its number, which a keyboard or screen-reader user gets from the label
-                  <div
+                  // A pinned card can't move, but it still speaks its name (06 §5): a button, so
+                  // a tap, Enter and Space all reach it. It stays enabled-looking while the
+                  // widget is off (it never dims: the card is part of the question).
+                  <button
+                    type="button"
                     className="ni-ord__card"
                     data-fixed="true"
-                    role="img"
                     aria-label={t('ui.order.fixed', { n: itemName(it) })}
-                    // A pinned card is no control (it can't move), but a tapped number still
-                    // speaks its name (06 §5); a screen reader reads it from the label.
+                    aria-disabled={interactive ? undefined : 'true'}
                     onClick={() => {
                       if (interactive) speakItem(it);
                     }}
@@ -1039,7 +1040,7 @@ export function OrderWidget({
                     <span className="ni-ord__pin">
                       <PinIcon />
                     </span>
-                  </div>
+                  </button>
                 ) : it ? (
                   <button
                     type="button"
