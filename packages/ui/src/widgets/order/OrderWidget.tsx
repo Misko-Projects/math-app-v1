@@ -135,8 +135,11 @@ function CardPath({
   const wide = (k: number) => (inner * unit * k) / span >= MIN_TICK_PITCH;
   const divides = (k: number) => Math.abs(span / (unit * k) - Math.round(span / (unit * k))) < 1e-9;
   const k = [10, 5, 2, 1].find((f) => wide(f) && divides(f)) ?? [5, 10, 2, 1].find(wide) ?? 10;
-  const grid = stepsBetween(min, max, unit * k);
-  const ends = [min, max].filter((v) => !grid.some((g) => Math.abs(g - v) < 1e-9));
+  const steps = stepsBetween(min, max, unit * k);
+  const ends = [min, max].filter((v) => !steps.some((g) => Math.abs(g - v) < 1e-9));
+  // A step tick that would crowd an end's own tick (10 beside 11: under 8 px apart) is left out:
+  // every drawn tick keeps the minimum pitch from its neighbours.
+  const grid = steps.filter((g) => ends.every((e) => Math.abs(x(g) - x(e)) >= MIN_TICK_PITCH));
   const ticks = [...grid, ...ends].sort((a, b) => a - b);
   const y = PATH_Y;
   return (

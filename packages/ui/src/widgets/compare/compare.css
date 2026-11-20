@@ -179,6 +179,9 @@
   justify-content: center;
   /* The side cards' border and padding, so the ruler's 0 lines up under the ribbons' start. */
   padding: 0 19px;
+  /* The ruler's ink ends 12 px above its 60 px box (ticks reach 18 px under the line at 30):
+     the box ends at the ink, so the content centres on what is drawn. */
+  margin-bottom: -12px;
 }
 .ni-cmp__ribbon rect {
   fill: var(--color-coral);

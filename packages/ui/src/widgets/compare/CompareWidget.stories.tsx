@@ -1109,6 +1109,17 @@ export const LongerK: Story = {
     await expect(Math.abs(zero.left + zero.width / 2 - a.left)).toBeLessThan(1.5);
     const ruler = (root.querySelector('.ni-cmp__ruler') as HTMLElement).getBoundingClientRect();
     await expect(ruler.top).toBeGreaterThan(Math.max(a.bottom, b.bottom));
+    // The roomy tablet area is used: broad ribbons, and the drawn content (strip cards down to
+    // the ruler's ticks) covers ≥ 60 % of the area's height and is centred in it within 8 px,
+    // with the hand's room still under it.
+    await expect(a.height).toBeGreaterThanOrEqual(40);
+    const inner = contentBox(areaBox(canvasElement));
+    const cards = [...root.querySelectorAll('.ni-cmp__side')].map((c) => c.getBoundingClientRect());
+    const top = Math.min(...cards.map((r) => r.top));
+    const bottom = Math.max(...ticks.map((t) => t.getBoundingClientRect().bottom));
+    await expect((bottom - top) / (inner.bottom - inner.top)).toBeGreaterThanOrEqual(0.6);
+    await expect(Math.abs(top - inner.top - (inner.bottom - bottom)) / 2).toBeLessThanOrEqual(8);
+    await expect(inner.bottom - bottom).toBeGreaterThanOrEqual(51);
   },
 };
 

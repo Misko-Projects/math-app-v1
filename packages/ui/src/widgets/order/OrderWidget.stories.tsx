@@ -1459,7 +1459,8 @@ const fiveRulers: Config = {
 /**
  * Five 0–11 ruler cards at the 960 × 600 minimum: compact paths. 11 has no step but 1 that
  * divides it, and unit ticks would crowd, so each path keeps every 5th tick (evenly spaced) and
- * both ends (0 and 11) as long ticks of their own; each mark's pointer sits over its own value.
+ * both ends (0 and 11) as long ticks of their own, without the 10 that would crowd the 11; each
+ * mark's pointer sits over its own value.
  * The ink reads at K size (screen px); everything fits, targets ≥ 80 px.
  */
 export const RulerCardsKMinLandscape: Story = {
@@ -1498,6 +1499,13 @@ export const RulerCardsKMinLandscape: Story = {
         await expect(
           centre(grid[i] as SVGLineElement) - centre(grid[i - 1] as SVGLineElement),
         ).toBeCloseTo(gap, 1);
+      }
+      // No tick crowds another: every neighbouring pair (the end's own tick included) ≥ 8 px apart,
+      // so the 10 beside the 11 is not drawn.
+      for (let i = 1; i < ticks.length; i++) {
+        await expect(
+          centre(ticks[i] as SVGLineElement) - centre(ticks[i - 1] as SVGLineElement),
+        ).toBeGreaterThanOrEqual(8);
       }
       // One scale: the end tick at 11 and the mark at its own value.
       const perUnit = gap / step;

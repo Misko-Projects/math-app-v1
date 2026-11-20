@@ -506,6 +506,19 @@ const isLengthStrip = (spec: StimulusSpec, ask: Config['ask']) =>
 const stripWidth = (w: number) => Math.max(200, Math.min(880, Math.floor(w)));
 /** The ruler under two length strips: its height (line at 30 px, ticks and caps below). */
 const RULER_H = 60;
+/** A ribbon's drawn band: 30 px in a tight room, broader (up to 56 px) where the room allows. */
+const RIBBON_H = { min: 30, max: 56 };
+/**
+ * The ribbon band for a room: the broadest that still leaves the hand's room under the centred
+ * content (two strip cards, their gap, the ruler), so a roomy area is used and nothing is lifted.
+ * The minimum area keeps the 30 px band (its cards are already at the target size).
+ */
+function ribbonHeight(room: WidgetRoom | null): number {
+  if (!room || !Number.isFinite(room.height)) return RIBBON_H.min;
+  const free = room.height - 2 * ROOT_PAD.y - 2 * HAND_ROOM - SIDE_GAP - (RULER_H + SIDE_GAP);
+  const band = Math.floor(free / 2) - (2 * SIDE_PAD + 6);
+  return Math.max(RIBBON_H.min, Math.min(RIBBON_H.max, band));
+}
 
 /**
  * The one ruler two length strips share: from 0 to the longer of the two ranges, so both ribbons
@@ -533,12 +546,15 @@ function LengthStrip({
   spec,
   range,
   width,
+  height,
   label,
 }: {
   spec: Extract<StimulusSpec, { kind: 'number-line' }>;
   /** The shared ruler's range (both strips are drawn on it). */
   range: { min: number; max: number };
   width: number;
+  /** The ribbon's band (`ribbonHeight`): the ribbon is drawn 8 px short of it. */
+  height: number;
   label: string;
 }) {
   const at = spec.marks?.[0]?.at ?? spec.min;
@@ -546,18 +562,19 @@ function LengthStrip({
   const scale = numberLineScale(range.min, range.max, w, LINE_BARE_PAD);
   const x0 = scale.x(spec.min);
   const len = Math.max(0, scale.x(at) - x0);
+  const thick = height - 8;
   return (
     <div className="ni-cmp__strip" role="img" aria-label={label} data-length={at}>
       <svg
         className="ni-cmp__ribbon"
         width={w}
-        height={30}
-        viewBox={`0 0 ${w} 30`}
+        height={height}
+        viewBox={`0 0 ${w} ${height}`}
         aria-hidden="true"
         focusable="false"
       >
-        <rect className="ni-invite-glyph" x={x0} y={4} width={len} height={22} rx={11} />
-        <path d={`M${x0 + 12} 11h${len * 0.35}`} />
+        <rect className="ni-invite-glyph" x={x0} y={4} width={len} height={thick} rx={thick / 2} />
+        <path d={`M${x0 + thick / 2 + 1} ${4 + Math.round(thick * 0.32)}h${len * 0.35}`} />
       </svg>
     </div>
   );
@@ -1098,6 +1115,7 @@ export function CompareWidget({
           spec={spec}
           range={ruler ?? spec}
           width={plan.side.w}
+          height={ribbonHeight(room)}
           label={name ?? t('ui.widget.picture')}
         />
       ) : (
