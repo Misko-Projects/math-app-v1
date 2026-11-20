@@ -1657,3 +1657,67 @@ export const PinnedNumeralDisabled: Story = {
     (document.activeElement as HTMLElement | null)?.blur();
   },
 };
+
+/** The day's events in the order they happen (time.sequence `DAY_EVENTS`). */
+const DAY = ['wake-up', 'breakfast', 'lunch', 'dinner', 'bedtime'];
+
+/** TIM.08 (K): five pictures of the day, shuffled, to put in order from first to last. */
+const dayEvents: Config = {
+  format: 'order',
+  items: ['lunch', 'bedtime', 'wake-up', 'dinner', 'breakfast'].map((event, i) => ({
+    id: `item-${i}`,
+    value: DAY.indexOf(event) + 1,
+    stimulus: {
+      kind: 'objects',
+      set: { count: 1, sprite: `event-${event}`, layout: 'line', layoutSeed: 1 },
+    },
+  })),
+  direction: 'asc',
+};
+
+/** TIM.08 in the workshop's tablet widget area: the five event cards, pictures at their K size. */
+export const DailyEventsKTablet: Story = {
+  globals: { ageMode: 'k' },
+  args: { config: dayEvents, tier: 'pictorial' },
+  render: inArea('tablet'),
+  play: async ({ canvasElement }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    await expectOrderFits(canvasElement, root, 'k');
+    await expectPictureCards(root, 5, 'k');
+  },
+};
+
+/**
+ * TIM.08 at the 960 × 600 minimum (852 × 319): the five daily events as cards, each with its own
+ * kit drawing (none falls back to the pebble), K targets and gaps, nothing scrolls. A tapped card
+ * says its event.
+ */
+export const DailyEventsKMinLandscape: Story = {
+  globals: { ageMode: 'k' },
+  parameters: { ui: { audio: spyAudio() } },
+  args: { config: dayEvents, tier: 'pictorial' },
+  render: inArea('landscapeMin'),
+  play: async ({ canvasElement, parameters }) => {
+    const audio = parameters.ui.audio as ReturnType<typeof spyAudio>;
+    clearSpies(audio);
+    const root = await findWidget(canvasElement, ROOT);
+    await expectOrderFits(canvasElement, root, 'k');
+    await expectPictureCards(root, 5, 'k');
+    const cards = [...root.querySelectorAll<HTMLElement>('.ni-ord__tray .ni-ord__card')];
+    const sprites = cards.map((c) => c.querySelector('[data-sprite]')?.getAttribute('data-sprite'));
+    await expect(sprites).toEqual([
+      'event-lunch',
+      'event-bedtime',
+      'event-wake-up',
+      'event-dinner',
+      'event-breakfast',
+    ]);
+    // Each is its own drawing: five different pictures (a pebble fallback would repeat).
+    const drawings = cards.map((c) => c.querySelector('[data-sprite]')?.innerHTML);
+    await expect(new Set(drawings).size).toBe(5);
+    await userEvent.click(cards[2] as HTMLElement);
+    await expect(audio.say).toHaveBeenCalledWith('ui.sprite.event-wake-up', undefined);
+    await userEvent.click(cards[2] as HTMLElement);
+    (document.activeElement as HTMLElement | null)?.blur();
+  },
+};

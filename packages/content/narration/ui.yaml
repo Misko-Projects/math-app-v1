@@ -143,6 +143,21 @@ ui.sprite.cup:
 ui.sprite.dot:
   text: "Dot"
   level: K
+ui.sprite.event-bedtime:
+  text: "Bedtime"
+  level: K
+ui.sprite.event-breakfast:
+  text: "Breakfast"
+  level: K
+ui.sprite.event-dinner:
+  text: "Dinner"
+  level: K
+ui.sprite.event-lunch:
+  text: "Lunch"
+  level: K
+ui.sprite.event-wake-up:
+  text: "Waking up"
+  level: K
 ui.sprite.feather:
   text: "Feather"
   level: K

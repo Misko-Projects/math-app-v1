@@ -46,6 +46,7 @@ beam
 bear
 bears
 bed
+bedtime
 before
 behind
 bell
@@ -75,6 +76,7 @@ boxes
 boy
 boys
 bread
+breakfast
 brick
 bricks
 bridge
@@ -162,6 +164,7 @@ days
 dice
 did
 different
+dinner
 do
 dock
 dog
@@ -409,6 +412,7 @@ lookout
 looks
 loud
 love
+lunch
 make
 makes
 making
@@ -732,6 +736,7 @@ two
 under
 up
 veggies
+waking
 walk
 walked
 walking
