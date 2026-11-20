@@ -55,8 +55,6 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
-      - name: TEMPORARY forced failure (proof for the PR 84 review; reverted in the next commit)
-        run: exit 1
       - uses: actions/checkout@v5
       - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v5
