@@ -118,3 +118,27 @@ export async function expectOneInvite(root: HTMLElement, ringed: HTMLElement) {
   await expectPointerOn(hand, ringed, root);
   await expectRingClear(ringed, targetsOf(root));
 }
+
+/**
+ * Enter held down on a button as a browser sends it: a keydown, then `repeats` keydowns with
+ * `repeat: true`, then a keyup, each sent to whatever has the focus by then. A keydown nobody
+ * prevents also activates the button (its default action: a click with `detail` 0), which a
+ * dispatched event doesn't do by itself. `afterEach` runs after the first keydown and every repeat.
+ */
+export async function holdEnter(el: HTMLElement, repeats: number, afterEach: () => Promise<void>) {
+  const key = { key: 'Enter', code: 'Enter', bubbles: true, cancelable: true, composed: true };
+  for (let i = 0; i <= repeats; i++) {
+    const target = (document.activeElement as HTMLElement | null) ?? el;
+    const down = new KeyboardEvent('keydown', { ...key, repeat: i > 0 });
+    target.dispatchEvent(down);
+    if (!down.defaultPrevented) {
+      target.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, detail: 0 }));
+    }
+    await new Promise((r) => setTimeout(r, 30));
+    await afterEach();
+  }
+  ((document.activeElement as HTMLElement | null) ?? el).dispatchEvent(
+    new KeyboardEvent('keyup', key),
+  );
+  await new Promise((r) => setTimeout(r, 30));
+}

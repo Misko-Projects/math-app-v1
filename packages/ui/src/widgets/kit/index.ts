@@ -67,6 +67,7 @@ export {
   placeInviteHand,
   useInviteHand,
 } from './inviteHand';
+export { useOncePerKeyPress } from './keyPress';
 export {
   dicePattern,
   dotsLayout,

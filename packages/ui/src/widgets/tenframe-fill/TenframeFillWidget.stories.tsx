@@ -6,6 +6,7 @@ import {
   expectFill,
   expectNumeralsInside,
   expectOneInvite,
+  holdEnter,
   lookOf,
   settledAll,
   targetsOf,
@@ -928,29 +929,6 @@ export const MakeTenAreaTapOnlyK: Story = {
   },
 };
 
-/**
- * Enter held down on a button as a browser sends it: a keydown, then `repeats` keydowns with
- * `repeat: true`, then a keyup. A keydown nobody prevents also activates the button (its default
- * action: a click with `detail` 0), which a dispatched event doesn't do by itself.
- */
-async function holdEnter(el: HTMLElement, repeats: number, afterEach: () => Promise<void>) {
-  const key = { key: 'Enter', code: 'Enter', bubbles: true, cancelable: true, composed: true };
-  for (let i = 0; i <= repeats; i++) {
-    const target = (document.activeElement as HTMLElement | null) ?? el;
-    const down = new KeyboardEvent('keydown', { ...key, repeat: i > 0 });
-    target.dispatchEvent(down);
-    if (!down.defaultPrevented) {
-      target.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, detail: 0 }));
-    }
-    await new Promise((r) => setTimeout(r, 30));
-    await afterEach();
-  }
-  ((document.activeElement as HTMLElement | null) ?? el).dispatchEvent(
-    new KeyboardEvent('keyup', key),
-  );
-  await new Promise((r) => setTimeout(r, 30));
-}
-
 /** Presses `key` until `want` has the focus (at most `max` times). */
 async function pressUntilFocused(want: () => Element | null, key: string, max = 14) {
   for (let i = 0; i < max && document.activeElement !== want(); i++) {
@@ -1109,5 +1087,93 @@ export const DragAtScaleG1: Story = {
     await lift();
     await waitFor(() => expect(cellsOf(root, 1)).toEqual([0, 0, 0, 1, 0, 0, 0, 0, 0, 0]));
     await expect(cellsOf(root, 0).filter(Boolean)).toHaveLength(0);
+  },
+};
+
+/**
+ * PR #93 (successor review) F2: Enter held down on Next opens the answer step once. Next hands
+ * the focus to Back, and the held key's repeats land on Back: they do nothing until the key is
+ * released, so the steps never flip back and forth and one navigation event is recorded.
+ */
+export const HeldEnterOnNextK: Story = {
+  globals: { ageMode: 'k' },
+  render: inArea('landscapeMin'),
+  play: async ({ canvasElement, args }) => {
+    const root = await expectFits(canvasElement, 'k');
+    await expect(root.dataset.step).toBe('build');
+    const next = button(root, 'Next');
+    next.focus();
+    await holdEnter(next, 4, async () => {
+      await waitFor(() => expect(root.dataset.step).toBe('ask'));
+      await expect(document.activeElement).toBe(button(root, 'Go back'));
+    });
+    const nav = () =>
+      traceOf(args.onInteract)
+        .map((e) => e.target)
+        .filter((target) => target === 'next' || target === 'back');
+    await expect(nav()).toEqual(['next']);
+    // The key is up: the next press acts again.
+    await userEvent.keyboard('{Enter}');
+    await waitFor(() => expect(root.dataset.step).toBe('build'));
+    await expect(nav()).toEqual(['next', 'back']);
+  },
+};
+
+const pulsed = (root: HTMLElement) => [
+  ...root.querySelectorAll<HTMLElement>('[data-highlight="true"]'),
+];
+const framesOf = (els: HTMLElement[]) =>
+  els.map((el) => el.closest('[data-frame]')?.getAttribute('data-frame'));
+
+/** `show-addends` on 8 + 5 (both given): eight counters pulse, then the other five, then none. */
+async function expectAddendsInTurn(root: HTMLElement, demo: WidgetDemo) {
+  const done = demo.play({ op: 'show-addends' });
+  const opts = { timeout: 3000, interval: 20 };
+  await waitFor(() => expect(pulsed(root)).toHaveLength(8), opts);
+  await expect(framesOf(pulsed(root))).toEqual(Array(8).fill('0'));
+  await waitFor(() => expect(framesOf(pulsed(root))).toEqual(Array(5).fill('1')), opts);
+  await done;
+  await expect(pulsed(root)).toHaveLength(0);
+}
+
+const addendsController: WidgetDemo = createDemoController({ strict: true });
+
+/**
+ * PR #93 (successor review) F5: the authored make-ten example (ADD.08: 8 in frame 1, 5 in frame 2,
+ * nothing in a tray). `show-addends` pulses the 8, then the 5: not all 13 and then nothing.
+ */
+export const ShowAddendsBothGiven: Story = {
+  args: { config: makeTen85, demo: addendsController },
+  play: async ({ canvasElement }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    await expect(root.dataset.paged).not.toBe('true');
+    await expectAddendsInTurn(root, addendsController);
+  },
+};
+
+const addendsPagedController: WidgetDemo = createDemoController({ strict: true });
+
+/** The same at 960 × 600 in K, one frame in front: the second addend pulses in the small frame. */
+export const ShowAddendsBothGivenPagedK: Story = {
+  globals: { ageMode: 'k' },
+  args: { config: makeTen85, demo: addendsPagedController },
+  render: inArea('landscapeMin'),
+  play: async ({ canvasElement }) => {
+    const root = await expectFits(canvasElement, 'k');
+    await expect(root.dataset.paged).toBe('true');
+    await expect(frontFrame(root)).toBe('0');
+    await expectAddendsInTurn(root, addendsPagedController);
+    // The small frame's pulse is drawn (a ring round each of its five counters).
+    const done = addendsPagedController.play({ op: 'show-addends' });
+    const lit = await waitFor(
+      () => {
+        const el = miniOf(root).querySelector<HTMLElement>('[data-highlight="true"]');
+        if (!el) throw new Error('no pulse in the small frame yet');
+        return el;
+      },
+      { timeout: 3000, interval: 20 },
+    );
+    await expect(getComputedStyle(lit).boxShadow).not.toBe('none');
+    await done;
   },
 };

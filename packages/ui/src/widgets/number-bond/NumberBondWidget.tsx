@@ -20,6 +20,7 @@ import {
   useDemoPause,
   useFlight,
   useInviteHand,
+  useOncePerKeyPress,
   useSubmitGuard,
   useWidgetRoom,
 } from '../kit';
@@ -98,6 +99,7 @@ export function NumberBondWidget({
   const alive = useAlive();
   const pause = useDemoPause();
   const committed = useCommitBarrier();
+  const oncePerPress = useOncePerKeyPress();
   const rootRef = useRef<HTMLDivElement | null>(null);
   const { fly, layer } = useFlight(rootRef);
   const room = useWidgetRoom(rootRef);
@@ -281,7 +283,9 @@ export function NumberBondWidget({
 
   const refocus = useRef<string | null>(null);
   const goTo = (s: Step, via: string) => {
-    if (!interactive) return;
+    // One step per key press: a held Enter repeats onto the control that has the focus by then
+    // (Back, or the blank Back hands the focus to).
+    if (!interactive || !oncePerPress()) return;
     trace('tap', via);
     const focused = document.activeElement?.closest('[data-cue]');
     refocus.current = focused ? (s === 'ask' ? 'back' : (entrySlot ?? 'next')) : null;
@@ -466,8 +470,13 @@ export function NumberBondWidget({
           const id = where.reduce<number>((at, s, i) => (s === 'whole' ? i : at), -1);
           return id >= 0 ? { at: 'cue', cue: `counter:${id}` } : null;
         }
+        // Numerals: the first part that does not hold its number yet, then the other; Check only
+        // once both do (a wrong number in the second part is never waved through).
         const left = Number(invite.args?.left);
-        return Number.isFinite(left) ? valueCue('part-0', left) : null;
+        const right = Number(invite.args?.right);
+        if (!Number.isFinite(left)) return null;
+        if (values['part-0'] !== left || !Number.isFinite(right)) return valueCue('part-0', left);
+        return valueCue('part-1', right);
       }
       case 'fill': {
         const v = Number(invite.args?.value);

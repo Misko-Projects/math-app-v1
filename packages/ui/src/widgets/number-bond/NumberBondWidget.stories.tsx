@@ -5,6 +5,7 @@ import {
   expectFill,
   expectNumeralsInside,
   expectOneInvite,
+  holdEnter,
   lookOf,
   settledAll,
   targetsOf,
@@ -762,5 +763,90 @@ export const DragAtScaleConcreteG1: Story = {
     await lift();
     await waitFor(() => expect(inPool(root, 'whole')).toBe(1));
     await expect(inPool(root, 'part-1')).toBe(4);
+  },
+};
+
+/**
+ * PR #93 (successor review) F2: Enter held down on Back returns to the bond once. Back hands the
+ * focus to the blank (which opens the answer step again): the held key's repeats do nothing there
+ * until the key is released, so the steps never flip back and forth.
+ */
+export const HeldEnterOnBackG1: Story = {
+  args: { config: wholeFromParts55, tier: 'concrete' },
+  render: inArea('landscapeMin'),
+  play: async ({ canvasElement, args }) => {
+    const root = await expectFits(canvasElement, 'g1-up');
+    await expect(root.dataset.step).toBe('bond');
+    button(root, 'Whole:').focus();
+    await userEvent.keyboard('{Enter}');
+    await waitFor(() => expect(root.dataset.step).toBe('ask'));
+    const back = button(root, 'Go back');
+    await waitFor(() => expect(document.activeElement).toBe(back));
+    const before = traceOf(args.onInteract).length;
+    await holdEnter(back, 4, async () => {
+      await waitFor(() => expect(root.dataset.step).toBe('bond'));
+      // The blank has the focus now: the held key must not open the answer step again.
+      await expect(document.activeElement).toBe(button(root, 'Whole:'));
+    });
+    await expect(root.dataset.step).toBe('bond');
+    await expect(traceOf(args.onInteract)).toHaveLength(before + 1);
+    await expect(traceOf(args.onInteract).at(-1)?.target).toBe('back');
+  },
+};
+
+const splitInviteController: WidgetDemo = createDemoController({ strict: true });
+
+/** Follows the one invite to the numeral card it leads to (through a ringed blank, never Check). */
+async function followInviteToCard(root: HTMLElement) {
+  const ringed = await waitFor(() => {
+    const el = root.querySelector<HTMLElement>('.ni-invite');
+    expect(el).not.toBeNull();
+    return el as HTMLElement;
+  });
+  await expectOneInvite(root, ringed);
+  await expect(ringed.closest('[data-cue="check"]')).toBeNull();
+  if (!ringed.classList.contains('ni-pick')) await userEvent.click(ringed);
+  return waitFor(() => {
+    const el = root.querySelector<HTMLElement>('.ni-pick.ni-invite');
+    expect(el).not.toBeNull();
+    return el as HTMLElement;
+  });
+}
+
+/**
+ * PR #93 (successor review) F3: a `split-counters` invite on the numeral bond (5 as 2 and 3). It
+ * leads to 2 in the first part, then to 3 in the second, also when the second part holds a wrong
+ * number (2 and 2): the ring never goes to Check while the bond would be rejected.
+ */
+export const SplitInviteNumeralsK: Story = {
+  globals: { ageMode: 'k' },
+  args: { config: split5, demo: splitInviteController },
+  play: async ({ canvasElement, args }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    const invite = () =>
+      splitInviteController.invite({ op: 'split-counters', args: { left: 2, right: 3 } });
+    invite();
+    let card = await followInviteToCard(root);
+    await expect(card.dataset.id).toBe('opt-2');
+    await userEvent.click(card);
+    // [2, blank]: the same invite now leads to 3 in the second part (the host gives it again).
+    invite();
+    card = await followInviteToCard(root);
+    await expect(card.dataset.id).toBe('opt-3');
+    // [2, 2]: a wrong second part. The invite still leads to 3 there, not to Check.
+    await userEvent.click(button(root, '2'));
+    invite();
+    card = await followInviteToCard(root);
+    await expect(card.dataset.id).toBe('opt-3');
+    await userEvent.click(card);
+    // [2, 3]: now Check.
+    invite();
+    await waitFor(() =>
+      expect(
+        root.querySelector('[data-cue="check"] .ni-invite, [data-cue="check"].ni-invite'),
+      ).not.toBeNull(),
+    );
+    await userEvent.click(button(root, 'Check'));
+    await expect(args.onResponse).toHaveBeenCalledTimes(1);
   },
 };

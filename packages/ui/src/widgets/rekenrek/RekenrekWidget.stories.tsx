@@ -5,6 +5,7 @@ import {
   expectFill,
   expectNumeralsInside,
   expectOneInvite,
+  holdEnter,
   lookOf,
   settledAll,
   targetsOf,
@@ -664,5 +665,98 @@ export const DemoCancelsDrag: Story = {
     await expect(pushed(root, 0)).toBe(2);
     const trace = traceOf(args.onInteract).map((e) => `${e.t}:${e.target}`);
     await expect(trace).toEqual(['drag:bead-0-4', 'drag:bead-0-4']);
+  },
+};
+
+/**
+ * PR #93 (successor review) F1: Next pressed while a bead is held in a drag (a second finger, or
+ * the keyboard). The drag ends and the wire goes back before the answer step replaces the wires;
+ * the lost release changes nothing, and back on the rack a fresh tap moves a bead again.
+ */
+export const NextCancelsDrag: Story = {
+  args: { config: add79 },
+  render: inArea('landscapeMin'),
+  play: async ({ canvasElement, args }) => {
+    const root = await expectFits(canvasElement, 'g1-up');
+    await expect(root.dataset.step).toBe('rack');
+    const wire = row(root, 0);
+    const from = center(bead(root, 0, 4));
+    const init = (x: number, buttons: number): PointerEventInit => ({
+      bubbles: true,
+      cancelable: true,
+      composed: true,
+      pointerId: 51,
+      pointerType: 'touch',
+      isPrimary: true,
+      clientX: x,
+      clientY: from.y,
+      button: 0,
+      buttons,
+    });
+    wire.dispatchEvent(new PointerEvent('pointerdown', init(from.x, 1)));
+    for (let i = 1; i <= 6; i++) {
+      wire.dispatchEvent(new PointerEvent('pointermove', init(from.x - 30 * i, 1)));
+      await new Promise((r) => requestAnimationFrame(() => r(null)));
+    }
+    await waitFor(() => expect(pushed(root, 0)).toBe(5));
+    button(root, 'Next').focus();
+    await userEvent.keyboard('{Enter}');
+    await waitFor(() => expect(root.dataset.step).toBe('ask'));
+    // The finger lifts over wires that are no longer there.
+    wire.dispatchEvent(new PointerEvent('pointerup', init(from.x - 180, 0)));
+    await userEvent.click(button(root, 'Go back'));
+    await waitFor(() => expect(root.dataset.step).toBe('rack'));
+    await expect(pushed(root, 0)).toBe(0);
+    await expect(pushed(root, 1)).toBe(7);
+    await tapBeadAt(bead(root, 0, 2));
+    await waitFor(() => expect(pushed(root, 0)).toBe(3));
+    const trace = traceOf(args.onInteract).map((e) => `${e.t}:${e.target}`);
+    await expect(trace).toEqual(['drag:bead-0-4', 'tap:next', 'tap:back', 'tap:bead-0-2']);
+  },
+};
+
+/**
+ * PR #93 (successor review) F2: Enter held down on Next opens the answer step once; the repeats
+ * land on Back (which has the focus by then) and do nothing until the key is released.
+ */
+export const HeldEnterOnNext: Story = {
+  args: { config: add79 },
+  render: inArea('landscapeMin'),
+  play: async ({ canvasElement, args }) => {
+    const root = await expectFits(canvasElement, 'g1-up');
+    await expect(root.dataset.step).toBe('rack');
+    const next = button(root, 'Next');
+    next.focus();
+    await holdEnter(next, 4, async () => {
+      await waitFor(() => expect(root.dataset.step).toBe('ask'));
+      await expect(document.activeElement).toBe(button(root, 'Go back'));
+    });
+    const nav = () => traceOf(args.onInteract).map((e) => e.target);
+    await expect(nav()).toEqual(['next']);
+    await userEvent.keyboard('{Enter}');
+    await waitFor(() => expect(root.dataset.step).toBe('rack'));
+    await expect(nav()).toEqual(['next', 'back']);
+  },
+};
+
+const countFromAskController: WidgetDemo = createDemoController({ strict: true });
+
+/**
+ * PR #93 (successor review) F4: `count-total` started while the answer step is open goes to the
+ * rack to count, then comes back: when it resolves the answer step is shown with the total
+ * entered.
+ */
+export const CountTotalFromAnswerStep: Story = {
+  args: { config: add79, demo: countFromAskController },
+  render: inArea('landscapeMin'),
+  play: async ({ canvasElement }) => {
+    const root = await expectFits(canvasElement, 'g1-up');
+    await userEvent.click(button(root, 'Next'));
+    await waitFor(() => expect(root.dataset.step).toBe('ask'));
+    await countFromAskController.play({ op: 'count-total' });
+    await expect(root.dataset.step).toBe('ask');
+    const card = root.querySelector<HTMLElement>('.ni-pick[data-id="opt-7"]');
+    if (card) await expect(card).toHaveAttribute('aria-pressed', 'true');
+    else await expect(root.querySelector('.ni-entry__display')).toHaveTextContent('7');
   },
 };

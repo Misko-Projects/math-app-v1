@@ -19,6 +19,7 @@ No widget defines its own palette.
 | `arrange.ts` | Pure layout arithmetic for a picture plus items: `arrangedSize(row / side / stack / column / split, main, items, gap)`, `overflow`, `firstFit`, `numeralTraySize`, `trayColumnChoices`. Widgets compute each candidate layout's size from the measured room and keep the first that fits. |
 | `commit.ts` | `useCommitBarrier()`: `await committed()` at the end of a demo `play`, so it resolves only after React committed the op's last state change (#85). |
 | `flight.tsx` | `useFlight(rootRef)`: demo-mode flights. `fly(fromRect, toRect, node)` glides a copy inside the widget root and resolves when it lands (at once with reduced motion); render `layer` in the root. |
+| `keyPress.ts` | `useOncePerKeyPress()`: `take()` lets an action run once per Enter or Space press (always for pointer and touch). For controls that hand the focus to each other (a build step's Next and the answer step's Back), so a held key's repeats never flip the steps back and forth. |
 
 Each widget imports its own stylesheet next to its component (`./<format>.css`), so parallel
 widget PRs never edit one shared CSS file.

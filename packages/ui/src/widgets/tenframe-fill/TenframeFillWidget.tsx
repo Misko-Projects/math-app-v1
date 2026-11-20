@@ -28,6 +28,7 @@ import {
   useDemoPause,
   useFlight,
   useInviteHand,
+  useOncePerKeyPress,
   useSubmitGuard,
   useWidgetRoom,
 } from '../kit';
@@ -125,6 +126,7 @@ export function TenframeFillWidget({
   const alive = useAlive();
   const pause = useDemoPause();
   const committed = useCommitBarrier();
+  const oncePerPress = useOncePerKeyPress();
   const rootRef = useRef<HTMLDivElement | null>(null);
   const { fly, layer } = useFlight(rootRef);
   const room = useWidgetRoom(rootRef);
@@ -343,7 +345,8 @@ export function TenframeFillWidget({
 
   const refocus = useRef<'next' | 'back' | null>(null);
   const goTo = (s: Step) => {
-    if (!interactive) return;
+    // One step per key press: a held Enter repeats onto the button that has the focus by then.
+    if (!interactive || !oncePerPress()) return;
     trace('tap', s === 'ask' ? 'next' : 'back');
     // The invite stays: Next or Back is the step towards it (the cue then moves on).
     const focused = document.activeElement?.closest('[data-cue]');
@@ -640,10 +643,21 @@ export function TenframeFillWidget({
     cueKey,
   );
 
+  /**
+   * `show-addends` pulses the two addends in turn. Usually the first is what the frames start with
+   * and the second is the tray. Where both are given (make ten on two frames: 8 and 5, nothing in a
+   * tray), the first addend is the given counters in the first one's colour and the second is the
+   * rest.
+   */
+  const firstTone = colorOf(0);
+  const bothGiven = Array.from({ length: pre }, (_, id) => colorOf(id)).some(
+    (c) => c !== firstTone,
+  );
+  const inFirstAddend = (id: number) => id < pre && (!bothGiven || colorOf(id) === firstTone);
   const counterHighlighted = (id: number) =>
     highlight === counterId(id) ||
-    (highlight === 'group-a' && id < pre) ||
-    (highlight === 'group-b' && id >= pre);
+    (highlight === 'group-a' && inFirstAddend(id)) ||
+    (highlight === 'group-b' && !inFirstAddend(id));
 
   // ---------- render ----------
 
@@ -820,9 +834,17 @@ export function TenframeFillWidget({
       >
         {cells.map((c, i) => {
           const lit = highlight === 'empty-cells' && c === EMPTY ? 'true' : undefined;
+          const id = board.ids[frame]?.[i];
+          // An addend's pulse reaches its counters in the small frame too.
+          const pulsed = id !== null && id !== undefined && counterHighlighted(id);
           return (
-            // biome-ignore lint/suspicious/noArrayIndexKey: the small frame's cells are positional
-            <span key={i} className="ni-tf__mini-cell" data-lit={lit}>
+            <span
+              // biome-ignore lint/suspicious/noArrayIndexKey: the small frame's cells are positional
+              key={i}
+              className="ni-tf__mini-cell"
+              data-lit={lit}
+              data-highlight={pulsed ? 'true' : undefined}
+            >
               {c !== EMPTY ? <Counter color={c} /> : null}
             </span>
           );

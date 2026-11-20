@@ -25,6 +25,7 @@ import {
   useCommitBarrier,
   useDemoPause,
   useInviteHand,
+  useOncePerKeyPress,
   useSubmitGuard,
   useWidgetRoom,
 } from '../kit';
@@ -96,6 +97,7 @@ export function RekenrekWidget({
   const alive = useAlive();
   const pause = useDemoPause();
   const committed = useCommitBarrier();
+  const oncePerPress = useOncePerKeyPress();
   const rootRef = useRef<HTMLDivElement | null>(null);
   const room = useWidgetRoom(rootRef);
   // Beads glide only once the layout is measured (the first plan sizes them for an unbounded
@@ -126,7 +128,13 @@ export function RekenrekWidget({
     valueRef.current = v;
     setValueState(v);
   };
-  const [step, setStep] = useState<Step>('rack');
+  const [step, setStepState] = useState<Step>('rack');
+  /** The step as last set: a demo op changes it and reads it again before the next render. */
+  const stepRef = useRef<Step>(step);
+  const setStep = (s: Step) => {
+    stepRef.current = s;
+    setStepState(s);
+  };
   const [demoBusy, setDemoBusy] = useState(false);
   const [invite, setInvite] = useState<WidgetAction | null>(null);
   const [highlight, setHighlight] = useState<{ row: number; upTo: number } | null>(null);
@@ -307,7 +315,12 @@ export function RekenrekWidget({
 
   const refocus = useRef<string | null>(null);
   const goTo = (s: Step) => {
-    if (!interactive) return;
+    // One step per key press: a held Enter repeats onto the button that has the focus by then.
+    if (!interactive || !oncePerPress()) return;
+    // A bead held in a drag (another finger, or the keyboard, pressed Next): the drag ends and
+    // the wire goes back first. The wires are replaced by the answer step, so that press would
+    // never see its release, and Check must not read a drag's preview.
+    cancelPress();
     trace('tap', s === 'ask' ? 'next' : 'back');
     const focused = document.activeElement?.closest('[data-cue]');
     refocus.current = focused ? (s === 'ask' ? 'back' : 'next') : null;
@@ -327,7 +340,9 @@ export function RekenrekWidget({
   // ---------- demo mode (03 §6.3) ----------
 
   const toStep = async (s: Step) => {
-    if (steps && step !== s) {
+    // stepRef, not `step`: an op that goes to the rack and back (count-total started from the
+    // answer step) asks twice within one render's closure.
+    if (steps && stepRef.current !== s) {
       setStep(s);
       await committed();
     }
@@ -335,7 +350,8 @@ export function RekenrekWidget({
 
   const enterValue = async (v: number) => {
     if (asks) await toStep('ask');
-    const kind = shownStep === 'ask' || !steps ? entryLayout?.kind : plan.ask?.entry.kind;
+    // The answer control of the step just shown (not this render's: the step may have changed).
+    const kind = steps ? plan.ask?.entry.kind : plan.entry?.kind;
     if (kind === 'pad') {
       let typed = valueRef.current;
       for (let guard = 0; guard < 6; guard++) {
