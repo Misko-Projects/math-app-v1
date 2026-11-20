@@ -491,14 +491,14 @@ export function BundleBand({
 const BUNDLE_SPOTS: readonly [number, number][] = Array.from({ length: 10 }, (_, i) => {
   const col = i % 2;
   const row = Math.floor(i / 2);
-  return [4 + col * 48, row * 34] as [number, number];
+  return [4 + col * 48, row * 32] as [number, number];
 });
 
 /**
  * A tied ten as ONE bundle (one ten-frame at a time, make-set): ten objects of 40 px (the same
  * drawings as the loose ones) in two columns of five, the rope running down the 8 px gap between
  * the columns and tied in a small bow at the middle, so every object stays in view (the rope and
- * bow cover < 20 % of any object's box). 96 × 176; no cells, no outline: it never reads as a
+ * bow cover < 20 % of any object's box). 96 × 168; no cells, no outline: it never reads as a
  * frame. `tied={false}`: the same ten with no rope (a ten still to be bundled).
  */
 export function TenBundle({ sprite, tied = true }: { sprite: ReactNode; tied?: boolean }) {
@@ -518,13 +518,13 @@ export function TenBundle({ sprite, tied = true }: { sprite: ReactNode; tied?: b
 
 /** The bundle's rope (down the gap between its columns) and its bow, at the middle. */
 function BundleTie() {
-  const mid = 88;
+  const mid = 84;
   return (
     <svg
       className="ni-mset__bundle-tie"
-      viewBox="0 0 96 176"
+      viewBox="0 0 96 168"
       width="96"
-      height="176"
+      height="168"
       aria-hidden="true"
       focusable="false"
     >
@@ -533,7 +533,7 @@ function BundleTie() {
         x="45"
         y="-2"
         width="6"
-        height="180"
+        height="172"
         rx="3"
         fill="var(--color-sunshine)"
         stroke={INK}

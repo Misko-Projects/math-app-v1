@@ -129,9 +129,9 @@ const TENS_TAG = 2 + 34 + 2;
 const TENS_TAG_GAP = 2;
 /**
  * The tied ten drawn as ONE bundle (containers.tsx `TenBundle`): ten 40 px objects in two columns
- * of five, the rope down the gap between them and a bow at the middle. 96 × 176.
+ * of five (32 px apart), the rope down the gap between them and a bow at the middle. 96 × 168.
  */
-const BUNDLE_ART_H = 176;
+const BUNDLE_ART_H = 168;
 /** The tied ten: the bundle, its "10" tag, and a 10 px strip under the tag for Pip's fingertip. */
 const BUNDLE_H = BUNDLE_ART_H + TENS_TAG_GAP + TENS_TAG + 10;
 /**
@@ -1124,7 +1124,9 @@ export function MakeSetWidget({
           .join(' ')}
         data-tens={beside}
         data-counting={tensCounting ? 'true' : undefined}
-        aria-label={String(bundleFirst ? 10 : onesShown)}
+        // Named by the number it shows: the tied ten's tag, the ones it holds, or (while the
+        // count-aloud mark is on it) the running count on that mark, so name and text agree.
+        aria-label={String(bundleFirst ? 10 : onesCounting !== null ? onesCounting + 1 : onesShown)}
         disabled={!interactive}
         onClick={toggleTen}
         style={{
