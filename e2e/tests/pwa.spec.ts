@@ -177,17 +177,59 @@ test.describe('PWA', () => {
 
     // An /api navigation (address bar) is never answered with the app shell: offline it fails.
     // (In its own tab: the failed load leaves that tab on the browser's error page.)
-    const apiTab = await context.newPage();
-    const apiNav = await apiTab.goto('/api/health').then(
-      (r) => `answered ${r?.status()} ${r?.fromServiceWorker() ? 'from the service worker' : ''}`,
-      () => 'network error',
-    );
-    expect(apiNav).toBe('network error');
-    await apiTab.close();
+    // The same for the bare namespace with a query string.
+    for (const address of ['/api/health', '/api?probe=1', '/api']) {
+      const apiTab = await context.newPage();
+      const apiNav = await apiTab.goto(address).then(
+        (r) => `answered ${r?.status()} ${r?.fromServiceWorker() ? 'from the service worker' : ''}`,
+        () => 'network error',
+      );
+      expect(apiNav, address).toBe('network error');
+      await apiTab.close();
+    }
+
+    // The engine's item core (02 §6a) is in the precache: the app boots offline with it. Its
+    // file is the one that carries the item-core marker.
+    const itemCore = await page.evaluate(async (mark) => {
+      const found: string[] = [];
+      for (const name of await caches.keys()) {
+        const cache = await caches.open(name);
+        for (const req of await cache.keys()) {
+          const { pathname } = new URL(req.url);
+          if (!/^\/assets\/[^/]+\.js$/.test(pathname)) continue;
+          const body = await (await cache.match(req))?.text();
+          if (body?.includes(mark)) found.push(pathname);
+        }
+      }
+      return found;
+    }, 'number-island:item-core/generators');
+    expect(itemCore).toHaveLength(1);
 
     // A deep link starts offline too: the service worker answers with the app shell.
     const deep = await page.goto('/play');
     expect(deep?.fromServiceWorker()).toBe(true);
     await expect(heading(page)).toBeVisible();
+
+    // A page that loads on demand, never opened online, opens offline in a new tab: its own
+    // file comes from the service worker too.
+    const joinTab = await context.newPage();
+    const scripts: { path: string; status: number; fromServiceWorker: boolean }[] = [];
+    joinTab.on('response', (r) => {
+      const { pathname } = new URL(r.url());
+      if (/^\/assets\/JoinPage-[^/]+\.js$/.test(pathname)) {
+        scripts.push({
+          path: pathname,
+          status: r.status(),
+          fromServiceWorker: r.fromServiceWorker(),
+        });
+      }
+    });
+    const join = await joinTab.goto('/join');
+    expect(join?.fromServiceWorker()).toBe(true);
+    await expect(
+      joinTab.getByRole('heading', { level: 1, name: 'Join your family’s island' }),
+    ).toBeVisible();
+    expect(scripts).toEqual([expect.objectContaining({ status: 200, fromServiceWorker: true })]);
+    await joinTab.close();
   });
 });

@@ -22,9 +22,10 @@ declare const self: ServiceWorkerGlobalScope & {
 cleanupOutdatedCaches();
 precacheAndRoute(self.__WB_MANIFEST);
 
-// SPA deep links: the app shell answers every navigation except the API.
+// SPA deep links: the app shell answers every navigation except the API. Workbox tests the
+// denylist against the path followed by the query string, so `/api?x=1` has to be named too.
 registerRoute(
-  new NavigationRoute(createHandlerBoundToURL('index.html'), { denylist: [/^\/api(\/|$)/] }),
+  new NavigationRoute(createHandlerBoundToURL('index.html'), { denylist: [/^\/api(\/|\?|$)/] }),
 );
 
 // Update flow (06 §8: "a new service worker activates on the next app launch, never

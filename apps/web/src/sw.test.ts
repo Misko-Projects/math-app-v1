@@ -53,10 +53,15 @@ describe('service worker (02 §1, 06 §8)', () => {
     };
     expect(route.handler).toEqual({ shell: 'index.html' });
     const denied = (path: string) => (route.options.denylist ?? []).some((re) => re.test(path));
+    // Workbox passes the path followed by the query string.
     expect(denied('/api')).toBe(true);
     expect(denied('/api/sync')).toBe(true);
+    expect(denied('/api?probe=1')).toBe(true);
+    expect(denied('/api/sync?since=3')).toBe(true);
     expect(denied('/play')).toBe(false);
+    expect(denied('/play?api=1')).toBe(false);
     expect(denied('/apiary')).toBe(false);
+    expect(denied('/apiary?x=1')).toBe(false);
   });
 
   it('never skips waiting: no message handler, so an update activates only on the next launch', async () => {
