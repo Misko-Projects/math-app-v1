@@ -614,6 +614,14 @@
   flex-direction: row;
 }
 /*
+ * The entered number keeps one width (its widest state: empty slots and the caret), the width the
+ * layouts plan with (NumberEntry `displaySize`), so typing a digit never moves the keys and the
+ * entry never outgrows its plan.
+ */
+.ni-entry .ni-entry__display {
+  min-width: max(calc(var(--target-min) * 1.6), calc(var(--entry-display-em, 0.81) * 1em + 62px));
+}
+/*
  * A demo invite on a numeral card or a pad key: the ring sits inside the control's own box (as
  * make-set's objects), so it keeps the full 12 px gap from its neighbours; Pip's hand moves.
  */

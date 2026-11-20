@@ -21,6 +21,7 @@ import {
 import {
   areaBox,
   expectFitsArea,
+  expectHandClearOfOthers,
   expectTraceOrdered,
   findWidget,
   inArea,
@@ -397,6 +398,63 @@ export const DemoInviteK: Story = {
     });
     await expect(card.dataset.id).toBe('opt-12');
     await expectOneInvite(root, card);
+  },
+};
+
+const areaSlideController: WidgetDemo = createDemoController({ strict: true });
+
+/**
+ * The `slide` invite in the tablet widget area (1226 × 493), K: one ring on the wire to move, and
+ * Pip's hand covers no bead of the other wire, no key and no numeral.
+ */
+export const AreaTabletInviteSlideK: Story = {
+  globals: { ageMode: 'k' },
+  args: { config: add75, demo: areaSlideController },
+  render: inArea('tablet'),
+  play: async ({ canvasElement }) => {
+    const root = await expectFits(canvasElement, 'k');
+    areaSlideController.invite({ op: 'slide', args: { row: 1, count: -2 } });
+    await waitFor(() => expect(row(root, 1).classList.contains('ni-invite')).toBe(true));
+    await expectOneInvite(root, row(root, 1));
+    await waitFor(() => expect(root.querySelector('.ni-hand svg')).not.toBeNull());
+    await expectHandClearOfOthers(root, row(root, 1));
+  },
+};
+
+const areaInviteController: WidgetDemo = createDemoController({ strict: true });
+
+/**
+ * The `answer` invite at 960 × 600 (906 × 373), K, 14 shown on the rack: the answer step's tray,
+ * one ring on the numeral card, and Pip's hand covers no other card and no numeral. (The invited
+ * card has free room below it. A card or key with a row of others under it has none: a kit
+ * matter, listed as a follow-up.)
+ */
+export const AreaLandscapeMinInviteTeenK: Story = {
+  globals: { ageMode: 'k' },
+  args: { config: teen14, demo: areaInviteController },
+  render: inArea('landscapeMin'),
+  play: async ({ canvasElement }) => {
+    const root = await expectFits(canvasElement, 'k');
+    areaInviteController.invite({ op: 'answer', args: { value: 14 } });
+    const ringed = await waitFor(() => {
+      const el = root.querySelector<HTMLElement>('.ni-invite');
+      expect(el).not.toBeNull();
+      return el as HTMLElement;
+    });
+    if (root.dataset.step === 'rack') {
+      await expectOneInvite(root, ringed);
+      await userEvent.click(ringed);
+    }
+    const card = await waitFor(() => {
+      const el = root.querySelector<HTMLElement>('.ni-pick.ni-invite');
+      expect(el).not.toBeNull();
+      return el as HTMLElement;
+    });
+    await expect(card.dataset.id).toBe('opt-14');
+    await expectOneInvite(root, card);
+    await waitFor(() => expect(root.querySelector('.ni-hand svg')).not.toBeNull());
+    await expectHandClearOfOthers(root, card);
+    await expectFits(canvasElement, 'k');
   },
 };
 

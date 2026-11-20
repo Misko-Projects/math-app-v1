@@ -22,6 +22,7 @@ import {
 import {
   areaBox,
   expectFitsArea,
+  expectHandClearOfOthers,
   expectTraceOrdered,
   findWidget,
   inArea,
@@ -407,6 +408,22 @@ export const DemoInviteK: Story = {
   },
 };
 
+/**
+ * The same invite in the tablet widget area (1226 × 493), where the bond is drawn to the room: one
+ * ring on the numeral card, Pip's hand clear of the other cards, and the bond centred.
+ */
+export const AreaTabletInviteK: Story = {
+  ...DemoInviteK,
+  render: inArea('tablet'),
+  play: async (context) => {
+    await DemoInviteK.play?.(context);
+    const root = await findWidget(context.canvasElement, ROOT);
+    const card = root.querySelector('.ni-pick.ni-invite') as HTMLElement;
+    await waitFor(() => expect(root.querySelector('.ni-hand svg')).not.toBeNull());
+    await expectHandClearOfOthers(root, card);
+  },
+};
+
 const concreteController: WidgetDemo = createDemoController({ strict: true });
 
 /** Demo mode (concrete): `split-counters` slides counters out of the whole into the parts. */
@@ -558,6 +575,11 @@ export const AreaTabletConcreteG1: Story = {
   render: inArea('tablet'),
   play: async ({ canvasElement }) => {
     const root = await expectFits(canvasElement, 'g1-up');
+    // The build step shows the bond alone (no tray, no button yet): it sits in the middle of the
+    // area, with no gap kept for the empty column beside it.
+    const r = root.getBoundingClientRect();
+    const m = (root.querySelector('.ni-bondw__main') as HTMLElement).getBoundingClientRect();
+    await expect(Math.abs(m.left - r.left - (r.right - m.right)), 'bond centred').toBeLessThan(1);
     await throughSteps(root, 'g1-up', canvasElement);
   },
 };

@@ -37,10 +37,25 @@ const digitsOf = (max: number) => String(Math.max(0, Math.floor(max))).length;
 /** Space between the entered number and the keys (`.ni-entry[data-kind="pad"]` gap, kit.css). */
 const PAD_GAP = 16;
 
-/** The large entered number's box (NumberDisplay `lg`: Baloo 2 at 72 px, ≥ --target-big tall). */
+/** NumberDisplay `lg`: Baloo 2 at 72 px (--text-numeral-lg). */
+const DISPLAY_FONT_PX = 72;
+/**
+ * The display's width in em for `digits`, less its padding and border: its widest state, the empty
+ * slots (0.55 em + 2 × 0.06 em each) and the caret (0.08 em + 0.06 em). primitives.css
+ * `.ni-number__slot`, `.ni-number__caret`; kit.css `.ni-entry__display` holds that width in every
+ * state, so typing never moves the keys.
+ */
+const displayEm = (digits: number) => digits * 0.67 + 0.14;
+/** `.ni-number`: 2 × 28 px padding and a 3 px border each side. */
+const DISPLAY_CHROME_PX = 62;
+
+/** The large entered number's box (NumberDisplay `lg`, ≥ --target-big tall). */
 function displaySize(max: number, ageMode: AgeMode): Size {
   const t = TARGET_PX[ageMode];
-  return { w: Math.max(t.min * 1.6, digitsOf(max) * 42 + 62), h: Math.max(t.big, 92) };
+  return {
+    w: Math.max(t.min * 1.6, displayEm(digitsOf(max)) * DISPLAY_FONT_PX + DISPLAY_CHROME_PX),
+    h: Math.max(t.big, 92),
+  };
 }
 
 /**
@@ -207,6 +222,7 @@ export function NumberEntry({
       data-kind="pad"
       data-pad={padLayout}
       data-compact={compact ? 'true' : undefined}
+      style={{ '--entry-display-em': displayEm(digits) } as CSSProperties}
     >
       <NumberDisplay
         value={value}

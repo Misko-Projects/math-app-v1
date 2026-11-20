@@ -840,6 +840,13 @@ export function NumberBondWidget({
     </div>
   );
 
+  /**
+   * The concrete build step of an item that asks for a number shows the bond alone: no ways found,
+   * no numeral entry, no button yet. The column beside the bond is then left out of the layout, so
+   * no gap is kept for it and the bond stays centred.
+   */
+  const besideEmpty = steps && shownStep === 'bond' && concrete && asks && foundBlock === null;
+
   /** The concrete bond (counters are dragged there) is drawn at real lengths, not CSS `zoom`. */
   const pools = shownStep !== 'ask' && concrete;
   const main =
@@ -874,7 +881,7 @@ export function NumberBondWidget({
           {main}
         </div>
       ) : null}
-      <div className="ni-bondw__items">
+      <div className="ni-bondw__items" data-empty={besideEmpty ? 'true' : undefined}>
         {foundBlock}
         {shownStep === 'ask' || !steps ? entryBlock : null}
         {actions}

@@ -45,6 +45,16 @@
   justify-content: center;
   gap: var(--bond-gap);
 }
+/* Nothing beside the bond (a concrete step with no tray and no button yet): the empty column takes
+ * back the flex gap kept for it, so the bond stays centred in the area. */
+.ni-bondw__items[data-empty] {
+  margin-inline-start: calc(-1 * var(--bond-gap));
+}
+.ni-bondw[data-layout="stack"] .ni-bondw__items[data-empty],
+.ni-bondw[data-layout="column"] .ni-bondw__items[data-empty] {
+  margin-block-start: calc(-1 * var(--bond-gap));
+  margin-inline-start: 0;
+}
 .ni-bondw[data-layout="side"] .ni-bondw__items,
 .ni-bondw[data-layout="column"] .ni-bondw__items {
   flex-direction: column;
