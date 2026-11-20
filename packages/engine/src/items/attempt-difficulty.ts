@@ -2,11 +2,14 @@
 // seed but not its difficulty, so the learner rebuilds the generator's features from the params
 // (features never depend on layout randomness) and applies the template's weights. A template
 // whose generator is unknown, or whose params no longer build, falls back to its base.
+//
+// Item core: this runs generators, so the learner model reaches it through the `item-core.ts`
+// port and never imports it (02 §6a, #95).
 
 import type { ItemTemplate } from '@number-island/shared';
 import { registry } from '../generators';
-import { difficulty } from '../items/difficulty';
 import { createRng } from '../rng';
+import { difficulty } from './difficulty';
 
 export function attemptDifficulty(
   t: ItemTemplate,
