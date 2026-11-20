@@ -445,12 +445,16 @@ export function NumberBondWidget({
     const valueCue = (slot: Slot, v: number): Cue | null => {
       if (!entrySlots.includes(slot)) return null;
       if (values[slot] === v) {
-        return complete ? { at: 'cue', cue: 'check' } : null;
+        if (!complete) return null;
+        // Check is on the answer step: from the bond step (two steps) the way there is Next.
+        return { at: 'cue', cue: steps && shownStep === 'bond' ? 'next' : 'check' };
       }
       if (shownStep === 'bond' && (steps || entrySlot !== slot)) {
         return { at: 'cue', cue: `slot:${slot}` };
       }
-      if (entrySlot !== slot) return null;
+      // The answer step with another blank active: its small bond is a picture, so the way to
+      // this blank is back to the bond.
+      if (entrySlot !== slot) return steps ? { at: 'cue', cue: 'back' } : null;
       if (entryLayout?.kind === 'pad') {
         const key = nextPadKey(v, values[slot] ?? null);
         return key ? { at: 'key', key } : null;

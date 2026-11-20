@@ -896,3 +896,66 @@ export const SplitInviteNumeralsK: Story = {
     await expect(args.onResponse).toHaveBeenCalledTimes(1);
   },
 };
+
+const twoStepSplitController: WidgetDemo = createDemoController({ strict: true });
+
+/**
+ * PR #93 (successor review, round 2) F2: the `split-counters` invite in the two-step layout (16 as
+ * 9 and 7 at 960 × 600). With 7 in the first part and the second blank active on the answer step,
+ * the cue leads through Go back to the first blank; with both parts right and the bond step in
+ * view, it leads through Next to Check. There is always one ring.
+ */
+export const SplitInviteTwoStepsG1: Story = {
+  args: { config: newWay16, demo: twoStepSplitController },
+  render: inArea('landscapeMin'),
+  play: async ({ canvasElement, args }) => {
+    const root = await expectFits(canvasElement, 'g1-up');
+    await expect(root.dataset.step).toBe('bond');
+    const invite = () =>
+      twoStepSplitController.invite({ op: 'split-counters', args: { left: 9, right: 7 } });
+    /** The one ringed element, which must be inside the control named by `cue`. */
+    const ringIn = (cue: string) =>
+      waitFor(async () => {
+        const el = root.querySelector<HTMLElement>('.ni-invite');
+        expect(el).not.toBeNull();
+        expect((el as HTMLElement).closest('[data-cue]')?.getAttribute('data-cue')).toBe(cue);
+        return el as HTMLElement;
+      });
+    const ringedCard = (v: number) =>
+      waitFor(() => {
+        const el = root.querySelector<HTMLElement>('.ni-pick.ni-invite');
+        expect(el?.dataset.id).toBe(`opt-${v}`);
+        return el as HTMLElement;
+      });
+
+    await userEvent.click(button(root, 'Next'));
+    await waitFor(() => expect(root.dataset.step).toBe('ask'));
+    await expect(root.querySelector('.ni-entry')).toHaveAttribute('data-kind', 'tray');
+    // 7 in the first part (the invite wants 9 there): the second blank becomes the active one.
+    await userEvent.click(button(root, '7'));
+    invite();
+    let ring = await ringIn('back');
+    await expectOneInvite(root, ring);
+    await userEvent.click(button(root, 'Go back'));
+    await waitFor(() => expect(root.dataset.step).toBe('bond'));
+    ring = await ringIn('slot:part-0');
+    await expectOneInvite(root, ring);
+    await userEvent.click(ring);
+    await waitFor(() => expect(root.dataset.step).toBe('ask'));
+    await userEvent.click(await ringedCard(9));
+    invite();
+    await userEvent.click(await ringedCard(7));
+    // Both parts right. On the answer step the cue is Check; from the bond step it is Next.
+    invite();
+    await ringIn('check');
+    await userEvent.click(button(root, 'Go back'));
+    await waitFor(() => expect(root.dataset.step).toBe('bond'));
+    ring = await ringIn('next');
+    await expectOneInvite(root, ring);
+    await userEvent.click(button(root, 'Next'));
+    await waitFor(() => expect(root.dataset.step).toBe('ask'));
+    await ringIn('check');
+    await userEvent.click(button(root, 'Check'));
+    await expect(args.onResponse).toHaveBeenCalledTimes(1);
+  },
+};

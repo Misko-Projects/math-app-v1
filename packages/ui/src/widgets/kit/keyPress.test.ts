@@ -5,6 +5,8 @@ describe('createKeyPressGate (one action per key press)', () => {
   it('lets every action through while no key is down (pointer, touch)', () => {
     const g = createKeyPressGate();
     expect(g.take()).toBe(true);
+    g.pointerDown();
+    expect(g.take()).toBe(true);
     expect(g.take()).toBe(true);
   });
 
@@ -21,6 +23,34 @@ describe('createKeyPressGate (one action per key press)', () => {
       g.keyDown(key);
       expect(g.take()).toBe(true);
     }
+  });
+
+  it('a pointer press acts while a key is held, and the key stays used afterwards', () => {
+    const g = createKeyPressGate();
+    g.keyDown('Enter');
+    expect(g.take()).toBe(true);
+    // A click or a tap on the other button while Enter is still down.
+    g.pointerDown();
+    expect(g.take()).toBe(true);
+    // Enter repeats again: still the same press.
+    g.keyDown('Enter');
+    expect(g.take()).toBe(false);
+  });
+
+  it('keeps Enter and Space apart: releasing one does not free the other', () => {
+    const g = createKeyPressGate();
+    g.keyDown('Enter');
+    expect(g.take()).toBe(true);
+    // Space goes down and up while Enter is held. Its own press may act once (on release).
+    g.keyDown(' ');
+    g.keyUp(' ');
+    expect(g.take()).toBe(true);
+    // Enter's repeats are still the press that already acted.
+    g.keyDown('Enter');
+    expect(g.take()).toBe(false);
+    g.keyUp('Enter');
+    g.keyDown('Enter');
+    expect(g.take()).toBe(true);
   });
 
   it('ignores other keys and recovers when the page loses the focus', () => {

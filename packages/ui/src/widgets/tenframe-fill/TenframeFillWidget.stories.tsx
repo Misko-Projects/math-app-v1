@@ -1246,3 +1246,64 @@ export const ShowAddendsBothGivenPagedK: Story = {
     await done;
   },
 };
+
+/**
+ * PR #93 (successor review, round 2) F1: the once-per-press rule is about one key. With Enter still
+ * down after opening the answer step, a mouse click on Go back acts (a pointer press is its own
+ * action), and Space pressed and released meanwhile does not free Enter: its repeats still do
+ * nothing.
+ */
+export const HeldEnterMixedInputK: Story = {
+  globals: { ageMode: 'k' },
+  render: inArea('landscapeMin'),
+  play: async ({ canvasElement, args }) => {
+    const root = await expectFits(canvasElement, 'k');
+    const key = (type: string, k: string, repeat = false) =>
+      new KeyboardEvent(type, {
+        key: k,
+        code: k === ' ' ? 'Space' : k,
+        bubbles: true,
+        cancelable: true,
+        composed: true,
+        repeat,
+      });
+    /** An Enter keydown on `el`, with the click a browser adds when nothing prevents it. */
+    const enterDown = (el: HTMLElement, repeat = false) => {
+      const down = key('keydown', 'Enter', repeat);
+      el.dispatchEvent(down);
+      if (!down.defaultPrevented) {
+        el.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, detail: 0 }));
+      }
+    };
+    const tick = () => new Promise((r) => setTimeout(r, 30));
+    const nav = () =>
+      traceOf(args.onInteract)
+        .map((e) => e.target)
+        .filter((target) => target === 'next' || target === 'back');
+
+    button(root, 'Next').focus();
+    enterDown(button(root, 'Next'));
+    await waitFor(() => expect(root.dataset.step).toBe('ask'));
+    // Enter is still down: a click on Go back is the pointer's own action.
+    await userEvent.click(button(root, 'Go back'));
+    await waitFor(() => expect(root.dataset.step).toBe('build'));
+    await expect(nav()).toEqual(['next', 'back']);
+    // Enter keeps repeating (on Next, which has the focus again): still the press that acted.
+    enterDown(document.activeElement as HTMLElement, true);
+    await tick();
+    await expect(root.dataset.step).toBe('build');
+    (document.activeElement as HTMLElement).dispatchEvent(key('keyup', 'Enter'));
+
+    // A new Enter press opens the answer step; Space goes down and up while Enter is held.
+    button(root, 'Next').focus();
+    enterDown(button(root, 'Next'));
+    await waitFor(() => expect(root.dataset.step).toBe('ask'));
+    document.body.dispatchEvent(key('keydown', ' '));
+    document.body.dispatchEvent(key('keyup', ' '));
+    enterDown(button(root, 'Go back'), true);
+    await tick();
+    await expect(root.dataset.step).toBe('ask');
+    await expect(nav()).toEqual(['next', 'back', 'next']);
+    button(root, 'Go back').dispatchEvent(key('keyup', 'Enter'));
+  },
+};
