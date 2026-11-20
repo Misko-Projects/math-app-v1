@@ -51,7 +51,7 @@ export function BootFailure({ error, onRetry }: { error: Error; onRetry: () => v
         </div>
         <details className="mt-6 text-base text-ink-soft">
           <summary className="cursor-pointer font-bold">Details for grown-ups</summary>
-          <p className="mt-2 break-words font-mono text-sm">{error.message}</p>
+          <p className="mt-2 font-mono text-sm [overflow-wrap:anywhere]">{error.message}</p>
         </details>
       </Panel>
     </main>

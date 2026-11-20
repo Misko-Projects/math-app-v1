@@ -47,8 +47,95 @@ test.describe('parent gate', () => {
     await expect(page.getByRole('heading', { name: 'Grown-ups only' })).toBeVisible();
   });
 
+  test('a page whose file cannot load shows a calm error screen with safe ways out', async ({
+    page,
+  }) => {
+    // No pairing needed (the API limits pairing tries): the page's file fails before any gate.
+    // The parent pages' file never arrives (as if the device went offline before fetching it).
+    await page.route(/\/assets\/area-[^/]*\.js$/, (route) => route.abort('internetdisconnected'));
+    await page.goto('/parent/diagnostics');
+    const screen = page.getByTestId('route-error');
+    await expect(screen).toBeVisible();
+    await expect(
+      screen.getByRole('heading', { name: 'This part of the island didn’t open' }),
+    ).toBeVisible();
+    await expect(screen.getByRole('button', { name: 'Try again' })).toBeVisible();
+    // Back to the island stays in the running app: no new page load, so it works offline too.
+    const documents: string[] = [];
+    await page.route('**/*', (route) => {
+      if (route.request().resourceType() !== 'document') return route.fallback();
+      documents.push(route.request().url());
+      return route.abort('internetdisconnected');
+    });
+    await screen.getByRole('button', { name: 'Back to the island' }).click();
+    await expect(page.getByTestId('route-error')).toHaveCount(0);
+    // This device never set up a family, so home is the first-run welcome.
+    await expect(page).toHaveURL(/\/welcome$/);
+    expect(documents).toEqual([]);
+  });
+
+  test('on a first-run device whose welcome file cannot load, the error screen offers Try again alone, and it works', async ({
+    page,
+  }) => {
+    // No pairing needed. Home sends this device to the welcome screen, so Back to the island
+    // would only lead back to the same error: the screen doesn't offer it.
+    const chunk = /\/assets\/WelcomePage-[^/]*\.js$/;
+    await page.route(chunk, (route) => route.abort('internetdisconnected'));
+    await page.goto('/');
+    const screen = page.getByTestId('route-error');
+    await expect(screen).toBeVisible();
+    await expect(page).toHaveURL(/\/welcome$/);
+    await expect(screen.getByRole('button', { name: 'Try again' })).toBeVisible();
+    await expect(screen.getByRole('button')).toHaveCount(1);
+    await expect(screen.getByRole('button', { name: 'Back to the island' })).toHaveCount(0);
+    // The same however the address is written: the router decides which page was asked for.
+    for (const address of ['/WELCOME', '/%77elcome', '/welcome//']) {
+      await page.goto(address);
+      await expect(screen).toBeVisible();
+      await expect(screen.getByRole('button')).toHaveCount(1);
+      await expect(screen.getByRole('button', { name: 'Try again' })).toBeVisible();
+    }
+    await page.goto('/');
+    await expect(screen).toBeVisible();
+    // The connection comes back: Try again opens the welcome screen.
+    await page.unroute(chunk);
+    await screen.getByRole('button', { name: 'Try again' }).click();
+    await expect(page.getByTestId('route-error')).toHaveCount(0);
+    await expect(page).toHaveURL(/\/welcome$/);
+    await expect(page.getByRole('heading').first()).toBeVisible();
+  });
+
+  test('a parent file that failed while the app warmed up loads on the first visit once the connection is back', async ({
+    page,
+  }) => {
+    // No pairing needed. The idle warm-up's fetch of the parent pages' file fails (a dropped
+    // connection), then requests work again before anyone opens the parent area.
+    const chunk = /\/assets\/area-[^/]*\.js$/;
+    await page.route(chunk, (route) => route.abort('internetdisconnected'));
+    const failed = page.waitForEvent('requestfailed', {
+      predicate: (request) => chunk.test(request.url()),
+      timeout: 15_000,
+    });
+    await page.goto('/welcome');
+    await failed;
+    await page.unroute(chunk);
+    // The first visit, inside the same document (no reload): the browser fetches the file again.
+    const loaded = page.waitForResponse((r) => chunk.test(r.url()) && r.ok(), { timeout: 10_000 });
+    await page.evaluate(() => {
+      const state = history.state as { idx?: number } | null;
+      history.pushState({ ...state, idx: (state?.idx ?? 0) + 1 }, '', '/parent');
+      window.dispatchEvent(new PopStateEvent('popstate', { state: history.state }));
+    });
+    await loaded;
+    // The page itself renders (a file that arrived but then failed to run would not get here).
+    await expect(page.getByRole('heading', { name: 'Grown-ups only' })).toBeVisible();
+    await expect(page).toHaveURL(/\/parent$/);
+    await expect(page.getByTestId('route-error')).toHaveCount(0);
+  });
+
   test('is entered from the corner of the child home, and closes when the device signs out', async ({
     page,
+    context,
   }) => {
     await pairThisContext(page, 'Corner test device');
     await page.goto('/');
@@ -66,6 +153,23 @@ test.describe('parent gate', () => {
     for (const d of E2E_FAMILY.pin)
       await page.getByRole('button', { name: d, exact: true }).click();
     await page.getByRole('button', { name: 'Unlock' }).click();
+    await expect(page.getByRole('heading', { name: 'Parent area' })).toBeVisible();
+
+    // Diagnostics still opens when the connection drops right after the parent area opened: the
+    // parent pages are one on-demand file, so it came with the parent home (no own file to fetch).
+    await context.setOffline(true);
+    try {
+      await page.getByRole('link', { name: 'diagnostics page' }).click();
+      await expect(page.getByRole('heading', { name: 'Diagnostics' })).toBeVisible();
+      await expect(page.getByTestId('route-error')).toHaveCount(0);
+      const ownFile = await page.evaluate(() =>
+        performance.getEntriesByType('resource').some((e) => /\/DiagnosticsPage-/.test(e.name)),
+      );
+      expect(ownFile).toBe(false);
+    } finally {
+      await context.setOffline(false);
+    }
+    await page.goBack();
     await expect(page.getByRole('heading', { name: 'Parent area' })).toBeVisible();
 
     // Back to the island locks the area: the browser's Back shows the gate, not the parent page.
