@@ -469,9 +469,11 @@ export function OrderWidget({
     (it.stimulus ? t('ui.order.picture', { n: config.items.indexOf(it) + 1 }) : String(it.value));
   const speakItem = (it: Item) => {
     if (!speakOnTap) return;
-    // Numerals speak their name (06 §5). A card of objects names its thing ("apple"), never how
-    // many or how much: a picture's quantity is the child's to find.
-    if (isNumeral(it.label) || (!it.label && !it.stimulus)) sayNumber(it.value);
+    // Numerals speak their name (06 §5): the numeral the card shows, which need not be the value
+    // it sorts by (FRA.08.t4 shows a part count and sorts by piece size). A card of objects names
+    // its thing ("apple"), never how many or how much: a picture's quantity is the child's to find.
+    if (it.label !== undefined && isNumeral(it.label)) sayNumber(Number(it.label));
+    else if (!it.label && !it.stimulus) sayNumber(it.value);
     else if (it.stimulus?.kind === 'objects') say(spriteNameKey(it.stimulus.set.sprite));
   };
 

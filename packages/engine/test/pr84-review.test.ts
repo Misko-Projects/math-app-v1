@@ -1,6 +1,8 @@
 // Regression tests for the cross-model review of PR #84 (K01 part 7: fractions, time, data,
 // patterns and puzzles), one block per finding, over the compiled catalog, plus the class sweep.
 
+import { readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
 import type {
   GeneratedItem,
   ItemTemplate,
@@ -65,38 +67,43 @@ const key = (item: GeneratedItem): string => {
   return item.answer.id;
 };
 
-// ---------- what the UI draws today (copied; keep in step with the files named) ----------
+// ---------- what the UI draws today ----------
 
 /**
- * The stimulus kinds packages/ui/src/widgets/kit/StimulusView.tsx has a `case` for. Any other kind
- * draws a neutral placeholder card.
+ * The stimulus kinds packages/ui/src/widgets/kit/StimulusView.tsx has a `case` for, read from that
+ * file (as text: the engine never imports the UI). Any other kind draws a neutral placeholder
+ * card. Reading the file keeps this in step with the kit: when a widget issue adds a kind, the
+ * pinned list below goes stale and its test fails until the entry is removed.
  */
-const STIMULUS_VIEW_KINDS = new Set([
-  'none',
-  'objects',
-  'dots',
-  'ten-frame',
-  'rekenrek',
-  'number-line',
-  'number-bond',
-  'expression',
-  'groups',
-  'array',
-  'base-ten',
-  'scene',
-]);
+function stimulusViewKinds(): Set<string> {
+  const file = new URL('../../ui/src/widgets/kit/StimulusView.tsx', import.meta.url);
+  const text = readFileSync(fileURLToPath(file), 'utf8');
+  const start = text.indexOf('switch (spec.kind) {');
+  const end = text.indexOf('default:', start);
+  if (start < 0 || end < 0) throw new Error('StimulusView.tsx: no switch on spec.kind');
+  return new Set([...text.slice(start, end).matchAll(/case '([a-z-]+)':/g)].map((m) => m[1] ?? ''));
+}
+const STIMULUS_VIEW_KINDS = stimulusViewKinds();
 
 /**
- * The formats with a widget in packages/ui/src/widgets/registry.ts; both draw their `stimulus`
- * (and numeral-pick its options' `stimulus`) through StimulusView. A format's later widget issue
- * adds the kinds it needs to StimulusView with it.
+ * The formats with a widget in packages/ui/src/widgets/registry.ts that draw pictures through
+ * StimulusView: number-pad its `stimulus`, numeral-pick also its options' `stimulus`, compare its
+ * two sides and order its cards (both through kit/FitPicture.tsx, which hands every kind it does
+ * not lay out itself to StimulusView). A format's later widget issue adds the kinds it needs to
+ * StimulusView with it.
  */
-const STIMULUS_VIEW_FORMATS = new Set(['number-pad', 'numeral-pick']);
+const STIMULUS_VIEW_FORMATS = new Set(['number-pad', 'numeral-pick', 'compare', 'order']);
 
 /**
- * Stimulus kinds on those formats that StimulusView does not draw yet, by template. All are on
- * origin/main and owned by later widget issues (bar models U04, shapes U05); pinned so the list
- * can only shrink, and no new template may join it.
+ * Stimulus kinds on those formats that StimulusView does not draw yet, by template, each owned by
+ * a later widget issue (bar models U04, shapes U05). Pinned so the list can only shrink, and no
+ * new template may join it.
+ *
+ * Four are K01 part 7 templates on compare and order, which got their widgets (#89) while this
+ * part was in review: DAT.02.t4 compares two bar charts and FRA.08.t1–t3 compare and order
+ * fraction pictures. Until U05 (#14, bar-graph and fraction formats) draws `chart` and `fraction`
+ * in StimulusView, these items show the placeholder card and must not be served to a child
+ * (PR #84 review round 5).
  */
 const UNDRAWN_STIMULI: Readonly<Record<string, string>> = {
   'ADD.09.t2': 'bar-model',
@@ -106,8 +113,13 @@ const UNDRAWN_STIMULI: Readonly<Record<string, string>> = {
   'GEO.01.t3': 'shape',
   'GEO.06.t2': 'shape',
   'GEO.07.t2': 'shape',
+  'GEO.08.t3': 'shape', // on origin/main; a compare of shapes (U05)
   'GEO.10.t3': 'shape',
   'GEO.11.t3': 'shape',
+  'DAT.02.t4': 'chart', // K01 part 7, compare: two bar charts (#14)
+  'FRA.08.t1': 'fraction', // K01 part 7, compare: two fraction pictures (#14)
+  'FRA.08.t2': 'fraction', // K01 part 7, compare (#14)
+  'FRA.08.t3': 'fraction', // K01 part 7, order: fraction strips (#14)
 };
 
 /** The DRAWINGS keys of packages/ui/src/widgets/kit/sprites.tsx; any other id draws a pebble. */
@@ -241,10 +253,15 @@ const UNDRAWN_SPRITES: Readonly<Record<string, readonly string[]>> = {
   'TIM.08.t3': ['event-bedtime', 'event-breakfast', 'event-dinner', 'event-lunch', 'event-wake-up'], // K01 part 7: needs art
 };
 
-/** The stimuli a StimulusView-drawn format shows: its stimulus and its options' pictures. */
+/**
+ * The stimuli a StimulusView-drawn format shows: its stimulus and its options' pictures, the two
+ * sides of a compare, the cards of an order.
+ */
 function viewStimuli(item: GeneratedItem): StimulusSpec[] {
   const w = item.widget;
   if (w.format === 'number-pad') return [w.stimulus];
+  if (w.format === 'compare') return [w.left, w.right];
+  if (w.format === 'order') return w.items.flatMap((i) => (i.stimulus ? [i.stimulus] : []));
   if (w.format === 'numeral-pick') {
     return [w.stimulus, ...w.options.flatMap((o) => (o.stimulus ? [o.stimulus] : []))].filter(
       (s): s is StimulusSpec => s !== undefined,
@@ -305,7 +322,14 @@ describe('PR #84 review (1): the DAT.02.t5 number pad shows its picture graph', 
     expect(g?.accepts?.({ ...base, kind: 'picture' }, t)).toBe(true);
   });
 
-  it('catalog: number-pad and numeral-pick only show stimulus kinds StimulusView draws', () => {
+  it('reads the kinds StimulusView draws from the kit', () => {
+    // The parse found the switch: the kinds every drawn format has relied on since U03 are there.
+    for (const kind of ['none', 'objects', 'dots', 'number-line', 'expression', 'scene']) {
+      expect(STIMULUS_VIEW_KINDS.has(kind), kind).toBe(true);
+    }
+  });
+
+  it('catalog: formats StimulusView draws for show only kinds it draws, or are pinned', () => {
     const seen = new Map<string, Set<string>>();
     for (const { t: tt, items: its } of catalog) {
       for (const item of its) {
