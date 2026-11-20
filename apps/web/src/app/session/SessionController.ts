@@ -381,16 +381,27 @@ export class SessionController {
       // just that, and is given at once.
       const releaseLock = await this.#tryLock(PLAY_LOCK);
       if (!releaseLock) return { ok: false as const, reason: 'elsewhere' as const };
+      const signal = opts.signal;
+      if (signal?.aborted) {
+        releaseLock();
+        return { ok: false as const, reason: 'cancelled' as const };
+      }
+      // While this start reads the log (its sweep and its plan), a cancel gives the play lock
+      // back at once, not when the reads finish: a start that will never play must not turn
+      // another tab away. Once the session is about to be written, the lock stays until it ends.
+      const giveLockBack = () => releaseLock();
+      signal?.addEventListener('abort', giveLockBack, { once: true });
       let plan: Plan;
       try {
         // Sessions left behind by a closed tab (their checkpoints gone quiet) are closed first.
         // One still fresh is left open, and the plan counts its checkpointed play instead. If
         // another tab is sweeping right now, this start doesn't wait for it: that sweep closes
-        // them, and the plan counts whatever is still open.
+        // them, and the plan counts whatever is still open. It closes nothing once cancelled:
+        // it no longer holds the play lock, and another tab may be playing.
         const releaseSweep = await this.#tryLock(SWEEP_LOCK);
         if (releaseSweep) {
           try {
-            await this.#closeAbandoned();
+            await this.#closeAbandoned(() => !signal?.aborted);
           } catch (e) {
             this.#onError('session.abandoned', e);
           } finally {
@@ -401,14 +412,16 @@ export class SessionController {
       } catch (e) {
         releaseLock();
         throw e;
+      } finally {
+        signal?.removeEventListener('abort', giveLockBack);
+      }
+      if (signal?.aborted) {
+        releaseLock();
+        return { ok: false as const, reason: 'cancelled' as const };
       }
       if (!plan.result.ok) {
         releaseLock();
         return plan.result;
-      }
-      if (opts.signal?.aborted) {
-        releaseLock();
-        return { ok: false as const, reason: 'cancelled' as const };
       }
       const now = this.#now();
       const session: ActiveSession = {
@@ -638,16 +651,22 @@ export class SessionController {
       if (!release) return skipped; // another tab is sweeping
       try {
         // A session running here is this controller's own; otherwise a held play lock is another
-        // tab playing.
-        if (!this.#running && (await this.#playLockHeld())) return skipped;
-        return await this.#closeAbandoned();
+        // tab playing. Asked now, and again before each session is closed.
+        const nobodyElsePlays = async () => this.#running !== null || !(await this.#playLockHeld());
+        if (!(await nobodyElsePlays())) return skipped;
+        return await this.#closeAbandoned(nobodyElsePlays);
       } finally {
         release();
       }
     });
   }
 
-  async #closeAbandoned(): Promise<SweepResult> {
+  /**
+   * `mayClose` is asked again just before each session is closed, after the log was read: a
+   * sweep closes nothing once another tab may be playing (it took the play lock meanwhile, or
+   * this start gave it back). The rest of the sweep is then skipped.
+   */
+  async #closeAbandoned(mayClose: () => boolean | Promise<boolean>): Promise<SweepResult> {
     const [events, device] = await Promise.all([this.#store.events(), this.#store.device()]);
     const ended = endedSessions(events);
     let closed = 0;
@@ -688,6 +707,9 @@ export class SessionController {
       } else if (now - (e.clientTs ?? e.ts) < NO_CHECKPOINT_MS) {
         continue;
       }
+      // A session that started in another tab while this sweep read the log is in that log, and
+      // its tab holds the play lock: the last look, before anything is written.
+      if (!(await mayClose())) return { closed, watching, skipped: true };
       ended.add(key);
       const activeMs = Math.round(cp?.activeMs ?? 0);
       try {

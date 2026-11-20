@@ -882,6 +882,71 @@ describe('SessionController', () => {
       expect(tabA.getSnapshot().status).toBe('active');
     });
 
+    it('a session that starts while another tab’s sweep is reading is never closed by it, whatever the clock does', async () => {
+      const { locks, held } = fakeLocks();
+      const s = await setup({ locks });
+      // Tab B's sweep finds the play lock free, then its read of the log is slow.
+      const slow = gatedStore(s.store);
+      const tabB = s.make({ store: slow });
+      slow.reads.close();
+      const sweep = tabB.sweep();
+      await vi.waitFor(() => expect([...held]).toEqual([SWEEP_LOCK]));
+      // Tab A starts playing meanwhile, and before its next tick the clock jumps three minutes
+      // ahead: its checkpoint looks old, and tab B has never seen it.
+      const tabA = s.make();
+      expect(await tabA.start(CHILD_K)).toMatchObject({ ok: true });
+      s.correctClock(3 * MIN);
+      slow.reads.open();
+      // The sweep looks at the play lock again before it closes anything: tab A holds it.
+      expect(await sweep).toEqual({ closed: 0, watching: 0, skipped: true });
+      expect((await s.sessionEvents()).map((e) => e.type)).toEqual(['session.started']);
+      s.advance(5_000);
+      expect(await tabA.end('child-exit')).not.toBeNull();
+      const ends = (await s.sessionEvents()).filter((e) => e.type === 'session.ended');
+      expect(ends.map((e) => e.payload)).toEqual([
+        expect.objectContaining({ reason: 'child-exit' }),
+      ]);
+    });
+
+    it('a start cancelled while it reads the log gives the play lock back at once: another tab starts, and it writes nothing', async () => {
+      const { locks, held } = fakeLocks();
+      const s = await setup({ locks });
+      // Tab A's start holds the play lock and stalls on its own sweep's read of the log.
+      const slow = gatedStore(s.store);
+      const tabA = s.make({ store: slow });
+      slow.reads.close();
+      const cancel = new AbortController();
+      const cancelled = tabA.start(CHILD_K, 'child', { signal: cancel.signal });
+      await vi.waitFor(() => expect([...held].sort()).toEqual([PLAY_LOCK, SWEEP_LOCK].sort()));
+      cancel.abort(); // the child closes the picture pad
+      expect([...held]).toEqual([SWEEP_LOCK]);
+      // Another child starts in tab B, with tab A's read still stuck.
+      const tabB = s.make();
+      expect(await tabB.start(CHILD_G2)).toMatchObject({ ok: true });
+      expect(tabB.getSnapshot().status).toBe('active');
+      // Tab A's reads come back: it closes nothing (tab B is playing) and writes no start.
+      s.correctClock(3 * MIN);
+      slow.reads.open();
+      expect(await cancelled).toEqual({ ok: false, reason: 'cancelled' });
+      expect(tabA.getSnapshot()).toEqual({ status: 'idle' });
+      const events = await s.sessionEvents();
+      expect(events.map((e) => [e.type, e.childId])).toEqual([['session.started', CHILD_G2]]);
+      expect([...held]).toEqual([PLAY_LOCK]); // tab B's
+    });
+
+    it('keeps the play lock when the signal is aborted after the session has started', async () => {
+      const { locks, held } = fakeLocks();
+      const s = await setup({ locks });
+      const later = new AbortController();
+      expect(await s.controller.start(CHILD_K, 'child', { signal: later.signal })).toMatchObject({
+        ok: true,
+      });
+      later.abort(); // the picker unmounts once the child is playing
+      expect([...held]).toEqual([PLAY_LOCK]);
+      expect(await s.make().start(CHILD_G2)).toEqual({ ok: false, reason: 'elsewhere' });
+      expect(s.controller.getSnapshot().status).toBe('active');
+    });
+
     it('a sweep never stands in a start’s way, however long its read takes: it holds its own lock', async () => {
       const { locks, held } = fakeLocks();
       const s = await setup({ locks });
