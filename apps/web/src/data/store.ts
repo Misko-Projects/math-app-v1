@@ -11,7 +11,7 @@ import {
   initIsland,
   sameId,
   sortEvents,
-} from '@number-island/engine';
+} from '@number-island/engine/shell';
 import {
   type AnyEventEnvelope,
   anyEventEnvelopeSchema,

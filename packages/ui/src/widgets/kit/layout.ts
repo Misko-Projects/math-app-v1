@@ -1,4 +1,4 @@
-import { createRng } from '@number-island/engine';
+import { createRng } from '@number-island/engine/shell';
 import type { ObjectSet, SpriteId, StimulusSpec } from '@number-island/shared';
 import type { SpriteTone } from './sprites';
 

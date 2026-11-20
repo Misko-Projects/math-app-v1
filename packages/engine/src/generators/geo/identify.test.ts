@@ -12,10 +12,10 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { stateChecker } from '../../check/state';
 import { initContent, resetContent } from '../../content/binding';
 import { formatModel } from '../../formats';
+import { attemptDifficulty } from '../../items/attempt-difficulty';
 import { checkResponse } from '../../items/check';
 import { generateItem, generateItemFromParams } from '../../items/generate';
 import { itemExampleCorrect, itemSolution, replaySteps } from '../../items/solution';
-import { attemptDifficulty } from '../../learner/item-difficulty';
 import { geoIdentify } from './identify';
 
 let nextId = 0;
