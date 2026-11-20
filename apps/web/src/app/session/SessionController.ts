@@ -132,14 +132,14 @@ export interface SessionCheckpoint {
   mathMs: number;
   items: number;
   at: number;
-  /** Set by a sweep that found `at` in the future: when it first saw this checkpoint. */
-  seenAt?: number;
 }
 
 export interface SessionControllerOptions {
   store: SessionStore;
   /** Clock (ms epoch). Default `store.now`. */
   now?: () => number;
+  /** Elapsed real time (ms) that no clock correction moves. Default `performance.now`. */
+  monotonic?: () => number;
   timers?: SessionTimers;
   visibility?: PageVisibility;
   /** Where activity checkpoints go. Default `localStorage` (null: none). */
@@ -261,6 +261,9 @@ interface Plan {
 export class SessionController {
   readonly #store: SessionStore;
   readonly #now: () => number;
+  readonly #monotonic: () => number;
+  /** Future-stamped checkpoints this controller's sweeps have seen: which one, and since when. */
+  readonly #futureSeen = new Map<string, { at: number; since: number }>();
   readonly #timers: SessionTimers;
   readonly #visibility: PageVisibility;
   readonly #storage: CheckpointStorage | null;
@@ -279,6 +282,7 @@ export class SessionController {
   constructor(opts: SessionControllerOptions) {
     this.#store = opts.store;
     this.#now = opts.now ?? (() => opts.store.now());
+    this.#monotonic = opts.monotonic ?? (() => performance.now());
     this.#timers = opts.timers ?? (globalThis as unknown as SessionTimers);
     this.#visibility = opts.visibility ?? documentVisibility();
     this.#storage = opts.storage === undefined ? defaultStorage() : opts.storage;
@@ -611,13 +615,18 @@ export class SessionController {
       const now = this.#now();
       if (cp) {
         if (cp.at - now >= LIVE_CHECKPOINT_MS) {
-          // Stamped by a clock that has since been set back: its age can't be read. The first
-          // sweep to see it notes when (`seenAt`) and leaves it open. A tab still playing it
-          // saves a new checkpoint at its next tick, which drops the note; a dead one keeps it,
-          // and a sweep closes it once it has been seen unchanged for LIVE_CHECKPOINT_MS.
-          const seenFor = cp.seenAt === undefined ? -1 : now - cp.seenAt;
-          if (seenFor < 0) this.#writeCheckpoint(sessionId, { ...cp, seenAt: now });
-          if (seenFor < LIVE_CHECKPOINT_MS) continue;
+          // Stamped by a clock that has since been set back: its age can't be read from any
+          // wall clock. This controller notes (in memory, nothing is written) when it first saw
+          // this exact checkpoint, on a clock no correction moves. A tab still playing saves a
+          // new checkpoint at its next tick; a dead one is closed once it has been seen
+          // unchanged for LIVE_CHECKPOINT_MS of real time (the follow-up sweep after boot).
+          const seen = this.#futureSeen.get(key);
+          const elapsed = this.#monotonic();
+          if (!seen || seen.at !== cp.at) {
+            this.#futureSeen.set(key, { at: cp.at, since: elapsed });
+            continue;
+          }
+          if (elapsed - seen.since < LIVE_CHECKPOINT_MS) continue;
         } else if (now - cp.at < LIVE_CHECKPOINT_MS) {
           continue;
         }
@@ -800,9 +809,6 @@ export class SessionController {
         mathMs: num(cp.mathMs),
         items: Math.floor(num(cp.items)),
         at: num(cp.at),
-        ...(typeof cp.seenAt === 'number' && Number.isFinite(cp.seenAt)
-          ? { seenAt: cp.seenAt }
-          : {}),
       };
     } catch {
       return null;
@@ -810,6 +816,7 @@ export class SessionController {
   }
 
   #removeCheckpoint(sessionId: string): void {
+    this.#futureSeen.delete(sessionId.toLowerCase());
     try {
       this.#storage?.removeItem(CHECKPOINT_PREFIX + sessionId);
     } catch {

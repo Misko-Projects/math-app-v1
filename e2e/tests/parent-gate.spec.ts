@@ -74,6 +74,28 @@ test.describe('parent gate', () => {
     expect(documents).toEqual([]);
   });
 
+  test('on a first-run device whose welcome file cannot load, the error screen offers Try again alone, and it works', async ({
+    page,
+  }) => {
+    // No pairing needed. Home sends this device to the welcome screen, so Back to the island
+    // would only lead back to the same error: the screen doesn't offer it.
+    const chunk = /\/assets\/WelcomePage-[^/]*\.js$/;
+    await page.route(chunk, (route) => route.abort('internetdisconnected'));
+    await page.goto('/');
+    const screen = page.getByTestId('route-error');
+    await expect(screen).toBeVisible();
+    await expect(page).toHaveURL(/\/welcome$/);
+    await expect(screen.getByRole('button', { name: 'Try again' })).toBeVisible();
+    await expect(screen.getByRole('button')).toHaveCount(1);
+    await expect(screen.getByRole('button', { name: 'Back to the island' })).toHaveCount(0);
+    // The connection comes back: Try again opens the welcome screen.
+    await page.unroute(chunk);
+    await screen.getByRole('button', { name: 'Try again' }).click();
+    await expect(page.getByTestId('route-error')).toHaveCount(0);
+    await expect(page).toHaveURL(/\/welcome$/);
+    await expect(page.getByRole('heading').first()).toBeVisible();
+  });
+
   test('a parent file that failed while the app warmed up loads on the first visit once the connection is back', async ({
     page,
   }) => {
@@ -96,6 +118,8 @@ test.describe('parent gate', () => {
       window.dispatchEvent(new PopStateEvent('popstate', { state: history.state }));
     });
     await loaded;
+    // The page itself renders (a file that arrived but then failed to run would not get here).
+    await expect(page.getByRole('heading', { name: 'Grown-ups only' })).toBeVisible();
     await expect(page).toHaveURL(/\/parent$/);
     await expect(page.getByTestId('route-error')).toHaveCount(0);
   });

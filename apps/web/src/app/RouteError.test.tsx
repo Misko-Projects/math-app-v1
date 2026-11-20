@@ -1,10 +1,12 @@
-import { fireEvent, render, screen } from '@testing-library/react';
-import { createMemoryRouter, RouterProvider } from 'react-router';
+import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { createMemoryRouter, Navigate, RouterProvider } from 'react-router';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { resetLazyRouteWarmingForTests, warmLazyRoutes } from './lazyRoutes';
 import { RouteError } from './RouteError';
 
 describe('<RouteError>', () => {
+  afterEach(() => cleanup());
+
   it('shows a calm screen with Try again and Back to the island when a page’s file fails', async () => {
     const router = createMemoryRouter(
       [
@@ -40,6 +42,32 @@ describe('<RouteError>', () => {
     expect(await screen.findByText('home')).toBeTruthy();
     expect(router.state.location.pathname).toBe('/');
     expect(screen.queryByTestId('route-error')).toBeNull();
+  });
+
+  it('offers Try again alone when the welcome screen’s own file fails: home would only lead back here', async () => {
+    // A device with no family: home redirects to the welcome screen, whose file can't load.
+    const lazy = vi.fn(() =>
+      Promise.reject(new TypeError('Failed to fetch dynamically imported module')),
+    );
+    const router = createMemoryRouter(
+      [
+        {
+          path: '/',
+          errorElement: <RouteError />,
+          children: [
+            { index: true, element: <Navigate to="/welcome" replace /> },
+            { path: 'welcome', lazy },
+          ],
+        },
+      ],
+      { initialEntries: ['/'] },
+    );
+    render(<RouterProvider router={router} />);
+    expect(await screen.findByTestId('route-error')).toBeTruthy();
+    expect(router.state.location.pathname).toBe('/welcome');
+    expect(screen.getByRole('button', { name: 'Try again' })).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Back to the island' })).toBeNull();
+    expect(screen.getAllByRole('button')).toHaveLength(1);
   });
 });
 
