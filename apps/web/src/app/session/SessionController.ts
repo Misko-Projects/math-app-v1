@@ -164,6 +164,8 @@ export interface SessionControllerOptions {
   tickMs?: number;
   /** How often a checkpoint is saved while playing. */
   checkpointMs?: number;
+  /** How long a start waits for the play lock before it is refused as `elsewhere`. */
+  startLockWaitMs?: number;
   /** A failed write (storage full, a deleted child) is reported here, never thrown at a tick. */
   onError?: (scope: string, error: unknown) => void;
 }
@@ -176,6 +178,11 @@ export const MIN_SESSION_MINUTES = 1;
 export const CHECKPOINT_PREFIX = 'ni.session.';
 /** The device-wide Web Lock held while a session runs in some tab (one player per device). */
 export const PLAY_LOCK = 'ni.play';
+/**
+ * How long a start waits for the play lock. A sweep in another tab holds it only while it reads
+ * the log and writes what it closes; a tab that is playing holds it for the whole session.
+ */
+export const START_LOCK_WAIT_MS = 3_000;
 /**
  * A session whose checkpoint is younger than this may still be playing in some tab (checkpoints
  * are saved every 15 s, and at least every minute in a hidden tab), so no sweep closes it.
@@ -286,6 +293,7 @@ export class SessionController {
   readonly #newId: () => string;
   readonly #tickMs: number;
   readonly #checkpointMs: number;
+  readonly #startLockWaitMs: number;
   readonly #onError: (scope: string, error: unknown) => void;
   readonly #listeners = new Set<() => void>();
   readonly #windDownListeners = new Set<(reason: WindDownReason, session: ActiveSession) => void>();
@@ -305,6 +313,7 @@ export class SessionController {
     this.#newId = opts.newId ?? defaultNewId;
     this.#tickMs = opts.tickMs ?? SESSION_TICK_MS;
     this.#checkpointMs = opts.checkpointMs ?? CHECKPOINT_MS;
+    this.#startLockWaitMs = opts.startLockWaitMs ?? START_LOCK_WAIT_MS;
     this.#onError = opts.onError ?? (() => {});
   }
 
@@ -348,7 +357,8 @@ export class SessionController {
    * Starts a session for `childId` (ending another child's running session as `child-exit`
    * first). Resolves with the session, or with the reason it may not start. Starting the child
    * whose session is already running returns that session. While another tab is playing, the
-   * start is refused at once (`elsewhere`). An aborted `signal` (the child closed the picture pad
+   * start is refused (`elsewhere`) after waiting `START_LOCK_WAIT_MS` for the play lock, which
+   * another tab's sweep may hold for a moment. An aborted `signal` (the child closed the picture pad
    * meanwhile) refuses it (`cancelled`) before anything is written.
    */
   start(
@@ -366,7 +376,9 @@ export class SessionController {
       }
       if (current) await this.#end(current.windDown ?? 'child-exit');
       // The play lock first: the plan below then sees every other tab's play, ended and written.
-      const releaseLock = await this.#tryPlayLock();
+      // A sweep in another tab holds the same lock while it reads the log, so a start waits a
+      // moment for it: a lock still held after that is a tab that is really playing.
+      const releaseLock = await this.#tryPlayLock(this.#startLockWaitMs);
       if (!releaseLock) return { ok: false as const, reason: 'elsewhere' as const };
       let plan: Plan;
       try {
@@ -712,14 +724,15 @@ export class SessionController {
   // ---------- internals ----------
 
   /**
-   * The play lock if it is free now; null while another tab holds it. Without Web Locks, or if
+   * The play lock if it is free now (or comes free within `waitMs`); null while another tab holds
+   * it. Without Web Locks, or if
    * the lock API fails, a no-op lock: play goes on, and only the fresh-checkpoint rule protects
    * other tabs' sessions.
    */
-  async #tryPlayLock(): Promise<PlayLock | null> {
+  async #tryPlayLock(waitMs = 0): Promise<PlayLock | null> {
     if (!this.#locks) return NO_LOCK;
     try {
-      const release = await this.#locks.acquire(PLAY_LOCK, 0);
+      const release = await this.#locks.acquire(PLAY_LOCK, waitMs);
       return release ? once(release) : null;
     } catch (e) {
       this.#onError('session.lock', e);

@@ -198,10 +198,17 @@ async function setup(
   const storage = memoryStorage();
   let corrected = 0;
   const make = (
-    o: { store?: SessionStore; locks?: SessionLocks | null; storage?: CheckpointStorage } = {},
+    o: {
+      store?: SessionStore;
+      locks?: SessionLocks | null;
+      storage?: CheckpointStorage;
+      /** How long a start waits for the play lock. Default: a moment, so refusals stay quick. */
+      startLockWaitMs?: number;
+    } = {},
   ) => {
     const c = new SessionController({
       store: o.store ?? store,
+      startLockWaitMs: o.startLockWaitMs ?? 20,
       // Real time: the test clock without the corrections made to it.
       monotonic: () => env.clock.now() - corrected,
       timers: timers.timers,
@@ -876,6 +883,29 @@ describe('SessionController', () => {
       s.env.clock.set(T0 + MIN); // the clock is corrected while the child plays
       expect(await s.controller.closeAbandoned()).toBe(0);
       expect((await s.sessionEvents()).map((e) => e.type)).toEqual(['session.started']);
+      expect(tabA.getSnapshot().status).toBe('active');
+    });
+
+    it('a start waits out another tab’s sweep (it holds the play lock while it reads) instead of being refused', async () => {
+      const { locks, held } = fakeLocks();
+      const s = await setup({ locks });
+      // Tab B's sweep takes the play lock, then its read of the log is slow.
+      const slow = gatedStore(s.store);
+      const tabB = s.make({ store: slow });
+      slow.reads.close();
+      const sweep = tabB.sweep();
+      await vi.waitFor(() => expect(held.size).toBe(1));
+      // Nobody is playing. A child starts in tab A meanwhile.
+      const tabA = s.make({ startLockWaitMs: 5_000 });
+      let settled = false;
+      const start = tabA.start(CHILD_K).finally(() => {
+        settled = true;
+      });
+      await new Promise((r) => setTimeout(r, 30));
+      expect(settled).toBe(false); // waiting for the lock, not refused
+      slow.reads.open();
+      expect(await sweep).toEqual({ closed: 0, watching: 0, skipped: false });
+      expect(await start).toMatchObject({ ok: true });
       expect(tabA.getSnapshot().status).toBe('active');
     });
 

@@ -212,6 +212,95 @@ describe('<SessionProvider>', () => {
     expect(vi.getTimerCount()).toBe(0);
   });
 
+  it('a retry that holds the play lock while it reads never turns a start in another tab away', async () => {
+    const env = testEnv();
+    const store = await env.open();
+    stores.push(store);
+    await store.putProfile(profile(CHILD_K, 'K', 'Mia'));
+    const map = new Map<string, string>();
+    const storage: CheckpointStorage = {
+      getItem: (k) => map.get(k) ?? null,
+      setItem: (k, v) => void map.set(k, v),
+      removeItem: (k) => void map.delete(k),
+    };
+    // Web Locks shared by the two tabs: a request with a wait queues until the lock is released.
+    let heldBy: symbol | null = null;
+    const queue: Array<() => void> = [];
+    const locks: SessionLocks = {
+      acquire(_name, waitMs) {
+        const take = () => {
+          const mine = Symbol('holder');
+          heldBy = mine;
+          return () => {
+            if (heldBy !== mine) return;
+            heldBy = null;
+            queue.shift()?.();
+          };
+        };
+        if (heldBy === null) return Promise.resolve(take());
+        if (waitMs === 0) return Promise.resolve(null);
+        return new Promise((resolve) => queue.push(() => resolve(take())));
+      },
+    };
+    // Tab B's reads of the log can be held at a gate.
+    let hold: Promise<void> | null = null;
+    let reads = 0;
+    const tabBStore: SessionStore = {
+      now: () => store.now(),
+      device: () => store.device(),
+      familySettings: () => store.familySettings(),
+      childSettings: (id) => store.childSettings(id),
+      append: ((...args: Parameters<DataStore['append']>) =>
+        store.append(...args)) as DataStore['append'],
+      events: async () => {
+        reads += 1;
+        if (hold) await hold;
+        return store.events();
+      },
+    };
+    const make = (tabStore: SessionStore) => {
+      const c = new SessionController({
+        store: tabStore,
+        storage,
+        locks,
+        monotonic: () => env.clock.now(),
+        timers: { setInterval: () => 0, clearInterval: () => {} },
+      });
+      controllers.push(c);
+      return c;
+    };
+    const tabA = make(store);
+    expect(await tabA.start(CHILD_K)).toMatchObject({ ok: true }); // tab A plays
+
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+    const tabB = make(tabBStore);
+    const sweep = vi.spyOn(tabB, 'sweep');
+    render(
+      <SessionProvider controller={tabB}>
+        <p>picker</p>
+      </SessionProvider>,
+    );
+    expect(await sweep.mock.results[0]?.value).toMatchObject({ skipped: true });
+    await settle(sweep);
+    expect(await tabA.end('child-exit')).not.toBeNull(); // tab A ends normally: nobody plays
+
+    // Tab B's retry takes the play lock, and its read of the log is slow.
+    let release: () => void = () => {};
+    hold = new Promise<void>((r) => {
+      release = r;
+    });
+    env.clock.advance(FOLLOW_UP_SWEEP_MS);
+    vi.advanceTimersByTime(FOLLOW_UP_SWEEP_MS);
+    await vi.waitFor(() => expect(reads).toBe(1));
+    expect(heldBy).not.toBeNull();
+    // A child starts again in tab A right then.
+    const start = tabA.start(CHILD_K);
+    await Promise.resolve();
+    release();
+    expect(await start).toMatchObject({ ok: true });
+    expect(tabA.getSnapshot().status).toBe('active');
+  });
+
   it('tries again after a sweep that failed', async () => {
     const s = await deadSession();
     vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
