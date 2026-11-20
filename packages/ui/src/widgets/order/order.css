@@ -1,0 +1,361 @@
+/*
+ * order widget (U03): the direction cue and slots on a board, the tray of cards right under it and
+ * "check" beside the tray (or below). Sizes come from OrderWidget's layout plan (06 §1:
+ * container-relative) through custom properties: --ord-w × --ord-h cards, --ord-gap between them,
+ * and the chrome (normal or compact) paddings.
+ */
+
+.ni-ord {
+  position: relative;
+  /* Board and tray share one column, so the tray sits centred under the board; Check gets a
+     column of its own beside the tray (data-check="beside") or a row below. */
+  display: grid;
+  grid-template-columns: auto;
+  grid-template-areas: "board" "tray" "check";
+  align-content: center;
+  justify-content: center;
+  justify-items: center;
+  align-items: center;
+  gap: var(--ord-gap-main) var(--ord-check-gap);
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 1180px;
+  /* Safe centring in the host: centred while it fits, top-aligned (never above the scroll origin)
+     when it does not. */
+  margin: auto;
+  padding: var(--ord-pad-y) var(--ord-pad-x) var(--ord-pad-bottom);
+  /* The widget takes the width its host gives it; its layout is planned from that width. */
+  contain: inline-size;
+}
+
+.ni-ord[data-check="beside"] {
+  grid-template-columns: auto auto;
+  grid-template-areas: "board ." "tray check";
+}
+
+.ni-ord__board {
+  grid-area: board;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--ord-cue-gap);
+  box-sizing: border-box;
+  max-width: 100%;
+  padding: var(--ord-board-pad);
+  border: 3px solid var(--color-sand-deep);
+  border-radius: var(--radius-card);
+  background: var(--color-paper);
+  box-shadow: var(--shadow-soft);
+}
+
+/* Direction without words: one pebble per slot, growing (asc) or shrinking (desc), and an arrow. */
+.ni-ord__cue {
+  position: relative;
+  display: grid;
+  grid-template-columns: repeat(var(--n), var(--ord-w));
+  column-gap: var(--ord-gap);
+  align-items: end;
+  justify-items: center;
+  padding-bottom: 20px;
+}
+.ni-ord[data-chrome="compact"] .ni-ord__cue {
+  padding-bottom: 8px;
+}
+.ni-ord__cue-cell {
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  height: var(--ord-cue-cell);
+}
+.ni-ord__pebble {
+  display: block;
+}
+.ni-ord__arrow {
+  position: absolute;
+  left: 8px;
+  right: 22px;
+  bottom: 2px;
+  width: calc(100% - 30px);
+  height: 12px;
+  overflow: visible;
+}
+.ni-ord__arrow path {
+  stroke: var(--color-ink);
+  stroke-width: 5;
+  stroke-linecap: round;
+  vector-effect: non-scaling-stroke;
+  fill: none;
+}
+.ni-ord__arrowhead {
+  position: absolute;
+  right: 0;
+  bottom: -4px;
+  width: 24px;
+  height: 24px;
+}
+/* Compact: a thinner shaft that runs into a smaller head (no gap between them). */
+.ni-ord[data-chrome="compact"] .ni-ord__arrow {
+  right: 12px;
+  bottom: 0;
+  width: calc(100% - 20px);
+  height: 8px;
+}
+.ni-ord[data-chrome="compact"] .ni-ord__arrowhead {
+  bottom: -4px;
+  width: 16px;
+  height: 16px;
+}
+.ni-ord__arrowhead path {
+  fill: var(--color-ink);
+  stroke: var(--color-ink);
+  stroke-width: 2;
+  stroke-linejoin: round;
+}
+
+.ni-ord__slots {
+  display: grid;
+  grid-template-columns: repeat(var(--n), var(--ord-w));
+  gap: var(--ord-gap);
+}
+.ni-ord__slot {
+  position: relative;
+  display: grid;
+  width: var(--ord-w);
+  height: var(--ord-h);
+}
+/* The drop target is a pad behind the card, so the placed card stays its own button. */
+.ni-ord__pad {
+  grid-area: 1 / 1;
+  box-sizing: border-box;
+  border: 4px dashed var(--color-ink-soft);
+  border-radius: var(--radius-pebble);
+  background: var(--color-sky-light);
+}
+/* A card is picked up: the open boxes say "put it here" quietly (darker dashes, a lighter pad),
+   never with a ring that could read as Pip's invite. */
+.ni-ord__pad.ni-drop-target[data-armed="true"] {
+  outline-color: transparent;
+  border-color: var(--color-ink);
+  background: var(--color-foam);
+}
+
+/* ---------- cards ---------- */
+
+.ni-ord__card {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  width: var(--ord-w);
+  height: var(--ord-h);
+  margin: 0;
+  padding: 5px;
+  appearance: none;
+  border: 3px solid var(--color-ink);
+  border-radius: var(--radius-pebble);
+  background: var(--color-cloud);
+  color: var(--color-ink);
+  box-shadow:
+    0 6px 0 var(--color-pebble-deep),
+    var(--shadow-highlight);
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+.ni-ord__slot > .ni-ord__card {
+  grid-area: 1 / 1;
+  z-index: 1;
+}
+button.ni-ord__card {
+  cursor: pointer;
+  touch-action: manipulation;
+}
+button.ni-ord__card:disabled {
+  cursor: default;
+}
+button.ni-ord__card:focus-visible,
+.ni-ord__card.ni-draggable:focus-visible {
+  outline: 4px solid var(--color-sea-deep);
+  outline-offset: 4px;
+}
+/*
+ * Picked up (tap-to-place): lifted, not ringed: it rises 3 px, grows 2 % and casts a deeper,
+ * softer shadow (no outline that could read as a second ring). The tray's 16 px top padding keeps
+ * it ≥ 12 px inside the tray. Keyboard focus shows the normal focus ring.
+ */
+.ni-ord__card.ni-draggable[data-selected="true"] {
+  filter: none;
+  outline: none;
+  transform: translateY(-3px) scale(1.02);
+  box-shadow:
+    0 9px 0 var(--color-pebble-deep),
+    0 16px 22px -6px rgb(38 70 83 / 0.4);
+}
+.ni-ord__card.ni-draggable[data-selected="true"]:focus-visible {
+  outline: 4px solid var(--color-sea-deep);
+  outline-offset: 4px;
+}
+/*
+ * Pip's invite: the shared pulsing teal ring (.ni-invite), drawn over the card's or box's own
+ * edge (no reach past it), so it stays ≥ 12 px clear of its neighbours, the board's and tray's
+ * edges and the cue arrow (06 §4). It wins over a box's quiet "put it here" look.
+ */
+.ni-ord__card.ni-invite,
+.ni-ord__pad.ni-invite,
+.ni-ord__pad.ni-drop-target.ni-invite[data-armed="true"] {
+  outline: 5px solid var(--color-sea-deep);
+  outline-offset: -5px;
+  border-radius: var(--radius-pebble);
+}
+/*
+ * Keyboard focus on a box is always visible (06 §7), armed or invited: a thick INK ring outside
+ * the box (a box-shadow, past a thin paper gap), so Pip's teal invite ring (the outline, on the
+ * box's edge) still shows when the invited box also has focus. An armed box only takes focus
+ * from the keys (a tap on it places the card at once), so any focus there shows the ring.
+ */
+.ni-ord__pad.ni-drop-target:focus-visible,
+.ni-ord__pad.ni-drop-target[data-armed="true"]:focus {
+  box-shadow:
+    0 0 0 4px var(--color-paper),
+    0 0 0 8px var(--color-ink);
+}
+.ni-ord__pad.ni-drop-target:not(.ni-invite):focus-visible {
+  outline-color: transparent;
+}
+/*
+ * A focused box also draws a solid outline, outside the invite ring's place: invisible here (the
+ * ink ring above shows), it is the focus ring in forced colours, where box shadows are not drawn
+ * (06 §7), in the system Highlight colour, unlike Pip's ring on the box's own edge.
+ */
+.ni-ord__pad.ni-drop-target:not(.ni-invite):focus-visible,
+.ni-ord__pad.ni-drop-target[data-armed="true"]:not(.ni-invite):focus {
+  outline: 4px solid transparent;
+  outline-offset: 4px;
+}
+@media (forced-colors: active) {
+  .ni-ord__pad.ni-drop-target:focus-visible,
+  .ni-ord__pad.ni-drop-target[data-armed="true"]:focus {
+    outline: 4px solid Highlight;
+    outline-offset: 4px;
+  }
+}
+.ni-ord__card[data-fixed="true"] {
+  background: var(--color-pebble);
+  box-shadow: none;
+}
+.ni-ord__card[data-flying="true"] {
+  visibility: hidden;
+}
+.ni-ord__numeral {
+  font-family: var(--font-display);
+  font-size: var(--ord-numeral);
+  font-weight: 800;
+  line-height: 1;
+  padding-top: 0.12em;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.ni-ord__word {
+  font-family: var(--font-body);
+  font-size: var(--text-label);
+  font-weight: 700;
+}
+/* A tagged picture card keeps 10 px under its picture: Pip's fingertip rests there, off the path. */
+.ni-ord[data-tagged="true"] .ni-ord__card {
+  padding-bottom: 7px;
+}
+.ni-ord__pic {
+  display: flex;
+}
+/* A picture card: its numeral (when the picture doesn't print it) above the fitted picture. */
+.ni-ord__face {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0;
+  min-width: 0;
+  pointer-events: none;
+}
+.ni-ord__tag {
+  box-sizing: border-box;
+  height: 40px;
+  font-family: var(--font-display);
+  font-size: 2.5rem;
+  font-weight: 800;
+  line-height: 36px;
+  padding-top: 4px;
+  font-variant-numeric: tabular-nums;
+}
+/* A small card's compact path: its numeral beside it, the path's ink in fixed screen px. */
+.ni-ord__face[data-face="side"] {
+  flex-direction: row;
+  gap: 6px;
+}
+.ni-ord__face[data-face="side"] .ni-ord__tag {
+  height: auto;
+  font-size: 2rem;
+  line-height: 1;
+  padding-top: 0.12em;
+  text-align: center;
+}
+.ni-ord__path .ni-numberline__axis {
+  stroke-width: 4;
+}
+.ni-ord__path .ni-numberline__tick {
+  stroke-width: 3.5;
+}
+.ni-ord__path .ni-numberline__pointer {
+  stroke-width: 2.5;
+}
+.ni-ord__pin {
+  position: absolute;
+  top: -16px;
+  right: -12px;
+  width: 40px;
+  height: 40px;
+  pointer-events: none;
+}
+
+/* ---------- tray and check ---------- */
+
+/* The tray and Check are grid items of the widget (areas above). */
+.ni-ord__bottom {
+  display: contents;
+}
+.ni-ord__tray {
+  grid-area: tray;
+  display: flex;
+  justify-content: center;
+  gap: var(--ord-gap);
+  min-width: 0;
+  margin: 0;
+  padding: var(--ord-tray-pad);
+  border: 3px solid var(--color-wood-deep);
+  border-radius: var(--radius-card);
+  background: var(--color-sand);
+}
+.ni-ord__ghost {
+  box-sizing: border-box;
+  width: var(--ord-w);
+  height: var(--ord-h);
+  border: 3px dashed var(--color-sand-deep);
+  border-radius: var(--radius-pebble);
+}
+.ni-ord__check {
+  grid-area: check;
+  display: inline-flex;
+  flex: none;
+}
+.ni-ord[data-check="beside"] .ni-ord__check {
+  justify-self: start;
+}
+
+.ni-ord__flight {
+  position: fixed;
+  z-index: var(--z-drag);
+  pointer-events: none;
+  box-shadow: var(--shadow-lift);
+  transition-property: left, top;
+  transition-timing-function: var(--ease-soft);
+}

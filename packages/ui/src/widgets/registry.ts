@@ -19,6 +19,8 @@ export const widgetRegistry: WidgetRegistry = {
   'tenframe-fill': () => import('./tenframe-fill/TenframeFillWidget'),
   'number-bond': () => import('./number-bond/NumberBondWidget'),
   rekenrek: () => import('./rekenrek/RekenrekWidget'),
+  compare: () => import('./compare/CompareWidget'),
+  order: () => import('./order/OrderWidget'),
 };
 
 /** Formats that have a registered widget. */

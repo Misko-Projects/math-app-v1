@@ -42,11 +42,28 @@ export {
   useDemoPause,
   useSubmitGuard,
 } from './controls';
+export {
+  cellToFit,
+  countLayout,
+  FitPicture,
+  type FitPictureProps,
+  fittedLineNumeralPx,
+  LINE_BARE_PAD,
+  naturalPictureSize,
+  numberLineHeight,
+  Scaled,
+  tenFrameLayout,
+  useSharedScale,
+  wrapLine,
+} from './FitPicture';
 export { FLY_MS, useFlight } from './flight';
 export {
   INVITE_GLYPH_SELECTOR,
   INVITE_HAND_PX,
+  INVITE_TARGET_SELECTOR,
+  type InviteHandDirection,
   type InviteHandPlacement,
+  type InviteHandSide,
   placeInviteHand,
   useInviteHand,
 } from './inviteHand';

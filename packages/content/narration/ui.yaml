@@ -113,6 +113,84 @@ ui.sprite.firefly:
 ui.sprite.counter:
   text: "Counter"
   level: K
+ui.sprite.anchor:
+  text: "Anchor"
+  level: K
+ui.sprite.apple:
+  text: "Apple"
+  level: K
+ui.sprite.balloon:
+  text: "Balloon"
+  level: K
+ui.sprite.brick:
+  text: "Brick"
+  level: K
+ui.sprite.button:
+  text: "Button"
+  level: K
+ui.sprite.coconut:
+  text: "Coconut"
+  level: K
+ui.sprite.crate:
+  text: "Crate"
+  level: K
+ui.sprite.cube:
+  text: "Cube"
+  level: K
+ui.sprite.cup:
+  text: "Cup"
+  level: K
+ui.sprite.dot:
+  text: "Dot"
+  level: K
+ui.sprite.event-bedtime:
+  text: "Bedtime"
+  level: K
+ui.sprite.event-breakfast:
+  text: "Breakfast"
+  level: K
+ui.sprite.event-dinner:
+  text: "Dinner"
+  level: K
+ui.sprite.event-lunch:
+  text: "Lunch"
+  level: K
+ui.sprite.event-wake-up:
+  text: "Waking up"
+  level: K
+ui.sprite.feather:
+  text: "Feather"
+  level: K
+ui.sprite.fishing-rod:
+  text: "Fishing rod"
+  level: K
+ui.sprite.kite:
+  text: "Kite"
+  level: K
+ui.sprite.log:
+  text: "Log"
+  level: K
+ui.sprite.melon:
+  text: "Melon"
+  level: K
+ui.sprite.pumpkin:
+  text: "Pumpkin"
+  level: K
+ui.sprite.ribbon:
+  text: "Ribbon"
+  level: K
+ui.sprite.rock:
+  text: "Rock"
+  level: K
+ui.sprite.rope:
+  text: "Rope"
+  level: K
+ui.sprite.spoon:
+  text: "Spoon"
+  level: K
+ui.sprite.thimble:
+  text: "Thimble"
+  level: K
 
 # tap-count, make-set, dot-flash (U03, packages/ui/src/widgets/tap-count, make-set, dot-flash)
 ui.count.marked:
@@ -168,6 +246,52 @@ ui.flash.again:
   level: K
 ui.flash.hidden:
   text: "The picture went away"
+  level: K
+# compare and order (U03, packages/ui/src/widgets/compare, packages/ui/src/widgets/order).
+ui.compare.left:
+  text: "Left side"
+  level: K
+ui.compare.right:
+  text: "Right side"
+  level: K
+ui.compare.same:
+  text: "The same"
+  level: K
+ui.compare.not-same:
+  text: "Not the same"
+  level: K
+ui.compare.yes:
+  text: "Yes"
+  level: K
+ui.compare.no:
+  text: "No"
+  level: K
+ui.compare.less:
+  text: "Less than"
+  level: K
+ui.compare.greater:
+  text: "Greater than"
+  level: K
+ui.compare.equal:
+  text: "Equal to"
+  level: K
+ui.compare.gap:
+  text: "Put it here"
+  level: K
+ui.compare.this-one:
+  text: "This one"
+  level: K
+ui.order.small-to-big:
+  text: "Small to big"
+  level: K
+ui.order.big-to-small:
+  text: "Big to small"
+  level: K
+ui.order.fixed:
+  text: "{n} can't move"
+  level: K
+ui.order.picture:
+  text: "Picture {n}"
   level: K
 
 # tenframe-fill, number-bond, rekenrek (U03, packages/ui/src/widgets/tenframe-fill, number-bond,

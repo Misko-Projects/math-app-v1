@@ -156,11 +156,13 @@ describe('compare.sets', () => {
   it('compare: features at the extremes, and only from the params', () => {
     const t = tpl('compare.sets', 'compare', { representation: 'objects' });
     const easy = make(t, { a: 1, b: 5, ask: 'more', conflict: false });
+    // The compare format model (03 §5.5) adds its own features; the generator's values win.
     expect(itemFeatures(easy, t)).toEqual({
       'bigger.over5': 0,
       closeness: 0.2,
       conflict: 0,
       'ask.fewer': 0,
+      'ask.symbol': 0,
       equal: 0,
       magnitude: 0,
     });
@@ -170,6 +172,7 @@ describe('compare.sets', () => {
       closeness: 1,
       conflict: 1,
       'ask.fewer': 1,
+      'ask.symbol': 0,
       equal: 1,
       magnitude: 1,
     });
@@ -475,6 +478,7 @@ describe('compare.numbers', () => {
       sameTens: 0,
       digitsDiffer: 0,
       closeness: 0.22,
+      conflict: 0,
       'ask.fewer': 0,
       'ask.symbol': 0,
       equal: 0,
