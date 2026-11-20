@@ -22,10 +22,12 @@ import {
   LIVE_CHECKPOINT_MS,
   NO_CHECKPOINT_MS,
   type PageVisibility,
+  PLAY_LOCK,
   SessionController,
   type SessionLocks,
   type SessionStore,
   type SessionTimers,
+  SWEEP_LOCK,
   type WindDownReason,
 } from './SessionController';
 import { inQuietHours, localTime, playedMsOnDay } from './time';
@@ -101,6 +103,7 @@ function fakeLocks() {
         queue.push(grant);
       });
     },
+    held: (name) => Promise.resolve(held.has(name)),
   };
   return { locks, held };
 }
@@ -198,17 +201,10 @@ async function setup(
   const storage = memoryStorage();
   let corrected = 0;
   const make = (
-    o: {
-      store?: SessionStore;
-      locks?: SessionLocks | null;
-      storage?: CheckpointStorage;
-      /** How long a start waits for the play lock. Default: a moment, so refusals stay quick. */
-      startLockWaitMs?: number;
-    } = {},
+    o: { store?: SessionStore; locks?: SessionLocks | null; storage?: CheckpointStorage } = {},
   ) => {
     const c = new SessionController({
       store: o.store ?? store,
-      startLockWaitMs: o.startLockWaitMs ?? 20,
       // Real time: the test clock without the corrections made to it.
       monotonic: () => env.clock.now() - corrected,
       timers: timers.timers,
@@ -886,27 +882,86 @@ describe('SessionController', () => {
       expect(tabA.getSnapshot().status).toBe('active');
     });
 
-    it('a start waits out another tab’s sweep (it holds the play lock while it reads) instead of being refused', async () => {
+    it('a sweep never stands in a start’s way, however long its read takes: it holds its own lock', async () => {
       const { locks, held } = fakeLocks();
       const s = await setup({ locks });
-      // Tab B's sweep takes the play lock, then its read of the log is slow.
+      // Tab B's sweep is under way and its read of the log is stuck: nobody is playing.
       const slow = gatedStore(s.store);
       const tabB = s.make({ store: slow });
       slow.reads.close();
       const sweep = tabB.sweep();
-      await vi.waitFor(() => expect(held.size).toBe(1));
-      // Nobody is playing. A child starts in tab A meanwhile.
-      const tabA = s.make({ startLockWaitMs: 5_000 });
-      let settled = false;
-      const start = tabA.start(CHILD_K).finally(() => {
-        settled = true;
-      });
-      await new Promise((r) => setTimeout(r, 30));
-      expect(settled).toBe(false); // waiting for the lock, not refused
-      slow.reads.open();
-      expect(await sweep).toEqual({ closed: 0, watching: 0, skipped: false });
-      expect(await start).toMatchObject({ ok: true });
+      await vi.waitFor(() => expect([...held]).toEqual([SWEEP_LOCK]));
+      // A child starts in tab A, and plays, while that sweep is still reading.
+      const tabA = s.make();
+      expect(await tabA.start(CHILD_K)).toMatchObject({ ok: true });
       expect(tabA.getSnapshot().status).toBe('active');
+      expect([...held].sort()).toEqual([PLAY_LOCK, SWEEP_LOCK].sort());
+      s.advance(16_000);
+      // The sweep reads at last: the session it finds is live, so it closes nothing.
+      slow.reads.open();
+      expect(await sweep).toEqual({ closed: 0, watching: 1, skipped: false });
+      expect([...held]).toEqual([PLAY_LOCK]);
+      expect(await tabA.end('child-exit')).not.toBeNull();
+      expect((await s.sessionEvents()).map((e) => e.type)).toEqual([
+        'session.started',
+        'session.ended',
+      ]);
+    });
+
+    it('a sweep is skipped while another tab plays or sweeps, and takes no play lock', async () => {
+      const { locks, held } = fakeLocks();
+      const s = await setup({ locks });
+      const taken: string[] = [];
+      const watched: SessionLocks = {
+        acquire(name, waitMs) {
+          taken.push(name);
+          return locks.acquire(name, waitMs);
+        },
+        held: (name) => locks.held(name),
+      };
+      const tabB = s.make({ locks: watched });
+      // Tab A is playing.
+      await s.controller.start(CHILD_K);
+      expect(await tabB.sweep()).toEqual({ closed: 0, watching: 0, skipped: true });
+      await s.controller.end('child-exit');
+      // Another tab is sweeping.
+      const slow = gatedStore(s.store);
+      const tabC = s.make({ store: slow });
+      slow.reads.close();
+      const other = tabC.sweep();
+      await vi.waitFor(() => expect([...held]).toEqual([SWEEP_LOCK]));
+      expect(await tabB.sweep()).toEqual({ closed: 0, watching: 0, skipped: true });
+      slow.reads.open();
+      await other;
+      // Free at last: it sweeps. In all of this it never asked for the play lock.
+      expect(await tabB.sweep()).toEqual({ closed: 0, watching: 0, skipped: false });
+      expect(new Set(taken)).toEqual(new Set([SWEEP_LOCK]));
+      expect(held.size).toBe(0);
+    });
+
+    it('a cancelled start doesn’t hold up the next child’s check while another tab plays', async () => {
+      const { locks } = fakeLocks();
+      const s = await setup({ locks });
+      await s.controller.start(CHILD_K); // tab A plays, holding the play lock
+      const tabB = s.make();
+      // In tab B the pad is closed as the start goes out, and another child is tapped.
+      const cancel = new AbortController();
+      const cancelled = tabB.start(CHILD_K, 'child', { signal: cancel.signal });
+      cancel.abort();
+      const next = tabB.canStart(CHILD_G2);
+      const answers = await Promise.race([
+        Promise.all([cancelled, next]),
+        new Promise<'late'>((r) => setTimeout(() => r('late'), 500)),
+      ]);
+      expect(answers).toEqual([
+        { ok: false, reason: 'cancelled' },
+        expect.objectContaining({ ok: true }),
+      ]);
+      // And a start that isn't cancelled is refused at once, not after a wait.
+      const before = performance.now();
+      expect(await tabB.start(CHILD_G2)).toEqual({ ok: false, reason: 'elsewhere' });
+      expect(performance.now() - before).toBeLessThan(500);
+      expect(s.controller.getSnapshot().status).toBe('active');
     });
 
     it('refuses a start in a second tab while another plays (elsewhere), and leaves it alone', async () => {
@@ -952,6 +1007,7 @@ describe('SessionController', () => {
       const { locks } = fakeLocks();
       const failing: SessionLocks = {
         acquire: () => Promise.reject(new Error('locks unavailable')),
+        held: () => Promise.reject(new Error('locks unavailable')),
       };
       const s = await setup({ locks });
       const tabA = s.make({ locks: failing }); // plays in the fallback, holding no lock
@@ -981,6 +1037,7 @@ describe('SessionController', () => {
         const { locks } = fakeLocks();
         const failing: SessionLocks = {
           acquire: () => Promise.reject(new Error('locks unavailable')),
+          held: () => Promise.reject(new Error('locks unavailable')),
         };
         const s = await setup({ locks });
         // Tab A's session.started commits, then its start pauses before it plays.

@@ -91,6 +91,8 @@ export interface SessionLocks {
    * Resolves with the function that releases it, or null when it wasn't taken.
    */
   acquire(name: string, waitMs: number): Promise<(() => void) | null>;
+  /** Whether some tab holds the lock `name` right now. It takes nothing and delays no one. */
+  held(name: string): Promise<boolean>;
 }
 
 /** `navigator.locks` (Web Locks API) as SessionLocks; null where the browser lacks it. */
@@ -123,6 +125,10 @@ export function webLocks(): SessionLocks | null {
             else reject(e);
           });
       });
+    },
+    async held(name) {
+      const snapshot = await locks.query();
+      return (snapshot.held ?? []).some((lock) => lock.name === name);
     },
   };
 }
@@ -164,8 +170,6 @@ export interface SessionControllerOptions {
   tickMs?: number;
   /** How often a checkpoint is saved while playing. */
   checkpointMs?: number;
-  /** How long a start waits for the play lock before it is refused as `elsewhere`. */
-  startLockWaitMs?: number;
   /** A failed write (storage full, a deleted child) is reported here, never thrown at a tick. */
   onError?: (scope: string, error: unknown) => void;
 }
@@ -179,10 +183,10 @@ export const CHECKPOINT_PREFIX = 'ni.session.';
 /** The device-wide Web Lock held while a session runs in some tab (one player per device). */
 export const PLAY_LOCK = 'ni.play';
 /**
- * How long a start waits for the play lock. A sweep in another tab holds it only while it reads
- * the log and writes what it closes; a tab that is playing holds it for the whole session.
+ * The device-wide Web Lock held by a sweep while it reads the log and closes what was abandoned
+ * (one sweep at a time). A sweep never takes the play lock, so it never stands in a start's way.
  */
-export const START_LOCK_WAIT_MS = 3_000;
+export const SWEEP_LOCK = 'ni.sweep';
 /**
  * A session whose checkpoint is younger than this may still be playing in some tab (checkpoints
  * are saved every 15 s, and at least every minute in a hidden tab), so no sweep closes it.
@@ -293,7 +297,6 @@ export class SessionController {
   readonly #newId: () => string;
   readonly #tickMs: number;
   readonly #checkpointMs: number;
-  readonly #startLockWaitMs: number;
   readonly #onError: (scope: string, error: unknown) => void;
   readonly #listeners = new Set<() => void>();
   readonly #windDownListeners = new Set<(reason: WindDownReason, session: ActiveSession) => void>();
@@ -313,7 +316,6 @@ export class SessionController {
     this.#newId = opts.newId ?? defaultNewId;
     this.#tickMs = opts.tickMs ?? SESSION_TICK_MS;
     this.#checkpointMs = opts.checkpointMs ?? CHECKPOINT_MS;
-    this.#startLockWaitMs = opts.startLockWaitMs ?? START_LOCK_WAIT_MS;
     this.#onError = opts.onError ?? (() => {});
   }
 
@@ -357,8 +359,7 @@ export class SessionController {
    * Starts a session for `childId` (ending another child's running session as `child-exit`
    * first). Resolves with the session, or with the reason it may not start. Starting the child
    * whose session is already running returns that session. While another tab is playing, the
-   * start is refused (`elsewhere`) after waiting `START_LOCK_WAIT_MS` for the play lock, which
-   * another tab's sweep may hold for a moment. An aborted `signal` (the child closed the picture pad
+   * start is refused at once (`elsewhere`). An aborted `signal` (the child closed the picture pad
    * meanwhile) refuses it (`cancelled`) before anything is written.
    */
   start(
@@ -376,18 +377,25 @@ export class SessionController {
       }
       if (current) await this.#end(current.windDown ?? 'child-exit');
       // The play lock first: the plan below then sees every other tab's play, ended and written.
-      // A sweep in another tab holds the same lock while it reads the log, so a start waits a
-      // moment for it: a lock still held after that is a tab that is really playing.
-      const releaseLock = await this.#tryPlayLock(this.#startLockWaitMs);
+      // Only a tab that is playing holds it (a sweep has its own lock), so a refusal here means
+      // just that, and is given at once.
+      const releaseLock = await this.#tryLock(PLAY_LOCK);
       if (!releaseLock) return { ok: false as const, reason: 'elsewhere' as const };
       let plan: Plan;
       try {
         // Sessions left behind by a closed tab (their checkpoints gone quiet) are closed first.
-        // One still fresh is left open, and the plan counts its checkpointed play instead.
-        try {
-          await this.#closeAbandoned();
-        } catch (e) {
-          this.#onError('session.abandoned', e);
+        // One still fresh is left open, and the plan counts its checkpointed play instead. If
+        // another tab is sweeping right now, this start doesn't wait for it: that sweep closes
+        // them, and the plan counts whatever is still open.
+        const releaseSweep = await this.#tryLock(SWEEP_LOCK);
+        if (releaseSweep) {
+          try {
+            await this.#closeAbandoned();
+          } catch (e) {
+            this.#onError('session.abandoned', e);
+          } finally {
+            releaseSweep();
+          }
         }
         plan = await this.#plan(childId);
       } catch (e) {
@@ -604,13 +612,14 @@ export class SessionController {
    * each gets `session.ended` with reason `abandoned` and the last saved checkpoint (else 0).
    * The running session is left alone. Returns how many were closed.
    *
-   * It runs holding the play lock and reads the log only then: no other tab is playing, and any
-   * session another tab ended is already in the log. While another tab plays, nothing is closed
-   * (the next sweep, at the next picker visit or boot, tries again). A session whose checkpoint is
-   * fresh (younger than LIVE_CHECKPOINT_MS) is never closed: a tab that couldn't take the lock
-   * may still be playing it. It is closed once its checkpoint has gone quiet. One with no
-   * checkpoint at all is closed only after NO_CHECKPOINT_MS. Sweeps in two tabs without locks may
-   * race: the store keeps one end per session, and only the sweep that wrote it counts it.
+   * It runs holding the sweep lock (one sweep at a time on the device), never the play lock: it
+   * only asks whether some tab holds that one. While another tab plays, nothing is closed (a
+   * later sweep tries again). A tab may start playing while a sweep runs; that is safe, because
+   * a session is closed only on what its checkpoint shows. One whose checkpoint is fresh
+   * (younger than LIVE_CHECKPOINT_MS) is never closed: some tab may be playing it. It is closed
+   * once its checkpoint has gone quiet. One with no checkpoint at all is closed only after
+   * NO_CHECKPOINT_MS. Sweeps in two tabs without locks may race: the store keeps one end per
+   * session, and only the sweep that wrote it counts it.
    */
   closeAbandoned(): Promise<number> {
     return this.sweep().then((result) => result.closed);
@@ -619,15 +628,18 @@ export class SessionController {
   /**
    * `closeAbandoned`, also telling how many checkpointed sessions it left open to keep watching
    * (a checkpoint still fresh, or not yet seen unchanged for long enough), and whether it was
-   * skipped altogether because another tab holds the play lock. In both cases a later sweep has
-   * something to decide (that other tab may die without an end): the provider sweeps again.
+   * skipped altogether because another tab is playing or sweeping. In both cases a later sweep
+   * has something to decide (that other tab may die without an end): the provider sweeps again.
    */
   sweep(): Promise<SweepResult> {
     return this.#serial(async () => {
-      // A running session here means this controller already holds the play lock (if it could).
-      const release = this.#running ? NO_LOCK : await this.#tryPlayLock();
-      if (!release) return { closed: 0, watching: 0, skipped: true };
+      const skipped: SweepResult = { closed: 0, watching: 0, skipped: true };
+      const release = await this.#tryLock(SWEEP_LOCK);
+      if (!release) return skipped; // another tab is sweeping
       try {
+        // A session running here is this controller's own; otherwise a held play lock is another
+        // tab playing.
+        if (!this.#running && (await this.#playLockHeld())) return skipped;
         return await this.#closeAbandoned();
       } finally {
         release();
@@ -724,19 +736,29 @@ export class SessionController {
   // ---------- internals ----------
 
   /**
-   * The play lock if it is free now (or comes free within `waitMs`); null while another tab holds
-   * it. Without Web Locks, or if
-   * the lock API fails, a no-op lock: play goes on, and only the fresh-checkpoint rule protects
-   * other tabs' sessions.
+   * The lock `name` (the play lock or the sweep lock) if it is free now; null while another tab
+   * holds it. It never waits. Without Web Locks, or if the lock API fails, a no-op lock: play and
+   * sweeps go on, and only the checkpoint rules protect other tabs' sessions.
    */
-  async #tryPlayLock(waitMs = 0): Promise<PlayLock | null> {
+  async #tryLock(name: string): Promise<PlayLock | null> {
     if (!this.#locks) return NO_LOCK;
     try {
-      const release = await this.#locks.acquire(PLAY_LOCK, waitMs);
+      const release = await this.#locks.acquire(name, 0);
       return release ? once(release) : null;
     } catch (e) {
       this.#onError('session.lock', e);
       return NO_LOCK;
+    }
+  }
+
+  /** Whether some tab holds the play lock. Unknown (no Web Locks, or the API fails) counts as no. */
+  async #playLockHeld(): Promise<boolean> {
+    if (!this.#locks) return false;
+    try {
+      return await this.#locks.held(PLAY_LOCK);
+    } catch (e) {
+      this.#onError('session.lock', e);
+      return false;
     }
   }
 

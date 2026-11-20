@@ -5,10 +5,12 @@ import { CHILD_K, profile, testEnv } from '@/data/store.test-support';
 import {
   type CheckpointStorage,
   LIVE_CHECKPOINT_MS,
+  PLAY_LOCK,
   SessionController,
   type SessionLocks,
   type SessionStore,
   type SessionTimers,
+  SWEEP_LOCK,
 } from './SessionController';
 import { FOLLOW_UP_SWEEP_MS, SessionProvider } from './SessionProvider';
 
@@ -145,7 +147,8 @@ describe('<SessionProvider>', () => {
     expect(await s.ends()).toHaveLength(1);
   });
 
-  it('tries again after a sweep skipped because another tab held the play lock, and closes what that tab left', async () => {
+  /** Two tabs of one browser with Web Locks; tab B's reads of the log can be held at a gate. */
+  async function twoTabs() {
     const env = testEnv();
     const store = await env.open();
     stores.push(store);
@@ -156,7 +159,6 @@ describe('<SessionProvider>', () => {
       setItem: (k, v) => void map.set(k, v),
       removeItem: (k) => void map.delete(k),
     };
-    // Web Locks shared by the two tabs.
     const held = new Set<string>();
     const locks: SessionLocks = {
       acquire(name) {
@@ -164,10 +166,25 @@ describe('<SessionProvider>', () => {
         held.add(name);
         return Promise.resolve(() => void held.delete(name));
       },
+      held: (name) => Promise.resolve(held.has(name)),
     };
-    const make = () => {
+    const gate = { hold: null as Promise<void> | null, reads: 0 };
+    const gated: SessionStore = {
+      now: () => store.now(),
+      device: () => store.device(),
+      familySettings: () => store.familySettings(),
+      childSettings: (id) => store.childSettings(id),
+      append: ((...args: Parameters<DataStore['append']>) =>
+        store.append(...args)) as DataStore['append'],
+      events: async () => {
+        gate.reads += 1;
+        if (gate.hold) await gate.hold;
+        return store.events();
+      },
+    };
+    const make = (tabStore: SessionStore = store) => {
       const c = new SessionController({
-        store,
+        store: tabStore,
         storage,
         locks,
         monotonic: () => env.clock.now(),
@@ -176,10 +193,15 @@ describe('<SessionProvider>', () => {
       controllers.push(c);
       return c;
     };
+    const ends = async () => (await store.events()).filter((e) => e.type === 'session.ended');
+    return { env, held, gate, gated, make, ends };
+  }
+
+  it('tries again after a sweep skipped because another tab was playing, and closes what that tab left', async () => {
+    const { env, held, make, ends } = await twoTabs();
     const tabA = make();
     expect(await tabA.start(CHILD_K)).toMatchObject({ ok: true }); // tab A plays, holding the lock
-    expect(held.size).toBe(1);
-    const ends = async () => (await store.events()).filter((e) => e.type === 'session.ended');
+    expect([...held]).toEqual([PLAY_LOCK]);
 
     vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
     const booted = make(); // tab B opens the picker
@@ -212,68 +234,13 @@ describe('<SessionProvider>', () => {
     expect(vi.getTimerCount()).toBe(0);
   });
 
-  it('a retry that holds the play lock while it reads never turns a start in another tab away', async () => {
-    const env = testEnv();
-    const store = await env.open();
-    stores.push(store);
-    await store.putProfile(profile(CHILD_K, 'K', 'Mia'));
-    const map = new Map<string, string>();
-    const storage: CheckpointStorage = {
-      getItem: (k) => map.get(k) ?? null,
-      setItem: (k, v) => void map.set(k, v),
-      removeItem: (k) => void map.delete(k),
-    };
-    // Web Locks shared by the two tabs: a request with a wait queues until the lock is released.
-    let heldBy: symbol | null = null;
-    const queue: Array<() => void> = [];
-    const locks: SessionLocks = {
-      acquire(_name, waitMs) {
-        const take = () => {
-          const mine = Symbol('holder');
-          heldBy = mine;
-          return () => {
-            if (heldBy !== mine) return;
-            heldBy = null;
-            queue.shift()?.();
-          };
-        };
-        if (heldBy === null) return Promise.resolve(take());
-        if (waitMs === 0) return Promise.resolve(null);
-        return new Promise((resolve) => queue.push(() => resolve(take())));
-      },
-    };
-    // Tab B's reads of the log can be held at a gate.
-    let hold: Promise<void> | null = null;
-    let reads = 0;
-    const tabBStore: SessionStore = {
-      now: () => store.now(),
-      device: () => store.device(),
-      familySettings: () => store.familySettings(),
-      childSettings: (id) => store.childSettings(id),
-      append: ((...args: Parameters<DataStore['append']>) =>
-        store.append(...args)) as DataStore['append'],
-      events: async () => {
-        reads += 1;
-        if (hold) await hold;
-        return store.events();
-      },
-    };
-    const make = (tabStore: SessionStore) => {
-      const c = new SessionController({
-        store: tabStore,
-        storage,
-        locks,
-        monotonic: () => env.clock.now(),
-        timers: { setInterval: () => 0, clearInterval: () => {} },
-      });
-      controllers.push(c);
-      return c;
-    };
-    const tabA = make(store);
+  it('a retry whose read of the log is stuck never turns a start in another tab away', async () => {
+    const { env, held, gate, gated, make } = await twoTabs();
+    const tabA = make();
     expect(await tabA.start(CHILD_K)).toMatchObject({ ok: true }); // tab A plays
 
     vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
-    const tabB = make(tabBStore);
+    const tabB = make(gated);
     const sweep = vi.spyOn(tabB, 'sweep');
     render(
       <SessionProvider controller={tabB}>
@@ -283,22 +250,31 @@ describe('<SessionProvider>', () => {
     expect(await sweep.mock.results[0]?.value).toMatchObject({ skipped: true });
     await settle(sweep);
     expect(await tabA.end('child-exit')).not.toBeNull(); // tab A ends normally: nobody plays
+    expect(held.size).toBe(0);
 
-    // Tab B's retry takes the play lock, and its read of the log is slow.
+    // Tab B's retry starts, and its read of the log never comes back while we watch.
     let release: () => void = () => {};
-    hold = new Promise<void>((r) => {
+    gate.hold = new Promise<void>((r) => {
       release = r;
     });
     env.clock.advance(FOLLOW_UP_SWEEP_MS);
     vi.advanceTimersByTime(FOLLOW_UP_SWEEP_MS);
-    await vi.waitFor(() => expect(reads).toBe(1));
-    expect(heldBy).not.toBeNull();
-    // A child starts again in tab A right then.
-    const start = tabA.start(CHILD_K);
-    await Promise.resolve();
-    release();
-    expect(await start).toMatchObject({ ok: true });
+    await vi.waitFor(() => expect(gate.reads).toBe(1));
+    expect([...held]).toEqual([SWEEP_LOCK]); // the sweep's own lock, not the play lock
+
+    // A child starts again in tab A, and plays, with that sweep still stuck: no wait, no refusal.
+    expect(await tabA.start(CHILD_K)).toMatchObject({ ok: true });
     expect(tabA.getSnapshot().status).toBe('active');
+    expect([...held].sort()).toEqual([PLAY_LOCK, SWEEP_LOCK].sort());
+
+    // When the read does come back, the sweep finds a live session and closes nothing.
+    release();
+    expect(await sweep.mock.results[1]?.value).toEqual({
+      closed: 0,
+      watching: 1,
+      skipped: false,
+    });
+    expect(await tabA.end('child-exit')).not.toBeNull();
   });
 
   it('tries again after a sweep that failed', async () => {
