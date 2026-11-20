@@ -1518,3 +1518,78 @@ export const RulerCardsKMinLandscape: Story = {
     noteInk(canvasElement, await expectPathInk(root));
   },
 };
+
+/**
+ * A card of objects names its thing on tap ("apple"; never how much it weighs): 06 §5 with
+ * speak-on-tap on. No number is spoken for a picture.
+ */
+export const ObjectCardSpeaksOnTap: Story = {
+  globals: { ageMode: 'k' },
+  parameters: { ui: { audio: spyAudio() } },
+  args: { config: weightCards, tier: 'pictorial' },
+  play: async ({ canvasElement, parameters }) => {
+    const audio = parameters.ui.audio as ReturnType<typeof spyAudio>;
+    clearSpies(audio);
+    const root = await findWidget(canvasElement, ROOT);
+    await userEvent.click(root.querySelector('.ni-ord__tray [data-card="item-0"]') as HTMLElement);
+    await expect(audio.say).toHaveBeenCalledWith('ui.sprite.apple', undefined);
+    await expect(audio.sayPhrases).not.toHaveBeenCalled();
+  },
+};
+
+/** A placed numeral speaks again when it is tapped back to the tray; the undo is still traced. */
+export const PlacedNumeralSpeaks: Story = {
+  globals: { ageMode: 'k' },
+  parameters: { ui: { audio: spyAudio() } },
+  play: async ({ canvasElement, args, parameters }) => {
+    const audio = parameters.ui.audio as ReturnType<typeof spyAudio>;
+    const root = await findWidget(canvasElement, ROOT);
+    await userEvent.click(card(root, '6'));
+    await userEvent.click(slot(root, 1));
+    await waitFor(() => expect(placed(root)[0]).toBe('6'));
+    clearSpies(audio);
+    await userEvent.click(root.querySelector('[data-placed="item-1"]') as HTMLElement);
+    await expect(audio.sayPhrases).toHaveBeenCalledWith([{ number: 6 }]);
+    await waitFor(() => expect(placed(root)[0]).toBe(''));
+    await expect(traceOf(args.onInteract).at(-1)).toMatchObject({ t: 'undo', target: 'item-1' });
+  },
+};
+
+const twins: Config = {
+  format: 'order',
+  items: [
+    { id: 'item-0', value: 2, label: '2' },
+    { id: 'item-1', value: 1, label: '1' },
+    { id: 'item-2', value: 2, label: '2' },
+  ],
+  direction: 'asc',
+};
+const twinsInvite: WidgetDemo = createDemoController({ strict: true });
+
+/**
+ * Cards of one value are interchangeable: with 1, 2, 2 in the boxes (the two 2s the other way
+ * round from the model's own assignment) the row is right, so an answer invite shows no ring and
+ * no hand.
+ */
+export const AnswerInviteEqualValues: Story = {
+  args: { config: twins, demo: twinsInvite },
+  play: async ({ canvasElement }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    const trayCard = (id: string) =>
+      root.querySelector(`.ni-ord__tray [data-card="${id}"]`) as HTMLElement;
+    for (const [id, box] of [
+      ['item-1', 1],
+      ['item-2', 2],
+      ['item-0', 3],
+    ] as const) {
+      await userEvent.click(trayCard(id));
+      await userEvent.click(slot(root, box));
+    }
+    await waitFor(() => expect(placed(root)).toEqual(['1', '2', '2']));
+    twinsInvite.invite({ op: 'answer', args: { values: [1, 2, 2] } });
+    await new Promise((r) => setTimeout(r, 150));
+    await expect(root.querySelectorAll('.ni-invite')).toHaveLength(0);
+    await expect(root.querySelector('.ni-invite-hand')).toBeNull();
+    twinsInvite.invite(null);
+  },
+};

@@ -1632,6 +1632,97 @@ export const NumberLinesKPortrait: Story = {
   },
 };
 
+/** The numerals a number line draws, in screen px (the picture may be scaled to fit). */
+const lineNumeralPx = (root: HTMLElement) =>
+  [...root.querySelectorAll<SVGTextElement>('.ni-numberline text')].map((t) => {
+    const svg = t.ownerSVGElement as SVGSVGElement;
+    const scale = svg.getBoundingClientRect().width / svg.width.baseVal.value;
+    return Number.parseFloat(getComputedStyle(t).fontSize) * scale;
+  });
+
+/**
+ * CMP.08.t2 at the 960 × 600 minimum in K mode: two labelled number lines and the symbol gap,
+ * the three symbols and Check below. The hand's room never costs the lines their numerals: every
+ * tick label and mark label stays ≥ 32 px (05 §11), and the whole widget fits.
+ */
+export const SymbolLinesKMin: Story = {
+  globals: { ageMode: 'k' },
+  args: { config: symbolLines, tier: 'pictorial' },
+  render: inArea('landscapeMin'),
+  play: async ({ canvasElement }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    await expectCompareFits(canvasElement, root, 'k');
+    const px = lineNumeralPx(root);
+    await expect(px.length).toBeGreaterThan(0);
+    await expect(Math.min(...px)).toBeGreaterThanOrEqual(32);
+  },
+};
+
+/** The same at Grade 1+ targets. */
+export const SymbolLinesMin: Story = {
+  args: { config: symbolLines, tier: 'pictorial' },
+  render: inArea('landscapeMin'),
+  play: async ({ canvasElement }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    await expectCompareFits(canvasElement, root, 'g1-up');
+    await expect(Math.min(...lineNumeralPx(root))).toBeGreaterThanOrEqual(32);
+  },
+};
+
+const statementDemo: WidgetDemo = createDemoController({ strict: true });
+
+/**
+ * A lesson's highlight shows on a statement (ADD.10.t4's worked solution points at the left side
+ * first): the side that is no answer still draws the ring while the step plays, then drops it.
+ */
+export const StatementDemoHighlight: Story = {
+  args: { disabled: true, config: statement, tier: 'abstract', demo: statementDemo },
+  play: async ({ canvasElement }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    const side = root.querySelector('.ni-cmp__side[data-side="left"] .ni-cmp__tray') as HTMLElement;
+    await expect(side).not.toHaveClass('ni-invite');
+    const playing = statementDemo.play({ op: 'highlight', args: { side: 'left' } });
+    await waitFor(() => expect(side).toHaveClass('ni-invite'));
+    await expect(getComputedStyle(side).outlineStyle).toBe('solid');
+    await playing;
+    await waitFor(() => expect(side).not.toHaveClass('ni-invite'));
+  },
+};
+
+/**
+ * A symbol question keeps its sides and the gap even when match lines are allowed (concrete
+ * objects on both sides): the symbol drops into the gap, shows there and answers.
+ */
+export const SymbolObjectsMatchAllowed: Story = {
+  args: {
+    config: {
+      format: 'compare',
+      left: fish(2, 1),
+      right: fish(3, 2),
+      ask: 'symbol',
+      allowMatchLines: true,
+    },
+    tier: 'concrete',
+  },
+  play: async ({ canvasElement, args }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    const canvas = within(root);
+    await expect(root).not.toHaveAttribute('data-arrange', 'match');
+    const pad = root.querySelector('.ni-cmp__pad') as HTMLElement;
+    await expect(pad).not.toBeNull();
+    await pointerDrag(canvas.getByRole('button', { name: 'Less than' }), center(pad), 'mouse');
+    await waitFor(() =>
+      expect(root.querySelector('.ni-cmp__placed [data-glyph="lt"]')).not.toBeNull(),
+    );
+    await userEvent.click(canvas.getByRole('button', { name: 'Check' }));
+    await expect(args.onResponse).toHaveBeenCalledWith({ kind: 'choice', id: '<' });
+    await expect(traceOf(args.onInteract).map((e) => `${e.t}:${e.target}`)).toEqual([
+      'drag:<',
+      'drop:gap',
+    ]);
+  },
+};
+
 /** Tablet: number lines. */
 export const NumberLinesKTablet: Story = {
   globals: { ageMode: 'k' },

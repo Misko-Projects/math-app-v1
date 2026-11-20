@@ -20,6 +20,7 @@ import {
   naturalPictureSize,
   numberLineHeight,
   type ObjectLayout,
+  spriteNameKey,
   stepsBetween,
   useAlive,
   useDemoPause,
@@ -435,7 +436,7 @@ export function OrderWidget({
   demo,
 }: WidgetProps<Config>) {
   const t = useNarrationText();
-  const { sayNumber } = useSpeech();
+  const { say, sayNumber } = useSpeech();
   const { speakOnTap, ageMode } = useUiPreferences();
   const reduced = useReducedMotion();
   const trace = useInteractionTrace(onInteract);
@@ -467,8 +468,11 @@ export function OrderWidget({
     it.label ??
     (it.stimulus ? t('ui.order.picture', { n: config.items.indexOf(it) + 1 }) : String(it.value));
   const speakItem = (it: Item) => {
-    // Numerals speak their name (06 §5); a picture's quantity is the child's to find.
-    if (speakOnTap && (isNumeral(it.label) || (!it.label && !it.stimulus))) sayNumber(it.value);
+    if (!speakOnTap) return;
+    // Numerals speak their name (06 §5). A card of objects names its thing ("apple"), never how
+    // many or how much: a picture's quantity is the child's to find.
+    if (isNumeral(it.label) || (!it.label && !it.stimulus)) sayNumber(it.value);
+    else if (it.stimulus?.kind === 'objects') say(spriteNameKey(it.stimulus.set.sprite));
   };
 
   /** Puts an item in a slot: its old slot frees up and the slot's occupant goes back to the tray. */
@@ -501,6 +505,9 @@ export function OrderWidget({
     const id = slots[k];
     if (!interactive || id === null || id === undefined || fixedSlots.has(k)) return;
     trace('undo', id);
+    // A tapped card speaks wherever it lies (06 §5), in a box as in the tray.
+    const it = itemById.get(id);
+    if (it) speakItem(it);
     const next = [...slotsRef.current];
     next[k] = null;
     slotsRef.current = next;
@@ -635,9 +642,19 @@ export function OrderWidget({
       case 'answer': {
         const target = solutionSlots(invite);
         if (!target) return null;
-        const k = target.findIndex((id, i) => !fixedSlots.has(i) && slots[i] !== id);
-        const id = target[k];
-        return k < 0 || id === null || id === undefined ? null : cardThenSlot(id, k);
+        // Cards of one value are interchangeable (the format accepts either): a box is right when
+        // it holds the value that belongs there, whichever card shows it.
+        const val = (id: string | null | undefined) =>
+          id === null || id === undefined ? undefined : itemById.get(id)?.value;
+        const k = target.findIndex((id, i) => !fixedSlots.has(i) && val(slots[i]) !== val(id));
+        if (k < 0) return null;
+        // The card to move: one of that value not already lying where its value belongs.
+        const settled = new Set(slots.filter((id, i) => val(id) === val(target[i])));
+        const id =
+          config.items.find(
+            (it) => it.value === val(target[k]) && !settled.has(it.id) && !fixedIds.has(it.id),
+          )?.id ?? target[k];
+        return id === null || id === undefined ? null : cardThenSlot(id, k);
       }
       default:
         return null;

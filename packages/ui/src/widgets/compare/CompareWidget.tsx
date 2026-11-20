@@ -24,6 +24,7 @@ import {
   cellToFit,
   countLayout,
   FitPicture,
+  fittedLineNumeralPx,
   LINE_BARE_PAD,
   minObjectStep,
   NumberLineView,
@@ -506,6 +507,8 @@ const isLengthStrip = (spec: StimulusSpec, ask: Config['ask']) =>
 const stripWidth = (w: number) => Math.max(200, Math.min(880, Math.floor(w)));
 /** The ruler under two length strips: its height (line at 30 px, ticks and caps below). */
 const RULER_H = 60;
+/** The numeral floor (05 §11): a number line's printed numerals never go under it. */
+const MIN_NUMERAL_PX = 32;
 /** A ribbon's drawn band: 30 px in a tight room, broader (up to 56 px) where the room allows. */
 const RIBBON_H = { min: 30, max: 56 };
 /**
@@ -661,8 +664,14 @@ export function CompareWidget({
   const rightSet = config.right.kind === 'objects' ? config.right.set : null;
   const specs = config.right.kind === 'none' ? [config.left] : [config.left, config.right];
   const [leftLayout, rightLayout] = leftSet && rightSet ? sideLayouts(specs, false) : [null, null];
+  // Match rows are for the questions answered below them (which has more, the same or not). A
+  // symbol question keeps its sides and the gap between them: the gap is where the symbol goes.
   const matchable =
-    tier === 'concrete' && config.allowMatchLines && leftLayout !== null && rightLayout !== null;
+    tier === 'concrete' &&
+    config.allowMatchLines &&
+    ask !== 'symbol' &&
+    leftLayout !== null &&
+    rightLayout !== null;
   const choices = choicesFor(ask);
   const validIds: string[] =
     ask === 'symbol'
@@ -740,10 +749,20 @@ export function CompareWidget({
       handRoom,
     });
   const held = planWith(holdBack ? HAND_ROOM : 0);
-  // The hand's room never costs a side its target size (06 §4): a layout that would shrink a side
-  // card under the target keeps the room it has (the hand then points from beside or above).
+  // A side's number line printed under the 32 px numeral floor (05 §11) at this plan's height.
+  const smallNumerals = (p: Plan) =>
+    specs.some((sp) => {
+      if (sp.kind !== 'number-line' || isLengthStrip(sp, ask)) return false;
+      const px = fittedLineNumeralPx(sp, p.side.h);
+      return px !== null && px < MIN_NUMERAL_PX - 0.01;
+    });
+  // The hand's room never costs a side its target size (06 §4) or a number line its numerals
+  // (05 §11): a layout that would shrink either keeps the room it has (the hand then points from
+  // beside or above).
   const plan =
-    holdBack && held.arrange !== 'match' && held.side.h + 2 * SIDE_PAD < target
+    holdBack &&
+    held.arrange !== 'match' &&
+    (held.side.h + 2 * SIDE_PAD < target || smallNumerals(held))
       ? planWith(0)
       : held;
   /**
@@ -1173,7 +1192,8 @@ export function CompareWidget({
         ) : operand ? (
           <button
             type="button"
-            className="ni-cmp__tray ni-cmp__tray--static ni-cmp__operand"
+            // A lesson's highlight shows on an operand too (a side that is no answer gets no invite).
+            className={`ni-cmp__tray ni-cmp__tray--static ni-cmp__operand${lit(side) ? ' ni-invite' : ''}`}
             aria-label={`${sideLabel(side)}: ${speech.name}`}
             data-operand={side}
             disabled={!interactive}
@@ -1184,7 +1204,9 @@ export function CompareWidget({
             }}
           />
         ) : (
-          <div className="ni-cmp__tray ni-cmp__tray--static">{face}</div>
+          <div className={`ni-cmp__tray ni-cmp__tray--static${lit(side) ? ' ni-invite' : ''}`}>
+            {face}
+          </div>
         )}
         {/* A side that is a button draws its picture over it (the button is named by its side),
             so the button holds no text of its own (axe label-content-name-mismatch). */}

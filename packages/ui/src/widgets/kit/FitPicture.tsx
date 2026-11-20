@@ -2,7 +2,7 @@ import type { StimulusSpec } from '@number-island/shared';
 import { type ReactNode, useCallback, useLayoutEffect, useRef, useState } from 'react';
 import { useNarrationText } from '../../preferences/UiProvider';
 import { dotsLayout, type ObjectLayout, objectSetLayout, type PlacedObject } from './layout';
-import { NumberLineView, POINTER_HEADROOM } from './NumberLineView';
+import { NUMERAL_PX, NumberLineView, POINTER_HEADROOM } from './NumberLineView';
 import { ObjectSetView } from './ObjectSetView';
 import { baseTenOnesWidth, StimulusView } from './StimulusView';
 import './kit.css';
@@ -138,6 +138,20 @@ export function numberLineHeight(
         ? LINE_BELOW_POINTER
         : LINE_BELOW_BARE;
   return lineHeadroom(spec, pointerMarks) + below;
+}
+
+/**
+ * The px a fitted number line's numerals are drawn at in a box `h` px tall (the line scales by
+ * its height alone, see `FitPicture`); null when the line prints no numerals. A layout uses it to
+ * keep the numerals at the 32 px floor (05 §11).
+ */
+export function fittedLineNumeralPx(
+  spec: Extract<StimulusSpec, { kind: 'number-line' }>,
+  h: number,
+  pointerMarks = false,
+): number | null {
+  if (!numerals(spec)) return null;
+  return NUMERAL_PX * Math.min(1, Math.max(1, h) / numberLineHeight(spec, pointerMarks));
 }
 
 /**

@@ -25,6 +25,7 @@ export {
   countLayout,
   FitPicture,
   type FitPictureProps,
+  fittedLineNumeralPx,
   LINE_BARE_PAD,
   naturalPictureSize,
   numberLineHeight,

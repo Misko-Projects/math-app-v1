@@ -101,7 +101,7 @@ export interface NumberLineViewProps {
 
 const LINE_Y = 104;
 /** Numeral size on the line: well above the 32 px floor (05 §11), so it reads as big as the cards. */
-const NUMERAL_PX = 40;
+export const NUMERAL_PX = 40;
 /**
  * `pointerMarks`: the pointer's tip stands this far above the line, clear of the tallest tick (a
  * tenth tick reaches 18 px up, its round cap 2 more) by ≈ 5 px with both outlines. The pointer is
