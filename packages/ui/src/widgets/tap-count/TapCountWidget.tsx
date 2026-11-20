@@ -1,6 +1,6 @@
 import { formatModel } from '@number-island/engine';
 import type { WidgetAction } from '@number-island/shared';
-import { type CSSProperties, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { type CSSProperties, useCallback, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useInteractionTrace } from '../../interaction/trace';
 import { useNarrationText, useSpeech, useUiPreferences } from '../../preferences/UiProvider';
 import { ArrowIcon, CheckIcon } from '../../primitives/icons';
@@ -509,6 +509,24 @@ export function TapCountWidget({
   const rootRef = useRef<HTMLDivElement | null>(null);
   const [widgetW, setWidgetW] = useState<number | null>(null);
   const [hostH, setHostH] = useState(Number.POSITIVE_INFINITY);
+  /**
+   * Check as it is drawn: icon-only in K, with its word from Grade 1 on (so it is wider). Measured
+   * on the button itself, whenever it mounts or changes size (its word's font arriving, the age
+   * mode switching): the widget's own size does not change then.
+   */
+  const [checkW, setCheckW] = useState(0);
+  const checkObserver = useRef<ResizeObserver | null>(null);
+  const checkRef = useCallback((node: HTMLSpanElement | null) => {
+    checkObserver.current?.disconnect();
+    checkObserver.current = null;
+    const button = node?.querySelector('.ni-btn');
+    if (!button) return;
+    const read = () => setCheckW(Math.ceil(button.getBoundingClientRect().width));
+    read();
+    if (typeof ResizeObserver === 'undefined') return;
+    checkObserver.current = new ResizeObserver(read);
+    checkObserver.current.observe(button);
+  }, []);
   useLayoutEffect(() => {
     const el = rootRef.current;
     if (!el) return;
@@ -542,12 +560,15 @@ export function TapCountWidget({
    */
   const compactPad = config.input === 'pad' && !ordinal && hostH < PAD_H + 2 * PAD_Y;
   const compactKeysW = 4 * target + 3 * TARGET_GAP_PX;
+  // The slot / Check column is as wide as the wider of the two: Check with its word (Grade 1+)
+  // is wider than the slot, and the picture beside the pad gets only what is left.
+  const compactSlotW = Math.max(COMPACT_SLOT_W, checkW);
   const trayShown =
     config.input !== 'pad' && !ordinal && (config.input === 'pick' || !concrete || allCounted);
   const answerW =
     config.input === 'pad'
       ? compactPad
-        ? COMPACT_SLOT_W + COMPACT_GAP + compactKeysW
+        ? compactSlotW + COMPACT_GAP + compactKeysW
         : 3 * (target + 16) + 2 * TARGET_GAP_PX + padCheckW
       : collapseTray && !trayShown
         ? CHECK_W
@@ -1184,7 +1205,7 @@ export function TapCountWidget({
             />
           </div>
         ) : null}
-        <span className="ni-tapc__check">
+        <span className="ni-tapc__check" ref={checkRef}>
           <CheckButton onPress={submit} disabled={!canCheck} invited={cue?.at === 'check'} />
         </span>
       </div>

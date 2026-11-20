@@ -933,6 +933,52 @@ export const DemoCountAloudTenFrameMin: Story = {
   },
 };
 
+/**
+ * Grade 1+ at the 960 × 600 minimum: a single ten-frame beside the compact pad. Check carries its
+ * word from Grade 1 on, so it is wider than the answer slot above it: the slot / Check column is
+ * budgeted at the wider of the two, the picture takes what is left, and nothing overflows (the
+ * area does not scroll; the picture, the slot, every key and Check lie inside it).
+ */
+export const TenFrameCompactPadG1Min: Story = {
+  args: {
+    config: {
+      ...fishPicture,
+      set: { count: 7, sprite: 'crab', layout: 'ten-frame', layoutSeed: 559465306 },
+    },
+    tier: 'pictorial',
+  },
+  parameters: { area: widgetArea(960, 600) },
+  render: renderInArea,
+  play: async ({ canvasElement }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    await waitFor(() => expect(root).toHaveAttribute('data-pad', 'compact'));
+    await expect(root).toHaveAttribute('data-arrange', 'side');
+    const check = checkButton(root);
+    // The word is shown, and makes Check wider than the K icon-only button's 140 px column.
+    await expect(check).toHaveTextContent('Check');
+    await expect(check.getBoundingClientRect().width).toBeGreaterThan(140);
+    // The layout follows Check's measured width (its word's font can arrive a frame later).
+    const box = root.closest('.story-host-box') as HTMLElement;
+    await waitFor(() => expect(box.scrollWidth).toBeLessThanOrEqual(box.clientWidth + 1));
+    await expect(box.scrollHeight).toBeLessThanOrEqual(box.clientHeight + 1);
+    // Everything inside the area, every key and Check a Grade 1+ target, 12 px apart.
+    const area = box.getBoundingClientRect();
+    const keys = [...root.querySelectorAll<HTMLElement>('.ni-pad__key')];
+    const parts: [Element, string][] = [
+      [root.querySelector('.ni-tapc__picture') as Element, 'picture card'],
+      [root.querySelector('.ni-tapc__slot') as Element, 'answer slot'],
+      ...keys.map((k): [Element, string] => [k, `key ${k.dataset.key}`]),
+      [check, 'Check'],
+    ];
+    for (const [el, what] of parts) await expectWithin(el.getBoundingClientRect(), area, 0, what);
+    for (const el of [...keys, check]) await expectTargetSize(el, 'g1-up');
+    await expectTargetGaps([...keys, check]);
+    const card = (root.querySelector('.ni-tapc__picture') as HTMLElement).getBoundingClientRect();
+    const answer = (root.querySelector('.ni-tapc__answer') as HTMLElement).getBoundingClientRect();
+    await expect(card.right).toBeLessThanOrEqual(answer.left);
+  },
+};
+
 const tenFrameInvite: WidgetDemo = createDemoController({ strict: true });
 
 /**

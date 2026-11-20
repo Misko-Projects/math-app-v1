@@ -1162,6 +1162,82 @@ export const RegroupKShortBeforeBundle: Story = {
   },
 };
 
+const resizeCount: WidgetDemo = createDemoController({ strict: true });
+
+/**
+ * The host shrinks while Pip counts (a tablet turned, a panel opened): 12 crabs in two frames at
+ * the tablet area, then the minimum area (one frame at a time, the first ten tied beside the
+ * ones) right after "one". Every number spoken after that still has a visible highlight: on the
+ * tied ten while its crabs are counted, then on the ones in the frame.
+ */
+export const CountAloudSurvivesResize: Story = {
+  globals: { ageMode: 'k' },
+  args: { config: { ...twenty, start: 12 }, demo: resizeCount },
+  parameters: { ui: { audio: spyAudio() } },
+  render: inArea('tablet'),
+  play: async ({ canvasElement, parameters }) => {
+    const audio = parameters.ui.audio as ReturnType<typeof spyAudio>;
+    const root = await findWidget(canvasElement, ROOT);
+    await waitFor(() => expect(inside(root)).toHaveLength(12));
+    await expect(root).not.toHaveAttribute('data-one-frame');
+    clearSpies(audio);
+    const counted = resizeCount.play({ op: 'count-aloud' });
+    await waitFor(() => expect(spokenNumbers(audio)).toEqual([1]));
+    const box = areaBox(canvasElement);
+    box.style.width = `${AREA.landscapeMin.width}px`;
+    box.style.height = `${AREA.landscapeMin.height}px`;
+    await waitFor(() => expect(root).toHaveAttribute('data-one-frame', 'true'));
+    let heard = spokenNumbers(audio).length;
+    while (heard < 12) {
+      await waitFor(() => expect(spokenNumbers(audio).length).toBeGreaterThan(heard), {
+        timeout: 3000,
+        interval: 20,
+      });
+      heard = spokenNumbers(audio).length;
+      const lit = root.querySelector('[data-counting="true"]') as HTMLElement | null;
+      await expect(lit, `a highlight for ${heard}`).not.toBeNull();
+      await expect(lit).toBeVisible();
+    }
+    await counted;
+    await expect(spokenNumbers(audio)).toEqual(Array.from({ length: 12 }, (_, i) => i + 1));
+  },
+};
+
+const regroupAnswer: WidgetDemo = createDemoController({ strict: true });
+
+/**
+ * An `answer` invite on a set that already holds the value but has a full ten still loose
+ * (groupsOf 10, 13 crabs). The model's `answer` ends with the ten tied and `set.count` checks the
+ * bundles, so the cue goes on "Make a ten" first and on Check only once the ten is tied: following
+ * the cue gives the answer the checker accepts. (A child's action ends an invite, as everywhere
+ * in this widget; the host gives the same `answer` invite again for the next step.)
+ */
+export const AnswerInviteBundlesFirst: Story = {
+  globals: { ageMode: 'k' },
+  args: { config: regroup, demo: regroupAnswer },
+  play: async ({ canvasElement, args }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    regroupAnswer.invite({ op: 'answer', args: { value: 13 } });
+    const makeTen = within(root).getByRole('button', { name: 'Make a ten' });
+    await waitFor(() => expect(makeTen.closest('.ni-mset__action')).toHaveClass('ni-invite'));
+    await expect(root.querySelectorAll('.ni-invite')).toHaveLength(1);
+    await expect(check(root)).not.toHaveClass('ni-invite');
+    await userEvent.click(makeTen);
+    await waitFor(() => expect(makeTen).toBeDisabled());
+    await expect(root.querySelectorAll('.ni-invite')).toHaveLength(0);
+    regroupAnswer.invite({ op: 'answer', args: { value: 13 } });
+    await waitFor(() => expect(check(root)).toHaveClass('ni-invite'));
+    await expect(root.querySelectorAll('.ni-invite')).toHaveLength(1);
+    await userEvent.click(check(root));
+    check(root).blur();
+    await expect(args.onResponse).toHaveBeenCalledWith({
+      kind: 'state',
+      value: { count: 13, removed: 0, bundles: 1 },
+    });
+    regroupAnswer.invite(null);
+  },
+};
+
 const regroupAfter: WidgetDemo = createDemoController({ strict: true });
 
 /**

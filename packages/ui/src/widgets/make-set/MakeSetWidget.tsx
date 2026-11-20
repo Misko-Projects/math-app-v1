@@ -932,11 +932,14 @@ export function MakeSetWidget({
    */
   const invitedCountTens = cue && invite?.op === 'count-aloud' && oneFrame && beside === 'bundle';
   const invitedCount = cue && invite?.op === 'count-aloud' && !invitedCountTens;
+  /** An `answer` invite whose count is reached: what is left is tying full tens, then Check. */
+  const answerCounted =
+    Number.isFinite(answerWant) && answerWant === v.count && inviteStep === null;
+  // The model's `answer` ends with every full ten tied (groupsOf 10), and `set.count` checks the
+  // bundles too: with a full ten still loose the invite goes on "Make a ten" first, Check after.
+  const invitedBundle = cue && canBundle && (invite?.op === 'bundle' || answerCounted);
   const invitedCheck =
-    canCheck &&
-    (invite?.op === 'close-container' ||
-      (Number.isFinite(answerWant) && answerWant === v.count && inviteStep === null));
-  const invitedBundle = cue && canBundle && invite?.op === 'bundle';
+    canCheck && (invite?.op === 'close-container' || (answerCounted && !canBundle));
 
   // ---------- the heap's layout ----------
 
@@ -1106,8 +1109,11 @@ export function MakeSetWidget({
    * thing beside it. A tied ten is counted as one ten ("ten", step 9: the whole small frame is
    * highlighted), then the ones in view; with the first ten shown, each one after it is counted on
    * its own cell of the small frame (steps 10 and up), the running number under that frame.
+   * Any step on an object the tied ten holds lights the ten, not only step 9: the layout can
+   * change while Pip counts (the host shrinks to one frame after "one"), and a spoken number must
+   * never be left without its highlight.
    */
-  const tensCounting = counting !== null && beside === 'bundle' && counting === 9;
+  const tensCounting = counting !== null && beside === 'bundle' && counting <= 9;
   /** Counting on the small frame of ones: the last one counted so far (marks stay after). */
   const onesCounting = beside === 'ones' && markTo !== null && markTo >= 10 ? markTo : null;
   /**
