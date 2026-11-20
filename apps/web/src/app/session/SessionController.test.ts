@@ -20,6 +20,7 @@ import {
   CHECKPOINT_PREFIX,
   type CheckpointStorage,
   LIVE_CHECKPOINT_MS,
+  NO_CHECKPOINT_MS,
   type PageVisibility,
   SessionController,
   type SessionLocks,
@@ -556,10 +557,15 @@ describe('SessionController', () => {
       const other = s.make();
       expect(await other.closeAbandoned()).toBe(0);
       held.clear(); // the playing tab dies
-      // A start this recent is left open even without a checkpoint (its tab may not have saved one).
+      // Without a checkpoint nothing tells a live session from a dead one (its tab may be unable to
+      // save any): it stays open long past the time a checkpoint would have gone quiet.
       expect(await other.closeAbandoned()).toBe(0);
       s.env.clock.advance(QUIET);
-      expect(await other.closeAbandoned()).toBe(1); // no checkpoint, an old start: nothing says it is alive
+      expect(await other.closeAbandoned()).toBe(0);
+      s.env.clock.advance(NO_CHECKPOINT_MS - QUIET - MIN);
+      expect(await other.closeAbandoned()).toBe(0);
+      s.env.clock.advance(MIN);
+      expect(await other.closeAbandoned()).toBe(1); // a day-old start: no child plays that long
       const ended = (await s.sessionEvents()).find((e) => e.type === 'session.ended');
       expect(ended?.payload).toMatchObject({ reason: 'abandoned', activeMs: 0 });
 
@@ -609,6 +615,79 @@ describe('SessionController', () => {
       const ends = (await s.sessionEvents()).filter((e) => e.type === 'session.ended');
       expect(ends).toHaveLength(1);
     });
+
+    it('without Web Locks, two sweeps that read the same log write one end, counted once', async () => {
+      const s = await setup({ locks: null });
+      await s.controller.start(CHILD_K);
+      s.advance(16_000); // then the tab dies
+      s.env.clock.advance(QUIET);
+      // Both tabs read the log (the crashed session unended in each) before either writes.
+      const afterRead = gate();
+      afterRead.close();
+      let reads = 0;
+      const stale = (): SessionStore => ({
+        ...gatedStore(s.store),
+        events: async () => {
+          const events = await s.store.events();
+          reads += 1;
+          await afterRead.wait();
+          return events;
+        },
+      });
+      const [b, c] = [s.make({ store: stale() }), s.make({ store: stale() })];
+      const sweeps = Promise.all([b.closeAbandoned(), c.closeAbandoned()]);
+      await vi.waitFor(() => expect(reads).toBe(2));
+      afterRead.open();
+      const closed = await sweeps;
+      expect(closed[0] + closed[1]).toBe(1);
+      const ends = (await s.sessionEvents()).filter((e) => e.type === 'session.ended');
+      expect(ends.map((e) => e.payload)).toEqual([
+        expect.objectContaining({ reason: 'abandoned', activeMs: 16_000 }),
+      ]);
+      expect(s.storage.map.size).toBe(0);
+    });
+
+    it('a session a sweep already closed ends quietly in its own tab: the log keeps one end', async () => {
+      const s = await setup({ locks: null });
+      const tabA = s.make({ storage: failingStorage }); // no locks, no checkpoints: no sign of life
+      await tabA.start(CHILD_K);
+      s.advance(30_000);
+      s.env.clock.advance(NO_CHECKPOINT_MS); // a day on, another tab takes it for dead
+      expect(await s.controller.closeAbandoned()).toBe(1);
+      expect(await tabA.end('child-exit')).toBeNull();
+      expect(tabA.getSnapshot().status).toBe('idle');
+      const ends = (await s.sessionEvents()).filter((e) => e.type === 'session.ended');
+      expect(ends.map((e) => e.payload)).toEqual([
+        expect.objectContaining({ reason: 'abandoned' }),
+      ]);
+    });
+
+    it.each([
+      ['with its checkpoint', false],
+      ['without a checkpoint', true],
+    ])(
+      'closes a dead session stamped by a clock a year ahead once the clock is right (%s)',
+      async (_, dropCheckpoint) => {
+        const { locks, held } = fakeLocks();
+        const s = await setup({ locks });
+        s.env.clock.set(T0 + 365 * 24 * 60 * MIN); // the device clock is a year ahead
+        await s.controller.start(CHILD_K);
+        s.advance(16_000);
+        held.clear(); // the tab dies
+        if (dropCheckpoint) s.storage.map.clear();
+        s.env.clock.set(T0 + 5 * MIN); // the clock is corrected
+        const next = s.make();
+        expect(await next.closeAbandoned()).toBe(1);
+        expect(await next.closeAbandoned()).toBe(0);
+        const ends = (await s.sessionEvents()).filter((e) => e.type === 'session.ended');
+        expect(ends.map((e) => e.payload)).toEqual([
+          expect.objectContaining({
+            reason: 'abandoned',
+            activeMs: dropCheckpoint ? 0 : 16_000,
+          }),
+        ]);
+      },
+    );
 
     it('refuses a start in a second tab while another plays (elsewhere), and leaves it alone', async () => {
       const { locks, held } = fakeLocks();
@@ -713,6 +792,11 @@ describe('SessionController', () => {
         afterCommit.open();
         expect(await pending).toMatchObject({ ok: true });
         expect(tabA.getSnapshot().status).toBe('active');
+        // The child plays on, past the time a checkpoint takes to go quiet: still left alone.
+        for (let t = 0; t < QUIET; t += 15_000) s.advance(15_000);
+        expect(tabA.getSnapshot().status).toBe('active');
+        expect(await s.controller.closeAbandoned()).toBe(0);
+        expect((await s.sessionEvents()).map((e) => e.type)).toEqual(['session.started']);
         await tabA.end('child-exit');
         const ended = (await s.sessionEvents()).filter((e) => e.type === 'session.ended');
         expect(ended.map((e) => e.payload)).toEqual([
@@ -775,11 +859,20 @@ describe('SessionController', () => {
       expect(await s.sessionEvents()).toEqual([]);
 
       const slow = gatedStore(s.store);
-      const tab = s.make({ store: slow });
+      let writing = false;
+      const tab = s.make({
+        store: {
+          ...slow,
+          append: ((...args: Parameters<DataStore['append']>) => {
+            writing = true;
+            return slow.append(...args);
+          }) as DataStore['append'],
+        },
+      });
       slow.writes.close();
       const cancel = new AbortController();
       const pending = tab.start(CHILD_K, 'child', { signal: cancel.signal });
-      await new Promise((r) => setTimeout(r, 10)); // now inside the session.started write
+      await vi.waitFor(() => expect(writing).toBe(true)); // now inside the session.started write
       cancel.abort(); // the picker unmounted (the route changed)
       slow.writes.open();
       expect(await pending).toEqual({ ok: false, reason: 'cancelled' });

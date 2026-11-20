@@ -4,7 +4,7 @@
 
 import type { ChildProfile } from '@number-island/shared';
 import { Panel } from '@number-island/ui';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { useAppServices } from '@/app/AppServices';
 import { recordDiagnostic } from '@/app/diagnostics';
 import { ChildAvatar } from '@/app/picker/ChildAvatar';
@@ -27,17 +27,24 @@ export function PicturePasswords() {
     (a, b) => a.createdAt - b.createdAt || a.id.localeCompare(b.id),
   );
 
-  const save = async (child: ChildProfile, hash: string | null, done: string) => {
+  // One save at a time, from the tap on Save or Remove until it is stored. Hashing takes a moment,
+  // and for all of it Cancel and every other editor's buttons are off: nothing can close this
+  // editor or open another while a save that will still land is on its way.
+  const inFlight = useRef(false);
+  const save = async (child: ChildProfile, hashOf: () => Promise<string | null>, done: string) => {
+    if (inFlight.current) return;
+    inFlight.current = true;
     setSaving(true);
     try {
       // Only the hash changes: the rendered copy's shared fields may be stale (08 §3, §4).
-      await store.setPicturePassword(child.id, hash);
+      await store.setPicturePassword(child.id, await hashOf());
       setNotice({ tone: 'success', text: done });
       setEditing(null);
     } catch (e) {
       recordDiagnostic('parent.picture-password', e);
       setNotice({ tone: 'error', text: 'That didn’t save. Please try again.' });
     } finally {
+      inFlight.current = false;
       setSaving(false);
     }
   };
@@ -87,6 +94,7 @@ export function PicturePasswords() {
                     <div className="flex flex-wrap gap-2">
                       <Button
                         variant={on ? 'secondary' : 'primary'}
+                        disabled={saving}
                         onClick={() => {
                           setNotice(null);
                           setEditing({ childId: child.id, mode: 'set', step: 'first', first: [] });
@@ -98,6 +106,7 @@ export function PicturePasswords() {
                       {on ? (
                         <Button
                           variant="secondary"
+                          disabled={saving}
                           onClick={() => {
                             setNotice(null);
                             setEditing({ childId: child.id, mode: 'remove' });
@@ -121,12 +130,20 @@ export function PicturePasswords() {
                         variant="danger"
                         disabled={saving}
                         onClick={() =>
-                          void save(child, null, `${child.name}’s picture password is off.`)
+                          void save(
+                            child,
+                            () => Promise.resolve(null),
+                            `${child.name}’s picture password is off.`,
+                          )
                         }
                       >
                         Remove
                       </Button>
-                      <Button variant="secondary" onClick={() => setEditing(null)}>
+                      <Button
+                        variant="secondary"
+                        disabled={saving}
+                        onClick={() => setEditing(null)}
+                      >
                         Cancel
                       </Button>
                     </div>
@@ -158,17 +175,9 @@ export function PicturePasswords() {
                         setEditing({ ...open, step: 'first' });
                         return;
                       }
-                      let hash: string;
-                      try {
-                        hash = await hashPicturePassword(child.id, seq);
-                      } catch (e) {
-                        recordDiagnostic('parent.picture-password', e);
-                        setNotice({ tone: 'error', text: 'That didn’t save. Please try again.' });
-                        return;
-                      }
                       await save(
                         child,
-                        hash,
+                        () => hashPicturePassword(child.id, seq),
                         `${child.name}’s picture password is on: ${seq
                           .map((id) => PICTURES[id].label)
                           .join(', then ')}.`,
@@ -278,7 +287,7 @@ function PictureSequenceInput({
         >
           Undo
         </Button>
-        <Button variant="quiet" onClick={onCancel}>
+        <Button variant="quiet" disabled={busy} onClick={onCancel}>
           Cancel
         </Button>
       </div>

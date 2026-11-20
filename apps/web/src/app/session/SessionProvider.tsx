@@ -1,6 +1,7 @@
 // React bindings for the SessionController. The controller itself is one of the booted services
 // (`AppServices.session`, disposed with them), so StrictMode's double effects can't make two.
-// On mount the provider closes sessions this device left open (a closed tab, a flat battery).
+// On mount the provider closes sessions this device left open (a closed tab, a flat battery),
+// and once more two minutes later for one whose checkpoint was still fresh.
 
 import type { ChildId } from '@number-island/shared';
 import {
@@ -12,12 +13,16 @@ import {
   useSyncExternalStore,
 } from 'react';
 import { recordDiagnostic } from '../diagnostics';
-import type {
-  ActiveSession,
-  SessionController,
-  SessionSnapshot,
-  WindDownReason,
+import {
+  type ActiveSession,
+  LIVE_CHECKPOINT_MS,
+  type SessionController,
+  type SessionSnapshot,
+  type WindDownReason,
 } from './SessionController';
+
+/** When the boot sweep runs again: just after a checkpoint that was fresh at boot has gone quiet. */
+export const FOLLOW_UP_SWEEP_MS = LIVE_CHECKPOINT_MS + 1_000;
 
 const SessionContext = createContext<SessionController | null>(null);
 
@@ -29,7 +34,13 @@ export function SessionProvider({
   children: ReactNode;
 }) {
   useEffect(() => {
-    void controller.closeAbandoned().catch((e) => recordDiagnostic('session.abandoned', e));
+    const sweep = () =>
+      void controller.closeAbandoned().catch((e) => recordDiagnostic('session.abandoned', e));
+    sweep();
+    // A session that died just before this boot still has a fresh checkpoint, so the first sweep
+    // leaves it open. Sweep once more when that checkpoint has gone quiet, with no visit needed.
+    const again = window.setTimeout(sweep, FOLLOW_UP_SWEEP_MS);
+    return () => window.clearTimeout(again);
   }, [controller]);
   return <SessionContext.Provider value={controller}>{children}</SessionContext.Provider>;
 }

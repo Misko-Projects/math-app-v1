@@ -466,6 +466,50 @@ describe('profiles and settings (LWW per document)', () => {
     expect(row?.version).toMatch(/\|isK=0$/);
   });
 
+  it('a server copy that differs only in the local picture password changes nothing', async () => {
+    const { store } = await familyStore();
+    const hash = 'pbkdf2-sha256$1$eA$eA';
+    const local = await store.setPicturePassword(CHILD_K, hash);
+    // The server never holds the password: its copy of the same document has none.
+    const server = { ...local, picturePasswordHash: null };
+    const put = vi.spyOn(store.db.profiles, 'put');
+    expect(await store.mergeProfiles([server], { source: 'server' })).toBe(0);
+    expect(put).not.toHaveBeenCalled();
+    expect((await store.allProfiles()).find((p) => p.id === CHILD_K)).toEqual(local);
+    // A real change at the same updatedAt is still adopted from the server, password kept.
+    expect(await store.mergeProfiles([{ ...server, name: 'Renamed' }], { source: 'server' })).toBe(
+      1,
+    );
+    expect((await store.allProfiles()).find((p) => p.id === CHILD_K)).toEqual({
+      ...local,
+      name: 'Renamed',
+    });
+    put.mockRestore();
+  });
+
+  it('a session ends once: a second session.ended for it is refused, whatever its case', async () => {
+    const { store } = await familyStore();
+    const end = (sessionId: string, reason: 'child-exit' | 'abandoned') =>
+      store.append(
+        'session.ended',
+        { sessionId, reason, activeMs: 1000, mathMs: 0, items: 0 },
+        { childId: CHILD_K },
+      );
+    await end('Session-A', 'child-exit');
+    await expect(end('session-a', 'abandoned')).rejects.toMatchObject({ code: 'session_ended' });
+    // Two tabs racing: the transactions run one after the other, and the second is refused.
+    const raced = await Promise.allSettled([end('b', 'abandoned'), end('b', 'abandoned')]);
+    expect(raced.map((r) => r.status).sort()).toEqual(['fulfilled', 'rejected']);
+    const ends = (await store.events()).filter((e) => e.type === 'session.ended');
+    expect(ends).toHaveLength(2);
+    expect(ends.map((e) => e.payload)).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ sessionId: 'b', reason: 'abandoned' }),
+        expect.objectContaining({ sessionId: 'Session-A', reason: 'child-exit' }),
+      ]),
+    );
+  });
+
   it('settings read with defaults; LWW merge; goal targets follow the settings', async () => {
     const { env, store } = await familyStore();
     await store.ingest(replayEvents(), { source: 'server' });

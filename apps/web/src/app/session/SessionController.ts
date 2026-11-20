@@ -28,7 +28,7 @@ import type {
   EventPayloads,
 } from '@number-island/shared';
 import { newId as defaultNewId } from '@number-island/shared';
-import type { DataStore } from '@/data/store';
+import { type DataStore, DataStoreError } from '@/data/store';
 import { inQuietHours, isEventOf, localTime, playedMsOnDay, sameId } from './time';
 
 export type SessionEndReason = EventPayloads['session.ended']['reason'];
@@ -166,6 +166,12 @@ export const PLAY_LOCK = 'ni.play';
  * are saved every 15 s, and at least every minute in a hidden tab), so no sweep closes it.
  */
 export const LIVE_CHECKPOINT_MS = 2 * 60_000;
+/**
+ * A session with no checkpoint at all shows no sign of life or of death: its tab couldn't save one
+ * (no storage, or every write failed) and may be playing still. No sweep closes it until its start
+ * is this old, far longer than a child plays.
+ */
+export const NO_CHECKPOINT_MS = 24 * 60 * 60_000;
 
 export function documentVisibility(): PageVisibility {
   return {
@@ -189,6 +195,11 @@ function endedSessions(events: readonly AnyEventEnvelope[]): Set<string> {
     if (isEventOf(e, 'session.ended')) ended.add(e.payload.sessionId.toLowerCase());
   }
   return ended;
+}
+
+/** The store's refusal of a second `session.ended` for one session. */
+function alreadyEnded(e: unknown): boolean {
+  return e instanceof DataStoreError && e.code === 'session_ended';
 }
 
 /** `fn` that runs at most once (a lock released twice would be harmless, but explicit is clearer). */
@@ -531,6 +542,12 @@ export class SessionController {
       });
       this.#removeCheckpoint(r.session.sessionId);
       return event;
+    } catch (e) {
+      // The log already holds this session's end (a sweep in a tab that saw no sign of this one
+      // wrote it): the session is closed, and the store keeps that one end.
+      if (!alreadyEnded(e)) throw e;
+      this.#removeCheckpoint(r.session.sessionId);
+      return null;
     } finally {
       // Released only once the end is written (or failed, leaving the checkpoint for recovery).
       r.releaseLock();
@@ -557,7 +574,9 @@ export class SessionController {
    * session another tab ended is already in the log. While another tab plays, nothing is closed
    * (the next sweep, at the next picker visit or boot, tries again). A session whose checkpoint is
    * fresh (younger than LIVE_CHECKPOINT_MS) is never closed: a tab that couldn't take the lock
-   * may still be playing it. It is closed once its checkpoint has gone quiet.
+   * may still be playing it. It is closed once its checkpoint has gone quiet. One with no
+   * checkpoint at all is closed only after NO_CHECKPOINT_MS. Sweeps in two tabs without locks may
+   * race: the store keeps one end per session, and only the sweep that wrote it counts it.
    */
   closeAbandoned(): Promise<number> {
     return this.#serial(async () => {
@@ -585,10 +604,12 @@ export class SessionController {
       const cp = this.#readCheckpoint(sessionId);
       // A checkpoint saved recently means some tab may still be playing it (one whose lock request
       // failed, or a browser without Web Locks): leave it open; plans count its time. A session
-      // that started recently is left open too, checkpoint or not: its tab may not have saved one
-      // yet, or can't (no storage, or a failed write). This device's own clock stamped the start.
-      const startedAt = e.clientTs ?? e.ts;
-      if (this.#now() - (cp?.at ?? startedAt) < LIVE_CHECKPOINT_MS) continue;
+      // with no checkpoint is left open for a day: its tab can't save one (no storage, or a failed
+      // write), so nothing here tells a live session from a dead one. The distance from now counts
+      // either way round: a time far in the future (a device clock since corrected) is no sign of
+      // life.
+      const quietFor = Math.abs(this.#now() - (cp?.at ?? e.clientTs ?? e.ts));
+      if (quietFor < (cp ? LIVE_CHECKPOINT_MS : NO_CHECKPOINT_MS)) continue;
       ended.add(key);
       const activeMs = Math.round(cp?.activeMs ?? 0);
       try {
@@ -606,6 +627,11 @@ export class SessionController {
         closed += 1;
         this.#removeCheckpoint(sessionId);
       } catch (err) {
+        if (alreadyEnded(err)) {
+          // Another tab's sweep closed it since this one read the log: the store keeps one end.
+          this.#removeCheckpoint(sessionId);
+          continue;
+        }
         // A deleted child's session can't be closed (and no longer matters); others retry later.
         this.#onError('session.abandoned', err);
       }

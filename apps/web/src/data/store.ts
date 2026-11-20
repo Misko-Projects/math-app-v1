@@ -80,6 +80,7 @@ export type DataStoreErrorCode =
   | 'invalid_event'
   | 'forbidden_type'
   | 'child_deleted'
+  | 'session_ended'
   | 'invalid_profile'
   | 'invalid_settings'
   | 'invalid_ids';
@@ -147,6 +148,11 @@ export interface DataStore {
     deviceId: string;
     deviceToken: string;
   }): Promise<DeviceRecord>;
+  /**
+   * Appends one event. A session ends once: a `session.ended` for a session whose end is already
+   * in the log is refused (`session_ended`) in the same transaction that would write it, so two
+   * tabs can never both end one session.
+   */
   append<T extends AppendableEventType>(
     type: T,
     payload: EventPayloads[T],
@@ -600,6 +606,17 @@ export async function createDataStore(opts: DataStoreOptions): Promise<DataStore
           throw new DataStoreError('child_deleted', 'this child was deleted');
         }
         const e = parsed.data;
+        if (e.type === 'session.ended') {
+          const sessionId = e.payload.sessionId.toLowerCase();
+          const ends = await db.events.where('type').equals('session.ended').toArray();
+          const endsIt = (stored: { payload: unknown }) => {
+            const id = (stored.payload as { sessionId?: unknown }).sessionId;
+            return typeof id === 'string' && id.toLowerCase() === sessionId;
+          };
+          if (ends.some(endsIt)) {
+            throw new DataStoreError('session_ended', 'this session has already ended');
+          }
+        }
         await db.events.add({ ...e, synced: 0 });
         await reconcile([e], { deleted });
         return e;
@@ -793,12 +810,11 @@ export async function createDataStore(opts: DataStoreOptions): Promise<DataStore
         for (const p of valid) {
           if (deleted.has(childKey(p.id))) continue;
           const local = await db.profiles.get(p.id);
-          if (lwwWins(p, local, source)) {
-            // The picture password is device-local (08 §3): a merged profile keeps this device's.
-            await db.profiles.put({
-              ...p,
-              picturePasswordHash: local?.picturePasswordHash ?? null,
-            });
+          // The picture password is device-local (08 §3): a merged profile keeps this device's,
+          // and a copy that differs from the local one only there is no change at all.
+          const merged = { ...p, picturePasswordHash: local?.picturePasswordHash ?? null };
+          if (lwwWins(merged, local, source)) {
+            await db.profiles.put(merged);
             changed += 1;
           }
         }
