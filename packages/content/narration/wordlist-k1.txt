@@ -12,6 +12,7 @@ all
 along
 am
 an
+anchor
 and
 answer
 any
@@ -32,6 +33,7 @@ back
 bakery
 balance
 ball
+balloon
 balls
 basket
 baskets
@@ -86,6 +88,7 @@ bundle
 bundles
 burrow
 but
+button
 by
 cake
 cakes
@@ -118,6 +121,7 @@ closed
 closely
 closer
 coat
+coconut
 coin
 coins
 come
@@ -146,6 +150,7 @@ crates
 crew
 cube
 cubes
+cup
 curved
 cylinder
 cylinders
@@ -204,6 +209,7 @@ farmer
 farther
 fast
 father
+feather
 feet
 ferry
 festival
@@ -223,6 +229,7 @@ fireflies
 firefly
 first
 fish
+fishing
 fit
 five
 flag
@@ -408,6 +415,7 @@ may
 me
 measure
 measured
+melon
 men
 middle
 milk
@@ -496,6 +504,7 @@ plus
 practice
 pretty
 puffin
+pumpkin
 pup
 put
 puts
@@ -513,6 +522,7 @@ rectangles
 red
 reef
 rhythm
+ribbon
 ride
 rider
 riders
@@ -522,6 +532,7 @@ right
 ring
 road
 robin
+rock
 rod
 rods
 roll
@@ -600,6 +611,7 @@ sphere
 spheres
 split
 splits
+spoon
 square
 squares
 squirrel
@@ -647,6 +659,7 @@ them
 then
 there
 they
+thimble
 thing
 things
 think

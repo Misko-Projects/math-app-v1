@@ -187,6 +187,36 @@ describe('import-boundary lint (02 §2)', () => {
 
   // Reads and parses every source file in the repository, so its cost grows with the codebase
   // (8.7 s at full parallelism on main); nothing to share or skip, so the budget is raised.
+  it("refuses a relative import into another package's src/, even in an allowed direction", () => {
+    // web may import engine, but only through its entries: a deep import of one checker would
+    // land in the importer's chunk, outside the engine's loading boundary (02 §6a).
+    const deep = checkSource(
+      'web',
+      join(root, 'apps/web/src/main.tsx'),
+      "import { setCount } from '../../../packages/engine/src/check/state/set.count';",
+      root,
+    );
+    expect(deep).toHaveLength(1);
+    expect(deep[0]).toContain('through its package entry (@number-island/engine)');
+
+    const entries = checkSource(
+      'web',
+      join(root, 'apps/web/src/main.tsx'),
+      "import { createRng } from '@number-island/engine/shell';\nconst full = import('@number-island/engine');",
+      root,
+    );
+    expect(entries).toEqual([]);
+
+    // Data outside src/ may be imported by path (the golden replay log, a YAML source).
+    const data = checkSource(
+      'web',
+      join(root, 'apps/web/src/data/store.test-support.ts'),
+      "import log from '../../../../packages/engine/test/golden/replay-log.jsonl?raw';",
+      root,
+    );
+    expect(data).toEqual([]);
+  });
+
   it('passes on the repository as committed', () => {
     expect(checkRepo(root)).toEqual([]);
   }, 30_000);

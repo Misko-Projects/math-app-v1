@@ -15,6 +15,5 @@ export {
   learnerModelFor,
 } from './fold';
 export { allDescendants, buildSkillGraph, descendantsWithin, type SkillGraphInput } from './graph';
-export { attemptDifficulty } from './item-difficulty';
 export { logit, median, sigmoid } from './math';
 export { compressReviews, reviewContext } from './review';

@@ -16,6 +16,8 @@ export const widgetRegistry: WidgetRegistry = {
   'tap-count': () => import('./tap-count/TapCountWidget'),
   'make-set': () => import('./make-set/MakeSetWidget'),
   'dot-flash': () => import('./dot-flash/DotFlashWidget'),
+  compare: () => import('./compare/CompareWidget'),
+  order: () => import('./order/OrderWidget'),
 };
 
 /** Formats that have a registered widget. */

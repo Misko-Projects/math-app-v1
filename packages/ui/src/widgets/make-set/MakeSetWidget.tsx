@@ -991,6 +991,8 @@ export function MakeSetWidget({
     rootRef,
     (root) => (handTarget ? root.querySelector<HTMLElement>(handTarget) : null),
     handTarget ? `${handTarget}|${handCue ?? ''}` : '',
+    // The kit picks the hand's side (below, or beside or above when below would cover a target).
+    undefined,
     handCue === null ? undefined : (
       <span className="ni-mset__cue" data-cue={handCue}>
         {handCue === 'take' ? <ArrowIcon className="ni-mset__arrow-up" /> : <CountDots />}
