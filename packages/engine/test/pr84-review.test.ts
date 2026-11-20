@@ -937,7 +937,9 @@ describe('PR #84 review round 2 (3): puzzle solutions fill in dependency order',
       }
     }
     expect(chains).toBeGreaterThan(0);
-  });
+    // The sweep covers the whole parameter domain of both templates (thousands of expectations).
+    // It ran 5.2 s on a loaded CI runner, over the default 5 s limit, so it gets its own budget.
+  }, 30_000);
 
   it('the PUZ.02.t3 chain finds the corner from its solved side before the side it completes', () => {
     // chain: T, L, B blank. The left side (T, L, BL) has two open, so the right side (T, R, BR)
