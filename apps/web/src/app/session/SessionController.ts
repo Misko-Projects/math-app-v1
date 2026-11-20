@@ -132,6 +132,8 @@ export interface SessionCheckpoint {
   mathMs: number;
   items: number;
   at: number;
+  /** Set by a sweep that found `at` in the future: when it first saw this checkpoint. */
+  seenAt?: number;
 }
 
 export interface SessionControllerOptions {
@@ -605,11 +607,23 @@ export class SessionController {
       // A checkpoint saved recently means some tab may still be playing it (one whose lock request
       // failed, or a browser without Web Locks): leave it open; plans count its time. A session
       // with no checkpoint is left open for a day: its tab can't save one (no storage, or a failed
-      // write), so nothing here tells a live session from a dead one. The distance from now counts
-      // either way round: a time far in the future (a device clock since corrected) is no sign of
-      // life.
-      const quietFor = Math.abs(this.#now() - (cp?.at ?? e.clientTs ?? e.ts));
-      if (quietFor < (cp ? LIVE_CHECKPOINT_MS : NO_CHECKPOINT_MS)) continue;
+      // write), so nothing here tells a live session from a dead one.
+      const now = this.#now();
+      if (cp) {
+        if (cp.at - now >= LIVE_CHECKPOINT_MS) {
+          // Stamped by a clock that has since been set back: its age can't be read. The first
+          // sweep to see it notes when (`seenAt`) and leaves it open. A tab still playing it
+          // saves a new checkpoint at its next tick, which drops the note; a dead one keeps it,
+          // and a sweep closes it once it has been seen unchanged for LIVE_CHECKPOINT_MS.
+          const seenFor = cp.seenAt === undefined ? -1 : now - cp.seenAt;
+          if (seenFor < 0) this.#writeCheckpoint(sessionId, { ...cp, seenAt: now });
+          if (seenFor < LIVE_CHECKPOINT_MS) continue;
+        } else if (now - cp.at < LIVE_CHECKPOINT_MS) {
+          continue;
+        }
+      } else if (now - (e.clientTs ?? e.ts) < NO_CHECKPOINT_MS) {
+        continue;
+      }
       ended.add(key);
       const activeMs = Math.round(cp?.activeMs ?? 0);
       try {
@@ -711,7 +725,9 @@ export class SessionController {
     const r = this.#running;
     if (!r) return;
     const now = this.#now();
-    if (now - r.lastCheckpointAt >= this.#checkpointMs) {
+    // Either way round: after the device clock moves back, the next tick saves a checkpoint with
+    // the corrected time rather than waiting for the clock to catch up with the old one.
+    if (Math.abs(now - r.lastCheckpointAt) >= this.#checkpointMs) {
       this.#bank(r);
       this.#saveCheckpoint(r);
     }
@@ -784,6 +800,9 @@ export class SessionController {
         mathMs: num(cp.mathMs),
         items: Math.floor(num(cp.items)),
         at: num(cp.at),
+        ...(typeof cp.seenAt === 'number' && Number.isFinite(cp.seenAt)
+          ? { seenAt: cp.seenAt }
+          : {}),
       };
     } catch {
       return null;

@@ -662,32 +662,81 @@ describe('SessionController', () => {
       ]);
     });
 
-    it.each([
-      ['with its checkpoint', false],
-      ['without a checkpoint', true],
-    ])(
-      'closes a dead session stamped by a clock a year ahead once the clock is right (%s)',
-      async (_, dropCheckpoint) => {
-        const { locks, held } = fakeLocks();
-        const s = await setup({ locks });
-        s.env.clock.set(T0 + 365 * 24 * 60 * MIN); // the device clock is a year ahead
-        await s.controller.start(CHILD_K);
-        s.advance(16_000);
-        held.clear(); // the tab dies
-        if (dropCheckpoint) s.storage.map.clear();
-        s.env.clock.set(T0 + 5 * MIN); // the clock is corrected
-        const next = s.make();
-        expect(await next.closeAbandoned()).toBe(1);
-        expect(await next.closeAbandoned()).toBe(0);
-        const ends = (await s.sessionEvents()).filter((e) => e.type === 'session.ended');
-        expect(ends.map((e) => e.payload)).toEqual([
-          expect.objectContaining({
-            reason: 'abandoned',
-            activeMs: dropCheckpoint ? 0 : 16_000,
-          }),
-        ]);
-      },
-    );
+    it('closes a dead session whose checkpoint a clock a year ahead stamped, two minutes after the clock is right', async () => {
+      const { locks, held } = fakeLocks();
+      const s = await setup({ locks });
+      s.env.clock.set(T0 + 365 * 24 * 60 * MIN); // the device clock is a year ahead
+      await s.controller.start(CHILD_K);
+      s.advance(16_000);
+      held.clear(); // the tab dies
+      s.env.clock.set(T0 + 5 * MIN); // the clock is corrected
+      const next = s.make();
+      // Its checkpoint's age can't be read: the sweep notes when it first saw it, and waits.
+      expect(await next.closeAbandoned()).toBe(0);
+      s.env.clock.advance(LIVE_CHECKPOINT_MS - 1);
+      expect(await next.closeAbandoned()).toBe(0);
+      s.env.clock.advance(1);
+      expect(await next.closeAbandoned()).toBe(1);
+      expect(await next.closeAbandoned()).toBe(0);
+      const ends = (await s.sessionEvents()).filter((e) => e.type === 'session.ended');
+      expect(ends.map((e) => e.payload)).toEqual([
+        expect.objectContaining({ reason: 'abandoned', activeMs: 16_000 }),
+      ]);
+    });
+
+    it('without Web Locks, a sweep after the clock moves back leaves a live session alone, and it ends once with all its time', async () => {
+      const s = await setup({ locks: null });
+      const tabA = s.controller;
+      await tabA.start(CHILD_K);
+      s.advance(16_000); // a checkpoint is saved
+      s.env.clock.advance(-3 * MIN); // the device clock is set back three minutes
+      const tabB = s.make();
+      expect(await tabB.closeAbandoned()).toBe(0);
+      expect((await s.sessionEvents()).map((e) => e.type)).toEqual(['session.started']);
+      s.env.clock.advance(3 * MIN); // the clock is put right again
+      expect(await tabB.closeAbandoned()).toBe(0);
+      s.advance(4_000); // the child plays on
+      expect(await tabB.closeAbandoned()).toBe(0);
+      expect(await tabA.end('child-exit')).not.toBeNull();
+      const ends = (await s.sessionEvents()).filter((e) => e.type === 'session.ended');
+      expect(ends.map((e) => e.payload)).toEqual([
+        expect.objectContaining({ reason: 'child-exit', activeMs: 20_000 }),
+      ]);
+    });
+
+    it('after the clock moves back, the playing tab’s next tick saves a checkpoint with the new time', async () => {
+      const s = await setup({ locks: null });
+      await s.controller.start(CHILD_K);
+      s.advance(16_000); // a checkpoint is saved
+      const [key] = [...s.storage.map.keys()];
+      const saved = () =>
+        JSON.parse(s.storage.map.get(key ?? '') ?? '{}') as { at?: number; seenAt?: number };
+      s.env.clock.advance(-3 * MIN);
+      const tabB = s.make();
+      expect(await tabB.closeAbandoned()).toBe(0); // it notes when it saw the future checkpoint
+      expect(saved().seenAt).toBe(s.env.clock.now());
+      s.advance(1_000); // not three minutes later, when the clock catches up with the old one
+      expect(saved()).toMatchObject({ at: s.env.clock.now() });
+      expect(saved().seenAt).toBeUndefined();
+      // However long the other tab then waits, the session it sees is live.
+      for (let t = 0; t < 2 * LIVE_CHECKPOINT_MS; t += 15_000) {
+        s.advance(15_000);
+        expect(await tabB.closeAbandoned()).toBe(0);
+      }
+      expect(s.controller.getSnapshot().status).toBe('active');
+    });
+
+    it('leaves a session with no checkpoint and a start in the future open: nothing shows it is dead', async () => {
+      const s = await setup({ locks: null });
+      const tabA = s.make({ storage: failingStorage }); // no locks, no checkpoints
+      s.env.clock.set(T0 + 2 * 24 * 60 * MIN); // the device clock is two days ahead
+      await tabA.start(CHILD_K);
+      s.advance(30_000);
+      s.env.clock.set(T0 + MIN); // the clock is corrected while the child plays
+      expect(await s.controller.closeAbandoned()).toBe(0);
+      expect((await s.sessionEvents()).map((e) => e.type)).toEqual(['session.started']);
+      expect(tabA.getSnapshot().status).toBe('active');
+    });
 
     it('refuses a start in a second tab while another plays (elsewhere), and leaves it alone', async () => {
       const { locks, held } = fakeLocks();

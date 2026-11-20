@@ -74,6 +74,32 @@ test.describe('parent gate', () => {
     expect(documents).toEqual([]);
   });
 
+  test('a parent file that failed while the app warmed up loads on the first visit once the connection is back', async ({
+    page,
+  }) => {
+    // No pairing needed. The idle warm-up's fetch of the parent pages' file fails (a dropped
+    // connection), then requests work again before anyone opens the parent area.
+    const chunk = /\/assets\/area-[^/]*\.js$/;
+    await page.route(chunk, (route) => route.abort('internetdisconnected'));
+    const failed = page.waitForEvent('requestfailed', {
+      predicate: (request) => chunk.test(request.url()),
+      timeout: 15_000,
+    });
+    await page.goto('/welcome');
+    await failed;
+    await page.unroute(chunk);
+    // The first visit, inside the same document (no reload): the browser fetches the file again.
+    const loaded = page.waitForResponse((r) => chunk.test(r.url()) && r.ok(), { timeout: 10_000 });
+    await page.evaluate(() => {
+      const state = history.state as { idx?: number } | null;
+      history.pushState({ ...state, idx: (state?.idx ?? 0) + 1 }, '', '/parent');
+      window.dispatchEvent(new PopStateEvent('popstate', { state: history.state }));
+    });
+    await loaded;
+    await expect(page).toHaveURL(/\/parent$/);
+    await expect(page.getByTestId('route-error')).toHaveCount(0);
+  });
+
   test('is entered from the corner of the child home, and closes when the device signs out', async ({
     page,
     context,
