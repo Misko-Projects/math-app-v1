@@ -38,6 +38,8 @@ export const INVITE_GLYPH_SELECTOR = [
   '.ni-pad__icon',
   '.ni-pick__face',
   '.ni-number > span:not(.ni-number__caret):not(.ni-number__sparkle):not(.ni-number__slot)',
+  // A widget's own numeral or label on a control (e.g. make-set's "10" tag on the tied ten).
+  '[data-invite-glyph]',
   // A widget's own glyph (a card's numeral or picture) opts in with this class.
   '.ni-invite-glyph',
 ].join(', ');
@@ -345,7 +347,8 @@ export function placeInviteHand(
  * from the laid-out widget and kept in place as it resizes. `key` names the cue: the hand moves
  * when it changes (an empty key hides it). Render `hand` inside `rootRef`'s element (which must
  * be `position: relative`) and merge `rootStyle` into its style: it adds bottom room when the hand
- * needs it.
+ * needs it. `cue` (optional): a small badge on the hand's wrist saying what the invited action is
+ * (e.g. "take one out" vs "count"), when a widget invites different actions on the same things.
  */
 export function useInviteHand(
   rootRef: RefObject<HTMLElement | null>,
@@ -353,6 +356,8 @@ export function useInviteHand(
   key: string,
   /** A fixed side (`below`, `above`, `inside`); left out, the kit picks one that covers nothing. */
   side?: InviteHandSide,
+  /** A small badge on the hand's wrist saying what the invited action is. */
+  cue?: ReactNode,
 ): { hand: ReactNode; rootStyle: CSSProperties | undefined } {
   const [placed, setPlaced] = useState<(InviteHandPlacement & { padBase: number }) | null>(null);
   /** The bottom room the committed DOM has for the hand (this render's value, once committed). */
@@ -416,6 +421,7 @@ export function useInviteHand(
         style={{ left: placed.left, top: placed.top }}
       >
         <HandPointerIcon direction={placed.direction ?? 'up'} />
+        {cue ? <span className="ni-hand__cue">{cue}</span> : null}
       </span>
     ),
     rootStyle: placed.room > 0 ? { paddingBottom: placed.padBase + placed.room } : undefined,

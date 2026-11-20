@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import { Outlet, useLocation } from 'react-router';
 import { ParentProvider, useParentGate } from '@/parent/ParentContext';
+import { warmLazyRoutes } from './lazyRoutes';
 
 /**
  * Routes where an unlocked parent gate may stay unlocked: the parent area itself and the setup
@@ -9,6 +10,8 @@ import { ParentProvider, useParentGate } from '@/parent/ParentContext';
 const PARENT_ROUTES = /^\/(parent|setup)(\/|$)/;
 
 export function RootLayout() {
+  // The app is up: fetch the on-demand routes in the background (see lazyRoutes).
+  useEffect(() => warmLazyRoutes(), []);
   return (
     <ParentProvider>
       <ParentGateGuard />

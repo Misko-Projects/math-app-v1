@@ -3,7 +3,7 @@
 // the stored settings document live.
 
 import type { NarrationKey } from '@number-island/shared';
-import { planLine, UiProvider } from '@number-island/ui';
+import { type AgeMode, planLine, UiProvider } from '@number-island/ui';
 import {
   createContext,
   type ReactNode,
@@ -14,6 +14,7 @@ import {
 } from 'react';
 import { DataProvider, useSettings } from '@/data/hooks';
 import type { AppServices } from './boot/boot';
+import { SessionProvider } from './session/SessionProvider';
 
 const ServicesContext = createContext<AppServices | null>(null);
 
@@ -41,6 +42,29 @@ function FamilyAudioSettings() {
   return null;
 }
 
+function useNarrationResolver(services: AppServices) {
+  const { narration } = services.content;
+  return useCallback(
+    (key: NarrationKey, vars?: Record<string, string | number>) =>
+      planLine(narration, key, vars)?.text,
+    [narration],
+  );
+}
+
+/**
+ * Child screens' UI preferences (06 §4 target sizes, §5 reading rules): `k` makes every control
+ * K-sized, icon-only and spoken on tap. The Profile Picker uses `k` (anyone may be about to play).
+ */
+export function ChildUi({ ageMode, children }: { ageMode: AgeMode; children: ReactNode }) {
+  const services = useAppServices();
+  const narrationText = useNarrationResolver(services);
+  return (
+    <UiProvider ageMode={ageMode} audio={services.audio} narrationText={narrationText}>
+      {children}
+    </UiProvider>
+  );
+}
+
 export function AppProviders({
   services,
   children,
@@ -48,18 +72,13 @@ export function AppProviders({
   services: AppServices;
   children: ReactNode;
 }) {
-  const { narration } = services.content;
-  const narrationText = useCallback(
-    (key: NarrationKey, vars?: Record<string, string | number>) =>
-      planLine(narration, key, vars)?.text,
-    [narration],
-  );
+  const narrationText = useNarrationResolver(services);
   return (
     <ServicesContext.Provider value={services}>
       <DataProvider store={services.store}>
         <UiProvider audio={services.audio} narrationText={narrationText}>
           <FamilyAudioSettings />
-          {children}
+          <SessionProvider controller={services.session}>{children}</SessionProvider>
         </UiProvider>
       </DataProvider>
     </ServicesContext.Provider>
