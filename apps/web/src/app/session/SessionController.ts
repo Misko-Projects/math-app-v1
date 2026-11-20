@@ -262,8 +262,8 @@ export class SessionController {
   readonly #store: SessionStore;
   readonly #now: () => number;
   readonly #monotonic: () => number;
-  /** Future-stamped checkpoints this controller's sweeps have seen: which one, and since when. */
-  readonly #futureSeen = new Map<string, { at: number; since: number }>();
+  /** Open sessions' checkpoints as this controller's sweeps last saw them: which, since when. */
+  readonly #seen = new Map<string, { at: number; since: number }>();
   readonly #timers: SessionTimers;
   readonly #visibility: PageVisibility;
   readonly #storage: CheckpointStorage | null;
@@ -614,22 +614,20 @@ export class SessionController {
       // write), so nothing here tells a live session from a dead one.
       const now = this.#now();
       if (cp) {
-        if (cp.at - now >= LIVE_CHECKPOINT_MS) {
-          // Stamped by a clock that has since been set back: its age can't be read from any
-          // wall clock. This controller notes (in memory, nothing is written) when it first saw
-          // this exact checkpoint, on a clock no correction moves. A tab still playing saves a
-          // new checkpoint at its next tick; a dead one is closed once it has been seen
-          // unchanged for LIVE_CHECKPOINT_MS of real time (the follow-up sweep after boot).
-          const seen = this.#futureSeen.get(key);
-          const elapsed = this.#monotonic();
-          if (!seen || seen.at !== cp.at) {
-            this.#futureSeen.set(key, { at: cp.at, since: elapsed });
-            continue;
-          }
-          if (elapsed - seen.since < LIVE_CHECKPOINT_MS) continue;
-        } else if (now - cp.at < LIVE_CHECKPOINT_MS) {
-          continue;
-        }
+        // This controller also notes (in memory; a sweep writes nothing) since when it has seen
+        // this exact checkpoint, on a clock no correction moves. A tab still playing saves a new
+        // one at its next tick, so one seen unchanged for LIVE_CHECKPOINT_MS of real time is dead.
+        const seen = this.#seen.get(key);
+        const elapsed = this.#monotonic();
+        const watchedFor = seen && seen.at === cp.at ? elapsed - seen.since : null;
+        if (watchedFor === null) this.#seen.set(key, { at: cp.at, since: elapsed });
+        const age = now - cp.at;
+        if (Math.abs(age) < LIVE_CHECKPOINT_MS) continue;
+        // Not fresh by the wall clock, which may have been corrected since the checkpoint was
+        // saved. Watched before: only real time counts, so a clock set forward or back (once or
+        // twice) closes nothing. First sight (a boot): an old one is closed; one from the future
+        // (the clock was set back) is left to be watched.
+        if (watchedFor === null ? age < 0 : watchedFor < LIVE_CHECKPOINT_MS) continue;
       } else if (now - (e.clientTs ?? e.ts) < NO_CHECKPOINT_MS) {
         continue;
       }
@@ -816,7 +814,7 @@ export class SessionController {
   }
 
   #removeCheckpoint(sessionId: string): void {
-    this.#futureSeen.delete(sessionId.toLowerCase());
+    this.#seen.delete(sessionId.toLowerCase());
     try {
       this.#storage?.removeItem(CHECKPOINT_PREFIX + sessionId);
     } catch {

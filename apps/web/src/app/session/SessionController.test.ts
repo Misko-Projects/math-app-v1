@@ -196,13 +196,14 @@ async function setup(
   const timers = fakeTimers();
   const vis = fakeVisibility();
   const storage = memoryStorage();
-  let elapsed = 0;
+  let corrected = 0;
   const make = (
     o: { store?: SessionStore; locks?: SessionLocks | null; storage?: CheckpointStorage } = {},
   ) => {
     const c = new SessionController({
       store: o.store ?? store,
-      monotonic: () => elapsed,
+      // Real time: the test clock without the corrections made to it.
+      monotonic: () => env.clock.now() - corrected,
       timers: timers.timers,
       visibility: vis.visibility,
       storage: o.storage ?? storage,
@@ -217,12 +218,12 @@ async function setup(
   /** Moves the clock and lets the controller's 1 s tick run. */
   const advance = (ms: number) => {
     env.clock.advance(ms);
-    elapsed += ms;
     timers.tick();
   };
-  /** Real time passes with no tick; a clock correction (`env.clock.set`) never moves it. */
-  const elapse = (ms: number) => {
-    elapsed += ms;
+  /** The device clock is set forward or back by `ms`: the wall clock moves, real time doesn't. */
+  const correctClock = (ms: number) => {
+    env.clock.advance(ms);
+    corrected += ms;
   };
   const sessionEvents = async () =>
     (await store.events()).filter((e) => e.type.startsWith('session.'));
@@ -236,7 +237,7 @@ async function setup(
     storage,
     windDowns,
     advance,
-    elapse,
+    correctClock,
     sessionEvents,
   };
 }
@@ -684,20 +685,21 @@ describe('SessionController', () => {
     it('closes a dead session whose checkpoint a clock a year ahead stamped, two minutes after the clock is right', async () => {
       const { locks, held } = fakeLocks();
       const s = await setup({ locks });
-      s.env.clock.set(T0 + 365 * 24 * 60 * MIN); // the device clock is a year ahead
+      const YEAR = 365 * 24 * 60 * MIN;
+      s.correctClock(YEAR); // the device clock is a year ahead
       await s.controller.start(CHILD_K);
       s.advance(16_000);
       held.clear(); // the tab dies
-      s.env.clock.set(T0 + 5 * MIN); // the clock is corrected
+      s.correctClock(-YEAR); // the clock is corrected
       const next = s.make();
       // Its checkpoint's age can't be read: the sweep notes when it first saw it, and waits for
       // real time to pass. Moving the wall clock again proves nothing and closes nothing.
       expect(await next.closeAbandoned()).toBe(0);
-      s.env.clock.advance(10 * MIN);
+      s.correctClock(10 * MIN);
       expect(await next.closeAbandoned()).toBe(0);
-      s.elapse(LIVE_CHECKPOINT_MS - 1);
+      s.env.clock.advance(LIVE_CHECKPOINT_MS - 1);
       expect(await next.closeAbandoned()).toBe(0);
-      s.elapse(1);
+      s.env.clock.advance(1);
       expect(await next.closeAbandoned()).toBe(1);
       expect(await next.closeAbandoned()).toBe(0);
       const ends = (await s.sessionEvents()).filter((e) => e.type === 'session.ended');
@@ -713,10 +715,10 @@ describe('SessionController', () => {
       s.advance(16_000); // a checkpoint is saved
       // Before tab A's next tick the clock is set back ten minutes, then forward three: its
       // checkpoint stays in the future through both sweeps, and no time has really passed.
-      s.env.clock.advance(-10 * MIN);
+      s.correctClock(-10 * MIN);
       const tabB = s.make();
       expect(await tabB.closeAbandoned()).toBe(0);
-      s.env.clock.advance(3 * MIN);
+      s.correctClock(3 * MIN);
       expect(await tabB.closeAbandoned()).toBe(0);
       expect((await s.sessionEvents()).map((e) => e.type)).toEqual(['session.started']);
       s.advance(4_000); // tab A's tick saves a checkpoint with the new time
@@ -734,10 +736,10 @@ describe('SessionController', () => {
       const s = await setup({ locks: null });
       await s.controller.start(CHILD_K);
       s.advance(16_000);
-      s.env.clock.advance(-3 * MIN);
+      s.correctClock(-3 * MIN);
       const tabB = s.make();
       expect(await tabB.closeAbandoned()).toBe(0);
-      s.env.clock.advance(3 * MIN); // back where it was: the checkpoint is 0 s old again
+      s.correctClock(3 * MIN); // back where it was: the checkpoint is 0 s old again
       expect(await tabB.closeAbandoned()).toBe(0);
       s.advance(4_000);
       expect(await s.controller.end('child-exit')).not.toBeNull();
@@ -747,6 +749,35 @@ describe('SessionController', () => {
       ]);
     });
 
+    it('without Web Locks, a clock set forward closes nothing in a tab that has seen the session live', async () => {
+      const s = await setup({ locks: null });
+      const tabA = s.controller;
+      await tabA.start(CHILD_K);
+      s.advance(16_000); // a checkpoint is saved
+      const tabB = s.make();
+      expect(await tabB.closeAbandoned()).toBe(0); // tab B sees it, fresh
+      // Before tab A's next tick the clock jumps three minutes ahead: the checkpoint looks old.
+      s.correctClock(3 * MIN);
+      expect(await tabB.closeAbandoned()).toBe(0);
+      s.advance(1_000); // tab A's tick saves a checkpoint with the new time
+      expect(await tabB.closeAbandoned()).toBe(0);
+      expect(await tabA.end('child-exit')).not.toBeNull();
+      const ends = (await s.sessionEvents()).filter((e) => e.type === 'session.ended');
+      expect(ends.map((e) => e.payload)).toEqual([
+        expect.objectContaining({ reason: 'child-exit' }),
+      ]);
+      // A dead session is still closed: seen unchanged for two minutes of real time.
+      const u = await setup({ locks: null });
+      await u.controller.start(CHILD_K);
+      u.advance(16_000); // then the tab dies
+      const next = u.make();
+      expect(await next.closeAbandoned()).toBe(0);
+      u.correctClock(3 * MIN);
+      expect(await next.closeAbandoned()).toBe(0);
+      u.env.clock.advance(LIVE_CHECKPOINT_MS);
+      expect(await next.closeAbandoned()).toBe(1);
+    });
+
     it('after the clock moves back, the playing tab’s next tick saves a checkpoint with the new time', async () => {
       const s = await setup({ locks: null });
       await s.controller.start(CHILD_K);
@@ -754,7 +785,7 @@ describe('SessionController', () => {
       const [key] = [...s.storage.map.keys()];
       const raw = () => s.storage.map.get(key ?? '');
       const before = raw();
-      s.env.clock.advance(-3 * MIN);
+      s.correctClock(-3 * MIN);
       // The other tab's sweep only reads: it can't put an older checkpoint over a newer one.
       let writes = 0;
       const tabB = s.make({

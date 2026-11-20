@@ -27,7 +27,13 @@ describe('<SessionProvider>', () => {
       removeItem: (k) => void map.delete(k),
     };
     const make = () => {
-      const c = new SessionController({ store, storage, locks: null });
+      // Real time follows the test clock (no clock correction happens here).
+      const c = new SessionController({
+        store,
+        storage,
+        locks: null,
+        monotonic: () => env.clock.now(),
+      });
       controllers.push(c);
       return c;
     };
