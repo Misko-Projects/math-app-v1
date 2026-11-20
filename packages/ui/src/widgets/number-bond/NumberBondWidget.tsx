@@ -594,6 +594,7 @@ export function NumberBondWidget({
             return (
               <span key={slot} {...common}>
                 {face}
+                {isActive ? <span className="ni-bondw__caret" aria-hidden="true" /> : null}
               </span>
             );
           }

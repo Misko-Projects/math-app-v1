@@ -199,6 +199,13 @@ span.ni-bondw__circle {
   border-width: 3px;
   box-shadow: none;
 }
+/* The answer step's bond: the blank being answered keeps its second ring (and its underscore). */
+.ni-bondw__bond[data-mini="true"] .ni-bondw__circle[data-state="active"] {
+  border-width: 4px;
+  box-shadow:
+    0 0 0 3px var(--color-cloud),
+    0 0 0 5px var(--color-ink);
+}
 
 /* ---------- the ways already found (new-way) ---------- */
 

@@ -405,20 +405,31 @@ export const DemoInviteK: Story = {
 const areaSlideController: WidgetDemo = createDemoController({ strict: true });
 
 /**
- * The `slide` invite in the tablet widget area (1226 × 493), K: one ring on the wire to move, and
- * Pip's hand covers no bead of the other wire, no key and no numeral.
+ * The `slide` invite in the tablet widget area (1226 × 493), K, "show 14" with nothing pushed over
+ * yet: sliding the top wire is the next step, so that wire carries the one ring and Pip's hand,
+ * which covers no bead of the other wire, no key and no numeral. The answer box is live beside it
+ * and is not a second ring (it has no sea-deep outline).
  */
 export const AreaTabletInviteSlideK: Story = {
   globals: { ageMode: 'k' },
-  args: { config: add75, demo: areaSlideController },
+  args: { config: teen14, demo: areaSlideController },
   render: inArea('tablet'),
   play: async ({ canvasElement }) => {
     const root = await expectFits(canvasElement, 'k');
-    areaSlideController.invite({ op: 'slide', args: { row: 1, count: -2 } });
-    await waitFor(() => expect(row(root, 1).classList.contains('ni-invite')).toBe(true));
-    await expectOneInvite(root, row(root, 1));
+    await expect(pushed(root, 0)).toBe(0);
+    areaSlideController.invite({ op: 'slide', args: { row: 0, count: 10 } });
+    await waitFor(() => expect(row(root, 0).classList.contains('ni-invite')).toBe(true));
+    await expectOneInvite(root, row(root, 0));
     await waitFor(() => expect(root.querySelector('.ni-hand svg')).not.toBeNull());
-    await expectHandClearOfOthers(root, row(root, 1));
+    await expectHandClearOfOthers(root, row(root, 0));
+    // Nothing else looks like an invitation: no other element has a sea-deep outline or glow.
+    const ring = getComputedStyle(row(root, 0)).outlineColor;
+    const display = root.querySelector('.ni-entry__display');
+    if (display) {
+      const cs = getComputedStyle(display);
+      await expect(cs.borderColor).not.toBe(ring);
+      await expect(cs.boxShadow.includes('rgba(42, 157, 143')).toBe(false);
+    }
   },
 };
 
