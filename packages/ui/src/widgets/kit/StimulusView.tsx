@@ -601,6 +601,9 @@ export function ExpressionView({
 
 // ---------- base ten (simple picture; base-ten widgets live in U04) ----------
 
+/** The ones column's width in px: two 14 px cubes across (4 px apart), one cube, or none. */
+export const baseTenOnesWidth = (ones: number) => (ones >= 2 ? 32 : ones === 1 ? 14 : 0);
+
 export function BaseTenView({
   thousands,
   hundreds,
@@ -632,15 +635,19 @@ export function BaseTenView({
       />,
     );
   });
+  // The ones column is as wide as its cubes (two across, one, or none), so the drawn picture is
+  // exactly the box that gets centred: a lone one never leaves an empty half-column beside it.
   return (
     <div className="ni-baseten" {...pictureProps(label)}>
       {items}
-      <span className="ni-baseten__ones" style={{ width: unit * 2 + 4 }}>
-        {groupIndexes(ones).map((_, i) => (
-          // biome-ignore lint/suspicious/noArrayIndexKey: unit cubes are positional
-          <span key={i} className="ni-baseten__unit" style={{ width: unit, height: unit }} />
-        ))}
-      </span>
+      {ones > 0 ? (
+        <span className="ni-baseten__ones" style={{ width: baseTenOnesWidth(ones) }}>
+          {groupIndexes(ones).map((_, i) => (
+            // biome-ignore lint/suspicious/noArrayIndexKey: unit cubes are positional
+            <span key={i} className="ni-baseten__unit" style={{ width: unit, height: unit }} />
+          ))}
+        </span>
+      ) : null}
     </div>
   );
 }
