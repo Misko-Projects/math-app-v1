@@ -497,8 +497,9 @@
   border: 0;
   min-width: 0;
 }
-.ni-pad__gap {
-  display: block;
+/* No decimal key: 0 spans the first two columns, so the bottom row has no empty cell. */
+.ni-pad__key--wide {
+  grid-column: span 2;
 }
 .ni-pad__key {
   display: grid;

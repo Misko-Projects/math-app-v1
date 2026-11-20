@@ -30,6 +30,9 @@ import { unitGaps } from './rules/unitGaps';
 import { writeAsSpoken } from './rules/writeAsSpoken';
 import { wrongOperation } from './rules/wrongOperation';
 
+/** Found by `pnpm bundle-size` to prove this module is not in the initial JS (02 §6a, #95). */
+export const RULES_CHUNK_MARK = 'number-island:item-core/misconception-rules';
+
 const RULES: Record<string, MisconceptionRule> = {
   countStartNumber: countStartNumber,
   countAllInstead: countAllInstead,

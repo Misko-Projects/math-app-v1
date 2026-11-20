@@ -1,14 +1,17 @@
-// App startup (02 §3, §4.4; apps/web/src/data/README.md): load the content, open the data store,
-// create the AudioManager, and start syncing when this device is already paired.
+// App startup (02 §3, §4.4; apps/web/src/data/README.md): load the content and the engine's item
+// core, open the data store, create the AudioManager, and start syncing when this device is already
+// paired.
 //
 // Boot never needs the API: a paired device that starts offline opens straight into play, and the
-// sync client retries on its own (08 §4). Only missing content (never precached, and no network)
-// or unusable storage stops it, with a `BootError` the boot screen explains.
+// sync client retries on its own (08 §4). Only missing content or a missing item-core chunk (never
+// precached, and no network) or unusable storage stops it, with a `BootError` the boot screen
+// explains.
 
 import { createAudioManager, loadAudioManifest, type WebAudioManager } from '@number-island/ui';
 import { createDb, type NumberIslandDb } from '@/data/db';
 import { createDataStore, type DataStore } from '@/data/store';
 import { type AppContent, ContentLoadError, loadContent } from './content';
+import { loadItemCore } from './itemCore';
 import {
   createSyncLifecycle,
   type SyncLifecycle,
@@ -20,6 +23,8 @@ export interface AppServices {
   store: DataStore;
   audio: WebAudioManager;
   sync: SyncLifecycle;
+  /** The fetch every client of the app uses (tests inject a fake network). */
+  fetch: FetchLike;
   /** Stops syncing and audio and closes the database. */
   dispose(): void;
 }
@@ -51,6 +56,8 @@ export interface BootOptions {
   sync?: Omit<SyncLifecycleOptions, 'fetch'>;
   /** Tests replace the Web Audio manager. */
   createAudio?: (content: AppContent, fetchImpl: FetchLike) => WebAudioManager;
+  /** Tests replace the item-core loader (02 §6a). Defaults to the dynamic import. */
+  loadItemCore?: () => Promise<void>;
 }
 
 const defaultAudio = (content: AppContent, fetchImpl: FetchLike): WebAudioManager =>
@@ -61,6 +68,14 @@ const defaultAudio = (content: AppContent, fetchImpl: FetchLike): WebAudioManage
 
 export async function bootApp(opts: BootOptions = {}): Promise<AppServices> {
   const fetchImpl: FetchLike = opts.fetch ?? ((input, init) => globalThis.fetch(input, init));
+
+  // The item core (generators, checkers, misconception rules) is a chunk of its own. It is fetched
+  // here, next to the content, so the data store can fold learner state and the first task of a
+  // session never waits for it (02 §6a). Both loads start before either is awaited.
+  const itemCoreFailure = (opts.loadItemCore ?? loadItemCore)().then(
+    () => null,
+    (e: unknown) => ({ cause: e }),
+  );
 
   let content: AppContent;
   try {
@@ -74,6 +89,17 @@ export async function bootApp(opts: BootOptions = {}): Promise<AppServices> {
       );
     }
     throw e;
+  }
+
+  const failed = await itemCoreFailure;
+  if (failed) {
+    // A chunk that cannot be fetched is the same situation as content that cannot: the game's
+    // files are not on this device yet and there is no network.
+    throw new BootError(
+      'content_unreachable',
+      `could not load the engine's item core: ${String(failed.cause)}`,
+      failed.cause,
+    );
   }
 
   let store: DataStore;
@@ -101,6 +127,7 @@ export async function bootApp(opts: BootOptions = {}): Promise<AppServices> {
     store,
     audio,
     sync,
+    fetch: fetchImpl,
     dispose() {
       if (disposed) return;
       disposed = true;

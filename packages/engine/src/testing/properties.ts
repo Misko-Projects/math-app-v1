@@ -19,6 +19,7 @@ import { lineSlots, renderForms } from '../content/render';
 import { formatFeatures, formatModel } from '../formats';
 import { optionNumber } from '../formats/numeral-pick';
 import { inDomain } from '../generators/common';
+import { attemptDifficulty } from '../items/attempt-difficulty';
 import { checkResponse } from '../items/check';
 import {
   generateItem,
@@ -28,7 +29,6 @@ import {
   requireGenerator,
 } from '../items/generate';
 import { itemExampleCorrect, itemSolution, replaySteps } from '../items/solution';
-import { attemptDifficulty } from '../learner/item-difficulty';
 import { applicableMisconceptions, sameResponse } from '../misconceptions';
 
 export interface PropertyFailure {

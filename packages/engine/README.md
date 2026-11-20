@@ -6,6 +6,15 @@ E01 (#7) delivers the item core: the RNG, the generator registry, item generatio
 
 Source of truth: `docs/spec/02-architecture.md` §5.2 and §7, and `docs/spec/03-curriculum.md` §5–§7 and §9.
 
+## Two entries (02 §6a)
+
+- `@number-island/engine/shell` (`src/shell.ts`): the skill graph builder, the folds, the learner model, the signals, the RNG and the parameters. It imports nothing of the item core, so an app can put it in its initial JS.
+- `@number-island/engine` (`src/index.ts`): everything. Loading it installs the item core (`src/items/install.ts`) behind the port in `src/item-core.ts`.
+
+The learner model reads item difficulty and answer kinds through that port. Until the full entry is loaded, `createEloFireModel`, `learnerModelFor` and `foldLearnerState` throw `ItemCoreNotLoadedError`. An app shell imports the shell entry statically and loads the full entry with `await import('@number-island/engine')` before it folds learner state (`apps/web/src/app/boot/itemCore.ts`). Node code, tests in other packages and lazily loaded modules import the full entry as before. Unit tests in this package import modules by relative path, so `test/setup-item-core.ts` installs the item core for them.
+
+Keep the boundary when you add code: nothing under `src/learner/`, `src/folds/`, `src/signals/`, `src/rng.ts` or `src/params.ts` may import from `src/generators/`, `src/check/`, `src/misconceptions/`, `src/formats/`, `src/strategies/`, `src/items/`, `src/planner/`, `src/placement/` or `src/content/`, not even for a type together with a value (`import type` is fine). `test/shell-boundary.test.ts` and `pnpm bundle-size` check it.
+
 ## API
 
 ```ts
@@ -68,6 +77,9 @@ formatModel(item.widget.format);      // { configSchema, initialState, apply, to
 ## Layout
 
 ```
+src/shell.ts                     the /shell entry: what an app needs in its initial JS (02 §6a)
+src/item-core.ts                 the port the learner model reads the item core through
+src/items/install.ts             installs the item core; imported by the full entry
 src/rng.ts                       seeded RNG
 src/content/                     initContent binding, constraint grammar (shared with the compiler), render
 src/generators/index.ts          the registry: one line per generator

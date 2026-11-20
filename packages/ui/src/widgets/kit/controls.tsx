@@ -366,19 +366,22 @@ export function NumberPadKeys({
 
   return (
     <fieldset className="ni-pad" aria-label={t('ui.widget.pad')} disabled={disabled}>
-      {ROWS.flat().map((key, i) => {
-        if (key === '.' && !allowDecimal) {
-          // biome-ignore lint/suspicious/noArrayIndexKey: an empty pad cell keeps the 3 × 4 grid
-          return <span key={`gap${i}`} className="ni-pad__gap" aria-hidden="true" />;
-        }
-        if (key === null) return null;
+      {ROWS.flat().map((key) => {
+        // Without a decimal key the bottom row is a wide 0 (two columns) and backspace: the grid
+        // stays 3 × 4 with no empty cell (an empty cell reads as a missing key).
+        if (key === null || (key === '.' && !allowDecimal)) return null;
+        const wide = key === '0' && !allowDecimal;
         const label =
           key === 'back' ? t('ui.widget.key.back') : key === '.' ? t('ui.widget.key.point') : key;
         return (
           <button
             key={key}
             type="button"
-            className={['ni-pad__key', highlighted === key ? 'ni-invite' : '']
+            className={[
+              'ni-pad__key',
+              wide ? 'ni-pad__key--wide' : '',
+              highlighted === key ? 'ni-invite' : '',
+            ]
               .filter(Boolean)
               .join(' ')}
             data-key={key}

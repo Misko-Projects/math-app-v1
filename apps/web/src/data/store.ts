@@ -11,7 +11,7 @@ import {
   initIsland,
   sameId,
   sortEvents,
-} from '@number-island/engine';
+} from '@number-island/engine/shell';
 import {
   type AnyEventEnvelope,
   anyEventEnvelopeSchema,
@@ -165,6 +165,11 @@ export interface DataStore {
   /** Lower-case ids of every tombstoned child. */
   deletedChildren(): Promise<Set<string>>;
   putProfile(profile: ChildProfile): Promise<ChildProfile>;
+  /**
+   * Several profiles in one transaction: all are written or none (an invalid profile, a deleted
+   * child or an interruption such as a reload leaves the store as it was).
+   */
+  putProfiles(profiles: readonly ChildProfile[]): Promise<ChildProfile[]>;
   /** LWW merge (see `MergeSource` for ties); returns how many documents changed. */
   mergeProfiles(profiles: readonly unknown[], opts: { source: MergeSource }): Promise<number>;
   allProfiles(): Promise<ChildProfile[]>;
@@ -729,18 +734,29 @@ export async function createDataStore(opts: DataStoreOptions): Promise<DataStore
     },
 
     async putProfile(profile) {
-      const parsed = childProfileSchema.safeParse({ ...profile, updatedAt: now() });
-      if (!parsed.success) {
-        throw new DataStoreError('invalid_profile', 'invalid child profile', parsed.error.issues);
-      }
+      const [saved] = await store.putProfiles([profile]);
+      return saved as ChildProfile;
+    },
+
+    async putProfiles(profiles) {
+      const stamp = now();
+      const valid = profiles.map((profile) => {
+        const parsed = childProfileSchema.safeParse({ ...profile, updatedAt: stamp });
+        if (!parsed.success) {
+          throw new DataStoreError('invalid_profile', 'invalid child profile', parsed.error.issues);
+        }
+        return parsed.data;
+      });
       return db.transaction('rw', all, async () => {
         const deleted = await tombstoned();
-        if (deleted.has(childKey(parsed.data.id))) {
-          throw new DataStoreError('child_deleted', 'this child was deleted');
+        for (const p of valid) {
+          if (deleted.has(childKey(p.id))) {
+            throw new DataStoreError('child_deleted', 'this child was deleted');
+          }
         }
-        await db.profiles.put(parsed.data);
+        await db.profiles.bulkPut(valid);
         await reconcile([], { deleted });
-        return parsed.data;
+        return valid;
       });
     },
 

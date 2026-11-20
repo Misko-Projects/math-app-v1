@@ -32,6 +32,9 @@ import { tradeResult } from './trade.result';
 import type { StateChecker } from './types';
 import { unitsIterate } from './units.iterate';
 
+/** Found by `pnpm bundle-size` to prove this module is not in the initial JS (02 §6a, #95). */
+export const CHECKERS_CHUNK_MARK = 'number-island:item-core/state-checkers';
+
 const CHECKERS: Partial<Record<StateCheckerId, StateChecker>> = {
   'set.count': setCount,
   'tenframe.total': tenframeTotal,

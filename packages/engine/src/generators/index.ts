@@ -37,6 +37,9 @@ import { timeClock } from './time/clock';
 import { timeSequence } from './time/sequence';
 import type { GeneratorDef } from './types';
 
+/** Found by `pnpm bundle-size` to prove this module is not in the initial JS (02 §6a, #95). */
+export const GENERATORS_CHUNK_MARK = 'number-island:item-core/generators';
+
 const GENERATORS: GeneratorDef[] = [
   countSet,
   countSequence,
