@@ -1107,6 +1107,12 @@ export type WidgetConfig = TapCountConfig | MakeSetConfig | DotFlashConfig | Num
   | StoryProblemConfig | PuzzleGridConfig;      // each has `format` as its discriminant (§5.5)
 ```
 
+**Supported picture ranges.** The schemas enforce the ranges the widget kit can draw exactly, so a `fraction` or `chart` that validates is always a true picture (constants in `packages/shared/src/items/core.ts`):
+
+- `fraction`: `parts` 1–12 (`FRACTION_PARTS_MAX`), `shaded` 0–`parts`.
+- `ChartSpec` (every use: the `chart` stimulus and both bar-graph formats): category ids are distinct; `axisMax` > 0 and the axis has at most 20 steps of `scale` (`CHART_AXIS_STEPS_MAX`: up to 20 at scale 1, 200 at scale 10); every `value` is 0–`axisMax`, a whole number unless the chart is a bar graph, and a whole or half symbol of `scale` on a picture graph; tally charts and tables use scale 1; picture graphs, bar graphs, tally charts and tables have 1–6 categories (`CHART_CATEGORIES_MAX`); a line plot has a `lineScale` with step 1, 0.5 or 0.25, `max` > `min` a whole number of steps apart, at most 25 positions (`CHART_LINE_POSITIONS_MAX`), and each category id is a position on it.
+- Pictures shown together in `compare` and `order` share one scale (05 §11): `fraction` pictures are wholes of one `shape`; `chart` pictures share `kind`, `orientation`, `scale` and axis top. An `order` card never shows a `chart` (a card cannot keep its numerals at 32 px); charts are compared in `compare` or read in the bar-graph formats.
+
 **Answer → response compatibility.** `number` ← `{kind:'number'}`; `numbers` ← `{kind:'numbers'}`; `choice` ← `{kind:'choice'}`; `placement` ← `{kind:'placement'}`; `state` ← `{kind:'state'}`. `{kind:'skip'}` is accepted by every item. Any other pairing is a widget bug: `checkResponse` returns incorrect with `fb.retry` and logs a dev error.
 
 **Interaction trace.** Manipulative widgets record a trace (`InteractionEvent[]`) and pass it to `TaskRunner.submit` in `meta.trace` (02 §5.6). Process misconception rules (§7.1) and strategy praise read it. It is never part of `ResponseValue`, never sent to AI services, and is kept only in memory for the current item.

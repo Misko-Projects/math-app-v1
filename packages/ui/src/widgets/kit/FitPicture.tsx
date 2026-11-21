@@ -1,6 +1,9 @@
 import type { StimulusSpec } from '@number-island/shared';
 import { type ReactNode, useCallback, useLayoutEffect, useRef, useState } from 'react';
 import { useNarrationText } from '../../preferences/UiProvider';
+import { ChartView, chartBox } from './ChartView';
+import { chartGeometry } from './chartLayout';
+import { shapeFrame } from './fractionShapes';
 import { dotsLayout, type ObjectLayout, objectSetLayout, type PlacedObject } from './layout';
 import { NUMERAL_PX, NumberLineView, POINTER_HEADROOM } from './NumberLineView';
 import { ObjectSetView } from './ObjectSetView';
@@ -11,9 +14,17 @@ import './kit.css';
  * A `StimulusSpec` drawn to fit a box the widget measured (06 §1: container-relative layout), for
  * pictures on cards and compare sides. Countable pictures (objects, dots, ten-frames, groups,
  * arrays) re-flow their cell size; fixed-pixel pictures (number lines, base-ten blocks,
- * expressions, kinds a later issue draws) are drawn at their own size and scaled down as a whole
- * to fit, never stretched (a number line gets the width it can use first, so its ticks stay even).
+ * expressions, fraction wholes, kinds a later issue draws) are drawn at their own size and scaled
+ * down as a whole to fit, never stretched (a number line gets the width it can use first, so its
+ * ticks stay even). A chart is laid out in the box itself, so its numerals keep their 32 px; it is
+ * scaled down as a whole only in a box smaller than its layout's smallest size.
  */
+
+/**
+ * The natural box of a chart stimulus (StimulusView's default box): what a layout plans with.
+ * A chart narrower or shorter than its content needs is laid out bigger and scaled down.
+ */
+const CHART_NATURAL = { w: 720, h: 300 };
 
 /** The cell a countable picture is designed around, for its natural (unscaled) size. */
 const NATURAL_CELL = 56;
@@ -190,6 +201,16 @@ export function naturalPictureSize(
         0,
       );
       return { w: chars * 58 + (spec.expr.tokens.length - 1) * 26 + 24, h: 112 };
+    }
+    case 'fraction': {
+      // The whole's own frame: wholes of one shape are one size whatever their parts.
+      const f = shapeFrame(spec.shape);
+      return { w: f.width, h: f.height };
+    }
+    case 'chart': {
+      const box = chartBox(spec.chart, CHART_NATURAL.w, CHART_NATURAL.h);
+      const g = chartGeometry(spec.chart, box);
+      return { w: g.width, h: g.height };
     }
     case 'none':
       return { w: 1, h: 1 };
@@ -386,6 +407,23 @@ export function FitPicture({
             rhythmUnit={rhythmUnit}
             pointerMarks={pointerMarks}
             label={label ?? pictureName}
+          />
+        </Scaled>
+      </div>
+    );
+  }
+  if (spec.kind === 'chart') {
+    // Laid out in the box (numerals stay 32 px, bars end on their values); the layout never goes
+    // below its smallest readable size, so a smaller box scales the whole chart down instead.
+    return (
+      <div className="ni-fitpic" data-kind={spec.kind}>
+        <Scaled maxWidth={w} maxHeight={h} scale={scale} onFit={onFit}>
+          <ChartView
+            chart={spec.chart}
+            maxWidth={w}
+            maxHeight={h}
+            label={label ?? pictureName}
+            className="ni-fitpic__bare"
           />
         </Scaled>
       </div>

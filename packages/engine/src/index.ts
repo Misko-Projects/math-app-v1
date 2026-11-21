@@ -51,6 +51,18 @@ export {
   TRADE_TAKE_COUNT_MAX,
   TRADE_VALUE_MAX,
 } from './formats/base-ten-trade';
+// U05 (#14) picture geometry the kit draws `fraction` and `chart` stimuli from.
+export {
+  axisTicks,
+  axisTop,
+  type ChartSlot,
+  chartSlots,
+  linePositions,
+  positionId,
+  slotValues,
+  symbolParts,
+  tallyGroups,
+} from './formats/chart';
 export { type EqualGroupsState, GROUP_CAPACITY, groupsUnknown } from './formats/equal-groups';
 export { type EqualShareState, shareChoices } from './formats/equal-share';
 export {
@@ -63,6 +75,7 @@ export {
   EF_WORD_OPTIONS_MAX,
   type ExpandedFormState,
 } from './formats/expanded-form';
+export * from './formats/fraction-geometry';
 export {
   lineLabels,
   lineSteps,

@@ -128,6 +128,10 @@ ui.widget.supply:
 ui.widget.picture:
   text: "Look at the picture"
   level: K
+# A picture graph's key (ChartView), when one picture stands for more than one.
+ui.widget.chart.key:
+  text: "Each picture is {n}"
+  level: K
 ui.widget.answer:
   text: "Your answer"
   level: K

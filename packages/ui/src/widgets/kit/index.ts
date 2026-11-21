@@ -22,6 +22,8 @@ export {
   zoomed,
   zoomFor,
 } from './arrange';
+export { ChartView, type ChartViewProps, chartBox } from './ChartView';
+export { type ChartGeometry, chartGeometry, type SlotGeometry } from './chartLayout';
 export { useCommitBarrier } from './commit';
 export {
   applyPadKey,
@@ -57,7 +59,9 @@ export {
   useSharedScale,
   wrapLine,
 } from './FitPicture';
+export { FractionView, type FractionViewProps } from './FractionView';
 export { FLY_MS, useFlight } from './flight';
+export { shapeFrame } from './fractionShapes';
 export {
   INVITE_GLYPH_SELECTOR,
   INVITE_HAND_PX,
@@ -123,3 +127,4 @@ export {
   type SpriteTone,
   spriteNameKey,
 } from './sprites';
+export { STIMULUS_KINDS, type StimulusKind, stimulusDrawn } from './stimulusKinds';

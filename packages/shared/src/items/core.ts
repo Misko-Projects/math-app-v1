@@ -438,14 +438,122 @@ export interface ChartSpec {
   axisMax: number;
   lineScale?: { min: number; max: number; step: number }; // line plots: step 1, 0.5 or 0.25
 }
-export const chartSpecSchema = z.object({
-  kind: z.enum(['picture', 'bar', 'line-plot', 'tally', 'table']),
-  orientation: z.enum(['vertical', 'horizontal']),
-  categories: z.array(z.object({ id: z.string(), label: narrationKeySchema, value: z.number() })),
-  scale: z.literal([1, 2, 5, 10]),
-  axisMax: z.number(),
-  lineScale: z.object({ min: z.number(), max: z.number(), step: z.number().positive() }).optional(),
-});
+
+/**
+ * The supported ranges of the pictures the widget kit draws from numbers (`chart` and `fraction`
+ * stimuli, 03 §5.1). The schemas below enforce every one, so a picture that validates can be
+ * drawn exactly: equal parts equal, bars on one scale, numerals readable.
+ */
+/** Categories of a picture graph, bar graph, tally chart or table: 1 to 6. */
+export const CHART_CATEGORIES_MAX = 6;
+/** Steps on the value axis (the axis top ÷ `scale`): at most 20, so 20 at scale 1, 200 at 10. */
+export const CHART_AXIS_STEPS_MAX = 20;
+/** Positions on a line plot's scale: at most 25. */
+export const CHART_LINE_POSITIONS_MAX = 25;
+/** The steps a line plot's scale may count in. */
+export const CHART_LINE_STEPS: readonly number[] = [1, 0.5, 0.25];
+/** Parts a `fraction` picture is cut into: 1 to 12 (`shaded` is 0 to `parts`). */
+export const FRACTION_PARTS_MAX = 12;
+
+/** Rounds away binary noise (0.1 + 0.2), so chart positions and part symbols compare exactly. */
+export const chartTidy = (x: number): number => Math.round(x * 1e6) / 1e6;
+
+/** The top of a chart's value axis: `axisMax` rounded up to a multiple of `scale` (≥ one step). */
+export function chartAxisTop(chart: Pick<ChartSpec, 'axisMax' | 'scale'>): number {
+  return Math.max(chart.scale, Math.ceil(chartTidy(chart.axisMax / chart.scale)) * chart.scale);
+}
+
+/** The id of a line-plot position: the number as written ("2", "1.5", "0.25"). */
+export const chartPositionId = (at: number): string => String(chartTidy(at));
+
+/**
+ * The positions of a line plot's scale, min to max by step. Empty when the scale is not valid or
+ * is longer than the schema allows (so an unchecked scale never builds a huge list).
+ */
+export function chartLinePositions(scale: NonNullable<ChartSpec['lineScale']>): number[] {
+  const { min, max, step } = scale;
+  if (!(step > 0) || !(max >= min)) return [];
+  const n = Math.round((max - min) / step);
+  if (!(n + 1 <= CHART_LINE_POSITIONS_MAX)) return [];
+  return Array.from({ length: n + 1 }, (_, k) => chartTidy(min + k * step));
+}
+
+/** Whether a value is a whole number of half symbols at this scale (picture graphs). */
+export const chartHalvesOfScale = (value: number, scale: number): boolean =>
+  Number.isInteger(chartTidy((2 * value) / scale));
+
+/**
+ * The rules every chart meets so that it can be drawn exactly (`chartSpecSchema` applies them;
+ * `path` is where the chart sits in the value being checked).
+ */
+export function chartIssues(chart: ChartSpec, ctx: z.RefinementCtx, path: (string | number)[]) {
+  const add = (p: (string | number)[], message: string) =>
+    ctx.addIssue({ code: 'custom', path: [...path, ...p], message });
+  const ids = chart.categories.map((c) => c.id);
+  if (new Set(ids).size !== ids.length) add(['categories'], 'category ids repeat');
+  if (!(chart.axisMax > 0)) add(['axisMax'], 'the axis needs a positive top');
+  else if (chartAxisTop(chart) / chart.scale > CHART_AXIS_STEPS_MAX) {
+    add(['axisMax'], `the axis has at most ${CHART_AXIS_STEPS_MAX} steps of its scale`);
+  }
+  chart.categories.forEach((c, i) => {
+    if (!(c.value >= 0)) add(['categories', i, 'value'], 'a count is never negative');
+    if (c.value > chart.axisMax) add(['categories', i, 'value'], 'the value is above axisMax');
+    if (chart.kind !== 'bar' && !Number.isInteger(c.value)) {
+      add(['categories', i, 'value'], 'only a bar can stand between whole counts');
+    }
+    if (chart.kind === 'picture' && !chartHalvesOfScale(c.value, chart.scale)) {
+      add(
+        ['categories', i, 'value'],
+        `a picture graph shows whole or half symbols of ${chart.scale}`,
+      );
+    }
+  });
+  if ((chart.kind === 'tally' || chart.kind === 'table') && chart.scale !== 1) {
+    add(['scale'], `a ${chart.kind} counts in ones`);
+  }
+  if (chart.kind === 'line-plot') {
+    const ls = chart.lineScale;
+    if (!ls) {
+      add(['lineScale'], 'a line plot needs lineScale');
+      return;
+    }
+    if (!CHART_LINE_STEPS.includes(ls.step)) add(['lineScale', 'step'], 'step is 1, 0.5 or 0.25');
+    if (!(ls.max > ls.min)) {
+      add(['lineScale'], 'max must be above min');
+      return;
+    }
+    const steps = chartTidy((ls.max - ls.min) / ls.step);
+    if (!Number.isInteger(steps)) add(['lineScale'], 'max − min is not a whole number of steps');
+    if (steps + 1 > CHART_LINE_POSITIONS_MAX) {
+      add(['lineScale'], `a line plot shows at most ${CHART_LINE_POSITIONS_MAX} positions`);
+      return;
+    }
+    const positions = new Set(chartLinePositions(ls).map(chartPositionId));
+    chart.categories.forEach((c, i) => {
+      if (!positions.has(chartPositionId(Number(c.id)))) {
+        add(['categories', i, 'id'], 'a line-plot category is a position on the scale');
+      }
+    });
+  } else {
+    if (chart.categories.length < 1) add(['categories'], 'a chart needs a category');
+    if (chart.categories.length > CHART_CATEGORIES_MAX) {
+      add(['categories'], `a chart shows at most ${CHART_CATEGORIES_MAX} categories`);
+    }
+  }
+}
+
+export const chartSpecSchema = z
+  .object({
+    kind: z.enum(['picture', 'bar', 'line-plot', 'tally', 'table']),
+    orientation: z.enum(['vertical', 'horizontal']),
+    categories: z.array(z.object({ id: z.string(), label: narrationKeySchema, value: z.number() })),
+    scale: z.literal([1, 2, 5, 10]),
+    axisMax: z.number(),
+    lineScale: z
+      .object({ min: z.number(), max: z.number(), step: z.number().positive() })
+      .optional(),
+  })
+  .superRefine((chart, ctx) => chartIssues(chart, ctx, []));
 assertType<Equals<z.infer<typeof chartSpecSchema>, ChartSpec>>(true);
 
 /** Static pictures used by many formats (03 §5.1). */
@@ -581,13 +689,23 @@ export const stimulusSpecSchema = z.discriminatedUnion('kind', [
     sprite: spriteIdSchema.optional(),
     split: z.object({ atCol: count }).optional(),
   }),
-  z.object({
-    kind: z.literal('fraction'),
-    shape: z.enum(['circle', 'rect', 'bar', 'loaf']),
-    parts: z.number().int().min(1),
-    shaded: count,
-    equalParts: z.boolean(),
-  }),
+  z
+    .object({
+      kind: z.literal('fraction'),
+      shape: z.enum(['circle', 'rect', 'bar', 'loaf']),
+      parts: z.number().int().min(1).max(FRACTION_PARTS_MAX),
+      shaded: count,
+      equalParts: z.boolean(),
+    })
+    .superRefine((f, ctx) => {
+      if (f.shaded > f.parts) {
+        ctx.addIssue({
+          code: 'custom',
+          path: ['shaded'],
+          message: 'a picture shades at most all of its parts',
+        });
+      }
+    }),
   z.object({
     kind: z.literal('gauge'),
     instrument: z.enum(['scale', 'beaker', 'thermometer']),

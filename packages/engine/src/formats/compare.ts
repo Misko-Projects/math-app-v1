@@ -12,6 +12,7 @@ import {
   type StimulusSpec,
   type WidgetConfigOf,
 } from '@number-island/shared';
+import { sharedScaleIssues } from './pictures';
 import {
   argNumber,
   argString,
@@ -142,6 +143,7 @@ const configSchema = compareConfigSchema.superRefine((c, ctx) => {
       message: 'match lines pair objects: both sides must be objects stimuli',
     });
   }
+  sharedScaleIssues([c.left, c.right], ctx, [['left'], ['right']]);
   if (c.ask === 'symbol') {
     for (const side of ['left', 'right'] as const) {
       if (hasRelationOrBlank(c[side])) {
