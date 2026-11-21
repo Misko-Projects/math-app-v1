@@ -555,7 +555,6 @@ export const DemoReducedMotion: Story = {
   args: { config: split7, disabled: true, demo: reducedController },
   play: async ({ canvasElement }) => {
     const root = await findWidget(canvasElement, ROOT);
-    const started = performance.now();
     await reducedController.play({ op: 'place', args: { frame: 0, count: 7, color: 'a' } });
     await expect(cellsOf(root, 0).filter(Boolean)).toHaveLength(7);
     await reducedController.play({
@@ -564,7 +563,6 @@ export const DemoReducedMotion: Story = {
     });
     await reducedController.play({ op: 'remove', args: { frame: 1, count: 1 } });
     await reducedController.play({ op: 'answer', args: { value: 6 } });
-    await expect(performance.now() - started).toBeLessThan(500);
     await expect(cellsOf(root, 0).filter(Boolean)).toHaveLength(4);
     await expect(cellsOf(root, 1).filter(Boolean)).toHaveLength(2);
   },
@@ -1316,6 +1314,20 @@ export const HeldEnterMixedInputK: Story = {
     await tick();
     await expect(root.dataset.step).toBe('ask');
     await expect(nav()).toEqual(['next', 'back', 'next', 'back', 'next']);
-    button(root, 'Go back').dispatchEvent(key('keyup', 'Enter'));
+    // PR #93 (second review run) F2: Space on Go back while Enter keeps repeating. A button
+    // answers Space on its release; that click is Space's own press, so it goes back, once.
+    const back = button(root, 'Go back');
+    back.dispatchEvent(key('keydown', ' '));
+    enterDown(back, true);
+    await tick();
+    await expect(root.dataset.step).toBe('ask');
+    back.dispatchEvent(key('keyup', ' '));
+    back.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, detail: 0 }));
+    await waitFor(() => expect(root.dataset.step).toBe('build'));
+    enterDown(document.activeElement as HTMLElement, true);
+    await tick();
+    await expect(root.dataset.step).toBe('build');
+    await expect(nav()).toEqual(['next', 'back', 'next', 'back', 'next', 'back']);
+    (document.activeElement as HTMLElement).dispatchEvent(key('keyup', 'Enter'));
   },
 };

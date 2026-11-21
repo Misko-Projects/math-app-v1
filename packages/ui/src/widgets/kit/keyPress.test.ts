@@ -56,6 +56,29 @@ describe('createKeyPressGate (one action per key press)', () => {
     g.clickEnd();
   });
 
+  it('Space released while Enter repeats still acts: its click is its own press', () => {
+    const g = createKeyPressGate();
+    g.keyDown('Enter');
+    g.clickStart(0);
+    expect(g.take()).toBe(true);
+    g.clickEnd();
+    // Space goes down, Enter repeats (its click does nothing), then Space comes up.
+    g.keyDown(' ');
+    g.keyDown('Enter');
+    g.clickStart(0);
+    expect(g.take()).toBe(false);
+    g.clickEnd();
+    g.keyUp(' ');
+    g.clickStart(0);
+    expect(g.take()).toBe(true);
+    g.clickEnd();
+    // Enter is still the press that acted.
+    g.keyDown('Enter');
+    g.clickStart(0);
+    expect(g.take()).toBe(false);
+    g.clickEnd();
+  });
+
   it('keeps Enter and Space apart: releasing one does not free the other', () => {
     const g = createKeyPressGate();
     g.keyDown('Enter');

@@ -12,7 +12,7 @@ import { useDragToTarget } from '../../interaction/useDragToTarget';
 import { useNarrationText, useSpeech, useUiPreferences } from '../../preferences/UiProvider';
 import { BigButton } from '../../primitives/BigButton';
 import { ArrowIcon, BackIcon } from '../../primitives/icons';
-import { MIN_TARGET_PX, TARGET_PX } from '../../tokens/tokens';
+import { MIN_TARGET_PX } from '../../tokens/tokens';
 import { useWidgetDemo } from '../demo';
 import {
   CheckButton,
@@ -21,8 +21,8 @@ import {
   nextPadKey,
   ObjectSprite,
   type PadKey,
-  type Size,
   spriteNameKey,
+  useActionSize,
   useAlive,
   useCommitBarrier,
   useDemoPause,
@@ -193,20 +193,8 @@ export function TenframeFillWidget({
 
   const actRef = useRef<HTMLDivElement | null>(null);
   const zoomRef = useRef(1);
-  const [button, setButton] = useState<Size>(() => ({
-    w: TARGET_PX[ageMode].big * 1.5,
-    h: TARGET_PX[ageMode].big,
-  }));
-  useLayoutEffect(() => {
-    const btn = actRef.current?.querySelector<HTMLElement>('.ni-btn');
-    if (!btn) return;
-    const r = btn.getBoundingClientRect();
-    // The ledge (6 px) hangs below the button's box; the actions row keeps room for it.
-    // Measured as drawn: undo the zoom the parts are drawn at (the plan works in design px).
-    const z = zoomRef.current;
-    const next = { w: Math.ceil(r.width / z), h: Math.ceil(r.height / z) + 6 };
-    setButton((b) => (b.w === next.w && b.h === next.h ? b : next));
-  });
+  // One size for every layout's actions (the largest measured): see `useActionSize`.
+  const button = useActionSize(actRef, zoomRef, ageMode);
   const trayCount = supply > 0 ? supply : locked ? 0 : pre;
   const plan: Plan = useMemo(
     () =>

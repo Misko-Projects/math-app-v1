@@ -21,6 +21,9 @@ export function createKeyPressGate() {
       if (!ACTIVATES(key)) return;
       held.delete(key);
       used.delete(key);
+      // A button answers Space when the key comes up: the click that follows is that
+      // press's own, whatever key repeated meanwhile (Enter answers on its keydown).
+      if (key === ' ') last = key;
     },
     /** A mouse button or a finger went down: what follows is that pointer's own action. */
     pointerDown() {

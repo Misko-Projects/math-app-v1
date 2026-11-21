@@ -13,14 +13,14 @@ import { useInteractionTrace } from '../../interaction/trace';
 import { useNarrationText, useSpeech, useUiPreferences } from '../../preferences/UiProvider';
 import { BigButton } from '../../primitives/BigButton';
 import { ArrowIcon, BackIcon } from '../../primitives/icons';
-import { DRAG_START_PX, TARGET_PX } from '../../tokens/tokens';
+import { DRAG_START_PX } from '../../tokens/tokens';
 import { useWidgetDemo } from '../demo';
 import {
   CheckButton,
   NumberEntry,
   nextPadKey,
   type PadKey,
-  type Size,
+  useActionSize,
   useAlive,
   useCommitBarrier,
   useDemoPause,
@@ -153,19 +153,8 @@ export function RekenrekWidget({
 
   const actRef = useRef<HTMLDivElement | null>(null);
   const zoomRef = useRef(1);
-  const [button, setButton] = useState<Size>(() => ({
-    w: TARGET_PX[ageMode].big * 1.5,
-    h: TARGET_PX[ageMode].big,
-  }));
-  useLayoutEffect(() => {
-    const btn = actRef.current?.querySelector<HTMLElement>('.ni-btn');
-    if (!btn) return;
-    const r = btn.getBoundingClientRect();
-    // Measured as drawn: undo the zoom the parts are drawn at (the plan works in design px).
-    const z = zoomRef.current;
-    const next = { w: Math.ceil(r.width / z), h: Math.ceil(r.height / z) + 6 };
-    setButton((b) => (b.w === next.w && b.h === next.h ? b : next));
-  });
+  // One size for every layout's actions (the largest measured): see `useActionSize`.
+  const button = useActionSize(actRef, zoomRef, ageMode);
   const input = useMemo(
     () => ({ ageMode, rows: rowCount, still: reading, askMax: asks ? max : null, button }),
     [ageMode, rowCount, reading, asks, max, button],
@@ -205,6 +194,14 @@ export function RekenrekWidget({
   // ---------- pointer: tap or drag a bead ----------
 
   const pointToBead = (row: number, el: HTMLElement, clientX: number) => {
+    // The bead drawn under the pointer, wherever its glide has brought it so far: while a
+    // row is still moving, its beads are not yet at the slots the count stands for.
+    const drawn = [...el.querySelectorAll<HTMLElement>('.ni-rk__bead')].findIndex((b) => {
+      const at = b.getBoundingClientRect();
+      return clientX >= at.left && clientX < at.right;
+    });
+    if (drawn >= 0) return drawn;
+    // Between beads, or on the empty wire: by the slots.
     const r = el.getBoundingClientRect();
     const p = ((clientX - r.left) / r.width) * ROW_SLOTS;
     return beadAt(p, rowsRef.current[row] ?? 0);

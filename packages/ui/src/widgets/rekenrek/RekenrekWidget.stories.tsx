@@ -771,3 +771,26 @@ export const CountTotalFromAnswerStep: Story = {
     else await expect(root.querySelector('.ni-entry__display')).toHaveTextContent('7');
   },
 };
+
+/**
+ * PR #93 (second review run) F3: a tap lands on the bead drawn under the finger, also while the
+ * row is still gliding. All ten slide left (slowly here); the sixth bead, tapped where it is drawn
+ * on its way, goes back right with the four after it.
+ */
+export const TapWhileGliding: Story = {
+  play: async ({ canvasElement, args }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    await waitFor(() => expect(root.dataset.animate).toBe('true'));
+    root.style.setProperty('--duration-gentle', '4000ms');
+    await tapBeadAt(bead(root, 0, 9));
+    await waitFor(() => expect(pushed(root, 0)).toBe(10));
+    // Still far from its slot on the left (5 of 14): the glide has only begun.
+    const sixth = bead(root, 0, 5);
+    const wire = row(root, 0).getBoundingClientRect();
+    await expect(center(sixth).x - wire.left).toBeGreaterThan((7.5 * wire.width) / 14);
+    await tapBeadAt(sixth);
+    await waitFor(() => expect(pushed(root, 0)).toBe(5));
+    await expect(traceOf(args.onInteract).at(-1)?.target).toBe('bead-0-5');
+    root.style.removeProperty('--duration-gentle');
+  },
+};

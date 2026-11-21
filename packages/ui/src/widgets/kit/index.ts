@@ -1,6 +1,7 @@
 // The shared widget kit (U03): pictures, layouts and answer controls the math widgets compose.
 // See ./README.md. Widgets import from here; workshops never do (they render WidgetHost).
 
+export { useActionSize } from './actionSize';
 export {
   ARRANGEMENTS,
   type Arrangement,
