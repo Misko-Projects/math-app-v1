@@ -91,7 +91,9 @@ templates:
     params:
       sides: { int: [3, 6] }
       tool: dots
-      grid: 5
+      # Wide: 3 rows of 6 dots (K and G1 dot targets fit any area; geo.draw cols × rows).
+      cols: 6
+      rows: 3
     difficulty: { base: -0.6 }
     narration:
       prompt: tp.GEO.02.t1.prompt
@@ -405,7 +407,9 @@ templates:
       kind: { choice: [triangle, square, rectangle] }
       sides: 0
       tool: sticks
-      grid: 5
+      # Wide: 3 rows of 6 dots (K and G1 dot targets fit any area; geo.draw cols × rows).
+      cols: 6
+      rows: 3
     difficulty: { base: -0.7 }
     narration:
       prompt: tp.GEO.09.t1.prompt
@@ -421,7 +425,9 @@ templates:
       kind: { choice: [triangle, square, rectangle] }
       sides: 0
       tool: dots
-      grid: 5
+      # Wide: 3 rows of 6 dots (K and G1 dot targets fit any area; geo.draw cols × rows).
+      cols: 6
+      rows: 3
     difficulty: { base: -0.6 }
     narration:
       prompt: tp.GEO.09.t2.prompt

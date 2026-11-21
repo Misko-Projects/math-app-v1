@@ -122,7 +122,12 @@ export async function exportBackup(store: DataStore): Promise<BackupFile> {
     async (): Promise<BackupFile> => {
       const device = await db.device.get('device');
       if (!device) throw new BackupError('export_failed', 'This device has no family yet.');
-      const rows = { events: await store.events(), profiles: await store.allProfiles() };
+      const rows = {
+        events: await store.events(),
+        // The picture password is a device-local lock (08 §3): a backup file never carries its
+        // hash (a restore keeps the restoring device's own anyway).
+        profiles: (await store.allProfiles()).map((p) => ({ ...p, picturePasswordHash: null })),
+      };
       return {
         format: BACKUP_FORMAT,
         formatVersion: 1,

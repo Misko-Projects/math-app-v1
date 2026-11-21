@@ -1,0 +1,674 @@
+/*
+ * base-ten-build widget (U04, 03 §5.5). The wooden mat fills the widget's height: a header per
+ * column (place icon, plus the place's name in text mode), the pieces below, and the trade
+ * buttons in the gutters between neighbouring columns. A narrow side panel holds the goal, the
+ * tray and "check" (read mode: the answer blank, the pad and "check").
+ * Piece sizes come from --u (unit edge) and --d (cube depth), set from layout.ts. The root's
+ * grid columns (mat | side panel) are set inline from the same layout.
+ */
+
+.ni-btb {
+  --pile: calc(var(--target-min) * 1.25);
+  --line: rgb(23 96 110 / 0.55);
+
+  position: relative;
+  display: grid;
+  align-items: center;
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 1180px;
+  padding: 2px 0;
+}
+
+/* ---------- the mat ---------- */
+
+.ni-btb__work {
+  position: relative;
+  display: grid;
+  box-sizing: border-box;
+  min-width: 0;
+  /* The frame, plus an inset at the sides so pieces and headers stay off the wood. */
+  padding: var(--frame) calc(var(--frame) + var(--inset));
+}
+/*
+ * The board is the drop target ("build here"), drawn behind headers, columns and gutters: pieces
+ * are its visual contents but separate buttons in the DOM (targets never contain items).
+ */
+.ni-btb__board {
+  position: relative;
+  z-index: 0;
+  grid-row: 1 / -1;
+  grid-column: 1 / -1;
+  margin: calc(-1 * var(--frame)) calc(-1 * (var(--frame) + var(--inset)));
+  box-sizing: border-box;
+  border: var(--frame) solid var(--color-wood);
+  border-radius: var(--radius-card);
+  /* A warm wooden board: light planks (a seam every 96 px) with a faint grain. */
+  background-color: var(--color-sand-shadow);
+  background-image:
+    repeating-linear-gradient(180deg, transparent 0 94px, rgb(143 90 49 / 0.2) 94px 96px),
+    repeating-linear-gradient(177deg, rgb(143 90 49 / 0.05) 0 1px, transparent 1px 13px),
+    linear-gradient(180deg, rgb(255 255 255 / 0.3), transparent 45%);
+  box-shadow:
+    0 0 0 3px var(--color-wood-deep),
+    inset 0 0 0 2px var(--color-wood-deep),
+    var(--shadow-soft);
+}
+/* The board keeps still while a piece hovers over it (the ring is enough on a large target). */
+.ni-btb__board.ni-drop-target[data-over="true"] {
+  transform: none;
+}
+.ni-btb__board:focus-visible {
+  outline: 5px solid var(--color-ink);
+  outline-offset: 4px;
+}
+
+/* Column headers: the place's piece (and its name in text mode) on a sand strip. */
+.ni-btb__head {
+  position: relative;
+  z-index: 1;
+  grid-row: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  box-sizing: border-box;
+  min-width: 0;
+  margin: 0 var(--col-pad);
+  /* Clear of the frame above; the header strip ends in a line over its column. */
+  padding: 4px 0 2px;
+  border-bottom: 3px solid rgb(143 90 49 / 0.45);
+  color: var(--color-ink);
+  pointer-events: none;
+}
+.ni-btb__headicon {
+  display: flex;
+  flex: none;
+  width: 30px;
+  height: 30px;
+}
+[data-age-mode="k"] .ni-btb__headicon {
+  width: 40px;
+  height: 40px;
+}
+/* K: the bigger icon gets room below the frame. */
+[data-age-mode="k"] .ni-btb__head {
+  padding-top: 8px;
+}
+.ni-btb__headword {
+  padding-top: 0.12em;
+  font-family: var(--font-display);
+  font-size: 1.15rem;
+  font-weight: 800;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.ni-btb__col {
+  position: relative;
+  grid-row: 2;
+  /* Rows of pieces (planned in layout.ts), in the middle of the mat. */
+  --gap: var(--gap-big);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--gap);
+  box-sizing: border-box;
+  min-width: 0;
+  padding: var(--body-pad) var(--col-pad);
+  /* Taps between pieces reach the board below. */
+  pointer-events: none;
+}
+.ni-btb__col[data-col="tens"] {
+  --gap: var(--gap-tens);
+}
+.ni-btb__row {
+  display: flex;
+  align-items: flex-end;
+  gap: var(--gap);
+  pointer-events: none;
+}
+/* Frames of ten ones, stacked top to bottom; a full stack continues in the next one. */
+.ni-btb__stacks,
+.ni-btb__stack {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--gap-frames);
+  pointer-events: none;
+}
+.ni-btb__stack {
+  flex-direction: column;
+}
+
+/* The gutter between two columns: a wooden divider holding that pair's two trades. */
+.ni-btb__gutter {
+  position: relative;
+  z-index: 1;
+  grid-row: 1 / -1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 20px;
+  margin-block: 4px;
+  background: linear-gradient(
+    90deg,
+    transparent calc(50% - 2px),
+    rgb(143 90 49 / 0.5) calc(50% - 2px) calc(50% + 2px),
+    transparent calc(50% + 2px)
+  );
+  pointer-events: none;
+}
+
+/* Ten ones as a frame: two rows of five, or two columns of five when the mat is crowded. */
+.ni-btb__frame {
+  display: grid;
+  grid-template-columns: repeat(5, var(--u));
+  grid-auto-rows: var(--u);
+  gap: var(--gap-ones);
+  pointer-events: none;
+}
+.ni-btb__frame[data-orient="v"] {
+  grid-template-columns: none;
+  grid-template-rows: repeat(5, var(--u));
+  grid-auto-flow: column;
+  grid-auto-columns: var(--u);
+}
+
+.ni-btb__piece {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  border-radius: 4px;
+  /* A picture: the column's grab control (below) is what the child touches. */
+  pointer-events: none;
+}
+/*
+ * Put-back source: the whole column, holding its last piece. At rest it covers the column (a tap
+ * target wide and tall at least). While dragged (`data-dragging`, set by useDragToTarget) it is
+ * the last piece's own box, drawn with a copy of the piece, and the piece in the column hides.
+ */
+.ni-btb__grab {
+  position: absolute;
+  /* 12 px clear of the trade buttons in the gutters on either side. */
+  inset: 0 10px;
+  z-index: 2;
+  border-radius: 12px;
+  pointer-events: auto;
+  -webkit-tap-highlight-color: transparent;
+}
+.ni-btb__grab > .ni-btb__lift {
+  display: none;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+}
+.ni-btb__grab[data-dragging] {
+  inset: auto;
+  top: var(--btb-gy, 0);
+  left: var(--btb-gx, 0);
+}
+.ni-btb__grab[data-dragging] > .ni-btb__lift {
+  display: flex;
+}
+.ni-btb__col:has(> .ni-btb__grab[data-dragging]) .ni-btb__piece[data-last] {
+  visibility: hidden;
+}
+.ni-btb__piece--ones {
+  width: var(--u);
+  height: var(--u);
+}
+.ni-btb__piece--tens {
+  width: var(--rod-hit);
+  height: calc(var(--u) * 10);
+}
+.ni-btb__piece--hundreds {
+  width: calc(var(--u) * 10);
+  height: calc(var(--u) * 10);
+}
+.ni-btb__piece--thousands {
+  align-items: flex-end;
+  justify-content: flex-start;
+  width: calc(var(--u) * 10 + var(--d));
+  height: calc(var(--u) * 10 + var(--d));
+}
+.ni-btb__piece:focus-visible {
+  outline: 4px solid var(--color-ink);
+  outline-offset: 3px;
+}
+/* A piece that just arrived (reduced motion: the trade happens at once, then this ring). */
+.ni-btb__piece[data-flash="true"] {
+  outline: 4px solid var(--color-sea-deep);
+  outline-offset: 3px;
+}
+/* count-by (demo): the pieces counted so far, a ring plus a warm fill (never colour alone). */
+.ni-btb__piece[data-counted="true"] {
+  outline: 4px solid var(--color-ink);
+  outline-offset: 3px;
+}
+
+/* ---------- drawn pieces (the kit's BaseTenView look) ---------- */
+
+.ni-btb__art {
+  --bw: clamp(1.5px, calc(var(--u) * 0.12), 3px);
+  display: block;
+  flex: none;
+  box-sizing: border-box;
+  border: var(--bw) solid var(--color-sea-dark);
+  border-radius: 3px;
+  background-color: var(--color-shallows);
+  box-shadow:
+    inset 0 2px 0 rgb(255 255 255 / 0.35),
+    0 2px 0 rgb(23 96 110 / 0.25);
+}
+.ni-btb__art--ones {
+  width: var(--u);
+  height: var(--u);
+}
+.ni-btb__art--tens {
+  width: var(--u);
+  height: calc(var(--u) * 10);
+  background-image: linear-gradient(to bottom, var(--line) 1.5px, transparent 1.5px);
+  background-size: 100% var(--u);
+  background-position: 0 calc(var(--bw) * -1);
+}
+.ni-btb__art--hundreds,
+.ni-btb__art--thousands {
+  width: calc(var(--u) * 10);
+  height: calc(var(--u) * 10);
+  background-image:
+    linear-gradient(to right, var(--line) 1.5px, transparent 1.5px),
+    linear-gradient(to bottom, var(--line) 1.5px, transparent 1.5px);
+  background-size: var(--u) var(--u);
+  background-position: calc(var(--bw) * -1) calc(var(--bw) * -1);
+}
+/* A thousands cube: a flat with a top and a side face (bordered boxes, so it never reads as 100). */
+.ni-btb__art--thousands {
+  position: relative;
+  border-radius: 0;
+}
+.ni-btb__art--thousands::before,
+.ni-btb__art--thousands::after {
+  content: "";
+  position: absolute;
+  box-sizing: border-box;
+  border: var(--bw) solid var(--color-sea-dark);
+  background-color: var(--color-shallows);
+}
+.ni-btb__art--thousands::before {
+  left: calc(var(--bw) * -1);
+  bottom: 100%;
+  width: calc(100% + 2 * var(--bw));
+  height: var(--d);
+  transform: skewX(-45deg);
+  transform-origin: bottom left;
+}
+.ni-btb__art--thousands::after {
+  top: calc(var(--bw) * -1);
+  left: 100%;
+  width: var(--d);
+  height: calc(100% + 2 * var(--bw));
+  background-color: var(--color-sea);
+  transform: skewY(-45deg);
+  transform-origin: top left;
+}
+.ni-btb__piece[data-counted="true"] .ni-btb__art,
+.ni-btb__piece[data-counted="true"] .ni-btb__art::before,
+.ni-btb__piece[data-counted="true"] .ni-btb__art::after {
+  background-color: var(--color-sunshine-light);
+}
+
+/* ---------- trade buttons (in the gutters) ---------- */
+
+.ni-btb__trade.ni-btn {
+  flex-direction: column;
+  gap: 2px;
+  width: var(--target-min);
+  min-width: 0;
+  height: auto;
+  min-height: var(--target-min);
+  /* A little more room under the caption: an invite hand hangs there, clear of it. */
+  padding: 4px 2px 7px;
+  border-radius: var(--radius-pebble);
+  font-size: 1.05rem;
+  pointer-events: auto;
+}
+.ni-btb__trade .ni-btb__tradeicon {
+  display: inline-flex;
+  width: 48px;
+  height: 40px;
+}
+[data-age-mode="k"] .ni-btb__trade .ni-btb__tradeicon {
+  width: 60px;
+  height: 50px;
+}
+.ni-btb__tradecap {
+  line-height: 1;
+}
+.ni-btb__trade.ni-invite {
+  outline-offset: 5px;
+  border-radius: var(--radius-pebble);
+}
+
+/* ---------- side panel: goal, tray, check ---------- */
+
+.ni-btb__side {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  box-sizing: border-box;
+  min-width: 0;
+}
+/*
+ * The side-panel measurer: hidden, inert copies of the panel's parts, each at its own size, laid in
+ * a row at the widget's top left (out of flow, never seen or reached).
+ */
+.ni-btb__side.ni-btb__measure {
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: -1;
+  flex-direction: row;
+  align-items: flex-start;
+  justify-content: flex-start;
+  gap: 0;
+  width: max-content;
+  /* Clipped to the widget, so it never adds to its scroll size; its parts keep their sizes. */
+  max-width: 100%;
+  max-height: 100%;
+  overflow: hidden;
+  visibility: hidden;
+  pointer-events: none;
+}
+.ni-btb__measure > * {
+  flex: none;
+}
+.ni-btb__ask {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  /* --target-gap between the goal and the chips (06 §4). */
+  gap: var(--target-gap);
+}
+.ni-btb__goal {
+  min-width: calc(var(--target-min) * 1.6);
+  padding-inline: 16px;
+}
+.ni-btb__goal:disabled,
+.ni-btb__exact:disabled {
+  cursor: default;
+}
+/* The side panel can be narrow: "check" keeps its size but trims its side padding. */
+.ni-btb__side .ni-btb__checkslot .ni-btn {
+  padding-inline: 16px;
+}
+.ni-btb__exact {
+  appearance: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  box-sizing: border-box;
+  min-width: calc(var(--target-min) * 1.6);
+  min-height: var(--target-min);
+  padding: 4px 16px;
+  border: 3px solid var(--color-sand-deep);
+  border-radius: var(--radius-pebble);
+  background: var(--color-paper);
+  color: var(--color-ink);
+  box-shadow: 0 4px 0 var(--color-sand-deep);
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+.ni-btb__exact:focus-visible {
+  outline: 4px solid var(--color-ink);
+  outline-offset: 3px;
+}
+.ni-btb__exactnum {
+  padding-top: 0.12em;
+  font-size: 2.5rem;
+}
+.ni-btb__times {
+  padding-top: 0.1em;
+  font-size: 2rem;
+}
+.ni-btb__exactart {
+  display: flex;
+  align-items: center;
+}
+/*
+ * A crowded panel (the largest mats, layout.ts sidePlan): the goal and the exact chips sit two to a
+ * row with trimmed side padding, still at least --target-min each way.
+ */
+.ni-btb__ask[data-cols="2"] {
+  display: grid;
+  grid-template-columns: repeat(2, auto);
+  justify-content: center;
+  align-items: center;
+  justify-items: center;
+}
+.ni-btb__ask[data-cols="2"] .ni-btb__goal.ni-number {
+  min-width: var(--target-min);
+  padding-inline: 10px;
+}
+.ni-btb__ask[data-cols="2"] .ni-btb__exact {
+  min-width: var(--target-min);
+  gap: 4px;
+  padding-inline: 6px;
+}
+
+/* The tray: a paper crate. Its pad is the "put it back" target; the piles sit on top of it. */
+.ni-btb__tray {
+  position: relative;
+  box-sizing: border-box;
+  width: 100%;
+  padding: 60px 10px 14px;
+}
+.ni-btb__traypad {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  box-sizing: border-box;
+  border: 3px solid var(--color-sand-deep);
+  border-radius: var(--radius-card);
+  background: var(--color-paper);
+  box-shadow:
+    0 5px 0 var(--color-sand-deep),
+    var(--shadow-soft);
+}
+.ni-btb__traypad:focus-visible {
+  outline: 5px solid var(--color-ink);
+  outline-offset: 4px;
+}
+.ni-btb__traypad.ni-invite {
+  outline-offset: 5px;
+  border-radius: var(--radius-card);
+}
+.ni-btb__return {
+  position: absolute;
+  top: 8px;
+  left: 50%;
+  width: 44px;
+  height: 44px;
+  margin-left: -22px;
+  pointer-events: none;
+}
+.ni-btb__piles {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  /* Columns are set inline: balanced, so no pile sits alone on a row. */
+  justify-content: center;
+  gap: 16px 12px;
+  pointer-events: none;
+}
+.ni-btb__pileslot {
+  pointer-events: none;
+}
+.ni-btb__pile {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  width: var(--pile);
+  height: var(--pile);
+  border: 3px solid var(--color-sea-deep);
+  border-radius: var(--radius-pebble);
+  background: var(--color-cloud);
+  box-shadow:
+    0 5px 0 var(--color-sea-dark),
+    var(--shadow-highlight);
+  pointer-events: auto;
+  -webkit-tap-highlight-color: transparent;
+}
+.ni-btb__pile:focus-visible {
+  outline: 4px solid var(--color-ink);
+  outline-offset: 4px;
+}
+.ni-btb__pile.ni-invite {
+  outline-offset: 5px;
+  border-radius: var(--radius-pebble);
+}
+/* An empty pile: dashed edge, hatching and a faded picture, not just a colour change. */
+.ni-btb__pile[data-empty="true"] {
+  border-style: dashed;
+  border-color: var(--color-pebble-deep);
+  background-image: repeating-linear-gradient(
+    135deg,
+    rgb(255 255 255 / 0.6) 0 6px,
+    rgb(38 70 83 / 0.14) 6px 12px
+  );
+  box-shadow: none;
+  cursor: default;
+}
+/*
+ * A limited pile carries its stock tag inside its own tile, under the picture: a pebble chip with a
+ * crate icon and the count as a math numeral (≥ 32 px), the small word "left" under it in text
+ * mode (K: icon and number). It is the tray's supply, never the answer.
+ */
+.ni-btb__piles {
+  --pile-w: max(var(--pile), 104px);
+}
+.ni-btb__piles[data-limited="true"] .ni-btb__pile {
+  flex-direction: column;
+  gap: 4px;
+  width: var(--pile-w);
+  height: auto;
+  min-height: var(--pile);
+  padding: 8px 4px;
+}
+.ni-btb__stock {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: 5px;
+  box-sizing: border-box;
+  padding: 2px 9px 2px 6px;
+  border-radius: var(--radius-pebble);
+  /* Cloud on ink: well above 4.5:1, and kept at full strength on an empty (dimmed) pile. */
+  background: var(--color-ink);
+  color: var(--color-cloud);
+  font-family: var(--font-display);
+  font-variant-numeric: tabular-nums;
+  font-weight: 800;
+  line-height: 1;
+  white-space: nowrap;
+  pointer-events: none;
+}
+.ni-btb__stockicon {
+  display: inline-flex;
+  flex: none;
+  width: 22px;
+  height: 22px;
+}
+.ni-btb__stock[data-wide="true"] .ni-btb__stockicon {
+  display: none;
+}
+.ni-btb__stockcount {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+}
+/* The count is a math numeral (05 §11: ≥ 32 px). */
+.ni-btb__stocknum {
+  padding-top: 0.12em;
+  font-size: max(2rem, 32px);
+}
+.ni-btb__stockword {
+  margin-top: -2px;
+  font-size: 0.95rem;
+}
+
+.ni-btb__pileart {
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  pointer-events: none;
+}
+.ni-btb__pileart--ones {
+  flex-wrap: wrap;
+  width: 60px;
+  gap: 5px;
+}
+.ni-btb__pileart--tens {
+  gap: 6px;
+}
+.ni-btb__pileart--hundreds {
+  display: grid;
+}
+.ni-btb__pileart--hundreds > * {
+  grid-area: 1 / 1;
+}
+.ni-btb__pileart--hundreds > :last-child {
+  transform: translate(7px, -7px);
+}
+.ni-btb__pileart--thousands {
+  padding: 12px 12px 0 0;
+}
+.ni-btb__pile[data-empty="true"] .ni-btb__pileart {
+  opacity: 0.3;
+}
+
+.ni-btb__slot {
+  position: relative;
+  display: inline-flex;
+}
+
+/* ---------- read: the picture, the answer blank and the pad ---------- */
+
+.ni-btb__picture {
+  min-width: 0;
+}
+.ni-btb__picture .ni-btb__piece {
+  pointer-events: none;
+}
+.ni-btb__blank {
+  min-height: var(--target-big);
+  font-variant-numeric: tabular-nums;
+}
+.ni-btb__blank[data-empty="true"] {
+  background: var(--color-sky-light);
+}
+.ni-btb__blank:disabled {
+  cursor: default;
+}
+.ni-btb__blank.ni-invite {
+  outline-offset: 5px;
+  border-radius: var(--radius-pebble);
+}
+.ni-btb__side--pad {
+  gap: 20px;
+}

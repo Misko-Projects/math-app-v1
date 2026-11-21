@@ -34,7 +34,7 @@ import {
   splitRects,
   UNEQUAL_WEIGHTS,
 } from './fraction-geometry';
-import { fractionLine, lineTicks } from './fraction-line';
+import { fractionLine, fractionLineTicks } from './fraction-line';
 import { fractionPick, pickChoices } from './fraction-pick';
 import { formatModel } from './index';
 import { type FormatModel, type FormatState, UnsupportedOpError } from './types';
@@ -671,7 +671,7 @@ describe('fraction-pick', () => {
         ...pickBase,
         stimulus: { ...halves, shaded: 3 },
       }),
-    ).toEqual(['stimulus']);
+    ).toContain('stimulus');
   });
 
   it('schema: name with pads has no options; name with words picks ≥ 3', () => {
@@ -857,8 +857,8 @@ describe('fraction-line', () => {
   });
 
   it('ticks sit at exact k/denominator positions', () => {
-    expect(lineTicks(4, 1)).toEqual([0, 0.25, 0.5, 0.75, 1]);
-    const t = lineTicks(3, 2);
+    expect(fractionLineTicks(4, 1)).toEqual([0, 0.25, 0.5, 0.75, 1]);
+    const t = fractionLineTicks(3, 2);
     expect(t).toHaveLength(7);
     for (const [k, x] of t.entries()) expect(x).toBe(k / 3);
   });

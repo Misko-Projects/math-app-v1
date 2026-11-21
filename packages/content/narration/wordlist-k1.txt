@@ -7,12 +7,15 @@ added
 adding
 adds
 after
+afternoon
 again
 all
 along
 am
 an
+anchor
 and
+another
 answer
 any
 apple
@@ -32,6 +35,7 @@ back
 bakery
 balance
 ball
+balloon
 balls
 bar
 basket
@@ -44,6 +48,7 @@ beam
 bear
 bears
 bed
+bedtime
 before
 behind
 bell
@@ -73,6 +78,7 @@ boxes
 boy
 boys
 bread
+breakfast
 brick
 bricks
 bridge
@@ -87,6 +93,7 @@ bundle
 bundles
 burrow
 but
+button
 by
 cake
 cakes
@@ -119,6 +126,7 @@ closed
 closely
 closer
 coat
+coconut
 coin
 coins
 come
@@ -147,6 +155,7 @@ crates
 crew
 cube
 cubes
+cup
 curved
 cut
 cylinder
@@ -157,6 +166,7 @@ days
 dice
 did
 different
+dinner
 do
 dock
 dog
@@ -194,6 +204,7 @@ end
 equal
 equals
 equation
+evening
 every
 eye
 eyes
@@ -207,6 +218,7 @@ farmer
 farther
 fast
 father
+feather
 feet
 ferry
 festival
@@ -226,6 +238,7 @@ fireflies
 firefly
 first
 fish
+fishing
 fit
 five
 flag
@@ -286,6 +299,7 @@ group
 groups
 grove
 grow
+grown
 grows
 guess
 had
@@ -402,6 +416,7 @@ lookout
 looks
 loud
 love
+lunch
 make
 makes
 making
@@ -415,6 +430,7 @@ may
 me
 measure
 measured
+melon
 men
 middle
 milk
@@ -508,6 +524,7 @@ plus
 practice
 pretty
 puffin
+pumpkin
 pup
 put
 puts
@@ -526,7 +543,9 @@ red
 reef
 repeat
 repeats
+resting
 rhythm
+ribbon
 ride
 rider
 riders
@@ -536,6 +555,7 @@ right
 ring
 road
 robin
+rock
 rod
 rods
 roll
@@ -606,6 +626,7 @@ snow
 so
 solid
 some
+someone
 song
 soon
 sort
@@ -615,6 +636,7 @@ sphere
 spheres
 split
 splits
+spoon
 square
 squares
 squirrel
@@ -636,6 +658,7 @@ straight
 street
 string
 strip
+strips
 sum
 sun
 super
@@ -665,6 +688,7 @@ them
 then
 there
 they
+thimble
 thing
 things
 think
@@ -718,6 +742,7 @@ two
 under
 up
 veggies
+waking
 walk
 walked
 walking
@@ -762,3 +787,32 @@ you
 you're
 your
 zero
+# U05 (#14): names of the objects the measurement and geometry items show (MEA.15, MEA.16, GEO.07)
+anchor
+balloon
+book
+bucket
+barrel
+bun
+button
+coconut
+cream
+cup
+feather
+fishing
+hat
+ice
+orange
+pallet
+pumpkin
+ribbon
+rock
+roof
+spoon
+tent
+thimble
+tub
+vine
+watermelon
+ruler
+sticks

@@ -2,7 +2,7 @@ import {
   type FormatModel,
   type FractionLineState,
   formatModel,
-  lineTicks,
+  fractionLineTicks,
   targetValue,
 } from '@number-island/engine';
 import type { WidgetAction } from '@number-island/shared';
@@ -452,7 +452,7 @@ export function FractionLineWidget({
 
   // ---------- render ----------
 
-  const ticks = lineTicks(den, max);
+  const ticks = fractionLineTicks(den, max);
   const shownTicks = ticks.filter((_, kk) => config.ticksShown || kk % den === 0);
   const labelled = (kk: number) => {
     if (config.labels === 'none') return false;

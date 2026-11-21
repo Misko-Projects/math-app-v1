@@ -2,7 +2,8 @@
 // `start`. The child trades between neighbouring columns (one ten for ten ones and back).
 // - `regroup-to`: trade until the mat shows exactly `regroupTarget`.
 // - `compute` with `+`: the operand's pieces wait below the mat and `combine {column}` moves them
-//   onto it; with `-`: `take {column, count}` takes pieces off the mat. Either way the child trades
+//   onto it; with `-`: `take {column, count}` takes pieces off the mat, and a negative count puts
+//   pieces taken from that column back (never more than were taken). Either way the child trades
 //   when a column overflows or runs out. `write-digit` writes the column algorithm
 //   (`showAlgorithm`), and `answer {value}` is the typed result (`thenAsk`).
 // Response: state `{ hundreds, tens, ones, value? }`, checked by `trade.result`.
@@ -68,7 +69,106 @@ export function borrowsAcrossZero(c: Config): boolean {
   return c.start.ones < op.operand.ones && c.start.tens === 0;
 }
 
+/**
+ * The supported domain (PR #74): three-digit numbers, well above shipped content (sums to 177,
+ * regroups to 99) and inside what the mat draws at 1280 × 800 in K and Grade 1 (the widget's
+ * layout test walks every corner).
+ * - Every number the mat shows (start, operand, result, regroup target) is at most 999: the mat
+ *   has no thousands column.
+ * - `compute` writes its numbers in the column algorithm, one digit a column: at most 9 each.
+ * - An addition's operand waits in the tray: at most 2 hundreds there, beside a start of at most
+ *   8 hundreds.
+ * - `regroup-to` shows a number another way: one place traded down (up to 19 tens or ones), or
+ *   a two-digit number as all ones (up to 99 ones, with nothing in the other columns).
+ */
+export const TRADE_VALUE_MAX = 999;
+export const TRADE_COLUMN_MAX = 9;
+export const TRADE_REGROUP_COLUMN_MAX: Readonly<Hto> = { hundreds: 9, tens: 19, ones: 19 };
+/** A regroup-to mat that holds only ones (pv.regroup's `ones` decomposition). */
+export const TRADE_ALL_ONES_MAX = 99;
+export const TRADE_ADD_START_HUNDREDS_MAX = 8;
+export const TRADE_ADD_OPERAND_HUNDREDS_MAX = 2;
+/**
+ * The most pieces one `take` moves, off the mat or (negative) back onto it: a column never holds
+ * more (TRADE_ALL_ONES_MAX). A count outside ±this, or one that is not a whole number, is ignored.
+ */
+export const TRADE_TAKE_COUNT_MAX = 99;
+
+/** Where a config leaves the supported domain. */
+export function domainIssues(c: Config): { path: string[]; message: string }[] {
+  const out: { path: string[]; message: string }[] = [];
+  const columns = (path: string[], h: Hto, cap: Readonly<Hto>, message: (k: Column) => string) => {
+    for (const k of COLUMNS)
+      if (h[k] > cap[k]) out.push({ path: [...path, k], message: message(k) });
+  };
+  const value = (path: string[], h: Hto) => {
+    if (htoValue(h) > TRADE_VALUE_MAX) {
+      out.push({ path, message: `the mat shows at most ${TRADE_VALUE_MAX}; got ${htoValue(h)}` });
+    }
+  };
+  if (c.goal === 'compute') {
+    const digit: Hto = {
+      hundreds: TRADE_COLUMN_MAX,
+      tens: TRADE_COLUMN_MAX,
+      ones: TRADE_COLUMN_MAX,
+    };
+    const one = (h: Hto) => (k: Column) =>
+      `a compute item writes each number with at most ${TRADE_COLUMN_MAX} in a column; got ${h[k]}`;
+    columns(['start'], c.start, digit, one(c.start));
+    const op = c.operation;
+    if (op) {
+      columns(['operation', 'operand'], op.operand, digit, one(op.operand));
+      if (out.length === 0 && op.op === '+') {
+        if (computeResult(c) > TRADE_VALUE_MAX) {
+          out.push({
+            path: ['operation'],
+            message: `the result is at most ${TRADE_VALUE_MAX} (the mat has no thousands column); got ${computeResult(c)}`,
+          });
+        }
+        if (c.start.hundreds > TRADE_ADD_START_HUNDREDS_MAX) {
+          out.push({
+            path: ['start', 'hundreds'],
+            message: `an addition starts with at most ${TRADE_ADD_START_HUNDREDS_MAX} hundreds on the mat; got ${c.start.hundreds}`,
+          });
+        }
+        if (op.operand.hundreds > TRADE_ADD_OPERAND_HUNDREDS_MAX) {
+          out.push({
+            path: ['operation', 'operand', 'hundreds'],
+            message: `an addition's tray holds at most ${TRADE_ADD_OPERAND_HUNDREDS_MAX} hundreds; got ${op.operand.hundreds}`,
+          });
+        }
+      }
+    }
+  } else {
+    const regrouped = (path: string[], h: Hto) => {
+      // All ones: a two-digit number with nothing in the hundreds or the tens.
+      const allOnes = h.hundreds === 0 && h.tens === 0;
+      const cap = allOnes
+        ? { ...TRADE_REGROUP_COLUMN_MAX, ones: TRADE_ALL_ONES_MAX }
+        : TRADE_REGROUP_COLUMN_MAX;
+      const beside = (k: Column) =>
+        k === 'ones' && !allOnes ? ` beside other pieces (${TRADE_ALL_ONES_MAX} alone)` : '';
+      columns(
+        path,
+        h,
+        cap,
+        (k) => `a regroup-to mat holds at most ${cap[k]} ${k}${beside(k)}; got ${h[k]}`,
+      );
+    };
+    regrouped(['start'], c.start);
+    if (c.regroupTarget) regrouped(['regroupTarget'], c.regroupTarget);
+    if (out.length === 0) value(['start'], c.start);
+  }
+  // Unused fields are bounded too: an operand on a regroup-to item, a target on a compute item.
+  if (c.goal !== 'compute' && c.operation) value(['operation', 'operand'], c.operation.operand);
+  if (c.goal === 'compute' && c.regroupTarget) value(['regroupTarget'], c.regroupTarget);
+  return out;
+}
+
 const configSchema = baseTenTradeConfigSchema.superRefine((c, ctx) => {
+  const domain = domainIssues(c);
+  for (const d of domain) ctx.addIssue({ code: 'custom', ...d });
+  if (domain.length > 0) return;
   if (c.goal === 'compute') {
     if (!c.operation) {
       ctx.addIssue({ code: 'custom', path: ['operation'], message: 'compute needs an operation' });
@@ -174,7 +274,23 @@ export const baseTenTrade: FormatModel<'base-ten-trade', BaseTenTradeState> = {
       case 'take': {
         const col = column(a.args?.column);
         if (!col) return s;
-        const n = Math.min(Math.max(0, Math.trunc(argNumber(a, 'count') ?? 1)), s.mat[col]);
+        // No count is one piece; a count that is given must be a whole number within the bound.
+        const raw = a.args?.count;
+        const count = raw === undefined ? 1 : raw;
+        if (typeof count !== 'number' || !Number.isInteger(count)) return s;
+        if (Math.abs(count) > TRADE_TAKE_COUNT_MAX) return s;
+        if (count < 0) {
+          // Put back: only pieces this item's takes took from the column, and only when taking away.
+          if (s.config.goal !== 'compute' || s.config.operation?.op !== '-') return s;
+          const back = Math.min(-count, s.taken[col]);
+          if (back === 0) return s;
+          return {
+            ...s,
+            mat: { ...s.mat, [col]: s.mat[col] + back },
+            taken: { ...s.taken, [col]: s.taken[col] - back },
+          };
+        }
+        const n = Math.min(count, s.mat[col]);
         if (n === 0) return s;
         return {
           ...s,

@@ -11,7 +11,7 @@ import {
   initIsland,
   sameId,
   sortEvents,
-} from '@number-island/engine';
+} from '@number-island/engine/shell';
 import {
   type AnyEventEnvelope,
   anyEventEnvelopeSchema,
@@ -80,6 +80,7 @@ export type DataStoreErrorCode =
   | 'invalid_event'
   | 'forbidden_type'
   | 'child_deleted'
+  | 'session_ended'
   | 'invalid_profile'
   | 'invalid_settings'
   | 'invalid_ids';
@@ -147,6 +148,11 @@ export interface DataStore {
     deviceId: string;
     deviceToken: string;
   }): Promise<DeviceRecord>;
+  /**
+   * Appends one event. A session ends once: a `session.ended` for a session whose end is already
+   * in the log is refused (`session_ended`) in the same transaction that would write it, so two
+   * tabs can never both end one session.
+   */
   append<T extends AppendableEventType>(
     type: T,
     payload: EventPayloads[T],
@@ -165,6 +171,17 @@ export interface DataStore {
   /** Lower-case ids of every tombstoned child. */
   deletedChildren(): Promise<Set<string>>;
   putProfile(profile: ChildProfile): Promise<ChildProfile>;
+  /**
+   * Several profiles in one transaction: all are written or none (an invalid profile, a deleted
+   * child or an interruption such as a reload leaves the store as it was).
+   */
+  putProfiles(profiles: readonly ChildProfile[]): Promise<ChildProfile[]>;
+  /**
+   * Sets (or, with null, clears) a child's picture password on the current row only. The hash is
+   * device-local and never synced (08 §3), so `updatedAt` is kept: a stale local copy of the shared
+   * fields never wins the server's LWW merge because a password changed here.
+   */
+  setPicturePassword(childId: ChildId, hash: string | null): Promise<ChildProfile>;
   /** LWW merge (see `MergeSource` for ties); returns how many documents changed. */
   mergeProfiles(profiles: readonly unknown[], opts: { source: MergeSource }): Promise<number>;
   allProfiles(): Promise<ChildProfile[]>;
@@ -589,6 +606,17 @@ export async function createDataStore(opts: DataStoreOptions): Promise<DataStore
           throw new DataStoreError('child_deleted', 'this child was deleted');
         }
         const e = parsed.data;
+        if (e.type === 'session.ended') {
+          const sessionId = e.payload.sessionId.toLowerCase();
+          const ends = await db.events.where('type').equals('session.ended').toArray();
+          const endsIt = (stored: { payload: unknown }) => {
+            const id = (stored.payload as { sessionId?: unknown }).sessionId;
+            return typeof id === 'string' && id.toLowerCase() === sessionId;
+          };
+          if (ends.some(endsIt)) {
+            throw new DataStoreError('session_ended', 'this session has already ended');
+          }
+        }
         await db.events.add({ ...e, synced: 0 });
         await reconcile([e], { deleted });
         return e;
@@ -729,17 +757,44 @@ export async function createDataStore(opts: DataStoreOptions): Promise<DataStore
     },
 
     async putProfile(profile) {
-      const parsed = childProfileSchema.safeParse({ ...profile, updatedAt: now() });
-      if (!parsed.success) {
-        throw new DataStoreError('invalid_profile', 'invalid child profile', parsed.error.issues);
-      }
+      const [saved] = await store.putProfiles([profile]);
+      return saved as ChildProfile;
+    },
+
+    async putProfiles(profiles) {
+      const stamp = now();
+      const valid = profiles.map((profile) => {
+        const parsed = childProfileSchema.safeParse({ ...profile, updatedAt: stamp });
+        if (!parsed.success) {
+          throw new DataStoreError('invalid_profile', 'invalid child profile', parsed.error.issues);
+        }
+        return parsed.data;
+      });
       return db.transaction('rw', all, async () => {
         const deleted = await tombstoned();
-        if (deleted.has(childKey(parsed.data.id))) {
+        for (const p of valid) {
+          if (deleted.has(childKey(p.id))) {
+            throw new DataStoreError('child_deleted', 'this child was deleted');
+          }
+        }
+        await db.profiles.bulkPut(valid);
+        await reconcile([], { deleted });
+        return valid;
+      });
+    },
+
+    async setPicturePassword(childId, hash) {
+      return db.transaction('rw', all, async () => {
+        if ((await tombstoned()).has(childKey(childId))) {
           throw new DataStoreError('child_deleted', 'this child was deleted');
         }
+        const current = await db.profiles.get(childId);
+        if (!current) throw new DataStoreError('invalid_profile', 'no such child profile');
+        const parsed = childProfileSchema.safeParse({ ...current, picturePasswordHash: hash });
+        if (!parsed.success) {
+          throw new DataStoreError('invalid_profile', 'invalid child profile', parsed.error.issues);
+        }
         await db.profiles.put(parsed.data);
-        await reconcile([], { deleted });
         return parsed.data;
       });
     },
@@ -754,8 +809,12 @@ export async function createDataStore(opts: DataStoreOptions): Promise<DataStore
         let changed = 0;
         for (const p of valid) {
           if (deleted.has(childKey(p.id))) continue;
-          if (lwwWins(p, await db.profiles.get(p.id), source)) {
-            await db.profiles.put(p);
+          const local = await db.profiles.get(p.id);
+          // The picture password is device-local (08 §3): a merged profile keeps this device's,
+          // and a copy that differs from the local one only there is no change at all.
+          const merged = { ...p, picturePasswordHash: local?.picturePasswordHash ?? null };
+          if (lwwWins(merged, local, source)) {
+            await db.profiles.put(merged);
             changed += 1;
           }
         }

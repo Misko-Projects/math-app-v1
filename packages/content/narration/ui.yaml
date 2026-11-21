@@ -5,6 +5,80 @@ ui.button.back:
   text: "Back"
 ui.profile.who-is-playing:
   text: "Who is playing?"
+  level: K
+
+# Profile Picker, picture passwords and the play session (W00, apps/web/src/app/picker, session).
+ui.start.tap:
+  text: "Tap to start!"
+  level: K
+ui.picture.prompt:
+  text: "Tap your three pictures."
+  level: K
+ui.picture.try-again:
+  text: "Let's try again!"
+  level: K
+ui.picture.ask-help:
+  text: "Ask a grown-up to help you."
+  level: K
+ui.picture.undo:
+  text: "Take one back"
+  level: K
+ui.picture.shell:
+  text: "Shell"
+  level: K
+ui.picture.fish:
+  text: "Fish"
+  level: K
+ui.picture.boat:
+  text: "Boat"
+  level: K
+ui.picture.sun:
+  text: "Sun"
+  level: K
+ui.picture.tree:
+  text: "Tree"
+  level: K
+ui.picture.crab:
+  text: "Crab"
+  level: K
+ui.picture.flower:
+  text: "Flower"
+  level: K
+ui.picture.kite:
+  text: "Kite"
+  level: K
+ui.picture.turtle:
+  text: "Turtle"
+  level: K
+ui.rest.quiet-hours:
+  text: "Play time is over for now. Come back soon!"
+  level: K
+ui.rest.quiet-hours.morning:
+  text: "The island is resting. It opens again at {at|time} in the morning!"
+  level: K
+ui.rest.quiet-hours.afternoon:
+  text: "The island is resting. It opens again at {at|time} in the afternoon!"
+  level: K
+ui.rest.quiet-hours.evening:
+  text: "The island is resting. It opens again at {at|time} in the evening!"
+  level: K
+ui.rest.daily-cap:
+  text: "You did so much playing! Come back next time."
+  level: K
+ui.rest.elsewhere:
+  text: "Someone is playing in another window. Let's take turns!"
+  level: K
+ui.btn.okay:
+  text: "Okay!"
+  level: K
+ui.home.hello:
+  text: "Hello! Pip is getting the island ready for you."
+  voice: pip
+  level: K
+ui.winddown.done:
+  text: "Great playing! See you next time!"
+  voice: pip
+  level: K
 
 # Design-system primitives (U01, packages/ui/src/primitives).
 ui.btn.home:
@@ -53,6 +127,10 @@ ui.widget.supply:
 # Number-sense widgets (U03, packages/ui/src/widgets). Accessible names and spoken labels.
 ui.widget.picture:
   text: "Look at the picture"
+  level: K
+# A picture graph's key (ChartView), when one picture stands for more than one.
+ui.widget.chart.key:
+  text: "Each picture is {n}"
   level: K
 ui.widget.answer:
   text: "Your answer"
@@ -158,7 +236,263 @@ ui.sprite.firefly:
 ui.sprite.counter:
   text: "Counter"
   level: K
+ui.sprite.anchor:
+  text: "Anchor"
+  level: K
+ui.sprite.apple:
+  text: "Apple"
+  level: K
+ui.sprite.balloon:
+  text: "Balloon"
+  level: K
+ui.sprite.brick:
+  text: "Brick"
+  level: K
+ui.sprite.button:
+  text: "Button"
+  level: K
+ui.sprite.coconut:
+  text: "Coconut"
+  level: K
+ui.sprite.crate:
+  text: "Crate"
+  level: K
+ui.sprite.cube:
+  text: "Cube"
+  level: K
+ui.sprite.cup:
+  text: "Cup"
+  level: K
+ui.sprite.dot:
+  text: "Dot"
+  level: K
+ui.sprite.event-bedtime:
+  text: "Bedtime"
+  level: K
+ui.sprite.event-breakfast:
+  text: "Breakfast"
+  level: K
+ui.sprite.event-dinner:
+  text: "Dinner"
+  level: K
+ui.sprite.event-lunch:
+  text: "Lunch"
+  level: K
+ui.sprite.event-wake-up:
+  text: "Waking up"
+  level: K
+ui.sprite.feather:
+  text: "Feather"
+  level: K
+ui.sprite.fishing-rod:
+  text: "Fishing rod"
+  level: K
+ui.sprite.kite:
+  text: "Kite"
+  level: K
+ui.sprite.log:
+  text: "Log"
+  level: K
+ui.sprite.melon:
+  text: "Melon"
+  level: K
+ui.sprite.pumpkin:
+  text: "Pumpkin"
+  level: K
+ui.sprite.ribbon:
+  text: "Ribbon"
+  level: K
+ui.sprite.rock:
+  text: "Rock"
+  level: K
+ui.sprite.rope:
+  text: "Rope"
+  level: K
+ui.sprite.spoon:
+  text: "Spoon"
+  level: K
+ui.sprite.thimble:
+  text: "Thimble"
+  level: K
 
+# More object names (U05 #14 sprites: measuring, weighing, solid-shaped and scene objects).
+ui.sprite.bun:
+  text: "Bun"
+  level: K
+ui.sprite.orange:
+  text: "Orange"
+  level: K
+ui.sprite.bucket:
+  text: "Bucket"
+  level: K
+ui.sprite.barrel:
+  text: "Barrel"
+  level: K
+ui.sprite.tub:
+  text: "Tub"
+  level: K
+ui.sprite.jug:
+  text: "Jug"
+  level: K
+ui.sprite.sack:
+  text: "Sack"
+  level: K
+ui.sprite.pallet:
+  text: "Pallet"
+  level: K
+ui.sprite.lantern:
+  text: "Lantern"
+  level: K
+ui.sprite.book:
+  text: "Book"
+  level: K
+ui.sprite.box:
+  text: "Box"
+  level: K
+ui.sprite.tent:
+  text: "Tent"
+  level: K
+ui.sprite.roof-top:
+  text: "Roof"
+  level: K
+ui.sprite.can:
+  text: "Can"
+  level: K
+ui.sprite.drum:
+  text: "Drum"
+  level: K
+ui.sprite.party-hat:
+  text: "Party hat"
+  level: K
+ui.sprite.ice-cream:
+  text: "Ice cream cone"
+  level: K
+ui.sprite.dice:
+  text: "Dice"
+  level: K
+ui.sprite.block:
+  text: "Block"
+  level: K
+ui.sprite.ball:
+  text: "Ball"
+  level: K
+ui.sprite.vine:
+  text: "Vine"
+  level: K
+
+# Measurement and geometry widgets (U05 #14, packages/ui/src/widgets): accessible names and
+# spoken labels.
+ui.ssort.tray:
+  text: "Cards to sort"
+  level: K
+ui.ssort.find:
+  text: "Cards"
+  level: K
+ui.clen.object:
+  text: "{name} {n}"
+  level: K
+ui.clen.badge:
+  text: "Number {n}"
+  level: K
+ui.clen.badges:
+  text: "Number cards"
+  level: K
+ui.clen.string:
+  text: "String"
+  level: K
+ui.clen.strings:
+  text: "The strings"
+  level: K
+ui.mlen.pile:
+  text: "{unit} to put down"
+  level: K
+ui.mlen.track:
+  text: "Put it here"
+  level: K
+ui.mlen.undo:
+  text: "Take one back"
+  level: K
+ui.mlen.ruler:
+  text: "Ruler"
+  level: K
+ui.scomp.outline:
+  text: "The shape to fill"
+  level: K
+ui.scomp.pieces:
+  text: "Pieces"
+  level: K
+ui.scomp.piece:
+  text: "{name}, {n} left"
+  level: K
+ui.scomp.turn:
+  text: "Turn the {name}"
+  level: K
+ui.scomp.undo:
+  text: "Take one back"
+  level: K
+ui.scomp.scene:
+  text: "The picture"
+  level: K
+ui.scomp.dots-board:
+  text: "Dots to draw on"
+  level: K
+ui.scomp.sticks-board:
+  text: "Dots to put sticks on"
+  level: K
+ui.scomp.sticks-left:
+  text: "{n} sticks left"
+  level: K
+ui.scomp.dot:
+  text: "Dot {n}"
+  level: K
+ui.pwalk.side:
+  text: "Side {n}: {len}"
+  level: "2"
+ui.pwalk.around:
+  text: "All the way around: {n}"
+  level: "2"
+ui.pwalk.inside:
+  text: "Squares inside: {n}"
+  level: "2"
+ui.pwalk.compare:
+  text: "Make one that is not this one"
+  level: "2"
+ui.pwalk.build:
+  text: "Your rectangle"
+  level: "2"
+ui.pwalk.not-this:
+  text: "Not this one"
+  level: "2"
+ui.pwalk.make:
+  text: "Make"
+  level: "2"
+ui.pwalk.squares-inside:
+  text: "squares inside"
+  level: "2"
+ui.pwalk.all-around:
+  text: "all the way around"
+  level: "2"
+ui.pwalk.target-area:
+  text: "Make {n} squares inside"
+  level: "2"
+ui.pwalk.target-around:
+  text: "Make it {n} all the way around"
+  level: "2"
+ui.pwalk.yours:
+  text: "Your rectangle: {area} squares inside, {around} all the way around"
+  level: "2"
+ui.pwalk.col-more:
+  text: "Add a column"
+  level: "2"
+ui.pwalk.col-less:
+  text: "Take away a column"
+  level: "2"
+ui.pwalk.row-more:
+  text: "Add a row"
+  level: "2"
+ui.pwalk.row-less:
+  text: "Take away a row"
+  level: "2"
 # tap-count, make-set, dot-flash (U03, packages/ui/src/widgets/tap-count, make-set, dot-flash)
 ui.count.marked:
   text: "{thing}, number {n}"
@@ -213,4 +547,440 @@ ui.flash.again:
   level: K
 ui.flash.hidden:
   text: "The picture went away"
+  level: K
+# U04 base-ten-build widget (packages/ui/src/widgets/base-ten-build): keys under ui.widget.btb.*
+ui.widget.btb.goal:
+  text: "Make {n}"
+  level: K
+ui.widget.btb.mat:
+  text: "Build here"
+  level: K
+ui.widget.btb.tray:
+  text: "Put it back here"
+  level: K
+ui.widget.btb.left:
+  text: "{n} left"
+  level: K
+ui.widget.btb.piece.thousands:
+  text: "Thousand"
+  level: "2"
+ui.widget.btb.piece.hundreds:
+  text: "Hundred"
+  level: K
+ui.widget.btb.piece.tens:
+  text: "Ten"
+  level: K
+ui.widget.btb.piece.ones:
+  text: "One"
+  level: K
+ui.widget.btb.fuse.ones:
+  text: "Make a ten"
+  level: K
+ui.widget.btb.fuse.tens:
+  text: "Make a hundred"
+  level: K
+ui.widget.btb.fuse.hundreds:
+  text: "Make a thousand"
+  level: "2"
+ui.widget.btb.split.tens:
+  text: "Split a ten"
+  level: K
+ui.widget.btb.split.hundreds:
+  text: "Split a hundred"
+  level: K
+ui.widget.btb.split.thousands:
+  text: "Split a thousand"
+  level: "2"
+ui.widget.btb.exact.hundreds:
+  text: "Take {n} hundreds"
+  level: K
+ui.widget.btb.exact.hundreds-one:
+  text: "Take 1 hundred"
+  level: K
+ui.widget.btb.exact.tens:
+  text: "Take {n} tens"
+  level: K
+ui.widget.btb.exact.tens-one:
+  text: "Take 1 ten"
+  level: K
+ui.widget.btb.exact.ones:
+  text: "Take {n} ones"
+  level: K
+ui.widget.btb.exact.ones-one:
+  text: "Take 1 one"
+  level: K
+# Decimals (wholeIs: flat): the flat is one whole, the rod a tenth, the unit a hundredth.
+# A decimal value read aloud (the goal, a count-by step): 1.25 is "1 and 25 hundredths". The
+# numbers are number clips and these are the words between them, said as one phrase line.
+ui.widget.btb.dec.word.and:
+  text: "and"
+  level: "2"
+ui.widget.btb.dec.word.hundredths:
+  text: "hundredths"
+  level: "2"
+ui.widget.btb.dec.word.hundredth:
+  text: "hundredth"
+  level: "2"
+ui.widget.btb.dec.word.tenths:
+  text: "tenths"
+  level: "2"
+ui.widget.btb.dec.word.tenth:
+  text: "tenth"
+  level: "2"
+ui.widget.btb.dec.piece.thousands:
+  text: "Ten wholes"
+  level: "2"
+ui.widget.btb.dec.piece.hundreds:
+  text: "One whole"
+  level: "2"
+ui.widget.btb.dec.piece.tens:
+  text: "One tenth"
+  level: "2"
+ui.widget.btb.dec.piece.ones:
+  text: "One hundredth"
+  level: "2"
+ui.widget.btb.dec.fuse.ones:
+  text: "Make a tenth"
+  level: "2"
+ui.widget.btb.dec.fuse.tens:
+  text: "Make a whole"
+  level: "2"
+ui.widget.btb.dec.fuse.hundreds:
+  text: "Make ten wholes"
+  level: "2"
+ui.widget.btb.dec.split.tens:
+  text: "Split a tenth"
+  level: "2"
+ui.widget.btb.dec.split.hundreds:
+  text: "Split a whole"
+  level: "2"
+ui.widget.btb.dec.split.thousands:
+  text: "Split ten wholes"
+  level: "2"
+ui.widget.btb.dec.exact.hundreds:
+  text: "Take {n} wholes"
+  level: "2"
+ui.widget.btb.dec.exact.hundreds-one:
+  text: "Take 1 whole"
+  level: "2"
+ui.widget.btb.dec.exact.tens:
+  text: "Take {n} tenths"
+  level: "2"
+ui.widget.btb.dec.exact.tens-one:
+  text: "Take 1 tenth"
+  level: "2"
+ui.widget.btb.dec.exact.ones:
+  text: "Take {n} hundredths"
+  level: "2"
+ui.widget.btb.dec.exact.ones-one:
+  text: "Take 1 hundredth"
+  level: "2"
+# Column headers (the place each column holds) and the short trade-button captions.
+ui.widget.btb.col.thousands:
+  text: "Thousands"
+  level: "2"
+ui.widget.btb.col.hundreds:
+  text: "Hundreds"
+  level: K
+ui.widget.btb.col.tens:
+  text: "Tens"
+  level: K
+ui.widget.btb.col.ones:
+  text: "Ones"
+  level: K
+ui.widget.btb.dec.col.thousands:
+  text: "Tens"
+  level: "2"
+ui.widget.btb.dec.col.hundreds:
+  text: "Ones"
+  level: "2"
+ui.widget.btb.dec.col.tens:
+  text: "Tenths"
+  level: "2"
+ui.widget.btb.dec.col.ones:
+  text: "Hundredths"
+  level: "2"
+ui.widget.btb.cap.make:
+  text: "Make"
+  level: K
+ui.widget.btb.cap.split:
+  text: "Split"
+  level: K
+# end base-ten-build
+
+# U04 base-ten-trade widget (packages/ui/src/widgets/base-ten-trade): keys under ui.widget.btt.*
+ui.widget.btt.mat:
+  text: "Hundreds, tens and ones"
+  level: K
+ui.widget.btt.col.hundreds:
+  text: "Hundreds"
+  level: K
+ui.widget.btt.col.tens:
+  text: "Tens"
+  level: K
+ui.widget.btt.col.ones:
+  text: "Ones"
+  level: K
+ui.widget.btt.piece.hundreds:
+  text: "Hundred"
+  level: K
+ui.widget.btt.piece.tens:
+  text: "Ten"
+  level: K
+ui.widget.btt.piece.ones:
+  text: "One"
+  level: K
+ui.widget.btt.split:
+  text: "Split"
+  level: K
+ui.widget.btt.group:
+  text: "Group"
+  level: K
+ui.widget.btt.split.hundreds:
+  text: "Split a hundred into ten tens"
+  level: K
+ui.widget.btt.split.tens:
+  text: "Split a ten into ten ones"
+  level: K
+ui.widget.btt.group.tens:
+  text: "Group ten tens into a hundred"
+  level: K
+ui.widget.btt.group.ones:
+  text: "Group ten ones into a ten"
+  level: K
+ui.widget.btt.adding:
+  text: "Ready to add"
+  level: K
+ui.widget.btt.pending.hundreds:
+  text: "Hundreds to add"
+  level: K
+ui.widget.btt.pending.tens:
+  text: "Tens to add"
+  level: K
+ui.widget.btt.pending.ones:
+  text: "Ones to add"
+  level: K
+ui.widget.btt.nest:
+  text: "Take away nest"
+  level: K
+# Taken pieces go back by touching them in the nest (one take too many can be undone).
+ui.widget.btt.back.hundreds:
+  text: "Put a hundred back"
+  level: K
+ui.widget.btt.back.tens:
+  text: "Put a ten back"
+  level: K
+ui.widget.btt.back.ones:
+  text: "Put a one back"
+  level: K
+ui.widget.btt.work:
+  text: "Your work"
+  level: K
+ui.widget.btt.goal:
+  text: "Make it look like this"
+  level: K
+ui.widget.btt.box.hundreds:
+  text: "Hundreds box"
+  level: K
+ui.widget.btt.box.tens:
+  text: "Tens box"
+  level: K
+ui.widget.btt.box.ones:
+  text: "Ones box"
+  level: K
+# end base-ten-trade
+
+# U04 expanded-form widget (packages/ui/src/widgets/expanded-form): keys under ui.widget.ef.*
+ui.widget.ef.number-ring:
+  text: "{n}, with {d} in the ring"
+  level: K
+ui.widget.ef.tray:
+  text: "Put it back here"
+  level: K
+ui.widget.ef.build:
+  text: "Make the number here"
+  level: K
+ui.widget.ef.built:
+  text: "Your number"
+  level: K
+ui.widget.ef.placed:
+  text: "{n} in your number"
+  level: K
+ui.widget.ef.hear:
+  text: "Hear the number"
+  level: K
+# Story fixtures only (ExpandedFormWidget.stories.tsx): long word options for the words stress
+# story. Real items point wordOptions at their own template keys.
+ui.widget.ef.story.w3405:
+  text: "three thousand four hundred five"
+  level: "2"
+ui.widget.ef.story.w3450:
+  text: "three thousand four hundred fifty"
+  level: "2"
+ui.widget.ef.story.w3045:
+  text: "three thousand forty-five"
+  level: "2"
+ui.widget.ef.story.w4305:
+  text: "four thousand three hundred five"
+  level: "2"
+# end expanded-form
+
+# number-line-place, number-line-jump, hundred-chart (U03, packages/ui/src/widgets/number-line-place, number-line-jump, hundred-chart)
+ui.nlp.line:
+  text: "Number line"
+  level: K
+ui.nlp.marker:
+  text: "Flag {n}"
+  level: K
+ui.nlj.path:
+  text: "Number path"
+  level: K
+ui.nlj.jumps:
+  text: "Hops"
+  level: K
+ui.nlj.hop:
+  text: "Hop {n}"
+  level: K
+ui.nlj.hop-back:
+  text: "Hop back {n}"
+  level: K
+ui.nlj.undo:
+  text: "Take back"
+  level: K
+ui.nlj.minus:
+  text: "Minus"
+  level: K
+ui.nlj.smaller:
+  text: "Smaller hop"
+  level: K
+ui.nlj.bigger:
+  text: "Bigger hop"
+  level: K
+ui.nlj.hopper:
+  text: "Pebbling on {n}"
+  level: K
+ui.nlj.start:
+  text: "Start"
+  level: K
+ui.hc.chart:
+  text: "Number chart"
+  level: K
+ui.hc.missing:
+  text: "Missing number"
+  level: K
+ui.hc.start:
+  text: "Start {n}"
+  level: K
+ui.hc.moves:
+  text: "Moves"
+  level: K
+ui.hc.move.up:
+  text: "Up"
+  level: K
+ui.hc.move.down:
+  text: "Down"
+  level: K
+ui.hc.move.left:
+  text: "Left"
+  level: K
+ui.hc.move.right:
+  text: "Right"
+  level: K
+ui.hc.rows-up:
+  text: "Go up"
+  level: K
+ui.hc.rows-down:
+  text: "Go down"
+  level: K
+ui.hc.window:
+  text: "{from} to {to}"
+  level: K
+ui.hc.mark:
+  text: "Mark it"
+  level: K
+ui.hc.given:
+  text: "In the pattern: {n}"
+  level: K
+ui.nlp.minus:
+  text: "Minus"
+  level: K
+
+# compare and order (U03, packages/ui/src/widgets/compare, packages/ui/src/widgets/order).
+ui.compare.left:
+  text: "Left side"
+  level: K
+ui.compare.right:
+  text: "Right side"
+  level: K
+ui.compare.same:
+  text: "The same"
+  level: K
+ui.compare.not-same:
+  text: "Not the same"
+  level: K
+ui.compare.yes:
+  text: "Yes"
+  level: K
+ui.compare.no:
+  text: "No"
+  level: K
+ui.compare.less:
+  text: "Less than"
+  level: K
+ui.compare.greater:
+  text: "Greater than"
+  level: K
+ui.compare.equal:
+  text: "Equal to"
+  level: K
+ui.compare.gap:
+  text: "Put it here"
+  level: K
+ui.compare.this-one:
+  text: "This one"
+  level: K
+ui.order.small-to-big:
+  text: "Small to big"
+  level: K
+ui.order.big-to-small:
+  text: "Big to small"
+  level: K
+ui.order.fixed:
+  text: "{n} can't move"
+  level: K
+ui.order.picture:
+  text: "Picture {n}"
+  level: K
+
+# tenframe-fill, number-bond, rekenrek (U03, packages/ui/src/widgets/tenframe-fill, number-bond,
+# rekenrek). Accessible names and spoken labels.
+ui.widget.tenframe.frame:
+  text: "Frame {n}"
+  level: K
+ui.widget.tenframe.shell:
+  text: "Shell {n}"
+  level: K
+ui.widget.tenframe.box:
+  text: "Box {n}"
+  level: K
+ui.widget.tenframe.tray:
+  text: "Counters"
+  level: K
+ui.widget.bond.whole:
+  text: "Whole"
+  level: K
+ui.widget.bond.part:
+  text: "Part {n}"
+  level: K
+ui.widget.bond.found:
+  text: "What you did"
+  level: K
+ui.widget.rekenrek.top:
+  text: "Top row"
+  level: K
+ui.widget.rekenrek.bottom:
+  text: "Bottom row"
+  level: K
+ui.widget.rekenrek.bead:
+  text: "Bead"
   level: K

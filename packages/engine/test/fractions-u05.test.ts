@@ -41,7 +41,6 @@ describe('U05 fraction templates', () => {
         'FRA.01.t4',
         'FRA.07.t3',
         'FRA.07.t4',
-        'FRA.08.t2',
       ]),
     );
   });

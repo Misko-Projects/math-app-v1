@@ -1,17 +1,21 @@
 // 03 §6.3 format state models and 03 §5.5 format configs, features and answer semantics, for the
 // 11 E01 fixture formats.
 
-import type {
-  AnswerSpec,
-  ItemFormat,
-  StimulusSpec,
-  WidgetAction,
-  WidgetConfig,
-  WidgetConfigOf,
+import {
+  type AnswerSpec,
+  ITEM_FORMATS,
+  type ItemFormat,
+  type ResponseValue,
+  type StimulusSpec,
+  type WidgetAction,
+  type WidgetConfig,
+  type WidgetConfigOf,
+  widgetConfigSchema,
 } from '@number-island/shared';
 import { describe, expect, it } from 'vitest';
+import { matches } from '../items/check';
 import { dotFlash, stimulusGroups, stimulusQuantity } from './dot-flash';
-import { chartLast, hundredChart } from './hundred-chart';
+import { chartLast, hundredChart, PATTERN_SHOWN_MAX, patternGiven } from './hundred-chart';
 import {
   formatFeatures,
   formatFeatureValues,
@@ -548,6 +552,36 @@ describe('make-set', () => {
       [act('drag', { count: 12 })],
       state({ count: 12, removed: 0, bundles: 0 }),
     ],
+    [
+      'answer {value} drags up to the value',
+      makeSetBase,
+      [act('drag', { count: 1 }), act('answer', { value: 4 })],
+      state({ count: 4, removed: 0 }),
+    ],
+    [
+      'answer {value} removes down to the value (take-away)',
+      takeAway,
+      [act('answer', { value: 3 })],
+      state({ count: 3, removed: 4, parts: [3, 4] }),
+    ],
+    [
+      'answer {value} on hands fills the left hand first',
+      hands,
+      [act('answer', { value: 7 })],
+      state({ count: 7, removed: 0, parts: [5, 2] }),
+    ],
+    [
+      'answer {value} with groupsOf 10 bundles every full ten',
+      bundles,
+      [act('answer', { value: 12 })],
+      state({ count: 12, removed: 0, bundles: 1 }),
+    ],
+    [
+      'answer {value} is limited by the supply; a bad value changes nothing',
+      makeSetBase,
+      [act('answer', { value: 20 }), act('answer', { value: -1 }), act('answer')],
+      state({ count: 6, removed: 0 }),
+    ],
   ] as const)('%s', (_name, config, ops, expected) => {
     expect(respond(makeSet, config, [...ops])).toEqual(expected);
   });
@@ -931,6 +965,42 @@ describe('order', () => {
 
   it('records the highlight', () => {
     expect(play(order, orderBase, [act('highlight', { id: 'a' })]).highlighted).toBe('a');
+  });
+
+  it.each([
+    [
+      'fills every slot in value order',
+      orderBase,
+      [1, 2, 3],
+      { kind: 'numbers', values: [1, 2, 3] },
+    ],
+    [
+      'keeps a fixed slot whose value matches',
+      fixed,
+      [1, 2, 3],
+      { kind: 'numbers', values: [1, 2, 3] },
+    ],
+    ['ignores a fixed slot whose value differs', fixed, [2, 1, 3], null],
+    ['ignores the wrong number of values', orderBase, [1, 2], null],
+    ['ignores a value no item has', orderBase, [1, 2, 9], null],
+  ] as const)('answer {values}: %s', (_name, config, values, expected) => {
+    expect(respond(order, config, [act('answer', { values: [...values] })])).toEqual(expected);
+  });
+
+  it('answer {values} places equal values on distinct items', () => {
+    const twins: WidgetConfigOf<'order'> = {
+      ...orderBase,
+      items: [
+        { id: 'a', value: 2 },
+        { id: 'b', value: 2 },
+        { id: 'c', value: 1 },
+      ],
+    };
+    expect(play(order, twins, [act('answer', { values: [1, 2, 2] })]).slots).toEqual([
+      'c',
+      'a',
+      'b',
+    ]);
   });
 
   it.each([
@@ -1521,10 +1591,10 @@ describe('hundred-chart', () => {
     ],
     ['fill: partly filled is not submittable', fill, [act('answer', { values: [15] })], null],
     [
-      'fill: hidden cells in config order',
+      'fill: the values are the blanks in reading order (12, then 15), not config order',
       fill,
-      [act('answer', { values: [15, 12] })],
-      { kind: 'numbers', values: [15, 12] },
+      [act('answer', { values: [12, 15] })],
+      { kind: 'numbers', values: [12, 15] },
     ],
     ['pattern: an empty selection is still submittable', pattern, [], values([])],
     [
@@ -1541,6 +1611,21 @@ describe('hundred-chart', () => {
     ],
   ] as const)('%s', (_name, config, ops, expected) => {
     expect(respond(hundredChart, config, [...ops])).toEqual(expected);
+  });
+
+  it('fill: an unsorted hidden list is answered and checked in reading order (03 §5.5)', () => {
+    // The generator's answer for blanks 46, 47, 48 is in reading order, whatever order the
+    // config lists them in; the response the widget builds must match it.
+    const unsorted: WidgetConfigOf<'hundred-chart'> = {
+      ...chartBase,
+      mode: 'fill',
+      hidden: [48, 46, 47],
+    };
+    const r = respond(hundredChart, unsorted, [act('answer', { values: [46, 47, 48] })]);
+    expect(r).toEqual({ kind: 'numbers', values: [46, 47, 48] });
+    const answer: AnswerSpec = { kind: 'numbers', values: [46, 47, 48], ordered: true };
+    expect(matches(answer, r as ResponseValue)).toBe(true);
+    expect(matches(answer, { kind: 'numbers', values: [48, 46, 47] })).toBe(false);
   });
 
   it('records row, column and slide highlights', () => {
@@ -1580,6 +1665,116 @@ describe('hundred-chart', () => {
     expect(issuePaths(hundredChart, config)).toEqual([]);
   });
 
+  describe('pattern: given terms (patternShown)', () => {
+    const shown: WidgetConfigOf<'hundred-chart'> = { ...pattern, patternShown: 3 };
+
+    it('derives the given terms from the start, the step and the count, in order', () => {
+      expect(patternGiven(shown)).toEqual([5, 10, 15]);
+      expect(patternGiven({ ...shown, patternStart: 78, patternStep: 10 })).toEqual([78, 88, 98]);
+      expect(patternGiven({ ...shown, patternShown: PATTERN_SHOWN_MAX })).toHaveLength(
+        PATTERN_SHOWN_MAX,
+      );
+    });
+
+    it('gives nothing without a count, without a start or step, and outside pattern mode', () => {
+      expect(patternGiven(pattern)).toEqual([]);
+      expect(patternGiven({ ...chartBase, mode: 'pattern', patternShown: 3 })).toEqual([]);
+      expect(patternGiven({ ...shown, mode: 'find' })).toEqual([]);
+    });
+
+    it.each([
+      [
+        'a tap on a given term changes nothing',
+        [act('tap', { n: 20 }), act('tap', { n: 10 })],
+        values([20]),
+      ],
+      [
+        'a given term is never marked, so it is never unmarked either',
+        [act('tap', { n: 5 }), act('tap', { n: 5 }), act('tap', { n: 15 })],
+        values([]),
+      ],
+      [
+        'answer values drops the given terms',
+        [act('answer', { values: [5, 10, 15, 20, 25] })],
+        values([20, 25]),
+      ],
+    ] as const)('%s', (_name, ops, expected) => {
+      expect(respond(hundredChart, shown, [...ops])).toEqual(expected);
+    });
+
+    // Review round 1: the count's range is the shared schema's, so a parser without this model
+    // (the runner task and generated-item schemas, a widget host) has it too.
+    it.each([
+      ['six given terms', PATTERN_SHOWN_MAX + 1, false],
+      ['the most given terms', PATTERN_SHOWN_MAX, true],
+      ['one given term', 1, true],
+      ['no given terms as a count of 0', 0, false],
+      ['half a term', 1.5, false],
+    ])('the shared widget schema on %s', (_name, patternShown, ok) => {
+      const config = { ...shown, patternStart: 1, patternStep: 1, patternShown };
+      expect(widgetConfigSchema.safeParse(config).success).toBe(ok);
+    });
+
+    // ... and a config only the shared schema has seen still gives a widget nothing it cannot
+    // draw: at most the bound, cells of the chart only, never a hidden cell, none twice.
+    it.each([
+      [
+        'more than the bound',
+        { ...shown, patternStart: 1, patternStep: 1, patternShown: 9 },
+        [1, 2, 3, 4, 5],
+      ],
+      ['terms off the end of the chart', { ...shown, patternStart: 81, patternStep: 10 }, [81, 91]],
+      ['terms before the chart', { ...shown, patternStart: -5, patternStep: 5 }, [5]],
+      ['a hidden term', { ...shown, hidden: [10] }, [5, 15]],
+      ['a step of 0', { ...shown, patternStep: 0 }, [5]],
+      ['a count of 0', { ...shown, patternShown: 0 }, []],
+    ])('patternGiven is safe on %s', (_name, config, expected) => {
+      expect(patternGiven(config as WidgetConfigOf<'hundred-chart'>)).toEqual(expected);
+    });
+
+    it('a tap on a given term returns the same state', () => {
+      const s = hundredChart.initialState(shown);
+      expect(hundredChart.apply(s, act('tap', { n: 10 }))).toBe(s);
+    });
+
+    it.each([
+      ['one given term', { ...shown, patternShown: 1 }],
+      ['the most given terms', { ...shown, patternShown: PATTERN_SHOWN_MAX }],
+      ['a last term on the last cell', { ...shown, patternStart: 80, patternStep: 10 }],
+      ['a 101–200 chart', { ...shown, first: 101, patternStart: 110, patternStep: 10 }],
+    ])('the schema accepts %s', (_name, config) => {
+      expect(issuePaths(hundredChart, config)).toEqual([]);
+    });
+
+    it.each([
+      ['no given terms as a count of 0', { ...shown, patternShown: 0 }, 'patternShown'],
+      ['half a term', { ...shown, patternShown: 2.5 }, 'patternShown'],
+      [
+        'more than the most given terms',
+        { ...shown, patternShown: PATTERN_SHOWN_MAX + 1 },
+        'patternShown',
+      ],
+      ['a count outside pattern mode', { ...chartBase, patternShown: 3 }, 'patternShown'],
+      ['a count without a start', { ...shown, patternStart: undefined }, 'patternShown'],
+      ['a count without a step', { ...shown, patternStep: undefined }, 'patternShown'],
+      ['a step of 0 (one term, repeated)', { ...shown, patternStep: 0 }, 'patternStep'],
+      [
+        'a step back (terms out of order)',
+        { ...shown, patternStart: 50, patternStep: -5 },
+        'patternStep',
+      ],
+      ['a first term off the chart', { ...shown, patternStart: 0 }, 'patternShown'],
+      [
+        'a last term off the chart',
+        { ...shown, patternStart: 81, patternStep: 10 },
+        'patternShown',
+      ],
+      ['a given term that is hidden', { ...shown, hidden: [10] }, 'patternShown'],
+    ])('the schema rejects %s', (_name, config, path) => {
+      expect(issuePaths(hundredChart, config)).toContain(path);
+    });
+  });
+
   it('feature values on a harder config', () => {
     const hard: WidgetConfigOf<'hundred-chart'> = {
       ...chartBase,
@@ -1616,15 +1811,11 @@ describe('hundred-chart', () => {
 
 describe('format registry', () => {
   const formats = MODEL_ROWS.map((r) => r.model.format as ItemFormat);
-  const compare: WidgetConfig = {
-    format: 'compare',
-    left: { kind: 'none' },
-    right: { kind: 'none' },
-    ask: 'more',
-    allowMatchLines: false,
-  };
+  // Formats U03–U05 have not modelled yet (the list shrinks as their models land).
+  const unmodelled = ITEM_FORMATS.filter((f) => !formatModels().includes(f));
 
   it('registers the 11 fixture formats (U03–U05 add theirs; formats-u04.test.ts covers U04)', () => {
+    expect(formats).toHaveLength(11);
     expect(formatModels()).toEqual(expect.arrayContaining(formats));
   });
 
@@ -1644,9 +1835,14 @@ describe('format registry', () => {
   });
 
   it('has nothing for formats without a model yet', () => {
-    expect(formatModel('compare')).toBeUndefined();
-    expect(formatFeatures('compare')).toEqual({});
-    expect(formatFeatureValues(compare, { kind: 'choice', id: 'left' })).toEqual({});
+    expect(unmodelled.length).toBeGreaterThan(0);
+    for (const f of unmodelled) {
+      expect(formatModel(f)).toBeUndefined();
+      expect(formatFeatures(f)).toEqual({});
+      // Only `format` is read before the lookup misses.
+      const widget = { format: f } as unknown as WidgetConfig;
+      expect(formatFeatureValues(widget, { kind: 'choice', id: 'left' })).toEqual({});
+    }
   });
 
   it('every feature has a non-zero weight and a doc', () => {

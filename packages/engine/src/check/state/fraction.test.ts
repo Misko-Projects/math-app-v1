@@ -102,6 +102,22 @@ const PARTITION: [string, Rec, Rec, boolean][] = [
     true,
   ],
   ['two wholes in halves', { denominator: 2, max: 2 }, { cuts: [0.5, 1.5] }, true],
+  [
+    'alternative: a mark within 2% of a whole inside the strip is ignored',
+    { denominator: 2, max: 2 },
+    { cuts: [0.5, 1.01, 1.5] },
+    true,
+  ],
+  // The ends of the strip absorb no mark: a mark next to an end cuts off a sliver, one part too
+  // many (PR #84 review, s_d74b2eb5991e).
+  ['an extra mark next to the start', { denominator: 2, max: 1 }, { cuts: [0.01, 0.5] }, false],
+  ['an extra mark next to the end', { denominator: 2, max: 1 }, { cuts: [0.5, 0.99] }, false],
+  [
+    'an extra mark next to the end of two wholes',
+    { denominator: 2, max: 2 },
+    { cuts: [0.5, 1.5, 1.99] },
+    false,
+  ],
   ['a mark missing', { denominator: 4, max: 1 }, { cuts: [0.25, 0.5] }, false],
   ['marks not evenly spaced', { denominator: 4, max: 1 }, { cuts: [0.3, 0.5, 0.75] }, false],
   ['an extra mark', { denominator: 2, max: 1 }, { cuts: [0.5, 0.25] }, false],

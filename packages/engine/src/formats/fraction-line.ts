@@ -49,7 +49,7 @@ export const MAX_LINE_DENOMINATOR = 12;
 const SAME_MARK = 1e-6;
 
 /** The tick positions k/denominator from 0 to max, wholes included. */
-export function lineTicks(denominator: number, max: number): number[] {
+export function fractionLineTicks(denominator: number, max: number): number[] {
   return Array.from({ length: denominator * max + 1 }, (_, k) => k / denominator);
 }
 

@@ -1,6 +1,25 @@
 /* make-set widget (U03): the heap, the container with ten-frame slots, and the actions. */
 
 /*
+ * The action cue on Pip's hand (kit `.ni-hand__cue`): "take one out" (an arrow up, out of the
+ * container, its pebble rimmed in coral) or "count" (three counting dots), so the two invites on
+ * the same thing never look alike.
+ */
+.ni-mset__cue {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+.ni-mset__cue > svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+.ni-hand__cue:has(> .ni-mset__cue[data-cue="take"]) {
+  border-color: var(--color-coral-deep);
+}
+
+/*
  * The widget takes the width its host gives it and never grows to fit its content (inline-size
  * containment), so the layout MakeSetWidget picks from that width (`data-layout`) is honest:
  * `row` side by side, else `stack` / `column` on a grid (areas set inline). The gap is
@@ -69,6 +88,68 @@
     inset 0 -10px 0 var(--color-sand-shadow),
     0 8px 0 rgb(217 187 135 / 0.6);
 }
+/*
+ * The supply: an open wooden crate, so the things to put in never read as part of the set being
+ * made. Plank sides (a 9 px wood rim with a darker inner edge and plank seams), a corner post at
+ * each side (::before, ::after), a slatted floor, and depth: a thick front ledge and a shadow under
+ * it. Its tag on the floor under the rim (a 44 px top padding, CRATE_TAG_Y in MakeSetWidget.tsx),
+ * an arrow towards the container, says "from here, into there" without words. While the child
+ * cannot act (Pip showing, input off), its objects are dimmed: the container is what to look at.
+ */
+.ni-mset__pile[data-kind="supply"] {
+  padding-top: 44px;
+  border-color: var(--color-wood-deep);
+  border-radius: 10px;
+  background:
+    repeating-linear-gradient(0deg, transparent 0 34px, rgb(38 70 83 / 0.1) 34px 36px),
+    var(--color-horizon);
+  box-shadow:
+    inset 0 0 0 9px var(--color-wood),
+    inset 0 0 0 11px var(--color-wood-deep),
+    0 10px 0 var(--color-wood-deep),
+    0 16px 10px -6px rgb(38 70 83 / 0.3);
+}
+.ni-mset__pile[data-kind="supply"]::before,
+.ni-mset__pile[data-kind="supply"]::after {
+  content: "";
+  position: absolute;
+  top: -3px;
+  bottom: -3px;
+  z-index: 0;
+  width: 14px;
+  box-sizing: border-box;
+  border: 3px solid var(--color-wood-deep);
+  background: linear-gradient(90deg, transparent 0 55%, rgb(38 70 83 / 0.2) 55%), var(--color-wood);
+  pointer-events: none;
+}
+.ni-mset__pile[data-kind="supply"]::before {
+  left: -3px;
+  border-radius: 10px 4px 4px 10px;
+}
+.ni-mset__pile[data-kind="supply"]::after {
+  right: -3px;
+  border-radius: 4px 10px 10px 4px;
+}
+/* Room under the objects for Pip's hand while a drag invite shows (HAND_ROOM). */
+.ni-mset__pile[data-kind="supply"][data-hand-room="true"] {
+  padding-bottom: 80px;
+}
+/* The tag: on the crate's floor, under the rim (≥ 3 px clear of it) and above the objects. */
+.ni-mset__supply-icon {
+  position: absolute;
+  top: 12px;
+  left: 50%;
+  z-index: 2;
+  translate: -50% 0;
+  box-sizing: border-box;
+  width: 26px;
+  height: 26px;
+  padding: 3px;
+  border: 2px solid var(--color-wood-deep);
+  border-radius: 50%;
+  background: var(--color-paper);
+  pointer-events: none;
+}
 .ni-mset__pile[data-kind="away"] {
   border-style: dashed;
   border-color: var(--color-ink-soft);
@@ -132,6 +213,10 @@
 }
 .ni-mset__item[data-flying="true"] {
   visibility: hidden;
+}
+/* The supply crate's objects while the child cannot act (see the crate above). */
+.ni-mset[data-idle="true"] .ni-mset__pile[data-kind="supply"] .ni-mset__item {
+  opacity: 0.45;
 }
 .ni-mset__item .ni-sprite {
   pointer-events: none;
@@ -209,10 +294,13 @@
   /* One ten-frame at a time: the frame slides over when the ten is tied or untied. */
   transition: left 320ms var(--ease-soft);
 }
-/* count-aloud: the ring hugs the frames, inside the container art and clear of the heap. */
+/*
+ * count-aloud: the ring lies inside the frames' own box (over the frame's border and padding,
+ * never over a slot), so it stays ≥ 12 px below the boat's top edge and clear of the thing beside.
+ */
 .ni-mset__frames.ni-invite {
   position: absolute;
-  outline-offset: 6px;
+  outline-offset: -5px;
   border-radius: 24px;
   animation: none;
 }
@@ -270,11 +358,11 @@
 }
 
 /*
- * One ten-frame at a time (capacity 11–20 where two ten-frames don't fit; tens.ts): a small frame
- * of 2 × 5 pieces of 32 px (TENS_* in MakeSetWidget.tsx), 96 × 188. On the ones page it is the
- * first ten, tied like a bundled ten-frame (the same rope band, down the gap between its columns)
- * and tagged "10" underneath, and it comes FIRST (left of the frame of ones: "10, then the
- * ones"); with the ten untied it holds the ones, after the ten's frame. Either way a button
+ * One ten-frame at a time (capacity 11–20 where two ten-frames don't fit; tens.ts): beside the
+ * shown frame, a button. On the ones page it is the first ten as ONE bundle (`.ni-mset__bundle`,
+ * tied with the rope and bow when it is a ten) tagged "10" underneath, and it comes FIRST (left of
+ * the frame of ones: "10, then the ones"); with the ten untied it is a small frame holding the
+ * ones (2 × 5 cells of 42 × 38 px, 96 × 208), after the ten's frame. Either way a button
  * (≥ 80 px): tapping the tied ten unties it (and says "ten"), tapping the ones ties it again. It
  * pops in, and the frame slides over, when it changes (at once under reduced motion: both are
  * switched off inline).
@@ -299,16 +387,30 @@
   -webkit-tap-highlight-color: transparent;
   animation: var(--animate-pop-in);
 }
-/* Invited (a remove whose object is in the frame not shown): the ring stays within TENS_GAP. */
+/*
+ * The tied ten keeps a strip under its "10" tag, so Pip's hand can rest its fingertip inside the
+ * button below the tag and leave the numeral fully visible (kit invite rule).
+ */
+.ni-mset__tens[data-tens="bundle"] {
+  padding-bottom: 10px;
+}
+/*
+ * Invited (a remove whose object is in the frame not shown, or count-aloud on the tied ten): the
+ * ring lies inside the button's own box, so it stays ≥ 12 px clear of the shown frame (TENS_GAP)
+ * and of the boat's top edge (ONE_FRAME_TOP). No pulse; Pip's hand carries the motion.
+ */
 .ni-mset__tens.ni-invite {
   position: absolute;
-  outline-offset: 2px;
+  outline-offset: -5px;
   border-radius: 18px;
+  animation: none;
 }
 .ni-mset__tens:disabled {
   cursor: default;
 }
-.ni-mset__tens:focus-visible {
+/* Keyboard focus draws its own ring outside the box; an invited button keeps the invite's ring
+   (inside the box, above), so focus never pushes a ring up against the boat's edge. */
+.ni-mset__tens:not(.ni-invite):focus-visible {
   outline: 4px solid var(--color-sea-deep);
   outline-offset: 4px;
 }
@@ -317,27 +419,91 @@
   display: block;
   box-sizing: border-box;
   width: 96px;
-  height: 188px;
-  padding: 6px;
-  border: 4px solid var(--color-ink);
+  height: 208px;
+  padding: 2px;
+  border: 3px solid var(--color-ink);
   border-radius: 18px;
   background: var(--color-paper);
 }
 .ni-mset__tens[data-tens="bundle"] .ni-mset__tens-frame {
   background: var(--color-sunshine-light);
 }
+/*
+ * The first ten as ONE bundle (containers.tsx TenBundle): ten objects drawn ≥ 40 px in two columns of
+ * five on a soft ground shadow and a pale backdrop (no outline: it is not a frame); tied, the rope
+ * runs down the gap between the columns with a small bow at the middle. 96 × 168.
+ */
+.ni-mset__bundle {
+  position: relative;
+  display: block;
+  width: 96px;
+  height: 168px;
+  border-radius: 30px 30px 24px 24px;
+  background: rgb(255 255 255 / 0.45);
+  pointer-events: none;
+}
+.ni-mset__bundle-ground {
+  position: absolute;
+  right: 6px;
+  bottom: -2px;
+  left: 6px;
+  height: 14px;
+  border-radius: 50%;
+  background: rgb(38 70 83 / 0.16);
+}
+.ni-mset__bundle-obj {
+  position: absolute;
+}
+.ni-mset__bundle-tie {
+  position: absolute;
+  inset: 0;
+  animation: var(--animate-pop-in);
+}
+/* count-aloud, one ten-frame at a time: the tied ten, counted as one "ten". */
+.ni-mset__tens[data-counting="true"] .ni-mset__bundle {
+  border-radius: 24px;
+  outline: 5px solid var(--color-sea-deep);
+  outline-offset: 3px;
+}
+/*
+ * The small frame's cells: 42 × 38 px, 2 px apart. An object's box is 46 px square, centred on
+ * its cell's width and raised 7 px (a drawing sits low in its box, over its shadow), drawn 35 px
+ * wide and 33 px tall: the token's ≥ 32 px (one-frame mode, 06 §2), inside its own cell.
+ */
 .ni-mset__tens-grid {
   display: grid;
-  grid-template-columns: repeat(2, 32px);
-  grid-auto-rows: 32px;
-  gap: 2px 12px;
+  grid-template-columns: repeat(2, 42px);
+  grid-auto-rows: 38px;
+  gap: 2px;
   pointer-events: none;
 }
 .ni-mset__tens-cell {
   position: relative;
   display: block;
-  border-radius: 50%;
+  border-radius: 10px;
   background: rgb(38 70 83 / 0.08);
+}
+.ni-mset__tens-cell > .ni-sprite {
+  position: absolute;
+  top: -7px;
+  left: -2px;
+  width: 46px;
+  height: 46px;
+}
+/*
+ * count-aloud on the small frame of ones: each cell counted so far is tinted with a thin teal
+ * ring just inside its edge (its object keeps its size, inside the ring), and the running number
+ * sits under the small frame, outside every cell (`.ni-mset__tens-count`), over no object.
+ */
+.ni-mset__tens-cell[data-counting="true"] {
+  background: var(--color-sunshine-light);
+  box-shadow: inset 0 0 0 2px var(--color-sea-deep);
+}
+.ni-mset__tens > .ni-mset__tens-count {
+  top: calc(100% + 4px);
+  right: auto;
+  left: 50%;
+  translate: -50% 0;
 }
 /* The tied ten's tag: the numeral 10 (K pre-readers), under its frame (the band ends inside it). */
 .ni-mset__tens-tag {
@@ -357,12 +523,6 @@
   line-height: 34px;
   text-align: center;
   pointer-events: none;
-}
-.ni-mset[data-layout] .ni-mset__tens-frame > .ni-mset__band {
-  top: 6px;
-  left: 6px;
-  width: calc(100% - 12px);
-  height: calc(100% - 12px);
 }
 
 /* ---------- hands ---------- */
@@ -434,6 +594,13 @@
   align-items: center;
   gap: 32px;
 }
+/*
+ * With "make a ten" above Check, Pip's hand under an invited action (≈ 52 px below its bottom
+ * edge with the tap bob) must not touch the next one: 64 px between the actions.
+ */
+.ni-mset[data-bundling="true"] .ni-mset__actions {
+  gap: 64px;
+}
 .ni-mset__action {
   position: relative;
   display: inline-flex;
@@ -490,4 +657,32 @@
 .ni-mset[data-tray="compact"] > .ni-mset__pile {
   padding: 6px;
   border-radius: 32px 24px 36px 28px;
+}
+/*
+ * The compact crate: a thinner rim, so it stays outside its objects' 6 px padding, and no tag (no
+ * room above the objects; the crate look carries it).
+ */
+.ni-mset[data-tray="compact"] > .ni-mset__pile[data-kind="supply"] {
+  border-radius: 8px;
+  box-shadow:
+    inset 0 0 0 4px var(--color-wood),
+    inset 0 0 0 5px var(--color-wood-deep),
+    0 8px 0 var(--color-wood-deep),
+    0 13px 8px -6px rgb(38 70 83 / 0.3);
+}
+.ni-mset[data-tray="compact"] > .ni-mset__pile[data-kind="supply"]::before,
+.ni-mset[data-tray="compact"] > .ni-mset__pile[data-kind="supply"]::after {
+  width: 9px;
+}
+.ni-mset[data-tray="compact"] .ni-mset__supply-icon {
+  display: none;
+}
+
+/*
+ * A disabled widget shows no drop affordance: no armed, over or focus ring on the container or
+ * a pile (a tap on it while input is off leaves nothing drawn).
+ */
+.ni-mset[data-disabled="true"] .ni-drop-target,
+.ni-mset[data-disabled="true"] .ni-drop-target:focus-visible {
+  outline: none;
 }

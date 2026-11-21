@@ -1,9 +1,12 @@
 // 03 §5.5 order. The child drags items into slots; the response lists the dropped items' values in
-// slot order. `fixed` pre-places items (slot → id) that cannot move.
+// slot order. `fixed` pre-places items (slot → id) that cannot move. Ops: `drag {id, slot}`,
+// `highlight {id}` and the generic `answer {values}`.
 
 import { orderConfigSchema, type WidgetConfigOf } from '@number-island/shared';
+import { sharedScaleIssues } from './pictures';
 import {
   argNumber,
+  argNumbers,
   argString,
   digitCount,
   type FormatModel,
@@ -26,6 +29,23 @@ const configSchema = orderConfigSchema.superRefine((c, ctx) => {
   if (new Set(ids).size !== ids.length) {
     ctx.addIssue({ code: 'custom', path: ['items'], message: 'item ids must be distinct' });
   }
+  sharedScaleIssues(
+    c.items.map((i) => i.stimulus),
+    ctx,
+    c.items.map((_, k) => ['items', k, 'stimulus']),
+  );
+  // A card is too small for a chart: its axis numerals cannot keep 32 px (05 §11) in a card's
+  // picture box (about 110 × 60 px in the smallest area). Charts are compared side by side
+  // (`compare`) or read in the bar-graph formats, never ordered as cards.
+  c.items.forEach((item, k) => {
+    if (item.stimulus?.kind === 'chart') {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['items', k, 'stimulus'],
+        message: 'an order card cannot show a chart (its numerals would be under 32 px)',
+      });
+    }
+  });
   for (const [slot, id] of Object.entries(c.fixed ?? {})) {
     const k = Number(slot);
     if (!Number.isInteger(k) || k < 0 || k >= c.items.length || !ids.includes(id)) {
@@ -89,6 +109,31 @@ export const order: FormatModel<'order', OrderState> = {
       }
       case 'highlight':
         return { ...s, highlighted: argString(a, 'id') ?? null };
+      case 'answer': {
+        // The generic answer op (03 §6.3): `{ values }` in slot order fills every open slot with
+        // an item of that value. Fixed slots keep their item (their value must match); any other
+        // shape leaves the state unchanged.
+        const values = argNumbers(a, 'values');
+        if (values === undefined || values.length !== s.slots.length) return s;
+        const fixed = s.config.fixed ?? {};
+        const fixedIds = new Set(Object.values(fixed));
+        const free = s.config.items.filter((i) => !fixedIds.has(i.id));
+        const slots: string[] = [];
+        for (let k = 0; k < values.length; k++) {
+          const pinned = fixed[k];
+          const want = values[k] as number;
+          if (pinned !== undefined) {
+            if (s.config.items.find((i) => i.id === pinned)?.value !== want) return s;
+            slots.push(pinned);
+            continue;
+          }
+          const at = free.findIndex((i) => i.value === want);
+          if (at < 0) return s;
+          slots.push((free[at] as { id: string }).id);
+          free.splice(at, 1);
+        }
+        return { ...s, slots };
+      }
       default:
         throw new UnsupportedOpError('order', a.op);
     }

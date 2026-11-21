@@ -7,9 +7,10 @@
 // `noun.<id>.many`. Scale 1 throughout (scaled graphs are DAT.06, K02).
 // - bar-graph-read: `question` how-many (category a), total (every category), difference (a − b,
 //   a > b), most or least (a category id; never a tie). `kind` picture, bar, tally or table.
-// - number-pad (`kind: picture` only): the picture graph as a `scene` stimulus, one row of pictures
-//   per category in chart order (StimulusView draws scenes, not `chart`); the child types the
-//   total or the difference.
+// - number-pad (`kind: picture` only): the picture graph as a `scene` stimulus, one group of
+//   pictures per category in chart order (StimulusView draws scenes, not `chart`); the child types
+//   the total or the difference. StimulusView wraps the groups, so two short groups can share a
+//   line: the hints name groups, not rows (PR #84 review round 2).
 // - compare: two one-bar charts on one scale (category a and category b); `question` more or
 //   fewer; equal counts answer `same`.
 // - bar-graph-build: `data` objects (raw objects to tally first), tally or table shows the counts;

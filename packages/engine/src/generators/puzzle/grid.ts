@@ -343,6 +343,11 @@ export const puzzleGrid: GeneratorDef = {
       const givens = path.flatMap(([r, c], i) =>
         blankIdx.has(i) ? [] : [[r, c, values[i] as number] as [number, number, number]],
       );
+      // The number tray (U04's puzzle-grid model needs one): every number from one before the
+      // path to one after it. It depends on the params only, never on which cells are blank, and
+      // its two ends are the off-by-one slips.
+      const lo = Math.max(0, start - 1);
+      const palette = Array.from({ length: last + 1 - lo + 1 }, (_, i) => lo + i);
       p = {
         params,
         vars: pickVars(t, {}),
@@ -360,7 +365,7 @@ export const puzzleGrid: GeneratorDef = {
             blankIdx.has(i) ? { r, c, blank: true } : { r, c, given: values[i] as number },
           ),
           constraints: [{ kind: 'adjacent-step', step: 1 }],
-          palette: [],
+          palette,
           uniqueSolution: true,
         },
         answer: {
@@ -373,7 +378,7 @@ export const puzzleGrid: GeneratorDef = {
             cells: path,
             givens,
             constraints: [{ kind: 'adjacent-step', step: 1 }],
-            palette: [],
+            palette,
           },
         },
       };
@@ -560,33 +565,88 @@ export const puzzleGrid: GeneratorDef = {
     }
     if (w.format !== 'puzzle-grid') return [];
     const fill = solvedFill(out);
-    const blanks = w.cells.filter((c) => c.blank);
-    const intro =
-      w.variant === 'number-path'
-        ? 'gen.puzzle.grid.path-look'
-        : w.variant === 'sum-triangle'
-          ? 'gen.puzzle.grid.side'
-          : 'gen.puzzle.grid.ways-start';
-    const each =
-      w.variant === 'number-path'
-        ? 'gen.puzzle.grid.path-fill'
-        : w.variant === 'sum-triangle'
-          ? 'gen.puzzle.grid.side-fill'
-          : 'gen.puzzle.grid.ways-next';
+    const put = ([r, c]: Cell, line: string, vars: Record<string, number>): LessonStep =>
+      say(line, vars, { op: 'fill', args: { r, c, value: fill[r]?.[c] as number } });
+    const valueAt = ([r, c]: Cell): number => fill[r]?.[c] as number;
+    if (w.variant === 'sum-triangle') {
+      // Dependency order (PR #84 review round 2): name a side with one empty cell, then fill it.
+      return triangleOrder(w.cells.filter((x) => x.blank).map((x) => spotAt(x.r, x.c))).flatMap(
+        ({ side, spot }) => [
+          say('gen.puzzle.grid.side', {}, { op: 'check-line', args: { index: side } }),
+          put(TRIANGLE[spot], 'gen.puzzle.grid.side-fill', { n: valueAt(TRIANGLE[spot]) }),
+        ],
+      );
+    }
+    if (w.variant === 'number-path') {
+      const path = out.answer.kind === 'state' ? (out.answer.target.cells as Cell[]) : [];
+      const blank = new Set(w.cells.filter((x) => x.blank).map((x) => `${x.r},${x.c}`));
+      const order = pathOrder(path.map(([r, c]) => blank.has(`${r},${c}`)));
+      return [
+        say('gen.puzzle.grid.path-look', {}),
+        ...order.map((i) => {
+          const cell = path[i] as Cell;
+          return put(cell, 'gen.puzzle.grid.path-fill', { n: valueAt(cell) });
+        }),
+      ];
+    }
+    // All ways: a row is one way, so only its first cell starts the next one (PR #84 review).
     return [
-      say(intro, {}),
-      ...blanks.map(({ r, c }) => {
-        const value = fill[r]?.[c] as number;
-        // All ways: a row is one way, so only its first cell starts the next one (PR #84 review).
-        const line = w.variant === 'all-ways' && c > 0 ? 'gen.puzzle.grid.ways-rest' : each;
-        return say(line, w.variant === 'all-ways' ? {} : { n: value }, {
-          op: 'fill',
-          args: { r, c, value },
-        });
-      }),
+      say('gen.puzzle.grid.ways-start', {}),
+      ...w.cells
+        .filter((x) => x.blank)
+        .map(({ r, c }) =>
+          put([r, c], c > 0 ? 'gen.puzzle.grid.ways-rest' : 'gen.puzzle.grid.ways-next', {}),
+        ),
     ];
   },
 };
+
+/** The sum-triangle spot at a grid cell. */
+function spotAt(r: number, c: number): Spot {
+  const spot = (Object.keys(TRIANGLE) as Spot[]).find(
+    (s) => TRIANGLE[s][0] === r && TRIANGLE[s][1] === c,
+  );
+  if (!spot) throw new Error(`no sum-triangle cell at ${r}, ${c}`);
+  return spot;
+}
+
+/**
+ * The order a sum triangle's blanks are solved in: repeatedly the first side (in `SIDES` order,
+ * which is the `line-sum` order) with exactly one blank left, and that blank. Throws when the
+ * blanks cannot be solved one side at a time (`accepts` never builds such a puzzle).
+ */
+export function triangleOrder(blanks: readonly Spot[]): { side: number; spot: Spot }[] {
+  const open = new Set(blanks);
+  const out: { side: number; spot: Spot }[] = [];
+  while (open.size > 0) {
+    const side = SIDES.findIndex((s) => s.filter((x) => open.has(x)).length === 1);
+    if (side < 0) throw new Error('sum triangle not solvable one side at a time');
+    const spot = (SIDES[side] as readonly Spot[]).find((x) => open.has(x)) as Spot;
+    open.delete(spot);
+    out.push({ side, spot });
+  }
+  return out;
+}
+
+/**
+ * The order a number path's blanks are filled in, as path indices: each one next to a known cell.
+ * Blanks after a known cell count on in path order; blanks before the first given count back from
+ * it (PR #84 review round 2: filling path order put the first cell before the number it comes
+ * from).
+ */
+export function pathOrder(blank: readonly boolean[]): number[] {
+  const known = blank.map((b) => !b);
+  const out: number[] = [];
+  for (;;) {
+    let i = known.findIndex((k, j) => !k && j > 0 && known[j - 1]);
+    if (i < 0) i = known.findLastIndex((k, j) => !k && j + 1 < known.length && known[j + 1]);
+    if (i < 0) break;
+    known[i] = true;
+    out.push(i);
+  }
+  if (known.some((k) => !k)) throw new Error('number path has no given cell');
+  return out;
+}
 
 /** The solved puzzle grid (all-ways: the ways in order, smaller part first). */
 function solvedFill(out: GeneratorOutput): (number | '')[][] {
