@@ -213,7 +213,7 @@ function shown(root: HTMLElement, sel: string): HTMLElement[] {
 }
 
 const controls = (root: HTMLElement) =>
-  shown(root, '.ni-btb__goal, .ni-btb__exact, .ni-btb__pile, .ni-btb .ni-btn');
+  shown(root, '.ni-btb__goal, .ni-btb__exact, .ni-btb__pile, .ni-btb .ni-btn, .ni-btb__grab');
 
 /** Every piece is drawn at the one unit: a unit is `u` px and a rod exactly ten of them. */
 async function expectUnit(root: HTMLElement, min: number) {
@@ -625,7 +625,9 @@ const putBackByColumn = (ageMode: 'k' | 'g1-up'): Story => ({
       root.querySelectorAll('.ni-btb__col .ni-btb__piece[data-place-item]'),
     ).toHaveLength(0);
     for (const g of grabs()) await expectTargetSize(g, ageMode);
-    await expectTargetGaps([...grabs(), ...controls(root)]);
+    // `controls` holds every control, the column grabs among them.
+    for (const g of grabs()) await expect(controls(root)).toContain(g);
+    await expectTargetGaps(controls(root));
     // Tap the ones column (far from any unit), then the tray.
     await userEvent.click(matPiece(root, 'ones'));
     await expect(audio.say).toHaveBeenCalledWith('ui.widget.btb.piece.ones', undefined);
@@ -659,6 +661,110 @@ const putBackByColumn = (ageMode: 'k' | 'g1-up'): Story => ({
     await expect(trace.slice(-4)).toEqual(['tap:tray-ones', 'tap:mat', 'tap:tray-ones', 'tap:mat']);
   },
 });
+/**
+ * A drag that starts at a column's edge (review round 2): the piece comes to the finger, so a
+ * drop in the middle of the tray lands however far the press was from where the piece lay.
+ */
+export const PutBackDragFromColumnEdgeK: Story = {
+  globals: { ageMode: 'k' },
+  args: {
+    config: { ...build34, prebuilt: { hundreds: 0, tens: 4, ones: 4 } } satisfies Config,
+  },
+  play: async ({ canvasElement, args }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    await expectMat(root, { tens: 4, ones: 4 });
+    const dragFrom = async (el: HTMLElement, from: { x: number; y: number }) => {
+      const to = center(trayPad(root));
+      const init = (x: number, y: number, buttons: number): PointerEventInit => ({
+        bubbles: true,
+        cancelable: true,
+        composed: true,
+        pointerId: 71,
+        pointerType: 'touch',
+        isPrimary: true,
+        clientX: x,
+        clientY: y,
+        button: 0,
+        buttons,
+        width: 24,
+        height: 24,
+        pressure: buttons ? 0.5 : 0,
+      });
+      el.dispatchEvent(new PointerEvent('pointerdown', init(from.x, from.y, 1)));
+      for (let i = 1; i <= 8; i++) {
+        const x = from.x + ((to.x - from.x) * i) / 8;
+        const y = from.y + ((to.y - from.y) * i) / 8;
+        (document.elementFromPoint(x, y) ?? el).dispatchEvent(
+          new PointerEvent('pointermove', init(x, y, 1)),
+        );
+        await new Promise<void>((r) => requestAnimationFrame(() => r()));
+      }
+      (document.elementFromPoint(to.x, to.y) ?? el).dispatchEvent(
+        new PointerEvent('pointerup', init(to.x, to.y, 0)),
+      );
+      await new Promise<void>((r) => requestAnimationFrame(() => r()));
+    };
+    // Just inside the top edge of the ones column, far above the units.
+    const ones = matPiece(root, 'ones').getBoundingClientRect();
+    await dragFrom(matPiece(root, 'ones'), { x: ones.left + ones.width / 2, y: ones.top + 4 });
+    await expectMat(root, { tens: 4, ones: 3 });
+    // And from the bottom corner of the tens column.
+    const tens = matPiece(root, 'tens').getBoundingClientRect();
+    await dragFrom(matPiece(root, 'tens'), { x: tens.left + 4, y: tens.bottom - 4 });
+    await expectMat(root, { tens: 3, ones: 3 });
+    await expect(traceOf(args.onInteract).map((e) => `${e.t}:${e.target}`)).toEqual([
+      'drag:mat-ones-3',
+      'drop:tray',
+      'drag:mat-tens-3',
+      'drop:tray',
+    ]);
+  },
+};
+
+const slowController: WidgetDemo = createDemoController({ strict: true });
+
+/**
+ * Count-by never cuts a line off (review round 2): with a voice that takes longer than a step's
+ * 700 ms, each step's line has ended before the next one starts, on the decimal mat too (its
+ * lines are phrase lines like the whole numbers'). Checked by the order of events, not the clock.
+ */
+export const DemoCountByWaitsForSpeech: Story = {
+  args: {
+    disabled: true,
+    demo: slowController,
+    config: {
+      format: 'base-ten-build',
+      target: 125,
+      mode: 'build',
+      pieces: HTO,
+      wholeIs: 'flat',
+      prebuilt: { hundreds: 0, tens: 3, ones: 0 },
+    } satisfies Config,
+  },
+  parameters: { ui: { audio: spyAudio() } },
+  play: async ({ canvasElement, parameters }) => {
+    const audio = parameters.ui.audio as SpyAudio;
+    clearSpies(audio);
+    const log: string[] = [];
+    audio.sayPhrases.mockImplementation(async () => {
+      const n = log.filter((e) => e.startsWith('start')).length;
+      log.push(`start ${n}`);
+      await new Promise((r) => setTimeout(r, 900));
+      log.push(`end ${n}`);
+    });
+    await findWidget(canvasElement, ROOT);
+    await slowController.play({ op: 'count-by', args: { kind: 'tens' } });
+    audio.sayPhrases.mockImplementation(async () => {});
+    await expect(log).toEqual(['start 0', 'end 0', 'start 1', 'end 1', 'start 2', 'end 2']);
+    await expect((audio.sayPhrases.mock.calls as unknown[][]).map((c) => c[0])).toEqual([
+      [{ number: 1 }, { id: 'ui.widget.btb.dec.word.tenth' }],
+      [{ number: 2 }, { id: 'ui.widget.btb.dec.word.tenths' }],
+      [{ number: 3 }, { id: 'ui.widget.btb.dec.word.tenths' }],
+    ]);
+    await expect(audio.say).not.toHaveBeenCalled();
+  },
+};
+
 /** Put-back by column in Grade 1 and up (64 px targets). */
 export const PutBackByColumnG1 = putBackByColumn('g1-up');
 /** And in K (80 px targets). */
@@ -1024,8 +1130,12 @@ export const Decimal: Story = {
     await userEvent.click(goal);
     // A fraction is not a number clip: 1.25 is the line "1 and 25 hundredths" (layout.test.ts
     // plans it with the production planner).
-    await expect(audio.say).toHaveBeenCalledWith('ui.widget.btb.dec.say.mixed', { w: 1, n: 25 });
-    await expect(audio.sayPhrases).not.toHaveBeenCalled();
+    await expect(audio.sayPhrases).toHaveBeenCalledWith([
+      { number: 1 },
+      { id: 'ui.widget.btb.dec.word.and' },
+      { number: 25 },
+      { id: 'ui.widget.btb.dec.word.hundredths' },
+    ]);
     await expectHeaders(root, ['Ones', 'Tenths', 'Hundredths']);
     await expect(pile(root, 'hundreds')).toHaveAccessibleName('One whole, 1 left');
     await expect(pile(root, 'tens')).toHaveAccessibleName('One tenth, 3 left');
@@ -1505,7 +1615,8 @@ export const AddNeedsCompactPanelK: Story = {
     await expect(model.configSchema.safeParse(reviewR4).success).toBe(true);
     const root = await findWidget(canvasElement, ROOT);
     await expectMat(root, reviewR4.prebuilt ?? {});
-    await expect(root.querySelector('.ni-btb__ask')).not.toHaveAttribute('data-cols');
+    // (Since review round 2 a column is at least as wide as its put-back control, so this mat
+    // already takes the compact panel before the add; what matters is that it fits both ways.)
     await expectFits(canvasElement, root);
     const hundreds = pile(root, 'hundreds');
     await expect(hundreds).not.toHaveAttribute('aria-disabled', 'true');

@@ -970,6 +970,40 @@ export const TakeTooManyPutBack: Story = {
   },
 };
 
+const countController: WidgetDemo = createDemoController({ strict: true });
+
+/**
+ * A demo plays only what the engine would do (review round 2): a `take` whose count is not a
+ * whole number within ±99 moves nothing, in either direction; −1 puts exactly one piece back.
+ */
+export const DemoTakeCountsAsTheEngine: Story = {
+  args: { disabled: true, demo: countController, config: take42minus15 },
+  play: async ({ canvasElement }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    await countController.play({ op: 'trade', args: { from: 'tens', to: 'ones' } });
+    await countController.play({ op: 'take', args: { column: 'ones', count: 6 } });
+    await expect(mat(root)).toEqual({ hundreds: 0, tens: 3, ones: 6 });
+    await expect(takenPieces(root, 'ones')).toBe(6);
+    for (const count of [-100, -1.5, 100, 2.5, Number.NaN, '3']) {
+      await countController.play({ op: 'take', args: { column: 'ones', count } });
+      await expect(mat(root), String(count)).toEqual({ hundreds: 0, tens: 3, ones: 6 });
+      await expect(takenPieces(root, 'ones'), String(count)).toBe(6);
+    }
+    await countController.play({ op: 'take', args: { column: 'ones', count: -1 } });
+    await expect(mat(root)).toEqual({ hundreds: 0, tens: 3, ones: 7 });
+    await expect(takenPieces(root, 'ones')).toBe(5);
+    // The model agrees on every one of those counts.
+    const model = formatModel('base-ten-trade');
+    if (!model) throw new Error('no base-ten-trade model');
+    let s = model.initialState(take42minus15);
+    s = model.apply(s, { op: 'trade', args: { from: 'tens', to: 'ones' } });
+    s = model.apply(s, { op: 'take', args: { column: 'ones', count: 6 } });
+    for (const count of [-100, -1.5, 100, 2.5]) {
+      await expect(model.apply(s, { op: 'take', args: { column: 'ones', count } })).toBe(s);
+    }
+  },
+};
+
 /**
  * Every kind in the nest at once, in K: the three put-back controls are each 80 px or more both
  * ways and 12 px or more apart, and each returns its own kind.
@@ -1391,9 +1425,15 @@ async function playTakeAll(
   // Heavy items step the item's one unit down; flats stay at least 80 px (an 8 px unit).
   await expectFits(canvasElement, root, U_MIN);
   const flatW = (sel: string) => q(root, sel).getBoundingClientRect().width;
-  const onMat = flatW('[data-col="hundreds"] [data-piece]');
-  await expect(onMat).toBeGreaterThanOrEqual(U_MIN * 10);
+  await expect(flatW('[data-col="hundreds"] [data-piece]')).toBeGreaterThanOrEqual(U_MIN * 10);
+  let onMat = 0;
   for (const c of ['ones', 'tens', 'hundreds'] as const) {
+    // The flats' size on the mat, read once the layout has settled on the item's one scale (the
+    // first frames lay out before the widget has measured its width).
+    if (c === 'hundreds') {
+      await settled(root);
+      onMat = flatW('[data-col="hundreds"] [data-piece]');
+    }
     for (let i = 0; i < config.start[c]; i++) {
       await tapPlace(grabItem(root, c), nest(root));
       await settled(root);

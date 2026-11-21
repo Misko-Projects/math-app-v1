@@ -625,33 +625,27 @@ export function bundleOffset(kind: PieceKind, j: number, u: number): { x: number
   }
 }
 
-/** What to say for a value: a whole number, or a narration line with its vars. */
-export type ValueSpeech = { number: number } | { key: string; vars: Record<string, number> };
+/** One part of a spoken phrase line: a number clip or a word line (AudioManager.sayPhrases). */
+export type SpeechPart = { number: number } | { id: string };
 
 /**
- * How a mat value is read aloud. Whole numbers are spoken as numbers. On the decimal mat
- * (`wholeIs: 'flat'`) `value` is in hundredths, and the number clips only say whole numbers, so
- * 125 is "1 and 25 hundredths" and 25 is "25 hundredths" (PR #74 review: a fraction passed as a
- * number was silent). `asTenths` reads a count of rods as tenths ("3 tenths"), for count-by.
+ * How a mat value is read aloud, as the parts of one phrase line. Whole numbers are a number. On
+ * the decimal mat (`wholeIs: 'flat'`) `value` is in hundredths, and the number clips only say
+ * whole numbers (a fraction passed as a number was silent: PR #74 review round 1), so 125 is
+ * "1 and 25 hundredths" and 25 is "25 hundredths". `asTenths` reads rods as tenths ("3 tenths"),
+ * for count-by. A phrase line waits for the line before it, so count-by steps never cut each
+ * other off (review round 2).
  */
-export function valueSpeech(value: number, decimal: boolean, asTenths = false): ValueSpeech {
-  if (!decimal) return { number: value };
-  const base = 'ui.widget.btb.dec.say';
+export function valueSpeech(value: number, decimal: boolean, asTenths = false): SpeechPart[] {
+  if (!decimal) return [{ number: value }];
+  const word = (w: string): SpeechPart => ({ id: `ui.widget.btb.dec.word.${w}` });
   if (asTenths && value % 10 === 0) {
     const n = value / 10;
-    return n === 1
-      ? { key: `${base}.tenths-one`, vars: {} }
-      : { key: `${base}.tenths`, vars: { n } };
+    return [{ number: n }, word(n === 1 ? 'tenth' : 'tenths')];
   }
   const w = Math.floor(value / 100);
   const n = value % 100;
-  if (n === 0) return { number: w };
-  if (w === 0) {
-    return n === 1
-      ? { key: `${base}.hundredths-one`, vars: {} }
-      : { key: `${base}.hundredths`, vars: { n } };
-  }
-  return n === 1
-    ? { key: `${base}.mixed-one`, vars: { w } }
-    : { key: `${base}.mixed`, vars: { w, n } };
+  if (n === 0) return [{ number: w }];
+  const part = [{ number: n }, word(n === 1 ? 'hundredth' : 'hundredths')];
+  return w === 0 ? part : [{ number: w }, word('and'), ...part];
 }

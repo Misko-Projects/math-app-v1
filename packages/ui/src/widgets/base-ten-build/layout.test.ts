@@ -603,8 +603,9 @@ describe('usableSizes (PR #74 review, rounds 6 to 8)', () => {
   });
 });
 
-describe('valueSpeech: every value is spoken (PR #74 review round 1)', () => {
-  // The lines of packages/content/narration/ui.yaml (the content build compiles and checks them).
+describe('valueSpeech: every value is spoken (PR #74 review rounds 1 and 2)', () => {
+  // The word lines of packages/content/narration/ui.yaml (the content build compiles and checks
+  // them): static words, because a phrase line cannot fill slots.
   const yaml = readFileSync(
     fileURLToPath(new URL('../../../../content/narration/ui.yaml', import.meta.url)),
     'utf8',
@@ -613,40 +614,39 @@ describe('valueSpeech: every value is spoken (PR #74 review round 1)', () => {
     const m = new RegExp(`^${key.replaceAll('.', '\\.')}:\\n  text: "([^"]*)"`, 'm').exec(yaml);
     return m ? (m[1] as string) : null;
   };
-  /** The words for a value: the number itself, or its line with whole-number vars filled in. */
-  const spoken = (value: number, decimal: boolean, asTenths = false): string => {
-    const speech = valueSpeech(value, decimal, asTenths);
-    if ('number' in speech) {
-      expect(Number.isInteger(speech.number), `${value}`).toBe(true);
-      expect(planPhrases(narrationFixture, [{ number: speech.number }]).spoken).not.toBe('');
-      return String(speech.number);
-    }
-    const text = lineText(speech.key);
-    expect(text, speech.key).not.toBeNull();
-    for (const v of Object.values(speech.vars)) expect(Number.isInteger(v)).toBe(true);
-    const filled = (text as string).replace(/\{(\w+)\}/g, (_, k: string) => {
-      expect(speech.vars[k], `${speech.key} {${k}}`).toBeDefined();
-      return String(speech.vars[k]);
-    });
-    expect(filled).not.toMatch(/[{}]/);
-    return filled;
-  };
+  /** The words of a value's phrase line: whole-number clips and slot-free word lines. */
+  const spoken = (value: number, decimal: boolean, asTenths = false): string =>
+    valueSpeech(value, decimal, asTenths)
+      .map((part) => {
+        if ('number' in part) {
+          expect(Number.isInteger(part.number), `${value}`).toBe(true);
+          expect(planPhrases(narrationFixture, [part]).spoken).not.toBe('');
+          return String(part.number);
+        }
+        const text = lineText(part.id);
+        expect(text, part.id).not.toBeNull();
+        expect(text).not.toMatch(/[{}]/);
+        return text as string;
+      })
+      .join(' ');
 
   it('the old call was silent: the planner has no words for a fraction', () => {
     expect(planPhrases(narrationFixture, [{ number: 1.25 }]).spoken).toBe('');
   });
 
   it('reads whole numbers as numbers', () => {
-    expect(valueSpeech(34, false)).toEqual({ number: 34 });
-    expect(valueSpeech(300, true)).toEqual({ number: 3 });
+    expect(valueSpeech(34, false)).toEqual([{ number: 34 }]);
+    expect(valueSpeech(300, true)).toEqual([{ number: 3 }]);
     expect(spoken(34, false)).toBe('34');
   });
 
   it('reads 1.25 as "1 and 25 hundredths", and every decimal goal has words', () => {
-    expect(valueSpeech(125, true)).toEqual({
-      key: 'ui.widget.btb.dec.say.mixed',
-      vars: { w: 1, n: 25 },
-    });
+    expect(valueSpeech(125, true)).toEqual([
+      { number: 1 },
+      { id: 'ui.widget.btb.dec.word.and' },
+      { number: 25 },
+      { id: 'ui.widget.btb.dec.word.hundredths' },
+    ]);
     expect(spoken(125, true)).toBe('1 and 25 hundredths');
     expect(spoken(101, true)).toBe('1 and 1 hundredth');
     expect(spoken(25, true)).toBe('25 hundredths');

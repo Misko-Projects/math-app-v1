@@ -5,6 +5,7 @@ import {
   type FormatModel,
   formatModel,
   htoValue,
+  TRADE_TAKE_COUNT_MAX,
 } from '@number-island/engine';
 import type { ExpressionSpec, NarrationKey, WidgetAction } from '@number-island/shared';
 import {
@@ -1222,8 +1223,11 @@ function TradeMat({
         } else if (action.op === 'take') {
           const c = columnArg(action.args?.column);
           if (!c) return;
-          const raw = Number(action.args?.count ?? 1);
-          const count = Number.isFinite(raw) ? Math.trunc(raw) : 1;
+          // As the model: no count is one piece; a count that is not a whole number within the
+          // bound does nothing (review round 2: the demo must not play what the engine ignores).
+          const count = action.args?.count ?? 1;
+          if (typeof count !== 'number' || !Number.isInteger(count)) return;
+          if (Math.abs(count) > TRADE_TAKE_COUNT_MAX) return;
           for (let i = 0; i < count && stateRef.current.mat[c] > 0; i++) {
             await runTakeOne(c, 'demo');
             if (!alive.current) return;

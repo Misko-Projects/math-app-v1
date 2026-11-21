@@ -383,24 +383,22 @@ ui.widget.btb.exact.ones-one:
   text: "Take 1 one"
   level: K
 # Decimals (wholeIs: flat): the flat is one whole, the rod a tenth, the unit a hundredth.
-# A decimal value read aloud (the goal, a count-by step): 1.25 is "1 and 25 hundredths".
-ui.widget.btb.dec.say.mixed:
-  text: "{w} and {n} hundredths"
+# A decimal value read aloud (the goal, a count-by step): 1.25 is "1 and 25 hundredths". The
+# numbers are number clips and these are the words between them, said as one phrase line.
+ui.widget.btb.dec.word.and:
+  text: "and"
   level: "2"
-ui.widget.btb.dec.say.mixed-one:
-  text: "{w} and 1 hundredth"
+ui.widget.btb.dec.word.hundredths:
+  text: "hundredths"
   level: "2"
-ui.widget.btb.dec.say.hundredths:
-  text: "{n} hundredths"
+ui.widget.btb.dec.word.hundredth:
+  text: "hundredth"
   level: "2"
-ui.widget.btb.dec.say.hundredths-one:
-  text: "1 hundredth"
+ui.widget.btb.dec.word.tenths:
+  text: "tenths"
   level: "2"
-ui.widget.btb.dec.say.tenths:
-  text: "{n} tenths"
-  level: "2"
-ui.widget.btb.dec.say.tenths-one:
-  text: "1 tenth"
+ui.widget.btb.dec.word.tenth:
+  text: "tenth"
   level: "2"
 ui.widget.btb.dec.piece.thousands:
   text: "Ten wholes"

@@ -114,7 +114,11 @@ const GATHER_MS = 380;
 const HOLD_MS = 90;
 const LAND_MS = 420;
 const FLY_MS = 520;
+/** The put-back control's inset from its column's sides (base-ten-build.css: .ni-btb__grab). */
+const GRAB_INSET = 10;
 const COUNT_MS = 700;
+/** The longest a count-by step waits for its spoken line before going on. */
+const SPEECH_WAIT_MS = 4000;
 const KEY_MS = 340;
 const FLASH_MS = 900;
 const EASE = 'cubic-bezier(0.45, 0, 0.2, 1)';
@@ -353,7 +357,7 @@ export function BaseTenBuildWidget({
   demo,
 }: WidgetProps<Config>) {
   const t = useNarrationText();
-  const { say, sayNumber } = useSpeech();
+  const { say, audio } = useSpeech();
   const prefs = useUiPreferences();
   const reduced = useReducedMotion();
   const trace = useInteractionTrace(onInteract);
@@ -573,8 +577,13 @@ export function BaseTenBuildWidget({
     columnPad: COL_PAD,
     frame: FRAME + INSET,
     gap: SIDE_GAP,
+    // A column is at least as wide as its header, and (where pieces can be put back) as its
+    // put-back control: a tap target between the 10 px insets that keep it clear of the trades.
     headerWidth: (kind: PieceKind) =>
-      prefs.textLabels ? 44 + 11 * t(colKey(kind, decimal)).length : kMode ? 56 : 44,
+      Math.max(
+        prefs.textLabels ? 44 + 11 * t(colKey(kind, decimal)).length : kMode ? 56 : 44,
+        read ? 0 : TARGET_PX[prefs.ageMode].min + 2 * GRAB_INSET - 2 * COL_PAD,
+      ),
   };
   planInput.current = {
     mat: matInput,
@@ -824,11 +833,14 @@ export function BaseTenBuildWidget({
   };
 
   /** Says a mat value (in ones, or in hundredths on the decimal mat): see valueSpeech. */
-  const sayValue = (value: number, asTenths = false) => {
-    const speech = valueSpeech(value, decimal, asTenths);
-    if ('number' in speech) sayNumber(speech.number);
-    else say(speech.key as NarrationKey, speech.vars);
-  };
+  const sayValue = (value: number, asTenths = false): Promise<void> =>
+    audio?.sayPhrases(valueSpeech(value, decimal, asTenths)).catch(() => {}) ?? Promise.resolve();
+  /** A count-by step: its line has been said (or 4 s have passed) and COUNT_MS is over. */
+  const sayStep = (value: number, asTenths: boolean) =>
+    Promise.all([
+      Promise.race([sayValue(value, asTenths), pause(SPEECH_WAIT_MS)]),
+      pause(COUNT_MS),
+    ]);
 
   const runCountBy = async (kind: PieceKind) => {
     await applyOp({ op: 'count-by', args: { kind } });
@@ -837,7 +849,7 @@ export function BaseTenBuildWidget({
     if (n === 0) return;
     if (reduced) {
       setCounted({ kind, upTo: n - 1 });
-      sayValue(n * step, kind === 'tens');
+      void sayValue(n * step, kind === 'tens');
       setTimeout(() => {
         if (alive.current) setCounted(null);
       }, FLASH_MS);
@@ -845,8 +857,8 @@ export function BaseTenBuildWidget({
     }
     for (let i = 0; i < n; i++) {
       setCounted({ kind, upTo: i });
-      sayValue((i + 1) * step, kind === 'tens');
-      await pause(COUNT_MS);
+      // The next step waits for this one's line: a slow clip is never cut off.
+      await sayStep((i + 1) * step, kind === 'tens');
       if (!alive.current) return;
     }
     await pause(300);
@@ -1055,14 +1067,15 @@ export function BaseTenBuildWidget({
         className={`${props.className} ni-btb__grab`}
         data-grab={kind}
         onPointerDown={(e) => {
-          // Where the last piece is drawn inside the column, for the dragged look.
+          // The dragged look: the piece comes to the finger, wherever in the column the press
+          // was (its centre under the pointer), so a drop is measured where the child points.
           const pad = e.currentTarget;
           const last = pad.parentElement?.querySelector<HTMLElement>('[data-last="true"]');
           if (last) {
             const a = pad.getBoundingClientRect();
             const b = last.getBoundingClientRect();
-            pad.style.setProperty('--btb-gx', `${b.left - a.left}px`);
-            pad.style.setProperty('--btb-gy', `${b.top - a.top}px`);
+            pad.style.setProperty('--btb-gx', `${e.clientX - a.left - b.width / 2}px`);
+            pad.style.setProperty('--btb-gy', `${e.clientY - a.top - b.height / 2}px`);
           }
           props.onPointerDown(e);
         }}
@@ -1300,7 +1313,7 @@ export function BaseTenBuildWidget({
             disabled: !interactive,
             onClick: () => {
               trace('tap', 'goal');
-              if (prefs.speakOnTap) sayValue(config.target);
+              if (prefs.speakOnTap) void sayValue(config.target);
             },
           })}
     >
