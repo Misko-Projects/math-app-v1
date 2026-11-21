@@ -1,12 +1,31 @@
-// The find-all / odd-one-out card layout is sized against the widget's own width cap, so the
-// cards and Check stay on one line group in any area (review round 2).
+// The shape-sort layouts are sized against the widget's own width cap, so the cards and Check
+// stay together in any area (review round 2). The layout functions apply the cap themselves:
+// these tests hand them the area's real width, as the widget does (review round 3).
 import { describe, expect, it } from 'vitest';
-import { pickLayout, SORT_MAX_WIDTH } from './ShapeSortWidget';
+import { pickLayout, SORT_MAX_WIDTH, sortSizes } from './ShapeSortWidget';
+
+describe('sortSizes', () => {
+  it('bins never add up to more than the capped width, however wide the area', () => {
+    for (const width of [852, 1226, 1600, 2400]) {
+      const s = sortSizes({
+        width,
+        height: 340,
+        compact: true,
+        kMode: true,
+        minT: 80,
+        tray: 0,
+        bins: [9, 0, 0],
+      });
+      const total = s.binWidths.reduce((n, w) => n + w, 0) + 2 * 12;
+      expect(total, `${width}`).toBeLessThanOrEqual(Math.min(width, SORT_MAX_WIDTH));
+    }
+  });
+});
 
 describe('pickLayout', () => {
   const fits = (width: number, height: number, cards: number, kMode: boolean) => {
     const minT = kMode ? 80 : 64;
-    const l = pickLayout({ width: Math.min(width, SORT_MAX_WIDTH), height, cards, kMode, minT });
+    const l = pickLayout({ width, height, cards, kMode, minT });
     const checkW = kMode ? 120 : 210;
     const rows = Math.ceil(cards / l.perRow);
     const outer = l.size + 16;

@@ -252,20 +252,31 @@ export function piecesCanCover(c: ShapeComposeConfig): boolean {
       each: area(PIECE_CORNERS[p.kind as keyof typeof PIECE_CORNERS] as Vec[]),
       count: p.count,
     }));
-  // compose.fill's own limits: at most FILL_TOLERANCE of the outline uncovered, and each piece at
-  // most FILL_TOLERANCE of its own area outside the outline or over another piece. So a set fills
-  // when its area is at least (1 − tol) of the outline's and at most the outline's plus twice
-  // tol of its own (review round 2: a unit square on a 0.9802 × 1 outline is a valid fill).
+  // compose.fill's own limits (coversOutline), as bounds on a set's total area:
+  // - at most FILL_TOLERANCE of the outline uncovered, so the set has at least (1 − tol) of it;
+  // - every piece at least (1 − tol) inside the outline, and what lies inside fits in it once
+  //   the overlaps are taken off, which together are at most tol of the outline and need two
+  //   pieces. So (1 − tol) of the set's area is at most the outline's, plus tol of the outline
+  //   when there are two or more pieces.
+  // For one piece that is exact: it validates only if it can be placed (a unit square fills a
+  // 0.981 × 1 outline and not a 0.979 × 1 one; review rounds 2 and 3).
   const enough = (sum: number) => sum >= (1 - FILL_TOLERANCE) * target - 1e-9;
-  const notTooMuch = (sum: number) => sum * (1 - 2 * FILL_TOLERANCE) <= target + 1e-9;
-  const reach = (i: number, sum: number): boolean => {
-    if (enough(sum) && notTooMuch(sum)) return true;
-    if (i >= kinds.length || !notTooMuch(sum)) return false;
+  // One piece is compared exactly as coversOutline compares it (the part outside against tol of
+  // the piece, with no rounding slack), so the two agree at the boundary itself.
+  const notTooMuch = (sum: number, pieces: number) =>
+    pieces > 1
+      ? sum * (1 - FILL_TOLERANCE) <= target * (1 + FILL_TOLERANCE) + 1e-9
+      : !(sum - target > FILL_TOLERANCE * sum);
+  const reach = (i: number, sum: number, pieces: number): boolean => {
+    if (pieces > 0 && enough(sum) && notTooMuch(sum, pieces)) return true;
+    if (i >= kinds.length || !notTooMuch(sum, Math.max(2, pieces))) return false;
     const k = kinds[i] as { each: number; count: number };
-    for (let n = 0; n <= k.count; n += 1) if (reach(i + 1, sum + n * k.each)) return true;
+    for (let n = 0; n <= k.count; n += 1) {
+      if (reach(i + 1, sum + n * k.each, pieces + n)) return true;
+    }
     return false;
   };
-  return target > 0 && reach(0, 0);
+  return target > 0 && reach(0, 0, 0);
 }
 
 const configSchema = shapeComposeConfigSchema.superRefine((c, ctx) => {

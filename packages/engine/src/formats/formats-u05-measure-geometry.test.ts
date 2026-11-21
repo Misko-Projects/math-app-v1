@@ -1615,22 +1615,45 @@ describe('supported domain: every numeric input of the five models has a bound',
           { kind: 'state', value: { pieces: [{ kind: 'square', at: [0, 0], rot: 0 }] } },
         ),
       ).toBe(true);
-      // Well past the tolerance it is refused (a square on a 0.9 × 1 outline).
-      refuses(
-        shapeCompose,
-        {
-          ...sliver,
-          outline: {
-            points: [
-              [0, 0],
-              [0.9, 0],
-              [0.9, 1],
-              [0, 1],
-            ],
-          },
+      // The boundary, both sides (review round 3): the schema accepts exactly what the checker
+      // can accept for the only piece offered. A unit square may have 2% of itself outside, so
+      // it fills an outline just over 0.98 wide and nothing narrower.
+      const narrow = (w: number) => ({
+        ...sliver,
+        outline: {
+          points: [
+            [0, 0],
+            [w, 0],
+            [w, 1],
+            [0, 1],
+          ] as [number, number][],
         },
-        /cannot fill the outline/,
-      );
+      });
+      const checkerTakes = (w: number) =>
+        passes(
+          'compose.fill',
+          { outline: narrow(w).outline.points, pieces: [{ kind: 'square', count: 1 }] },
+          { kind: 'state', value: { pieces: [{ kind: 'square', at: [0, 0], rot: 0 }] } },
+        );
+      const schemaTakes = (w: number) => refusals(shapeCompose, narrow(w)).length === 0;
+      for (const w of [1, 0.99, 0.981]) {
+        expect(schemaTakes(w), `schema at ${w}`).toBe(true);
+        expect(checkerTakes(w), `checker at ${w}`).toBe(true);
+      }
+      for (const w of [0.979, 0.97, 0.9]) {
+        refuses(shapeCompose, narrow(w), /cannot fill the outline/);
+        expect(checkerTakes(w), `checker at ${w}`).toBe(false);
+      }
+      // No band at all: across the boundary in thousandths (0.98 itself included, where floating
+      // point decides), the schema accepts exactly when the checker does.
+      for (let k = 970; k <= 990; k += 1) {
+        expect(schemaTakes(k / 1000), `schema and checker agree at ${k / 1000}`).toBe(
+          checkerTakes(k / 1000),
+        );
+      }
+      // And an outline too big for the one piece: 2% uncovered is the limit (1/0.98 wide).
+      accepts(shapeCompose, narrow(1.02));
+      refuses(shapeCompose, narrow(1.03), /cannot fill the outline/);
       // Too few, and an area no set of the pieces adds up to.
       refuses(shapeCompose, grid(3, 3, [{ kind: 'square', count: 8 }]), /cannot fill the outline/);
       refuses(shapeCompose, grid(3, 1, [{ kind: 'hexagon', count: 2 }]), /cannot fill the outline/);
