@@ -5,6 +5,80 @@ ui.button.back:
   text: "Back"
 ui.profile.who-is-playing:
   text: "Who is playing?"
+  level: K
+
+# Profile Picker, picture passwords and the play session (W00, apps/web/src/app/picker, session).
+ui.start.tap:
+  text: "Tap to start!"
+  level: K
+ui.picture.prompt:
+  text: "Tap your three pictures."
+  level: K
+ui.picture.try-again:
+  text: "Let's try again!"
+  level: K
+ui.picture.ask-help:
+  text: "Ask a grown-up to help you."
+  level: K
+ui.picture.undo:
+  text: "Take one back"
+  level: K
+ui.picture.shell:
+  text: "Shell"
+  level: K
+ui.picture.fish:
+  text: "Fish"
+  level: K
+ui.picture.boat:
+  text: "Boat"
+  level: K
+ui.picture.sun:
+  text: "Sun"
+  level: K
+ui.picture.tree:
+  text: "Tree"
+  level: K
+ui.picture.crab:
+  text: "Crab"
+  level: K
+ui.picture.flower:
+  text: "Flower"
+  level: K
+ui.picture.kite:
+  text: "Kite"
+  level: K
+ui.picture.turtle:
+  text: "Turtle"
+  level: K
+ui.rest.quiet-hours:
+  text: "Play time is over for now. Come back soon!"
+  level: K
+ui.rest.quiet-hours.morning:
+  text: "The island is resting. It opens again at {at|time} in the morning!"
+  level: K
+ui.rest.quiet-hours.afternoon:
+  text: "The island is resting. It opens again at {at|time} in the afternoon!"
+  level: K
+ui.rest.quiet-hours.evening:
+  text: "The island is resting. It opens again at {at|time} in the evening!"
+  level: K
+ui.rest.daily-cap:
+  text: "You did so much playing! Come back next time."
+  level: K
+ui.rest.elsewhere:
+  text: "Someone is playing in another window. Let's take turns!"
+  level: K
+ui.btn.okay:
+  text: "Okay!"
+  level: K
+ui.home.hello:
+  text: "Hello! Pip is getting the island ready for you."
+  voice: pip
+  level: K
+ui.winddown.done:
+  text: "Great playing! See you next time!"
+  voice: pip
+  level: K
 
 # Design-system primitives (U01, packages/ui/src/primitives).
 ui.btn.home:
@@ -112,6 +186,84 @@ ui.sprite.firefly:
   level: K
 ui.sprite.counter:
   text: "Counter"
+  level: K
+ui.sprite.anchor:
+  text: "Anchor"
+  level: K
+ui.sprite.apple:
+  text: "Apple"
+  level: K
+ui.sprite.balloon:
+  text: "Balloon"
+  level: K
+ui.sprite.brick:
+  text: "Brick"
+  level: K
+ui.sprite.button:
+  text: "Button"
+  level: K
+ui.sprite.coconut:
+  text: "Coconut"
+  level: K
+ui.sprite.crate:
+  text: "Crate"
+  level: K
+ui.sprite.cube:
+  text: "Cube"
+  level: K
+ui.sprite.cup:
+  text: "Cup"
+  level: K
+ui.sprite.dot:
+  text: "Dot"
+  level: K
+ui.sprite.event-bedtime:
+  text: "Bedtime"
+  level: K
+ui.sprite.event-breakfast:
+  text: "Breakfast"
+  level: K
+ui.sprite.event-dinner:
+  text: "Dinner"
+  level: K
+ui.sprite.event-lunch:
+  text: "Lunch"
+  level: K
+ui.sprite.event-wake-up:
+  text: "Waking up"
+  level: K
+ui.sprite.feather:
+  text: "Feather"
+  level: K
+ui.sprite.fishing-rod:
+  text: "Fishing rod"
+  level: K
+ui.sprite.kite:
+  text: "Kite"
+  level: K
+ui.sprite.log:
+  text: "Log"
+  level: K
+ui.sprite.melon:
+  text: "Melon"
+  level: K
+ui.sprite.pumpkin:
+  text: "Pumpkin"
+  level: K
+ui.sprite.ribbon:
+  text: "Ribbon"
+  level: K
+ui.sprite.rock:
+  text: "Rock"
+  level: K
+ui.sprite.rope:
+  text: "Rope"
+  level: K
+ui.sprite.spoon:
+  text: "Spoon"
+  level: K
+ui.sprite.thimble:
+  text: "Thimble"
   level: K
 
 # tap-count, make-set, dot-flash (U03, packages/ui/src/widgets/tap-count, make-set, dot-flash)
@@ -418,3 +570,160 @@ ui.widget.ef.story.w4305:
   text: "four thousand three hundred five"
   level: "2"
 # end expanded-form
+
+# number-line-place, number-line-jump, hundred-chart (U03, packages/ui/src/widgets/number-line-place, number-line-jump, hundred-chart)
+ui.nlp.line:
+  text: "Number line"
+  level: K
+ui.nlp.marker:
+  text: "Flag {n}"
+  level: K
+ui.nlj.path:
+  text: "Number path"
+  level: K
+ui.nlj.jumps:
+  text: "Hops"
+  level: K
+ui.nlj.hop:
+  text: "Hop {n}"
+  level: K
+ui.nlj.hop-back:
+  text: "Hop back {n}"
+  level: K
+ui.nlj.undo:
+  text: "Take back"
+  level: K
+ui.nlj.minus:
+  text: "Minus"
+  level: K
+ui.nlj.smaller:
+  text: "Smaller hop"
+  level: K
+ui.nlj.bigger:
+  text: "Bigger hop"
+  level: K
+ui.nlj.hopper:
+  text: "Pebbling on {n}"
+  level: K
+ui.nlj.start:
+  text: "Start"
+  level: K
+ui.hc.chart:
+  text: "Number chart"
+  level: K
+ui.hc.missing:
+  text: "Missing number"
+  level: K
+ui.hc.start:
+  text: "Start {n}"
+  level: K
+ui.hc.moves:
+  text: "Moves"
+  level: K
+ui.hc.move.up:
+  text: "Up"
+  level: K
+ui.hc.move.down:
+  text: "Down"
+  level: K
+ui.hc.move.left:
+  text: "Left"
+  level: K
+ui.hc.move.right:
+  text: "Right"
+  level: K
+ui.hc.rows-up:
+  text: "Go up"
+  level: K
+ui.hc.rows-down:
+  text: "Go down"
+  level: K
+ui.hc.window:
+  text: "{from} to {to}"
+  level: K
+ui.hc.mark:
+  text: "Mark it"
+  level: K
+ui.nlp.minus:
+  text: "Minus"
+  level: K
+
+# compare and order (U03, packages/ui/src/widgets/compare, packages/ui/src/widgets/order).
+ui.compare.left:
+  text: "Left side"
+  level: K
+ui.compare.right:
+  text: "Right side"
+  level: K
+ui.compare.same:
+  text: "The same"
+  level: K
+ui.compare.not-same:
+  text: "Not the same"
+  level: K
+ui.compare.yes:
+  text: "Yes"
+  level: K
+ui.compare.no:
+  text: "No"
+  level: K
+ui.compare.less:
+  text: "Less than"
+  level: K
+ui.compare.greater:
+  text: "Greater than"
+  level: K
+ui.compare.equal:
+  text: "Equal to"
+  level: K
+ui.compare.gap:
+  text: "Put it here"
+  level: K
+ui.compare.this-one:
+  text: "This one"
+  level: K
+ui.order.small-to-big:
+  text: "Small to big"
+  level: K
+ui.order.big-to-small:
+  text: "Big to small"
+  level: K
+ui.order.fixed:
+  text: "{n} can't move"
+  level: K
+ui.order.picture:
+  text: "Picture {n}"
+  level: K
+
+# tenframe-fill, number-bond, rekenrek (U03, packages/ui/src/widgets/tenframe-fill, number-bond,
+# rekenrek). Accessible names and spoken labels.
+ui.widget.tenframe.frame:
+  text: "Frame {n}"
+  level: K
+ui.widget.tenframe.shell:
+  text: "Shell {n}"
+  level: K
+ui.widget.tenframe.box:
+  text: "Box {n}"
+  level: K
+ui.widget.tenframe.tray:
+  text: "Counters"
+  level: K
+ui.widget.bond.whole:
+  text: "Whole"
+  level: K
+ui.widget.bond.part:
+  text: "Part {n}"
+  level: K
+ui.widget.bond.found:
+  text: "What you did"
+  level: K
+ui.widget.rekenrek.top:
+  text: "Top row"
+  level: K
+ui.widget.rekenrek.bottom:
+  text: "Bottom row"
+  level: K
+ui.widget.rekenrek.bead:
+  text: "Bead"
+  level: K

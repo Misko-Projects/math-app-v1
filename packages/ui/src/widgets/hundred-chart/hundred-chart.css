@@ -1,0 +1,369 @@
+/*
+ * hundred-chart widget (U03, Road Crew). A window of whole chart rows (ten columns always). Tapping:
+ * the chart with a side column (go up, the map of the whole chart, go down, Check). Typing: a
+ * picture chart with the steppers, the answer and Check under it, the pad beside it (or all under
+ * it in a tall room). Tokens only.
+ */
+
+.ni-hc {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--hc-gap, 20px);
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 1180px;
+  /* Safe centring in the host: centred while it fits, top-aligned when it does not. */
+  margin: auto;
+  padding: 4px;
+  /* The widget takes the width its host gives it; its layout is planned from that width. */
+  contain: inline-size;
+}
+.ni-hc[data-layout="side"] {
+  gap: var(--hc-side-gap, var(--hc-gap, 20px));
+}
+.ni-hc[data-layout="stack"] {
+  flex-direction: column;
+}
+.ni-hc__main {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--hc-gap, 20px);
+}
+.ni-hc__under,
+.ni-hc__answer {
+  display: flex;
+  align-items: center;
+  gap: var(--hc-gap, 20px);
+  align-self: stretch;
+}
+.ni-hc__under {
+  justify-content: flex-start;
+}
+.ni-hc__under .ni-hc__checkslot {
+  margin-left: auto;
+}
+.ni-hc__side {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--hc-gap, 20px);
+}
+.ni-hc__entry {
+  display: flex;
+  align-items: center;
+  gap: var(--hc-gap, 20px);
+}
+.ni-hc__left {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--hc-gap, 20px);
+}
+.ni-hc__padcell,
+.ni-hc__readout,
+.ni-hc__checkslot {
+  display: inline-flex;
+}
+
+/* ---------- the chart ---------- */
+
+.ni-hc__chart {
+  position: relative;
+  display: grid;
+  flex: none;
+  padding: 0;
+  border-radius: 12px;
+}
+/* A picture chart is one grid: shared ink lines on cloud cells, like the chart on the wall. */
+.ni-hc__chart[data-cells="type"] {
+  /* The frame sits outside the ten columns (the global border-box would eat 6 px of them). */
+  box-sizing: content-box;
+  border: 3px solid var(--color-ink);
+  border-radius: 14px;
+  overflow: hidden;
+  background: var(--color-ink-soft);
+}
+.ni-hc__cell {
+  position: relative;
+  display: grid;
+  place-items: center;
+  box-sizing: border-box;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  appearance: none;
+  border: 2px solid var(--color-ink-soft);
+  border-radius: 12px;
+  background: var(--color-cloud);
+  color: var(--color-ink);
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+button.ni-hc__cell {
+  cursor: pointer;
+  box-shadow:
+    0 4px 0 var(--color-pebble),
+    var(--shadow-highlight);
+}
+button.ni-hc__cell:disabled {
+  cursor: default;
+}
+.ni-hc__chart[data-cells="type"] .ni-hc__cell {
+  border: 0;
+  border-radius: 0;
+  box-shadow: inset -1px -1px 0 var(--color-ink-soft);
+}
+.ni-hc__cell:focus-visible {
+  z-index: 1;
+  outline: 4px solid var(--color-sea-deep);
+  outline-offset: 2px;
+}
+.ni-hc__num {
+  display: block;
+  font-family: var(--font-display);
+  font-size: 2rem;
+  font-weight: 800;
+  line-height: 1;
+  padding-top: 0.12em;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+/* Decade column: every tenth number on warm paper, which keeps rows easy to follow. */
+.ni-hc__cell[data-decade="true"] {
+  background: var(--color-paper);
+}
+/* A hidden cell: blank sky with a dashed edge. */
+.ni-hc__cell[data-hidden="true"] {
+  border: 3px dashed var(--color-sea-deep);
+  background: var(--color-sky-light);
+}
+.ni-hc__chart[data-cells="type"] .ni-hc__cell[data-hidden="true"] {
+  border: 3px dashed var(--color-sea-deep);
+}
+/* The blank being filled: a thick ink ring and a caret (not the teal invite ring). */
+.ni-hc__cell[data-active="true"] {
+  z-index: 1;
+  border: 4px solid var(--color-ink);
+  background: var(--color-cloud);
+}
+.ni-hc__chart[data-cells="type"] .ni-hc__cell[data-active="true"] {
+  border: 4px solid var(--color-ink);
+}
+.ni-hc__caret {
+  position: absolute;
+  right: 6px;
+  bottom: 8px;
+  width: 4px;
+  height: 28px;
+  border-radius: 2px;
+  background: var(--color-ink);
+  animation: var(--animate-caret);
+}
+/* Picked: ink-filled with a white numeral, a sunshine ring and a corner dot (never colour alone). */
+.ni-hc__cell[data-selected="true"] {
+  z-index: 1;
+  border-color: var(--color-ink);
+  background: var(--color-ink);
+  color: var(--color-cloud);
+  box-shadow: inset 0 0 0 4px var(--color-sunshine);
+}
+.ni-hc__cell[data-selected="true"]::after {
+  content: "";
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--color-sunshine);
+}
+/* The start cell: a coral corner flag and a heavier ink edge. */
+.ni-hc__cell[data-start="true"] {
+  border: 4px solid var(--color-ink);
+}
+.ni-hc__chart[data-cells="type"] .ni-hc__cell[data-start="true"] {
+  border: 4px solid var(--color-ink);
+}
+.ni-hc__cell[data-start="true"]::before {
+  content: "";
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 0;
+  height: 0;
+  border-top: 14px solid var(--color-coral-deep);
+  border-right: 14px solid transparent;
+}
+/* A picture cell is small: its flag stays in the corner, clear of the numeral. */
+.ni-hc__chart[data-cells="type"] .ni-hc__cell[data-start="true"]::before {
+  top: 0;
+  left: 0;
+  border-top-width: 8px;
+  border-right-width: 8px;
+}
+/* A demo pulse: a dashed sea edge inside the cell and a soft pulse (nothing to press). */
+.ni-hc__cell[data-pulse="true"] {
+  z-index: 1;
+  box-shadow: inset 0 0 0 5px var(--color-sea-deep);
+  animation: var(--animate-pulse-soft);
+}
+/* Cells are 12 px apart: the invite ring is drawn inside the cell, within its edge. */
+.ni-hc__cell.ni-invite {
+  z-index: 1;
+  outline-width: 4px;
+  outline-offset: -8px;
+  border-radius: 12px;
+}
+.ni-hc__band {
+  position: absolute;
+  z-index: 2;
+  box-sizing: border-box;
+  border: 5px solid var(--color-sea-deep);
+  border-radius: 14px;
+  background: rgb(42 157 143 / 0.12);
+  pointer-events: none;
+}
+.ni-hc__chart[data-cells="type"] .ni-hc__band {
+  border-radius: 6px;
+}
+.ni-hc__token {
+  position: absolute;
+  z-index: 3;
+  box-sizing: border-box;
+  border: 5px solid var(--color-sunshine-deep);
+  border-radius: 12px;
+  box-shadow: inset 0 0 0 3px var(--color-ink);
+  pointer-events: none;
+}
+
+/* ---------- moves, steppers and the map ---------- */
+
+.ni-hc__moves {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 0;
+  padding: 16px;
+  border: 3px solid var(--color-sand-deep);
+  border-radius: 14px;
+  background: var(--color-horizon);
+  list-style: none;
+}
+.ni-hc__move {
+  display: grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  border: 2px solid var(--color-ink);
+  border-radius: 10px;
+  background: var(--color-cloud);
+}
+.ni-hc__arrow {
+  display: block;
+  width: 30px;
+  height: 30px;
+}
+.ni-hc__step,
+.ni-hc__mark {
+  display: grid;
+  place-items: center;
+  box-sizing: border-box;
+  width: var(--target-min);
+  height: var(--target-min);
+  margin: 0 0 6px;
+  padding: 0;
+  appearance: none;
+  border: 3px solid var(--color-ink);
+  border-radius: var(--radius-pebble);
+  background: var(--color-cloud);
+  box-shadow:
+    0 6px 0 var(--color-pebble-deep),
+    var(--shadow-highlight);
+  cursor: pointer;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+.ni-hc__step:disabled,
+.ni-hc__mark:disabled {
+  cursor: default;
+  border-style: dashed;
+  opacity: 0.55;
+}
+.ni-hc__step:focus-visible,
+.ni-hc__mark:focus-visible {
+  outline: 4px solid var(--color-sea-deep);
+  outline-offset: 4px;
+}
+.ni-hc__step.ni-invite,
+.ni-hc__mark.ni-invite {
+  outline-width: 4px;
+  outline-offset: -8px;
+  border-radius: var(--radius-pebble);
+}
+.ni-hc__stepicon {
+  display: block;
+  width: var(--icon-size);
+  height: var(--icon-size);
+  /* Sit high in the button: Pip's fingertip goes under it, never over it. */
+  margin-bottom: 12px;
+}
+.ni-hc__stepicon .ni-hc__arrow {
+  width: 100%;
+  height: 100%;
+}
+/* Mark: a sunshine dot in an ink ring (the mark a picked cell wears). */
+.ni-hc__markicon {
+  display: block;
+  width: 26px;
+  height: 26px;
+  margin-bottom: 12px;
+  border: 5px solid var(--color-ink);
+  border-radius: 50%;
+  background: var(--color-sunshine);
+}
+.ni-hc__map {
+  position: relative;
+  display: block;
+  flex: none;
+  box-sizing: content-box;
+  padding: 4px;
+  border: 2px solid var(--color-ink);
+  border-radius: 6px;
+  background:
+    repeating-linear-gradient(90deg, var(--color-pebble) 0 4px, var(--color-cloud) 4px 5px),
+    var(--color-cloud);
+}
+.ni-hc__mapband {
+  position: absolute;
+  left: 1px;
+  right: 1px;
+  box-sizing: border-box;
+  border: 3px solid var(--color-ink);
+  border-radius: 3px;
+  background: var(--color-sunshine);
+}
+
+[data-reduced-motion="true"] .ni-hc__cell {
+  transition-duration: 0ms;
+}
+
+/* Check may sit 12 px from its neighbours: its invite ring is drawn inside it. */
+.ni-hc__checkslot .ni-btn.ni-invite {
+  outline-width: 4px;
+  outline-offset: -9px;
+}
+
+/* A picked cell keeps an ink focus ring (the one teal ring on screen is Pip's invite). */
+.ni-hc__cell[data-selected="true"]:focus-visible {
+  outline-color: var(--color-ink);
+}
+
+/* K at the minimum: the pad stands at the top, so Pip's hand under its bottom row has the room
+   below it (it may hang into the card's padding, covering nothing). */
+.ni-hc[data-overhang] .ni-hc__entry {
+  align-self: flex-start;
+}

@@ -1,6 +1,12 @@
 // @number-island/engine: pure TypeScript (no DOM, React, Math.random or Date.now). E01 delivers
 // the item core: seeded RNG, generator registry, item generation and targeting, checking,
 // misconception matching, hint ladders and the fixture formats' state models. See README.md.
+//
+// This is the full entry. Loading it installs the item core that the learner model needs (02 §6a,
+// #95). An app shell imports `@number-island/engine/shell` instead and loads this entry through a
+// dynamic import, so generators, checkers and misconception rules stay out of its initial JS.
+
+import './items/install';
 
 export { type StateChecker, stateChecker } from './check/state';
 export {
@@ -38,6 +44,13 @@ export { type EqualGroupsState, GROUP_CAPACITY, groupsUnknown } from './formats/
 export { type EqualShareState, shareChoices } from './formats/equal-share';
 export { blankIds, type ExpandedFormState } from './formats/expanded-form';
 export {
+  lineLabels,
+  lineSteps,
+  lineTicks,
+  type NumberLinePlaceState,
+  snapPlacement,
+} from './formats/number-line-place';
+export {
   COLUMNS,
   type Column,
   canonicalPieces,
@@ -73,7 +86,15 @@ export {
   generatorParams,
   generatorRegistered,
 } from './hooks';
+export {
+  type ItemCore,
+  ItemCoreNotLoadedError,
+  installItemCore,
+  itemCore,
+  itemCoreLoaded,
+} from './item-core';
 export { isConstructedTemplate, templateAnswerKind } from './items/answer-kind';
+export { attemptDifficulty } from './items/attempt-difficulty';
 export { checkResponse, detectProcessMisconceptions, matches } from './items/check';
 export { type DevEvent, setDevLogger } from './items/devlog';
 export { difficulty, featureWeight, resolvedWeights } from './items/difficulty';
@@ -85,6 +106,7 @@ export {
   mergedSpec,
 } from './items/generate';
 export { buildHints } from './items/hints';
+export { ITEM_CORE_MARKS } from './items/install';
 export { itemExampleCorrect, itemSolution, replaySteps } from './items/solution';
 export * from './learner';
 export {

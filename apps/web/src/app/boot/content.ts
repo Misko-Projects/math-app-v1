@@ -2,7 +2,7 @@
 // `/content/index.json` names each file's URL (content-hashed in production builds; see
 // apps/web/content-assets.ts). Offline, the service worker answers from its precache.
 
-import { buildSkillGraph } from '@number-island/engine';
+import { buildSkillGraph } from '@number-island/engine/shell';
 import {
   gameDataSchema,
   itemTemplateSchema,

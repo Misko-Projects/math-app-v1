@@ -1,6 +1,6 @@
 import { formatModel } from '@number-island/engine';
 import type { WidgetAction } from '@number-island/shared';
-import { type CSSProperties, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { type CSSProperties, useCallback, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useInteractionTrace } from '../../interaction/trace';
 import { useNarrationText, useSpeech, useUiPreferences } from '../../preferences/UiProvider';
 import { ArrowIcon, CheckIcon } from '../../primitives/icons';
@@ -37,7 +37,9 @@ import './tap-count.css';
  *
  * - **Concrete** (C): every object is a tap target. A tapped object gets a numbered pebble badge
  *   with the count it was given (`marks`, never colour alone), and `countAloud` speaks the running
- *   count. Tapping a counted object again speaks its number and is traced again (the trace drives
+ *   count. On a ten-frame picture no number goes on an object (the cell above holds the next
+ *   row's): each counted cell gets a dot and the running count shows once, in the card's corner.
+ *   Tapping a counted object again speaks its number and is traced again (the trace drives
  *   MC.off-by-one-counting and MC.recount-from-one). Distractors can be tapped to hear their name,
  *   but they are never counted or marked.
  * - **Pictorial** (P): a static picture; the child only answers.
@@ -82,6 +84,16 @@ const ORDINAL_CHECK_W = 200 + 56;
  * A narrower widget takes the shortfall off every budget.
  */
 const HOW_MANY_AREA_W = 1000 + 2 * (28 + 3) + 2 * 24;
+/** The number pad column (slot over the 3 × 4 keys) and the widget's padding top and bottom. */
+const PAD_H = 560;
+const PAD_Y = 8;
+/** The compact pad: the slot / Check column beside the keys, and the gap between them. */
+const COMPACT_SLOT_W = 140;
+const COMPACT_GAP = 16;
+/** Check alone (K: icon-only, 96 px tall with its ledge). */
+const CHECK_W = 120;
+/** A height no host grows to unless it grows with its content (the room probe). */
+const PROBE_PX = 100_000;
 
 /** Where an invite points: one pressable control. */
 type Cue =
@@ -183,6 +195,60 @@ function flattenLine(layout: ObjectLayout): ObjectLayout {
 }
 
 /**
+ * An equal-groups layout (plates side by side, kit `objectSetLayout`) with its plates in rows of
+ * `perRow`, each row centred under the widest; objects move with their plate. Distractors (a loose
+ * row under the plates) go under the last row. Reading order and ids are unchanged.
+ */
+function wrapPlates(layout: ObjectLayout, perRow: number): ObjectLayout {
+  const plates = [...layout.frames].sort((a, b) => a.x - b.x);
+  if (perRow >= plates.length || plates.length === 0) return layout;
+  const rows = Math.ceil(plates.length / perRow);
+  const rowH = Math.max(...plates.map((p) => p.rows));
+  const rowOf = (i: number) => plates.slice(i * perRow, (i + 1) * perRow);
+  const span = (row: typeof plates) => {
+    const first = row[0] as (typeof plates)[number];
+    const last = row[row.length - 1] as (typeof plates)[number];
+    return { x0: first.x, w: last.x + last.cols - first.x };
+  };
+  const width = Math.max(...Array.from({ length: rows }, (_, r) => span(rowOf(r)).w));
+  const moveOf = plates.map((_, i) => {
+    const r = Math.floor(i / perRow);
+    const { x0, w } = span(rowOf(r));
+    return { dx: (width - w) / 2 - x0, dy: r * (rowH + 0.6) };
+  });
+  const plateOf = (o: PlacedObject) =>
+    plates.findIndex((p) => o.x + o.scale / 2 >= p.x && o.x + o.scale / 2 <= p.x + p.cols);
+  const lastDy = (rows - 1) * (rowH + 0.6);
+  // Distractors (a loose row under the plates): re-flowed in rows that fit the wrapped width,
+  // centred, under the last row of plates, in their own order.
+  const loose = layout.objects.filter((o) => o.kind !== 'object' || plateOf(o) < 0);
+  const perLine = Math.max(1, Math.floor((width + 0.12) / 1.12));
+  const looseTop = lastDy + rowH + 0.4;
+  const looseAt = new Map(
+    loose.map((o, k) => {
+      const line = Math.floor(k / perLine);
+      const inLine = Math.min(perLine, loose.length - line * perLine);
+      const lineW = inLine * 1.12 - 0.12;
+      const x0 = (width - lineW) / 2;
+      const inset = (1 - o.scale) / 2;
+      return [o, { x: x0 + (k % perLine) * 1.12 + inset, y: looseTop + line * 1.12 + inset }];
+    }),
+  );
+  const objects = layout.objects.map((o) => {
+    const at = looseAt.get(o);
+    if (at) return { ...o, ...at };
+    const m = moveOf[plateOf(o)] as { dx: number; dy: number };
+    return { ...o, x: o.x + m.dx, y: o.y + m.dy };
+  });
+  const frames = plates.map((p, i) => {
+    const m = moveOf[i] as { dx: number; dy: number };
+    return { ...p, x: p.x + m.dx, y: p.y + m.dy };
+  });
+  const height = Math.max(lastDy + rowH, ...objects.map((o) => o.y + o.scale + (1 - o.scale) / 2));
+  return { ...layout, objects, frames, width, height };
+}
+
+/**
  * A count badge's footprint around its object's box, in px (tap-count.css `.ni-tapc__mark`): it
  * sits on top of the box's right end (right edges flush, wide numbers growing left), from 48 px
  * above the box's top to 4 px inside it (a 52 px pebble, its 40 px numeral ≥ 32 px, 05 §11).
@@ -193,12 +259,74 @@ const BADGE = { w: 76, above: 48, below: 4, clear: 4 } as const;
 const RING_OUT = 2 + 6;
 /**
  * Ordinal badges sit higher, above the selection ring (`.ni-tapc[data-mode="ordinal"]
- * .ni-tapc__mark`): from 66 px above the box to 14 px above it, so a counted object's badge
- * clears its own ring by 6 px. They also clear the ring of a ringed object in the row above
- * (`clear` includes the ring).
+ * .ni-tapc__mark`, a 44 px pebble with a 32 px numeral): from 64 px above the box to 20 px above
+ * it, so a counted object's badge clears its own ring by 12 px. They also clear the ring of a
+ * ringed object in the row above by 12 px (`clear` includes the ring).
  */
-const BADGE_ORDINAL = { w: 76, above: 66, below: -14, clear: 4 + RING_OUT } as const;
+const BADGE_ORDINAL = { w: 76, above: 64, below: -20, clear: 12 + RING_OUT } as const;
 type BadgeFootprint = typeof BADGE | typeof BADGE_ORDINAL;
+
+/**
+ * Pictures whose objects sit in places (ten-frames' cells, equal-groups plates): the next row's
+ * object is right above, and a plate's rim is right beside, so no numbered badge goes on an
+ * object. Every counted object gets a dot in its own place and the running count shows once, in
+ * the picture card's top-right corner (`.ni-tapc__count`, in the card's top padding, ≥ 12 px clear
+ * of the card's edges and of every frame and plate). Every other layout keeps the numbered badge
+ * above each object.
+ */
+const DOT_LAYOUTS: ReadonlySet<string> = new Set(['ten-frame', 'double-ten-frame', 'groups']);
+/** Ten-frame cells: the kit draws each frame with a 4 px border and 1.5 px cell lines (kit.css). */
+const FRAME_BORDER = 4;
+const CELL_LINE = 1.5;
+/** Inside a place: the drawing's top inset, and the least room between drawing, dot and edge. */
+const SPRITE_INSET = 3;
+const DOT_ROOM = 3;
+const dotSize = (box: number) => Math.max(8, Math.round(0.2 * box));
+/** The picture card's left padding (tap-count.css), where the set starts. */
+const CARD_PAD_X = 28;
+/** Beside a compact pad the card keeps 16 px at its sides (tap-count.css), so the picture grows. */
+const CARD_PAD_X_COMPACT = 16;
+/**
+ * Half the widest running count (a 60 px pebble for two digits) plus 9 px: its centre keeps this
+ * far in from the card's padding edges, so the pebble stays ≥ 12 px in from the card's outer
+ * edges (3 px border).
+ */
+const COUNT_HALF = 30 + 9;
+
+/** The part of a sprite's 64-unit box its drawing covers (with its outline), as fractions. */
+export interface DrawnBox {
+  top: number;
+  bottom: number;
+}
+/** Until a sprite's drawing is measured: assume it fills its box. */
+const FULL_BOX: DrawnBox = { top: 0, bottom: 1 };
+
+/**
+ * Where an object's drawing and its count dot go inside its box (px, box-relative), for a picture
+ * in places. `band` is the part of the box inside the object's place (a ten-frame cell inside its
+ * lines; a plate's object: the whole box). Every object gets the same drawing size, so counted and
+ * uncounted ones match. The DRAWING (`drawn`, measured from the sprite, not its box) starts
+ * `SPRITE_INSET` below the band's top, and the dot is centred in the free space under it (≥
+ * `DOT_ROOM` from the drawing and from the band's bottom), on the place's centre line. Small
+ * places (a box under 64 px) get an 8 px dot, so the drawing keeps its size.
+ */
+function dotPlacement(
+  box: number,
+  sprite: number,
+  band: { top: number; bottom: number; centreX: number },
+  drawn: DrawnBox,
+) {
+  const dot = box < 64 ? 8 : dotSize(box);
+  const span = Math.max(0.1, drawn.bottom - drawn.top);
+  const size = Math.max(
+    0,
+    Math.min(sprite, (band.bottom - band.top - SPRITE_INSET - dot - 2 * DOT_ROOM) / span),
+  );
+  const spriteTop = band.top + SPRITE_INSET - drawn.top * size;
+  const drawnBottom = spriteTop + drawn.bottom * size;
+  const dotTop = (drawnBottom + band.bottom - dot) / 2;
+  return { dot, size, spriteTop, dotTop, dotLeft: band.centreX - dot / 2 };
+}
 
 /**
  * How much to stretch a layout's rows (its y axis) so that every count badge clears every other
@@ -309,6 +437,47 @@ export function TapCountWidget({
   const objectsTappable = concrete || ordinal;
   // Pip's counting (demo) always marks, so a "show me" leaves the counted picture behind.
   const showMarks = (concrete && config.marks) || demoMarked;
+  /** A picture in places (DOT_LAYOUTS): a dot per counted object and one running count. */
+  const onDots = DOT_LAYOUTS.has(config.set.layout);
+  const onGrid = onDots && config.set.layout !== 'groups';
+  /** While marks can show, every object keeps the room for its dot (one drawing size for all). */
+  const dotRoom = onDots && showMarks;
+  /**
+   * Equal groups with the numeral tray appearing once all are counted: the hidden tray takes no
+   * room, so Check sits beside the plates while the child counts (a big tray, 0–30, would leave
+   * an empty half under them); the tray comes in under the picture once every object is counted.
+   */
+  const collapseTray = onDots && config.input === 'auto' && concrete && !ordinal;
+  /**
+   * Tappable ten-frame cells (C): each cell is drawn as its own target, the size of the object's
+   * box with 12 px between cells, inside a frame that stands 12 px out from the cells' grid
+   * (tap-count.css `data-cells="targets"`), so a ring in a cell stays ≥ 12 px from the frame.
+   */
+  const targetCells = onGrid && concrete;
+  /** Each sprite's measured drawing (its top and bottom in its box), for the dot placement. */
+  const [drawnBoxes, setDrawnBoxes] = useState<Record<string, DrawnBox>>({});
+  useLayoutEffect(() => {
+    const root = rootRef.current;
+    if (!root || !onDots) return;
+    let next: Record<string, DrawnBox> | null = null;
+    for (const svg of root.querySelectorAll<SVGSVGElement>('.ni-tapc__sprite svg[data-sprite]')) {
+      const id = svg.dataset.sprite;
+      if (!id || drawnBoxes[id] || next?.[id] || typeof svg.getBBox !== 'function') continue;
+      const vb = svg.viewBox.baseVal;
+      const bb = svg.getBBox();
+      if (!vb || vb.height === 0 || bb.height === 0) continue;
+      // Outlines are up to 3.5 units wide: half of one beyond the geometry.
+      const pad = 2;
+      next = {
+        ...(next ?? drawnBoxes),
+        [id]: {
+          top: Math.max(0, (bb.y - pad) / vb.height),
+          bottom: Math.min(1, (bb.y + bb.height + pad) / vb.height),
+        },
+      };
+    }
+    if (next) setDrawnBoxes(next);
+  });
 
   // ---------- sizes (06 §4: K ≥ 80 px, G1 ≥ 64 px, ≥ 12 px apart) ----------
 
@@ -331,32 +500,96 @@ export function TapCountWidget({
   // a 1280 × 800 screen; the shorter G1+ pad keeps Check under it.
   const checkBesidePad = config.input === 'pad' && !ordinal && ageMode === 'k';
   const padCheckW = checkBesidePad ? 40 + 120 : 0;
-  const answerW =
-    config.input === 'pad' ? 3 * (target + 16) + 2 * TARGET_GAP_PX + padCheckW : trayW;
-  const answerH =
-    config.input === 'pad'
-      ? 560
-      : Math.ceil(trayValues.length / trayCols) * (target + TARGET_GAP_PX + 6) + 30;
   // "Start here" pebble: not a target, so it stays compact enough for a row of ten K targets.
   const cueSize = Math.min(64, Math.round(target * 0.9));
   const empty = baseLayout.objects.length === 0;
-  // The widget's own width (container-relative, 06 §1), measured before the first paint. Every
-  // budget below is capped by it; until it is known, the 1280 × 800 budgets apply.
+  // The widget's own width and the height its host gives it (container-relative, 06 §1),
+  // measured before the first paint; until they are known, the 1280 × 800 budgets apply. The
+  // height is Infinity where the host grows with its content (a plain story stage).
   const rootRef = useRef<HTMLDivElement | null>(null);
   const [widgetW, setWidgetW] = useState<number | null>(null);
+  const [hostH, setHostH] = useState(Number.POSITIVE_INFINITY);
+  /**
+   * Check as it is drawn: icon-only in K, with its word from Grade 1 on (so it is wider). Measured
+   * on the button itself, whenever it mounts or changes size (its word's font arriving, the age
+   * mode switching): the widget's own size does not change then.
+   */
+  const [checkW, setCheckW] = useState(0);
+  const checkObserver = useRef<ResizeObserver | null>(null);
+  const checkRef = useCallback((node: HTMLSpanElement | null) => {
+    checkObserver.current?.disconnect();
+    checkObserver.current = null;
+    const button = node?.querySelector('.ni-btn');
+    if (!button) return;
+    const read = () => setCheckW(Math.ceil(button.getBoundingClientRect().width));
+    read();
+    if (typeof ResizeObserver === 'undefined') return;
+    checkObserver.current = new ResizeObserver(read);
+    checkObserver.current.observe(button);
+  }, []);
   useLayoutEffect(() => {
     const el = rootRef.current;
     if (!el) return;
+    const host = el.parentElement;
     const measure = () => {
       const w = Math.floor(el.getBoundingClientRect().width);
       if (w > 0) setWidgetW(w);
+      // Does the host bound the widget's height? Grow the root for one synchronous layout (no
+      // paint): a host sized by its content grows with it; a host with a set height does not.
+      let h = Number.POSITIVE_INFINITY;
+      if (host) {
+        const before = el.style.height;
+        el.style.height = `${PROBE_PX}px`;
+        const grown = host.clientHeight;
+        el.style.height = before;
+        if (grown < PROBE_PX) h = host.clientHeight;
+      }
+      setHostH(h);
     };
     measure();
     if (typeof ResizeObserver === 'undefined') return;
     const ro = new ResizeObserver(measure);
     ro.observe(el);
+    if (host) ro.observe(host);
     return () => ro.disconnect();
   }, []);
+  /**
+   * The number pad where the host is too short for it (the normal pad column is ~560 px; the
+   * 960 × 600 minimum gives 373): the keys at the age's minimum target size in a 4 × 3 block,
+   * the answer slot and Check in a column beside it (tap-count.css `data-pad="compact"`).
+   */
+  const compactPad = config.input === 'pad' && !ordinal && hostH < PAD_H + 2 * PAD_Y;
+  const compactKeysW = 4 * target + 3 * TARGET_GAP_PX;
+  // The slot / Check column is as wide as the wider of the two: Check with its word (Grade 1+)
+  // is wider than the slot, and the picture beside the pad gets only what is left.
+  const compactSlotW = Math.max(COMPACT_SLOT_W, checkW);
+  const trayShown =
+    config.input !== 'pad' && !ordinal && (config.input === 'pick' || !concrete || allCounted);
+  const answerW =
+    config.input === 'pad'
+      ? compactPad
+        ? compactSlotW + COMPACT_GAP + compactKeysW
+        : 3 * (target + 16) + 2 * TARGET_GAP_PX + padCheckW
+      : collapseTray && !trayShown
+        ? CHECK_W
+        : trayW;
+  const answerH =
+    config.input === 'pad'
+      ? compactPad
+        ? 3 * (target + 4) + 2 * TARGET_GAP_PX
+        : PAD_H
+      : collapseTray && !trayShown
+        ? CHECK_W
+        : Math.ceil(trayValues.length / trayCols) * (target + TARGET_GAP_PX + 6) + 30;
+  /** The picture card's padding and border top to bottom (tap-count.css), and the column gap. */
+  const cardY = (onDots ? 68 : 52) + 20 + 2 * 3 + (targetCells ? 24 : 0);
+  const gapX = compactPad ? 32 : 56;
+  const cardPadX = compactPad ? CARD_PAD_X_COMPACT : CARD_PAD_X;
+  /** The largest cell a picture in places may take (frames and plates grow into the room). */
+  const fitPicture = (set: ObjectLayout, w: number, h: number) =>
+    onDots
+      ? Math.max(32, Math.floor(Math.min(w / set.width, h / set.height, 140)))
+      : fitCell(set, w, h, 32);
   const ordinalAreaW = Math.min(ORDINAL_AREA_W, widgetW ?? ORDINAL_AREA_W);
   const ordinalRowW = ordinalAreaW - ORDINAL_CHROME_W - cueSize;
   const shortfall = Math.max(0, HOW_MANY_AREA_W - (widgetW ?? HOW_MANY_AREA_W));
@@ -371,7 +604,40 @@ export function TapCountWidget({
     () => (ordinal && config.set.layout === 'line' ? flattenLine(baseLayout) : baseLayout),
     [baseLayout, ordinal, config.set.layout],
   );
+  /**
+   * An ordinal line in a host that sets a height (a widget area) grows into the room: the rows,
+   * arrangement (Check beside or under) and cell that give the biggest objects inside the area
+   * (≤ 112 px cells), each row's badges 12 px clear (BADGE_ORDINAL), more rows only for objects
+   * ≥ 8 % bigger. A host that grows with its content keeps the designed one-row layout.
+   */
+  const ordinalFit = (() => {
+    if (!ordinal || config.set.layout !== 'line' || !Number.isFinite(hostH) || widgetW === null) {
+      return null;
+    }
+    const count = lineLayout.objects.length;
+    const w = Math.min(ORDINAL_AREA_W, widgetW) - 2 * 16;
+    const h = hostH - 2 * PAD_Y;
+    const pitchExtra = BADGE_ORDINAL.above + BADGE_ORDINAL.clear;
+    const cardW = cueSize + 16 + 2 * (20 + 3);
+    const cardH = 76 + 24 + 2 * 3;
+    let best: { rows: number; arrange: 'side' | 'stack'; cell: number } | null = null;
+    for (let rows = 1; rows <= Math.min(4, count); rows++) {
+      const perRow = Math.ceil(count / rows);
+      const units = (perRow - 1) * 1.12 + 1;
+      for (const arrange of ['side', 'stack'] as const) {
+        const cw = ((arrange === 'side' ? w - ORDINAL_CHECK_W : w) - cardW) / units;
+        const ch =
+          ((arrange === 'side' ? h : h - 16 - CHECK_W) - cardH - (rows - 1) * pitchExtra) / rows;
+        const c = Math.floor(Math.min(cw, ch, 112));
+        if (c < minCell) continue;
+        if (!best || c > best.cell * (rows > best.rows ? 1.08 : 1))
+          best = { rows, arrange, cell: c };
+      }
+    }
+    return best;
+  })();
   const wrapRows = (() => {
+    if (ordinalFit) return ordinalFit.rows;
     if (config.set.layout !== 'line' || lineLayout.height > 1 || lineLayout.frames.length > 0) {
       return 1;
     }
@@ -382,11 +648,21 @@ export function TapCountWidget({
     }
     return lineLayout.objects.length;
   })();
+  // Equal-groups plates side by side that cannot keep full-size targets in one row at this width
+  // go into as few rows of plates as fit, each row centred (29 crabs on three G1 plates: 2 + 1).
+  const platesPerRow = (() => {
+    if (config.set.layout !== 'groups' || baseLayout.frames.length < 2) return Infinity;
+    for (let per = baseLayout.frames.length; per > 1; per--) {
+      if (wrapPlates(baseLayout, per).width * minCell <= stackW) return per;
+    }
+    return 1;
+  })();
   const fitLayout = useMemo(() => {
     // Ordinal objects render in counting order (DOM = Tab = reading order), from the marker.
     const counted = ordinal ? inCountingOrder(lineLayout, from) : lineLayout;
+    if (platesPerRow < counted.frames.length) return wrapPlates(counted, platesPerRow);
     return wrapRows > 1 ? wrapRow(counted, wrapRows, ordinal ? from : 'left') : counted;
-  }, [lineLayout, wrapRows, ordinal, from]);
+  }, [lineLayout, wrapRows, ordinal, from, platesPerRow]);
   // Wrapped rows keep the size the one-row layout gets at 1280 × 800, so a narrower screen never
   // draws bigger objects than a wide one.
   const wrappedCap =
@@ -404,6 +680,7 @@ export function TapCountWidget({
   const sizeFor = (set: ObjectLayout): { arrange: 'side' | 'stack'; cell: number } => {
     // Nothing to count: an empty dish centred above the answer.
     if (empty) return { arrange: 'stack', cell: 32 };
+    if (ordinal && ordinalFit) return { arrange: ordinalFit.arrange, cell: ordinalFit.cell };
     if (ordinal) {
       // The row card (cue + objects) and Check side by side when the row still gets full-size
       // targets; otherwise Check sits centred under the row, which then takes the full width.
@@ -419,15 +696,22 @@ export function TapCountWidget({
     }
     // Side by side (picture left, answer right) when both fit the ~1100 px widget area; otherwise
     // the picture spans the width above the answer. Either way the objects grow into the room left.
-    const sideW = 1100 - answerW - 240 - shortfall;
-    const sideCell = Math.max(minCell, Math.min(wrappedCap, fitCell(set, sideW, 340, 32)));
+    // A picture in places, or any picture beside a compact pad, in a narrow widget (the 960 × 600
+    // minimum) takes the width actually left beside the answer: the widget's padding (2 × 24),
+    // the column gap, the card's padding and border (2 × 31) and 8 px to spare. Where the host
+    // sets a height, the picture also keeps inside it.
+    const sideW =
+      (onDots || compactPad) && widgetW !== null
+        ? widgetW - answerW - 2 * (compactPad ? 12 : 24) - gapX - 2 * (cardPadX + 3) - 8
+        : 1100 - answerW - 240 - shortfall;
+    const roomH = Number.isFinite(hostH) ? hostH - 2 * PAD_Y - cardY : Number.POSITIVE_INFINITY;
+    const sideH = Math.min(340, roomH);
+    const sideCell = Math.max(minCell, Math.min(wrappedCap, fitPicture(set, sideW, sideH)));
     if (set.width * sideCell <= sideW) return { arrange: 'side', cell: sideCell };
+    const stackH = Math.min(Math.max(120, 520 - answerH), roomH - answerH - 16);
     return {
       arrange: 'stack',
-      cell: Math.max(
-        minCell,
-        Math.min(wrappedCap, fitCell(set, stackW, Math.max(120, 520 - answerH), 32)),
-      ),
+      cell: Math.max(minCell, Math.min(wrappedCap, fitPicture(set, stackW, stackH))),
     };
   };
   // A picture (P) keeps full-size objects; tap targets leave the 12 px gap between them.
@@ -476,9 +760,6 @@ export function TapCountWidget({
     if (config.countAloud) sayNumber(mark);
     else if (speakOnTap) say(spriteNameKey(o.sprite));
   };
-
-  const trayShown =
-    config.input !== 'pad' && !ordinal && (config.input === 'pick' || !concrete || allCounted);
 
   const pick = (v: number) => {
     if (!interactive) return;
@@ -668,6 +949,58 @@ export function TapCountWidget({
 
   // ---------- render ----------
 
+  /**
+   * The part of an object's box (at `left`, `top` in the set, `hitSize` square) inside its place:
+   * on a ten-frame, its cell inside the frame's 4 px border and the 1.5 px cell lines (an edge
+   * cell's box reaches over the border); on a plate, the whole box.
+   */
+  const placeBand = (o: PlacedObject, left: number, top: number) => {
+    if (!onGrid) return { top: 0, bottom: hitSize, centreX: hitSize / 2 };
+    // A target cell is the object's box, drawn with a 3 px line.
+    if (targetCells) return { top: 3, bottom: hitSize - 3, centreX: hitSize / 2 };
+    const inset = (1 - o.scale) / 2;
+    const col = Math.round(o.x - inset);
+    const y = o.y - inset;
+    const f = Math.floor((y + 0.01) / 2.5);
+    const row = Math.round(y - f * 2.5);
+    const cw = cell - (2 * FRAME_BORDER) / 5;
+    const ch = cell - FRAME_BORDER;
+    const cellLeft = FRAME_BORDER + col * cw;
+    const cellTop = f * 2.5 * cell + FRAME_BORDER + row * ch;
+    return {
+      top: Math.max(0, cellTop + CELL_LINE - top),
+      bottom: Math.min(hitSize, cellTop + ch - CELL_LINE - top),
+      centreX: cellLeft + cw / 2 - left,
+    };
+  };
+
+  /**
+   * The object counted last, and where the running count goes: above that object's place (its
+   * column), in the card's top padding, so the number is tied to the object it was counted on.
+   * `countX` is the place's centre measured from the laid-out card (its padding edge), so a start
+   * marker or any padding before the set is counted in; CSS keeps the badge ≥ 12 px in from the
+   * card's sides.
+   */
+  const latestIndex = order.at(-1) ?? null;
+  const [countX, setCountX] = useState<number | null>(null);
+  useLayoutEffect(() => {
+    const root = rootRef.current;
+    if (!root || latestIndex === null || !onDots) return;
+    const card = root.querySelector<HTMLElement>('.ni-tapc__picture');
+    const obj = root.querySelector<HTMLElement>(`.ni-tapc__obj[data-obj="obj-${latestIndex}"]`);
+    if (!card || !obj) return;
+    const frames = onGrid ? [...root.querySelectorAll('.ni-objects__frame')] : [];
+    const place = onGrid
+      ? (frames[Math.floor(latestIndex / 10)]?.querySelectorAll('.ni-objects__cell')[
+          latestIndex % 10
+        ] ?? obj)
+      : obj;
+    const p = place.getBoundingClientRect();
+    const c = card.getBoundingClientRect();
+    const x = Math.round((p.left + p.width / 2 - (c.left + card.clientLeft)) * 2) / 2;
+    setCountX((prev) => (prev === x ? prev : x));
+  });
+
   const renderObject = (o: PlacedObject, style: CSSProperties) => {
     const left = Number(style.left) + Number(style.width) / 2 - hitSize / 2;
     const top = Number(style.top) + Number(style.height) / 2 - hitSize / 2;
@@ -675,17 +1008,52 @@ export function TapCountWidget({
     const isObject = o.kind === 'object';
     const mark = isObject ? markOf.get(o.index) : undefined;
     const box: CSSProperties = { left, top, width: hitSize, height: hitSize };
+    // A picture in places while marks can show: every object's drawing at the top of its place,
+    // the room under it for its count dot (dotPlacement).
+    const placed =
+      dotRoom && isObject
+        ? dotPlacement(
+            hitSize,
+            spriteSize,
+            placeBand(o, left, top),
+            drawnBoxes[o.sprite] ?? FULL_BOX,
+          )
+        : null;
     const sprite = (
-      <span className="ni-tapc__sprite" style={{ width: spriteSize, height: spriteSize }}>
+      <span
+        className="ni-tapc__sprite"
+        style={
+          placed
+            ? {
+                width: placed.size,
+                height: placed.size,
+                alignSelf: 'start',
+                marginTop: placed.spriteTop,
+              }
+            : { width: spriteSize, height: spriteSize }
+        }
+      >
         <ObjectSprite sprite={o.sprite} tone={o.tone} />
       </span>
     );
     const badge =
-      mark !== undefined && showMarks ? (
+      mark === undefined || !showMarks ? null : placed ? (
+        <span
+          className="ni-tapc__dot"
+          data-latest={o.index === latestIndex ? 'true' : undefined}
+          aria-hidden="true"
+          style={{
+            width: placed.dot,
+            height: placed.dot,
+            top: placed.dotTop,
+            left: placed.dotLeft,
+          }}
+        />
+      ) : (
         <span className="ni-tapc__mark" aria-hidden="true">
           {mark}
         </span>
-      ) : null;
+      );
     const isRinged = isObject && ringed === o.index;
     const invited = isObject && cueObject === o.index;
     const tappable = objectsTappable && (isObject || concrete);
@@ -696,6 +1064,7 @@ export function TapCountWidget({
           className="ni-tapc__obj"
           style={box}
           data-kind={o.kind}
+          data-obj={isObject ? `obj-${o.index}` : `distractor-${o.index}`}
           data-counting={counting === o.index && isObject ? 'true' : undefined}
           data-ringed={isRinged ? 'true' : undefined}
           aria-hidden="true"
@@ -744,10 +1113,28 @@ export function TapCountWidget({
       data-tier={tier}
       data-mode={ordinal ? 'ordinal' : 'how-many'}
       data-arrange={arrange}
+      data-dots={onDots ? 'true' : undefined}
+      data-cells={targetCells ? 'targets' : undefined}
+      data-pad={compactPad ? 'compact' : undefined}
       data-disabled={disabled ? 'true' : undefined}
       style={handRootStyle}
     >
       <div className="ni-tapc__picture" data-from={ordinal ? from : undefined}>
+        {onDots && showMarks && order.length > 0 ? (
+          // The running count, once, outside every place (the count is also spoken).
+          <span
+            key={order.length}
+            className="ni-tapc__count"
+            aria-hidden="true"
+            style={
+              countX === null
+                ? undefined
+                : { left: `clamp(${COUNT_HALF}px, ${countX}px, calc(100% - ${COUNT_HALF}px))` }
+            }
+          >
+            {order.length}
+          </span>
+        ) : null}
         {ordinal ? (
           // "Start here": an arrow on the counting side, level with the first row (no words).
           <span
@@ -778,14 +1165,18 @@ export function TapCountWidget({
         )}
       </div>
 
-      <div className="ni-tapc__answer" data-check={checkBesidePad ? 'beside' : undefined}>
+      <div
+        className="ni-tapc__answer"
+        data-check={checkBesidePad ? 'beside' : undefined}
+        data-pad={compactPad ? 'compact' : undefined}
+      >
         {config.input === 'pad' && !ordinal ? (
           <div className="ni-tapc__pad">
             <span className="ni-tapc__slot">
               <NumberDisplay
                 value={padText === '' ? null : padText}
                 digits={maxDigits}
-                size="lg"
+                size={compactPad ? 'md' : 'lg'}
                 state={interactive ? 'active' : 'idle'}
                 label="ui.widget.answer"
               />
@@ -798,7 +1189,7 @@ export function TapCountWidget({
             />
           </div>
         ) : null}
-        {config.input !== 'pad' && !ordinal ? (
+        {config.input !== 'pad' && !ordinal && (trayShown || !collapseTray) ? (
           <div
             className="ni-tapc__tray"
             data-shown={trayShown ? 'true' : 'false'}
@@ -814,7 +1205,7 @@ export function TapCountWidget({
             />
           </div>
         ) : null}
-        <span className="ni-tapc__check">
+        <span className="ni-tapc__check" ref={checkRef}>
           <CheckButton onPress={submit} disabled={!canCheck} invited={cue?.at === 'check'} />
         </span>
       </div>

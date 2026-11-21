@@ -7,6 +7,7 @@ import { arrayBuild } from './array-build';
 import { balance } from './balance';
 import { baseTenBuild } from './base-ten-build';
 import { baseTenTrade } from './base-ten-trade';
+import { compare } from './compare';
 import { dotFlash } from './dot-flash';
 import { equalGroups } from './equal-groups';
 import { equalShare } from './equal-share';
@@ -15,6 +16,7 @@ import { hundredChart } from './hundred-chart';
 import { makeSet } from './make-set';
 import { numberBond } from './number-bond';
 import { numberLineJump } from './number-line-jump';
+import { numberLinePlace } from './number-line-place';
 import { numberPad } from './number-pad';
 import { numeralPick } from './numeral-pick';
 import { order } from './order';
@@ -35,12 +37,14 @@ const MODELS: Partial<Record<ItemFormat, AnyModel>> = {
   'dot-flash': dotFlash,
   'numeral-pick': numeralPick,
   'number-pad': numberPad,
+  compare,
   order,
   'tenframe-fill': tenframeFill,
   'number-bond': numberBond,
   rekenrek,
   'number-line-jump': numberLineJump,
   'hundred-chart': hundredChart,
+  'number-line-place': numberLinePlace,
   // U04 (#13)
   'base-ten-build': baseTenBuild,
   'base-ten-trade': baseTenTrade,
