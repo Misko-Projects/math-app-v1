@@ -1089,10 +1089,13 @@ export const PatternGivenMostG1MinLandscape: Story = {
     await showCell(root, 57);
     await expect(cell(root, 57)).not.toHaveAttribute('data-given');
     await mostDemo.play({ op: 'answer', args: { values: [37, 47, 57] } });
-    await mostDemo.play({ op: 'tap', args: { n: 47 } });
-    await expect(cell(root, 57)).toHaveAttribute('data-selected', 'true');
+    await waitFor(() => expect(cell(root, 57)).toHaveAttribute('data-selected', 'true'));
     await expect(cell(root, 47)).not.toHaveAttribute('data-selected');
     await userEvent.click(checkBtn(root));
     await expect(args.onResponse).toHaveBeenCalledWith({ kind: 'state', value: { values: [57] } });
+    // Three rows fit here: the window on 27, 37 and 47 shows as many given terms as it can hold.
+    await showCell(root, 27);
+    await expect(givenCells(root)).toEqual([27, 37, 47]);
+    await expectHcFits(canvasElement, root, 'g1-up');
   },
 };
