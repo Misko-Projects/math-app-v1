@@ -931,6 +931,13 @@ export function NumberLinePlaceWidget({
       const steps =
         c.labelsEvery === null ? [c.min, c.max] : lineSteps(c.min, c.max, c.labelsEvery);
       for (const v of new Set([c.min, c.max, ...steps])) below.push({ x: at(v).x, half: half(v) });
+      // The target's own numeral (read and closer lines) stands above the line, through both
+      // upper rows: no benchmark numeral goes there.
+      if (c.mode !== 'place') {
+        const mark = { x: at(c.target).x, half: half(c.target) };
+        above.push(mark);
+        higher.push(mark);
+      }
       const clear = (row: { x: number; half: number }[], x: number, h: number) =>
         row.every((o) => Math.abs(o.x - x) >= o.half + h);
       for (const b of [...c.benchmarks].sort((x, y) => x - y)) {

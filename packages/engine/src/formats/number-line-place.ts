@@ -111,9 +111,10 @@ export function snapPlacement(c: Config, at: number): number {
   if (c.snap !== 'tick') return clamp(round6(v));
   const ticks = lineTicks(c);
   if (ticks.length === 0) return clamp(round6(v));
-  // A tick wins only by being nearer than the best so far by more than rounding noise, measured
-  // against the line's own length (a line 4e-10 long still snaps to its own ticks).
-  const eps = (c.max - c.min) * 1e-9;
+  // A tick wins only by being nearer than the best so far by more than floating-point noise at
+  // the line's own magnitude: a line 4e-10 long still snaps to its own ticks, and on a line a
+  // thousand million long a tick half a unit nearer still wins.
+  const eps = Math.max(Math.abs(c.min), Math.abs(c.max)) * Number.EPSILON * 8;
   let best = ticks[0] as number;
   for (const t of ticks) if (Math.abs(t - v) < Math.abs(best - v) - eps) best = t;
   return best;

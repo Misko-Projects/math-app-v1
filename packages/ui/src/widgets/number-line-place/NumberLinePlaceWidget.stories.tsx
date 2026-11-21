@@ -1076,3 +1076,49 @@ export const CrowdedBenchmarksG1MinLandscape: Story = {
     await expect(root.querySelectorAll('.ni-nlp__benchmark line')).toHaveLength(2);
   },
 };
+
+/** Review round 2 F5: a closer question whose benchmarks crowd the end and the target. */
+const crowdedCloser: Config = {
+  ...closer,
+  min: 0,
+  max: 100,
+  ticksEvery: 10,
+  labelsEvery: null,
+  target: 98.25,
+  benchmarks: [98, 99],
+};
+
+/**
+ * Review round 2 F5: the target's own numeral stands above the line, so a benchmark numeral that
+ * has no room under the line is not raised onto it: no numeral on the line overlaps another, the
+ * target's included.
+ */
+export const CrowdedCloserKeepsTheTargetClear: Story = {
+  args: { config: crowdedCloser },
+  play: async ({ canvasElement }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    const texts = [
+      ...root.querySelectorAll<SVGTextElement>(
+        '.ni-numberline__numeral, .ni-numberline__marklabel',
+      ),
+    ];
+    await expect(root.querySelectorAll('.ni-numberline__marklabel').length).toBeGreaterThan(0);
+    const boxes = texts.map((t) => {
+      const r = t.getBoundingClientRect();
+      return {
+        text: t.textContent,
+        box: new DOMRect(r.left, r.top + r.height * 0.2, r.width, r.height * 0.6),
+      };
+    });
+    for (let i = 0; i < boxes.length; i++) {
+      for (let j = i + 1; j < boxes.length; j++) {
+        const a = (boxes[i] as (typeof boxes)[number]).box;
+        const b = (boxes[j] as (typeof boxes)[number]).box;
+        const apart =
+          a.right <= b.left || b.right <= a.left || a.bottom <= b.top || b.bottom <= a.top;
+        await expect(apart, `${boxes[i]?.text} and ${boxes[j]?.text} do not overlap`).toBe(true);
+      }
+    }
+    await expect(root.querySelectorAll('.ni-nlp__benchmark line')).toHaveLength(2);
+  },
+};

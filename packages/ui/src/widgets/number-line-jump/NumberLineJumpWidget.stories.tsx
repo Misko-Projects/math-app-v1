@@ -1235,3 +1235,90 @@ export const FractionalLandingKeyboard: Story = {
     });
   },
 };
+
+/** Review round 2 F1: hops across a round 100,000 on a long road. */
+const boundaryRoad: Config = {
+  ...hugeRoad,
+  max: 200_000,
+  start: 100_000,
+  goal: 'add',
+  target: 100_003,
+  allowedJumps: [1],
+};
+
+/**
+ * Review round 2 F1: a hop never re-places the stones (their places are counted from one origin
+ * for the whole item), so the road only slides: a stone keeps its `left` across the hop from
+ * 100,000 to 100,001, where the stones used to be re-placed under the running slide.
+ */
+export const HopKeepsStonePlaces: Story = {
+  args: { config: boundaryRoad },
+  play: async ({ canvasElement }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    const leftOf = (v: number) =>
+      (root.querySelector(`.ni-nlj__stone[data-stone="${v}"]`) as HTMLElement).style.left;
+    const before = [100_000, 100_001].map(leftOf);
+    for (let i = 1; i <= 2; i++) {
+      await hopBy(root, 1);
+      await expect([100_000, 100_001].map(leftOf)).toEqual(before);
+      await expectTruthfulRoad(root, boundaryRoad, 100_000 + i);
+    }
+  },
+};
+
+/** Review round 2 F2: a landing written with six decimal places (never as 1e-6). */
+const millionths: Config = {
+  ...halves,
+  ticksEvery: null,
+  labelsEvery: null,
+  target: 0.000001,
+  allowedJumps: [0.000001],
+};
+
+/** Review round 2 F2: the pad has the decimal key and takes 0.000001. */
+export const TinyFractionalLanding: Story = {
+  args: { config: millionths, tier: 'pictorial' },
+  play: async ({ canvasElement, args }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    await hopBy(root, 0.000001);
+    for (const k of '0.000001') await userEvent.click(key(root, k));
+    await userEvent.click(checkBtn(root));
+    await expect(args.onResponse).toHaveBeenCalledWith({
+      kind: 'state',
+      value: { jumps: [0.000001], value: 0.000001 },
+    });
+  },
+};
+
+/** Review round 2 F6: a hop forward and the same hop back, on a line with ticks. */
+const thereAndBack: Config = {
+  ...line,
+  max: 20,
+  start: 10,
+  target: 10,
+  allowedJumps: [5, -5],
+  thenAsk: null,
+};
+
+/**
+ * Review round 2 F6: +5 and −5 share an arc; their labels do not share a place (the second one
+ * stands a row higher), so both signs can be read.
+ */
+export const OppositeHopsKeepBothLabels: Story = {
+  args: { config: thereAndBack, tier: 'pictorial' },
+  render: inArea('tablet'),
+  play: async ({ canvasElement }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    await hopBy(root, 5);
+    await hopBy(root, -5);
+    const labels = [...root.querySelectorAll<SVGTextElement>('.ni-nlj__arclabel')];
+    await expect(labels.map((l) => Number(l.dataset.hop))).toEqual([5, -5]);
+    const [a, b] = labels.map((l) => {
+      const r = l.getBoundingClientRect();
+      // The digits' ink: the middle three fifths of the line box.
+      return new DOMRect(r.left, r.top + r.height * 0.2, r.width, r.height * 0.6);
+    }) as [DOMRect, DOMRect];
+    const apart = a.right <= b.left || b.right <= a.left || a.bottom <= b.top || b.bottom <= a.top;
+    await expect(apart, 'the +5 and −5 labels do not overlap').toBe(true);
+  },
+};

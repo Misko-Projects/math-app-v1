@@ -645,7 +645,8 @@ export function HundredChartWidget({
     wasTap.current = tap;
     if (fill || pattern) return;
     if (tap) setSelected(typedAnswer !== null && onChart(typedAnswer) ? typedAnswer : null);
-    else setAnswerText(selected === null ? '' : String(selected));
+    // A typed answer the chart cannot show as a tapped cell (0 on a 1–100 chart) stays typed.
+    else if (selected !== null) setAnswerText(String(selected));
   });
 
   // ---------- check (through the format model) ----------

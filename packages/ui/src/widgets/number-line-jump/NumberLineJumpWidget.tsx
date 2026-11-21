@@ -115,18 +115,17 @@ function arcLabelWidth(text: string): number {
 
 const signed = (n: number) => (n < 0 ? `−${Math.abs(n)}` : `+${n}`);
 
-/**
- * A stone's place on the road is counted from the start of its block of this many stones, so the
- * pixel offsets stay small however long the road is.
- */
-const STONE_BLOCK = 100_000;
-
 /** Decimal places of a number as written (0.25 → 2), at 6-decimal precision. */
-const decimalsOf = (v: number) => {
-  const text = String(Number(v.toFixed(6)));
-  const dot = text.indexOf('.');
-  return dot < 0 ? 0 : text.length - dot - 1;
-};
+const decimalsOf = (v: number) => written(v).split('.')[1]?.length ?? 0;
+
+/**
+ * A number as the pad types it (no sign, never an exponent): 0.000001, not 1e-6; at most six
+ * decimal places, without trailing zeros.
+ */
+function written(v: number): string {
+  const text = Math.abs(v).toFixed(6);
+  return text.includes('.') ? text.replace(/0+$/, '').replace(/\.$/, '') : text;
+}
 
 /** Room an open line keeps at each end beyond its outermost point, at least (px). */
 const OPEN_END_PX = 16;
@@ -870,6 +869,8 @@ export function NumberLineJumpWidget({
   const rootRef = useRef<HTMLDivElement | null>(null);
   const laneRef = useRef<HTMLDivElement | null>(null);
   const hopperRef = useRef<HTMLDivElement | null>(null);
+  /** The stone road's origin (see the stones' render): the first stone shown at mount. */
+  const stoneOrigin = useRef<number | null>(null);
   const checkRef = useRef<HTMLSpanElement | null>(null);
   const readoutRef = useRef<HTMLSpanElement | null>(null);
 
@@ -1024,12 +1025,12 @@ export function NumberLineJumpWidget({
     setNegative(v < 0);
     if (reduced) {
       // Reduced motion: the number appears at once (no key-by-key typing).
-      setTyped(String(Math.abs(v)));
+      setTyped(written(v));
       // The op resolves only once this state has committed (a demo play resolves after it).
       await waitForCommit();
       return;
     }
-    const chars = String(Math.abs(v)).split('') as PadKey[];
+    const chars = written(v).split('') as PadKey[];
     let text = '';
     setTyped('');
     for (const ch of chars) {
@@ -1118,7 +1119,7 @@ export function NumberLineJumpWidget({
       if (c.thenAsk === null) return checkCue;
       // The sign first: the minus toggle (below zero), or toggling it off again.
       if (want !== null && want < 0 !== negative) return signShown ? { at: 'sign' } : null;
-      const text = want === null ? null : String(Math.abs(want));
+      const text = want === null ? null : written(want);
       if (text === null || typed === text) return checkCue;
       if (text.startsWith(typed)) return { at: 'key', key: text[typed.length] as PadKey };
       return { at: 'key', key: 'back' };
@@ -1204,7 +1205,11 @@ export function NumberLineJumpWidget({
       values.push(v);
     }
     const pitch = fit.size + fit.gap;
-    const origin = c.min + Math.floor((first - c.min) / STONE_BLOCK) * STONE_BLOCK;
+    // Places are counted from the window's first stone when the road was first drawn, and that
+    // origin never moves: the pixel offsets stay small however long the road is, and a hop only
+    // ever slides the road (no stone is re-placed under a running slide).
+    if (stoneOrigin.current === null) stoneOrigin.current = first;
+    const origin = stoneOrigin.current;
     const windowW = n * pitch - fit.gap;
     const offset = (first - origin) * pitch;
     const hopperX = (position - first) * pitch + fit.size / 2;
@@ -1318,6 +1323,8 @@ export function NumberLineJumpWidget({
           )
         : null;
     const u = (v: number) => (warp ? warp.u(v) : v);
+    /** The arc labels placed so far in this render (their centres and widths). */
+    const arcLabels: { x: number; y: number; w: number }[] = [];
     // The start dot; a demo highlight adds its arrow (on the start itself: one mark, with the arrow).
     const marks: NumberLineMark[] =
       highlight === c.start
@@ -1361,21 +1368,40 @@ export function NumberLineJumpWidget({
                 const dx = Math.abs(s.x(u(j.to)) - s.x(u(j.from)));
                 const h = Math.min(70, 18 + dx * 0.35);
                 const text = hopText(j);
+                const labelX = (s.x(u(j.from)) + s.x(u(j.to))) / 2;
+                const labelW = arcLabelWidth(text);
                 // Numerals stay 32 px: an arc too narrow for its label (a line with ticks keeps
                 // its scale; its ticks count the hop) goes unlabelled rather than overprinting
                 // its neighbours.
                 if (dx < arcLabelWidth(text) + 10) return null;
                 // ... and so does one the headroom cannot hold (K's line at the minimum area).
-                if (s.lineY - 30 - h < 26) return null;
+                // A label never overprints an earlier one (a hop forward and the same hop back
+                // share an arc): it goes one row up or beside it, or is left out when neither fits.
+                const free = (at: { x: number; y: number }) =>
+                  at.y >= 26 &&
+                  arcLabels.every(
+                    (o) =>
+                      Math.abs(o.x - at.x) >= (o.w + labelW) / 2 + 4 || Math.abs(o.y - at.y) >= 30,
+                  );
+                const y0 = s.lineY - 30 - h;
+                // Its own place; else a row higher; else beside the label already there.
+                const place = [
+                  { x: labelX, y: y0 },
+                  { x: labelX, y: y0 - 32 },
+                  { x: labelX + labelW + 8, y: y0 },
+                  { x: labelX - labelW - 8, y: y0 },
+                ].find(free);
+                if (!place) return null;
+                arcLabels.push({ ...place, w: labelW });
                 return (
                   <text
                     // biome-ignore lint/suspicious/noArrayIndexKey: hops are positional
                     key={i}
                     className="ni-nlj__arclabel"
                     data-hop={j.to - j.from}
-                    x={(s.x(u(j.from)) + s.x(u(j.to))) / 2}
+                    x={place.x}
                     // Above the arc's apex (lineY − 22 − h), clear of the arc itself.
-                    y={s.lineY - 30 - h}
+                    y={place.y}
                     fontSize={32}
                     textAnchor="middle"
                   >

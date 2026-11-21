@@ -828,3 +828,28 @@ export const PatternEmptiedSelection: Story = {
     await expect(args.onResponse).toHaveBeenCalledWith({ kind: 'state', value: { values: [] } });
   },
 };
+
+/**
+ * Review round 2 F3: a typed answer the chart cannot show as a tapped cell (0 on a 1–100 chart)
+ * is still the answer after the room widens to tappable cells and narrows again.
+ */
+export const OffChartAnswerSurvivesResize: Story = {
+  globals: { ageMode: 'k' },
+  render: inArea('landscapeMin'),
+  play: async ({ canvasElement, args }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    const box = areaBox(canvasElement);
+    await expect(root).toHaveAttribute('data-cells', 'type');
+    await typeKeys(root, '0');
+    await expect(checkBtn(root)).toBeEnabled();
+    box.style.width = '1226px';
+    box.style.height = '493px';
+    await waitFor(() => expect(root).toHaveAttribute('data-cells', 'tap'));
+    box.style.width = '906px';
+    box.style.height = '373px';
+    await waitFor(() => expect(root).toHaveAttribute('data-cells', 'type'));
+    await expect(root.querySelector('.ni-hc__readout')).toHaveTextContent('0');
+    await userEvent.click(checkBtn(root));
+    await expect(args.onResponse).toHaveBeenCalledWith({ kind: 'number', value: 0 });
+  },
+};

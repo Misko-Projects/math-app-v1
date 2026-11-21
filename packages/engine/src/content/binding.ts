@@ -22,6 +22,8 @@ export interface ContentBinding {
 interface BoundContent {
   templates: Map<TemplateId, ItemTemplate>;
   narration: NarrationJson;
+  /** Whether `narration` had any line when it was bound (read once per binding). */
+  hasNarration: boolean;
   misconceptions: MisconceptionSpec[];
   templateStats: TemplateStats;
 }
@@ -29,6 +31,7 @@ interface BoundContent {
 const EMPTY: BoundContent = {
   templates: new Map(),
   narration: {},
+  hasNarration: false,
   misconceptions: [],
   templateStats: {},
 };
@@ -43,6 +46,7 @@ export function initContent(c: ContentBinding): void {
   bound = {
     templates: new Map(list.map((t) => [t.id, t])),
     narration: c.narration,
+    hasNarration: Object.keys(c.narration).length > 0,
     misconceptions: [...c.misconceptions],
     templateStats: c.templateStats ?? {},
   };
@@ -63,6 +67,15 @@ export function boundTemplates(): ItemTemplate[] {
 
 export function boundNarration(): NarrationJson {
   return bound.narration;
+}
+
+/**
+ * Whether the bound narration table has any line, as read when it was bound. Listing the keys of
+ * the whole table (about 1,900) for every generated item was most of the content checks' run time;
+ * binding again reads it again.
+ */
+export function hasBoundNarration(): boolean {
+  return bound.hasNarration;
 }
 
 export function boundMisconceptions(): readonly MisconceptionSpec[] {

@@ -317,6 +317,21 @@ describe('snapPlacement on a very short line (review, fresh run, F5)', () => {
     expect(snapPlacement(tiny, 3e-10)).toBeCloseTo(3e-10, 20);
   });
 
+  it('lets the nearer tick win by half a unit on a very long line (review round 2 F4)', () => {
+    const long: Config = {
+      ...base,
+      min: 0,
+      max: 1_000_000_000,
+      ticksEvery: 1_000_000,
+      labelsEvery: null,
+      target: 1_000_000,
+      snap: 'tick',
+    };
+    expect(snapPlacement(long, 500_000.25)).toBe(1_000_000);
+    expect(snapPlacement(long, 499_999.75)).toBe(0);
+    expect(snapPlacement(long, 500_000)).toBe(0);
+  });
+
   it('still sends a midpoint tie to the smaller tick', () => {
     const tens: Config = {
       ...base,

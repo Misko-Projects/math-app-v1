@@ -12,7 +12,7 @@ import type {
   WidgetAction,
   WidgetConfig,
 } from '@number-island/shared';
-import { boundMisconceptions, boundNarration } from '../content/binding';
+import { boundMisconceptions, boundNarration, hasBoundNarration } from '../content/binding';
 import { lineSlots } from '../content/render';
 import { formatFeatureValues } from '../formats';
 import { numberOptionId, responseNumber } from '../formats/numeral-pick';
@@ -186,21 +186,6 @@ export function numberOptions(
 // ---------- vars ----------
 
 /**
- * Whether a bound narration table is empty, remembered per table: `pickVars` runs for every
- * generated item, and listing the keys of the whole table each time (about 1,900 of them) was
- * most of the content checks' run time.
- */
-const emptyTables = new WeakMap<object, boolean>();
-function hasNoLines(narration: object): boolean {
-  let empty = emptyTables.get(narration);
-  if (empty === undefined) {
-    empty = Object.keys(narration).length === 0;
-    emptyTables.set(narration, empty);
-  }
-  return empty;
-}
-
-/**
  * Prompt and hint vars: only the values the template's lines actually use, so answer-valued
  * names never reach the UI unless a line needs them. Without bound narration, every value is kept.
  */
@@ -209,7 +194,7 @@ export function pickVars(
   pool: Record<string, string | number>,
 ): Record<string, string | number> {
   const narration = boundNarration();
-  if (hasNoLines(narration)) return { ...pool };
+  if (!hasBoundNarration()) return { ...pool };
   const used = new Set<string>();
   for (const key of [t.narration.prompt, ...t.narration.hints]) {
     for (const s of lineSlots(key, narration)) used.add(s);
