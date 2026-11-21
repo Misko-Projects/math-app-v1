@@ -56,6 +56,8 @@ templates:
       hints: [h.pattern.say-it, h.pattern.keep-going]
 
   # ---------- ALG.02: growing number patterns ----------
+  # The prompt says the three terms; the chart does not shade them yet (a hundred-chart follow-up),
+  # so no line may say the chart shows them.
   - id: ALG.02.t1
     skillId: ALG.02
     format: hundred-chart

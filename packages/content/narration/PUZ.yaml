@@ -11,6 +11,6 @@ tp.PUZ.01.t1.prompt:
 tp.PUZ.01.t2.prompt:
   text: "A piece of the hundred chart is missing. Fill in its numbers."
 tp.PUZ.02.t2.prompt:
-  text: "This side makes {sum}, and the corners are {a} and {b}. What is the middle number?"
+  text: "One side makes {sum}, and its corners are {a} and {b}. What is the middle number?"
 tp.PUZ.03.t2.prompt:
   text: "Fill the outline with {rects} {rk|shape:rects} and {squares} {sk|shape:squares}."

@@ -113,27 +113,23 @@ const UNDRAWN_STIMULI: Readonly<Record<string, string>> = {
   'GEO.11.t3': 'shape',
 };
 
-/** The DRAWINGS keys of packages/ui/src/widgets/kit/sprites.tsx; any other id draws a pebble. */
-const DRAWN_SPRITES = new Set([
-  'shell',
-  'fish',
-  'starfish',
-  'crab',
-  'leaf',
-  'stone',
-  'pebble',
-  'stick',
-  'plank',
-  'firefly',
-  'counter',
-]);
+/**
+ * The sprite ids with their own drawing: the kit's `SPRITE_IDS` (the keys of the DRAWINGS registry
+ * in packages/ui/src/widgets/kit/sprites.tsx), loaded as a module like the stimulus kinds above.
+ * Any other id draws a pebble.
+ */
+const KIT_SPRITES_FILE = new URL('../../ui/src/widgets/kit/sprites.tsx', import.meta.url).href;
+const DRAWN_SPRITES: ReadonlySet<string> = new Set(
+  ((await import(/* @vite-ignore */ KIT_SPRITES_FILE)) as { SPRITE_IDS: readonly string[] })
+    .SPRITE_IDS,
+);
 
 /**
- * Sprite ids the catalog emits that sprites.tsx does not draw yet, by template. The origin/main
+ * Sprite ids the catalog emits that sprites.tsx does not draw yet, by template, exactly: the list
+ * can only shrink (a drawn id must leave it) and no other sprite id may appear. The origin/main
  * templates predate this check (story, geometry and measurement objects the art kit has not
- * drawn). Two K01 part 7 families need art no drawn sprite can stand in for: daily events
- * (TIM.08 order cards) and coloured shape units (the shapes representation of ALG.01 and
- * ALG.04). Pinned so the list can only shrink; any other new sprite id fails.
+ * drawn). One K01 part 7 family needs art no drawn sprite can stand in for: coloured shape units
+ * (the shapes representation of ALG.01 and ALG.04). The daily events of TIM.08 are drawn (#89).
  */
 const UNDRAWN_SPRITES: Readonly<Record<string, readonly string[]>> = {
   'ADD.12.t1': ['lantern'],
@@ -142,106 +138,24 @@ const UNDRAWN_SPRITES: Readonly<Record<string, readonly string[]>> = {
   'ADD.25.t2': ['lantern'],
   'ALG.01.t2': ['circle', 'square', 'triangle'], // K01 part 7: needs art
   'ALG.04.t2': ['circle', 'square', 'triangle'], // K01 part 7: needs art
-  'CMP.01.t4': ['dot'],
-  'CMP.01.t5': ['dot'],
-  'CMP.05.t3': ['dot'],
-  'CMP.13.t5': ['dot'],
   'CPS.01.t2': ['finger'],
-  'GEO.05.t1': ['apple', 'bun', 'crate', 'jug', 'kite', 'lantern', 'pallet', 'sack'],
-  'GEO.05.t3': ['apple', 'bun', 'crate', 'jug', 'kite', 'lantern', 'pallet', 'sack'],
+  'GEO.05.t1': ['bun', 'jug', 'lantern', 'pallet', 'sack'],
+  'GEO.05.t3': ['bun', 'jug', 'lantern', 'pallet', 'sack'],
   'GEO.07.t1': ['ball', 'block', 'can', 'dice', 'drum', 'ice-cream', 'orange', 'party-hat'],
   'GEO.07.t3': ['ball', 'block', 'can', 'dice', 'drum', 'ice-cream', 'orange', 'party-hat'],
-  'MEA.01.t1': ['log', 'ribbon', 'rope', 'vine'],
-  'MEA.01.t2': ['log', 'ribbon', 'rope', 'vine'],
-  'MEA.01.t4': ['log', 'ribbon', 'rope', 'vine'],
-  'MEA.02.t1': ['log', 'ribbon', 'rope', 'vine'],
-  'MEA.02.t2': ['cube'],
-  'MEA.07.t1': ['log', 'ribbon', 'rope', 'vine'],
-  'MEA.07.t2': ['log', 'ribbon', 'rope', 'vine'],
-  'MEA.15.t1': [
-    'anchor',
-    'balloon',
-    'barrel',
-    'button',
-    'crate',
-    'cup',
-    'feather',
-    'fishing-rod',
-    'kite',
-    'log',
-    'ribbon',
-    'rock',
-    'rope',
-    'spoon',
-    'thimble',
-  ],
-  'MEA.15.t2': [
-    'anchor',
-    'balloon',
-    'barrel',
-    'bucket',
-    'button',
-    'crate',
-    'cup',
-    'feather',
-    'fishing-rod',
-    'jug',
-    'kite',
-    'log',
-    'ribbon',
-    'rock',
-    'rope',
-    'spoon',
-    'thimble',
-    'tub',
-  ],
-  'MEA.15.t3': [
-    'anchor',
-    'balloon',
-    'button',
-    'crate',
-    'cup',
-    'feather',
-    'fishing-rod',
-    'kite',
-    'log',
-    'ribbon',
-    'rock',
-    'rope',
-    'spoon',
-    'thimble',
-  ],
-  'MEA.15.t4': [
-    'anchor',
-    'balloon',
-    'barrel',
-    'bucket',
-    'button',
-    'crate',
-    'cup',
-    'feather',
-    'fishing-rod',
-    'jug',
-    'kite',
-    'log',
-    'ribbon',
-    'rock',
-    'rope',
-    'spoon',
-    'thimble',
-    'tub',
-  ],
-  'MEA.16.t1': ['apple', 'brick', 'coconut', 'feather', 'melon', 'pumpkin', 'rock'],
-  'MEA.16.t2': ['apple', 'brick', 'coconut', 'feather', 'melon', 'pumpkin', 'rock'],
-  'MEA.16.t3': ['apple', 'brick', 'feather', 'melon', 'pumpkin'],
-  'MEA.16.t4': ['brick', 'coconut', 'feather', 'melon', 'pumpkin', 'rock'],
-  'MEA.22.t1': ['log', 'ribbon', 'rope', 'vine'],
-  'MEA.22.t2': ['cube'],
-  'MEA.22.t3': ['log', 'ribbon', 'rope', 'vine'],
+  'MEA.01.t1': ['vine'],
+  'MEA.01.t2': ['vine'],
+  'MEA.01.t4': ['vine'],
+  'MEA.02.t1': ['vine'],
+  'MEA.07.t1': ['vine'],
+  'MEA.07.t2': ['vine'],
+  'MEA.15.t1': ['barrel'],
+  'MEA.15.t2': ['barrel', 'bucket', 'jug', 'tub'],
+  'MEA.15.t4': ['barrel', 'bucket', 'jug', 'tub'],
+  'MEA.22.t1': ['vine'],
+  'MEA.22.t3': ['vine'],
   'SUB.02.t1': ['finger'],
   'SUB.05.t1': ['finger'],
-  'TIM.08.t2': ['event-bedtime', 'event-breakfast', 'event-dinner', 'event-lunch', 'event-wake-up'], // K01 part 7: needs art
-  'TIM.08.t3': ['event-bedtime', 'event-breakfast', 'event-dinner', 'event-lunch', 'event-wake-up'], // K01 part 7: needs art
 };
 
 /**
@@ -366,11 +280,14 @@ describe('PR #84 review (2): K01 generators emit only sprites the art kit draws'
       }
     }
     const got = Object.fromEntries([...seen].map(([id, s]) => [id, [...s].sort()]));
-    for (const [id, sprites] of Object.entries(got)) {
-      const pinned = new Set(UNDRAWN_SPRITES[id] ?? []);
-      for (const s of sprites) expect(pinned.has(s), `${id} emits ${s}`).toBe(true);
-    }
-    for (const id of Object.keys(UNDRAWN_SPRITES)) expect(got[id], `${id} is stale`).toBeDefined();
+    expect(got).toEqual(UNDRAWN_SPRITES);
+    // The daily-event cards (TIM.08) are real drawings: none may fall back to a pebble.
+    const events = catalog
+      .filter(({ t: tt }) => tt.id.startsWith('TIM.08.'))
+      .flatMap(({ items: its }) => its.flatMap((i) => [...spriteIds(i.widget, new Set())]))
+      .filter((s) => s.startsWith('event-'));
+    expect(new Set(events).size).toBe(5);
+    for (const s of events) expect(DRAWN_SPRITES.has(s), s).toBe(true);
   });
 });
 
@@ -1119,5 +1036,55 @@ describe('PR #84 review round 3: the abstract FRA.08 order states what makes it 
       if (item.widget.format !== 'order') throw new Error('order');
       expect(item.widget.direction, t.id).toBe('desc');
     }
+  });
+});
+
+describe('PR #84 review, fresh round 1: no line claims a picture the widget does not draw', () => {
+  const lines = (t: ItemTemplate, item: GeneratedItem): string[] => [
+    item.prompt.text,
+    ...t.narration.hints.map((h) => render(h, item.prompt.vars)),
+  ];
+
+  it('ALG.02.t1 says its three terms and never says the chart shows them', () => {
+    const t = fixtureTemplate('ALG.02.t1');
+    for (const item of items(t)) {
+      const w = item.widget;
+      if (w.format !== 'hundred-chart') throw new Error('hundred-chart');
+      const start = Number(w.patternStart);
+      const step = Number(w.patternStep);
+      for (const term of [start, start + step, start + 2 * step]) {
+        expect(item.prompt.text).toMatch(new RegExp(`\\b${term}\\b`));
+      }
+      expect(item.prompt.text).toMatch(/^The pattern goes /);
+    }
+  });
+
+  it('catalog: a hundred chart in pattern mode marks no given term, so no line says it does', () => {
+    let seen = 0;
+    for (const { t, items: its } of catalog) {
+      for (const item of its) {
+        if (item.widget.format !== 'hundred-chart' || item.widget.mode !== 'pattern') continue;
+        seen += 1;
+        for (const line of lines(t, item)) {
+          expect(line, t.id).not.toMatch(/chart shows|shaded|colou?red|marked|ringed/i);
+        }
+      }
+    }
+    expect(seen).toBeGreaterThan(0);
+  });
+
+  it('catalog: a number bond draws a whole and two parts, so no line points at a drawn side', () => {
+    let seen = 0;
+    for (const { t, items: its } of catalog) {
+      if (t.format !== 'number-bond') continue;
+      for (const item of its) {
+        seen += 1;
+        for (const line of lines(t, item)) {
+          expect(line, t.id).not.toMatch(/this side|that side|you see on/i);
+        }
+      }
+    }
+    expect(seen).toBeGreaterThan(0);
+    expect(fixtureTemplate('PUZ.02.t2').narration.hints).not.toContain('h.puzzle.side-add');
   });
 });

@@ -1819,6 +1819,8 @@ h.puzzle.corner-two:
   text: "A number in a corner is on two sides. It counts for both."
 h.puzzle.bond-corners:
   text: "The two corners together are one part of the side."
+h.puzzle.bond-middle:
+  text: "The side is the whole. What goes with the corners to make it?"
 h.bond.ways-in-order:
   text: "Look at the ways in order. Which one is not there?"
 h.puzzle.ways-fewest:
