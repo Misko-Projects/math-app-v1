@@ -1,0 +1,290 @@
+/*
+ * Fraction pictures (U05, #14): FractionView and the fraction widgets. Palette tokens only.
+ * Filled parts: sea-deep fill, solid sea-dark outline. Empty parts: cloud, dashed ink-soft
+ * outline (as the Half-Crab's FractionShell). Cuts: a dark line with a light core.
+ */
+
+.ni-fraction {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 0;
+}
+.ni-fraction svg {
+  display: block;
+  overflow: visible;
+}
+
+.ni-fraction__rim {
+  fill: var(--color-paper);
+  stroke: none;
+}
+.ni-fraction__base[data-shape="loaf"] .ni-fraction__rim {
+  fill: var(--color-wood);
+}
+.ni-fraction__bed {
+  fill: var(--color-cloud);
+}
+.ni-fraction__base[data-shape="loaf"] .ni-fraction__bed {
+  fill: var(--color-horizon);
+}
+.ni-fraction__scores path {
+  fill: none;
+  stroke: var(--color-wood-deep);
+  stroke-width: 3;
+  stroke-linecap: round;
+}
+.ni-fraction__cells {
+  fill: none;
+  stroke: var(--color-pebble-deep);
+  stroke-width: 1.5;
+}
+.ni-fraction__outline {
+  fill: none;
+  stroke: var(--color-ink-soft);
+  stroke-width: 3.5;
+  stroke-linejoin: round;
+}
+.ni-fraction__base[data-shape="loaf"] ~ .ni-fraction__outline,
+.ni-fraction__outline[data-shape="loaf"] {
+  stroke: var(--color-wood-deep);
+}
+.ni-fraction__ghost {
+  fill: none;
+  stroke: var(--color-sand-deep);
+  stroke-width: 2.5;
+  stroke-dasharray: 3 7;
+  stroke-linecap: round;
+}
+.ni-fraction__base[data-ghost="true"] {
+  opacity: 0.35;
+}
+
+.ni-fraction__part {
+  stroke-linejoin: round;
+  transition:
+    fill var(--duration-base) ease-out,
+    stroke var(--duration-base) ease-out;
+}
+.ni-fraction__part[data-fraction="empty"] {
+  fill: var(--color-cloud);
+  stroke: var(--color-ink-soft);
+  stroke-width: 2.5;
+  stroke-dasharray: 6 5;
+}
+.ni-fraction__base[data-shape="loaf"]
+  ~ .ni-fraction__parts
+  .ni-fraction__part[data-fraction="empty"] {
+  fill: var(--color-horizon);
+}
+.ni-fraction__part[data-fraction="filled"] {
+  fill: var(--color-sea-deep);
+  stroke: var(--color-sea-dark);
+  stroke-width: 2.5;
+}
+.ni-fraction__part[data-counting="true"] {
+  stroke: var(--color-sun-deep);
+  stroke-width: 6;
+  stroke-dasharray: none;
+}
+
+.ni-fraction__cut {
+  fill: none;
+  stroke: var(--color-ink-soft);
+  stroke-width: 4.5;
+  stroke-linecap: round;
+}
+.ni-fraction__cut-core {
+  fill: none;
+  stroke: var(--color-cloud);
+  stroke-width: 1.6;
+  stroke-linecap: round;
+}
+
+.ni-fraction__overlay-cut {
+  fill: none;
+  stroke: var(--color-coral-deep);
+  stroke-width: 4;
+  stroke-dasharray: 10 6;
+  stroke-linecap: round;
+}
+.ni-fraction__overlay-part {
+  fill: none;
+  stroke: var(--color-coral-deep);
+  stroke-width: 6;
+  stroke-linejoin: round;
+}
+
+/* ---------- stacked fraction numerals (a over b), each digit ≥ 32 px ---------- */
+
+.ni-frac-num {
+  display: inline-grid;
+  grid-template-rows: auto auto;
+  justify-items: stretch;
+  align-items: center;
+  color: var(--color-ink);
+  font-family: var(--font-display);
+  /* 53 px type: Baloo 2 digits are drawn ~0.62 em, so ≥ 32 px tall (05 §11). */
+  font-size: var(--frac-digit, 3.3rem);
+  font-weight: 800;
+  line-height: 1;
+}
+.ni-frac-num > span {
+  display: block;
+  min-width: 0.7em;
+  padding: 0.08em 0.12em 0;
+  text-align: center;
+}
+.ni-frac-num > span:first-child {
+  border-bottom: 0.11em solid currentColor;
+  padding-bottom: 0.04em;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ni-fraction__part {
+    transition-duration: 0ms;
+  }
+}
+[data-reduced-motion="true"] .ni-fraction__part {
+  transition-duration: 0ms;
+}
+
+/* ---------- FractionEntry: stacked boxes and a compact 4 × 3 pad ---------- */
+
+.ni-fentry {
+  display: flex;
+  align-items: center;
+  gap: calc(var(--target-gap) * 2);
+}
+.ni-fentry__fraction {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+.ni-fentry__box {
+  display: grid;
+  place-items: center;
+  box-sizing: border-box;
+  min-width: calc(var(--target-min) * 1.25);
+  height: var(--target-min);
+  margin: 0;
+  padding: 0 10px;
+  appearance: none;
+  border: 3px solid var(--color-ink-soft);
+  border-radius: var(--radius-pebble);
+  background: var(--color-cloud);
+  color: var(--color-ink);
+  font-family: var(--font-display);
+  /* 53 px: the drawn digits are ≥ 32 px tall (05 §11). */
+  font-size: 3.3rem;
+  font-weight: 800;
+  line-height: 1;
+  cursor: pointer;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+.ni-fentry__box[data-empty="true"] {
+  border-style: dashed;
+  background: var(--color-sky-light);
+}
+/* The box being typed into: a thick ink ring (not colour alone). */
+.ni-fentry__box[data-active="true"] {
+  border: 5px solid var(--color-ink);
+  box-shadow: 0 0 0 4px var(--color-sunshine);
+}
+.ni-fentry__box:focus-visible {
+  outline: 4px solid var(--color-sea-deep);
+  outline-offset: 3px;
+}
+.ni-fentry__box.ni-invite {
+  /* A tight ring (7 px out): 12 px clear of the other box, the pad and Check. */
+  outline-offset: 2px;
+  border-radius: var(--radius-pebble);
+}
+.ni-fentry__digits {
+  padding-top: 0.12em;
+}
+.ni-fentry__bar {
+  display: block;
+  width: calc(var(--target-min) * 1.4);
+  height: 6px;
+  border-radius: 3px;
+  background: var(--color-ink);
+}
+.ni-fentry__pad {
+  display: grid;
+  grid-template-columns: repeat(4, var(--target-min));
+  grid-auto-rows: var(--target-min);
+  gap: var(--target-gap);
+  margin: 0;
+  padding: 0 0 4px;
+  border: 0;
+  min-width: 0;
+}
+.ni-fentry__key {
+  display: grid;
+  place-items: center;
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+  appearance: none;
+  border: 3px solid var(--color-ink);
+  border-radius: var(--radius-pebble);
+  background: var(--color-cloud);
+  color: var(--color-ink);
+  font-family: var(--font-display);
+  font-size: 3.3rem;
+  font-weight: 800;
+  line-height: 1;
+  box-shadow:
+    0 4px 0 var(--color-pebble-deep),
+    var(--shadow-highlight);
+  cursor: pointer;
+  touch-action: manipulation;
+  transition:
+    transform var(--duration-tap) ease-out,
+    box-shadow var(--duration-tap) ease-out;
+  -webkit-tap-highlight-color: transparent;
+}
+.ni-fentry__key:active:not(:disabled) {
+  transform: translateY(3px);
+  box-shadow:
+    0 1px 0 var(--color-pebble-deep),
+    var(--shadow-highlight);
+}
+.ni-fentry__key:focus-visible {
+  outline: 4px solid var(--color-sea-deep);
+  outline-offset: 3px;
+}
+.ni-fentry__key:disabled,
+.ni-fentry__box:disabled {
+  cursor: default;
+}
+.ni-fentry__key[data-key="back"] {
+  background: var(--color-sand);
+}
+.ni-fentry__key.ni-invite {
+  outline-offset: 4px;
+  border-radius: var(--radius-pebble);
+}
+.ni-fentry__digit {
+  padding-top: 0.12em;
+}
+.ni-fentry__icon {
+  width: var(--icon-size);
+  height: var(--icon-size);
+}
+[data-reduced-motion="true"] .ni-fentry__key {
+  transition-duration: 0ms;
+}
+.ni-fentry__column {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 20px;
+}

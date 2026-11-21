@@ -1,6 +1,7 @@
-import type { WidgetConfig } from '@number-island/shared';
+import { FRACTION_PARTS_MAX, type StimulusSpec, type WidgetConfig } from '@number-island/shared';
 import type { Meta, StoryObj } from '@storybook/react-vite';
 import { expect, fn, userEvent, waitFor, within } from 'storybook/test';
+import { expectFractionPictures, expectOneScale } from '../../test-support/pictureStory';
 import {
   center,
   clearSpies,
@@ -1738,5 +1739,119 @@ export const DailyEventsKMinLandscape: Story = {
     await expect(audio.say).toHaveBeenCalledWith('ui.sprite.event-wake-up', undefined);
     await userEvent.click(cards[2] as HTMLElement);
     (document.activeElement as HTMLElement | null)?.blur();
+  },
+};
+
+// ---------- fraction pictures (U05, #14). An order card never shows a chart: the order model
+// refuses one, because a card cannot keep a chart's numerals at 32 px. ----------
+
+const strip = (parts: number, shaded = 1): StimulusSpec => ({
+  kind: 'fraction',
+  shape: 'bar',
+  parts,
+  shaded,
+  equalParts: true,
+});
+/** A piece's size in 24ths (the order format compares numbers; the widget never shows them). */
+const piece = (parts: number) => 24 / parts;
+
+/** FRA.08.t3 (grade 1): three strips, one piece of each filled, biggest piece first. */
+const fractionStripCards: Config = {
+  format: 'order',
+  items: [4, 2, 8].map((parts, i) => ({
+    id: `obj-${i}`,
+    value: piece(parts),
+    stimulus: strip(parts),
+  })),
+  direction: 'desc',
+};
+/** The most parts a picture has: twelfths, with 3, 9 and 6 of them filled. */
+const fractionTwelfthCards: Config = {
+  format: 'order',
+  items: [3, 9, 6].map((shaded, i) => ({
+    id: `obj-${i}`,
+    value: shaded,
+    stimulus: strip(FRACTION_PARTS_MAX, shaded),
+  })),
+  direction: 'asc',
+};
+
+/** Three picture cards of one kind: real drawings, each a named button, all inside the area. */
+async function expectDrawnCards(canvasElement: HTMLElement, root: HTMLElement) {
+  const kind = 'fraction';
+  await expectOrderFits(canvasElement, root, 'g1-up');
+  await expectPictureCards(root, 3, 'g1-up');
+  const pictures = [...root.querySelectorAll<HTMLElement>('.ni-ord__tray .ni-fitpic')];
+  await expect(pictures.map((p) => p.dataset.kind)).toEqual([kind, kind, kind]);
+  await expect(root.querySelector('[data-unsupported]')).toBeNull();
+  // Each card's spoken label is its place in the tray, never the quantity it shows.
+  for (const n of [1, 2, 3]) await expect(card(root, `Picture ${n}`)).toBeVisible();
+}
+
+/** Tap each named card into its box, in the order given, and check. */
+async function placeAndCheck(root: HTMLElement, order: number[]) {
+  for (const [k, n] of order.entries()) {
+    await userEvent.click(card(root, `Picture ${n}`));
+    await userEvent.click(slot(root, k + 1));
+  }
+  await userEvent.click(within(root).getByRole('button', { name: 'Check' }));
+}
+
+/**
+ * FRA.08.t3 on the tablet: strips in fourths, halves and eighths, one piece of each filled. The
+ * strips are one size, each one's parts equal; ordered biggest piece first.
+ */
+export const FractionStripCardsTablet: Story = {
+  args: { config: fractionStripCards, tier: 'pictorial' },
+  render: inArea('tablet'),
+  play: async ({ canvasElement, args }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    await expectDrawnCards(canvasElement, root);
+    const m = await expectFractionPictures(root);
+    await expect(m.map((p) => [p.shape, p.parts, p.shaded])).toEqual([
+      ['bar', 4, 1],
+      ['bar', 2, 1],
+      ['bar', 8, 1],
+    ]);
+    await expectOneScale(
+      m.map((p) => p.width),
+      'wholes are one width',
+    );
+    noteMeasure(canvasElement, 'whole', `${m[0]?.width}x${m[0]?.height}`);
+    await placeAndCheck(root, [2, 1, 3]);
+    await expect(args.onResponse).toHaveBeenCalledWith({ kind: 'numbers', values: [12, 6, 3] });
+  },
+};
+
+/** FRA.08.t3 at the 960 × 600 minimum (852 × 319): the three strips, still one size. */
+export const FractionStripCardsMin: Story = {
+  args: { config: fractionStripCards, tier: 'pictorial' },
+  render: inArea('landscapeMin'),
+  play: async ({ canvasElement }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    await expectDrawnCards(canvasElement, root);
+    const m = await expectFractionPictures(root);
+    await expectOneScale(
+      m.map((p) => p.width),
+      'wholes are one width',
+    );
+    noteMeasure(canvasElement, 'whole', `${m[0]?.width}x${m[0]?.height}`);
+  },
+};
+
+/** Stress: twelfths (the most parts) at the minimum area, 3, 9 and 6 of them filled. */
+export const FractionTwelfthCardsMin: Story = {
+  args: { config: fractionTwelfthCards, tier: 'pictorial' },
+  render: inArea('landscapeMin'),
+  play: async ({ canvasElement }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    await expectDrawnCards(canvasElement, root);
+    const m = await expectFractionPictures(root);
+    await expect(m.map((p) => [p.parts, p.shaded])).toEqual([
+      [12, 3],
+      [12, 9],
+      [12, 6],
+    ]);
+    noteMeasure(canvasElement, 'whole', `${m[0]?.width}x${m[0]?.height}`);
   },
 };

@@ -1,6 +1,16 @@
-import type { StimulusSpec, WidgetConfig } from '@number-island/shared';
+import {
+  CHART_AXIS_STEPS_MAX,
+  FRACTION_PARTS_MAX,
+  type StimulusSpec,
+  type WidgetConfig,
+} from '@number-island/shared';
 import type { Meta, StoryObj } from '@storybook/react-vite';
 import { expect, fn, userEvent, waitFor, within } from 'storybook/test';
+import {
+  expectBarCharts,
+  expectFractionPictures,
+  expectOneScale,
+} from '../../test-support/pictureStory';
 import {
   center,
   clearSpies,
@@ -1732,5 +1742,325 @@ export const NumberLinesKTablet: Story = {
     const root = await findWidget(canvasElement, ROOT);
     await expectCompareFits(canvasElement, root, 'k');
     await expectPicturesInside(root);
+  },
+};
+
+// ---------- fraction and chart pictures (U05, #14: StimulusView draws both kinds) ----------
+
+const fractionSide = (
+  shape: 'bar' | 'circle' | 'rect' | 'loaf',
+  parts: number,
+  shaded = 1,
+): StimulusSpec => ({ kind: 'fraction', shape, parts, shaded, equalParts: true });
+
+/** FRA.08.t1 (grade 1): one piece of each strip; which piece is bigger? */
+const fractionStrips: Config = {
+  format: 'compare',
+  left: fractionSide('bar', 2),
+  right: fractionSide('bar', 4),
+  ask: 'more',
+  allowMatchLines: false,
+};
+/** FRA.08.t2: the same with circles. */
+const fractionCircles: Config = {
+  ...fractionStrips,
+  left: fractionSide('circle', 3),
+  right: fractionSide('circle', 8),
+};
+/** The most parts a picture has (`FRACTION_PARTS_MAX`): twelfths, five and seven of them filled. */
+const fractionTwelfths: Config = {
+  ...fractionStrips,
+  left: fractionSide('circle', FRACTION_PARTS_MAX, 5),
+  right: fractionSide('circle', FRACTION_PARTS_MAX, 7),
+};
+
+const oneBar = (id: string, value: number, axisMax: number): StimulusSpec => ({
+  kind: 'chart',
+  chart: {
+    kind: 'bar',
+    orientation: 'vertical',
+    categories: [{ id, label: `noun.${id}.many`, value }],
+    scale: 1,
+    axisMax,
+  },
+});
+/** DAT.02.t4 (grade 1): two one-bar graphs on one scale; which has more? */
+const barCharts: Config = {
+  format: 'compare',
+  left: oneBar('fish', 7, 10),
+  right: oneBar('crab', 4, 10),
+  ask: 'more',
+  allowMatchLines: false,
+};
+/** The longest axis a chart has (`CHART_AXIS_STEPS_MAX` steps), one bar at its top. */
+const barChartsTall: Config = {
+  ...barCharts,
+  left: oneBar('shell', CHART_AXIS_STEPS_MAX, CHART_AXIS_STEPS_MAX),
+  right: oneBar('apple', 13, CHART_AXIS_STEPS_MAX),
+};
+
+/**
+ * The widest chart a stimulus may be (`CHART_STIMULUS_CATEGORIES_MAX` columns, a three-digit
+ * axis of `CHART_AXIS_STEPS_MAX` tens) on both sides.
+ */
+const twoBars = (a: number, b: number): StimulusSpec => ({
+  kind: 'chart',
+  chart: {
+    kind: 'bar',
+    orientation: 'vertical',
+    categories: [
+      { id: 'fish', label: 'noun.fish.many', value: a },
+      { id: 'crab', label: 'noun.crab.many', value: b },
+    ],
+    scale: 10,
+    axisMax: 10 * CHART_AXIS_STEPS_MAX,
+  },
+});
+const barChartsWidest: Config = { ...barCharts, left: twoBars(200, 90), right: twoBars(60, 150) };
+
+/** Both sides are real pictures, named, inside their cards; picking one answers. */
+async function expectPictureSides(
+  canvasElement: HTMLElement,
+  root: HTMLElement,
+  kind: 'fraction' | 'chart',
+  age: 'k' | 'g1-up' = 'g1-up',
+) {
+  await expectCompareFits(canvasElement, root, age);
+  await expectPicturesInside(root);
+  const pictures = [...root.querySelectorAll<HTMLElement>('.ni-fitpic')];
+  await expect(pictures.map((p) => p.dataset.kind)).toEqual([kind, kind]);
+  await expect(root.querySelector('[data-unsupported]')).toBeNull();
+  const canvas = within(root);
+  // Each side is a named button (its spoken label); the picture's own name never says a number.
+  await expect(canvas.getByRole('button', { name: 'Left side' })).toBeVisible();
+  await expect(canvas.getByRole('button', { name: 'Right side' })).toBeVisible();
+}
+
+async function pickAndCheck(root: HTMLElement, name: string) {
+  const canvas = within(root);
+  await userEvent.click(canvas.getByRole('button', { name }));
+  await userEvent.click(canvas.getByRole('button', { name: 'Check' }));
+}
+
+/**
+ * FRA.08.t1 on the tablet: two strips of one size, one cut in halves and one in fourths, one piece
+ * of each filled. The parts of each strip are equal to a hundredth of a unit, and the bigger
+ * piece is the left one.
+ */
+export const FractionStripsTablet: Story = {
+  args: { config: fractionStrips, tier: 'concrete' },
+  render: inArea('tablet'),
+  play: async ({ canvasElement, args }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    await expectPictureSides(canvasElement, root, 'fraction');
+    const m = await expectFractionPictures(root);
+    await expect(m.map((p) => [p.shape, p.parts, p.shaded])).toEqual([
+      ['bar', 2, 1],
+      ['bar', 4, 1],
+    ]);
+    await expectOneScale(
+      m.map((p) => p.width),
+      'wholes are one width',
+    );
+    await expectOneScale(
+      m.map((p) => p.height),
+      'wholes are one height',
+    );
+    noteMeasure(canvasElement, 'whole', `${m[0]?.width}x${m[0]?.height}`);
+    await pickAndCheck(root, 'Left side');
+    await expect(args.onResponse).toHaveBeenCalledWith({ kind: 'choice', id: 'left' });
+  },
+};
+
+/** FRA.08.t1 at the 960 × 600 minimum (852 × 319): the same two strips, still one size. */
+export const FractionStripsMin: Story = {
+  args: { config: fractionStrips, tier: 'concrete' },
+  render: inArea('landscapeMin'),
+  play: async ({ canvasElement }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    await expectPictureSides(canvasElement, root, 'fraction');
+    const m = await expectFractionPictures(root);
+    await expectOneScale(
+      m.map((p) => p.width),
+      'wholes are one width',
+    );
+    noteMeasure(canvasElement, 'whole', `${m[0]?.width}x${m[0]?.height}`);
+  },
+};
+
+/** FRA.08.t2 on the tablet: circles in thirds and eighths, one piece of each filled. */
+export const FractionCirclesTablet: Story = {
+  args: { config: fractionCircles, tier: 'pictorial' },
+  render: inArea('tablet'),
+  play: async ({ canvasElement, args }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    await expectPictureSides(canvasElement, root, 'fraction');
+    const m = await expectFractionPictures(root);
+    await expect(m.map((p) => [p.shape, p.parts, p.shaded])).toEqual([
+      ['circle', 3, 1],
+      ['circle', 8, 1],
+    ]);
+    await expectOneScale(
+      m.map((p) => p.width),
+      'wholes are one size',
+    );
+    noteMeasure(canvasElement, 'whole', `${m[0]?.width}x${m[0]?.height}`);
+    await pickAndCheck(root, 'Left side');
+    await expect(args.onResponse).toHaveBeenCalledWith({ kind: 'choice', id: 'left' });
+  },
+};
+
+/** FRA.08.t2 at the minimum area. */
+export const FractionCirclesMin: Story = {
+  args: { config: fractionCircles, tier: 'pictorial' },
+  render: inArea('landscapeMin'),
+  play: async ({ canvasElement }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    await expectPictureSides(canvasElement, root, 'fraction');
+    const m = await expectFractionPictures(root);
+    await expectOneScale(
+      m.map((p) => p.width),
+      'wholes are one size',
+    );
+    noteMeasure(canvasElement, 'whole', `${m[0]?.width}x${m[0]?.height}`);
+  },
+};
+
+/** Stress: twelfths (the most parts), 5 and 7 filled, at the minimum area. */
+export const FractionTwelfthsMin: Story = {
+  args: { config: fractionTwelfths, tier: 'pictorial' },
+  render: inArea('landscapeMin'),
+  play: async ({ canvasElement }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    await expectPictureSides(canvasElement, root, 'fraction');
+    const m = await expectFractionPictures(root);
+    await expect(m.map((p) => [p.parts, p.shaded])).toEqual([
+      [12, 5],
+      [12, 7],
+    ]);
+    noteMeasure(canvasElement, 'whole', `${m[0]?.width}x${m[0]?.height}`);
+  },
+};
+
+/**
+ * DAT.02.t4 on the tablet: a bar of 7 and a bar of 4 on one 0–10 axis each. A bar's drawn height
+ * is its value times the px one count takes, the same px on both sides, and the axis numerals
+ * are at least 32 px. The taller bar is the left one.
+ */
+export const BarChartsTablet: Story = {
+  args: { config: barCharts, tier: 'pictorial' },
+  render: inArea('tablet'),
+  play: async ({ canvasElement, args }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    await expectPictureSides(canvasElement, root, 'chart');
+    const m = await expectBarCharts(root);
+    await expect(m.map((c) => c.bars.map((b) => [b.id, b.value]))).toEqual([
+      [['fish', 7]],
+      [['crab', 4]],
+    ]);
+    await expectOneScale(
+      m.map((c) => c.unit),
+      'px per count',
+    );
+    await expect(within(root).getByText('fish')).toBeVisible();
+    await expect(within(root).getByText('crabs')).toBeVisible();
+    noteMeasure(canvasElement, 'unit', m[0]?.unit ?? 0);
+    noteMeasure(canvasElement, 'numeral', Math.min(...m.map((c) => c.numeral)));
+    await pickAndCheck(root, 'Left side');
+    await expect(args.onResponse).toHaveBeenCalledWith({ kind: 'choice', id: 'left' });
+  },
+};
+
+/** DAT.02.t4 at the minimum area: the same charts, one scale, numerals still 32 px. */
+export const BarChartsMin: Story = {
+  args: { config: barCharts, tier: 'pictorial' },
+  render: inArea('landscapeMin'),
+  play: async ({ canvasElement }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    await expectPictureSides(canvasElement, root, 'chart');
+    const m = await expectBarCharts(root);
+    await expectOneScale(
+      m.map((c) => c.unit),
+      'px per count',
+    );
+    noteMeasure(canvasElement, 'unit', m[0]?.unit ?? 0);
+    noteMeasure(canvasElement, 'numeral', Math.min(...m.map((c) => c.numeral)));
+  },
+};
+
+/** Stress: the longest axis (20 steps) at the minimum area, a bar of 20 and a bar of 13. */
+export const BarChartsTallMin: Story = {
+  args: { config: barChartsTall, tier: 'pictorial' },
+  render: inArea('landscapeMin'),
+  play: async ({ canvasElement }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    await expectPictureSides(canvasElement, root, 'chart');
+    const m = await expectBarCharts(root);
+    await expect(m.map((c) => c.bars.map((b) => b.value))).toEqual([[20], [13]]);
+    await expectOneScale(
+      m.map((c) => c.unit),
+      'px per count',
+    );
+    noteMeasure(canvasElement, 'unit', m[0]?.unit ?? 0);
+    noteMeasure(canvasElement, 'numeral', Math.min(...m.map((c) => c.numeral)));
+  },
+};
+
+/**
+ * Stress: the widest chart a stimulus may be, in K mode (the biggest targets, so the smallest
+ * sides) at the minimum area: two columns and a 0–200 axis on each side. The charts are laid out
+ * in their boxes, not scaled down, so the numerals are still 32 px and one count is the same px
+ * on both sides.
+ */
+export const BarChartsWidestKMin: Story = {
+  globals: { ageMode: 'k' },
+  args: { config: barChartsWidest, tier: 'pictorial' },
+  render: inArea('landscapeMin'),
+  play: async ({ canvasElement }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    await expectPictureSides(canvasElement, root, 'chart', 'k');
+    const m = await expectBarCharts(root);
+    await expect(m.map((c) => c.bars.map((b) => b.value))).toEqual([
+      [200, 90],
+      [60, 150],
+    ]);
+    await expectOneScale(
+      m.map((c) => c.unit),
+      'px per count',
+    );
+    noteMeasure(canvasElement, 'unit', m[0]?.unit ?? 0);
+    noteMeasure(canvasElement, 'numeral', Math.min(...m.map((c) => c.numeral)));
+  },
+};
+
+/** The same widest charts with the other chart ask (`fewer`): the layout and the sizes hold. */
+export const BarChartsWidestFewerKMin: Story = {
+  globals: { ageMode: 'k' },
+  args: { config: { ...barChartsWidest, ask: 'fewer' }, tier: 'pictorial' },
+  render: inArea('landscapeMin'),
+  play: async ({ canvasElement }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    await expectPictureSides(canvasElement, root, 'chart', 'k');
+    const m = await expectBarCharts(root);
+    await expectOneScale(
+      m.map((c) => c.unit),
+      'px per count',
+    );
+  },
+};
+
+/** The widest charts in the portrait area (K): the sides stack or sit side by side, numerals 32 px. */
+export const BarChartsWidestKPortrait: Story = {
+  globals: { ageMode: 'k' },
+  args: { config: barChartsWidest, tier: 'pictorial' },
+  render: inArea('portrait'),
+  play: async ({ canvasElement }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    await expectPictureSides(canvasElement, root, 'chart', 'k');
+    const m = await expectBarCharts(root);
+    await expectOneScale(
+      m.map((c) => c.unit),
+      'px per count',
+    );
   },
 };
