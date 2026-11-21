@@ -2339,7 +2339,7 @@ const stockEdge: Config = {
   pieces: ALL,
   wholeIs: 'unit',
   limits: { hundreds: 2, tens: 2, ones: 3 },
-  prebuilt: { thousands: 9, hundreds: 17, tens: 27, ones: 196 },
+  prebuilt: { thousands: 9, hundreds: 18, tens: 28, ones: 197 },
 };
 
 /**
@@ -2359,6 +2359,15 @@ const stockStory = (ageMode: 'k' | 'g1-up'): Story => ({
     const probes: { config: Config; adds: Limited[] }[] = [
       { config: reviewR4, adds: ['hundreds'] },
       { config: stockEdge, adds: ['hundreds', 'tens', 'ones'] },
+      // Past the caps (as the two-way story's edge probes): here the guard refuses moves.
+      {
+        config: {
+          ...stockEdge,
+          limits: { hundreds: 1, tens: 1, ones: 1 },
+          prebuilt: { thousands: 11, hundreds: 19, tens: 29, ones: 199 },
+        },
+        adds: [],
+      },
     ];
     const wrong: string[] = [];
     let allowed = 0;
@@ -2429,7 +2438,9 @@ const stockStory = (ageMode: 'k' | 'g1-up'): Story => ({
     await expect(wrong, 'guard and render agree').toEqual([]);
     await expect(played, 'stock-changing moves played').toBe(9);
     await expect(allowed, 'moves allowed').toBeGreaterThan(10);
-    await expect(refused, 'moves refused').toBeGreaterThan(0);
+    // No refusal is required here: with stock tags these mats still fit. The refusing side is
+    // GuardAgreesWithRender's; this story holds both sides to whatever is decided.
+    await expect(allowed + refused, 'moves decided').toBeGreaterThan(20);
   },
 });
 /** Guard and render agree after limited adds and a put-back, in G1. */

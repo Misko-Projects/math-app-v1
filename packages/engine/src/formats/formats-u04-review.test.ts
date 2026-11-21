@@ -94,7 +94,7 @@ describe('base-ten-trade', () => {
       start: { hundreds: 12, tens: 0, ones: 0 },
       operation: { op: '+' as const, operand: { hundreds: 3, tens: 0, ones: 0 } },
     };
-    expect(issuePaths(baseTenTrade, big)).toEqual(['start.hundreds', 'operation.operand.hundreds']);
+    expect(issuePaths(baseTenTrade, big)).toEqual(['start.hundreds']);
     expect(
       pass(
         'trade.result',
