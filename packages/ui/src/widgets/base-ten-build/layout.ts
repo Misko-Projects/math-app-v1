@@ -343,6 +343,24 @@ export interface SideSizes {
   checkH: number;
 }
 
+/**
+ * The measured sizes when they show this item's parts (as many piles and chips, a goal or none),
+ * else undefined: the planner then keeps its model. A tray with no piles has no pile to measure,
+ * so its width of 0 is a valid measurement there (PR #74 review, rounds 6 to 8).
+ */
+export function usableSizes(
+  measured: SideSizes | null,
+  item: { piles: number; chips: number; goal: boolean },
+): SideSizes | undefined {
+  if (!measured) return undefined;
+  if (item.piles > 0 && !(measured.pileW > 0)) return undefined;
+  if (measured.tileH.length !== item.piles || measured.chips.length !== item.chips) {
+    return undefined;
+  }
+  if ((measured.goal !== null) !== item.goal) return undefined;
+  return measured;
+}
+
 /** The model's sizes for `spec`: SIDE_PX, COMPACT_CHIP_W and the goal's digits. */
 export function modelSizes(spec: SideSpec): SideSizes {
   const px = spec.k ? SIDE_PX.k : SIDE_PX.g1;

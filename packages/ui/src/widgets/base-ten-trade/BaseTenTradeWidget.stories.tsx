@@ -1562,11 +1562,19 @@ export const DemoReducedMotion: Story = {
   args: { disabled: true, demo: reducedController, config: take42minus15 },
   play: async ({ canvasElement }) => {
     const root = await findWidget(canvasElement, ROOT);
-    const started = performance.now();
+    // Instant: no flying piece (ghost) is ever drawn, and the mat is right as soon as each op
+    // resolves. Checked by the effect, never by the clock.
+    let ghosts = 0;
+    const watch = new MutationObserver(() => {
+      ghosts += root.querySelectorAll('.ni-btt__ghost').length;
+    });
+    watch.observe(root, { childList: true, subtree: true });
     await reducedController.play({ op: 'trade', args: { from: 'tens', to: 'ones' } });
+    await expect(mat(root)).toEqual({ hundreds: 0, tens: 3, ones: 12 });
     await reducedController.play({ op: 'take', args: { column: 'ones', count: 5 } });
-    await expect(performance.now() - started).toBeLessThan(500);
     await expect(mat(root)).toEqual({ hundreds: 0, tens: 3, ones: 7 });
+    watch.disconnect();
+    await expect(ghosts).toBe(0);
   },
 };
 
@@ -1713,20 +1721,21 @@ export const DemoSettlesOnUnmount: Story = {
   render: (args) => <ItemSwapHarness {...args} />,
   play: async ({ canvasElement }) => {
     await findWidget(canvasElement, ROOT);
-    let started = performance.now();
+    const first = await findWidget(canvasElement, ROOT);
     const take = swapController.play({ op: 'take', args: { column: 'ones', count: 2 } });
     nextItem(); // same tick: the widget unmounts before the take commits
     await expect(await outcomeOf(take, 2500)).toBe('settled');
-    await expect(performance.now() - started).toBeLessThan(150);
+    // Settled by the unmount: the old item is gone and its take never landed anywhere.
+    await expect(first.isConnected).toBe(false);
     // Mid-animation: the rod is cracking into ones when the host moves on.
     let root = await findWidget(canvasElement, ROOT);
     await expect(mat(root)).toEqual({ hundreds: 0, tens: 4, ones: 2 });
     const split = swapController.play({ op: 'trade', args: { from: 'tens', to: 'ones' } });
     await waitFor(() => expect(root.querySelector('.ni-btt__ghost')).not.toBeNull());
-    started = performance.now();
+    const second = root;
     nextItem();
     await expect(await outcomeOf(split, 2500)).toBe('settled');
-    await expect(performance.now() - started).toBeLessThan(150);
+    await expect(second.isConnected).toBe(false);
     // The next item starts fresh, bound to the same controller.
     root = await findWidget(canvasElement, ROOT);
     await expect(mat(root)).toEqual({ hundreds: 0, tens: 4, ones: 2 });

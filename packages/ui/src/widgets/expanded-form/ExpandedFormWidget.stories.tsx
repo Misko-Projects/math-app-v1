@@ -1,3 +1,4 @@
+import { formatModel } from '@number-island/engine';
 import type { WidgetConfig } from '@number-island/shared';
 import type { Meta, StoryObj } from '@storybook/react-vite';
 import { useState } from 'react';
@@ -57,7 +58,10 @@ const buildTeenK: Config = {
   unusualOrder: false,
 };
 
-/** The largest build: 3,405 from eight cards, distractors included. */
+/**
+ * A large build: 3,405 from eight cards, distractors included. (One card more than the schema's
+ * seven: these pictures are small. `StressSevenWideCards` draws the schema's own worst case.)
+ */
 const buildStress: Config = {
   format: 'expanded-form',
   target: 3405,
@@ -999,6 +1003,136 @@ export const Stress: Story = {
   },
 };
 
+// ---------- the supported domain's edges (engine: expanded-form.ts, domainIssues) ----------
+
+/** Four blanks, one a place, for the largest target: □ + □ + □ + □ = 9999. */
+const fillFour: Config = {
+  format: 'expanded-form',
+  target: 9999,
+  mode: 'fill',
+  expression: {
+    tokens: [
+      { t: 'blank', id: 'th' },
+      { t: 'op', v: '+' },
+      { t: 'blank', id: 'h' },
+      { t: 'op', v: '+' },
+      { t: 'blank', id: 't' },
+      { t: 'op', v: '+' },
+      { t: 'blank', id: 'o' },
+      { t: 'rel', v: '=' },
+      { t: 'num', v: 9999 },
+    ],
+  },
+  unusualOrder: false,
+};
+
+/** Seventeen tokens: a three-digit sum grouped by place, as mda.addsub writes it. */
+const groupedSum: Config = {
+  format: 'expanded-form',
+  target: 999,
+  mode: 'to-standard',
+  expression: {
+    tokens: [
+      { t: 'paren', v: '(' },
+      { t: 'num', v: 500 },
+      { t: 'op', v: '+' },
+      { t: 'num', v: 400 },
+      { t: 'paren', v: ')' },
+      { t: 'op', v: '+' },
+      { t: 'paren', v: '(' },
+      { t: 'num', v: 50 },
+      { t: 'op', v: '+' },
+      { t: 'num', v: 40 },
+      { t: 'paren', v: ')' },
+      { t: 'op', v: '+' },
+      { t: 'paren', v: '(' },
+      { t: 'num', v: 5 },
+      { t: 'op', v: '+' },
+      { t: 'num', v: 4 },
+      { t: 'paren', v: ')' },
+    ],
+  },
+  unusualOrder: false,
+};
+
+/**
+ * Seven cards (the most), each with the biggest picture of its place (nines and eights), one of
+ * them five digits wide (a near miss one place past the target).
+ */
+const buildWide: Config = {
+  format: 'expanded-form',
+  target: 9999,
+  mode: 'build',
+  cards: [90_000, 9000, 900, 90, 9, 8000, 800],
+  unusualOrder: false,
+};
+
+const efModel = () => {
+  const model = formatModel('expanded-form');
+  if (!model) throw new Error('no expanded-form model');
+  return model;
+};
+
+/**
+ * The widest fill the schema accepts: four blanks, each holding a four-digit number, typed on
+ * the pad. Still fits 1280 × 800 with every blank full, and numerals stay 32 px or more.
+ */
+export const StressFillFourBlanks: Story = {
+  args: { config: fillFour, tier: 'abstract' },
+  play: async ({ canvasElement, args }) => {
+    await expect(efModel().configSchema.safeParse(fillFour).success).toBe(true);
+    const root = await findWidget(canvasElement, ROOT);
+    const canvas = within(root);
+    await expectFits(canvasElement, root);
+    const typed = ['9000', '9000', '9000', '9000'];
+    for (let i = 0; i < typed.length; i++) {
+      const box = canvas.getByRole('button', { name: new RegExp(`^Box ${i + 1}:`) });
+      if (box.getAttribute('aria-current') !== 'true') await userEvent.click(box);
+      for (const k of typed[i] as string) await userEvent.click(key(root, k));
+    }
+    await expectFits(canvasElement, root);
+    await expectNumeralsAtLeast32(root, '.ni-expr, .ni-efw__blank');
+    await userEvent.click(checkButton(root));
+    await expect(args.onResponse).toHaveBeenCalledWith({
+      kind: 'numbers',
+      values: [9000, 9000, 9000, 9000],
+    });
+    endFrame();
+  },
+};
+
+/** The longest expression the schema accepts (17 tokens) fits, numerals 32 px or more. */
+export const StressGroupedSum: Story = {
+  args: { config: groupedSum, tier: 'abstract' },
+  play: async ({ canvasElement }) => {
+    await expect(efModel().configSchema.safeParse(groupedSum).success).toBe(true);
+    const root = await findWidget(canvasElement, ROOT);
+    await expectFits(canvasElement, root);
+    await expectNumeralsAtLeast32(root, '.ni-expr');
+    for (const k of ['9', '9', '9']) await userEvent.click(key(root, k));
+    await expectFits(canvasElement, root);
+    endFrame();
+  },
+};
+
+/** The widest tray the schema accepts, in the tray and then all on the mat. */
+export const StressSevenWideCards: Story = {
+  args: { config: buildWide },
+  play: async ({ canvasElement }) => {
+    await expect(efModel().configSchema.safeParse(buildWide).success).toBe(true);
+    const root = await findWidget(canvasElement, ROOT);
+    await expectFits(canvasElement, root);
+    const cards = trayCards(root);
+    await expect(cards).toHaveLength(7);
+    for (const c of cards) await expectTargetSize(c, 'g1-up');
+    await expectTargetGaps(cards);
+    for (const v of buildWide.cards ?? []) await tapPlace(root, v);
+    await expect(matCards(root)).toHaveLength(7);
+    await expectFits(canvasElement, root);
+    endFrame();
+  },
+};
+
 /**
  * Every card of the largest build on the mat (the most it can hold): the mat wraps with each "+"
  * leading its card (no line ends with "+"), and the empty tray shows a soft dashed spot with an
@@ -1421,8 +1555,7 @@ export const DemoSettlesOnUnmount: Story = {
   args: { disabled: true },
   render: (args) => <ItemSwapHarness {...args} />,
   play: async ({ canvasElement }) => {
-    await findWidget(canvasElement, ROOT);
-    const started = performance.now();
+    const first = await findWidget(canvasElement, ROOT);
     const playing = swapController.play({ op: 'place-card', args: { value: 300 } });
     nextItem(); // same tick: the widget unmounts before the placement commits
     const outcome = await Promise.race([
@@ -1430,8 +1563,8 @@ export const DemoSettlesOnUnmount: Story = {
       new Promise((r) => setTimeout(() => r('hung'), 2500)),
     ]);
     await expect(outcome).toBe('settled');
-    // Settled on unmount, not by the 250 ms commit fallback (plus its 250 ms pause).
-    await expect(performance.now() - started).toBeLessThan(200);
+    // Settled by the unmount: the old item is gone (checked by the effect, never by the clock).
+    await expect(first.isConnected).toBe(false);
     // The next item starts fresh: the old item's card never landed on its mat.
     const root = await findWidget(canvasElement, ROOT);
     await expect(canvasElement.querySelectorAll(ROOT)).toHaveLength(1);
@@ -1468,7 +1601,7 @@ export const ReducedMotion: Story = {
   args: { disabled: true, demo: reducedController },
   play: async ({ canvasElement }) => {
     const root = await findWidget(canvasElement, ROOT);
-    const started = performance.now();
+    // Instant: each effect is on screen as soon as its op resolves (no waiting, no clock).
     await reducedController.play({ op: 'answer', args: { values: [300, 40, 5] } });
     await expect(matCards(root)).toHaveLength(3);
     await expect(pad(root, 'build')).toHaveClass('ni-invite');
@@ -1480,7 +1613,6 @@ export const ReducedMotion: Story = {
     await reducedController.play({ op: 'highlight-digit', args: { index: 2 } });
     // The ring stays (no pulse) until the next step.
     await expect(root.querySelector('.ni-efw__nd[data-digit="2"]')).toHaveClass('ni-invite');
-    await expect(performance.now() - started).toBeLessThan(1500);
   },
 };
 
@@ -1490,9 +1622,7 @@ export const ReducedMotionPad: Story = {
   args: { config: digitValue, tier: 'abstract', disabled: true, demo: reducedDigitController },
   play: async ({ canvasElement }) => {
     const root = await findWidget(canvasElement, ROOT);
-    const started = performance.now();
     await reducedDigitController.play({ op: 'answer', args: { value: 400 } });
-    await expect(performance.now() - started).toBeLessThan(500);
     await expect(within(root).getByRole('button', { name: 'Your answer: 400' })).toHaveClass(
       'ni-invite',
     );

@@ -49,6 +49,7 @@ import {
   sidePlan,
   smaller,
   unitCandidates,
+  usableSizes,
 } from './layout';
 import { PieceArt, PileArt, PlaceIcon, TradeIcon } from './pieces';
 import './base-ten-build.css';
@@ -555,14 +556,11 @@ export function BaseTenBuildWidget({
     exactN: exactKinds.map((k) => config.exact?.[k] ?? 0),
     height: WIDGET_H - 2 * ROOT_PAD_Y,
     // The measured parts, once the measurer shows this item's goal, chips and piles.
-    sizes:
-      measured &&
-      measured.pileW > 0 &&
-      measured.chips.length === exactKinds.length &&
-      measured.tileH.length === trayKinds.length &&
-      (measured.goal === null) === goalHidden
-        ? measured
-        : undefined,
+    sizes: usableSizes(measured, {
+      piles: trayKinds.length,
+      chips: exactKinds.length,
+      goal: !goalHidden,
+    }),
   };
   const baseSideMin = kMode ? 150 : 156;
   const matInput = {

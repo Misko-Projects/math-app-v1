@@ -78,20 +78,23 @@ describe('base-ten-trade', () => {
     thenAsk: false,
   };
 
-  it('accepts 990 + 10 = 1,000 as ten hundreds on the mat', () => {
-    expect(issuePaths(baseTenTrade, add)).toEqual([]);
+  it('checks 990 + 10 = 1,000 as ten hundreds on the mat', () => {
+    // PR #74: the config schema now states the supported domain (domain-u04.test.ts), so an item
+    // may not ask for this sum. The model and the checker still take the state as it is.
+    expect(issuePaths(baseTenTrade, add)).toEqual(['operation', 'start.hundreds']);
     const r = baseTenTrade.toResponse(
       play(baseTenTrade, add, [act('combine'), act('trade', { from: 'tens', to: 'hundreds' })]),
     );
     expect(r).toEqual({ kind: 'state', value: { hundreds: 10, tens: 0, ones: 0 } });
     expect(pass('trade.result', { result: 1000 }, r)).toBe(true);
-    // Round 2: no 1,000 cap. MDA.23 (stretch) adds bigger numbers; extra hundreds just pile up.
+    // Round 2: the model and the checker have no 1,000 cap; extra hundreds just pile up. Items
+    // that large (MDA.23, stretch) need the mat's layout reworked first: the schema rejects them.
     const big = {
       ...add,
       start: { hundreds: 12, tens: 0, ones: 0 },
       operation: { op: '+' as const, operand: { hundreds: 3, tens: 0, ones: 0 } },
     };
-    expect(issuePaths(baseTenTrade, big)).toEqual([]);
+    expect(issuePaths(baseTenTrade, big)).toEqual(['start.hundreds', 'operation.operand.hundreds']);
     expect(
       pass(
         'trade.result',

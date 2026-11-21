@@ -823,7 +823,9 @@ export function ExpandedFormWidget({
               <span
                 // biome-ignore lint/suspicious/noArrayIndexKey: digits are positional
                 key={i}
-                className={['ni-efw__nd', pulsing ? 'ni-invite' : ''].filter(Boolean).join(' ')}
+                className={['ni-efw__nd', 'ni-invite-glyph', pulsing ? 'ni-invite' : '']
+                  .filter(Boolean)
+                  .join(' ')}
                 data-digit={i}
                 data-ringed={ringAt === i ? 'true' : undefined}
               >

@@ -95,6 +95,31 @@ const trade = (root: HTMLElement, id: string) =>
   root.querySelector(`[data-trade="${id}"]`) as HTMLButtonElement;
 
 /** Tap-to-place: tap a pile, then the board, `n` times. */
+/** Whether a piece on the mat is animating now. */
+const piecesMoving = (root: HTMLElement) =>
+  [...root.querySelectorAll('.ni-btb__piece')].some((p) => p.getAnimations().length > 0);
+
+/**
+ * Watches the mat every frame until `stop()`, which answers whether a piece was ever seen
+ * animating. Stories check motion by its effect, never by the clock (CI runners are slow).
+ */
+function watchPieces(root: HTMLElement) {
+  let seen = false;
+  let live = true;
+  const tick = () => {
+    if (!live) return;
+    if (piecesMoving(root)) seen = true;
+    requestAnimationFrame(tick);
+  };
+  tick();
+  return {
+    stop: () => {
+      live = false;
+      return seen;
+    },
+  };
+}
+
 async function tapPlace(root: HTMLElement, kind: string, n: number) {
   for (let i = 0; i < n; i++) {
     await userEvent.click(pile(root, kind));
@@ -633,7 +658,6 @@ export const FuseOnes: Story = {
     const root = await findWidget(canvasElement, ROOT);
     const make = trade(root, 'fuse-ones');
     await expect(make).toHaveAccessibleName('Make a ten');
-    const started = performance.now();
     await userEvent.click(make);
     // Mid-animation: the ones move with transform animations and input is off.
     await waitFor(() =>
@@ -645,10 +669,9 @@ export const FuseOnes: Story = {
     );
     await expect(make).toBeDisabled();
     await expectMat(root, { tens: 3, ones: 4 });
+    // Input comes back when the animation has ended (no clock: the effect is what is checked).
     await waitFor(() => expect(within(root).getByRole('button', { name: 'Check' })).toBeEnabled());
-    const took = performance.now() - started;
-    await expect(took).toBeGreaterThanOrEqual(600);
-    await expect(took).toBeLessThan(2000);
+    await expect(piecesMoving(root)).toBe(false);
     await userEvent.click(within(root).getByRole('button', { name: 'Check' }));
     await expect(args.onResponse).toHaveBeenCalledWith(state({ tens: 3, ones: 4 }));
     await expect(traceOf(args.onInteract).map((e) => `${e.t}:${e.target}`)).toEqual([
@@ -1687,9 +1710,10 @@ export const DemoPlay: Story = {
     const root = await findWidget(canvasElement, ROOT);
     await playController.play({ op: 'add-piece', args: { kind: 'ones' } });
     await expectMat(root, { tens: 2, ones: 10 });
-    const started = performance.now();
+    // The op resolves when its animation has run (watched, not timed).
+    const motion = watchPieces(root);
     await playController.play({ op: 'fuse', args: { kind: 'ones' } });
-    await expect(performance.now() - started).toBeGreaterThanOrEqual(600);
+    await expect(motion.stop()).toBe(true);
     await expectMat(root, { tens: 3, ones: 0 });
     await playController.play({ op: 'split', args: { kind: 'rod' } });
     await expectMat(root, { tens: 2, ones: 10 });
@@ -1899,10 +1923,11 @@ export const DemoReducedMotion: Story = {
   args: { disabled: true, demo: reducedController, config: fuseConfig },
   play: async ({ canvasElement }) => {
     const root = await findWidget(canvasElement, ROOT);
-    const started = performance.now();
+    // Instant: no piece is ever seen moving while the ops play.
+    const motion = watchPieces(root);
     await reducedController.play({ op: 'fuse', args: { kind: 'ones' } });
     await reducedController.play({ op: 'add-piece', args: { kind: 'ones' } });
-    await expect(performance.now() - started).toBeLessThan(500);
+    await expect(motion.stop()).toBe(false);
     await expectMat(root, { tens: 3, ones: 5 });
     await expect(root.querySelector('[data-flash="true"]')).not.toBeNull();
   },
@@ -2305,3 +2330,109 @@ const twoWayStory = (ageMode: 'k' | 'g1-up'): Story => ({
 export const GuardAgreesWithRenderG1 = twoWayStory('g1-up');
 /** And in K. */
 export const GuardAgreesWithRenderK = twoWayStory('k');
+
+/** A limited tray beside a mat near its caps: every pile has a stock tag, each add nears a cap. */
+const stockEdge: Config = {
+  format: 'base-ten-build',
+  target: 9999,
+  mode: 'build',
+  pieces: ALL,
+  wholeIs: 'unit',
+  limits: { hundreds: 2, tens: 2, ones: 3 },
+  prebuilt: { thousands: 9, hundreds: 17, tens: 27, ones: 196 },
+};
+
+/**
+ * Two-way agreement across moves that change the tray's stock (review rounds 6 to 8): limited
+ * adds and put-backs are played through the widget, so the stock tags are what the child left.
+ * At each state every move's guard is read from the live widget, then checked against the render
+ * of the item that state is (the mat prebuilt, each limit less what was taken): an allowed move
+ * fits and a refused one overflows. Every played add and the put-back must fit as drawn.
+ */
+const stockStory = (ageMode: 'k' | 'g1-up'): Story => ({
+  globals: { ageMode },
+  args: { config: build34 },
+  render: renderSwitcher,
+  play: async ({ canvasElement }) => {
+    await findWidget(canvasElement, ROOT);
+    type Limited = 'hundreds' | 'tens' | 'ones';
+    const probes: { config: Config; adds: Limited[] }[] = [
+      { config: reviewR4, adds: ['hundreds'] },
+      { config: stockEdge, adds: ['hundreds', 'tens', 'ones'] },
+    ];
+    const wrong: string[] = [];
+    let allowed = 0;
+    let refused = 0;
+    let played = 0;
+    for (const { config, adds } of probes) {
+      for (let n = 0; n <= adds.length; n++) {
+        // Play the first n adds through the widget.
+        let root = await mount(canvasElement, config);
+        const mat = { thousands: 0, hundreds: 0, tens: 0, ones: 0, ...config.prebuilt };
+        const left = { ...config.limits };
+        for (const k of adds.slice(0, n)) {
+          await expect(guardAllows(root, `add-${k}`), `add ${k} is offered`).toBe(true);
+          await tapPlace(root, k, 1);
+          mat[k] += 1;
+          left[k] = (left[k] ?? 0) - 1;
+          played++;
+          await expectMat(root, mat);
+          await settled();
+          if (!domFits(canvasElement, root))
+            wrong.push(`${config.target} after add ${k}: overflow`);
+        }
+        const at = `${config.target} ${JSON.stringify(mat)} left ${JSON.stringify(left)}`;
+        // The item this state is: the same mat, the same stock in the tray.
+        const now: Config = { ...config, prebuilt: { ...mat }, limits: { ...left } };
+        const after = (m: Move): Config | null => {
+          const [op, kind] = m.split('-') as ['add' | 'split' | 'fuse', Kind];
+          if (op !== 'add' || kind === 'thousands' || left[kind] === undefined) {
+            const next = moved(now, mat, m);
+            return next && { ...now, prebuilt: next };
+          }
+          // A limited add: one more on the mat, one fewer in the tray.
+          if ((left[kind] ?? 0) < 1) return null;
+          return {
+            ...now,
+            prebuilt: { ...mat, [kind]: mat[kind] + 1 },
+            limits: { ...left, [kind]: (left[kind] ?? 0) - 1 },
+          };
+        };
+        const decisions = ALL_MOVES.flatMap((m) => {
+          const next = after(m);
+          return next ? [{ m, next, ok: guardAllows(root, m) }] : [];
+        });
+        if (n === adds.length && n > 0) {
+          // Put the last piece back: the stock tag counts up again and the pile is offered.
+          const k = adds[n - 1] as Limited;
+          await userEvent.click(matPiece(root, k, mat[k] - 1));
+          await userEvent.click(trayPad(root));
+          await expectMat(root, { ...mat, [k]: mat[k] - 1 });
+          await settled();
+          if (!domFits(canvasElement, root)) wrong.push(`${at} put back ${k}: overflow`);
+          await expect(guardAllows(root, `add-${k}`), `add ${k} after the put-back`).toBe(true);
+          played++;
+        }
+        for (const d of decisions) {
+          root = await mount(canvasElement, d.next);
+          const fits = domFits(canvasElement, root);
+          if (d.ok) allowed++;
+          else refused++;
+          if (d.ok !== fits) {
+            wrong.push(
+              `${at} ${d.m}: guard ${d.ok ? 'allows' : 'refuses'}, render ${fits ? 'fits' : 'overflows'}`,
+            );
+          }
+        }
+      }
+    }
+    await expect(wrong, 'guard and render agree').toEqual([]);
+    await expect(played, 'stock-changing moves played').toBe(9);
+    await expect(allowed, 'moves allowed').toBeGreaterThan(10);
+    await expect(refused, 'moves refused').toBeGreaterThan(0);
+  },
+});
+/** Guard and render agree after limited adds and a put-back, in G1. */
+export const GuardAgreesAfterStockMovesG1 = stockStory('g1-up');
+/** And in K. */
+export const GuardAgreesAfterStockMovesK = stockStory('k');

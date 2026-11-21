@@ -24,6 +24,7 @@ import {
   UNIT_G1,
   UNIT_K,
   unitCandidates,
+  usableSizes,
 } from './layout';
 
 const counts = (thousands = 0, hundreds = 0, tens = 0, ones = 0) => ({
@@ -550,5 +551,49 @@ describe('bundles', () => {
     expect(clampInto({ x: 200, y: 20 }, half, box)).toEqual({ x: 200, y: 150 });
     expect(clampInto({ x: 200, y: 200 }, half, box)).toEqual({ x: 200, y: 200 });
     expect(clampInto({ x: 0, y: 0 }, { x: 300, y: 300 }, box)).toEqual({ x: 200, y: 200 });
+  });
+});
+
+describe('usableSizes (PR #74 review, rounds 6 to 8)', () => {
+  const sizes = (over: object = {}) => ({
+    pileW: 96,
+    tileH: [80, 84],
+    goal: { w: 120, h: 80, lgW: 180, lgH: 110, compactW: 90 },
+    chips: [{ w: 140, compactW: 100, h: 64 }],
+    checkW: 150,
+    checkH: 70,
+    ...over,
+  });
+  const item = { piles: 2, chips: 1, goal: true };
+
+  it('keeps measurements that show the item', () => {
+    const m = sizes();
+    expect(usableSizes(m, item)).toBe(m);
+    expect(usableSizes(null, item)).toBeUndefined();
+  });
+
+  it('keeps the goal, chip and check measurements of a tray with no piles', () => {
+    const m = sizes({ pileW: 0, tileH: [] });
+    expect(usableSizes(m, { ...item, piles: 0 })).toBe(m);
+    // The planner then lays out the measured goal and chip, not the larger model.
+    const spec = {
+      k: false,
+      piles: [],
+      goal: '34',
+      exact: ['tens'] as const,
+      exactN: [2],
+      height: 600,
+    };
+    const measuredPlan = sidePlan({ ...spec, sizes: m }, 400, false);
+    const modelPlan = sidePlan(spec, 400, false);
+    expect(measuredPlan.height).toBeLessThanOrEqual(modelPlan.height);
+  });
+
+  it('drops measurements of another item, or of piles not drawn yet', () => {
+    expect(usableSizes(sizes({ pileW: 0 }), item)).toBeUndefined();
+    expect(usableSizes(sizes(), { ...item, piles: 3 })).toBeUndefined();
+    expect(usableSizes(sizes(), { ...item, chips: 0 })).toBeUndefined();
+    expect(usableSizes(sizes(), { ...item, goal: false })).toBeUndefined();
+    expect(usableSizes(sizes({ goal: null }), item)).toBeUndefined();
   });
 });

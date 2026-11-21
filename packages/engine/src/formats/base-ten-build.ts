@@ -156,6 +156,39 @@ export function overfullKinds(c: Config): { kind: PieceKind; path: string[]; nee
   return out;
 }
 
+/** The largest target of an item: what a mat full to its cap (matMax) is worth, in ones. */
+export const targetMax = (c: Pick<Config, 'wholeIs'>): number => piecesValue(matMax(c));
+
+/**
+ * The supported domain (PR #74): every number of a config has a bound, whatever the mode reads.
+ * `target` is at most a full mat (targetMax; a build's own pieces cap it at 9999 below), and each
+ * `limits` and `exact` count is at most its kind's cap (matMax), also in a mode that ignores it.
+ * `prebuilt` counts are capped by overfullKinds in every mode.
+ */
+export function domainIssues(c: Config): { path: string[]; message: string }[] {
+  const out: { path: string[]; message: string }[] = [];
+  const cap = matMax(c);
+  if (c.target > targetMax(c)) {
+    out.push({
+      path: ['target'],
+      message: `target is at most ${targetMax(c)} (a full mat); got ${c.target}`,
+    });
+  }
+  for (const field of ['limits', 'exact'] as const) {
+    const counts: Partial<Pieces> = c[field] ?? {};
+    for (const k of PIECE_KINDS) {
+      const n = counts[k];
+      if (n !== undefined && n > cap[k]) {
+        out.push({
+          path: [field, k],
+          message: `${field}.${k} is at most ${cap[k]} (what the mat fits); got ${n}`,
+        });
+      }
+    }
+  }
+  return out;
+}
+
 const configSchema = baseTenBuildConfigSchema.superRefine((c, ctx) => {
   if (!Number.isInteger(c.target) || c.target < 1) {
     ctx.addIssue({
@@ -165,6 +198,9 @@ const configSchema = baseTenBuildConfigSchema.superRefine((c, ctx) => {
     });
     return;
   }
+  const domain = domainIssues(c);
+  for (const d of domain) ctx.addIssue({ code: 'custom', ...d });
+  if (domain.length > 0) return;
   for (const o of overfullKinds(c)) {
     ctx.addIssue({
       code: 'custom',
