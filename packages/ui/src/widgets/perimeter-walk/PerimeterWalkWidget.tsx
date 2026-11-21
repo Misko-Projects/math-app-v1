@@ -25,8 +25,8 @@ import {
 import { MIN_TARGET_PX } from '../../tokens/tokens';
 import { useWidgetDemo } from '../demo';
 import { CheckButton, type PadKey, useAlive, useDemoPause, useSubmitGuard } from '../kit';
+import { BoxEntry, enteredValues } from '../kit/BoxEntry';
 import { useInviteHand } from '../kit/inviteHand';
-import { enteredValues, NumberEntry } from '../kit/NumberEntry';
 import { useAvailableSize } from '../kit/useAvailableSize';
 import type { ConfigFor, WidgetProps } from '../types';
 import './perimeter-walk.css';
@@ -471,7 +471,7 @@ export function PerimeterWalkWidget({
         return r.querySelector<HTMLElement>(`[data-label-side="${invite.slice(5)}"]`);
       if (invite === 'step')
         return r.querySelector<HTMLElement>('.ni-pwalk__step[data-step="w-more"]');
-      return r.querySelector<HTMLElement>('.ni-entry__box');
+      return r.querySelector<HTMLElement>('.ni-boxentry__box');
     },
     invite ?? '',
   );
@@ -833,7 +833,7 @@ export function PerimeterWalkWidget({
             />
           </>
         ) : (
-          <NumberEntry
+          <BoxEntry
             texts={texts}
             active={0}
             onActive={() => {}}

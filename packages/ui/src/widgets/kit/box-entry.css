@@ -1,16 +1,16 @@
 /* NumberEntry: answer boxes over the number pad. */
 
-.ni-entry {
+.ni-boxentry {
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 14px;
 }
-.ni-entry__boxes {
+.ni-boxentry__boxes {
   display: flex;
   gap: var(--target-gap);
 }
-.ni-entry__box {
+.ni-boxentry__box {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -29,50 +29,50 @@
   line-height: 1;
   cursor: pointer;
 }
-.ni-entry__box:focus-visible {
+.ni-boxentry__box:focus-visible {
   outline: 4px solid var(--color-sea-deep);
   outline-offset: 3px;
 }
 /* The box being typed into: solid ink border (two boxes only), never colour alone. */
-.ni-entry__box--active {
+.ni-boxentry__box--active {
   border-style: solid;
   border-color: var(--color-ink);
   box-shadow: inset 0 0 0 3px var(--color-ink); /* inside: boxes stay 12 px apart */
 }
-.ni-entry__text[data-empty="true"] {
+.ni-boxentry__text[data-empty="true"] {
   color: var(--color-ink-soft);
 }
-.ni-entry__unit {
+.ni-boxentry__unit {
   display: inline-flex;
   width: 40px;
   height: 40px;
 }
 /* Compact (the smallest landscape area): the boxes beside a 6 × 2 pad at the target size. */
-.ni-entry[data-compact="true"] {
+.ni-boxentry[data-compact="true"] {
   flex-direction: row;
   gap: 16px;
 }
-.ni-entry[data-compact="true"] .ni-entry__boxes {
+.ni-boxentry[data-compact="true"] .ni-boxentry__boxes {
   flex-direction: column;
 }
-.ni-entry[data-compact="true"] .ni-pad {
+.ni-boxentry[data-compact="true"] .ni-pad {
   grid-template-columns: repeat(6, var(--target-min));
   grid-auto-rows: var(--target-min);
 }
-.ni-entry[data-compact="true"] .ni-pad__key {
+.ni-boxentry[data-compact="true"] .ni-pad__key {
   margin-bottom: 0;
 }
 /* The answer box is tapped (it picks the box to type into): the full target size (evidence
    review: compact boxes were 4 px short, 76 in K and 60 in G1+). */
-.ni-entry[data-compact="true"] .ni-entry__box {
+.ni-boxentry[data-compact="true"] .ni-boxentry__box {
   min-height: var(--target-min);
   font-size: 40px;
 }
 /* The demo invite on an answer box: one ring, inside the box (12 px gaps kept), no pulse. */
-.ni-entry .ni-entry__box.ni-invite {
+.ni-boxentry .ni-boxentry__box.ni-invite {
   outline-offset: -5px;
   animation: none;
 }
-.ni-entry[data-compact="true"][data-shape="tall"] .ni-pad {
+.ni-boxentry[data-compact="true"][data-shape="tall"] .ni-pad {
   grid-template-columns: repeat(3, var(--target-min));
 }

@@ -1,0 +1,43 @@
+# Authored lessons (03 §4.5, §6). Skills without an entry get an auto lesson (03 §6.4).
+strand: FRA
+lessons:
+  # These lessons only pin the test-out pool (03 §6.5) to each skill's pictorial constructed-answer
+  # template (04 §7a). The compiler reads answer kinds from formats, and fraction-pick can answer
+  # with numbers too, so the auto pool would mix the pick (choice) template with the constructed
+  # one. The examples are exactly what the auto lesson plays: the same seeds and targets on the
+  # first concrete template.
+  - skillId: FRA.01
+    mode: authored
+    templateId: FRA.01.t1
+    worked:
+      - { seed: 2707002109, target: easy }
+    faded:
+      - { seed: 2707002110, target: typical, childSteps: 1 }
+      - { seed: 2707002111, target: typical, childSteps: 2 }
+    scaffolded: { count: 2, hintStart: 2 }
+    testOut: { items: 3, minCorrect: 3, templateIds: [FRA.01.t4] }
+
+  - skillId: FRA.07
+    mode: authored
+    templateId: FRA.07.t1
+    worked:
+      - { seed: 2606336395, target: easy }
+    faded:
+      - { seed: 2606336396, target: typical, childSteps: 1 }
+      - { seed: 2606336397, target: typical, childSteps: 2 }
+    scaffolded: { count: 2, hintStart: 2 }
+    testOut: { items: 3, minCorrect: 3, templateIds: [FRA.07.t5] }
+
+  # FRA.08 plays the auto lesson (the concrete compare, t1). The auto test-out would take only the
+  # abstract part-count order (t4); a grade-1 child tests out on both orders, the strips (t3) and
+  # the part counts (t4), each a comparison of differently cut wholes (PR #84 review round 2).
+  - skillId: FRA.08
+    mode: authored
+    templateId: FRA.08.t1
+    worked:
+      - { seed: 2556003538, target: easy }
+    faded:
+      - { seed: 2556003539, target: typical, childSteps: 1 }
+      - { seed: 2556003540, target: typical, childSteps: 2 }
+    scaffolded: { count: 2, hintStart: 2 }
+    testOut: { items: 3, minCorrect: 3, templateIds: [FRA.08.t3, FRA.08.t4] }

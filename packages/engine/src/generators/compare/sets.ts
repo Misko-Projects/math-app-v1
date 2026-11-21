@@ -123,6 +123,8 @@ export const compareSets: GeneratorDef = {
     ...featureSubset(BALANCE_FEATURES, ['judge.false', 'showTilt.off']),
   },
   narration: [
+    // its descending order retry line (items/check.ts retryFeedback)
+    'fb.order.retry-desc',
     'gen.compare.sets.match',
     'gen.compare.sets.left-over',
     'gen.compare.sets.count-each',

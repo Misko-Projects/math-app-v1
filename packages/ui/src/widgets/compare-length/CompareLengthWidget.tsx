@@ -23,9 +23,9 @@ import {
 import { MIN_TARGET_PX } from '../../tokens/tokens';
 import { useWidgetDemo } from '../demo';
 import { CheckButton, spriteNameKey, useAlive, useDemoPause, useSubmitGuard } from '../kit';
+import { BoxEntry, enteredValues } from '../kit/BoxEntry';
 import { useInviteHand } from '../kit/inviteHand';
 import { LengthObject, STRING_H, StringPiece } from '../kit/LengthViews';
-import { enteredValues, NumberEntry } from '../kit/NumberEntry';
 import { useAvailableSize } from '../kit/useAvailableSize';
 import type { ConfigFor, WidgetProps } from '../types';
 import './compare-length.css';
@@ -345,7 +345,7 @@ export function CompareLengthWidget({
     (r) => {
       if (!invite) return null;
       if (invite === STRING) return r.querySelector<HTMLElement>('.ni-clen__spool');
-      if (invite === 'entry') return r.querySelector<HTMLElement>('.ni-entry__box');
+      if (invite === 'entry') return r.querySelector<HTMLElement>('.ni-boxentry__box');
       if (invite.startsWith('slot-'))
         return r.querySelector<HTMLElement>(`.ni-clen__badge[data-badge="${slotOf(invite)}"]`);
       // An object: its anchor (its box above the lane's bottom border), so the fingertip stays
@@ -630,7 +630,7 @@ export function CompareLengthWidget({
         ) : null}
         {typed ? (
           <div className="ni-clen__entry">
-            <NumberEntry
+            <BoxEntry
               texts={texts}
               active={0}
               onActive={() => {}}

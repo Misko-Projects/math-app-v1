@@ -203,7 +203,7 @@ export const IterateShellsK: Story = {
     await expect(lastUnit.getBoundingClientRect().right - left).toBeCloseTo(objectPx(root), 0);
     await expect(within(root).getByRole('button', { name: 'Check' })).toBeDisabled();
     await userEvent.click(key(root, '7'));
-    await expectNumeralsAtLeast32(root, '.ni-entry__text');
+    await expectNumeralsAtLeast32(root, '.ni-boxentry__text');
     await userEvent.click(within(root).getByRole('button', { name: 'Check' }));
     const r = lastResponse(args.onResponse);
     await expect(r).toEqual({ kind: 'state', value: { units: [0, 1, 2, 3, 4, 5, 6], value: 7 } });
@@ -285,7 +285,7 @@ export const TwoUnits: Story = {
     for (const icon of root.querySelectorAll<HTMLElement>('[data-unit-icon]')) {
       const box = icon.getBoundingClientRect();
       const art = (icon.querySelector('svg') as SVGSVGElement).getBoundingClientRect();
-      const entry = (icon.closest('.ni-entry__box') as HTMLElement).getBoundingClientRect();
+      const entry = (icon.closest('.ni-boxentry__box') as HTMLElement).getBoundingClientRect();
       for (const r of [box, entry]) {
         await expect(art.left).toBeGreaterThanOrEqual(r.left - 0.5);
         await expect(art.right).toBeLessThanOrEqual(r.right + 0.5);
@@ -299,7 +299,7 @@ export const TwoUnits: Story = {
     }
     // Type 2 in the shells box, then 4 in the cubes box.
     await userEvent.click(key(root, '2'));
-    await userEvent.click(root.querySelector('.ni-entry__box[data-box="1"]') as HTMLElement);
+    await userEvent.click(root.querySelector('.ni-boxentry__box[data-box="1"]') as HTMLElement);
     await userEvent.click(key(root, '4'));
     await userEvent.click(within(root).getByRole('button', { name: 'Check' }));
     await expect(args.onResponse).toHaveBeenCalledWith({ kind: 'numbers', values: [2, 4] });
@@ -322,7 +322,7 @@ export const TwoUnitsPictorial: Story = {
     await expect(stickPx).toBeCloseTo(2 * shellPx, 6);
     await expect(objectPx(root)).toBeCloseTo(3 * stickPx, 0);
     await userEvent.click(key(root, '3'));
-    await userEvent.click(root.querySelector('.ni-entry__box[data-box="1"]') as HTMLElement);
+    await userEvent.click(root.querySelector('.ni-boxentry__box[data-box="1"]') as HTMLElement);
     await userEvent.click(key(root, '6'));
     await userEvent.click(within(root).getByRole('button', { name: 'Check' }));
     await expect(args.onResponse).toHaveBeenCalledWith({ kind: 'numbers', values: [3, 6] });
@@ -346,7 +346,7 @@ async function expectLayingLayout(
   const pad = root.querySelector('.ni-mlen__pad') as HTMLElement | null;
   if (pad) {
     const others = [
-      ...root.querySelectorAll('.ni-pad__key, .ni-entry__box, .ni-mlen__pile, .ni-mlen__undo'),
+      ...root.querySelectorAll('.ni-pad__key, .ni-boxentry__box, .ni-mlen__pile, .ni-mlen__undo'),
       check,
     ];
     const clear = async (state: string) => {
@@ -375,7 +375,7 @@ async function expectLayingLayout(
     undo: [...root.querySelectorAll('.ni-mlen__undo')],
     'drop zone': [...root.querySelectorAll('.ni-mlen__pad')],
     keys: [...root.querySelectorAll('.ni-pad__key')],
-    boxes: [...root.querySelectorAll('.ni-entry__box')],
+    boxes: [...root.querySelectorAll('.ni-boxentry__box')],
     check: [check],
   });
   for (const p of root.querySelectorAll('.ni-mlen__pile')) {
@@ -558,7 +558,7 @@ const iteratePlay =
     await waitFor(() => expect(laid(root, 'cube')).toHaveLength(11));
     await expectFitsArea(areaBox(canvasElement), [
       ...root.querySelectorAll(
-        '.ni-mlen__pile, .ni-mlen__undo, .ni-pad__key, .ni-entry__box, .ni-mlen__laid',
+        '.ni-mlen__pile, .ni-mlen__undo, .ni-pad__key, .ni-boxentry__box, .ni-mlen__laid',
       ),
       root.querySelector('.ni-mlen__object') as HTMLElement,
       within(root).getByRole('button', { name: 'Check' }),
@@ -593,7 +593,7 @@ export const TwoUnitsLandscapeMinK: Story = {
     const root = await findWidget(canvasElement, ROOT);
     await expectFitsArea(areaBox(canvasElement), [
       ...root.querySelectorAll(
-        '.ni-mlen__pile, .ni-mlen__undo, .ni-pad__key, .ni-entry__box, .ni-mlen__pad',
+        '.ni-mlen__pile, .ni-mlen__undo, .ni-pad__key, .ni-boxentry__box, .ni-mlen__pad',
       ),
       root.querySelector('.ni-mlen__object') as HTMLElement,
       within(root).getByRole('button', { name: 'Check' }),
@@ -623,7 +623,7 @@ const stressCubes =
     await expect(laid(root, 'cube')).toEqual(Array.from({ length: 16 }, (_, i) => i));
     await expectFitsArea(areaBox(canvasElement), [
       ...root.querySelectorAll(
-        '.ni-mlen__pile, .ni-mlen__undo, .ni-pad__key, .ni-entry__box, .ni-mlen__laid, .ni-mlen__pad',
+        '.ni-mlen__pile, .ni-mlen__undo, .ni-pad__key, .ni-boxentry__box, .ni-mlen__laid, .ni-mlen__pad',
       ),
       root.querySelector('.ni-mlen__object') as HTMLElement,
       within(root).getByRole('button', { name: 'Check' }),
@@ -653,7 +653,7 @@ async function expectRulerComposition(canvasElement: HTMLElement, root: HTMLElem
   await expectFitsArea(areaBox(canvasElement), [
     root.querySelector('svg.ni-ruler') as Element,
     root.querySelector('.ni-mlen__object') as HTMLElement,
-    ...root.querySelectorAll('.ni-pad__key, .ni-entry__box'),
+    ...root.querySelectorAll('.ni-pad__key, .ni-boxentry__box'),
     within(root).getByRole('button', { name: 'Check' }),
   ]);
   const pct = fillPercent(areaBox(canvasElement), [
@@ -691,7 +691,7 @@ export const ReadRuler: Story = {
     await expectRulerTicks(root, 1);
     await expectControls('measure-length ReadRulerOffsetStart', 'g1-up', {
       keys: [...root.querySelectorAll('.ni-pad__key')],
-      boxes: [...root.querySelectorAll('.ni-entry__box')],
+      boxes: [...root.querySelectorAll('.ni-boxentry__box')],
       check: [within(root).getByRole('button', { name: 'Check' })],
     });
     await userEvent.click(key(root, '5'));
@@ -738,7 +738,7 @@ export const ReadRulerOffsetStart: Story = {
     await expect(m.bottom).toBeGreaterThan(rulerTop + 10);
     await expectControls('measure-length ReadRuler', 'g1-up', {
       keys: [...root.querySelectorAll('.ni-pad__key')],
-      boxes: [...root.querySelectorAll('.ni-entry__box')],
+      boxes: [...root.querySelectorAll('.ni-boxentry__box')],
       check: [within(root).getByRole('button', { name: 'Check' })],
     });
     await userEvent.click(key(root, '5'));
@@ -761,7 +761,7 @@ export const ReadQuarterOnPad: Story = {
   play: async ({ canvasElement, args }) => {
     const root = await findWidget(canvasElement, ROOT);
     for (const k of ['1', '0', '.', '2', '5']) await userEvent.click(key(root, k));
-    await expect(root.querySelector('.ni-entry__text')).toHaveTextContent('10.25');
+    await expect(root.querySelector('.ni-boxentry__text')).toHaveTextContent('10.25');
     await userEvent.click(within(root).getByRole('button', { name: 'Check' }));
     await expect(args.onResponse).toHaveBeenCalledWith({ kind: 'number', value: 10.25 });
   },
@@ -773,7 +773,7 @@ export const ReadQuarterOnKeyboard: Story = {
   play: async ({ canvasElement, args }) => {
     const root = await findWidget(canvasElement, ROOT);
     await userEvent.keyboard('10.25');
-    await expect(root.querySelector('.ni-entry__text')).toHaveTextContent('10.25');
+    await expect(root.querySelector('.ni-boxentry__text')).toHaveTextContent('10.25');
     await userEvent.keyboard('{Enter}');
     await expect(args.onResponse).toHaveBeenCalledWith({ kind: 'number', value: 10.25 });
   },
@@ -838,7 +838,9 @@ const stressRuler =
     await expectFitsArea(areaBox(canvasElement), [
       root.querySelector('svg.ni-ruler') as Element,
       root.querySelector('.ni-mlen__object') as HTMLElement,
-      ...root.querySelectorAll('.ni-pad__key, .ni-entry__box, .ni-ruler__numeral, .ni-ruler__unit'),
+      ...root.querySelectorAll(
+        '.ni-pad__key, .ni-boxentry__box, .ni-ruler__numeral, .ni-ruler__unit',
+      ),
       within(root).getByRole('button', { name: 'Check' }),
     ]);
     await expectNumeralInk(root, '.ni-ruler__numeral');
@@ -860,7 +862,7 @@ const stressRuler =
     await expectRulerTicks(root, config.precision);
     await expectControls(story, 'g1-up', {
       keys: [...root.querySelectorAll('.ni-pad__key')],
-      boxes: [...root.querySelectorAll('.ni-entry__box')],
+      boxes: [...root.querySelectorAll('.ni-boxentry__box')],
       check: [within(root).getByRole('button', { name: 'Check' })],
     });
     await expectFullKeys(root, 'g1-up');
@@ -1014,7 +1016,7 @@ export const DemoLayAndCount: Story = {
       [{ number: 3 }],
     ]);
     await demoLay.play({ op: 'answer', args: { value: 3 } });
-    await expect(root.querySelector('.ni-entry__text')).toHaveTextContent('3');
+    await expect(root.querySelector('.ni-boxentry__text')).toHaveTextContent('3');
     await expect(demoLay.play({ op: 'drag' })).rejects.toBeInstanceOf(UnsupportedWidgetOpError);
   },
 };
@@ -1059,7 +1061,7 @@ export const DemoInvite: Story = {
     // One ring, inside the pile, 12 px clear of the drop zone, undo and the keypad.
     await expectOneInviteRing(root, {
       clearOf: [
-        ...root.querySelectorAll('.ni-mlen__pad, .ni-mlen__undo, .ni-pad__key, .ni-entry__box'),
+        ...root.querySelectorAll('.ni-mlen__pad, .ni-mlen__undo, .ni-pad__key, .ni-boxentry__box'),
       ],
     });
     const r = ring().getBoundingClientRect();
@@ -1072,7 +1074,7 @@ export const DemoInvite: Story = {
       root,
       [
         ring(),
-        ...root.querySelectorAll('.ni-mlen__pad, .ni-mlen__undo, .ni-pad__key, .ni-entry__box'),
+        ...root.querySelectorAll('.ni-mlen__pad, .ni-mlen__undo, .ni-pad__key, .ni-boxentry__box'),
         within(root).getByRole('button', { name: 'Check' }),
       ],
       { min: 3 },
@@ -1096,7 +1098,7 @@ export const DemoInviteAnswer: Story = {
   play: async ({ canvasElement }) => {
     const root = await findWidget(canvasElement, ROOT);
     inviteEntry.invite({ op: 'answer', args: { value: 5 } });
-    const box = () => root.querySelector('.ni-entry__box') as HTMLElement;
+    const box = () => root.querySelector('.ni-boxentry__box') as HTMLElement;
     await waitFor(() => expect(box()).toHaveClass('ni-invite'));
     await expectHandStays(root, box);
     await expectOneInviteRing(root, {

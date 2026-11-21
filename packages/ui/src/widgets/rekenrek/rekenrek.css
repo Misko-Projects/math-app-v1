@@ -1,0 +1,228 @@
+/*
+ * rekenrek widget (U03). A wooden frame with one or two wires of ten beads in two groups of five:
+ * coral, then white with an ink dot (they differ in lightness and by a mark, 06 §7). Each wire is
+ * one slider target, --rk-row tall (≥ --target-min), 16 px apart. --rk-bead (the bead width) and
+ * `data-layout` come from plan.ts, whose sizes mirror this file.
+ */
+
+.ni-rk {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 24px;
+  box-sizing: border-box;
+  width: 100%;
+  margin: auto;
+  padding: 0;
+  contain: inline-size;
+}
+.ni-rk[data-layout="stack"],
+.ni-rk[data-layout="column"] {
+  flex-direction: column;
+}
+.ni-rk__main {
+  display: flex;
+  justify-content: center;
+}
+/* Every part drawn larger where the area has room (plan.ts `zoom`); the gaps between them stay. */
+.ni-rk__main,
+.ni-rk__items > * {
+  zoom: var(--rk-zoom, 1);
+}
+.ni-rk__items {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 24px;
+}
+.ni-rk[data-layout="side"] .ni-rk__items,
+.ni-rk[data-layout="column"] .ni-rk__items {
+  flex-direction: column;
+}
+.ni-rk__act {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+}
+.ni-rk__act[data-dir="column"] {
+  flex-direction: column;
+  gap: 16px;
+}
+.ni-rk__btn {
+  display: inline-flex;
+}
+.ni-rk__act .ni-invite {
+  outline-offset: 4px;
+  border-radius: 999px;
+}
+
+/*
+ * `split` (an answer step in a short area): the numeral answer on the left; the picture and the
+ * actions stacked beside it.
+ */
+.ni-rk[data-layout="split"] {
+  display: grid;
+  grid-template-columns: auto auto;
+  grid-template-areas:
+    "entry main"
+    "entry act";
+  align-content: center;
+  justify-content: center;
+  justify-items: center;
+  gap: 24px;
+}
+.ni-rk[data-layout="split"] .ni-rk__items {
+  display: contents;
+}
+.ni-rk[data-layout="split"] .ni-rk__main {
+  grid-area: main;
+  align-self: end;
+}
+.ni-rk[data-layout="split"] .ni-entry {
+  grid-area: entry;
+}
+.ni-rk[data-layout="split"] .ni-rk__act {
+  grid-area: act;
+  align-self: start;
+}
+
+/* ---------- the rack ---------- */
+
+.ni-rk__frame {
+  position: relative;
+  padding: 16px 26px;
+  border: 4px solid var(--color-wood-deep);
+  border-radius: 26px;
+  background: var(--color-wood);
+  box-shadow:
+    inset 0 4px 0 rgb(255 255 255 / 0.25),
+    var(--shadow-soft);
+}
+.ni-rk__rows {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 10px 14px;
+  border: 3px solid var(--color-wood-deep);
+  border-radius: 16px;
+  background: var(--color-sky-light);
+}
+.ni-rk__row {
+  position: relative;
+  width: calc(var(--rk-bead) * 14);
+  height: var(--rk-row);
+  border-radius: 14px;
+  cursor: pointer;
+  touch-action: none;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+.ni-rk__row[role="img"],
+.ni-rk__row[aria-disabled="true"] {
+  cursor: default;
+}
+.ni-rk__row:focus-visible {
+  outline: 4px solid var(--color-ink);
+  outline-offset: 4px;
+}
+/* A demo invite on a wire: the ring stays inside the wire's own box, 16 px from the other wire. */
+.ni-rk__row.ni-invite {
+  outline-offset: -5px;
+  border-radius: 14px;
+  animation: none;
+}
+/* Disabled: the wires take no taps and show no focus ring. */
+.ni-rk[data-disabled="true"] .ni-rk__row {
+  pointer-events: none;
+}
+.ni-rk[data-disabled="true"] :focus {
+  outline: none;
+}
+/* The wire. */
+.ni-rk__row::before {
+  content: "";
+  position: absolute;
+  left: -14px;
+  right: -14px;
+  top: calc(50% - 2.5px);
+  height: 5px;
+  border-radius: 3px;
+  background: var(--color-ink-soft);
+}
+
+.ni-rk__bead {
+  position: absolute;
+  left: 0;
+  top: 50%;
+  box-sizing: border-box;
+  width: calc(var(--rk-bead) - 3px);
+  height: min(calc(var(--rk-row) - 14px), calc(var(--rk-bead) * 1.35));
+  margin-left: 1.5px;
+  border: 3px solid var(--color-coral-deep);
+  border-radius: 50%;
+  background: var(--color-coral);
+  box-shadow:
+    inset 0 6px 0 rgb(255 255 255 / 0.35),
+    0 3px 0 rgb(38 70 83 / 0.2);
+  transform: translate(calc(var(--rk-bead) * var(--x, 0)), -50%);
+  pointer-events: none;
+}
+.ni-rk[data-animate="true"] .ni-rk__bead {
+  transition: transform var(--duration-gentle) var(--ease-soft);
+}
+.ni-rk__frame[data-small="true"] {
+  padding: 6px 8px;
+  border-width: 3px;
+  border-radius: 14px;
+}
+.ni-rk__frame[data-small="true"] .ni-rk__rows {
+  gap: 6px;
+  padding: 4px 6px;
+  border-width: 2px;
+  border-radius: 10px;
+}
+.ni-rk__frame[data-small="true"] .ni-rk__row::before {
+  left: -6px;
+  right: -6px;
+  height: 3px;
+  top: calc(50% - 1.5px);
+}
+.ni-rk__frame[data-small="true"] .ni-rk__bead {
+  height: calc(var(--rk-row) - 4px);
+  border-width: 2px;
+  box-shadow: none;
+}
+/* The second group of five: white, an ink outline and an ink dot (a mark, not colour alone). */
+.ni-rk__bead[data-tone="b"] {
+  border-color: var(--color-ink);
+  background: var(--color-cloud);
+}
+.ni-rk__bead[data-tone="b"]::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 28%;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  background: var(--color-ink);
+  transform: translate(-50%, -50%);
+}
+/* Demo highlight and counting: an ink ring (≥ 3:1 on the wire's backdrop), plus a lift. */
+.ni-rk__bead[data-lit="true"] {
+  outline: 4px solid var(--color-ink);
+  outline-offset: 2px;
+}
+.ni-rk__bead[data-counting="true"] {
+  transform: translate(calc(var(--rk-bead) * var(--x, 0)), calc(-50% - 8px));
+}
+
+[data-reduced-motion="true"] .ni-rk[data-animate="true"] .ni-rk__bead {
+  transition-duration: 0ms;
+}
+@media (prefers-reduced-motion: reduce) {
+  .ni-rk[data-animate="true"] .ni-rk__bead {
+    transition-duration: 0ms;
+  }
+}

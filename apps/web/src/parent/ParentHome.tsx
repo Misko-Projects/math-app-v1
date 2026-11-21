@@ -1,6 +1,6 @@
 // The parent area's home. The dashboard, skill map, settings and backups arrive with P01; this
-// page holds what the app shell owns: this device (sync, pairing another device, sign-out) and
-// the diagnostics page.
+// page holds what the app shell owns: picture passwords, this device (sync, pairing another device,
+// sign-out) and the diagnostics page.
 
 import { Panel } from '@number-island/ui';
 import { useState } from 'react';
@@ -12,6 +12,7 @@ import { useProfiles } from '@/data/hooks';
 import { ApiError } from './api';
 import { Button, Notice } from './kit';
 import { useParentApi, useParentGate } from './ParentContext';
+import { PicturePasswords } from './PicturePasswords';
 
 export function formatWhen(ts: number | null, now = Date.now()): string {
   if (ts === null) return 'never';
@@ -82,6 +83,8 @@ export function ParentHome() {
           </p>
         ) : null}
       </Panel>
+
+      <PicturePasswords />
 
       <Panel as="section" title="This device">
         {paired ? (

@@ -624,17 +624,17 @@ export const HowMuchLongerLandscapeMinK: Story = {
     await expectToScale(root, difference);
     await userEvent.click(within(root).getByRole('button', { name: '3' }));
     await expectFitsArea(areaBox(canvasElement), [
-      ...root.querySelectorAll('.ni-clen__obj, .ni-pad__key, .ni-entry__box'),
+      ...root.querySelectorAll('.ni-clen__obj, .ni-pad__key, .ni-boxentry__box'),
       within(root).getByRole('button', { name: 'Check' }),
     ]);
-    await expectNumeralsAtLeast32(root, '.ni-entry__text, .ni-pad__digit');
+    await expectNumeralsAtLeast32(root, '.ni-boxentry__text, .ni-pad__digit');
     // The unit ticks: their own strip, 12+ px from the lanes and from the answer box and keys;
     // ink ticks, 3 px every fifth unit and 2 px between (evidence review).
     const strip = (root.querySelector('.ni-clen__ticks') as HTMLElement).getBoundingClientRect();
     const lanes = [...root.querySelectorAll('.ni-clen__lane')].map((e) =>
       e.getBoundingClientRect(),
     );
-    const below = [...root.querySelectorAll('.ni-entry__box, .ni-pad__key')].map((e) =>
+    const below = [...root.querySelectorAll('.ni-boxentry__box, .ni-pad__key')].map((e) =>
       e.getBoundingClientRect(),
     );
     const toLanes = Math.min(...lanes.map((r) => strip.top - r.bottom));

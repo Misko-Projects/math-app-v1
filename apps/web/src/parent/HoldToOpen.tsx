@@ -3,8 +3,8 @@
 // child, and this one keeps children out). Keyboard: hold Enter or Space.
 
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { GateIcon } from './GateIcon';
 import { PARENT_GATE_HOLD_MS } from './gate';
-import { GateIcon } from './kit';
 
 export interface HoldToOpenProps {
   onOpen: () => void;

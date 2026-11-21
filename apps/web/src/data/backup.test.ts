@@ -193,6 +193,19 @@ describe('export', () => {
     expect(parseBackup(backupToJson(file))).toEqual(file);
   });
 
+  it('never writes a picture-password hash: it is a device-local lock (08 §3)', async () => {
+    const env = testEnv();
+    const { store } = await sourceStore(env);
+    const ada = (await store.allProfiles()).find((p) => p.id === CHILD_K);
+    if (!ada) throw new Error('no Ada');
+    await store.putProfile({ ...ada, picturePasswordHash: 'pbkdf2-sha256$1$eA$eA' });
+    const file = await exportBackup(store);
+    expect(file.profiles.map((p) => p.picturePasswordHash)).toEqual([null, null]);
+    // The device keeps its own.
+    const kept = (await store.allProfiles()).find((p) => p.id === CHILD_K);
+    expect(kept?.picturePasswordHash).toBe('pbkdf2-sha256$1$eA$eA');
+  });
+
   it('never drops an event: a row no import could accept (over 8 KB) fails the export', async () => {
     const env = testEnv();
     const store = await track(env.open());

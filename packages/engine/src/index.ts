@@ -1,6 +1,12 @@
 // @number-island/engine: pure TypeScript (no DOM, React, Math.random or Date.now). E01 delivers
 // the item core: seeded RNG, generator registry, item generation and targeting, checking,
 // misconception matching, hint ladders and the fixture formats' state models. See README.md.
+//
+// This is the full entry. Loading it installs the item core that the learner model needs (02 §6a,
+// #95). An app shell imports `@number-island/engine/shell` instead and loads this entry through a
+// dynamic import, so generators, checkers and misconception rules stay out of its initial JS.
+
+import './items/install';
 
 export { type StateChecker, stateChecker } from './check/state';
 // U05 (#14) measurement and geometry: format state types and the geometry their widgets draw.
@@ -46,11 +52,45 @@ export {
   sideValue,
 } from './formats/balance';
 export { type BaseTenBuildState, traySupply } from './formats/base-ten-build';
-export { type BaseTenTradeState, computeResult, htoValue } from './formats/base-ten-trade';
+export {
+  type BaseTenTradeState,
+  computeResult,
+  htoValue,
+  TRADE_ADD_OPERAND_HUNDREDS_MAX,
+  TRADE_ADD_START_HUNDREDS_MAX,
+  TRADE_ALL_ONES_MAX,
+  TRADE_COLUMN_MAX,
+  TRADE_REGROUP_COLUMN_MAX,
+  TRADE_TAKE_COUNT_MAX,
+  TRADE_VALUE_MAX,
+} from './formats/base-ten-trade';
+// U05 (#14) picture geometry the kit draws `fraction` and `chart` stimuli from.
+export {
+  axisTicks,
+  axisTop,
+  type ChartSlot,
+  chartSlots,
+  linePositions,
+  positionId,
+  slotValues,
+  symbolParts,
+  tallyGroups,
+} from './formats/chart';
 export { type CompareLengthState, closeness, startOf } from './formats/compare-length';
 export { type EqualGroupsState, GROUP_CAPACITY, groupsUnknown } from './formats/equal-groups';
 export { type EqualShareState, shareChoices } from './formats/equal-share';
-export { blankIds, type ExpandedFormState } from './formats/expanded-form';
+export {
+  blankIds,
+  EF_BLANKS_MAX,
+  EF_CARD_MAX,
+  EF_CARDS_MAX,
+  EF_TARGET_MAX,
+  EF_TOKENS_MAX,
+  EF_WORD_OPTIONS_MAX,
+  type ExpandedFormState,
+} from './formats/expanded-form';
+export * from './formats/fraction-geometry';
+export { PATTERN_SHOWN_MAX, patternGiven } from './formats/hundred-chart';
 export {
   isNonStandard,
   type LaidUnit,
@@ -61,6 +101,13 @@ export {
   SIXTEENTHS,
   UNIT_SIZE,
 } from './formats/measure-length';
+export {
+  lineLabels,
+  lineSteps,
+  lineTicks,
+  type NumberLinePlaceState,
+  snapPlacement,
+} from './formats/number-line-place';
 export {
   designRectangles,
   type PerimeterWalkState,
@@ -115,7 +162,15 @@ export {
   generatorParams,
   generatorRegistered,
 } from './hooks';
+export {
+  type ItemCore,
+  ItemCoreNotLoadedError,
+  installItemCore,
+  itemCore,
+  itemCoreLoaded,
+} from './item-core';
 export { isConstructedTemplate, templateAnswerKind } from './items/answer-kind';
+export { attemptDifficulty } from './items/attempt-difficulty';
 export { checkResponse, detectProcessMisconceptions, matches } from './items/check';
 export { type DevEvent, setDevLogger } from './items/devlog';
 export { difficulty, featureWeight, resolvedWeights } from './items/difficulty';
@@ -127,6 +182,7 @@ export {
   mergedSpec,
 } from './items/generate';
 export { buildHints } from './items/hints';
+export { ITEM_CORE_MARKS } from './items/install';
 export { itemExampleCorrect, itemSolution, replaySteps } from './items/solution';
 export * from './learner';
 export {

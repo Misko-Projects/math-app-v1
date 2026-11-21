@@ -1,0 +1,54 @@
+# Time and money misconceptions (03 §7.2). K01 (#11) adds the clock rows with their K–1 skills;
+# K02 adds the grade 2–3 skills of these rows (TIM.02, TIM.03, TIM.10), MC.minute-hand-number and
+# the money rows.
+area: time-money
+misconceptions:
+  - id: MC.hour-minute-swap
+    name: Reads the clock with the hands swapped (3:00 as 12:15)
+    detect: { kind: answer, rule: hourMinuteSwap }
+    appliesTo: { generators: [time.clock] }
+    skills: [TIM.01, TIM.04, TIM.09]
+    remediation: [TIM.09, TIM.01]
+    feedback: fb.mc.hour-minute-swap
+    priority: 50
+    parentTip: >-
+      On a real clock, point to the short hand first and say "the short hand tells the hour", then
+      to the long hand for the minutes.
+    examples:
+      - params: { mode: read, h: 3, m: 0 }
+        response: { kind: numbers, values: [12, 15] }
+        match: true
+      - params: { mode: read, h: 3, m: 0 }
+        response: { kind: numbers, values: [4, 0] }
+        match: false
+      - params: { mode: set, h: 3, m: 0 }
+        response: { kind: state, value: { h: 12, m: 15 } }
+        match: true
+      - params: { mode: set, h: 3, m: 0 }
+        response: { kind: state, value: { h: 3, m: 15 } }
+        match: false
+
+  - id: MC.hour-hand-next
+    name: Reads the hour the short hand is coming to (2:30 as 3:30)
+    detect: { kind: answer, rule: hourHandNext }
+    appliesTo: { generators: [time.clock] }
+    skills: [TIM.04, TIM.09]
+    remediation: [TIM.09]
+    feedback: fb.mc.hour-hand-next
+    priority: 50
+    parentTip: >-
+      At half past, show that the short hand has left one number but not reached the next, and say
+      "it is after two, so the hour is still two".
+    examples:
+      - params: { mode: read, h: 2, m: 30 }
+        response: { kind: numbers, values: [3, 30] }
+        match: true
+      - params: { mode: read, h: 2, m: 30 }
+        response: { kind: numbers, values: [1, 30] }
+        match: false
+      - params: { mode: set, h: 2, m: 30 }
+        response: { kind: state, value: { h: 3, m: 30 } }
+        match: true
+      - params: { mode: read, h: 2, m: 0 }
+        response: { kind: numbers, values: [3, 0] }
+        match: false

@@ -858,7 +858,7 @@ const fencePlay =
     const root = await findWidget(canvasElement, ROOT);
     await expectFitsArea(areaBox(canvasElement), [
       ...root.querySelectorAll(
-        '.ni-pwalk__label, .ni-pwalk__fence, .ni-pad__key, .ni-entry__box, .ni-pwalk__sign',
+        '.ni-pwalk__label, .ni-pwalk__fence, .ni-pad__key, .ni-boxentry__box, .ni-pwalk__sign',
       ),
       within(root).getByRole('button', { name: 'Check' }),
     ]);
@@ -869,7 +869,7 @@ const fencePlay =
     await expectControls(story, 'g1-up', {
       'side numbers': [...root.querySelectorAll('.ni-pwalk__label')],
       keys: [...root.querySelectorAll('.ni-pad__key')],
-      box: [...root.querySelectorAll('.ni-entry__box')],
+      box: [...root.querySelectorAll('.ni-boxentry__box')],
       check: [within(root).getByRole('button', { name: 'Check' })],
     });
     await expectContentCentred(canvasElement, root);
@@ -1081,7 +1081,7 @@ export const DemoWalk: Story = {
     await demoWalk.play({ op: 'trace' });
     await expect(root.querySelectorAll('.ni-pwalk__side--walked')).toHaveLength(4);
     await demoWalk.play({ op: 'answer', args: { value: 16 } });
-    await expect(root.querySelector('.ni-entry__text')).toHaveTextContent('16');
+    await expect(root.querySelector('.ni-boxentry__text')).toHaveTextContent('16');
     await expect(demoWalk.play({ op: 'drag' })).rejects.toBeInstanceOf(UnsupportedWidgetOpError);
   },
 };

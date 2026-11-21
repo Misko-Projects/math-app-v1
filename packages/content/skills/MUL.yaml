@@ -1,0 +1,13 @@
+# K01 (#11): the grade-1 MUL row of 03 §3.10. MUL.01–11 and MUL.13–23 are grade 2–3 (K02;
+# graph.yaml plannedIds).
+strand: MUL
+skills:
+  - id: MUL.12
+    name: Share a set fairly by dealing one at a time
+    kind: concept
+    grade: 1
+    standards: { ccss: [], supports: [2.G.A.3] }
+    prerequisites: [CNT.06]
+    gateway: false
+    # No groups: the one-basket make-set template was dropped in the PR #84 review.
+    representations: [objects]

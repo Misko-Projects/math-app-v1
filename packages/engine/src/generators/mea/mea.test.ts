@@ -441,9 +441,14 @@ describe('mea.length', () => {
       closeness: 0.8,
     });
     expect(lengthCloseness([3, 6, 7])).toBeCloseTo(6 / 7);
+    // The generator's math features, plus the compare format model's own (03 §5.5).
     expect(features('compare', { mode: 'compare', length: 5, same: true })).toEqual({
       closeness: 1,
       equal: 1,
+      conflict: 0,
+      'ask.fewer': 0,
+      'ask.symbol': 0,
+      magnitude: 0,
     });
     expect(
       features('compare', {
@@ -453,7 +458,14 @@ describe('mea.length', () => {
         altUnit: 'stick',
         length: 4,
       }),
-    ).toEqual({ closeness: 0.25, 'ask.fewer': 1 });
+    ).toEqual({
+      closeness: 0.25,
+      'ask.fewer': 1,
+      conflict: 0,
+      'ask.symbol': 0,
+      equal: 0,
+      magnitude: 0,
+    });
     // The measure-length model (U05, #14) adds its 03 §5.5 format features; those the generator
     // does not set come from the config, 0 on these items.
     const mlZero = {

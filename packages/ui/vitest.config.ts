@@ -11,6 +11,9 @@ export default defineProject({
   plugins: [storybookTest({ configDir: path.join(dirname, '.storybook') })],
   test: {
     name: 'ui-stories',
+    // CI runners are slower than local machines, and Storybook's vitest transform offers no
+    // per-story timeout, so the heaviest stories need a project-wide margin over the 15 s default.
+    testTimeout: 45_000,
     browser: {
       enabled: true,
       headless: true,

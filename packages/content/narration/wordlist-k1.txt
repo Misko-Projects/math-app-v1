@@ -7,12 +7,15 @@ added
 adding
 adds
 after
+afternoon
 again
 all
 along
 am
 an
+anchor
 and
+another
 answer
 any
 apple
@@ -32,7 +35,9 @@ back
 bakery
 balance
 ball
+balloon
 balls
+bar
 basket
 baskets
 be
@@ -43,6 +48,7 @@ beam
 bear
 bears
 bed
+bedtime
 before
 behind
 bell
@@ -72,6 +78,7 @@ boxes
 boy
 boys
 bread
+breakfast
 brick
 bricks
 bridge
@@ -86,6 +93,7 @@ bundle
 bundles
 burrow
 but
+button
 by
 cake
 cakes
@@ -118,6 +126,7 @@ closed
 closely
 closer
 coat
+coconut
 coin
 coins
 come
@@ -146,7 +155,9 @@ crates
 crew
 cube
 cubes
+cup
 curved
+cut
 cylinder
 cylinders
 dance
@@ -155,6 +166,7 @@ days
 dice
 did
 different
+dinner
 do
 dock
 dog
@@ -192,18 +204,21 @@ end
 equal
 equals
 equation
+evening
 every
 eye
 eyes
 fact
 factory
 facts
+fair
 false
 farm
 farmer
 farther
 fast
 father
+feather
 feet
 ferry
 festival
@@ -223,6 +238,7 @@ fireflies
 firefly
 first
 fish
+fishing
 fit
 five
 flag
@@ -273,6 +289,7 @@ going
 good
 goodbye
 got
+graph
 grass
 great
 greater
@@ -281,6 +298,9 @@ ground
 group
 groups
 grove
+grow
+grown
+grows
 guess
 had
 half
@@ -396,6 +416,7 @@ lookout
 looks
 loud
 love
+lunch
 make
 makes
 making
@@ -403,15 +424,19 @@ man
 many
 mark
 market
+marks
 match
 may
 me
 measure
 measured
+melon
 men
 middle
 milk
 minus
+minute
+minutes
 missing
 money
 more
@@ -468,7 +493,10 @@ partner
 partners
 parts
 party
+past
 path
+pattern
+patterns
 pebble
 pebbles
 pebbling
@@ -496,6 +524,7 @@ plus
 practice
 pretty
 puffin
+pumpkin
 pup
 put
 puts
@@ -512,7 +541,11 @@ rectangle
 rectangles
 red
 reef
+repeat
+repeats
+resting
 rhythm
+ribbon
 ride
 rider
 riders
@@ -522,6 +555,7 @@ right
 ring
 road
 robin
+rock
 rod
 rods
 roll
@@ -562,6 +596,7 @@ seventh
 seventy
 shape
 shapes
+share
 she
 sheep
 shell
@@ -591,6 +626,7 @@ snow
 so
 solid
 some
+someone
 song
 soon
 sort
@@ -600,6 +636,7 @@ sphere
 spheres
 split
 splits
+spoon
 square
 squares
 squirrel
@@ -620,6 +657,9 @@ story
 straight
 street
 string
+strip
+strips
+sum
 sun
 super
 table
@@ -629,6 +669,7 @@ taking
 tall
 taller
 tallest
+tally
 tap
 teen
 tell
@@ -647,6 +688,7 @@ them
 then
 there
 they
+thimble
 thing
 things
 think
@@ -689,6 +731,7 @@ true
 try
 trying
 turn
+turn-around
 turned
 turning
 turtle
@@ -699,6 +742,7 @@ two
 under
 up
 veggies
+waking
 walk
 walked
 walking

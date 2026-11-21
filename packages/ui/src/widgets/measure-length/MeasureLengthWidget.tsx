@@ -29,6 +29,7 @@ import {
   useDemoPause,
   useSubmitGuard,
 } from '../kit';
+import { BoxEntry, enteredValues } from '../kit/BoxEntry';
 import { useInviteHand } from '../kit/inviteHand';
 import {
   LengthObject,
@@ -39,7 +40,6 @@ import {
   UnitPiece,
   unitHeight,
 } from '../kit/LengthViews';
-import { enteredValues, NumberEntry } from '../kit/NumberEntry';
 import { useAvailableSize } from '../kit/useAvailableSize';
 import type { ConfigFor, WidgetProps } from '../types';
 import './measure-length.css';
@@ -444,7 +444,7 @@ export function MeasureLengthWidget({
         return r.querySelector<HTMLElement>(`.ni-mlen__pile[data-pile="${invite.slice(5)}"]`);
       if (invite === 'ruler') return r.querySelector<HTMLElement>('.ni-mlen__ruler');
       if (invite === 'options') return r.querySelector<HTMLElement>('.ni-mlen__options .ni-pick');
-      return r.querySelector<HTMLElement>(`.ni-entry__box[data-box="${activeBox}"]`);
+      return r.querySelector<HTMLElement>(`.ni-boxentry__box[data-box="${activeBox}"]`);
     },
     invite ?? '',
   );
@@ -726,7 +726,7 @@ export function MeasureLengthWidget({
       })}
     </fieldset>
   ) : config.input === 'tap-tick' ? null : (
-    <NumberEntry
+    <BoxEntry
       texts={texts}
       active={activeBox}
       onActive={(i) => {

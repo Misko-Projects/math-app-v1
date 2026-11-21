@@ -169,7 +169,6 @@ function isoCube(cx: number, cy: number, hw: number): IsoCube {
 }
 
 const BIG_CUBE = isoCube(32, 30, 22);
-const SMALL_CUBE = isoCube(32, 35.5, 17);
 
 /** Unit-square pip layouts (die faces 1, 3 and 5). */
 const PIPS: Readonly<Record<1 | 3 | 5, ReadonlyArray<readonly [number, number]>>> = {
@@ -229,7 +228,7 @@ function panel(matrix: string, line: string) {
   );
 }
 
-// ---- Curves (rope) --------------------------------------------------------------------------
+// ---- Curves (vine) --------------------------------------------------------------------------
 
 type Pt = readonly [number, number];
 type Cubic = readonly [Pt, Pt, Pt, Pt];
@@ -244,54 +243,6 @@ function cubicAt([a, b, c, d]: Cubic, t: number): { at: Pt; dir: Pt } {
   const len = Math.hypot(dx, dy) || 1;
   return { at: [x, y], dir: [dx / len, dy / len] };
 }
-
-const ROPE: Cubic = [
-  [10, 40],
-  [24, 24],
-  [40, 50],
-  [54, 32],
-];
-const ROPE_D = `M${ROPE[0].join(' ')}C${ROPE[1].join(' ')} ${ROPE[2].join(' ')} ${ROPE[3].join(' ')}`;
-
-/** A segment across the curve at t: half length `half` along the normal, slanted by `slant`. */
-function across(curve: Cubic, t: number, half: number, slant: number) {
-  const {
-    at: [x, y],
-    dir: [tx, ty],
-  } = cubicAt(curve, t);
-  const [nx, ny] = [-ty, tx];
-  const from = `${r2(x - nx * half - tx * slant)} ${r2(y - ny * half - ty * slant)}`;
-  const to = `${r2(x + nx * half + tx * slant)} ${r2(y + ny * half + ty * slant)}`;
-  return `M${from}L${to}`;
-}
-
-/** Slanted twist marks along the rope, between the two bound ends. */
-const ROPE_TWISTS = Array.from({ length: 14 }, (_, i) =>
-  across(ROPE, 0.1 + (i * 0.8) / 13, 3.6, 2),
-).join('');
-
-/** The whipping (binding) just inside each rope end. */
-const ROPE_BINDINGS = across(ROPE, 0.04, 5, 0) + across(ROPE, 0.96, 5, 0);
-
-/** Frayed strands fanning out of each rope end. */
-const ROPE_FRAYS = [0, 1]
-  .map((t) => {
-    const {
-      at: [x, y],
-      dir: [tx, ty],
-    } = cubicAt(ROPE, t);
-    const out = t === 0 ? -1 : 1;
-    return [-0.5, 0, 0.5]
-      .map((spread) => {
-        const cos = Math.cos(spread);
-        const sin = Math.sin(spread);
-        const dx = out * (tx * cos - ty * sin);
-        const dy = out * (tx * sin + ty * cos);
-        return `M${r2(x)} ${r2(y)}l${r2(dx * 6)} ${r2(dy * 6)}`;
-      })
-      .join('');
-  })
-  .join('');
 
 const VINE: Cubic = [
   [6, 42],
@@ -313,9 +264,6 @@ const VINE_LEAVES = [0.14, 0.34, 0.54, 0.74, 0.92].map((t, i) => {
 
 // ---- Small shared bits ----------------------------------------------------------------------
 
-/** A little tail bow (two triangles) centred on (x, y). */
-const bow = (x: number, y: number) => `M${x} ${y}l-5-3.5v7ZM${x} ${y}l5-3.5v7Z`;
-
 /** Shingle rows of a pyramid roof: lines across both faces at fractions of the way down. */
 function pyramidRows(apex: Pt, corners: readonly [Pt, Pt, Pt], at: readonly number[]) {
   const lerp = (p: Pt, t: number) =>
@@ -326,40 +274,6 @@ function pyramidRows(apex: Pt, corners: readonly [Pt, Pt, Pt], at: readonly numb
 }
 
 // ---- Food and island things -----------------------------------------------------------------
-
-const apple: MeasureDraw = (tone) => {
-  const c = tint(tone, CORAL);
-  return (
-    <>
-      {SHADOW}
-      <path d="M32 20c0-5 1-9 4-12" {...stroked(v('wood-deep'), 3.5)} />
-      <path d="M36 14c3-5 9-7 14-5-2 5-8 8-14 5Z" {...painted(LEAF, 2.5)} />
-      <path
-        d="M32 19c-5-4-12-4-17 0-7 5-8 15-5 24 3 7 8 11 14 11 3 0 5-1 8-2 3 1 5 2 8 2 6 0 11-4 14-11 3-9 2-19-5-24-5-4-12-4-17 0Z"
-        {...painted(c)}
-      />
-      {HIGHLIGHT('M16 28c1-3 3-5 6-6')}
-    </>
-  );
-};
-
-const kite: MeasureDraw = (tone) => {
-  const c = tint(tone, CORAL);
-  const diamond = 'M32 4L52 20L32 42L12 20Z';
-  return (
-    <>
-      {SHADOW}
-      <path d="M32 42c0 6 6 6 9 9s8 3 13 0" {...stroked(v('ink-soft'), 2)} />
-      <path d={bow(35.4, 47.6)} {...painted(SUNSHINE, 2)} />
-      <path d={bow(46.8, 53.2)} {...painted(SUNSHINE, 2)} />
-      <path d={diamond} fill={c.fill} />
-      <path d="M32 4L12 20H32ZM32 20H52L32 42Z" fill="#fff" opacity="0.35" />
-      <path d="M32 4V42M12 20H52" {...stroked(c.line, 2.5, 0.8)} />
-      <path d={diamond} {...painted(c)} fill="none" />
-      {HIGHLIGHT('M29 10l-7 6')}
-    </>
-  );
-};
 
 const bun: MeasureDraw = (tone) => {
   const c = tint(tone, SUN);
@@ -372,71 +286,6 @@ const bun: MeasureDraw = (tone) => {
       <path d="M18 37l8-8M29 33l9-9M41 35l7-7" {...stroked(v('sunshine-light'), 3)} />
       <path d={body} {...painted(c)} fill="none" />
       {HIGHLIGHT('M13 38c2-5 4-8 7-10')}
-    </>
-  );
-};
-
-const coconut: MeasureDraw = (tone) => {
-  const c = tint(tone, WOOD);
-  // A coconut cut in half: the hairy brown shell and the white flesh around the hollow.
-  return (
-    <>
-      {SHADOW}
-      <path d="M7 30c0 14 11 24 25 24s25-10 25-24Z" {...painted(c)} />
-      <path d="M13 41l4-2M20 47l3-3M31 50l1-3M42 47l3-3M49 41l3-2" {...stroked(c.line, 2.5, 0.6)} />
-      <ellipse cx="32" cy="30" rx="25" ry="8" fill={v('cloud')} stroke={c.line} strokeWidth="3" />
-      <ellipse
-        cx="32"
-        cy="30.5"
-        rx="19"
-        ry="5"
-        fill={v('pebble')}
-        stroke={v('pebble-deep')}
-        strokeWidth="2"
-      />
-      {HIGHLIGHT('M12 39c2 3 4 5 7 7')}
-    </>
-  );
-};
-
-const melon: MeasureDraw = (tone) => {
-  const flesh = tone === 'b' ? v('sunshine') : v('coral');
-  const rind = 'M6 22h52c0 17-12 31-26 31S6 39 6 22Z';
-  // A watermelon slice: green rind, pale band, juicy flesh and seeds.
-  return (
-    <>
-      {SHADOW}
-      <path d={rind} fill={v('leaf')} />
-      <path d="M10.5 22h43c0 14-10 26.5-21.5 26.5S10.5 36 10.5 22Z" fill={v('foam')} />
-      <path d="M13.5 22h37c0 12-8 23-18.5 23S13.5 34 13.5 22Z" fill={flesh} />
-      <g fill={v('ink')}>
-        <ellipse cx="22" cy="29" rx="1.6" ry="2.6" transform="rotate(-25 22 29)" />
-        <ellipse cx="32" cy="32" rx="1.6" ry="2.6" />
-        <ellipse cx="42" cy="29" rx="1.6" ry="2.6" transform="rotate(25 42 29)" />
-        <ellipse cx="27" cy="38" rx="1.6" ry="2.6" transform="rotate(-15 27 38)" />
-        <ellipse cx="37" cy="38" rx="1.6" ry="2.6" transform="rotate(15 37 38)" />
-      </g>
-      <path d={rind} {...painted(pair('leaf', 'leaf-dark'))} fill="none" />
-      {HIGHLIGHT('M17 26c1 3 2 5 4 7')}
-    </>
-  );
-};
-
-const pumpkin: MeasureDraw = (tone) => {
-  const c = tint(tone, SUN);
-  return (
-    <>
-      {SHADOW}
-      <path
-        d="M29 23c0-5 1-9 5-12l4 3c-3 2-4 5-4 9"
-        {...painted(pair('leaf-deep', 'leaf-dark'), 2.5)}
-      />
-      <path d="M37 14c4-3 9-2 10 2" {...stroked(v('leaf-deep'), 2.5)} />
-      <ellipse cx="20" cy="38" rx="13" ry="15" {...painted(c)} />
-      <ellipse cx="44" cy="38" rx="13" ry="15" {...painted(c)} />
-      <ellipse cx="32" cy="37.5" rx="11" ry="16" {...painted(c)} />
-      <path d="M27 26c-2 7-2 15 0 23M37 26c2 7 2 15 0 23" {...stroked(c.line, 2.5, 0.5)} />
-      {HIGHLIGHT('M12 32c1-3 3-5 5-6')}
     </>
   );
 };
@@ -461,131 +310,6 @@ const orange: MeasureDraw = (tone) => {
       <path d="M32 13v-3" {...stroked(v('wood-deep'), 3)} />
       <path d="M33 11c2-5 8-7 13-5-2 5-8 7-13 5Z" {...painted(LEAF, 2.5)} />
       {HIGHLIGHT('M19 26c2-4 5-6 9-7')}
-    </>
-  );
-};
-
-const brick: MeasureDraw = (tone) => {
-  const c = tint(tone, CORAL);
-  return (
-    <>
-      {SHADOW}
-      {face('M6 30H44V52H6Z', c)}
-      {face('M44 30L58 20V42L44 52Z', c, -0.28)}
-      {face('M6 30L20 20H58L44 30Z', c, 0.3)}
-      <g fill={c.line} opacity="0.5">
-        <circle cx="14" cy="44" r="1.2" />
-        <circle cx="24" cy="38" r="1.2" />
-        <circle cx="33" cy="46" r="1.2" />
-        <circle cx="38" cy="36" r="1.2" />
-        <circle cx="51" cy="34" r="1.2" />
-      </g>
-      {HIGHLIGHT('M10 35h12')}
-    </>
-  );
-};
-
-const rock: MeasureDraw = (tone) => {
-  const c = tint(tone, pair('pebble-deep', 'ink-soft'));
-  const outline = 'M6 52L8 36L16 22L28 13L42 12L52 20L58 34L57 52Z';
-  // A big angular boulder (heavy), unlike the small round pebble.
-  return (
-    <>
-      {SHADOW}
-      <path d={outline} fill={c.fill} />
-      <path d="M16 22L28 13L42 12L32 27Z" fill="#fff" opacity="0.3" />
-      <path d="M46 32L52 20L58 34L57 52H38Z" fill={c.line} opacity="0.28" />
-      <path
-        d="M16 22L32 27L42 12M32 27L46 32L52 20M46 32L38 52M32 27L24 40"
-        {...stroked(c.line, 2.5, 0.55)}
-      />
-      <path d={outline} {...painted(c, 3.5)} fill="none" />
-      {HIGHLIGHT('M19 23l8-6')}
-    </>
-  );
-};
-
-const feather: MeasureDraw = (tone) => {
-  const c = tint(tone, pair('sunshine-light', 'sun-deep'));
-  return (
-    <>
-      {SHADOW}
-      <path d="M14 50C10 36 22 14 54 8c-2 22-18 40-40 42Z" {...painted(c)} />
-      <path
-        d="M22 40l-7-3M29 32l-6-6M37 24l-5-7M27 42l8 2M35 34l9 2M43 25l7 0"
-        {...stroked(c.line, 2, 0.5)}
-      />
-      <path d="M7 57C20 42 36 24 54 8" {...stroked(c.line, 2.5)} />
-      {HIGHLIGHT('M17 33c3-7 8-13 15-18')}
-    </>
-  );
-};
-
-const balloon: MeasureDraw = (tone) => {
-  const c = tint(tone, CORAL);
-  return (
-    <>
-      {SHADOW}
-      <path d="M32 47c-4 3 4 6 0 9" {...stroked(v('ink-soft'), 2)} />
-      <path d="M29.5 47.5l2.5-3.5 2.5 3.5Z" {...painted(c, 2)} />
-      <ellipse cx="32" cy="24" rx="18" ry="21" {...painted(c)} />
-      {HIGHLIGHT('M21 16c2-4 5-6 8-7')}
-    </>
-  );
-};
-
-const button: MeasureDraw = (tone) => {
-  const c = tint(tone, SUNSHINE);
-  return (
-    <>
-      {SHADOW}
-      <circle cx="32" cy="33" r="21" {...painted(c)} />
-      <circle cx="32" cy="33" r="14.5" fill={c.line} opacity="0.15" />
-      <circle cx="32" cy="33" r="14.5" {...stroked(c.line, 2.5, 0.6)} />
-      <g fill={c.line}>
-        <circle cx="27.5" cy="28.5" r="2.8" />
-        <circle cx="36.5" cy="28.5" r="2.8" />
-        <circle cx="27.5" cy="37.5" r="2.8" />
-        <circle cx="36.5" cy="37.5" r="2.8" />
-      </g>
-      {HIGHLIGHT('M17 26c2-4 5-7 9-8')}
-    </>
-  );
-};
-
-const THIMBLE_DIMPLES: ReadonlyArray<readonly [number, number]> = [
-  [28, 17],
-  [32, 17],
-  [36, 17],
-  [24.5, 24],
-  [29.5, 24],
-  [34.5, 24],
-  [39.5, 24],
-  [22, 31],
-  [27, 31],
-  [32, 31],
-  [37, 31],
-  [42, 31],
-  [24, 38],
-  [29, 38],
-  [35, 38],
-  [40, 38],
-];
-
-const thimble: MeasureDraw = (tone) => {
-  const c = tint(tone, PEBBLE);
-  return (
-    <>
-      {SHADOW}
-      <path d="M17 47L20 20C21 9 43 9 44 20L47 47Z" {...painted(c)} />
-      <path d="M38 12C42 14 44 17 44 20L47 47H40Z" fill={c.line} opacity="0.22" />
-      <g fill={c.line} opacity="0.6">
-        {THIMBLE_DIMPLES.map(([x, y]) => (
-          <circle key={`${x}-${y}`} cx={x} cy={y} r="1.6" />
-        ))}
-      </g>
-      <rect x="14" y="44" width="36" height="9" rx="4.5" {...painted(c)} />
-      {HIGHLIGHT('M24 17c1-3 3-5 6-6')}
     </>
   );
 };
@@ -679,64 +403,6 @@ const jug: MeasureDraw = (tone) => {
   );
 };
 
-const cup: MeasureDraw = (tone) => {
-  const c = tint(tone, pair('leaf-light', 'leaf-deep'));
-  return (
-    <>
-      {SHADOW}
-      <ellipse cx="30" cy="51" rx="22" ry="4.5" {...painted(PEBBLE, 2.5)} />
-      {tube('M43 29c9-1 10 11 0 12', c, 4)}
-      <path d="M14 24h32l-3 20c-1 4-4 6-8 6H25c-4 0-7-2-8-6Z" {...painted(c)} />
-      <ellipse cx="30" cy="24" rx="16" ry="4.5" {...painted(c)} />
-      <ellipse cx="30" cy="24.5" rx="12.5" ry="2.8" fill={c.line} opacity="0.4" />
-      {HIGHLIGHT('M19 30l1.5 10')}
-    </>
-  );
-};
-
-const spoon: MeasureDraw = (tone) => {
-  const c = tint(tone, WOOD);
-  return (
-    <>
-      {SHADOW}
-      {tube('M30 30L53 51', c, 5.5)}
-      <ellipse cx="22" cy="22" rx="14" ry="10" transform="rotate(45 22 22)" {...painted(c)} />
-      <ellipse
-        cx="21"
-        cy="21"
-        rx="9"
-        ry="5.5"
-        transform="rotate(45 21 21)"
-        fill={c.line}
-        opacity="0.25"
-      />
-      {HIGHLIGHT('M13 20c0-3 2-6 5-7')}
-    </>
-  );
-};
-
-const crate: MeasureDraw = (tone) => {
-  const c = tint(tone, WOOD);
-  return (
-    <>
-      {SHADOW}
-      <rect x="8" y="8" width="48" height="46" rx="2.5" {...painted(c)} />
-      <rect x="14.5" y="14.5" width="35" height="33" fill={c.line} opacity="0.45" />
-      <rect x="14.5" y="15.5" width="35" height="9" {...painted(c, 2)} />
-      <rect x="14.5" y="26.5" width="35" height="9" {...painted(c, 2)} />
-      <rect x="14.5" y="37.5" width="35" height="9" {...painted(c, 2)} />
-      {tube('M18 45L46 17', c, 5)}
-      <g fill={c.line}>
-        <circle cx="11" cy="11" r="1.4" />
-        <circle cx="53" cy="11" r="1.4" />
-        <circle cx="11" cy="51" r="1.4" />
-        <circle cx="53" cy="51" r="1.4" />
-      </g>
-      {HIGHLIGHT('M13 11.3h18')}
-    </>
-  );
-};
-
 const sack: MeasureDraw = (tone) => {
   const c = tint(tone, CARD);
   return (
@@ -807,42 +473,6 @@ const lantern: MeasureDraw = (tone) => {
       <path d="M25.5 21V44M38.5 21V44" {...stroked(c.line, 2.5)} />
       <rect x="16" y="44" width="32" height="9" rx="3" {...painted(c)} />
       {HIGHLIGHT('M25 16.5h6')}
-    </>
-  );
-};
-
-const anchor: MeasureDraw = (tone) => {
-  const c = tint(tone, IRON, SUNSHINE);
-  // Ring, shank, stock (crossbar) and curved arms ending in pointed flukes: a heavy iron anchor.
-  return (
-    <>
-      {SHADOW}
-      {tube(
-        'M28 10a4 4 0 1 0 8 0a4 4 0 1 0-8 0M32 14V52M21 20H43M10 34c2 12 11 19 22 19s20-7 22-19',
-        c,
-        5,
-      )}
-      <path d="M4 38L10 26L16 36Z" {...painted(c, 2.5)} />
-      <path d="M60 38L54 26L48 36Z" {...painted(c, 2.5)} />
-      {HIGHLIGHT('M32 24v12')}
-    </>
-  );
-};
-
-const fishingRod: MeasureDraw = (tone) => {
-  const rod = tint(tone, WOOD);
-  const bobberTop = tone === 'b' ? v('sea-deep') : v('coral');
-  return (
-    <>
-      {SHADOW}
-      <path d="M49 6L52 33M52 43v6c0 3.5-5 3.5-5 0" {...stroked(v('ink-soft'), 1.8)} />
-      {tube('M17 45L49 6', rod, 3)}
-      {tube('M9 55L18 44', IRON, 5.5)}
-      <circle cx="24" cy="45" r="5" {...painted(PEBBLE, 2.5)} />
-      <path d="M24 45l3 3" {...stroked(v('pebble-deep'), 2.5)} />
-      <circle cx="52" cy="38" r="5" {...painted(BOBBER, 2)} />
-      <path d="M47 38a5 5 0 0 1 10 0Z" fill={bobberTop} stroke={v('ink-soft')} strokeWidth="2" />
-      {HIGHLIGHT('M49.5 35.5c.5-1 1-1.5 2-2')}
     </>
   );
 };
@@ -1050,21 +680,6 @@ const block: MeasureDraw = (tone) => {
   );
 };
 
-const cube: MeasureDraw = (tone) => {
-  const c = tint(tone, SUNSHINE);
-  const shape = SMALL_CUBE;
-  // A plain unit cube: three faces, no marks.
-  return (
-    <>
-      {SHADOW}
-      {face(shape.left, c)}
-      {face(shape.right, c, -0.28)}
-      {face(shape.top, c, 0.35)}
-      {HIGHLIGHT('M19.5 25.5l7-4')}
-    </>
-  );
-};
-
 const ball: MeasureDraw = (tone) => {
   const c = tint(tone, CORAL);
   // A beach ball (sphere): coloured panels from pole to pole and a shaded crescent.
@@ -1084,53 +699,6 @@ const ball: MeasureDraw = (tone) => {
 };
 
 // ---- Measuring things -----------------------------------------------------------------------
-
-const log: MeasureDraw = (tone) => {
-  const c = tint(tone, WOOD);
-  const grain = pair('sand-deep', 'wood-deep');
-  return (
-    <>
-      {SHADOW}
-      <path d="M26 25l-2-7h6l-1 7" {...painted(c, 2.5)} />
-      <path d="M48 24H13C5 24 5 52 13 52H48Z" {...painted(c)} />
-      <path d="M16 31h14M22 38h16M13 45h12M31 46h9" {...stroked(c.line, 2.5, 0.6)} />
-      <ellipse cx="48" cy="38" rx="8.5" ry="14" {...painted(grain)} />
-      <ellipse cx="48" cy="38" rx="5.5" ry="9.5" {...stroked(grain.line, 2, 0.7)} />
-      <ellipse cx="48" cy="38" rx="2.5" ry="4.5" {...stroked(grain.line, 2, 0.7)} />
-      {HIGHLIGHT('M14 29h14')}
-    </>
-  );
-};
-
-const rope: MeasureDraw = (tone) => {
-  const c = tint(tone, CARD);
-  return (
-    <>
-      {SHADOW}
-      <path d={ROPE_FRAYS} {...stroked(c.line, 2.2)} />
-      {tube(ROPE_D, c, 8)}
-      <path d={ROPE_TWISTS} {...stroked(c.line, 2, 0.75)} />
-      <path d={ROPE_BINDINGS} {...stroked(v('wood-deep'), 3.5)} />
-      {HIGHLIGHT('M17 32c2-3 4-5 7-6')}
-    </>
-  );
-};
-
-const ribbon: MeasureDraw = (tone) => {
-  const c = tint(tone, CORAL);
-  // A wavy ribbon strip with notched ends.
-  return (
-    <>
-      {SHADOW}
-      <path
-        d="M6 26C18 16 26 36 38 26S52 18 58 24L54 29L58 34C52 28 50 26 38 36S18 26 6 36L10 31Z"
-        {...painted(c)}
-      />
-      <path d="M8 31C18 21 26 41 38 31S52 23 56 29" {...stroked(c.line, 1.5, 0.45)} />
-      {HIGHLIGHT('M12 25c4-3 7-3 10-1')}
-    </>
-  );
-};
 
 const VINE_LEAF = 'M0 0C3-5 10-8 17-7C14 1 7 4 0 0Z';
 
@@ -1156,31 +724,15 @@ const vine: MeasureDraw = (tone) => {
 
 /** Every measurement and geometry sprite, keyed by sprite id. */
 export const MEASURE_DRAWINGS: Readonly<Record<string, MeasureDraw>> = {
-  apple,
-  kite,
   bun,
-  coconut,
-  melon,
-  pumpkin,
   orange,
-  brick,
-  rock,
-  feather,
-  balloon,
-  button,
-  thimble,
   bucket,
   barrel,
   tub,
   jug,
-  cup,
-  spoon,
-  crate,
   sack,
   pallet,
   lantern,
-  anchor,
-  'fishing-rod': fishingRod,
   book,
   box,
   tent,
@@ -1192,9 +744,5 @@ export const MEASURE_DRAWINGS: Readonly<Record<string, MeasureDraw>> = {
   dice,
   block,
   ball,
-  log,
-  rope,
-  ribbon,
   vine,
-  cube,
 };
