@@ -292,26 +292,16 @@
  * "Make N" beside the icon, the phrase whole on the line under both (it has the card's full
  * width there): never a third line against the border.
  */
-.ni-pwalk__target .ni-pwalk__target-line {
-  display: grid;
-  grid-template-columns: auto 1fr;
-  align-items: center;
-  column-gap: 8px;
-  row-gap: 0;
-}
-.ni-pwalk__target-line svg {
-  height: 36px;
-  width: auto;
-}
 .ni-pwalk__target-phrase {
   display: block;
   grid-column: 1 / -1;
   white-space: nowrap;
 }
 .ni-pwalk__target-line {
-  display: flex;
+  display: grid;
+  grid-template-columns: auto 1fr;
   align-items: center;
-  gap: 8px;
+  gap: 0 8px;
   padding: 4px 12px;
   border: 3px solid var(--color-wood-deep);
   border-radius: 16px;
@@ -324,6 +314,8 @@
 }
 .ni-pwalk__target-line svg {
   flex: none;
+  height: 36px;
+  width: auto;
 }
 .ni-pwalk__target-n {
   font-family: var(--font-display);

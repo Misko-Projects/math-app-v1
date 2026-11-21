@@ -287,6 +287,9 @@ export function MeasureLengthWidget({
 
   /** A laid unit is lifted: traced, and named aloud like the pile it came from. */
   const lift = (x: LaidUnit) => {
+    // Ids are reused (the next unit laid takes the first free one): the keyboard marker goes
+    // with whatever is lifted, so a later unit never inherits it.
+    setMarked(null);
     trace('undo', x.id);
     setInvite(null);
     if (speakOnTap) say(`unit.${x.unit}.one`);
@@ -737,7 +740,7 @@ export function MeasureLengthWidget({
               .join(' ')}
             aria-label={t('ui.mlen.ruler')}
             aria-valuemin={0}
-            aria-valuemax={rulerMax}
+            aria-valuemax={config.input === 'tap-tick' ? rulerMax : slideMax}
             aria-valuenow={config.input === 'tap-tick' ? (tapMark ?? 0) : shown}
             aria-disabled={disabled ? true : undefined}
             data-ruler-start={shown}

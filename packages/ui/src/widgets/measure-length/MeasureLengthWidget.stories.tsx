@@ -1237,9 +1237,32 @@ export const LiftUnitByKeyboardK: Story = {
     await userEvent.keyboard('{Delete}');
     await waitFor(() => expect(laid(root, 'shell')).toEqual([0, 2]));
     await expect(answer()).toBe('12');
+    // A marker never outlives its unit (review round 2): mark the first shell, lift it by
+    // pointer, lay two more (one reuses its id): nothing is marked, and Delete lifts the last
+    // one laid.
+    await userEvent.keyboard('{ArrowRight}');
+    await expect(root.querySelectorAll('.ni-mlen__laid[data-marked="true"]')).toHaveLength(1);
+    const px = Number(root.style.getPropertyValue('--unit').replace('px', ''));
+    const first = spot(root, 'shell', 0, px);
+    await userEvent.pointer({
+      keys: '[MouseLeft]',
+      target: trackPad(root, 'shell'),
+      coords: { clientX: first.x, clientY: first.y },
+    });
+    await waitFor(() => expect(laid(root, 'shell')).toEqual([2]));
+    for (let i = 0; i < 2; i += 1) {
+      pile(root, 'shell').focus();
+      await userEvent.keyboard('{Enter}');
+      await userEvent.keyboard('{Enter}');
+    }
+    await waitFor(() => expect(laid(root, 'shell')).toEqual([2, 3, 4]));
+    await expect(root.querySelectorAll('.ni-mlen__laid[data-marked="true"]')).toHaveLength(0);
+    trackPad(root, 'shell').focus();
+    await userEvent.keyboard('{Delete}');
+    await waitFor(() => expect(laid(root, 'shell')).toEqual([2, 3]));
     const trace = traceOf(args.onInteract).map((e) => `${e.t}:${e.target}`);
     await expect(trace).not.toContain('tap:key-back');
-    await expect(trace.filter((e) => e.startsWith('undo:'))).toEqual([
+    await expect(trace.filter((e) => e.startsWith('undo:')).slice(0, 2)).toEqual([
       'undo:shell-3',
       'undo:shell-1',
     ]);
@@ -1258,8 +1281,10 @@ export const SlideRulerStaysInView: Story = {
     const r = within(root).getByRole('slider', { name: 'Ruler' });
     r.focus();
     for (let i = 0; i < 40; i += 1) await userEvent.keyboard('{ArrowLeft}');
+    // At the limit the value is exactly the declared maximum (review round 2: the maximum was
+    // the ruler's last mark, which sliding can never reach).
     const max = Number(r.getAttribute('aria-valuemax'));
-    await expect(Number(r.getAttribute('aria-valuenow'))).toBeLessThanOrEqual(max);
+    await expect(Number(r.getAttribute('aria-valuenow'))).toBe(max);
     const stage = (root.querySelector('.ni-mlen__stage') as HTMLElement).getBoundingClientRect();
     const object = (root.querySelector('.ni-mlen__object') as HTMLElement).getBoundingClientRect();
     const box = (root.querySelector('svg.ni-ruler') as SVGElement).getBoundingClientRect();
@@ -1270,5 +1295,20 @@ export const SlideRulerStaysInView: Story = {
     // And it comes back.
     for (let i = 0; i < 40; i += 1) await userEvent.keyboard('{ArrowRight}');
     await expect(r).toHaveAttribute('data-ruler-start', '0');
+  },
+};
+
+/** Tap-tick keeps the ruler's whole mark range as the slider's range (review round 2). */
+export const TapTickRangeIsTheRuler: Story = {
+  args: { config: { ...ruler, input: 'tap-tick' }, tier: 'pictorial' },
+  play: async ({ canvasElement }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    const r = within(root).getByRole('slider', { name: 'Ruler' });
+    const last = Math.max(
+      ...[...root.querySelectorAll('.ni-ruler__tick')].map((t) =>
+        Number(t.getAttribute('data-tick')),
+      ),
+    );
+    await expect(Number(r.getAttribute('aria-valuemax'))).toBe(last);
   },
 };

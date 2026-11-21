@@ -1230,9 +1230,28 @@ export const FillSendEarlierPieceBackByKeyboard: Story = {
     ).toBe(first);
     await userEvent.keyboard('{Delete}');
     await waitFor(() => expect(placed(root).map((p) => p.id)).toEqual([second]));
+    // A marker never outlives its block (review round 2): mark the block that is left, send it
+    // back with the take-back button, place both again (one reuses its id): nothing is marked,
+    // and Delete sends back the last block placed.
+    await userEvent.keyboard('{ArrowRight}');
+    await expect(root.querySelectorAll('.ni-scomp__piece[data-marked="true"]')).toHaveLength(1);
+    await userEvent.click(within(root).getByRole('button', { name: 'Take one back' }));
+    await waitFor(() => expect(placed(root)).toHaveLength(0));
+    for (const id of ['p-rhombus', 'p-triangle']) {
+      tile(root, id).focus();
+      await userEvent.keyboard('{Enter}');
+      await userEvent.keyboard('{Enter}');
+    }
+    await waitFor(() => expect(placed(root)).toHaveLength(2));
+    await expect(root.querySelectorAll('.ni-scomp__piece[data-marked="true"]')).toHaveLength(0);
+    const lastPlaced = placed(root)[1]?.id as string;
+    board.focus();
+    await userEvent.keyboard('{Delete}');
+    await waitFor(() => expect(placed(root)).toHaveLength(1));
+    await expect(placed(root).map((p) => p.id)).not.toContain(lastPlaced);
     const undone = traceOf(args.onInteract)
       .filter((e) => e.t === 'undo')
       .map((e) => e.target);
-    await expect(undone).toEqual([first]);
+    await expect(undone[0]).toBe(first);
   },
 };

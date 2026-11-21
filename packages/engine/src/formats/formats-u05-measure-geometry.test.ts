@@ -1594,6 +1594,43 @@ describe('supported domain: every numeric input of the five models has a bound',
           { kind: 'triangle', count: 1 },
         ]),
       );
+      // The checker's own tolerance (review round 2): a unit square covers a 0.9802 × 1 outline
+      // with 1.98% of itself outside, which compose.fill accepts; so must the schema.
+      const sliver = {
+        ...grid(1, 1, [{ kind: 'square', count: 1 }]),
+        outline: {
+          points: [
+            [0, 0],
+            [0.9802, 0],
+            [0.9802, 1],
+            [0, 1],
+          ] as [number, number][],
+        },
+      };
+      accepts(shapeCompose, sliver);
+      expect(
+        passes(
+          'compose.fill',
+          { outline: sliver.outline.points, pieces: [{ kind: 'square', count: 1 }] },
+          { kind: 'state', value: { pieces: [{ kind: 'square', at: [0, 0], rot: 0 }] } },
+        ),
+      ).toBe(true);
+      // Well past the tolerance it is refused (a square on a 0.9 × 1 outline).
+      refuses(
+        shapeCompose,
+        {
+          ...sliver,
+          outline: {
+            points: [
+              [0, 0],
+              [0.9, 0],
+              [0.9, 1],
+              [0, 1],
+            ],
+          },
+        },
+        /cannot fill the outline/,
+      );
       // Too few, and an area no set of the pieces adds up to.
       refuses(shapeCompose, grid(3, 3, [{ kind: 'square', count: 8 }]), /cannot fill the outline/);
       refuses(shapeCompose, grid(3, 1, [{ kind: 'hexagon', count: 2 }]), /cannot fill the outline/);

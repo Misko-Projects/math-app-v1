@@ -137,6 +137,9 @@ export function FillOutline({
 
   /** A placed piece goes back to the tray: traced, and named aloud like any tapped piece. */
   const sendBack = (p: (typeof state.placed)[number]) => {
+    // Ids are reused (the next block from that tile takes the first free one): the keyboard
+    // marker goes with whatever is taken back, so a later block never inherits it.
+    setMarked(null);
     trace('undo', p.id);
     setInvite(null);
     if (speakOnTap) say(`shape.${p.kind}.one`);

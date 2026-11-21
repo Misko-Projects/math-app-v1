@@ -101,10 +101,14 @@ export function ShapeSortWidget({
   const avail = useAvailableSize(root);
   const compact = avail !== null && avail.height < 400;
   const minT = MIN_TARGET_PX[ageMode];
+  // The widget is never wider than its own cap (shape-sort.css `max-width`), however wide the
+  // area: layouts are sized against that, not the area (review round 2: at 1600 px the cards
+  // were sized for 1600 and wrapped inside 1180).
+  const areaWidth = Math.min(avail?.width ?? 1100, SORT_MAX_WIDTH);
   // Find-all and odd-one-out have no tray or bins to keep room for: the cards use the area, in
   // the rows that make them biggest (evidence review: six small cards sat in an empty panel).
   const pick = pickLayout({
-    width: avail?.width ?? 1100,
+    width: areaWidth,
     height: avail?.height ?? 640,
     cards: config.cards.length,
     kMode: ageMode === 'k',
@@ -351,7 +355,7 @@ export function ShapeSortWidget({
   const trayInvited = invite?.id ? binOf(invite.id) === TRAY : false;
   const L = sortLayout(compact);
   const sizes = sortSizes({
-    width: avail?.width ?? 1100,
+    width: areaWidth,
     height: avail?.height ?? 640,
     compact,
     kMode: ageMode === 'k',
@@ -605,6 +609,8 @@ export function sortCardSize(a: SortArea): number {
   return min;
 }
 
+/** The widget's widest (shape-sort.css `.ni-ssort { max-width }`). */
+export const SORT_MAX_WIDTH = 1180;
 /** The gap between find-all and odd-one-out cards (two target gaps). */
 const PICK_GAP = 24;
 /** The largest a find-all or odd-one-out card's picture is drawn. */

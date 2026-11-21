@@ -239,8 +239,8 @@ export function domainIssues(
 }
 
 /**
- * Whether some set of the offered pieces has exactly the outline's area (within the fill
- * tolerance). A tray that cannot even cover the area cannot fill the outline, whatever the
+ * Whether some set of the offered pieces has the outline's area, within what compose.fill
+ * tolerates. A tray that cannot even cover the area cannot fill the outline, whatever the
  * shapes; a tray that can is then proved fillable by the generator's own solution, which the
  * property test replays (this is the necessary half of solvability, cheap enough for a schema).
  */
@@ -252,10 +252,15 @@ export function piecesCanCover(c: ShapeComposeConfig): boolean {
       each: area(PIECE_CORNERS[p.kind as keyof typeof PIECE_CORNERS] as Vec[]),
       count: p.count,
     }));
-  const slack = FILL_TOLERANCE * target + 1e-9;
+  // compose.fill's own limits: at most FILL_TOLERANCE of the outline uncovered, and each piece at
+  // most FILL_TOLERANCE of its own area outside the outline or over another piece. So a set fills
+  // when its area is at least (1 − tol) of the outline's and at most the outline's plus twice
+  // tol of its own (review round 2: a unit square on a 0.9802 × 1 outline is a valid fill).
+  const enough = (sum: number) => sum >= (1 - FILL_TOLERANCE) * target - 1e-9;
+  const notTooMuch = (sum: number) => sum * (1 - 2 * FILL_TOLERANCE) <= target + 1e-9;
   const reach = (i: number, sum: number): boolean => {
-    if (Math.abs(sum - target) <= slack) return true;
-    if (i >= kinds.length || sum > target + slack) return false;
+    if (enough(sum) && notTooMuch(sum)) return true;
+    if (i >= kinds.length || !notTooMuch(sum)) return false;
     const k = kinds[i] as { each: number; count: number };
     for (let n = 0; n <= k.count; n += 1) if (reach(i + 1, sum + n * k.each)) return true;
     return false;
