@@ -1,8 +1,6 @@
 // Regression tests for the cross-model review of PR #84 (K01 part 7: fractions, time, data,
 // patterns and puzzles), one block per finding, over the compiled catalog, plus the class sweep.
 
-import { readFileSync } from 'node:fs';
-import { fileURLToPath } from 'node:url';
 import type {
   GeneratedItem,
   ItemTemplate,
@@ -70,20 +68,20 @@ const key = (item: GeneratedItem): string => {
 // ---------- what the UI draws today ----------
 
 /**
- * The stimulus kinds packages/ui/src/widgets/kit/StimulusView.tsx has a `case` for, read from that
- * file (as text: the engine never imports the UI). Any other kind draws a neutral placeholder
- * card. Reading the file keeps this in step with the kit: when a widget issue adds a kind, the
- * pinned list below goes stale and its test fails until the entry is removed.
+ * The stimulus kinds StimulusView draws a real picture for, from the kit's typed table
+ * (packages/ui/src/widgets/kit/stimulusKinds.ts, which StimulusView's exhaustive switch and
+ * stimulusKinds.test.tsx hold to the drawing). Any other kind draws a neutral placeholder card.
+ * The table is loaded as a module at run time (the engine package never imports the UI, and its
+ * tsconfig has no reference to it), so only what the kit really exports counts: when a widget
+ * issue draws a kind, the pinned list below goes stale and its test fails until the entry goes.
  */
-function stimulusViewKinds(): Set<string> {
-  const file = new URL('../../ui/src/widgets/kit/StimulusView.tsx', import.meta.url);
-  const text = readFileSync(fileURLToPath(file), 'utf8');
-  const start = text.indexOf('switch (spec.kind) {');
-  const end = text.indexOf('default:', start);
-  if (start < 0 || end < 0) throw new Error('StimulusView.tsx: no switch on spec.kind');
-  return new Set([...text.slice(start, end).matchAll(/case '([a-z-]+)':/g)].map((m) => m[1] ?? ''));
-}
-const STIMULUS_VIEW_KINDS = stimulusViewKinds();
+const KIT_KINDS_FILE = new URL('../../ui/src/widgets/kit/stimulusKinds.ts', import.meta.url).href;
+const kit = (await import(/* @vite-ignore */ KIT_KINDS_FILE)) as {
+  STIMULUS_KINDS: Readonly<Record<StimulusSpec['kind'], 'drawn' | 'placeholder'>>;
+};
+const STIMULUS_VIEW_KINDS: ReadonlySet<string> = new Set(
+  Object.entries(kit.STIMULUS_KINDS).flatMap(([kind, how]) => (how === 'drawn' ? [kind] : [])),
+);
 
 /**
  * The formats with a widget in packages/ui/src/widgets/registry.ts that draw pictures through
@@ -99,11 +97,8 @@ const STIMULUS_VIEW_FORMATS = new Set(['number-pad', 'numeral-pick', 'compare', 
  * a later widget issue (bar models U04, shapes U05). Pinned so the list can only shrink, and no
  * new template may join it.
  *
- * Four are K01 part 7 templates on compare and order, which got their widgets (#89) while this
- * part was in review: DAT.02.t4 compares two bar charts and FRA.08.t1–t3 compare and order
- * fraction pictures. Until U05 (#14, bar-graph and fraction formats) draws `chart` and `fraction`
- * in StimulusView, these items show the placeholder card and must not be served to a child
- * (PR #84 review round 5).
+ * The K01 part 7 compare and order templates (DAT.02.t4's bar charts, FRA.08.t1–t3's fraction
+ * pictures) left this list when the kit drew `chart` and `fraction` (#98).
  */
 const UNDRAWN_STIMULI: Readonly<Record<string, string>> = {
   'ADD.09.t2': 'bar-model',
@@ -116,10 +111,6 @@ const UNDRAWN_STIMULI: Readonly<Record<string, string>> = {
   'GEO.08.t3': 'shape', // on origin/main; a compare of shapes (U05)
   'GEO.10.t3': 'shape',
   'GEO.11.t3': 'shape',
-  'DAT.02.t4': 'chart', // K01 part 7, compare: two bar charts (#14)
-  'FRA.08.t1': 'fraction', // K01 part 7, compare: two fraction pictures (#14)
-  'FRA.08.t2': 'fraction', // K01 part 7, compare (#14)
-  'FRA.08.t3': 'fraction', // K01 part 7, order: fraction strips (#14)
 };
 
 /** The DRAWINGS keys of packages/ui/src/widgets/kit/sprites.tsx; any other id draws a pebble. */
@@ -323,10 +314,22 @@ describe('PR #84 review (1): the DAT.02.t5 number pad shows its picture graph', 
   });
 
   it('reads the kinds StimulusView draws from the kit', () => {
-    // The parse found the switch: the kinds every drawn format has relied on since U03 are there.
+    // The table covers every kind the catalog can emit, and each is drawn or a placeholder.
+    for (const how of Object.values(kit.STIMULUS_KINDS)) {
+      expect(['drawn', 'placeholder']).toContain(how);
+    }
+    for (const { items: its } of catalog) {
+      for (const item of its) {
+        for (const s of viewStimuli(item)) expect(kit.STIMULUS_KINDS[s.kind], s.kind).toBeDefined();
+      }
+    }
+    // The kinds every drawn format has relied on since U03, and the two K01 part 7 needs (#98).
     for (const kind of ['none', 'objects', 'dots', 'number-line', 'expression', 'scene']) {
       expect(STIMULUS_VIEW_KINDS.has(kind), kind).toBe(true);
     }
+    expect(STIMULUS_VIEW_KINDS.has('chart')).toBe(true);
+    expect(STIMULUS_VIEW_KINDS.has('fraction')).toBe(true);
+    expect(STIMULUS_VIEW_KINDS.has('shape')).toBe(false);
   });
 
   it('catalog: formats StimulusView draws for show only kinds it draws, or are pinned', () => {
