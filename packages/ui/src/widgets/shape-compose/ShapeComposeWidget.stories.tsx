@@ -1028,6 +1028,8 @@ const inviteDemo: WidgetDemo = createDemoController({ strict: true });
 export const DemoInvite: Story = {
   globals: { ageMode: 'k' },
   args: { demo: inviteDemo },
+  // In the tablet widget area, as the app shows it (evidence review: the fill bar).
+  render: inArea('tablet'),
   play: async ({ canvasElement }) => {
     const root = await findWidget(canvasElement, ROOT);
     inviteDemo.invite({ op: 'drag-piece', args: { id: 'p-triangle', to: [0, 0], rot: 0 } });
@@ -1121,17 +1123,17 @@ const boundFill: Config = {
   format: 'shape-compose',
   mode: 'fill-outline',
   pieces: [
-    { id: 'p-square', kind: 'square', count: 9 },
-    { id: 'p-triangle', kind: 'triangle', count: 1 },
-    { id: 'p-rhombus', kind: 'rhombus', count: 1 },
-    { id: 'p-hexagon', kind: 'hexagon', count: 1 },
+    // 8 two-by-one rectangles and 4 squares tile the 5 × 4 outline exactly (20 squares): two
+    // rectangles and a square in each of its four rows.
+    { id: 'p-rectangle', kind: 'rectangle', count: 8 },
+    { id: 'p-square', kind: 'square', count: 4 },
   ],
   outline: {
     points: [
       [0, 0],
       [SC_OUTLINE_EXTENT_MAX, 0],
-      [SC_OUTLINE_EXTENT_MAX, SC_OUTLINE_EXTENT_MAX],
-      [0, SC_OUTLINE_EXTENT_MAX],
+      [SC_OUTLINE_EXTENT_MAX, 4],
+      [0, 4],
     ],
   },
   showOutlineLines: true,
@@ -1139,15 +1141,16 @@ const boundFill: Config = {
 };
 
 /**
- * Stress, the model's bounds, K, smallest landscape area: the biggest outline (5 block sides
- * each way), four kinds of block, twelve blocks. The outline, the tray and Check fit; every tile
- * is a full target.
+ * Stress, the model's bounds, K, smallest landscape area: a solvable worst case. The widest
+ * outline (5 block sides by 4) and twelve blocks: eight rectangles and four squares fill it, and
+ * the play fills it to prove so. The outline, the tray and Check fit; every tile is a
+ * full target.
  */
 export const StressBoundsFillLandscapeMinK: Story = {
   globals: { ageMode: 'k' },
   args: { config: boundFill },
   render: inArea('landscapeMin'),
-  play: async ({ canvasElement }) => {
+  play: async ({ canvasElement, args }) => {
     const root = await findWidget(canvasElement, ROOT);
     await expect(formatModel('shape-compose')?.configSchema.safeParse(boundFill).success).toBe(
       true,
@@ -1161,6 +1164,46 @@ export const StressBoundsFillLandscapeMinK: Story = {
     ]);
     for (const t of tiles) await expectTargetSize(t, 'k');
     await expectTargetGaps(tiles);
+    // Solvable: in each row, a rectangle at columns 0–1 and 2–3 and a square at column 4, each
+    // tapped into place (tile, then the spot on the outline).
+    const board = root.querySelector('.ni-scomp__pad') as HTMLElement;
+    const put = async (id: string, x: number, y: number) => {
+      await userEvent.click(tile(root, id));
+      const p = boardPoint(root, x, y, boundFill);
+      await userEvent.pointer({
+        keys: '[MouseLeft]',
+        target: board,
+        coords: { clientX: p.x, clientY: p.y },
+      });
+    };
+    let n = 0;
+    for (let row = 0; row < 4; row += 1) {
+      for (const [id, x] of [
+        ['p-rectangle', 1],
+        ['p-rectangle', 3],
+        ['p-square', 4.5],
+      ] as const) {
+        await put(id, x, row + 0.5);
+        n += 1;
+        await waitFor(() => expect(placed(root)).toHaveLength(n));
+      }
+    }
+    await expect(placed(root)).toHaveLength(12);
+    await userEvent.click(within(root).getByRole('button', { name: 'Check' }));
+    const value = lastState(args.onResponse);
+    await expect(
+      stateChecker('compose.fill')?.check(
+        {
+          outline: boundFill.outline?.points,
+          pieces: boundFill.pieces?.map((p) => ({ kind: p.kind, count: p.count })),
+        },
+        value,
+      ),
+    ).toBe(true);
+    await expectFitsArea(areaBox(canvasElement), [
+      root.querySelector('.ni-scomp__outline') as Element,
+      ...tiles,
+    ]);
   },
 };
 

@@ -271,7 +271,8 @@ export function PerimeterWalkWidget({
   // under the grid's frame, right of the corner's column ('below'); otherwise it sits right of the
   // grid's frame, just below the corner's row ('right'). The board keeps room for it.
   const GRIP = Math.max(minT, 64);
-  const GRIP_GAP = 8;
+  // The grid is a target too (drag on it to size the rectangle): 12 px from the grip.
+  const GRIP_GAP = 12;
   const GRIP_RIGHT = GRIP_GAP + GRIP + 2;
   // The ref's "6 × 2" caption under it, and the gap between the side column and the board.
   const CAPTION = 34;
@@ -502,6 +503,8 @@ export function PerimeterWalkWidget({
       {kind === 'area' ? <SquaresIcon /> : <FenceIcon />}
       <span aria-hidden="true" className="ni-pwalk__target-words">
         {t('ui.pwalk.make')} <span className="ni-pwalk__target-n">{n}</span>{' '}
+      </span>
+      <span aria-hidden="true" className="ni-pwalk__target-phrase">
         {t(kind === 'area' ? 'ui.pwalk.squares-inside' : 'ui.pwalk.all-around')}
       </span>
     </span>

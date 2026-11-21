@@ -1561,9 +1561,48 @@ describe('supported domain: every numeric input of the five models has a bound',
         /at most 12 pieces; got 13/,
       );
     });
+    it('the tray must be able to cover the outline: an unfillable fill is refused', () => {
+      const grid = (w: number, h: number, pieces: Parameters<typeof fill>[0]) => ({
+        ...fill(pieces),
+        outline: {
+          points: [
+            [0, 0],
+            [w, 0],
+            [w, h],
+            [0, h],
+          ] as [number, number][],
+        },
+        rotationStep: 90 as const,
+      });
+      // 25 squares to cover, 9 squares and three odd blocks offered (evidence review).
+      refuses(
+        shapeCompose,
+        grid(5, 5, [
+          { kind: 'square', count: 9 },
+          { kind: 'triangle', count: 1 },
+          { kind: 'rhombus', count: 1 },
+          { kind: 'hexagon', count: 1 },
+        ]),
+        /cannot fill the outline: no set of them has its area \(25 squares\)/,
+      );
+      // Exactly enough, and enough with a spare kind left over.
+      accepts(shapeCompose, grid(3, 3, [{ kind: 'square', count: 9 }]));
+      accepts(
+        shapeCompose,
+        grid(3, 3, [
+          { kind: 'square', count: 9 },
+          { kind: 'triangle', count: 1 },
+        ]),
+      );
+      // Too few, and an area no set of the pieces adds up to.
+      refuses(shapeCompose, grid(3, 3, [{ kind: 'square', count: 8 }]), /cannot fill the outline/);
+      refuses(shapeCompose, grid(3, 1, [{ kind: 'hexagon', count: 2 }]), /cannot fill the outline/);
+    });
     it('an outline has at most SC_OUTLINE_POINTS_MAX corners, SC_OUTLINE_EXTENT_MAX across', () => {
       const box = (w: number) => ({
         ...scFill,
+        // As many unit squares as the w × 1 outline holds.
+        pieces: [{ id: 'p-square', kind: 'square' as const, count: w }],
         outline: {
           points: [
             [0, 0],
@@ -1584,7 +1623,10 @@ describe('supported domain: every numeric input of the five models has a bound',
           ]),
         },
       });
-      accepts(shapeCompose, ring(SC_OUTLINE_POINTS_MAX));
+      // (A 16-gon is not fillable with blocks; only the corner bound is under test here.)
+      expect(refusals(shapeCompose, ring(SC_OUTLINE_POINTS_MAX)).join(' | ')).not.toMatch(
+        /corners/,
+      );
       refuses(shapeCompose, ring(SC_OUTLINE_POINTS_MAX + 1), /at most 16 corners; got 17/);
     });
     const draw = (

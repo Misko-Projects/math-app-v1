@@ -414,6 +414,18 @@ export function CompareLengthWidget({
         style={{ height: rowH, marginBottom: invite === o.id ? HAND_ROOM : undefined }}
       >
         {ask === 'indirect' ? <ObjectTag i={i} id={o.id} /> : null}
+        {picked && invite !== o.id ? (
+          // Picked: the ring frames the whole lane, so it encloses the whole object wherever it
+          // starts, and runs along the lane's own edge where it meets the start line (evidence
+          // review: a ring kept right of the line cut across an object lying on the line).
+          <span
+            className="ni-clen__ring-zone ni-clen__ring-zone--lane"
+            style={{ inset: 6 }}
+            aria-hidden="true"
+          >
+            <span className="ni-clen__ring ni-clen__ring--picked" style={{ inset: 0 }} />
+          </span>
+        ) : null}
         {targetP ? (
           <button
             type="button"
@@ -510,7 +522,7 @@ export function CompareLengthWidget({
             }
           >
             <LengthObject sprite={o.sprite} width={objW} height={artH} />
-            {picked || invite === o.id ? (
+            {invite === o.id ? (
               // The ring encloses the whole drawing. Invited, its zone (the ring and 4 px round
               // it) is the control's glyph, so Pip's hand starts under the ring, never on it.
               <span

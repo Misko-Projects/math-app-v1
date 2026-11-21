@@ -316,17 +316,32 @@ export function DotGrid({
             role="img"
             aria-label={t('ui.scomp.sticks-left', { n: sticksLeft })}
           >
-            <svg viewBox="0 0 48 48" width="40" height="40" aria-hidden="true" focusable="false">
-              <rect
-                x="6"
-                y="20"
-                width="36"
-                height="8"
-                rx="4"
-                fill="var(--color-wood)"
-                stroke="var(--color-wood-deep)"
-                strokeWidth="2"
-              />
+            {/* The pile of sticks still to use: one drawn stick each, so the pile shrinks as
+                sticks go on the dots and the number beside it plainly counts what is left
+                (evidence review: a lone "5" beside three placed sticks was ambiguous). */}
+            <svg
+              className="ni-scomp__sticks-pile"
+              viewBox={`0 0 ${Math.ceil(stickCount(config) / 10) * 40 + 4} 64`}
+              width={Math.ceil(stickCount(config) / 10) * 40 + 4}
+              height="64"
+              data-pile={sticksLeft}
+              aria-hidden="true"
+              focusable="false"
+            >
+              {Array.from({ length: sticksLeft }, (_, i) => (
+                <rect
+                  // biome-ignore lint/suspicious/noArrayIndexKey: identical sticks in a pile
+                  key={i}
+                  x={Math.floor(i / 10) * 40 + 2}
+                  y={57 - (i % 10) * 6}
+                  width="36"
+                  height="5"
+                  rx="2.5"
+                  fill="var(--color-wood)"
+                  stroke="var(--color-wood-deep)"
+                  strokeWidth="1.5"
+                />
+              ))}
             </svg>
             <span className="ni-scomp__sticks-n" aria-hidden="true">
               {sticksLeft}

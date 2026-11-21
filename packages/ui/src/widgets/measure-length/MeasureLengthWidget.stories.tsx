@@ -1185,7 +1185,13 @@ export const LiftUnitWhereItSitsK: Story = {
 /** Stress, smallest landscape area: a pick with the most options the model allows (four). */
 export const StressFourOptionsLandscapeMin: Story = {
   args: {
-    config: { ...ruler, mode: 'estimate', input: 'pick', options: [2, 5, 9, ML_OPTION_MAX] },
+    config: {
+      ...ruler,
+      unit: 'cm',
+      mode: 'estimate',
+      input: 'pick',
+      options: [2, 5, 9, ML_OPTION_MAX],
+    },
   },
   render: inArea('landscapeMin'),
   play: async ({ canvasElement }) => {

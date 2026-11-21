@@ -194,21 +194,38 @@ async function expectRingsAround(root: HTMLElement) {
     const outline = cs.outlineStyle === 'none' ? 0 : Number.parseFloat(cs.outlineWidth) || 0;
     const stroke = Math.max(Number.parseFloat(cs.borderTopWidth) || 0, outline);
     await expect(stroke, 'a thick ring').toBeGreaterThanOrEqual(4);
+    const laneRing = ring.closest('.ni-clen__ring-zone--lane') !== null;
     const a = (
-      (ring.closest('.ni-clen__art') as HTMLElement).querySelector('svg.ni-len') as SVGSVGElement
-    ).getBoundingClientRect();
+      (laneRing ? ring.closest('.ni-clen__lane') : ring.closest('.ni-clen__art')) as HTMLElement
+    ).querySelector('svg.ni-len') as SVGSVGElement;
     const i = Math.min(r.left - l.left, r.top - l.top, l.right - r.right, l.bottom - r.bottom);
+    if (laneRing) {
+      // A picked lane's ring frames the lane: the whole object is inside it, on every side.
+      const b = a.getBoundingClientRect();
+      const inside = Math.min(
+        b.left - (r.left + stroke),
+        b.top - (r.top + stroke),
+        r.right - stroke - b.right,
+        r.bottom - stroke - b.bottom,
+      );
+      await expect(i, 'ring 6+ px inside its lane').toBeGreaterThanOrEqual(5.5);
+      await expect(inside, 'the whole object inside the ring').toBeGreaterThanOrEqual(0);
+      inLane = Math.min(inLane, i);
+      pad = Math.min(pad, inside);
+      continue;
+    }
     // Entirely right of the dashed start line, 4+ px clear of it (evidence review: its stroke
     // crossed it); an object on the line then has its left tip outside the ring.
     const gap = r.left - startLine.right;
     await expect(gap, 'ring right of the start line').toBeGreaterThanOrEqual(3.5);
     toLine = Math.min(toLine, gap);
-    const onLine = a.left - startLine.right < 6 + stroke;
+    const onLine = a.getBoundingClientRect().left - startLine.right < 6 + stroke;
+    const ab = a.getBoundingClientRect();
     const p = Math.min(
-      onLine ? Number.POSITIVE_INFINITY : a.left - (r.left + stroke),
-      a.top - (r.top + stroke),
-      r.right - stroke - a.right,
-      r.bottom - stroke - a.bottom,
+      onLine ? Number.POSITIVE_INFINITY : ab.left - (r.left + stroke),
+      ab.top - (r.top + stroke),
+      r.right - stroke - ab.right,
+      r.bottom - stroke - ab.bottom,
     );
     await expect(i, 'ring 6+ px inside its lane').toBeGreaterThanOrEqual(5.5);
     await expect(p, 'drawing 6+ px inside the ring').toBeGreaterThanOrEqual(5.5);
@@ -328,6 +345,8 @@ export const SlideKeyboard: Story = {
 /** MEA.01.t2 (pictorial): unit ticks on the floor; tap the shorter vine. */
 export const ShorterPictorial: Story = {
   args: { config: shorter, tier: 'pictorial' },
+  // In the tablet widget area, as the app shows it (evidence review: the fill bar).
+  render: inArea('tablet'),
   play: async ({ canvasElement, args }) => {
     const root = await findWidget(canvasElement, ROOT);
     await expectToScale(root, shorter);
@@ -769,6 +788,8 @@ const inviteDemo: WidgetDemo = createDemoController({ strict: true });
 export const DemoInvite: Story = {
   globals: { ageMode: 'k' },
   args: { demo: inviteDemo },
+  // In the tablet widget area, as the app shows it (evidence review: the fill bar).
+  render: inArea('tablet'),
   play: async ({ canvasElement }) => {
     const root = await findWidget(canvasElement, ROOT);
     inviteDemo.invite({ op: 'align', args: { id: 'obj-0' } });

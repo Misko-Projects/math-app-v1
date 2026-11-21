@@ -21,7 +21,7 @@ import {
   shapeComposeConfigSchema,
   type WidgetConfigOf,
 } from '@number-island/shared';
-import { area, PIECE_CORNERS, placeCorners, type Vec } from '../check/state/pieces';
+import { area, FILL_TOLERANCE, PIECE_CORNERS, placeCorners, type Vec } from '../check/state/pieces';
 import { argString, type FormatModel, type FormatState, UnsupportedOpError } from './types';
 
 type Config = WidgetConfigOf<'shape-compose'>;
@@ -238,10 +238,44 @@ export function domainIssues(
   return out;
 }
 
+/**
+ * Whether some set of the offered pieces has exactly the outline's area (within the fill
+ * tolerance). A tray that cannot even cover the area cannot fill the outline, whatever the
+ * shapes; a tray that can is then proved fillable by the generator's own solution, which the
+ * property test replays (this is the necessary half of solvability, cheap enough for a schema).
+ */
+export function piecesCanCover(c: ShapeComposeConfig): boolean {
+  const target = area((c.outline?.points ?? []) as Vec[]);
+  const kinds = (c.pieces ?? [])
+    .filter((p) => Object.hasOwn(PIECE_CORNERS, p.kind))
+    .map((p) => ({
+      each: area(PIECE_CORNERS[p.kind as keyof typeof PIECE_CORNERS] as Vec[]),
+      count: p.count,
+    }));
+  const slack = FILL_TOLERANCE * target + 1e-9;
+  const reach = (i: number, sum: number): boolean => {
+    if (Math.abs(sum - target) <= slack) return true;
+    if (i >= kinds.length || sum > target + slack) return false;
+    const k = kinds[i] as { each: number; count: number };
+    for (let n = 0; n <= k.count; n += 1) if (reach(i + 1, sum + n * k.each)) return true;
+    return false;
+  };
+  return target > 0 && reach(0, 0);
+}
+
 const configSchema = shapeComposeConfigSchema.superRefine((c, ctx) => {
   const issue = (path: (string | number)[], message: string) =>
     ctx.addIssue({ code: 'custom', path, message });
-  for (const d of domainIssues(c)) ctx.addIssue({ code: 'custom', ...d });
+  const domain = domainIssues(c);
+  for (const d of domain) ctx.addIssue({ code: 'custom', ...d });
+  if (c.mode === 'fill-outline' && domain.length === 0 && (c.outline?.points.length ?? 0) >= 3) {
+    if (!piecesCanCover(c)) {
+      issue(
+        ['pieces'],
+        `the pieces cannot fill the outline: no set of them has its area (${Math.round(area((c.outline?.points ?? []) as Vec[]) * 100) / 100} squares)`,
+      );
+    }
+  }
   const pieceIds = (c.pieces ?? []).map((p) => p.id);
   if (new Set(pieceIds).size !== pieceIds.length) issue(['pieces'], 'piece ids must be distinct');
   if (pieceIds.some((id) => id.includes(':'))) issue(['pieces'], "piece ids have no ':'");
