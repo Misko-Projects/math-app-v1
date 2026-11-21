@@ -58,8 +58,11 @@ describe('action size for a plan (the largest button measured)', () => {
     const input = (button: Size) =>
       ({ ageMode: 'g1-up', rows: 2, still: false, askMax: 20, button }) as const;
     const stepsWith = (button: Size, w: number) => planRack(input(button), { w, h: 373 }).steps;
-    // A room where the plan's layout depends on which of the two buttons was measured.
-    const widths = Array.from({ length: 1000 }, (_, i) => 300 + i);
+    // A room where the plan's layout depends on which of the two buttons was measured. Such
+    // rooms are 1141 to 1220 px wide today; the search looks every 10 px around that band, not
+    // at each of a thousand widths (about 1,700 plans before the first hit, which ran past the
+    // 5 s limit on CI runners). If the band moves, the next line says so.
+    const widths = Array.from({ length: 31 }, (_, i) => 1040 + 10 * i);
     const w = widths.find((x) => !stepsWith(NEXT, x) && stepsWith(CHECK, x));
     expect(w, 'a width where the two button sizes plan different layouts').toBeDefined();
     if (w === undefined) return;

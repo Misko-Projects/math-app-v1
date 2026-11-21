@@ -39,10 +39,30 @@ export {
   sideValue,
 } from './formats/balance';
 export { type BaseTenBuildState, traySupply } from './formats/base-ten-build';
-export { type BaseTenTradeState, computeResult, htoValue } from './formats/base-ten-trade';
+export {
+  type BaseTenTradeState,
+  computeResult,
+  htoValue,
+  TRADE_ADD_OPERAND_HUNDREDS_MAX,
+  TRADE_ADD_START_HUNDREDS_MAX,
+  TRADE_ALL_ONES_MAX,
+  TRADE_COLUMN_MAX,
+  TRADE_REGROUP_COLUMN_MAX,
+  TRADE_TAKE_COUNT_MAX,
+  TRADE_VALUE_MAX,
+} from './formats/base-ten-trade';
 export { type EqualGroupsState, GROUP_CAPACITY, groupsUnknown } from './formats/equal-groups';
 export { type EqualShareState, shareChoices } from './formats/equal-share';
-export { blankIds, type ExpandedFormState } from './formats/expanded-form';
+export {
+  blankIds,
+  EF_BLANKS_MAX,
+  EF_CARD_MAX,
+  EF_CARDS_MAX,
+  EF_TARGET_MAX,
+  EF_TOKENS_MAX,
+  EF_WORD_OPTIONS_MAX,
+  type ExpandedFormState,
+} from './formats/expanded-form';
 export {
   lineLabels,
   lineSteps,
