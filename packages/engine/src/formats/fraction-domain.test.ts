@@ -26,12 +26,14 @@ import {
   MAX_LINE_TICKS,
   MAX_PARTITION_PARTS,
   MAX_TARGET_DENOMINATOR,
+  placeTolerance,
   snapPlacement,
 } from './fraction-line';
 import {
   fractionPick,
   MAX_PICK_OPTIONS,
   MAX_PICTURE_PARTS,
+  MAX_WORD_OPTIONS,
   MIN_PICK_OPTIONS,
 } from './fraction-pick';
 import type { FormatModel } from './types';
@@ -274,8 +276,10 @@ describe('fraction-cut: mend takes one cut back where it is', () => {
     expect(partCount(cutPie)).toBe(3);
     const two = fractionCut.apply(cutPie, act('mend', { angle: 90 }));
     expect(cutShares(two)).toEqual([0.5, 0.5]);
-    // One radius left is a slit: the circle is whole again.
-    expect(partCount(fractionCut.apply(two, act('mend', { angle: 180 })))).toBe(1);
+    // One radius left would be a slit nobody can see: mending to it clears it too.
+    const whole1 = fractionCut.apply(two, act('mend', { angle: 180 }));
+    expect(partCount(whole1)).toBe(1);
+    expect(whole1.radii).toEqual([]);
     // Guided line 0 mended through its geometry: it is no longer "cut".
     const guided = playCut(cut({ parts: 2, cutMode: 'free' }), [act('cut', { line: 0 })]);
     const whole = fractionCut.apply(guided, act('mend', { dir: 'v', at: 0.5 }));
@@ -299,14 +303,19 @@ describe('fraction-cut: mend takes one cut back where it is', () => {
 describe('fraction-line: supported domain', () => {
   it(`denominator: 1 to ${MAX_LINE_DENOMINATOR}, and at most ${MAX_LINE_TICKS} parts on the line`, () => {
     expect(
-      ok(fractionLine, line({ denominator: MAX_LINE_DENOMINATOR, target: { a: 1, b: 2 } })),
+      ok(fractionLine, line({ denominator: MAX_LINE_DENOMINATOR, target: { a: 6, b: 12 } })),
     ).toBe(true);
     expect(
       issues(fractionLine, line({ denominator: MAX_LINE_DENOMINATOR + 1, ticksShown: false })),
     ).toEqual([`denominator: at most ${MAX_LINE_DENOMINATOR} parts a whole`]);
     expect(ok(fractionLine, line({ denominator: 0 }))).toBe(false);
     // Twelfths on three wholes is the most the line draws.
-    expect(ok(fractionLine, line({ denominator: MAX_LINE_DENOMINATOR, max: 3 }))).toBe(true);
+    expect(
+      ok(
+        fractionLine,
+        line({ denominator: MAX_LINE_DENOMINATOR, max: 3, target: { a: 6, b: 12 } }),
+      ),
+    ).toBe(true);
     expect(MAX_LINE_TICKS).toBe(MAX_LINE_DENOMINATOR * 3);
   });
 
@@ -501,6 +510,37 @@ describe('fraction-pick: supported domain', () => {
     ]);
   });
 
+  it(`cards without a picture (words, symbols): at most ${MAX_WORD_OPTIONS}`, () => {
+    const words = (n: number): PickConfig => ({
+      format: 'fraction-pick',
+      mode: 'name',
+      nameInput: 'words',
+      stimulus: halves,
+      options: Array.from({ length: n }, (_, i) => ({ id: `w-${i}`, label: `word ${i}` })),
+    });
+    // Word cards are wide: more than three beside the picture scroll the smallest area (story
+    // WordsLandscapeMinK), so the limit is stated and enforced rather than left to overflow.
+    expect(issues(fractionPick, words(MAX_WORD_OPTIONS))).toEqual([]);
+    expect(issues(fractionPick, words(MAX_WORD_OPTIONS + 1))).toEqual([
+      `options: a pick with word or symbol cards shows at most ${MAX_WORD_OPTIONS} options`,
+    ]);
+    // One card without a picture among pictures counts too.
+    const mixed = pick(MAX_WORD_OPTIONS + 1);
+    expect(
+      issues(fractionPick, {
+        ...mixed,
+        mode: 'compare',
+        options: [...(mixed.options ?? []).slice(1), { id: 'sym', label: '1/2' }],
+      }),
+    ).toEqual([
+      `options: a pick with word or symbol cards shows at most ${MAX_WORD_OPTIONS} options`,
+    ]);
+    // Seven pictures (six options and the stimulus) still fail.
+    expect(
+      ok(fractionPick, { ...pick(MAX_PICK_OPTIONS), mode: 'equivalent', stimulus: halves }),
+    ).toBe(false);
+  });
+
   it(`a picture has 1 to ${MAX_PICTURE_PARTS} parts and fills at most all of them`, () => {
     const fair = (over: object): PickConfig => ({
       format: 'fraction-pick',
@@ -545,5 +585,77 @@ describe('fraction-pick: supported domain', () => {
     const back = fractionPick.apply(picked, act('answer', { id: 'pic-1', off: true }));
     expect(back.choice).toBeNull();
     expect(fractionPick.toResponse(back)).toBeNull();
+  });
+});
+
+describe('PR #100 review round 1 (s_1319069ce1c7)', () => {
+  it('a free diameter taken back by one seam leaves nothing behind: the next diameter makes halves', () => {
+    const c = cut({ shape: 'circle', cutMode: 'free', parts: 2 });
+    for (const seam of [0, 180]) {
+      const upright = playCut(c, [act('cut', { angle: 0, through: true })]);
+      const back = fractionCut.apply(upright, act('mend', { angle: seam }));
+      expect(back.radii, String(seam)).toEqual([]);
+      expect(partCount(back)).toBe(1);
+      const across = fractionCut.apply(back, act('cut', { angle: 90, through: true }));
+      expect(cutShares(across), String(seam)).toEqual([0.5, 0.5]);
+    }
+    // The class: whatever is cut and mended, a whole circle never keeps a radius.
+    for (let n = 2; n <= MAX_CUT_PARTS; n += 1) {
+      let s = playCut(
+        c,
+        Array.from({ length: n }, (_, i) => act('cut', { angle: (i * 360) / n })),
+      );
+      while (s.radii.length > 0) s = fractionCut.apply(s, act('mend', { angle: s.radii[0] }));
+      expect(partCount(s)).toBe(1);
+      expect(s.radii).toEqual([]);
+    }
+  });
+
+  it('a partition never shows its answer: no ticks, no labels on the marks', () => {
+    expect(issues(fractionLine, partition({ denominator: 4, ticksShown: true }))).toEqual([
+      'ticksShown: partition never shows the ticks it asks for',
+    ]);
+    expect(issues(fractionLine, partition({ denominator: 4, labels: 'all' }))).toEqual([
+      'labels: partition never labels the marks it asks for',
+    ]);
+    for (const labels of ['none', 'ends', 'wholes'] as const) {
+      expect(ok(fractionLine, partition({ denominator: 4, labels }))).toBe(true);
+    }
+  });
+
+  it('placing on shown ticks: only the target’s own tick passes the 03 §5.5 tolerance', () => {
+    // The reported case: fourths shown, target 1/2, tolerance 1/(2·2): the 1/4 tick would pass.
+    expect(issues(fractionLine, line({ denominator: 4, target: { a: 1, b: 2 } }))).toEqual([
+      'target.b: the tick beside the target would pass: write the target in parts no coarser than twice the line’s',
+    ]);
+    expect(ok(fractionLine, line({ denominator: 4, target: { a: 2, b: 4 } }))).toBe(true);
+    // The class: every accepted place-on-ticks config, every tick, through the real checker.
+    let checked = 0;
+    for (let den = 1; den <= MAX_LINE_DENOMINATOR; den += 1) {
+      for (const max of [1, 2, 3] as const) {
+        for (let b = 1; b <= MAX_TARGET_DENOMINATOR; b += 1) {
+          for (let a = 0; a <= b * max; a += 1) {
+            const c = line({ denominator: den, max, target: { a, b } });
+            if (!ok(fractionLine, c)) continue;
+            const answer = {
+              kind: 'placement',
+              value: a / b,
+              min: 0,
+              max,
+              tolerance: placeTolerance(c) as number,
+            } as const;
+            for (let k = 0; k <= den * max; k += 1) {
+              const s = playLine(c, [act('drop', { at: k / den })]);
+              const passes = matches(answer, fractionLine.toResponse(s) as never);
+              expect(passes, `${a}/${b} on ${den}ths to ${max}, tick ${k}`).toBe(
+                Math.abs(k / den - a / b) < 1e-9,
+              );
+            }
+            checked += 1;
+          }
+        }
+      }
+    }
+    expect(checked).toBeGreaterThan(100);
   });
 });

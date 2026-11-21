@@ -270,18 +270,29 @@ export function FractionCutWidget({
     if (w > 0 && Math.abs(w - toolsMeasured) > 0.5) setToolsMeasured(w);
   });
   const toolsW = toolsMeasured > 0 ? toolsMeasured : toolsGuess;
+  // Free cuts can make more parts than the item asks for (up to the model's 12), and thin
+  // sectors move further apart: the room is planned for the parts on screen, never fewer than
+  // the item's, so no part is ever pushed out of the stage.
+  const layoutParts = (() => {
+    if (guided) return config.parts;
+    if (circle) {
+      const thinnest = Math.min(360, ...state.sectors.map((p) => p.a1 - p.a0));
+      return Math.max(config.parts, state.sectors.length, Math.ceil(360 / thinnest - 1e-9));
+    }
+    return Math.max(config.parts, state.rects.length);
+  })();
   const lay = useMemo(
     () =>
       cutLayout(
         frame,
         guided && editing ? guides : [],
-        config.parts,
+        layoutParts,
         { w: Math.max(160, size.w - toolsW - 48), h: Math.max(140, size.h - 24) },
         knifePx,
         2.2,
         shading,
       ),
-    [frame, guided, editing, guides, config.parts, size.w, size.h, toolsW, knifePx, shading],
+    [frame, guided, editing, guides, layoutParts, size.w, size.h, toolsW, knifePx, shading],
   );
   const scale = lay.scale;
 
@@ -728,7 +739,30 @@ export function FractionCutWidget({
       /** Width of the touch band, in CSS px. */
       band: number;
     }[] = [];
-    if (!isCut || !editing || state.stacked || state.separated) return out;
+    if (!editing || state.stacked || state.separated) return out;
+    if (frame.kind === 'circle' && state.radii.length === 1) {
+      // One radius is a slit in a whole circle: it is a cut all the same, and it can be mended.
+      const angle = state.radii[0] as number;
+      const line = state.linesCut.find((l) => {
+        const g = guides[l];
+        return (
+          g?.kind === 'radii' &&
+          g.angles.some((a) => Math.abs((((a % 360) + 360) % 360) - angle) < 1e-6)
+        );
+      });
+      const [x0, y0] = polar(frame.cx, frame.cy, frame.r * 0.3, angle);
+      const [x1, y1] = polar(frame.cx, frame.cy, frame.r, angle);
+      out.push({
+        id: line !== undefined ? `cut-line-${line}` : `cut-r-${Math.round(angle * 10) / 10}`,
+        args: line !== undefined ? { line } : { angle },
+        d: `M${x0} ${y0}L${x1} ${y1}`,
+        dx: 0,
+        dy: 0,
+        band: knifePx,
+      });
+      return out;
+    }
+    if (!isCut) return out;
     const add = (seam: (typeof out)[number]) => {
       const same = out.find((o) => o.id === seam.id);
       if (!same) out.push(seam);
@@ -930,14 +964,15 @@ export function FractionCutWidget({
                               return;
                             }
                             if (!interactive) return;
-                            trace('tap', id);
+                            // Emptying a filled part is an undo.
+                            trace(lit ? 'undo' : 'tap', id);
                             fillPart(i, !lit);
                           },
                           onKeyDown: (e) => {
                             if ((e.key === 'Enter' || e.key === ' ') && drag.selected === null) {
                               e.preventDefault();
                               if (!interactive || e.repeat) return;
-                              trace('tap', id);
+                              trace(lit ? 'undo' : 'tap', id);
                               fillPart(i, !lit);
                               return;
                             }

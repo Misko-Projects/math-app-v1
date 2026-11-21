@@ -664,7 +664,7 @@ describe('fraction-pick', () => {
         ...pictures,
         options: [...(pictures.options ?? []), { id: 'pic-3', label: '1/2' }],
       }),
-    ).toEqual(['options.3.stimulus']);
+    ).toContain('options.3.stimulus');
     expect(issuePaths(fractionPick, { ...pictures, nameInput: 'pads' })).toEqual(['nameInput']);
     expect(
       issuePaths(fractionPick, {

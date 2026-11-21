@@ -17,7 +17,9 @@
 // - `mend` takes one cut back where it is: `mend {line}` (a guided line), `mend {dir, at}` (the
 //   straight cut at `at`: every two parts that meet along it and make a rectangle together join),
 //   `mend {angle}` (that radius; `through: true` also the opposite one). A joined part is filled
-//   only when every piece of it was. A guided line whose cut is gone can be cut again.
+//   only when every piece of it was. A guided line whose cut is gone can be cut again. A circle
+//   mended down to one radius is whole again (the last radius, only a slit, goes too). `mend`
+//   is what the child's touch on a cut sends; it is not an authored demo op (FORMAT_SUPPORT).
 // - `answer {values: [a, b]}` names the fraction (`thenName`); a and b are whole numbers 0 to 99.
 //
 // Supported domain (the schema and `apply` enforce it): 2 to MAX_CUT_PARTS parts; `shade` at most
@@ -223,8 +225,11 @@ function mendRects(s: FractionCutState, dir: 'v' | 'h', at: number): FractionCut
 /** Takes radii away; a sector that joins is filled only when every piece of it was. */
 function mendRadii(s: FractionCutState, angles: readonly number[]): FractionCutState {
   const gone = angles.map(normAngle);
-  const radii = s.radii.filter((r) => !gone.some((a) => sameAngle(r, a)));
+  let radii = s.radii.filter((r) => !gone.some((a) => sameAngle(r, a)));
   if (radii.length === s.radii.length) return s;
+  // One radius left is only a slit in a whole circle: it goes too, so nothing unseen is left
+  // behind for the next cut to meet (PR #100 review, s_1319069ce1c7).
+  if (radii.length < 2) radii = [];
   const sectors = sectorsOf(radii).map((p) => {
     // The old sectors inside the new one (their middles lie in it).
     const inside = s.sectors.filter((q) => {

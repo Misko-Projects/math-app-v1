@@ -199,6 +199,20 @@ export const RectHalvesK: Story = {
     await expectCorrect(lastResponse(args.onResponse), 2, 1);
     const trace = traceOf(args.onInteract);
     await expect(trace.map((e) => `${e.t}:${e.target}`)).toEqual(['tap:knife-0', 'tap:part-0']);
+    // Emptying the part again is an undo in the trace, by pointer and by keyboard.
+    (args.onInteract as ReturnType<typeof fn>).mockClear();
+    await userEvent.click(part(root, 0));
+    await expectFilled(root, 0);
+    part(root, 0).focus();
+    await userEvent.keyboard('{Enter}');
+    await expectFilled(root, 1);
+    await userEvent.keyboard('{Enter}');
+    await expectFilled(root, 0);
+    await expect(traceOf(args.onInteract).map((e) => `${e.t}:${e.target}`)).toEqual([
+      'undo:part-0',
+      'tap:part-0',
+      'undo:part-0',
+    ]);
     await expectTraceOrdered(trace);
   },
 };
@@ -910,5 +924,89 @@ export const SeamsLeaveNarrowPartsTheirMiddle: Story = {
     await expectFilled(root, 1);
     await userEvent.click(part(root, 3));
     await expectFilled(root, 0);
+  },
+};
+
+// ---------- PR #100 review round 1 (s_1319069ce1c7) ----------
+
+const freeCircleHalves: Cut = { ...base, shape: 'circle', parts: 2, cutMode: 'free' };
+const freeSquareHalves: Cut = { ...base, shape: 'square', parts: 2, cutMode: 'free' };
+
+/**
+ * A free circle: a swipe through the middle cuts a diameter; tapping one of its seams takes the
+ * whole cut back (no radius is left behind unseen), so a second swipe across makes two halves.
+ */
+export const FreeDiameterTakenBack: Story = {
+  args: { config: freeCircleHalves },
+  play: async ({ canvasElement, args }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    const svg = root.querySelector('.ni-fcut__svg') as SVGSVGElement;
+    const vb = svg.viewBox.baseVal;
+    const mid = { x: vb.width / 2, y: vb.height / 2 };
+    const reach = Math.min(vb.width, vb.height) * 0.42;
+    await swipe(at(root, mid.x, mid.y - reach), at(root, mid.x, mid.y + reach));
+    await expect(root).toHaveAttribute('data-parts', '2');
+    await expect(seams(root)).toHaveLength(2);
+    await userEvent.click(seams(root)[0] as SVGPathElement);
+    await expect(root).toHaveAttribute('data-parts', '1');
+    await expect(seams(root)).toHaveLength(0);
+    await swipe(at(root, mid.x - reach, mid.y), at(root, mid.x + reach, mid.y));
+    await expect(root).toHaveAttribute('data-parts', '2');
+    await expectEqualShares(measuredShares(stage(root)), 2);
+    await userEvent.click(check(root));
+    await expectCorrect(lastResponse(args.onResponse), 2, 0);
+  },
+};
+
+/** A guided circle in thirds: the first radius is only a slit, and it has a seam to take it back. */
+export const SlitHasASeam: Story = {
+  args: { config: circleThirds },
+  play: async ({ canvasElement }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    await userEvent.click(knife(root, 0));
+    await expect(root).toHaveAttribute('data-parts', '1');
+    await expect(seams(root)).toHaveLength(1);
+    await userEvent.click(seams(root)[0] as SVGPathElement);
+    await expect(seams(root)).toHaveLength(0);
+    // The knife for that line is back.
+    await expect(knife(root, 0)).toBeVisible();
+  },
+};
+
+/**
+ * Smallest landscape area, a free square that asks for halves: the child cuts it into twelve
+ * strips anyway (the side-to-side knife and its keyboard cursor, a twelfth apart). Every strip
+ * stays inside the card and nothing scrolls: the room is planned for the parts on screen.
+ */
+export const FreeCutsStayInsideLandscapeMin: Story = {
+  args: { config: freeSquareHalves },
+  render: inArea('landscapeMin'),
+  play: async ({ canvasElement }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    const sideKnife = within(root).getByRole('button', { name: 'Cut side to side' });
+    for (let k = 1; k <= 11; k += 1) {
+      // Pick the knife up (its line starts in the middle), move it, press it again to cut.
+      await userEvent.click(sideKnife);
+      sideKnife.focus();
+      const steps = 4 * k - 24;
+      for (let i = 0; i < Math.abs(steps); i += 1) {
+        await userEvent.keyboard(steps < 0 ? '{ArrowUp}' : '{ArrowDown}');
+      }
+      await userEvent.keyboard('{Enter}');
+      await expect(root).toHaveAttribute('data-parts', String(k + 1));
+    }
+    await settle(root);
+    const card = areaBox(canvasElement);
+    const box = card.getBoundingClientRect();
+    for (const el of partEls(root)) {
+      const r = el.getBoundingClientRect();
+      await expect(r.top).toBeGreaterThanOrEqual(box.top);
+      await expect(r.bottom).toBeLessThanOrEqual(box.bottom);
+      await expect(r.left).toBeGreaterThanOrEqual(box.left);
+      await expect(r.right).toBeLessThanOrEqual(box.right);
+    }
+    await expect(card.scrollHeight).toBeLessThanOrEqual(card.clientHeight + 1);
+    await expect(card.scrollWidth).toBeLessThanOrEqual(card.clientWidth + 1);
+    await expectEqualShares(measuredShares(stage(root)), 12);
   },
 };

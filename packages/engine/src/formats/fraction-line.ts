@@ -11,7 +11,10 @@
 // `label {a, b}` writes a/b under its tick and `hop {k}` draws k hops from 0 in any mode
 // (visual), and `partition {b}` draws the b-ticks as a hint outside partition mode.
 // `drop {remove: true}` in `place` takes the point back off the line.
+// `placeTolerance(config)` is the 03 §5.5 tolerance of a `place` answer.
 //
+// A partition shows neither its ticks nor labels on them (they are the answer). A target placed
+// on shown ticks has `denominator < 2b`, so only its own tick is within the tolerance.
 // Supported domain (the schema and `apply` enforce it): `max` 1 to 3 wholes; 1 to
 // MAX_LINE_DENOMINATOR parts a whole (so at most MAX_LINE_TICKS parts on the whole line, which
 // the smallest area draws: story TwelfthsToThreeLandscapeMinK); `partition` 2 parts a whole or
@@ -90,6 +93,15 @@ export function snapPlacement(c: Config, at: number): number {
   return Math.min(c.denominator * c.max, Math.max(0, k)) / c.denominator;
 }
 
+/**
+ * The tolerance of a `place` answer (03 §5.5): 1/(2b) of a unit when ticks are shown (it must hit
+ * the tick), 1/(4b) otherwise. Null without a target.
+ */
+export function placeTolerance(c: Config): number | null {
+  if (!c.target) return null;
+  return c.ticksShown ? 1 / (2 * c.target.b) : 1 / (4 * c.target.b);
+}
+
 const configSchema = fractionLineConfigSchema.superRefine((c, ctx) => {
   if (c.denominator > MAX_LINE_DENOMINATOR) {
     ctx.addIssue({
@@ -119,6 +131,21 @@ const configSchema = fractionLineConfigSchema.superRefine((c, ctx) => {
     if (c.target) {
       ctx.addIssue({ code: 'custom', path: ['target'], message: 'partition has no target' });
     }
+    // The ticks and their labels are the answer: a partition never shows them.
+    if (c.ticksShown) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['ticksShown'],
+        message: 'partition never shows the ticks it asks for',
+      });
+    }
+    if (c.labels === 'all') {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['labels'],
+        message: 'partition never labels the marks it asks for',
+      });
+    }
   } else {
     if (!c.target) {
       ctx.addIssue({ code: 'custom', path: ['target'], message: `${c.mode} has a target` });
@@ -135,6 +162,17 @@ const configSchema = fractionLineConfigSchema.superRefine((c, ctx) => {
           code: 'custom',
           path: ['target'],
           message: 'the point sits on a tick',
+        });
+      }
+      // A point placed on shown ticks must hit its own tick (03 §5.5): the tick beside it lies
+      // 1/denominator away, the tolerance is 1/(2b) and inclusive, so the neighbour stays
+      // outside it only while denominator < 2b.
+      if (c.mode === 'place' && c.ticksShown && c.denominator >= 2 * b) {
+        ctx.addIssue({
+          code: 'custom',
+          path: ['target', 'b'],
+          message:
+            'the tick beside the target would pass: write the target in parts no coarser than twice the line’s',
         });
       }
       if (c.mode === 'read' && !c.decimalLabels && b !== c.denominator) {

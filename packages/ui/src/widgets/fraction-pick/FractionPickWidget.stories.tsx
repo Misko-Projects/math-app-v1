@@ -691,3 +691,20 @@ export const PickTakenBack: Story = {
     await expect(args.onResponse).toHaveBeenCalledTimes(1);
   },
 };
+
+// ---------- PR #100 review round 1 (s_1319069ce1c7) ----------
+
+/**
+ * Three word cards beside the picture (the most a pick with word cards shows: the model's
+ * MAX_WORD_OPTIONS) at the smallest landscape area, K: every card a full target, nothing scrolls.
+ */
+export const WordsLandscapeMinK: Story = {
+  globals: { ageMode: 'k' },
+  args: { config: nameWords },
+  render: inArea('landscapeMin'),
+  play: async ({ canvasElement }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    await expect(cards(root)).toHaveLength(3);
+    await expectFitsArea(root, areaBox(canvasElement), 'k', [...cards(root), check(root)]);
+  },
+};

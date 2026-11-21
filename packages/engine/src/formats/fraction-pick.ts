@@ -11,9 +11,9 @@
 // `answer {id, off: true}` takes that pick back (the child taps the picked card again).
 //
 // Supported domain (the schema and `apply` enforce it): MIN_PICK_OPTIONS to MAX_PICK_OPTIONS
-// options, and at most MAX_PICK_OPTIONS pictures in all with the stimulus (one row of 64 px
-// cards in the smallest area; 80 px K cards hold 5 there and 6 at the tablet); every fraction
-// picture has 1 to MAX_PICTURE_PARTS parts and fills at most all of them;
+// picture options, and at most MAX_PICK_OPTIONS pictures in all with the stimulus (one row in
+// the smallest area); with any card that has no picture (a word or a symbol, which is wide) at
+// most MAX_WORD_OPTIONS options (more scroll the smallest area); every fraction picture has 1 to MAX_PICTURE_PARTS parts and fills at most all of them;
 // an overlay a/b has b 1 to MAX_PICTURE_PARTS and a at most b; typed numbers are whole, 0 to
 // MAX_TYPED_NUMBER.
 
@@ -49,6 +49,8 @@ export interface FractionPickState extends FormatState<'fraction-pick'> {
 export const MIN_PICK_OPTIONS = 3;
 /** Most options a pick shows, and most pictures with the stimulus: one row in the smallest area. */
 export const MAX_PICK_OPTIONS = 6;
+/** Most options when a card has no picture (words and symbols are wide cards). */
+export const MAX_WORD_OPTIONS = 3;
 /** Most parts a fraction picture is cut into (the kit draws 1 to 12). */
 export const MAX_PICTURE_PARTS = 12;
 /** The largest number typed on a pad (two digits). */
@@ -112,7 +114,13 @@ const configSchema = fractionPickConfigSchema.superRefine((c, ctx) => {
         path: ['options'],
         message: `a pick shows at most ${MAX_PICK_OPTIONS} options`,
       });
-    } else if (c.stimulus && opts.length + 1 > MAX_PICK_OPTIONS) {
+    } else if (opts.some((o) => !o.stimulus) && opts.length > MAX_WORD_OPTIONS) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['options'],
+        message: `a pick with word or symbol cards shows at most ${MAX_WORD_OPTIONS} options`,
+      });
+    } else if (opts.filter((o) => o.stimulus).length + (c.stimulus ? 1 : 0) > MAX_PICK_OPTIONS) {
       ctx.addIssue({
         code: 'custom',
         path: ['options'],
