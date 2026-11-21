@@ -180,7 +180,12 @@ const gap = (a: Edges, b: Edges) =>
   Math.max(b.left - a.right, a.left - b.right, b.top - a.bottom, a.top - b.bottom);
 
 /** Below the control, pointing up (the kit's first choice). */
-function below(m: Measured, host: HTMLElement, hostExtra: number): InviteHandPlacement {
+function below(
+  m: Measured,
+  host: HTMLElement,
+  hostExtra: number,
+  overhang: number,
+): InviteHandPlacement {
   const S = INVITE_HAND_PX;
   const tip = { x: HAND_POINTER_TIP.up.x * S, y: HAND_POINTER_TIP.up.y * S };
   const { t, glyphs } = m;
@@ -212,7 +217,7 @@ function below(m: Measured, host: HTMLElement, hostExtra: number): InviteHandPla
   // The hand (with its bob) stays inside the widget: below a control at the bottom, the widget
   // makes room for it.
   const ownHeight = host.clientHeight - hostExtra;
-  const room = Math.max(0, Math.ceil(top + S + BOB.y + EDGE - ownHeight));
+  const room = Math.max(0, Math.ceil(top + S + BOB.y + EDGE - ownHeight - overhang));
   return { left, top, room, direction: 'up' };
 }
 
@@ -267,6 +272,8 @@ export function placeInviteHand(
   host: HTMLElement,
   hostExtra = 0,
   side?: InviteHandSide,
+  /** See `useInviteHand`: px the hand may hang below the widget (default 0). */
+  overhang = 0,
 ): InviteHandPlacement {
   const S = INVITE_HAND_PX;
   const m = measure(target, host);
@@ -299,7 +306,7 @@ export function placeInviteHand(
       direction: 'down',
     };
   }
-  const first = below(m, host, hostExtra);
+  const first = below(m, host, hostExtra, overhang);
   if (side === 'below') return first;
   const W = host.clientWidth;
   const H = host.clientHeight;
@@ -358,6 +365,12 @@ export function useInviteHand(
   side?: InviteHandSide,
   /** A small badge on the hand's wrist saying what the invited action is. */
   cue?: ReactNode,
+  /**
+   * How far the hand may hang below the widget's bottom edge before the widget grows to hold
+   * it (default 0). Only for a widget whose host keeps free, uncovered room under it (the
+   * workshop card's padding at the 960 × 600 minimum); the hand covers nothing there.
+   */
+  overhang = 0,
 ): { hand: ReactNode; rootStyle: CSSProperties | undefined } {
   const [placed, setPlaced] = useState<(InviteHandPlacement & { padBase: number }) | null>(null);
   /** The bottom room the committed DOM has for the hand (this render's value, once committed). */
@@ -373,7 +386,7 @@ export function useInviteHand(
       setPlaced(null);
       return;
     }
-    const p = placeInviteHand(el, root, applied.current, side);
+    const p = placeInviteHand(el, root, applied.current, side, overhang);
     const padBase =
       (Number.parseFloat(getComputedStyle(root).paddingBottom) || 0) - applied.current;
     setPlaced((prev) =>

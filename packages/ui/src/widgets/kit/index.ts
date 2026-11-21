@@ -1,5 +1,30 @@
 // The shared widget kit (U03): pictures, layouts and answer controls the math widgets compose.
 // See ./README.md. Widgets import from here; workshops never do (they render WidgetHost).
+
+export { useActionSize } from './actionSize';
+export {
+  ARRANGEMENTS,
+  type Arrangement,
+  ASK_ARRANGEMENTS,
+  arrangedSize,
+  type Candidate,
+  compactCardW,
+  firstFit,
+  INVITE_ROOM_PX,
+  MAX_ZOOM,
+  numeralCardH,
+  numeralTraySize,
+  overflow,
+  pickByFill,
+  type Size,
+  trayColumnChoices,
+  withInviteRoom,
+  zoomed,
+  zoomFor,
+} from './arrange';
+export { ChartView, type ChartViewProps, chartBox } from './ChartView';
+export { type ChartGeometry, chartGeometry, type SlotGeometry } from './chartLayout';
+export { useCommitBarrier } from './commit';
 export {
   applyPadKey,
   CheckButton,
@@ -34,6 +59,9 @@ export {
   useSharedScale,
   wrapLine,
 } from './FitPicture';
+export { FractionView, type FractionViewProps } from './FractionView';
+export { FLY_MS, useFlight } from './flight';
+export { shapeFrame } from './fractionShapes';
 export {
   INVITE_GLYPH_SELECTOR,
   INVITE_HAND_PX,
@@ -44,6 +72,7 @@ export {
   placeInviteHand,
   useInviteHand,
 } from './inviteHand';
+export { useOncePerKeyPress } from './keyPress';
 export {
   dicePattern,
   dotsLayout,
@@ -54,12 +83,28 @@ export {
   objectSetLayout,
   type PlacedObject,
 } from './layout';
+export { type FlyOptions, flyFrom } from './motion';
+export {
+  type EntryKind,
+  type EntryLayout,
+  entryChoices,
+  entryGroups,
+  entryKind,
+  entrySize,
+  entryValues,
+  NumberEntry,
+  type NumberEntryProps,
+  nextPadKey,
+  TRAY_MAX,
+} from './NumberEntry';
 export {
   type NumberLineMark,
   type NumberLineScale,
   NumberLineView,
   type NumberLineViewProps,
   numberLineScale,
+  numberLineViewScale,
+  numeralText,
   stepsBetween,
 } from './NumberLineView';
 export { fitCell, ObjectSetView, type ObjectSetViewProps } from './ObjectSetView';
@@ -82,3 +127,4 @@ export {
   type SpriteTone,
   spriteNameKey,
 } from './sprites';
+export { STIMULUS_KINDS, type StimulusKind, stimulusDrawn } from './stimulusKinds';

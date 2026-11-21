@@ -324,6 +324,22 @@ export async function expectFitsArea(
 }
 
 /**
+ * Pip's hand covers no other control's glyph (icon, numeral, digit or word): measured at rest, it
+ * may hang over another control's edge, never over what that control shows.
+ */
+export async function expectHandOffGlyphsOf(hand: HTMLElement, others: Element[]) {
+  const h = (hand.querySelector('svg') ?? hand).getBoundingClientRect();
+  for (const other of others) {
+    for (const glyph of other.querySelectorAll(INVITE_GLYPH_SELECTOR)) {
+      const g = glyph.getBoundingClientRect();
+      const apart =
+        h.right <= g.left || g.right <= h.left || h.bottom <= g.top || g.bottom <= h.top;
+      await expect(apart, `hand clear of ${describeEl(glyph)} in ${describeEl(other)}`).toBe(true);
+    }
+  }
+}
+
+/**
  * How much of the area card's inner area (width × height) the widget's content covers: the
  * bounding box of its visible parts over the inner area, 0–1.
  */

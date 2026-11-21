@@ -18,6 +18,7 @@ import { constraintHolds } from '../content/expr';
 import { lineSlots, renderForms } from '../content/render';
 import { formatFeatures, formatModel } from '../formats';
 import { optionNumber } from '../formats/numeral-pick';
+import { misplacedCharts } from '../formats/pictures';
 import { inDomain } from '../generators/common';
 import { attemptDifficulty } from '../items/attempt-difficulty';
 import { checkResponse } from '../items/check';
@@ -597,6 +598,11 @@ export function runTemplateProperties(
         '3.widget',
         parsed.error.issues.map((i) => `${i.path.join('.')}: ${i.message}`).join('; '),
       );
+    }
+    // A chart stimulus sits only on a compare side (formats/pictures.ts): nowhere else is its
+    // layout proven to keep the numerals at 32 px.
+    for (const at of misplacedCharts(item)) {
+      fail(seed, '3.chart', `${at}: a chart stimulus is shown only on a compare side`);
     }
     if (item.widget.format !== t.format)
       fail(seed, '3.format', 'widget.format differs from template.format');

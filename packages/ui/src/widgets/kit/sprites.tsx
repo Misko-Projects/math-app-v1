@@ -302,6 +302,13 @@ const counter: Draw = (tone) => (
       stroke={tone === 'b' ? 'var(--color-sun-deep)' : 'var(--color-coral-deep)'}
       strokeWidth="3"
     />
+    {/* Colour b also differs by a mark (06 §7, never colour alone): an ink ring and centre dot. */}
+    {tone === 'b' ? (
+      <g data-mark="ring">
+        <circle cx="32" cy="32" r="11" fill="none" stroke="var(--color-ink)" strokeWidth="3.5" />
+        <circle cx="32" cy="32" r="3.5" fill="var(--color-ink)" />
+      </g>
+    ) : null}
     {HIGHLIGHT('M20 24c2.5-3.5 6-5.5 10-6')}
   </>
 );

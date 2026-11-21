@@ -2,18 +2,23 @@ import type { ExpressionSpec, ExpressionToken, StimulusSpec } from '@number-isla
 import type { CSSProperties, ReactNode } from 'react';
 import { useNarrationText } from '../../preferences/UiProvider';
 import { pictureProps } from './a11y';
+import { ChartView } from './ChartView';
+import { FractionView } from './FractionView';
+import { shapeFrame } from './fractionShapes';
 import { dotsLayout, groupIndexes, objectSetLayout } from './layout';
 import { NumberLineView } from './NumberLineView';
 import { ObjectSetView } from './ObjectSetView';
 import { ObjectSprite } from './sprites';
+import { STIMULUS_KINDS } from './stimulusKinds';
 import './kit.css';
 
 /**
  * Static pictures for `StimulusSpec` (03 §5.1): what many formats show above their answer control
- * (numeral-pick, number-pad, dot-flash, compare, …). Each kind has one renderer below. Kinds that
- * belong to later widget issues (clock, coins, fractions, gauges, charts, shapes, bar models) are
- * added here by those issues, one `case` each; until then they draw a neutral card (and a dev tag),
- * so an item never breaks.
+ * (numeral-pick, number-pad, dot-flash, compare, order, …). Each kind has one renderer below, and
+ * the switch is exhaustive: a kind added to `StimulusSpec` does not compile here, or in
+ * `STIMULUS_KINDS` (stimulusKinds.ts), until someone decides how it is drawn. The kinds a later
+ * widget issue still owes (`placeholder` in that table: bar models, gauges, clocks, coins, shapes)
+ * are listed by name and draw a neutral card (and a dev tag), so an item never breaks.
  *
  * A stimulus is a picture, not an answer: its accessible name says what it is ("Look at the
  * picture"), never the quantity the child is asked for.
@@ -188,25 +193,74 @@ export function StimulusView({
           ))}
         </div>
       );
-    default:
-      // Kinds a later widget issue renders (U04/U05). A neutral card, never a crash.
+    case 'fraction': {
+      // Drawn at the whole's own size, never above it: two wholes of one shape are one size, so
+      // only the cuts and the filled parts differ (FitPicture scales the pictures alike).
+      const frame = shapeFrame(spec.shape);
       return (
-        <div
-          className={cls}
-          data-kind={spec.kind}
-          data-unsupported="true"
-          role="img"
-          aria-label={name}
-        >
-          <ObjectSprite sprite="pebble" />
-          {import.meta.env?.DEV ? (
-            <code className="ni-stimulus__dev" aria-hidden="true">
-              {spec.kind}
-            </code>
-          ) : null}
+        <div className={cls} data-kind="fraction">
+          <FractionView
+            shape={spec.shape}
+            parts={spec.parts}
+            shaded={spec.shaded}
+            equalParts={spec.equalParts}
+            maxWidth={Math.min(maxWidth, frame.width)}
+            maxHeight={Math.min(maxHeight, frame.height)}
+            label={name}
+          />
         </div>
       );
+    }
+    case 'chart':
+      return (
+        <div className={cls} data-kind="chart">
+          <ChartView chart={spec.chart} maxWidth={maxWidth} maxHeight={maxHeight} label={name} />
+        </div>
+      );
+    case 'bar-model':
+    case 'gauge':
+    case 'clock':
+    case 'coins':
+    case 'shape':
+      return <PlaceholderCard kind={spec.kind} className={cls} label={name} />;
+    default: {
+      // Unreachable while the switch is exhaustive: a new kind fails to compile on the next line.
+      // Data that skipped the schema still gets the card at run time, never a crash.
+      const unknown: never = spec;
+      return (
+        <PlaceholderCard kind={(unknown as { kind: string }).kind} className={cls} label={name} />
+      );
+    }
   }
+}
+
+/** The neutral card of a kind that has no drawing yet (`placeholder` in `STIMULUS_KINDS`). */
+function PlaceholderCard({
+  kind,
+  className,
+  label,
+}: {
+  kind: string;
+  className: string;
+  label: string;
+}) {
+  return (
+    <div
+      className={className}
+      data-kind={kind}
+      data-unsupported="true"
+      data-status={(STIMULUS_KINDS as Record<string, string>)[kind] ?? 'unknown'}
+      role="img"
+      aria-label={label}
+    >
+      <ObjectSprite sprite="pebble" />
+      {import.meta.env?.DEV ? (
+        <code className="ni-stimulus__dev" aria-hidden="true">
+          {kind}
+        </code>
+      ) : null}
+    </div>
+  );
 }
 
 // ---------- fingers ----------

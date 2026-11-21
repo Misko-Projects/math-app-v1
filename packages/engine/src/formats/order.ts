@@ -3,6 +3,7 @@
 // `highlight {id}` and the generic `answer {values}`.
 
 import { orderConfigSchema, type WidgetConfigOf } from '@number-island/shared';
+import { sharedScaleIssues } from './pictures';
 import {
   argNumber,
   argNumbers,
@@ -28,6 +29,23 @@ const configSchema = orderConfigSchema.superRefine((c, ctx) => {
   if (new Set(ids).size !== ids.length) {
     ctx.addIssue({ code: 'custom', path: ['items'], message: 'item ids must be distinct' });
   }
+  sharedScaleIssues(
+    c.items.map((i) => i.stimulus),
+    ctx,
+    c.items.map((_, k) => ['items', k, 'stimulus']),
+  );
+  // A card is too small for a chart: its axis numerals cannot keep 32 px (05 §11) in a card's
+  // picture box (about 110 × 60 px in the smallest area). Charts are compared side by side
+  // (`compare`) or read in the bar-graph formats, never ordered as cards.
+  c.items.forEach((item, k) => {
+    if (item.stimulus?.kind === 'chart') {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['items', k, 'stimulus'],
+        message: 'an order card cannot show a chart (its numerals would be under 32 px)',
+      });
+    }
+  });
   for (const [slot, id] of Object.entries(c.fixed ?? {})) {
     const k = Number(slot);
     if (!Number.isInteger(k) || k < 0 || k >= c.items.length || !ids.includes(id)) {

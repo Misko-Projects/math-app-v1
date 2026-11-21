@@ -41,6 +41,9 @@ function stimulusSprites(s: StimulusSpec | undefined, into: Set<string>): void {
     if (s.sprite) into.add(s.sprite);
   } else if (s.kind === 'scene') {
     for (const p of s.sprites) into.add(p.sprite);
+  } else if (s.kind === 'chart' && s.chart.kind !== 'line-plot') {
+    // A chart pictures each category with the sprite of its id (ChartView's label cell).
+    for (const c of s.chart.categories) into.add(c.id);
   }
 }
 

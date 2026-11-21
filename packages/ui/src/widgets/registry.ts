@@ -16,6 +16,16 @@ export const widgetRegistry: WidgetRegistry = {
   'tap-count': () => import('./tap-count/TapCountWidget'),
   'make-set': () => import('./make-set/MakeSetWidget'),
   'dot-flash': () => import('./dot-flash/DotFlashWidget'),
+  // U04 (#13): place value
+  'base-ten-build': () => import('./base-ten-build/BaseTenBuildWidget'),
+  'base-ten-trade': () => import('./base-ten-trade/BaseTenTradeWidget'),
+  'expanded-form': () => import('./expanded-form/ExpandedFormWidget'),
+  'number-line-place': () => import('./number-line-place/NumberLinePlaceWidget'),
+  'number-line-jump': () => import('./number-line-jump/NumberLineJumpWidget'),
+  'hundred-chart': () => import('./hundred-chart/HundredChartWidget'),
+  'tenframe-fill': () => import('./tenframe-fill/TenframeFillWidget'),
+  'number-bond': () => import('./number-bond/NumberBondWidget'),
+  rekenrek: () => import('./rekenrek/RekenrekWidget'),
   compare: () => import('./compare/CompareWidget'),
   order: () => import('./order/OrderWidget'),
 };

@@ -12,7 +12,7 @@ import type {
   WidgetAction,
   WidgetConfig,
 } from '@number-island/shared';
-import { boundMisconceptions, boundNarration } from '../content/binding';
+import { boundMisconceptions, boundNarration, hasBoundNarration } from '../content/binding';
 import { lineSlots } from '../content/render';
 import { formatFeatureValues } from '../formats';
 import { numberOptionId, responseNumber } from '../formats/numeral-pick';
@@ -194,7 +194,7 @@ export function pickVars(
   pool: Record<string, string | number>,
 ): Record<string, string | number> {
   const narration = boundNarration();
-  if (Object.keys(narration).length === 0) return { ...pool };
+  if (!hasBoundNarration()) return { ...pool };
   const used = new Set<string>();
   for (const key of [t.narration.prompt, ...t.narration.hints]) {
     for (const s of lineSlots(key, narration)) used.add(s);

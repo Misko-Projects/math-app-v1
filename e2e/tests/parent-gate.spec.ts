@@ -5,6 +5,11 @@ import { E2E_FAMILY, holdFor, pairThisContext } from '../fixtures/family';
 // gate button for 2 s, then the parent PIN). Runs after golden journey 1 created the family.
 
 test.describe('parent gate', () => {
+  // These tests make single files fail to load with request routing, and go offline to show what
+  // the app does without any cache. A service worker would answer those requests from its
+  // precache, past the routing, so none runs here (pwa.spec.ts covers the app with one).
+  test.use({ serviceWorkers: 'block' });
+
   test('taps never open it; the hold alone shows only the PIN pad; the PIN opens it', async ({
     page,
   }) => {
