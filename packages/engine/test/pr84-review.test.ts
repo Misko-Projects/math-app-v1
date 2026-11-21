@@ -129,28 +129,9 @@ const DRAWN_SPRITES: ReadonlySet<string> = new Set(
  * (the shapes representation of ALG.01 and ALG.04). The daily events of TIM.08 are drawn (#89).
  */
 const UNDRAWN_SPRITES: Readonly<Record<string, readonly string[]>> = {
-  'ADD.12.t1': ['lantern'],
-  'ADD.20.t3': ['lantern'],
-  'ADD.21.t2': ['lantern'],
-  'ADD.25.t2': ['lantern'],
   'ALG.01.t2': ['circle', 'square', 'triangle'], // K01 part 7: needs art
   'ALG.04.t2': ['circle', 'square', 'triangle'], // K01 part 7: needs art
   'CPS.01.t2': ['finger'],
-  'GEO.05.t1': ['bun', 'jug', 'lantern', 'pallet', 'sack'],
-  'GEO.05.t3': ['bun', 'jug', 'lantern', 'pallet', 'sack'],
-  'GEO.07.t1': ['ball', 'block', 'can', 'dice', 'drum', 'ice-cream', 'orange', 'party-hat'],
-  'GEO.07.t3': ['ball', 'block', 'can', 'dice', 'drum', 'ice-cream', 'orange', 'party-hat'],
-  'MEA.01.t1': ['vine'],
-  'MEA.01.t2': ['vine'],
-  'MEA.01.t4': ['vine'],
-  'MEA.02.t1': ['vine'],
-  'MEA.07.t1': ['vine'],
-  'MEA.07.t2': ['vine'],
-  'MEA.15.t1': ['barrel'],
-  'MEA.15.t2': ['barrel', 'bucket', 'jug', 'tub'],
-  'MEA.15.t4': ['barrel', 'bucket', 'jug', 'tub'],
-  'MEA.22.t1': ['vine'],
-  'MEA.22.t3': ['vine'],
   'SUB.02.t1': ['finger'],
   'SUB.05.t1': ['finger'],
 };
@@ -240,7 +221,9 @@ describe('PR #84 review (1): the DAT.02.t5 number pad shows its picture graph', 
     }
     expect(STIMULUS_VIEW_KINDS.has('chart')).toBe(true);
     expect(STIMULUS_VIEW_KINDS.has('fraction')).toBe(true);
-    expect(STIMULUS_VIEW_KINDS.has('shape')).toBe(false);
+    // Shapes and gauges are drawn since U05 part 1 (#14).
+    expect(STIMULUS_VIEW_KINDS.has('shape')).toBe(true);
+    expect(STIMULUS_VIEW_KINDS.has('gauge')).toBe(true);
   });
 
   it('catalog: formats StimulusView draws for show only kinds it draws, or are pinned', () => {

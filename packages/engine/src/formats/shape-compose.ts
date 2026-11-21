@@ -149,9 +149,98 @@ export function drawingPoints(edges: readonly [Pt, Pt][]): Pt[] {
 export const stickCount = (c: ShapeComposeConfig): number =>
   (c.pieces ?? []).filter((p) => p.kind === 'stick').reduce((s, p) => s + p.count, 0);
 
+/**
+ * The supported domain, above shipped content (four kinds and nine blocks, 12-corner outlines,
+ * 16 sticks and corners, 6 × 3 dots, two anchors) and inside what the widget draws at 906 × 373.
+ */
+/** Fill-outline: kinds of block offered, and blocks in all. */
+export const SC_PIECE_KINDS_MAX = 4;
+export const SC_PIECES_MAX = 12;
+/** Build-sticks: sticks and corners in all. */
+export const SC_STICKS_MAX = 20;
+/** Corners of an outline, and its width and height in block sides. */
+export const SC_OUTLINE_POINTS_MAX = 16;
+export const SC_OUTLINE_EXTENT_MAX = 10;
+/** Anchors in a place-relative scene. */
+export const SC_ANCHORS_MAX = 2;
+/** The dot grid: every dot is its own target, so three rows are all the smallest area holds. */
+export const SC_GRID_COLS_MAX = 6;
+export const SC_GRID_ROWS_MAX = 3;
+/** Sides or right angles a drawn shape may be asked to have. */
+export const SC_REQUIRE_MAX = 8;
+
+/** Where a config leaves the supported domain: every number and every list has a bound. */
+export function domainIssues(
+  c: ShapeComposeConfig,
+): { path: (string | number)[]; message: string }[] {
+  const out: { path: (string | number)[]; message: string }[] = [];
+  const pieces = c.pieces ?? [];
+  const total = pieces.reduce((n, p) => n + p.count, 0);
+  if (c.mode === 'build-sticks') {
+    if (total > SC_STICKS_MAX) {
+      out.push({
+        path: ['pieces'],
+        message: `at most ${SC_STICKS_MAX} sticks and corners; got ${total}`,
+      });
+    }
+  } else {
+    if (pieces.length > SC_PIECE_KINDS_MAX) {
+      out.push({
+        path: ['pieces'],
+        message: `at most ${SC_PIECE_KINDS_MAX} kinds of piece fit the tray; got ${pieces.length}`,
+      });
+    }
+    if (total > SC_PIECES_MAX) {
+      out.push({ path: ['pieces'], message: `at most ${SC_PIECES_MAX} pieces; got ${total}` });
+    }
+  }
+  const pts = c.outline?.points ?? [];
+  if (pts.length > SC_OUTLINE_POINTS_MAX) {
+    out.push({
+      path: ['outline', 'points'],
+      message: `an outline has at most ${SC_OUTLINE_POINTS_MAX} corners; got ${pts.length}`,
+    });
+  }
+  if (pts.length > 0) {
+    const xs = pts.map((p) => p[0]);
+    const ys = pts.map((p) => p[1]);
+    const extent = Math.max(Math.max(...xs) - Math.min(...xs), Math.max(...ys) - Math.min(...ys));
+    if (!(extent <= SC_OUTLINE_EXTENT_MAX)) {
+      out.push({
+        path: ['outline', 'points'],
+        message: `an outline is at most ${SC_OUTLINE_EXTENT_MAX} block sides across; got ${extent}`,
+      });
+    }
+  }
+  const anchors = c.scene?.anchors ?? [];
+  if (anchors.length > SC_ANCHORS_MAX) {
+    out.push({
+      path: ['scene', 'anchors'],
+      message: `a scene has at most ${SC_ANCHORS_MAX} anchors; got ${anchors.length}`,
+    });
+  }
+  if (c.grid && (c.grid.cols > SC_GRID_COLS_MAX || c.grid.rows > SC_GRID_ROWS_MAX)) {
+    out.push({
+      path: ['grid'],
+      message: `a dot grid is at most ${SC_GRID_COLS_MAX} × ${SC_GRID_ROWS_MAX}; got ${c.grid.cols} × ${c.grid.rows}`,
+    });
+  }
+  for (const key of ['sides', 'rightAngles'] as const) {
+    const v = c.require?.[key];
+    if (v !== undefined && v > SC_REQUIRE_MAX) {
+      out.push({
+        path: ['require', key],
+        message: `${key} is at most ${SC_REQUIRE_MAX}; got ${v}`,
+      });
+    }
+  }
+  return out;
+}
+
 const configSchema = shapeComposeConfigSchema.superRefine((c, ctx) => {
   const issue = (path: (string | number)[], message: string) =>
     ctx.addIssue({ code: 'custom', path, message });
+  for (const d of domainIssues(c)) ctx.addIssue({ code: 'custom', ...d });
   const pieceIds = (c.pieces ?? []).map((p) => p.id);
   if (new Set(pieceIds).size !== pieceIds.length) issue(['pieces'], 'piece ids must be distinct');
   if (pieceIds.some((id) => id.includes(':'))) issue(['pieces'], "piece ids have no ':'");

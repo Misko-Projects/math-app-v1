@@ -13,6 +13,7 @@ import {
   type Pt,
   polygonInfo,
 } from '../../check/state/grid.polygon';
+import { SC_GRID_COLS_MAX, SC_GRID_ROWS_MAX } from '../../formats/shape-compose';
 import { asNum, asStr, correctFromAnswer, finish, pickVars, sampleAll } from '../common';
 import type { BuildContext, GeneratorDef, GeneratorOutput } from '../types';
 import { distinctKinds, NEAR_MISS, SHAPE_PROPS, shapeCard } from './shapes';
@@ -198,14 +199,18 @@ export function examplePolygon(
 }
 
 /**
- * A dot grid's size from the params: `cols` and `rows`; either one missing or 0 (its default)
- * takes `grid` (the older square-grid param, kept for back-compat), else 5.
+ * A dot grid's size from the params: `cols` and `rows`; either one missing or 0 takes `grid` (the
+ * older square-grid param, kept for back-compat), else the wide grid every dot target fits:
+ * 6 columns × 3 rows.
  */
 export function gridOf(p: Record<string, unknown>): { cols: number; rows: number } {
-  const grid = asNum(p.grid as number, 5);
+  const grid = asNum(p.grid as number, 0);
   const cols = asNum(p.cols as number, 0);
   const rows = asNum(p.rows as number, 0);
-  return { cols: cols > 0 ? cols : grid, rows: rows > 0 ? rows : grid };
+  return {
+    cols: cols > 0 ? cols : grid > 0 ? grid : SC_GRID_COLS_MAX,
+    rows: rows > 0 ? rows : grid > 0 ? grid : SC_GRID_ROWS_MAX,
+  };
 }
 
 /** A card meets the requirement (closed, and its kind's typical attributes match). */
@@ -259,18 +264,18 @@ export const geoDraw: GeneratorDef = {
     },
     grid: {
       type: 'int',
-      default: { kind: 'const', value: 5 },
-      doc: 'dots per row and column of a square grid (4–7); `cols` / `rows` override it',
+      default: { kind: 'const', value: 0 },
+      doc: 'older square-grid size (0 = none: 6 × 3); `cols` / `rows` override it (a square grid of 4 or more rows is refused: see `rows`)',
     },
     cols: {
       type: 'int',
       default: { kind: 'const', value: 0 },
-      doc: 'dots per row (3–8; 0 = `grid`). K and G1 use wide grids (3 rows × 6) so dot targets fit',
+      doc: 'dots per row (3–6; 0 = `grid`). Grids are wide (3 rows × 6) so every dot is a full target',
     },
     rows: {
       type: 'int',
       default: { kind: 'const', value: 0 },
-      doc: 'dots per column (3–7; 0 = `grid`)',
+      doc: 'dots per column (3: all the smallest widget area holds at full target size; 0 = `grid`)',
     },
     cards: { type: 'int', default: { kind: 'const', value: 5 }, doc: 'shape-sort: cards shown' },
     hits: {
@@ -308,7 +313,9 @@ export const geoDraw: GeneratorDef = {
     const req = requirementOf(p);
     if (Object.keys(req).length === 0) return false;
     const { cols, rows } = gridOf(p);
-    if (cols < 3 || cols > 8 || rows < 3 || rows > 7) return false;
+    // The shape-compose model's supported grid (every dot a full touch target): 3–6 × 3. The
+    // shape-sort cards are drawn from examples on the same grid.
+    if (cols < 3 || cols > SC_GRID_COLS_MAX || rows < 3 || rows > SC_GRID_ROWS_MAX) return false;
     if (t.format === 'shape-sort') {
       const cards = asNum(p.cards, 5);
       const hits = asNum(p.hits, 2);

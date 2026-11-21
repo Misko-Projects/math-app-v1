@@ -83,9 +83,75 @@ export interface MeasureLengthState extends FormatState<'measure-length'> {
   choice: string | null;
 }
 
+/**
+ * The supported domain, above shipped content (lengths to 12, units laid to 12, no offsets) and
+ * inside what the widget's stress stories draw at 906 × 373: a 30 cm ruler, 16 units laid.
+ */
+/** The object's length in its unit (a ruler's last numeral). */
+export const ML_LENGTH_MAX = 30;
+/** Units of one kind a child lays along the object (iterate, and each unit of two-units). */
+export const ML_LAID_MAX = 16;
+/** Where the object starts on the ruler; the object still ends by `ML_LENGTH_MAX`. */
+export const ML_OFFSET_MAX = 10;
+/** Choices of a pick or an estimate. */
+export const ML_OPTIONS_MAX = 4;
+/** The largest number offered as a choice (the pad's two digits). */
+export const ML_OPTION_MAX = 99;
+
+/** Where a config leaves the supported domain: every number and every list has a bound. */
+export function domainIssues(c: Config): { path: (string | number)[]; message: string }[] {
+  const out: { path: (string | number)[]; message: string }[] = [];
+  const whole = objectUnits(c);
+  if (!(whole <= ML_LENGTH_MAX)) {
+    out.push({
+      path: ['object', 'length'],
+      message: `the object is at most ${ML_LENGTH_MAX} units long; got ${whole}`,
+    });
+  }
+  if (
+    !(c.startOffset <= ML_OFFSET_MAX) ||
+    (whole <= ML_LENGTH_MAX && !(c.startOffset + whole <= ML_LENGTH_MAX))
+  ) {
+    out.push({
+      path: ['startOffset'],
+      message: `startOffset is at most ${ML_OFFSET_MAX} and the object ends by ${ML_LENGTH_MAX}; got ${c.startOffset} + ${whole}`,
+    });
+  }
+  if (c.startOffset % c.precision !== 0) {
+    out.push({ path: ['startOffset'], message: 'the object starts on a ruler mark' });
+  }
+  if (c.mode === 'iterate' || c.mode === 'two-units') {
+    const alt = c.mode === 'two-units' && c.altUnit ? (lengthIn(c, c.altUnit) ?? 0) : 0;
+    const most = Math.max(whole, alt);
+    if (most > ML_LAID_MAX) {
+      out.push({
+        path: ['object', 'length'],
+        message: `at most ${ML_LAID_MAX} units of a kind are laid; got ${most}`,
+      });
+    }
+  }
+  const opts = c.options ?? [];
+  if (opts.length > ML_OPTIONS_MAX) {
+    out.push({
+      path: ['options'],
+      message: `at most ${ML_OPTIONS_MAX} options fit; got ${opts.length}`,
+    });
+  }
+  opts.forEach((v, i) => {
+    if (!(v >= 0 && v <= ML_OPTION_MAX)) {
+      out.push({
+        path: ['options', i],
+        message: `an option is a number from 0 to ${ML_OPTION_MAX}; got ${v}`,
+      });
+    }
+  });
+  return out;
+}
+
 const configSchema = measureLengthConfigSchema.superRefine((c, ctx) => {
   const issue = (path: (string | number)[], message: string) =>
     ctx.addIssue({ code: 'custom', path, message });
+  for (const d of domainIssues(c)) ctx.addIssue({ code: 'custom', ...d });
   if (!Number.isInteger(c.object.length) || c.object.length < 1) {
     issue(['object', 'length'], 'the length is a whole number ≥ 1 (sixteenths below precision 1)');
   }

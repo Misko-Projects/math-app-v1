@@ -23,19 +23,62 @@ import { NONSTANDARD_UNIT_SIZE } from '../generators/mea/length';
 import { checkResponse } from '../items/check';
 import { generateItemFromParams } from '../items/generate';
 import { itemSolution, replaySteps } from '../items/solution';
-import { closeness, compareLength } from './compare-length';
+import {
+  CL_END_MAX,
+  CL_LENGTH_MAX,
+  CL_OBJECTS_MAX,
+  CL_OFFSET_MAX,
+  closeness,
+  compareLength,
+} from './compare-length';
 import { formatModel } from './index';
-import { lengthIn, measureLength, UNIT_SIZE } from './measure-length';
+import {
+  lengthIn,
+  ML_LAID_MAX,
+  ML_LENGTH_MAX,
+  ML_OFFSET_MAX,
+  ML_OPTION_MAX,
+  measureLength,
+  UNIT_SIZE,
+} from './measure-length';
 import {
   cyclicPolygon,
   designRectangles,
+  PW_DESIGN_AREA_MAX,
+  PW_DESIGN_PERIMETER_MAX,
+  PW_DESIGN_SIDE_MAX,
+  PW_PERIMETER_MAX,
+  PW_SIDE_MAX,
+  PW_SIDES_MAX,
   perimeterWalk,
   polygonPoints,
   resolvedSides,
   sidesMatch,
 } from './perimeter-walk';
-import { drawingPoints, pieceCentre, shapeCompose, turnAboutCentre } from './shape-compose';
-import { shapeSort, sortCardProps } from './shape-sort';
+import {
+  drawingPoints,
+  pieceCentre,
+  SC_ANCHORS_MAX,
+  SC_GRID_COLS_MAX,
+  SC_GRID_ROWS_MAX,
+  SC_OUTLINE_EXTENT_MAX,
+  SC_OUTLINE_POINTS_MAX,
+  SC_PIECES_MAX,
+  SC_REQUIRE_MAX,
+  shapeCompose,
+  turnAboutCentre,
+} from './shape-compose';
+import {
+  SS_BINS_MAX,
+  SS_CARDS_MAX,
+  SS_NUMBER_MAX,
+  SS_ROTATION_MAX,
+  SS_RULE_VALUE_MAX,
+  SS_SCALE_MAX,
+  SS_SCALE_MIN,
+  shapeSort,
+  sortCardProps,
+} from './shape-sort';
 import { type FormatModel, type FormatState, UnsupportedOpError } from './types';
 
 // biome-ignore lint/suspicious/noExplicitAny: the shared tables mix models of different formats.
@@ -152,7 +195,7 @@ const clBase: WidgetConfigOf<'compare-length'> = {
   format: 'compare-length',
   objects: [
     { id: 'obj-0', sprite: 'rope', length: 1, offset: 0 },
-    { id: 'obj-1', sprite: 'rope', length: 100, offset: 0 },
+    { id: 'obj-1', sprite: 'rope', length: 20, offset: 0 },
   ],
   ask: 'longer',
   aligned: true,
@@ -255,7 +298,7 @@ describe('U05 measurement and geometry models (03 §6.3)', () => {
   it.each(rows)('%s: featureValues covers every 03 §5.5 feature, 0 when easiest', (f, r) => {
     const values = r.model.featureValues(r.config, r.answer);
     expect(Object.keys(values).sort()).toEqual(Object.keys(r.model.features).sort());
-    // closeness is shorter ÷ longer: 0.01 for 1 against 100, never exactly 0 for real objects.
+    // closeness is shorter ÷ longer: 0.05 for 1 against 20, never exactly 0 for real objects.
     const zero = Object.fromEntries(Object.keys(values).map((k) => [k, 0]));
     if (f === 'compare-length') expect({ ...values, closeness: 0 }).toEqual(zero);
     else expect(values).toEqual(zero);
@@ -1100,6 +1143,7 @@ describe('shape-compose', () => {
   it('build-sticks: sticks run out', () => {
     const sticks: WidgetConfigOf<'shape-compose'> = {
       ...draw,
+      grid: { cols: 6, rows: 3 },
       mode: 'build-sticks',
       pieces: [
         { id: 'stick', kind: 'stick', count: 3 },
@@ -1111,10 +1155,10 @@ describe('shape-compose', () => {
     const s = play(shapeCompose, sticks, [
       ...edges([
         [0, 0],
-        [3, 0],
-        [0, 3],
+        [2, 0],
+        [0, 2],
       ]),
-      act('draw-edge', { from: [4, 4], to: [3, 4] }),
+      act('draw-edge', { from: [5, 2], to: [4, 2] }),
     ]);
     expect(s.edges).toHaveLength(3);
     expect(
@@ -1250,7 +1294,7 @@ describe('generated items replay through the U05 models', () => {
     [
       'shape-compose sticks',
       tpl('geo.draw', 'shape-compose', 'concrete', 'shapes'),
-      { kind: 'rectangle', sides: 0, tool: 'sticks', grid: 5 },
+      { kind: 'rectangle', sides: 0, tool: 'sticks', cols: 6, rows: 3 },
     ],
   ];
 
@@ -1261,5 +1305,374 @@ describe('generated items replay through the U05 models', () => {
     const r = replaySteps(item, itemSolution(item, t));
     expect(r).not.toBeNull();
     expect(checkResponse(item, r as ResponseValue).correct).toBe(true);
+  });
+});
+
+// ---------- the supported domain: a test per bound (PR #88) ----------
+
+describe('supported domain: every numeric input of the five models has a bound', () => {
+  /** The messages a config is refused with (empty when it is accepted). */
+  const refusals = (m: AnyModel, config: unknown): string[] => {
+    const r = m.configSchema.safeParse(config);
+    return r.success ? [] : r.error.issues.map((i) => i.message);
+  };
+  const accepts = (m: AnyModel, config: unknown) => expect(refusals(m, config)).toEqual([]);
+  const refuses = (m: AnyModel, config: unknown, message: RegExp) =>
+    expect(refusals(m, config).join(' | ')).toMatch(message);
+
+  describe('measure-length', () => {
+    const ruler = (length: number, startOffset = 0) => ({
+      ...mlRead,
+      unit: 'cm' as const,
+      object: { sprite: 'plank' as const, length },
+      startOffset,
+    });
+    it('the object is at most ML_LENGTH_MAX units long', () => {
+      accepts(measureLength, ruler(ML_LENGTH_MAX));
+      refuses(measureLength, ruler(ML_LENGTH_MAX + 1), /at most 30 units long; got 31/);
+      // In sixteenths below precision 1: 30 units is 480 sixteenths.
+      accepts(measureLength, { ...ruler(ML_LENGTH_MAX * 16), precision: 0.5 });
+      refuses(
+        measureLength,
+        { ...ruler((ML_LENGTH_MAX + 1) * 16), precision: 0.5 },
+        /at most 30 units long/,
+      );
+    });
+    it('startOffset is at most ML_OFFSET_MAX, on a mark, and the object ends on the ruler', () => {
+      accepts(measureLength, ruler(20, ML_OFFSET_MAX));
+      refuses(measureLength, ruler(4, ML_OFFSET_MAX + 1), /startOffset is at most 10/);
+      refuses(measureLength, ruler(25, 6), /the object ends by 30; got 6 \+ 25/);
+      refuses(measureLength, ruler(4, 0.5), /starts on a ruler mark/);
+      accepts(measureLength, { ...ruler(4 * 16, 0.5), precision: 0.5 });
+    });
+    it('at most ML_LAID_MAX units of a kind are laid', () => {
+      const lay = (length: number) => ({ ...mlIterate, object: { ...mlIterate.object, length } });
+      accepts(measureLength, lay(ML_LAID_MAX));
+      refuses(measureLength, lay(ML_LAID_MAX + 1), /at most 16 units of a kind are laid; got 17/);
+      const two = (length: number) => ({
+        ...lay(length),
+        mode: 'two-units' as const,
+        unit: 'stick' as const,
+        altUnit: 'cube' as const,
+      });
+      // 4 sticks are 16 cubes; 5 sticks would be 20 cubes to lay.
+      accepts(measureLength, two(4));
+      refuses(measureLength, two(5), /at most 16 units of a kind are laid; got 20/);
+    });
+    it('a pick shows at most ML_OPTIONS_MAX options, each from 0 to ML_OPTION_MAX', () => {
+      const pick = (options: number[]) => ({ ...mlRead, input: 'pick' as const, options });
+      accepts(measureLength, pick([1, 2, 3, ML_OPTION_MAX]));
+      refuses(measureLength, pick([1, 2, 3, 4, 5]), /at most 4 options fit; got 5/);
+      refuses(measureLength, pick([1, 2, ML_OPTION_MAX + 1]), /from 0 to 99; got 100/);
+      refuses(measureLength, pick([-1, 2, 3]), /from 0 to 99; got -1/);
+    });
+  });
+
+  describe('compare-length', () => {
+    const two = (length: number, offset = 0) => ({
+      ...clBase,
+      aligned: false,
+      objects: [
+        { id: 'obj-0', sprite: 'rope' as const, length: 1, offset: 0 },
+        { id: 'obj-1', sprite: 'rope' as const, length, offset },
+      ],
+    });
+    it('two to CL_OBJECTS_MAX objects', () => {
+      const n = (count: number) => ({
+        ...clBase,
+        ask: 'order' as const,
+        objects: Array.from({ length: count }, (_, i) => ({
+          id: `obj-${i}`,
+          sprite: 'rope' as const,
+          length: i + 1,
+          offset: 0,
+        })),
+      });
+      accepts(compareLength, n(CL_OBJECTS_MAX));
+      refuses(compareLength, n(CL_OBJECTS_MAX + 1), /two to four objects/);
+    });
+    it('an object is at most CL_LENGTH_MAX units long', () => {
+      accepts(compareLength, two(CL_LENGTH_MAX));
+      refuses(compareLength, two(CL_LENGTH_MAX + 1), /at most 20 units long; got 21/);
+    });
+    it('an offset is at most CL_OFFSET_MAX and the object ends by CL_END_MAX', () => {
+      accepts(compareLength, two(CL_END_MAX - CL_OFFSET_MAX, CL_OFFSET_MAX));
+      refuses(compareLength, two(2, CL_OFFSET_MAX + 1), /offset is at most 8/);
+      refuses(compareLength, two(CL_LENGTH_MAX, 5), /ends by 24; got 5 \+ 20/);
+    });
+  });
+
+  describe('perimeter-walk', () => {
+    const rect = (w: number, h: number) => ({
+      ...pwTotal,
+      polygon: { sides: [w, h, w, h], grid: true, shape: 'rect' as const },
+    });
+    it('a side is at most PW_SIDE_MAX, and whole on a grid', () => {
+      accepts(perimeterWalk, rect(PW_SIDE_MAX, 15));
+      refuses(perimeterWalk, rect(PW_SIDE_MAX + 1, 15), /at most 20 units long; got 21/);
+      refuses(perimeterWalk, rect(4.5, 2), /whole number of squares; got 4.5/);
+      accepts(perimeterWalk, {
+        ...pwTotal,
+        polygon: { sides: [4.5, 4.5, 4.5], grid: false, shape: 'poly' as const },
+      });
+    });
+    it('a figure has at most PW_SIDES_MAX sides', () => {
+      const poly = (n: number) => ({
+        ...pwTotal,
+        polygon: { sides: Array.from({ length: n }, () => 4), grid: false, shape: 'poly' as const },
+      });
+      accepts(perimeterWalk, poly(PW_SIDES_MAX));
+      refuses(perimeterWalk, poly(PW_SIDES_MAX + 1), /at most 6 sides; got 7/);
+    });
+    it('the perimeter is from 1 to PW_PERIMETER_MAX', () => {
+      const missing = (perimeter: number) => ({
+        ...pwTotal,
+        mode: 'missing-side' as const,
+        polygon: { sides: [5, 3, 5, null], grid: true, shape: 'rect' as const },
+        perimeter,
+      });
+      accepts(perimeterWalk, missing(16));
+      refuses(perimeterWalk, missing(PW_PERIMETER_MAX + 1), /from 1 to 120; got 121/);
+      refuses(perimeterWalk, missing(0), /from 1 to 120; got 0/);
+    });
+    it('design: perimeter, area and every rectangle to build stay on the grid', () => {
+      const design = (extra: { perimeter?: number; area?: number }) => ({
+        ...pwTotal,
+        mode: 'design' as const,
+        polygon: { sides: [], grid: true, shape: 'rect' as const },
+        ...extra,
+      });
+      accepts(perimeterWalk, design({ area: 12 }));
+      accepts(perimeterWalk, design({ area: PW_DESIGN_AREA_MAX, perimeter: 24 }));
+      refuses(perimeterWalk, design({ area: PW_DESIGN_AREA_MAX + 1 }), /from 1 to 36; got 37/);
+      refuses(perimeterWalk, design({ area: 2.5 }), /whole number from 1 to 36; got 2.5/);
+      refuses(
+        perimeterWalk,
+        design({ perimeter: PW_DESIGN_PERIMETER_MAX + 2 }),
+        /from 1 to 48; got 50/,
+      );
+      // Perimeter 30 alone allows a 14 × 1 rectangle: wider than the grid.
+      refuses(perimeterWalk, design({ perimeter: 30 }), /at most 12 squares a side/);
+      accepts(perimeterWalk, design({ perimeter: 2 * (PW_DESIGN_SIDE_MAX + 1) }));
+      refuses(perimeterWalk, { ...rect(5, 3), area: 15 }, /only design gives an area/);
+      refuses(
+        perimeterWalk,
+        { ...design({ area: 12 }), polygon: { sides: [13, 1, 13, 1], grid: true, shape: 'rect' } },
+        /at most 12 units long; got 13/,
+      );
+    });
+  });
+
+  describe('shape-compose', () => {
+    const fill = (
+      pieces: {
+        kind: 'triangle' | 'square' | 'rhombus' | 'hexagon' | 'trapezoid';
+        count: number;
+      }[],
+    ) => ({
+      ...scFill,
+      pieces: pieces.map((p) => ({ id: `p-${p.kind}`, ...p })),
+    });
+    it('fill-outline offers at most SC_PIECE_KINDS_MAX kinds and SC_PIECES_MAX pieces', () => {
+      accepts(
+        shapeCompose,
+        fill([
+          { kind: 'triangle', count: 3 },
+          { kind: 'square', count: 3 },
+          { kind: 'rhombus', count: 3 },
+          { kind: 'hexagon', count: 3 },
+        ]),
+      );
+      refuses(
+        shapeCompose,
+        fill([
+          { kind: 'triangle', count: 1 },
+          { kind: 'square', count: 1 },
+          { kind: 'rhombus', count: 1 },
+          { kind: 'hexagon', count: 1 },
+          { kind: 'trapezoid', count: 1 },
+        ]),
+        /at most 4 kinds of piece fit the tray; got 5/,
+      );
+      refuses(
+        shapeCompose,
+        fill([{ kind: 'triangle', count: SC_PIECES_MAX + 1 }]),
+        /at most 12 pieces; got 13/,
+      );
+    });
+    it('an outline has at most SC_OUTLINE_POINTS_MAX corners, SC_OUTLINE_EXTENT_MAX across', () => {
+      const box = (w: number) => ({
+        ...scFill,
+        outline: {
+          points: [
+            [0, 0],
+            [w, 0],
+            [w, 1],
+            [0, 1],
+          ] as [number, number][],
+        },
+      });
+      accepts(shapeCompose, box(SC_OUTLINE_EXTENT_MAX));
+      refuses(
+        shapeCompose,
+        box(SC_OUTLINE_EXTENT_MAX + 1),
+        /at most 10 block sides across; got 11/,
+      );
+      const ring = (n: number) => ({
+        ...scFill,
+        outline: {
+          points: Array.from({ length: n }, (_, i): [number, number] => [
+            3 * Math.cos((2 * Math.PI * i) / n),
+            3 * Math.sin((2 * Math.PI * i) / n),
+          ]),
+        },
+      });
+      accepts(shapeCompose, ring(SC_OUTLINE_POINTS_MAX));
+      refuses(shapeCompose, ring(SC_OUTLINE_POINTS_MAX + 1), /at most 16 corners; got 17/);
+    });
+    const draw = (
+      cols: number,
+      rows: number,
+      require: { sides?: number; rightAngles?: number },
+    ) => ({
+      format: 'shape-compose' as const,
+      mode: 'draw-on-grid' as const,
+      grid: { cols, rows },
+      require,
+      showOutlineLines: false,
+      rotationStep: 90 as const,
+    });
+    it('a dot grid is at most SC_GRID_COLS_MAX × SC_GRID_ROWS_MAX', () => {
+      accepts(shapeCompose, draw(SC_GRID_COLS_MAX, SC_GRID_ROWS_MAX, { sides: 3 }));
+      refuses(
+        shapeCompose,
+        draw(SC_GRID_COLS_MAX + 1, 3, { sides: 3 }),
+        /at most 6 × 3; got 7 × 3/,
+      );
+      refuses(
+        shapeCompose,
+        draw(5, SC_GRID_ROWS_MAX + 1, { sides: 3 }),
+        /at most 6 × 3; got 5 × 4/,
+      );
+    });
+    it('a required count of sides or right angles is at most SC_REQUIRE_MAX', () => {
+      accepts(shapeCompose, draw(6, 3, { sides: SC_REQUIRE_MAX }));
+      refuses(shapeCompose, draw(6, 3, { sides: SC_REQUIRE_MAX + 1 }), /sides is at most 8; got 9/);
+      refuses(
+        shapeCompose,
+        draw(6, 3, { rightAngles: SC_REQUIRE_MAX + 1 }),
+        /rightAngles is at most 8; got 9/,
+      );
+    });
+    it('build-sticks offers at most SC_STICKS_MAX sticks and corners', () => {
+      const sticks = (stick: number, corner: number) => ({
+        ...draw(6, 3, { sides: 3 }),
+        mode: 'build-sticks' as const,
+        pieces: [
+          { id: 'stick', kind: 'stick' as const, count: stick },
+          { id: 'corner', kind: 'corner' as const, count: corner },
+        ],
+      });
+      accepts(shapeCompose, sticks(12, 8));
+      refuses(shapeCompose, sticks(12, 9), /at most 20 sticks and corners; got 21/);
+    });
+    it('a scene has at most SC_ANCHORS_MAX anchors', () => {
+      const scene = (n: number) => ({
+        format: 'shape-compose' as const,
+        mode: 'place-relative' as const,
+        scene: {
+          anchors: Array.from({ length: n }, (_, i) => ({
+            id: `a${i}`,
+            sprite: 'crate' as const,
+            at: [20 + 20 * i, 30] as [number, number],
+          })),
+        },
+        relation: { word: 'above' as const, anchor: 'a0', item: 'crab' as const },
+        showOutlineLines: false,
+        rotationStep: 90 as const,
+      });
+      accepts(shapeCompose, scene(SC_ANCHORS_MAX));
+      refuses(shapeCompose, scene(SC_ANCHORS_MAX + 1), /at most 2 anchors; got 3/);
+    });
+  });
+
+  describe('shape-sort', () => {
+    const shapeCard = ssFind.cards[0] as (typeof ssFind.cards)[number];
+    const withCards = (n: number) => ({
+      ...ssFind,
+      cards: Array.from({ length: n }, (_, i) => ({ ...shapeCard, id: `c${i}` })),
+    });
+    const withFirst = (card: unknown) => ({
+      ...ssFind,
+      cards: [{ id: 'c0', card }, ...ssFind.cards.slice(1)],
+    });
+    it('at most SS_CARDS_MAX cards', () => {
+      accepts(shapeSort, withCards(SS_CARDS_MAX));
+      refuses(shapeSort, withCards(SS_CARDS_MAX + 1), /at most 16 cards fit; got 17/);
+    });
+    it('at most SS_BINS_MAX bins', () => {
+      const bins = (n: number) => ({
+        ...ssSort,
+        bins: Array.from({ length: n }, (_, i) => ({
+          id: `b${i}`,
+          label: 'shape.triangle.many' as const,
+          rule: { prop: 'sides', op: '==' as const, value: i + 3 },
+        })),
+      });
+      accepts(shapeSort, bins(SS_BINS_MAX));
+      refuses(shapeSort, bins(SS_BINS_MAX + 1), /at most 3 bins fit; got 4/);
+    });
+    it('a shape card is SS_SCALE_MIN to SS_SCALE_MAX of its prototype, turned ≤ 360°', () => {
+      const card = shapeCard.card;
+      accepts(
+        shapeSort,
+        withFirst({ ...card, scale: SS_SCALE_MIN, rotationDeg: -SS_ROTATION_MAX }),
+      );
+      accepts(shapeSort, withFirst({ ...card, scale: SS_SCALE_MAX, rotationDeg: SS_ROTATION_MAX }));
+      refuses(shapeSort, withFirst({ ...card, scale: 0.4 }), /scale is from 0.5 to 2; got 0.4/);
+      refuses(shapeSort, withFirst({ ...card, scale: 2.5 }), /scale is from 0.5 to 2; got 2.5/);
+      refuses(shapeSort, withFirst({ ...card, rotationDeg: 361 }), /at most 360° either way/);
+    });
+    it('a number card is a whole number from 0 to SS_NUMBER_MAX', () => {
+      accepts(shapeSort, withFirst({ kind: 'number', value: SS_NUMBER_MAX }));
+      refuses(shapeSort, withFirst({ kind: 'number', value: SS_NUMBER_MAX + 1 }), /got 1000/);
+      refuses(shapeSort, withFirst({ kind: 'number', value: -1 }), /from 0 to 999; got -1/);
+      refuses(shapeSort, withFirst({ kind: 'number', value: 2.5 }), /whole number/);
+    });
+    it('a bin rule compares with numbers up to SS_RULE_VALUE_MAX, nested rules too', () => {
+      const rule = (value: number) => ({
+        ...ssSort,
+        bins: [
+          {
+            id: 'b0',
+            label: 'shape.triangle.many' as const,
+            rule: { any: [{ all: [{ prop: 'sides', op: '>=' as const, value }] }] },
+          },
+          ...(ssSort.bins ?? []).slice(1),
+        ],
+      });
+      accepts(shapeSort, rule(SS_RULE_VALUE_MAX));
+      refuses(shapeSort, rule(SS_RULE_VALUE_MAX + 1), /numbers up to 999; got 1000/);
+    });
+  });
+
+  it('every refusal names the bound and the value it got (a clear message)', () => {
+    const cases: [AnyModel, unknown][] = [
+      [measureLength, { ...mlIterate, object: { sprite: 'plank', length: 99 } }],
+      [
+        compareLength,
+        { ...clBase, objects: [clBase.objects[0], { ...clBase.objects[1], length: 99 }] },
+      ],
+      [
+        perimeterWalk,
+        { ...pwTotal, polygon: { sides: [99, 3, 99, 3], grid: true, shape: 'rect' } },
+      ],
+      [shapeCompose, { ...scFill, pieces: [{ id: 'p', kind: 'triangle', count: 99 }] }],
+    ];
+    for (const [m, config] of cases) {
+      const messages = refusals(m, config);
+      expect(messages.length).toBeGreaterThan(0);
+      for (const text of messages) expect(text).toMatch(/at most \d+.*got 99/);
+    }
   });
 });

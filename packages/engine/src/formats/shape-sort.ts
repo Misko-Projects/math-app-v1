@@ -14,6 +14,7 @@ import {
   type AnswerSpec,
   type ShapeCard,
   type ShapeSortConfig,
+  type SortRule,
   shapeSortConfigSchema,
   type WidgetConfigOf,
 } from '@number-island/shared';
@@ -70,7 +71,81 @@ export const isNonPrototypical = (card: Card): boolean =>
 export const isNearMiss = (card: Card): boolean =>
   isShapeCard(card) && (!card.props.closed || card.shape === 'oval');
 
+/**
+ * The supported domain, above shipped content (nine cards, three bins, scales 0.6 to 1.5) and
+ * inside what the widget's stress stories draw (16 cards at 1226 × 493, 9 at 906 × 373).
+ */
+export const SS_CARDS_MAX = 16;
+export const SS_BINS_MAX = 3;
+/** A shape card's size against the prototype. */
+export const SS_SCALE_MIN = 0.5;
+export const SS_SCALE_MAX = 2;
+/** A shape card's turn, in degrees either way. */
+export const SS_ROTATION_MAX = 360;
+/** The largest number on a number card (three digits fit a card). */
+export const SS_NUMBER_MAX = 999;
+/** The largest number a bin rule compares with. */
+export const SS_RULE_VALUE_MAX = 999;
+
+function ruleNumbers(rule: SortRule): number[] {
+  if ('all' in rule) return rule.all.flatMap(ruleNumbers);
+  if ('any' in rule) return rule.any.flatMap(ruleNumbers);
+  const values = Array.isArray(rule.value) ? rule.value : [rule.value];
+  return values.filter((v): v is number => typeof v === 'number');
+}
+
+/** Where a config leaves the supported domain: every number and every list has a bound. */
+export function domainIssues(c: Config): { path: (string | number)[]; message: string }[] {
+  const out: { path: (string | number)[]; message: string }[] = [];
+  if (c.cards.length > SS_CARDS_MAX) {
+    out.push({
+      path: ['cards'],
+      message: `at most ${SS_CARDS_MAX} cards fit; got ${c.cards.length}`,
+    });
+  }
+  c.cards.forEach((x, i) => {
+    const card = x.card;
+    if (isShapeCard(card)) {
+      if (!(card.scale >= SS_SCALE_MIN && card.scale <= SS_SCALE_MAX)) {
+        out.push({
+          path: ['cards', i, 'card', 'scale'],
+          message: `scale is from ${SS_SCALE_MIN} to ${SS_SCALE_MAX}; got ${card.scale}`,
+        });
+      }
+      if (!(Math.abs(card.rotationDeg) <= SS_ROTATION_MAX)) {
+        out.push({
+          path: ['cards', i, 'card', 'rotationDeg'],
+          message: `a turn is at most ${SS_ROTATION_MAX}° either way; got ${card.rotationDeg}`,
+        });
+      }
+    } else if (card.kind === 'number') {
+      if (!(Number.isInteger(card.value) && card.value >= 0 && card.value <= SS_NUMBER_MAX)) {
+        out.push({
+          path: ['cards', i, 'card', 'value'],
+          message: `a number card is a whole number from 0 to ${SS_NUMBER_MAX}; got ${card.value}`,
+        });
+      }
+    }
+  });
+  const bins = c.bins ?? [];
+  if (bins.length > SS_BINS_MAX) {
+    out.push({ path: ['bins'], message: `at most ${SS_BINS_MAX} bins fit; got ${bins.length}` });
+  }
+  bins.forEach((b, i) => {
+    for (const v of ruleNumbers(b.rule)) {
+      if (!(Math.abs(v) <= SS_RULE_VALUE_MAX)) {
+        out.push({
+          path: ['bins', i, 'rule'],
+          message: `a rule compares with numbers up to ${SS_RULE_VALUE_MAX}; got ${v}`,
+        });
+      }
+    }
+  });
+  return out;
+}
+
 const configSchema = shapeSortConfigSchema.superRefine((c, ctx) => {
+  for (const d of domainIssues(c)) ctx.addIssue({ code: 'custom', ...d });
   const ids = c.cards.map((x) => x.id);
   if (new Set(ids).size !== ids.length) {
     ctx.addIssue({ code: 'custom', path: ['cards'], message: 'card ids must be distinct' });

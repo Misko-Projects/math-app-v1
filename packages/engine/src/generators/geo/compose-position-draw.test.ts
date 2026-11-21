@@ -376,7 +376,18 @@ describe('geo.draw', () => {
   it('`grid` still sets a square grid when cols and rows are not given', () => {
     expect(gridOf({ grid: 5 })).toEqual({ cols: 5, rows: 5 });
     expect(gridOf({ grid: 5, cols: 6, rows: 3 })).toEqual({ cols: 6, rows: 3 });
-    expect(gridOf({ cols: 0, rows: 0 })).toEqual({ cols: 5, rows: 5 });
+    // Neither given: the wide grid every dot target fits.
+    expect(gridOf({ cols: 0, rows: 0 })).toEqual({ cols: 6, rows: 3 });
+    expect(gridOf({})).toEqual({ cols: 6, rows: 3 });
+  });
+
+  it('refuses a grid the shape-compose model cannot draw (more than 6 columns or 3 rows)', () => {
+    const t = tpl('geo.draw', 'shape-compose');
+    const p = { kind: 'any', sides: 4, rightAngles: -1 };
+    expect(geoDraw.accepts?.({ ...p, cols: 6, rows: 3 }, t)).toBe(true);
+    expect(geoDraw.accepts?.({ ...p, cols: 7, rows: 3 }, t)).toBe(false);
+    expect(geoDraw.accepts?.({ ...p, cols: 6, rows: 4 }, t)).toBe(false);
+    expect(geoDraw.accepts?.({ ...p, grid: 5 }, t)).toBe(false);
   });
 
   it('an equal-sided triangle cannot be drawn on dots, so it is never generated', () => {

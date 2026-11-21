@@ -171,9 +171,73 @@ export function designRectangles(c: Config, max = 50): { w: number; h: number }[
   return out;
 }
 
+/**
+ * The supported domain, inside what the widget's stress stories draw at 906 × 373 (a 20 × 15
+ * garden, an L with sides to 20); no K–1 template uses the format yet.
+ */
+/** Sides of a figure (an L has 6). */
+export const PW_SIDES_MAX = 6;
+/** A side's length in units. */
+export const PW_SIDE_MAX = 20;
+/** The largest perimeter: every side at its bound. */
+export const PW_PERIMETER_MAX = PW_SIDES_MAX * PW_SIDE_MAX;
+/** Design: the longest side of any rectangle a child may have to build (the grid's columns). */
+export const PW_DESIGN_SIDE_MAX = 12;
+/** Design: the target perimeter and area a grid of that size holds. */
+export const PW_DESIGN_PERIMETER_MAX = 4 * PW_DESIGN_SIDE_MAX;
+export const PW_DESIGN_AREA_MAX = 36;
+
+/** Where a config leaves the supported domain: every number and every list has a bound. */
+export function domainIssues(c: Config): { path: (string | number)[]; message: string }[] {
+  const out: { path: (string | number)[]; message: string }[] = [];
+  const s = c.polygon.sides;
+  if (s.length > PW_SIDES_MAX) {
+    out.push({
+      path: ['polygon', 'sides'],
+      message: `a figure has at most ${PW_SIDES_MAX} sides; got ${s.length}`,
+    });
+  }
+  const design = c.mode === 'design';
+  const sideMax = design ? PW_DESIGN_SIDE_MAX : PW_SIDE_MAX;
+  s.forEach((x, i) => {
+    if (x !== null && !(x <= sideMax)) {
+      out.push({
+        path: ['polygon', 'sides', i],
+        message: `a side is at most ${sideMax} units long; got ${x}`,
+      });
+    }
+    if (x !== null && c.polygon.grid && !Number.isInteger(x)) {
+      out.push({
+        path: ['polygon', 'sides', i],
+        message: `a side on the grid is a whole number of squares; got ${x}`,
+      });
+    }
+  });
+  const perimeterMax = design ? PW_DESIGN_PERIMETER_MAX : PW_PERIMETER_MAX;
+  if (c.perimeter !== undefined && !(c.perimeter >= 1 && c.perimeter <= perimeterMax)) {
+    out.push({
+      path: ['perimeter'],
+      message: `the perimeter is from 1 to ${perimeterMax}; got ${c.perimeter}`,
+    });
+  }
+  if (c.area !== undefined) {
+    if (!design) out.push({ path: ['area'], message: 'only design gives an area' });
+    else if (!(Number.isInteger(c.area) && c.area >= 1 && c.area <= PW_DESIGN_AREA_MAX)) {
+      out.push({
+        path: ['area'],
+        message: `the area is a whole number from 1 to ${PW_DESIGN_AREA_MAX}; got ${c.area}`,
+      });
+    }
+  }
+  return out;
+}
+
 const configSchema = perimeterWalkConfigSchema.superRefine((c, ctx) => {
   const issue = (path: (string | number)[], message: string) =>
     ctx.addIssue({ code: 'custom', path, message });
+  const domain = domainIssues(c);
+  for (const d of domain) ctx.addIssue({ code: 'custom', ...d });
+  if (domain.length > 0) return;
   const s = c.polygon.sides;
   const known = s.filter((x): x is number => x !== null);
   const nulls = s.length - known.length;
@@ -187,8 +251,15 @@ const configSchema = perimeterWalkConfigSchema.superRefine((c, ctx) => {
     }
     if (c.perimeter === undefined && c.area === undefined) {
       issue(['perimeter'], 'design needs a perimeter or an area');
-    } else if (designRectangles(c).length === 0) {
-      issue(['perimeter'], 'no rectangle meets the constraints');
+    } else {
+      const options = designRectangles(c);
+      if (options.length === 0) issue(['perimeter'], 'no rectangle meets the constraints');
+      else if (options.some((r) => Math.max(r.w, r.h) > PW_DESIGN_SIDE_MAX)) {
+        issue(
+          ['perimeter'],
+          `every rectangle that meets the constraints is at most ${PW_DESIGN_SIDE_MAX} squares a side`,
+        );
+      }
     }
   } else {
     if (want !== null && s.length !== want) {

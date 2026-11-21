@@ -55,12 +55,50 @@ export function closeness(lengths: readonly number[]): number {
 export const startOf = (s: CompareLengthState, id: string): number =>
   s.aligned.includes(id) ? 0 : (s.config.objects.find((o) => o.id === id)?.offset ?? 0);
 
+/**
+ * The supported domain, above shipped content (lengths to 12, offsets to 4) and inside what the
+ * widget draws at 906 × 373 (four lanes; a unit never under 8 px).
+ */
+export const CL_OBJECTS_MAX = 4;
+/** An object's length in units. */
+export const CL_LENGTH_MAX = 20;
+/** How far from the start line an object may begin. */
+export const CL_OFFSET_MAX = 8;
+/** The farthest any object may reach (offset + length): the lanes' width in units. */
+export const CL_END_MAX = 24;
+
+/** Where a config leaves the supported domain: every number and every list has a bound. */
+export function domainIssues(
+  c: WidgetConfigOf<'compare-length'>,
+): { path: (string | number)[]; message: string }[] {
+  const out: { path: (string | number)[]; message: string }[] = [];
+  c.objects.forEach((o, i) => {
+    if (!(o.length <= CL_LENGTH_MAX)) {
+      out.push({
+        path: ['objects', i, 'length'],
+        message: `an object is at most ${CL_LENGTH_MAX} units long; got ${o.length}`,
+      });
+    }
+    if (
+      !(o.offset <= CL_OFFSET_MAX) ||
+      (o.length <= CL_LENGTH_MAX && !(o.offset + o.length <= CL_END_MAX))
+    ) {
+      out.push({
+        path: ['objects', i, 'offset'],
+        message: `offset is at most ${CL_OFFSET_MAX} and the object ends by ${CL_END_MAX}; got ${o.offset} + ${o.length}`,
+      });
+    }
+  });
+  return out;
+}
+
 const configSchema = compareLengthConfigSchema.superRefine((c, ctx) => {
+  for (const d of domainIssues(c)) ctx.addIssue({ code: 'custom', ...d });
   const ids = c.objects.map((o) => o.id);
   if (new Set(ids).size !== ids.length) {
     ctx.addIssue({ code: 'custom', path: ['objects'], message: 'object ids must be distinct' });
   }
-  if (c.objects.length < 2 || c.objects.length > 4) {
+  if (c.objects.length < 2 || c.objects.length > CL_OBJECTS_MAX) {
     ctx.addIssue({ code: 'custom', path: ['objects'], message: 'two to four objects' });
   }
   if ((c.ask === 'indirect' || c.ask === 'how-much-longer') && c.objects.length !== 2) {
