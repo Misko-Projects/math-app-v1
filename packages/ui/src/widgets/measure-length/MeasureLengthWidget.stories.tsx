@@ -1200,3 +1200,69 @@ export const StressFourOptionsLandscapeMin: Story = {
     await expectTargetGaps(options);
   },
 };
+
+/**
+ * Keyboard undo (review round 1): with a count typed, Backspace on the measure lifts a unit and
+ * leaves the typed answer alone (no keypad tap is traced); ← and → mark any laid unit, so the
+ * middle one can be lifted while the later ones stay.
+ */
+export const LiftUnitByKeyboardK: Story = {
+  globals: { ageMode: 'k' },
+  play: async ({ canvasElement, args }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    for (let i = 0; i < 4; i += 1) {
+      pile(root, 'shell').focus();
+      await userEvent.keyboard('{Enter}');
+      await userEvent.keyboard('{Enter}');
+    }
+    await waitFor(() => expect(laid(root, 'shell')).toEqual([0, 1, 2, 3]));
+    await userEvent.click(key(root, '1'));
+    await userEvent.click(key(root, '2'));
+    const answer = () => root.querySelector('.ni-boxentry__text')?.textContent;
+    await expect(answer()).toBe('12');
+    trackPad(root, 'shell').focus();
+    await userEvent.keyboard('{Backspace}');
+    await waitFor(() => expect(laid(root, 'shell')).toEqual([0, 1, 2]));
+    await expect(answer()).toBe('12');
+    // → marks the first shell, → again the second: Delete lifts that one only.
+    await userEvent.keyboard('{ArrowRight}');
+    await userEvent.keyboard('{ArrowRight}');
+    await expect(root.querySelectorAll('.ni-mlen__laid[data-marked="true"]')).toHaveLength(1);
+    await userEvent.keyboard('{Delete}');
+    await waitFor(() => expect(laid(root, 'shell')).toEqual([0, 2]));
+    await expect(answer()).toBe('12');
+    const trace = traceOf(args.onInteract).map((e) => `${e.t}:${e.target}`);
+    await expect(trace).not.toContain('tap:key-back');
+    await expect(trace.filter((e) => e.startsWith('undo:'))).toEqual([
+      'undo:shell-3',
+      'undo:shell-1',
+    ]);
+  },
+};
+
+/**
+ * The ruler cannot be slid out from under the object (review round 1): however long ← is held,
+ * it stops with its last mark at the object's end, stays in the stage, and its value stays in
+ * its declared range.
+ */
+export const SlideRulerStaysInView: Story = {
+  args: { config: ruler },
+  play: async ({ canvasElement }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    const r = within(root).getByRole('slider', { name: 'Ruler' });
+    r.focus();
+    for (let i = 0; i < 40; i += 1) await userEvent.keyboard('{ArrowLeft}');
+    const max = Number(r.getAttribute('aria-valuemax'));
+    await expect(Number(r.getAttribute('aria-valuenow'))).toBeLessThanOrEqual(max);
+    const stage = (root.querySelector('.ni-mlen__stage') as HTMLElement).getBoundingClientRect();
+    const object = (root.querySelector('.ni-mlen__object') as HTMLElement).getBoundingClientRect();
+    const box = (root.querySelector('svg.ni-ruler') as SVGElement).getBoundingClientRect();
+    // The ruler still lies under the whole object, inside the stage.
+    await expect(box.right).toBeGreaterThanOrEqual(object.right - 1);
+    await expect(box.left).toBeLessThanOrEqual(object.left + 1);
+    await expect(box.right).toBeGreaterThan(stage.left + 64);
+    // And it comes back.
+    for (let i = 0; i < 40; i += 1) await userEvent.keyboard('{ArrowRight}');
+    await expect(r).toHaveAttribute('data-ruler-start', '0');
+  },
+};

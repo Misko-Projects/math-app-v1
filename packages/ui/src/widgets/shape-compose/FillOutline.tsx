@@ -143,6 +143,30 @@ export function FillOutline({
     apply({ op: 'drag-piece', args: { id: p.id, remove: true } });
   };
 
+  /**
+   * Keyboard: ← and → on the outline walk a marker over the placed blocks (in the order they
+   * were placed), naming each; Backspace or Delete sends the marked block back, or the last one
+   * placed when none is marked. So a keyboard user can take back any block, as a finger can.
+   */
+  const [marked, setMarked] = useState<string | null>(null);
+  const moveMark = (step: 1 | -1) => {
+    const order = state.placed;
+    if (order.length === 0) return;
+    const i = order.findIndex((x) => x.id === marked);
+    const next =
+      order[i < 0 ? (step > 0 ? 0 : order.length - 1) : (i + step + order.length) % order.length];
+    if (!next) return;
+    trace('move', next.id);
+    if (speakOnTap) say(`shape.${next.kind}.one`);
+    setMarked(next.id);
+  };
+  const sendMarkedBack = () => {
+    const target = state.placed.find((x) => x.id === marked);
+    setMarked(null);
+    if (target && interactive) sendBack(target);
+    else takeBack();
+  };
+
   /** "Take one back": the piece placed last goes back to the tray. */
   const takeBack = () => {
     const p = state.placed[state.placed.length - 1];
@@ -279,10 +303,17 @@ export function FillOutline({
           }}
           onKeyDown={(e: KeyboardEvent) => {
             // Keyboard: Backspace or Delete on the board takes the last piece back.
-            if ((e.key === 'Backspace' || e.key === 'Delete') && dnd.selected === null) {
-              e.preventDefault();
-              takeBack();
-              return;
+            if (dnd.selected === null && interactive) {
+              if (e.key === 'Backspace' || e.key === 'Delete') {
+                e.preventDefault();
+                sendMarkedBack();
+                return;
+              }
+              if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
+                e.preventDefault();
+                moveMark(e.key === 'ArrowRight' ? 1 : -1);
+                return;
+              }
             }
             boardP.onKeyDown(e);
           }}
@@ -317,6 +348,7 @@ export function FillOutline({
                 key={p.id}
                 className="ni-scomp__piece"
                 data-placed={p.id}
+                data-marked={marked === p.id ? 'true' : undefined}
                 data-at={p.at.join(',')}
                 data-rot={p.rot}
                 points={pts(corners, toPx)}

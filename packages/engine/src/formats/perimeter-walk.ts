@@ -211,10 +211,34 @@ export function domainIssues(c: Config): { path: (string | number)[]; message: s
         message: `a side is at most ${sideMax} units long; got ${x}`,
       });
     }
-    if (x !== null && c.polygon.grid && !Number.isInteger(x)) {
+    if (x !== null && !Number.isInteger(x)) {
       out.push({
         path: ['polygon', 'sides', i],
-        message: `a side on the grid is a whole number of squares; got ${x}`,
+        message: `a side is a whole number of units (the answer pad types whole numbers); got ${x}`,
+      });
+    }
+  });
+  if (c.perimeter !== undefined && !Number.isInteger(c.perimeter)) {
+    out.push({
+      path: ['perimeter'],
+      message: `the perimeter is a whole number; got ${c.perimeter}`,
+    });
+  }
+  // The side a child has to find obeys the same bounds as the sides shown.
+  const resolved = design ? null : resolvedSides(c);
+  s.forEach((x, i) => {
+    const found = x === null ? resolved?.[i] : undefined;
+    if (found === undefined || !(found > 0)) return;
+    if (!(found <= sideMax)) {
+      out.push({
+        path: ['polygon', 'sides', i],
+        message: `the missing side is at most ${sideMax} units long; got ${found}`,
+      });
+    }
+    if (!Number.isInteger(found)) {
+      out.push({
+        path: ['polygon', 'sides', i],
+        message: `the missing side is a whole number of units; got ${found}`,
       });
     }
   });

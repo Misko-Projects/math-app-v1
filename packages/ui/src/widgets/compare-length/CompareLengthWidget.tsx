@@ -204,6 +204,7 @@ export function CompareLengthWidget({
   const canSlideBack = (o: Obj) =>
     slidable && !config.aligned && o.offset > 0 && state.aligned.includes(o.id);
   const slideBack = (o: Obj) => {
+    trace('undo', o.id);
     setInvite(null);
     if (speakOnTap) say(spriteNameKey(o.sprite));
     apply({ op: 'align', args: { id: o.id, remove: true } });
@@ -470,6 +471,23 @@ export function CompareLengthWidget({
                 ?.click();
               return;
             }
+            // Tap-only play (06 §7) has no drags: a tap lines an offset rope up first; a rope on
+            // the line is picked (where there is a pick), and a picked or unpickable one tapped
+            // again slides back to where it started.
+            if (tapOnly && slidable && interactive) {
+              if (o.offset > 0 && !state.aligned.includes(o.id)) {
+                trace('tap', o.id);
+                if (speakOnTap) say(spriteNameKey(o.sprite));
+                trace('move', o.id);
+                align(o);
+                return;
+              }
+              if (canSlideBack(o) && (!pickable || picked)) {
+                trace('tap', o.id);
+                slideBack(o);
+                return;
+              }
+            }
             pick(o);
           }}
           onKeyDown={(e) => {
@@ -480,7 +498,6 @@ export function CompareLengthWidget({
             } else if (e.key === 'ArrowRight' && canSlideBack(o) && interactive) {
               // → slides a lined-up object back to where it started.
               e.preventDefault();
-              trace('undo', o.id);
               slideBack(o);
             }
           }}

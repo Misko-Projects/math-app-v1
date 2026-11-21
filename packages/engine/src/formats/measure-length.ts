@@ -237,7 +237,10 @@ export const measureLength: FormatModel<'measure-length', MeasureLengthState> = 
       case 'slide-ruler': {
         if (c.tool !== 'ruler') return s;
         const to = argNumber(a, 'to');
-        return to === undefined ? s : { ...s, rulerStart: to };
+        // The ruler stays under the object: its mark at the object's start is never below 0 nor
+        // so high that the object would run off the ruler's far end.
+        if (to === undefined) return s;
+        return { ...s, rulerStart: Math.min(ML_LENGTH_MAX, Math.max(0, to)) };
       }
       case 'align-zero':
         return { ...s, startShown: true };

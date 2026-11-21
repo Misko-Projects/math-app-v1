@@ -373,3 +373,10 @@
     stroke-dashoffset: 0;
   }
 }
+
+/* Keyboard: the placed block Backspace will send back (walked to with the arrow keys). */
+.ni-scomp__piece[data-marked="true"] {
+  stroke: var(--color-ink);
+  stroke-width: 6px;
+  stroke-dasharray: 10 6;
+}

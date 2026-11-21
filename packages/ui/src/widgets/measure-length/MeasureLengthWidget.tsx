@@ -296,6 +296,31 @@ export function MeasureLengthWidget({
     });
   };
 
+  /**
+   * Keyboard: ← and → on the measure walk a marker over the laid units (row by row, left to
+   * right), naming each; Backspace or Delete lifts the marked unit, or the last one laid when
+   * none is marked. So a keyboard user can lift any unit, as a finger can.
+   */
+  const [marked, setMarked] = useState<string | null>(null);
+  const liftOrder = () => units.flatMap((u) => [...laidOf(u)].sort((x, y) => x.at - y.at));
+  const moveMark = (step: 1 | -1) => {
+    const order = liftOrder();
+    if (order.length === 0) return;
+    const i = order.findIndex((x) => x.id === marked);
+    const next =
+      order[i < 0 ? (step > 0 ? 0 : order.length - 1) : (i + step + order.length) % order.length];
+    if (!next) return;
+    trace('move', next.id);
+    if (speakOnTap) say(`unit.${next.unit}.one`);
+    setMarked(next.id);
+  };
+  const liftMarked = () => {
+    const target = state.units.find((x) => x.id === marked);
+    setMarked(null);
+    if (target && interactive) lift(target);
+    else takeBack();
+  };
+
   /** "Take one back": lifts the unit laid last (of either kind). */
   const takeBack = () => {
     const last = state.units[state.units.length - 1];
@@ -324,6 +349,12 @@ export function MeasureLengthWidget({
   };
 
   // ---------- the ruler: slides on the concrete tier; tap-tick marks the end ----------
+  /**
+   * How far the ruler slides: from its 0 under the object's start to its last mark under the
+   * object's end, so the object always lies on the ruler and the ruler never leaves the stage.
+   */
+  const slideMax = Math.max(0, r3(rulerMax - whole));
+  const clampSlide = (to: number) => r3(Math.min(slideMax, Math.max(0, to)));
   const onRulerDown = (e: ReactPointerEvent) => {
     // Tap-only mode (06 §7) has no drags; ←/→ on the ruler still slide it.
     if (!interactive || tapOnly || tier !== 'concrete' || config.mode !== 'read') return;
@@ -348,7 +379,7 @@ export function MeasureLengthWidget({
       const to =
         Math.round((from - (ev.clientX - x0) / rulerUnit) / config.precision) * config.precision;
       trace('drop', 'ruler');
-      apply({ op: 'slide-ruler', args: { to: Math.max(0, r3(to)) } });
+      apply({ op: 'slide-ruler', args: { to: clampSlide(to) } });
     };
     window.addEventListener('pointermove', move);
     window.addEventListener('pointerup', up);
@@ -498,10 +529,17 @@ export function MeasureLengthWidget({
       }}
       onKeyDown={(e: ReactKeyboardEvent) => {
         // Keyboard: Backspace or Delete on the measure takes the last unit back.
-        if ((e.key === 'Backspace' || e.key === 'Delete') && dnd.selected === null) {
-          e.preventDefault();
-          takeBack();
-          return;
+        if (dnd.selected === null && interactive) {
+          if (e.key === 'Backspace' || e.key === 'Delete') {
+            e.preventDefault();
+            liftMarked();
+            return;
+          }
+          if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
+            e.preventDefault();
+            moveMark(e.key === 'ArrowRight' ? 1 : -1);
+            return;
+          }
         }
         trackP.onKeyDown(e);
       }}
@@ -521,6 +559,7 @@ export function MeasureLengthWidget({
             key={x.id}
             className="ni-mlen__laid"
             data-unit-id={x.id}
+            data-marked={marked === x.id ? 'true' : undefined}
             data-at={x.at}
             style={{ left: x.at * px, width: px, top: (rowH - unitHeight(u, px)) / 2 }}
           >
@@ -661,7 +700,7 @@ export function MeasureLengthWidget({
       </fieldset>
     );
   } else {
-    const shown = rulerDrag ?? state.rulerStart;
+    const shown = Math.min(slideMax, Math.max(0, rulerDrag ?? state.rulerStart));
     const shift = (shown - config.startOffset) * rulerUnit;
     const objectLeft = RULER_PAD + config.startOffset * rulerUnit;
     const rulerMarks = [
@@ -722,7 +761,7 @@ export function MeasureLengthWidget({
               } else if (tier === 'concrete') {
                 e.preventDefault();
                 // → slides the ruler right, so a smaller mark comes under the object's start.
-                const to = r3(Math.max(0, state.rulerStart - step));
+                const to = clampSlide(state.rulerStart - step);
                 trace('move', 'ruler');
                 apply({ op: 'slide-ruler', args: { to } });
               }

@@ -1163,3 +1163,33 @@ export const StressBoundsFillLandscapeMinK: Story = {
     await expectTargetGaps(tiles);
   },
 };
+
+/**
+ * Keyboard undo of any block (review round 1): ← and → on the outline mark a placed block; Delete
+ * sends that one back and leaves the block placed after it.
+ */
+export const FillSendEarlierPieceBackByKeyboard: Story = {
+  play: async ({ canvasElement, args }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    const board = root.querySelector('.ni-scomp__pad') as HTMLElement;
+    for (const id of ['p-rhombus', 'p-triangle']) {
+      tile(root, id).focus();
+      await userEvent.keyboard('{Enter}');
+      await userEvent.keyboard('{Enter}');
+    }
+    await waitFor(() => expect(placed(root)).toHaveLength(2));
+    const first = placed(root)[0]?.id as string;
+    const second = placed(root)[1]?.id as string;
+    board.focus();
+    await userEvent.keyboard('{ArrowRight}');
+    await expect(
+      root.querySelector('.ni-scomp__piece[data-marked="true"]')?.getAttribute('data-placed'),
+    ).toBe(first);
+    await userEvent.keyboard('{Delete}');
+    await waitFor(() => expect(placed(root).map((p) => p.id)).toEqual([second]));
+    const undone = traceOf(args.onInteract)
+      .filter((e) => e.t === 'undo')
+      .map((e) => e.target);
+    await expect(undone).toEqual([first]);
+  },
+};

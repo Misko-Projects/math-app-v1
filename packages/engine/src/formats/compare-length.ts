@@ -75,6 +75,14 @@ export function domainIssues(
 ): { path: (string | number)[]; message: string }[] {
   const out: { path: (string | number)[]; message: string }[] = [];
   c.objects.forEach((o, i) => {
+    // Lengths and offsets are whole units: the answer pad types whole numbers only, and the
+    // difference of two whole lengths is whole.
+    if (!Number.isInteger(o.length) || !Number.isInteger(o.offset)) {
+      out.push({
+        path: ['objects', i, Number.isInteger(o.length) ? 'offset' : 'length'],
+        message: `lengths and offsets are whole numbers of units; got ${o.length} at ${o.offset}`,
+      });
+    }
     if (!(o.length <= CL_LENGTH_MAX)) {
       out.push({
         path: ['objects', i, 'length'],

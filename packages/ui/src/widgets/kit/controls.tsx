@@ -359,6 +359,9 @@ export function NumberPadKeys({
     if (!captureKeyboard) return;
     const onKeyDown = (e: KeyboardEvent) => {
       const l = latest.current;
+      // A key a focused control already handled (Backspace taking a laid unit back) is not also
+      // typed into the answer.
+      if (e.defaultPrevented) return;
       if (l.disabled || e.altKey || e.ctrlKey || e.metaKey) return;
       const el = e.target as HTMLElement | null;
       if (el?.closest('input, textarea, select, [contenteditable="true"]')) return;

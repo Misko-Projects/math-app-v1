@@ -1393,6 +1393,20 @@ describe('supported domain: every numeric input of the five models has a bound',
       accepts(compareLength, n(CL_OBJECTS_MAX));
       refuses(compareLength, n(CL_OBJECTS_MAX + 1), /two to 3 objects; got 4/);
     });
+    it('lengths and offsets are whole numbers: the pad cannot type 1.5 (review round 1)', () => {
+      const pair = (length: number, offset: number) => ({
+        ...clBase,
+        aligned: false,
+        ask: 'how-much-longer' as const,
+        objects: [
+          { id: 'obj-0', sprite: 'rope' as const, length: 4, offset: 0 },
+          { id: 'obj-1', sprite: 'rope' as const, length, offset },
+        ],
+      });
+      accepts(compareLength, pair(2, 1));
+      refuses(compareLength, pair(2.5, 0), /whole numbers of units; got 2.5 at 0/);
+      refuses(compareLength, pair(2, 0.5), /whole numbers of units; got 2 at 0.5/);
+    });
     it('an object is at most CL_LENGTH_MAX units long', () => {
       accepts(compareLength, two(CL_LENGTH_MAX));
       refuses(compareLength, two(CL_LENGTH_MAX + 1), /at most 20 units long; got 21/);
@@ -1412,11 +1426,35 @@ describe('supported domain: every numeric input of the five models has a bound',
     it('a side is at most PW_SIDE_MAX, and whole on a grid', () => {
       accepts(perimeterWalk, rect(PW_SIDE_MAX, 15));
       refuses(perimeterWalk, rect(PW_SIDE_MAX + 1, 15), /at most 20 units long; got 21/);
-      refuses(perimeterWalk, rect(4.5, 2), /whole number of squares; got 4.5/);
+      refuses(perimeterWalk, rect(4.5, 2), /whole number of units.*got 4.5/);
+      // Off the grid too: three sides of 4.5 would ask for 13.5, which the pad cannot type.
+      refuses(
+        perimeterWalk,
+        { ...pwTotal, polygon: { sides: [4.5, 4.5, 4.5], grid: false, shape: 'poly' as const } },
+        /whole number of units.*got 4.5/,
+      );
       accepts(perimeterWalk, {
         ...pwTotal,
-        polygon: { sides: [4.5, 4.5, 4.5], grid: false, shape: 'poly' as const },
+        polygon: { sides: [4, 4, 4], grid: false, shape: 'poly' as const },
       });
+    });
+    it('the side a child has to find obeys the same bounds (review round 1)', () => {
+      const missing = (sides: (number | null)[], perimeter: number, grid: boolean) => ({
+        ...pwTotal,
+        mode: 'missing-side' as const,
+        polygon: { sides, grid, shape: 'poly' as const },
+        perimeter,
+      });
+      // 48 - 15 - 12 = 21: longer than a side may be, though the figure fits 20 x 15.
+      refuses(
+        perimeterWalk,
+        missing([15, 12, null], 48, false),
+        /missing side is at most 20 units long; got 21/,
+      );
+      // 17.5 - 6 - 6 = 5.5: not a whole number.
+      refuses(perimeterWalk, missing([6, 6, null], 17.5, true), /perimeter is a whole number/);
+      refuses(perimeterWalk, missing([6, 6, null], 17.5, true), /missing side is a whole number/);
+      accepts(perimeterWalk, missing([15, 12, null], 47, false));
     });
     it('the figure as drawn is at most PW_SIDE_MAX wide and PW_HEIGHT_MAX tall', () => {
       accepts(perimeterWalk, rect(PW_SIDE_MAX, PW_HEIGHT_MAX));
@@ -1711,6 +1749,13 @@ describe('supported domain: every numeric input of the five models has a bound',
       2,
     ]);
     expect(perimeterWalk.apply(w, act('walk-side', { index: 9, remove: true }))).toBe(w);
+  });
+
+  it('slide-ruler keeps the ruler under the object (review round 1)', () => {
+    const s = measureLength.initialState(mlRead);
+    expect(measureLength.apply(s, act('slide-ruler', { to: -3 })).rulerStart).toBe(0);
+    expect(measureLength.apply(s, act('slide-ruler', { to: 7 })).rulerStart).toBe(7);
+    expect(measureLength.apply(s, act('slide-ruler', { to: 999 })).rulerStart).toBe(ML_LENGTH_MAX);
   });
 
   it('every refusal names the bound and the value it got (a clear message)', () => {

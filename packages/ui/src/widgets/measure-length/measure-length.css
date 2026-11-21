@@ -266,3 +266,11 @@
   height: 40px;
   align-self: center;
 }
+
+/* Keyboard: the laid unit Backspace will lift (walked to with the arrow keys). */
+.ni-mlen__laid[data-marked="true"] {
+  z-index: 2;
+  outline: 4px solid var(--color-ink);
+  outline-offset: 2px;
+  border-radius: 6px;
+}

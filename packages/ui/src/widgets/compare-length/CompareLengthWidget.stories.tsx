@@ -880,12 +880,14 @@ export const SlideBackUndo: Story = {
     await waitFor(() => expect(o()).toHaveAttribute('data-start', '2'));
     // A rope that never moved (it started on the line) has nowhere to go back to.
     const trace = traceOf(args.onInteract).map((e) => `${e.t}:${e.target}`);
+    // Every reversal is an `undo`, by keyboard and by pointer alike (review round 1).
     await expect(trace).toEqual([
       'move:obj-0',
       'undo:obj-0',
       'move:obj-0',
       'drag:obj-0',
       'drop:back',
+      'undo:obj-0',
     ]);
   },
 };
@@ -931,4 +933,38 @@ export const StressBoundsTabletK: Story = {
 export const StressBoundsLandscapeMinK: Story = {
   ...StressBoundsTabletK,
   render: inArea('landscapeMin'),
+};
+
+/**
+ * Tap-only play (06 §7; review round 1): with no drags, a tap lines an offset rope up without
+ * picking it; the next tap picks it; a tap on the picked rope slides it back (an `undo`). A rope
+ * that starts on the line is picked by its first tap.
+ */
+export const TapOnlyLinesUpByTap: Story = {
+  parameters: { ui: { tapOnly: true } },
+  play: async ({ canvasElement, args }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    const o = () => obj(root, 'obj-0');
+    await expect(o()).toHaveAttribute('data-start', '2');
+    await userEvent.click(o());
+    await expect(o()).toHaveAttribute('data-start', '0');
+    await expect(o()).toHaveAttribute('aria-pressed', 'false');
+    await userEvent.click(o());
+    await expect(o()).toHaveAttribute('aria-pressed', 'true');
+    await userEvent.click(o());
+    await expect(o()).toHaveAttribute('data-start', '2');
+    await userEvent.click(obj(root, 'obj-1'));
+    await expect(obj(root, 'obj-1')).toHaveAttribute('aria-pressed', 'true');
+    await expect(obj(root, 'obj-1')).toHaveAttribute('data-start', '0');
+    const trace = traceOf(args.onInteract).map((e) => `${e.t}:${e.target}`);
+    await expect(trace).toEqual([
+      'tap:obj-0',
+      'move:obj-0',
+      'tap:obj-0',
+      'tap:obj-0',
+      'undo:obj-0',
+      'tap:obj-1',
+    ]);
+    await expect(trace).not.toContain('drag:obj-0');
+  },
 };
