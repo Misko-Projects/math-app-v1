@@ -1799,13 +1799,33 @@ const barChartsTall: Config = {
   right: oneBar('apple', 13, CHART_AXIS_STEPS_MAX),
 };
 
+/**
+ * The widest chart a stimulus may be (`CHART_STIMULUS_CATEGORIES_MAX` columns, a three-digit
+ * axis of `CHART_AXIS_STEPS_MAX` tens) on both sides.
+ */
+const twoBars = (a: number, b: number): StimulusSpec => ({
+  kind: 'chart',
+  chart: {
+    kind: 'bar',
+    orientation: 'vertical',
+    categories: [
+      { id: 'fish', label: 'noun.fish.many', value: a },
+      { id: 'crab', label: 'noun.crab.many', value: b },
+    ],
+    scale: 10,
+    axisMax: 10 * CHART_AXIS_STEPS_MAX,
+  },
+});
+const barChartsWidest: Config = { ...barCharts, left: twoBars(200, 90), right: twoBars(60, 150) };
+
 /** Both sides are real pictures, named, inside their cards; picking one answers. */
 async function expectPictureSides(
   canvasElement: HTMLElement,
   root: HTMLElement,
   kind: 'fraction' | 'chart',
+  age: 'k' | 'g1-up' = 'g1-up',
 ) {
-  await expectCompareFits(canvasElement, root, 'g1-up');
+  await expectCompareFits(canvasElement, root, age);
   await expectPicturesInside(root);
   const pictures = [...root.querySelectorAll<HTMLElement>('.ni-fitpic')];
   await expect(pictures.map((p) => p.dataset.kind)).toEqual([kind, kind]);
@@ -1977,6 +1997,33 @@ export const BarChartsTallMin: Story = {
     await expectPictureSides(canvasElement, root, 'chart');
     const m = await expectBarCharts(root);
     await expect(m.map((c) => c.bars.map((b) => b.value))).toEqual([[20], [13]]);
+    await expectOneScale(
+      m.map((c) => c.unit),
+      'px per count',
+    );
+    noteMeasure(canvasElement, 'unit', m[0]?.unit ?? 0);
+    noteMeasure(canvasElement, 'numeral', Math.min(...m.map((c) => c.numeral)));
+  },
+};
+
+/**
+ * Stress: the widest chart a stimulus may be, in K mode (the biggest targets, so the smallest
+ * sides) at the minimum area: two columns and a 0–200 axis on each side. The charts are laid out
+ * in their boxes, not scaled down, so the numerals are still 32 px and one count is the same px
+ * on both sides.
+ */
+export const BarChartsWidestKMin: Story = {
+  globals: { ageMode: 'k' },
+  args: { config: barChartsWidest, tier: 'pictorial' },
+  render: inArea('landscapeMin'),
+  play: async ({ canvasElement }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    await expectPictureSides(canvasElement, root, 'chart', 'k');
+    const m = await expectBarCharts(root);
+    await expect(m.map((c) => c.bars.map((b) => b.value))).toEqual([
+      [200, 90],
+      [60, 150],
+    ]);
     await expectOneScale(
       m.map((c) => c.unit),
       'px per count',

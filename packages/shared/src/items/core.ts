@@ -452,6 +452,13 @@ export const CHART_AXIS_STEPS_MAX = 20;
 export const CHART_LINE_POSITIONS_MAX = 25;
 /** The steps a line plot's scale may count in. */
 export const CHART_LINE_STEPS: readonly number[] = [1, 0.5, 0.25];
+/**
+ * Categories of a `chart` stimulus: 1 or 2. A stimulus chart is a vertical bar graph (the picture
+ * a compare side or a number-pad item shows); two columns with a three-digit axis are the widest
+ * chart that keeps 32 px numerals in a compare side of the smallest widget area. The other kinds
+ * and bigger graphs belong to the bar-graph formats, which give the chart the whole widget.
+ */
+export const CHART_STIMULUS_CATEGORIES_MAX = 2;
 /** Parts a `fraction` picture is cut into: 1 to 12 (`shaded` is 0 to `parts`). */
 export const FRACTION_PARTS_MAX = 12;
 
@@ -530,8 +537,13 @@ export function chartIssues(chart: ChartSpec, ctx: z.RefinementCtx, path: (strin
     }
     const positions = new Set(chartLinePositions(ls).map(chartPositionId));
     chart.categories.forEach((c, i) => {
-      if (!positions.has(chartPositionId(Number(c.id)))) {
-        add(['categories', i, 'id'], 'a line-plot category is a position on the scale');
+      // The id is the position exactly as `chartPositionId` writes it ("1", "1.5"), so two
+      // categories can never name one position in two spellings ("1" and "1.0").
+      if (!positions.has(c.id)) {
+        add(
+          ['categories', i, 'id'],
+          'a line-plot category id is a position on the scale, written as the number ("1.5")',
+        );
       }
     });
   } else {
@@ -729,7 +741,20 @@ export const stimulusSpecSchema = z.discriminatedUnion('kind', [
     bills: z.array(z.number()).optional(),
   }),
   z.object({ kind: z.literal('shape'), shapes: z.array(shapeCardSchema) }),
-  z.object({ kind: z.literal('chart'), chart: chartSpecSchema }),
+  z.object({ kind: z.literal('chart'), chart: chartSpecSchema }).superRefine((s, ctx) => {
+    const add = (path: string[], message: string) =>
+      ctx.addIssue({ code: 'custom', path: ['chart', ...path], message });
+    if (s.chart.kind !== 'bar') add(['kind'], 'a chart stimulus is a bar graph');
+    if (s.chart.orientation !== 'vertical') {
+      add(['orientation'], 'a chart stimulus is a vertical bar graph');
+    }
+    if (s.chart.categories.length > CHART_STIMULUS_CATEGORIES_MAX) {
+      add(
+        ['categories'],
+        `a chart stimulus shows at most ${CHART_STIMULUS_CATEGORIES_MAX} categories`,
+      );
+    }
+  }),
   z.object({ kind: z.literal('expression'), expr: expressionSpecSchema }),
   z.object({
     kind: z.literal('scene'),

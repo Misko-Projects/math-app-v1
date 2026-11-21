@@ -5,6 +5,7 @@ import {
   CHART_AXIS_STEPS_MAX,
   CHART_CATEGORIES_MAX,
   CHART_LINE_POSITIONS_MAX,
+  CHART_STIMULUS_CATEGORIES_MAX,
   type ChartSpec,
   chartAxisTop,
   chartLinePositions,
@@ -46,8 +47,13 @@ const linePlot = (over: Partial<ChartSpec> = {}): ChartSpec =>
 
 const ok = (spec: unknown) => stimulusSpecSchema.safeParse(spec).success;
 const chartOk = (c: unknown) => chartSpecSchema.safeParse(c).success;
-/** The paths of the issues a chart raises, as the stimulus schema reports them. */
+/** The paths of the issues a chart raises (under `chart.`, as a stimulus or a format reports them). */
 const chartPaths = (c: unknown) => {
+  const r = chartSpecSchema.safeParse(c);
+  return r.success ? [] : r.error.issues.map((i) => ['chart', ...i.path].join('.'));
+};
+/** The paths of the issues a `chart` stimulus raises. */
+const stimulusPaths = (c: unknown) => {
   const r = stimulusSpecSchema.safeParse({ kind: 'chart', chart: c });
   return r.success ? [] : r.error.issues.map((i) => i.path.join('.'));
 };
@@ -175,6 +181,17 @@ describe('chart pictures', () => {
     expect(
       chartPaths(linePlot({ categories: [{ id: '1.3', label: 'noun.fish.many', value: 1 }] })),
     ).toEqual(['chart.categories.0.id']);
+    // An id is the position as written: "1" and "1.0" would be one position counted twice, so
+    // only the canonical spelling is a position (and ids are distinct).
+    const spelled = (...ids: string[]) =>
+      linePlot({
+        lineScale: { min: 0, max: 2, step: 0.5 },
+        categories: ids.map((id, i) => ({ id, label: 'noun.fish.many', value: 2 + i })),
+      });
+    expect(chartOk(spelled('1', '1.5'))).toBe(true);
+    expect(chartPaths(spelled('1', '1.0'))).toEqual(['chart.categories.1.id']);
+    expect(chartPaths(spelled('1.50'))).toEqual(['chart.categories.0.id']);
+    expect(chartPaths(spelled('1', '1'))).toContain('chart.categories');
     // A line plot's categories are positions, so the six-category bound does not apply to it.
     const many = [0, 0.5, 1, 1.5, 2, 2.5, 3].map((p) => ({
       id: String(p),
@@ -182,6 +199,33 @@ describe('chart pictures', () => {
       value: 1,
     }));
     expect(chartOk(linePlot({ categories: many }))).toBe(true);
+  });
+});
+
+describe('chart stimuli: a vertical bar graph of one or two categories', () => {
+  it('categories: 1 to CHART_STIMULUS_CATEGORIES_MAX', () => {
+    expect(CHART_STIMULUS_CATEGORIES_MAX).toBe(2);
+    expect(stimulusPaths(chart({ categories: cats(4) }))).toEqual([]);
+    expect(stimulusPaths(chart({ categories: cats(4, 2) }))).toEqual([]);
+    expect(stimulusPaths(chart({ categories: cats(4, 2, 3) }))).toEqual(['chart.categories']);
+    expect(stimulusPaths(chart({ categories: [] }))).toEqual(['chart.categories']);
+  });
+
+  it('only bar graphs, only vertical (the other kinds belong to the bar-graph formats)', () => {
+    expect(stimulusPaths(chart({ orientation: 'horizontal' }))).toEqual(['chart.orientation']);
+    for (const kind of ['picture', 'tally', 'table'] as const) {
+      expect(stimulusPaths(chart({ kind }))).toEqual(['chart.kind']);
+    }
+    expect(stimulusPaths(linePlot())).toEqual(['chart.kind', 'chart.orientation']);
+  });
+
+  it('every scale and axis length a chart may have', () => {
+    for (const scale of [1, 2, 5, 10] as const) {
+      for (let steps = 1; steps <= CHART_AXIS_STEPS_MAX; steps += 1) {
+        const top = steps * scale;
+        expect(stimulusPaths(chart({ scale, axisMax: top, categories: cats(top, 0) }))).toEqual([]);
+      }
+    }
   });
 });
 

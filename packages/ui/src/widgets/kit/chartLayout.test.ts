@@ -5,6 +5,7 @@ import {
   chartGeometry,
   GRID_MIN_PX,
   labelStride,
+  MARK_MIN_PX,
   NUMERAL_PX,
   tallyLength,
   tallyStrokes,
@@ -295,5 +296,160 @@ describe('tables and line plots', () => {
       values: [2, 0, 5],
     });
     expect(g.slots.map((s) => s.value)).toEqual([2, 0, 5]);
+  });
+});
+
+describe('every supported count stays inside its chart, whatever the box', () => {
+  const BOXES = [
+    { width: 160, height: 120 },
+    { width: 244, height: 188 },
+    { width: 720, height: 300 },
+  ];
+  const inside = (
+    b: { x: number; y: number; w: number; h: number },
+    g: { width: number; height: number },
+  ) => {
+    expect(b.x).toBeGreaterThanOrEqual(0);
+    expect(b.y).toBeGreaterThanOrEqual(0);
+    expect(b.x + b.w).toBeLessThanOrEqual(g.width + 1e-6);
+    expect(b.y + b.h).toBeLessThanOrEqual(g.height + 1e-6);
+  };
+
+  it('picture graphs: 20 symbols a category, never smaller than MARK_MIN_PX, none outside', () => {
+    for (const orientation of ['vertical', 'horizontal'] as const) {
+      for (const box of BOXES) {
+        const g = chartGeometry(
+          chart({ kind: 'picture', orientation, axisMax: 20, categories: cats(20, 13, 1) }),
+          box,
+        );
+        expect(g.mark).toBeGreaterThanOrEqual(MARK_MIN_PX);
+        for (const s of g.slots) {
+          expect(s.symbols).toHaveLength(s.value);
+          for (const b of s.symbols ?? []) {
+            inside(b, g);
+            // In its own lane too: a tall column never reaches into the next one.
+            expect(b.x).toBeGreaterThanOrEqual(s.lane.x - 1e-6);
+            expect(b.y).toBeGreaterThanOrEqual(s.lane.y - 1e-6);
+            expect(b.x + b.w).toBeLessThanOrEqual(s.lane.x + s.lane.w + 1e-6);
+            expect(b.y + b.h).toBeLessThanOrEqual(s.lane.y + s.lane.h + 1e-6);
+          }
+        }
+      }
+    }
+  });
+
+  it('line plots: 20 Xs at one position and 25 positions, none outside or overlapping', () => {
+    const plot = chart({
+      kind: 'line-plot',
+      orientation: 'horizontal',
+      axisMax: 20,
+      categories: [
+        { id: '3', label: 'noun.fish.many', value: 20 },
+        { id: '4', label: 'noun.fish.many', value: 20 },
+      ],
+      lineScale: { min: 0, max: 24, step: 1 },
+    });
+    for (const box of BOXES) {
+      const g = chartGeometry(plot, box);
+      expect(g.slots).toHaveLength(25);
+      const three = g.slots.find((s) => s.id === '3');
+      const four = g.slots.find((s) => s.id === '4');
+      expect(three?.xs).toHaveLength(20);
+      for (const b of [...(three?.xs ?? []), ...(four?.xs ?? [])]) inside(b, g);
+      // Neighbouring stacks do not overlap, and a stack's Xs do not overlap each other.
+      const a = three?.xs?.[0];
+      const b = four?.xs?.[0];
+      if (!a || !b) throw new Error('stacks');
+      expect(a.x + a.w).toBeLessThanOrEqual(b.x + 1e-6);
+      const ys = (three?.xs ?? []).map((x) => x.y).sort((p, q) => p - q);
+      for (let i = 1; i < ys.length; i += 1) {
+        expect((ys[i] as number) - (ys[i - 1] as number)).toBeGreaterThanOrEqual(a.h - 1e-6);
+      }
+    }
+  });
+
+  it('bar graphs and tally charts: bars and strokes inside at the longest axis', () => {
+    for (const orientation of ['vertical', 'horizontal'] as const) {
+      for (const box of BOXES) {
+        const bars = chartGeometry(
+          chart({ orientation, axisMax: 20, categories: cats(20, 7) }),
+          box,
+        );
+        for (const s of bars.slots) if (s.bar) inside(s.bar, bars);
+        const tally = chartGeometry(
+          chart({ kind: 'tally', orientation, axisMax: 20, categories: cats(20, 7) }),
+          box,
+        );
+        for (const s of tally.slots) {
+          for (const [x1, y1, x2, y2] of (s.tally ?? []).flat()) {
+            inside(
+              {
+                x: Math.min(x1, x2),
+                y: Math.min(y1, y2),
+                w: Math.abs(x2 - x1),
+                h: Math.abs(y2 - y1),
+              },
+              tally,
+            );
+          }
+        }
+      }
+    }
+  });
+});
+
+describe('line plot labels', () => {
+  const labelled = (min: number, max: number, step: number, width = 700) =>
+    chartGeometry(
+      chart({
+        kind: 'line-plot',
+        orientation: 'horizontal',
+        categories: [],
+        lineScale: { min, max, step },
+      }),
+      { width, height: 300 },
+    )
+      .ticks.filter((t) => t.labelled)
+      .map((t) => t.value);
+
+  it('a scale that starts on a half or a quarter labels its whole numbers', () => {
+    expect(labelled(0.5, 3.5, 0.5)).toEqual([1, 2, 3]);
+    expect(labelled(0.25, 2.25, 0.25)).toEqual([1, 2]);
+    expect(labelled(0, 3, 0.5)).toEqual([0, 1, 2, 3]);
+    expect(labelled(2, 6, 1)).toEqual([2, 3, 4, 5, 6]);
+  });
+
+  it('every line plot scale prints at least one numeral, and labels stay 48 px apart', () => {
+    for (const step of [1, 0.5, 0.25]) {
+      for (const min of [0, 0.25, 0.5, 0.75, 1, 7.5]) {
+        if (!Number.isInteger(min / step)) continue;
+        for (const spans of [1, 2, 3, 6, 24]) {
+          const max = min + spans * step;
+          for (const width of [160, 400, 900]) {
+            const g = chartGeometry(
+              chart({
+                kind: 'line-plot',
+                orientation: 'horizontal',
+                categories: [],
+                lineScale: { min, max, step },
+              }),
+              { width, height: 300 },
+            );
+            const marks = g.ticks.filter((t) => t.labelled);
+            const wholes = g.ticks.filter((t) => Number.isInteger(t.value));
+            // A scale with a whole number on it labels one (0.25–0.75 has none to label).
+            expect(marks.length > 0, `${min}-${max} by ${step} at ${width}`).toBe(
+              wholes.length > 0,
+            );
+            for (let i = 1; i < marks.length; i += 1) {
+              expect(
+                (marks[i] as (typeof marks)[number]).pos -
+                  (marks[i - 1] as (typeof marks)[number]).pos,
+              ).toBeGreaterThanOrEqual(48 - 1e-6);
+            }
+          }
+        }
+      }
+    }
   });
 });

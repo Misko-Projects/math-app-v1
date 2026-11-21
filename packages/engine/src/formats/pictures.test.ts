@@ -3,8 +3,10 @@
 // FRA.08.t1–t3).
 import type { ChartSpec, StimulusSpec } from '@number-island/shared';
 import { describe, expect, it } from 'vitest';
+import { z } from 'zod';
 import { compare } from './compare';
 import { order } from './order';
+import { sharedScaleIssues } from './pictures';
 
 const fraction = (shape: 'circle' | 'rect' | 'bar' | 'loaf', parts: number): StimulusSpec => ({
   kind: 'fraction',
@@ -67,10 +69,16 @@ describe('compare: pictures on one scale', () => {
 
   it('chart sides share kind, orientation, scale and axis top', () => {
     const left = bar('fish', 4);
-    expect(comparePaths(left, bar('crab', 2, { kind: 'tally' }))).toEqual(['right.chart']);
-    expect(comparePaths(left, bar('crab', 2, { orientation: 'horizontal' }))).toEqual([
+    // (A tally chart or a horizontal graph is also refused as a stimulus, by the contract.)
+    expect(comparePaths(left, bar('crab', 2, { kind: 'tally' }))).toContain('right.chart');
+    expect(comparePaths(left, bar('crab', 2, { orientation: 'horizontal' }))).toContain(
       'right.chart',
-    ]);
+    );
+    const two = [
+      { id: 'crab', label: 'noun.crab.many', value: 2 },
+      { id: 'shell', label: 'noun.shell.many', value: 3 },
+    ];
+    expect(comparePaths(left, bar('crab', 2, { categories: two }))).toEqual(['right.chart']);
     expect(comparePaths(left, bar('crab', 2, { scale: 2 }))).toEqual(['right.chart']);
     expect(comparePaths(left, bar('crab', 2, { axisMax: 5 }))).toEqual(['right.chart']);
     // The axis top is what is drawn: axisMax rounded up to the scale.
@@ -94,6 +102,44 @@ describe('compare: pictures on one scale', () => {
       'left.chart.axisMax',
       'right.chart.axisMax',
     ]);
+  });
+});
+
+describe('sharedScaleIssues: charts of every kind', () => {
+  const paths = (...specs: StimulusSpec[]) => {
+    const schema = z.unknown().superRefine((_v, ctx) =>
+      sharedScaleIssues(
+        specs,
+        ctx,
+        specs.map((_s, i) => [i]),
+      ),
+    );
+    const r = schema.safeParse(null);
+    return r.success ? [] : r.error.issues.map((i) => i.path.join('.'));
+  };
+  const plot = (max: number, step = 1): StimulusSpec => ({
+    kind: 'chart',
+    chart: {
+      kind: 'line-plot',
+      orientation: 'horizontal',
+      categories: [{ id: '1', label: 'noun.fish.many', value: 2 }],
+      scale: 1,
+      axisMax: 5,
+      lineScale: { min: 0, max, step },
+    },
+  });
+
+  it('line plots share their position scale (one px per unit across)', () => {
+    expect(paths(plot(2), plot(2))).toEqual([]);
+    expect(paths(plot(2), plot(4))).toEqual(['1.chart']);
+    expect(paths(plot(2), plot(2, 0.5))).toEqual(['1.chart']);
+    expect(paths(plot(4), plot(4), plot(2))).toEqual(['2.chart']);
+  });
+
+  it('pictures of other kinds are left alone', () => {
+    expect(
+      paths({ kind: 'none' }, plot(2), { kind: 'dots', arrangement: 'dice', groups: [3] }),
+    ).toEqual([]);
   });
 });
 
