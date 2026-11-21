@@ -1,10 +1,18 @@
 // 03 §5.5 hundred-chart. Ten columns; cells run from `first` for `rows` rows. `find`, `next` and
 // `move` answer with the tapped number; `fill` answers with the hidden cells' values in reading
 // order; `pattern` answers with state `{ values }` (select.exactSet).
+//
+// `pattern` may show GIVEN terms: `patternShown` terms from `patternStart`, `patternStep` apart.
+// They are derived, not listed: the start and the step are already in the config (the widget
+// opens on the start's row, `pattern.step` is a difficulty feature), so a list could disagree
+// with them, and a count is checked with a few comparisons. Given terms are part of the
+// question: they are never in the selection, a tap on one changes nothing, and they are not in
+// the answer.
 
 import {
   type AnswerSpec,
   hundredChartConfigSchema,
+  PATTERN_SHOWN_MAX,
   type WidgetConfigOf,
 } from '@number-island/shared';
 import {
@@ -38,6 +46,34 @@ export const chartLast = (c: Config): number => c.first + c.rows * 10 - 1;
  * and 101–200; the cells are sized for numbers of that length.
  */
 export const CHART_FIRST_MAX = 901;
+
+export { PATTERN_SHOWN_MAX };
+
+/** The terms the config asks for, before any check: `patternShown` terms from `patternStart`. */
+function askedGiven(c: Config): number[] {
+  if (c.mode !== 'pattern' || c.patternShown === undefined) return [];
+  if (c.patternStart === undefined || c.patternStep === undefined) return [];
+  const { patternStart: start, patternStep: step } = c;
+  const count = Math.max(0, Math.min(PATTERN_SHOWN_MAX, Math.floor(c.patternShown)));
+  return Array.from({ length: count }, (_, k) => start + k * step);
+}
+
+/**
+ * The numbers a `pattern` chart shows as given, in order: `patternShown` terms from
+ * `patternStart`, `patternStep` apart. Empty in every other mode, and when no count is set.
+ *
+ * It is safe on a config this model's schema would reject (a widget host renders configs that
+ * only the shared schema has parsed): never more than `PATTERN_SHOWN_MAX` terms, each one a cell
+ * of the chart that is not hidden, and none twice.
+ */
+export function patternGiven(c: Config): number[] {
+  const last = chartLast(c);
+  const out: number[] = [];
+  for (const g of askedGiven(c)) {
+    if (g >= c.first && g <= last && !c.hidden.includes(g) && !out.includes(g)) out.push(g);
+  }
+  return out;
+}
 
 const configSchema = hundredChartConfigSchema.superRefine((c, ctx) => {
   if (c.first > CHART_FIRST_MAX) {
@@ -73,6 +109,28 @@ const configSchema = hundredChartConfigSchema.superRefine((c, ctx) => {
   }
   if (c.mode === 'move' && !(c.moves && c.moves.length > 0)) {
     ctx.addIssue({ code: 'custom', path: ['moves'], message: 'move needs at least one move' });
+  }
+  if (c.patternShown !== undefined) {
+    const shown = (message: string) =>
+      ctx.addIssue({ code: 'custom', path: ['patternShown'], message });
+    // The count's own range (1 to PATTERN_SHOWN_MAX) is the shared schema's, so every consumer
+    // of a widget config has it, with or without this model.
+    if (c.mode !== 'pattern') {
+      shown('patternShown is for pattern mode only');
+    } else if (c.patternStart === undefined || c.patternStep === undefined) {
+      shown('given terms need patternStart and patternStep');
+    } else if (c.patternStep < 1) {
+      // In order: the given terms go up the chart, each after the one before.
+      ctx.addIssue({
+        code: 'custom',
+        path: ['patternStep'],
+        message: 'given terms need a step of 1 or more',
+      });
+    } else {
+      const given = askedGiven(c);
+      if (given.some((g) => g < c.first || g > last)) shown('given terms must be on the chart');
+      if (given.some((g) => c.hidden.includes(g))) shown('a given term cannot be a hidden cell');
+    }
   }
 });
 
@@ -117,6 +175,8 @@ export const hundredChart: FormatModel<'hundred-chart', HundredChartState> = {
         const n = argNumber(a, 'n');
         if (n === undefined || n < c.first || n > chartLast(c)) return s;
         if (c.mode === 'pattern') {
+          // A given term is part of the question: it cannot be marked or unmarked.
+          if (patternGiven(c).includes(n)) return s;
           const selected = s.selected.includes(n)
             ? s.selected.filter((x) => x !== n)
             : [...s.selected, n];
@@ -132,7 +192,10 @@ export const hundredChart: FormatModel<'hundred-chart', HundredChartState> = {
       case 'answer': {
         const values = argNumbers(a, 'values');
         if (values) {
-          if (c.mode === 'pattern') return { ...s, selected: [...values] };
+          if (c.mode === 'pattern') {
+            const given = patternGiven(c);
+            return { ...s, selected: values.filter((v) => !given.includes(v)) };
+          }
           return { ...s, filled: c.hidden.map((_, i) => values[i] ?? null) };
         }
         const v = argNumber(a, 'value');

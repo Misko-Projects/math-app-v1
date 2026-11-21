@@ -12,6 +12,7 @@ import type {
 import { describe, expect, it } from 'vitest';
 import { constraintHolds } from '../src/content/expr';
 import { render } from '../src/content/render';
+import { patternGiven } from '../src/formats/hundred-chart';
 import { registry } from '../src/generators';
 import { specDomain } from '../src/generators/common';
 import { groupSizes, SORT_KINDS } from '../src/generators/data/sort';
@@ -1045,32 +1046,49 @@ describe('PR #84 review, fresh round 1: no line claims a picture the widget does
     ...t.narration.hints.map((h) => render(h, item.prompt.vars)),
   ];
 
-  it('ALG.02.t1 says its three terms and never says the chart shows them', () => {
+  // The hundred chart now gives a pattern's terms (`patternShown`), so the prompt may say so:
+  // the chart must give exactly the terms the prompt names, and none of the asked ones.
+  it('ALG.02.t1 says the chart shows its three terms, and the chart gives exactly those', () => {
     const t = fixtureTemplate('ALG.02.t1');
     for (const item of items(t)) {
       const w = item.widget;
       if (w.format !== 'hundred-chart') throw new Error('hundred-chart');
       const start = Number(w.patternStart);
       const step = Number(w.patternStep);
-      for (const term of [start, start + step, start + 2 * step]) {
-        expect(item.prompt.text).toMatch(new RegExp(`\\b${term}\\b`));
-      }
-      expect(item.prompt.text).toMatch(/^The pattern goes /);
+      const terms = [start, start + step, start + 2 * step];
+      expect(patternGiven(w)).toEqual(terms);
+      expect(item.prompt.text).toMatch(
+        new RegExp(
+          `^The chart shows ${terms.join(', ')}\\. Tap the next \\d numbers in the pattern\\.$`,
+        ),
+      );
+      const a = item.answer;
+      if (a.kind !== 'state') throw new Error('state');
+      const asked = a.target.values as number[];
+      expect(asked.filter((v) => terms.includes(v))).toEqual([]);
+      expect(asked[0]).toBe(start + 3 * step);
     }
   });
 
-  it('catalog: a hundred chart in pattern mode marks no given term, so no line says it does', () => {
+  it('catalog: a line says a pattern chart shows terms only when the chart gives terms', () => {
     let seen = 0;
+    let claimed = 0;
     for (const { t, items: its } of catalog) {
       for (const item of its) {
         if (item.widget.format !== 'hundred-chart' || item.widget.mode !== 'pattern') continue;
         seen += 1;
+        const given = patternGiven(item.widget);
         for (const line of lines(t, item)) {
-          expect(line, t.id).not.toMatch(/chart shows|shaded|colou?red|marked|ringed/i);
+          if (!/chart shows|shaded|colou?red|marked|ringed/i.test(line)) continue;
+          claimed += 1;
+          expect(given.length, t.id).toBeGreaterThan(0);
         }
+        // Every given term is named in the prompt: the chart and the words say the same thing.
+        for (const g of given) expect(item.prompt.text, t.id).toMatch(new RegExp(`\\b${g}\\b`));
       }
     }
     expect(seen).toBeGreaterThan(0);
+    expect(claimed).toBeGreaterThan(0);
   });
 
   it('catalog: a number bond draws a whole and two parts, so no line points at a drawn side', () => {

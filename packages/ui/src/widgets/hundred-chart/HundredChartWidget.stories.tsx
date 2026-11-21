@@ -859,3 +859,274 @@ export const OffChartAnswerSurvivesResize: Story = {
     await waitFor(() => expect(root).toHaveAttribute('data-cells', 'tap'));
   },
 };
+
+// ---------- pattern mode with given terms (`patternShown`) ----------
+
+/** ALG.02.t1: the chart shows 2, 4, 6; the child taps the next three (8, 10, 12). */
+const grow: Config = { ...pattern, patternStart: 2, patternStep: 2, patternShown: 3 };
+/** ALG.02.t1 by tens: 4, 14, 24 are given, one under the other. */
+const growTens: Config = { ...pattern, patternStart: 4, patternStep: 10, patternShown: 3 };
+/** The most given terms (five), by tens: five rows of the chart. */
+const growMost: Config = { ...pattern, patternStart: 7, patternStep: 10, patternShown: 5 };
+
+const givenCells = (root: HTMLElement) =>
+  [...root.querySelectorAll<HTMLElement>('.ni-hc__cell[data-given="true"]')].map((el) =>
+    Number(el.dataset.n),
+  );
+
+/**
+ * A given term is told by a shape, not by colour alone: an ink bar under its numeral. It is not
+ * a picked cell (ink-filled, a corner dot) and it never carries the invite ring.
+ */
+async function expectGivenLook(root: HTMLElement, n: number) {
+  const el = cell(root, n);
+  await expect(el).toHaveAttribute('data-given', 'true');
+  await expect(el).not.toHaveAttribute('data-selected');
+  await expect(el).not.toHaveClass('ni-invite');
+  const bar = getComputedStyle(el, '::after');
+  const box = el.getBoundingClientRect();
+  await expect(Number.parseFloat(bar.height), 'the bar is thick enough to see').toBeGreaterThan(3);
+  await expect(Number.parseFloat(bar.width), 'the bar is a bar, not a dot').toBeGreaterThan(
+    box.width / 3,
+  );
+  // The bar is ink on the sunshine cell, and the cell is not the ink of a picked one.
+  const fill = getComputedStyle(el).backgroundColor;
+  await expect(bar.backgroundColor).not.toBe(fill);
+  const plain = [...root.querySelectorAll<HTMLElement>('.ni-hc__cell')].find(
+    (c) => !c.dataset.given && !c.dataset.selected && !c.dataset.decade,
+  ) as HTMLElement;
+  await expect(fill).not.toBe(getComputedStyle(plain).backgroundColor);
+  await expect(getComputedStyle(plain, '::after').content).toBe('none');
+}
+
+/**
+ * G1 on the tablet (tappable cells): 2, 4 and 6 are given. A tap on a given term says its number
+ * and changes nothing (it is not an answer, and Check stays off); the child's own marks look
+ * different; the answer is the tapped terms only.
+ */
+export const PatternGivenG1Tablet: Story = {
+  args: { config: grow },
+  parameters: { ui: { audio: spyAudio() } },
+  render: inArea('tablet'),
+  play: async ({ canvasElement, args, parameters }) => {
+    const audio = parameters.ui.audio as ReturnType<typeof spyAudio>;
+    clearSpies(audio);
+    const root = await findWidget(canvasElement, ROOT);
+    await expect(root).toHaveAttribute('data-cells', 'tap');
+    await expectHcFits(canvasElement, root, 'g1-up');
+    await expect(givenCells(root)).toEqual([2, 4, 6]);
+    for (const n of [2, 4, 6]) await expectGivenLook(root, n);
+    await expect(within(root).getByRole('button', { name: 'In the pattern: 4' })).toBe(
+      cell(root, 4),
+    );
+    await expect(cell(root, 4)).not.toHaveAttribute('aria-pressed');
+
+    // Regression: without the given terms, this tap marked 4 and Check sent it as an answer.
+    await userEvent.click(cell(root, 4));
+    await expect(audio.sayPhrases).toHaveBeenCalledWith([{ number: 4 }]);
+    await expect(cell(root, 4)).not.toHaveAttribute('data-selected');
+    await expect(checkBtn(root)).toBeDisabled();
+
+    for (const n of [8, 10, 12]) await userEvent.click(cell(root, n));
+    // A picked cell and a given one are told apart by more than their colours.
+    await expect(cell(root, 8)).toHaveAttribute('data-selected', 'true');
+    await expect(cell(root, 8)).not.toHaveAttribute('data-given');
+    await expect(getComputedStyle(cell(root, 8)).backgroundColor).not.toBe(
+      getComputedStyle(cell(root, 6)).backgroundColor,
+    );
+    await expect(
+      Number.parseFloat(getComputedStyle(cell(root, 8), '::after').width),
+      'a picked cell has a corner dot, not a bar',
+    ).toBeLessThan(cell(root, 8).getBoundingClientRect().width / 3);
+    // A second tap on a given term still changes nothing.
+    await userEvent.click(cell(root, 6));
+    await userEvent.click(checkBtn(root));
+    await expect(args.onResponse).toHaveBeenCalledTimes(1);
+    await expect(args.onResponse).toHaveBeenCalledWith({
+      kind: 'state',
+      value: { values: [8, 10, 12] },
+    });
+    await expect(traceOf(args.onInteract).map((e) => e.target)).toEqual([
+      'cell-4',
+      'cell-8',
+      'cell-10',
+      'cell-12',
+      'cell-6',
+    ]);
+  },
+};
+
+/**
+ * K on the tablet, by keyboard: Enter on a given term says it and changes nothing; the arrow keys
+ * go on past it, and Enter marks the next term.
+ */
+export const PatternGivenKTabletKeyboard: Story = {
+  globals: { ageMode: 'k' },
+  args: { config: grow },
+  parameters: { ui: { audio: spyAudio() } },
+  render: inArea('tablet'),
+  play: async ({ canvasElement, args, parameters }) => {
+    const audio = parameters.ui.audio as ReturnType<typeof spyAudio>;
+    clearSpies(audio);
+    const root = await findWidget(canvasElement, ROOT);
+    await expect(root).toHaveAttribute('data-cells', 'tap');
+    await expectHcFits(canvasElement, root, 'k');
+    for (const n of [2, 4, 6]) await expectGivenLook(root, n);
+    cell(root, 6).focus();
+    await userEvent.keyboard('{Enter}');
+    await expect(audio.sayPhrases).toHaveBeenCalledWith([{ number: 6 }]);
+    await expect(cell(root, 6)).not.toHaveAttribute('data-selected');
+    await expect(checkBtn(root)).toBeDisabled();
+    await userEvent.keyboard(' ');
+    await expect(cell(root, 6)).not.toHaveAttribute('data-selected');
+    await userEvent.keyboard('{ArrowRight}{ArrowRight}');
+    await waitFor(() => expect(document.activeElement).toBe(cell(root, 8)));
+    await userEvent.keyboard('{Enter}');
+    await expect(cell(root, 8)).toHaveAttribute('aria-pressed', 'true');
+    // The focus ring on a given cell is the ink one every cell has, never the teal invite.
+    cell(root, 4).focus();
+    await expect(cell(root, 4)).not.toHaveClass('ni-invite');
+    checkBtn(root).focus();
+    await userEvent.keyboard('{Enter}');
+    await expect(args.onResponse).toHaveBeenCalledWith({ kind: 'state', value: { values: [8] } });
+  },
+};
+
+const givenInvite: WidgetDemo = createDemoController({ strict: true });
+
+/**
+ * G1 at the smallest landscape area, by tens (4, 14, 24, one under the other): the window opens
+ * on the given terms. An invite never rings a given term: `tap {n: 14}` rings nothing, and
+ * `tap {n: 34}` rings 34 (stepping the rows to it first), then Check.
+ */
+export const PatternGivenG1MinLandscape: Story = {
+  args: { config: growTens, demo: givenInvite },
+  render: inArea('landscapeMin'),
+  play: async ({ canvasElement }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    await expect(root).toHaveAttribute('data-cells', 'tap');
+    await expectHcFits(canvasElement, root, 'g1-up');
+    await expect(givenCells(root)[0]).toBe(4);
+    for (const n of givenCells(root)) await expectGivenLook(root, n);
+    givenInvite.invite({ op: 'tap', args: { n: 14 } });
+    await new Promise((r) => requestAnimationFrame(r));
+    await expect(root.querySelectorAll('.ni-invite')).toHaveLength(0);
+    givenInvite.invite({ op: 'tap', args: { n: 34 } });
+    for (let i = 0; i < 10 && !cell(root, 34); i++) {
+      await expectInviteOn(root, step(root, 'down'));
+      await userEvent.click(step(root, 'down'));
+    }
+    await expectInviteOn(root, cell(root, 34));
+    // The ring and a given term side by side: 24 is right above 34.
+    await expectGivenLook(root, 24);
+    await userEvent.click(cell(root, 34));
+    // Given (24), picked (34) and the one invite ring (Check) are three different looks.
+    await expectInviteOn(root, checkBtn(root));
+    await expect(cell(root, 34)).toHaveAttribute('data-selected', 'true');
+    await expectHcFits(canvasElement, root, 'g1-up');
+  },
+};
+
+/**
+ * K in portrait (a picture chart, typed): the given terms are shaded in the picture and named
+ * for a screen reader. Typing a given term and "Mark it" says it and marks nothing; the next
+ * term is marked as usual. (K at 960 × 600 is typed too, but typed pattern mode does not fit
+ * that area with or without given terms: its row under the chart is too wide. A follow-up.)
+ */
+export const PatternGivenKPortrait: Story = {
+  globals: { ageMode: 'k' },
+  args: { config: grow },
+  parameters: { ui: { audio: spyAudio() } },
+  render: inArea('portrait'),
+  play: async ({ canvasElement, args, parameters }) => {
+    const audio = parameters.ui.audio as ReturnType<typeof spyAudio>;
+    const root = await findWidget(canvasElement, ROOT);
+    await expect(root).toHaveAttribute('data-cells', 'type');
+    await expectHcFits(canvasElement, root, 'k');
+    await expect(givenCells(root)).toEqual([2, 4, 6]);
+    for (const n of [2, 4, 6]) await expectGivenLook(root, n);
+    await expect(cell(root, 4)).toHaveTextContent('In the pattern: 4');
+    const markBtn = within(root).getByRole('button', { name: 'Mark it' });
+    await typeKeys(root, '4');
+    clearSpies(audio);
+    await userEvent.click(markBtn);
+    await expect(audio.sayPhrases).toHaveBeenCalledWith([{ number: 4 }]);
+    await expect(cell(root, 4)).not.toHaveAttribute('data-selected');
+    await expect(markBtn, 'the typed number is cleared').toBeDisabled();
+    await expect(checkBtn(root)).toBeDisabled();
+    await typeKeys(root, '8');
+    await userEvent.click(markBtn);
+    await expect(cell(root, 8)).toHaveAttribute('data-selected', 'true');
+    await userEvent.click(checkBtn(root));
+    await expect(args.onResponse).toHaveBeenCalledWith({ kind: 'state', value: { values: [8] } });
+    await expectHcFits(canvasElement, root, 'k');
+  },
+};
+
+const mostDemo: WidgetDemo = createDemoController({ strict: true });
+
+/**
+ * Stress: the most given terms (five, by tens: 7 to 47, five rows) at the smallest landscape
+ * area. The window opens on the first of them, every one is shaded as the rows step by, and a
+ * demo's `answer {values}` that names given terms marks only the others.
+ */
+export const PatternGivenMostG1MinLandscape: Story = {
+  globals: { motion: 'reduced' },
+  args: { config: growMost, demo: mostDemo },
+  render: inArea('landscapeMin'),
+  play: async ({ canvasElement, args }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    await expectHcFits(canvasElement, root, 'g1-up');
+    await expect(givenCells(root)[0]).toBe(7);
+    const seen = new Set<number>();
+    for (const n of [7, 17, 27, 37, 47]) {
+      await showCell(root, n);
+      await expectGivenLook(root, n);
+      for (const g of givenCells(root)) seen.add(g);
+      await expectHcFits(canvasElement, root, 'g1-up');
+    }
+    await expect([...seen].sort((a, b) => a - b)).toEqual([7, 17, 27, 37, 47]);
+    await showCell(root, 57);
+    await expect(cell(root, 57)).not.toHaveAttribute('data-given');
+    await mostDemo.play({ op: 'answer', args: { values: [37, 47, 57] } });
+    await waitFor(() => expect(cell(root, 57)).toHaveAttribute('data-selected', 'true'));
+    await expect(cell(root, 47)).not.toHaveAttribute('data-selected');
+    await userEvent.click(checkBtn(root));
+    await expect(args.onResponse).toHaveBeenCalledWith({ kind: 'state', value: { values: [57] } });
+    // Three rows fit here: the window on 27, 37 and 47 shows as many given terms as it can hold.
+    await showCell(root, 27);
+    await expect(givenCells(root)).toEqual([27, 37, 47]);
+    await expectHcFits(canvasElement, root, 'g1-up');
+  },
+};
+
+/**
+ * Review round 1: the window opens on the given terms, whatever else the config holds. Five
+ * givens from 51 by tens and a hidden cell in the first row: three rows fit, and they are the
+ * first three givens' (51, 61, 71), not the hidden cell's. Nothing is stepped: this is the
+ * first paint.
+ */
+export const PatternGivenWindowOpensOnGivens: Story = {
+  args: { config: { ...growMost, patternStart: 51, hidden: [1] } },
+  render: inArea('landscapeMin'),
+  play: async ({ canvasElement, args }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    await expectHcFits(canvasElement, root, 'g1-up');
+    await expect(givenCells(root)).toEqual([51, 61, 71]);
+    await expect(cell(root, 1)).toBeNull();
+    for (const n of [51, 61, 71]) await expectGivenLook(root, n);
+    await expect(traceOf(args.onInteract)).toEqual([]);
+  },
+};
+
+/** The same with a `from` far from the pattern: the window is still the given terms'. */
+export const PatternGivenWindowWithFrom: Story = {
+  args: { config: { ...growTens, patternStart: 64, from: 3 } },
+  render: inArea('landscapeMin'),
+  play: async ({ canvasElement, args }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    await expectHcFits(canvasElement, root, 'g1-up');
+    await expect(givenCells(root)).toEqual([64, 74, 84]);
+    await expect(traceOf(args.onInteract)).toEqual([]);
+  },
+};

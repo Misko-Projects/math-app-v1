@@ -1,4 +1,4 @@
-import { formatModel } from '@number-island/engine';
+import { formatModel, patternGiven } from '@number-island/engine';
 import type { ResponseValue, WidgetAction } from '@number-island/shared';
 import {
   type CSSProperties,
@@ -48,7 +48,11 @@ import './hundred-chart.css';
  *   a caret; full blanks move on in reading order; backspace on an empty blank goes back one) →
  *   `numbers` in the config's hidden order (reading order).
  * - `pattern`: cells are tapped to select a set (shaded, ringed and dotted, never colour alone) →
- *   state `{ values }`; typed and marked with the pad where cells cannot be tapped.
+ *   state `{ values }`; typed and marked with the pad where cells cannot be tapped. The GIVEN
+ *   terms (`patternShown` of them, from the format model's `patternGiven`) are the question's
+ *   own: sunshine cells with an ink bar under the numeral (a shape, so never colour alone, and
+ *   neither the ink fill of a picked cell nor the teal invite ring). A tap on one says its number
+ *   and changes nothing; it cannot be marked, unmarked or invited.
  *
  * Size and layout (06 §1, §4). Ten tappable cells across need 10 × 64 + 9 × 12 = 748 px in G1 and
  * 908 px in K, and ten rows of them could never fit a widget area 319 px tall (960 × 600). So the
@@ -185,9 +189,15 @@ function padBox(shape: PadShape, key: number, rowGap = PAD_ROW_GAP) {
   };
 }
 
-/** Rows (from 0) the task is about: the start, the blanks, the pattern's start. */
+/**
+ * Rows (from 0) the task is about: the start, the blanks, the pattern's start. A pattern with
+ * given terms is about those terms alone: the window opens on them (on the first of them when
+ * they span more rows than it shows), whatever else the config holds.
+ */
 function taskRows(c: Config): number[] {
   const row = (n: number) => Math.floor((n - c.first) / 10);
+  const given = patternGiven(c);
+  if (given.length > 0) return given.map(row);
   const out: number[] = [];
   if (c.from !== undefined) out.push(row(c.from));
   for (const h of c.hidden) out.push(row(h));
@@ -470,6 +480,8 @@ export function HundredChartWidget({
   const maxDigits = String(last).length;
   const fill = c.mode === 'fill';
   const pattern = c.mode === 'pattern';
+  /** Pattern: the terms the chart shows as given. They are never picked. */
+  const given = new Set(patternGiven(c));
 
   const [selected, setSelected] = useState<number | null>(null);
   const [picked, setPicked] = useState<number[]>([]);
@@ -561,6 +573,8 @@ export function HundredChartWidget({
       return;
     }
     if (pattern) {
+      // A given term has said its number: it is not the child's to mark.
+      if (given.has(num)) return;
       setPicked((prev) => (prev.includes(num) ? prev.filter((x) => x !== num) : [...prev, num]));
       setPatternTouched(true);
       return;
@@ -645,10 +659,15 @@ export function HundredChartWidget({
     if (!interactive || typedAnswer === null || !onChart(typedAnswer)) return;
     trace('tap', 'mark');
     const v = typedAnswer;
-    setPicked((prev) => (prev.includes(v) ? prev.filter((x) => x !== v) : [...prev, v]));
-    setPatternTouched(true);
     setAnswerText('');
     reveal(v);
+    if (given.has(v)) {
+      // A given term: the chart shows it and says it, as a tap on its cell would.
+      if (speakOnTap) sayNumber(v);
+      return;
+    }
+    setPicked((prev) => (prev.includes(v) ? prev.filter((x) => x !== v) : [...prev, v]));
+    setPatternTouched(true);
   };
 
   // One answer, whichever way the room lets it be given: when a resize swaps tappable cells for
@@ -757,6 +776,7 @@ export function HundredChartWidget({
     setPulse(null);
     if (!hidden.has(value)) sayNumber(value);
     if (pattern) {
+      if (given.has(value)) return;
       setPicked((prev) =>
         prev.includes(value) ? prev.filter((x) => x !== value) : [...prev, value],
       );
@@ -825,7 +845,7 @@ export function HundredChartWidget({
                 if (!alive.current) return;
               }
             } else if (pattern) {
-              setPicked(list.filter(onChart));
+              setPicked(list.filter((v) => onChart(v) && !given.has(v)));
             }
           } else {
             const v = num(action, 'value');
@@ -835,7 +855,7 @@ export function HundredChartWidget({
               setTyped({});
               const h = readingOrder[0];
               if (h !== undefined) await typeCell(h, v);
-            } else if (pattern) setPicked(onChart(v) ? [v] : []);
+            } else if (pattern) setPicked(onChart(v) && !given.has(v) ? [v] : []);
             else if (onChart(v)) await chooseCell(v);
           }
           await pause(reduced ? 0 : 300);
@@ -865,6 +885,8 @@ export function HundredChartWidget({
     /** Choose number v: tap it (stepping the window to it first) or type it. */
     const chooseCue = (v: number): Cue | null => {
       if (!onChart(v)) return null;
+      // A given term is already on the chart: there is nothing to do for it.
+      if (given.has(v)) return checkCue;
       if (tap) {
         if (pattern ? picked.includes(v) : selected === v) return checkCue;
         if (!inWindow(v)) return { at: 'rows', dir: rowOf(v) < shownTop ? 'up' : 'down' };
@@ -938,6 +960,7 @@ export function HundredChartWidget({
       const typedText = typed[v];
       return typedText ? `${t('ui.hc.missing')}: ${typedText}` : t('ui.hc.missing');
     }
+    if (given.has(v)) return t('ui.hc.given', { n: v });
     return v === c.from ? t('ui.hc.start', { n: v }) : String(v);
   };
   const pos = (v: number) => ({
@@ -967,7 +990,8 @@ export function HundredChartWidget({
   const cells = windowCells.map((v) => {
     const isHidden = hidden.has(v);
     const isActive = fill && isHidden && active === v && interactive;
-    const isSelected = pattern ? picked.includes(v) : !fill && selected === v;
+    const isGiven = given.has(v);
+    const isSelected = pattern ? !isGiven && picked.includes(v) : !fill && selected === v;
     const text = isHidden ? (typed[v] ?? '') : String(v);
     const squeeze =
       text.length > digitsFit ? Math.min(chartSqueeze, digitsFit / text.length) : chartSqueeze;
@@ -981,6 +1005,7 @@ export function HundredChartWidget({
       'data-hidden': isHidden ? 'true' : undefined,
       'data-active': isActive ? 'true' : undefined,
       'data-selected': isSelected ? 'true' : undefined,
+      'data-given': isGiven ? 'true' : undefined,
       'data-start': v === c.from ? 'true' : undefined,
       'data-pulse': pulse === v ? 'true' : undefined,
       'data-decade': colOf(v) === 9 ? 'true' : undefined,
@@ -991,7 +1016,7 @@ export function HundredChartWidget({
       <>
         <span
           className="ni-hc__num"
-          aria-hidden={tap ? true : undefined}
+          aria-hidden={tap || isGiven ? true : undefined}
           style={squeeze < 1 ? { transform: `scaleX(${squeeze.toFixed(3)})` } : undefined}
         >
           {text}
@@ -1008,7 +1033,7 @@ export function HundredChartWidget({
         type="button"
         {...common}
         aria-label={cellLabel(v)}
-        aria-pressed={isSelected}
+        aria-pressed={isGiven ? undefined : isSelected}
         tabIndex={focusCell === v || (!inWindow(focusCell) && v === firstShown) ? 0 : -1}
         disabled={!interactive}
         onClick={() => tapCell(v)}
@@ -1021,7 +1046,7 @@ export function HundredChartWidget({
       // A picture cell: its numeral is its text; a blank says what it is to a screen reader.
       <span key={v} {...common}>
         {body}
-        {isHidden ? <span className="ni-visually-hidden">{cellLabel(v)}</span> : null}
+        {isHidden || isGiven ? <span className="ni-visually-hidden">{cellLabel(v)}</span> : null}
       </span>
     );
   });

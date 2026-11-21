@@ -10,11 +10,12 @@ import {
   type WidgetAction,
   type WidgetConfig,
   type WidgetConfigOf,
+  widgetConfigSchema,
 } from '@number-island/shared';
 import { describe, expect, it } from 'vitest';
 import { matches } from '../items/check';
 import { dotFlash, stimulusGroups, stimulusQuantity } from './dot-flash';
-import { chartLast, hundredChart } from './hundred-chart';
+import { chartLast, hundredChart, PATTERN_SHOWN_MAX, patternGiven } from './hundred-chart';
 import {
   formatFeatures,
   formatFeatureValues,
@@ -1662,6 +1663,116 @@ describe('hundred-chart', () => {
     ['pattern', pattern],
   ])('the schema accepts %s', (_name, config) => {
     expect(issuePaths(hundredChart, config)).toEqual([]);
+  });
+
+  describe('pattern: given terms (patternShown)', () => {
+    const shown: WidgetConfigOf<'hundred-chart'> = { ...pattern, patternShown: 3 };
+
+    it('derives the given terms from the start, the step and the count, in order', () => {
+      expect(patternGiven(shown)).toEqual([5, 10, 15]);
+      expect(patternGiven({ ...shown, patternStart: 78, patternStep: 10 })).toEqual([78, 88, 98]);
+      expect(patternGiven({ ...shown, patternShown: PATTERN_SHOWN_MAX })).toHaveLength(
+        PATTERN_SHOWN_MAX,
+      );
+    });
+
+    it('gives nothing without a count, without a start or step, and outside pattern mode', () => {
+      expect(patternGiven(pattern)).toEqual([]);
+      expect(patternGiven({ ...chartBase, mode: 'pattern', patternShown: 3 })).toEqual([]);
+      expect(patternGiven({ ...shown, mode: 'find' })).toEqual([]);
+    });
+
+    it.each([
+      [
+        'a tap on a given term changes nothing',
+        [act('tap', { n: 20 }), act('tap', { n: 10 })],
+        values([20]),
+      ],
+      [
+        'a given term is never marked, so it is never unmarked either',
+        [act('tap', { n: 5 }), act('tap', { n: 5 }), act('tap', { n: 15 })],
+        values([]),
+      ],
+      [
+        'answer values drops the given terms',
+        [act('answer', { values: [5, 10, 15, 20, 25] })],
+        values([20, 25]),
+      ],
+    ] as const)('%s', (_name, ops, expected) => {
+      expect(respond(hundredChart, shown, [...ops])).toEqual(expected);
+    });
+
+    // Review round 1: the count's range is the shared schema's, so a parser without this model
+    // (the runner task and generated-item schemas, a widget host) has it too.
+    it.each([
+      ['six given terms', PATTERN_SHOWN_MAX + 1, false],
+      ['the most given terms', PATTERN_SHOWN_MAX, true],
+      ['one given term', 1, true],
+      ['no given terms as a count of 0', 0, false],
+      ['half a term', 1.5, false],
+    ])('the shared widget schema on %s', (_name, patternShown, ok) => {
+      const config = { ...shown, patternStart: 1, patternStep: 1, patternShown };
+      expect(widgetConfigSchema.safeParse(config).success).toBe(ok);
+    });
+
+    // ... and a config only the shared schema has seen still gives a widget nothing it cannot
+    // draw: at most the bound, cells of the chart only, never a hidden cell, none twice.
+    it.each([
+      [
+        'more than the bound',
+        { ...shown, patternStart: 1, patternStep: 1, patternShown: 9 },
+        [1, 2, 3, 4, 5],
+      ],
+      ['terms off the end of the chart', { ...shown, patternStart: 81, patternStep: 10 }, [81, 91]],
+      ['terms before the chart', { ...shown, patternStart: -5, patternStep: 5 }, [5]],
+      ['a hidden term', { ...shown, hidden: [10] }, [5, 15]],
+      ['a step of 0', { ...shown, patternStep: 0 }, [5]],
+      ['a count of 0', { ...shown, patternShown: 0 }, []],
+    ])('patternGiven is safe on %s', (_name, config, expected) => {
+      expect(patternGiven(config as WidgetConfigOf<'hundred-chart'>)).toEqual(expected);
+    });
+
+    it('a tap on a given term returns the same state', () => {
+      const s = hundredChart.initialState(shown);
+      expect(hundredChart.apply(s, act('tap', { n: 10 }))).toBe(s);
+    });
+
+    it.each([
+      ['one given term', { ...shown, patternShown: 1 }],
+      ['the most given terms', { ...shown, patternShown: PATTERN_SHOWN_MAX }],
+      ['a last term on the last cell', { ...shown, patternStart: 80, patternStep: 10 }],
+      ['a 101–200 chart', { ...shown, first: 101, patternStart: 110, patternStep: 10 }],
+    ])('the schema accepts %s', (_name, config) => {
+      expect(issuePaths(hundredChart, config)).toEqual([]);
+    });
+
+    it.each([
+      ['no given terms as a count of 0', { ...shown, patternShown: 0 }, 'patternShown'],
+      ['half a term', { ...shown, patternShown: 2.5 }, 'patternShown'],
+      [
+        'more than the most given terms',
+        { ...shown, patternShown: PATTERN_SHOWN_MAX + 1 },
+        'patternShown',
+      ],
+      ['a count outside pattern mode', { ...chartBase, patternShown: 3 }, 'patternShown'],
+      ['a count without a start', { ...shown, patternStart: undefined }, 'patternShown'],
+      ['a count without a step', { ...shown, patternStep: undefined }, 'patternShown'],
+      ['a step of 0 (one term, repeated)', { ...shown, patternStep: 0 }, 'patternStep'],
+      [
+        'a step back (terms out of order)',
+        { ...shown, patternStart: 50, patternStep: -5 },
+        'patternStep',
+      ],
+      ['a first term off the chart', { ...shown, patternStart: 0 }, 'patternShown'],
+      [
+        'a last term off the chart',
+        { ...shown, patternStart: 81, patternStep: 10 },
+        'patternShown',
+      ],
+      ['a given term that is hidden', { ...shown, hidden: [10] }, 'patternShown'],
+    ])('the schema rejects %s', (_name, config, path) => {
+      expect(issuePaths(hundredChart, config)).toContain(path);
+    });
   });
 
   it('feature values on a harder config', () => {
