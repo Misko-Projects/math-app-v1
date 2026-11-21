@@ -76,6 +76,7 @@ export {
   type ExpandedFormState,
 } from './formats/expanded-form';
 export * from './formats/fraction-geometry';
+export { PATTERN_SHOWN_MAX, patternGiven } from './formats/hundred-chart';
 export {
   lineLabels,
   lineSteps,

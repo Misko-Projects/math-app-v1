@@ -1,7 +1,7 @@
 // pattern.grow (03 §5.6): growing number patterns, +1, +2 or +10 (ALG.02). The pattern starts at
 // `start` and grows by `step`; three terms are shown and the child finds the next `ask`.
-// - hundred-chart `pattern`: the chart shades start, start + step, start + 2·step (K01 convention,
-//   engine README); the child taps the next `ask` terms (select.exactSet `{ values }`).
+// - hundred-chart `pattern`: the chart shades start, start + step, start + 2·step as given terms
+//   (`patternShown: 3`); the child taps the next `ask` terms (select.exactSet `{ values }`).
 // - number-line-jump: the child jumps on from the third term (any of 1, 2 or 10 at a time) and
 //   types where it lands, the next term (`goal: add`, `thenAsk: landing`, jumps.reach).
 // - pattern-extend `extend` (number tokens): the next `ask` terms (pattern.tokens); `rule`: the
@@ -128,6 +128,7 @@ export const patternGrow: GeneratorDef = {
           mode: 'pattern',
           patternStart: start,
           patternStep: step,
+          patternShown: SHOWN,
         },
         answer: { kind: 'state', checker: 'select.exactSet', target: { values: asked } },
       };

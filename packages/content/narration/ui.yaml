@@ -675,6 +675,9 @@ ui.hc.window:
 ui.hc.mark:
   text: "Mark it"
   level: K
+ui.hc.given:
+  text: "In the pattern: {n}"
+  level: K
 ui.nlp.minus:
   text: "Minus"
   level: K

@@ -1,6 +1,13 @@
 // 03 §5.5 hundred-chart. Ten columns; cells run from `first` for `rows` rows. `find`, `next` and
 // `move` answer with the tapped number; `fill` answers with the hidden cells' values in reading
 // order; `pattern` answers with state `{ values }` (select.exactSet).
+//
+// `pattern` may show GIVEN terms: `patternShown` terms from `patternStart`, `patternStep` apart.
+// They are derived, not listed: the start and the step are already in the config (the widget
+// opens on the start's row, `pattern.step` is a difficulty feature), so a list could disagree
+// with them, and a count is checked with a few comparisons. Given terms are part of the
+// question: they are never in the selection, a tap on one changes nothing, and they are not in
+// the answer.
 
 import {
   type AnswerSpec,
@@ -39,6 +46,20 @@ export const chartLast = (c: Config): number => c.first + c.rows * 10 - 1;
  */
 export const CHART_FIRST_MAX = 901;
 
+/** The most given terms a pattern chart shows: enough to see any rule, and still some to find. */
+export const PATTERN_SHOWN_MAX = 5;
+
+/**
+ * The numbers a `pattern` chart shows as given, in order: `patternShown` terms from
+ * `patternStart`, `patternStep` apart. Empty in every other mode, and when no count is set.
+ */
+export function patternGiven(c: Config): number[] {
+  if (c.mode !== 'pattern' || c.patternShown === undefined) return [];
+  if (c.patternStart === undefined || c.patternStep === undefined) return [];
+  const { patternStart: start, patternStep: step } = c;
+  return Array.from({ length: c.patternShown }, (_, k) => start + k * step);
+}
+
 const configSchema = hundredChartConfigSchema.superRefine((c, ctx) => {
   if (c.first > CHART_FIRST_MAX) {
     ctx.addIssue({
@@ -73,6 +94,28 @@ const configSchema = hundredChartConfigSchema.superRefine((c, ctx) => {
   }
   if (c.mode === 'move' && !(c.moves && c.moves.length > 0)) {
     ctx.addIssue({ code: 'custom', path: ['moves'], message: 'move needs at least one move' });
+  }
+  if (c.patternShown !== undefined) {
+    const shown = (message: string) =>
+      ctx.addIssue({ code: 'custom', path: ['patternShown'], message });
+    if (c.mode !== 'pattern') {
+      shown('patternShown is for pattern mode only');
+    } else if (c.patternShown > PATTERN_SHOWN_MAX) {
+      shown(`a pattern shows at most ${PATTERN_SHOWN_MAX} given terms`);
+    } else if (c.patternStart === undefined || c.patternStep === undefined) {
+      shown('given terms need patternStart and patternStep');
+    } else if (c.patternStep < 1) {
+      // In order: the given terms go up the chart, each after the one before.
+      ctx.addIssue({
+        code: 'custom',
+        path: ['patternStep'],
+        message: 'given terms need a step of 1 or more',
+      });
+    } else {
+      const given = patternGiven(c);
+      if (given.some((g) => g < c.first || g > last)) shown('given terms must be on the chart');
+      if (given.some((g) => c.hidden.includes(g))) shown('a given term cannot be a hidden cell');
+    }
   }
 });
 
@@ -117,6 +160,8 @@ export const hundredChart: FormatModel<'hundred-chart', HundredChartState> = {
         const n = argNumber(a, 'n');
         if (n === undefined || n < c.first || n > chartLast(c)) return s;
         if (c.mode === 'pattern') {
+          // A given term is part of the question: it cannot be marked or unmarked.
+          if (patternGiven(c).includes(n)) return s;
           const selected = s.selected.includes(n)
             ? s.selected.filter((x) => x !== n)
             : [...s.selected, n];
@@ -132,7 +177,10 @@ export const hundredChart: FormatModel<'hundred-chart', HundredChartState> = {
       case 'answer': {
         const values = argNumbers(a, 'values');
         if (values) {
-          if (c.mode === 'pattern') return { ...s, selected: [...values] };
+          if (c.mode === 'pattern') {
+            const given = patternGiven(c);
+            return { ...s, selected: values.filter((v) => !given.includes(v)) };
+          }
           return { ...s, filled: c.hidden.map((_, i) => values[i] ?? null) };
         }
         const v = argNumber(a, 'value');

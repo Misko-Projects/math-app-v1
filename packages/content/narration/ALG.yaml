@@ -13,7 +13,7 @@ tp.ALG.01.t2.prompt:
 tp.ALG.01.t3.prompt:
   text: "Put the last cards in order so the pattern goes on."
 tp.ALG.02.t1.prompt:
-  text: "The pattern goes {a}, {b}, {c}. Tap the next {ask} numbers on the chart."
+  text: "The chart shows {a}, {b}, {c}. Tap the next {ask} numbers in the pattern."
 tp.ALG.02.t2.prompt:
   text: "Jump to the next number in the pattern {a}, {b}, {c}. Where do you land?"
 tp.ALG.02.t3.prompt:

@@ -376,6 +376,8 @@ export interface HundredChartConfig extends WidgetBase {
   moves?: ('up' | 'down' | 'left' | 'right')[];
   patternStep?: number;
   patternStart?: number;
+  /** `pattern`: how many terms from `patternStart` the chart shows as given (shaded, fixed). */
+  patternShown?: number;
 }
 export const hundredChartConfigSchema = z.object({
   format: z.literal('hundred-chart'),
@@ -388,6 +390,7 @@ export const hundredChartConfigSchema = z.object({
   moves: z.array(z.enum(['up', 'down', 'left', 'right'])).optional(),
   patternStep: z.number().int().optional(),
   patternStart: z.number().int().optional(),
+  patternShown: posInt.optional(),
 });
 assertType<Equals<z.infer<typeof hundredChartConfigSchema>, HundredChartConfig>>(true);
 
