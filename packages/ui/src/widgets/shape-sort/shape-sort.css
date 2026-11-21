@@ -152,6 +152,7 @@
   flex-wrap: wrap;
   justify-content: center;
   gap: calc(var(--target-gap) * 2);
+  box-sizing: border-box;
   max-width: 100%;
   min-width: 0;
   margin: 0;

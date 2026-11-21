@@ -101,7 +101,16 @@ export function ShapeSortWidget({
   const avail = useAvailableSize(root);
   const compact = avail !== null && avail.height < 400;
   const minT = MIN_TARGET_PX[ageMode];
-  const pickSize = compact ? minT - 8 : 112;
+  // Find-all and odd-one-out have no tray or bins to keep room for: the cards use the area, in
+  // the rows that make them biggest (evidence review: six small cards sat in an empty panel).
+  const pick = pickLayout({
+    width: avail?.width ?? 1100,
+    height: avail?.height ?? 640,
+    cards: config.cards.length,
+    kMode: ageMode === 'k',
+    minT,
+  });
+  const pickSize = pick.size;
   const [state, setState] = useState<ShapeSortState>(() => model.initialState(config));
   const [highlight, setHighlight] = useState<Highlight | null>(null);
   const [invite, setInvite] = useState<{ id: string | null; bin: string | null } | null>(null);
@@ -294,6 +303,7 @@ export function ShapeSortWidget({
           className="ni-ssort__cards"
           aria-label={t(config.mode === 'find-all' ? 'ui.ssort.find' : 'ui.widget.choices')}
           disabled={!interactive}
+          style={{ width: pick.width, gap: PICK_GAP }}
         >
           {config.cards.map((c) => (
             <span key={c.id} className="ni-ssort__slot">
@@ -593,6 +603,47 @@ export function sortCardSize(a: SortArea): number {
   };
   for (let c = 120; c > min; c -= 4) if (fitsAt(c)) return c;
   return min;
+}
+
+/** The gap between find-all and odd-one-out cards (two target gaps). */
+const PICK_GAP = 24;
+/** The largest a find-all or odd-one-out card's picture is drawn. */
+const PICK_SIZE_MAX = 184;
+
+/**
+ * Find-all and odd-one-out: the picture size (a card is 16 px larger) and the card block's width
+ * for the number of rows (one to three) that makes the cards biggest in the area, beside the
+ * Check button. Never under a touch target.
+ */
+export function pickLayout(a: {
+  width: number;
+  height: number;
+  cards: number;
+  kMode: boolean;
+  minT: number;
+}): { size: number; perRow: number; width: number } {
+  const checkW = a.kMode ? 120 : 210;
+  // Root padding (24), the 40 px between cards and Check, the block's own padding (16).
+  const roomW = a.width - 24 - 40 - checkW - 16;
+  const roomH = a.height - 16 - 32;
+  let best = { outer: 0, perRow: Math.max(1, a.cards) };
+  for (let rows = 1; rows <= Math.min(3, Math.max(1, a.cards)); rows += 1) {
+    const perRow = Math.ceil(a.cards / rows);
+    const outer = Math.floor(
+      Math.min(
+        (roomW + PICK_GAP) / perRow - PICK_GAP,
+        (roomH + PICK_GAP) / rows - PICK_GAP,
+        PICK_SIZE_MAX + 16,
+      ),
+    );
+    if (outer > best.outer) best = { outer, perRow };
+  }
+  const outer = Math.max(a.minT, best.outer);
+  return {
+    size: outer - 16,
+    perRow: best.perRow,
+    width: best.perRow * outer + (best.perRow - 1) * PICK_GAP + 16,
+  };
 }
 
 /**
