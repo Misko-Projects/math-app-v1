@@ -195,7 +195,14 @@ function taskRows(c: Config): number[] {
   return out.filter((r) => r >= 0 && r < c.rows);
 }
 
-function planLayout(c: Config, room: WidgetRoom | null, age: AgeMode, m: Measured): Plan {
+function planLayout(
+  c: Config,
+  room: WidgetRoom | null,
+  age: AgeMode,
+  m: Measured,
+  /** Only the typed chart: the answer so far cannot be shown as a tapped cell. */
+  typedOnly = false,
+): Plan {
   const T = MIN_TARGET_PX[age];
   const big = age === 'k' ? 96 : 76;
   const roomH = room?.height ?? Number.POSITIVE_INFINITY;
@@ -219,7 +226,7 @@ function planLayout(c: Config, room: WidgetRoom | null, age: AgeMode, m: Measure
     const plans: Plan[] = [];
 
     // 1. Tappable cells, a side column: up, map, down, Check (not for fill: it types).
-    if (c.mode !== 'fill') {
+    if (c.mode !== 'fill' && !typedOnly) {
       const chartW = 10 * T + 9 * TARGET_GAP_PX;
       const sideW = Math.max(T, m.check.w, mapW);
       if (chartW + G + sideW <= W) {
@@ -499,7 +506,15 @@ export function HundredChartWidget({
     h: (ageMode === 'k' ? 96 : 76) + 6,
   });
   const readoutSize = useBoxSize(readoutRef, { w: 130, h: ageMode === 'k' ? 96 : 76 });
-  const plan = planLayout(c, room, ageMode, { check, readout: readoutSize });
+  // A typed answer that is not a number of the chart (0 on a 1–100 chart) has no cell to show it
+  // as tapped: while it stands, the chart stays the typed one in any room, so the answer stays
+  // in view and Check stays ready.
+  const offChartAnswer = (() => {
+    if (fill || pattern) return false;
+    const v = padValue(answerText);
+    return v !== null && !(Number.isInteger(v) && v >= c.first && v <= last);
+  })();
+  const plan = planLayout(c, room, ageMode, { check, readout: readoutSize }, offChartAnswer);
   const tap = plan.cells === 'tap';
   const n = plan.rowsShown;
   const clampTop = (top: number) => Math.max(0, Math.min(c.rows - n, top));

@@ -32,7 +32,21 @@ export interface HundredChartState extends FormatState<'hundred-chart'> {
 
 export const chartLast = (c: Config): number => c.first + c.rows * 10 - 1;
 
+/**
+ * The supported domain of a chart: it starts at 901 at the latest, so its numbers have at most
+ * three digits (and 1,000, the last cell of a 901–1000 chart). Shipped charts are 1–100, 1–120
+ * and 101–200; the cells are sized for numbers of that length.
+ */
+export const CHART_FIRST_MAX = 901;
+
 const configSchema = hundredChartConfigSchema.superRefine((c, ctx) => {
+  if (c.first > CHART_FIRST_MAX) {
+    ctx.addIssue({
+      code: 'custom',
+      path: ['first'],
+      message: `first is at most ${CHART_FIRST_MAX} (charts up to 1,000 are supported)`,
+    });
+  }
   if (!(c.first === 0 || c.first === 1 || (c.first > 100 && c.first % 100 === 1))) {
     ctx.addIssue({ code: 'custom', path: ['first'], message: 'first is 0, 1, 101, 201, …' });
   }

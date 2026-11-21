@@ -1168,8 +1168,8 @@ export const InviteBeyondSearchBudget: Story = {
   },
 };
 
-/** Review (fresh run) F1: a very long stone road. */
-const hugeRoad: Config = { ...longRoad, max: 1_000_000, start: 500_000, target: 499_994 };
+/** Review (fresh run) F1: the longest stone road the format model supports (`STONE_ROAD_MAX`). */
+const hugeRoad: Config = { ...longRoad, max: 10_000, start: 5_000, target: 4_994 };
 
 /**
  * Review (fresh run) F1: the stone road keeps only its window (and one window either side) in the
@@ -1183,10 +1183,10 @@ export const HugeRoadKeepsAWindow: Story = {
     const shown = Number(road.dataset.window);
     const mounted = () => root.querySelectorAll('.ni-nlj__stone').length;
     await expect(mounted()).toBeLessThanOrEqual(3 * shown);
-    await expectTruthfulRoad(root, hugeRoad, 500_000);
+    await expectTruthfulRoad(root, hugeRoad, 5_000);
     for (let i = 1; i <= 3; i++) {
       await hopBy(root, -1);
-      await expectTruthfulRoad(root, hugeRoad, 500_000 - i);
+      await expectTruthfulRoad(root, hugeRoad, 5_000 - i);
       await expect(mounted()).toBeLessThanOrEqual(3 * shown);
     }
   },
@@ -1236,20 +1236,18 @@ export const FractionalLandingKeyboard: Story = {
   },
 };
 
-/** Review round 2 F1: hops across a round 100,000 on a long road. */
+/** Review round 2 F1: hops forward in the middle of the longest road. */
 const boundaryRoad: Config = {
   ...hugeRoad,
-  max: 200_000,
-  start: 100_000,
   goal: 'add',
-  target: 100_003,
+  target: 5_003,
   allowedJumps: [1],
 };
 
 /**
  * Review round 2 F1: a hop never re-places the stones (their places are counted from one origin
- * for the whole item), so the road only slides: a stone keeps its `left` across the hop from
- * 100,000 to 100,001, where the stones used to be re-placed under the running slide.
+ * for the whole item), so the road only slides: a stone keeps its `left` across each hop. (Places
+ * counted from a moving block origin re-placed every stone under the running slide.)
  */
 export const HopKeepsStonePlaces: Story = {
   args: { config: boundaryRoad },
@@ -1257,11 +1255,11 @@ export const HopKeepsStonePlaces: Story = {
     const root = await findWidget(canvasElement, ROOT);
     const leftOf = (v: number) =>
       (root.querySelector(`.ni-nlj__stone[data-stone="${v}"]`) as HTMLElement).style.left;
-    const before = [100_000, 100_001].map(leftOf);
+    const before = [5_000, 5_001].map(leftOf);
     for (let i = 1; i <= 2; i++) {
       await hopBy(root, 1);
-      await expect([100_000, 100_001].map(leftOf)).toEqual(before);
-      await expectTruthfulRoad(root, boundaryRoad, 100_000 + i);
+      await expect([5_000, 5_001].map(leftOf)).toEqual(before);
+      await expectTruthfulRoad(root, boundaryRoad, 5_000 + i);
     }
   },
 };

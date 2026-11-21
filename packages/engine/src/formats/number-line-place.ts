@@ -111,16 +111,58 @@ export function snapPlacement(c: Config, at: number): number {
   if (c.snap !== 'tick') return clamp(round6(v));
   const ticks = lineTicks(c);
   if (ticks.length === 0) return clamp(round6(v));
-  // A tick wins only by being nearer than the best so far by more than floating-point noise at
-  // the line's own magnitude: a line 4e-10 long still snaps to its own ticks, and on a line a
-  // thousand million long a tick half a unit nearer still wins.
-  const eps = Math.max(Math.abs(c.min), Math.abs(c.max)) * Number.EPSILON * 8;
+  // A tick wins only by being nearer than the best so far by more than rounding noise: the
+  // smaller of a billionth of the line's length (a very short line still snaps to its own ticks)
+  // and floating-point noise at the line's magnitude (far from zero, a tick one unit nearer
+  // still wins).
+  const eps = Math.min(
+    (c.max - c.min) * 1e-9,
+    Math.max(Math.abs(c.min), Math.abs(c.max)) * Number.EPSILON * 8,
+  );
   let best = ticks[0] as number;
   for (const t of ticks) if (Math.abs(t - v) < Math.abs(best - v) - eps) best = t;
   return best;
 }
 
+/**
+ * The supported domain of a number line (number-line-place and number-line-jump): its ends lie
+ * within ± `LINE_MAX_MAGNITUDE`, and its length, tick spacing and label spacing are at least
+ * `LINE_MIN_STEP` (the six decimal places placements are rounded to). Shipped lines run from
+ * hundredths to the thousands; outside this domain the arithmetic and the drawing are not
+ * defined, so such a config is rejected rather than drawn.
+ */
+export const LINE_MAX_MAGNITUDE = 1_000_000;
+export const LINE_MIN_STEP = 0.000001;
+
+/** The issues of a line outside the supported domain (`[path, message]`), none when inside. */
+export function lineDomainIssues(c: {
+  min: number;
+  max: number;
+  ticksEvery?: number | null;
+  labelsEvery?: number | null;
+}): [string, string][] {
+  const out: [string, string][] = [];
+  for (const end of ['min', 'max'] as const) {
+    if (!(Math.abs(c[end]) <= LINE_MAX_MAGNITUDE)) {
+      out.push([end, `${end} is within ±${LINE_MAX_MAGNITUDE} (supported range of a number line)`]);
+    }
+  }
+  if (c.max > c.min && c.max - c.min < LINE_MIN_STEP) {
+    out.push(['max', `the line is at least ${LINE_MIN_STEP} long`]);
+  }
+  for (const step of ['ticksEvery', 'labelsEvery'] as const) {
+    const v = c[step];
+    if (typeof v === 'number' && v > 0 && v < LINE_MIN_STEP) {
+      out.push([step, `${step} is at least ${LINE_MIN_STEP}`]);
+    }
+  }
+  return out;
+}
+
 const configSchema = numberLinePlaceConfigSchema.superRefine((c, ctx) => {
+  for (const [path, message] of lineDomainIssues(c)) {
+    ctx.addIssue({ code: 'custom', path: [path], message });
+  }
   if (c.min >= c.max) {
     ctx.addIssue({ code: 'custom', path: ['max'], message: 'max must exceed min' });
     return;

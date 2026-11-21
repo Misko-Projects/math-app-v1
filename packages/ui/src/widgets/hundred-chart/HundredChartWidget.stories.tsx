@@ -830,8 +830,10 @@ export const PatternEmptiedSelection: Story = {
 };
 
 /**
- * Review round 2 F3: a typed answer the chart cannot show as a tapped cell (0 on a 1–100 chart)
- * is still the answer after the room widens to tappable cells and narrows again.
+ * Review rounds 2 and 3: a typed answer the chart cannot show as a tapped cell (0 on a 1–100
+ * chart) stays in view and ready to check when the room widens to where the cells would be
+ * tappable: the chart stays the typed one while that answer stands, and becomes tappable once the
+ * answer is cleared.
  */
 export const OffChartAnswerSurvivesResize: Story = {
   globals: { ageMode: 'k' },
@@ -842,14 +844,18 @@ export const OffChartAnswerSurvivesResize: Story = {
     await expect(root).toHaveAttribute('data-cells', 'type');
     await typeKeys(root, '0');
     await expect(checkBtn(root)).toBeEnabled();
+    const narrow = root.getBoundingClientRect().width;
     box.style.width = '1226px';
     box.style.height = '493px';
-    await waitFor(() => expect(root).toHaveAttribute('data-cells', 'tap'));
-    box.style.width = '906px';
-    box.style.height = '373px';
-    await waitFor(() => expect(root).toHaveAttribute('data-cells', 'type'));
+    await waitFor(() => expect(root.getBoundingClientRect().width).toBeGreaterThan(narrow + 100));
+    await waitForSettled(root);
+    await expect(root).toHaveAttribute('data-cells', 'type');
     await expect(root.querySelector('.ni-hc__readout')).toHaveTextContent('0');
+    await expect(checkBtn(root)).toBeEnabled();
     await userEvent.click(checkBtn(root));
     await expect(args.onResponse).toHaveBeenCalledWith({ kind: 'number', value: 0 });
+    // With the answer cleared, the wide room gets its tappable cells.
+    await userEvent.click(key(root, 'back'));
+    await waitFor(() => expect(root).toHaveAttribute('data-cells', 'tap'));
   },
 };
