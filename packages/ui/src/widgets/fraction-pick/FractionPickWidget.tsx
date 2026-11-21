@@ -125,11 +125,18 @@ export function FractionPickWidget({
 
   const choose = (id: string, speak?: () => void) => {
     if (!interactive) return;
+    setInvite(null);
+    // A child's pick clears the guide's hints on the picture.
+    apply({ op: 'overlay' });
+    if (stateRef.current.choice === id) {
+      // Tapping (or Enter on) the picked card again takes the pick back.
+      trace('undo', id);
+      if (speakOnTap) say('ui.frac.take-back');
+      apply({ op: 'answer', args: { id, off: true } });
+      return;
+    }
     trace('tap', id);
     if (speakOnTap) speak?.();
-    setInvite(null);
-    // A child's pick clears Pip's hints on the picture.
-    apply({ op: 'overlay' });
     apply({ op: 'answer', args: { id } });
   };
 

@@ -55,6 +55,27 @@
   stroke-dasharray: none;
 }
 
+/* Seams: each cut is a target that takes that cut back (tap, or Enter on it). */
+.ni-fcut__seam {
+  fill: none;
+  stroke: var(--color-sun-deep);
+  stroke-opacity: 0;
+  stroke-linecap: butt;
+  pointer-events: stroke;
+  cursor: pointer;
+}
+.ni-fcut__seam:focus {
+  outline: none;
+}
+.ni-fcut__seam:hover,
+.ni-fcut__seam:focus-visible {
+  stroke-opacity: 0.45;
+}
+.ni-fcut__seams[data-off="true"] .ni-fcut__seam,
+.ni-fcut[data-disabled="true"] .ni-fcut__seam {
+  pointer-events: none;
+}
+
 /* Guided lines: dotted "cut here" lines across the whole. */
 .ni-fcut__guide {
   fill: none;

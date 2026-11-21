@@ -235,7 +235,7 @@ export const PartitionMoveAndRemove: Story = {
       'drag:mark-0',
       'drop:line',
       'tap:line',
-      'tap:mark-1',
+      'undo:mark-1',
     ]);
   },
 };
@@ -456,14 +456,21 @@ export const DemoReducedMotion: Story = {
   args: { disabled: true, demo: reducedController },
   play: async ({ canvasElement }) => {
     const root = await findWidget(canvasElement, ROOT);
-    const started = performance.now();
     await reducedController.play({ op: 'partition', args: { b: 4 } });
-    await expect(performance.now() - started).toBeLessThan(500);
+    // Instant is checked by the effect, never by the clock: once the op resolves, the result is
+    // drawn and nothing is still moving.
+    await expect(
+      root.getAnimations({ subtree: true }).filter((a) => a.playState === 'running'),
+    ).toHaveLength(0);
     await expect(root.querySelectorAll('line.ni-fline__cut')).toHaveLength(3);
   },
 };
 
-/** Size rules for the pins when the strip is marked into eighths (tablet, K). */
+/**
+ * Size rules for the pins when the strip is marked into eighths (tablet, K). Eighths are beyond
+ * what a partition item may ask for (the model's MAX_PARTITION_PARTS is 6, the smallest area's
+ * limit); this shows the tablet area has the room.
+ */
 export const EighthsPinsK: Story = {
   globals: { ageMode: 'k' },
   args: { config: { ...stripHalves, denominator: 8 } },
@@ -551,14 +558,103 @@ export const TwelfthsToThreeLandscapeMinK: Story = {
   play: async ({ canvasElement }) => expectTwelfthsFit(canvasElement, 'k'),
 };
 
-/** Stress: a strip marked into twelfths, K, smallest landscape area: twelve pins fit, spaced. */
-export const TwelfthsMarksLandscapeMin: Story = {
-  args: { config: { ...stripHalves, denominator: 12 } },
+/**
+ * Stress: a strip marked into sixths (the most a partition asks for) at the smallest landscape
+ * area: all five pins fit, each a full target, 12 px apart.
+ */
+export const SixthsMarksLandscapeMin: Story = {
+  args: { config: { ...stripHalves, denominator: 6 } },
   render: inArea('landscapeMin'),
   play: async ({ canvasElement }) => {
     const root = await findWidget(canvasElement, ROOT);
-    for (let k = 1; k < 12; k += 2) await tapAt(root, k / 12, 1);
-    await expect(marks(root)).toHaveLength(6);
+    for (let k = 1; k < 6; k += 1) await tapAt(root, k / 6, 1);
+    await expect(marks(root)).toHaveLength(5);
     await expectFitsArea(root, areaBox(canvasElement), 'g1-up', [...marks(root), check(root)]);
+    for (const m of marks(root)) await expectTargetSize(m, 'g1-up');
+    await expectTargetGaps(marks(root));
+  },
+};
+
+/** The same in K: five 80 px pins keep their 12 px gaps. */
+export const SixthsMarksLandscapeMinK: Story = {
+  globals: { ageMode: 'k' },
+  args: { config: { ...stripHalves, denominator: 6 } },
+  render: inArea('landscapeMin'),
+  play: async ({ canvasElement }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    for (let k = 1; k < 6; k += 1) await tapAt(root, k / 6, 1);
+    await expect(marks(root)).toHaveLength(5);
+    await expectFitsArea(root, areaBox(canvasElement), 'k', [...marks(root), check(root)]);
+    for (const m of marks(root)) await expectTargetSize(m, 'k');
+    await expectTargetGaps(marks(root));
+  },
+};
+
+// ---------- taking back where it sits ----------
+
+/** A mark is taken away by tapping the line where it stands, or with Enter on its pin. */
+export const MarkTakenBackOnTheLine: Story = {
+  args: { config: stripFourths },
+  play: async ({ canvasElement, args }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    await tapAt(root, 0.25, 1);
+    await tapAt(root, 0.5, 1);
+    await expect(marks(root)).toHaveLength(2);
+    // The line itself, where the first mark stands.
+    await tapAt(root, 0.25, 1);
+    await expect(marks(root)).toHaveLength(1);
+    await expect(root.querySelector('line.ni-fline__cut')).toHaveAttribute('data-cut', '0.5');
+    // The keyboard: Tab reaches the pin, Enter takes it away.
+    const pin = marks(root)[0] as HTMLElement;
+    pin.focus();
+    await expect(pin).toHaveFocus();
+    await userEvent.keyboard('{Enter}');
+    await expect(marks(root)).toHaveLength(0);
+    await expect(check(root)).toBeDisabled();
+    await expect(traceOf(args.onInteract).map((e) => `${e.t}:${e.target}`)).toEqual([
+      'tap:line',
+      'tap:line',
+      'undo:mark-0',
+      'undo:mark-0',
+    ]);
+  },
+};
+
+/** The placed dot is taken back by tapping it, by Enter on it, or by dragging it off the line. */
+export const PlacedDotTakenBack: Story = {
+  args: { config: placeFourths },
+  play: async ({ canvasElement, args }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    const placed = () => root.querySelector<HTMLElement>('.ni-fline__dot--on');
+    const home = () => root.querySelector<HTMLElement>('.ni-fline__home .ni-fline__dot');
+    await tapAt(root, 0.5, 1);
+    await expect(placed()).not.toBeNull();
+    await expect(home()).toBeNull();
+    await expectTargetSize(placed() as HTMLElement, 'g1-up');
+    // Tap it where it sits.
+    await userEvent.click(placed() as HTMLElement);
+    await expect(placed()).toBeNull();
+    await expect(home()).not.toBeNull();
+    await expect(check(root)).toBeDisabled();
+    // Keyboard.
+    await tapAt(root, 0.75, 1);
+    (placed() as HTMLElement).focus();
+    await userEvent.keyboard('{Enter}');
+    await expect(placed()).toBeNull();
+    // Dragged off the line.
+    await tapAt(root, 0.75, 1);
+    const box = root.getBoundingClientRect();
+    await pointerDrag(placed() as HTMLElement, { x: box.left + 40, y: box.bottom + 300 }, 'touch');
+    await expect(placed()).toBeNull();
+    await expect(home()).not.toBeNull();
+    await expect(
+      traceOf(args.onInteract)
+        .map((e) => `${e.t}:${e.target}`)
+        .filter((e) => e.startsWith('undo')),
+    ).toEqual(['undo:dot', 'undo:dot', 'undo:dot']);
+    // And it can be placed again and checked.
+    await tapAt(root, 0.75, 1);
+    await userEvent.click(check(root));
+    await expect(lastResponse(args.onResponse)).toEqual({ kind: 'placement', value: 0.75 });
   },
 };

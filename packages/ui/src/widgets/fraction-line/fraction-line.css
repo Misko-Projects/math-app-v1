@@ -183,10 +183,15 @@
   cursor: grab;
   touch-action: none;
 }
+/* The placed dot stays a button: tap it (or Enter on it) to take it back, drag it to move it. */
 .ni-fline__dot--on {
   position: absolute;
-  pointer-events: none;
   background: var(--color-coral);
+}
+.ni-fline__mark:focus-visible {
+  outline: 4px solid var(--color-sea-deep);
+  outline-offset: -4px;
+  border-radius: 12px;
 }
 .ni-fline__dot:focus-visible {
   outline: 4px solid var(--color-sea-deep);

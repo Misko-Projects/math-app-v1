@@ -866,6 +866,8 @@ describe('fraction-line', () => {
   it('partition {b} marks every part and passes fraction.partition', () => {
     for (const den of [2, 3, 4, 6, 8]) {
       for (const max of [1, 2, 3] as const) {
+        // The supported domain: at most 6 parts on the whole line (fraction-domain.test.ts).
+        if (den * max > 6) continue;
         const c = { ...partition, denominator: den, max };
         const r = respond(fractionLine, c, [act('partition', { b: den })]);
         expect(passes('fraction.partition', { denominator: den, max }, r), `${den} ${max}`).toBe(

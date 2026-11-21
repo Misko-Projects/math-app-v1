@@ -37,11 +37,13 @@ import './fraction-line.css';
  * `max` wholes. Ticks sit at exactly k/denominator (when shown); labels are numerals ≥ 32 px,
  * fractions stacked a over b.
  *
- * - `partition`: tap the strip (or line) to put a mark there, tap a mark to take it away, drag a
- *   mark to move it. Keyboard: focus the line, move its cursor with the arrow keys (twenty-fourths
- *   of a whole), Enter or Space puts or takes a mark there.
+ * - `partition`: tap the strip (or line) to put a mark there; tap a mark (its pin, or the line
+ *   where it stands) to take it away, drag a mark to move it. Keyboard: focus the line, move its
+ *   cursor with the arrow keys (twenty-fourths of a whole; Shift: 120ths), Enter or Space puts or
+ *   takes a mark there; or Tab to a pin and press Enter to take it away.
  * - `place`: drag the dot onto the line (or tap the line, or move the focused line's cursor with the
- *   arrow keys); it snaps to a tick when ticks are shown.
+ *   arrow keys); it lands where the model's `snapPlacement` says (a tick when ticks are shown).
+ *   Tap the placed dot (or Enter on it, or drag it off the line) to take it back.
  * - `read`, `equivalent`: the flag stands at the target; type the fraction (or, with
  *   `decimalLabels`, the decimal) on the pad.
  *
@@ -178,28 +180,34 @@ export function FractionLineWidget({
     return next;
   };
 
-  const snapPlace = (v: number) => {
-    const c = Math.min(max, Math.max(0, v));
-    return config.ticksShown ? Math.round(c * den) / den : Math.round(c * 100) / 100;
-  };
   const snapMark = (v: number) => Math.round(v * MARK_STEPS) / MARK_STEPS;
 
   /** Put a mark (partition) or the dot (place) at value v; partition toggles a mark already there. */
   const actAt = (v: number, via: 'tap' | 'keyboard' | 'drop') => {
     setInvite(null);
     if (mode === 'place') {
-      const at = snapPlace(v);
-      apply({ op: 'drop', args: { at } });
+      // The model lands the point (`snapPlacement`): the widget and the checker read one value.
+      apply({ op: 'drop', args: { at: Math.min(max, Math.max(0, v)) } });
       if (via !== 'drop') trace('tap', 'line');
       return;
     }
     if (mode !== 'partition') return;
     const at = snapMark(v);
     if (!(at > 0 && at < max)) return;
-    const hit = stateRef.current.cuts.findIndex((c) => Math.abs(c - at) < 1 / KEY_STEPS / 2);
-    if (hit >= 0 && via === 'keyboard') {
-      trace('tap', `mark-${hit}`);
-      apply({ op: 'drop', args: { at: stateRef.current.cuts[hit], remove: true } });
+    // A mark already stands here (half a keyboard step, or a fingertip, either side).
+    const reach = via === 'keyboard' ? 1 / KEY_STEPS / 2 : Math.max(1 / KEY_STEPS / 2, 12 / unit);
+    const cuts = stateRef.current.cuts;
+    let hit = -1;
+    cuts.forEach((c, i) => {
+      if (
+        Math.abs(c - at) < reach &&
+        (hit < 0 || Math.abs(c - at) < Math.abs((cuts[hit] as number) - at))
+      )
+        hit = i;
+    });
+    if (hit >= 0) {
+      // Touching a mark where it stands takes it away; a mark dragged onto another joins it.
+      if (via !== 'drop') removeMark(hit);
       return;
     }
     if (via !== 'drop') trace('tap', 'line');
@@ -209,9 +217,20 @@ export function FractionLineWidget({
   const removeMark = (i: number) => {
     const at = stateRef.current.cuts[i];
     if (at === undefined) return;
-    trace('tap', `mark-${i}`);
+    trace('undo', `mark-${i}`);
+    if (speakOnTap) say('ui.frac.take-back');
     setInvite(null);
     apply({ op: 'drop', args: { at, remove: true } });
+  };
+
+  /** Takes the placed dot back to its home beside the line. */
+  const takeDot = () => {
+    if (stateRef.current.marker === null) return;
+    trace('undo', 'dot');
+    if (speakOnTap) say('ui.frac.take-back');
+    setInvite(null);
+    setCursor(null);
+    apply({ op: 'drop', args: { remove: true } });
   };
 
   // ---------- pointer: tap the line, drag a mark or the dot ----------
@@ -266,13 +285,29 @@ export function FractionLineWidget({
       const y = localY(ev.clientY);
       const onLine = y > -20 && y < stageH + 20 && v > -0.08 * max && v < max * 1.08;
       if (!p.moved) {
-        if (p.mark !== null) removeMark(p.mark);
-        else if (!p.dot && onLine) actAt(v, 'tap');
+        if (p.mark !== null) {
+          // Pins that overlap: of those under the fingertip, the nearest one.
+          const cuts = stateRef.current.cuts;
+          const x = localX(ev.clientX);
+          const under = (i: number) => Math.abs(xOf(cuts[i] ?? Number.NaN) - x) <= target / 2;
+          let best = p.mark;
+          if (under(best)) {
+            cuts.forEach((c, i) => {
+              if (under(i) && Math.abs(xOf(c) - x) < Math.abs(xOf(cuts[best] ?? c) - x)) best = i;
+            });
+          }
+          removeMark(best);
+        } else if (p.dot) {
+          // A tap on the placed dot takes it back (the dot at home only says its name).
+          if (stateRef.current.marker !== null) takeDot();
+        } else if (onLine) actAt(v, 'tap');
         return;
       }
       if (p.dot) {
         trace('drop', onLine ? 'line' : 'none');
         if (onLine) actAt(v, 'drop');
+        // Dragged off the line: the dot goes home.
+        else takeDot();
         return;
       }
       if (p.mark !== null) {
@@ -326,7 +361,8 @@ export function FractionLineWidget({
           : 0;
     let next: number | null = null;
     if (dir !== 0) {
-      const step = e.shiftKey && mode === 'partition' ? 1 / MARK_STEPS : cursorStep;
+      const fine = mode === 'partition' || !config.ticksShown;
+      const step = e.shiftKey && fine ? 1 / MARK_STEPS : cursorStep;
       next = Math.round((now + dir * step) / step) * step;
     } else if (e.key === 'Home') next = 0;
     else if (e.key === 'End') next = max;
@@ -751,18 +787,26 @@ export function FractionLineWidget({
                 style={{ left: xOf(m) - target / 2, top: lineY - target - handleClear }}
                 aria-label={t('ui.frac.mark', { n: i + 1 })}
                 disabled={!interactive}
-                tabIndex={-1}
+                onClick={(e) => {
+                  // Keyboard (Enter or Space on the pin); a pointer tap is handled on the stage.
+                  if (e.detail === 0 && interactive) removeMark(i);
+                }}
               >
                 <span className="ni-fline__pin" aria-hidden="true" />
               </button>
             ))
           : null}
         {mode === 'place' && dotStyle ? (
-          <span
+          <button
+            type="button"
             className="ni-fline__dot ni-fline__dot--on"
             data-dot="true"
-            role="img"
             aria-label={t('ui.frac.dot')}
+            disabled={!interactive}
+            onClick={(e) => {
+              // Keyboard (Enter or Space on the dot); a pointer tap is handled on the stage.
+              if (e.detail === 0 && interactive) takeDot();
+            }}
             style={dotStyle}
           />
         ) : null}

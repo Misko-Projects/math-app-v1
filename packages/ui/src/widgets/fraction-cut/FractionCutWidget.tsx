@@ -63,8 +63,12 @@ import './fraction-cut.css';
  *   only the part under it, so equal parts may have different shapes (FRA.14, FRA.16).
  * - **Filling** (when the item asks to shade): tap a part (again to empty it), or drag the fill
  *   drop onto a part, or tap the drop and then a part; the filled parts are counted aloud.
- * - **Take back** undoes the last cut or fill. With `thenName`, the fraction is typed on stacked
- *   boxes; Check is under them.
+ * - **Taking back:** tap a cut itself (the seam between two parts; Tab to it and press Enter) and
+ *   the parts join again there; tap a filled part to empty it. The seam is a finger wide where
+ *   the parts leave room, and never wider than two fifths of the narrower part beside it, so a
+ *   part always keeps its own middle. The Take back button undoes the last cut, fill or mend,
+ *   whatever the size of the parts. With `thenName`, the fraction is typed on stacked boxes;
+ *   Check is under them.
  *
  * Every part is drawn from the engine model's geometry (`formatModel('fraction-cut')`), and the
  * response is its `toResponse`: `{ regions, shaded, name? }` for `fraction.cut`.
@@ -198,7 +202,7 @@ export function FractionCutWidget({
   demo,
 }: WidgetProps<Config>) {
   const t = useNarrationText();
-  const { sayNumber } = useSpeech();
+  const { say, sayNumber } = useSpeech();
   const { speakOnTap, ageMode, textLabels } = useUiPreferences();
   const reduced = useReducedMotion();
   const trace = useInteractionTrace(onInteract);
@@ -308,7 +312,17 @@ export function FractionCutWidget({
   const fillPart = (i: number, on: boolean) => {
     settleView();
     const done = apply({ op: 'shade', args: on ? { part: i } : { part: i, off: true } });
-    if (done && on && speakOnTap) sayNumber(filledOf(stateRef.current));
+    // The filled parts are counted aloud, after a fill and after one is emptied.
+    if (done && speakOnTap) sayNumber(filledOf(stateRef.current));
+    setInvite(null);
+  };
+
+  /** Joins the parts again along one cut (the seam the child touched). */
+  const mendCut = (args: Record<string, number | string>, id: string) => {
+    if (!interactive || !editing) return;
+    settleView();
+    trace('undo', id);
+    if (apply({ op: 'mend', args }) && speakOnTap) say('ui.frac.take-back');
     setInvite(null);
   };
 
@@ -702,6 +716,93 @@ export function FractionCutWidget({
     return o && (o.dx !== 0 || o.dy !== 0) ? `translate(${o.dx}px, ${o.dy}px)` : undefined;
   };
 
+  // ---------- seams: each cut is a target that takes that cut back ----------
+
+  const seams = (() => {
+    const out: {
+      id: string;
+      args: Record<string, number | string>;
+      d: string;
+      dx: number;
+      dy: number;
+      /** Width of the touch band, in CSS px. */
+      band: number;
+    }[] = [];
+    if (!isCut || !editing || state.stacked || state.separated) return out;
+    const add = (seam: (typeof out)[number]) => {
+      const same = out.find((o) => o.id === seam.id);
+      if (!same) out.push(seam);
+      else {
+        same.d += seam.d;
+        same.band = Math.min(same.band, seam.band);
+      }
+    };
+    const near = (a: number, b: number) => Math.abs(a - b) < 1e-6;
+    if (frame.kind === 'circle') {
+      const n = state.sectors.length;
+      state.sectors.forEach((sec, i) => {
+        // The radius at this sector's start, between it and the sector before.
+        const j = (i + n - 1) % n;
+        const before = state.sectors[j];
+        if (!before) return;
+        const angle = ((sec.a0 % 360) + 360) % 360;
+        const line = state.linesCut.find((l) => {
+          const g = guides[l];
+          return g?.kind === 'radii' && g.angles.some((a) => near(((a % 360) + 360) % 360, angle));
+        });
+        const [x0, y0] = polar(frame.cx, frame.cy, frame.r * 0.3, sec.a0);
+        const [x1, y1] = polar(frame.cx, frame.cy, frame.r, sec.a0);
+        const narrow = Math.min(sec.a1 - sec.a0, before.a1 - before.a0, 180);
+        // The narrower sector's width at two thirds of the radius.
+        const across = 2 * frame.r * 0.66 * Math.sin((narrow * Math.PI) / 360) * scale;
+        add({
+          id: line !== undefined ? `cut-line-${line}` : `cut-r-${Math.round(angle * 10) / 10}`,
+          args: line !== undefined ? { line } : { angle },
+          d: `M${x0} ${y0}L${x1} ${y1}`,
+          dx: ((offsets[i]?.dx ?? 0) + (offsets[j]?.dx ?? 0)) / 2,
+          dy: ((offsets[i]?.dy ?? 0) + (offsets[j]?.dy ?? 0)) / 2,
+          band: Math.min(knifePx, across * 0.4),
+        });
+      });
+      return out;
+    }
+    for (const dir of ['v', 'h'] as const) {
+      state.rects.forEach((a, i) => {
+        const at = dir === 'v' ? a.x1 : a.y1;
+        const j = state.rects.findIndex(
+          (b) =>
+            near(dir === 'v' ? b.x0 : b.y0, at) &&
+            (dir === 'v'
+              ? near(b.y0, a.y0) && near(b.y1, a.y1)
+              : near(b.x0, a.x0) && near(b.x1, a.x1)),
+        );
+        const b = state.rects[j];
+        if (!b) return;
+        const line = state.linesCut.find((l) => {
+          const g = guides[l];
+          return g !== undefined && g.kind === dir && near(g.at, at);
+        });
+        const across =
+          dir === 'v'
+            ? Math.min(a.x1 - a.x0, b.x1 - b.x0) * frame.w
+            : Math.min(a.y1 - a.y0, b.y1 - b.y0) * frame.h;
+        const d =
+          dir === 'v'
+            ? `M${frame.x + at * frame.w} ${frame.y + a.y0 * frame.h}V${frame.y + a.y1 * frame.h}`
+            : `M${frame.x + a.x0 * frame.w} ${frame.y + at * frame.h}H${frame.x + a.x1 * frame.w}`;
+        add({
+          id: line !== undefined ? `cut-line-${line}` : `cut-${dir}-${Math.round(at * 1000)}`,
+          args: line !== undefined ? { line } : { dir, at },
+          d,
+          dx: ((offsets[i]?.dx ?? 0) + (offsets[j]?.dx ?? 0)) / 2,
+          dy: ((offsets[i]?.dy ?? 0) + (offsets[j]?.dy ?? 0)) / 2,
+          band: Math.min(knifePx, across * scale * 0.4),
+        });
+      });
+    }
+    return out;
+  })();
+
   const nextLine = guides.findIndex((_, i) => !state.linesCut.includes(i));
   const invitedLine =
     invite?.op === 'cut' && typeof invite.args?.line === 'number' ? invite.args.line : null;
@@ -849,6 +950,39 @@ export function FractionCutWidget({
               );
             })}
           </g>
+          {seams.length > 0 ? (
+            <g
+              className="ni-fcut__seams"
+              // With the fill drop picked up, a tap is for the part under it.
+              data-off={drag.selected !== null || freeKnife !== null ? 'true' : undefined}
+            >
+              {seams.map((seam, i) => (
+                // biome-ignore lint/a11y/useSemanticElements: an SVG seam cannot be a <button>
+                <path
+                  key={seam.id}
+                  className="ni-fcut__seam"
+                  d={seam.d}
+                  data-seam={seam.id}
+                  data-band={Math.round(seam.band)}
+                  role="button"
+                  tabIndex={interactive ? 0 : -1}
+                  aria-label={`${t('ui.frac.take-back')} ${i + 1}`}
+                  aria-disabled={interactive ? undefined : true}
+                  strokeWidth={seam.band / scale}
+                  style={{ transform: `translate(${seam.dx}px, ${seam.dy}px)` }}
+                  onClick={() => {
+                    if (swallowClick.current) return;
+                    mendCut(seam.args, seam.id);
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key !== 'Enter' && e.key !== ' ') return;
+                    e.preventDefault();
+                    if (!e.repeat) mendCut(seam.args, seam.id);
+                  }}
+                />
+              ))}
+            </g>
+          ) : null}
           {guided ? (
             <g className="ni-fcut__guides">
               {guides.map((g, i) =>

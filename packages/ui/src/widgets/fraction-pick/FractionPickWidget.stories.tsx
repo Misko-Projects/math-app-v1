@@ -510,10 +510,21 @@ export const DemoReducedMotion: Story = {
   args: { config: fairChord, disabled: true, demo: reducedController },
   play: async ({ canvasElement }) => {
     const root = await findWidget(canvasElement, ROOT);
-    const started = performance.now();
+    // The parts are not counted one by one: watch for the counting state while the op plays.
+    let counting = 0;
+    const seen = new MutationObserver(() => {
+      if (root.querySelector('[data-counting="true"]')) counting += 1;
+    });
+    seen.observe(root, { attributes: true, subtree: true, attributeFilter: ['data-counting'] });
     await reducedController.play({ op: 'count-parts' });
     await reducedController.play({ op: 'answer', args: { id: 'no' } });
-    await expect(performance.now() - started).toBeLessThan(500);
+    seen.disconnect();
+    await expect(counting).toBe(0);
+    // Instant is checked by the effect, never by the clock: once the op resolves, the result is
+    // drawn and nothing is still moving.
+    await expect(
+      root.getAnimations({ subtree: true }).filter((a) => a.playState === 'running'),
+    ).toHaveLength(0);
     await expect(within(root).getByRole('button', { name: 'no' })).toHaveAttribute(
       'aria-pressed',
       'true',
@@ -650,4 +661,33 @@ export const LongLabelsLandscapeMin: Story = {
   args: { config: longLabels, tier: 'abstract' },
   render: inArea('landscapeMin'),
   play: async ({ canvasElement }) => expectLongLabelsFit(canvasElement),
+};
+
+// ---------- taking a pick back where it sits ----------
+
+/** The picked card is un-picked by tapping it again, or with Enter on it; Check waits for a pick. */
+export const PickTakenBack: Story = {
+  args: { config: pickHalves },
+  play: async ({ canvasElement, args }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    const card = cards(root)[1] as HTMLElement;
+    await userEvent.click(card);
+    await expect(check(root)).toBeEnabled();
+    await userEvent.click(card);
+    await expect(check(root)).toBeDisabled();
+    card.focus();
+    await userEvent.keyboard('{Enter}');
+    await expect(check(root)).toBeEnabled();
+    await userEvent.keyboard('{Enter}');
+    await expect(check(root)).toBeDisabled();
+    await expect(
+      traceOf(args.onInteract)
+        .map((e) => e.t)
+        .filter((t) => t === 'undo'),
+    ).toHaveLength(2);
+    // Another card can still be picked and checked.
+    await userEvent.click(cards(root)[0] as HTMLElement);
+    await userEvent.click(check(root));
+    await expect(args.onResponse).toHaveBeenCalledTimes(1);
+  },
 };

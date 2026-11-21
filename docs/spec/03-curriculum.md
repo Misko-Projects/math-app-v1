@@ -1517,7 +1517,7 @@ interface FractionCutConfig extends WidgetBase { format: 'fraction-cut'; shape: 
 ```
 - **Answer:** `state` / `fraction.cut` `{parts, shade, acceptNonCongruent}`: exactly `parts` regions, each within ±3% of 1/parts of the area, with `shade` regions shaded. Guided cuts snap to symmetric lines. With `acceptNonCongruent` (`FRA.14`, `FRA.16`), equal-area parts of different shapes count. `thenName` adds typed `[a, b]`.
 - **Features:** `parts.hard` (parts odd or > 4; 0.4), `shape.circle` (0.3), `cut.free` (0.5), `shade.nonUnit` (0.3), `nonCongruent` (0.5).
-- **Tiers:** C. **Ops:** `cut {line}`, `shade {part}`, `separate`, `stack-parts`.
+- **Tiers:** C. **Ops:** `cut {line}`, `shade {part}`, `mend {line}` (takes one cut back), `separate`, `stack-parts`.
 - **K01 response** (no engine model yet; engine README): `{ regions: number[], shaded: number[] }`, each region's share of the whole area (any order, summing to 1) and the indices of the shaded regions. "Within ±3%" is 3% of the whole area; any `shade` distinct regions may be shaded. `cut {line}` numbers the guided lines from 0; solutions cut each line once, then shade.
 
 #### `fraction-pick`

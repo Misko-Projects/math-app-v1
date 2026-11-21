@@ -10,6 +10,18 @@
 //   `decimalLabels` a decimal (`number`). `equivalent`: types a fraction equal to the target.
 // `label {a, b}` writes a/b under its tick and `hop {k}` draws k hops from 0 in any mode
 // (visual), and `partition {b}` draws the b-ticks as a hint outside partition mode.
+// `drop {remove: true}` in `place` takes the point back off the line.
+//
+// Supported domain (the schema and `apply` enforce it): `max` 1 to 3 wholes; 1 to
+// MAX_LINE_DENOMINATOR parts a whole (so at most MAX_LINE_TICKS parts on the whole line, which
+// the smallest area draws: story TwelfthsToThreeLandscapeMinK); `partition` 2 parts a whole or
+// more and at most MAX_PARTITION_PARTS on the whole line (every mark's pin is a full target, K
+// size included, 12 px from the next in the smallest area: stories SixthsMarksLandscapeMin and
+// SixthsMarksLandscapeMinK); a target a/b with b 1 to
+// MAX_TARGET_DENOMINATOR on the line; at most MAX_LINE_MARKS marks; typed numbers are whole, 0 to
+// MAX_TYPED_NUMBER (a decimal: 0 to `max`). A dropped point lands where `snapPlacement` says: on
+// the nearest tick when ticks are shown, else at the place itself (to a millionth), so the
+// widget and the checker read one value.
 
 import {
   type AnswerSpec,
@@ -45,6 +57,16 @@ export interface FractionLineState extends FormatState<'fraction-line'> {
 
 /** Most parts per whole the line draws (ticks stay ≥ 32 px numerals apart at 1 whole). */
 export const MAX_LINE_DENOMINATOR = 12;
+/** Most parts on the whole line: MAX_LINE_DENOMINATOR parts a whole on 3 wholes. */
+export const MAX_LINE_TICKS = MAX_LINE_DENOMINATOR * 3;
+/** Most parts a partition asks for on the whole line (denominator × max): pins stay a finger apart. */
+export const MAX_PARTITION_PARTS = 6;
+/** Largest denominator of a target (a point to place, read or match). */
+export const MAX_TARGET_DENOMINATOR = 24;
+/** Most marks a child can put on a line (more than any partition needs). */
+export const MAX_LINE_MARKS = 12;
+/** The largest number typed on the pad (two digits). */
+export const MAX_TYPED_NUMBER = 99;
 /** Marks closer than this (in units) are the same mark. */
 const SAME_MARK = 1e-6;
 
@@ -57,6 +79,17 @@ export function fractionLineTicks(denominator: number, max: number): number[] {
 export const targetValue = (c: Config): number | null =>
   c.target ? c.target.a / c.target.b : null;
 
+/**
+ * Where a point dropped at `at` lands: on the line, then on the nearest tick when ticks are shown
+ * (a tie goes to the smaller tick), else at the place itself to a millionth.
+ */
+export function snapPlacement(c: Config, at: number): number {
+  const v = Math.min(c.max, Math.max(0, at));
+  if (!c.ticksShown) return Math.round(v * 1e6) / 1e6;
+  const k = Math.ceil(v * c.denominator - 0.5 - 1e-9);
+  return Math.min(c.denominator * c.max, Math.max(0, k)) / c.denominator;
+}
+
 const configSchema = fractionLineConfigSchema.superRefine((c, ctx) => {
   if (c.denominator > MAX_LINE_DENOMINATOR) {
     ctx.addIssue({
@@ -65,9 +98,23 @@ const configSchema = fractionLineConfigSchema.superRefine((c, ctx) => {
       message: `at most ${MAX_LINE_DENOMINATOR} parts a whole`,
     });
   }
+  if (c.target && c.target.b > MAX_TARGET_DENOMINATOR) {
+    ctx.addIssue({
+      code: 'custom',
+      path: ['target', 'b'],
+      message: `a target has at most ${MAX_TARGET_DENOMINATOR} parts a whole`,
+    });
+  }
   if (c.mode === 'partition') {
     if (c.denominator < 2) {
       ctx.addIssue({ code: 'custom', path: ['denominator'], message: 'partition into 2 or more' });
+    }
+    if (c.denominator * c.max > MAX_PARTITION_PARTS) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['denominator'],
+        message: `partition into at most ${MAX_PARTITION_PARTS} parts on the whole line`,
+      });
     }
     if (c.target) {
       ctx.addIssue({ code: 'custom', path: ['target'], message: 'partition has no target' });
@@ -108,8 +155,6 @@ const configSchema = fractionLineConfigSchema.superRefine((c, ctx) => {
   }
 });
 
-const clamp = (x: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, x));
-
 export const fractionLine: FormatModel<'fraction-line', FractionLineState> = {
   format: 'fraction-line',
   configSchema,
@@ -149,10 +194,11 @@ export const fractionLine: FormatModel<'fraction-line', FractionLineState> = {
     switch (a.op) {
       case 'partition': {
         const b = argNumber(a, 'b');
-        if (b === undefined || !Number.isInteger(b) || b < 1 || b > MAX_LINE_DENOMINATOR * 2) {
+        if (b === undefined || !Number.isInteger(b) || b < 1 || b > MAX_TARGET_DENOMINATOR) {
           return s;
         }
         if (c.mode !== 'partition') return { ...s, hintPartition: b };
+        if (b * c.max - c.max > MAX_LINE_MARKS) return s;
         const cuts: number[] = [];
         for (let k = 1; k < b * c.max; k += 1) if (k % b !== 0) cuts.push(k / b);
         return { ...s, cuts };
@@ -168,14 +214,20 @@ export const fractionLine: FormatModel<'fraction-line', FractionLineState> = {
         const lb = argNumber(a, 'b');
         if (la === undefined || lb === undefined || !Number.isInteger(la) || !Number.isInteger(lb))
           return s;
-        if (lb < 1 || la < 0 || la / lb > c.max) return s;
+        if (lb < 1 || lb > MAX_TARGET_DENOMINATOR || la < 0 || la / lb > c.max) return s;
         if (s.labels.some((l) => l.a === la && l.b === lb)) return s;
+        if (s.labels.length >= MAX_LINE_TICKS) return s;
         return { ...s, labels: [...s.labels, { a: la, b: lb }] };
       }
       case 'drop': {
         const at = argNumber(a, 'at');
+        if (c.mode === 'place') {
+          // Taking the point back off the line needs no place.
+          if (a.args?.remove === true)
+            return s.marker === null ? s : { ...s, marker: null, hops: 0 };
+          return at === undefined ? s : { ...s, marker: snapPlacement(c, at) };
+        }
         if (at === undefined) return s;
-        if (c.mode === 'place') return { ...s, marker: clamp(at, 0, c.max) };
         if (c.mode !== 'partition') return s;
         if (a.args?.remove === true) {
           if (s.cuts.length === 0) return s;
@@ -187,23 +239,28 @@ export const fractionLine: FormatModel<'fraction-line', FractionLineState> = {
         }
         if (!(at > 0 && at < c.max)) return s;
         if (s.cuts.some((x) => Math.abs(x - at) < SAME_MARK)) return s;
+        if (s.cuts.length >= MAX_LINE_MARKS) return s;
         return { ...s, cuts: [...s.cuts, at].sort((x, y) => x - y) };
       }
       case 'answer': {
         const v = argNumbers(a, 'values');
         const one = argNumber(a, 'value');
         if (c.mode === 'place')
-          return one === undefined ? s : { ...s, marker: clamp(one, 0, c.max) };
+          return one === undefined ? s : { ...s, marker: snapPlacement(c, one) };
         if (c.mode === 'partition') {
           if (!v) return s;
           const cuts = [...new Set(v.filter((x) => x > 0 && x < c.max))].sort((x, y) => x - y);
-          return { ...s, cuts };
+          return cuts.length > MAX_LINE_MARKS ? s : { ...s, cuts };
         }
         if (c.decimalLabels && c.mode === 'read') {
-          return one === undefined ? s : { ...s, value: one };
+          return one === undefined || one < 0 || one > c.max ? s : { ...s, value: one };
         }
-        if (v && v.length === 2) return { ...s, values: [v[0] as number, v[1] as number] };
+        const typed = (x: number) => Number.isInteger(x) && x >= 0 && x <= MAX_TYPED_NUMBER;
+        if (v && v.length === 2) {
+          return v.every(typed) ? { ...s, values: [v[0] as number, v[1] as number] } : s;
+        }
         if (one !== undefined) {
+          if (!typed(one)) return s;
           const i = argNumber(a, 'slot') === 1 ? 1 : 0;
           const values: [number | null, number | null] = [...s.values];
           values[i] = one;

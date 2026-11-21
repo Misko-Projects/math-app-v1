@@ -571,10 +571,21 @@ export const DemoReducedMotion: Story = {
   args: { config: rectHalves, disabled: true, demo: reducedController },
   play: async ({ canvasElement }) => {
     const root = await findWidget(canvasElement, ROOT);
-    const started = performance.now();
+    // The blade never runs: watch for it while the cut plays.
+    let blades = 0;
+    const seen = new MutationObserver(() => {
+      if (root.querySelector('.ni-fcut__blade')) blades += 1;
+    });
+    seen.observe(root, { childList: true, subtree: true });
     await reducedController.play({ op: 'cut', args: { line: 0 } });
     await reducedController.play({ op: 'shade', args: { part: 0 } });
-    await expect(performance.now() - started).toBeLessThan(500);
+    seen.disconnect();
+    await expect(blades).toBe(0);
+    // Instant is checked by the effect, never by the clock: once the op resolves, the result is
+    // drawn and nothing is still moving.
+    await expect(
+      root.getAnimations({ subtree: true }).filter((a) => a.playState === 'running'),
+    ).toHaveLength(0);
     await expect(partEls(root)).toHaveLength(2);
     await expectFilled(root, 1);
   },
@@ -795,5 +806,109 @@ export const ThenNameSixthsLandscapeMin: Story = {
     await expectFitsArea(root, area, 'g1-up', [...keysOf(root), check(root), toCut]);
     await userEvent.click(check(root));
     await expectCorrect(lastResponse(args.onResponse), 6, 5, { thenName: true });
+  },
+};
+
+// ---------- taking one cut back where it is (the seam between two parts) ----------
+
+const seams = (root: HTMLElement) => [...root.querySelectorAll<SVGPathElement>('.ni-fcut__seam')];
+
+/**
+ * K: a cut is taken back by tapping it. The seam is a full K target wide here (the halves leave
+ * room), the knife for that line comes back, and Enter on the seam does the same.
+ */
+export const SeamTakesCutBackK: Story = {
+  globals: { ageMode: 'k' },
+  args: { config: rectHalves },
+  render: inArea('tablet'),
+  play: async ({ canvasElement, args }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    await expect(seams(root)).toHaveLength(0);
+    await userEvent.click(knife(root, 0));
+    await expect(root).toHaveAttribute('data-parts', '2');
+    await expect(seams(root)).toHaveLength(1);
+    const seam = seams(root)[0] as SVGPathElement;
+    await expect(Number(seam.getAttribute('data-band'))).toBeGreaterThanOrEqual(80);
+    // Fill a part, then take the cut back: the whole is whole again and nothing is filled.
+    await userEvent.click(part(root, 0));
+    await expectFilled(root, 1);
+    await userEvent.click(seam);
+    await expect(root).toHaveAttribute('data-parts', '1');
+    await expectFilled(root, 0);
+    await expect(check(root)).toBeDisabled();
+    // The knife is back; cut again and take it back from the keyboard.
+    await userEvent.click(knife(root, 0));
+    await expect(root).toHaveAttribute('data-parts', '2');
+    const again = seams(root)[0] as SVGPathElement;
+    again.focus();
+    await expect(again).toHaveFocus();
+    await userEvent.keyboard('{Enter}');
+    await expect(root).toHaveAttribute('data-parts', '1');
+    await expect(
+      traceOf(args.onInteract)
+        .map((e) => `${e.t}:${e.target}`)
+        .filter((e) => e.startsWith('undo')),
+    ).toEqual(['undo:cut-line-0', 'undo:cut-line-0']);
+    // Take back (the button) undoes the mend itself.
+    await userEvent.click(back(root));
+    await expect(root).toHaveAttribute('data-parts', '2');
+  },
+};
+
+/** A circle in fourths: taking one diameter back leaves the other, as two halves. */
+export const SeamOnACircle: Story = {
+  args: { config: circleFourths },
+  render: inArea('landscapeMin'),
+  play: async ({ canvasElement, args }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    await userEvent.click(knife(root, 0));
+    await userEvent.click(knife(root, 1));
+    await expect(root).toHaveAttribute('data-parts', '4');
+    // One seam for each cut line (a diameter is one cut, two radii).
+    await expect(seams(root).map((el) => el.getAttribute('data-seam'))).toEqual([
+      'cut-line-0',
+      'cut-line-1',
+    ]);
+    await userEvent.click(seams(root)[1] as SVGPathElement);
+    await expect(root).toHaveAttribute('data-parts', '2');
+    await expectEqualShares(measuredShares(root), 2);
+    await userEvent.click(part(root, 0));
+    await userEvent.click(check(root));
+    await expect(lastResponse(args.onResponse)).toEqual({
+      kind: 'state',
+      value: { regions: [0.5, 0.5], shaded: [0] },
+    });
+  },
+};
+
+/**
+ * Twelfths at the smallest landscape area: every seam is there, none is wider than two fifths of
+ * a part, and the middle of every part still belongs to the part (a tap there fills it).
+ */
+export const SeamsLeaveNarrowPartsTheirMiddle: Story = {
+  args: { config: { ...rectTwelfths, shade: 1 } },
+  render: inArea('landscapeMin'),
+  play: async ({ canvasElement }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    for (let i = 0; i < 11; i += 1) {
+      await waitFor(() => expect(knives(root).length).toBeGreaterThan(0));
+      await userEvent.click(knives(root)[0] as HTMLElement);
+    }
+    await expect(root).toHaveAttribute('data-parts', '12');
+    await settle(root);
+    await expect(seams(root)).toHaveLength(11);
+    const partWidth = Math.min(...partEls(root).map((el) => el.getBoundingClientRect().width));
+    for (const seam of seams(root)) {
+      await expect(Number(seam.getAttribute('data-band'))).toBeLessThanOrEqual(partWidth * 0.4 + 1);
+    }
+    for (const el of partEls(root)) {
+      const c = center(el);
+      await expect(document.elementFromPoint(c.x, c.y)).toBe(el);
+    }
+    // Emptying a filled part is said aloud too (the count of filled parts).
+    await userEvent.click(part(root, 3));
+    await expectFilled(root, 1);
+    await userEvent.click(part(root, 3));
+    await expectFilled(root, 0);
   },
 };

@@ -8,6 +8,14 @@
 // Every mode with options shows at least 3 (03 §5.1). Demo ops: `highlight {id}` (an option id,
 // or `stimulus`), `overlay {a, b}` (lays an a/b picture over the stimulus to compare), and
 // `count-parts` (counts the stimulus's parts aloud); `answer {id}` or `answer {values}`.
+// `answer {id, off: true}` takes that pick back (the child taps the picked card again).
+//
+// Supported domain (the schema and `apply` enforce it): MIN_PICK_OPTIONS to MAX_PICK_OPTIONS
+// options, and at most MAX_PICK_OPTIONS pictures in all with the stimulus (one row of 64 px
+// cards in the smallest area; 80 px K cards hold 5 there and 6 at the tablet); every fraction
+// picture has 1 to MAX_PICTURE_PARTS parts and fills at most all of them;
+// an overlay a/b has b 1 to MAX_PICTURE_PARTS and a at most b; typed numbers are whole, 0 to
+// MAX_TYPED_NUMBER.
 
 import {
   type AnswerSpec,
@@ -39,6 +47,12 @@ export interface FractionPickState extends FormatState<'fraction-pick'> {
 
 /** Fewest options a pick shows (03 §5.1). */
 export const MIN_PICK_OPTIONS = 3;
+/** Most options a pick shows, and most pictures with the stimulus: one row in the smallest area. */
+export const MAX_PICK_OPTIONS = 6;
+/** Most parts a fraction picture is cut into (the kit draws 1 to 12). */
+export const MAX_PICTURE_PARTS = 12;
+/** The largest number typed on a pad (two digits). */
+export const MAX_TYPED_NUMBER = 99;
 /** The fixed pair a fair-or-not item answers with. */
 export const FAIR_CHOICES = ['yes', 'no'] as const;
 
@@ -92,6 +106,19 @@ const configSchema = fractionPickConfigSchema.superRefine((c, ctx) => {
         message: `a pick shows at least ${MIN_PICK_OPTIONS} options`,
       });
     }
+    if (opts.length > MAX_PICK_OPTIONS) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['options'],
+        message: `a pick shows at most ${MAX_PICK_OPTIONS} options`,
+      });
+    } else if (c.stimulus && opts.length + 1 > MAX_PICK_OPTIONS) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['options'],
+        message: `a pick shows at most ${MAX_PICK_OPTIONS} pictures with its stimulus`,
+      });
+    }
     if (new Set(opts.map((o) => o.id)).size !== opts.length) {
       ctx.addIssue({ code: 'custom', path: ['options'], message: 'option ids are distinct' });
     }
@@ -141,11 +168,11 @@ const configSchema = fractionPickConfigSchema.superRefine((c, ctx) => {
   }
   for (const f of [c.stimulus, ...opts.map((o) => o.stimulus)]) {
     const fr = asFraction(f);
-    if (fr && (fr.parts < 1 || fr.parts > 12 || fr.shaded > fr.parts)) {
+    if (fr && (fr.parts < 1 || fr.parts > MAX_PICTURE_PARTS || fr.shaded > fr.parts)) {
       ctx.addIssue({
         code: 'custom',
         path: ['stimulus'],
-        message: 'a fraction picture has 1 to 12 parts and shades at most all of them',
+        message: `a fraction picture has 1 to ${MAX_PICTURE_PARTS} parts and shades at most all of them`,
       });
     }
   }
@@ -210,20 +237,28 @@ export const fractionPick: FormatModel<'fraction-pick', FractionPickState> = {
         const ov = { a: argNumber(a, 'a'), b: argNumber(a, 'b') };
         if (ov.a === undefined || ov.b === undefined) return { ...s, overlay: null };
         if (!Number.isInteger(ov.a) || !Number.isInteger(ov.b) || ov.b < 1 || ov.a < 0) return s;
+        if (ov.b > MAX_PICTURE_PARTS || ov.a > ov.b) return s;
         return { ...s, overlay: { a: ov.a, b: ov.b } };
       }
       case 'count-parts':
         return { ...s, counted: s.counted + 1 };
       case 'answer': {
         const id = argString(a, 'id');
-        if (id !== undefined) return pickChoices(c).includes(id) ? { ...s, choice: id } : s;
+        if (id !== undefined) {
+          if (!pickChoices(c).includes(id)) return s;
+          // `off` takes that pick back (only the pick that is made).
+          if (a.args?.off === true) return s.choice === id ? { ...s, choice: null } : s;
+          return { ...s, choice: id };
+        }
+        const typed = (x: number) => Number.isInteger(x) && x >= 0 && x <= MAX_TYPED_NUMBER;
         const v = argNumbers(a, 'values');
         if (c.mode === 'name' && nameInputOf(c) === 'pads' && v && v.length === 2) {
-          return { ...s, values: [v[0] as number, v[1] as number] };
+          return v.every(typed) ? { ...s, values: [v[0] as number, v[1] as number] } : s;
         }
         const one = argNumber(a, 'value');
         const slot = argNumber(a, 'slot');
         if (c.mode === 'name' && nameInputOf(c) === 'pads' && one !== undefined) {
+          if (!typed(one)) return s;
           // One pad at a time: `slot` 0 is the top number (numerator), 1 the bottom.
           const i = slot === 1 ? 1 : 0;
           const values: [number | null, number | null] = [...s.values];
