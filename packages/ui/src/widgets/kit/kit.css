@@ -597,3 +597,81 @@
     transition-duration: 0ms;
   }
 }
+
+/* ---------- number entry (NumberEntry: a NumeralTray or the pad) ---------- */
+
+/* The tray keeps its own CSS (trayGrid columns, 12 px gaps); the entry only places it. */
+.ni-entry {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.ni-entry[data-kind="pad"] {
+  flex-direction: column;
+  gap: 16px;
+}
+.ni-entry[data-kind="pad"][data-pad="beside"] {
+  flex-direction: row;
+}
+/*
+ * The entered number keeps one width (its widest state: empty slots and the caret), the width the
+ * layouts plan with (NumberEntry `displaySize`), so typing a digit never moves the keys and the
+ * entry never outgrows its plan.
+ */
+.ni-entry .ni-entry__display {
+  min-width: max(calc(var(--target-min) * 1.6), calc(var(--entry-display-em, 0.81) * 1em + 62px));
+}
+/*
+ * A demo invite on a numeral card or a pad key: the ring sits inside the control's own box (as
+ * make-set's objects), so it keeps the full 12 px gap from its neighbours; Pip's hand moves.
+ */
+.ni-entry .ni-pick.ni-invite,
+.ni-entry .ni-pad__key.ni-invite {
+  outline-offset: -9px;
+  animation: none;
+}
+/*
+ * A compact tray (short areas): every card exactly the minimum target (--target-min) wide and
+ * tall, with less inner padding (the 48 px numeral and the 12 px gaps stay), in a panel with 3 px
+ * above the cards and none below them (their own bottom margin holds the ledge). The cards' width
+ * is the grid's --card-w (NumeralTray measures the cards), and the panel is `columns` cards wide.
+ */
+.ni-entry[data-compact="true"] .ni-tray-numerals {
+  padding-top: 3px;
+  padding-bottom: 0;
+}
+.ni-entry[data-compact="true"] .ni-tray-numerals__grid {
+  --card-w: var(--entry-card-w, var(--target-min));
+}
+.ni-entry[data-compact="true"] .ni-tray-numerals[data-columns="fixed"] {
+  width: calc(
+    var(--max-cols) *
+    var(--entry-card-w, var(--target-min)) +
+    (var(--max-cols) - 1) *
+    var(--tray-gap, var(--target-gap)) +
+    46px +
+    1px
+  );
+}
+.ni-entry[data-compact="true"] .ni-tray-numerals .ni-pick {
+  min-width: var(--entry-card-w, var(--target-min));
+  min-height: var(--target-min);
+  padding: 4px;
+}
+/* Compact keys (short areas): the age mode's minimum target instead of --target-big. */
+.ni-entry[data-compact="true"] .ni-pad {
+  grid-template-columns: repeat(3, var(--target-min));
+  /* A key keeps 4 px below it for its ledge (.ni-pad__key margin), as the big keys do. */
+  grid-auto-rows: calc(var(--target-min) + 4px);
+}
+
+/* ---------- demo flights (flight.tsx) ---------- */
+
+.ni-flight {
+  position: absolute;
+  z-index: var(--z-drag);
+  pointer-events: none;
+  transition-property: left, top, width, height;
+  transition-timing-function: var(--ease-soft);
+  filter: drop-shadow(0 14px 10px rgb(38 70 83 / 0.3));
+}

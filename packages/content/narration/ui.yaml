@@ -367,3 +367,36 @@ ui.order.fixed:
 ui.order.picture:
   text: "Picture {n}"
   level: K
+
+# tenframe-fill, number-bond, rekenrek (U03, packages/ui/src/widgets/tenframe-fill, number-bond,
+# rekenrek). Accessible names and spoken labels.
+ui.widget.tenframe.frame:
+  text: "Frame {n}"
+  level: K
+ui.widget.tenframe.shell:
+  text: "Shell {n}"
+  level: K
+ui.widget.tenframe.box:
+  text: "Box {n}"
+  level: K
+ui.widget.tenframe.tray:
+  text: "Counters"
+  level: K
+ui.widget.bond.whole:
+  text: "Whole"
+  level: K
+ui.widget.bond.part:
+  text: "Part {n}"
+  level: K
+ui.widget.bond.found:
+  text: "What you did"
+  level: K
+ui.widget.rekenrek.top:
+  text: "Top row"
+  level: K
+ui.widget.rekenrek.bottom:
+  text: "Bottom row"
+  level: K
+ui.widget.rekenrek.bead:
+  text: "Bead"
+  level: K

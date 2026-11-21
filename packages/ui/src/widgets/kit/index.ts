@@ -1,5 +1,28 @@
 // The shared widget kit (U03): pictures, layouts and answer controls the math widgets compose.
 // See ./README.md. Widgets import from here; workshops never do (they render WidgetHost).
+
+export { useActionSize } from './actionSize';
+export {
+  ARRANGEMENTS,
+  type Arrangement,
+  ASK_ARRANGEMENTS,
+  arrangedSize,
+  type Candidate,
+  compactCardW,
+  firstFit,
+  INVITE_ROOM_PX,
+  MAX_ZOOM,
+  numeralCardH,
+  numeralTraySize,
+  overflow,
+  pickByFill,
+  type Size,
+  trayColumnChoices,
+  withInviteRoom,
+  zoomed,
+  zoomFor,
+} from './arrange';
+export { useCommitBarrier } from './commit';
 export {
   applyPadKey,
   CheckButton,
@@ -34,6 +57,7 @@ export {
   useSharedScale,
   wrapLine,
 } from './FitPicture';
+export { FLY_MS, useFlight } from './flight';
 export {
   INVITE_GLYPH_SELECTOR,
   INVITE_HAND_PX,
@@ -44,6 +68,7 @@ export {
   placeInviteHand,
   useInviteHand,
 } from './inviteHand';
+export { useOncePerKeyPress } from './keyPress';
 export {
   dicePattern,
   dotsLayout,
@@ -54,6 +79,19 @@ export {
   objectSetLayout,
   type PlacedObject,
 } from './layout';
+export {
+  type EntryKind,
+  type EntryLayout,
+  entryChoices,
+  entryGroups,
+  entryKind,
+  entrySize,
+  entryValues,
+  NumberEntry,
+  type NumberEntryProps,
+  nextPadKey,
+  TRAY_MAX,
+} from './NumberEntry';
 export {
   type NumberLineMark,
   type NumberLineScale,

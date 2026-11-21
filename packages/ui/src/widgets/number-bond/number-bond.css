@@ -1,0 +1,353 @@
+/*
+ * number-bond widget (U03). The bond (the picture) and its items: the ways already found, the
+ * numeral answer and the actions; `data-layout` (plan.ts) arranges them as tenframe-fill does.
+ * Pictorial: the whole's circle on top joined to the two parts' circles by ink legs. Concrete:
+ * three pools of counters joined the same way. Sizes are mirrored in plan.ts.
+ */
+
+.ni-bondw {
+  --bond-gap: 24px;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--bond-gap);
+  box-sizing: border-box;
+  width: 100%;
+  margin: auto;
+  padding: 0;
+  contain: inline-size;
+}
+.ni-bondw[data-layout="stack"],
+.ni-bondw[data-layout="column"] {
+  flex-direction: column;
+}
+.ni-bondw__main {
+  display: flex;
+  justify-content: center;
+}
+/*
+ * Every part drawn larger where the area has room (plan.ts `zoom`); the gaps between them stay.
+ * The concrete bond, where counters are dragged, multiplies its lengths by --bond-s instead
+ * (`data-real-size`): CSS `zoom` on a drag surface would move a counter `zoom` times as far as the
+ * pointer. The parts that are only tapped use CSS `zoom`.
+ */
+.ni-bondw {
+  --bond-s: 1;
+}
+.ni-bondw__main:not([data-real-size]),
+.ni-bondw__items > * {
+  zoom: var(--bond-zoom, 1);
+}
+.ni-bondw__items {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--bond-gap);
+}
+/* Nothing beside the bond (a concrete step with no tray and no button yet): the empty column takes
+ * back the flex gap kept for it, so the bond stays centred in the area. */
+.ni-bondw__items[data-empty] {
+  margin-inline-start: calc(-1 * var(--bond-gap));
+}
+.ni-bondw[data-layout="stack"] .ni-bondw__items[data-empty],
+.ni-bondw[data-layout="column"] .ni-bondw__items[data-empty] {
+  margin-block-start: calc(-1 * var(--bond-gap));
+  margin-inline-start: 0;
+}
+.ni-bondw[data-layout="side"] .ni-bondw__items,
+.ni-bondw[data-layout="column"] .ni-bondw__items {
+  flex-direction: column;
+}
+.ni-bondw__act {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+}
+.ni-bondw__act[data-dir="column"] {
+  flex-direction: column;
+  gap: 16px;
+}
+.ni-bondw__btn {
+  display: inline-flex;
+}
+.ni-bondw__act .ni-invite {
+  outline-offset: 4px;
+  border-radius: 999px;
+}
+
+/*
+ * `split` (an answer step in a short area): the numeral answer on the left; the picture and the
+ * actions stacked beside it.
+ */
+.ni-bondw[data-layout="split"] {
+  display: grid;
+  grid-template-columns: auto auto;
+  grid-template-areas:
+    "entry main"
+    "entry act";
+  align-content: center;
+  justify-content: center;
+  justify-items: center;
+  gap: 24px;
+}
+.ni-bondw[data-layout="split"] .ni-bondw__items {
+  display: contents;
+}
+.ni-bondw[data-layout="split"] .ni-bondw__main {
+  grid-area: main;
+  align-self: end;
+}
+.ni-bondw[data-layout="split"] .ni-entry {
+  grid-area: entry;
+}
+.ni-bondw[data-layout="split"] .ni-bondw__act {
+  grid-area: act;
+  align-self: start;
+}
+
+/* ---------- the pictorial bond ---------- */
+
+.ni-bondw__bond {
+  position: relative;
+  display: block;
+  flex: none;
+}
+.ni-bondw__legs {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  pointer-events: none;
+}
+.ni-bondw__legs line {
+  stroke: var(--color-ink);
+  stroke-width: 5;
+  stroke-linecap: round;
+}
+.ni-bondw__circle {
+  position: absolute;
+  display: grid;
+  place-items: center;
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0.1em 0 0;
+  appearance: none;
+  border: 4px solid var(--color-ink);
+  border-radius: 50%;
+  background: var(--color-cloud);
+  color: var(--color-ink);
+  font-family: var(--font-display);
+  font-size: var(--bond-font, 48px);
+  font-weight: 800;
+  line-height: 1;
+  box-shadow: 0 6px 0 rgb(38 70 83 / 0.16);
+  cursor: pointer;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+span.ni-bondw__circle {
+  cursor: default;
+}
+.ni-bondw__circle:disabled {
+  cursor: default;
+}
+.ni-bondw__circle[data-blank="true"] {
+  border-style: dashed;
+  background: var(--color-sky-light);
+}
+.ni-bondw__circle[data-blank="true"]:not([data-empty="true"]) {
+  border-style: solid;
+  background: var(--color-sunshine-light);
+}
+/*
+ * The blank being filled: a heavier ink ring and a lift (never the teal invite ring), and a caret
+ * under its numeral, so it shows without colour.
+ */
+.ni-bondw__circle[data-state="active"] {
+  border-width: 6px;
+  border-style: solid;
+  box-shadow:
+    0 0 0 4px var(--color-cloud),
+    0 0 0 7px var(--color-ink),
+    0 8px 0 rgb(38 70 83 / 0.2);
+}
+.ni-bondw__caret {
+  position: absolute;
+  bottom: 18%;
+  left: 35%;
+  width: 30%;
+  height: 5px;
+  border-radius: 3px;
+  background: var(--color-ink);
+}
+.ni-bondw__circle:focus-visible {
+  outline: 4px solid var(--color-ink);
+  outline-offset: 6px;
+}
+/* A demo invite on a circle: the ring hugs it (offset 4), clear of the other circles. */
+.ni-bondw__circle.ni-invite {
+  position: absolute;
+  outline-offset: 4px;
+  border-radius: 50%;
+}
+.ni-bondw__lit {
+  box-shadow: 0 0 0 8px rgb(42 157 143 / 0.35);
+}
+.ni-bondw__bond[data-mini="true"] .ni-bondw__circle {
+  border-width: 3px;
+  box-shadow: none;
+}
+/* The answer step's bond: the blank being answered keeps its second ring (and its underscore). */
+.ni-bondw__bond[data-mini="true"] .ni-bondw__circle[data-state="active"] {
+  border-width: 4px;
+  box-shadow:
+    0 0 0 3px var(--color-cloud),
+    0 0 0 5px var(--color-ink);
+}
+
+/* ---------- the ways already found (new-way) ---------- */
+
+.ni-bondw__found {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+  padding: 12px;
+  border: 3px solid var(--color-sand-deep);
+  border-radius: var(--radius-card);
+  background: var(--color-paper);
+}
+.ni-bondw__mini-bond {
+  display: block;
+  --bond-font: 32px;
+}
+.ni-bondw__found .ni-bondw__legs line {
+  stroke-width: 3;
+}
+
+/* ---------- the concrete bond: pools of counters ---------- */
+
+.ni-bondw__cbond {
+  position: relative;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+.ni-bondw__cbond .ni-bondw__legs line {
+  stroke-width: calc(5px * var(--bond-s));
+}
+.ni-bondw__pool {
+  position: absolute;
+  box-sizing: border-box;
+  /* plan.ts POOL_EDGES less the border: roomy (13) where it fits, else tight (8). */
+  padding: calc(var(--pool-pad, 8px) * var(--bond-s));
+  border: calc(3px * var(--bond-s)) solid var(--color-ink);
+  border-radius: calc(var(--radius-card) * var(--bond-s));
+  background: var(--color-paper);
+  box-shadow: var(--shadow-soft);
+}
+.ni-bondw__pad {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+}
+.ni-bondw__counters {
+  position: relative;
+  display: grid;
+  grid-template-columns: repeat(var(--pool-cols, 5), var(--bond-cell));
+  grid-auto-rows: var(--bond-cell);
+  gap: calc(var(--target-gap) * var(--bond-s));
+  pointer-events: none;
+}
+.ni-bondw__counter {
+  box-sizing: border-box;
+  width: var(--bond-cell);
+  height: var(--bond-cell);
+  margin: 0;
+  padding: calc(6px * var(--bond-s));
+  appearance: none;
+  border: 0;
+  border-radius: 50%;
+  background: none;
+  pointer-events: auto;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+.ni-bondw__moved {
+  animation: var(--animate-pop-in);
+}
+.ni-bondw__counter:focus-visible {
+  outline: 4px solid var(--color-ink);
+  outline-offset: 2px;
+}
+.ni-bondw__counter.ni-invite {
+  z-index: 3;
+  outline-offset: -5px;
+  border-radius: 50%;
+  animation: none;
+}
+.ni-bondw__badge {
+  position: absolute;
+  z-index: 2;
+  display: grid;
+  place-items: center;
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0.08em 0 0;
+  appearance: none;
+  border: calc(4px * var(--bond-s)) solid var(--color-ink);
+  border-radius: 50%;
+  background: var(--color-cloud);
+  color: var(--color-ink);
+  font-family: var(--font-display);
+  font-size: calc(2rem * var(--bond-s));
+  font-weight: 800;
+  line-height: 1;
+}
+button.ni-bondw__badge {
+  font-size: calc(2.5rem * var(--bond-s));
+  cursor: pointer;
+  touch-action: manipulation;
+  box-shadow: 0 calc(5px * var(--bond-s)) 0 rgb(38 70 83 / 0.16);
+}
+button.ni-bondw__badge:disabled {
+  cursor: default;
+}
+.ni-bondw__badge[data-blank="true"][data-empty="true"] {
+  border-style: dashed;
+  background: var(--color-sky-light);
+}
+.ni-bondw__badge[data-blank="true"]:not([data-empty="true"]) {
+  background: var(--color-sunshine-light);
+}
+.ni-bondw__badge[data-state="active"] {
+  border-width: calc(5px * var(--bond-s));
+  border-style: solid;
+}
+.ni-bondw__badge:focus-visible {
+  outline: 4px solid var(--color-ink);
+  outline-offset: 4px;
+}
+.ni-bondw__badge.ni-invite {
+  outline-offset: 4px;
+  border-radius: 50%;
+}
+/* Disabled: taps do nothing and leave no focus or drop style behind. */
+.ni-bondw[data-disabled="true"] .ni-bondw__pad,
+.ni-bondw[data-disabled="true"] .ni-bondw__counter,
+.ni-bondw[data-disabled="true"] .ni-bondw__circle,
+.ni-bondw[data-disabled="true"] .ni-bondw__badge {
+  pointer-events: none;
+}
+.ni-bondw[data-disabled="true"] :focus {
+  outline: none;
+}
+.ni-bondw [data-flying="true"] {
+  visibility: hidden;
+}
+[data-reduced-motion="true"] .ni-bondw__moved {
+  animation: none;
+}
