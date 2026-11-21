@@ -117,8 +117,6 @@ const FLY_MS = 520;
 /** The put-back control's inset from its column's sides (base-ten-build.css: .ni-btb__grab). */
 const GRAB_INSET = 10;
 const COUNT_MS = 700;
-/** The longest a count-by step waits for its spoken line before going on. */
-const SPEECH_WAIT_MS = 4000;
 const KEY_MS = 340;
 const FLASH_MS = 900;
 const EASE = 'cubic-bezier(0.45, 0, 0.2, 1)';
@@ -835,12 +833,14 @@ export function BaseTenBuildWidget({
   /** Says a mat value (in ones, or in hundredths on the decimal mat): see valueSpeech. */
   const sayValue = (value: number, asTenths = false): Promise<void> =>
     audio?.sayPhrases(valueSpeech(value, decimal, asTenths)).catch(() => {}) ?? Promise.resolve();
-  /** A count-by step: its line has been said (or 4 s have passed) and COUNT_MS is over. */
+  /**
+   * A count-by step: its line has been said and COUNT_MS is over. There is no cap of its own:
+   * a step that moved on while its line was still loading would be spoken under the next
+   * highlight (review round 3). AudioManager bounds every line (it skips one whose clips take
+   * too long), and without audio the promise resolves at once.
+   */
   const sayStep = (value: number, asTenths: boolean) =>
-    Promise.all([
-      Promise.race([sayValue(value, asTenths), pause(SPEECH_WAIT_MS)]),
-      pause(COUNT_MS),
-    ]);
+    Promise.all([sayValue(value, asTenths), pause(COUNT_MS)]);
 
   const runCountBy = async (kind: PieceKind) => {
     await applyOp({ op: 'count-by', args: { kind } });
@@ -1069,10 +1069,13 @@ export function BaseTenBuildWidget({
         onPointerDown={(e) => {
           // The dragged look: the piece comes to the finger, wherever in the column the press
           // was (its centre under the pointer), so a drop is measured where the child points.
+          // Measured from the column: lifted, the control is placed from the column's corner,
+          // not from its own inset edge at rest (review round 3).
           const pad = e.currentTarget;
-          const last = pad.parentElement?.querySelector<HTMLElement>('[data-last="true"]');
-          if (last) {
-            const a = pad.getBoundingClientRect();
+          const col = pad.parentElement;
+          const last = col?.querySelector<HTMLElement>('[data-last="true"]');
+          if (col && last) {
+            const a = col.getBoundingClientRect();
             const b = last.getBoundingClientRect();
             pad.style.setProperty('--btb-gx', `${e.clientX - a.left - b.width / 2}px`);
             pad.style.setProperty('--btb-gy', `${e.clientY - a.top - b.height / 2}px`);

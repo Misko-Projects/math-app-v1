@@ -1225,7 +1225,8 @@ function TradeMat({
           if (!c) return;
           // As the model: no count is one piece; a count that is not a whole number within the
           // bound does nothing (review round 2: the demo must not play what the engine ignores).
-          const count = action.args?.count ?? 1;
+          const raw = action.args?.count;
+          const count = raw === undefined ? 1 : raw;
           if (typeof count !== 'number' || !Number.isInteger(count)) return;
           if (Math.abs(count) > TRADE_TAKE_COUNT_MAX) return;
           for (let i = 0; i < count && stateRef.current.mat[c] > 0; i++) {

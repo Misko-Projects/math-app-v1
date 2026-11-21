@@ -699,6 +699,13 @@ export const PutBackDragFromColumnEdgeK: Story = {
         );
         await new Promise<void>((r) => requestAnimationFrame(() => r()));
       }
+      // The lifted piece is under the finger, centre on centre (review round 3: it sat 10 px to
+      // the left, the control's inset), so a drop is measured exactly where the child points.
+      const lifted = root.querySelector('.ni-btb__grab[data-dragging]') as HTMLElement;
+      await expect(lifted).not.toBeNull();
+      const at = center(lifted);
+      await expect(Math.abs(at.x - to.x), 'lifted piece under the pointer, across').toBeLessThan(1);
+      await expect(Math.abs(at.y - to.y), 'lifted piece under the pointer, down').toBeLessThan(1);
       (document.elementFromPoint(to.x, to.y) ?? el).dispatchEvent(
         new PointerEvent('pointerup', init(to.x, to.y, 0)),
       );
@@ -746,16 +753,27 @@ export const DemoCountByWaitsForSpeech: Story = {
     const audio = parameters.ui.audio as SpyAudio;
     clearSpies(audio);
     const log: string[] = [];
+    const counted = () => root.querySelectorAll('.ni-btb__col [data-counted="true"]').length;
+    // The first line is very slow (4.5 s, past the cap a step once had), the others slow.
     audio.sayPhrases.mockImplementation(async () => {
       const n = log.filter((e) => e.startsWith('start')).length;
       log.push(`start ${n}`);
-      await new Promise((r) => setTimeout(r, 900));
-      log.push(`end ${n}`);
+      await new Promise((r) => setTimeout(r, n === 0 ? 4500 : 900));
+      log.push(`end ${n} lit ${counted()}`);
     });
-    await findWidget(canvasElement, ROOT);
+    const root = await findWidget(canvasElement, ROOT);
     await slowController.play({ op: 'count-by', args: { kind: 'tens' } });
     audio.sayPhrases.mockImplementation(async () => {});
-    await expect(log).toEqual(['start 0', 'end 0', 'start 1', 'end 1', 'start 2', 'end 2']);
+    // A line ends before the next starts, and when it ends its own rod is the last one lit: the
+    // highlight never runs ahead of the voice.
+    await expect(log).toEqual([
+      'start 0',
+      'end 0 lit 1',
+      'start 1',
+      'end 1 lit 2',
+      'start 2',
+      'end 2 lit 3',
+    ]);
     await expect((audio.sayPhrases.mock.calls as unknown[][]).map((c) => c[0])).toEqual([
       [{ number: 1 }, { id: 'ui.widget.btb.dec.word.tenth' }],
       [{ number: 2 }, { id: 'ui.widget.btb.dec.word.tenths' }],

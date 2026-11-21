@@ -1046,7 +1046,26 @@ async function expectOrderFits(canvasElement: HTMLElement, root: HTMLElement, ag
     root.querySelector('.ni-ord__tray'),
     root.querySelector('.ni-ord__check'),
   ].filter((p): p is HTMLElement => p !== null);
-  await expectFitsArea(areaBox(canvasElement), parts, targets(root), age);
+  // The invite ring's pulse scales its card or box up to 5 % and back, without end. A drawn box
+  // read mid-pulse is up to 2 px wider a side than the layout's, so the 12 px gap to a neighbour
+  // read 11.26 px on a CI run and 12 px or more on others, by the pulse's phase alone. The bars
+  // are defined on the layout, so the pulse is held at its rest pose while they are measured.
+  const pulses = root
+    .getAnimations({ subtree: true })
+    .filter((a) => a.effect?.getComputedTiming().iterations === Number.POSITIVE_INFINITY)
+    .map((a) => ({ a, at: a.currentTime, running: a.playState === 'running' }));
+  for (const { a } of pulses) {
+    a.pause();
+    a.currentTime = 0;
+  }
+  try {
+    await expectFitsArea(areaBox(canvasElement), parts, targets(root), age);
+  } finally {
+    for (const { a, at, running } of pulses) {
+      a.currentTime = at;
+      if (running) a.play();
+    }
+  }
   // The tray sits centred right under the board (Check beside it, not shifting it).
   const board = (root.querySelector('.ni-ord__board') as HTMLElement).getBoundingClientRect();
   const tray = (root.querySelector('.ni-ord__tray') as HTMLElement).getBoundingClientRect();

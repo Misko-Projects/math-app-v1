@@ -987,7 +987,8 @@ export const DemoTakeCountsAsTheEngine: Story = {
     await countController.play({ op: 'take', args: { column: 'ones', count: 6 } });
     await expect(mat(root)).toEqual({ hundreds: 0, tens: 3, ones: 6 });
     await expect(takenPieces(root, 'ones')).toBe(6);
-    for (const count of [-100, -1.5, 100, 2.5, Number.NaN, '3']) {
+    // `null` is not a missing count: the model takes one piece only when there is no count.
+    for (const count of [-100, -1.5, 100, 2.5, Number.NaN, '3', null]) {
       await countController.play({ op: 'take', args: { column: 'ones', count } });
       await expect(mat(root), String(count)).toEqual({ hundreds: 0, tens: 3, ones: 6 });
       await expect(takenPieces(root, 'ones'), String(count)).toBe(6);
@@ -1001,9 +1002,18 @@ export const DemoTakeCountsAsTheEngine: Story = {
     let s = model.initialState(take42minus15);
     s = model.apply(s, { op: 'trade', args: { from: 'tens', to: 'ones' } });
     s = model.apply(s, { op: 'take', args: { column: 'ones', count: 6 } });
-    for (const count of [-100, -1.5, 100, 2.5]) {
+    for (const count of [-100, -1.5, 100, 2.5, null]) {
       await expect(model.apply(s, { op: 'take', args: { column: 'ones', count } })).toBe(s);
     }
+    // No count at all is one piece, in the model and in the demo.
+    await expect(
+      model.toResponse(model.apply(s, { op: 'take', args: { column: 'ones' } })),
+    ).toEqual({
+      kind: 'state',
+      value: { hundreds: 0, tens: 3, ones: 5 },
+    });
+    await countController.play({ op: 'take', args: { column: 'ones' } });
+    await expect(mat(root)).toEqual({ hundreds: 0, tens: 3, ones: 6 });
   },
 };
 
