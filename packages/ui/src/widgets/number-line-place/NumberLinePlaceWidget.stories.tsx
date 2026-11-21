@@ -1038,3 +1038,41 @@ export const EstimateG1Tablet: Story = {
     await expectPlaceFits(canvasElement, root, 'g1-up');
   },
 };
+
+/** Review (fresh run) F6: benchmarks one apart, next to the line's end. */
+const crowdedBenchmarks: Config = { ...benchmarks, benchmarks: [18, 19] };
+
+/**
+ * Review (fresh run) F6: at the minimum area the numerals of 18, 19 and the end 20 would overprint
+ * each other under the line; a benchmark that has no room there stands above the line, and no
+ * two numerals overlap. Every benchmark keeps its long tick at its own place.
+ */
+export const CrowdedBenchmarksG1MinLandscape: Story = {
+  args: { config: crowdedBenchmarks },
+  render: inArea('landscapeMin'),
+  play: async ({ canvasElement }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    await expectTruthfulLine(root, crowdedBenchmarks);
+    const texts = [...root.querySelectorAll<SVGTextElement>('.ni-numberline__numeral')];
+    // The digits' ink: a numeral's line box is taller than its digits (no descender, cap height
+    // about 0.7 em), so a fifth of the box is taken off above and below.
+    const ink = (t: SVGTextElement) => {
+      const r = t.getBoundingClientRect();
+      return new DOMRect(r.left, r.top + r.height * 0.2, r.width, r.height * 0.6);
+    };
+    const boxes = texts.map((t) => ({ text: t.textContent, box: ink(t) }));
+    for (const want of ['18', '19', '20']) {
+      await expect(boxes.filter((b) => b.text === want)).toHaveLength(1);
+    }
+    for (let i = 0; i < boxes.length; i++) {
+      for (let j = i + 1; j < boxes.length; j++) {
+        const a = (boxes[i] as (typeof boxes)[number]).box;
+        const b = (boxes[j] as (typeof boxes)[number]).box;
+        const apart =
+          a.right <= b.left || b.right <= a.left || a.bottom <= b.top || b.bottom <= a.top;
+        await expect(apart, `${boxes[i]?.text} and ${boxes[j]?.text} do not overlap`).toBe(true);
+      }
+    }
+    await expect(root.querySelectorAll('.ni-nlp__benchmark line')).toHaveLength(2);
+  },
+};

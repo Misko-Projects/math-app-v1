@@ -27,6 +27,7 @@ import { createDemoController, UnsupportedWidgetOpError, type WidgetDemo } from 
 import { numberLineViewScale } from '../kit';
 import type { ConfigFor } from '../types';
 import type { WidgetHostProps } from '../WidgetHost';
+import { warped } from './NumberLineJumpWidget';
 
 /**
  * `number-line-jump` (03 §5.5, Road Crew): a Pebbling hops along stepping stones (concrete) or a
@@ -238,7 +239,10 @@ async function expectTruthfulRoad(root: HTMLElement, c: Config, at: number) {
   if (c.path === 'stones') {
     const els = [...root.querySelectorAll<HTMLElement>('.ni-nlj__stone')];
     const nums = els.map((e) => Number(e.dataset.stone));
-    await expect(nums).toEqual(nums.map((_, i) => c.min + i));
+    // Only the stones near the window are in the DOM: consecutive numbers of the road.
+    await expect(nums).toEqual(nums.map((_, i) => (nums[0] as number) + i));
+    await expect(nums[0]).toBeGreaterThanOrEqual(c.min);
+    await expect(nums.at(-1)).toBeLessThanOrEqual(c.max);
     await expect(els.map((e) => e.textContent)).toEqual(nums.map(String));
     const lefts = els.map((e) => e.getBoundingClientRect().left);
     const steps = lefts.slice(1).map((x, i) => x - (lefts[i] as number));
@@ -261,16 +265,21 @@ async function expectTruthfulRoad(root: HTMLElement, c: Config, at: number) {
   );
   const steps = ticks.slice(1).map((x, i) => x - (ticks[i] as number));
   for (const d of steps) await expect(Math.abs(d - (steps[0] as number))).toBeLessThan(0.01);
+  // An open line draws each hop at least as wide as its label (`data-warp`: its knots).
+  const knots = lineEl.dataset.warp
+    ? (JSON.parse(lineEl.dataset.warp) as [number, number][])
+    : null;
+  const drawn = (v: number) => (knots ? warped(knots, v) : v);
   for (const text of root.querySelectorAll<SVGTextElement>('.ni-numberline__numeral')) {
     await expect(
       Math.abs(
         Number(text.getAttribute('x')) -
-          s.x(Number((text.textContent ?? '').replace('\u2212', '-'))),
+          s.x(drawn(Number((text.textContent ?? '').replace('\u2212', '-')))),
       ),
     ).toBeLessThan(0.01);
   }
   const lb = lineEl.getBoundingClientRect();
-  await expect(Math.abs(mid - (lb.left + s.x(at)))).toBeLessThan(1);
+  await expect(Math.abs(mid - (lb.left + s.x(drawn(at))))).toBeLessThan(1);
 }
 
 /** Concrete stones in K mode: hop +1 twice, type 6, check. K target sizes and gaps throughout. */
@@ -404,6 +413,8 @@ export const OpenLine: Story = {
     await userEvent.click(jump(root, -10));
     for (let i = 0; i < 4; i++) await userEvent.click(jump(root, -1));
     await expect(within(root).getAllByText('−10')).toHaveLength(2);
+    // Every hop shows its size, the small ones too: the picture reads 47 − 10 − 10 − 1 − 1 − 1 − 1.
+    await expectEveryHopLabelled(root, [-10, -10, -1, -1, -1, -1]);
     blur();
     await userEvent.keyboard('23');
     await userEvent.keyboard('{Enter}{Enter}');
@@ -521,6 +532,28 @@ export const DemoLine: Story = {
   },
 };
 
+/**
+ * An open line labels every hop with its size, each label over its own arc and clear of its
+ * neighbours, and draws the arcs over the hopper (a hop that lands under it still shows).
+ */
+async function expectEveryHopLabelled(root: HTMLElement, hops: number[]) {
+  const labels = [...root.querySelectorAll<SVGTextElement>('.ni-nlj__arclabel')];
+  await expect(labels.map((l) => Number(l.dataset.hop))).toEqual(hops);
+  const boxes = labels.map((l) => l.getBoundingClientRect()).sort((a, b) => a.left - b.left);
+  for (let i = 1; i < boxes.length; i++) {
+    await expect(
+      (boxes[i] as DOMRect).left - (boxes[i - 1] as DOMRect).right,
+      'labels of neighbouring hops do not overprint',
+    ).toBeGreaterThan(0);
+  }
+  await expect(root.querySelectorAll('.ni-numberline__jump')).toHaveLength(hops.length);
+  const svg = root.querySelector('.ni-nlj__line > svg') as SVGElement;
+  const hopper = root.querySelector('.ni-nlj__hopper') as HTMLElement;
+  await expect(Number(getComputedStyle(svg).zIndex)).toBeGreaterThan(
+    Number(getComputedStyle(hopper).zIndex),
+  );
+}
+
 const reducedController: WidgetDemo = createDemoController({ strict: true });
 
 /** Reduced motion: hops are instant. */
@@ -605,6 +638,7 @@ export const InviteBridgeOpen: Story = {
       await userEvent.click(jump(root, -1));
     }
     await expectTruthfulRoad(root, openBack, 42);
+    await expectEveryHopLabelled(root, [-10, -10, -10, -1, -1]);
     await expectInviteOn(root, jump(root, -1));
   },
 };
@@ -1131,5 +1165,73 @@ export const InviteBeyondSearchBudget: Story = {
     await userEvent.click(jump(root, 10_000));
     await expectInviteOn(root, jump(root, 10_000));
     await expect(undoBtn(root)).not.toHaveClass('ni-invite');
+  },
+};
+
+/** Review (fresh run) F1: a very long stone road. */
+const hugeRoad: Config = { ...longRoad, max: 1_000_000, start: 500_000, target: 499_994 };
+
+/**
+ * Review (fresh run) F1: the stone road keeps only its window (and one window either side) in the
+ * DOM, however long the road is, and still follows the hopper truthfully.
+ */
+export const HugeRoadKeepsAWindow: Story = {
+  args: { config: hugeRoad },
+  play: async ({ canvasElement }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    const road = root.querySelector('.ni-nlj__stones') as HTMLElement;
+    const shown = Number(road.dataset.window);
+    const mounted = () => root.querySelectorAll('.ni-nlj__stone').length;
+    await expect(mounted()).toBeLessThanOrEqual(3 * shown);
+    await expectTruthfulRoad(root, hugeRoad, 500_000);
+    for (let i = 1; i <= 3; i++) {
+      await hopBy(root, -1);
+      await expectTruthfulRoad(root, hugeRoad, 500_000 - i);
+      await expect(mounted()).toBeLessThanOrEqual(3 * shown);
+    }
+  },
+};
+
+/** Review (fresh run) F2: a line in halves, landing on 0.5. */
+const halves: Config = {
+  ...line,
+  min: 0,
+  max: 1,
+  ticksEvery: 0.5,
+  labelsEvery: 0.5,
+  start: 0,
+  target: 0.5,
+  allowedJumps: [0.5],
+  thenAsk: 'landing',
+};
+
+/** Review (fresh run) F2: the pad has the decimal key, so the landing 0.5 can be typed. */
+export const FractionalLandingPad: Story = {
+  args: { config: halves, tier: 'pictorial' },
+  play: async ({ canvasElement, args }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    await hopBy(root, 0.5);
+    for (const k of ['0', '.', '5']) await userEvent.click(key(root, k));
+    await userEvent.click(checkBtn(root));
+    await expect(args.onResponse).toHaveBeenCalledWith({
+      kind: 'state',
+      value: { jumps: [0.5], value: 0.5 },
+    });
+  },
+};
+
+/** Review (fresh run) F2: the same answer from a desktop keyboard. */
+export const FractionalLandingKeyboard: Story = {
+  args: { config: halves, tier: 'pictorial' },
+  play: async ({ canvasElement, args }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    await hopBy(root, 0.5);
+    (document.activeElement as HTMLElement | null)?.blur();
+    await userEvent.keyboard('0.5');
+    await userEvent.click(checkBtn(root));
+    await expect(args.onResponse).toHaveBeenCalledWith({
+      kind: 'state',
+      value: { jumps: [0.5], value: 0.5 },
+    });
   },
 };

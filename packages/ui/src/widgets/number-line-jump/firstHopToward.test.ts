@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { firstHopToward, HOP_SEARCH_LIMIT, hopCloserTo } from './NumberLineJumpWidget';
+import {
+  firstHopToward,
+  HOP_SEARCH_LIMIT,
+  hopCloserTo,
+  openLineWarp,
+} from './NumberLineJumpWidget';
 
 const hop = (by: number) => ({ kind: 'hop', by });
 const unreachable = { kind: 'unreachable' };
@@ -61,5 +66,42 @@ describe('firstHopToward (the answer cue path)', () => {
     expect(hopCloserTo(0, 6, [3, 4], { min: 0, max: 8 })).toBe(4);
     expect(hopCloserTo(6, 0, [3, 4], { min: 0, max: 8 })).toBeNull();
     expect(hopCloserTo(0, 10, [20], { min: 0, max: 15 })).toBeNull();
+  });
+});
+
+describe('openLineWarp (an open line gives each hop the width of its label)', () => {
+  // 47 − 10 − 10 − 1 − 1 − 1 − 1 on a 43…51 → 19…51 line, 520 px wide: a hop of 1 is 16 px.
+  const points = [47, 37, 27, 26, 25, 24, 23];
+  const px = (w: ReturnType<typeof openLineWarp>, v: number) => ((w.u(v) - 19) / (51 - 19)) * 520;
+
+  it('gives every hop at least the label width and keeps the ends', () => {
+    const w = openLineWarp(points, 19, 51, 520, 50);
+    expect(w.u(19)).toBe(19);
+    expect(w.u(51)).toBe(51);
+    for (let i = 1; i < points.length; i++) {
+      const dx = Math.abs(px(w, points[i] as number) - px(w, points[i - 1] as number));
+      expect(dx).toBeGreaterThanOrEqual(50 - 1e-6);
+    }
+  });
+
+  it('keeps the order of the values (a rising map) and the bigger hops wider', () => {
+    const w = openLineWarp(points, 19, 51, 520, 50);
+    const xs = [19, 23, 24, 25, 26, 27, 37, 47, 51].map((v) => px(w, v));
+    for (let i = 1; i < xs.length; i++) expect(xs[i]).toBeGreaterThan(xs[i - 1] as number);
+    expect(px(w, 47) - px(w, 37)).toBeGreaterThan(px(w, 24) - px(w, 23));
+  });
+
+  it('leaves a line whose hops are all wide enough to scale', () => {
+    const w = openLineWarp([0, 10, 20], -5, 25, 600, 50);
+    for (const v of [-5, 0, 3, 10, 20, 25]) expect(w.u(v)).toBeCloseTo(v, 9);
+  });
+
+  it('shares the width when there are more hops than the line can label', () => {
+    const many = Array.from({ length: 21 }, (_, i) => i);
+    const w = openLineWarp(many, -2, 22, 300, 50);
+    const xs = many.map((v) => ((w.u(v) + 2) / 24) * 300);
+    for (let i = 1; i < xs.length; i++) expect(xs[i]).toBeGreaterThan(xs[i - 1] as number);
+    expect(xs[0]).toBeGreaterThanOrEqual(0);
+    expect(xs.at(-1)).toBeLessThanOrEqual(300);
   });
 });

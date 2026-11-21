@@ -82,8 +82,24 @@ const SHORT_ROOM = 460;
 /** Picture cells: tall enough for a 32 px numeral, never wider than this. */
 const PIC_H = 48;
 const PIC_MAX_W = 72;
-/** Narrowest picture cell: a two-digit numeral at 32 px (wider numbers are condensed to fit). */
+/** Narrowest picture cell: a two-digit numeral at 32 px. */
 const PIC_MIN_W = 44;
+/** A 32 px digit's advance, and the room a picture cell keeps round its numeral. */
+const PIC_DIGIT_W = 17;
+const PIC_NUM_PAD = 6;
+/** A chart that goes on past 100 (1–120, 101–200): rows of three-digit numbers. */
+const pastHundred = (c: Config) => c.first + c.rows * 10 - 1 > 100;
+/**
+ * The narrowest picture cell that shows the chart's numbers at full width: one numeral width per
+ * chart, so a chart with rows of three-digit numbers gets cells wide enough for three digits. (On
+ * a 1–100 chart only its last cell, 100, has three: that one cell is condensed.)
+ */
+const picMinW = (c: Config) => (pastHundred(c) ? 3 * PIC_DIGIT_W + PIC_NUM_PAD : PIC_MIN_W);
+/**
+ * Free width a roomy `side` layout puts between the chart and the pad (at most), so Pip's hand
+ * can stand beside a key of the pad's first column without lying on the chart.
+ */
+const SIDE_HAND_GAP = 44;
 /** The moves strip (move mode): one arrow tile per move. */
 const MOVE_TILE = 44;
 /** The small map of the whole chart, beside the steppers. */
@@ -132,6 +148,8 @@ interface Plan {
   pad: { shape: PadShape; key: number } | null;
   map: boolean;
   short: boolean;
+  /** Px between the chart and the pad beside it (`side`). */
+  sideGap: number;
   /** Px between pad rows, and how far Pip's hand may hang below the widget. */
   padRowGap: number;
   overhang: number;
@@ -197,7 +215,7 @@ function planLayout(c: Config, room: WidgetRoom | null, age: AgeMode, m: Measure
    * Every plan, keeping `reach` px free under each column's lowest control for Pip's hand (an
    * invite there would otherwise add room below the widget and scroll the area).
    */
-  const gen = (reach: number): Plan[] => {
+  const gen = (reach: number, minW: number): Plan[] => {
     const plans: Plan[] = [];
 
     // 1. Tappable cells, a side column: up, map, down, Check (not for fill: it types).
@@ -235,6 +253,7 @@ function planLayout(c: Config, room: WidgetRoom | null, age: AgeMode, m: Measure
           pad: null,
           map,
           short,
+          sideGap: G,
           padRowGap,
           overhang,
           fits: ok,
@@ -247,10 +266,13 @@ function planLayout(c: Config, room: WidgetRoom | null, age: AgeMode, m: Measure
     // 2. A picture chart and the pad: the answer is typed.
     // A typed answer shows in a display (fill types into the blanks themselves).
     const readout = c.mode !== 'fill';
-    const pads: { shape: PadShape; key: number }[] = [
+    const pads: { shape: PadShape; key: number; rowGap?: number }[] = [
       { shape: '3x4', key: big },
       { shape: '3x4', key: T + 4 },
       { shape: '4x3', key: T + 4 },
+      // Last: the narrowest pad with close rows, for a chart whose three-digit cells need the
+      // width (it fits at rest only: a hand under a key needs the wider rows).
+      { shape: '3x4', key: T + 4, rowGap: TARGET_GAP_PX },
     ];
     // Under the chart: the steppers (and map), the readout and Check, in one row.
     const underW = (map: boolean) =>
@@ -263,7 +285,8 @@ function planLayout(c: Config, room: WidgetRoom | null, age: AgeMode, m: Measure
       m.check.w;
     const underH = Math.max(T + 6, m.check.h, readout ? m.readout.h : 0);
     for (const pad of pads) {
-      const p = padBox(pad.shape, pad.key, padRowGap);
+      const rowGap = pad.rowGap ?? padRowGap;
+      const p = padBox(pad.shape, pad.key, rowGap);
       // side: the pad beside the chart (a picture chart has a 3 px frame).
       {
         const chartW = W - G - p.w - 6;
@@ -274,8 +297,9 @@ function planLayout(c: Config, room: WidgetRoom | null, age: AgeMode, m: Measure
         const under = underW(map);
         // The under row (steppers, Check) needs Pip's hand's room below it too.
         const chartH = movesH + rowsShown * PIC_H + 6 + G + underH + reach;
-        const ok =
-          cellW >= PIC_MIN_W && rowsShown >= Math.min(3, c.rows) && under <= 10 * cellW + 0.5;
+        const ok = cellW >= minW && rowsShown >= Math.min(3, c.rows) && under <= 10 * cellW + 0.5;
+        const spare = W - G - p.w - 6 - 10 * cellW;
+        const sideGap = G + (short ? 0 : Math.max(0, Math.min(SIDE_HAND_GAP, Math.floor(spare))));
         plans.push({
           cells: 'type',
           cellW,
@@ -283,10 +307,11 @@ function planLayout(c: Config, room: WidgetRoom | null, age: AgeMode, m: Measure
           gap: 0,
           rowsShown,
           layout: 'side',
-          pad,
+          pad: { shape: pad.shape, key: pad.key },
           map,
           short,
-          padRowGap,
+          sideGap,
+          padRowGap: rowGap,
           overhang,
           fits: ok && Math.max(chartH, p.h + reach) <= H,
           fitsAtRest: ok && Math.max(chartH - reach, p.h) <= H,
@@ -311,7 +336,7 @@ function planLayout(c: Config, room: WidgetRoom | null, age: AgeMode, m: Measure
         const fitRows = Math.floor((H - movesH - 6 - G - below - reach) / PIC_H);
         const rowsShown = Math.max(1, Math.min(c.rows, fitRows));
         const h = movesH + rowsShown * PIC_H + 6 + G + below;
-        const ok = cellW >= PIC_MIN_W && rowsShown >= Math.min(4, c.rows) && belowW <= W - 4;
+        const ok = cellW >= minW && rowsShown >= Math.min(4, c.rows) && belowW <= W - 4;
         plans.push({
           cells: 'type',
           cellW,
@@ -319,10 +344,11 @@ function planLayout(c: Config, room: WidgetRoom | null, age: AgeMode, m: Measure
           gap: 0,
           rowsShown,
           layout: 'stack',
-          pad,
+          pad: { shape: pad.shape, key: pad.key },
           map: rowsShown < c.rows,
           short,
-          padRowGap,
+          sideGap: G,
+          padRowGap: rowGap,
           overhang,
           fits: ok && h + reach <= H,
           fitsAtRest: ok && h <= H,
@@ -332,12 +358,21 @@ function planLayout(c: Config, room: WidgetRoom | null, age: AgeMode, m: Measure
     }
     return plans;
   };
-  const strict = gen(HAND_REACH - overhang);
+  // Cells wide enough for the chart's numbers first, with room for the hand or at rest; only
+  // then the narrow cells (their numerals condensed).
+  const wide = picMinW(c);
+  if (wide > PIC_MIN_W) {
+    const roomy = gen(HAND_REACH - overhang, wide).find((p) => p.fits);
+    if (roomy) return roomy;
+    const atRest = gen(0, wide).find((p) => p.fits);
+    if (atRest) return { ...atRest, fits: false, fitsAtRest: true };
+  }
+  const strict = gen(HAND_REACH - overhang, PIC_MIN_W);
   const best = strict.find((p) => p.fits);
   if (best) return best;
   // Nothing keeps room for the hand: the first plan that fits at rest (an invite on a bottom
   // control then adds a little room below; K's pad keys at 960 × 600 are the known case).
-  const relaxed = gen(0).find((p) => p.fits);
+  const relaxed = gen(0, PIC_MIN_W).find((p) => p.fits);
   if (relaxed) return { ...relaxed, fits: false, fitsAtRest: true };
   return strict.reduce((a, b) => (b.h < a.h ? b : a), strict[0] as Plan);
 }
@@ -433,6 +468,8 @@ export function HundredChartWidget({
   const [picked, setPicked] = useState<number[]>([]);
   const [typed, setTyped] = useState<Record<number, string>>({});
   const [answerText, setAnswerText] = useState('');
+  /** Pattern: the child has marked or unmarked a cell (an emptied selection is then an answer). */
+  const [patternTouched, setPatternTouched] = useState(false);
   const [active, setActive] = useState<number | null>(readingOrder[0] ?? null);
   const [focusCell, setFocusCell] = useState<number>(c.from ?? c.first);
   const [band, setBand] = useState<{ kind: 'row' | 'col'; n: number } | null>(null);
@@ -510,6 +547,7 @@ export function HundredChartWidget({
     }
     if (pattern) {
       setPicked((prev) => (prev.includes(num) ? prev.filter((x) => x !== num) : [...prev, num]));
+      setPatternTouched(true);
       return;
     }
     setSelected(num);
@@ -593,9 +631,22 @@ export function HundredChartWidget({
     trace('tap', 'mark');
     const v = typedAnswer;
     setPicked((prev) => (prev.includes(v) ? prev.filter((x) => x !== v) : [...prev, v]));
+    setPatternTouched(true);
     setAnswerText('');
     reveal(v);
   };
+
+  // One answer, whichever way the room lets it be given: when a resize swaps tappable cells for
+  // the typed chart (or back), the tapped number becomes the typed one and the typed number the
+  // tapped one, so a resize neither loses the answer nor brings an older one back.
+  const wasTap = useRef(tap);
+  useLayoutEffect(() => {
+    if (wasTap.current === tap) return;
+    wasTap.current = tap;
+    if (fill || pattern) return;
+    if (tap) setSelected(typedAnswer !== null && onChart(typedAnswer) ? typedAnswer : null);
+    else setAnswerText(selected === null ? '' : String(selected));
+  });
 
   // ---------- check (through the format model) ----------
 
@@ -608,7 +659,8 @@ export function HundredChartWidget({
       if (values.some((v) => v === null)) return null;
       s = MODEL.apply(s, { op: 'answer', args: { values: values as number[] } });
     } else if (pattern) {
-      if (picked.length === 0) return null;
+      // Nothing marked yet is not an answer; everything unmarked again is (the empty set).
+      if (picked.length === 0 && !patternTouched) return null;
       s = MODEL.apply(s, { op: 'answer', args: { values: picked } });
     } else if (tap) {
       if (selected !== null) s = MODEL.apply(s, { op: 'tap', args: { n: selected } });
@@ -884,8 +936,10 @@ export function HundredChartWidget({
         ? { left: -6, top: pos(band.n).top - 6, width: gridW + 12, height: plan.cellH + 12 }
         : { left: pos(band.n).left - 6, top: -6, width: plan.cellW + 12, height: gridH + 12 }
       : null;
-  // Numerals wider than their cell are condensed (never smaller than 32 px tall).
-  const digitsFit = Math.max(2, Math.floor((plan.cellW - 6) / 17));
+  // One numeral width per chart: only where no layout gives the chart's longest number its
+  // width are the numerals condensed, and then every cell alike (never smaller than 32 px tall).
+  const digitsFit = Math.max(2, Math.floor((plan.cellW - PIC_NUM_PAD) / PIC_DIGIT_W));
+  const chartSqueeze = pastHundred(c) && 3 > digitsFit ? digitsFit / 3 : 1;
   const windowCells: number[] = [];
   for (let r = shownTop; r < shownTop + n; r++) {
     for (let col = 0; col < 10; col++) windowCells.push(c.first + r * 10 + col);
@@ -899,7 +953,8 @@ export function HundredChartWidget({
     const isActive = fill && isHidden && active === v && interactive;
     const isSelected = pattern ? picked.includes(v) : !fill && selected === v;
     const text = isHidden ? (typed[v] ?? '') : String(v);
-    const squeeze = text.length > digitsFit ? digitsFit / text.length : 1;
+    const squeeze =
+      text.length > digitsFit ? Math.min(chartSqueeze, digitsFit / text.length) : chartSqueeze;
     const common = {
       className: ['ni-hc__cell', cue?.at === 'cell' && cue.n === v ? 'ni-invite' : '']
         .filter(Boolean)
@@ -913,6 +968,8 @@ export function HundredChartWidget({
       'data-start': v === c.from ? 'true' : undefined,
       'data-pulse': pulse === v ? 'true' : undefined,
       'data-decade': colOf(v) === 9 ? 'true' : undefined,
+      // A picture cell is something to read: Pip's hand never lies on it.
+      'data-invite-glyph': tap ? undefined : '',
     };
     const body = (
       <>
@@ -1062,6 +1119,7 @@ export function HundredChartWidget({
               : padDigit(plan.pad.key)
             : undefined,
           '--hc-gap': `${plan.short ? TARGET_GAP_PX : 20}px`,
+          '--hc-side-gap': `${plan.sideGap}px`,
           ...handRootStyle,
         } as CSSProperties
       }

@@ -381,6 +381,14 @@ export const InviteFillTapAfterFilled: Story = {
     await expectInviteOn(root, key(root, '4'));
     await userEvent.click(key(root, '4'));
     await expectInviteOn(root, key(root, '7'));
+    // Pip's hand stands beside the key, in the free room between the chart and the pad: it lies
+    // on no chart cell (evidence round 1: it lay across the chart's edge, on the 0 of 70).
+    const hand = (root.querySelector('.ni-hand svg') as SVGElement).getBoundingClientRect();
+    const chart = (root.querySelector('.ni-hc__chart') as HTMLElement).getBoundingClientRect();
+    await expect(
+      hand.left - 6,
+      'the hand, its bob included, is right of the chart',
+    ).toBeGreaterThan(chart.right);
   },
 };
 
@@ -672,8 +680,14 @@ export const FillAcross100G1MinLandscape: Story = {
   render: inArea('landscapeMin'),
   play: async ({ canvasElement }) => {
     const root = await findWidget(canvasElement, ROOT);
-    await expectHcFits(canvasElement, root, 'g1-up');
+    // Cells wide enough for three digits leave room for the narrow pad only, its rows close
+    // together: it fits at rest (a hand under a key needs the wider rows).
+    await expectHcFits(canvasElement, root, 'g1-up', 'at-rest');
     await expectTruthfulChart(root, fillAcross100);
+    // One numeral width for the whole chart: no number is condensed.
+    for (const num of root.querySelectorAll<HTMLElement>('.ni-hc__num')) {
+      await expect(getComputedStyle(num).transform).toBe('none');
+    }
     await expect(cell(root, 100)).not.toBeNull();
     await expect(cell(root, 101)).not.toBeNull();
   },
@@ -762,5 +776,52 @@ export const FillHundredsG1Tablet: Story = {
     const root = await findWidget(canvasElement, ROOT);
     await expectHcFits(canvasElement, root, 'g1-up');
     await expectTruthfulChart(root, fillHundreds);
+  },
+};
+
+/**
+ * Review (fresh run) F3: one answer across a resize. 13 tapped on the tappable chart is still the
+ * answer on the typed chart; 14 typed there is the tapped cell when the room widens again.
+ */
+export const AnswerSurvivesResize: Story = {
+  // K: ten tappable cells fit across the tablet area, not across the minimum one.
+  globals: { ageMode: 'k' },
+  render: inArea('tablet'),
+  play: async ({ canvasElement, args }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    const box = areaBox(canvasElement);
+    await expect(root).toHaveAttribute('data-cells', 'tap');
+    await userEvent.click(cell(root, 13));
+    box.style.width = '906px';
+    box.style.height = '373px';
+    await waitFor(() => expect(root).toHaveAttribute('data-cells', 'type'));
+    await expect(checkBtn(root)).toBeEnabled();
+    await expect(root.querySelector('.ni-hc__readout')).toHaveTextContent('13');
+    await userEvent.click(key(root, 'back'));
+    await typeKeys(root, '4');
+    box.style.width = '1226px';
+    box.style.height = '493px';
+    await waitFor(() => expect(root).toHaveAttribute('data-cells', 'tap'));
+    await expect(cell(root, 14)).toHaveAttribute('aria-pressed', 'true');
+    await expect(cell(root, 13)).toHaveAttribute('aria-pressed', 'false');
+    await userEvent.click(checkBtn(root));
+    await expect(args.onResponse).toHaveBeenCalledWith({ kind: 'number', value: 14 });
+  },
+};
+
+/**
+ * Review (fresh run) F4: a pattern selection emptied again is an answer (the empty set); a chart
+ * nobody has touched is not, so Check never invites an accidental empty answer.
+ */
+export const PatternEmptiedSelection: Story = {
+  args: { config: pattern },
+  play: async ({ canvasElement, args }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    await expect(checkBtn(root)).toBeDisabled();
+    await userEvent.click(cell(root, 10));
+    await userEvent.click(cell(root, 10));
+    await expect(cell(root, 10)).toHaveAttribute('aria-pressed', 'false');
+    await userEvent.click(checkBtn(root));
+    await expect(args.onResponse).toHaveBeenCalledWith({ kind: 'state', value: { values: [] } });
   },
 };

@@ -20,6 +20,9 @@
   /* The widget takes the width its host gives it; its layout is planned from that width. */
   contain: inline-size;
 }
+.ni-hc[data-layout="side"] {
+  gap: var(--hc-side-gap, var(--hc-gap, 20px));
+}
 .ni-hc[data-layout="stack"] {
   flex-direction: column;
 }
@@ -194,6 +197,13 @@ button.ni-hc__cell:disabled {
   height: 0;
   border-top: 14px solid var(--color-coral-deep);
   border-right: 14px solid transparent;
+}
+/* A picture cell is small: its flag stays in the corner, clear of the numeral. */
+.ni-hc__chart[data-cells="type"] .ni-hc__cell[data-start="true"]::before {
+  top: 0;
+  left: 0;
+  border-top-width: 8px;
+  border-right-width: 8px;
 }
 /* A demo pulse: a dashed sea edge inside the cell and a soft pulse (nothing to press). */
 .ni-hc__cell[data-pulse="true"] {

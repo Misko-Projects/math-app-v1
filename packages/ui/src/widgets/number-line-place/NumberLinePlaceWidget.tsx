@@ -1,4 +1,4 @@
-import { formatModel } from '@number-island/engine';
+import { formatModel, lineSteps } from '@number-island/engine';
 import type { ResponseValue, WidgetAction } from '@number-island/shared';
 import {
   type CSSProperties,
@@ -176,7 +176,7 @@ function planLayout(c: Config, room: WidgetRoom | null, age: AgeMode): Plan {
   const tall = Math.max(TALL_MIN, Math.min(TALL_MAX, Number.isFinite(H) ? H : TALL_MAX));
   const grow = (natural: number) =>
     c.mode === 'place' && !vertical && Number.isFinite(H)
-      ? Math.max(0, Math.round(FILL * H - natural))
+      ? Math.min(MAX_GROW, Math.max(0, Math.round(FILL * H - natural)))
       : 0;
   if (!vertical && stackH <= H) {
     return { layout: 'stack', pad: pick(H), tall, extraHead: grow(stackH) };
@@ -192,6 +192,11 @@ function planLayout(c: Config, room: WidgetRoom | null, age: AgeMode): Plan {
 
 /** The share of the room's height a place line's widget grows to (06 §2: the area is used). */
 const FILL = 0.68;
+/**
+ * ... but never by more than this: in a tall room (portrait) more headroom is only an empty band
+ * above the line, and the widget is better left compact and centred.
+ */
+const MAX_GROW = 80;
 
 /**
  * Width of an element's content box, kept up to date (null until measured). Measured after every
@@ -915,23 +920,49 @@ export function NumberLinePlaceWidget({
         c.labelsEvery === null
           ? v === c.min || v === c.max
           : Math.abs(v / c.labelsEvery - Math.round(v / c.labelsEvery)) < 1e-6;
-      for (const b of c.benchmarks) {
+      // A benchmark's numeral never overprints another numeral: next to one under the line (an
+      // end, a numbered tick, an earlier benchmark) it stands above the line instead, over its
+      // long tick, and one step higher when that place is taken too; with no room anywhere it is
+      // left out (its long tick stays).
+      const half = (v: number) => (fmt(v).length * 40 * 0.62) / 2 + 3;
+      const below: { x: number; half: number }[] = [];
+      const above: { x: number; half: number }[] = [];
+      const higher: { x: number; half: number }[] = [];
+      const steps =
+        c.labelsEvery === null ? [c.min, c.max] : lineSteps(c.min, c.max, c.labelsEvery);
+      for (const v of new Set([c.min, c.max, ...steps])) below.push({ x: at(v).x, half: half(v) });
+      const clear = (row: { x: number; half: number }[], x: number, h: number) =>
+        row.every((o) => Math.abs(o.x - x) >= o.half + h);
+      for (const b of [...c.benchmarks].sort((x, y) => x - y)) {
         if (b < c.min || b > c.max) continue;
         const p = at(b);
+        const h = half(b);
+        let side: 'below' | 'above' | 'higher' | null = null;
+        if (!printed(b)) {
+          const rows = { below, above, higher };
+          side =
+            (['below', 'above', 'higher'] as const).find((r) => clear(rows[r], p.x, h)) ?? null;
+          if (side) rows[side].push({ x: p.x, half: h });
+        }
         out.push(
-          <g key={`bm${b}`} className="ni-nlp__benchmark" data-at={b}>
+          <g
+            key={`bm${b}`}
+            className="ni-nlp__benchmark"
+            data-at={b}
+            data-label={side ?? undefined}
+          >
             <line x1={p.x} x2={p.x} y1={p.y - 20} y2={p.y + 20} />
-            {printed(b) ? null : (
+            {side ? (
               <text
                 className="ni-numberline__numeral"
                 x={p.x}
-                y={p.y + 18 + 40 * 0.9}
+                y={side === 'below' ? p.y + 18 + 40 * 0.9 : side === 'above' ? p.y - 28 : p.y - 72}
                 fontSize={40}
                 textAnchor="middle"
               >
                 {fmt(b)}
               </text>
-            )}
+            ) : null}
           </g>,
         );
       }

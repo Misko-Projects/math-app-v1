@@ -300,3 +300,34 @@ describe('number-line-place features', () => {
     expect(v.range).toBe(0);
   });
 });
+
+describe('snapPlacement on a very short line (review, fresh run, F5)', () => {
+  const tiny: Config = {
+    ...base,
+    min: 0,
+    max: 4e-10,
+    ticksEvery: 1e-10,
+    labelsEvery: null,
+    target: 4e-10,
+    snap: 'tick',
+  };
+
+  it('snaps an exact tick to itself, however short the line', () => {
+    expect(snapPlacement(tiny, 4e-10)).toBe(4e-10);
+    expect(snapPlacement(tiny, 3e-10)).toBeCloseTo(3e-10, 20);
+  });
+
+  it('still sends a midpoint tie to the smaller tick', () => {
+    const tens: Config = {
+      ...base,
+      min: 0,
+      max: 20,
+      ticksEvery: 10,
+      labelsEvery: 10,
+      target: 10,
+      snap: 'tick',
+    };
+    expect(snapPlacement(tens, 5)).toBe(0);
+    expect(snapPlacement(tens, 15)).toBe(10);
+  });
+});

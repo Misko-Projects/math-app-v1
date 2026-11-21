@@ -86,14 +86,15 @@
   overflow: hidden;
 }
 .ni-nlj__road {
-  display: flex;
-  gap: var(--stone-gap);
+  position: relative;
+  height: calc(var(--stone) + 6px);
   transition: transform 360ms ease-in-out;
 }
+/* Each stone at its own place on the road (inline `left`): only the stones near the window exist. */
 .ni-nlj__stone {
-  position: relative;
+  position: absolute;
+  top: 0;
   display: grid;
-  flex: none;
   place-items: center;
   box-sizing: border-box;
   width: var(--stone);
@@ -184,9 +185,15 @@ button.ni-nlj__stone:disabled {
   position: relative;
   flex: none;
 }
+/*
+ * The line's drawing lies over the hopper: a hop that lands under the Pebbling (a hop of 1 beside
+ * hops of 10) still shows its arc, so the picture shows every hop of the sum.
+ */
 .ni-nlj__line > svg {
   position: absolute;
   inset: 0;
+  z-index: 3;
+  pointer-events: none;
 }
 .ni-nlj__arclabel {
   fill: var(--color-ink);

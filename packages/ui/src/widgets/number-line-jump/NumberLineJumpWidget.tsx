@@ -115,6 +115,95 @@ function arcLabelWidth(text: string): number {
 
 const signed = (n: number) => (n < 0 ? `−${Math.abs(n)}` : `+${n}`);
 
+/**
+ * A stone's place on the road is counted from the start of its block of this many stones, so the
+ * pixel offsets stay small however long the road is.
+ */
+const STONE_BLOCK = 100_000;
+
+/** Decimal places of a number as written (0.25 → 2), at 6-decimal precision. */
+const decimalsOf = (v: number) => {
+  const text = String(Number(v.toFixed(6)));
+  const dot = text.indexOf('.');
+  return dot < 0 ? 0 : text.length - dot - 1;
+};
+
+/** Room an open line keeps at each end beyond its outermost point, at least (px). */
+const OPEN_END_PX = 16;
+
+/**
+ * An open line has no scale to keep (it has no ticks and no numbers but the start), so it gives
+ * every hop the width its label needs: a hop of 1 beside hops of 10 still shows its arc and its
+ * size, and the picture reads as the same sum as the answer. `points` are the start and every
+ * landing; the stretch between two neighbouring points gets at least `minW` px, the rest of the
+ * line shrinks in proportion to make the room. Returns the knots `[value, drawn value]` of a
+ * rising piecewise-linear map (drawn values are on the line's own linear scale from `viewMin` to
+ * `viewMax`, `innerW` px wide) and the map itself. Too many hops for the line: every stretch
+ * shares the width in proportion to its floor, and labels that no longer fit are left out.
+ */
+export function openLineWarp(
+  points: readonly number[],
+  viewMin: number,
+  viewMax: number,
+  innerW: number,
+  minW: number,
+): { knots: [number, number][]; u: (v: number) => number } {
+  const inside = [...new Set(points)]
+    .filter((v) => v > viewMin && v < viewMax)
+    .sort((a, b) => a - b);
+  const ks = [viewMin, ...inside, viewMax];
+  const span = viewMax - viewMin;
+  const isPoint = new Set(points);
+  const segs = ks.slice(1).map((k, i) => {
+    const from = ks[i] as number;
+    const prop = span > 0 ? ((k - from) / span) * innerW : 0;
+    const hop = isPoint.has(from) && isPoint.has(k);
+    return { prop, floor: Math.min(hop ? minW : OPEN_END_PX, Math.max(prop, hop ? minW : 0)) };
+  });
+  const floors = segs.reduce((a, g) => a + g.floor, 0);
+  let widths: number[];
+  if (floors >= innerW || innerW <= 0) {
+    widths = segs.map((g) => (floors > 0 ? (g.floor / floors) * innerW : 0));
+  } else {
+    const fixed = segs.map(() => false);
+    let lambda = 1;
+    for (let round = 0; round <= segs.length; round++) {
+      const held = segs.reduce((a, g, i) => a + (fixed[i] ? g.floor : 0), 0);
+      const free = segs.reduce((a, g, i) => a + (fixed[i] ? 0 : g.prop), 0);
+      lambda = free > 0 ? (innerW - held) / free : 0;
+      let changed = false;
+      segs.forEach((g, i) => {
+        if (!fixed[i] && g.prop * lambda < g.floor) {
+          fixed[i] = true;
+          changed = true;
+        }
+      });
+      if (!changed) break;
+    }
+    widths = segs.map((g, i) => (fixed[i] ? g.floor : g.prop * lambda));
+  }
+  const knots: [number, number][] = [[viewMin, viewMin]];
+  let acc = 0;
+  widths.forEach((w, i) => {
+    acc += w;
+    knots.push([ks[i + 1] as number, innerW > 0 ? viewMin + (acc / innerW) * span : viewMin]);
+  });
+  (knots[knots.length - 1] as [number, number])[1] = viewMax;
+  return { knots, u: (v) => warped(knots, v) };
+}
+
+/** The drawn value of `v` on a warped line (`openLineWarp` knots); linear beyond the ends. */
+export function warped(knots: readonly (readonly [number, number])[], v: number): number {
+  for (let i = 1; i < knots.length; i++) {
+    const [v0, u0] = knots[i - 1] as readonly [number, number];
+    const [v1, u1] = knots[i] as readonly [number, number];
+    if (v <= v1 || i === knots.length - 1) {
+      return v1 === v0 ? u0 : u0 + ((v - v0) / (v1 - v0)) * (u1 - u0);
+    }
+  }
+  return v;
+}
+
 // ---------- art (original) ----------
 
 /** The hopper: a round shore Pebbling with a pebble shell (5-grouping) and two stalk eyes. */
@@ -363,19 +452,32 @@ export function stonesFor(c: Config, w: number, target: number) {
   };
 }
 
-function pathHeight(c: Config, w: number, target: number, short: boolean, picture: boolean) {
+function pathHeight(
+  c: Config,
+  w: number,
+  target: number,
+  short: boolean,
+  picture: boolean,
+  age: AgeMode,
+) {
   if (c.path === 'stones') {
     return HOPPER_ROOM + (picture ? PICTURE_STONE : stonesFor(c, w, target).size) + 6;
   }
-  return headroomFor(c, short) + 64;
+  return headroomFor(c, short, age) + 64;
 }
 
 /**
  * Room above the line: the hopper and the jump arcs (with their size labels on an open line or
  * timeline). A short room keeps just enough for the tallest arc and its label.
  */
-const headroomFor = (c: Config, short: boolean) =>
-  c.path === 'open' || c.path === 'timeline' ? (short ? 128 : 136) : short ? 92 : 104;
+const headroomFor = (c: Config, short: boolean, age: AgeMode) =>
+  c.path === 'stones' || (c.path === 'line' && short && age === 'k')
+    ? short
+      ? 92
+      : 104
+    : short
+      ? 128
+      : 136;
 
 /** A room shorter than this gets the tight spacing and the regular answer numerals. */
 const SHORT_ROOM = 420;
@@ -427,7 +529,7 @@ function planLayout(c: Config, room: WidgetRoom | null, age: AgeMode, m: Measure
     : answerRow;
   const plans: Plan[] = [];
   let picture = false;
-  const pathH = (w: number) => pathHeight(c, w, T, short, picture);
+  const pathH = (w: number) => pathHeight(c, w, T, short, picture, age);
   const add = (
     layout: Layout,
     pad: Plan['pad'],
@@ -779,7 +881,14 @@ export function NumberLineJumpWidget({
   const dialSizes = [...allowed].sort((a, b) => Math.abs(a) - Math.abs(b) || a - b);
   const [dialIdx, setDialIdx] = useState(0);
   const dialBy = dialSizes[Math.min(dialIdx, dialSizes.length - 1)] ?? 1;
-  const maxDigits = String(Math.max(Math.abs(c.min), Math.abs(c.max), c.max - c.min)).length;
+  // A road in halves or tenths: its landings are written with decimal places, so the pad has
+  // the decimal key and room for those digits.
+  const places = Math.max(
+    ...[c.min, c.max, c.start, c.target ?? 0, c.ticksEvery ?? 0, ...c.allowedJumps].map(decimalsOf),
+  );
+  const allowDecimal = places > 0;
+  const maxDigits =
+    String(Math.trunc(Math.max(Math.abs(c.min), Math.abs(c.max), c.max - c.min))).length + places;
   const canHop = (by: number, from = position) =>
     by !== 0 && from + by >= c.min && from + by <= c.max;
 
@@ -1077,22 +1186,28 @@ export function NumberLineJumpWidget({
         Math.min(48, Math.floor((roadW - fit.window * fit.size) / (fit.window - 1))),
       );
     }
-    const values: number[] = [];
-    for (let v = c.min; v <= c.max; v++) values.push(v);
     // The window of stones shown: all of them, or a stretch that follows the hopper (one stone of
     // road kept ahead of it in the way it hops, when the road goes on).
     const n = fit.window;
+    const count = c.max - c.min + 1;
     const ahead = allowed.some((b) => b < 0) && !allowed.some((b) => b > 0) ? -1 : 1;
     let first = c.min;
-    if (n < values.length) {
+    if (n < count) {
       const want = ahead > 0 ? position - 1 : position - n + 2;
       first = Math.max(c.min, Math.min(c.max - n + 1, want));
     }
+    // Only the window and one window either side of it (what a slide can bring into view) are
+    // in the DOM: a long road costs no more than a short one. Each stone has its own place on the
+    // road (from `origin`), so stones coming and going never move the others.
+    const values: number[] = [];
+    for (let v = Math.max(c.min, first - n); v <= Math.min(c.max, first + 2 * n - 1); v++) {
+      values.push(v);
+    }
     const pitch = fit.size + fit.gap;
-    const rowW = values.length * pitch - fit.gap;
+    const origin = c.min + Math.floor((first - c.min) / STONE_BLOCK) * STONE_BLOCK;
     const windowW = n * pitch - fit.gap;
-    const offset = (first - c.min) * pitch;
-    const hopperX = (position - c.min) * pitch + fit.size / 2 - offset;
+    const offset = (first - origin) * pitch;
+    const hopperX = (position - first) * pitch + fit.size / 2;
     path = (
       // biome-ignore lint/a11y/useSemanticElements: a row of stones with an overlay, not a form group
       <div
@@ -1120,7 +1235,7 @@ export function NumberLineJumpWidget({
         <div className="ni-nlj__window">
           <div
             className="ni-nlj__road"
-            style={{ width: rowW, transform: `translateX(${-offset}px)` }}
+            style={{ width: windowW, transform: `translateX(${-offset}px)` }}
           >
             {values.map((v) => {
               const visible = v >= first && v < first + n;
@@ -1130,6 +1245,7 @@ export function NumberLineJumpWidget({
                 'data-start': v === c.start ? 'true' : undefined,
                 'data-here': v === position ? 'true' : undefined,
                 'data-highlight': highlight === v ? 'true' : undefined,
+                style: { left: (v - origin) * pitch },
               };
               return fit.tappable ? (
                 <button
@@ -1167,8 +1283,7 @@ export function NumberLineJumpWidget({
     );
   } else {
     const open = c.path === 'open';
-    const labelArcs = open || c.path === 'timeline';
-    const headroom = headroomFor(c, plan.short);
+    const headroom = headroomFor(c, plan.short, ageMode);
     const jumps: { from: number; to: number }[] = [];
     let p = c.start;
     for (const by of hops) {
@@ -1188,12 +1303,26 @@ export function NumberLineJumpWidget({
       viewMax = Math.min(c.max, hi + pad);
     }
     const scale = numberLineViewScale({ min: viewMin, max: viewMax, width: roadW, headroom });
+    const unit = c.unit === 'min' ? ' min' : '';
+    const hopText = (j: { from: number; to: number }) => `${signed(j.to - j.from)}${unit}`;
+    // The open line gives each hop the width of its label (see `openLineWarp`); a line with ticks
+    // keeps its scale.
+    const warp =
+      open && jumps.length > 0
+        ? openLineWarp(
+            [c.start, ...jumps.map((j) => j.to)],
+            viewMin,
+            viewMax,
+            roadW - 2 * scale.pad,
+            Math.max(...jumps.map((j) => arcLabelWidth(hopText(j)))) + 12,
+          )
+        : null;
+    const u = (v: number) => (warp ? warp.u(v) : v);
     // The start dot; a demo highlight adds its arrow (on the start itself: one mark, with the arrow).
     const marks: NumberLineMark[] =
       highlight === c.start
-        ? [{ at: c.start, arrow: true }]
-        : [{ at: c.start }, ...(highlight !== null ? [{ at: highlight, arrow: true }] : [])];
-    const unit = c.unit === 'min' ? ' min' : '';
+        ? [{ at: u(c.start), arrow: true }]
+        : [{ at: u(c.start) }, ...(highlight !== null ? [{ at: u(highlight), arrow: true }] : [])];
     path = (
       <div
         className="ni-nlj__line"
@@ -1201,6 +1330,7 @@ export function NumberLineJumpWidget({
         data-view-min={viewMin}
         data-view-max={viewMax}
         data-headroom={headroom}
+        data-warp={warp ? JSON.stringify(warp.knots) : undefined}
         style={{ width: roadW, height: headroom + 64 }}
       >
         <NumberLineView
@@ -1209,7 +1339,7 @@ export function NumberLineJumpWidget({
           ticksEvery={open ? null : c.ticksEvery}
           labelsEvery={open ? null : c.labelsEvery}
           marks={marks}
-          jumps={jumps}
+          jumps={jumps.map((j) => ({ from: u(j.from), to: u(j.to) }))}
           width={roadW}
           headroom={headroom}
           label={t('ui.nlj.path')}
@@ -1219,7 +1349,7 @@ export function NumberLineJumpWidget({
               {open ? (
                 <text
                   className="ni-numberline__numeral"
-                  x={s.x(c.start)}
+                  x={s.x(u(c.start))}
                   y={s.lineY + 18 + 40 * 0.9}
                   fontSize={40}
                   textAnchor="middle"
@@ -1227,32 +1357,34 @@ export function NumberLineJumpWidget({
                   {c.start}
                 </text>
               ) : null}
-              {labelArcs
-                ? jumps.map((j, i) => {
-                    const dx = Math.abs(s.x(j.to) - s.x(j.from));
-                    const h = Math.min(70, 18 + dx * 0.35);
-                    const text = `${signed(j.to - j.from)}${unit}`;
-                    // Numerals stay 32 px: an arc too narrow for its label goes unlabelled
-                    // rather than overprinting its neighbours.
-                    if (dx < arcLabelWidth(text) + 10) return null;
-                    return (
-                      <text
-                        // biome-ignore lint/suspicious/noArrayIndexKey: hops are positional
-                        key={i}
-                        className="ni-nlj__arclabel"
-                        x={(s.x(j.from) + s.x(j.to)) / 2}
-                        // Above the arc's apex (lineY − 22 − h), clear of the arc itself.
-                        y={s.lineY - 30 - h}
-                        fontSize={32}
-                        textAnchor="middle"
-                      >
-                        {text}
-                      </text>
-                    );
-                  })
-                : null}
+              {jumps.map((j, i) => {
+                const dx = Math.abs(s.x(u(j.to)) - s.x(u(j.from)));
+                const h = Math.min(70, 18 + dx * 0.35);
+                const text = hopText(j);
+                // Numerals stay 32 px: an arc too narrow for its label (a line with ticks keeps
+                // its scale; its ticks count the hop) goes unlabelled rather than overprinting
+                // its neighbours.
+                if (dx < arcLabelWidth(text) + 10) return null;
+                // ... and so does one the headroom cannot hold (K's line at the minimum area).
+                if (s.lineY - 30 - h < 26) return null;
+                return (
+                  <text
+                    // biome-ignore lint/suspicious/noArrayIndexKey: hops are positional
+                    key={i}
+                    className="ni-nlj__arclabel"
+                    data-hop={j.to - j.from}
+                    x={(s.x(u(j.from)) + s.x(u(j.to))) / 2}
+                    // Above the arc's apex (lineY − 22 − h), clear of the arc itself.
+                    y={s.lineY - 30 - h}
+                    fontSize={32}
+                    textAnchor="middle"
+                  >
+                    {text}
+                  </text>
+                );
+              })}
               {invitedSpot !== null ? (
-                <circle className="ni-nlj__spot" cx={s.x(invitedSpot)} cy={s.lineY} r={26} />
+                <circle className="ni-nlj__spot" cx={s.x(u(invitedSpot))} cy={s.lineY} r={26} />
               ) : null}
             </>
           )}
@@ -1263,7 +1395,7 @@ export function NumberLineJumpWidget({
           data-path="line"
           role="img"
           aria-label={t('ui.nlj.hopper', { n: position })}
-          style={{ left: scale.x(position), top: scale.lineY }}
+          style={{ left: scale.x(u(position)), top: scale.lineY }}
         >
           <Hopper />
         </div>
@@ -1452,6 +1584,7 @@ export function NumberLineJumpWidget({
                 disabled={!interactive}
                 highlighted={pressedKey ?? (cue?.at === 'key' ? cue.key : null)}
                 shape={plan.pad.shape}
+                allowDecimal={allowDecimal}
               />
             </div>
           ) : null}
