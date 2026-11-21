@@ -13,6 +13,7 @@ import {
   areaBox,
   contentBox,
   expectFitsArea,
+  expectHandClearOfOthers,
   expectHandOffGlyphsOf,
   expectInside,
   expectNoScroll,
@@ -389,6 +390,8 @@ export const InviteFillTapAfterFilled: Story = {
       hand.left - 6,
       'the hand, its bob included, is right of the chart',
     ).toBeGreaterThan(chart.right);
+    // ... and on no other key (it stood on the wide 0 before).
+    await expectHandClearOfOthers(root, key(root, '7'));
   },
 };
 

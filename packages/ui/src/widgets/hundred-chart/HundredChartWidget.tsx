@@ -96,10 +96,10 @@ const pastHundred = (c: Config) => c.first + c.rows * 10 - 1 > 100;
  */
 const picMinW = (c: Config) => (pastHundred(c) ? 3 * PIC_DIGIT_W + PIC_NUM_PAD : PIC_MIN_W);
 /**
- * Free width a roomy `side` layout puts between the chart and the pad (at most), so Pip's hand
- * can stand beside a key of the pad's first column without lying on the chart.
+ * The gap a `side` layout with width to spare opens between the chart and the pad (at most), so
+ * Pip's hand can stand beside a key of the pad's first column without lying on the chart.
  */
-const SIDE_HAND_GAP = 44;
+const SIDE_HAND_GAP = 68;
 /** The moves strip (move mode): one arrow tile per move. */
 const MOVE_TILE = 44;
 /** The small map of the whole chart, beside the steppers. */
@@ -299,7 +299,7 @@ function planLayout(c: Config, room: WidgetRoom | null, age: AgeMode, m: Measure
         const chartH = movesH + rowsShown * PIC_H + 6 + G + underH + reach;
         const ok = cellW >= minW && rowsShown >= Math.min(3, c.rows) && under <= 10 * cellW + 0.5;
         const spare = W - G - p.w - 6 - 10 * cellW;
-        const sideGap = G + (short ? 0 : Math.max(0, Math.min(SIDE_HAND_GAP, Math.floor(spare))));
+        const sideGap = Math.max(G, Math.min(SIDE_HAND_GAP, G + Math.floor(spare)));
         plans.push({
           cells: 'type',
           cellW,
