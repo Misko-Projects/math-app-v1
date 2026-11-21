@@ -169,6 +169,17 @@ describe('chart pictures', () => {
     );
   });
 
+  it('line plots: both ends are whole numbers, so every scale prints numerals', () => {
+    const between = (min: number, max: number, step: number) =>
+      linePlot({ categories: [], lineScale: { min, max, step } });
+    expect(chartOk(between(0, 1, 0.25))).toBe(true);
+    expect(chartOk(between(3, 7, 0.5))).toBe(true);
+    expect(chartPaths(between(0.5, 0.75, 0.25))).toEqual(['chart.lineScale']);
+    expect(chartPaths(between(0.5, 3.5, 0.5))).toEqual(['chart.lineScale']);
+    expect(chartPaths(between(0, 2.5, 0.5))).toEqual(['chart.lineScale']);
+    expect(chartPaths(between(1.5, 3, 0.5))).toEqual(['chart.lineScale']);
+  });
+
   it('line plots: at most CHART_LINE_POSITIONS_MAX positions, categories on them', () => {
     expect(CHART_LINE_POSITIONS_MAX).toBe(25);
     const at = (max: number) => linePlot({ lineScale: { min: 0, max, step: 1 }, categories: [] });

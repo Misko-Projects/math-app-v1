@@ -1,12 +1,12 @@
 // One scale within a screen: compare and order refuse fraction and chart pictures that could not
 // be drawn to one scale (formats/pictures.ts), and accept the K01 part 7 payloads (DAT.02.t4,
 // FRA.08.t1–t3).
-import type { ChartSpec, StimulusSpec } from '@number-island/shared';
+import { type ChartSpec, compareConfigSchema, type StimulusSpec } from '@number-island/shared';
 import { describe, expect, it } from 'vitest';
 import { z } from 'zod';
 import { compare } from './compare';
 import { order } from './order';
-import { sharedScaleIssues } from './pictures';
+import { CHART_COMPARE_ASKS, misplacedCharts, sharedScaleIssues } from './pictures';
 
 const fraction = (shape: 'circle' | 'rect' | 'bar' | 'loaf', parts: number): StimulusSpec => ({
   kind: 'fraction',
@@ -90,10 +90,15 @@ describe('compare: pictures on one scale', () => {
     ).toEqual([]);
   });
 
-  it('a picture beside another kind has no scale to share', () => {
+  it('a fraction picture beside another kind has no scale to share', () => {
     const numeral: StimulusSpec = { kind: 'expression', expr: { tokens: [{ t: 'num', v: 4 }] } };
-    expect(comparePaths(bar('fish', 4), numeral)).toEqual([]);
     expect(comparePaths(fraction('bar', 4), numeral)).toEqual([]);
+  });
+
+  it('bars that differ only in unused lineScale metadata are on one scale', () => {
+    const lineScale = { min: 0, max: 4, step: 1 };
+    expect(comparePaths(bar('fish', 4), bar('crab', 2, { lineScale }))).toEqual([]);
+    expect(comparePaths(bar('fish', 4, { lineScale }), bar('crab', 2))).toEqual([]);
   });
 
   it('each side keeps its own supported ranges (the contract)', () => {
@@ -102,6 +107,98 @@ describe('compare: pictures on one scale', () => {
       'left.chart.axisMax',
       'right.chart.axisMax',
     ]);
+  });
+});
+
+describe('compare: where a chart may sit (numerals stay 32 px)', () => {
+  const config = (left: StimulusSpec, right: StimulusSpec, ask: string) => {
+    const r = compare.configSchema.safeParse({
+      format: 'compare',
+      left,
+      right,
+      ask,
+      allowMatchLines: false,
+    });
+    return r.success ? [] : r.error.issues.map((i) => i.path.join('.'));
+  };
+  const numeral: StimulusSpec = { kind: 'expression', expr: { tokens: [{ t: 'num', v: 4 }] } };
+
+  it('chart sides take the side-pick asks, more and fewer', () => {
+    expect(CHART_COMPARE_ASKS).toEqual(['more', 'fewer']);
+    for (const ask of CHART_COMPARE_ASKS) {
+      expect(config(bar('fish', 4), bar('crab', 2), ask)).toEqual([]);
+    }
+  });
+
+  it.each(['symbol', 'same-or-not', 'true-false', 'longer', 'heavier'])(
+    'chart sides refuse the %s ask (its answer row leaves a chart too little height)',
+    (ask) => {
+      expect(config(bar('fish', 4), bar('crab', 2), ask)).toEqual(['ask']);
+    },
+  );
+
+  it('every ask of the format is either a chart ask or refused for charts', () => {
+    const asks = compareConfigSchema.shape.ask.options;
+    expect(asks.length).toBeGreaterThan(CHART_COMPARE_ASKS.length);
+    for (const ask of asks) {
+      const refused = config(bar('fish', 4), bar('crab', 2), ask).includes('ask');
+      expect(refused, ask).toBe(!CHART_COMPARE_ASKS.includes(ask));
+    }
+  });
+
+  it('a chart is compared with a chart, never with another kind of picture', () => {
+    expect(config(bar('fish', 4), numeral, 'more')).toEqual(['right']);
+    expect(config(numeral, bar('fish', 4), 'fewer')).toEqual(['left']);
+    const blocks: StimulusSpec = { kind: 'base-ten', hundreds: 9, tens: 9, ones: 9 };
+    expect(config(blocks, bar('fish', 4), 'more')).toEqual(['left']);
+    expect(config(bar('fish', 4), { kind: 'none' }, 'true-false')).toEqual(['ask', 'right']);
+  });
+
+  it('sides without charts are unaffected', () => {
+    expect(config(numeral, numeral, 'symbol')).toEqual([]);
+    expect(config(fraction('bar', 2), fraction('bar', 4), 'more')).toEqual([]);
+  });
+});
+
+describe('misplacedCharts: a chart stimulus sits only on a compare side', () => {
+  const chart = bar('fish', 4);
+  it('compare sides are the one place', () => {
+    expect(
+      misplacedCharts({
+        widget: { format: 'compare', left: chart, right: chart, ask: 'more' },
+        hints: [],
+      }),
+    ).toEqual([]);
+  });
+
+  it('any other format, an order card and a hint overlay are reported with their paths', () => {
+    expect(misplacedCharts({ widget: { format: 'number-pad', stimulus: chart } })).toEqual([
+      'widget.stimulus',
+    ]);
+    expect(misplacedCharts({ widget: { format: 'numeral-pick', stimulus: chart } })).toEqual([
+      'widget.stimulus',
+    ]);
+    expect(
+      misplacedCharts({
+        widget: { format: 'order', items: [{ id: 'a', value: 1, stimulus: chart }] },
+      }),
+    ).toEqual(['widget.items.0.stimulus']);
+    expect(
+      misplacedCharts({
+        widget: { format: 'compare', left: chart, right: chart, ask: 'more' },
+        hints: [{ level: 3, kind: 'representation', say: 'h.x', overlay: chart }],
+      }),
+    ).toEqual(['hints.0.overlay']);
+    // Only a side itself: a chart nested deeper in a compare config is not a side.
+    expect(
+      misplacedCharts({ widget: { format: 'compare', left: { nested: chart }, right: chart } }),
+    ).toEqual(['widget.left.nested']);
+  });
+
+  it('the bar-graph formats hold a ChartSpec, not a chart stimulus, and are left alone', () => {
+    const spec = chart.kind === 'chart' ? chart.chart : null;
+    expect(misplacedCharts({ widget: { format: 'bar-graph-read', chart: spec } })).toEqual([]);
+    expect(misplacedCharts({ widget: { format: 'tap-count', set: { count: 3 } } })).toEqual([]);
   });
 });
 

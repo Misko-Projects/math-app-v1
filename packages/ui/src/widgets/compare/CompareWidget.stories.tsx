@@ -2032,3 +2032,35 @@ export const BarChartsWidestKMin: Story = {
     noteMeasure(canvasElement, 'numeral', Math.min(...m.map((c) => c.numeral)));
   },
 };
+
+/** The same widest charts with the other chart ask (`fewer`): the layout and the sizes hold. */
+export const BarChartsWidestFewerKMin: Story = {
+  globals: { ageMode: 'k' },
+  args: { config: { ...barChartsWidest, ask: 'fewer' }, tier: 'pictorial' },
+  render: inArea('landscapeMin'),
+  play: async ({ canvasElement }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    await expectPictureSides(canvasElement, root, 'chart', 'k');
+    const m = await expectBarCharts(root);
+    await expectOneScale(
+      m.map((c) => c.unit),
+      'px per count',
+    );
+  },
+};
+
+/** The widest charts in the portrait area (K): the sides stack or sit side by side, numerals 32 px. */
+export const BarChartsWidestKPortrait: Story = {
+  globals: { ageMode: 'k' },
+  args: { config: barChartsWidest, tier: 'pictorial' },
+  render: inArea('portrait'),
+  play: async ({ canvasElement }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    await expectPictureSides(canvasElement, root, 'chart', 'k');
+    const m = await expectBarCharts(root);
+    await expectOneScale(
+      m.map((c) => c.unit),
+      'px per count',
+    );
+  },
+};

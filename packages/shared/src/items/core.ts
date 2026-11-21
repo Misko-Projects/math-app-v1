@@ -529,6 +529,11 @@ export function chartIssues(chart: ChartSpec, ctx: z.RefinementCtx, path: (strin
       add(['lineScale'], 'max must be above min');
       return;
     }
+    // The ends are whole numbers, so every scale prints numerals (only whole-number positions
+    // are labelled) and a reader can always tell which position an X stands on.
+    if (!Number.isInteger(ls.min) || !Number.isInteger(ls.max)) {
+      add(['lineScale'], 'a line plot runs between two whole numbers');
+    }
     const steps = chartTidy((ls.max - ls.min) / ls.step);
     if (!Number.isInteger(steps)) add(['lineScale'], 'max − min is not a whole number of steps');
     if (steps + 1 > CHART_LINE_POSITIONS_MAX) {

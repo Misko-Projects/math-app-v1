@@ -12,7 +12,7 @@ import {
   type StimulusSpec,
   type WidgetConfigOf,
 } from '@number-island/shared';
-import { sharedScaleIssues } from './pictures';
+import { compareChartIssues, sharedScaleIssues } from './pictures';
 import {
   argNumber,
   argString,
@@ -144,6 +144,7 @@ const configSchema = compareConfigSchema.superRefine((c, ctx) => {
     });
   }
   sharedScaleIssues([c.left, c.right], ctx, [['left'], ['right']]);
+  compareChartIssues(c, ctx);
   if (c.ask === 'symbol') {
     for (const side of ['left', 'right'] as const) {
       if (hasRelationOrBlank(c[side])) {

@@ -6,9 +6,87 @@
 import { type ChartSpec, chartAxisTop, type StimulusSpec } from '@number-island/shared';
 import type { z } from 'zod';
 
-/** A line plot's own scale (its positions), as one comparable value; '' for the other kinds. */
+/**
+ * A line plot's own scale (its positions), as one comparable value; '' for the other kinds,
+ * which do not draw from `lineScale` even when a chart carries one.
+ */
 const lineScaleKey = (c: ChartSpec): string =>
-  c.lineScale ? `${c.lineScale.min}:${c.lineScale.max}:${c.lineScale.step}` : '';
+  c.kind === 'line-plot' && c.lineScale
+    ? `${c.lineScale.min}:${c.lineScale.max}:${c.lineScale.step}`
+    : '';
+
+/**
+ * The compare asks whose sides may be charts: the side picks, where the answer control fits
+ * beside the sides and each side keeps the height a chart needs for 32 px numerals (05 §11),
+ * down to the smallest widget area in K mode. Every other ask puts its answer row under the
+ * sides, which leaves a chart too little height.
+ */
+export const CHART_COMPARE_ASKS: readonly string[] = ['more', 'fewer'];
+
+/**
+ * Where a `chart` stimulus may sit (compare's config schema applies it). A chart keeps its
+ * numerals at 32 px only where the layout gives it its own box at full size, so:
+ * - the ask is one of `CHART_COMPARE_ASKS`;
+ * - both sides are charts (a fitted picture beside it, such as base-ten blocks, would share its
+ *   smaller scale with the chart).
+ */
+export function compareChartIssues(
+  c: { left: StimulusSpec; right: StimulusSpec; ask: string },
+  ctx: z.RefinementCtx,
+): void {
+  const sides = ['left', 'right'] as const;
+  if (!sides.some((s) => c[s].kind === 'chart')) return;
+  if (!CHART_COMPARE_ASKS.includes(c.ask)) {
+    ctx.addIssue({
+      code: 'custom',
+      path: ['ask'],
+      message: `chart sides are compared with ${CHART_COMPARE_ASKS.join(' or ')} (the side picks)`,
+    });
+  }
+  for (const s of sides) {
+    if (c[s].kind !== 'chart') {
+      ctx.addIssue({
+        code: 'custom',
+        path: [s],
+        message: 'a chart is compared with a chart: both sides are charts',
+      });
+    }
+  }
+}
+
+/**
+ * The places in an item that hold a `chart` stimulus where none may be: anything but a side of a
+ * `compare` widget (whose own schema then bounds it). No other format's layout is proven to keep
+ * a chart's numerals at 32 px, so a generated item with a chart elsewhere (another format's
+ * stimulus, an order card, a hint overlay) fails content-check. Returns the paths found.
+ */
+export function misplacedCharts(item: { widget: unknown; hints?: unknown }): string[] {
+  const found: string[] = [];
+  const walk = (v: unknown, path: string, allowed: boolean) => {
+    if (Array.isArray(v)) {
+      v.forEach((x, i) => {
+        walk(x, `${path}.${i}`, false);
+      });
+      return;
+    }
+    if (typeof v !== 'object' || v === null) return;
+    const o = v as Record<string, unknown>;
+    if (o.kind === 'chart' && typeof o.chart === 'object' && o.chart !== null) {
+      if (!allowed) found.push(path);
+      return;
+    }
+    for (const [k, x] of Object.entries(o)) walk(x, `${path}.${k}`, false);
+  };
+  const w = item.widget as Record<string, unknown> | null;
+  if (typeof w === 'object' && w !== null) {
+    const compare = w.format === 'compare';
+    for (const [k, x] of Object.entries(w)) {
+      walk(x, `widget.${k}`, compare && (k === 'left' || k === 'right'));
+    }
+  }
+  walk(item.hints, 'hints', false);
+  return found;
+}
 
 /**
  * Pictures shown together agree on what one unit is:

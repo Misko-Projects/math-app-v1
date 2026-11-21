@@ -419,12 +419,14 @@ describe('line plot labels', () => {
     expect(labelled(2, 6, 1)).toEqual([2, 3, 4, 5, 6]);
   });
 
-  it('every line plot scale prints at least one numeral, and labels stay 48 px apart', () => {
+  it('every line plot scale the schema allows prints a numeral at each end region', () => {
+    // The contract (chartSpecSchema): both ends are whole numbers. Then the first position is
+    // always labelled, whatever the step, length and width, and labels stay 48 px apart.
     for (const step of [1, 0.5, 0.25]) {
-      for (const min of [0, 0.25, 0.5, 0.75, 1, 7.5]) {
-        if (!Number.isInteger(min / step)) continue;
-        for (const spans of [1, 2, 3, 6, 24]) {
-          const max = min + spans * step;
+      for (const min of [0, 1, 7]) {
+        for (const wholes of [1, 2, 3, 6]) {
+          const max = min + wholes;
+          if ((max - min) / step + 1 > 25) continue;
           for (const width of [160, 400, 900]) {
             const g = chartGeometry(
               chart({
@@ -436,16 +438,14 @@ describe('line plot labels', () => {
               { width, height: 300 },
             );
             const marks = g.ticks.filter((t) => t.labelled);
-            const wholes = g.ticks.filter((t) => Number.isInteger(t.value));
-            // A scale with a whole number on it labels one (0.25–0.75 has none to label).
-            expect(marks.length > 0, `${min}-${max} by ${step} at ${width}`).toBe(
-              wholes.length > 0,
-            );
-            for (let i = 1; i < marks.length; i += 1) {
-              expect(
-                (marks[i] as (typeof marks)[number]).pos -
-                  (marks[i - 1] as (typeof marks)[number]).pos,
-              ).toBeGreaterThanOrEqual(48 - 1e-6);
+            const what = `${min}-${max} by ${step} at ${width}`;
+            expect(marks.length, what).toBeGreaterThan(0);
+            expect(marks[0]?.value, what).toBe(min);
+            for (let k = 1; k < marks.length; k += 1) {
+              const gap =
+                (marks[k] as (typeof marks)[number]).pos -
+                (marks[k - 1] as (typeof marks)[number]).pos;
+              expect(gap, what).toBeGreaterThanOrEqual(48 - 1e-6);
             }
           }
         }
