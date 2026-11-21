@@ -900,6 +900,9 @@ export const ReadTapTick: Story = {
   args: { config: { ...ruler, input: 'tap-tick' }, tier: 'pictorial' },
   play: async ({ canvasElement, args }) => {
     const root = await findWidget(canvasElement, ROOT);
+    // Single marks are far smaller than a finger: the whole ruler is the target, and a tap goes
+    // to the nearest mark.
+    await expectTargetSize(within(root).getByRole('slider', { name: 'Ruler' }), 'g1-up');
     const t6 = (
       root.querySelector('.ni-ruler__tick[data-tick="6"]') as SVGElement
     ).getBoundingClientRect();
@@ -931,6 +934,8 @@ export const SlideRuler: Story = {
   play: async ({ canvasElement }) => {
     const root = await findWidget(canvasElement, ROOT);
     const r = within(root).getByRole('slider', { name: 'Ruler' });
+    // The ruler is what the child drags (and, with tap-tick, taps): a full target.
+    await expectTargetSize(r, 'g1-up');
     const tick = (v: number) =>
       (
         root.querySelector(`.ni-ruler__tick[data-tick="${v}"]`) as SVGElement
