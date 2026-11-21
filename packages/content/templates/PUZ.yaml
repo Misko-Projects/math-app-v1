@@ -1,7 +1,94 @@
-# K01 (#11) PUZ templates. PUZ.03 uses geo.compose: a pattern-block design with no guide lines, and
+# K01 (#11) PUZ templates. PUZ.01 and PUZ.02 use puzzle.grid: a number path counting up by one, a
+# piece cut out of the hundred chart, and sum triangles (every side adds up to one number). PUZ.03
+# uses geo.compose: a pattern-block design with no guide lines, and
 # a puzzle-grid shape-fill (cover a grid outline with the listed squares and rectangles).
 strand: PUZ
 templates:
+  - id: PUZ.01.t1
+    skillId: PUZ.01
+    format: puzzle-grid
+    tier: pictorial
+    representation: number-path
+    generator: puzzle.grid
+    params:
+      variant: number-path
+      rows: { int: [2, 3] }
+      cols: { int: [3, 4] }
+      start: { int: [1, 80] }
+      blanks: { int: [3, 5] }
+    difficulty: { base: -1.05 }
+    narration:
+      prompt: tp.PUZ.01.t1.prompt
+      hints: [h.puzzle.path-given, h.puzzle.path-step]
+
+  - id: PUZ.01.t2
+    skillId: PUZ.01
+    format: hundred-chart
+    tier: pictorial
+    representation: hundred-chart
+    generator: puzzle.grid
+    params:
+      variant: number-path
+      piece: { choice: [bar, column, corner, square, tee, plus] }
+      at: { int: [11, 88] }
+    difficulty: { base: -0.75 }
+    narration:
+      prompt: tp.PUZ.01.t2.prompt
+      hints: [h.puzzle.chart-next, h.puzzle.chart-down]
+
+  - id: PUZ.02.t1
+    skillId: PUZ.02
+    format: puzzle-grid
+    tier: pictorial
+    representation: number-bond
+    generator: puzzle.grid
+    params:
+      variant: sum-triangle
+      a: { int: [1, 5] }
+      b: { int: [1, 5] }
+      c: { int: [1, 5] }
+      sum: { int: [7, 12] }
+      blankSet: { choice: [two-middles, middles, corner-middle] }
+    difficulty: { base: -1.15 }
+    narration:
+      prompt: p.puzzle.sum-triangle
+      hints: [h.puzzle.side-one, h.puzzle.side-add, h.puzzle.corner-two]
+
+  - id: PUZ.02.t2
+    skillId: PUZ.02
+    format: number-bond
+    tier: pictorial
+    representation: number-bond
+    generator: puzzle.grid
+    params:
+      variant: sum-triangle
+      a: { int: [1, 5] }
+      b: { int: [1, 5] }
+      c: { int: [1, 5] }
+      sum: { int: [7, 12] }
+    difficulty: { base: -1.1 }
+    narration:
+      prompt: tp.PUZ.02.t2.prompt
+      hints: [h.puzzle.bond-corners, h.puzzle.bond-middle]
+
+  - id: PUZ.02.t3
+    skillId: PUZ.02
+    format: puzzle-grid
+    tier: abstract
+    representation: symbols
+    generator: puzzle.grid
+    params:
+      variant: sum-triangle
+      a: { int: [1, 6] }
+      b: { int: [1, 6] }
+      c: { int: [1, 6] }
+      sum: { int: [9, 15] }
+      blankSet: { choice: [middles, corner-middle, chain] }
+    difficulty: { base: -1.45 }
+    narration:
+      prompt: p.puzzle.sum-triangle
+      hints: [h.puzzle.side-one, h.puzzle.side-add, h.puzzle.corner-two]
+
   - id: PUZ.03.t1
     skillId: PUZ.03
     format: shape-compose

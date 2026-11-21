@@ -37,6 +37,7 @@ balance
 ball
 balloon
 balls
+bar
 basket
 baskets
 be
@@ -156,6 +157,7 @@ cube
 cubes
 cup
 curved
+cut
 cylinder
 cylinders
 dance
@@ -209,6 +211,7 @@ eyes
 fact
 factory
 facts
+fair
 false
 farm
 farmer
@@ -286,6 +289,7 @@ going
 good
 goodbye
 got
+graph
 grass
 great
 greater
@@ -294,7 +298,9 @@ ground
 group
 groups
 grove
+grow
 grown
+grows
 guess
 had
 half
@@ -418,6 +424,7 @@ man
 many
 mark
 market
+marks
 match
 may
 me
@@ -428,6 +435,8 @@ men
 middle
 milk
 minus
+minute
+minutes
 missing
 money
 more
@@ -484,7 +493,10 @@ partner
 partners
 parts
 party
+past
 path
+pattern
+patterns
 pebble
 pebbles
 pebbling
@@ -529,6 +541,8 @@ rectangle
 rectangles
 red
 reef
+repeat
+repeats
 resting
 rhythm
 ribbon
@@ -582,6 +596,7 @@ seventh
 seventy
 shape
 shapes
+share
 she
 sheep
 shell
@@ -642,6 +657,9 @@ story
 straight
 street
 string
+strip
+strips
+sum
 sun
 super
 table
@@ -651,6 +669,7 @@ taking
 tall
 taller
 tallest
+tally
 tap
 teen
 tell
@@ -712,6 +731,7 @@ true
 try
 trying
 turn
+turn-around
 turned
 turning
 turtle

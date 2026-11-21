@@ -1742,6 +1742,39 @@ export const DailyEventsKMinLandscape: Story = {
   },
 };
 
+/** FRA.08.t4's cards: each shows a part count and sorts by its piece size (24 ÷ parts). */
+const partCounts: Config = {
+  format: 'order',
+  items: [
+    { id: 'item-0', value: 12, label: '2' },
+    { id: 'item-1', value: 3, label: '8' },
+    { id: 'item-2', value: 6, label: '4' },
+  ],
+  direction: 'desc',
+};
+
+/**
+ * A numeral card speaks the numeral it shows, not the value it sorts by (06 §5): the card showing
+ * 2 says "two", never "twelve". The row is still ordered and reported by value.
+ */
+export const NumeralCardSpeaksWhatItShows: Story = {
+  globals: { ageMode: 'k' },
+  parameters: { ui: { audio: spyAudio() } },
+  args: { config: partCounts, tier: 'abstract' },
+  play: async ({ canvasElement, parameters }) => {
+    const audio = parameters.ui.audio as ReturnType<typeof spyAudio>;
+    const root = await findWidget(canvasElement, ROOT);
+    clearSpies(audio);
+    await userEvent.click(card(root, '2'));
+    await expect(audio.sayPhrases).toHaveBeenLastCalledWith([{ number: 2 }]);
+    await userEvent.click(card(root, '8'));
+    await expect(audio.sayPhrases).toHaveBeenLastCalledWith([{ number: 8 }]);
+    await expect(audio.sayPhrases).not.toHaveBeenCalledWith([{ number: 12 }]);
+    await expect(audio.sayPhrases).not.toHaveBeenCalledWith([{ number: 3 }]);
+    (document.activeElement as HTMLElement | null)?.blur();
+  },
+};
+
 // ---------- fraction pictures (U05, #14). An order card never shows a chart: the order model
 // refuses one, because a card cannot keep a chart's numerals at 32 px. ----------
 

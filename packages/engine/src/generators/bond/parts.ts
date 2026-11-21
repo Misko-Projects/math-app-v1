@@ -2,6 +2,8 @@
 // (any two parts), or new-way (a split not found yet; `found` ways are shown as already found).
 // Derived: `other` = whole − part. With `addend` (CPS.11, split to finish a ten), the whole is the
 // second addend and the part is what the addend needs to make ten (8 + 5: give 2, keep 3).
+// With `gap` (CPS.06, all the ways), a new-way item shows every way but one as found, in order
+// 1 + (n − 1), 2 + (n − 2), …; the missing way is the one whose smaller part is `gap`.
 // Formats: number-bond, tenframe-fill, rekenrek, number-pad, number-line-jump, make-set, and (part
 // unknown, CPS.09 tens partners of 100) base-ten-build and hundred-chart: the known part is built
 // on the mat and the child adds pieces until the mat is worth the whole (`baseten.value`), or taps
@@ -74,6 +76,23 @@ export function knownWays(whole: number, count: number): [number, number][] {
 }
 
 /**
+ * CPS.06 (all the ways): every way to split `whole` into two non-zero parts, turn-arounds once,
+ * in order (1 and whole − 1 first), except the one whose smaller part is `gap`.
+ */
+export function gapWays(whole: number, gap: number): [number, number][] {
+  const out: [number, number][] = [];
+  for (let a = 1; a <= Math.floor(whole / 2); a += 1) if (a !== gap) out.push([a, whole - a]);
+  return out;
+}
+
+/** The ways a new-way item shows as found: the `gap` list, or the `found` first ways. */
+export function shownWays(whole: number, p: ParamValues): [number, number][] {
+  if (p.unknown !== 'new-way') return [];
+  const gap = asNum(p.gap);
+  return gap > 0 ? gapWays(whole, gap) : knownWays(whole, asNum(p.found));
+}
+
+/**
  * The split a demo shows that is not already found and fits the widget (`cap` per part: ten cells
  * in a frame, ten beads on a row, five fingers on a hand): the most even one available. Null when
  * none is left.
@@ -133,6 +152,11 @@ export const bondParts: GeneratorDef = {
       default: { kind: 'const', value: 0 },
       doc: 'new-way: how many ways are shown as already found (knownWays order: ten and the rest first)',
     },
+    gap: {
+      type: 'int',
+      default: { kind: 'const', value: 0 },
+      doc: 'new-way, all the ways (CPS.06): every way but the one whose smaller part is gap is shown found, in order (0: off; then `found` is 0)',
+    },
     addend: {
       type: 'int',
       default: { kind: 'const', value: 0 },
@@ -181,15 +205,18 @@ export const bondParts: GeneratorDef = {
     const whole = asNum(p.whole);
     const addend = asNum(p.addend);
     const found = asNum(p.found);
+    const gap = asNum(p.gap);
     if (found < 0 || (found > 0 && p.unknown !== 'new-way')) return false;
+    if (gap < 0 || (gap > 0 && (p.unknown !== 'new-way' || found > 0))) return false;
+    if (gap > 0 && (whole < 4 || gap > Math.floor(whole / 2) || addend !== 0)) return false;
     const split = p.unknown === 'split' || p.unknown === 'new-way';
     if (split) {
       if (whole < 2 || addend !== 0) return false;
       if (p.unknown === 'split') return true;
       // A new way must be left that the widget can show.
-      const ways = knownWays(whole, found);
+      const ways = shownWays(whole, p);
       return (
-        ways.length === found &&
+        (gap > 0 || ways.length === found) &&
         freshSplit(whole, ways, partCap(t.format, t.representation)) !== null
       );
     }
@@ -222,7 +249,7 @@ export const bondParts: GeneratorDef = {
     const addend = asNum(params.addend);
     const isSplit = unknown === 'split' || unknown === 'new-way';
     if (!isSplit && (part < 0 || other < 0)) throw new RangeError('bond.parts: part exceeds whole');
-    const found = unknown === 'new-way' ? knownWays(whole, asNum(params.found)) : [];
+    const found = shownWays(whole, params);
     // Feature values depend on the params only (the learner rebuilds them from params and seed).
     const math: Record<string, number> = {
       zeroPart: !isSplit && (part === 0 || other === 0) ? 1 : 0,
@@ -866,7 +893,7 @@ function chartColumn(part: number, scale: number): WidgetAction {
 function splitShown(out: GeneratorOutput): [number, number] {
   const scale = out.params.tensOnly === true ? 10 : 1;
   const whole = asNum(out.params.whole) * scale;
-  const found = out.params.unknown === 'new-way' ? knownWays(whole, asNum(out.params.found)) : [];
+  const found = shownWays(whole, out.params);
   const w = out.widget;
   const cap =
     w.format === 'tenframe-fill' || w.format === 'rekenrek'

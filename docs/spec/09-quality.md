@@ -28,9 +28,10 @@
 - Triggers: `ci.yml` runs on `pull_request`, `push` to `main`, `merge_group` and manual dispatch. The `nightly` job lives in its own `nightly.yml`, triggered only by a nightly `schedule:` (cron) and manual dispatch (`gh workflow run nightly.yml --ref <branch>`), so it never reports a check on pull requests.
 - **Required jobs** (stable check names; PRs merge only when all three pass):
   - `verify`: checkout → pnpm setup with cache → `pnpm i --frozen-lockfile` → `pnpm verify`. This includes the component, story-play and axe tests (they run inside `pnpm test` via Vitest + Storybook's test runner integration).
-  - `e2e` (needs `verify`): install Playwright Chromium → `pnpm e2e` → upload the report and failure traces as artifacts.
+  - `e2e` (needs `verify` and `sim`): install Playwright Chromium → `pnpm e2e` → upload the report and failure traces as artifacts.
   - `bundle-size`: build, then assert the 02 §6 JS budgets (fails on regression). Time to interactive is **reported, not enforced**.
 - **Non-required jobs:**
+  - `sim`: `pnpm test:sim` (04 §8) on the content as it is, in a job of its own next to `verify`, each with a 15-minute limit (K01, 2026-11-20: with the full K–1 catalog the two no longer fit one job on a slow runner). It is not a required check by name, but `e2e` needs it. GitHub counts a skipped job as a passing required check, so `e2e` always runs and its first step fails unless `verify` and `sim` both succeeded: a failed or timed-out simulator makes the required `e2e` check fail.
   - `visual`: Storybook visual snapshots compared in the **pinned Playwright Docker image** (`mcr.microsoft.com/playwright:<pinned version>`). Baselines are generated only in that image (`pnpm visual:update` runs it in Docker locally) to avoid OS/font drift.
   - `nightly` (`nightly.yml`, schedule and manual dispatch only): `pnpm test:sim` on the full graph, property tests with `CONTENT_PROPERTY_N=500`, and a WebKit E2E smoke test.
 - No secrets in CI. Provider calls are mocked. Missing narration clips fall back to Web Speech (stubbed in tests). No model downloads (Kokoro) in CI.

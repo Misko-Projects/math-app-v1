@@ -9,11 +9,16 @@ import { basetenExact } from './baseten.exact';
 import { basetenValue } from './baseten.value';
 import { bondNewWay } from './bond.newWay';
 import { bondSplit } from './bond.split';
+import { chartValues } from './chart.values';
+import { clockTime } from './clock.time';
 import { composeFill } from './compose.fill';
 import { composeRelative } from './compose.relative';
+import { fractionCut } from './fraction.cut';
+import { fractionPartition } from './fraction.partition';
 import { gridPolygon } from './grid.polygon';
 import { groupsEqual } from './groups.equal';
 import { jumpsReach } from './jumps.reach';
+import { patternTokens } from './pattern.tokens';
 import { puzzleSatisfies } from './puzzle.satisfies';
 import { rekenrekTotal } from './rekenrek.total';
 import { selectExactSet } from './select.exactSet';
@@ -45,6 +50,11 @@ const CHECKERS: Partial<Record<StateCheckerId, StateChecker>> = {
   'grid.polygon': gridPolygon,
   'puzzle.satisfies': puzzleSatisfies,
   'units.iterate': unitsIterate,
+  'chart.values': chartValues, // K01 data (bar-graph-build)
+  'clock.time': clockTime, // K01 time (clock-set)
+  'fraction.cut': fractionCut, // K01 fractions (fraction-cut)
+  'fraction.partition': fractionPartition, // K01 fractions (fraction-line partition)
+  'pattern.tokens': patternTokens, // K01 patterns (pattern-extend extend, fill)
   // U04 (#13)
   'baseten.value': basetenValue,
   'baseten.exact': basetenExact,

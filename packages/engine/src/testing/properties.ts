@@ -120,6 +120,15 @@ export function answerNumbers(item: GeneratedItem): number[] {
       }
       const out = (keys[a.checker] ?? []).map((k) => t[k]);
       if (a.checker === 'select.exactSet' && Array.isArray(t.values)) out.push(...t.values);
+      // K01: the counts a chart must show, and the numbers a number pattern continues with. A
+      // clock's target time and a cut's number of parts are givens the prompt names.
+      if (a.checker === 'chart.values' && Array.isArray(t.values)) out.push(...t.values);
+      if (a.checker === 'pattern.tokens' && Array.isArray(t.expected)) {
+        for (const tok of t.expected as unknown[]) {
+          const n = (tok as { n?: unknown } | null)?.n;
+          if (typeof n === 'number') out.push(n);
+        }
+      }
       return [...new Set(out.filter((v): v is number => typeof v === 'number'))];
     }
   }
@@ -348,6 +357,106 @@ function stateMutation(original: StateValue): fc.Arbitrary<StateValue> {
       }),
     );
   }
+  if (Array.isArray(original.values) && original.values.length > 0) {
+    // K01 data: one count one more or one less (chart.values bars, pictures or tally marks). On a
+    // select.exactSet `{ values }` item this selects another cell, which the checker rejects too.
+    const values = original.values as number[];
+    options.push(
+      fc.tuple(fc.nat({ max: values.length - 1 }), fc.constantFrom(1, -1)).map(([i, d]) => {
+        const s = clone();
+        (s.values as number[])[i] = (values[i] as number) + d;
+        return s;
+      }),
+    );
+  }
+  if (typeof original.h === 'number' && typeof original.m === 'number') {
+    // K01 time (clock.time `{ h, m }`): a hand moved one step, the short hand one hour or the
+    // long hand five minutes either way.
+    options.push(
+      fc.tuple(fc.constantFrom('h', 'm'), fc.constantFrom(1, -1)).map(([hand, d]) => {
+        const s = clone();
+        s[hand] = (original[hand] as number) + (hand === 'h' ? d : 5 * d);
+        return s;
+      }),
+    );
+  }
+  if (Array.isArray(original.regions) && original.regions.length > 1) {
+    // K01 fractions (fraction.cut `{ regions, shaded }`): a cut moved so a tenth of the whole goes
+    // from one region to the next, a region merged into its neighbour, or one part more or less
+    // shaded (fraction.cut exempts shading a different part).
+    const regions = original.regions as number[];
+    const shaded = Array.isArray(original.shaded) ? (original.shaded as number[]) : [];
+    options.push(
+      fc.constantFrom('move', 'merge', 'shade', 'unshade').map((op) => {
+        const s = clone();
+        const r = s.regions as number[];
+        if (op === 'move') {
+          r[0] = (regions[0] as number) + 0.1;
+          r[1] = (regions[1] as number) - 0.1;
+        } else if (op === 'merge') {
+          s.regions = [(regions[0] as number) + (regions[1] as number), ...regions.slice(2)];
+          s.shaded = shaded.filter((i) => i < regions.length - 1);
+        } else if (op === 'shade') {
+          const free = regions.findIndex((_, i) => !shaded.includes(i));
+          s.shaded = free >= 0 ? [...shaded, free] : shaded.slice(1);
+        } else {
+          s.shaded = shaded.length > 0 ? shaded.slice(1) : [0];
+        }
+        return s;
+      }),
+    );
+  }
+  if (Array.isArray(original.cuts) && original.cuts.length > 0) {
+    // K01 fractions (fraction.partition `{ cuts }`): one mark moved a tenth of a unit (towards
+    // the middle of the strip), one taken away, or one more at the middle of the first part.
+    const cuts = original.cuts as number[];
+    options.push(
+      fc.constantFrom('move', 'drop', 'add').map((op) => {
+        const s = clone();
+        const c0 = cuts[0] as number;
+        if (op === 'move') (s.cuts as number[])[0] = c0 + (c0 < 0.5 ? 0.1 : -0.1);
+        else if (op === 'drop') s.cuts = cuts.slice(1);
+        else s.cuts = [c0 / 2, ...cuts];
+        return s;
+      }),
+    );
+  }
+  if (Array.isArray(original.fill)) {
+    // K01 puzzles (puzzle.satisfies number variants `{ fill }`): one filled number one more or
+    // one less. Shape-fill grids hold no numbers, so they get no mutation here.
+    const spots = (original.fill as unknown[][]).flatMap((row, r) =>
+      Array.isArray(row) ? row.flatMap((v, c) => (typeof v === 'number' ? [[r, c]] : [])) : [],
+    );
+    if (spots.length > 0) {
+      options.push(
+        fc.tuple(fc.nat({ max: spots.length - 1 }), fc.constantFrom(1, -1)).map(([k, d]) => {
+          const s = clone();
+          const [r, c] = spots[k] as [number, number];
+          const row = (s.fill as number[][])[r] as number[];
+          row[c] = (row[c] as number) + d;
+          return s;
+        }),
+      );
+    }
+  }
+  if (Array.isArray(original.tokens) && original.tokens.length > 0) {
+    // K01 patterns (pattern.tokens `{ tokens }`): the last token taken away, or one token
+    // replaced by its neighbour (a different unit when the two differ).
+    const tokens = original.tokens as unknown[];
+    options.push(
+      fc.nat({ max: tokens.length }).map((i) => {
+        const s = clone();
+        if (i === tokens.length || tokens.length === 1) {
+          s.tokens = tokens.slice(0, -1);
+        } else {
+          const t = [...tokens];
+          t[i] = tokens[(i + 1) % tokens.length];
+          s.tokens = t;
+        }
+        return s;
+      }),
+    );
+  }
   // A widget can never produce a negative count, so such mutations are not near misses.
   return options.length > 0 ? fc.oneof(...options).filter(noNegatives) : fc.constant(original);
 }
@@ -387,6 +496,15 @@ export function choiceOptions(item: GeneratedItem): string[] {
   }
   if (w.format === 'compare-length') return w.objects.map((o) => o.id);
   if (w.format === 'shape-sort' && w.mode === 'odd-one-out') return w.cards.map((c) => c.id);
+  // K01 conventions (engine README): fraction-pick `fair-or-not` answers `yes` | `no` (like
+  // equal-share); its other pick modes, and clock-read `pick`, answer one of their `options`; a
+  // bar-graph-read `most` / `least` question answers a category id of the chart.
+  if (w.format === 'fraction-pick') {
+    if (w.mode === 'fair-or-not') return ['yes', 'no'];
+    return (w.options ?? []).map((o) => o.id);
+  }
+  if (w.format === 'clock-read' && w.input === 'pick') return (w.options ?? []).map((o) => o.id);
+  if (w.format === 'bar-graph-read') return w.chart.categories.map((c) => c.id);
   return [];
 }
 
@@ -401,6 +519,10 @@ function minChoiceOptions(item: GeneratedItem): number {
   if (w.format === 'compare-length') return 2;
   if (w.format === 'compare' && (w.ask === 'true-false' || w.ask === 'same-or-not')) return 2;
   if (w.format === 'balance' && w.mode === 'judge') return 2;
+  // K01: fraction-pick `fair-or-not` is a fixed yes / no pair, and a graph question picks one of
+  // the categories the chart shows (two or three at grade 1).
+  if (w.format === 'fraction-pick' && w.mode === 'fair-or-not') return 2;
+  if (w.format === 'bar-graph-read') return 2;
   return 3;
 }
 

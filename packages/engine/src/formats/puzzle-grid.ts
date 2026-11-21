@@ -99,13 +99,27 @@ const configSchema = puzzleGridConfigSchema.superRefine((c, ctx) => {
         message: 'a line-sum names a cell outside the puzzle',
       });
     }
+    // K01's number path (PUZ.01) counts on cell by cell: `puzzle.satisfies` checks its
+    // adjacent-step constraint (checkNumbers), for that variant only.
+    const stepPath = c.variant === 'number-path' && k.kind === 'adjacent-step';
     if (
-      c.variant === 'shape-fill' ? k.kind !== 'use-each' : !NUMERIC_CONSTRAINTS.includes(k.kind)
+      c.variant === 'shape-fill'
+        ? k.kind !== 'use-each'
+        : !NUMERIC_CONSTRAINTS.includes(k.kind) && !stepPath
     ) {
       ctx.addIssue({
         code: 'custom',
         path: ['constraints', i],
         message: `${k.kind} constraints are not checked for ${c.variant}`,
+      });
+    }
+    // Structurally ungradable: the checker's `stepHolds` takes only whole numbers on a number
+    // path, so a non-whole step can never be met (PR #84 review rounds 6 and 7).
+    if (stepPath && !Number.isInteger(k.step)) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['constraints', i],
+        message: 'a number path steps by a whole number',
       });
     }
     if (c.variant !== 'shape-fill' && k.kind === 'use-each' && !numericUseEachFits(c, k.values)) {
@@ -122,6 +136,24 @@ const configSchema = puzzleGridConfigSchema.superRefine((c, ctx) => {
         path: ['constraints', i],
         message: 'the use-each pieces come from the palette and can tile the outline',
       });
+    }
+  }
+  if (c.variant === 'number-path') {
+    // Structurally ungradable: `stepHolds` takes only whole numbers of 0 or more on a number path
+    // (03 §5.5), and a given is part of every fill, so a non-whole or negative given can never be
+    // graded correct. The palette is not checked: a blank only needs some palette value to fit,
+    // and whether one does is solvability. This schema does not guarantee a correct fill exists;
+    // that is the generator's job, verified by the 500-seed property test that replays every
+    // generated item (PR #84 review rounds 6 and 7).
+    const whole = (v: unknown) => typeof v === 'number' && Number.isInteger(v) && v >= 0;
+    for (const [i, cell] of c.cells.entries()) {
+      if (cell.given !== undefined && !whole(cell.given)) {
+        ctx.addIssue({
+          code: 'custom',
+          path: ['cells', i],
+          message: 'a number path holds whole numbers',
+        });
+      }
     }
   }
   if (c.constraints.filter((k) => k.kind === 'use-each').length > 1) {

@@ -1,6 +1,16 @@
 # PUZ narration (03 §8): skill intros and template prompts owned by the strand.
+sk.PUZ.01.intro:
+  text: "Here is a number path. Fill in the missing numbers!"
+sk.PUZ.02.intro:
+  text: "In a sum triangle, every side makes the same number."
 sk.PUZ.03.intro:
   text: "Here is a shape puzzle. Can you fill the whole outline?"
 
+tp.PUZ.01.t1.prompt:
+  text: "The path counts up by one. Fill in the missing numbers."
+tp.PUZ.01.t2.prompt:
+  text: "A piece of the hundred chart is missing. Fill in its numbers."
+tp.PUZ.02.t2.prompt:
+  text: "One side makes {sum}, and its corners are {a} and {b}. What is the middle number?"
 tp.PUZ.03.t2.prompt:
   text: "Fill the outline with {rects} {rk|shape:rects} and {squares} {sk|shape:squares}."
