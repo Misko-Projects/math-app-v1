@@ -1384,6 +1384,201 @@ gen.estimate.quantity.ends:
 gen.estimate.quantity.drop:
   text: "{n} goes about here."
 
+# ---------- K01 data (DAT.01, DAT.02, DAT.09, DAT.10): hints, data.sort and data.chart steps ----------
+h.data.same-kind:
+  text: "Look at each one. What kind is it?"
+h.data.one-group:
+  text: "Things that are the same go in one group."
+h.data.what-same:
+  text: "Look at the shapes. What is the same about some of them?"
+h.data.find-kind:
+  text: "Look for one kind. Touch each one as you count."
+h.data.count-once:
+  text: "Count each one just once."
+h.data.find-row:
+  text: "Find the right row first. Then count along it."
+h.data.bar-top:
+  text: "Look at the top of each bar. Find the number beside it."
+h.data.bar-tops:
+  text: "Look at the tops of the bars. Compare how tall they are."
+# A graph can show a third bar that is taller or shorter than both, so the line first sends the
+# child to the two bars of the question (PR #84 review, s_d74b2eb5991e). No noun slot: its `many`
+# var is 2, which V17 reads as the answer of a difference of 2.
+h.data.count-up:
+  text: "Find the two bars it asks about. Count up from the shorter to the taller."
+h.data.compare-groups:
+  text: "Count each group. Then compare them."
+h.data.row-lengths:
+  text: "The longest row has the most. The shortest row has the fewest."
+# The number-pad picture graph is a scene whose groups StimulusView wraps, so two groups can share
+# a line: these hints name groups, never rows (PR #84 review round 2).
+h.data.count-all:
+  text: "Count every picture, one group at a time."
+h.data.count-on-groups:
+  text: "Count one group. Then count on with the next group."
+h.data.tally-each:
+  text: "Make one mark for each thing you count."
+h.data.tally-five:
+  text: "Four marks with one line over them make five."
+h.data.count-by-five:
+  text: "Count a bundle of five, then count on by ones."
+h.data.table-read:
+  text: "Find the row for each kind. Look at its number."
+h.data.compare-numbers:
+  text: "Which number is the greatest? Which is the least?"
+h.data.count-each-group:
+  text: "Count each group first."
+h.data.fewest-first:
+  text: "The group with the fewest goes first. The most goes last."
+gen.data.sort.look:
+  text: "Look at what each one is."
+gen.data.sort.put:
+  text: "This one goes in this group."
+gen.data.sort.find:
+  text: "Find just the {kind|noun:many}."
+gen.data.sort.count:
+  text: "Count each group."
+gen.data.sort.is:
+  text: "There are {n}."
+gen.data.sort.compare:
+  text: "Count each group and compare them."
+gen.data.sort.pick:
+  text: "This group!"
+gen.data.sort.order-first:
+  text: "The fewest goes first."
+gen.data.sort.order-then:
+  text: "Then the next one."
+gen.data.chart.find:
+  text: "Look at the graph. Count what it shows."
+gen.data.chart.count:
+  text: "Count the {cat|noun:many}."
+gen.data.chart.is:
+  text: "That makes {n}."
+gen.data.chart.all:
+  text: "In all, there are {n}."
+gen.data.chart.more:
+  text: "That is {n} more."
+gen.data.chart.compare:
+  text: "Look at each count and compare them."
+gen.data.chart.pick:
+  text: "This one!"
+gen.data.chart.mark:
+  text: "Count the {cat|noun:many}. Make one mark for each."
+gen.data.chart.done:
+  text: "Now each count is right."
+
+# ---------- K01 sharing and fractions (MUL.12, FRA.01, FRA.07, FRA.08) ----------
+# Hints name no number from the item. Solution lines before the last never say the answer.
+h.share.one-each:
+  text: "Give one to each friend. Then go round again."
+h.share.same-for-all:
+  text: "Fair is when every friend gets the same."
+h.share.seagull:
+  text: "When they can not go round again, the seagull gets them."
+h.share.count-one:
+  text: "At the end, count what one friend has."
+h.share.look-each:
+  text: "Look at each share. Do they all have the same?"
+h.share.move-one:
+  text: "Move one at a time from the one with more."
+h.frac.same-size:
+  text: "Equal parts are all the same size."
+h.frac.cut-middle:
+  text: "Cut it down the middle first."
+h.frac.fill-one:
+  text: "When all the parts are the same size, fill one part."
+h.frac.look-each:
+  text: "Look at the parts in each picture."
+h.frac.look-parts:
+  text: "Look at each part. Are some parts bigger?"
+h.frac.mark-middle:
+  text: "Find the middle of the strip first."
+h.frac.more-parts:
+  text: "More parts make smaller pieces."
+h.frac.look-one-piece:
+  text: "Look at one piece from each."
+h.frac.order-biggest:
+  text: "Find the biggest pieces. They are cut into the fewest parts."
+
+gen.div.share.deal-round:
+  text: "One for each. Then go round again."
+gen.div.share.seagull:
+  text: "They can not go round again. The seagull gets them."
+gen.div.share.each:
+  text: "Each one gets {each}."
+gen.div.share.look:
+  text: "Look at each share."
+gen.div.share.fair:
+  text: "They all have the same. It is fair."
+gen.div.share.not-fair:
+  text: "One has more. It is not fair."
+gen.div.share.take-back:
+  text: "Take some from the one with more."
+gen.div.share.give:
+  text: "Give them to the one with fewer."
+gen.div.share.in-turn:
+  text: "Give them out one at a time, one to each friend."
+gen.div.share.make-same:
+  text: "Move them one at a time. Stop when both have the same."
+gen.div.share.moves:
+  text: "Move {shift}. Then both have the same."
+gen.frac.partition.cut-middle:
+  text: "Cut it down the middle."
+gen.frac.partition.cut-again:
+  text: "Now cut each half down the middle."
+# A strip into fourths: each half has its own cut line.
+gen.frac.partition.cut-half:
+  text: "Now cut one half down the middle."
+gen.frac.partition.cut-other:
+  text: "Then cut the last half down the middle too."
+gen.frac.partition.cut-same:
+  text: "Cut it so the parts are all the same size."
+gen.frac.partition.shade:
+  text: "Fill one part."
+gen.frac.partition.look-parts:
+  text: "Look at the parts. Are they all the same size?"
+gen.frac.partition.same-size:
+  text: "The parts are all the same size. It is fair."
+gen.frac.partition.not-same:
+  text: "The parts are not the same size. It is not fair."
+gen.frac.partition.look-options:
+  text: "Look at the parts in each picture."
+gen.frac.partition.this-one:
+  text: "This one!"
+gen.frac.partition.find-middle:
+  text: "Find the middle of the strip."
+gen.frac.partition.middle-each:
+  text: "Then find the middle of each half."
+gen.frac.partition.mark-parts:
+  text: "Mark it so all the parts are the same size."
+gen.frac.compare.look:
+  text: "Look at one piece from each."
+gen.frac.compare.bigger:
+  text: "This piece is bigger. Its whole has fewer parts."
+gen.frac.compare.same:
+  text: "Both are cut the same way. The pieces are the same size."
+gen.frac.compare.fewer:
+  text: "Fewer parts make bigger pieces."
+gen.frac.compare.order-first:
+  text: "This one has the biggest pieces. It goes first."
+gen.frac.compare.order-next:
+  text: "This one comes next."
+
+fb.equal-share.retry:
+  text: "Let's look at each share again."
+fb.fraction-cut.retry:
+  text: "Look at the parts. Are they all the same size?"
+fb.fraction-pick.retry:
+  text: "Let's look at the parts again."
+fb.fraction-line.retry:
+  text: "Let's look at the parts of the strip again."
+fb.mc.fraction-unequal-parts:
+  text: "Fair parts are all the same size. Look at each part again."
+fb.mc.fraction-bigger-denominator:
+  text: "More parts make smaller pieces. Think about the size of one piece."
+fb.mc.unequal-share:
+  text: "Give one to each in turn, so each one gets the same."
+
 # ---------- feedback ----------
 fb.correct.1:
   text: "You did it!"
@@ -1435,6 +1630,17 @@ fb.number-pad.retry:
   text: "Let's look again. Then tap the number."
 fb.order.retry:
   text: "Find the smallest one first."
+# order retry lines that fit the item (items/check.ts retryFeedback, PR #84 review)
+fb.order.retry-desc:
+  text: "Find the biggest one first."
+fb.order.retry-pattern:
+  text: "Say the pattern. What comes next?"
+fb.order.retry-day:
+  text: "Think about your day. What comes first?"
+# Fraction pieces: on FRA.08's part-count cards the biggest number is the smallest piece, so "the
+# biggest one" would point the wrong way (PR #84 review round 2).
+fb.order.retry-pieces:
+  text: "Find the biggest pieces first. Fewer parts make bigger pieces."
 fb.tenframe-fill.retry:
   text: "Let's count the frame again. Start at the top."
 fb.number-bond.retry:
@@ -1467,6 +1673,10 @@ fb.puzzle-grid.retry:
   text: "Let's check each piece again."
 fb.number-line-place.retry:
   text: "Look at the numbers on the line. Then try again."
+fb.bar-graph-read.retry:
+  text: "Let's look at the graph again. Count each one."
+fb.bar-graph-build.retry:
+  text: "Let's count each kind again, one by one."
 fb.story-problem.retry:
   text: "Let's listen to the story again. Show it with counters."
 fb.mc.off-by-one-counting:
@@ -1498,6 +1708,167 @@ fb.mc.write-as-spoken:
   text: "A number with tens and ones has two places. The ones go where the zero was."
 fb.mc.perceptual-size:
   text: "Size can trick our eyes. Match them up, one and one."
+
+# ---------- K01 (#11) time: time.clock and time.sequence (TIM.01, TIM.04, TIM.08, TIM.09) ----------
+p.time.set:
+  text: "Make the clock show {time|time}."
+p.time.match-digital:
+  text: "Make the clock match this time."
+p.time.read:
+  text: "What time does the clock show?"
+h.time.short-hand-set:
+  text: "The short hand shows the hour. Turn it to the hour."
+h.time.oclock:
+  text: "At o'clock, the long hand is straight up at the top."
+h.time.turn-hands:
+  text: "Turn the long hand. The short hand moves with it."
+h.time.short-hand:
+  text: "Look at the short hand. It shows the hour."
+h.time.half-past:
+  text: "At half past, the long hand is straight down at the bottom."
+h.time.between:
+  text: "The short hand is between two numbers. The hour is the one it is after."
+h.time.between-set:
+  text: "At half past, the short hand stops between two numbers."
+# true at o'clock and at half past (TIM.04 mixes both, PR #84 review)
+h.time.top-or-bottom:
+  text: "The long hand is at the top at o'clock, and at the bottom at half past."
+h.time.hour-or-half:
+  text: "The short hand is on the hour at o'clock, and between two numbers at half past."
+h.time.just-after:
+  text: "Find the number just before the short hand. That is the hour."
+h.time.day-first:
+  text: "Think about your day. What do you do first?"
+h.time.day-next:
+  text: "What comes next? What comes last?"
+h.time.day-strip:
+  text: "Look at the one in its place. What goes next to it?"
+h.time.morning-or-night:
+  text: "Is the sun up? Is it time for bed?"
+gen.time.clock.long-hand:
+  text: "The long hand shows the minutes."
+gen.time.clock.short-hand:
+  text: "The short hand shows the hour."
+gen.time.clock.turn-long:
+  text: "Turn the long hand to the minutes."
+gen.time.clock.turn-short:
+  text: "Turn the short hand to the hour. Now it is {time|time}."
+gen.time.clock.reads:
+  text: "It is {time|time}."
+gen.time.clock.between:
+  text: "Look at the short hand. It is between two numbers."
+gen.time.clock.after:
+  text: "It is just after {hour}, so the hour is {hour}."
+gen.time.sequence.think:
+  text: "Think about your day. What do we do first?"
+gen.time.sequence.first:
+  text: "We do this first."
+gen.time.sequence.then:
+  text: "Then we do this."
+gen.time.sequence.sort-look:
+  text: "Do we do this in the morning? At night?"
+gen.time.sequence.sort-morning:
+  text: "This is a morning thing."
+gen.time.sequence.sort-night:
+  text: "This is a night thing."
+fb.clock-set.retry:
+  text: "Look at both hands. Then try again."
+fb.clock-read.retry:
+  text: "Look at the short hand first. Then look at the long hand."
+fb.mc.hour-minute-swap:
+  text: "The short hand shows the hour. The long hand shows the minutes."
+fb.mc.hour-hand-next:
+  text: "The short hand is not at the next number. Look at the number it is after."
+
+# ---------- K01 (#11) patterns, puzzles and all the ways (ALG.01, ALG.02, ALG.04, PUZ.01, PUZ.02,
+# CPS.06): shared prompts, hints, solution steps and feedback. Puzzle and split hints name no
+# number that could be an answer (03 §9.4 step 7). ----------
+p.pattern.find-core:
+  text: "Find the part that repeats. Mark it from the start."
+p.puzzle.sum-triangle:
+  text: "Every side must make {sum}. Fill in the missing numbers."
+h.pattern.say-it:
+  text: "Say the pattern out loud. Listen for the part that repeats."
+# Not "what came after the last one before?": in AAB or ABB that unit has been followed by two
+# different units (PR #84 review).
+h.pattern.keep-going:
+  text: "Find where the pattern starts again. What comes next from there?"
+h.pattern.find-core:
+  text: "Find where the pattern starts again."
+h.pattern.core-same:
+  text: "The part that repeats comes back the same, again and again."
+h.pattern.grow-look:
+  text: "Look at how the numbers grow each time."
+h.pattern.grow-rule:
+  text: "Count up from one number to the next."
+h.pattern.grow-same:
+  text: "It grows the same way each time. Do it again and again."
+h.puzzle.path-given:
+  text: "Start next to a number you can see."
+h.puzzle.path-step:
+  text: "Each number is one more than the one before it."
+h.puzzle.chart-next:
+  text: "One box to the right is one more."
+h.puzzle.chart-down:
+  text: "One row down is ten more."
+h.puzzle.side-one:
+  text: "Find a side with just one empty box."
+h.puzzle.side-add:
+  text: "Add the numbers you see on that side. What more makes the side?"
+h.puzzle.corner-two:
+  text: "A number in a corner is on two sides. It counts for both."
+h.puzzle.bond-corners:
+  text: "The two corners together are one part of the side."
+h.bond.ways-in-order:
+  text: "Look at the ways in order. Which one is not there?"
+h.puzzle.ways-fewest:
+  text: "Find the one with the fewest in the first group."
+h.puzzle.ways-one-more:
+  text: "Each next one has one more in the first group."
+h.puzzle.ways-start:
+  text: "Start with the smallest part you can."
+h.puzzle.ways-turn:
+  text: "A turn-around is the same way. Try a new one."
+gen.pattern.repeat.say-it:
+  text: "Let's say the pattern together."
+gen.pattern.repeat.next:
+  text: "This one comes next."
+gen.pattern.repeat.core:
+  text: "Here is where the pattern starts."
+gen.pattern.repeat.bracket:
+  text: "This is the part that repeats."
+gen.pattern.grow.look:
+  text: "Look at how the numbers grow."
+gen.pattern.grow.rule:
+  text: "It grows by {step} each time."
+gen.pattern.grow.next:
+  text: "Next comes {n}."
+gen.pattern.grow.land:
+  text: "We land on {n}."
+gen.puzzle.grid.path-look:
+  text: "Let's count along the path."
+gen.puzzle.grid.path-fill:
+  text: "This one is {n}."
+gen.puzzle.grid.side:
+  text: "Find a side with one empty box."
+gen.puzzle.grid.side-fill:
+  text: "The missing number is {n}."
+gen.puzzle.grid.ways-start:
+  text: "Let's start with one in the first part."
+gen.puzzle.grid.ways-next:
+  text: "Here is the next way."
+gen.puzzle.grid.ways-rest:
+  text: "Then find the part that makes the whole."
+gen.puzzle.grid.piece:
+  text: "Look at the numbers next to the piece."
+gen.puzzle.grid.piece-fill:
+  text: "Here are the numbers for the piece."
+fb.pattern-extend.retry:
+  text: "Say the pattern again. Then try once more."
+# One line for every pattern.repeat task the rule reads: going on, filling in, ordering the cards and
+# marking the part that repeats, so it never says to go on (PR #84 review, s_d74b2eb5991e).
+fb.mc.pattern-restart:
+  text: "Say the pattern out loud. Find the whole part that repeats."
 fb.mc.equals-means-answer:
   text: "Look at both sides. They must make the same number."
 fb.mc.equals-add-all:

@@ -11,6 +11,10 @@
 // U04 (#13) adds the numeric variants (mini-KenKen `cage-sum`, `magic-square`, `missing-digit`,
 // `sum-triangle` and other number grids); see `checkNumeric` below. `cells` there is the config's
 // own cell list (`{ r, c, given?, blank?, cage? }`).
+//
+// K01 (#11) targets list `cells` as [r, c] pairs with `givens` as [r, c, value]: the number
+// variants `number-path` (PUZ.01), `sum-triangle` (PUZ.02) and `all-ways` (CPS.06), checked by
+// `checkNumbers` below. The cell shape tells the two target forms apart.
 import type { StateChecker } from './types';
 
 export type Cell = [number, number];
@@ -150,6 +154,110 @@ function checkShapeFill(
   return true;
 }
 
+// ---------- number variants (K01: PUZ.01 number-path, PUZ.02 sum-triangle, CPS.06 all-ways) ----------
+//
+// Target `{ variant, rows, cols, cells, givens, constraints, palette, nonZero? }`: `cells` lists
+// every cell of the puzzle as [r, c] (for number-path in path order), `givens` the shown numbers as
+// [r, c, value]. The response is `{ fill: (number | '')[][] }` (rows × cols): every puzzle cell
+// holds a whole number (a palette number when the palette is not empty), givens keep their value,
+// and every other cell is ''. Constraints: `line-sum` (the cells add up to `sum`) and
+// `adjacent-step` (each cell of `cells` is `step` more than the one before it). `all-ways` also
+// needs the rows to be different ways (turn-arounds count once, 3 + 2 is 2 + 3) and, with
+// `nonZero`, no zero part; with as many rows as there are ways, that means every way.
+
+/** The number in a filled cell, or undefined when the cell holds anything else. */
+function cellNumber(fill: unknown[], r: number, c: number): number | undefined {
+  const row = fill[r];
+  const v = Array.isArray(row) ? row[c] : undefined;
+  return typeof v === 'number' && Number.isInteger(v) && v >= 0 ? v : undefined;
+}
+
+const isPair = (x: unknown): x is Cell =>
+  Array.isArray(x) && x.length === 2 && x.every((v) => Number.isInteger(v));
+
+/**
+ * The number path's `adjacent-step` rule, one rule for both target forms (PR #84 review rounds 4
+ * and 5): only a `number-path` has it, every value along the path is a whole number (03 §5.5),
+ * and each is `step` more than the one before it.
+ */
+function stepHolds(variant: unknown, step: unknown, path: readonly unknown[]): boolean {
+  if (variant !== 'number-path' || typeof step !== 'number' || !Number.isInteger(step)) {
+    return false;
+  }
+  if (!path.every((v) => typeof v === 'number' && Number.isInteger(v) && v >= 0)) return false;
+  const values = path as number[];
+  return values.every((v, i) => i === 0 || v - (values[i - 1] as number) === step);
+}
+
+function checkNumbers(
+  target: Readonly<Record<string, unknown>>,
+  value: Readonly<Record<string, unknown>>,
+): boolean {
+  const rows = target.rows;
+  const cols = target.cols;
+  if (typeof rows !== 'number' || typeof cols !== 'number') return false;
+  if (!Array.isArray(target.cells) || !Array.isArray(target.constraints)) return false;
+  const cells = target.cells as unknown[];
+  if (!cells.every(isPair)) return false;
+  const inside = new Set((cells as Cell[]).map(([r, c]) => key(r, c)));
+  const fill = value.fill;
+  if (!Array.isArray(fill) || fill.length !== rows) return false;
+  for (let r = 0; r < rows; r += 1) {
+    const row = fill[r];
+    if (!Array.isArray(row) || row.length !== cols) return false;
+    for (let c = 0; c < cols; c += 1) {
+      if (inside.has(key(r, c))) {
+        if (cellNumber(fill, r, c) === undefined) return false;
+      } else if (row[c] !== '') return false;
+    }
+  }
+  const at = ([r, c]: Cell): number => cellNumber(fill, r, c) as number;
+  const palette = Array.isArray(target.palette)
+    ? (target.palette as unknown[]).filter((v): v is number => typeof v === 'number')
+    : [];
+  const givens = Array.isArray(target.givens) ? (target.givens as unknown[]) : [];
+  const given = new Set<string>();
+  for (const g of givens) {
+    if (!Array.isArray(g) || g.length !== 3 || !g.every((v) => Number.isInteger(v))) return false;
+    const [r, c, v] = g as [number, number, number];
+    if (!inside.has(key(r, c)) || at([r, c]) !== v) return false;
+    given.add(key(r, c));
+  }
+  if (palette.length > 0) {
+    for (const cell of cells as Cell[]) {
+      if (!given.has(key(cell[0], cell[1])) && !palette.includes(at(cell))) return false;
+    }
+  }
+  for (const k of target.constraints as unknown[]) {
+    const con = k as Record<string, unknown> | null;
+    if (con?.kind === 'line-sum') {
+      const line = con.cells;
+      if (!Array.isArray(line) || !line.every(isPair) || typeof con.sum !== 'number') return false;
+      if (!(line as Cell[]).every((cell) => inside.has(key(cell[0], cell[1])))) return false;
+      if ((line as Cell[]).reduce((s, cell) => s + at(cell), 0) !== con.sum) return false;
+    } else if (con?.kind === 'adjacent-step') {
+      if (!stepHolds(target.variant, con.step, (cells as Cell[]).map(at))) return false;
+    } else {
+      return false;
+    }
+  }
+  if (target.variant === 'all-ways') {
+    const byRow = new Map<number, number[]>();
+    for (const cell of cells as Cell[]) {
+      const list = byRow.get(cell[0]) ?? [];
+      list.push(at(cell));
+      byRow.set(cell[0], list);
+    }
+    const ways = new Set<string>();
+    for (const parts of byRow.values()) {
+      if (target.nonZero === true && parts.some((p) => p === 0)) return false;
+      ways.add([...parts].sort((a, b) => a - b).join('+'));
+    }
+    if (ways.size !== byRow.size) return false;
+  }
+  return true;
+}
+
 interface PuzzleCell {
   r: number;
   c: number;
@@ -190,8 +298,11 @@ const sameMultiset = (a: readonly (number | string)[], b: readonly (number | str
  * - `row-unique` / `col-unique`: no value repeats in a row / column of the puzzle;
  * - `line-sum`: the listed cells add up to `sum`;
  * - `use-each`: the blanks' values are exactly `values` (as a multiset), or, when `values` has one
- *   entry per puzzle cell, all the cells' values are.
- * Other constraint kinds (`adjacent-step`, `equation`, `clue`) are not checked yet and reject.
+ *   entry per puzzle cell, all the cells' values are;
+ * - `adjacent-step` (`number-path` only): each cell, in the order `cells` lists them (the path),
+ *   is a whole number `step` more than the one before it (`stepHolds`, the same rule as K01's
+ *   [r, c] targets; PR #84 review rounds 4 and 5).
+ * Other constraint kinds (`equation`, `clue`) are not checked yet and reject.
  */
 function checkNumeric(
   target: Readonly<Record<string, unknown>>,
@@ -288,6 +399,16 @@ function checkNumeric(
         if (!sameMultiset(got, want)) return false;
         break;
       }
+      case 'adjacent-step':
+        if (
+          !stepHolds(
+            target.variant,
+            k.step,
+            cells.map((x) => at(x.r, x.c)),
+          )
+        )
+          return false;
+        break;
       default:
         return false;
     }
@@ -295,10 +416,25 @@ function checkNumeric(
   return true;
 }
 
+const NUMBER_VARIANTS = new Set(['number-path', 'sum-triangle', 'all-ways']);
+
 export const puzzleSatisfies: StateChecker = {
   id: 'puzzle.satisfies',
   check(target, value) {
     if (target.variant === 'shape-fill') return checkShapeFill(target, value);
+    // K01 targets list cells as [r, c] pairs (checkNumbers); U04 targets as config cells.
+    const cells = target.cells;
+    if (Array.isArray(cells) && cells.length > 0 && isPair(cells[0])) {
+      return (
+        typeof target.variant === 'string' &&
+        NUMBER_VARIANTS.has(target.variant) &&
+        checkNumbers(target, value)
+      );
+    }
     return checkNumeric(target, value);
   },
+  // all-ways: the rows may come in any order and each way either way round, so a mutation that
+  // still lists every way is a valid alternative.
+  exempt: (target, _original, mutated) =>
+    target.variant === 'all-ways' && puzzleSatisfies.check(target, mutated),
 };

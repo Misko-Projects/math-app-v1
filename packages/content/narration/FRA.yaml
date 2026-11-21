@@ -1,0 +1,36 @@
+# FRA narration (03 §8): skill intros and template prompts owned by the strand.
+sk.FRA.01.intro:
+  text: "Two equal parts are halves. Four equal parts are fourths."
+sk.FRA.07.intro:
+  text: "Fair shares are all the same size."
+sk.FRA.08.intro:
+  text: "Cut a pie into more parts, and each piece gets smaller."
+
+tp.FRA.01.t1.prompt:
+  text: "Cut it into {what|word}. Then fill one part."
+tp.FRA.01.t2.prompt:
+  text: "Cut the strip into {what|word}. Then fill one part."
+tp.FRA.01.t3.prompt:
+  text: "Which one is cut into {what|word}?"
+tp.FRA.01.t4.prompt:
+  text: "Mark the strip so it is cut into {what|word}."
+tp.FRA.07.t1.prompt:
+  text: "Is this a fair share? Does each one have the same?"
+tp.FRA.07.t2.prompt:
+  text: "Move them so each one has the same. How many does each one have?"
+tp.FRA.07.t3.prompt:
+  text: "Cut it into {den} parts that are all the same size."
+tp.FRA.07.t4.prompt:
+  text: "Is it cut into equal parts? Are all the parts the same size?"
+tp.FRA.07.t5.prompt:
+  text: "The two sides have {a} and {b}. How many must move to make it fair?"
+tp.FRA.08.t1.prompt:
+  text: "Which piece is bigger? They may be the same size."
+tp.FRA.08.t2.prompt:
+  text: "Which piece of pie is bigger? They may be the same size."
+tp.FRA.08.t3.prompt:
+  text: "Put them in order. Start with the biggest piece."
+tp.FRA.08.t4.prompt:
+  # The order holds only because the wholes are the same size and each is cut into equal parts,
+  # so the prompt says both (PR #84 review round 3).
+  text: "Same size strips, cut into equal parts. The number says how many; biggest pieces first."

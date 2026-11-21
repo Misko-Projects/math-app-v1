@@ -1,0 +1,23 @@
+# Pattern and data misconceptions (03 §7.2). K01 (#11) adds MC.pattern-restart for the repeating
+# patterns; K02 adds MC.graph-scale-ignored with the scaled graphs (DAT.06, DAT.07).
+area: patterns-data
+misconceptions:
+  - id: MC.pattern-restart
+    name: Starts a repeating pattern over instead of continuing it
+    detect: { kind: state, rule: patternRestart }
+    appliesTo: { generators: [pattern.repeat] }
+    skills: [ALG.01, ALG.04]
+    remediation: [ALG.04]
+    feedback: fb.mc.pattern-restart
+    priority: 50
+    parentTip: >-
+      Build a pattern with spoons and forks, then stop in the middle of a repeat and ask what comes
+      next, saying the pattern aloud from the last one.
+    examples:
+      # shell fish shell fish shell, then two more: fish, shell. Starting over gives shell, fish.
+      - params: { mode: extend, core: AB, shown: 5, ask: 2, theme: 0 }
+        response: { kind: state, value: { tokens: [{ sprite: shell }, { sprite: fish }] } }
+        match: true
+      - params: { mode: extend, core: AB, shown: 5, ask: 2, theme: 0 }
+        response: { kind: state, value: { tokens: [{ sprite: fish }, { sprite: shell }] } }
+        match: false

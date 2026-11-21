@@ -263,17 +263,28 @@ describe('PR #83 review (4): PV.09.t2 makes the ten only by bundling', () => {
   });
 
   it('round 3: every accepted build direction keeps limits.tight and replays its solution', () => {
+    // PR #83 round 4: each trade type the sweep relies on must generate, so a regression that
+    // starts rejecting one (305 is the only fuse of ten tens into a hundred) cannot be skipped.
+    const required = new Set([
+      '2:14:ones:canonical',
+      '2:52:ones:regrouped',
+      '3:305:regrouped:canonical',
+      '3:340:regrouped:canonical',
+    ]);
     let accepted = 0;
     for (const places of [2, 3]) {
       for (const n of [14, 26, 47, 52, 99, 120, 305, 340]) {
         for (const from of ['canonical', 'regrouped', 'ones']) {
           for (const to of ['canonical', 'regrouped', 'ones']) {
+            const key = `${places}:${n}:${from}:${to}`;
             let item: GeneratedItem;
             try {
               item = generateItemFromParams(t, { n, from, to, places });
-            } catch {
+            } catch (e) {
+              if (required.has(key)) throw e;
               continue;
             }
+            required.delete(key);
             accepted += 1;
             expect(itemFeatures(item, t)['limits.tight']).toBe(1);
             const steps = itemSolution(item, t);
@@ -284,6 +295,7 @@ describe('PR #83 review (4): PV.09.t2 makes the ten only by bundling', () => {
         }
       }
     }
+    expect([...required]).toEqual([]);
     expect(accepted).toBeGreaterThanOrEqual(10);
   });
 
