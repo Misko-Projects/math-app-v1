@@ -8,7 +8,7 @@
     "paths": { "@/*": ["./src/*"] }
   },
   "include": ["src"],
-  "exclude": ["src/sw.ts"],
+  "exclude": ["src/sw.ts", "src/sw.test.ts"],
   "references": [
     { "path": "./tsconfig.sw.json" },
     { "path": "./tsconfig.node.json" },

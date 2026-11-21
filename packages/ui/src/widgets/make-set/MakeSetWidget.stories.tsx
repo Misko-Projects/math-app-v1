@@ -317,6 +317,7 @@ export const MakeK: Story = {
     await expectEvenHeap(pileArea(root));
 
     await userEvent.click(check(root));
+    check(root).blur();
     await expect(args.onResponse).toHaveBeenCalledTimes(1);
     await expect(args.onResponse).toHaveBeenCalledWith({
       kind: 'state',
@@ -363,6 +364,7 @@ export const AddMoreG1: Story = {
     // Three crabs left, in one centred row in the middle of the heap (not top-left).
     await expectEvenHeap(pileArea(root));
     await userEvent.click(check(root));
+    check(root).blur();
     await expect(args.onResponse).toHaveBeenCalledWith({
       kind: 'state',
       value: { count: 4, removed: 0 },
@@ -405,6 +407,7 @@ export const TakeAwaySplit: Story = {
     await userEvent.click(pilePad(root));
     await waitFor(() => expect(inside(root)).toHaveLength(3));
     await userEvent.click(check(root));
+    check(root).blur();
     await expect(args.onResponse).toHaveBeenCalledWith({
       kind: 'state',
       value: { count: 3, removed: 2, parts: [3, 2] },
@@ -448,6 +451,7 @@ export const HandsK: Story = {
     for (const b of [left, right, ...ups, ...downs]) await expectTargetSize(b, 'k');
     await expectTargetGaps([...ups, ...downs]);
     await userEvent.click(check(root));
+    check(root).blur();
     await expect(args.onResponse).toHaveBeenCalledWith({
       kind: 'state',
       value: { count: 7, removed: 0, parts: [5, 2] },
@@ -496,6 +500,12 @@ const AREA = {
   landscapeMin: widgetArea(960, 600),
   portrait: widgetArea(800, 1280),
   tablet: widgetArea(1280, 800),
+  /**
+   * A 960 × 720 landscape (906 × 449, 852 × 395 inside): with "make a ten" under Check (groupsOf
+   * items) the column beside the boat needs ~358 px, more than the 960 × 600 minimum's 319, and
+   * two K ten-frames still don't fit, so a groupsOf item shows one ten-frame at a time here.
+   */
+  shortLandscape: widgetArea(960, 720),
 } as const;
 
 /**
@@ -619,6 +629,9 @@ async function expectFitsArea(root: HTMLElement, box: HTMLElement, ageMode: 'k' 
     root.querySelector('.ni-mset__container') as HTMLElement,
     ...root.querySelectorAll<HTMLElement>('.ni-mset__slot'),
     ...root.querySelectorAll<HTMLElement>('.ni-mset__tens'),
+    ...[...root.querySelectorAll<HTMLElement>('.ni-mset__supply-icon')].filter(
+      (el) => el.offsetParent !== null,
+    ),
     ...allItems(root),
     check(root),
   ];
@@ -636,6 +649,17 @@ async function expectFitsArea(root: HTMLElement, box: HTMLElement, ageMode: 'k' 
   await expect(box.scrollTop).toBe(0);
   for (const el of targets) await expectTargetSize(el, ageMode);
   await expectTargetGaps(targets);
+  // The content (piles, container, actions) covers ≥ 60 % of the card's inner area.
+  const content = [
+    ...root.querySelectorAll('.ni-mset__pile'),
+    root.querySelector('.ni-mset__container') as Element,
+    root.querySelector('.ni-mset__actions') as Element,
+  ].map((el) => el.getBoundingClientRect());
+  const w = Math.max(...content.map((r) => r.right)) - Math.min(...content.map((r) => r.left));
+  const h = Math.max(...content.map((r) => r.bottom)) - Math.min(...content.map((r) => r.top));
+  const areaW = inner.right - inner.left;
+  const areaH = inner.bottom - inner.top;
+  await expect((w * h) / (areaW * areaH), 'area fill').toBeGreaterThanOrEqual(0.6);
 }
 
 /** Check passes a real hit test at its centre and answers when tapped there. */
@@ -644,6 +668,8 @@ async function expectCheckTaps(root: HTMLElement) {
   await expectHit(ok, center(ok), 'Check');
   await expect(ok).toBeEnabled();
   await userEvent.click(ok);
+  // Stories that end here end with no focus ring.
+  ok.blur();
 }
 
 /** Puts `n` objects in, one at a time: tap the first heap object, then the container. */
@@ -670,6 +696,21 @@ async function framesSettled(root: HTMLElement) {
   await nextFrame();
 }
 
+/** What a sprite draws, in screen px: its SVG content's box (not its layout box, which is bigger). */
+function drawnSize(host: Element) {
+  const svg = (host.matches('svg') ? host : host.querySelector('svg')) as SVGSVGElement;
+  const bb = svg.getBBox();
+  const r = svg.getBoundingClientRect();
+  const vb = svg.viewBox.baseVal;
+  const sx = r.width / vb.width;
+  const sy = r.height / vb.height;
+  const left = r.left + (bb.x - vb.x) * sx;
+  const top = r.top + (bb.y - vb.y) * sy;
+  const width = bb.width * sx;
+  const height = bb.height * sy;
+  return { left, top, right: left + width, bottom: top + height, width, height };
+}
+
 /**
  * The tied ten reads "10, then the ones": it comes first (its box left of the frame of ones, or
  * above it), it is about as tall as that frame (its small frame ≥ 85 % of the frame's height,
@@ -682,10 +723,58 @@ async function expectTenFirst(root: HTMLElement) {
   const frame = (root.querySelector('.ni-mset__frame') as Element).getBoundingClientRect();
   const t = ten.getBoundingClientRect();
   await expect(t.right <= frame.left || t.bottom <= frame.top, 'the ten comes first').toBe(true);
-  const mini = (ten.querySelector('.ni-mset__tens-frame') as Element).getBoundingClientRect();
-  await expect(mini.height).toBeGreaterThanOrEqual(0.85 * frame.height);
-  for (const piece of ten.querySelectorAll('.ni-mset__tens-cell')) {
-    await expect(piece.getBoundingClientRect().width).toBeGreaterThanOrEqual(32);
+  // ONE bundle, not a frame: no cells; ten objects of ≥ 32 px, most of the frame's height.
+  await expect(ten.querySelector('.ni-mset__tens-frame')).toBeNull();
+  const bundle = (ten.querySelector('.ni-mset__bundle') as Element).getBoundingClientRect();
+  await expect(bundle.height).toBeGreaterThanOrEqual(0.6 * frame.height);
+  const objs = [...ten.querySelectorAll('.ni-mset__bundle-obj')];
+  await expect(objs).toHaveLength(10);
+  await expect(ten.querySelectorAll('.ni-mset__bundle-obj [data-sprite]')).toHaveLength(10);
+  // Every one of the ten in view: drawn ≥ 40 px, ≥ 80 % of its drawing clear of the rope and the
+  // bow (their shapes' boxes with the outline; overlaps summed, so counted twice where they meet).
+  const tie = [
+    ...ten.querySelectorAll(
+      '.ni-mset__bundle-tie rect, .ni-mset__bundle-tie ellipse, .ni-mset__bundle-tie circle',
+    ),
+  ].map((el) => {
+    const r = el.getBoundingClientRect();
+    const w = Number.parseFloat(getComputedStyle(el).strokeWidth) / 2 || 0;
+    return { left: r.left - w, top: r.top - w, right: r.right + w, bottom: r.bottom + w };
+  });
+  for (const [i, o] of objs.entries()) {
+    // Drawn (not just boxed) at ≥ 40 px, the token's size in one-frame mode (06 §2).
+    const ink = drawnSize(o);
+    const r = ink;
+    await expect(ink.width, 'bundle object drawn width').toBeGreaterThanOrEqual(40);
+    await expect(ink.height, 'bundle object drawn height').toBeGreaterThanOrEqual(40);
+    // The row below (drawn over it) hides the feet only: under 30 % of the drawing's height.
+    const below = objs[i + 2];
+    if (below) {
+      const hidden = ink.bottom - drawnSize(below).top;
+      await expect(hidden / ink.height, 'hidden by the row below').toBeLessThanOrEqual(0.3);
+    }
+    // An invite ring is drawn in the outer 5 px of the token's box: the drawing stays inside it
+    // (sides and top; the tag and the fingertip strip are below).
+    await expect(ink.left - bundle.left, 'drawing inside the ring, left').toBeGreaterThanOrEqual(
+      4.5,
+    );
+    await expect(bundle.right - ink.right, 'drawing inside the ring, right').toBeGreaterThanOrEqual(
+      4.5,
+    );
+    await expect(ink.top - bundle.top, 'drawing inside the ring, top').toBeGreaterThanOrEqual(4.5);
+    await expect(bundle.bottom - ink.bottom, 'drawing inside the bundle').toBeGreaterThanOrEqual(
+      -0.5,
+    );
+    const covered = tie.reduce(
+      (sum, t) =>
+        sum +
+        Math.max(0, Math.min(r.right, t.right) - Math.max(r.left, t.left)) *
+          Math.max(0, Math.min(r.bottom, t.bottom) - Math.max(r.top, t.top)),
+      0,
+    );
+    await expect(covered / (r.width * r.height), 'object covered by the tie').toBeLessThanOrEqual(
+      0.2,
+    );
   }
   const tag = ten.querySelector('.ni-mset__tens-tag') as HTMLElement;
   await expect(tag).toHaveTextContent('10');
@@ -731,21 +820,15 @@ export const TwentyKMinLandscape: Story = {
     await expect(ten).toHaveAttribute('data-tens', 'bundle');
     await expect(ten).toHaveAccessibleName('10');
     await expect(ten.querySelectorAll('.ni-sprite')).toHaveLength(10);
-    await expect(ten.querySelector('.ni-mset__band')).not.toBeNull();
-    // The band (with its outline) ends inside the small frame's border, the same at both ends.
-    await waitForSettled(ten.querySelector('.ni-mset__band') as Element);
-    const miniFrame = ten.querySelector('.ni-mset__tens-frame') as HTMLElement;
-    const mf = miniFrame.getBoundingClientRect();
-    const border = Number.parseFloat(getComputedStyle(miniFrame).borderTopWidth);
-    const band = (
-      ten.querySelector('.ni-mset__band rect') as SVGGraphicsElement
-    ).getBoundingClientRect();
-    const stroke = 1.5;
-    const topRoom = band.top - stroke - (mf.top + border);
-    const bottomRoom = mf.bottom - border - (band.bottom + stroke);
-    await expect(topRoom, 'band clear of the top border').toBeGreaterThanOrEqual(0);
-    await expect(bottomRoom, 'band clear of the bottom border').toBeGreaterThanOrEqual(0);
-    await expect(Math.abs(topRoom - bottomRoom), 'band symmetric').toBeLessThanOrEqual(0.5);
+    // Tied: the rope round the middle and a visible bow (two loops and a knot) on the front.
+    const tie = ten.querySelector('.ni-mset__bundle-tie') as Element;
+    await expect(tie).not.toBeNull();
+    await waitForSettled(tie);
+    await expect(tie.querySelectorAll('.ni-mset__bow')).toHaveLength(3);
+    const bundleBox = (ten.querySelector('.ni-mset__bundle') as Element).getBoundingClientRect();
+    for (const bow of tie.querySelectorAll('.ni-mset__bow')) {
+      await expectInside(bow.getBoundingClientRect(), bundleBox, 0, 'the bow on the bundle');
+    }
     await expect(root.querySelector('[data-slot="10"]')).not.toBeNull();
     await expect(root.querySelector('[data-slot="0"]')).toBeNull();
     await expectTenFirst(root);
@@ -802,14 +885,40 @@ export const TwentyKMinLandscape: Story = {
 
 const oneFrameInvite: WidgetDemo = createDemoController({ strict: true });
 
-/** The ring and Pip's hand on `el` and nothing else, the ring clear of every object. */
+/** Every object, the shown ten-frame(s) and the small frame beside them. */
+const ringNeighbours = (root: HTMLElement) => [
+  ...allItems(root),
+  ...root.querySelectorAll('.ni-mset__frame'),
+  ...root.querySelectorAll('.ni-mset__tens'),
+];
+
+/**
+ * The ring and Pip's hand on `el` and nothing else, the ring ≥ 12 px clear of every object, of the
+ * shown ten-frame and of the small frame beside it (whichever it is not on).
+ */
 async function expectInviteOn(root: HTMLElement, el: HTMLElement) {
   await waitFor(() => expect(el).toHaveClass('ni-invite'));
   await expect(root.querySelectorAll('.ni-invite')).toHaveLength(1);
   await expect(root.querySelectorAll('.ni-hand')).toHaveLength(1);
   await framesSettled(root);
   await expectPointerOn(pointerIn(el), el, root);
-  await expectRingClear(el, allItems(root));
+  await expectRingClear(el, ringNeighbours(root));
+  await expectRingBelowArtTop(root, el);
+}
+
+/** A ring (outline) on `el` lies ≥ 12 px below the container art's top edge (a boat's hull). */
+async function expectRingBelowArtTop(root: HTMLElement, el: HTMLElement) {
+  const cs = getComputedStyle(el);
+  const reach = Number.parseFloat(cs.outlineOffset) + Number.parseFloat(cs.outlineWidth);
+  const ringTop = el.getBoundingClientRect().top - Math.max(0, reach);
+  const art = (root.querySelector('.ni-mset__drawn') as Element).getBoundingClientRect();
+  await expect(ringTop - art.top, 'ring below the art top edge').toBeGreaterThanOrEqual(12 - 0.5);
+}
+
+/** Pip's hand carries the action's cue: `take` (remove) or `count`. */
+async function expectHandCue(root: HTMLElement, cue: 'take' | 'count') {
+  const handEl = root.querySelector('.ni-hand') as HTMLElement;
+  await expect(handEl.querySelector(`.ni-mset__cue[data-cue="${cue}"]`)).not.toBeNull();
 }
 
 /**
@@ -831,6 +940,7 @@ export const TwentyKMinRemoveInvite: Story = {
     // 12, the ten tied: the last crab is in the frame of ones, in view.
     oneFrameInvite.invite({ op: 'answer', args: { value: 11 } });
     await expectInviteOn(root, inside(root).at(-1) as HTMLElement);
+    await expectHandCue(root, 'take');
     // Untie the ten: the last crab is now among the ones beside it, so the ones' button is invited.
     await userEvent.click(tens(root) as HTMLElement);
     await waitFor(() => expect(tens(root)).toHaveAttribute('data-tens', 'ones'));
@@ -857,6 +967,399 @@ export const TwentyKMinRemoveInvite: Story = {
     await userEvent.click(tens(root) as HTMLElement);
     await waitFor(() => expect(tens(root)).toHaveAttribute('data-tens', 'bundle'));
     await expectInviteOn(root, tens(root) as HTMLElement);
+  },
+};
+
+const oneFrameCount: WidgetDemo = createDemoController({ strict: true });
+
+/** The spoken numbers, in order (`sayNumber` speaks a `{ number }` phrase). */
+const spokenNumbers = (audio: ReturnType<typeof spyAudio>) =>
+  (audio.sayPhrases.mock.calls as unknown as [{ number?: number }[]][]).flatMap(([phrases]) =>
+    phrases.flatMap((p) => (p.number === undefined ? [] : [p.number])),
+  );
+
+/**
+ * Counting step `n` (11 and up) on the small frame of ones beside the shown ten: the ONE cell
+ * being counted (cell n − 11) is marked, no other is, and the running number `n` sits under the
+ * small frame, outside its cells, over no object (in the frame, beside it or in the heap).
+ */
+async function expectOnesCountStep(root: HTMLElement, n: number) {
+  const badge = await waitFor(
+    () => {
+      const b = tens(root)?.querySelector<HTMLElement>('.ni-mset__tens-count');
+      if (b?.textContent !== String(n)) throw new Error(`waiting for ${n}`);
+      return b;
+    },
+    { timeout: 15_000, interval: 20 },
+  );
+  const ones = tens(root) as HTMLElement;
+  await expect(ones).toHaveAttribute('data-tens', 'ones');
+  await expect(ones).not.toHaveAttribute('data-counting');
+  // The ones counted so far are marked (the marks equal the count), the rest are not.
+  const cells = [...ones.querySelectorAll('.ni-mset__tens-cell')];
+  await expect(cells.map((c) => c.hasAttribute('data-counting'))).toEqual(
+    cells.map((_, k) => k <= n - 11),
+  );
+  const b = badge.getBoundingClientRect();
+  await expect(Number.parseFloat(getComputedStyle(badge).fontSize)).toBeGreaterThanOrEqual(32);
+  const mini = (ones.querySelector('.ni-mset__tens-frame') as Element).getBoundingClientRect();
+  await expect(b.top, 'under the small frame').toBeGreaterThanOrEqual(mini.bottom);
+  for (const s of root.querySelectorAll('.ni-sprite')) {
+    const r = s.getBoundingClientRect();
+    const apart = b.right <= r.left || r.right <= b.left || b.bottom <= r.top || r.bottom <= b.top;
+    await expect(apart, `count ${n} clear of every object`).toBe(true);
+  }
+  const area = root.closest('.story-widget-area') as Element;
+  await expectInside(b, contentBox(area), 0, 'count in the area');
+}
+
+/**
+ * One ten-frame at a time, count-aloud (follow-up from #76): nothing is counted out of sight.
+ * With the ten tied beside the ones, the invite goes on the tied ten and Pip counts it as one ten
+ * ("ten", on the bundle), then on through the ones in view. With the ten shown, Pip counts 1–10
+ * in the frame and the ones on their small frame beside it, which shows the running count.
+ */
+export const TwentyKMinCountAloud: Story = {
+  globals: { ageMode: 'k' },
+  args: { config: twenty, demo: oneFrameCount },
+  parameters: { ui: { audio: spyAudio() } },
+  render: inArea('landscapeMin'),
+  play: async ({ canvasElement, parameters }) => {
+    const audio = parameters.ui.audio as ReturnType<typeof spyAudio>;
+    const root = await findWidget(canvasElement, ROOT);
+    await waitFor(() => expect(root).toHaveAttribute('data-one-frame', 'true'));
+    await tapIn(root, 12);
+    await waitFor(() => expect(tens(root)).toHaveAttribute('data-tens', 'bundle'));
+
+    // The tied ten: invited first, counted as "ten", then 11 and 12 in the frame of ones.
+    oneFrameCount.invite({ op: 'count-aloud' });
+    await expectInviteOn(root, tens(root) as HTMLElement);
+    await expectHandCue(root, 'count');
+    clearSpies(audio);
+    const tied = oneFrameCount.play({ op: 'count-aloud' });
+    await waitFor(() => expect(tens(root)).toHaveAttribute('data-counting', 'true'));
+    await tied;
+    await expect(spokenNumbers(audio)).toEqual([10, 11, 12]);
+
+    // Untie: the first ten is in the frame and the ones are beside it; counting reaches them.
+    await userEvent.click(tens(root) as HTMLElement);
+    await waitFor(() => expect(tens(root)).toHaveAttribute('data-tens', 'ones'));
+    oneFrameCount.invite({ op: 'count-aloud' });
+    const framesRing = root.querySelector('.ni-mset__frames') as HTMLElement;
+    await waitFor(() => expect(framesRing).toHaveClass('ni-invite'));
+    await framesSettled(root);
+    await expectRingClear(framesRing, ringNeighbours(root));
+    await expectRingBelowArtTop(root, framesRing);
+    await expectHandCue(root, 'count');
+    clearSpies(audio);
+    const untied = oneFrameCount.play({ op: 'count-aloud' });
+    // Ten counting steps (≈ 600 ms each) come first; then 11 and 12, each on its own small cell.
+    for (const n of [11, 12]) await expectOnesCountStep(root, n);
+    await untied;
+    await expect(spokenNumbers(audio)).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]);
+
+    // Tie the ten again: the count-aloud invite is back on the tied ten (the story's end state).
+    await userEvent.click(tens(root) as HTMLElement);
+    await waitFor(() => expect(tens(root)).toHaveAttribute('data-tens', 'bundle'));
+    oneFrameCount.invite({ op: 'count-aloud' });
+    await expectInviteOn(root, tens(root) as HTMLElement);
+  },
+};
+
+/**
+ * PV.09.t1 seed 1 (a real generated item, CNT.19-style regrouping: 13 loose crabs already in the
+ * boat, groupsOf 10, nothing bundled; its solution says "Count out ten ones." with `count-aloud`,
+ * then `bundle`).
+ */
+const regroup: ConfigFor<'make-set'> = {
+  format: 'make-set',
+  target: 13,
+  mode: 'make',
+  start: 13,
+  source: { sprite: 'crab', supply: 0 },
+  container: 'boat',
+  capacity: 20,
+  showRunningCount: false,
+  groupsOf: 10,
+};
+
+const regroupBefore: WidgetDemo = createDemoController({ strict: true });
+
+/**
+ * PV.09.t1 in a short landscape area (960 × 720 → a 906 × 449 card), one ten-frame at a time,
+ * BEFORE bundling. The first ten sits beside the ones as a sheaf of ten, not tied (no rope, no
+ * bow: the model has no bundle yet), and count-aloud counts every crab one by one, 1 … 13: the
+ * ten's frame is shown while 1–10 are counted, the ones on their small frame after it, and the page
+ * comes back afterwards. The story ends on the solution's next step, an invite on "Make a ten"
+ * (one ring, Pip's hand).
+ */
+export const RegroupKShortBeforeBundle: Story = {
+  globals: { ageMode: 'k' },
+  args: { config: regroup, demo: regroupBefore },
+  parameters: { ui: { audio: spyAudio() } },
+  render: inArea('shortLandscape'),
+  play: async ({ canvasElement, parameters }) => {
+    const audio = parameters.ui.audio as ReturnType<typeof spyAudio>;
+    const root = await findWidget(canvasElement, ROOT);
+    await waitFor(() => expect(root).toHaveAttribute('data-one-frame', 'true'));
+    await waitFor(() => expect(tens(root)).toHaveAttribute('data-tens', 'bundle'));
+    await expect((tens(root) as HTMLElement).querySelector('.ni-mset__bundle-tie')).toBeNull();
+    await expectFitsArea(root, areaBox(canvasElement), 'k');
+
+    clearSpies(audio);
+    const counted = regroupBefore.play({ op: 'count-aloud' });
+    // The ten's own frame is shown while its crabs are counted.
+    await waitFor(() =>
+      expect(root.querySelector('[data-slot="0"] [data-counting="true"]')).not.toBeNull(),
+    );
+    await expect(tens(root)).toHaveAttribute('data-tens', 'ones');
+    for (const n of [11, 12, 13]) await expectOnesCountStep(root, n);
+    await counted;
+    await expect(spokenNumbers(audio)).toEqual(Array.from({ length: 13 }, (_, i) => i + 1));
+    // Counted one by one, and left that way before any bundle exists: all 13 loose (the ten in
+    // its frame, the ones on their small frame), marked 1–10 and the ones 11–13 with the 13 under
+    // them.
+    await expect(tens(root)).toHaveAttribute('data-tens', 'ones');
+    await expect(root.querySelector('.ni-mset__frame[data-bundled="true"]')).toBeNull();
+    await expect(root.querySelector('.ni-mset__bundle')).toBeNull();
+    const frameMarks = [...root.querySelectorAll('.ni-mset__frame .ni-mset__mark')].map((m) =>
+      Number(m.textContent),
+    );
+    await expect(frameMarks).toEqual(Array.from({ length: 10 }, (_, i) => i + 1));
+    const onesCells = [...(tens(root) as HTMLElement).querySelectorAll('.ni-mset__tens-cell')];
+    await expect(onesCells.filter((c) => c.hasAttribute('data-counting'))).toHaveLength(3);
+    // The waiting ones are tokens drawn ≥ 32 px (06 §2, one-frame mode), counted or not, each
+    // inside its own cell.
+    for (const cell of onesCells.filter((c) => c.querySelector('svg'))) {
+      const ink = drawnSize(cell);
+      await expect(ink.width, 'waiting one drawn width').toBeGreaterThanOrEqual(32);
+      await expect(ink.height, 'waiting one drawn height').toBeGreaterThanOrEqual(32);
+      const c = cell.getBoundingClientRect();
+      await expect(ink.top).toBeGreaterThanOrEqual(c.top - 0.5);
+      await expect(ink.bottom).toBeLessThanOrEqual(c.bottom + 0.5);
+    }
+    await expect(tens(root)?.querySelector('.ni-mset__tens-count')).toHaveTextContent('13');
+
+    // Next: make a ten.
+    regroupBefore.invite({ op: 'bundle' });
+    const makeTen = within(root).getByRole('button', { name: 'Make a ten' });
+    await waitFor(() => expect(makeTen.closest('.ni-mset__action')).toHaveClass('ni-invite'));
+    await expect(root.querySelectorAll('.ni-invite')).toHaveLength(1);
+    await expect(root.querySelectorAll('.ni-hand')).toHaveLength(1);
+    await waitFor(() => expectPointerOn(pointerIn(makeTen), makeTen, root));
+    // Pip's hand at rest (its tap bob held at the start), and 8 px lower at the bob's bottom,
+    // stays ≥ 12 px clear of Check under the invited "Make a ten".
+    const handEl = pointerIn(makeTen);
+    for (const a of handEl.getAnimations()) {
+      a.pause();
+      a.currentTime = 0;
+    }
+    const h = handEl.getBoundingClientRect();
+    const ok = check(root).getBoundingClientRect();
+    await expect(ok.top - (h.bottom + 8), 'hand clear of Check').toBeGreaterThanOrEqual(12);
+    for (const a of handEl.getAnimations()) a.play();
+    await expectFitsArea(root, areaBox(canvasElement), 'k');
+  },
+};
+
+const resizeCount: WidgetDemo = createDemoController({ strict: true });
+
+/**
+ * The host shrinks while Pip counts (a tablet turned, a panel opened): 12 crabs in two frames at
+ * the tablet area, then the minimum area (one frame at a time, the first ten tied beside the
+ * ones) right after "one". Every number spoken after that still has a visible highlight: on the
+ * tied ten while its crabs are counted, then on the ones in the frame.
+ */
+export const CountAloudSurvivesResize: Story = {
+  globals: { ageMode: 'k' },
+  args: { config: { ...twenty, start: 12 }, demo: resizeCount },
+  parameters: { ui: { audio: spyAudio() } },
+  render: inArea('tablet'),
+  play: async ({ canvasElement, parameters }) => {
+    const audio = parameters.ui.audio as ReturnType<typeof spyAudio>;
+    const root = await findWidget(canvasElement, ROOT);
+    await waitFor(() => expect(inside(root)).toHaveLength(12));
+    await expect(root).not.toHaveAttribute('data-one-frame');
+    clearSpies(audio);
+    const counted = resizeCount.play({ op: 'count-aloud' });
+    await waitFor(() => expect(spokenNumbers(audio)).toEqual([1]));
+    const box = areaBox(canvasElement);
+    box.style.width = `${AREA.landscapeMin.width}px`;
+    box.style.height = `${AREA.landscapeMin.height}px`;
+    await waitFor(() => expect(root).toHaveAttribute('data-one-frame', 'true'));
+    let heard = spokenNumbers(audio).length;
+    while (heard < 12) {
+      await waitFor(() => expect(spokenNumbers(audio).length).toBeGreaterThan(heard), {
+        timeout: 3000,
+        interval: 20,
+      });
+      heard = spokenNumbers(audio).length;
+      const lit = root.querySelector('[data-counting="true"]') as HTMLElement | null;
+      await expect(lit, `a highlight for ${heard}`).not.toBeNull();
+      await expect(lit).toBeVisible();
+    }
+    await counted;
+    await expect(spokenNumbers(audio)).toEqual(Array.from({ length: 12 }, (_, i) => i + 1));
+  },
+};
+
+const resizeLoose: WidgetDemo = createDemoController({ strict: true });
+
+/**
+ * The same shrink on the regrouping item (13 loose crabs, groupsOf 10, nothing bundled), where the
+ * ten is counted crab by crab: after "one" the area shrinks to one frame at a time. The ten's own
+ * frame is the one shown, so each of 2–10 lights its own crab's slot (never the loose sheaf as a
+ * whole), then 11–13 are counted on the small frame of ones, and the view stays that way, as when
+ * counting starts in one frame (RegroupKShortBeforeBundle).
+ */
+export const CountAloudSurvivesResizeLooseTen: Story = {
+  globals: { ageMode: 'k' },
+  args: { config: regroup, demo: resizeLoose },
+  parameters: { ui: { audio: spyAudio() } },
+  render: inArea('tablet'),
+  play: async ({ canvasElement, parameters }) => {
+    const audio = parameters.ui.audio as ReturnType<typeof spyAudio>;
+    const root = await findWidget(canvasElement, ROOT);
+    await waitFor(() => expect(inside(root)).toHaveLength(13));
+    await expect(root).not.toHaveAttribute('data-one-frame');
+    clearSpies(audio);
+    const counted = resizeLoose.play({ op: 'count-aloud' });
+    await waitFor(() => expect(spokenNumbers(audio)).toEqual([1]));
+    const box = areaBox(canvasElement);
+    box.style.width = `${AREA.shortLandscape.width}px`;
+    box.style.height = `${AREA.shortLandscape.height}px`;
+    await waitFor(() => expect(root).toHaveAttribute('data-one-frame', 'true'));
+    // In one frame from here on: the ten's frame, the ones beside it, no sheaf lit as a whole.
+    await waitFor(() => expect(tens(root)).toHaveAttribute('data-tens', 'ones'));
+    let heard = spokenNumbers(audio).length;
+    await expect(heard, 'shrunk while the ten is still being counted').toBeLessThan(10);
+    while (heard < 10) {
+      await waitFor(() => expect(spokenNumbers(audio).length).toBeGreaterThan(heard), {
+        timeout: 3000,
+        interval: 20,
+      });
+      heard = spokenNumbers(audio).length;
+      const n = heard;
+      const lit = await waitFor(
+        () => {
+          const el = root.querySelector<HTMLElement>(
+            `[data-slot="${n - 1}"] [data-counting="true"]`,
+          );
+          if (!el) throw new Error(`no highlight in slot ${n - 1} for ${n}`);
+          return el;
+        },
+        { timeout: 300, interval: 10 },
+      );
+      await expect(lit).toBeVisible();
+      await expect(tens(root)).toHaveAttribute('data-tens', 'ones');
+      await expect(tens(root)).not.toHaveAttribute('data-counting');
+    }
+    for (const n of [11, 12, 13]) await expectOnesCountStep(root, n);
+    await counted;
+    await expect(spokenNumbers(audio)).toEqual(Array.from({ length: 13 }, (_, i) => i + 1));
+    await expect(tens(root)).toHaveAttribute('data-tens', 'ones');
+    await expect(root.querySelector('.ni-mset__bundle')).toBeNull();
+    await expectFitsArea(root, areaBox(canvasElement), 'k');
+  },
+};
+
+const regroupAnswer: WidgetDemo = createDemoController({ strict: true });
+
+/**
+ * An `answer` invite on a set that already holds the value but has a full ten still loose
+ * (groupsOf 10, 13 crabs). The model's `answer` ends with the ten tied and `set.count` checks the
+ * bundles, so the cue goes on "Make a ten" first and on Check only once the ten is tied: following
+ * the cue gives the answer the checker accepts. (A child's action ends an invite, as everywhere
+ * in this widget; the host gives the same `answer` invite again for the next step.)
+ */
+export const AnswerInviteBundlesFirst: Story = {
+  globals: { ageMode: 'k' },
+  args: { config: regroup, demo: regroupAnswer },
+  play: async ({ canvasElement, args }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    regroupAnswer.invite({ op: 'answer', args: { value: 13 } });
+    const makeTen = within(root).getByRole('button', { name: 'Make a ten' });
+    await waitFor(() => expect(makeTen.closest('.ni-mset__action')).toHaveClass('ni-invite'));
+    await expect(root.querySelectorAll('.ni-invite')).toHaveLength(1);
+    await expect(check(root)).not.toHaveClass('ni-invite');
+    await userEvent.click(makeTen);
+    await waitFor(() => expect(makeTen).toBeDisabled());
+    await expect(root.querySelectorAll('.ni-invite')).toHaveLength(0);
+    regroupAnswer.invite({ op: 'answer', args: { value: 13 } });
+    await waitFor(() => expect(check(root)).toHaveClass('ni-invite'));
+    await expect(root.querySelectorAll('.ni-invite')).toHaveLength(1);
+    await userEvent.click(check(root));
+    check(root).blur();
+    await expect(args.onResponse).toHaveBeenCalledWith({
+      kind: 'state',
+      value: { count: 13, removed: 0, bundles: 1 },
+    });
+    regroupAnswer.invite(null);
+  },
+};
+
+const regroupAfter: WidgetDemo = createDemoController({ strict: true });
+
+/**
+ * PV.09.t1, AFTER bundling (the solution's `bundle`): the ten is tied (rope and bow) and is one
+ * ten in the model, so counting it as one ten is right: "10, 11, 12, 13". The story ends on a
+ * count-aloud invite on the tied ten (one ring, Pip's hand with its "count" cue), where counting
+ * now starts. (An invite on Check, at the foot of the column, would need the hand's room below
+ * it, more than this short area has.)
+ */
+export const RegroupKShortAfterBundle: Story = {
+  globals: { ageMode: 'k' },
+  args: { config: regroup, demo: regroupAfter },
+  parameters: { ui: { audio: spyAudio() } },
+  render: inArea('shortLandscape'),
+  play: async ({ canvasElement, parameters }) => {
+    const audio = parameters.ui.audio as ReturnType<typeof spyAudio>;
+    const root = await findWidget(canvasElement, ROOT);
+    await waitFor(() => expect(root).toHaveAttribute('data-one-frame', 'true'));
+    await regroupAfter.play({ op: 'bundle' });
+    await waitFor(() =>
+      expect((tens(root) as HTMLElement).querySelector('.ni-mset__bundle-tie')).not.toBeNull(),
+    );
+    await expectTenFirst(root);
+    // Review round 3 (F3): untie the view (the full, bundled frame with the ones beside it): the
+    // bow's ink stays ≥ 12 px clear of the small frame of ones.
+    await userEvent.click(tens(root) as HTMLElement);
+    await waitFor(() => expect(tens(root)).toHaveAttribute('data-tens', 'ones'));
+    await framesSettled(root);
+    const bundled = root.querySelector('.ni-mset__frame[data-bundled="true"]') as HTMLElement;
+    await waitForSettled(bundled.querySelector('.ni-mset__band') as Element);
+    const ones = (tens(root) as HTMLElement).getBoundingClientRect();
+    for (const bow of bundled.querySelectorAll('.ni-mset__bow')) {
+      const r = bow.getBoundingClientRect();
+      const ink = {
+        left: r.left - 1.5,
+        top: r.top - 1.5,
+        right: r.right + 1.5,
+        bottom: r.bottom + 1.5,
+      };
+      const gap = Math.max(
+        ones.left - ink.right,
+        ink.left - ones.right,
+        ones.top - ink.bottom,
+        ink.top - ones.bottom,
+      );
+      await expect(gap, 'bow clear of the small frame').toBeGreaterThanOrEqual(12 - 0.5);
+    }
+    await userEvent.click(tens(root) as HTMLElement);
+    await waitFor(() => expect(tens(root)).toHaveAttribute('data-tens', 'bundle'));
+    (document.activeElement as HTMLElement | null)?.blur();
+    clearSpies(audio);
+    await regroupAfter.play({ op: 'count-aloud' });
+    await expect(spokenNumbers(audio)).toEqual([10, 11, 12, 13]);
+    // The ten counted as one ten, the three ones marked 11, 12, 13 (they stay marked).
+    const onesMarks = [...root.querySelectorAll('.ni-mset__frame .ni-mset__mark')].map((m) =>
+      Number(m.textContent),
+    );
+    await expect(onesMarks).toEqual([11, 12, 13]);
+    regroupAfter.invite({ op: 'count-aloud' });
+    await expectInviteOn(root, tens(root) as HTMLElement);
+    await expectHandCue(root, 'count');
+    await expectFitsArea(root, areaBox(canvasElement), 'k');
   },
 };
 
@@ -904,6 +1407,7 @@ export const OneFrameMatchesTwoFrames: Story = {
       await userEvent.keyboard('{Enter}');
       await userEvent.keyboard('{Enter}');
       await userEvent.click(check(root));
+      check(root).blur();
     };
     await run(two, false);
     await run(one, true);
@@ -1051,8 +1555,10 @@ export const BundleTen: Story = {
     await userEvent.click(tie);
     await expect(root.querySelector('.ni-mset__frame[data-bundled="true"]')).not.toBeNull();
     await expect(tie).toBeDisabled();
-    // The bow sits on the frame's edge: once the band has popped in, it overlaps no slot.
+    // The bow sits just outside the frame's edge: once the band has popped in, it overlaps no
+    // slot and not the frame's border.
     await waitForSettled(root.querySelector('.ni-mset__band') as Element);
+    await expectKnotOffBorder(root);
     const bows = [...root.querySelectorAll('.ni-mset__bow')].map((b) => b.getBoundingClientRect());
     await expect(bows.length).toBeGreaterThan(0);
     for (const s of root.querySelectorAll('.ni-mset__slot')) {
@@ -1070,6 +1576,7 @@ export const BundleTen: Story = {
     await waitFor(() => expect(inside(root)).toHaveLength(13));
     await expectEvenHeap(pileArea(root));
     await userEvent.click(check(root));
+    check(root).blur();
     await expect(args.onResponse).toHaveBeenCalledWith({
       kind: 'state',
       value: { count: 13, removed: 0, bundles: 1 },
@@ -1139,6 +1646,13 @@ export const Disabled: Story = {
     await expect(inside(root)).toHaveLength(0);
     await expect(check(root)).toBeDisabled();
     await expect(args.onInteract).not.toHaveBeenCalled();
+    // Input off: no drop affordance on the container or the pile, even after a tap on them.
+    for (const target of root.querySelectorAll('.ni-drop-target')) {
+      await expect(getComputedStyle(target).outlineStyle, 'no drop ring when disabled').toBe(
+        'none',
+      );
+    }
+    (document.activeElement as HTMLElement | null)?.blur();
   },
 };
 
@@ -1275,6 +1789,21 @@ export const DemoInvite: Story = {
     await expectPointerOn(pointerIn(fish), fish, root);
     await expectRingClear(fish, allItems(root));
     await expectEvenHeap(pileArea(root));
+    // The crate keeps room under its objects for the hand: at the bottom of its tap bob (8 px)
+    // the hand stays ≥ 12 px above the crate's rim (3 px border, 11 px rim).
+    const crate = pileArea(root);
+    await expect(crate).toHaveAttribute('data-hand-room', 'true');
+    const handEl = pointerIn(fish);
+    for (const a of handEl.getAnimations()) {
+      a.pause();
+      a.currentTime = 0;
+    }
+    const rim = crate.getBoundingClientRect().bottom - 3 - 11;
+    await expect(
+      rim - (handEl.getBoundingClientRect().bottom + 8),
+      'hand above the rim',
+    ).toBeGreaterThanOrEqual(12);
+    for (const a of handEl.getAnimations()) a.play();
     // It stays: nothing clears the invite until the child acts.
     await new Promise((r) => setTimeout(r, 600));
     await expect(fish.classList.contains('ni-invite')).toBe(true);
@@ -1393,3 +1922,100 @@ export const DemoReducedMotion: Story = {
     await expect(root.querySelector('.ni-mset__flight')).toBeNull();
   },
 };
+
+const answerBundles: WidgetDemo = createDemoController({ strict: true });
+
+/**
+ * The generic `answer {value}` takes its end state from the engine model: with groupsOf 10 the
+ * model bundles every full ten, so the demo fills 13 and ties the ten.
+ */
+export const DemoAnswerBundles: Story = {
+  globals: { motion: 'reduced' },
+  args: { config: bundleTen, disabled: true, demo: answerBundles },
+  play: async ({ canvasElement }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    await answerBundles.play({ op: 'answer', args: { value: 13 } });
+    await expect(inside(root)).toHaveLength(13);
+    await expectKnotOffBorder(root);
+    // The 3 sticks left over are in the supply crate, dimmed while Pip shows, under its tag.
+    await expect(heap(root)).toHaveLength(3);
+    for (const el of heap(root)) {
+      await expect(Number(getComputedStyle(el).opacity)).toBeLessThan(0.6);
+    }
+    const crate = pileArea(root);
+    await expect(crate).toHaveAttribute('data-kind', 'supply');
+    const tag = crate.querySelector('.ni-mset__supply-icon') as HTMLElement;
+    await expect(tag).toBeVisible();
+    // The tag sits on the crate's rim, inside the crate and above its objects.
+    const c = crate.getBoundingClientRect();
+    const t = tag.getBoundingClientRect();
+    // On the floor: ≥ 3 px inside the crate's 3 px border and 11 px rim.
+    await expectInside(t, c, 3 + 11 + 3 - 2, 'the tag on the crate floor');
+    for (const el of heap(root)) {
+      await expect(t.bottom).toBeLessThanOrEqual(el.getBoundingClientRect().top);
+    }
+  },
+};
+
+/**
+ * The distance from `x` (screen px) rightwards to the inner edge of the container art's drawn wall
+ * at height `y`, where the art body is one shape (the basket): scanned along its fill, less half
+ * its stroke. Null where the body is a group of shapes (the boat), measured by its box instead.
+ */
+function wallGapAt(root: HTMLElement, x: number, y: number): number | null {
+  const body = root.querySelector('.ni-mset__body');
+  if (!(body instanceof SVGGeometryElement)) return null;
+  const svg = body.ownerSVGElement as SVGSVGElement;
+  const s = svg.getBoundingClientRect();
+  const stroke = Number.parseFloat(getComputedStyle(body).strokeWidth) || 0;
+  const pt = svg.createSVGPoint();
+  pt.y = y - s.top;
+  let at = x - s.left;
+  for (; at < s.width; at += 0.5) {
+    pt.x = at;
+    if (!body.isPointInFill(pt)) break;
+  }
+  return at - stroke / 2 - (x - s.left);
+}
+
+/**
+ * A bundled ten-frame's bow (its knot and loops) sits fully outside the frame, never on its
+ * border, and inside the container; the band reaches it across the frame's edge.
+ */
+async function expectKnotOffBorder(root: HTMLElement) {
+  const frame = root.querySelector('.ni-mset__frame[data-bundled="true"]') as HTMLElement;
+  await expect(frame).not.toBeNull();
+  await waitForSettled(frame.querySelector('.ni-mset__band') as Element);
+  const f = frame.getBoundingClientRect();
+  const box = (root.querySelector('.ni-mset__container') as Element).getBoundingClientRect();
+  const bows = [...frame.querySelectorAll('.ni-mset__bow')];
+  await expect(bows).toHaveLength(3);
+  const crate = root.querySelector('.ni-mset__pile[data-kind="supply"]')?.getBoundingClientRect();
+  for (const bow of bows) {
+    // Outlines are 3 px: 1.5 px beyond the shape's box.
+    const r = bow.getBoundingClientRect();
+    const b = {
+      left: r.left - 1.5,
+      top: r.top - 1.5,
+      right: r.right + 1.5,
+      bottom: r.bottom + 1.5,
+    };
+    await expect(b.left - f.right, 'bow 12 px outside the frame').toBeGreaterThanOrEqual(12 - 0.5);
+    await expectInside(b, box, 12, 'bow 12 px inside the container');
+    // And ≥ 12 px inside the container's drawn wall at the bow's own height (a basket's wall
+    // slants inwards): from the bow's right edge to the wall's inner stroke edge.
+    const wall = wallGapAt(root, b.right, (b.top + b.bottom) / 2);
+    if (wall !== null) {
+      await expect(wall, 'bow 12 px inside the drawn wall').toBeGreaterThanOrEqual(12 - 0.5);
+    }
+    if (crate) {
+      const gap = Math.max(
+        b.left - crate.right,
+        crate.left - b.right,
+        b.top - crate.bottom,
+        crate.top - b.bottom,
+      );
+      await expect(gap, 'bow 12 px from the crate').toBeGreaterThanOrEqual(12 - 0.5);
+    }
+  }
+}

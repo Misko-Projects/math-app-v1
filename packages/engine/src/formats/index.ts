@@ -7,6 +7,7 @@ import { arrayBuild } from './array-build';
 import { balance } from './balance';
 import { baseTenBuild } from './base-ten-build';
 import { baseTenTrade } from './base-ten-trade';
+import { compare } from './compare';
 import { dotFlash } from './dot-flash';
 import { equalGroups } from './equal-groups';
 import { equalShare } from './equal-share';
@@ -36,6 +37,7 @@ const MODELS: Partial<Record<ItemFormat, AnyModel>> = {
   'dot-flash': dotFlash,
   'numeral-pick': numeralPick,
   'number-pad': numberPad,
+  compare,
   order,
   'tenframe-fill': tenframeFill,
   'number-bond': numberBond,

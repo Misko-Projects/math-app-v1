@@ -30,7 +30,7 @@ import {
   type PadKey,
   padValue,
   useAlive,
-  useCommitWait,
+  useCommitBarrier,
   useDemoPause,
   useInviteHand,
   useSubmitGuard,
@@ -746,7 +746,7 @@ export function NumberLineJumpWidget({
   const trace = useInteractionTrace(onInteract);
   const alive = useAlive();
   const pause = useDemoPause();
-  const waitForCommit = useCommitWait();
+  const waitForCommit = useCommitBarrier();
   const c = config;
   const stones = c.path === 'stones';
   const T = MIN_TARGET_PX[ageMode];
@@ -1052,6 +1052,8 @@ export function NumberLineJumpWidget({
     rootRef,
     (root) => (cue ? cueTarget(root, cue) : null),
     cue ? `${cueKeyOf(cue)}|${plan.layout}|${plan.hops}|${plan.hopCols}|${roadW}` : '',
+    undefined,
+    undefined,
     plan.overhang,
   );
 

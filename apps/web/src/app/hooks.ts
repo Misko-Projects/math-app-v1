@@ -1,5 +1,6 @@
+import type { AudioState } from '@number-island/ui';
 import { useLiveQuery } from 'dexie-react-hooks';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState, useSyncExternalStore } from 'react';
 import type { DeviceRecord, SyncStateRow } from '@/data/db';
 import { useAppServices } from './AppServices';
 
@@ -13,6 +14,14 @@ export function useDeviceRecord(): DeviceRecord | undefined {
 export function useSyncState(): SyncStateRow | undefined {
   const { store } = useAppServices();
   return useLiveQuery(() => store.db.syncState.get('sync'), [store]);
+}
+
+/** The AudioManager's state, live: `locked` until a tap unlocks it (06 §5 "Tap to start"). */
+export function useAudioState(): AudioState {
+  const { audio } = useAppServices();
+  const subscribe = useCallback((onChange: () => void) => audio.subscribe(onChange), [audio]);
+  const get = useCallback(() => audio.state, [audio]);
+  return useSyncExternalStore(subscribe, get, get);
 }
 
 /** `navigator.onLine`, live. */

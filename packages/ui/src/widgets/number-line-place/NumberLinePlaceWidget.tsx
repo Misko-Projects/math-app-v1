@@ -35,7 +35,7 @@ import {
   padValue,
   stepsBetween,
   useAlive,
-  useCommitWait,
+  useCommitBarrier,
   useDemoPause,
   useInviteHand,
   useSubmitGuard,
@@ -478,7 +478,7 @@ export function NumberLinePlaceWidget({
   const trace = useInteractionTrace(onInteract);
   const alive = useAlive();
   const pause = useDemoPause();
-  const waitForCommit = useCommitWait();
+  const waitForCommit = useCommitBarrier();
   const c = config;
   const fmt = formatter(c);
   const mode = c.mode;

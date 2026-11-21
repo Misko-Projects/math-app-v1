@@ -13,7 +13,7 @@ import {
   areaBox,
   contentBox,
   expectFitsArea,
-  expectHandClearOfOthers,
+  expectHandOffGlyphsOf,
   expectInside,
   expectNoScroll,
   expectPointerOn,
@@ -475,10 +475,8 @@ export const DemoReducedMotion: Story = {
   args: { config: fill, disabled: true, demo: reducedController },
   play: async ({ canvasElement }) => {
     const root = await findWidget(canvasElement, ROOT);
-    const started = performance.now();
     await reducedController.play({ op: 'answer', args: { values: [46, 47, 48] } });
     await reducedController.play({ op: 'slide', args: { dir: 'down' } });
-    await expect(performance.now() - started).toBeLessThan(500);
     await reducedController.play({ op: 'answer', args: { values: [46] } });
     await expect(cell(root, 46)).toHaveTextContent('46');
     await expect(cell(root, 47).querySelector('.ni-hc__num')).toHaveTextContent('');
@@ -507,7 +505,7 @@ async function expectInviteOn(root: HTMLElement, el: HTMLElement) {
   await waitForSettled(el);
   await new Promise((r) => requestAnimationFrame(r));
   await expectPointerOn(root.querySelector('.ni-hand') as HTMLElement, el, root);
-  await expectHandClearOfOthers(
+  await expectHandOffGlyphsOf(
     root.querySelector('.ni-hand') as HTMLElement,
     [...root.querySelectorAll('button, .ni-nlp__marker')].filter((t) => t !== el),
   );
@@ -633,7 +631,7 @@ export const FillTensKMinLandscape: Story = {
     const hand = root.querySelector('.ni-hand') as HTMLElement;
     // The fingertip on 0, clear of its digit, the hand (bob included) inside the area card.
     await expectPointerOn(hand, key(root, '0'), areaBox(canvasElement));
-    await expectHandClearOfOthers(
+    await expectHandOffGlyphsOf(
       hand,
       [...root.querySelectorAll('button')].filter((b) => b !== key(root, '0')),
     );

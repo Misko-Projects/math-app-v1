@@ -43,8 +43,12 @@
 }
 .ni-tapc__picture[data-from] {
   gap: 16px;
-  /* Ordinal badges sit higher (above the selection ring): more room on top. */
-  padding-top: 70px;
+  /*
+   * Ordinal badges sit higher (above the selection ring): room on top for a badge 12 px under the
+   * card's border; 24 px below for the ringed object's check badge, 12 px over the border.
+   */
+  padding-top: 76px;
+  padding-bottom: 24px;
   padding-inline: 20px;
 }
 .ni-tapc__picture[data-from="right"] {
@@ -139,11 +143,93 @@ button.ni-tapc__obj:focus-visible {
 }
 
 /*
- * Ordinal: the badge sits above the selection ring below (2 px offset + 6 px), centred 40 px above
- * the box: 66 px to 14 px above it, 6 px clear of the ring (TapCountWidget `BADGE_ORDINAL`).
+ * Ordinal: the badge sits above the selection ring (2 px offset + 6 px), a 44 px pebble with a
+ * 32 px numeral centred 42 px above the box: 64 px to 20 px above it, 12 px clear of the ring
+ * (TapCountWidget `BADGE_ORDINAL`).
  */
 .ni-tapc[data-mode="ordinal"] .ni-tapc__mark {
-  top: -40px;
+  top: -42px;
+  min-width: 44px;
+  height: 44px;
+  padding: 0.14em 5px 0;
+  font-size: 2rem;
+}
+
+/*
+ * Pictures in places (TapCountWidget DOT_LAYOUTS: ten-frames, equal-groups plates): no number goes
+ * on an object. While marks can show, every object's drawing sits at the top of its place (one
+ * size for all) and a counted one gets a teal dot centred in the free space under it (set inline:
+ * 20 % of the box, ≥ 3 px from the drawing and from the cell's lines). The running count shows
+ * once, in the card's top-right corner: a 44 px pebble with a 32 px numeral (05 §11), 12 px in
+ * from the card's outer edges, in a 68 px top padding that keeps it ≥ 12 px above every frame.
+ */
+.ni-tapc__dot {
+  position: absolute;
+  box-sizing: border-box;
+  border-radius: 50%;
+  background: var(--color-sea-deep);
+  box-shadow: 0 0 0 1.5px var(--color-paper);
+  pointer-events: none;
+  animation: var(--animate-pop-in);
+}
+.ni-tapc[data-dots="true"] .ni-tapc__picture {
+  position: relative;
+  padding-top: 68px;
+}
+/*
+ * Tappable ten-frame cells (C, `data-cells="targets"`): every cell is its own target, the size of
+ * its object's box (6 px in from the grid track on each side, so 12 px between cells), on a sand
+ * frame that stands 12 px out from the cells' grid (8 px padding and its 4 px border, outside the
+ * kit's box). The card gives the frame that room: 80 px on top (the count 12 px clear of it),
+ * 32 px below.
+ */
+.ni-tapc[data-cells="targets"] .ni-tapc__picture {
+  padding-top: 80px;
+  padding-bottom: 32px;
+}
+.ni-tapc[data-cells="targets"] .ni-objects__frame {
+  box-sizing: content-box;
+  margin: -12px;
+  padding: 8px;
+  background: var(--color-sand);
+}
+.ni-tapc[data-cells="targets"] .ni-objects__cell {
+  margin: 6px;
+  border-radius: 16px;
+  background: var(--color-cloud);
+  box-shadow: inset 0 0 0 3px var(--color-ink-soft);
+}
+/* The object counted last: an ink dot in a sunshine ring, under the running count's column. */
+.ni-tapc__dot[data-latest="true"] {
+  background: var(--color-ink);
+  box-shadow:
+    0 0 0 2px var(--color-sunshine),
+    0 0 0 3.5px var(--color-ink);
+}
+/* Centred over the last counted object's column (left set inline, clamped inside the card). */
+.ni-tapc__count {
+  position: absolute;
+  top: 9px;
+  left: calc(100% - 39px);
+  translate: -50% 0;
+  display: grid;
+  place-items: center;
+  box-sizing: border-box;
+  min-width: 52px;
+  height: 44px;
+  padding: 0.14em 8px 0;
+  border: 3px solid var(--color-ink);
+  border-radius: 999px;
+  background: var(--color-sunshine);
+  color: var(--color-ink);
+  font-family: var(--font-display);
+  font-size: 2rem;
+  font-weight: 800;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+  pointer-events: none;
+  box-shadow: 0 3px 0 rgb(38 70 83 / 0.25);
+  animation: var(--animate-pop-in);
 }
 
 /* Ordinal pick: a thick ink ring around the object and a check badge. */
@@ -173,11 +259,42 @@ button.ni-tapc__obj:focus-visible {
   outline-offset: 4px;
   transform: scale(1.08);
 }
+/*
+ * Pip counting on a picture in places: no lift or outside ring (it would cross into the next
+ * place); a teal ring 5 px inside the object's box (inside its frame cell), behind the drawing.
+ */
+.ni-tapc[data-dots="true"] .ni-tapc__obj[data-counting="true"] {
+  isolation: isolate;
+  outline: none;
+  transform: none;
+}
+.ni-tapc[data-dots="true"] .ni-tapc__obj[data-counting="true"]::before {
+  content: "";
+  position: absolute;
+  inset: 5px;
+  z-index: -1;
+  border-radius: 30%;
+  background: var(--color-sunshine-light);
+  box-shadow: inset 0 0 0 3px var(--color-sea-deep);
+}
 .ni-tapc__obj.ni-invite {
   position: absolute;
   border-radius: 50%;
   /* Close around the object, so the ring stays clear of the neighbours' count badges. */
   outline-offset: 2px;
+}
+/*
+ * In places, the invite and focus rings stay inside the object's own box (so inside its frame
+ * cell, never across the frame's edge): ≥ 12 px clear of every other target. No pulse.
+ */
+.ni-tapc[data-dots="true"] .ni-tapc__obj.ni-invite {
+  border-radius: 28%;
+  outline-offset: -5px;
+  animation: none;
+}
+.ni-tapc[data-dots="true"] button.ni-tapc__obj:focus-visible {
+  border-radius: 28%;
+  outline-offset: -4px;
 }
 
 /* Nothing to count (CNT.13): an empty sand dish, a white rim around a shallow well. */
@@ -240,6 +357,51 @@ button.ni-tapc__obj:focus-visible {
 .ni-tapc__check {
   position: relative;
   display: inline-flex;
+}
+
+/*
+ * The compact pad (TapCountWidget `compactPad`: a host too short for the 560 px pad column, e.g.
+ * the 960 × 600 minimum's 373 px): the keys at the age's minimum target (K 80 px) in a 4 × 3
+ * block (1–4, 5–8, 9 0 ⌫), the answer slot over Check in a column beside them, a 32 px gap to the
+ * picture. 3 × 84 + 2 × 12 = 276 px tall.
+ */
+.ni-tapc[data-pad="compact"] {
+  column-gap: 32px;
+  /* 12 px at the sides (not 24): the picture beside the compact pad gets the room. */
+  padding-inline: 12px;
+}
+/* Beside the compact pad the picture card keeps 16 px at its sides (CARD_PAD_X_COMPACT). */
+.ni-tapc[data-pad="compact"] .ni-tapc__picture {
+  padding-inline: 16px;
+}
+.ni-tapc__answer[data-pad="compact"] {
+  display: grid;
+  grid-template-areas:
+    "slot keys"
+    "check keys";
+  gap: 16px;
+  align-items: center;
+  justify-items: center;
+}
+.ni-tapc__answer[data-pad="compact"] .ni-tapc__pad {
+  display: contents;
+}
+.ni-tapc__answer[data-pad="compact"] .ni-tapc__slot {
+  grid-area: slot;
+  align-self: end;
+}
+.ni-tapc__answer[data-pad="compact"] .ni-tapc__check {
+  grid-area: check;
+  align-self: start;
+}
+.ni-tapc__answer[data-pad="compact"] .ni-pad {
+  grid-area: keys;
+  grid-template-columns: repeat(4, var(--target-min));
+  /* The keys' 4 px ledge margin comes on top of the full target. */
+  grid-auto-rows: calc(var(--target-min) + 4px);
+}
+.ni-tapc__answer[data-pad="compact"] .ni-pad__gap {
+  display: none;
 }
 
 [data-reduced-motion="true"] .ni-tapc__obj {

@@ -5,14 +5,27 @@
 // - initial JS = every entry chunk plus its static imports, gzip-summed;
 // - each workshop chunk = a dynamic entry under src/workshops/<id>/ plus the static imports it adds
 //   beyond the initial JS.
+// - the engine's item core (generators, state checkers, misconception rules) is not in the initial
+//   JS (02 §6a): each of its three registries carries a marker string, and no initial file may
+//   contain one. The chunk that holds them is reported with its size; it has no budget of its own.
 // Time to interactive is reported as not measured here (02 §6: reported, not enforced).
-// Exit 1 when a budget is exceeded or the build is missing.
+// Exit 1 when a budget is exceeded, the item core is in the initial JS, or the build is missing.
 import { appendFileSync, existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { gzipSync } from 'node:zlib';
 
 const KB = 1024;
+
+/**
+ * The markers of the engine's item-core registries (packages/engine/src/items/install.ts,
+ * `ITEM_CORE_MARKS`; bundle-size.test.ts keeps the two lists equal).
+ */
+export const ITEM_CORE_MARKS = [
+  'number-island:item-core/generators',
+  'number-island:item-core/state-checkers',
+  'number-island:item-core/misconception-rules',
+];
 
 /**
  * @typedef {{ file: string; src?: string; isEntry?: boolean; isDynamicEntry?: boolean; imports?: string[]; dynamicImports?: string[]; css?: string[] }} ManifestChunk
@@ -34,9 +47,10 @@ function closure(manifest, keys) {
 }
 
 /**
- * @param {{ manifest: Manifest; budgets: Budgets; gzipSizeOf: (file: string) => number }} input
+ * @param {{ manifest: Manifest; budgets: Budgets; gzipSizeOf: (file: string) => number; textOf?: (file: string) => string }} input
+ *   `textOf` reads a built file; with it the report also says where the item core is.
  */
-export function measure({ manifest, budgets, gzipSizeOf }) {
+export function measure({ manifest, budgets, gzipSizeOf, textOf }) {
   const jsFiles = (keys) => [
     ...new Set([...keys].map((k) => manifest[k]?.file).filter((f) => f?.endsWith('.js'))),
   ];
@@ -77,7 +91,42 @@ export function measure({ manifest, budgets, gzipSizeOf }) {
     ok: initialBytes / KB <= budgets.initialJsKbGzip,
     files: initialFiles,
   };
-  return { initial, workshops, ok: initial.ok && workshops.every((w) => w.ok) };
+  const itemCore = textOf
+    ? locateItemCore({ files: jsFiles(Object.keys(manifest)), initialFiles, textOf, bytes })
+    : undefined;
+  return {
+    initial,
+    workshops,
+    ...(itemCore ? { itemCore } : {}),
+    ok: initial.ok && workshops.every((w) => w.ok) && (itemCore?.ok ?? true),
+  };
+}
+
+/**
+ * Where the item-core markers are. Ok when every marker is in a built file and none is in an
+ * initial file. A marker in no file at all is a failure too: it means the check no longer sees
+ * the item core, not that the item core is gone.
+ */
+function locateItemCore({ files, initialFiles, textOf, bytes }) {
+  const initial = new Set(initialFiles);
+  /** @type {string[]} */ const inInitial = [];
+  /** @type {string[]} */ const missing = [];
+  const lazyFiles = new Set();
+  for (const mark of ITEM_CORE_MARKS) {
+    const holders = files.filter((f) => textOf(f).includes(mark));
+    if (holders.length === 0) missing.push(mark);
+    for (const f of holders) {
+      if (initial.has(f)) inInitial.push(`${mark} in ${f}`);
+      else lazyFiles.add(f);
+    }
+  }
+  return {
+    files: [...lazyFiles].sort(),
+    kbGzip: bytes([...lazyFiles]) / KB,
+    inInitial,
+    missing,
+    ok: inInitial.length === 0 && missing.length === 0,
+  };
 }
 
 function format(report) {
@@ -92,6 +141,13 @@ function format(report) {
     ),
   ];
   if (report.workshops.length === 0) lines.push('| (no workshop chunks yet) | | | |');
+  if (report.itemCore) {
+    const c = report.itemCore;
+    const status = c.ok ? 'lazy' : c.inInitial.length > 0 ? 'IN INITIAL JS' : 'NOT FOUND';
+    lines.push(
+      `| engine item core (${c.files.length} files, loaded at boot) | ${kb(c.kbGzip)} | none | ${status} |`,
+    );
+  }
   lines.push(
     '',
     'Time to interactive: reported, not enforced (02 §6); not measured by this job yet (Q01 verifies it).',
@@ -115,12 +171,26 @@ if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.ur
     manifest,
     budgets,
     gzipSizeOf: (file) => gzipSync(readFileSync(join(dist, file)), { level: 9 }).length,
+    textOf: (file) => readFileSync(join(dist, file), 'utf8'),
   });
   const table = format(report);
   console.log(table);
   writeFileSync(join(dist, 'bundle-size-report.json'), `${JSON.stringify(report, null, 2)}\n`);
   if (process.env.GITHUB_STEP_SUMMARY) {
     appendFileSync(process.env.GITHUB_STEP_SUMMARY, `## Bundle size\n\n${table}\n`);
+  }
+  if (report.itemCore && !report.itemCore.ok) {
+    for (const where of report.itemCore.inInitial) {
+      console.error(
+        `bundle-size: the engine's item core is in the initial JS (${where}). The shell may import only @number-island/engine/shell statically (02 §6a).`,
+      );
+    }
+    for (const mark of report.itemCore.missing) {
+      console.error(
+        `bundle-size: item-core marker ${mark} is in no built file; the check can no longer see the item core (02 §6a).`,
+      );
+    }
+    process.exit(1);
   }
   if (!report.ok) {
     console.error('bundle-size: budget exceeded (02 §6).');

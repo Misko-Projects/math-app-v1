@@ -27,7 +27,7 @@ import {
   type PadKey,
   padValue,
   useAlive,
-  useCommitWait,
+  useCommitBarrier,
   useDemoPause,
   useInviteHand,
   useSubmitGuard,
@@ -420,7 +420,7 @@ export function HundredChartWidget({
   const trace = useInteractionTrace(onInteract);
   const alive = useAlive();
   const pause = useDemoPause();
-  const waitForCommit = useCommitWait();
+  const waitForCommit = useCommitBarrier();
   const c = config;
   const last = c.first + c.rows * 10 - 1;
   const hidden = new Set(c.hidden);
@@ -858,6 +858,8 @@ export function HundredChartWidget({
     rootRef,
     (root) => (cue ? cueTarget(root, cue) : null),
     cue ? `${cueKeyOf(cue)}|${plan.layout}|${plan.cellW}|${shownTop}` : '',
+    undefined,
+    undefined,
     plan.overhang,
   );
 
