@@ -5,6 +5,7 @@
     <rect width="512" height="512" fill="#bfe4ee"/>
     <circle cx="350" cy="168" r="44" fill="#e9c46a" stroke="#c9a245" stroke-width="7"/>
     <rect y="300" width="512" height="212" fill="#2a9d8f"/>
+    <rect y="424" width="512" height="88" fill="#1f7a8c"/>
     <ellipse cx="256" cy="360" rx="160" ry="42" fill="#8fd3c7"/>
     <path d="M126 360c0-28 54-50 130-50s130 22 130 50c0 17-54 26-130 26s-130-9-130-26Z" fill="#f4e3c3" stroke="#d9bb87" stroke-width="8"/>
     <path d="M210 352c-3-46-17-92-37-122" fill="none" stroke="#8f5a31" stroke-width="24"/>
