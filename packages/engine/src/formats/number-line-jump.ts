@@ -2,6 +2,7 @@
 // allowed signed jumps from `start` that lands on `target` is correct (strategy freedom).
 
 import { numberLineJumpConfigSchema, type WidgetConfigOf } from '@number-island/shared';
+import { lineDomainIssues } from './number-line-place';
 import {
   argNumber,
   digitCount,
@@ -41,7 +42,34 @@ export function fewestJumps(c: Config): number | null {
   return null;
 }
 
+/**
+ * The supported domain of a jump road, beyond a number line's (`lineDomainIssues`, which bounds
+ * every path's ends and so its hops): a road of stepping stones has at most `STONE_ROAD_MAX`
+ * stones after its first (shipped roads have 10 to 22), and no hop on it is longer than `HOP_MAX`.
+ * The stone road is drawn stone by stone and slid under the hopper; these bounds keep every pixel
+ * offset far inside a browser's layout range.
+ */
+export const STONE_ROAD_MAX = 10_000;
+export const HOP_MAX = 10_000;
+
 const configSchema = numberLineJumpConfigSchema.superRefine((c, ctx) => {
+  for (const [path, message] of lineDomainIssues(c)) {
+    ctx.addIssue({ code: 'custom', path: [path], message });
+  }
+  if (c.path === 'stones' && c.max - c.min > STONE_ROAD_MAX) {
+    ctx.addIssue({
+      code: 'custom',
+      path: ['max'],
+      message: `a stone road is at most ${STONE_ROAD_MAX} stones long (max − min)`,
+    });
+  }
+  if (c.path === 'stones' && c.allowedJumps.some((j) => Math.abs(j) > HOP_MAX)) {
+    ctx.addIssue({
+      code: 'custom',
+      path: ['allowedJumps'],
+      message: `a hop on a stone road is at most ${HOP_MAX} long`,
+    });
+  }
   if (c.min >= c.max)
     ctx.addIssue({ code: 'custom', path: ['max'], message: 'max must exceed min' });
   if (c.start < c.min || c.start > c.max) {

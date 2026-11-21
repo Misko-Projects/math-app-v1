@@ -1,3 +1,4 @@
+import { lineSteps } from '@number-island/engine';
 import { type ReactNode, useId } from 'react';
 import { pictureProps } from './a11y';
 import './kit.css';
@@ -42,15 +43,17 @@ export function numberLineScale(
   };
 }
 
-/** Values from min to max in steps of `every` (aligned to multiples of `every`), plus the ends. */
+/**
+ * Values from min to max in steps of `every` (multiples of `every`): the engine's `lineSteps`, the
+ * same function the number-line format model snaps to, so drawn ticks and model ticks agree.
+ */
 export function stepsBetween(min: number, max: number, every: number | null): number[] {
-  if (every === null || every <= 0) return [];
-  const out: number[] = [];
-  const first = Math.ceil(min / every) * every;
-  // Integer step counting avoids floating drift (0.1 steps).
-  const n = Math.floor((max - first) / every + 1e-9);
-  for (let i = 0; i <= n && i < 2000; i++) out.push(Number((first + i * every).toFixed(6)));
-  return out;
+  return lineSteps(min, max, every);
+}
+
+/** A value as the line prints it: a real minus sign (U+2212) below zero, as the readouts do. */
+export function numeralText(v: number): string {
+  return v < 0 ? `\u2212${String(Math.abs(v))}` : String(v);
 }
 
 export interface NumberLineMark {
@@ -113,6 +116,31 @@ export const POINTER_HEADROOM = POINTER_TIP_Y + 22 + 3;
 /** Rough width of a numeral string at 32 px Baloo 2 (for thinning crowded labels). */
 const numeralWidth = (s: string) => s.length * 24 + 8;
 
+/**
+ * The exact scale a `NumberLineView` with these props draws with (same end padding), with
+ * `lineY` = `headroom`. Widgets that lay HTML controls over the line (a draggable marker, a
+ * hopping critter) position them with it, in the SVG's own pixel coordinates.
+ */
+export function numberLineViewScale({
+  min,
+  max,
+  width = 880,
+  format = numeralText,
+  headroom,
+  pad: padProp,
+}: {
+  min: number;
+  max: number;
+  width?: number;
+  format?: (value: number) => string;
+  headroom: number;
+  /** The view's `pad` prop, when it is given one. */
+  pad?: number;
+}): NumberLineScale {
+  const pad = Math.max(30, padProp ?? Math.max(40, numeralWidth(format(max)) / 2 + 8));
+  return { ...numberLineScale(min, max, width, pad), lineY: headroom };
+}
+
 export function NumberLineView({
   min,
   max,
@@ -121,7 +149,7 @@ export function NumberLineView({
   marks = [],
   jumps = [],
   width = 880,
-  format = (v) => String(v),
+  format = numeralText,
   label,
   headroom,
   pad: padProp,
@@ -132,8 +160,8 @@ export function NumberLineView({
   className,
 }: NumberLineViewProps) {
   const arrowId = `ni-arrow-${useId().replace(/[^a-zA-Z0-9_-]/g, '')}`;
-  const pad = Math.max(30, padProp ?? Math.max(40, numeralWidth(format(max)) / 2 + 8));
-  const s = numberLineScale(min, max, width, pad);
+  const s = numberLineViewScale({ min, max, width, format, headroom: LINE_Y, pad: padProp });
+  const pad = s.pad;
   const ticks = stepsBetween(min, max, ticksEvery);
   // Numerals: every labelsEvery. When they would touch, keep an even stride (every 2nd, 5th, 10th…
   // label) so the pattern stays regular, never a greedy gap here and there.

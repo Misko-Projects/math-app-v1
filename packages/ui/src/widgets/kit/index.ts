@@ -79,6 +79,7 @@ export {
   objectSetLayout,
   type PlacedObject,
 } from './layout';
+export { type FlyOptions, flyFrom } from './motion';
 export {
   type EntryKind,
   type EntryLayout,
@@ -98,6 +99,8 @@ export {
   NumberLineView,
   type NumberLineViewProps,
   numberLineScale,
+  numberLineViewScale,
+  numeralText,
   stepsBetween,
 } from './NumberLineView';
 export { fitCell, ObjectSetView, type ObjectSetViewProps } from './ObjectSetView';

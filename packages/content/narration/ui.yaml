@@ -321,6 +321,84 @@ ui.flash.again:
 ui.flash.hidden:
   text: "The picture went away"
   level: K
+
+# number-line-place, number-line-jump, hundred-chart (U03, packages/ui/src/widgets/number-line-place, number-line-jump, hundred-chart)
+ui.nlp.line:
+  text: "Number line"
+  level: K
+ui.nlp.marker:
+  text: "Flag {n}"
+  level: K
+ui.nlj.path:
+  text: "Number path"
+  level: K
+ui.nlj.jumps:
+  text: "Hops"
+  level: K
+ui.nlj.hop:
+  text: "Hop {n}"
+  level: K
+ui.nlj.hop-back:
+  text: "Hop back {n}"
+  level: K
+ui.nlj.undo:
+  text: "Take back"
+  level: K
+ui.nlj.minus:
+  text: "Minus"
+  level: K
+ui.nlj.smaller:
+  text: "Smaller hop"
+  level: K
+ui.nlj.bigger:
+  text: "Bigger hop"
+  level: K
+ui.nlj.hopper:
+  text: "Pebbling on {n}"
+  level: K
+ui.nlj.start:
+  text: "Start"
+  level: K
+ui.hc.chart:
+  text: "Number chart"
+  level: K
+ui.hc.missing:
+  text: "Missing number"
+  level: K
+ui.hc.start:
+  text: "Start {n}"
+  level: K
+ui.hc.moves:
+  text: "Moves"
+  level: K
+ui.hc.move.up:
+  text: "Up"
+  level: K
+ui.hc.move.down:
+  text: "Down"
+  level: K
+ui.hc.move.left:
+  text: "Left"
+  level: K
+ui.hc.move.right:
+  text: "Right"
+  level: K
+ui.hc.rows-up:
+  text: "Go up"
+  level: K
+ui.hc.rows-down:
+  text: "Go down"
+  level: K
+ui.hc.window:
+  text: "{from} to {to}"
+  level: K
+ui.hc.mark:
+  text: "Mark it"
+  level: K
+ui.nlp.minus:
+  text: "Minus"
+  level: K
+
 # compare and order (U03, packages/ui/src/widgets/compare, packages/ui/src/widgets/order).
 ui.compare.left:
   text: "Left side"

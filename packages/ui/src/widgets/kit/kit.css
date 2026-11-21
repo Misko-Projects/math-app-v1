@@ -513,9 +513,11 @@
 
 .ni-pad {
   display: grid;
-  grid-template-columns: repeat(3, var(--target-big));
-  grid-auto-rows: var(--target-big);
+  grid-template-columns: repeat(3, var(--pad-key, var(--target-big)));
+  grid-auto-rows: var(--pad-key, var(--target-big));
   gap: var(--target-gap);
+  /* A widget may open the rows up (`--pad-row-gap`), so Pip's hand under a key clears the digit below. */
+  row-gap: var(--pad-row-gap, var(--target-gap));
   margin: 0;
   padding: 0;
   border: 0;
@@ -524,6 +526,10 @@
 /* No decimal key: 0 spans the first two columns, so the bottom row has no empty cell. */
 .ni-pad__key--wide {
   grid-column: span 2;
+}
+/* Four columns: 1–4, 5–8, then 9, the (wide) 0 and ⌫ (or 9 . 0 ⌫ with a decimal key). */
+.ni-pad[data-shape="4x3"] {
+  grid-template-columns: repeat(4, var(--pad-key, var(--target-big)));
 }
 .ni-pad__key {
   display: grid;
@@ -537,7 +543,8 @@
   background: var(--color-cloud);
   color: var(--color-ink);
   font-family: var(--font-display);
-  font-size: var(--text-numeral);
+  /* `--pad-digit` lets a pad of minimum-size keys keep its digit clear of Pip's fingertip. */
+  font-size: var(--pad-digit, var(--text-numeral));
   font-weight: 800;
   line-height: 1;
   box-shadow:
@@ -586,6 +593,13 @@
   outline-offset: 2px;
   border-radius: var(--radius-pebble);
 }
+/*
+ * Pad keys sit only 12 px apart, so a key's invite ring is drawn inside it, just within its ink
+ * border: the ring then stays the full 12 px clear of the neighbouring keys (06 §4).
+ */
+.ni-pad__key.ni-invite {
+  outline-offset: -7px;
+}
 
 [data-reduced-motion="true"] .ni-pick,
 [data-reduced-motion="true"] .ni-pad__key {
@@ -596,6 +610,11 @@
   .ni-pad__key {
     transition-duration: 0ms;
   }
+}
+
+/* A compact Check (icon only in a short room): a square, no pill padding around the tick. */
+.ni-btn.ni-check--compact {
+  padding-inline: 0;
 }
 
 /* ---------- number entry (NumberEntry: a NumeralTray or the pad) ---------- */
