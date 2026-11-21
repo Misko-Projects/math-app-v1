@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import { planRack } from '../rekenrek/plan';
-import { type ActionSizes, largestActionSize, recordActionSize } from './actionSize';
+import {
+  type ActionSizes,
+  keepActionSizes,
+  largestActionSize,
+  recordActionSize,
+} from './actionSize';
 import type { Size } from './arrange';
 
 describe('action size for a plan (the largest button measured)', () => {
@@ -25,6 +30,28 @@ describe('action size for a plan (the largest button measured)', () => {
     expect(recordActionSize(seen, 'next', { w: NEXT.w - 1, h: NEXT.h })).toBe(seen);
     expect(recordActionSize(seen, 'next', { w: NEXT.w + 1, h: NEXT.h }).next?.w).toBe(NEXT.w + 1);
     expect(recordActionSize(seen, 'next', { w: 90, h: 60 }).next).toEqual({ w: 90, h: 60 });
+  });
+
+  it('starts again when the age mode, the text labels or the language changes', () => {
+    const text = () => '';
+    const g1 = { ageMode: 'g1-up', textLabels: true, text } as const;
+    let seen = recordActionSize({}, 'check', CHECK);
+    seen = recordActionSize(seen, 'next', NEXT);
+    // Nothing changed (also on the first measure): the sizes stay.
+    expect(keepActionSizes(seen, null, g1)).toBe(seen);
+    expect(keepActionSizes(seen, g1, { ...g1 })).toBe(seen);
+    // Text labels off: the wide Check (not in view) is forgotten, and the icon-only Next that is
+    // measured next is the whole answer, as on a fresh widget.
+    const ICON: Size = { w: 86, h: 86 };
+    for (const now of [
+      { ...g1, textLabels: false },
+      { ...g1, ageMode: 'k' as const },
+      { ...g1, text: () => '' },
+    ]) {
+      const kept = keepActionSizes(seen, g1, now);
+      expect(kept).toEqual({});
+      expect(largestActionSize(recordActionSize(kept, 'next', ICON), CHECK)).toEqual(ICON);
+    }
   });
 
   it('the rekenrek plan settles where Next and Check differ in width (it used to alternate)', () => {

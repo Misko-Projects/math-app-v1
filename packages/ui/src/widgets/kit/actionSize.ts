@@ -1,4 +1,5 @@
 import { type RefObject, useLayoutEffect, useRef, useState } from 'react';
+import { useNarrationText, useUiPreferences } from '../../preferences/UiProvider';
 import { type AgeMode, TARGET_PX } from '../../tokens/tokens';
 import type { Size } from './arrange';
 
@@ -27,6 +28,30 @@ export function largestActionSize(seen: ActionSizes, fallback: Size): Size {
   };
 }
 
+/** What decides how the action buttons are drawn: the age mode, text labels, the language. */
+export interface ActionLabels {
+  ageMode: AgeMode;
+  textLabels: boolean;
+  /** The narration text lookup (a new one when the language changes). */
+  text: unknown;
+}
+
+/**
+ * The sizes still true for the buttons as they are drawn now: none of them once the age mode, the
+ * text labels or the language has changed (a button not in view would keep its old size, and with
+ * it a layout a fresh widget would not choose).
+ */
+export function keepActionSizes(
+  seen: ActionSizes,
+  was: ActionLabels | null,
+  now: ActionLabels,
+): ActionSizes {
+  const same =
+    was === null ||
+    (was.ageMode === now.ageMode && was.textLabels === now.textLabels && was.text === now.text);
+  return same ? seen : {};
+}
+
 /**
  * The action button size a widget's plan uses, measured as drawn (in design px: the zoom the parts
  * are drawn at is undone; the 6 px ledge under a button is included).
@@ -36,6 +61,7 @@ export function largestActionSize(seen: ActionSizes, fallback: Size): Size {
  * the button on screen could choose one layout with Next's width, measure Check there, choose the
  * other, and so on without end. So every button measured is remembered by its cue and the plan
  * gets the largest: once both have been seen the size no longer depends on the layout in view.
+ * The memory starts again when the buttons themselves change (age mode, text labels, language).
  */
 export function useActionSize(
   actRef: RefObject<HTMLElement | null>,
@@ -43,6 +69,9 @@ export function useActionSize(
   ageMode: AgeMode,
 ): Size {
   const seen = useRef<ActionSizes>({});
+  const { textLabels } = useUiPreferences();
+  const text = useNarrationText();
+  const labels = useRef<ActionLabels | null>(null);
   const [button, setButton] = useState<Size>(() => ({
     w: TARGET_PX[ageMode].big * 1.5,
     h: TARGET_PX[ageMode].big,
@@ -53,7 +82,10 @@ export function useActionSize(
     const r = btn.getBoundingClientRect();
     const z = zoomRef.current || 1;
     const cue = btn.closest<HTMLElement>('[data-cue]')?.dataset.cue ?? '';
-    seen.current = recordActionSize(seen.current, cue, {
+    const now: ActionLabels = { ageMode, textLabels, text };
+    const kept = keepActionSizes(seen.current, labels.current, now);
+    labels.current = now;
+    seen.current = recordActionSize(kept, cue, {
       w: Math.ceil(r.width / z),
       h: Math.ceil(r.height / z) + 6,
     });

@@ -555,6 +555,13 @@ export const DemoReducedMotion: Story = {
   args: { config: split7, disabled: true, demo: reducedController },
   play: async ({ canvasElement }) => {
     const root = await findWidget(canvasElement, ROOT);
+    // Nothing flies under reduced motion: no flying copy and no counter marked as in flight, at
+    // any moment of the demo (watched, not timed).
+    let flights = 0;
+    const watch = new MutationObserver(() => {
+      if (root.querySelector('.ni-flight, [data-flying="true"]')) flights += 1;
+    });
+    watch.observe(root, { subtree: true, childList: true, attributes: true });
     await reducedController.play({ op: 'place', args: { frame: 0, count: 7, color: 'a' } });
     await expect(cellsOf(root, 0).filter(Boolean)).toHaveLength(7);
     await reducedController.play({
@@ -563,6 +570,8 @@ export const DemoReducedMotion: Story = {
     });
     await reducedController.play({ op: 'remove', args: { frame: 1, count: 1 } });
     await reducedController.play({ op: 'answer', args: { value: 6 } });
+    watch.disconnect();
+    await expect(flights).toBe(0);
     await expect(cellsOf(root, 0).filter(Boolean)).toHaveLength(4);
     await expect(cellsOf(root, 1).filter(Boolean)).toHaveLength(2);
   },

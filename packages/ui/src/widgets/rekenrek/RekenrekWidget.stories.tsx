@@ -791,6 +791,39 @@ export const TapWhileGliding: Story = {
     await tapBeadAt(sixth);
     await waitFor(() => expect(pushed(root, 0)).toBe(5));
     await expect(traceOf(args.onInteract).at(-1)?.target).toBe('bead-0-5');
+
+    // Two beads overlapping on their way (a glide turned round and round again can bring the
+    // sixth onto the fifth): the tap takes the one painted on top, the later bead. The overlap is
+    // set up directly here: all ten pushed and at rest, then the sixth drawn half over the fifth.
+    const settleNow = () => {
+      for (const a of row(root, 0).getAnimations({ subtree: true })) a.finish();
+    };
+    root.style.setProperty('--duration-gentle', '0ms');
+    settleNow();
+    await tapBeadAt(bead(root, 0, 9));
+    await waitFor(() => expect(pushed(root, 0)).toBe(10));
+    settleNow();
+    bead(root, 0, 5).style.setProperty('--x', '4.5');
+    settleNow();
+    const under = bead(root, 0, 4).getBoundingClientRect();
+    const over = bead(root, 0, 5).getBoundingClientRect();
+    await expect(under.right - over.left).toBeGreaterThan(8);
+    const init: PointerEventInit = {
+      bubbles: true,
+      cancelable: true,
+      composed: true,
+      pointerId: 1,
+      pointerType: 'mouse',
+      isPrimary: true,
+      clientX: (over.left + under.right) / 2,
+      clientY: under.top + under.height / 2,
+      button: 0,
+    };
+    row(root, 0).dispatchEvent(new PointerEvent('pointerdown', { ...init, buttons: 1 }));
+    row(root, 0).dispatchEvent(new PointerEvent('pointerup', { ...init, buttons: 0 }));
+    await waitFor(() => expect(pushed(root, 0)).toBe(5));
+    await expect(traceOf(args.onInteract).at(-1)?.target).toBe('bead-0-5');
+    bead(root, 0, 5).style.removeProperty('--x');
     root.style.removeProperty('--duration-gentle');
   },
 };

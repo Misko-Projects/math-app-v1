@@ -195,10 +195,12 @@ export function RekenrekWidget({
 
   const pointToBead = (row: number, el: HTMLElement, clientX: number) => {
     // The bead drawn under the pointer, wherever its glide has brought it so far: while a
-    // row is still moving, its beads are not yet at the slots the count stands for.
-    const drawn = [...el.querySelectorAll<HTMLElement>('.ni-rk__bead')].findIndex((b) => {
+    // row is still moving, its beads are not yet at the slots the count stands for. Where two
+    // overlap on their way, the later one is painted on top: that is the one the child sees.
+    let drawn = -1;
+    el.querySelectorAll<HTMLElement>('.ni-rk__bead').forEach((b, i) => {
       const at = b.getBoundingClientRect();
-      return clientX >= at.left && clientX < at.right;
+      if (clientX >= at.left && clientX < at.right) drawn = i;
     });
     if (drawn >= 0) return drawn;
     // Between beads, or on the empty wire: by the slots.
