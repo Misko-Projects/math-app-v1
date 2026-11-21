@@ -37,6 +37,25 @@ describe('createKeyPressGate (one action per key press)', () => {
     expect(g.take()).toBe(false);
   });
 
+  it('a pointer click acts although the held key repeated between its press and its click', () => {
+    const g = createKeyPressGate();
+    g.keyDown('Enter');
+    g.clickStart(0);
+    expect(g.take()).toBe(true);
+    g.clickEnd();
+    // The mouse goes down, Enter repeats (about every 30 ms), then the mouse's click arrives.
+    g.pointerDown();
+    g.keyDown('Enter');
+    g.clickStart(1);
+    expect(g.take()).toBe(true);
+    g.clickEnd();
+    // The repeat's own click (detail 0) is still the press that already acted.
+    g.keyDown('Enter');
+    g.clickStart(0);
+    expect(g.take()).toBe(false);
+    g.clickEnd();
+  });
+
   it('keeps Enter and Space apart: releasing one does not free the other', () => {
     const g = createKeyPressGate();
     g.keyDown('Enter');

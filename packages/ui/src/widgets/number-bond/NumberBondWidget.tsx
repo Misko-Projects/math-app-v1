@@ -446,8 +446,12 @@ export function NumberBondWidget({
       if (!entrySlots.includes(slot)) return null;
       if (values[slot] === v) {
         if (!complete) return null;
-        // Check is on the answer step: from the bond step (two steps) the way there is Next.
-        return { at: 'cue', cue: steps && shownStep === 'bond' ? 'next' : 'check' };
+        // Check is on the answer step: from the bond step (two steps) the way there is Next, or
+        // the blank's own badge on the concrete bond that asks for a number (it has no Next).
+        if (steps && shownStep === 'bond') {
+          return { at: 'cue', cue: concrete && asks ? `slot:${slot}` : 'next' };
+        }
+        return { at: 'cue', cue: 'check' };
       }
       if (shownStep === 'bond' && (steps || entrySlot !== slot)) {
         return { at: 'cue', cue: `slot:${slot}` };

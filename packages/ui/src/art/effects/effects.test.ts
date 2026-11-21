@@ -51,14 +51,18 @@ describe('effect timing (06 §6, §7)', () => {
           `${seed} @ ${ms}`,
         ).toBe(true);
       }
+      // One assertion per seed, not three per piece and frame: `expect` is the cost here (tens of
+      // thousands of calls made this test take over 5 s on a loaded CI runner).
+      const bad: string[] = [];
       for (let ms = 0; ms <= CONFETTI_MS; ms += 100) {
         for (const p of pieces) {
           const s = confettiAt(p, ms);
-          expect(s.opacity).toBeGreaterThanOrEqual(0);
-          expect(s.opacity).toBeLessThanOrEqual(1);
-          expect(Number.isFinite(s.x) && Number.isFinite(s.y)).toBe(true);
+          const ok =
+            s.opacity >= 0 && s.opacity <= 1 && Number.isFinite(s.x) && Number.isFinite(s.y);
+          if (!ok) bad.push(`${seed} @ ${ms}: ${JSON.stringify(s)}`);
         }
       }
+      expect(bad).toEqual([]);
     }
   });
 

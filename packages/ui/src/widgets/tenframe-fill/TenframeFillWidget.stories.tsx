@@ -1292,6 +1292,18 @@ export const HeldEnterMixedInputK: Story = {
     enterDown(document.activeElement as HTMLElement, true);
     await tick();
     await expect(root.dataset.step).toBe('build');
+    // PR #93 round 3 F1: the mouse goes down on Next, Enter repeats before the mouse's click
+    // arrives. The click says what it is (`detail` 1), so it acts; the repeat's own click did not.
+    const next = button(root, 'Next');
+    next.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, cancelable: true }));
+    enterDown(next, true);
+    await tick();
+    await expect(root.dataset.step).toBe('build');
+    next.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, detail: 1 }));
+    await waitFor(() => expect(root.dataset.step).toBe('ask'));
+    await expect(nav()).toEqual(['next', 'back', 'next']);
+    await userEvent.click(button(root, 'Go back'));
+    await waitFor(() => expect(root.dataset.step).toBe('build'));
     (document.activeElement as HTMLElement).dispatchEvent(key('keyup', 'Enter'));
 
     // A new Enter press opens the answer step; Space goes down and up while Enter is held.
@@ -1303,7 +1315,7 @@ export const HeldEnterMixedInputK: Story = {
     enterDown(button(root, 'Go back'), true);
     await tick();
     await expect(root.dataset.step).toBe('ask');
-    await expect(nav()).toEqual(['next', 'back', 'next']);
+    await expect(nav()).toEqual(['next', 'back', 'next', 'back', 'next']);
     button(root, 'Go back').dispatchEvent(key('keyup', 'Enter'));
   },
 };

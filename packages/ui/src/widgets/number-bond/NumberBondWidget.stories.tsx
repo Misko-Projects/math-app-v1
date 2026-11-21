@@ -959,3 +959,62 @@ export const SplitInviteTwoStepsG1: Story = {
     await expect(args.onResponse).toHaveBeenCalledTimes(1);
   },
 };
+
+const concreteAnswerController: WidgetDemo = createDemoController({ strict: true });
+
+/**
+ * PR #93 round 3 F2: the concrete bond that asks for a number (5 and 5 at 960 × 600) has no Next:
+ * its blank badge opens the answer step. With the right number entered and the bond step in view,
+ * the invite rings that badge (the way to Check), never a control that is not there.
+ */
+export const AnswerInviteCompleteConcreteG1: Story = {
+  args: { config: wholeFromParts55, tier: 'concrete', demo: concreteAnswerController },
+  render: inArea('landscapeMin'),
+  play: async ({ canvasElement, args }) => {
+    const root = await expectFits(canvasElement, 'g1-up');
+    await expect(root.dataset.step).toBe('bond');
+    await expect(root.querySelector('[data-cue="next"]')).toBeNull();
+    const invite = () => concreteAnswerController.invite({ op: 'answer', args: { value: 10 } });
+    const ringed = () =>
+      waitFor(() => {
+        const el = root.querySelector<HTMLElement>('.ni-invite');
+        expect(el).not.toBeNull();
+        return el as HTMLElement;
+      });
+    const cueOf = (el: HTMLElement) => el.closest('[data-cue]')?.getAttribute('data-cue');
+
+    // Follow the invite: the blank badge, then the card (or the pad keys) for 10, up to Check.
+    invite();
+    let ring = await ringed();
+    await expect(cueOf(ring)).toBe('slot:whole');
+    for (let i = 0; i < 4 && cueOf(ring) !== 'check'; i++) {
+      const was = ring;
+      await userEvent.click(ring);
+      invite();
+      ring = await waitFor(async () => {
+        const el = await ringed();
+        expect(el === was && cueOf(el) !== 'check').toBe(false);
+        return el;
+      });
+    }
+    await expect(root.dataset.step).toBe('ask');
+    await expect(cueOf(ring)).toBe('check');
+
+    // Back on the bond with 10 entered: one ring, on the badge that leads to Check.
+    await userEvent.click(button(root, 'Go back'));
+    await waitFor(() => expect(root.dataset.step).toBe('bond'));
+    invite();
+    ring = await waitFor(async () => {
+      const el = await ringed();
+      expect(cueOf(el)).toBe('slot:whole');
+      return el;
+    });
+    await expectOneInvite(root, ring);
+    await userEvent.click(ring);
+    await waitFor(() => expect(root.dataset.step).toBe('ask'));
+    invite();
+    await waitFor(async () => expect(cueOf(await ringed())).toBe('check'));
+    await userEvent.click(button(root, 'Check'));
+    await expect(args.onResponse).toHaveBeenCalledTimes(1);
+  },
+};
