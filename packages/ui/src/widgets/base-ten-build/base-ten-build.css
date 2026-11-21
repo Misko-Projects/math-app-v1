@@ -185,8 +185,40 @@
   justify-content: center;
   box-sizing: border-box;
   border-radius: 4px;
+  /* A picture: the column's grab control (below) is what the child touches. */
+  pointer-events: none;
+}
+/*
+ * Put-back source: the whole column, holding its last piece. At rest it covers the column (a tap
+ * target wide and tall at least). While dragged (`data-dragging`, set by useDragToTarget) it is
+ * the last piece's own box, drawn with a copy of the piece, and the piece in the column hides.
+ */
+.ni-btb__grab {
+  position: absolute;
+  /* 12 px clear of the trade buttons in the gutters on either side. */
+  inset: 0 10px;
+  z-index: 2;
+  border-radius: 12px;
   pointer-events: auto;
   -webkit-tap-highlight-color: transparent;
+}
+.ni-btb__grab > .ni-btb__lift {
+  display: none;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+}
+.ni-btb__grab[data-dragging] {
+  inset: auto;
+  top: var(--btb-gy, 0);
+  left: var(--btb-gx, 0);
+}
+.ni-btb__grab[data-dragging] > .ni-btb__lift {
+  display: flex;
+}
+.ni-btb__col:has(> .ni-btb__grab[data-dragging]) .ni-btb__piece[data-last] {
+  visibility: hidden;
 }
 .ni-btb__piece--ones {
   width: var(--u);

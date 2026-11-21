@@ -2,7 +2,8 @@
 // `start`. The child trades between neighbouring columns (one ten for ten ones and back).
 // - `regroup-to`: trade until the mat shows exactly `regroupTarget`.
 // - `compute` with `+`: the operand's pieces wait below the mat and `combine {column}` moves them
-//   onto it; with `-`: `take {column, count}` takes pieces off the mat. Either way the child trades
+//   onto it; with `-`: `take {column, count}` takes pieces off the mat, and a negative count puts
+//   pieces taken from that column back (never more than were taken). Either way the child trades
 //   when a column overflows or runs out. `write-digit` writes the column algorithm
 //   (`showAlgorithm`), and `answer {value}` is the typed result (`thenAsk`).
 // Response: state `{ hundreds, tens, ones, value? }`, checked by `trade.result`.
@@ -87,6 +88,11 @@ export const TRADE_REGROUP_COLUMN_MAX: Readonly<Hto> = { hundreds: 9, tens: 19, 
 export const TRADE_ALL_ONES_MAX = 99;
 export const TRADE_ADD_START_HUNDREDS_MAX = 8;
 export const TRADE_ADD_OPERAND_HUNDREDS_MAX = 2;
+/**
+ * The most pieces one `take` moves, off the mat or (negative) back onto it: a column never holds
+ * more (TRADE_ALL_ONES_MAX). A count outside ±this, or one that is not a whole number, is ignored.
+ */
+export const TRADE_TAKE_COUNT_MAX = 99;
 
 /** Where a config leaves the supported domain. */
 export function domainIssues(c: Config): { path: string[]; message: string }[] {
@@ -268,7 +274,23 @@ export const baseTenTrade: FormatModel<'base-ten-trade', BaseTenTradeState> = {
       case 'take': {
         const col = column(a.args?.column);
         if (!col) return s;
-        const n = Math.min(Math.max(0, Math.trunc(argNumber(a, 'count') ?? 1)), s.mat[col]);
+        // No count is one piece; a count that is given must be a whole number within the bound.
+        const raw = a.args?.count;
+        const count = raw === undefined ? 1 : raw;
+        if (typeof count !== 'number' || !Number.isInteger(count)) return s;
+        if (Math.abs(count) > TRADE_TAKE_COUNT_MAX) return s;
+        if (count < 0) {
+          // Put back: only pieces this item's takes took from the column, and only when taking away.
+          if (s.config.goal !== 'compute' || s.config.operation?.op !== '-') return s;
+          const back = Math.min(-count, s.taken[col]);
+          if (back === 0) return s;
+          return {
+            ...s,
+            mat: { ...s.mat, [col]: s.mat[col] + back },
+            taken: { ...s.taken, [col]: s.taken[col] - back },
+          };
+        }
+        const n = Math.min(count, s.mat[col]);
         if (n === 0) return s;
         return {
           ...s,

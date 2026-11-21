@@ -10,6 +10,7 @@ import {
   TRADE_ALL_ONES_MAX,
   TRADE_COLUMN_MAX,
   TRADE_REGROUP_COLUMN_MAX,
+  TRADE_TAKE_COUNT_MAX,
   TRADE_VALUE_MAX,
 } from './base-ten-trade';
 import {
@@ -225,6 +226,36 @@ describe('base-ten-trade: supported domain', () => {
     expect(messages('base-ten-trade', regroup(hto(9, 19, 0), hto(9, 18, 10)))).toEqual([
       'start: the mat shows at most 999; got 1090',
     ]);
+  });
+
+  it('take: a count is a whole number within ±99; a negative count puts taken pieces back', () => {
+    const model = formatModel('base-ten-trade');
+    if (!model) throw new Error('no model');
+    const take = (s: unknown, column: string, count: number) =>
+      model.apply(s as never, { op: 'take', args: { column, count } }) as unknown as {
+        mat: Trade['start'];
+        taken: Trade['start'];
+      };
+    const start = model.initialState(compute('-', hto(0, 3, 12), hto(0, 1, 5), { thenAsk: false }));
+    expect(TRADE_TAKE_COUNT_MAX).toBe(99);
+    // One take too many (six ones for 42 − 15), then one put back.
+    const six = take(start, 'ones', 6);
+    expect(six.mat).toEqual(hto(0, 3, 6));
+    const back = take(six, 'ones', -1);
+    expect(back.mat).toEqual(hto(0, 3, 7));
+    expect(back.taken).toEqual(hto(0, 0, 5));
+    // Never more than were taken, and never from a column nothing was taken from.
+    expect(take(six, 'ones', -99).mat).toEqual(hto(0, 3, 12));
+    expect(take(six, 'tens', -1)).toBe(six);
+    expect(take(start, 'ones', -1)).toBe(start);
+    // Out of bounds or not whole: ignored.
+    for (const bad of [100, -100, 1.5, -0.5, 1e9, Number.NaN, Number.POSITIVE_INFINITY]) {
+      expect(take(six, 'ones', bad), String(bad)).toBe(six);
+    }
+    expect(take(six, 'ones', 99).mat).toEqual(hto(0, 3, 0));
+    // An addition has nothing to put back.
+    const add = model.initialState(compute('+', hto(0, 2, 7), hto(0, 1, 5)));
+    expect(take(add, 'ones', -1)).toBe(add);
   });
 
   it('rejects counts that are not whole or are negative', () => {

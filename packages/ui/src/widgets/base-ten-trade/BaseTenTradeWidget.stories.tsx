@@ -910,6 +910,101 @@ export const SubtractTake: Story = {
   },
 };
 
+const backButton = (root: Element, c: string) =>
+  root.querySelector<HTMLButtonElement>(`[data-back="${c}"]`);
+
+/**
+ * One take too many, put one back, then solve (PR #74 review round 1). On 42 − 15 the child
+ * splits a ten and takes six ones by mistake: touching the ones in the nest puts one back (said
+ * and traced like a take), by tap and by keyboard, and the item is solved in the same attempt.
+ * With a piece picked up, a tap on the nest still takes it, wherever on the nest it lands.
+ */
+export const TakeTooManyPutBack: Story = {
+  args: { config: take42minus15 },
+  parameters: { ui: { audio: spyAudio() } },
+  play: async ({ canvasElement, args, parameters }) => {
+    const audio = parameters.ui.audio as ReturnType<typeof spyAudio>;
+    clearSpies(audio);
+    const root = await findWidget(canvasElement, ROOT);
+    await expect(backButton(root, 'ones')).toBeNull();
+    await userEvent.click(trade(root, 'tens', 'ones'));
+    await settled(root);
+    for (let i = 0; i < 6; i++) await tapPlace(grabItem(root, 'ones'), nest(root));
+    await settled(root);
+    await expect(mat(root)).toEqual({ hundreds: 0, tens: 3, ones: 6 });
+    await expect(takenPieces(root, 'ones')).toBe(6);
+    // The ones in the nest are one control: target-sized, named, and it puts one back.
+    const back = backButton(root, 'ones') as HTMLButtonElement;
+    await expect(back).toHaveAccessibleName('Put a one back');
+    await expectTargetSize(back, 'g1-up');
+    await userEvent.click(back);
+    await settled(root);
+    await expect(mat(root)).toEqual({ hundreds: 0, tens: 3, ones: 7 });
+    await expect(takenPieces(root, 'ones')).toBe(5);
+    await expect(audio.say).toHaveBeenCalledWith('ui.widget.btt.back.ones', undefined);
+    // Keyboard: take one more, then Enter on the control puts it back.
+    await tapPlace(grabItem(root, 'ones'), nest(root));
+    await settled(root);
+    await expect(mat(root)).toEqual({ hundreds: 0, tens: 3, ones: 6 });
+    (backButton(root, 'ones') as HTMLButtonElement).focus();
+    await userEvent.keyboard('{Enter}');
+    await settled(root);
+    await expect(mat(root)).toEqual({ hundreds: 0, tens: 3, ones: 7 });
+    // A ten picked up and dropped by a tap that lands on the taken ones: it is taken, none goes back.
+    await userEvent.click(grabItem(root, 'tens'));
+    await userEvent.click(backButton(root, 'ones') as HTMLButtonElement);
+    await settled(root);
+    await expect(mat(root)).toEqual({ hundreds: 0, tens: 2, ones: 7 });
+    await expect(takenPieces(root, 'tens')).toBe(1);
+    await expect(takenPieces(root, 'ones')).toBe(5);
+    await expectFits(canvasElement, root);
+    await userEvent.click(within(root).getByRole('button', { name: 'Check' }));
+    await expect(args.onResponse).toHaveBeenCalledWith({
+      kind: 'state',
+      value: { hundreds: 0, tens: 2, ones: 7 },
+    });
+    const trace = traceOf(args.onInteract).map((e) => `${e.t}:${e.target}`);
+    await expect(trace.filter((e) => e === 'tap:back-ones')).toHaveLength(2);
+    await expect(trace.at(-1)).toBe('tap:take');
+    await expectTraceOrdered(traceOf(args.onInteract));
+  },
+};
+
+/**
+ * Every kind in the nest at once, in K: the three put-back controls are each 80 px or more both
+ * ways and 12 px or more apart, and each returns its own kind.
+ */
+export const PutBackEveryKindK: Story = {
+  globals: { ageMode: 'k' },
+  args: {
+    config: {
+      ...take42minus15,
+      start: { hundreds: 2, tens: 3, ones: 4 },
+      operation: { op: '-', operand: { hundreds: 1, tens: 1, ones: 1 } },
+    } satisfies Config,
+  },
+  play: async ({ canvasElement }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    for (const c of ['hundreds', 'tens', 'ones']) {
+      await tapPlace(grabItem(root, c), nest(root));
+      await settled(root);
+    }
+    await expect(mat(root)).toEqual({ hundreds: 1, tens: 2, ones: 3 });
+    const backs = ['hundreds', 'tens', 'ones'].map((c) => backButton(root, c) as HTMLButtonElement);
+    for (const b of backs) await expectTargetSize(b, 'k');
+    await expectTargetGaps(backs);
+    // Nothing scrolls or sticks out (a K mat with flats draws a little under the 20 px unit).
+    await expect(root.scrollWidth).toBeLessThanOrEqual(root.clientWidth + 1);
+    await expect(root.scrollHeight).toBeLessThanOrEqual(root.clientHeight + 1);
+    for (const c of ['ones', 'hundreds', 'tens']) {
+      await userEvent.click(backButton(root, c) as HTMLButtonElement);
+      await settled(root);
+      await expect(backButton(root, c)).toBeNull();
+    }
+    await expect(mat(root)).toEqual({ hundreds: 2, tens: 3, ones: 4 });
+  },
+};
+
 /**
  * Touch drag (tablet): drag a ten from the tens column into the nest. A column can't give what it
  * doesn't have: once the ones are gone, there is nothing left to drag there.

@@ -456,30 +456,40 @@ const KINDS = ['hundreds', 'tens', 'ones'] as const;
 /** The taken pieces' arrangement in the nest: each kind's boxes from its origin, and its size. */
 export interface NestArrangement {
   groups: Record<Column, Box[]>;
+  /** Each taken kind's slot across the nest (its put-back control), from the arrangement's left. */
+  slots: Partial<Record<Column, { x: number; w: number }>>;
   w: number;
   h: number;
 }
 
-/** Hundreds (`flatsPerRow` a row), tens (lying, `rodsPerStack` a stack), ones, side by side. */
-function nestGroups(t: Hto, u: number, flatsPerRow: number, rodsPerStack: number) {
-  const gap = Math.max(10, u * 2);
+/**
+ * Hundreds (`flatsPerRow` a row), tens (lying, `rodsPerStack` a stack), ones, side by side. With
+ * `minSlot` (the age's tap target) each kind stands centred in a slot at least that wide, the
+ * slots at least 12 px apart: a slot is the kind's put-back control (nestSlots).
+ */
+function nestGroups(t: Hto, u: number, flatsPerRow: number, rodsPerStack: number, minSlot = 0) {
+  const gap = minSlot > 0 ? Math.max(12, u * 2) : Math.max(10, u * 2);
   const raw: Record<Column, Box[]> = {
     hundreds: naturalLayout('hundreds', t.hundreds, u, flatsPerRow),
     tens: rodStacks(t.tens, u, rodsPerStack),
     ones: naturalLayout('ones', t.ones, u),
   };
   const groups: Record<Column, Box[]> = { hundreds: [], tens: [], ones: [] };
+  const slots: Partial<Record<Column, { x: number; w: number }>> = {};
   let x = 0;
   let h = 0;
   for (const c of KINDS) {
     const g = raw[c];
     if (g.length === 0) continue;
     const ext = extent(g);
-    groups[c] = g.map((b) => ({ ...b, x: b.x + x }));
-    x += ext.w + gap;
+    const slot = Math.max(ext.w, minSlot);
+    const pad = Math.floor((slot - ext.w) / 2);
+    groups[c] = g.map((b) => ({ ...b, x: b.x + x + pad }));
+    slots[c] = { x, w: slot };
+    x += slot + gap;
     h = Math.max(h, ext.h);
   }
-  return { groups, w: Math.max(0, x - gap), h };
+  return { groups, slots, w: Math.max(0, x - gap), h };
 }
 
 /**
@@ -489,11 +499,16 @@ function nestGroups(t: Hto, u: number, flatsPerRow: number, rodsPerStack: number
  * wins (then the narrowest). Pieces never overlap and are never squeezed; null when even the
  * narrowest arrangement (one flat a row, rods in stacks of one) is wider than the nest.
  */
-export function arrangeTaken(t: Hto, u: number, innerW: number): NestArrangement | null {
+export function arrangeTaken(
+  t: Hto,
+  u: number,
+  innerW: number,
+  minSlot = 0,
+): NestArrangement | null {
   let best: NestArrangement | null = null;
   for (const f of wrapOptions(t.hundreds)) {
     for (const r of wrapOptions(t.tens)) {
-      const a = nestGroups(t, u, f, r);
+      const a = nestGroups(t, u, f, r, minSlot);
       if (a.w > innerW) continue;
       if (!best || a.h < best.h || (a.h === best.h && a.w < best.w)) best = a;
     }
@@ -511,8 +526,9 @@ export function placeTaken(
   taken: Hto,
   ub: number,
   box: { w: number; h: number },
+  minSlot = 0,
 ): Record<Column, Box[]> {
-  const a = arrangeTaken(taken, ub, box.w) ?? nestGroups(taken, ub, 1, 1);
+  const a = arrangeTaken(taken, ub, box.w, minSlot) ?? nestGroups(taken, ub, 1, 1, minSlot);
   const ox = Math.max(0, (box.w - a.w) / 2);
   const out: Record<Column, Box[]> = { hundreds: [], tens: [], ones: [] };
   for (const c of KINDS) {
@@ -520,6 +536,27 @@ export function placeTaken(
     if (g.length === 0) continue;
     const floor = box.h - extent(g.map((b) => ({ ...b, x: 0 }))).h;
     out[c] = g.map((b) => ({ ...b, x: Math.round(ox + b.x), y: Math.round(floor + b.y) }));
+  }
+  return out;
+}
+
+/**
+ * The put-back controls of the nest: one per taken kind, as wide as the kind's slot (at least
+ * `minSlot`, the tap target) and as tall as the nest's inner area, at least 12 px apart. Same
+ * arrangement as placeTaken, so each control covers its own pieces.
+ */
+export function nestSlots(
+  taken: Hto,
+  ub: number,
+  box: { w: number; h: number },
+  minSlot: number,
+): Partial<Record<Column, Box>> {
+  const a = arrangeTaken(taken, ub, box.w, minSlot) ?? nestGroups(taken, ub, 1, 1, minSlot);
+  const ox = Math.max(0, (box.w - a.w) / 2);
+  const out: Partial<Record<Column, Box>> = {};
+  for (const c of KINDS) {
+    const slot = a.slots[c];
+    if (slot) out[c] = { x: Math.round(ox + slot.x), y: 0, w: slot.w, h: box.h };
   }
   return out;
 }
@@ -776,7 +813,7 @@ export function measurePlan(
   if (caps.taken) {
     // The nest is as wide as the mat, which stretches to the full width; its inner width doesn't
     // depend on its height. The pieces wrap into rows (placeTaken's arrangement) to fit across.
-    const arranged = arrangeTaken(caps.taken, u, nestInner(input.width, 0).w);
+    const arranged = arrangeTaken(caps.taken, u, nestInner(input.width, 0).w, sz.target);
     nestFits = arranged !== null;
     // At least a target tall (the nest is where pieces are dropped).
     nestH = Math.max(sz.target + 2 * GAP, nestHeightFor(arranged?.h ?? 0));

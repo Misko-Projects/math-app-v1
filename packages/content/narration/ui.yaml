@@ -538,6 +538,16 @@ ui.widget.btt.pending.ones:
 ui.widget.btt.nest:
   text: "Take away nest"
   level: K
+# Taken pieces go back by touching them in the nest (one take too many can be undone).
+ui.widget.btt.back.hundreds:
+  text: "Put a hundred back"
+  level: K
+ui.widget.btt.back.tens:
+  text: "Put a ten back"
+  level: K
+ui.widget.btt.back.ones:
+  text: "Put a one back"
+  level: K
 ui.widget.btt.work:
   text: "Your work"
   level: K

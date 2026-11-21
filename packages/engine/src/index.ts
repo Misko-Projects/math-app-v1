@@ -48,6 +48,7 @@ export {
   TRADE_ALL_ONES_MAX,
   TRADE_COLUMN_MAX,
   TRADE_REGROUP_COLUMN_MAX,
+  TRADE_TAKE_COUNT_MAX,
   TRADE_VALUE_MAX,
 } from './formats/base-ten-trade';
 export { type EqualGroupsState, GROUP_CAPACITY, groupsUnknown } from './formats/equal-groups';

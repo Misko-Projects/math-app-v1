@@ -77,7 +77,7 @@ const renderTablet = (args: WidgetHostProps) => (
 // ---------- helpers ----------
 
 const pieces = (root: HTMLElement, kind: string) =>
-  root.querySelectorAll(`.ni-btb__piece[data-kind="${kind}"]`).length;
+  root.querySelectorAll(`.ni-btb__col .ni-btb__piece[data-kind="${kind}"]`).length;
 
 async function expectMat(root: HTMLElement, mat: Partial<Record<string, number>>) {
   for (const kind of ['thousands', 'hundreds', 'tens', 'ones']) {
@@ -89,8 +89,12 @@ const pile = (root: HTMLElement, kind: string) =>
   root.querySelector(`[data-place-item="tray-${kind}"]`) as HTMLElement;
 const board = (root: HTMLElement) => root.querySelector('.ni-btb__board') as HTMLElement;
 const trayPad = (root: HTMLElement) => root.querySelector('.ni-btb__traypad') as HTMLElement;
-const matPiece = (root: HTMLElement, kind: string, i: number) =>
-  root.querySelector(`[data-place-item="mat-${kind}-${i}"]`) as HTMLElement;
+/**
+ * What the child touches to pick up a piece of `kind` on the mat: the column's grab control, which
+ * holds its last piece (pieces are alike, so `_i` no longer matters).
+ */
+const matPiece = (root: HTMLElement, kind: string, _i?: number) =>
+  root.querySelector(`[data-grab="${kind}"]`) as HTMLElement;
 const trade = (root: HTMLElement, id: string) =>
   root.querySelector(`[data-trade="${id}"]`) as HTMLButtonElement;
 
@@ -594,6 +598,71 @@ export const PutBack: Story = {
     ]);
   },
 };
+
+/**
+ * Put-back by column (PR #74 review round 1): a unit is 20 px, far under a tap target, so the
+ * child never has to hit a piece. Each column that holds pieces is one control, a target wide and
+ * tall at least and 12 px or more from every other control: tap it and the tray, drag from
+ * anywhere in it, or use the keyboard, and its last piece goes back. With a tray piece picked up,
+ * a tap on a column places that piece (a column is part of the mat).
+ */
+const putBackByColumn = (ageMode: 'k' | 'g1-up'): Story => ({
+  globals: { ageMode },
+  args: {
+    config: { ...build34, prebuilt: { hundreds: 0, tens: 4, ones: 4 } } satisfies Config,
+  },
+  parameters: { ui: { audio: spyAudio() } },
+  play: async ({ canvasElement, args, parameters }) => {
+    const audio = parameters.ui.audio as SpyAudio;
+    clearSpies(audio);
+    const root = await findWidget(canvasElement, ROOT);
+    await expectMat(root, { tens: 4, ones: 4 });
+    const grabs = () =>
+      ['tens', 'ones'].map((k) => matPiece(root, k)).filter((el): el is HTMLElement => el !== null);
+    await expect(grabs()).toHaveLength(2);
+    // No piece is a control of its own.
+    await expect(
+      root.querySelectorAll('.ni-btb__col .ni-btb__piece[data-place-item]'),
+    ).toHaveLength(0);
+    for (const g of grabs()) await expectTargetSize(g, ageMode);
+    await expectTargetGaps([...grabs(), ...controls(root)]);
+    // Tap the ones column (far from any unit), then the tray.
+    await userEvent.click(matPiece(root, 'ones'));
+    await expect(audio.say).toHaveBeenCalledWith('ui.widget.btb.piece.ones', undefined);
+    await expect(trayPad(root)).toHaveAttribute('data-armed', 'true');
+    await userEvent.click(trayPad(root));
+    await expectMat(root, { tens: 4, ones: 3 });
+    // Drag from the tens column: its last rod goes along.
+    await pointerDrag(matPiece(root, 'tens'), center(trayPad(root)), 'touch');
+    await expectMat(root, { tens: 3, ones: 3 });
+    // Keyboard: Enter on the column, Enter on the tray.
+    matPiece(root, 'ones').focus();
+    await userEvent.keyboard('{Enter}');
+    trayPad(root).focus();
+    await userEvent.keyboard('{Enter}');
+    await expectMat(root, { tens: 3, ones: 2 });
+    // A tray piece picked up, then a tap on a column: placed on the mat.
+    await userEvent.click(pile(root, 'ones'));
+    await userEvent.click(matPiece(root, 'tens'));
+    await expectMat(root, { tens: 3, ones: 3 });
+    await tapPlace(root, 'ones', 1);
+    await expectFits(canvasElement, root);
+    await userEvent.click(within(root).getByRole('button', { name: 'Check' }));
+    await expect(args.onResponse).toHaveBeenCalledWith(state({ tens: 3, ones: 4 }));
+    const trace = traceOf(args.onInteract).map((e) => `${e.t}:${e.target}`);
+    await expect(trace.slice(0, 4)).toEqual([
+      'tap:mat-ones-3',
+      'tap:tray',
+      'drag:mat-tens-3',
+      'drop:tray',
+    ]);
+    await expect(trace.slice(-4)).toEqual(['tap:tray-ones', 'tap:mat', 'tap:tray-ones', 'tap:mat']);
+  },
+});
+/** Put-back by column in Grade 1 and up (64 px targets). */
+export const PutBackByColumnG1 = putBackByColumn('g1-up');
+/** And in K (80 px targets). */
+export const PutBackByColumnK = putBackByColumn('k');
 
 /**
  * Arithmetic (mda.addsub, pv.tenmore: "Here is 24. Put in 5 more and build the new number"): the
@@ -1124,8 +1193,8 @@ export const Stress999: Story = {
       new Set(
         [...root.querySelectorAll(sel)].map((p) => Math.round(p.getBoundingClientRect().top)),
       );
-    await expect(tops('.ni-btb__piece--hundreds').size).toBe(3);
-    await expect(tops('.ni-btb__piece--tens').size).toBe(2);
+    await expect(tops('.ni-btb__piece.ni-btb__piece--hundreds').size).toBe(3);
+    await expect(tops('.ni-btb__piece.ni-btb__piece--tens').size).toBe(2);
     await expect(
       root.querySelectorAll('.ni-btb__col[data-col="tens"] .ni-btb__row')[0]?.children,
     ).toHaveLength(5);

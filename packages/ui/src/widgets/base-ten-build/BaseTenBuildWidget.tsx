@@ -1020,18 +1020,68 @@ export function BaseTenBuildWidget({
       'data-flash': flash.has(key) ? 'true' : undefined,
       'data-counted': counted?.kind === kind && i <= counted.upTo ? 'true' : undefined,
     };
-    const cls = `ni-btb__piece ni-btb__piece--${kind}`;
-    if (read) {
-      return (
-        <span key={key} className={cls} {...marks}>
+    // A piece is a picture. What the child touches to put one back is its whole column
+    // (renderGrab): a unit is far smaller than a tap target (PR #74 review round 1).
+    return (
+      <span
+        key={key}
+        className={`ni-btb__piece ni-btb__piece--${kind}`}
+        data-last={!read && i === state.mat[kind] - 1 ? 'true' : undefined}
+        {...marks}
+      >
+        <PieceArt kind={kind} />
+      </span>
+    );
+  };
+
+  /**
+   * A column's put-back source: one control as large as the column, which holds the column's last
+   * piece (`mat-<kind>-<n − 1>`). Tapped or focused it picks that piece up; dragged, it shrinks to
+   * the piece's own box (base-ten-build.css: .ni-btb__grab), so the child sees the piece move and
+   * the drop is measured where the piece is drawn. With a tray piece picked up, a tap on a column
+   * is a tap on the mat: the piece is placed.
+   */
+  const renderGrab = (kind: PieceKind): ReactNode => {
+    const n = state.mat[kind];
+    if (read || n <= 0) return null;
+    const id = `mat-${kind}-${n - 1}`;
+    const props = dnd.itemProps(id, { label: t(pieceKey(kind, decimal)) });
+    return (
+      // biome-ignore lint/a11y/noStaticElementInteractions: itemProps gives it role="button" and its key handling
+      // biome-ignore lint/a11y/useKeyWithClickEvents: itemProps handles Enter and Space (onKeyDown)
+      <span
+        {...props}
+        key="grab"
+        className={`${props.className} ni-btb__grab`}
+        data-grab={kind}
+        onPointerDown={(e) => {
+          // Where the last piece is drawn inside the column, for the dragged look.
+          const pad = e.currentTarget;
+          const last = pad.parentElement?.querySelector<HTMLElement>('[data-last="true"]');
+          if (last) {
+            const a = pad.getBoundingClientRect();
+            const b = last.getBoundingClientRect();
+            pad.style.setProperty('--btb-gx', `${b.left - a.left}px`);
+            pad.style.setProperty('--btb-gy', `${b.top - a.top}px`);
+          }
+          props.onPointerDown(e);
+        }}
+        onClick={(e) => {
+          const held = dnd.selected;
+          const tray = held ? parseItem(held) : null;
+          if (interactive && tray && tray.where === 'tray') {
+            trace('tap', 'mat');
+            setInvite(null);
+            dnd.select(null);
+            void applyOp({ op: 'add-piece', args: { kind: tray.kind } });
+            return;
+          }
+          props.onClick(e);
+        }}
+      >
+        <span className={`ni-btb__lift ni-btb__piece--${kind}`} aria-hidden="true">
           <PieceArt kind={kind} />
         </span>
-      );
-    }
-    const props = dnd.itemProps(`mat-${kind}-${i}`, { label: t(pieceKey(kind, decimal)) });
-    return (
-      <span key={key} {...props} className={`${props.className} ${cls}`} {...marks}>
-        <PieceArt kind={kind} />
       </span>
     );
   };
@@ -1146,6 +1196,7 @@ export function BaseTenBuildWidget({
       {kinds.map((kind, i) => (
         <div key={kind} className="ni-btb__col" data-col={kind} style={{ gridColumn: 2 * i + 1 }}>
           {renderColumn(kind)}
+          {renderGrab(kind)}
         </div>
       ))}
       {kinds.slice(1).map((small, i) => {

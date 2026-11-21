@@ -59,6 +59,7 @@ import {
   MAT_BORDER,
   naturalLayout,
   nestInner,
+  nestSlots,
   pathStates,
   placeDigits,
   placePieces,
@@ -84,7 +85,8 @@ import './base-ten-trade.css';
  * result boxes stay empty unless a demo writes into them.
  *
  * Trace targets: `pending-<column>` (a waiting group), `mat-<column>-<i>` (the piece taken from a
- * column), `col-<column>` (a column), `take` (the nest), `trade-<from>-<to>`, `key-<k>`.
+ * column), `col-<column>` (a column), `take` (the nest), `back-<column>` (a taken kind in the nest,
+ * tapped to put one piece back), `trade-<from>-<to>`, `key-<k>`.
  * Demo ops (03 §5.5): `trade {from, to}`, `combine {column}`, `take {column, count}`,
  * `write-digit {column, value}`, plus `answer {value}`.
  */
@@ -120,6 +122,12 @@ const BOX_KEY: Record<Column, NarrationKey> = {
   hundreds: 'ui.widget.btt.box.hundreds',
   tens: 'ui.widget.btt.box.tens',
   ones: 'ui.widget.btt.box.ones',
+};
+/** Put one taken piece back on the mat (the nest's control for that kind). */
+const BACK_KEY: Record<Column, NarrationKey> = {
+  hundreds: 'ui.widget.btt.back.hundreds',
+  tens: 'ui.widget.btt.back.tens',
+  ones: 'ui.widget.btt.back.ones',
 };
 /** Split one piece of the larger column (keyed by it). */
 const SPLIT_KEY: Partial<Record<Column, NarrationKey>> = {
@@ -1007,6 +1015,21 @@ function TradeMat({
     );
   };
 
+  /** One taken piece flies back from the nest to its column (the undo of a take). */
+  const runPutBack = async (col: Column) => {
+    const s = stateRef.current;
+    const next = model.apply(s, { op: 'take', args: { column: col, count: -1 } });
+    if (next === s) return;
+    stopFx();
+    await animateChange(
+      next,
+      [rectOf(`taken-${col}-${s.taken[col] - 1}`)],
+      [`${col}-${s.mat[col]}`],
+      (src, dests) => moveGhosts(col, src, dests),
+      [`col-${col}`, 'take'],
+    );
+  };
+
   // ---------- child input ----------
 
   const colOf = (id: string): Column | undefined => columnArg(id.split('-')[1]);
@@ -1037,6 +1060,26 @@ function TradeMat({
       else if (target === 'take') void runTakeOne(c, how, grab[c]);
     },
   });
+
+  /**
+   * A tap on a taken kind in the nest. With a mat piece picked up (tap-to-place) the nest is where
+   * it goes, as a tap anywhere else on the nest; otherwise one piece of that kind goes back.
+   */
+  const onBack = (c: Column) => {
+    if (!interactive) return;
+    setInvite(null);
+    const held = dnd.selected;
+    const heldCol = held ? colOf(held) : undefined;
+    if (held && heldCol && !held.startsWith('pending-')) {
+      trace('tap', 'take');
+      dnd.select(null);
+      void runTakeOne(heldCol, 'tap', grab[heldCol]);
+      return;
+    }
+    trace('tap', `back-${c}`);
+    if (speakOnTap) say(BACK_KEY[c]);
+    void runPutBack(c);
+  };
 
   const onTrade = (from: Column, to: Column) => {
     if (!interactive) return;
@@ -1180,9 +1223,15 @@ function TradeMat({
           const c = columnArg(action.args?.column);
           if (!c) return;
           const raw = Number(action.args?.count ?? 1);
-          const count = Number.isFinite(raw) ? Math.max(0, Math.trunc(raw)) : 1;
+          const count = Number.isFinite(raw) ? Math.trunc(raw) : 1;
           for (let i = 0; i < count && stateRef.current.mat[c] > 0; i++) {
             await runTakeOne(c, 'demo');
+            if (!alive.current) return;
+            await pause(200);
+          }
+          // A negative count puts taken pieces back, one at a time.
+          for (let i = 0; i < -count && stateRef.current.taken[c] > 0; i++) {
+            await runPutBack(c);
             if (!alive.current) return;
             await pause(200);
           }
@@ -1256,6 +1305,7 @@ function TradeMat({
       }
       case 'take': {
         const c = columnArg(a.column);
+        if (c && Number(a.count) < 0) return state.taken[c] > 0 ? `back-${c}` : null;
         return c ? `mat-${c}` : null;
       }
       case 'write-digit': {
@@ -1280,6 +1330,7 @@ function TradeMat({
     if (invited.startsWith('trade-')) return `[data-trade="${invited}"]`;
     if (invited.startsWith('pending-')) return `[data-item="${invited}"]`;
     if (invited.startsWith('mat-')) return `[data-col="${invited.slice(4)}"] .ni-btt__body`;
+    if (invited.startsWith('back-')) return `[data-back="${invited.slice(5)}"]`;
     return null;
   })();
   const grabTarget = invited?.startsWith('mat-')
@@ -1607,7 +1658,8 @@ function TradeMat({
     ? (() => {
         const p = dnd.targetProps('take', { label: t('ui.widget.btt.nest') });
         const inner = nestInner(plan.matW, plan.nestH);
-        const taken = placeTaken(state.taken, u, inner);
+        const taken = placeTaken(state.taken, u, inner, sizes.target);
+        const slots = nestSlots(state.taken, u, inner, sizes.target);
         return (
           <div
             className="ni-btt__nest"
@@ -1616,6 +1668,26 @@ function TradeMat({
           >
             <NestArt />
             <div {...p} className={`${p.className} ni-btt__pad ni-btt__nestpad`} />
+            {COLUMNS.map((c) => {
+              const slot = slots[c];
+              if (!slot || state.taken[c] <= 0) return null;
+              // The kind's put-back control: over its own pieces, a target wide at least, the
+              // nest's whole height, 12 px or more from the next kind's (layout.ts: nestSlots).
+              return (
+                <button
+                  key={c}
+                  type="button"
+                  className={['ni-btt__back', invited === `back-${c}` ? 'ni-invite' : '']
+                    .filter(Boolean)
+                    .join(' ')}
+                  data-back={c}
+                  aria-label={t(BACK_KEY[c])}
+                  disabled={!interactive}
+                  style={{ left: inner.x + slot.x, width: slot.w }}
+                  onClick={() => onBack(c)}
+                />
+              );
+            })}
             <div
               className="ni-btt__taken"
               aria-hidden="true"
