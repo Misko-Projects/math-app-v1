@@ -340,7 +340,7 @@ export function ShapeSortWidget({
   // the card), 8+ px clear of the tray's border; only while invited.
   const trayInvited = invite?.id ? binOf(invite.id) === TRAY : false;
   const L = sortLayout(compact);
-  const outer = sortCardSize({
+  const sizes = sortSizes({
     width: avail?.width ?? 1100,
     height: avail?.height ?? 640,
     compact,
@@ -350,6 +350,7 @@ export function ShapeSortWidget({
     bins: bins.map((b) => (state.bins[b.id] ?? []).length),
     handRoom: trayInvited ? TRAY_HAND_ROOM : 0,
   });
+  const outer = sizes.full;
   /** A bin's picture (05: K content must not rely on reading): the first card it takes. */
   const binIcon = (b: (typeof bins)[number]) => {
     const c = config.cards.find((x) => ruleMatches(b.rule, sortCardProps(x.card)));
@@ -362,10 +363,16 @@ export function ShapeSortWidget({
     }
     return face(c, BIN_ICON_PX);
   };
-  const traySize = outer - 16;
-  const binSize = outer - 16;
-  const cardButton = (c: Card, size: number) => {
+  /**
+   * A card `outer` px across. Smaller than full size (a crowded tray or bin in the short area) it
+   * keeps its shape, drawn smaller, and is picked up from a cell round it: the target's height,
+   * and as wide as the card and half the gap to each neighbour, so the nearer card always wins.
+   */
+  const cardButton = (c: Card, cardOuter: number, gap: number) => {
     const p = dnd.itemProps(c.id, { label: name(c) });
+    const small = cardOuter < outer;
+    const size = small ? cardOuter - SMALL_CARD_FRAME : cardOuter - 16;
+    const reach = Math.max(0, (minT - cardOuter) / 2);
     return (
       <span key={c.id} className="ni-ssort__slot" data-flip={c.id}>
         <span
@@ -379,8 +386,16 @@ export function ShapeSortWidget({
             .filter(Boolean)
             .join(' ')}
           data-id={c.id}
+          data-small={small ? 'true' : undefined}
           style={{ '--size': `${size}px` } as CSSProperties}
         >
+          {small ? (
+            <span
+              className="ni-ssort__hit"
+              style={{ inset: `${-reach - 3}px ${-gap / 2 - 3}px` }}
+              aria-hidden="true"
+            />
+          ) : null}
           {face(c, size)}
         </span>
         {countBadge(c)}
@@ -433,7 +448,7 @@ export function ShapeSortWidget({
                 : undefined
             }
           >
-            {trayCards.map((c) => cardButton(c, traySize))}
+            {trayCards.map((c) => cardButton(c, sizes.tray, 12))}
           </div>
         </div>
         <div className="ni-ssort__check">
@@ -441,15 +456,17 @@ export function ShapeSortWidget({
         </div>
       </div>
       <div className="ni-ssort__bins">
-        {bins.map((b) => (
+        {bins.map((b, bi) => (
           <div
             key={b.id}
             className="ni-ssort__bin"
             data-bin={b.id}
-            // Bins widen with their cards, so a full bin keeps one row where it can.
+            data-fixed="true"
+            // Bins widen with their cards; each bin's width is set outright (sortSizes), so its
+            // cards stay in one row.
             style={
               {
-                flexGrow: binWeight((state.bins[b.id] ?? []).length),
+                flex: `0 0 ${sizes.binWidths[bi]}px`,
                 // An empty bin keeps a row of room: its header, padding, one card, its lip.
                 minHeight: L.head + L.cardsPad + outer + L.binBottom,
                 '--bin-head': `${L.head}px`,
@@ -463,12 +480,20 @@ export function ShapeSortWidget({
               <span className="ni-ssort__bin-icon" data-bin-icon={b.id}>
                 {binIcon(b)}
               </span>
-              <span className="ni-ssort__label">{t(b.label)}</span>
+              {/* A bin squeezed narrower than its name keeps its picture (the name is still the
+                  bin's accessible name, and is said when the bin is tapped). */}
+              {(sizes.binWidths[bi] as number) < binHeadWidth(t(b.label)) ? null : (
+                <span className="ni-ssort__label">{t(b.label)}</span>
+              )}
             </span>
-            <div className="ni-ssort__bin-cards">
+            <div
+              className="ni-ssort__bin-cards"
+              data-small={sizes.bin < outer ? 'true' : undefined}
+              style={sizes.bin < outer ? { gap: SMALL_BIN_GAP, flexWrap: 'nowrap' } : undefined}
+            >
               {(state.bins[b.id] ?? []).map((id) => {
                 const c = cardById.get(id);
-                return c ? cardButton(c, binSize) : null;
+                return c ? cardButton(c, sizes.bin, sizes.bin < outer ? SMALL_BIN_GAP : 12) : null;
               })}
             </div>
           </div>
@@ -525,7 +550,7 @@ export function sortLayout(compact: boolean) {
  * width in proportion to their cards (`binWeight`). `handRoom` is extra room under the tray's cards
  * while one of them is invited.
  */
-export function sortCardSize(a: {
+export interface SortArea {
   width: number;
   height: number;
   compact: boolean;
@@ -534,7 +559,9 @@ export function sortCardSize(a: {
   tray: number;
   bins: readonly number[];
   handRoom?: number;
-}): number {
+}
+
+export function sortCardSize(a: SortArea): number {
   const gap = 12;
   const L = sortLayout(a.compact);
   const css = { ...L, label: L.head };
@@ -552,7 +579,7 @@ export function sortCardSize(a: {
     return rows * c + (rows - 1) * gap + css.cardsPad + bottom;
   };
   const min = a.minT + 4;
-  for (let c = 120; c > min; c -= 4) {
+  const fitsAt = (c: number) => {
     // The hand room goes above the cards as well as below them (they stay centred).
     const tray = block(a.tray, perRow(trayW, c), c, trayBottom) + (a.handRoom ?? 0);
     const bin = Math.max(
@@ -562,9 +589,62 @@ export function sortCardSize(a: {
           css.label + block(n, perRow((binsW * (weights[i] ?? 1)) / total, c), c, binBottom) + 6,
       ),
     );
-    if (css.padY + tray + css.gapY + bin <= a.height) return c;
-  }
+    return css.padY + tray + css.gapY + bin <= a.height;
+  };
+  for (let c = 120; c > min; c -= 4) if (fitsAt(c)) return c;
   return min;
+}
+
+/**
+ * The room a bin's header needs for its picture and its name (32 px bold: at most about 20 px a
+ * letter), with the header's padding.
+ */
+export const binHeadWidth = (label: string) => BIN_ICON_PX + 8 + 20 * label.length + 16;
+
+/** A small card's frame: its 3 px border and 3 px padding on each side. */
+const SMALL_CARD_FRAME = 12;
+/** The gap between small cards in a crowded bin. */
+const SMALL_BIN_GAP = 6;
+/** The narrowest a bin is drawn in the short area: its picture and name, or one small card. */
+export const COMPACT_BIN_MIN_W = 112;
+/** The smallest a card is ever drawn (px across): its shape and marks stay readable. */
+export const SMALL_CARD_MIN = 48;
+
+/**
+ * Card sizes for the sort layout (outer px). `full` is `sortCardSize`. The tray and each bin
+ * keep one row: a second row never fits the short area, and a bin that grew a row would push the
+ * layout past any area's height. A crowded tray or bin draws its cards smaller instead: `tray`
+ * and `bin` (one size for every bin, so the shrink is uniform) are `full` wherever one row holds
+ * the cards at that size, which is everywhere the area has room. `binWidths` are the bins'
+ * widths: each has `COMPACT_BIN_MIN_W` and shares the rest in proportion to its cards.
+ */
+export function sortSizes(a: SortArea): {
+  full: number;
+  tray: number;
+  bin: number;
+  binWidths: number[];
+} {
+  const full = sortCardSize(a);
+  const L = sortLayout(a.compact);
+  const checkW = a.kMode ? 120 : 210;
+  const trayW = a.width - L.padX - L.topGap - checkW;
+  const binsW = a.width - L.padX - Math.max(0, a.bins.length - 1) * L.binsGap;
+  const cards = a.bins.reduce((s, n) => s + n, 0);
+  const spare = Math.max(0, binsW - a.bins.length * COMPACT_BIN_MIN_W);
+  const binWidths = a.bins.map((n) =>
+    Math.floor(COMPACT_BIN_MIN_W + (cards > 0 ? (spare * n) / cards : spare / a.bins.length)),
+  );
+  /** The largest card of which `n` fit one row `w` wide, `gap` apart. */
+  const oneRow = (w: number, n: number, gap: number) =>
+    n === 0 ? full : Math.floor((w - 2 * L.cardsPad + gap) / n) - gap;
+  const fit = (size: number) => Math.max(SMALL_CARD_MIN, Math.min(full, size));
+  const tray = fit(oneRow(trayW, a.tray, 12));
+  const binFull = Math.min(...a.bins.map((n, i) => oneRow(binWidths[i] as number, n, 12)), full);
+  const bin =
+    binFull >= full
+      ? full
+      : fit(Math.min(...a.bins.map((n, i) => oneRow(binWidths[i] as number, n, SMALL_BIN_GAP))));
+  return { full, tray, bin, binWidths };
 }
 
 /** A bin's share of the row: its cards (at least one card's room, so an empty bin has a place). */

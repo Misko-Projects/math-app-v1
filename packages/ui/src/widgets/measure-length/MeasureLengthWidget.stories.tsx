@@ -1,4 +1,4 @@
-import { stateChecker } from '@number-island/engine';
+import { ML_OPTION_MAX, stateChecker } from '@number-island/engine';
 import type { ResponseValue, WidgetConfig } from '@number-island/shared';
 import type { Meta, StoryObj } from '@storybook/react-vite';
 import { expect, fn, userEvent, waitFor, within } from 'storybook/test';
@@ -25,6 +25,7 @@ import {
 import {
   center,
   clearSpies,
+  expectTargetGaps,
   expectTargetSize,
   pointerDrag,
   spyAudio,
@@ -1118,10 +1119,79 @@ export const DemoReducedMotion: Story = {
   args: { config: cubes3, disabled: true, demo: reducedDemo },
   play: async ({ canvasElement }) => {
     const root = await findWidget(canvasElement, ROOT);
-    const started = performance.now();
+    // Instant is checked by the effect, never by the clock: once the op resolves, the result
+    // is drawn and nothing is still gliding.
     for (let i = 0; i < 3; i += 1) await reducedDemo.play({ op: 'lay-unit', args: { index: i } });
     await reducedDemo.play({ op: 'count-units' });
-    await expect(performance.now() - started).toBeLessThan(500);
+    await expect(
+      root.getAnimations({ subtree: true }).filter((a) => a.playState === 'running'),
+    ).toHaveLength(0);
     await expect(laid(root, 'cube')).toEqual([0, 1, 2]);
+  },
+};
+
+/**
+ * Undo where it sits (K): a laid shell is lifted by touching it, the middle one too, and is named
+ * aloud; a tap on bare track lifts nothing; Backspace on the measure takes the last one back.
+ * Each lift is traced as `undo`.
+ */
+export const LiftUnitWhereItSitsK: Story = {
+  globals: { ageMode: 'k' },
+  parameters: { ui: { audio: spyAudio() } },
+  play: async ({ canvasElement, args, parameters }) => {
+    const audio = parameters.ui.audio as ReturnType<typeof spyAudio>;
+    const root = await findWidget(canvasElement, ROOT);
+    const px = Number(root.style.getPropertyValue('--unit').replace('px', ''));
+    for (let i = 0; i < 3; i += 1) {
+      pile(root, 'shell').focus();
+      await userEvent.keyboard('{Enter}');
+      await userEvent.keyboard('{Enter}');
+    }
+    await waitFor(() => expect(laid(root, 'shell')).toEqual([0, 1, 2]));
+    clearSpies(audio);
+    const tapAt = async (at: number) => {
+      const s = spot(root, 'shell', at, px);
+      await userEvent.pointer({
+        keys: '[MouseLeft]',
+        target: trackPad(root, 'shell'),
+        coords: { clientX: s.x, clientY: s.y },
+      });
+    };
+    // The middle shell, where it sits.
+    await tapAt(1);
+    await waitFor(() => expect(laid(root, 'shell')).toEqual([0, 2]));
+    await expect(audio.say).toHaveBeenCalledWith('unit.shell.one', undefined);
+    // Bare track, two shells past the last: nothing is lifted.
+    await tapAt(5);
+    await expect(laid(root, 'shell')).toEqual([0, 2]);
+    // Keyboard: Backspace on the measure takes back the one laid last.
+    trackPad(root, 'shell').focus();
+    await userEvent.keyboard('{Backspace}');
+    await waitFor(() => expect(laid(root, 'shell')).toEqual([0]));
+    await userEvent.keyboard('{Delete}');
+    await waitFor(() => expect(laid(root, 'shell')).toEqual([]));
+    const undone = traceOf(args.onInteract)
+      .filter((e) => e.t === 'undo')
+      .map((e) => e.target);
+    await expect(undone).toEqual(['shell-1', 'shell-2', 'shell-0']);
+  },
+};
+
+/** Stress, smallest landscape area: a pick with the most options the model allows (four). */
+export const StressFourOptionsLandscapeMin: Story = {
+  args: {
+    config: { ...ruler, mode: 'estimate', input: 'pick', options: [2, 5, 9, ML_OPTION_MAX] },
+  },
+  render: inArea('landscapeMin'),
+  play: async ({ canvasElement }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    const options = [...root.querySelectorAll<HTMLElement>('.ni-mlen__options .ni-pick')];
+    await expect(options).toHaveLength(4);
+    await expectFitsArea(areaBox(canvasElement), [
+      ...options,
+      within(root).getByRole('button', { name: 'Check' }),
+    ]);
+    for (const o of options) await expectTargetSize(o, 'g1-up');
+    await expectTargetGaps(options);
   },
 };

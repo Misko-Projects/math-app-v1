@@ -1,4 +1,4 @@
-import { stateChecker } from '@number-island/engine';
+import { formatModel, stateChecker } from '@number-island/engine';
 import type { ResponseValue, WidgetConfig } from '@number-island/shared';
 import type { Meta, StoryObj } from '@storybook/react-vite';
 import { expect, fn, userEvent, waitFor, within } from 'storybook/test';
@@ -605,27 +605,23 @@ const present = (groups: Record<string, Element[]>) =>
   Object.fromEntries(Object.entries(groups).filter(([, els]) => els.length > 0));
 
 /**
- * Stress, tablet area, K: 16 cards (8 triangles, 8 rhombuses; real items have at most 7). All in
- * the tray, then all sorted (8 + 8): the cards shrink to fit, never under 84 px (K target 80 +
- * 4), wrap into rows, and nothing clips or scrolls.
+ * Stress, tablet area, K: 8 cards (4 triangles, 4 rhombuses). All in the tray, then all sorted
+ * (4 + 4): every card full size (84 px or more: K target 80 + 4), nothing clips or scrolls. (The
+ * model allows nine cards; StressNineThreeBinsTabletK drops all nine in one bin.)
  */
-export const StressSixteenTabletK: Story = {
+export const StressEightTabletK: Story = {
   globals: { ageMode: 'k' },
-  args: { config: manyBlocks(8), tier: 'concrete' },
+  args: { config: manyBlocks(4), tier: 'concrete' },
   render: inArea('tablet'),
   play: async ({ canvasElement }) => {
     const root = await findWidget(canvasElement, ROOT);
     const box = areaBox(canvasElement);
     await expectFitsArea(box, sortParts(root));
-    await expectControls(
-      'shape-sort StressSixteenTabletK (tray)',
-      'k',
-      present(sortControls(root)),
-    );
-    await sortAll(root, 8);
+    await expectControls('shape-sort StressEightTabletK (tray)', 'k', present(sortControls(root)));
+    await sortAll(root, 4);
     await expectFitsArea(box, sortParts(root));
     await expectControls(
-      'shape-sort StressSixteenTabletK (sorted)',
+      'shape-sort StressEightTabletK (sorted)',
       'k',
       present(sortControls(root)),
     );
@@ -821,14 +817,14 @@ const trayPlay =
   };
 
 /**
- * Stress, tablet area, K: the TRAY with 16 unsorted cards (real items have at most 7). They wrap
- * into rows of target-size cards (84 px), nothing clips or scrolls.
+ * Stress, tablet area, K: the TRAY with 8 unsorted cards, one row of full-size cards; nothing
+ * clips or scrolls.
  */
-export const StressTraySixteenTabletK: Story = {
+export const StressTrayEightTabletK: Story = {
   globals: { ageMode: 'k' },
-  args: { config: manyBlocks(8), tier: 'concrete' },
+  args: { config: manyBlocks(4), tier: 'concrete' },
   render: inArea('tablet'),
-  play: trayPlay('shape-sort StressTraySixteenTabletK'),
+  play: trayPlay('shape-sort StressTrayEightTabletK'),
 };
 
 /**
@@ -1171,10 +1167,172 @@ export const DemoReducedMotion: Story = {
   args: { disabled: true, demo: reducedDemo },
   play: async ({ canvasElement }) => {
     const root = await findWidget(canvasElement, ROOT);
-    const started = performance.now();
+    // Instant is checked by the effect, never by the clock: once the op resolves, the result
+    // is drawn and nothing is still gliding.
     await reducedDemo.play({ op: 'drag-card', args: { id: 'c0', bin: 'b1' } });
     await reducedDemo.play({ op: 'count-sides', args: { id: 'c1' } });
-    await expect(performance.now() - started).toBeLessThan(500);
+    await expect(
+      root.getAnimations({ subtree: true }).filter((a) => a.playState === 'running'),
+    ).toHaveLength(0);
     await expect(inBin(root, 'b1')).toEqual(['c0']);
+  },
+};
+
+/** DAT.01 (K): nine things to sort into three bins, the most any template makes. */
+const nineThings: Config = {
+  format: 'shape-sort',
+  mode: 'sort',
+  cards: Array.from({ length: 9 }, (_, i) => ({
+    id: `c${i}`,
+    card: {
+      kind: 'object' as const,
+      sprite: (['shell', 'fish', 'crab'] as const)[i % 3] as 'shell',
+      props: { kind: ['shell', 'fish', 'crab'][i % 3] as string },
+    },
+  })),
+  bins: (['shell', 'fish', 'crab'] as const).map((kind, i) => ({
+    id: `b${i}`,
+    label: `noun.${kind}.many` as const,
+    rule: { prop: 'kind', op: '==' as const, value: kind },
+  })),
+};
+
+const cardsIn = (root: HTMLElement, bin: string) => [
+  ...root.querySelectorAll<HTMLElement>(`[data-bin="${bin}"] .ni-ssort__card`),
+];
+/** Every card of a row has the same top: one row, nothing wrapped. */
+async function expectOneRow(cards: HTMLElement[], what: string) {
+  const tops = cards.map((c) => Math.round(c.getBoundingClientRect().top));
+  await expect(new Set(tops).size, `${what}: one row`).toBe(1);
+}
+/** The card a pointer at (x, y) picks up (null: none). */
+const cardAtPoint = (x: number, y: number) =>
+  (document.elementFromPoint(x, y)?.closest('.ni-ssort__card') as HTMLElement | null)?.dataset.id ??
+  null;
+
+/**
+ * DAT.01's nine things, then the most lopsided sort there is: all nine in one of the three bins.
+ * Nothing scrolls. Where the area is short the crowded bin keeps one row and draws its cards
+ * smaller, all one size and never squashed, at least 56 px across; each is picked up from a cell
+ * the height of a touch target that reaches half-way to its neighbours (the nearer card wins). A
+ * card taken back to the tray is full size again.
+ */
+const ninePlay =
+  (story: string, short: boolean) =>
+  async ({ canvasElement }: { canvasElement: HTMLElement }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    const box = areaBox(canvasElement);
+    await settle(root);
+    await expect(formatModel('shape-sort')?.configSchema.safeParse(nineThings).success).toBe(true);
+    await expectFitsArea(box, sortParts(root));
+    if (short) await expectOneRow(cardsIn(root, 'tray'), 'the tray');
+    for (let i = 0; i < 9; i += 1) {
+      await userEvent.click(cardEl(root, `c${i}`));
+      await userEvent.click(pad(root, 'b0'));
+    }
+    await waitFor(() => expect(inBin(root, 'tray')).toEqual([]));
+    await settle(root);
+    await expectFitsArea(box, sortParts(root));
+    const crowded = cardsIn(root, 'b0');
+    await expect(crowded).toHaveLength(9);
+    const widths = crowded.map((c) => c.getBoundingClientRect().width);
+    const least = Math.min(...widths);
+    console.info(`[cards] ${story}: nine in one bin, each ${Math.round(least)} px across`);
+    recordEvidence(root, { crowded_card_px: Math.round(least) });
+    // One size for all, square (never squashed), and still readable.
+    await expect(Math.max(...widths) - least).toBeLessThan(1);
+    for (const c of crowded) {
+      const r = c.getBoundingClientRect();
+      await expect(Math.abs(r.width - r.height)).toBeLessThan(1);
+    }
+    await expect(least).toBeGreaterThanOrEqual(56);
+    if (short) {
+      await expectOneRow(crowded, 'the crowded bin');
+      await expect(least).toBeLessThan(80);
+      // The pick-up cell of a middle card: a target tall, and half-way to each neighbour.
+      const [a, b, c] = [crowded[3], crowded[4], crowded[5]].map((el) =>
+        (el as HTMLElement).getBoundingClientRect(),
+      ) as [DOMRect, DOMRect, DOMRect];
+      const cx = b.left + b.width / 2;
+      const cy = b.top + b.height / 2;
+      await expect(cardAtPoint(cx, cy - 39)).toBe('c4');
+      await expect(cardAtPoint(cx, cy + 39)).toBe('c4');
+      const leftEdge = (a.right + b.left) / 2;
+      const rightEdge = (b.right + c.left) / 2;
+      await expect(cardAtPoint(leftEdge + 1.5, cy)).toBe('c4');
+      await expect(cardAtPoint(leftEdge - 1.5, cy)).toBe('c3');
+      await expect(cardAtPoint(rightEdge - 1.5, cy)).toBe('c4');
+      await expect(cardAtPoint(rightEdge + 1.5, cy)).toBe('c5');
+    } else {
+      // Room to spare: every card stays full size.
+      await expectControls(`${story} (sorted)`, 'k', present(sortControls(root)));
+    }
+    // Taken back out, a card is full size in the tray again.
+    await userEvent.click(cardEl(root, 'c4'));
+    await userEvent.click(pad(root, 'tray'));
+    await waitFor(() => expect(inBin(root, 'tray')).toEqual(['c4']));
+    await settle(root);
+    await expectTargetSize(cardEl(root, 'c4'), 'k');
+    await expectFitsArea(box, sortParts(root));
+    await settleFocus();
+  };
+
+/** Stress, tablet area, K: DAT.01's nine things, all dropped in one of the three bins. */
+export const StressNineThreeBinsTabletK: Story = {
+  globals: { ageMode: 'k' },
+  args: { config: nineThings, tier: 'concrete' },
+  render: inArea('tablet'),
+  play: ninePlay('shape-sort StressNineThreeBinsTabletK', false),
+};
+
+/** Stress, smallest landscape area, K: the same nine things, all in one bin. */
+export const StressNineThreeBinsLandscapeMinK: Story = {
+  ...StressNineThreeBinsTabletK,
+  render: inArea('landscapeMin'),
+  play: ninePlay('shape-sort StressNineThreeBinsLandscapeMinK', true),
+};
+
+/** The same nine at the smallest area, sorted evenly (three a bin): the usual end of DAT.01. */
+export const StressNineSortedEvenlyLandscapeMinK: Story = {
+  ...StressNineThreeBinsTabletK,
+  render: inArea('landscapeMin'),
+  play: async ({ canvasElement }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    const box = areaBox(canvasElement);
+    for (let i = 0; i < 9; i += 1) {
+      await userEvent.click(cardEl(root, `c${i}`));
+      await userEvent.click(pad(root, `b${i % 3}`));
+    }
+    await waitFor(() => expect(inBin(root, 'tray')).toEqual([]));
+    await settle(root);
+    await expectFitsArea(box, sortParts(root));
+    for (const b of ['b0', 'b1', 'b2']) await expectOneRow(cardsIn(root, b), b);
+    await settleFocus();
+  },
+};
+
+/** Find-all at the smallest landscape area, K, with the most cards the model allows (seven). */
+export const StressFindSevenLandscapeMinK: Story = {
+  globals: { ageMode: 'k' },
+  args: {
+    config: {
+      ...findTriangles,
+      cards: Array.from({ length: 7 }, (_, i) =>
+        card(`c${i}`, i % 2 === 0 ? 'triangle' : 'rhombus', i % 2 === 0 ? 'green' : 'blue'),
+      ),
+    },
+    tier: 'pictorial',
+  },
+  render: inArea('landscapeMin'),
+  play: async ({ canvasElement }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    const cards = [...root.querySelectorAll<HTMLElement>('.ni-ssort__card')];
+    await expect(cards).toHaveLength(7);
+    await expectFitsArea(areaBox(canvasElement), [
+      ...cards,
+      within(root).getByRole('button', { name: 'Check' }),
+    ]);
+    for (const c of cards) await expectTargetSize(c, 'k');
+    await expectTargetGaps(cards);
   },
 };

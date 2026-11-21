@@ -1,4 +1,4 @@
-import { stateChecker } from '@number-island/engine';
+import { formatModel, SC_OUTLINE_EXTENT_MAX, stateChecker } from '@number-island/engine';
 import type { ResponseValue, WidgetConfig } from '@number-island/shared';
 import type { Meta, StoryObj } from '@storybook/react-vite';
 import { expect, fn, userEvent, waitFor, within } from 'storybook/test';
@@ -26,9 +26,11 @@ import {
 } from '../../test-support/evidence';
 import {
   center,
+  clearSpies,
   expectTargetGaps,
   expectTargetSize,
   pointerDrag,
+  spyAudio,
 } from '../../test-support/storyHelpers';
 import {
   expectPointerOn,
@@ -1059,9 +1061,105 @@ export const DemoReducedMotion: Story = {
   args: { config: draw3, disabled: true, demo: reducedDemo },
   play: async ({ canvasElement }) => {
     const root = await findWidget(canvasElement, ROOT);
-    const started = performance.now();
+    // Instant is checked by the effect, never by the clock: once the op resolves, the result
+    // is drawn and nothing is still gliding.
     await reducedDemo.play({ op: 'draw-edge', args: { from: [0, 0], to: [4, 0] } });
-    await expect(performance.now() - started).toBeLessThan(400);
+    await expect(
+      root.getAnimations({ subtree: true }).filter((a) => a.playState === 'running'),
+    ).toHaveLength(0);
     await waitFor(() => expect(root.querySelectorAll('.ni-scomp__line')).toHaveLength(1));
+  },
+};
+
+/**
+ * Undo where it sits (K): a placed block goes back to the tray when it is touched on the outline
+ * (the one under the finger, not only the last), and is named aloud; a touch on empty outline
+ * moves nothing; Backspace on the outline takes back the last block. Each is traced as `undo`.
+ */
+export const FillSendPieceBackK: Story = {
+  globals: { ageMode: 'k' },
+  parameters: { ui: { audio: spyAudio() } },
+  play: async ({ canvasElement, args, parameters }) => {
+    const audio = parameters.ui.audio as ReturnType<typeof spyAudio>;
+    const root = await findWidget(canvasElement, ROOT);
+    const board = root.querySelector('.ni-scomp__pad') as HTMLElement;
+    const tapBoard = async (x: number, y: number) => {
+      const p = boardPoint(root, x, y, trapezoid);
+      await userEvent.pointer({
+        keys: '[MouseLeft]',
+        target: board,
+        coords: { clientX: p.x, clientY: p.y },
+      });
+    };
+    await pointerDrag(tile(root, 'p-rhombus'), boardPoint(root, 0.75, 0.43, trapezoid), 'touch');
+    await waitFor(() => expect(placed(root)).toHaveLength(1));
+    tile(root, 'p-triangle').focus();
+    await userEvent.keyboard('{Enter}');
+    await userEvent.keyboard('{Enter}');
+    await waitFor(() => expect(placed(root)).toHaveLength(2));
+    clearSpies(audio);
+    // The rhombus was placed first: touching it sends it back, the triangle stays.
+    await tapBoard(0.75, 0.43);
+    await waitFor(() => expect(placed(root).map((p) => p.id)).toEqual(['p-triangle:0']));
+    await expect(audio.say).toHaveBeenCalledWith('shape.rhombus.one', undefined);
+    await expect(tile(root, 'p-rhombus')).not.toHaveAttribute('aria-disabled', 'true');
+    // The same spot is empty outline now: nothing moves.
+    await tapBoard(0.75, 0.43);
+    await expect(placed(root)).toHaveLength(1);
+    // Keyboard: Backspace on the outline takes the last block back.
+    board.focus();
+    await userEvent.keyboard('{Backspace}');
+    await waitFor(() => expect(placed(root)).toHaveLength(0));
+    const undone = traceOf(args.onInteract)
+      .filter((e) => e.t === 'undo')
+      .map((e) => e.target);
+    await expect(undone).toEqual(['p-rhombus:0', 'p-triangle:0']);
+  },
+};
+
+const boundFill: Config = {
+  format: 'shape-compose',
+  mode: 'fill-outline',
+  pieces: [
+    { id: 'p-square', kind: 'square', count: 9 },
+    { id: 'p-triangle', kind: 'triangle', count: 1 },
+    { id: 'p-rhombus', kind: 'rhombus', count: 1 },
+    { id: 'p-hexagon', kind: 'hexagon', count: 1 },
+  ],
+  outline: {
+    points: [
+      [0, 0],
+      [SC_OUTLINE_EXTENT_MAX, 0],
+      [SC_OUTLINE_EXTENT_MAX, SC_OUTLINE_EXTENT_MAX],
+      [0, SC_OUTLINE_EXTENT_MAX],
+    ],
+  },
+  showOutlineLines: true,
+  rotationStep: 90,
+};
+
+/**
+ * Stress, the model's bounds, K, smallest landscape area: the biggest outline (5 block sides
+ * each way), four kinds of block, twelve blocks. The outline, the tray and Check fit; every tile
+ * is a full target.
+ */
+export const StressBoundsFillLandscapeMinK: Story = {
+  globals: { ageMode: 'k' },
+  args: { config: boundFill },
+  render: inArea('landscapeMin'),
+  play: async ({ canvasElement }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    await expect(formatModel('shape-compose')?.configSchema.safeParse(boundFill).success).toBe(
+      true,
+    );
+    const tiles = boundFill.pieces?.map((p) => tile(root, p.id)) ?? [];
+    await expectFitsArea(areaBox(canvasElement), [
+      // The outline as drawn (the board's own box includes its empty paper margin).
+      root.querySelector('.ni-scomp__outline') as Element,
+      ...tiles,
+      within(root).getByRole('button', { name: 'Check' }),
+    ]);
+    for (const t of tiles) await expectTargetSize(t, 'k');
+    await expectTargetGaps(tiles);
   },
 };

@@ -47,6 +47,7 @@ import {
   PW_DESIGN_AREA_MAX,
   PW_DESIGN_PERIMETER_MAX,
   PW_DESIGN_SIDE_MAX,
+  PW_HEIGHT_MAX,
   PW_PERIMETER_MAX,
   PW_SIDE_MAX,
   PW_SIDES_MAX,
@@ -72,6 +73,7 @@ import {
   SS_BINS_MAX,
   SS_CARDS_MAX,
   SS_NUMBER_MAX,
+  SS_PICK_CARDS_MAX,
   SS_ROTATION_MAX,
   SS_RULE_VALUE_MAX,
   SS_SCALE_MAX,
@@ -1389,7 +1391,7 @@ describe('supported domain: every numeric input of the five models has a bound',
         })),
       });
       accepts(compareLength, n(CL_OBJECTS_MAX));
-      refuses(compareLength, n(CL_OBJECTS_MAX + 1), /two to four objects/);
+      refuses(compareLength, n(CL_OBJECTS_MAX + 1), /two to 3 objects; got 4/);
     });
     it('an object is at most CL_LENGTH_MAX units long', () => {
       accepts(compareLength, two(CL_LENGTH_MAX));
@@ -1415,6 +1417,19 @@ describe('supported domain: every numeric input of the five models has a bound',
         ...pwTotal,
         polygon: { sides: [4.5, 4.5, 4.5], grid: false, shape: 'poly' as const },
       });
+    });
+    it('the figure as drawn is at most PW_SIDE_MAX wide and PW_HEIGHT_MAX tall', () => {
+      accepts(perimeterWalk, rect(PW_SIDE_MAX, PW_HEIGHT_MAX));
+      refuses(perimeterWalk, rect(PW_SIDE_MAX, PW_HEIGHT_MAX + 1), /at most 20 wide and 15 tall/);
+      // A regular hexagon with sides of 20 would be about 35 tall.
+      refuses(
+        perimeterWalk,
+        {
+          ...pwTotal,
+          polygon: { sides: [20, 20, 20, 20, 20, 20], grid: false, shape: 'poly' as const },
+        },
+        /at most 20 wide and 15 tall; got/,
+      );
     });
     it('a figure has at most PW_SIDES_MAX sides', () => {
       const poly = (n: number) => ({
@@ -1443,7 +1458,14 @@ describe('supported domain: every numeric input of the five models has a bound',
         ...extra,
       });
       accepts(perimeterWalk, design({ area: 12 }));
-      accepts(perimeterWalk, design({ area: PW_DESIGN_AREA_MAX, perimeter: 24 }));
+      // 36 squares as 12 × 3 or 9 × 4; a 6 × 6 is taller than the grid's five rows.
+      accepts(perimeterWalk, design({ area: PW_DESIGN_AREA_MAX, perimeter: 30 }));
+      accepts(perimeterWalk, design({ area: PW_DESIGN_AREA_MAX, perimeter: 26 }));
+      refuses(
+        perimeterWalk,
+        design({ area: PW_DESIGN_AREA_MAX, perimeter: 24 }),
+        /fits 12 × 5 squares/,
+      );
       refuses(perimeterWalk, design({ area: PW_DESIGN_AREA_MAX + 1 }), /from 1 to 36; got 37/);
       refuses(perimeterWalk, design({ area: 2.5 }), /whole number from 1 to 36; got 2.5/);
       refuses(
@@ -1452,8 +1474,9 @@ describe('supported domain: every numeric input of the five models has a bound',
         /from 1 to 48; got 50/,
       );
       // Perimeter 30 alone allows a 14 × 1 rectangle: wider than the grid.
-      refuses(perimeterWalk, design({ perimeter: 30 }), /at most 12 squares a side/);
-      accepts(perimeterWalk, design({ perimeter: 2 * (PW_DESIGN_SIDE_MAX + 1) }));
+      refuses(perimeterWalk, design({ perimeter: 30 }), /fits 12 × 5 squares/);
+      refuses(perimeterWalk, design({ perimeter: 2 * (PW_DESIGN_SIDE_MAX + 1) }), /fits 12 × 5/);
+      accepts(perimeterWalk, design({ perimeter: 12 }));
       refuses(perimeterWalk, { ...rect(5, 3), area: 15 }, /only design gives an area/);
       refuses(
         perimeterWalk,
@@ -1513,17 +1536,13 @@ describe('supported domain: every numeric input of the five models has a bound',
         },
       });
       accepts(shapeCompose, box(SC_OUTLINE_EXTENT_MAX));
-      refuses(
-        shapeCompose,
-        box(SC_OUTLINE_EXTENT_MAX + 1),
-        /at most 10 block sides across; got 11/,
-      );
+      refuses(shapeCompose, box(SC_OUTLINE_EXTENT_MAX + 1), /at most 5 block sides across; got 6/);
       const ring = (n: number) => ({
         ...scFill,
         outline: {
           points: Array.from({ length: n }, (_, i): [number, number] => [
-            3 * Math.cos((2 * Math.PI * i) / n),
-            3 * Math.sin((2 * Math.PI * i) / n),
+            2 * Math.cos((2 * Math.PI * i) / n),
+            2 * Math.sin((2 * Math.PI * i) / n),
           ]),
         },
       });
@@ -1606,9 +1625,17 @@ describe('supported domain: every numeric input of the five models has a bound',
       ...ssFind,
       cards: [{ id: 'c0', card }, ...ssFind.cards.slice(1)],
     });
-    it('at most SS_CARDS_MAX cards', () => {
-      accepts(shapeSort, withCards(SS_CARDS_MAX));
-      refuses(shapeSort, withCards(SS_CARDS_MAX + 1), /at most 16 cards fit; got 17/);
+    it('at most SS_CARDS_MAX cards in a sort, SS_PICK_CARDS_MAX in a find-all or odd-one-out', () => {
+      const sort = (n: number) => ({ ...withCards(n), mode: 'sort' as const, bins: ssSort.bins });
+      accepts(shapeSort, sort(SS_CARDS_MAX));
+      refuses(shapeSort, sort(SS_CARDS_MAX + 1), /at most 9 cards fit a sort; got 10/);
+      accepts(shapeSort, withCards(SS_PICK_CARDS_MAX));
+      refuses(shapeSort, withCards(SS_PICK_CARDS_MAX + 1), /at most 7 cards fit a find-all; got 8/);
+      refuses(
+        shapeSort,
+        { ...withCards(SS_PICK_CARDS_MAX + 1), mode: 'odd-one-out' as const },
+        /at most 7 cards fit a odd-one-out; got 8/,
+      );
     });
     it('at most SS_BINS_MAX bins', () => {
       const bins = (n: number) => ({
@@ -1654,6 +1681,36 @@ describe('supported domain: every numeric input of the five models has a bound',
       accepts(shapeSort, rule(SS_RULE_VALUE_MAX));
       refuses(shapeSort, rule(SS_RULE_VALUE_MAX + 1), /numbers up to 999; got 1000/);
     });
+  });
+
+  it('undo ops: a slid object goes back to where it started; a walked side is un-walked', () => {
+    const offset = {
+      ...clBase,
+      aligned: false,
+      objects: [
+        { id: 'obj-0', sprite: 'rope' as const, length: 5, offset: 2 },
+        { id: 'obj-1', sprite: 'rope' as const, length: 8, offset: 0 },
+      ],
+    };
+    let s = play(compareLength, offset, [act('align', { id: 'obj-0' })]);
+    expect(s.aligned).toEqual(['obj-0']);
+    s = compareLength.apply(s, act('align', { id: 'obj-0', remove: true }));
+    expect(s.aligned).toEqual([]);
+    // Removing one that was never slid, or an unknown id, changes nothing.
+    expect(compareLength.apply(s, act('align', { id: 'obj-1', remove: true }))).toEqual(s);
+    expect(compareLength.apply(s, act('align', { id: 'nope', remove: true }))).toBe(s);
+
+    let w = play(perimeterWalk, pwTotal, [
+      act('walk-side', { index: 0 }),
+      act('walk-side', { index: 2 }),
+    ]);
+    expect(w.walked).toEqual([0, 2]);
+    w = perimeterWalk.apply(w, act('walk-side', { index: 0, remove: true }));
+    expect(w.walked).toEqual([2]);
+    expect(perimeterWalk.apply(w, act('walk-side', { index: 1, remove: true })).walked).toEqual([
+      2,
+    ]);
+    expect(perimeterWalk.apply(w, act('walk-side', { index: 9, remove: true }))).toBe(w);
   });
 
   it('every refusal names the bound and the value it got (a clear message)', () => {

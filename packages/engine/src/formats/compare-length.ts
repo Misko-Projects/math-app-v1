@@ -7,7 +7,8 @@
 //   takes it out again); answers `numbers`, the lengths in slot order, once every slot is filled.
 //   `answer {values}` fills the slots with objects of those lengths.
 // - `how-much-longer`: the child types the difference (`answer {value}`); answers `number`.
-// `align {id}` slides an object (every object without an id) to the start line;
+// `align {id}` slides an object (every object without an id) to the start line, and
+// `align {id, remove: true}` slides it back to where it started (the child's undo);
 // `highlight-difference` marks the part of the longer object that sticks out. Both are visual.
 
 import {
@@ -57,9 +58,10 @@ export const startOf = (s: CompareLengthState, id: string): number =>
 
 /**
  * The supported domain, above shipped content (lengths to 12, offsets to 4) and inside what the
- * widget draws at 906 × 373 (four lanes; a unit never under 8 px).
+ * widget draws at 906 × 373 (three lanes; a unit never under 8 px).
  */
-export const CL_OBJECTS_MAX = 4;
+/** Lanes: three kindergarten-size lanes (with their number slots) are all the height holds. */
+export const CL_OBJECTS_MAX = 3;
 /** An object's length in units. */
 export const CL_LENGTH_MAX = 20;
 /** How far from the start line an object may begin. */
@@ -99,7 +101,11 @@ const configSchema = compareLengthConfigSchema.superRefine((c, ctx) => {
     ctx.addIssue({ code: 'custom', path: ['objects'], message: 'object ids must be distinct' });
   }
   if (c.objects.length < 2 || c.objects.length > CL_OBJECTS_MAX) {
-    ctx.addIssue({ code: 'custom', path: ['objects'], message: 'two to four objects' });
+    ctx.addIssue({
+      code: 'custom',
+      path: ['objects'],
+      message: `two to ${CL_OBJECTS_MAX} objects; got ${c.objects.length}`,
+    });
   }
   if ((c.ask === 'indirect' || c.ask === 'how-much-longer') && c.objects.length !== 2) {
     ctx.addIssue({ code: 'custom', path: ['objects'], message: `${c.ask} compares two objects` });
@@ -163,7 +169,10 @@ export const compareLength: FormatModel<'compare-length', CompareLengthState> = 
         // Indirect objects cannot move (03 §5.5).
         if (c.ask === 'indirect') return s;
         if (id === undefined) return { ...s, aligned: [...ids] };
-        if (!known || s.aligned.includes(id)) return s;
+        if (!known) return s;
+        // `remove: true` slides it back to where it started (the child undoes a slide).
+        if (a.args?.remove === true) return { ...s, aligned: s.aligned.filter((x) => x !== id) };
+        if (s.aligned.includes(id)) return s;
         return { ...s, aligned: [...s.aligned, id] };
       }
       case 'lay-string':

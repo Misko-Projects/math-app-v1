@@ -200,18 +200,29 @@ export function CompareLengthWidget({
     setInvite(null);
     apply({ op: 'align', args: { id: o.id } });
   };
+  /** An object the child slid to the line goes back to where it started (undo, where it sits). */
+  const canSlideBack = (o: Obj) =>
+    slidable && !config.aligned && o.offset > 0 && state.aligned.includes(o.id);
+  const slideBack = (o: Obj) => {
+    setInvite(null);
+    if (speakOnTap) say(spriteNameKey(o.sprite));
+    apply({ op: 'align', args: { id: o.id, remove: true } });
+  };
 
   const drag = useRef<{ id: string; x: number; moved: boolean; pointer: number } | null>(null);
   const onObjectDown = (o: Obj, e: ReactPointerEvent) => {
     // Tap-only mode (06 §7) has no drags; ← on the keyboard still lines an object up.
-    if (!interactive || tapOnly || !slidable || state.aligned.includes(o.id)) return;
+    const back = canSlideBack(o);
+    if (!interactive || tapOnly || !slidable || (state.aligned.includes(o.id) && !back)) return;
     if (e.pointerType === 'mouse' && e.button !== 0) return;
     drag.current = { id: o.id, x: e.clientX, moved: false, pointer: e.pointerId };
     const offsetPx = startOf(state, o.id) * unit;
+    // A lined-up object slides right again, as far as where it started.
+    const maxDx = back ? o.offset * unit : unit * 2;
     const move = (ev: PointerEvent) => {
       const d = drag.current;
       if (!d || ev.pointerId !== d.pointer) return;
-      const dx = Math.max(-offsetPx, Math.min(unit * 2, ev.clientX - d.x));
+      const dx = Math.max(-offsetPx, Math.min(maxDx, ev.clientX - d.x));
       if (!d.moved && Math.abs(ev.clientX - d.x) < 8) return;
       if (!d.moved) {
         d.moved = true;
@@ -234,6 +245,14 @@ export function CompareLengthWidget({
       setTimeout(() => {
         suppressClick.current = false;
       }, 0);
+      if (back) {
+        // Pulled more than half a unit off the line: it goes back to where it started.
+        if (dx > unit * 0.6) {
+          trace('drop', 'back');
+          slideBack(o);
+        } else trace('drop', 'start');
+        return;
+      }
       // Close to the start line (within half a unit): it lines up. Otherwise it slides back.
       if (Math.abs(offsetPx + dx) <= unit * 0.6) {
         trace('drop', 'start');
@@ -422,7 +441,9 @@ export function CompareLengthWidget({
             'ni-clen__obj',
             picked ? 'ni-clen__obj--picked' : '',
             invite === o.id ? 'ni-clen__obj--invited' : '',
-            slidable && !state.aligned.includes(o.id) ? 'ni-clen__obj--slides' : '',
+            slidable && (!state.aligned.includes(o.id) || canSlideBack(o))
+              ? 'ni-clen__obj--slides'
+              : '',
           ]
             .filter(Boolean)
             .join(' ')}
@@ -456,6 +477,11 @@ export function CompareLengthWidget({
               e.preventDefault();
               trace('move', o.id);
               align(o);
+            } else if (e.key === 'ArrowRight' && canSlideBack(o) && interactive) {
+              // → slides a lined-up object back to where it started.
+              e.preventDefault();
+              trace('undo', o.id);
+              slideBack(o);
             }
           }}
         >

@@ -1,13 +1,13 @@
 import { placeCorners, type Vec } from '@number-island/engine';
 import type { WidgetAction } from '@number-island/shared';
-import { type MouseEvent, useId, useRef, useState } from 'react';
+import { type KeyboardEvent, type MouseEvent, useId, useRef, useState } from 'react';
 import { useDragToTarget } from '../../interaction/useDragToTarget';
 import { useNarrationText, useSpeech, useUiPreferences } from '../../preferences/UiProvider';
 import { MIN_TARGET_PX } from '../../tokens/tokens';
 import { useWidgetDemo } from '../demo';
 import { CheckButton, shapeColor, useAlive, useDemoPause } from '../kit';
 import { useInviteHand } from '../kit/inviteHand';
-import { bounds, fits, nearestFit } from './fit';
+import { bounds, fits, insidePolygon, nearestFit } from './fit';
 import { CHECK_W, type ModeProps, OPS, UndoButton } from './shared';
 
 /**
@@ -135,13 +135,28 @@ export function FillOutline({
     },
   });
 
+  /** A placed piece goes back to the tray: traced, and named aloud like any tapped piece. */
+  const sendBack = (p: (typeof state.placed)[number]) => {
+    trace('undo', p.id);
+    setInvite(null);
+    if (speakOnTap) say(`shape.${p.kind}.one`);
+    apply({ op: 'drag-piece', args: { id: p.id, remove: true } });
+  };
+
   /** "Take one back": the piece placed last goes back to the tray. */
   const takeBack = () => {
     const p = state.placed[state.placed.length - 1];
     if (!p || !interactive) return;
-    trace('undo', p.id);
-    apply({ op: 'drag-piece', args: { id: p.id, remove: true } });
+    sendBack(p);
   };
+
+  /**
+   * Touching a placed piece where it sits (with no tray piece in hand) sends that piece back. The
+   * board is the target, so a small block is as easy to hit as a big one: the piece under the
+   * point, the one placed last where two meet on an edge.
+   */
+  const pieceAt = (at: Vec) =>
+    [...state.placed].reverse().find((p) => insidePolygon(at, placeCorners(p) ?? [])) ?? null;
 
   const turn = (id: string) => {
     if (!interactive) return;
@@ -252,8 +267,24 @@ export function FillOutline({
           {...boardP}
           className={[boardP.className, 'ni-scomp__pad'].join(' ')}
           onClick={(e: MouseEvent) => {
+            const r = board.current?.getBoundingClientRect();
+            // A pointer tap with nothing in hand (a key press has no position: detail 0).
+            if (interactive && dnd.selected === null && e.detail > 0 && r) {
+              const hit = pieceAt(toUnits(e.clientX - r.left, e.clientY - r.top));
+              if (hit) sendBack(hit);
+              return;
+            }
             tapAt.current = { x: e.clientX, y: e.clientY };
             boardP.onClick(e);
+          }}
+          onKeyDown={(e: KeyboardEvent) => {
+            // Keyboard: Backspace or Delete on the board takes the last piece back.
+            if ((e.key === 'Backspace' || e.key === 'Delete') && dnd.selected === null) {
+              e.preventDefault();
+              takeBack();
+              return;
+            }
+            boardP.onKeyDown(e);
           }}
         />
         <svg

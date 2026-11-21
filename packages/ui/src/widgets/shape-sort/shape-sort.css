@@ -336,3 +336,35 @@
 .ni-ssort[data-compact="true"] .ni-ssort__cards {
   padding: 8px 4px;
 }
+
+/*
+ * A crowded tray or bin in the short area: its cards are drawn smaller, in one row (sortSizes).
+ * The card keeps its look with a thinner frame; `.ni-ssort__hit` is its pick-up cell, the height
+ * of a touch target and reaching half the gap to each neighbour, so the nearer card always wins.
+ */
+.ni-ssort .ni-ssort__card[data-small="true"] {
+  min-width: 0;
+  min-height: 0;
+  width: calc(var(--size) + 12px);
+  height: calc(var(--size) + 12px);
+  padding: 3px;
+  border-radius: 14px;
+}
+.ni-ssort[data-tier="concrete"] .ni-ssort__card[data-small="true"] {
+  box-shadow: 0 4px 0 var(--color-wood-deep);
+}
+.ni-ssort__hit {
+  position: absolute;
+  z-index: 0;
+}
+.ni-ssort__bin-cards[data-small="true"] {
+  justify-content: center;
+}
+/* Bins whose width the widget sets outright never grow past it (their name hides instead). */
+.ni-ssort__bin[data-fixed="true"] {
+  min-width: 0;
+}
+.ni-ssort__bin[data-fixed="true"] .ni-ssort__label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}

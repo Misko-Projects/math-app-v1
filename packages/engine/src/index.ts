@@ -76,7 +76,15 @@ export {
   symbolParts,
   tallyGroups,
 } from './formats/chart';
-export { type CompareLengthState, closeness, startOf } from './formats/compare-length';
+export {
+  CL_END_MAX,
+  CL_LENGTH_MAX,
+  CL_OBJECTS_MAX,
+  CL_OFFSET_MAX,
+  type CompareLengthState,
+  closeness,
+  startOf,
+} from './formats/compare-length';
 export { type EqualGroupsState, GROUP_CAPACITY, groupsUnknown } from './formats/equal-groups';
 export { type EqualShareState, shareChoices } from './formats/equal-share';
 export {
@@ -97,6 +105,11 @@ export {
   type LengthUnit,
   lengthIn,
   type MeasureLengthState,
+  ML_LAID_MAX,
+  ML_LENGTH_MAX,
+  ML_OFFSET_MAX,
+  ML_OPTION_MAX,
+  ML_OPTIONS_MAX,
   objectUnits,
   SIXTEENTHS,
   UNIT_SIZE,
@@ -111,6 +124,12 @@ export {
 export {
   designRectangles,
   type PerimeterWalkState,
+  PW_DESIGN_AREA_MAX,
+  PW_DESIGN_PERIMETER_MAX,
+  PW_DESIGN_SIDE_MAX,
+  PW_PERIMETER_MAX,
+  PW_SIDE_MAX,
+  PW_SIDES_MAX,
   polygonPoints,
   resolvedSides,
   sidesMatch,
@@ -135,12 +154,34 @@ export {
   drawingPoints,
   type PlacedPiece,
   pieceCentre,
+  SC_ANCHORS_MAX,
+  SC_GRID_COLS_MAX,
+  SC_GRID_ROWS_MAX,
+  SC_OUTLINE_EXTENT_MAX,
+  SC_OUTLINE_POINTS_MAX,
+  SC_PIECE_KINDS_MAX,
+  SC_PIECES_MAX,
+  SC_REQUIRE_MAX,
+  SC_STICKS_MAX,
   SCENE_SIZE,
   type ShapeComposeState,
   stickCount,
   turnAboutCentre,
 } from './formats/shape-compose';
-export { isShapeCard, type ShapeSortState, sortCardProps, TRAY } from './formats/shape-sort';
+export {
+  isShapeCard,
+  type ShapeSortState,
+  SS_BINS_MAX,
+  SS_CARDS_MAX,
+  SS_NUMBER_MAX,
+  SS_PICK_CARDS_MAX,
+  SS_ROTATION_MAX,
+  SS_RULE_VALUE_MAX,
+  SS_SCALE_MAX,
+  SS_SCALE_MIN,
+  sortCardProps,
+  TRAY,
+} from './formats/shape-sort';
 export {
   answersSplit,
   SITUATION_PRIOR,

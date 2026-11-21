@@ -2,7 +2,7 @@
 // and filling by fits always passes the engine's compose.fill checker.
 import { stateChecker, type Vec } from '@number-island/engine';
 import { describe, expect, it } from 'vitest';
-import { fits, nearestFit } from './fit';
+import { fits, insidePolygon, nearestFit } from './fit';
 
 const H = Math.sqrt(3) / 2;
 const rhombus: Vec[] = [
@@ -65,5 +65,27 @@ describe('fill-outline fits', () => {
     const f = fits(rhombus, [], 'triangle', 60);
     expect(nearestFit(f, [1.1, 0.5], 0.8)?.at).toEqual([1, 0]);
     expect(nearestFit(f, [5, 5], 0.8)).toBeNull();
+  });
+});
+
+describe('insidePolygon (which placed piece a tap is on)', () => {
+  const square: Vec[] = [
+    [0, 0],
+    [1, 0],
+    [1, 1],
+    [0, 1],
+  ];
+  const triangle: Vec[] = [
+    [0, 0],
+    [1, 0],
+    [0.5, Math.sqrt(3) / 2],
+  ];
+  it('is true inside and on the edge, false outside', () => {
+    expect(insidePolygon([0.5, 0.5], square)).toBe(true);
+    expect(insidePolygon([1, 0.5], square)).toBe(true);
+    expect(insidePolygon([1.01, 0.5], square)).toBe(false);
+    expect(insidePolygon([0.5, 0.3], triangle)).toBe(true);
+    expect(insidePolygon([0.9, 0.8], triangle)).toBe(false);
+    expect(insidePolygon([0.5, 0.5], [])).toBe(false);
   });
 });

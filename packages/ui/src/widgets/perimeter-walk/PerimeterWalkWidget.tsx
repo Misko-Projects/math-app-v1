@@ -206,7 +206,11 @@ export function PerimeterWalkWidget({
   const svgW = fw * u + 2 * pad;
   const svgH = fh * u + 2 * pad;
 
+  /** The walk in progress: a newer walk, or un-walking the side, ends an older one. */
+  const walkRun = useRef(0);
   const walk = async (i: number) => {
+    walkRun.current += 1;
+    const run = walkRun.current;
     // The Pebbling walks the side (instant with reduced motion).
     if (reduced) {
       setWalker({ side: i, t: 1 });
@@ -215,7 +219,7 @@ export function PerimeterWalkWidget({
     for (let s = 0; s <= 10; s += 1) {
       setWalker({ side: i, t: s / 10 });
       await new Promise((r) => setTimeout(r, 45));
-      if (!alive.current) return;
+      if (!alive.current || walkRun.current !== run) return;
     }
   };
 
@@ -225,6 +229,15 @@ export function PerimeterWalkWidget({
     setInvite(null);
     const len = config.polygon.sides[i];
     if (speakOnTap && typeof len === 'number') sayNumber(len);
+    // A walked side tapped again is un-walked (undo, on the side itself); its number is said
+    // either way.
+    if (state.walked.includes(i)) {
+      trace('undo', `side-${i}`);
+      apply({ op: 'walk-side', args: { index: i, remove: true } });
+      walkRun.current += 1;
+      setWalker(null);
+      return;
+    }
     apply({ op: 'walk-side', args: { index: i } });
     void walk(i);
   };

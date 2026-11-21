@@ -1,4 +1,4 @@
-import { stateChecker } from '@number-island/engine';
+import { formatModel, PW_SIDES_MAX, stateChecker } from '@number-island/engine';
 import type { ResponseValue, WidgetConfig } from '@number-island/shared';
 import type { Meta, StoryObj } from '@storybook/react-vite';
 import { expect, fn, userEvent, waitFor, within } from 'storybook/test';
@@ -21,7 +21,13 @@ import {
   recordEvidence,
   settleFocus,
 } from '../../test-support/evidence';
-import { expectTargetGaps, expectTargetSize, pointerDrag } from '../../test-support/storyHelpers';
+import {
+  clearSpies,
+  expectTargetGaps,
+  expectTargetSize,
+  pointerDrag,
+  spyAudio,
+} from '../../test-support/storyHelpers';
 import {
   expectPointerOn,
   expectTraceOrdered,
@@ -1138,9 +1144,109 @@ export const DemoReducedMotion: Story = {
   args: { disabled: true, demo: reducedDemo },
   play: async ({ canvasElement }) => {
     const root = await findWidget(canvasElement, ROOT);
-    const started = performance.now();
+    // Instant is checked by the effect, never by the clock: once the op resolves, the result
+    // is drawn and nothing is still gliding.
     await reducedDemo.play({ op: 'trace' });
-    await expect(performance.now() - started).toBeLessThan(500);
+    await expect(
+      root.getAnimations({ subtree: true }).filter((a) => a.playState === 'running'),
+    ).toHaveLength(0);
     await waitFor(() => expect(root.querySelectorAll('.ni-pwalk__side--walked')).toHaveLength(4));
+  },
+};
+
+/**
+ * Undo where it sits: a walked side tapped again is un-walked (pointer and keyboard), its number
+ * said either way, and traced as `undo`.
+ */
+export const UnwalkSide: Story = {
+  parameters: { ui: { audio: spyAudio() } },
+  play: async ({ canvasElement, args, parameters }) => {
+    const audio = parameters.ui.audio as ReturnType<typeof spyAudio>;
+    const root = await findWidget(canvasElement, ROOT);
+    const walked = () => root.querySelectorAll('.ni-pwalk__side--walked').length;
+    await userEvent.click(label(root, 0));
+    await waitFor(() => expect(walked()).toBe(1));
+    await expect(label(root, 0)).toHaveAttribute('aria-pressed', 'true');
+    clearSpies(audio);
+    await userEvent.click(label(root, 0));
+    await waitFor(() => expect(walked()).toBe(0));
+    await expect(label(root, 0)).toHaveAttribute('aria-pressed', 'false');
+    // The side's number is said on the undo tap too.
+    await expect(audio.say.mock.calls.length + audio.sayPhrases.mock.calls.length).toBeGreaterThan(
+      0,
+    );
+    await expect(root.querySelector('.ni-pwalk__walker')).toBeNull();
+    // Keyboard: Enter walks side 2, Enter again un-walks it.
+    label(root, 1).focus();
+    await userEvent.keyboard('{Enter}');
+    await waitFor(() => expect(walked()).toBe(1));
+    await userEvent.keyboard('{Enter}');
+    await waitFor(() => expect(walked()).toBe(0));
+    const trace = traceOf(args.onInteract).map((e) => `${e.t}:${e.target}`);
+    await expect(trace).toEqual([
+      'tap:side-0',
+      'tap:side-0',
+      'undo:side-0',
+      'tap:side-1',
+      'tap:side-1',
+      'undo:side-1',
+    ]);
+  },
+};
+
+const hexagon: Config = {
+  format: 'perimeter-walk',
+  polygon: {
+    // A regular hexagon with sides of 8 is 16 wide and about 13.9 tall: inside 20 × 15.
+    sides: Array.from({ length: PW_SIDES_MAX }, () => 8),
+    grid: false,
+    shape: 'poly',
+  },
+  mode: 'total',
+};
+
+/** Stress, the model's bounds, smallest landscape area: six sides, the figure about 14 tall. */
+export const StressSixSidesLandscapeMin: Story = {
+  args: { config: hexagon },
+  render: inArea('landscapeMin'),
+  play: async ({ canvasElement }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    await expect(formatModel('perimeter-walk')?.configSchema.safeParse(hexagon).success).toBe(true);
+    const labels = Array.from({ length: PW_SIDES_MAX }, (_, i) => label(root, i));
+    await expectFitsArea(areaBox(canvasElement), [
+      ...labels,
+      root.querySelector('.ni-pwalk__fence') as Element,
+      ...root.querySelectorAll('.ni-pad__key, .ni-boxentry__box'),
+      within(root).getByRole('button', { name: 'Check' }),
+    ]);
+    for (const l of labels) await expectTargetSize(l, 'g1-up');
+    await expectTargetGaps(labels);
+    await expectNumeralsAtLeast32(root, '.ni-pwalk__label');
+  },
+};
+
+const designSix: Config = {
+  format: 'perimeter-walk',
+  polygon: { sides: [], grid: true, shape: 'rect' },
+  mode: 'design',
+  area: 25,
+  perimeter: 20,
+};
+
+/** Stress, the model's bounds, smallest landscape area: design a 5 × 5 (the grid's five rows). */
+export const StressDesignFiveRowsLandscapeMin: Story = {
+  args: { config: designSix },
+  render: inArea('landscapeMin'),
+  play: async ({ canvasElement }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    await expect(formatModel('perimeter-walk')?.configSchema.safeParse(designSix).success).toBe(
+      true,
+    );
+    const steppers = [...root.querySelectorAll<HTMLElement>('.ni-pwalk__step')];
+    await expectFitsArea(areaBox(canvasElement), [
+      ...root.querySelectorAll('.ni-pwalk__grid, .ni-pwalk__grip, .ni-pwalk__step'),
+      within(root).getByRole('button', { name: 'Check' }),
+    ]);
+    for (const s of steppers) await expectTargetSize(s, 'g1-up');
   },
 };

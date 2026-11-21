@@ -150,8 +150,9 @@ export const stickCount = (c: ShapeComposeConfig): number =>
   (c.pieces ?? []).filter((p) => p.kind === 'stick').reduce((s, p) => s + p.count, 0);
 
 /**
- * The supported domain, above shipped content (four kinds and nine blocks, 12-corner outlines,
- * 16 sticks and corners, 6 × 3 dots, two anchors) and inside what the widget draws at 906 × 373.
+ * The supported domain, at or above shipped content (four kinds and nine blocks, 12-corner
+ * outlines up to 3.5 block sides across, 16 sticks and corners, 6 × 3 dots, two anchors) and
+ * inside what the widget draws at 906 × 373 (a block side is never drawn under 40 px).
  */
 /** Fill-outline: kinds of block offered, and blocks in all. */
 export const SC_PIECE_KINDS_MAX = 4;
@@ -160,7 +161,7 @@ export const SC_PIECES_MAX = 12;
 export const SC_STICKS_MAX = 20;
 /** Corners of an outline, and its width and height in block sides. */
 export const SC_OUTLINE_POINTS_MAX = 16;
-export const SC_OUTLINE_EXTENT_MAX = 10;
+export const SC_OUTLINE_EXTENT_MAX = 5;
 /** Anchors in a place-relative scene. */
 export const SC_ANCHORS_MAX = 2;
 /** The dot grid: every dot is its own target, so three rows are all the smallest area holds. */

@@ -1,6 +1,7 @@
 import {
   type FormatModel,
   formatModel,
+  type LaidUnit,
   type LengthUnit,
   lengthIn,
   type MeasureLengthState,
@@ -10,6 +11,7 @@ import {
 import type { WidgetAction } from '@number-island/shared';
 import {
   type CSSProperties,
+  type KeyboardEvent as ReactKeyboardEvent,
   type MouseEvent as ReactMouseEvent,
   type PointerEvent as ReactPointerEvent,
   useRef,
@@ -283,15 +285,42 @@ export function MeasureLengthWidget({
     },
   });
 
+  /** A laid unit is lifted: traced, and named aloud like the pile it came from. */
+  const lift = (x: LaidUnit) => {
+    trace('undo', x.id);
+    setInvite(null);
+    if (speakOnTap) say(`unit.${x.unit}.one`);
+    apply({
+      op: 'lay-unit',
+      args: { index: Number(x.id.split('-').pop()), unit: x.unit, remove: true },
+    });
+  };
+
   /** "Take one back": lifts the unit laid last (of either kind). */
   const takeBack = () => {
     const last = state.units[state.units.length - 1];
     if (!last || !interactive) return;
-    trace('undo', last.id);
-    apply({
-      op: 'lay-unit',
-      args: { index: Number(last.id.split('-').pop()), unit: last.unit, remove: true },
-    });
+    lift(last);
+  };
+
+  /**
+   * Touching a laid unit where it sits (with no pile in hand) lifts that unit. A unit smaller
+   * than a touch target is lifted from a target-sized box round it, so a 16 px cube is as easy to
+   * lift as a 96 px one; where those boxes overlap, the nearest unit goes. A tap on bare track
+   * lifts nothing.
+   */
+  const unitAt = (clientX: number, clientY: number): LaidUnit | null => {
+    const minT = MIN_TARGET_PX[ageMode];
+    let best: { unit: LaidUnit; d: number } | null = null;
+    for (const el of root.current?.querySelectorAll<HTMLElement>('.ni-mlen__laid') ?? []) {
+      const b = el.getBoundingClientRect();
+      const dx = Math.abs(clientX - (b.left + b.width / 2));
+      const dy = Math.abs(clientY - (b.top + b.height / 2));
+      if (dx > Math.max(b.width, minT) / 2 || dy > Math.max(b.height, minT) / 2) continue;
+      const unit = state.units.find((x) => x.id === el.dataset.unitId);
+      if (unit && (best === null || dx + dy < best.d)) best = { unit, d: dx + dy };
+    }
+    return best?.unit ?? null;
   };
 
   // ---------- the ruler: slides on the concrete tier; tap-tick marks the end ----------
@@ -458,8 +487,23 @@ export function MeasureLengthWidget({
       {...trackP}
       className={[trackP.className, 'ni-mlen__pad'].join(' ')}
       onClick={(e: ReactMouseEvent) => {
+        // A pointer tap with no pile in hand (a key press has no position: detail 0).
+        if (interactive && dnd.selected === null && e.detail > 0) {
+          const hit = unitAt(e.clientX, e.clientY);
+          if (hit) lift(hit);
+          return;
+        }
         tapX.current = e.clientX;
         trackP.onClick(e);
+      }}
+      onKeyDown={(e: ReactKeyboardEvent) => {
+        // Keyboard: Backspace or Delete on the measure takes the last unit back.
+        if ((e.key === 'Backspace' || e.key === 'Delete') && dnd.selected === null) {
+          e.preventDefault();
+          takeBack();
+          return;
+        }
+        trackP.onKeyDown(e);
       }}
     />
   ) : null;

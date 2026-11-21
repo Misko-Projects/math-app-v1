@@ -1,3 +1,4 @@
+import { CL_LENGTH_MAX, CL_OFFSET_MAX, formatModel } from '@number-island/engine';
 import type { WidgetConfig } from '@number-island/shared';
 import type { Meta, StoryObj } from '@storybook/react-vite';
 import { expect, fn, userEvent, waitFor, within } from 'storybook/test';
@@ -841,10 +842,93 @@ export const DemoReducedMotion: Story = {
   args: { disabled: true, demo: reducedDemo },
   play: async ({ canvasElement }) => {
     const root = await findWidget(canvasElement, ROOT);
-    const started = performance.now();
+    // Instant is checked by the effect, never by the clock: once the op resolves, the result
+    // is drawn and nothing is still gliding.
     await reducedDemo.play({ op: 'align', args: { id: 'obj-0' } });
-    await expect(performance.now() - started).toBeLessThan(400);
+    await expect(
+      root.getAnimations({ subtree: true }).filter((a) => a.playState === 'running'),
+    ).toHaveLength(0);
     await expect(getComputedStyle(obj(root, 'obj-0')).transitionDuration).toBe('0s');
     await expectToScale(root, misaligned);
   },
+};
+
+/**
+ * Undo where it sits: a rope slid to the line goes back to where it started, by → on the
+ * keyboard and by dragging it right again; each is traced, and the rope is named aloud.
+ */
+export const SlideBackUndo: Story = {
+  parameters: { ui: { audio: spyAudio() } },
+  play: async ({ canvasElement, args, parameters }) => {
+    const audio = parameters.ui.audio as ReturnType<typeof spyAudio>;
+    const root = await findWidget(canvasElement, ROOT);
+    const o = () => obj(root, 'obj-0');
+    await expect(o()).toHaveAttribute('data-start', '2');
+    o().focus();
+    await userEvent.keyboard('{ArrowLeft}');
+    await expect(o()).toHaveAttribute('data-start', '0');
+    clearSpies(audio);
+    await userEvent.keyboard('{ArrowRight}');
+    await expect(o()).toHaveAttribute('data-start', '2');
+    await expect(audio.say).toHaveBeenCalled();
+    // Again, by pointer: line it up, then drag it right, past half a unit.
+    await userEvent.keyboard('{ArrowLeft}');
+    await expect(o()).toHaveAttribute('data-start', '0');
+    await new Promise((r) => setTimeout(r, 700));
+    const r = o().getBoundingClientRect();
+    await pointerDrag(o(), { x: r.left + r.width / 2 + r.width, y: r.top + 10 }, 'touch');
+    await waitFor(() => expect(o()).toHaveAttribute('data-start', '2'));
+    // A rope that never moved (it started on the line) has nowhere to go back to.
+    const trace = traceOf(args.onInteract).map((e) => `${e.t}:${e.target}`);
+    await expect(trace).toEqual([
+      'move:obj-0',
+      'undo:obj-0',
+      'move:obj-0',
+      'drag:obj-0',
+      'drop:back',
+    ]);
+  },
+};
+
+const boundRopes: Config = {
+  ...orderAligned,
+  aligned: false,
+  objects: [
+    { id: 'obj-0', sprite: 'rope', length: CL_LENGTH_MAX, offset: 4 },
+    { id: 'obj-1', sprite: 'rope', length: 16, offset: CL_OFFSET_MAX },
+    { id: 'obj-2', sprite: 'rope', length: 4, offset: 0 },
+  ],
+};
+
+/**
+ * Stress, the model's bounds, K: three ropes, the longest 20 units, starting up to 8 units off
+ * the line and reaching 24. Tablet area: lanes, badges and Check fit, to scale.
+ */
+export const StressBoundsTabletK: Story = {
+  globals: { ageMode: 'k' },
+  args: { config: boundRopes },
+  render: inArea('tablet'),
+  play: async ({ canvasElement }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    await expect(formatModel('compare-length')?.configSchema.safeParse(boundRopes).success).toBe(
+      true,
+    );
+    await expectToScale(root, boundRopes);
+    await expectFitsArea(areaBox(canvasElement), [
+      ...root.querySelectorAll('.ni-clen__obj, .ni-clen__badge'),
+      within(root).getByRole('button', { name: 'Check' }),
+    ]);
+    const badges = [...root.querySelectorAll<HTMLElement>('.ni-clen__badge')];
+    for (const b of badges) await expectTargetSize(b, 'k');
+    await expectTargetGaps(badges);
+    for (const lane of root.querySelectorAll<HTMLElement>('.ni-clen__obj')) {
+      await expectTargetSize(lane, 'k');
+    }
+  },
+};
+
+/** Stress, the model's bounds, K, smallest landscape area. */
+export const StressBoundsLandscapeMinK: Story = {
+  ...StressBoundsTabletK,
+  render: inArea('landscapeMin'),
 };

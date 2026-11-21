@@ -72,10 +72,18 @@ export const isNearMiss = (card: Card): boolean =>
   isShapeCard(card) && (!card.props.closed || card.shape === 'oval');
 
 /**
- * The supported domain, above shipped content (nine cards, three bins, scales 0.6 to 1.5) and
- * inside what the widget's stress stories draw (16 cards at 1226 × 493, 9 at 906 × 373).
+ * The supported domain: what the widget's stress stories draw at the smallest area (906 × 373)
+ * in kindergarten size. Shipped content reaches the card bounds (DAT.01 sorts nine things into
+ * three bins; find-all shows seven) and stays inside the others (scales 0.6 to 1.5).
  */
-export const SS_CARDS_MAX = 16;
+/**
+ * Cards in a sort: the most the smallest area holds with every card still at least 56 px across,
+ * however lopsided the sort (all nine in one of three bins; the widget draws cards in a crowded
+ * tray or bin smaller, in one row, and full size wherever there is room).
+ */
+export const SS_CARDS_MAX = 9;
+/** Cards in a find-all or an odd-one-out: one row of full-size cards. */
+export const SS_PICK_CARDS_MAX = 7;
 export const SS_BINS_MAX = 3;
 /** A shape card's size against the prototype. */
 export const SS_SCALE_MIN = 0.5;
@@ -97,10 +105,11 @@ function ruleNumbers(rule: SortRule): number[] {
 /** Where a config leaves the supported domain: every number and every list has a bound. */
 export function domainIssues(c: Config): { path: (string | number)[]; message: string }[] {
   const out: { path: (string | number)[]; message: string }[] = [];
-  if (c.cards.length > SS_CARDS_MAX) {
+  const cardsMax = c.mode === 'sort' ? SS_CARDS_MAX : SS_PICK_CARDS_MAX;
+  if (c.cards.length > cardsMax) {
     out.push({
       path: ['cards'],
-      message: `at most ${SS_CARDS_MAX} cards fit; got ${c.cards.length}`,
+      message: `at most ${cardsMax} cards fit a ${c.mode}; got ${c.cards.length}`,
     });
   }
   c.cards.forEach((x, i) => {

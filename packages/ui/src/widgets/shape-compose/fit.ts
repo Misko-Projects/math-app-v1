@@ -85,3 +85,23 @@ export function bounds(points: readonly Vec[]) {
     maxY: Math.max(...ys),
   };
 }
+
+/** Whether a point lies inside a polygon (ray casting; a point on an edge counts as inside). */
+export function insidePolygon(at: Vec, polygon: readonly Vec[]): boolean {
+  let inside = false;
+  for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i, i += 1) {
+    const [xi, yi] = polygon[i] as Vec;
+    const [xj, yj] = polygon[j] as Vec;
+    const cross = (xj - xi) * (at[1] - yi) - (yj - yi) * (at[0] - xi);
+    const within =
+      Math.min(xi, xj) - 1e-9 <= at[0] &&
+      at[0] <= Math.max(xi, xj) + 1e-9 &&
+      Math.min(yi, yj) - 1e-9 <= at[1] &&
+      at[1] <= Math.max(yi, yj) + 1e-9;
+    if (Math.abs(cross) < 1e-9 && within) return true;
+    if (yi > at[1] !== yj > at[1] && at[0] < ((xj - xi) * (at[1] - yi)) / (yj - yi) + xi) {
+      inside = !inside;
+    }
+  }
+  return inside;
+}

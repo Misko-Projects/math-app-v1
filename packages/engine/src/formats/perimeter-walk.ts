@@ -10,7 +10,8 @@
 // - `design` (MEA.14): the child builds a rectangle on the grid (`answer {values: [w, h]}`);
 //   answers state `{ w, h }` (`rect.perimeterArea`). `perimeter` and `area` are the constraints;
 //   `polygon.sides`, when given, is the rectangle to compare with (`differentFrom`).
-// Ops: `walk-side {index}` (the Pebbling walks that side), `add-label {index}` (its number shows),
+// Ops: `walk-side {index}` (the Pebbling walks that side; `remove: true` un-walks it, the child's
+// undo), `add-label {index}` (its number shows),
 // `trace` (the whole fence).
 
 import {
@@ -181,8 +182,12 @@ export const PW_SIDES_MAX = 6;
 export const PW_SIDE_MAX = 20;
 /** The largest perimeter: every side at its bound. */
 export const PW_PERIMETER_MAX = PW_SIDES_MAX * PW_SIDE_MAX;
+/** How tall a figure may be drawn, in units (it is at most `PW_SIDE_MAX` wide). */
+export const PW_HEIGHT_MAX = 15;
 /** Design: the longest side of any rectangle a child may have to build (the grid's columns). */
 export const PW_DESIGN_SIDE_MAX = 12;
+/** Design: the shorter side of any such rectangle (the grid's rows). */
+export const PW_DESIGN_SHORT_SIDE_MAX = 5;
 /** Design: the target perimeter and area a grid of that size holds. */
 export const PW_DESIGN_PERIMETER_MAX = 4 * PW_DESIGN_SIDE_MAX;
 export const PW_DESIGN_AREA_MAX = 36;
@@ -254,10 +259,16 @@ const configSchema = perimeterWalkConfigSchema.superRefine((c, ctx) => {
     } else {
       const options = designRectangles(c);
       if (options.length === 0) issue(['perimeter'], 'no rectangle meets the constraints');
-      else if (options.some((r) => Math.max(r.w, r.h) > PW_DESIGN_SIDE_MAX)) {
+      else if (
+        options.some(
+          (r) =>
+            Math.max(r.w, r.h) > PW_DESIGN_SIDE_MAX ||
+            Math.min(r.w, r.h) > PW_DESIGN_SHORT_SIDE_MAX,
+        )
+      ) {
         issue(
           ['perimeter'],
-          `every rectangle that meets the constraints is at most ${PW_DESIGN_SIDE_MAX} squares a side`,
+          `every rectangle that meets the constraints fits ${PW_DESIGN_SIDE_MAX} × ${PW_DESIGN_SHORT_SIDE_MAX} squares`,
         );
       }
     }
@@ -270,6 +281,20 @@ const configSchema = perimeterWalkConfigSchema.superRefine((c, ctx) => {
     if (c.mode === 'missing-side') {
       if (nulls !== 1) issue(['polygon', 'sides'], 'exactly one side is missing');
       if (c.perimeter === undefined) issue(['perimeter'], 'missing-side gives the perimeter');
+    }
+    // The figure as drawn (to scale) stays inside what the smallest area shows.
+    const drawn = polygonPoints(c);
+    if (drawn) {
+      const xs = drawn.map((p) => p[0]);
+      const ys = drawn.map((p) => p[1]);
+      const w = Math.round((Math.max(...xs) - Math.min(...xs)) * 100) / 100;
+      const h = Math.round((Math.max(...ys) - Math.min(...ys)) * 100) / 100;
+      if (w > PW_SIDE_MAX || h > PW_HEIGHT_MAX) {
+        issue(
+          ['polygon', 'sides'],
+          `the figure is at most ${PW_SIDE_MAX} wide and ${PW_HEIGHT_MAX} tall; got ${w} × ${h}`,
+        );
+      }
     }
     const r = resolvedSides(c);
     if (r) {
@@ -320,7 +345,10 @@ export const perimeterWalk: FormatModel<'perimeter-walk', PerimeterWalkState> = 
     const valid = index !== undefined && Number.isInteger(index) && index >= 0 && index < n;
     switch (a.op) {
       case 'walk-side':
-        if (!valid || s.walked.includes(index)) return s;
+        if (!valid) return s;
+        // `remove: true` un-walks the side (the child taps a walked side again).
+        if (a.args?.remove === true) return { ...s, walked: s.walked.filter((x) => x !== index) };
+        if (s.walked.includes(index)) return s;
         return { ...s, walked: [...s.walked, index] };
       case 'add-label':
         if (!valid || s.labelled.includes(index)) return s;
