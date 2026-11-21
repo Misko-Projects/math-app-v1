@@ -1122,7 +1122,11 @@ function TradeMat({
   };
 
   const typed = answerInWork ? digitsValue(digits) : padValue(text);
-  const canSubmit = config.thenAsk ? typed !== null : touched;
+  // A mat-only answer is ready once the child has worked on the mat, or at once when the item
+  // leaves nothing to do (n + 0, n − 0: the starting mat is the answer; PR #74 review round 1).
+  const nothingToDo = op !== undefined && htoValue(op.operand) === 0;
+  const worked = touched || nothingToDo;
+  const canSubmit = config.thenAsk ? typed !== null : worked;
 
   // One debounce for every way to submit (Check, desktop Enter): 06 §4.
   const submit = useSubmitGuard(() => {
@@ -1132,7 +1136,7 @@ function TradeMat({
       const v = answerInWork ? digitsValue(digitsRef.current) : padValue(textRef.current);
       if (v === null) return false;
       s = model.apply(s, { op: 'answer', args: { value: v } });
-    } else if (!touched) {
+    } else if (!worked) {
       return false;
     }
     const response = model.toResponse(s);

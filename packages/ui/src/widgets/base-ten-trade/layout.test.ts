@@ -505,78 +505,90 @@ describe('the supported domain fits the mat (1280 × 800, K and G1; PR #74)', ()
   const SLOW = 60_000;
 
   for (const age of ['k', 'g1-up'] as const) {
-    it(`${age}: every addition corner (start to 8 hundreds, 2 hundreds waiting, sums to 999)`, () => {
-      const bad: string[] = [];
-      let n = 0;
-      for (let sh = 0; sh <= TRADE_ADD_START_HUNDREDS_MAX; sh++)
-        for (let oh = 0; oh <= TRADE_ADD_OPERAND_HUNDREDS_MAX; oh++)
-          for (const st of ends)
-            for (const so of ends)
-              for (const ot of ends)
-                for (const oo of ends) {
-                  const start = hto(sh, st, so);
-                  const operand = hto(oh, ot, oo);
-                  if (worth(start) + worth(operand) > 999) continue;
-                  for (const f of flags) {
-                    const c = cfg({ start, operation: { op: '+', operand }, ...f });
-                    expect(accepted(c)).toBe(true);
-                    n++;
-                    if (!fitsStage(age, c)) bad.push(JSON.stringify([start, operand, f]));
+    it(
+      `${age}: every addition corner (start to 8 hundreds, 2 hundreds waiting, sums to 999)`,
+      () => {
+        const bad: string[] = [];
+        let n = 0;
+        for (let sh = 0; sh <= TRADE_ADD_START_HUNDREDS_MAX; sh++)
+          for (let oh = 0; oh <= TRADE_ADD_OPERAND_HUNDREDS_MAX; oh++)
+            for (const st of ends)
+              for (const so of ends)
+                for (const ot of ends)
+                  for (const oo of ends) {
+                    const start = hto(sh, st, so);
+                    const operand = hto(oh, ot, oo);
+                    if (worth(start) + worth(operand) > 999) continue;
+                    for (const f of flags) {
+                      const c = cfg({ start, operation: { op: '+', operand }, ...f });
+                      expect(accepted(c)).toBe(true);
+                      n++;
+                      if (!fitsStage(age, c)) bad.push(JSON.stringify([start, operand, f]));
+                    }
                   }
-                }
-      expect(bad).toEqual([]);
-      expect(n).toBeGreaterThan(1000);
-    }, SLOW);
+        expect(bad).toEqual([]);
+        expect(n).toBeGreaterThan(1000);
+      },
+      SLOW,
+    );
 
-    it(`${age}: every subtraction corner (to 999 − 999)`, () => {
-      const bad: string[] = [];
-      for (const sh of [0, 5, 9])
-        for (const oh of [0, 5, 9])
-          for (const st of ends)
-            for (const so of ends)
-              for (const ot of ends)
-                for (const oo of ends) {
-                  const start = hto(sh, st, so);
-                  const operand = hto(oh, ot, oo);
-                  if (worth(start) < worth(operand)) continue;
-                  for (const f of flags) {
-                    const c = cfg({ start, operation: { op: '-', operand }, ...f });
-                    expect(accepted(c)).toBe(true);
-                    if (!fitsStage(age, c)) bad.push(JSON.stringify([start, operand, f]));
+    it(
+      `${age}: every subtraction corner (to 999 − 999)`,
+      () => {
+        const bad: string[] = [];
+        for (const sh of [0, 5, 9])
+          for (const oh of [0, 5, 9])
+            for (const st of ends)
+              for (const so of ends)
+                for (const ot of ends)
+                  for (const oo of ends) {
+                    const start = hto(sh, st, so);
+                    const operand = hto(oh, ot, oo);
+                    if (worth(start) < worth(operand)) continue;
+                    for (const f of flags) {
+                      const c = cfg({ start, operation: { op: '-', operand }, ...f });
+                      expect(accepted(c)).toBe(true);
+                      if (!fitsStage(age, c)) bad.push(JSON.stringify([start, operand, f]));
+                    }
                   }
-                }
-      expect(bad).toEqual([]);
-    }, SLOW);
+        expect(bad).toEqual([]);
+      },
+      SLOW,
+    );
 
-    it(`${age}: every way a regroup-to shows a number (19 tens, 19 ones, 99 ones alone)`, () => {
-      const bad: string[] = [];
-      let n = 0;
-      for (const v of [10, 19, 34, 90, 99, 100, 109, 190, 199, 500, 909, 990, 999]) {
-        const [h, t, o] = [Math.floor(v / 100), Math.floor(v / 10) % 10, v % 10];
-        const ways = [hto(h, t, o)];
-        if (h >= 1) ways.push(hto(h - 1, t + 10, o));
-        if (t >= 1) ways.push(hto(h, t - 1, o + 10));
-        if (h >= 1) ways.push(hto(h - 1, t + 9, o + 10));
-        if (v <= TRADE_ALL_ONES_MAX) ways.push(hto(0, 0, v));
-        for (const start of ways)
-          for (const regroupTarget of ways) {
-            if (start === regroupTarget) continue;
-            const c = cfg({
-              start,
-              goal: 'regroup-to',
-              operation: undefined,
-              regroupTarget,
-              showAlgorithm: false,
-              thenAsk: false,
-            });
-            expect(accepted(c), JSON.stringify([start, regroupTarget])).toBe(true);
-            n++;
-            if (!fitsStage(age, c)) bad.push(JSON.stringify([start, regroupTarget]));
-          }
-      }
-      expect(bad).toEqual([]);
-      expect(n).toBeGreaterThan(60);
-    }, SLOW);
+    it(
+      `${age}: every way a regroup-to shows a number (19 tens, 19 ones, 99 ones alone)`,
+      () => {
+        const bad: string[] = [];
+        let n = 0;
+        for (const v of [10, 19, 34, 90, 99, 100, 109, 190, 199, 500, 909, 990, 999]) {
+          const [h, t, o] = [Math.floor(v / 100), Math.floor(v / 10) % 10, v % 10];
+          const ways = [hto(h, t, o)];
+          if (h >= 1) ways.push(hto(h - 1, t + 10, o));
+          if (t >= 1) ways.push(hto(h, t - 1, o + 10));
+          if (h >= 1) ways.push(hto(h - 1, t + 9, o + 10));
+          if (v <= TRADE_ALL_ONES_MAX) ways.push(hto(0, 0, v));
+          for (const start of ways)
+            for (const regroupTarget of ways) {
+              if (start === regroupTarget) continue;
+              const c = cfg({
+                start,
+                goal: 'regroup-to',
+                operation: undefined,
+                regroupTarget,
+                showAlgorithm: false,
+                thenAsk: false,
+              });
+              expect(accepted(c), JSON.stringify([start, regroupTarget])).toBe(true);
+              n++;
+              if (!fitsStage(age, c)) bad.push(JSON.stringify([start, regroupTarget]));
+            }
+        }
+        expect(bad).toEqual([]);
+        expect(n).toBeGreaterThan(60);
+      },
+      SLOW,
+    );
   }
 
   it('rejects the first step past each bound', () => {

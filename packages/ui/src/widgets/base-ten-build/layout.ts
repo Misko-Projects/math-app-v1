@@ -624,3 +624,34 @@ export function bundleOffset(kind: PieceKind, j: number, u: number): { x: number
     }
   }
 }
+
+/** What to say for a value: a whole number, or a narration line with its vars. */
+export type ValueSpeech = { number: number } | { key: string; vars: Record<string, number> };
+
+/**
+ * How a mat value is read aloud. Whole numbers are spoken as numbers. On the decimal mat
+ * (`wholeIs: 'flat'`) `value` is in hundredths, and the number clips only say whole numbers, so
+ * 125 is "1 and 25 hundredths" and 25 is "25 hundredths" (PR #74 review: a fraction passed as a
+ * number was silent). `asTenths` reads a count of rods as tenths ("3 tenths"), for count-by.
+ */
+export function valueSpeech(value: number, decimal: boolean, asTenths = false): ValueSpeech {
+  if (!decimal) return { number: value };
+  const base = 'ui.widget.btb.dec.say';
+  if (asTenths && value % 10 === 0) {
+    const n = value / 10;
+    return n === 1
+      ? { key: `${base}.tenths-one`, vars: {} }
+      : { key: `${base}.tenths`, vars: { n } };
+  }
+  const w = Math.floor(value / 100);
+  const n = value % 100;
+  if (n === 0) return { number: w };
+  if (w === 0) {
+    return n === 1
+      ? { key: `${base}.hundredths-one`, vars: {} }
+      : { key: `${base}.hundredths`, vars: { n } };
+  }
+  return n === 1
+    ? { key: `${base}.mixed-one`, vars: { w } }
+    : { key: `${base}.mixed`, vars: { w, n } };
+}

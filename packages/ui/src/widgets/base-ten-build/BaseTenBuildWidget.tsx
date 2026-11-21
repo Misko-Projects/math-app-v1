@@ -50,6 +50,7 @@ import {
   smaller,
   unitCandidates,
   usableSizes,
+  valueSpeech,
 } from './layout';
 import { PieceArt, PileArt, PlaceIcon, TradeIcon } from './pieces';
 import './base-ten-build.css';
@@ -822,6 +823,13 @@ export function BaseTenBuildWidget({
     }
   };
 
+  /** Says a mat value (in ones, or in hundredths on the decimal mat): see valueSpeech. */
+  const sayValue = (value: number, asTenths = false) => {
+    const speech = valueSpeech(value, decimal, asTenths);
+    if ('number' in speech) sayNumber(speech.number);
+    else say(speech.key as NarrationKey, speech.vars);
+  };
+
   const runCountBy = async (kind: PieceKind) => {
     await applyOp({ op: 'count-by', args: { kind } });
     const n = stateRef.current.mat[kind];
@@ -829,7 +837,7 @@ export function BaseTenBuildWidget({
     if (n === 0) return;
     if (reduced) {
       setCounted({ kind, upTo: n - 1 });
-      sayNumber(shown(n * step, decimal));
+      sayValue(n * step, kind === 'tens');
       setTimeout(() => {
         if (alive.current) setCounted(null);
       }, FLASH_MS);
@@ -837,7 +845,7 @@ export function BaseTenBuildWidget({
     }
     for (let i = 0; i < n; i++) {
       setCounted({ kind, upTo: i });
-      sayNumber(shown((i + 1) * step, decimal));
+      sayValue((i + 1) * step, kind === 'tens');
       await pause(COUNT_MS);
       if (!alive.current) return;
     }
@@ -1241,7 +1249,7 @@ export function BaseTenBuildWidget({
             disabled: !interactive,
             onClick: () => {
               trace('tap', 'goal');
-              if (prefs.speakOnTap) sayNumber(goalValue);
+              if (prefs.speakOnTap) sayValue(config.target);
             },
           })}
     >

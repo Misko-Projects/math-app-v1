@@ -1,6 +1,10 @@
+import { readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
 import { formatModel } from '@number-island/engine';
 import type { WidgetConfig } from '@number-island/shared';
 import { describe, expect, it } from 'vitest';
+import { planPhrases } from '../../audio/narration';
+import { narrationFixture } from '../../audio/testing/narrationFixture';
 import {
   bundleHalf,
   bundleOffset,
@@ -25,6 +29,7 @@ import {
   UNIT_K,
   unitCandidates,
   usableSizes,
+  valueSpeech,
 } from './layout';
 
 const counts = (thousands = 0, hundreds = 0, tens = 0, ones = 0) => ({
@@ -595,5 +600,63 @@ describe('usableSizes (PR #74 review, rounds 6 to 8)', () => {
     expect(usableSizes(sizes(), { ...item, chips: 0 })).toBeUndefined();
     expect(usableSizes(sizes(), { ...item, goal: false })).toBeUndefined();
     expect(usableSizes(sizes({ goal: null }), item)).toBeUndefined();
+  });
+});
+
+describe('valueSpeech: every value is spoken (PR #74 review round 1)', () => {
+  // The lines of packages/content/narration/ui.yaml (the content build compiles and checks them).
+  const yaml = readFileSync(
+    fileURLToPath(new URL('../../../../content/narration/ui.yaml', import.meta.url)),
+    'utf8',
+  );
+  const lineText = (key: string): string | null => {
+    const m = new RegExp(`^${key.replaceAll('.', '\\.')}:\\n  text: "([^"]*)"`, 'm').exec(yaml);
+    return m ? (m[1] as string) : null;
+  };
+  /** The words for a value: the number itself, or its line with whole-number vars filled in. */
+  const spoken = (value: number, decimal: boolean, asTenths = false): string => {
+    const speech = valueSpeech(value, decimal, asTenths);
+    if ('number' in speech) {
+      expect(Number.isInteger(speech.number), `${value}`).toBe(true);
+      expect(planPhrases(narrationFixture, [{ number: speech.number }]).spoken).not.toBe('');
+      return String(speech.number);
+    }
+    const text = lineText(speech.key);
+    expect(text, speech.key).not.toBeNull();
+    for (const v of Object.values(speech.vars)) expect(Number.isInteger(v)).toBe(true);
+    const filled = (text as string).replace(/\{(\w+)\}/g, (_, k: string) => {
+      expect(speech.vars[k], `${speech.key} {${k}}`).toBeDefined();
+      return String(speech.vars[k]);
+    });
+    expect(filled).not.toMatch(/[{}]/);
+    return filled;
+  };
+
+  it('the old call was silent: the planner has no words for a fraction', () => {
+    expect(planPhrases(narrationFixture, [{ number: 1.25 }]).spoken).toBe('');
+  });
+
+  it('reads whole numbers as numbers', () => {
+    expect(valueSpeech(34, false)).toEqual({ number: 34 });
+    expect(valueSpeech(300, true)).toEqual({ number: 3 });
+    expect(spoken(34, false)).toBe('34');
+  });
+
+  it('reads 1.25 as "1 and 25 hundredths", and every decimal goal has words', () => {
+    expect(valueSpeech(125, true)).toEqual({
+      key: 'ui.widget.btb.dec.say.mixed',
+      vars: { w: 1, n: 25 },
+    });
+    expect(spoken(125, true)).toBe('1 and 25 hundredths');
+    expect(spoken(101, true)).toBe('1 and 1 hundredth');
+    expect(spoken(25, true)).toBe('25 hundredths');
+    expect(spoken(1, true)).toBe('1 hundredth');
+    for (let v = 1; v <= 1999; v++) expect(spoken(v, true), `${v}`).not.toBe('');
+  });
+
+  it('counts rods as tenths', () => {
+    expect(spoken(10, true, true)).toBe('1 tenth');
+    expect(spoken(120, true, true)).toBe('12 tenths');
+    for (let n = 1; n <= 29; n++) expect(spoken(n * 10, true, true)).not.toBe('');
   });
 });

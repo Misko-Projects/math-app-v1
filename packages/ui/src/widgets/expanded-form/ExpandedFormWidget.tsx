@@ -1,5 +1,6 @@
 import {
   blankIds,
+  EF_TARGET_MAX,
   type ExpandedFormState,
   type FormatModel,
   formatModel,
@@ -248,7 +249,14 @@ export function ExpandedFormWidget({
   const padSlots = !usesPad ? [] : mode === 'fill' ? ids : [ids[0] ?? ANSWER_SLOT];
   // Sized for a few more digits than the target has, so neither the box nor its limit hints at
   // how long the answer is. Fill parts never have more digits than the target.
-  const maxDigits = mode === 'fill' ? targetDigits : targetDigits + 1;
+  // Where the number itself is hidden (words: the child hears it), the box and its limit are the
+  // same for every item: sized for the longest number the format takes (PR #74 review round 1).
+  const maxDigits =
+    mode === 'fill'
+      ? targetDigits
+      : mode === 'words'
+        ? String(EF_TARGET_MAX).length + 1
+        : targetDigits + 1;
 
   // ---------- state (the engine model) ----------
 

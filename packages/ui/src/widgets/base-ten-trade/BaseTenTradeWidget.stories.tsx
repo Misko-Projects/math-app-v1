@@ -1352,6 +1352,59 @@ export const StressK: Story = {
  * Regroup 1 hundred, 2 tens, 3 ones into 0 hundreds, 12 tens, 3 ones (the goal row shows it in
  * pictures). Tapping a column says its piece's name. Split the hundred, check.
  */
+/**
+ * A sum that leaves nothing to do (1 + 0, no typed answer): the starting mat is the answer, so
+ * Check is on from the start and submits it (PR #74 review round 1). With something to add, Check
+ * still waits for the child's first move (AddStart).
+ */
+export const CheckWithNothingToAdd: Story = {
+  args: {
+    config: {
+      format: 'base-ten-trade',
+      start: { hundreds: 0, tens: 0, ones: 1 },
+      goal: 'compute',
+      operation: { op: '+', operand: { hundreds: 0, tens: 0, ones: 0 } },
+      showAlgorithm: false,
+      thenAsk: false,
+    } satisfies Config,
+  },
+  play: async ({ canvasElement, args }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    await expect(mat(root)).toEqual({ hundreds: 0, tens: 0, ones: 1 });
+    const check = within(root).getByRole('button', { name: 'Check' });
+    await expect(check).toBeEnabled();
+    await userEvent.click(check);
+    await expect(args.onResponse).toHaveBeenCalledWith({
+      kind: 'state',
+      value: { hundreds: 0, tens: 0, ones: 1 },
+    });
+  },
+};
+
+/** The same for a take-away of nothing: 30 − 0. */
+export const CheckWithNothingToTake: Story = {
+  args: {
+    config: {
+      format: 'base-ten-trade',
+      start: { hundreds: 0, tens: 3, ones: 0 },
+      goal: 'compute',
+      operation: { op: '-', operand: { hundreds: 0, tens: 0, ones: 0 } },
+      showAlgorithm: false,
+      thenAsk: false,
+    } satisfies Config,
+  },
+  play: async ({ canvasElement, args }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    const check = within(root).getByRole('button', { name: 'Check' });
+    await expect(check).toBeEnabled();
+    await userEvent.click(check);
+    await expect(args.onResponse).toHaveBeenCalledWith({
+      kind: 'state',
+      value: { hundreds: 0, tens: 3, ones: 0 },
+    });
+  },
+};
+
 export const RegroupTo: Story = {
   args: { config: regroup },
   parameters: { ui: { audio: spyAudio() } },

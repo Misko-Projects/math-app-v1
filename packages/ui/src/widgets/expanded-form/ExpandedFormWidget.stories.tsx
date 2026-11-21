@@ -862,6 +862,31 @@ async function expectHeardNumberHidden(root: HTMLElement, answer: string) {
  * Words heard (no word cards, PV.13.t3 "Listen to the number. Then tap it in."): pressing the big
  * speaker says the number (only the number, so nothing clips it); the child types it on the pad.
  */
+/**
+ * The empty box of a heard number says nothing about its length (PR #74 review round 1): its
+ * width and the digits it takes are the same for every target, five (one more than the longest).
+ */
+async function expectHearBoxSameForEveryNumber(root: HTMLElement) {
+  const box = root.querySelector('.ni-efw__blank') as HTMLElement;
+  await expect(box.style.minWidth).toBe('3.9em');
+}
+
+/** A one-digit heard number has the same box as a three-digit one, and takes five digits. */
+export const WordsHearOneDigit: Story = {
+  args: { config: { ...wordsHear, target: 9 } satisfies Config, tier: 'abstract' },
+  play: async ({ canvasElement, args }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    await expectHearBoxSameForEveryNumber(root);
+    const box = root.querySelector('.ni-efw__blank') as HTMLElement;
+    for (const k of ['1', '2', '3', '4', '5', '6']) await userEvent.click(key(root, k));
+    await expect(box.textContent?.replace(/\D/g, '')).toBe('12345');
+    for (let i = 0; i < 5; i++) await userEvent.click(key(root, 'back'));
+    await userEvent.click(key(root, '9'));
+    await userEvent.click(checkButton(root));
+    await expect(args.onResponse).toHaveBeenCalledWith({ kind: 'number', value: 9 });
+  },
+};
+
 export const WordsHear: Story = {
   args: { config: wordsHear, tier: 'abstract' },
   parameters: { ui: { audio: spyAudio() } },
@@ -870,6 +895,7 @@ export const WordsHear: Story = {
     clearSpies(audio);
     const root = await findWidget(canvasElement, ROOT);
     await expectHeardNumberHidden(root, '345');
+    await expectHearBoxSameForEveryNumber(root);
     const speaker = within(root).getByRole('button', { name: 'Hear the number' });
     await expectTargetSize(speaker, 'g1-up');
     await userEvent.click(speaker);

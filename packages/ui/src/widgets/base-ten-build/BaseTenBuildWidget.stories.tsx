@@ -953,7 +953,10 @@ export const Decimal: Story = {
     const canvas = within(root);
     const goal = canvas.getByRole('button', { name: 'Make 1.25' });
     await userEvent.click(goal);
-    await expect(audio.sayPhrases).toHaveBeenCalledWith([{ number: 1.25 }]);
+    // A fraction is not a number clip: 1.25 is the line "1 and 25 hundredths" (layout.test.ts
+    // plans it with the production planner).
+    await expect(audio.say).toHaveBeenCalledWith('ui.widget.btb.dec.say.mixed', { w: 1, n: 25 });
+    await expect(audio.sayPhrases).not.toHaveBeenCalled();
     await expectHeaders(root, ['Ones', 'Tenths', 'Hundredths']);
     await expect(pile(root, 'hundreds')).toHaveAccessibleName('One whole, 1 left');
     await expect(pile(root, 'tens')).toHaveAccessibleName('One tenth, 3 left');
