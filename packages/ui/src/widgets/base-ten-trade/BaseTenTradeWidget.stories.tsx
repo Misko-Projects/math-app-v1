@@ -258,9 +258,12 @@ async function expectCountable(root: HTMLElement, minU = U) {
   await expectGutters(root);
   const unit = root.querySelector('.ni-btt__mat [data-piece^="ones-"]');
   if (unit) await expect(unit.getBoundingClientRect().width).toBeGreaterThanOrEqual(minU);
-  const main = q(root, '.ni-btt__main').getBoundingClientRect();
-  await expect(q(root, '.ni-btt__mat').getBoundingClientRect().width).toBeGreaterThanOrEqual(
-    main.width - 2,
+  // The mat fills its area once the widget has measured it (a frame or two after a change; on a
+  // busy runner the first read can come before that).
+  await waitFor(() =>
+    expect(q(root, '.ni-btt__mat').getBoundingClientRect().width).toBeGreaterThanOrEqual(
+      q(root, '.ni-btt__main').getBoundingClientRect().width - 2,
+    ),
   );
 }
 
