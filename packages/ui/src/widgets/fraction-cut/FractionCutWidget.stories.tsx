@@ -199,20 +199,6 @@ export const RectHalvesK: Story = {
     await expectCorrect(lastResponse(args.onResponse), 2, 1);
     const trace = traceOf(args.onInteract);
     await expect(trace.map((e) => `${e.t}:${e.target}`)).toEqual(['tap:knife-0', 'tap:part-0']);
-    // Emptying the part again is an undo in the trace, by pointer and by keyboard.
-    (args.onInteract as ReturnType<typeof fn>).mockClear();
-    await userEvent.click(part(root, 0));
-    await expectFilled(root, 0);
-    part(root, 0).focus();
-    await userEvent.keyboard('{Enter}');
-    await expectFilled(root, 1);
-    await userEvent.keyboard('{Enter}');
-    await expectFilled(root, 0);
-    await expect(traceOf(args.onInteract).map((e) => `${e.t}:${e.target}`)).toEqual([
-      'undo:part-0',
-      'tap:part-0',
-      'undo:part-0',
-    ]);
     await expectTraceOrdered(trace);
   },
 };
@@ -1008,5 +994,29 @@ export const FreeCutsStayInsideLandscapeMin: Story = {
     await expect(card.scrollHeight).toBeLessThanOrEqual(card.clientHeight + 1);
     await expect(card.scrollWidth).toBeLessThanOrEqual(card.clientWidth + 1);
     await expectEqualShares(measuredShares(stage(root)), 12);
+  },
+};
+
+/** Emptying a filled part is an undo in the trace, by pointer and by keyboard. */
+export const EmptyingAPartIsAnUndo: Story = {
+  args: { config: rectHalves },
+  play: async ({ canvasElement, args }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    await userEvent.click(knife(root, 0));
+    await userEvent.click(part(root, 0));
+    await expectFilled(root, 1);
+    (args.onInteract as ReturnType<typeof fn>).mockClear();
+    await userEvent.click(part(root, 0));
+    await expectFilled(root, 0);
+    part(root, 0).focus();
+    await userEvent.keyboard('{Enter}');
+    await expectFilled(root, 1);
+    await userEvent.keyboard('{Enter}');
+    await expectFilled(root, 0);
+    await expect(traceOf(args.onInteract).map((e) => `${e.t}:${e.target}`)).toEqual([
+      'undo:part-0',
+      'tap:part-0',
+      'undo:part-0',
+    ]);
   },
 };
