@@ -1,0 +1,85 @@
+/* Measuring instruments (GaugeView): ink ticks and numerals on paper, the reading in a strong
+   colour and shape (needle, water, column), never colour alone. */
+
+.ni-gauge {
+  position: relative;
+  flex: none;
+}
+.ni-gauge__svg {
+  display: block;
+  overflow: visible;
+}
+.ni-gauge__tick {
+  stroke: var(--color-ink);
+  stroke-width: 2.5px;
+  stroke-linecap: round;
+}
+.ni-gauge__tick--major {
+  stroke-width: 4px;
+}
+.ni-gauge__numeral,
+.ni-gauge__unit {
+  fill: var(--color-ink);
+  font-family: var(--font-display);
+  font-weight: 700;
+}
+.ni-gauge__unit {
+  fill: var(--color-ink-soft);
+}
+
+/* Kitchen scale */
+.ni-gauge__pan {
+  fill: var(--color-pebble);
+  stroke: var(--color-pebble-deep);
+  stroke-width: 4px;
+  stroke-linejoin: round;
+}
+.ni-gauge__stem {
+  fill: var(--color-pebble-deep);
+}
+.ni-gauge__body {
+  fill: var(--color-coral);
+  stroke: var(--color-coral-deep);
+  stroke-width: 4px;
+}
+.ni-gauge__face {
+  fill: var(--color-paper);
+  stroke: var(--color-coral-deep);
+  stroke-width: 4px;
+}
+.ni-gauge__needle {
+  stroke: var(--color-coral-deep);
+  stroke-width: 7px;
+  stroke-linecap: round;
+}
+.ni-gauge__hub {
+  fill: var(--color-ink);
+}
+
+/* Beaker */
+.ni-gauge__glass {
+  fill: none;
+  stroke: var(--color-ink-soft);
+  stroke-width: 5px;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+}
+.ni-gauge__water {
+  fill: var(--color-shallows);
+}
+.ni-gauge__surface {
+  stroke: var(--color-sea-dark);
+  stroke-width: 4px;
+}
+
+/* Thermometer */
+.ni-gauge__tube {
+  fill: var(--color-paper);
+  stroke: var(--color-ink-soft);
+  stroke-width: 4px;
+}
+.ni-gauge__column {
+  fill: var(--color-coral);
+  stroke: var(--color-coral-deep);
+  stroke-width: 2px;
+}

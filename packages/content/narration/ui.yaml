@@ -270,6 +270,184 @@ ui.sprite.thimble:
   text: "Thimble"
   level: K
 
+# More object names (U05 #14 sprites: measuring, weighing, solid-shaped and scene objects).
+ui.sprite.bun:
+  text: "Bun"
+  level: K
+ui.sprite.orange:
+  text: "Orange"
+  level: K
+ui.sprite.bucket:
+  text: "Bucket"
+  level: K
+ui.sprite.barrel:
+  text: "Barrel"
+  level: K
+ui.sprite.tub:
+  text: "Tub"
+  level: K
+ui.sprite.jug:
+  text: "Jug"
+  level: K
+ui.sprite.sack:
+  text: "Sack"
+  level: K
+ui.sprite.pallet:
+  text: "Pallet"
+  level: K
+ui.sprite.lantern:
+  text: "Lantern"
+  level: K
+ui.sprite.book:
+  text: "Book"
+  level: K
+ui.sprite.box:
+  text: "Box"
+  level: K
+ui.sprite.tent:
+  text: "Tent"
+  level: K
+ui.sprite.roof-top:
+  text: "Roof"
+  level: K
+ui.sprite.can:
+  text: "Can"
+  level: K
+ui.sprite.drum:
+  text: "Drum"
+  level: K
+ui.sprite.party-hat:
+  text: "Party hat"
+  level: K
+ui.sprite.ice-cream:
+  text: "Ice cream cone"
+  level: K
+ui.sprite.dice:
+  text: "Dice"
+  level: K
+ui.sprite.block:
+  text: "Block"
+  level: K
+ui.sprite.ball:
+  text: "Ball"
+  level: K
+ui.sprite.vine:
+  text: "Vine"
+  level: K
+
+# Measurement and geometry widgets (U05 #14, packages/ui/src/widgets): accessible names and
+# spoken labels.
+ui.ssort.tray:
+  text: "Cards to sort"
+  level: K
+ui.ssort.find:
+  text: "Cards"
+  level: K
+ui.clen.object:
+  text: "{name} {n}"
+  level: K
+ui.clen.badge:
+  text: "Number {n}"
+  level: K
+ui.clen.badges:
+  text: "Number cards"
+  level: K
+ui.clen.string:
+  text: "String"
+  level: K
+ui.clen.strings:
+  text: "The strings"
+  level: K
+ui.mlen.pile:
+  text: "{unit} to put down"
+  level: K
+ui.mlen.track:
+  text: "Put it here"
+  level: K
+ui.mlen.undo:
+  text: "Take one back"
+  level: K
+ui.mlen.ruler:
+  text: "Ruler"
+  level: K
+ui.scomp.outline:
+  text: "The shape to fill"
+  level: K
+ui.scomp.pieces:
+  text: "Pieces"
+  level: K
+ui.scomp.piece:
+  text: "{name}, {n} left"
+  level: K
+ui.scomp.turn:
+  text: "Turn the {name}"
+  level: K
+ui.scomp.undo:
+  text: "Take one back"
+  level: K
+ui.scomp.scene:
+  text: "The picture"
+  level: K
+ui.scomp.dots-board:
+  text: "Dots to draw on"
+  level: K
+ui.scomp.sticks-board:
+  text: "Dots to put sticks on"
+  level: K
+ui.scomp.sticks-left:
+  text: "{n} sticks left"
+  level: K
+ui.scomp.dot:
+  text: "Dot {n}"
+  level: K
+ui.pwalk.side:
+  text: "Side {n}: {len}"
+  level: "2"
+ui.pwalk.around:
+  text: "All the way around: {n}"
+  level: "2"
+ui.pwalk.inside:
+  text: "Squares inside: {n}"
+  level: "2"
+ui.pwalk.compare:
+  text: "Make one that is not this one"
+  level: "2"
+ui.pwalk.build:
+  text: "Your rectangle"
+  level: "2"
+ui.pwalk.not-this:
+  text: "Not this one"
+  level: "2"
+ui.pwalk.make:
+  text: "Make"
+  level: "2"
+ui.pwalk.squares-inside:
+  text: "squares inside"
+  level: "2"
+ui.pwalk.all-around:
+  text: "all the way around"
+  level: "2"
+ui.pwalk.target-area:
+  text: "Make {n} squares inside"
+  level: "2"
+ui.pwalk.target-around:
+  text: "Make it {n} all the way around"
+  level: "2"
+ui.pwalk.yours:
+  text: "Your rectangle: {area} squares inside, {around} all the way around"
+  level: "2"
+ui.pwalk.col-more:
+  text: "Add a column"
+  level: "2"
+ui.pwalk.col-less:
+  text: "Take away a column"
+  level: "2"
+ui.pwalk.row-more:
+  text: "Add a row"
+  level: "2"
+ui.pwalk.row-less:
+  text: "Take away a row"
+  level: "2"
 # tap-count, make-set, dot-flash (U03, packages/ui/src/widgets/tap-count, make-set, dot-flash)
 ui.count.marked:
   text: "{thing}, number {n}"

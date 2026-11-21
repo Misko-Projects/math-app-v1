@@ -247,7 +247,7 @@ const baseTen: Config = {
   allowMatchLines: false,
 };
 
-/** GEO.08.t3 (K): which shape has more corners? (Shapes are drawn by U05; a card until then.) */
+/** GEO.08.t3 (K): which shape has more corners? (Shapes are the kit's ShapeSetView, U05.) */
 const shape = (kind: 'triangle' | 'square', sides: number): StimulusSpec => ({
   kind: 'shape',
   shapes: [
@@ -1229,8 +1229,8 @@ export const LongerDifferentRanges: Story = {
 };
 
 /**
- * GEO.08.t3 (K): which shape has more corners? Shapes render as the kit's neutral card until U05
- * draws them (kit README: shape drawing belongs to U05); the sides are still the pick targets.
+ * GEO.08.t3 (K): which shape has more corners? Each side shows its shape drawn exactly (the kit's
+ * ShapeSetView, U05), never the neutral card; the sides are the pick targets.
  */
 export const ShapesK: Story = {
   globals: { ageMode: 'k' },
@@ -1238,6 +1238,8 @@ export const ShapesK: Story = {
   play: async ({ canvasElement }) => {
     const root = await findWidget(canvasElement, ROOT);
     await expectPicturesInside(root);
+    await expect(root.querySelectorAll('[data-kind="shape"] .ni-shape')).toHaveLength(2);
+    await expect(root.querySelector('[data-unsupported="true"]')).toBeNull();
     await expect(within(root).getByRole('button', { name: 'Left side' })).toBeVisible();
   },
 };

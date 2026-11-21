@@ -7,6 +7,7 @@ import { shapeFrame } from './fractionShapes';
 import { dotsLayout, type ObjectLayout, objectSetLayout, type PlacedObject } from './layout';
 import { NUMERAL_PX, NumberLineView, POINTER_HEADROOM } from './NumberLineView';
 import { ObjectSetView } from './ObjectSetView';
+import { shapeBox, shapeSetUnit } from './ShapeView';
 import { baseTenOnesWidth, StimulusView } from './StimulusView';
 import './kit.css';
 
@@ -211,6 +212,16 @@ export function naturalPictureSize(
       const box = chartBox(spec.chart, CHART_NATURAL.w, CHART_NATURAL.h);
       const g = chartGeometry(spec.chart, box);
       return { w: g.width, h: g.height };
+    }
+    case 'shape': {
+      // ShapeSetView's row at the scale StimulusView's default box gives it (one scale a set).
+      if (spec.shapes.length === 0) return { w: 160, h: 160 };
+      const unit = shapeSetUnit(spec.shapes, 720, 300);
+      const boxes = spec.shapes.map(shapeBox);
+      return {
+        w: boxes.reduce((sum, b) => sum + b.width * unit, 0) + 16 * (boxes.length - 1),
+        h: Math.max(...boxes.map((b) => b.height)) * unit,
+      };
     }
     case 'none':
       return { w: 1, h: 1 };

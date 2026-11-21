@@ -17,7 +17,7 @@ import { checkResponse } from '../../items/check';
 import { generateItem, generateItemFromParams } from '../../items/generate';
 import { itemExampleCorrect, itemSolution, replaySteps } from '../../items/solution';
 import { geoCompose } from './compose';
-import { geoDraw } from './draw';
+import { geoDraw, gridOf } from './draw';
 import { OUTLINES } from './outlines';
 import { geoPosition } from './position';
 
@@ -334,13 +334,60 @@ describe('geo.draw', () => {
       kind: 'state',
       value: {
         points: [
-          [0, 1],
-          [4, 1],
-          [4, 3],
-          [0, 3],
+          [0, 0],
+          [4, 0],
+          [4, 2],
+          [0, 2],
         ],
       },
     });
+  });
+
+  it('wide grids (cols × rows): the widget grid and the checker target are the same size', () => {
+    const t = tpl('geo.draw', 'shape-compose');
+    const it = generateItemFromParams(t, { kind: 'triangle', sides: 0, cols: 6, rows: 3 });
+    if (it.widget.format !== 'shape-compose' || it.answer.kind !== 'state') throw new Error('grid');
+    expect(it.widget.grid).toEqual({ cols: 6, rows: 3 });
+    expect(it.answer.target.grid).toEqual({ cols: 6, rows: 3 });
+    const ex = itemExampleCorrect(it, t) as unknown as { value: { points: [number, number][] } };
+    for (const [x, y] of ex.value.points) {
+      expect(x).toBeLessThan(6);
+      expect(y).toBeLessThan(3);
+    }
+    expect(checkResponse(it, itemExampleCorrect(it, t)).correct).toBe(true);
+  });
+
+  it.each([
+    ['triangle', 0],
+    ['square', 0],
+    ['rectangle', 0],
+    ['any', 3],
+    ['any', 4],
+    ['any', 5],
+    ['any', 6],
+  ] as const)('3 rows × 6: a %s (%i sides) can be drawn', (kind, sides) => {
+    const t = tpl('geo.draw', 'shape-compose');
+    const p = { kind, sides, rightAngles: -1, cols: 6, rows: 3 };
+    expect(geoDraw.accepts?.(p, t)).toBe(true);
+    const it = generateItemFromParams(t, p);
+    expect(checkResponse(it, itemExampleCorrect(it, t)).correct).toBe(true);
+  });
+
+  it('`grid` still sets a square grid when cols and rows are not given', () => {
+    expect(gridOf({ grid: 5 })).toEqual({ cols: 5, rows: 5 });
+    expect(gridOf({ grid: 5, cols: 6, rows: 3 })).toEqual({ cols: 6, rows: 3 });
+    // Neither given: the wide grid every dot target fits.
+    expect(gridOf({ cols: 0, rows: 0 })).toEqual({ cols: 6, rows: 3 });
+    expect(gridOf({})).toEqual({ cols: 6, rows: 3 });
+  });
+
+  it('refuses a grid the shape-compose model cannot draw (more than 6 columns or 3 rows)', () => {
+    const t = tpl('geo.draw', 'shape-compose');
+    const p = { kind: 'any', sides: 4, rightAngles: -1 };
+    expect(geoDraw.accepts?.({ ...p, cols: 6, rows: 3 }, t)).toBe(true);
+    expect(geoDraw.accepts?.({ ...p, cols: 7, rows: 3 }, t)).toBe(false);
+    expect(geoDraw.accepts?.({ ...p, cols: 6, rows: 4 }, t)).toBe(false);
+    expect(geoDraw.accepts?.({ ...p, grid: 5 }, t)).toBe(false);
   });
 
   it('an equal-sided triangle cannot be drawn on dots, so it is never generated', () => {

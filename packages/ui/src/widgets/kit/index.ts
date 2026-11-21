@@ -63,6 +63,18 @@ export { FractionView, type FractionViewProps } from './FractionView';
 export { FLY_MS, useFlight } from './flight';
 export { shapeFrame } from './fractionShapes';
 export {
+  DIAL_START,
+  DIAL_SWEEP,
+  dialAngle,
+  GAUGE_UNIT,
+  type GaugeSpec,
+  GaugeView,
+  type GaugeViewProps,
+  gaugeLabels,
+  gaugeTicks,
+  levelY,
+} from './GaugeView';
+export {
   INVITE_GLYPH_SELECTOR,
   INVITE_HAND_PX,
   INVITE_TARGET_SELECTOR,
@@ -109,6 +121,25 @@ export {
 } from './NumberLineView';
 export { fitCell, ObjectSetView, type ObjectSetViewProps } from './ObjectSetView';
 export { useWidgetRoom, type WidgetRoom } from './room';
+export {
+  countedParts,
+  equalSideGroups,
+  markFor,
+  PIECE_SIDE,
+  regularPolygon,
+  type ShapeBox,
+  type ShapeGeometry,
+  type ShapeMark,
+  ShapeSetView,
+  ShapeView,
+  type ShapeViewProps,
+  shapeBox,
+  shapeColor,
+  shapeExtent,
+  shapeGeometry,
+  shapeSetUnit,
+  squareCorners,
+} from './ShapeView';
 export {
   BaseTenView,
   ExpressionView,

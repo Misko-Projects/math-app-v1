@@ -8,20 +8,25 @@ import { balance } from './balance';
 import { baseTenBuild } from './base-ten-build';
 import { baseTenTrade } from './base-ten-trade';
 import { compare } from './compare';
+import { compareLength } from './compare-length';
 import { dotFlash } from './dot-flash';
 import { equalGroups } from './equal-groups';
 import { equalShare } from './equal-share';
 import { expandedForm } from './expanded-form';
 import { hundredChart } from './hundred-chart';
 import { makeSet } from './make-set';
+import { measureLength } from './measure-length';
 import { numberBond } from './number-bond';
 import { numberLineJump } from './number-line-jump';
 import { numberLinePlace } from './number-line-place';
 import { numberPad } from './number-pad';
 import { numeralPick } from './numeral-pick';
 import { order } from './order';
+import { perimeterWalk } from './perimeter-walk';
 import { puzzleGrid } from './puzzle-grid';
 import { rekenrek } from './rekenrek';
+import { shapeCompose } from './shape-compose';
+import { shapeSort } from './shape-sort';
 import { storyProblem } from './story-problem';
 import { tapCount } from './tap-count';
 import { tenframeFill } from './tenframe-fill';
@@ -57,6 +62,12 @@ const MODELS: Partial<Record<ItemFormat, AnyModel>> = {
   'story-problem': storyProblem,
   balance,
   'puzzle-grid': puzzleGrid,
+  // U05 (#14) measurement and geometry
+  'measure-length': measureLength,
+  'compare-length': compareLength,
+  'perimeter-walk': perimeterWalk,
+  'shape-compose': shapeCompose,
+  'shape-sort': shapeSort,
 };
 
 export function formatModel<F extends ItemFormat>(

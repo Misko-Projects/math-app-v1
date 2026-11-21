@@ -1,5 +1,6 @@
 import type { NarrationKey, SpriteId } from '@number-island/shared';
 import type { ReactElement } from 'react';
+import { MEASURE_DRAWINGS } from './sprites-measure';
 
 /**
  * Countable object sprites for the math widgets (05 §11 art direction): cozy flat vector, a 3 px
@@ -1231,6 +1232,9 @@ const DRAWINGS: Readonly<Record<string, Draw>> = {
   plank,
   firefly,
   counter,
+  // U05 (#14): containers, solid-shaped and scene objects that have no drawing above
+  // (sprites-measure.tsx).
+  ...MEASURE_DRAWINGS,
   dot,
   button,
   thimble,

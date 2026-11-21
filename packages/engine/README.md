@@ -292,6 +292,45 @@ Response shapes and state-checker targets of the place-value and operations form
   - **What it doesn't check:** whether the sums and uniqueness rules have a solution. That is the generator's promise. The property test replays each generator's solution through the model and checker (03 §9.4), as it does for `uniqueSolution`.
   - `shape-fill` (K01) keeps its own rules, with `cells` given as `[r, c]`.
 
+## Conventions the U05 formats fix (#14)
+
+### Measurement and geometry
+
+The models follow the K01 shapes above (geo and mea generators), so every K01 template of these formats replays its solution through them.
+
+| Format | Response | Checker target |
+|---|---|---|
+| `shape-sort` `sort` | `{ bins: Record<binId, cardId[]> }`: every bin listed (empty ones too); a card in no bin is in the tray | `sort.byRule` `{ cards: { id, props }[], bins: { id, rule }[] }` |
+| `shape-sort` `find-all` | `{ ids }`, in the order picked | `select.exactSet` `{ ids }` |
+| `shape-sort` `odd-one-out` | `choice`: the card id | — |
+| `compare-length` `longer`, `shorter`, `indirect` | `choice`: the object id `obj-<i>` | — |
+| `compare-length` `order` | `numbers`: the lengths in slot order (slot 0 first) | — |
+| `compare-length` `how-much-longer` | `number` | — |
+| `measure-length` `iterate` | `{ units, value }`: every laid unit's start (unit lengths from the object's start, smallest first) and the typed count | `units.iterate` `{ length, gapTolerance }` |
+| `measure-length` `two-units` | `numbers` `[in unit, in altUnit]` | — |
+| `measure-length` `read` | `pad`: `number`; `tap-tick`: `placement`, the tapped ruler mark (the object's end mark, `startOffset` + length); `pick`: `choice` `opt-<n>` | — |
+| `measure-length` `estimate` | `choice` `opt-<n>` | — |
+| `perimeter-walk` `total`, `missing-side` | `number` | — |
+| `perimeter-walk` `design` | `{ w, h }`: the rectangle built, in grid units | `rect.perimeterArea` `{ perimeter?, area?, differentFrom?: { w, h } }`: any whole rectangle meeting them, not the same rectangle as `differentFrom` (turned counts as the same) |
+| `shape-compose` `fill-outline` | `{ pieces: { kind, at, rot }[] }` | `compose.fill` `{ outline, pieces }` |
+| `shape-compose` `place-relative` | `{ at, layer }`: the item's centre in the 100 × 60 scene (y down), `front` or `back` | `compose.relative` `{ word, box, scene }` |
+| `shape-compose` `draw-on-grid`, `build-sticks` | `{ points }`: the corners in drawing order when the lines make one closed loop, otherwise the walk along every line and back (which repeats a dot, so it never passes) | `grid.polygon` `{ require, grid }` |
+
+- **Ops beyond the 03 §5.5 list** (child input, not demo ops): `compare-length` `place {id, slot}` (`slot: -1` takes it out); `drag-card` and `drag-piece` take `remove: true`; `lay-unit` takes `at` (the start, default `index`) and `remove: true`. The answer controls use the generic `answer` op: `perimeter-walk` design enters `{ values: [w, h] }`, `measure-length` two-units `{ values }`, picks `{ id }`.
+- **shape-sort** `drag-card {id, bin}` sorts (`bin: 'tray'` puts it back); in find-all `drag-card {id}` picks the card and in odd-one-out it chooses it. `sortCardProps` gives a card's flat rule props (`shape` plus ShapeProps; an object's props; a number's `value` and `even`).
+- **Supported domain (U05 part 1).** Each of the five models exports its bounds and a `domainIssues(config)` its `configSchema` applies, so a config outside them is refused with the bound and the value (content-check runs every generated item through the schema). The bounds are what the widgets' stress stories draw at the smallest area (906 × 373), at or above shipped content:
+  - measure-length: object ≤ `ML_LENGTH_MAX` 30 units, `startOffset` ≤ `ML_OFFSET_MAX` 10 on a ruler mark and the object ending by 30, ≤ `ML_LAID_MAX` 16 units of a kind laid, ≤ `ML_OPTIONS_MAX` 4 options each 0–99.
+  - compare-length: 2–`CL_OBJECTS_MAX` 3 objects, length ≤ `CL_LENGTH_MAX` 20, offset ≤ `CL_OFFSET_MAX` 8, offset + length ≤ `CL_END_MAX` 24.
+  - perimeter-walk: ≤ `PW_SIDES_MAX` 6 sides each ≤ `PW_SIDE_MAX` 20 (whole on a grid), the drawn figure ≤ 20 wide and `PW_HEIGHT_MAX` 15 tall, perimeter ≤ 120; design: area ≤ `PW_DESIGN_AREA_MAX` 36 and every rectangle to build within 12 × 5 squares.
+  - shape-compose: ≤ `SC_PIECE_KINDS_MAX` 4 kinds and `SC_PIECES_MAX` 12 blocks, ≤ `SC_STICKS_MAX` 20 sticks and corners, outline ≤ `SC_OUTLINE_POINTS_MAX` 16 corners and `SC_OUTLINE_EXTENT_MAX` 5 block sides across, ≤ `SC_ANCHORS_MAX` 2 anchors, dot grid ≤ 6 × 3 (`geo.draw` defaults to it and refuses larger), required sides or right angles ≤ 8.
+  - shape-sort: ≤ `SS_CARDS_MAX` 9 cards in a sort (`SS_PICK_CARDS_MAX` 7 in a find-all or odd-one-out), ≤ `SS_BINS_MAX` 3 bins, shape scale 0.5–2, turn within ±360°, number cards 0–999, rule numbers within ±999.
+- **Undo ops (U05 part 1).** `align {id, remove: true}` (compare-length) slides an object back to where it started; `walk-side {index, remove: true}` (perimeter-walk) un-walks a side; `lay-unit` and `drag-piece` already take `remove: true`.
+- **compare-length** objects start `offset` units right of the start line (all 0 when `aligned`); `align {id}` slides one to the line (no id: all), never in `indirect`. `misaligned` is not counted for `indirect` (the objects cannot move; `indirect` is its own feature).
+- **measure-length** units are drawn to scale with `UNIT_SIZE` (cube 1, shell 2, stick 4, the generator's `NONSTANDARD_UNIT_SIZE`); a laid unit's id is `<unit>-<index>`. `slide-ruler {to}` puts ruler mark `to` under the object's start; `align-zero`, `read-end` and `count-units {unit?}` only mark.
+- **perimeter-walk** sides go clockwise from the top left: a `rect` is `[top, right, bottom, left]`, an `L` is `[W, h1, w2, h2, W − w2, h1 + h2]`, and a `poly` is drawn convex with its corners on one circle (`polygonPoints`; every side exactly its length). `resolvedSides` works out the missing side.
+- **geo.draw dot grids are `cols` × `rows`** (#14): the params `cols` and `rows` (each falling back to the older square `grid`, then 5) set the widget's `grid` and the `grid.polygon` target from the same values, and the worked example fits them. The K and G1 templates (GEO.02.t1, GEO.09.t1, GEO.09.t2) use wide grids, 3 rows × 6 columns: every dot is its own touch target (80 px in K, 64 in G1, 12 px apart), and five rows of K targets (about 448 px) do not fit a widget area's height, while six columns fit its width. Triangles, squares, rectangles, pentagons and hexagons all have 3-row examples.
+- **shape-compose** fill-outline copies are `p-<kind>:<n>`; `rotate {id}` turns a tray piece by `rotationStep` (a placed copy about its centre). Place-relative `drag-piece` takes the item's sprite id (`relation.item`). The `rotations` feature comes from the generator's tiling (the model reports 0); `pieces` and `outline.linesHidden` count only in fill-outline, `require.count` only when drawing.
+
 ## Tests
 
 - `pnpm exec vitest run --project engine`: unit tests under `src/` and the fixture property test under `test/`. Seeds come from `CONTENT_PROPERTY_N`: 50 locally, 100 on PR CI, 500 nightly.

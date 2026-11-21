@@ -95,23 +95,19 @@ const STIMULUS_VIEW_FORMATS = new Set(['number-pad', 'numeral-pick', 'compare', 
 
 /**
  * Stimulus kinds on those formats that StimulusView does not draw yet, by template, each owned by
- * a later widget issue (bar models U04, shapes U05). Pinned so the list can only shrink, and no
+ * a later widget issue (bar models U04). Pinned so the list can only shrink, and no
  * new template may join it.
  *
  * The K01 part 7 compare and order templates (DAT.02.t4's bar charts, FRA.08.t1–t3's fraction
- * pictures) left this list when the kit drew `chart` and `fraction` (#98).
+ * pictures) left this list when the kit drew `chart` and `fraction` (#98), and the six `shape`
+ * templates (GEO.01.t3, GEO.06.t2, GEO.07.t2, GEO.08.t3, GEO.10.t3, GEO.11.t3) when it drew
+ * `shape` (U05 part 1, #14).
  */
 const UNDRAWN_STIMULI: Readonly<Record<string, string>> = {
   'ADD.09.t2': 'bar-model',
   'ADD.11.t3': 'bar-model',
   'ADD.12.t2': 'bar-model',
   'ADD.21.t3': 'bar-model',
-  'GEO.01.t3': 'shape',
-  'GEO.06.t2': 'shape',
-  'GEO.07.t2': 'shape',
-  'GEO.08.t3': 'shape', // on origin/main; a compare of shapes (U05)
-  'GEO.10.t3': 'shape',
-  'GEO.11.t3': 'shape',
 };
 
 /**
@@ -133,28 +129,9 @@ const DRAWN_SPRITES: ReadonlySet<string> = new Set(
  * (the shapes representation of ALG.01 and ALG.04). The daily events of TIM.08 are drawn (#89).
  */
 const UNDRAWN_SPRITES: Readonly<Record<string, readonly string[]>> = {
-  'ADD.12.t1': ['lantern'],
-  'ADD.20.t3': ['lantern'],
-  'ADD.21.t2': ['lantern'],
-  'ADD.25.t2': ['lantern'],
   'ALG.01.t2': ['circle', 'square', 'triangle'], // K01 part 7: needs art
   'ALG.04.t2': ['circle', 'square', 'triangle'], // K01 part 7: needs art
   'CPS.01.t2': ['finger'],
-  'GEO.05.t1': ['bun', 'jug', 'lantern', 'pallet', 'sack'],
-  'GEO.05.t3': ['bun', 'jug', 'lantern', 'pallet', 'sack'],
-  'GEO.07.t1': ['ball', 'block', 'can', 'dice', 'drum', 'ice-cream', 'orange', 'party-hat'],
-  'GEO.07.t3': ['ball', 'block', 'can', 'dice', 'drum', 'ice-cream', 'orange', 'party-hat'],
-  'MEA.01.t1': ['vine'],
-  'MEA.01.t2': ['vine'],
-  'MEA.01.t4': ['vine'],
-  'MEA.02.t1': ['vine'],
-  'MEA.07.t1': ['vine'],
-  'MEA.07.t2': ['vine'],
-  'MEA.15.t1': ['barrel'],
-  'MEA.15.t2': ['barrel', 'bucket', 'jug', 'tub'],
-  'MEA.15.t4': ['barrel', 'bucket', 'jug', 'tub'],
-  'MEA.22.t1': ['vine'],
-  'MEA.22.t3': ['vine'],
   'SUB.02.t1': ['finger'],
   'SUB.05.t1': ['finger'],
 };
@@ -244,7 +221,9 @@ describe('PR #84 review (1): the DAT.02.t5 number pad shows its picture graph', 
     }
     expect(STIMULUS_VIEW_KINDS.has('chart')).toBe(true);
     expect(STIMULUS_VIEW_KINDS.has('fraction')).toBe(true);
-    expect(STIMULUS_VIEW_KINDS.has('shape')).toBe(false);
+    // Shapes and gauges are drawn since U05 part 1 (#14).
+    expect(STIMULUS_VIEW_KINDS.has('shape')).toBe(true);
+    expect(STIMULUS_VIEW_KINDS.has('gauge')).toBe(true);
   });
 
   it('catalog: formats StimulusView draws for show only kinds it draws, or are pinned', () => {

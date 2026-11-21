@@ -43,7 +43,28 @@ const SAMPLES: { [K in StimulusKind]: Extract<StimulusSpec, { kind: K }> } = {
   },
   clock: { kind: 'clock', h: 3, m: 0, numerals: true },
   coins: { kind: 'coins', coins: ['penny'] },
-  shape: { kind: 'shape', shapes: [] },
+  shape: {
+    kind: 'shape',
+    shapes: [
+      {
+        id: 's1',
+        shape: 'triangle',
+        props: {
+          sides: 3,
+          corners: 3,
+          rightAngles: 0,
+          equalSides: true,
+          parallelPairs: 0,
+          curved: false,
+          closed: true,
+          solid: false,
+        },
+        rotationDeg: 0,
+        scale: 1,
+        color: 'blue',
+      },
+    ],
+  },
   chart: {
     kind: 'chart',
     chart: {
@@ -90,6 +111,17 @@ describe('every stimulus kind is accounted for', () => {
     const fraction = html(SAMPLES.fraction);
     expect(fraction.match(/class="ni-fraction__part"/g)).toHaveLength(4);
     expect(fraction.match(/data-fraction="filled"/g)).toHaveLength(1);
+  });
+
+  it('shape and gauge are drawn (U05 part 1): exact shapes and a labelled scale, no card', () => {
+    expect(STIMULUS_KINDS.shape).toBe('drawn');
+    expect(STIMULUS_KINDS.gauge).toBe('drawn');
+    const shape = html(SAMPLES.shape);
+    expect(shape.match(/data-shape="triangle"/g)).toHaveLength(1);
+    expect(html(SAMPLES.gauge)).toContain('ni-gauge');
+    const size = naturalPictureSize(SAMPLES.shape);
+    expect(size.w).toBeGreaterThan(96);
+    expect(size.h).toBeGreaterThan(48);
   });
 
   it('StimulusView has one case per kind, the unfinished ones named together', () => {

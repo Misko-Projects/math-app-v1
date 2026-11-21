@@ -20,6 +20,7 @@ import { groupsEqual } from './groups.equal';
 import { jumpsReach } from './jumps.reach';
 import { patternTokens } from './pattern.tokens';
 import { puzzleSatisfies } from './puzzle.satisfies';
+import { rectPerimeterArea } from './rect.perimeterArea';
 import { rekenrekTotal } from './rekenrek.total';
 import { selectExactSet } from './select.exactSet';
 import { setCount } from './set.count';
@@ -66,6 +67,8 @@ const CHECKERS: Partial<Record<StateCheckerId, StateChecker>> = {
   'tiles.cover': tilesCover,
   // K01 (#11): balance make-equal (the balance format has no model yet, U04)
   'balance.equal': balanceEqual,
+  // U05 (#14): perimeter-walk design
+  'rect.perimeterArea': rectPerimeterArea,
 };
 
 export function stateChecker(id: StateCheckerId): StateChecker | undefined {

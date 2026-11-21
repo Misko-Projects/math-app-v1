@@ -1612,7 +1612,7 @@ interface CompareLengthConfig extends WidgetBase { format: 'compare-length';
 ```
 - **Answer:** `longer`, `shorter`, `indirect` → `choice` (object id). For `indirect` (`MEA.07`) the objects cannot be moved side by side; the child lays a string along each first (trace). `order` → `numbers`, ordered (lengths in slot order). `how-much-longer` → `number`.
 - **Features:** `misaligned` (0.5), `closeness` (shorter ÷ longer; 0.8), `objects.over2` (0.3), `ask.difference` (0.5), `indirect` (0.5).
-- **Tiers:** C, P. **Ops:** `align {id}`, `lay-string {id}`, `highlight-difference`.
+- **Tiers:** C, P. **Ops:** `align {id}` (`remove: true` slides it back), `lay-string {id}`, `highlight-difference`.
 
 #### `area-tiles`
 ```ts
@@ -1634,7 +1634,7 @@ interface PerimeterWalkConfig extends WidgetBase { format: 'perimeter-walk';
 - A Pebbling walks the fence, side by side, as the child taps each side.
 - **Answer:** `total`, `missing-side` → `number`. `design` (`MEA.14`) → `state` / `rect.perimeterArea` `{perimeter?, area?, differentFrom?}`: any rectangle meeting the constraints.
 - **Features:** `sides` (count − 4; 0.15 each), `missing` (0.7), `grid.off` (0.3), `design` (0.6), `side.over10` (0.2).
-- **Tiers:** P. **Ops:** `walk-side {index}`, `add-label {index}`, `trace`.
+- **Tiers:** P. **Ops:** `walk-side {index}` (`remove: true` un-walks it), `add-label {index}`, `trace`.
 
 #### `shape-compose`
 ```ts

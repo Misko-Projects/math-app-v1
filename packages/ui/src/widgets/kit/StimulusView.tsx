@@ -5,9 +5,11 @@ import { pictureProps } from './a11y';
 import { ChartView } from './ChartView';
 import { FractionView } from './FractionView';
 import { shapeFrame } from './fractionShapes';
+import { GaugeView } from './GaugeView';
 import { dotsLayout, groupIndexes, objectSetLayout } from './layout';
 import { NumberLineView } from './NumberLineView';
 import { ObjectSetView } from './ObjectSetView';
+import { ShapeSetView } from './ShapeView';
 import { ObjectSprite } from './sprites';
 import { STIMULUS_KINDS } from './stimulusKinds';
 import './kit.css';
@@ -17,7 +19,7 @@ import './kit.css';
  * (numeral-pick, number-pad, dot-flash, compare, order, …). Each kind has one renderer below, and
  * the switch is exhaustive: a kind added to `StimulusSpec` does not compile here, or in
  * `STIMULUS_KINDS` (stimulusKinds.ts), until someone decides how it is drawn. The kinds a later
- * widget issue still owes (`placeholder` in that table: bar models, gauges, clocks, coins, shapes)
+ * widget issue still owes (`placeholder` in that table: bar models, clocks, coins)
  * are listed by name and draw a neutral card (and a dev tag), so an item never breaks.
  *
  * A stimulus is a picture, not an answer: its accessible name says what it is ("Look at the
@@ -33,6 +35,8 @@ export interface StimulusViewProps {
   minCell?: number;
   /** Renders a blank token of an expression stimulus (number-pad draws its entry slots here). */
   renderBlank?: (id: string) => ReactNode;
+  /** Shapes: px per shape unit, so several pictures share one scale (default: fit the box). */
+  shapeUnitPx?: number;
   /** Accessible name; defaults to the generic "picture" label. */
   label?: string;
   className?: string;
@@ -44,6 +48,7 @@ export function StimulusView({
   maxHeight = 300,
   minCell,
   renderBlank,
+  shapeUnitPx,
   label,
   className,
 }: StimulusViewProps) {
@@ -217,11 +222,27 @@ export function StimulusView({
           <ChartView chart={spec.chart} maxWidth={maxWidth} maxHeight={maxHeight} label={name} />
         </div>
       );
-    case 'bar-model':
+    case 'shape':
+      return (
+        <div className={cls} data-kind="shape">
+          <ShapeSetView
+            shapes={spec.shapes}
+            maxWidth={maxWidth}
+            maxHeight={maxHeight}
+            unitPx={shapeUnitPx}
+            label={name}
+          />
+        </div>
+      );
     case 'gauge':
+      return (
+        <div className={cls} data-kind="gauge">
+          <GaugeView spec={spec} maxWidth={maxWidth} maxHeight={maxHeight} label={name} />
+        </div>
+      );
+    case 'bar-model':
     case 'clock':
     case 'coins':
-    case 'shape':
       return <PlaceholderCard kind={spec.kind} className={cls} label={name} />;
     default: {
       // Unreachable while the switch is exhaustive: a new kind fails to compile on the next line.
