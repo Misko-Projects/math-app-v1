@@ -1099,3 +1099,34 @@ export const PatternGivenMostG1MinLandscape: Story = {
     await expectHcFits(canvasElement, root, 'g1-up');
   },
 };
+
+/**
+ * Review round 1: the window opens on the given terms, whatever else the config holds. Five
+ * givens from 51 by tens and a hidden cell in the first row: three rows fit, and they are the
+ * first three givens' (51, 61, 71), not the hidden cell's. Nothing is stepped: this is the
+ * first paint.
+ */
+export const PatternGivenWindowOpensOnGivens: Story = {
+  args: { config: { ...growMost, patternStart: 51, hidden: [1] } },
+  render: inArea('landscapeMin'),
+  play: async ({ canvasElement, args }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    await expectHcFits(canvasElement, root, 'g1-up');
+    await expect(givenCells(root)).toEqual([51, 61, 71]);
+    await expect(cell(root, 1)).toBeNull();
+    for (const n of [51, 61, 71]) await expectGivenLook(root, n);
+    await expect(traceOf(args.onInteract)).toEqual([]);
+  },
+};
+
+/** The same with a `from` far from the pattern: the window is still the given terms'. */
+export const PatternGivenWindowWithFrom: Story = {
+  args: { config: { ...growTens, patternStart: 64, from: 3 } },
+  render: inArea('landscapeMin'),
+  play: async ({ canvasElement, args }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    await expectHcFits(canvasElement, root, 'g1-up');
+    await expect(givenCells(root)).toEqual([64, 74, 84]);
+    await expect(traceOf(args.onInteract)).toEqual([]);
+  },
+};

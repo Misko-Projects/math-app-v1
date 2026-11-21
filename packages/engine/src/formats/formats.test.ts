@@ -10,6 +10,7 @@ import {
   type WidgetAction,
   type WidgetConfig,
   type WidgetConfigOf,
+  widgetConfigSchema,
 } from '@number-island/shared';
 import { describe, expect, it } from 'vitest';
 import { matches } from '../items/check';
@@ -1699,6 +1700,36 @@ describe('hundred-chart', () => {
       ],
     ] as const)('%s', (_name, ops, expected) => {
       expect(respond(hundredChart, shown, [...ops])).toEqual(expected);
+    });
+
+    // Review round 1: the count's range is the shared schema's, so a parser without this model
+    // (the runner task and generated-item schemas, a widget host) has it too.
+    it.each([
+      ['six given terms', PATTERN_SHOWN_MAX + 1, false],
+      ['the most given terms', PATTERN_SHOWN_MAX, true],
+      ['one given term', 1, true],
+      ['no given terms as a count of 0', 0, false],
+      ['half a term', 1.5, false],
+    ])('the shared widget schema on %s', (_name, patternShown, ok) => {
+      const config = { ...shown, patternStart: 1, patternStep: 1, patternShown };
+      expect(widgetConfigSchema.safeParse(config).success).toBe(ok);
+    });
+
+    // ... and a config only the shared schema has seen still gives a widget nothing it cannot
+    // draw: at most the bound, cells of the chart only, never a hidden cell, none twice.
+    it.each([
+      [
+        'more than the bound',
+        { ...shown, patternStart: 1, patternStep: 1, patternShown: 9 },
+        [1, 2, 3, 4, 5],
+      ],
+      ['terms off the end of the chart', { ...shown, patternStart: 81, patternStep: 10 }, [81, 91]],
+      ['terms before the chart', { ...shown, patternStart: -5, patternStep: 5 }, [5]],
+      ['a hidden term', { ...shown, hidden: [10] }, [5, 15]],
+      ['a step of 0', { ...shown, patternStep: 0 }, [5]],
+      ['a count of 0', { ...shown, patternShown: 0 }, []],
+    ])('patternGiven is safe on %s', (_name, config, expected) => {
+      expect(patternGiven(config as WidgetConfigOf<'hundred-chart'>)).toEqual(expected);
     });
 
     it('a tap on a given term returns the same state', () => {

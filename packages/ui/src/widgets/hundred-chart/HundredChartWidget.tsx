@@ -189,14 +189,19 @@ function padBox(shape: PadShape, key: number, rowGap = PAD_ROW_GAP) {
   };
 }
 
-/** Rows (from 0) the task is about: the start, the blanks, the pattern's start. */
+/**
+ * Rows (from 0) the task is about: the start, the blanks, the pattern's start. A pattern with
+ * given terms is about those terms alone: the window opens on them (on the first of them when
+ * they span more rows than it shows), whatever else the config holds.
+ */
 function taskRows(c: Config): number[] {
   const row = (n: number) => Math.floor((n - c.first) / 10);
+  const given = patternGiven(c);
+  if (given.length > 0) return given.map(row);
   const out: number[] = [];
   if (c.from !== undefined) out.push(row(c.from));
   for (const h of c.hidden) out.push(row(h));
   if (c.mode === 'pattern' && c.patternStart !== undefined) out.push(row(c.patternStart));
-  for (const g of patternGiven(c)) out.push(row(g));
   return out.filter((r) => r >= 0 && r < c.rows);
 }
 

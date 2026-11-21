@@ -12,6 +12,7 @@
 import {
   type AnswerSpec,
   hundredChartConfigSchema,
+  PATTERN_SHOWN_MAX,
   type WidgetConfigOf,
 } from '@number-island/shared';
 import {
@@ -46,18 +47,32 @@ export const chartLast = (c: Config): number => c.first + c.rows * 10 - 1;
  */
 export const CHART_FIRST_MAX = 901;
 
-/** The most given terms a pattern chart shows: enough to see any rule, and still some to find. */
-export const PATTERN_SHOWN_MAX = 5;
+export { PATTERN_SHOWN_MAX };
+
+/** The terms the config asks for, before any check: `patternShown` terms from `patternStart`. */
+function askedGiven(c: Config): number[] {
+  if (c.mode !== 'pattern' || c.patternShown === undefined) return [];
+  if (c.patternStart === undefined || c.patternStep === undefined) return [];
+  const { patternStart: start, patternStep: step } = c;
+  const count = Math.max(0, Math.min(PATTERN_SHOWN_MAX, Math.floor(c.patternShown)));
+  return Array.from({ length: count }, (_, k) => start + k * step);
+}
 
 /**
  * The numbers a `pattern` chart shows as given, in order: `patternShown` terms from
  * `patternStart`, `patternStep` apart. Empty in every other mode, and when no count is set.
+ *
+ * It is safe on a config this model's schema would reject (a widget host renders configs that
+ * only the shared schema has parsed): never more than `PATTERN_SHOWN_MAX` terms, each one a cell
+ * of the chart that is not hidden, and none twice.
  */
 export function patternGiven(c: Config): number[] {
-  if (c.mode !== 'pattern' || c.patternShown === undefined) return [];
-  if (c.patternStart === undefined || c.patternStep === undefined) return [];
-  const { patternStart: start, patternStep: step } = c;
-  return Array.from({ length: c.patternShown }, (_, k) => start + k * step);
+  const last = chartLast(c);
+  const out: number[] = [];
+  for (const g of askedGiven(c)) {
+    if (g >= c.first && g <= last && !c.hidden.includes(g) && !out.includes(g)) out.push(g);
+  }
+  return out;
 }
 
 const configSchema = hundredChartConfigSchema.superRefine((c, ctx) => {
@@ -98,10 +113,10 @@ const configSchema = hundredChartConfigSchema.superRefine((c, ctx) => {
   if (c.patternShown !== undefined) {
     const shown = (message: string) =>
       ctx.addIssue({ code: 'custom', path: ['patternShown'], message });
+    // The count's own range (1 to PATTERN_SHOWN_MAX) is the shared schema's, so every consumer
+    // of a widget config has it, with or without this model.
     if (c.mode !== 'pattern') {
       shown('patternShown is for pattern mode only');
-    } else if (c.patternShown > PATTERN_SHOWN_MAX) {
-      shown(`a pattern shows at most ${PATTERN_SHOWN_MAX} given terms`);
     } else if (c.patternStart === undefined || c.patternStep === undefined) {
       shown('given terms need patternStart and patternStep');
     } else if (c.patternStep < 1) {
@@ -112,7 +127,7 @@ const configSchema = hundredChartConfigSchema.superRefine((c, ctx) => {
         message: 'given terms need a step of 1 or more',
       });
     } else {
-      const given = patternGiven(c);
+      const given = askedGiven(c);
       if (given.some((g) => g < c.first || g > last)) shown('given terms must be on the chart');
       if (given.some((g) => c.hidden.includes(g))) shown('a given term cannot be a hidden cell');
     }

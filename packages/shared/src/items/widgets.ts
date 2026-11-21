@@ -366,6 +366,8 @@ export const numberLineJumpConfigSchema = z.object({
 assertType<Equals<z.infer<typeof numberLineJumpConfigSchema>, NumberLineJumpConfig>>(true);
 
 // 03 §5.5 hundred-chart
+/** The most given terms a pattern chart shows: enough to see any rule, and still some to find. */
+export const PATTERN_SHOWN_MAX = 5;
 export interface HundredChartConfig extends WidgetBase {
   format: 'hundred-chart';
   first: number;
@@ -376,7 +378,10 @@ export interface HundredChartConfig extends WidgetBase {
   moves?: ('up' | 'down' | 'left' | 'right')[];
   patternStep?: number;
   patternStart?: number;
-  /** `pattern`: how many terms from `patternStart` the chart shows as given (shaded, fixed). */
+  /**
+   * `pattern`: how many terms from `patternStart` the chart shows as given (shaded, fixed),
+   * 1 to `PATTERN_SHOWN_MAX`.
+   */
   patternShown?: number;
 }
 export const hundredChartConfigSchema = z.object({
@@ -390,7 +395,7 @@ export const hundredChartConfigSchema = z.object({
   moves: z.array(z.enum(['up', 'down', 'left', 'right'])).optional(),
   patternStep: z.number().int().optional(),
   patternStart: z.number().int().optional(),
-  patternShown: posInt.optional(),
+  patternShown: posInt.max(PATTERN_SHOWN_MAX).optional(),
 });
 assertType<Equals<z.infer<typeof hundredChartConfigSchema>, HundredChartConfig>>(true);
 
