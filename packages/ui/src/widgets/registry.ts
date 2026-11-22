@@ -19,6 +19,10 @@ export const widgetRegistry: WidgetRegistry = {
   'measure-length': () => import('./measure-length/MeasureLengthWidget'),
   'shape-compose': () => import('./shape-compose/ShapeComposeWidget'),
   'perimeter-walk': () => import('./perimeter-walk/PerimeterWalkWidget'),
+  // U05 (#14) fractions
+  'fraction-pick': () => import('./fraction-pick/FractionPickWidget'),
+  'fraction-cut': () => import('./fraction-cut/FractionCutWidget'),
+  'fraction-line': () => import('./fraction-line/FractionLineWidget'),
   'tap-count': () => import('./tap-count/TapCountWidget'),
   'make-set': () => import('./make-set/MakeSetWidget'),
   'dot-flash': () => import('./dot-flash/DotFlashWidget'),

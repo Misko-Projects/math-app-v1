@@ -68,7 +68,7 @@ templates:
       shape: bar
       den: { choice: [2, 4], weights: [3, 2] }
       num: 0
-    difficulty: { base: 0.0 }
+    difficulty: { base: -0.4 } # fraction-line's mode.partition feature (03 §6.3) adds 0.4
     narration:
       prompt: tp.FRA.01.t4.prompt
       hints: [h.frac.mark-middle, h.frac.same-size]

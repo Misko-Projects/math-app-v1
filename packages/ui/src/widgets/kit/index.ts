@@ -59,9 +59,30 @@ export {
   useSharedScale,
   wrapLine,
 } from './FitPicture';
-export { FractionView, type FractionViewProps } from './FractionView';
+export { FractionEntry, type FractionEntryProps } from './FractionEntry';
+export {
+  CutLines,
+  FracNumeral,
+  FractionParts,
+  FractionView,
+  type FractionViewProps,
+  WholeBase,
+  WholeOutline,
+} from './FractionView';
 export { FLY_MS, useFlight } from './flight';
-export { shapeFrame } from './fractionShapes';
+export {
+  boxCutPaths,
+  cutPaths,
+  fitScale,
+  GRID_CELL,
+  type PartGeom,
+  pictureGeoms,
+  rectParts,
+  type ShapeFrame,
+  sectorParts,
+  sectorPath,
+  shapeFrame,
+} from './fractionShapes';
 export {
   DIAL_START,
   DIAL_SWEEP,

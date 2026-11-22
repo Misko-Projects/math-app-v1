@@ -97,7 +97,33 @@ export {
   EF_WORD_OPTIONS_MAX,
   type ExpandedFormState,
 } from './formats/expanded-form';
+// U05 (#14) fraction format states.
+export {
+  type CutRect,
+  type CutSector,
+  cutGuides,
+  cutShares,
+  type FractionCutState,
+  MAX_CUT_PARTS,
+  partCount,
+  shadedParts,
+} from './formats/fraction-cut';
 export * from './formats/fraction-geometry';
+export {
+  type FractionLineState,
+  fractionLineTicks,
+  MAX_LINE_DENOMINATOR,
+  targetValue,
+} from './formats/fraction-line';
+export {
+  FAIR_CHOICES,
+  type FractionPickState,
+  labelFraction,
+  MIN_PICK_OPTIONS,
+  nameInputOf,
+  pickChoices,
+  usesOptions,
+} from './formats/fraction-pick';
 export { PATTERN_SHOWN_MAX, patternGiven } from './formats/hundred-chart';
 export {
   isNonStandard,
