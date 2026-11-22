@@ -104,9 +104,13 @@ const COMPACT_GAP = 16;
 const CHECK_W = 120;
 /** A height no host grows to unless it grows with its content (the room probe). */
 const PROBE_PX = 100_000;
-/** The answer step's picture: its card's padding and border, and the least an object is drawn. */
+/**
+ * The answer step's picture: its card's padding and border, and the least cell an object gets: the
+ * 32 px a picture is never drawn under here (a leaf draws 0.74 of its cell wide, and a counted
+ * object is at least 22 px: 05 §11).
+ */
 const ASK_CARD_EDGE = 2 * (12 + 3);
-const ASK_MIN_CELL = 22;
+const ASK_MIN_CELL = 32;
 
 /** Where an invite points: one pressable control. */
 type Cue =

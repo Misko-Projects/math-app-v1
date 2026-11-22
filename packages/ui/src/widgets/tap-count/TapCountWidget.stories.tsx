@@ -9,6 +9,7 @@ import {
   expectTargetSize,
   spyAudio,
 } from '../../test-support/storyHelpers';
+import { enterNumber, expectCountable, goNext, stepButton } from '../../test-support/twoStepStory';
 import {
   expectPointerOn,
   expectTraceOrdered,
@@ -1697,5 +1698,146 @@ export const OrdinalElevenFromRight: Story = {
     await userEvent.click(checkButton(root));
     checkButton(root).blur();
     await expect(args.onResponse).toHaveBeenCalledWith({ kind: 'choice', id: 'obj-10' });
+  },
+};
+
+// ---------- count, then answer (#12: short areas, where the tray and full-size objects ----------
+// ---------- cannot share one screen) ----------
+
+/** The Practice Pier's workshop area inside its padding at 960 × 600 in K (measured: #12). */
+const PIER_MIN_K = { w: 858, h: 366 };
+/** The 960 × 600 widget area inside the card's padding and border (906 × 373 → 852 × 319). */
+const MIN_INNER = { w: 852, h: 319 };
+
+/** Nothing scrolls in the host box, and every one of `els` lies inside it at target size. */
+async function expectInHost(root: HTMLElement, els: readonly Element[], ageMode: 'k' | 'g1-up') {
+  await settle(root);
+  const host = root.closest('.story-host-box') as HTMLElement;
+  await expect(host.scrollHeight, 'does not scroll down').toBeLessThanOrEqual(
+    host.clientHeight + 1,
+  );
+  await expect(host.scrollWidth, 'does not scroll across').toBeLessThanOrEqual(
+    host.clientWidth + 1,
+  );
+  const box = host.getBoundingClientRect();
+  await expect(els.length).toBeGreaterThan(0);
+  for (const el of els) {
+    const r = el.getBoundingClientRect();
+    await expect(r.top, 'top').toBeGreaterThanOrEqual(box.top - 0.5);
+    await expect(r.bottom, 'bottom').toBeLessThanOrEqual(box.bottom + 0.5);
+    await expect(r.left, 'left').toBeGreaterThanOrEqual(box.left - 0.5);
+    await expect(r.right, 'right').toBeLessThanOrEqual(box.right + 0.5);
+    await expectTargetSize(el as HTMLElement, ageMode);
+  }
+  await expectTargetGaps(els as HTMLElement[]);
+}
+
+const answerControls = (root: HTMLElement) => [
+  ...root.querySelectorAll('.ni-entry button, .ni-stepper button'),
+  stepButton(root, 'back'),
+  stepButton(root, 'check'),
+];
+
+/**
+ * CNT.02.t1 (K) in the smallest area: seven leaves at full target size and the 0–10 tray need
+ * 382 px, the area has 319. The child counts with the whole area; Next comes with the last leaf;
+ * the answer step shows the leaves small beside the numerals, with Back to count again. The
+ * response and the tap trace are the one-screen ones, plus `next`.
+ */
+export const CountThenAnswerMinK: Story = {
+  globals: { ageMode: 'k' },
+  parameters: { area: MIN_INNER },
+  render: renderInArea,
+  play: async ({ canvasElement, args }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    await waitFor(() => expect(root).toHaveAttribute('data-step', 'build'));
+    await expect(tray(root)).toBeNull();
+    await expectInHost(root, objects(root), 'k');
+    // No Next before every leaf is counted (as the tray shows only then on one screen).
+    await expect(stepButton(root, 'next')).toBeNull();
+    for (let i = 0; i < 7; i++) await userEvent.click(obj(root, i));
+    await expect(marks(root)).toEqual([1, 2, 3, 4, 5, 6, 7]);
+    await expectInHost(root, [...objects(root), stepButton(root, 'next')], 'k');
+    await goNext(root);
+    await expectInHost(root, answerControls(root), 'k');
+    await expectCountable(root.querySelector('.ni-tapc__askpic') as HTMLElement);
+    // Back shows the counted leaves again, marks and all.
+    await userEvent.click(stepButton(root, 'back'));
+    await waitFor(() => expect(root).toHaveAttribute('data-step', 'build'));
+    await expect(marks(root)).toEqual([1, 2, 3, 4, 5, 6, 7]);
+    await goNext(root);
+    await enterNumber(root, 7);
+    await userEvent.click(stepButton(root, 'check'));
+    await expect(args.onResponse).toHaveBeenCalledTimes(1);
+    await expect(args.onResponse).toHaveBeenCalledWith({ kind: 'number', value: 7 });
+    const trace = traceOf(args.onInteract).map((e) => `${e.t}:${e.target}`);
+    await expect(trace.slice(0, 8)).toEqual([
+      ...Array.from({ length: 7 }, (_, i) => `tap:obj-${i}`),
+      'tap:next',
+    ]);
+    await expect(trace.slice(8, 10)).toEqual(['tap:back', 'tap:next']);
+    await expectTraceOrdered(traceOf(args.onInteract));
+  },
+};
+
+/** CNT.05.t1 seed 1: twelve leaves (the kit lays a line of twelve as ten and two). */
+const twelveLeaves: ConfigFor<'tap-count'> = {
+  ...leaves,
+  set: { count: 12, sprite: 'leaf', layout: 'line', layoutSeed: 598165036 },
+};
+
+/**
+ * CNT.05.t1 (K) in the pier's area at 960 × 600: ten K targets in a row are 920 px, so the line
+ * wraps into two rows of six, with the step button beside them; then the answer step.
+ */
+export const CountTwelveThenAnswerPierK: Story = {
+  globals: { ageMode: 'k' },
+  args: { config: twelveLeaves },
+  parameters: { area: PIER_MIN_K },
+  render: renderInArea,
+  play: async ({ canvasElement, args }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    await waitFor(() => expect(root).toHaveAttribute('data-step', 'build'));
+    await expect(objects(root)).toHaveLength(12);
+    await expectInHost(root, objects(root), 'k');
+    for (let i = 0; i < 12; i++) await userEvent.click(obj(root, i));
+    await expectInHost(root, [...objects(root), stepButton(root, 'next')], 'k');
+    await goNext(root);
+    await expectInHost(root, answerControls(root), 'k');
+    await enterNumber(root, 12);
+    await userEvent.click(stepButton(root, 'check'));
+    await expect(args.onResponse).toHaveBeenCalledWith({ kind: 'number', value: 12 });
+  },
+};
+
+/** On the tablet area the same seven leaves stay on one screen, tray and all (no steps). */
+export const CountOneScreenTabletK: Story = {
+  globals: { ageMode: 'k' },
+  parameters: { area: widgetArea(1280, 800) },
+  render: renderInArea,
+  play: async ({ canvasElement }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    await settle(root);
+    await expect(root).not.toHaveAttribute('data-step');
+    await expect(tray(root)).toHaveAttribute('data-shown', 'false');
+    for (let i = 0; i < 7; i++) await userEvent.click(obj(root, i));
+    await expect(tray(root)).toHaveAttribute('data-shown', 'true');
+    await expect(root).not.toHaveAttribute('data-step');
+  },
+};
+
+/**
+ * CNT.15.t1 (K) in the pier's area at 960 × 600 (858 × 366): ten shells in two rows of five at
+ * full target size, with the icon-only Check beside them and no padding above or below.
+ */
+export const OrdinalKPier: Story = {
+  globals: { ageMode: 'k' },
+  args: { config: ordinalShells },
+  parameters: { area: PIER_MIN_K },
+  render: renderInArea,
+  play: async ({ canvasElement }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    await waitFor(() => expect(rowsOf(root)).toEqual([ids(0, 4), ids(5, 9)]));
+    await expectInHost(root, [...objects(root), checkButton(root)], 'k');
   },
 };
