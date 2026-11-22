@@ -36,6 +36,7 @@ import {
   type WorkPlan,
 } from '../kit';
 import type { ConfigFor, WidgetProps } from '../types';
+import { LineMoveIcon } from './icons';
 import {
   askPlanFor,
   boardCells,
@@ -70,8 +71,8 @@ import './array-build.css';
  *   and the picture beside the `NumberEntry`, Back and Check. Check sends
  *   `{ rows, cols, split, value }`.
  *
- * Limits are said and shown in the note under the pad: the board's last row or column (ringing
- * the arrow back only where that size cannot be the answer), and Next before the line is placed.
+ * Limits are said and shown in the note under the pad: the board's last row or column (the note
+ * alone: a full side may be the answer), and Next before the line is placed (the board ringed).
  *
  * Trace targets: `pad-up`, `pad-down`, `pad-left`, `pad-right`; `board` (a drag began);
  * `cell-<r>-<c>` (the rectangle's far cell after a tap or a drop, 0-based); `gap-<col>` (the split
@@ -227,22 +228,6 @@ export function ArrayBuildWidget({
     if (prefs.speakOnTap) say(key);
   };
 
-  /**
-   * Whether a rectangle with every row (or every column) of the board can be what the task asks.
-   * Where it cannot, the limit note rings the arrow back; where it may, the note stands alone.
-   */
-  const fullMayAnswer = (side: 'rows' | 'cols') => {
-    const full = side === 'rows' ? config.maxRows : config.maxCols;
-    const other = side === 'rows' ? config.maxCols : config.maxRows;
-    if (mode === 'build-dims') {
-      const own = side === 'rows' ? config.rows : config.cols;
-      const turned = side === 'rows' ? config.cols : config.rows;
-      return own === full || (!config.orientationMatters && turned === full);
-    }
-    const total = config.total ?? 0;
-    return total % full === 0 && total / full <= other;
-  };
-
   const setRect = (rows: number, cols: number) => act({ op: 'drag-rect', args: { rows, cols } });
 
   const onPad = (dir: Dir) => {
@@ -257,10 +242,12 @@ export function ArrayBuildWidget({
       return;
     }
     if (dir === 'down') {
-      if (s.rows >= config.maxRows) limit(NOTE.rows, fullMayAnswer('rows') ? null : 'pad-up');
+      // A full board side may be part of the answer, and the other side can still change: the
+      // note stands alone, with no ring.
+      if (s.rows >= config.maxRows) limit(NOTE.rows, null);
       else setRect(s.rows + 1, Math.max(1, s.cols));
     } else if (dir === 'right') {
-      if (s.cols >= config.maxCols) limit(NOTE.cols, fullMayAnswer('cols') ? null : 'pad-left');
+      if (s.cols >= config.maxCols) limit(NOTE.cols, null);
       else setRect(Math.max(1, s.rows), s.cols + 1);
     } else if (dir === 'up') {
       setRect(s.rows - 1, s.cols);
@@ -593,7 +580,8 @@ export function ArrayBuildWidget({
     col,
     row,
     label: PAD_LABEL[mode === 'split' ? 'split' : 'build'][id] as NarrationKey,
-    icon: <PadArrowIcon dir={id} />,
+    icon:
+      mode === 'split' ? <LineMoveIcon dir={id as 'left' | 'right'} /> : <PadArrowIcon dir={id} />,
     onPress: () => onPad(id),
   });
   const buttons: PadButton[] =

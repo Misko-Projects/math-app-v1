@@ -373,10 +373,10 @@ export const KindergartenSizes: Story = {
 // ---------- limits ----------
 
 /**
- * The board's last row where three rows cannot be the answer (2 rows of 3, as drawn): the note
- * says why nothing moved, and the one ring is on the arrow that takes a row away.
+ * The board's last row: the note says why nothing moved. Nothing is ringed: three rows may be
+ * part of an answer, and a longer row is as good a next step as one row less.
  */
-export const LimitRowsRingsBack: Story = {
+export const LimitRows: Story = {
   args: { config: strict },
   play: async ({ canvasElement, parameters }) => {
     const audio = audioOf(parameters);
@@ -388,18 +388,19 @@ export const LimitRowsRingsBack: Story = {
     await expectShown(root, 3, 1);
     await expectNote(root, 'That is the most rows.');
     await expect(said(audio)).toContain('ui.widget.ab.note.rows');
-    await expectRing(root, pad(root, 'up'));
+    await expectRing(root, null);
+    await expect(root.querySelector('.ni-hand')).toBeNull();
     await expectAreaFit(canvasElement, buildFit(root, 'g1-up', 'array-build 906x373 limit rows'));
   },
 };
 
-/** The child's next step clears the note and the ring. */
+/** The child's next step clears the note. */
 export const LimitClearsOnNextStep: Story = {
   args: { config: strict },
   play: async ({ canvasElement }) => {
     const root = await findWidget(canvasElement, ROOT);
     await press(root, 'down', 4);
-    await expectRing(root, pad(root, 'up'));
+    await expectNote(root, 'That is the most rows.');
     await press(root, 'up');
     await expectNote(root, null);
     await expectRing(root, null);
@@ -407,8 +408,8 @@ export const LimitClearsOnNextStep: Story = {
   },
 };
 
-/** A limit that may be the answer has no ring: three in a row is what the task asks. */
-export const LimitMayBeAnswer: Story = {
+/** The board's last column: the same, the note alone. */
+export const LimitColumns: Story = {
   args: { config: strict },
   play: async ({ canvasElement }) => {
     const root = await findWidget(canvasElement, ROOT);
@@ -540,6 +541,10 @@ export const SplitPad: Story = {
     await press(root, 'right', 2);
     await expect(q(root, '.ni-abw__line')).toHaveAttribute('data-split', '6');
     await expectAreaFit(canvasElement, buildFit(root, 'g1-up', 'array-build 906x373 split'));
+    // The line's arrows carry the line; they do not look like the step's Next arrow.
+    await expect(pad(root, 'right').querySelector('svg')?.innerHTML).not.toBe(
+      stepButton(root, 'next').querySelector('svg')?.innerHTML,
+    );
     await expectCountable(board(root));
     await expectAligned(root);
     await expect(steps(args)[0]).toBe('tap:pad-left');
