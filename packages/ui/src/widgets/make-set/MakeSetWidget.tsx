@@ -19,7 +19,7 @@ import {
 import { BigButton } from '../../primitives/BigButton';
 import { ArrowIcon } from '../../primitives/icons';
 import { NumberDisplay } from '../../primitives/NumberDisplay';
-import { MIN_TARGET_PX, TARGET_GAP_PX } from '../../tokens/tokens';
+import { MIN_TARGET_PX, TARGET_GAP_PX, TARGET_PX } from '../../tokens/tokens';
 import { useWidgetDemo, wait } from '../demo';
 import {
   CheckButton,
@@ -113,6 +113,12 @@ const PAD = { x: 16, y: 12 };
 const SIDE_PAD_X = 0;
 /** The gap between the container and the `side` column, and between the column's parts. */
 const SIDE_GAP = 24;
+/** The hands are never drawn shorter than this (five fingers stay countable). */
+const HAND_MIN_H = 120;
+/** A hand card's padding and border, top to bottom, with 4 px to spare (make-set.css). */
+const HAND_CARD_Y = 16 + 8 + 2 * 3 + 4;
+/** `split`: between its parts (make-set.css). */
+const SPLIT_GAP = 16;
 /** A height no host grows to unless it grows with its content (the room probe). */
 const PROBE_PX = 100_000;
 /**
@@ -165,7 +171,7 @@ const BOW_ROOM = 12 + 17 + 12 + 4 + 8 + 12;
 /** The frame's slide when the ten is tied or untied (make-set.css `.ni-mset__frames`). */
 const SLIDE_MS = 320;
 
-type Layout = 'row' | 'stack' | 'column' | 'side';
+type Layout = 'row' | 'stack' | 'column' | 'side' | 'split';
 type Chrome = 'normal' | 'tight';
 interface Room {
   width: number;
@@ -185,6 +191,10 @@ interface Box {
   onesTop: number;
   /** A shown frame's width with its padding and border. */
   frameOuterW: number;
+  /** The frames side by side in a row (two where a container has three or four ten-frames). */
+  frameCols: number;
+  /** Between two frames side by side (room for a tied ten's bow). */
+  frameColGap: number;
 }
 interface Plan {
   layout: Layout;
@@ -192,9 +202,18 @@ interface Plan {
   /** One ten-frame at a time (capacity 11–20 where two ten-frames don't fit). */
   oneFrame: boolean;
   heapCols: number;
+  /** The take-away pile's objects per row (`split` gives it a column of its own). */
+  awayCols: number;
   box: Box;
   /** Visible supply rows when fewer than the heap's full size; null shows them all. */
   supplyRows: number | null;
+  /**
+   * Visible take-away rows when the pile cannot show every object at once (short areas): the
+   * latest ones taken away show, and the earlier ones come back into view as objects go back.
+   */
+  awayRows: number | null;
+  /** `split`: the actions under the container, or under the take-away pile. */
+  actUnder: 'box' | 'away';
   /** The piles' padding: `compact` where it lets the heap show more objects at once. */
   tray: 'normal' | 'compact';
 }
@@ -214,6 +233,7 @@ const PLANS: readonly [Layout, Chrome, boolean][] = [
   ['side', 'normal', false],
   ['side', 'tight', false],
   ['column', 'tight', false],
+  ['split', 'tight', true],
   ['side', 'normal', true],
   ['column', 'normal', true],
   ['side', 'tight', true],
@@ -653,7 +673,12 @@ export function MakeSetWidget({
     const edge = tight ? 2 * (6 + 2) : 2 * (14 + 4);
     const frameGap = tight ? 4 : 18;
     const shown = oneFrame ? 1 : frames;
-    const gridH = shown * (frameH + edge) + (shown - 1) * frameGap;
+    // Three or four ten-frames stand two by two (four in a column are taller than a tablet).
+    const frameCols = shown > 2 ? 2 : 1;
+    const frameRows = Math.ceil(shown / frameCols);
+    const frameColGap =
+      frameCols > 1 ? (config.groupsOf === 10 ? Math.max(frameGap, BOW_ROOM) : frameGap) : 0;
+    const gridH = frameRows * (frameH + edge) + (frameRows - 1) * frameGap;
     const base = (tight ? CONTAINER_PAD_TIGHT : CONTAINER_PAD)[kind];
     const pad = {
       ...base,
@@ -661,7 +686,10 @@ export function MakeSetWidget({
       right: config.groupsOf === 10 ? Math.max(base.right, BOW_ROOM) : base.right,
     };
     const innerH = oneFrame ? Math.max(gridH, BUNDLE_H) : gridH;
-    const innerW = frameW + edge + (oneFrame ? tensGap + TENS_W : 0);
+    const innerW =
+      frameCols * (frameW + edge) +
+      (frameCols - 1) * frameColGap +
+      (oneFrame ? tensGap + TENS_W : 0);
     return {
       w: innerW + pad.left + pad.right,
       h: innerH + pad.top + pad.bottom,
@@ -671,6 +699,8 @@ export function MakeSetWidget({
       bundleTop: pad.top + (innerH - BUNDLE_H) / 2,
       onesTop: pad.top + (innerH - TENS_H) / 2,
       frameOuterW: frameW + edge,
+      frameCols,
+      frameColGap,
     };
   };
 
@@ -682,9 +712,16 @@ export function MakeSetWidget({
    * (Infinity when the host grows with its content, as in a plain story) and the actions column.
    */
   const [room, setRoom] = useState<Room | null>(null);
+  /** The room in which the actions went icon-only (a new room starts with their words again). */
+  const [compactActs, setCompactActs] = useState<{ w: number; h: number } | null>(null);
+  const iconActions =
+    compactActs !== null &&
+    room !== null &&
+    compactActs.w === room.width &&
+    compactActs.h === room.height;
   useLayoutEffect(() => {
     const el = rootRef.current;
-    if (!el || hands) return;
+    if (!el) return;
     const host = el.parentElement;
     const measure = () => {
       const width = el.getBoundingClientRect().width;
@@ -717,7 +754,7 @@ export function MakeSetWidget({
     if (host) ro.observe(host);
     if (actionsRef.current) ro.observe(actionsRef.current);
     return () => ro.disconnect();
-  }, [hands]);
+  }, []);
 
   const heapCap = ageMode === 'k' ? HEAP_COLS_K : HEAP_COLS;
   const heapW = (cols: number) => cols * slot + (cols - 1) * gap;
@@ -738,6 +775,9 @@ export function MakeSetWidget({
    * - `column`: everything in one column, actions last.
    * - `side` (short areas, e.g. 960 × 600): the container on the right, the heap, the take-away
    *   pile (its arrow beside its heap) and the actions in a column beside it.
+   * - `split` (take-away in short areas): the container with the heap and the actions in a row
+   *   under it, and the take-away pile in a column of its own beside them, showing as many rows
+   *   as the height holds (see `planSplit`).
    */
   const planFor = (
     layout: Layout,
@@ -747,6 +787,7 @@ export function MakeSetWidget({
     widthOnly = false,
   ): Plan | null => {
     if (!room) return null;
+    if (layout === 'split') return widthOnly ? null : planSplit(chrome, oneFrame);
     const side = layout === 'side';
     const g = side ? SIDE_GAP : LAYOUT_GAP;
     const innerW = room.width - 2 * (side ? SIDE_PAD_X : PAD.x);
@@ -803,7 +844,18 @@ export function MakeSetWidget({
       for (let rows = full; rows >= (reduce && showSupply ? 1 : full); rows--) {
         if (fits(rows)) {
           const supplyRows = rows === full ? null : rows;
-          return { layout, chrome, oneFrame, heapCols, box, supplyRows, tray };
+          return {
+            layout,
+            chrome,
+            oneFrame,
+            heapCols,
+            awayCols: heapCols,
+            box,
+            supplyRows,
+            awayRows: null,
+            actUnder: 'box',
+            tray,
+          };
         }
       }
       return null;
@@ -817,13 +869,95 @@ export function MakeSetWidget({
       q === null ? 0 : q.supplyRows === null ? supplyMost : q.supplyRows * q.heapCols;
     return shown(compact) > shown(normal) ? compact : normal;
   };
+  /**
+   * `split`: a take-away item where the pile cannot stand in the column beside the container with
+   * the heap and the actions (ten K objects are 356 px of rows alone). The pile gets a column of
+   * its own beside the container, without its arrow; the heap (one row at least) sits under the
+   * container, and the actions under the container too or, with no heap, under the pile:
+   * whichever shows more of the pile. Compact trays, no padding. The pile shows as many rows as
+   * fit; when that is not every object the item has, it still holds what a right answer takes
+   * away, and one more.
+   */
+  const planSplit = (chrome: Chrome, oneFrame: boolean): Plan | null => {
+    if (!room || !takeAway) return null;
+    const g = SPLIT_GAP;
+    const box = boxFor(chrome, oneFrame);
+    const edge = PILE_EDGE_COMPACT;
+    const fitCols = (w: number) => Math.floor((w - edge + gap) / (slot + gap));
+    const fitRows = (h: number) => Math.floor((h - edge + gap) / (slot + gap));
+    const need = Math.min(awayMost, Math.max(0, start - config.target) + 1);
+    const variant = (actUnder: 'box' | 'away'): Plan | null => {
+      if (actUnder === 'away' && showSupply) return null;
+      const besideAct = actUnder === 'box' ? room.actionsW + g : 0;
+      const supplyCols = showSupply
+        ? Math.min(STACK_HEAP_COLS, supplyMost, fitCols(box.w - besideAct))
+        : 0;
+      if (showSupply && supplyCols < 1) return null;
+      const underW =
+        (showSupply ? heapW(supplyCols) + edge : 0) + (actUnder === 'box' ? room.actionsW : 0);
+      const leftW = Math.max(box.w, underW + (showSupply && actUnder === 'box' ? g : 0));
+      const awayCols = Math.min(
+        STACK_HEAP_COLS,
+        fitCols(room.width - leftW - g),
+        Math.max(2, awayMost),
+      );
+      if (awayCols < 2 || (actUnder === 'away' && heapW(awayCols) + edge < room.actionsW)) {
+        return null;
+      }
+      const underH = (rows: number) =>
+        Math.max(showSupply ? rowsH(rows) + edge : 0, actUnder === 'box' ? room.actionsH : 0);
+      const leftH = (rows: number) => box.h + (underH(rows) > 0 ? g + underH(rows) : 0);
+      const supplyFull = Math.max(1, heapRows(supplyMost, Math.max(1, supplyCols)).length);
+      let supplyRows = supplyFull;
+      while (supplyRows > 1 && leftH(supplyRows) > room.height + 0.5) supplyRows -= 1;
+      if (leftH(supplyRows) > room.height + 0.5) return null;
+      const awayFull = Math.max(1, heapRows(awayMost, awayCols).length);
+      const awayRows = Math.min(
+        awayFull,
+        fitRows(room.height - (actUnder === 'away' ? g + room.actionsH : 0)),
+      );
+      if (awayRows < 1 || awayRows * awayCols < need) return null;
+      return {
+        layout: 'split',
+        chrome,
+        oneFrame,
+        heapCols: Math.max(1, supplyCols),
+        awayCols,
+        box,
+        supplyRows: supplyRows === supplyFull ? null : supplyRows,
+        awayRows: awayRows === awayFull ? null : awayRows,
+        actUnder,
+        tray: 'compact',
+      };
+    };
+    const shown = (q: Plan | null) =>
+      q === null ? 0 : q.awayRows === null ? awayMost : q.awayRows * q.awayCols;
+    const underBox = variant('box');
+    const underAway = variant('away');
+    return shown(underAway) > shown(underBox) ? underAway : underBox;
+  };
   const firstFit = (oneFrame: boolean) =>
     PLANS.reduce<Plan | null>((found, [l, c, r]) => found ?? planFor(l, c, r, oneFrame), null);
-  const plan: Plan | null = hands
+  const fitted: Plan | null = hands
     ? null
     : (firstFit(false) ??
       // Two ten-frames fit nowhere (capacity 11–20): one ten-frame at a time.
-      (frames === 2 ? firstFit(true) : null) ??
+      (frames === 2 ? firstFit(true) : null));
+  // Nothing fits with the actions' words: the buttons go icon-only (their labels stay their
+  // names and are spoken), which gives the container their width, and the plan runs again.
+  const stuck = !hands && room !== null && fitted === null;
+  useLayoutEffect(() => {
+    if (
+      stuck &&
+      room &&
+      !(compactActs && compactActs.w === room.width && compactActs.h === room.height)
+    ) {
+      setCompactActs({ w: room.width, h: room.height });
+    }
+  }, [stuck, room, compactActs]);
+  const plan: Plan | null = hands
+    ? null
+    : (fitted ??
       // Nothing fits the height: as wide as fits, and the area scrolls down.
       planFor('row', 'normal', false, false, true) ??
       planFor('stack', 'normal', false, false, true) ??
@@ -833,6 +967,9 @@ export function MakeSetWidget({
   const oneFrame = plan?.oneFrame ?? false;
   const box = plan?.box ?? boxFor('normal', false);
   const heapCols = plan?.heapCols ?? heapCap;
+  const awayCols = plan?.awayCols ?? heapCols;
+  /** Take-away objects shown at once: all of them, unless a short area holds fewer rows. */
+  const awayVisible = plan?.awayRows != null ? plan.awayRows * awayCols : MAX_OBJECTS;
   const tray = plan?.tray ?? 'normal';
   /** Supply objects shown at once (fewer when the area is short; more appear as objects go). */
   const supplyVisible =
@@ -851,7 +988,13 @@ export function MakeSetWidget({
       ? [showSupply && 'supply supply', 'box act', takeAway && 'away away']
       : layout === 'side'
         ? ['. box', ...sideParts.map((p) => `${p} box`), '. box']
-        : [showSupply && 'supply', 'box', takeAway && 'away', 'act'];
+        : layout === 'split'
+          ? showSupply
+            ? ['box box away', 'supply act away']
+            : plan?.actUnder === 'away'
+              ? ['box away', 'box act']
+              : ['box away', 'act away']
+          : [showSupply && 'supply', 'box', takeAway && 'away', 'act'];
   const layoutStyle: CSSProperties =
     layout === 'row'
       ? {}
@@ -956,10 +1099,10 @@ export function MakeSetWidget({
   // ---------- the heap's layout ----------
 
   /** The heap keeps the size of its fullest state, so it never jumps as objects leave. */
-  const heapBox = (most: number) => {
-    const rows = Math.max(1, heapRows(most, heapCols).length);
+  const heapBox = (most: number, cols: number) => {
+    const rows = Math.max(1, heapRows(most, cols).length);
     return {
-      width: heapW(heapCols),
+      width: heapW(cols),
       minHeight: rows * slot + (rows - 1) * gap,
     };
   };
@@ -1053,11 +1196,13 @@ export function MakeSetWidget({
   const pileArea = (which: 'supply' | 'away') => {
     const items = which === 'away' ? lists.away : outside;
     const isTarget = which === 'away' ? takeAway : !takeAway;
-    const most = which === 'away' ? MAX_OBJECTS : supplyVisible;
-    const shown = items.slice(0, most);
+    const most = which === 'away' ? awayVisible : supplyVisible;
+    const cols = which === 'away' ? awayCols : heapCols;
+    // The take-away pile shows the latest objects taken; the heap its first ones.
+    const shown = which === 'away' ? items.slice(-most) : items.slice(0, most);
     const label = which === 'away' ? t('ui.set.away') : t('ui.set.supply');
     const targetProps = isTarget ? dnd.targetProps('pile', { label }) : null;
-    const cells = heapCells(shown.length, heapCols);
+    const cells = heapCells(shown.length, cols);
     return (
       <div
         className="ni-mset__pile"
@@ -1083,11 +1228,11 @@ export function MakeSetWidget({
             />
           </span>
         )}
-        <div className="ni-mset__heapbox" style={heapBox(Math.min(most, total))}>
+        <div className="ni-mset__heapbox" style={heapBox(Math.min(most, total), cols)}>
           <fieldset
             className="ni-mset__heap"
             aria-label={label}
-            style={{ gridTemplateColumns: `repeat(${2 * heapCols}, var(--heap-half))` }}
+            style={{ gridTemplateColumns: `repeat(${2 * cols}, var(--heap-half))` }}
           >
             {shown.map((id, i) => {
               const cell = cells[i] as HeapCell;
@@ -1207,6 +1352,13 @@ export function MakeSetWidget({
             top: box.framesTop,
             left: framesLeft,
             gap: box.frameGap,
+            ...(box.frameCols > 1
+              ? {
+                  display: 'grid',
+                  gridTemplateColumns: `repeat(${box.frameCols}, auto)`,
+                  columnGap: box.frameColGap,
+                }
+              : {}),
             ...(reduced ? { transition: 'none' } : {}),
           } as CSSProperties
         }
@@ -1247,6 +1399,23 @@ export function MakeSetWidget({
     </div>
   );
 
+  /**
+   * The hands' height: as designed, or what a short area leaves above the finger buttons (the
+   * card's padding and border, the 28 px to the buttons, a big button with its ledge).
+   */
+  const handBase = ageMode === 'k' ? 230 : 210;
+  const bigButton = TARGET_PX[ageMode].big + 6;
+  /** As designed: the hands, their buttons, 40 px, Check under them, and the widget's padding. */
+  const handsDesignH = handBase + HAND_CARD_Y + 28 + bigButton + 40 + bigButton + 2 * PAD.y;
+  /** A short area: Check beside the hands, and the hands as tall as the height leaves. */
+  const tightHands =
+    hands && room !== null && Number.isFinite(room.height) && room.height < handsDesignH;
+  const handH = tightHands
+    ? Math.max(
+        HAND_MIN_H,
+        Math.min(handBase, Math.floor(room.height - bigButton - 28 - HAND_CARD_Y)),
+      )
+    : handBase;
   const handBox = (h: 0 | 1) => {
     const up = handParts[h];
     const name = t(h === 0 ? 'ui.set.hand-left' : 'ui.set.hand-right');
@@ -1278,12 +1447,7 @@ export function MakeSetWidget({
           onClick={() => raise(h, 'hand')}
           onKeyDown={onKeyDown}
         >
-          <HandArt
-            up={up}
-            tone={h === 0 ? 'a' : 'b'}
-            height={ageMode === 'k' ? 230 : 210}
-            mirror={h === 1}
-          />
+          <HandArt up={up} tone={h === 0 ? 'a' : 'b'} height={handH} mirror={h === 1} />
           {counting !== null && h === (counting < handParts[0] ? 0 : 1) ? (
             <span className="ni-mset__mark ni-mset__mark--hand" aria-hidden="true">
               {counting + 1}
@@ -1344,7 +1508,8 @@ export function MakeSetWidget({
       data-disabled={disabled ? 'true' : undefined}
       data-idle={interactive ? undefined : 'true'}
       data-layout={hands ? undefined : layout}
-      data-chrome={chrome === 'tight' ? 'tight' : undefined}
+      data-chrome={chrome === 'tight' || tightHands ? 'tight' : undefined}
+      data-hands={hands ? (tightHands ? 'tight' : 'normal') : undefined}
       data-one-frame={oneFrame ? 'true' : undefined}
       data-bundling={config.groupsOf === 10 ? 'true' : undefined}
       data-tray={tray === 'compact' ? 'compact' : undefined}
@@ -1382,11 +1547,17 @@ export function MakeSetWidget({
               tone="cloud"
               disabled={!interactive || !canBundle}
               onPress={bundle}
+              showLabel={iconActions ? false : undefined}
             />
           </span>
         ) : null}
         <span className="ni-mset__action">
-          <CheckButton onPress={submit} disabled={!canCheck} invited={invitedCheck} />
+          <CheckButton
+            onPress={submit}
+            disabled={!canCheck}
+            invited={invitedCheck}
+            compact={iconActions}
+          />
         </span>
       </div>
 

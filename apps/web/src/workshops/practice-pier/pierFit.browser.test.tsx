@@ -125,6 +125,21 @@ function misfits(stage: HTMLElement): string[] {
   return found;
 }
 
+/** While working on a widget: the stage's room and the size of each part of the widget's root. */
+function describeParts(): string {
+  const stage = document.querySelector<HTMLElement>('[data-testid="pier-stage"]');
+  const root = stage?.querySelector<HTMLElement>('.ni-widget')?.firstElementChild;
+  if (!stage || !(root instanceof HTMLElement)) return 'no widget';
+  const size = (el: Element) => {
+    const r = el.getBoundingClientRect();
+    return `${Math.round(r.width)}x${Math.round(r.height)}`;
+  };
+  const parts = [...root.children].map((el) => `${el.className.split(' ')[0]} ${size(el)}`);
+  const cs = getComputedStyle(stage);
+  const room = `${stage.clientWidth - 2 * Number.parseFloat(cs.paddingLeft)}x${stage.clientHeight - 2 * Number.parseFloat(cs.paddingTop)}`;
+  return `room ${room}; root ${size(root)} ${JSON.stringify(root.dataset)}; ${parts.join(', ')}`;
+}
+
 /** Waits for the item's widget and a settled layout, then says what does not fit. */
 async function measure(templateId: string): Promise<string[]> {
   let last = '';
@@ -168,6 +183,7 @@ describe.each(FIT_VIEWPORTS)('every template fits the pier at %s', (viewport: Fi
       const found = await measure(template.id);
       if (SHOTS.includes(template.id)) {
         await page.screenshot({ path: `__fit__/${template.id}-${viewport}.png` });
+        found.push(describeParts());
       }
       if (found.length > 0 && !allowance) {
         failing.push(`${template.id} (${template.format}, ${template.tier}): ${found.join('; ')}`);
