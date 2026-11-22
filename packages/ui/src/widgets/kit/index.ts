@@ -155,7 +155,13 @@ export {
   objectSetLayout,
   type PlacedObject,
 } from './layout';
-export { DEMO_KEY_MS, DEMO_PICK_MS, demoEnterAnswer, useModelState } from './modelState';
+export {
+  commitWaiters,
+  DEMO_KEY_MS,
+  DEMO_PICK_MS,
+  demoEnterAnswer,
+  useModelState,
+} from './modelState';
 export { type FlyOptions, flyFrom } from './motion';
 export {
   type EntryKind,

@@ -5,21 +5,44 @@ import { nextPadKey } from './NumberEntry';
 import type { AskPlan } from './twoStep';
 
 /**
+ * Promises that wait for a render to be drawn. `flush` settles them after a commit; `settle`
+ * settles them when the widget goes away, so a demo that awaits one never hangs (the hook's
+ * unmount calls it; a demo then sees its `alive` flag false and stops).
+ */
+export function commitWaiters() {
+  let waiting: (() => void)[] = [];
+  const run = () => {
+    const now = waiting;
+    waiting = [];
+    for (const w of now) w();
+  };
+  return {
+    push: (w: () => void) => {
+      waiting.push(w);
+    },
+    flush: run,
+    settle: run,
+    get size() {
+      return waiting.length;
+    },
+  };
+}
+
+/**
  * A widget's state held through its engine model, for widgets whose demo awaits what it shows:
  * `applyOp` resolves once the DOM shows the new state (false when the model changed nothing),
- * `committed` once the pending render is drawn. `stateRef` is always the latest state, for
+ * `committed` once the pending render is drawn; both also resolve when the widget unmounts. `stateRef` is always the latest state, for
  * handlers that run before the next render.
  */
 export function useModelState<S>(initial: () => S, apply: (s: S, a: WidgetAction) => S) {
   const [state, setState] = useState<S>(initial);
   const stateRef = useRef(state);
-  const waiters = useRef<(() => void)[]>([]);
+  const waiters = useRef(commitWaiters()).current;
   useLayoutEffect(() => {
-    if (waiters.current.length === 0) return;
-    const run = waiters.current;
-    waiters.current = [];
-    for (const w of run) w();
+    waiters.flush();
   });
+  // A widget that goes away mid-demo (WidgetHost remounts per item) settles every pending wait.
+  useLayoutEffect(() => () => waiters.settle(), [waiters]);
   const [, setTick] = useState(0);
   const commit = (next: S) => {
     stateRef.current = next;
@@ -38,13 +61,13 @@ export function useModelState<S>(initial: () => S, apply: (s: S, a: WidgetAction
     const next = apply(prev, action);
     if (next === prev) return Promise.resolve(false);
     return new Promise((resolve) => {
-      waiters.current.push(() => resolve(true));
+      waiters.push(() => resolve(true));
       commit(next);
     });
   };
   const committed = () =>
     new Promise<void>((resolve) => {
-      waiters.current.push(resolve);
+      waiters.push(resolve);
       setTick((n) => n + 1);
     });
   return { state, stateRef, commit, act, applyOp, committed };

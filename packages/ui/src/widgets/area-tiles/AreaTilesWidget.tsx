@@ -34,8 +34,10 @@ import {
 import type { ConfigFor, WidgetProps } from '../types';
 import { FillRowIcon, LineAcrossIcon, LineDownIcon, TilesIcon } from './icons';
 import {
+  arrowToward,
   askPlanFor,
   boxGridSegments,
+  cellsBetween,
   type Dir,
   firstLine,
   innerGridSegments,
@@ -297,12 +299,19 @@ export function AreaTilesWidget({
     const c = Math.floor(x / plan.cell);
     return inRegion(region, r, c) ? [r, c] : null;
   };
-  /** A dragging finger lays a tile on the square under it. */
+  /**
+   * A dragging finger lays a tile on every square it crossed since its last sample (a fast
+   * stroke skips none), and on the one under it; that square, if it is in the region.
+   */
+  const lastPoint = useRef<SurfacePoint | null>(null);
   const paint = (p: SurfacePoint): [number, number] | null => {
+    const from = lastPoint.current ?? p;
+    lastPoint.current = p;
+    for (const [r, c] of cellsBetween(region, local(from), local(p), plan.cell)) {
+      setTile(r, c, true);
+    }
     const at = cellUnder(p);
-    if (!at) return null;
-    setCell(at);
-    setTile(at[0], at[1], true);
+    if (at) setCell(at);
     return at;
   };
   const dragging = useRef(false);
@@ -314,15 +323,14 @@ export function AreaTilesWidget({
   const surface = useSurfacePointer({
     enabled: interactive && step === 'build' && working,
     drag: !prefs.tapOnly,
-    onDown: () => {
+    onDown: (p) => {
       childStep();
       dragging.current = false;
+      lastPoint.current = p;
     },
     onMove: (p, from) => {
-      const first = !dragging.current;
       startDrag();
       if (tiling) {
-        if (first) paint(from);
         paint(p);
         return;
       }
@@ -474,11 +482,17 @@ export function AreaTilesWidget({
   const inviteCue = ((): { cue: string; value?: number } | null => {
     if (!invite) return null;
     const onBuild = (cue: string) => (step === 'build' ? { cue } : { cue: 'back' });
-    /** The arrow that moves the square cursor toward (r, c), or `at` when it is there. */
+    /**
+     * The arrow that moves the square cursor toward (r, c), or `at` when it is there. Every
+     * arrow given moves the cursor (a route round a notch starts sideways). A row is reached at
+     * its nearest square.
+     */
     const toward = (r: number, c: number | null, at: string) => {
-      if (cell[0] !== r) return onBuild(r < cell[0] ? 'pad-up' : 'pad-down');
-      if (c !== null && cell[1] !== c) return onBuild(c < cell[1] ? 'pad-left' : 'pad-right');
-      return onBuild(at);
+      if (cell[0] === r && (c === null || cell[1] === c)) return onBuild(at);
+      const goals = c === null ? cells.filter(([rr]) => rr === r) : [[r, c] as [number, number]];
+      const goal = goals.sort((a, b) => Math.abs(a[1] - cell[1]) - Math.abs(b[1] - cell[1]))[0];
+      const dir = goal ? arrowToward(region, cell, goal) : null;
+      return dir ? onBuild(`pad-${dir}`) : null;
     };
     switch (invite.op) {
       case 'place-tile': {

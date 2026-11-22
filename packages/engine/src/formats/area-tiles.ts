@@ -210,6 +210,22 @@ const configSchema = areaTilesConfigSchema.superRefine((c, ctx) => {
       message: 'the region touches every side of its w × h box',
     });
   }
+  // What the child must read has to be on screen: unit squares to count, or the side lengths.
+  const squaresShown = c.gridShown || c.decimalGrid;
+  if ((c.mode === 'count' || c.mode === 'decompose') && !squaresShown) {
+    ctx.addIssue({
+      code: 'custom',
+      path: ['gridShown'],
+      message: `a region to ${c.mode} shows its unit squares (gridShown)`,
+    });
+  }
+  if (c.mode === 'multiply' && !squaresShown && !c.sideLabels) {
+    ctx.addIssue({
+      code: 'custom',
+      path: ['sideLabels'],
+      message: 'a region to multiply shows its side lengths or its unit squares',
+    });
+  }
   if (c.sideLabels && !isRectangle(c.region.mask)) {
     ctx.addIssue({
       code: 'custom',

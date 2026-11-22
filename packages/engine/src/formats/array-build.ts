@@ -4,7 +4,7 @@
 //   rows (`add-row`); answers state `{ rows, cols }` (`array.dims` / `array.area`).
 // - `read`: the array is shown; answers the typed number.
 // - `split` (MUL.07): the array is shown; the child places a split line after column 1 … cols − 1
-//   (`split-at {col}`) and types the total; answers state `{ rows, cols, split, value }`
+//   (`split-at {col}`; `split-at {remove: true}` takes it out again) and types the total; answers state `{ rows, cols, split, value }`
 //   (`array.dims` with `requireSplit`).
 // `count-rows` and `skip-count-rows` are visual (row highlights).
 
@@ -229,8 +229,11 @@ export const arrayBuild: FormatModel<'array-build', ArrayBuildState> = {
         return { ...s, rows: Math.min(c.maxRows, s.rows + 1), cols };
       }
       case 'split-at': {
+        if (c.mode !== 'split') return s;
+        // `remove` takes the line out again (the array as it was given).
+        if (a.args?.remove === true) return s.split === null ? s : { ...s, split: null };
         const at = Math.trunc(argNumber(a, 'col') ?? 0);
-        if (c.mode !== 'split' || at < 1 || at >= s.cols) return s;
+        if (at < 1 || at >= s.cols) return s;
         return { ...s, split: at };
       }
       case 'count-rows':

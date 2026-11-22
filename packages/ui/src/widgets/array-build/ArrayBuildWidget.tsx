@@ -67,7 +67,8 @@ import './array-build.css';
  *   rectangle is never counted on screen.
  * - **Read**: the array as a picture beside the kit `NumberEntry` and Check (the ask step alone).
  * - **Split** (MUL.07), two steps (kit `twoStep`): the array with a split line that a finger
- *   slides along the board, or the two arrows move, to any gap between two columns; then Next,
+ *   slides along the board, or the two arrows move, to any gap between two columns (past either
+ *   end the line leaves the array again); then Next,
  *   and the picture beside the `NumberEntry`, Back and Check. Check sends
  *   `{ rows, cols, split, value }`.
  *
@@ -76,7 +77,7 @@ import './array-build.css';
  *
  * Trace targets: `pad-up`, `pad-down`, `pad-left`, `pad-right`; `board` (a drag began);
  * `cell-<r>-<c>` (the rectangle's far cell after a tap or a drop, 0-based); `gap-<col>` (the split
- * line after column col, tapped or dropped); `picture` (a tap on the ask step's picture); `next`,
+ * line after column col, tapped or dropped; `gap-none`: carried out of the array); `picture` (a tap on the ask step's picture); `next`,
  * `back`, `opt-<n>` and `key-<k>`.
  *
  * Demo ops: `drag-rect {rows, cols}` (the rectangle grows cell by cell), `add-row`,
@@ -236,9 +237,11 @@ export function ArrayBuildWidget({
     trace('tap', `pad-${dir}`);
     const s = stateRef.current;
     if (mode === 'split') {
+      // The line comes in from the side the arrow comes from, and leaves by stepping out again.
       const at = s.split;
       const next = at === null ? (dir === 'left' ? s.cols - 1 : 1) : at + (dir === 'left' ? -1 : 1);
-      act({ op: 'split-at', args: { col: Math.max(1, Math.min(s.cols - 1, next)) } });
+      if (next < 1 || next >= s.cols) act({ op: 'split-at', args: { remove: true } });
+      else act({ op: 'split-at', args: { col: next } });
       return;
     }
     if (dir === 'down') {
@@ -267,6 +270,11 @@ export function ArrayBuildWidget({
     let x = p.x - origin.x;
     const y = p.y - origin.y;
     if (mode === 'split') {
+      // A finger past either end of the array carries the line out of it.
+      if (x < 0 || x > s.cols * plan.cell + SPLIT_SPACE) {
+        act({ op: 'split-at', args: { remove: true } });
+        return 'gap-none';
+      }
       // Read the finger against the columns as drawn (the gap a split has opened is no column).
       if (s.split !== null) {
         const gap = s.split * plan.cell;

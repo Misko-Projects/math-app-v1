@@ -233,6 +233,61 @@ export function nextCell(region: Region, r: number, c: number, dir: Dir): [numbe
   return null;
 }
 
+/**
+ * The arrow that brings the square cursor one step nearer to a square: the first step of a
+ * shortest route through `nextCell` (an arrow that would not move the cursor is never given).
+ * Null when the cursor is there, or the square cannot be reached.
+ */
+export function arrowToward(
+  region: Region,
+  from: readonly [number, number],
+  to: readonly [number, number],
+): Dir | null {
+  const key = (r: number, c: number) => r * region.w + c;
+  if (key(from[0], from[1]) === key(to[0], to[1])) return null;
+  const seen = new Set([key(from[0], from[1])]);
+  let frontier: { at: [number, number]; first: Dir }[] = [];
+  const dirs: Dir[] = ['up', 'down', 'left', 'right'];
+  const expand = (at: readonly [number, number], first: Dir | null) => {
+    const out: { at: [number, number]; first: Dir }[] = [];
+    for (const d of dirs) {
+      const n = nextCell(region, at[0], at[1], d);
+      if (!n || seen.has(key(n[0], n[1]))) continue;
+      seen.add(key(n[0], n[1]));
+      out.push({ at: n, first: first ?? d });
+    }
+    return out;
+  };
+  frontier = expand(from, null);
+  while (frontier.length > 0) {
+    const hit = frontier.find((f) => key(f.at[0], f.at[1]) === key(to[0], to[1]));
+    if (hit) return hit.first;
+    frontier = frontier.flatMap((f) => expand(f.at, f.first));
+  }
+  return null;
+}
+
+/**
+ * The region squares a finger crosses between two points (px from the first square's corner),
+ * in order: the path is sampled every quarter square, so a fast stroke skips none.
+ */
+export function cellsBetween(
+  region: Region,
+  a: { x: number; y: number },
+  b: { x: number; y: number },
+  cell: number,
+): [number, number][] {
+  const steps = Math.max(1, Math.ceil(Math.hypot(b.x - a.x, b.y - a.y) / (cell / 4)));
+  const out: [number, number][] = [];
+  for (let i = 0; i <= steps; i += 1) {
+    const r = Math.floor((a.y + ((b.y - a.y) * i) / steps) / cell);
+    const c = Math.floor((a.x + ((b.x - a.x) * i) / steps) / cell);
+    const last = out[out.length - 1];
+    if (inRegion(region, r, c) && !(last && last[0] === r && last[1] === c)) out.push([r, c]);
+  }
+  return out;
+}
+
 export interface Line {
   dir: 'v' | 'h';
   at: number;

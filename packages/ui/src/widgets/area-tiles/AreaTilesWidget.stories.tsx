@@ -326,6 +326,16 @@ export const TouchPaint: Story = {
   },
 };
 
+/** A fast stroke (one move across the row) still tiles every square it crossed. */
+export const TouchPaintFast: Story = {
+  play: async ({ canvasElement }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    await touchDragBetween(surface(root), cellPoint(root, 1, 0), cellPoint(root, 1, 3), 1);
+    await expect(tiles(root)).toEqual(['1-0', '1-1', '1-2', '1-3']);
+    // A fast stroke over the L's notch lays nothing outside the shape (see PaintExtremes).
+  },
+};
+
 /** Tap: a bare square gets a tile ("Tile" is spoken); a tap on the tile takes it back. */
 export const TapTile: Story = {
   play: async ({ canvasElement, args, parameters }) => {
@@ -720,6 +730,32 @@ export const DemoInviteEachControl: Story = {
     await expect(root.querySelector('.ni-entry .ni-invite')).not.toBeNull();
     await enterNumber(root, 12);
     await expectRing(root, null);
+  },
+};
+
+const demoRoute: WidgetDemo = createDemoController({ strict: true });
+/**
+ * An invite never rings an arrow that does nothing: from the L's last square of row 2, the way
+ * to its first square of row 1 goes round the notch, and each ringed arrow moves the cursor.
+ */
+export const DemoInviteRoundNotch: Story = {
+  args: { config: tileL, demo: demoRoute },
+  play: async ({ canvasElement }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    await press(root, 'down');
+    await press(root, 'right', 3);
+    await expect(cursorCell(root)).toBe('1-3');
+    const want = { op: 'place-tile', args: { r: 0, c: 0 } };
+    for (let guard = 0; guard < 6 && cursorCell(root) !== '0-0'; guard += 1) {
+      demoRoute.invite(want);
+      await waitFor(() => expect(root.querySelectorAll('.ni-invite')).toHaveLength(1));
+      const before = cursorCell(root);
+      await userEvent.click(q(root, '.ni-work .ni-invite'));
+      await expect(cursorCell(root)).not.toBe(before);
+    }
+    await expect(cursorCell(root)).toBe('0-0');
+    demoRoute.invite(want);
+    await expectRing(root, pad(root, 'tile'));
   },
 };
 

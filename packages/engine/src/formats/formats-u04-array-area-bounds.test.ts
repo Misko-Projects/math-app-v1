@@ -243,6 +243,21 @@ describe('array-build: every op a child can do has an undo', () => {
     expect(arrayBuild.apply(s, act('split-at', { col: 4 })).split).toBe(1);
     expect(arrayBuild.apply(s, act('split-at', { col: 0 })).split).toBe(1);
   });
+
+  it('a split line is taken out again, and the answer then waits for one', () => {
+    const c = { ...array, mode: 'split', cols: 2 } as ArrayConfig;
+    const start = arrayBuild.initialState(c);
+    expect(arrayBuild.apply(start, act('split-at', { remove: true }))).toBe(start);
+    let s = arrayBuild.apply(start, act('split-at', { col: 1 }));
+    s = arrayBuild.apply(s, act('answer', { value: 6 }));
+    expect(arrayBuild.toResponse(s)).not.toBeNull();
+    s = arrayBuild.apply(s, act('split-at', { remove: true }));
+    expect(s.split).toBeNull();
+    expect(arrayBuild.toResponse(s)).toBeNull();
+    // Only a split has a line.
+    const built = arrayBuild.initialState(array);
+    expect(arrayBuild.apply(built, act('split-at', { remove: true }))).toBe(built);
+  });
 });
 
 describe('area-tiles: the supported domain', () => {
@@ -316,6 +331,33 @@ describe('area-tiles: the supported domain', () => {
     expect(areaAnswerMax({ region: L })).toBe(20);
     expect(areaAnswerMax({ region: region(7, 3) })).toBe(100);
     expect(areaAnswerMax({ region: region(10, 10) })).toBe(100);
+  });
+});
+
+describe('area-tiles: what the child must read is on screen', () => {
+  const plain = { ...area, gridShown: false, sideLabels: false };
+
+  it('refuses a region to count or decompose without its unit squares', () => {
+    for (const mode of ['count', 'decompose'] as const) {
+      expect(issues(areaTiles, { ...plain, mode })).toEqual([
+        `gridShown: a region to ${mode} shows its unit squares (gridShown)`,
+      ]);
+      expect(issues(areaTiles, { ...plain, mode, sideLabels: true })).toHaveLength(1);
+      expect(issues(areaTiles, { ...plain, mode, gridShown: true })).toEqual([]);
+    }
+  });
+
+  it('refuses a region to multiply with neither side lengths nor unit squares', () => {
+    expect(issues(areaTiles, { ...plain, mode: 'multiply' })).toEqual([
+      'sideLabels: a region to multiply shows its side lengths or its unit squares',
+    ]);
+    expect(issues(areaTiles, { ...plain, mode: 'multiply', sideLabels: true })).toEqual([]);
+    expect(issues(areaTiles, { ...plain, mode: 'multiply', gridShown: true })).toEqual([]);
+  });
+
+  it('a region to tile or partition may be plain: the child makes the squares', () => {
+    expect(issues(areaTiles, { ...plain, mode: 'tile' })).toEqual([]);
+    expect(issues(areaTiles, { ...plain, mode: 'partition' })).toEqual([]);
   });
 });
 

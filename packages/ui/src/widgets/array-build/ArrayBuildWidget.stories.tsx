@@ -537,9 +537,6 @@ export const SplitPad: Story = {
     await expect(q(root, '.ni-abw__line')).toHaveAttribute('data-split', '5');
     await press(root, 'right');
     await expect(q(root, '.ni-abw__line')).toHaveAttribute('data-split', '6');
-    // The line never leaves the array.
-    await press(root, 'right', 2);
-    await expect(q(root, '.ni-abw__line')).toHaveAttribute('data-split', '6');
     await expectAreaFit(canvasElement, buildFit(root, 'g1-up', 'array-build 906x373 split'));
     // The line's arrows carry the line; they do not look like the step's Next arrow.
     await expect(pad(root, 'right').querySelector('svg')?.innerHTML).not.toBe(
@@ -564,9 +561,39 @@ export const SplitTouchDrag: Story = {
     await expect(steps(args)).toEqual(['drag:board', 'drop:gap-5']);
     await clickAt(r.left + 2 * pitch - 3, y);
     await expect(q(root, '.ni-abw__line')).toHaveAttribute('data-split', '2');
-    // Past the array's ends the line stays inside it.
-    await touchDragBetween(board(root), { x: r.left + 40, y }, { x: r.right + 400, y: y + 300 });
+    // Dragged below the array (still between its ends) the line stays at the gap under the finger.
+    await touchDragBetween(board(root), { x: r.left + 40, y }, { x: r.right - 20, y: y + 300 });
     await expect(q(root, '.ni-abw__line')).toHaveAttribute('data-split', '6');
+  },
+};
+
+/**
+ * The line is taken out again where it is: an arrow steps it out of the array, and so does a
+ * finger that carries it past an end. Next then waits for a line again (two columns: one gap).
+ */
+export const SplitLineUndo: Story = {
+  args: { config: { ...split, maxCols: 2, cols: 2 } },
+  play: async ({ canvasElement, args }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    await press(root, 'right');
+    await expect(q(root, '.ni-abw__line')).toHaveAttribute('data-split', '1');
+    await press(root, 'right');
+    await expect(root.querySelector('.ni-abw__line')).toBeNull();
+    await press(root, 'left');
+    await expect(q(root, '.ni-abw__line')).toHaveAttribute('data-split', '1');
+    await press(root, 'left');
+    await expect(root.querySelector('.ni-abw__line')).toBeNull();
+    // By finger: in, then out past the right end.
+    const r = q(root, '.ni-abw__cells').getBoundingClientRect();
+    const y = r.top + r.height / 2;
+    await clickAt(r.left + r.width / 2, y);
+    await expect(q(root, '.ni-abw__line')).toHaveAttribute('data-split', '1');
+    await touchDragBetween(board(root), { x: r.left + r.width / 2, y }, { x: r.right + 300, y });
+    await expect(root.querySelector('.ni-abw__line')).toBeNull();
+    await expect(steps(args).slice(-2)).toEqual(['drag:board', 'drop:gap-none']);
+    await userEvent.click(stepButton(root, 'next'));
+    await expect(root).toHaveAttribute('data-step', 'build');
+    await expectNote(root, 'Put the line in.');
   },
 };
 

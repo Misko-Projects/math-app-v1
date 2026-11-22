@@ -9,7 +9,9 @@ import { MIN_TARGET_PX } from '../../tokens/tokens';
 import { buildRoom } from '../kit/twoStep';
 import {
   type AreaShape,
+  arrowToward,
   askPlanFor,
+  cellsBetween,
   cutLines,
   firstLine,
   innerGridSegments,
@@ -118,6 +120,50 @@ describe('area-tiles geometry', () => {
     // Over a gap: a U's two arms.
     const U = { w: 3, h: 2, mask: '101111' };
     expect(nextCell(U, 0, 0, 'right')).toEqual([0, 2]);
+  });
+
+  it('an invite arrow always moves the cursor, along a shortest route', () => {
+    // From the L's right end of row 1 to its top-left square: Up does nothing there (the
+    // notch), so the route starts Left.
+    expect(nextCell(L, 1, 3, 'up')).toBeNull();
+    let at: [number, number] = [1, 3];
+    const route: string[] = [];
+    for (let guard = 0; guard < 10; guard += 1) {
+      const dir = arrowToward(L, at, [0, 0]);
+      if (!dir) break;
+      const next = nextCell(L, at[0], at[1], dir);
+      expect(next, `${dir} from ${at.join(',')} moves`).not.toBeNull();
+      at = next as [number, number];
+      route.push(dir);
+    }
+    expect(at).toEqual([0, 0]);
+    expect(route).toHaveLength(4);
+    expect(route[0]).toBe('left');
+    expect(arrowToward(L, [0, 0], [0, 0])).toBeNull();
+    // Every square of the L is reached from every other, each step a real move.
+    for (const from of regionCells(L)) {
+      for (const to of regionCells(L)) {
+        const dir = arrowToward(L, from, to);
+        if (from[0] === to[0] && from[1] === to[1]) expect(dir).toBeNull();
+        else expect(nextCell(L, from[0], from[1], dir as 'up')).not.toBeNull();
+      }
+    }
+  });
+
+  it('a stroke crosses every square between two samples, and none outside the shape', () => {
+    // One move from the first square of row 1 to its fourth.
+    expect(cellsBetween(L, { x: 20, y: 60 }, { x: 140, y: 60 }, 40)).toEqual([
+      [1, 0],
+      [1, 1],
+      [1, 2],
+      [1, 3],
+    ]);
+    // Across the notch of row 0: only the two squares of the shape.
+    expect(cellsBetween(L, { x: 20, y: 20 }, { x: 400, y: 20 }, 40)).toEqual([
+      [0, 0],
+      [0, 1],
+    ]);
+    expect(cellsBetween(L, { x: 20, y: 20 }, { x: 20, y: 20 }, 40)).toEqual([[0, 0]]);
   });
 
   it('the line cursor walks the lines of one kind and turns to the other', () => {
