@@ -840,10 +840,12 @@ export const ScaledPictureKeyLandscapeMin: Story = {
     await expectChartShows(root, { crab: 7, fish: 10 }, 2);
     const key = root.querySelector('.ni-chart__key') as HTMLElement;
     await expect(key.textContent).toBe('= 2');
-    // The key shows every row's picture, so it is read as "each picture", not the crabs alone.
-    await expect(
-      [...key.querySelectorAll('.ni-chart__keysprite')].map((k) => k.getAttribute('data-sprite')),
-    ).toEqual(['crab', 'fish']);
+    // The key is an empty picture tile, the size of a tile's frame, so it reads as "each
+    // picture" and not as the crabs alone.
+    const tile = key.querySelector('.ni-chart__keysprite') as HTMLElement;
+    await expect(tile).toHaveAttribute('data-any', 'true');
+    await expect(tile.children).toHaveLength(0);
+    await expect(tile.getBoundingClientRect().width).toBeGreaterThanOrEqual(40);
     const keyBox = key.getBoundingClientRect();
     for (const part of key.children) {
       const r = part.getBoundingClientRect();

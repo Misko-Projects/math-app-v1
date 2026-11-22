@@ -430,13 +430,9 @@ export function ChartView({
       )}
       {g.key ? (
         <span className="ni-chart__key" style={at(g.key)} aria-hidden="true">
-          {/* The key is about every picture: one tile for each row's picture where they fit (two
-              rows), otherwise one empty tile, so it never reads as the first row's alone. */}
-          {(g.slots.length <= 2 ? g.slots.map((s) => s.id) : [null]).map((id) => (
-            <span key={id ?? 'any'} className="ni-chart__keysprite" data-sprite={id ?? undefined}>
-              {id === null ? null : <ObjectSprite sprite={id} />}
-            </span>
-          ))}
+          {/* The key is about every picture, whatever its row: an empty picture tile (the frame
+              every picture sits in), never one row's picture. */}
+          <span className="ni-chart__keysprite" data-any="true" />
           <span className="ni-chart__keytext">= {chart.scale}</span>
         </span>
       ) : null}
