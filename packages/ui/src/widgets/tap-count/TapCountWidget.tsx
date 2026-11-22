@@ -8,8 +8,13 @@ import { NumberDisplay } from '../../primitives/NumberDisplay';
 import { MIN_TARGET_PX, TARGET_GAP_PX } from '../../tokens/tokens';
 import { useWidgetDemo } from '../demo';
 import {
+  AskEntry,
+  AskStep,
   applyPadKey,
   CheckButton,
+  cellToFit,
+  countLayout,
+  FitPicture,
   fitCell,
   minObjectStep,
   NumberPadKeys,
@@ -22,12 +27,17 @@ import {
   type PadKey,
   type PlacedObject,
   padValue,
+  planAsk,
+  type Size,
+  StepActions,
   spriteNameKey,
   TRAY_PANEL_EDGES_PX,
+  useActionSize,
   useAlive,
   useDemoPause,
   useInviteHand,
   useSubmitGuard,
+  useTwoStep,
 } from '../kit';
 import type { ConfigFor, WidgetProps } from '../types';
 import './tap-count.css';
@@ -94,6 +104,9 @@ const COMPACT_GAP = 16;
 const CHECK_W = 120;
 /** A height no host grows to unless it grows with its content (the room probe). */
 const PROBE_PX = 100_000;
+/** The answer step's picture: its card's padding and border, and the least an object is drawn. */
+const ASK_CARD_EDGE = 2 * (12 + 3);
+const ASK_MIN_CELL = 22;
 
 /** Where an invite points: one pressable control. */
 type Cue =
@@ -510,6 +523,33 @@ export function TapCountWidget({
   const [widgetW, setWidgetW] = useState<number | null>(null);
   const [hostH, setHostH] = useState(Number.POSITIVE_INFINITY);
   /**
+   * Count, then answer (kit two-step). Where the area cannot hold the objects at full target size
+   * together with the numeral tray, the tray gets a step of its own: the child counts with the
+   * whole area, a Next arrow comes once every object is counted, and the answer step shows the
+   * picture small beside the numerals, with Back to count again. Decided from the widget as laid
+   * out (the effect below), for the room it was laid out in; a new room starts on one screen.
+   */
+  const [split, setSplit] = useState<{ w: number | null; h: number } | null>(null);
+  const splitSteps = split !== null && split.w === widgetW && split.h === hostH;
+  const canSplit = concrete && !ordinal && config.input === 'auto';
+  const two = useTwoStep(rootRef, {
+    interactive,
+    trace,
+    guard: (to) => to === 'build' || allCounted,
+  });
+  const asking = splitSteps && two.step === 'ask';
+  const stepOnly = splitSteps && two.step === 'build';
+  useLayoutEffect(() => {
+    const el = rootRef.current;
+    if (!el || !canSplit || splitSteps || !Number.isFinite(hostH)) return;
+    const tall = el.getBoundingClientRect().height > hostH + 1;
+    const wide = el.scrollWidth > el.clientWidth + 1;
+    if (tall || wide) setSplit({ w: widgetW, h: hostH });
+  });
+  const actRef = useRef<HTMLDivElement | null>(null);
+  const unzoomed = useRef(1);
+  const stepButton = useActionSize(actRef, unzoomed, ageMode);
+  /**
    * Check as it is drawn: icon-only in K, with its word from Grade 1 on (so it is wider). Measured
    * on the button itself, whenever it mounts or changes size (its word's font arriving, the age
    * mode switching): the widget's own size does not change then.
@@ -564,13 +604,18 @@ export function TapCountWidget({
   // is wider than the slot, and the picture beside the pad gets only what is left.
   const compactSlotW = Math.max(COMPACT_SLOT_W, checkW);
   const trayShown =
-    config.input !== 'pad' && !ordinal && (config.input === 'pick' || !concrete || allCounted);
+    config.input !== 'pad' &&
+    !ordinal &&
+    !stepOnly &&
+    (config.input === 'pick' || !concrete || allCounted);
+  /** No tray in view and none held room for: the answer column is one button. */
+  const buttonOnly = (collapseTray && !trayShown) || stepOnly;
   const answerW =
     config.input === 'pad'
       ? compactPad
         ? compactSlotW + COMPACT_GAP + compactKeysW
         : 3 * (target + 16) + 2 * TARGET_GAP_PX + padCheckW
-      : collapseTray && !trayShown
+      : buttonOnly
         ? CHECK_W
         : trayW;
   const answerH =
@@ -578,7 +623,7 @@ export function TapCountWidget({
       ? compactPad
         ? 3 * (target + 4) + 2 * TARGET_GAP_PX
         : PAD_H
-      : collapseTray && !trayShown
+      : buttonOnly
         ? CHECK_W
         : Math.ceil(trayValues.length / trayCols) * (target + TARGET_GAP_PX + 6) + 30;
   /** The picture card's padding and border top to bottom (tap-count.css), and the column gap. */
@@ -600,9 +645,13 @@ export function TapCountWidget({
   const rowLimit = ordinal ? ordinalRowW : stackW;
   // An ordinal line of any length is first laid out as one row (the kit's rows of ten would put
   // obj-10 under obj-0, away from a right-hand marker), then wrapped below in reading order.
+  // So is a how-many line whose rows of ten are wider than the widget at full target size (ten K
+  // targets are 920 px): it wraps into rows that fit instead of running off the side.
+  const reflowLine =
+    config.set.layout === 'line' && (ordinal || baseLayout.width * minCell > rowLimit);
   const lineLayout = useMemo(
-    () => (ordinal && config.set.layout === 'line' ? flattenLine(baseLayout) : baseLayout),
-    [baseLayout, ordinal, config.set.layout],
+    () => (reflowLine ? flattenLine(baseLayout) : baseLayout),
+    [baseLayout, reflowLine],
   );
   /**
    * An ordinal line in a host that sets a height (a widget area) grows into the room: the rows,
@@ -616,25 +665,36 @@ export function TapCountWidget({
     }
     const count = lineLayout.objects.length;
     const w = Math.min(ORDINAL_AREA_W, widgetW) - 2 * 16;
-    const h = hostH - 2 * PAD_Y;
     const pitchExtra = BADGE_ORDINAL.above + BADGE_ORDINAL.clear;
     const cardW = cueSize + 16 + 2 * (20 + 3);
     const cardH = 76 + 24 + 2 * 3;
-    let best: { rows: number; arrange: 'side' | 'stack'; cell: number } | null = null;
-    for (let rows = 1; rows <= Math.min(4, count); rows++) {
-      const perRow = Math.ceil(count / rows);
-      const units = (perRow - 1) * 1.12 + 1;
-      for (const arrange of ['side', 'stack'] as const) {
-        const cw = ((arrange === 'side' ? w - ORDINAL_CHECK_W : w) - cardW) / units;
-        const ch =
-          ((arrange === 'side' ? h : h - 16 - CHECK_W) - cardH - (rows - 1) * pitchExtra) / rows;
-        const c = Math.floor(Math.min(cw, ch, 112));
-        if (c < minCell) continue;
-        if (!best || c > best.cell * (rows > best.rows ? 1.08 : 1))
-          best = { rows, arrange, cell: c };
+    // Check as drawn (K: icon-only, narrower than the designed pill) and the column gap.
+    const checkBeside = checkW > 0 ? Math.min(ORDINAL_CHECK_W, checkW + 56) : ORDINAL_CHECK_W;
+    const search = (h: number, flush: boolean) => {
+      let best: {
+        rows: number;
+        arrange: 'side' | 'stack';
+        cell: number;
+        flush: boolean;
+      } | null = null;
+      for (let rows = 1; rows <= Math.min(4, count); rows++) {
+        const perRow = Math.ceil(count / rows);
+        const units = (perRow - 1) * 1.12 + 1;
+        for (const arrange of ['side', 'stack'] as const) {
+          const cw = ((arrange === 'side' ? w - checkBeside : w) - cardW) / units;
+          const ch =
+            ((arrange === 'side' ? h : h - 16 - CHECK_W) - cardH - (rows - 1) * pitchExtra) / rows;
+          const c = Math.floor(Math.min(cw, ch, 112));
+          if (c < minCell) continue;
+          if (!best || c > best.cell * (rows > best.rows ? 1.08 : 1))
+            best = { rows, arrange, cell: c, flush };
+        }
       }
-    }
-    return best;
+      return best;
+    };
+    // With the widget's padding top and bottom; where that leaves no full-size targets (ten K
+    // objects in two rows on the smallest landscape area), with the area's whole height.
+    return search(hostH - 2 * PAD_Y, false) ?? search(hostH, true);
   })();
   const wrapRows = (() => {
     if (ordinalFit) return ordinalFit.rows;
@@ -701,7 +761,7 @@ export function TapCountWidget({
     // the column gap, the card's padding and border (2 × 31) and 8 px to spare. Where the host
     // sets a height, the picture also keeps inside it.
     const sideW =
-      (onDots || compactPad) && widgetW !== null
+      (onDots || compactPad || stepOnly) && widgetW !== null
         ? widgetW - answerW - 2 * (compactPad ? 12 : 24) - gapX - 2 * (cardPadX + 3) - 8
         : 1100 - answerW - 240 - shortfall;
     const roomH = Number.isFinite(hostH) ? hostH - 2 * PAD_Y - cardY : Number.POSITIVE_INFINITY;
@@ -1106,6 +1166,83 @@ export function TapCountWidget({
 
   const firstRowTop = Math.min(...layout.objects.map((o) => o.y), 0);
 
+  // ---------- count, then answer: the answer step ----------
+
+  const askSpec = useMemo(() => ({ kind: 'objects' as const, set: config.set }), [config.set]);
+  const askMax = trayValues.at(-1) ?? 0;
+  const askPlan = planAsk({
+    ageMode,
+    max: askMax,
+    button: stepButton,
+    actions: 2,
+    room: { w: (widgetW ?? HOW_MANY_AREA_W) - 2 * 24, h: hostH - 2 * PAD_Y },
+    pictureScore: (box: Size) => {
+      const set = countLayout(askSpec);
+      if (!set) return 0;
+      const c = cellToFit(set, box.w - ASK_CARD_EDGE, box.h - ASK_CARD_EDGE);
+      return c >= ASK_MIN_CELL ? Math.min(c, 96) : 0;
+    },
+  });
+  const stepActions = (
+    <StepActions
+      actRef={actRef}
+      step={two.step}
+      back
+      dir={asking && askPlan.act === 'row' ? 'row' : 'column'}
+      interactive={interactive}
+      ready={canCheck}
+      onStep={two.goTo}
+      onCheck={submit}
+      invited={cue?.at === 'check' ? 'check' : null}
+      compact
+    />
+  );
+  if (asking) {
+    return (
+      <div
+        ref={rootRef}
+        className="ni-tapc"
+        data-tier={tier}
+        data-mode="how-many"
+        data-step="ask"
+        data-disabled={disabled ? 'true' : undefined}
+        style={handRootStyle}
+      >
+        <AskStep
+          plan={askPlan}
+          picture={
+            <div className="ni-tapc__askpic">
+              <FitPicture
+                spec={askSpec}
+                maxWidth={Math.max(1, (askPlan.picture?.w ?? 0) - ASK_CARD_EDGE)}
+                maxHeight={Math.max(1, (askPlan.picture?.h ?? 0) - ASK_CARD_EDGE)}
+                label={t('ui.widget.picture')}
+              />
+            </div>
+          }
+          entry={
+            <AskEntry
+              plan={askPlan}
+              max={askMax}
+              value={picked}
+              onChange={(v) => {
+                setInvite((inv) => (followsInput(inv) ? inv : null));
+                setPicked(v);
+              }}
+              disabled={!interactive}
+              highlighted={cueCard}
+              trace={trace}
+              onEnter={submit}
+              actions={stepActions}
+            />
+          }
+          actions={stepActions}
+        />
+        {inviteHand}
+      </div>
+    );
+  }
+
   return (
     <div
       ref={rootRef}
@@ -1117,7 +1254,8 @@ export function TapCountWidget({
       data-cells={targetCells ? 'targets' : undefined}
       data-pad={compactPad ? 'compact' : undefined}
       data-disabled={disabled ? 'true' : undefined}
-      style={handRootStyle}
+      data-step={stepOnly ? 'build' : undefined}
+      style={ordinalFit?.flush ? { ...handRootStyle, paddingBlock: 0 } : handRootStyle}
     >
       <div className="ni-tapc__picture" data-from={ordinal ? from : undefined}>
         {onDots && showMarks && order.length > 0 ? (
@@ -1189,7 +1327,7 @@ export function TapCountWidget({
             />
           </div>
         ) : null}
-        {config.input !== 'pad' && !ordinal && (trayShown || !collapseTray) ? (
+        {config.input !== 'pad' && !ordinal && !stepOnly && (trayShown || !collapseTray) ? (
           <div
             className="ni-tapc__tray"
             data-shown={trayShown ? 'true' : 'false'}
@@ -1205,9 +1343,18 @@ export function TapCountWidget({
             />
           </div>
         ) : null}
-        <span className="ni-tapc__check" ref={checkRef}>
-          <CheckButton onPress={submit} disabled={!canCheck} invited={cue?.at === 'check'} />
-        </span>
+        {stepOnly ? (
+          // Next comes once every object is counted (as the tray does on one screen).
+          allCounted ? (
+            stepActions
+          ) : (
+            <span className="ni-tapc__step-room" aria-hidden="true" />
+          )
+        ) : (
+          <span className="ni-tapc__check" ref={checkRef}>
+            <CheckButton onPress={submit} disabled={!canCheck} invited={cue?.at === 'check'} />
+          </span>
+        )}
       </div>
       {inviteHand}
     </div>
