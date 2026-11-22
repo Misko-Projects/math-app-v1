@@ -37,9 +37,19 @@ import './bar-graph-build.css';
  * carry 0, so it never shows what it asks). The child adds marks one at a time: drag the mark
  * from the supply onto a row or column (bars grow by one, a picture, a tally mark or an X is
  * added), or tap the supply, then tap rows (the supply stays picked up, so each tap adds one),
- * or the keyboard (Enter on the supply, Enter on a row, arrows between rows). "Take one back"
- * removes the last mark. Every mark goes through the engine model, and Check sends its response
- * `{ values }` (chart.values): what the chart shows is exactly what is answered.
+ * or the keyboard (Enter on the supply, Enter on a row, arrows between rows).
+ *
+ * Undo where the mark sits: with no mark picked up, a tap on a row or column that holds marks
+ * takes its last one back (Enter or Space then, Backspace or Delete at any time); the new count is
+ * spoken and the undo traced. With a mark picked up the same tap adds, so an undo never takes a
+ * tap meant to add. "Take one back" removes the last mark wherever it went. A tap on an empty row
+ * with nothing picked up points at the supply.
+ *
+ * A full row (its count at the axis top) is a state the child can read and leave: the graph's
+ * caption says "That one is full." (spoken too) and the one cue is on "Take one back".
+ *
+ * Every mark goes through the engine model, and Check sends its response `{ values }`
+ * (chart.values): what the chart shows is exactly what is answered.
  *
  * Demo ops: `raise-bar {id, to}`, `add-picture {id, count?}`, `add-x {at, count?}`,
  * `tally {id, count?}` (marks appear one by one, counted aloud), plus `answer {values}`.
@@ -250,6 +260,10 @@ export function BarGraphBuildWidget({
   const [invite, setInvite] = useState<WidgetAction | null>(null);
   const [demoBusy, setDemoBusy] = useState(false);
   const [flash, setFlash] = useState<string | null>(null);
+  /** The slot the child tried to fill past the axis top (cleared by the next change). */
+  const [full, setFull] = useState<string | null>(null);
+  /** A tap on an empty row with nothing picked up: the cue goes to the supply. */
+  const [nudge, setNudge] = useState(false);
   const interactive = !disabled && !demoBusy;
   const target = ageMode === 'k' ? 80 : 64;
   const slots = chartSlots(config.chart);
@@ -282,6 +296,7 @@ export function BarGraphBuildWidget({
     disabled: !interactive,
     trace,
     onSelect: (item) => {
+      if (item) setNudge(false);
       if (item && speakOnTap)
         say(item === 'half' ? 'ui.widget.chart.half-picture' : MARK_KEY[config.mode]);
     },
@@ -290,7 +305,16 @@ export function BarGraphBuildWidget({
       if (i < 0) return;
       const count = item === 'half' ? 0.5 : 1;
       setInvite(null);
-      if (addMarks(i, count)) setHistory((h) => [...h, { i, count }]);
+      setNudge(false);
+      if (addMarks(i, count)) {
+        setFull(null);
+        setHistory((h) => [...h, { i, count }]);
+      } else {
+        // The row is at the axis top: say so, show it, and point at the way out.
+        trace('tap', `full-${id}`);
+        setFull(id);
+        say('ui.widget.chart.full');
+      }
       // The supply stays picked up after a tap or key placement, so each tap on a row adds one.
       if (via !== 'drag') place.select(item);
     },
@@ -301,8 +325,38 @@ export function BarGraphBuildWidget({
     const last = history.at(-1);
     trace('undo', 'take-back');
     if (!last) return;
+    setFull(null);
     apply(addOp(config, stateRef.current, last.i, -last.count));
     setHistory((h) => h.slice(0, -1));
+  };
+
+  /**
+   * Takes the last mark of slot i back, where it sits: the mark the child put there last (a half
+   * picture if that was a half), or one mark of a chart the demonstration built.
+   */
+  const takeFrom = (i: number) => {
+    const id = slots[i]?.id ?? '';
+    const value = stateRef.current.values[i] ?? 0;
+    if (!interactive || value <= 0) return false;
+    const at = history.findLastIndex((h) => h.i === i);
+    const symbols = value / (config.mode === 'pictures' ? config.chart.scale : 1);
+    const count = at >= 0 ? (history[at]?.count ?? 1) : Number.isInteger(symbols) ? 1 : 0.5;
+    trace('undo', `slot-${id}`);
+    setFull(null);
+    setInvite(null);
+    const next = apply(addOp(config, stateRef.current, i, -count));
+    if (speakOnTap) sayNumber(next.values[i] ?? 0);
+    if (at >= 0) setHistory((h) => h.filter((_, k) => k !== at));
+    return true;
+  };
+
+  /** A tap or key on a row with nothing picked up: its last mark comes back, or the supply is cued. */
+  const touchLane = (i: number) => {
+    if (!interactive || place.selected !== null) return false;
+    if (takeFrom(i)) return true;
+    trace('tap', `slot-${slots[i]?.id ?? ''}`);
+    setNudge(true);
+    return true;
   };
 
   const ready = model.toResponse(state) !== null;
@@ -331,6 +385,8 @@ export function BarGraphBuildWidget({
     play: async (action) => {
       setDemoBusy(true);
       setInvite(null);
+      setFull(null);
+      setNudge(false);
       place.select(null);
       try {
         if (action.op === 'answer') {
@@ -390,8 +446,13 @@ export function BarGraphBuildWidget({
   );
   const pad = 6;
   const GAP = 16;
-  /** A board's caption line ("Count each one", "Your graph") and the space under it. */
-  const CAPTION = 30;
+  /** A board's caption line ("Count each one", "Your graph"). */
+  const CAPTION = 28;
+  /**
+   * The data board's share of the room beside the tools; the child's graph takes the rest. A list
+   * of measurements needs more (ten of them in three rows).
+   */
+  const DATA_SHARE = config.data.kind === 'measurements' ? 0.38 : 0.3;
   const stacked = (layout?.width ?? 1000) <= 760;
   let dataArea: { width: number; height: number } | null = null;
   let chartArea: { width: number; height: number } | null = null;
@@ -402,7 +463,7 @@ export function BarGraphBuildWidget({
       chartArea = { width: layout.width, height: h - dataArea.height };
     } else {
       const w = layout.width - tools.width - 2 * GAP;
-      dataArea = { width: Math.round(w * 0.38), height: layout.height };
+      dataArea = { width: Math.round(w * DATA_SHARE), height: layout.height };
       chartArea = { width: w - dataArea.width, height: layout.height };
     }
   }
@@ -415,9 +476,30 @@ export function BarGraphBuildWidget({
   const renderOverlay = (g: { slots: SlotGeometry[] }) =>
     g.slots.map((s) => {
       const i = s.index;
-      const props = place.targetProps(s.id, {
+      const base = place.targetProps(s.id, {
         label: t('ui.widget.chart.slot', { name: slotName(i), n: formatLength(s.value) }),
       });
+      // With nothing picked up the row is the undo target of its own marks.
+      const canUndo = interactive && place.selected === null && s.value > 0;
+      const props = {
+        ...base,
+        'aria-disabled': canUndo ? undefined : base['aria-disabled'],
+        onClick: (e: Parameters<typeof base.onClick>[0]) => {
+          const idle = place.selected === null;
+          base.onClick(e);
+          if (idle) touchLane(i);
+        },
+        onKeyDown: (e: Parameters<typeof base.onKeyDown>[0]) => {
+          if (e.repeat) return base.onKeyDown(e);
+          const erase = e.key === 'Backspace' || e.key === 'Delete';
+          const activate = e.key === 'Enter' || e.key === ' ';
+          if (erase ? takeFrom(i) : activate && touchLane(i)) {
+            e.preventDefault();
+            return;
+          }
+          base.onKeyDown(e);
+        },
+      };
       const invited = invitedSlot === i;
       return (
         <span key={s.id} className="ni-bgb__laneslot" style={laneStyle(s)}>
@@ -479,11 +561,17 @@ export function BarGraphBuildWidget({
                   maxWidth={inner(dataArea).width}
                   maxHeight={inner(dataArea).height}
                   target={48}
-                  padY={4}
+                  padY={2}
+                  names={false}
                   label={dataLabel}
                 />
               ) : (
-                <div className="ni-bgb__lengths" role="img" aria-label={dataLabel}>
+                <div
+                  className="ni-bgb__lengths"
+                  role="img"
+                  aria-label={dataLabel}
+                  style={{ maxWidth: inner(dataArea).width }}
+                >
                   {config.data.values.map((v, k) => (
                     // biome-ignore lint/suspicious/noArrayIndexKey: measurements keep their order
                     <span key={k} className="ni-bgb__length">
@@ -498,15 +586,21 @@ export function BarGraphBuildWidget({
         <div className="ni-bgb__chart">
           {chartArea ? (
             <div className="ni-bgb__board" data-board="build" style={{ padding: pad }}>
-              <span className="ni-bgb__title" data-board="build">
-                {t('ui.widget.chart.build-title')}
+              {/* The caption line also carries the full-row note (role="status": read out). */}
+              <span
+                className="ni-bgb__title"
+                data-board="build"
+                data-full={full === null ? undefined : 'true'}
+                role="status"
+              >
+                {t(full === null ? 'ui.widget.chart.build-title' : 'ui.widget.chart.full')}
               </span>
               <ChartView
                 chart={config.chart}
                 values={state.values}
                 maxWidth={inner(chartArea).width}
                 maxHeight={inner(chartArea).height}
-                padY={4}
+                padY={2}
                 target={target}
                 label={t('ui.widget.chart.graph')}
                 renderOverlay={renderOverlay}
@@ -526,7 +620,13 @@ export function BarGraphBuildWidget({
                   key={item}
                   type="button"
                   {...p}
-                  className={`${p.className} ni-bgb__chip`}
+                  className={[
+                    p.className,
+                    'ni-bgb__chip',
+                    nudge && item === 'mark' ? 'ni-invite' : '',
+                  ]
+                    .filter(Boolean)
+                    .join(' ')}
                   data-item={item}
                 >
                   <MarkIcon config={config} half={item === 'half'} />
@@ -536,7 +636,9 @@ export function BarGraphBuildWidget({
           </span>
           <button
             type="button"
-            className="ni-pad__key ni-bgb__back"
+            className={['ni-pad__key', 'ni-bgb__back', full === null ? '' : 'ni-invite']
+              .filter(Boolean)
+              .join(' ')}
             aria-label={t('ui.widget.chart.take-back')}
             disabled={!interactive || history.length === 0}
             onClick={takeBack}

@@ -1,7 +1,6 @@
 import type { WidgetConfig } from '@number-island/shared';
 import type { Meta, StoryObj } from '@storybook/react-vite';
 import { expect, fn, userEvent, waitFor, within } from 'storybook/test';
-import { center, clearSpies, pointerDrag, spyAudio } from '../../test-support/storyHelpers';
 import {
   areaBox,
   expectChartShows,
@@ -11,7 +10,8 @@ import {
   expectSymbolsOneSize,
   inArea,
   namedStory,
-} from '../../test-support/widgetArea';
+} from '../../test-support/chartArea';
+import { center, clearSpies, pointerDrag, spyAudio } from '../../test-support/storyHelpers';
 import {
   expectPointerOn,
   expectTraceOrdered,
@@ -100,7 +100,7 @@ const scaledPictures: Config = {
   mode: 'pictures',
 };
 
-/** Hand-made (DAT.03): a line plot of stick lengths in inches. */
+/** Hand-made (DAT.03): a line plot of stick lengths in inches, by halves. */
 const linePlot: Config = {
   format: 'bar-graph-build',
   chart: {
@@ -109,9 +109,9 @@ const linePlot: Config = {
     categories: [],
     scale: 1,
     axisMax: 4,
-    lineScale: { min: 1, max: 4, step: 0.5 },
+    lineScale: { min: 1, max: 2, step: 0.5 },
   },
-  data: { kind: 'measurements', values: [2, 2.5, 3, 2, 1.5] },
+  data: { kind: 'measurements', values: [1.5, 2, 1.5, 1, 2] },
   mode: 'xs',
 };
 
@@ -340,14 +340,14 @@ export const LinePlotXs: Story = {
   play: async ({ canvasElement, args }) => {
     const root = await findWidget(canvasElement, ROOT);
     const lengths = [...root.querySelectorAll('.ni-bgb__length')].map((e) => e.textContent);
-    await expect(lengths).toEqual(['2', '2½', '3', '2', '1½']);
+    await expect(lengths).toEqual(['1½', '2', '1½', '1', '2']);
     await userEvent.click(chip(root));
-    for (const at of ['2', '2.5', '3', '2', '1.5']) await userEvent.click(lane(root, at));
-    await expectChartShows(built(root), { '1': 0, '1.5': 1, '2': 2, '2.5': 1, '3': 1, '4': 0 });
+    for (const at of ['1.5', '2', '1.5', '1', '2']) await userEvent.click(lane(root, at));
+    await expectChartShows(built(root), { '1': 1, '1.5': 2, '2': 2 });
     await userEvent.click(check(root));
     await expect(args.onResponse).toHaveBeenCalledWith({
       kind: 'state',
-      value: { values: [0, 1, 2, 1, 1, 0, 0] },
+      value: { values: [1, 2, 2] },
     });
   },
 };
@@ -517,5 +517,285 @@ export const ScaledPicturesHalvesLandscapeMin: Story = {
       'g1-up',
       boards(root),
     );
+  },
+};
+
+// ---------- undo where the mark sits, and the full row ----------
+
+/**
+ * A mark is taken back where it sits, and never at the cost of adding one. Three marks are
+ * dragged onto the fish row (a drop is not followed by an undo). With nothing picked up, a tap on
+ * the row takes its last mark back (the new count is spoken, the undo traced); Backspace and Enter
+ * do the same from the keyboard. With the mark picked up, a tap on the same row adds. A tap on an
+ * empty row with nothing picked up points at the supply.
+ */
+export const UndoOnTheRow: Story = {
+  args: { config: tableTally8, tier: 'pictorial' },
+  parameters: { ui: { audio: spyAudio() } },
+  render: inArea('tablet'),
+  play: async ({ canvasElement, args, parameters }) => {
+    const audio = parameters.ui.audio as ReturnType<typeof spyAudio>;
+    const root = await findWidget(canvasElement, ROOT);
+    for (let i = 0; i < 3; i += 1) await pointerDrag(chip(root), center(lane(root, 'fish')));
+    await expectChartShows(built(root), { apple: 0, crab: 0, fish: 3 });
+    clearSpies(audio);
+    await expect(lane(root, 'fish')).not.toHaveAttribute('aria-disabled');
+    await userEvent.click(lane(root, 'fish'));
+    await expectChartShows(built(root), { apple: 0, crab: 0, fish: 2 });
+    await expect(audio.sayPhrases).toHaveBeenLastCalledWith([{ number: 2 }]);
+    lane(root, 'fish').focus();
+    await userEvent.keyboard('{Backspace}');
+    await expectChartShows(built(root), { apple: 0, crab: 0, fish: 1 });
+    await userEvent.keyboard('{Enter}');
+    await expectChartShows(built(root), { apple: 0, crab: 0, fish: 0 });
+    await expect(check(root)).toBeDisabled();
+    // The row is empty and nothing is picked up: the cue goes to the supply, nothing else rings.
+    await userEvent.click(lane(root, 'fish'));
+    await expect([...root.querySelectorAll('.ni-invite')]).toEqual([chip(root)]);
+    // With the mark picked up the cue is gone and every tap on a row adds, marks or no marks.
+    await userEvent.click(chip(root));
+    await expect(root.querySelector('.ni-invite')).toBeNull();
+    await userEvent.click(lane(root, 'fish'));
+    await userEvent.click(lane(root, 'fish'));
+    await expectChartShows(built(root), { apple: 0, crab: 0, fish: 2 });
+    const kinds = traceOf(args.onInteract).map((e) => `${e.t}:${e.target}`);
+    await expect(kinds.filter((k) => k === 'undo:slot-fish')).toHaveLength(3);
+  },
+};
+
+/**
+ * A full row is a state the child can read and leave (K, 960 × 600): the shells row holds 5 of 5;
+ * one more is refused, the graph's caption says "That one is full." (spoken too) and the one cue
+ * is on "Take one back". Taking one back restores the caption and removes the cue.
+ */
+export const FullRowKLandscapeMin: Story = {
+  globals: { ageMode: 'k' },
+  args: { config: tableTally, tier: 'pictorial' },
+  parameters: { ui: { audio: spyAudio() } },
+  render: inArea('landscapeMin'),
+  play: async ({ canvasElement, args, parameters }) => {
+    const audio = parameters.ui.audio as ReturnType<typeof spyAudio>;
+    const root = await findWidget(canvasElement, ROOT);
+    const caption = () => root.querySelector('.ni-bgb__title[data-board="build"]') as HTMLElement;
+    await userEvent.click(chip(root));
+    for (let i = 0; i < 5; i += 1) await userEvent.click(lane(root, 'shell'));
+    await expect(caption()).toHaveTextContent('Your graph');
+    clearSpies(audio);
+    await userEvent.click(lane(root, 'shell'));
+    await expectChartShows(built(root), { shell: 5, crab: 0, fish: 0 });
+    await expect(caption()).toHaveTextContent('That one is full.');
+    await expect(caption()).toHaveAttribute('role', 'status');
+    await expect(audio.say).toHaveBeenCalledWith('ui.widget.chart.full', undefined);
+    await expect([...root.querySelectorAll('.ni-invite')]).toEqual([back(root)]);
+    await expectFitsArea(
+      areaBox(canvasElement),
+      [...lanes(root), chip(root), back(root), check(root)],
+      'k',
+      [...boards(root), caption()],
+    );
+    await userEvent.click(back(root));
+    await expectChartShows(built(root), { shell: 4, crab: 0, fish: 0 });
+    await expect(caption()).toHaveTextContent('Your graph');
+    await expect(root.querySelector('.ni-invite')).toBeNull();
+    await expect(traceOf(args.onInteract).map((e) => `${e.t}:${e.target}`)).toContain(
+      'tap:full-shell',
+    );
+  },
+};
+
+// ---------- the model's bounds, in the smallest area at kindergarten sizes ----------
+
+const bound = (
+  mode: Config['mode'],
+  chart: Partial<Config['chart']> & Pick<Config['chart'], 'kind' | 'orientation' | 'axisMax'>,
+  data: Config['data'],
+): Config => ({
+  format: 'bar-graph-build',
+  chart: { categories: zero('firefly', 'crab', 'shell'), scale: 1, ...chart },
+  data,
+  mode,
+});
+
+/** Builds every count of `values` (ids in chart order) with taps, then checks the fit. */
+const stressBuild =
+  (values: Record<string, number>, perTap = 1) =>
+  async ({
+    canvasElement,
+    args,
+  }: {
+    canvasElement: HTMLElement;
+    args: { onResponse: unknown };
+  }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    await userEvent.click(chip(root));
+    for (const [id, n] of Object.entries(values)) {
+      for (let i = 0; i < n / perTap; i += 1) await userEvent.click(lane(root, id));
+    }
+    await expectChartShows(built(root), values, perTap);
+    await expectNumeralsReadable(root);
+    await expectFitsArea(
+      areaBox(canvasElement),
+      [...lanes(root), chip(root), back(root), check(root)],
+      'k',
+      boards(root),
+    );
+    await userEvent.click(check(root));
+    await expect(args.onResponse).toHaveBeenCalledWith({
+      kind: 'state',
+      value: { values: Object.values(values) },
+    });
+  };
+
+/** Three tally rows (GRAPH_ROWS_MAX), one of 20 marks (GRAPH_TALLY_MAX), the longest name. */
+const tallyAtBound = bound(
+  'tally',
+  { kind: 'tally', orientation: 'horizontal', axisMax: 20 },
+  { kind: 'table', values: [20, 12, 5] },
+);
+
+/** Stress at the bound, K, 960 × 600: three tally rows, one of 20 marks, from a table. */
+export const StressTallyAtBoundKLandscapeMin: Story = {
+  globals: { ageMode: 'k' },
+  args: { config: tallyAtBound, tier: 'pictorial' },
+  render: inArea('landscapeMin'),
+  play: stressBuild({ firefly: 20, crab: 12, shell: 5 }),
+};
+
+/** Three bars (GRAPH_COLUMNS_MAX), one of 10 blocks (BUILD_BAR_MAX), from tally rows of up to 10. */
+const barsAtBound = bound(
+  'bars',
+  { kind: 'bar', orientation: 'vertical', axisMax: 10 },
+  { kind: 'tally', values: [10, 7, 4] },
+);
+
+/** Stress at the bound, K, 960 × 600: three bars, one of 10 blocks, from a tally chart. */
+export const StressBarsAtBoundKLandscapeMin: Story = {
+  globals: { ageMode: 'k' },
+  args: { config: barsAtBound, tier: 'pictorial' },
+  render: inArea('landscapeMin'),
+  play: async (ctx) => {
+    await stressBuild({ firefly: 10, crab: 7, shell: 4 })(ctx);
+    const root = await findWidget(ctx.canvasElement, ROOT);
+    // The data board's tally marks can be seen and counted: every stroke at least 3 px wide and
+    // 20 px long, in a lane at least 60 px wide.
+    const data = root.querySelector('.ni-bgb__data') as HTMLElement;
+    await expectChartShows(data, { firefly: 10, crab: 7, shell: 4 });
+    // Each bar's top is on the gridline of its count (the axis starts at zero).
+    const zero = (
+      data.ownerDocument.querySelector('.ni-bgb__chart .ni-chart') as HTMLElement
+    ).getBoundingClientRect();
+    await expect(zero.height).toBeGreaterThan(0);
+  },
+};
+
+/** Two keyed picture rows (GRAPH_BAR_ROWS_MAX), one of 6 pictures (BUILD_PICTURES_MAX), each 2. */
+const picturesAtBound = bound(
+  'pictures',
+  {
+    kind: 'picture',
+    orientation: 'horizontal',
+    axisMax: 12,
+    scale: 2,
+    categories: zero('firefly', 'crab'),
+  },
+  { kind: 'table', values: [12, 7] },
+);
+
+/** Stress at the bound, K, 960 × 600: two picture rows, one of 6 pictures, a half picture. */
+export const StressPicturesAtBoundKLandscapeMin: Story = {
+  globals: { ageMode: 'k' },
+  args: { config: picturesAtBound, tier: 'pictorial' },
+  render: inArea('landscapeMin'),
+  play: async ({ canvasElement, args }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    await userEvent.click(chip(root));
+    for (let i = 0; i < 6; i += 1) await userEvent.click(lane(root, 'firefly'));
+    for (let i = 0; i < 3; i += 1) await userEvent.click(lane(root, 'crab'));
+    await userEvent.click(chip(root, 'half'));
+    await userEvent.click(lane(root, 'crab'));
+    await expectChartShows(built(root), { firefly: 12, crab: 7 }, 2);
+    await expectSymbolsOneSize(built(root));
+    // Every picture can be seen and counted: at least 24 px.
+    for (const art of built(root).querySelectorAll('.ni-chart__symbolart')) {
+      await expect(art.getBoundingClientRect().height).toBeGreaterThanOrEqual(24);
+    }
+    await expectFitsArea(
+      areaBox(canvasElement),
+      [...lanes(root), chip(root), chip(root, 'half'), back(root), check(root)],
+      'k',
+      boards(root),
+    );
+    await userEvent.click(check(root));
+    await expect(args.onResponse).toHaveBeenCalledWith({
+      kind: 'state',
+      value: { values: [12, 7] },
+    });
+  },
+};
+
+/** A line plot of 4 positions (BUILD_LINE_POSITIONS_MAX), a stack of 6, from 10 measurements. */
+const xsAtBound: Config = {
+  format: 'bar-graph-build',
+  chart: {
+    kind: 'line-plot',
+    orientation: 'horizontal',
+    categories: [],
+    scale: 1,
+    axisMax: 6,
+    lineScale: { min: 1, max: 4, step: 1 },
+  },
+  data: { kind: 'measurements', values: [2, 2, 3, 2, 1, 2, 3, 2, 4, 2] },
+  mode: 'xs',
+};
+
+/** Stress at the bound, K, 960 × 600: four positions, a stack of six Xs, ten measurements. */
+export const StressLinePlotAtBoundKLandscapeMin: Story = {
+  globals: { ageMode: 'k' },
+  args: { config: xsAtBound, tier: 'pictorial' },
+  render: inArea('landscapeMin'),
+  play: async ({ canvasElement, args }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    await expect(root.querySelectorAll('.ni-bgb__length')).toHaveLength(10);
+    await userEvent.click(chip(root));
+    for (const at of [2, 2, 3, 2, 1, 2, 3, 2, 4, 2]) await userEvent.click(lane(root, String(at)));
+    await expectChartShows(built(root), { '1': 1, '2': 6, '3': 2, '4': 1 });
+    await expectNumeralsReadable(root);
+    for (const x of built(root).querySelectorAll('.ni-chart__x')) {
+      await expect(x.getBoundingClientRect().width).toBeGreaterThanOrEqual(16);
+    }
+    await expectFitsArea(
+      areaBox(canvasElement),
+      [...lanes(root), chip(root), back(root), check(root)],
+      'k',
+      boards(root),
+    );
+    await userEvent.click(check(root));
+    await expect(args.onResponse).toHaveBeenCalledWith({
+      kind: 'state',
+      value: { values: [1, 6, 2, 1] },
+    });
+  },
+};
+
+/** Twenty objects to count (BUILD_DATA_OBJECTS_MAX) into three tally rows. */
+const objectsAtBound = bound(
+  'tally',
+  { kind: 'tally', orientation: 'horizontal', axisMax: 10 },
+  { kind: 'objects', values: [9, 7, 4] },
+);
+
+/** Stress at the bound, K, 960 × 600: twenty objects, each at least 28 px and apart. */
+export const StressObjectsAtBoundKLandscapeMin: Story = {
+  globals: { ageMode: 'k' },
+  args: { config: objectsAtBound, tier: 'concrete' },
+  render: inArea('landscapeMin'),
+  play: async (ctx) => {
+    const root = await findWidget(ctx.canvasElement, ROOT);
+    const objects = [...root.querySelectorAll('.ni-bgb__object')];
+    await expect(objects).toHaveLength(20);
+    for (const o of objects) {
+      await expect(o.getBoundingClientRect().width).toBeGreaterThanOrEqual(22);
+    }
+    await stressBuild({ firefly: 9, crab: 7, shell: 4 })(ctx);
   },
 };

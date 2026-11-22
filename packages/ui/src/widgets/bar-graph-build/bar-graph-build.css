@@ -49,13 +49,14 @@
 .ni-bgb__title {
   display: block;
   align-self: flex-start;
-  height: 26px;
-  margin: 0 0 4px 6px;
+  height: 28px;
+  margin: 0 0 0 6px;
   color: var(--color-ink);
   font-family: var(--font-body);
-  font-size: 20px;
+  /* The graph widgets' label style: 24 px, 28 px in kindergarten mode (chart.css). */
+  font-size: 24px;
   font-weight: 700;
-  line-height: 26px;
+  line-height: 28px;
   white-space: nowrap;
 }
 
@@ -72,9 +73,9 @@
   display: flex;
   flex-wrap: wrap;
   justify-content: center;
-  gap: 10px;
+  gap: 8px;
   max-width: 300px;
-  padding: 8px;
+  padding: 4px;
 }
 .ni-bgb__length {
   min-width: 56px;
@@ -117,6 +118,13 @@
   outline-offset: -9px;
   animation: none;
   border-radius: 14px;
+}
+/* The cue of a full row ("Take one back") and of an empty-handed tap (the supply): the same ring,
+   inside the control's own box. */
+.ni-bgb .ni-bgb__back.ni-invite,
+.ni-bgb .ni-bgb__chip.ni-invite {
+  outline-offset: -9px;
+  animation: none;
 }
 
 .ni-bgb__tools {
@@ -195,4 +203,8 @@
     flex-direction: row;
     justify-content: center;
   }
+}
+
+[data-age-mode="k"] .ni-bgb__title {
+  font-size: 28px;
 }

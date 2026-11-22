@@ -11,12 +11,18 @@
 // another way. Response `{ values }` (`chart.values`): the count in each slot, in chart order
 // (categories; line-plot positions min → max), whatever the marks; null while the chart is empty.
 // The generic `answer {values}` sets every count at once. Counts stay within 0 … axisMax.
+//
+// Supported domain: `graphIssues('build')` (formats/bar-graph.ts) bounds the chart (rows, columns,
+// marks in a lane, line-plot positions); the data shows at most BUILD_DATA_OBJECTS_MAX objects or
+// BUILD_DATA_MEASUREMENTS_MAX measurements, and a tally row of the data BUILD_DATA_TALLY_MAX marks. The item's answer is `buildTargets` of the config
+// (`barGraphBuildAnswerIssues`).
 
 import {
   type AnswerSpec,
   barGraphBuildConfigSchema,
   type WidgetConfigOf,
 } from '@number-island/shared';
+import { BUILD_DATA_TALLY_MAX, graphIssues, graphLabelIssues } from './bar-graph';
 import { chartIssues, chartSlots, halvesOfScale, linePositions, positionId, tidy } from './chart';
 import {
   argNumber,
@@ -33,6 +39,11 @@ export interface BarGraphBuildState extends FormatState<'bar-graph-build'> {
   /** The count built in each slot (chartSlots order). */
   values: number[];
 }
+
+/** Objects scattered on the data board to count: at most 20 in all (each stays countable). */
+export const BUILD_DATA_OBJECTS_MAX = 20;
+/** Measurements listed on the data board of a line plot: at most 10. */
+export const BUILD_DATA_MEASUREMENTS_MAX = 10;
 
 const MODE_KIND: Record<Config['mode'], Config['chart']['kind']> = {
   bars: 'bar',
@@ -53,10 +64,35 @@ export function buildTargets(c: Config): number[] {
   return counts;
 }
 
+/** Why an item's answer is not the one its config asks for (empty: it is). */
+export function barGraphBuildAnswerIssues(c: Config, answer: AnswerSpec): string[] {
+  if (answer.kind !== 'state' || answer.checker !== 'chart.values') {
+    return ['bar-graph-build answers state chart.values'];
+  }
+  const want = buildTargets(c);
+  const got = Array.isArray(answer.target.values) ? answer.target.values : [];
+  return got.length === want.length && want.every((v, i) => got[i] === v)
+    ? []
+    : [`the chart to build is ${JSON.stringify(want)}`];
+}
+
 const configSchema = barGraphBuildConfigSchema.superRefine((c, ctx) => {
   const add = (path: (string | number)[], message: string) =>
     ctx.addIssue({ code: 'custom', path, message });
   chartIssues(c.chart, ctx, ['chart']);
+  graphIssues(c.chart, 'build', (path, message) => add(['chart', ...path], message));
+  if (c.data.kind === 'objects') {
+    const all = c.data.values.reduce((a, b) => a + b, 0);
+    if (all > BUILD_DATA_OBJECTS_MAX) {
+      add(['data', 'values'], `at most ${BUILD_DATA_OBJECTS_MAX} objects to count`);
+    }
+  }
+  if (c.data.kind === 'tally' && c.data.values.some((v) => v > BUILD_DATA_TALLY_MAX)) {
+    add(['data', 'values'], `a tally row of the data shows at most ${BUILD_DATA_TALLY_MAX} marks`);
+  }
+  if (c.data.kind === 'measurements' && c.data.values.length > BUILD_DATA_MEASUREMENTS_MAX) {
+    add(['data', 'values'], `at most ${BUILD_DATA_MEASUREMENTS_MAX} measurements`);
+  }
   if (MODE_KIND[c.mode] !== c.chart.kind) {
     add(['mode'], `${c.mode} builds a ${MODE_KIND[c.mode]} chart, not ${c.chart.kind}`);
   }
@@ -106,6 +142,8 @@ function clampTo(s: BarGraphBuildState, i: number, v: number): BarGraphBuildStat
 export const barGraphBuild: FormatModel<'bar-graph-build', BarGraphBuildState> = {
   format: 'bar-graph-build',
   configSchema,
+  answerIssues: barGraphBuildAnswerIssues,
+  labelIssues: (c, text) => graphLabelIssues(c.chart, text),
   features: {
     'categories.over2': { weight: 0.2, doc: 'categories − 2 (each)' },
     'scale.notOne': { weight: 0.6, doc: 'each symbol or axis step stands for 2, 5 or 10' },

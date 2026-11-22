@@ -190,11 +190,13 @@ const bbLine: WidgetConfigOf<'bar-graph-build'> = {
     categories: [],
     scale: 1,
     axisMax: 5,
-    lineScale: { min: 0, max: 3, step: 0.5 },
+    lineScale: { min: 1, max: 2, step: 0.5 },
   },
-  data: { kind: 'measurements', values: [1, 1.5, 3, 1.5, 1.5] },
+  data: { kind: 'measurements', values: [1, 1.5, 2, 1.5, 1.5] },
   mode: 'xs',
 };
+/** A line plot to read: seven positions (a plot to build has at most BUILD_LINE_POSITIONS_MAX). */
+const wideLine: ChartSpec = { ...bbLine.chart, lineScale: { min: 0, max: 3, step: 0.5 } };
 
 interface Row {
   model: AnyModel;
@@ -413,12 +415,17 @@ describe('pattern-extend', () => {
     expect(r).toEqual({ kind: 'state', value: want });
     expect(passes('select.exactSet', want, r)).toBe(true);
     expect(respond(patternExtend, peCore, [act('bracket-core', { from: 2, to: 0 })])).toEqual(r);
-    // A re-bracket replaces the mark; the second repeat is not the first one.
+    // A re-bracket replaces the mark. Every whole repeat is the core: the second one answers as
+    // the first (coreValues); a run that starts inside a repeat does not.
     const later = respond(patternExtend, peCore, [
       act('bracket-core', { from: 0, to: 2 }),
       act('bracket-core', { from: 3, to: 5 }),
     ]);
-    expect(passes('select.exactSet', want, later)).toBe(false);
+    expect(later).toEqual(r);
+    expect(passes('select.exactSet', want, later)).toBe(true);
+    const shifted = respond(patternExtend, peCore, [act('bracket-core', { from: 1, to: 3 })]);
+    expect(shifted).toEqual({ kind: 'state', value: { values: [1, 2, 3] } });
+    expect(passes('select.exactSet', want, shifted)).toBe(false);
     expect(respond(patternExtend, peCore, [act('bracket-core', { from: 0, to: 6 })])).toBeNull();
     expect(respond(patternExtend, peCore, [act('answer', { values: [2, 0, 1] })])).toEqual(r);
     // Outside core mode the op does nothing.
@@ -520,9 +527,11 @@ describe('pattern-extend', () => {
   });
 
   it('accepts every mode and kind it supports', () => {
-    for (const c of [peBase, peFill, peCore, peNumber, peRule, peTable, peTranslate, peGrow]) {
+    for (const c of [peBase, peFill, peCore, peNumber, peRule, peTranslate, peGrow]) {
       expect(issuePaths(patternExtend, c), c.mode).toEqual([]);
     }
+    // A table has no layout in the widget yet: the schema refuses the mode (the ops stay).
+    expect(issuePaths(patternExtend, peTable)).toEqual(['mode']);
   });
 
   it('rejects patterns the widget cannot draw or the child cannot answer', () => {
@@ -565,7 +574,7 @@ describe('pattern-extend', () => {
 describe('chart maths', () => {
   it('slots are the categories, or the line-plot positions', () => {
     expect(chartSlots(chart()).map((s) => s.id)).toEqual(['fish', 'crab']);
-    expect(chartSlots(bbLine.chart).map((s) => s.id)).toEqual([
+    expect(chartSlots(wideLine).map((s) => s.id)).toEqual([
       '0',
       '0.5',
       '1',
@@ -577,7 +586,7 @@ describe('chart maths', () => {
     expect(linePositions({ min: 0, max: 1, step: 0.25 })).toEqual([0, 0.25, 0.5, 0.75, 1]);
     expect(positionId(0.1 + 0.2)).toBe('0.3');
     const plotted: ChartSpec = {
-      ...bbLine.chart,
+      ...wideLine,
       categories: [
         { id: '1.5', label: 'noun.fish.many', value: 3 },
         { id: '3', label: 'noun.fish.many', value: 1 },
@@ -653,7 +662,7 @@ describe('bar-graph-read', () => {
     const lp: WidgetConfigOf<'bar-graph-read'> = {
       format: 'bar-graph-read',
       chart: {
-        ...bbLine.chart,
+        ...wideLine,
         categories: [
           { id: '1.5', label: 'noun.fish.many', value: 3 },
           { id: '2', label: 'noun.fish.many', value: 1 },
@@ -676,16 +685,15 @@ describe('bar-graph-read', () => {
         axisMax: 10,
         categories: [
           { id: 'fish', label: 'noun.fish.many', value: 7 },
-          { id: 'crab', label: 'noun.crab.many', value: 4 },
-          { id: 'shell', label: 'noun.shell.many', value: 2 },
-          { id: 'apple', label: 'noun.apple.many', value: 10 },
+          { id: 'crab', label: 'noun.crab.many', value: 10 },
         ],
       }),
       question: { type: 'two-step', categories: ['fish', 'crab'], extra: 3 },
     };
     expect(issuePaths(barGraphRead, hard)).toEqual([]);
     expect(barGraphRead.featureValues(hard, { kind: 'number', value: 0 })).toEqual({
-      'categories.over2': 2,
+      // A picture graph with a key has two rows at most (GRAPH_BAR_ROWS_MAX).
+      'categories.over2': 0,
       'scale.notOne': 1,
       halfSymbol: 1,
       'q.difference': 0,
@@ -788,11 +796,11 @@ describe('bar-graph-build', () => {
   });
 
   it('a line plot from measurements: Xs per position, min → max', () => {
-    expect(buildTargets(bbLine)).toEqual([0, 0, 1, 3, 0, 0, 1]);
-    const ops = [1, 1.5, 1.5, 3, 1.5].map((at) => act('add-x', { at }));
+    expect(buildTargets(bbLine)).toEqual([1, 3, 1]);
+    const ops = [1, 1.5, 1.5, 2, 1.5].map((at) => act('add-x', { at }));
     expect(respond(barGraphBuild, bbLine, ops)).toEqual({
       kind: 'state',
-      value: { values: [0, 0, 1, 3, 0, 0, 1] },
+      value: { values: [1, 3, 1] },
     });
     expect(check(bbLine, ops)).toBe(true);
     expect(check(bbLine, [...ops, act('add-x', { at: 1.5, count: -1 })])).toBe(false);

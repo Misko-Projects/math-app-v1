@@ -8,13 +8,19 @@
 // Ops: `point-bar {id}` (Pip points at a category's bar, row or column), `read-axis {id}` (follow
 // the bar's top across to the axis), `count-pictures {id}` (count the symbols, marks or the table
 // cell); all three are visual and leave the answer alone. Response: `{ kind: 'number', value }`
-// or `{ kind: 'choice', id }`, null until the child has answered.
+// or `{ kind: 'choice', id }`, null until the child has answered. `answer {}` with no id takes a
+// picked category back.
+//
+// Supported domain: `graphIssues('read')` (formats/bar-graph.ts) bounds the chart; every value is
+// a whole number, and the answer (`barGraphReadAnswer`, the one source for the item's answer and
+// the widget's counter) is a whole number 0 to GRAPH_ANSWER_MAX.
 
 import {
   type AnswerSpec,
   barGraphReadConfigSchema,
   type WidgetConfigOf,
 } from '@number-island/shared';
+import { GRAPH_ANSWER_MAX, graphIssues, graphLabelIssues } from './bar-graph';
 import { chartIssues, chartSlots, needsPartSymbol, slotValues } from './chart';
 import {
   argNumber,
@@ -46,8 +52,89 @@ const NAMED: Partial<Record<QuestionType, number>> = {
   'how-many-more-to': 1,
 };
 
+/**
+ * The answer a config asks for: the count (or the category for most / least), or null when the
+ * question does not have one (a tie, a missing category). The item's answer must equal it
+ * (`barGraphReadAnswerIssues`), and the widget's counter stops at `readAnswerMax`.
+ */
+export function barGraphReadAnswer(c: Config): AnswerSpec | null {
+  const slots = chartSlots(c.chart);
+  const counts = slotValues(c.chart);
+  const q = c.question;
+  const vs = q.categories.map((id) => counts[slots.findIndex((x) => x.id === id)]);
+  if (vs.length === 0 || vs.some((v) => v === undefined)) return null;
+  const values = vs as number[];
+  const sum = values.reduce((a, b) => a + b, 0);
+  const number = (value: number): AnswerSpec => ({ kind: 'number', value });
+  switch (q.type) {
+    case 'how-many':
+      return number(values[0] as number);
+    case 'total':
+      return number(sum);
+    case 'difference':
+      return values.length === 2 ? number((values[0] as number) - (values[1] as number)) : null;
+    case 'how-many-more-to':
+      return q.extra === undefined ? null : number(q.extra - (values[0] as number));
+    case 'two-step':
+      return q.extra === undefined ? null : number(sum + q.extra);
+    default: {
+      const best = q.type === 'most' ? Math.max(...values) : Math.min(...values);
+      const at = values.flatMap((v, i) => (v === best ? [i] : []));
+      return at.length === 1
+        ? { kind: 'choice', id: q.categories[at[0] as number] as string }
+        : null;
+    }
+  }
+}
+
+/** The largest number any question about this chart can answer (the counter's top). */
+export function readAnswerMax(c: Config): number {
+  const sum = slotValues(c.chart).reduce((a, b) => a + b, 0);
+  return Math.min(
+    GRAPH_ANSWER_MAX,
+    Math.max(sum, sum + (c.question.extra ?? 0), c.question.extra ?? 0),
+  );
+}
+
+/** Why an item's answer is not the one its config asks for (empty: it is). */
+export function barGraphReadAnswerIssues(c: Config, answer: AnswerSpec): string[] {
+  const want = barGraphReadAnswer(c);
+  if (!want) return ['the question has no single answer'];
+  if (want.kind === 'number') {
+    return answer.kind === 'number' && answer.value === want.value && !answer.tolerance
+      ? []
+      : [`the graph answers ${want.value}, exactly`];
+  }
+  return answer.kind === 'choice' && want.kind === 'choice' && answer.id === want.id
+    ? []
+    : [`the graph answers ${want.kind === 'choice' ? want.id : ''}`];
+}
+
 const configSchema = barGraphReadConfigSchema.superRefine((c, ctx) => {
   chartIssues(c.chart, ctx, ['chart']);
+  graphIssues(c.chart, 'read', (path, message) =>
+    ctx.addIssue({ code: 'custom', path: ['chart', ...path], message }),
+  );
+  c.chart.categories.forEach((x, i) => {
+    if (!Number.isInteger(x.value)) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['chart', 'categories', i, 'value'],
+        message: 'a graph the child reads shows whole numbers',
+      });
+    }
+  });
+  if (c.question.extra !== undefined && !Number.isInteger(c.question.extra)) {
+    ctx.addIssue({ code: 'custom', path: ['question', 'extra'], message: 'extra is whole' });
+  }
+  const asked = barGraphReadAnswer(c);
+  if (asked?.kind === 'number' && !(asked.value >= 0 && asked.value <= GRAPH_ANSWER_MAX)) {
+    ctx.addIssue({
+      code: 'custom',
+      path: ['question'],
+      message: `the answer is 0 to ${GRAPH_ANSWER_MAX} (the pad cannot type ${asked.value})`,
+    });
+  }
   // Line plots ask about positions (ids as positionId writes them).
   const slots = chartSlots(c.chart);
   const counts = slotValues(c.chart);
@@ -117,6 +204,8 @@ const configSchema = barGraphReadConfigSchema.superRefine((c, ctx) => {
 export const barGraphRead: FormatModel<'bar-graph-read', BarGraphReadState> = {
   format: 'bar-graph-read',
   configSchema,
+  answerIssues: barGraphReadAnswerIssues,
+  labelIssues: (c, text) => graphLabelIssues(c.chart, text),
   features: {
     'categories.over2': { weight: 0.2, doc: 'categories − 2 (each)' },
     'scale.notOne': { weight: 0.6, doc: 'each symbol or axis step stands for 2, 5 or 10' },
@@ -171,10 +260,14 @@ export const barGraphRead: FormatModel<'bar-graph-read', BarGraphReadState> = {
       case 'answer': {
         if (asksCategory(s.config.question.type)) {
           const id = argString(a, 'id');
+          // No id: the picked category is put back (the child taps it again).
+          if (a.args?.id === undefined) return s.choice === null ? s : { ...s, choice: null };
           return isCategory(id) ? { ...s, choice: id } : s;
         }
         const v = argNumber(a, 'value');
-        return v === undefined ? s : { ...s, value: v };
+        // Only what the pad or the counter can enter: a whole number 0 to GRAPH_ANSWER_MAX.
+        if (v === undefined || !Number.isInteger(v) || v < 0 || v > GRAPH_ANSWER_MAX) return s;
+        return { ...s, value: v };
       }
       default:
         throw new UnsupportedOpError('bar-graph-read', a.op);

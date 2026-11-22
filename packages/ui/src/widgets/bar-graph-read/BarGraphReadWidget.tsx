@@ -3,6 +3,7 @@ import {
   type BarGraphReadState,
   type FormatModel,
   formatModel,
+  GRAPH_ANSWER_MAX,
   symbolParts,
 } from '@number-island/engine';
 import type { WidgetAction } from '@number-island/shared';
@@ -39,8 +40,10 @@ import './bar-graph-read.css';
  * table) and a question. Counting questions (how many, in all, how many more, …) answer the typed
  * number: a 3 × 4 pad from G1, a one-more / one-less counter in K (06 §1: a K pad cannot fit the
  * 960 × 600 widget area). "Most" and "fewest" questions answer a category: its label on the chart
- * is the choice (tap it: it speaks its name and is picked, ink ring and check badge). Tapping any
- * category label speaks its name (06 §5). The response is built by the engine model.
+ * is the choice (tap it: it speaks its name and is picked, ink ring and check badge; tap the
+ * picked one again and it is put back, traced as an undo). Tapping any category label speaks its
+ * name (06 §5). The response is built by the engine model. The pad and the counter enter whole
+ * numbers 0 to GRAPH_ANSWER_MAX, which holds every answer the model accepts.
  *
  * Demo ops: `point-bar {id}`, `read-axis {id}` (a dashed line from the bar's top to the axis),
  * `count-pictures {id}` (the marks ringed one by one, counted aloud), plus `answer {value | id}`.
@@ -118,9 +121,16 @@ export function BarGraphReadWidget({
 
   const tapCategory = (slot: SlotGeometry) => {
     if (!interactive) return;
+    setInvite(null);
+    // The picked category, tapped again, is put back (undone where it sits).
+    if (choice && stateRef.current.choice === slot.id) {
+      trace('undo', `cat-${slot.id}`);
+      if (speakOnTap) speakSlot(slot);
+      apply({ op: 'answer', args: {} });
+      return;
+    }
     trace('tap', `cat-${slot.id}`);
     if (speakOnTap) speakSlot(slot);
-    setInvite(null);
     if (choice) apply({ op: 'answer', args: { id: slot.id } });
   };
 
@@ -295,7 +305,7 @@ export function BarGraphReadWidget({
     );
   };
 
-  const boardPad = 10;
+  const boardPad = 6;
   const GAP = 16;
   const stacked = (layout?.width ?? 1000) <= 760;
   const area =
@@ -352,7 +362,12 @@ export function BarGraphReadWidget({
             <>
               <div className="ni-bgr__entry">
                 {answerBox}
-                <CheckButton onPress={submit} disabled={!interactive || !ready} />
+                {/* Icon-only where the area is narrow, so the chart keeps its columns' room. */}
+                <CheckButton
+                  onPress={submit}
+                  disabled={!interactive || !ready}
+                  compact={(layout?.width ?? 1200) < 1000}
+                />
               </div>
               <NumberPadKeys
                 onKey={onKey}
@@ -366,7 +381,7 @@ export function BarGraphReadWidget({
               <span className="ni-bgr__answerbox">
                 <Stepper
                   value={count}
-                  max={99}
+                  max={GRAPH_ANSWER_MAX}
                   highlighted={invitedAnswer ? 'more' : null}
                   disabled={!interactive}
                   onPress={(k) => trace('tap', `step-${k}`)}

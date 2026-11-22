@@ -1,7 +1,7 @@
 import type { ChartSpec, StimulusSpec, WidgetConfig } from '@number-island/shared';
 import type { Meta, StoryObj } from '@storybook/react-vite';
 import { expect, fn, userEvent, within } from 'storybook/test';
-import { expectChartShows } from '../../test-support/widgetArea';
+import { expectChartShows } from '../../test-support/chartArea';
 import { findWidget, renderWidget } from '../../test-support/widgetStory';
 import type { ConfigFor } from '../types';
 import { StimulusView } from './StimulusView';

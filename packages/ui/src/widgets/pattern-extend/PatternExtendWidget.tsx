@@ -4,7 +4,6 @@ import {
   formatModel,
   MAX_TILES,
   type PatternExtendState,
-  tableBlanks,
   tokenFamily,
 } from '@number-island/engine';
 import type { PatternToken, WidgetAction } from '@number-island/shared';
@@ -46,12 +45,19 @@ import './pattern-extend.css';
  * `pattern-extend` (03 §5.5): a pattern of island objects, coloured shapes, numbers or growing
  * tile stacks, read left to right.
  * - `extend`, `fill`: drag a unit from the pieces onto a blank (or tap the unit, then the blank;
- *   or the keyboard). Tapping a filled blank takes its unit off. Number blanks are typed on the pad
- *   (tap a blank to choose it); tile blanks are built with one-more / one-less.
+ *   or the keyboard). A filled blank gives its unit back when it is tapped with no piece picked
+ *   up (Enter, Backspace or Delete on the keyboard); the unit is named and the undo traced.
+ *   Number blanks are typed on the pad (tap a blank to choose it); tile blanks are built with
+ *   one-more / one-less, and the tallest stack says so and points at one-less.
  * - `core`: tap where the repeating part starts and where it ends (or drag across it); a band
- *   marks the part. `translate`: rebuild the pattern below with the new units.
- * - `rule`: type how much each jump grows. `table`: type the missing outputs.
+ *   marks the part, and a tap on the band takes it off. `translate`: rebuild the pattern below
+ *   with the new units.
+ * - `rule`: type how much each jump grows.
  * Every change goes through the engine model; Check sends its response. Tapping a unit speaks it.
+ *
+ * Layout: the controls sit under the pattern (the pad in two rows of six keys where the area is
+ * wide), so every pattern the model accepts fits the smallest widget area at kindergarten sizes.
+ * The model does not accept `table` yet (it needs its own layout there).
  *
  * Demo ops: `place-token {index, token}`, `bracket-core {from, to}`, `highlight {index}`, plus
  * `answer {value | values}`.
@@ -60,6 +66,8 @@ import './pattern-extend.css';
 const OPS = ['place-token', 'bracket-core', 'highlight', 'answer'] as const;
 const KEY_MS = 340;
 const MAX_DIGITS = 3;
+/** A number cell holds three digits at the numeral size. */
+const NUMBER_CELL = 96;
 
 type Config = ConfigFor<'pattern-extend'>;
 
@@ -94,10 +102,8 @@ export function PatternExtendWidget({
   const trace = useInteractionTrace(onInteract);
   const alive = useAlive();
   const pause = useDemoPause();
-  // The strip takes the room the controls leave beside it (typed patterns) or the whole width;
-  // the strip and the controls then sit together, centred in the widget area.
+  // The strip takes the whole width; the controls sit under it, centred in the widget area.
   const [layoutRef, layoutBox] = useMeasuredBox<HTMLDivElement>();
-  const [controlsRef, controlsBox] = useMeasuredBox<HTMLDivElement>();
   const [state, setState] = useState<PatternExtendState>(() => model.initialState(config));
   const rootRef = useRef<HTMLDivElement | null>(null);
   const stateRef = useRef(state);
@@ -106,19 +112,17 @@ export function PatternExtendWidget({
   const mode = config.mode;
   const shown = config.sequence.find((x): x is PatternToken => x !== null);
   const family = shown ? tokenFamily(shown) : 'n';
-  const typed = mode === 'rule' || mode === 'table' || (family === 'n' && mode !== 'core');
+  const typed = mode === 'rule' || (family === 'n' && mode !== 'core');
   const tiles = family === 'tiles' && config.palette.length === 0 && !typed;
   const units = mode === 'translate' ? (config.translateTo ?? []) : config.palette;
   const placing =
     !typed && !tiles && (mode === 'extend' || mode === 'fill' || mode === 'translate');
   const blanks =
-    mode === 'table'
-      ? tableBlanks(config)
-      : mode === 'translate'
-        ? config.sequence.map((_, i) => i)
-        : mode === 'extend' || mode === 'fill'
-          ? blankIndexes(config)
-          : [];
+    mode === 'translate'
+      ? config.sequence.map((_, i) => i)
+      : mode === 'extend' || mode === 'fill'
+        ? blankIndexes(config)
+        : [];
 
   const [texts, setTexts] = useState<Record<number, string>>({});
   const [ruleText, setRuleText] = useState('');
@@ -163,10 +167,14 @@ export function PatternExtendWidget({
     },
   });
 
+  /** Takes the unit in a blank back (a tap or key on it with no piece picked up). */
   const clearBlank = (index: number) => {
-    if (!interactive || place.selected !== null || !stateRef.current.placed[index]) return;
+    const held = stateRef.current.placed[index];
+    if (!interactive || place.selected !== null || !held) return false;
     trace('undo', `blank-${index}`);
+    if (speakOnTap) speakToken(held);
     apply({ op: 'place-token', args: { index } });
+    return true;
   };
 
   // ---------- typed blanks (numbers, tables, rule) ----------
@@ -218,6 +226,12 @@ export function PatternExtendWidget({
     if (speakOnTap) speakToken(token);
     if (mode !== 'core') return;
     setInvite(null);
+    // A tap on the band takes it off (the mark is undone where it sits).
+    if (pending === null && stateRef.current.selected.includes(i)) {
+      trace('undo', `tok-${i}`);
+      apply({ op: 'answer', args: { values: [] } });
+      return;
+    }
     if (pending === null) {
       setPending(i);
       bracket(i, i);
@@ -390,14 +404,13 @@ export function PatternExtendWidget({
   const len = config.sequence.length;
   const gap = 12;
   // The strip's padding and border take 40 px of the measured width.
-  const beside = typed && (layoutBox?.width ?? 1000) > 760;
-  const room = (layoutBox?.width ?? 880) - (beside ? (controlsBox?.width ?? 0) + 16 : 0);
-  const width = room - 40;
-  const cell =
-    mode === 'table'
-      ? target
-      : Math.max(target, Math.min(104, Math.floor((width - (len - 1) * gap) / len)));
-  const perRow = Math.max(1, Math.floor((width + gap) / (cell + gap)));
+  const width = (layoutBox?.width ?? 880) - 40;
+  // A translation's two strips stay at the target size, so both and the pieces fit a short area.
+  const grow = mode === 'translate' ? target : 96;
+  const cell = Math.max(target, Math.min(grow, Math.floor((width - (len - 1) * gap) / len)));
+  // A number cell is wide enough for three digits, whatever the age mode.
+  const cellWidth = family === 'n' ? Math.max(cell, NUMBER_CELL) : cell;
+  const perRow = Math.max(1, Math.floor((width + gap) / (cellWidth + gap)));
   // Even columns (as the numeral tray lays out cards): full rows line up, the last is centred.
   const grid = trayGrid(len, perRow);
   const rows = Array.from({ length: grid.rows }, (_, r) =>
@@ -424,9 +437,7 @@ export function PatternExtendWidget({
   const handScope =
     mode === 'translate' && invite?.op === 'place-token'
       ? '[data-row="new"]'
-      : mode === 'table'
-        ? '.ni-pattern__table'
-        : '[data-row="pattern"]';
+      : '[data-row="pattern"]';
   const { hand: inviteHand, rootStyle: handRootStyle } = useInviteHand(
     rootRef,
     (root) =>
@@ -448,7 +459,7 @@ export function PatternExtendWidget({
     return start && end ? 'only' : start ? 'start' : end ? 'end' : 'mid';
   };
 
-  const style = { '--cell': `${cell}px` } as CSSProperties;
+  const style = { '--cell': `${cell}px`, '--cell-width': `${cellWidth}px` } as CSSProperties;
   // Tile stacks share one scale: the largest stack shown or built.
   const tileFrame = Math.max(
     5,
@@ -490,12 +501,24 @@ export function PatternExtendWidget({
       const base = place.targetProps(`blank-${i}`, {
         label: placed ? `${label}: ${tokenName(placed, t)}` : label,
       });
-      // A tap with no piece picked up takes the blank's piece off (the hook ignores that tap).
+      // A tap with no piece picked up takes the blank's piece off (the hook ignores that tap), and
+      // so do Enter or Space then, and Backspace or Delete at any time.
+      const canClear = interactive && placed !== null && place.selected === null;
       const props = {
         ...base,
+        'aria-disabled': canClear ? undefined : base['aria-disabled'],
         onClick: (e: Parameters<typeof base.onClick>[0]) => {
           base.onClick(e);
           clearBlank(i);
+        },
+        onKeyDown: (e: Parameters<typeof base.onKeyDown>[0]) => {
+          const erase = e.key === 'Backspace' || e.key === 'Delete';
+          const activate = e.key === 'Enter' || e.key === ' ';
+          if ((erase || activate) && !e.repeat && canClear && clearBlank(i)) {
+            e.preventDefault();
+            return;
+          }
+          base.onKeyDown(e);
         },
       };
       return (
@@ -612,13 +635,17 @@ export function PatternExtendWidget({
     </fieldset>
   ) : null;
 
+  const activeTiles = (() => {
+    const p = active === null ? null : state.placed[active];
+    return p && 'tiles' in p ? p.tiles : null;
+  })();
+  /** The tallest stack is a state the child can read and leave: a line, and the cue on one-less. */
+  const tallest = tiles && activeTiles !== null && activeTiles >= MAX_TILES;
   const tilesControl =
     tiles && active !== null ? (
       <Stepper
-        value={(() => {
-          const p = state.placed[active];
-          return p && 'tiles' in p ? p.tiles : null;
-        })()}
+        highlighted={tallest ? 'less' : null}
+        value={activeTiles}
         max={MAX_TILES}
         min={1}
         label="ui.widget.pattern.blank"
@@ -628,78 +655,44 @@ export function PatternExtendWidget({
         onChange={(v) => {
           setInvite(null);
           apply({ op: 'place-token', args: { index: active, token: { tiles: v } } });
+          if (v >= MAX_TILES) say('ui.widget.pattern.tallest');
         }}
       />
     ) : null;
 
-  let main: ReactNode;
-  if (mode === 'table') {
-    const table = config.table ?? { inputs: [], outputs: [] };
-    main = (
-      <table className="ni-pattern__table">
-        <thead>
-          <tr>
-            <th scope="col">{t('ui.widget.pattern.in')}</th>
-            <th scope="col">{t('ui.widget.pattern.out')}</th>
-          </tr>
-        </thead>
-        <tbody>
-          {table.inputs.map((x, r) => {
-            const out = table.outputs[r];
-            return (
-              // biome-ignore lint/suspicious/noArrayIndexKey: table rows are fixed
-              <tr key={r} data-flash={flash === r || state.highlighted === r ? 'true' : undefined}>
-                <td className="ni-pattern__numeral">{x}</td>
-                <td>
-                  {out === null || out === undefined ? (
-                    blankCell(r, blanks.indexOf(r) + 1)
-                  ) : (
-                    <span className="ni-pattern__numeral">{out}</span>
-                  )}
-                </td>
-              </tr>
-            );
-          })}
-        </tbody>
-      </table>
-    );
-  } else {
-    main = (
-      <>
-        {sequenceRow(false)}
-        {mode === 'translate' ? sequenceRow(true) : null}
-        {mode === 'rule' ? (
-          <div className="ni-pattern__rule">
-            <span className="ni-pattern__jump" aria-hidden="true">
-              <svg viewBox="0 0 96 40" width="96" height="40" aria-hidden="true" focusable="false">
-                <path
-                  d="M6 34C20 6 76 6 90 34M82 26l8 8 2-11"
-                  fill="none"
-                  stroke="var(--color-ink)"
-                  strokeWidth="4"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                />
-              </svg>
-            </span>
-            <output
-              className={[
-                'ni-number',
-                'ni-pattern__answer',
-                invite?.op === 'answer' ? 'ni-invite' : '',
-              ]
-                .filter(Boolean)
-                .join(' ')}
-              data-empty={ruleText === '' ? 'true' : undefined}
-              aria-label={`${t('ui.widget.pattern.jump')} ${ruleText}`.trim()}
-            >
-              {ruleText === '' ? <span className="ni-number__slot" /> : <span>{ruleText}</span>}
-            </output>
-          </div>
-        ) : null}
-      </>
-    );
-  }
+  const ruleAnswer =
+    mode === 'rule' ? (
+      <div className="ni-pattern__rule">
+        <span className="ni-pattern__jump" aria-hidden="true">
+          <svg viewBox="0 0 96 40" width="96" height="40" aria-hidden="true" focusable="false">
+            <path
+              d="M6 34C20 6 76 6 90 34M82 26l8 8 2-11"
+              fill="none"
+              stroke="var(--color-ink)"
+              strokeWidth="4"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          </svg>
+        </span>
+        <output
+          className={['ni-number', 'ni-pattern__answer', invite?.op === 'answer' ? 'ni-invite' : '']
+            .filter(Boolean)
+            .join(' ')}
+          data-empty={ruleText === '' ? 'true' : undefined}
+          aria-label={`${t('ui.widget.pattern.jump')} ${ruleText}`.trim()}
+        >
+          {ruleText === '' ? <span className="ni-number__slot" /> : <span>{ruleText}</span>}
+        </output>
+      </div>
+    ) : null;
+
+  const main: ReactNode = (
+    <>
+      {sequenceRow(false)}
+      {mode === 'translate' ? sequenceRow(true) : null}
+    </>
+  );
 
   return (
     <div
@@ -714,9 +707,15 @@ export function PatternExtendWidget({
     >
       <div className="ni-pattern__layout" ref={layoutRef}>
         <div className="ni-pattern__main">{main}</div>
-        <div className="ni-pattern__controls" ref={controlsRef}>
+        <div className="ni-pattern__controls">
+          {ruleAnswer}
           {palette}
           {tilesControl}
+          {tallest ? (
+            <p className="ni-pattern__note" role="status">
+              {t('ui.widget.pattern.tallest')}
+            </p>
+          ) : null}
           {typed ? (
             <NumberPadKeys
               onKey={onKey}

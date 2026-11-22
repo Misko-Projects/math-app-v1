@@ -16,6 +16,22 @@
 //   row `index`, or `answer {values}` fills every missing output in order; answers `numbers`
 //   (ordered).
 // `highlight {index}` marks a position (visual).
+//
+// Supported domain (the same in every widget area and age mode; the widget's stress stories show
+// each bound in the smallest area, 906 × 373, at kindergarten sizes):
+// - a pattern has 2 to PATTERN_LENGTH_MAX places (translate: PATTERN_TRANSLATE_LENGTH_MAX, both
+//   rows on one line each), at most PATTERN_BLANKS_MAX blanks and PATTERN_UNITS_MAX different
+//   units (shown, in the palette, in `translateTo`);
+// - numbers are whole, 0 to PATTERN_NUMBER_MAX (what the three-digit pad types); a number pattern
+//   has no palette; a tile stack has 1 to MAX_TILES tiles;
+// - `rule` shows numbers that grow by one whole step of 1 or more (the pad has no minus sign);
+// - a pattern of numbers or tile stacks has at most PATTERN_TYPED_LENGTH_MAX places (one line of
+//   three-digit cells above the pad);
+// - `table` is not supported yet: the widget has no table layout that fits the smallest area at
+//   kindergarten sizes, so the schema refuses it (the model keeps its ops for that follow-up);
+// - `translate` rebuilds a picture pattern (island objects or coloured shapes) with picture units.
+// `patternAnswerIssues` ties the item's answer to the config: what Check can send is what the
+// checker is asked for.
 
 import {
   type AnswerSpec,
@@ -52,8 +68,25 @@ export const PATTERN_SHAPES = [
 /** Colour names a pattern token may carry; the widget paints each with a palette token. */
 export const PATTERN_COLORS = ['red', 'blue', 'yellow'] as const;
 
-/** The largest tile stack a growing pattern draws. */
-export const MAX_TILES = 30;
+/** The largest tile stack a growing pattern draws (and the one-more counter builds). */
+export const MAX_TILES = 20;
+/** Places in a pattern: 2 to 12 (two rows of six at kindergarten sizes in the smallest area). */
+export const PATTERN_LENGTH_MAX = 12;
+/** Places in a `translate` pattern: at most 6, so the pattern and the new row take one line each. */
+export const PATTERN_TRANSLATE_LENGTH_MAX = 6;
+/** Blanks in an `extend` or `fill` pattern: at most 4. */
+export const PATTERN_BLANKS_MAX = 4;
+/** Different units (shown, in the palette, or in `translateTo`): at most 4. */
+export const PATTERN_UNITS_MAX = 4;
+/** Numbers in a pattern or a table: whole, 0 to 999 (the pad types three digits). */
+export const PATTERN_NUMBER_MAX = 999;
+/** Places in a pattern of numbers or tile stacks: at most 6 (one line above the pad). */
+export const PATTERN_TYPED_LENGTH_MAX = 6;
+/** Rows of an input–output table: 2 to 4. */
+export const PATTERN_TABLE_ROWS_MAX = 4;
+
+const isPatternNumber = (v: unknown): v is number =>
+  typeof v === 'number' && Number.isInteger(v) && v >= 0 && v <= PATTERN_NUMBER_MAX;
 
 export interface PatternExtendState extends FormatState<'pattern-extend'> {
   /**
@@ -137,12 +170,135 @@ export function additiveTable(table: NonNullable<Config['table']>): boolean {
   return diffs.every((d) => d === diffs[0]);
 }
 
+/**
+ * The places a `core` answer stands for. Every whole repeat is the core (the second AB of
+ * AB AB AB as much as the first), so a marked run that is exactly one repeat answers as the first
+ * one, which is the set the item's answer names (`patternAnswerIssues`). Any other marking is sent
+ * as marked.
+ */
+export function coreValues(c: Config, selected: readonly number[]): number[] {
+  const p = smallestPeriod(c.sequence);
+  const first = selected[0];
+  const run = selected.every((v, k) => v === (first as number) + k);
+  if (first !== undefined && run && selected.length === p && first % p === 0) {
+    return Array.from({ length: p }, (_, k) => k);
+  }
+  return [...selected];
+}
+
+/**
+ * Why an item's answer is not the one its config asks for (empty: it is). Check sends what the
+ * widget holds, so each mode's answer must be something the widget can hold: units from the
+ * palette, numbers the pad types, the first repeat as the core, the step the pattern shows.
+ */
+export function patternAnswerIssues(c: Config, answer: AnswerSpec): string[] {
+  const out: string[] = [];
+  const shown = c.sequence.find((t): t is PatternToken => t !== null);
+  const family: Family = shown ? tokenFamily(shown) : 'n';
+  const state = (checker: string): Record<string, unknown> | null => {
+    if (answer.kind !== 'state' || answer.checker !== checker) {
+      out.push(`${c.mode} answers state ${checker}`);
+      return null;
+    }
+    return answer.target;
+  };
+  switch (c.mode) {
+    case 'extend':
+    case 'fill': {
+      const target = state('pattern.tokens');
+      if (!target) break;
+      const expected = Array.isArray(target.expected) ? target.expected : null;
+      const blanks = blankIndexes(c).length;
+      if (!expected || expected.length !== blanks) {
+        out.push(`expected holds one token per blank (${blanks})`);
+        break;
+      }
+      expected.forEach((raw, i) => {
+        const t = readToken(raw);
+        if (!t || tokenFamily(t) !== family) out.push(`expected[${i}] is not a ${family} token`);
+        else if ('n' in t) {
+          if (!isPatternNumber(t.n)) out.push(`expected[${i}] cannot be typed on the pad`);
+        } else if (c.palette.length > 0) {
+          if (!c.palette.some((u) => sameToken(u, t))) {
+            out.push(`expected[${i}] is not a unit of the palette`);
+          }
+        } else if ('tiles' in t && !(t.tiles >= 1 && t.tiles <= MAX_TILES)) {
+          out.push(`expected[${i}] is not a stack of 1–${MAX_TILES} tiles`);
+        }
+      });
+      break;
+    }
+    case 'core': {
+      const target = state('select.exactSet');
+      if (!target) break;
+      const p = smallestPeriod(c.sequence);
+      const values = Array.isArray(target.values) ? target.values : [];
+      if (values.length !== p || values.some((v, k) => v !== k)) {
+        out.push(`the core is the first repeat, places 0 to ${p - 1}`);
+      }
+      break;
+    }
+    case 'translate': {
+      const target = state('pattern.isomorphic');
+      if (!target) break;
+      const same = (a: unknown, b: readonly (PatternToken | null)[]) =>
+        Array.isArray(a) &&
+        a.length === b.length &&
+        a.every((raw, i) => {
+          const t = readToken(raw);
+          const u = b[i];
+          return t !== null && u !== null && u !== undefined && sameToken(t, u);
+        });
+      if (!same(target.source, c.sequence)) out.push('source is the pattern shown');
+      if (!same(target.units, c.translateTo ?? [])) out.push('units are the translateTo units');
+      break;
+    }
+    case 'rule': {
+      const step = firstStep(c.sequence);
+      if (answer.kind !== 'number' || answer.value !== step) {
+        out.push(`rule answers the step the pattern shows (${step})`);
+      }
+      break;
+    }
+    case 'table': {
+      const blanks = tableBlanks(c).length;
+      if (answer.kind !== 'numbers' || !answer.ordered || answer.values.length !== blanks) {
+        out.push(`table answers the ${blanks} missing outputs in order`);
+      } else if (!answer.values.every(isPatternNumber)) {
+        out.push('a missing output cannot be typed on the pad');
+      }
+      break;
+    }
+  }
+  return out;
+}
+
 const configSchema = patternExtendConfigSchema.superRefine((c, ctx) => {
   const add = (path: (string | number)[], message: string) =>
     ctx.addIssue({ code: 'custom', path, message });
   const shown = c.sequence.filter((t): t is PatternToken => t !== null);
   const blanks = blankIndexes(c);
   if (c.sequence.length < 2) add(['sequence'], 'a pattern has at least two places');
+  const typedFamily = shown.some((t) => !('sprite' in t));
+  const lengthMax =
+    c.mode === 'translate'
+      ? PATTERN_TRANSLATE_LENGTH_MAX
+      : typedFamily
+        ? PATTERN_TYPED_LENGTH_MAX
+        : PATTERN_LENGTH_MAX;
+  if (c.sequence.length > lengthMax) {
+    add(['sequence'], `a ${c.mode} pattern has at most ${lengthMax} places`);
+  }
+  if (blanks.length > PATTERN_BLANKS_MAX) {
+    add(['sequence'], `a pattern has at most ${PATTERN_BLANKS_MAX} blanks`);
+  }
+  if (c.palette.length > PATTERN_UNITS_MAX) {
+    add(['palette'], `the palette has at most ${PATTERN_UNITS_MAX} units`);
+  }
+  const distinct = shown.filter((t, i) => shown.findIndex((u) => sameToken(u, t)) === i);
+  if (shown.some((t) => !('n' in t)) && distinct.length > PATTERN_UNITS_MAX) {
+    add(['sequence'], `a pattern shows at most ${PATTERN_UNITS_MAX} different units`);
+  }
   if (shown.length === 0) add(['sequence'], 'nothing is shown');
   const families = new Set([...shown, ...c.palette].map(tokenFamily));
   if (families.size > 1) add(['sequence'], 'the pattern mixes pictures, numbers and tiles');
@@ -176,6 +332,9 @@ const configSchema = patternExtendConfigSchema.superRefine((c, ctx) => {
       if ('tiles' in t && !(t.tiles >= 1 && t.tiles <= MAX_TILES)) {
         add([path, i, 'tiles'], `a tile stack has 1–${MAX_TILES} tiles`);
       }
+      if ('n' in t && !isPatternNumber(t.n)) {
+        add([path, i, 'n'], `a number is whole, 0–${PATTERN_NUMBER_MAX}`);
+      }
     });
   };
   tokenRules([...c.sequence, ...c.palette], 'sequence');
@@ -183,6 +342,9 @@ const configSchema = patternExtendConfigSchema.superRefine((c, ctx) => {
     if (c.palette.findIndex((u) => sameToken(u, t)) !== i)
       add(['palette', i], 'the palette repeats a unit');
   });
+  if (family === 'n' && c.palette.length > 0) {
+    add(['palette'], 'a number pattern is typed: it has no palette');
+  }
   const usesPalette = family === 'sprite';
   if (c.mode === 'extend' || c.mode === 'fill') {
     if (blanks.length === 0) add(['sequence'], `${c.mode} needs a blank`);
@@ -200,9 +362,21 @@ const configSchema = patternExtendConfigSchema.superRefine((c, ctx) => {
   if (c.mode === 'core' && smallestPeriod(c.sequence) * 2 > c.sequence.length) {
     add(['sequence'], 'core needs the part that repeats shown at least twice');
   }
-  if (c.mode === 'rule' && !(family === 'n' || family === 'tiles'))
-    add(['kind'], 'rule asks a number pattern');
+  if (c.mode === 'rule') {
+    if (!(family === 'n' || family === 'tiles')) add(['kind'], 'rule asks a number pattern');
+    else {
+      const values = shown.map(tokenNumber);
+      const step = firstStep(c.sequence);
+      const steady = values.every(
+        (v, i) => i === 0 || (v as number) - (values[i - 1] as number) === step,
+      );
+      if (step === null || !steady || !Number.isInteger(step) || step < 1) {
+        add(['sequence'], 'rule shows numbers that grow by one whole step of 1 or more');
+      }
+    }
+  }
   if (c.mode === 'table') {
+    add(['mode'], 'table is not supported yet (no layout fits the smallest widget area)');
     if (!c.table) add(['table'], 'table needs the table');
     else {
       if (c.table.inputs.length !== c.table.outputs.length || c.table.inputs.length < 2) {
@@ -210,10 +384,29 @@ const configSchema = patternExtendConfigSchema.superRefine((c, ctx) => {
       }
       if (tableBlanks(c).length === 0) add(['table', 'outputs'], 'no missing output');
       if (c.table.outputs.every((o) => o === null)) add(['table', 'outputs'], 'no output is shown');
+      if (c.table.inputs.length > PATTERN_TABLE_ROWS_MAX) {
+        add(['table'], `a table has at most ${PATTERN_TABLE_ROWS_MAX} rows`);
+      }
+      c.table.inputs.forEach((x, i) => {
+        if (!isPatternNumber(x)) {
+          add(['table', 'inputs', i], `a number is whole, 0–${PATTERN_NUMBER_MAX}`);
+        }
+      });
+      c.table.outputs.forEach((x, i) => {
+        if (x !== null && !isPatternNumber(x)) {
+          add(['table', 'outputs', i], `a number is whole, 0–${PATTERN_NUMBER_MAX}`);
+        }
+      });
     }
   }
   if (c.mode === 'translate') {
     const to = c.translateTo ?? [];
+    if (family !== 'sprite' || to.some((t) => tokenFamily(t) !== 'sprite')) {
+      add(['translateTo'], 'translate rebuilds a picture pattern with picture units');
+    }
+    if (to.length > PATTERN_UNITS_MAX) {
+      add(['translateTo'], `at most ${PATTERN_UNITS_MAX} new units`);
+    }
     const units = shown.filter((t, i) => shown.findIndex((u) => sameToken(u, t)) === i).length;
     if (to.length < Math.max(2, units))
       add(['translateTo'], 'too few new units to rebuild the pattern');
@@ -227,6 +420,7 @@ const configSchema = patternExtendConfigSchema.superRefine((c, ctx) => {
 export const patternExtend: FormatModel<'pattern-extend', PatternExtendState> = {
   format: 'pattern-extend',
   configSchema,
+  answerIssues: patternAnswerIssues,
   features: {
     'core.len': { weight: 0.4, doc: 'core length − 2 (repeating patterns)' },
     'hidden.middle': { weight: 0.4, doc: 'a blank sits inside the pattern, before a shown token' },
@@ -367,7 +561,7 @@ export const patternExtend: FormatModel<'pattern-extend', PatternExtendState> = 
       case 'core':
         return s.selected.length === 0
           ? null
-          : { kind: 'state', value: { values: [...s.selected] } };
+          : { kind: 'state', value: { values: coreValues(c, s.selected) } };
       case 'rule':
         return s.value === null ? null : { kind: 'number', value: s.value };
       case 'table': {

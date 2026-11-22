@@ -30,7 +30,6 @@ export {
   useMeasuredBox,
 } from './ChartView';
 export { type ChartGeometry, chartGeometry, type SlotGeometry } from './chartLayout';
-export { Stepper, type StepperProps } from './Stepper';
 export { useCommitBarrier } from './commit';
 export {
   applyPadKey,
@@ -168,6 +167,7 @@ export {
   shapeSetUnit,
   squareCorners,
 } from './ShapeView';
+export { Stepper, type StepperProps } from './Stepper';
 export {
   BaseTenView,
   ExpressionView,

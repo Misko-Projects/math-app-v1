@@ -96,7 +96,21 @@ export interface ChartLayoutOptions {
   values?: readonly number[];
   /** Space above and below the rows of a horizontal chart (default 12). */
   padY?: number;
+  /** Font size of the category names (`LABEL_FONT_PX`: 24 px, 28 px in kindergarten mode). */
+  labelFont?: number;
+  /** Width the longest category name needs at `labelFont` (`nameWidth`). */
+  nameWidth?: number;
 }
+
+/** Category names: 24 px, 28 px in kindergarten mode (one label style for the graph widgets). */
+export const LABEL_FONT_PX = { k: 28, 'g1-up': 24 } as const;
+
+/**
+ * The width a category name of `chars` letters is given at `font` px: 0.56 em a letter, which
+ * holds the widest island names ("fireflies", "Pebblings") in the body font. The chart stories
+ * assert that every name lies inside its label cell.
+ */
+export const nameWidth = (chars: number, font: number): number => Math.ceil(chars * font * 0.56);
 
 export const NUMERAL_PX = 32;
 /** Gridlines of a bar graph are at least this far apart (closer ones are thinned out). */
@@ -192,7 +206,7 @@ export function tallyLength(count: number, stroke: number): number {
 function lineGeometry(
   chart: ChartSpec,
   values: number[],
-  o: Required<Omit<ChartLayoutOptions, 'values' | 'padY'>>,
+  o: Required<Omit<ChartLayoutOptions, 'values' | 'padY' | 'labelFont' | 'nameWidth'>>,
 ): ChartGeometry {
   const slots = chartSlots(chart);
   const left = PAD + 24;
@@ -286,10 +300,15 @@ export function chartGeometry(chart: ChartSpec, opts: ChartLayoutOptions): Chart
     const axisH = chart.kind === 'bar' ? NUMERAL_PX + 22 : 0;
     // A table is a label column and a count column that share the width it has.
     const tableW = Math.round(Math.min(132, Math.max(72, (o.width - 2 * PAD) * 0.38)));
+    // The label cell holds the sprite, the name on one line and the cell's padding.
+    const named =
+      opts.nameWidth === undefined
+        ? null
+        : Math.round(Math.min(52, o.target * 0.6)) + 8 + opts.nameWidth + 16;
     const labelW =
       chart.kind === 'table'
-        ? Math.max(o.target, Math.min(200, o.width - 2 * PAD - tableW - o.gap))
-        : Math.min(200, Math.max(o.target, 150, Math.round(o.width * 0.24)));
+        ? Math.max(o.target, Math.min(named ?? 200, o.width - 2 * PAD - tableW - o.gap))
+        : (named ?? Math.min(200, Math.max(o.target, 150, Math.round(o.width * 0.24))));
     const avail = o.height - keyH - axisH - 2 * padY;
     const rowH = Math.max(o.target, Math.min(104, (avail - (n - 1) * o.gap) / n));
     const rowsH = n * rowH + (n - 1) * o.gap;
@@ -369,7 +388,8 @@ export function chartGeometry(chart: ChartSpec, opts: ChartLayoutOptions): Chart
 
   // Vertical: columns, labels underneath, the value axis on the left (bar graphs).
   const axisW = chart.kind === 'bar' ? numW + 14 : 0;
-  const labelH = Math.max(o.target, 76);
+  // The label cell holds the sprite above the name's one line.
+  const labelH = Math.max(o.target, 60 + Math.ceil((opts.labelFont ?? 20) * 1.1));
   const x0 = PAD + axisW;
   const colW = Math.max(o.target, Math.min(170, (o.width - x0 - PAD - (n - 1) * o.gap) / n));
   const colsW = n * colW + (n - 1) * o.gap;

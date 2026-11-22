@@ -1,7 +1,6 @@
 import type { PatternToken, WidgetConfig } from '@number-island/shared';
 import type { Meta, StoryObj } from '@storybook/react-vite';
 import { expect, fn, userEvent, waitFor, within } from 'storybook/test';
-import { center, clearSpies, pointerDrag, spyAudio } from '../../test-support/storyHelpers';
 import {
   areaBox,
   expectFitsArea,
@@ -9,7 +8,8 @@ import {
   expectOneInvite,
   inArea,
   namedStory,
-} from '../../test-support/widgetArea';
+} from '../../test-support/chartArea';
+import { center, clearSpies, pointerDrag, spyAudio } from '../../test-support/storyHelpers';
 import {
   expectPointerOn,
   expectTraceOrdered,
@@ -27,8 +27,9 @@ import type { WidgetHostProps } from '../WidgetHost';
  * blanks are typed on the pad. Check sends the engine model's response.
  *
  * Configs are real generated items (`generateItem(template, seed)` over the compiled catalog),
- * named by template and seed; tables (ALG.09), translations and growing tiles (ALG.10) are
- * hand-made (no generator yet, K02).
+ * named by template and seed; translations and growing tiles (ALG.10) are hand-made (no generator
+ * yet, K02). Every config passes the engine model's schema (the `namedStory` decorator), and the
+ * stress stories show the model's bounds in the smallest area at kindergarten sizes.
  */
 
 type Config = ConfigFor<'pattern-extend'>;
@@ -105,14 +106,22 @@ const rule: Config = {
   kind: 'number',
 };
 
-/** Hand-made (ALG.09): an add-2 machine, the last two outputs missing. */
-const table: Config = {
+/** Kindergarten content: a short ABB pattern with one gap → blue circle. */
+const shapesFillK: Config = {
   format: 'pattern-extend',
-  sequence: [{ n: 1 }, { n: 3 }],
-  palette: [],
-  mode: 'table',
-  kind: 'function',
-  table: { inputs: [1, 2, 3, 4], outputs: [3, 4, null, null] },
+  sequence: [ySquare, bCircle, bCircle, ySquare, null, bCircle],
+  palette: [ySquare, bCircle],
+  mode: 'fill',
+  kind: 'repeat',
+};
+
+/** Kindergarten content: ABB twice → the core is places 1–3. */
+const objectsCoreK: Config = {
+  format: 'pattern-extend',
+  sequence: [shell, fish, fish, shell, fish, fish],
+  palette: [shell, fish],
+  mode: 'core',
+  kind: 'repeat',
 };
 
 /** Hand-made: rebuild shell, shell, fish (×2) with shapes. */
@@ -224,37 +233,77 @@ export const ObjectsExtendKTablet: Story = {
 };
 
 /**
- * K at the 960 × 600 minimum (ALG.01.t2 seed 1): touch-drag the yellow square into the gap. A
- * wrong piece can be taken off again by tapping the filled blank.
+ * K at the 960 × 600 minimum, a short ABB pattern with one gap: touch-drag the blue circle into
+ * it. A wrong piece is taken off again by tapping the filled blank (its name is spoken).
  */
 export const ShapesFillTouchKLandscapeMin: Story = {
   globals: { ageMode: 'k' },
-  args: { config: shapesFill, tier: 'pictorial' },
+  args: { config: shapesFillK, tier: 'pictorial' },
+  parameters: { ui: { audio: spyAudio() } },
   render: inArea('landscapeMin'),
-  play: async ({ canvasElement, args }) => {
+  play: async ({ canvasElement, args, parameters }) => {
+    const audio = parameters.ui.audio as ReturnType<typeof spyAudio>;
     const root = await findWidget(canvasElement, ROOT);
-    await expectShowsSequence(root, shapesFill.sequence);
+    await expectShowsSequence(root, shapesFillK.sequence);
     await expectFitsArea(
       areaBox(canvasElement),
       [...shownCells(root), ...blanks(root), ...units(root), check(root)],
       'k',
     );
     const [square, circle] = units(root) as [HTMLElement, HTMLElement];
-    await pointerDrag(circle, center(cell(root, 5)), 'touch');
-    await expect(cell(root, 5).querySelector('[data-shape]')?.getAttribute('data-shape')).toBe(
-      'circle',
+    await pointerDrag(square, center(cell(root, 4)), 'touch');
+    await expect(cell(root, 4).querySelector('[data-shape]')?.getAttribute('data-shape')).toBe(
+      'square',
     );
-    await userEvent.click(cell(root, 5));
-    await expect(cell(root, 5)).toHaveAttribute('data-empty', 'true');
-    await pointerDrag(square, center(cell(root, 5)), 'touch');
+    clearSpies(audio);
+    await userEvent.click(cell(root, 4));
+    await expect(cell(root, 4)).toHaveAttribute('data-empty', 'true');
+    await expect(audio.say).toHaveBeenCalledWith('shape.square.one', undefined);
+    await expect(check(root)).toBeDisabled();
+    await pointerDrag(circle, center(cell(root, 4)), 'touch');
     await userEvent.click(check(root));
     await expect(args.onResponse).toHaveBeenCalledWith({
       kind: 'state',
-      value: { tokens: [{ sprite: 'square', color: 'yellow' }] },
+      value: { tokens: [{ sprite: 'circle', color: 'blue' }] },
     });
     const kinds = traceOf(args.onInteract).map((e) => `${e.t}:${e.target}`);
-    await expect(kinds).toContain('undo:blank-5');
+    await expect(kinds).toContain('undo:blank-4');
     await expect(kinds.filter((k) => k.startsWith('drop:'))).toHaveLength(2);
+  },
+};
+
+/**
+ * Undo where the piece sits, by keyboard, and never at the cost of a placement: Enter on a filled
+ * blank with nothing picked up takes the piece off, and so does Backspace; with a piece picked
+ * up, the same blank takes the new piece instead (the tap meant to place is not an undo).
+ */
+export const UndoWhereItSits: Story = {
+  args: { config: shapesExtend, tier: 'pictorial' },
+  play: async ({ canvasElement, args }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    const [red, blue] = units(root) as [HTMLElement, HTMLElement];
+    const shape = (i: number) =>
+      cell(root, i).querySelector('[data-shape]')?.getAttribute('data-shape') ?? null;
+    await userEvent.click(red);
+    await userEvent.click(cell(root, 6));
+    await expect(shape(6)).toBe('circle');
+    // A piece is picked up: the tap on the filled blank places it there.
+    await userEvent.click(blue);
+    await userEvent.click(cell(root, 6));
+    await expect(shape(6)).toBe('square');
+    // Nothing picked up: Enter takes the piece off, and the blank can be filled again.
+    cell(root, 6).focus();
+    await expect(cell(root, 6)).not.toHaveAttribute('aria-disabled');
+    await userEvent.keyboard('{Enter}');
+    await expect(cell(root, 6)).toHaveAttribute('data-empty', 'true');
+    await userEvent.click(red);
+    await userEvent.click(cell(root, 6));
+    cell(root, 6).focus();
+    await userEvent.keyboard('{Backspace}');
+    await expect(cell(root, 6)).toHaveAttribute('data-empty', 'true');
+    await expect(check(root)).toBeDisabled();
+    const kinds = traceOf(args.onInteract).map((e) => `${e.t}:${e.target}`);
+    await expect(kinds.filter((k) => k === 'undo:blank-6')).toHaveLength(2);
   },
 };
 
@@ -283,23 +332,52 @@ export const ShapesExtendKeyboard: Story = {
 };
 
 /**
- * K, find the core (ALG.04.t1 seed 1) at the 960 × 600 minimum: nine units wrap onto two even
- * rows. Tap the first unit, then the fourth: a band marks places 1–4; Check answers them.
+ * K, find the core at the 960 × 600 minimum: shell, fish, fish twice. Tap the first unit, then
+ * the third: a band marks places 1–3; Check answers them.
  */
 export const CoreTapKLandscapeMin: Story = {
   globals: { ageMode: 'k' },
-  args: { config: objectsCore },
+  args: { config: objectsCoreK },
   render: inArea('landscapeMin'),
   play: async ({ canvasElement, args }) => {
     const root = await findWidget(canvasElement, ROOT);
-    await expectShowsSequence(root, objectsCore.sequence);
+    await expectShowsSequence(root, objectsCoreK.sequence);
     await expectFitsArea(areaBox(canvasElement), [...shownCells(root), check(root)], 'k');
     await userEvent.click(cell(root, 0));
     await expect(cell(root, 0)).toHaveAttribute('data-pending', 'true');
-    await userEvent.click(cell(root, 3));
+    await userEvent.click(cell(root, 2));
     await expect(
       [...root.querySelectorAll('[data-core]')].map((e) => e.getAttribute('data-index')),
-    ).toEqual(['0', '1', '2', '3']);
+    ).toEqual(['0', '1', '2']);
+    await userEvent.click(check(root));
+    await expect(args.onResponse).toHaveBeenCalledWith({
+      kind: 'state',
+      value: { values: [0, 1, 2] },
+    });
+  },
+};
+
+/**
+ * The band is undone where it sits, and any whole repeat is the core (ALG.04.t1 seed 1, AABB):
+ * a tap on the band takes it off (Check has nothing to send); marking the second repeat, places
+ * 5–8, answers the same core as the first.
+ */
+export const CoreBandUndoAndSecondRepeat: Story = {
+  args: { config: objectsCore },
+  play: async ({ canvasElement, args }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    const band = () =>
+      [...root.querySelectorAll('[data-core]')].map((e) => e.getAttribute('data-index'));
+    await userEvent.click(cell(root, 0));
+    await userEvent.click(cell(root, 3));
+    await expect(band()).toEqual(['0', '1', '2', '3']);
+    await userEvent.click(cell(root, 2));
+    await expect(band()).toEqual([]);
+    await expect(check(root)).toBeDisabled();
+    await expect(traceOf(args.onInteract).map((e) => `${e.t}:${e.target}`)).toContain('undo:tok-2');
+    await userEvent.click(cell(root, 4));
+    await userEvent.click(cell(root, 7));
+    await expect(band()).toEqual(['4', '5', '6', '7']);
     await userEvent.click(check(root));
     await expect(args.onResponse).toHaveBeenCalledWith({
       kind: 'state',
@@ -375,21 +453,6 @@ export const RuleTablet: Story = {
     await expectFitsArea(areaBox(canvasElement), [...padKeys(root), check(root)], 'g1-up');
     await userEvent.click(check(root));
     await expect(args.onResponse).toHaveBeenCalledWith({ kind: 'number', value: 10 });
-  },
-};
-
-/** An input–output table: type the missing outputs (5, 6), answered in order. */
-export const TableOutputs: Story = {
-  args: { config: table, tier: 'abstract' },
-  play: async ({ canvasElement, args }) => {
-    const root = await findWidget(canvasElement, ROOT);
-    const cells = [...root.querySelectorAll('td')].map((td) => td.textContent);
-    await expect(cells).toEqual(['1', '3', '2', '4', '3', '', '4', '']);
-    await userEvent.keyboard('5');
-    await userEvent.click(blanks(root)[1] as HTMLElement);
-    await userEvent.keyboard('6');
-    await userEvent.click(check(root));
-    await expect(args.onResponse).toHaveBeenCalledWith({ kind: 'numbers', values: [5, 6] });
   },
 };
 
@@ -593,5 +656,206 @@ export const PiecesMatchPatternScale: Story = {
     const sizes = new Set([...shownCells(root), ...units(root)].map((c) => width(art(c))));
     await expect(sizes.size).toBe(1);
     await expectNumeralsReadable(root);
+  },
+};
+
+// ---------- the model's bounds, in the smallest area at kindergarten sizes ----------
+
+const crab = { sprite: 'crab' };
+const rHexagon = { sprite: 'hexagon', color: 'red' };
+
+/** The longest pattern with the most blanks and the fullest palette: 12 places, 4 blanks, 4 units. */
+const longestExtend: Config = {
+  format: 'pattern-extend',
+  sequence: [fish, leaf, shell, crab, fish, leaf, shell, crab, null, null, null, null],
+  palette: [fish, leaf, shell, crab],
+  mode: 'extend',
+  kind: 'repeat',
+};
+
+/** Stress at the bound, K, 960 × 600: twelve places, four blanks, four pieces; every one fits. */
+export const StressLongestExtendKLandscapeMin: Story = {
+  globals: { ageMode: 'k' },
+  args: { config: longestExtend },
+  render: inArea('landscapeMin'),
+  play: async ({ canvasElement, args }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    await expectShowsSequence(root, longestExtend.sequence);
+    await expectFitsArea(
+      areaBox(canvasElement),
+      [...shownCells(root), ...blanks(root), ...units(root), check(root)],
+      'k',
+    );
+    for (const [k, unit] of units(root).entries()) {
+      await userEvent.click(unit);
+      await userEvent.click(cell(root, 8 + k));
+    }
+    // All blanks are filled: Check is live, and a filled blank still gives its piece back.
+    await expect(check(root)).toBeEnabled();
+    await expectFitsArea(
+      areaBox(canvasElement),
+      [...shownCells(root), ...blanks(root), ...units(root), check(root)],
+      'k',
+    );
+    await userEvent.click(check(root));
+    await expect(args.onResponse).toHaveBeenCalledWith({
+      kind: 'state',
+      value: { tokens: [fish, leaf, shell, crab] },
+    });
+  },
+};
+
+/** The longest number pattern with the largest numbers: six places of three digits. */
+const longestNumbers: Config = {
+  format: 'pattern-extend',
+  sequence: [{ n: 500 }, { n: 600 }, { n: 700 }, { n: 800 }, null, null],
+  palette: [],
+  mode: 'extend',
+  kind: 'number',
+};
+
+/** Stress at the bound, K, 960 × 600: six three-digit places above the two-row pad. */
+export const StressLongestNumbersKLandscapeMin: Story = {
+  globals: { ageMode: 'k' },
+  args: { config: longestNumbers, tier: 'abstract' },
+  render: inArea('landscapeMin'),
+  play: async ({ canvasElement, args }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    await expectShowsSequence(root, longestNumbers.sequence);
+    await userEvent.keyboard('900');
+    await userEvent.click(cell(root, 5));
+    await userEvent.keyboard('999');
+    await expectFitsArea(
+      areaBox(canvasElement),
+      [...shownCells(root), ...blanks(root), ...padKeys(root), check(root)],
+      'k',
+    );
+    // Three digits stay inside their cell.
+    for (const n of root.querySelectorAll<HTMLElement>('.ni-pattern__numeral')) {
+      const box = (n.closest('.ni-pattern__cell') as HTMLElement).getBoundingClientRect();
+      const text = n.getBoundingClientRect();
+      await expect(text.left).toBeGreaterThanOrEqual(box.left);
+      await expect(text.right).toBeLessThanOrEqual(box.right);
+    }
+    await userEvent.click(check(root));
+    await expect(args.onResponse).toHaveBeenCalledWith({
+      kind: 'state',
+      value: { tokens: [{ n: 900 }, { n: 999 }] },
+    });
+  },
+};
+
+/** The longest rule pattern: six numbers growing by 150. */
+const longestRule: Config = {
+  format: 'pattern-extend',
+  sequence: [{ n: 100 }, { n: 250 }, { n: 400 }, { n: 550 }, { n: 700 }, { n: 850 }],
+  palette: [],
+  mode: 'rule',
+  kind: 'number',
+};
+
+/** Stress at the bound, K, 960 × 600: the rule's answer box sits beside the two-row pad. */
+export const StressLongestRuleKLandscapeMin: Story = {
+  globals: { ageMode: 'k' },
+  args: { config: longestRule, tier: 'abstract' },
+  render: inArea('landscapeMin'),
+  play: async ({ canvasElement, args }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    await expectShowsSequence(root, longestRule.sequence);
+    await userEvent.keyboard('150');
+    await expectFitsArea(
+      areaBox(canvasElement),
+      [...shownCells(root), ...padKeys(root), check(root)],
+      'k',
+      [root.querySelector('.ni-pattern__answer') as HTMLElement],
+    );
+    await userEvent.click(check(root));
+    await expect(args.onResponse).toHaveBeenCalledWith({ kind: 'number', value: 150 });
+  },
+};
+
+/** The longest translation: six places of four units, rebuilt with four new units. */
+const longestTranslate: Config = {
+  format: 'pattern-extend',
+  sequence: [fish, leaf, shell, crab, fish, leaf],
+  palette: [fish, leaf, shell, crab],
+  mode: 'translate',
+  kind: 'repeat',
+  translateTo: [rCircle, bSquare, yTriangle, rHexagon],
+};
+
+/** Stress at the bound, K, 960 × 600: the pattern, the new row and four pieces all fit. */
+export const StressLongestTranslateKLandscapeMin: Story = {
+  globals: { ageMode: 'k' },
+  args: { config: longestTranslate, tier: 'pictorial' },
+  render: inArea('landscapeMin'),
+  play: async ({ canvasElement, args }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    await expectFitsArea(
+      areaBox(canvasElement),
+      [...shownCells(root), ...blanks(root), ...units(root), check(root)],
+      'k',
+    );
+    const [a, b, c, d] = units(root) as HTMLElement[];
+    for (const [i, unit] of [a, b, c, d, a, b].entries()) {
+      await userEvent.click(unit as HTMLElement);
+      await userEvent.click(cell(root, i, 'new'));
+    }
+    await userEvent.click(check(root));
+    await expect(args.onResponse).toHaveBeenCalledWith({
+      kind: 'state',
+      value: { tokens: [rCircle, bSquare, yTriangle, rHexagon, rCircle, bSquare] },
+    });
+  },
+};
+
+/** The tallest stacks: 5, 10, 15 tiles → build 20 (MAX_TILES). */
+const tallestTiles: Config = {
+  format: 'pattern-extend',
+  sequence: [{ tiles: 5 }, { tiles: 10 }, { tiles: 15 }, null],
+  palette: [],
+  mode: 'extend',
+  kind: 'grow',
+};
+
+/**
+ * Stress at the bound, K, 960 × 600: the tallest stack (20 tiles). Reaching it is a state the
+ * child can read and leave: "That is the tallest stack." is shown and spoken, one-more is off and
+ * the one cue is on one-less; one-less takes the line and the cue away.
+ */
+export const StressTallestTilesKLandscapeMin: Story = {
+  globals: { ageMode: 'k' },
+  args: { config: tallestTiles, tier: 'pictorial' },
+  parameters: { ui: { audio: spyAudio() } },
+  render: inArea('landscapeMin'),
+  play: async ({ canvasElement, args, parameters }) => {
+    const audio = parameters.ui.audio as ReturnType<typeof spyAudio>;
+    const root = await findWidget(canvasElement, ROOT);
+    await expectShowsSequence(root, tallestTiles.sequence);
+    const more = within(root).getByRole('button', { name: 'One more' });
+    const less = within(root).getByRole('button', { name: 'One less' });
+    for (let i = 0; i < 20; i += 1) await userEvent.click(more);
+    await expect(cell(root, 3).querySelectorAll('.ni-pattern__tile')).toHaveLength(20);
+    await expect(more).toBeDisabled();
+    const note = () => root.querySelector<HTMLElement>('.ni-pattern__note');
+    await expect(note()).toHaveTextContent('That is the tallest stack.');
+    await expect(note()).toHaveAttribute('role', 'status');
+    await expect(audio.say).toHaveBeenCalledWith('ui.widget.pattern.tallest', undefined);
+    await expect([...root.querySelectorAll('.ni-invite')]).toEqual([less]);
+    await expectFitsArea(areaBox(canvasElement), [...shownCells(root), less, check(root)], 'k', [
+      note() as HTMLElement,
+    ]);
+    // Every tile of the tallest stack can be seen and counted (at least 8 px each).
+    for (const tile of cell(root, 3).querySelectorAll('.ni-pattern__tile')) {
+      await expect(tile.getBoundingClientRect().width).toBeGreaterThanOrEqual(8);
+    }
+    await userEvent.click(check(root));
+    await expect(args.onResponse).toHaveBeenCalledWith({
+      kind: 'state',
+      value: { tokens: [{ tiles: 20 }] },
+    });
+    await userEvent.click(less);
+    await expect(note()).toBeNull();
+    await expect(root.querySelector('.ni-invite')).toBeNull();
   },
 };

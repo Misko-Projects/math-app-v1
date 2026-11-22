@@ -1,6 +1,8 @@
 // Story helpers for the workshop widget area (U05 #14), after PR #76's `inArea` pattern in the
 // make-set stories: render a widget in a card exactly the size of the workshop's widget area at a
 // viewport, then prove nothing scrolls and every control lies inside the area.
+import { formatModel } from '@number-island/engine';
+import type { WidgetConfig } from '@number-island/shared';
 import type { ReactElement } from 'react';
 import { expect } from 'storybook/test';
 import type { WidgetHostProps } from '../widgets/WidgetHost';
@@ -32,6 +34,38 @@ export async function expectNumeralsReadable(root: HTMLElement) {
     range.selectNodeContents(el);
     const glyphs = range.getBoundingClientRect();
     await expect(glyphs.height, `${what} rendered height`).toBeGreaterThanOrEqual(32);
+  }
+}
+
+/** Text a child reads in these widgets other than numerals: one label style. */
+const LABELS = ['.ni-chart__name', '.ni-bgb__title', '.ni-pattern__note'].join(', ');
+
+/**
+ * Every label in `root` is at least 24 px (28 px in kindergarten mode), on one line, and every
+ * category name lies inside its own label cell (so a long name never runs into its neighbour).
+ */
+export async function expectLabelsReadable(root: HTMLElement, ageMode: 'k' | 'g1-up') {
+  const min = ageMode === 'k' ? 28 : 24;
+  for (const el of root.querySelectorAll<HTMLElement>(LABELS)) {
+    const what = `${el.getAttribute('class')} "${el.textContent?.trim()}"`;
+    await expect(
+      Number.parseFloat(getComputedStyle(el).fontSize),
+      `${what} font`,
+    ).toBeGreaterThanOrEqual(min);
+  }
+  for (const name of root.querySelectorAll<HTMLElement>('.ni-chart__name')) {
+    const cell = name.closest('.ni-chart__label');
+    if (!cell) continue;
+    const range = document.createRange();
+    range.selectNodeContents(name);
+    const text = range.getBoundingClientRect();
+    const box = cell.getBoundingClientRect();
+    const what = `the name "${name.textContent}"`;
+    await expect(range.getClientRects().length, `${what} is on one line`).toBe(1);
+    await expect(text.left, `${what} left`).toBeGreaterThanOrEqual(box.left - 0.5);
+    await expect(text.right, `${what} right`).toBeLessThanOrEqual(box.right + 0.5);
+    await expect(text.top, `${what} top`).toBeGreaterThanOrEqual(box.top - 0.5);
+    await expect(text.bottom, `${what} bottom`).toBeLessThanOrEqual(box.bottom + 0.5);
   }
 }
 
@@ -235,7 +269,10 @@ export async function expectFitsArea(
     ? [...widget.querySelectorAll(CONTENT)].filter((el) => el.getBoundingClientRect().width > 0)
     : [];
   await expectCentred(box, content.length > 0 ? content : controls);
-  if (widget instanceof HTMLElement) await expectNumeralsReadable(widget);
+  if (widget instanceof HTMLElement) {
+    await expectNumeralsReadable(widget);
+    await expectLabelsReadable(widget, ageMode);
+  }
   // On the area card too (`data-controls`), so the evidence can read it off the rendered story.
   box.dataset.controls = recordControls(currentStory, groupControls(controls));
 }
@@ -253,9 +290,23 @@ const CONTENT = [
 
 let currentStory = '';
 
-/** A story decorator that names the running story for `recordControls` (evidence log lines). */
-export function namedStory(Story: () => ReactElement, ctx: { title: string; name: string }) {
+/**
+ * A story decorator that names the running story for `recordControls` (evidence log lines) and
+ * refuses a config its engine model does not accept: every story of these widgets shows an item
+ * inside the supported domain (the bounds in the models), so no story can pass on a config the
+ * content checks would reject.
+ */
+export function namedStory(
+  Story: () => ReactElement,
+  ctx: { title: string; name: string; args: { config?: WidgetConfig } },
+) {
   currentStory = `${ctx.title} › ${ctx.name}`;
+  const config = ctx.args.config;
+  const parsed = config ? formatModel(config.format)?.configSchema.safeParse(config) : undefined;
+  if (parsed && !parsed.success) {
+    const why = parsed.error.issues.map((i) => `${i.path.join('.')}: ${i.message}`).join('; ');
+    throw new Error(`${currentStory}: the config is outside the supported domain (${why})`);
+  }
   return <Story />;
 }
 
