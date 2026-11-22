@@ -7,7 +7,7 @@ import {
   symbolParts,
 } from '@number-island/engine';
 import type { WidgetAction } from '@number-island/shared';
-import { type ReactNode, useRef, useState } from 'react';
+import { type KeyboardEvent as ReactKeyboardEvent, type ReactNode, useRef, useState } from 'react';
 import { useInteractionTrace } from '../../interaction/trace';
 import {
   useNarrationText,
@@ -275,7 +275,17 @@ export function BarGraphReadWidget({
     const name = slot.label ? t(slot.label) : String(slot.at ?? slot.id);
     const invited = invitedCat === slot.id;
     return (
-      <span className="ni-bgr__catslot">
+      // biome-ignore lint/a11y/noStaticElementInteractions: the keys bubble up from the card button inside; the span itself takes no focus
+      <span
+        className="ni-bgr__catslot"
+        // Backspace or Delete on the picked category puts it back (Enter and Space toggle it).
+        onKeyDown={(e: ReactKeyboardEvent) => {
+          if (!choice || (e.key !== 'Backspace' && e.key !== 'Delete')) return;
+          if (e.repeat || !interactive || stateRef.current.choice !== slot.id) return;
+          e.preventDefault();
+          tapCategory(slot);
+        }}
+      >
         {choice ? (
           <PickCard
             label={name}
@@ -349,6 +359,7 @@ export function BarGraphReadWidget({
                 // A choice card needs room for its 6 px ledge; a name button is target-sized.
                 target={choice ? target + 8 : target}
                 label={t('ui.widget.chart.graph')}
+                widgetLabels
                 renderLabel={renderLabel}
                 pointed={pointed}
                 readLine={readLine}

@@ -389,7 +389,10 @@ export function chartGeometry(chart: ChartSpec, opts: ChartLayoutOptions): Chart
   // Vertical: columns, labels underneath, the value axis on the left (bar graphs).
   const axisW = chart.kind === 'bar' ? numW + 14 : 0;
   // The label cell holds the sprite above the name's one line.
-  const labelH = Math.max(o.target, 60 + Math.ceil((opts.labelFont ?? 20) * 1.1));
+  const labelH = Math.max(
+    o.target,
+    opts.labelFont === undefined ? 76 : 60 + Math.ceil(opts.labelFont * 1.1),
+  );
   const x0 = PAD + axisW;
   const colW = Math.max(o.target, Math.min(170, (o.width - x0 - PAD - (n - 1) * o.gap) / n));
   const colsW = n * colW + (n - 1) * o.gap;

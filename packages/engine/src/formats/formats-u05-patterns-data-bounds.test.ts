@@ -603,3 +603,123 @@ describe('graph labels fit their cells', () => {
     ).toEqual(found);
   });
 });
+
+describe('review round 1 (PR #102)', () => {
+  it('a line plot does not ask most or least: its positions are not choices', () => {
+    const plot: ChartSpec = {
+      kind: 'line-plot',
+      orientation: 'horizontal',
+      categories: [
+        { id: '1', label: 'noun.fish.many', value: 2 },
+        { id: '2', label: 'noun.fish.many', value: 4 },
+      ],
+      scale: 1,
+      axisMax: 6,
+      lineScale: { min: 0, max: 3, step: 1 },
+    };
+    expect(issues(barGraphRead, read(plot, { type: 'how-many', categories: ['2'] }))).toEqual([]);
+    for (const type of ['most', 'least'] as const) {
+      expect(
+        refuses(
+          issues(barGraphRead, read(plot, { type, categories: ['1', '2'] })),
+          `a line plot does not ask ${type}`,
+        ),
+        type,
+      ).toBe(true);
+    }
+  });
+
+  it('most and least are asked of every category the chart shows', () => {
+    const chart = chartOf({ kind: 'bar' }, [9, 3, 5]);
+    const ask = (categories: string[]) => read(chart, { type: 'most', categories });
+    expect(issues(barGraphRead, ask(['fish', 'crab', 'shell']))).toEqual([]);
+    expect(issues(barGraphRead, ask(['shell', 'fish', 'crab']))).toEqual([]);
+    expect(refuses(issues(barGraphRead, ask(['crab', 'shell'])), 'asked of every category')).toBe(
+      true,
+    );
+  });
+
+  it('a line plot starts at 0 or above, to read and to build', () => {
+    const plot = (min: number): ChartSpec => ({
+      kind: 'line-plot',
+      orientation: 'horizontal',
+      categories: [],
+      scale: 1,
+      axisMax: 4,
+      lineScale: { min, max: min + 1, step: 0.5 },
+    });
+    const xs = (min: number): Build => ({
+      format: 'bar-graph-build',
+      chart: plot(min),
+      data: { kind: 'measurements', values: [min + 0.5] },
+      mode: 'xs',
+    });
+    expect(issues(barGraphBuild, xs(0))).toEqual([]);
+    expect(refuses(issues(barGraphBuild, xs(-1)), 'starts at 0 or above')).toBe(true);
+    const shown = (min: number) =>
+      read({ ...plot(min), categories: [{ id: String(min), label: 'noun.fish.many', value: 1 }] });
+    expect(issues(barGraphRead, shown(0))).toEqual([]);
+    expect(refuses(issues(barGraphRead, shown(-1)), 'starts at 0 or above')).toBe(true);
+  });
+
+  it('the vertical bound is the top the axis draws, not the raw cap', () => {
+    const bars = (axisMax: number) => read(chartOf({ kind: 'bar', scale: 10, axisMax }, [50, 20]));
+    expect(issues(barGraphRead, bars(90))).toEqual([]);
+    // 99 at scale 10 draws an axis to 100.
+    expect(refuses(issues(barGraphRead, bars(99)), 'vertical bars count to at most 99')).toBe(true);
+  });
+
+  it("a picture graph's top is a whole number of pictures", () => {
+    const pictures = (axisMax: number): Build =>
+      build('pictures', chartOf({ kind: 'picture', scale: 5, axisMax }, [0, 0]), {
+        kind: 'table',
+        values: [10, 5],
+      });
+    expect(issues(barGraphBuild, pictures(15))).toEqual([]);
+    expect(refuses(issues(barGraphBuild, pictures(12)), 'a whole number of pictures of 5')).toBe(
+      true,
+    );
+    const shown = chartOf({ kind: 'picture', scale: 5, axisMax: 12 }, [10, 5]);
+    expect(refuses(issues(barGraphRead, read(shown)), 'a whole number of pictures of 5')).toBe(
+      true,
+    );
+  });
+
+  it('a picture that does not fit is not placed, so every placement can be taken back', () => {
+    const c = build('pictures', chartOf({ kind: 'picture', scale: 2, axisMax: 6 }, [0, 0]), {
+      kind: 'table',
+      values: [5, 2],
+    });
+    const add = (s: ReturnType<typeof barGraphBuild.initialState>, count: number) =>
+      barGraphBuild.apply(s, { op: 'add-picture', args: { id: 'fish', count } });
+    let s = barGraphBuild.initialState(c);
+    s = add(add(s, 1), 1);
+    s = add(s, 0.5);
+    expect(s.values).toEqual([5, 0]);
+    // A whole picture would pass the top (6): refused, not clipped to a part of a picture.
+    expect(add(s, 1)).toBe(s);
+    expect(add(s, 0.5).values).toEqual([6, 0]);
+    // More than the row holds is not taken away either.
+    const one = add(barGraphBuild.initialState(c), 0.5);
+    expect(add(one, -1)).toBe(one);
+    expect(add(one, -0.5).values).toEqual([0, 0]);
+    // `answer {values}` enters only counts the pictures can show.
+    const typed = (values: number[]) =>
+      barGraphBuild.apply(barGraphBuild.initialState(c), { op: 'answer', args: { values } }).values;
+    expect(typed([5, 2])).toEqual([5, 2]);
+    expect(typed([4.5, 2])).toEqual([0, 0]);
+  });
+
+  it('an erased rule answer is erased in the model', () => {
+    const c = numbers([15, 25, 35], 'rule');
+    const typed = (...values: (number | undefined)[]) =>
+      values.reduce(
+        (s, value) =>
+          patternExtend.apply(s, { op: 'answer', args: value === undefined ? {} : { value } }),
+        patternExtend.initialState(c),
+      );
+    expect(patternExtend.toResponse(typed(1, 10))).toEqual({ kind: 'number', value: 10 });
+    expect(patternExtend.toResponse(typed(1, 10, 1, undefined))).toBeNull();
+    expect(patternExtend.toResponse(typed(undefined))).toBeNull();
+  });
+});

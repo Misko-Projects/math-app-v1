@@ -782,8 +782,15 @@ export const ChoiceUndo: Story = {
     await expect(shells).toHaveAttribute('aria-pressed', 'true');
     await userEvent.keyboard('{Enter}');
     await expect(shells).toHaveAttribute('aria-pressed', 'false');
+    // Delete (or Backspace) on the picked category puts it back too; on an unpicked one it does
+    // nothing.
+    await userEvent.keyboard('{Enter}');
+    await userEvent.keyboard('{Delete}');
+    await expect(shells).toHaveAttribute('aria-pressed', 'false');
+    await userEvent.keyboard('{Backspace}');
+    await expect(shells).toHaveAttribute('aria-pressed', 'false');
     const kinds = traceOf(args.onInteract).map((e) => `${e.t}:${e.target}`);
-    await expect(kinds.filter((k) => k === 'undo:cat-shell')).toHaveLength(2);
+    await expect(kinds.filter((k) => k === 'undo:cat-shell')).toHaveLength(3);
     await expect(args.onResponse).not.toHaveBeenCalled();
   },
 };

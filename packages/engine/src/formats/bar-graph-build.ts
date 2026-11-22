@@ -181,10 +181,13 @@ export const barGraphBuild: FormatModel<'bar-graph-build', BarGraphBuildState> =
       case 'add-picture': {
         const i = slotOf(argString(a, 'id'));
         if (i < 0) return s;
-        // Whole or half symbols only (a picture graph shows halves, 03 §5.5).
+        // Whole or half symbols only (a picture graph shows halves, 03 §5.5), and only a step
+        // that fits: a picture that would pass the axis top, or more than the row holds taken
+        // away, changes nothing (clipping it would leave part of a picture no step can undo).
         const n = step('count');
         if (!Number.isInteger(n * 2)) return s;
-        return clampTo(s, i, (s.values[i] as number) + n * s.config.chart.scale);
+        const next = tidy((s.values[i] as number) + n * s.config.chart.scale);
+        return next < 0 || next > s.config.chart.axisMax ? s : clampTo(s, i, next);
       }
       case 'tally': {
         const i = slotOf(argString(a, 'id'));
@@ -200,6 +203,12 @@ export const barGraphBuild: FormatModel<'bar-graph-build', BarGraphBuildState> =
       case 'answer': {
         const vs = argNumbers(a, 'values');
         if (!vs || vs.length !== slots.length) return s;
+        // Only counts the marks can show: whole numbers, or half pictures of the scale.
+        const drawable = (v: number) =>
+          s.config.mode === 'pictures'
+            ? halvesOfScale(v, s.config.chart.scale)
+            : Number.isInteger(v);
+        if (!vs.every(drawable)) return s;
         return vs.reduce((acc, v, i) => clampTo(acc, i, v), s);
       }
       default:

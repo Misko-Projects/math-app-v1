@@ -236,12 +236,15 @@ The three models state and enforce the domain their widgets support. Every bound
 | | `table` | not supported yet: the schema refuses the mode (the widget has no table layout for the smallest area; the model keeps the ops) |
 | bar-graph-read, bar-graph-build | rows of a picture graph, tally chart or table | at most 3 (`GRAPH_ROWS_MAX`); only bars stand upright |
 | | rows of horizontal bars, or of a picture graph with a key (scale above 1) | at most 2 (`GRAPH_BAR_ROWS_MAX`) |
-| | columns of vertical bars | at most 3 (`GRAPH_COLUMNS_MAX`), axis top at most 99 (`GRAPH_VERTICAL_TOP_MAX`) |
+| | columns of vertical bars | at most 3 (`GRAPH_COLUMNS_MAX`); the top the axis draws (the cap rounded up to a whole step) at most 99 (`GRAPH_VERTICAL_TOP_MAX`) |
+| | picture graph top | a whole number of pictures (`axisMax` a multiple of `scale`) |
+| | line plot scale | starts at 0 or above |
 | | category name | one word of at most 9 letters (`GRAPH_LABEL_CHARS_MAX`; `labelIssues`, property 3.label) |
 | | tally row, table count | at most 20 (`GRAPH_TALLY_MAX`) |
 | bar-graph-read | pictures in a row | at most 10 (`GRAPH_PICTURES_MAX`) |
 | | line plot | at most 13 positions (`GRAPH_LINE_POSITIONS_MAX`), 6 Xs on one (`GRAPH_LINE_STACK_MAX`) |
 | | values and the answer | whole numbers; the answer 0 to 999 (`GRAPH_ANSWER_MAX`) |
+| | `most`, `least` | asked of every category the chart shows (the widget offers each as a choice); never of a line plot |
 | bar-graph-build | blocks in a bar | at most 10 (`BUILD_BAR_MAX`) |
 | | pictures in a row | at most 6 (`BUILD_PICTURES_MAX`) |
 | | line plot | at most 4 positions (`BUILD_LINE_POSITIONS_MAX`), 6 Xs on one |
@@ -250,6 +253,8 @@ The three models state and enforce the domain their widgets support. Every bound
 - **One source for the answer** (`FormatModel.answerIssues`, content-check property 3.answer). bar-graph-read: the item's answer must equal `barGraphReadAnswer(config)` (the count or the category the question asks for; a tie or a count the pad cannot type fails the schema). bar-graph-build: the `chart.values` target must equal `buildTargets(config)`. pattern-extend: `extend` and `fill` expect one token per blank that the widget can hold (a palette unit, a number 0 to 999, a stack of 1 to 20 tiles); `core` expects the first repeat (places 0 to p − 1, p the smallest period); `rule` expects the step the pattern shows; `translate` expects `{ source: sequence, units: translateTo }`.
 - **Any whole repeat is the core.** `coreValues` answers a marked run that is exactly one repeat (it starts on a multiple of the period and is one period long) as the first repeat, so marking the second AB of AB AB AB is as right as marking the first. A run that starts inside a repeat is sent as marked.
 - **bar-graph-read** `answer {}` (no id) puts a picked category back; `answer {value}` takes only a whole number 0 to 999.
+- **bar-graph-build** `add-picture` takes only a step that fits: a picture that would pass the axis top, or more than the row holds taken away, changes nothing (clipping would leave part of a picture no step can undo). `answer {values}` takes only counts the marks can show.
+- **pattern-extend** `rule`: `answer {}` (no value) erases the typed step, so the model holds what the pad shows.
 
 ### Time formats (K01: time.clock, time.sequence; clock-set and clock-read have no model yet)
 

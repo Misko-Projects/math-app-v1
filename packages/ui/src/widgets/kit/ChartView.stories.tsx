@@ -203,3 +203,48 @@ export const NumberPadWithChart: Story = {
     await expect(padResponse).toHaveBeenCalledWith({ kind: 'number', value: 10 });
   },
 };
+
+/**
+ * A chart stimulus keeps the kit's own label: 20 px and free to wrap, with none of the graph
+ * widgets' one-line label style (`widgetLabels`), because a stimulus's names are not bounded.
+ * Review of PR #102: two columns in a 300 px box, "rectangular prisms" beside "cubes"; the long
+ * name wraps and the two names never run into each other.
+ */
+export const LongStimulusLabels: Story = {
+  render: () => {
+    const spec: StimulusSpec = {
+      kind: 'chart',
+      chart: {
+        kind: 'bar',
+        orientation: 'vertical',
+        categories: [
+          { id: 'crab', label: 'shape.rect-prism.many', value: 4 },
+          { id: 'shell', label: 'shape.cube.many', value: 7 },
+        ],
+        scale: 1,
+        axisMax: 10,
+      },
+    };
+    return <StimulusView spec={spec} maxWidth={300} maxHeight={280} />;
+  },
+  play: async ({ canvasElement }) => {
+    const chart = canvasElement.querySelector('.ni-chart') as HTMLElement;
+    await expect(chart).not.toHaveAttribute('data-labels');
+    const names = [...chart.querySelectorAll<HTMLElement>('.ni-chart__name')];
+    await expect(names.map((n) => n.textContent)).toEqual(['rectangular prisms', 'cubes']);
+    const boxes = names.map((n) => {
+      const face = n.closest('.ni-chart__labelface') as HTMLElement;
+      const cs = getComputedStyle(face);
+      return { font: cs.fontSize, wrap: cs.whiteSpace, range: document.createRange(), n };
+    });
+    for (const b of boxes) {
+      await expect(b.font).toBe('20px');
+      await expect(b.wrap).toBe('normal');
+      b.range.selectNodeContents(b.n);
+    }
+    // The long name takes two lines; its text ends before the other name begins.
+    const [long, short] = boxes.map((b) => b.range.getBoundingClientRect()) as [DOMRect, DOMRect];
+    await expect(boxes[0]?.range.getClientRects().length).toBeGreaterThanOrEqual(2);
+    await expect(long.right).toBeLessThanOrEqual(short.left);
+  },
+};

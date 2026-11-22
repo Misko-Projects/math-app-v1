@@ -874,3 +874,63 @@ export const TallestTilesLeave: Story = {
     await expect(more).toBeEnabled();
   },
 };
+
+// ---------- review round 1 (PR #102) ----------
+
+/**
+ * An erased rule is erased: type 10, press Backspace twice, and the display is empty, Check is
+ * off and sends nothing.
+ */
+export const RuleErased: Story = {
+  args: { config: rule, tier: 'abstract' },
+  play: async ({ canvasElement, args }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    await userEvent.keyboard('10');
+    await expect(check(root)).toBeEnabled();
+    await userEvent.keyboard('{Backspace}');
+    await expect(root.querySelector('.ni-pattern__answer')?.textContent).toBe('1');
+    await userEvent.keyboard('{Backspace}');
+    await expect(root.querySelector('.ni-pattern__answer')?.textContent).toBe('');
+    await expect(check(root)).toBeDisabled();
+    await userEvent.keyboard('{Enter}');
+    await expect(args.onResponse).not.toHaveBeenCalled();
+  },
+};
+
+/**
+ * Backspace and Delete undo whatever is in hand: Delete on a filled blank while another piece is
+ * picked up takes the placed piece off (Enter would place the held one), and Backspace on a
+ * marked place takes the core band off. One undo each in the trace.
+ */
+export const EraseKeysUndo: Story = {
+  args: { config: shapesExtend, tier: 'pictorial' },
+  play: async ({ canvasElement, args }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    const [red, blue] = units(root) as [HTMLElement, HTMLElement];
+    await userEvent.click(red);
+    await userEvent.click(cell(root, 6));
+    await userEvent.click(blue);
+    cell(root, 6).focus();
+    await userEvent.keyboard('{Delete}');
+    await expect(cell(root, 6)).toHaveAttribute('data-empty', 'true');
+    const kinds = traceOf(args.onInteract).map((e) => `${e.t}:${e.target}`);
+    await expect(kinds.filter((k) => k === 'undo:blank-6')).toHaveLength(1);
+  },
+};
+
+/** Backspace on a marked place takes the core band off (one undo in the trace). */
+export const EraseKeyTakesTheBandOff: Story = {
+  args: { config: objectsCore },
+  play: async ({ canvasElement, args }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    await userEvent.click(cell(root, 0));
+    await userEvent.click(cell(root, 3));
+    await expect(root.querySelectorAll('[data-core]')).toHaveLength(4);
+    cell(root, 1).focus();
+    await userEvent.keyboard('{Backspace}');
+    await expect(root.querySelectorAll('[data-core]')).toHaveLength(0);
+    await expect(check(root)).toBeDisabled();
+    const kinds = traceOf(args.onInteract).map((e) => `${e.t}:${e.target}`);
+    await expect(kinds.filter((k) => k.startsWith('undo:'))).toEqual(['undo:tok-1']);
+  },
+};

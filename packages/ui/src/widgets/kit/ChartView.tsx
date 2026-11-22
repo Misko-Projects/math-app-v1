@@ -57,6 +57,12 @@ export interface ChartViewProps {
    * named chart shows the pictures alone, so its marks keep the room.
    */
   names?: boolean;
+  /**
+   * The graph widgets' label style: names at `LABEL_FONT_PX` on one line, in a label cell sized
+   * for the longest name. Only for charts whose names are bounded (the bar-graph formats check
+   * them, `graphLabelIssues`); a `chart` stimulus keeps the kit's default label, which wraps.
+   */
+  widgetLabels?: boolean;
   className?: string;
 }
 
@@ -161,6 +167,7 @@ export function ChartView({
   counted = null,
   padY,
   names = true,
+  widgetLabels = false,
   className,
 }: ChartViewProps) {
   const t = useNarrationText();
@@ -173,8 +180,7 @@ export function ChartView({
     target,
     values,
     padY,
-    labelFont,
-    nameWidth: nameWidth(longest, labelFont),
+    ...(widgetLabels ? { labelFont, nameWidth: nameWidth(longest, labelFont) } : {}),
   });
   const interactive = Boolean(renderLabel || renderOverlay);
   const name = label ?? t('ui.widget.picture');
@@ -184,6 +190,7 @@ export function ChartView({
   return (
     <div
       className={cls}
+      data-labels={widgetLabels ? 'widget' : undefined}
       data-kind={chart.kind}
       data-orientation={g.orientation}
       data-scale={chart.scale}

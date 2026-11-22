@@ -165,14 +165,18 @@
   padding: 4px 6px;
   color: var(--color-ink);
   font-family: var(--font-body);
-  /* chartLayout LABEL_FONT_PX: text a child reads is 24 px, 28 px in kindergarten mode. */
-  font-size: 24px;
+  font-size: 20px;
   font-weight: 700;
   line-height: 1.1;
   text-align: center;
+}
+/* The graph widgets' labels (ChartView `widgetLabels`, chartLayout LABEL_FONT_PX): 24 px, 28 px
+   in kindergarten mode, on one line; their names are bounded, so the cell is sized for them. */
+.ni-chart[data-labels="widget"] .ni-chart__labelface {
+  font-size: 24px;
   white-space: nowrap;
 }
-[data-age-mode="k"] .ni-chart__labelface {
+[data-age-mode="k"] .ni-chart[data-labels="widget"] .ni-chart__labelface {
   font-size: 28px;
 }
 .ni-chart__labelface[data-orientation="horizontal"] {
@@ -181,7 +185,9 @@
 .ni-chart__labelface[data-orientation="vertical"] {
   flex-direction: column;
   gap: 2px;
-  /* The name has the whole column (columns are 12 px apart). */
+}
+/* A widget label's name has the whole column (columns are 12 px apart). */
+.ni-chart[data-labels="widget"] .ni-chart__labelface[data-orientation="vertical"] {
   padding-inline: 0;
 }
 .ni-chart__labelsprite {

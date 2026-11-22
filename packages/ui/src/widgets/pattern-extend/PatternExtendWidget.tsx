@@ -168,9 +168,9 @@ export function PatternExtendWidget({
   });
 
   /** Takes the unit in a blank back (a tap or key on it with no piece picked up). */
-  const clearBlank = (index: number) => {
+  const clearBlank = (index: number, whileHolding = false) => {
     const held = stateRef.current.placed[index];
-    if (!interactive || place.selected !== null || !held) return false;
+    if (!interactive || (place.selected !== null && !whileHolding) || !held) return false;
     trace('undo', `blank-${index}`);
     if (speakOnTap) speakToken(held);
     apply({ op: 'place-token', args: { index } });
@@ -192,8 +192,9 @@ export function PatternExtendWidget({
     if (mode === 'rule') {
       const text = applyPadKey(ruleText, key, MAX_DIGITS);
       setRuleText(text);
+      // The model holds exactly what the display shows: an erased step is erased there too.
       const v = padValue(text);
-      if (v !== null) apply({ op: 'answer', args: { value: v } });
+      apply({ op: 'answer', args: v === null ? {} : { value: v } });
       return;
     }
     if (active === null) return;
@@ -484,6 +485,15 @@ export function PatternExtendWidget({
           aria-pressed={mode === 'core' ? selected.has(i) : undefined}
           disabled={!interactive}
           onClick={() => tapToken(i)}
+          onKeyDown={(e) => {
+            // Backspace or Delete on a marked place takes the band off (Enter and Space tap).
+            if (mode !== 'core' || (e.key !== 'Backspace' && e.key !== 'Delete')) return;
+            if (e.repeat || !interactive || !stateRef.current.selected.includes(i)) return;
+            e.preventDefault();
+            setPending(null);
+            trace('undo', `tok-${i}`);
+            apply({ op: 'answer', args: { values: [] } });
+          }}
           onPointerDown={onCorePointerDown(i)}
         >
           <PatternTokenView token={token} frame={tileFrame} />
@@ -514,7 +524,8 @@ export function PatternExtendWidget({
         onKeyDown: (e: Parameters<typeof base.onKeyDown>[0]) => {
           const erase = e.key === 'Backspace' || e.key === 'Delete';
           const activate = e.key === 'Enter' || e.key === ' ';
-          if ((erase || activate) && !e.repeat && canClear && clearBlank(i)) {
+          // Backspace and Delete erase whatever is in hand; Enter and Space place a held piece.
+          if (!e.repeat && (erase ? clearBlank(i, true) : activate && canClear && clearBlank(i))) {
             e.preventDefault();
             return;
           }

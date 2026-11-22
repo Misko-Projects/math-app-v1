@@ -426,7 +426,10 @@ export function BarGraphBuildWidget({
           const step = Math.min(Math.abs(goal - v), unit);
           const symbols = config.mode === 'pictures' ? step / unit : step;
           addMarks(i, dir * symbols, true);
-          v = stateRef.current.values[i] ?? goal;
+          const now = stateRef.current.values[i] ?? goal;
+          // A step the model refuses ends the playback (never a loop that cannot finish).
+          if (now === v) break;
+          v = now;
           await pause(420);
         }
         await pause(300);
@@ -580,6 +583,7 @@ export function BarGraphBuildWidget({
                   target={48}
                   padY={2}
                   names={false}
+                  widgetLabels
                   label={dataLabel}
                 />
               ) : (
@@ -620,6 +624,7 @@ export function BarGraphBuildWidget({
                 padY={2}
                 target={target}
                 label={t('ui.widget.chart.graph')}
+                widgetLabels
                 renderOverlay={renderOverlay}
                 pointed={flash}
               />

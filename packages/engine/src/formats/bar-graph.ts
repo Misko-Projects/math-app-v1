@@ -5,7 +5,7 @@
 // stress stories show each one at that size.
 
 import type { ChartSpec } from '@number-island/shared';
-import { chartSlots } from './chart';
+import { axisTop, chartSlots } from './chart';
 
 /** Rows of a chart that reads across (picture rows, tally charts, tables, horizontal bars). */
 export const GRAPH_ROWS_MAX = 3;
@@ -77,6 +77,9 @@ export function graphIssues(chart: ChartSpec, purpose: 'read' | 'build', add: Ad
       add(['axisMax'], `a line plot stacks at most ${GRAPH_LINE_STACK_MAX} Xs`);
     }
     if (chart.scale !== 1) add(['scale'], 'a line plot counts in ones');
+    // Lengths are never negative, and the board prints a measurement as a whole and a fraction.
+    if ((chart.lineScale?.min ?? 0) < 0)
+      add(['lineScale', 'min'], 'a line plot starts at 0 or above');
     return;
   }
   const across = chart.orientation === 'horizontal';
@@ -96,6 +99,10 @@ export function graphIssues(chart: ChartSpec, purpose: 'read' | 'build', add: Ad
           : 'a chart that reads across has';
     add(['categories'], `${what} at most ${most}`);
   }
+  // A row ends on a whole picture, so a full row never holds part of one the child cannot place.
+  if (chart.kind === 'picture' && chart.axisMax % chart.scale !== 0) {
+    add(['axisMax'], `a picture graph's top is a whole number of pictures of ${chart.scale}`);
+  }
   const pictures = purpose === 'build' ? BUILD_PICTURES_MAX : GRAPH_PICTURES_MAX;
   if (chart.kind === 'picture' && chart.axisMax > pictures * chart.scale) {
     add(['axisMax'], `a picture graph to ${purpose} has at most ${pictures} pictures in a row`);
@@ -106,7 +113,8 @@ export function graphIssues(chart: ChartSpec, purpose: 'read' | 'build', add: Ad
   if (chart.kind === 'bar' && purpose === 'build' && chart.axisMax > BUILD_BAR_MAX) {
     add(['axisMax'], `a bar the child builds has at most ${BUILD_BAR_MAX} blocks`);
   }
-  if (chart.kind === 'bar' && !across && chart.axisMax > GRAPH_VERTICAL_TOP_MAX) {
+  // The top the axis draws (the cap rounded up to a whole step), not the raw cap.
+  if (chart.kind === 'bar' && !across && axisTop(chart) > GRAPH_VERTICAL_TOP_MAX) {
     add(['axisMax'], `vertical bars count to at most ${GRAPH_VERTICAL_TOP_MAX}`);
   }
   if (chart.kind === 'bar' && !Number.isInteger(chart.axisMax)) {

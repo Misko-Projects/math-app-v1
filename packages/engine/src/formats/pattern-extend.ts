@@ -11,7 +11,7 @@
 // - `translate`: the child rebuilds the whole pattern below it with the `translateTo` units
 //   (`place-token {index, token}`, index into the new row); answers state `{ tokens }`, the new row
 //   (pattern.isomorphic `{ source, units }`).
-// - `rule`: answers the typed step (`answer {value}`, a number).
+// - `rule`: answers the typed step (`answer {value}`, a number; `answer {}` erases it).
 // - `table`: an input–output table; `place-token {index, token: {n}}` fills the missing output in
 //   row `index`, or `answer {values}` fills every missing output in order; answers `numbers`
 //   (ordered).
@@ -518,6 +518,8 @@ export const patternExtend: FormatModel<'pattern-extend', PatternExtendState> = 
       }
       case 'answer': {
         if (c.mode === 'rule') {
+          // No value: the typed step is erased (the pad's display is empty again).
+          if (a.args?.value === undefined) return s.value === null ? s : { ...s, value: null };
           const v = argNumber(a, 'value');
           return v === undefined ? s : { ...s, value: v };
         }

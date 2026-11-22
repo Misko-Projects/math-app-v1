@@ -860,3 +860,60 @@ async function expectTallyCountable(board: HTMLElement) {
     }
   }
 }
+
+// ---------- review round 1 (PR #102) ----------
+
+/** Each picture is 2 and the row's top is 6: counts of 5 and 2. */
+const picturesToTheTop: Config = {
+  format: 'bar-graph-build',
+  chart: {
+    kind: 'picture',
+    orientation: 'horizontal',
+    categories: zero('apple', 'fish'),
+    scale: 2,
+    axisMax: 6,
+  },
+  data: { kind: 'table', values: [5, 2] },
+  mode: 'pictures',
+};
+
+/**
+ * A picture that does not fit is not placed: with 5 of 6 in the row, a whole picture is refused
+ * (the row keeps 5 and says it is full) and "Take one back" restores exactly the count before the
+ * last picture that was placed.
+ */
+export const PictureThatDoesNotFit: Story = {
+  args: { config: picturesToTheTop, tier: 'pictorial' },
+  play: async ({ canvasElement }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    const caption = () => root.querySelector('.ni-bgb__title[data-board="build"]') as HTMLElement;
+    await userEvent.click(chip(root));
+    await userEvent.click(lane(root, 'apple'));
+    await userEvent.click(lane(root, 'apple'));
+    await userEvent.click(chip(root, 'half'));
+    await userEvent.click(lane(root, 'apple'));
+    await expectChartShows(built(root), { apple: 5, fish: 0 }, 2);
+    await userEvent.click(chip(root));
+    await userEvent.click(lane(root, 'apple'));
+    await expectChartShows(built(root), { apple: 5, fish: 0 }, 2);
+    await expect(caption()).toHaveTextContent('That one is full.');
+    await userEvent.click(back(root));
+    await expectChartShows(built(root), { apple: 4, fish: 0 }, 2);
+    await expect(caption()).toHaveTextContent('Your graph');
+  },
+};
+
+const fitDemo: WidgetDemo = createDemoController({ strict: true });
+
+/** Demo playback of pictures that do not all fit settles: it places the ones that fit and ends. */
+export const DemoPicturesSettle: Story = {
+  args: { config: picturesToTheTop, disabled: true, demo: fitDemo, tier: 'pictorial' },
+  play: async ({ canvasElement }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    await fitDemo.play({ op: 'add-picture', args: { id: 'apple', count: 2.5 } });
+    await expectChartShows(built(root), { apple: 5, fish: 0 }, 2);
+    // One more whole picture does not fit: the op changes nothing and returns.
+    await fitDemo.play({ op: 'add-picture', args: { id: 'apple', count: 1 } });
+    await expectChartShows(built(root), { apple: 5, fish: 0 }, 2);
+  },
+};

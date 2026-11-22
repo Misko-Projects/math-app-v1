@@ -190,6 +190,22 @@ const configSchema = barGraphReadConfigSchema.superRefine((c, ctx) => {
     }
   }
   if (asksCategory(q.type)) {
+    // The widget offers every category as a choice, so the question is about all of them; a line
+    // plot's positions are not choices (it asks how many).
+    if (c.chart.kind === 'line-plot') {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['question', 'type'],
+        message: `a line plot does not ask ${q.type}: its positions are not choices`,
+      });
+    }
+    if (q.categories.length !== ids.size || q.categories.some((id) => !ids.has(id))) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['question', 'categories'],
+        message: `${q.type} is asked of every category the chart shows`,
+      });
+    }
     if (slots.length < 2) {
       ctx.addIssue({ code: 'custom', path: ['chart'], message: `${q.type} needs two categories` });
     }
