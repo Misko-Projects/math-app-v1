@@ -97,6 +97,7 @@ export {
 } from './formats/clock-read';
 export type { ClockHand, ClockSetState } from './formats/clock-set';
 // U05 (#14) money
+export { coinAnswerIssues, coinAnswerSpec } from './formats/coin-answer';
 export {
   type CoinCountState,
   type CountPiece,

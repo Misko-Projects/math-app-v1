@@ -1,3 +1,4 @@
+import { coinAnswerSpec, payTrayCapacity, stateChecker } from '@number-island/engine';
 import {
   COIN_FOUND_MAX,
   COIN_FOUND_WAY_PIECES_MAX,
@@ -123,6 +124,46 @@ const WORST_TRAYS: Record<string, number>[] = [
   { dollar: 6, quarter: 6 },
 ];
 
+const ROOT = '.ni-cpay';
+
+/**
+ * After every story that shows one coin-pay board (PR #101 review 4): the widget's full-tray
+ * note and the item's checker agree. With the answer the config implies (`coinAnswerSpec`, the
+ * one content-check requires), the note is on screen exactly when the tray is full and the
+ * checker would not accept it. So no story can end telling a child to take a coin back from a
+ * tray Check accepts, or leave a full wrong tray untold.
+ */
+async function noteAgreesWithChecker({
+  canvasElement,
+  args,
+}: {
+  canvasElement: HTMLElement;
+  args: WidgetHostProps;
+}) {
+  const roots = [...canvasElement.querySelectorAll<HTMLElement>(ROOT)];
+  const config = args.config as ConfigFor<'coin-pay'>;
+  // Stories that lay out several boards give each its own config; the engine's sweep over every
+  // tray covers them (formats-u05-time-money-bounds.test.ts).
+  if (roots.length !== 1 || config.format !== 'coin-pay') return;
+  const root = roots[0] as HTMLElement;
+  const order = [...root.querySelectorAll<HTMLElement>('[data-zone="tray"] [data-pile]')].flatMap(
+    (pile) => Array.from({ length: Number(pile.dataset.count) }, () => pile.dataset.pile as string),
+  );
+  const coins: Record<string, number> = { penny: 0, nickel: 0, dime: 0, quarter: 0 };
+  if (config.purse.dollar !== undefined && config.purse.dollar !== 0) coins.dollar = 0;
+  for (const k of order) coins[k] = (coins[k] ?? 0) + 1;
+  const spec = coinAnswerSpec(config);
+  const accepted = stateChecker(spec.checker)?.check(spec.target, { coins }) === true;
+  const full = order.length >= payTrayCapacity(config);
+  const note = root.querySelector('.ni-money__note') !== null;
+  const off = root.dataset.disabled === 'true' || args.demo !== undefined;
+  if (off) {
+    await expect(note, 'no note while the widget is off').toBe(false);
+    return;
+  }
+  await expect(note, `full ${full}, checker accepts ${accepted}`).toBe(full && !accepted);
+}
+
 const meta = {
   title: 'Widgets/Coin pay',
   args: {
@@ -134,12 +175,12 @@ const meta = {
   },
   parameters: { ui: { stage: 'centered' } },
   render: renderWidget,
+  afterEach: noteAgreesWithChecker,
 } satisfies Meta<WidgetHostProps>;
 
 export default meta;
 type Story = StoryObj<typeof meta>;
 
-const ROOT = '.ni-cpay';
 const CENTS: Record<string, number> = { penny: 1, nickel: 5, dime: 10, quarter: 25, dollar: 100 };
 const stackTop = (root: HTMLElement, k: string) =>
   root.querySelector<HTMLElement>(`[data-stack="${k}"] .ni-money__top`);

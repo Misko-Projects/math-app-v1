@@ -25,10 +25,11 @@ import { describe, expect, it } from 'vitest';
 import { stateChecker } from '../check/state';
 import { AMPM_SCENES, clockRead, isDaylight } from './clock-read';
 import { clockSet } from './clock-set';
+import { coinAnswerIssues, coinAnswerSpec } from './coin-answer';
 import { coinCount, MAX_COMPARE_SLOTS, MAX_COUNT_CENTS } from './coin-count';
-import { coinPay, MAX_TRAY_PIECES, payTrayCapacity, trayAnswers } from './coin-pay';
+import { coinPay, MAX_TRAY_PIECES, payTrayCapacity, responseTray, trayAnswers } from './coin-pay';
 import { changeTrayCapacity, countUpPath, makeChange } from './make-change';
-import { fewestPieces, purseUnits, trayPieces, waysToPay } from './money';
+import { fewestPieces, type PurseKind, purseUnits, trayPieces, waysToPay } from './money';
 import { misplacedTimeMoneyPictures } from './pictures';
 import type { FormatModel } from './types';
 
@@ -758,5 +759,186 @@ describe('make-change bounds', () => {
       s = makeChange.apply(s, act('drop', { coin: 'penny' }));
       expect(s.order).toHaveLength(cap);
     }
+  });
+});
+
+describe("a coin item's answer is the one its config implies (PR #101 review 4)", () => {
+  // The reviewer's item: $3.00 with the fewest pieces, twelve quarters and three bills.
+  const three: WidgetConfigOf<'coin-pay'> = {
+    ...pay,
+    target: 300,
+    requireFewest: true,
+    purse: { quarter: 12, dollar: 3 },
+  };
+
+  it('refuses a target that leaves the purse out, the authoring case that split the two judges', () => {
+    const answer = {
+      kind: 'state' as const,
+      checker: 'coins.fewest' as const,
+      target: { cents: 300 },
+    };
+    const found = coinAnswerIssues(three, answer);
+    expect(found).toHaveLength(1);
+    expect(found[0]).toContain('target.purse is missing');
+    // Why it matters: without a purse the checker takes twelve quarters as the fewest pieces,
+    // while the widget, which knows the bills, tells the child to take a coin back.
+    const quarters = Array.from({ length: 12 }, (): PurseKind => 'quarter');
+    const value = { coins: responseTray(quarters, three.purse) };
+    expect(stateChecker('coins.fewest')?.check(answer.target, value)).toBe(true);
+    expect(trayAnswers(three, quarters)).toBe(false);
+  });
+
+  it('accepts the matching target, and then the two judges agree on that tray', () => {
+    const spec = coinAnswerSpec(three);
+    expect(spec).toEqual({
+      kind: 'state',
+      checker: 'coins.fewest',
+      target: { cents: 300, purse: { dollar: 3, quarter: 12 } },
+    });
+    expect(coinAnswerIssues(three, spec)).toEqual([]);
+    const quarters = Array.from({ length: 12 }, (): PurseKind => 'quarter');
+    const value = { coins: responseTray(quarters, three.purse) };
+    expect(stateChecker('coins.fewest')?.check(spec.target, value)).toBe(false);
+    expect(trayAnswers(three, quarters)).toBe(false);
+    const bills = Array.from({ length: 3 }, (): PurseKind => 'dollar');
+    expect(
+      stateChecker('coins.fewest')?.check(spec.target, { coins: responseTray(bills, three.purse) }),
+    ).toBe(true);
+    expect(trayAnswers(three, bills)).toBe(true);
+  });
+
+  it('refuses another purse, checker, amount or list of ways than the config has', () => {
+    const spec = coinAnswerSpec(three);
+    const withTarget = (target: Record<string, unknown>) => ({ ...spec, target });
+    expect(
+      coinAnswerIssues(three, withTarget({ cents: 300, purse: { quarter: 12 } })).join(' '),
+    ).toContain('not the purse of the widget config');
+    expect(
+      coinAnswerIssues(
+        three,
+        withTarget({ cents: 300, purse: { quarter: 'unlimited', dollar: 3 } }),
+      ).join(' '),
+    ).toContain('not the purse of the widget config');
+    expect(
+      coinAnswerIssues(three, withTarget({ cents: 250, purse: spec.target.purse })).join(' '),
+    ).toContain('target.cents is 300');
+    expect(coinAnswerIssues(three, { ...spec, checker: 'coins.total' }).join(' ')).toContain(
+      'the checker is coins.fewest',
+    );
+    expect(coinAnswerIssues(three, { kind: 'number', value: 300 }).join(' ')).toContain('state');
+    // A kind listed with 0 is a kind not listed: the same purse.
+    expect(
+      coinAnswerIssues(
+        three,
+        withTarget({ cents: 300, purse: { quarter: 12, dollar: 3, penny: 0 } }),
+      ),
+    ).toEqual([]);
+    // New way: the ways found are the config's, in any spelling of the same keys.
+    const again = {
+      ...pay,
+      target: 25,
+      mode: 'new-way' as const,
+      purse: { quarter: 1, dime: 2, nickel: 5 },
+      found: ['q0d0n5p0'],
+    };
+    const againSpec = coinAnswerSpec(again);
+    expect(againSpec.target.found).toEqual(['q0d0n5p0']);
+    expect(coinAnswerIssues(again, againSpec)).toEqual([]);
+    expect(
+      coinAnswerIssues(again, {
+        ...againSpec,
+        target: { ...againSpec.target, found: ['b0q0d0n5p0'] },
+      }),
+    ).toEqual([]);
+    expect(
+      coinAnswerIssues(again, {
+        ...againSpec,
+        target: { cents: 25, purse: againSpec.target.purse },
+      }).join(' '),
+    ).toContain('target.found');
+    expect(
+      coinAnswerIssues(pay, {
+        ...coinAnswerSpec(pay),
+        target: { ...coinAnswerSpec(pay).target, found: ['q1d1n1p0'] },
+      }).join(' '),
+    ).toContain('target.found');
+  });
+
+  it('make-change: the change owed, coins.total, and the config purse', () => {
+    const spec = coinAnswerSpec(change);
+    expect(spec.checker).toBe('coins.total');
+    expect(spec.target.cents).toBe(35);
+    expect(coinAnswerIssues(change, spec)).toEqual([]);
+    expect(coinAnswerIssues(change, { ...spec, target: { cents: 35 } }).join(' ')).toContain(
+      'target.purse is missing',
+    );
+    expect(coinAnswerIssues(change, { ...spec, checker: 'coins.fewest' }).join(' ')).toContain(
+      'the checker is coins.total',
+    );
+  });
+
+  it('with the implied answer, the widget and the checker agree on EVERY tray the tray can hold', () => {
+    // Every multiset of pieces up to the tray's size, for configs of every kind: plain pay, the
+    // fewest pieces with and without bills, a new way with ways found.
+    const configs: WidgetConfigOf<'coin-pay'>[] = [
+      pay,
+      three,
+      { ...pay, target: 60, requireFewest: true, purse: { dime: 6, nickel: 12 } },
+      { ...pay, target: 135, purse: { dollar: 1, quarter: 4, dime: 4, nickel: 2 } },
+      {
+        ...pay,
+        target: 65,
+        requireFewest: true,
+        purse: { quarter: 'unlimited', dime: 'unlimited', nickel: 3 },
+      },
+      {
+        ...pay,
+        target: 30,
+        mode: 'new-way',
+        purse: { quarter: 1, dime: 3, nickel: 4, penny: 5 },
+        found: ['q1d0n1p0', 'q0d3n0p0'],
+      },
+      {
+        ...pay,
+        target: 25,
+        mode: 'new-way',
+        purse: { quarter: 1, dime: 2, nickel: 5 },
+        found: ['q0d0n5p0'],
+      },
+    ];
+    const kinds: PurseKind[] = ['dollar', 'quarter', 'dime', 'nickel', 'penny'];
+    let compared = 0;
+    const disagree: string[] = [];
+    for (const c of configs) {
+      ok(coinPay, c);
+      const spec = coinAnswerSpec(c);
+      expect(coinAnswerIssues(c, spec)).toEqual([]);
+      const checker = stateChecker(spec.checker);
+      const cap = payTrayCapacity(c);
+      const walk = (i: number, order: PurseKind[]) => {
+        if (i === kinds.length) {
+          if (order.length === 0) return;
+          // Only trays the model lets a child build: within the purse's counts.
+          const within = kinds.every(
+            (k) =>
+              order.filter((x) => x === k).length <=
+              (c.purse[k] === 'unlimited' ? cap : (c.purse[k] ?? 0)),
+          );
+          if (!within) return;
+          compared += 1;
+          const value = { coins: responseTray(order, c.purse) };
+          const byChecker = checker?.check(spec.target, value) === true;
+          if (trayAnswers(c, order) !== byChecker) disagree.push(`${c.target}¢ ${order.join(',')}`);
+          return;
+        }
+        const k = kinds[i] as PurseKind;
+        for (let n = 0; order.length + n <= cap; n++) {
+          walk(i + 1, [...order, ...Array.from({ length: n }, () => k)]);
+        }
+      };
+      walk(0, []);
+    }
+    expect(compared).toBeGreaterThan(1000);
+    expect(disagree.slice(0, 5)).toEqual([]);
   });
 });
