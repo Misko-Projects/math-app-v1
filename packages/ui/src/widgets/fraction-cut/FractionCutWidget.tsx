@@ -168,6 +168,33 @@ const polar = (cx: number, cy: number, r: number, deg: number): [number, number]
   return [cx + r * Math.sin(a), cy - r * Math.cos(a)];
 };
 
+/**
+ * The touch area of a radial cut: a wedge from the centre to the rim along the radius, two fifths
+ * of the narrower sector beside it wide (so each sector keeps its own middle at every distance
+ * from the centre) and never wider than `maxWidth`. It covers the whole visible cut, hub to rim.
+ */
+export function radialSeamPath(
+  cx: number,
+  cy: number,
+  r: number,
+  angle: number,
+  narrow: number,
+  maxWidth: number,
+): string {
+  const a = (angle * Math.PI) / 180;
+  const d = { x: Math.sin(a), y: -Math.cos(a) };
+  const n = { x: Math.cos(a), y: Math.sin(a) };
+  const tan = Math.tan((0.2 * Math.min(180, narrow) * Math.PI) / 180);
+  const half = maxWidth / 2;
+  // Where the wedge reaches its full width (the rim, if it never does).
+  const turn = Math.min(r, half / tan);
+  const at = (rho: number, side: number) => {
+    const w = Math.min(half, rho * tan) * side;
+    return `${cx + rho * d.x + w * n.x} ${cy + rho * d.y + w * n.y}`;
+  };
+  return `M${cx} ${cy}L${at(turn, 1)}L${at(r, 1)}L${at(r, -1)}L${at(turn, -1)}Z`;
+}
+
 /** The dotted path of a guide line, in design units. */
 function guidePath(frame: ShapeFrame, g: GuidedLine): string {
   if (frame.kind === 'circle') {
@@ -758,6 +785,8 @@ export function FractionCutWidget({
       dy: number;
       /** Width of the touch band, in CSS px. */
       band: number;
+      /** A radial cut: `d` is a filled wedge (see radialSeamPath), not a stroked line. */
+      wedge?: boolean;
     }[] = [];
     if (!editing || state.stacked || state.separated) return out;
     if (frame.kind === 'circle' && state.radii.length === 1) {
@@ -770,15 +799,14 @@ export function FractionCutWidget({
           g.angles.some((a) => Math.abs((((a % 360) + 360) % 360) - angle) < 1e-6)
         );
       });
-      const [x0, y0] = polar(frame.cx, frame.cy, frame.r * 0.3, angle);
-      const [x1, y1] = polar(frame.cx, frame.cy, frame.r, angle);
       out.push({
         id: line !== undefined ? `cut-line-${line}` : `cut-r-${Math.round(angle * 10) / 10}`,
         args: line !== undefined ? { line } : { angle },
-        d: `M${x0} ${y0}L${x1} ${y1}`,
+        d: radialSeamPath(frame.cx, frame.cy, frame.r, angle, 180, knifePx / scale),
         dx: 0,
         dy: 0,
         band: knifePx,
+        wedge: true,
       });
       return out;
     }
@@ -804,18 +832,17 @@ export function FractionCutWidget({
           const g = guides[l];
           return g?.kind === 'radii' && g.angles.some((a) => near(((a % 360) + 360) % 360, angle));
         });
-        const [x0, y0] = polar(frame.cx, frame.cy, frame.r * 0.3, sec.a0);
-        const [x1, y1] = polar(frame.cx, frame.cy, frame.r, sec.a0);
         const narrow = Math.min(sec.a1 - sec.a0, before.a1 - before.a0, 180);
-        // The narrower sector's width at two thirds of the radius.
-        const across = 2 * frame.r * 0.66 * Math.sin((narrow * Math.PI) / 360) * scale;
+        // The wedge's width at the rim, in CSS px.
+        const rimWidth = 2 * frame.r * Math.tan((0.2 * narrow * Math.PI) / 180) * scale;
         add({
           id: line !== undefined ? `cut-line-${line}` : `cut-r-${Math.round(angle * 10) / 10}`,
           args: line !== undefined ? { line } : { angle },
-          d: `M${x0} ${y0}L${x1} ${y1}`,
+          d: radialSeamPath(frame.cx, frame.cy, frame.r, sec.a0, narrow, knifePx / scale),
           dx: ((offsets[i]?.dx ?? 0) + (offsets[j]?.dx ?? 0)) / 2,
           dy: ((offsets[i]?.dy ?? 0) + (offsets[j]?.dy ?? 0)) / 2,
-          band: Math.min(knifePx, across * 0.4),
+          band: Math.min(knifePx, rimWidth),
+          wedge: true,
         });
       });
       return out;
@@ -1042,7 +1069,7 @@ export function FractionCutWidget({
                 // biome-ignore lint/a11y/useSemanticElements: an SVG seam cannot be a <button>
                 <path
                   key={seam.id}
-                  className="ni-fcut__seam"
+                  className={seam.wedge ? 'ni-fcut__seam ni-fcut__seam--wedge' : 'ni-fcut__seam'}
                   d={seam.d}
                   data-seam={seam.id}
                   data-band={Math.round(seam.band)}
@@ -1050,7 +1077,7 @@ export function FractionCutWidget({
                   tabIndex={interactive ? 0 : -1}
                   aria-label={`${t('ui.frac.take-back')} ${i + 1}`}
                   aria-disabled={interactive ? undefined : true}
-                  strokeWidth={seam.band / scale}
+                  strokeWidth={seam.wedge ? 0 : seam.band / scale}
                   style={{ transform: `translate(${seam.dx}px, ${seam.dy}px)` }}
                   onClick={() => {
                     if (swallowClick.current) return;

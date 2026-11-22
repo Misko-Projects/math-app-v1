@@ -77,6 +77,17 @@
 .ni-fcut__seam:focus {
   outline: none;
 }
+/* A radial cut's target is a wedge along the radius, hub to rim: filled, not stroked. */
+.ni-fcut__seam--wedge {
+  fill: var(--color-sun-deep);
+  fill-opacity: 0;
+  stroke: none;
+  pointer-events: fill;
+}
+.ni-fcut__seam--wedge:hover,
+.ni-fcut__seam--wedge:focus-visible {
+  fill-opacity: 0.45;
+}
 .ni-fcut__seam:hover,
 .ni-fcut__seam:focus-visible {
   stroke-opacity: 0.45;

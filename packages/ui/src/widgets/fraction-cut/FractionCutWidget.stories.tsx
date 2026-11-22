@@ -833,6 +833,20 @@ export const ThenNameSixthsLandscapeMin: Story = {
 
 const seams = (root: HTMLElement) => [...root.querySelectorAll<SVGPathElement>('.ni-fcut__seam')];
 
+/** A point a share of the way along a drawn SVG line, in client px. */
+function onScreen(line: SVGGeometryElement, share: number) {
+  const p = line.getPointAtLength(line.getTotalLength() * share);
+  return new DOMPoint(p.x, p.y).matrixTransform(line.getScreenCTM() as DOMMatrix);
+}
+
+/** Every visible stretch of a cut line, hub to rim, hit-tests to its seam (its undo target). */
+async function expectCutIsItsSeam(line: SVGGeometryElement, seam: Element) {
+  for (const share of [0.08, 0.15, 0.3, 0.5, 0.65, 0.8, 0.95]) {
+    const p = onScreen(line, share);
+    await expect(document.elementFromPoint(p.x, p.y), `at ${share} of the cut`).toBe(seam);
+  }
+}
+
 /**
  * K: a cut is taken back by tapping it. The seam is a full K target wide here (the halves leave
  * room), the knife for that line comes back, and Enter on the seam does the same.
@@ -985,13 +999,20 @@ export const SlitHasASeam: Story = {
     await expect(style.stroke).not.toBe('none');
     const box = line.getBoundingClientRect();
     await expect(Math.max(box.width, box.height)).toBeGreaterThan(40);
-    // A finger at the middle of the drawn line lands on its seam, and takes the cut back.
+    // A finger anywhere along the drawn line lands on its seam: by the hub (the second dash,
+    // PR #100 review round 3), in the middle, and at the rim.
     await expect(seams(root)).toHaveLength(1);
-    const mid = line.getPointAtLength(line.getTotalLength() * 0.65);
-    const ctm = line.getScreenCTM() as DOMMatrix;
-    const at0 = new DOMPoint(mid.x, mid.y).matrixTransform(ctm);
-    await expect(document.elementFromPoint(at0.x, at0.y)).toBe(seams(root)[0]);
-    await userEvent.click(seams(root)[0] as SVGPathElement);
+    await expectCutIsItsSeam(line, seams(root)[0] as SVGPathElement);
+    // A real tap by the hub takes the cut back.
+    const hub = onScreen(line, 0.15);
+    await userEvent.pointer([
+      {
+        keys: '[TouchA>]',
+        target: seams(root)[0] as SVGPathElement,
+        coords: { clientX: hub.x, clientY: hub.y },
+      },
+      { keys: '[/TouchA]' },
+    ]);
     await expect(seams(root)).toHaveLength(0);
     await expect(slit()).toBeNull();
     await expect(knife(root, 0)).toBeVisible();
@@ -1070,5 +1091,68 @@ export const EmptyingAPartIsAnUndo: Story = {
       'tap:part-0',
       'undo:part-0',
     ]);
+  },
+};
+
+// ---------- PR #100 review round 3 (s_6d664fec100c) ----------
+
+/**
+ * Every cut on a circle is its own undo target from the hub to the rim: for each radius of a
+ * circle in fourths and in twelfths, points along the radius hit-test to that cut's seam, and the
+ * middle of every sector still belongs to the sector.
+ */
+async function expectRadialSeamsCoverCuts(root: HTMLElement, parts: number) {
+  await settle(root);
+  const svg = root.querySelector('.ni-fcut__svg') as SVGSVGElement;
+  const vb = svg.viewBox.baseVal;
+  const ctm = svg.getScreenCTM() as DOMMatrix;
+  const c = { x: vb.width / 2, y: vb.height / 2 };
+  const els = partEls(root);
+  await expect(els).toHaveLength(parts);
+  // The radius of the drawn circle, from a part's box (design units).
+  const r = Math.min(vb.width, vb.height) * 0.36;
+  for (let k = 0; k < parts; k += 1) {
+    const a = ((k * 360) / parts) * (Math.PI / 180);
+    for (const share of [0.35, 0.6, 0.9]) {
+      const p = new DOMPoint(
+        c.x + r * share * Math.sin(a),
+        c.y - r * share * Math.cos(a),
+      ).matrixTransform(ctm);
+      const hit = document.elementFromPoint(p.x, p.y);
+      await expect(hit?.classList.contains('ni-fcut__seam'), `radius ${k} at ${share}`).toBe(true);
+    }
+    // Halfway between two cuts, the sector is itself.
+    const m = (((k + 0.5) * 360) / parts) * (Math.PI / 180);
+    const q = new DOMPoint(
+      c.x + r * 0.7 * Math.sin(m),
+      c.y - r * 0.7 * Math.cos(m),
+    ).matrixTransform(ctm);
+    await expect(
+      document.elementFromPoint(q.x, q.y)?.classList.contains('ni-fcut__part'),
+      `sector ${k}`,
+    ).toBe(true);
+  }
+}
+
+export const RadialSeamsFourths: Story = {
+  args: { config: circleFourths },
+  render: inArea('landscapeMin'),
+  play: async ({ canvasElement }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    await userEvent.click(knife(root, 0));
+    await userEvent.click(knife(root, 1));
+    await expectRadialSeamsCoverCuts(root, 4);
+  },
+};
+
+export const RadialSeamsTwelfths: Story = {
+  args: { config: { ...circleTwelfths, shade: 1 } },
+  render: inArea('tablet'),
+  play: async ({ canvasElement }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    for (let i = 0; i < 12 && knives(root).length > 0; i += 1) {
+      await userEvent.click(knives(root)[0] as HTMLElement);
+    }
+    await expectRadialSeamsCoverCuts(root, 12);
   },
 };
