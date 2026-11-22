@@ -361,8 +361,9 @@ describe('area-tiles: one source for the answer', () => {
       target,
     });
     expect(areaAnswerIssues(c, dims({ rows: 3, cols: 4, orientationMatters: true }))).toEqual([]);
-    expect(areaAnswerIssues(c, dims({ rows: 3, cols: 4 }))).toEqual([
-      'a partition is checked as drawn',
+    expect(areaAnswerIssues(c, dims({ rows: 3, cols: 4 }))).toEqual([]);
+    expect(areaAnswerIssues(c, dims({ rows: 3, cols: 4, requireSplit: true }))).toEqual([
+      'a partition has no typed total',
     ]);
     expect(areaAnswerIssues(c, dims({ rows: 4, cols: 3, orientationMatters: true }))).toHaveLength(
       1,

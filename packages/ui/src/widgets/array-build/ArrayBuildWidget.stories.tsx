@@ -354,6 +354,22 @@ export const Keyboard: Story = {
   },
 };
 
+/**
+ * Kindergarten sizes (the format has no kindergarten content: this is Grade 2 content at the
+ * larger targets): the pad's buttons are 80 px and more, and the board still fits.
+ */
+export const KindergartenSizes: Story = {
+  globals: { ageMode: 'k' },
+  args: { config: strict },
+  play: async ({ canvasElement }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    await press(root, 'down', 2);
+    await press(root, 'right', 2);
+    await expectShown(root, 2, 3);
+    await expectAreaFit(canvasElement, buildFit(root, 'k', 'array-build K sizes 906x373'));
+  },
+};
+
 // ---------- limits ----------
 
 /**

@@ -63,7 +63,7 @@ export function areaAnswerMax(c: Pick<Config, 'region'>): number {
  * Why an item's answer is not the one this config asks for (FormatModel.answerIssues): `count`
  * and `multiply` answer the region's area as a number; `tile` and `decompose` are checked by
  * `tiles.cover` over this region with `value` its area; `partition` by `array.dims` with this
- * region's rows and columns, the picture as it stands (orientation matters).
+ * region's rows and columns (a turned partition cannot be drawn, so the orientation rule is free).
  */
 export function areaAnswerIssues(c: Config, answer: AnswerSpec): string[] {
   const { w, h, mask } = c.region;
@@ -81,7 +81,6 @@ export function areaAnswerIssues(c: Config, answer: AnswerSpec): string[] {
     if (t.rows !== h || t.cols !== w) {
       out.push(`the target is ${String(t.rows)} × ${String(t.cols)}, the region ${h} × ${w}`);
     }
-    if (t.orientationMatters !== true) out.push('a partition is checked as drawn');
     if (t.requireSplit === true) out.push('a partition has no typed total');
     return out;
   }

@@ -417,6 +417,20 @@ export const PartlyTiledIsSentAsIs: Story = {
   },
 };
 
+/**
+ * Kindergarten sizes (the format has no kindergarten content: this is Grade 2 content at the
+ * larger targets): the pad's buttons are 80 px and more, and the region still fits.
+ */
+export const KindergartenSizes: Story = {
+  globals: { ageMode: 'k' },
+  play: async ({ canvasElement }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    await press(root, 'row');
+    await expectAreaFit(canvasElement, buildFit(root, 'k', 'area-tiles K sizes 906x373'));
+    await expectTrueToUnit(root, 40);
+  },
+};
+
 // ---------- count and multiply ----------
 
 /** `count` in the smallest area: the L as a picture, the answer control and Check. */
