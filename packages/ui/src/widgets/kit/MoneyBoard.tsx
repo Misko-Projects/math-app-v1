@@ -78,6 +78,12 @@ export interface MoneyBoardProps {
   tray: readonly MoneyPiece[];
   /** The most pieces the tray holds (the engine model's capacity; default `TRAY_PIECES_MAX`). */
   capacity?: number;
+  /**
+   * Shown over the purse while the tray is full (the purse is off then): why nothing more goes
+   * in and what to do, for example "The tray is full. Take a coin back." The widget passes it
+   * when the full tray is not the answer, says it, and puts its one cue on the coin to take back.
+   */
+  fullNote?: string | null;
   onMove: (piece: MoneyPiece, to: BoardTarget, via: PlaceVia) => void;
   /** Speak a piece's name (tap to select, or a drag that lands). */
   onSpeak: (piece: MoneyPiece) => void;
@@ -125,6 +131,7 @@ export function MoneyBoard({
   limits,
   tray,
   capacity = TRAY_PIECES_MAX,
+  fullNote,
   onMove,
   onSpeak,
   trace,
@@ -349,6 +356,11 @@ export function MoneyBoard({
             )}
           />
           <div className="ni-money__stacks">{kinds.map(purseStack)}</div>
+          {full && fullNote ? (
+            <output className="ni-money__note" data-note="tray-full">
+              {fullNote}
+            </output>
+          ) : null}
         </div>
         {purseAside}
       </div>

@@ -29,6 +29,7 @@ import {
   PIECE_CENTS,
   PIECES_BIG_FIRST,
   purseKinds,
+  purseLimit,
   purseUnits,
   trayCents,
 } from './money';
@@ -59,6 +60,37 @@ export const changeOwed = (c: Pick<Config, 'price' | 'paid'>): number => c.paid 
 export function crossesDollar(price: number, paid: number): boolean {
   const next = (Math.floor(price / 100) + 1) * 100;
   return next < paid;
+}
+
+/**
+ * The count-up an item teaches (MON.07): from the price, each piece is the biggest one of the
+ * purse that the count so far is a whole number of and that does not pass the amount paid. So
+ * pennies to the next five, a nickel to the next ten, dimes to the next quarter-step, quarters to
+ * the next dollar, then bills: 65¢ to $1.00 is a nickel and three dimes, not a quarter and a
+ * dime. Returns the pieces in order, or null when the purse cannot count up that way (it runs
+ * out, or has no piece that fits). This is the path a hint or worked solution walks, so it is
+ * the one that must fit the tray (`changeTrayCapacity`), not only the fewest pieces.
+ */
+export function countUpPath(
+  c: Pick<Config, 'price' | 'paid' | 'purse'>,
+): (keyof typeof PIECE_CENTS)[] | null {
+  const used: Partial<Record<keyof typeof PIECE_CENTS, number>> = {};
+  const out: (keyof typeof PIECE_CENTS)[] = [];
+  let at = c.price;
+  while (at < c.paid) {
+    const next = PIECES_BIG_FIRST.find(
+      (k) =>
+        at % PIECE_CENTS[k] === 0 &&
+        at + PIECE_CENTS[k] <= c.paid &&
+        (used[k] ?? 0) < purseLimit(c.purse, k),
+    );
+    if (!next) return null;
+    used[next] = (used[next] ?? 0) + 1;
+    out.push(next);
+    at += PIECE_CENTS[next];
+    if (out.length > 2000) return null;
+  }
+  return out;
 }
 
 /** Where the count-up stands: the price plus the change given so far, after each piece. */
@@ -103,6 +135,23 @@ const configSchema = makeChangeConfigSchema.superRefine((c, ctx) => {
         path: ['purse'],
         message: `${changeOwed(c)}¢ of change takes ${fewest} pieces; the tray holds ${changeTrayCapacity(c)}`,
       });
+    } else {
+      // No dead ends: a child who counts up the way the item teaches must be able to finish in
+      // this tray, so the taught path is what has to fit (it is often longer than the fewest).
+      const path = countUpPath(c);
+      if (path === null) {
+        ctx.addIssue({
+          code: 'custom',
+          path: ['purse'],
+          message: `the purse cannot count up from ${c.price}¢ to ${c.paid}¢ (smallest pieces first to each next step)`,
+        });
+      } else if (path.length > changeTrayCapacity(c)) {
+        ctx.addIssue({
+          code: 'custom',
+          path: ['price'],
+          message: `counting up from ${c.price}¢ to ${c.paid}¢ takes ${path.length} pieces (${path.join(', ')}); the tray holds ${changeTrayCapacity(c)}`,
+        });
+      }
     }
   }
 });

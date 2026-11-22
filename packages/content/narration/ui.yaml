@@ -1021,6 +1021,9 @@ ui.money.change-tray:
 ui.money.running:
   text: "In the tray"
   level: "2"
+ui.money.tray-full:
+  text: "The tray is full. Take a coin back."
+  level: "2"
 ui.money.found:
   text: "Found"
   level: "2"

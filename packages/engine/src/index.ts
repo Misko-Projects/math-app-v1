@@ -156,6 +156,7 @@ export { PATTERN_SHOWN_MAX, patternGiven } from './formats/hundred-chart';
 export {
   changeOwed,
   changeTrayCapacity,
+  countUpPath,
   countUpStops,
   type MakeChangeState,
 } from './formats/make-change';

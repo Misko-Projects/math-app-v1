@@ -7,9 +7,9 @@ import {
   trayOf,
 } from '@number-island/engine';
 import type { CoinKind, WidgetAction } from '@number-island/shared';
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useInteractionTrace } from '../../interaction/trace';
-import { useNarrationText, useUiPreferences } from '../../preferences/UiProvider';
+import { useNarrationText, useSpeech, useUiPreferences } from '../../preferences/UiProvider';
 import { useWidgetDemo } from '../demo';
 import {
   BillArt,
@@ -84,6 +84,16 @@ export function CoinPayWidget({
   stateRef.current = state;
   const tray = state.order as MoneyPiece[];
   const total = centsOf(tray);
+  // A full tray that is not the amount: told, spoken once, and the one cue on the coin that
+  // went in last, the one to take back (as make-change).
+  const fullShort =
+    interactive && tray.length >= payTrayCapacity(config) && total !== config.target;
+  const { say } = useSpeech();
+  const saidFull = useRef(false);
+  useEffect(() => {
+    if (fullShort && !saidFull.current) say('ui.money.tray-full');
+    saidFull.current = fullShort;
+  }, [fullShort, say]);
 
   const apply = (action: WidgetAction) => {
     const prev = stateRef.current;
@@ -309,7 +319,8 @@ export function CoinPayWidget({
         disabled={!interactive}
         quarterPx={roomy ? 92 : 68}
         trayLabel={t('ui.money.tray')}
-        highlight={highlight}
+        highlight={fullShort ? { item: `tray-${tray[tray.length - 1] as MoneyPiece}` } : highlight}
+        fullNote={fullShort ? t('ui.money.tray-full') : null}
         landed={landed}
         purseAside={purseAside}
         trayAside={trayAside}

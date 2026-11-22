@@ -97,6 +97,34 @@
 .ni-money[data-armed-for="purse"] [data-zone="purse"] .ni-money__piece {
   pointer-events: none;
 }
+/*
+ * Why the purse is off: a note over the dimmed purse while the tray is full and the amount is not
+ * made ("The tray is full. Take a coin back."). Opaque, so the words are clear of the coins.
+ */
+.ni-money__note {
+  position: absolute;
+  /* Centred in the purse, as wide as its words up to the purse's own width. */
+  left: 8px;
+  right: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: fit-content;
+  margin-inline: auto;
+  z-index: 2;
+  box-sizing: border-box;
+  padding: 4px 14px;
+  border: 3px solid var(--color-ink);
+  border-radius: var(--radius-pebble);
+  background: var(--color-cloud);
+  color: var(--color-ink);
+  font-family: var(--font-body);
+  font-size: var(--ni-tm-label, 1.5rem);
+  font-weight: 700;
+  line-height: 1.2;
+  text-align: center;
+  text-wrap: balance;
+  pointer-events: none;
+}
 /* A full tray takes no more: the purse dims until a piece comes back. */
 .ni-money[data-full="true"] [data-zone="purse"] .ni-money__stack {
   opacity: 0.45;

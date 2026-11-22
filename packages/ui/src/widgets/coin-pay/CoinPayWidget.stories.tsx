@@ -446,6 +446,8 @@ export const TrayFull: Story = {
     await expectTotalTrue(root);
     await expectTrayEnclosesPieces(root);
     await expectPilesReadable(root);
+    // This full tray is the amount (12¢), so no note asks for a coin back.
+    await expect(root.querySelector('.ni-money__note')).toBeNull();
     // Full: the purse's pennies are off (by pointer and by keyboard), and nothing more goes in.
     await expect(root.querySelector('.ni-money')).toHaveAttribute('data-full', 'true');
     await expect(stackTop(root, 'penny')).toHaveAttribute('aria-disabled', 'true');
@@ -919,5 +921,33 @@ export const NewWayWidestPurseLandscapeMinK: Story = {
   render: inArea('landscapeMin'),
   play: async ({ canvasElement }) => {
     await playNewWayWidest(canvasElement);
+  },
+};
+
+/**
+ * A full tray that is not the amount (evidence round 2, as make-change): 40¢ to pay and twelve
+ * pennies in the tray. The note over the dimmed purse says why and what to do, it is spoken once,
+ * and the one cue is on the coin to take back; a penny taken back clears it.
+ */
+export const FullTrayShort: Story = {
+  parameters: { ui: { audio: spyAudio() } },
+  render: inArea('landscapeMin'),
+  play: async ({ canvasElement, parameters }) => {
+    const audio = parameters.ui.audio as ReturnType<typeof spyAudio>;
+    clearSpies(audio);
+    const root = await findWidget(canvasElement, ROOT);
+    for (let i = 0; i < TRAY_PIECES_MAX; i++) await tapPlace(root, 'penny');
+    const note = root.querySelector('.ni-money__note') as HTMLElement;
+    await expect(note).toHaveTextContent('The tray is full. Take a coin back.');
+    await expect(
+      audio.say.mock.calls.filter(([key]: unknown[]) => key === 'ui.money.tray-full'),
+    ).toHaveLength(1);
+    await expect(pileTop(root, 'penny')).toHaveClass('ni-invite');
+    await expectOneInvite(root);
+    await expectFitsArea(canvasElement, root);
+    await userEvent.click(pileTop(root, 'penny') as HTMLElement);
+    await userEvent.click(pursePad(root));
+    await expect(root.querySelector('.ni-money__note')).toBeNull();
+    await expect(root.querySelectorAll('.ni-invite')).toHaveLength(0);
   },
 };

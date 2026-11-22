@@ -6,9 +6,9 @@ import {
   trayOf,
 } from '@number-island/engine';
 import type { WidgetAction } from '@number-island/shared';
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useInteractionTrace } from '../../interaction/trace';
-import { useNarrationText, useUiPreferences } from '../../preferences/UiProvider';
+import { useNarrationText, useSpeech, useUiPreferences } from '../../preferences/UiProvider';
 import { useWidgetDemo } from '../demo';
 import {
   type BoardItem,
@@ -80,6 +80,17 @@ export function MakeChangeWidget({
   const interactive = !disabled && !demoBusy;
   const given = state.order as MoneyPiece[];
   const reached = config.price + centsOf(given);
+  // A full tray that is not the right change: a state the child is told about and can leave.
+  // The purse is off (the board dims it), a note says why, the line is spoken once, and the one
+  // cue is on the coin that went in last, the one to take back.
+  const fullShort =
+    interactive && given.length >= changeTrayCapacity(config) && reached !== config.paid;
+  const { say } = useSpeech();
+  const saidFull = useRef(false);
+  useEffect(() => {
+    if (fullShort && !saidFull.current) say('ui.money.tray-full');
+    saidFull.current = fullShort;
+  }, [fullShort, say]);
 
   const apply = (action: WidgetAction) => {
     const prev = stateRef.current;
@@ -227,6 +238,7 @@ export function MakeChangeWidget({
       data-disabled={disabled ? 'true' : undefined}
       data-change={centsOf(given)}
       data-reached={reached}
+      data-full-short={fullShort ? 'true' : undefined}
     >
       <div className="ni-mchange__info">
         <div className="ni-mchange__tags">
@@ -258,7 +270,10 @@ export function MakeChangeWidget({
         disabled={!interactive}
         quarterPx={roomy ? 84 : 64}
         trayLabel={t('ui.money.change-tray')}
-        highlight={highlight}
+        highlight={
+          fullShort ? { item: `tray-${given[given.length - 1] as MoneyPiece}` } : highlight
+        }
+        fullNote={fullShort ? t('ui.money.tray-full') : null}
         landed={landed}
       />
       {inviteHand}

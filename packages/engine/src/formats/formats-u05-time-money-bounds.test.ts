@@ -27,7 +27,7 @@ import { AMPM_SCENES, clockRead, isDaylight } from './clock-read';
 import { clockSet } from './clock-set';
 import { coinCount, MAX_COMPARE_SLOTS, MAX_COUNT_CENTS } from './coin-count';
 import { coinPay, MAX_TRAY_PIECES, payTrayCapacity } from './coin-pay';
-import { changeTrayCapacity, makeChange } from './make-change';
+import { changeTrayCapacity, countUpPath, makeChange } from './make-change';
 import { fewestPieces, purseUnits, trayPieces, waysToPay } from './money';
 import { misplacedTimeMoneyPictures } from './pictures';
 import type { FormatModel } from './types';
@@ -613,6 +613,86 @@ describe('make-change bounds', () => {
     const big = { ...change, countUpLine: false, price: 320, paid: 1000 };
     refused(makeChange, { ...big, purse: billAndThree }, 'purse');
     refused(makeChange, { ...big, purse: { dollar: 12, quarter: 12 } }, 'purse');
+  });
+
+  it('the count-up an item teaches: smallest pieces first to each next step', () => {
+    const all = {
+      quarter: 'unlimited',
+      dime: 'unlimited',
+      nickel: 'unlimited',
+      penny: 'unlimited',
+    } as const;
+    expect(countUpPath({ price: 65, paid: 100, purse: all })).toEqual([
+      'nickel',
+      'dime',
+      'dime',
+      'dime',
+    ]);
+    expect(countUpPath({ price: 35, paid: 100, purse: all })).toEqual([
+      'nickel',
+      'dime',
+      'quarter',
+      'quarter',
+    ]);
+    expect(countUpPath({ price: 34, paid: 100, purse: all })).toEqual([
+      'penny',
+      'nickel',
+      'dime',
+      'quarter',
+      'quarter',
+    ]);
+    expect(countUpPath({ price: 85, paid: 200, purse: { dollar: 2, dime: 3, nickel: 3 } })).toEqual(
+      ['nickel', 'dime', 'dollar'],
+    );
+    // The purse runs out, or has no piece for the next step: no count-up.
+    expect(countUpPath({ price: 65, paid: 100, purse: { dime: 'unlimited' } })).toBeNull();
+    expect(countUpPath({ price: 96, paid: 100, purse: { penny: 3, nickel: 1 } })).toBeNull();
+    // It never passes the amount paid.
+    expect(countUpPath({ price: 99, paid: 100, purse: { dollar: 1, penny: 5 } })).toEqual([
+      'penny',
+    ]);
+  });
+
+  it('refuses an item whose taught count-up does not fit the tray, though its fewest pieces do (no dead ends)', () => {
+    const all = {
+      quarter: 'unlimited',
+      dime: 'unlimited',
+      nickel: 'unlimited',
+      penny: 'unlimited',
+    } as const;
+    const issuesOf = (price: number) => {
+      const r = makeChange.configSchema.safeParse({ ...change, price, purse: all });
+      return r.success ? [] : r.error.issues.map((i) => `${i.path.join('.')}: ${i.message}`);
+    };
+    // 73¢ paid with $1.00: two pennies to 75¢, then a quarter. Three pieces: accepted.
+    expect(issuesOf(73)).toEqual([]);
+    // 20¢: a nickel to 25¢, then three quarters. Four pieces: accepted.
+    expect(issuesOf(20)).toEqual([]);
+    // 26¢: even the fewest pieces (2 quarters, 2 dimes, 4 pennies) are over the tray.
+    expect(issuesOf(26).join(' ')).toContain('the tray holds');
+    // 10¢: the fewest pieces fit (3 quarters, a dime, a nickel: 5), but counting up is four dimes
+    // to 50¢ and two quarters, 6 pieces: refused for the count-up, which is the path taught.
+    const path = countUpPath({ price: 10, paid: 100, purse: all }) as string[];
+    expect(path).toEqual(['dime', 'dime', 'dime', 'dime', 'quarter', 'quarter']);
+    expect(path.length).toBeGreaterThan(changeTrayCapacity());
+    expect(issuesOf(10).some((i) => i.startsWith('price:') && i.includes('counting up'))).toBe(
+      true,
+    );
+    // Every accepted item can be finished by its count-up inside the tray.
+    for (let price = 1; price < 100; price++) {
+      const config = { ...change, price, purse: all };
+      if (!makeChange.configSchema.safeParse(config).success) continue;
+      const steps = countUpPath(config) as string[];
+      expect(steps.length, `${price}¢`).toBeLessThanOrEqual(changeTrayCapacity());
+      let st = makeChange.initialState(config);
+      let at = price;
+      for (const k of steps) {
+        at += { penny: 1, nickel: 5, dime: 10, quarter: 25, dollar: 100 }[k] as number;
+        st = makeChange.apply(st, act('count-up', { to: at }));
+      }
+      expect(st.order, `${price}¢`).toHaveLength(steps.length);
+      expect(st.counted).toBe(100);
+    }
   });
 
   it('the count-up never takes more hops than the tray holds', () => {

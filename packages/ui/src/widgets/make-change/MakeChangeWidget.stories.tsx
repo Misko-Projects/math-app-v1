@@ -481,9 +481,114 @@ export const LandscapeMinArea: Story = {
   render: inArea('landscapeMin'),
   play: async ({ canvasElement }) => {
     const root = await findWidget(canvasElement, ROOT);
-    for (const k of ['nickel', 'dime', 'dime', 'penny', 'penny']) await tapPlace(root, k);
+    // Part way through the count-up the item teaches: a nickel to 70¢, a dime to 80¢.
+    for (const k of ['nickel', 'dime']) await tapPlace(root, k);
+    await expect(root.dataset.reached).toBe('80');
+    await expect(root.querySelector('.ni-money__note')).toBeNull();
     await expectLineTrue(root, 65);
     await expectFitsArea(canvasElement, root);
+  },
+};
+
+/**
+ * A full tray that is not the change (evidence round 2): five pennies take 65¢ to 70¢ and fill
+ * the tray. The child is told: the note over the dimmed purse says "The tray is full. Take a coin
+ * back.", it is spoken once, and the one cue is on the coin to take back. A penny taken back clears it; taking
+ * the pennies back and counting up a nickel and three dimes lands on $1.00 and can be checked.
+ * In the smallest area; the taps are traced.
+ */
+export const FullTrayShort: Story = {
+  parameters: { ui: { audio: spyAudio() } },
+  render: inArea('landscapeMin'),
+  play: async ({ canvasElement, args, parameters }) => {
+    const audio = parameters.ui.audio as ReturnType<typeof spyAudio>;
+    clearSpies(audio);
+    const root = await findWidget(canvasElement, ROOT);
+    for (let i = 0; i < TRAY_NARROW_PIECES_MAX; i++) await tapPlace(root, 'penny');
+    await expect(root.dataset.reached).toBe('70');
+    await expect(root).toHaveAttribute('data-full-short', 'true');
+    // Told in words, on screen and aloud (once).
+    const note = root.querySelector('.ni-money__note') as HTMLElement;
+    await expect(note).toHaveTextContent('The tray is full. Take a coin back.');
+    await expect(note).toBeVisible();
+    await expect(Number.parseFloat(getComputedStyle(note).fontSize)).toBeGreaterThanOrEqual(24);
+    const purse = (
+      root.querySelector('[data-zone="purse"]') as HTMLElement
+    ).getBoundingClientRect();
+    const box = note.getBoundingClientRect();
+    await expect(box.left).toBeGreaterThanOrEqual(purse.left);
+    await expect(box.right).toBeLessThanOrEqual(purse.right);
+    await expect(box.top).toBeGreaterThanOrEqual(purse.top);
+    await expect(box.bottom).toBeLessThanOrEqual(purse.bottom);
+    await expect(
+      audio.say.mock.calls.filter(([key]: unknown[]) => key === 'ui.money.tray-full'),
+    ).toHaveLength(1);
+    // The purse is off, and the one cue is on the coin that went in last: the one to take back.
+    await expect(stackTop(root, 'penny')).toHaveAttribute('aria-disabled', 'true');
+    await expect(pileTop(root, 'penny')).toHaveClass('ni-invite');
+    await expectOneInvite(root);
+    await expect(check(root)).toBeEnabled();
+    await expectFitsArea(canvasElement, root);
+    // One penny back: the note and the cue go, and the purse is on again.
+    await userEvent.click(pileTop(root, 'penny') as HTMLElement);
+    await userEvent.click(pursePad(root));
+    await expect(root.querySelector('.ni-money__note')).toBeNull();
+    await expect(root).not.toHaveAttribute('data-full-short');
+    await expect(root.querySelectorAll('.ni-invite')).toHaveLength(0);
+    await expect(stackTop(root, 'penny')).not.toHaveAttribute('aria-disabled');
+    // The rest of the pennies back, then the count-up: a nickel and three dimes.
+    for (let i = 0; i < TRAY_NARROW_PIECES_MAX - 1; i++) {
+      await userEvent.click(pileTop(root, 'penny') as HTMLElement);
+      await userEvent.click(pursePad(root));
+    }
+    for (const k of ['nickel', 'dime', 'dime', 'dime']) await tapPlace(root, k);
+    await expect(root.dataset.reached).toBe('100');
+    await expect(root.querySelector('.ni-money__note')).toBeNull();
+    await expectLineTrue(root, 65);
+    await userEvent.click(check(root));
+    await expect(args.onResponse).toHaveBeenCalledWith({
+      kind: 'state',
+      value: { coins: { penny: 0, nickel: 1, dime: 3, quarter: 0 } },
+    });
+    // A full tray that IS the change says nothing: five pennies from 95¢ would be the answer.
+    const trace = traceOf(args.onInteract).map((e) => `${e.t}:${e.target}`);
+    await expect(trace.filter((e) => e === 'tap:tray-penny')).toHaveLength(TRAY_NARROW_PIECES_MAX);
+    await expect(trace.filter((e) => e === 'tap:purse')).toHaveLength(TRAY_NARROW_PIECES_MAX);
+  },
+};
+
+/**
+ * The full-tray state as it stands on screen (the picture of `FullTrayShort`): 65¢ paid with
+ * $1.00, and a nickel, two dimes and two pennies in the tray: five pieces at 92¢, 8¢ short. The
+ * note over the dimmed purse, one cue on the last coin, the line with its five hops.
+ */
+export const FullTrayShortShot: Story = {
+  render: inArea('landscapeMin'),
+  play: async ({ canvasElement }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    for (const k of ['nickel', 'dime', 'dime', 'penny', 'penny']) await tapPlace(root, k);
+    await expect(root.dataset.reached).toBe('92');
+    await expect(root.querySelector('.ni-money__note')).toHaveTextContent(
+      'The tray is full. Take a coin back.',
+    );
+    await expect(pileTop(root, 'penny')).toHaveClass('ni-invite');
+    await expectOneInvite(root);
+    await expectLineTrue(root, 65);
+    await expectFitsArea(canvasElement, root);
+  },
+};
+
+/** A full tray that is the right change says nothing: 95¢ paid with $1.00, five pennies. */
+export const FullTrayRight: Story = {
+  args: { config: { ...change65, price: 95, purse: { penny: 'unlimited' } } },
+  render: inArea('landscapeMin'),
+  play: async ({ canvasElement }) => {
+    const root = await findWidget(canvasElement, ROOT);
+    for (let i = 0; i < TRAY_NARROW_PIECES_MAX; i++) await tapPlace(root, 'penny');
+    await expect(root.dataset.reached).toBe('100');
+    await expect(root.querySelector('.ni-money__note')).toBeNull();
+    await expect(root.querySelectorAll('.ni-invite')).toHaveLength(0);
+    await expect(root).not.toHaveAttribute('data-full-short');
   },
 };
 
