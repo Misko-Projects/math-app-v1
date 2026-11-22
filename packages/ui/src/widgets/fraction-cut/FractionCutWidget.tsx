@@ -47,7 +47,14 @@ import {
   WholeOutline,
 } from '../kit';
 import type { ConfigFor, WidgetProps } from '../types';
-import { boxOffsets, type CutLayout, circleShiftPx, cutLayout, sectorOffsets } from './cutLayout';
+import {
+  boxOffsets,
+  type CutLayout,
+  circleShiftPx,
+  cutLayout,
+  ghostOutline,
+  sectorOffsets,
+} from './cutLayout';
 import './fraction-cut.css';
 
 /**
@@ -243,7 +250,14 @@ export function FractionCutWidget({
   const editing = !(twoStep && naming);
   const guides = useMemo(() => cutGuides(config), [config]);
   const frame = useMemo(
-    () => shapeFrame(config.shape, config.gridSize, config.parts > 4 ? 2.6 : 1.5),
+    () =>
+      shapeFrame(
+        // A loaf is cut as its counted whole, the box: no crust dome that no piece would cover,
+        // so the pieces always make up exactly the shape they came from. It keeps its bread colour.
+        config.shape === 'loaf' ? 'rect' : config.shape,
+        config.gridSize,
+        config.parts > 4 ? 2.6 : 1.5,
+      ),
     [config.shape, config.gridSize, config.parts],
   );
 
@@ -281,18 +295,21 @@ export function FractionCutWidget({
     }
     return Math.max(config.parts, state.rects.length);
   })();
+  const allCut = guided && guides.length > 0 && state.linesCut.length >= guides.length;
   const lay = useMemo(
     () =>
       cutLayout(
         frame,
-        guided && editing ? guides : [],
+        // Once every line is cut no knife is left: the whole takes their room, so the pieces
+        // to fill are as big as the area allows.
+        guided && editing && !allCut ? guides : [],
         layoutParts,
         { w: Math.max(160, size.w - toolsW - 48), h: Math.max(140, size.h - 24) },
         knifePx,
         2.2,
         shading,
       ),
-    [frame, guided, editing, guides, layoutParts, size.w, size.h, toolsW, knifePx, shading],
+    [frame, guided, editing, allCut, guides, layoutParts, size.w, size.h, toolsW, knifePx, shading],
   );
   const scale = lay.scale;
 
@@ -705,9 +722,12 @@ export function FractionCutWidget({
     frame.kind === 'circle'
       ? sectorOffsets(
           state.sectors,
-          (circleShiftPx(Math.min(...state.sectors.map((p) => p.a1 - p.a0))) * spread) / scale,
+          (circleShiftPx(Math.min(...state.sectors.map((p) => p.a1 - p.a0)), lay.gapPx) * spread) /
+            scale,
         )
       : boxOffsets(state.rects, (lay.gapPx * spread) / scale);
+  // 6 px clear of the outermost pieces, whatever the scale.
+  const ghost = ghostOutline(frame, state.stacked ? [] : offsets, 6 / scale);
   const partTransform = (i: number): string | undefined => {
     if (state.stacked && i > 0) {
       if (frame.kind === 'circle') {
@@ -924,7 +944,23 @@ export function FractionCutWidget({
           height={frame.height * scale}
           style={{ left: lay.svgX, top: lay.svgY }}
         >
-          <WholeBase frame={frame} ghost={isCut} />
+          {isCut ? (
+            // The whole's outline goes round every piece where it now sits.
+            ghost.kind === 'circle' ? (
+              <circle className="ni-fraction__ghost" cx={ghost.cx} cy={ghost.cy} r={ghost.r} />
+            ) : (
+              <rect
+                className="ni-fraction__ghost"
+                x={ghost.x}
+                y={ghost.y}
+                width={ghost.width}
+                height={ghost.height}
+                rx={10}
+              />
+            )
+          ) : (
+            <WholeBase frame={frame} />
+          )}
           <g className="ni-fraction__parts">
             {geoms.map((g, i) => {
               const lit = parts[i]?.shaded ?? false;

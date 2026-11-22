@@ -586,41 +586,51 @@ export const DemoInviteNamePads: Story = {
   },
 };
 
-// Stress (authored): six pictures, halves to twelfths of one circle.
-const sixPictures: ConfigFor<'fraction-pick'> = {
+// Stress (authored): four pictures (the most a pick shows), thirds to twelfths of one circle.
+const fourPictures: ConfigFor<'fraction-pick'> = {
   format: 'fraction-pick',
   mode: 'pick-picture',
-  options: [2, 3, 4, 6, 8, 12].map((parts, i) => ({
+  options: [3, 6, 8, 12].map((parts, i) => ({
     id: `pic-${i}`,
     stimulus: { kind: 'fraction', shape: 'circle', parts, shaded: 1, equalParts: true } as const,
   })),
 };
 
-async function expectSixFit(canvasElement: HTMLElement, ageMode: 'k' | 'g1-up') {
+async function expectFourFit(canvasElement: HTMLElement, ageMode: 'k' | 'g1-up') {
   const root = await findWidget(canvasElement, ROOT);
-  await expect(cards(root)).toHaveLength(6);
+  await expect(cards(root)).toHaveLength(4);
   await expectFitsArea(root, areaBox(canvasElement), ageMode, [...cards(root), check(root)]);
-  await expectPicturesTrue(root, sixPictures);
-  // One whole, six cuts: every circle is drawn the same size.
+  await expectPicturesTrue(root, fourPictures);
+  // One whole, four cuts: every circle is drawn the same size, and big enough to count twelfths (six
+  // options were about 62 px here).
   const widths = cards(root).map((c) =>
     Math.round((c.querySelector('svg') as SVGElement).getBoundingClientRect().width),
   );
   await expect(new Set(widths).size).toBe(1);
+  await expect(widths[0]).toBeGreaterThanOrEqual(96);
 }
 
-/** Stress: six picture options (to twelfths) at the tablet area, K. */
-export const SixOptionsTabletK: Story = {
+/** Stress: four picture options (to twelfths) at the tablet area, K. */
+export const FourOptionsTabletK: Story = {
   globals: { ageMode: 'k' },
-  args: { config: sixPictures },
+  args: { config: fourPictures },
   render: inArea('tablet'),
-  play: async ({ canvasElement }) => expectSixFit(canvasElement, 'k'),
+  play: async ({ canvasElement }) => expectFourFit(canvasElement, 'k'),
 };
 
-/** Stress: six picture options at the smallest landscape area. */
-export const SixOptionsLandscapeMin: Story = {
-  args: { config: sixPictures },
+/** Stress: four picture options at the smallest landscape area. */
+export const FourOptionsLandscapeMin: Story = {
+  args: { config: fourPictures },
   render: inArea('landscapeMin'),
-  play: async ({ canvasElement }) => expectSixFit(canvasElement, 'g1-up'),
+  play: async ({ canvasElement }) => expectFourFit(canvasElement, 'g1-up'),
+};
+
+/** The same in K. */
+export const FourOptionsLandscapeMinK: Story = {
+  globals: { ageMode: 'k' },
+  args: { config: fourPictures },
+  render: inArea('landscapeMin'),
+  play: async ({ canvasElement }) => expectFourFit(canvasElement, 'k'),
 };
 
 // Stress (authored): two-digit stacked fractions.

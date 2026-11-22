@@ -498,18 +498,6 @@ describe('fraction-pick: supported domain', () => {
     ]);
   });
 
-  it('with a stimulus, the options and the stimulus are at most 6 pictures', () => {
-    const withStimulus = (n: number): PickConfig => ({
-      ...pick(n),
-      mode: 'equivalent',
-      stimulus: halves,
-    });
-    expect(ok(fractionPick, withStimulus(MAX_PICK_OPTIONS - 1))).toBe(true);
-    expect(issues(fractionPick, withStimulus(MAX_PICK_OPTIONS))).toEqual([
-      `options: a pick shows at most ${MAX_PICK_OPTIONS} pictures with its stimulus`,
-    ]);
-  });
-
   it(`cards without a picture (words, symbols): at most ${MAX_WORD_OPTIONS}`, () => {
     const words = (n: number): PickConfig => ({
       format: 'fraction-pick',
@@ -535,10 +523,6 @@ describe('fraction-pick: supported domain', () => {
     ).toEqual([
       `options: a pick with word or symbol cards shows at most ${MAX_WORD_OPTIONS} options`,
     ]);
-    // Seven pictures (six options and the stimulus) still fail.
-    expect(
-      ok(fractionPick, { ...pick(MAX_PICK_OPTIONS), mode: 'equivalent', stimulus: halves }),
-    ).toBe(false);
   });
 
   it(`a picture has 1 to ${MAX_PICTURE_PARTS} parts and fills at most all of them`, () => {

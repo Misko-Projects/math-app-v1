@@ -114,6 +114,25 @@ async function expectCorrect(r: ResponseValue, parts: number, shade = 0, extra =
   await expect(ok).toBe(true);
 }
 
+/** The dashed outline of the cut whole encloses every piece, and no gap is wider than a piece. */
+async function expectOutlineHoldsParts(root: HTMLElement) {
+  const ghost = root.querySelector('.ni-fraction__ghost') as SVGElement;
+  await expect(ghost).not.toBeNull();
+  const g = ghost.getBoundingClientRect();
+  const boxes = partEls(root).map((el) => el.getBoundingClientRect());
+  for (const [i, r] of boxes.entries()) {
+    await expect(r.left, `part ${i} left`).toBeGreaterThanOrEqual(g.left - 0.5);
+    await expect(r.right, `part ${i} right`).toBeLessThanOrEqual(g.right + 0.5);
+    await expect(r.top, `part ${i} top`).toBeGreaterThanOrEqual(g.top - 0.5);
+    await expect(r.bottom, `part ${i} bottom`).toBeLessThanOrEqual(g.bottom + 0.5);
+  }
+  // The pieces still read as one whole: together they cover most of what the outline holds.
+  const area = boxes.reduce((sum, r) => sum + r.width * r.height, 0);
+  if (root.getAttribute('data-shape') !== 'circle') {
+    await expect(area / (g.width * g.height)).toBeGreaterThanOrEqual(0.6);
+  }
+}
+
 const lastResponse = (onResponse: unknown) =>
   (onResponse as ReturnType<typeof fn>).mock.calls.at(-1)?.[0] as ResponseValue;
 
@@ -613,6 +632,7 @@ async function cutAllAndCheck(canvasElement: HTMLElement, parts: number, ageMode
   await expectEqualShares(measuredShares(stage(root)), parts);
   // Cut apart, the parts still fit the area with no scroll.
   await expectFitsArea(root, areaBox(canvasElement), ageMode, [check(root), back(root)]);
+  await expectOutlineHoldsParts(root);
   await userEvent.click(check(root));
   return root;
 }

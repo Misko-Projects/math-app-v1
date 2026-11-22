@@ -11,9 +11,9 @@
 // `answer {id, off: true}` takes that pick back (the child taps the picked card again).
 //
 // Supported domain (the schema and `apply` enforce it): MIN_PICK_OPTIONS to MAX_PICK_OPTIONS
-// picture options, and at most MAX_PICK_OPTIONS pictures in all with the stimulus (one row in
-// the smallest area); with any card that has no picture (a word or a symbol, which is wide) at
-// most MAX_WORD_OPTIONS options (more scroll the smallest area); every fraction picture has 1 to MAX_PICTURE_PARTS parts and fills at most all of them;
+// options (one row in the smallest area, each picture big enough to count its parts); with any
+// card that has no picture (a word or a symbol, which is wide) at most MAX_WORD_OPTIONS options
+// (more scroll the smallest area); every fraction picture has 1 to MAX_PICTURE_PARTS parts and fills at most all of them;
 // an overlay a/b has b 1 to MAX_PICTURE_PARTS and a at most b; typed numbers are whole, 0 to
 // MAX_TYPED_NUMBER.
 
@@ -47,8 +47,12 @@ export interface FractionPickState extends FormatState<'fraction-pick'> {
 
 /** Fewest options a pick shows (03 §5.1). */
 export const MIN_PICK_OPTIONS = 3;
-/** Most options a pick shows, and most pictures with the stimulus: one row in the smallest area. */
-export const MAX_PICK_OPTIONS = 6;
+/**
+ * Most options a pick shows. Four pictures in one row are about 130 px each in the smallest area
+ * (five with a stimulus: about 90 px), so every cut can be counted; six were about 62 px with
+ * hairline cuts (PR #100 evidence review).
+ */
+export const MAX_PICK_OPTIONS = 4;
 /** Most options when a card has no picture (words and symbols are wide cards). */
 export const MAX_WORD_OPTIONS = 3;
 /** Most parts a fraction picture is cut into (the kit draws 1 to 12). */
@@ -119,12 +123,6 @@ const configSchema = fractionPickConfigSchema.superRefine((c, ctx) => {
         code: 'custom',
         path: ['options'],
         message: `a pick with word or symbol cards shows at most ${MAX_WORD_OPTIONS} options`,
-      });
-    } else if (opts.filter((o) => o.stimulus).length + (c.stimulus ? 1 : 0) > MAX_PICK_OPTIONS) {
-      ctx.addIssue({
-        code: 'custom',
-        path: ['options'],
-        message: `a pick shows at most ${MAX_PICK_OPTIONS} pictures with its stimulus`,
       });
     }
     if (new Set(opts.map((o) => o.id)).size !== opts.length) {

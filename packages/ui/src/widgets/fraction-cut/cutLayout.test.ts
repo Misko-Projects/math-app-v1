@@ -1,13 +1,15 @@
 // fraction-cut stage layout (U05, #14): the drawing fits its room, knives keep their size and
 // gap, and cut parts move apart by whole gaps without changing size.
-import { type CutShape, guidedLines } from '@number-island/engine';
+import { type CutShape, guidedLines, splitRects } from '@number-island/engine';
 import { describe, expect, it } from 'vitest';
 import { shapeFrame } from '../kit';
 import {
   boxOffsets,
   CUT_GAP_PX,
   circleShiftPx,
+  cutGapPx,
   cutLayout,
+  ghostOutline,
   knivesClear,
   sectorOffsets,
 } from './cutLayout';
@@ -99,5 +101,65 @@ describe('cutLayout', () => {
         CUT_GAP_PX - 1e-9,
       );
     }
+  });
+});
+
+describe('the cut whole reads as one whole (PR #100 evidence review)', () => {
+  const SHAPES = ['rect', 'square', 'bar', 'circle'] as const;
+
+  it('the outline encloses every piece, for every part count and shape', () => {
+    for (const shape of SHAPES) {
+      for (let parts = 2; parts <= 12; parts += 1) {
+        const frame = shapeFrame(shape, undefined, parts > 4 ? 2.6 : 1.5);
+        const guides = guidedLines(shape, parts);
+        const lay = cutLayout(frame, guides, parts, { w: 700, h: 320 }, 64);
+        const pad = 6 / lay.scale;
+        if (frame.kind === 'circle') {
+          const sectors = Array.from({ length: parts }, (_, i) => ({
+            a0: (i * 360) / parts,
+            a1: ((i + 1) * 360) / parts,
+          }));
+          const shift = circleShiftPx(360 / parts, lay.gapPx) / lay.scale;
+          const ghost = ghostOutline(frame, sectorOffsets(sectors, shift), pad);
+          // A sector moved out along its bisector reaches at most r + shift from the centre.
+          expect(ghost.kind === 'circle' && ghost.r, `${shape} ${parts}`).toBeGreaterThanOrEqual(
+            frame.r + shift,
+          );
+          // And the spread stays small beside the piece: under a third of the radius on screen.
+          expect(shift * lay.scale, `${shape} ${parts}`).toBeLessThanOrEqual(
+            (frame.r * lay.scale) / 3,
+          );
+          continue;
+        }
+        let rects = [{ x0: 0, y0: 0, x1: 1, y1: 1 }];
+        for (const g of guides) if (g.kind !== 'radii') rects = splitRects(rects, g.kind, g.at);
+        expect(rects).toHaveLength(parts);
+        const offsets = boxOffsets(rects, lay.gapPx / lay.scale);
+        const ghost = ghostOutline(frame, offsets, pad);
+        if (ghost.kind !== 'box') throw new Error('a box whole has a box outline');
+        for (const [i, r] of rects.entries()) {
+          const o = offsets[i] as { dx: number; dy: number };
+          const x0 = frame.x + r.x0 * frame.w + o.dx;
+          const x1 = frame.x + r.x1 * frame.w + o.dx;
+          const y0 = frame.y + r.y0 * frame.h + o.dy;
+          const y1 = frame.y + r.y1 * frame.h + o.dy;
+          expect(x0, `${shape} ${parts} part ${i}`).toBeGreaterThanOrEqual(ghost.x);
+          expect(x1, `${shape} ${parts} part ${i}`).toBeLessThanOrEqual(ghost.x + ghost.width);
+          expect(y0, `${shape} ${parts} part ${i}`).toBeGreaterThanOrEqual(ghost.y);
+          expect(y1, `${shape} ${parts} part ${i}`).toBeLessThanOrEqual(ghost.y + ghost.height);
+        }
+        // A gap is never wider than the piece beside it.
+        const narrowest = Math.min(
+          ...rects.map((r) => Math.min((r.x1 - r.x0) * frame.w, (r.y1 - r.y0) * frame.h)),
+        );
+        expect(lay.gapPx / lay.scale, `${shape} ${parts}`).toBeLessThanOrEqual(narrowest);
+      }
+    }
+  });
+
+  it('parts that are tap targets (up to fourths) keep the full gap; smaller ones move less', () => {
+    expect([2, 3, 4].map(cutGapPx)).toEqual([CUT_GAP_PX, CUT_GAP_PX, CUT_GAP_PX]);
+    expect(cutGapPx(6)).toBeLessThan(CUT_GAP_PX);
+    expect(cutGapPx(12)).toBeLessThan(cutGapPx(6));
   });
 });

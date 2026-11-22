@@ -230,7 +230,15 @@
   stroke-dashoffset: 0;
 }
 
-/* A cut loaf keeps its bread colour (the crust is outside the whole). */
+/* A loaf is its counted whole in bread colours (no crust dome: the pieces tile the whole). */
+.ni-fcut[data-shape="loaf"] .ni-fraction__bed {
+  fill: var(--color-horizon);
+}
+.ni-fcut[data-shape="loaf"] .ni-fraction__rim,
+.ni-fcut[data-shape="loaf"] .ni-fraction__outline {
+  stroke: var(--color-wood-deep);
+}
+/* A cut loaf keeps its bread colour. */
 .ni-fcut[data-shape="loaf"] .ni-fraction__part[data-fraction="empty"] {
   fill: var(--color-horizon);
 }

@@ -277,6 +277,10 @@ export const PlaceDragLandscapeMin: Story = {
     const dot = within(root).getByRole('button', { name: 'Your dot' });
     await expectFitsArea(root, areaBox(canvasElement), 'g1-up', [dot, check(root)]);
     await expectTicksExact(root, 4, 1);
+    // The fraction to place is written beside the dot: 3 over 4, numerals ≥ 32 px.
+    const goal = root.querySelector('.ni-fline__goal') as HTMLElement;
+    await expect(goal.textContent?.replace(/\s+/g, ' ').trim()).toBe('3 4');
+    await expectNumeralInk(goal.querySelectorAll('span'));
     await pointerDrag(dot, scaleOf(root, 1).at(0.72), 'touch');
     // The placed dot stands above the ticks on a stem: it covers none of them.
     const dotBox = (

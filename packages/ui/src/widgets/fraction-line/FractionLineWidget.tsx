@@ -21,6 +21,7 @@ import { useWidgetDemo } from '../demo';
 import {
   applyPadKey,
   CheckButton,
+  FracNumeral,
   FractionEntry,
   type PadKey,
   padValue,
@@ -598,23 +599,29 @@ export function FractionLineWidget({
     side = (
       <div className="ni-fline__tools">
         {mode === 'place' ? (
-          <span className="ni-fline__home">
-            {dotPlaced ? null : (
-              <button
-                type="button"
-                className="ni-fline__dot"
-                data-dot="true"
-                aria-label={t('ui.frac.dot')}
-                disabled={!interactive}
-                onPointerDown={onPointerDown}
-                onClick={() => {
-                  if (!interactive) return;
-                  trace('tap', 'dot');
-                  if (speakOnTap) say('ui.frac.dot');
-                }}
-                style={dragAt && press.current?.dot ? { visibility: 'hidden' } : undefined}
-              />
-            )}
+          // What to place, written beside the dot it goes with (the prompt says it too).
+          <span className="ni-fline__goalrow">
+            {config.target ? (
+              <FracNumeral a={config.target.a} b={config.target.b} className="ni-fline__goal" />
+            ) : null}
+            <span className="ni-fline__home">
+              {dotPlaced ? null : (
+                <button
+                  type="button"
+                  className="ni-fline__dot"
+                  data-dot="true"
+                  aria-label={t('ui.frac.dot')}
+                  disabled={!interactive}
+                  onPointerDown={onPointerDown}
+                  onClick={() => {
+                    if (!interactive) return;
+                    trace('tap', 'dot');
+                    if (speakOnTap) say('ui.frac.dot');
+                  }}
+                  style={dragAt && press.current?.dot ? { visibility: 'hidden' } : undefined}
+                />
+              )}
+            </span>
           </span>
         ) : null}
         <CheckButton onPress={submit} disabled={!interactive || response === null} />

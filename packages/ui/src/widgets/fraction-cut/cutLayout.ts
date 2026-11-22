@@ -39,6 +39,14 @@ const KNIFE_CLEAR = 10;
  */
 export const CUT_GAP_PX = 20;
 /**
+ * The gap for a whole in `parts` parts. Up to fourths the parts are targets and keep the full
+ * gap; smaller parts move apart less, so the pieces still read as one whole with clear cuts
+ * (a spread wider than the pieces scatters them: PR #100 evidence review).
+ */
+export function cutGapPx(parts: number): number {
+  return parts <= 4 ? CUT_GAP_PX : parts <= 6 ? 14 : 8;
+}
+/**
  * Least space between two knives' boxes: 12 px (06 §4) clear of an invited knife's ring, which
  * reaches 8 px out (5 px outline, 3 px offset).
  */
@@ -65,20 +73,45 @@ export function spreadPx(
   parts: number,
 ): { x: number; y: number } {
   if (frame.kind === 'circle') {
-    const d = circleShiftPx(360 / Math.max(2, parts));
+    const d = circleShiftPx(360 / Math.max(2, parts), cutGapPx(parts));
     return { x: d, y: d };
   }
   // Free cuts: allow for parts − 1 lines either way.
   const free = Math.max(1, parts - 1);
   const v = guides.length === 0 ? free : guides.filter((g) => g.kind === 'v').length;
   const h = guides.length === 0 ? free : guides.filter((g) => g.kind === 'h').length;
-  return { x: (v * CUT_GAP_PX) / 2, y: (h * CUT_GAP_PX) / 2 };
+  const gap = cutGapPx(parts);
+  return { x: (v * gap) / 2, y: (h * gap) / 2 };
 }
 
 /** How far a sector moves along its bisector so neighbours are CUT_GAP_PX apart. */
-export function circleShiftPx(minAngle: number): number {
+export function circleShiftPx(minAngle: number, gap = CUT_GAP_PX): number {
   const half = Math.sin(((Math.min(180, Math.max(1, minAngle)) / 2) * Math.PI) / 180);
-  return Math.min(36, Math.max(8, CUT_GAP_PX / (2 * half)));
+  return Math.min(36, Math.max(4, gap / (2 * half)));
+}
+
+/**
+ * The dashed outline of the whole once it is cut: it encloses every piece where it now sits
+ * (design units; `pad` clear of the outermost pieces), so the pieces always read as one whole.
+ */
+export function ghostOutline(
+  frame: ShapeFrame,
+  offsets: readonly { dx: number; dy: number }[],
+  pad: number,
+):
+  | { kind: 'circle'; cx: number; cy: number; r: number }
+  | { kind: 'box'; x: number; y: number; width: number; height: number } {
+  if (frame.kind === 'circle') {
+    const shift = Math.max(0, ...offsets.map((o) => Math.hypot(o.dx, o.dy)));
+    return { kind: 'circle', cx: frame.cx, cy: frame.cy, r: frame.r + shift + pad };
+  }
+  const dxs = offsets.map((o) => o.dx);
+  const dys = offsets.map((o) => o.dy);
+  const x0 = frame.x + Math.min(0, ...dxs) - pad;
+  const y0 = frame.y + Math.min(0, ...dys) - pad;
+  const x1 = frame.x + frame.w + Math.max(0, ...dxs) + pad;
+  const y1 = frame.y + frame.h + Math.max(0, ...dys) + pad;
+  return { kind: 'box', x: x0, y: y0, width: x1 - x0, height: y1 - y0 };
 }
 
 /** Whether every two knives' boxes are at least KNIFE_GAP apart (edge to edge). */
@@ -184,7 +217,7 @@ function fit(
       y: k.y - b.y0,
     })),
     single,
-    gapPx: CUT_GAP_PX,
+    gapPx: cutGapPx(parts),
   };
 }
 

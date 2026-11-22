@@ -160,6 +160,12 @@
   align-items: center;
   gap: 20px;
 }
+/* The fraction to place, beside the dot it goes with. */
+.ni-fline__goalrow {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
 .ni-fline__home {
   display: grid;
   place-items: center;
