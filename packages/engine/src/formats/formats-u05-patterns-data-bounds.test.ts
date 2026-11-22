@@ -133,6 +133,36 @@ describe('pattern-extend: the supported domain', () => {
     expect(
       refuses(issues(patternExtend, numbers([20, 10, null, null])), 'the missing term -10'),
     ).toBe(true);
+    // Review round 3: every kind that goes on is bound, not only `number`; and a tile pattern
+    // asks only for a stack the counter can build.
+    for (const kind of ['grow', 'function'] as const) {
+      expect(
+        refuses(
+          issues(patternExtend, { ...numbers([800, 900, null, null]), kind }),
+          'the missing term 1000 cannot be typed',
+        ),
+        kind,
+      ).toBe(true);
+      expect(issues(patternExtend, { ...numbers([600, 700, null, null]), kind }), kind).toEqual([]);
+    }
+    const stacks = (...tiles: (number | null)[]): Pattern => ({
+      ...numbers([]),
+      sequence: tiles.map((t) => (t === null ? null : { tiles: t })),
+      kind: 'grow',
+    });
+    expect(issues(patternExtend, stacks(5, 10, 15, null))).toEqual([]);
+    expect(
+      refuses(
+        issues(patternExtend, stacks(10, 15, 20, null)),
+        'the missing stack of 25 cannot be built (1–20 tiles)',
+      ),
+    ).toBe(true);
+    expect(
+      refuses(
+        issues(patternExtend, stacks(3, 2, 1, null)),
+        'the missing stack of 0 cannot be built',
+      ),
+    ).toBe(true);
     // Review round 2: a repeating pattern of numbers (800, 900, 800, 900) is not an arithmetic
     // one, and its answers are numbers it already shows.
     const repeating = { ...numbers([800, 900, null, null]), kind: 'repeat' as const };
@@ -156,7 +186,7 @@ describe('pattern-extend: the supported domain', () => {
   it('a tile stack has 1 to MAX_TILES tiles', () => {
     const stacks = (top: number): Pattern => ({
       ...numbers([]),
-      sequence: [{ tiles: 1 }, { tiles: top }, null],
+      sequence: [{ tiles: 1 }, { tiles: top }, { tiles: 1 }, null],
       kind: 'grow',
     });
     expect(MAX_TILES).toBe(20);

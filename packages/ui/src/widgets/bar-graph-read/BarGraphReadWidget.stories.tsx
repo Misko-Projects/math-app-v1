@@ -829,8 +829,9 @@ async function expectAxisReachesBars(root: HTMLElement, config: Config) {
 }
 
 /**
- * A picture graph with a key at the 960 × 600 minimum: each picture is 2 (the key says so beside
- * the first row's picture), 7 crabs are three pictures and a half, 10 fish are five.
+ * A picture graph with a key at the 960 × 600 minimum: each picture is 2 (the key says so with an
+ * empty picture tile, so it reads as every row's picture), 7 crabs are three pictures and a half,
+ * 10 fish are five.
  */
 export const ScaledPictureKeyLandscapeMin: Story = {
   args: { config: scaledPicture },
